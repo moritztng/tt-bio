@@ -87,15 +87,17 @@ A pocket constraint with `min_fraction` below 1 tolerates a few wrong residues.
 
 ## How well it works
 
-Measured on Wormhole over 32 of the held-out SAbDab antibody-antigen complexes the unguided model
+Measured on Wormhole over 29 of the held-out SAbDab antibody-antigen complexes the unguided model
 gets wrong in upstream's benchmark, 25 candidates per target (5 seeds x 5 samples), 200 steps,
 constraints read off the deposited structure:
 
 | | top-1 success (DockQ >= 0.23) | mean top-1 DockQ | upstream's top-1 success |
 |---|---|---|---|
-| unguided | 0.16 | 0.16 | 0.16 |
-| 5 contact pairs | 0.81 (95 % CI 0.63 to 0.94) | 0.44 | 0.78 |
-| 5 epitope residues | 0.31 (0.16 to 0.47) | 0.22 | 0.33 |
+| unguided | 0.21 | 0.22 | 0.16 |
+| 5 contact pairs | 0.86 (95 % CI 0.72 to 1.00) | 0.48 | 0.78 |
+| 5 epitope residues | 0.31 (0.14 to 0.52) | 0.27 | 0.33 |
+
+Upstream's column is its own benchmark over all of its targets.
 
 Unguided, tt-bio and upstream on GPU agree on the same targets (success 0.19 vs 0.19, mean
 DockQ 0.160 vs 0.162). On a smaller set of 8 targets, one or two wrong pairs out of four drop
@@ -106,6 +108,15 @@ A guided fold takes about 5 to 15 % longer than an unguided one on a Wormhole ch
 contacts), and about 12 to 20 % longer on a Blackhole p150a at 1350 MHz (1a14 +13 to +17 %,
 9xqn +12 % with an epitope and +19 % with contacts). Guidance runs on the host and costs the
 same 10 to 17 seconds on both; the Blackhole fold around it is twice as fast.
+
+## Precision
+
+Guided runs use fp32 diffusion, also under `--fast`, which costs about 20 % fold time over
+`--fast`'s bf16 diffusion. Guidance turns the antibody as a rigid body whenever the predicted
+structure clashes at the interface, and bf16's clashier predictions made that shrink the
+antibody into a compressed chain about 9 times as often as upstream: 9 of 90 samples against
+upstream's 1 of 90 on the same 18 targets and seed. With fp32 it is 2 of 90.
+`--diffusion_precision bf16` still selects bf16 if you ask for it.
 
 ## Several constraints on one input
 

@@ -6,6 +6,11 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 ## [Unreleased]
 
 ### Changed
+- **OpenDDE's diffusion runs in fp32 by default, as upstream's does**, and `--diffusion_precision` selects
+  it. It ran in bf16 since July, which made guided folds shrink the antibody into a compressed chain about
+  9 times as often as upstream (9 of 90 samples against 1 of 90); fp32 brings that to 2 of 90. A fold takes
+  about 20 % longer (256 tokens 105 s against 87 s, 730 tokens 642 s against 545 s, Wormhole at 1000 MHz).
+  `--fast` keeps bf16 diffusion except for guided runs.
 - **OpenDDE seeds now give different trunks, as upstream's do.** Each recycling cycle reads its own 1280
   random alignment rows and every reference conformer is centred and turned by a seeded rotation, both
   drawn from the seed. Before, every seed of a target shared one trunk, so five seeds were one trunk with
@@ -48,8 +53,9 @@ Protenix-v2 is 1.6x faster on Wormhole and OpenDDE 1.3x, with structures inside 
   upstream's dense functions exactly on the tested complexes. `--trunk_cache DIR` reuses the trunk
   across inputs that differ only in their constraint. Without the flag folds are bit-identical to
   before. On 32 held-out antibody-antigen complexes the unguided model gets wrong, top-1 success
-  goes from 0.16 to 0.81 with five true contact pairs and to 0.31 with five epitope residues (upstream reports
-  0.78 and 0.33); a guided fold takes 5 to 15 % longer on Wormhole and 12 to 20 % longer on Blackhole.
+  goes from 0.21 to 0.86 with five true contact pairs and to 0.31 with five epitope residues on the 29 measured
+  so far (upstream reports 0.78 and 0.33); a guided fold takes 5 to 15 % longer on Wormhole and 12 to 20 %
+  longer on Blackhole. Guided runs use fp32 diffusion in every mode, about 20 % slower than `--fast`'s bf16.
   `examples/tfg/` carries upstream's four cases (Fv, VHH, two Fabs) in contact, pocket and unconstrained form.
   [`docs/constraint-guidance.md`](docs/constraint-guidance.md).
 - protenix-v2 and opendde rebuild a C-terminal OXT that the diffusion left on C or O, or detached,

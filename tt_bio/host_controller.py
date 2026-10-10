@@ -42,6 +42,18 @@ HEARTBEAT_PER_LEASE = 12
 IDLE_WARM_S = 5.0
 
 
+def diffusion_precision(cfg: dict[str, Any]) -> str | None:
+    """The run's diffusion precision: the one asked for, else fp32 for a guided OpenDDE run,
+    else None (the model's mode default, bf16 under --fast). Guidance re-docks the movable
+    chains whenever x0 clashes, and bf16's clashier x0 turned that into compressed chains about
+    9x as often as upstream (docs/constraint-guidance.md), so guided runs stay fp32 under --fast."""
+    if cfg.get("diffusion_precision"):
+        return cfg["diffusion_precision"]
+    if cfg.get("use_tfg_guidance") and cfg.get("model") in ("opendde", "opendde-abag"):
+        return "fp32"
+    return None
+
+
 def run_config_hash(cfg: dict[str, Any]) -> str:
     """The part of a run's config that decides which weights a worker loads, hashed.
 
@@ -54,8 +66,8 @@ def run_config_hash(cfg: dict[str, Any]) -> str:
                                     "checkpoint")}
     # Only when set, so every config that does not choose a diffusion precision keeps the hash
     # it had before the option existed (a controller and its agents may run different versions).
-    if cfg.get("diffusion_precision"):
-        keep["diffusion_precision"] = cfg["diffusion_precision"]
+    if prec := diffusion_precision(cfg):
+        keep["diffusion_precision"] = prec
     return hashlib.sha256(json.dumps(keep, sort_keys=True, default=str).encode()).hexdigest()
 
 

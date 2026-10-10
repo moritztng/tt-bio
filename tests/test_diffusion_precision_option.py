@@ -116,3 +116,26 @@ def test_opendde_resolves_precision_like_protenix(monkeypatch, levers, prec, wan
     O.OpenDDE({}, None, levers=T.FAST_LEVERS if levers == "fast" else frozenset(),
               diffusion_fp32=prec)
     assert seen == {"fp32": want}
+
+
+@pytest.mark.parametrize("model,guided,prec,want", [
+    ("opendde", True, None, True), ("opendde-abag", True, None, True),
+    ("opendde", True, "bf16", False), ("opendde", False, None, None)])
+def test_guided_opendde_builds_fp32_under_fast(monkeypatch, model, guided, prec, want):
+    # A guided run re-docks the movable chains on a clashing x0; bf16 diffusion compressed them
+    # ~9x as often as upstream, so guidance resolves to fp32 in every mode unless asked otherwise,
+    # and the warm-model key carries it so a resident bf16 --fast model is not reused.
+    import tt_bio.opendde as O
+    import tt_bio.tenstorrent as T
+    from tt_bio import worker as W
+
+    monkeypatch.setattr(T, "get_device", lambda *a, **k: pytest.fail("opened a device"))
+    seen = {}
+    monkeypatch.setattr(O.OpenDDE, "load_from_checkpoint",
+                        staticmethod(lambda path, **kw: seen.update(kw) or object()))
+    cfg = {"model": model, "fast": True, "opendde_ckpt": "ck.pt", "use_tfg_guidance": guided,
+           "diffusion_precision": prec}
+    W._WorkerState("tenstorrent").load_model(cfg)
+    assert seen["diffusion_fp32"] is want
+    unguided = {**cfg, "use_tfg_guidance": False}
+    assert (H.run_config_hash(cfg) != H.run_config_hash(unguided)) == (guided and prec is None)
