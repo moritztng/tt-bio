@@ -1,0 +1,12 @@
+# OpenDDE 1.2.0 example 9lh2 (VHH), unconstrained: upstream examples/tfg/9lh2/9lh2_unconstrained.json.
+# Entity n is the n-th entry of `sequences`; copy k is the k-th id in its list.
+# The deposited glycans (NAG) are left out; they come last, so entity numbers are unchanged.
+# tt-bio predict examples/tfg/9lh2_unconstrained.yaml --model opendde-abag
+version: 1
+sequences:
+  - protein:    # entity 1
+      id: [A, B]
+      sequence: VQPTESIVRFPNITNLCPFGEVFNATRFASVYAWNRKRISNCVADYSVLYNSASFSTFKCYGVSPTKLNDLCFTNVYADSFVIRGDEVRQIAPGQTGKIADYNYKLPDDFTGCVIAWNSNNLDSKVGGNYNYRYRLFRKSNLKPFERDISTEIYQAGSKPCNGVEGFNCYFPLQSYGFQPTNGVGYQPYRVVVLSFELLHAPATVCGPKKSTNLVKNK
+  - protein:    # entity 2
+      id: [C, D]
+      sequence: QVQLVESGGGLVQPGGSLRLSCAASGFTFNRYAMSWVRQAPGKGREWVSGIYSDGSETYYTESVKGRFTISRDNAKNMLYLQMNSLKPEDTALYYCAKDHHAHEDHFNSGFDRKYDYWGQGTQVTVSSHHHHHH

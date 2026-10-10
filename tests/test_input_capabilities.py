@@ -47,6 +47,8 @@ INPUTS: dict[str, str] = {
     "pocket": _HEAD + ("constraints:\n  - pocket:\n      binder: A\n"
                        "      contacts: [[A, 5]]\n"),
     "affinity": _HEAD + "properties:\n  - affinity:\n      binder: A\n",
+    "constraint": _HEAD + ("constraint:\n  contact:\n    - {entity1: 1, position1: 5, "
+                           "entity2: 1, position2: 9}\n"),
 }
 
 PLAIN = _HEAD
@@ -91,9 +93,10 @@ def test_every_shipped_model_has_a_row():
 def test_boltz2_honours_the_whole_input_language():
     """The negative control for the table: if every row were REFUSED the cross product below
     would still pass. Boltz-2 has the upstream parser, the constraint embedder, the template
-    pipeline and the affinity head. The one refusal is the per-chain template npz, which its
-    parser never reads; it takes the same template as a structure file."""
-    assert {f for f, v in CAPABILITY["boltz2"].items() if v != HONOURED} == {"templates"}
+    pipeline and the affinity head. It refuses the per-chain template npz, which its parser
+    never reads (it takes the same template as a structure file), and OpenDDE's guided
+    `constraint:` block; its own binding constraints are `constraints: pocket/contact`."""
+    assert {f for f, v in CAPABILITY["boltz2"].items() if v != HONOURED} == {"templates", "constraint"}
 
 
 @pytest.mark.parametrize("model", sorted(CAPABILITY))
@@ -350,8 +353,10 @@ def test_no_flag_is_reported_when_none_was_passed():
 
 
 def test_boltz2_reads_every_output_flag():
-    # --diffusion_precision is a Protenix build option, not an output flag.
-    assert unread_flags("boltz2", {**ALL_FLAGS, "--diffusion_precision": False}) == []
+    # --diffusion_precision is a Protenix build option and the TFG flags are OpenDDE sampler
+    # options, not output flags.
+    sampler = {"--diffusion_precision": False, "--use_tfg_guidance": False, "--trunk_cache": False}
+    assert unread_flags("boltz2", {**ALL_FLAGS, **sampler}) == []
 
 
 def test_every_reason_names_a_model_that_exists():

@@ -1,0 +1,19 @@
+# OpenDDE 1.2.0 example 9lh2 (VHH), contact: upstream examples/tfg/9lh2/9lh2_contact.json.
+# Entity n is the n-th entry of `sequences`; copy k is the k-th id in its list.
+# The deposited glycans (NAG) are left out; they come last, so entity numbers are unchanged.
+# tt-bio predict examples/tfg/9lh2_contact.yaml --model opendde-abag --use_tfg_guidance
+version: 1
+sequences:
+  - protein:    # entity 1
+      id: [A, B]
+      sequence: VQPTESIVRFPNITNLCPFGEVFNATRFASVYAWNRKRISNCVADYSVLYNSASFSTFKCYGVSPTKLNDLCFTNVYADSFVIRGDEVRQIAPGQTGKIADYNYKLPDDFTGCVIAWNSNNLDSKVGGNYNYRYRLFRKSNLKPFERDISTEIYQAGSKPCNGVEGFNCYFPLQSYGFQPTNGVGYQPYRVVVLSFELLHAPATVCGPKKSTNLVKNK
+  - protein:    # entity 2
+      id: [C, D]
+      sequence: QVQLVESGGGLVQPGGSLRLSCAASGFTFNRYAMSWVRQAPGKGREWVSGIYSDGSETYYTESVKGRFTISRDNAKNMLYLQMNSLKPEDTALYYCAKDHHAHEDHFNSGFDRKYDYWGQGTQVTVSSHHHHHH
+constraint:
+  movable_chains: [C]
+  contact:
+    - {entity1: 1, copy1: 1, position1: 147, atom1: "CA", entity2: 2, copy2: 1, position2: 111, atom2: "CA", min_distance: 3.5, max_distance: 8.0}
+    - {entity1: 1, copy1: 1, position1: 37, atom1: "CA", entity2: 2, copy2: 1, position2: 104, atom2: "CA", min_distance: 3.5, max_distance: 8.0}
+    - {entity1: 1, copy1: 1, position1: 146, atom1: "CA", entity2: 2, copy2: 1, position2: 110, atom2: "CA", min_distance: 3.5, max_distance: 8.0}
+    - {entity1: 1, copy1: 1, position1: 148, atom1: "CA", entity2: 2, copy2: 1, position2: 112, atom2: "CA", min_distance: 3.5, max_distance: 8.0}
