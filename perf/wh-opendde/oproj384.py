@@ -21,6 +21,8 @@ sys.path.insert(0, str(ROOT))
 ap = argparse.ArgumentParser()
 ap.add_argument("--out", type=Path, required=True)
 ap.add_argument("--n", type=int, default=736)
+ap.add_argument("--configs", default="8,12,12,2,4 8,12,6,2,3 8,6,12,2,4 16,12,12,2,4 16,12,6,4,2 8,4,12,2,4 4,12,12,1,4 "
+                "16,6,6,4,2 8,12,4,4,2 16,4,12,2,4", help="space-separated M,K,N,sh,sw; fp32 dest caps sh*sw at 4")
 a = ap.parse_args()
 os.environ.setdefault("TT_BIO_LEVERS", "normal")
 
@@ -77,8 +79,7 @@ flop = 2 * N * N * C * C
 grid = T._mm_core_coord(*T.COMPUTE_GRID_MAIN)
 arms = {"shipped": lambda: T._pair_proj_linear(x, w, CKC, ttnn.bfloat16, l1_out=True),
         "dram": lambda: T._pair_proj_linear(x, w, CKC, ttnn.bfloat16)}
-for M, K, Nb, sh, sw in [(8, 12, 12, 2, 4), (8, 12, 6, 2, 3), (8, 6, 12, 2, 4), (16, 12, 12, 2, 4), (16, 12, 6, 4, 2),
-                         (8, 4, 12, 2, 4), (4, 12, 12, 1, 4), (16, 6, 6, 4, 2), (8, 12, 4, 4, 2), (16, 4, 12, 2, 4)]:
+for M, K, Nb, sh, sw in (map(int, c.split(",")) for c in a.configs.split()):
     cfg = ttnn.MinimalMatmulConfig(M_block_size=M, K_block_size=K, N_block_size=Nb, subblock_h=sh, subblock_w=sw,
                                    compute_with_storage_grid_size=grid)
     arms[f"mm:{M},{K},{Nb},{sh},{sw}"] = (lambda cfg=cfg: ttnn.experimental.minimal_matmul(
