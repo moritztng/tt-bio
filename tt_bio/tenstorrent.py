@@ -7,7 +7,7 @@ import gc
 import torch, ttnn, atexit
 from torch import nn
 from typing import Callable, Mapping
-from math import pi, prod
+from math import gcd, pi, prod
 from functools import lru_cache, partial
 from types import BuiltinFunctionType, FunctionType, MappingProxyType, MethodType, ModuleType
 
@@ -558,11 +558,16 @@ _FAST_MODE = False
 #                   (the template pair) 2.29 -> 0.88 ms.
 #   silu_f32        every silu fused into a matmul (the swiglu fc1) runs calculate_silu_f32: 6e-6
 #                   of float64 at 32 SFPU instructions a row against the wheel's 92 (kernels/silu_f32)
+#   transition_bw   the transition's three matmuls take the K block and grid measured fastest at
+#                   no loss against float64 (`_TRANSITION_BW`); others keep ttnn's in0_block_w
+#   transition_shard the pair transition's swiglu on block-sharded intermediates, in row blocks that
+#                   fill the grid (`_transition_swiglu_sharded`); fc3's K block becomes the shard width
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in",
-          "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail")
+          "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
+          "transition_shard")
 # Named but in no mode until their fold grade puts them in one.
-UNGRADED_LEVERS = frozenset({"trimul_b8in"})
+UNGRADED_LEVERS = frozenset({"trimul_b8in", "transition_bw"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -586,7 +591,19 @@ FAST_LEVERS = frozenset(LEVERS) - {"lofi", "triatt_b8", "triatt_bias_b8"} - UNGR
 # median 0.255 A against the 0.60 A bar (A/A floor 0.803 A), docking 32 -> 33 of 44; fast (with ln_f32)
 # 0.281 A, CA-lDDT -0.0007 [-0.0024, +0.0006], docking 33 -> 32 of 44 (state/spd-pair.md, 2026-10-09).
 # ln_f32 is inert in normal mode (it only acts under acc_off).
-NORMAL_LEVERS = frozenset({"trimul_ibw", "trimul_tail", "trunk_hifi3", "dit_sdpa32", "silu_f32", "triatt_tail"})
+# transition_shard: Wormhole 11-set grades PASS in both modes, 44 paired folds each. Normal vs stack8:
+# top pose median 0.131 A against the 0.60 A bar (A/A floor 0.771 A), docking 33/44 both. Fast vs fast:
+# 0.326 A (floor 0.944 A), CA-lDDT +0.0013 [+0.0004, +0.0025], docking 34/44 both. c730 on a Galaxy chip
+# at AICLK 1000, warm A/B/A: normal 273.9 -> 270.0 s, fast 223.9 -> 216.3 s (spd-swiglu 2026-10-09).
+# It fires on the small (Wormhole) grids only until Blackhole has its own measurement.
+# The first normal grade had fc3 at the shard-width K block, which at the trunk's HiFi3 wrote 1-3 output
+# pixels per call ~4.0 off float64 (fp32-acc erratum; perf/spd_swiglu/outlier_ab.py). Under fp32 acc fc3
+# now takes K block 1: 0 such pixels over 4 seeds x 512/736 tokens. Re-graded vs staging10 (44 paired
+# folds): PASS, top pose median 0.156 A (floor 0.803 A), CA-lDDT +0.0004 [-0.0013, +0.0024], docking
+# 32 -> 33/44; cdk2x2_512 vs 1HCL +0.004 / +0.006 CA-lDDT per domain; c730 warm A/B/A 270.5 -> 267.1
+# -> 274.0 s. Fast runs acc off, so its configuration is the one graded there.
+NORMAL_LEVERS = frozenset({"trimul_ibw", "trimul_tail", "trunk_hifi3", "dit_sdpa32", "silu_f32", "triatt_tail",
+                           "transition_shard"})
 _LEVERS = frozenset()
 # silu_f32 is a kernel, so it needs ttnn's headers patched before the first device open (metal_overlay)
 # in any process that may run it. The patch only changes silu under math_approx_mode, and every fused
@@ -3616,7 +3633,8 @@ _BMM_CFG_REFUSED: set = set()
 # all-or-nothing retirement that cost RF3 1.264x on the fp32-softmax tail at 1024 aa.
 LATCH_STATS: dict = {n: {"served": 0, "refused": 0, "blocked": 0, "declined": 0, "why": []}
                      for n in ("l1_out", "narrow_l1_out", "transpose_l1", "transpose_stage",
-                               "pair_bias_ln_l1", "bmm_cfg", "sdpa_q_chunk")}
+                               "pair_bias_ln_l1", "bmm_cfg", "sdpa_q_chunk", "transition_bw",
+                               "transition_shard")}
 
 
 def _latch(name: str, field: str, why: object = None) -> None:
@@ -4024,7 +4042,8 @@ _SOFTMAX_CKC = env_flag("TT_BIO_SOFTMAX_CKC", False)
 # one part, so an A/B at the top of the size ladder needs to move it without an engine edit.
 # Unset reproduces the fitted value exactly, so the default numerics are untouched.
 _FP32_SOFTMAX_L1_BYTES_PER_CORE = env_int("TT_BIO_FP32_SOFTMAX_L1_BYTES_PER_CORE", 768 << 10)
-_FP32_SOFTMAX_L1_GRID = (8, 8)  # (y, x). 8x8 = 64; this p150a refuses more than 110 shards.
+_FP32_SOFTMAX_L1_FITTED_GRID = (8, 8)  # (y, x). 8x8 = 64; this p150a refuses more than 110 shards.
+_FP32_SOFTMAX_L1_GRID = _FP32_SOFTMAX_L1_FITTED_GRID
 #: Take the rectangle from the live grid instead on a part smaller than the 11x10 baseline, where
 #: the fitted 8x8 is neither the whole grid nor a safe fraction of it. Set by
 #: `_apply_grid_thresholds`; `TT_BIO_FP32_SOFTMAX_L1_LIVE_GRID=0` pins the fitted value for an A/B.
@@ -11143,6 +11162,174 @@ _MASK_TRANS_ONES = env_flag("TT_BIO_MASK_TRANS_ONES", False)
 MASK_TRANS_STATS = {"stacks": 0, "blocks": 0, "ones": 0, "declined_rank": 0, "declined_off": 0}
 
 
+# transition_bw: (op, K tiles, N tiles, bfp8 weights) -> (1D?, in0_block_w). ttnn.linear(core_grid=)
+# takes in0_block_w = 1 (fc3, MSA fc1/fc2) or 4 (pair fc1/fc2), so the K loop pays the in1
+# multicast, a dest clear and a packer_l1_acc pass per tile of K. Measured on a Wormhole Galaxy
+# chip, AICLK 1000, Protenix's transition config, c730 row blocks (perf/spd_swiglu/mm_bench.py,
+# .107 mm11): us per call against ttnn's pick, error vs float64 never above it.
+#   bf16  pair fc1 (silu)  91.2 ->  85.2    fc2  61.2 ->  52.7    fc3 none: in0_block_w 4/8 raise
+#         MSA  fc1 (silu) 158.9 -> 128.4    fc2 109.0 ->  83.7    fc3 135.4 -> 118.4 (1D)
+#   bfp8  pair fc1 (silu)  85.9 ->  76.8    fc2  45.4 ->  43.4    fc3 113.6 ->  70.1
+#         MSA  fc1 (silu) 150.2 -> 115.6    fc2  75.0 ->  44.6    fc3 116.1 -> 101.9 (1D)
+# bf16 pair fc3 is absent on purpose: in0_block_w 4 and 8 put rel_rms at 4.6e-3 / 2.6e-3 against
+# 1.74e-3 (the K partials round once per block), and so does MSA fc2 at 4 (2.35e-3), so it takes 2.
+# The 2D entries need N to split evenly over the grid's x, which holds on the Wormhole 8x9 grid; a
+# shape that does not fit keeps ttnn's pick.
+_TRANSITION_BW = {
+    ("fc1", 8, 32, False): (False, 8), ("fc2", 8, 32, False): (False, 8),
+    ("fc1", 4, 16, False): (False, 4), ("fc2", 4, 16, False): (False, 2), ("fc3", 16, 4, False): (True, 2),
+    ("fc1", 8, 32, True): (False, 8), ("fc2", 8, 32, True): (False, 8), ("fc3", 32, 8, True): (False, 8),
+    ("fc1", 4, 16, True): (False, 4), ("fc2", 4, 16, True): (False, 4), ("fc3", 16, 4, True): (True, 2),
+}
+# Shape classes the device refused (a circular-buffer clash beside live L1): ttnn's pick from then on.
+_TRANSITION_BW_REFUSED: set = set()
+
+
+@lru_cache(maxsize=None)
+def _transition_bw_config(op: str, mt: int, kt: int, nt: int, b8: bool, silu: bool):
+    ent = _TRANSITION_BW.get((op, kt, nt, b8))
+    if ent is None:
+        return None
+    one_d, bw = ent
+    gx, gy = COMPUTE_GRID_MAIN
+    act = ttnn.UnaryWithParam(ttnn.UnaryOpType.SILU) if silu else None
+    if one_d:
+        pm = -(-mt // (gx * gy))
+        pn, grid = nt, (gx, gy)
+    else:
+        if nt % gx:
+            return None
+        pm = -(-mt // gy)
+        pn, grid = nt // gx, (gx, -(-mt // pm))
+    # Largest out subblock that fits one fp32 dest half (4 tiles), widest first.
+    sh, sw = max(((h, w) for h in range(1, 5) for w in range(1, 5)
+                  if h * w <= 4 and pm % h == 0 and pn % w == 0), key=lambda s: (s[0] * s[1], s[1]))
+    if _matmul_cb_bytes(bw, pm, pn, 1 if b8 else 2) > _matmul_cb_budget():
+        return None
+    kw = dict(compute_with_storage_grid_size=_mm_core_coord(*grid), in0_block_w=bw, out_subblock_h=sh,
+              out_subblock_w=sw, out_block_h=pm, out_block_w=pn, per_core_M=pm, per_core_N=pn,
+              fused_activation=act, fuse_batch=True)
+    if one_d:
+        return ttnn.MatmulMultiCoreReuseMultiCast1DProgramConfig(mcast_in0=False, **kw)
+    return ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(transpose_mcast=False, **kw)
+
+
+def _transition_linear(op: str, x: ttnn.Tensor, w: ttnn.Tensor, silu: bool = False, **kw) -> ttnn.Tensor:
+    """`ttnn.linear(x, w, core_grid=CORE_GRID_MAIN)` with the `transition_bw` config where one applies."""
+    cfg = None
+    if lever("transition_bw"):
+        xs = [int(d) for d in x.padded_shape]
+        mt = 1
+        for d in xs[:-1]:
+            mt *= d
+        mt //= 32
+        key = (op, mt, xs[-1] // 32, int(w.shape[-1]) // 32, w.dtype == ttnn.bfloat8_b, silu)
+        if key in _TRANSITION_BW_REFUSED:
+            _latch("transition_bw", "blocked")
+        else:
+            cfg = _transition_bw_config(*key)
+            if cfg is None:
+                _latch("transition_bw", "declined")
+    if cfg is not None:
+        try:
+            out = ttnn.linear(x, w, program_config=cfg, **kw)
+            _latch("transition_bw", "served")
+            return out
+        except Exception as e:
+            _TRANSITION_BW_REFUSED.add(key)
+            _latch("transition_bw", "refused", e)
+    return ttnn.linear(x, w, activation="silu" if silu else None, core_grid=CORE_GRID_MAIN, **kw)
+
+
+# transition_shard: the swiglu's intermediates block-sharded on the matmul grid. Interleaved in L1,
+# every tile fc1 and fc2 write crosses the NoC to the page's owner, the gate multiply reads both
+# back the same way and fc3's reader fetches the product again; sharded, fc1/fc2 write their own
+# block, the multiply is core-local and fc3 takes its in0 straight from the shard (K split over x,
+# so its K block is the shard width). Pair transition at c730 on a Wormhole Galaxy chip, AICLK 1000,
+# fc1..fc3 (perf/spd_swiglu/shard_bench.py, .107 sh13): normal 63.3 us a token row (5-row blocks,
+# interleaved) -> 50.1 (9-row blocks, 8x9), fast 46.9 -> 40.3; error vs float64 0.00351 -> 0.00341.
+# The blocks must fill the grid's y exactly, so the row height becomes a multiple of
+# gy / gcd(W tiles, gy). The MSA transition's 128-channel output splits over 4 columns at most,
+# and on 4x8 it is slower than interleaved (39.1 against 27.4 us a row), so it keeps its path.
+_TRANSITION_SHARD_PM = 23  # row tiles per core measured to fit next to the sharded hidden pair
+_TRANSITION_SHARD_REFUSED: set = set()
+
+
+def _transition_shard_grid(mt: int, nt: int, ct: int):
+    """(gx, gy) on which a block of `mt` row tiles shards evenly, or None."""
+    gx, gy_max = min(COMPUTE_GRID_MAIN[0], 8), COMPUTE_GRID_MAIN[1]
+    if gx < 8 or nt % gx or ct % gx:
+        return None
+    gy = next(d for d in range(gy_max, 0, -1) if mt % d == 0)
+    if 2 * gy < gy_max or mt // gy > _TRANSITION_SHARD_PM:
+        return None
+    return gx, gy
+
+
+def _transition_shard_rows(W: int, c: int, hid: int) -> int:
+    """Pair rows per block whose sharded swiglu fills the most grid rows, or 0 where none fits."""
+    wt, gy_max = -(-W // 32), COMPUTE_GRID_MAIN[1]
+    for gy in range(gy_max, (gy_max + 1) // 2 - 1, -1):
+        r0 = gy // gcd(wt, gy)
+        pm0 = r0 * wt // gy
+        if pm0 <= _TRANSITION_SHARD_PM:
+            rows = r0 * (_TRANSITION_SHARD_PM // pm0)
+            if _transition_shard_grid(rows * wt, hid // 32, c // 32):
+                return rows
+    return 0
+
+
+def _transition_swiglu_sharded(x, w1, w2, w3, ckc, silu_ckc, hidden, dtype):
+    """fc3(silu(fc1(x)) * fc2(x)) with block-sharded intermediates, or None where no grid fits."""
+    xs = [int(d) for d in x.padded_shape]
+    mt, kt = prod(xs[:-1]) // 32, xs[-1] // 32
+    nt, ct = int(w1.shape[-1]) // 32, int(w3.shape[-1]) // 32
+    grid = _transition_shard_grid(mt, nt, ct)
+    if grid is None or (mt, kt, nt, hidden) in _TRANSITION_SHARD_REFUSED:
+        return None
+    gx, gy = grid
+    pm, pn = mt // gy, nt // gx
+
+    def cfg(bw, n, act=None):
+        sh, sw = max(((h, w) for h in range(1, 5) for w in range(1, 5)
+                      if h * w <= 4 and pm % h == 0 and n % w == 0), key=lambda s: (s[0] * s[1], s[1]))
+        return ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(
+            compute_with_storage_grid_size=_mm_core_coord(gx, gy), in0_block_w=bw, out_subblock_h=sh,
+            out_subblock_w=sw, out_block_h=pm, out_block_w=n, per_core_M=pm, per_core_N=n,
+            transpose_mcast=False, fused_activation=act, fuse_batch=True)
+
+    cores = ttnn.CoreRangeSet({ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(gx - 1, gy - 1))})
+    mc = ttnn.MemoryConfig(ttnn.TensorMemoryLayout.BLOCK_SHARDED, ttnn.BufferType.L1,
+                           ttnn.ShardSpec(cores, [pm * 32, pn * 32], ttnn.ShardOrientation.ROW_MAJOR))
+    bw = max(b for b in (8, 4, 2, 1) if kt % b == 0)
+    x1 = x2 = None
+    try:
+        x1 = ttnn.linear(x, w1, program_config=cfg(bw, pn, ttnn.UnaryWithParam(ttnn.UnaryOpType.SILU)),
+                         compute_kernel_config=silu_ckc, memory_config=mc, dtype=hidden)
+        x2 = ttnn.linear(x, w2, program_config=cfg(bw, pn), compute_kernel_config=ckc, memory_config=mc,
+                         dtype=hidden)
+        h = ttnn.multiply_(x1, x2)
+        ttnn.deallocate(x2)
+        x2 = None
+        # K block 1 under fp32 dest acc: a K block of several tiles accumulates in dest, which is where
+        # the Wormhole HiFi3/HiFi4 + fp32-acc erratum writes its ~4.0 errors (fc3 at the shard width:
+        # 2 pixels per 736-token call at HiFi3). One tile per block accumulates through the packer
+        # instead and is clean at every fidelity (perf/spd_swiglu/outlier_stage.py).
+        bw3 = 1 if ckc.fp32_dest_acc_en else pn
+        out = ttnn.linear(h, w3, program_config=cfg(bw3, ct // gx), compute_kernel_config=ckc, dtype=dtype,
+                          memory_config=ttnn.DRAM_MEMORY_CONFIG)
+    except Exception as e:  # noqa: BLE001  a circular-buffer clash beside live L1: ttnn's path from then on
+        for t in (x1, x2):
+            if t is not None:
+                ttnn.deallocate(t)
+        _TRANSITION_SHARD_REFUSED.add((mt, kt, nt, hidden))
+        _latch("transition_shard", "refused", e)
+        return None
+    ttnn.deallocate(h)
+    _latch("transition_shard", "served")
+    return out
+
+
 class Transition(Module):
     def __init__(
         self,
@@ -11229,7 +11416,35 @@ class Transition(Module):
         # open: the L1 lever is INFERENCE-ONLY. Under a tape the intermediates go to DRAM,
         # which is also cheaper than keeping them in L1 and paying eviction traffic on top.
         _tape_mc = ttnn.DRAM_MEMORY_CONFIG if ops.taping() else ttnn.L1_MEMORY_CONFIG
+        # transition_shard: 4-D row blocks of `shard_rows` rows go through the sharded swiglu; a block
+        # it declines is cut back to the interleaved path's own height, `safe_h`.
+        shard_rows = safe_h = 0
+
         def swiglu(x):
+            if shard_rows:
+                dtype = self.dtype if self.dtype is not None else _dtype()
+                x_norm = ttnn.layer_norm(x, weight=self.norm_weight, bias=self.norm_bias, epsilon=1e-5,
+                                         compute_kernel_config=self.compute_kernel_config,
+                                         memory_config=ttnn.L1_MEMORY_CONFIG)
+                out = _transition_swiglu_sharded(
+                    x_norm, self.fc1_weight, self.fc2_weight, self.fc3_weight, self.compute_kernel_config,
+                    silu_ckc(self.compute_kernel_config), ttnn.bfloat8_b if self._hidden_b8 else dtype, dtype)
+                ttnn.deallocate(x_norm)
+                if out is not None:
+                    return out
+                if x.shape[1] > safe_h:
+                    parts = []
+                    for s in range(0, x.shape[1], safe_h):
+                        c = x[:, s:min(s + safe_h, x.shape[1])]
+                        parts.append(swiglu_l1(c))
+                        ttnn.deallocate(c)
+                    out = ttnn.concat(parts, dim=1)
+                    for p in parts:
+                        ttnn.deallocate(p)
+                    return out
+            return swiglu_l1(x)
+
+        def swiglu_l1(x):
             dtype = self.dtype if self.dtype is not None else _dtype()
             hidden = ttnn.bfloat8_b if self._hidden_b8 else dtype
             x_norm = ttnn.layer_norm(
@@ -11240,34 +11455,27 @@ class Transition(Module):
                 compute_kernel_config=self.compute_kernel_config,
                 memory_config=_tape_mc,
             )
-            x_1 = ttnn.linear(
-                x_norm,
-                self.fc1_weight,
-                activation=None if _UNFUSED_SILU else "silu",
+            x_1 = _transition_linear(
+                "fc1", x_norm, self.fc1_weight, silu=not _UNFUSED_SILU,
                 compute_kernel_config=silu_ckc(self.compute_kernel_config),
                 memory_config=_tape_mc,
                 dtype=hidden,
-                core_grid=CORE_GRID_MAIN,
             )
             if _UNFUSED_SILU:
                 x_1 = ttnn.silu(x_1, memory_config=_tape_mc, output_tensor=x_1)
-            x_2 = ttnn.linear(
-                x_norm,
-                self.fc2_weight,
+            x_2 = _transition_linear(
+                "fc2", x_norm, self.fc2_weight,
                 compute_kernel_config=self.compute_kernel_config,
                 memory_config=_tape_mc,
                 dtype=hidden,
-                core_grid=CORE_GRID_MAIN,
             )
             ttnn.deallocate(x_norm)
             x = ttnn.multiply_(x_1, x_2)
             ttnn.deallocate(x_2)
-            x_dram = ttnn.linear(
-                x,
-                self.fc3_weight,
+            x_dram = _transition_linear(
+                "fc3", x, self.fc3_weight,
                 compute_kernel_config=self.compute_kernel_config,
                 dtype=dtype,
-                core_grid=CORE_GRID_MAIN,
                 memory_config=ttnn.DRAM_MEMORY_CONFIG,
             )
             ttnn.deallocate(x)
@@ -11453,6 +11661,11 @@ class Transition(Module):
         # the size, i.e. LESS element-work, and still takes more than twice the wall clock. Forcing
         # the height is what separates "h=2 is a bad height here" from "the size is the problem",
         # and it must not require editing a derivation to find out. Unset in production.
+        if (lever("transition_shard") and _IS_SMALL_GRID
+                and not (ops.taping() or _UNFUSED_SILU or w_chunked)):
+            shard_rows = _transition_shard_rows(W, _c, _hid)
+            if shard_rows:
+                safe_h, transition_h_chunk_size = transition_h_chunk_size, min(shard_rows, H)
         _h = os.environ.get("TT_BIO_TRANSITION_H_CHUNK")
         if _h:
             transition_h_chunk_size = max(1, min(int(_h), H))

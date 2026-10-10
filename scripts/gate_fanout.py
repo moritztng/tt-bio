@@ -35,12 +35,14 @@ REUSE. Every leg result is keyed by
            measurements and gate baselines, interpreter's installed distributions except
            tt-bio, card type, leg name, leg argv, and the baseline files the leg compares
            against: docs/size_ladder_baseline* for ladder legs, docs/perf_baselines.json for
-           perf, docs/capacity_gate_baseline.json for capacity)
+           perf, docs/capacity_gate_baseline.json for capacity; for the pytest legs, the
+           tests/test_*.py files no Python file outside tests/ loads)
 and written to --ledger. A leg whose key already holds a PASS is not run again; the verdict names
 the evidence it reused (its log, host, card, date). So a crossmodel or suite run done through this
 runner during grading counts toward the release on the same code, and a docs-only commit on top of
-a gated tree does not repeat the gate. Any change to code, tests, scripts, data, fixtures, the
-interpreter's packages or the card type is a different key and runs fresh.
+a gated tree does not repeat the gate, and a fix to a test file reruns the pytest legs only. Any
+change to code, scripts, data, fixtures, the interpreter's packages or the card type is a different
+key and runs fresh.
 
 hosts.json names, per host, how to reach it and what to run with (no host facts live in this file):
     {"qb1": {"ssh": "qb1", "arch": "bh", "card_type": "p150a", "root": "/home/ttuser/gate",
@@ -60,6 +62,16 @@ chips, starting each job as `CHIP=<id> bash <job>`) names it, `"pool": {"queue":
 four times = at most four legs queued or running there). Each leg becomes one job file; the pool
 picks the chip, the leg still takes that chip's flock, and the runner waits for the job's exit code.
 
+FIRST. A release never waits on our own experiments. A pool host queues its legs at the prio
+it names (0, ahead of every grading job), and a flock host shared with other rows sets
+`"first": true`: each leg then takes its card through scripts/flock_first.sh, which stops the
+other waiters on that card's lock (never the holder) until the gate is done with the card.
+
+PERF A/B. Committed perf cells age: a cell recorded in August on another software stack fails a
+release that changed nothing. `"perf_against": "<tag>"` on a host checks the timed leg out at the
+last release (root/trees/<tag>) and runs perf_regression.py --against it: the release's own
+numbers are measured on the same card in the same session, then the commit is gated on them.
+
 SEEDING. perf_regression.py fails NO BASELINE on a card type with no baseline. That stays a
 failure. A host seeding one names it explicitly, `"args": {"perf": ["--update-baseline", "--note",
 "<why>"]}`: the leg then reports SEEDED, not PASS (there was nothing to regress against), and the
@@ -71,12 +83,14 @@ from __future__ import annotations
 import argparse
 import dataclasses
 import fnmatch
+import functools
 import hashlib
 import inspect
 import json
 import os
 import re
 import shlex
+import signal
 import socket
 import subprocess
 import sys
@@ -107,6 +121,12 @@ POOL_CARD = "@@CARD@@"   # stands for $CHIP in a pool job, filled in when the po
 POOL_POLL_S = 30
 LOAD_REFUSAL = "refusing to run the gate. host load:"
 LOAD_RETRY_S, LOAD_WAIT_MAX_S = 300, 8 * 3600
+#: ssh's own words when the connection, not the leg, failed (exit 255). qb1 dropped off the LAN for
+#: minutes on 2026-10-09 and five BH legs were recorded FAIL without running.
+SSH_LOST = re.compile(r"^(ssh: connect to host .*|Timeout, server .* not responding\.|"
+                      r"client_loop: send disconnect: .*|Connection to .* closed by remote host\.|"
+                      r"kex_exchange_identification: .*|ssh_dispatch_run_fatal: Connection to .*)$", re.M)
+SSH_LOST_RETRY_S, SSH_LOST_TRIES = 120, 30
 QUEUED: dict = {}         # pool job file -> host, taken back if the runner is stopped
 CARD_FREE = ("check", "packaging_smoke", "pytest_cpu")
 PY312 = {"pytest_device", "pytest_cpu", "bc2"}
@@ -176,28 +196,124 @@ def sha256(*parts) -> str:
 # ---------------------------------------------------------------------------------------------
 # The baselines a leg family compares against. They are measurements of the code, re-recorded
 # when a lever lands, so they leave the content key and enter only their own family's leg key:
-# re-recording the size ladder reruns the ladder legs, not the other 230.
+# re-recording the size ladder reruns the ladder legs, not the other 230, and splicing one
+# model's fragment reruns that model's ladder leg only.
 BASELINES = {"ladder": ("docs/size_ladder_baseline.json", "docs/size_ladder_baseline.d/"),
              "perf": ("docs/perf_baselines.json",),
              "capacity": ("docs/capacity_gate_baseline.json",)}
 _BASELINE_PATHS = tuple(p for ps in BASELINES.values() for p in ps)
 
 
+def _commit(sha: str, repo: Path) -> str:
+    """The commit id `sha` names, so a cache keyed on it survives a moving ref like HEAD."""
+    return subprocess.run(["git", "-C", str(repo), "rev-parse", "--verify", f"{sha}^{{commit}}"],
+                          check=True, capture_output=True, text=True).stdout.strip()
+
+
 def _ls_tree(sha: str, repo: Path) -> list[str]:
+    return _ls_tree_at(_commit(sha, repo), repo)
+
+
+@functools.lru_cache(maxsize=None)
+def _ls_tree_at(sha: str, repo: Path) -> list[str]:
     return subprocess.run(["git", "-C", str(repo), "ls-tree", "-r", "--full-tree", sha], check=True,
                           capture_output=True, text=True).stdout.splitlines()
 
 
-def baseline_hash(sha: str, family: str, repo: Path = REPO) -> str:
-    """Blob ids of the baseline files `family` compares against at `sha` ('' for none)."""
+def _same_code(sha: str, content: str, repo: Path = REPO) -> bool:
+    """True when `sha` is in this repo and holds the code `content` hashes."""
+    try:
+        return content_hash(sha, repo) == content
+    except subprocess.CalledProcessError:
+        return False
+
+
+def baseline_hash(sha: str, family: str, repo: Path = REPO, model: str = "") -> str:
+    """Blob ids of the baseline files `family` compares against at `sha` ('' for none).
+
+    A ladder leg for `model` reads the monolith plus that model's own fragment, so splicing one
+    model's rows reruns that model's ladder leg only."""
     ps = BASELINES.get(family)
     if not ps:
         return ""
-    rows = [ln for ln in _ls_tree(sha, repo) if ln.split("\t", 1)[-1].startswith(ps)]
+    if family == "ladder" and model:
+        ps = (ps[0], f"{ps[1]}{model}.json")
+    rows = [ln for ln in _ls_tree(sha, repo) if ln.split("\t", 1)[-1] in ps or (
+        not model and ln.split("\t", 1)[-1].startswith(ps))]
     return hashlib.sha256("\n".join(rows).encode()).hexdigest()
 
 
-def content_hash(sha: str, repo: Path = REPO, baselines: bool = False) -> str:
+#: The leg families that run the test suite, and so read the test files the content key leaves out.
+PYTEST = ("pytest_cpu", "pytest_device")
+
+
+def test_only(sha: str, repo: Path = REPO) -> frozenset:
+    return _test_only_at(_commit(sha, repo), repo)
+
+
+@functools.lru_cache(maxsize=None)
+def _test_only_at(sha: str, repo: Path) -> frozenset:
+    """tests/test_*.py that only pytest reads: no Python file outside tests/ names them in code.
+    Every leg but the pytest ones runs Python, so a gate script that loads a test (release_gate
+    imports tests/test_structure.py by path) names it, and that file stays in the content key
+    with the code that runs it. Only string literals and imports count: a comment or docstring
+    pointing at the test that covers a function does not load it, and most of tt_bio's do."""
+    stems = {Path(t).stem: t for t in test_files(sha, repo)}
+    if not stems:
+        return frozenset()
+    git = ["git", "-C", str(repo)]
+    files = subprocess.run([*git, "grep", "-l", "-w", "-F", *[x for t in stems for x in ("-e", t)], sha,
+                            "--", "*.py", ":(exclude)tests/"],
+                           capture_output=True, text=True).stdout.splitlines()
+    word = re.compile(r"\b(" + "|".join(map(re.escape, stems)) + r")\b")
+    named = set()
+    for f in files:
+        text = subprocess.run([*git, "show", f], capture_output=True, text=True).stdout
+        named |= set(word.findall("\n".join(_code_strings(text))))
+    return frozenset(t for stem, t in stems.items() if stem not in named)
+
+
+def _code_strings(src: str) -> list:
+    """String literals and imported module names of a Python file, docstrings and comments left
+    out. Unparseable source is returned whole, which can only keep a test in the content key."""
+    import ast
+    try:
+        tree = ast.parse(src)
+    except SyntaxError:
+        return [src]
+    docs = {id(n.value) for n in ast.walk(tree) if isinstance(n, ast.Expr)
+            and isinstance(n.value, ast.Constant) and isinstance(n.value.value, str)}
+    out = []
+    for n in ast.walk(tree):
+        if isinstance(n, ast.Constant) and isinstance(n.value, str) and id(n) not in docs:
+            out.append(n.value)
+        elif isinstance(n, ast.Import):
+            out += [a.name for a in n.names]
+        elif isinstance(n, ast.ImportFrom):
+            out += [n.module or ""] + [a.name for a in n.names]
+    return out
+
+
+def tests_hash(sha: str, family: str, repo: Path = REPO) -> str:
+    """Blob ids of the test-only files at `sha` for a pytest leg ('' for any other family), so a
+    test fix reruns the pytest legs and not the folds."""
+    if family not in PYTEST:
+        return ""
+    only = test_only(sha, repo)
+    rows = [ln for ln in _ls_tree(sha, repo) if ln.split("\t", 1)[-1] in only]
+    return hashlib.sha256("\n".join(rows).encode()).hexdigest()
+
+
+RUNNER_FILES = ("scripts/gate_fanout.py", "scripts/release_next.py", "scripts/splice_ladder_fragments.py",
+                "scripts/gate_host_prep.sh", "scripts/flock_first.sh",
+                "tests/test_gate_fanout.py", "tests/test_release_next.py")
+#: The runner before flock_first.sh joined it, the key every ledger row before 2026-10-10 03Z
+#: was written under.
+RUNNER_FILES_0 = tuple(f for f in RUNNER_FILES if f != "scripts/flock_first.sh")
+
+
+def content_hash(sha: str, repo: Path = REPO, baselines: bool = False, tests: bool = False,
+                 runner: tuple = RUNNER_FILES) -> str:
     """Hash of every tracked file at `sha` except Markdown, from git's own blob ids.
 
     pyproject.toml is hashed without its `version =` line: the release commit bumps it, and that
@@ -206,7 +322,11 @@ def content_hash(sha: str, repo: Path = REPO, baselines: bool = False) -> str:
     left out for the same reason: the release commit re-records them, and they are numbers about
     the code, not code. The one test that reads them is in pytest_cpu, which is never reused.
     Gate baselines (BASELINES) are left out too and keyed per leg family instead;
-    `baselines=True` keeps them, the key every ledger row before 2026-10-09 15Z was written under."""
+    `baselines=True` keeps them, the key every ledger row before 2026-10-09 15Z was written under.
+    So is this runner (RUNNER_FILES): it decides where a leg runs, not what the leg computes, and
+    a fix to it must not throw away a gate's worth of evidence. Test files only pytest reads
+    (test_only) are keyed on the pytest legs instead; `tests=True` keeps them, the key every
+    ledger row before 2026-10-09 21Z was written under."""
     def git(*a, ok=(0,)):
         p = subprocess.run(["git", "-C", str(repo), *a], capture_output=True, text=True)
         if p.returncode not in ok:
@@ -214,10 +334,12 @@ def content_hash(sha: str, repo: Path = REPO, baselines: bool = False) -> str:
         return p.stdout
     recorded = {ln.split(":", 1)[1] for ln in git("grep", "-l", "^RECORDED-AT:", sha, "--", "perf/*.txt",
                                                   ok=(0, 1)).splitlines()}
+    only = set() if tests else test_only(sha, repo)
     rows = []
     for ln in _ls_tree(sha, repo):
         path = ln.split("\t", 1)[-1]
-        if path.endswith(".md") or path in recorded or (not baselines and path.startswith(_BASELINE_PATHS)):
+        if (path.endswith(".md") or path in recorded or path in runner or path in only
+                or (not baselines and path.startswith(_BASELINE_PATHS))):
             continue
         if path == "pyproject.toml":
             body = "".join(x for x in git("show", f"{sha}:pyproject.toml").splitlines(True)
@@ -231,8 +353,10 @@ def env_hash(probe: dict) -> str:
     return sha256(probe["python"], probe["dists"])
 
 
-def leg_key(content: str, env: str, card_type: str, leg: "Leg", baseline: str = "") -> str:
-    return sha256(content, env, card_type, leg.name, leg.argv, *([baseline] if baseline else []))
+def leg_key(content: str, env: str, card_type: str, leg: "Leg", *inputs: str) -> str:
+    """`inputs` are the leg family's own files outside the content key (baselines, test files);
+    an empty one drops out, so a family that reads none keeps the key it always had."""
+    return sha256(content, env, card_type, leg.name, leg.argv, *[x for x in inputs if x])
 
 
 # ---------------------------------------------------------------------------------------------
@@ -360,8 +484,23 @@ class Host:
     def ssh(self, cmd: str, **kw) -> subprocess.CompletedProcess:
         if self.cfg.get("ssh") in (None, "", "localhost"):
             return subprocess.run(["bash", "-c", cmd], text=True, **kw)
-        return subprocess.run(["ssh", "-o", "BatchMode=yes", "-o", "ServerAliveInterval=60",
-                               self.cfg["ssh"], cmd], text=True, **kw)
+        # Twenty workers connecting at once can pass a Galaxy's sshd MaxStartups, which drops the
+        # handshake ("kex_exchange_identification: Connection closed"), and qb1 drops off the LAN
+        # for minutes at a time. Either way the command did not answer, so it is retried, never
+        # recorded as the leg's result; a timeout that outlasts every retry reads as exit 255.
+        check = kw.pop("check", False)
+        for wait in (5, 15, 45, 120, 300, None):
+            try:
+                r = subprocess.run(["ssh", "-o", "BatchMode=yes", "-o", "ServerAliveInterval=60",
+                                    self.cfg["ssh"], cmd], text=True, **kw)
+            except subprocess.TimeoutExpired as e:
+                r = subprocess.CompletedProcess(e.cmd, 255, "", f"Timeout, server {self.cfg['ssh']} not responding.")
+            if wait is None or r.returncode != 255 or not SSH_LOST.search(r.stderr or ""):
+                break
+            time.sleep(wait)
+        if check and r.returncode:
+            raise subprocess.CalledProcessError(r.returncode, r.args, r.stdout, r.stderr)
+        return r
 
     def pins(self) -> dict:
         """This host's resolved packages per venv, minus tt-bio and BindCraft 2 (installed from
@@ -391,6 +530,10 @@ class Host:
                f"git -C {r}/repo worktree add -q --detach {t} {self.sha}; "
                f"cd {t}; bash scripts/fetch_parity_fixtures.sh >/dev/null; fi; "
                f"test \"$(git -C {t} rev-parse HEAD)\" = {self.sha}")
+        if self.cfg.get("perf_against"):
+            ref, a = shlex.quote(self.cfg["perf_against"]), self.against
+            cmd += (f"; [ -d {a} ] || {{ git -C {r}/repo fetch -q --tags origin; "
+                    f"git -C {r}/repo worktree add -q --detach {a} {ref}; }}")
         p = self.ssh(cmd, capture_output=True, timeout=1800)
         if not p.returncode:
             # The runner's own copy of the recipe: the commit under test may predate it.
@@ -411,8 +554,14 @@ class Host:
 
     def leg(self, leg: Leg) -> Leg:
         """`leg` with this host's extra flags for its family (hosts.json `args`)."""
-        extra = self.cfg.get("args", {}).get(leg.family, [])
+        extra = list(self.cfg.get("args", {}).get(leg.family, []))
+        if leg.family == "perf" and self.cfg.get("perf_against"):
+            extra += ["--against", self.against]
         return dataclasses.replace(leg, argv=leg.argv + extra) if extra else leg
+
+    @property
+    def against(self) -> str:
+        return f"{self.root}/trees/{self.cfg['perf_against']}"
 
     def seeding(self, leg: Leg) -> bool:
         return "--update-baseline" in self.cfg.get("args", {}).get(leg.family, [])
@@ -446,22 +595,47 @@ class Host:
         envs = " ".join(f"{k}={shlex.quote(v)}" for k, v in env.items())
         run = f"env {envs} bash -c {shlex.quote(body)}"
         if card is not None:
-            run = f"flock {shlex.quote(c['lock'].format(card=card))} {run}"
+            lock = "bash scripts/flock_first.sh" if c.get("first") else "flock"
+            run = f"{lock} {shlex.quote(c['lock'].format(card=card))} {run}"
         setup = f"{fill(leg.setup)} && " if leg.setup else ""
-        return f"mkdir -p {shlex.quote(out)} && cd {self.tree} && {setup}{run}"
+        # Each attempt is its own session, its pid in attempt.pid and its marker in the environment
+        # (which survives bash's exec of the last command). When the runner's connection drops the
+        # remote side keeps waiting on the card, so a rerun first ends the attempt it replaces;
+        # otherwise both run the leg into one directory (qb1, 10-10: five BH legs queued twice).
+        pidf = shlex.quote(f"{out}/attempt.pid")
+        mark = shlex.quote(f"GATE_ATTEMPT={out}")
+        prior = (f"{{ p=$(cat {pidf} 2>/dev/null) && tr '\\0' '\\n' < /proc/$p/environ 2>/dev/null "
+                 f"| grep -qxF -- {mark} && pkill -TERM -s $p; true; }}")   # -s: timeout moves the leg to its own group
+        attempt = shlex.quote(f"echo $$ > {pidf}; {run}")
+        return (f"mkdir -p {shlex.quote(out)} && {prior} && cd {self.tree} && {setup}"
+                f"env {mark} setsid -w bash -c {attempt}")   # no exec: a pool job writes rc after it
 
 
 # ---------------------------------------------------------------------------------------------
 # verdicts
 # ---------------------------------------------------------------------------------------------
-def classify(leg: Leg, rc: int, report: dict | None) -> str:
+def classify(leg: Leg, rc: int, report: dict | None, baseline: dict | None = None) -> str:
     """PASS / FAIL / BLOCKED. A parity leg the gate itself reports BLOCKED-REF-REGEN-NEEDED does
     not fail the gate (RELEASING.md, verdict semantics); a one-leg run of it exits nonzero as
-    GATE INCONCLUSIVE, so read the report rather than the exit code."""
+    GATE INCONCLUSIVE, so read the report rather than the exit code.
+
+    A capacity cell the engine's own size guard refuses (opendde on Blackhole: 1536 freezes the
+    trunk, so the cap is 1024) exits 1 on every run. It passes when the committed baseline for
+    this card type (`baseline`, its "cells") records the same refusal; anything else still fails."""
     if leg.family == "parity" and report:
         verdicts = {r.get("verdict") for r in report.get("legs", [])}
         if verdicts == {"BLOCKED-REF-REGEN-NEEDED"}:
             return "BLOCKED"
+    if rc and leg.family == "capacity" and report and baseline is not None:
+        c = report.get("counts", {})
+        failed = [r for r in report.get("results", []) if r.get("verdict") != "PASS"]
+        if (failed and not c.get("GATE_BUG") and not c.get("BAD_FIXTURE")
+                and not report.get("coverage_gaps")
+                and all(r.get("verdict") == "FAIL" and r.get("mechanism") == "size_guard"
+                        and (baseline.get(r.get("model")) or {}).get("verdict") == "FAIL"
+                        and (baseline.get(r.get("model")) or {}).get("mechanism") == "size_guard"
+                        for r in failed)):
+            return "PASS"
     return "PASS" if rc == 0 else "FAIL"
 
 
@@ -473,6 +647,16 @@ class Ledger:
     def get(self, key: str) -> dict | None:
         p = self.path / f"{key}.json"
         return json.loads(p.read_text()) if p.exists() else None
+
+    def shas(self) -> set:
+        """Every commit a row was recorded at."""
+        out = set()
+        for p in self.path.glob("*.json"):
+            try:
+                out.add(json.loads(p.read_text())["sha"])
+            except (ValueError, KeyError):
+                continue
+        return out
 
     def history(self) -> dict:
         """leg name -> the latest wall clock any run of it took, for ordering only."""
@@ -628,21 +812,33 @@ def run_in_pool(host: Host, card, leg: Leg, rdir: str, f) -> int:
     r = host.ssh(f"mkdir -p {q(rdir)} && rm -f {q(rdir)}/rc && cat > {q(job)}.tmp && mv {q(job)}.tmp {q(job)}",
                  input=pool_job(host, leg, rdir, name), capture_output=True, timeout=120)
     if r.returncode:
-        f.write(f"cannot queue {job}: {r.stderr.strip()}\n")
-        return 1
+        # ssh's own message on its own line, so a lost connection reads as one and is retried.
+        f.write(f"cannot queue {job}:\n{r.stderr.strip()}\n")
+        return r.returncode if r.returncode == 255 else 1
     f.write(f"# queued {host.name}:{job}\n")
     f.flush()
     QUEUED[job] = host
     while True:
         time.sleep(POOL_POLL_S)
-        r = host.ssh(f"cat {q(rdir)}/rc", capture_output=True, timeout=120)
+        try:
+            r = host.ssh(f"cat {q(rdir)}/rc", capture_output=True, timeout=120)
+        except subprocess.TimeoutExpired:
+            continue        # a busy sshd; the job runs on regardless, ask again
         if r.returncode == 0 and r.stdout.strip():
             rc = int(r.stdout.strip())
             break
     QUEUED.pop(job, None)
-    r = host.ssh(f"L={q(rdir)}/leg.log; head -c {LOG_CAP} $L; [ $(stat -c%s $L) -le {LOG_CAP} ] || "
-                 f"{{ echo; echo '# ... log capped at {LOG_CAP} bytes; last 400 lines:'; tail -n 400 $L; }}",
-                 capture_output=True, timeout=300)
+    for _ in range(SSH_LOST_TRIES):
+        try:
+            r = host.ssh(f"L={q(rdir)}/leg.log; head -c {LOG_CAP} $L; [ $(stat -c%s $L) -le {LOG_CAP} ] || "
+                         f"{{ echo; echo '# ... log capped at {LOG_CAP} bytes; last 400 lines:'; tail -n 400 $L; }}",
+                         capture_output=True, timeout=300)
+            break
+        except subprocess.TimeoutExpired:
+            time.sleep(POOL_POLL_S)
+    else:
+        f.write(f"# could not read {host.name}:{rdir}/leg.log\n")
+        return rc
     f.write(r.stdout)
     return rc
 
@@ -675,6 +871,7 @@ def make_executor(sha: str, out: Path, ledger: Ledger, keys: dict, remote_out: s
         rdir = f"{host.root}/{remote_out}/{host.arch}/{tag}"
         t0 = time.time()
         run = run_in_pool if card == POOL else run_over_ssh
+        lost = 0
         while True:
             with open(log, "w") as f:
                 f.write(f"# {leg.name} on {host.name}:{card} ({host.cfg['card_type']}) tree {sha}\n")
@@ -683,6 +880,11 @@ def make_executor(sha: str, out: Path, ledger: Ledger, keys: dict, remote_out: s
             text = log.read_text(errors="replace")
             # The gate scripts refuse to start on an overloaded host (gate_guard's load ceiling).
             # That is not a verdict: wait for the load to drop and start the leg again.
+            if rc == 255 and SSH_LOST.search(text) and lost < SSH_LOST_TRIES:
+                # The connection dropped, not the leg: run it again once the host answers.
+                lost += 1
+                time.sleep(SSH_LOST_RETRY_S)
+                continue
             if not (rc and LOAD_REFUSAL in text and time.time() - t0 < LOAD_WAIT_MAX_S):
                 break
             time.sleep(LOAD_RETRY_S)
@@ -699,7 +901,12 @@ def make_executor(sha: str, out: Path, ledger: Ledger, keys: dict, remote_out: s
                     report = json.loads(r.stdout)
                 except ValueError:
                     pass
-        verdict = classify(leg, rc, report)
+        baseline = None
+        if rc and leg.family == "capacity" and report:
+            r = host.ssh(f"cat {host.tree}/docs/capacity_gate_baseline.json", capture_output=True, timeout=120)
+            if r.returncode == 0:
+                baseline = (json.loads(r.stdout).get("cards", {}).get(host.cfg["card_type"]) or {}).get("cells", {})
+        verdict = classify(leg, rc, report, baseline)
         seeded = None
         if verdict == "PASS" and host.seeding(leg):
             verdict = "SEEDED"
@@ -794,7 +1001,8 @@ def main() -> int:
     roster = first[archs[0]].run_py(ENUMERATE)
     legs = select(build_legs(roster, test_files(sha), args.shards, args.record_lever, args.record_full),
                   [p for p in args.legs.split(",") if p])
-    content, legacy = content_hash(sha), content_hash(sha, baselines=True)
+    content = content_hash(sha)
+    legacy = content_hash(sha, baselines=True, tests=True, runner=RUNNER_FILES_0)
     probes = {}
     for a in archs:
         for py in {first[a].python(lg.family) for lg in legs}:
@@ -814,21 +1022,33 @@ def main() -> int:
 
     args.out.mkdir(parents=True, exist_ok=True)
     ledger = Ledger(args.ledger)
+    # Rows written while test files were inside the content key (until 2026-10-09 21Z), at this
+    # commit or at any commit with the same code, which a leg accepts when its own inputs match too.
+    same = {s for s in {sha} | ledger.shas() if s == sha or _same_code(s, content)}
+    tests_in = {s: content_hash(s, tests=True, runner=RUNNER_FILES_0) for s in same}
+    runner_in = {s: content_hash(s, runner=RUNNER_FILES_0) for s in same}
     keys, results, todo = {}, [], {a: [] for a in archs}
     for lg in legs:
         for a in (archs if lg.card else [archs[0]]):
             slot = a if lg.card else "any"
-            k = leg_key(content, envs[f"{a} {first[a].python(lg.family)}"],
-                        ctype[a] if lg.card else "cpu", first[a].leg(lg), baseline_hash(sha, lg.family))
+            env, ct, hleg = (envs[f"{a} {first[a].python(lg.family)}"], ctype[a] if lg.card else "cpu",
+                             first[a].leg(lg))
+            model = lg.name.split(":", 1)[1] if lg.family == "ladder" else ""
+            base, tst = baseline_hash(sha, lg.family, model=model), tests_hash(sha, lg.family)
+            k = leg_key(content, env, ct, hleg, base, tst)
             keys[(lg.name, slot)] = k
             # Card-free legs always run: they are cheap, and pytest_cpu checks the recorded
             # measurements the key leaves out.
-            # A row under the old key (baselines inside the content hash) proved the same code
-            # against the same baselines, so it is as good as a row under the new one.
-            old = leg_key(legacy, envs[f"{a} {first[a].python(lg.family)}"],
-                          ctype[a] if lg.card else "cpu", first[a].leg(lg))
+            # A row under an older key scheme proved the same code against the same inputs, so it
+            # is as good as a row under the new one: baselines inside the content hash (legacy),
+            # or test files inside it, at any commit whose code and this leg's inputs match.
+            match = {s for s in same if s == sha or (baseline_hash(s, lg.family, model=model) == base
+                                                     and tests_hash(s, lg.family) == tst)}
+            olds = ([leg_key(legacy, env, ct, hleg)]
+                    + [leg_key(tests_in[s], env, ct, hleg, base) for s in match]
+                    + [leg_key(runner_in[s], env, ct, hleg, base, tst) for s in match])
             hit = (None if args.no_reuse or not lg.card or lg.family == "record"
-                   else ledger.get(k) or ledger.get(old))
+                   else next(filter(None, map(ledger.get, [k, *olds])), None))
             owes = owed_by(roster, ctype[a], lg)
             if owes:
                 results.append({"leg": lg.name, "arch": slot, "verdict": "OWED", "owed": owes,
@@ -848,7 +1068,8 @@ def main() -> int:
     plan = {"sha": sha, "content": content, "envs": envs, "card_types": ctype, "archs": archs,
             "workers": [f"{h.name}:{c}" for h, c in workers], "timed": sorted(map(list, timed)),
             "env_probe": probes, "run": {a: [lg.name for lg in q] for a, q in todo.items()},
-            "reused": [r["leg"] + "@" + r["arch"] for r in results],
+            "reused": [r["leg"] + "@" + r["arch"] for r in results if r["verdict"] == "REUSED"],
+            "owed": [r["leg"] + "@" + r["arch"] for r in results if r["verdict"] == "OWED"],
             # A dry run, or one limited by --legs or --arch, is not a release verdict.
             "partial": bool(args.legs or args.arch or args.dry_run or args.record_lever
                        or args.record_full),
@@ -856,7 +1077,7 @@ def main() -> int:
             "pid": os.getpid(), "host": socket.gethostname()}
     (args.out / "plan.json").write_text(json.dumps(plan, indent=1))
     print(f"gate {sha[:12]}: {sum(len(q) for q in todo.values())} legs to run, "
-          f"{len(results)} reused, archs {archs}, {len(workers)} cards")
+          f"{len(plan['reused'])} reused, {len(plan['owed'])} owed, archs {archs}, {len(workers)} cards")
     if args.dry_run:
         for a, q in todo.items():
             print(f"  {a}: " + " ".join(lg.name for lg in q))
@@ -866,6 +1087,12 @@ def main() -> int:
     execute = make_executor(sha, args.out, ledger, keys, f"out-{sha[:12]}/{args.out.name}")
     # Card-free legs run one at a time on the first host, as a worker without a card, so they
     # also stand aside while a timed leg holds that host quiet.
+    # Started in the background by a non-interactive shell, SIGINT arrives ignored and the
+    # cleanup below never ran; SIGTERM never reached it at all. Both stop the runner the same way.
+    def _stop(*_):
+        raise KeyboardInterrupt
+    signal.signal(signal.SIGINT, _stop)
+    signal.signal(signal.SIGTERM, _stop)
     try:
         results += Gate(todo, workers + [(first[archs[0]], None)], timed, execute, args.out).run()
     except KeyboardInterrupt:

@@ -1,0 +1,24 @@
+# OpenDDE 1.2.0 example 1a14 (Fv), pocket: upstream examples/tfg/1a14/1a14_pocket.json.
+# Entity n is the n-th entry of `sequences`; copy k is the k-th id in its list.
+# tt-bio predict examples/tfg/1a14_pocket.yaml --model opendde-abag --use_tfg_guidance
+version: 1
+sequences:
+  - protein:    # entity 1
+      id: H
+      sequence: QVQLQQSGAELVKPGASVRMSCKASGYTFTNYNMYWVKQSPGQGLEWIGIFYPGNGDTSYNQKFKDKATLTADKSSNTAYMQLSSLTSEDSAVYYCARSGGSYRYDGGFDYWGQGTTVTV
+  - protein:    # entity 2
+      id: L
+      sequence: DIELTQTTSSLSASLGDRVTISCRASQDISNYLNWYQQNPDGTVKLLIYYTSNLHSEVPSRFSGSGSGTDYSLTISNLEQEDIATYFCQQDFTLPFTFGGGTAA
+  - protein:    # entity 3
+      id: N
+      sequence: RDFNNLTKGLCTINSWHIYGKDNAVRIGEDSDVLVTREPYVSCDPDECRFYALSQGTTIRGKHSNGTIHDRSQYRALISWPLSSPPTVYNSRVECIGWSSTSCHDGKTRMSICISGPNNNASAVIWYNRRPVTEINTWARNILRTQESECVCHNGVCPVVFTDGSATGPAETRIYYFKEGKILKWEPLAGTAKHIEECSCYGERAEITCTCRDNWQGSNRPVIRIDPVAMTHTSQYICSPVLTDNPRPNDPTVGKCNDPYPGNNNNGVKGFSYLDGVNTWLGRTISIASRSGYEMLKVPNALTDDKSKPTQGQTIVLNTDWSGYSGSFMDYWAEGECYRACFYVELIRGRPKEDKVWWTSNSIVSMCSSTEFLGQWDWPDGAKIEYFL
+constraint:
+  movable_chains: [H, L]
+  epitope:
+    residues:
+      - {entity: 3, copy: 1, position: 248, residue: "P"}
+      - {entity: 3, copy: 1, position: 249, residue: "N"}
+      - {entity: 3, copy: 1, position: 318, residue: "N"}
+      - {entity: 3, copy: 1, position: 321, residue: "W"}
+    paratope: all
+    min_fraction: 0.5

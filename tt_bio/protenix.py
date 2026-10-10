@@ -2059,14 +2059,14 @@ class ConfidenceHead:
         confs = []
         for c in coords:
             logits = self._confidence_device_logits(s_inputs, s_trunk, z_base_dev, c, feats)
-            reads = [ttnn.from_device(t) for t in logits]
+            reads = [hostlane.read(t) for t in logits]
             for t in logits:
                 ttnn.deallocate(t)
             confs.append(hostlane.submit(self._postprocess_read, reads, feats))
         return [f.result() for f in confs]
 
     def _postprocess_read(self, reads, feats):
-        """`_postprocess` of one sample's logits as `from_device` returned them."""
+        """`_postprocess` of one sample's logits as `hostlane.read` returned them."""
         pae, pde, plddt = (torch.Tensor(h.to_torch()).float() for h in reads)
         N = pae.shape[-2]
         return self._postprocess(pae.reshape(N, N, -1), pde.reshape(N, N, -1),
@@ -2143,22 +2143,24 @@ class ConfidenceHead:
         Identical to the tail of confidence() so device/host paths share it."""
         import torch
 
-        def _expected(logits, max_a=32.0):
-            nb = logits.shape[-1]
-            centers = (torch.arange(nb, dtype=torch.float32) + 0.5) * (max_a / nb)
-            return (torch.softmax(logits, -1) * centers).sum(-1)
-        pae = _expected(pae_logits)
-        pde = _expected(pde_logits)
-        ptm, iptm = self._ptm_iptm(pae_logits, feats.get("asym_id"))
-        nb = plddt_logits.shape[-1]
-        plddt_atom = (torch.softmax(plddt_logits, -1) * ((torch.arange(nb, dtype=torch.float32) + 0.5) / nb)).sum(-1)
+        def _expected(probs, max_a=32.0):
+            nb = probs.shape[-1]
+            return probs @ ((torch.arange(nb, dtype=torch.float32) + 0.5) / nb * max_a)
+        # One softmax of the pae logits feeds pae, pTM/ipTM and the chain keys, and every bin
+        # reduction is a matmul: the broadcast multiply-sum and the (N,N,nb) subsets cost ~1 s
+        # per c730 sample on the host, which the chip waited for after its last sample.
+        probs = torch.softmax(pae_logits.float(), -1)
+        pae = _expected(probs)
+        pde = _expected(torch.softmax(pde_logits.float(), -1))
+        ptm, iptm = self._ptm_iptm(pae_logits, feats.get("asym_id"), probs=probs)
+        plddt_atom = _expected(torch.softmax(plddt_logits.float(), -1), 1.0)
         out = {"plddt": float(plddt_atom.mean()), "plddt_atom": plddt_atom, "pae": pae, "pde": pde,
                "ptm": ptm, "iptm": iptm}
-        out.update(self._chain_confidence(pae_logits, feats.get("asym_id")))
+        out.update(self._chain_confidence(pae_logits, feats.get("asym_id"), probs=probs))
         return out
 
     @staticmethod
-    def _ptm_iptm(pae_logits, asym_id, max_a: float = 32.0, has_frame=None):
+    def _ptm_iptm(pae_logits, asym_id, max_a: float = 32.0, has_frame=None, probs=None):
         """Predicted TM-score (pTM) and interface pTM (ipTM) from the PAE bin logits,
         the standard AlphaFold formula. pTM = max over alignment frame i of the mean
         predicted TM to all tokens j; ipTM restricts j to *other* chains (via asym_id).
@@ -2182,16 +2184,19 @@ class ConfidenceHead:
         ``compute_ptm`` in float64 (``perf/of3t_d10_d107/d10_rule_vs_upstream.py``). With
         eight frameless tokens in that same complex the mask is worth 3.853e-03 on pTM and
         reorders the samples.
+
+        ``probs`` is ``softmax(pae_logits)`` when the caller already has it.
         """
         import torch
 
         N, _, nb = pae_logits.shape
         centers = (torch.arange(nb, dtype=torch.float32) + 0.5) * (max_a / nb)
-        probs = torch.softmax(pae_logits.float(), -1)                       # (N,N,nb)
+        if probs is None:
+            probs = torch.softmax(pae_logits.float(), -1)                   # (N,N,nb)
         n = max(N, 19)
         d0 = 1.24 * (n - 15) ** (1.0 / 3.0) - 1.8
         tm_per_bin = 1.0 / (1.0 + (centers / d0) ** 2)                      # (nb,)
-        e_tm = (probs * tm_per_bin).sum(-1)                                 # (N,N) E[TM] per pair
+        e_tm = probs @ tm_per_bin                                           # (N,N) E[TM] per pair
         frame = (None if has_frame is None else
                  has_frame.reshape(-1).bool().to(e_tm.device))
         if frame is not None and frame.numel() != N:
@@ -2224,7 +2229,8 @@ class ConfidenceHead:
         return round(ptm, 6), round(iptm, 6)
 
     @staticmethod
-    def _chain_confidence(pae_logits, asym_id, max_a: float = 32.0, centers=None, has_frame=None):
+    def _chain_confidence(pae_logits, asym_id, max_a: float = 32.0, centers=None, has_frame=None,
+                          probs=None):
         """The chain-level confidence keys, protenix's `calculate_chain_based_ptm`.
 
         `chain_ptm[c]` is pTM computed inside chain c alone, so its TM normalisation uses that
@@ -2252,6 +2258,7 @@ class ConfidenceHead:
         the frame mask their global pTM/ipTM take the max over: a token without an alignment
         frame (an atomized ligand atom that fails the angle test) cannot win a row max here
         either. None means every token has a frame, which holds for standard residues.
+        ``probs`` is ``softmax(pae_logits)`` when the caller already has it.
         """
         import torch
 
@@ -2264,15 +2271,23 @@ class ConfidenceHead:
         nb = pae_logits.shape[-1]
         if centers is None:
             centers = (torch.arange(nb, dtype=torch.float32) + 0.5) * (max_a / nb)
-        probs = torch.softmax(pae_logits.float(), -1)
+        if probs is None:
+            probs = torch.softmax(pae_logits.float(), -1)
         frame = (torch.ones(a.numel(), dtype=torch.bool) if has_frame is None
                  else has_frame.bool().reshape(-1))
 
+        # E[TM] depends on a subset only through its token count (the TM normalisation), so the
+        # bins are reduced once per distinct count over the whole (N,N), and each subset slices
+        # the (N,N) result: nb times less to copy than slicing the probabilities.
+        e_tm = {}
+
         def pair_tm(mask):
             """E[TM] per token pair, restricted to `mask` and normalised on its own count."""
-            sub = probs[mask][:, mask]
-            d0 = 1.24 * (max(int(mask.sum()), 19) - 15) ** (1.0 / 3.0) - 1.8
-            return (sub * (1.0 / (1.0 + (centers / d0) ** 2))).sum(-1)
+            n = max(int(mask.sum()), 19)
+            if n not in e_tm:
+                d0 = 1.24 * (n - 15) ** (1.0 / 3.0) - 1.8
+                e_tm[n] = probs @ (1.0 / (1.0 + (centers / d0) ** 2))
+            return e_tm[n][mask][:, mask]
 
         def row_max(row, mask):
             # Zeroing a frameless row is upstream's form; E[TM] >= 0, so it cannot win.
@@ -3017,6 +3032,27 @@ class Protenix:
         return coords
 
 
+def msa_cycle_rows(msa, n_cycles, depth, generator):
+    """Per recycling cycle, the alignment rows OpenDDE's MSAModule reads (opendde
+    model/msa_sampling.py subsample_msa_feature_dict_valid_first): rows holding any non-gap token
+    in random order, then all-gap rows in random order, the first `depth` of them; one fresh draw
+    per cycle from `generator`. msa: [depth_total, tokens] token ids, real columns only. None
+    when the whole alignment fits, where a draw would only reorder rows the module sums over."""
+    import torch
+    if msa.shape[0] <= depth:
+        return None
+    valid = (msa != 31).any(-1)
+    v_idx, i_idx = valid.nonzero().squeeze(-1), (~valid).nonzero().squeeze(-1)
+    out = []
+    for _ in range(n_cycles):
+        pick = v_idx[torch.randperm(v_idx.numel(), generator=generator)][:depth]
+        if pick.numel() < depth:
+            extra = i_idx[torch.randperm(i_idx.numel(), generator=generator)][:depth - pick.numel()]
+            pick = torch.cat([pick, extra])
+        out.append(pick)
+    return out
+
+
 def trunk_recycles(state_dict):
     """Recycling count this checkpoint was trained for, read off the checkpoint.
 
@@ -3389,13 +3425,16 @@ class Trunk(_KeyedWeights):
                     pm_pad=pm_pad, at_pad=at_pad, nt=nt,
                     te_at=[self._host_cast(t.unsqueeze(0)) for t in te_at], ms=ms)
 
-    def __call__(self, feat, s_inputs, relp, token_bonds, progress_fn=None, n_cycles=None, host=None):
+    def __call__(self, feat, s_inputs, relp, token_bonds, progress_fn=None, n_cycles=None, host=None,
+                 msa_sample=None):
         """feat: dict with template_* / msa / has_deletion / deletion_value / asym_id (host
         tensors). s_inputs (N,449), relp (N,N,139), token_bonds (N,N) host. n_cycles is the
         number of recycling iterations (default: the checkpoint's own, via trunk_recycles --
         10 for protenix-v2/OpenDDE, 4 for the v0.5.0 lineage). `host` is `host_inputs` of the
         same feat, relp and token_bonds, already built (fold() builds it on the host lane while
-        the chip runs the input embedder); None builds it here. Returns
+        the chip runs the input embedder); None builds it here. msa_sample=(depth, generator)
+        gives every cycle its own random `depth` alignment rows, as OpenDDE's MSAModule does
+        (see msa_cycle_rows); None feeds the whole alignment to every cycle. Returns
         (s_trunk (N,384), z_trunk (1,N,N,256)) as ttnn tensors."""
         import torch
         import torch.nn.functional as F
@@ -3432,15 +3471,19 @@ class Trunk(_KeyedWeights):
         # m_feat stays on the chip (`_msa_keep_bytes`) unless a cycle is refused.
         s_m = self._lin(self._up(s_inputs), "msa_module.linear_no_bias_s.weight")
         m_key = (N, ms.shape[1] * N * self._w["msa_module.linear_no_bias_m.weight"].shape[0] * 2)
-        m_feat = msa_embed(ms, lambda x: ttnn.add(
-            self._lin(x, "msa_module.linear_no_bias_m.weight"), s_m), keep=_msa_keep_bytes(*m_key))
-        ttnn.deallocate(s_m)
-        dram_peak(f"trunk m_feat built [{tuple(m_feat.shape)} {m_feat.dtype}]")
+        m_proj = lambda x: ttnn.add(self._lin(x, "msa_module.linear_no_bias_m.weight"), s_m)
+        n_cycles = self.N_CYCLES if n_cycles is None else n_cycles
+        # The embedding is per alignment row, so embedding a cycle's rows equals picking them out
+        # of the embedded whole; only the picked rows are ever built.
+        rows = None if msa_sample is None else msa_cycle_rows(feat["msa"][:, :n_real], n_cycles, *msa_sample)
+        if rows is None:
+            m_feat = msa_embed(ms, m_proj, keep=_msa_keep_bytes(*m_key))
+            ttnn.deallocate(s_m)
+            dram_peak(f"trunk m_feat built [{tuple(m_feat.shape)} {m_feat.dtype}]")
         z3 = ttnn.reshape(ttnn.mul(z_init, 0.0), (1, N, N, self.C_Z))
         # Both are read once per cycle and never written, so past 1 GiB they wait on the host.
         z_init, tpl_a = host_park(z_init), host_park(tpl_a)
         s = ttnn.mul(s_init, 0.0)
-        n_cycles = self.N_CYCLES if n_cycles is None else n_cycles
 
         def cycle(cyc, carry, m_feat):
             # Unpacked and cleared, so the cycle's input pair dies at its first rebind exactly as
@@ -3489,6 +3532,12 @@ class Trunk(_KeyedWeights):
             with ops.recycle_region(cyc, n_cycles - 1):
                 if progress_fn:
                     progress_fn("trunk", step=cyc, total=n_cycles)
+                if rows is not None:
+                    m_c = msa_embed(ms[:, rows[cyc]], m_proj)
+                    carry = cycle(cyc, carry, m_c)
+                    if not torch.is_tensor(m_c):
+                        ttnn.deallocate(m_c)
+                    continue
                 if torch.is_tensor(m_feat):
                     carry = cycle(cyc, carry, m_feat)
                     continue
@@ -3515,6 +3564,8 @@ class Trunk(_KeyedWeights):
                 gc.collect()
                 carry, inputs = cycle(cyc, inputs, m_feat), None
         z3, s = carry
+        if rows is not None:
+            ttnn.deallocate(s_m)
         for t in [z_init, *tpl_a]:
             if t.storage_type() == ttnn.StorageType.DEVICE:
                 ttnn.deallocate(t)
@@ -3612,7 +3663,7 @@ def step_scale_schedule(step_scale, n_step):
 def edm_sample(diffusion_module, cond, n_atoms, *, multiplicity=1, max_parallel_samples=None,
                member_seeds=None, n_step=200, gamma0=0.8, gamma_min=1.0,
                noise_scale=1.003, step_scale=1.5, sigma_data=16.0, s_max=160.0, s_min=4e-4,
-               rho=7.0, seed=None, trace=False, progress_fn=None, dump_fn=None):
+               rho=7.0, seed=None, trace=False, progress_fn=None, dump_fn=None, guidance=None):
     """AF3 EDM ancestral sampler for Protenix-v2 (same family as Boltz-2's
     AtomDiffusion.sample; reuses tt_bio.boltz2.compute_random_augmentation). Produces
     atom coords by iteratively denoising from noise with diffusion_module.denoise.
@@ -3640,6 +3691,10 @@ def edm_sample(diffusion_module, cond, n_atoms, *, multiplicity=1, max_parallel_
     draw but is statistically equivalent; the fold lands in the same basin within the
     seed-to-seed noise floor (PCC parity, the established diffusion-leg bar). This matches
     boltz2.AtomDiffusion.sample, which also uses one stream for its multiplicity batch.
+
+    guidance (tt_bio.tfg.Guidance) replaces the Euler update of each step with its own
+    ``step``, which may correct the denoised estimate and the sampled state (OpenDDE's
+    constraint guidance). None leaves every step exactly as it was.
 
     step_scale (eta) is a float by default; PXDesign passes upstream's schedule dict
     ({"type": "piecewise_65", "min": 1.0, "max": 2.5}) -- see step_scale_schedule.
@@ -3712,6 +3767,8 @@ def edm_sample(diffusion_module, cond, n_atoms, *, multiplicity=1, max_parallel_
     # A multi-target batch concatenates its conditioning per member, so a chunk would slice
     # the coordinate stream but not the conditioning: it runs whole or not at all.
     narrowest = M if "_members" in cond else 1
+    if guidance is not None and "_members" in cond:
+        raise ValueError("guidance belongs to one target; fold guided targets one at a time")
     for k in range(n_step):
         if progress_fn:
             progress_fn("diffusion", step=k, total=n_step)
@@ -3740,8 +3797,12 @@ def edm_sample(diffusion_module, cond, n_atoms, *, multiplicity=1, max_parallel_
             narrowest=narrowest, tag="protenix diffusion")
         dram_peak(f"edm step {k}")
         trunk_tap_host(f"edm_denoised[step{k}]", denoised)
-        d = (x_noisy - denoised) / t_hat
-        x = x_noisy + etas[k] * (sigma_t - t_hat) * d
+        if guidance is None:
+            d = (x_noisy - denoised) / t_hat
+            x = x_noisy + etas[k] * (sigma_t - t_hat) * d
+        else:
+            x = guidance.step(x_noisy, denoised, t_hat=t_hat, sigma_t=sigma_t, eta=etas[k],
+                              step=k, n_step=n_step)
         trunk_tap_host(f"edm_x[step{k}]", x)
         if dump_fn is not None:                      # per-step coords (noise -> structure)
             for _m in range(M):

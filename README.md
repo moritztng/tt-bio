@@ -70,7 +70,7 @@ On a host without a Tenstorrent card, plain `pip install tt-bio` is enough: the 
 ### From GitHub / source
 Pin to a tagged release, track nightly `main` (may be untested), or work from an editable clone:
 ```bash
-pip install "tt-bio[tenstorrent] @ git+https://github.com/moritztng/tt-bio.git@v0.13.1"   # pinned release, see Releases for the latest
+pip install "tt-bio[tenstorrent] @ git+https://github.com/moritztng/tt-bio.git@v0.14.0"   # pinned release, see Releases for the latest
 pip install "tt-bio[tenstorrent] @ git+https://github.com/moritztng/tt-bio.git@main"     # nightly
 # or
 git clone https://github.com/moritztng/tt-bio.git
@@ -144,7 +144,7 @@ Every command names its model with `--model`:
 - **`openbind`**: OpenBind-0, the same OpenFold3 stack on upstream's v0.5.0 checkpoint, tuned for protein-ligand co-folding. Takes ligands by SMILES or CCD code alongside protein, RNA and DNA chains; MSA-dependent (uses an MSA by default), with optional templates, as a structure file or a precomputed alignment (see [Templates](#templates)). Cyclic peptides, modified residues and covalent bonds to a ligand or modified residue are supported; a bond between two standard residues (a disulfide) is refused. Weights are a separate file from `openfold3` and also download on first use.
 - **`saprot`**: structure-aware protein embeddings, an ESM-2 encoder over a fused amino-acid + Foldseek-3Di vocabulary (446 tokens). Needs a structure for the 3Di structural tokens (`--structure`); runs sequence-only without it. Use for variant-effect / mutation-fitness scoring and function prediction.
 - **`nesso1`** (`tt-bio affinity`): protein-ligand binding affinity without a structure. Predicts a soft distogram and reads the affinity off that, so it is much cheaper than folding and it returns no coordinates. Proteins and ligands only.
-- **`opendde`** / **`opendde-abag`**: antibody-antigen co-folding built on the Protenix-v2 stack plus a structural-token expander; `opendde-abag` selects the antibody-antigen checkpoint. Protein, RNA, DNA and ligand chains, with covalent `bond` constraints, cyclic peptides, modified residues and templates in either form (see [Templates](#templates)). Proteins are MSA-dependent (uses an MSA by default, like Protenix-v2). `opendde-abag` matches the upstream checkpoint on the standard 1AHW antibody-antigen target; both implementations perform poorly on 9DSG.
+- **`opendde`** / **`opendde-abag`**: antibody-antigen co-folding built on the Protenix-v2 stack plus a structural-token expander; `opendde-abag` selects the antibody-antigen checkpoint. Protein, RNA, DNA and ligand chains, with covalent `bond` constraints, cyclic peptides, modified residues and templates in either form (see [Templates](#templates)). Proteins are MSA-dependent (uses an MSA by default, like Protenix-v2). `opendde-abag` matches the upstream checkpoint on the standard 1AHW antibody-antigen target; both implementations perform poorly on 9DSG. With `--use_tfg_guidance`, a `constraint:` block (known contacts or an epitope) steers the antibody as a rigid body during sampling, as OpenDDE 1.2.0 does; see [Constraint-guided sampling](docs/constraint-guidance.md).
 - **`af2ig`**: AlphaFold2 initial-guess, the filter binder-design pipelines use to tell a real design from a plausible one. It takes a design you already have (a structure carrying the target chain and the binder backbone, plus the binder's sequence), re-predicts the complex starting from those coordinates, and reports pLDDT, pTM, ipTM, pAE and interface pAE. Single-sequence, no diffusion, no seed: the same input gives the same answer. Input format and an example are in [`examples/af2_designed_complex.yaml`](examples/af2_designed_complex.yaml); the file takes `target:` and `binder:` and nothing else, and any other key is refused rather than ignored. Weights are DeepMind's AlphaFold2 monomer pTM parameters; `tt-bio weights --download af2ig` fetches them (4 GB, one file kept).
 - **`rf3`**: folds complexes of proteins, RNA, DNA, and ligands (an AlphaFold3-family model, [RoseTTAFold3](https://github.com/RosettaCommons/foundry) from the Institute for Protein Design); MSA-dependent for proteins (uses an MSA by default). Writes AlphaFold3-style `<name>_summary_confidences.json` (pTM, ipTM, chain-pair PAE/PDE, ranking score) next to each structure. Modified residues and covalent bonds to a ligand or modified residue are supported; cyclic chains, a bond between two standard residues (a disulfide) and pocket constraints are refused. Templates work in either form (see [Templates](#templates)). Weights download from the IPD on first use.
 
@@ -156,6 +156,7 @@ tt-bio predict examples/prot.yaml --model protenix-v1   # upstream's v0.5.0 base
 tt-bio predict examples/prot.fasta --model openfold3    # MSA on by default
 tt-bio predict examples/affinity.yaml --model openbind  # protein + ligand co-fold
 tt-bio predict examples/9dsg_abag.yaml --model opendde-abag   # antibody-antigen co-fold, MSA on by default
+tt-bio predict examples/tfg/1a14_contact.yaml --model opendde-abag --use_tfg_guidance   # known contacts guide the pose
 tt-bio predict examples/prot.yaml --model rf3            # MSA on by default; weights fetch from the IPD
 tt-bio predict examples/prot.yaml --model rf3 \
     --partial_t 150 --partial_structure start.cif       # refine start.cif instead of folding from scratch
@@ -299,7 +300,7 @@ ESMFold2 needs no MSA and uses one when a source is given.
 
 For Protenix, `--diffusion_precision bf16` is the faster setting to reach for: about 9 % per fold on Wormhole. On most complexes the structures match fp32 closely, but where the binding mode is uncertain it can rank a different one first. See [`docs/protenix-diffusion-precision.md`](docs/protenix-diffusion-precision.md).
 
-Protenix-v2 folds a 730-token complex (deep MSA, 5 samples, 10 recycles) in about 259 s on one Wormhole chip, 1.9x faster than before, and in about 119 s on a Blackhole p150a, with structures inside seed-to-seed variation on both; [`docs/tuning-flags.md`](docs/tuning-flags.md#tt_bio_levers) has the grade and the switch back to the reference numerics. With `--fast` the same fold takes about 209 s on Wormhole and 100 s on Blackhole. That costs about 0.004 CA-lDDT against the default on Wormhole (11 complexes x 24 seeds) and 0.003 on Blackhole, where docking success is unchanged.
+Protenix-v2 folds a 730-token complex (deep MSA, 5 samples, 10 recycles) in about 252 s on one Wormhole chip, 2x faster than before, and in about 119 s on a Blackhole p150a, with structures inside seed-to-seed variation on both; [`docs/tuning-flags.md`](docs/tuning-flags.md#tt_bio_levers) has the grade and the switch back to the reference numerics. With `--fast` the same fold takes about 201 s on Wormhole and 100 s on Blackhole. That costs about 0.004 CA-lDDT against the default on Wormhole (11 complexes x 24 seeds) and 0.003 on Blackhole, where docking success is unchanged.
 
 ### Many Inputs and Cards
 
@@ -588,7 +589,7 @@ properties:
 
 ### Constraints
 
-Pocket and contact constraints are **Boltz-2 only** (they need a trained constraint embedder). A covalent `bond` to a ligand or a modified residue works on every structure model that takes the ligand. A bond between two standard residues (a disulfide) works on Boltz-2, ESMFold2, Protenix and OpenDDE; RF3 and the OpenFold3 family refuse it by name.
+Boltz-2's `pocket` and `contact` constraints are **Boltz-2 only** (they need a trained constraint embedder). OpenDDE takes upstream's own `constraint:` block instead (contact pairs or an epitope, applied at sampling time with `--use_tfg_guidance`); see [docs/constraint-guidance.md](docs/constraint-guidance.md). A covalent `bond` to a ligand or a modified residue works on every structure model that takes the ligand. A bond between two standard residues (a disulfide) works on Boltz-2, ESMFold2, Protenix and OpenDDE; RF3 and the OpenFold3 family refuse it by name.
 
 **Pocket Constraints** (binding site):
 ```yaml

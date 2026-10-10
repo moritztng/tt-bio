@@ -48,13 +48,16 @@ FEATURES: dict[str, tuple[str, str]] = {
     "pocket": ("a `pocket`/`contact` constraint",
                "the fold would ignore the binding constraint"),
     "affinity": ("`properties: affinity`", "no affinity value is written"),
+    "constraint": ("a `constraint:` block (contact pairs or an epitope for guided sampling)",
+                   "the fold would ignore the constraint"),
 }
 
 _ALL_HONOURED = dict.fromkeys(FEATURES, HONOURED)
 
 
 def _row(**overrides) -> dict[str, str]:
-    return {**_ALL_HONOURED, **overrides}
+    # `constraint:` is OpenDDE 1.2.0's guided-sampling input; only the OpenDDE rows honour it.
+    return {**_ALL_HONOURED, "constraint": REFUSED, **overrides}
 
 
 #: --model -> feature -> verdict. Every id in ``main.PREDICT_MODELS`` needs a row; the
@@ -97,8 +100,10 @@ CAPABILITY: dict[str, dict[str, str]] = {
     "protenix-v1": _row(cyclic=REFUSED, templates=REFUSED, template_structure=REFUSED,
                         pocket=REFUSED, affinity=NOTED),
     "protenix-v2": _row(pocket=REFUSED, affinity=NOTED),
-    "opendde": _row(pocket=REFUSED, affinity=NOTED),
-    "opendde-abag": _row(pocket=REFUSED, affinity=NOTED),
+    # OpenDDE's own `constraint:` (contact pairs, epitope) steers its sampler under
+    # --use_tfg_guidance (tt_bio/tfg); Boltz-2's `constraints: pocket/contact` it cannot read.
+    "opendde": _row(pocket=REFUSED, affinity=NOTED, constraint=HONOURED),
+    "opendde-abag": _row(pocket=REFUSED, affinity=NOTED, constraint=HONOURED),
     # Ligands stay refused for OF3-preview2 and honoured for OpenBind, the checkpoint
     # upstream trained for co-folding. Templates are opt-in, in either form; there is no
     # template search. `cyclic: true` is upstream's relpos wrap (cyclic_mask); a `bond`
@@ -244,6 +249,9 @@ FLAG_READERS: dict[str, tuple[str, ...]] = {
     "--max_msa_seqs": ("boltz2", "esmfold2", "esmfold2-fast", "openfold3", "openbind",
                        "protenix-v1", "protenix-v2", "opendde", "opendde-abag", "rf3"),
     "--diffusion_precision": ("protenix-v1", "protenix-v2"),
+    # OpenDDE 1.2.0's constraint guidance and its trunk cache (tt_bio/tfg, tt_bio.cache).
+    "--use_tfg_guidance": ("opendde", "opendde-abag"),
+    "--trunk_cache": ("opendde", "opendde-abag"),
 }
 
 #: (flag, model) -> why that model does not read it, when the generic line is not the reason.
@@ -262,6 +270,10 @@ FLAG_WHY: dict[tuple[str, str], str] = {
                                  "depth to cap",
     **{("--diffusion_precision", m): "only Protenix's diffusion precision is selectable per run"
        for m in CAPABILITY if m not in ("protenix-v1", "protenix-v2")},
+    **{("--use_tfg_guidance", m): "constraint guidance is wired into OpenDDE's sampler only"
+       for m in CAPABILITY if m not in ("opendde", "opendde-abag")},
+    **{("--trunk_cache", m): "the trunk cache is wired into OpenDDE only"
+       for m in CAPABILITY if m not in ("opendde", "opendde-abag")},
 }
 
 
@@ -354,6 +366,8 @@ def detect(path, chains=None) -> dict[str, str]:
                     "/".join(str(x) for x in a) for a in ends))
         elif "pocket" in c or "contact" in c:
             found.setdefault("pocket", "constraints")
+    if doc.get("constraint"):
+        found["constraint"] = "constraint"
     binders = [str(pr["affinity"].get("binder")) for pr in (doc.get("properties") or [])
                if isinstance(pr, dict) and isinstance(pr.get("affinity"), dict)]
     if binders:
@@ -415,6 +429,7 @@ DOC_COLUMNS: tuple[tuple[str, str], ...] = (
     ("polymer_bond", "residue-residue bond"),
     ("pocket", "pocket/contact"),
     ("affinity", "affinity"),
+    ("constraint", "guided constraint"),
 )
 
 _MARK = {HONOURED: "yes", REFUSED: "refused", NOTED: "ignored, warns"}

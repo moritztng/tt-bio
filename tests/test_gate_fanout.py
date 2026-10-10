@@ -1,6 +1,7 @@
 """gate_fanout.py: leg split, result keys, reuse, scheduling and verdict, all card-free."""
 import importlib.util
 import json
+import shlex
 import subprocess
 import sys
 import threading
@@ -114,6 +115,7 @@ def test_key_moves_with_code_env_card_and_argv_not_with_markdown(tmp_path):
     git("add", "."), git("commit", "-qm", "8")
     assert gf.content_hash("HEAD", tmp_path) != c6          # any other perf/ file: new key
     c8, l8 = gf.content_hash("HEAD", tmp_path), gf.baseline_hash("HEAD", "ladder", tmp_path)
+    b8, o8 = (gf.baseline_hash("HEAD", "ladder", tmp_path, model=m) for m in ("boltz2", "other"))
     p8 = gf.baseline_hash("HEAD", "perf", tmp_path)
     (tmp_path / "docs" / "size_ladder_baseline.d").mkdir(parents=True)
     (tmp_path / "docs" / "size_ladder_baseline.d" / "boltz2.json").write_text("{}\n")
@@ -121,10 +123,41 @@ def test_key_moves_with_code_env_card_and_argv_not_with_markdown(tmp_path):
     assert gf.content_hash("HEAD", tmp_path) == c8          # a re-recorded baseline: same code key,
     assert gf.baseline_hash("HEAD", "ladder", tmp_path) != l8  # a new key for the ladder legs only
     assert gf.baseline_hash("HEAD", "perf", tmp_path) == p8
+    assert gf.baseline_hash("HEAD", "ladder", tmp_path, model="boltz2") != b8   # that model's leg reruns,
+    assert gf.baseline_hash("HEAD", "ladder", tmp_path, model="other") == o8    # another model's does not
     assert gf.content_hash("HEAD", tmp_path, baselines=True) != c8
+    (tmp_path / "scripts").mkdir()
+    (tmp_path / "scripts" / "gate_fanout.py").write_text("# runner fix\n")
+    git("add", "."), git("commit", "-qm", "10")
+    assert gf.content_hash("HEAD", tmp_path) == c8          # a fix to this runner: same key
+    (tmp_path / "scripts" / "flock_first.sh").write_text("# how a leg waits for its card\n")
+    git("add", "."), git("commit", "-qm", "10b")
+    assert gf.content_hash("HEAD", tmp_path) == c8          # so is a fix to the card wait,
+    assert gf.content_hash("HEAD", tmp_path, runner=gf.RUNNER_FILES_0) != c8  # once part of the key
+
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "tests" / "test_only_pytest.py").write_text("def test_a(): pass\n")
+    (tmp_path / "tests" / "test_loaded.py").write_text("def test_b(): pass\n")
+    (tmp_path / "scripts" / "gate.py").write_text("load('tests/test_loaded.py')\n"
+                                                  "# covered by tests/test_only_pytest.py\n")
+    (tmp_path / "scripts" / "run.sh").write_text("pytest tests/test_only_pytest.py\n")
+    git("add", "."), git("commit", "-qm", "11")
+    c11 = gf.content_hash("HEAD", tmp_path)
+    t11 = gf.tests_hash("HEAD", "pytest_device", tmp_path)
+    assert gf.test_only("HEAD", tmp_path) == {"tests/test_only_pytest.py"}
+    assert gf.tests_hash("HEAD", "parity", tmp_path) == ""
+    (tmp_path / "tests" / "test_only_pytest.py").write_text("def test_a(): assert 1\n")
+    git("commit", "-qam", "12")
+    assert gf.content_hash("HEAD", tmp_path) == c11         # a test fix: same code key,
+    assert gf.tests_hash("HEAD", "pytest_device", tmp_path) != t11  # the pytest legs rerun
+    assert gf.content_hash("HEAD", tmp_path, tests=True) != gf.content_hash("HEAD~", tmp_path, tests=True)
+    (tmp_path / "tests" / "test_loaded.py").write_text("def test_b(): assert 1\n")
+    git("commit", "-qam", "13")
+    assert gf.content_hash("HEAD", tmp_path) != c11         # a test a gate script loads is code
 
     leg = _legs()[3]
     k = gf.leg_key(c1, "env", "p150a", leg)
+    assert k == gf.leg_key(c1, "env", "p150a", leg, "", "")   # an empty input keeps the old key
     assert k == gf.leg_key(c1, "env", "p150a", leg)
     assert k != gf.leg_key(c1, "env2", "p150a", leg)
     assert k != gf.leg_key(c1, "env", "tt-galaxy-wh-l", leg)
@@ -146,6 +179,26 @@ def test_parity_blocked_is_not_a_failure_but_a_scored_gap_is():
     assert gf.classify(leg, 1, {"legs": [{"verdict": "GAP"}]}) == "FAIL"
     assert gf.classify(leg, 0, {"legs": [{"verdict": "PASS"}]}) == "PASS"
     assert gf.classify(leg, 1, None) == "FAIL"
+
+
+def test_capacity_size_guard_refusal_passes_only_when_the_baseline_records_it():
+    leg = next(lg for lg in _legs() if lg.family == "capacity")
+    refused = {"model": "opendde", "verdict": "FAIL", "mechanism": "size_guard"}
+    report = {"counts": {"fail_like": 1}, "coverage_gaps": [], "results": [refused]}
+    recorded = {"opendde": {"verdict": "FAIL", "mechanism": "size_guard"}}
+    assert gf.classify(leg, 1, report, recorded) == "PASS"
+    assert gf.classify(leg, 1, report, {}) == "FAIL"
+    assert gf.classify(leg, 1, report, None) == "FAIL"
+    oom = {**refused, "mechanism": "dram_oom"}
+    assert gf.classify(leg, 1, {**report, "results": [oom]}, recorded) == "FAIL"
+    assert gf.classify(leg, 1, {**report, "coverage_gaps": ["x"]}, recorded) == "FAIL"
+
+
+def test_a_dropped_ssh_connection_is_not_a_leg_result():
+    assert gf.SSH_LOST.search("# leg\nssh: connect to host 192.168.178.70 port 22: No route to host\n")
+    assert gf.SSH_LOST.search("Timeout, server 192.168.178.70 not responding.\n")
+    assert gf.SSH_LOST.search("ssh_dispatch_run_fatal: Connection to 192.168.178.70 port 22: Broken pipe\n")
+    assert not gf.SSH_LOST.search("FAILED tests/test_x.py::test_ssh_connect_to_host\n")
 
 
 def _host(name, arch, tmp_path):
@@ -205,6 +258,97 @@ def test_ledger_roundtrip_and_history_takes_the_latest_wall(tmp_path):
     assert led.history() == {"ux:boltz2": 300}
 
 
+def test_a_first_host_takes_its_card_through_flock_first():
+    h = gf.Host("qb1", {"arch": "bh", "card_type": "p150a", "root": "/r", "first": True,
+                        "lock": "/l/card{card}.lock"}, "a" * 40)
+    leg = next(lg for lg in _legs() if lg.family == "parity")
+    assert "bash scripts/flock_first.sh /l/card3.lock env " in h.command(leg, 3, "/t/out/x")
+
+
+def test_flock_first_runs_ahead_of_a_waiter_and_continues_it_after_the_grace(tmp_path):
+    """A holder, then a foreign waiter, then the gate leg: the gate leg runs second, the waiter
+    is stopped meanwhile and continued once the grace passes with the card free."""
+    lock, order = tmp_path / "card.lock", tmp_path / "order"
+    lock.touch()
+    holder = subprocess.Popen(["flock", str(lock), "sleep", "3"])
+    time.sleep(0.3)
+    foreign = subprocess.Popen(["flock", str(lock), "sh", "-c", f"echo foreign >> {order}"])
+    time.sleep(0.3)
+    gate = subprocess.Popen(["bash", str(REPO / "scripts" / "flock_first.sh"), str(lock),
+                             "sh", "-c", f"echo gate >> {order}"], env={"FLOCK_FIRST_GRACE": "1", "PATH": "/usr/bin:/bin"})
+    time.sleep(1.5)
+    assert Path(f"{lock}.gate-stopped").read_text().split() == [str(foreign.pid)]
+    assert gate.wait(10) == 0 and holder.wait(10) == 0 and foreign.wait(15) == 0
+    assert order.read_text().split() == ["gate", "foreign"]
+    assert Path(f"{lock}.gate-stopped").read_text() == ""
+
+
+def test_flock_first_never_stops_another_gates_wait(tmp_path):
+    """Two gates on one card stopping each other's waits would both stay frozen."""
+    lock = tmp_path / "card.lock"
+    lock.touch()
+    holder = subprocess.Popen(["flock", str(lock), "sleep", "3"])
+    time.sleep(0.3)
+    other = subprocess.Popen(["bash", "-c", f'exec -a gate_fanout-wait flock -w 20 {lock} true'])
+    time.sleep(0.3)
+    gate = subprocess.Popen(["bash", str(REPO / "scripts" / "flock_first.sh"), str(lock), "true"],
+                            env={"FLOCK_FIRST_GRACE": "1", "PATH": "/usr/bin:/bin"})
+    time.sleep(1.5)
+    assert not Path(f"{lock}.gate-stopped").exists() or Path(f"{lock}.gate-stopped").read_text() == ""
+    assert holder.wait(10) == 0 and gate.wait(10) == 0 and other.wait(20) == 0
+
+def test_flock_first_frees_the_card_when_its_leg_ends(tmp_path):
+    """The grace keeps paused waiters paused; it must not keep the card locked."""
+    lock = tmp_path / "card.lock"
+    lock.touch()
+    assert subprocess.run(["bash", str(REPO / "scripts" / "flock_first.sh"), str(lock), "true"],
+                          env={"FLOCK_FIRST_GRACE": "5", "PATH": "/usr/bin:/bin"}).returncode == 0
+    assert subprocess.run(["flock", "-n", str(lock), "true"]).returncode == 0
+
+def test_perf_against_runs_the_timed_leg_against_the_last_release_tree():
+    h = gf.Host("qb1", {"arch": "bh", "card_type": "p150a", "root": "/r", "perf_against": "v0.13.1",
+                        "lock": "/l/card{card}.lock"}, "a" * 40)
+    perf = next(lg for lg in _legs() if lg.family == "perf")
+    assert h.leg(perf).argv[-2:] == ["--against", "/r/trees/v0.13.1"]
+    assert "--against" not in h.leg(next(lg for lg in _legs() if lg.family == "parity")).argv
+
+
+def test_a_dropped_ssh_handshake_is_retried_not_recorded(monkeypatch):
+    calls = []
+
+    def run(argv, **kw):
+        calls.append(argv)
+        err = "kex_exchange_identification: Connection closed by remote host" if len(calls) < 3 else ""
+        return subprocess.CompletedProcess(argv, 255 if err else 0, "ok", err)
+    monkeypatch.setattr(gf.subprocess, "run", run)
+    monkeypatch.setattr(gf.time, "sleep", lambda s: None)
+    h = gf.Host("g108", {"ssh": "10.0.0.8", "arch": "wh", "card_type": "x", "root": "/r"}, "a" * 40)
+    assert h.ssh("true", capture_output=True).returncode == 0 and len(calls) == 3
+
+
+def test_an_ssh_timeout_is_retried_and_never_raises(monkeypatch):
+    """qb1 off the LAN timed out a report fetch; the exception killed the worker thread and four
+    BH parity legs were never recorded (rel-59c374cf7-b, 10-10)."""
+    calls = []
+
+    def run(argv, **kw):
+        calls.append(argv)
+        if len(calls) < 3:
+            raise subprocess.TimeoutExpired(argv, kw.get("timeout"))
+        return subprocess.CompletedProcess(argv, 0, "{}", "")
+    monkeypatch.setattr(gf.subprocess, "run", run)
+    monkeypatch.setattr(gf.time, "sleep", lambda s: None)
+    h = gf.Host("qb1", {"ssh": "qb1", "arch": "bh", "card_type": "p", "root": "/r"}, "a" * 40)
+    assert h.ssh("cat r", capture_output=True, timeout=1).stdout == "{}" and len(calls) == 3
+    calls.clear()
+
+    def dark(argv, **kw):
+        calls.append(argv)
+        raise subprocess.TimeoutExpired(argv, 1)
+    monkeypatch.setattr(gf.subprocess, "run", dark)
+    assert h.ssh("cat r", capture_output=True, timeout=1).returncode == 255 and len(calls) == 6
+
+
 def test_every_family_has_a_budget_and_an_expectation():
     for lg in _legs():
         assert lg.budget > 0 and lg.family in gf.EXPECT
@@ -221,11 +365,42 @@ def test_command_pins_card_under_its_flock_and_substitutes_placeholders(tmp_path
     assert "localhost:2" in cmd and "/t/out/x/report.json" in cmd
     assert "RELEASE_GATE_SIZE_WORKDIR=/t/out/x/sizegate-work" in cmd
     assert "/r/venv-aaaaaaaaaaaa/bin/python scripts/full_parity_gate.py" in cmd
-    free = h.command(next(lg for lg in _legs() if lg.name == "pytest_cpu"), None, "/t/out/y")
+    free = shlex.split(h.command(next(lg for lg in _legs() if lg.name == "pytest_cpu"), None, "/t/out/y"))[-1]
     assert "flock" not in free and "TT_VISIBLE_DEVICES='' " in free
     assert "/r/venv312-aaaaaaaaaaaa/bin/python -m pytest" in free
     bc2 = h.command(next(lg for lg in _legs() if lg.family == "bc2"), 1, "/t/out/z")
     assert "PYTHONPATH=/bc2 " in bc2 and "/r/trees" not in bc2.split("&&")[-1].split("bash -c")[0]
+
+
+def test_a_rerun_ends_the_attempt_it_replaces(tmp_path):
+    """A dropped connection leaves the remote attempt waiting on the card; the rerun must end
+    it, leg and all, or the leg runs twice into one directory."""
+    tree = tmp_path / "trees" / ("a" * 12)
+    (tree / "scripts").mkdir(parents=True)
+    (tree / "scripts" / "flock_first.sh").write_text((REPO / "scripts" / "flock_first.sh").read_text())
+    h = gf.Host("h", {"arch": "bh", "card_type": "p", "root": str(tmp_path), "first": True,
+                      "lock": str(tmp_path / "card{card}.lock")}, "a" * 40)
+    out = tmp_path / "out"
+    cmd = h.command(gf.Leg("x", ["sleep", "57"], "parity"), 0, str(out))
+    first = subprocess.Popen(["bash", "-c", cmd])
+    pidf = out / "attempt.pid"
+    deadline = time.time() + 20
+    while not (pidf.exists() and subprocess.run(["pgrep", "-s", pidf.read_text().strip(), "-x", "sleep"],
+                                                 capture_output=True).returncode == 0):
+        assert time.time() < deadline
+        time.sleep(0.1)
+    sid1 = pidf.read_text().strip()
+    second = subprocess.Popen(["bash", "-c", cmd])
+    try:
+        assert first.wait(timeout=20) != 0
+        assert subprocess.run(["pgrep", "-s", sid1], capture_output=True).returncode == 1
+        while pidf.read_text().strip() == sid1:
+            assert time.time() < deadline + 20
+            time.sleep(0.1)
+        assert second.poll() is None
+    finally:
+        subprocess.run(["pkill", "-TERM", "-s", pidf.read_text().strip()])
+        second.wait(timeout=20)
 
 
 def test_a_seeding_host_adds_its_flags_to_the_key_and_reports_seeded_not_pass(tmp_path):
@@ -332,3 +507,20 @@ def test_only_a_ladder_leg_owes_levers_and_a_bare_leg_name_does_not_crash_the_pl
     assert gf.owed_by(roster, "w", gf.Leg("perf", ["PY"], "perf")) == []
     assert gf.owed_by(roster, "w", gf.Leg("check", ["PY"], "check")) == []
     assert gf.owed_by({}, "w", gf.Leg("ladder:m", ["PY"], "ladder")) == []
+
+
+def test_splice_takes_only_the_fragments_card_type(tmp_path):
+    spec = importlib.util.spec_from_file_location(
+        "splice", Path(__file__).resolve().parent.parent / "scripts" / "splice_ladder_fragments.py")
+    sp = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(sp)
+    base = tmp_path / "base"
+    base.mkdir()
+    (base / "m.json").write_text(json.dumps({"rungs": [1, 2, 3], "cards": {"wh": {"v": 1}, "bh": {"v": 2}}}))
+    frag = tmp_path / "rec" / "wh"
+    frag.mkdir(parents=True)
+    (frag / "m.json").write_text(json.dumps({"rungs": [1], "cards": {"wh": {"v": 9}, "bh": {"v": 0}}}))
+    assert sp.splice([tmp_path / "rec"], base) == [("m", "wh")]
+    got = json.loads((base / "m.json").read_text())
+    assert got == {"rungs": [1, 2, 3], "cards": {"wh": {"v": 9}, "bh": {"v": 2}}}
+    assert sp.splice([tmp_path / "rec"], base) == []          # idempotent

@@ -2443,6 +2443,14 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict"
+              },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged"
               }
             },
             "512": {
@@ -2740,6 +2748,14 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict"
+              },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged"
               }
             },
             "640": {
@@ -3037,6 +3053,14 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict"
+              },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged"
               }
             },
             "768": {
@@ -3338,6 +3362,14 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict"
+              },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged"
               }
             },
             "896": {
@@ -3639,6 +3671,14 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict"
+              },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged"
               }
             },
             "1024": {
@@ -3940,6 +3980,14 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict"
+              },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged"
               }
             },
             "1152": {
@@ -4238,6 +4286,14 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict"
+              },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged"
               }
             },
             "1280": {
@@ -4536,6 +4592,14 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict"
+              },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged"
               }
             },
             "1408": {
@@ -4834,6 +4898,14 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict"
+              },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged"
               }
             },
             "1536": {
@@ -5132,6 +5204,14 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict"
+              },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged"
               }
             }
           },
@@ -5536,6 +5616,9 @@
             "1152->1280": 1.794,
             "1280->1408": 2.787,
             "1408->1536": 1.664
+          },
+          "levers_added": {
+            "SDPA_FUSED_PADDED": "2026-10-09 tt-quietbox 6105e740d"
           }
         }
       },
@@ -5864,6 +5947,14 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict"
+              },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: never offered: the padded pair is tried only ahead of the first stock rung, and every triangle-attention call at this length is served by a dividing fused pair first. It exists for lengths with no dividing chunk (736 = 23 tiles), which no ladder rung is"
               }
             },
             "1536": {
@@ -6166,6 +6257,14 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict"
+              },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: never offered: the padded pair is tried only ahead of the first stock rung, and every triangle-attention call at this length is served by a dividing fused pair first. It exists for lengths with no dividing chunk (736 = 23 tiles), which no ladder rung is"
               }
             },
             "768": {
@@ -6472,6 +6571,14 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict"
+              },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: never offered: the padded pair is tried only ahead of the first stock rung, and every triangle-attention call at this length is served by a dividing fused pair first. It exists for lengths with no dividing chunk (736 = 23 tiles), which no ladder rung is"
               }
             },
             "896": {
@@ -6779,6 +6886,14 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict"
+              },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: never offered: the padded pair is tried only ahead of the first stock rung, and every triangle-attention call at this length is served by a dividing fused pair first. It exists for lengths with no dividing chunk (736 = 23 tiles), which no ladder rung is"
               }
             },
             "1024": {
@@ -7086,6 +7201,14 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict"
+              },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: never offered: the padded pair is tried only ahead of the first stock rung, and every triangle-attention call at this length is served by a dividing fused pair first. It exists for lengths with no dividing chunk (736 = 23 tiles), which no ladder rung is"
               }
             },
             "640": {
@@ -7392,6 +7515,14 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict"
+              },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: never offered: the padded pair is tried only ahead of the first stock rung, and every triangle-attention call at this length is served by a dividing fused pair first. It exists for lengths with no dividing chunk (736 = 23 tiles), which no ladder rung is"
               }
             },
             "512": {
@@ -7694,6 +7825,14 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict"
+              },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: never offered: the padded pair is tried only ahead of the first stock rung, and every triangle-attention call at this length is served by a dividing fused pair first. It exists for lengths with no dividing chunk (736 = 23 tiles), which no ladder rung is"
               }
             },
             "256": {
@@ -8006,6 +8145,14 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict"
+              },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: never offered: the padded pair is tried only ahead of the first stock rung, and every triangle-attention call at this length is served by a dividing fused pair first. It exists for lengths with no dividing chunk (736 = 23 tiles), which no ladder rung is"
               }
             }
           },
@@ -8332,6 +8479,9 @@
             "896->1024": 2.046,
             "1024->1280": 2.622,
             "1280->1536": 2.424
+          },
+          "levers_added": {
+            "SDPA_FUSED_PADDED": "2026-10-09 UF-EV-A4-GWH01 1dd0e40b6"
           }
         }
       },

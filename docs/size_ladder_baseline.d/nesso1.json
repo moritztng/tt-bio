@@ -21,21 +21,21 @@
       "models": {
         "nesso1": {
           "grid": "11x10",
-          "recorded": "2026-09-28",
+          "recorded": "2026-10-09",
           "host": "tt-quietbox",
-          "commit": "3af7e8be7",
+          "commit": "6105e740d",
           "host_threads": null,
           "runtime_s": {
-            "256": 5.32,
-            "512": 7.83,
-            "640": 9.45,
-            "768": 11.2,
-            "896": 15.38,
-            "1024": 17.18,
-            "1152": 23.63,
-            "1280": 29.77,
-            "1408": 27.95,
-            "1536": 39.05
+            "256": 8.9,
+            "512": 11.2,
+            "640": 11.89,
+            "768": 13.67,
+            "896": 16.79,
+            "1024": 23.34,
+            "1152": 26.54,
+            "1280": 27.7,
+            "1408": 29.92,
+            "1536": 41.84
           },
           "levers": {
             "256": {
@@ -223,6 +223,14 @@
                 "frac": 0.0,
                 "how": "stats",
                 "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb. [carried from p300c]"
+              },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -506,19 +514,19 @@
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 480,
-                "declined": 193,
-                "frac": 0.7132243684992571,
+                "served": 576,
+                "declined": 96,
+                "frac": 0.8571428571428571,
                 "how": "stats",
                 "rejects": {
                   "l1_budget": 1,
-                  "fill_preconditions": 192
+                  "pm_over_l1": 95
                 }
               },
               "SDPA_WIDE_K": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 96,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
                 "reason": "the shipped k_chunk does not divide the padded length here, and no wider dividing (q, k) pair ran (the fused kernel declined and the stock op refused on L1, or no q_chunk divides the padded length), so every call took the shipped pick: the TT_BIO_SDPA_WIDE_K=0 path [carried from tt-galaxy-wh-l] [carried from p300c]"
@@ -530,6 +538,13 @@
                 "frac": 0.0,
                 "how": "stats",
                 "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb. [carried from p300c]"
+              },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 96,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -841,6 +856,14 @@
                 "how": "stats",
                 "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb. [carried from p300c]"
               },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged"
+              },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
                 "served": null,
@@ -1149,6 +1172,14 @@
                 "how": "stats",
                 "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb. [carried from p300c]"
               },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged"
+              },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
                 "served": null,
@@ -1432,19 +1463,19 @@
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 480,
-                "declined": 98,
-                "frac": 0.8304498269896193,
+                "served": 576,
+                "declined": 96,
+                "frac": 0.8571428571428571,
                 "how": "stats",
                 "rejects": {
                   "l1_budget": 1,
-                  "fill_preconditions": 97
+                  "pm_over_l1": 95
                 }
               },
               "SDPA_WIDE_K": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 96,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
                 "reason": "the shipped k_chunk does not divide the padded length here, and no wider dividing (q, k) pair ran (the fused kernel declined and the stock op refused on L1, or no q_chunk divides the padded length), so every call took the shipped pick: the TT_BIO_SDPA_WIDE_K=0 path [carried from tt-galaxy-wh-l] [carried from p300c]"
@@ -1456,6 +1487,13 @@
                 "frac": 0.0,
                 "how": "stats",
                 "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb. [carried from p300c]"
+              },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 96,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -1541,10 +1579,9 @@
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1,
+                "declined": 0,
                 "frac": 0.0,
-                "how": "setlen",
-                "reason": "overflow set holds 1 shape(s): one q_chunk overflows its per-core circular-buffer budget from 896 up, so _tri_att_q_chunks records that shape once and every later call skips straight to a narrower chunk that fits. The set is empty at 256, 512, 640 and 768 and holds the same one shape at 896 and 1024; opendde reads the same single shape on this card from 768 up. That is the L1 ceiling _tri_att_q_chunks documents as discovered rather than declared, not a lever left dark by a tuning choice. Recorded, not blessed: the arm gates this set size exactly, so any move either way is a finding, and getting it back to 0 is a real win someone should take [carried from p300c]"
+                "how": "setlen"
               },
               "RFD3_SOFTMAX_PV_FUSED": {
                 "resolved": "not-imported",
@@ -1759,6 +1796,14 @@
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
+              },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -2043,19 +2088,19 @@
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 480,
-                "declined": 98,
-                "frac": 0.8304498269896193,
+                "served": 576,
+                "declined": 96,
+                "frac": 0.8571428571428571,
                 "how": "stats",
                 "rejects": {
                   "l1_budget": 1,
-                  "fill_preconditions": 97
+                  "pm_over_l1": 95
                 }
               },
               "SDPA_WIDE_K": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 96,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
                 "reason": "the shipped k_chunk does not divide the padded length here, and no wider dividing (q, k) pair ran (the fused kernel declined and the stock op refused on L1, or no q_chunk divides the padded length), so every call took the shipped pick: the TT_BIO_SDPA_WIDE_K=0 path [carried from rung 512]"
@@ -2067,6 +2112,13 @@
                 "frac": 0.0,
                 "how": "stats",
                 "reason": "entered and refused, not unreached: 96 calls at this rung are above the 1024-token cap and no fused (q_chunk, k_chunk) pair ran -- an L1 refusal or a token count with no 32-aligned divisor (tt_bio/tenstorrent.py:1855-1858). Each one falls through to the stock ladder, which is byte for byte the pre-flip path, so the refusal costs accuracy nothing. [carried from p300c] [carried from rung 1024]"
+              },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 96,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -2152,10 +2204,9 @@
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1,
+                "declined": 0,
                 "frac": 0.0,
-                "how": "setlen",
-                "reason": "overflow set holds 1 shape(s): one q_chunk overflows its per-core circular-buffer budget from 896 up, so _tri_att_q_chunks records that shape once and every later call skips straight to a narrower chunk that fits. The set is empty at 256, 512, 640 and 768 and holds the same one shape at 896 and 1024; opendde reads the same single shape on this card from 768 up. That is the L1 ceiling _tri_att_q_chunks documents as discovered rather than declared, not a lever left dark by a tuning choice. Recorded, not blessed: the arm gates this set size exactly, so any move either way is a finding, and getting it back to 0 is a real win someone should take [carried from p300c] [carried from rung 1024]"
+                "how": "setlen"
               },
               "RFD3_SOFTMAX_PV_FUSED": {
                 "resolved": "not-imported",
@@ -2352,19 +2403,19 @@
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 480,
-                "declined": 98,
-                "frac": 0.8304498269896193,
+                "served": 576,
+                "declined": 96,
+                "frac": 0.8571428571428571,
                 "how": "stats",
                 "rejects": {
                   "l1_budget": 1,
-                  "fill_preconditions": 97
+                  "pm_over_l1": 95
                 }
               },
               "SDPA_WIDE_K": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 96,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
                 "reason": "the shipped k_chunk does not divide the padded length here, and no wider dividing (q, k) pair ran (the fused kernel declined and the stock op refused on L1, or no q_chunk divides the padded length), so every call took the shipped pick: the TT_BIO_SDPA_WIDE_K=0 path [carried from tt-galaxy-wh-l]"
@@ -2376,6 +2427,13 @@
                 "frac": 0.0,
                 "how": "stats",
                 "reason": "entered and refused, not unreached: 96 calls at this rung are above the 1024-token cap and no fused (q_chunk, k_chunk) pair ran -- an L1 refusal or a token count with no 32-aligned divisor (tt_bio/tenstorrent.py:1855-1858). Each one falls through to the stock ladder, which is byte for byte the pre-flip path, so the refusal costs accuracy nothing. [carried from p300c] [carried from rung 1024]"
+              },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 96,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -2461,10 +2519,9 @@
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1,
+                "declined": 0,
                 "frac": 0.0,
-                "how": "setlen",
-                "reason": "overflow set holds 1 shape(s): one q_chunk overflows its per-core circular-buffer budget from 896 up, so _tri_att_q_chunks records that shape once and every later call skips straight to a narrower chunk that fits. The set is empty at 256, 512, 640 and 768 and holds the same one shape at 896 and 1024; opendde reads the same single shape on this card from 768 up. That is the L1 ceiling _tri_att_q_chunks documents as discovered rather than declared, not a lever left dark by a tuning choice. Recorded, not blessed: the arm gates this set size exactly, so any move either way is a finding, and getting it back to 0 is a real win someone should take [carried from p300c] [carried from rung 1024]"
+                "how": "setlen"
               },
               "RFD3_SOFTMAX_PV_FUSED": {
                 "resolved": "not-imported",
@@ -2679,6 +2736,14 @@
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
+              },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -2983,6 +3048,14 @@
                 "frac": 1.0,
                 "how": "stats"
               },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged"
+              },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
                 "served": null,
@@ -3103,63 +3176,47 @@
           },
           "runtime_reps_s": {
             "256": [
-              5.49,
-              5.31,
-              5.17,
-              5.32,
-              5.56
+              8.7,
+              10.05,
+              8.65,
+              10.94,
+              8.9
             ],
             "512": [
-              7.83,
-              8.09,
-              7.74,
-              7.95,
-              7.75
+              11.56,
+              10.5,
+              11.2,
+              15.01,
+              10.32
             ],
             "640": [
-              9.55,
-              9.45,
-              9.14
+              11.89
             ],
             "768": [
-              11.2,
-              11.1,
-              11.23
+              13.67
             ],
             "896": [
-              15.47,
-              15.38,
-              15.37
+              16.79
             ],
             "1024": [
-              17.12,
-              17.26,
-              17.18
+              23.34
             ],
             "1152": [
-              23.54,
-              23.91,
-              23.63
+              26.54
             ],
             "1280": [
-              29.98,
-              29.62,
-              29.77
+              27.7
             ],
             "1408": [
-              27.97,
-              27.95,
-              27.65
+              29.92
             ],
             "1536": [
-              38.96,
-              39.05,
-              39.11
+              41.84
             ]
           },
           "aiclk": {
             "256": {
-              "card": "0",
+              "card": "3",
               "min": 800,
               "max": 1350,
               "rep_median": [
@@ -3169,10 +3226,10 @@
                 800,
                 800
               ],
-              "n": 30
+              "n": 39
             },
             "512": {
-              "card": "0",
+              "card": "3",
               "min": 800,
               "max": 1350,
               "rep_median": [
@@ -3182,209 +3239,162 @@
                 800,
                 800
               ],
-              "n": 30
+              "n": 44
             },
             "640": {
-              "card": "0",
+              "card": "3",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                800,
-                800,
                 800
               ],
-              "n": 20
+              "n": 8
             },
             "768": {
-              "card": "0",
+              "card": "3",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                800,
-                800,
                 800
               ],
-              "n": 21
+              "n": 9
             },
             "896": {
-              "card": "0",
+              "card": "3",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                800,
-                800,
                 800
               ],
-              "n": 24
+              "n": 10
             },
             "1024": {
-              "card": "0",
+              "card": "3",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                800,
-                800,
-                800
+                1350
               ],
-              "n": 24
+              "n": 10
             },
             "1152": {
-              "card": "0",
+              "card": "3",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                800,
-                800,
                 800
               ],
-              "n": 27
+              "n": 11
             },
             "1280": {
-              "card": "0",
+              "card": "3",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1350,
-                1350,
-                1350
+                800
               ],
-              "n": 30
+              "n": 11
             },
             "1408": {
-              "card": "0",
+              "card": "3",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1350,
-                1350,
-                1350
+                800
               ],
-              "n": 30
+              "n": 12
             },
             "1536": {
-              "card": "0",
+              "card": "3",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1350,
-                1350,
-                1350
+                800
               ],
-              "n": 36
+              "n": 15
             }
           },
           "load": {
             "256": {
-              "max": 0.16,
+              "max": 1.52,
               "rep_median": [
-                0.03,
-                0.1,
-                0.08,
-                0.06,
-                0.11
+                1.27,
+                1.27,
+                1.32,
+                0.96,
+                0.93
               ]
             },
             "512": {
-              "max": 0.27,
+              "max": 1.31,
               "rep_median": [
-                0.08,
-                0.14,
-                0.22,
-                0.24,
-                0.19
+                0.85,
+                0.9,
+                1.14,
+                1.04,
+                1.12
               ]
             },
             "640": {
-              "max": 0.17,
+              "max": 1.06,
               "rep_median": [
-                0.1,
-                0.11,
-                0.08
+                0.97
               ]
             },
             "768": {
-              "max": 0.13,
+              "max": 0.93,
               "rep_median": [
-                0.11,
-                0.07,
-                0.06
+                0.89
               ]
             },
             "896": {
-              "max": 0.25,
+              "max": 1.23,
               "rep_median": [
-                0.19,
-                0.21,
-                0.15
+                1.06
               ]
             },
             "1024": {
-              "max": 0.27,
+              "max": 0.81,
               "rep_median": [
-                0.22,
-                0.15,
-                0.13
+                0.65
               ]
             },
             "1152": {
-              "max": 0.15,
+              "max": 0.73,
               "rep_median": [
-                0.12,
-                0.12,
-                0.08
+                0.67
               ]
             },
             "1280": {
-              "max": 0.24,
+              "max": 0.99,
               "rep_median": [
-                0.18,
-                0.14,
-                0.17
+                0.9
               ]
             },
             "1408": {
-              "max": 0.28,
+              "max": 0.92,
               "rep_median": [
-                0.18,
-                0.19,
-                0.21
+                0.84
               ]
             },
             "1536": {
-              "max": 0.33,
+              "max": 0.82,
               "rep_median": [
-                0.27,
-                0.16,
-                0.12
+                0.67
               ]
             }
           },
-          "reps": 1,
-          "sigma_runtime_512": 0.0188,
-          "exponents": {
-            "256->512": {
-              "k": 0.558,
-              "tol": 0.5
-            },
-            "512->768": {
-              "k": 0.883,
-              "tol": 0.5
-            }
-          },
-          "sigma_runtime": {
-            "256": 0.029,
-            "512": 0.0188
-          },
+          "exponents_skipped": "256 aa was timed at 1.5x nproc, above the 1.5x load ceiling: the runtimes are the host's, re-time on a quiet box",
           "exponents_measured": {
-            "256->512": 0.558,
-            "512->640": 0.843,
-            "640->768": 0.932,
-            "768->896": 2.057,
-            "896->1024": 0.829,
-            "1024->1152": 2.706,
-            "1152->1280": 2.192,
-            "1280->1408": -0.662,
-            "1408->1536": 3.843
+            "256->512": 0.332,
+            "512->640": 0.268,
+            "640->768": 0.765,
+            "768->896": 1.334,
+            "896->1024": 2.467,
+            "1024->1152": 1.091,
+            "1152->1280": 0.406,
+            "1280->1408": 0.809,
+            "1408->1536": 3.854
           }
         }
       },

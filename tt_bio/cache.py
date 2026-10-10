@@ -108,3 +108,60 @@ def publish_file(src, dst) -> None:
     """Copy a produced file into the cache."""
     with staged(dst) as tmp:
         shutil.copy2(src, tmp)
+
+
+class TrunkCache:
+    """Trunk outputs on disk, keyed by everything that determines them.
+
+    OpenDDE's constraint guidance only acts inside the diffusion sampler, so inputs that
+    differ only in their ``constraint`` (and the unconstrained input) fold through the same
+    trunk. The key hashes every tensor and value of the model feature dict (guidance features
+    are not in it: they travel with the Guidance object), the recycle count, a fingerprint of
+    the weights, the --fast mode and every ``TT_BIO_*`` / ``OPENDDE_*`` setting in the
+    environment, since those switch trunk numerics. Entries are ``torch.save`` files read back
+    with ``weights_only=True``, so a cache directory cannot run code. An unreadable entry is
+    recomputed and an unwritable one is skipped, each with a warning.
+    """
+
+    def __init__(self, root):
+        self.root = Path(root).expanduser()
+
+    @staticmethod
+    def key(feats: dict, *parts) -> str:
+        import torch
+        h = hashlib.sha256()
+        for k in sorted(feats):
+            v = feats[k]
+            h.update(k.encode())
+            if isinstance(v, torch.Tensor):
+                v = v.detach().cpu().contiguous()
+                h.update(f"{v.dtype}{tuple(v.shape)}".encode())
+                h.update(v.reshape(-1).view(torch.uint8).numpy().tobytes())
+            else:
+                h.update(repr(v).encode())
+        for p in parts:
+            h.update(repr(p).encode())
+        env = sorted((k, v) for k, v in os.environ.items() if k.startswith(("TT_BIO_", "OPENDDE_")))
+        h.update(repr(env).encode())
+        return h.hexdigest()[:32]
+
+    def load(self, key: str):
+        import logging
+        import torch
+        p = self.root / f"{key}.pt"
+        if not cached(p):
+            return None
+        try:
+            return torch.load(p, map_location="cpu", weights_only=True)
+        except Exception as e:  # a torn or foreign file is a miss, not a crash
+            logging.getLogger(__name__).warning("trunk cache %s unreadable (%s); recomputing", p, e)
+            return None
+
+    def save(self, key: str, value) -> None:
+        import logging
+        import torch
+        try:
+            with staged(self.root / f"{key}.pt") as tmp:
+                torch.save(value, tmp)
+        except OSError as e:
+            logging.getLogger(__name__).warning("trunk cache %s not written (%s)", self.root, e)
