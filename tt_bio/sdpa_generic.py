@@ -243,6 +243,25 @@ def kv_window_kernel_dir() -> Path:
     return d
 
 
+def balanced_split(B, NQH, q_num_chunks, num_cores):
+    """The `split` that gives the busiest core the fewest (batch, head, q chunk) units.
+
+    The factory saturates batch, then heads, then q chunks, and rounds each up per core. At the
+    fp32 DiT's (5, 16, 768) with q chunk 256 on Wormhole's 72 cores that is (5, 14, 1): 2 heads x 3
+    q chunks = 6 units on 40 busy cores, where (5, 4, 3) gives every one of 60 cores 4. Which core
+    runs a unit does not change what it computes, so any split returns the same bits.
+    Ties go to fewer cores, then to the wider batch split (the factory's preference)."""
+    best = None
+    for b in range(1, min(B, num_cores) + 1):
+        for h in range(1, min(NQH, num_cores // b) + 1):
+            q = min(q_num_chunks, num_cores // (b * h))
+            work = _div_up(B, b) * _div_up(NQH, h) * _div_up(q_num_chunks, q)
+            key = (work, b * h * q, -b)
+            if best is None or key < best[0]:
+                best = (key, (b, h, q))
+    return best[1]
+
+
 def plan_for_shape(seq, heads, head_dim, q_chunk, k_chunk, grid=(11, 10), split=None,
                    dtype=None):
     """`plan` for a square triangle-attention call at `seq` padded tokens, without a device."""

@@ -2568,7 +2568,8 @@ def _sdpa32(q, k, v, mask, scale: float) -> ttnn.Tensor:
     g = dev.compute_with_storage_grid_size()
     out = ttnn.allocate_tensor_on_device(ttnn.Shape([int(q.shape[i]) for i in range(3)] + [int(v.shape[3])]), ttnn.float32,
                                          ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG)
-    SG.sdpa(dev, q, k, v, mask, out, chunk, k_chunk, (g.x, g.y), _SDPA32_CKC, scale)
+    split = SG.balanced_split(int(q.shape[0]), int(q.shape[1]), n // chunk, g.x * g.y)
+    SG.sdpa(dev, q, k, v, mask, out, chunk, k_chunk, (g.x, g.y), _SDPA32_CKC, scale, split=split)
     return out
 
 
