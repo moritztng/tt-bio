@@ -7,7 +7,8 @@
 #   bash box_arms.sh MODEL      results /root/kc/results/<MODEL>/<mode>/{stdout,stderr}.log, times.jsonl, rc, t_start, t_end
 M=$1; K=/root/kit/$M; I=/root/kc/in; R=/root/kc/results/$M; mkdir -p $R
 cd $K && . venv/bin/activate
-export CUDA_HOME=/usr/local/cuda PYTHONHASHSEED=0 OPENFOLD3_CKPT=/weights/openfold3/of3-p2-155k.pt \
+case $M in openfold3) CV=12.8;; opendde) CV=12.6;; *) CV=;; esac
+export CUDA_HOME=/usr/local/cuda${CV:+-$CV} PYTHONHASHSEED=0 OPENFOLD3_CKPT=/weights/openfold3/of3-p2-155k.pt \
   OPENDDE_ROOT_DIR=/weights/opendde BOLTZ_CACHE=/weights/boltz2 PROTENIX_ROOT_DIR=/weights/protenix
 sha256sum -c $I/SHA256SUMS > $R/fixture-sha.txt 2>&1 || { echo FIXTURE-SHA-MISMATCH > $R/ARMS-DONE; exit 5; }
 case $M in
@@ -21,7 +22,8 @@ SMI=$!
 run(){ # <mode>
   local d=$R/$1; mkdir -p $d; date -u +%FT%T.%3NZ > $d/t_start; export KC_TIMES=$d/times.jsonl
   case $M in
-    boltz2)    bash run.sh pred --config a100 --mode $1 --input $I/boltz2 --out_dir $d/pred --seeds 0 \
+    boltz2)    [ $1 = off ] && S="--seed 0" || S="--seeds 0"   # off is stock boltz predict (--seed), exact/fast the worker route
+               bash run.sh pred --config a100 --mode $1 --input $I/boltz2 --out_dir $d/pred $S \
                  --recycling_steps 3 --sampling_steps 200 --diffusion_samples 1;;
     protenix_v2) bash run.sh pred --config a100 --mode $1 --input $I/protenix.json --out_dir $d/pred --model_name protenix-v2 \
                  --seeds 0 --cycle 10 --step 200 --sample 1 --use_msa true --use_template false;;

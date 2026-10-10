@@ -3,7 +3,8 @@
 # its environment/Dockerfile does it (requirements.lock with --no-deps, then the pinned stock wheel, then run.sh install).
 #   bash box_setup.sh MODEL     MODEL = protenix_v2 | boltz2 | openfold3 | opendde; marker /root/kc/SETUP-OK-<MODEL>
 # Also drops kctime.py + kctime.pth into the venv (the synced per-fold timer, inert unless KC_WRAP is set).
-# Weights are fetched by the kit's own `install --weights` into /weights/<model>.
+# Weights are fetched by the kit's own `install --weights` into /weights/<model>; session.sh pre-places the files whose
+# upstream URL fails from vast (Protenix-v2 checkpoint: 403; components.cif.rdkit_mol.pkl: a newer file than the pin).
 set -eux
 M=$1; K=/root/kit/$M
 if [ ! -x /usr/local/bin/python3.11 ]; then
@@ -12,9 +13,15 @@ if [ ! -x /usr/local/bin/python3.11 ]; then
   tar -xzf /tmp/py.tgz -C /tmp && cp -rL /tmp/python/. /usr/local/ && rm -rf /tmp/python /tmp/py.tgz
 fi
 cd $K; [ -d venv ] || /usr/local/bin/python3.11 -m venv venv; . venv/bin/activate
-export CUDA_HOME=/usr/local/cuda PYTHONHASHSEED=0 CFLAGS=-g0
+# each kit's Dockerfile pins its own nvcc (openfold3 12.8, opendde 12.6, protenix 13.0 = the image's, boltz2 none): install it
+# beside the image's toolkit; box_arms.sh points CUDA_HOME at the same one
+case $M in openfold3) CV=12.8;; opendde) CV=12.6;; *) CV=;; esac
+if [ -n "$CV" ] && [ ! -x /usr/local/cuda-$CV/bin/nvcc ]; then
+  apt-get update -q && DEBIAN_FRONTEND=noninteractive apt-get install -y -q --no-install-recommends cuda-toolkit-${CV/./-}
+fi
+export CUDA_HOME=/usr/local/cuda${CV:+-$CV} PYTHONHASHSEED=0 CFLAGS=-g0; export PATH=$CUDA_HOME/bin:$PATH
 L=environment/requirements.lock
-pip install -q $(grep -E '^(pip|wheel)==' $L)
+P=$(grep -E '^(pip|wheel)==' $L || true); [ -z "$P" ] || pip install -q $P
 case $M in
   openfold3)   X='openfold3|deepspeed';;
   opendde)     X='opendde';;
