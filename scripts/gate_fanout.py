@@ -495,6 +495,13 @@ def select(legs: list, patterns: list) -> list:
 # ---------------------------------------------------------------------------------------------
 # hosts
 # ---------------------------------------------------------------------------------------------
+def out_group(leg_name: str) -> str:
+    """Legs that write the same output dir in the commit's shared tree on a host. release_gate
+    names its results dir after the model, and a model's --fast arm shares it: rg:esmfold2 and
+    rg:esmfold2-fast ran at once on g107 on 2026-10-10 and the fast arm found its CIFs deleted."""
+    return leg_name.replace("-fast", "")
+
+
 @dataclass
 class Host:
     name: str
@@ -503,6 +510,7 @@ class Host:
     lock: threading.Condition = field(default_factory=threading.Condition)
     running: int = 0
     timed_running: bool = False
+    outputs: set = field(default_factory=set)
 
     @property
     def key_card_type(self) -> str:
@@ -844,18 +852,24 @@ class Gate:
         return host.arch if card is not None else "any"
 
     def _take(self, host: Host, card) -> Leg | None:
+        """The next leg this card may run, or None. A leg whose output dir is in use on the host
+        stays queued (see `out_group`); `_blocked` tells the caller to wait for it."""
         is_timed = (host.name, card) in self.timed
         with self.mu:
             q = self.todo.get(self._queue(host, card), [])
             # Correctness legs first, timed legs last: by then the host's other cards have run out
             # of work, so holding the host quiet idles nothing.
-            for i, lg in enumerate(q):
-                if not lg.timed:
-                    return q.pop(i)
-            for i, lg in enumerate(q):
-                if lg.timed and is_timed:
-                    return q.pop(i)
+            for timed in (False, True):
+                for i, lg in enumerate(q):
+                    if lg.timed == timed and (is_timed or not timed) \
+                            and out_group(lg.name) not in host.outputs:
+                        return q.pop(i)
         return None
+
+    def _blocked(self, host: Host, card) -> bool:
+        with self.mu:
+            return any(out_group(lg.name) in host.outputs
+                       for lg in self.todo.get(self._queue(host, card), []))
 
     def _pending(self, queue: str) -> bool:
         with self.mu:
@@ -914,9 +928,13 @@ class Gate:
                 while host.timed_running:
                     host.lock.wait()
                 leg = self._take(host, card)
+                while leg is None and self._blocked(host, card):
+                    host.lock.wait()
+                    leg = self._take(host, card)
                 if leg is not None and self._joined(leg, queue):
                     continue
                 if leg is not None:
+                    host.outputs.add(out_group(leg.name))
                     if leg.timed:
                         host.timed_running = True
                         while host.running:
@@ -933,6 +951,7 @@ class Gate:
             finally:
                 with host.lock:
                     host.running -= 1
+                    host.outputs.discard(out_group(leg.name))
                     if leg.timed:
                         host.timed_running = False
                     host.lock.notify_all()

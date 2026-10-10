@@ -249,6 +249,8 @@ def test_scheduler_runs_every_leg_once_per_arch_and_timed_legs_alone(tmp_path):
                 violations.append(("timed leg started beside", set(live[host.arch])))
             if any(n == "perf" for n in live[host.arch]):
                 violations.append(("leg started beside timed", leg.name))
+            if gf.out_group(leg.name) in {gf.out_group(n) for n in live[host.arch]}:
+                violations.append(("leg started beside its output dir's other writer", leg.name))
             live[host.arch].add(leg.name)
         time.sleep(0.01)
         with mu:
@@ -263,6 +265,28 @@ def test_scheduler_runs_every_leg_once_per_arch_and_timed_legs_alone(tmp_path):
     perf = [r for r in res if r["leg"] == "perf"]
     assert {r["worker"] for r in perf} == {"qb1:3", "g:6"}
     assert (tmp_path / "results.jsonl").read_text().count("\n") == len(res)
+
+
+def test_a_models_fast_arm_shares_its_output_dir():
+    assert gf.out_group("rg:esmfold2-fast") == gf.out_group("rg:esmfold2")
+    assert gf.out_group("rg:esmfold2") != gf.out_group("ux:esmfold2")
+
+
+def test_legs_sharing_an_output_dir_never_overlap_on_one_host(tmp_path):
+    host = _host("g", "wh", tmp_path)
+    legs = [gf.Leg(n, [], "rg") for n in ("rg:esmfold2", "rg:esmfold2-fast", "rg:boltz2")]
+    spans = {}
+
+    def execute(h, card, leg):
+        t0 = time.monotonic()
+        time.sleep(0.05)
+        spans[leg.name] = (t0, time.monotonic())
+        return {"leg": leg.name, "arch": h.arch, "verdict": "PASS", "worker": f"g:{card}"}
+
+    res = gf.Gate({"wh": legs}, [(host, 0), (host, 1), (host, 2)], set(), execute, tmp_path).run()
+    assert len(res) == 3
+    (a0, a1), (b0, b1) = spans["rg:esmfold2"], spans["rg:esmfold2-fast"]
+    assert a1 <= b0 or b1 <= a0
 
 
 def test_verdict_counts_reused_and_blocked_as_pass_and_fails_on_any_fail(tmp_path):
