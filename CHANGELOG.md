@@ -45,6 +45,10 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 - The device confidence path read pair distances from a bf16 expansion that put a 3.8 A neighbour
   anywhere from 0 to 5 A, started every sample's pairformer from the previous sample's output, and
   left the fold's resident tensors on the card for the next fold.
+- **BindCraft 2's on-card Evoformer applies dropout** (#17), the known issue in 0.13.1. A design
+  stage with `design_dropout` on now drops the same updates on the card that it drops on host JAX:
+  the masks are drawn from the key the host stack carries, so a trajectory takes the same dropout
+  path on either arm. `design_dropout: false` and the `harden` stage are unchanged.
 
 ## [0.13.1] - 2026-10-08
 
