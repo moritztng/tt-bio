@@ -37,9 +37,7 @@ for _ in $(seq $NMAX); do
   if [ -z "${ADOPT:-}" ]; then
     O=$(next_offer); [ -z "$O" ] && { log "no offer matches: $Q"; break; }; TRIED="$TRIED$O "
     echo "-  $CAP_H  spd-kitcmp  # $L creating on offer $O" >> $B
-    I=$($V create instance $O --image nvidia/cuda:13.0.1-cudnn-devel-ubuntu24.04 --disk 150 --ssh --direct --label spd-kitcmp-$L --raw 2>&1 | python3 -c 'import json,sys
-  try: print(json.load(sys.stdin)["new_contract"])
-  except Exception: print("")')
+    I=$($V create instance $O --image nvidia/cuda:13.0.1-cudnn-devel-ubuntu24.04 --disk 150 --ssh --direct --label spd-kitcmp-$L --raw 2>&1 | grep -oP "new_contract['\"]:\s*\K[0-9]+")
     if [ -z "$I" ]; then sed -i '$d' $B; log "offer $O: create failed"; continue; fi
     sed -i "\$s|.*|$I  $CAP_H  spd-kitcmp|" $B; echo "# ^ spd-kitcmp $L offer $O created $(date -u +%FT%TZ) by perf/kitcmp/session.sh" >> $B
     T0=$(date +%s); log "created $I on offer $O"; S=""
