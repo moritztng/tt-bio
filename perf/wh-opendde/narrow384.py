@@ -22,6 +22,8 @@ ap.add_argument("--out", type=Path, required=True)
 ap.add_argument("--n", type=int, default=736)
 ap.add_argument("--cases", default="384,16 256,16 384,8", help="space-separated c_z,heads")
 ap.add_argument("--caps", default="1 2 4 8 16")
+ap.add_argument("--mm", default="", help="space-separated minimal_matmul M,K,N,sh,sw arms (N block 1: one output tile)")
+ap.add_argument("--plain", action="store_true", help="also time ttnn.linear with no program config")
 a = ap.parse_args()
 os.environ.setdefault("TT_BIO_LEVERS", "normal")
 
@@ -77,9 +79,19 @@ for case in a.cases.split():
                         device=dev)
     ref = ttnn.to_torch(x).double().reshape(-1, C) @ ttnn.to_torch(w).double()
     rows, base = {}, None
+    arms = {}
     for cap in map(int, a.caps.split()):
-        T._NARROW_PROJ_BW = cap
-        fn = lambda: T._narrow_proj_linear(x, w, CKC, ttnn.bfloat16)  # noqa: E731
+        arms[f"bw{cap}"] = (lambda cap=cap: (setattr(T, "_NARROW_PROJ_BW", cap),
+                                             T._narrow_proj_linear(x, w, CKC, ttnn.bfloat16))[1])
+    if a.plain:
+        arms["plain"] = lambda: ttnn.linear(x, w, compute_kernel_config=CKC, dtype=ttnn.bfloat16)
+    grid = T._mm_core_coord(*T.COMPUTE_GRID_MAIN)
+    for M, K, Nb, sh, sw in (map(int, c.split(",")) for c in a.mm.split()):
+        cfg = ttnn.MinimalMatmulConfig(M_block_size=M, K_block_size=K, N_block_size=Nb, subblock_h=sh,
+                                       subblock_w=sw, compute_with_storage_grid_size=grid)
+        arms[f"mm:{M},{K},{Nb},{sh},{sw}"] = (lambda cfg=cfg: ttnn.experimental.minimal_matmul(
+            input_tensor=x, weight_tensor=w, compute_kernel_config=CKC, dtype=ttnn.bfloat16, config=cfg))
+    for name, fn in arms.items():
         try:
             o = fn()
             got = ttnn.to_torch(o).double().reshape(-1, H)
@@ -91,8 +103,8 @@ for case in a.cases.split():
             row["gbs"] = round(N * N * C * 2 / row["us_med"] / 1e3, 1)
         except Exception as e:  # noqa: BLE001
             row = dict(err=str(e).splitlines()[0][:200])
-        rows[f"bw{cap}"] = row
-        print(json.dumps({case: {f"bw{cap}": row}}), flush=True)
+        rows[name] = row
+        print(json.dumps({case: {name: row}}), flush=True)
     res["cases"][case] = rows
     ttnn.deallocate(x)
     ttnn.deallocate(w)
