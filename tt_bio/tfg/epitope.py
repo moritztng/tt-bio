@@ -572,21 +572,30 @@ def search_epitope(coords, feats, core=None):
         # poses are placed for the unsatisfied samples only (per-sample ops: same values)
         t_face, t_moving, t_tip, t_centroid = face[todo], moving[todo], tip[todo], centroid[todo]
 
-        def placements(u):
-            u = u[todo]
-            align = rotation_aligning(t_face, -u)
-            aligned = torch.bmm(t_moving - t_tip[:, None], align.transpose(1, 2))
-            for i in range(SPINS):
-                rotated = torch.bmm(aligned, rotation_about(u, 2.0 * math.pi * i / SPINS).transpose(1, 2))
-                for radius in STANDOFFS:
-                    yield rotated + (t_centroid + radius * u)[:, None]
+        spin_angle = torch.tensor([2.0 * math.pi * i / SPINS for i in range(SPINS)], dtype=torch.float64)
+        standoff = torch.tensor(STANDOFFS)
+
+        def placements(chunk):
+            """Every placement of a chunk of axes -> [n, axis * spin * standoff, M, 3], in the loop order (axis,
+            spin, standoff). Rows are independent in every op, so batching them gives the per-axis values."""
+            n, A = todo.numel(), len(chunk)
+            u = torch.stack([v[todo] for v in chunk])                                   # [A, n, 3]
+            align = rotation_aligning(t_face.repeat(A, 1), -u.reshape(-1, 3))
+            aligned = torch.bmm((t_moving - t_tip[:, None]).repeat(A, 1, 1), align.transpose(1, 2))
+            uu = u[:, None].expand(A, SPINS, n, 3).reshape(-1, 3)
+            spin = rotation_about(uu, spin_angle[None, :, None].expand(A, SPINS, n).reshape(-1))
+            rotated = torch.bmm(aligned.view(A, 1, n, -1, 3).expand(A, SPINS, n, -1, 3).reshape(A * SPINS * n, -1, 3),
+                                spin.transpose(1, 2)).view(A, SPINS, n, -1, 3)
+            shift = t_centroid + standoff[:, None, None] * u[:, None]                    # [A, R, n, 3]
+            x = rotated[:, :, None] + shift[:, None, :, :, None]                         # [A, spin, R, n, M, 3]
+            return x.permute(3, 0, 1, 2, 4, 5).reshape(n, A * SPINS * len(STANDOFFS), -1, 3)
 
         for start in range(0, len(axes), SEARCH_CHUNK_AXES):
             chunk = axes[start:start + SEARCH_CHUNK_AXES]
             tested += len(chunk) * SPINS * len(STANDOFFS)
             if todo.numel() == 0:
                 continue
-            x = torch.stack([p for u in chunk for p in placements(u)], 1)
+            x = placements(chunk)
             energy, bad = score_many(x, todo)
             index, taken = rc._take_first_best(energy, bad, todo, best_energy, feasible, improving, accepted)
             pick = torch.nonzero(taken).squeeze(1)
