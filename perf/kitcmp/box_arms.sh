@@ -7,13 +7,14 @@
 #   bash box_arms.sh MODEL      results /root/kc/results/<MODEL>/<mode>/{stdout,stderr}.log, times.jsonl, rc, t_start, t_end
 M=$1; K=/root/kit/$M; I=/root/kc/in; R=/root/kc/results/$M; mkdir -p $R
 cd $K && . venv/bin/activate
-case $M in openfold3) CV=12.8;; opendde) CV=12.6;; *) CV=;; esac
+case $M in openfold3|openfold3_ob0) CV=12.8;; opendde) CV=12.6;; *) CV=;; esac
 export CUDA_HOME=/usr/local/cuda${CV:+-$CV} PYTHONHASHSEED=0 OPENFOLD3_CKPT=/weights/openfold3/of3-p2-155k.pt \
+  OPENFOLD3_OB0_CKPT=/weights/openfold3_ob0/of3-ob-2025-06-30-174k.pt \
   OPENDDE_ROOT_DIR=/weights/opendde BOLTZ_CACHE=/weights/boltz2 PROTENIX_ROOT_DIR=/weights/protenix
 sha256sum -c $I/SHA256SUMS > $R/fixture-sha.txt 2>&1 || { echo FIXTURE-SHA-MISMATCH > $R/ARMS-DONE; exit 5; }
 case $M in
   boltz2)      export KC_WRAP=boltz.model.models.boltz2:Boltz2.predict_step;;
-  openfold3)   export KC_WRAP=openfold3.projects.of3_all_atom.runner:OpenFold3AllAtom.predict_step;;
+  openfold3|openfold3_ob0) export KC_WRAP=openfold3.projects.of3_all_atom.runner:OpenFold3AllAtom.predict_step;;
   protenix_v2|opendde) export KC_WRAP=runner.inference:InferenceRunner.predict;;
 esac
 nvidia-smi -q -d POWER,CLOCK,PERFORMANCE > $R/power-clock.txt 2>&1
@@ -29,8 +30,10 @@ run(){ # <mode>
                  --seeds 0 --cycle 10 --step 200 --sample 1 --use_msa true --use_template false;;
     opendde)   bash run.sh pred --config a100 --mode $1 -i $I/protenix.json -o $d/pred --seeds 0 \
                  --cycle 10 --step 200 --sample 1 --use_msa true --use_template false;;
-    openfold3) bash run.sh pred --config a100 --mode $1 --query-json $I/openfold3.json --output-dir $d/pred \
-                 --runner-yaml $I/openfold3.yaml --num-diffusion-samples 1 --use-msa-server false --use-templates false;;
+    openfold3|openfold3_ob0)  # ob0's kit off base config is bf16-mixed: off overlays the shipped fp32 predict config first
+               Y=""; [ $M = openfold3_ob0 ] && [ $1 = off ] && Y="--runner-yaml opt/openfold3_ob0_opt/shipped_predict.yml"
+               bash run.sh pred --config a100 --mode $1 --query-json $I/openfold3.json --output-dir $d/pred \
+                 $Y --runner-yaml $I/openfold3.yaml --num-diffusion-samples 1 --use-msa-server false --use-templates false;;
   esac > $d/stdout.log 2> $d/stderr.log
   echo $? > $d/rc; date -u +%FT%T.%3NZ > $d/t_end
 }
