@@ -9,7 +9,7 @@ Two clash cores, chosen by ``core`` (upstream's OPENDDE_RIGID_CORE):
   "off"    upstream's dense path (every moving-fixed pair), op for op; what upstream runs on CPU.
   "auto"   the exact pair-list core of tt_bio.tfg.neighbors (the role of upstream's Triton cell lists): the same
            pairs, so the same energies up to fp32 summation order and the same severe sets. The contact refinement
-           runs compiled, one sample at a time (_descend_contact); the epitope refinement scores the nine shorter
+           runs compiled, one sample at a time (_descend); the epitope refinement scores the nine shorter
            backtracking proposals in one call; the coarse searches score every candidate in
            batches and keep the first lowest feasible one below the entry energy, which is the pose the
            sequential strict-improvement loop keeps. Samples that already meet the request are not scored.
@@ -510,10 +510,12 @@ def refine_rigid_contact(coords, feats, iterations=40, core=None):
     first_energy, first_severe, _, first_d = evaluate(moving)
     if core == "auto" and moving.dtype == torch.float32 and moving.device.type == "cpu":
         moving = moving.contiguous()
-        accepted_count = torch.from_numpy(_descend_contact(
+        none = np.zeros((len(moving), 0, 3), np.float32)
+        accepted_count = torch.from_numpy(_descend(
             moving.numpy(), fixed.contiguous().numpy(), clash.ra.contiguous().numpy(), clash.rb.contiguous().numpy(),
-            ri.contiguous().numpy(), li.contiguous().numpy(), lower.contiguous().numpy(), upper.contiguous().numpy(),
-            iterations, idx.shape[1], clash.cut, 2.0))
+            iterations, idx.shape[1], clash.cut, 2.0, 0, ri.contiguous().numpy(), li.contiguous().numpy(),
+            lower.contiguous().numpy(), upper.contiguous().numpy(), none, np.zeros((0, 1), np.bool_),
+            np.zeros(0, np.int64), np.zeros((0, 1), np.int64), none, np.zeros((len(moving), 0), np.float32), 0.0))
     else:
         moving, accepted_count = rigid_descent(moving, evaluate, satisfied, idx.shape[1], iterations, clash, ri.unique())
     final_energy, final_severe, _, final_d = evaluate(moving)
@@ -829,6 +831,94 @@ def _contact_eval(x, fixed, pi, pj, ra, rb, ri, li, lower, upper, grad, want):
 
 
 @numba.njit(cache=True, nogil=True)
+def _epitope_eval(x, epi, valid, para, qslots, ecentre, eradius, k, margin, grad, want):
+    """epitope.contact_energy_and_gradient on one sample: (energy, satisfied), adds the gradient to grad when want.
+    Residue distances use ResidueDistances' sphere bound; the nearest pair is the first minimum in (slot, paratope)
+    order, as residue_distances' argmin."""
+    f = np.float32
+    n, mm = valid.shape[0], valid.shape[1]
+    Q, W, P = qslots.shape[0], qslots.shape[1], para.shape[0]
+    cen = np.zeros((Q, 3), np.float32)
+    rad = np.zeros(Q, np.float32)
+    for q in range(Q):
+        c = 0
+        for w in range(W):
+            if qslots[q, w] >= 0:
+                c += 1
+                for t in range(3):
+                    cen[q, t] += x[para[qslots[q, w]], t]
+        for t in range(3):
+            cen[q, t] /= f(max(c, 1))
+        for w in range(W):
+            if qslots[q, w] >= 0:
+                a = para[qslots[q, w]]
+                d0, d1, d2 = x[a, 0] - cen[q, 0], x[a, 1] - cen[q, 1], x[a, 2] - cen[q, 2]
+                rad[q] = max(rad[q], np.sqrt((d0 * d0 + d1 * d1) + d2 * d2))
+    d = np.empty(n, np.float32)
+    bu = np.zeros(n, np.int64)
+    bp = np.zeros(n, np.int64)
+    gap = np.empty(Q, np.float32)
+    for e in range(n):
+        q0 = 0
+        for q in range(Q):
+            g0, g1, g2 = ecentre[e, 0] - cen[q, 0], ecentre[e, 1] - cen[q, 1], ecentre[e, 2] - cen[q, 2]
+            gap[q] = np.sqrt((g0 * g0 + g1 * g1) + g2 * g2) - eradius[e] - rad[q]
+            if gap[q] < gap[q0]:
+                q0 = q
+        best = f(np.inf)
+        flat = 2 ** 62
+        upper = f(np.inf)
+        for sweep in range(2):
+            for q in range(Q):
+                if (sweep == 0 and q != q0) or (sweep == 1 and (q == q0 or gap[q] > upper)):
+                    continue
+                for w in range(W):
+                    sl = qslots[q, w]
+                    if sl < 0:
+                        continue
+                    a = para[sl]
+                    for u in range(mm):
+                        if not valid[e, u]:
+                            continue
+                        x0, x1, x2 = epi[e * mm + u, 0] - x[a, 0], epi[e * mm + u, 1] - x[a, 1], epi[e * mm + u, 2] - x[a, 2]
+                        dist = np.sqrt((x0 * x0 + x2 * x2) + x1 * x1)
+                        key = u * P + sl
+                        if dist < best or (dist == best and key < flat):
+                            best, flat = dist, key
+            upper = best + f(margin)
+        d[e], bu[e], bp[e] = best, flat // P, flat % P
+    order = np.argsort(d, kind="mergesort")
+    energy = f(0.0)
+    reached = 0
+    for e in range(n):
+        if d[e] <= f(5.0):
+            reached += 1
+    for i in range(k):
+        e = order[i]
+        v = max(d[e] - f(4.5), f(0.0))
+        energy += v * v
+        if want:
+            a = para[bp[e]]
+            r0, r1, r2 = x[a, 0] - epi[e * mm + bu[e], 0], x[a, 1] - epi[e * mm + bu[e], 1], x[a, 2] - epi[e * mm + bu[e], 2]
+            dist = max(np.sqrt((r0 * r0 + r1 * r1) + r2 * r2), f(1e-6))
+            grad[a, 0] += v * r0 / dist
+            grad[a, 1] += v * r1 / dist
+            grad[a, 2] += v * r2 / dist
+    return f(0.5) * energy, reached >= k
+
+
+@numba.njit(cache=True, nogil=True)
+def _request_eval(x, fixed, pi, pj, ra, rb, mode, ri, li, lower, upper, epi, valid, para, qslots, ecentre, eradius,
+                  k, margin, grad, want):
+    """The descent's evaluate: mode 0 refine_rigid_contact's, mode 1 refine_epitope's (energy, depth, keys, ok)."""
+    if mode == 0:
+        return _contact_eval(x, fixed, pi, pj, ra, rb, ri, li, lower, upper, grad, want)
+    e, depth, keys, _ = _contact_eval(x, fixed, pi, pj, ra, rb, ri[:0], li[:0], lower[:0], upper[:0], grad, want)
+    ce, ok = _epitope_eval(x, epi, valid, para, qslots, ecentre, eradius, k, margin, grad, want)
+    return ce + e, depth, keys, ok
+
+
+@numba.njit(cache=True, nogil=True)
 def _small_rotation(w0, w1, w2):
     """small_rotation for one w, float64 series, fp32 matrix."""
     t = (w0 * w0 + w1 * w1) + w2 * w2
@@ -874,8 +964,11 @@ def _solve3(A, b):
 
 
 @numba.njit(cache=True, nogil=True)
-def _descend_contact(moving, fixed, ra, rb, ri, li, lower, upper, iterations, n_terms, cut, skin):
-    """rigid_descent(refine_rigid_contact's evaluate) on moving [S, M, 3] in place; returns accepted steps [S]."""
+def _descend(moving, fixed, ra, rb, iterations, n_terms, cut, skin, mode, ri, li, lower, upper, epi, valid, para, qslots,
+             ecentre, eradius, margin):
+    """rigid_descent on moving [S, M, 3] in place with refine_rigid_contact's evaluate (mode 0: contacts ri/li in
+    [lower, upper]) or refine_epitope's (mode 1: the n_terms nearest of the epitope residues epi/valid [S, n * m, 3] /
+    [n, m] to the paratope para / qslots); returns accepted steps [S]."""
     f = np.float32
     S, M = moving.shape[0], moving.shape[1]
     accepted = np.zeros(S, np.int64)
@@ -892,7 +985,8 @@ def _descend_contact(moving, fixed, ra, rb, ri, li, lower, upper, iterations, n_
         built = x.copy()
         pi, pj = _pairs_near(x, fx, lo, dims, start, atoms, h)
         for _ in range(iterations):
-            energy, depth, keys, ok = _contact_eval(x, fx, pi, pj, ra, rb, ri, li, lower, upper, grad, True)
+            energy, depth, keys, ok = _request_eval(x, fx, pi, pj, ra, rb, mode, ri, li, lower, upper, epi[s], valid,
+                                                    para, qslots, ecentre[s], eradius[s], n_terms, margin, grad, True)
             if ok:
                 break                                    # satisfied samples are left alone
             cen = np.zeros(3, np.float32)
@@ -952,7 +1046,8 @@ def _descend_contact(moving, fixed, ra, rb, ri, li, lower, upper, iterations, n_
                     built[:] = prop
                     pi, pj = _pairs_near(prop, fx, lo, dims, start, atoms, h)
                     # the current pose x must stay covered too for the next iteration's evaluate
-                e2, dep2, keys2, _ = _contact_eval(prop, fx, pi, pj, ra, rb, ri, li, lower, upper, g2, False)
+                e2, dep2, keys2, _ = _request_eval(prop, fx, pi, pj, ra, rb, mode, ri, li, lower, upper, epi[s], valid,
+                                                   para, qslots, ecentre[s], eradius[s], n_terms, margin, g2, False)
                 new = False
                 for k in range(keys2.shape[0]):
                     q = np.searchsorted(keys, keys2[k])

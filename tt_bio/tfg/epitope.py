@@ -332,7 +332,18 @@ def refine_epitope(coords, feats, iterations=40, core=None):
     first_energy, first_severe, _, first_d = evaluate(moving)
     entry_ok = reached_count(first_d) >= k
     entry = moving.clone()
-    moving, accepted = rc.rigid_descent(moving, evaluate, satisfied, k, iterations, clash, para_local)
+    if distances is not None and moving.dtype == torch.float32 and moving.device.type == "cpu":
+        epi = fixed[:, epi_local.clamp_min(0).reshape(-1)].contiguous()
+        ecentre, eradius = ResidueDistances._spheres(epi.view(len(epi), *epi_local.shape, 3), valid)
+        empty = np.zeros(0, np.float32)
+        moving = moving.contiguous()
+        accepted = torch.from_numpy(rc._descend(
+            moving.numpy(), fixed.contiguous().numpy(), clash.ra.contiguous().numpy(), clash.rb.contiguous().numpy(),
+            iterations, k, clash.cut, 2.0, 1, np.zeros(0, np.int64), np.zeros(0, np.int64), empty, empty, epi.numpy(),
+            valid.contiguous().numpy(), para_local.contiguous().numpy(), distances.para.contiguous().numpy(),
+            ecentre.contiguous().numpy(), eradius.contiguous().numpy(), ResidueDistances.MARGIN))
+    else:
+        moving, accepted = rc.rigid_descent(moving, evaluate, satisfied, k, iterations, clash, para_local)
     final_energy, final_severe, _, final_d = evaluate(moving)
     intact = clash.no_new(entry, first_severe, moving, final_severe)
     if not bool(intact.all()):
