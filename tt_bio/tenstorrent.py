@@ -589,7 +589,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw", "transition_shard", "dit_mm16",
           "atom_k1", "dit_b8", "dit_qkv16", "atom_mm16", "atom_b8", "adaln_mod", "dit_heads")
 # Named but in no mode until their fold grade puts them in one.
-UNGRADED_LEVERS = frozenset({"trimul_b8in", "transition_bw", "atom_mm16", "adaln_mod"})
+UNGRADED_LEVERS = frozenset({"trimul_b8in", "transition_bw", "atom_mm16"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -644,8 +644,14 @@ FAST_LEVERS = frozenset(LEVERS) - {"lofi", "triatt_b8", "triatt_bias_b8"} - UNGR
 # folds): PASS, top pose median 0.156 A (floor 0.803 A), CA-lDDT +0.0004 [-0.0013, +0.0024], docking
 # 32 -> 33/44; cdk2x2_512 vs 1HCL +0.004 / +0.006 CA-lDDT per domain; c730 warm A/B/A 270.5 -> 267.1
 # -> 274.0 s. Fast runs acc off, so its configuration is the one graded there.
+# adaln_mod and dit_heads: each graded alone on fresh seeds (spd-difflin g9, seeds 301-304, 44 paired folds) and
+# pooled with its earlier grade on another stack (g5/g6, g7; 88 paired folds, Wormhole 11-set). adaln_mod: CA-lDDT
+# +0.0000 [-0.0000, +0.0001], top pose median 0.039 A against the 0.60 A bar (floor 0.710 A), docking 66 -> 66;
+# -0.58 s of the Wormhole c730 sampler (inert in fast, whose diffusion is bf16). dit_heads: CA-lDDT -0.0003
+# [-0.0009, +0.0000], top pose median 0.043 A, docking 66 -> 66; -1.92 s of the Wormhole c730 normal sampler
+# (57.98 -> 56.06 s with the DiT pair on, 1000 MHz, ab9).
 NORMAL_LEVERS = frozenset({"trimul_ibw", "trimul_tail", "trunk_hifi3", "dit_sdpa32", "silu_f32",
-                           "triatt_tail", "transition_shard", "atom_k1"})
+                           "triatt_tail", "transition_shard", "atom_k1", "adaln_mod", "dit_heads"})
 _LEVERS = frozenset()
 # silu_f32 is a kernel, so it needs ttnn's headers patched before the first device open (metal_overlay)
 # in any process that may run it. The patch only changes silu under math_approx_mode, and every fused
