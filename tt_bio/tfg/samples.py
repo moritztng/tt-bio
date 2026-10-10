@@ -14,6 +14,7 @@ import os
 import pickle
 import subprocess
 import sys
+import threading
 from pathlib import Path
 
 import torch
@@ -27,23 +28,28 @@ def _rows(v, rows, m):
 class SampleWorkers:
     """``workers`` one-thread children, each guiding a contiguous group of the samples with its own Guidance.
 
-    Started with the Guidance, so their start-up (an interpreter and the tt_bio import, ~3 s) runs while the
-    trunk does; a step splits whatever samples it gets."""
+    Started with the Guidance and fed from a thread, so their start-up (an interpreter and the tt_bio import,
+    ~3 s) runs while the trunk does; a step splits whatever samples it gets."""
 
     def __init__(self, feats, schedule, config, workers):
         self.workers = workers
-        self.procs = []
         root = str(Path(__file__).resolve().parents[2])                 # the tt_bio this process runs
         env = dict(os.environ, PYTHONPATH=os.pathsep.join(filter(None, [root, os.environ.get("PYTHONPATH")])),
                    OMP_NUM_THREADS="1", MKL_NUM_THREADS="1")
-        for _ in range(workers):
-            p = subprocess.Popen([sys.executable, "-m", "tt_bio.tfg.samples"], stdin=subprocess.PIPE,
-                                 stdout=subprocess.PIPE, env=env)
-            pickle.dump((feats, schedule, config), p.stdin)
+        self.procs = [subprocess.Popen([sys.executable, "-m", "tt_bio.tfg.samples"], stdin=subprocess.PIPE,
+                                       stdout=subprocess.PIPE, env=env) for _ in range(workers)]
+        # A child reads its features only once its imports are done, and the write blocks on the pipe until then:
+        # hand them over from a thread so the fold goes on to the trunk instead of waiting out every start-up.
+        self._sent = threading.Thread(target=self._send, args=((feats, schedule, config),), daemon=True)
+        self._sent.start()
+
+    def _send(self, msg):
+        for p in self.procs:
+            pickle.dump(msg, p.stdin)
             p.stdin.flush()
-            self.procs.append(p)
 
     def step(self, x_noisy, x0, **kw):
+        self._sent.join()
         m = x_noisy.shape[0]
         rows = [r for r in torch.arange(m).tensor_split(self.workers) if len(r)]
         for p, r in zip(self.procs, rows):
@@ -59,14 +65,16 @@ class SampleWorkers:
         return out
 
     def close(self):
+        """Stop every child; a thread reaps them, so the fold does not wait out their interpreter teardown."""
+        self._sent.join()
         for p in self.procs:
             try:
                 pickle.dump(None, p.stdin)
                 p.stdin.close()
             except (BrokenPipeError, ValueError):
                 pass
-            p.wait()
-        self.procs = []
+        procs, self.procs = self.procs, []
+        threading.Thread(target=lambda: [p.wait() for p in procs], daemon=True).start()
 
 
 def _serve():
