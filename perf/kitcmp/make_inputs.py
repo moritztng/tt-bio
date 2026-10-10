@@ -26,9 +26,10 @@ A3M = f"{R}/msa/uniref90_hits.a3m"
 (a.out / "boltz2").mkdir(exist_ok=True)
 for i in range(N):  # the fixture yaml plus the msa key, the only change, as gpu5_bench run_boltz
     (a.out / f"boltz2/fold{i}.yaml").write_text(y.read_text().replace(f"sequence: {seq}", f"sequence: {seq}\n      msa: {A3M}"))
+# unpairedMsaPath alone, as perf/mgx/ref/ref_fold.py: any other msa key that names no existing file (pairedMsaPath "")
+# makes protenix/opendde need_msa_search() fetch a server MSA (24009 rows instead of the fixture's 35)
 job = lambda i: {"name": f"fold{i}", "modelSeeds": [0], "sequences": [{"proteinChain": {
-    "sequence": seq, "count": 1, "msa": {"precomputed_msa_dir": f"{R}/msa", "pairing_db": "uniref100"},
-    "unpairedMsaPath": A3M, "pairedMsaPath": "", "templatesPath": ""}}]}
+    "sequence": seq, "count": 1, "unpairedMsaPath": A3M}}]}
 (a.out / "protenix.json").write_text(json.dumps([job(i) for i in range(N)], indent=1))
 (a.out / "openfold3.json").write_text(json.dumps({"seeds": [0], "queries": {f"fold{i}": {
     "chains": [{"molecule_type": "protein", "chain_ids": ["A"], "sequence": seq, "main_msa_file_paths": [A3M]}],
