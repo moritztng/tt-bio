@@ -592,6 +592,43 @@ class AtomTransformer(_KeyedWeights, Module):
             fp32_dest_acc_en=False, packer_l1_acc=False)
         self._sdpa32 = _ATOM_SDPA32 and dtype == ttnn.float32 and _ATOM_SUPERSET
         self._kvwin = _ATOM_KV_WINDOW
+        # atom_k1: the fp32 linears on k1_linear's program (one K tile per dest pass on Wormhole).
+        self._k1 = _T.lever("atom_k1") and dtype == ttnn.float32
+        # atom_mm16: the fp32 superset attention's linears on bf16 operands with fp32 accumulation. The
+        # adaLN outputs, q/k/v, the gate and the swiglu hidden are written bf16; the two output projections,
+        # the residual stream and the superset bias stay fp32.
+        self._mm16 = _T.lever("atom_mm16") and self._sdpa32 and self._tile_heads
+
+    def _w16(self, key, transpose=True):
+        cache = self.__dict__.setdefault("_wc16", {})
+        v = cache.get((key, transpose))
+        if v is None:
+            w = self._w[key]
+            v = cache[(key, transpose)] = ttnn.from_torch(w.t().contiguous() if transpose else w,
+                                                          layout=ttnn.TILE_LAYOUT, device=get_device(),
+                                                          dtype=ttnn.bfloat16)
+        return v
+
+    def _lin(self, x, wkey, bkey=None, activation=None, dtype=None):
+        """`dtype`: what an `atom_mm16` linear (a bf16 `x`) writes, bf16 unless given."""
+        if self._mm16 and x.dtype == ttnn.bfloat16:
+            return _T.k1_linear(x, self._w16(wkey), self._w16(bkey, False) if bkey else None,
+                                dtype=dtype or ttnn.bfloat16, activation=activation,
+                                compute_kernel_config=self.compute_kernel_config)
+        w = self._w_tt(wkey)
+        # One K tile leaves the program no K blocking to choose: those keep the shared path.
+        if not self._k1 or int(w.padded_shape[0]) <= 32:
+            return super()._lin(x, wkey, bkey, activation)
+        return _T.k1_linear(x, w, self._w_tt(bkey, False) if bkey else None, dtype=self.dtype,
+                            activation=activation, compute_kernel_config=self.compute_kernel_config)
+
+    def _lin_g(self, q_norm, apb):
+        """The attention gate's linear: no narrow-projection offer and the input's dtype, as before."""
+        key = apb + "attention.linear_g.weight"
+        if self._k1 or self._mm16:
+            return self._lin(q_norm, key)
+        return ttnn.linear(q_norm, self._w_tt(key), compute_kernel_config=self.compute_kernel_config,
+                           core_grid=CORE_GRID_MAIN)
 
     def _adaln_mod(self, pre):
         # Cache the AdaLN module per prefix: constructing it re-uploads its 4 weights
@@ -608,8 +645,8 @@ class AtomTransformer(_KeyedWeights, Module):
             cache[pre] = ada
         return ada
 
-    def _adaln(self, a, s, pre, s_terms=None):
-        return self._adaln_mod(pre)(a, s, s_terms=s_terms)
+    def _adaln(self, a, s, pre, s_terms=None, dtype=None):
+        return self._adaln_mod(pre)(a, s, s_terms=s_terms, dtype=dtype)
 
     @staticmethod
     def _prefixes(b):
@@ -756,14 +793,19 @@ class AtomTransformer(_KeyedWeights, Module):
                               compute_kernel_config=self._sdpa_ckc)
         elif self._sdpa or self._sdpa32:
             from . import sdpa_generic as SG
+            kc = W
             if self._sdpa32:
                 g = self.device.compute_with_storage_grid_size()
                 grid, ckc = (g.x, g.y), _ATOM_SDPA32_CKC
+                # Wormhole: a W-key chunk accumulates W/32 PV tiles in the fp32 dest and writes an occasional
+                # wrong value (-4.8 for -0.02, perf/spd_wherr/sdpa_probe.py --window); one key tile per chunk does not.
+                if self.device.arch() == ttnn.Arch.WORMHOLE_B0:
+                    kc = 32
             else:
                 grid, ckc = tuple(_T.COMPUTE_GRID_MAIN), _ATOM_SDPA_CKC
             o = ttnn.allocate_tensor_on_device(ttnn.Shape([M, H * nb, nq, dh]), Qs.dtype,
                                                ttnn.TILE_LAYOUT, self.device, ttnn.DRAM_MEMORY_CONFIG)
-            SG.sdpa(self.device, Qs, Ks, Vs, zs, o, nq, W, grid, ckc, dh ** -0.5, kv_window=kvw)
+            SG.sdpa(self.device, Qs, Ks, Vs, zs, o, nq, kc, grid, ckc, dh ** -0.5, kv_window=kvw)
         else:
             sc = batched_matmul(Qs, ttnn.permute(Ks, (0, 1, 3, 2)),
                                 compute_kernel_config=self.compute_kernel_config)
@@ -828,8 +870,7 @@ class AtomTransformer(_KeyedWeights, Module):
         q_norm = self._adaln(a, s, apb + "layernorm_a.", t.get("a"))
         kv_norm = self._adaln(q_norm, s, apb + "layernorm_kv.", t.get("kv"))
         o = self._attention(q_norm, kv_norm, p, apb, N, NP, pad_bias, z_pre=z_pre)
-        g = ttnn.linear(q_norm, self._w_tt(apb + "attention.linear_g.weight"),
-                        compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN)
+        g = self._lin_g(q_norm, apb)
         o = ttnn.multiply(o, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
         attn = self._lin(o, apb + "attention.linear_o.weight")
         gate = t["gate"] if t else self._lin(s, apb + "linear_a_last.weight", apb + "linear_a_last.bias")
@@ -971,23 +1012,26 @@ class AtomTransformer(_KeyedWeights, Module):
     def _block_m(self, a, s, p, b, N, NP, M, pad_bias, z_pre=None, terms=None, zs=None):
         apb, ctb = self._prefixes(b)
         t = terms or {}
+        # atom_mm16: the kv adaLN reads the fp32 q_norm and writes bf16; q/g read one bf16 copy of it.
+        lo = ttnn.bfloat16 if self._mm16 and zs is not None else None
         q_norm = self._adaln(a, s, apb + "layernorm_a.", t.get("a"))
-        kv_norm = self._adaln(q_norm, s, apb + "layernorm_kv.", t.get("kv"))
+        kv_norm = self._adaln(q_norm, s, apb + "layernorm_kv.", t.get("kv"), dtype=lo)
+        if lo is not None:
+            q_norm = ttnn.typecast(q_norm, lo)
         if zs is not None:
             o = self._attention_superset(q_norm, kv_norm, apb, N, NP, zs)
         else:
             o = self._attention_m(q_norm, kv_norm, p, apb, N, NP, M, pad_bias, z_pre=z_pre)
-        g = ttnn.linear(q_norm, self._w_tt(apb + "attention.linear_g.weight"),
-                        compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN)
+        g = self._lin_g(q_norm, apb)
         o = ttnn.multiply(o, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
-        attn = self._lin(o, apb + "attention.linear_o.weight")
+        attn = self._lin(o, apb + "attention.linear_o.weight", dtype=self.dtype)
         gate = t["gate"] if t else self._lin(s, apb + "linear_a_last.weight", apb + "linear_a_last.bias")
         attn = ttnn.multiply(attn, gate, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
         a1 = ttnn.add(attn, a)
-        an = self._adaln(a1, s, ctb + "adaln.", t.get("ctb"))
+        an = self._adaln(a1, s, ctb + "adaln.", t.get("ctb"), dtype=lo)
         b1 = self._lin(an, ctb + "linear_nobias_a1.weight", activation="silu")
         b2 = self._lin(an, ctb + "linear_nobias_a2.weight")
-        out = self._lin(ttnn.multiply(b1, b2), ctb + "linear_nobias_b.weight")
+        out = self._lin(ttnn.multiply(b1, b2), ctb + "linear_nobias_b.weight", dtype=self.dtype)
         cg = t["cg"] if t else self._lin(s, ctb + "linear_s.weight", ctb + "linear_s.bias")
         out = ttnn.multiply(out, cg, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
         return ttnn.add(out, a1)
@@ -1247,6 +1291,8 @@ class DiffusionModule(_KeyedWeights):
         # dit_sdpa32: the fp32 DiT's attention as one SDPA program on a token axis padded by
         # sdpa32_rows; _token_dit_device pads and slices, finish_bias builds the padded mask.
         self._dit_sdpa32 = _T.lever("dit_sdpa32") and self._dit_dtype == ttnn.float32
+        # dit_mm16 (fp32 DiT) / dit_b8 (bf16 DiT): the DiT's linears at lower operand formats.
+        self._dit_lp = _T.dit_lowp(self._dit_dtype, self._dit_ckc)
         self._dit = []
         for b in range(self.DIT_BLOCKS):
             A = DT + f"blocks.{b}.attention_pair_bias."
@@ -1263,6 +1309,8 @@ class DiffusionModule(_KeyedWeights):
             # rather than the explicit matmul/softmax/matmul chain.
             self._dit[-1][1].token_dit = _T.lever("dit_sdpa") and self._dit_dtype == ttnn.bfloat16
             self._dit[-1][1].sdpa32 = self._dit_sdpa32
+            if self._dit_lp is not None:
+                self._dit[-1][1].enable_lowp(self._dit_lp)
 
 
     def _up_dit(self, t):
@@ -1278,6 +1326,16 @@ class DiffusionModule(_KeyedWeights):
             v = ttnn.from_torch(w.t().contiguous() if transpose else w,
                                 layout=ttnn.TILE_LAYOUT, device=get_device(), dtype=self._dit_dtype)
             cache[(key, transpose)] = v
+        return v
+
+    def _w_tt_lp(self, key):
+        """A DiT weight, transposed and rounded via bf16 on the host to `_dit_lp.w`."""
+        cache = self.__dict__.setdefault("_wc_dit_lp", {})
+        v = cache.get(key)
+        if v is None:
+            v = ttnn.from_torch(self._w[key].t().contiguous().float().to(torch.bfloat16),
+                                layout=ttnn.TILE_LAYOUT, device=get_device(), dtype=self._dit_lp.w)
+            cache[key] = v
         return v
 
     def _ln_dit(self, x, wkey, bkey=None):
@@ -1687,8 +1745,15 @@ class DiffusionModule(_KeyedWeights):
             return ttnn.linear(x, wtt(wk), bias=(wtt(bk, False) if bk else None), activation=act,
                                compute_kernel_config=_T.silu_ckc(ckc) if act == "silu" else ckc,
                                core_grid=CORE_GRID_MAIN)
+        lp = self._dit_lp
+        # dit_mm16 / dit_b8: each adaLN writes lp.act, read only by linears; the transition's two
+        # hidden linears write bf16, their product lp.mid into linear_nobias_b, which writes lp.out.
+        ln_dt = lp.act if lp else None
+
+        def linlp(x, wk, dtype, act=None):
+            return lp.linear(x, self._w_tt_lp(wk), dtype=dtype, activation=act)
         for _bi, ((adaln_a, apb, ctb_adaln, A, Cc), bias) in enumerate(zip(self._dit, biases)):
-            b = adaln_a(a_t, s_t)
+            b = adaln_a(a_t, s_t, dtype=ln_dt)
             bias_dev = _T.host_unpark(bias)
             attn = apb(b, bias_dev, bias_precomputed=True)
             if bias_dev is not bias:
@@ -1696,11 +1761,16 @@ class DiffusionModule(_KeyedWeights):
             dram_peak(f"dit[M={a_t.shape[0]}] block {_bi}")
             sg = ttnn.sigmoid(linb(s_t, A + "linear_a_last.weight", A + "linear_a_last.bias"))
             ao = gated_add(a_t, attn, sg)
-            an2 = ctb_adaln(ao, s_t)
-            bb = ttnn.multiply(linb(an2, Cc + "linear_nobias_a1.weight", act="silu"),
-                               linb(an2, Cc + "linear_nobias_a2.weight"))
+            an2 = ctb_adaln(ao, s_t, dtype=ln_dt)
+            if lp:
+                bb = ttnn.multiply(linlp(an2, Cc + "linear_nobias_a1.weight", ttnn.bfloat16, "silu"),
+                                   linlp(an2, Cc + "linear_nobias_a2.weight", ttnn.bfloat16), dtype=lp.mid)
+            else:
+                bb = ttnn.multiply(linb(an2, Cc + "linear_nobias_a1.weight", act="silu"),
+                                   linb(an2, Cc + "linear_nobias_a2.weight"))
             cs = ttnn.sigmoid(linb(s_t, Cc + "linear_s.weight", Cc + "linear_s.bias"))
-            a_t = gated_add(ao, linb(bb, Cc + "linear_nobias_b.weight"), cs)
+            a_t = gated_add(ao, linlp(bb, Cc + "linear_nobias_b.weight", lp.out) if lp
+                            else linb(bb, Cc + "linear_nobias_b.weight"), cs)
         return a_t[:, :NT, :] if NP != NT else a_t
 
 
@@ -2392,16 +2462,6 @@ def _pz_cond_probe(pz, z_in_sha):
 
 
 
-def _under_levers(method):
-    """Run a fold entry point under the model's own precision levers (see Protenix.__init__)."""
-    import functools
-
-    @functools.wraps(method)
-    def run(self, *a, **kw):
-        import tt_bio.tenstorrent as _TT
-        with _TT.levers(getattr(self, "_levers", ())):
-            return method(self, *a, **kw)
-    return run
 
 class Protenix:
     """Top-level Protenix-v2 structure predictor on Tenstorrent (inference-only).
@@ -2781,7 +2841,7 @@ class Protenix:
         return torch.stack([ztok[aq[b][:, None].expand(NQ, NK), ak[b][None, :].expand(NQ, NK)]
                             for b in range(nb)], 0)                            # (nb,nq,nk,16)
 
-    @_under_levers
+    @_T.under_levers
     def fold_many(self, feats_list, *, n_step=200, seed=None, progress_fn=None,
                   return_confidence=False, n_cycles=None):
         """Fold B targets with ONE batched diffusion trajectory. Returns a list of B coord
@@ -2908,7 +2968,7 @@ class Protenix:
             cond["dit_biases"] = self.diffusion._dit_pair_biases(pair_z)
         return cond, dict(N=N, NT=NT, s_inputs=s_inputs, s_trunk=s_trunk, z_trunk=z_trunk)
 
-    @_under_levers
+    @_T.under_levers
     def fold(self, feats, *, n_step=200, n_sample=1, seed=None, progress_fn=None,
              return_confidence=False, n_cycles=None, trace=False,
              max_parallel_samples=None, gamma0=None, step_scale=None):

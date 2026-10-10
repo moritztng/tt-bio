@@ -83,6 +83,8 @@ Drop the `[tenstorrent]` extra on a host without a Tenstorrent card.
 ### Optional: Build TT-Metal / TT-NN from Source
 If you need to build from source, follow the [Tenstorrent Installation Guide](https://github.com/tenstorrent/tt-metal/blob/main/INSTALLING.md).
 
+On Blackhole, a ttnn built with `scripts/ttnn_bh_eth/build_wheel.sh` lets tt-bio compute on all 120 cores instead of 110 (about 4 % faster folds, same output). tt-bio detects it and uses it automatically; see [`TT_BIO_BH_ETH_DISPATCH`](docs/tuning-flags.md#tt_bio_bh_eth_dispatch).
+
 ### Verify Installation
 ```bash
 tt-bio --version   # or -V; prints the installed version
@@ -295,7 +297,7 @@ OpenFold3's preview2 checkpoint runs on an upstream release that drops the paire
 (OpenBind pairs).
 ESMFold2 needs no MSA and uses one when a source is given.
 
-`--fast` makes some operations use a lower-precision numeric format that runs faster. Accuracy is typically very close; the Boltz-2 measurement is in [`docs/boltz2-fast-parity.md`](docs/boltz2-fast-parity.md).
+`--fast` makes some operations use a lower-precision numeric format that runs faster. Accuracy is typically very close. For Boltz-2 it runs a larger set of cheaper kernels on top of normal mode: the 730-token fold takes 123 s instead of 136 s on a Wormhole chip, with structures and docking success unchanged on 11 complexes; [`docs/tuning-flags.md`](docs/tuning-flags.md#tt_bio_levers) has the grade.
 
 For Protenix, `--diffusion_precision bf16` is the faster setting to reach for: about 9 % per fold on Wormhole. On most complexes the structures match fp32 closely, but where the binding mode is uncertain it can rank a different one first. See [`docs/protenix-diffusion-precision.md`](docs/protenix-diffusion-precision.md).
 
@@ -920,19 +922,21 @@ moves a structure, next to the seed-to-seed spread.
 | `TT_BIO_DEVICE_CONF_HEADS` | on | Boltz-2 only: runs the confidence head's pae/pde projections on the card, so 67.1 MB of bin logits at 512 residues becomes 2.1 MB on Wormhole and 16.8 MB on Blackhole. Coordinates and per-residue pLDDT are bit-identical; pTM shifts by 0.0031 at 512 residues against a 0.0758 four-seed spread. |
 | `TT_BIO_DEVICE_ZINIT` | on | Boltz-2 only: builds the trunk's `z_init` pair tensor on the card. Not bit-exact: moves a 298 aa structure 0.264 Å all-atom inside its 0.35 Å bar; CA-lDDT against 1HCL is flat over eight seeds. |
 | `TT_BIO_DIT_COND_HOIST` | on | Hoists the token diffusion transformer's conditioning out of the layer loop; RF3's token DiT inherits it. Not bit-exact: one bf16 rounding changes order. |
+| `TT_BIO_DIT_SHARED_COND` | on | Every diffusion sample shares one noise level and one trunk output, so the diffusion transformer computes its conditioning once and broadcasts it. Bit for bit. |
 | `TT_BIO_FUSE_BIAS_STACKS` | on | Boltz-2 only: builds the diffusion conditioning's per-layer bias stack in one pass. Not bit-exact: moves a 298 aa structure 0.218 Å all-atom, inside its 0.35 Å bar. |
 | `TT_BIO_FUSE_MASK_ADD` | on | Gated-residual write-back as one `ttnn.addcmul`. Bit for bit. |
 | `TT_BIO_FUSE_NORM_RESIDUAL` | on | Passes an add whose only consumer is a layer norm to the norm as its residual input. Bit for bit. |
 | `TT_BIO_FUSE_SCALE_ADD` | on | Attention's scale-then-bias as one `ttnn.addalpha`, fp32 operands only. Bit-identical at every call shape. |
 | `TT_BIO_GATE_GRANULARITY` | 2 | Tiles per DST acquire in the reblock-permute gate kernel. Bit for bit at every value. |
 | `TT_BIO_HOST_LEVERS` | on | Master switch for the host-side Boltz-2 levers (`TT_BIO_FUSE_BIAS_STACKS` and `TT_BIO_HOST_BLOCK_PAIRWISE`); `0` takes the host path for all of them. |
-| `TT_BIO_LEVERS` | the graded set for the mode | Protenix-v2 only: a graded set of cheaper numerics (triangle multiplication in one block, HiFi3 trunk matmuls, fused fp32 diffusion attention, fused triangle-attention output); `--fast` uses a larger set. Not bit-exact: on 11 complexes the median top-pose deviation is 0.26 to 0.34 A on Wormhole (16 seeds) and 0.35 A on Blackhole (4 seeds), where a different seed moves it 0.8 A. `none` restores the reference numerics. [docs](docs/tuning-flags.md#tt_bio_levers) |
+| `TT_BIO_LEVERS` | the graded set for the mode | Protenix-v2 and Boltz-2, each with its own graded set of cheaper numerics (triangle multiplication in one block, HiFi3 trunk matmuls, fused fp32 diffusion attention, fused triangle-attention output); `--fast` uses a larger set. Not bit-exact: on 11 complexes the median top-pose deviation is 0.26 to 0.34 A on Wormhole (16 seeds) and 0.35 A on Blackhole (4 seeds), where a different seed moves it 0.8 A. Boltz-2's normal set moves the top pose 0.90 A median on Wormhole against a 1.78 A seed spread. `none` restores the reference numerics. [docs](docs/tuning-flags.md#tt_bio_levers) |
 | `TT_BIO_LNBW_FUSED` | on inside a BindCraft 2 round on Blackhole, off elsewhere | The layer-norm backward as one kernel instead of about 22 ttnn calls: 1.15x on a BindCraft 2 gradient round at 288 tokens, with a gradient closer to float64 than the composed path's. Wormhole and every other model keep the composed path. |
 | `TT_BIO_MSA_LADDER` | on | Boltz-2 and BoltzGen: pads the MSA depth to the smallest of 64, 128, 256, 512, 1024 that holds the alignment instead of always 1024. Not bit-exact; scored against 1HCL it is as accurate or closer. |
 | `TT_BIO_OPM_LEGACY_LAYOUT` | off | Restores `OuterProductMean`'s old output stage in every model that builds it (Boltz-2, BoltzGen, Protenix, OpenFold3, RF3, AF2). The default differs by one bf16 step: 0.29 to 1.59 A worst pseudo-domain on the hinged 512-residue fixture, against 1.09 to 1.42 A for the old path against its own seeds. |
 | `TT_BIO_PAIR_FFN_L1_FC1` | on | ESMFold2 only: keeps the pair transition's first matmul in L1 up to 512 residues. Bit for bit. |
 | `TT_BIO_PAIR_INPLACE` | on | Writes a too-big pair tensor's blocks back on the card instead of assembling on the host. Bit for bit. Only OpenDDE's structural-token refiner reaches that size at 1536 residues or below. |
 | `TT_BIO_PWA_BATCH_HEAD_WEIGHTS` | on | All heads' MSA row weights from one projection of the pair tensor. Bit for bit. |
+| `TT_BIO_PWA_FULL_HEADS_FUSED` | on | Boltz-2's MSA pair-weighted averaging (32-wide heads) takes the batched-heads path with a tile transpose instead of two general permutes. Bit for bit. |
 | `TT_BIO_REBLOCK_PERMUTE_GATED` | on | Folds a triangle multiplication's chunk and sigmoid gates into its channel move. Bit for bit. |
 | `TT_BIO_RESIDUAL_L1` | on | Two Pairformer residual updates go to L1 instead of DRAM, up to 512 residues. Bit for bit. |
 | `TT_BIO_SDPA_ADD_GRANULARITY` | auto | Batches the fused SDPA kernel's running-sum/max and mask adds. Bit for bit at every granularity. |

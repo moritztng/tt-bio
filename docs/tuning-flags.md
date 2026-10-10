@@ -26,11 +26,13 @@ move against the accuracy bar and the seed-to-seed spread.
 | [`TT_BIO_ATOM_SUPERSET_WINDOW`](#tt_bio_atom_superset_window) | on | Protenix-v2, OpenDDE, PXDesign | moves, inside the bar |
 | [`TT_BIO_ATOM_TILE_HEADS`](#tt_bio_atom_tile_heads-tt_bio_atom_kv_window) | on | Protenix-v2, OpenDDE, PXDesign | identical |
 | [`TT_BIO_BH_DRAM_READ_SPLIT`](#tt_bio_bh_dram_read_split) | on | Blackhole | identical |
+| [`TT_BIO_BH_ETH_DISPATCH`](#tt_bio_bh_eth_dispatch) | on where the installed ttnn supports it | Blackhole | identical |
 | [`TT_BIO_DEVICE_CONDITIONING`](#tt_bio_device_conditioning) | on | Boltz-2 | moves, closer to the experimental structure |
 | [`TT_BIO_DEVICE_CONFIDENCE`, `TT_BIO_DEVICE_CONF_HEADS`](#tt_bio_device_confidence-tt_bio_device_conf_heads) | on | Boltz-2 | coordinates identical, confidence scores move |
 | [`TT_BIO_DEVICE_TILIZE`](#tt_bio_device_tilize) | on | Protenix-v2, OpenDDE, PXDesign | identical |
 | [`TT_BIO_DEVICE_ZINIT`](#tt_bio_device_zinit) | on | Boltz-2 | moves, flat against the experimental structure |
 | [`TT_BIO_DIT_COND_HOIST`](#tt_bio_dit_cond_hoist) | on | Boltz-2, RF3 token DiT | moves, inside the 298-residue bar |
+| [`TT_BIO_DIT_SHARED_COND`](#tt_bio_dit_shared_cond) | on | Boltz-2, BoltzGen | identical |
 | [`TT_BIO_FANIN_CAST_FUSED`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2, Blackhole | gradients only |
 | [`TT_BIO_FUSE_BIAS_STACKS`](#tt_bio_fuse_bias_stacks) | on | Boltz-2 | moves, inside the 298-residue bar |
 | [`TT_BIO_FUSE_MASK_ADD`](#tt_bio_fuse_mask_add) | on | | identical |
@@ -43,7 +45,7 @@ move against the accuracy bar and the seed-to-seed spread.
 | [`TT_BIO_HOST_LANE`](#tt_bio_host_lane) | on | Protenix-v2 | identical |
 | [`TT_BIO_HOST_LEVERS`](#tt_bio_host_levers) | on | Boltz-2 | switches two other flags together |
 | [`TT_BIO_LEAD_SUM_FUSED`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2, Blackhole | gradients only |
-| [`TT_BIO_LEVERS`](#tt_bio_levers) | Protenix-v2's graded set | Protenix-v2 | moves, inside the seed-to-seed spread |
+| [`TT_BIO_LEVERS`](#tt_bio_levers) | each model's graded set | Protenix-v2, Boltz-2 | moves, inside the seed-to-seed spread |
 | [`TT_BIO_LNBW_FUSED`](#tt_bio_lnbw_fused) | on in a BindCraft 2 round, off elsewhere | BindCraft 2, Blackhole | gradients only |
 | [`TT_BIO_MM_LAYOUT`](#tt_bio_mm_layout) | off | training | moves |
 | [`TT_BIO_MSA_LADDER`](#tt_bio_msa_ladder) | on | Boltz-2, BoltzGen | moves, closer to the experimental structure |
@@ -56,6 +58,7 @@ move against the accuracy bar and the seed-to-seed spread.
 | [`TT_BIO_PAIR_TRANSPOSE_FUSED`](#tt_bio_pair_transpose_fused) | on | pair tensors, forward and backward | identical |
 | [`TT_BIO_PWA_FUSED_HEADS`, `TT_BIO_PWA_UNPADDED`](#msa-module-flags) | on | MSA models; graded on Protenix-v2 | moves, inside the bar |
 | [`TT_BIO_PWA_BATCH_HEAD_WEIGHTS`](#tt_bio_pwa_batch_head_weights) | on | | identical |
+| [`TT_BIO_PWA_FULL_HEADS_FUSED`](#tt_bio_pwa_full_heads_fused) | on | Boltz-2 (32-wide heads) | identical |
 | [`TT_BIO_REBLOCK_PERMUTE_GATED`](#tt_bio_reblock_permute_gated) | on | | identical |
 | [`TT_BIO_RESIDUAL_L1`](#tt_bio_residual_l1) | on | | identical |
 | [`TT_BIO_SDPA_ADD_GRANULARITY`](#tt_bio_sdpa_add_granularity) | auto | | identical at every value |
@@ -267,6 +270,28 @@ headers with that one function patched, so the installed package is never edited
 `TT_BIO_BH_DRAM_READ_SPLIT=0` compiles against the stock headers. A `TT_METAL_RUNTIME_ROOT` you set
 yourself is respected and the patch is not applied.
 
+## `TT_BIO_BH_ETH_DISPATCH`
+
+Default: on when the installed ttnn supports it, Blackhole only. Stock ttnn does not, so after a plain
+`pip install` this flag does nothing.
+
+A Blackhole chip normally gives one column of Tensix cores to the command queue, so tt-bio computes on
+11x10 cores. With Ethernet dispatch the command queue runs on idle Ethernet cores and tt-bio gets all
+12 columns, 120 cores (+9.1 %). Stock ttnn 0.68.0 cannot fit the dispatch kernels in an Ethernet core's
+firmware region. A ttnn built with [`scripts/ttnn_bh_eth/build_wheel.sh`](../scripts/ttnn_bh_eth/build_wheel.sh)
+can: it builds tt-metal v0.68.0 with one patch, using the release wheel's toolchain, and labels the
+wheel `0.68.0+bh.eth2`, which tt-bio's `ttnn==0.68.0` pin accepts. At startup tt-bio reads the
+installed ttnn's Ethernet-kernel limit and uses Ethernet dispatch only when it is large enough.
+
+**Accuracy: identical.** Protenix-v2 at 730 tokens writes the same structure byte for byte with either
+dispatch, in normal and fast mode, on 4 seeds each.
+
+**Speed: 1.036x normal, 1.045x fast** on the Protenix-v2 730-token fold on a Blackhole p150a at
+1350 MHz: 130.46 to 125.89 s normal, 109.68 to 104.96 s fast (n=3 warm each, same chip). Wormhole is
+unaffected: a single Wormhole chip already dispatches on Ethernet.
+
+`TT_BIO_BH_ETH_DISPATCH=0` keeps Tensix dispatch.
+
 ## `TT_BIO_DEVICE_CONDITIONING`
 
 Default: on, Boltz-2 only.
@@ -473,6 +498,16 @@ token DiT inherits this default and has not been scored for it.
 Scope: RF3's token DiT builds this same block, so the default applies to RF3 as well as Boltz-2.
 The atom-level transformers take a different path and do not read the flag.
 
+## `TT_BIO_DIT_SHARED_COND`
+
+Default: on. Boltz-2 and BoltzGen.
+
+All diffusion samples of a fold share the noise level and the trunk output, so the token conditioning
+and every projection the diffusion transformer derives from it are one row repeated per sample. With
+equal times and one trunk row the step computes them once and broadcasts. **Accuracy: identical** (fold
+digest unchanged on 4 seeds). **Speed:** 158.0 to 152.1 s on the Boltz-2 730-token fold, Wormhole,
+1000 MHz. `0` restores the per-sample path.
+
 ## `TT_BIO_FUSE_BIAS_STACKS`
 
 Default: on, Boltz-2 only.
@@ -580,7 +615,7 @@ Bisecting a host-side result is what it is for: turn the group off, confirm the 
 
 ## `TT_BIO_LEVERS`
 
-Default: the graded set for the run's mode. Protenix-v2 only.
+Default: the graded set for the run's mode. Protenix-v2 and Boltz-2, each graded on its own.
 
 Protenix-v2 runs a few of its kernels with cheaper numerics than its reference path: the triangle
 multiplication's contraction in one block with its residual folded into the epilogue, the trunk's
@@ -604,6 +639,20 @@ in a different wrong pose; the previous default set scores the same there.
 10 recycles) on a Wormhole Galaxy chip at 1000 MHz, warm folds; 119.1 s on a Blackhole p150a at
 1350 MHz. `--fast` takes 200.9 s on Wormhole and about 100 s on Blackhole. These figures also contain
 the lossless changes shipped alongside the set.
+
+**Boltz-2** runs the same five normal-mode levers (triangle multiplication in one block with its lean
+epilogue, HiFi3 trunk matmuls, fused fp32 diffusion attention, the fp32 SiLU kernel), graded on its own
+11 complexes: on Wormhole the same-seed top pose moves 0.90 A median (4 seeds, 44 pairs) against a 1.78 A
+median between two seeds of the reference path, every paired confidence interval reaches zero and
+docking success is 24 of 44 on both. On the 730-token fold at 1000 MHz it takes 158.0 to 147.2 s.
+A lever graded only on Protenix-v2 does not reach Boltz-2.
+
+Boltz-2's `--fast` is the shared fast set run on the normal path. The older block-fp8 fast path is off
+for Boltz-2 because it was slower than normal mode (159.7 s against 135.5 s on the 730-token fold). The
+fast set folds the same input in 123.4 s, and 168.3 s instead of 181.6 s at 1024 tokens (Wormhole,
+1000 MHz). Graded against normal mode on the same 11 complexes and 4 seeds: CA-lDDT +0.0018, pLDDT
+-0.0002, DockQ -0.004 with its interval reaching zero, docking success 24 of 44 in both modes, and a
+median same-seed top-pose deviation of 1.29 A against 1.70 A between two seeds of normal mode.
 
 ## `TT_BIO_LNBW_FUSED`
 
@@ -743,6 +792,16 @@ what moves its ligand RMSD.
 Wormhole gains more because its MSA module is a larger share of the fold. Boltz-2 and OpenFold3
 build the same pair-weighted averaging and outer product mean and reach these flags; their structures
 move by the same kind of rounding but have not been graded separately here.
+
+## `TT_BIO_PWA_FULL_HEADS_FUSED`
+
+Default: on. Boltz-2.
+
+The 32-wide-head case of the pair-weighted averaging above, Boltz-2's 8 heads of 32. There is
+no padding to drop, so the fused path moves the same bytes with a tile transpose where the unpadded
+path pays two general permutes. Its row blocks sit on whole tiles. Bit for bit; together with
+`TT_BIO_DIT_SHARED_COND` the Boltz-2 730-token fold goes from 158.0 to 146.0 s on a Wormhole Galaxy
+chip at 1000 MHz, and the whole-tile row blocks took it from 174.9 to 158.0 s before that.
 
 ## `TT_BIO_OPM_LEGACY_LAYOUT`
 

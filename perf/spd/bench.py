@@ -16,7 +16,7 @@ shape, compile) then N warm reps, each on its own seed. Every rep appends one JS
 the `L=` lever set. bindcraft2 is a design loop, not a fold: see "BindCraft 2" below.
 
 ARM grammar: NAME[:K=V[,K=V...]][:L=<set>[+lever|-lever...]][:fast]. K=V are environment variables set
-before tt_bio is imported; `fast` passes --fast; `L=` builds Protenix under that precision-lever set
+before tt_bio is imported; `fast` passes --fast; `L=` builds Protenix-v2 or OpenFold3 under that precision-lever set
 (tenstorrent.LEVERS, e.g. `L=fast-lofi`, `L=normal+opm_b8`), otherwise the mode's own set. Nothing here edits the model: an arm is only switches the engine already has.
 `L=` is refused for every other model: none of them reads tenstorrent.LEVERS, so the arm would be a no-op.
 
@@ -43,7 +43,7 @@ A trajectory BindCraft 2 stops early (`terminated` names the stage) is shorter b
 trajectories with completed ones.
 --inputs names the binder length (default 80, `--inputs 80`); --data is unused.
 """
-import argparse, gc, glob, hashlib, json, os, socket, subprocess, sys, threading, time
+import argparse, gc, glob, hashlib, json, os, re, socket, subprocess, sys, threading, time
 from pathlib import Path
 
 ap = argparse.ArgumentParser()
@@ -87,15 +87,19 @@ def parse_arm(spec):
         elif p.startswith("L="):
             lv = p[2:]
         elif p:
-            env.update(kv.split("=", 1) for kv in p.split(","))
+            # A comma starts a new pair only before NAME=, so a value can list several sites.
+            env.update(kv.split("=", 1) for kv in re.split(r",(?=[A-Za-z_][A-Za-z0-9_]*=)", p))
     return parts[0], env, fast, lv
 
 
 ARM, ARM_ENV, FAST, LEVER_SPEC = parse_arm(a.arm)
 PV2 = a.model == "protenix-v2"
-if LEVER_SPEC is not None and not PV2:
-    sys.exit(f"L= arms build Protenix-v2 only; {a.model} reads no tenstorrent.LEVERS, so `{a.arm}` would fold "
-             f"its default. Use K=V switches for {a.model}.")
+if LEVER_SPEC is not None and a.model == "openfold3":
+    # OpenFold3 builds under `tenstorrent.model_levers()`, which reads the set from TT_BIO_LEVERS.
+    ARM_ENV["TT_BIO_LEVERS"] = LEVER_SPEC
+elif LEVER_SPEC is not None and not PV2:
+    sys.exit(f"L= arms build Protenix-v2 and OpenFold3 only; {a.model} reads no tenstorrent.LEVERS, so "
+             f"`{a.arm}` would fold its default. Use K=V switches for {a.model}.")
 os.environ.update(ARM_ENV)
 a.out.mkdir(parents=True, exist_ok=True)
 LOG = open(a.out / "bench.jsonl", "a")
