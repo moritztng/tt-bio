@@ -15,7 +15,7 @@ fi
 cd $K; [ -d venv ] || /usr/local/bin/python3.11 -m venv venv; . venv/bin/activate
 # each kit's Dockerfile pins its own nvcc (openfold3 12.8, opendde 12.6, protenix 13.0 = the image's, boltz2 none): install it
 # beside the image's toolkit; box_arms.sh points CUDA_HOME at the same one
-case $M in openfold3) CV=12.8;; opendde) CV=12.6;; *) CV=;; esac
+case $M in openfold3|openfold3_ob0) CV=12.8;; opendde) CV=12.6;; *) CV=;; esac
 if [ -n "$CV" ] && [ ! -x /usr/local/cuda-$CV/bin/nvcc ]; then
   apt-get update -q && DEBIAN_FRONTEND=noninteractive apt-get install -y -q --no-install-recommends cuda-toolkit-${CV/./-}
 fi
@@ -23,7 +23,7 @@ export CUDA_HOME=/usr/local/cuda${CV:+-$CV} PYTHONHASHSEED=0 CFLAGS=-g0; export 
 L=environment/requirements.lock
 P=$(grep -E '^(pip|wheel)==' $L || true); [ -z "$P" ] || pip install -q $P
 case $M in
-  openfold3)   X='openfold3|deepspeed';;
+  openfold3|openfold3_ob0) X='openfold3|deepspeed';;
   opendde)     X='opendde';;
   boltz2)      X='boltz';;
   protenix_v2) X='protenix';;
@@ -31,11 +31,11 @@ esac
 grep -v -E "^(#|pip==|wheel==|($X)==)" $L > /tmp/stack-$M.txt
 pip install -q --no-deps -r /tmp/stack-$M.txt
 case $M in
-  openfold3)  # DS4Sci evoformer kernel built for the A100 (sm 8.0), as the Dockerfile does for sm 9.0
-    pip install -q --no-deps stock/openfold3-0.4.1-py3-none-any.whl
+  openfold3|openfold3_ob0)  # DS4Sci evoformer kernel built for the A100 (sm 8.0), as the Dockerfile does for sm 9.0
+    pip install -q --no-deps stock/openfold3-*-py3-none-any.whl
     DS_ACCELERATOR=cuda DS_BUILD_EVOFORMER_ATTN=1 TORCH_CUDA_ARCH_LIST=8.0 MAX_JOBS=$(nproc) \
       pip install -q --no-deps --no-build-isolation --no-binary deepspeed $(grep -E '^deepspeed==' $L)
-    export OPENFOLD3_CKPT=/weights/openfold3/of3-p2-155k.pt; W=/weights/openfold3;;
+    export OPENFOLD3_CKPT=/weights/openfold3/of3-p2-155k.pt OPENFOLD3_OB0_CKPT=/weights/openfold3_ob0/of3-ob-2025-06-30-174k.pt; W=/weights/$M;;
   opendde)    pip install -q --no-deps stock/opendde-1.1.1-py3-none-any.whl; export OPENDDE_ROOT_DIR=/weights/opendde; W=$OPENDDE_ROOT_DIR;;
   boltz2)     pip install -q --no-deps stock/boltz-2.2.1-py3-none-any.whl; export BOLTZ_CACHE=/weights/boltz2; W=$BOLTZ_CACHE;;
   protenix_v2) pip install -q --no-deps stock/protenix-2.0.0-py3-none-any.whl; export PROTENIX_ROOT_DIR=/weights/protenix; W=$PROTENIX_ROOT_DIR;;
