@@ -39,30 +39,23 @@ def test_each_board_is_priced_by_its_own_l1():
     assert p["Qt"] == 5
     assert not T.fits_l1(p, True)
     assert T.largest_fitting_q_chunk(480, 4, 480, 32, (8, 8), wormhole=True)["Qt"] == 3
-    # every bucket would still fit on Wormhole's own budget, for when the chunk is graded there
+    # every bucket fits on Wormhole's own budget
     for n in range(288, 1025, 32):
         assert T.largest_fitting_q_chunk(n, 4, n, 32, (8, 8), wormhole=True) is not None, n
 
 
-def test_wormhole_declines_the_chunked_form_until_it_is_graded_there():
-    """The loop has a float64 grade on Blackhole only. On Wormhole the caller keeps the fallback."""
-    assert T.serving_plan(512, 4, 512, 32, (8, 8), wormhole=True) is None
-    assert T.serving_plan(512, 4, 512, 32, (8, 8), wormhole=False)["Qt"] == 4
+def test_wormhole_serves_the_chunk_exactly_where_the_whole_query_does_not_fit():
+    """Graded on a Wormhole chip at 288-576 (`perf/spd/whchunk_grade.py`), so both boards chunk.
 
-
-def test_the_wormhole_chunk_flag_opens_exactly_the_declined_calls(monkeypatch):
-    """`TT_BIO_TRIATT_BW_WH_CHUNKED` is the switch the Wormhole grade runs behind.
-
-    It may only change the answer where the whole-query form does not fit: below that the plan is
-    already served and must stay the unchunked one.
+    Below the whole-query limit the plan must stay the unchunked one.
     """
-    monkeypatch.setattr(T, "WH_CHUNKED", True)
     for n in range(288, 1025, 32):
         p = T.serving_plan(n, 4, n, 32, (8, 8), wormhole=True)
         assert p is not None and T.fits_l1(p, True), n
         assert p["Nt"] % p["Qt"] == 0, n
     assert T.serving_plan(64, 4, 288, 32, GRID, wormhole=True)["Qt"] == 9  # still whole-query
     assert T.serving_plan(512, 4, 512, 32, (8, 8), wormhole=True)["Qt"] == 4
+    assert T.serving_plan(512, 4, 512, 32, (8, 8), wormhole=False)["Qt"] == 4
 
 
 def test_bias_and_dbias_shrink_with_the_chunk():

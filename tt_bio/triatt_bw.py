@@ -44,10 +44,10 @@ the write), and one cast to bf16 at the end. `serving_plan` takes the whole quer
 otherwise the largest chunk that divides `Nt` and fits, which serves every bucket from 288 to 1024
 tokens. At a shape where the whole query fits, the program is the pre-loop one, bit for bit.
 
-WORMHOLE SERVES THE WHOLE-QUERY FORM ONLY. The chunked form has been graded against float64 on
-Blackhole and has not run on a Wormhole chip, so `serving_plan` declines a chunk there and the
-caller keeps the chunked-recompute fallback. Lifting that is deleting one line in `serving_plan`,
-after `perf/bcw_dbias/grade.py` has run on Wormhole at 288, 544 and 768.
+Wormhole serves the chunk too. Graded against float64 through teacher-forced Evoformer VJPs on a
+Wormhole chip at 288, 480, 512 and 576 tokens (`perf/spd/whchunk_grade.py`): at every size its
+distance from float64 is within 1.5 % of the chunked-recompute fallback's (Evoformer block 0 dz
+rel L2 0.0713 vs 0.0705 at 576).
 
 Driven through `tt_bio.sdpa_generic`'s machinery rather than the wheel's SDPA kernels: the forward
 inherits `reader_interleaved.cpp`'s chain-forwarding, multicast, paging and MLA arguments, all of
@@ -104,15 +104,6 @@ def cb_budget(wormhole=None) -> int:
     return WH_CB_BUDGET if wormhole else L1_PER_CORE - PROGRAM_RESERVE
 
 FUSED = env_flag("TT_BIO_TRIATT_BW_FUSED", False)
-
-# Let the query-chunked plan serve on Wormhole too. The whole-query form fits only up to 288
-# tokens, so without this `serving_plan` declines every call above it on a Wormhole chip and the
-# round falls back to the chunked recompute: measured on a BindCraft 2 ladder, 432 of 432 backward
-# calls served at 224 tokens and 0 of 432 at 480, 512 and 576 (out/ladder/qkvfix-t, .107 chip 23).
-# Blackhole takes the same chunk and serves. The chunk fits Wormhole's own CB budget at every
-# bucket to 1024; what is missing is a float64 grade of the loop on a Wormhole chip, which is what
-# this flag exists to run. Default off until that grade lands.
-WH_CHUNKED = env_flag("TT_BIO_TRIATT_BW_WH_CHUNKED", False)
 
 # Write dq, dk and dv straight into one [B, 1, N, 3*H*d] gradient when q, k and v are the three
 # slots of one `nlp_create_qkv_heads` (the triangle attentions' own split). The tape otherwise
@@ -212,8 +203,6 @@ def serving_plan(B, H, N, d, grid, wormhole=None, **kw):
     p = plan(B, H, N, d, grid, **kw)
     if fits_l1(p, wormhole):
         return p
-    if wormhole and not WH_CHUNKED:
-        return None   # the chunked form is ungraded on Wormhole (module docstring)
     return largest_fitting_q_chunk(B, H, N, d, grid, wormhole, **kw)
 
 

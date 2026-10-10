@@ -6,12 +6,13 @@ L1. On Wormhole that is 288 tokens, so above it every call declines and the roun
 chunked recompute: a BindCraft 2 ladder measured 432 of 432 calls served at 224 and 0 of 432 at
 480, 512 and 576. Blackhole takes the query-chunked plan at those sizes and serves, and the chunk
 fits Wormhole's own CB budget at every bucket to 1024. What has never existed is a float64 grade of
-that loop on a Wormhole chip, which is the one thing `TT_BIO_TRIATT_BW_WH_CHUNKED` waits on.
+that loop on a Wormhole chip. This is that grade; it passed at 288, 480, 512 and 576 and the
+Wormhole gate was removed.
 
 Three arms per size, each a teacher-forced Evoformer VJP against the float64 reference
 (`perf/bcx_afgrad`), everything else held at the shipped Wormhole fast round:
   fallback  the fused backward off: the chunked recompute, what Wormhole runs today
-  chunked   the fused backward on with the chunk allowed: what the flag would ship
+  chunked   the fused backward on, query-chunked above 288: what ships
 A size where the whole-query form already fits (288) is run as a control: there the flag must not
 change the plan, so the two arms differ only by the fused kernel itself and the pair is a read on
 the harness rather than on the chunk.
@@ -54,10 +55,9 @@ with bindcraft2.fast_round():
           flush=True)
     for arm in a.arms.split(","):
         TB.FUSED = arm == "chunked"
-        TB.WH_CHUNKED = arm == "chunked"
         before = dict(TB.STATS)
         ns.tag = f"whchunk_{a.n}_{arm}"
-        print(f"== arm {arm} n={a.n} FUSED={TB.FUSED} WH_CHUNKED={TB.WH_CHUNKED}", flush=True)
+        print(f"== arm {arm} n={a.n} FUSED={TB.FUSED}", flush=True)
         A.cmd_vjp(ns)
         print(f"== arm {arm} n={a.n} reach triatt_bw "
               f"{ {k: v - before.get(k, 0) for k, v in TB.STATS.items()} }", flush=True)
