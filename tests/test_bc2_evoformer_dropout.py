@@ -102,11 +102,11 @@ def test_the_uploaded_mask_carries_the_rescale_and_pads_with_keeps():
     """What goes to the card is one shared row or column per draw, padded to the token axis."""
     import torch
 
-    evo = bindcraft2.EvoformerOnDevice.__new__(bindcraft2.EvoformerOnDevice)
     msa_keep, pair_keep, scales, _ = bindcraft2.dropout_masks(
         jax.random.PRNGKey(5), BLOCKS, (ROWS, N, C_MSA), (N, N, C_PAIR), True, False)
     n32 = 32
-    blocks = evo._drop(_StubTrunk, msa_keep, pair_keep, scales, n32)
+    blocks = bindcraft2.upload_dropout(_StubTrunk, bindcraft2.DROPOUT_DRAWS[1:], pair_keep,
+                                      scales, n32, msa_keep)
 
     assert len(blocks) == BLOCKS
     for b, block in enumerate(blocks):

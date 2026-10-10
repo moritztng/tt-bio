@@ -75,17 +75,28 @@ EVOFORMER_BLOCKS = 48
 #: the MSA transition, the outer product mean and the pair transition -- are configured at rate
 #: 0 in both the monomer and the multimer config, so they draw a key and never a mask.
 #:
-#: `outer_product_mean.first` moves the MSA track's draws one place later, which is the whole
+#: `outer_product_mean.first` moves the MSA track's draw one place later, which is the whole
 #: difference between the monomer models and multimer_v3; the pair track's four are at the same
-#: index in both. `_DROPOUT_MSA_SHIFT` carries that.
+#: index in both. The extra-MSA stack is the same `EvoformerIteration` and draws the same
+#: schedule; tt-bio runs only its pair track (`_Trunk.extra_msa`), so it takes the pair draws.
 DROPOUT_DRAWS = (("msa_row_attn", 0, 0.15, 0),
                  ("tri_mul_out", 4, 0.25, 0),
                  ("tri_mul_in", 5, 0.25, 0),
                  ("tri_att_start", 6, 0.25, 0),
                  ("tri_att_end", 7, 0.25, 1))
 
-#: The ops whose mask rides the pair representation, in the order `dropout_masks` stacks them.
+#: The ops whose mask rides the pair representation, in the order every schedule stacks them.
 DROPOUT_PAIR_OPS = tuple(op for op, _, _, _ in DROPOUT_DRAWS[1:])
+
+#: multimer_v3's template pair stack, the one tt-bio puts on card: `TemplateEmbeddingIteration`
+#: splits its key twenty ways and hands the multiplications the first two
+#: (`modules_multimer.py:706`), with the same rates and orientations as the Evoformer's.
+TEMPLATE_DROPOUT_DRAWS = (("tri_mul_out", 0, 0.25, 0),
+                          ("tri_mul_in", 1, 0.25, 0),
+                          ("tri_att_start", 2, 0.25, 0),
+                          ("tri_att_end", 3, 0.25, 1))
+#: How many ways each iteration splits its key: the stream depends on it, not just the index.
+EVOFORMER_KEY_FAN, TEMPLATE_KEY_FAN = 10, 20
 
 
 def _zero_cotangent(x):
@@ -98,8 +109,9 @@ def _zero_cotangent(x):
     return np.zeros(jnp.shape(x), dtype=jax.dtypes.float0)
 
 
-def dropout_masks(key, blocks: int, msa_shape, pair_shape, use_dropout, opm_first: bool):
-    """The Bernoulli keep masks AF2 would draw for `blocks` Evoformer blocks, in JAX.
+def stack_dropout_masks(key, blocks: int, fan: int, pair_draws, pair_shape, use_dropout,
+                        msa_draw=None, msa_shape=None):
+    """The Bernoulli keep masks AF2 would draw for `blocks` blocks of one stack, in JAX.
 
     Drawn here rather than on the card, from the key the host stack carries, so a trajectory on
     a card takes the same dropout path as the same trajectory on host JAX instead of a different
@@ -107,41 +119,86 @@ def dropout_masks(key, blocks: int, msa_shape, pair_shape, use_dropout, opm_firs
     gradable: `tests/test_bc2_evoformer_dropout.py` checks these masks element-for-element
     against `modules.dropout_wrapper`'s own.
 
-    The key schedule is the host's: `evoformer_fn` splits the carry once per block
-    (`modules.py:1584`) and `EvoformerIteration` splits that into ten, keeping the first and
-    handing out nine (`modules.py:1309`). A `lax.scan` over the blocks is the same recurrence
-    the host's `layer_stack` scan runs, so the stream does not depend on the depth being
-    unrolled here.
+    The key schedule is the host's, and every stack tt-bio swaps runs the same one: the stack
+    function splits its carry once per block (`modules.py:1586`, `modules_multimer.py:650`) and
+    the iteration splits that `fan` ways, keeping the first and handing out the rest in a fixed
+    order. A `lax.scan` over the blocks is the same recurrence the host's `layer_stack` scan
+    runs, so the stream does not depend on the depth being unrolled here.
 
-    Returns `(msa_keep, pair_keep, scales, key_out)`: booleans of `[blocks, 1, n, c_msa]` and
-    `[blocks, 4, n, c_pair]`, the `1 / keep_rate` rescales as `[5]` float32, and the key the
-    host would carry out of the stack. Booleans because the seam is a host callback and a bool
-    mask is a quarter of a float32 one on the wire; the rescale is applied when the mask is
-    uploaded. `use_dropout` is an argument rather than a flag, gated exactly as the reference
-    gates it (`rate = where(use_dropout, rate, 0)`), because BindCraft 2 passes it as a traced
-    value and one compiled program serves both stages.
+    Returns `(msa_keep, pair_keep, scales, key_out)`: booleans of `[blocks, 1, n, c_msa]` (None
+    without `msa_draw`) and `[blocks, len(pair_draws), n, c_pair]`, the `1 / keep_rate` rescales
+    as float32 in draw order (MSA first when there is one), and the key the host carries out of
+    the stack. Booleans because the seam is a host callback and a bool mask is a quarter of a
+    float32 one on the wire; the rescale is applied when the mask is uploaded. `use_dropout` is
+    an argument rather than a flag, gated exactly as the reference gates it
+    (`rate = where(use_dropout, rate, 0)`), because BindCraft 2 passes it as a traced value and
+    one compiled program serves both stages.
     """
     import jax
     import jax.numpy as jnp
 
+    draws = ((msa_draw,) if msa_draw else ()) + tuple(pair_draws)
     n, c_pair = int(pair_shape[0]), int(pair_shape[-1])
-    c_msa = int(msa_shape[-1])
-    shift = 1 if opm_first else 0
-    rates = jnp.asarray([rate for _, _, rate, _ in DROPOUT_DRAWS], jnp.float32)
+    shapes = [((1, n, c_pair) if axis == 0 else (n, 1, c_pair)) for _, _, _, axis in pair_draws]
+    if msa_draw:
+        shapes.insert(0, (1, n, int(msa_shape[-1])))
+    rates = jnp.asarray([rate for _, _, rate, _ in draws], jnp.float32)
     keep_rate = 1.0 - jnp.where(jnp.asarray(use_dropout, bool), rates, 0.0)
-    shapes = [(1, n, c_msa)] + [((1, n, c_pair) if axis == 0 else (n, 1, c_pair))
-                                for _, _, _, axis in DROPOUT_DRAWS[1:]]
 
     def block(key, _):
         key, sub = jax.random.split(key)
-        subs = jax.random.split(sub, 10)        # [0] is the iteration's own carry, [1:] the nine
-        drawn = [jax.random.bernoulli(subs[1 + idx + (shift if i == 0 else 0)], keep_rate[i],
-                                      shapes[i])
-                 for i, (_, idx, _, _) in enumerate(DROPOUT_DRAWS)]
-        return key, (drawn[0], jnp.stack([d.reshape(n, c_pair) for d in drawn[1:]]))
+        subs = jax.random.split(sub, fan)       # [0] is the iteration's own carry, the rest out
+        drawn = [jax.random.bernoulli(subs[1 + idx], keep_rate[i], shapes[i])
+                 for i, (_, idx, _, _) in enumerate(draws)]
+        pair = jnp.stack([d.reshape(n, c_pair) for d in drawn[1 if msa_draw else 0:]])
+        return key, ((drawn[0],) if msa_draw else ()) + (pair,)
 
-    key_out, (msa_keep, pair_keep) = jax.lax.scan(block, key, None, length=blocks)
-    return msa_keep, pair_keep, 1.0 / keep_rate, key_out
+    key_out, keeps = jax.lax.scan(block, key, None, length=blocks)
+    msa_keep = keeps[0] if msa_draw else None
+    return msa_keep, keeps[-1], 1.0 / keep_rate, key_out
+
+
+def dropout_masks(key, blocks: int, msa_shape, pair_shape, use_dropout, opm_first: bool):
+    """`stack_dropout_masks` for the Evoformer: the MSA row attention's draw and the pair's four.
+
+    `opm_first` moves the MSA draw one sub-key later (see `DROPOUT_DRAWS`).
+    """
+    op, idx, rate, axis = DROPOUT_DRAWS[0]
+    return stack_dropout_masks(key, blocks, EVOFORMER_KEY_FAN, DROPOUT_DRAWS[1:], pair_shape,
+                               use_dropout, (op, idx + (1 if opm_first else 0), rate, axis),
+                               msa_shape)
+
+
+def upload_dropout(trunk, pair_draws, pair_keep, scales, n32, msa_keep=None):
+    """The drawn masks, uploaded: one `{op: tensor}` per block, or None if nothing was drawn.
+
+    The rescale rides the mask, so the block pays one multiply per draw and not two. A mask
+    is a single row or column of the representation it multiplies -- `shared_dropout` -- so
+    what goes up is `[n, c]` per draw and the broadcast happens on card. The token axis is
+    padded with keeps: the pad is masked out of every update already, and a 0 there would be
+    a second mask with no meaning.
+
+    Everything arrives as `[blocks, k, n, c]` from `stack_dropout_masks`, drawn at the host's
+    token count; `n32` is the padded axis the card folds at.
+    """
+    if pair_keep is None or not len(np.shape(pair_keep)):
+        return None
+    pair_keep = np.asarray(pair_keep)
+    scales = np.asarray(scales, dtype=np.float32)
+    has_msa = msa_keep is not None and len(np.shape(msa_keep))
+    draws = ((DROPOUT_DRAWS[0],) if has_msa else ()) + tuple(pair_draws)
+    pad = n32 - pair_keep.shape[-2]
+    out = []
+    for b in range(pair_keep.shape[0]):
+        masks = ([np.asarray(msa_keep)[b, 0]] if has_msa else []) + list(pair_keep[b])
+        block = {}
+        for (op, _, _, axis), raw, scale in zip(draws, masks, scales):
+            t = torch.from_numpy(np.array(raw, dtype=np.float32)) * float(scale)
+            if pad:
+                t = torch.nn.functional.pad(t, (0, 0, 0, pad), value=float(scale))
+            block[op] = trunk.up(t.unsqueeze(1) if axis else t.unsqueeze(0))
+        out.append(block)
+    return out
 
 
 def _pad32(n: int) -> int:
@@ -1241,36 +1298,6 @@ class EvoformerOnDevice:
         """
         return tuple(mask.shape), mask.numpy().tobytes()
 
-    def _drop(self, trunk, msa_keep, pair_keep, scales, n32):
-        """The drawn masks, uploaded: one `{op: tensor}` per block, or None if nothing was drawn.
-
-        The rescale rides the mask, so the block pays one multiply per draw and not two. A mask
-        is a single row or column of the representation it multiplies -- `shared_dropout` -- so
-        what goes up is `[n, c]` per draw and the broadcast happens on card. The token axis is
-        padded with keeps: the pad is masked out of every update already, and a 0 there would be
-        a second mask with no meaning.
-
-        Everything arrives as `[blocks, k, n, c]` from `dropout_masks`, drawn at the host's token
-        count; `n32` is the padded axis the card folds at.
-        """
-        if msa_keep is None or not len(np.shape(msa_keep)):
-            return None
-        keeps = np.asarray(msa_keep), np.asarray(pair_keep)
-        scales = np.asarray(scales, dtype=np.float32)
-        n = keeps[1].shape[-2]
-        pad = n32 - n
-        out = []
-        for b in range(keeps[0].shape[0]):
-            masks = [keeps[0][b, 0]] + [keeps[1][b, i] for i in range(keeps[1].shape[1])]
-            block = {}
-            for (op, _, _, axis), raw, scale in zip(DROPOUT_DRAWS, masks, scales):
-                t = torch.from_numpy(np.array(raw, dtype=np.float32)) * float(scale)
-                if pad:
-                    t = torch.nn.functional.pad(t, (0, 0, 0, pad), value=float(scale))
-                block[op] = trunk.up(t.unsqueeze(1) if axis else t.unsqueeze(0))
-            out.append(block)
-        return out
-
     def _msa_mask(self, trunk, mask):
         """Upload per mask and cache: the binder length changes from trajectory to trajectory."""
         key = self._key(mask)
@@ -1315,8 +1342,8 @@ class EvoformerOnDevice:
             trunk = self._trunk(slot)
             mo, zo = trunk.evoformer(trunk.up(m), trunk.up(z), self._msa_mask(trunk, mask),
                                      self._pair_masks(trunk, pair_mask), recompute=False,
-                                     drop=self._drop(trunk, msa_keep, pair_keep, scales,
-                                                     z.shape[0]))
+                                     drop=upload_dropout(trunk, DROPOUT_DRAWS[1:], pair_keep, scales,
+                                                         z.shape[0], msa_keep))
             trunk.sync()
             self.calls["primal"] += 1
             return (trunk.down(mo, tuple(m.shape))[:, :n].numpy(),
@@ -1337,7 +1364,8 @@ class EvoformerOnDevice:
             # Uploaded OUTSIDE the tape: the masks are constants of this fold, so the tape holds
             # them as reads and the backward multiplies the cotangent by the same mask the
             # forward did, which is what AF2's dropout means for a gradient.
-            drop = self._drop(trunk, msa_keep, pair_keep, scales, z.shape[0])
+            drop = upload_dropout(trunk, DROPOUT_DRAWS[1:], pair_keep, scales, z.shape[0],
+                                  msa_keep)
             with trunk.taped.tape():
                 mo, zo = trunk.evoformer(ml, zl, self._msa_mask(trunk, mask),
                                          self._pair_masks(trunk, pair_mask),
