@@ -17,6 +17,12 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   over 4 on Blackhole, against a 0.8 A re-seed). `--fast`: 209 s on Wormhole, 100 s on Blackhole.
   [`docs/tuning-flags.md`](docs/tuning-flags.md#tt_bio_levers).
 
+### Fixed
+- **BindCraft 2 applies dropout on the card** (#17), the known issue since 0.13.1. A design stage with
+  `design_dropout` on now drops the same updates in the on-card Evoformer, extra-MSA and template stacks
+  that BindCraft 2 drops on host JAX, drawn from the same key, so a trajectory takes the same dropout
+  path on either. `design_dropout: false` and the `harden` stage are unchanged.
+
 ## [0.14.0] - 2026-10-09
 
 Protenix-v2 is 1.6x faster on Wormhole and OpenDDE 1.3x, with structures inside seed-to-seed variation.
@@ -59,10 +65,6 @@ Protenix-v2 is 1.6x faster on Wormhole and OpenDDE 1.3x, with structures inside 
 - The device confidence path read pair distances from a bf16 expansion that put a 3.8 A neighbour
   anywhere from 0 to 5 A, started every sample's pairformer from the previous sample's output, and
   left the fold's resident tensors on the card for the next fold.
-- **BindCraft 2's on-card Evoformer applies dropout** (#17), the known issue in 0.13.1. A design
-  stage with `design_dropout` on now drops the same updates on the card that it drops on host JAX:
-  the masks are drawn from the key the host stack carries, so a trajectory takes the same dropout
-  path on either arm. `design_dropout: false` and the `harden` stage are unchanged.
 
 ### Known issues
 - On Wormhole, a bf16 matmul at HiFi3 with fp32 accumulation whose K block is wider than one tile puts about

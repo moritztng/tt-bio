@@ -232,6 +232,10 @@ would then misattribute.
 The design loop runs on card. **The validation ensemble runs on BindCraft 2's own JAX trunk by
 default**, and that is the setting any accepted count should be quoted from.
 
+Dropout follows BindCraft 2's own setting. A stage with `design_dropout` on drops the same updates
+on the card as on host JAX, drawn from the same key, in the Evoformer, extra-MSA and template stacks;
+`harden` and `design_dropout: false` run without it on both.
+
 Validation is what decides whether a design is accepted. Folding it on card would put device
 numerics inside the instrument that grades the device; on the host trunk that stage is bit-for-bit
 BindCraft 2's own, so the thing being measured stays the gradient loop. Validation is a few
