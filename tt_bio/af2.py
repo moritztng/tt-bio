@@ -444,6 +444,24 @@ class AF2PairBlock(Module):
         self.pair_transition = ReluTransition(
             self.scope("pair_transition"), compute_kernel_config)
 
+    @staticmethod
+    def _dropped(name: str, update, drop):
+        """AF2's dropout: the update, times its keep mask, before the residual add.
+
+        `drop` is `{op name: mask}` for this block, built by the caller; a name with no entry
+        has rate 0 and is left alone, which is every op outside the five AF2 draws for. The mask
+        already carries the `1 / keep_rate` rescale and is broadcast over the axis
+        `shared_dropout` shares it along, so this is one multiply rather than a full-sized mask:
+        `(1, n, c)` against `(n, n, c)` for a `per_row` draw and `(n, 1, c)` for `per_column`
+        (`modules.apply_dropout`, `broadcast_dim`).
+
+        Under a tape `ttnn` is the proxy, so the multiply tapes itself and the backward is the
+        same mask on the cotangent. The mask is a raw tensor and never a taped one, so it takes
+        no gradient and the broadcast needs no reduction.
+        """
+        mask = None if drop is None else drop.get(name)
+        return update if mask is None or update is None else ttnn.multiply(update, mask)
+
     def _update(self, name: str, device, x: ttnn.Tensor,
                 *args: ttnn.Tensor) -> ttnn.Tensor | None:
         """One op's residual update: from the card, or from its host-torch twin if substituted.
@@ -464,7 +482,7 @@ class AF2PairBlock(Module):
         return up(twins[name](*[down(t) for t in (x, *args)]))
 
     def __call__(self, z: ttnn.Tensor, mask: ttnn.Tensor | None = None,
-                 attn_mask: ttnn.Tensor | None = None) -> ttnn.Tensor:
+                 attn_mask: ttnn.Tensor | None = None, drop=None) -> ttnn.Tensor:
         self.tri_att_start.bias_in_matmul = self.tri_att_end.bias_in_matmul = (
             _G_O if self.tri_att_g_in_matmul else _O)
         order = [("tri_mul_out", lambda t: self.tri_mul_out(t, mask)),
@@ -475,7 +493,8 @@ class AF2PairBlock(Module):
             order = order[2:] + order[:2]
         for name, device in order + [("pair_transition", self.pair_transition)]:
             z = self._step(lambda t, name=name, device=device:
-                           self._residual(t, self._update(name, device, t)), z)
+                           self._residual(t, self._dropped(name, self._update(name, device, t),
+                                                           drop)), z)
         return z
 class AF2DeviceTemplatePairStack:
     """The template's two `PairBlock`s in ttnn: host torch in, host torch out.
@@ -908,9 +927,11 @@ class AF2EvoformerBlock(AF2PairBlock):
 
     def _msa_track(self, msa: ttnn.Tensor, pair: ttnn.Tensor,
                    row_bias: ttnn.Tensor | None = None,
-                   col_bias: ttnn.Tensor | None = None) -> ttnn.Tensor:
+                   col_bias: ttnn.Tensor | None = None, drop=None) -> ttnn.Tensor:
         msa = self._step(lambda m, p: self._residual(
-            m, self._update("msa_row_attn", self.msa_row_attn, m, p, row_bias)), msa, pair)
+            m, self._dropped("msa_row_attn",
+                             self._update("msa_row_attn", self.msa_row_attn, m, p, row_bias),
+                             drop)), msa, pair)
         msa = self._step(lambda m: self._residual(
             m, self._update("msa_col_attn", self.msa_col_attn, m, None, col_bias)), msa)
         msa = self._step(lambda m: self._residual(
@@ -924,7 +945,8 @@ class AF2EvoformerBlock(AF2PairBlock):
 
     def __call__(self, msa: ttnn.Tensor, z: ttnn.Tensor,
                  msa_mask: ttnn.Tensor | None = None, mask: ttnn.Tensor | None = None,
-                 attn_mask: ttnn.Tensor | None = None) -> tuple[ttnn.Tensor, ttnn.Tensor]:
+                 attn_mask: ttnn.Tensor | None = None,
+                 drop=None) -> tuple[ttnn.Tensor, ttnn.Tensor]:
         row_bias, col_bias = (self._mask_biases(msa_mask) if msa_mask is not None
                               else (None, None))
         if self.opm_first:
@@ -932,7 +954,7 @@ class AF2EvoformerBlock(AF2PairBlock):
             # the row attention reads it as a bias. Same ops and same weights as the monomer
             # block; only this order differs, and it differs for all 52 blocks.
             z = self._step(lambda p, m: self._residual(p, self._opm_update(m, msa_mask)), z, msa)
-        msa = self._msa_track(msa, z, row_bias, col_bias)
+        msa = self._msa_track(msa, z, row_bias, col_bias, drop)
         # AF2 divides the outer product mean by `eps + norm`, and at an all-ones mask the norm
         # is the MSA depth everywhere. `eps` is 1e-3 and the trunk is bfloat16, whose spacing at
         # 2.0 is 0.0078, so `eps + norm` rounds back to the depth exactly -- at any depth, since
@@ -941,7 +963,7 @@ class AF2EvoformerBlock(AF2PairBlock):
         # tensor, which is that divisor.
         if not self.opm_first:
             z = self._step(lambda p, m: self._residual(p, self._opm_update(m, msa_mask)), z, msa)
-        return msa, super().__call__(z, mask, attn_mask)
+        return msa, super().__call__(z, mask, attn_mask, drop)
 
 
 class AF2SingleActivations(Module):

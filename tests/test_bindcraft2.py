@@ -726,7 +726,7 @@ def test_the_extra_msa_segment_survives_being_recomputed():
             update.alive = False
             return x
 
-        def __call__(self, z, *pair_masks):
+        def __call__(self, z, *pair_masks, drop=None):
             return z
 
     # The stub bites: consuming one buffer twice is what the shipped code did.
