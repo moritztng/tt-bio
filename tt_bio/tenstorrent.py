@@ -6775,54 +6775,24 @@ def msa_embed(feat, project, rows=MSA_CHUNK_SIZE, keep=None):
     return m
 
 
-def msa_row_chunks(n, cap=MSA_CHUNK_SIZE):
-    """`n` alignment rows as chunk sizes: whole `cap`-row chunks, then the binary digits of the
-    rest, largest first. A depth drawn afresh every recycling cycle then reaches each per-row op
-    in at most log2(cap) + 1 shapes, so nothing recompiles per cycle and no row is padded."""
-    sizes = [cap] * (n // cap)
-    r = n % cap
-    return sizes + [1 << b for b in reversed(range(r.bit_length())) if r >> b & 1]
+def msa_row_bucket(depth, n_rows, step=1024):
+    """The rows a recycling cycle that reads `depth` rows of an `n_rows` alignment is padded to:
+    the next multiple of `step`, never past `n_rows` rounded up to a tile. A depth drawn afresh
+    every cycle then reaches the MSA module in at most ceil(n_rows / step) shapes, so nothing
+    compiles per cycle, and every per-row op runs once on one tensor as the full-depth path does."""
+    return min(-(-depth // step) * step, -(-n_rows // 32) * 32)
 
 
-def msa_rows_host(feat, rows, cap=MSA_CHUNK_SIZE):
-    """The host feature [1, depth, tokens, c] of alignment rows `rows`, cut as `msa_row_chunks`."""
-    out, s = [], 0
-    for n in msa_row_chunks(len(rows), cap):
-        out.append(feat[:, rows[s:s + n]].contiguous())
-        s += n
-    return out
-
-
-def msa_embed_rows(parts, project):
-    """`project` of every host chunk `msa_rows_host` cut, as a list of chunks: the chunked `m` that
-    `msa_update_chunks` and `OuterProductMean` consume without ever joining it. Past
-    `MSA_HOST_OFFLOAD_MIN_BYTES` of `m` each chunk is parked on the host as soon as it is
-    projected, as `host_park` would park the whole list, so the chip never holds all of it."""
-    v = os.environ.get("TT_BIO_MSA_HOST_OFFLOAD_MIN_BYTES")
-    lim = int(v) if v else MSA_HOST_OFFLOAD_MIN_BYTES
-    rows = sum(p.shape[1] for p in parts)
-    out, park = [], False
-    for i, p in enumerate(parts):
-        x = ttnn.from_torch(p, layout=ttnn.TILE_LAYOUT, device=get_device(), dtype=ttnn.bfloat16)
-        mc = project(x)
-        ttnn.deallocate(x)
-        if i == 0:
-            park = rows * _padded_bytes(tuple(mc.shape)[2:], 2) > lim
-        if park:
-            h = ttnn.from_device(mc)
-            ttnn.deallocate(mc)
-            mc = h
-        out.append(mc)
-    return out
-
-
-def opm_depth_bucket(depth):
-    """The contraction depth OuterProductMean pads a `depth`-row MSA to when the depth changes every
-    cycle: four buckets per octave on whole 3-tile K blocks, so at most 25 % zero rows and about 30
-    distinct matmuls up to 16384 rows. The zero rows add nothing; the mean divides by `depth`."""
-    q = 32 * OPM_K_PAD_TILES
-    q *= 1 << max(0, (depth // q).bit_length() - 3)
-    return -(-depth // q) * q
+def msa_rows_host(feat, rows, bucket):
+    """The host feature [1, bucket, tokens, c] holding alignment rows `rows` of `feat`, zero rows
+    after them, and the [bucket, 1, 1] mask of the real rows. PairWeightedAveraging and the
+    transition are per row, so the zero rows change no real row; OuterProductMean takes the mask
+    and the real row count and adds nothing for them."""
+    x = feat.new_zeros((1, bucket, *feat.shape[2:]))
+    x[:, :len(rows)] = feat[:, rows]
+    mask = torch.zeros(bucket, 1, 1)
+    mask[:len(rows)] = 1.0
+    return x, mask
 
 
 def _join_depth_chunks(chunks, group=8):
@@ -13797,12 +13767,8 @@ class OuterProductMean(Module):
         return ttnn.reshape(out, (1, *out.shape))
 
     def __call__(self, x: ttnn.Tensor, msa_mask: ttnn.Tensor | None = None,
-                 n_msa: float | None = None, residual: ttnn.Tensor | None = None,
-                 depth_to: int | None = None) -> ttnn.Tensor:
+                 n_msa: float | None = None, residual: ttnn.Tensor | None = None) -> ttnn.Tensor:
         """The outer product mean of `x`, or `residual + it` when a residual [1, I, J, c_z] is given.
-
-        `depth_to` zero-pads a joined contraction to that many rows (`opm_depth_bucket`), so a
-        depth that changes every cycle reuses a few matmuls instead of compiling one per depth.
 
         With a residual each output row block is added to its own rows and a blocked join frees
         the old residual, so the pair update never holds the residual, a whole OPM output and the
@@ -13930,10 +13896,7 @@ class OuterProductMean(Module):
                     b_parts.append(bc)
                 depth = sum(p.shape[0] for p in a_parts)
                 dev = a_parts[0].device()
-                if depth_to:
-                    pad = depth_to - depth
-                else:
-                    pad = 0 if small_depth(depth) or dev.arch() != ttnn.Arch.WORMHOLE_B0 else opm_kpad_rows(depth)
+                pad = 0 if small_depth(depth) or dev.arch() != ttnn.Arch.WORMHOLE_B0 else opm_kpad_rows(depth)
                 if pad:
                     a_parts.append(zero_rows(a_parts[0], pad))
                     b_parts.append(zero_rows(b_parts[0], pad))
@@ -13975,16 +13938,16 @@ class OuterProductMean(Module):
 
         depth_parts = dims = None
         if x_chunks is not None:
-            if msa_mask is not None:
-                raise NotImplementedError(
-                    "OuterProductMean: chunk-list input with an msa_mask is not wired up; the "
-                    "trunk that uses the list path passes mask=None.")
             def device_chunks():
                 # A chunk parked on the host (msa_update_chunks(park=True)) is uploaded for
-                # its projection and that copy freed once the projection has it.
+                # its projection and that copy freed once the projection has it. The mask is
+                # cut to each chunk's rows.
+                r = 0
                 for c in x_chunks:
                     d = host_unpark(c)
-                    yield ttnn.reshape(d, tuple(d.shape)[1:]), None
+                    n = d.shape[1]
+                    yield ttnn.reshape(d, tuple(d.shape)[1:]), None if msa_mask is None else msa_mask[r:r + n]
+                    r += n
                     if d is not c:
                         ttnn.deallocate(d)
             # The join runs on the raw (rows, I, C) projections along the OUTER axis and lays

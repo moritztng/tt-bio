@@ -11,7 +11,7 @@ import pytest
 import torch
 
 from tt_bio.protenix import msa_cycle_rows, msa_cycle_rows_random
-from tt_bio.tenstorrent import msa_row_chunks, opm_depth_bucket
+from tt_bio.tenstorrent import msa_row_bucket, msa_rows_host
 
 SAMPLER = Path(os.environ.get("OPENDDE_SRC", "/home/moritz/tfg-ref/src/opendde")) / "opendde/model/msa_sampling.py"
 
@@ -80,17 +80,20 @@ def test_protenix_matches_upstream(n):
         assert torch.equal(ref, r)
 
 
-@pytest.mark.parametrize("n", [1, 5, 511, 512, 513, 4974, 9947])
-def test_row_chunks_cover_and_stay_few(n):
-    sizes = msa_row_chunks(n, 512)
-    assert sum(sizes) == n and all(s == 512 or (s < 512 and s & (s - 1) == 0) for s in sizes)
-    assert len(sizes) - sizes.count(512) == bin(n % 512).count("1")
+def test_row_buckets_few_and_tight():
+    for n in (1, 37, 1000, 9947, 16384):
+        seen = set()
+        for d in range(1, n + 1):
+            b = msa_row_bucket(d, n)
+            assert d <= b < d + 1024 and b % 32 == 0
+            seen.add(b)
+        assert len(seen) <= -(-n // 1024)
 
 
-def test_opm_bucket_bounds():
-    seen = set()
-    for d in range(1, 16385):
-        b = opm_depth_bucket(d)
-        assert d <= b and b % 96 == 0 and (b - d) <= max(95, d // 4)
-        seen.add(b)
-    assert len(seen) <= 40
+def test_rows_host_pads_and_masks():
+    feat = torch.randn(1, 50, 7, 3).to(torch.bfloat16)
+    rows = torch.tensor([4, 0, 49])
+    x, mask = msa_rows_host(feat, rows, 64)
+    assert x.shape == (1, 64, 7, 3) and mask.shape == (64, 1, 1)
+    assert torch.equal(x[:, :3], feat[:, rows]) and not x[:, 3:].any()
+    assert mask[:3].eq(1).all() and not mask[3:].any()

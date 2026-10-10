@@ -43,8 +43,8 @@ from .protenix_weights import remap_adaln  # single source of all v2->tt-bio wei
 from . import ops
 from .tenstorrent import (Module, CORE_GRID_MAIN, get_device, dram_peak,
                           MSA_CHUNK_SIZE, batched_matmul, msa_depth_chunks, host_park,
-                          host_unpark, msa_embed, msa_embed_rows, msa_rows_host, msa_update_chunks,
-                          opm_depth_bucket, pair_row_blocks,
+                          host_unpark, msa_embed, msa_row_bucket, msa_rows_host, msa_update_chunks,
+                          pair_row_blocks,
                           row_block_after_refusal, device_generation, accurate_softmax_site,
                           softmax_ckc, host_f64_softmax_site, site_softmax, stack_samples)
 from . import tenstorrent as _T   # for the module-level A/B toggles, which must be read live
@@ -3290,10 +3290,11 @@ class Trunk(_KeyedWeights):
         ttnn.deallocate(cat)
         return out
 
-    def _msa(self, z3, m_feat, pmask_tt=None, attn_tt=None, depth_to=None):
-        """The MSA module's blocks on `z3`. `m_feat` is the pristine m: a device tensor, a host one,
-        or a list of device chunks this call owns (a cycle's sampled rows, `msa_embed_rows`); for
-        that list `depth_to` is the bucket OuterProductMean pads its contraction to."""
+    def _msa(self, z3, m_feat, pmask_tt=None, attn_tt=None, rows=None):
+        """The MSA module's blocks on `z3`. `m_feat` is the pristine m, a device or a host tensor.
+        rows=(mask, depth) says only the first `depth` rows of a device `m_feat` are alignment
+        rows (a cycle's sampled rows padded to `msa_row_bucket`); OuterProductMean masks the rest."""
+        opm_mask, n_msa = rows if rows is not None else (None, None)
         def update_msa(m, z, pwa, transition):
             if pwa is None:
                 return m
@@ -3363,8 +3364,7 @@ class Trunk(_KeyedWeights):
                 # or its depth chunks; update_msa below streams from host.
                 z3 = self._opm_from_host(opm, m_feat, z3)
             else:
-                n_msa = sum(c.shape[1] for c in m_feat) if depth_to else None
-                z3 = opm(m_feat, None, n_msa, residual=z3, depth_to=depth_to)
+                z3 = opm(m_feat, opm_mask, n_msa, residual=z3)
             dram_peak("trunk msa block: after opm")
             if not self._msa_update_first:
                 m_feat = update_msa(m_feat, z3, pwa, tm)
@@ -3516,17 +3516,18 @@ class Trunk(_KeyedWeights):
             dram_peak(f"trunk m_feat built [{tuple(m_feat.shape)} {m_feat.dtype}]")
         else:
             # The embedding is per alignment row, so embedding a cycle's rows equals picking them
-            # out of the embedded whole; only the picked rows are built, in power-of-two chunks
-            # (msa_row_chunks), and the host lane cuts the next cycle's rows while this one runs.
+            # out of the embedded whole; only the picked rows are built, padded to a few depths
+            # (msa_row_bucket), and the host lane cuts the next cycle's rows while this one runs.
             m_feat = None
-            cut = lambda c: hostlane.submit(msa_rows_host, ms, rows[c], _msa_row_chunk_size())
+            n_rows = ms.shape[1]
+            cut = lambda c: hostlane.submit(msa_rows_host, ms, rows[c], msa_row_bucket(len(rows[c]), n_rows))
             next_rows = cut(0)
         z3 = ttnn.reshape(ttnn.mul(z_init, 0.0), (1, N, N, self.C_Z))
         # Both are read once per cycle and never written, so past 1 GiB they wait on the host.
         z_init, tpl_a = host_park(z_init), host_park(tpl_a)
         s = ttnn.mul(s_init, 0.0)
 
-        def cycle(cyc, carry, m_feat, depth_to=None):
+        def cycle(cyc, carry, m_feat, rows=None):
             # Unpacked and cleared, so the cycle's input pair dies at its first rebind exactly as
             # it did inline; only a caller that kept its own copy holds it longer.
             z3, s = carry
@@ -3549,7 +3550,7 @@ class Trunk(_KeyedWeights):
             # a 2-block stack (pinned by tests/test_protenix_template_gate.py).
             if nt > 0 and self.TPL:
                 z3 = self._template(z3, tpl_a, N, nt, pmask_tt, attn_tt)
-            z3 = self._msa(z3, m_feat, pmask_tt, attn_tt, depth_to)
+            z3 = self._msa(z3, m_feat, pmask_tt, attn_tt, rows)
             sc = self._lin(self._ln(s, "layernorm_s.weight", "layernorm_s.bias"), "linear_no_bias_s.weight")
             s = ttnn.add(s_init, sc)
             s, z3 = self.PF(ttnn.reshape(s, (1, N, 384)), z3, pmask_tt, attn_tt, attn_tt)
@@ -3574,10 +3575,20 @@ class Trunk(_KeyedWeights):
                 if progress_fn:
                     progress_fn("trunk", step=cyc, total=n_cycles)
                 if rows is not None:
-                    parts = next_rows.result()
+                    x, mask = next_rows.result()
                     if cyc + 1 < n_cycles:
                         next_rows = cut(cyc + 1)
-                    carry = cycle(cyc, carry, msa_embed_rows(parts, m_proj), opm_depth_bucket(len(rows[cyc])))
+                    k = len(rows[cyc])
+                    m_c = msa_embed(x, m_proj, keep=_msa_keep_bytes(N, x.shape[1] * m_key[1] // ms.shape[1]))
+                    if torch.is_tensor(m_c):
+                        # Parked on the host: drop the padding there, which costs nothing.
+                        carry = cycle(cyc, carry, m_c[:, :k])
+                        continue
+                    mask = ttnn.from_torch(mask, layout=ttnn.TILE_LAYOUT, device=get_device(),
+                                           dtype=ttnn.bfloat16)
+                    carry = cycle(cyc, carry, m_c, (mask, k))
+                    ttnn.deallocate(m_c)
+                    ttnn.deallocate(mask)
                     continue
                 if torch.is_tensor(m_feat):
                     carry = cycle(cyc, carry, m_feat)
