@@ -656,7 +656,9 @@ fast set folds the same input in 123.4 s, and 168.3 s instead of 181.6 s at 1024
 median same-seed top-pose deviation of 1.29 A against 1.70 A between two seeds of normal mode.
 On a Blackhole p150a at 1350 MHz the 730-token fold takes 98.4 s on the reference path, 68.5 s in
 normal mode and 64.1 s in fast mode. At 256 tokens fast mode is no faster than normal there (18.0 s
-against 17.3 s).
+against 17.3 s). The Blackhole fast grade against normal mode, same 11 complexes and 4 seeds: CA-lDDT
++0.0020, pLDDT +0.0005 and DockQ +0.010 with its interval reaching zero, docking success 24 of 44 in
+both modes, and a median same-seed top-pose deviation of 1.39 A against 1.99 A between two seeds.
 
 ## `TT_BIO_LNBW_FUSED`
 
