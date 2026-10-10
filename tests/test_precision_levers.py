@@ -113,6 +113,13 @@ def test_fold_runs_under_the_models_levers_and_restores():
         assert M().fold() is True and not T.lever("acc_off")
 
 
+def test_opendde_entry_points_run_under_its_levers():
+    from tt_bio.opendde import OpenDDE
+
+    for name in ("fold", "expand_and_refine"):
+        assert getattr(OpenDDE, name).__wrapped__
+
+
 def test_boltz2_folds_with_the_process_fast_switch_off(monkeypatch):
     import tt_bio.boltz2 as B
 

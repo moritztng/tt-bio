@@ -18,9 +18,10 @@ import torch
 import ttnn
 
 from .protenix import _KeyedWeights
+from . import hostlane
 from .envflags import env_flag
 from .opendde_data import STRUCTURAL_TOKEN_ROLES
-from .tenstorrent import _acc_concat, concat_host_bytes, dram_peak, get_device
+from .tenstorrent import _acc_concat, concat_host_bytes, dram_peak, get_device, under_levers
 
 _BACKBONE = (STRUCTURAL_TOKEN_ROLES["protein_bb"],
              STRUCTURAL_TOKEN_ROLES["dna_bb"],
@@ -382,7 +383,16 @@ class OpenDDE:
     a 4-block structural-token refiner (a reused ``Pairformer``), on the structural-token
     axis. Ships co-folding only (no design/affinity)."""
 
-    def __init__(self, state_dict, compute_kernel_config, device=None):
+    def __init__(self, state_dict, compute_kernel_config, device=None, levers=None):
+        """levers: the precision levers this model builds and folds under, the same switches
+        Protenix-v2 runs (`tenstorrent.LEVERS`); None takes the mode's set
+        (`tenstorrent.mode_levers`), so `--fast` is `FAST_LEVERS` here too."""
+        import tt_bio.tenstorrent as _TT
+        self._levers = _TT.parse_levers(_TT.mode_levers() if levers is None else levers)
+        with _TT.levers(self._levers):
+            self._build(state_dict, compute_kernel_config, device)
+
+    def _build(self, state_dict, compute_kernel_config, device):
         from .tenstorrent import get_device, Pairformer, accurate_softmax_site
         from .protenix import Protenix
         self.dev = device or get_device()
@@ -410,7 +420,7 @@ class OpenDDE:
         self._protenix = Protenix(
             self._shared, compute_kernel_config, self.dev, c_z=C["c_z"], msa_update_first=True,
             diffusion_fp32=env_flag("OPENDDE_DIFFUSION_FP32", False), gated_move=True,
-            softmax_scope="opendde")
+            softmax_scope="opendde", levers=self._levers)
         self.expander = StructuralTokenExpander(
             routed["expander"], compute_kernel_config, c_s=C["c_s"], c_z=C["c_z"],
             c_s_inputs=C["c_s_inputs"], n_roles=C["n_roles"], pair_chunk_size=C["pair_chunk_size"])
@@ -421,7 +431,8 @@ class OpenDDE:
             accurate_softmax=accurate_softmax_site("opendde.refiner", default=True))
 
     @classmethod
-    def load_from_checkpoint(cls, path=None, *, abag=False, compute_kernel_config=None, device=None):
+    def load_from_checkpoint(cls, path=None, *, abag=False, compute_kernel_config=None, device=None,
+                             levers=None):
         """Fetch/load ``opendde.pt`` (or ``opendde_abag.pt`` when ``abag=True``) and build
         the model on ``device`` (card 0 by default)."""
         import ttnn
@@ -429,8 +440,9 @@ class OpenDDE:
         dev = device or get_device()
         ckc = compute_kernel_config or ttnn.init_device_compute_kernel_config(
             dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi4, fp32_dest_acc_en=True, packer_l1_acc=True)
-        return cls(load_opendde_checkpoint(path, abag=abag), ckc, dev)
+        return cls(load_opendde_checkpoint(path, abag=abag), ckc, dev, levers=levers)
 
+    @under_levers
     def expand_and_refine(self, ifd, s_inputs_res, s_res, z_res, *,
                           extra_attn_bias=True, return_attn_bias=False):
         """The novel seam (opendde/model/opendde.py forward): residue-trunk (s_inputs, s, z)
@@ -471,30 +483,18 @@ class OpenDDE:
         return result
 
     def _residue_trunk(self, feats, fi, n_cycles, seed, progress_fn):
-        """Input embedder + trunk on the residue axis (identical to Protenix.fold steps 1-3).
+        """Input embedder + trunk on the residue axis (Protenix.fold's own first stage).
         Returns host (s_inputs, s_trunk, z_trunk, c_l, p_lm) and frees the device copies."""
         P = self._protenix
-        tt = P._tt
-        N, NT, nb, nq, nk, mt, S = (fi[k] for k in ("N", "NT", "nb", "nq", "nk", "mt", "S"))
-        Mmat = (S.t() / (S.t().sum(-1, keepdim=True) + 1e-6))
-        dm = feats["deletion_mean"]; dm = dm.reshape(-1, 1) if dm.dim() == 1 else dm
-        s_inputs_tt = P.input_aae(
-            tt(feats["ref_pos"]), tt(fi["ref_charge_asinh"]), tt(feats["ref_mask"].reshape(N, 1)),
-            tt(fi["f_in"]), tt(fi["d"]), tt(fi["v"]), tt(fi["invd"]), mt, tt(Mmat),
-            tt(feats["restype"]), tt(feats["profile"]), tt(dm))
-        s_inputs = P._to_host(s_inputs_tt)[:NT]
-        mt_dev = tt(mt.reshape(-1, 1).float())
-        c_l = P._to_host(P.diff_feat.c_l(tt(feats["ref_pos"]), tt(fi["ref_charge_asinh"]),
-                                         tt(feats["ref_mask"].reshape(N, 1)), tt(fi["f_in"])), (N, 128))
-        p_lm = P._to_host(P.diff_feat.p_lm(tt(fi["d"]), tt(fi["v"]), tt(fi["invd"]), mt_dev), (nb, nq, nk, 16))
-        relp = feats["relp"] if "relp" in feats else P._generate_relp(feats)
+        NT = fi["NT"]
         # Each recycling cycle reads its own MSA_DEPTH random alignment rows, drawn from the seed
         # as upstream's MSAModule does.
         gen = torch.Generator()
         gen.seed() if seed is None else gen.manual_seed(seed)
-        s_trunk_tt, z_tt = P.trunk(feats, s_inputs, relp, feats["token_bonds"],
-                                  n_cycles=n_cycles, progress_fn=progress_fn,
-                                  msa_sample=(MSA_DEPTH, gen))
+        st = P._trunk_stage(feats, fi=fi, progress_fn=progress_fn, n_cycles=n_cycles,
+                            msa_sample=(MSA_DEPTH, gen))
+        s_inputs, c_l, p_lm = st["s_inputs"], st["c_l"], st["p_lm"]
+        s_trunk_tt, z_tt = st["s_trunk_tt"], st["z_tt"]
         s_trunk = P._to_host(s_trunk_tt, (NT, s_trunk_tt.shape[-1]))
         # The z_trunk host copy stays bf16 when `_SEAM_BF16` is on. Its two consumers both
         # accept it: the expander re-uploads it as bf16 (`ttnn.from_torch(..., dtype=bfloat16)`,
@@ -506,10 +506,11 @@ class OpenDDE:
         # above. Free them before the expander allocates the structural-scale pair
         # tensor (~1.9x the residue axis): on 12 GiB Wormhole parts their holes are
         # what the refiner's full-size concats squeeze into.
-        for _t in (s_inputs_tt, s_trunk_tt, z_tt, mt_dev):
+        for _t in (s_trunk_tt, z_tt):
             ttnn.deallocate(_t)
         return s_inputs, s_trunk, z_trunk, c_l, p_lm
 
+    @under_levers
     def fold(self, feats, *, n_step=20, n_cycles=2, seed=None, n_sample=1,
              return_confidence=False, progress_fn=None, trace=False, dump_fn=None,
              max_parallel_samples=None, distogram=False, guidance=None, trunk_cache=None):
@@ -534,9 +535,8 @@ class OpenDDE:
         assumed). Confidence is independent of the structural-token diffusion axis, so no
         structural-token distogram-rep-atom machinery is needed here.
 
-        --fast and multi-card fanout ride the existing Protenix-v2 machinery (the trunk
-        reads the global fast flag; the predict scheduler fans targets across --devices),
-        both apply unchanged to OpenDDE. trace=True replays a
+        --fast is the model's lever set (FAST_LEVERS, see __init__) and multi-card fanout is the
+        predict scheduler's, both shared with Protenix-v2. trace=True replays a
         captured ttnn trace of the shared denoise stream (lossless; faster on
         dispatch-bound diffusion, mirroring Protenix-v2.fold(trace=)); needs a device
         opened with get_device(trace="protenix"). Returns
@@ -564,7 +564,7 @@ class OpenDDE:
         Ns = ifd["parent_residue_idx"].shape[0]
 
         fi = P._atom_feat_inputs(feats)
-        N, nb, nq, nk, mt = fi["N"], fi["nb"], fi["nq"], fi["nk"], fi["mt"]
+        N, NT, nb, nq, nk, mt = fi["N"], fi["NT"], fi["nb"], fi["nq"], fi["nk"], fi["mt"]
 
         # 1) input embedder + trunk, residue axis (identical to Protenix.fold steps 1-3)
         key = hit = None
@@ -581,6 +581,8 @@ class OpenDDE:
             if key is not None:
                 trunk_cache.save(key, dict(s_inputs=s_inputs, s_trunk=s_trunk, z_trunk=z_trunk,
                                            c_l=c_l, p_lm=p_lm))
+        z_base = (P._confidence_start(s_inputs, hostlane.done(z_trunk), NT)
+                  if return_confidence else None)
 
         # 2) the novel seam: residue -> structural-token axis
         s_inputs_st, s_st, z_st, structural_attn_bias = self.expand_and_refine(
@@ -642,7 +644,7 @@ class OpenDDE:
             # Residue-axis confidence (select_pair_output_branch(pair_output_space="residue")):
             # s_inputs/s_trunk/z_trunk are the step-1 pre-expansion tensors, `feats` the
             # original residue-level dict -- identical call shape to Protenix.fold's.
-            confs = P.confidence_head.confidence_samples(s_inputs, s_trunk, z_trunk, list(coords), feats)
+            confs = P._confidences(s_inputs, s_trunk, hostlane.done(z_trunk), z_base, list(coords), feats)
             if distogram:
                 # Upstream's DistogramHead on the same residue-axis trunk pair
                 # (compute_distogram_contact_probs reads select_pair_output_branch's pair_z):

@@ -1911,7 +1911,6 @@ class ConfidenceHead:
         self._w = dict(conf_state_dict)
         self.dev = device
         self.compute_kernel_config = compute_kernel_config
-        self._device_default = softmax_scope == "protenix"
         nb = 1 + max(int(re.search(r"pairformer_stack\.blocks\.(\d+)\.", k).group(1))
                      for k in self._w if k.startswith("pairformer_stack.blocks."))
         comb = {}
@@ -2013,15 +2012,14 @@ class ConfidenceHead:
     # are uploaded; the distance-embed + Pairformer + pae/pde/plddt heads all
     # run on device, and only the small final logits (pae/pde (N,N,64), plddt
     # (N_atom,50)) are downloaded. Feature-detected + gated behind
-    # TT_PROTENIX_CONF_DEVICE. On by default for Protenix-v2, where it passed the
-    # normal-mode grade (11 complexes x 4 seeds on Wormhole, pLDDT within 0.003 per
-    # complex); OpenDDE shares this class and keeps it opt-in until graded itself.
+    # TT_PROTENIX_CONF_DEVICE, on by default: it passed the normal-mode grade on
+    # Wormhole (11 complexes x 4 seeds) for Protenix-v2 (pLDDT within 0.003 per
+    # complex) and for OpenDDE (coordinates unchanged, CA-lDDT +0.0009).
     # ---------------------------------------------------------------------------
     def device_confidence_enabled(self):
-        """True if TT_PROTENIX_CONF_DEVICE (default: on for Protenix-v2, off for
-        OpenDDE) asks for it AND the installed ttnn exposes every op the device
-        path needs. Otherwise confidence() runs its host heads."""
-        if not env_flag("TT_PROTENIX_CONF_DEVICE", self._device_default):
+        """True if TT_PROTENIX_CONF_DEVICE (default on) asks for it AND the installed
+        ttnn exposes every op the device path needs. Otherwise confidence() runs its host heads."""
+        if not env_flag("TT_PROTENIX_CONF_DEVICE", True):
             return False
         import ttnn
         need = ("clamp", "ge", "lt", "sqrt", "embedding", "layer_norm", "linear",
@@ -2493,16 +2491,15 @@ class Protenix:
 
         levers: the precision levers (`tenstorrent.LEVERS`) this model builds and folds under,
         active only inside its own build and fold. `load_from_checkpoint` passes the mode's set,
-        and then `--fast` means those levers and nothing else. None keeps the older `--fast`, a
-        bfp8 trunk, for the callers that build this class directly (OpenDDE)."""
+        and then `--fast` means those levers and nothing else. None is the empty set."""
         import tt_bio.tenstorrent as _TT
         self._levers = _TT.parse_levers(levers or ())
         with _TT.levers(self._levers):
             self._build(model_state_dict, compute_kernel_config, device, c_z, msa_update_first,
-                        diffusion_fp32, gated_move, softmax_scope, legacy_fast=levers is None)
+                        diffusion_fp32, gated_move, softmax_scope)
 
     def _build(self, model_state_dict, compute_kernel_config, device, c_z, msa_update_first,
-               diffusion_fp32, gated_move, softmax_scope, legacy_fast):
+               diffusion_fp32, gated_move, softmax_scope):
         from .tenstorrent import get_device
         import tt_bio.tenstorrent as _TT
         self._w = model_state_dict
@@ -2519,32 +2516,17 @@ class Protenix:
                                    if diffusion_fp32 is None else diffusion_fp32)
         if diffusion_fp32 is None and _TT.lever("diffusion_bf16"):
             resolved_diffusion_fp32 = False
-        # --fast for Protenix changes only the trunk to bf8. The trunk tolerates bf8, but bf8
-        # in the coordinate-sensitive diffusion collapses the structure (Rg 4.7 vs 22).
-        #
-        # "Tolerates" is per checkpoint, not per class -- the pair track is c_z wide and bf8
-        # costs more where it is narrower. Measured against the CPU reference on a 228-token
-        # 2-chain target: protenix-v2 (c_z 256) s/z PCC 0.99; protenix-v1 (c_z 128) s 0.99993
-        # but z_trunk 0.9892, i.e. marginally UNDER the 0.99 the v2 number states. End to end
-        # that ordering reverses, on a converged 117-aa MSA fold, --fast against default:
-        # protenix-v1 0.4378 A RMSD (pLDDT 0.7646 -> 0.8592), protenix-v2 2.6816 A
-        # (pLDDT 0.8810 -> 0.7525). So --fast is ~6x LESS disruptive on v1 than on the model
-        # that already ships it, and the trunk PCC alone would have said the opposite. Capture the --fast intent, then build each stage at its
-        # own precision; fold() re-applies the per-stage flag (the trunk's triangle/transition
-        # ops read _dtype() at RUNTIME, so the global flag must match the weights per stage).
-        self._fast = _TT._FAST_MODE and legacy_fast
-        _TT.set_fast_mode(False)   # input embedder stays bf16; diffusion precision is gate-controlled
+        # `--fast` is the lever set, not the global bfp8 flag: build every stage with it off.
+        _TT.set_fast_mode(False)
         self.input_aae = AtomAttentionEncoder(under("input_embedder.atom_attention_encoder."), compute_kernel_config)
         diffusion_dtype = ttnn.float32 if resolved_diffusion_fp32 else ttnn.bfloat16
         self.diff_feat = AtomFeaturization(under("diffusion_module.atom_attention_encoder."),
                                             compute_kernel_config, dtype=diffusion_dtype)
-        _TT.set_fast_mode(self._fast)   # trunk: bf8 when --fast
         # The trunk gets its OWN compute kernel config, so its matmul fidelity cannot reach the
         # diffusion module, which runs fp32 on purpose and does need all four mantissa passes.
         self.trunk = Trunk(model_state_dict, _TT.trunk_compute_kernel_config(compute_kernel_config),
                            c_z=self._c_z, msa_update_first=msa_update_first,
                            gated_move=gated_move, softmax_scope=softmax_scope)
-        _TT.set_fast_mode(False)   # diffusion uses its gate-controlled dtype; confidence stays bf16
         self.diffusion = DiffusionModule(under("diffusion_module."), self.dev, compute_kernel_config,
                                           diffusion_fp32=resolved_diffusion_fp32)
         self.confidence_head = ConfidenceHead(under("confidence_head."), self.dev,
@@ -2575,8 +2557,7 @@ class Protenix:
         # the shipped path. Scoped to this entry point -- OpenDDE builds Protenix directly
         # and passes its own flag.
         if levers is None:
-            levers = os.environ.get("TT_BIO_LEVERS") or (
-                _TT.FAST_LEVERS if _TT._FAST_MODE else _TT.NORMAL_LEVERS)
+            levers = _TT.mode_levers()
         return cls(sd, ckc, dev, gated_move=True, diffusion_fp32=diffusion_fp32, levers=levers)
 
     def _tt(self, x):
@@ -2914,8 +2895,40 @@ class Protenix:
             _d = _pl.Path(os.environ.get("TT_PROTENIX_PAIRCOND_DEBUG_DIR", "/tmp/issue9"))
             _d.mkdir(parents=True, exist_ok=True)
             torch.save(feats, _d / "feats_dump.pt")
+        st = self._trunk_stage(feats, progress_fn=progress_fn, n_cycles=n_cycles, seed=seed)
+        fi, s_inputs, c_l, p_lm, relp = st["fi"], st["s_inputs"], st["c_l"], st["p_lm"], st["relp"]
+        N, NT, nb, nq, nk = fi["N"], fi["NT"], fi["nb"], fi["nq"], fi["nk"]
+        mt = fi["mt"]; S = fi["S"]
+        s_trunk_tt, z_tt = st["s_trunk_tt"], st["z_tt"]
+        s_trunk = self._to_host(s_trunk_tt, (NT, s_trunk_tt.shape[-1]))
+        # Raw trunk z, for the confidence head only. Read now, while z_tt exists, but untilized on
+        # the host lane: the chip goes straight on to the pair conditioning. aux carries a Future.
+        C_Z = self.trunk.C_Z
+        z_trunk = hostlane.to_torch(ttnn.from_device(z_tt), lambda z: z.float().reshape(NT, NT, C_Z))
+        # diffusion pair conditioning (once, t-independent): conditioned pair_z
+        pair_z = self._diffusion_pair_cond(z_tt, relp).reshape(NT, NT, self.trunk.C_Z)
+        # diffusion p_lm cache also carries the (conditioned) pair-z broadcast to atom pairs
+        p_lm = p_lm + self._plm_z_term(pair_z, fi["a2t"], nb, nq, nk)
+        # 4) EDM sampler
+        cond = {"s_trunk": s_trunk, "s_inputs": s_inputs, "pair_z": pair_z, "c_l": c_l,
+                "p_lm": p_lm, "S": S, "mask_trunked": mt.float()}
+        # DiT pair input is t-independent -> upload LN(pair_z) once (on-device DiT derives the
+        # per-block bias), or precompute the host biases for the fp32 fallback.
+        if self.diffusion.device_dit:
+            cond["dit_z"] = self.diffusion._dit_z_device(pair_z)
+        else:
+            cond["dit_biases"] = self.diffusion._dit_pair_biases(pair_z)
+        return cond, dict(N=N, NT=NT, s_inputs=s_inputs, s_trunk=s_trunk, z_trunk=z_trunk)
 
-        fi = self._atom_feat_inputs(feats)
+    def _trunk_stage(self, feats, *, progress_fn=None, n_cycles=None, seed=None, fi=None,
+                     msa_sample=None):
+        """Input embedder, the diffusion's atom cache (c_l, p_lm) and the trunk, with the trunk's
+        host inputs on the host lane: everything before the trunk is read back. Protenix and
+        OpenDDE (which diffuses on its own token axis) both start here. Returns a dict with fi,
+        s_inputs, c_l, p_lm, relp and the resident s_trunk_tt, z_tt. A caller that already built
+        fi passes it; msa_sample=(depth, generator) replaces the msa_sample lever's own draw
+        (OpenDDE reads a fixed upstream depth every cycle)."""
+        fi = self._atom_feat_inputs(feats) if fi is None else fi
         N, NT, nb, nq, nk = fi["N"], fi["NT"], fi["nb"], fi["nq"], fi["nk"]
         mt = fi["mt"]; S = fi["S"]
         tt = self._tt
@@ -2937,46 +2950,43 @@ class Protenix:
                                                dtt(feats["ref_mask"].reshape(N, 1)), dtt(fi["f_in"])), (N, 128))
         p_lm = self._to_host(self.diff_feat.p_lm(dtt(fi["d"]), dtt(fi["v"]), dtt(fi["invd"]), mt_dev),
                              (nb, nq, nk, 16))
-        # 3) trunk (bf8 under --fast: toggle the global flag ON so the trunk's triangle/
-        #    transition runtime _dtype() matches its bf8 weights, then restore bf16 for the
-        #    coordinate-sensitive diffusion. Trunk tolerates bf8; diffusion does not. The per-
-        #    checkpoint bf8 numbers are in __init__ -- z_trunk is 0.99 at c_z 256 and 0.9892 at 128.)
+        # 3) trunk
         import tt_bio.tenstorrent as _TT
         relp, host = trunk_host.result()
-        if self._fast:
-            _TT.set_fast_mode(True)
         # Under the msa_sample lever every cycle reads its own random alignment rows, drawn from
         # the fold seed as upstream's MSAModule draws them from its seeded global generator. v2
         # lineage only (10 recycles): v0.5.0 draws between 2048 and n rows and keeps 2048
         # (configs_data.py min_size/sample_cutoff test 2048), a rule not built here.
-        msa_sample = None
-        if _TT.lever("msa_sample") and self.trunk.N_CYCLES == 10:
+        if msa_sample is None and _TT.lever("msa_sample") and self.trunk.N_CYCLES == 10:
             gen = torch.Generator()
             msa_sample = (None, gen.manual_seed(seed) if seed is not None else gen)
         s_trunk_tt, z_tt = self.trunk(feats, s_inputs, relp, feats["token_bonds"],
                                       progress_fn=progress_fn, n_cycles=n_cycles, host=host,
                                       msa_sample=msa_sample)
-        if self._fast:
-            _TT.set_fast_mode(False)
-        s_trunk = self._to_host(s_trunk_tt, (NT, s_trunk_tt.shape[-1]))
-        # Raw trunk z, for the confidence head only. Read now, while z_tt exists, but untilized on
-        # the host lane: the chip goes straight on to the pair conditioning. aux carries a Future.
-        C_Z = self.trunk.C_Z
-        z_trunk = hostlane.to_torch(ttnn.from_device(z_tt), lambda z: z.float().reshape(NT, NT, C_Z))
-        # diffusion pair conditioning (once, t-independent): conditioned pair_z
-        pair_z = self._diffusion_pair_cond(z_tt, relp).reshape(NT, NT, self.trunk.C_Z)
-        # diffusion p_lm cache also carries the (conditioned) pair-z broadcast to atom pairs
-        p_lm = p_lm + self._plm_z_term(pair_z, fi["a2t"], nb, nq, nk)
-        # 4) EDM sampler
-        cond = {"s_trunk": s_trunk, "s_inputs": s_inputs, "pair_z": pair_z, "c_l": c_l,
-                "p_lm": p_lm, "S": S, "mask_trunked": mt.float()}
-        # DiT pair input is t-independent -> upload LN(pair_z) once (on-device DiT derives the
-        # per-block bias), or precompute the host biases for the fp32 fallback.
-        if self.diffusion.device_dit:
-            cond["dit_z"] = self.diffusion._dit_z_device(pair_z)
-        else:
-            cond["dit_biases"] = self.diffusion._dit_pair_biases(pair_z)
-        return cond, dict(N=N, NT=NT, s_inputs=s_inputs, s_trunk=s_trunk, z_trunk=z_trunk)
+        return dict(fi=fi, s_inputs=s_inputs, c_l=c_l, p_lm=p_lm, relp=relp,
+                    s_trunk_tt=s_trunk_tt, z_tt=z_tt)
+
+    def _confidence_start(self, s_inputs, z_trunk, NT):
+        """The device confidence head's z_base, summed on the host lane while the sampler runs, or
+        None when this fold takes the host heads. `z_trunk` is a host-lane Future of the trunk pair.
+        The device head starts at 128 tokens, where the host path's per-sample (N,N,c_z) round
+        trip starts to cost (~23 ms at 38 tokens)."""
+        ch = self.confidence_head
+        if not (ch.device_confidence_enabled() and NT >= 128):
+            return None
+        return hostlane.submit(lambda: ch.z_base_host(s_inputs, z_trunk.result()))
+
+    def _confidences(self, s_inputs, s_trunk, z_trunk, z_base, coords, feats):
+        """One confidence dict per sample in `coords`: on the device when `_confidence_start` gave
+        a z_base, else the host heads. `z_trunk` is a host-lane Future of the trunk pair."""
+        ch = self.confidence_head
+        if z_base is None:
+            return ch.confidence_samples(s_inputs, s_trunk, z_trunk.result(), coords, feats)
+        z_base_dev = ch.z_base_upload(z_base.result())
+        try:
+            return ch.confidence_device_samples(s_inputs, s_trunk, z_base_dev, coords, feats)
+        finally:
+            ch.drop_device_resident()
 
     @_T.under_levers
     def fold(self, feats, *, n_step=200, n_sample=1, seed=None, progress_fn=None,
@@ -3005,10 +3015,7 @@ class Protenix:
         s_inputs, s_trunk, z_trunk = _aux["s_inputs"], _aux["s_trunk"], _aux["z_trunk"]
         # The device confidence head's sample-invariant z_base is built on the host lane while the
         # diffusion runs; the chip used to wait for it, and for z_trunk's untilize, at its entry.
-        conf_dev = (return_confidence and self.confidence_head.device_confidence_enabled()
-                    and NT >= 128)
-        if conf_dev:
-            z_base = hostlane.submit(lambda: self.confidence_head.z_base_host(s_inputs, z_trunk.result()))
+        z_base = self._confidence_start(s_inputs, z_trunk, NT) if return_confidence else None
         import os as _os, time as _time
         if _os.environ.get("TT_PROTENIX_DBG_COND"):
             self._dbg_cond = cond
@@ -3077,27 +3084,7 @@ class Protenix:
             # Per-sample confidence so callers can rank samples (best-of-N) and
             # report pTM/ipTM/pLDDT per sample. n_sample==1 returns a single dict
             # (back-compat); n_sample>1 returns a list aligned with coords.
-            # Device-resident path (TT_PROTENIX_CONF_DEVICE, see above): keep z_base
-            # on device across samples -- pass the raw trunk z device tensor
-            # straight in, skipping the (N,N,256) host round-trip the host-heads
-            # path takes. Falls back to the host-heads path otherwise.
-            if conf_dev:
-                # z_base (z_trunk + s1 + s2) is sample-invariant: build it ONCE in
-                # fp32 on host and upload as a resident bf16 device tensor, then
-                # run the per-sample distance-embed + Pairformer + heads on device
-                # -- the (N,N,256) z never round-trips per sample. Restricted to
-                # NT>=128, where the host path's round trip starts to cost (it is
-                # ~23 ms at NT=38). The small-N divergence once blamed for the gate
-                # was the bf16 distance cancellation fixed in confidence_device.
-                z_base_dev = self.confidence_head.z_base_upload(z_base.result())
-                try:
-                    confs = self.confidence_head.confidence_device_samples(
-                        s_inputs, s_trunk, z_base_dev, [coords[k] for k in range(n_sample)], feats)
-                finally:
-                    self.confidence_head.drop_device_resident()
-            else:
-                confs = self.confidence_head.confidence_samples(s_inputs, s_trunk, z_trunk.result(),
-                                                                list(coords), feats)
+            confs = self._confidences(s_inputs, s_trunk, z_trunk, z_base, list(coords), feats)
             return coords, (confs[0] if n_sample == 1 else confs)
         return coords
 

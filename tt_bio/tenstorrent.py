@@ -439,6 +439,13 @@ TRANSITION_H_CHUNK_REJECTS: dict = {}
 # ladder rung dies partway through a fold -- "served=2 then a CB clash" does not identify the
 # shape, and the row height that ships has to be derived from the shape that binds.
 TRANSITION_H_CHUNK_SHAPES: dict = {}
+# {(tiled W, c, hidden): smallest row height the device refused}. The derived heights are fits to
+# an EMPTY L1, and a call site can hold resident L1 the fit never saw: OpenDDE at 256 tokens on a
+# p150a runs the c=64 MSA Transition beside its update-first MSA block, and fc2's static circular
+# buffers ran 2,560 B into a live buffer (890880 vs 893440, 11x9 cores) on every seed. A refused
+# height is recorded here and the call re-run at half of it; row height is row-local, so the
+# re-run writes the same bytes, and the record keeps every later call off the refused height.
+TRANSITION_H_CLASH: dict = {}
 # Measured ceiling for one Transition row chunk on a small grid, in L1 bytes PER CORE.
 # The chunk's live L1 (x_norm + x_1 + x_2) is interleaved across the grid, so what binds is
 # aggregate L1 / cores, and the budget above never sees core count. On UF-EV-A13-GWH02
@@ -584,11 +591,13 @@ _FAST_MODE = False
 #   swiglu_fc12g    inside transition_shard, silu(x w1) * (x w2) as ONE matmul over [w1_j | w2_j] with the silu
 #                   and the gate multiply in the compute kernel (kernels/fc12g): no fc1/fc2 tensors, no
 #                   multiply op; the gate multiplies fc2 in dest rather than its stored copy. Needs silu_f32.
+#   dit_chunk       the token DiT's fused SDPA takes q = k = the largest 32-aligned divisor of its length up
+#                   to 320 (`_dit_sdpa_chunk`) instead of 256, which pads every length 256 does not divide
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in",
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
           "transition_shard", "dit_mm16", "atom_k1", "dit_b8", "dit_qkv16", "atom_mm16", "adaln_mod",
-          "swiglu_fc12g", "msa_sample")
+          "swiglu_fc12g", "msa_sample", "dit_chunk")
 # Named but in no mode until their fold grade puts them in one.
 UNGRADED_LEVERS = frozenset({"trimul_b8in", "transition_bw", "atom_mm16", "adaln_mod"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
@@ -646,8 +655,20 @@ FAST_LEVERS = frozenset(LEVERS) - {"lofi", "triatt_b8", "triatt_bias_b8"} - UNGR
 # 0.809 A), docking 32 -> 35 of 44; fast vs fast 0.424 A (floor 0.957 A), docking 33 -> 35 of 44; every
 # paired CI covers 0. c730 at AICLK 1000: normal 250.3 -> 247.7 s, fast 201.3 -> 196.1 s; deep alignments
 # gain most (9DBP 556 -> 419 s, 9PCQ 427 -> 310 s) (state/spd-msasample.md, 2026-10-10).
+# dit_sdpa: fires only where the token DiT runs bf16, which in normal mode is OpenDDE (Protenix-v2's
+# DiT is fp32 there, so it takes dit_sdpa32 and this one is inert). OpenDDE Wormhole 11-set grade
+# PASS, 44 paired folds against the normal set: top pose median 0.299 A (A/A seed floor 1.027 A),
+# every CI covers 0 or sits on the better side, ipTM -0.0010 inside CONF_TOL, docking 24/44 both;
+# 1.10x at 256 tokens, 1.16x at 730, 1.19x at 1024 end to end (state/spd-opendde.md g1, sp1).
+# dit_chunk: fires where dit_sdpa does (a bf16 token DiT): OpenDDE in both modes, Protenix-v2 in fast mode.
+# Wormhole 11-set, 44 paired folds each, same tree: OpenDDE normal vs normal top pose median 0.000 A (max
+# 0.385 A, A/A floor 0.941 A), every CI covers 0 or sits on the better side, docking unchanged (g8);
+# Protenix-v2 fast vs fast 0.084 A (floor 0.957 A), docking 33/44 both (g9); OpenDDE fast vs fast 0.000 A
+# (max 0.341 A, floor 1.187 A), docking 24/44 both (g10) (state/spd-opendde.md).
+# OpenDDE c730 at AICLK 1000: normal 395.4 -> 388.7 s; 256 tokens is inert (256 divides it).
 NORMAL_LEVERS = frozenset({"trimul_ibw", "trimul_tail", "trunk_hifi3", "dit_sdpa32", "silu_f32", "triatt_tail",
-                           "transition_shard", "atom_k1", "dit_mm16", "dit_qkv16", "msa_sample"})
+                           "transition_shard", "atom_k1", "dit_mm16", "dit_qkv16", "msa_sample", "dit_sdpa",
+                           "dit_chunk"})
 _LEVERS = frozenset()
 # silu_f32 is a kernel, so it needs ttnn's headers patched before the first device open (metal_overlay)
 # in any process that may run it. The patch only changes silu under math_approx_mode, and every fused
@@ -660,6 +681,12 @@ if "silu_f32" in NORMAL_LEVERS | FAST_LEVERS or "silu_f32" in os.environ.get("TT
 
 def lever(name: str) -> bool:
     return name in _LEVERS
+
+
+def mode_levers():
+    """The lever set a model built now takes: its mode's (`FAST_LEVERS` under `--fast`, else
+    `NORMAL_LEVERS`), or TT_BIO_LEVERS when a harness grades a set through the serving path."""
+    return os.environ.get("TT_BIO_LEVERS") or (FAST_LEVERS if _FAST_MODE else NORMAL_LEVERS)
 
 
 _SILU_CKCS = {}
@@ -2031,6 +2058,31 @@ def _dividing_sdpa_chunk_size(seq_len: int) -> int:
         if padded % c == 0:
             return c
     return cap
+
+
+@lru_cache(maxsize=None)
+def _dit_sdpa_chunk(seq_len: int) -> int:
+    """q and k chunk for the token DiT's fused SDPA under `dit_chunk`: the largest 32-aligned
+    divisor of the padded length in [96, 320], else the capped 256.
+
+    The capped 256 pads every length it does not divide, and the kernel pays for the padding far
+    beyond its share. MEASURED on a Galaxy Wormhole chip at 1000 MHz, q/k/v [5, 16, N, 64] (head dim
+    48 padded) against a [1, 16, N, N] bias, us per call, 256 -> this pick
+    (perf/wh-opendde/ditsdpa.py, .114 ds2):
+
+        N     480 -> 160   576 -> 288   640 -> 320   800 -> 160   960 -> 320   1440 -> 288
+        us    500 -> 431  2567 -> 509  1548 -> 605  3123 -> 1028 1825 -> 1212 3906 -> 2484
+
+    512 and 1024 keep 256, which divides them. 736 (23 tiles) has no divisor in range and keeps it
+    too. k_chunk sets the online-softmax reduction order, so this is not bit-exact; error against a
+    float64 softmax attention is lower than the shipped 256 at every length above (rel_rms 0.0273 ->
+    0.0271 at 1440), and the wider the chunk the lower it reads. q = k = 480 or 512 does not fit L1.
+    """
+    padded = _padded_sdpa_len(seq_len)
+    for c in range(320, 95, -SDPA_CHUNK_TILE):
+        if padded % c == 0:
+            return c
+    return _capped_sdpa_chunk_size(seq_len)
 
 
 @lru_cache(maxsize=None)
@@ -6186,9 +6238,11 @@ def _l1_out_narrow(key) -> None:
 #     298   0.4016 -> 0.3154 ms   320   0.4132 -> 0.3312   384   0.5888 -> 0.4589
 #     512   0.9949 -> 0.7844      576   1.2548 -> 0.9889   640   1.5561 -> 1.2052
 # The L1-output leg still wins where it applies (298: 0.2838), so this sits BELOW it and above
-# the DRAM linear. Scoped to a single-block contraction (kt == 8) because that is the class where
-# the identical accumulation order was verified.
+# the DRAM linear. Scoped to the single-block contractions where the identical accumulation order
+# was verified: kt == 8 above, and kt == 12 (OpenDDE's c_z=384 trimul output projections,
+# [1,736,736,384] x [384,384], `torch.equal` against the shipped call, perf/wh-opendde/oproj384.py).
 PAIR_PROJ_MINIMAL_MATMUL = True
+_PAIR_PROJ_MM_KT = frozenset({8, 12})
 _PAIR_PROJ_MM = os.environ.get(
     "TT_BIO_PAIR_PROJ_MM", "1" if PAIR_PROJ_MINIMAL_MATMUL else "0") == "1"
 
@@ -6231,7 +6285,7 @@ def _pair_proj_minimal_matmul(x, w, ckc, dtype, bias=None):
     """`minimal_matmul` for a pair projection whose contraction fits one K block, else None."""
     if not _PAIR_PROJ_MM or x.dtype != ttnn.bfloat16 or w.dtype != ttnn.bfloat16:
         return None
-    if len(w.shape) != 2 or -(-int(w.shape[-2]) // 32) != 8:
+    if len(w.shape) != 2 or -(-int(w.shape[-2]) // 32) not in _PAIR_PROJ_MM_KT:
         return None
     cfg = _qkv_mm_config(x, w)
     if cfg is None:
@@ -11313,9 +11367,13 @@ class AttentionPairBias(Module):
                         q_, k_, v_,
                         attn_mask=b_,
                         scale=self.head_dim**-0.5,
-                        program_config=_sdpa_program_config_for_lengths(
-                            q_.shape[2], k_.shape[2], q_.shape[0] * q_.shape[1],
-                            site="token_dit", d=q_.shape[3]),
+                        program_config=(
+                            _sdpa_program_config(q_chunk_size=_dit_sdpa_chunk(q_.shape[2]),
+                                                 k_chunk_size=_dit_sdpa_chunk(k_.shape[2]))
+                            if lever("dit_chunk") else
+                            _sdpa_program_config_for_lengths(
+                                q_.shape[2], k_.shape[2], q_.shape[0] * q_.shape[1],
+                                site="token_dit", d=q_.shape[3])),
                     ),
                     q, k, v, z, site="token_dit",
                 )
@@ -11734,7 +11792,7 @@ class Transition(Module):
                              "on padded positions; upstream masks t(x) only")
         out = host_acc_after_refusal(
             ("transition", tuple(x.padded_shape)), x, lambda: _inplace_guarded(
-                "transition", lambda: self._transition(x, memory_config, add_to_input)))
+                "transition", lambda: self._transition_fit(x, memory_config, add_to_input)))
         if mask is None:
             return out
         masked = ttnn.multiply(out, mask)
@@ -11749,6 +11807,23 @@ class Transition(Module):
                 and x.shape[1] <= SEQ_LEN_MORE_CHUNKING
                 and (memory_config is None or memory_config.buffer_type == ttnn.BufferType.DRAM)
                 and (self.dtype or _dtype()) == ttnn.bfloat16 and _pair_add.ok(x, x))
+
+    def _transition_fit(self, x, memory_config, add_to_input):
+        """`_transition`, re-run at half the row height while the device refuses the height's
+        circular buffers (TRANSITION_H_CLASH). Only before any block was written into `x`."""
+        n0 = PAIR_INPLACE_STATS[1]
+        while True:
+            self._h_last = None
+            try:
+                return self._transition(x, memory_config, add_to_input)
+            except RuntimeError as exc:
+                last = self._h_last
+                if (last is None or last[1] <= 1 or PAIR_INPLACE_STATS[1] != n0
+                        or not x.is_allocated() or TRANSITION_H_CLASH.get(last[0], last[1] + 1) <= last[1]
+                        or not report_l1_refusal("transition", exc)):
+                    raise
+                TRANSITION_H_CLASH[last[0]] = last[1]
+                gc.collect()        # the refused attempt's L1 blocks, still referenced from its traceback
 
     def _transition(self, x: ttnn.Tensor, memory_config: ttnn.MemoryConfig | None,
                     add_to_input: bool) -> ttnn.Tensor:
@@ -11973,18 +12048,21 @@ class Transition(Module):
         # Scoped to 256 < c <= 384 on purpose. c=128 is already unshrunk and its shipped h=16
         # measured fastest with no clash at any height; c=256 measures 1.0738x at W=512 but is
         # protenix-v2's channel and the cap above is its crash fix, so it is left exactly alone.
-        # The W/H guard keeps this to the regime where every arm was torch.equal. It reads the
-        # 608-token threshold as a plain bound on that regime, NOT as the chunking decision, which
-        # is now derived from the budget a few lines up. Widening it would need its own arms.
+        #
+        # Up to 1088 tokens, not only below the 608-token chunking threshold: at c=384 the ratio
+        # alone left h=2 from 608 to 896 and h=1 from 928 up. MEASURED, same harness, WH Galaxy
+        # .114 (state/spd-opendde.md th1): W=736 h=2 153.41 ms | h=3 137.65 | h=4 139.02 (1.104x);
+        # W=896 h=2 217.16 | h=3 207.96 (1.044x). Every arm at or under the element budget is
+        # torch.equal to h=1. The budget is also the correctness bound here: above it, inside the
+        # L1 cap below, the module returns WRONG values without raising (W=736 h=5/6, W=896 h=4/5,
+        # max |diff| 2.0) before it clashes (W=896 h=6), so the cap must never raise the height.
+        # Hence `=` and not `max`: under --fast the base is 32 and the ratio alone lands above the
+        # budget (h=4 at W=896, one of the wrong arms), so the budget sets the height both ways.
         _c = int(x.shape[-1])
         if (_IS_SMALL_GRID and SMALL_GRID_TRANSITION_ELEMS
-                and 256 < _c <= SMALL_GRID_TRANSITION_MAX_C
-                # NOT `w_chunked`: this bound is the regime the raise was validated in
-                # (every arm torch.equal below it), which is a token count of its own and does
-                # not follow the chunking gate above.
-                and W <= transition_w_chunking_threshold and H <= SEQ_LEN_MORE_CHUNKING):
-            transition_h_chunk_size = max(transition_h_chunk_size,
-                                          min(_base_h, SMALL_GRID_TRANSITION_ELEMS // (w_eff * _c)))
+                and 256 < _c <= SMALL_GRID_TRANSITION_MAX_C and H <= SEQ_LEN_MORE_CHUNKING):
+            transition_h_chunk_size = max(1, min(_base_h,
+                                                 SMALL_GRID_TRANSITION_ELEMS // (w_eff * _c)))
         if _IS_SMALL_GRID:
             # Cap the row chunk by measured per-core L1. The budget above scales by per-core L1
             # and by the channel excess; neither term sees that the Galaxy has 45% fewer cores
@@ -12046,9 +12124,14 @@ class Transition(Module):
             shard_rows = _transition_shard_rows(W, _c, _hid)
             if shard_rows:
                 safe_h, transition_h_chunk_size = transition_h_chunk_size, min(shard_rows, H)
+        _clash_key = (_tile(w_eff), _c, _hid)
+        if _clash_key in TRANSITION_H_CLASH:
+            transition_h_chunk_size = min(transition_h_chunk_size,
+                                          max(1, TRANSITION_H_CLASH[_clash_key] // 2))
         _h = os.environ.get("TT_BIO_TRANSITION_H_CHUNK")
         if _h:
             transition_h_chunk_size = max(1, min(int(_h), H))
+        self._h_last = (_clash_key, transition_h_chunk_size)
         # Record what the height actually came out as, AFTER every clause including the screen
         # hook, because a ladder rung that reads "served" off a constant and not off the call is
         # reading the wrong thing: the ratio, the small-grid L1 cap and the H clamp all still get
