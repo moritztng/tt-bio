@@ -599,7 +599,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "transition_shard", "dit_mm16", "atom_k1", "dit_b8", "dit_qkv16", "atom_mm16", "adaln_mod",
           "swiglu_fc12g", "msa_sample", "dit_chunk")
 # Named but in no mode until their fold grade puts them in one.
-UNGRADED_LEVERS = frozenset({"trimul_b8in", "transition_bw", "atom_mm16", "adaln_mod", "dit_chunk"})
+UNGRADED_LEVERS = frozenset({"trimul_b8in", "transition_bw", "atom_mm16", "adaln_mod"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -660,8 +660,15 @@ FAST_LEVERS = frozenset(LEVERS) - {"lofi", "triatt_b8", "triatt_bias_b8"} - UNGR
 # PASS, 44 paired folds against the normal set: top pose median 0.299 A (A/A seed floor 1.027 A),
 # every CI covers 0 or sits on the better side, ipTM -0.0010 inside CONF_TOL, docking 24/44 both;
 # 1.10x at 256 tokens, 1.16x at 730, 1.19x at 1024 end to end (state/spd-opendde.md g1, sp1).
+# dit_chunk: fires where dit_sdpa does (a bf16 token DiT): OpenDDE in both modes, Protenix-v2 in fast mode.
+# Wormhole 11-set, 44 paired folds each, same tree: OpenDDE normal vs normal top pose median 0.000 A (max
+# 0.385 A, A/A floor 0.941 A), every CI covers 0 or sits on the better side, docking unchanged (g8);
+# Protenix-v2 fast vs fast 0.084 A (floor 0.957 A), docking 33/44 both (g9); OpenDDE fast vs fast 0.000 A
+# (max 0.341 A, floor 1.187 A), docking 24/44 both (g10) (state/spd-opendde.md).
+# OpenDDE c730 at AICLK 1000: normal 395.4 -> 388.7 s; 256 tokens is inert (256 divides it).
 NORMAL_LEVERS = frozenset({"trimul_ibw", "trimul_tail", "trunk_hifi3", "dit_sdpa32", "silu_f32", "triatt_tail",
-                           "transition_shard", "atom_k1", "dit_mm16", "dit_qkv16", "msa_sample", "dit_sdpa"})
+                           "transition_shard", "atom_k1", "dit_mm16", "dit_qkv16", "msa_sample", "dit_sdpa",
+                           "dit_chunk"})
 _LEVERS = frozenset()
 # silu_f32 is a kernel, so it needs ttnn's headers patched before the first device open (metal_overlay)
 # in any process that may run it. The patch only changes silu under math_approx_mode, and every fused
