@@ -34,13 +34,14 @@ ap.add_argument("--evo", type=int, default=8)
 ap.add_argument("--blocks", default="0,3,7")
 ap.add_argument("--arms", default="fallback,chunked")
 ap.add_argument("--seed", type=int, default=0)
+ap.add_argument("--params", default=A.DEFAULT_PARAMS)
 a = ap.parse_args()
 
 from tt_bio.main import ensure_p300_mesh_descriptor      # noqa: E402
 ensure_p300_mesh_descriptor()
 from tt_bio import bindcraft2, triatt_bw as TB           # noqa: E402
 
-ns = argparse.Namespace(params=A.DEFAULT_PARAMS, card=0, n=a.n, extra=0, evo=a.evo,
+ns = argparse.Namespace(params=a.params, card=0, n=a.n, extra=0, evo=a.evo,
                         blocks=a.blocks, controls_all=False, controls_only=False, seed=a.seed,
                         msa_mask=False, threads=8)
 
