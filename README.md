@@ -295,7 +295,7 @@ OpenFold3's preview2 checkpoint runs on an upstream release that drops the paire
 (OpenBind pairs).
 ESMFold2 needs no MSA and uses one when a source is given.
 
-`--fast` makes some operations use a lower-precision numeric format that runs faster. Accuracy is typically very close. For Boltz-2 it runs a larger set of cheaper kernels on top of normal mode: the 730-token fold takes 123 s instead of 136 s on a Wormhole chip, with structures and docking success unchanged on 11 complexes; [`docs/tuning-flags.md`](docs/tuning-flags.md#tt_bio_levers) has the grade.
+`--fast` makes some operations use a lower-precision numeric format that runs faster. Accuracy is typically very close. For Boltz-2 it runs a larger set of cheaper kernels on top of normal mode: the 730-token fold takes 123 s instead of 136 s on a Wormhole chip and 64 s instead of 69 s on a Blackhole p150a, with structures and docking success unchanged on 11 complexes on Wormhole; [`docs/tuning-flags.md`](docs/tuning-flags.md#tt_bio_levers) has the grade.
 
 For Protenix, `--diffusion_precision bf16` is the faster setting to reach for: about 9 % per fold on Wormhole. On most complexes the structures match fp32 closely, but where the binding mode is uncertain it can rank a different one first. See [`docs/protenix-diffusion-precision.md`](docs/protenix-diffusion-precision.md).
 
