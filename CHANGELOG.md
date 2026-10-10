@@ -53,8 +53,8 @@ Protenix-v2 is 1.6x faster on Wormhole and OpenDDE 1.3x, with structures inside 
   upstream's dense functions exactly on the tested complexes. `--trunk_cache DIR` reuses the trunk
   across inputs that differ only in their constraint. Without the flag folds are bit-identical to
   before. On 32 held-out antibody-antigen complexes the unguided model gets wrong, top-1 success
-  goes from 0.21 to 0.86 with five true contact pairs and to 0.31 with five epitope residues on the 29 measured
-  so far (upstream reports 0.78 and 0.33); a guided fold takes 5 to 15 % longer on Wormhole and 12 to 20 %
+  goes from 0.19 to 0.84 with five true contact pairs and to 0.28 with five epitope residues (upstream
+  reports 0.78 and 0.33); a guided fold takes 5 to 15 % longer on Wormhole and 12 to 20 %
   longer on Blackhole. Guided runs use fp32 diffusion in every mode, about 20 % slower than `--fast`'s bf16.
   `examples/tfg/` carries upstream's four cases (Fv, VHH, two Fabs) in contact, pocket and unconstrained form.
   [`docs/constraint-guidance.md`](docs/constraint-guidance.md).
