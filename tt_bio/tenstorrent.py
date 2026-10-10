@@ -14460,16 +14460,26 @@ class OuterProductMean(Module):
                 slice copies, and `a` is 0.65 GiB at the sizes this path exists for."""
                 return t if i0 == 0 and i1 == t.shape[0] else t[i0:i1, :, :]
 
+            # Free only a slice this call copied. Over the whole token range a_flat is a view of
+            # the operand, and freeing a view frees its source: a whole call refused after the
+            # contraction (the relayout or the permute) then retried row-blocked from a freed `a`,
+            # whose bytes the relayout had already reused. That read garbage and collapsed the
+            # fold (Protenix-v2 9DBP s145 pLDDT 0.94 -> 0.67, 9W89 s129 0.85 -> 0.63, cold folds
+            # only, since a warm fold starts blocked from the memo).
             if depth_parts is None:
-                a_flat = ttnn.reshape(rows_of(a), (rows * C, S))
+                src = rows_of(a)
+                a_flat = ttnn.reshape(src, (rows * C, S))
                 z = contract(a_flat, b)
-                ttnn.deallocate(a_flat)
+                if src is not a:
+                    ttnn.deallocate(a_flat)
                 return z
             z = None
             for acp, bcp, Sc in depth_parts:
-                a_flat = ttnn.reshape(rows_of(acp), (rows * C, Sc))
+                src = rows_of(acp)
+                a_flat = ttnn.reshape(src, (rows * C, Sc))
                 zp = contract(a_flat, bcp)
-                ttnn.deallocate(a_flat)
+                if src is not acp:
+                    ttnn.deallocate(a_flat)
                 if z is None:
                     z = zp
                 else:
