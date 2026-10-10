@@ -6,6 +6,10 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 ## [Unreleased]
 
 ### Changed
+- **OpenDDE seeds now give different trunks, as upstream's do.** Each recycling cycle reads its own 1280
+  random alignment rows and every reference conformer is centred and turned by a seeded rotation, both
+  drawn from the seed. Before, every seed of a target shared one trunk, so five seeds were one trunk with
+  five noise draws. Outputs for a given seed change; candidate diversity across seeds now matches upstream.
 - **Protenix-v2 is 1.9x faster on Wormhole.** A warm 730-token fold (deep MSA, 5 samples, 10 recycles)
   takes 259 s on a Galaxy chip at 1000 MHz, against 501 s before, and 119 s on a Blackhole p150a at
   1350 MHz. A graded set of cheaper numerics is on by default; structures stay inside seed-to-seed
@@ -22,6 +26,20 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   fp32 on nine, but on two where fp32 misses the interface it picks a different binding mode, once
   right and once a confidently wrong fold that ranks first. The default stays fp32.
   [`docs/protenix-diffusion-precision.md`](docs/protenix-diffusion-precision.md).
+
+### Added
+- **OpenDDE constraint guidance** (upstream 1.2.0 Test-Time Structure-Space Search). A `constraint:`
+  block with contact pairs or an epitope, plus `--use_tfg_guidance`, moves the antibody as a rigid body
+  during sampling (refine, search, refine) and applies OpenDDE's physics restraints. Output matches
+  upstream's dense functions exactly on the tested complexes. `--trunk_cache DIR` reuses the trunk
+  across inputs that differ only in their constraint. Without the flag folds are bit-identical to
+  before. On 32 held-out antibody-antigen complexes the unguided model gets wrong, top-1 success
+  goes from 0.16 to 0.81 with five true contact pairs and to 0.31 with five epitope residues (upstream reports
+  0.78 and 0.33); a guided fold takes 5 to 15 % longer on Wormhole. `examples/tfg/` carries
+  upstream's four cases (Fv, VHH, two Fabs) in contact, pocket and unconstrained form.
+  [`docs/constraint-guidance.md`](docs/constraint-guidance.md).
+- protenix-v2 and opendde rebuild a C-terminal OXT that the diffusion left on C or O, or detached,
+  from the CCD ideal geometry before writing (upstream OpenDDE 6685cef).
 
 ### Fixed
 - The device confidence path read pair distances from a bf16 expansion that put a 3.8 A neighbour

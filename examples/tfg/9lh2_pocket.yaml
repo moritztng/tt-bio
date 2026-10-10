@@ -1,0 +1,22 @@
+# OpenDDE 1.2.0 example 9lh2 (VHH), pocket: upstream examples/tfg/9lh2/9lh2_pocket.json.
+# Entity n is the n-th entry of `sequences`; copy k is the k-th id in its list.
+# The deposited glycans (NAG) are left out; they come last, so entity numbers are unchanged.
+# tt-bio predict examples/tfg/9lh2_pocket.yaml --model opendde-abag --use_tfg_guidance
+version: 1
+sequences:
+  - protein:    # entity 1
+      id: [A, B]
+      sequence: VQPTESIVRFPNITNLCPFGEVFNATRFASVYAWNRKRISNCVADYSVLYNSASFSTFKCYGVSPTKLNDLCFTNVYADSFVIRGDEVRQIAPGQTGKIADYNYKLPDDFTGCVIAWNSNNLDSKVGGNYNYRYRLFRKSNLKPFERDISTEIYQAGSKPCNGVEGFNCYFPLQSYGFQPTNGVGYQPYRVVVLSFELLHAPATVCGPKKSTNLVKNK
+  - protein:    # entity 2
+      id: [C, D]
+      sequence: QVQLVESGGGLVQPGGSLRLSCAASGFTFNRYAMSWVRQAPGKGREWVSGIYSDGSETYYTESVKGRFTISRDNAKNMLYLQMNSLKPEDTALYYCAKDHHAHEDHFNSGFDRKYDYWGQGTQVTVSSHHHHHH
+constraint:
+  movable_chains: [C]
+  epitope:
+    residues:
+      - {entity: 1, copy: 1, position: 147, residue: "R"}
+      - {entity: 1, copy: 1, position: 36, residue: "R"}
+      - {entity: 1, copy: 1, position: 77, residue: "Y"}
+      - {entity: 1, copy: 1, position: 38, residue: "R"}
+    paratope: all
+    min_fraction: 0.5

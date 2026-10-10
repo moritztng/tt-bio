@@ -9,19 +9,19 @@ The one exception is `properties: affinity`, which only omits an extra output ra
 changing the structure. That prints a warning and the fold runs.
 
 <!-- BEGIN CAPABILITY TABLE (generated: python3 -m tt_bio.capabilities) -->
-| model | ligand | RNA | DNA | no protein chain | cyclic | modifications | template npz | template cif | bond constraint | residue-residue bond | pocket/contact | affinity |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| `boltz2` | yes | yes | yes | yes | yes | yes | refused | yes | yes | yes | yes | yes |
-| `esmfold2` | yes | yes | yes | refused | yes | yes | refused | refused | yes | yes | refused | ignored, warns |
-| `esmfold2-fast` | yes | yes | yes | refused | yes | yes | refused | refused | yes | yes | refused | ignored, warns |
-| `protenix-v1` | yes | yes | yes | yes | refused | yes | refused | refused | yes | yes | refused | ignored, warns |
-| `protenix-v2` | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | refused | ignored, warns |
-| `openfold3` | refused | yes | yes | yes | yes | yes | yes | yes | yes | refused | refused | ignored, warns |
-| `openbind` | yes | yes | yes | yes | yes | yes | yes | yes | yes | refused | refused | ignored, warns |
-| `opendde` | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | refused | ignored, warns |
-| `opendde-abag` | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | refused | ignored, warns |
-| `rf3` | yes | yes | yes | yes | refused | yes | yes | yes | yes | refused | refused | ignored, warns |
-| `af2ig` | refused | refused | refused | refused | refused | refused | refused | refused | refused | refused | refused | ignored, warns |
+| model | ligand | RNA | DNA | no protein chain | cyclic | modifications | template npz | template cif | bond constraint | residue-residue bond | pocket/contact | affinity | guided constraint |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| `boltz2` | yes | yes | yes | yes | yes | yes | refused | yes | yes | yes | yes | yes | refused |
+| `esmfold2` | yes | yes | yes | refused | yes | yes | refused | refused | yes | yes | refused | ignored, warns | refused |
+| `esmfold2-fast` | yes | yes | yes | refused | yes | yes | refused | refused | yes | yes | refused | ignored, warns | refused |
+| `protenix-v1` | yes | yes | yes | yes | refused | yes | refused | refused | yes | yes | refused | ignored, warns | refused |
+| `protenix-v2` | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | refused | ignored, warns | refused |
+| `openfold3` | refused | yes | yes | yes | yes | yes | yes | yes | yes | refused | refused | ignored, warns | refused |
+| `openbind` | yes | yes | yes | yes | yes | yes | yes | yes | yes | refused | refused | ignored, warns | refused |
+| `opendde` | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | refused | ignored, warns | yes |
+| `opendde-abag` | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | refused | ignored, warns | yes |
+| `rf3` | yes | yes | yes | yes | refused | yes | yes | yes | yes | refused | refused | ignored, warns | refused |
+| `af2ig` | refused | refused | refused | refused | refused | refused | refused | refused | refused | refused | refused | ignored, warns | refused |
 <!-- END CAPABILITY TABLE -->
 
 `boltz2` is the fallback for anything the others refuse: it takes the whole input language,

@@ -175,7 +175,8 @@ def test_every_batched_sampler_goes_through_the_one_helper():
     """Counted in the source, so a sampler loop that grows its own copy is caught here."""
     calls = {p.name: len(re.findall(r"\bdenoise_in_chunks\(", p.read_text()))
              for p in (ROOT / "tt_bio").rglob("*.py") if p.name != "sample_chunks.py"}
-    assert {k: v for k, v in calls.items() if v} == {"boltz2.py": 1, "protenix.py": 1}
+    assert {k: v for k, v in calls.items() if v} == {"boltz2.py": 1, "protenix.py": 1,
+                                                       "openfold3_sample_diffusion.py": 1}
     # OpenDDE, OpenDDE-AbAg and PXDesign sample through protenix.edm_sample.
     for rel in ("opendde.py", "pxdesign/model.py"):
         assert "edm_sample(" in (ROOT / "tt_bio" / rel).read_text(), rel
