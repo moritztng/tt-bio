@@ -2,13 +2,16 @@
 # spd-bheth on qb1, after bheth_chain_qb1.sh proved the 12x10 grid on c730: does Ethernet dispatch fold every size and
 # model a Blackhole user runs today, and with what digests? Same venv (ttnn 0.68.0+bh.eth2), one p150a card by flock.
 # Protenix-v2 l256..l1536 1 cold + 1 warm, then OpenDDE, OpenFold3, Boltz-2 on c730 cold only; Tensix vs ETH each.
-#   [QB1_CARDS="1 0 2 3"] bheth_ladder_qb1.sh ENGINE_SHA
+#   [QB1_CARDS="1 0 2 3"] [AFTER_PID=N] bheth_ladder_qb1.sh ENGINE_SHA [repeat]
+# repeat: Protenix-v2 l256 + l1024 again in both arms, same seeds, to tell a run-to-run flip from a grid-numerics change
+# (the first ladder's ETH digests differed from Tensix at l256 and l1024, matched at l512).
 # Takes the first listed card that is free and has no release-gate leg (flock_first.sh) waiting on it, so it never
 # jumps a release leg. It polls instead of blocking in flock: a blocked waiter gets SIGSTOPped by flock_first.sh and
 # its -w timer fires the moment it is continued (10-10, 12 h lost that way).
 set -u
-SHA=${1:?engine sha}
-B=~/spd-bheth; R=$B/runs/ladder-$(date -u +%m%dT%H%M); mkdir -p $R
+SHA=${1:?engine sha}; PLAN=${2:-ladder}
+while [ -n "${AFTER_PID:-}" ] && kill -0 $AFTER_PID 2>/dev/null; do sleep 60; done
+B=~/spd-bheth; R=$B/runs/$PLAN-$(date -u +%m%dT%H%M); mkdir -p $R
 say(){ echo "$(date -u +%FT%TZ) $*" | tee -a $R/queue.log; }
 node_of(){ case $1 in 0) echo 1;; 1) echo 2;; 2) echo 3;; 3) echo 0;; esac; }   # qb1 logical -> /dev/tenstorrent node
 PY=$B/venv/bin/python
@@ -39,6 +42,10 @@ run(){  # name model inputs warm arm
   say "$1 rc=$? $(grep -c '"ev": "rep"' $R/$1.log) reps, $(grep -c '"err": null' $R/$1.log) clean"
   dead && { say "node $N ARC dead after $1, stopping"; exit 2; }
 }
+if [ $PLAN = repeat ]; then
+  for m in eth:TT_BIO_BH_ETH_DISPATCH=1 tensix:TT_BIO_BH_ETH_DISPATCH=0; do run pv2_${m%%:*} protenix-v2 l256,l1024 1 $m; done
+  say "end"; exit 0
+fi
 for m in tensix:TT_BIO_BH_ETH_DISPATCH=0 eth:TT_BIO_BH_ETH_DISPATCH=1; do run pv2_${m%%:*} protenix-v2 l256,l512,l1024,l1536 1 $m; done
 for model in opendde openfold3 boltz2; do
   for m in tensix:TT_BIO_BH_ETH_DISPATCH=0 eth:TT_BIO_BH_ETH_DISPATCH=1; do run ${model}_${m%%:*} $model c730 0 $m; done
