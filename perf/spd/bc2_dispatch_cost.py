@@ -21,6 +21,9 @@ ap = argparse.ArgumentParser()
 ap.add_argument("--n", type=int, default=2000, help="calls per timed block")
 ap.add_argument("--reps", type=int, default=5)
 ap.add_argument("--tokens", type=int, default=224)
+ap.add_argument("--small", type=int, default=32,
+                help="side of the second shape; its device time is small enough that a timed block "
+                     "measures host dispatch rather than the queue draining")
 a = ap.parse_args()
 
 from tt_bio.main import ensure_p300_mesh_descriptor  # noqa: E402
@@ -31,10 +34,14 @@ from tt_bio.tenstorrent import get_device  # noqa: E402
 
 dev = get_device()
 shape = (1, a.tokens, a.tokens, 128)
-x = ttnn.from_torch(torch.ones(shape, dtype=torch.bfloat16), layout=ttnn.TILE_LAYOUT,
-                    device=dev, dtype=ttnn.bfloat16)
-y = ttnn.from_torch(torch.ones(shape, dtype=torch.bfloat16), layout=ttnn.TILE_LAYOUT,
-                    device=dev, dtype=ttnn.bfloat16)
+def up(sh):
+    return ttnn.from_torch(torch.ones(sh, dtype=torch.bfloat16), layout=ttnn.TILE_LAYOUT,
+                           device=dev, dtype=ttnn.bfloat16)
+
+
+x, y = up(shape), up(shape)
+small = (1, 1, a.small, a.small)
+sx, sy = up(small), up(small)
 
 
 def block(fn, n):
@@ -48,10 +55,15 @@ def block(fn, n):
 
 
 arms = {
-    "wrapper_multiply": lambda: ttnn.multiply(x, y),
-    "raw_multiply": lambda: ttnn.multiply.function(x, y),
+    # Pair-sized: one call is ~160 us of device work, so a timed block reports the device, not the host.
+    "wrapper_multiply_pair": lambda: ttnn.multiply(x, y),
+    "raw_multiply_pair": lambda: ttnn.multiply.function(x, y),
+    # One tile: the device work is a few us, so the block reports what a call costs the host.
+    "wrapper_multiply_tile": lambda: ttnn.multiply(sx, sy),
+    "raw_multiply_tile": lambda: ttnn.multiply.function(sx, sy),
+    "wrapper_reshape_tile": lambda: ttnn.reshape(sx, small),
+    "deallocate_tile": lambda: (ttnn.deallocate(up(small)), None)[1],
     "graph_probe": lambda: (ttnn.graph.is_graph_capture_active(), None)[1],
-    "wrapper_deallocate_only": lambda: (ttnn.deallocate(ttnn.multiply(x, y)), None)[1],
 }
 # Warm every arm once: the first call of an op compiles its program.
 for fn in arms.values():
