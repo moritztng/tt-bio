@@ -101,3 +101,18 @@ def test_worker_builds_the_requested_opendde_precision(monkeypatch, prec, want):
     state.load_model({"model": "opendde-abag", "fast": False, "opendde_ckpt": "ck.pt",
                       "diffusion_precision": prec})
     assert seen == {"path": "ck.pt", "abag": True, "diffusion_fp32": want}
+
+
+@pytest.mark.parametrize("levers,prec,want", [
+    (None, None, True), ("fast", None, False), ("fast", True, True), (None, False, False)])
+def test_opendde_resolves_precision_like_protenix(monkeypatch, levers, prec, want):
+    # Normal mode is fp32 as upstream, --fast is bf16 through the diffusion_bf16 lever, and an
+    # explicit --diffusion_precision wins over both.
+    import tt_bio.opendde as O
+    import tt_bio.tenstorrent as T
+
+    seen = {}
+    monkeypatch.setattr(O.OpenDDE, "_build", lambda self, sd, ckc, dev, fp32: seen.update(fp32=fp32))
+    O.OpenDDE({}, None, levers=T.FAST_LEVERS if levers == "fast" else frozenset(),
+              diffusion_fp32=prec)
+    assert seen == {"fp32": want}
