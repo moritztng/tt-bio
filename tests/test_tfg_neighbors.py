@@ -78,3 +78,23 @@ def test_classify_rows_equals_classify_off_grid_too():
     far_r, severe_r = field.classify_rows(X, samples, ra)
     assert torch.equal(far, far_r) and torch.equal(severe, severe_r)
     assert far.any() and (~far).any() and severe.any()
+
+
+def test_interchain_pairs_equal_the_chain_by_chain_search():
+    from tt_bio.tfg.neighbors import interchain_pairs
+
+    g = torch.Generator().manual_seed(3)
+    for nc in (2, 3, 5):
+        X = torch.randn(3, 1500, 3, generator=g) * 12
+        chain = torch.randint(0, nc, (1500,), generator=g)
+        allowed = ~torch.eye(nc, dtype=torch.bool) & (torch.rand(nc, nc, generator=g) > 0.2)
+        s, i, j = interchain_pairs(X, chain, allowed, 4.5)
+        got = set(zip(s.tolist(), i.tolist(), j.tolist()))
+        ref = set()
+        for c in range(nc - 1):
+            a, b = torch.nonzero(chain == c).flatten(), torch.nonzero(chain > c).flatten()
+            ss, ii, jj = pairs_within(X[:, a], X[:, b], 4.5)
+            ii, jj = a[ii], b[jj]
+            k = allowed[chain[ii], chain[jj]]
+            ref |= set(zip(ss[k].tolist(), ii[k].tolist(), jj[k].tolist()))
+        assert got == ref and len(got) == s.numel()
