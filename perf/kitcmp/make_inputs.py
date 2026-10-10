@@ -35,6 +35,8 @@ job = lambda i: {"name": f"fold{i}", "modelSeeds": [0], "sequences": [{"proteinC
     "use_msas": True, "use_paired_msas": False, "use_main_msas": True} for i in range(N)}}, indent=1))
 (a.out / "openfold3.yaml").write_text("experiment_settings:\n  seeds: [0]\nmodel_update:\n  presets: [\"predict\"]\n"
     "  custom:\n    settings:\n      memory:\n        eval:\n          use_cueq_triangle_kernels: true\n")
+(a.out / "esmfold2.json").write_text(json.dumps([{"id": f"fold{i}", "sequences": [{"type": "protein", "id": "A",
+    "sequence": seq, "msa": None}], "seeds": [0], "num_diffusion_samples": 1} for i in range(N)], indent=1))
 (a.out / "SHA256SUMS").write_text("".join(f"{hashlib.sha256(p.read_bytes()).hexdigest()}  {R}/{n}\n"
     for p, n in ((m, "msa/uniref90_hits.a3m"), (y, "cdk2x2_512.yaml"))))
 print("wrote", a.out, len(seq), "aa")
