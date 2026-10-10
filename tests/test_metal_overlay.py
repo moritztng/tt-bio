@@ -146,3 +146,27 @@ def test_a_second_enable_adds_to_the_overlay(monkeypatch, tmp_path):
     assert "BH_DRAM_READ_MAX_PACKET_SIZE" in (both / MO.DATAFLOW_API).read_text()
     assert "calculate_silu_f32" in (both / MO._SFPU.format(arch="blackhole") / "ckernel_sfpu_silu.h").read_text()
     assert os.environ["TT_METAL_CACHE"] == str(tmp_path / "jc" / both.name)
+
+
+def _kernel_ld(root, kb):
+    ld = root / MO.BH_KERNEL_LD
+    ld.parent.mkdir(parents=True)
+    ld.write_text("  .segments 0 (INFO) :\n  {\n    LONG(ADDR(.text)) LONG(ADDR(.text))\n"
+                  f"    LONG(({kb} * 1024)\n         - (__fw_export_text_end - 13088)\n         )\n")
+
+
+@pytest.mark.parametrize("kb,want", [
+    (24, False),     # stock 0.68.0, and the first bh.eth1 build that only widened the firmware region
+    (40, True),      # scripts/ttnn_bh_eth
+    (None, False),   # no Blackhole toolchain at all
+])
+def test_bh_eth_dispatch_supported(tmp_path, kb, want):
+    if kb is not None:
+        _kernel_ld(tmp_path, kb)
+    assert MO.bh_eth_dispatch_supported(tmp_path) is want
+
+
+def test_bh_eth_dispatch_reads_the_users_runtime_root(tmp_path, monkeypatch):
+    _kernel_ld(tmp_path, 40)
+    monkeypatch.setenv("TT_METAL_RUNTIME_ROOT", str(tmp_path))
+    assert MO.bh_eth_dispatch_supported()
