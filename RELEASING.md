@@ -181,9 +181,11 @@ Write `--workers localhost:0,localhost:1`, never `pc:0`. `pc` is an ssh alias th
 orchestrator's config and not in qb2's, so the gate would ssh to nothing and every device leg would
 exit 255 in 0 s while the in-process legs passed. The preflight catches it, but only if you read it.
 
-**Cards 0 and 1 only.** qb2 has four chips on two boards; board `...410d` (cards 2 and 3) is
-excluded, and a `tt-smi -r` on any card takes its whole board pair down rather than that chip, so
-pass `--no-card-reset` to the capacity gate when anything else could land on the pair.
+**Never card 2.** qb2 has four chips on two boards. Cards 0 and 1 run the booth demo and are
+used only when it lends them; card 3 is a release card ahead of grading. A `tt-smi -r` on any card
+takes its whole board pair down rather than that chip, so the capacity legs run with
+`--no-card-reset`, and no wedge-risk arm runs on qb2 at all. In `gate_fanout.py`'s hosts file qb2
+keys as p150a (`key_card_type`), so its correctness legs serve the same gate as qb1's.
 
 The perf arm is timed: an arm of your own gate running beside it is a co-tenant like any other, so
 run it with nothing else of the gate on the host (`gate_fanout.py` does this for `--timed` cards).
