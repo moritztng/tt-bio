@@ -573,3 +573,74 @@ def test_splice_takes_only_the_fragments_card_type(tmp_path):
     got = json.loads((base / "m.json").read_text())
     assert got == {"rungs": [1, 2, 3], "cards": {"wh": {"v": 9}, "bh": {"v": 2}}}
     assert sp.splice([tmp_path / "rec"], base) == []          # idempotent
+
+
+def _key(name):
+    return gf.sha256(name)
+
+
+def _runner(host, legs, ledger, me, tmp_path, ran, mu, verdict="PASS"):
+    """A Gate over `legs` on one bh card whose ledger claims as runner `me`."""
+    ledger.ME = me
+    keys = {(lg.name, "bh"): _key(lg.name) for lg in legs}
+
+    def execute(h, card, leg):
+        with mu:
+            ran.append((me["pid"], leg.name))
+        time.sleep(0.02)
+        res = {"leg": leg.name, "arch": "bh", "verdict": verdict, "worker": f"{h.name}:{card}",
+               "ended": "t", "sha": "f" * 40, "log": "l", "key": keys[(leg.name, "bh")]}
+        if verdict in gf.OK:
+            ledger.put(res["key"], res)
+        return res
+
+    out = tmp_path / str(me["pid"])
+    out.mkdir()
+    return gf.Gate({"bh": list(legs)}, [(host, 0)], set(), execute, out, ledger, keys)
+
+
+def test_a_second_runner_joins_a_gate_and_no_leg_runs_twice(tmp_path, monkeypatch):
+    monkeypatch.setattr(gf, "POOL_POLL_S", 0.01)
+    legs = [lg for lg in _legs() if lg.card and not lg.timed and lg.family != "record"][:12]
+    host = _host("qb1", "bh", tmp_path)
+    ran, mu = [], threading.Lock()
+    a = _runner(host, legs, gf.Ledger(tmp_path / "ledger"), {"host": "pc", "pid": 1}, tmp_path, ran, mu)
+    b = _runner(host, legs[::-1], gf.Ledger(tmp_path / "ledger"), {"host": "pc", "pid": 2}, tmp_path, ran, mu)
+    ts = [threading.Thread(target=g.run) for g in (a, b)]
+    for t in ts:
+        t.start()
+    for t in ts:
+        t.join(timeout=30)
+    assert sorted(n for _, n in ran) == sorted(lg.name for lg in legs)
+    assert {p for p, _ in ran} == {1, 2}
+    for g in (a, b):
+        assert sorted(r["leg"] for r in g.results) == sorted(lg.name for lg in legs)
+        assert all(r["verdict"] in ("PASS", "REUSED") for r in g.results)
+    assert not list((tmp_path / "ledger").glob("*.claim"))
+
+
+def test_a_leg_its_holder_left_without_a_pass_runs_again_and_a_dead_holder_is_dropped(tmp_path, monkeypatch):
+    monkeypatch.setattr(gf, "POOL_POLL_S", 0.01)
+    legs = [lg for lg in _legs() if lg.card and not lg.timed and lg.family != "record"][:2]
+    host = _host("qb1", "bh", tmp_path)
+    ledger = gf.Ledger(tmp_path / "ledger")
+    me = {"host": gf.socket.gethostname(), "pid": os.getpid()}
+    held, dead = (_key(lg.name) for lg in legs)
+    (ledger.path / f"{held}.claim").write_text(json.dumps({"host": "elsewhere", "pid": 7}))
+    (ledger.path / f"{dead}.claim").write_text(json.dumps({"host": me["host"], "pid": 2 ** 22 + 12345}))
+    ran, mu = [], threading.Lock()
+    g = _runner(host, legs, ledger, me, tmp_path, ran, mu)
+    t = threading.Thread(target=g.run)
+    t.start()
+    time.sleep(0.3)
+    assert [n for _, n in ran] == [legs[1].name]      # the dead holder's leg ran, the live one waits
+    (ledger.path / f"{held}.claim").unlink()           # the holder stopped without a row
+    t.join(timeout=10)
+    assert sorted(n for _, n in ran) == sorted(lg.name for lg in legs)
+    assert all(r["verdict"] == "PASS" for r in g.results)
+
+
+def test_a_host_keyed_as_another_card_type_keeps_its_own_for_the_record():
+    h = gf.Host("qb2", {"arch": "bh", "card_type": "p300c", "key_card_type": "p150a", "root": "/r"}, "f" * 40)
+    assert (h.cfg["card_type"], h.key_card_type) == ("p300c", "p150a")
+    assert gf.Host("qb1", {"arch": "bh", "card_type": "p150a", "root": "/r"}, "f" * 40).key_card_type == "p150a"

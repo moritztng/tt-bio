@@ -491,6 +491,10 @@ class Host:
     timed_running: bool = False
 
     @property
+    def key_card_type(self) -> str:
+        return self.cfg.get("key_card_type", self.cfg["card_type"])
+
+    @property
     def arch(self) -> str:
         return self.cfg["arch"]
 
@@ -697,6 +701,64 @@ class Ledger:
         tmp.write_text(json.dumps(rec, indent=1, sort_keys=True))
         tmp.replace(p)
 
+    # A leg runs under a claim, so a second runner on the same commit (more cards joining a gate
+    # already running) skips what the first holds and waits for its row instead of running it twice.
+    ME = {"host": socket.gethostname(), "pid": os.getpid()}
+
+    def claim(self, key: str) -> dict | None:
+        """Take `key` for this runner: None when taken, else the live holder. A holder on this host
+        whose pid is gone is stale and is replaced."""
+        p = self.path / f"{key}.claim"
+        while True:
+            try:
+                fd = os.open(p, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            except FileExistsError:
+                held = self.holder(key)
+                if held is None:
+                    time.sleep(0.05)       # mid-write, just released, or stale and dropped
+                    continue
+                return None if held == self.ME else held
+            with os.fdopen(fd, "w") as f:
+                json.dump(self.ME, f)
+            return None
+
+    def holder(self, key: str) -> dict | None:
+        """The live holder of `key`; a claim left on this host by a pid that is gone is dropped."""
+        p = self.path / f"{key}.claim"
+        try:
+            held = json.loads(p.read_text())
+        except ValueError:
+            # empty or torn: a runner died between creating and writing it, or is writing it now
+            if time.time() - p.stat().st_mtime > 10:
+                p.unlink(missing_ok=True)
+            return None
+        except OSError:
+            return None
+        if held.get("host") == self.ME["host"] and not _alive(held.get("pid")):
+            p.unlink(missing_ok=True)
+            return None
+        return held
+
+    def release(self, key: str) -> None:
+        if self.holder(key) == self.ME:
+            (self.path / f"{key}.claim").unlink(missing_ok=True)
+
+
+def _reused(leg: str, slot: str, key: str, row: dict) -> dict:
+    return {"leg": leg, "arch": slot, "verdict": "REUSED", "key": key,
+            "evidence": f"{row['worker']} {row['ended']} {row['sha'][:9]} {row['log']}",
+            "reused_verdict": row["verdict"]}
+
+
+def _alive(pid) -> bool:
+    try:
+        os.kill(int(pid), 0)
+    except (TypeError, ValueError, ProcessLookupError):
+        return False
+    except PermissionError:
+        pass
+    return True
+
 
 def write_verdict(out: Path, sha: str, archs: list, results: list) -> bool:
     by = {(r["leg"], r["arch"]): r for r in results}
@@ -750,12 +812,16 @@ class Gate:
     """One worker thread per host:card; each takes the next leg of its arch. A timed leg runs only
     on a --timed card and holds its host quiet (no new leg starts there while it runs)."""
 
-    def __init__(self, todo: dict, workers: list, timed: set, execute, out: Path):
+    def __init__(self, todo: dict, workers: list, timed: set, execute, out: Path,
+                 ledger: "Ledger | None" = None, keys: dict | None = None):
         self.todo = todo          # arch -> list of Leg (card legs), consumed in order
         self.workers = workers    # (Host, card)
         self.timed = timed        # {(host name, card)}
         self.execute = execute    # (host, card, leg) -> result dict
         self.out = out
+        self.ledger = ledger      # with keys: claim each card leg, so another runner can join
+        self.keys = keys or {}    # (leg name, arch) -> key
+        self.held: dict = {}      # queue -> [Leg] another runner holds
         self.results: list = []
         self.mu = threading.Lock()
 
@@ -781,20 +847,73 @@ class Gate:
         with self.mu:
             return bool(self.todo.get(queue))
 
+    def _record(self, res: dict) -> None:
+        with self.mu:
+            self.results.append(res)
+            with open(self.out / "results.jsonl", "a") as f:
+                f.write(json.dumps(res) + "\n")
+
+    def _joined(self, leg: Leg, queue: str) -> bool:
+        """True when another runner holds `leg` or has passed it (then recorded as REUSED)."""
+        if self.ledger is None or not leg.card or leg.family == "record":
+            return False
+        key = self.keys[(leg.name, queue)]
+        row = self.ledger.get(key)
+        if row is None and self.ledger.claim(key) is None:
+            return False
+        if row is None:
+            with self.mu:
+                self.held.setdefault(queue, []).append(leg)
+        else:
+            self._record(_reused(leg.name, queue, key, row))
+        return True
+
+    def _wait_held(self, queue: str) -> bool:
+        """Wait until a leg another runner held is released: its row is REUSED, a leg it left
+        without a passing row goes back on the queue (True). False once nothing is held."""
+        while True:
+            with self.mu:
+                held = list(self.held.get(queue, []))
+            if not held:
+                return False
+            for leg in held:
+                key = self.keys[(leg.name, queue)]
+                if self.ledger.holder(key) is not None:
+                    continue
+                with self.mu:
+                    if leg not in self.held.get(queue, []):
+                        continue
+                    self.held[queue].remove(leg)
+                row = self.ledger.get(key)
+                if row and row.get("verdict") in OK:
+                    self._record(_reused(leg.name, queue, key, row))
+                else:
+                    with self.mu:
+                        self.todo.setdefault(queue, []).insert(0, leg)
+                    return True
+            time.sleep(POOL_POLL_S)
+
     def worker(self, host: Host, card) -> None:
+        queue = self._queue(host, card)
         while True:
             with host.lock:
                 while host.timed_running:
                     host.lock.wait()
                 leg = self._take(host, card)
-                if leg is None:
-                    # nothing left this worker may run (what remains, if anything, is timed)
-                    return
-                if leg.timed:
-                    host.timed_running = True
-                    while host.running:
-                        host.lock.wait()
-                host.running += 1
+                if leg is not None and self._joined(leg, queue):
+                    continue
+                if leg is not None:
+                    if leg.timed:
+                        host.timed_running = True
+                        while host.running:
+                            host.lock.wait()
+                    host.running += 1
+            if leg is None:
+                # nothing left this worker may run (what remains, if anything, is timed), unless
+                # a leg another runner held comes back
+                if self._wait_held(queue):
+                    continue
+                return
             try:
                 res = self.execute(host, card, leg)
             finally:
@@ -803,10 +922,9 @@ class Gate:
                     if leg.timed:
                         host.timed_running = False
                     host.lock.notify_all()
-            with self.mu:
-                self.results.append(res)
-                with open(self.out / "results.jsonl", "a") as f:
-                    f.write(json.dumps(res) + "\n")
+                if self.ledger is not None and leg.card:
+                    self.ledger.release(self.keys[(leg.name, queue)])
+            self._record(res)
 
     def run(self) -> list:
         ts = [threading.Thread(target=self.worker, args=w, daemon=True) for w in self.workers]
@@ -1053,7 +1171,17 @@ def main() -> int:
                 if env_hash(h.run_py(ENV_PROBE, py)) != envs[f"{h.arch} {ref}"]:
                     raise SystemExit(f"{h.name} and {first[h.arch].name} hold different packages for "
                                      f"{fam} legs; prepare both from the same commit")
-    ctype = {a: first[a].cfg["card_type"] for a in archs}
+    # A host's `key_card_type` files its results under another card type whose results it
+    # reproduces exactly (qb2's p300c keys as p150a: digests equal seed for seed). Timed legs
+    # measure the card itself, so only a host whose card type is the key's may run them.
+    ctype = {a: first[a].key_card_type for a in archs}
+    for h in hosts.values():
+        if h.arch in archs and h.key_card_type != ctype[h.arch]:
+            raise SystemExit(f"{h.name} keys as {h.key_card_type}, {first[h.arch].name} as {ctype[h.arch]}")
+    for h, c in workers:
+        if (h.name, c) in timed and h.cfg["card_type"] != h.key_card_type:
+            raise SystemExit(f"--timed {h.name}:{c}: a {h.cfg['card_type']} keyed as {h.key_card_type} "
+                             "cannot run timed legs")
 
     args.out.mkdir(parents=True, exist_ok=True)
     ledger = Ledger(args.ledger)
@@ -1095,9 +1223,7 @@ def main() -> int:
                 results.append({"leg": lg.name, "arch": slot, "verdict": "OWED", "owed": owes,
                                 "card_type": ctype[a]})
             elif hit and hit.get("verdict") in OK:
-                results.append({"leg": lg.name, "arch": slot, "verdict": "REUSED", "key": k,
-                                "evidence": f"{hit['worker']} {hit['ended']} {hit['sha'][:9]} {hit['log']}",
-                                "reused_verdict": hit["verdict"]})
+                results.append(_reused(lg.name, slot, k, hit))
             elif lg.card:
                 todo[a].append(lg)
             else:
@@ -1135,7 +1261,8 @@ def main() -> int:
     signal.signal(signal.SIGINT, _stop)
     signal.signal(signal.SIGTERM, _stop)
     try:
-        results += Gate(todo, workers + [(first[archs[0]], None)], timed, execute, args.out).run()
+        results += Gate(todo, workers + [(first[archs[0]], None)], timed, execute, args.out,
+                        None if args.no_reuse else ledger, keys).run()
     except KeyboardInterrupt:
         # A stopped runner takes back what it queued; a job the pool already started has left
         # the queue and finishes on its own.

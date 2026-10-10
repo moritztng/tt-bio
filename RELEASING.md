@@ -70,6 +70,18 @@ re-recordings, costs nothing, and a grade-time crossmodel or suite run done thro
 tests, data, fixtures, packages or card type is a new key and runs fresh. `--legs` also takes
 `!glob` to leave legs out.
 
+**More cards mid-gate.** A gate cannot take new cards once it runs, but a second runner can join
+it: start `gate_fanout.py` again at the same `--sha` and `--ledger` with only the new cards in
+`--workers` and its own `--out`. Every card leg runs under a claim file in the ledger, so each
+runner skips what the other holds, takes the leg's row as REUSED when it lands, and runs it itself
+if the holder stops without a pass. Both write a full verdict. A claim left by a dead runner on the
+same host is dropped; one left by a dead runner on another host has to be deleted by hand
+(`<ledger>/<key>.claim`). Runners from before 2026-10-10 do not claim, so a joiner beside one runs
+legs twice. A host whose card reproduces another card type's results exactly can set
+`key_card_type` in hosts.json and file its results under that type (qb2's p300c keys as p150a:
+its digests equal p150a seed for seed). It can then serve the same gate as qb1, but it may not run
+timed legs, which measure the card itself.
+
 **Baselines a new lever owes.** A census lever that lands without a size-ladder row fails every
 ladder leg at every rung. The runner reads that from the baseline when it plans, so such a leg
 reports OWED without folding (`--dry-run` shows it). Record the missing levers on every card
