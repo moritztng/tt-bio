@@ -16,6 +16,7 @@ import pathlib
 import subprocess
 import sys
 import time
+import weakref
 
 import numpy as np
 import pytest
@@ -269,7 +270,8 @@ def test_switching_checkpoints_hands_the_last_one_back(capsys):
 
     The rounds run with the cycle collector off: an evicted trunk must be freed by its last
     reference going away, not by whenever CPython's collector next runs, which is what a long
-    campaign sees between collections."""
+    campaign sees between collections. Held DRAM is read after an explicit collection, because a
+    round's own tape is left to the collector and is not what this test is about."""
     import ttnn
     from bindcraft.af2 import MULTIMER_POOL
 
@@ -293,13 +295,18 @@ def test_switching_checkpoints_hands_the_last_one_back(capsys):
                       num_recycle=1, length_bucket_size=32)
         gc.collect()
         gc.disable()
+        trunks, survived = [], []
         try:
             for i in range(6):
                 model.sequence_gradients(protein_states, losses, model=names[i % 2])
+                trunks.append(weakref.ref(build.pool._trunks[names[i % 2]]))
+                survived += [(j, i) for j, t in enumerate(trunks[:-1]) if t() is not None]
+                gc.collect()
                 readings.append(held())
         finally:
             gc.enable()
         loads = dict(build.pool.selections)
+    assert not survived, f"(evicted after round, still alive after round): {survived}"
     # Without the lever there is nothing for the fix to release and this would pass for nothing.
     assert pair_mm.STATS[0] > served, "pair_mm served no call, so this measured nothing"
     growth = readings[-1] - readings[1]
