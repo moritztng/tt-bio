@@ -567,10 +567,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
           "transition_shard", "msa_sample")
 # Named but in no mode until their fold grade puts them in one.
-# msa_sample: Protenix-v2 reads its own random alignment rows every recycling cycle, upstream v2.0.0's
-# inference rule (protenix.msa_cycle_rows_random), drawn from the fold seed. Not a precision lever: it
-# is faithfulness, and it changes which rows the MSA module reads, so it is graded like one.
-UNGRADED_LEVERS = frozenset({"trimul_b8in", "transition_bw", "msa_sample"})
+UNGRADED_LEVERS = frozenset({"trimul_b8in", "transition_bw"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -605,8 +602,15 @@ FAST_LEVERS = frozenset(LEVERS) - {"lofi", "triatt_b8", "triatt_bias_b8"} - UNGR
 # folds): PASS, top pose median 0.156 A (floor 0.803 A), CA-lDDT +0.0004 [-0.0013, +0.0024], docking
 # 32 -> 33/44; cdk2x2_512 vs 1HCL +0.004 / +0.006 CA-lDDT per domain; c730 warm A/B/A 270.5 -> 267.1
 # -> 274.0 s. Fast runs acc off, so its configuration is the one graded there.
+# msa_sample: Protenix-v2 reads its own random alignment rows every recycling cycle, upstream v2.0.0's
+# inference rule (protenix.msa_cycle_rows_random), drawn from the fold seed. Not a precision lever: it is
+# faithfulness, and it changes which rows the MSA module reads, so it was graded like one. Wormhole 11-set,
+# 44 paired folds each, 39462b9f6: normal vs stack top pose median 0.588 A against the 0.60 A bar (A/A floor
+# 0.809 A), docking 32 -> 35 of 44; fast vs fast 0.424 A (floor 0.957 A), docking 33 -> 35 of 44; every
+# paired CI covers 0. c730 at AICLK 1000: normal 250.3 -> 247.7 s, fast 201.3 -> 196.1 s; deep alignments
+# gain most (9DBP 556 -> 419 s, 9PCQ 427 -> 310 s) (state/spd-msasample.md, 2026-10-10).
 NORMAL_LEVERS = frozenset({"trimul_ibw", "trimul_tail", "trunk_hifi3", "dit_sdpa32", "silu_f32", "triatt_tail",
-                           "transition_shard"})
+                           "transition_shard", "msa_sample"})
 _LEVERS = frozenset()
 # silu_f32 is a kernel, so it needs ttnn's headers patched before the first device open (metal_overlay)
 # in any process that may run it. The patch only changes silu under math_approx_mode, and every fused
