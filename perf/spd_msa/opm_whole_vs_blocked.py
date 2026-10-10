@@ -73,10 +73,11 @@ def install(T):
     def probed(self, x, msa_mask=None, n_msa=None, residual=None):
         k = n[0]
         n[0] += 1
-        chunks = x if isinstance(x, list) else [(x, msa_mask)]
-        if chunks[0][0].shape[-2] < MIN_TOK:
+        # A depth-chunk list carries plain tensors (the mask is then None) or (chunk, mask) pairs.
+        chunks = [c if isinstance(c, tuple) else (c, None) for c in x] if isinstance(x, list) else [(x, msa_mask)]
+        I, cm = tuple(chunks[0][0].shape)[-2:]
+        if I < MIN_TOK:
             return call(self, x, msa_mask, n_msa, residual)
-        I, cm = chunks[0][0].shape[-2:]
         xs = torch.cat([ttnn.to_torch(c).reshape(-1, I, cm) for c, _ in chunks])
         ms = None if chunks[0][1] is None else torch.cat([ttnn.to_torch(m).reshape(-1, I, 1) for _, m in chunks])
         rs = None if residual is None else ttnn.to_torch(residual)
