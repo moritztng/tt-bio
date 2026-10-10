@@ -11,12 +11,14 @@ case $M in openfold3|openfold3_ob0) CV=12.8;; opendde) CV=12.6;; *) CV=;; esac
 export CUDA_HOME=/usr/local/cuda${CV:+-$CV} PYTHONHASHSEED=0 OPENFOLD3_CKPT=/weights/openfold3/of3-p2-155k.pt \
   OPENFOLD3_OB0_CKPT=/weights/openfold3_ob0/of3-ob-2025-06-30-174k.pt \
   OPENDDE_ROOT_DIR=/weights/opendde BOLTZ_CACHE=/weights/boltz2 PROTENIX_ROOT_DIR=/weights/protenix \
+  ROSETTAFOLD3_OPT_STOCK_PYTHON=$K/venv/bin/python ROSETTAFOLD3_OPT_CKPT=/weights/rosettafold3/rf3_foundry_01_24_latest_remapped.ckpt \
   HF_HOME=/weights/esmfold2 NVTE_FRAMEWORK=pytorch XFORMERS_IGNORE_FLASH_VERSION_CHECK=1
 sha256sum -c $I/SHA256SUMS > $R/fixture-sha.txt 2>&1 || { echo FIXTURE-SHA-MISMATCH > $R/ARMS-DONE; exit 5; }
 case $M in
   boltz2)      export KC_WRAP=boltz.model.models.boltz2:Boltz2.predict_step;;
   openfold3|openfold3_ob0) export KC_WRAP=openfold3.projects.of3_all_atom.runner:OpenFold3AllAtom.predict_step;;
   protenix_v2|opendde) export KC_WRAP=runner.inference:InferenceRunner.predict;;
+  rosettafold3) export KC_WRAP=rf3.inference_engines.rf3:RF3Output.dump;;  # one engine.run over 4 inputs: fold i = dump t[i] - t[i-1]
   esmfold2)    export KC_WRAP=esm.models.esmfold2.processor:ESMFold2InputBuilder.fold;;  # kit off times it unsynced; kctime syncs
 esac
 nvidia-smi -q -d POWER,CLOCK,PERFORMANCE > $R/power-clock.txt 2>&1
@@ -36,6 +38,9 @@ run(){ # <mode>
                Y=""; [ $M = openfold3_ob0 ] && [ $1 = off ] && Y="--runner-yaml opt/openfold3_ob0_opt/shipped_predict.yml"
                bash run.sh pred --config a100 --mode $1 --query-json $I/openfold3.json --output-dir $d/pred \
                  $Y --runner-yaml $I/openfold3.yaml --num-diffusion-samples 1 --use-msa-server false --use-templates false;;
+    rosettafold3)  # no MSA and no early stop, as the published cell (perf/rf3/gpu_rf3_run.py)
+               bash run.sh pred --config a100 --mode $1 --input $I/rf3.json --out_dir $d/pred --seeds 0 \
+                 n_recycles=10 num_steps=50 diffusion_batch_size=1 early_stopping_plddt_threshold=0;;
     esmfold2)  # single sequence, as the published cells (the MSA is dropped by design); off on the fused backend exact reproduces
                [ $1 = off ] && B="--backend fused" || B=""
                bash run.sh pred --config a100 --variant $VAR --mode $1 $B --input $I/esmfold2.json --out_dir $d/pred --seeds 0 \
