@@ -36,7 +36,7 @@ import numba
 import numpy as np
 import torch
 
-from tt_bio.tfg.neighbors import HARD, SOFT, SparseClash, square_length
+from tt_bio.tfg.neighbors import HARD, SOFT, SevereSet, SparseClash, square_length
 
 # Identical to upstream opendde.data.constants.rdkit_vdws (118 entries, H..Og, index 0 = H).
 from tt_bio.data.const import vdw_radii as rdkit_vdws
@@ -507,8 +507,26 @@ def refine_rigid_contact(coords, feats, iterations=40, core=None):
     def satisfied(pair_d):
         return ((pair_d >= lower - 1e-6) & (pair_d <= upper + 1e-6)).all(-1)
 
+    compiled = core == "auto" and moving.dtype == torch.float32 and moving.device.type == "cpu"
+    if compiled:
+        n_atoms = fixed.shape[1]
+
+        def evaluate(x, ra=clash.ra.contiguous().numpy(), rb=clash.rb.contiguous().numpy()):
+            """evaluate(x) per sample by the descent's own evaluation: same severe keys and depth, the energy (logged
+            only) sums in pair order."""
+            energy, depth, keys = [], [], []
+            for s, (xs, fs) in enumerate(zip(x.contiguous().numpy(), fixed.contiguous().numpy())):
+                pi, pj = _pairs_near(xs, fs, *_fixed_grid(fs, np.float32(clash.cut)), np.float32(clash.cut))
+                e, d, k, _ = _contact_eval(xs, fs, pi, pj, ra, rb, ri.numpy(), li.numpy(), lower.numpy(),
+                                           upper.numpy(), np.empty((0, 3), np.float32), False)
+                energy.append(e), depth.append(d), keys.append(torch.from_numpy(k) + s * len(xs) * n_atoms)
+            keys = torch.cat(keys)
+            pair_d = torch.linalg.vector_norm(x[:, ri] - fixed[:, li], dim=-1).clamp_min(1e-6)
+            return (torch.tensor(energy), SevereSet(keys, torch.zeros_like(keys), len(x), 1, x.shape[1] * n_atoms),
+                    torch.tensor(depth), pair_d)
+
     first_energy, first_severe, _, first_d = evaluate(moving)
-    if core == "auto" and moving.dtype == torch.float32 and moving.device.type == "cpu":
+    if compiled:
         moving = moving.contiguous()
         none = np.zeros((len(moving), 0, 3), np.float32)
         accepted_count = torch.from_numpy(_descend(
