@@ -39,6 +39,12 @@ job = lambda i: {"name": f"fold{i}", "modelSeeds": [0], "sequences": [{"proteinC
     "sequence": seq, "msa": None}], "seeds": [0], "num_diffusion_samples": 1} for i in range(N)], indent=1))
 (a.out / "rf3.json").write_text(json.dumps([{"name": f"fold{i}", "components": [{"seq": seq, "chain_id": "A"}]}
     for i in range(N)], indent=1))  # perf/rf3/inputs/rf3_512.json, four names
+# RFdiffusion3: the published fixture staged at a root, so its repo-relative target path resolves (scripts/gpu_vs_tt/rfd3_prod_run.sh)
+rf = Path(__file__).resolve().parents[1] / "dsfix"
+(a.out / "rfd3/perf/dsfix/targets").mkdir(parents=True, exist_ok=True)
+shutil.copyfile(rf / "fixtures/rfd3_R4_gpu.json", a.out / "rfd3/rfd3_R4_gpu.json")
+shutil.copyfile(rf / "targets/R4_9q6y_A.pdb", a.out / "rfd3/perf/dsfix/targets/R4_9q6y_A.pdb")
 (a.out / "SHA256SUMS").write_text("".join(f"{hashlib.sha256(p.read_bytes()).hexdigest()}  {R}/{n}\n"
-    for p, n in ((m, "msa/uniref90_hits.a3m"), (y, "cdk2x2_512.yaml"))))
+    for p, n in ((m, "msa/uniref90_hits.a3m"), (y, "cdk2x2_512.yaml"), (rf / "fixtures/rfd3_R4_gpu.json", "rfd3/rfd3_R4_gpu.json"),
+                 (rf / "targets/R4_9q6y_A.pdb", "rfd3/perf/dsfix/targets/R4_9q6y_A.pdb"))))
 print("wrote", a.out, len(seq), "aa")
