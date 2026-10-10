@@ -133,6 +133,11 @@ SSH_LOST_RETRY_S, SSH_LOST_TRIES = 120, 30
 #: recorded FAIL in an hour, each at its first mkdir. Wait for space and run the leg again.
 DISK_FULL = re.compile(r"No space left on device")
 DISK_FULL_RETRY_S, DISK_FULL_TRIES = 300, 12
+#: release_gate stops when a fold timed out and the card's reset was refused (its board-pair sibling
+#: was busy). Opening that card again from the same leg is unsafe, but a pool probes, and if need be
+#: resets, every chip before it hands it out: g108 chip 0 did this on ladder:boltz2 on 2026-10-10 and
+#: probed OK minutes later. Run such a pool leg once more; a second stop is the leg's result.
+CARD_STUCK = re.compile(r"a fold timed out and its card could not be reset")
 QUEUED: dict = {}         # pool job file -> host, taken back if the runner is stopped
 CARD_FREE = ("check", "packaging_smoke", "pytest_cpu")
 PY312 = {"pytest_device", "pytest_cpu", "bc2"}
@@ -1018,7 +1023,7 @@ def make_executor(sha: str, out: Path, ledger: Ledger, keys: dict, remote_out: s
         rdir = f"{host.root}/{remote_out}/{host.arch}/{tag}"
         t0 = time.time()
         run = run_in_pool if card == POOL else run_over_ssh
-        lost = full = 0
+        lost = full = stuck = 0
         while True:
             with open(log, "w") as f:
                 f.write(f"# {leg.name} on {host.name}:{card} ({host.cfg['card_type']}) tree {sha}\n")
@@ -1035,6 +1040,9 @@ def make_executor(sha: str, out: Path, ledger: Ledger, keys: dict, remote_out: s
             if rc and DISK_FULL.search(text) and full < DISK_FULL_TRIES:
                 full += 1
                 time.sleep(DISK_FULL_RETRY_S)
+                continue
+            if rc and card == POOL and CARD_STUCK.search(text) and not stuck:
+                stuck += 1
                 continue
             if not (rc and LOAD_REFUSAL in text and time.time() - t0 < LOAD_WAIT_MAX_S):
                 break

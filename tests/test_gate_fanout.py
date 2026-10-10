@@ -209,6 +209,10 @@ def test_a_full_disk_is_not_a_leg_result():
     assert not gf.DISK_FULL.search("RuntimeError: Out of Memory: Not enough space to allocate\n")
 
 
+def test_a_refused_card_reset_is_matched_from_release_gates_own_words():
+    assert gf.CARD_STUCK.search((REPO / "scripts/release_gate.py").read_text())
+
+
 def _host(name, arch, tmp_path):
     return gf.Host(name, {"arch": arch, "card_type": arch, "root": str(tmp_path)}, "f" * 40)
 
