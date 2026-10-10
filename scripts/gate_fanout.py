@@ -481,13 +481,17 @@ class Host:
         if self.cfg.get("ssh") in (None, "", "localhost"):
             return subprocess.run(["bash", "-c", cmd], text=True, **kw)
         # Twenty workers connecting at once can pass a Galaxy's sshd MaxStartups, which drops the
-        # handshake ("kex_exchange_identification: Connection closed"). The command never ran, so
-        # that is retried, never recorded as the leg's result.
+        # handshake ("kex_exchange_identification: Connection closed"), and qb1 drops off the LAN
+        # for minutes at a time. Either way the command did not answer, so it is retried, never
+        # recorded as the leg's result; a timeout that outlasts every retry reads as exit 255.
         check = kw.pop("check", False)
-        for wait in (5, 15, 45, None):
-            r = subprocess.run(["ssh", "-o", "BatchMode=yes", "-o", "ServerAliveInterval=60",
-                                self.cfg["ssh"], cmd], text=True, **kw)
-            if wait is None or r.returncode != 255 or "kex_exchange_identification" not in (r.stderr or ""):
+        for wait in (5, 15, 45, 120, 300, None):
+            try:
+                r = subprocess.run(["ssh", "-o", "BatchMode=yes", "-o", "ServerAliveInterval=60",
+                                    self.cfg["ssh"], cmd], text=True, **kw)
+            except subprocess.TimeoutExpired as e:
+                r = subprocess.CompletedProcess(e.cmd, 255, "", f"Timeout, server {self.cfg['ssh']} not responding.")
+            if wait is None or r.returncode != 255 or not SSH_LOST.search(r.stderr or ""):
                 break
             time.sleep(wait)
         if check and r.returncode:

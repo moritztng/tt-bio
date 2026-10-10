@@ -321,6 +321,29 @@ def test_a_dropped_ssh_handshake_is_retried_not_recorded(monkeypatch):
     assert h.ssh("true", capture_output=True).returncode == 0 and len(calls) == 3
 
 
+def test_an_ssh_timeout_is_retried_and_never_raises(monkeypatch):
+    """qb1 off the LAN timed out a report fetch; the exception killed the worker thread and four
+    BH parity legs were never recorded (rel-59c374cf7-b, 10-10)."""
+    calls = []
+
+    def run(argv, **kw):
+        calls.append(argv)
+        if len(calls) < 3:
+            raise subprocess.TimeoutExpired(argv, kw.get("timeout"))
+        return subprocess.CompletedProcess(argv, 0, "{}", "")
+    monkeypatch.setattr(gf.subprocess, "run", run)
+    monkeypatch.setattr(gf.time, "sleep", lambda s: None)
+    h = gf.Host("qb1", {"ssh": "qb1", "arch": "bh", "card_type": "p", "root": "/r"}, "a" * 40)
+    assert h.ssh("cat r", capture_output=True, timeout=1).stdout == "{}" and len(calls) == 3
+    calls.clear()
+
+    def dark(argv, **kw):
+        calls.append(argv)
+        raise subprocess.TimeoutExpired(argv, 1)
+    monkeypatch.setattr(gf.subprocess, "run", dark)
+    assert h.ssh("cat r", capture_output=True, timeout=1).returncode == 255 and len(calls) == 6
+
+
 def test_every_family_has_a_budget_and_an_expectation():
     for lg in _legs():
         assert lg.budget > 0 and lg.family in gf.EXPECT
