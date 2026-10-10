@@ -1,7 +1,9 @@
 """gate_fanout.py: leg split, result keys, reuse, scheduling and verdict, all card-free."""
 import importlib.util
 import json
+import os
 import shlex
+import signal
 import subprocess
 import sys
 import threading
@@ -296,6 +298,37 @@ def test_flock_first_never_stops_another_gates_wait(tmp_path):
     time.sleep(1.5)
     assert not Path(f"{lock}.gate-stopped").exists() or Path(f"{lock}.gate-stopped").read_text() == ""
     assert holder.wait(10) == 0 and gate.wait(10) == 0 and other.wait(20) == 0
+
+def test_flock_first_continues_its_waiters_when_the_leg_is_sigkilled(tmp_path):
+    """A leg killed by SIGKILL or a timeout runs no exit trap; its waiters must not stay stopped."""
+    lock = tmp_path / "card.lock"
+    lock.touch()
+    holder = subprocess.Popen(["flock", str(lock), "sleep", "2"])
+    time.sleep(0.3)
+    foreign = subprocess.Popen(["flock", str(lock), "true"])
+    time.sleep(0.3)
+    gate = subprocess.Popen(["bash", str(REPO / "scripts" / "flock_first.sh"), str(lock), "sleep", "60"],
+                            env={"FLOCK_FIRST_GRACE": "1", "PATH": "/usr/bin:/bin"}, start_new_session=True)
+    time.sleep(3)
+    os.killpg(gate.pid, signal.SIGKILL)
+    gate.wait(5)                                  # a zombie still answers kill -0
+    assert holder.wait(10) == 0 and foreign.wait(15) == 0
+
+
+def test_flock_first_continues_its_waiters_while_an_ordinary_waiter_holds_the_card(tmp_path):
+    """qb1 10-10: a process that queued after the stop pass took the card during the grace, the
+    reaper read that as a gate leg and left 64 waiters stopped for up to 9 h."""
+    lock = tmp_path / "card.lock"
+    lock.touch()
+    holder = subprocess.Popen(["flock", str(lock), "sleep", "2"])
+    time.sleep(0.3)
+    foreign = subprocess.Popen(["flock", str(lock), "true"])
+    time.sleep(0.3)
+    assert subprocess.run(["bash", str(REPO / "scripts" / "flock_first.sh"), str(lock), "true"],
+                          env={"FLOCK_FIRST_GRACE": "1", "PATH": "/usr/bin:/bin"}).returncode == 0
+    late = subprocess.Popen(["flock", str(lock), "sleep", "3"])
+    assert holder.wait(10) == 0 and late.wait(10) == 0 and foreign.wait(15) == 0
+
 
 def test_flock_first_frees_the_card_when_its_leg_ends(tmp_path):
     """The grace keeps paused waiters paused; it must not keep the card locked."""
