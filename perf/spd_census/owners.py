@@ -94,5 +94,6 @@ for (p, c), (s, g, top) in sorted(nob.items(), key=lambda x: -x[1][0]):
     if s >= 0.5:
         print(f"| {p} | {c} | {s:.1f} | {g:.1f} | {top['op'].replace('ttnn.', '')} {top['site']} {top['s']:.1f} s |")
 if TARGET:
-    print(f"\nSeconds to target: {WALL:.1f} s now, target {TARGET:.0f} s, {WALL - TARGET:.1f} s must go "
-          f"({(1 - TARGET / WALL) * 100:.0f} % of the fold).")
+    now = WALL or recon
+    print(f"\nSeconds to target: {now:.1f} s now{'' if WALL else ' (profiled device + idle)'}, target {TARGET:.0f} s, "
+          f"{now - TARGET:.1f} s must go ({(1 - TARGET / now) * 100:.0f} % of the fold).")
