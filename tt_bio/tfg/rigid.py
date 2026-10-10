@@ -532,10 +532,17 @@ def search_rigid_contact(coords, feats, core=None):
     if core == "check":
         return checked(search_rigid_contact, coords, feats)
     fi, mi, fix_atoms, mov_atoms = contact_groups(coords, feats)
+    lower = feats["user_distance_restraint_lower_bound"]
+    upper = feats["user_distance_restraint_upper_bound"]
+    target = coords[:, fix_atoms].float()
+    entry_distance = torch.linalg.vector_norm(coords[:, mov_atoms].float() - target, dim=-1)
+    satisfied = ((entry_distance >= lower - 1e-6) & (entry_distance <= upper + 1e-6)).all(-1)
+    if core != "off" and bool(satisfied.all()):
+        logger.info("RIGID_CONTACT coarse search satisfied=%s candidates=0", satisfied.tolist())
+        return coords.clone()
     fixed = coords[:, fi].float()
     moving = coords[:, mi].float()
     source = coords[:, mov_atoms].float()
-    target = coords[:, fix_atoms].float()
     sc = source.mean(1, keepdim=True)
     tc = target.mean(1, keepdim=True)
     u, _, vh = torch.linalg.svd(torch.bmm((source - sc).transpose(1, 2), target - tc))
@@ -548,14 +555,13 @@ def search_rigid_contact(coords, feats, core=None):
     outward /= torch.linalg.vector_norm(outward, dim=-1, keepdim=True).clamp_min(1e-6)
     radii = torch.as_tensor(rdkit_vdws, device=coords.device, dtype=torch.float32)
     r = radii[feats["ref_element"].argmax(-1)]
-    rsum = r[mi][:, None] + r[fi][None, :]
-    lower = feats["user_distance_restraint_lower_bound"]
-    upper = feats["user_distance_restraint_upper_bound"]
 
     def score_contact(contact):
         tgt = target if contact.dim() == 3 else target[todo, None]
         distance = torch.linalg.vector_norm(contact - tgt, dim=-1)
         return torch.relu(distance - upper) + torch.relu(lower - distance)
+
+    rsum = r[mi][:, None] + r[fi][None, :] if core == "off" else None     # dense [moving, fixed]: reference only
 
     def score(x, contact):
         distance = torch.linalg.vector_norm(contact - target, dim=-1)
@@ -574,8 +580,6 @@ def search_rigid_contact(coords, feats, core=None):
         best_energy = 0.5 * score_contact(source).square().sum(-1) + 10 * clash_energy[:, 0]
         bad = bad[:, 0]
     best_energy = torch.where(bad, torch.full_like(best_energy, float("inf")), best_energy)
-    entry_distance = torch.linalg.vector_norm(coords[:, mov_atoms].float() - target, dim=-1)
-    satisfied = ((entry_distance >= lower - 1e-6) & (entry_distance <= upper + 1e-6)).all(-1)
     normals = [outward]
     for i in range(24):
         z = 1 - 2 * (i + 0.5) / 24
