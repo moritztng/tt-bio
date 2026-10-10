@@ -4,7 +4,8 @@
 The device arm folds with tt-bio's stacks on the card; the host arm is BindCraft 2's own
 `AlphaFoldDesignModel`, untouched, on JAX. Both use the model's default key, so with dropout on
 both draw the same masks, and the grade is whether the card's step follows the host's as closely
-with dropout as without it -- and differs from its own dropout-off step, which it did not before.
+with dropout as without it -- and differs from its own dropout-off step, which it did not before. The folded structures are saved
+too: a one-step gradient is too chaotic to grade on its own, the fold it came from is not.
 
     TT_VISIBLE_DEVICES=3 PYTHONPATH=.:/path/to/BindCraft2 python3 perf/bc2_dropout/probe.py \\
         --arm device --preset model_1_ptm --out runs/
@@ -45,11 +46,19 @@ def main():
             for step in range(a.steps):
                 with clocksample.during(period=1.0) as clock:
                     t0 = time.time()
-                    _, gradients, loss = model.sequence_gradients(protein_states, losses)
+                    predictions, gradients, loss = model.sequence_gradients(protein_states, losses)
                     dt = time.time() - t0
             name, grad = next(iter(sorted(gradients.items())))
             grad = np.asarray(grad, dtype=np.float32)
             np.save(a.out / f"{tag}_{a.preset}_drop{int(dropout)}.npy", grad)
+            np.savez(a.out / f"{tag}_{a.preset}_drop{int(dropout)}_fold.npz", **{
+                f"{state}/{chain}/{field}": np.asarray(getattr(protein, field))
+                for state, prediction in predictions.items()
+                for chain, protein in prediction.protein_complex.items()
+                for field in ("atoms", "atom_mask")}, **{
+                f"{state}/metric/{name}": np.asarray(value)
+                for state, prediction in predictions.items()
+                for name, value in prediction.metrics.items()})
             rows[f"drop{int(dropout)}"] = {
                 "loss": float(loss), "step_s": round(dt, 2), "grad_key": name,
                 "finite": bool(np.isfinite(grad).all()), "clock": clock.line(),
