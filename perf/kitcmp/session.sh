@@ -76,7 +76,7 @@ for _ in $(seq $NMAX); do
   case " $KITS " in *" protenix_v2 "*) R $PXCKPT $H:/weights/protenix/checkpoint/protenix-v2.pt || { destroy $I "ckpt push failed"; continue; };; esac
   # adopted: the new chain waits for the old one, runs PRE (shell, on the box) and reports through its own done marker
   DM=CHAIN-DONE${ADOPT:+-$L}
-  R $P/box_chain.sh $H:/root/kc/ && $S "cd /root/kc && setsid nohup bash -c 'while pgrep -f \"^bash box_chain.sh\" >/dev/null; do sleep 15; done; ${PRE:-} DONE_MARK=$DM PRUNE=${PRUNE:-} exec bash box_chain.sh \"$MODELS\"' > chain-$L.log 2>&1 < /dev/null &"
+  R $P/box_chain.sh $H:/root/kc/ && timeout 60 $S -f "cd /root/kc && setsid nohup bash -c 'while pgrep -f \"^bash box_chain.sh\" >/dev/null; do sleep 15; done; ${PRE:-} DONE_MARK=$DM PRUNE=${PRUNE:-} exec bash box_chain.sh \"$MODELS\"' > chain-$L.log 2>&1 < /dev/null &"
   END=""
   while :; do
     sleep 300
