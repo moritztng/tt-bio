@@ -882,9 +882,9 @@ class VinaStericPotential(Potential):
         r = coords_b[b_idx, i] - coords_b[b_idx, j]
         return b_idx, i, j, eq[m_idx], value0[b_idx, m_idx], r, torch.linalg.norm(r, dim=-1).clamp_min(1e-8)
 
-    def _active_sparse(self, coords_b, feats, buf):
-        """The same active pairs from a cell-list pair list (tt_bio.tfg.neighbors): only pairs within the largest
-        active cutoff plus a skin are listed, and the list is reused while no atom has moved by half the skin."""
+    def _pair_list(self, coords_b, feats, buf):
+        """The cell-list pair list state (tt_bio.tfg.neighbors) valid at coords_b: only pairs within the largest active
+        cutoff plus a skin are listed, and the list is reused while no atom has moved by half the skin."""
         from .neighbors import pairs_within, square_length
 
         key = (self._cache_key_from_feats(feats), tuple(coords_b.shape), buf)
@@ -929,7 +929,11 @@ class VinaStericPotential(Potential):
             s, i, j = s[o], i[o], j[o]
             eq = st["r"][i] + st["r"][j]
             st["pairs"], st["X"] = (s, i, j, s * n + i, s * n + j, eq, eq * (1.0 - buf)), X.clone()
-        s, i, j, fi, fj, eq, lim = st["pairs"]
+        return st
+
+    def _active_sparse(self, coords_b, feats, buf):
+        """The same active pairs as _active_dense, from the pair list."""
+        s, i, j, fi, fj, eq, lim = self._pair_list(coords_b, feats, buf)["pairs"]
         X = coords_b.reshape(-1, 3)
         r = X[fi] - X[fj]
         v = torch.linalg.norm(r, dim=-1).clamp_min(1e-8)
@@ -956,12 +960,7 @@ class VinaStericPotential(Potential):
         if act is None or act[0].numel() == 0:
             return _zeros(coords, need_grad)
         b_idx, i_atom, j_atom, eq_a, v, r, norm = act
-        eq_a = eq_a.to(dtype)
-        v = v.to(dtype)
-        dist_diff = v - eq_a
-        norm_d = dist_diff / 0.5
-        g1 = -0.0356 * torch.exp(-(norm_d**2))
-        g2 = -0.00516 * torch.exp(-(((dist_diff - 3.0) / 2.0) ** 2))
+        dist_diff, norm_d, g1, g2 = self._pair_terms(v.to(dtype), eq_a.to(dtype))
         rep = 0.840 * torch.where(dist_diff < 0.0, dist_diff**2, 0.0)
         e_pair = g1 + g2 + rep
         e_out = torch.zeros((b,), device=device, dtype=dtype)
@@ -970,13 +969,74 @@ class VinaStericPotential(Potential):
         if not need_grad:
             return e_out
         # Pass 2: gradients on active pairs only.
+        gi = self._pair_gradient(dist_diff, norm_d, g1, g2, r, norm)
+        g_flat = torch.zeros((b * n_atom, 3), device=device, dtype=dtype)
+        g_flat.scatter_add_(0, (b_idx * n_atom + i_atom).unsqueeze(-1).expand(-1, 3), gi)
+        g_flat.scatter_add_(0, (b_idx * n_atom + j_atom).unsqueeze(-1).expand(-1, 3), -gi)
+        return e_out, g_flat.reshape(*coords.shape)
+
+    @staticmethod
+    def _pair_terms(v, eq):
+        dist_diff = v - eq
+        norm_d = dist_diff / 0.5
+        g1 = -0.0356 * torch.exp(-(norm_d**2))
+        g2 = -0.00516 * torch.exp(-(((dist_diff - 3.0) / 2.0) ** 2))
+        return dist_diff, norm_d, g1, g2
+
+    @staticmethod
+    def _pair_gradient(dist_diff, norm_d, g1, g2, r, norm):
+        """dE/dx_i of each active pair (dE/dx_j is its negative)."""
         r_hat = r / norm.unsqueeze(-1)
         dg1 = -2.0 * g1 * norm_d * (1.0 / 0.5)
         dg2 = -0.5 * g2 * (dist_diff - 3.0)
         drep = 0.840 * torch.where(dist_diff < 0.0, 2.0 * dist_diff, 0.0)
-        gi = (dg1 + dg2 + drep).unsqueeze(-1) * r_hat
-        gj = -gi
-        g_flat = torch.zeros((b * n_atom, 3), device=device, dtype=dtype)
-        g_flat.scatter_add_(0, (b_idx * n_atom + i_atom).unsqueeze(-1).expand(-1, 3), gi)
-        g_flat.scatter_add_(0, (b_idx * n_atom + j_atom).unsqueeze(-1).expand(-1, 3), gj)
-        return e_out, g_flat.reshape(*coords.shape)
+        return (dg1 + dg2 + drep).unsqueeze(-1) * r_hat
+
+    def descend(self, coords, feats, params, weight: float, step_size: float, steps: int):
+        """`steps` of coords += step_size * -(weight * dE/dcoords), stopping at a zero gradient: the engine's inner loop
+        when this is its only acting term, with the same values. Only atoms in the pair list can move while it is valid,
+        so the steps run on those atoms alone and are written back once."""
+        params = self._resolve_params(params)
+        buf = float(params["buffer"])
+        if params.get("core", "auto") != "auto":
+            return None                         # the engine runs its generic loop
+        from .neighbors import square_length
+        shape = coords.shape
+        n_atom = int(shape[-2])
+        coords_b = coords.reshape(-1, n_atom, 3)
+        done = 0
+        while done < steps:
+            st = self._pair_list(coords_b, feats, buf)
+            s, i, j, fi, fj, eq, lim = st["pairs"]
+            atoms, local = torch.unique(torch.cat((fi, fj)), return_inverse=True)
+            li, lj = local[: fi.numel()], local[fi.numel():]
+            flat = coords_b.reshape(-1, 3)
+            sub, ref = flat[atoms], st["X"].reshape(-1, 3)
+            # atoms outside the list do not move here: their displacement from the build pose is fixed
+            rest = square_length(flat - ref)
+            rest[atoms] = 0.0
+            rest = float(rest.max())
+            ref_sub, limit = ref[atoms], (0.5 * st["skin"] - 1e-3) ** 2
+            stop = False
+            while done < steps:
+                if done and max(rest, float(square_length(sub - ref_sub).max())) >= limit:
+                    break                       # the list is no longer valid: rebuild at the current pose
+                r = sub[li] - sub[lj]
+                v = torch.linalg.norm(r, dim=-1).clamp_min(1e-8)
+                a = torch.nonzero(v < lim).squeeze(1)
+                if a.numel() == 0:
+                    stop = True
+                    break
+                v = v[a]
+                gi = self._pair_gradient(*self._pair_terms(v, eq[a]), r[a], v)
+                g = torch.zeros_like(sub)
+                g.scatter_add_(0, li[a].unsqueeze(-1).expand(-1, 3), gi)
+                g.scatter_add_(0, lj[a].unsqueeze(-1).expand(-1, 3), -gi)
+                sub = sub + (-(g * weight)) * step_size
+                done += 1
+            flat = flat.clone()
+            flat[atoms] = sub
+            coords_b = flat.reshape(coords_b.shape)
+            if stop:
+                break
+        return coords_b.reshape(shape)

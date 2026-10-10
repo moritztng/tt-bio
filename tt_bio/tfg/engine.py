@@ -182,6 +182,16 @@ class Term:
         e, g = self._potential.energy_and_grad(coords, feats, self._params_at(t))
         return e * w, g * w
 
+    def descend(self, coords, feats, t: float, *, step_size: float, steps: int):
+        """The inner refinement loop on this term alone, if its potential runs one (else None)."""
+        fn = getattr(self._potential, "descend", None)
+        if fn is None:
+            return None
+        w = float(self.weight(t))
+        if w == 0.0:
+            return coords                       # zero gradient: a fixed point
+        return fn(coords, feats, self._params_at(t), w, step_size, steps)
+
     def project(self, coords, feats, t: float) -> torch.Tensor:
         """Projection delta; not weighted (weight 0 still projects)."""
         if not hasattr(self._potential, "project"):
@@ -432,7 +442,14 @@ class TFGEngine:
         if x0_hook is not None:
             x0_ref = x0_hook(x0_ref, step_i)
         last_log = cfg.log_last_step_energy and step_i == num_diffusion_steps - 1
-        if cfg.mu != 0.0:
+        descended = None
+        if cfg.mu != 0.0 and cfg.eps_std == 0.0 and not last_log:
+            acting = [term for term in cfg.terms if term.active(step_i) and not term.inert(feats)]
+            if len(acting) == 1:                # e.g. the steric term alone on a protein complex
+                descended = acting[0].descend(x0_ref, feats, t, step_size=float(cfg.mu), steps=cfg.inner_steps)
+        if descended is not None:
+            x0_ref = descended
+        elif cfg.mu != 0.0:
             for inner in range(cfg.inner_steps):
                 log_components = last_log and inner == cfg.inner_steps - 1
                 _, grad_x0 = self._logp_and_grad_x0(
