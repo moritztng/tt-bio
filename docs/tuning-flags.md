@@ -628,16 +628,15 @@ Each was graded on its own and then all together, and only the combination that 
 picks a set by hand (the names are listed in `tt_bio/tenstorrent.py`).
 
 **Accuracy: moves, inside the seed-to-seed spread.** On 11 post-cutoff complexes the same-seed top-pose
-deviation from the reference path has a median of 0.26 to 0.34 A on Wormhole (four sets of 4 seeds, 44
-pairs each) and 0.35 A on Blackhole (4 seeds), against a 0.60 A bar and a 0.8 A median between two
-seeds of the reference path itself. DockQ, CA-lDDT, TM, pLDDT and ipTM have confidence intervals
-reaching zero, and docking success is unchanged on Blackhole (32 of 44). The one paired interval that
-does not reach zero, Blackhole interface RMSD, comes from a single complex whose reference fold lands
-in a different wrong pose; the previous default set scores the same there.
+deviation from the reference path has a median of 0.58 A on Wormhole (20 seeds, 220 pairs) and 0.55 A on
+Blackhole (4 seeds, 44 pairs), against a 0.60 A bar and a 0.75 to 0.76 A median between two seeds of the
+reference path itself. DockQ, CA-lDDT, TM, lRMSD, iRMSD, pLDDT and ipTM have confidence intervals
+reaching zero on both, and docking success goes from 165 to 169 of 220 on Wormhole and 32 to 35 of 44 on
+Blackhole.
 
-**Speed: 1.99x on the fold**, 501.4 to 252.4 s on the Protenix-v2 730-token fold (deep MSA, 5 samples,
-10 recycles) on a Wormhole Galaxy chip at 1000 MHz, warm folds; 119.1 s on a Blackhole p150a at
-1350 MHz. `--fast` takes 200.9 s on Wormhole and about 100 s on Blackhole. These figures also contain
+**Speed: 2.07x on the fold**, 501.4 to 241.8 s on the Protenix-v2 730-token fold (deep MSA, 5 samples,
+10 recycles) on a Wormhole Galaxy chip at 1000 MHz, warm folds; 121.4 s on a Blackhole p150a at
+1350 MHz. `--fast` takes 194.2 s on Wormhole and 99.1 s on Blackhole. These figures also contain
 the lossless changes shipped alongside the set.
 
 **Boltz-2** runs the same five normal-mode levers (triangle multiplication in one block with its lean
