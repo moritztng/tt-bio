@@ -1631,6 +1631,18 @@ def _cached(cache, key, make):
 _TEMPLATE_NOOP_GATE = env_flag("TT_BIO_TEMPLATE_NOOP_GATE", True)
 
 
+# Largest token-level AdaLN activation whose normed copy is placed in L1 (`AdaLN.__call__`): 5 samples
+# x 1024 tokens x 768 fp32 channels is 15.7 MB, about 220 KB of each Wormhole core's L1 bank.
+ADALN_L1_MAX_BYTES = 16 << 20
+
+
+def _nbytes(t) -> int:
+    n = 1
+    for d in t.padded_shape:
+        n *= int(d)
+    return n * (4 if t.dtype == ttnn.float32 else 2 if t.dtype == ttnn.bfloat16 else 1)
+
+
 def _adaln_memory_config(atom_level: bool, large_seq_len: bool) -> ttnn.MemoryConfig | None:
     if not atom_level:
         return None
@@ -13176,8 +13188,14 @@ class AdaLN(Module):
         memory_config = _adaln_memory_config(self.atom_level, large_seq_len)
         if self.atom_level:
             a = ttnn.to_memory_config(a, memory_config=memory_config)
+        # A token-level stream stays in DRAM, but its normed copy, read and written twice more by
+        # the modulate, lives in L1 when it fits; the modulate's last op writes DRAM. Placement
+        # does not change values. Wormhole [5, 768, 768] fp32 to bf16: 478 -> 379 us (perf/spd/l1_probe.py).
+        ln_mc = memory_config
+        if memory_config is None and _nbytes(a) <= ADALN_L1_MAX_BYTES:
+            ln_mc = memory_config = ttnn.L1_MEMORY_CONFIG
         a = ttnn.layer_norm(
-            a, epsilon=1e-5, compute_kernel_config=self.compute_kernel_config
+            a, epsilon=1e-5, compute_kernel_config=self.compute_kernel_config, memory_config=ln_mc
         )
         own = s_terms is None
         if own:
@@ -13198,7 +13216,11 @@ class AdaLN(Module):
             a = out
         else:
             a = ttnn.multiply_(a, s_scale, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
-            if dtype is not None and dtype != a.dtype:
+            if memory_config is ttnn.L1_MEMORY_CONFIG and not self.atom_level:
+                out = ttnn.add(a, s_bias, dtype=dtype or a.dtype, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+                ttnn.deallocate(a)
+                a = out
+            elif dtype is not None and dtype != a.dtype:
                 out = ttnn.add(a, s_bias, dtype=dtype)
                 ttnn.deallocate(a)
                 a = out
