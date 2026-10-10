@@ -34,32 +34,38 @@ python3 $P/make_inputs.py $OUT/in > /dev/null
 KITS=$(for e in $MODELS; do printf "%s " ${e%%:*}; done)
 tar -czf $OUT/kit.tgz -C "$KIT" common $KITS
 for _ in $(seq $NMAX); do
-  O=$(next_offer); [ -z "$O" ] && { log "no offer matches: $Q"; break; }; TRIED="$TRIED$O "
-  echo "-  $CAP_H  spd-kitcmp  # $L creating on offer $O" >> $B
-  I=$($V create instance $O --image nvidia/cuda:13.0.1-cudnn-devel-ubuntu24.04 --disk 150 --ssh --direct --label spd-kitcmp-$L --raw 2>&1 | python3 -c 'import json,sys
-try: print(json.load(sys.stdin)["new_contract"])
-except Exception: print("")')
-  if [ -z "$I" ]; then sed -i '$d' $B; log "offer $O: create failed"; continue; fi
-  sed -i "\$s|.*|$I  $CAP_H  spd-kitcmp|" $B; echo "# ^ spd-kitcmp $L offer $O created $(date -u +%FT%TZ) by perf/kitcmp/session.sh" >> $B
-  T0=$(date +%s); log "created $I on offer $O"; S=""
-  while [ $(( $(date +%s) - T0 )) -lt 1500 ]; do
-    [ $(( $(date +%s) - T0 )) -ge 120 ] && [ "$(state $I)" != running ] && break
-    read -r IP PORT < <($V show instance $I --raw 2>/dev/null | python3 -c 'import json,sys
-x=json.load(sys.stdin); p=(x.get("ports") or {}).get("22/tcp")
-print(x.get("public_ipaddr","").strip(), p[0]["HostPort"] if p else "") if x.get("actual_status")=="running" else print("","")' 2>/dev/null)
-    if [ -n "${PORT:-}" ]; then
-      S="ssh -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=15 -o ServerAliveInterval=30 -p $PORT root@$IP"
-      timeout 30 $S true >/dev/null 2>&1 && break; S=""
-    fi
-    sleep 30
-  done
-  [ -z "$S" ] && { destroy $I "no ssh: intended_status=$(state $I)"; continue; }
-  W=$(timeout 30 $S 'nvidia-smi --query-gpu=power.limit --format=csv,noheader,nounits' 2>/dev/null | tail -1 | cut -d. -f1)
-  log "$I up at $IP:$PORT, power limit ${W:-?} W"
-  [ "${W:-0}" -ge "$MINW" ] || { destroy $I "power limit ${W:-?} W < $MINW"; continue; }
-  BW=$(timeout 40 $S 'curl -s -o /dev/null -m 20 -w "%{speed_download}" https://download.pytorch.org/whl/cu130/torch-2.9.0%2Bcu130-cp312-cp312-manylinux_2_28_x86_64.whl' 2>/dev/null | tail -1 | cut -d. -f1)
-  log "$I download ${BW:-?} B/s"
-  [ "${BW:-0}" -ge 20000000 ] || { destroy $I "download ${BW:-?} B/s < 20 MB/s"; continue; }
+  if [ -z "${ADOPT:-}" ]; then
+    O=$(next_offer); [ -z "$O" ] && { log "no offer matches: $Q"; break; }; TRIED="$TRIED$O "
+    echo "-  $CAP_H  spd-kitcmp  # $L creating on offer $O" >> $B
+    I=$($V create instance $O --image nvidia/cuda:13.0.1-cudnn-devel-ubuntu24.04 --disk 150 --ssh --direct --label spd-kitcmp-$L --raw 2>&1 | python3 -c 'import json,sys
+  try: print(json.load(sys.stdin)["new_contract"])
+  except Exception: print("")')
+    if [ -z "$I" ]; then sed -i '$d' $B; log "offer $O: create failed"; continue; fi
+    sed -i "\$s|.*|$I  $CAP_H  spd-kitcmp|" $B; echo "# ^ spd-kitcmp $L offer $O created $(date -u +%FT%TZ) by perf/kitcmp/session.sh" >> $B
+    T0=$(date +%s); log "created $I on offer $O"; S=""
+    while [ $(( $(date +%s) - T0 )) -lt 1500 ]; do
+      [ $(( $(date +%s) - T0 )) -ge 120 ] && [ "$(state $I)" != running ] && break
+      read -r IP PORT < <($V show instance $I --raw 2>/dev/null | python3 -c 'import json,sys
+  x=json.load(sys.stdin); p=(x.get("ports") or {}).get("22/tcp")
+  print(x.get("public_ipaddr","").strip(), p[0]["HostPort"] if p else "") if x.get("actual_status")=="running" else print("","")' 2>/dev/null)
+      if [ -n "${PORT:-}" ]; then
+        S="ssh -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=15 -o ServerAliveInterval=30 -p $PORT root@$IP"
+        timeout 30 $S true >/dev/null 2>&1 && break; S=""
+      fi
+      sleep 30
+    done
+    [ -z "$S" ] && { destroy $I "no ssh: intended_status=$(state $I)"; continue; }
+    W=$(timeout 30 $S 'nvidia-smi --query-gpu=power.limit --format=csv,noheader,nounits' 2>/dev/null | tail -1 | cut -d. -f1)
+    log "$I up at $IP:$PORT, power limit ${W:-?} W"
+    [ "${W:-0}" -ge "$MINW" ] || { destroy $I "power limit ${W:-?} W < $MINW"; continue; }
+    BW=$(timeout 40 $S 'curl -s -o /dev/null -m 20 -w "%{speed_download}" https://download.pytorch.org/whl/cu130/torch-2.9.0%2Bcu130-cp312-cp312-manylinux_2_28_x86_64.whl' 2>/dev/null | tail -1 | cut -d. -f1)
+    log "$I download ${BW:-?} B/s"
+    [ "${BW:-0}" -ge 20000000 ] || { destroy $I "download ${BW:-?} B/s < 20 MB/s"; continue; }
+  else  # ADOPT=<label>: take over that session's live box (kill its session.sh first) instead of renting a new one
+    read -r I O < $P/results/$ADOPT/instance; S=$(cat $P/results/$ADOPT/ssh); IP=${S##*root@}; T0=$(date +%s)
+    [ "$(state $I)" = running ] || { log "ADOPT: $I is not running"; exit 5; }
+    sed -i "s|^$I  [0-9.]*  spd-kitcmp$|$I  $CAP_H  spd-kitcmp|" $B; log "adopted $I from session $ADOPT, cap $CAP_H h from now"
+  fi
   echo "$S" > $OUT/ssh; echo "$I $O" > $OUT/instance
   R(){ rsync -a -e "${S% root@*}" "$@"; }; H=root@$IP
   $S 'mkdir -p /root/kit /root/kc/in /root/kc/results' && R $OUT/kit.tgz $H:/root/ && $S 'tar -xzf /root/kit.tgz -C /root/kit' &&
@@ -68,13 +74,15 @@ print(x.get("public_ipaddr","").strip(), p[0]["HostPort"] if p else "") if x.get
   for m in protenix_v2 opendde; do case " $KITS " in *" $m "*)
     W=/weights/${m%_v2}; $S "mkdir -p $W/common $W/checkpoint" && R $PKL $H:$W/common/ || { destroy $I "pkl push failed"; continue 2; };; esac; done
   case " $KITS " in *" protenix_v2 "*) R $PXCKPT $H:/weights/protenix/checkpoint/protenix-v2.pt || { destroy $I "ckpt push failed"; continue; };; esac
-  R $P/box_chain.sh $H:/root/kc/ && $S "cd /root/kc && setsid nohup bash box_chain.sh '$MODELS' > chain.log 2>&1 < /dev/null &"
+  # adopted: the new chain waits for the old one, runs PRE (shell, on the box) and reports through its own done marker
+  DM=CHAIN-DONE${ADOPT:+-$L}
+  R $P/box_chain.sh $H:/root/kc/ && $S "cd /root/kc && setsid nohup bash -c 'while pgrep -f \"^bash box_chain.sh\" >/dev/null; do sleep 15; done; ${PRE:-} DONE_MARK=$DM PRUNE=${PRUNE:-} exec bash box_chain.sh \"$MODELS\"' > chain-$L.log 2>&1 < /dev/null &"
   END=""
   while :; do
     sleep 300
     R $H:/root/kc/results/ $OUT/results/ 2>/dev/null; R $H:'/root/kc/*.log' $H:/root/kc/CHAIN-PROGRESS $OUT/ 2>/dev/null
-    st=$(timeout 30 $S 'ls /root/kc/CHAIN-DONE /root/kc/THERMAL-FAIL' 2>/dev/null)
-    case "$st" in *THERMAL-FAIL*) END=thermal;; *CHAIN-DONE*) END=done;; esac
+    st=$(timeout 30 $S "ls /root/kc/$DM /root/kc/THERMAL-FAIL" 2>/dev/null)
+    case "$st" in *THERMAL-FAIL*) END=thermal;; *$DM*) END=done;; esac
     [ -z "$st" ] && [ "$(state $I)" != running ] && END=stopped
     [ $(( $(date +%s) - T0 )) -ge $(python3 -c "print(int($CAP_H*3600-600))") ] && END=${END:-cap}
     [ -n "$END" ] && break

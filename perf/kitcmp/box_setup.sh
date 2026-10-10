@@ -6,7 +6,10 @@
 # Weights are fetched by the kit's own `install --weights` into /weights/<model>; session.sh pre-places the files whose
 # upstream URL fails from vast (Protenix-v2 checkpoint: 403; components.cif.rdkit_mol.pkl: a newer file than the pin).
 set -eux
-M=$1; K=/root/kit/$M
+M=$1; K=/root/kit/$M; [ -f /root/kc/SETUP-OK-$M ] && exit 0
+# python-build-standalone's sysconfig names clang as CC, which the CUDA image lacks: every native build (DeepSpeed's
+# evoformer op, apex, the LayerNorm extension) goes through the image's gcc instead
+export CC=gcc CXX=g++
 py(){ # <dir> <url> <sha256>: python-build-standalone, the interpreter each kit's Dockerfile pins
   [ -x $1/bin/python3 ] && return; curl -fsSL -o /tmp/py.tgz "$2"; echo "$3  /tmp/py.tgz" | sha256sum -c -
   mkdir -p $1 && tar -xzf /tmp/py.tgz -C /tmp && cp -rL /tmp/python/. $1/ && rm -rf /tmp/python /tmp/py.tgz; }

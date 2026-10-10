@@ -60,6 +60,7 @@ run(){ # <mode>
                  --num_loops 10 --num_sampling_steps 100 --num_diffusion_samples 1;;
   esac > $d/stdout.log 2> $d/stderr.log
   echo $? > $d/rc; date -u +%FT%T.%3NZ > $d/t_end
+  find $d/pred -name msa.sh | grep -q . && echo "server MSA search ran, not the fixture a3m" > $d/SERVER-MSA
 }
 if [ $M = esmfold2 ]; then  # ESMFold2 (full_nomsa) and ESMFold2-Fast (fast): two page rows, one venv
   for VAR in full_nomsa fast; do R=/root/kc/results/esmfold2-$VAR; mkdir -p $R; for m in ${MODES:-off exact fast}; do run $m; done; done

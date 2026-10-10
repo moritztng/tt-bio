@@ -41,6 +41,8 @@ for m in sorted(p for p in root.iterdir() if p.is_dir()):
             s = [float(x) for x in re.findall(r"Finished inference batch in ([\d.]+) seconds", log)]
         warm = s[1:]
         rc = (d / "rc").read_text().strip() if (d / "rc").exists() else "running"
+        if (d / "SERVER-MSA").exists() or any(d.glob("pred/*/msa/**/msa.sh")):
+            rc += " SERVER-MSA"
         err = "".join(f.read_text(errors="replace") for f in (d / "stderr.log", d / "stdout.log") if f.exists())
         act = next((l.strip()[:90] for l in err.splitlines() if "ACTIVE" in l or l.startswith("stock:")), "-")
         clk = pw = mem = "-"
