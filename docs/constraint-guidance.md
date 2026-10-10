@@ -85,6 +85,26 @@ as upstream.
 Contact constraints are strict: a wrong pair can pull the antibody off the true interface.
 A pocket constraint with `min_fraction` below 1 tolerates a few wrong residues.
 
+## How well it works
+
+Measured on Wormhole over the 32 held-out SAbDab antibody-antigen complexes the unguided model
+gets wrong in upstream's benchmark, 25 candidates per target (5 seeds x 5 samples), 200 steps,
+constraints read off the deposited structure:
+
+| | top-1 success (DockQ >= 0.23) | mean top-1 DockQ | upstream's report |
+|---|---|---|---|
+| unguided | 0.16 | 0.16 | 0.16 |
+| 4 contact pairs | 0.81 (95 % CI 0.63 to 0.94) | 0.44 | 0.78 |
+| epitope (pocket) | 0.31 (0.16 to 0.47) | 0.22 | 0.33 |
+
+Unguided, tt-bio and upstream on GPU agree on the same targets (success 0.19 vs 0.19, mean
+DockQ 0.160 vs 0.162). On a smaller set of 8 targets, one or two wrong pairs out of four drop
+contact success to 0.13, below the unguided 0.25 on that set, so only give contacts you trust.
+
+A guided fold takes about 5 to 15 % longer than an unguided one on a Wormhole chip at
+1000 MHz (Fv 1a14 +7 to +9 %, Fab 9xqn +7 to +8 % with an epitope and +11 to +13 % with
+contacts).
+
 ## Several constraints on one input
 
 `--trunk_cache DIR` keeps each fold's trunk output in `DIR`. Inputs that differ only in
