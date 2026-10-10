@@ -870,14 +870,17 @@ class VinaStericPotential(Potential):
         return _cache_and_return((sel_idx, r_eq))
 
     def _active_dense(self, coords_b, feats, buf):
-        """Active pairs (b, i, j, r_eq, d) from every inter-chain candidate (upstream's dense pass 1)."""
+        """Active pairs (b, i, j, r_eq, d, r, |r|) from every inter-chain candidate (upstream's dense pass 1, then the
+        pass-2 geometry of the active pairs)."""
         idx, eq = self._get_collision_candidates(feats)
         if idx.numel() == 0:
             return None
         value0, _ = _distance_value_and_grad(coords_b, idx, False)
         active = value0 < (eq.to(value0.dtype) * (1.0 - buf)).unsqueeze(0)
         b_idx, m_idx = active.nonzero(as_tuple=True)
-        return b_idx, idx[0][m_idx], idx[1][m_idx], eq[m_idx], value0[b_idx, m_idx]
+        i, j = idx[0][m_idx], idx[1][m_idx]
+        r = coords_b[b_idx, i] - coords_b[b_idx, j]
+        return b_idx, i, j, eq[m_idx], value0[b_idx, m_idx], r, torch.linalg.norm(r, dim=-1).clamp_min(1e-8)
 
     def _active_sparse(self, coords_b, feats, buf):
         """The same active pairs from a cell-list pair list (tt_bio.tfg.neighbors): only pairs within the largest
@@ -923,12 +926,16 @@ class VinaStericPotential(Potential):
             n, nc, pos = X.shape[1], st["n_chains"], st["pos"]
             rank = (((s * nc + ci) * nc + cj) * n + pos[i]) * n + pos[j]
             o = torch.argsort(rank)
-            st["pairs"], st["X"] = (s[o], i[o], j[o]), X.clone()
-        s, i, j = st["pairs"]
-        v = torch.linalg.norm(coords_b[s, i] - coords_b[s, j], dim=-1).clamp_min(1e-8)
-        eq = st["r"][i] + st["r"][j]
-        act = v < eq * (1.0 - buf)
-        return s[act], i[act], j[act], eq[act], v[act]
+            s, i, j = s[o], i[o], j[o]
+            eq = st["r"][i] + st["r"][j]
+            st["pairs"], st["X"] = (s, i, j, s * n + i, s * n + j, eq, eq * (1.0 - buf)), X.clone()
+        s, i, j, fi, fj, eq, lim = st["pairs"]
+        X = coords_b.reshape(-1, 3)
+        r = X[fi] - X[fj]
+        v = torch.linalg.norm(r, dim=-1).clamp_min(1e-8)
+        a = torch.nonzero(v < lim).squeeze(1)
+        v = v[a]
+        return s[a], i[a], j[a], eq[a], v, r[a], v
 
     def _eval(self, coords, feats, params, need_grad: bool):
         buf = float(params["buffer"])
@@ -948,7 +955,7 @@ class VinaStericPotential(Potential):
         act = (self._active_dense if core == "off" else self._active_sparse)(coords_b, feats, buf)
         if act is None or act[0].numel() == 0:
             return _zeros(coords, need_grad)
-        b_idx, i_atom, j_atom, eq_a, v = act
+        b_idx, i_atom, j_atom, eq_a, v, r, norm = act
         eq_a = eq_a.to(dtype)
         v = v.to(dtype)
         dist_diff = v - eq_a
@@ -963,8 +970,6 @@ class VinaStericPotential(Potential):
         if not need_grad:
             return e_out
         # Pass 2: gradients on active pairs only.
-        r = coords_b[b_idx, i_atom] - coords_b[b_idx, j_atom]
-        norm = torch.linalg.norm(r, dim=-1).clamp_min(1e-8)
         r_hat = r / norm.unsqueeze(-1)
         dg1 = -2.0 * g1 * norm_d * (1.0 / 0.5)
         dg2 = -0.5 * g2 * (dist_diff - 3.0)
