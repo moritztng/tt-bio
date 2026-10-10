@@ -27,7 +27,9 @@ export TT_METAL_PROFILER_DISABLE_PUSH_TO_TRACY=1
 # A tree with a metal overlay (staging9's silu_f32) still compiles some ttnn headers under two paths, the overlay's
 # and the stock one, and those can collide by chance (~1 in 10 per layout). The overlay lives under XDG_CACHE_HOME
 # (env.sh sets HF_HOME and TT_BIO_CACHE explicitly, so moving it moves nothing else); a colliding arm reruns (up to
-# twice) with the overlay at a different path, which rerolls every overlay hash.
+# twice) with the overlay at a different path, which rerolls every overlay hash. A collision between a tree kernel and
+# a stock one (r16: tree16b's triatt_sdpa compute_streaming.hpp:238 against ttnn SDPA's :966, both 0xfd42) is fixed by
+# the tree's path, so a retry also runs from a hardlink copy of the tree under $RUN, which rerolls every tree hash.
 export TT_METAL_PROFILER_DIR=$RUN/profiler TT_METAL_CACHE=$RUN/cache
 mkdir -p "$RUN" "$TT_BIO_LEASE_DIR"
 say(){ echo "$(date -u +%FT%TZ) $*" >> "$RUN/run.log"; }
@@ -44,7 +46,9 @@ for na in $ARMS; do
   else
     for try in 0 1 2; do
       export XDG_CACHE_HOME=$RUN/xdg$try
-      rm -rf "$TT_METAL_PROFILER_DIR" "$TT_METAL_CACHE" "$RUN"/xdg*; mkdir -p "$TT_METAL_CACHE"
+      rm -rf "$TT_METAL_PROFILER_DIR" "$TT_METAL_CACHE" "$RUN"/xdg* "$RUN"/tree*; mkdir -p "$TT_METAL_CACHE"
+      T=$TREE; [ $try -gt 0 ] && { T=$RUN/tree$try; cp -al "$TREE" "$T"; }
+      cd "$T"; export PYTHONPATH=$T:${PYTHONPATH#*:}
       timeout -s TERM 11100 timeout -s INT 10800 $PY perf/spd_census/census.py --out "$RUN/$N" \
           --chip $CHIP --arm "$A" --input $INPUT ${MODEL:+--model $MODEL} > "$RUN/$N.log" 2>&1
       rc=$?
@@ -55,5 +59,5 @@ for na in $ARMS; do
   fi
   say "arm $N end rc=$rc"
 done
-rm -rf "$TT_METAL_CACHE" "$RUN"/xdg*
+rm -rf "$TT_METAL_CACHE" "$RUN"/xdg* "$RUN"/tree*
 say "end"
