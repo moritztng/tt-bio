@@ -589,7 +589,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw", "transition_shard", "dit_mm16",
           "atom_k1", "dit_b8", "dit_qkv16", "atom_mm16", "atom_b8", "adaln_mod", "dit_heads")
 # Named but in no mode until their fold grade puts them in one.
-UNGRADED_LEVERS = frozenset({"trimul_b8in", "transition_bw", "atom_mm16", "adaln_mod", "dit_heads"})
+UNGRADED_LEVERS = frozenset({"trimul_b8in", "transition_bw", "atom_mm16", "adaln_mod"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -599,6 +599,9 @@ UNGRADED_LEVERS = frozenset({"trimul_b8in", "transition_bw", "atom_mm16", "adaln
 # atom_b8 is fast-only (inert in fp32). Fast grade (fast vs fast+atom_b8, same tree, Wormhole 11-set, 44 paired
 # folds) PASS: CA-lDDT -0.0008 [-0.0017, -0.0002] against the 0.03 bar, top pose median 0.185 A, docking 32 -> 32
 # of 44 (spd-difflin gf2, 2026-10-09). Saves 0.74 s of the Wormhole c730 fast sampler (32.15 -> 31.41 s, 1000 MHz).
+# dit_heads is in fast mode. Fast grade (fast+atom_b8 vs the same plus dit_heads, Wormhole 11-set, 44 paired
+# folds) PASS: CA-lDDT +0.0001 [-0.0013, +0.0019], top pose median 0.225 A against the 0.60 A bar (floor 1.164 A),
+# docking 32 -> 32 of 44 (spd-difflin gf3). Saves 1.20 s of the Wormhole c730 fast sampler (31.99 -> 30.79 s, 1000 MHz).
 # atom_mm16 stays out of normal mode: the stack dit_mm16+dit_qkv16+atom_mm16 against normal (Wormhole 11-set,
 # 44 paired) moves CA-lDDT by -0.0010 [-0.0022, -0.0001], a CI that excludes 0 (spd-difflin g4); dit_mm16+dit_qkv16
 # alone pass (g3). The structure is not the problem (top pose median 0.145 A); the lDDT shift is.
