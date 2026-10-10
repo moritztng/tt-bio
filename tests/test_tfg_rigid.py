@@ -3,6 +3,8 @@
 Live tests import upstream from TFG_UPSTREAM (default /tmp/tfgsrc/up) with OPENDDE_RIGID_CORE=off and
 are skipped when the clone is absent. The fixture tests compare against upstream outputs saved in
 tests/data/tfg/rigid_parity.pt; regenerate with ``python tests/test_tfg_rigid.py`` (needs the clone).
+The fixture was saved under torch FIXTURE_TORCH and matches bit for bit there; another torch moves
+the solved coordinates by up to 2e-5 A (torch 2.13, 2.14), so there the fixture test allows FIXTURE_ATOL.
 """
 
 from __future__ import annotations
@@ -21,6 +23,8 @@ from tt_bio.tfg.rigid import RigidSchedule
 
 UPSTREAM = Path(os.environ.get("TFG_UPSTREAM", "/tmp/tfgsrc/up"))
 FIXTURE = Path(__file__).parent / "data" / "tfg" / "rigid_parity.pt"
+FIXTURE_TORCH = "2.8."
+FIXTURE_ATOL = 0.0 if torch.__version__.startswith(FIXTURE_TORCH) else 1e-4
 HAVE_UPSTREAM = (UPSTREAM / "opendde" / "tfg" / "epitope_guidance.py").is_file()
 needs_upstream = pytest.mark.skipif(not HAVE_UPSTREAM, reason="OpenDDE clone not found (set TFG_UPSTREAM)")
 
@@ -174,10 +178,11 @@ def build_cases():
     return {n: dock_sample0(*make_case(n, seed=n)) for n in (2, 3)}
 
 
-def _compare(name, ours, ref, report):
+def _compare(name, ours, ref, report, atol=0.0):
     diff = (ours.float() - ref.float()).abs().max().item()
     report[name] = diff
-    assert torch.equal(ours, ref), "%s: max abs diff %.3e A" % (name, diff)
+    ok = torch.equal(ours, ref) if not atol else ours.shape == ref.shape and diff <= atol
+    assert ok, "%s: max abs diff %.3e A" % (name, diff)
 
 
 CONTACT_OUTPUTS = ("refine_contact", "search_contact", "guide_x0_contact")
@@ -366,7 +371,7 @@ def test_fixture_parity(dense_core, n_chains, names):
     ours = _run_all(rc, ep, coords, feats, names)
     report = {}
     for name in names:
-        _compare(name, ours[name], expected[name], report)
+        _compare(name, ours[name], expected[name], report, FIXTURE_ATOL)
     _check_behaviour(coords, ours)
 
 
