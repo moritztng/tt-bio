@@ -36,7 +36,7 @@ for m in sorted(p for p in root.iterdir() if p.is_dir()):
             s = [round(t[0] - ts(d / "t_start"), 3)] + [round(b - a, 4) for a, b in zip(t, t[1:])]
         warm = s[1:]
         rc = (d / "rc").read_text().strip() if (d / "rc").exists() else "running"
-        err = (d / "stderr.log").read_text(errors="replace") if (d / "stderr.log").exists() else ""
+        err = "".join(f.read_text(errors="replace") for f in (d / "stderr.log", d / "pred/pred_worker.log") if f.exists())
         act = next((l.strip()[:90] for l in err.splitlines() if "ACTIVE" in l or l.startswith("stock:")), "-")
         clk = pw = mem = "-"
         if smi and (d / "t_end").exists():
