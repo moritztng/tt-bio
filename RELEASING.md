@@ -46,7 +46,10 @@ leg is in the ledger.
 A leg whose ssh connection drops (exit 255 with ssh's own error) is run again once the host
 answers; it is never recorded as a failure. The rerun first ends the attempt it replaces, which
 the host may still be running, so a leg never runs twice. A result fetch that times out is
-retried the same way. A capacity leg passes when every cell it fails is a
+retried the same way. A leg that hits a full disk on its host waits and runs again (up to an
+hour). A pool leg that stops because a fold timed out and its card reset was refused runs once
+more, since the pool probes every chip before handing it out; on a named qb card that stop is the
+result, because reopening the card can hard-reset the host. A capacity leg passes when every cell it fails is a
 size-guard refusal that `docs/capacity_gate_baseline.json` records for that card type
 (OpenDDE on Blackhole is capped at 1024 tokens, so its 1536 cell is refused every run); any
 other failing cell fails the leg.
