@@ -42,11 +42,12 @@ def test_blackhole_grid_takes_eight_columns(monkeypatch):
     assert tt._transition_shard_grid(230, 32, 8) == (8, 10)
 
 
-def test_lever_is_in_both_modes():
+def test_lever_is_fast_only_while_it_is_grid_dependent():
+    # Normal mode's answer must not depend on the core grid (release gate rg:l1-budget).
     assert "transition_shard" in tt.LEVERS
     assert "transition_shard" not in tt.UNGRADED_LEVERS
     assert "transition_shard" in tt.FAST_LEVERS
-    assert "transition_shard" in tt.NORMAL_LEVERS
+    assert "transition_shard" not in tt.NORMAL_LEVERS
     assert "transition_shard" in tt.LATCH_STATS
 
 

@@ -628,6 +628,11 @@ FAST_LEVERS = frozenset(LEVERS) - {"lofi", "triatt_b8", "triatt_bias_b8"} - UNGR
 # folds): PASS, top pose median 0.156 A (floor 0.803 A), CA-lDDT +0.0004 [-0.0013, +0.0024], docking
 # 32 -> 33/44; cdk2x2_512 vs 1HCL +0.004 / +0.006 CA-lDDT per domain; c730 warm A/B/A 270.5 -> 267.1
 # -> 274.0 s. Fast runs acc off, so its configuration is the one graded there.
+# Out of normal mode again (2026-10-10): it makes the answer depend on the core grid. The release gate's
+# l1-budget leg folds Protenix-v2 fkg at the native grid and at a forced 8x8; with the lever the two
+# differ on Wormhole (.114) and Blackhole (qb2), CA-RMSD 1.38 A between them on .114, and with it off
+# they are bit-identical. Whether a block shards depends on the grid's rows, and the sharded and
+# interleaved swiglu round differently, so an 8x8 n150 and an 8x9 Galaxy chip would give two answers.
 # atom_k1: bit-exact. The c730 sampler (5 samples x 200 steps, seeds 101-103) returns torch.equal
 # coordinates with and without it on Wormhole (.107, 1000 MHz) and on Blackhole (p150a, where it is
 # ttnn's own program), and saves 0.76 s of the Wormhole sampler (63.75 -> 62.99 s, spd-difflin ab2).
@@ -646,8 +651,12 @@ FAST_LEVERS = frozenset(LEVERS) - {"lofi", "triatt_b8", "triatt_bias_b8"} - UNGR
 # 0.809 A), docking 32 -> 35 of 44; fast vs fast 0.424 A (floor 0.957 A), docking 33 -> 35 of 44; every
 # paired CI covers 0. c730 at AICLK 1000: normal 250.3 -> 247.7 s, fast 201.3 -> 196.1 s; deep alignments
 # gain most (9DBP 556 -> 419 s, 9PCQ 427 -> 310 s) (state/spd-msasample.md, 2026-10-10).
+# It is fast-only now. On 308 more normal pairs (seeds 129-153) it failed the normal bar, CA-lDDT -0.0109
+# [-0.0205, -0.0028], top pose median 0.754 A, with folds that collapse the same way on any chip (9DBP s145
+# pLDDT 0.94 -> 0.67, 9W89 s129). The same tree without it: -0.0022 [-0.0050, +0.0001], 0.436 A, no collapse
+# (spd-galaxy s15bx, 2026-10-10).
 NORMAL_LEVERS = frozenset({"trimul_ibw", "trimul_tail", "trunk_hifi3", "dit_sdpa32", "silu_f32", "triatt_tail",
-                           "transition_shard", "atom_k1", "dit_mm16", "dit_qkv16", "msa_sample"})
+                           "atom_k1", "dit_mm16", "dit_qkv16"})
 _LEVERS = frozenset()
 # silu_f32 is a kernel, so it needs ttnn's headers patched before the first device open (metal_overlay)
 # in any process that may run it. The patch only changes silu under math_approx_mode, and every fused
@@ -14456,16 +14465,26 @@ class OuterProductMean(Module):
                 slice copies, and `a` is 0.65 GiB at the sizes this path exists for."""
                 return t if i0 == 0 and i1 == t.shape[0] else t[i0:i1, :, :]
 
+            # Free only a slice this call copied. Over the whole token range a_flat is a view of
+            # the operand, and freeing a view frees its source: a whole call refused after the
+            # contraction (the relayout or the permute) then retried row-blocked from a freed `a`,
+            # whose bytes the relayout had already reused. That read garbage and collapsed the
+            # fold (Protenix-v2 9DBP s145 pLDDT 0.94 -> 0.67, 9W89 s129 0.85 -> 0.63, cold folds
+            # only, since a warm fold starts blocked from the memo).
             if depth_parts is None:
-                a_flat = ttnn.reshape(rows_of(a), (rows * C, S))
+                src = rows_of(a)
+                a_flat = ttnn.reshape(src, (rows * C, S))
                 z = contract(a_flat, b)
-                ttnn.deallocate(a_flat)
+                if src is not a:
+                    ttnn.deallocate(a_flat)
                 return z
             z = None
             for acp, bcp, Sc in depth_parts:
-                a_flat = ttnn.reshape(rows_of(acp), (rows * C, Sc))
+                src = rows_of(acp)
+                a_flat = ttnn.reshape(src, (rows * C, Sc))
                 zp = contract(a_flat, bcp)
-                ttnn.deallocate(a_flat)
+                if src is not acp:
+                    ttnn.deallocate(a_flat)
                 if z is None:
                     z = zp
                 else:

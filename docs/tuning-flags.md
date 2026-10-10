@@ -634,7 +634,7 @@ reference path itself. DockQ, CA-lDDT, TM, lRMSD, iRMSD, pLDDT and ipTM have con
 reaching zero on both, and docking success goes from 165 to 169 of 220 on Wormhole and 32 to 35 of 44 on
 Blackhole.
 
-**Speed: 2.07x on the fold**, 501.4 to 241.8 s on the Protenix-v2 730-token fold (deep MSA, 5 samples,
+**Speed: 2.03x on the fold**, 501.4 to 247.3 s on the Protenix-v2 730-token fold (deep MSA, 5 samples,
 10 recycles) on a Wormhole Galaxy chip at 1000 MHz, warm folds; 121.4 s on a Blackhole p150a at
 1350 MHz. `--fast` takes 194.2 s on Wormhole and 99.1 s on Blackhole. These figures also contain
 the lossless changes shipped alongside the set.
