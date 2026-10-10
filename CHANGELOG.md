@@ -43,6 +43,11 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 - protenix-v2 and opendde rebuild a C-terminal OXT that the diffusion left on C or O, or detached,
   from the CCD ideal geometry before writing (upstream OpenDDE 6685cef).
 
+### Fixed
+- A cold fold whose outer-product-mean call ran short of device memory retried from an operand it had
+  already freed and could collapse the structure (Protenix-v2 9DBP pLDDT 0.94 to 0.67). Warm folds were
+  not affected. Present since 0.14.0.
+
 ### Known issues
 - On Blackhole, `--fast` Protenix-v2 can return non-finite coordinates for one complex in the graded set
   (9W89) when it folds after other large complexes in the same process; normal mode is unaffected.
