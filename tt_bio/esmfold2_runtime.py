@@ -448,14 +448,25 @@ def _install_resident_trunk_loop(model):
         if self.msa_encoder is not None and _msa_kwargs is not None:
             msa_loops = _msa_per_loop(_msa_kwargs, total_steps, max_depth, col_rate)
 
+        def msa_inject(msa_kw):
+            # reference passes x_pair (the current pair state) separately from _msa_kwargs
+            msa_pair = self.msa_encoder(x_pair=z_init, **msa_kw).to(z_init.dtype)
+            dram_peak("esmfold2/msa-encoder")
+            return msa_pair if overwrite else (z_init + msa_pair)
+
+        # The MSA encoder reads z_init and the loop's MSA draw. With one draw for every loop
+        # (an MSA no deeper than max_depth) its output is the same in every loop, so it is
+        # encoded once even when the LM dropout makes the rest of the injection per-loop.
+        msa_fixed = msa_inject(msa_loops[0]) if msa_loops is not None and len(msa_loops) == 1 \
+            else None
+
         def inject_proj(msa_kw):
             refined = lm_refined() if use_lm else None
             z_inject = z_init
-            if msa_kw is not None:
-                # reference passes x_pair (the current pair state) separately from _msa_kwargs
-                msa_pair = self.msa_encoder(x_pair=z_inject, **msa_kw).to(z_init.dtype)
-                z_inject = msa_pair if overwrite else (z_inject + msa_pair)
-                dram_peak("esmfold2/msa-encoder")
+            if msa_fixed is not None:
+                z_inject = msa_fixed
+            elif msa_kw is not None:
+                z_inject = msa_inject(msa_kw)
             if refined is not None:
                 z_inject = z_inject + refined
             injected = self.parcae_input_norm(z_inject)
