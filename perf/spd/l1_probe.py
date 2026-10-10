@@ -48,6 +48,23 @@ def adaln(a, sc, bi, mc):
     return ttnn.add_(x, bi)
 
 
+def adaln_mixed(a, sc, bi, dt):
+    # The stream stays in DRAM; only the normed intermediate lives in L1, the result goes back to DRAM at `dt`.
+    x = ttnn.layer_norm(a, epsilon=1e-5, compute_kernel_config=ckc, memory_config=L1)
+    x = ttnn.multiply_(x, sc, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
+    y = ttnn.add(x, bi, dtype=dt, memory_config=DRAM)
+    ttnn.deallocate(x)
+    return y
+
+
+def adaln_dram(a, sc, bi, dt):
+    x = ttnn.layer_norm(a, epsilon=1e-5, compute_kernel_config=ckc)
+    x = ttnn.multiply_(x, sc, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
+    y = ttnn.add(x, bi, dtype=dt)
+    ttnn.deallocate(x)
+    return y
+
+
 CLK = []
 
 
@@ -84,7 +101,11 @@ for k in res["dram"]:
     (d, od), (l, ol) = res["dram"][k], res["l1"][k]
     print(f"{k:11s} dram {d:8.1f} us  l1 {l:8.1f} us  ratio {d / l:5.2f}  bitexact {torch.equal(od, ol)}", flush=True)
 
-a = up(A, DRAM)
+a, sc, bi = up(A, DRAM), up(SC, DRAM), up(BI, DRAM)
+for dt in (ttnn.float32, ttnn.bfloat16):
+    d, m = timed(lambda: adaln_dram(a, sc, bi, dt)), timed(lambda: adaln_mixed(a, sc, bi, dt))
+    same = torch.equal(ttnn.to_torch(adaln_dram(a, sc, bi, dt)).float(), ttnn.to_torch(adaln_mixed(a, sc, bi, dt)).float())
+    print(f"adaln->{dt} dram {d:8.1f} us  mixed {m:8.1f} us  ratio {d / m:5.2f}  bitexact {same}", flush=True)
 print(f"to_l1      {timed(lambda: ttnn.to_memory_config(a, L1)):8.1f} us", flush=True)
 a1 = up(A, L1)
 print(f"to_dram    {timed(lambda: ttnn.to_memory_config(a1, DRAM)):8.1f} us", flush=True)
