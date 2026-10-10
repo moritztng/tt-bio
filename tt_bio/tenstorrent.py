@@ -5827,8 +5827,8 @@ def set_trimul_ibw_full(on: bool) -> bool:
 # limit at lower fidelity is the unpack of both operands per tile-matmul that a 1x1 subblock forces.
 # A dimension that does not divide the per-core block falls back to 1. Not bit-exact only if the
 # factory reorders K, which it does not: the subblock tiles the OUTPUT.
-# Default (None) is 1x3 on Wormhole and 1x1 on Blackhole (spd-trikern, c730 trimul module,
-# bit-exact both: WH 1000 MHz -2.3 %, BH p150a 1350 MHz +0.4 %).
+# Default (None) is 1x1 on both archs. 1x3 won 2.3 % on the isolated c730 trimul module on Wormhole but
+# ran 5 % slower per call inside the fold (staging13 census, +0.34 s normal, +0.57 s fast), so it is off.
 _TRIMUL_SUBBLOCK = (tuple(int(v) for v in os.environ["TT_BIO_TRIMUL_SUBBLOCK"].split("x"))
                     if "TT_BIO_TRIMUL_SUBBLOCK" in os.environ else None)
 
@@ -5841,9 +5841,7 @@ def set_trimul_subblock(sub: tuple) -> tuple:
 
 
 def _trimul_subblock() -> tuple:
-    if _TRIMUL_SUBBLOCK is not None:
-        return _TRIMUL_SUBBLOCK
-    return (1, 3) if is_wormhole() else (1, 1)
+    return _TRIMUL_SUBBLOCK or (1, 1)
 
 
 def _trimul_ibw_full() -> bool:

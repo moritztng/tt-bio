@@ -297,7 +297,9 @@ def set_mask_fold(on: bool) -> bool:
     return prev
 # The gates' sigmoid as a degree-8 polynomial in gin_moved and the resident tail
 # (kernels/trimul_gin_moved/sigmoid_poly.hpp), max |error| 3e-4 against exp + reciprocal's bf16 rounding.
-SIGPOLY = env_flag("TT_BIO_TRIMUL_SIGPOLY", False)
+# Resident tail at 736 on WH (1000 MHz): 6.53 -> 5.51 ms, rel_rms to float64 0.00307 -> 0.00304.
+# triatt_tail ships the same polynomial (TT_BIO_TRIATT_TAIL_SIGPOLY).
+SIGPOLY = env_flag("TT_BIO_TRIMUL_SIGPOLY", True)
 # Round DST to bf16 nearest-even in those two kernels: bit 0 before the output pack, bit 1 before the p/g
 # packs, bit 2 (resident tail, EPI 2) the product before the residual add, whose move into srcA truncates.
 # Bits 0 and 1 measured null on the outputs (gm8): the packs round already. Bit 2 brings EPI 2 to one rounding
