@@ -36,7 +36,7 @@ import numba
 import numpy as np
 import torch
 
-from tt_bio.tfg.neighbors import HARD, SOFT, SparseClash, square_length
+from tt_bio.tfg.neighbors import HARD, SOFT, BoundField, SparseClash, square_length
 
 # Identical to upstream opendde.data.constants.rdkit_vdws (118 entries, H..Og, index 0 = H).
 from tt_bio.data.const import vdw_radii as rdkit_vdws
@@ -639,6 +639,40 @@ def search_rigid_contact(coords, feats, core=None):
                 torch.add(rot_contacts.transpose(0, 1)[:, :, None], shift[:, None], out=contact6[:, a])
             return x, contact
 
+        if todo.numel() and fitted.dtype == torch.float32 and fitted.device.type == "cpu":
+            # compiled: every candidate placed and scored in one pass per sample, same order and rule
+            T = len(todo)
+            rots, shifts = [], []
+            for normal in normals:
+                normal = normal[todo]
+                w = torch.cat([normal * turn for turn in turns])
+                rots.append(torch.linalg.matrix_exp(skew_matrix(w, t_fit.repeat(len(turns), 1, 1))).transpose(1, 2)
+                            .reshape(len(turns), T, 3, 3).transpose(0, 1))
+                shifts.append((t_tc[:, None] + torch.tensor(radii_out, dtype=t_tc.dtype)[None, :, None, None]
+                               * normal[:, None, None])[:, :, 0])
+            rot = torch.stack(rots, 1).contiguous()                                  # [T, normals, turns, 3, 3]
+            shift = torch.stack(shifts, 1)[:, :, None].expand(-1, -1, len(turns), -1, -1).contiguous()
+            field = BoundField(fixed, r[fi], float(r[mi].max()))
+            ra = r[mi].float()
+            far_at = (SOFT * ra + field.margin) + field.delta
+            severe_below = (HARD * ra - field.margin) - (field.lift + field.delta)
+            sub_best = best_energy[todo].contiguous()
+            pick, n_feasible, n_better = _search_contact(
+                t_fitted.contiguous().numpy(), t_contacts.contiguous().numpy(), rot.numpy(), shift.numpy(),
+                target[todo].contiguous().numpy(), lower.float().contiguous().numpy(), upper.float().contiguous().numpy(),
+                fixed[todo].contiguous().numpy(), ra.contiguous().numpy(), r[fi].float().contiguous().numpy(),
+                clash.cut, sub_best.numpy(), todo.numpy(), field.soft.numpy(), field.lo.contiguous().numpy(),
+                np.float32(1.0 / field.v), field.dims.numpy(), field.nvox, far_at.contiguous().numpy(),
+                severe_below.contiguous().numpy())
+            best_energy[todo] = sub_best
+            feasible[todo] += torch.from_numpy(n_feasible)
+            improving[todo] += torch.from_numpy(n_better)
+            accepted[todo] += torch.from_numpy(n_better)
+            for t, (a, b, k) in enumerate(pick.tolist()):
+                if a >= 0:
+                    turned = torch.bmm(t_fitted[t:t + 1], rot[t, a, b][None])
+                    best[todo[t]] = turned[0] + shift[t, a, b, k]
+            todo = todo[:0]
         for start in range(0, len(normals), SEARCH_CHUNK_NORMALS):
             chunk = normals[start:start + SEARCH_CHUNK_NORMALS]
             tested += len(chunk) * len(turns) * len(radii_out)
@@ -941,3 +975,87 @@ def _descend_contact(moving, fixed, ra, rb, ri, li, lower, upper, iterations, n_
                 pi, pj = _pairs_near(x, fx, lo, dims, start, atoms, h)
         moving[s] = x
     return accepted
+
+
+@numba.njit(cache=True, nogil=True)
+def _search_contact(fitted, contacts, rot, shift, target, lower, upper, fixed, ra, rb, cut, best_energy,
+                    samp, soft, flo, inv_v, fdims, nvox, far_at, severe_below):
+    """search_rigid_contact's candidate loop for the samples it is handed (row t of every array): poses
+    x = fitted @ rot[t, a, b] + shift[t, a, b, r] in upstream's (normal a, turn b, radius r) order; a pose is taken
+    when it has no severe pair and its energy 0.5 sum err^2 + 10 sum overlap^2 is strictly below the best so far.
+    BoundField's soft table (soft, flo, inv_v, fdims, nvox, far_at, severe_below; per sample row t) skips points that
+    touch nothing and rejects poses it proves severe; every other point is scored on exact pairs.
+    Returns (pick [T, 3] (-1 when none), feasible, improving) and updates best_energy [T]."""
+    f = np.float32
+    T, A, B, Rn = shift.shape[0], shift.shape[1], shift.shape[2], shift.shape[3]
+    M, C = fitted.shape[1], contacts.shape[1]
+    pick = np.full((T, 3), -1, np.int64)
+    feasible = np.zeros(T, np.int64)
+    improving = np.zeros(T, np.int64)
+    turned = np.empty((M, 3), np.float32)
+    tcon = np.empty((C, 3), np.float32)
+    hi0, hi1, hi2 = f(fdims[0] - 1), f(fdims[1] - 1), f(fdims[2] - 1)
+    for t in range(T):
+        fx = fixed[t]
+        glo, gdims, gstart, gatoms = _fixed_grid(fx, f(cut))
+        base = samp[t] * nvox
+        l0, l1, l2 = flo[samp[t], 0], flo[samp[t], 1], flo[samp[t], 2]
+        for a in range(A):
+            for b in range(B):
+                Rm = rot[t, a, b]
+                for m in range(M):
+                    for k in range(3):
+                        turned[m, k] = (fitted[t, m, 0] * Rm[0, k] + fitted[t, m, 1] * Rm[1, k]) + fitted[t, m, 2] * Rm[2, k]
+                for m in range(C):
+                    for k in range(3):
+                        tcon[m, k] = (contacts[t, m, 0] * Rm[0, k] + contacts[t, m, 1] * Rm[1, k]) + contacts[t, m, 2] * Rm[2, k]
+                for r in range(Rn):
+                    s0, s1, s2 = shift[t, a, b, r, 0], shift[t, a, b, r, 1], shift[t, a, b, r, 2]
+                    err = f(0.0)
+                    for c in range(C):
+                        d0 = (tcon[c, 0] + s0) - target[t, c, 0]
+                        d1 = (tcon[c, 1] + s1) - target[t, c, 1]
+                        d2 = (tcon[c, 2] + s2) - target[t, c, 2]
+                        dist = np.sqrt((d0 * d0 + d1 * d1) + d2 * d2)
+                        e = max(dist - upper[c], f(0.0)) + max(lower[c] - dist, f(0.0))
+                        err += e * e
+                    clash = f(0.0)
+                    bad = False
+                    for m in range(M):
+                        p0, p1, p2 = turned[m, 0] + s0, turned[m, 1] + s1, turned[m, 2] + s2
+                        c0 = min(max(np.floor((p0 - l0) * inv_v), f(0.0)), hi0)
+                        c1 = min(max(np.floor((p1 - l1) * inv_v), f(0.0)), hi1)
+                        c2 = min(max(np.floor((p2 - l2) * inv_v), f(0.0)), hi2)
+                        v = soft[base + (np.int64(c0) * fdims[1] + np.int64(c1)) * fdims[2] + np.int64(c2)]
+                        if v >= far_at[m]:
+                            continue
+                        if v < severe_below[m]:
+                            bad = True
+                            break
+                        g0 = np.int64(np.floor((p0 - glo[0]) / f(cut)))
+                        g1 = np.int64(np.floor((p1 - glo[1]) / f(cut)))
+                        g2 = np.int64(np.floor((p2 - glo[2]) / f(cut)))
+                        for x0 in range(max(g0 - 1, 0), min(g0 + 2, gdims[0])):
+                            for x1 in range(max(g1 - 1, 0), min(g1 + 2, gdims[1])):
+                                for x2 in range(max(g2 - 1, 0), min(g2 + 2, gdims[2])):
+                                    q = (x0 * gdims[1] + x1) * gdims[2] + x2
+                                    for u in range(gstart[q], gstart[q + 1]):
+                                        j = gatoms[u]
+                                        r0, r1, r2 = p0 - fx[j, 0], p1 - fx[j, 1], p2 - fx[j, 2]
+                                        d = max(np.sqrt((r0 * r0 + r2 * r2) + r1 * r1), f(1e-6))
+                                        rs = ra[m] + rb[j]
+                                        if d < f(HARD) * rs:
+                                            bad = True
+                                        ov = max(f(SOFT) * rs - d, f(0.0))
+                                        clash += ov * ov
+                        if bad:
+                            break
+                    if bad:
+                        continue
+                    feasible[t] += 1
+                    energy = f(0.5) * err + f(10.0) * clash
+                    if energy < best_energy[t]:
+                        best_energy[t] = energy
+                        improving[t] += 1
+                        pick[t, 0], pick[t, 1], pick[t, 2] = a, b, r
+    return pick, feasible, improving
