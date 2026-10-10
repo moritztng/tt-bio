@@ -36,7 +36,7 @@ import numba
 import numpy as np
 import torch
 
-from tt_bio.tfg.neighbors import HARD, SOFT, BoundField, SparseClash, square_length
+from tt_bio.tfg.neighbors import HARD, SOFT, SparseClash, square_length
 
 # Identical to upstream opendde.data.constants.rdkit_vdws (118 entries, H..Og, index 0 = H).
 from tt_bio.data.const import vdw_radii as rdkit_vdws
@@ -654,7 +654,7 @@ def search_rigid_contact(coords, feats, core=None):
                                * normal[:, None, None])[:, :, 0])
             rot = torch.stack(rots, 1).contiguous()                                  # [T, normals, turns, 3, 3]
             shift = torch.stack(shifts, 1)[:, :, None].expand(-1, -1, len(turns), -1, -1).contiguous()
-            field = BoundField(fixed, r[fi], float(r[mi].max()))
+            field = clash.field
             ra = r[mi].float()
             far_at = (SOFT * ra + field.margin) + field.delta
             severe_below = (HARD * ra - field.margin) - (field.lift + field.delta)
@@ -1074,10 +1074,14 @@ def _descend(moving, fixed, ra, rb, iterations, n_terms, cut, skin, mode, ri, li
 
 @numba.njit(cache=True, nogil=True)
 def _pose_clash(turned, s0, s1, s2, fx, ra, rb, cut, glo, gdims, gstart, gatoms, soft, base, l0, l1, l2, inv_v, fdims,
-                far_at, severe_below):
-    """Clash of the pose turned + (s0, s1, s2) against fx: (severe, sum overlap^2). BoundField's soft table skips
-    points that touch nothing and rejects points it proves severe; every other point is scored on exact pairs."""
+                far_at, severe_below, rest, best):
+    """Clash of the pose turned + (s0, s1, s2) against fx: (rejected, sum overlap^2). BoundField's soft table skips
+    points that touch nothing and rejects points it proves severe; every other point is scored on exact pairs.
+    The pose is also rejected, unscored, once rest + 10 * clash cannot fall below best: the overlap sum only grows and
+    fp32 rounding is monotone, so such a pose could never be taken."""
     f = np.float32
+    if rest >= best:
+        return True, f(0.0)
     hi0, hi1, hi2 = f(fdims[0] - 1), f(fdims[1] - 1), f(fdims[2] - 1)
     clash = f(0.0)
     for m in range(turned.shape[0]):
@@ -1106,6 +1110,8 @@ def _pose_clash(turned, s0, s1, s2, fx, ra, rb, cut, glo, gdims, gstart, gatoms,
                             return True, clash
                         ov = max(f(SOFT) * rs - d, f(0.0))
                         clash += ov * ov
+        if rest + f(10.0) * clash >= best:
+            return True, clash
     return False, clash
 
 
@@ -1117,7 +1123,8 @@ def _search_contact(fitted, contacts, rot, shift, target, lower, upper, fixed, r
     when it has no severe pair and its energy 0.5 sum err^2 + 10 sum overlap^2 is strictly below the best so far.
     BoundField's soft table (soft, flo, inv_v, fdims, nvox, far_at, severe_below; per sample row t) skips points that
     touch nothing and rejects poses it proves severe; every other point is scored on exact pairs.
-    Returns (pick [T, 3] (-1 when none), feasible, improving) and updates best_energy [T]."""
+    Returns (pick [T, 3] (-1 when none), feasible, improving) and updates best_energy [T]; feasible counts the poses
+    _pose_clash did not reject, so it leaves out poses that could not have been taken."""
     f = np.float32
     T, A, B, Rn = shift.shape[0], shift.shape[1], shift.shape[2], shift.shape[3]
     M, C = fitted.shape[1], contacts.shape[1]
@@ -1151,7 +1158,8 @@ def _search_contact(fitted, contacts, rot, shift, target, lower, upper, fixed, r
                         e = max(dist - upper[c], f(0.0)) + max(lower[c] - dist, f(0.0))
                         err += e * e
                     bad, clash = _pose_clash(turned, s0, s1, s2, fx, ra, rb, cut, glo, gdims, gstart, gatoms, soft,
-                                             base, l0, l1, l2, inv_v, fdims, far_at, severe_below)
+                                             base, l0, l1, l2, inv_v, fdims, far_at, severe_below, f(0.5) * err,
+                                             best_energy[t])
                     if bad:
                         continue
                     feasible[t] += 1
@@ -1238,7 +1246,8 @@ def _search_epitope(aligned, spin, shift, acentre, radius, qslots, para, epi, va
                         contact += v * v
                     contact = f(0.5) * contact
                     bad, clash = _pose_clash(turned, s0, s1, s2, fx, ra, rb, cut, glo, gdims, gstart, gatoms, soft,
-                                             base, l0, l1, l2, inv_v, fdims, far_at, severe_below)
+                                             base, l0, l1, l2, inv_v, fdims, far_at, severe_below, contact,
+                                             best_energy[t])
                     if bad:
                         continue
                     feasible[t] += 1

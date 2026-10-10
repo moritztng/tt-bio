@@ -300,7 +300,14 @@ class SparseClash:
         self.M = ra.shape[0]
         self.cut = SOFT * float(ra.max() + rb.max())
         self.list = PairList(fixed, self.cut)
-        self._field = None
+        self._field = self._grid = None
+
+    @property
+    def field(self):
+        """The BoundField of the fixed group, built once (the coarse searches and score share it)."""
+        if self._field is None:
+            self._field = BoundField(self.fixed, self.rb, float(self.ra.max()))
+        return self._field
 
     def ensure(self, *poses):
         """Make the pair list valid for every pose given (the first is the build pose if a rebuild is needed)."""
@@ -352,12 +359,11 @@ class SparseClash:
         """Coarse-search clash of many placements: X [n, B, M, 3] for the samples `samples` [n] -> energy [n, B]
         (meaningful where not severe) and severe [n, B]. Points the bound field proves far are skipped and a
         placement the field proves severe is not evaluated further; every other point is evaluated exactly."""
-        if self._field is None:
+        if self._grid is None:
             self._grid = Grid(self.fixed, self.cut)
-            self._field = BoundField(self.fixed, self.rb, float(self.ra.max()))
         n, B, M, _ = X.shape
         pts = X.reshape(-1, 3)
-        far, sev_p = self._field.classify_rows(X.reshape(n, B * M, 3), samples, self.ra.repeat(B))
+        far, sev_p = self.field.classify_rows(X.reshape(n, B * M, 3), samples, self.ra.repeat(B))
         sev = sev_p.view(n * B, M).any(-1)
         live = torch.nonzero(~far.view(n * B, M) & ~sev[:, None]).squeeze(1)
         live = live[:, 0] * M + live[:, 1]
@@ -398,6 +404,22 @@ class SevereSet:
 
 
 @numba.njit(cache=True, nogil=True)
+def _min_field(rel, o, base, step, srb, soft):
+    """BoundField's table: soft[base[s, j] + step[k]] = min over atoms j of |rel[s, j] + o[k]| - srb[j]."""
+    S, N, K = rel.shape[0], rel.shape[1], o.shape[0]
+    for s in range(S):
+        for j in range(N):
+            r0, r1, r2 = rel[s, j, 0], rel[s, j, 1], rel[s, j, 2]
+            b, sr = base[s, j], srb[j]
+            for k in range(K):
+                d0, d1, d2 = r0 + o[k, 0], r1 + o[k, 1], r2 + o[k, 2]
+                d = np.sqrt((d0 * d0 + d1 * d1) + d2 * d2) - sr
+                q = b + step[k]
+                if d < soft[q]:
+                    soft[q] = d
+
+
+@numba.njit(cache=True, nogil=True)
 def _classify_points(X, lo, inv_v, dims, nvox, samples, soft, far_at, severe_below, far, severe):
     """BoundField.classify_rows per point: the voxel from fp32 (x - lo) * (1 / v), floored and clamped onto the grid,
     then the soft bound against the per-column thresholds."""
@@ -422,7 +444,7 @@ class BoundField:
     For a point x in a voxel with centre c and half diagonal delta, |x - b| lies within |c - b| +- delta, so the voxel value proves that x overlaps nothing
     (soft bound - delta >= 0.85 ra) or that x has a severe pair (hard bound + delta < 0.75 ra). 1e-3 A margin."""
 
-    def __init__(self, fixed, rb, ra_max, v=1.5, margin=1e-3):
+    def __init__(self, fixed, rb, ra_max, v=2.5, margin=1e-3):
         S, N, _ = fixed.shape
         self.v, self.delta, self.margin = v, 0.5 * v * 3**0.5, margin
         reach = SOFT * (ra_max + float(rb.max())) + self.delta + margin
@@ -440,14 +462,20 @@ class BoundField:
         rel = self.lo[:, None] + (vox + 0.5) * v - fixed                    # atom -> its voxel centre, |rel| <= delta
         base = (torch.arange(S)[:, None] * self.nvox + (vox[..., 0] * dy + vox[..., 1]) * dz + vox[..., 2]).long()
         step = (off[:, 0] * dy + off[:, 1]) * dz + off[:, 2]
-        flat = (base.reshape(-1, 1) + step).reshape(-1)
-        # distance from each neighbouring voxel centre to the atom, |rel + o|^2 = |rel|^2 + 2 rel.o + |o|^2 from small
-        # relative vectors (fp32 error ~1e-6 A, far inside the margin)
         o = off.float() * v
-        rel = rel.reshape(-1, 3)
-        dist = torch.addmm(rel.square().sum(-1, keepdim=True) + o.square().sum(-1), rel, 2 * o.T).clamp_min_(0).sqrt_()
-        self.soft = torch.full((S * self.nvox,), float("inf")).scatter_reduce_(
-            0, flat, dist.sub_(SOFT * rb.repeat(S)[:, None]).reshape(-1), "amin")
+        self.soft = torch.full((S * self.nvox,), float("inf"))
+        if fixed.dtype == torch.float32:
+            # compiled: the same minimum over the same (atom, offset) pairs with |rel + o| taken directly. The searches
+            # read the bound only to skip or reject a point, so any bound within the margin gives the same poses.
+            _min_field(rel.contiguous().numpy(), o.numpy(), base.contiguous().numpy(), step.numpy(),
+                       (SOFT * rb).float().contiguous().numpy(), self.soft.numpy())
+        else:
+            # distance from each neighbouring voxel centre to the atom, |rel + o|^2 = |rel|^2 + 2 rel.o + |o|^2 from
+            # small relative vectors (fp32 error ~1e-6 A, far inside the margin)
+            flat = (base.reshape(-1, 1) + step).reshape(-1)
+            rel = rel.reshape(-1, 3)
+            dist = torch.addmm(rel.square().sum(-1, keepdim=True) + o.square().sum(-1), rel, 2 * o.T).clamp_min_(0).sqrt_()
+            self.soft.scatter_reduce_(0, flat, dist.sub_(SOFT * rb.repeat(S)[:, None]).reshape(-1), "amin")
         # the atom attaining the soft bound has |c - b| - 0.75 rb = soft + 0.1 rb <= soft + 0.1 max(rb): an upper bound
         # on the hard field, which is all the severe proof needs
         self.lift = (SOFT - HARD) * float(rb.max())

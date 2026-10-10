@@ -98,3 +98,23 @@ def test_interchain_pairs_equal_the_chain_by_chain_search():
             k = allowed[chain[ii], chain[jj]]
             ref |= set(zip(ss[k].tolist(), ii[k].tolist(), jj[k].tolist()))
         assert got == ref and len(got) == s.numel()
+
+
+def test_bound_field_matches_brute_force_where_it_is_read():
+    """Within the range the searches read (a point is far only once the bound clears 0.85 ra + delta), every voxel
+    holds min_j |c - b_j| - 0.85 rb_j over ALL atoms to 1e-4 A, and beyond it the bound never reads lower."""
+    g = torch.Generator().manual_seed(5)
+    fixed = torch.rand(2, 80, 3, generator=g) * 25
+    rb = torch.rand(80, generator=g) * 0.6 + 1.2
+    ra_max = 1.9
+    field = BoundField(fixed, rb, ra_max)
+    dims = [int(d) for d in field.dims]
+    idx = torch.stack(torch.meshgrid(*(torch.arange(d) for d in dims), indexing="ij"), -1).reshape(-1, 3)
+    for s in range(2):
+        centre = field.lo[s].double() + (idx.double() + 0.5) * field.v
+        brute = (torch.cdist(centre, fixed[s].double()) - 0.85 * rb.double()).min(-1).values
+        soft = field.soft.view(2, -1)[s].double()
+        read = brute < 0.85 * ra_max + field.delta + field.margin
+        assert read.any() and (~read).any()
+        assert (soft[read] - brute[read]).abs().max() < 1e-4
+        assert (soft[~read] >= 0.85 * ra_max + field.delta + field.margin - 1e-4).all()
