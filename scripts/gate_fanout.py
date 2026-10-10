@@ -1062,7 +1062,7 @@ def make_executor(sha: str, out: Path, ledger: Ledger, keys: dict, remote_out: s
         rdir = f"{host.root}/{remote_out}/{host.arch}/{tag}"
         t0 = time.time()
         run = run_in_pool if card == POOL else run_over_ssh
-        lost = full = stuck = 0
+        lost = full = stuck = contended = 0
         while True:
             with open(log, "w") as f:
                 f.write(f"# {leg.name} on {host.name}:{card} ({host.cfg['card_type']}) tree {sha}\n")

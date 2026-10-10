@@ -574,6 +574,24 @@ def test_a_leg_refused_for_host_load_starts_again_instead_of_failing(tmp_path, m
     assert len(calls) == 3 and res["verdict"] == "PASS"
 
 
+def test_a_leg_that_met_another_process_on_its_card_runs_again(tmp_path, monkeypatch):
+    monkeypatch.setattr(gf, "CONTENDED_RETRY_S", 0)
+    calls = []
+
+    def fake_run(host, card, leg, rdir, f):
+        calls.append(card)
+        if len(calls) == 1:
+            f.write("##LEG-START 5\n[pxdesign] measurement error: device contention, nothing ran\n")
+            return 1
+        f.write("##LEG-START 5\nok\n")
+        return 0
+    monkeypatch.setattr(gf, "run_over_ssh", fake_run)
+    h = gf.Host("q", {"arch": "bh", "card_type": "p", "root": "/r"}, "c" * 40)
+    ex = gf.make_executor("c" * 40, tmp_path, gf.Ledger(tmp_path / "l"), {("perf", "bh"): "k"}, "o")
+    res = ex(h, 3, gf.Leg("perf", ["PY"], "perf", timed=True))
+    assert len(calls) == 2 and res["verdict"] == "PASS"
+
+
 def test_a_lever_an_imported_module_registers_is_owed_by_a_baseline_without_its_row(tmp_path):
     """SDPA_FUSED_PADDED reached main with no size-ladder row; the WH gate learned it after 40 min
     per ladder model. The baseline already says which modules each model's fold imports."""
