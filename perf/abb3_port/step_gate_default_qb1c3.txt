@@ -1,6 +1,6 @@
 # scripts/abb3_port/step_gate.py at its default and at the --micro 8 value that does not fit, on
 # qb2 card 3 (/dev/tenstorrent/3), Blackhole p300c, 34.23 GB of DRAM (8 banks x 4 278 190 016 B).
-RECORDED-AT: 6105e740d9cdc55e5f0aed76f3b19ee5f4703243 scripts/abb3_port/step_gate.py
+RECORDED-AT: 92d5924f5d9ad30aba485aa77820cec64b83a20b scripts/abb3_port/step_gate.py
 #
 # TREE: wk/bcp-land 3e617f520, origin/main 2e2cbacb4 plus BCP (lnbw). Replaces the record taken at
 # 93edb1b24, whose import closure changed in tt_bio/autograd.py when lnbw was wired into the layer-norm
@@ -46,33 +46,38 @@ RECORDED-AT: 6105e740d9cdc55e5f0aed76f3b19ee5f4703243 scripts/abb3_port/step_gat
 # box. Step 1 took 48.8 s (19.6 s in the 0.13.1 record), steps 5 and 10 19.2 and 19.1 s. A fit record, not
 # a perf claim.
 #
+# RE-RECORDED for the 0.15.0 release gate at 92d5924f5 (tt-bio main 8fd58fe29, staging15, plus the gate
+# runner), 17:37-17:46Z 2026-10-10, qb2 card 3, Blackhole p300c, the gate's wheel venv (TT-NN 0.68.0).
+# Losses 4.9937 / 4.9918 / 4.9911 at steps 1, 5, 10, 500 taped parameters and the 30981 MB DRAM peak as in
+# the 0.14.0 record; --micro 8 still OOMs on the same 100 663 296 B request. Median 19.225 s at AICLK median
+# 1350 (min 1343), no cotenant on our node and 1 elsewhere. A fit record, not a perf claim.
+#
 == --micro 8 --accumulate 8 --steps 1 --warmup 1 ==
-2026-10-09 12:24:16.425 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 100663296 B DRAM buffer across 8 banks, where each bank needs to store 12582912 B, but bank size is 4278190016 B (allocated: 4252363136 B, free: 25826880 B, largest free block: 8388608 B) (assert.hpp:104)
-host [before opening the device]: our node(s) not open yet; 0 cotenant(s) on our node, 3 elsewhere, 549 pid(s) unreadable
-  elsewhere  pid 2129856 -> /dev/tenstorrent/2  /home/ttuser/tt-bio-dev/env/bin/python perf/spd/bench.py --out /home/ttuser/spd/spd-integr
-  elsewhere  pid 2263270 -> /dev/tenstorrent/1  /home/ttuser/tt-bio-dev/env/bin/python perf/spd/bench.py --out /home/ttuser/spd/spd-hostla
-  elsewhere  pid 2300037 -> /dev/tenstorrent/3  /home/ttuser/scratch/spd-rel/dry-6105e740d/relvenv/bin/python3 -c from multiprocessing.spa
-  unreadable pids: [1, 2, 3, 4, 5, 6, 7, 10, 12, 13, 14, 15] ...
+2026-10-10 17:40:20.258 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 100663296 B DRAM buffer across 8 banks, where each bank needs to store 12582912 B, but bank size is 4278190016 B (allocated: 4252363136 B, free: 25826880 B, largest free block: 8388608 B) (assert.hpp:104)
+host [before opening the device]: our node(s) not open yet; 0 cotenant(s) on our node, 2 elsewhere, 294 pid(s) unreadable
+  elsewhere  pid 2393195 -> /dev/tenstorrent/0  /home/ttuser/tt-bio-dev/env/bin/python perf/spd/bench.py --out /home/ttuser/spd/spd-integr
+  elsewhere  pid 2420935 -> /dev/tenstorrent/1  /home/ttuser/scratch/shipflow/venv-92d5924f5d9a/bin/python -c from multiprocessing.spawn i
+  unreadable pids: [1, 2, 3, 4, 5, 6, 7, 8, 10, 13, 14, 15] ...
   sidechain FAPE on the card
   taped device parameters: 500
 Traceback (most recent call last):
-  File "/home/ttuser/scratch/spd-rel/dry-6105e740d/tree/scripts/abb3_port/step_gate.py", line 279, in <module>
+  File "/home/ttuser/scratch/shipflow/trees/92d5924f5d9a/scripts/abb3_port/step_gate.py", line 279, in <module>
     raise SystemExit(main())
-  File "/home/ttuser/scratch/spd-rel/dry-6105e740d/tree/scripts/abb3_port/step_gate.py", line 148, in main
+  File "/home/ttuser/scratch/shipflow/trees/92d5924f5d9a/scripts/abb3_port/step_gate.py", line 148, in main
     step.step(micro)
-  File "/home/ttuser/scratch/spd-rel/dry-6105e740d/tree/tt_bio/train/abodybuilder3_step.py", line 242, in step
+  File "/home/ttuser/scratch/shipflow/trees/92d5924f5d9a/tt_bio/train/abodybuilder3_step.py", line 242, in step
     grad.backward(packed["roots"], packed["seeds"])
-  File "/home/ttuser/scratch/spd-rel/dry-6105e740d/tree/tt_bio/train/abodybuilder3_grad.py", line 108, in backward
+  File "/home/ttuser/scratch/shipflow/trees/92d5924f5d9a/tt_bio/train/abodybuilder3_grad.py", line 108, in backward
     t.node.fn(t.grad)
-  File "/home/ttuser/scratch/spd-rel/dry-6105e740d/tree/tt_bio/train/abodybuilder3_grad.py", line 278, in bw
+  File "/home/ttuser/scratch/shipflow/trees/92d5924f5d9a/tt_bio/train/abodybuilder3_grad.py", line 278, in bw
     twice_diff = ttnn.multiply(ttnn.subtract(av, bv), 2.0)
-  File "/home/ttuser/scratch/spd-rel/dry-6105e740d/relvenv/lib/python3.10/site-packages/ttnn/decorators.py", line 473, in __call__
+  File "/home/ttuser/scratch/shipflow/venv-92d5924f5d9a/lib/python3.10/site-packages/ttnn/decorators.py", line 473, in __call__
     result = self.function(*function_args, **function_kwargs)
 RuntimeError: TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false
 info:
 Out of Memory: Not enough space to allocate 100663296 B DRAM buffer across 8 banks, where each bank needs to store 12582912 B, but bank size is 4278190016 B (allocated: 4252363136 B, free: 25826880 B, largest free block: 8388608 B)
 backtrace:
- --- /home/ttuser/scratch/spd-rel/dry-6105e740d/relvenv/lib/python3.10/site-packages/ttnn/build/lib/libtt_metal.so(+0x6d2697) [0x78f36cad2697]
+ --- /home/ttuser/scratch/shipflow/venv-92d5924f5d9a/lib/python3.10/site-packages/ttnn/build/lib/libtt_metal.so(+0x6d2697) [0x7f14dbed2697]
  --- tt::tt_metal::BankManager::allocate_buffer(unsigned long, unsigned long, bool, tt::tt_metal::CoreRangeSet const&, std::optional<unsigned int>, ttsl::StrongType<unsigned int, tt::tt_metal::AllocatorIDTag>)
  --- tt::tt_metal::AllocatorImpl::allocate_buffer(tt::tt_metal::Buffer*)
  --- tt::tt_metal::Buffer::allocate_impl()
@@ -81,80 +86,76 @@ backtrace:
  --- tt::tt_metal::tensor_impl::allocate_device_buffer(tt::tt_metal::distributed::MeshDevice*, tt::tt_metal::TensorSpec const&)
  --- tt::tt_metal::create_device_tensor(tt::tt_metal::TensorSpec const&, tt::tt_metal::IDevice*)
  --- ttnn::operations::binary_ng::BinaryNgDeviceOperation::create_output_tensors(ttnn::operations::binary_ng::BinaryNgDeviceOperation::operation_attributes_t const&, ttnn::operations::binary_ng::BinaryNgDeviceOperation::tensor_args_t const&)
- --- /home/ttuser/scratch/spd-rel/dry-6105e740d/relvenv/lib/python3.10/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn16device_operation6detail6launchITkNS0_22DeviceOperationConceptENS_10operations9binary_ng23BinaryNgDeviceOperationEEENT_21tensor_return_value_tERKNS6_22operation_attributes_tERKNS6_13tensor_args_tE+0x14f) [0x78f36e11886f]
- --- /home/ttuser/scratch/spd-rel/dry-6105e740d/relvenv/lib/python3.10/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn4prim9binary_ngERKN2tt8tt_metal6TensorEfNS_10operations6binary12BinaryOpTypeERKSt8optionalIKNS2_8DataTypeEERKS9_INS2_12MemoryConfigEERKS9_IS3_ERKS9_IbESt4spanIKNS6_5unary19BasicUnaryWithParamIJfijEEELm18446744073709551615EESU_SU_S9_ISt7variantIJjifEEERKS9_INS2_12CoreRangeSetEE+0x3ca) [0x78f36e10af1a]
- --- /home/ttuser/scratch/spd-rel/dry-6105e740d/relvenv/lib/python3.10/site-packages/ttnn/build/lib/_ttnncpp.so(+0xadebcf) [0x78f36e0debcf]
+ --- /home/ttuser/scratch/shipflow/venv-92d5924f5d9a/lib/python3.10/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn16device_operation6detail6launchITkNS0_22DeviceOperationConceptENS_10operations9binary_ng23BinaryNgDeviceOperationEEENT_21tensor_return_value_tERKNS6_22operation_attributes_tERKNS6_13tensor_args_tE+0x14f) [0x7f14dd51886f]
+ --- /home/ttuser/scratch/shipflow/venv-92d5924f5d9a/lib/python3.10/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn4prim9binary_ngERKN2tt8tt_metal6TensorEfNS_10operations6binary12BinaryOpTypeERKSt8optionalIKNS2_8DataTypeEERKS9_INS2_12MemoryConfigEERKS9_IS3_ERKS9_IbESt4spanIKNS6_5unary19BasicUnaryWithParamIJfijEEELm18446744073709551615EESU_SU_S9_ISt7variantIJjifEEERKS9_INS2_12CoreRangeSetEE+0x3ca) [0x7f14dd50af1a]
+ --- /home/ttuser/scratch/shipflow/venv-92d5924f5d9a/lib/python3.10/site-packages/ttnn/build/lib/_ttnncpp.so(+0xadebcf) [0x7f14dd4debcf]
  --- ttnn::multiply(tt::tt_metal::Tensor const&, float, std::optional<tt::tt_metal::DataType const> const&, std::optional<tt::tt_metal::MemoryConfig> const&, std::optional<tt::tt_metal::Tensor> const&, std::span<ttnn::operations::unary::BasicUnaryWithParam<float, int, unsigned int> const, 18446744073709551615ul>, std::span<ttnn::operations::unary::BasicUnaryWithParam<float, int, unsigned int> const, 18446744073709551615ul>, std::span<ttnn::operations::unary::BasicUnaryWithParam<float, int, unsigned int> const, 18446744073709551615ul>, std::optional<bool> const&, std::optional<bool> const&, std::optional<tt::tt_metal::CoreRangeSet> const&)
- --- /home/ttuser/scratch/spd-rel/dry-6105e740d/relvenv/lib/python3.10/site-packages/ttnn/_ttnn.cpython-310-x86_64-linux-gnu.so(_ZN4ttnn10operations6binary6detail34multiply_fast_approx_tensor_scalarERKN2tt8tt_metal6TensorEfbRKSt8optionalIKNS4_8DataTypeEERKS8_INS4_12MemoryConfigEERKS8_IS5_ESt4spanIKNS0_5unary19BasicUnaryWithParamIJfijEEELm18446744073709551615EESQ_SQ_RKS8_IbERKS8_INS4_12CoreRangeSetEE+0x96) [0x78f36f32313c]
- --- /home/ttuser/scratch/spd-rel/dry-6105e740d/relvenv/lib/python3.10/site-packages/ttnn/_ttnn.cpython-310-x86_64-linux-gnu.so(+0x5b6f98) [0x78f36f3b6f98]
- --- /home/ttuser/scratch/spd-rel/dry-6105e740d/relvenv/lib/python3.10/site-packages/ttnn/_ttnn.cpython-310-x86_64-linux-gnu.so(+0x26f895) [0x78f36f06f895]
- --- /home/ttuser/scratch/spd-rel/dry-6105e740d/relvenv/bin/python3(_PyObject_FastCallDictTstate+0x253) [0x5ad26627bf13]
- --- /home/ttuser/scratch/spd-rel/dry-6105e740d/relvenv/bin/python3(_PyObject_Call_Prepend+0x5c) [0x5ad266290d5c]
- --- /home/ttuser/scratch/spd-rel/dry-6105e740d/relvenv/bin/python3(+0x29dea4) [0x5ad266398ea4]
- --- /home/ttuser/scratch/spd-rel/dry-6105e740d/relvenv/bin/python3(PyObject_Call+0xbb) [0x5ad26629483b]
- --- /home/ttuser/scratch/spd-rel/dry-6105e740d/relvenv/bin/python3(_PyEval_EvalFrameDefault+0x28e9) [0x5ad266272ee9]
- --- /home/ttuser/scratch/spd-rel/dry-6105e740d/relvenv/bin/python3(_PyObject_FastCallDictTstate+0xc4) [0x5ad26627bd84]
- --- /home/ttuser/scratch/spd-rel/dry-6105e740d/relvenv/bin/python3(_PyObject_Call_Prepend+0x5c) [0x5ad266290d5c]
- --- /home/ttuser/scratch/spd-rel/dry-6105e740d/relvenv/bin/python3(+0x29dea4) [0x5ad266398ea4]
- --- /home/ttuser/scratch/spd-rel/dry-6105e740d/relvenv/bin/python3(_PyObject_MakeTpCall+0x25b) [0x5ad26627cbab]
- --- /home/ttuser/scratch/spd-rel/dry-6105e740d/relvenv/bin/python3(_PyEval_EvalFrameDefault+0x609e) [0x5ad26627669e]
- --- /home/ttuser/scratch/spd-rel/dry-6105e740d/relvenv/bin/python3(_PyFunction_Vectorcall+0x7c) [0x5ad266286aec]
- --- /home/ttuser/scratch/spd-rel/dry-6105e740d/relvenv/bin/python3(_PyEval_EvalFrameDefault+0x56d3) [0x5ad266275cd3]
- --- /home/ttuser/scratch/spd-rel/dry-6105e740d/relvenv/bin/python3(_PyFunction_Vectorcall+0x7c) [0x5ad266286aec]
- --- /home/ttuser/scratch/spd-rel/dry-6105e740d/relvenv/bin/python3(_PyEval_EvalFrameDefault+0x56d3) [0x5ad266275cd3]
- --- /home/ttuser/scratch/spd-rel/dry-6105e740d/relvenv/bin/python3(_PyFunction_Vectorcall+0x7c) [0x5ad266286aec]
- --- /home/ttuser/scratch/spd-rel/dry-6105e740d/relvenv/bin/python3(_PyEval_EvalFrameDefault+0x807) [0x5ad266270e07]
- --- /home/ttuser/scratch/spd-rel/dry-6105e740d/relvenv/bin/python3(_PyFunction_Vectorcall+0x7c) [0x5ad266286aec]
- --- /home/ttuser/scratch/spd-rel/dry-6105e740d/relvenv/bin/python3(_PyEval_EvalFrameDefault+0x6c0) [0x5ad266270cc0]
- --- /home/ttuser/scratch/spd-rel/dry-6105e740d/relvenv/bin/python3(+0x25b036) [0x5ad266356036]
- --- /home/ttuser/scratch/spd-rel/dry-6105e740d/relvenv/bin/python3(PyEval_EvalCode+0x86) [0x5ad266355f06]
- --- /home/ttuser/scratch/spd-rel/dry-6105e740d/relvenv/bin/python3(+0x281a88) [0x5ad26637ca88]
- --- /home/ttuser/scratch/spd-rel/dry-6105e740d/relvenv/bin/python3(+0x27c0df) [0x5ad2663770df]
- --- /home/ttuser/scratch/spd-rel/dry-6105e740d/relvenv/bin/python3(+0x281825) [0x5ad26637c825]
- --- /home/ttuser/scratch/spd-rel/dry-6105e740d/relvenv/bin/python3(_PyRun_SimpleFileObject+0x1a8) [0x5ad26637bd68]
- --- /home/ttuser/scratch/spd-rel/dry-6105e740d/relvenv/bin/python3(_PyRun_AnyFileObject+0x47) [0x5ad26637ba47]
- --- /home/ttuser/scratch/spd-rel/dry-6105e740d/relvenv/bin/python3(Py_RunMain+0x2be) [0x5ad26636feae]
- --- /home/ttuser/scratch/spd-rel/dry-6105e740d/relvenv/bin/python3(Py_BytesMain+0x2d) [0x5ad266349f4d]
- --- /lib/x86_64-linux-gnu/libc.so.6(+0x29d90) [0x78f3db029d90]
- --- /lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x80) [0x78f3db029e40]
- --- /home/ttuser/scratch/spd-rel/dry-6105e740d/relvenv/bin/python3(_start+0x25) [0x5ad266349e45]
+ --- /home/ttuser/scratch/shipflow/venv-92d5924f5d9a/lib/python3.10/site-packages/ttnn/_ttnn.cpython-310-x86_64-linux-gnu.so(_ZN4ttnn10operations6binary6detail34multiply_fast_approx_tensor_scalarERKN2tt8tt_metal6TensorEfbRKSt8optionalIKNS4_8DataTypeEERKS8_INS4_12MemoryConfigEERKS8_IS5_ESt4spanIKNS0_5unary19BasicUnaryWithParamIJfijEEELm18446744073709551615EESQ_SQ_RKS8_IbERKS8_INS4_12CoreRangeSetEE+0x96) [0x7f14de72313c]
+ --- /home/ttuser/scratch/shipflow/venv-92d5924f5d9a/lib/python3.10/site-packages/ttnn/_ttnn.cpython-310-x86_64-linux-gnu.so(+0x5b6f98) [0x7f14de7b6f98]
+ --- /home/ttuser/scratch/shipflow/venv-92d5924f5d9a/lib/python3.10/site-packages/ttnn/_ttnn.cpython-310-x86_64-linux-gnu.so(+0x26f895) [0x7f14de46f895]
+ --- /home/ttuser/.local/share/uv/python/cpython-3.10.12-linux-x86_64-gnu/bin/../lib/libpython3.10.so.1.0(_PyObject_Call_Prepend+0xa6) [0x7f15a4177aa6]
+ --- /home/ttuser/.local/share/uv/python/cpython-3.10.12-linux-x86_64-gnu/bin/../lib/libpython3.10.so.1.0(+0x3adada) [0x7f15a41adada]
+ --- /home/ttuser/.local/share/uv/python/cpython-3.10.12-linux-x86_64-gnu/bin/../lib/libpython3.10.so.1.0(_PyEval_EvalFrameDefault+0xac3c) [0x7f15a40e03dc]
+ --- /home/ttuser/.local/share/uv/python/cpython-3.10.12-linux-x86_64-gnu/bin/../lib/libpython3.10.so.1.0(_PyFunction_Vectorcall+0x21c) [0x7f15a4081cdc]
+ --- /home/ttuser/.local/share/uv/python/cpython-3.10.12-linux-x86_64-gnu/bin/../lib/libpython3.10.so.1.0(_PyObject_Call_Prepend+0xa6) [0x7f15a4177aa6]
+ --- /home/ttuser/.local/share/uv/python/cpython-3.10.12-linux-x86_64-gnu/bin/../lib/libpython3.10.so.1.0(+0x3adada) [0x7f15a41adada]
+ --- /home/ttuser/.local/share/uv/python/cpython-3.10.12-linux-x86_64-gnu/bin/../lib/libpython3.10.so.1.0(_PyEval_EvalFrameDefault+0x118f1) [0x7f15a40e7091]
+ --- /home/ttuser/.local/share/uv/python/cpython-3.10.12-linux-x86_64-gnu/bin/../lib/libpython3.10.so.1.0(_PyFunction_Vectorcall+0x21c) [0x7f15a4081cdc]
+ --- /home/ttuser/.local/share/uv/python/cpython-3.10.12-linux-x86_64-gnu/bin/../lib/libpython3.10.so.1.0(_PyEval_EvalFrameDefault+0xacf1) [0x7f15a40e0491]
+ --- /home/ttuser/.local/share/uv/python/cpython-3.10.12-linux-x86_64-gnu/bin/../lib/libpython3.10.so.1.0(_PyFunction_Vectorcall+0x21c) [0x7f15a4081cdc]
+ --- /home/ttuser/.local/share/uv/python/cpython-3.10.12-linux-x86_64-gnu/bin/../lib/libpython3.10.so.1.0(_PyEval_EvalFrameDefault+0xacf1) [0x7f15a40e0491]
+ --- /home/ttuser/.local/share/uv/python/cpython-3.10.12-linux-x86_64-gnu/bin/../lib/libpython3.10.so.1.0(_PyFunction_Vectorcall+0x21c) [0x7f15a4081cdc]
+ --- /home/ttuser/.local/share/uv/python/cpython-3.10.12-linux-x86_64-gnu/bin/../lib/libpython3.10.so.1.0(_PyEval_EvalFrameDefault+0x8940) [0x7f15a40de0e0]
+ --- /home/ttuser/.local/share/uv/python/cpython-3.10.12-linux-x86_64-gnu/bin/../lib/libpython3.10.so.1.0(_PyFunction_Vectorcall+0x21c) [0x7f15a4081cdc]
+ --- /home/ttuser/.local/share/uv/python/cpython-3.10.12-linux-x86_64-gnu/bin/../lib/libpython3.10.so.1.0(+0x30471c) [0x7f15a410471c]
+ --- /home/ttuser/.local/share/uv/python/cpython-3.10.12-linux-x86_64-gnu/bin/../lib/libpython3.10.so.1.0(_PyEval_EvalFrameDefault+0x47a5) [0x7f15a40d9f45]
+ --- /home/ttuser/.local/share/uv/python/cpython-3.10.12-linux-x86_64-gnu/bin/../lib/libpython3.10.so.1.0(+0x3dfa13) [0x7f15a41dfa13]
+ --- /home/ttuser/.local/share/uv/python/cpython-3.10.12-linux-x86_64-gnu/bin/../lib/libpython3.10.so.1.0(+0x413632) [0x7f15a4213632]
+ --- /home/ttuser/.local/share/uv/python/cpython-3.10.12-linux-x86_64-gnu/bin/../lib/libpython3.10.so.1.0(+0x1bb22f) [0x7f15a3fbb22f]
+ --- /home/ttuser/.local/share/uv/python/cpython-3.10.12-linux-x86_64-gnu/bin/../lib/libpython3.10.so.1.0(_PyRun_SimpleFileObject+0x110) [0x7f15a3fbad30]
+ --- /home/ttuser/.local/share/uv/python/cpython-3.10.12-linux-x86_64-gnu/bin/../lib/libpython3.10.so.1.0(_PyRun_AnyFileObject+0x8d) [0x7f15a3fba70d]
+ --- /home/ttuser/.local/share/uv/python/cpython-3.10.12-linux-x86_64-gnu/bin/../lib/libpython3.10.so.1.0(+0x1c4229) [0x7f15a3fc4229]
+ --- /home/ttuser/.local/share/uv/python/cpython-3.10.12-linux-x86_64-gnu/bin/../lib/libpython3.10.so.1.0(+0x1c3d92) [0x7f15a3fc3d92]
+ --- /home/ttuser/.local/share/uv/python/cpython-3.10.12-linux-x86_64-gnu/bin/../lib/libpython3.10.so.1.0(Py_RunMain+0x6e3) [0x7f15a42202f3]
+ --- /home/ttuser/.local/share/uv/python/cpython-3.10.12-linux-x86_64-gnu/bin/../lib/libpython3.10.so.1.0(Py_BytesMain+0x27) [0x7f15a3fc45c7]
+ --- /lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x7f15a3a2a1ca]
+ --- /lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x8b) [0x7f15a3a2a28b]
+ --- /home/ttuser/scratch/shipflow/venv-92d5924f5d9a/bin/python(+0x108e) [0x5c3db2e0308e]
 
 rc=1
+
 == default: --micro 4 --accumulate 16 --steps 10 --warmup 1 ==
-host [before opening the device]: our node(s) not open yet; 0 cotenant(s) on our node, 3 elsewhere, 553 pid(s) unreadable
-  elsewhere  pid 2129856 -> /dev/tenstorrent/2  /home/ttuser/tt-bio-dev/env/bin/python perf/spd/bench.py --out /home/ttuser/spd/spd-integr
-  elsewhere  pid 2263270 -> /dev/tenstorrent/1  /home/ttuser/tt-bio-dev/env/bin/python perf/spd/bench.py --out /home/ttuser/spd/spd-hostla
-  elsewhere  pid 2311279 -> /dev/tenstorrent/3  /home/ttuser/scratch/spd-rel/dry-6105e740d/relvenv/bin/python3 -c from multiprocessing.spa
-  unreadable pids: [1, 2, 3, 4, 5, 6, 7, 10, 12, 13, 14, 15] ...
+host [before opening the device]: our node(s) not open yet; 0 cotenant(s) on our node, 2 elsewhere, 293 pid(s) unreadable
+  elsewhere  pid 2393195 -> /dev/tenstorrent/0  /home/ttuser/tt-bio-dev/env/bin/python perf/spd/bench.py --out /home/ttuser/spd/spd-integr
+  elsewhere  pid 2428101 -> /dev/tenstorrent/1  /home/ttuser/scratch/shipflow/venv-92d5924f5d9a/bin/python -c from multiprocessing.spawn i
+  unreadable pids: [1, 2, 3, 4, 5, 6, 7, 8, 10, 13, 14, 15] ...
   sidechain FAPE on the card
   taped device parameters: 500
   every one of 500 parameters took a non-zero gradient
-host [device open, before timing]: our node(s) ['/dev/tenstorrent/0']; 0 cotenant(s) on our node, 3 elsewhere, 552 pid(s) unreadable
-  elsewhere  pid 2129856 -> /dev/tenstorrent/2  /home/ttuser/tt-bio-dev/env/bin/python perf/spd/bench.py --out /home/ttuser/spd/spd-integr
-  elsewhere  pid 2263270 -> /dev/tenstorrent/1  /home/ttuser/tt-bio-dev/env/bin/python perf/spd/bench.py --out /home/ttuser/spd/spd-hostla
-  elsewhere  pid 2334105 -> /dev/tenstorrent/3  /home/ttuser/scratch/spd-rel/dry-6105e740d/relvenv/bin/python3 -c from multiprocessing.spa
-  unreadable pids: [1, 2, 3, 4, 5, 6, 7, 10, 12, 13, 14, 15] ...
-  step   1  48.756 s  loss 4.9937  (median so far 48.756 s)
-  step   5  19.219 s  loss 4.9918  (median so far 21.226 s)
-  step  10  19.132 s  loss 4.9911  (median so far 20.222 s)
+host [device open, before timing]: our node(s) ['/dev/tenstorrent/3']; 0 cotenant(s) on our node, 1 elsewhere, 293 pid(s) unreadable
+  elsewhere  pid 2428101 -> /dev/tenstorrent/1  /home/ttuser/scratch/shipflow/venv-92d5924f5d9a/bin/python -c from multiprocessing.spawn i
+  unreadable pids: [1, 2, 3, 4, 5, 6, 7, 8, 10, 13, 14, 15] ...
+  step   1  19.332 s  loss 4.9937  (median so far 19.332 s)
+  step   5  18.749 s  loss 4.9918  (median so far 19.332 s)
+  step  10  19.233 s  loss 4.9911  (median so far 19.225 s)
 
-STEP: median 20.222 s over 10 COMPLETE steps at batch 64 (16 x 4) and 256 tokens, min 18.523 s, max 48.756 s
+STEP: median 19.225 s over 10 COMPLETE steps at batch 64 (16 x 4) and 256 tokens, min 18.749 s, max 19.689 s
 BREAKDOWN (median over steps, seconds and share of the step):
-  forward             5.478 s   27.1 %
-  download            0.279 s    1.4 %
-  losses              3.425 s   16.9 %
-  host_backward       2.961 s   14.6 %
-  device_backward     7.619 s   37.7 %
-  optimizer           0.142 s    0.7 %
+  forward             5.167 s   26.9 %
+  download            0.097 s    0.5 %
+  losses              2.535 s   13.2 %
+  host_backward       2.101 s   10.9 %
+  device_backward     8.918 s   46.4 %
+  optimizer           0.064 s    0.3 %
 LOSS TERMS (cumulative over 11 steps, share of the loss stage):
-  fape_sidechain      32.90 s   53.6 %
-  renamed_gt          17.06 s   27.8 %
-  fape_backbone        5.11 s    8.3 %
-  supervised_chi       3.76 s    6.1 %
-  final_backbone       2.56 s    4.2 %
-CLOCK: AICLK during the run: card 0 min 1343 median 1350 max 1350 MHz over 77
+  fape_sidechain      21.37 s   59.2 %
+  renamed_gt          11.33 s   31.4 %
+  fape_backbone        2.76 s    7.6 %
+  final_backbone       0.51 s    1.4 %
+  supervised_chi       0.16 s    0.5 %
+CLOCK: AICLK during the run: card 0 min 1343 median 1350 max 1350 MHz over 81
 DRAM: peak 30981 MB of the card's 32640 MB at micro 4 x 16 and 256 tokens, 1659 MB spare. Sampled after every abodybuilder3_ops call of the warmup step; the timed steps run uninstrumented
 INCLUDES: device forward and backward, host geometry tail, the stage-1 losses (FAPE, supervised chi, final-block) and one RAdam step
 TARGETS: synthetic -- their structures/*.pt are not staged on this host; a loss's COST is shape-set and its VALUE is checked by loss_gate.py
-CONTENDED: 0 cotenant(s) on our node and 3 elsewhere
+CONTENDED: 0 cotenant(s) on our node and 1 elsewhere
 rc=0
