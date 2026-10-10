@@ -978,6 +978,43 @@ def _descend_contact(moving, fixed, ra, rb, ri, li, lower, upper, iterations, n_
 
 
 @numba.njit(cache=True, nogil=True)
+def _pose_clash(turned, s0, s1, s2, fx, ra, rb, cut, glo, gdims, gstart, gatoms, soft, base, l0, l1, l2, inv_v, fdims,
+                far_at, severe_below):
+    """Clash of the pose turned + (s0, s1, s2) against fx: (severe, sum overlap^2). BoundField's soft table skips
+    points that touch nothing and rejects points it proves severe; every other point is scored on exact pairs."""
+    f = np.float32
+    hi0, hi1, hi2 = f(fdims[0] - 1), f(fdims[1] - 1), f(fdims[2] - 1)
+    clash = f(0.0)
+    for m in range(turned.shape[0]):
+        p0, p1, p2 = turned[m, 0] + s0, turned[m, 1] + s1, turned[m, 2] + s2
+        c0 = min(max(np.floor((p0 - l0) * inv_v), f(0.0)), hi0)
+        c1 = min(max(np.floor((p1 - l1) * inv_v), f(0.0)), hi1)
+        c2 = min(max(np.floor((p2 - l2) * inv_v), f(0.0)), hi2)
+        v = soft[base + (np.int64(c0) * fdims[1] + np.int64(c1)) * fdims[2] + np.int64(c2)]
+        if v >= far_at[m]:
+            continue
+        if v < severe_below[m]:
+            return True, clash
+        g0 = np.int64(np.floor((p0 - glo[0]) / f(cut)))
+        g1 = np.int64(np.floor((p1 - glo[1]) / f(cut)))
+        g2 = np.int64(np.floor((p2 - glo[2]) / f(cut)))
+        for x0 in range(max(g0 - 1, 0), min(g0 + 2, gdims[0])):
+            for x1 in range(max(g1 - 1, 0), min(g1 + 2, gdims[1])):
+                for x2 in range(max(g2 - 1, 0), min(g2 + 2, gdims[2])):
+                    q = (x0 * gdims[1] + x1) * gdims[2] + x2
+                    for u in range(gstart[q], gstart[q + 1]):
+                        j = gatoms[u]
+                        r0, r1, r2 = p0 - fx[j, 0], p1 - fx[j, 1], p2 - fx[j, 2]
+                        d = max(np.sqrt((r0 * r0 + r2 * r2) + r1 * r1), f(1e-6))
+                        rs = ra[m] + rb[j]
+                        if d < f(HARD) * rs:
+                            return True, clash
+                        ov = max(f(SOFT) * rs - d, f(0.0))
+                        clash += ov * ov
+    return False, clash
+
+
+@numba.njit(cache=True, nogil=True)
 def _search_contact(fitted, contacts, rot, shift, target, lower, upper, fixed, ra, rb, cut, best_energy,
                     samp, soft, flo, inv_v, fdims, nvox, far_at, severe_below):
     """search_rigid_contact's candidate loop for the samples it is handed (row t of every array): poses
@@ -994,7 +1031,6 @@ def _search_contact(fitted, contacts, rot, shift, target, lower, upper, fixed, r
     improving = np.zeros(T, np.int64)
     turned = np.empty((M, 3), np.float32)
     tcon = np.empty((C, 3), np.float32)
-    hi0, hi1, hi2 = f(fdims[0] - 1), f(fdims[1] - 1), f(fdims[2] - 1)
     for t in range(T):
         fx = fixed[t]
         glo, gdims, gstart, gatoms = _fixed_grid(fx, f(cut))
@@ -1019,41 +1055,99 @@ def _search_contact(fitted, contacts, rot, shift, target, lower, upper, fixed, r
                         dist = np.sqrt((d0 * d0 + d1 * d1) + d2 * d2)
                         e = max(dist - upper[c], f(0.0)) + max(lower[c] - dist, f(0.0))
                         err += e * e
-                    clash = f(0.0)
-                    bad = False
-                    for m in range(M):
-                        p0, p1, p2 = turned[m, 0] + s0, turned[m, 1] + s1, turned[m, 2] + s2
-                        c0 = min(max(np.floor((p0 - l0) * inv_v), f(0.0)), hi0)
-                        c1 = min(max(np.floor((p1 - l1) * inv_v), f(0.0)), hi1)
-                        c2 = min(max(np.floor((p2 - l2) * inv_v), f(0.0)), hi2)
-                        v = soft[base + (np.int64(c0) * fdims[1] + np.int64(c1)) * fdims[2] + np.int64(c2)]
-                        if v >= far_at[m]:
-                            continue
-                        if v < severe_below[m]:
-                            bad = True
-                            break
-                        g0 = np.int64(np.floor((p0 - glo[0]) / f(cut)))
-                        g1 = np.int64(np.floor((p1 - glo[1]) / f(cut)))
-                        g2 = np.int64(np.floor((p2 - glo[2]) / f(cut)))
-                        for x0 in range(max(g0 - 1, 0), min(g0 + 2, gdims[0])):
-                            for x1 in range(max(g1 - 1, 0), min(g1 + 2, gdims[1])):
-                                for x2 in range(max(g2 - 1, 0), min(g2 + 2, gdims[2])):
-                                    q = (x0 * gdims[1] + x1) * gdims[2] + x2
-                                    for u in range(gstart[q], gstart[q + 1]):
-                                        j = gatoms[u]
-                                        r0, r1, r2 = p0 - fx[j, 0], p1 - fx[j, 1], p2 - fx[j, 2]
-                                        d = max(np.sqrt((r0 * r0 + r2 * r2) + r1 * r1), f(1e-6))
-                                        rs = ra[m] + rb[j]
-                                        if d < f(HARD) * rs:
-                                            bad = True
-                                        ov = max(f(SOFT) * rs - d, f(0.0))
-                                        clash += ov * ov
-                        if bad:
-                            break
+                    bad, clash = _pose_clash(turned, s0, s1, s2, fx, ra, rb, cut, glo, gdims, gstart, gatoms, soft,
+                                             base, l0, l1, l2, inv_v, fdims, far_at, severe_below)
                     if bad:
                         continue
                     feasible[t] += 1
                     energy = f(0.5) * err + f(10.0) * clash
+                    if energy < best_energy[t]:
+                        best_energy[t] = energy
+                        improving[t] += 1
+                        pick[t, 0], pick[t, 1], pick[t, 2] = a, b, r
+    return pick, feasible, improving
+
+
+@numba.njit(cache=True, nogil=True)
+def _search_epitope(aligned, spin, shift, acentre, radius, qslots, para, epi, valid, ecentre, eradius, k, margin,
+                    fixed, ra, rb, cut, best_energy, samp, soft, flo, inv_v, fdims, nvox, far_at, severe_below):
+    """epitope.search_epitope's candidate loop for the samples it is handed (row t): poses
+    x = aligned[a, t] @ spin[a, b, t]^T + shift[a, r, t] in (axis a, spin b, standoff r) order, energy = contact energy
+    over the k nearest epitope residues + 10 sum overlap^2, the first lowest feasible pose below the best is kept.
+    Residue distances use ResidueDistances' bound: a paratope residue (sphere acentre/radius, posed like the atoms)
+    further from an epitope residue's sphere than a measured distance cannot hold its nearest pair.
+    Returns (pick [T, 3], feasible, improving) and updates best_energy."""
+    f = np.float32
+    A, B, Rn, T = spin.shape[0], spin.shape[1], shift.shape[1], aligned.shape[1]
+    M, Q, W = aligned.shape[2], qslots.shape[0], qslots.shape[1]
+    n, mm = valid.shape[0], valid.shape[1]
+    pick = np.full((T, 3), -1, np.int64)
+    feasible = np.zeros(T, np.int64)
+    improving = np.zeros(T, np.int64)
+    turned = np.empty((M, 3), np.float32)
+    tc = np.empty((Q, 3), np.float32)
+    d = np.empty(n, np.float32)
+    gap = np.empty(Q, np.float32)
+    for t in range(T):
+        fx = fixed[t]
+        glo, gdims, gstart, gatoms = _fixed_grid(fx, f(cut))
+        base = samp[t] * nvox
+        l0, l1, l2 = flo[samp[t], 0], flo[samp[t], 1], flo[samp[t], 2]
+        for a in range(A):
+            for b in range(B):
+                Rm = spin[a, b, t]
+                for m in range(M):
+                    for c in range(3):
+                        turned[m, c] = (aligned[a, t, m, 0] * Rm[c, 0] + aligned[a, t, m, 1] * Rm[c, 1]) + aligned[a, t, m, 2] * Rm[c, 2]
+                for q in range(Q):
+                    for c in range(3):
+                        tc[q, c] = (acentre[a, t, q, 0] * Rm[c, 0] + acentre[a, t, q, 1] * Rm[c, 1]) + acentre[a, t, q, 2] * Rm[c, 2]
+                for r in range(Rn):
+                    s0, s1, s2 = shift[a, r, t, 0], shift[a, r, t, 1], shift[a, r, t, 2]
+                    for e in range(n):
+                        best = f(np.inf)
+                        q0 = 0
+                        for q in range(Q):
+                            g0 = ecentre[t, e, 0] - (tc[q, 0] + s0)
+                            g1 = ecentre[t, e, 1] - (tc[q, 1] + s1)
+                            g2 = ecentre[t, e, 2] - (tc[q, 2] + s2)
+                            gap[q] = np.sqrt((g0 * g0 + g1 * g1) + g2 * g2) - eradius[t, e] - radius[t, q]
+                            if gap[q] < gap[q0]:
+                                q0 = q
+                        upper = f(np.inf)
+                        for sweep in range(2):
+                            for q in range(Q):
+                                if (sweep == 0 and q != q0) or (sweep == 1 and (q == q0 or gap[q] > upper)):
+                                    continue
+                                for w in range(W):
+                                    sl = qslots[q, w]
+                                    if sl < 0:
+                                        continue
+                                    pm = para[sl]
+                                    p0, p1, p2 = turned[pm, 0] + s0, turned[pm, 1] + s1, turned[pm, 2] + s2
+                                    for u in range(mm):
+                                        if not valid[e, u]:
+                                            continue
+                                        x0 = epi[t, e * mm + u, 0] - p0
+                                        x1 = epi[t, e * mm + u, 1] - p1
+                                        x2 = epi[t, e * mm + u, 2] - p2
+                                        dist = np.sqrt((x0 * x0 + x2 * x2) + x1 * x1)
+                                        if dist < best:
+                                            best = dist
+                            upper = best + f(margin)
+                        d[e] = best
+                    srt = np.sort(d)
+                    contact = f(0.0)
+                    for i in range(k):
+                        v = max(srt[i] - f(4.5), f(0.0))
+                        contact += v * v
+                    contact = f(0.5) * contact
+                    bad, clash = _pose_clash(turned, s0, s1, s2, fx, ra, rb, cut, glo, gdims, gstart, gatoms, soft,
+                                             base, l0, l1, l2, inv_v, fdims, far_at, severe_below)
+                    if bad:
+                        continue
+                    feasible[t] += 1
+                    energy = contact + f(10.0) * clash
                     if energy < best_energy[t]:
                         best_energy[t] = energy
                         improving[t] += 1

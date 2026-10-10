@@ -28,6 +28,7 @@ from __future__ import annotations
 import logging
 import math
 
+import numpy as np
 import torch
 
 from tt_bio.tfg import rigid as rc
@@ -590,6 +591,40 @@ def search_epitope(coords, feats, core=None):
             x = rotated[:, :, None] + shift[:, None, :, :, None]                         # [A, spin, R, n, M, 3]
             return x.permute(3, 0, 1, 2, 4, 5).reshape(n, A * SPINS * len(STANDOFFS), -1, 3)
 
+        if todo.numel() and moving.dtype == torch.float32 and moving.device.type == "cpu":
+            # compiled: every candidate placed and scored in one pass per sample, same order and rule
+            n, A = todo.numel(), len(axes)
+            u = torch.stack([v[todo] for v in axes])                                       # [A, n, 3]
+            align = rotation_aligning(t_face.repeat(A, 1), -u.reshape(-1, 3))
+            aligned = torch.bmm((t_moving - t_tip[:, None]).repeat(A, 1, 1), align.transpose(1, 2)).view(A, n, -1, 3)
+            acentre = torch.bmm((distances.centre[todo] - t_tip[:, None]).repeat(A, 1, 1),
+                                align.transpose(1, 2)).view(A, n, -1, 3)
+            uu = u[:, None].expand(A, SPINS, n, 3).reshape(-1, 3)
+            spin = rotation_about(uu, spin_angle[None, :, None].expand(A, SPINS, n).reshape(-1)).view(A, SPINS, n, 3, 3)
+            shift = t_centroid + standoff[:, None, None] * u[:, None]                         # [A, R, n, 3]
+            ecentre, eradius = ResidueDistances._spheres(epi_atoms[todo][:, epi_slots], valid)
+            field = rc.BoundField(fixed, rb, float(ra.max()))
+            far_at = (rc.SOFT * ra + field.margin) + field.delta
+            severe_below = (rc.HARD * ra - field.margin) - (field.lift + field.delta)
+            sub_best = best_energy[todo].contiguous()
+            pick, n_feasible, n_better = rc._search_epitope(
+                aligned.contiguous().numpy(), spin.contiguous().numpy(), shift.contiguous().numpy(),
+                acentre.contiguous().numpy(), distances.radius[todo].contiguous().numpy(),
+                distances.para.contiguous().numpy(), para_local.contiguous().numpy(),
+                epi_atoms[todo].contiguous().numpy(), valid.contiguous().numpy(), ecentre.contiguous().numpy(),
+                eradius.contiguous().numpy(), k, ResidueDistances.MARGIN, fixed[todo].contiguous().numpy(),
+                ra.float().contiguous().numpy(), rb.float().contiguous().numpy(), clash.cut, sub_best.numpy(),
+                todo.numpy(), field.soft.numpy(), field.lo.contiguous().numpy(), np.float32(1.0 / field.v),
+                field.dims.numpy(), field.nvox, far_at.contiguous().numpy(), severe_below.contiguous().numpy())
+            best_energy[todo] = sub_best
+            feasible[todo] += torch.from_numpy(n_feasible)
+            improving[todo] += torch.from_numpy(n_better)
+            accepted[todo] += torch.from_numpy(n_better)
+            for t, (a, b, r) in enumerate(pick.tolist()):
+                if a >= 0:
+                    turned = torch.bmm(aligned[a, t][None], spin[a, b, t].transpose(0, 1)[None])
+                    best[todo[t]] = turned[0] + shift[a, r, t]
+            todo = todo[:0]
         for start in range(0, len(axes), SEARCH_CHUNK_AXES):
             chunk = axes[start:start + SEARCH_CHUNK_AXES]
             tested += len(chunk) * SPINS * len(STANDOFFS)
