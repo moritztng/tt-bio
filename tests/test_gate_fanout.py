@@ -213,6 +213,17 @@ def test_a_refused_card_reset_is_matched_from_release_gates_own_words():
     assert gf.CARD_STUCK.search((REPO / "scripts/release_gate.py").read_text())
 
 
+def test_a_record_leg_returns_the_entry_it_recorded_not_the_staged_copy():
+    staged = {"cards": {"p150a": {"recorded": "old", "models": {"m": 1}},
+                        "p300c": {"recorded": "old", "models": {"m": 2}}}}
+    written = {"cards": {"p150a": {"recorded": "x", "models": {}},
+                         "p300c": {"recorded": "new", "host_threads": 5, "models": {"m": 3}}}}
+    frag = json.loads(gf.record_fragment(json.dumps(staged), json.dumps(written), "p300c", "m"))
+    assert frag["cards"]["p300c"] == written["cards"]["p300c"]
+    assert frag["cards"]["p150a"] == staged["cards"]["p150a"]
+    assert gf.record_fragment(json.dumps(staged), json.dumps(written), "p150a", "m") is None
+
+
 def _host(name, arch, tmp_path):
     return gf.Host(name, {"arch": arch, "card_type": arch, "root": str(tmp_path)}, "f" * 40)
 

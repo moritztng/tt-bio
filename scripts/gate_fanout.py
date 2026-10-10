@@ -1015,6 +1015,21 @@ def run_over_ssh(host: Host, card, leg: Leg, rdir: str, f) -> int:
     return p.wait()
 
 
+def record_fragment(model_file: str, written: str, card_type: str, model: str):
+    """The model's baseline file with `card_type`'s entry replaced by the one the record leg wrote.
+
+    release_gate --size-ladder-record writes its card's entry into the top-level baseline file it
+    was pointed at, not into size_ladder_baseline.d/. Until 2026-10-10 the runner returned the .d
+    copy staged before the leg, so 14 record legs of gate 92d5924f5 "passed" with the old entry.
+    None when the record wrote no entry for this model, which fails the leg."""
+    entry = json.loads(written).get("cards", {}).get(card_type)
+    if not entry or model not in entry.get("models", {}):
+        return None
+    base = json.loads(model_file)
+    base["cards"][card_type] = entry
+    return json.dumps(base, indent=2) + "\n"
+
+
 def make_executor(sha: str, out: Path, ledger: Ledger, keys: dict, remote_out: str):
     def execute(host: Host, card, leg: Leg) -> dict:
         tag = leg.name.replace(":", "_").replace("/", "-")
@@ -1089,10 +1104,12 @@ def make_executor(sha: str, out: Path, ledger: Ledger, keys: dict, remote_out: s
             m = leg.name.split(":", 1)[1]
             dst = out / "recorded" / host.cfg["card_type"] / f"{m}.json"
             dst.parent.mkdir(parents=True, exist_ok=True)
-            r = host.ssh(f"cat {shlex.quote(f'{rdir}/size_ladder_baseline.d/{m}.json')}",
-                         capture_output=True, timeout=120)
-            if r.returncode == 0:
-                dst.write_text(r.stdout)
+            r = [host.ssh(f"cat {shlex.quote(f'{rdir}/{f}')}", capture_output=True, timeout=120)
+                 for f in (f"size_ladder_baseline.d/{m}.json", "size_ladder_baseline.json")]
+            frag = (record_fragment(r[0].stdout, r[1].stdout, host.cfg["card_type"], m)
+                    if not any(x.returncode for x in r) else None)
+            if frag:
+                dst.write_text(frag)
                 seeded = str(dst)
             else:
                 verdict = "FAIL"
