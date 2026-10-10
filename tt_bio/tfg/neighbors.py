@@ -344,6 +344,26 @@ class SevereSet:
         return c.view(self.S, self.K) if self.K > 1 else c
 
 
+@numba.njit(cache=True, nogil=True)
+def _classify_points(X, lo, inv_v, dims, nvox, samples, soft, far_at, severe_below, far, severe):
+    """BoundField.classify_rows per point: the voxel from fp32 (x - lo) * (1 / v), floored and clamped onto the grid,
+    then the soft bound against the per-column thresholds."""
+    n, K = X.shape[0], X.shape[1]
+    hi0, hi1, hi2 = np.float32(dims[0] - 1), np.float32(dims[1] - 1), np.float32(dims[2] - 1)
+    zero = np.float32(0.0)
+    for a in range(n):
+        s = samples[a]
+        l0, l1, l2 = lo[s, 0], lo[s, 1], lo[s, 2]
+        base = s * nvox
+        for k in range(K):
+            c0 = min(max(np.floor((X[a, k, 0] - l0) * inv_v), zero), hi0)
+            c1 = min(max(np.floor((X[a, k, 1] - l1) * inv_v), zero), hi1)
+            c2 = min(max(np.floor((X[a, k, 2] - l2) * inv_v), zero), hi2)
+            v = soft[base + (np.int64(c0) * dims[1] + np.int64(c1)) * dims[2] + np.int64(c2)]
+            far[a, k] = v >= far_at[k]
+            severe[a, k] = v < severe_below[k]
+
+
 class BoundField:
     """Voxel bounds on min_j (|x - b_j| - f rb_j), per sample: a lower bound for f = 0.85, an upper bound for f = 0.75.
     For a point x in a voxel with centre c and half diagonal delta, |x - b| lies within |c - b| +- delta, so the voxel value proves that x overlaps nothing
@@ -387,6 +407,17 @@ class BoundField:
         # a point off the grid is clamped onto its outermost voxel layer, which no atom's offset ball reaches (atoms
         # sit k + 1 voxels in, offsets reach k): inf there, as classify gives off the grid. x / v as x * (1 / v), and
         # the thresholds with delta folded in, move a bound by ~1e-6 A at most, far inside the 1e-3 A margin.
+        far_at = (SOFT * ra + self.margin) + self.delta
+        severe_below = (HARD * ra - self.margin) - (self.lift + self.delta)
+        if X.dtype == torch.float32 and self.soft.dtype == torch.float32:
+            # one compiled pass per point: the same fp32 cell arithmetic and the same thresholds, so the same flags
+            n, K, _ = X.shape
+            far, severe = torch.empty(n, K, dtype=torch.bool), torch.empty(n, K, dtype=torch.bool)
+            _classify_points(X.detach().contiguous().numpy(), self.lo.contiguous().numpy(), np.float32(1.0 / self.v),
+                             self.dims.numpy(), self.nvox, samples.contiguous().numpy(), self.soft.numpy(),
+                             far_at.contiguous().numpy(), severe_below.contiguous().numpy(), far.numpy(),
+                             severe.numpy())
+            return far.reshape(-1), severe.reshape(-1)
         c = (X - self.lo[samples][:, None]).mul_(1.0 / self.v).floor_().clamp_(min=0)
         for a in range(3):
             c[..., a].clamp_(max=float(self.dims[a] - 1))
@@ -395,8 +426,8 @@ class BoundField:
         flat = torch.mv(c.view(-1, 3), torch.tensor([dy * dz, dz, 1.0], dtype=X.dtype)).view(c.shape[:2]).long()
         flat += (samples * self.nvox)[:, None]
         soft = self.soft[flat]
-        far = soft >= (SOFT * ra + self.margin) + self.delta
-        severe = soft < (HARD * ra - self.margin) - (self.lift + self.delta)
+        far = soft >= far_at
+        severe = soft < severe_below
         return far.reshape(-1), severe.reshape(-1)
 
     def classify(self, X, sample, ra):
