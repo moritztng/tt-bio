@@ -1,6 +1,6 @@
 # The 8-block ABodyBuilder3 model against tt_bio/abodybuilder3_reference.py in float64,
 # re-recorded on the BCP merge tree.
-RECORDED-AT: 6105e740d9cdc55e5f0aed76f3b19ee5f4703243 scripts/abb3_port/model_gate.py
+RECORDED-AT: 1b36c8906a7e42c6bcd4db5d56f5b04a8dab291e scripts/abb3_port/model_gate.py
 #
 # TREE: wk/bcp-land 3e617f520, origin/main 2e2cbacb4 plus BCP (the fused layer-norm backward, lnbw).
 # Replaces the record taken at 93edb1b24, whose import closure changed in tt_bio/autograd.py when lnbw
@@ -61,6 +61,11 @@ RECORDED-AT: 6105e740d9cdc55e5f0aed76f3b19ee5f4703243 scripts/abb3_port/model_ga
 # every gradient row is identical to the 0.13.1 record on p300c, and the sigma 0.3 / 256-token stress arm
 # still FAILs angles at 5.11e-02. Runs waited on the card flock between arms, hence the wall span.
 # NO TIMING CLAIM.
+#
+# RE-RECORDED for the 0.15.0 release gate at 1b36c8906 (tt-bio main, staging15), 13:46-16:02Z 2026-10-10,
+# qb1 card 3, Blackhole p150a, the gate's wheel venv (TT-NN 0.68.0). Every ok/FAIL row and every gradient
+# row is identical to the 0.14.0 record, and the sigma 0.3 / 256-token stress arm still FAILs angles at
+# 5.11e-02. The closure is unchanged at 92d5924f5. NO TIMING CLAIM.
 #
 === sigma=0.05, 64 tokens ===
   sigma 0.05, 8 blocks, batch 2 x 64 tokens
