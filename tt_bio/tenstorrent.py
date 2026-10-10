@@ -590,7 +590,8 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "transition_shard", "dit_mm16", "atom_k1", "dit_b8", "dit_qkv16", "atom_mm16", "adaln_mod",
           "swiglu_fc12g", "msa_sample")
 # Named but in no mode until their fold grade puts them in one.
-UNGRADED_LEVERS = frozenset({"trimul_b8in", "transition_bw", "atom_mm16", "adaln_mod"})
+UNGRADED_LEVERS = frozenset({"trimul_b8in", "transition_bw", "atom_mm16", "adaln_mod", "transition_shard",
+                             "swiglu_fc12g"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -633,6 +634,10 @@ FAST_LEVERS = frozenset(LEVERS) - {"lofi", "triatt_b8", "triatt_bias_b8"} - UNGR
 # differ on Wormhole (.114) and Blackhole (qb2), CA-RMSD 1.38 A between them on .114, and with it off
 # they are bit-identical. Whether a block shards depends on the grid's rows, and the sharded and
 # interleaved swiglu round differently, so an 8x8 n150 and an 8x9 Galaxy chip would give two answers.
+# Out of fast mode too (2026-10-10): at 1536 tokens it collapses the fold. Wormhole l1536 seed 101, mean
+# pLDDT over 5 samples: fast 0.44-0.46 with it, 0.649 without it (exact 0.676), every other fast lever
+# removed alone stays at 0.44-0.46 (bisect bis17, AICLK 1000). The 11-set grade never reached that size.
+# swiglu_fc12g only acts inside it, so it leaves with it.
 # atom_k1: bit-exact. The c730 sampler (5 samples x 200 steps, seeds 101-103) returns torch.equal
 # coordinates with and without it on Wormhole (.107, 1000 MHz) and on Blackhole (p150a, where it is
 # ttnn's own program), and saves 0.76 s of the Wormhole sampler (63.75 -> 62.99 s, spd-difflin ab2).
