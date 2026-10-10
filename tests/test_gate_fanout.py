@@ -130,6 +130,10 @@ def test_key_moves_with_code_env_card_and_argv_not_with_markdown(tmp_path):
     (tmp_path / "scripts" / "gate_fanout.py").write_text("# runner fix\n")
     git("add", "."), git("commit", "-qm", "10")
     assert gf.content_hash("HEAD", tmp_path) == c8          # a fix to this runner: same key
+    (tmp_path / "scripts" / "flock_first.sh").write_text("# how a leg waits for its card\n")
+    git("add", "."), git("commit", "-qm", "10b")
+    assert gf.content_hash("HEAD", tmp_path) == c8          # so is a fix to the card wait,
+    assert gf.content_hash("HEAD", tmp_path, runner=gf.RUNNER_FILES_0) != c8  # once part of the key
 
     (tmp_path / "tests").mkdir()
     (tmp_path / "tests" / "test_only_pytest.py").write_text("def test_a(): pass\n")
