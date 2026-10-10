@@ -71,6 +71,8 @@ PERF A/B. Committed perf cells age: a cell recorded in August on another softwar
 release that changed nothing. `"perf_against": "<tag>"` on a host checks the timed leg out at the
 last release (root/trees/<tag>) and runs perf_regression.py --against it: the release's own
 numbers are measured on the same card in the same session, then the commit is gated on them.
+On a PASS the runner writes the reference's re-measured machine block into <out>/seeded/<arch>/
+perf_baselines.json for the release commit; the A/B leg's key leaves the committed baseline out.
 
 SEEDING. perf_regression.py fails NO BASELINE on a card type with no baseline. That stays a
 failure. A host seeding one names it explicitly, `"args": {"perf": ["--update-baseline", "--note",
@@ -226,6 +228,25 @@ def _same_code(sha: str, content: str, repo: Path = REPO) -> bool:
         return content_hash(sha, repo) == content
     except subprocess.CalledProcessError:
         return False
+
+
+def rerecorded(tree: str, reference: str, note: str) -> str:
+    """`tree`'s perf_baselines.json with every machine block the A/B reference run rewrote
+    (perf_regression.py notes it "A/B reference for ...") taken from `reference`: the last
+    release measured on that card in the gate's own session, so the committed cells are current
+    instead of dating from whenever the machine was first seeded."""
+    t, ref = json.loads(tree), json.loads(reference)
+    ab = lambda x: str(x.get("note", "")).startswith("A/B reference for")
+    for ct, entry in ref.get("cards", {}).items():
+        for mid, blk in entry.get("machines", {}).items():
+            got = {m: {**v, "note": note} for m, v in blk.get("models", {}).items() if ab(v)}
+            if not got:
+                continue
+            mine = t.setdefault("cards", {}).setdefault(ct, {}).setdefault("machines", {}).setdefault(mid, {})
+            mine.setdefault("models", {}).update(got)
+            if ab(blk):
+                mine.update(date=blk.get("date"), tt_bio_version=blk.get("tt_bio_version"), note=note)
+    return json.dumps(t, indent=2) + "\n"
 
 
 def baseline_hash(sha: str, family: str, repo: Path = REPO, model: str = "") -> str:
@@ -712,6 +733,10 @@ def write_verdict(out: Path, sha: str, archs: list, results: list) -> bool:
     if recorded:
         lines += ["", "RECORDED: copy these over docs/size_ladder_baseline.d/ in the release commit:"]
         lines += [f"- {r['leg']} {r['card_type']}: {r['seeded']}" for r in recorded]
+    ab = [r for r in results if r["leg"] == "perf" and r["verdict"] == "PASS" and r.get("seeded")]
+    if ab:
+        lines += ["", "RE-RECORDED: the A/B reference's cells; copy over docs/perf_baselines.json in the release commit:"]
+        lines += [f"- perf {r['card_type']}: {r['seeded']}" for r in ab]
     (out / "VERDICT.md").write_text("\n".join(lines) + "\n")
     (out / "verdict.json").write_text(json.dumps({"sha": sha, "pass": ok, "archs": archs,
                                                   "results": results}, indent=1))
@@ -916,6 +941,16 @@ def make_executor(sha: str, out: Path, ledger: Ledger, keys: dict, remote_out: s
             if r.returncode == 0:
                 dst.write_text(r.stdout)
                 seeded = str(dst)
+        if verdict == "PASS" and leg.family == "perf" and host.cfg.get("perf_against"):
+            r = [host.ssh(f"cat {d}/docs/perf_baselines.json", capture_output=True, timeout=120)
+                 for d in (host.tree, host.against)]
+            if not any(x.returncode for x in r):
+                dst = out / "seeded" / host.arch / "perf_baselines.json"
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                dst.write_text(rerecorded(r[0].stdout, r[1].stdout, f"re-recorded {now()[:10]} on "
+                                          f"{host.name} as the A/B reference ({host.cfg['perf_against']}) "
+                                          f"of the {sha[:9]} release gate"))
+                seeded = str(dst)
         if verdict == "PASS" and leg.family == "record":
             m = leg.name.split(":", 1)[1]
             dst = out / "recorded" / host.cfg["card_type"] / f"{m}.json"
@@ -1035,6 +1070,11 @@ def main() -> int:
                              first[a].leg(lg))
             model = lg.name.split(":", 1)[1] if lg.family == "ladder" else ""
             base, tst = baseline_hash(sha, lg.family, model=model), tests_hash(sha, lg.family)
+            # An A/B perf leg reads the reference tree's numbers, not the committed baseline, so
+            # committing a re-recorded baseline does not rerun it.
+            ab = lg.family == "perf" and bool(first[a].cfg.get("perf_against"))
+            if ab:
+                base = ""
             k = leg_key(content, env, ct, hleg, base, tst)
             keys[(lg.name, slot)] = k
             # Card-free legs always run: they are cheap, and pytest_cpu checks the recorded
@@ -1046,7 +1086,8 @@ def main() -> int:
                                                      and tests_hash(s, lg.family) == tst)}
             olds = ([leg_key(legacy, env, ct, hleg)]
                     + [leg_key(tests_in[s], env, ct, hleg, base) for s in match]
-                    + [leg_key(runner_in[s], env, ct, hleg, base, tst) for s in match])
+                    + [leg_key(runner_in[s], env, ct, hleg, base, tst) for s in match]
+                    + [leg_key(content, env, ct, hleg, baseline_hash(s, "perf"), tst) for s in same if ab])
             hit = (None if args.no_reuse or not lg.card or lg.family == "record"
                    else next(filter(None, map(ledger.get, [k, *olds])), None))
             owes = owed_by(roster, ctype[a], lg)

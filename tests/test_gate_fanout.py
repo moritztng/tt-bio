@@ -338,6 +338,22 @@ def test_flock_first_frees_the_card_when_its_leg_ends(tmp_path):
                           env={"FLOCK_FIRST_GRACE": "5", "PATH": "/usr/bin:/bin"}).returncode == 0
     assert subprocess.run(["flock", "-n", str(lock), "true"]).returncode == 0
 
+def test_an_ab_pass_rerecords_only_the_cells_the_reference_measured():
+    old = {"note": "seed 0.6.2", "date": "2026-08-01", "value": 1.0}
+    tree = {"cards": {"p150a": {"machines": {"qb1": {"note": "seed 0.6.2", "date": "2026-08-01",
+                                                     "models": {"boltz2": old, "nesso1": old}}}},
+                      "tt-galaxy-wh-l": {"machines": {"g": {"note": "wh seed", "models": {"x": old}}}}}}
+    ab = {"note": "A/B reference for /r/trees/x, same card and session", "date": "2026-10-10", "value": 2.0}
+    ref = {"cards": {"p150a": {"machines": {"qb1": {**ab, "models": {"boltz2": ab}},
+                                            "pc": {"note": "pc", "models": {"boltz2": old}}}}}}
+    out = json.loads(gf.rerecorded(json.dumps(tree), json.dumps(ref), "re-recorded"))
+    qb1 = out["cards"]["p150a"]["machines"]["qb1"]
+    assert qb1["models"]["boltz2"]["value"] == 2.0 and qb1["models"]["boltz2"]["note"] == "re-recorded"
+    assert qb1["models"]["nesso1"] == old and qb1["note"] == "re-recorded" and qb1["date"] == "2026-10-10"
+    assert "pc" not in out["cards"]["p150a"]["machines"]
+    assert out["cards"]["tt-galaxy-wh-l"] == tree["cards"]["tt-galaxy-wh-l"]
+
+
 def test_perf_against_runs_the_timed_leg_against_the_last_release_tree():
     h = gf.Host("qb1", {"arch": "bh", "card_type": "p150a", "root": "/r", "perf_against": "v0.13.1",
                         "lock": "/l/card{card}.lock"}, "a" * 40)

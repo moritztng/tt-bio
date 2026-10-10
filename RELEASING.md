@@ -179,6 +179,14 @@ The parity, capacity and size-ladder arms are correctness checks and may run on 
 size ladder's exponent is a runtime ratio between rungs folded on one card, with a tolerance of at
 least 0.50, and 0.13.1 already ran two ladder cards beside three other arms on qb1.
 
+A committed perf cell ages: qb1's dated from 0.6.x and failed boltz2-affinity and nesso1 on a
+release that changed neither. So qb1 sets `"perf_against": "<last release tag>"` in hosts.json and
+its perf leg is an A/B: the last release is measured on the same card in the same session, and the
+commit is gated on those numbers rather than on the committed file. When it passes, the gate writes
+the reference's fresh qb1 cells to `<out>/seeded/bh/perf_baselines.json` (VERDICT.md lists it under
+RE-RECORDED); copy it over `docs/perf_baselines.json` in the release commit. The A/B leg does not
+read the committed file, so this costs no rerun. Move `perf_against` to the new tag once it is out.
+
 The clock sets the fold time on this part. `fold_s = 2.901 + 15355 / AICLK_MHz` on the 512 aa cell,
 so the same tree reads 21.90 s at 800 MHz and 17.34 s at ~1063. An idle card reports 800 because the
 governor has not ramped; sample the clock DURING a fold, not before, and record it beside any number
@@ -190,7 +198,7 @@ A release never waits on our own experiments. Gate legs queue at prio 0 in a Gal
 of every grading job, and on a card shared through its `flock` (qb1, qb2) the host sets
 `"first": true`: each leg then waits through `scripts/flock_first.sh`, which pauses the other
 waiters on that card (never the job holding it) and resumes them a few minutes after the gate's
-last leg there. Another gate's wait is never paused, so two gates on one card queue in order.
+last leg there, also when a leg is killed. Another gate's wait is never paused, so two gates on one card queue in order.
 A leg still waits for the job already running on its card.
 
 On an SPD pool Galaxy (`.114`, `.107`) use the same `gate_host_prep.sh` venvs as any other host,
