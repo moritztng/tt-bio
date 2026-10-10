@@ -203,6 +203,12 @@ def test_a_dropped_ssh_connection_is_not_a_leg_result():
     assert not gf.SSH_LOST.search("FAILED tests/test_x.py::test_ssh_connect_to_host\n")
 
 
+def test_a_full_disk_is_not_a_leg_result():
+    assert gf.DISK_FULL.search("mkdir: cannot create directory '/x': No space left on device\n")
+    assert gf.DISK_FULL.search("OSError: [Errno 28] No space left on device: '/tmp/x'\n")
+    assert not gf.DISK_FULL.search("RuntimeError: Out of Memory: Not enough space to allocate\n")
+
+
 def _host(name, arch, tmp_path):
     return gf.Host(name, {"arch": arch, "card_type": arch, "root": str(tmp_path)}, "f" * 40)
 

@@ -129,6 +129,10 @@ SSH_LOST = re.compile(r"^(ssh: connect to host .*|Timeout, server .* not respond
                       r"client_loop: send disconnect: .*|Connection to .* closed by remote host\.|"
                       r"kex_exchange_identification: .*|ssh_dispatch_run_fatal: Connection to .*)$", re.M)
 SSH_LOST_RETRY_S, SSH_LOST_TRIES = 120, 30
+#: A full disk on the leg's host. Another job filled qb1's root on 2026-10-10 and 116 BH legs were
+#: recorded FAIL in an hour, each at its first mkdir. Wait for space and run the leg again.
+DISK_FULL = re.compile(r"No space left on device")
+DISK_FULL_RETRY_S, DISK_FULL_TRIES = 300, 12
 QUEUED: dict = {}         # pool job file -> host, taken back if the runner is stopped
 CARD_FREE = ("check", "packaging_smoke", "pytest_cpu")
 PY312 = {"pytest_device", "pytest_cpu", "bc2"}
@@ -1014,7 +1018,7 @@ def make_executor(sha: str, out: Path, ledger: Ledger, keys: dict, remote_out: s
         rdir = f"{host.root}/{remote_out}/{host.arch}/{tag}"
         t0 = time.time()
         run = run_in_pool if card == POOL else run_over_ssh
-        lost = 0
+        lost = full = 0
         while True:
             with open(log, "w") as f:
                 f.write(f"# {leg.name} on {host.name}:{card} ({host.cfg['card_type']}) tree {sha}\n")
@@ -1027,6 +1031,10 @@ def make_executor(sha: str, out: Path, ledger: Ledger, keys: dict, remote_out: s
                 # The connection dropped, not the leg: run it again once the host answers.
                 lost += 1
                 time.sleep(SSH_LOST_RETRY_S)
+                continue
+            if rc and DISK_FULL.search(text) and full < DISK_FULL_TRIES:
+                full += 1
+                time.sleep(DISK_FULL_RETRY_S)
                 continue
             if not (rc and LOAD_REFUSAL in text and time.time() - t0 < LOAD_WAIT_MAX_S):
                 break
