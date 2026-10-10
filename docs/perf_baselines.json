@@ -690,8 +690,8 @@
             "esmfold2-fast": {
               "unit": "structures/s",
               "direction": "higher",
-              "value": 2.141083,
-              "latency_ms": 467.05,
+              "value": 2.267897,
+              "latency_ms": 440.94,
               "input": "trpcage (20 aa, single-seq)",
               "sampling_steps": 10,
               "diffusion_samples": 1,
@@ -704,15 +704,30 @@
               "hardware": "blackhole",
               "card_type": "p150a",
               "machine_id": "tt-quietbox",
-              "tt_bio_version": "0.7.3",
-              "date": "2026-09-10",
-              "note": "reseed on a genuinely idle qb1 (all four cards free, loadavg <1) and on the release venv (ttnn 0.68.0, torch 2.13.0), the interpreter the gate is documented to run. Replaces cells dated 2026-07-19 at 0.3.1. protenix-v2 lands below its old cell because the shipped token bucket pads the 20 aa fixture to 32: same tree and session, TT_BIO_PROTENIX_TOKEN_BUCKET=0 reads 1.49-1.51 against 1.32-1.34 default-on, and the old cell predates the bucket. saprot-650m gets its first qb1 machine cell; it had only the card-level fallback, which was measured on another machine."
+              "host_load": {
+                "before": {
+                  "load1": 8.27,
+                  "load5": 7.21,
+                  "cpu_count": 32,
+                  "ratio": 0.259
+                },
+                "after": {
+                  "load1": 6.75,
+                  "load5": 6.99,
+                  "cpu_count": 32,
+                  "ratio": 0.211
+                },
+                "peak_ratio": 0.259
+              },
+              "tt_bio_version": "0.13.1",
+              "date": "2026-10-10",
+              "note": "re-recorded 2026-10-10 on qb1 as the A/B reference (v0.13.1) of the 073d8d1ea release gate"
             },
             "boltz2": {
               "unit": "structures/s",
               "direction": "higher",
-              "value": 0.742008,
-              "latency_ms": 1347.7,
+              "value": 0.837957,
+              "latency_ms": 1193.38,
               "input": "trpcage (20 aa, single-seq)",
               "sampling_steps": 10,
               "diffusion_samples": 1,
@@ -725,15 +740,30 @@
               "hardware": "blackhole",
               "card_type": "p150a",
               "machine_id": "tt-quietbox",
-              "tt_bio_version": "0.7.3",
-              "date": "2026-09-10",
-              "note": "reseed on a genuinely idle qb1 (all four cards free, loadavg <1) and on the release venv (ttnn 0.68.0, torch 2.13.0), the interpreter the gate is documented to run. Replaces cells dated 2026-07-19 at 0.3.1. protenix-v2 lands below its old cell because the shipped token bucket pads the 20 aa fixture to 32: same tree and session, TT_BIO_PROTENIX_TOKEN_BUCKET=0 reads 1.49-1.51 against 1.32-1.34 default-on, and the old cell predates the bucket. saprot-650m gets its first qb1 machine cell; it had only the card-level fallback, which was measured on another machine."
+              "host_load": {
+                "before": {
+                  "load1": 6.36,
+                  "load5": 6.55,
+                  "cpu_count": 32,
+                  "ratio": 0.199
+                },
+                "after": {
+                  "load1": 8.44,
+                  "load5": 7.03,
+                  "cpu_count": 32,
+                  "ratio": 0.264
+                },
+                "peak_ratio": 0.264
+              },
+              "tt_bio_version": "0.13.1",
+              "date": "2026-10-10",
+              "note": "re-recorded 2026-10-10 on qb1 as the A/B reference (v0.13.1) of the 073d8d1ea release gate"
             },
             "esmfold2": {
               "unit": "structures/s",
               "direction": "higher",
-              "value": 1.763611,
-              "latency_ms": 567.02,
+              "value": 1.794941,
+              "latency_ms": 557.12,
               "input": "trpcage (20 aa, single-seq)",
               "sampling_steps": 10,
               "diffusion_samples": 1,
@@ -746,15 +776,30 @@
               "hardware": "blackhole",
               "card_type": "p150a",
               "machine_id": "tt-quietbox",
-              "tt_bio_version": "0.7.3",
-              "date": "2026-09-10",
-              "note": "reseed on a genuinely idle qb1 (all four cards free, loadavg <1) and on the release venv (ttnn 0.68.0, torch 2.13.0), the interpreter the gate is documented to run. Replaces cells dated 2026-07-19 at 0.3.1. protenix-v2 lands below its old cell because the shipped token bucket pads the 20 aa fixture to 32: same tree and session, TT_BIO_PROTENIX_TOKEN_BUCKET=0 reads 1.49-1.51 against 1.32-1.34 default-on, and the old cell predates the bucket. saprot-650m gets its first qb1 machine cell; it had only the card-level fallback, which was measured on another machine."
+              "host_load": {
+                "before": {
+                  "load1": 8.44,
+                  "load5": 7.03,
+                  "cpu_count": 32,
+                  "ratio": 0.264
+                },
+                "after": {
+                  "load1": 8.27,
+                  "load5": 7.21,
+                  "cpu_count": 32,
+                  "ratio": 0.259
+                },
+                "peak_ratio": 0.264
+              },
+              "tt_bio_version": "0.13.1",
+              "date": "2026-10-10",
+              "note": "re-recorded 2026-10-10 on qb1 as the A/B reference (v0.13.1) of the 073d8d1ea release gate"
             },
             "protenix-v2": {
               "unit": "structures/s",
               "direction": "higher",
-              "value": 1.327918,
-              "latency_ms": 753.06,
+              "value": 1.528725,
+              "latency_ms": 654.14,
               "input": "trpcage (20 aa, single-seq)",
               "sampling_steps": 10,
               "diffusion_samples": 1,
@@ -767,15 +812,30 @@
               "hardware": "blackhole",
               "card_type": "p150a",
               "machine_id": "tt-quietbox",
-              "tt_bio_version": "0.7.3",
-              "date": "2026-09-10",
-              "note": "reseed on a genuinely idle qb1 (all four cards free, loadavg <1) and on the release venv (ttnn 0.68.0, torch 2.13.0), the interpreter the gate is documented to run. Replaces cells dated 2026-07-19 at 0.3.1. protenix-v2 lands below its old cell because the shipped token bucket pads the 20 aa fixture to 32: same tree and session, TT_BIO_PROTENIX_TOKEN_BUCKET=0 reads 1.49-1.51 against 1.32-1.34 default-on, and the old cell predates the bucket. saprot-650m gets its first qb1 machine cell; it had only the card-level fallback, which was measured on another machine."
+              "host_load": {
+                "before": {
+                  "load1": 6.75,
+                  "load5": 6.99,
+                  "cpu_count": 32,
+                  "ratio": 0.211
+                },
+                "after": {
+                  "load1": 6.88,
+                  "load5": 7.0,
+                  "cpu_count": 32,
+                  "ratio": 0.215
+                },
+                "peak_ratio": 0.215
+              },
+              "tt_bio_version": "0.13.1",
+              "date": "2026-10-10",
+              "note": "re-recorded 2026-10-10 on qb1 as the A/B reference (v0.13.1) of the 073d8d1ea release gate"
             },
             "opendde": {
               "unit": "structures/s",
               "direction": "higher",
-              "value": 1.336711,
-              "latency_ms": 748.1,
+              "value": 1.330856,
+              "latency_ms": 751.4,
               "input": "trpcage (20 aa, single-seq)",
               "sampling_steps": 10,
               "diffusion_samples": 1,
@@ -788,35 +848,66 @@
               "hardware": "blackhole",
               "card_type": "p150a",
               "machine_id": "tt-quietbox",
-              "tt_bio_version": "0.7.3",
-              "date": "2026-09-10",
-              "note": "reseed on a genuinely idle qb1 (all four cards free, loadavg <1) and on the release venv (ttnn 0.68.0, torch 2.13.0), the interpreter the gate is documented to run. Replaces cells dated 2026-07-19 at 0.3.1. protenix-v2 lands below its old cell because the shipped token bucket pads the 20 aa fixture to 32: same tree and session, TT_BIO_PROTENIX_TOKEN_BUCKET=0 reads 1.49-1.51 against 1.32-1.34 default-on, and the old cell predates the bucket. saprot-650m gets its first qb1 machine cell; it had only the card-level fallback, which was measured on another machine."
+              "host_load": {
+                "before": {
+                  "load1": 6.33,
+                  "load5": 6.87,
+                  "cpu_count": 32,
+                  "ratio": 0.198
+                },
+                "after": {
+                  "load1": 7.27,
+                  "load5": 7.06,
+                  "cpu_count": 32,
+                  "ratio": 0.227
+                },
+                "peak_ratio": 0.227
+              },
+              "tt_bio_version": "0.13.1",
+              "date": "2026-10-10",
+              "note": "re-recorded 2026-10-10 on qb1 as the A/B reference (v0.13.1) of the 073d8d1ea release gate"
             },
             "esmc-600m": {
               "unit": "seq/s",
               "direction": "higher",
-              "value": 62.651937,
-              "latency_ms": 127.69,
+              "value": 64.522317,
+              "latency_ms": 123.99,
               "input": "8x ubiquitin (76 aa), batch 8",
               "sampling_steps": 10,
               "diffusion_samples": 1,
               "recycling_steps": 1,
               "num_timesteps": null,
+              "n_step": null,
               "num_designs": null,
               "warmup": 2,
               "repeat": 5,
               "hardware": "blackhole",
               "card_type": "p150a",
               "machine_id": "tt-quietbox",
-              "tt_bio_version": "0.6.5",
-              "date": "2026-08-22",
-              "note": "refresh the four qb1 p150a ESMC embed baselines, which had stopped gating: the old values read +99% to +349% slow against current main on this card. The 300m/600m batch-8 legs and esmc-300m-single are 785f0456 (the worker embed path moved onto the already-shipped threaded write_npz_many; that commit measured the old 16.737 seq/s baseline as 90.5% host zlib on this exact card, 47.13 ms device against 446.79 ms serial write). esmc-300m-single also carries 3bb206e7 (B=1 ttnn trace capture, 1.47x). esmc-6b is 2907613b (81 blocking device->host copies per forward cut to 1) on top of the same write fix. Measured on qb1 card 2 under the pinned release runtime (ttnn 0.68.0, torch 2.13.0). CAVEAT: these legs still time the whole predict_one wall, so roughly half of each is host zlib, and draw-to-draw spread on a busy qb1 measured 5-35% (esmc-300m 67.26/53.08, esmc-600m 61.83/58.93, esmc-300m-single 34.89/38.52, esmc-6b 6.31/8.54 seq/s over two draws) -- wider than the +-15% threshold. Take a second draw before believing a FAIL here. The structural fix is to gate the device_s that tt_bio/worker.py already reports separately, not the whole wall."
+              "host_load": {
+                "before": {
+                  "load1": 6.67,
+                  "load5": 6.58,
+                  "cpu_count": 32,
+                  "ratio": 0.208
+                },
+                "after": {
+                  "load1": 7.19,
+                  "load5": 6.69,
+                  "cpu_count": 32,
+                  "ratio": 0.225
+                },
+                "peak_ratio": 0.225
+              },
+              "tt_bio_version": "0.13.1",
+              "date": "2026-10-10",
+              "note": "re-recorded 2026-10-10 on qb1 as the A/B reference (v0.13.1) of the 073d8d1ea release gate"
             },
             "boltzgen": {
               "unit": "designs/s",
               "direction": "higher",
-              "value": 0.016395,
-              "latency_ms": 60994.4,
+              "value": 0.019851,
+              "latency_ms": 50374.19,
               "input": "binder.yaml (protein-anything, 4 designs)",
               "sampling_steps": 500,
               "diffusion_samples": 1,
@@ -829,195 +920,354 @@
               "hardware": "blackhole",
               "card_type": "p150a",
               "machine_id": "tt-quietbox",
-              "tt_bio_version": "0.7.3",
-              "date": "2026-09-10",
-              "note": "reseed on an idle qb1 and on the release venv (ttnn 0.68.0, torch 2.13.0). The old cell was dated 2026-07-19 at 0.3.1 and measured under qb1 system python. Single-shot leg, 4 designs per rep, so read it as one number with a wide spread, not a median."
+              "host_load": {
+                "before": {
+                  "load1": 8.1,
+                  "load5": 6.98,
+                  "cpu_count": 32,
+                  "ratio": 0.253
+                },
+                "after": {
+                  "load1": 10.06,
+                  "load5": 10.69,
+                  "cpu_count": 32,
+                  "ratio": 0.314
+                },
+                "peak_ratio": 0.314
+              },
+              "tt_bio_version": "0.13.1",
+              "date": "2026-10-10",
+              "note": "re-recorded 2026-10-10 on qb1 as the A/B reference (v0.13.1) of the 073d8d1ea release gate"
             },
             "boltz2-affinity": {
               "unit": "affinities/s",
               "direction": "higher",
-              "value": 0.01571,
-              "latency_ms": 63654.31,
+              "value": 0.02121,
+              "latency_ms": 47146.92,
               "input": "affinity_fkg.yaml (FKBP12+SB3, L107, single-seq, affinity mode)",
               "sampling_steps": 10,
               "diffusion_samples": 1,
               "recycling_steps": 1,
               "num_timesteps": null,
+              "n_step": null,
               "num_designs": null,
               "warmup": 0,
               "repeat": 3,
               "hardware": "blackhole",
               "card_type": "p150a",
               "machine_id": "tt-quietbox",
-              "tt_bio_version": "0.6.3",
-              "date": "2026-08-17",
-              "note": "reseeded on the runtime a pip install produces (release venv: ttnn 0.68.0, torch 2.13.0). The 0.019715 seed of 67c2f866 was taken under qb1 system python (ttnn 0.67.4, torch 2.11.0), which no user has; 92c286c6 then moved the gate onto the pinned runtime and the same tree reads 63-64 s there against 51 s under system python. ttnn is not the variable: holding torch at 2.13 and dropping ttnn to 0.67.4 also measures 63 s. Steady state is 63-64 s with a 1 s spread over four consecutive reps."
+              "host_load": {
+                "before": {
+                  "load1": 10.06,
+                  "load5": 10.69,
+                  "cpu_count": 32,
+                  "ratio": 0.314
+                },
+                "after": {
+                  "load1": 8.48,
+                  "load5": 9.93,
+                  "cpu_count": 32,
+                  "ratio": 0.265
+                },
+                "peak_ratio": 0.314
+              },
+              "tt_bio_version": "0.13.1",
+              "date": "2026-10-10",
+              "note": "re-recorded 2026-10-10 on qb1 as the A/B reference (v0.13.1) of the 073d8d1ea release gate"
             },
             "rfd3": {
               "unit": "designs/s",
               "direction": "higher",
-              "value": 0.112511,
-              "latency_ms": 8888.05,
+              "value": 0.121658,
+              "latency_ms": 8219.75,
               "input": "iai_inputs.yaml (IAI motif-scaffold, I40/L419, from_pdb, 4 steps)",
               "sampling_steps": null,
               "diffusion_samples": null,
               "recycling_steps": null,
               "num_timesteps": 4,
+              "n_step": null,
               "num_designs": 1,
               "warmup": 0,
-              "repeat": 1,
+              "repeat": 3,
               "hardware": "blackhole",
               "card_type": "p150a",
               "machine_id": "tt-quietbox",
-              "tt_bio_version": "0.5.0",
-              "date": "2026-07-28",
-              "note": "seed rfd3 perf baseline on qb1 (tt-quietbox) p150a card 1, matching pc convention: 1 design, 4 timesteps shipped default, IAI motif-scaffold fixture. First invocation on this device measured 101s (one-time TTNN kernel-build-cache population, not representative -- discarded); this run is with a populated kernel cache, matching pc's own baseline character (pc's 8.18s implies its kernel cache was already warm too, despite being labeled COLD for page cache). owed by tt-bio-rfdiffusion3-largedesign-gap-p19 (merged be8274449)"
+              "host_load": {
+                "before": {
+                  "load1": 8.48,
+                  "load5": 9.93,
+                  "cpu_count": 32,
+                  "ratio": 0.265
+                },
+                "after": {
+                  "load1": 9.46,
+                  "load5": 10.02,
+                  "cpu_count": 32,
+                  "ratio": 0.296
+                },
+                "peak_ratio": 0.296
+              },
+              "tt_bio_version": "0.13.1",
+              "date": "2026-10-10",
+              "note": "re-recorded 2026-10-10 on qb1 as the A/B reference (v0.13.1) of the 073d8d1ea release gate"
             },
             "opendde-abag": {
               "unit": "structures/s",
               "direction": "higher",
-              "value": 1.208666,
-              "latency_ms": 827.36,
+              "value": 1.330277,
+              "latency_ms": 751.72,
               "input": "trpcage (20 aa, single-seq)",
               "sampling_steps": 10,
               "diffusion_samples": 1,
               "recycling_steps": 1,
               "num_timesteps": null,
+              "n_step": null,
               "num_designs": null,
               "warmup": 2,
               "repeat": 5,
               "hardware": "blackhole",
               "card_type": "p150a",
               "machine_id": "tt-quietbox",
-              "tt_bio_version": "0.5.0",
-              "date": "2026-08-01",
-              "note": "seed qb1 (tt-quietbox) p150a opendde-abag baseline \u2014 first ever committed; v0.5.0 measured 1.789 structures/s and said it was seeding one, but the JSON edit was never committed (git log -S over docs/perf_baselines.json is empty), so the model motivating the perf-coverage assert has been un-judgeable for two releases. Measured on card 2; card 1 is ARC-wedged on this host."
+              "host_load": {
+                "before": {
+                  "load1": 7.87,
+                  "load5": 7.21,
+                  "cpu_count": 32,
+                  "ratio": 0.246
+                },
+                "after": {
+                  "load1": 6.62,
+                  "load5": 6.97,
+                  "cpu_count": 32,
+                  "ratio": 0.207
+                },
+                "peak_ratio": 0.246
+              },
+              "tt_bio_version": "0.13.1",
+              "date": "2026-10-10",
+              "note": "re-recorded 2026-10-10 on qb1 as the A/B reference (v0.13.1) of the 073d8d1ea release gate"
             },
             "esmc-300m-single": {
               "unit": "seq/s",
               "direction": "higher",
-              "value": 45.770375,
-              "latency_ms": 174.79,
+              "value": 43.997465,
+              "latency_ms": 181.83,
               "input": "8x ubiquitin (76 aa), batch 1",
               "sampling_steps": 10,
               "diffusion_samples": 1,
               "recycling_steps": 1,
               "num_timesteps": null,
+              "n_step": null,
               "num_designs": null,
               "warmup": 2,
               "repeat": 5,
               "hardware": "blackhole",
               "card_type": "p150a",
               "machine_id": "tt-quietbox",
-              "tt_bio_version": "0.6.5",
-              "date": "2026-08-22",
-              "note": "refresh the four qb1 p150a ESMC embed baselines, which had stopped gating: the old values read +99% to +349% slow against current main on this card. The 300m/600m batch-8 legs and esmc-300m-single are 785f0456 (the worker embed path moved onto the already-shipped threaded write_npz_many; that commit measured the old 16.737 seq/s baseline as 90.5% host zlib on this exact card, 47.13 ms device against 446.79 ms serial write). esmc-300m-single also carries 3bb206e7 (B=1 ttnn trace capture, 1.47x). esmc-6b is 2907613b (81 blocking device->host copies per forward cut to 1) on top of the same write fix. Measured on qb1 card 2 under the pinned release runtime (ttnn 0.68.0, torch 2.13.0). CAVEAT: these legs still time the whole predict_one wall, so roughly half of each is host zlib, and draw-to-draw spread on a busy qb1 measured 5-35% (esmc-300m 67.26/53.08, esmc-600m 61.83/58.93, esmc-300m-single 34.89/38.52, esmc-6b 6.31/8.54 seq/s over two draws) -- wider than the +-15% threshold. Take a second draw before believing a FAIL here. The structural fix is to gate the device_s that tt_bio/worker.py already reports separately, not the whole wall."
+              "host_load": {
+                "before": {
+                  "load1": 6.24,
+                  "load5": 6.49,
+                  "cpu_count": 32,
+                  "ratio": 0.195
+                },
+                "after": {
+                  "load1": 6.67,
+                  "load5": 6.58,
+                  "cpu_count": 32,
+                  "ratio": 0.208
+                },
+                "peak_ratio": 0.208
+              },
+              "tt_bio_version": "0.13.1",
+              "date": "2026-10-10",
+              "note": "re-recorded 2026-10-10 on qb1 as the A/B reference (v0.13.1) of the 073d8d1ea release gate"
             },
             "openfold3": {
               "unit": "structures/s",
               "direction": "higher",
-              "value": 0.964371,
-              "latency_ms": 1036.94,
+              "value": 1.088113,
+              "latency_ms": 919.02,
               "input": "trpcage (20 aa, single-seq)",
               "sampling_steps": 10,
               "diffusion_samples": 1,
               "recycling_steps": 1,
               "num_timesteps": null,
+              "n_step": null,
               "num_designs": null,
               "warmup": 2,
               "repeat": 5,
               "hardware": "blackhole",
               "card_type": "p150a",
               "machine_id": "tt-quietbox",
-              "tt_bio_version": "0.6.2",
-              "date": "2026-08-07",
-              "note": "seed p150a/tt-quietbox openfold3 baseline, v0.6.2, quiet host, fp32-DM default"
+              "host_load": {
+                "before": {
+                  "load1": 7.27,
+                  "load5": 7.06,
+                  "cpu_count": 32,
+                  "ratio": 0.227
+                },
+                "after": {
+                  "load1": 7.49,
+                  "load5": 7.11,
+                  "cpu_count": 32,
+                  "ratio": 0.234
+                },
+                "peak_ratio": 0.234
+              },
+              "tt_bio_version": "0.13.1",
+              "date": "2026-10-10",
+              "note": "re-recorded 2026-10-10 on qb1 as the A/B reference (v0.13.1) of the 073d8d1ea release gate"
             },
             "rf3": {
               "unit": "structures/s",
               "direction": "higher",
-              "value": 0.090824,
-              "latency_ms": 11010.34,
+              "value": 0.089876,
+              "latency_ms": 11126.38,
               "input": "trpcage (20 aa, single-seq)",
               "sampling_steps": 10,
               "diffusion_samples": 1,
               "recycling_steps": 1,
               "num_timesteps": null,
+              "n_step": null,
               "num_designs": null,
               "warmup": 2,
               "repeat": 5,
               "hardware": "blackhole",
               "card_type": "p150a",
               "machine_id": "tt-quietbox",
-              "tt_bio_version": "0.6.8",
-              "date": "2026-08-24",
-              "note": "reseed on the shipped fast arm (fp32_softmax=False + RF3-scoped ragged pad, b1e60d1d); previous row 2026-08-22 v0.6.5 measured the pre-flip arm. qb1 card 2, p150a 13x10, box quiet"
+              "host_load": {
+                "before": {
+                  "load1": 6.19,
+                  "load5": 6.86,
+                  "cpu_count": 32,
+                  "ratio": 0.193
+                },
+                "after": {
+                  "load1": 6.27,
+                  "load5": 6.51,
+                  "cpu_count": 32,
+                  "ratio": 0.196
+                },
+                "peak_ratio": 0.196
+              },
+              "tt_bio_version": "0.13.1",
+              "date": "2026-10-10",
+              "note": "re-recorded 2026-10-10 on qb1 as the A/B reference (v0.13.1) of the 073d8d1ea release gate"
             },
             "esmc-300m": {
               "unit": "seq/s",
               "direction": "higher",
-              "value": 72.960841,
-              "latency_ms": 109.65,
+              "value": 79.775061,
+              "latency_ms": 100.28,
               "input": "8x ubiquitin (76 aa), batch 8",
               "sampling_steps": 10,
               "diffusion_samples": 1,
               "recycling_steps": 1,
               "num_timesteps": null,
+              "n_step": null,
               "num_designs": null,
               "warmup": 2,
               "repeat": 5,
               "hardware": "blackhole",
               "card_type": "p150a",
               "machine_id": "tt-quietbox",
-              "tt_bio_version": "0.6.5",
-              "date": "2026-08-22",
-              "note": "refresh the four qb1 p150a ESMC embed baselines, which had stopped gating: the old values read +99% to +349% slow against current main on this card. The 300m/600m batch-8 legs and esmc-300m-single are 785f0456 (the worker embed path moved onto the already-shipped threaded write_npz_many; that commit measured the old 16.737 seq/s baseline as 90.5% host zlib on this exact card, 47.13 ms device against 446.79 ms serial write). esmc-300m-single also carries 3bb206e7 (B=1 ttnn trace capture, 1.47x). esmc-6b is 2907613b (81 blocking device->host copies per forward cut to 1) on top of the same write fix. Measured on qb1 card 2 under the pinned release runtime (ttnn 0.68.0, torch 2.13.0). CAVEAT: these legs still time the whole predict_one wall, so roughly half of each is host zlib, and draw-to-draw spread on a busy qb1 measured 5-35% (esmc-300m 67.26/53.08, esmc-600m 61.83/58.93, esmc-300m-single 34.89/38.52, esmc-6b 6.31/8.54 seq/s over two draws) -- wider than the +-15% threshold. Take a second draw before believing a FAIL here. The structural fix is to gate the device_s that tt_bio/worker.py already reports separately, not the whole wall."
+              "host_load": {
+                "before": {
+                  "load1": 6.27,
+                  "load5": 6.51,
+                  "cpu_count": 32,
+                  "ratio": 0.196
+                },
+                "after": {
+                  "load1": 6.24,
+                  "load5": 6.49,
+                  "cpu_count": 32,
+                  "ratio": 0.195
+                },
+                "peak_ratio": 0.196
+              },
+              "tt_bio_version": "0.13.1",
+              "date": "2026-10-10",
+              "note": "re-recorded 2026-10-10 on qb1 as the A/B reference (v0.13.1) of the 073d8d1ea release gate"
             },
             "esmc-6b": {
               "unit": "seq/s",
               "direction": "higher",
-              "value": 8.582401,
-              "latency_ms": 932.14,
+              "value": 9.155893,
+              "latency_ms": 873.75,
               "input": "8x ubiquitin (76 aa), batch 1",
               "sampling_steps": 10,
               "diffusion_samples": 1,
               "recycling_steps": 1,
               "num_timesteps": null,
+              "n_step": null,
               "num_designs": null,
               "warmup": 2,
               "repeat": 5,
               "hardware": "blackhole",
               "card_type": "p150a",
               "machine_id": "tt-quietbox",
-              "tt_bio_version": "0.6.5",
-              "date": "2026-08-22",
-              "note": "refresh the four qb1 p150a ESMC embed baselines, which had stopped gating: the old values read +99% to +349% slow against current main on this card. The 300m/600m batch-8 legs and esmc-300m-single are 785f0456 (the worker embed path moved onto the already-shipped threaded write_npz_many; that commit measured the old 16.737 seq/s baseline as 90.5% host zlib on this exact card, 47.13 ms device against 446.79 ms serial write). esmc-300m-single also carries 3bb206e7 (B=1 ttnn trace capture, 1.47x). esmc-6b is 2907613b (81 blocking device->host copies per forward cut to 1) on top of the same write fix. Measured on qb1 card 2 under the pinned release runtime (ttnn 0.68.0, torch 2.13.0). CAVEAT: these legs still time the whole predict_one wall, so roughly half of each is host zlib, and draw-to-draw spread on a busy qb1 measured 5-35% (esmc-300m 67.26/53.08, esmc-600m 61.83/58.93, esmc-300m-single 34.89/38.52, esmc-6b 6.31/8.54 seq/s over two draws) -- wider than the +-15% threshold. Take a second draw before believing a FAIL here. The structural fix is to gate the device_s that tt_bio/worker.py already reports separately, not the whole wall."
+              "host_load": {
+                "before": {
+                  "load1": 7.19,
+                  "load5": 6.69,
+                  "cpu_count": 32,
+                  "ratio": 0.225
+                },
+                "after": {
+                  "load1": 7.63,
+                  "load5": 6.85,
+                  "cpu_count": 32,
+                  "ratio": 0.238
+                },
+                "peak_ratio": 0.238
+              },
+              "tt_bio_version": "0.13.1",
+              "date": "2026-10-10",
+              "note": "re-recorded 2026-10-10 on qb1 as the A/B reference (v0.13.1) of the 073d8d1ea release gate"
             },
             "nesso1": {
               "unit": "affinities/s",
               "direction": "higher",
-              "value": 0.038486,
-              "latency_ms": 25983.68,
+              "value": 0.03236,
+              "latency_ms": 30902.03,
               "input": "affinity_fkg.yaml (FKBP12+SB3, L107, bf16 trunk, CLI defaults)",
               "sampling_steps": null,
               "diffusion_samples": null,
               "recycling_steps": null,
               "num_timesteps": null,
+              "n_step": null,
               "num_designs": null,
               "warmup": 0,
               "repeat": 3,
               "hardware": "blackhole",
               "card_type": "p150a",
               "machine_id": "tt-quietbox",
-              "tt_bio_version": "0.6.5",
-              "date": "2026-08-21",
-              "note": "seed: first cell for tt-bio affinity / nesso1, shipped CLI defaults on examples/affinity_fkg.yaml"
+              "host_load": {
+                "before": {
+                  "load1": 11.71,
+                  "load5": 10.58,
+                  "cpu_count": 32,
+                  "ratio": 0.366
+                },
+                "after": {
+                  "load1": 8.82,
+                  "load5": 9.79,
+                  "cpu_count": 32,
+                  "ratio": 0.276
+                },
+                "peak_ratio": 0.366
+              },
+              "tt_bio_version": "0.13.1",
+              "date": "2026-10-10",
+              "note": "re-recorded 2026-10-10 on qb1 as the A/B reference (v0.13.1) of the 073d8d1ea release gate"
             },
             "saprot-650m": {
               "unit": "seq/s",
               "direction": "higher",
-              "value": 262.22986,
-              "latency_ms": 30.51,
+              "value": 257.102877,
+              "latency_ms": 31.12,
               "input": "8x ubiquitin (76 aa), batch 8",
               "sampling_steps": 10,
               "diffusion_samples": 1,
@@ -1030,15 +1280,30 @@
               "hardware": "blackhole",
               "card_type": "p150a",
               "machine_id": "tt-quietbox",
-              "tt_bio_version": "0.7.3",
-              "date": "2026-09-10",
-              "note": "reseed on a genuinely idle qb1 (all four cards free, loadavg <1) and on the release venv (ttnn 0.68.0, torch 2.13.0), the interpreter the gate is documented to run. Replaces cells dated 2026-07-19 at 0.3.1. protenix-v2 lands below its old cell because the shipped token bucket pads the 20 aa fixture to 32: same tree and session, TT_BIO_PROTENIX_TOKEN_BUCKET=0 reads 1.49-1.51 against 1.32-1.34 default-on, and the old cell predates the bucket. saprot-650m gets its first qb1 machine cell; it had only the card-level fallback, which was measured on another machine."
+              "host_load": {
+                "before": {
+                  "load1": 7.63,
+                  "load5": 6.85,
+                  "cpu_count": 32,
+                  "ratio": 0.238
+                },
+                "after": {
+                  "load1": 8.1,
+                  "load5": 6.98,
+                  "cpu_count": 32,
+                  "ratio": 0.253
+                },
+                "peak_ratio": 0.253
+              },
+              "tt_bio_version": "0.13.1",
+              "date": "2026-10-10",
+              "note": "re-recorded 2026-10-10 on qb1 as the A/B reference (v0.13.1) of the 073d8d1ea release gate"
             },
             "protenix-v1": {
               "unit": "structures/s",
               "direction": "higher",
-              "value": 1.415139,
-              "latency_ms": 706.64,
+              "value": 1.668391,
+              "latency_ms": 599.38,
               "input": "trpcage (20 aa, single-seq)",
               "sampling_steps": 10,
               "diffusion_samples": 1,
@@ -1051,15 +1316,30 @@
               "hardware": "blackhole",
               "card_type": "p150a",
               "machine_id": "tt-quietbox",
-              "tt_bio_version": "0.7.3",
-              "date": "2026-09-10",
-              "note": "first p150a cells for these two. Both are SPECS models gate-covered on p300c and had no p150a entry at any layer, so the p150a gate reported NO BASELINE for them. Measured on an idle qb1 card 1, release venv (ttnn 0.68.0, torch 2.13.0)."
+              "host_load": {
+                "before": {
+                  "load1": 6.88,
+                  "load5": 7.0,
+                  "cpu_count": 32,
+                  "ratio": 0.215
+                },
+                "after": {
+                  "load1": 6.33,
+                  "load5": 6.87,
+                  "cpu_count": 32,
+                  "ratio": 0.198
+                },
+                "peak_ratio": 0.215
+              },
+              "tt_bio_version": "0.13.1",
+              "date": "2026-10-10",
+              "note": "re-recorded 2026-10-10 on qb1 as the A/B reference (v0.13.1) of the 073d8d1ea release gate"
             },
             "pxdesign": {
               "unit": "designs/s",
               "direction": "higher",
-              "value": 0.04145,
-              "latency_ms": 24125.71,
+              "value": 0.047515,
+              "latency_ms": 21045.86,
               "input": "PDL1.yaml (PD-L1 5O45 chain A, 196 tokens, 80-res binder, 400 steps)",
               "sampling_steps": null,
               "diffusion_samples": null,
@@ -1072,14 +1352,101 @@
               "hardware": "blackhole",
               "card_type": "p150a",
               "machine_id": "tt-quietbox",
-              "tt_bio_version": "0.7.3",
-              "date": "2026-09-10",
-              "note": "first p150a cells for these two. Both are SPECS models gate-covered on p300c and had no p150a entry at any layer, so the p150a gate reported NO BASELINE for them. Measured on an idle qb1 card 1, release venv (ttnn 0.68.0, torch 2.13.0)."
+              "host_load": {
+                "before": {
+                  "load1": 9.46,
+                  "load5": 10.02,
+                  "cpu_count": 32,
+                  "ratio": 0.296
+                },
+                "after": {
+                  "load1": 11.71,
+                  "load5": 10.58,
+                  "cpu_count": 32,
+                  "ratio": 0.366
+                },
+                "peak_ratio": 0.366
+              },
+              "tt_bio_version": "0.13.1",
+              "date": "2026-10-10",
+              "note": "re-recorded 2026-10-10 on qb1 as the A/B reference (v0.13.1) of the 073d8d1ea release gate"
+            },
+            "openbind": {
+              "unit": "structures/s",
+              "direction": "higher",
+              "value": 1.076751,
+              "latency_ms": 928.72,
+              "input": "trpcage (20 aa, single-seq)",
+              "sampling_steps": 10,
+              "diffusion_samples": 1,
+              "recycling_steps": 1,
+              "num_timesteps": null,
+              "n_step": null,
+              "num_designs": null,
+              "warmup": 2,
+              "repeat": 5,
+              "hardware": "blackhole",
+              "card_type": "p150a",
+              "machine_id": "tt-quietbox",
+              "host_load": {
+                "before": {
+                  "load1": 7.49,
+                  "load5": 7.11,
+                  "cpu_count": 32,
+                  "ratio": 0.234
+                },
+                "after": {
+                  "load1": 7.87,
+                  "load5": 7.21,
+                  "cpu_count": 32,
+                  "ratio": 0.246
+                },
+                "peak_ratio": 0.246
+              },
+              "tt_bio_version": "0.13.1",
+              "date": "2026-10-10",
+              "note": "re-recorded 2026-10-10 on qb1 as the A/B reference (v0.13.1) of the 073d8d1ea release gate"
+            },
+            "af2ig": {
+              "unit": "structures/s",
+              "direction": "higher",
+              "value": 1.585228,
+              "latency_ms": 630.82,
+              "input": "trpcage (20 aa, single-seq)",
+              "sampling_steps": 10,
+              "diffusion_samples": 1,
+              "recycling_steps": 1,
+              "num_timesteps": null,
+              "n_step": null,
+              "num_designs": null,
+              "warmup": 2,
+              "repeat": 5,
+              "hardware": "blackhole",
+              "card_type": "p150a",
+              "machine_id": "tt-quietbox",
+              "host_load": {
+                "before": {
+                  "load1": 6.62,
+                  "load5": 6.97,
+                  "cpu_count": 32,
+                  "ratio": 0.207
+                },
+                "after": {
+                  "load1": 6.19,
+                  "load5": 6.86,
+                  "cpu_count": 32,
+                  "ratio": 0.193
+                },
+                "peak_ratio": 0.207
+              },
+              "tt_bio_version": "0.13.1",
+              "date": "2026-10-10",
+              "note": "re-recorded 2026-10-10 on qb1 as the A/B reference (v0.13.1) of the 073d8d1ea release gate"
             }
           },
-          "date": "2026-08-17",
-          "tt_bio_version": "0.6.3",
-          "note": "reseeded on the runtime a pip install produces (release venv: ttnn 0.68.0, torch 2.13.0). The 0.019715 seed of 67c2f866 was taken under qb1 system python (ttnn 0.67.4, torch 2.11.0), which no user has; 92c286c6 then moved the gate onto the pinned runtime and the same tree reads 63-64 s there against 51 s under system python. ttnn is not the variable: holding torch at 2.13 and dropping ttnn to 0.67.4 also measures 63 s. Steady state is 63-64 s with a 1 s spread over four consecutive reps."
+          "date": "2026-10-10",
+          "tt_bio_version": "0.13.1",
+          "note": "re-recorded 2026-10-10 on qb1 as the A/B reference (v0.13.1) of the 073d8d1ea release gate"
         },
         "pc": {
           "models": {
