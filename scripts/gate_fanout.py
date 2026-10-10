@@ -307,9 +307,13 @@ def tests_hash(sha: str, family: str, repo: Path = REPO) -> str:
 RUNNER_FILES = ("scripts/gate_fanout.py", "scripts/release_next.py", "scripts/splice_ladder_fragments.py",
                 "scripts/gate_host_prep.sh", "scripts/flock_first.sh",
                 "tests/test_gate_fanout.py", "tests/test_release_next.py")
+#: The runner before flock_first.sh joined it, the key every ledger row before 2026-10-10 03Z
+#: was written under.
+RUNNER_FILES_0 = tuple(f for f in RUNNER_FILES if f != "scripts/flock_first.sh")
 
 
-def content_hash(sha: str, repo: Path = REPO, baselines: bool = False, tests: bool = False) -> str:
+def content_hash(sha: str, repo: Path = REPO, baselines: bool = False, tests: bool = False,
+                 runner: tuple = RUNNER_FILES) -> str:
     """Hash of every tracked file at `sha` except Markdown, from git's own blob ids.
 
     pyproject.toml is hashed without its `version =` line: the release commit bumps it, and that
@@ -334,7 +338,7 @@ def content_hash(sha: str, repo: Path = REPO, baselines: bool = False, tests: bo
     rows = []
     for ln in _ls_tree(sha, repo):
         path = ln.split("\t", 1)[-1]
-        if (path.endswith(".md") or path in recorded or path in RUNNER_FILES or path in only
+        if (path.endswith(".md") or path in recorded or path in runner or path in only
                 or (not baselines and path.startswith(_BASELINE_PATHS))):
             continue
         if path == "pyproject.toml":
@@ -604,7 +608,7 @@ class Host:
                  f"| grep -qxF -- {mark} && pkill -TERM -s $p; true; }}")   # -s: timeout moves the leg to its own group
         attempt = shlex.quote(f"echo $$ > {pidf}; {run}")
         return (f"mkdir -p {shlex.quote(out)} && {prior} && cd {self.tree} && {setup}"
-                f"exec env {mark} setsid -w bash -c {attempt}")
+                f"env {mark} setsid -w bash -c {attempt}")   # no exec: a pool job writes rc after it
 
 
 # ---------------------------------------------------------------------------------------------
@@ -996,7 +1000,8 @@ def main() -> int:
     roster = first[archs[0]].run_py(ENUMERATE)
     legs = select(build_legs(roster, test_files(sha), args.shards, args.record_lever, args.record_full),
                   [p for p in args.legs.split(",") if p])
-    content, legacy = content_hash(sha), content_hash(sha, baselines=True, tests=True)
+    content = content_hash(sha)
+    legacy = content_hash(sha, baselines=True, tests=True, runner=RUNNER_FILES_0)
     probes = {}
     for a in archs:
         for py in {first[a].python(lg.family) for lg in legs}:
@@ -1018,8 +1023,9 @@ def main() -> int:
     ledger = Ledger(args.ledger)
     # Rows written while test files were inside the content key (until 2026-10-09 21Z), at this
     # commit or at any commit with the same code, which a leg accepts when its own inputs match too.
-    tests_in = {s: content_hash(s, tests=True) for s in {sha} | ledger.shas()
-                if s == sha or _same_code(s, content)}
+    same = {s for s in {sha} | ledger.shas() if s == sha or _same_code(s, content)}
+    tests_in = {s: content_hash(s, tests=True, runner=RUNNER_FILES_0) for s in same}
+    runner_in = {s: content_hash(s, runner=RUNNER_FILES_0) for s in same}
     keys, results, todo = {}, [], {a: [] for a in archs}
     for lg in legs:
         for a in (archs if lg.card else [archs[0]]):
@@ -1035,10 +1041,11 @@ def main() -> int:
             # A row under an older key scheme proved the same code against the same inputs, so it
             # is as good as a row under the new one: baselines inside the content hash (legacy),
             # or test files inside it, at any commit whose code and this leg's inputs match.
-            olds = [leg_key(legacy, env, ct, hleg)] + [
-                leg_key(c, env, ct, hleg, base) for s, c in tests_in.items()
-                if s == sha or (baseline_hash(s, lg.family, model=model) == base
-                                and tests_hash(s, lg.family) == tst)]
+            match = {s for s in same if s == sha or (baseline_hash(s, lg.family, model=model) == base
+                                                     and tests_hash(s, lg.family) == tst)}
+            olds = ([leg_key(legacy, env, ct, hleg)]
+                    + [leg_key(tests_in[s], env, ct, hleg, base) for s in match]
+                    + [leg_key(runner_in[s], env, ct, hleg, base, tst) for s in match])
             hit = (None if args.no_reuse or not lg.card or lg.family == "record"
                    else next(filter(None, map(ledger.get, [k, *olds])), None))
             owes = owed_by(roster, ctype[a], lg)
