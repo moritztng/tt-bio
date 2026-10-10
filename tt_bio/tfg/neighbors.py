@@ -13,6 +13,8 @@ SparseClash           the rigid clash terms (energy, severe pairs, depth, gradie
                       pose scoring of the coarse searches.
 """
 
+import numba
+import numpy as np
 import torch
 
 SOFT = 0.85
@@ -94,6 +96,104 @@ def pairs_within(Q, P, r, query_order=False):
     o = torch.argsort(q * g.order.numel() + jpos)
     q = q[o]
     return q // M, q % M, g.order[jpos[o]] % g.N
+
+
+_HALF13 = np.array([(a, b, c) for a in (-1, 0, 1) for b in (-1, 0, 1) for c in (-1, 0, 1) if (a, b, c) > (0, 0, 0)],
+                   dtype=np.int64)
+
+
+@numba.njit(cache=True, nogil=True)
+def _interchain_cells(X, chain, allowed, r, half):
+    """Every (s, i, j) with chain[i] < chain[j], allowed[chain[i], chain[j]] and |X[s, i] - X[s, j]|^2 < r^2, in no
+    particular order. One cell grid of size r per sample; a cell pair is scanned only when it holds two chains that
+    may pair, so cells inside one chain (most of a protein) cost one mask test."""
+    S, N = X.shape[0], X.shape[1]
+    nc = allowed.shape[0]
+    use_mask = nc <= 63
+    amask = np.zeros(nc, dtype=np.int64)
+    for a in range(nc):
+        for b in range(nc):
+            if allowed[a, b] or allowed[b, a]:
+                amask[a] |= np.int64(1) << b
+    r2 = np.float32(r) * np.float32(r)
+    cap = 1 << 15
+    out = np.empty((cap, 3), dtype=np.int64)
+    n_out = 0
+    cell = np.empty((N, 3), dtype=np.int64)
+    for s in range(S):
+        lo = np.full(3, np.inf)
+        for n in range(N):
+            for k in range(3):
+                lo[k] = min(lo[k], X[s, n, k])
+        dims = np.zeros(3, dtype=np.int64)
+        for n in range(N):
+            for k in range(3):
+                c = int(np.floor((X[s, n, k] - lo[k]) / r))
+                cell[n, k] = c
+                dims[k] = max(dims[k], c + 1)
+        ncell = dims[0] * dims[1] * dims[2]
+        cnt = np.zeros(ncell + 1, dtype=np.int64)
+        key = np.empty(N, dtype=np.int64)
+        for n in range(N):
+            key[n] = (cell[n, 0] * dims[1] + cell[n, 1]) * dims[2] + cell[n, 2]
+            cnt[key[n] + 1] += 1
+        for c in range(ncell):
+            cnt[c + 1] += cnt[c]
+        fill = cnt[:-1].copy()
+        order = np.empty(N, dtype=np.int64)
+        cmask = np.zeros(ncell, dtype=np.int64)
+        pmask = np.zeros(ncell, dtype=np.int64)
+        for n in range(N):
+            order[fill[key[n]]] = n
+            fill[key[n]] += 1
+            if use_mask:
+                cmask[key[n]] |= np.int64(1) << chain[n]
+                pmask[key[n]] |= amask[chain[n]]
+        for ca in range(ncell):
+            if cnt[ca] == cnt[ca + 1]:
+                continue
+            ax = ca // (dims[1] * dims[2])
+            ay = (ca // dims[2]) % dims[1]
+            az = ca % dims[2]
+            for h in range(half.shape[0] + 1):
+                if h == half.shape[0]:
+                    cb = ca
+                else:
+                    bx, by, bz = ax + half[h, 0], ay + half[h, 1], az + half[h, 2]
+                    if bx < 0 or by < 0 or bz < 0 or bx >= dims[0] or by >= dims[1] or bz >= dims[2]:
+                        continue
+                    cb = (bx * dims[1] + by) * dims[2] + bz
+                if cnt[cb] == cnt[cb + 1] or (use_mask and (pmask[ca] & cmask[cb]) == 0):
+                    continue
+                for pa in range(cnt[ca], cnt[ca + 1]):
+                    i = order[pa]
+                    for pb in range(cnt[cb] if cb != ca else pa + 1, cnt[cb + 1]):
+                        j = order[pb]
+                        ci, cj = chain[i], chain[j]
+                        if ci == cj or not allowed[min(ci, cj), max(ci, cj)]:
+                            continue
+                        dx = X[s, i, 0] - X[s, j, 0]
+                        dy = X[s, i, 1] - X[s, j, 1]
+                        dz = X[s, i, 2] - X[s, j, 2]
+                        if (dx * dx + dy * dy) + dz * dz < r2:
+                            if n_out == cap:
+                                cap *= 2
+                                grown = np.empty((cap, 3), dtype=np.int64)
+                                grown[:n_out] = out[:n_out]
+                                out = grown
+                            out[n_out, 0] = s
+                            out[n_out, 1], out[n_out, 2] = (i, j) if ci < cj else (j, i)
+                            n_out += 1
+    return out[:n_out]
+
+
+def interchain_pairs(X, chain, allowed, r):
+    """(s, i, j) for every pair of atoms on two chains that may pair (chain[i] < chain[j], allowed) closer than r at
+    X [S, N, 3]; the same set as pairs_within run chain by chain against the later chains, up to fp32 rounding at
+    exactly r. Unordered."""
+    out = torch.from_numpy(_interchain_cells(X.detach().contiguous().numpy(), chain.contiguous().numpy(),
+                                             allowed.contiguous().numpy(), float(r), _HALF13))
+    return out[:, 0], out[:, 1], out[:, 2]
 
 
 def square_length(v):

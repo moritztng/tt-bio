@@ -885,7 +885,7 @@ class VinaStericPotential(Potential):
     def _pair_list(self, coords_b, feats, buf):
         """The cell-list pair list state (tt_bio.tfg.neighbors) valid at coords_b: only pairs within the largest active
         cutoff plus a skin are listed, and the list is reused while no atom has moved by half the skin."""
-        from .neighbors import pairs_within, square_length
+        from .neighbors import interchain_pairs, square_length
 
         key = (self._cache_key_from_feats(feats), tuple(coords_b.shape), buf)
         st = getattr(self, "_sparse", None)
@@ -906,23 +906,14 @@ class VinaStericPotential(Potential):
             rank = torch.empty_like(order)
             rank[order] = torch.arange(order.numel(), device=order.device)
             pos = rank - (torch.cumsum(cnt, 0) - cnt)[c_map]
-            members = [torch.nonzero(c_map == c).flatten() for c in range(n_chains)]
             st = self._sparse = dict(key=key, chain=c_map, r=r_atom, allowed=allowed, pos=pos, n_chains=n_chains,
-                                     search=[(members[c], torch.cat(members[c + 1:])) for c in range(n_chains - 1)],
                                      X=None, cut=float(2 * r_atom.max() * (1.0 - buf)), skin=self.SKIN)
         X = coords_b.detach()
         # rebuild once an atom may have moved by half the skin (1e-3 A short of it, so rounding cannot matter)
         if st["X"] is None or float(square_length(X - st["X"]).max()) >= (0.5 * st["skin"] - 1e-3) ** 2:
-            # search each chain only against the chains after it: no intra-chain or mirrored candidates
-            parts = []
-            for a, b in st["search"]:
-                if a.numel() and b.numel():
-                    s, i, j = pairs_within(X[:, a], X[:, b], st["cut"] + st["skin"])
-                    parts.append((s, a[i], b[j]))
-            s, i, j = (torch.cat(t) for t in zip(*parts)) if parts else (st["pos"][:0],) * 3
+            # inter-chain pairs that may pair only (chain i < chain j): no intra-chain or mirrored candidates
+            s, i, j = interchain_pairs(X, st["chain"], st["allowed"], st["cut"] + st["skin"])
             ci, cj = st["chain"][i], st["chain"][j]
-            keep = st["allowed"][ci, cj]
-            s, i, j, ci, cj = s[keep], i[keep], j[keep], ci[keep], cj[keep]
             n, nc, pos = X.shape[1], st["n_chains"], st["pos"]
             rank = (((s * nc + ci) * nc + cj) * n + pos[i]) * n + pos[j]
             o = torch.argsort(rank)
