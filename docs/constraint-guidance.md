@@ -82,7 +82,8 @@ required for an epitope, and for contacts unless the complex has exactly two cha
   mode alike. With bf16 diffusion the clean estimate carried more interface clashes, guidance
   re-docked those samples by large rotations, and the movable chains came back compressed about
   nine times as often as upstream's (9 of 90 samples against 1 of 90; 2 of 90 in fp32). fp32
-  costs about 20 % fold time on Wormhole at 1000 MHz (256 tokens 105.5 vs 87.0 s).
+  costs about 20 % fold time on Wormhole at 1000 MHz (256 tokens 105.5 vs 87.0 s). A guided fold
+  also skips the speed levers of either mode: with them on, 8 of 90 samples came back compressed.
 
 Without the flag nothing changes: the fold is the same as before, bit for bit. Contact pairs
 given without the flag are ignored with a warning; an epitope without the flag is an error,

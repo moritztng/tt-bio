@@ -87,8 +87,9 @@ def test_cli_refuses_an_unknown_precision(tmp_path):
     ("opendde", True, "bf16", False), ("opendde", False, None, None)])
 def test_guided_opendde_builds_fp32_under_fast(monkeypatch, model, guided, prec, want):
     # A guided run re-docks the movable chains on a clashing x0; bf16 diffusion compressed them
-    # ~9x as often as upstream, so guidance resolves to fp32 in every mode unless asked otherwise,
-    # and the warm-model key carries it so a resident bf16 --fast model is not reused.
+    # ~9x as often as upstream, and the bf16-operand levers brought part of that back, so guidance
+    # resolves to fp32 with no levers in every mode (precision only if asked otherwise), and the
+    # warm-model key carries both so a resident --fast or levered model is not reused.
     import tt_bio.opendde as O
     import tt_bio.tenstorrent as T
     from tt_bio import worker as W
@@ -101,5 +102,6 @@ def test_guided_opendde_builds_fp32_under_fast(monkeypatch, model, guided, prec,
            "diffusion_precision": prec}
     W._WorkerState("tenstorrent").load_model(cfg)
     assert seen["diffusion_fp32"] is want
+    assert seen["levers"] == (() if guided else None)
     unguided = {**cfg, "use_tfg_guidance": False}
-    assert (H.run_config_hash(cfg) != H.run_config_hash(unguided)) == (guided and prec is None)
+    assert (H.run_config_hash(cfg) != H.run_config_hash(unguided)) == guided

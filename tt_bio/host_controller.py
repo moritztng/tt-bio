@@ -49,9 +49,19 @@ def diffusion_precision(cfg: dict[str, Any]) -> str | None:
     (docs/constraint-guidance.md), so guided runs stay fp32 in every mode."""
     if cfg.get("diffusion_precision"):
         return cfg["diffusion_precision"]
-    if cfg.get("use_tfg_guidance") and cfg.get("model") in ("opendde", "opendde-abag"):
-        return "fp32"
-    return None
+    return "fp32" if _guided_opendde(cfg) else None
+
+
+def _guided_opendde(cfg: dict[str, Any]) -> bool:
+    return bool(cfg.get("use_tfg_guidance")) and cfg.get("model") in ("opendde", "opendde-abag")
+
+
+def run_levers(cfg: dict[str, Any]) -> tuple | None:
+    """The precision levers the run's model is built under: none for a guided OpenDDE run,
+    else None (the mode's set). The mode's bf16-operand levers brought the compressed chains
+    back under guidance (8 of 90 samples against 2 of 90 without them, upstream 1 of 90), so a
+    guided run builds exactly the configuration its accuracy was graded on."""
+    return () if _guided_opendde(cfg) else None
 
 
 def run_config_hash(cfg: dict[str, Any]) -> str:
@@ -68,6 +78,8 @@ def run_config_hash(cfg: dict[str, Any]) -> str:
     # it had before the option existed (a controller and its agents may run different versions).
     if prec := diffusion_precision(cfg):
         keep["diffusion_precision"] = prec
+    if run_levers(cfg) is not None:
+        keep["levers"] = list(run_levers(cfg))
     return hashlib.sha256(json.dumps(keep, sort_keys=True, default=str).encode()).hexdigest()
 
 
