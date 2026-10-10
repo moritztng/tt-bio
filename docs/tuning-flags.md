@@ -643,7 +643,9 @@ the lossless changes shipped alongside the set.
 epilogue, HiFi3 trunk matmuls, fused fp32 diffusion attention, the fp32 SiLU kernel), graded on its own
 11 complexes: on Wormhole the same-seed top pose moves 0.90 A median (4 seeds, 44 pairs) against a 1.78 A
 median between two seeds of the reference path, every paired confidence interval reaches zero and
-docking success is 24 of 44 on both. On the 730-token fold at 1000 MHz it takes 158.0 to 147.2 s.
+docking success is 24 of 44 on both. On a Blackhole p150a the same grade moves the top pose 1.20 A
+median against a 1.80 A seed floor, again with every interval reaching zero and docking success 24 of
+44 on both. On the 730-token fold at 1000 MHz it takes 158.0 to 147.2 s.
 A lever graded only on Protenix-v2 does not reach Boltz-2.
 
 Boltz-2's `--fast` is the shared fast set run on the normal path. The older block-fp8 fast path is off
