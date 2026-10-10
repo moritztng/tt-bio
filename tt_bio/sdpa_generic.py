@@ -668,6 +668,12 @@ def sdpa(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scal
            # since it is what stops the narrowed destination from colliding with the bf16 one.
            str(q.dtype), str(k.dtype), str(v.dtype), str(mask.dtype), str(out.dtype),
            q_chunk_size, k_chunk_size, grid, tuple(str(c) for c in ckc),
+           # `build` compiles the softmax scale into the writer and compute kernels. Without it
+           # here two sites with equal padded shapes and different head dims share a program:
+           # OpenFold3's template triangle attention (head_dim 16, padded to 32) ran first and
+           # handed its 1/4 to the trunk's head_dim-32 calls, rel_rms 1.07 against float64
+           # where the same call alone reads 0.022 (perf/spd/triatt_headdim.py).
+           float(scale),
            tuple(sorted((kw.get("defines_extra") or {}).items())),
            kw.get("mask_cb_tiles"), str(kw.get("kernel_dir")), kw.get("split"),
            kw.get("kv_buffer_factor"),

@@ -2386,7 +2386,7 @@ _NA_HEADER_TYPES = {"rna": "rna", "rnasequence": "rna", "dna": "dna", "dnasequen
 #: complex one chain short, `constrains:` folded without the covalent bond, both status=ok.
 #: What a MODEL does with a key it cannot honour is a separate question, answered by the one
 #: table in tt_bio/capabilities.py.
-_DOC_KEYS = frozenset({"version", "sequences", "constraints", "properties", "templates"})
+_DOC_KEYS = frozenset({"version", "sequences", "constraints", "properties", "templates", "constraint"})
 _ENTRY_KEYS = frozenset({"protein", "rna", "dna", "ligand"})
 _POLYMER_KEYS = frozenset({"id", "sequence", "msa", "modifications", "cyclic", "templates"})
 _LIGAND_KEYS = frozenset({"id", "ccd", "smiles"})
@@ -2536,6 +2536,16 @@ def _read_modifications(sub: dict, key: str):
                 f"modification {mod!r} on {key} chain {sub.get('id', 'A')} needs a "
                 f"1-indexed position within the sequence (length {seq_len}) and a ccd code.")
     return [dict(mod) for mod in mods]
+
+
+def _read_bio_constraint(path):
+    """The input's top-level ``constraint:`` block (OpenDDE 1.2.0 guided sampling), or None.
+    Its content is upstream's JSON ``constraint`` field unchanged; tt_bio.tfg.features
+    validates it."""
+    if path.suffix.lower() not in (".yml", ".yaml"):
+        return None
+    import yaml
+    return (yaml.safe_load(path.read_text()) or {}).get("constraint")
 
 
 def _read_bio_constraints(path):
@@ -2698,7 +2708,10 @@ def _write_protenix_structure(coords, feats, aatype, outpath, output_format, b_f
 
     `chain_ids` is the reader's chain list, one id per asym_id in order. Without it the chains
     are written A, B, C..., so a ligand submitted as L came back as B and any script selecting
-    a chain by the id it submitted read the wrong one."""
+    a chain by the id it submitted read the wrong one.
+
+    A protein chain's terminal OXT that fails OpenDDE's geometry gates is rebuilt from the
+    CCD ideal carboxylate before writing (tt_bio.oxt), on a copy of `coords`."""
     import biotite.structure as struc
     import biotite.structure.io.pdbx as _pdbx
     import numpy as np
@@ -2740,6 +2753,11 @@ def _write_protenix_structure(coords, feats, aatype, outpath, output_format, b_f
         arr.element[i] = z2sym.get(int(znum[i]), "C")
         arr.hetero[i] = is_lig_tok[t] or mod is not None
     outpath = Path(outpath)
+    # an OXT the diffusion left on O/C or detached is rebuilt from the CCD geometry
+    # (OpenDDE 6685cef); arr.coord is already a copy, the caller's coords are untouched
+    from tt_bio.oxt import repair_terminal_oxt_from_feats
+    arr.coord, _ = repair_terminal_oxt_from_feats(arr.coord, feats, arr.atom_name, arr.res_name,
+                                                  where=outpath)
     if output_format == "pdb":
         write_atom_array(arr, outpath)
     else:
@@ -3128,6 +3146,14 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
               help="Replay a captured ttnn trace of the per-step diffusion DiT device "
                    "stream (lossless; collapses per-step host dispatch). boltz2 only. "
                    "Opt-in; reserves 0.2-0.3 GB of device memory.")
+@click.option("--use_tfg_guidance", is_flag=True,
+              help="opendde and opendde-abag. Guided sampling (OpenDDE 1.2.0): apply the input's "
+                   "`constraint:` block (contact pairs or an epitope) by moving the movable "
+                   "chains as a rigid body during diffusion, plus physics restraints on every "
+                   "step. See docs/constraint-guidance.md.")
+@click.option("--trunk_cache", type=click.Path(file_okay=False), default=None,
+              help="opendde and opendde-abag. Directory that keeps each fold's trunk output, so "
+                   "inputs that differ only in their `constraint:` compute the trunk once.")
 @click.option("--write_pae", is_flag=True,
               help="Write <name>_pae.npz per target: the full PAE matrix, PDE and contact "
                    "probabilities wherever the model's heads compute them, with a "
@@ -3196,7 +3222,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
             seed, use_msa_server, msa_db_path, msa_dir_opt, msa_cache_only, use_envdb, single_sequence, msa_endpoint, msa_server_url, msa_pairing_strategy,
             msa_server_username, msa_server_password, api_key_value, use_potentials,
             method, max_msa_seqs, subsample_msa, num_subsampled_msa, no_kernels, trace, diffusion_trace,
-            write_pae, contact_cutoff, write_pde, write_embeddings, heads, affinity_mw_correction,
+            use_tfg_guidance, trunk_cache, write_pae, contact_cutoff, write_pde, write_embeddings, heads, affinity_mw_correction,
             sampling_steps_affinity, diffusion_samples_affinity, affinity_checkpoint,
             num_devices, device_ids, host_threads, fast, diffusion_precision, debug, log,
             report_energy, energy_sample_hz, energy_metric, controller, run_id, owner, model):
@@ -3353,7 +3379,9 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
                                          "--write_pde": write_pde,
                                          "--write_embeddings": write_embeddings,
                                          "--max_msa_seqs": msa_cap is not None,
-                                         "--diffusion_precision": diffusion_precision is not None}):
+                                         "--diffusion_precision": diffusion_precision is not None,
+                                         "--use_tfg_guidance": use_tfg_guidance,
+                                         "--trunk_cache": trunk_cache is not None}):
             click.secho(note, fg="yellow")
         # ESMFold2's ESMC-6B language model is ~12.8 GB resident in normal precision
         # and does not fit a Wormhole chip's ~12 GB DRAM (OOM at every length). The
@@ -3438,6 +3466,8 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
             "msa_cap": msa_cap,
             "msa_cache_only": msa_cache_only,
             "write_pae": write_pae, "contact_cutoff": contact_cutoff,
+            "use_tfg_guidance": use_tfg_guidance,
+            "trunk_cache": str(Path(trunk_cache).expanduser().resolve()) if trunk_cache else None,
             "checkpoint": str(Path(checkpoint).resolve()) if checkpoint else None,
             "heads": list(heads),
         }

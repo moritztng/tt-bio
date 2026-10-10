@@ -405,37 +405,49 @@ class OF3DiffusionModule(Module):
                          enc_mask_bias, atom_to_token_mean_tt, token_mask_pad_tt,
                          tok_mask_col_pad_tt, n_atom, NP, nb, n_token, n_tok_pad,
                          sigma_data, cache):
-        """``S`` noised structures through ONE token-DiT call instead of ``S`` of them.
+        """``S`` noised structures through one encoder, one token DiT and one decoder call.
 
         ``samples`` is ``[(si, rl_noisy, xl_noisy, t), ...]``; the return is one ``xl_out``
-        per entry, in order. The 24-block DiT is the only stage that takes the axis, and
-        that is deliberate:
+        per entry, in order. Only the per-sample token aggregation (``_pre_dit``) and the EDM
+        scaling loop over the samples; everything else takes the axis as its leading dim:
 
-        * It is the token-level stage, 3-D and 4-D throughout, so a leading sample dim is
-          just a taller matmul. The atom-level encoder and decoder carry ``plm``
-          ``[1, nb, 32, 128, 16]`` and ``enc_mask_bias`` ``[1, nb, 1, 32, 128]``, which are
-          already 5-D; a sample axis there wants a 6th dimension ttnn does not take, and
-          tiling ``plm`` would multiply the module's largest tensor by ``S``.
-        * At 384 tokens the DiT's M dimension is 12 tiles against a 11x10 core grid, so at
-          batch 1 the matmuls cannot fill a grid axis however they are split. ``S`` multiplies
-          exactly that dimension.
-        * The per-block pair bias is a pure function of ``zij``, so it stays ``[1, 16, N, N]``,
-          stays in ``cache``, and broadcasts over the sample axis in the QK-scale add. It is
-          never replicated -- the same call Protenix makes at ``protenix.py:1462``.
+        * The atom encoder and decoder stack the samples on the leading dim of the evolving
+          atom rep only. ``plm``, the masks and every per-block invariant stay ``[1, ...]``
+          and broadcast, so nothing the size of the pair is replicated. This is one call per
+          step instead of S, but not faster: at 730 tokens on Wormhole the same-chip A/B read
+          235.05 s per sample against 235.14 s batched, because the atom transformers are
+          device-bound and their cost scales with S.
+        * The 24-block DiT is 3-D and 4-D throughout, so a leading sample dim is a taller
+          matmul. Its per-block pair bias is a pure function of ``zij``, stays
+          ``[1, 16, N, N]`` in ``cache`` and broadcasts in the QK-scale add, the same call
+          Protenix makes. Its conditioning ``si`` is one per step, so it stays ``[1, N, 384]``
+          and every block's conditioning linears run once, not S times.
 
         At ``len(samples) == 1`` this runs exactly the ops ``_post_encoder`` runs, in the same
         order, with no concat and no slice: the S=1 arm is the A/B control and it is
         bit-identical to the loop by construction, not by measurement.
         """
         S = len(samples)
-        ql, ai = [], []
-        for si_k, rl_k, _xl_k, _t_k in samples:
-            ql_pad = self.npe.ql_at_np(cl_pad, rl_k)               # [1, NP, 128]
-            q = self.enc_at(ql_pad, cl_pad, plm, atom_mask_col, enc_key_block_idxs_tt,
-                            enc_valid_mask, enc_mask_bias, n_atom, NP, nb, cache=cache)
-            ttnn.deallocate(ql_pad)
-            ql.append(q)
-            ai.append(self._pre_dit(q, si_k, atom_to_token_mean_tt, n_token, n_tok_pad)[0])
+        rl = samples[0][1] if S == 1 else stack_samples([x[1] for x in samples])
+        ql_pad = self.npe.ql_at_np(cl_pad, rl)                     # [S, NP, 128]
+        if S > 1:
+            ttnn.deallocate(rl)
+        ql = self.enc_at(ql_pad, cl_pad, plm, atom_mask_col, enc_key_block_idxs_tt,
+                         enc_valid_mask, enc_mask_bias, n_atom, NP, nb, cache=cache)
+        ttnn.deallocate(ql_pad)
+        # The samples of one step share their noise level, so the sampler hands every one the
+        # same ``si``. Its glue term and the DiT's conditioning are then computed once and
+        # broadcast over the axis instead of once per sample.
+        si = samples[0][0]
+        shared = all(x[0] is si for x in samples)
+        glue = self._si_glue(si, n_token) if shared and S > 1 else None
+        # The token aggregation is per sample: its [1, n_token, n_atom] mean matrix is the
+        # matmul's in0, and ttnn broadcasts a batch over in1 only.
+        ai = [self._pre_dit(ql if S == 1 else ql[k:k + 1], si_k, atom_to_token_mean_tt,
+                            n_token, n_tok_pad, si_proj=glue)[0]
+              for k, (si_k, _rl, _xl, _t) in enumerate(samples)]
+        if glue is not None:
+            ttnn.deallocate(glue)
 
         # At S=1 nothing is stacked and nothing is sliced, so the control arm allocates
         # exactly what the per-replicate loop allocates. Above 1 the parts are freed as soon
@@ -443,27 +455,25 @@ class OF3DiffusionModule(Module):
         # evicts instead, so this costs a taped step nothing and gives an inference one back
         # S-1 copies of the largest tensor on the token path.
         if S == 1:
-            a_b, s_b = ai[0], samples[0][0]
+            a_b, s_b = ai[0], si
         else:
-            a_b, s_b = stack_samples(ai), stack_samples([x[0] for x in samples])
+            a_b = stack_samples(ai)
+            s_b = si if shared else stack_samples([x[0] for x in samples])
             for t in ai:
                 ttnn.deallocate(t)
         a_b = self.dit(a_b, s_b, zij, token_mask_pad_tt, tok_mask_col_pad_tt, cache=cache)
-        if S > 1:
+        if s_b is not si:
             ttnn.deallocate(s_b)
 
-        # Every slice before any decoder runs, so the batched result is freed once rather than
-        # held across S atom-decoder calls.
-        parts = [a_b] if S == 1 else [a_b[k:k + 1] for k in range(S)]
-        if S > 1:
-            ttnn.deallocate(a_b)
-        out = []
-        for k, (_si_k, _rl_k, xl_k, t_k) in enumerate(samples):
-            out.append(self._post_dit(
-                parts[k], ql[k], None, None, None, cl_pad, plm, xl_k,
-                atom_mask_col, atom_mask_col_na, atom_to_token_idx_tt,
-                enc_key_block_idxs_tt, enc_valid_mask, enc_mask_bias,
-                n_atom, NP, nb, t_k, sigma_data, False, cache))
+        rl_update = self._decode(a_b, ql, cl_pad, plm, atom_mask_col, atom_to_token_idx_tt,
+                                 enc_key_block_idxs_tt, enc_valid_mask, enc_mask_bias,
+                                 n_atom, NP, nb, cache)            # [S, n_atom, 3]
+        if S == 1:
+            return [self._edm(samples[0][2], rl_update, atom_mask_col_na, samples[0][3],
+                              sigma_data)]
+        out = [self._edm(xl_k, rl_update[k:k + 1], atom_mask_col_na, t_k, sigma_data)
+               for k, (_si, _rl, xl_k, t_k) in enumerate(samples)]
+        ttnn.deallocate(rl_update)
         return out
 
     def _invariants(self, cl0, plm0, si_trunk, zij, atom_mask_col,
@@ -494,13 +504,24 @@ class OF3DiffusionModule(Module):
             enc_key_block_idxs_tt, enc_valid_mask, enc_mask_bias,
             n_atom, NP, nb, t, sigma_data, _return_intermediates, cache)
 
+    def _si_glue(self, si, n_token):
+        """linear_s(LN_s(si)) [1, n_token, 768]: the noise-level glue added to the aggregation."""
+        si_ln = ttnn.layer_norm(si, weight=self.ln_s_w, epsilon=1e-5,
+                                compute_kernel_config=self.compute_kernel_config)
+        si_proj = self._lin(si_ln, self.w_ls)                  # [1, n_tok_pad, 768]
+        ttnn.deallocate(si_ln)
+        si_proj = ttnn.to_layout(si_proj, ttnn.ROW_MAJOR_LAYOUT)
+        si_proj = ttnn.slice(si_proj, [0, 0, 0], [1, n_token, 768])
+        return ttnn.to_layout(si_proj, ttnn.TILE_LAYOUT)
+
     def _pre_dit(self, ql_enc, si, atom_to_token_mean_tt, n_token, n_tok_pad,
-                 _return_intermediates=False):
+                 _return_intermediates=False, si_proj=None):
         """Encoder output -> the DiT's input ``ai_pad`` [1, n_tok_pad, 768], one sample.
 
         Split out of ``_post_encoder`` so the sample-batched route runs the same ops in the
-        same order rather than a second copy of them. Everything here is per-sample: ``ql``
-        carries the noisy coordinates and ``si`` carries the noise-level embedding.
+        same order rather than a second copy of them. ``ql`` carries the noisy coordinates and
+        ``si`` the noise-level embedding; a caller whose samples share ``si`` passes its glue
+        ``si_proj`` (``_si_glue``) once for all of them.
         """
         lin = self._lin
 
@@ -510,15 +531,12 @@ class OF3DiffusionModule(Module):
                          compute_kernel_config=self.compute_kernel_config)  # [1, n_token, 768]
         ttnn.deallocate(qproj)
         # Glue: ai += linear_s(LN_s(si)) (si tile-padded; slice the result to n_token).
-        si_ln = ttnn.layer_norm(si, weight=self.ln_s_w, epsilon=1e-5,
-                                compute_kernel_config=self.compute_kernel_config)
-        si_proj = lin(si_ln, self.w_ls)                        # [1, n_tok_pad, 768]
-        ttnn.deallocate(si_ln)
-        si_proj = ttnn.to_layout(si_proj, ttnn.ROW_MAJOR_LAYOUT)
-        si_proj = ttnn.slice(si_proj, [0, 0, 0], [1, n_token, 768])
-        si_proj = ttnn.to_layout(si_proj, ttnn.TILE_LAYOUT)
+        own = si_proj is None
+        if own:
+            si_proj = self._si_glue(si, n_token)
         ai = ttnn.add(ai, si_proj)
-        ttnn.deallocate(si_proj)
+        if own:
+            ttnn.deallocate(si_proj)
         ai_postglue = ttnn.clone(ai) if _return_intermediates else None
 
         # Feed the DiT padded (n_tok_pad) with the padded token mask.
@@ -533,16 +551,28 @@ class OF3DiffusionModule(Module):
                   n_atom, NP, nb, t, sigma_data, _return_intermediates, cache):
         """DiT output -> ``xl_out`` [1, n_atom, 3], one sample. The other half of the split."""
         ai_postdit = ttnn.clone(ai_pad) if _return_intermediates else None
+        rl_update = self._decode(ai_pad, ql_enc, cl_pad, plm, atom_mask_col,
+                                 atom_to_token_idx_tt, enc_key_block_idxs_tt, enc_valid_mask,
+                                 enc_mask_bias, n_atom, NP, nb, cache)
+        rl_update_cp = ttnn.clone(rl_update) if _return_intermediates else None
+        xl_out = self._edm(xl_noisy, rl_update, atom_mask_col_na, t, sigma_data)
+        if _return_intermediates:
+            return xl_out, ai_postglue, ai_postdit, rl_update_cp, plm_postpu, ql_enc_cp
+        return xl_out
 
+    def _decode(self, ai_pad, ql_enc, cl_pad, plm, atom_mask_col, atom_to_token_idx_tt,
+                enc_key_block_idxs_tt, enc_valid_mask, enc_mask_bias, n_atom, NP, nb, cache):
+        """DiT output [S, n_tok_pad, 768] + encoder ql [S, n_atom, 128] -> ``rl_update``
+        [S, n_atom, 3]. Consumes both inputs."""
         # --- layer_norm_a (fresh glue), keep padded for the decoder. ---
         ai_ln = ttnn.layer_norm(ai_pad, weight=self.ln_a_w, epsilon=1e-5,
                                 compute_kernel_config=self.compute_kernel_config)
         ttnn.deallocate(ai_pad)
 
-        # --- AtomAttentionDecoder (gated) -> rl_update [1, n_atom, 3]. ---
+        # --- AtomAttentionDecoder (gated) -> rl_update [S, n_atom, 3]. ---
         # Decoder reuses the encoder's ql (atom_transformer output), cl, and the
         # post-pair-update plm -- the same (ql, cl, plm) the reference decoder consumes.
-        ql_dec = pad_dim(ql_enc, self._act_dtype, n_atom, NP)  # [1, NP, 128]
+        ql_dec = pad_dim(ql_enc, self._act_dtype, n_atom, NP)  # [S, NP, 128]
         if ql_dec is not ql_enc:
             ttnn.deallocate(ql_enc)
         rl_update = self.dec(ai_ln, ql_dec, cl_pad, plm, atom_mask_col,
@@ -550,9 +580,12 @@ class OF3DiffusionModule(Module):
                              enc_valid_mask, enc_mask_bias, n_atom, NP, nb,
                              cache=cache)
         ttnn.deallocate(ai_ln); ttnn.deallocate(ql_dec)
-        rl_update_cp = ttnn.clone(rl_update) if _return_intermediates else None
+        return rl_update
 
-        # --- EDM output scaling (fresh) -> xl_out. ---
+    @staticmethod
+    def _edm(xl_noisy, rl_update, atom_mask_col_na, t, sigma_data):
+        """EDM output scaling (fresh): ``xl_out = c_skip * xl_noisy + c_out * rl_update``,
+        atom-masked; consumes ``rl_update``."""
         sd2 = sigma_data * sigma_data
         t2 = t * t
         c_skip = sd2 / (sd2 + t2)
@@ -560,7 +593,4 @@ class OF3DiffusionModule(Module):
         xl_out = ttnn.add(ttnn.multiply(xl_noisy, c_skip),
                           ttnn.multiply(rl_update, c_out))
         ttnn.deallocate(rl_update)
-        xl_out = ttnn.multiply(xl_out, atom_mask_col_na)
-        if _return_intermediates:
-            return xl_out, ai_postglue, ai_postdit, rl_update_cp, plm_postpu, ql_enc_cp
-        return xl_out
+        return ttnn.multiply(xl_out, atom_mask_col_na)

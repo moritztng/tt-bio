@@ -1589,7 +1589,7 @@ def _print_table(rows: list[dict], baselines: dict, card_type: str, machine_id: 
           f"|  tt-bio {rows[0].get('tt_bio_version', '?')}  |  input: {shown}")
     if not have_card:
         msg = (f"GATE FAIL — no baseline recorded for card type '{card_type}' in "
-               f"{BASELINE_FILE.relative_to(REPO_ROOT)}. Seed it on a {card_type} "
+               f"{BASELINE_FILE}. Seed it on a {card_type} "
                f"card with: python3 scripts/perf_regression.py --update-baseline "
                f"--note \"seed {card_type} baseline\"")
     elif all_pass:
@@ -1739,6 +1739,10 @@ def main() -> int:
                          "number; say why in --note.")
     ap.add_argument("--note", default=None,
                     help="Required with --update-baseline: why this perf change is intended.")
+    ap.add_argument("--against", type=Path, default=None, metavar="TREE",
+                    help="A/B in one session: measure TREE (a checkout of the last release) on "
+                         "this card first, then gate against those numbers instead of the "
+                         "committed cells, which can be months old.")
     # internal: the per-model in-process measurement subprocess
     ap.add_argument("--measure", metavar="MODEL", help=argparse.SUPPRESS)
     ap.add_argument("--out", type=Path, default=None, help=argparse.SUPPRESS)
@@ -1758,7 +1762,29 @@ def main() -> int:
             print(f"[{args.measure}] measurement error: {e}", file=sys.stderr)
             return 1
 
+    if args.against:
+        _measure_reference(args)
     return cmd_gate(args)
+
+
+def _measure_reference(args) -> None:
+    """Run the reference tree's own perf_regression.py with --update-baseline on this card, in
+    this session and interpreter, then point the gate at the file it wrote. Its numbers land in
+    the reference tree's copy of docs/perf_baselines.json, never in this tree's."""
+    global BASELINE_FILE
+    tree = args.against.resolve()
+    argv = [sys.executable, str(tree / "scripts" / "perf_regression.py"), "--update-baseline",
+            "--allow-contended", "--note", f"A/B reference for {REPO_ROOT}, same card and session"]
+    for m in args.model or []:
+        argv += ["--model", m]
+    print(f"A/B reference: {tree}", flush=True)
+    env = {**os.environ, "PYTHONPATH": os.pathsep.join(
+        [str(tree)] + [q for q in os.environ.get("PYTHONPATH", "").split(os.pathsep)
+                       if q and Path(q).resolve() != REPO_ROOT.resolve()])}
+    rc = subprocess.run(argv, cwd=tree, env=env).returncode
+    if rc:
+        sys.exit(f"GATE FAIL — the A/B reference run in {tree} exited {rc}")
+    BASELINE_FILE = tree / "docs" / "perf_baselines.json"
 
 
 if __name__ == "__main__":

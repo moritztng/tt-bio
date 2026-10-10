@@ -52,6 +52,20 @@ CONF_TOL = 0.005  # normal: tolerated mean pLDDT / ipTM drop (fast bar is 0.03)
 SUCCESS = 0.23
 
 
+
+def _default_jobs():
+    """Cores - 2, but never more workers than the free memory carries: a large-complex worker holds ~1.5-2 GB, and on
+    2026-10-10 two runs at cores - 2 = 10 workers each took pc (30 GB, no swap) into the OOM killer until it hung."""
+    env = os.environ.get("SPD_GRADE_JOBS")
+    if env:
+        return max(1, int(env))
+    cores = max(1, (os.cpu_count() or 2) - 2)
+    try:
+        avail_kb = next(int(l.split()[1]) for l in open("/proc/meminfo") if l.startswith("MemAvailable:"))
+        return max(1, min(cores, int(avail_kb / (2.5 * 1024 * 1024))))
+    except (OSError, StopIteration, ValueError):
+        return min(cores, 4)
+
 def lddt_ca(P, Q):
     dq = np.linalg.norm(Q[:, None] - Q[None], axis=-1)
     dp = np.linalg.norm(P[:, None] - P[None], axis=-1)
@@ -142,7 +156,9 @@ def main():
     ap.add_argument("--data", type=Path, default=Path("~/spd-data").expanduser())
     ap.add_argument("--out", type=Path)
     ap.add_argument("--min-seeds", type=int, default=4, help="charter: 4; lower only to test the harness")
-    ap.add_argument("--jobs", type=int, default=max(1, (os.cpu_count() or 2) - 2))
+    ap.add_argument("--jobs", type=int, default=_default_jobs(),
+                    help="worker processes (default: cores - 2, capped so each worker gets ~2.5 GB of the memory "
+                         "available now; SPD_GRADE_JOBS overrides)")
     a = ap.parse_args()
 
     reps = []

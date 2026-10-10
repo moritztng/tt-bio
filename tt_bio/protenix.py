@@ -43,7 +43,8 @@ from .protenix_weights import remap_adaln  # single source of all v2->tt-bio wei
 from . import ops
 from .tenstorrent import (Module, CORE_GRID_MAIN, get_device, dram_peak,
                           MSA_CHUNK_SIZE, batched_matmul, msa_depth_chunks, host_park,
-                          host_unpark, msa_embed, msa_update_chunks, pair_row_blocks,
+                          host_unpark, msa_embed, msa_row_bucket, msa_rows_host, msa_update_chunks,
+                          pair_row_blocks,
                           row_block_after_refusal, device_generation, accurate_softmax_site,
                           softmax_ckc, host_f64_softmax_site, site_softmax, stack_samples)
 from . import tenstorrent as _T   # for the module-level A/B toggles, which must be read live
@@ -592,6 +593,43 @@ class AtomTransformer(_KeyedWeights, Module):
             fp32_dest_acc_en=False, packer_l1_acc=False)
         self._sdpa32 = _ATOM_SDPA32 and dtype == ttnn.float32 and _ATOM_SUPERSET
         self._kvwin = _ATOM_KV_WINDOW
+        # atom_k1: the fp32 linears on k1_linear's program (one K tile per dest pass on Wormhole).
+        self._k1 = _T.lever("atom_k1") and dtype == ttnn.float32
+        # atom_mm16: the fp32 superset attention's linears on bf16 operands with fp32 accumulation. The
+        # adaLN outputs, q/k/v, the gate and the swiglu hidden are written bf16; the two output projections,
+        # the residual stream and the superset bias stay fp32.
+        self._mm16 = _T.lever("atom_mm16") and self._sdpa32 and self._tile_heads
+
+    def _w16(self, key, transpose=True):
+        cache = self.__dict__.setdefault("_wc16", {})
+        v = cache.get((key, transpose))
+        if v is None:
+            w = self._w[key]
+            v = cache[(key, transpose)] = ttnn.from_torch(w.t().contiguous() if transpose else w,
+                                                          layout=ttnn.TILE_LAYOUT, device=get_device(),
+                                                          dtype=ttnn.bfloat16)
+        return v
+
+    def _lin(self, x, wkey, bkey=None, activation=None, dtype=None):
+        """`dtype`: what an `atom_mm16` linear (a bf16 `x`) writes, bf16 unless given."""
+        if self._mm16 and x.dtype == ttnn.bfloat16:
+            return _T.k1_linear(x, self._w16(wkey), self._w16(bkey, False) if bkey else None,
+                                dtype=dtype or ttnn.bfloat16, activation=activation,
+                                compute_kernel_config=self.compute_kernel_config)
+        w = self._w_tt(wkey)
+        # One K tile leaves the program no K blocking to choose: those keep the shared path.
+        if not self._k1 or int(w.padded_shape[0]) <= 32:
+            return super()._lin(x, wkey, bkey, activation)
+        return _T.k1_linear(x, w, self._w_tt(bkey, False) if bkey else None, dtype=self.dtype,
+                            activation=activation, compute_kernel_config=self.compute_kernel_config)
+
+    def _lin_g(self, q_norm, apb):
+        """The attention gate's linear: no narrow-projection offer and the input's dtype, as before."""
+        key = apb + "attention.linear_g.weight"
+        if self._k1 or self._mm16:
+            return self._lin(q_norm, key)
+        return ttnn.linear(q_norm, self._w_tt(key), compute_kernel_config=self.compute_kernel_config,
+                           core_grid=CORE_GRID_MAIN)
 
     def _adaln_mod(self, pre):
         # Cache the AdaLN module per prefix: constructing it re-uploads its 4 weights
@@ -608,8 +646,8 @@ class AtomTransformer(_KeyedWeights, Module):
             cache[pre] = ada
         return ada
 
-    def _adaln(self, a, s, pre, s_terms=None):
-        return self._adaln_mod(pre)(a, s, s_terms=s_terms)
+    def _adaln(self, a, s, pre, s_terms=None, dtype=None):
+        return self._adaln_mod(pre)(a, s, s_terms=s_terms, dtype=dtype)
 
     @staticmethod
     def _prefixes(b):
@@ -756,14 +794,19 @@ class AtomTransformer(_KeyedWeights, Module):
                               compute_kernel_config=self._sdpa_ckc)
         elif self._sdpa or self._sdpa32:
             from . import sdpa_generic as SG
+            kc = W
             if self._sdpa32:
                 g = self.device.compute_with_storage_grid_size()
                 grid, ckc = (g.x, g.y), _ATOM_SDPA32_CKC
+                # Wormhole: a W-key chunk accumulates W/32 PV tiles in the fp32 dest and writes an occasional
+                # wrong value (-4.8 for -0.02, perf/spd_wherr/sdpa_probe.py --window); one key tile per chunk does not.
+                if self.device.arch() == ttnn.Arch.WORMHOLE_B0:
+                    kc = 32
             else:
                 grid, ckc = tuple(_T.COMPUTE_GRID_MAIN), _ATOM_SDPA_CKC
             o = ttnn.allocate_tensor_on_device(ttnn.Shape([M, H * nb, nq, dh]), Qs.dtype,
                                                ttnn.TILE_LAYOUT, self.device, ttnn.DRAM_MEMORY_CONFIG)
-            SG.sdpa(self.device, Qs, Ks, Vs, zs, o, nq, W, grid, ckc, dh ** -0.5, kv_window=kvw)
+            SG.sdpa(self.device, Qs, Ks, Vs, zs, o, nq, kc, grid, ckc, dh ** -0.5, kv_window=kvw)
         else:
             sc = batched_matmul(Qs, ttnn.permute(Ks, (0, 1, 3, 2)),
                                 compute_kernel_config=self.compute_kernel_config)
@@ -828,8 +871,7 @@ class AtomTransformer(_KeyedWeights, Module):
         q_norm = self._adaln(a, s, apb + "layernorm_a.", t.get("a"))
         kv_norm = self._adaln(q_norm, s, apb + "layernorm_kv.", t.get("kv"))
         o = self._attention(q_norm, kv_norm, p, apb, N, NP, pad_bias, z_pre=z_pre)
-        g = ttnn.linear(q_norm, self._w_tt(apb + "attention.linear_g.weight"),
-                        compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN)
+        g = self._lin_g(q_norm, apb)
         o = ttnn.multiply(o, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
         attn = self._lin(o, apb + "attention.linear_o.weight")
         gate = t["gate"] if t else self._lin(s, apb + "linear_a_last.weight", apb + "linear_a_last.bias")
@@ -971,23 +1013,26 @@ class AtomTransformer(_KeyedWeights, Module):
     def _block_m(self, a, s, p, b, N, NP, M, pad_bias, z_pre=None, terms=None, zs=None):
         apb, ctb = self._prefixes(b)
         t = terms or {}
+        # atom_mm16: the kv adaLN reads the fp32 q_norm and writes bf16; q/g read one bf16 copy of it.
+        lo = ttnn.bfloat16 if self._mm16 and zs is not None else None
         q_norm = self._adaln(a, s, apb + "layernorm_a.", t.get("a"))
-        kv_norm = self._adaln(q_norm, s, apb + "layernorm_kv.", t.get("kv"))
+        kv_norm = self._adaln(q_norm, s, apb + "layernorm_kv.", t.get("kv"), dtype=lo)
+        if lo is not None:
+            q_norm = ttnn.typecast(q_norm, lo)
         if zs is not None:
             o = self._attention_superset(q_norm, kv_norm, apb, N, NP, zs)
         else:
             o = self._attention_m(q_norm, kv_norm, p, apb, N, NP, M, pad_bias, z_pre=z_pre)
-        g = ttnn.linear(q_norm, self._w_tt(apb + "attention.linear_g.weight"),
-                        compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN)
+        g = self._lin_g(q_norm, apb)
         o = ttnn.multiply(o, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
-        attn = self._lin(o, apb + "attention.linear_o.weight")
+        attn = self._lin(o, apb + "attention.linear_o.weight", dtype=self.dtype)
         gate = t["gate"] if t else self._lin(s, apb + "linear_a_last.weight", apb + "linear_a_last.bias")
         attn = ttnn.multiply(attn, gate, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
         a1 = ttnn.add(attn, a)
-        an = self._adaln(a1, s, ctb + "adaln.", t.get("ctb"))
+        an = self._adaln(a1, s, ctb + "adaln.", t.get("ctb"), dtype=lo)
         b1 = self._lin(an, ctb + "linear_nobias_a1.weight", activation="silu")
         b2 = self._lin(an, ctb + "linear_nobias_a2.weight")
-        out = self._lin(ttnn.multiply(b1, b2), ctb + "linear_nobias_b.weight")
+        out = self._lin(ttnn.multiply(b1, b2), ctb + "linear_nobias_b.weight", dtype=self.dtype)
         cg = t["cg"] if t else self._lin(s, ctb + "linear_s.weight", ctb + "linear_s.bias")
         out = ttnn.multiply(out, cg, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
         return ttnn.add(out, a1)
@@ -1247,6 +1292,8 @@ class DiffusionModule(_KeyedWeights):
         # dit_sdpa32: the fp32 DiT's attention as one SDPA program on a token axis padded by
         # sdpa32_rows; _token_dit_device pads and slices, finish_bias builds the padded mask.
         self._dit_sdpa32 = _T.lever("dit_sdpa32") and self._dit_dtype == ttnn.float32
+        # dit_mm16 (fp32 DiT) / dit_b8 (bf16 DiT): the DiT's linears at lower operand formats.
+        self._dit_lp = _T.dit_lowp(self._dit_dtype, self._dit_ckc)
         self._dit = []
         for b in range(self.DIT_BLOCKS):
             A = DT + f"blocks.{b}.attention_pair_bias."
@@ -1263,6 +1310,8 @@ class DiffusionModule(_KeyedWeights):
             # rather than the explicit matmul/softmax/matmul chain.
             self._dit[-1][1].token_dit = _T.lever("dit_sdpa") and self._dit_dtype == ttnn.bfloat16
             self._dit[-1][1].sdpa32 = self._dit_sdpa32
+            if self._dit_lp is not None:
+                self._dit[-1][1].enable_lowp(self._dit_lp)
 
 
     def _up_dit(self, t):
@@ -1278,6 +1327,16 @@ class DiffusionModule(_KeyedWeights):
             v = ttnn.from_torch(w.t().contiguous() if transpose else w,
                                 layout=ttnn.TILE_LAYOUT, device=get_device(), dtype=self._dit_dtype)
             cache[(key, transpose)] = v
+        return v
+
+    def _w_tt_lp(self, key):
+        """A DiT weight, transposed and rounded via bf16 on the host to `_dit_lp.w`."""
+        cache = self.__dict__.setdefault("_wc_dit_lp", {})
+        v = cache.get(key)
+        if v is None:
+            v = ttnn.from_torch(self._w[key].t().contiguous().float().to(torch.bfloat16),
+                                layout=ttnn.TILE_LAYOUT, device=get_device(), dtype=self._dit_lp.w)
+            cache[key] = v
         return v
 
     def _ln_dit(self, x, wkey, bkey=None):
@@ -1687,8 +1746,15 @@ class DiffusionModule(_KeyedWeights):
             return ttnn.linear(x, wtt(wk), bias=(wtt(bk, False) if bk else None), activation=act,
                                compute_kernel_config=_T.silu_ckc(ckc) if act == "silu" else ckc,
                                core_grid=CORE_GRID_MAIN)
+        lp = self._dit_lp
+        # dit_mm16 / dit_b8: each adaLN writes lp.act, read only by linears; the transition's two
+        # hidden linears write bf16, their product lp.mid into linear_nobias_b, which writes lp.out.
+        ln_dt = lp.act if lp else None
+
+        def linlp(x, wk, dtype, act=None):
+            return lp.linear(x, self._w_tt_lp(wk), dtype=dtype, activation=act)
         for _bi, ((adaln_a, apb, ctb_adaln, A, Cc), bias) in enumerate(zip(self._dit, biases)):
-            b = adaln_a(a_t, s_t)
+            b = adaln_a(a_t, s_t, dtype=ln_dt)
             bias_dev = _T.host_unpark(bias)
             attn = apb(b, bias_dev, bias_precomputed=True)
             if bias_dev is not bias:
@@ -1696,11 +1762,16 @@ class DiffusionModule(_KeyedWeights):
             dram_peak(f"dit[M={a_t.shape[0]}] block {_bi}")
             sg = ttnn.sigmoid(linb(s_t, A + "linear_a_last.weight", A + "linear_a_last.bias"))
             ao = gated_add(a_t, attn, sg)
-            an2 = ctb_adaln(ao, s_t)
-            bb = ttnn.multiply(linb(an2, Cc + "linear_nobias_a1.weight", act="silu"),
-                               linb(an2, Cc + "linear_nobias_a2.weight"))
+            an2 = ctb_adaln(ao, s_t, dtype=ln_dt)
+            if lp:
+                bb = ttnn.multiply(linlp(an2, Cc + "linear_nobias_a1.weight", ttnn.bfloat16, "silu"),
+                                   linlp(an2, Cc + "linear_nobias_a2.weight", ttnn.bfloat16), dtype=lp.mid)
+            else:
+                bb = ttnn.multiply(linb(an2, Cc + "linear_nobias_a1.weight", act="silu"),
+                                   linb(an2, Cc + "linear_nobias_a2.weight"))
             cs = ttnn.sigmoid(linb(s_t, Cc + "linear_s.weight", Cc + "linear_s.bias"))
-            a_t = gated_add(ao, linb(bb, Cc + "linear_nobias_b.weight"), cs)
+            a_t = gated_add(ao, linlp(bb, Cc + "linear_nobias_b.weight", lp.out) if lp
+                            else linb(bb, Cc + "linear_nobias_b.weight"), cs)
         return a_t[:, :NT, :] if NP != NT else a_t
 
 
@@ -2392,16 +2463,6 @@ def _pz_cond_probe(pz, z_in_sha):
 
 
 
-def _under_levers(method):
-    """Run a fold entry point under the model's own precision levers (see Protenix.__init__)."""
-    import functools
-
-    @functools.wraps(method)
-    def run(self, *a, **kw):
-        import tt_bio.tenstorrent as _TT
-        with _TT.levers(getattr(self, "_levers", ())):
-            return method(self, *a, **kw)
-    return run
 
 class Protenix:
     """Top-level Protenix-v2 structure predictor on Tenstorrent (inference-only).
@@ -2781,7 +2842,7 @@ class Protenix:
         return torch.stack([ztok[aq[b][:, None].expand(NQ, NK), ak[b][None, :].expand(NQ, NK)]
                             for b in range(nb)], 0)                            # (nb,nq,nk,16)
 
-    @_under_levers
+    @_T.under_levers
     def fold_many(self, feats_list, *, n_step=200, seed=None, progress_fn=None,
                   return_confidence=False, n_cycles=None):
         """Fold B targets with ONE batched diffusion trajectory. Returns a list of B coord
@@ -2805,7 +2866,7 @@ class Protenix:
             return ([out[0]], [out[1]]) if return_confidence else [out]
         conds, auxs = [], []
         for feats in feats_list:
-            cond, aux = self._trunk_cond(feats, progress_fn=progress_fn, n_cycles=n_cycles)
+            cond, aux = self._trunk_cond(feats, progress_fn=progress_fn, n_cycles=n_cycles, seed=seed)
             conds.append(cond)
             auxs.append(aux)
         merged = merge_conds(self.diffusion, conds)
@@ -2843,7 +2904,7 @@ class Protenix:
         relp = feats["relp"] if "relp" in feats else self._generate_relp(feats)
         return relp, self.trunk.host_inputs(feats, relp, feats["token_bonds"], NT)
 
-    def _trunk_cond(self, feats, *, progress_fn=None, n_cycles=None):
+    def _trunk_cond(self, feats, *, progress_fn=None, n_cycles=None, seed=None):
         """Trunk plus the t-independent diffusion conditioning for one target: everything
         fold() does before the sampler. Returns (cond, aux); aux carries what the confidence
         head needs. fold() and fold_many() share this so a batched fold runs the same trunk
@@ -2884,8 +2945,17 @@ class Protenix:
         relp, host = trunk_host.result()
         if self._fast:
             _TT.set_fast_mode(True)
+        # Under the msa_sample lever every cycle reads its own random alignment rows, drawn from
+        # the fold seed as upstream's MSAModule draws them from its seeded global generator. v2
+        # lineage only (10 recycles): v0.5.0 draws between 2048 and n rows and keeps 2048
+        # (configs_data.py min_size/sample_cutoff test 2048), a rule not built here.
+        msa_sample = None
+        if _TT.lever("msa_sample") and self.trunk.N_CYCLES == 10:
+            gen = torch.Generator()
+            msa_sample = (None, gen.manual_seed(seed) if seed is not None else gen)
         s_trunk_tt, z_tt = self.trunk(feats, s_inputs, relp, feats["token_bonds"],
-                                      progress_fn=progress_fn, n_cycles=n_cycles, host=host)
+                                      progress_fn=progress_fn, n_cycles=n_cycles, host=host,
+                                      msa_sample=msa_sample)
         if self._fast:
             _TT.set_fast_mode(False)
         s_trunk = self._to_host(s_trunk_tt, (NT, s_trunk_tt.shape[-1]))
@@ -2908,7 +2978,7 @@ class Protenix:
             cond["dit_biases"] = self.diffusion._dit_pair_biases(pair_z)
         return cond, dict(N=N, NT=NT, s_inputs=s_inputs, s_trunk=s_trunk, z_trunk=z_trunk)
 
-    @_under_levers
+    @_T.under_levers
     def fold(self, feats, *, n_step=200, n_sample=1, seed=None, progress_fn=None,
              return_confidence=False, n_cycles=None, trace=False,
              max_parallel_samples=None, gamma0=None, step_scale=None):
@@ -2930,7 +3000,7 @@ class Protenix:
         if trace:
             import tt_bio.tenstorrent as _TTd
             _TTd.require_trace_region("fold(trace=True)")
-        cond, _aux = self._trunk_cond(feats, progress_fn=progress_fn, n_cycles=n_cycles)
+        cond, _aux = self._trunk_cond(feats, progress_fn=progress_fn, n_cycles=n_cycles, seed=seed)
         N, NT = _aux["N"], _aux["NT"]
         s_inputs, s_trunk, z_trunk = _aux["s_inputs"], _aux["s_trunk"], _aux["z_trunk"]
         # The device confidence head's sample-invariant z_base is built on the host lane while the
@@ -3030,6 +3100,44 @@ class Protenix:
                                                                 list(coords), feats)
             return coords, (confs[0] if n_sample == 1 else confs)
         return coords
+
+
+def msa_cycle_rows(msa, n_cycles, depth, generator):
+    """Per recycling cycle, the alignment rows OpenDDE's MSAModule reads (opendde
+    model/msa_sampling.py subsample_msa_feature_dict_valid_first): rows holding any non-gap token
+    in random order, then all-gap rows in random order, the first `depth` of them; one fresh draw
+    per cycle from `generator`. msa: [depth_total, tokens] token ids, real columns only. None
+    when the whole alignment fits, where a draw would only reorder rows the module sums over."""
+    import torch
+    if msa.shape[0] <= depth:
+        return None
+    valid = (msa != 31).any(-1)
+    v_idx, i_idx = valid.nonzero().squeeze(-1), (~valid).nonzero().squeeze(-1)
+    out = []
+    for _ in range(n_cycles):
+        pick = v_idx[torch.randperm(v_idx.numel(), generator=generator)][:depth]
+        if pick.numel() < depth:
+            extra = i_idx[torch.randperm(i_idx.numel(), generator=generator)][:depth - pick.numel()]
+            pick = torch.cat([pick, extra])
+        out.append(pick)
+    return out
+
+
+# Upstream Protenix's inference cap on the rows one cycle reads (configs_data.py msa.sample_cutoff.test).
+MSA_SAMPLE_CUTOFF = 16384
+
+
+def msa_cycle_rows_random(n_rows, n_cycles, generator, cutoff=MSA_SAMPLE_CUTOFF):
+    """Per recycling cycle, the alignment rows Protenix v2's MSAModule reads at inference
+    (protenix/model/utils.py sample_indices with strategy "random", lower bound 1): a depth k drawn
+    uniformly from 1..n_rows, then the first k of a random permutation, at most `cutoff`. Drawn in
+    upstream's order, randint then randperm, so the same CPU generator state gives the same rows."""
+    import torch
+    out = []
+    for _ in range(n_cycles):
+        k = int(torch.randint(1, n_rows + 1, (1,), generator=generator).item())
+        out.append(torch.randperm(n_rows, generator=generator)[:k][:cutoff])
+    return out
 
 
 def trunk_recycles(state_dict):
@@ -3244,7 +3352,11 @@ class Trunk(_KeyedWeights):
         ttnn.deallocate(cat)
         return out
 
-    def _msa(self, z3, m_feat, pmask_tt=None, attn_tt=None):
+    def _msa(self, z3, m_feat, pmask_tt=None, attn_tt=None, rows=None):
+        """The MSA module's blocks on `z3`. `m_feat` is the pristine m, a device or a host tensor.
+        rows=(mask, depth) says only the first `depth` rows of a device `m_feat` are alignment
+        rows (a cycle's sampled rows padded to `msa_row_bucket`); OuterProductMean masks the rest."""
+        opm_mask, n_msa = rows if rows is not None else (None, None)
         def update_msa(m, z, pwa, transition):
             if pwa is None:
                 return m
@@ -3314,7 +3426,7 @@ class Trunk(_KeyedWeights):
                 # or its depth chunks; update_msa below streams from host.
                 z3 = self._opm_from_host(opm, m_feat, z3)
             else:
-                z3 = opm(m_feat, None, None, residual=z3)
+                z3 = opm(m_feat, opm_mask, n_msa, residual=z3)
             dram_peak("trunk msa block: after opm")
             if not self._msa_update_first:
                 m_feat = update_msa(m_feat, z3, pwa, tm)
@@ -3404,11 +3516,16 @@ class Trunk(_KeyedWeights):
                     pm_pad=pm_pad, at_pad=at_pad, nt=nt,
                     te_at=[self._host_cast(t.unsqueeze(0)) for t in te_at], ms=ms)
 
-    def __call__(self, feat, s_inputs, relp, token_bonds, progress_fn=None, n_cycles=None, host=None):
+    def __call__(self, feat, s_inputs, relp, token_bonds, progress_fn=None, n_cycles=None, host=None,
+                 msa_sample=None):
         """feat: dict with template_* / msa / has_deletion / deletion_value / asym_id (host
         tensors). s_inputs (N,449), relp (N,N,139), token_bonds (N,N) host. n_cycles is the
         number of recycling iterations (default: the checkpoint's own, via trunk_recycles --
-        10 for protenix-v2/OpenDDE, 4 for the v0.5.0 lineage). `host` is `host_inputs` of the
+        10 for protenix-v2/OpenDDE, 4 for the v0.5.0 lineage). msa_sample=(depth, generator)
+        gives every cycle its own random alignment rows, as the reference MSAModules do: `depth`
+        rows valid-first for OpenDDE (msa_cycle_rows), or depth None for Protenix's uniformly
+        random depth (msa_cycle_rows_random); None feeds the whole alignment to every cycle.
+        `host` is `host_inputs` of the
         same feat, relp and token_bonds, already built (fold() builds it on the host lane while
         the chip runs the input embedder); None builds it here. Returns
         (s_trunk (N,384), z_trunk (1,N,N,256)) as ttnn tensors."""
@@ -3447,17 +3564,32 @@ class Trunk(_KeyedWeights):
         # m_feat stays on the chip (`_msa_keep_bytes`) unless a cycle is refused.
         s_m = self._lin(self._up(s_inputs), "msa_module.linear_no_bias_s.weight")
         m_key = (N, ms.shape[1] * N * self._w["msa_module.linear_no_bias_m.weight"].shape[0] * 2)
-        m_feat = msa_embed(ms, lambda x: ttnn.add(
-            self._lin(x, "msa_module.linear_no_bias_m.weight"), s_m), keep=_msa_keep_bytes(*m_key))
-        ttnn.deallocate(s_m)
-        dram_peak(f"trunk m_feat built [{tuple(m_feat.shape)} {m_feat.dtype}]")
+        m_proj = lambda x: ttnn.add(self._lin(x, "msa_module.linear_no_bias_m.weight"), s_m)
+        n_cycles = self.N_CYCLES if n_cycles is None else n_cycles
+        rows = None
+        if msa_sample is not None:
+            depth, gen = msa_sample
+            msa = feat["msa"][:, :n_real]
+            rows = (msa_cycle_rows_random(msa.shape[0], n_cycles, gen) if depth is None
+                    else msa_cycle_rows(msa, n_cycles, depth, gen))
+        if rows is None:
+            m_feat = msa_embed(ms, m_proj, keep=_msa_keep_bytes(*m_key))
+            ttnn.deallocate(s_m)
+            dram_peak(f"trunk m_feat built [{tuple(m_feat.shape)} {m_feat.dtype}]")
+        else:
+            # The embedding is per alignment row, so embedding a cycle's rows equals picking them
+            # out of the embedded whole; only the picked rows are built, padded to a few depths
+            # (msa_row_bucket), and the host lane cuts the next cycle's rows while this one runs.
+            m_feat = None
+            n_rows = ms.shape[1]
+            cut = lambda c: hostlane.submit(msa_rows_host, ms, rows[c], msa_row_bucket(len(rows[c]), n_rows))
+            next_rows = cut(0)
         z3 = ttnn.reshape(ttnn.mul(z_init, 0.0), (1, N, N, self.C_Z))
         # Both are read once per cycle and never written, so past 1 GiB they wait on the host.
         z_init, tpl_a = host_park(z_init), host_park(tpl_a)
         s = ttnn.mul(s_init, 0.0)
-        n_cycles = self.N_CYCLES if n_cycles is None else n_cycles
 
-        def cycle(cyc, carry, m_feat):
+        def cycle(cyc, carry, m_feat, rows=None):
             # Unpacked and cleared, so the cycle's input pair dies at its first rebind exactly as
             # it did inline; only a caller that kept its own copy holds it longer.
             z3, s = carry
@@ -3480,7 +3612,7 @@ class Trunk(_KeyedWeights):
             # a 2-block stack (pinned by tests/test_protenix_template_gate.py).
             if nt > 0 and self.TPL:
                 z3 = self._template(z3, tpl_a, N, nt, pmask_tt, attn_tt)
-            z3 = self._msa(z3, m_feat, pmask_tt, attn_tt)
+            z3 = self._msa(z3, m_feat, pmask_tt, attn_tt, rows)
             sc = self._lin(self._ln(s, "layernorm_s.weight", "layernorm_s.bias"), "linear_no_bias_s.weight")
             s = ttnn.add(s_init, sc)
             s, z3 = self.PF(ttnn.reshape(s, (1, N, 384)), z3, pmask_tt, attn_tt, attn_tt)
@@ -3504,6 +3636,22 @@ class Trunk(_KeyedWeights):
             with ops.recycle_region(cyc, n_cycles - 1):
                 if progress_fn:
                     progress_fn("trunk", step=cyc, total=n_cycles)
+                if rows is not None:
+                    x, mask = next_rows.result()
+                    if cyc + 1 < n_cycles:
+                        next_rows = cut(cyc + 1)
+                    k = len(rows[cyc])
+                    m_c = msa_embed(x, m_proj, keep=_msa_keep_bytes(N, x.shape[1] * m_key[1] // ms.shape[1]))
+                    if torch.is_tensor(m_c):
+                        # Parked on the host: drop the padding there, which costs nothing.
+                        carry = cycle(cyc, carry, m_c[:, :k])
+                        continue
+                    mask = ttnn.from_torch(mask, layout=ttnn.TILE_LAYOUT, device=get_device(),
+                                           dtype=ttnn.bfloat16)
+                    carry = cycle(cyc, carry, m_c, (mask, k))
+                    ttnn.deallocate(m_c)
+                    ttnn.deallocate(mask)
+                    continue
                 if torch.is_tensor(m_feat):
                     carry = cycle(cyc, carry, m_feat)
                     continue
@@ -3530,6 +3678,8 @@ class Trunk(_KeyedWeights):
                 gc.collect()
                 carry, inputs = cycle(cyc, inputs, m_feat), None
         z3, s = carry
+        if rows is not None:
+            ttnn.deallocate(s_m)
         for t in [z_init, *tpl_a]:
             if t.storage_type() == ttnn.StorageType.DEVICE:
                 ttnn.deallocate(t)
@@ -3627,7 +3777,7 @@ def step_scale_schedule(step_scale, n_step):
 def edm_sample(diffusion_module, cond, n_atoms, *, multiplicity=1, max_parallel_samples=None,
                member_seeds=None, n_step=200, gamma0=0.8, gamma_min=1.0,
                noise_scale=1.003, step_scale=1.5, sigma_data=16.0, s_max=160.0, s_min=4e-4,
-               rho=7.0, seed=None, trace=False, progress_fn=None, dump_fn=None):
+               rho=7.0, seed=None, trace=False, progress_fn=None, dump_fn=None, guidance=None):
     """AF3 EDM ancestral sampler for Protenix-v2 (same family as Boltz-2's
     AtomDiffusion.sample; reuses tt_bio.boltz2.compute_random_augmentation). Produces
     atom coords by iteratively denoising from noise with diffusion_module.denoise.
@@ -3655,6 +3805,10 @@ def edm_sample(diffusion_module, cond, n_atoms, *, multiplicity=1, max_parallel_
     draw but is statistically equivalent; the fold lands in the same basin within the
     seed-to-seed noise floor (PCC parity, the established diffusion-leg bar). This matches
     boltz2.AtomDiffusion.sample, which also uses one stream for its multiplicity batch.
+
+    guidance (tt_bio.tfg.Guidance) replaces the Euler update of each step with its own
+    ``step``, which may correct the denoised estimate and the sampled state (OpenDDE's
+    constraint guidance). None leaves every step exactly as it was.
 
     step_scale (eta) is a float by default; PXDesign passes upstream's schedule dict
     ({"type": "piecewise_65", "min": 1.0, "max": 2.5}) -- see step_scale_schedule.
@@ -3727,6 +3881,8 @@ def edm_sample(diffusion_module, cond, n_atoms, *, multiplicity=1, max_parallel_
     # A multi-target batch concatenates its conditioning per member, so a chunk would slice
     # the coordinate stream but not the conditioning: it runs whole or not at all.
     narrowest = M if "_members" in cond else 1
+    if guidance is not None and "_members" in cond:
+        raise ValueError("guidance belongs to one target; fold guided targets one at a time")
     for k in range(n_step):
         if progress_fn:
             progress_fn("diffusion", step=k, total=n_step)
@@ -3755,8 +3911,12 @@ def edm_sample(diffusion_module, cond, n_atoms, *, multiplicity=1, max_parallel_
             narrowest=narrowest, tag="protenix diffusion")
         dram_peak(f"edm step {k}")
         trunk_tap_host(f"edm_denoised[step{k}]", denoised)
-        d = (x_noisy - denoised) / t_hat
-        x = x_noisy + etas[k] * (sigma_t - t_hat) * d
+        if guidance is None:
+            d = (x_noisy - denoised) / t_hat
+            x = x_noisy + etas[k] * (sigma_t - t_hat) * d
+        else:
+            x = guidance.step(x_noisy, denoised, t_hat=t_hat, sigma_t=sigma_t, eta=etas[k],
+                              step=k, n_step=n_step)
         trunk_tap_host(f"edm_x[step{k}]", x)
         if dump_fn is not None:                      # per-step coords (noise -> structure)
             for _m in range(M):

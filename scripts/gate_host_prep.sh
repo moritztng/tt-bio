@@ -49,7 +49,7 @@ venv "$ROOT/venv-$S" "${GATE_PYTHON:-python3}"
 venv "$ROOT/venv312-$S" "${GATE_PYTHON312:-3.12}" ${BC2:+"$BC2"}
 if [ ! -x "$ROOT/dockq-venv/bin/python" ]; then
     DQ=$(ls "$ROOT"/prereq/DockQ-*.whl 2>/dev/null | head -1 || true)
-    "$UV" venv -q -p 3.12 "$ROOT/dockq-venv"
+    "$UV" venv -q --clear -p 3.12 "$ROOT/dockq-venv"   # --clear: a half-built one has no bin/python
     "$UV" pip install -q -p "$ROOT/dockq-venv/bin/python" "${DQ:-DockQ==2.1.3}"
 fi
 for v in "$ROOT/venv-$S" "$ROOT/venv312-$S"; do

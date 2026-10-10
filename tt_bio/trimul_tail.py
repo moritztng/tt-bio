@@ -24,6 +24,7 @@ from pathlib import Path
 
 import ttnn
 
+from . import dest_guard
 from . import mm_generic as MG
 from .envflags import env_flag
 
@@ -461,6 +462,8 @@ def fused_tail(xa, xb, wa, wb, ckc, grid, out_memory_config=None, resid=None, sp
     from . import ops
     if ops.taping():
         return None   # no backward for `generic_op`; the three composed ops run instead
+    if dest_guard.exposed_args(ckc):
+        return None   # the kernel keeps all of K in dest; see dest_guard
 
     why = eligible(xa, xb, wa, wb)
     if why is not None:
@@ -624,7 +627,7 @@ def gin_moved(x, wpT, wgT, ckc, grid, mask=None):
     `[a | b] = (x @ Wp) * sigmoid(x @ Wg)` with `wpT`, `wgT` the transposed [2C, K] weights, and
     `a` times the pair mask when `mask` is given. None where `gin_moved_ok` declines."""
     from . import ops
-    if ops.taping() or not gin_moved_ok(x, wpT, mask):
+    if ops.taping() or dest_guard.exposed_args(ckc) or not gin_moved_ok(x, wpT, mask):
         GIN_MOVE_STATS[1] += 1
         return None
     shp = [int(d) for d in x.shape]
