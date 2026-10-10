@@ -2,7 +2,9 @@
 # spd-bheth on qb1, after bheth_chain_qb1.sh proved the 12x10 grid on c730: does Ethernet dispatch fold every size and
 # model a Blackhole user runs today, and with what digests? Same venv (ttnn 0.68.0+bh.eth2), one p150a card by flock.
 # Protenix-v2 l256..l1536 1 cold + 1 warm, then OpenDDE, OpenFold3, Boltz-2 on c730 cold only; Tensix vs ETH each.
-#   [QB1_CARDS="1 0 2 3"] [AFTER_PID=N] bheth_ladder_qb1.sh ENGINE_SHA [repeat]
+#   [QB1_CARDS="1 0 2 3"] [AFTER_PID=N] bheth_ladder_qb1.sh ENGINE_SHA [repeat|rest]
+# rest: what the 10-10 ladder lost when qb1's disk filled at pv2_eth l1536 (ETH l1536, the other models), then repeat.
+# Every plan waits for 20 GiB free on / before it takes a card: a full disk turns each fold into rc=120 in a second.
 # repeat: Protenix-v2 l256 + l1024 again in both arms, same seeds, to tell a run-to-run flip from a grid-numerics change
 # (the first ladder's ETH digests differed from Tensix at l256 and l1024, matched at l512).
 # Takes the first listed card that is free and has no release-gate leg (flock_first.sh) waiting on it, so it never
@@ -23,6 +25,7 @@ say "engine $(git rev-parse --short HEAD), ttnn $($PY -c 'import importlib.metad
 take(){  # poll the cards for up to 12 h; on success fd 9 holds card $CARD
   local end=$(( $(date +%s) + 43200 )) c
   while [ "$(date +%s)" -lt $end ]; do
+    [ "$(df -BG --output=avail / | tail -1 | tr -dc 0-9)" -ge 20 ] || { sleep 60; continue; }
     for c in ${QB1_CARDS:-1 0 2 3}; do
       pgrep -f "flock_first.sh $HOME/spd_qb1_card$c.lock " >/dev/null && continue
       exec 9>>~/spd_qb1_card$c.lock; flock -n 9 && { CARD=$c; return 0; }; exec 9>&-
@@ -42,6 +45,13 @@ run(){  # name model inputs warm arm
   say "$1 rc=$? $(grep -c '"ev": "rep"' $R/$1.log) reps, $(grep -c '"err": null' $R/$1.log) clean"
   dead && { say "node $N ARC dead after $1, stopping"; exit 2; }
 }
+if [ $PLAN = rest ]; then
+  run pv2_eth protenix-v2 l1536 1 eth:TT_BIO_BH_ETH_DISPATCH=1
+  for model in opendde openfold3 boltz2; do
+    for m in tensix:TT_BIO_BH_ETH_DISPATCH=0 eth:TT_BIO_BH_ETH_DISPATCH=1; do run ${model}_${m%%:*} $model c730 0 $m; done
+  done
+  PLAN=repeat; R=$R/repeat; mkdir -p $R
+fi
 if [ $PLAN = repeat ]; then
   for m in eth:TT_BIO_BH_ETH_DISPATCH=1 tensix:TT_BIO_BH_ETH_DISPATCH=0; do run pv2_${m%%:*} protenix-v2 l256,l1024 1 $m; done
   say "end"; exit 0
