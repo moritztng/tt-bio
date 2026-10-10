@@ -1,6 +1,6 @@
 # The 8-block ABodyBuilder3 model against tt_bio/abodybuilder3_reference.py in float64,
 # re-recorded on the BCP merge tree.
-RECORDED-AT: a2332fb4566a64783f187c433af67757240ed2d1 scripts/abb3_port/model_gate.py
+RECORDED-AT: 6105e740d9cdc55e5f0aed76f3b19ee5f4703243 scripts/abb3_port/model_gate.py
 #
 # TREE: wk/bcp-land 3e617f520, origin/main 2e2cbacb4 plus BCP (the fused layer-norm backward, lnbw).
 # Replaces the record taken at 93edb1b24, whose import closure changed in tt_bio/autograd.py when lnbw
@@ -54,7 +54,15 @@ RECORDED-AT: a2332fb4566a64783f187c433af67757240ed2d1 scripts/abb3_port/model_ga
 # angles at 5.11e-02. AICLK on card 3 over this run and the step gate, 30 s samples: 1350 MHz on 13 of 14,
 # 1343 on 1. NO TIMING CLAIM.
 #
-=== sigma=0.05, 64 tokens, 8 blocks, batch 2 ===
+# RE-RECORDED for the 0.14.0 release on tt-bio main 6105e740d (staging6: SPD's Protenix-v2 and OpenDDE
+# levers), 07:49-12:18Z 2026-10-09, qb1 card 3 (/dev/tenstorrent/0), Blackhole p150a, the release venv
+# (TT-NN 0.68.0). The file moves from qb2c3 to qb1c3 because qb2's cards were held by the booth and a fence.
+# The closure moved in 12 shared files (tt_bio/tenstorrent.py, ops.py and others); every ok/FAIL row and
+# every gradient row is identical to the 0.13.1 record on p300c, and the sigma 0.3 / 256-token stress arm
+# still FAILs angles at 5.11e-02. Runs waited on the card flock between arms, hence the wall span.
+# NO TIMING CLAIM.
+#
+=== sigma=0.05, 64 tokens ===
   sigma 0.05, 8 blocks, batch 2 x 64 tokens
   output                    rel err   on vs off
   ok   frames              8.14e-04    0.00e+00  (bars 5e-2 / 0)
@@ -80,7 +88,8 @@ RECORDED-AT: a2332fb4566a64783f187c433af67757240ed2d1 scripts/abb3_port/model_ga
        d/d ipa[0] linear_q.w  1.000000  8.77e-07
 
 PASS
-=== sigma=0.05, 256 tokens, 8 blocks, batch 2 ===
+rc=0
+=== sigma=0.05, 256 tokens ===
   sigma 0.05, 8 blocks, batch 2 x 256 tokens
   output                    rel err   on vs off
   ok   frames              8.33e-04    0.00e+00  (bars 5e-2 / 0)
@@ -106,7 +115,8 @@ PASS
        d/d ipa[0] linear_q.w  1.000000  1.41e-06
 
 PASS
-=== sigma=0.3, 64 tokens, 8 blocks, batch 2 ===
+rc=0
+=== sigma=0.3, 64 tokens ===
   sigma 0.3, 8 blocks, batch 2 x 64 tokens
   output                    rel err   on vs off
   ok   frames              7.06e-03    0.00e+00  (bars 5e-2 / 0)
@@ -132,7 +142,8 @@ PASS
        d/d ipa[0] linear_q.w  0.999998  2.07e-03
 
 PASS
-=== sigma=0.3, 256 tokens, 8 blocks, batch 2 ===
+rc=0
+=== sigma=0.3, 256 tokens ===
   sigma 0.3, 8 blocks, batch 2 x 256 tokens
   output                    rel err   on vs off
   ok   frames              1.01e-02    0.00e+00  (bars 5e-2 / 0)
@@ -158,3 +169,4 @@ PASS
        d/d ipa[0] linear_q.w  1.000000  7.42e-04
 
 FAIL
+rc=1

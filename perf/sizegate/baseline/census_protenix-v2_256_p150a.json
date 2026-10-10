@@ -4,7 +4,7 @@
     "-m",
     "tt_bio.main",
     "predict",
-    "/home/ttuser/.coworker/wt/cov-ladder-p150a-p2/perf/size512/fixtures/cdk2x2_256.yaml",
+    "/home/ttuser/scratch/spd-rel/dry-6105e740d/tree/perf/size512/fixtures/cdk2x2_256.yaml",
     "--model",
     "protenix-v2",
     "--single_sequence",
@@ -15,7 +15,7 @@
     "--seed",
     "0",
     "--out_dir",
-    "/home/ttuser/.coworker/wt/cov-ladder-p150a-p2/perf/sizegate/work-card0/out_protenix-v2-256-rep0"
+    "/home/ttuser/scratch/spd-rel/gate-6105e740d-c3/work_protenix-v2/out_protenix-v2-256-rep0"
   ],
   "rc": 0,
   "processes": 2,
@@ -107,7 +107,7 @@
       "how": "wrap",
       "counter": null,
       "resolved": "True",
-      "served": 405,
+      "served": 315,
       "declined": 0,
       "rejects": null,
       "gauges": null
@@ -245,7 +245,7 @@
       "flag": "SDPA_WIDE_K",
       "how": "stats",
       "counter": "tt_bio.tenstorrent.SDPA_K_CHUNK_STATS",
-      "resolved": "False",
+      "resolved": "True",
       "served": 0,
       "declined": 0,
       "rejects": null,
@@ -255,6 +255,16 @@
       "flag": "SDPA_FUSED_LARGE_S",
       "how": "stats",
       "counter": "tt_bio.tenstorrent.SDPA_FUSED_LARGE_S_STATS",
+      "resolved": "True",
+      "served": 0,
+      "declined": 0,
+      "rejects": null,
+      "gauges": null
+    },
+    {
+      "flag": "SDPA_FUSED_PADDED",
+      "how": "stats",
+      "counter": "tt_bio.tenstorrent.SDPA_FUSED_PADDED_STATS",
       "resolved": "True",
       "served": 0,
       "declined": 0,
@@ -407,6 +417,16 @@
       "counter": "tt_bio.tenstorrent.TRANSITION_H_CHUNK_STATS",
       "resolved": "16",
       "served": 636,
+      "declined": 0,
+      "rejects": null,
+      "gauges": null
+    },
+    {
+      "flag": "TRIATT_SDPA_HIFI",
+      "how": "stats-dict",
+      "counter": "tt_bio.tenstorrent.TRIATT_FUSED_HIFI_STATS:served,declined",
+      "resolved": "none",
+      "served": 0,
       "declined": 0,
       "rejects": null,
       "gauges": null
