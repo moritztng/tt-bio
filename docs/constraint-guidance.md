@@ -87,15 +87,15 @@ A pocket constraint with `min_fraction` below 1 tolerates a few wrong residues.
 
 ## How well it works
 
-Measured on Wormhole over the 32 held-out SAbDab antibody-antigen complexes the unguided model
+Measured on Wormhole over 32 of the held-out SAbDab antibody-antigen complexes the unguided model
 gets wrong in upstream's benchmark, 25 candidates per target (5 seeds x 5 samples), 200 steps,
 constraints read off the deposited structure:
 
-| | top-1 success (DockQ >= 0.23) | mean top-1 DockQ | upstream's report |
+| | top-1 success (DockQ >= 0.23) | mean top-1 DockQ | upstream's top-1 success |
 |---|---|---|---|
 | unguided | 0.16 | 0.16 | 0.16 |
-| 4 contact pairs | 0.81 (95 % CI 0.63 to 0.94) | 0.44 | 0.78 |
-| epitope (pocket) | 0.31 (0.16 to 0.47) | 0.22 | 0.33 |
+| 5 contact pairs | 0.81 (95 % CI 0.63 to 0.94) | 0.44 | 0.78 |
+| 5 epitope residues | 0.31 (0.16 to 0.47) | 0.22 | 0.33 |
 
 Unguided, tt-bio and upstream on GPU agree on the same targets (success 0.19 vs 0.19, mean
 DockQ 0.160 vs 0.162). On a smaller set of 8 targets, one or two wrong pairs out of four drop
