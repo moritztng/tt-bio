@@ -224,6 +224,11 @@ than chips: with `"pool": {"queue": "~/spd/pool/queue", "prio": 0, "row": "<row>
 there, each as one job file the pool starts on an idle healthy chip. Stopping the runner (SIGINT)
 takes back the jobs that have not started.
 The host has no C compiler, so put a DockQ wheel built elsewhere at `<root>/prereq/`.
+The Galaxies have no route to `api.colabfold.com`, so every MSA-search leg there (the rg folds,
+parity opendde-abag) dies on its first request. Copy a `msa/` directory from a fresh search on a
+host that does reach it (a gate tree's `msa/`, which holds the paired files for 1ahw too) and set
+`RELEASE_GATE_MSA_DIR` to it in the host's hosts.json `env`; `release_gate.py` refuses to start
+if it misses a chain. The pxdesign checkpoint is in the agent's `~/japanfold/cache/weights/`.
 
 Wormhole has size-ladder baselines but no `perf_baselines.json` cell. The first Wormhole gate seeds
 one (`"args": {"perf": ["--update-baseline", "--note", ...]}` in hosts.json; the leg reads SEEDED,
