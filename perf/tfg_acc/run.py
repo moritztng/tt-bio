@@ -40,6 +40,8 @@ ap.add_argument("--recycles", type=int, default=10)
 ap.add_argument("--model", default="opendde-abag")
 ap.add_argument("--share", type=int, default=None, help="host thread share (default: one per chip on the host)")
 ap.add_argument("--host-threads", type=int, default=2, help="torch threads for the host guidance work")
+ap.add_argument("--msa-depth", type=int, default=None, help="alignment rows per recycling cycle (default: upstream's "
+                "1280); a depth above the alignment's feeds every cycle the whole alignment, for a trunk-time A/B")
 ap.add_argument("--dry", action="store_true", help="write the inputs, build the run config and validate the "
                 "constraints against the features, then stop before weights and device")
 a = ap.parse_args()
@@ -163,6 +165,23 @@ if a.dry:
 import torch  # noqa: E402
 
 from tt_bio import worker as W  # noqa: E402
+from tt_bio import opendde as OD  # noqa: E402
+
+if a.msa_depth is not None:
+    OD.MSA_DEPTH = a.msa_depth
+_trunk_s = []
+_residue_trunk = OD.OpenDDE._residue_trunk
+
+
+def _timed_trunk(self, *args, **kw):
+    t = time.monotonic()
+    try:
+        return _residue_trunk(self, *args, **kw)
+    finally:
+        _trunk_s.append(time.monotonic() - t)
+
+
+OD.OpenDDE._residue_trunk = _timed_trunk
 
 W._ensure_local_artifacts(cfg0)
 from tt_bio.host_controller import worker_payload  # noqa: E402
@@ -229,6 +248,7 @@ for seed in SEEDS:
         shutil.rmtree(sdir, ignore_errors=True); sdir.mkdir(parents=True)
         rcfg = dict(cfg0, seed=seed, struct_dir=str(sdir), use_tfg_guidance=cond != "unconstrained")
         t0 = time.monotonic()
+        _trunk_s.clear()
         try:
             metrics, _, _ = state.predict_one(inputs[cond], rcfg)
         except Exception as e:  # one failed fold must not lose the target's other folds
@@ -247,7 +267,8 @@ for seed in SEEDS:
                 {"ranking_score": r["confidence_score"], "ptm": r["ptm"], "iptm": r["iptm"], "plddt": r["plddt"]}))
         (pred / ".done").touch()
         log(ev="fold", target=a.target, cond=cond, seed=seed, wall_s=round(t1 - t0, 1), tokens=metrics.get("n_tokens"),
-            aiclk=aiclk(t0, t1, opened_nodes()), sha=sha, chip=a.chip,
+            trunk_s=round(sum(_trunk_s), 1), msa_depth=OD.MSA_DEPTH, aiclk=aiclk(t0, t1, opened_nodes()), sha=sha,
+            chip=a.chip,
             scores=[round(r["confidence_score"], 4) for r in runs])
 log(ev="end", target=a.target, failed=failed)
 os._exit(min(failed, 100))
