@@ -624,6 +624,28 @@ def protein_atom_features(aatype: torch.Tensor, conformers: dict, oxt=None) -> d
                                    a2t, ruid, tokatom, disto_rep, name_chars)
 
 
+def place_ref_conformers(feats: dict, seed=None) -> dict:
+    """Upstream OpenDDE's Featurizer.get_reference_features: every reference conformer (one per
+    ref_space_uid, ascending) is centred on its mean and, with a seed, given a random translation in
+    [-1, 1) A per axis and then a random rotation (ref_pos_augment, on at inference). The draws come
+    from a RandomState seeded like upstream's np.random.seed(seed), in upstream's order, so a seed
+    gives upstream's rotations exactly. Returns a new dict; `feats` is not modified."""
+    import numpy as np
+    from scipy.spatial.transform import Rotation
+    pos = feats["ref_pos"].numpy()
+    uid = feats["ref_space_uid"].numpy()
+    rs = None if seed is None else np.random.RandomState(seed)
+    out = np.empty_like(pos)
+    for u in np.unique(uid):
+        m = uid == u
+        p = pos[m] - pos[m].mean(axis=0)
+        if rs is not None:
+            t = rs.uniform(-1.0, 1.0, size=3)
+            p = np.dot(p, Rotation.random(random_state=rs).as_matrix().T) + t
+        out[m] = p
+    return {**feats, "ref_pos": torch.as_tensor(out, dtype=torch.float32)}
+
+
 def _assemble_atom_features(ref_pos, elem_idx, ref_charge, ref_mask, a2t, ruid,
                             tokatom, disto_rep, name_chars) -> dict:
     """Pack per-atom lists into the model-ready atom feature tensors (shared by every

@@ -6,6 +6,10 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 ## [Unreleased]
 
 ### Changed
+- **OpenDDE seeds now give different trunks, as upstream's do.** Each recycling cycle reads its own 1280
+  random alignment rows and every reference conformer is centred and turned by a seeded rotation, both
+  drawn from the seed. Before, every seed of a target shared one trunk, so five seeds were one trunk with
+  five noise draws. Outputs for a given seed change; candidate diversity across seeds now matches upstream.
 - **Protenix-v2 is 1.9x faster on Wormhole.** A warm 730-token fold (deep MSA, 5 samples, 10 recycles)
   takes 259 s on a Galaxy chip at 1000 MHz, against 501 s before, and 119 s on a Blackhole p150a at
   1350 MHz. A graded set of cheaper numerics is on by default; structures stay inside seed-to-seed
