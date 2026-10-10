@@ -7,6 +7,8 @@ import threading
 import time
 from pathlib import Path
 
+import pytest
+
 REPO = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location("gate_fanout", REPO / "scripts" / "gate_fanout.py")
 gf = importlib.util.module_from_spec(spec)
@@ -62,6 +64,18 @@ def test_record_lever_legs_splice_into_a_copy_and_are_only_built_on_request():
     assert "cp -r docs/size_ladder_baseline.json docs/size_ladder_baseline.d /o/ && " in cmd
     assert "--size-ladder-baseline /o/size_ladder_baseline.json" in cmd
     assert "--size-ladder-record-lever SDPA_FUSED_PADDED" in cmd
+
+
+def test_record_full_re_records_a_refused_model_and_splices_the_rest():
+    legs = {lg.name: lg for lg in gf.build_legs(ROSTER, [], 1, "SDPA_FUSED_PADDED", "rf3")
+            if lg.family == "record"}
+    assert "--size-ladder-record" in legs["record:rf3"].argv
+    assert "--size-ladder-record-lever" not in legs["record:rf3"].argv
+    assert "--size-ladder-record-lever" in legs["record:boltz2"].argv
+    only = [lg.name for lg in gf.build_legs(ROSTER, [], 1, "", "rf3") if lg.family == "record"]
+    assert only == ["record:rf3"]
+    with pytest.raises(SystemExit):
+        gf.build_legs(ROSTER, [], 1, "", "nope")
 
 
 def test_key_moves_with_code_env_card_and_argv_not_with_markdown(tmp_path):
@@ -205,6 +219,7 @@ def test_command_pins_card_under_its_flock_and_substitutes_placeholders(tmp_path
     assert "flock /l/card2.lock" in cmd and "TT_VISIBLE_DEVICES=2" in cmd
     assert "PYTHONPATH=/r/trees/aaaaaaaaaaaa:/bc2" in cmd and "ESM_ROOT=/esm" in cmd
     assert "localhost:2" in cmd and "/t/out/x/report.json" in cmd
+    assert "RELEASE_GATE_SIZE_WORKDIR=/t/out/x/sizegate-work" in cmd
     assert "/r/venv-aaaaaaaaaaaa/bin/python scripts/full_parity_gate.py" in cmd
     free = h.command(next(lg for lg in _legs() if lg.name == "pytest_cpu"), None, "/t/out/y")
     assert "flock" not in free and "TT_VISIBLE_DEVICES='' " in free
@@ -308,3 +323,12 @@ def test_an_owed_ladder_leg_fails_the_verdict_and_names_the_record_command(tmp_p
     assert not gf.write_verdict(tmp_path, "a" * 40, ["wh"], results)
     text = (tmp_path / "VERDICT.md").read_text()
     assert "| ladder:m | OWED B |" in text and "--record-lever B" in text
+
+
+def test_only_a_ladder_leg_owes_levers_and_a_bare_leg_name_does_not_crash_the_plan():
+    roster = {"owed": {"w": {"m": ["B"]}}}
+    assert gf.owed_by(roster, "w", gf.Leg("ladder:m", ["PY"], "ladder")) == ["B"]
+    assert gf.owed_by(roster, "w", gf.Leg("ladder:n", ["PY"], "ladder")) == []
+    assert gf.owed_by(roster, "w", gf.Leg("perf", ["PY"], "perf")) == []
+    assert gf.owed_by(roster, "w", gf.Leg("check", ["PY"], "check")) == []
+    assert gf.owed_by({}, "w", gf.Leg("ladder:m", ["PY"], "ladder")) == []

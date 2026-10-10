@@ -19,6 +19,8 @@ Host-only: no device, no network.
 """
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from tt_bio import tenstorrent as T
@@ -86,8 +88,15 @@ def test_a_refusal_may_go_below_a_tile_only_where_that_slice_returns(monkeypatch
 
 
 def test_the_part_default_is_the_wedging_side():
-    """An unmeasured part gets the wider width, not a spin no timeout catches."""
-    assert T._SUB_TILE_SLICE_WEDGES is True
+    """An unmeasured part gets the wider width, not a spin no timeout catches.
+
+    Read from the source: a device opened earlier in the same process (any device test on a
+    Wormhole chip) has already set the live value from its arch."""
+    import ast
+    tree = ast.parse(Path(T.__file__).read_text())
+    default = next(n.value.value for n in tree.body if isinstance(n, ast.Assign)
+                   and any(getattr(t, "id", None) == "_SUB_TILE_SLICE_WEDGES" for t in n.targets))
+    assert default is True
 
 
 def test_the_group_never_puts_the_slice_back_below_a_tile():

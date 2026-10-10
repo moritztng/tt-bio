@@ -300,7 +300,7 @@ ESMFold2 needs no MSA and uses one when a source is given.
 
 For Protenix, `--diffusion_precision bf16` is the faster setting to reach for: about 9 % per fold on Wormhole. On most complexes the structures match fp32 closely, but where the binding mode is uncertain it can rank a different one first. See [`docs/protenix-diffusion-precision.md`](docs/protenix-diffusion-precision.md).
 
-Protenix-v2 folds a 730-token complex (deep MSA, 5 samples, 10 recycles) in about 259 s on one Wormhole chip, 1.9x faster than before, and in about 119 s on a Blackhole p150a, with structures inside seed-to-seed variation on both; [`docs/tuning-flags.md`](docs/tuning-flags.md#tt_bio_levers) has the grade and the switch back to the reference numerics. With `--fast` the same fold takes about 209 s on Wormhole and 100 s on Blackhole. That costs about 0.004 CA-lDDT against the default on Wormhole (11 complexes x 24 seeds) and 0.003 on Blackhole, where docking success is unchanged.
+Protenix-v2 folds a 730-token complex (deep MSA, 5 samples, 10 recycles) in about 252 s on one Wormhole chip, 2x faster than before, and in about 119 s on a Blackhole p150a, with structures inside seed-to-seed variation on both; [`docs/tuning-flags.md`](docs/tuning-flags.md#tt_bio_levers) has the grade and the switch back to the reference numerics. With `--fast` the same fold takes about 201 s on Wormhole and 100 s on Blackhole. That costs about 0.004 CA-lDDT against the default on Wormhole (11 complexes x 24 seeds) and 0.003 on Blackhole, where docking success is unchanged.
 
 ### Many Inputs and Cards
 

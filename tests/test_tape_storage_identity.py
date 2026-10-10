@@ -101,7 +101,8 @@ def _dram_filler_to(dev, addr):
     nxt = probe.buffer_address()
     ttnn.deallocate(probe)
     gap = addr - nxt
-    assert gap > 0 and gap % 64 == 0, (addr, nxt)
+    # DRAM buffers align to 32 B on Wormhole and 64 B on Blackhole.
+    assert gap > 0 and gap % (32 if T.is_wormhole() else 64) == 0, (addr, nxt)
     return ttnn.from_torch(torch.zeros(1, gap // 2), dtype=ttnn.bfloat16,
                            layout=ttnn.ROW_MAJOR_LAYOUT, device=dev)
 

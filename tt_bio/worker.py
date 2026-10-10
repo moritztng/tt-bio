@@ -184,9 +184,11 @@ def _ensure_local_artifacts(cfg: dict[str, Any]) -> None:
         cfg["rf3_ckpt"] = str(weights.fetch("rf3"))
         return
     # OpenDDE loads its weights from HF on the first fold; None means "the registry
-    # resolves it", which is what load_opendde_checkpoint does with a null path.
+    # resolves it", which is what load_opendde_checkpoint does with a null path. Its
+    # ligands and CCD-templated residues read the same molecule library as Protenix.
     if cfg.get("model", "boltz2") in ("opendde", "opendde-abag"):
         cfg["opendde_ckpt"] = os.environ.get("TT_BIO_OPENDDE") or os.environ.get("OPENDDE_CKPT")
+        cfg["mol_dir"] = str(weights.fetch("mols"))
         return
     # AF2-IG reads one member out of DeepMind's 4 GB parameter archive (weights.py:
     # `af2-params`), and folds single-sequence, so it needs no MSA dir and no molecule

@@ -367,6 +367,12 @@ def out_proj(gated, w, ckc, dtype, memory_config=None):
 # config, as for the pair layer norms).
 TAIL_SIGPOLY = int(os.environ.get("TT_BIO_TRIATT_TAIL_SIGPOLY", "1"))
 TAIL_RNE = int(os.environ.get("TT_BIO_TRIATT_TAIL_RNE", "0"))
+# K one tile per DST pass, summed by the packer in fp32 (compute.cpp KB1): the Wormhole fp32-DST erratum
+# lives in accumulation across a multi-tile K block (BOARD 2026-10-09 12:08Z, spd-swiglu). Counted vs
+# float64 on WH, S 384/512/736 x 4 seeds, 974 M elements per arm (perf/spd_pair/tail_outliers.py): the
+# whole-K block had 1 element off by 2.0 (S 736, seed 2), KB1 none (max 0.020), and KB1 is faster at
+# 512 and 736 (2.85 vs 3.74 ms, 5.61 vs 6.45 ms).
+TAIL_KB1 = int(os.environ.get("TT_BIO_TRIATT_TAIL_KB1", "1"))
 TAIL_FORCE = os.environ.get("TT_BIO_TRIATT_TAIL")   # "1" / "0" overrides the `triatt_tail` lever
 GOP_STATS = [0, 0]   # gated_out_proj served, declined (TAIL_STATS above is the head-major tail's)
 _TAIL_DIR = Path(__file__).resolve().parent / "kernels" / "triatt_tail"
@@ -405,14 +411,13 @@ def _tail_ok(o, g, w, resid):
             return False
     from .tenstorrent import _l1_bank_bytes
     kt, nt = po[1], int(w.shape[-1]) // TILE
-    tiles = kt * nt + 5 * kt + 5 * nt
+    tiles = kt * nt + 5 * kt + (8 if TAIL_KB1 else 7) * nt   # KB1's fp32 partials take two bf16 tiles' room
     return tiles * G.tile_bytes(ttnn.bfloat16) <= 0.6 * _l1_bank_bytes()
 
 
-def _tail_cb(idx, core_grid, tiles):
-    fmt = ttnn.CBFormatDescriptor(buffer_index=idx, data_format=ttnn.bfloat16,
-                                  page_size=G.tile_bytes(ttnn.bfloat16))
-    return ttnn.CBDescriptor(total_size=tiles * G.tile_bytes(ttnn.bfloat16), core_ranges=core_grid,
+def _tail_cb(idx, core_grid, tiles, dt=ttnn.bfloat16):
+    fmt = ttnn.CBFormatDescriptor(buffer_index=idx, data_format=dt, page_size=G.tile_bytes(dt))
+    return ttnn.CBDescriptor(total_size=tiles * G.tile_bytes(dt), core_ranges=core_grid,
                              format_descriptors=[fmt])
 
 
@@ -453,13 +458,18 @@ def _build_tail(o, g, w, out, z, ckc, grid, resid):
     fid, fp32 = ttnn.MathFidelity.HiFi3, True
     compute = ttnn.KernelDescriptor(
         kernel_source=str(_TAIL_DIR / "compute.cpp"), source_type=src, core_ranges=core_grid,
-        compile_time_args=[kt, nt, int(resid), TAIL_SIGPOLY, TAIL_RNE, _tail_dw(kt, nt)], runtime_args=cp,
+        compile_time_args=[kt, nt, int(resid), TAIL_SIGPOLY, TAIL_RNE, _tail_dw(kt, nt), TAIL_KB1],
+        runtime_args=cp,
         config=ttnn.ComputeConfigDescriptor(math_fidelity=fid, math_approx_mode=approx,
                                             fp32_dest_acc_en=fp32, dst_full_sync_en=full))
     cbs = [_tail_cb(0, core_grid, kt * nt), _tail_cb(1, core_grid, 2 * kt), _tail_cb(2, core_grid, 2 * kt),
            _tail_cb(4, core_grid, kt), _tail_cb(16, core_grid, 2 * nt)]
     if resid:
-        cbs += [_tail_cb(3, core_grid, 2 * nt), _tail_cb(5, core_grid, nt)]
+        cbs.append(_tail_cb(3, core_grid, 2 * nt))
+    if TAIL_KB1:
+        cbs.append(_tail_cb(6, core_grid, nt, ttnn.float32))
+    elif resid:
+        cbs.append(_tail_cb(5, core_grid, nt))
     return {"kernels": [reader, writer, compute], "cbs": cbs}
 
 
@@ -479,7 +489,7 @@ def gated_out_proj(o, g, w, ckc, resid=None):
         out = resid
     grid = tuple(COMPUTE_GRID_MAIN)
     key = (str(o.padded_shape), str(w.padded_shape), str(out.padded_shape), grid, G.ckc_args(ckc),
-           resid is not None, TAIL_SIGPOLY, TAIL_RNE)
+           resid is not None, TAIL_SIGPOLY, TAIL_RNE, TAIL_KB1)
     entry = _TAIL_CACHE.get(key)
     if entry is None:
         entry = _TAIL_CACHE[key] = _build_tail(o, g, w, out, out, ckc, grid, resid is not None)
