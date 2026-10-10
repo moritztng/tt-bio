@@ -39,7 +39,7 @@ job = lambda i: {"name": f"fold{i}", "modelSeeds": [0], "sequences": [{"proteinC
 (a.out / "esmfold2.json").write_text(json.dumps([{"id": f"fold{i}", "sequences": [{"type": "protein", "id": "A",
     "sequence": seq, "msa": None}], "seeds": [0], "num_diffusion_samples": 1} for i in range(N)], indent=1))
 (a.out / "rf3.json").write_text(json.dumps([{"name": f"fold{i}", "components": [{"seq": seq, "chain_id": "A"}]}
-    for i in range(N)], indent=1))  # perf/rf3/inputs/rf3_512.json, four names
+    for i in range(2 * N)], indent=1))  # eight names in one engine.run: the kit's warm-up spans two folds, so four left 2 warm gaps
 # RFdiffusion3: the published fixture staged at a root, so its repo-relative target path resolves (scripts/gpu_vs_tt/rfd3_prod_run.sh)
 rf = Path(__file__).resolve().parents[1] / "dsfix"
 (a.out / "rfd3/perf/dsfix/targets").mkdir(parents=True, exist_ok=True)
