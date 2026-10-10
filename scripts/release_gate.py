@@ -2923,6 +2923,25 @@ def _load_cell(clk) -> dict:
     return {"max": round(xs[-1], 2), "median": round(xs[len(xs) // 2], 2), "n": len(xs)}
 
 
+#: A size-ladder fold may take this many times its recorded runtime before it counts as hung.
+#: FOLD_TIMEOUT_S alone is a floor, not a budget: opendde's 1536 rung on a Wormhole Galaxy is
+#: recorded at 3992 s, so a flat 1800 s timed out every pass at that rung, and a rung recorded
+#: at 1522 s (esmfold2/1536 on the same box) was one loaded host away from the same.
+SIZE_LADDER_TIMEOUT_X = 3
+
+
+#: {(model, rung): seconds}, filled from the baseline before a model's rungs are folded.
+SIZE_LADDER_FOLD_TIMEOUTS: dict = {}
+
+
+def _size_ladder_fold_timeouts(model: str, runtime_s: dict) -> dict:
+    """Set and return {rung: seconds} a census fold of `model` may take at each rung."""
+    out = {int(r): max(FOLD_TIMEOUT_S, math.ceil(SIZE_LADDER_TIMEOUT_X * float(t)))
+           for r, t in (runtime_s or {}).items() if t}
+    SIZE_LADDER_FOLD_TIMEOUTS.update({(model, r): t for r, t in out.items()})
+    return out
+
+
 def _run_census_fold(model: str, rung: int, workdir: Path, tag: str,
                      need_runtime: bool = True) -> dict:
     """One lever-census-wrapped fold of the cdk2x2_<rung> fixture. Returns
@@ -2989,12 +3008,13 @@ def _run_census_fold(model: str, rung: int, workdir: Path, tag: str,
         env = {**os.environ, **runtime.host_thread_cap_env(1, HOST_THREADS)}
     t0 = time.monotonic()
     with open(log, "w") as fp, _clock_during() as clk:
-        rc, timed_out = _run_fold(cmd, FOLD_TIMEOUT_S, cwd=REPO_ROOT, env=env,
+        timeout_s = SIZE_LADDER_FOLD_TIMEOUTS.get((model, int(rung)), FOLD_TIMEOUT_S)
+        rc, timed_out = _run_fold(cmd, timeout_s, cwd=REPO_ROOT, env=env,
                                   stdout=fp, stderr=subprocess.STDOUT)
     wall = time.monotonic() - t0
     aiclk, load = _aiclk_cell(clk), _load_cell(clk)
     if timed_out:
-        return {"error": f"census fold timed out after {FOLD_TIMEOUT_S}s"
+        return {"error": f"census fold timed out after {timeout_s}s"
                          f" ({_keep_failed_fold_log(log, label)})"}
     if rc != 0:
         text = _fold_log_text(log)
@@ -3913,6 +3933,7 @@ def _size_ladder_check_model(model: str, rungs, base_model: dict, workdir: Path)
     if pre:
         return {"model": model, "gate": False, "error": pre, "findings": [pre]}
     reps = base_model.get("reps", 1)
+    _size_ladder_fold_timeouts(model, base_model.get("runtime_s"))
     meas = _size_ladder_measure_model(model, rungs, workdir, reps, reps)
     if meas.get("error"):
         return {"model": model, "gate": False, "error": meas["error"],
@@ -4195,6 +4216,7 @@ def run_size_ladder_add_lever(flags, keep: bool, baseline_path: Path,
             legs.append({"model": m, "gate": False, "error": pre, "findings": [pre]})
             continue
         measured, clauses, findings, grid = {}, {}, [], None
+        _size_ladder_fold_timeouts(m, base_model.get("runtime_s"))
         for rung in ladders[m]:
             # need_runtime=False: this mode compares census counts and writes one lever's
             # row. It never reads a timing, so a fold whose results.json is not readable the
@@ -4653,6 +4675,7 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
             # the box is serving 23 production workers -- and a one-draw rung on that spread
             # can fake an exponent step of more than 1.
             reps_other = max(1, int((old_models.get(m) or {}).get("reps") or 1))
+            _size_ladder_fold_timeouts(m, (old_models.get(m) or {}).get("runtime_s"))
             meas = _size_ladder_measure_model(m, ladders[m], workdir,
                                               SIZE_LADDER_SIGMA_REPS, reps_other)
             all_refused = None

@@ -162,7 +162,8 @@ never silently accepted: `--write_pde` on Protenix (`--write_pae` already writes
 model reads what its upstream reads: Boltz-2 keeps its shipped 8192 default; `esmfold2`,
 `protenix-v1`, `protenix-v2`, `opendde`, `opendde-abag`, `openfold3` and `openbind` read up to
 16384 rows, paired rows first, as their upstream featurizers do (`esmfold2` then draws 1024 of
-them per trunk loop, as upstream does); `rf3` loads up to 10000 and draws 1024 per recycle. Set it and all of them cap. Every fold writes the depth it actually
+them per trunk loop, and `protenix-v2` a random number between one and all of them per recycling
+cycle, as their upstreams do); `rf3` loads up to 10000 and draws 1024 per recycle. Set it and all of them cap. Every fold writes the depth it actually
 used as `msa_depth` in `results.json`.
 
 ## Keeping this honest

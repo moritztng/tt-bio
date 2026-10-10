@@ -13,6 +13,19 @@ def test_fast_set_never_holds_the_grid_dependent_lever_or_an_ungraded_one():
     assert T.NORMAL_LEVERS <= T.FAST_LEVERS
 
 
+def test_a_model_names_its_own_fast_set_and_the_harness_switch_still_wins(monkeypatch):
+    from tt_bio import openfold3_fold
+    monkeypatch.delenv("TT_BIO_LEVERS", raising=False)
+    monkeypatch.setattr(T, "_FAST_MODE", True)
+    assert T.model_levers() == T.FAST_LEVERS
+    assert T.model_levers(fast=openfold3_fold.FAST_LEVERS) == T.NORMAL_LEVERS
+    monkeypatch.setenv("TT_BIO_LEVERS", "fast")
+    assert T.model_levers(fast=openfold3_fold.FAST_LEVERS) == T.FAST_LEVERS
+    monkeypatch.setattr(T, "_FAST_MODE", False)
+    monkeypatch.delenv("TT_BIO_LEVERS")
+    assert T.model_levers(fast=openfold3_fold.FAST_LEVERS) == T.NORMAL_LEVERS
+
+
 def test_parse_expands_modes_and_rejects_unknown_names():
     assert T.parse_levers("fast") == T.FAST_LEVERS
     assert T.parse_levers("normal,opm_b8") == T.NORMAL_LEVERS | {"opm_b8"}
@@ -45,6 +58,25 @@ def test_triatt_formats_follow_the_levers():
     assert not T._triatt_bias_b8()
 
 
+def test_dit_lowp_formats_follow_the_dit_dtype_and_the_levers():
+    ttnn, ckc = T.ttnn, object()
+    with T.levers("dit_mm16+dit_b8"):
+        mm16, b8 = T.dit_lowp(ttnn.float32, ckc), T.dit_lowp(ttnn.bfloat16, ckc)
+    assert (mm16.w, mm16.act, mm16.out, mm16.k1, mm16.ckc) == (ttnn.bfloat16, ttnn.bfloat16, ttnn.float32, True, ckc)
+    assert (b8.w, b8.act, b8.mid, b8.out, b8.k1) == (ttnn.bfloat8_b,) * 3 + (ttnn.bfloat16, False)
+    assert not b8.ckc.fp32_dest_acc_en
+    with T.levers("dit_b8"):
+        f32 = T.dit_lowp(ttnn.float32, ckc)
+    assert (f32.w, f32.act, f32.mid, f32.out, f32.k1, f32.qkv) == (ttnn.bfloat8_b,) * 3 + (ttnn.float32, True, ttnn.float32)
+    assert f32.ckc.fp32_dest_acc_en
+    assert (mm16.qkv, b8.qkv) == (ttnn.float32, ttnn.bfloat16)
+    with T.levers("dit_mm16+dit_qkv16"):
+        assert T.dit_lowp(ttnn.float32, ckc).qkv == ttnn.bfloat16
+    with T.levers("dit_mm16"):
+        assert T.dit_lowp(ttnn.bfloat16, ckc) is None
+    assert T.dit_lowp(ttnn.float32, ckc) is None
+
+
 @pytest.mark.parametrize("fast,want", [(False, T.NORMAL_LEVERS), (True, T.FAST_LEVERS)])
 def test_checkpoint_entry_takes_the_modes_set(monkeypatch, tmp_path, fast, want):
     import torch
@@ -67,16 +99,45 @@ def test_checkpoint_entry_takes_the_modes_set(monkeypatch, tmp_path, fast, want)
 
 
 def test_fold_runs_under_the_models_levers_and_restores():
-    import tt_bio.protenix as P
+    import tt_bio.boltz2 as B
+
+    for wrap in (T.under_levers, T.under_lever_scope, B._under_levers):
+        class M:
+            _levers = frozenset({"acc_off"})
+            use_tenstorrent = True
+
+            @wrap
+            def fold(self):
+                return T.lever("acc_off")
+
+        assert M().fold() is True and not T.lever("acc_off")
+
+
+def test_boltz2_folds_with_the_process_fast_switch_off(monkeypatch):
+    import tt_bio.boltz2 as B
 
     class M:
-        _levers = frozenset({"acc_off"})
+        _levers = B.LEVERS_FAST
+        use_tenstorrent = True
 
-        @P._under_levers
+        @B._under_levers
         def fold(self):
-            return T.lever("acc_off")
+            return T._FAST_MODE, T.lever("acc_off")
 
-    assert M().fold() is True and not T.lever("acc_off")
+    monkeypatch.setattr(T, "_FAST_MODE", True)
+    assert M().fold() == (False, True) and T._FAST_MODE and not T.lever("acc_off")
+
+
+def test_model_levers_take_the_mode_set_unless_a_harness_names_one(monkeypatch):
+    monkeypatch.delenv("TT_BIO_LEVERS", raising=False)
+    monkeypatch.setattr(T, "_FAST_MODE", False)
+    assert T.model_levers({"silu_f32"}, {"opm_b8"}) == {"silu_f32"}
+    monkeypatch.setattr(T, "_FAST_MODE", True)
+    assert T.model_levers({"silu_f32"}, {"opm_b8"}) == {"opm_b8"}
+    monkeypatch.setenv("TT_BIO_LEVERS", "none")
+    assert T.model_levers({"silu_f32"}, {"opm_b8"}) == frozenset()
+    monkeypatch.setenv("TT_BIO_LEVERS", "normal-trimul_ibw")
+    assert T.model_levers((), ()) == T.NORMAL_LEVERS - {"trimul_ibw"}
 
 
 def test_trimul_levers_reach_their_kernels_only_inside_the_set():
@@ -88,3 +149,24 @@ def test_trimul_levers_reach_their_kernels_only_inside_the_set():
         assert (T._trimul_ibw_full(), TTL._epi(), RB._gate_lean()) == (True, 2, 2)
         assert T._trimul_in0_block_w(23, T._trimul_ibw_full()) == 23
     assert T._trimul_in0_block_w(23, T._trimul_ibw_full()) == 1
+
+
+def test_bfp8_fidelity_drops_to_hifi2_only_when_both_operands_are_bfp8():
+    import types
+    import ttnn
+    b8, bf = types.SimpleNamespace(dtype=ttnn.bfloat8_b), types.SimpleNamespace(dtype=ttnn.bfloat16)
+    ckc = ttnn.WormholeComputeKernelConfig(math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=True,
+                                           fp32_dest_acc_en=False, packer_l1_acc=True)
+    out = T.bfp8_fidelity(ckc, b8, b8)
+    assert out.math_fidelity == ttnn.MathFidelity.HiFi2
+    assert (out.math_approx_mode, out.fp32_dest_acc_en, out.packer_l1_acc) == (True, False, True)
+    assert T.bfp8_fidelity(ckc, b8, bf) is ckc and T.bfp8_fidelity(ckc, bf, b8) is ckc
+    lofi = ttnn.WormholeComputeKernelConfig(math_fidelity=ttnn.MathFidelity.LoFi)
+    assert T.bfp8_fidelity(lofi, b8, b8) is lofi
+
+
+def test_boltz2_mode_sets_name_only_known_levers():
+    import tt_bio.boltz2 as B
+
+    for s in (B.LEVERS_NORMAL, B.LEVERS_FAST):
+        assert s <= set(T.LEVERS) and not s & T.UNGRADED_LEVERS

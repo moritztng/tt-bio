@@ -33,8 +33,9 @@ same math the trunk transition and the ``AtomTransformer`` conditioned transitio
 
 head_dim=48 is not tile-aligned, so the q/k/v projections are fused and padded to
 head_dim=64 (16 heads -> 1024/head-group, fused qkv -> 3072), then
-``nlp_create_qkv_heads`` splits the padded heads. Attention itself is MANUAL (matmul
-QK^T + scale + mask, fp32 numerically-stable softmax, matmul attn@V), NOT the fused
+``nlp_create_qkv_heads`` splits the padded heads and ``nlp_concat_heads`` joins them, pad lanes
+kept: the gate and output projection are re-laned to 1024 with zeros there. Attention itself is
+MANUAL (matmul QK^T + scale + mask, fp32 numerically-stable softmax, matmul attn@V), NOT the fused
 ``scaled_dot_product_attention``: the fused SDPA does its softmax in bf16, and its
 per-block error (~0.998) compounds to ~0.967 over the 24-block stack; a CPU bf16
 control with an fp32 softmax holds 0.99996 over the same stack, isolating the softmax
@@ -63,6 +64,7 @@ import torch
 import ttnn
 
 from . import ops
+from . import tenstorrent as _T
 from .tenstorrent import AdaLN, CORE_GRID_MAIN, Module, _cached, _dtype, batched_matmul, host_f64_softmax_site, pair_row_blocks, row_block_after_refusal, site_softmax, softmax_ckc
 from .openfold3_atom_transformer import remap_of3_adaln
 from .token_axis import TILE, bucketed_width
@@ -121,6 +123,9 @@ class _DiTBlock(Module):
         # not because it is expensive. perf/of3t_fwdkcfg/.
         self._softmax_ckc = softmax_ckc("openfold3.diffusion_transformer")
         self._softmax_f64 = host_f64_softmax_site("openfold3.diffusion_transformer")
+        # dit_sdpa32 (normal-mode lever, shared with Protenix-v2's token DiT): the fp32 attention
+        # as one `_sdpa32` program instead of matmul, scale_add, softmax and matmul. Inert in bf16.
+        self.sdpa32 = _T.lever("dit_sdpa32") and self._act_dtype == ttnn.float32
 
         apb = "attention_pair_bias."
         self.adaln_a = AdaLN(False, remap_of3_adaln(_sub(self._w, apb + "layer_norm_a")),
@@ -150,8 +155,11 @@ class _DiTBlock(Module):
         self.qkv_b = ttnn.from_torch(qkv_b, layout=ttnn.TILE_LAYOUT, device=self.device,
                                      dtype=self._act_dtype)
 
-        self.w_g = self._w_tt(apb + "mha.linear_g.weight")
-        self.w_o = self._w_tt(apb + "mha.linear_o.weight")
+        # The gate and the output projection on the padded head lanes, so the heads come back
+        # with one nlp_concat_heads (see `_pad_head_lanes`): v is zero in those lanes, so is o,
+        # and linear_o's matching rows are zero.
+        self.w_g = self._w_lanes(apb + "mha.linear_g.weight", -1)
+        self.w_o = self._w_lanes(apb + "mha.linear_o.weight", 0)
 
         ct = "conditioned_transition."
         self.adaln_t = AdaLN(False, remap_of3_adaln(_sub(self._w, ct + "layer_norm")),
@@ -162,6 +170,14 @@ class _DiTBlock(Module):
         self.w_lg = self._w_tt(ct + "linear_g.weight")
         self.b_lg = self._w_tt(ct + "linear_g.bias", False)
 
+        # dit_mm16 / dit_b8 (Protenix-v2's levers, `dit_lowp`): the block's linears off the
+        # adaLN outputs at lower operand formats. The s-path linears keep the stream's format.
+        self.lp = _T.dit_lowp(self._act_dtype, compute_kernel_config)
+        if self.lp:
+            for k in ("qkv_w", "w_g", "w_o", "w_la", "w_lb", "w_lout"):
+                setattr(self, k, self._round(getattr(self, k), self.lp.w))
+            self.qkv_b = self._round(self.qkv_b, ttnn.bfloat16)
+
     def _w_tt(self, key, transpose=True):
         v = self._wc.get((key, transpose))
         if v is None:
@@ -171,10 +187,26 @@ class _DiTBlock(Module):
             self._wc[(key, transpose)] = v
         return v
 
+    def _w_lanes(self, key, axis):
+        w = _T._pad_head_lanes(self._w[key].t(), N_HEADS, HEAD_DIM, PADDED_HEAD_DIM, axis)
+        return ttnn.from_torch(w.contiguous(), layout=ttnn.TILE_LAYOUT, device=self.device,
+                               dtype=self._act_dtype)
+
+    def _round(self, t, dtype):
+        """A device weight rounded via bf16 on the host to `dtype`, once."""
+        return ttnn.from_torch(ttnn.to_torch(t).float().to(torch.bfloat16), dtype=dtype,
+                               layout=ttnn.TILE_LAYOUT, device=self.device)
+
     def _lin(self, x, w, bias=None, activation=None):
         return ops.linear(x, w, bias=bias, activation=activation,
                           compute_kernel_config=self.compute_kernel_config,
                           core_grid=CORE_GRID_MAIN)
+
+    def _lin_lp(self, x, w, dtype, bias=None, activation=None):
+        """A linear off an adaLN output: written at `dtype` under `self.lp`, else the shared path."""
+        if self.lp is None:
+            return self._lin(x, w, bias, activation)
+        return self.lp.linear(x, w, bias, dtype=dtype, activation=activation)
 
     def _z_bias(self, z):
         """linear_z(LN_z(z)), per pair position."""
@@ -198,20 +230,7 @@ class _DiTBlock(Module):
         zb = ttnn.to_layout(zb, ttnn.TILE_LAYOUT)
         return ttnn.add_(zb, mask_bias)                 # + mask_bias [1,1,1,N]
 
-    def __call__(self, a, s, z, mask_bias, tok_mask_col, cache=None):
-        lin = self._lin
-        # AdaLN-conditioned a.
-        a_ln = self.adaln_a(a, s)
-
-        zb = _cached(cache, (id(self), "pair_bias"),
-                     lambda: self._pair_bias(z, mask_bias))
-
-        # Fused padded qkv -> heads.
-        qkv = lin(a_ln, self.qkv_w, bias=self.qkv_b)   # [1, N, 3072]
-        qkv = ttnn.unsqueeze(qkv, 1)
-        q, k, v = ttnn.experimental.nlp_create_qkv_heads(
-            qkv, num_heads=N_HEADS, num_kv_heads=N_HEADS, transpose_k_heads=False)
-        ttnn.deallocate(qkv)
+    def _attend(self, q, k, v, bias, cache):
         # Manual attention with an fp32 softmax: the fused SDPA does softmax in bf16,
         # and its per-block error (~0.998) compounds to ~0.967 over 24 blocks. A CPU
         # bf16 control with an fp32 softmax holds 0.99996 over the same stack, so the
@@ -220,10 +239,10 @@ class _DiTBlock(Module):
         scale = HEAD_DIM ** -0.5
         sc = batched_matmul(q, ttnn.permute(k, (0, 1, 3, 2)),
                             compute_kernel_config=self.compute_kernel_config)
-        sc = scale_add(sc, scale, zb)
+        sc = scale_add(sc, scale, bias)
         ttnn.deallocate(q); ttnn.deallocate(k)
         if cache is None:
-            ttnn.deallocate(zb)
+            ttnn.deallocate(bias)
         sc = ttnn.typecast(sc, ttnn.float32)
         attn = site_softmax(sc, dim=-1, numeric_stable=True,
                             compute_kernel_config=self._softmax_ckc,
@@ -232,16 +251,61 @@ class _DiTBlock(Module):
         attn = ttnn.typecast(attn, self._act_dtype)
         o = batched_matmul(attn, v, compute_kernel_config=self.compute_kernel_config)
         ttnn.deallocate(attn); ttnn.deallocate(v)
-        # Slice padded head_dim 64->48, merge heads -> [1, N, 768].
-        o = o[:, :, :, :HEAD_DIM]
-        o = ttnn.permute(o, (0, 1, 3, 2))               # [1, 16, 48, N]
-        o = ttnn.reshape(o, (o.shape[0], -1, o.shape[3]))  # [1, 768, N]
-        o = ttnn.permute(o, (0, 2, 1))                  # [1, N, 768]
+        return o
+
+    def _sdpa32_mask(self, z, mask_bias):
+        """The pair bias as `_sdpa32`'s fp32 mask. `_sdpa32` scales mask and scores together, so
+        the bias is divided by the scale; the token axis is padded to `sdpa32_rows`."""
+        zb = self._pair_bias(z, mask_bias)
+        b = ttnn.multiply(zb, HEAD_DIM ** 0.5)
+        ttnn.deallocate(zb)
+        m = _T.sdpa32_mask(b)
+        ttnn.deallocate(b)
+        return m
+
+    def _attend32(self, q, k, v, mask, cache):
+        """softmax(q k^T * scale + bias) v as one `_sdpa32` program; the stack padded the token
+        axis to `sdpa32_rows`."""
+        o = _T._sdpa32(q, k, v, mask, HEAD_DIM ** -0.5)
+        ttnn.deallocate(q); ttnn.deallocate(k); ttnn.deallocate(v)
+        if cache is None:
+            ttnn.deallocate(mask)
+        return o
+
+    def __call__(self, a, s, z, mask_bias, tok_mask_col, cache=None):
+        lin, lp = self._lin, self.lp
+        # Under lp each adaLN writes lp.act, read only by linears; the transition's hidden linears
+        # write bf16, their product lp.mid, and every linear into the stream writes lp.out.
+        act, out_dt = (lp.act, lp.out) if lp else (None, None)
+        mid = {"dtype": lp.mid} if lp else {}
+        # AdaLN-conditioned a.
+        a_ln = self.adaln_a(a, s, dtype=act)
+
+        if self.sdpa32:
+            bias = _cached(cache, (id(self), "pair_bias32"),
+                           lambda: self._sdpa32_mask(z, mask_bias))
+        else:
+            bias = _cached(cache, (id(self), "pair_bias"),
+                           lambda: self._pair_bias(z, mask_bias))
+
+        # Fused padded qkv -> heads; `_sdpa32` reads them at lp.qkv (dit_qkv16: bf16), output fp32.
+        qkv = self._lin_lp(a_ln, self.qkv_w, lp.qkv if lp and self.sdpa32 else out_dt,
+                           bias=self.qkv_b)                              # [1, N, 3072]
+        qkv = ttnn.unsqueeze(qkv, 1)
+        q, k, v = ttnn.experimental.nlp_create_qkv_heads(
+            qkv, num_heads=N_HEADS, num_kv_heads=N_HEADS, transpose_k_heads=False)
+        ttnn.deallocate(qkv)
+        o = (self._attend32 if self.sdpa32 else self._attend)(q, k, v, bias, cache)
+        S, n = o.shape[0], o.shape[2]
+        o = ttnn.reshape(ttnn.experimental.nlp_concat_heads(o),
+                         (S, n, N_HEADS * PADDED_HEAD_DIM))  # [S, N, 1024], pad lanes zero
         # Query gate (flat == per-head: g.view(N,H,d) * o(H,N,d) == flat multiply).
-        g = lin(a_ln, self.w_g)
-        o = ttnn.multiply(o, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
+        # The gate at o's format: a multiply whose b carries a fused sigmoid is wrong on mixed
+        # operand formats (Protenix-v2's dit_mm16 grade, perf/spd_difflin/k1_check.py).
+        g = self._lin_lp(a_ln, self.w_g, o.dtype)
+        o = ttnn.multiply(o, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID], **mid)
         ttnn.deallocate(g)
-        o = lin(o, self.w_o)                            # [1, N, 768]
+        o = self._lin_lp(o, self.w_o, out_dt)           # [1, N, 768]
         # APB output gate from s.
         og = lin(s, self.w_ada_out, bias=self.b_ada_out)
         o = ttnn.multiply(o, og, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
@@ -250,13 +314,13 @@ class _DiTBlock(Module):
         ttnn.deallocate(o)
 
         # Conditioned SwiGLU transition.
-        a_t = self.adaln_t(a, s)
-        b1 = lin(a_t, self.w_la, activation="silu")
-        b2 = lin(a_t, self.w_lb)
+        a_t = self.adaln_t(a, s, dtype=act)
+        b1 = self._lin_lp(a_t, self.w_la, ttnn.bfloat16, activation="silu")
+        b2 = self._lin_lp(a_t, self.w_lb, ttnn.bfloat16)
         ttnn.deallocate(a_t)
-        bb = ttnn.multiply(b1, b2)
+        bb = ttnn.multiply(b1, b2, **mid)
         ttnn.deallocate(b1); ttnn.deallocate(b2)
-        out = lin(bb, self.w_lout)
+        out = self._lin_lp(bb, self.w_lout, out_dt)
         ttnn.deallocate(bb)
         lg = lin(s, self.w_lg, bias=self.b_lg)
         out = ttnn.multiply(out, lg, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
@@ -271,15 +335,17 @@ class OF3DiffusionTransformer(Module):
 
     Inputs (device bf16):
         a:        [S, N, 768]   token single (evolving)
-        s:        [S, N, 384]   conditioning single (si, one per sample)
+        s:        [S or 1, N, 384] conditioning single (si); at 1 it broadcasts
         z:        [1, N, N, 128] conditioning pair (zij, shared by every sample)
         token_mask:   [1, N]    shared
         tok_mask_col: [1, N, 1] token mask for transition masking, shared
     Returns [S, N, 768].
 
-    **S is the sample axis and the stack is written once for every S.** The two tensors
-    that differ between samples are ``a`` and ``s``; ``z`` and the masks are pure functions
-    of the trunk output, so they keep a leading dim of 1 and broadcast. The per-block pair
+    **S is the sample axis and the stack is written once for every S.** Only ``a`` has to
+    differ between samples. ``z`` and the masks are pure functions of the trunk output and
+    ``s`` of the step's noise level, which the sampler's samples share, so they keep a
+    leading dim of 1 and broadcast: AdaLN's conditioning half and the two ``s`` gates then
+    run once per block instead of once per sample. The per-block pair
     bias is the expensive shared term -- ``[1, 16, N, N]``, cached, and added to the
     ``[S, 16, N, N]`` scores by broadcast, never replicated, which is what keeps the sample
     axis nearly free on DRAM (Protenix measured 1.9 GB per replicated copy at 1095 tokens,
@@ -346,10 +412,22 @@ class OF3DiffusionTransformer(Module):
         mb = mb_t.reshape(1, 1, 1, padded_N)
         mask_bias = ttnn.from_torch(mb, layout=ttnn.TILE_LAYOUT, device=self.device,
                                     dtype=self._act_dtype)
+        # dit_sdpa32 runs at sdpa32_rows. The stream is padded to it here, once a call, not q, k
+        # and v in every block: rows are independent everywhere but the attention, and its mask
+        # (`_sdpa32_mask`, built from the padded_N bias) hides the new keys. The same padding
+        # Protenix's token DiT does.
+        rows = _T.sdpa32_rows(padded_N) if self.blocks[0].sdpa32 else padded_N
+        if rows != padded_N:
+            a_d, s_d = (ttnn.pad(x, [(0, 0), (0, rows - padded_N), (0, 0)], value=0.0)
+                        for x in (a_d, s_d))
+            tmc_p = torch.zeros(1, rows, 1, dtype=torch.float32)
+            tmc_p[0, :N, 0] = tok
+            tmc_d = ttnn.from_torch(tmc_p, layout=ttnn.TILE_LAYOUT, device=self.device,
+                                    dtype=self._act_dtype)
         x = a_d
         for blk in self.blocks:
             x = blk(x, s_d, z_d, mask_bias, tmc_d, cache=cache)
-        if padded_N == N:
+        if rows == N:
             return x
         x = ttnn.to_layout(x, ttnn.ROW_MAJOR_LAYOUT)
         x = ttnn.slice(x, [0, 0, 0], [S, N, C_A])

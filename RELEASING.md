@@ -43,6 +43,14 @@ installs exactly that set, and the runner refuses to start if two hosts of one a
 differ (a PyPI release between two preps once gave .107 and .114 different pandas and omegaconf). Run it detached; re-running the same command resumes, because every passed
 leg is in the ledger.
 
+A leg whose ssh connection drops (exit 255 with ssh's own error) is run again once the host
+answers; it is never recorded as a failure. The rerun first ends the attempt it replaces, which
+the host may still be running, so a leg never runs twice. A result fetch that times out is
+retried the same way. A capacity leg passes when every cell it fails is a
+size-guard refusal that `docs/capacity_gate_baseline.json` records for that card type
+(OpenDDE on Blackhole is capped at 1024 tokens, so its 1536 cell is refused every run); any
+other failing cell fails the leg.
+
 **Reuse, never redo.** Each leg result is keyed by the content of every tracked file except
 Markdown and pyproject's version line, the interpreter's installed packages, the card type, and
 the leg's exact command. A leg whose key already passed is not run again and the verdict names
@@ -51,25 +59,30 @@ not part of the key either, so re-recording them in the release commit reuses ev
 card-free legs always run, and `pytest_cpu` is where a stale recording fails. The gate baselines
 (`docs/size_ladder_baseline*`, `docs/perf_baselines.json`, `docs/capacity_gate_baseline.json`)
 key only the legs that compare against them, so re-recording the size ladder reruns the ladder
-legs and nothing else. So a docs-only commit, or the release commit's version bump and
+legs and nothing else. Likewise a `tests/test_*.py` file that no Python file outside `tests/` loads keys
+only the pytest legs, so a test fix does not rerun the folds; a test a gate script loads (such as
+`tests/test_structure.py`) stays in the code key. The gate's own runner (`gate_fanout.py`,
+`release_next.py`, `flock_first.sh`, `gate_host_prep.sh`, `splice_ladder_fragments.py` and
+their tests) decides where and when a leg runs, not what it computes, so a fix to it is not
+part of the key either. So a docs-only commit, or the release commit's version bump and
 re-recordings, costs nothing, and a grade-time crossmodel or suite run done through
 `gate_fanout.py --legs 'rg:*'` on the same wheel venv counts for the release. Any change to code,
 tests, data, fixtures, packages or card type is a new key and runs fresh. `--legs` also takes
 `!glob` to leave legs out.
 
 **Baselines a new lever owes.** A census lever that lands without a size-ladder row fails every
-ladder leg at every rung, which the gate only learns after folding the whole ladder.
-`tests/test_size_ladder_baseline_levers.py` reads the same fact from the baseline in under a
-second, so run the CPU suite before a gate. When it is red, record the missing levers on every
-card type, one fold per rung, refused unless every other lever still matches:
+ladder leg at every rung. The runner reads that from the baseline when it plans, so such a leg
+reports OWED without folding (`--dry-run` shows it). Record the missing levers on every card
+type, one fold per rung, refused unless every other lever still matches:
 
 ```bash
 python3 scripts/gate_fanout.py --sha <commit> ... --legs 'record:*' \
     --record-lever SDPA_FUSED_PADDED --out ~/gates/record-<sha9>
 ```
 
-The fragments land in `<out>/recorded/<card_type>/<model>.json`; copy them over
-`docs/size_ladder_baseline.d/` in the release commit. The ladder legs then rerun against them and
+The fragments land in `<out>/recorded/<card_type>/<model>.json`; splice them into the release
+commit with `python3 scripts/splice_ladder_fragments.py <out>/recorded`, which takes only the
+recorded card type's entry (a plain copy would undo any other card type's re-record since). The ladder legs then rerun against them and
 every other leg is reused. A model whose splice is refused (something besides the new lever
 moved, e.g. a guard's decline reason) needs a full re-record of its own fragment: add
 `--record-full <model>` and that model's record leg re-records every rung instead.
@@ -173,11 +186,18 @@ you publish.
 
 ### The gate interpreter on the WH Galaxy
 
+A release never waits on our own experiments. Gate legs queue at prio 0 in a Galaxy pool, ahead
+of every grading job, and on a card shared through its `flock` (qb1, qb2) the host sets
+`"first": true`: each leg then waits through `scripts/flock_first.sh`, which pauses the other
+waiters on that card (never the job holding it) and resumes them a few minutes after the gate's
+last leg there. Another gate's wait is never paused, so two gates on one card queue in order.
+A leg still waits for the job already running on its card.
+
 On an SPD pool Galaxy (`.114`, `.107`) use the same `gate_host_prep.sh` venvs as any other host,
 under a root of your own (`~/spd/<row>`), and give the legs a private lease dir, `XDG_CACHE_HOME`,
 `TT_METAL_CACHE` and `MPLCONFIGDIR` so nothing collides with the JapanFold agent's. The pool's chip
 ids are UMD ids and its locks are `~/spd/locks/chip<N>.lock`. Grant the gate pool slots rather
-than chips: with `"pool": {"queue": "~/spd/pool/queue", "prio": 5, "row": "<row>"}` in hosts.json,
+than chips: with `"pool": {"queue": "~/spd/pool/queue", "prio": 0, "row": "<row>"}` in hosts.json,
 `--workers g114:pool,g114:pool,g114:pool,g114:pool` keeps at most four legs queued or running
 there, each as one job file the pool starts on an idle healthy chip. Stopping the runner (SIGINT)
 takes back the jobs that have not started.

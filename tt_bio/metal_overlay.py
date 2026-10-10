@@ -319,6 +319,24 @@ def enable(names) -> Path:
     return out
 
 
+# Blackhole Ethernet dispatch needs a ttnn whose idle-ERISC firmware region holds the dispatch kernels. Stock 0.68.0
+# reserves 24 KB for firmware and kernel together and the prefetch kernel overflows it; a ttnn built with
+# scripts/ttnn_bh_eth reserves 40 KB. The loader enforces the kernel's limit from the linker script the wheel ships,
+# so that is the capability (the host library is built from the same header in the same wheel).
+BH_KERNEL_LD = Path("runtime/hw/toolchain/blackhole/kernel_ierisc.ld")
+_TEXT_LIMIT_KB = re.compile(r"LONG\(ADDR\(\.text\)\) LONG\(ADDR\(\.text\)\)\s*LONG\(\((\d+) \* 1024\)")
+
+
+def bh_eth_dispatch_supported(root: Path | None = None) -> bool:
+    """True when the ttnn tt-bio runs can dispatch on Blackhole Ethernet cores."""
+    root = root or Path(os.environ.get("TT_METAL_RUNTIME_ROOT") or runtime_root() or "")
+    try:
+        m = _TEXT_LIMIT_KB.search((root / BH_KERNEL_LD).read_text())
+    except OSError:
+        return False
+    return m is not None and int(m.group(1)) >= 40
+
+
 def blackhole_host() -> bool:
     for dev in Path("/sys/class/tenstorrent").glob("tenstorrent!*"):
         try:

@@ -138,8 +138,15 @@ def test_the_generic_op_route_is_only_reached_masked(monkeypatch):
     # decline a None bias. protenix runs it at one site, atom_sdpa32, whose mask is the superset
     # bias `zs` that `_superset_bias` always builds. tenstorrent runs it at one site, `_sdpa32`
     # (lever dit_sdpa32), which reads its mask's shape before the call, so None cannot reach it.
-    assert _generic_sdpa_runners() == ["tt_bio/protenix.py", "tt_bio/tenstorrent.py",
-                                       "tt_bio/triatt_sdpa.py"]
+    # OpenFold3's atom transformer runs it in `_attend_superset`, which reads `sup_b.shape` first.
+    assert _generic_sdpa_runners() == ["tt_bio/openfold3_atom_transformer.py", "tt_bio/protenix.py",
+                                       "tt_bio/tenstorrent.py", "tt_bio/triatt_sdpa.py"]
+    of3 = ast.parse((PKG / "openfold3_atom_transformer.py").read_text())
+    sup = next(n for n in ast.walk(of3) if isinstance(n, ast.FunctionDef) and n.name == "_attend_superset")
+    ocalls = [n for n in ast.walk(of3) if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
+              and n.func.attr == "sdpa" and isinstance(n.func.value, ast.Name) and n.func.value.id == "SG"]
+    assert len(ocalls) == 1 and ocalls[0] in list(ast.walk(sup)) and ocalls[0].args[4].id == "sup_b"
+    assert "sup_b.shape" in ast.unparse(sup.body[:6])
     tt = ast.parse((PKG / "tenstorrent.py").read_text())
     tcalls = [n for n in ast.walk(tt) if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
               and n.func.attr == "sdpa" and isinstance(n.func.value, ast.Name) and n.func.value.id == "SG"]
