@@ -628,6 +628,11 @@ FAST_LEVERS = frozenset(LEVERS) - {"lofi", "triatt_b8", "triatt_bias_b8"} - UNGR
 # folds): PASS, top pose median 0.156 A (floor 0.803 A), CA-lDDT +0.0004 [-0.0013, +0.0024], docking
 # 32 -> 33/44; cdk2x2_512 vs 1HCL +0.004 / +0.006 CA-lDDT per domain; c730 warm A/B/A 270.5 -> 267.1
 # -> 274.0 s. Fast runs acc off, so its configuration is the one graded there.
+# Out of normal mode again (2026-10-10): it makes the answer depend on the core grid. The release gate's
+# l1-budget leg folds Protenix-v2 fkg at the native grid and at a forced 8x8; with the lever the two
+# differ on Wormhole (.114) and Blackhole (qb2), CA-RMSD 1.38 A between them on .114, and with it off
+# they are bit-identical. Whether a block shards depends on the grid's rows, and the sharded and
+# interleaved swiglu round differently, so an 8x8 n150 and an 8x9 Galaxy chip would give two answers.
 # atom_k1: bit-exact. The c730 sampler (5 samples x 200 steps, seeds 101-103) returns torch.equal
 # coordinates with and without it on Wormhole (.107, 1000 MHz) and on Blackhole (p150a, where it is
 # ttnn's own program), and saves 0.76 s of the Wormhole sampler (63.75 -> 62.99 s, spd-difflin ab2).
@@ -647,7 +652,7 @@ FAST_LEVERS = frozenset(LEVERS) - {"lofi", "triatt_b8", "triatt_bias_b8"} - UNGR
 # paired CI covers 0. c730 at AICLK 1000: normal 250.3 -> 247.7 s, fast 201.3 -> 196.1 s; deep alignments
 # gain most (9DBP 556 -> 419 s, 9PCQ 427 -> 310 s) (state/spd-msasample.md, 2026-10-10).
 NORMAL_LEVERS = frozenset({"trimul_ibw", "trimul_tail", "trunk_hifi3", "dit_sdpa32", "silu_f32", "triatt_tail",
-                           "transition_shard", "atom_k1", "dit_mm16", "dit_qkv16", "msa_sample"})
+                           "atom_k1", "dit_mm16", "dit_qkv16", "msa_sample"})
 _LEVERS = frozenset()
 # silu_f32 is a kernel, so it needs ttnn's headers patched before the first device open (metal_overlay)
 # in any process that may run it. The patch only changes silu under math_approx_mode, and every fused
