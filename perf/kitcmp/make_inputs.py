@@ -44,7 +44,12 @@ rf = Path(__file__).resolve().parents[1] / "dsfix"
 (a.out / "rfd3/perf/dsfix/targets").mkdir(parents=True, exist_ok=True)
 shutil.copyfile(rf / "fixtures/rfd3_R4_gpu.json", a.out / "rfd3/rfd3_R4_gpu.json")
 shutil.copyfile(rf / "targets/R4_9q6y_A.pdb", a.out / "rfd3/perf/dsfix/targets/R4_9q6y_A.pdb")
+px = Path(__file__).resolve().parents[1] / "pxdesign/targets"  # yaml byte for byte; box_arms.sh puts the CIF where it points
+(a.out / "pxdesign").mkdir(exist_ok=True)
+for n in ("laczc_512_nomsa.yaml", "laczc_512.cif"):
+    shutil.copyfile(px / n, a.out / "pxdesign" / n)
 (a.out / "SHA256SUMS").write_text("".join(f"{hashlib.sha256(p.read_bytes()).hexdigest()}  {R}/{n}\n"
     for p, n in ((m, "msa/uniref90_hits.a3m"), (y, "cdk2x2_512.yaml"), (rf / "fixtures/rfd3_R4_gpu.json", "rfd3/rfd3_R4_gpu.json"),
-                 (rf / "targets/R4_9q6y_A.pdb", "rfd3/perf/dsfix/targets/R4_9q6y_A.pdb"))))
+                 (rf / "targets/R4_9q6y_A.pdb", "rfd3/perf/dsfix/targets/R4_9q6y_A.pdb"),
+                 (px / "laczc_512_nomsa.yaml", "pxdesign/laczc_512_nomsa.yaml"), (px / "laczc_512.cif", "pxdesign/laczc_512.cif"))))
 print("wrote", a.out, len(seq), "aa")
