@@ -4,7 +4,7 @@
     "-m",
     "tt_bio.main",
     "predict",
-    "/home/ttuser/.coworker/wt/land-standing/perf/size512/fixtures/cdk2x2_640.yaml",
+    "/home/ttuser/scratch/spd-rel/dry-6105e740d/tree/perf/size512/fixtures/cdk2x2_640.yaml",
     "--model",
     "opendde",
     "--single_sequence",
@@ -15,7 +15,7 @@
     "--seed",
     "0",
     "--out_dir",
-    "/home/ttuser/.coworker/wt/land-standing/perf/sizegate/work/out_opendde-640-rep0"
+    "/home/ttuser/scratch/spd-rel/dry-6105e740d/tree/perf/sizegate/work/out_opendde-640-rep0"
   ],
   "rc": 0,
   "processes": 2,
@@ -105,7 +105,7 @@
       "how": "wrap",
       "counter": null,
       "resolved": "True",
-      "served": 405,
+      "served": 315,
       "declined": 0,
       "rejects": null,
       "gauges": null
@@ -252,6 +252,16 @@
       "counter": "tt_bio.tenstorrent.SDPA_FUSED_LARGE_S_STATS",
       "resolved": "True",
       "served": 8,
+      "declined": 0,
+      "rejects": null,
+      "gauges": null
+    },
+    {
+      "flag": "SDPA_FUSED_PADDED",
+      "how": "stats",
+      "counter": "tt_bio.tenstorrent.SDPA_FUSED_PADDED_STATS",
+      "resolved": "True",
+      "served": 0,
       "declined": 0,
       "rejects": null,
       "gauges": null
@@ -406,6 +416,16 @@
       "rejects": {
         "ratio-shrunk": 528
       },
+      "gauges": null
+    },
+    {
+      "flag": "TRIATT_SDPA_HIFI",
+      "how": "stats-dict",
+      "counter": "tt_bio.tenstorrent.TRIATT_FUSED_HIFI_STATS:served,declined",
+      "resolved": "none",
+      "served": 0,
+      "declined": 0,
+      "rejects": null,
       "gauges": null
     }
   ],
