@@ -195,7 +195,9 @@ pools to every core unless capped, so three ladder folds on qb2 oversubscribed i
 boltz2's 256 aa rung read 12.9 s against 4.2 s timed alone (1024 aa held at 0.97x). Every ladder and
 record leg therefore runs at a fixed share of its host, set in hosts.json as
 `"args": {"ladder": ["--host-threads", "N"], "record": ["--host-threads", "N"]}`: cores divided by
-the cards the gate runs there (qb1 32/4 = 8, qb2 16/3 = 5, Galaxy 2). The cap is stamped into each
+the cards the gate runs there (qb1 32/4 = 8, qb2 16/3 = 5, Galaxy 2). The other legs on that host
+fold beside it, so the host's `env` carries the same share in `OMP_NUM_THREADS`, `MKL_NUM_THREADS`,
+`OPENBLAS_NUM_THREADS` and `NUMEXPR_NUM_THREADS`, and every leg's folds stay inside it. The cap is stamped into each
 recorded fragment, and a ladder leg run at another cap than its baseline fails with "re-record at
 this cap" instead of scoring the timings. Change a host's cap and you re-record its card type.
 
