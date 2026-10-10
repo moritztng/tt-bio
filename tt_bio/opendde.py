@@ -382,7 +382,9 @@ class OpenDDE:
     a 4-block structural-token refiner (a reused ``Pairformer``), on the structural-token
     axis. Ships co-folding only (no design/affinity)."""
 
-    def __init__(self, state_dict, compute_kernel_config, device=None):
+    def __init__(self, state_dict, compute_kernel_config, device=None, diffusion_fp32=None):
+        """diffusion_fp32: the diffusion module's precision; None keeps the bf16 pin below
+        (OPENDDE_DIFFUSION_FP32=1 lifts it). Guided runs pass True (host_controller.diffusion_precision)."""
         from .tenstorrent import get_device, Pairformer, accurate_softmax_site
         from .protenix import Protenix
         self.dev = device or get_device()
@@ -409,7 +411,8 @@ class OpenDDE:
         # Diagnostic only: fp32 here is >60x slower on OpenDDE's atom-level tensors.
         self._protenix = Protenix(
             self._shared, compute_kernel_config, self.dev, c_z=C["c_z"], msa_update_first=True,
-            diffusion_fp32=env_flag("OPENDDE_DIFFUSION_FP32", False), gated_move=True,
+            diffusion_fp32=(env_flag("OPENDDE_DIFFUSION_FP32", False) if diffusion_fp32 is None
+                            else diffusion_fp32), gated_move=True,
             softmax_scope="opendde")
         self.expander = StructuralTokenExpander(
             routed["expander"], compute_kernel_config, c_s=C["c_s"], c_z=C["c_z"],
@@ -421,7 +424,8 @@ class OpenDDE:
             accurate_softmax=accurate_softmax_site("opendde.refiner", default=True))
 
     @classmethod
-    def load_from_checkpoint(cls, path=None, *, abag=False, compute_kernel_config=None, device=None):
+    def load_from_checkpoint(cls, path=None, *, abag=False, compute_kernel_config=None, device=None,
+                             diffusion_fp32=None):
         """Fetch/load ``opendde.pt`` (or ``opendde_abag.pt`` when ``abag=True``) and build
         the model on ``device`` (card 0 by default)."""
         import ttnn
@@ -429,7 +433,7 @@ class OpenDDE:
         dev = device or get_device()
         ckc = compute_kernel_config or ttnn.init_device_compute_kernel_config(
             dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi4, fp32_dest_acc_en=True, packer_l1_acc=True)
-        return cls(load_opendde_checkpoint(path, abag=abag), ckc, dev)
+        return cls(load_opendde_checkpoint(path, abag=abag), ckc, dev, diffusion_fp32)
 
     def expand_and_refine(self, ifd, s_inputs_res, s_res, z_res, *,
                           extra_attn_bias=True, return_attn_bias=False):
