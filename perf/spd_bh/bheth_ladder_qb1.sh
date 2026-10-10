@@ -2,7 +2,9 @@
 # spd-bheth on qb1, after bheth_chain_qb1.sh proved the 12x10 grid on c730: does Ethernet dispatch fold every size and
 # model a Blackhole user runs today, and with what digests? Same venv (ttnn 0.68.0+bh.eth2), one p150a card by flock.
 # Protenix-v2 l256..l1536 1 cold + 1 warm, then OpenDDE, OpenFold3, Boltz-2 on c730 cold only; Tensix vs ETH each.
-#   [QB1_CARDS="1 0 2 3"] [AFTER_PID=N] bheth_ladder_qb1.sh ENGINE_SHA [repeat|rest]
+#   [QB1_CARDS="1 0 2 3"] [AFTER_PID=N] bheth_ladder_qb1.sh ENGINE_SHA [repeat|rest|grade]
+# grade: Protenix-v2 on the 11 accuracy complexes, seeds 101-104, Tensix then ETH, for grade.py --base tensix --test eth
+# (ETH dispatch is deterministic on p150a but changes digests off c730, so the normal bar needs the ground-truth grade).
 # rest: the repeat first, then what the 10-10 ladder lost when qb1's disk filled (ETH l1536, the other models).
 # Every plan waits for 20 GiB free on / before it takes a card: a full disk turns each fold into rc=120 in a second.
 # repeat: Protenix-v2 l256 + l1024 again in both arms, same seeds, to tell a run-to-run flip from a grid-numerics change
@@ -40,11 +42,16 @@ dead(){ [ "$(cat /sys/class/tenstorrent/tenstorrent!$N/tt_heartbeat 2>/dev/null)
 say "lock held: qb1 card $CARD (node $N), load $(cut -d' ' -f1-3 /proc/loadavg)"
 
 run(){  # name model inputs warm arm
-  nice -n 5 timeout -s INT 5400 $PY perf/spd/bench.py --out $R/$1 --chip $CARD --model $2 --inputs $3 --warm $4 --arm "$5" \
+  nice -n 5 timeout -s INT ${RUN_TIMEOUT:-5400} $PY perf/spd/bench.py --out $R/$1 --chip $CARD --model $2 --inputs $3 --warm $4 --arm "$5" \
     > $R/$1.log 2>&1
   say "$1 rc=$? $(grep -c '"ev": "rep"' $R/$1.log) reps, $(grep -c '"err": null' $R/$1.log) clean"
   dead && { say "node $N ARC dead after $1, stopping"; exit 2; }
 }
+if [ $PLAN = grade ]; then
+  SET=9TH6,9W89,9W8A,9TY2,9W3L,9LV4,9LLG,28VJ,9HL2,9DBP,9PCQ; RUN_TIMEOUT=14400
+  for m in tensix:TT_BIO_BH_ETH_DISPATCH=0 eth:TT_BIO_BH_ETH_DISPATCH=1; do run grade_${m%%:*} protenix-v2 $SET 3 $m; done
+  say "end"; exit 0
+fi
 if [ $PLAN = rest ] || [ $PLAN = repeat ]; then   # the repeat decides the p150a default, so it runs first
   for m in eth:TT_BIO_BH_ETH_DISPATCH=1 tensix:TT_BIO_BH_ETH_DISPATCH=0; do
     run repeat_pv2_${m%%:*} protenix-v2 l256,l1024 1 $m
