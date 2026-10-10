@@ -44,8 +44,8 @@ for _ in $(seq $NMAX); do
     while [ $(( $(date +%s) - T0 )) -lt 1500 ]; do
       [ $(( $(date +%s) - T0 )) -ge 120 ] && [ "$(state $I)" != running ] && break
       read -r IP PORT < <($V show instance $I --raw 2>/dev/null | python3 -c 'import json,sys
-  x=json.load(sys.stdin); p=(x.get("ports") or {}).get("22/tcp")
-  print(x.get("public_ipaddr","").strip(), p[0]["HostPort"] if p else "") if x.get("actual_status")=="running" else print("","")' 2>/dev/null)
+x=json.load(sys.stdin); p=(x.get("ports") or {}).get("22/tcp")
+print(x.get("public_ipaddr","").strip(), p[0]["HostPort"] if p else "") if x.get("actual_status")=="running" else print("","")' 2>/dev/null)
       if [ -n "${PORT:-}" ]; then
         S="ssh -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=15 -o ServerAliveInterval=30 -p $PORT root@$IP"
         timeout 30 $S true >/dev/null 2>&1 && break; S=""
