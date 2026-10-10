@@ -509,21 +509,10 @@ def refine_rigid_contact(coords, feats, iterations=40, core=None):
 
     compiled = core == "auto" and moving.dtype == torch.float32 and moving.device.type == "cpu"
     if compiled:
-        n_atoms = fixed.shape[1]
-
-        def evaluate(x, ra=clash.ra.contiguous().numpy(), rb=clash.rb.contiguous().numpy()):
-            """evaluate(x) per sample by the descent's own evaluation: same severe keys and depth, the energy (logged
-            only) sums in pair order."""
-            energy, depth, keys = [], [], []
-            for s, (xs, fs) in enumerate(zip(x.contiguous().numpy(), fixed.contiguous().numpy())):
-                pi, pj = _pairs_near(xs, fs, *_fixed_grid(fs, np.float32(clash.cut)), np.float32(clash.cut))
-                e, d, k, _ = _contact_eval(xs, fs, pi, pj, ra, rb, ri.numpy(), li.numpy(), lower.numpy(),
-                                           upper.numpy(), np.empty((0, 3), np.float32), False)
-                energy.append(e), depth.append(d), keys.append(torch.from_numpy(k) + s * len(xs) * n_atoms)
-            keys = torch.cat(keys)
-            pair_d = torch.linalg.vector_norm(x[:, ri] - fixed[:, li], dim=-1).clamp_min(1e-6)
-            return (torch.tensor(energy), SevereSet(keys, torch.zeros_like(keys), len(x), 1, x.shape[1] * n_atoms),
-                    torch.tensor(depth), pair_d)
+        def evaluate(x):
+            """The descent's own evaluation, so the exit check reads the same severe pairs its gate accepted."""
+            energy, severe, depth = compiled_eval(x, fixed, clash, ri, li, lower, upper)
+            return energy, severe, depth, torch.linalg.vector_norm(x[:, ri] - fixed[:, li], dim=-1).clamp_min(1e-6)
 
     first_energy, first_severe, _, first_d = evaluate(moving)
     if compiled:
@@ -846,6 +835,26 @@ def _contact_eval(x, fixed, pi, pj, ra, rb, ri, li, lower, upper, grad, want):
         keys[k] = sev[k]
     keys.sort()
     return f(0.5) * (v2 + f(20.0) * e), depth, keys, ok
+
+
+def compiled_eval(x, fixed, clash, ri=None, li=None, lower=None, upper=None):
+    """_descend's evaluation of poses x [S, M, 3] against fixed [S, N, 3]: (energy, SevereSet, depth) per sample,
+    with the contact term over ri/li in [lower, upper] when given (energy otherwise the clash term alone). A
+    refinement's entry and exit checks must use this, not the torch clash test: the two round a distance at the
+    severe threshold differently, and a pose the gate accepted could then read as a new severe clash."""
+    if ri is None:
+        ri = li = torch.zeros(0, dtype=torch.long)
+        lower = upper = torch.zeros(0)
+    ra, rb, cut, n_atoms = clash.ra.contiguous().numpy(), clash.rb.contiguous().numpy(), np.float32(clash.cut), fixed.shape[1]
+    energy, depth, keys = [], [], []
+    for s, (xs, fs) in enumerate(zip(x.contiguous().numpy(), fixed.contiguous().numpy())):
+        pi, pj = _pairs_near(xs, fs, *_fixed_grid(fs, cut), cut)
+        e, d, k, _ = _contact_eval(xs, fs, pi, pj, ra, rb, ri.numpy(), li.numpy(), lower.numpy(), upper.numpy(),
+                                   np.empty((0, 3), np.float32), False)
+        energy.append(e), depth.append(d), keys.append(torch.from_numpy(k) + s * x.shape[1] * n_atoms)
+    keys = torch.cat(keys)
+    return (torch.tensor(energy), SevereSet(keys, torch.zeros_like(keys), len(x), 1, x.shape[1] * n_atoms),
+            torch.tensor(depth))
 
 
 @numba.njit(cache=True, nogil=True)

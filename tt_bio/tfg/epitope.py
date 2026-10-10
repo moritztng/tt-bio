@@ -329,10 +329,18 @@ def refine_epitope(coords, feats, iterations=40, core=None):
     def satisfied(d):
         return reached_count(d) >= k
 
+    compiled = distances is not None and moving.dtype == torch.float32 and moving.device.type == "cpu"
+    if compiled:
+        def evaluate(x):
+            """The descent's own clash evaluation, so the exit check reads the same severe pairs its gate accepted."""
+            clash_energy, severe, depth = rc.compiled_eval(x, fixed, clash)
+            contact_energy, _, d = contact_energy_and_gradient(x, fixed, epi_local, valid, para_local, k, distances)
+            return contact_energy + clash_energy, severe, depth, d
+
     first_energy, first_severe, _, first_d = evaluate(moving)
     entry_ok = reached_count(first_d) >= k
     entry = moving.clone()
-    if distances is not None and moving.dtype == torch.float32 and moving.device.type == "cpu":
+    if compiled:
         epi = fixed[:, epi_local.clamp_min(0).reshape(-1)].contiguous()
         ecentre, eradius = ResidueDistances._spheres(epi.view(len(epi), *epi_local.shape, 3), valid)
         empty = np.zeros(0, np.float32)
