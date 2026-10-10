@@ -111,7 +111,7 @@ B8 = T.lever("transition_b8")
 WDT = ttnn.bfloat8_b if B8 else ttnn.bfloat16
 HDT = ttnn.bfloat8_b if B8 else ttnn.bfloat16
 GX, GY = T.COMPUTE_GRID_MAIN
-CH = {"pair": (256, 1024), "msa": (128, 512)}
+CH = {"pair": (256, 1024), "msa": (128, 512), "pair384": (384, 1536)}  # pair384: OpenDDE's c_z
 SILU = ttnn.UnaryWithParam(ttnn.UnaryOpType.SILU)
 
 
@@ -176,7 +176,7 @@ def body_shard(x, w1, w2, w3, gx, gy, bw, bw3):
 
 def shard_arms(mt, kt, nt, ct):
     out = []
-    for gx in sorted({GX, 8, 4}, reverse=True):
+    for gx in sorted({GX, 8, 6, 4}, reverse=True):  # 6: c_z=384 output (12 tiles) splits over 6, not 8
         if gx > GX or nt % gx:
             continue
         for gy in range(GY, 0, -1):
