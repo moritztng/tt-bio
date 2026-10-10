@@ -10,12 +10,36 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   random alignment rows and every reference conformer is centred and turned by a seeded rotation, both
   drawn from the seed. Before, every seed of a target shared one trunk, so five seeds were one trunk with
   five noise draws. Outputs for a given seed change; candidate diversity across seeds now matches upstream.
-- **Protenix-v2 is 1.9x faster on Wormhole** than 0.13.1, up from 1.6x in 0.14.0. A warm 730-token fold
-  (deep MSA, 5 samples, 10 recycles) takes 259 s on a Galaxy chip at 1000 MHz, against 307 s in 0.14.0 and
-  501 s in 0.13.1, and 119 s on a Blackhole p150a at 1350 MHz. Structures stay inside seed-to-seed
-  variation (11 complexes, median top-pose deviation 0.26 to 0.34 A over 16 seeds on Wormhole and 0.35 A
-  over 4 on Blackhole, against a 0.8 A re-seed). `--fast`: 209 s on Wormhole, 100 s on Blackhole.
-  [`docs/tuning-flags.md`](docs/tuning-flags.md#tt_bio_levers).
+- **Protenix-v2 is 2.0x faster on Wormhole** than 0.13.1, up from 1.6x in 0.14.0. A warm 730-token fold
+  (deep MSA, 5 samples, 10 recycles) takes 247 s on a Galaxy chip at 1000 MHz, against 307 s in 0.14.0 and
+  501 s in 0.13.1. Structures stay inside seed-to-seed variation. `--fast`: 194 s on Wormhole, 99 s on a
+  Blackhole p150a at 1350 MHz. [`docs/tuning-flags.md`](docs/tuning-flags.md#tt_bio_levers).
+- **OpenFold3 is 2.7x faster on Wormhole.** The 730-token fold takes 117 s on a Galaxy chip at 1000 MHz,
+  against 317 s in 0.14.0, with structures inside seed-to-seed variation (11 complexes x 4 seeds).
+  `--fast` now runs the same configuration as normal mode; the old fast set was slower (431 s).
+- **Boltz-2 is 1.3x faster on Wormhole and 1.4x on Blackhole.** The 730-token fold takes 132 s on a Galaxy
+  chip at 1000 MHz (172 s before) and 69 s on a Blackhole p150a at 1350 MHz (98 s before). `--fast` takes
+  123 s and 64 s. Structures and docking success are unchanged on 11 complexes.
+
+### Added
+- **OpenDDE constraint guidance** (upstream 1.2.0 Test-Time Structure-Space Search). A `constraint:`
+  block with contact pairs or an epitope, plus `--use_tfg_guidance`, moves the antibody as a rigid body
+  during sampling (refine, search, refine) and applies OpenDDE's physics restraints. Output matches
+  upstream's dense functions exactly on the tested complexes. `--trunk_cache DIR` reuses the trunk
+  across inputs that differ only in their constraint. Without the flag folds are bit-identical to
+  before. On 32 held-out antibody-antigen complexes the unguided model gets wrong, top-1 success
+  goes from 0.16 to 0.81 with five true contact pairs and to 0.31 with five epitope residues (upstream reports
+  0.78 and 0.33); a guided fold takes 5 to 15 % longer on Wormhole and 12 to 20 % longer on Blackhole.
+  `examples/tfg/` carries upstream's four cases (Fv, VHH, two Fabs) in contact, pocket and unconstrained form.
+  [`docs/constraint-guidance.md`](docs/constraint-guidance.md).
+- protenix-v2 and opendde rebuild a C-terminal OXT that the diffusion left on C or O, or detached,
+  from the CCD ideal geometry before writing (upstream OpenDDE 6685cef).
+
+### Known issues
+- On Blackhole, `--fast` Protenix-v2 can return non-finite coordinates for one complex in the graded set
+  (9W89) when it folds after other large complexes in the same process; normal mode is unaffected.
+- OpenDDE constraint guidance shrinks the movable chains more often than upstream (about 1 guided
+  sample in 10, against 1 in 90). Unguided folds are unaffected.
 
 ## [0.14.0] - 2026-10-09
 
@@ -40,20 +64,6 @@ Protenix-v2 is 1.6x faster on Wormhole and OpenDDE 1.3x, with structures inside 
   fp32 on nine, but on two where fp32 misses the interface it picks a different binding mode, once
   right and once a confidently wrong fold that ranks first. The default stays fp32.
   [`docs/protenix-diffusion-precision.md`](docs/protenix-diffusion-precision.md).
-
-### Added
-- **OpenDDE constraint guidance** (upstream 1.2.0 Test-Time Structure-Space Search). A `constraint:`
-  block with contact pairs or an epitope, plus `--use_tfg_guidance`, moves the antibody as a rigid body
-  during sampling (refine, search, refine) and applies OpenDDE's physics restraints. Output matches
-  upstream's dense functions exactly on the tested complexes. `--trunk_cache DIR` reuses the trunk
-  across inputs that differ only in their constraint. Without the flag folds are bit-identical to
-  before. On 32 held-out antibody-antigen complexes the unguided model gets wrong, top-1 success
-  goes from 0.16 to 0.81 with five true contact pairs and to 0.31 with five epitope residues (upstream reports
-  0.78 and 0.33); a guided fold takes 5 to 15 % longer on Wormhole and 12 to 20 % longer on Blackhole.
-  `examples/tfg/` carries upstream's four cases (Fv, VHH, two Fabs) in contact, pocket and unconstrained form.
-  [`docs/constraint-guidance.md`](docs/constraint-guidance.md).
-- protenix-v2 and opendde rebuild a C-terminal OXT that the diffusion left on C or O, or detached,
-  from the CCD ideal geometry before writing (upstream OpenDDE 6685cef).
 
 ### Fixed
 - The device confidence path read pair distances from a bf16 expansion that put a 3.8 A neighbour
