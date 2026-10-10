@@ -7,19 +7,22 @@
 #   bash box_arms.sh MODEL      results /root/kc/results/<MODEL>/<mode>/{stdout,stderr}.log, times.jsonl, rc, t_start, t_end
 M=$1; K=/root/kit/$M; I=/root/kc/in; R=/root/kc/results/$M; mkdir -p $R
 cd $K && . venv/bin/activate
-case $M in openfold3|openfold3_ob0) CV=12.8;; opendde) CV=12.6;; *) CV=;; esac
+case $M in openfold3|openfold3_ob0) CV=12.8;; opendde) CV=12.6;; pxdesign) CV=12.1; export NVCC_PREPEND_FLAGS="-ccbin /usr/bin/gcc-12";; *) CV=;; esac
 export CUDA_HOME=/usr/local/cuda${CV:+-$CV} PYTHONHASHSEED=0 OPENFOLD3_CKPT=/weights/openfold3/of3-p2-155k.pt \
   OPENFOLD3_OB0_CKPT=/weights/openfold3_ob0/of3-ob-2025-06-30-174k.pt \
   OPENDDE_ROOT_DIR=/weights/opendde BOLTZ_CACHE=/weights/boltz2 PROTENIX_ROOT_DIR=/weights/protenix \
   ROSETTAFOLD3_OPT_STOCK_PYTHON=$K/venv/bin/python ROSETTAFOLD3_OPT_CKPT=/weights/rosettafold3/rf3_foundry_01_24_latest_remapped.ckpt \
   RFDIFFUSION3_STOCK_PYTHON=/opt/rfd3-stock/bin/python RFD3_CKPT=/weights/rfd3/rfd3_latest.ckpt \
+  PXDESIGN_CKPT_DIR=/weights/pxdesign/checkpoint PROTENIX_DATA_ROOT_DIR=/weights/pxdesign/ccd_cache \
   HF_HOME=/weights/esmfold2 NVTE_FRAMEWORK=pytorch XFORMERS_IGNORE_FLASH_VERSION_CHECK=1
+mkdir -p /work/targets2 && cp -n $I/pxdesign/laczc_512.cif /work/targets2/
 sha256sum -c $I/SHA256SUMS > $R/fixture-sha.txt 2>&1 || { echo FIXTURE-SHA-MISMATCH > $R/ARMS-DONE; exit 5; }
 case $M in
   boltz2)      export KC_WRAP=boltz.model.models.boltz2:Boltz2.predict_step;;
   openfold3|openfold3_ob0) export KC_WRAP=openfold3.projects.of3_all_atom.runner:OpenFold3AllAtom.predict_step;;
   protenix_v2|opendde) export KC_WRAP=runner.inference:InferenceRunner.predict;;
   rosettafold3) export KC_WRAP=rf3.inference_engines.rf3:RF3Output.dump;;  # one engine.run over 4 inputs: fold i = dump t[i] - t[i-1]
+  pxdesign)    export KC_WRAP=pxdesign.runner.inference:InferenceRunner._inference;;  # the generator stage the published cell timed
   esmfold2)    export KC_WRAP=esm.models.esmfold2.processor:ESMFold2InputBuilder.fold;;  # kit off times it unsynced; kctime syncs
 esac
 nvidia-smi -q -d POWER,CLOCK,PERFORMANCE > $R/power-clock.txt 2>&1
@@ -46,6 +49,11 @@ run(){ # <mode>
                    # one process; timed by the engine's own "Finished inference batch in X s" (every mode prints it)
                ( cd $I/rfd3 && bash $K/run.sh design --config a100 --mode $1 inputs=rfd3_R4_gpu.json out_dir=$d/pred \
                  inference_sampler.num_timesteps=200 diffusion_batch_size=1 n_batches=4 seed=7 skip_existing=False );;
+    pxdesign)  # the published cell: LacZ crop (yaml names /work/targets2/laczc_512.cif), 80-res binder, N_sample 1, 400 steps, bf16,
+               # DS4Sci evo attention, eta const 2.5, seeds 0-3 in one process (cold = seed 0)
+               bash run.sh design --config a100 --mode $1 -i $I/pxdesign/laczc_512_nomsa.yaml -o $d/pred --seeds 0,1,2,3 \
+                 --N_sample 1 --N_step 400 --dtype bf16 --use_fast_ln true --use_deepspeed_evo_attention true \
+                 --eta_type const --eta_min 2.5 --eta_max 2.5;;
     esmfold2)  # single sequence, as the published cells (the MSA is dropped by design); off on the fused backend exact reproduces
                [ $1 = off ] && B="--backend fused" || B=""
                bash run.sh pred --config a100 --variant $VAR --mode $1 $B --input $I/esmfold2.json --out_dir $d/pred --seeds 0 \

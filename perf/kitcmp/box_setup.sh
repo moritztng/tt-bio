@@ -27,6 +27,13 @@ case $M in openfold3|openfold3_ob0) CV=12.8;; opendde) CV=12.6;; *) CV=;; esac
 if [ -n "$CV" ] && [ ! -x /usr/local/cuda-$CV/bin/nvcc ]; then
   apt-get update -q && DEBIAN_FRONTEND=noninteractive apt-get install -y -q --no-install-recommends cuda-toolkit-${CV/./-}
 fi
+if [ $M = pxdesign ] && [ ! -x /usr/local/cuda-12.1/bin/nvcc ]; then  # CUDA 12.1 has no ubuntu24.04 package: the runfile, toolkit
+  # only; nvcc 12.1 takes gcc <= 12 (box_arms.sh passes -ccbin gcc-12); git for the lock's editable checkouts
+  apt-get update -q && DEBIAN_FRONTEND=noninteractive apt-get install -y -q --no-install-recommends gcc-12 g++-12 git
+  curl -fsSL -o /tmp/cu121.run https://developer.download.nvidia.com/compute/cuda/12.1.1/local_installers/cuda_12.1.1_530.30.02_linux.run
+  sh /tmp/cu121.run --silent --toolkit --toolkitpath=/usr/local/cuda-12.1 --override --no-man-page && rm -f /tmp/cu121.run
+fi
+[ $M = pxdesign ] && CV=12.1 && export NVCC_PREPEND_FLAGS="-ccbin /usr/bin/gcc-12"
 export CUDA_HOME=/usr/local/cuda${CV:+-$CV} PYTHONHASHSEED=0 CFLAGS=-g0; export PATH=$CUDA_HOME/bin:$PATH
 L=environment/requirements.lock
 P=$(grep -E '^(pip|wheel)==' $L || true); [ -z "$P" ] || pip install -q $P
@@ -38,10 +45,11 @@ case $M in
   esmfold2)    X='flash_attn|transformer_engine|xformers';;
   rosettafold3) X='-';;
   rfdiffusion3) X='apex|rc-foundry';;
+  pxdesign)    X='-';;
 esac
 grep -v -E "^(#|pip==|wheel==|($X)==)" $L > /tmp/stack-$M.txt
 [ $M = rosettafold3 ] && printf 'hatchling==1.31.0\nhatch-vcs==0.4.0\n' > /tmp/bp.txt && export PIP_CONSTRAINT=/tmp/bp.txt
-pip install -q --no-deps -r /tmp/stack-$M.txt; unset PIP_CONSTRAINT
+pip install -q --no-deps $([ $M = pxdesign ] && echo --src /opt/pxsrc) -r /tmp/stack-$M.txt; unset PIP_CONSTRAINT
 case $M in
   openfold3|openfold3_ob0)  # DS4Sci evoformer kernel built for the A100 (sm 8.0), as the Dockerfile does for sm 9.0
     pip install -q --no-deps stock/openfold3-*-py3-none-any.whl
@@ -76,6 +84,9 @@ case $M in
     PATH=$SV/bin:$PATH bash run.sh install
     S3=$($SV/bin/python -c 'import site; print(site.getsitepackages()[0])'); cp /root/kc/kctime.py $S3/
     export RFDIFFUSION3_STOCK_PYTHON=$SV/bin/python RFD3_CKPT=/weights/rfd3/rfd3_latest.ckpt; W=/weights/rfd3;;
+  pxdesign)   # stock's LayerNorm extension compiles here once, as the Dockerfile does
+    python -c "import os, protenix.model.layer_norm.layer_norm as m; p = os.path.join(os.path.dirname(m.__file__), 'fastfold_layer_norm_cuda.so'); assert os.path.isfile(p), p"
+    export PXDESIGN_CKPT_DIR=/weights/pxdesign/checkpoint PROTENIX_DATA_ROOT_DIR=/weights/pxdesign/ccd_cache; W=/weights/pxdesign;;
   protenix_v2) pip install -q --no-deps stock/protenix-2.0.0-py3-none-any.whl; export PROTENIX_ROOT_DIR=/weights/protenix; W=$PROTENIX_ROOT_DIR;;
 esac
 SP=$(python -c 'import site; print(site.getsitepackages()[0])'); cp /root/kc/kctime.py $SP/ && echo "import kctime" > $SP/kctime.pth
