@@ -430,14 +430,17 @@ class TFGEngine:
         x0_ref = x0_ref + self._project(x0_ref, feats, t=t, step_i=step_i)
         if x0_hook is not None:
             x0_ref = x0_hook(x0_ref, step_i)
+        last_log = cfg.log_last_step_energy and step_i == num_diffusion_steps - 1
         if cfg.mu != 0.0:
             for inner in range(cfg.inner_steps):
-                log_components = (
-                    cfg.log_last_step_energy and step_i == num_diffusion_steps - 1 and inner == cfg.inner_steps - 1
-                )
+                log_components = last_log and inner == cfg.inner_steps - 1
                 _, grad_x0 = self._logp_and_grad_x0(
                     x0_ref, eps, feats, t=t, step_i=step_i, log_components=log_components
                 )
+                # Without perturbations the terms are a function of x0_ref alone, so a zero gradient is a fixed
+                # point: every remaining inner step would add exact zeros (the last step still logs its energies).
+                if cfg.eps_std == 0.0 and not last_log and not grad_x0.any():
+                    break
                 x0_ref = x0_ref + grad_x0 * float(cfg.mu)
         # Upstream adds a zero x_t shift (rho == 0) to x_noisy in both places; x + 0 == x.
         direction = (x_noisy - x0_ref) / t_hat[..., None, None]
