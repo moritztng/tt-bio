@@ -39,16 +39,30 @@ def up(sh):
                            device=dev, dtype=ttnn.bfloat16)
 
 
-x, y = up(shape), up(shape)
 small = (1, 1, a.small, a.small)
-sx, sy = up(small), up(small)
+KEEP = set()
+
+
+def refresh():
+    """Rebuild the operands and record their buffers, so no arm can free one."""
+    global x, y, sx, sy
+    x, y, sx, sy = up(shape), up(shape), up(small), up(small)
+    KEEP.clear()
+    KEEP.update(t.buffer_address() for t in (x, y, sx, sy))
+
+
+refresh()
 
 
 def block(fn, n):
+    # Fresh operands per block: `ttnn.reshape` can hand back a Python object that wraps its
+    # input's buffer, and deallocating that freed `sx` for every later arm ("Buffer is not
+    # allocated"). Rebuilding costs four uploads per block, outside the timed region.
+    refresh()
     t0 = time.perf_counter()
     for _ in range(n):
         out = fn()
-        if out is not None:
+        if out is not None and out.is_allocated() and out.buffer_address() not in KEEP:
             ttnn.deallocate(out)
     ttnn.synchronize_device(dev)
     return (time.perf_counter() - t0) / n * 1e6
@@ -68,7 +82,7 @@ arms = {
 # Warm every arm once: the first call of an op compiles its program.
 for fn in arms.values():
     out = fn()
-    if out is not None:
+    if out is not None and out.is_allocated() and out.buffer_address() not in KEEP:
         ttnn.deallocate(out)
 ttnn.synchronize_device(dev)
 
