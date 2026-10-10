@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Grade probe.py's folds: does the card follow host JAX as closely with dropout on as with it off?
 
-CA RMSD after a Kabsch fit, per predicted state, in Angstrom, float64. With the same key the two
+CA RMSD after a Kabsch fit, per predicted state and per chain, in Angstrom, float64. Read the
+target chain: a binder graded from a fresh design is not folded yet, so its pairs are noise. With the same key the two
 arms draw the same masks, so card-vs-host with dropout on should sit near card-vs-host with dropout
 off, and well below what dropout itself moves the host fold by.
 
@@ -20,9 +21,8 @@ def load(path):
     ca, metrics = {}, {}
     for s in sorted({k.split("/")[0] for k in z.files}):
         chains = sorted({k.split("/")[1] for k in z.files if k.startswith(s + "/") and "/metric/" not in k})
-        xyz = np.concatenate([z[f"{s}/{c}/atoms"][:, CA] for c in chains]).astype(np.float64)
-        ok = np.concatenate([z[f"{s}/{c}/atom_mask"][:, CA] for c in chains]) > 0
-        ca[s] = (xyz, ok)
+        ca[s] = {c: (z[f"{s}/{c}/atoms"][:, CA].astype(np.float64), z[f"{s}/{c}/atom_mask"][:, CA] > 0) for c in chains}
+        ca[s]["all"] = tuple(np.concatenate([ca[s][c][i] for c in chains]) for i in (0, 1))
         metrics[s] = {k.split("/")[-1]: z[k] for k in z.files if k.startswith(s + "/metric/") and z[k].ndim == 0}
     return ca, metrics
 
@@ -47,9 +47,10 @@ def main():
     root, preset = pathlib.Path(sys.argv[1]), sys.argv[2]
     arms = {f"{arm}{d}": load(root / f"{arm}_{preset}_drop{d}_fold.npz") for arm in ("host", "device") for d in (0, 1)}
     for s in arms["host0"][0]:
-        print(f"state {s}, CA RMSD in A:")
-        for a, b, what in PAIRS:
-            print(f"  {rmsd(arms[a][0][s], arms[b][0][s]):7.3f}  {what}")
+        for c in arms["host0"][0][s]:
+            print(f"state {s}, chain {c}, CA RMSD in A:")
+            for a, b, what in PAIRS:
+                print(f"  {rmsd(arms[a][0][s][c], arms[b][0][s][c]):7.3f}  {what}")
         for name in sorted(arms["host0"][1][s]):
             print(f"  {name:24s} " + "  ".join(f"{k} {float(arms[k][1][s][name]):.4f}" for k in arms))
 
