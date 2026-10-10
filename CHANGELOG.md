@@ -49,8 +49,8 @@ Protenix-v2 is 1.6x faster on Wormhole and OpenDDE 1.3x, with structures inside 
   across inputs that differ only in their constraint. Without the flag folds are bit-identical to
   before. On 32 held-out antibody-antigen complexes the unguided model gets wrong, top-1 success
   goes from 0.16 to 0.81 with five true contact pairs and to 0.31 with five epitope residues (upstream reports
-  0.78 and 0.33); a guided fold takes 5 to 15 % longer on Wormhole. `examples/tfg/` carries
-  upstream's four cases (Fv, VHH, two Fabs) in contact, pocket and unconstrained form.
+  0.78 and 0.33); a guided fold takes 5 to 15 % longer on Wormhole and 12 to 20 % longer on Blackhole.
+  `examples/tfg/` carries upstream's four cases (Fv, VHH, two Fabs) in contact, pocket and unconstrained form.
   [`docs/constraint-guidance.md`](docs/constraint-guidance.md).
 - protenix-v2 and opendde rebuild a C-terminal OXT that the diffusion left on C or O, or detached,
   from the CCD ideal geometry before writing (upstream OpenDDE 6685cef).

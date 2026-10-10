@@ -103,7 +103,9 @@ contact success to 0.13, below the unguided 0.25 on that set, so only give conta
 
 A guided fold takes about 5 to 15 % longer than an unguided one on a Wormhole chip at
 1000 MHz (Fv 1a14 +7 to +9 %, Fab 9xqn +7 to +8 % with an epitope and +11 to +13 % with
-contacts).
+contacts), and about 12 to 20 % longer on a Blackhole p150a at 1350 MHz (1a14 +13 to +17 %,
+9xqn +12 % with an epitope and +19 % with contacts). Guidance runs on the host and costs the
+same 10 to 17 seconds on both; the Blackhole fold around it is twice as fast.
 
 ## Several constraints on one input
 
