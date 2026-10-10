@@ -36,8 +36,10 @@ def test_the_g_bias_rides_in_matmul_only_when_armed(monkeypatch, armed):
 
 
 def test_fast_round_arms_it_and_puts_it_back():
+    """Blackhole arms it; Wormhole keeps it off (`bindcraft2._BLACKHOLE_ONLY`)."""
     B = pytest.importorskip("tt_bio.bindcraft2")
+    from tt_bio import tenstorrent
     assert A.AF2PairBlock.tri_att_g_in_matmul is False
     with B.fast_round():
-        assert A.AF2PairBlock.tri_att_g_in_matmul is True
+        assert A.AF2PairBlock.tri_att_g_in_matmul is not tenstorrent.is_wormhole()
     assert A.AF2PairBlock.tri_att_g_in_matmul is False

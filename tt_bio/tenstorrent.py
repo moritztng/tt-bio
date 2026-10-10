@@ -4042,7 +4042,8 @@ _SOFTMAX_CKC = env_flag("TT_BIO_SOFTMAX_CKC", False)
 # one part, so an A/B at the top of the size ladder needs to move it without an engine edit.
 # Unset reproduces the fitted value exactly, so the default numerics are untouched.
 _FP32_SOFTMAX_L1_BYTES_PER_CORE = env_int("TT_BIO_FP32_SOFTMAX_L1_BYTES_PER_CORE", 768 << 10)
-_FP32_SOFTMAX_L1_GRID = (8, 8)  # (y, x). 8x8 = 64; this p150a refuses more than 110 shards.
+_FP32_SOFTMAX_L1_FITTED_GRID = (8, 8)  # (y, x). 8x8 = 64; this p150a refuses more than 110 shards.
+_FP32_SOFTMAX_L1_GRID = _FP32_SOFTMAX_L1_FITTED_GRID
 #: Take the rectangle from the live grid instead on a part smaller than the 11x10 baseline, where
 #: the fitted 8x8 is neither the whole grid nor a safe fraction of it. Set by
 #: `_apply_grid_thresholds`; `TT_BIO_FP32_SOFTMAX_L1_LIVE_GRID=0` pins the fitted value for an A/B.

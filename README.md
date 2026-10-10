@@ -70,7 +70,7 @@ On a host without a Tenstorrent card, plain `pip install tt-bio` is enough: the 
 ### From GitHub / source
 Pin to a tagged release, track nightly `main` (may be untested), or work from an editable clone:
 ```bash
-pip install "tt-bio[tenstorrent] @ git+https://github.com/moritztng/tt-bio.git@v0.13.1"   # pinned release, see Releases for the latest
+pip install "tt-bio[tenstorrent] @ git+https://github.com/moritztng/tt-bio.git@v0.14.0"   # pinned release, see Releases for the latest
 pip install "tt-bio[tenstorrent] @ git+https://github.com/moritztng/tt-bio.git@main"     # nightly
 # or
 git clone https://github.com/moritztng/tt-bio.git
