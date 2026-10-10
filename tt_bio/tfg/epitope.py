@@ -307,6 +307,10 @@ def refine_epitope(coords, feats, iterations=40, core=None):
     original_dtype = coords.dtype
     fixed = coords[:, fixed_ids].float()
     moving = coords[:, moving_ids].float().clone()
+    if core != "off" and bool((reached_count(residue_distances(moving, fixed, epi_local, valid, para_local)[0]) >= k).all()):
+        # the descent leaves satisfied samples alone: with every sample satisfied it moves nothing
+        logger.info("EPITOPE_GUIDANCE refine: every sample already meets the request K=%d", k)
+        return coords.clone()
     clash = rc.clash_core(core, fixed, *_atom_radii(coords, feats, moving_ids, fixed_ids))
     distances = None if core == "off" else ResidueDistances(
         moving[:, para_local], feats["atom_to_token_idx"][moving_ids[para_local]],

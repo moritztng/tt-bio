@@ -475,9 +475,15 @@ def refine_rigid_contact(coords, feats, iterations=40, core=None):
     atomic_number_index = feats["ref_element"].argmax(-1)
     if (atomic_number_index == 0).any():
         raise ValueError("Rigid contact expects heavy-atom protein input; hydrogen found.")
-    clash = clash_core(core, fixed, radii[atomic_number_index[moving_ids]], radii[atomic_number_index[fixed_ids]])
     lower = feats["user_distance_restraint_lower_bound"].float()
     upper = feats["user_distance_restraint_upper_bound"].float()
+    if core != "off":
+        # the descent leaves satisfied samples alone: with every sample satisfied it moves nothing
+        pair_d = torch.linalg.vector_norm(moving[:, ri] - fixed[:, li], dim=-1).clamp_min(1e-6)
+        if bool(((pair_d >= lower - 1e-6) & (pair_d <= upper + 1e-6)).all()):
+            logger.info("RIGID_CONTACT refine: every sample already meets its contacts")
+            return coords.clone()
+    clash = clash_core(core, fixed, radii[atomic_number_index[moving_ids]], radii[atomic_number_index[fixed_ids]])
     entry = moving.clone()
 
     def evaluate(x, gradient=False, terms=None):
