@@ -3928,7 +3928,8 @@ def _size_ladder_fill_reasons(levers: dict, old_levers: dict, inherited=()) -> i
     return todo
 
 
-def _size_ladder_check_model(model: str, rungs, base_model: dict, workdir: Path) -> dict:
+def _size_ladder_check_model(model: str, rungs, base_model: dict, workdir: Path,
+                             timings_differ: str | None = None) -> dict:
     pre = _size_ladder_precondition(model)
     if pre:
         return {"model": model, "gate": False, "error": pre, "findings": [pre]}
@@ -3939,10 +3940,38 @@ def _size_ladder_check_model(model: str, rungs, base_model: dict, workdir: Path)
         return {"model": model, "gate": False, "error": meas["error"],
                 "findings": [meas["error"]],
                 "runtime_s": meas.get("runtime_s") or {}, "partial": True}
-    return _size_ladder_compare(base_model, meas, model, rungs)
+    return _size_ladder_compare(base_model, meas, model, rungs, timings_differ)
 
 
-def _size_ladder_compare(base_model: dict, meas: dict, model: str, rungs) -> dict:
+def _size_ladder_threads_differ(baseline_path: Path, card: str, model: str) -> str | None:
+    """Why this run's timings cannot be scored against the card's baseline, or None.
+
+    A fold's host-side work scales with its thread cap, and the small rungs are mostly host
+    work. On 2026-10-10 the sharded gate ran three uncapped ladder legs on qb2 (16 cores, each
+    fold taking all 16): boltz2's 256 aa rung read 12.9 s against a baseline of 4.2 s timed
+    alone, 1024 aa reproduced at 0.97x, and the exponents failed on CPU contention. Pinning
+    the cap removes the contention, and a baseline timed at another cap is a different
+    measurement, so it is a finding, not a tolerance.
+
+    The cap is read from the model's own fragment when it has one: the merged view keeps the
+    first card stamp it meets, and each fragment is recorded on its own pass.
+    """
+    frag = _size_ladder_fragment_dir(baseline_path) / f"{model}.json"
+    src = json.loads(frag.read_text()) if frag.exists() else \
+        json.loads(baseline_path.read_text()) if baseline_path.exists() else {}
+    block = (src.get("cards") or {}).get(card)
+    if block is None or model not in (block.get("models") or {}):
+        return None                      # rows live elsewhere; their absence is reported there
+    base = block.get("host_threads")
+    if base == HOST_THREADS:
+        return None
+    return (f"baseline timed at host threads {base or 'all'}, this run at "
+            f"{HOST_THREADS or 'all'}: timings are not comparable, re-record at this cap "
+            f"(--size-ladder-record --host-threads {HOST_THREADS or '<N>'})")
+
+
+def _size_ladder_compare(base_model: dict, meas: dict, model: str, rungs,
+                         timings_differ: str | None = None) -> dict:
     """Score a measured ladder against its baseline. Pure: no device, no folds.
 
     Split out from _size_ladder_check_model so the arm's verdicts can be tested, and
@@ -3995,7 +4024,9 @@ def _size_ladder_compare(base_model: dict, meas: dict, model: str, rungs) -> dic
                                                     where))
     measured_k, void = {}, {}
     drifted = False
-    for interval, be in (base_model.get("exponents") or {}).items():
+    if timings_differ:
+        findings.append(f"{model}: {timings_differ}")
+    for interval, be in ({} if timings_differ else base_model.get("exponents") or {}).items():
         n1, n2 = (int(x) for x in interval.split("->"))
         t1 = meas["runtime_s"].get(str(n1))
         t2 = meas["runtime_s"].get(str(n2))
@@ -4215,9 +4246,20 @@ def run_size_ladder_add_lever(flags, keep: bool, baseline_path: Path,
         if pre:
             legs.append({"model": m, "gate": False, "error": pre, "findings": [pre]})
             continue
+        # A rung that already holds every flag is done: a release gate records levers for every
+        # ladder model at once, and on 2026-10-10 seven of its record legs failed rung by rung on
+        # models a sibling row had already spliced.
+        todo = [rung for rung in ladders[m]
+                if not all(f in (base_model.get("levers", {}).get(str(rung)) or {})
+                           for f in flags)]
+        if not todo:
+            legs.append({"model": m, "gate": True, "error": None, "findings": [], "added": {}})
+            print(f"[size-ladder] {m}: {', '.join(flags)} already recorded at every rung",
+                  flush=True)
+            continue
         measured, clauses, findings, grid = {}, {}, [], None
         _size_ladder_fold_timeouts(m, base_model.get("runtime_s"))
-        for rung in ladders[m]:
+        for rung in todo:
             # need_runtime=False: this mode compares census counts and writes one lever's
             # row. It never reads a timing, so a fold whose results.json is not readable the
             # instant the subprocess exits must not refuse the splice — openfold3 writes its
@@ -4257,10 +4299,10 @@ def run_size_ladder_add_lever(flags, keep: bool, baseline_path: Path,
         if grid and b_grid and grid != b_grid:
             findings.append(f"{m}: baseline recorded on a {b_grid} grid, this card presents "
                             f"{grid} — lever verdicts are grid-dependent, re-record instead")
-        if findings or len(measured) != len(ladders[m]):
+        if findings or len(measured) != len(todo):
             legs.append({"model": m, "gate": False, "findings": findings,
                          "error": "; ".join(findings) or
-                                  f"{m}: only {len(measured)}/{len(ladders[m])} rungs "
+                                  f"{m}: only {len(measured)}/{len(todo)} rungs "
                                   f"measured"})
             continue
         n_clauses = 0
@@ -4817,8 +4859,9 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
                 legs.append({"model": m, "gate": False, "error": err,
                              "findings": [err]})
                 continue
-            legs.append(_size_ladder_check_model(m, ladders[m], base_model,
-                                                 workdir))
+            legs.append(_size_ladder_check_model(
+                m, ladders[m], base_model, workdir,
+                _size_ladder_threads_differ(baseline_path, card, m)))
 
     gate = bool(legs) and all(l["gate"] for l in legs)
     row = {"model": "size-ladder", "seconds": time.monotonic() - t0, "gate": gate,

@@ -189,9 +189,15 @@ keys as p150a (`key_card_type`), so its correctness legs serve the same gate as 
 
 The perf arm is timed: an arm of your own gate running beside it is a co-tenant like any other, so
 run it with nothing else of the gate on the host (`gate_fanout.py` does this for `--timed` cards).
-The parity, capacity and size-ladder arms are correctness checks and may run on sibling cards. The
-size ladder's exponent is a runtime ratio between rungs folded on one card, with a tolerance of at
-least 0.50, and 0.13.1 already ran two ladder cards beside three other arms on qb1.
+The parity, capacity and size-ladder arms are correctness checks and may run on sibling cards, but
+the ladder also times its rungs, and its small rungs are mostly host work. A fold sizes its thread
+pools to every core unless capped, so three ladder folds on qb2 oversubscribed its 16 cores and
+boltz2's 256 aa rung read 12.9 s against 4.2 s timed alone (1024 aa held at 0.97x). Every ladder and
+record leg therefore runs at a fixed share of its host, set in hosts.json as
+`"args": {"ladder": ["--host-threads", "N"], "record": ["--host-threads", "N"]}`: cores divided by
+the cards the gate runs there (qb1 32/4 = 8, qb2 16/3 = 5, Galaxy 2). The cap is stamped into each
+recorded fragment, and a ladder leg run at another cap than its baseline fails with "re-record at
+this cap" instead of scoring the timings. Change a host's cap and you re-record its card type.
 
 A committed perf cell ages: qb1's dated from 0.6.x and failed boltz2-affinity and nesso1 on a
 release that changed neither. So qb1 sets `"perf_against": "<last release tag>"` in hosts.json and
