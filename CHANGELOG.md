@@ -10,10 +10,6 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   197 s): the sharded Transition and the fused SwiGLU kernel are back in the fast set. They had been taken out
   because fast folds at 1536 tokens collapsed; the cause was a program-cache collision between two ttnn slices,
   which the Transition now avoids. Fast folds at 1536 tokens score like reference ones again.
-- **Guided OpenDDE folds run the diffusion module in fp32**, in normal and `--fast` mode, as upstream does.
-  In bf16 constraint guidance compressed the movable antibody chains in 9 of 90 samples against upstream's
-  1 of 90; fp32 gives 2 of 90. Guided folds take about 20 % longer; unguided folds are unchanged.
-  [`docs/constraint-guidance.md`](docs/constraint-guidance.md).
 - **OpenDDE seeds now give different trunks, as upstream's do.** Each recycling cycle reads its own 1280
   random alignment rows and every reference conformer is centred and turned by a seeded rotation, both
   drawn from the seed. Before, every seed of a target shared one trunk, so five seeds were one trunk with
@@ -37,7 +33,9 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   across inputs that differ only in their constraint. Without the flag folds are bit-identical to
   before. On 32 held-out antibody-antigen complexes the unguided model gets wrong, top-1 success
   goes from 0.16 to 0.81 with five true contact pairs and to 0.31 with five epitope residues (upstream reports
-  0.78 and 0.33); a guided fold takes 5 to 15 % longer on Wormhole and 12 to 20 % longer on Blackhole.
+  0.78 and 0.33). Guided folds run the diffusion module in fp32, also under `--fast`, as upstream does: in
+  bf16 guidance compressed the movable chains in 9 of 90 samples against upstream's 1 of 90, in fp32 2 of 90.
+  A guided fold therefore takes longer than an unguided one.
   `examples/tfg/` carries upstream's four cases (Fv, VHH, two Fabs) in contact, pocket and unconstrained form.
   [`docs/constraint-guidance.md`](docs/constraint-guidance.md).
 - protenix-v2 and opendde rebuild a C-terminal OXT that the diffusion left on C or O, or detached,
@@ -48,17 +46,14 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   already freed and could collapse the structure (Protenix-v2 9DBP pLDDT 0.94 to 0.67). Warm folds were
   not affected. Present since 0.14.0.
 
-### Known issues
-- On Blackhole, `--fast` Protenix-v2 can return non-finite coordinates for one complex in the graded set
-  (9W89) when it folds after other large complexes in the same process; normal mode is unaffected.
-- OpenDDE constraint guidance shrinks the movable chains more often than upstream (about 1 guided
-  sample in 10, against 1 in 90). Unguided folds are unaffected.
-
-### Fixed
 - **BindCraft 2 applies dropout on the card** (#17), the known issue since 0.13.1. A design stage with
   `design_dropout` on now drops the same updates in the on-card Evoformer, extra-MSA and template stacks
   that BindCraft 2 drops on host JAX, drawn from the same key, so a trajectory takes the same dropout
   path on either. `design_dropout: false` and the `harden` stage are unchanged.
+
+### Known issues
+- On Blackhole, `--fast` Protenix-v2 can return non-finite coordinates for one complex in the graded set
+  (9W89) when it folds after other large complexes in the same process; normal mode is unaffected.
 
 ## [0.14.0] - 2026-10-09
 
