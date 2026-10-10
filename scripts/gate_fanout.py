@@ -1059,6 +1059,10 @@ def make_executor(sha: str, out: Path, ledger: Ledger, keys: dict, remote_out: s
         tag = leg.name.replace(":", "_").replace("/", "-")
         log = out / "logs" / host.arch / f"{tag}.log"
         log.parent.mkdir(parents=True, exist_ok=True)
+        # A second runner on the same --out reruns a leg that FAILed: keep the first run's log.
+        n = 1
+        while log.exists():
+            log, n = log.with_name(f"{tag}.{n}.log"), n + 1
         rdir = f"{host.root}/{remote_out}/{host.arch}/{tag}"
         t0 = time.time()
         run = run_in_pool if card == POOL else run_over_ssh
