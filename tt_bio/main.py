@@ -3184,10 +3184,11 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
                    "cores//concurrent-predicts.")
 @click.option("--fast", is_flag=True, help="Use block-fp8 for some operations (slightly lower precision, faster)")
 @click.option("--diffusion_precision", type=click.Choice(["fp32", "bf16"]), default=None,
-              help="(Protenix) Precision of the diffusion module. fp32 (default) matches the "
-                   "reference; bf16 is ~9%% faster per fold on Wormhole but can pick a different binding "
-                   "mode where fp32 is uncertain "
-                   "(docs/protenix-diffusion-precision.md).")
+              help="(Protenix, OpenDDE) Precision of the diffusion module. fp32 (default) matches "
+                   "the reference; bf16 is ~9%% faster per Protenix fold on Wormhole but can pick a "
+                   "different binding mode where fp32 is uncertain "
+                   "(docs/protenix-diffusion-precision.md), and on OpenDDE leaves more interface "
+                   "clashes (docs/constraint-guidance.md).")
 @click.option("--debug", is_flag=True, help="Debug mode: no Rich display, no output suppression")
 @click.option("--log", is_flag=True, help="With --debug: print per-device stage progress")
 @click.option("--report-energy", "report_energy", is_flag=True, help="Report TT device energy and write a power-vs-time plot (single-device TT runs)")

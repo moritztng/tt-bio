@@ -908,8 +908,10 @@ class _WorkerState:
             if cfg.get("trace"):
                 get_device(trace="protenix")
 
+            prec = cfg.get("diffusion_precision")
             self.model = OpenDDE.load_from_checkpoint(
-                cfg.get("opendde_ckpt"), abag=(model_id == "opendde-abag"))
+                cfg.get("opendde_ckpt"), abag=(model_id == "opendde-abag"),
+                diffusion_fp32=None if prec is None else prec == "fp32")
         elif model_id == "af2ig":
             from tt_bio.af2 import load_af2_device_model
             from tt_bio.af2_weights import load_af2_state_dict

@@ -1,4 +1,4 @@
-"""`--diffusion_precision` reaches the Protenix build, keys the worker's reload, and is reported on
+"""`--diffusion_precision` reaches the Protenix and OpenDDE builds, keys the worker's reload, and is reported on
 the models that do not read it. Host only: the dispatch and the model build are stubbed, and any
 device open raises instead of opening a chip.
 
@@ -28,8 +28,9 @@ def test_bf16_is_a_different_warm_model():
     assert H.run_config_hash({**PROTENIX, "diffusion_precision": "bf16"}) != H.run_config_hash(PROTENIX)
 
 
-def test_only_protenix_reads_it():
-    assert unread_flags("protenix-v2", {"--diffusion_precision": True}) == []
+def test_only_protenix_and_opendde_read_it():
+    for m in ("protenix-v2", "opendde", "opendde-abag"):
+        assert unread_flags(m, {"--diffusion_precision": True}) == []
     notes = unread_flags("boltz2", {"--diffusion_precision": True})
     assert len(notes) == 1 and "ignores --diffusion_precision" in notes[0]
 
@@ -80,3 +81,23 @@ def test_cli_puts_it_in_the_run_config(monkeypatch, tmp_path, args, want):
 def test_cli_refuses_an_unknown_precision(tmp_path):
     r = CliRunner().invoke(cli, ["predict", str(tmp_path), "--diffusion_precision", "fp16"])
     assert r.exit_code == 2 and "fp16" in r.output
+
+
+@pytest.mark.parametrize("prec,want", [(None, None), ("fp32", True), ("bf16", False)])
+def test_worker_builds_the_requested_opendde_precision(monkeypatch, prec, want):
+    import tt_bio.opendde as O
+    import tt_bio.tenstorrent as T
+    from tt_bio import worker as W
+
+    monkeypatch.setattr(T, "get_device", lambda *a, **k: pytest.fail("opened a device"))
+    seen = {}
+
+    def fake_load(path, **kw):
+        seen.update(kw, path=path)
+        return object()
+
+    monkeypatch.setattr(O.OpenDDE, "load_from_checkpoint", staticmethod(fake_load))
+    state = W._WorkerState("tenstorrent")
+    state.load_model({"model": "opendde-abag", "fast": False, "opendde_ckpt": "ck.pt",
+                      "diffusion_precision": prec})
+    assert seen == {"path": "ck.pt", "abag": True, "diffusion_fp32": want}

@@ -19,7 +19,6 @@ import ttnn
 
 from .protenix import _KeyedWeights
 from . import hostlane
-from .envflags import env_flag
 from .opendde_data import STRUCTURAL_TOKEN_ROLES
 from .tenstorrent import _acc_concat, concat_host_bytes, dram_peak, get_device, under_levers
 
@@ -383,16 +382,21 @@ class OpenDDE:
     a 4-block structural-token refiner (a reused ``Pairformer``), on the structural-token
     axis. Ships co-folding only (no design/affinity)."""
 
-    def __init__(self, state_dict, compute_kernel_config, device=None, levers=None):
+    def __init__(self, state_dict, compute_kernel_config, device=None, levers=None,
+                 diffusion_fp32=None):
         """levers: the precision levers this model builds and folds under, the same switches
         Protenix-v2 runs (`tenstorrent.LEVERS`); None takes the mode's set
-        (`tenstorrent.mode_levers`), so `--fast` is `FAST_LEVERS` here too."""
+        (`tenstorrent.mode_levers`), so `--fast` is `FAST_LEVERS` here too.
+        diffusion_fp32: the diffusion module's precision (`--diffusion_precision`); None is fp32,
+        bf16 under the `diffusion_bf16` lever, as for Protenix-v2."""
         import tt_bio.tenstorrent as _TT
         self._levers = _TT.parse_levers(_TT.mode_levers() if levers is None else levers)
         with _TT.levers(self._levers):
-            self._build(state_dict, compute_kernel_config, device)
+            if diffusion_fp32 is None:
+                diffusion_fp32 = not _TT.lever("diffusion_bf16")
+            self._build(state_dict, compute_kernel_config, device, diffusion_fp32)
 
-    def _build(self, state_dict, compute_kernel_config, device):
+    def _build(self, state_dict, compute_kernel_config, device, diffusion_fp32):
         from .tenstorrent import get_device, Pairformer, accurate_softmax_site
         from .protenix import Protenix
         self.dev = device or get_device()
@@ -406,20 +410,20 @@ class OpenDDE:
             self._shared["distogram_head.linear.weight"].float().numpy().tobytes()).hexdigest()[:16]
         # Shared Protenix-v2-family stack (input embedder, trunk, diffusion, confidence),
         # built at OpenDDE's c_z=384.
-        # Reused verbatim -- no duplicated orchestration class. diffusion_fp32=False pins
-        # OpenDDE to its own validated bf16 diffusion config regardless of Protenix-v2's
-        # PROTENIX_DIFFUSION_FP32_DEVICE default (fp32 diffusion is >60x slower on OpenDDE's
-        # atom-level tensors, see tt-bio-shared-diffusion-global-env-default-regression).
+        # Reused verbatim -- no duplicated orchestration class. diffusion_fp32 is passed
+        # explicitly so Protenix-v2's PROTENIX_DIFFUSION_FP32_DEVICE never reaches OpenDDE
+        # (tt-bio-shared-diffusion-global-env-default-regression).
         # gated_move=True: E6 fires on 1048 of the fold's 1216 trimul channel moves at c_z=384
         # and is torch.equal to the sequence it replaces at both slice widths.
         #
-        # OPENDDE_DIFFUSION_FP32=1 lifts the bf16 pin for an A/B. The pin is a perf decision,
-        # so it needs an opt-out that does not also flip Protenix-v2 (which is what
-        # PROTENIX_DIFFUSION_FP32_DEVICE would do -- tt-bio-shared-diffusion-global-env-default-regression).
-        # Diagnostic only: fp32 here is >60x slower on OpenDDE's atom-level tensors.
+        # Normal mode runs the diffusion module in fp32, as upstream does (runner/inference.py runs
+        # sample_diffusion outside autocast up to 3840 tokens). bf16 diffusion leaves 3-4x more
+        # severe antibody-antigen overlaps than upstream's GPU, and under constraint guidance
+        # every such x0 is re-docked by a large rotation that the sampler's x_noisy/x0 blend
+        # turns into a shrunken antibody (docs/constraint-guidance.md).
         self._protenix = Protenix(
             self._shared, compute_kernel_config, self.dev, c_z=C["c_z"], msa_update_first=True,
-            diffusion_fp32=env_flag("OPENDDE_DIFFUSION_FP32", False), gated_move=True,
+            diffusion_fp32=diffusion_fp32, gated_move=True,
             softmax_scope="opendde", levers=self._levers)
         self.expander = StructuralTokenExpander(
             routed["expander"], compute_kernel_config, c_s=C["c_s"], c_z=C["c_z"],
@@ -432,7 +436,7 @@ class OpenDDE:
 
     @classmethod
     def load_from_checkpoint(cls, path=None, *, abag=False, compute_kernel_config=None, device=None,
-                             levers=None):
+                             levers=None, diffusion_fp32=None):
         """Fetch/load ``opendde.pt`` (or ``opendde_abag.pt`` when ``abag=True``) and build
         the model on ``device`` (card 0 by default)."""
         import ttnn
@@ -440,7 +444,8 @@ class OpenDDE:
         dev = device or get_device()
         ckc = compute_kernel_config or ttnn.init_device_compute_kernel_config(
             dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi4, fp32_dest_acc_en=True, packer_l1_acc=True)
-        return cls(load_opendde_checkpoint(path, abag=abag), ckc, dev, levers=levers)
+        return cls(load_opendde_checkpoint(path, abag=abag), ckc, dev, levers=levers,
+                   diffusion_fp32=diffusion_fp32)
 
     @under_levers
     def expand_and_refine(self, ifd, s_inputs_res, s_res, z_res, *,

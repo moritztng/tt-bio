@@ -353,7 +353,7 @@ def test_no_flag_is_reported_when_none_was_passed():
 
 
 def test_boltz2_reads_every_output_flag():
-    # --diffusion_precision is a Protenix build option and the TFG flags are OpenDDE sampler
+    # --diffusion_precision is a Protenix and OpenDDE build option and the TFG flags are OpenDDE sampler
     # options, not output flags.
     sampler = {"--diffusion_precision": False, "--use_tfg_guidance": False, "--trunk_cache": False}
     assert unread_flags("boltz2", {**ALL_FLAGS, **sampler}) == []

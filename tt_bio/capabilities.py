@@ -248,7 +248,7 @@ FLAG_READERS: dict[str, tuple[str, ...]] = {
     # `make_openfold3_msa_features(max_sequences=)` for the OF3 family.
     "--max_msa_seqs": ("boltz2", "esmfold2", "esmfold2-fast", "openfold3", "openbind",
                        "protenix-v1", "protenix-v2", "opendde", "opendde-abag", "rf3"),
-    "--diffusion_precision": ("protenix-v1", "protenix-v2"),
+    "--diffusion_precision": ("protenix-v1", "protenix-v2", "opendde", "opendde-abag"),
     # OpenDDE 1.2.0's constraint guidance and its trunk cache (tt_bio/tfg, tt_bio.cache).
     "--use_tfg_guidance": ("opendde", "opendde-abag"),
     "--trunk_cache": ("opendde", "opendde-abag"),
@@ -268,8 +268,9 @@ FLAG_WHY: dict[tuple[str, str], str] = {
                                   "there is no depth to cap",
     ("--max_msa_seqs", "af2ig"): "AF2-IG is single-sequence on both chains, so there is no "
                                  "depth to cap",
-    **{("--diffusion_precision", m): "only Protenix's diffusion precision is selectable per run"
-       for m in CAPABILITY if m not in ("protenix-v1", "protenix-v2")},
+    **{("--diffusion_precision", m): "only Protenix's and OpenDDE's diffusion precision is "
+                                      "selectable per run"
+       for m in CAPABILITY if m not in ("protenix-v1", "protenix-v2", "opendde", "opendde-abag")},
     **{("--use_tfg_guidance", m): "constraint guidance is wired into OpenDDE's sampler only"
        for m in CAPABILITY if m not in ("opendde", "opendde-abag")},
     **{("--trunk_cache", m): "the trunk cache is wired into OpenDDE only"
