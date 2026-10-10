@@ -315,6 +315,8 @@ class StructuralTokenExpander(_KeyedWeights):
 # ---------------------------------------------------------------------------
 
 OPENDDE_REPO = "aurekaresearch/OpenDDE"
+# Alignment rows each recycling cycle reads (upstream config/data.py msa.msa_depth).
+MSA_DEPTH = 1280
 
 # Measured from opendde.pt (opendde_v1, 656M; config/model_base.py + weight shapes,
 # 2026-07-12). NOTE these correct the earlier "dims match Protenix-v2 exactly" note:
@@ -468,7 +470,7 @@ class OpenDDE:
             return (*result, attn_bias)
         return result
 
-    def _residue_trunk(self, feats, fi, n_cycles, progress_fn):
+    def _residue_trunk(self, feats, fi, n_cycles, seed, progress_fn):
         """Input embedder + trunk on the residue axis (identical to Protenix.fold steps 1-3).
         Returns host (s_inputs, s_trunk, z_trunk, c_l, p_lm) and frees the device copies."""
         P = self._protenix
@@ -486,8 +488,13 @@ class OpenDDE:
                                          tt(feats["ref_mask"].reshape(N, 1)), tt(fi["f_in"])), (N, 128))
         p_lm = P._to_host(P.diff_feat.p_lm(tt(fi["d"]), tt(fi["v"]), tt(fi["invd"]), mt_dev), (nb, nq, nk, 16))
         relp = feats["relp"] if "relp" in feats else P._generate_relp(feats)
+        # Each recycling cycle reads its own MSA_DEPTH random alignment rows, drawn from the seed
+        # as upstream's MSAModule does.
+        gen = torch.Generator()
+        gen.seed() if seed is None else gen.manual_seed(seed)
         s_trunk_tt, z_tt = P.trunk(feats, s_inputs, relp, feats["token_bonds"],
-                                  n_cycles=n_cycles, progress_fn=progress_fn)
+                                  n_cycles=n_cycles, progress_fn=progress_fn,
+                                  msa_sample=(MSA_DEPTH, gen))
         s_trunk = P._to_host(s_trunk_tt, (NT, s_trunk_tt.shape[-1]))
         # The z_trunk host copy stays bf16 when `_SEAM_BF16` is on. Its two consumers both
         # accept it: the expander re-uploads it as bf16 (`ttnn.from_torch(..., dtype=bfloat16)`,
@@ -545,11 +552,14 @@ class OpenDDE:
         import torch
         from .opendde_data import build_structural_token_features
         from .protenix import DEFAULT_MAX_PARALLEL_SAMPLES, edm_sample
+        from .protenix_data import place_ref_conformers
 
         if trace:
             import tt_bio.tenstorrent as _TTd
             _TTd.require_trace_region("fold(trace=True)")
         P = self._protenix
+        # Upstream centres every reference conformer and turns it by a seeded random rotation.
+        feats = place_ref_conformers(feats, seed)
         ifd = build_structural_token_features(feats)
         Ns = ifd["parent_residue_idx"].shape[0]
 
@@ -560,14 +570,14 @@ class OpenDDE:
         key = hit = None
         if trunk_cache is not None:
             import tt_bio.tenstorrent as _TTm
-            key = trunk_cache.key(feats, "opendde", n_cycles, self._weights_tag, _TTm._FAST_MODE)
+            key = trunk_cache.key(feats, "opendde", n_cycles, seed, self._weights_tag, _TTm._FAST_MODE)
             hit = trunk_cache.load(key)
             if hit is not None:
                 s_inputs, s_trunk, z_trunk, c_l, p_lm = (
                     hit[k] for k in ("s_inputs", "s_trunk", "z_trunk", "c_l", "p_lm"))
         if hit is None:
             s_inputs, s_trunk, z_trunk, c_l, p_lm = self._residue_trunk(
-                feats, fi, n_cycles, progress_fn)
+                feats, fi, n_cycles, seed, progress_fn)
             if key is not None:
                 trunk_cache.save(key, dict(s_inputs=s_inputs, s_trunk=s_trunk, z_trunk=z_trunk,
                                            c_l=c_l, p_lm=p_lm))
