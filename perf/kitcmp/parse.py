@@ -1,5 +1,5 @@
 """Table of one kitcmp session: per model x mode, warm median s/fold, n, min-max, cold, rc, the kit's ACTIVE line,
-the wrapped function, and the SM clock / power / memory nvidia-smi read during the arm.
+the wrapped function (RoseTTAFold3: the gaps between consecutive structure dumps), and the SM clock / power / memory nvidia-smi read during the arm.
 
     python3 perf/kitcmp/parse.py perf/kitcmp/results/<label>/results
 """
@@ -31,6 +31,9 @@ for m in sorted(p for p in root.iterdir() if p.is_dir()):
             continue
         rows = [json.loads(l) for l in (d / "times.jsonl").read_text().splitlines()] if (d / "times.jsonl").exists() else []
         s = [r["s"] for r in rows]
+        if m.name == "rosettafold3" and rows:  # wrapped RF3Output.dump inside one engine.run: fold i = dump end t[i] - t[i-1]
+            t = [r["t"] for r in rows]
+            s = [round(t[0] - ts(d / "t_start"), 3)] + [round(b - a, 4) for a, b in zip(t, t[1:])]
         warm = s[1:]
         rc = (d / "rc").read_text().strip() if (d / "rc").exists() else "running"
         err = (d / "stderr.log").read_text(errors="replace") if (d / "stderr.log").exists() else ""

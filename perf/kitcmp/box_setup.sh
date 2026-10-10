@@ -15,6 +15,8 @@ case $M in
   esmfold2) PY=/opt/py3.12.10; py $PY "$G/20250409/cpython-3.12.10+20250409-x86_64-unknown-linux-gnu-install_only.tar.gz" \
               e9cf6f7da499a4400ba30ae1da8f7ef25ce97827bd8c1084717aa05438035186
             command -v git >/dev/null || { apt-get update -q && DEBIAN_FRONTEND=noninteractive apt-get install -y -q git; };;
+  rosettafold3) PY=/opt/py3.12.1; py $PY "$G/20240107/cpython-3.12.1+20240107-x86_64_v3-unknown-linux-gnu-install_only.tar.gz" \
+              a7bcc6c9f66dbd47ea99615f30f101c5d2dd0084ca333d2f7336e64050951338;;
   *) PY=/usr/local; py $PY "$G/20230826/cpython-3.11.5+20230826-x86_64-unknown-linux-gnu-install_only.tar.gz" \
               fbed6f7694b2faae5d7c401a856219c945397f772eea5ca50c6eb825cbc9d1e1;;
 esac
@@ -34,9 +36,11 @@ case $M in
   boltz2)      X='boltz';;
   protenix_v2) X='protenix';;
   esmfold2)    X='flash_attn|transformer_engine|xformers';;
+  rosettafold3) X='-';;
 esac
 grep -v -E "^(#|pip==|wheel==|($X)==)" $L > /tmp/stack-$M.txt
-pip install -q --no-deps -r /tmp/stack-$M.txt
+[ $M = rosettafold3 ] && printf 'hatchling==1.31.0\nhatch-vcs==0.4.0\n' > /tmp/bp.txt && export PIP_CONSTRAINT=/tmp/bp.txt
+pip install -q --no-deps -r /tmp/stack-$M.txt; unset PIP_CONSTRAINT
 case $M in
   openfold3|openfold3_ob0)  # DS4Sci evoformer kernel built for the A100 (sm 8.0), as the Dockerfile does for sm 9.0
     pip install -q --no-deps stock/openfold3-*-py3-none-any.whl
@@ -48,10 +52,14 @@ case $M in
   esmfold2)   # xformers, transformer_engine, flash-attn have no index wheel for torch 2.13+cu130: the kit's own build, sm 8.0 alone
     export NVTE_FRAMEWORK=pytorch XFORMERS_IGNORE_FLASH_VERSION_CHECK=1 HF_HOME=/weights/esmfold2
     TORCH_CUDA_ARCH_LIST=8.0 bash environment/build_wheels.sh --stack img_esmfold2_a100; W=$HF_HOME;;
+  rosettafold3)  # the stock interpreter is this venv; install --make-venv builds the kit's opt/venv from it
+    pip install -q --no-deps --force-reinstall nvidia-cudnn-cu13==9.20.0.48 nvidia-nccl-cu13==2.29.7
+    export ROSETTAFOLD3_OPT_STOCK_PYTHON=$K/venv/bin/python; W=/weights/rosettafold3;;
   protenix_v2) pip install -q --no-deps stock/protenix-2.0.0-py3-none-any.whl; export PROTENIX_ROOT_DIR=/weights/protenix; W=$PROTENIX_ROOT_DIR;;
 esac
 SP=$(python -c 'import site; print(site.getsitepackages()[0])'); cp /root/kc/kctime.py $SP/ && echo "import kctime" > $SP/kctime.pth
 mkdir -p $W
-bash run.sh install --weights $W
+bash run.sh install $([ $M = rosettafold3 ] && echo --make-venv) --weights $W
+[ -d opt/venv ] && { S2=$(opt/venv/bin/python -c 'import site; print(site.getsitepackages()[0])'); cp /root/kc/kctime.py $S2/ && echo 'import kctime' > $S2/kctime.pth; }
 bash run.sh check --config a100 --mode fast $([ $M = esmfold2 ] && echo --variant fast)
 echo SETUP-OK > /root/kc/SETUP-OK-$M

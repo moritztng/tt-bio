@@ -37,6 +37,8 @@ job = lambda i: {"name": f"fold{i}", "modelSeeds": [0], "sequences": [{"proteinC
     "  custom:\n    settings:\n      memory:\n        eval:\n          use_cueq_triangle_kernels: true\n")
 (a.out / "esmfold2.json").write_text(json.dumps([{"id": f"fold{i}", "sequences": [{"type": "protein", "id": "A",
     "sequence": seq, "msa": None}], "seeds": [0], "num_diffusion_samples": 1} for i in range(N)], indent=1))
+(a.out / "rf3.json").write_text(json.dumps([{"name": f"fold{i}", "components": [{"seq": seq, "chain_id": "A"}]}
+    for i in range(N)], indent=1))  # perf/rf3/inputs/rf3_512.json, four names
 (a.out / "SHA256SUMS").write_text("".join(f"{hashlib.sha256(p.read_bytes()).hexdigest()}  {R}/{n}\n"
     for p, n in ((m, "msa/uniref90_hits.a3m"), (y, "cdk2x2_512.yaml"))))
 print("wrote", a.out, len(seq), "aa")
