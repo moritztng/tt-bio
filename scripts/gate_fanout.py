@@ -305,7 +305,7 @@ def tests_hash(sha: str, family: str, repo: Path = REPO) -> str:
 
 
 RUNNER_FILES = ("scripts/gate_fanout.py", "scripts/release_next.py", "scripts/splice_ladder_fragments.py",
-                "scripts/gate_host_prep.sh",
+                "scripts/gate_host_prep.sh", "scripts/flock_first.sh",
                 "tests/test_gate_fanout.py", "tests/test_release_next.py")
 
 
