@@ -8,8 +8,9 @@ touched. Constants, step sizes, candidate poses, acceptance rules and op order a
 Two clash cores, chosen by ``core`` (upstream's OPENDDE_RIGID_CORE):
   "off"    upstream's dense path (every moving-fixed pair), op for op; what upstream runs on CPU.
   "auto"   the exact pair-list core of tt_bio.tfg.neighbors (the role of upstream's Triton cell lists): the same
-           pairs, so the same energies up to fp32 summation order and the same severe sets. Refinement scores
-           the nine shorter backtracking proposals in one call; the coarse searches score every candidate in
+           pairs, so the same energies up to fp32 summation order and the same severe sets. The contact refinement
+           runs compiled, one sample at a time (_descend_contact); the epitope refinement scores the nine shorter
+           backtracking proposals in one call; the coarse searches score every candidate in
            batches and keep the first lowest feasible one below the entry energy, which is the pose the
            sequential strict-improvement loop keeps. Samples that already meet the request are not scored.
   "check"  both; logs the largest coordinate difference and returns the dense result.
@@ -31,9 +32,11 @@ import math
 from dataclasses import dataclass
 from typing import Optional
 
+import numba
+import numpy as np
 import torch
 
-from tt_bio.tfg.neighbors import SparseClash, square_length
+from tt_bio.tfg.neighbors import HARD, SOFT, SparseClash, square_length
 
 # Identical to upstream opendde.data.constants.rdkit_vdws (118 entries, H..Og, index 0 = H).
 from tt_bio.data.const import vdw_radii as rdkit_vdws
@@ -505,7 +508,14 @@ def refine_rigid_contact(coords, feats, iterations=40, core=None):
         return ((pair_d >= lower - 1e-6) & (pair_d <= upper + 1e-6)).all(-1)
 
     first_energy, first_severe, _, first_d = evaluate(moving)
-    moving, accepted_count = rigid_descent(moving, evaluate, satisfied, idx.shape[1], iterations, clash, ri.unique())
+    if core == "auto" and moving.dtype == torch.float32 and moving.device.type == "cpu":
+        moving = moving.contiguous()
+        accepted_count = torch.from_numpy(_descend_contact(
+            moving.numpy(), fixed.contiguous().numpy(), clash.ra.contiguous().numpy(), clash.rb.contiguous().numpy(),
+            ri.contiguous().numpy(), li.contiguous().numpy(), lower.contiguous().numpy(), upper.contiguous().numpy(),
+            iterations, idx.shape[1], clash.cut, 2.0))
+    else:
+        moving, accepted_count = rigid_descent(moving, evaluate, satisfied, idx.shape[1], iterations, clash, ri.unique())
     final_energy, final_severe, _, final_d = evaluate(moving)
     intact = clash.no_new(entry, first_severe, moving, final_severe)
     if not bool(intact.all()):
@@ -670,3 +680,264 @@ def search_rigid_contact(coords, feats, core=None):
             best_energy.tolist(),
         )
     return result
+
+
+# ---- compiled contact refinement (core "auto"): rigid_descent with refine_rigid_contact's evaluate, one sample at a
+# time (a sample's descent never reads another's), on a moving-fixed pair list with a skin over a cell grid of the
+# fixed group. Same rule, constants and op order per value; sums and the mean round in a different order.
+
+@numba.njit(cache=True, nogil=True)
+def _fixed_grid(fixed, h):
+    """Counting-sorted cell grid of fixed [N, 3] with cell size h: (lo, dims, start, atoms)."""
+    N = fixed.shape[0]
+    lo = np.empty(3, np.float32)
+    dims = np.empty(3, np.int64)
+    for k in range(3):
+        lo[k] = fixed[:, k].min() - np.float32(1e-3)
+        dims[k] = np.int64((fixed[:, k].max() - lo[k]) / h) + 1
+    cell = np.empty(N, np.int64)
+    count = np.zeros(dims[0] * dims[1] * dims[2] + 1, np.int64)
+    for a in range(N):
+        c0 = np.int64((fixed[a, 0] - lo[0]) / h)
+        c1 = np.int64((fixed[a, 1] - lo[1]) / h)
+        c2 = np.int64((fixed[a, 2] - lo[2]) / h)
+        cell[a] = (c0 * dims[1] + c1) * dims[2] + c2
+        count[cell[a] + 1] += 1
+    start = np.cumsum(count)
+    fill = start[:-1].copy()
+    atoms = np.empty(N, np.int64)
+    for a in range(N):                              # ascending atom order inside a cell
+        atoms[fill[cell[a]]] = a
+        fill[cell[a]] += 1
+    return lo, dims, start, atoms
+
+
+@numba.njit(cache=True, nogil=True)
+def _pairs_near(x, fixed, lo, dims, start, atoms, h):
+    """Every (moving i, fixed j) with |x_i - fixed_j| < h, i ascending, then j ascending."""
+    out_i, out_j = [], []
+    h2 = h * h
+    for i in range(x.shape[0]):
+        c = np.empty(3, np.int64)
+        outside = False
+        for k in range(3):
+            f = np.floor((x[i, k] - lo[k]) / h)
+            if f < -1 or f > dims[k]:
+                outside = True
+            c[k] = np.int64(f) if not outside else 0
+        if outside:
+            continue
+        js = []
+        for a in range(max(c[0] - 1, 0), min(c[0] + 2, dims[0])):
+            for b in range(max(c[1] - 1, 0), min(c[1] + 2, dims[1])):
+                for d in range(max(c[2] - 1, 0), min(c[2] + 2, dims[2])):
+                    q = (a * dims[1] + b) * dims[2] + d
+                    for t in range(start[q], start[q + 1]):
+                        j = atoms[t]
+                        r0, r1, r2 = x[i, 0] - fixed[j, 0], x[i, 1] - fixed[j, 1], x[i, 2] - fixed[j, 2]
+                        if (r0 * r0 + r1 * r1) + r2 * r2 < h2:
+                            js.append(j)
+        js.sort()
+        for j in js:
+            out_i.append(i)
+            out_j.append(j)
+    pi = np.empty(len(out_i), np.int64)
+    pj = np.empty(len(out_j), np.int64)
+    for p in range(len(out_i)):
+        pi[p], pj[p] = out_i[p], out_j[p]
+    return pi, pj
+
+
+@numba.njit(cache=True, nogil=True)
+def _contact_eval(x, fixed, pi, pj, ra, rb, ri, li, lower, upper, grad, want):
+    """refine_rigid_contact's evaluate on one sample: (energy, depth, sorted severe keys, satisfied); fills grad
+    [M, 3] when want."""
+    f = np.float32
+    N = fixed.shape[0]
+    e = f(0.0)
+    depth = f(0.0)
+    sev = []
+    if want:
+        grad[:] = 0
+    for p in range(pi.shape[0]):
+        i, j = pi[p], pj[p]
+        r0, r1, r2 = x[i, 0] - fixed[j, 0], x[i, 1] - fixed[j, 1], x[i, 2] - fixed[j, 2]
+        d = max(np.sqrt((r0 * r0 + r2 * r2) + r1 * r1), f(1e-6))
+        rs = ra[i] + rb[j]
+        ov = max(f(SOFT) * rs - d, f(0.0))
+        e += ov * ov
+        depth = max(depth, max(f(HARD) * rs - d, f(0.0)))
+        if d < f(HARD) * rs:
+            sev.append(i * N + j)
+        if want and d > f(1e-6):
+            c = f(-20.0) * ov / d
+            grad[i, 0] += c * r0
+            grad[i, 1] += c * r1
+            grad[i, 2] += c * r2
+    v2 = f(0.0)
+    ok = True
+    for c in range(ri.shape[0]):
+        m, q = ri[c], li[c]
+        p0, p1, p2 = x[m, 0] - fixed[q, 0], x[m, 1] - fixed[q, 1], x[m, 2] - fixed[q, 2]
+        pd = max(np.sqrt((p0 * p0 + p1 * p1) + p2 * p2), f(1e-6))
+        viol = max(pd - upper[c], f(0.0)) - max(lower[c] - pd, f(0.0))
+        v2 += viol * viol
+        ok = ok and pd >= lower[c] - f(1e-6) and pd <= upper[c] + f(1e-6)
+        if want and pd > f(1e-6):
+            grad[m, 0] += viol * p0 / pd
+            grad[m, 1] += viol * p1 / pd
+            grad[m, 2] += viol * p2 / pd
+    keys = np.empty(len(sev), np.int64)
+    for k in range(len(sev)):
+        keys[k] = sev[k]
+    keys.sort()
+    return f(0.5) * (v2 + f(20.0) * e), depth, keys, ok
+
+
+@numba.njit(cache=True, nogil=True)
+def _small_rotation(w0, w1, w2):
+    """small_rotation for one w, float64 series, fp32 matrix."""
+    t = (w0 * w0 + w1 * w1) + w2 * w2
+    a = 1 - t / 6 * (1 - t / 20 * (1 - t / 42 * (1 - t / 72)))
+    b = 0.5 * (1 - t / 12 * (1 - t / 30 * (1 - t / 56 * (1 - t / 90))))
+    v = (w0, w1, w2)
+    K = ((0.0, -w2, w1), (w2, 0.0, -w0), (-w1, w0, 0.0))
+    R = np.empty((3, 3), np.float32)
+    for r in range(3):
+        for c in range(3):
+            R[r, c] = np.float32(((1 - t * b) * (1.0 if r == c else 0.0) + a * K[r][c]) + b * v[r] * v[c])
+    return R
+
+
+@numba.njit(cache=True, nogil=True)
+def _solve3(A, b):
+    """A x = b for 3 x 3 A by Gaussian elimination with partial pivoting (float64), fp32 result."""
+    m = np.empty((3, 4), np.float64)
+    for r in range(3):
+        for c in range(3):
+            m[r, c] = A[r, c]
+        m[r, 3] = b[r]
+    for c in range(3):
+        p = c
+        for r in range(c + 1, 3):
+            if abs(m[r, c]) > abs(m[p, c]):
+                p = r
+        for k in range(4):
+            m[c, k], m[p, k] = m[p, k], m[c, k]
+        for r in range(c + 1, 3):
+            q = m[r, c] / m[c, c]
+            for k in range(c, 4):
+                m[r, k] -= q * m[c, k]
+    x = np.empty(3, np.float32)
+    v = np.zeros(3, np.float64)
+    for r in range(2, -1, -1):
+        t = m[r, 3]
+        for k in range(r + 1, 3):
+            t -= m[r, k] * v[k]
+        v[r] = t / m[r, r]
+        x[r] = np.float32(v[r])
+    return x
+
+
+@numba.njit(cache=True, nogil=True)
+def _descend_contact(moving, fixed, ra, rb, ri, li, lower, upper, iterations, n_terms, cut, skin):
+    """rigid_descent(refine_rigid_contact's evaluate) on moving [S, M, 3] in place; returns accepted steps [S]."""
+    f = np.float32
+    S, M = moving.shape[0], moving.shape[1]
+    accepted = np.zeros(S, np.int64)
+    h = f(cut + skin)
+    lim = f((skin - 1e-3) ** 2)
+    grad = np.empty((M, 3), np.float32)
+    g2 = np.empty((M, 3), np.float32)
+    prop = np.empty((M, 3), np.float32)
+    centered = np.empty((M, 3), np.float32)
+    for s in range(S):
+        x = moving[s].copy()
+        fx = fixed[s]
+        lo, dims, start, atoms = _fixed_grid(fx, h)
+        built = x.copy()
+        pi, pj = _pairs_near(x, fx, lo, dims, start, atoms, h)
+        for _ in range(iterations):
+            energy, depth, keys, ok = _contact_eval(x, fx, pi, pj, ra, rb, ri, li, lower, upper, grad, True)
+            if ok:
+                break                                    # satisfied samples are left alone
+            cen = np.zeros(3, np.float32)
+            for m in range(M):
+                for k in range(3):
+                    cen[k] += x[m, k]
+            for k in range(3):
+                cen[k] /= f(M)
+            tr = np.zeros(3, np.float32)
+            tq = np.zeros(3, np.float32)
+            ine = np.zeros((3, 3), np.float64)
+            for m in range(M):
+                c0, c1, c2 = x[m, 0] - cen[0], x[m, 1] - cen[1], x[m, 2] - cen[2]
+                centered[m, 0], centered[m, 1], centered[m, 2] = c0, c1, c2
+                g0, g1, g2_ = grad[m, 0], grad[m, 1], grad[m, 2]
+                tr[0] += g0
+                tr[1] += g1
+                tr[2] += g2_
+                tq[0] += c1 * g2_ - c2 * g1
+                tq[1] += c2 * g0 - c0 * g2_
+                tq[2] += c0 * g1 - c1 * g0
+                cc = (c0, c1, c2)
+                n2 = (c0 * c0 + c1 * c1) + c2 * c2
+                for a in range(3):
+                    ine[a, a] += n2
+                    for b in range(3):
+                        ine[a, b] -= cc[a] * cc[b]
+            for k in range(3):
+                tr[k] = f(-0.2) * tr[k] / f(n_terms)
+            tn = np.sqrt((tr[0] * tr[0] + tr[1] * tr[1]) + tr[2] * tr[2])
+            sc = f(0.5) / max(tn, f(0.5))
+            for k in range(3):
+                tr[k] *= sc
+            A = np.empty((3, 3), np.float32)
+            for a in range(3):
+                for b in range(3):
+                    A[a, b] = f(ine[a, b]) + (f(1e-3) if a == b else f(0.0))
+            rot = _solve3(A, tq)
+            for k in range(3):
+                rot[k] = f(-0.15) * f(M) / f(n_terms) * rot[k]
+            rn = np.sqrt((rot[0] * rot[0] + rot[1] * rot[1]) + rot[2] * rot[2])
+            sc = f(0.03) / max(rn, f(0.03))
+            for k in range(3):
+                rot[k] *= sc
+            found = False
+            for bt in range(10):
+                scale = 0.5 ** bt
+                R = _small_rotation(np.float64(rot[0] * f(scale)), np.float64(rot[1] * f(scale)), np.float64(rot[2] * f(scale)))
+                far = f(0.0)
+                for m in range(M):
+                    for k in range(3):
+                        prop[m, k] = ((centered[m, 0] * R[k, 0] + centered[m, 1] * R[k, 1]) + centered[m, 2] * R[k, 2]
+                                      + cen[k]) + tr[k] * f(scale)
+                    d0, d1, d2 = prop[m, 0] - built[m, 0], prop[m, 1] - built[m, 1], prop[m, 2] - built[m, 2]
+                    far = max(far, (d0 * d0 + d1 * d1) + d2 * d2)
+                if far >= lim:                           # the list no longer covers this pose: rebuild there
+                    built[:] = prop
+                    pi, pj = _pairs_near(prop, fx, lo, dims, start, atoms, h)
+                    # the current pose x must stay covered too for the next iteration's evaluate
+                e2, dep2, keys2, _ = _contact_eval(prop, fx, pi, pj, ra, rb, ri, li, lower, upper, g2, False)
+                new = False
+                for k in range(keys2.shape[0]):
+                    q = np.searchsorted(keys, keys2[k])
+                    if q >= keys.shape[0] or keys[q] != keys2[k]:
+                        new = True
+                        break
+                if (not new) and dep2 <= depth + f(1e-6) and e2 < energy - f(1e-7):
+                    x[:] = prop
+                    accepted[s] += 1
+                    found = True
+                    break
+            if not found:
+                break
+            far = f(0.0)
+            for m in range(M):
+                d0, d1, d2 = x[m, 0] - built[m, 0], x[m, 1] - built[m, 1], x[m, 2] - built[m, 2]
+                far = max(far, (d0 * d0 + d1 * d1) + d2 * d2)
+            if far >= lim:
+                built[:] = x
+                pi, pj = _pairs_near(x, fx, lo, dims, start, atoms, h)
+        moving[s] = x
+    return accepted
