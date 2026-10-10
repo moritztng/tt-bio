@@ -646,8 +646,12 @@ FAST_LEVERS = frozenset(LEVERS) - {"lofi", "triatt_b8", "triatt_bias_b8"} - UNGR
 # 0.809 A), docking 32 -> 35 of 44; fast vs fast 0.424 A (floor 0.957 A), docking 33 -> 35 of 44; every
 # paired CI covers 0. c730 at AICLK 1000: normal 250.3 -> 247.7 s, fast 201.3 -> 196.1 s; deep alignments
 # gain most (9DBP 556 -> 419 s, 9PCQ 427 -> 310 s) (state/spd-msasample.md, 2026-10-10).
+# It is fast-only now. On 308 more normal pairs (seeds 129-153) it failed the normal bar, CA-lDDT -0.0109
+# [-0.0205, -0.0028], top pose median 0.754 A, with folds that collapse the same way on any chip (9DBP s145
+# pLDDT 0.94 -> 0.67, 9W89 s129). The same tree without it: -0.0022 [-0.0050, +0.0001], 0.436 A, no collapse
+# (spd-galaxy s15bx, 2026-10-10).
 NORMAL_LEVERS = frozenset({"trimul_ibw", "trimul_tail", "trunk_hifi3", "dit_sdpa32", "silu_f32", "triatt_tail",
-                           "transition_shard", "atom_k1", "dit_mm16", "dit_qkv16", "msa_sample"})
+                           "transition_shard", "atom_k1", "dit_mm16", "dit_qkv16"})
 _LEVERS = frozenset()
 # silu_f32 is a kernel, so it needs ttnn's headers patched before the first device open (metal_overlay)
 # in any process that may run it. The patch only changes silu under math_approx_mode, and every fused
