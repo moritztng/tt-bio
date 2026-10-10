@@ -36,7 +36,7 @@ if [ $M = pxdesign ] && [ ! -x /usr/local/cuda-12.1/bin/nvcc ]; then  # CUDA 12.
   curl -fsSL -o /tmp/cu121.run https://developer.download.nvidia.com/compute/cuda/12.1.1/local_installers/cuda_12.1.1_530.30.02_linux.run
   sh /tmp/cu121.run --silent --toolkit --toolkitpath=/usr/local/cuda-12.1 --override --no-man-page && rm -f /tmp/cu121.run
 fi
-[ $M = pxdesign ] && CV=12.1 && export NVCC_PREPEND_FLAGS="-ccbin /usr/bin/gcc-12"
+[ $M = pxdesign ] && CV=12.1 && export NVCC_PREPEND_FLAGS="-ccbin /usr/bin/gcc-12" CC=gcc-12 CXX=g++-12
 export CUDA_HOME=/usr/local/cuda${CV:+-$CV} PYTHONHASHSEED=0 CFLAGS=-g0; export PATH=$CUDA_HOME/bin:$PATH
 L=environment/requirements.lock
 P=$(grep -E '^(pip|wheel)==' $L || true); [ -z "$P" ] || pip install -q $P

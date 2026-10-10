@@ -32,7 +32,7 @@ for m in sorted(p for p in root.iterdir() if p.is_dir()):
             continue
         rows = [json.loads(l) for l in (d / "times.jsonl").read_text().splitlines()] if (d / "times.jsonl").exists() else []
         s = [r["s"] for r in rows]
-        if m.name == "rosettafold3" and rows:  # wrapped RF3Output.dump inside one engine.run: fold i = dump end t[i] - t[i-1]
+        if m.name.startswith("rosettafold3") and rows:  # wrapped RF3Output.dump inside one engine.run: fold i = dump end t[i] - t[i-1]
             t = [r["t"] for r in rows]
             s = [round(t[0] - ts(d / "t_start"), 3)] + [round(b - a, 4) for a, b in zip(t, t[1:])]
         if m.name == "rfdiffusion3":  # the engine's own per-batch line, wrapping the sampler loop (perf/dsfix/gpu_rfd3_prod.py)

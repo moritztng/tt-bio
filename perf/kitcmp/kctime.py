@@ -5,7 +5,7 @@ A daemon thread wraps it as soon as the class exists and re-wraps it if a kit le
 always sits outermost. Each call: torch.cuda.synchronize() on both sides, one json line to $KC_TIMES with the seconds,
 the pid and the qualified name of the function it wrapped (the kit's or upstream's). Unset KC_WRAP: nothing happens.
 """
-import os, sys, threading, time, json
+import functools, os, sys, threading, time, json
 
 _depth = threading.local(); _depth.n = 0
 
@@ -19,6 +19,7 @@ def _run(spec, out):
         if f is not None and not getattr(f, "_kctime", False):
             def wrap(orig):
                 name = f"{getattr(orig, '__module__', '?')}.{getattr(orig, '__qualname__', '?')}"
+                @functools.wraps(orig)  # the kit reads fold()'s keyword defaults off the signature
                 def w(*a, **k):
                     if getattr(_depth, "n", 0):  # a kit wrapper on top of ours calls back into us: time the outermost call only
                         return orig(*a, **k)
