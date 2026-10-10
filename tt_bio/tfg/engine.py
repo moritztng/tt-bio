@@ -333,20 +333,21 @@ class TFGEngine:
 
     def _energy_and_grad(self, coords, feats, *, t: float, step_i: int):
         """Sum of active weighted terms: `(E [*batch], dE/dx [*batch, N, 3])`."""
-        energy = torch.zeros(coords.shape[:-2], device=coords.device, dtype=coords.dtype)
-        grad = torch.zeros_like(coords)
+        energy = grad = None
         for term in self.cfg.terms:
             if not term.active(step_i) or term.inert(feats):      # an inert term adds exact zeros
                 continue
             e, g = term.energy_and_grad(coords, feats, t)
-            energy = energy + e
-            grad = grad + g
+            energy, grad = (e, g) if energy is None else (energy + e, grad + g)
+        if energy is None:
+            return torch.zeros(coords.shape[:-2], device=coords.device, dtype=coords.dtype), torch.zeros_like(coords)
         return energy, grad
 
     def _logp_and_grad_x0(self, x0, eps, feats, *, t: float, step_i: int, log_components: bool = False):
         """Monte-Carlo `log p(x0)` and `d log p / d x0` over perturbations `eps [K, *x0.shape]`."""
         k = eps.shape[0]
-        x0_eps = (x0.unsqueeze(0) + eps).reshape(-1, *x0.shape[-2:])
+        # std 0 draws one all-zero perturbation (_sample_eps), and x0 + 0 is x0
+        x0_eps = (x0.unsqueeze(0) if self.cfg.eps_std == 0.0 else x0.unsqueeze(0) + eps).reshape(-1, *x0.shape[-2:])
         e, g = self._energy_and_grad(x0_eps, feats, t=t, step_i=step_i)
         e = e.reshape(k, *x0.shape[:-2])
         g = g.reshape(k, *x0.shape)
