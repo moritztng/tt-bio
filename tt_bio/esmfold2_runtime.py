@@ -60,16 +60,26 @@ class _ESMCAdapter:
     attention for multi-chain / padded batches.
     """
 
-    def __init__(self, repo: str, persistent: bool = True):
+    def __init__(self, repo: str, persistent: bool = True, fast: bool = False):
         self._repo = repo
         self._persistent = persistent
+        self._fast = fast
         self.lm = None  # loaded lazily on first fold
 
     def preload(self):
         """Load the ESMC-6B weights now (≈60 s) instead of lazily on the first
         fold — lets the CLI attribute that time to the 'loading' stage."""
         if self.lm is None:
-            self.lm = ESMCLanguageModel.from_pretrained(self._repo)
+            # --fast keeps the 6B's projection/FFN weights in block-fp8 (6.4 GB instead of
+            # 12.8 GB resident, which is what fits a 12 GiB Wormhole chip). The fold itself runs
+            # under lever_scope with the older bfp8 mode off, so the mode is set here, at build.
+            from tt_bio import tenstorrent
+            prev = tenstorrent._FAST_MODE
+            tenstorrent.set_fast_mode(self._fast)
+            try:
+                self.lm = ESMCLanguageModel.from_pretrained(self._repo)
+            finally:
+                tenstorrent.set_fast_mode(prev)
             dram_peak("esmfold2/lm-loaded")
 
     # No progress stage of its own: this single forward is a small slice of the band the
@@ -85,9 +95,7 @@ class _ESMCAdapter:
             valid = sid[:, :, None] >= 0
             allow = same & valid & (sid[:, None, :] >= 0)
             attn_mask = torch.where(allow, 0.0, float("-inf"))  # [B,L,L]
-        if self.lm is None:
-            self.lm = ESMCLanguageModel.from_pretrained(self._repo)
-            dram_peak("esmfold2/lm-loaded")
+        self.preload()
         hs = self.lm(input_ids, attn_mask=attn_mask)            # [n_layers+1,B,L,D]
         dram_peak("esmfold2/lm-forward")
         if not self._persistent:
@@ -594,7 +602,8 @@ def _install_resident_trunk_loop(model):
     model._run_one_loop = types.MethodType(_run_one_loop, model)
 
 
-def patch_esmfold2(model, esmc_repo: str = "biohub/ESMC-6B", persistent_lm: bool = True):
+def patch_esmfold2(model, esmc_repo: str = "biohub/ESMC-6B", persistent_lm: bool = True,
+                   fast: bool = False):
     """Replace every neural submodule of `model` with its ttnn implementation.
 
     After this, a normal `model.forward(...)` / input-builder fold runs the whole
@@ -674,7 +683,8 @@ def patch_esmfold2(model, esmc_repo: str = "biohub/ESMC-6B", persistent_lm: bool
 
     # ttnn ESMC-6B language model. Loaded lazily on the first fold; with
     # persistent_lm it then stays resident for all subsequent folds.
-    model._esmc = _ESMCAdapter(esmc_repo, persistent=persistent_lm)
+    model._esmc = _ESMCAdapter(esmc_repo, persistent=persistent_lm, fast=fast)
+    model._tt_fast = fast
     model._esmc_fp8 = False
 
     # Keep the pair state resident on-device across the trunk loop (hoist the
@@ -693,19 +703,13 @@ def load_ttnn_esmfold2(esmfold2_repo: str = "biohub/ESMFold2",
     Returns a patched model ready to fold many proteins without reloading. The
     24 GB CPU ESMC checkpoint is skipped (ttnn ESMC-6B is used instead).
 
-    `fast` (the CLI `--fast` flag, off by default — same opt-in semantics as the
-    Boltz-2 path) runs the heavy matmuls in block-fp8 (bfloat8_b) for a faster
-    fold at a slight precision cost:
-      * folding-trunk triangle-multiplications (the dominant O(L^3) cost),
-      * the ESMC-6B projection/FFN weights (qkv, out_proj, fc1, fc2) — which also
-        halves the resident language-model size (~12.8 GB -> ~6.4 GB),
-      * the pair-transition FFN (shared SwiGLU).
-    The token-DiT attention stays fp32 and the diffusion coords stay bf16
-    regardless, so the structure head's precision is unaffected. Default (off)
-    is full bf16/fp32 precision.
+    `fast` (the CLI `--fast` flag, off by default) keeps the ESMC-6B projection/FFN
+    weights in block-fp8 (resident 12.8 GB -> 6.4 GB) and folds under LEVERS_FAST.
+    Everything else is built and folded with the older bfp8 `_FAST_MODE` off, like
+    Boltz-2 and OpenFold3: under it the trunk's triangle multiplications lost their
+    fused in-projection and ran 8.4 s slower per 512-aa fold than in normal mode.
     """
     from tt_bio import tenstorrent
-    tenstorrent.set_fast_mode(fast)
     from tt_bio._vendor.esmfold2_hf.modeling_esmfold2 import ESMFold2Model
 
     # Pinned commit, not `main` — see weights.HF_REVISIONS for why an unpinned repo
@@ -715,7 +719,8 @@ def load_ttnn_esmfold2(esmfold2_repo: str = "biohub/ESMFold2",
     rev = hf_revision(esmfold2_repo)
     kwargs = {"revision": rev} if rev else {}
     model = ESMFold2Model.from_pretrained(esmfold2_repo, load_esmc=False, **kwargs).eval()
-    return patch_esmfold2(model, esmc_repo=esmc_repo, persistent_lm=persistent_lm)
+    with tenstorrent.lever_scope(()):
+        return patch_esmfold2(model, esmc_repo=esmc_repo, persistent_lm=persistent_lm, fast=fast)
 
 
 def _msa_from_csv(path, max_sequences):
@@ -929,8 +934,7 @@ WH_LM_RESIDENT_MAX_TOKENS = 1088
 
 # The shared-kernel levers (tenstorrent.LEVERS) ESMFold2 folds under, per mode. Empty until a set is graded on
 # ESMFold2 itself: the sets Protenix and Boltz-2 ship were graded on their folds, not on this one. A harness
-# grades a candidate through TT_BIO_LEVERS. `levers`, not `lever_scope`: --fast here is still the bfp8
-# `_FAST_MODE` the weights were built under, so it must stay set while the fold runs.
+# grades a candidate through TT_BIO_LEVERS.
 LEVERS_NORMAL = "none"
 LEVERS_FAST = "none"
 
@@ -984,7 +988,9 @@ def fold_complex(model, chains, *, num_loops=3, num_sampling_steps=20,
         esmc._persistent = False
     from tt_bio import tenstorrent
     try:
-        with tenstorrent.levers(tenstorrent.model_levers(LEVERS_NORMAL, LEVERS_FAST)):
+        spec = os.environ.get("TT_BIO_LEVERS") or (
+            LEVERS_FAST if getattr(model, "_tt_fast", False) else LEVERS_NORMAL)
+        with tenstorrent.lever_scope(spec):
             res = ESMFold2InputBuilder().fold(
                 model, spi, num_loops=num_loops, num_sampling_steps=num_sampling_steps,
                 num_diffusion_samples=num_diffusion_samples, seed=seed)
