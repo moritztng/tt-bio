@@ -2825,42 +2825,43 @@
       "host_threads": 2
     },
     "p150a": {
-      "recorded": "2026-09-28",
+      "recorded": "2026-10-11",
       "host": "tt-quietbox",
-      "commit": "3af7e8be7",
+      "commit": "1064f95a1",
+      "host_threads": 8,
       "models": {
         "esmfold2": {
           "grid": "11x10",
-          "recorded": "2026-09-28",
+          "recorded": "2026-10-11",
           "host": "tt-quietbox",
-          "commit": "3af7e8be7",
-          "host_threads": null,
+          "commit": "1064f95a1",
+          "host_threads": 8,
           "runtime_s": {
-            "256": 33.2,
-            "512": 88.1,
-            "640": 133.7,
-            "768": 194.7,
-            "896": 252.6,
-            "1024": 332.7,
-            "1152": 387.1,
-            "1280": 443.2,
-            "1408": 599.7,
-            "1536": 755.5
+            "256": 27.0,
+            "512": 63.3,
+            "640": 94.8,
+            "768": 131.5,
+            "896": 178.8,
+            "1024": 228.9,
+            "1152": 286.9,
+            "1280": 343.5,
+            "1408": 461.2,
+            "1536": 582.5
           },
           "levers": {
             "256": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
                 "served": 578,
-                "declined": 157,
-                "frac": 0.7863945578231293,
+                "declined": 87,
+                "frac": 0.869172932330827,
                 "how": "stats"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
                 "served": 578,
-                "declined": 157,
-                "frac": 0.7863945578231293,
+                "declined": 87,
+                "frac": 0.869172932330827,
                 "how": "stats-shared"
               },
               "PAIR_FFN_L1_FC1": {
@@ -2906,13 +2907,13 @@
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 4976,
+                "declined": 4656,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "memory": 4976
+                  "memory": 4656
                 },
-                "reason": "declines all 4976 calls on memory x4976: the dual-NoC in-projection needs a DRAM-interleaved activation and destination, and the pair buffer is L1-resident at this size"
+                "reason": "declines all 4656 calls on memory x4656: the dual-NoC in-projection needs a DRAM-interleaved activation and destination, and the pair buffer is L1-resident at this size"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
@@ -2956,7 +2957,7 @@
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
-                "served": 1244,
+                "served": 1164,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -2979,15 +2980,15 @@
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 19904,
+                "declined": 18624,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "gated_window_BufferType.L1": 4976,
-                  "window_BufferType.L1": 9952,
-                  "back_l1_src_narrow": 4976
+                  "gated_window_BufferType.L1": 4656,
+                  "window_BufferType.L1": 9312,
+                  "back_l1_src_narrow": 4656
                 },
-                "reason": "declines all 19904 calls on window_BufferType.L1 x9952, gated_window_BufferType.L1 x4976, back_l1_src_narrow x4976: the gate's L1 leg admits 288 <= N <= 352 only, and its own docstring records N=256 on an L1 output measuring 0.952x, a real loss"
+                "reason": "declines all 18624 calls on window_BufferType.L1 x9312, gated_window_BufferType.L1 x4656, back_l1_src_narrow x4656: the gate's L1 leg admits 288 <= N <= 352 only, and its own docstring records N=256 on an L1 output measuring 0.952x, a real loss"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
@@ -3037,6 +3038,14 @@
                 "how": "stats",
                 "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb. [carried from p300c]"
               },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged"
+              },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
                 "served": null,
@@ -3157,29 +3166,21 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict"
-              },
-              "SDPA_FUSED_PADDED": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged"
               }
             },
             "512": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
                 "served": 578,
-                "declined": 157,
-                "frac": 0.7863945578231293,
+                "declined": 87,
+                "frac": 0.869172932330827,
                 "how": "stats"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
                 "served": 578,
-                "declined": 157,
-                "frac": 0.7863945578231293,
+                "declined": 87,
+                "frac": 0.869172932330827,
                 "how": "stats-shared"
               },
               "PAIR_FFN_L1_FC1": {
@@ -3219,7 +3220,7 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 1244,
+                "served": 1164,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -3266,7 +3267,7 @@
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
-                "served": 1244,
+                "served": 1164,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -3296,21 +3297,21 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 1244,
+                "served": 1164,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 2488,
+                "served": 2328,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 2488,
+                "served": 2328,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -3338,6 +3339,14 @@
                 "frac": 0.0,
                 "how": "stats",
                 "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb. [carried from p300c]"
+              },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -3459,29 +3468,21 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict"
-              },
-              "SDPA_FUSED_PADDED": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged"
               }
             },
             "640": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
                 "served": 578,
-                "declined": 157,
-                "frac": 0.7863945578231293,
+                "declined": 87,
+                "frac": 0.869172932330827,
                 "how": "stats"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
                 "served": 578,
-                "declined": 157,
-                "frac": 0.7863945578231293,
+                "declined": 87,
+                "frac": 0.869172932330827,
                 "how": "stats-shared"
               },
               "PAIR_FFN_L1_FC1": {
@@ -3521,7 +3522,7 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 1244,
+                "served": 1164,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -3567,7 +3568,7 @@
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
-                "served": 1244,
+                "served": 1164,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -3596,21 +3597,21 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 1244,
+                "served": 1164,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 2488,
+                "served": 2328,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 2488,
+                "served": 2328,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -3638,6 +3639,14 @@
                 "frac": 0.0,
                 "how": "stats",
                 "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb. [carried from p300c]"
+              },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -3759,29 +3768,21 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict"
-              },
-              "SDPA_FUSED_PADDED": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged"
               }
             },
             "768": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
                 "served": 578,
-                "declined": 157,
-                "frac": 0.7863945578231293,
+                "declined": 87,
+                "frac": 0.869172932330827,
                 "how": "stats"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
                 "served": 578,
-                "declined": 157,
-                "frac": 0.7863945578231293,
+                "declined": 87,
+                "frac": 0.869172932330827,
                 "how": "stats-shared"
               },
               "PAIR_FFN_L1_FC1": {
@@ -3821,7 +3822,7 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 2488,
+                "served": 2328,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -3867,7 +3868,7 @@
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
-                "served": 1244,
+                "served": 1164,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -3896,21 +3897,21 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 2488,
+                "served": 2328,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 4976,
+                "served": 4656,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 4976,
+                "served": 4656,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -3938,6 +3939,14 @@
                 "frac": 0.0,
                 "how": "stats",
                 "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb. [carried from p300c]"
+              },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -4059,29 +4068,21 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict"
-              },
-              "SDPA_FUSED_PADDED": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged"
               }
             },
             "896": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
                 "served": 578,
-                "declined": 157,
-                "frac": 0.7863945578231293,
+                "declined": 87,
+                "frac": 0.869172932330827,
                 "how": "stats"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
                 "served": 578,
-                "declined": 157,
-                "frac": 0.7863945578231293,
+                "declined": 87,
+                "frac": 0.869172932330827,
                 "how": "stats-shared"
               },
               "PAIR_FFN_L1_FC1": {
@@ -4121,7 +4122,7 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 2488,
+                "served": 2328,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -4170,7 +4171,7 @@
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
-                "served": 1244,
+                "served": 1164,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -4199,21 +4200,21 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 2488,
+                "served": 2328,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 4976,
+                "served": 4656,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 4976,
+                "served": 4656,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -4241,6 +4242,14 @@
                 "frac": 0.0,
                 "how": "stats",
                 "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb. [carried from p300c]"
+              },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -4362,29 +4371,21 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict"
-              },
-              "SDPA_FUSED_PADDED": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged"
               }
             },
             "1024": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
                 "served": 578,
-                "declined": 157,
-                "frac": 0.7863945578231293,
+                "declined": 87,
+                "frac": 0.869172932330827,
                 "how": "stats"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
                 "served": 578,
-                "declined": 157,
-                "frac": 0.7863945578231293,
+                "declined": 87,
+                "frac": 0.869172932330827,
                 "how": "stats-shared"
               },
               "PAIR_FFN_L1_FC1": {
@@ -4424,7 +4425,7 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 2488,
+                "served": 2328,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -4473,7 +4474,7 @@
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
-                "served": 1244,
+                "served": 1164,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -4502,21 +4503,21 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 2488,
+                "served": 2328,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 4976,
+                "served": 4656,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 4976,
+                "served": 4656,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -4544,6 +4545,14 @@
                 "frac": 0.0,
                 "how": "stats",
                 "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb. [carried from p300c]"
+              },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -4665,29 +4674,21 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict"
-              },
-              "SDPA_FUSED_PADDED": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged"
               }
             },
             "1152": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
                 "served": 578,
-                "declined": 223,
-                "frac": 0.7215980024968789,
+                "declined": 93,
+                "frac": 0.8614008941877794,
                 "how": "stats"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
                 "served": 578,
-                "declined": 223,
-                "frac": 0.7215980024968789,
+                "declined": 93,
+                "frac": 0.8614008941877794,
                 "how": "stats-shared"
               },
               "PAIR_FFN_L1_FC1": {
@@ -4732,7 +4733,7 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 4976,
+                "served": 4656,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -4779,7 +4780,7 @@
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
-                "served": 1244,
+                "served": 1164,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -4809,21 +4810,21 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 4976,
+                "served": 4656,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 9952,
+                "served": 9312,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 9952,
+                "served": 9312,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -4851,6 +4852,14 @@
                 "frac": 0.0,
                 "how": "stats",
                 "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb. [carried from p300c] [carried from rung 1024]"
+              },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -4972,29 +4981,21 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict"
-              },
-              "SDPA_FUSED_PADDED": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged"
               }
             },
             "1280": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
                 "served": 578,
-                "declined": 256,
-                "frac": 0.6930455635491607,
+                "declined": 96,
+                "frac": 0.857566765578635,
                 "how": "stats"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
                 "served": 578,
-                "declined": 256,
-                "frac": 0.6930455635491607,
+                "declined": 96,
+                "frac": 0.857566765578635,
                 "how": "stats-shared"
               },
               "PAIR_FFN_L1_FC1": {
@@ -5039,7 +5040,7 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 4976,
+                "served": 4656,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -5086,7 +5087,7 @@
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
-                "served": 1244,
+                "served": 1164,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -5116,21 +5117,21 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 4976,
+                "served": 4656,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 9952,
+                "served": 9312,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 9952,
+                "served": 9312,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -5158,6 +5159,14 @@
                 "frac": 0.0,
                 "how": "stats",
                 "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb. [carried from p300c] [carried from rung 1024]"
+              },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -5279,29 +5288,21 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict"
-              },
-              "SDPA_FUSED_PADDED": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged"
               }
             },
             "1408": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
                 "served": 578,
-                "declined": 256,
-                "frac": 0.6930455635491607,
+                "declined": 96,
+                "frac": 0.857566765578635,
                 "how": "stats"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
                 "served": 578,
-                "declined": 256,
-                "frac": 0.6930455635491607,
+                "declined": 96,
+                "frac": 0.857566765578635,
                 "how": "stats-shared"
               },
               "PAIR_FFN_L1_FC1": {
@@ -5346,7 +5347,7 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 4976,
+                "served": 4656,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -5393,7 +5394,7 @@
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
-                "served": 1244,
+                "served": 1164,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -5423,21 +5424,21 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 4976,
+                "served": 4656,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 9952,
+                "served": 9312,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 9952,
+                "served": 9312,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -5465,6 +5466,14 @@
                 "frac": 0.0,
                 "how": "stats",
                 "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb. [carried from p300c] [carried from rung 1024]"
+              },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -5586,29 +5595,21 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict"
-              },
-              "SDPA_FUSED_PADDED": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged"
               }
             },
             "1536": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
                 "served": 578,
-                "declined": 289,
-                "frac": 0.6666666666666666,
+                "declined": 99,
+                "frac": 0.8537666174298375,
                 "how": "stats"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
                 "served": 578,
-                "declined": 289,
-                "frac": 0.6666666666666666,
+                "declined": 99,
+                "frac": 0.8537666174298375,
                 "how": "stats-shared"
               },
               "PAIR_FFN_L1_FC1": {
@@ -5653,7 +5654,7 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 9952,
+                "served": 9312,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -5700,7 +5701,7 @@
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
-                "served": 1244,
+                "served": 1164,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -5730,21 +5731,21 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 9952,
+                "served": 9312,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 19904,
+                "served": 18624,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 19904,
+                "served": 18624,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -5772,6 +5773,14 @@
                 "frac": 0.0,
                 "how": "stats",
                 "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb. [carried from p300c] [carried from rung 1024]"
+              },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -5893,71 +5902,47 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict"
-              },
-              "SDPA_FUSED_PADDED": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged"
               }
             }
           },
           "runtime_reps_s": {
             "256": [
-              31.3,
-              34.0,
-              33.2,
-              30.7,
-              33.6
+              27.0,
+              27.3,
+              26.6,
+              27.5,
+              26.7
             ],
             "512": [
-              86.6,
-              88.1,
-              88.1,
-              88.2,
-              88.6
+              64.7,
+              63.8,
+              62.2,
+              63.0,
+              63.3
             ],
             "640": [
-              129.8,
-              133.7,
-              134.8
+              94.8
             ],
             "768": [
-              194.7,
-              195.8,
-              186.9
+              131.5
             ],
             "896": [
-              252.9,
-              252.6,
-              252.4
+              178.8
             ],
             "1024": [
-              338.9,
-              321.2,
-              332.7
+              228.9
             ],
             "1152": [
-              387.1,
-              368.6,
-              387.7
+              286.9
             ],
             "1280": [
-              465.3,
-              443.2,
-              439.5
+              343.5
             ],
             "1408": [
-              611.5,
-              599.7,
-              579.6
+              461.2
             ],
             "1536": [
-              755.3,
-              755.5,
-              756.8
+              582.5
             ]
           },
           "aiclk": {
@@ -5972,7 +5957,7 @@
                 1350,
                 1350
               ],
-              "n": 63
+              "n": 60
             },
             "512": {
               "card": "0",
@@ -5985,180 +5970,148 @@
                 1350,
                 1350
               ],
-              "n": 110
+              "n": 92
             },
             "640": {
               "card": "0",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1350,
-                1350,
                 1350
               ],
-              "n": 88
+              "n": 24
             },
             "768": {
               "card": "0",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1350,
-                1350,
                 1350
               ],
-              "n": 118
+              "n": 29
             },
             "896": {
               "card": "0",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1350,
-                1350,
                 1350
               ],
-              "n": 147
+              "n": 37
             },
             "1024": {
               "card": "0",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1350,
-                1350,
                 1350
               ],
-              "n": 188
+              "n": 46
             },
             "1152": {
               "card": "0",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1350,
-                1350,
                 1350
               ],
-              "n": 213
+              "n": 55
             },
             "1280": {
               "card": "0",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1350,
-                1350,
                 1350
               ],
-              "n": 246
+              "n": 65
             },
             "1408": {
               "card": "0",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1350,
-                1350,
                 1350
               ],
-              "n": 320
+              "n": 84
             },
             "1536": {
               "card": "0",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1350,
-                1350,
                 1350
               ],
-              "n": 399
+              "n": 104
             }
           },
           "load": {
             "256": {
-              "max": 0.18,
+              "max": 0.3,
               "rep_median": [
-                0.12,
-                0.06,
-                0.04,
-                0.07,
-                0.05
+                0.28,
+                0.2,
+                0.2,
+                0.18,
+                0.17
               ]
             },
             "512": {
-              "max": 0.2,
+              "max": 0.38,
               "rep_median": [
-                0.06,
-                0.05,
-                0.1,
-                0.11,
-                0.1
+                0.3,
+                0.34,
+                0.25,
+                0.21,
+                0.21
               ]
             },
             "640": {
-              "max": 0.14,
+              "max": 0.4,
               "rep_median": [
-                0.04,
-                0.08,
-                0.06
+                0.34
               ]
             },
             "768": {
-              "max": 0.14,
+              "max": 0.35,
               "rep_median": [
-                0.06,
-                0.07,
-                0.05
+                0.28
               ]
             },
             "896": {
-              "max": 0.17,
+              "max": 0.27,
               "rep_median": [
-                0.06,
-                0.08,
-                0.06
+                0.24
               ]
             },
             "1024": {
-              "max": 0.19,
+              "max": 0.43,
               "rep_median": [
-                0.1,
-                0.05,
-                0.03
+                0.38
               ]
             },
             "1152": {
-              "max": 0.2,
+              "max": 0.3,
               "rep_median": [
-                0.05,
-                0.08,
-                0.04
+                0.24
               ]
             },
             "1280": {
-              "max": 0.17,
+              "max": 0.26,
               "rep_median": [
-                0.06,
-                0.06,
-                0.05
+                0.19
               ]
             },
             "1408": {
-              "max": 0.24,
+              "max": 0.36,
               "rep_median": [
-                0.06,
-                0.05,
-                0.07
+                0.28
               ]
             },
             "1536": {
-              "max": 0.16,
+              "max": 0.65,
               "rep_median": [
-                0.05,
-                0.03,
-                0.06
+                0.14
               ]
             }
           },
@@ -6169,30 +6122,30 @@
               "n_ca": 256,
               "clash_frac": 0.0156,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 80.5861,
-              "radius_of_gyration_A": 68.122,
-              "plddt_mean": 0.276057,
+              "ca_ca_median_A": 81.3219,
+              "radius_of_gyration_A": 68.45,
+              "plddt_mean": 0.275982,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 80.586 A outside [3.6, 4.0]",
+                "median CA-CA 81.322 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 68.1 A outside [9.0, 45.2]"
+                "radius of gyration 68.4 A outside [9.0, 45.2]"
               ]
             },
             "512": {
               "file": "cdk2x2_512.cif",
               "steps": 6,
               "n_ca": 512,
-              "clash_frac": 0.0273,
+              "clash_frac": 0.0312,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 78.0687,
-              "radius_of_gyration_A": 75.718,
-              "plddt_mean": 0.262783,
+              "ca_ca_median_A": 78.3608,
+              "radius_of_gyration_A": 75.733,
+              "plddt_mean": 0.262338,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 78.069 A outside [3.6, 4.0]",
+                "median CA-CA 78.361 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "2.7% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "3.1% of CA atoms sit under 3.5 A from a non-bonded CA",
                 "radius of gyration 75.7 A outside [11.8, 58.9]"
               ]
             },
@@ -6202,65 +6155,65 @@
               "n_ca": 640,
               "clash_frac": 0.0328,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 79.5042,
-              "radius_of_gyration_A": 78.185,
-              "plddt_mean": 0.274572,
+              "ca_ca_median_A": 79.6624,
+              "radius_of_gyration_A": 78.318,
+              "plddt_mean": 0.274185,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 79.504 A outside [3.6, 4.0]",
+                "median CA-CA 79.662 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
                 "3.3% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 78.2 A outside [12.8, 64.1]"
+                "radius of gyration 78.3 A outside [12.8, 64.1]"
               ]
             },
             "768": {
               "file": "cdk2x2_768.cif",
               "steps": 6,
               "n_ca": 768,
-              "clash_frac": 0.0495,
+              "clash_frac": 0.0286,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 80.9888,
-              "radius_of_gyration_A": 73.827,
-              "plddt_mean": 0.257835,
+              "ca_ca_median_A": 81.1053,
+              "radius_of_gyration_A": 73.935,
+              "plddt_mean": 0.257475,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 80.989 A outside [3.6, 4.0]",
+                "median CA-CA 81.105 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "5.0% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 73.8 A outside [13.7, 68.7]"
+                "2.9% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 73.9 A outside [13.7, 68.7]"
               ]
             },
             "896": {
               "file": "cdk2x2_896.cif",
               "steps": 6,
               "n_ca": 896,
-              "clash_frac": 0.0379,
+              "clash_frac": 0.0491,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 79.2515,
-              "radius_of_gyration_A": 79.97,
-              "plddt_mean": 0.263733,
+              "ca_ca_median_A": 79.3283,
+              "radius_of_gyration_A": 79.845,
+              "plddt_mean": 0.264069,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 79.252 A outside [3.6, 4.0]",
+                "median CA-CA 79.328 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "3.8% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 80.0 A outside [14.6, 72.8]"
+                "4.9% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 79.8 A outside [14.6, 72.8]"
               ]
             },
             "1024": {
               "file": "cdk2x2_1024.cif",
               "steps": 6,
               "n_ca": 1024,
-              "clash_frac": 0.0557,
-              "chain_break_frac": 1.0,
-              "ca_ca_median_A": 80.3132,
-              "radius_of_gyration_A": 77.438,
-              "plddt_mean": 0.257459,
+              "clash_frac": 0.0596,
+              "chain_break_frac": 0.999,
+              "ca_ca_median_A": 80.3642,
+              "radius_of_gyration_A": 77.42,
+              "plddt_mean": 0.257053,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 80.313 A outside [3.6, 4.0]",
-                "100.0% of consecutive CA pairs exceed 5.0 A",
-                "5.6% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "median CA-CA 80.364 A outside [3.6, 4.0]",
+                "99.9% of consecutive CA pairs exceed 5.0 A",
+                "6.0% of CA atoms sit under 3.5 A from a non-bonded CA",
                 "radius of gyration 77.4 A outside [15.3, 76.6]"
               ]
             },
@@ -6268,136 +6221,132 @@
               "file": "cdk2x2_1152.cif",
               "steps": 6,
               "n_ca": 1152,
-              "clash_frac": 0.026,
+              "clash_frac": 0.0399,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 80.0127,
-              "radius_of_gyration_A": 82.184,
-              "plddt_mean": 0.259377,
+              "ca_ca_median_A": 79.9399,
+              "radius_of_gyration_A": 82.346,
+              "plddt_mean": 0.259608,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 80.013 A outside [3.6, 4.0]",
+                "median CA-CA 79.940 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "2.6% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 82.2 A outside [16.0, 80.1]"
+                "4.0% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 82.3 A outside [16.0, 80.1]"
               ]
             },
             "1280": {
               "file": "cdk2x2_1280.cif",
               "steps": 6,
               "n_ca": 1280,
-              "clash_frac": 0.043,
+              "clash_frac": 0.0453,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 78.3202,
-              "radius_of_gyration_A": 79.154,
-              "plddt_mean": 0.259359,
+              "ca_ca_median_A": 78.3319,
+              "radius_of_gyration_A": 79.165,
+              "plddt_mean": 0.259392,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 78.320 A outside [3.6, 4.0]",
+                "median CA-CA 78.332 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "4.3% of CA atoms sit under 3.5 A from a non-bonded CA"
+                "4.5% of CA atoms sit under 3.5 A from a non-bonded CA"
               ]
             },
             "1408": {
               "file": "cdk2x2_1408.cif",
               "steps": 6,
               "n_ca": 1408,
-              "clash_frac": 0.0497,
+              "clash_frac": 0.0419,
               "chain_break_frac": 0.9993,
-              "ca_ca_median_A": 80.0999,
-              "radius_of_gyration_A": 78.842,
-              "plddt_mean": 0.25576,
+              "ca_ca_median_A": 80.0706,
+              "radius_of_gyration_A": 78.871,
+              "plddt_mean": 0.255839,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 80.100 A outside [3.6, 4.0]",
+                "median CA-CA 80.071 A outside [3.6, 4.0]",
                 "99.9% of consecutive CA pairs exceed 5.0 A",
-                "5.0% of CA atoms sit under 3.5 A from a non-bonded CA"
+                "4.2% of CA atoms sit under 3.5 A from a non-bonded CA"
               ]
             },
             "1536": {
               "file": "cdk2x2_1536.cif",
               "steps": 6,
               "n_ca": 1536,
-              "clash_frac": 0.0514,
+              "clash_frac": 0.0521,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 78.8353,
-              "radius_of_gyration_A": 81.429,
-              "plddt_mean": 0.264032,
+              "ca_ca_median_A": 78.7313,
+              "radius_of_gyration_A": 81.361,
+              "plddt_mean": 0.263982,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 78.835 A outside [3.6, 4.0]",
+                "median CA-CA 78.731 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "5.1% of CA atoms sit under 3.5 A from a non-bonded CA"
+                "5.2% of CA atoms sit under 3.5 A from a non-bonded CA"
               ]
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.0087,
+          "sigma_runtime_512": 0.0147,
           "exponents": {
             "256->512": {
-              "k": 1.408,
+              "k": 1.229,
               "tol": 0.5
             },
             "512->768": {
-              "k": 1.956,
+              "k": 1.803,
               "tol": 0.5
             }
           },
           "sigma_runtime": {
-            "256": 0.0451,
-            "512": 0.0087
+            "256": 0.0142,
+            "512": 0.0147
           },
           "exponents_measured": {
-            "256->512": 1.408,
-            "512->640": 1.869,
-            "640->768": 2.062,
-            "768->896": 1.689,
-            "896->1024": 2.063,
-            "1024->1152": 1.286,
-            "1152->1280": 1.285,
-            "1280->1408": 3.173,
-            "1408->1536": 2.654
-          },
-          "levers_added": {
-            "SDPA_FUSED_PADDED": "2026-10-09 tt-quietbox 6105e740d"
+            "256->512": 1.229,
+            "512->640": 1.81,
+            "640->768": 1.795,
+            "768->896": 1.993,
+            "896->1024": 1.85,
+            "1024->1152": 1.917,
+            "1152->1280": 1.709,
+            "1280->1408": 3.091,
+            "1408->1536": 2.684
           }
         }
-      },
-      "host_threads": null
+      }
     },
     "p300c": {
-      "recorded": "2026-10-10",
+      "recorded": "2026-10-11",
       "host": "tt-quietbox2",
-      "commit": "92d5924f5",
+      "commit": "1064f95a1",
       "host_threads": 5,
       "models": {
         "esmfold2": {
           "grid": "11x10",
-          "recorded": "2026-10-10",
+          "recorded": "2026-10-11",
           "host": "tt-quietbox2",
-          "commit": "92d5924f5",
+          "commit": "1064f95a1",
           "host_threads": 5,
           "runtime_s": {
-            "256": 23.5,
-            "512": 61.6,
-            "640": 97.3,
-            "768": 140.5,
-            "896": 191.8,
-            "1024": 244.9
+            "256": 19.5,
+            "512": 43.7,
+            "640": 67.8,
+            "768": 97.1,
+            "896": 133.1,
+            "1024": 160.1
           },
           "levers": {
             "256": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
                 "served": 578,
-                "declined": 157,
-                "frac": 0.7863945578231293,
+                "declined": 87,
+                "frac": 0.869172932330827,
                 "how": "stats"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
                 "served": 578,
-                "declined": 157,
-                "frac": 0.7863945578231293,
+                "declined": 87,
+                "frac": 0.869172932330827,
                 "how": "stats-shared"
               },
               "PAIR_FFN_L1_FC1": {
@@ -6443,13 +6392,13 @@
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 4976,
+                "declined": 4656,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "memory": 4976
+                  "memory": 4656
                 },
-                "reason": "declines all 4976 calls on memory x4976: the dual-NoC in-projection needs a DRAM-interleaved activation and destination, and the pair buffer is L1-resident at this size"
+                "reason": "declines all 4656 calls on memory x4656: the dual-NoC in-projection needs a DRAM-interleaved activation and destination, and the pair buffer is L1-resident at this size"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
@@ -6493,7 +6442,7 @@
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
-                "served": 1244,
+                "served": 1164,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -6516,15 +6465,15 @@
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 19904,
+                "declined": 18624,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "gated_window_BufferType.L1": 4976,
-                  "window_BufferType.L1": 9952,
-                  "back_l1_src_narrow": 4976
+                  "gated_window_BufferType.L1": 4656,
+                  "window_BufferType.L1": 9312,
+                  "back_l1_src_narrow": 4656
                 },
-                "reason": "declines all 19904 calls on window_BufferType.L1 x9952, gated_window_BufferType.L1 x4976, back_l1_src_narrow x4976: the traffic moved to the gated channel, it did not stop. TRIMUL_MASK_AFTER_MOVE (d86a1eb5f, default on since 7bfa4ad19) moves the pair mask past the channel move, so the fused chunk+gate route is eligible and REBLOCK_PERMUTE_GATED serves the calls this counter served when the baseline was recorded. The handoff is visible across the three cards in commit order: the galaxy entry at f11e5009 reads ungated 2168 / gated 0 at 512, p150a at 9ceae36d reads 16 / 2152, this card reads 0 / 2168. The wrapper is not offered, not refused"
+                "reason": "declines all 18624 calls on window_BufferType.L1 x9312, gated_window_BufferType.L1 x4656, back_l1_src_narrow x4656: the traffic moved to the gated channel, it did not stop. TRIMUL_MASK_AFTER_MOVE (d86a1eb5f, default on since 7bfa4ad19) moves the pair mask past the channel move, so the fused chunk+gate route is eligible and REBLOCK_PERMUTE_GATED serves the calls this counter served when the baseline was recorded. The handoff is visible across the three cards in commit order: the galaxy entry at f11e5009 reads ungated 2168 / gated 0 at 512, p150a at 9ceae36d reads 16 / 2152, this card reads 0 / 2168. The wrapper is not offered, not refused"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
@@ -6708,15 +6657,15 @@
               "SPLIT_SWIGLU": {
                 "resolved": "True",
                 "served": 578,
-                "declined": 157,
-                "frac": 0.7863945578231293,
+                "declined": 87,
+                "frac": 0.869172932330827,
                 "how": "stats"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
                 "served": 578,
-                "declined": 157,
-                "frac": 0.7863945578231293,
+                "declined": 87,
+                "frac": 0.869172932330827,
                 "how": "stats-shared"
               },
               "PAIR_FFN_L1_FC1": {
@@ -6756,7 +6705,7 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 1244,
+                "served": 1164,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -6803,7 +6752,7 @@
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
-                "served": 1244,
+                "served": 1164,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -6833,21 +6782,21 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 1244,
+                "served": 1164,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 2488,
+                "served": 2328,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 2488,
+                "served": 2328,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -7010,15 +6959,15 @@
               "SPLIT_SWIGLU": {
                 "resolved": "True",
                 "served": 578,
-                "declined": 157,
-                "frac": 0.7863945578231293,
+                "declined": 87,
+                "frac": 0.869172932330827,
                 "how": "stats"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
                 "served": 578,
-                "declined": 157,
-                "frac": 0.7863945578231293,
+                "declined": 87,
+                "frac": 0.869172932330827,
                 "how": "stats-shared"
               },
               "PAIR_FFN_L1_FC1": {
@@ -7058,7 +7007,7 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 1244,
+                "served": 1164,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -7104,7 +7053,7 @@
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
-                "served": 1244,
+                "served": 1164,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -7133,21 +7082,21 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 1244,
+                "served": 1164,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 2488,
+                "served": 2328,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 2488,
+                "served": 2328,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -7310,15 +7259,15 @@
               "SPLIT_SWIGLU": {
                 "resolved": "True",
                 "served": 578,
-                "declined": 157,
-                "frac": 0.7863945578231293,
+                "declined": 87,
+                "frac": 0.869172932330827,
                 "how": "stats"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
                 "served": 578,
-                "declined": 157,
-                "frac": 0.7863945578231293,
+                "declined": 87,
+                "frac": 0.869172932330827,
                 "how": "stats-shared"
               },
               "PAIR_FFN_L1_FC1": {
@@ -7358,7 +7307,7 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 2488,
+                "served": 2328,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -7404,7 +7353,7 @@
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
-                "served": 1244,
+                "served": 1164,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -7433,21 +7382,21 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 2488,
+                "served": 2328,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 4976,
+                "served": 4656,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 4976,
+                "served": 4656,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -7610,15 +7559,15 @@
               "SPLIT_SWIGLU": {
                 "resolved": "True",
                 "served": 578,
-                "declined": 157,
-                "frac": 0.7863945578231293,
+                "declined": 87,
+                "frac": 0.869172932330827,
                 "how": "stats"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
                 "served": 578,
-                "declined": 157,
-                "frac": 0.7863945578231293,
+                "declined": 87,
+                "frac": 0.869172932330827,
                 "how": "stats-shared"
               },
               "PAIR_FFN_L1_FC1": {
@@ -7658,7 +7607,7 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 2488,
+                "served": 2328,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -7707,7 +7656,7 @@
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
-                "served": 1244,
+                "served": 1164,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -7736,21 +7685,21 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 2488,
+                "served": 2328,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 4976,
+                "served": 4656,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 4976,
+                "served": 4656,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -7913,15 +7862,15 @@
               "SPLIT_SWIGLU": {
                 "resolved": "True",
                 "served": 578,
-                "declined": 157,
-                "frac": 0.7863945578231293,
+                "declined": 87,
+                "frac": 0.869172932330827,
                 "how": "stats"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
                 "served": 578,
-                "declined": 157,
-                "frac": 0.7863945578231293,
+                "declined": 87,
+                "frac": 0.869172932330827,
                 "how": "stats-shared"
               },
               "PAIR_FFN_L1_FC1": {
@@ -7961,7 +7910,7 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 2488,
+                "served": 2328,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -8010,7 +7959,7 @@
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
-                "served": 1244,
+                "served": 1164,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -8039,21 +7988,21 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 2488,
+                "served": 2328,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 4976,
+                "served": 4656,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 4976,
+                "served": 4656,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -8215,43 +8164,35 @@
           },
           "runtime_reps_s": {
             "256": [
-              24.2,
-              23.2,
-              23.5,
-              23.4,
-              23.9
+              19.5,
+              19.2,
+              19.6,
+              20.2,
+              18.7
             ],
             "512": [
-              62.0,
-              61.6,
-              61.0,
-              61.2,
-              62.9
+              43.8,
+              42.7,
+              44.2,
+              43.7,
+              43.1
             ],
             "640": [
-              96.1,
-              98.2,
-              97.3
+              67.8
             ],
             "768": [
-              140.0,
-              143.1,
-              140.5
+              97.1
             ],
             "896": [
-              191.8,
-              187.9,
-              193.5
+              133.1
             ],
             "1024": [
-              247.5,
-              244.9,
-              242.8
+              160.1
             ]
           },
           "aiclk": {
             "256": {
-              "card": "3",
+              "card": "0",
               "min": 800,
               "max": 1350,
               "rep_median": [
@@ -8259,119 +8200,103 @@
                 1350,
                 1350,
                 1350,
-                1350
+                1343
               ],
-              "n": 46
+              "n": 45
             },
             "512": {
-              "card": "3",
+              "card": "0",
               "min": 800,
               "max": 1350,
               "rep_median": [
                 1350,
+                1343,
                 1350,
                 1350,
-                1350,
-                1350
+                1343
               ],
-              "n": 82
+              "n": 65
             },
             "640": {
-              "card": "3",
+              "card": "0",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1350,
-                1350,
                 1350
               ],
-              "n": 70
+              "n": 18
             },
             "768": {
-              "card": "3",
+              "card": "0",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1350,
-                1350,
                 1350
               ],
-              "n": 95
+              "n": 23
             },
             "896": {
-              "card": "3",
+              "card": "0",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1350,
-                1350,
-                1350
+                1337
               ],
-              "n": 123
+              "n": 30
             },
             "1024": {
-              "card": "3",
+              "card": "0",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1350,
-                1350,
                 1350
               ],
-              "n": 154
+              "n": 35
             }
           },
           "load": {
             "256": {
-              "max": 0.44,
+              "max": 0.65,
               "rep_median": [
-                0.39,
-                0.37,
-                0.27,
-                0.26,
-                0.26
+                0.63,
+                0.52,
+                0.46,
+                0.55,
+                0.49
               ]
             },
             "512": {
-              "max": 0.43,
+              "max": 0.33,
               "rep_median": [
-                0.34,
-                0.28,
-                0.25,
-                0.26,
-                0.25
+                0.29,
+                0.2,
+                0.24,
+                0.22,
+                0.21
               ]
             },
             "640": {
-              "max": 0.49,
+              "max": 0.46,
               "rep_median": [
-                0.28,
-                0.27,
-                0.3
+                0.42
               ]
             },
             "768": {
-              "max": 0.39,
+              "max": 0.28,
               "rep_median": [
-                0.33,
-                0.33,
-                0.32
+                0.25
               ]
             },
             "896": {
-              "max": 0.44,
+              "max": 0.32,
               "rep_median": [
-                0.33,
-                0.26,
-                0.28
+                0.26
               ]
             },
             "1024": {
-              "max": 0.4,
+              "max": 0.28,
               "rep_median": [
-                0.35,
-                0.32,
-                0.32
+                0.22
               ]
             }
           },
@@ -8382,29 +8307,30 @@
               "n_ca": 256,
               "clash_frac": 0.0156,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 81.2089,
-              "radius_of_gyration_A": 68.246,
-              "plddt_mean": 0.276022,
+              "ca_ca_median_A": 81.3219,
+              "radius_of_gyration_A": 68.45,
+              "plddt_mean": 0.275982,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 81.209 A outside [3.6, 4.0]",
+                "median CA-CA 81.322 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 68.2 A outside [9.0, 45.2]"
+                "radius of gyration 68.4 A outside [9.0, 45.2]"
               ]
             },
             "512": {
               "file": "cdk2x2_512.cif",
               "steps": 6,
               "n_ca": 512,
-              "clash_frac": 0.0195,
+              "clash_frac": 0.0312,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 78.4007,
-              "radius_of_gyration_A": 75.737,
-              "plddt_mean": 0.262577,
+              "ca_ca_median_A": 78.3608,
+              "radius_of_gyration_A": 75.733,
+              "plddt_mean": 0.262338,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 78.401 A outside [3.6, 4.0]",
+                "median CA-CA 78.361 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
+                "3.1% of CA atoms sit under 3.5 A from a non-bonded CA",
                 "radius of gyration 75.7 A outside [11.8, 58.9]"
               ]
             },
@@ -8412,16 +8338,16 @@
               "file": "cdk2x2_640.cif",
               "steps": 6,
               "n_ca": 640,
-              "clash_frac": 0.0234,
+              "clash_frac": 0.0328,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 79.6441,
-              "radius_of_gyration_A": 78.256,
-              "plddt_mean": 0.274869,
+              "ca_ca_median_A": 79.6624,
+              "radius_of_gyration_A": 78.318,
+              "plddt_mean": 0.274185,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 79.644 A outside [3.6, 4.0]",
+                "median CA-CA 79.662 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "2.3% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "3.3% of CA atoms sit under 3.5 A from a non-bonded CA",
                 "radius of gyration 78.3 A outside [12.8, 64.1]"
               ]
             },
@@ -8429,33 +8355,33 @@
               "file": "cdk2x2_768.cif",
               "steps": 6,
               "n_ca": 768,
-              "clash_frac": 0.0339,
+              "clash_frac": 0.0286,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 81.2509,
-              "radius_of_gyration_A": 73.767,
-              "plddt_mean": 0.2578,
+              "ca_ca_median_A": 81.1053,
+              "radius_of_gyration_A": 73.935,
+              "plddt_mean": 0.257475,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 81.251 A outside [3.6, 4.0]",
+                "median CA-CA 81.105 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "3.4% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 73.8 A outside [13.7, 68.7]"
+                "2.9% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 73.9 A outside [13.7, 68.7]"
               ]
             },
             "896": {
               "file": "cdk2x2_896.cif",
               "steps": 6,
               "n_ca": 896,
-              "clash_frac": 0.0446,
+              "clash_frac": 0.0491,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 79.3749,
-              "radius_of_gyration_A": 79.837,
-              "plddt_mean": 0.263801,
+              "ca_ca_median_A": 79.3283,
+              "radius_of_gyration_A": 79.845,
+              "plddt_mean": 0.264069,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 79.375 A outside [3.6, 4.0]",
+                "median CA-CA 79.328 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "4.5% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "4.9% of CA atoms sit under 3.5 A from a non-bonded CA",
                 "radius of gyration 79.8 A outside [14.6, 72.8]"
               ]
             },
@@ -8464,41 +8390,41 @@
               "steps": 6,
               "n_ca": 1024,
               "clash_frac": 0.0596,
-              "chain_break_frac": 1.0,
-              "ca_ca_median_A": 80.1138,
-              "radius_of_gyration_A": 77.367,
-              "plddt_mean": 0.257262,
+              "chain_break_frac": 0.999,
+              "ca_ca_median_A": 80.3642,
+              "radius_of_gyration_A": 77.42,
+              "plddt_mean": 0.257053,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 80.114 A outside [3.6, 4.0]",
-                "100.0% of consecutive CA pairs exceed 5.0 A",
+                "median CA-CA 80.364 A outside [3.6, 4.0]",
+                "99.9% of consecutive CA pairs exceed 5.0 A",
                 "6.0% of CA atoms sit under 3.5 A from a non-bonded CA",
                 "radius of gyration 77.4 A outside [15.3, 76.6]"
               ]
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.0122,
+          "sigma_runtime_512": 0.0137,
           "exponents": {
             "256->512": {
-              "k": 1.39,
+              "k": 1.164,
               "tol": 0.5
             },
             "512->768": {
-              "k": 2.034,
+              "k": 1.969,
               "tol": 0.5
             }
           },
           "sigma_runtime": {
-            "256": 0.0171,
-            "512": 0.0122
+            "256": 0.0283,
+            "512": 0.0137
           },
           "exponents_measured": {
-            "256->512": 1.39,
-            "512->640": 2.049,
-            "640->768": 2.015,
-            "768->896": 2.019,
-            "896->1024": 1.83
+            "256->512": 1.164,
+            "512->640": 1.968,
+            "640->768": 1.97,
+            "768->896": 2.046,
+            "896->1024": 1.383
           }
         }
       }
