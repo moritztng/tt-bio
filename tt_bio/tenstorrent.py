@@ -669,8 +669,11 @@ FAST_LEVERS = frozenset(LEVERS) - {"lofi", "triatt_b8", "triatt_bias_b8"} - UNGR
 # OuterProductMean's refused-call retry reading a freed operand, not the rows; with that fixed the same 308
 # pairs pass: CA-lDDT -0.0057 [-0.0151, +0.0008], top pose median 0.704 A (floor 0.754 A), docking 231 -> 232
 # of 308 (state/spd-msasample.md, 2026-10-10).
+# transition_bw and transition_shard are fast-only. Wormhole fast vs staging21 fast, 185 paired folds: PASS (DockQ
+# +0.009, docking 143 -> 146). Normal vs staging21 normal, 161 paired folds: FAIL on pose-flip tails (lrmsd +2.60 A
+# [+0.21, +6.44], same-seed top pose median 0.081 A, max 40 A). c730 speed is flat either way (spd-orchestrator g22x).
 NORMAL_LEVERS = frozenset({"trimul_ibw", "trimul_tail", "trunk_hifi3", "dit_sdpa32", "silu_f32", "triatt_tail",
-                           "atom_k1", "dit_mm16", "dit_qkv16", "msa_sample", "transition_bw", "transition_shard"})
+                           "atom_k1", "dit_mm16", "dit_qkv16", "msa_sample"})
 _LEVERS = frozenset()
 # silu_f32 is a kernel, so it needs ttnn's headers patched before the first device open (metal_overlay)
 # in any process that may run it. The patch only changes silu under math_approx_mode, and every fused
