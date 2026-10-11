@@ -243,6 +243,65 @@ def kv_window_kernel_dir() -> Path:
     return d
 
 
+_QKV_ROW_SKIPS = (
+    # read_chunk_with_padding: Q, K and V are CBs 0-2; the mask is read inline, not through here.
+    ("        start_tile_id += skip_src_cols;\n",
+     "        start_tile_id += skip_src_cols;\n#ifdef QKV_FUSED_W\n"
+     "        if (cb_id <= 2) { start_tile_id += QKV_FUSED_W - DHT_FUSED; }\n#endif\n"),
+    # read_q_subblock
+    ("            }\n            // Zero-pad extra columns (src_cols < dst_cols case)\n",
+     "            }\n#ifdef QKV_FUSED_W\n            start_tile_id += QKV_FUSED_W - DHT_FUSED;\n#endif\n"
+     "            // Zero-pad extra columns (src_cols < dst_cols case)\n"),
+    # write_block (the TensorAccessor one, the output's)
+    ("        }\n    }\n    noc_async_write_barrier();\n    cb_pop_front(cb_out, out_chunk_tiles);\n",
+     "        }\n#ifdef QKV_FUSED_W\n        tile_id += OUT_FUSED_W - DHT_FUSED;\n#endif\n"
+     "    }\n    noc_async_write_barrier();\n    cb_pop_front(cb_out, out_chunk_tiles);\n"),
+)
+_OUT_ID_ORIG = "uint32_t out_tile_id = out_tile_shape.id_of(nb, nq, write_offset + out_row_start_tile, 0);"
+
+
+def _twin(src, orig, alt):
+    """`orig` gets an `#ifdef QKV_FUSED_W` twin `alt`; a wheel without the line fails here."""
+    assert src.count(orig) == 1, ("qkv_fused: the wheel's SDPA kernels changed", orig)
+    return src.replace(orig, f"#ifdef QKV_FUSED_W\n{alt}\n#else\n{orig}\n#endif", 1)
+
+
+def qkv_fused_kernel_dir() -> Path:
+    """The wheel's SDPA reader and writer reading q, k and v straight out of one fused projection.
+
+    `qkv_fused`: the tensor is `[B, 1, S, 3 * NH * DH]` (q heads, then k, then v, DH-wide each, the
+    layout a fused qkv linear writes) and the output is written `[B, 1, S, NH * DH]`, the layout
+    `nlp_concat_heads` gives. Only tile ADDRESSES change: head `n`'s chunk starts at column tile
+    `n * DHt` of its row and every row skips the other heads' columns. The arithmetic is the stock
+    program's, so the result is bit-identical to create-heads, SDPA, concat-heads."""
+    common = (_kdir() / "dataflow/dataflow_common.hpp").read_text()
+    for orig, alt in _QKV_ROW_SKIPS:
+        assert common.count(orig) == 1, ("qkv_fused: the wheel's dataflow_common changed", orig)
+        common = common.replace(orig, alt, 1)
+    rows = "(nb * QKV_ROWS_T + {r}) * QKV_FUSED_W"
+    reader = (_kdir() / "dataflow/reader_interleaved.cpp").read_text()
+    reader = _twin(reader, _Q_WINDOW_ORIG, "                    uint32_t q_read_tile_id = "
+                   + rows.format(r="read_offset + q_row_start_tile") + " + nq * DHt;")
+    reader = _twin(reader, _KV_WINDOW_ORIG[0], "                        const uint32_t k_start_tile_id = "
+                   + rows.format(r="kv_row_start_tile") + " + (NQH + k_head) * DHt;")
+    reader = _twin(reader, _KV_WINDOW_ORIG[1], "                        const uint32_t v_start_tile_id = "
+                   + rows.format(r="kv_row_start_tile") + " + (2 * NQH + v_head) * DHt;")
+    writer = _twin((_kdir() / "dataflow/writer_interleaved.cpp").read_text(), _OUT_ID_ORIG,
+                   "                    uint32_t out_tile_id = (nb * QKV_ROWS_T + write_offset + "
+                   "out_row_start_tile) * OUT_FUSED_W + nq * vDHt;")
+    import hashlib
+    d = (Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "tt_bio" / "sdpa_qkv_fused"
+         / hashlib.sha1((reader + writer + common).encode()).hexdigest()[:12])
+    if not (d / "dataflow/writer_interleaved.cpp").exists():
+        (d / "dataflow").mkdir(parents=True, exist_ok=True)
+        for name, s in (("dataflow_common.hpp", common), ("reader_interleaved.cpp", reader),
+                        ("writer_interleaved.cpp", writer)):
+            tmp = d / f"dataflow/.{name}.{os.getpid()}"
+            tmp.write_text(s)
+            tmp.replace(d / "dataflow" / name)
+    return d
+
+
 def plan_for_shape(seq, heads, head_dim, q_chunk, k_chunk, grid=(11, 10), split=None,
                    dtype=None, batch=0):
     """`plan` for a square attention call at `seq` padded tokens, without a device. The batch is
@@ -371,7 +430,7 @@ def note_l1_refusal(message: str) -> None:
 def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scale,
           exp_approx_mode=False, mask_cb_tiles=None, defines_extra=None, kernel_dir=None,
           split=None, kv_buffer_factor=2, fuse_qkv=None, gate=None, im_dtype=None,
-          out_im_dtype=None, stats_dtype=None, kv_window=None):
+          out_im_dtype=None, stats_dtype=None, kv_window=None, qkv_fused=None):
     """The ProgramDescriptor for the fold's SDPA call.
 
     `mask_cb_tiles` overrides the size of `cb_mask_in` (K2 makes it the whole head's grid instead of
@@ -382,6 +441,9 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
     compute kernel's pack stage multiplies in as `out * sigmoid(g)` instead of the caller running
     that multiply as its own program. Head-major and DHt == 1, so gate tile i is output tile i.
 
+    `qkv_fused` is the head count NH: `q` is a fused `[B, 1, S, 3*NH*DH]` projection (`k` and `v`
+    are the same tensor) and `out` is `[B, 1, S, NH*DH]` (`qkv_fused_kernel_dir`).
+
     `fuse_qkv` is `(x, w, x_buffer_factor)`: the pre-projection pair tensor `[B, S, C]` and its
     `[C, 3*NQH*DH]` weight. q, k and v are then made inside this program instead of read, and the
     three tensors passed as `q`, `k`, `v` are used for their SHAPES and dtypes only -- the reader
@@ -389,6 +451,17 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
     `_MM_BLOCK[(4, 12)]` already gives the standalone projection at this site.
     """
     kp, vp = k, v
+    q_fused = out_fused = None
+    if qkv_fused is not None:
+        assert kv_window is None and fuse_qkv is None and gate is None
+        B_, one, S_, W_ = (int(d) for d in q.padded_shape)
+        DH_ = W_ // (3 * qkv_fused)
+        assert one == 1 and W_ == 3 * qkv_fused * DH_ and DH_ % TILE == 0, (q.shape, qkv_fused)
+        assert [int(d) for d in out.padded_shape] == [B_, 1, S_, qkv_fused * DH_], (out.shape, q.shape)
+        q_fused, out_fused = q, out
+        q = kp = vp = _ShapeOnly([B_, qkv_fused, S_, DH_], q.dtype)
+        out = _ShapeOnly([B_, qkv_fused, S_, DH_], out.dtype)
+        kernel_dir = kernel_dir or qkv_fused_kernel_dir()
     if kv_window is not None:
         # `kv_window` is `(nb, W)`: k and v are FRAMES [B, NKH, F, DH], and the attention runs as if
         # K/V were [B, NKH * nb, W, DH] with head h * nb + i = frame head h, rows i*32 .. i*32 + W.
@@ -412,6 +485,8 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
              kv_buffer_factor)
     if kv_window is not None and len(kv_window) == 4:
         q = q_frame
+    if qkv_fused is not None:
+        q, kp, vp, out = q_fused, q_fused, q_fused, out_fused
     gx, gy, num_cores = p["gx"], p["gy"], p["num_cores"]
     core_grid = ttnn.CoreRangeSet(
         [ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(gx - 1, gy - 1))])
@@ -558,6 +633,10 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
                        KV_WINDOW_FRAME_T=str(int(k.padded_shape[2]) // TILE))
         if len(kv_window) == 4:
             defines["KV_WINDOW_Q_LEAD_T"] = str(kv_window[2] // TILE)
+    if qkv_fused is not None:
+        defines.update(QKV_FUSED_W=str(int(q.padded_shape[-1]) // TILE), DHT_FUSED=str(p["DHt"]),
+                       OUT_FUSED_W=str(int(out.padded_shape[-1]) // TILE),
+                       QKV_ROWS_T=str(int(q.padded_shape[2]) // TILE))
     if defines_extra:
         defines.update({str(a): str(b) for a, b in dict(defines_extra).items()})
     dlist = sorted(defines.items())
@@ -565,10 +644,12 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
     kd = kernel_dir or _kdir()
     stock = _kdir()
     reader_src = str(Path(kd) / "dataflow/reader_interleaved.cpp")
-    writer_src = str(stock / "dataflow/writer_interleaved.cpp")
+    writer_src = str(Path(kd) / "dataflow/writer_interleaved.cpp")
     compute_src = str(Path(kd) / "compute/sdpa.cpp")
     if not Path(reader_src).exists():
         reader_src = str(stock / "dataflow/reader_interleaved.cpp")
+    if not Path(writer_src).exists():
+        writer_src = str(stock / "dataflow/writer_interleaved.cpp")
     if not Path(compute_src).exists():
         compute_src = str(stock / "compute/sdpa.cpp")
 
@@ -671,7 +752,7 @@ def sdpa(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scal
            # compiled program back for both legs and reads a 1.000x that means nothing.
            os.environ.get("TT_BIO_SDPA_ADD_GRANULARITY"),
            str(kw.get("im_dtype")), str(kw.get("out_im_dtype")), str(kw.get("stats_dtype")),
-           kw.get("kv_window"))
+           kw.get("kv_window"), kw.get("qkv_fused"))
     e = _CACHE.get(key)
     if e is None:
         e = _CACHE[key] = build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid,
@@ -707,6 +788,8 @@ def sdpa(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scal
     # The fold's reader never touches q/k/v -- they are here for their shapes, and the tensors the
     # program actually reads are x and w.
     operands = [q, k, v, mask, out] if fuse is None else [fuse[0], fuse[1], mask, out]
+    if kw.get("qkv_fused") is not None:     # q, k and v are one tensor
+        operands = [q, mask, out]
     if gate is not None:
         operands = operands + [gate[0]]
     ttnn.generic_op(operands, e["pd"])

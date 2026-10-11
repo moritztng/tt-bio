@@ -39,7 +39,7 @@ from ._vendor.openfold3.core.utils.atom_attention_block_utils import (
     get_pair_atom_block_mask,
     get_query_block_padding,
 )
-from ._vendor.openfold3.core.utils.relpos import relpos_complex
+from ._vendor.openfold3.core.utils.relpos import apply_cyclic_offsets, relpos_complex
 from .envflags import env_flag
 from .openfold3_weights import _sub
 
@@ -111,6 +111,61 @@ def derive_relpos(features: dict) -> torch.Tensor:
         max_relative_idx=MAX_RELATIVE_IDX,
         max_relative_chain=MAX_RELATIVE_CHAIN,
     ).float()
+
+
+# The relpos feature as codes: `table[codes]` is `derive_relpos` exactly, but the host builds [N, N] int32
+# and a few hundred one-hot rows instead of 145 MB of float one-hots (0.16 s) and tilizing them (0.26 s on
+# pc), and the device expands it with one embedding. Same digest as the dense feature on OpenFold3 and
+# OpenBind-0 (qb2 p300c, cdk2x2_512). OF3_RELPOS_CODES=0 uploads the dense feature.
+RELPOS_CODES = "OF3_RELPOS_CODES"
+
+
+def derive_relpos_codes(features: dict) -> tuple[torch.Tensor, torch.Tensor]:
+    """``(codes [N, N] int32, table [U, 139] float32)`` with ``table[codes] == derive_relpos(features)``.
+
+    The same bins as ``relpos_complex``: three clipped offsets and the same-entity bit, packed into one
+    integer per pair; each distinct packed value is one row of the table."""
+    asym, ent = features["asym_id"], features["entity_id"]
+    same_chain = asym[:, None] == asym[None, :]
+    same_ent = ent[:, None] == ent[None, :]
+    res = features["residue_index"]
+    cyc = features.get("cyclic_mask")
+
+    def binned(pos, cond, clip):
+        off = apply_cyclic_offsets(offset=pos[:, None] - pos[None, :], pos=pos, cyclic_mask=cyc,
+                                   asym_id=asym)
+        return torch.where(cond, torch.clamp(off + clip, 0, 2 * clip), 2 * clip + 1).long()
+
+    nr, nc = 2 * MAX_RELATIVE_IDX + 2, 2 * MAX_RELATIVE_CHAIN + 2
+    parts = (binned(res, same_chain, MAX_RELATIVE_IDX),
+             binned(features["token_index"], same_chain & (res[:, None] == res[None, :]), MAX_RELATIVE_IDX),
+             same_ent.long(), binned(features["sym_id"], same_ent, MAX_RELATIVE_CHAIN))
+    packed = ((parts[0] * nr + parts[1]) * 2 + parts[2]) * nc + parts[3]
+    uniq, codes = torch.unique(packed, return_inverse=True)
+    ch, rest = uniq % nc, uniq // nc
+    e, rest = rest % 2, rest // 2
+    table = torch.cat([F.one_hot(rest // nr, nr), F.one_hot(rest % nr, nr), e[:, None],
+                       F.one_hot(ch, nc)], dim=-1).float()
+    return codes.to(torch.int32), table
+
+
+def relpos_codes_device(codes: torch.Tensor, table: torch.Tensor, device) -> ttnn.Tensor:
+    """[1, N, N, 139] bf16 TILE on ``device`` from ``derive_relpos_codes``: what uploading the dense
+    feature gives (each value is 0 or 1, exact in bf16), from a [N*N] index and a [U, 160] table."""
+    n = codes.shape[0]
+    w = table.shape[-1]
+    idx = ttnn.from_torch(codes.reshape(1, n * n).to(torch.int32), dtype=ttnn.uint32,
+                          layout=ttnn.ROW_MAJOR_LAYOUT, device=device)
+    tab = ttnn.from_torch(F.pad(table, (0, -w % 32)), dtype=ttnn.bfloat16,
+                          layout=ttnn.ROW_MAJOR_LAYOUT, device=device)
+    out = ttnn.embedding(idx, tab, layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16)  # [1, N*N, 160]
+    ttnn.deallocate(idx); ttnn.deallocate(tab)
+    out4 = ttnn.reshape(out, (1, n, n, out.shape[-1]))
+    res = ttnn.slice(out4, (0, 0, 0, 0), (1, n, n, w))
+    ttnn.deallocate(out4)
+    if out4 is not out:
+        ttnn.deallocate(out)
+    return res
 
 
 def derive_block_aux(features: dict) -> dict:
