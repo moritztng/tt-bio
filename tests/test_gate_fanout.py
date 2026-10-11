@@ -894,3 +894,11 @@ def test_end_attempt_stops_the_leg_it_started_and_nothing_else(tmp_path):
     assert leg.wait(10) != 0
     assert stranger.poll() is None
     stranger.kill()
+
+
+def test_one_runner_per_out(tmp_path):
+    held = gf.hold_out(tmp_path / "g")
+    with pytest.raises(SystemExit, match="another gate_fanout.py"):
+        gf.hold_out(tmp_path / "g")
+    held.close()
+    gf.hold_out(tmp_path / "g").close()

@@ -84,6 +84,7 @@ from __future__ import annotations
 
 import argparse
 import dataclasses
+import fcntl
 import fnmatch
 import functools
 import hashlib
@@ -1335,6 +1336,19 @@ def parse_workers(spec: str, hosts: dict) -> list:
     return out
 
 
+def hold_out(out: Path):
+    """Create `out` and lock it for this runner: a second runner on it would rerun the same legs
+    beside the first. The returned file holds the lock until it is closed or the process exits."""
+    out.mkdir(parents=True, exist_ok=True)
+    lock = open(out / "runner.lock", "w")
+    try:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        lock.close()
+        raise SystemExit(f"another gate_fanout.py is running on {out}")
+    return lock
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--sha", required=True, help="commit under test (pushed, every host fetches it)")
@@ -1421,7 +1435,7 @@ def main() -> int:
             raise SystemExit(f"--timed {h.name}:{c}: a {h.cfg['card_type']} keyed as {h.key_card_type} "
                              "cannot run timed legs")
 
-    args.out.mkdir(parents=True, exist_ok=True)
+    lock = hold_out(args.out)  # noqa: F841 (held until the runner exits)
     # Rows written while test files were inside the content key (until 2026-10-09 21Z), at this
     # commit or at any commit with the same code, which a leg accepts when its own inputs match too.
     same = {s for s in {sha} | ledger.shas() if s == sha or _same_code(s, content)}
@@ -1493,8 +1507,10 @@ def main() -> int:
             print(f"  {a}: " + " ".join(lg.name for lg in q))
         return 0
 
-    # Per run, so a job a stopped run left in a pool can never share a directory with a new one.
-    execute = make_executor(sha, args.out, ledger, keys, f"out-{sha[:12]}/{args.out.name}")
+    # Per run, so a job a stopped run left in a pool can never share a directory with a new one,
+    # and a stopped run's cleanup (pool job names, end_attempt's GATE_ATTEMPT mark) can never
+    # reach a later run on the same --out: on 10-11 one ended five legs of its successor.
+    execute = make_executor(sha, args.out, ledger, keys, f"out-{sha[:12]}/{args.out.name}-{os.getpid()}")
     # Card-free legs run on a worker without a card on each host of the first arch (`cardfree`).
     # Started in the background by a non-interactive shell, SIGINT arrives ignored and the
     # cleanup below never ran; SIGTERM never reached it at all. Both stop the runner the same way.
