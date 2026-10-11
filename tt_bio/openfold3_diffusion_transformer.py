@@ -429,7 +429,7 @@ class OF3DiffusionTransformer(Module):
         o_ad = ttnn.linear(s_hat, adw, bias=adb, compute_kernel_config=ckc)
         ttnn.deallocate(s_hat)
         o_op = ttnn.linear(s, opw, bias=opb, compute_kernel_config=ckc)
-        lead = list(s.shape[:-1])
+        lead = list(s.shape)[:-1]
 
         def cut(t, j):
             return ttnn.slice(t, [0] * len(lead) + [j * C_A], lead + [(j + 1) * C_A])
