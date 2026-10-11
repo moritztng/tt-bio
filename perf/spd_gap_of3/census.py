@@ -98,6 +98,15 @@ def main():
            "card": os.environ.get("TT_VISIBLE_DEVICES"), "steps": B.SAMPLING_STEPS,
            "recycles": B.RECYCLING_STEPS, "plain": a.plain, "folds": []}
 
+    def digest():
+        # sha1 of every ATOM/HETATM line the fold wrote: the cheapest bit-exactness signal.
+        import hashlib
+        h = hashlib.sha1()
+        for f in sorted(Path(meta["struct_dir"]).glob("**/*.cif")):
+            h.update(b"".join(l for l in f.read_bytes().splitlines(True)
+                              if l.startswith((b"ATOM", b"HETATM"))))
+        return h.hexdigest()[:12]
+
     def flush():
         a.out.parent.mkdir(parents=True, exist_ok=True)
         a.out.write_text(json.dumps(res, indent=1))
@@ -110,7 +119,7 @@ def main():
         acc.clear()
         s, m = one_fold()
         row = {"fold_s": round(s, 3), "plddt": m.get("plddt", m.get("complex_plddt")),
-               "sections": {k: [round(v[0], 3), v[1]] for k, v in acc.items()}}
+               "digest": digest(), "sections": {k: [round(v[0], 3), v[1]] for k, v in acc.items()}}
         pt = meta.get("phase_times")
         if pt:
             row["phases"] = pt[-1]
