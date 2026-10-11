@@ -1,6 +1,8 @@
 import logging
 import pickle
+import subprocess
 import sys
+import threading
 import time
 from typing import Any, ClassVar, Literal
 
@@ -545,24 +547,29 @@ def _conformers_here(jobs, seeds, timeout, kwargs):
 
 
 _HELPER = []
+_HELPER_LOCK = threading.Lock()
 
 
 def _conformers_in_helper(jobs, seeds, timeout, kwargs):
     """`_conformers_here` in a small long-lived helper process. Forking the serving process costs its page
     tables per child (about 0.4 s each with 12 GiB resident, 18 s for the 20 amino acids of a 512-residue
-    RF3 fold); the helper holds only RDKit and atomworks, so its children fork in milliseconds."""
-    import pickle
-    import subprocess
-
-    if not _HELPER or _HELPER[0].poll() is not None:
-        _HELPER[:] = [subprocess.Popen(
-            [sys.executable, "-m", "tt_bio._vendor.atomworks.ml.transforms.conformer_helper"],
-            stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-        )]
-    proc = _HELPER[0]
-    pickle.dump((Chem.GetDefaultPickleProperties(), jobs, seeds, timeout, kwargs), proc.stdin)
-    proc.stdin.flush()
-    ok, value = pickle.load(proc.stdout)
+    RF3 fold); the helper holds only RDKit and atomworks, so its children fork in milliseconds. One request
+    at a time on its pipe."""
+    with _HELPER_LOCK:
+        if not _HELPER or _HELPER[0].poll() is not None:
+            _HELPER[:] = [subprocess.Popen(
+                [sys.executable, "-m", "tt_bio._vendor.atomworks.ml.transforms.conformer_helper"],
+                stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+            )]
+        proc = _HELPER[0]
+        try:
+            pickle.dump((Chem.GetDefaultPickleProperties(), jobs, seeds, timeout, kwargs), proc.stdin)
+            proc.stdin.flush()
+            ok, value = pickle.load(proc.stdout)
+        except BaseException:
+            proc.kill()  # a half-read reply leaves the pipe out of step: start a fresh helper next time
+            _HELPER.clear()
+            raise
     if not ok:
         raise value
     return value
