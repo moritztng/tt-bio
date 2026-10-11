@@ -38,6 +38,7 @@ from tt_bio.tenstorrent import (
     accurate_softmax_site,
     attn_value_matmul,
     fused_sdpa,
+    trace_region_size,
 )
 from tt_bio.eltwise_fusion import scale_add
 
@@ -72,6 +73,17 @@ def report_progress(stage, step=0, total=0):
 # set_trajectory_dump() installs one. It only reads tensors the sampler already made, so a fold is
 # bit-identical with or without it. An exception raised by the hook aborts the fold.
 _DUMP = None
+
+#: Replay the diffusion step from a ttnn trace (StructureHead._step) when the device was opened
+#: with get_device(trace="esmfold2"). Lossless; off only for A/B.
+DIFFUSION_TRACE = True
+DIFFUSION_TRACE_STATS = [0, 0]  # [steps replayed, steps run eager]
+
+
+def set_diffusion_trace(on: bool) -> None:
+    global DIFFUSION_TRACE
+    DIFFUSION_TRACE = bool(on)
+
 
 def set_trajectory_dump(fn):
     global _DUMP
@@ -1582,7 +1594,7 @@ class StructureHead(TorchWrapper):
             denom = torch.sqrt(t * t + sigma * sigma)
             r_noisy = x_noisy / denom[:, None, None]
             r_input = torch.cat([r_noisy, torch.zeros_like(r_noisy)], dim=-1)  # [B,N,6]
-            r_update = self._to_torch(dmm.step(ft(n_raw), ft(r_input.float())))
+            r_update = self._step(n_raw, r_input.float())
             sigma2, t2 = sigma * sigma, t * t
             out = (sigma2 / (sigma2 + t2))[:, None, None] * x_noisy
             return out + ((sigma * t) / torch.sqrt(sigma2 + t2))[:, None, None] * r_update
@@ -1591,9 +1603,69 @@ class StructureHead(TorchWrapper):
             return sample_structure(denoise, N, ref_mask, steps=steps,
                                     sigma_data=sigma, seed=seed)
         finally:
+            self._release_trace()
             if dmm._ctx is not self._base:
                 dmm.release_cache()
                 dmm._ctx = self._base
+
+    def _step(self, n_raw, r_input):
+        """One denoiser call. Replayed from a ttnn trace when the device has a region for it.
+
+        The step is shape-stable within a trajectory and reads only two small inputs, so the
+        graph captured once replays every later step with new input contents: the same program
+        on the same buffers, bit-identical to the eager call. What it removes is the host
+        dispatch of every op of every step, which the eager loop pays in full because each step
+        ends in a download. Steps 1-2 run eager (they fill the modules' lazy device caches,
+        which must not be created inside a capture); step 3 is captured and replayed.
+        The trace bakes in the addresses of the trajectory's resident tensors, so it lives
+        exactly as long as one draw().
+        """
+        tr = getattr(self, "_trace", None)
+        key = (tuple(n_raw.shape), tuple(r_input.shape))
+        if tr is not None and tr["key"] != key:
+            self._release_trace()
+            tr = None
+        if tr is None:
+            self._eager_steps = getattr(self, "_eager_steps", 0) + 1
+            if not (DIFFUSION_TRACE and trace_region_size() > 0 and self._eager_steps > 2):
+                DIFFUSION_TRACE_STATS[1] += 1
+                out = self.module.step(self._from_torch(n_raw), self._from_torch(r_input))
+                res = self._to_torch(out)
+                ttnn.deallocate(out)
+                return res
+            tr = self._capture_step(n_raw, r_input, key)
+        host = lambda x: ttnn.from_torch(x, layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16)
+        ttnn.copy_host_to_device_tensor(host(n_raw), tr["n"])
+        ttnn.copy_host_to_device_tensor(host(r_input), tr["r"])
+        ttnn.execute_trace(self.tt_device, tr["tid"], cq_id=0, blocking=False)
+        DIFFUSION_TRACE_STATS[0] += 1
+        return self._to_torch(tr["out"])
+
+    def _capture_step(self, n_raw, r_input, key):
+        dev = self.tt_device
+        n_t, r_t = self._from_torch(n_raw), self._from_torch(r_input)
+        ttnn.synchronize_device(dev)
+        tid = ttnn.begin_trace_capture(dev, cq_id=0)
+        try:
+            out = self.module.step(n_t, r_t)
+        except BaseException:
+            # Close the capture, or the device stays in it and every later upload throws.
+            ttnn.end_trace_capture(dev, tid, cq_id=0)
+            ttnn.release_trace(dev, tid)
+            raise
+        ttnn.end_trace_capture(dev, tid, cq_id=0)
+        self._trace = {"tid": tid, "n": n_t, "r": r_t, "out": out, "key": key}
+        return self._trace
+
+    def _release_trace(self):
+        tr = getattr(self, "_trace", None)
+        self._trace, self._eager_steps = None, 0
+        if tr is None:
+            return
+        ttnn.synchronize_device(self.tt_device)
+        ttnn.release_trace(self.tt_device, tr["tid"])
+        for k in ("n", "r", "out"):
+            ttnn.deallocate(tr[k])
 
     def release(self):
         self.module._ctx = getattr(self, "_base", {}) or {}
