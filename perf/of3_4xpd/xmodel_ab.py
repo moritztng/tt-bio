@@ -21,7 +21,7 @@ main on qb2, cards 1 and 3, fold this fixture to 9eee996d71653d1b and da9b4ed68f
 (perf/trimul_f1/census_openfold3_512_qb2c1.json against the page cell). Never compare a
 digest from this file to one recorded on another card.
 """
-import argparse, hashlib, json, os, statistics, sys, time
+import argparse, hashlib, importlib, json, os, statistics, sys, time
 from pathlib import Path
 
 
@@ -63,6 +63,8 @@ def main():
     # traced and untraced in alternating order. --repeat counts pairs. Host load on a shared
     # box drifts by more than the trace saving, so only a paired delta can read it.
     ap.add_argument("--ab-trace", action="store_true")
+    # The same pairing for any module-level bool, e.g. tt_bio.runtime:SERIAL_HOST.
+    ap.add_argument("--ab-attr", metavar="MODULE:NAME", default=None)
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
 
@@ -133,7 +135,7 @@ def main():
 
     import importlib.metadata as im
     res = {"label": a.label, "model": a.model, "tree": str(tree), "size": a.size,
-           "census": a.census, "fast": a.fast, "trace": a.trace, "ab_trace": a.ab_trace, "ttnn": im.version("ttnn"),
+           "census": a.census, "fast": a.fast, "trace": a.trace, "ab_trace": a.ab_trace, "ab_attr": a.ab_attr, "ttnn": im.version("ttnn"),
            "host": os.uname().nodename,
            "card": os.environ.get("TT_VISIBLE_DEVICES"),
            "grid": [int(T.COMPUTE_GRID_MAIN[0]), int(T.COMPUTE_GRID_MAIN[1])],
@@ -168,25 +170,37 @@ def main():
           f"cif={list(cold['cif_sha256'].values())}", flush=True)
     flush()
 
-    if a.ab_trace and not a.census:
+    if (a.ab_trace or a.ab_attr) and not a.census:
+        if a.ab_trace:
+            on, off, key = "trace", "plain", "ab_trace_s"
+
+            def arm_set(v):
+                meta["job_cfg"]["trace"] = v
+                if a.model == "boltz2":     # Boltz-2 reads its DiT trace flag off the model
+                    state.model.structure_module._diffusion_trace = v
+        else:
+            mod, name = a.ab_attr.split(":")
+            on, off, key = "on", "off", "ab_attr_s"
+
+            def arm_set(v):
+                setattr(importlib.import_module(mod), name, v)
         arm = {True: [], False: []}
         for i in range(a.repeat):
-            for tr in ((True, False) if i % 2 == 0 else (False, True)):
-                meta["job_cfg"]["trace"] = tr
-                if a.model == "boltz2":     # Boltz-2 reads its DiT trace flag off the model
-                    state.model.structure_module._diffusion_trace = tr
-                rec = one(f"warm{i}-{'trace' if tr else 'plain'}")
+            for v in ((True, False) if i % 2 == 0 else (False, True)):
+                arm_set(v)
+                rec = one(f"warm{i}-{on if v else off}")
                 res["folds"].append(rec)
-                arm[tr].append(rec["fold_s"])
+                arm[v].append(rec["fold_s"])
                 print(f"[{a.label}] {rec['tag']} {rec['fold_s']:.3f}s "
                       f"cif={list(rec['cif_sha256'].values())}", flush=True)
                 flush()
         d = [round(x - y, 3) for x, y in zip(arm[True], arm[False])]
-        res["ab_trace_s"] = {"trace": arm[True], "plain": arm[False], "delta": d,
-                             "median_delta": round(statistics.median(d), 3)}
+        res[key] = {on: arm[True], off: arm[False], "delta": d,
+                    "median_delta": round(statistics.median(d), 3),
+                    **({"attr": a.ab_attr} if a.ab_attr else {})}
         res["median_s"] = round(statistics.median(arm[True]), 3)
         res["spread_s"] = round(max(arm[True]) - min(arm[True]), 3)
-        print(f"[{a.label}] trace minus plain {d} s, median {res['ab_trace_s']['median_delta']}",
+        print(f"[{a.label}] {on} minus {off} {d} s, median {res[key]['median_delta']}",
               flush=True)
     elif not a.census:
         for i in range(a.repeat):
@@ -208,7 +222,6 @@ def main():
     # gated on a constant fitted on a 130-core Blackhole grid, so "ships default-ON" says nothing
     # about whether it fired on an 8x9 Wormhole. These counters live inside the kernels, so
     # reading them is free -- unlike the --census wrappers above they are always on.
-    import importlib
 
     def _kern(name):
         try:

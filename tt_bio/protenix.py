@@ -3869,6 +3869,7 @@ def edm_sample(diffusion_module, cond, n_atoms, *, multiplicity=1, max_parallel_
     been opened with get_device(trace="protenix")."""
     import torch
     from .boltz2 import compute_random_augmentation
+    from .runtime import serial_host
     M = max(1, int(multiplicity))
     _denoise = diffusion_module.denoise_traced if trace else diffusion_module.denoise
     if seed is not None:
@@ -3937,14 +3938,15 @@ def edm_sample(diffusion_module, cond, n_atoms, *, multiplicity=1, max_parallel_
         if progress_fn:
             progress_fn("diffusion", step=k, total=n_step)
         sigma_tm, sigma_t, gamma = sigmas[k].item(), sigmas[k + 1].item(), gammas[k + 1].item()
-        if _per_member is not None:
-            _aug = _per_member(lambda: compute_random_augmentation(1, device=x.device, dtype=x.dtype))
-            R = torch.cat([a[0] for a in _aug], 0)
-            tr = torch.cat([a[1] for a in _aug], 0)
-        else:
-            R, tr = compute_random_augmentation(M, device=x.device, dtype=x.dtype)
-        x = x - x.mean(dim=-2, keepdim=True)
-        x = torch.einsum("bmd,bds->bms", x, R) + tr
+        with serial_host():   # atom-sized host math, cheaper on one thread than fanned out
+            if _per_member is not None:
+                _aug = _per_member(lambda: compute_random_augmentation(1, device=x.device, dtype=x.dtype))
+                R = torch.cat([a[0] for a in _aug], 0)
+                tr = torch.cat([a[1] for a in _aug], 0)
+            else:
+                R, tr = compute_random_augmentation(M, device=x.device, dtype=x.dtype)
+            x = x - x.mean(dim=-2, keepdim=True)
+            x = torch.einsum("bmd,bds->bms", x, R) + tr
         t_hat = sigma_tm * (1 + gamma)
         noise_var = noise_scale ** 2 * (t_hat ** 2 - sigma_tm ** 2)
         if noise_var <= 0:

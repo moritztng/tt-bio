@@ -29,6 +29,7 @@ from tt_bio.data import const
 from pathlib import Path
 from tt_bio.envflags import env_flag, env_int
 from tt_bio.sample_chunks import denoise_in_chunks, resolve_sample_chunk_width
+from tt_bio.runtime import serial_host
 
 
 class _LazyTenstorrent:
@@ -4459,26 +4460,28 @@ class AtomDiffusion(Module):
             # itself. A coarse bar is correct, just coarse; 8 s of fold time is not.
             if progress_fn and step_idx % 10 == 0:
                 progress_fn("diffusion", step=step_idx, total=_n_steps)
-            random_R, random_tr = compute_random_augmentation(
-                multiplicity, device=atom_coords.device, dtype=atom_coords.dtype
-            )
-            atom_coords = atom_coords - atom_coords.mean(dim=-2, keepdims=True)
-            atom_coords = (
-                torch.einsum("bmd,bds->bms", atom_coords, random_R) + random_tr
-            )
-            if atom_coords_denoised is not None:
-                atom_coords_denoised -= atom_coords_denoised.mean(dim=-2, keepdims=True)
-                atom_coords_denoised = (
-                    torch.einsum("bmd,bds->bms", atom_coords_denoised, random_R)
-                    + random_tr
+            # Atom-sized host math, cheaper on one thread than fanned out (runtime.serial_host).
+            with serial_host():
+                random_R, random_tr = compute_random_augmentation(
+                    multiplicity, device=atom_coords.device, dtype=atom_coords.dtype
                 )
-            if (
-                steering_args["physical_guidance_update"]
-                or steering_args["contact_guidance_update"]
-            ) and scaled_guidance_update is not None:
-                scaled_guidance_update = torch.einsum(
-                    "bmd,bds->bms", scaled_guidance_update, random_R
+                atom_coords = atom_coords - atom_coords.mean(dim=-2, keepdims=True)
+                atom_coords = (
+                    torch.einsum("bmd,bds->bms", atom_coords, random_R) + random_tr
                 )
+                if atom_coords_denoised is not None:
+                    atom_coords_denoised -= atom_coords_denoised.mean(dim=-2, keepdims=True)
+                    atom_coords_denoised = (
+                        torch.einsum("bmd,bds->bms", atom_coords_denoised, random_R)
+                        + random_tr
+                    )
+                if (
+                    steering_args["physical_guidance_update"]
+                    or steering_args["contact_guidance_update"]
+                ) and scaled_guidance_update is not None:
+                    scaled_guidance_update = torch.einsum(
+                        "bmd,bds->bms", scaled_guidance_update, random_R
+                    )
 
             sigma_tm, sigma_t, gamma = sigma_tm.item(), sigma_t.item(), gamma.item()
 
@@ -4636,7 +4639,7 @@ class AtomDiffusion(Module):
                         token_repr = token_repr[resample_indices]
 
             if self.alignment_reverse_diff:
-                with torch.autocast("cuda", enabled=False):
+                with torch.autocast("cuda", enabled=False), serial_host():
                     atom_coords_noisy = weighted_rigid_align(
                         atom_coords_noisy.float(),
                         atom_coords_denoised.float(),
