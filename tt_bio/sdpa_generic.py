@@ -244,9 +244,10 @@ def kv_window_kernel_dir() -> Path:
 
 
 def plan_for_shape(seq, heads, head_dim, q_chunk, k_chunk, grid=(11, 10), split=None,
-                   dtype=None):
-    """`plan` for a square triangle-attention call at `seq` padded tokens, without a device."""
-    qkv = _ShapeOnly([seq, heads, seq, head_dim], dtype)
+                   dtype=None, batch=0):
+    """`plan` for a square attention call at `seq` padded tokens, without a device. The batch is
+    `seq` (triangle attention's rows) unless given."""
+    qkv = _ShapeOnly([batch or seq, heads, seq, head_dim], dtype)
     bias = _ShapeOnly([1, heads, seq, seq], dtype)
     ckc = (ttnn.MathFidelity.HiFi2, True, False, False)
     return plan(qkv, qkv, qkv, bias, qkv, q_chunk, k_chunk, grid, ckc, 1.0, split)

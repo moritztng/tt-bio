@@ -43,7 +43,8 @@ from .protenix_weights import remap_adaln  # single source of all v2->tt-bio wei
 from . import ops
 from .tenstorrent import (Module, CORE_GRID_MAIN, get_device, dram_peak,
                           MSA_CHUNK_SIZE, batched_matmul, msa_depth_chunks, host_park,
-                          host_unpark, msa_embed, msa_row_bucket, msa_rows_host, msa_update_chunks,
+                          host_unpark, msa_embed, msa_row_bucket, msa_rows_host, msa_rows_mask, msa_rows_table,
+                          msa_rows_device, msa_upload_whole, msa_update_chunks,
                           pair_row_blocks,
                           row_block_after_refusal, device_generation, accurate_softmax_site,
                           softmax_ckc, host_f64_softmax_site, site_softmax, stack_samples)
@@ -2109,7 +2110,15 @@ class ConfidenceHead:
         return z_base.float().to(torch.bfloat16).contiguous()
 
     def z_base_upload(self, z_base):
+        """z_base on the device, or kept on the host above `concat_host_bytes()`.
+
+        There each sample uploads its own copy and builds its pair into it (`_pair_embed_rows`),
+        so the confidence pairformer runs beside one pair tensor, as the trunk does. Resident, the
+        2 GiB z_base of protenix-v2 at 2048 tokens left no single block for the distance embed's
+        2 GiB sum on a 12 GiB Wormhole chip in any mode."""
         import ttnn
+        if z_base.numel() * 2 > _T.concat_host_bytes():
+            return z_base
         return _T.upload(z_base, ttnn.bfloat16, self.dev)
 
     def confidence_device(self, s_inputs, s_trunk, z_base_dev, coords, feats):
@@ -2136,6 +2145,29 @@ class ConfidenceHead:
             confs.append(hostlane.submit(self._postprocess_read, reads, feats))
         return [f.result() for f in confs]
 
+    def _pair_embed(self, z_base, rc, dist):
+        """z_base + linear_no_bias_d(onehot bins of dist) + linear_no_bias_d_wo_onehot(dist), a new
+        tensor. dist is the host (1,R,N) fp32 distance block of rows of z_base."""
+        d = ttnn.from_torch(dist, layout=ttnn.TILE_LAYOUT, device=self.dev, dtype=ttnn.float32)
+        d3 = ttnn.unsqueeze(d, -1)                                           # (1,R,N,1)
+        ge = ttnn.ge(d3, rc["lb4"])                                          # (1,R,N,39)
+        lt = ttnn.lt(d3, rc["ub4"])
+        oh = ttnn.typecast(ttnn.multiply(ge, lt), ttnn.bfloat16)             # AND, 0/1 exact in bf16
+        d3 = ttnn.typecast(d3, ttnn.bfloat16)
+        z = ttnn.add(z_base, self._dev_lin(oh, "linear_no_bias_d.weight"))
+        return ttnn.add(z, self._dev_lin(d3, "linear_no_bias_d_wo_onehot.weight"))
+
+    def _pair_embed_rows(self, z, rc, dist, rows=128):
+        """`_pair_embed` written into z itself, `rows` rows at a time: block I reads only z's rows
+        I, so each sum takes their place (`_T._write_rows`) and no second pair tensor exists."""
+        N, C = int(z.shape[1]), int(z.shape[3])
+        for r0 in range(0, N, rows):
+            r1 = min(N, r0 + rows)
+            zr = ttnn.slice(z, (0, r0, 0, 0), (1, r1, N, C))
+            blk = self._pair_embed(zr, rc, dist[:, r0:r1].contiguous())
+            ttnn.deallocate(zr)
+            _T._write_rows(z, blk, r0)
+
     def _postprocess_read(self, reads, feats):
         """`_postprocess` of one sample's logits as `hostlane.read` returned them."""
         pae, pde, plddt = (torch.Tensor(h.to_torch()).float() for h in reads)
@@ -2161,15 +2193,12 @@ class ConfidenceHead:
         # 2 x.y cancels: 40 A from the origin |x|^2 is ~1600, where bf16 steps by 8 A^2, so a 3.8 A
         # neighbour pair (14.4 A^2) came out anywhere from 0 to ~5 A and pLDDT fell 0.046 at c730.
         xr = coords.float().reshape(-1, 3)[feats["distogram_rep_atom_mask"].bool()]
-        d = ttnn.from_torch(torch.cdist(xr, xr).reshape(1, N, N), layout=ttnn.TILE_LAYOUT,
-                            device=self.dev, dtype=ttnn.float32)                # (1,N,N), 2 MB at N=730
-        d3 = ttnn.unsqueeze(d, -1)                                           # (1,N,N,1)
-        ge = ttnn.ge(d3, rc["lb4"])                                          # (1,N,N,39)
-        lt = ttnn.lt(d3, rc["ub4"])
-        oh = ttnn.typecast(ttnn.multiply(ge, lt), ttnn.bfloat16)             # AND, 0/1 exact in bf16
-        d3 = ttnn.typecast(d3, ttnn.bfloat16)
-        z = ttnn.add(rc["z_base"], self._dev_lin(oh, "linear_no_bias_d.weight"))
-        z = ttnn.add(z, self._dev_lin(d3, "linear_no_bias_d_wo_onehot.weight"))
+        dist = torch.cdist(xr, xr).reshape(1, N, N)
+        if isinstance(rc["z_base"], torch.Tensor):                           # held on the host
+            z = _T.upload(rc["z_base"], ttnn.bfloat16, self.dev)
+            self._pair_embed_rows(z, rc, dist)
+        else:
+            z = self._pair_embed(rc["z_base"], rc, dist)
         # ---- confidence Pairformer (device, z stays resident) ----
         # The pairformer adds its residuals into s in place, so every sample gets its own copy of the
         # cached s_t. Handed s_t itself, sample k started from sample k-1's output: pLDDT 0.768 on
@@ -2181,6 +2210,7 @@ class ConfidenceHead:
                                  bias=(self._wtt("pae_ln.bias", False) if "pae_ln.bias" in self._w else None),
                                  epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
         pae_logits = self._dev_lin(pae_ln, "linear_no_bias_pae.weight")      # (1,N,N,64)
+        ttnn.deallocate(pae_ln)
         zot = ttnn.permute(zof, (0, 2, 1, 3))                                # transpose token axes
         # The symmetrising add feeds nothing but this norm, so it folds into the norm's
         # own kernel (tt_bio/eltwise_fusion.py).
@@ -2188,6 +2218,8 @@ class ConfidenceHead:
                                bias=(self._wtt("pde_ln.bias", False) if "pde_ln.bias" in self._w else None),
                                epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
         pde_logits = self._dev_lin(pde_ln, "linear_no_bias_pde.weight")      # (1,N,N,64)
+        for t in (pde_ln, zot, zof):
+            ttnn.deallocate(t)
         # plddt: a = s_single[a2t]; aln = LN(a)*w+b; logits = einsum('nc,ncb->nb', aln, pw[a2ta])
         s_single = ttnn.reshape(so, (N, 384))
         a = ttnn.embedding(rc["a2t_dev"], ttnn.to_layout(s_single, ttnn.ROW_MAJOR_LAYOUT),
@@ -3585,23 +3617,45 @@ class Trunk(_KeyedWeights):
             m_feat = None
             n_rows = ms.shape[1]
             step = 1024 if depth is None else 32
-            cut = lambda c: hostlane.submit(msa_rows_host, ms, rows[c], msa_row_bucket(len(rows[c]), n_rows, step))
-            next_rows = cut(0)
+            bucket = lambda c: msa_row_bucket(len(rows[c]), n_rows, step)
+            cut = lambda c: hostlane.submit(msa_rows_host, ms, rows[c], bucket(c))
+            # The cycle's rows are picked on the chip from the alignment, uploaded once, when every cycle
+            # would upload its rows in one piece and no MSA this size was refused on the chip: the host
+            # then sends row indices, not up to ~0.9 GB of rows the chip waits for (1.5 s a cycle at
+            # 9,216 rows x 736 tokens on a Wormhole host). Otherwise the host lane cuts the next cycle's
+            # rows while this one runs. Both hand the MSA module the same bf16 tensor.
+            table = next_rows = None
+            if msa_upload_whole(msa_row_bucket(n_rows, n_rows, step), *ms.shape[2:]) and _msa_keep_bytes(*m_key):
+                table = msa_rows_table(ms)
+            else:
+                next_rows = cut(0)
         z3 = ttnn.reshape(ttnn.mul(z_init, 0.0), (1, N, N, self.C_Z))
         # Both are read once per cycle and never written, so past 1 GiB they wait on the host.
         z_init, tpl_a = host_park(z_init), host_park(tpl_a)
         s = ttnn.mul(s_init, 0.0)
 
-        def cycle(cyc, carry, m_feat, rows=None):
+        def cycle(cyc, carry, m_feat, rows=None, retry=False):
             # Unpacked and cleared, so the cycle's input pair dies at its first rebind exactly as
             # it did inline; only a caller that kept its own copy holds it longer.
             z3, s = carry
             carry.clear()
             zc = self._lin(self._ln(z3, "layernorm_z_cycle.weight", "layernorm_z_cycle.bias"), "linear_no_bias_z_cycle.weight")
+            # The previous pair, zc and an unparked z_init are each a whole pair tensor (2 GiB in
+            # bf16 at 2048 tokens, C_Z 256), and zc used to live to the end of the cycle: the add
+            # held four of them and --fast died on the fourth on a 12 GiB Wormhole chip. The old
+            # pair goes once zc is made, unless the caller keeps it to re-run a refused cycle
+            # (`retry`), and zc and the upload go right after the add. Still `ttnn.add`: `add_`
+            # into the upload saves one more pair but moved exact's l2048 digest on Blackhole.
+            free = not ops.taping()
+            if free and not retry:
+                ttnn.deallocate(z3)
             zi = host_unpark(z_init)
             z3 = ttnn.add(ttnn.reshape(zi, (1, N, N, self.C_Z)), zc)
             if zi is not z_init:
                 ttnn.deallocate(zi)
+            if free:
+                ttnn.deallocate(zc)
+            del zc
             if nse_d is not None:
                 z3 = ttnn.add(z3, self._noisy_structure(z3, nse_d))
             # Gate on BOTH the feature's template slots and the checkpoint's own template
@@ -3627,6 +3681,20 @@ class Trunk(_KeyedWeights):
             trunk_tap(f"cyc{cyc}_after_PF:z3", z3, always=True)
             return [z3, s]
 
+        def sampled(cyc, carry, x):
+            # One cycle over its sampled rows x [1, bucket, N, c], host or device, the real ones first.
+            k = len(rows[cyc])
+            m_c = msa_embed(x, m_proj, keep=_msa_keep_bytes(N, x.shape[1] * m_key[1] // ms.shape[1]))
+            if torch.is_tensor(m_c):
+                # Parked on the host: drop the padding there, which costs nothing.
+                return cycle(cyc, carry, m_c[:, :k])
+            mask = ttnn.from_torch(msa_rows_mask(k, m_c.shape[1]), layout=ttnn.TILE_LAYOUT, device=get_device(),
+                                   dtype=ttnn.bfloat16)
+            carry = cycle(cyc, carry, m_c, (mask, k))
+            ttnn.deallocate(m_c)
+            ttnn.deallocate(mask)
+            return carry
+
         carry = [z3, s]
         del z3, s
 
@@ -3640,20 +3708,30 @@ class Trunk(_KeyedWeights):
                 if progress_fn:
                     progress_fn("trunk", step=cyc, total=n_cycles)
                 if rows is not None:
-                    x, mask = next_rows.result()
+                    if table is not None:
+                        # As for a resident m below: a cycle DRAM refuses with the alignment on the chip
+                        # runs again from its inputs with rows cut on the host, and so does every later one.
+                        inputs = list(carry)
+                        try:
+                            carry = sampled(cyc, carry, msa_rows_device(table, rows[cyc], bucket(cyc), N))
+                            inputs = None
+                        except RuntimeError as exc:
+                            if not is_alloc_refusal(exc):
+                                raise
+                        if inputs is None:
+                            continue
+                        _MSA_RESIDENT_REFUSED.append(m_key)
+                        print(f"[tt-bio] DRAM refused a recycling cycle with the MSA {tuple(ms.shape)} on the "
+                              f"chip; cutting each cycle's rows on the host from here on. The tt-metal 'Out of "
+                              f"Memory' line above is expected and handled.", file=sys.stderr, flush=True)
+                        ttnn.deallocate(table)
+                        table, carry, inputs = None, inputs, None
+                        gc.collect()
+                        next_rows = cut(cyc)
+                    x, _ = next_rows.result()
                     if cyc + 1 < n_cycles:
                         next_rows = cut(cyc + 1)
-                    k = len(rows[cyc])
-                    m_c = msa_embed(x, m_proj, keep=_msa_keep_bytes(N, x.shape[1] * m_key[1] // ms.shape[1]))
-                    if torch.is_tensor(m_c):
-                        # Parked on the host: drop the padding there, which costs nothing.
-                        carry = cycle(cyc, carry, m_c[:, :k])
-                        continue
-                    mask = ttnn.from_torch(mask, layout=ttnn.TILE_LAYOUT, device=get_device(),
-                                           dtype=ttnn.bfloat16)
-                    carry = cycle(cyc, carry, m_c, (mask, k))
-                    ttnn.deallocate(m_c)
-                    ttnn.deallocate(mask)
+                    carry = sampled(cyc, carry, x)
                     continue
                 if torch.is_tensor(m_feat):
                     carry = cycle(cyc, carry, m_feat)
@@ -3664,7 +3742,7 @@ class Trunk(_KeyedWeights):
                 # outside the handler: the traceback pins every tensor the refused cycle made.
                 inputs = list(carry)
                 try:
-                    carry = cycle(cyc, carry, m_feat)
+                    carry = cycle(cyc, carry, m_feat, retry=True)
                     inputs = None
                 except RuntimeError as exc:
                     if not is_alloc_refusal(exc):
@@ -3683,6 +3761,8 @@ class Trunk(_KeyedWeights):
         z3, s = carry
         if rows is not None:
             ttnn.deallocate(s_m)
+            if table is not None:
+                ttnn.deallocate(table)
         for t in [z_init, *tpl_a]:
             if t.storage_type() == ttnn.StorageType.DEVICE:
                 ttnn.deallocate(t)

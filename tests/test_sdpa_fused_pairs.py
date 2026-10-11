@@ -136,6 +136,18 @@ def test_padded_pairs_at_736_lead_with_the_measured_best():
     assert pairs[:2] == ((256, 768), (256, 384))
 
 
+def test_the_token_dit_is_priced_at_its_own_batch():
+    """The token DiT's batch is its 5 samples, not the sequence. Priced at batch 5 on a Wormhole
+    8x9 grid at 16 heads and head dim 64, the first padded pair is the q192 split that lights 64
+    cores (0.532 ms against 0.693 ms for q384 k256, the seq-priced pick; perf/spd_ditsdpa/opbench.py
+    on .107 chips 3 and 11). The default batch is still the sequence, so triangle attention's order
+    is unchanged."""
+    assert TS.fused_pairs(736, 16, 64, 72, padded=True, batch=5)[0] == (192, 768)
+    assert TS.fused_pairs(736, 16, 64, 72, padded=True)[0] == (384, 384)
+    assert TS.fused_pairs(736, 8, HEAD_DIM, 72, padded=True, batch=736) == \
+        TS.fused_pairs(736, 8, HEAD_DIM, 72, padded=True)
+
+
 @pytest.mark.parametrize("cores", (72, 110, 130))
 @pytest.mark.parametrize("seq", (544, 608, 736, 928, 992, 1184))
 def test_every_padded_pair_pads_fits_and_is_one_q_chunk_per_core(seq, cores):

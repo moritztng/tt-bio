@@ -109,3 +109,26 @@ def test_a_refused_join_streams_the_same_rows(dev, monkeypatch):
     out = T.msa_embed(feat, project, 8, keep=80 * n * 64 * 2)
     assert calls == [8, 2, 2]
     assert torch.is_tensor(out) and torch.equal(out, streamed)
+
+
+def test_a_bf16_feature_tilized_on_the_chip_is_the_host_tilized_one(dev):
+    # 34 channels pad to 64 inside the tile, as the alignment feature does; the projection reads the padding.
+    n, c, project = _project(dev)
+    feat = torch.randn(1, 96, n, c).to(torch.bfloat16)
+    host = ttnn.from_torch(feat, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
+    chip = T._up_tilize_on_device(feat)
+    assert torch.equal(ttnn.to_torch(chip), ttnn.to_torch(host))
+    assert torch.equal(ttnn.to_torch(project(chip)), ttnn.to_torch(project(host)))
+
+
+def test_rows_picked_on_the_chip_are_the_host_cut(dev):
+    n, c, project = _project(dev)
+    feat = torch.randn(1, 200, n, c).to(torch.bfloat16)
+    table = T.msa_rows_table(feat)
+    for rows, bucket in ((torch.tensor([7, 0, 199, 31]), 32), (torch.randperm(200)[:150], 160)):
+        x, _ = T.msa_rows_host(feat, rows, bucket)
+        host = ttnn.from_torch(x, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
+        chip = T.msa_rows_device(table, rows, bucket, n)
+        assert tuple(chip.shape) == (1, bucket, n, c)
+        assert torch.equal(ttnn.to_torch(chip), ttnn.to_torch(host))
+        assert torch.equal(ttnn.to_torch(project(chip)), ttnn.to_torch(project(host)))
