@@ -569,8 +569,9 @@ class OpenDDE:
         # 1) input embedder + trunk, residue axis (Protenix.fold's own first stage)
         key = hit = None
         if trunk_cache is not None:
-            import tt_bio.tenstorrent as _TTm
-            key = trunk_cache.key(feats, "opendde", n_cycles, seed, self._weights_tag, _TTm._FAST_MODE)
+            # The lever set, not `_FAST_MODE`: the flag is off inside a lever build, so it would
+            # give a fast and a normal fold of one input the same entry.
+            key = trunk_cache.key(feats, "opendde", n_cycles, seed, self._weights_tag, sorted(self._levers))
             hit = trunk_cache.load(key)
         if hit is None:
             fi, s_inputs, s_trunk, z_trunk, c_l, p_lm = self._residue_trunk(feats, n_cycles, seed, progress_fn)
