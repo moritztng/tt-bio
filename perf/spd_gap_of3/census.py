@@ -105,9 +105,12 @@ def main():
     if a.sites:
         import traceback
 
+        # One-line upload helpers (`_ft`, `ft = lambda ...`) would bin every caller on their own line.
+        helpers = {"_ft", "ft", "<lambda>", "_to_dev", "to_dev", "up", "host", "bf", "_w_tt", "torch_to_tt"}
+
         def site():
-            for f in reversed(traceback.extract_stack(limit=12)[:-2]):
-                if "/tt_bio/" in f.filename:
+            for f in reversed(traceback.extract_stack(limit=14)[:-2]):
+                if "/tt_bio/" in f.filename and f.name not in helpers:
                     return f"{Path(f.filename).name}:{f.lineno}"
             return "?"
 
