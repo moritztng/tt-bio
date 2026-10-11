@@ -56,12 +56,18 @@ res = {"model": a.model, "fast": a.fast, "alt": a.alt, "a": a.a, "b": a.b, "node
        "card": os.environ.get("TT_VISIBLE_DEVICES"), "host": os.uname().nodename, "folds": []}
 def fold(arm, tag):
     setattr(mod, attr, (a.a if a.a is not None else True) if arm == "A" else (a.b if a.b is not None else False))
+    before = {k: dict(v) for k, v in T.LATCH_STATS.items()}
     t0 = time.monotonic(); s, m = one_fold(); t1 = time.monotonic()
     c = sorted(v for t, v in clk if t0 <= t <= t1)
     rec = {"arm": arm, "tag": tag, "fold_s": round(s, 3), "plddt": m.get("plddt"),
            "cif": [hashlib.sha256(p.read_bytes()).hexdigest()[:16] for p in sorted(sdir.glob("*.cif"))],
            "aiclk_median": c[len(c) // 2] if c else None, "aiclk_min": c[0] if c else None,
-           "loadavg": open("/proc/loadavg").read().split()[0]}
+           "loadavg": open("/proc/loadavg").read().split()[0],
+           # which kernels this fold actually served: a lever arm that only declines is not an arm
+           "latches": {k: d for k, v in T.LATCH_STATS.items()
+                       if (d := {f: v.get(f, 0) - before.get(k, {}).get(f, 0)
+                                 for f in ("served", "refused", "blocked", "declined")
+                                 if v.get(f, 0) != before.get(k, {}).get(f, 0)})}}
     res["folds"].append(rec); print(json.dumps(rec), flush=True)
     a.out.write_text(json.dumps(res, indent=1))
 fold("A", "cold"); fold("B", "cold")
