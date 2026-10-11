@@ -3589,31 +3589,28 @@ class Trunk(_KeyedWeights):
         z_init, tpl_a = host_park(z_init), host_park(tpl_a)
         s = ttnn.mul(s_init, 0.0)
 
-        def cycle(cyc, carry, m_feat, rows=None):
+        def cycle(cyc, carry, m_feat, rows=None, retry=False):
             # Unpacked and cleared, so the cycle's input pair dies at its first rebind exactly as
             # it did inline; only a caller that kept its own copy holds it longer.
             z3, s = carry
             carry.clear()
             zc = self._lin(self._ln(z3, "layernorm_z_cycle.weight", "layernorm_z_cycle.bias"), "linear_no_bias_z_cycle.weight")
             # The previous pair, zc and an unparked z_init are each a whole pair tensor (2 GiB in
-            # bf16 at 2048 tokens, C_Z 256), and zc used to live to the end of the cycle. Free the old pair
-            # once zc is made, add into this cycle's own z_init upload, and free zc after: the add
-            # then holds two pair tensors instead of four. --fast died on the fourth at 2048 on a
-            # 12 GiB Wormhole chip. Same op, same operands, so the same bytes. A tape keeps all three.
+            # bf16 at 2048 tokens, C_Z 256), and zc used to live to the end of the cycle: the add
+            # held four of them and --fast died on the fourth on a 12 GiB Wormhole chip. The old
+            # pair goes once zc is made, unless the caller keeps it to re-run a refused cycle
+            # (`retry`), and zc and the upload go right after the add. Still `ttnn.add`: `add_`
+            # into the upload saves one more pair but moved exact's l2048 digest on Blackhole.
             free = not ops.taping()
-            if free:
+            if free and not retry:
                 ttnn.deallocate(z3)
             zi = host_unpark(z_init)
-            zr = ttnn.reshape(zi, (1, N, N, self.C_Z))
-            if free and zi is not z_init:
-                z3 = ttnn.add_(zr, zc)
-            else:
-                z3 = ttnn.add(zr, zc)
-                if zi is not z_init:
-                    ttnn.deallocate(zi)
+            z3 = ttnn.add(ttnn.reshape(zi, (1, N, N, self.C_Z)), zc)
+            if zi is not z_init:
+                ttnn.deallocate(zi)
             if free:
                 ttnn.deallocate(zc)
-            del zc, zr
+            del zc
             if nse_d is not None:
                 z3 = ttnn.add(z3, self._noisy_structure(z3, nse_d))
             # Gate on BOTH the feature's template slots and the checkpoint's own template
@@ -3676,7 +3673,7 @@ class Trunk(_KeyedWeights):
                 # outside the handler: the traceback pins every tensor the refused cycle made.
                 inputs = list(carry)
                 try:
-                    carry = cycle(cyc, carry, m_feat)
+                    carry = cycle(cyc, carry, m_feat, retry=True)
                     inputs = None
                 except RuntimeError as exc:
                     if not is_alloc_refusal(exc):
