@@ -190,10 +190,13 @@ def gsha(out):
     import numpy as np
     h = hashlib.sha256()
     for leaf in jax.tree_util.tree_leaves(out):
+        # Array leaves only. A leaf that is not an array used to be hashed by repr(), and that
+        # repr changes from run to run, so two bit-identical eager runs read as different
+        # (eagerC/eagerD on qb1: every gradient array equal, every digest different).
         try:
             h.update(np.asarray(leaf).tobytes())
         except Exception:                                                     # noqa: BLE001
-            h.update(repr(leaf).encode())
+            continue
     return h.hexdigest()[:16]
 
 
