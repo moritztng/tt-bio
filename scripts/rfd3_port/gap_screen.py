@@ -8,6 +8,8 @@ ARM is a '+'-joined set of knobs applied before the denoiser is built:
   hifi2     every RFD3 compute kernel config at MathFidelity.HiFi2 (default HiFi4)
   lofi      ... at MathFidelity.LoFi
   w8        every 2-D, tile-aligned weight that Module.torch_to_tt uploads as bf16 goes up as bfloat8_b
+  gsm bs pzc fgrid   the existing off-by-default levers RFD3_GATHERED_SOFTMAX, RFD3_BLOCK_SPARSE,
+            RFD3_PROCESS_Z_COLLAPSE, RFD3_FAST_GRID (declined before only for not being bit-exact)
 
 SEEDS is a comma list (default 42). Per seed: one discarded warmup fold for the first seed only, then
 one timed fold; the CIF is copied to OUTDIR/<arm>_s<seed>.cif so accuracy is graded offline against
@@ -20,6 +22,12 @@ import pathlib
 import shutil
 import sys
 import time
+
+ENV_KNOBS = {"gsm": "RFD3_GATHERED_SOFTMAX", "bs": "RFD3_BLOCK_SPARSE",
+             "pzc": "RFD3_PROCESS_Z_COLLAPSE", "fgrid": "RFD3_FAST_GRID"}
+for _k in sys.argv[1].split("+") if len(sys.argv) > 1 else ():
+    if _k in ENV_KNOBS:
+        os.environ[ENV_KNOBS[_k]] = "1"   # read at import, so before tt_bio.rfd3 loads
 
 sys.path.insert(0, os.getcwd())
 import ttnn                                                               # noqa: E402
@@ -36,7 +44,7 @@ STEPS = int(args[2]) if len(args) > 2 else 200
 SEEDS = [int(s) for s in (args[3] if len(args) > 3 else "42").split(",")]
 FIXTURE = opts.get("fixture", "perf/dsfix/fixtures/rfd3_R4.json")
 knobs = set(ARM.split("+")) - {"exact"}
-assert knobs <= {"hifi2", "lofi", "w8"}, knobs
+assert knobs <= {"hifi2", "lofi", "w8"} | set(ENV_KNOBS), knobs
 
 fid = {"hifi2": ttnn.MathFidelity.HiFi2, "lofi": ttnn.MathFidelity.LoFi}
 pick = [fid[k] for k in ("hifi2", "lofi") if k in knobs]
