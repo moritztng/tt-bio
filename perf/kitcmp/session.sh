@@ -12,6 +12,7 @@ P=$(cd "$(dirname "$0")" && pwd); V=~/.vast-venv/bin/vastai; B=/home/moritz/.cow
 K=$(cat ~/.config/vastai/vast_api_key); API=https://console.vast.ai/api/v0; FLOOR=20
 KIT=${KIT:-/home/moritz/scratch/kitsrc/uplifting-biomolecular-modeling}
 PKL=/home/moritz/.cache/opendde/common/components.cif.rdkit_mol.pkl PXCKPT=/home/moritz/.boltz/protenix-v2.pt
+PXV1=/home/moritz/.coworker/protenix-ref-data/protenix_base_default_v0.5.0.pt  # sha256 9ea20b0a = tt-bio protenix-v1
 OUT=$P/results/$L; mkdir -p $OUT
 log(){ echo "$(date -u +%FT%TZ) $*"; }
 credit(){ curl -s -H "Authorization: Bearer $K" "$API/users/current/" | python3 -c 'import json,sys;print(json.load(sys.stdin)["credit"])'; }
@@ -31,6 +32,9 @@ print(next((str(o["id"]) for o in json.load(sys.stdin) if str(o["id"]) not in t)
 state(){ curl -s -H "Authorization: Bearer $K" "$API/instances/?owner=me" | python3 -c 'import json,sys
 print(next((x.get("intended_status") or "" for x in json.load(sys.stdin)["instances"] if x["id"]==int(sys.argv[1])), "gone"))' $1; }
 python3 $P/make_inputs.py $OUT/in > /dev/null
+# af2ig (dl_binder_design: chain A = binder) and esmc inputs, appended to the digest list box_arms checks
+python3 $P/af2ig_inputs.py $P/fixtures $OUT/in/af2ig && cp $P/../../scripts/gpu_vs_tt/fixtures/prot512.seq $OUT/in/ &&
+  (cd $OUT/in && for f in af2ig/* prot512.seq; do echo "$(sha256sum $f | cut -d' ' -f1)  /root/kc/in/$f"; done >> SHA256SUMS)
 KITS=$(for e in $MODELS; do printf "%s " ${e%%:*}; done)
 tar -czf $OUT/kit.tgz -C "$KIT" common $KITS
 for _ in $(seq $NMAX); do
@@ -67,10 +71,12 @@ print(x.get("public_ipaddr","").strip(), p[0]["HostPort"] if p else "") if x.get
   echo "$S" > $OUT/ssh; echo "$I $O" > $OUT/instance
   R(){ rsync -a -e "${S% root@*}" "$@"; }; H=root@$IP
   $S 'mkdir -p /root/kit /root/kc/in /root/kc/results' && R $OUT/kit.tgz $H:/root/ && $S 'tar -xzf /root/kit.tgz -C /root/kit' &&
-    R $OUT/in/ $H:/root/kc/in/ && R $P/box_setup.sh $P/box_arms.sh $P/box_bc_setup.sh $P/box_bc_arms.sh $P/bc2_gpu.py $P/burn_gate.py $P/kctime.py $H:/root/kc/ || { destroy $I "push failed"; continue; }
+    R $OUT/in/ $H:/root/kc/in/ && R $P/box_setup.sh $P/box_arms.sh $P/box_bc_setup.sh $P/box_bc_arms.sh $P/bc2_gpu.py $P/esmc_gpu.py $P/burn_gate.py $P/kctime.py $H:/root/kc/ || { destroy $I "push failed"; continue; }
   # files whose upstream URL fails from vast, pushed from pc (sha256 checked by the kit's own install)
   for m in protenix_v2 opendde; do case " $KITS " in *" $m "*)
     W=/weights/${m%_v2}; $S "mkdir -p $W/common $W/checkpoint" && R $PKL $H:$W/common/ || { destroy $I "pkl push failed"; continue 2; };; esac; done
+  case " $KITS " in *" protenix_v1 "*) $S "mkdir -p /weights/protenix_v1/common /weights/protenix_v1/checkpoint" && R $PKL $H:/weights/protenix_v1/common/ &&
+    R $PXV1 $H:/weights/protenix_v1/checkpoint/protenix_base_default_v0.5.0.pt || { destroy $I "v1 push failed"; continue; };; esac
   case " $KITS " in *" protenix_v2 "*) R $PXCKPT $H:/weights/protenix/checkpoint/protenix-v2.pt || { destroy $I "ckpt push failed"; continue; };; esac
   # adopted: the new chain waits for the old one, runs PRE (shell, on the box) and reports through its own done marker
   DM=CHAIN-DONE${ADOPT:+-$L}
