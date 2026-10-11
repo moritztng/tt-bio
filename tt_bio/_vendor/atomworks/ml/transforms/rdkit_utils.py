@@ -1,4 +1,6 @@
 import logging
+import pickle
+import sys
 import time
 from typing import Any, ClassVar, Literal
 
@@ -520,6 +522,52 @@ def _fill_idealized(mol: Chem.Mol, idealized_conformer: Chem.Conformer, n_confor
     return mol
 
 
+def _conformers_here(jobs, seeds, timeout, kwargs):
+    """(mols, warnings) for (ccd_code, n_conformers) jobs on given seeds, one forked child per code."""
+    prepared, calls = [], []
+    for (ccd_code, n), seed in zip(jobs, seeds):
+        mol = ccd_code_to_rdkit(ccd_code, hydrogen_policy="remove")
+        prepared.append((ccd_code, n, mol, Chem.Conformer(mol.GetConformer(0))))
+        t = _auto_timeout_policy(n, *timeout) if isinstance(timeout, tuple) else timeout
+        calls.append((t, generate_conformers, (mol,), dict(kwargs, n_conformers=n, seed=seed)))
+    mols, warnings = [], []
+    for (ccd_code, n, mol, ideal), (ok, value) in zip(prepared, timer.run_in_subprocesses(calls)):
+        if ok:
+            mol = value
+        elif isinstance(value, (TimeoutError, RuntimeError, Chem.MolSanitizeException)):
+            warnings.append(
+                f"Failed to generate {n} conformers for {ccd_code=}. Falling back to idealized conformer from the CCD. Error message: {value}"
+            )
+        else:
+            raise value
+        mols.append(_fill_idealized(mol, ideal, n))
+    return mols, warnings
+
+
+_HELPER = []
+
+
+def _conformers_in_helper(jobs, seeds, timeout, kwargs):
+    """`_conformers_here` in a small long-lived helper process. Forking the serving process costs its page
+    tables per child (about 0.4 s each with 12 GiB resident, 18 s for the 20 amino acids of a 512-residue
+    RF3 fold); the helper holds only RDKit and atomworks, so its children fork in milliseconds."""
+    import pickle
+    import subprocess
+
+    if not _HELPER or _HELPER[0].poll() is not None:
+        _HELPER[:] = [subprocess.Popen(
+            [sys.executable, "-m", "tt_bio._vendor.atomworks.ml.transforms.conformer_helper"],
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+        )]
+    proc = _HELPER[0]
+    pickle.dump((Chem.GetDefaultPickleProperties(), jobs, seeds, timeout, kwargs), proc.stdin)
+    proc.stdin.flush()
+    ok, value = pickle.load(proc.stdout)
+    if not ok:
+        raise value
+    return value
+
+
 def ccd_codes_to_rdkit_with_conformers(
     jobs: list[tuple[str, int]],
     *,
@@ -528,32 +576,23 @@ def ccd_codes_to_rdkit_with_conformers(
 ) -> list[Chem.Mol] | None:
     """tt-bio: `ccd_code_to_rdkit_with_conformers` with the subprocess timeout for several (ccd_code,
     n_conformers) at once. Seeds come off the global numpy RNG in the same order as one call per code, and
-    the children run concurrently instead of one after the other (timer.run_in_subprocesses), so the
-    molecules are the ones the serial calls return. Returns None, with the RNG untouched, when a drawn seed
-    is 0: a single call would draw again inside the child, which the batch cannot reproduce."""
+    the children run concurrently instead of one after the other (timer.run_in_subprocesses), from a small
+    helper process when it starts, so the molecules are the ones the serial calls return. Returns None,
+    with the RNG untouched, when a drawn seed is 0: a single call would draw again inside the child, which
+    the batch cannot reproduce."""
     state = np.random.get_state()
     seeds = [_get_random_seed() for _ in jobs]
     if not all(seeds):
         np.random.set_state(state)
         return None
-    prepared, calls = [], []
-    for (ccd_code, n), seed in zip(jobs, seeds):
-        mol = ccd_code_to_rdkit(ccd_code, hydrogen_policy="remove")
-        prepared.append((ccd_code, n, mol, Chem.Conformer(mol.GetConformer(0))))
-        t = _auto_timeout_policy(n, *timeout) if isinstance(timeout, tuple) else timeout
-        calls.append((t, generate_conformers, (mol,), dict(generate_conformers_kwargs, n_conformers=n, seed=seed)))
-    out = []
-    for (ccd_code, n, mol, ideal), (ok, value) in zip(prepared, timer.run_in_subprocesses(calls)):
-        if ok:
-            mol = value
-        elif isinstance(value, (TimeoutError, RuntimeError, Chem.MolSanitizeException)):
-            logger.warning(
-                f"Failed to generate {n} conformers for {ccd_code=}. Falling back to idealized conformer from the CCD. Error message: {value}"
-            )
-        else:
-            raise value
-        out.append(_fill_idealized(mol, ideal, n))
-    return out
+    try:
+        mols, warnings = _conformers_in_helper(jobs, seeds, timeout, generate_conformers_kwargs)
+    except (OSError, EOFError, pickle.UnpicklingError) as e:
+        logger.warning(f"conformer helper unavailable ({e!r}); generating in this process")
+        mols, warnings = _conformers_here(jobs, seeds, timeout, generate_conformers_kwargs)
+    for w in warnings:
+        logger.warning(w)
+    return mols
 
 
 # -------------------------------------------------------------------------------------------------
