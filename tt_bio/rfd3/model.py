@@ -2117,6 +2117,8 @@ class RFD3AtomBlock(Module):
         self.o_w = self.torch_to_tt(a + "to_o.weight", dtype=dt)
         self.a_out_w = self.torch_to_tt(a + "linear_output_project.0.weight", dtype=dt)
         self.a_out_b = self.torch_to_tt(a + "linear_output_project.0.bias", dtype=dt)
+        # The DiT's 48-wide heads, padded to a tile in the weights for the dense SDPA arm.
+        self.pad_w = self._padded_head_weights(a) if _DIT_SDPA and self.head_dim % TILE else None
 
         t = "transition_block."
         self.t_ln_s = self.torch_to_tt(t + "ada_ln.ln_s.weight", dtype=dt)
@@ -2244,6 +2246,55 @@ class RFD3AtomBlock(Module):
         norm = self._adaln(
             q_compute, c, self.a_ln_s, self.a_gain_w, self.a_gain_b, self.a_bias_w
         )
+        n_key = align_tile(length)
+        if (self.pad_w is not None and sparse_qk is None and dt == ttnn.bfloat16
+                and (sdpa_mask is not None
+                     or 2 * self.n_head * n_key * n_key <= _ATOM_SDPA_MAX_MASK_BYTES)):
+            out = self._dense_sdpa_padded(norm, p, additive_mask, pair_bias, sdpa_mask, batch, length)
+        else:
+            out = self._attention(norm, p, additive_mask, sparse_qk, bias_cache, pair_bias, sdpa_mask,
+                                  batch, length)
+        gate = ttnn.linear(
+            c, self.a_out_w, bias=self.a_out_b, compute_kernel_config=ckc,
+            dtype=dt, core_grid=BATCH_INVARIANT_GRID,
+        )
+        upd = _gated(out, gate)
+        if f32:
+            q = ttnn.add(q, ttnn.typecast(upd, ttnn.float32, memory_config=upd.memory_config()))
+        else:
+            q = ttnn.add(q, upd)
+        ttnn.deallocate(upd)
+
+        q_compute = ttnn.typecast(q, dt, memory_config=q.memory_config()) if f32 else q
+        norm = self._adaln(
+            q_compute, c, self.t_ln_s, self.t_gain_w, self.t_gain_b, self.t_bias_w
+        )
+        left = ttnn.linear(
+            norm, self.t_fc1, activation="silu", compute_kernel_config=silu_ckc(ckc),
+            dtype=dt, core_grid=BATCH_INVARIANT_GRID,
+        )
+        right = _tuned_linear(
+            norm, self.t_fc2, ckc=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID,
+        )
+        update = _tuned_linear(
+            ttnn.multiply(left, right), self.t_fc3, ckc=ckc,
+            dtype=dt, core_grid=BATCH_INVARIANT_GRID,
+        )
+        gate = ttnn.linear(
+            c, self.t_out_w, bias=self.t_out_b, compute_kernel_config=ckc,
+            dtype=dt, core_grid=BATCH_INVARIANT_GRID,
+        )
+        upd = _gated(update, gate)
+        if f32:
+            q = ttnn.add(q, ttnn.typecast(upd, ttnn.float32, memory_config=upd.memory_config()))
+        else:
+            q = ttnn.add(q, upd)
+        return q
+
+    def _attention(self, norm, p, additive_mask, sparse_qk, bias_cache, pair_bias, sdpa_mask,
+                   batch, length):
+        """Attention with pair bias on the adaLN'd stream, through the output projection."""
+        ckc, dt = self.compute_kernel_config, self.dtype
         qq = _tuned_linear(norm, self.q_w, ckc=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID)
         kk = _tuned_linear(norm, self.k_w, ckc=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID)
         vv = _tuned_linear(norm, self.v_w, ckc=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID)
@@ -2434,42 +2485,70 @@ class RFD3AtomBlock(Module):
         out = _tuned_linear(
             out, self.o_w, ckc=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID
         )
-        gate = ttnn.linear(
-            c, self.a_out_w, bias=self.a_out_b, compute_kernel_config=ckc,
-            dtype=dt, core_grid=BATCH_INVARIANT_GRID,
-        )
-        upd = _gated(out, gate)
-        if f32:
-            q = ttnn.add(q, ttnn.typecast(upd, ttnn.float32, memory_config=upd.memory_config()))
-        else:
-            q = ttnn.add(q, upd)
-        ttnn.deallocate(upd)
+        return out
 
-        q_compute = ttnn.typecast(q, dt, memory_config=q.memory_config()) if f32 else q
-        norm = self._adaln(
-            q_compute, c, self.t_ln_s, self.t_gain_w, self.t_gain_b, self.t_bias_w
-        )
-        left = ttnn.linear(
-            norm, self.t_fc1, activation="silu", compute_kernel_config=silu_ckc(ckc),
-            dtype=dt, core_grid=BATCH_INVARIANT_GRID,
-        )
-        right = _tuned_linear(
-            norm, self.t_fc2, ckc=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID,
-        )
-        update = _tuned_linear(
-            ttnn.multiply(left, right), self.t_fc3, ckc=ckc,
-            dtype=dt, core_grid=BATCH_INVARIANT_GRID,
-        )
-        gate = ttnn.linear(
-            c, self.t_out_w, bias=self.t_out_b, compute_kernel_config=ckc,
-            dtype=dt, core_grid=BATCH_INVARIANT_GRID,
-        )
-        upd = _gated(update, gate)
-        if f32:
-            q = ttnn.add(q, ttnn.typecast(upd, ttnn.float32, memory_config=upd.memory_config()))
-        else:
-            q = ttnn.add(q, upd)
-        return q
+    def _dense_sdpa_padded(self, norm, p, additive_mask, pair_bias, sdpa_mask, batch, length):
+        """The DiT's dense SDPA with its 48-wide heads padded to 64 in the weights (`pad_w`).
+
+        q/k/v/g come out of their projections already head-major-padded, so one
+        `nlp_create_qkv_heads` splits them and one `nlp_concat_heads` merges the output, where
+        the 48-wide layout needs a reshape + permute + pad per tensor and a slice + permute +
+        reshape back. The zero columns add 0 to every q.k and come back as zero output columns,
+        which the padded rows of `o` (zero) drop. gap_dit_heads.py: 1.27 -> 0.39 ms per call at
+        685 tokens, same error against float64.
+        """
+        ckc, dt, w = self.compute_kernel_config, self.dtype, self.pad_w
+        lin = dict(ckc=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID)
+        n_key, hp = align_tile(length), self.n_head * align_tile(self.head_dim)
+        qq = ttnn.rms_norm(_tuned_linear(norm, w["q"], **lin), weight=w["q_ln"], epsilon=w["eps"],
+                           compute_kernel_config=ckc)
+        kk = ttnn.rms_norm(_tuned_linear(norm, w["k"], **lin), weight=w["k_ln"], epsilon=w["eps"],
+                           compute_kernel_config=ckc)
+        vv = _tuned_linear(norm, w["v"], **lin)
+        gg = _tuned_linear(norm, w["g"], **lin)
+        qkv = ttnn.reshape(ttnn.concat([qq, kk, vv], dim=-1), (batch, 1, length, 3 * hp))
+        for x in (qq, kk, vv):
+            ttnn.deallocate(x)
+        qq, kk, vv = ttnn.experimental.nlp_create_qkv_heads(
+            qkv, num_heads=self.n_head, num_kv_heads=self.n_head, transpose_k_heads=False,
+            memory_config=ttnn.DRAM_MEMORY_CONFIG)
+        ttnn.deallocate(qkv)
+        mask = sdpa_mask
+        if mask is None:
+            if pair_bias is None:
+                pair_bias = _tuned_linear(p, self.b_w, ckc=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)
+            pair_bias = ttnn.permute(pair_bias, (0, 3, 1, 2))
+            mask = _sdpa_dense_mask(pair_bias, additive_mask, self.head_dim, n_key)
+            ttnn.deallocate(pair_bias)
+        o = fused_sdpa(pad_axis(qq, n_key, 2, 0.0), pad_axis(kk, n_key, 2, 0.0), pad_axis(vv, n_key, 2, 0.0),
+                       attn_mask=mask, scale=self.head_dim**-0.5,
+                       program_config=_dense_sdpa_config(n_key), compute_kernel_config=ckc)
+        ttnn.deallocate(mask)
+        DIT_SDPA_CALLS[0] += 1
+        o = ttnn.experimental.nlp_concat_heads(o)                            # [B, 1, n_key, hp]
+        o = ttnn.reshape(ttnn.slice(o, [0, 0, 0, 0], [batch, 1, length, hp]), (batch, length, hp))
+        return _tuned_linear(_gated(o, gg), w["o"], **lin)
+
+    def _padded_head_weights(self, a):
+        """q/k/v/g with zero output columns after each head and o with zero input rows, so every
+        head is a tile wide. rms_norm over the padded width sees the same sum of squares over
+        more columns, so its weight is scaled by sqrt(c/padded) and its eps by c/padded."""
+        hd, dp, c = self.head_dim, align_tile(self.head_dim), self.n_head * self.head_dim
+        dt, s = self.dtype, c / (self.n_head * dp)
+
+        def cols(w):                                                     # [in, c] -> [in, H*dp]
+            return F.pad(w.reshape(w.shape[0], self.n_head, hd), (0, dp - hd)).reshape(w.shape[0], -1)
+
+        out = {k: self.torch_to_tt(a + n, transform=lambda w: cols(w.t()), dtype=dt)
+               for k, n in (("q", "to_q.weight"), ("k", "to_k.weight"), ("v", "to_v.weight"),
+                            ("g", "to_g.0.weight"))}
+        out["o"] = self.torch_to_tt(a + "to_o.weight", transform=lambda w: cols(w).t(), dtype=dt)
+        for k, n in (("q_ln", "ln_q.weight"), ("k_ln", "ln_k.weight")):
+            out[k] = self.torch_to_tt(a + n, transform=lambda w: cols(w.reshape(1, -1) * s ** 0.5)[0],
+                                      dtype=dt)
+        out["eps"] = 1e-6 * s
+        return out
+
 
 
 class LocalAtomTransformer(Module):
