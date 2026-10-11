@@ -248,7 +248,7 @@ def test_a_silu_epilogue_is_its_own_cached_config(monkeypatch):
     """The factory is lru_cached, so one object is shared by every projection of a key. A SiLU
     epilogue set on that object after the fact leaked into the pair FFN's fc1b (same shape as fc1a)
     and every later same-shape projection, in the switch-off arm too. It has to be part of the key."""
-    monkeypatch.setattr(T, "_l1_bank_bytes", lambda: BANK)
+    monkeypatch.setattr(T, "_matmul_cb_budget", lambda: BANK)
     T._pair_proj_program_config.cache_clear()
     on = T._pair_proj_program_config(RF3_M_TILES, 2, 2, 2, 2, True, None, 0, True)
     off = T._pair_proj_program_config(RF3_M_TILES, 2, 2, 2, 2, True, None, 0)
