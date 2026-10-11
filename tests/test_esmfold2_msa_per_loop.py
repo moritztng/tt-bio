@@ -69,3 +69,20 @@ def test_lm_dropout_is_upstreams_training_mode_dropout_and_follows_the_seed():
     assert torch.allclose(a, ref)  # same draw, same 1/(1-p) scale as torch's own dropout
     assert torch.allclose(a.unique(), torch.tensor([0.0, 4.0 / 3.0]))
     assert abs(float((a == 0).float().mean()) - 0.25) < 0.02
+
+
+def test_prefetched_keep_masks_follow_the_seed_and_keep_one_minus_p():
+    from tt_bio.esmfold2_runtime import _KeepDraws
+
+    def draws(seed):
+        torch.manual_seed(seed)
+        d = _KeepDraws((1, 64, 64, 8), 0.25, 3)
+        return [d.take() for _ in range(3)]
+
+    a, b, c = draws(5), draws(5), draws(6)
+    assert all(torch.equal(x, y) for x, y in zip(a, b))
+    assert not torch.equal(a[0], c[0])
+    assert not torch.equal(a[0], a[1])  # a fresh mask every loop
+    for m in a:
+        assert m.dtype == torch.bfloat16 and set(m.unique().tolist()) == {0.0, 1.0}
+        assert abs(float(m.float().mean()) - 0.75) < 0.02
