@@ -383,26 +383,55 @@ def _msa_per_loop(kw, total_steps, max_depth, col_rate):
     return loops
 
 
-def _lm_dropout(lm_z, p):
+def _lm_dropout(lm_z, p, keep=None):
     """esm 3.4.1's per-loop `F.dropout(lm_z, p, training=True)` (`model.py::_run_one_loop`).
 
     The keep mask comes from the global torch RNG, which `fold()` seeds, so the draw follows the
     seed and not the card. A device-resident pair is masked on the device: the 0/1 mask is exact
-    in bf16, the 1/(1-p) scale is applied after it rather than baked into the mask.
+    in bf16, the 1/(1-p) scale is applied after it rather than baked into the mask. `keep` is an
+    already drawn bf16 host mask (`_KeepDraws`).
     """
     if not isinstance(lm_z, _DevPair):
         return lm_z * torch.empty(lm_z.shape).bernoulli_(1.0 - p).to(lm_z.dtype) / (1.0 - p)
     import ttnn
 
     t = lm_z.t
-    keep = torch.empty(tuple(t.shape)).bernoulli_(1.0 - p)
-    m = ttnn.from_torch(keep.to(torch.bfloat16), device=t.device(), layout=ttnn.TILE_LAYOUT,
-                        dtype=ttnn.bfloat16)
+    if keep is None:
+        keep = torch.empty(tuple(t.shape)).bernoulli_(1.0 - p).to(torch.bfloat16)
+    m = ttnn.from_torch(keep, device=t.device(), layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16)
     kept = ttnn.multiply(t, m)
     ttnn.deallocate(m)
     out = ttnn.multiply(kept, 1.0 / (1.0 - p))
     ttnn.deallocate(kept)
     return _DevPair(out, lm_z.seq_len)
+
+
+class _KeepDraws:
+    """The fold's per-loop LM dropout masks, each drawn on a host thread while the device runs
+    the previous loop. Only torch runs on the thread; the upload stays on the caller's.
+
+    The generator is seeded with one draw from the global torch RNG, so the masks follow the
+    fold's seed and not the card. Drawing them inline cost ~0.4 s of host time per loop at 512 aa.
+    """
+
+    def __init__(self, shape, p, n):
+        from concurrent.futures import ThreadPoolExecutor
+
+        self.gen = torch.Generator().manual_seed(int(torch.randint(2 ** 62, ())))
+        self.shape, self.p, self.left = shape, p, n
+        self.pool = ThreadPoolExecutor(1)
+        self.nxt = self.pool.submit(self._draw)
+
+    def _draw(self):
+        return (torch.rand(self.shape, generator=self.gen) >= self.p).to(torch.bfloat16)
+
+    def take(self):
+        keep = self.nxt.result()
+        self.left -= 1
+        self.nxt = self.pool.submit(self._draw) if self.left > 0 else None
+        if self.nxt is None:
+            self.pool.shutdown(wait=False)
+        return keep
 
 
 # The per-loop injection on the device. Since the LM dropout is redrawn every trunk loop
@@ -516,9 +545,10 @@ def _install_resident_trunk_loop(model):
                           for t in (norm.weight, norm.bias))
             b_t = ftw._from_torch(b_mat.t().contiguous().float())
             ck = ftw.compute_kernel_config
+            draws = _KeepDraws(tuple(lm_z.t.shape), lm_p, total_steps)
 
         def inject_dev():
-            x = _lm_dropout(lm_z, lm_p)
+            x = _lm_dropout(lm_z, lm_p, draws.take())
             refined = _trunk_on_device(self.lm_encoder.m, x, to_host=False)
             ttnn.deallocate(x.t)
             s = ttnn.add(base, refined)
