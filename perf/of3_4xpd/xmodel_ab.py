@@ -69,7 +69,7 @@ def main():
 
     import tt_bio.tenstorrent as T
     import tt_baseline as B
-    from tt_bio.main import (_resolve_sampling_steps,
+    from tt_bio.main import (_resolve_sampling_steps, _resolve_recycling_steps,
                              _detect_p300_devices, _find_ttnn_mesh_graph_descriptor)
     assert Path(T.__file__).resolve().is_relative_to(tree), \
         f"tt_bio came from {T.__file__}, not {tree}"
@@ -95,6 +95,7 @@ def main():
         sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "other512"))
         from fold_ab_multi import patch_boltz2_cfg
         sys.path[:] = snap
+        B.RECYCLING_STEPS = _resolve_recycling_steps(a.recycles, a.model)   # the injector reads it
         patch_boltz2_cfg(diffusion_trace=a.trace or a.ab_trace)
 
     # Reachability counters. Installed only for --census: they wrap a function the diffusion
