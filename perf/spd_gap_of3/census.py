@@ -30,6 +30,9 @@ def main():
     ap.add_argument("--deep", action="store_true",
                     help="also device-synchronised brackets on every trunk / diffusion sub-module; run it with "
                          "OF3_DIFFUSION_TRACE=0 (a sync cannot sit inside a trace capture)")
+    ap.add_argument("--sites", action="store_true",
+                    help="bin every device upload and every read by its tt_bio call site: count, MB, the wait for "
+                         "the device queue before it (synchronised) and the call itself")
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
     tree = a.tree.resolve()
@@ -99,6 +102,37 @@ def main():
         # No device = a host-side tilize: the rollout's per-step n_emb and rl staging.
         wrap(ttnn, "from_torch", "from_torch(host)", False, when=lambda x, k: k.get("device") is None)
         wrap(ttnn, "copy_host_to_device_tensor", "h2d_copy", False)
+    if a.sites:
+        import traceback
+
+        def site():
+            for f in reversed(traceback.extract_stack(limit=12)[:-2]):
+                if "/tt_bio/" in f.filename:
+                    return f"{Path(f.filename).name}:{f.lineno}"
+            return "?"
+
+        def by_site(attr, kind, when):
+            fn = getattr(ttnn, attr)
+
+            def inner(*x, **k):
+                if not on["v"] or not when(x, k):
+                    return fn(*x, **k)
+                t0 = time.perf_counter()
+                sync()
+                t1 = time.perf_counter()
+                out = fn(*x, **k)
+                t2 = time.perf_counter()
+                t = x[0] if attr == "from_torch" else out
+                r = acc.setdefault(f"{kind} {site()}", [0.0, 0, 0.0, 0.0])
+                r[0] += t2 - t1
+                r[1] += 1
+                r[2] += t.numel() * t.element_size() / 1e6 if hasattr(t, "element_size") else 0.0
+                r[3] += t1 - t0
+                return out
+            setattr(ttnn, attr, inner)
+
+        by_site("from_torch", "up", lambda x, k: k.get("device") is not None)
+        by_site("to_torch", "read", lambda x, k: True)
     if a.deep:
         from tt_bio import openfold3_template as MTP, openfold3_msa_embedder as MME
         from tt_bio import openfold3_diffusion_transformer as MDT, openfold3_atom_transformer as MAT
@@ -138,7 +172,7 @@ def main():
         acc.clear()
         s, m = one_fold()
         row = {"fold_s": round(s, 3), "plddt": m.get("plddt", m.get("complex_plddt")),
-               "digest": digest(), "sections": {k: [round(v[0], 3), v[1]] for k, v in acc.items()}}
+               "digest": digest(), "sections": {k: [round(e, 4) for e in v] for k, v in acc.items()}}
         pt = meta.get("phase_times")
         if pt:
             row["phases"] = pt[-1]
