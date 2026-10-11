@@ -6,6 +6,10 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 ## [Unreleased]
 
 ### Changed
+- **Protenix-v2 `--fast` is about 8 s faster on Wormhole** (189 s on the 730-token fold at 1000 MHz, from
+  197 s): the sharded Transition and the fused SwiGLU kernel are back in the fast set. They had been taken out
+  because fast folds at 1536 tokens collapsed; the cause was a program-cache collision between two ttnn slices,
+  which the Transition now avoids. Fast folds at 1536 tokens score like reference ones again.
 - **Guided OpenDDE folds run the diffusion module in fp32**, in normal and `--fast` mode, as upstream does.
   In bf16 constraint guidance compressed the movable antibody chains in 9 of 90 samples against upstream's
   1 of 90; fp32 gives 2 of 90. Guided folds take about 20 % longer; unguided folds are unchanged.
