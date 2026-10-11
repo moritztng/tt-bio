@@ -22,6 +22,10 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   against 43.9 s in normal mode and 44.5 s on the old path; no confidence metric drops by more than 0.01 over 8
   same-seed designs). RoseTTAFold3 `--fast` runs a graded lower-precision set (0.30 A median top-pose change over 40 paired
   folds) and takes 35.8 s instead of 46.8 s, against 37.6 s in normal mode.
+- **RoseTTAFold3 featurizes a 512-aa input in 6 s instead of 21 s**, with identical output. Reference conformers
+  are generated concurrently in a small helper process instead of one fork of the serving process per residue
+  type. The normal-mode fold takes 29.6 s instead of 45.8 s on a Blackhole p150a at 1350 MHz; `--fast` uses the
+  same featurizer.
 - **Triangle multiplication's gate sigmoid is a polynomial inside the fused kernels**, max error 3e-4. On
   Wormhole at 1000 MHz the 730-token Protenix-v2 fold spends 1.3 s less on the device in normal mode and 4.0 s
   less in `--fast`. Protenix-v2 passes the accuracy grade on Wormhole and Blackhole in both modes. Boltz-2
