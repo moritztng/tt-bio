@@ -613,7 +613,9 @@ def load_ttnn_esmfold2(esmfold2_repo: str = "biohub/ESMFold2",
     is full bf16/fp32 precision.
     """
     from tt_bio import tenstorrent
-    tenstorrent.set_fast_mode(fast)
+    # Normal precision does not fit a Wormhole chip's 12 GiB (the bf16 ESMC-6B alone is ~12.8 GB),
+    # so ESMFold2 is fast-only there, for every caller and not just the CLI that says so.
+    tenstorrent.set_fast_mode(fast or is_wormhole())
     from tt_bio._vendor.esmfold2_hf.modeling_esmfold2 import ESMFold2Model
 
     # Pinned commit, not `main` — see weights.HF_REVISIONS for why an unpinned repo

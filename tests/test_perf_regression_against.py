@@ -86,7 +86,21 @@ def test_a_measurement_carries_the_clock_and_a_clamped_one_cannot_seed(monkeypat
     try:
         m._update_baselines([slow], Namespace(note="x", allow_contended=False))
     except SystemExit as e:
-        assert "AICLK below 1200" in str(e)
+        assert "boltz2 peak 800 MHz" in str(e)
     else:
         raise AssertionError("a baseline was seeded from an 800 MHz measurement")
     assert not (tmp_path / "b.json").exists()
+
+
+def test_the_clock_floor_is_per_architecture(monkeypatch):
+    """A busy Wormhole Galaxy chip runs at 1000 MHz, under Blackhole's floor; only a peak under
+    Wormhole's own floor is clamped there."""
+    m = _module()
+    assert m.hardware_of("tt-galaxy-wh-l") == "wormhole_b0" and m.hardware_of("n300") == "wormhole_b0"
+    assert m.hardware_of("p150a") == "blackhole" and m.hardware_of("p300c") == "blackhole"
+    row = {"model": "boltzgen", "hardware": "wormhole_b0", "throughput": 0.01}
+    monkeypatch.setattr(m.subprocess, "Popen", _fake_child(row))
+    monkeypatch.setattr(m, "clock_during", lambda: _Clock(1000))
+    assert not m._run_measure("boltzgen").get("clock_low")
+    monkeypatch.setattr(m, "clock_during", lambda: _Clock(500))
+    assert m._run_measure("boltzgen")["clock_low"]

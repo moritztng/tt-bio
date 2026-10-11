@@ -674,9 +674,18 @@ def sample_host_load() -> dict:
 #: seeded cell misreads every future one.
 CONTENDED_RATIO = 1.0
 
-# Below this a Blackhole chip is clamped or latched (an in-place firmware upgrade once held
-# the arbiter at 800 MHz), and a timing taken there is an artifact of the clock.
-BH_MIN_AICLK = 1200
+# A chip whose clock never reached this during a measurement is clamped or latched (an
+# in-place firmware upgrade once held a Blackhole arbiter at 800 MHz), and a timing taken
+# there is an artifact of the clock. A busy Blackhole runs ~1350 MHz, a busy Wormhole Galaxy
+# chip 1000. The peak is compared, not the median: a single-shot harness spends most of its
+# wall loading the CLI with the chip idle (500 MHz on Wormhole), which says nothing.
+MIN_AICLK = {"blackhole": 1200, "wormhole_b0": 950}
+
+
+def hardware_of(card_type: str) -> str:
+    """Architecture of a detect_card_type() key: Wormhole boards are n150/n300 and the
+    tt-galaxy-wh-* Galaxy parts, everything else here is Blackhole (p150a, p300c, ...)."""
+    return "wormhole_b0" if "-wh-" in card_type or card_type.startswith("n") else "blackhole"
 
 
 def clock_during():
@@ -979,7 +988,7 @@ def _measure_gen(model: str, spec: dict, out_path: Path) -> dict:
         kind=spec["kind"],
         unit=spec["unit"],
         direction=spec["direction"],
-        hardware="blackhole",
+        hardware=hardware_of(card),
         card_type=card,
         throughput=round(throughput, 6),
         latency_ms=round(latency_ms, 2),
@@ -1081,7 +1090,7 @@ def _measure_design(model: str, spec: dict, out_path: Path) -> dict:
         kind=spec["kind"],
         unit=spec["unit"],
         direction=spec["direction"],
-        hardware="blackhole",
+        hardware=hardware_of(card),
         card_type=card,
         throughput=round(throughput, 6),
         latency_ms=round(latency_ms, 2),
@@ -1194,7 +1203,7 @@ def _measure_affinity(model: str, spec: dict, out_path: Path) -> dict:
         kind=spec["kind"],
         unit=spec["unit"],
         direction=spec["direction"],
-        hardware="blackhole",
+        hardware=hardware_of(card),
         card_type=card,
         throughput=round(throughput, 6),
         latency_ms=round(latency_ms, 2),
@@ -1507,13 +1516,13 @@ def _run_measure(model: str) -> dict | None:
     # The clock is sampled in this parent for the whole child, so it covers the timed
     # region; tt-smi reports the granted chip as index 0 under TT_VISIBLE_DEVICES.
     row["aiclk_mhz"] = clk.summary().get(0)
-    median = (row["aiclk_mhz"] or {}).get("median")
-    if row.get("hardware") == "blackhole" and median is not None and median < BH_MIN_AICLK:
+    top = (row["aiclk_mhz"] or {}).get("max")
+    floor = MIN_AICLK.get(row.get("hardware"))
+    if floor and top is not None and top < floor:
         row["clock_low"] = True
-        print(f"[{model}] WARNING: AICLK median {median} MHz during this measurement "
-              f"(< {BH_MIN_AICLK}). On Blackhole the clock sets the fold time, so this "
-              f"number describes the clock arbiter, not the tree. Do not seed a "
-              f"baseline from it.", file=sys.stderr)
+        print(f"[{model}] WARNING: AICLK peaked at {top} MHz during this measurement "
+              f"(< {floor}). The clock sets the fold time, so this number describes the "
+              f"clock arbiter, not the tree. Do not seed a baseline from it.", file=sys.stderr)
     peak = row["host_load"]["peak_ratio"]
     if peak is not None and peak > CONTENDED_RATIO:
         row["contended"] = True
@@ -1690,10 +1699,10 @@ def _update_baselines(rows: list[dict], args) -> int:
     models = m_entry.setdefault("models", {})
     any_ok = False
     measured: set[str] = set()
-    slow = [f"{r['model']} {r['aiclk_mhz']['median']} MHz" for r in rows
+    slow = [f"{r['model']} peak {r['aiclk_mhz']['max']} MHz" for r in rows
             if not r.get("failed") and r.get("clock_low")]
     if slow and not getattr(args, "allow_contended", False):
-        sys.exit(f"REFUSING to seed a baseline: AICLK below {BH_MIN_AICLK} MHz during "
+        sys.exit(f"REFUSING to seed a baseline: AICLK never reached its busy floor during "
                  f"{', '.join(slow)}. Reset the chip or wait for it to unclamp, or pass "
                  f"--allow-contended and say so in --note.")
     contended = [r["model"] for r in rows
