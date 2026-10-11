@@ -42,7 +42,7 @@ from tt_bio.rfd3 import design as rfd3_design                             # noqa
 from tt_bio.rfd3 import model as M                                        # noqa: E402
 from tt_bio.rfd3.sampler import RFD3Sampler                               # noqa: E402
 
-WEIGHTS = pathlib.Path.home() / ".boltz" / "rfd3" / "weights"
+WEIGHTS = pathlib.Path(os.environ.get("BOLTZ_CACHE", pathlib.Path.home() / ".boltz")) / "rfd3" / "weights"
 args = [a for a in sys.argv[1:] if not a.startswith("--")]
 opts = dict(a[2:].split("=", 1) for a in sys.argv[1:] if a.startswith("--") and "=" in a)
 ARM, OUT = args[0], pathlib.Path(args[1])
