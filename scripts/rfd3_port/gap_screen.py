@@ -1,0 +1,107 @@
+#!/usr/bin/env python3
+"""RFD3 fast-mode precision screen: one arm per process, page fixture, warm timing + CIFs kept.
+
+    gap_screen.py ARM OUTDIR [STEPS] [SEEDS] [--fixture=perf/dsfix/fixtures/rfd3_R4.json]
+
+ARM is a '+'-joined set of knobs applied before the denoiser is built:
+  exact     nothing (the shipped path)
+  hifi2     every RFD3 compute kernel config at MathFidelity.HiFi2 (default HiFi4)
+  lofi      ... at MathFidelity.LoFi
+  w8        every 2-D, tile-aligned weight that Module.torch_to_tt uploads as bf16 goes up as bfloat8_b
+
+SEEDS is a comma list (default 42). Per seed: one discarded warmup fold for the first seed only, then
+one timed fold; the CIF is copied to OUTDIR/<arm>_s<seed>.cif so accuracy is graded offline against
+the exact arm's CIF of the same seed (same-seed drift) and against other seeds (the seed floor).
+"""
+import hashlib
+import json
+import os
+import pathlib
+import shutil
+import sys
+import time
+
+sys.path.insert(0, os.getcwd())
+import ttnn                                                               # noqa: E402
+from tt_bio import tenstorrent as T                                       # noqa: E402
+from tt_bio.rfd3 import design as rfd3_design                             # noqa: E402
+from tt_bio.rfd3 import model as M                                        # noqa: E402
+from tt_bio.rfd3.sampler import RFD3Sampler                               # noqa: E402
+
+WEIGHTS = pathlib.Path.home() / ".boltz" / "rfd3" / "weights"
+args = [a for a in sys.argv[1:] if not a.startswith("--")]
+opts = dict(a[2:].split("=", 1) for a in sys.argv[1:] if a.startswith("--") and "=" in a)
+ARM, OUT = args[0], pathlib.Path(args[1])
+STEPS = int(args[2]) if len(args) > 2 else 200
+SEEDS = [int(s) for s in (args[3] if len(args) > 3 else "42").split(",")]
+FIXTURE = opts.get("fixture", "perf/dsfix/fixtures/rfd3_R4.json")
+knobs = set(ARM.split("+")) - {"exact"}
+assert knobs <= {"hifi2", "lofi", "w8"}, knobs
+
+fid = {"hifi2": ttnn.MathFidelity.HiFi2, "lofi": ttnn.MathFidelity.LoFi}
+pick = [fid[k] for k in ("hifi2", "lofi") if k in knobs]
+if pick:
+    _ckc = M._default_compute_kernel_config
+
+
+    def _ckc_fid():
+        c = _ckc()
+        return type(c)(math_fidelity=pick[0], math_approx_mode=c.math_approx_mode,
+                       fp32_dest_acc_en=c.fp32_dest_acc_en, packer_l1_acc=c.packer_l1_acc)
+    M._default_compute_kernel_config = _ckc_fid
+
+W8 = [0, 0]
+if "w8" in knobs:
+    _t2t = T.Module.torch_to_tt
+
+    def _t2t_w8(self, key, transform=lambda x: x.t(), dtype=None):
+        w = transform(self.weights[key])
+        if (dtype in (None, ttnn.bfloat16) and w.ndim == 2
+                and w.shape[0] % 32 == 0 and w.shape[1] % 32 == 0):
+            W8[0] += 1
+            return _t2t(self, key, transform, dtype=ttnn.bfloat8_b)
+        W8[1] += 1
+        return _t2t(self, key, transform, dtype=dtype)
+    T.Module.torch_to_tt = _t2t_w8
+
+WALL = []
+_sample = RFD3Sampler.sample
+
+
+def _timed(self, *a, **k):
+    t0 = time.perf_counter()
+    out = _sample(self, *a, **k)
+    WALL.append(time.perf_counter() - t0)
+    return out
+
+
+RFD3Sampler.sample = _timed
+
+
+def fold(tag, seed):
+    specs = json.loads(pathlib.Path(FIXTURE).read_text())
+    out_dir = "/tmp/gap_screen_%s_%s" % (ARM, tag)
+    shutil.rmtree(out_dir, ignore_errors=True)
+    WALL.clear()
+    rfd3_design.run_design(specs, out_dir, checkpoint_dir=str(WEIGHTS), from_pdb=True,
+                           num_timesteps=STEPS, seed=seed, num_designs=1, batch_size=1, verbose=False)
+    cifs = sorted(pathlib.Path(out_dir).glob("*.cif"))
+    dig = "|".join(hashlib.sha256(c.read_bytes()).hexdigest()[:16] for c in cifs) or "NO CIF"
+    return WALL[0], dig, cifs
+
+
+OUT.mkdir(parents=True, exist_ok=True)
+rec = {"arm": ARM, "steps": STEPS, "fixture": FIXTURE, "card": os.environ.get("TT_VISIBLE_DEVICES"),
+       "host": os.uname().nodename, "folds": []}
+s, d, _ = fold("warm", SEEDS[0])
+rec["warm_s"] = s
+print("[screen %s] warmup %.3f s %s  w8 %s" % (ARM, s, d, W8), flush=True)
+for seed in SEEDS:
+    s, d, cifs = fold("s%d" % seed, seed)
+    for c in cifs[:1]:
+        shutil.copy(c, OUT / ("%s_s%d.cif" % (ARM, seed)))
+    rec["folds"].append({"seed": seed, "sampler_s": s, "digest": d})
+    print("[screen %s] seed %d %.3f s %s" % (ARM, seed, s, d), flush=True)
+rec["w8_counts"] = W8
+(OUT / ("%s.json" % ARM)).write_text(json.dumps(rec, indent=1))
+print("wrote", OUT / ("%s.json" % ARM))
