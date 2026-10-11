@@ -31,6 +31,13 @@ P = np.array([[x if x is not None else -1 for x in json.loads(l)] for l in open(
 # rid, batch, cores, k, fw, t0, t1, t2, br, nc, start, end
 RID, BAT, CORES, K, FW, T0, T1, T2, BR, NC, ST, EN = range(12)
 P[:, RID] = np.floor(P[:, RID] / 1024)   # runtime id = device op id << 10
+# The device timestamp is 44 bits wide. A flush batch that straddles its wrap (r23 normal, batch 871) restarts its
+# starts near 0, and the program that crossed reads end 0 with every duration wrapped through 2**64. Unwrap both.
+T44 = 2.0 ** 44
+_, inv = np.unique(P[:, BAT], return_inverse=True)
+top = np.full(inv.max() + 1, -np.inf); np.maximum.at(top, inv, P[:, ST]); top = top[inv]
+for c in (ST, EN): P[:, c] += np.where(top - P[:, c] > T44 / 2, T44, 0.0)
+for c in (K, FW, T0, T1, T2, BR, NC): P[:, c] += np.where(P[:, c] > 2.0 ** 62, T44 - 2.0 ** 64, 0.0)
 # A start timestamp read with a stale high word sits 2**32 ticks early, and every duration that starts from it is
 # 2**32 ticks long (r13 normal: one swiglu fc3 read 4,295,192 us = 2**32 ns + 225 us, +4.3 s on the fold). Take the
 # wrap back out of the start and of those durations.
