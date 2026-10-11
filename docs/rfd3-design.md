@@ -164,8 +164,12 @@ Two more options: `--spec a,b` runs only those spec ids from the inputs file, an
 residual stream of the DiT, encoder and token encoder in fp32 instead of bf16 (off by default).
 
 `--fast` runs the atom attention as one fused attention kernel instead of materialising the full score
-matrix. It runs the same diffusion steps and recycles; only the kernels change, so a design moves
-slightly against the default run at the same seed.
+matrix. It runs the same diffusion steps and recycles; only the kernels change. A 685-residue design
+takes about 15 % less time. At the same seed the design lands somewhere else (the diffusion is chaotic,
+so any rounding change does that; changing the seed moves it twice as far), and design quality is
+unchanged: over four seeds the CA-CA geometry, chain breaks and amino-acid diversity match the default
+run and there are fewer clashes. The fused kernel is also closer to a float64 reference than the
+default one.
 
 ## Checkpoint
 
