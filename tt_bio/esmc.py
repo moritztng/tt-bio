@@ -385,6 +385,14 @@ L1_FC1_STATS = [0, 0]
 # refusal instead of falling back the way `_pair_proj_linear` does. Keyed on `padded_shape`, so a
 # size that declines costs one exception per fold, not one per block.
 PAIR_FFN_L1_LN = True
+# The gate silu(h1) * h2 as ttnn.multiply with an input activation runs binary_ng's per-tile preprocess: copy h1
+# into dest, silu, pack to a scratch CB, re-init the binary op, unpack both, multiply, pack, one tile at a time.
+# On the 512 aa row block that is ~0.28 ms for 16k tiles, ~40 % of the FFN (ffn-split, qb2 p300c). With the silu in
+# fc1a's matmul epilogue (on the fp32 accumulator, before the bf16 pack) the gate is a plain FPU multiply:
+# gate_bench at a 16-row block, 0.144 ms for the activated multiply vs 0.058 ms plain. One switch for every
+# split-fc1 SwiGLU: the pair transition (row-blocked) and the ESMC LM blocks, which are ESMFold2's LM backbone.
+_SWIGLU_SILU_FC1 = os.environ.get("TT_BIO_SWIGLU_SILU_FC1", "0") == "1"
+
 _PAIR_FFN_L1_LN = os.environ.get(
     "TT_BIO_PAIR_FFN_L1_LN", "1" if PAIR_FFN_L1_LN else "0") == "1"
 
@@ -673,15 +681,18 @@ class SwiGLUFFN(Module):
                       if (_SPLIT_SWIGLU_SMALL_GRID
                           and getattr(_T, "_IS_SMALL_GRID", False))
                       else _dtype())
-                h1 = _pair_proj_linear(x_norm, self.fc1_a_weight, ck, dt, **l1)
+                h1 = _pair_proj_linear(x_norm, self.fc1_a_weight, ck, dt, silu=_SWIGLU_SILU_FC1, **l1)
                 h2 = _pair_proj_linear(x_norm, self.fc1_b_weight, ck, dt, **l1)
+                silu_done = _SWIGLU_SILU_FC1
             else:
                 L1_FC1_STATS[1] += 2 * bool(l1_gated)
-                h1 = self._lin(x_norm, self.fc1_a_weight)
+                h1 = self._lin(x_norm, self.fc1_a_weight,
+                               activation="silu" if _SWIGLU_SILU_FC1 else None)
                 h2 = self._lin(x_norm, self.fc1_b_weight)
+                silu_done = _SWIGLU_SILU_FC1
             ttnn.deallocate(x_norm)
             gated = ttnn.multiply(
-                h1, h2, input_tensor_a_activations=[ttnn.UnaryOpType.SILU],
+                h1, h2, input_tensor_a_activations=[] if silu_done else [ttnn.UnaryOpType.SILU],
                 **({"memory_config": ttnn.L1_MEMORY_CONFIG} if l1_gated else {}),
             )
             ttnn.deallocate(h1)

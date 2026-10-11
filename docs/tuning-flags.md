@@ -692,9 +692,11 @@ the fold fell back to the stock ops.
 
 **ESMFold2 and ESMFold2-Fast** with `--fast` keep only the ESMC-6B language model's weights in block-fp8,
 which halves its resident memory (12.8 to 6.4 GB) and is what lets it stay loaded on a 12 GB Wormhole
-chip. The fold runs under the normal lever set (`tenstorrent.NORMAL_LEVERS`), which ESMFold2's normal mode does
-not ship: on ESMFold2-Fast it moves TM-score by -0.005 with a 95 % CI that excludes zero, a normal-bar fail, while
-against the fast bar it passes (11 complexes x 4 seeds, 44 paired folds against `none`: CA-lDDT +0.0009
+chip. The fold runs under the normal lever set (`tenstorrent.NORMAL_LEVERS`). Normal mode ships that set without
+`trunk_hifi3`, so the trunk matmuls stay HiFi4: against `none` on ESMFold2-Fast (44 paired folds) it moves CA-lDDT
+by -0.0006 [-0.0022, +0.0006] and TM-score by +0.0007, docking success 24/44 on both, median same-seed top-pose
+deviation 0.93 A where a different seed moves it 1.40 A, and the 11 folds take 9 % less time. The full set fails
+the normal bar on ESMFold2-Fast (TM-score -0.005, 95 % CI excludes zero), while against the fast bar it passes (11 complexes x 4 seeds, 44 paired folds against `none`: CA-lDDT +0.0009
 [-0.0019, +0.0044], pLDDT +0.0007, docking success 25/44 against 24/44, median same-seed top-pose deviation
 0.61 A where a different seed moves it 1.40 A). On a p300c chip at 1350 MHz it takes 2.6 s off ESMFold2's
 512 aa fold and 1.1 s off ESMFold2-Fast's. The older path also ran the
