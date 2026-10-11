@@ -35,6 +35,7 @@ def main() -> int:
     ap.add_argument("--fast", action="store_true")
     ap.add_argument("--repeat", type=int, default=7)
     ap.add_argument("--rounds", type=int, default=2)
+    ap.add_argument("--on-value", type=int, default=None, help="value the on arm sets (default True), for an int switch")
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
     torch.set_grad_enabled(False)
@@ -60,7 +61,7 @@ def main() -> int:
     base = None
     for r in range(a.rounds):
         for on in (False, True):
-            setattr(alt_mod, attr, on)
+            setattr(alt_mod, attr, (a.on_value if a.on_value is not None else True) if on else type(getattr(alt_mod, attr))(0))
             for _ in range(2):
                 embed7()
             ts = []
