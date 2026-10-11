@@ -81,7 +81,8 @@ def main():
                 r = acc.setdefault(name, [0.0, 0])
                 r[0] += time.perf_counter() - t0
                 r[1] += 1
-        setattr(owner, attr, inner)
+        setattr(owner, attr, staticmethod(inner) if isinstance(owner.__dict__.get(attr), staticmethod)
+                else inner)
 
     if not a.plain:
         wrap(MF.OpenFold3, "fold", "model.fold", True)
@@ -92,6 +93,10 @@ def main():
         wrap(MD.OF3DiffusionModule, "__call__", "dm_issue", False)
         wrap(MC.OF3DiffusionConditioning, "single", "cond_single_issue", False)
         wrap(ttnn, "to_torch", "to_torch(all)", False)
+        # The rollout's per-step host work between a read and the next replay, while the device idles.
+        wrap(MS.OF3SampleDiffusion, "_augment", "augment", False)
+        wrap(ttnn, "from_torch", "from_torch(all)", False)
+        wrap(ttnn, "copy_host_to_device_tensor", "h2d_copy", False)
     if a.deep:
         from tt_bio import openfold3_template as MTP, openfold3_msa_embedder as MME
         from tt_bio import openfold3_diffusion_transformer as MDT, openfold3_atom_transformer as MAT
