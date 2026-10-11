@@ -668,7 +668,7 @@ class SwiGLUFFN(Module):
                 silu_done = False
             ttnn.deallocate(x_norm)
             gated = ttnn.multiply(
-                h1, h2, input_tensor_a_activations=None if silu_done else [ttnn.UnaryOpType.SILU],
+                h1, h2, input_tensor_a_activations=[] if silu_done else [ttnn.UnaryOpType.SILU],
                 **({"memory_config": ttnn.L1_MEMORY_CONFIG} if l1_gated else {}),
             )
             ttnn.deallocate(h1)
