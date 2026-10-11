@@ -663,10 +663,13 @@ class Host:
             ref, a = shlex.quote(self.cfg["perf_against"]), self.against
             cmd += (f"; [ -d {a} ] || {{ git -C {r}/repo fetch -q --tags origin; "
                     f"git -C {r}/repo worktree add -q --detach {a} {ref}; }}")
-        p = self.ssh(cmd, capture_output=True, timeout=1800)
+        # One prep at a time per host: two runners preparing at once (a record run beside its
+        # gate, 10-11 on g114) raced `git fetch` on the shared clone's ref locks and one died.
+        lock = f"flock {r}/prep.lock"
+        p = self.ssh(f"mkdir -p {r} && {lock} bash -c {shlex.quote(cmd)}", capture_output=True, timeout=1800)
         if not p.returncode:
             # The runner's own copy of the recipe: the commit under test may predate it.
-            p = self.ssh(f"cd {t} && env {envs} bash -s -- {r} {self.sha}", capture_output=True,
+            p = self.ssh(f"cd {t} && {lock} env {envs} bash -s -- {r} {self.sha}", capture_output=True,
                          timeout=3600, input=(REPO / "scripts" / "gate_host_prep.sh").read_text())
         if p.returncode:
             raise SystemExit(f"{self.name}: cannot prepare {t} at {self.sha}: "
