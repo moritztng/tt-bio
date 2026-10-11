@@ -221,7 +221,9 @@ read the committed file, so this costs no rerun. Move `perf_against` to the new 
 The clock sets the fold time on this part. `fold_s = 2.901 + 15355 / AICLK_MHz` on the 512 aa cell,
 so the same tree reads 21.90 s at 800 MHz and 17.34 s at ~1063. An idle card reports 800 because the
 governor has not ramped; sample the clock DURING a fold, not before, and record it beside any number
-you publish.
+you publish. `perf_regression.py` samples it during every measurement and refuses to seed a baseline
+from a chip whose clock never reached its busy floor: 1200 MHz on Blackhole, 950 on a Wormhole Galaxy
+chip (which runs at 1000).
 
 ### The gate interpreter on the WH Galaxy
 
