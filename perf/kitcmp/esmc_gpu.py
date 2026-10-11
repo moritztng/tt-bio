@@ -25,8 +25,7 @@ for rep in range(a.warm + 1):
     with torch.inference_mode(), torch.autocast("cuda", dtype=torch.bfloat16):
         out = client.model(input_ids=batch["input_ids"], attention_mask=batch["attention_mask"], output_hidden_states=True)
     torch.cuda.synchronize(); times.append(time.perf_counter() - t)
-    emb = next(x for x in (getattr(out, "embeddings", None), getattr(out, "last_hidden_state", None),
-                            (getattr(out, "hidden_states", None) or [None])[-1]) if x is not None)
+    emb = out.embeddings  # ESMCOutput; hidden_states is one stacked tensor, not a list
     digest = hashlib.sha256(emb.float().mean(1).cpu().numpy().tobytes()).hexdigest()[:16]
 warm = sorted(times[1:])
 rec = dict(variant=a.variant, mode=os.environ.get("ESMC_OPT") or "off", batch=a.batch, tokens=int(batch["input_ids"].shape[1]),
