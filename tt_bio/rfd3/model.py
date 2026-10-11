@@ -350,6 +350,9 @@ _HIFI2 = env_flag("RFD3_HIFI2", False)
 # mask-size cap is the atom SDPA's.
 _DIT_SDPA = env_flag("RFD3_DIT_SDPA", False)
 DIT_SDPA_CALLS = [0]
+# The DiT builds all 18 blocks' masks in one pass while the stack fits under this many bytes
+# (bf16, 18 x 16 heads x n_key^2: 1317 tokens); above it each block builds its own.
+_DIT_SDPA_STACK_BYTES = int(float(os.environ.get("RFD3_DIT_SDPA_STACK_BYTES", "1e9")))
 _DIT_SDPA_CHUNKS = tuple(int(x) for x in os.environ.get("RFD3_DIT_SDPA_CHUNKS", "64,352").split(","))
 
 
@@ -2073,6 +2076,16 @@ def _gated(x, gate):
     return ttnn.multiply(x, ttnn.sigmoid(gate))
 
 
+def _sdpa_dense_mask(pair_bias, additive_mask, head_dim, n_key):
+    """The dense SDPA mask from head-major pair bias [.., H, L, L]: the kernel adds the mask before
+    it scales, so only the bias is pre-scaled; the -1e4 neighbour mask and the pad rows/columns
+    stay where their weight is 0."""
+    pb = ttnn.multiply(pair_bias, head_dim**0.5)
+    mask = pad_axis(pad_axis(ttnn.add(pb, additive_mask), n_key, 3, -1e4), n_key, 2, -1e4)
+    ttnn.deallocate(pb)
+    return mask
+
+
 class RFD3AtomBlock(Module):
     """One dense-mask RFD3 structure-local transformer block.
 
@@ -2217,7 +2230,7 @@ class RFD3AtomBlock(Module):
         return bias_f
 
     def __call__(self, q, c, p, additive_mask=None, sparse_qk=None, bias_cache=None,
-                 pair_bias=None):
+                 pair_bias=None, sdpa_mask=None):
         ckc, dt = self.compute_kernel_config, self.dtype
         f32 = self.fp32_residual
         if f32 and q.dtype != ttnn.float32:
@@ -2291,20 +2304,20 @@ class RFD3AtomBlock(Module):
         gathered = None
         if bs_out is None and sparse_qk is None:
             # `pair_bias` arrives precomputed when the caller hoisted all of its blocks'
-            # projections into one matmul; see _PAIRBIAS_FUSED.
-            if pair_bias is None:
-                pair_bias = _tuned_linear(
-                    p, self.b_w, ckc=ckc, dtype=dt, core_grid=CORE_GRID_MAIN,
-                )
-            pair_bias = ttnn.permute(pair_bias, (0, 3, 1, 2))
-            if (_DIT_SDPA and dt == ttnn.bfloat16
+            # projections into one matmul; see _PAIRBIAS_FUSED. `sdpa_mask` arrives when the
+            # caller also built every block's SDPA mask at once (_dit_sdpa_masks).
+            if sdpa_mask is None:
+                if pair_bias is None:
+                    pair_bias = _tuned_linear(
+                        p, self.b_w, ckc=ckc, dtype=dt, core_grid=CORE_GRID_MAIN,
+                    )
+                pair_bias = ttnn.permute(pair_bias, (0, 3, 1, 2))
+            if sdpa_mask is not None or (_DIT_SDPA and dt == ttnn.bfloat16
                     and 2 * self.n_head * n_key * n_key <= _ATOM_SDPA_MAX_MASK_BYTES):
-                # The kernel adds the mask before it scales, so only the bias is pre-scaled; the
-                # -1e4 neighbour mask and the pad rows/columns stay where their weight is 0.
-                pb = ttnn.multiply(pair_bias, self.head_dim**0.5)
-                ttnn.deallocate(pair_bias)
-                mask = pad_axis(pad_axis(ttnn.add(pb, additive_mask), n_key, 3, -1e4), n_key, 2, -1e4)
-                ttnn.deallocate(pb)
+                mask = sdpa_mask
+                if mask is None:
+                    mask = _sdpa_dense_mask(pair_bias, additive_mask, self.head_dim, n_key)
+                    ttnn.deallocate(pair_bias)
                 # SDPA refuses a head_dim that is not a tile multiple (the DiT's is 48), so the
                 # heads get zero columns out to the next tile: they add 0 to every q.k and come
                 # back as zero columns of the output, sliced off below. The scale stays 48^-0.5.
@@ -3022,6 +3035,7 @@ class LocalTokenTransformer(Module):
         # weights rather than through torch_to_tt, which advances the shared tiled-weight cache
         # counter and would shift every later weight's cache key.
         self.b_w_fused = None
+        self._b_w_packed = None         # [c_pair, N_HEAD * n_block], built on first _dit_sdpa_masks
         if _PAIRBIAS_FUSED:
             cols = torch.zeros(self.C_PAIR, _PAIRBIAS_SLOT * n_block)
             for i in range(n_block):
@@ -3030,7 +3044,35 @@ class LocalTokenTransformer(Module):
             self.b_w_fused = ttnn.from_torch(cols, layout=ttnn.TILE_LAYOUT, device=self.device,
                                              dtype=self.dtype)
 
+    def _dit_sdpa_masks(self, z, additive_mask, n_key):
+        """Every block's SDPA mask from one projection: [1, n_block * N_HEAD, n_key, n_key], block i
+        in heads [N_HEAD * i, N_HEAD * (i + 1)). The same elementwise ops as the per-block path,
+        run once over the stack, so the DiT pays one permute, scale, add and pad pair per call
+        instead of 18 (each block's permute alone was 0.39 ms)."""
+        if self._b_w_packed is None:
+            cols = torch.cat([self.weights[f"blocks.{i}.attention_pair_bias.to_b.weight"].t().float()
+                              for i in range(len(self.blocks))], dim=1)
+            self._b_w_packed = ttnn.from_torch(cols, layout=ttnn.TILE_LAYOUT, device=self.device,
+                                               dtype=self.dtype)
+        pb = _tuned_linear(z, self._b_w_packed, ckc=self.compute_kernel_config, dtype=self.dtype,
+                           core_grid=CORE_GRID_MAIN)
+        pb_t = ttnn.permute(pb, (0, 3, 1, 2))
+        ttnn.deallocate(pb)
+        masks = _sdpa_dense_mask(pb_t, additive_mask, self.blocks[0].head_dim, n_key)
+        ttnn.deallocate(pb_t)
+        return masks
+
     def run_device(self, a, s, z, additive_mask):
+        n_key = align_tile(int(a.shape[1]))
+        if (_DIT_SDPA and self.dtype == ttnn.bfloat16
+                and 2 * self.N_HEAD * len(self.blocks) * n_key * n_key <= _DIT_SDPA_STACK_BYTES):
+            masks = self._dit_sdpa_masks(z, additive_mask, n_key)
+            H = self.N_HEAD
+            for i, block in enumerate(self.blocks):
+                m = ttnn.slice(masks, [0, H * i, 0, 0], [1, H * (i + 1), n_key, n_key])
+                a = block(a, s, z, additive_mask, sdpa_mask=m)
+            ttnn.deallocate(masks)
+            return a
         fused, end = None, None
         if self.b_w_fused is not None:
             fused = _tuned_linear(z, self.b_w_fused, ckc=self.compute_kernel_config,
