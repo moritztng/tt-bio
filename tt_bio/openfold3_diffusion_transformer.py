@@ -66,6 +66,7 @@ import torch
 import ttnn
 
 from . import ops
+from .envflags import env_flag
 from . import tenstorrent as _T
 from .tenstorrent import AdaLN, CORE_GRID_MAIN, Module, _cached, _dtype, batched_matmul, host_f64_softmax_site, pair_row_blocks, row_block_after_refusal, site_softmax, softmax_ckc
 from .openfold3_atom_transformer import remap_of3_adaln
@@ -83,7 +84,7 @@ N_BLOCKS = 24
 # OF3_DIT_QKV_DIRECT=1 (measurement switch, off): under dit_sdpa32 the attention reads q, k and v
 # out of the fused projection and writes the concatenated heads itself, so nlp_create_qkv_heads and
 # nlp_concat_heads (63 us a block on Blackhole, 0.3 s a 512-token fold) do not run.
-QKV_DIRECT = os.environ.get("OF3_DIT_QKV_DIRECT", "0") == "1"
+QKV_DIRECT = env_flag("OF3_DIT_QKV_DIRECT", False)
 
 # Pair shapes whose single-pass pair-bias projection DRAM refused, and the block they settled at.
 _PAIR_BIAS_ROWS_REFUSED: dict = {}
