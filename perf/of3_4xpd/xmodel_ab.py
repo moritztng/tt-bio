@@ -53,6 +53,8 @@ def main():
     # Per-fold host / device / transfer split from tt_baseline's whole-function brackets (no device
     # sync added), recorded per fold beside the wall it splits. The cold fold's row is first.
     ap.add_argument("--instrument", action="store_true")
+    # Replay the captured diffusion-step trace (the CLI's --trace; protenix-v2 / opendde).
+    ap.add_argument("--trace", action="store_true")
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
 
@@ -116,12 +118,12 @@ def main():
     msa_dir = tree / f".msa_xmodel_{a.model}_{a.size}"
     _bf = {} if a.samples is None else {"samples": a.samples}
     one_fold, meta = B.build_fold(a.model, msa_dir, tgt, a3m, fast=a.fast,
-                                   instrument=a.instrument, **_bf)[:2]
+                                   instrument=a.instrument, trace=a.trace, **_bf)[:2]
     struct_dir = Path(meta["struct_dir"])
 
     import importlib.metadata as im
     res = {"label": a.label, "model": a.model, "tree": str(tree), "size": a.size,
-           "census": a.census, "fast": a.fast, "ttnn": im.version("ttnn"),
+           "census": a.census, "fast": a.fast, "trace": a.trace, "ttnn": im.version("ttnn"),
            "host": os.uname().nodename,
            "card": os.environ.get("TT_VISIBLE_DEVICES"),
            "grid": [int(T.COMPUTE_GRID_MAIN[0]), int(T.COMPUTE_GRID_MAIN[1])],
