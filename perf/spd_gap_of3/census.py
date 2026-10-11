@@ -64,11 +64,11 @@ def main():
         if d is not None:
             ttnn.synchronize_device(d)
 
-    def wrap(owner, attr, name, synced):
+    def wrap(owner, attr, name, synced, when=None):
         fn = getattr(owner, attr)
 
         def inner(*x, **k):
-            if not on["v"]:
+            if not on["v"] or (when and not when(x, k)):
                 return fn(*x, **k)
             if synced:
                 sync()
@@ -96,6 +96,8 @@ def main():
         # The rollout's per-step host work between a read and the next replay, while the device idles.
         wrap(MS.OF3SampleDiffusion, "_augment", "augment", False)
         wrap(ttnn, "from_torch", "from_torch(all)", False)
+        # No device = a host-side tilize: the rollout's per-step n_emb and rl staging.
+        wrap(ttnn, "from_torch", "from_torch(host)", False, when=lambda x, k: k.get("device") is None)
         wrap(ttnn, "copy_host_to_device_tensor", "h2d_copy", False)
     if a.deep:
         from tt_bio import openfold3_template as MTP, openfold3_msa_embedder as MME
