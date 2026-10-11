@@ -300,7 +300,11 @@ SINGLE_SHOT_DRAM_NUM, SINGLE_SHOT_DRAM_DEN = 3, 32
 # 2 I J (C D) c_z to 2 I J D c_z, i.e. by C, and the intermediate (537 MB at 512 tokens,
 # C = D = 32) never exists. It costs one pass per MSA row, so it wins below depth ~C and
 # loses above it: the deep-MSA models keep the materialised form, which is what it is for.
-_OPM_SMALL_DEPTH = env_flag("TT_BIO_OPM_SMALL_DEPTH", False)
+# Against fp64 on the same bf16 operands it reads 6.898e-3 where the materialised form reads
+# 6.776e-3 (25653b9dc). On by default since AF2-IG measured it: per complex 5.63 -> 4.54 s on
+# p150a (1350 MHz) and 16.16 -> 9.73 s on a Wormhole Galaxy chip (1000 MHz), all-atom RMSD to
+# the materialised fold 0.02-0.25 A, ipTM within 0.0005 (state/spd-gap-bind.md, 2026-10-11).
+_OPM_SMALL_DEPTH = env_flag("TT_BIO_OPM_SMALL_DEPTH", True)
 OPM_SMALL_DEPTH_MAX = int(os.environ.get("TT_BIO_OPM_SMALL_DEPTH_MAX", "8"))
 #: [served, declined], so a census can tell a dark gate from a correctly declining one.
 OPM_SMALL_DEPTH_STATS = [0, 0]
