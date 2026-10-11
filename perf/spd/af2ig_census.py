@@ -68,8 +68,10 @@ if a.trace:  # say where a hang sits: capture, first replay or a later one
     _replay = model._replay
 
     def _logged(name, run, *inputs):
-        first = (name, *(tuple(t.shape) for t in inputs)) not in model._traces
-        print(f"trace {name} {'capture' if first else 'replay'} t={time.time():.1f}", flush=True)
+        key = (name, *(tuple(t.shape) for t in inputs))
+        state = ("eager" if key not in model._traces else
+                 "capture" if model._traces[key] is None else "replay")
+        print(f"trace {name} {state} t={time.time():.1f}", flush=True)
         out = _replay(name, run, *inputs)
         ttnn.synchronize_device(model._device)
         print(f"trace {name} done t={time.time():.1f}", flush=True)
