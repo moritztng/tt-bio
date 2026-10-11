@@ -169,7 +169,8 @@ takes about 15 % less time. At the same seed the design lands somewhere else (th
 so any rounding change does that; changing the seed moves it twice as far), and design quality is
 unchanged: over four seeds the CA-CA geometry, chain breaks and amino-acid diversity match the default
 run and there are fewer clashes. The fused kernel is also closer to a float64 reference than the
-default one.
+default one. Above about 8,600 atoms `--fast` keeps the default atom attention, because the fused
+kernel's cached mask would then take more than 600 MB per atom block.
 
 ## Checkpoint
 

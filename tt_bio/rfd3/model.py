@@ -316,6 +316,11 @@ _GATHERED_SOFTMAX = env_flag("RFD3_GATHERED_SOFTMAX", False)
 # so this is graded on accuracy, not digest. Off by default while it is graded.
 _ATOM_SDPA = env_flag("RFD3_ATOM_SDPA", False)
 ATOM_SDPA_CALLS = [0]
+# The SDPA mask is cached per atom block for the step, so three to six [1, H, N, N] bf16 masks live
+# at once. Above this size per mask the shipped chain runs instead: 6080 atoms (the 685-token page
+# fixture) is 296 MB, while the 12085-atom top of the size ladder would hold ~1.2 GB per block on a
+# 12 GB Wormhole chip, a size whose memory headroom has not been measured with the cache.
+_ATOM_SDPA_MAX_MASK_BYTES = int(float(os.environ.get("RFD3_ATOM_SDPA_MAX_MASK_BYTES", "6e8")))
 # The pair Transitions' hidden activations (fc1 and fc2 outputs, the gated product) in bfp8:
 # 1088 instead of 2048 bytes a tile on the region that is ~65 % of the token encoder and is bound
 # by per-tile pack/unpack. The input norm and the output stay bf16. Off by default while graded.
@@ -2211,7 +2216,8 @@ class RFD3AtomBlock(Module):
             bs_out = _BS.attention(qq, kk, vv, pb, pos_rm, gather_dev, nb, q_block, u_width,
                                    self.head_dim**-0.5, dt, ckc)
         if (bs_out is None and _ATOM_SDPA and sparse_qk is not None and sparse_qk[2] is None
-                and rfd3_bias.fused_enabled() and dt == ttnn.bfloat16):
+                and rfd3_bias.fused_enabled() and dt == ttnn.bfloat16
+                and 2 * self.n_head * n_key * n_key <= _ATOM_SDPA_MAX_MASK_BYTES):
             mask = self._sdpa_bias(p, sparse_qk[1], bias_cache)
             o = fused_sdpa(pad_axis(qq, n_key, 2, 0.0), kk, vv, attn_mask=mask,
                            scale=self.head_dim**-0.5,
