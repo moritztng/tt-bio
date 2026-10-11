@@ -58,6 +58,7 @@ from .tenstorrent import (
     Weights,
     _fp32_softmax_attention,
     _pair_bias_from_z,
+    _residual_update_memory_config,
     host_f64_softmax_site,
     batched_matmul,
     get_device,
@@ -109,6 +110,10 @@ PAIR_BIAS_ROWBLOCK_BYTES = 128 * 2 ** 20
 # Evoformer backward while it still holds 12.49 of 12.885 GB (`state/spd-bc2.md`, the 480 rung of
 # the Wormhole size ladder). Tokens 352-512 block now; 224 and below are unchanged either way.
 TRANSITION_ROWBLOCK_BYTES = int(os.environ.get("TT_BIO_TRANSITION_ROWBLOCK_BYTES", 128 * 2 ** 20))
+# The transition's normed input and its 4x-wide hidden in L1 when the grid has room, so fc1 and fc2
+# read them on chip instead of a DRAM round trip. Same arithmetic, so bit-exact; never under a tape
+# (`_l1_fits` declines there), so a BindCraft 2 round is unchanged.
+TRANSITION_L1 = os.environ.get("TT_BIO_AF2_TRANSITION_L1", "0") == "1"
 
 
 #: The op classes `scripts/af2_port/tap_gate.py --substitute` moves to host torch, one class per
@@ -234,17 +239,39 @@ class ReluTransition(Module):
         self.fc2_bias = self.torch_to_tt("fc2.bias")
 
     def _rows(self, x: ttnn.Tensor) -> ttnn.Tensor:
+        if TRANSITION_L1:
+            from .size_limits import is_alloc_refusal
+            try:
+                return self._rows_at(x, True)
+            except RuntimeError as exc:
+                # A refusal, or circular buffers that clash with what L1 already holds: both
+                # throw before anything runs, so the DRAM form below recomputes cleanly.
+                if not (is_alloc_refusal(exc) or "clash" in str(exc)):
+                    raise
+        return self._rows_at(x, False)
+
+    def _rows_at(self, x: ttnn.Tensor, l1: bool) -> ttnn.Tensor:
+        shape = [int(d) for d in x.shape]
+        hidden = shape[:-1] + [int(self.fc1_weight.shape[-1])]
+        xn_mc = _residual_update_memory_config(shape, x.dtype) if l1 else None
+        h_mc = (_residual_update_memory_config(hidden, ttnn.bfloat16) if l1 else None) \
+            or ttnn.DRAM_MEMORY_CONFIG
         xn = ttnn.layer_norm(
             x, weight=self.norm_weight, bias=self.norm_bias, epsilon=1e-5,
-            compute_kernel_config=self.compute_kernel_config,
+            compute_kernel_config=self.compute_kernel_config, memory_config=xn_mc,
         )
-        h = self._lin(xn, self.fc1_weight, bias=self.fc1_bias, activation="relu",
-                      memory_config=ttnn.DRAM_MEMORY_CONFIG)
+        try:
+            h = self._lin(xn, self.fc1_weight, bias=self.fc1_bias, activation="relu",
+                          memory_config=h_mc)
+        except RuntimeError:
+            ttnn.deallocate(xn)
+            raise
         ttnn.deallocate(xn)
-        out = self._lin(h, self.fc2_weight, bias=self.fc2_bias,
-                        memory_config=ttnn.DRAM_MEMORY_CONFIG)
-        ttnn.deallocate(h)
-        return out
+        try:
+            return self._lin(h, self.fc2_weight, bias=self.fc2_bias,
+                             memory_config=ttnn.DRAM_MEMORY_CONFIG)
+        finally:
+            ttnn.deallocate(h)
 
     def __call__(self, x: ttnn.Tensor) -> ttnn.Tensor:
         shape = [int(d) for d in x.shape]
