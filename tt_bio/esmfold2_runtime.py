@@ -941,8 +941,11 @@ WH_LM_RESIDENT_MAX_TOKENS = 1088
 # The shared-kernel levers (tenstorrent.LEVERS) ESMFold2 folds under, per mode. Empty until a set is graded on
 # ESMFold2 itself: the sets Protenix and Boltz-2 ship were graded on their folds, not on this one. A harness
 # grades a candidate through TT_BIO_LEVERS.
+# FAST: tenstorrent.NORMAL_LEVERS, graded on ESMFold2-Fast against the fast bar (11 complexes x 4 seeds, 44 paired
+# folds vs none): CA-lDDT +0.0009 [-0.0019, +0.0044], pLDDT +0.0007, PASS; 2.6 s off ESMFold2 and 1.1 s off
+# ESMFold2-Fast at 512 aa (p300c, 1350 MHz). The same set fails the normal bar (TM -0.0051, CI excludes 0).
 LEVERS_NORMAL = "none"
-LEVERS_FAST = "none"
+LEVERS_FAST = "normal"
 
 
 def fold_levers(fast: bool) -> str:
