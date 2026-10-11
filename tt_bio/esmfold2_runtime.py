@@ -723,7 +723,9 @@ def load_ttnn_esmfold2(esmfold2_repo: str = "biohub/ESMFold2",
     rev = hf_revision(esmfold2_repo)
     kwargs = {"revision": rev} if rev else {}
     model = ESMFold2Model.from_pretrained(esmfold2_repo, load_esmc=False, **kwargs).eval()
-    with tenstorrent.lever_scope(()):
+    # Built under the set it folds under: some levers are read when a module is built (kernel configs,
+    # weight formats), the rest when it runs.
+    with tenstorrent.lever_scope(fold_levers(fast)):
         return patch_esmfold2(model, esmc_repo=esmc_repo, persistent_lm=persistent_lm, fast=fast)
 
 
@@ -943,6 +945,12 @@ LEVERS_NORMAL = "none"
 LEVERS_FAST = "none"
 
 
+def fold_levers(fast: bool) -> str:
+    """The lever set ESMFold2 builds and folds under: TT_BIO_LEVERS when a harness grades a set through the
+    serving path (no user sets it), else the mode's."""
+    return os.environ.get("TT_BIO_LEVERS") or (LEVERS_FAST if fast else LEVERS_NORMAL)
+
+
 def fold_complex(model, chains, *, num_loops=3, num_sampling_steps=20,
                  num_diffusion_samples=1, seed=0, return_all=False, bonds=None):
     """Fold one (possibly multi-chain) complex on an already-patched model.
@@ -992,9 +1000,7 @@ def fold_complex(model, chains, *, num_loops=3, num_sampling_steps=20,
         esmc._persistent = False
     from tt_bio import tenstorrent
     try:
-        spec = os.environ.get("TT_BIO_LEVERS") or (
-            LEVERS_FAST if getattr(model, "_tt_fast", False) else LEVERS_NORMAL)
-        with tenstorrent.lever_scope(spec):
+        with tenstorrent.lever_scope(fold_levers(getattr(model, "_tt_fast", False))):
             res = ESMFold2InputBuilder().fold(
                 model, spi, num_loops=num_loops, num_sampling_steps=num_sampling_steps,
                 num_diffusion_samples=num_diffusion_samples, seed=seed)
