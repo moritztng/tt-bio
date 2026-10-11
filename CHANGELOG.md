@@ -18,6 +18,12 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   random alignment rows and every reference conformer is centred and turned by a seeded rotation, both
   drawn from the seed. Before, every seed of a target shared one trunk, so five seeds were one trunk with
   five noise draws. Outputs for a given seed change; candidate diversity across seeds now matches upstream.
+- **Protenix-v2 draws its alignment rows per recycling cycle, as upstream v2.0.0 does**, in normal and
+  `--fast` mode: each cycle reads a random number of random rows, seeded from the fold seed. Before, every
+  cycle read the whole alignment. Outputs for a given seed change and stay inside seed-to-seed variation;
+  deep alignments fold up to 25 % faster on Wormhole (a 9,947-row target: 556 to 419 s).
+  Confidence on homo-oligomers can read 0.01 to 0.05 pLDDT lower, as upstream's does; structures are unchanged
+  within the accuracy bar.
 - **Protenix-v2 is 1.9x faster on Wormhole** than 0.13.1, up from 1.6x in 0.14.0. A warm 730-token fold
   (deep MSA, 5 samples, 10 recycles) takes 259 s on a Galaxy chip at 1000 MHz, against 307 s in 0.14.0 and
   501 s in 0.13.1, and 119 s on a Blackhole p150a at 1350 MHz. Structures stay inside seed-to-seed
