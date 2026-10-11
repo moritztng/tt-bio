@@ -632,6 +632,11 @@ class SwiGLUFFN(Module):
             )
             ttnn.deallocate(x_norm)
         elif split and self.split_swiglu:
+            from tt_bio import tenstorrent as _T
+            out = self._sharded(x_norm) if _T.lever("transition_shard") else None
+            if out is not None:
+                ttnn.deallocate(x_norm)
+                return out
             if l1_gated and _PAIR_FFN_L1_FC1:
                 L1_FC1_STATS[0] += 2
                 l1 = dict(l1_out=True, l1_bw=_PAIR_FFN_FC1_BW,
@@ -672,6 +677,24 @@ class SwiGLUFFN(Module):
         ttnn.deallocate(gated)
         return out
 
+    def _sharded(self, x_norm: ttnn.Tensor):
+        """fc2(silu(x fc1_a) * (x fc1_b)) on the pair Transition's block-sharded swiglu
+        (`transition_shard`; with `swiglu_fc12g` and `silu_f32` the fused fc12g kernel, no fc1 tensors
+        and no multiply), None when the block does not shard. Same structure as tenstorrent.Transition's
+        fc1/fc2/fc3, so ESMFold2's trunk FFN takes the shared path and levers.
+        """
+        from tt_bio import tenstorrent as T
+        w12 = None
+        if T.lever("swiglu_fc12g") and T.lever("silu_f32"):
+            if getattr(self, "_w12", None) is None:
+                w1, w2 = (ttnn.to_torch(w).float() for w in (self.fc1_a_weight, self.fc1_b_weight))
+                self._w12 = ttnn.from_torch(T._fc12_interleave(w1, w2, 8), layout=ttnn.TILE_LAYOUT,
+                                            device=self.fc1_a_weight.device(), dtype=self.fc1_a_weight.dtype)
+            w12 = self._w12
+        ck = self.compute_kernel_config
+        return T._transition_swiglu_sharded(x_norm, self.fc1_a_weight, self.fc1_b_weight, self.fc2_weight,
+                                            ck, T.silu_ckc(ck), _dtype(), x_norm.dtype, w12=w12)
+
     def _split_plan(self, x: ttnn.Tensor) -> tuple[bool, int]:
         """(split fc1?, rows per block) for this input, 0 rows if the 4-D row-blocked pair path
         does not apply. Carries no census; the caller owns `SPLIT_STATS`."""
@@ -685,6 +708,10 @@ class SwiGLUFFN(Module):
         lo, hi = PAIR_FFN_ROW_BLOCK_SEQ
         rows = _PAIR_FFN_ROW_BLOCK
         blocked = split and len(x.shape) == 4 and rows and lo <= x.shape[1] <= hi
+        if blocked and tenstorrent.lever("transition_shard"):
+            # the sharded swiglu needs a block of at most _TRANSITION_SHARD_PM row tiles per core row
+            rows = tenstorrent._transition_shard_rows(x.shape[2], x.shape[3],
+                                                      int(self.fc1_a_weight.shape[-1])) or rows
         return split, (rows if blocked else 0)
 
     def _rows_after_refusal(self, x: ttnn.Tensor) -> int:
