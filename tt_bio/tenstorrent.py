@@ -7748,7 +7748,10 @@ def host_acc_after_refusal(key, x, run):
         if not is_alloc_refusal(exc) or not x.is_allocated():
             raise
         _HOST_ACC_KEYS.add(key)
-        print(f"[tt-bio] DRAM refused {key[0]} {key[1]} {x.dtype} with its blocks joined on device; re-running it "
+        import traceback
+        at = [f for f in traceback.extract_tb(exc.__traceback__) if "/tt_bio/" in f.filename]
+        at = f" at {os.path.basename(at[-1].filename)}:{at[-1].lineno}" if at else ""
+        print(f"[tt-bio] DRAM refused {key[0]} {key[1]} {x.dtype}{at} with its blocks joined on device; re-running it "
               f"with them joined on the host. The tt-metal 'Out of Memory' line above is expected "
               f"and handled.", file=sys.stderr, flush=True)
     else:
