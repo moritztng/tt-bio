@@ -198,7 +198,7 @@ class Attention(Module):
       o = SDPA(rope(q), rope(k), v, scale=d_head**-0.5); out_proj(o)
     """
 
-    def __init__(self, n_heads: int, state_dict: Weights, compute_kernel_config):
+    def __init__(self, n_heads: int, state_dict: Weights, compute_kernel_config, out_scale: float = 1.0):
         super().__init__(state_dict, compute_kernel_config)
         self.n_heads = n_heads
         self.in_norm_weight = self.torch_to_tt("layernorm_qkv.0.weight")
@@ -210,7 +210,7 @@ class Attention(Module):
         self.qkv_weight = self.torch_to_tt("layernorm_qkv.1.weight", dtype=_dtype())
         self.q_ln_weight = self.torch_to_tt("q_ln.weight")
         self.k_ln_weight = self.torch_to_tt("k_ln.weight")
-        self.out_weight = self.torch_to_tt("out_proj.weight", dtype=_dtype())
+        self.out_weight = self.torch_to_tt("out_proj.weight", transform=_scaled_t(out_scale), dtype=_dtype())
 
     def __call__(self, x: ttnn.Tensor, cos: ttnn.Tensor, sin: ttnn.Tensor,
                  attn_mask: ttnn.Tensor | None = None,
@@ -542,6 +542,13 @@ def set_pair_ffn_row_block(rows: int) -> int:
     return prev
 
 
+def _scaled_t(scale: float):
+    """Weight transform: transpose, times `scale` in fp32 when it is not 1 (then byte-identical)."""
+    if scale == 1.0:
+        return lambda w: w.t()
+    return lambda w: (w.float() * scale).t()
+
+
 def _pack_swiglu_weight(weight: torch.Tensor) -> torch.Tensor:
     packed = weight.t()
     rows, two_n = packed.shape
@@ -553,7 +560,8 @@ class SwiGLUFFN(Module):
       h = Linear(LayerNorm(x)); x1,x2 = chunk(h,2); Linear(silu(x1) * x2).
     """
 
-    def __init__(self, state_dict: Weights, compute_kernel_config, fuse_swiglu: bool = False):
+    def __init__(self, state_dict: Weights, compute_kernel_config, fuse_swiglu: bool = False,
+                 out_scale: float = 1.0):
         super().__init__(state_dict, compute_kernel_config)
         self.norm_weight = self.torch_to_tt("0.weight")
         self.norm_bias = self.torch_to_tt("0.bias")
@@ -581,7 +589,7 @@ class SwiGLUFFN(Module):
         else:
             transform = _pack_swiglu_weight if self.fuse_swiglu else lambda weight: weight.t()
             self.fc1_weight = self.torch_to_tt("1.weight", transform=transform, dtype=_dtype())
-        self.fc2_weight = self.torch_to_tt("3.weight", dtype=_dtype())
+        self.fc2_weight = self.torch_to_tt("3.weight", transform=_scaled_t(out_scale), dtype=_dtype())
 
     def _fc1_full(self) -> ttnn.Tensor:
         """The unsplit fc1 weight, built on demand for the A/B control arm.
@@ -874,22 +882,28 @@ class SwiGLUFFN(Module):
 class Block(Module):
     """UnifiedTransformerBlock, plain path (mirrors esm.layers.blocks):
       x = x + attn(x) / s ; x = x + ffn(x) / s,  s = sqrt(n_layers / 36).
+
+    1/s is folded into the out_proj and fc2 weights in fp32 before their one cast to the device
+    dtype, so each residual is a single add instead of a multiply and an add over the whole
+    activation. The FFN takes the split-fc1 SwiGLU (two half matmuls, SiLU as the multiply's
+    operand activation), which drops the chunk copy and the separate silu.
     """
 
     def __init__(self, n_heads: int, n_layers: int, state_dict: Weights, compute_kernel_config):
         super().__init__(state_dict, compute_kernel_config)
-        self.attn = Attention(n_heads, self.scope("attn"), compute_kernel_config)
-        self.ffn = SwiGLUFFN(self.scope("ffn"), compute_kernel_config)
-        self.inv_scale = 1.0 / (n_layers / 36) ** 0.5
+        inv_scale = 1.0 / (n_layers / 36) ** 0.5
+        self.attn = Attention(n_heads, self.scope("attn"), compute_kernel_config, out_scale=inv_scale)
+        self.ffn = SwiGLUFFN(self.scope("ffn"), compute_kernel_config, fuse_swiglu=True,
+                             out_scale=inv_scale)
 
     def __call__(self, x: ttnn.Tensor, cos: ttnn.Tensor, sin: ttnn.Tensor,
                  attn_mask: ttnn.Tensor | None = None,
                  key_valid: ttnn.Tensor | None = None) -> ttnn.Tensor:
         r1 = self.attn(x, cos, sin, attn_mask, key_valid)
-        x = ttnn.add(x, ttnn.multiply(r1, self.inv_scale))
+        x = ttnn.add(x, r1)
         ttnn.deallocate(r1)
         r3 = self.ffn(x)
-        x = ttnn.add(x, ttnn.multiply(r3, self.inv_scale))
+        x = ttnn.add(x, r3)
         ttnn.deallocate(r3)
         return x
 
