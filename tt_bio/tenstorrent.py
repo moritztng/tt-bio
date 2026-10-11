@@ -584,11 +584,13 @@ _FAST_MODE = False
 #   swiglu_fc12g    inside transition_shard, silu(x w1) * (x w2) as ONE matmul over [w1_j | w2_j] with the silu
 #                   and the gate multiply in the compute kernel (kernels/fc12g): no fc1/fc2 tensors, no
 #                   multiply op; the gate multiplies fc2 in dest rather than its stored copy. Needs silu_f32.
+#   dit_sdpa_pm     with dit_sdpa, the token DiT's fused SDPA reads its bias once per head instead of once per
+#                   sample (`token_dit_sdpa_pm`, triangle attention's persistent-mask kernel)
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in",
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
           "transition_shard", "dit_mm16", "atom_k1", "dit_b8", "dit_qkv16", "atom_mm16", "adaln_mod",
-          "swiglu_fc12g", "msa_sample")
+          "swiglu_fc12g", "msa_sample", "dit_sdpa_pm")
 # Named but in no mode until their fold grade puts them in one.
 UNGRADED_LEVERS = frozenset({"trimul_b8in", "transition_bw", "atom_mm16", "adaln_mod"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
@@ -600,6 +602,11 @@ UNGRADED_LEVERS = frozenset({"trimul_b8in", "transition_bw", "atom_mm16", "adaln
 # dit_b8 is fast-only. Protenix-v2 fast grade (fast vs fast+dit_b8, same tree, Wormhole 11-set, 44 paired
 # folds) PASS: CA-lDDT -0.0122 [-0.0209, -0.0044] against the 0.03 bar, pLDDT -0.0021, docking 33 -> 33 of 44
 # (spd-difflin gf1, 2026-10-09). Saves 1.81 s of the Wormhole c730 sampler (34.95 -> 33.14 s, 1000 MHz).
+# dit_sdpa_pm is fast-only (normal mode's fp32 DiT runs `_sdpa32`). Protenix-v2 fast grade (fast vs
+# fast+dit_sdpa_pm, Wormhole 11-set, 44 paired folds) PASS: CA-lDDT +0.0024 [+0.0013, +0.0036], same-seed top pose
+# median 0.271 A against the 0.60 A bar (A/A floor 1.206 A), docking 35 -> 35 of 44. Per call at c730, 0.928 ->
+# 0.532 ms on Wormhole (1000 MHz) and 0.410 -> 0.367 ms on Blackhole p150a (1350 MHz); c730 warm fold, same
+# seeds, 189.2 -> 187.8 s on a Galaxy chip and 94.4 -> 93.5 s on p150a (spd-ditsdpa, 2026-10-11).
 FAST_LEVERS = frozenset(LEVERS) - {"lofi", "triatt_b8", "triatt_bias_b8"} - UNGRADED_LEVERS
 # trimul_ibw + trimul_tail: Wormhole 11-set grade PASS, 44 paired folds, same-seed top pose median
 # 0.204 A against the 0.60 A bar (A/A seed floor 0.807 A), every paired CI covers 0 or sits on the
@@ -2690,6 +2697,40 @@ def _sdpa_masked(fn, q, k, v, bias, *args, site: str, pad: bool = False, **kw):
     sl = o[:, :, :Sq, :]
     ttnn.deallocate(o)
     return sl
+
+
+# (batch, q_len, heads, head_dim, dtype) -> the (q_chunk, k_chunk, padded) pair `token_dit_sdpa_pm`
+# serves, or None once every pair declined. Filled on the first call of a shape.
+_DIT_PM_PICK: dict = {}
+
+
+def token_dit_sdpa_pm(q, k, v, bias, scale: float):
+    """The bf16 token DiT's SDPA with its bias read once per head instead of once per sample.
+
+    The stock op re-reads the [1, H, S, S] bias for every batch row, and the DiT's batch is its
+    samples: at c730 that is 5 x 17.3 MB per call for 4.6 MB of q/k/v. `triatt_sdpa.sdpa` holds a
+    head's bias rows in L1 across the batch loop (the same kernel triangle attention runs), the pair
+    taken from `fused_pairs` priced at the real batch. Wormhole c730, 1000 MHz: 0.928 -> 0.523 ms a
+    call, rel_rms to float64 0.0271 -> 0.0267 (perf/spd_ditsdpa/opbench.py). Returns None when no
+    pair serves; the caller then runs the stock op. Fast mode's `dit_sdpa_pm` lever.
+    """
+    B, H, S, D = (int(d) for d in q.shape)
+    key = (B, S, H, D, q.dtype)
+    if key not in _DIT_PM_PICK:
+        cores = COMPUTE_GRID_MAIN[0] * COMPUTE_GRID_MAIN[1]
+        cands = [(qc, kc, pad) for pad in (False, True)
+                 for qc, kc in _triatt_sdpa.fused_pairs(S, H, D, cores, q.dtype, padded=pad, batch=B)]
+        for qc, kc, pad in cands:
+            o = _triatt_sdpa.sdpa(q, k, v, bias, scale, qc, kc, q_split_cap=0, padded_mask=pad)
+            if o is not None:
+                _DIT_PM_PICK[key] = (qc, kc, pad)
+                return o
+        _DIT_PM_PICK[key] = None
+    pick = _DIT_PM_PICK[key]
+    if pick is None:
+        return None
+    qc, kc, pad = pick
+    return _triatt_sdpa.sdpa(q, k, v, bias, scale, qc, kc, q_split_cap=0, padded_mask=pad)
 
 
 def _tri_att_sdpa(q, k, v, bias, scale: float, ckc=None, pad: bool = False):
@@ -11374,17 +11415,21 @@ class AttentionPairBias(Module):
                 # additive mask along with QK, so scale=head_dim**-0.5 reproduces the unfused
                 # chain's (q@k^T + z) * head_dim**-0.5 exactly in exact arithmetic; what differs
                 # is the bf16 exponentiated-score buffer, hence the accuracy gate on this arm.
-                o = _sdpa_masked(
-                    lambda q_, k_, v_, b_: fused_sdpa(
+                def stock(q_, k_, v_, b_):
+                    return fused_sdpa(
                         q_, k_, v_,
                         attn_mask=b_,
                         scale=self.head_dim**-0.5,
                         program_config=_sdpa_program_config_for_lengths(
                             q_.shape[2], k_.shape[2], q_.shape[0] * q_.shape[1],
                             site="token_dit", d=q_.shape[3]),
-                    ),
-                    q, k, v, z, site="token_dit",
-                )
+                    )
+
+                def pm(q_, k_, v_, b_):
+                    o_ = token_dit_sdpa_pm(q_, k_, v_, b_, self.head_dim**-0.5)
+                    return stock(q_, k_, v_, b_) if o_ is None else o_
+
+                o = _sdpa_masked(pm if lever("dit_sdpa_pm") else stock, q, k, v, z, site="token_dit")
             else:
                 if seq_mask is not None:
                     z = ttnn.add_(z, seq_mask)
