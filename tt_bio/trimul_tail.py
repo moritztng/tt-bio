@@ -161,10 +161,16 @@ def _reject(why, shape=""):
     return None
 
 
-def eligible(xa, xb, wa, wb):
+def _interleaved(t):
+    return t.memory_config().memory_layout == ttnn.TensorMemoryLayout.INTERLEAVED
+
+
+def eligible(xa, xb, wa, wb, mixed_act=False):
     """None when F1's descriptor covers this call, else the reason it does not.
 
-    Every clause is a real assumption of the fork, so a decline names which one.
+    Every clause is a real assumption of the fork, so a decline names which one. `mixed_act`
+    lets the two activations sit in different interleaved buffers (an L1 xa beside a DRAM xb,
+    TT_BIO_OF3L1_TMOUTLN): `_build` then gives pass 1 its own accessor.
     """
     # Membership widened, the pair tests below untouched: this clause used to be "bf16 must
     # appear somewhere", and a fast dtype appearing somewhere is a strict superset of it.
@@ -176,7 +182,8 @@ def eligible(xa, xb, wa, wb):
         return "act_shape_pair"
     if len(wa.shape) != 2 or tuple(wa.shape) != tuple(wb.shape):
         return "weight_shape_pair"
-    if str(xa.memory_config()) != str(xb.memory_config()):
+    if str(xa.memory_config()) != str(xb.memory_config()) and not (
+            mixed_act and _interleaved(xa) and _interleaved(xb)):
         return "act_memcfg_pair"
     if str(wa.memory_config()) != str(wb.memory_config()):
         return "weight_memcfg_pair"
@@ -238,8 +245,20 @@ def _build(device, xa, xb, wa, wb, outs, grid, ckc, block, epi, shared):
     compute.kernel_source = str(KERNEL_DIR / "compute.cpp")
     compute.defines = [(k, str(v)) for k, v in defs.items()]
 
+    if str(xa.memory_config()) != str(xb.memory_config()):
+        # Pass 1's activation in a different buffer than pass 0's: append its accessor args to
+        # both in0 kernels and point the kernel at them (`patch_in0_xb`). Never set when the two
+        # match, so every shipped program compiles exactly as before.
+        acc_xb = list(ttnn.TensorAccessorArgs(xb).get_compile_time_args())
+        for k in entry["kernels"][:2]:
+            ct = list(k.compile_time_args)
+            k.defines = list(k.defines) + [("TRIMUL_TAIL_XB_CTA", str(len(ct)))]
+            k.compile_time_args = ct + acc_xb
+
     _bind_b(entry, xb.buffer_address(), wb.buffer_address())
     _repack(entry)
+    entry["pd"] = ttnn.ProgramDescriptor(
+        kernels=entry["kernels"], semaphores=entry["semaphores"], cbs=entry["cbs"])
     return entry
 
 
@@ -437,7 +456,8 @@ def _alloc_out(shape, device, mem):
     return out, mem
 
 
-def fused_tail(xa, xb, wa, wb, ckc, grid, out_memory_config=None, resid=None, split=1, mask=None):
+def fused_tail(xa, xb, wa, wb, ckc, grid, out_memory_config=None, resid=None, split=1, mask=None,
+               mixed_act=False):
     """`p * sigmoid(g)` for `p = xa @ wa`, `g = xb @ wb`, in one kernel. None if out of scope.
 
     `xa is xb` (the trimul in-projection: p and g of one activation) reads each activation block
@@ -465,7 +485,7 @@ def fused_tail(xa, xb, wa, wb, ckc, grid, out_memory_config=None, resid=None, sp
     if dest_guard.exposed_args(ckc):
         return None   # the kernel keeps all of K in dest; see dest_guard
 
-    why = eligible(xa, xb, wa, wb)
+    why = eligible(xa, xb, wa, wb, mixed_act)
     if why is not None:
         return _reject(why, "x".join(str(int(d)) for d in xa.padded_shape)
                        + "@" + "x".join(str(int(d)) for d in wa.shape))
@@ -494,6 +514,8 @@ def fused_tail(xa, xb, wa, wb, ckc, grid, out_memory_config=None, resid=None, sp
             outs.append(out)
     key = (spec(xa), spec(wa), tuple(grid), tuple(str(c) for c in ckc), ROUND, SKIP_SIGMOID,
            ABL, epi, str(mem), _block(wa), shared, split)
+    if str(xb.memory_config()) != str(xa.memory_config()):
+        key = key + ("xb", str(xb.memory_config()))
     if mask is not None and not (split == 2 and mask_ok(mask, xa, wa)
                                  and _res_ok(xa, wa, epi, split, mem) and not ABL):
         for o in outs:
@@ -515,8 +537,14 @@ def fused_tail(xa, xb, wa, wb, ckc, grid, out_memory_config=None, resid=None, sp
 
     entry = _CACHE.get(key)
     if entry is None:
-        entry = _CACHE[key] = _build(device, xa, xb, wa, wb, outs, grid, ckc, _block(wa), epi,
-                                     shared)
+        try:
+            entry = _build(device, xa, xb, wa, wb, outs, grid, ckc, _block(wa), epi, shared)
+        except Exception:
+            if epi != 2:
+                for o in outs:
+                    ttnn.deallocate(o)
+            raise
+        _CACHE[key] = entry
     else:
         # `MG.rebind` repacks the descriptor itself, so only bind B separately when it does not run.
         addrs = (xa.buffer_address(), wa.buffer_address(), tuple(o.buffer_address() for o in outs))
@@ -529,7 +557,15 @@ def fused_tail(xa, xb, wa, wb, ckc, grid, out_memory_config=None, resid=None, sp
         elif stale_b:
             _repack(entry)
 
-    ttnn.generic_op([xa, wa, xb, wb, *outs], entry["pd"])
+    try:
+        ttnn.generic_op([xa, wa, xb, wb, *outs], entry["pd"])
+    except Exception:
+        # A refused program (an L1 product or activation whose CBs no longer fit) must not
+        # strand its freshly allocated outputs; the caller retries on another placement.
+        if epi != 2:
+            for o in outs:
+                ttnn.deallocate(o)
+        raise
     STATS[0] += 1
     return outs if split > 1 else outs[0]
 

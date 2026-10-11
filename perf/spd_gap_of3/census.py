@@ -214,6 +214,19 @@ def main():
         (a.out.parent / "prof_feat.txt").write_text(buf.getvalue())
     w = sorted(f["fold_s"] for f in res["folds"])
     res["median_s"] = round(statistics.median(w), 3)
+    try:
+        # The OF3 L1 placement levers (TT_BIO_OF3L1_*): what fired, what declined, what L1 refused.
+        import tt_bio.tenstorrent as _T
+        import tt_bio.trimul_tail as _TT
+        res["of3l1"] = {
+            "flags": {k: os.environ.get(k) for k in os.environ if k.startswith("TT_BIO_OF3L1_")},
+            "stats": _T.OF3L1_STATS, "refused": sorted(repr(k) for k in _T._OF3L1_REFUSED),
+            "trimul_branch": {repr(k): v for k, v in _T.TRIMUL_MM_TRANSPOSE_STATS.items()},
+            "transition_add_rows": _T.TRANSITION_ADD_ROWS_STATS,
+            "f1_out_l1": _TT.OUT_L1_STATS, "f1_rejects": {repr(k): v for k, v in _TT.REJECTS.items()},
+        }
+    except Exception as exc:                                                   # noqa: BLE001
+        res["of3l1"] = repr(exc)
     flush()
 
 
