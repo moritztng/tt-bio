@@ -1,6 +1,6 @@
 # The 8-block ABodyBuilder3 model against tt_bio/abodybuilder3_reference.py in float64,
 # re-recorded on the BCP merge tree.
-RECORDED-AT: d229b9e4c8a2ffa12fee9bda416d9ea7caba92a0 scripts/abb3_port/model_gate.py
+RECORDED-AT: 1064f95a1107404a99667614b2c9e8e1945c3339 scripts/abb3_port/model_gate.py
 #
 # TREE: wk/bcp-land 3e617f520, origin/main 2e2cbacb4 plus BCP (the fused layer-norm backward, lnbw).
 # Replaces the record taken at 93edb1b24, whose import closure changed in tt_bio/autograd.py when lnbw
@@ -77,6 +77,12 @@ RECORDED-AT: d229b9e4c8a2ffa12fee9bda416d9ea7caba92a0 scripts/abb3_port/model_ga
 # the gate runner), 04:37-04:39Z 2026-10-11, qb2 card 3, Blackhole p300c, the gate's wheel venv (TT-NN 0.68.0)
 # with the tree on PYTHONPATH. The closure moved in tt_bio/tenstorrent.py (03183792c, ed4195063); every ok/FAIL row and
 # every gradient row is identical to the 19d30971f record, and the sigma 0.3 / 256-token stress arm still
+# FAILs angles at 5.11e-02. NO TIMING CLAIM.
+#
+# RE-RECORDED for the 0.15.1 release gate at 1064f95a1 (tt-bio main 8d3bd1f36, staging21, plus the gate
+# runner), 13:54-14:05Z 2026-10-11 (with the step gate), qb2 card 3, Blackhole p300c, the gate's wheel venv (TT-NN 0.68.0) with the
+# tree on PYTHONPATH. The closure moved in tt_bio/tenstorrent.py and tt_bio/trimul_tail.py; every ok/FAIL row
+# and every gradient row is identical to the d229b9e4c record, and the sigma 0.3 / 256-token stress arm still
 # FAILs angles at 5.11e-02. NO TIMING CLAIM.
 #
 === sigma=0.05, 64 tokens ===

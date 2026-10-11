@@ -654,8 +654,10 @@ class Host:
                      input=text, check=True, timeout=120)
         envs = " ".join(f"{k}={shlex.quote(v)}" for k, v in self.cfg.get("prep_env", {}).items())
         cmd = (f"set -e; if [ ! -d {t} ]; then git -C {r}/repo fetch -q origin; "
-               f"git -C {r}/repo worktree add -q --detach {t} {self.sha}; "
-               f"cd {t}; bash scripts/fetch_parity_fixtures.sh >/dev/null; fi; "
+               f"git -C {r}/repo worktree add -q --detach {t} {self.sha}; fi; "
+               # Every time, not only on a new tree: a prep that died after the worktree add left
+               # a tree without the binaries, and the next prep skipped the fetch (1064f95a1, qb1).
+               f"cd {t}; bash scripts/fetch_parity_fixtures.sh >/dev/null; "
                f"test \"$(git -C {t} rev-parse HEAD)\" = {self.sha}")
         if self.cfg.get("perf_against"):
             ref, a = shlex.quote(self.cfg["perf_against"]), self.against
