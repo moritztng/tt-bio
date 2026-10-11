@@ -391,7 +391,7 @@ PAIR_FFN_L1_LN = True
 # fc1a's matmul epilogue (on the fp32 accumulator, before the bf16 pack) the gate is a plain FPU multiply:
 # gate_bench at a 16-row block, 0.144 ms for the activated multiply vs 0.058 ms plain. One switch for every
 # split-fc1 SwiGLU: the pair transition (row-blocked) and the ESMC LM blocks, which are ESMFold2's LM backbone.
-_SWIGLU_SILU_FC1 = os.environ.get("TT_BIO_SWIGLU_SILU_FC1", "0") == "1"
+_SWIGLU_SILU_FC1 = env_flag("TT_BIO_SWIGLU_SILU_FC1", False)
 
 _PAIR_FFN_L1_LN = os.environ.get(
     "TT_BIO_PAIR_FFN_L1_LN", "1" if PAIR_FFN_L1_LN else "0") == "1"
