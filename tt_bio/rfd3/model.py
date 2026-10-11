@@ -179,6 +179,14 @@ _PROCESS_Z_COLLAPSE = env_flag("RFD3_PROCESS_Z_COLLAPSE", False)
 # OpenMP team, which fights the main thread's for the cores: on qb1 (16 physical cores) the
 # build went from 72-88 to 115-140 ms and the page fold from 107.1 to 124.0 s/design.
 _ATTN_OVERLAP = env_flag("RFD3_ATTN_OVERLAP", True)
+# A denoise step crossed to the host ~15 times: process_a/r/c and both time embeddings came back
+# for host adds, the encoder, downcast_q, the DiT and every recycle's s were read back only to be
+# uploaded again by the next module. Each crossing drains the card, and Tracy on p150a put the
+# device busy for 296 of the step's 481 ms. With RESIDENT_STEP the step stays on the card from
+# R_noisy_L in to R_upd out; the only reads left are R_upd and the sequence logits per recycle.
+# Not bit-exact: the adds round in bf16 on the card instead of fp32 on the host, and process_a
+# pools the coordinates before its (bias-free) linear instead of after, equal in exact math.
+_RESIDENT_STEP = env_flag("RFD3_RESIDENT_STEP", False)
 # The per-step neighbour graph is the largest single host cost in a design. At the page fixture
 # (6051 atoms) the ledger puts it at 51.9 + 19.8 ms of an 84.8 ms host body, and P3.7 measured
 # 54.3 ms/step of that reaching the wall. It is one chain -- cdist -> masked_fill_ -> topk -- over
@@ -828,6 +836,13 @@ def _tt(x, dev, dtype=ttnn.bfloat16):
                                     device=dev, dtype=dtype)
         return ttnn.to_layout(row_major, ttnn.TILE_LAYOUT)
     return ttnn.from_torch(x, layout=ttnn.TILE_LAYOUT, device=dev, dtype=dtype)
+
+
+def _dev(x, dev, dtype=ttnn.bfloat16):
+    """`_tt` for a host tensor; a tensor already on the card passes through (cast if needed)."""
+    if isinstance(x, ttnn.Tensor):
+        return x if x.dtype == dtype else ttnn.typecast(x, dtype)
+    return _tt(x, dev, dtype)
 
 
 # The diffusion loop re-uploads several tensors that cannot have changed. p41 measured 32 _tt
@@ -2460,25 +2475,26 @@ class LocalAtomTransformer(Module):
             q = block(q, c, p, additive_mask)
         return q
 
-    def __call__(self, q_host, c_host, p_host, indices):
+    def __call__(self, q_host, c_host, p_host, indices, resident=False):
+        """q/c may already be on the card; `resident` returns the device tensor."""
         dt, dev = self.dtype, self.device
         p_host = p_host.unsqueeze(0) if p_host.ndim == 3 else p_host
         if env_flag("RFD3_SPARSE_QK", True):
             p, n_keys, attn_idx_dev, dense_bias, gathered, block = _sparse_qk_inputs(
                 p_host, indices, dev, dt, mask_cache=self._mask_cache
             )
-            q, c = _tt(q_host, dev, dt), _tt(c_host, dev, dt)
+            q, c = _dev(q_host, dev, dt), _dev(c_host, dev, dt)
             sparse_qk = (n_keys, attn_idx_dev, dense_bias, gathered, block)
             for block in self.blocks:
                 q = block(q, c, p, sparse_qk=sparse_qk)
             out = q
         else:
-            q = _tt(q_host, dev, dt)
-            c = _tt(c_host, dev, dt)
+            q = _dev(q_host, dev, dt)
+            c = _dev(c_host, dev, dt)
             p = _tt(p_host, dev, dt)
             mask = _tt(_dense_attention_mask(indices), dev, dt)
             out = self.run_device(q, c, p, mask)
-        return ttnn.to_torch(out).float()
+        return out if resident else ttnn.to_torch(out).float()
 
 
 class CompactStreamingDecoder(Module):
@@ -2626,7 +2642,7 @@ class CompactStreamingDecoder(Module):
                 p_host, indices, dev, dt, mask_cache=self._mask_cache
             )
             sparse_qk = (n_keys, attn_idx_dev, dense_bias, gathered, block)
-            a, q, c = (_tt(x, dev, dt) for x in (a_host, q_host, c_host))
+            a, q, c = (_dev(x, dev, dt) for x in (a_host, q_host, c_host))
             # The two recycle calls in a step share p and the neighbour index, so
             # each atom block's dense bias is bit-identical between them; build it
             # on the first call only (see GatedCrossAttention._sparse_bias_f32).
@@ -2636,9 +2652,7 @@ class CompactStreamingDecoder(Module):
                 bias_cache=self._bias_cache,
             )
         else:
-            a = _tt(a_host, dev, dt)
-            q = _tt(q_host, dev, dt)
-            c = _tt(c_host, dev, dt)
+            a, q, c = (_dev(x, dev, dt) for x in (a_host, q_host, c_host))
             p = _tt(p_host, dev, dt)
             mask = _tt(_dense_attention_mask(indices), dev, dt)
             q = self.run_device(a, q, c, p, mask, upcast_mask_dev, pack_idx_dev, unpack_idx_dev, valid, length)
@@ -2649,7 +2663,7 @@ class CompactStreamingDecoder(Module):
         a_update = ttnn.squeeze(
             self.downcast.run_device(query, q_grouped, down_mask), 2
         )
-        s = _tt(s_host, dev, dt)
+        s = _dev(s_host, dev, dt)
         s = ttnn.rms_norm(
             s, weight=self.process_s_n, epsilon=1e-6, compute_kernel_config=ckc
         )
@@ -2939,9 +2953,9 @@ class DiffusionTokenEncoder(Module):
         dev, ckc, dt = self.device, self.compute_kernel_config, self.dtype
         f32 = self.fp32_residual
         B, I = R_L_ca.shape[0], R_L_ca.shape[1]
-        if S_init_I.ndim == 2:
+        if not isinstance(S_init_I, ttnn.Tensor) and S_init_I.ndim == 2:
             S_init_I = S_init_I.unsqueeze(0).expand(B, -1, -1).contiguous()
-        s = _tt(S_init_I, dev, dt)
+        s = _dev(S_init_I, dev, dt)
         if f32:
             s = ttnn.typecast(s, ttnn.float32, memory_config=s.memory_config())
         for tr in self.transition_1:
@@ -3030,19 +3044,21 @@ class LocalTokenTransformer(Module):
             ttnn.deallocate(fused)
         return a
 
-    def __call__(self, a_host, s_host, z, indices):
-        """z may be a host tensor (the parity-script path) or an already-resident ttnn
-        tensor handed straight over by DiffusionTokenEncoder.run_device."""
+    def __call__(self, a_host, s_host, z, indices, resident=False):
+        """z (and a, s) may be host tensors (the parity-script path) or already-resident ttnn
+        tensors handed straight over by DiffusionTokenEncoder.run_device; `resident` returns
+        the device tensor."""
         dev, dt = self.device, self.dtype
-        a = _tt(a_host, dev, dt)
-        s = _tt(s_host, dev, dt)
+        a = _dev(a_host, dev, dt)
+        s = _dev(s_host, dev, dt)
         if isinstance(z, ttnn.Tensor):
             if z.dtype != dt:
                 z = ttnn.typecast(z, dt)
         else:
             z = _tt(z.unsqueeze(0) if z.ndim == 2 else z, dev, dt)
         mask = _tt(_dense_attention_mask(indices), dev, dt)
-        return ttnn.to_torch(self.run_device(a, s, z, mask)).float()
+        out = self.run_device(a, s, z, mask)
+        return out if resident else ttnn.to_torch(out).float()
 
 
 def _default_compute_kernel_config():
@@ -3359,7 +3375,8 @@ class RFD3DiffusionModule(Module):
                                  f"eager.")
         self._grouping_cache = {}      # batch -> {"valid", "pack_idx_dev", ...}, shared by downcast_c/downcast_q
         self._grouping_owner = None    # (id(tok_idx), shape) the cached slots belong to
-        self._downcast_c_memo = None   # (key, inputs, result): see _downcast_c
+        self._downcast_c_memo = None   # (key, inputs, device result, host result): see _downcast_c
+        self._row_masks = {}           # _free_rows_dev
         self.encoder = LocalAtomTransformer(self.scope("encoder"), ckc, n_blocks=3, dtype=dt,
                                             fp32_residual=self._dit_fp32_residual)
         self.decoder = CompactStreamingDecoder(self.scope("decoder"), ckc, dtype=dt,
@@ -3395,6 +3412,28 @@ class RFD3DiffusionModule(Module):
         x = ttnn.rms_norm(x, weight=self.process_n_n[i], epsilon=1e-6, compute_kernel_config=ckc)
         out = ttnn.linear(x, self.process_n_w[i], compute_kernel_config=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID)
         return ttnn.to_torch(out).float()
+
+    def _process_time_dev(self, t, motif, i):
+        """_process_time without the host round trip. Every row of the time embedding is either
+        the step's one fourier row or zero (motif atoms, t == 0), and rms_norm and the bias-free
+        linear act per row and send 0 to 0, so one row is embedded and spread by the 0/1 mask."""
+        dev, ckc, dt = self.device, self.compute_kernel_config, self.dtype
+        tt = 0.25 * torch.log(torch.clamp(t, min=1e-20) / self.SIGMA_DATA)[:, None, None]
+        emb = torch.cos(2 * math.pi * (tt * self.fourier_w[i] + self.fourier_b[i]))
+        x = _tt(emb * (t > 0).float()[:, None, None], dev, dt)                # [B, 1, 256]
+        x = ttnn.rms_norm(x, weight=self.process_n_n[i], epsilon=1e-6, compute_kernel_config=ckc)
+        x = ttnn.linear(x, self.process_n_w[i], compute_kernel_config=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID)
+        return ttnn.multiply(x, self._free_rows_dev(motif, int(x.shape[-1])))
+
+    def _free_rows_dev(self, motif, width):
+        """[1, N, width] device copy of ~motif as 0/1, uploaded once per design (the sampler
+        threads the same `f` tensors through every step)."""
+        key = (id(motif), tuple(motif.shape), width)
+        ent = self._row_masks.get(key)
+        if ent is None or ent[0] is not motif:
+            m = (~motif).float().reshape(1, -1, 1).expand(1, motif.numel(), width).contiguous()
+            ent = self._row_masks[key] = (motif, _tt(m, self.device, self.dtype))
+        return ent[1]
 
     def _grouping_buffers(self, tok_idx, batch):
         """Cache the atom<->token grouping index (pack_idx_dev/valid) by tok_idx identity,
@@ -3440,8 +3479,9 @@ class RFD3DiffusionModule(Module):
         key = tuple((x.data_ptr(), tuple(x.shape), tuple(x.stride()), x._version) for x in (C_L, S_I, tok_idx))
         memo = self._downcast_c_memo
         if memo is None or memo[0] != key:
-            memo = self._downcast_c_memo = (key, (C_L, S_I, tok_idx), self._downcast_c_device(C_L, S_I, tok_idx))
-        return memo[2].clone()
+            dev_out = self._downcast_c_device(C_L, S_I, tok_idx)
+            memo = self._downcast_c_memo = (key, (C_L, S_I, tok_idx), dev_out, ttnn.to_torch(dev_out).float())
+        return memo[2] if _RESIDENT_STEP else memo[3].clone()
 
     def _downcast_c_device(self, C_L, S_I, tok_idx):
         dev, dt = self.device, self.dtype
@@ -3451,7 +3491,7 @@ class RFD3DiffusionModule(Module):
         S_I_dev = _tt_cached(S_I, dev, dt)  # uploaded once, reused below (was 2x, p23 perf)
         q = ttnn.unsqueeze(S_I_dev, 2)
         upd = ttnn.squeeze(self.downcast_c.run_device(q, c_g, attn_mask_dev=mask_dev), 2)
-        return ttnn.to_torch(ttnn.add(S_I_dev, upd)).float()
+        return ttnn.add(S_I_dev, upd)
 
     def _downcast_q_device(self, q_g, a, s, mask_dev):
         """Pure-device tail of downcast_q (GCA + s-norm/linear). mask_dev is the
@@ -3468,11 +3508,9 @@ class RFD3DiffusionModule(Module):
         dev, dt = self.device, self.dtype
         B, I, _ = A_I.shape
         valid, pack_idx_dev, mask_dev = self._grouping_buffers(tok_idx, B)
-        q_g = _pack_atoms_dev_core(_tt(Q_L, dev, dt), pack_idx_dev, valid)
-        a = _tt(A_I, dev, dt)
-        s = _tt(S_I, dev, dt)
-        out = self._downcast_q_device(q_g, a, s, mask_dev)
-        return ttnn.to_torch(out).float()
+        q_g = _pack_atoms_dev_core(_dev(Q_L, dev, dt), pack_idx_dev, valid)
+        out = self._downcast_q_device(q_g, _dev(A_I, dev, dt), _dev(S_I, dev, dt), mask_dev)
+        return out if _RESIDENT_STEP else ttnn.to_torch(out).float()
 
     def __call__(self, X_noisy_L, t, f, Q_L_init, C_L, P_LL, S_I, Z_II, n_recycle=None):
         dev, ckc, dt = self.device, self.compute_kernel_config, self.dtype
@@ -3510,6 +3548,18 @@ class RFD3DiffusionModule(Module):
         # host-dispatch-bound small-protein path, bit-identical since it's
         # the same deterministic bf16 cast either way).
         R_noisy_L_dev = _tt(R_noisy_L, dev, dt)
+        if _RESIDENT_STEP:
+            lin = dict(compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)
+            A_I = ttnn.linear(_tt(_scatter_mean(R_noisy_L, tok_idx, I), dev, dt), self.process_a_w, **lin)
+            S_I = ttnn.add(self._downcast_c(C_L, S_I, tok_idx),
+                           self._process_time_dev(t, f["is_motif_token_with_fully_fixed_coord"], 1))
+            Q_L = ttnn.add(_tt_cached(Q_L_init, dev, dt), ttnn.linear(R_noisy_L_dev, self.process_r_w, **lin))
+            C_L = ttnn.add(_tt_cached(C_L, dev, dt), self._process_time_dev(t, is_motif, 0))
+            C_L = ttnn.add(C_L, ttnn.linear(
+                ttnn.rms_norm(C_L, weight=self.process_c_n, epsilon=1e-6, compute_kernel_config=ckc),
+                self.process_c_w, compute_kernel_config=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID))
+            return self._denoise(n_recycle, X_noisy_L, R_L_uniform, t_L, f, tok_idx, Q_L, C_L, P_LL,
+                                 A_I, S_I, Z_II)
         # process_a (host scatter after device linear)
         a_emb = ttnn.to_torch(ttnn.linear(R_noisy_L_dev, self.process_a_w,
                                           compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)).float()
@@ -3522,13 +3572,16 @@ class RFD3DiffusionModule(Module):
         C_L = C_L + ttnn.to_torch(
             ttnn.linear(ttnn.rms_norm(_tt(C_L, dev, dt), weight=self.process_c_n, epsilon=1e-6, compute_kernel_config=ckc),
                         self.process_c_w, compute_kernel_config=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID)).float()
+        return self._denoise(n_recycle, X_noisy_L, R_L_uniform, t_L, f, tok_idx, Q_L, C_L, P_LL, A_I, S_I, Z_II)
+
+    def _denoise(self, n_recycle, X_noisy_L, R_L_uniform, t_L, f, tok_idx, Q_L, C_L, P_LL, A_I, S_I, Z_II):
         first_tok = None
         if _ATTN_OVERLAP:
             first_tok = self.diffusion_token_encoder.run_device(
                 R_L_uniform[..., f["is_ca"], :], S_I, Z_II, D_II_self=None)
             f["attn_indices"] = _create_attention_indices(f, X_noisy_L, tok_idx, self.N_ATTN_KEYS,
                                                           self.N_ATTN_SEQ)
-        Q_L = self.encoder(Q_L, C_L, P_LL, indices=f["attn_indices"])
+        Q_L = self.encoder(Q_L, C_L, P_LL, indices=f["attn_indices"], resident=_RESIDENT_STEP)
         A_I = self._downcast_q(Q_L, A_I, S_I, tok_idx)
         recycled = self._forward_with_recycle(
             n_recycle, X_noisy_L=X_noisy_L, R_L_uniform=R_L_uniform, t_L=t_L, f=f, Q_L=Q_L,
@@ -3558,8 +3611,8 @@ class RFD3DiffusionModule(Module):
         X_L_ca = X_noisy_L[..., is_ca, :] if X_L_self is None else X_L_self[..., is_ca, :]
         dit_idx = _create_attention_indices(f, X_L_ca, torch.arange(S_I.shape[-2], device=X_L_ca.device),
                                             self.DIT_KEYS, self.DIT_SEQ)
-        S_I = ttnn.to_torch(s_dev).float()
-        A_I = self.diffusion_transformer(A_I, S_I, z_dev, dit_idx)
+        S_I = s_dev if _RESIDENT_STEP else ttnn.to_torch(s_dev).float()
+        A_I = self.diffusion_transformer(A_I, S_I, z_dev, dit_idx, resident=_RESIDENT_STEP)
         ttnn.deallocate(z_dev)
         # Both of the decoder's outputs feed device consumers only -- q the R update below,
         # a the sequence head -- so neither crosses. Each ttnn.to_torch is a blocking drain,
