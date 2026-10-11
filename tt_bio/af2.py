@@ -1065,10 +1065,10 @@ class AF2DeviceModel(AF2Model):
     template_cached = True
 
     #: Replay the extra-MSA and Evoformer stacks from a captured trace, which takes the host's
-    #: per-op dispatch off the critical path. A stack runs eagerly on its first call at a shape
-    #: (that call compiles every program), captures on its second and replays from then on, so
-    #: a fold's four passes are eager, capture + replay, replay, replay, and every later fold at
-    #: the same token count only replays. Needs a device opened with `get_device(trace="af2")`;
+    #: per-op dispatch off the critical path. The first call at a shape runs the stack eagerly
+    #: (compiling every program), captures it and replays it; later calls only replay, so a
+    #: fold's first pass costs two stack runs and every later pass and fold at the same token
+    #: count one replay. Needs a device opened with `get_device(trace="af2")`;
     #: without the region, or under any instrument (`block_tap`, `substitute`, `skip`) or a real
     #: mask, the stack runs eagerly as before. Same ops on the same buffers as the eager loop.
     trace_stacks = False
@@ -1105,7 +1105,6 @@ class AF2DeviceModel(AF2Model):
         self._template_cache = None
         self._traces: dict = {}
         self._opm_constant_tt: list = []
-        self._eager_seen: set = set()
 
     def to_device(self) -> "AF2DeviceModel":
         """Build the ttnn blocks from the parameters already loaded into the torch modules."""
@@ -1252,21 +1251,22 @@ class AF2DeviceModel(AF2Model):
                 and not self.skip and all(m is None for m in masks)
                 and trace_region_size() > 0)
 
-    def _replay(self, name: str, run, *inputs: torch.Tensor) -> tuple | None:
-        """`run(*inputs on card)` from a trace keyed on `name` and the input shapes, or None.
+    def _replay(self, name: str, run, *inputs: torch.Tensor) -> tuple:
+        """`run(*inputs on card)` from a trace keyed on `name` and the input shapes.
 
-        None is the first call at a key: the caller runs eagerly, which compiles the programs a
-        capture must not. The trace owns persistent input buffers that each replay overwrites,
-        and `run` reads clones of them, because the blocks deallocate their inputs as they go.
-        The outputs are the trace's own buffers: download them, never deallocate them.
+        The first call at a key runs `run` once eagerly on the same clones before capturing it:
+        a capture must not compile or upload anything, and only the exact code it records is
+        sure to have compiled every program it dispatches (the `clone`s included). The trace
+        owns persistent input buffers that each replay overwrites, and `run` reads clones of
+        them, because the blocks deallocate their inputs as they go. The outputs are the
+        trace's own buffers: download them, never deallocate them.
         """
         key = (name, *(tuple(t.shape) for t in inputs))
         tr = self._traces.get(key)
         if tr is None:
-            if key not in self._eager_seen:
-                self._eager_seen.add(key)
-                return None
             bufs = [self._up(t) for t in inputs]
+            for out in run(*[ttnn.clone(b) for b in bufs]):
+                ttnn.deallocate(out)
             ttnn.synchronize_device(self._device)
             tid = ttnn.begin_trace_capture(self._device, cq_id=0)
             outs = run(*[ttnn.clone(b) for b in bufs])
@@ -1309,9 +1309,7 @@ class AF2DeviceModel(AF2Model):
                     z = block(block._residual(z, ttnn.clone(const)), *masks)
                 return (z,)
 
-            traced = self._replay("extra_msa", run, pair)
-            if traced is not None:
-                return self._down(traced[0], shape)
+            return self._down(self._replay("extra_msa", run, pair)[0], shape)
         z = self._up(pair)
         for index, block in enumerate(self.device_extra_msa):
             if self.block_tap is not None:
@@ -1344,9 +1342,8 @@ class AF2DeviceModel(AF2Model):
                     m, z = block(m, z, None, *pair_masks)
                 return m, z
 
-            traced = self._replay("evoformer", run, msa, pair)
-            if traced is not None:
-                return self._down(traced[0], msa_shape), self._down(traced[1], pair_shape)
+            m, z = self._replay("evoformer", run, msa, pair)
+            return self._down(m, msa_shape), self._down(z, pair_shape)
         m, z = self._up(msa), self._up(pair)
         for block in self.device_evoformer:
             m, z = block(m, z, msa_mask_tt, *pair_masks)
