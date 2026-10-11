@@ -230,7 +230,7 @@ def sequence_gradients(self, *args, **kwargs):
         os._exit(0)
 
 
-def write():
+def write(partial=False):
     agg = collections.defaultdict(lambda: dict(calls=0, synced_s=0.0, replay_s=0.0, replays=0,
                                                flops=0.0, bytes=0.0))
     for r in rec.rec:
@@ -250,10 +250,17 @@ def write():
     total = sum(r["synced_s"] for r in rows)
     doc = dict(**HEAD, iteration_s=state["instrumented"], uninstrumented=state["uninstrumented"],
                iteration_trunk_loads=state.get("instrumented_loads"), iteration_load1=state.get("instrumented_load1"),
-               aiclk=state["cl"], synced_total_s=total, ops=rows, calls=len(rec.rec))
+               aiclk=state["cl"], synced_total_s=total, ops=rows, calls=len(rec.rec), partial=partial)
     (a.out / "census.json").write_text(json.dumps(doc, indent=1))
 
     warm = [u["s"] for u in state["uninstrumented"]]
+    if partial:
+        # The campaign ended before iteration `at` (a stage gate rejected the trajectory). There is no
+        # instrumented iteration, but the per-call times and gradient digests are the point of an A/B arm.
+        print(f"\nBindCraft 2 census (PARTIAL): campaign ended after {state['n']} gradient calls, "
+              f"no iteration {a.at}")
+        print(f"uninstrumented iterations: {['%.3f' % w for w in warm]} s", flush=True)
+        return
     print(f"\nBindCraft 2 census: iteration {a.at}, {len(rec.rec)} outermost ttnn calls, "
           f"synced sum {total:.3f} s over an instrumented iteration of {state['instrumented']:.3f} s")
     print(f"uninstrumented iterations: {['%.3f' % w for w in warm]} s   AICLK {state['cl']}")
@@ -278,4 +285,5 @@ print(json.dumps(dict(ev="start", **HEAD))[:2000], flush=True)
 with bc2.campaign_predictor(**({"checkpoints": weights["af2_weights"]} if "af2_weights" in weights else {})):
     bc2.run_campaign(settings, str(project), trajectories_per_card=1, **weights)
 print(f"campaign ended before iteration {a.at} (only {state['n']} gradient calls)", flush=True)
+write(partial=True)
 os._exit(1)
