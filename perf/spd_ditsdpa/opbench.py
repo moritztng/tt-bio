@@ -93,7 +93,7 @@ for qc, kc in ((128, 256), (64, 256), (256, 128), (128, 128), (64, 128), (256, 6
     ARMS[f"stock q{qc} k{kc}"] = stock(qc, kc)
 ARMS["pm lever"] = lambda: T.token_dit_sdpa_pm(q, k, v, b, sc)
 cores = T.COMPUTE_GRID_MAIN[0] * T.COMPUTE_GRID_MAIN[1]
-pairs = [(qc, kc, pad) for pad in (False, True) for qc, kc in TS.fused_pairs(S, H, DP, cores, ttnn.bfloat16, padded=pad)]
+pairs = [(qc, kc, pad) for pad in (False, True) for qc, kc in TS.fused_pairs(S, H, DP, cores, ttnn.bfloat16, padded=pad, batch=M)]
 log(ev="pairs", cores=cores, pairs=pairs)
 extra = [(qc, kc, True) for qc in (96, 128, 160, 192, 256) for kc in (256, 384, 768)]
 for qc, kc, pad in pairs + [x for x in extra if x[:2] not in {p[:2] for p in pairs}]:
@@ -111,7 +111,7 @@ for name, call in ARMS.items():
         o = ttnn.to_torch(o)[SEL, :, :N].double()
         log(ev="check", arm=name, finite=bool(torch.isfinite(o).all()), rel_rms_vs_f64=rel(o, REF),
             equal_shipped=bool(torch.equal(o, outs["stock shipped"])) if "stock shipped" in outs else None,
-            pick=T._DIT_PM_PICK.get((S, H, DP, ttnn.bfloat16)) if name == "pm lever" else None)
+            pick=T._DIT_PM_PICK.get((M, S, H, DP, ttnn.bfloat16)) if name == "pm lever" else None)
         outs[name] = o
         live[name] = call
     except Exception as e:
@@ -139,3 +139,5 @@ for arm, ts in samples.items():
         spread_pct=(max(ts) - min(ts)) / med * 100, reps=a.reps, ncall=NCALL,
         aiclk=dict(n=len(c), med=c[len(c) // 2] if c else None, min=c[0] if c else None, max=c[-1] if c else None))
 log(ev="end")
+run = [int(l.split()[1]) for l in open(CLKF) if l.split()[1:] and l.split()[1].isdigit()]
+log(ev="aiclk_run", n=len(run), hist={str(v): run.count(v) for v in sorted(set(run))})

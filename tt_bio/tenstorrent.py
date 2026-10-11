@@ -2692,7 +2692,7 @@ def _sdpa_masked(fn, q, k, v, bias, *args, site: str, pad: bool = False, **kw):
     return sl
 
 
-# (q_len, heads, head_dim, dtype) -> the (q_chunk, k_chunk, padded) pair `token_dit_sdpa_pm`
+# (batch, q_len, heads, head_dim, dtype) -> the (q_chunk, k_chunk, padded) pair `token_dit_sdpa_pm`
 # serves, or None once every pair declined. Filled on the first call of a shape.
 _DIT_PM_PICK: dict = {}
 
@@ -2702,16 +2702,17 @@ def token_dit_sdpa_pm(q, k, v, bias, scale: float):
 
     The stock op re-reads the [1, H, S, S] bias for every batch row, and the DiT's batch is its
     samples: at c730 that is 5 x 17.3 MB per call for 4.6 MB of q/k/v. `triatt_sdpa.sdpa` holds a
-    head's bias rows in L1 across the batch loop (the same kernel triangle attention runs), so the
-    pair is taken from `fused_pairs` exactly as there. Returns None when no pair serves; the caller
-    then runs the stock op. Fast mode's `dit_sdpa_pm` lever.
+    head's bias rows in L1 across the batch loop (the same kernel triangle attention runs), the pair
+    taken from `fused_pairs` priced at the real batch. Wormhole c730, 1000 MHz: 0.928 -> 0.523 ms a
+    call, rel_rms to float64 0.0271 -> 0.0267 (perf/spd_ditsdpa/opbench.py). Returns None when no
+    pair serves; the caller then runs the stock op. Fast mode's `dit_sdpa_pm` lever.
     """
-    S, H, D = (int(q.shape[i]) for i in (2, 1, 3))
-    key = (S, H, D, q.dtype)
+    B, H, S, D = (int(d) for d in q.shape)
+    key = (B, S, H, D, q.dtype)
     if key not in _DIT_PM_PICK:
         cores = COMPUTE_GRID_MAIN[0] * COMPUTE_GRID_MAIN[1]
         cands = [(qc, kc, pad) for pad in (False, True)
-                 for qc, kc in _triatt_sdpa.fused_pairs(S, H, D, cores, q.dtype, padded=pad)]
+                 for qc, kc in _triatt_sdpa.fused_pairs(S, H, D, cores, q.dtype, padded=pad, batch=B)]
         for qc, kc, pad in cands:
             o = _triatt_sdpa.sdpa(q, k, v, bias, scale, qc, kc, q_split_cap=0, padded_mask=pad)
             if o is not None:
