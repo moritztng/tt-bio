@@ -6,6 +6,10 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 ## [Unreleased]
 
 ### Changed
+- **Triangle multiplication's gate sigmoid is a polynomial inside the fused kernels**, max error 3e-4. On
+  Wormhole at 1000 MHz the 730-token Protenix-v2 fold spends 1.3 s less on the device in normal mode and 4.0 s
+  less in `--fast`. Protenix-v2 passes the accuracy grade on Wormhole and Blackhole in both modes. Boltz-2
+  normal output is unchanged; Boltz-2 `--fast` moves within seed-to-seed variation. OpenFold3 and OpenDDE are unchanged.
 - **Protenix-v2 `--fast` is about 8 s faster on Wormhole** (189 s on the 730-token fold at 1000 MHz, from
   197 s): the sharded Transition and the fused SwiGLU kernel are back in the fast set. They had been taken out
   because fast folds at 1536 tokens collapsed; the cause was a program-cache collision between two ttnn slices,
