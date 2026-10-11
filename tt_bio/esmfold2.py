@@ -38,6 +38,7 @@ from tt_bio.tenstorrent import (
     accurate_softmax_site,
     attn_value_matmul,
     fused_sdpa,
+    trunk_compute_kernel_config,
 )
 from tt_bio.eltwise_fusion import scale_add
 
@@ -213,7 +214,9 @@ class FoldingTrunk(TorchWrapper):
         self.d_pair = d_pair
 
     def _create_module(self, weights: WeightScope) -> FoldingTrunkModel:
-        return FoldingTrunkModel(self.n_layers, weights, self.compute_kernel_config)
+        # The trunk's matmul fidelity, as every Pairformer-family trunk takes it (`trunk_hifi3`).
+        return FoldingTrunkModel(self.n_layers, weights,
+                                 trunk_compute_kernel_config(self.compute_kernel_config))
 
     def forward(self, z):
         # Pad both sequence axes to a tile multiple and mask padding out of the
