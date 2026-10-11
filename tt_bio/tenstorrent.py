@@ -978,6 +978,40 @@ _TRIMUL_MASK_L1 = env_flag("TT_BIO_TRIMUL_MASK_L1", True)
 # trip at 0.4923 -> 0.3805 ms a call (`util-op-deletes`, perf/util_op_deletes/). Both producers
 # fall back to DRAM when the pair tensor does not fit, which is what happens above 512 aa.
 _RESIDUAL_L1 = env_flag("TT_BIO_RESIDUAL_L1", True)
+# of3-l1trunk-study section 3 (state/spd/of3-l1trunk-study.md): four small placement levers for the
+# OpenFold3 pairformer trunk at 512 tokens, each default OFF so each is A/B'able alone. They move
+# where a tensor lives, never what any op computes, and each falls back to the shipped DRAM
+# placement when L1 refuses (allocator "Out of Memory" or a static-CB clash) -- the refused
+# shape is remembered in `_OF3L1_REFUSED` and keeps DRAM for the rest of the process.
+#   TRANS    pair transition: row block sliced into L1, fc3 -> L1, add_rows kept under _RESIDUAL_L1
+#   TMOUTLN  trimul output layer_norm -> L1, read by the F1 tail beside a DRAM x_norm_in
+#   TALN     tri-att start layer_norm -> L1, read only by the fused qkvgb projection
+#   TMA      trimul gated in-projection: `a` (the mask-multiplied operand) in L1
+_OF3L1_TRANS = env_flag("TT_BIO_OF3L1_TRANS", False)
+_OF3L1_TMOUTLN = env_flag("TT_BIO_OF3L1_TMOUTLN", False)
+_OF3L1_TALN = env_flag("TT_BIO_OF3L1_TALN", False)
+_OF3L1_TMA = env_flag("TT_BIO_OF3L1_TMA", False)
+_OF3L1_REFUSED: set = set()
+# lever -> [served, declined (static gate or remembered refusal), refused live (fell back)]
+OF3L1_STATS: dict = {k: [0, 0, 0] for k in ("trans", "tmoutln", "taln", "tma")}
+
+
+def _of3l1_refusal(where: str, exc: BaseException) -> bool:
+    """Is `exc` L1 saying no (allocator OOM or a static-CB clash)? Reports it on stderr if so.
+
+    Only these two are absorbed: anything else is a real error and the caller re-raises it.
+    """
+    if not (_dram_oom(exc) or "circular buffers" in str(exc)):
+        return False
+    try:
+        os.write(2, (f"[tt-bio] of3l1 {where}: L1 refused ({str(exc).splitlines()[0][:160]}), "
+                     "falling back to the DRAM placement (expected, not a crash)\n")
+                 .encode("utf-8", "replace"))
+    except OSError:
+        pass
+    return True
+
+
 TRIMUL_MASK_L1_STATS = [0, 0]           # [mask read from L1, mask read from DRAM]
 # Trimul shapes whose L1 mask clashed with the channel matmul's static circular buffers. The L1
 # test above reserves a fixed 640 KiB per core, but the matmul plan's buffers grow with the axis:
@@ -9451,7 +9485,9 @@ class TriangleMultiplication(Module):
         # compile per process and every later call starts narrow.
         x_chunks = []
         x_out, c_done = None, 0      # `_TRIMUL_BACK_INTO`: the output the chunks are written into
+        tma_key = ("tma", H, batch, self._hidden, bool(self.ending))
         while True:
+            tma_live = False         # an L1 `a` (TT_BIO_OF3L1_TMA) is live in this attempt
             try:
                 # Re-read inside the try: a clash retry narrows chunk_size and regroups, and the
                 # biases have to follow the weights to the new column order.
@@ -9598,10 +9634,28 @@ class TriangleMultiplication(Module):
                             ttnn.deallocate(gp_in_fused)
                             gp_in_fused = _b
                         if gated:
+                            # TT_BIO_OF3L1_TMA: `a` is written to L1 by the gated move, so the
+                            # mask multiply and the channel matmul read it there. Only where the
+                            # move is the last op on `a` (no transpose left for it, no
+                            # reallocate), so L1 holds one copy. A refusal anywhere downstream is
+                            # caught by this loop's handler below, which retries the whole
+                            # channel loop with `a` back in DRAM WITHOUT narrowing anything.
+                            a_mc = memory_config
+                            if _OF3L1_TMA:
+                                if (not ops.taping() and tma_key not in _OF3L1_REFUSED
+                                        and n_pairs // group == 1
+                                        and (perm_a != (0, 3, 2, 1) or defer)
+                                        and _l1_fits(_padded_bytes([1, slice_c, H, H], 2), 1.0,
+                                                     _PAIR_L1_CONSUMER_RESERVE)):
+                                    a_mc = ttnn.L1_MEMORY_CONFIG
+                                    tma_live = True
+                                    OF3L1_STATS["tma"][0] += 1
+                                else:
+                                    OF3L1_STATS["tma"][1] += 1
                             a_chunk = self._transform_chunk_gated(
                                 gp_in_fused,
                                 (gp_off("p_a", slice_c), gp_off("g_a", slice_c), slice_c),
-                                perm_a, memory_config,
+                                perm_a, a_mc,
                                 n_pairs // group > 1, defer_transpose=defer,
                             )
                             b_chunk = self._transform_chunk_gated(
@@ -9719,6 +9773,14 @@ class TriangleMultiplication(Module):
                 break
             except RuntimeError as e:
                 msg = str(e)
+                # TT_BIO_OF3L1_TMA's own refusal, first: an L1 "Out of Memory" would otherwise
+                # read as the DRAM refusal below (`_dram_oom` matches the allocator's wording,
+                # not the buffer type) and narrow the in-projection group for good, and an L1
+                # clash would narrow the chunk. Neither is owed: drop `a` back to DRAM and redo.
+                tma_retry = tma_live and _of3l1_refusal("trimul a operand", e)
+                if tma_retry:
+                    _OF3L1_REFUSED.add(tma_key)
+                    OF3L1_STATS["tma"][2] += 1
                 # Two refusals, one retry loop. The L1 clash is a program-validation throw on
                 # the L1 path. A DRAM "Out of Memory" on the large path is this module's own
                 # peak: the fused in-projection plus the four-way split it feeds is ~2x the
@@ -9729,21 +9791,21 @@ class TriangleMultiplication(Module):
                 # happens after a throw -- so a size that folds today keeps its arithmetic and
                 # its launch count, and only a size that produces no structure at all sees a
                 # different partition.
-                oom = large_seq and _dram_oom(e)
+                oom = large_seq and _dram_oom(e) and not tma_retry
                 # On the DRAM path the only L1 tensor this call holds is the moved mask, so a
                 # clash there is the mask against the matmul's buffers: move it and retry.
-                mask_clash = (large_seq and "clash with L1 buffers" in msg
+                mask_clash = (large_seq and not tma_retry and "clash with L1 buffers" in msg
                               and any(_m.memory_config().buffer_type == ttnn.BufferType.L1
                                       for _m in _mask_moved_memo.values()))
                 ibw_clash = (("clash with L1 buffers" in msg or "beyond max L1 size" in msg)
-                             and not mask_clash
+                             and not mask_clash and not tma_retry
                              and program_config.in0_block_w > _TRIMUL_IN0_BLOCK_W_BAND)
                 if ibw_clash:
                     # The full-K block is the newest L1 claimant in this call: give it up first.
                     _TRIMUL_IBW_FULL_REFUSED.add(seq_len_tiles)
                     _triangle_mul_program_config.cache_clear()
                     program_config = _triangle_mul_program_config(seq_len_tiles, _trimul_ibw_full(), _trimul_subblock())
-                if (not oom and not mask_clash and not ibw_clash
+                if (not oom and not mask_clash and not ibw_clash and not tma_retry
                         and (large_seq or "clash with L1 buffers" not in msg)):
                     raise
                 if mask_clash:
@@ -9804,7 +9866,7 @@ class TriangleMultiplication(Module):
                           f"above is expected and handled; the result is unchanged.",
                           file=sys.stderr, flush=True)
                     continue
-                if mask_clash or ibw_clash:
+                if mask_clash or ibw_clash or tma_retry:
                     continue
                 _record_trimul_clash(H, self._hidden, batch, chunk_size)
                 # tt-metal logs the clash at `critical` before raising, which reads like a
@@ -9869,14 +9931,45 @@ class TriangleMultiplication(Module):
         # result is still alive, so a refusal there can still take the row-blocked tail from the
         # same two inputs. Once it succeeds the result is freed, exactly where rebinding `x` used
         # to free it, so every size that fits keeps its peak and its ops.
+        #
+        # TT_BIO_OF3L1_TMOUTLN: the normed result goes to L1 when a pair tensor fits there, and
+        # its only reader is the F1 tail below (`mixed_act`: x_norm_in stays in DRAM). Anything
+        # else that would read it -- F1 declining, or L1 refusing the F1 program -- gets it moved
+        # back to DRAM first, so the rest of the tail runs on exactly the shipped placement.
+        f1_ok = (g_out_fused is None and _TRIMUL_TAIL_F1 and self.p_out_bias is None
+                 and self.g_out_bias is None)
+        tm_key = ("tmoutln", tuple(x.padded_shape))
+        xn = None
+        if _OF3L1_TMOUTLN:
+            if (f1_ok and not ops.taping() and tm_key not in _OF3L1_REFUSED
+                    and _l1_memory_config_if_it_fits(x, 1.0, _PAIR_L1_CONSUMER_RESERVE)
+                    is ttnn.L1_MEMORY_CONFIG):
+                try:
+                    xn = ttnn.layer_norm(
+                        x,
+                        weight=self.out_norm_weight,
+                        bias=self.out_norm_bias,
+                        epsilon=1e-5,
+                        compute_kernel_config=ln_compute_kernel_config(self.compute_kernel_config),
+                        memory_config=ttnn.L1_MEMORY_CONFIG,
+                    )
+                except RuntimeError as exc:
+                    if not _of3l1_refusal("trimul output layer_norm", exc):
+                        raise
+                    _OF3L1_REFUSED.add(tm_key)
+                    OF3L1_STATS["tmoutln"][2] += 1
+                    xn = None
+            else:
+                OF3L1_STATS["tmoutln"][1] += 1
         try:
-            xn = ttnn.layer_norm(
-                x,
-                weight=self.out_norm_weight,
-                bias=self.out_norm_bias,
-                epsilon=1e-5,
-                compute_kernel_config=ln_compute_kernel_config(self.compute_kernel_config),
-            )
+            if xn is None:
+                xn = ttnn.layer_norm(
+                    x,
+                    weight=self.out_norm_weight,
+                    bias=self.out_norm_bias,
+                    epsilon=1e-5,
+                    compute_kernel_config=ln_compute_kernel_config(self.compute_kernel_config),
+                )
         except RuntimeError as exc:
             if not _dram_oom(exc):
                 raise
@@ -9892,8 +9985,13 @@ class TriangleMultiplication(Module):
             return self._tail_rows(x_in, x, H, host_acc, add_to_input)
         ttnn.deallocate(x)
         x = xn
-        if (g_out_fused is None and _TRIMUL_TAIL_F1 and self.p_out_bias is None
-                and self.g_out_bias is None):
+        xn_l1 = x.memory_config().buffer_type == ttnn.BufferType.L1 and _OF3L1_TMOUTLN
+
+        def xn_to_dram(x):
+            d = ttnn.to_memory_config(x, ttnn.DRAM_MEMORY_CONFIG)
+            ttnn.deallocate(x)
+            return d
+        if f1_ok:
             # `fused_tail` returns None for any call its descriptor does not cover (at 512 aa that
             # is the narrow-hidden trimuls, k_tiles=2), and the three ops below run unchanged.
             # The product goes where `multiply_` would have left it: L1 when a pair tensor fits
@@ -9907,15 +10005,34 @@ class TriangleMultiplication(Module):
                 out_mc = ttnn.L1_MEMORY_CONFIG
             # With TT_BIO_TRIMUL_TAIL_EPI=2 the residual add is folded in: `x_in + update` is
             # written into `x_in` and returned, and `_add_input` sees the sum (`u is x`).
-            fused = _trimul_tail.fused_tail(
-                x, x_norm_in, self.out_p_weight, self.g_out_weight,
-                _mm_generic.ckc_args(self.compute_kernel_config), tuple(COMPUTE_GRID_MAIN),
-                out_memory_config=out_mc,
-                resid=x_in if add_to_input and not ops.taping() else None)
+            def run_f1(x):
+                return _trimul_tail.fused_tail(
+                    x, x_norm_in, self.out_p_weight, self.g_out_weight,
+                    _mm_generic.ckc_args(self.compute_kernel_config), tuple(COMPUTE_GRID_MAIN),
+                    out_memory_config=out_mc,
+                    resid=x_in if add_to_input and not ops.taping() else None,
+                    mixed_act=xn_l1)
+            if xn_l1:
+                try:
+                    fused = run_f1(x)
+                except RuntimeError as exc:
+                    if not _of3l1_refusal("trimul F1 tail over an L1 norm", exc):
+                        raise
+                    _OF3L1_REFUSED.add(tm_key)
+                    OF3L1_STATS["tmoutln"][2] += 1
+                    x = xn_to_dram(x)
+                    xn_l1 = False
+                    fused = run_f1(x)
+                else:
+                    OF3L1_STATS["tmoutln"][0 if fused is not None else 1] += 1
+            else:
+                fused = run_f1(x)
             if fused is not None:
                 ttnn.deallocate(x)
                 ttnn.deallocate(x_norm_in)
                 return fused
+        if xn_l1:
+            x = xn_to_dram(x)
         p_out = _trimul_out_proj(x, self.out_p_weight, self.compute_kernel_config,
                                  self.p_out_bias)
         ttnn.deallocate(x)
@@ -10478,7 +10595,7 @@ class TriangleAttention(Module):
             _qkv_mm_config(x, self.qkvg_weight),
         ) or (None, None)
 
-    def _fused_qkvgb(self, x):
+    def _fused_qkvgb(self, x, allow_l1=False):
         """`(q, k, v), gate, pair bias` from one pass, or `(None, None, None)`.
 
         The pair-bias projection is the THIRD reader of the same normed tensor, one tile wide
@@ -10497,7 +10614,7 @@ class TriangleAttention(Module):
             x, self.qkvgb_weight, self.o_weight, self.compute_kernel_config,
             self.n_heads, self.head_dim, _triatt_dtype(),
             _qkv_mm_config(x, self.qkvgb_weight),
-            int(self.bias_weight.shape[-1]),
+            int(self.bias_weight.shape[-1]), allow_l1=allow_l1,
         ) or (None, None, None)
 
     def __call__(self, x: ttnn.Tensor, attn_mask: ttnn.Tensor | None = None,
@@ -10610,15 +10727,65 @@ class TriangleAttention(Module):
             # Explicit DRAM: for the ending variant x is the L1 transpose result
             # (_transpose_memory_config) and ttnn would otherwise inherit L1 here and again
             # for the qkv projection, whose 157 MB does not fit.
-            x = ttnn.layer_norm(
-                x,
-                weight=self.layer_norm_weight,
-                bias=self.layer_norm_bias,
-                epsilon=1e-5,
-                compute_kernel_config=ln_compute_kernel_config(self.compute_kernel_config),
-                memory_config=ttnn.DRAM_MEMORY_CONFIG,
-            )
-            pre_qkv, pre_g, triangle_bias = self._fused_qkvgb(x)
+            #
+            # TT_BIO_OF3L1_TALN, starting variant only: the norm goes to L1 when a pair tensor
+            # fits, and its one reader is the fused qkvgb projection, whose five outputs are
+            # explicitly DRAM. If that projection declines or L1 refuses its program, x is moved
+            # back to DRAM before anything else reads it, so every later op is the shipped one.
+            x_raw, x = x, None
+            ta_key = ("taln", tuple(x_raw.padded_shape))
+            if _OF3L1_TALN and not self.ending:
+                if (not ops.taping() and ta_key not in _OF3L1_REFUSED
+                        and not (self.biased or self.qkvgb_weight is None)
+                        and _l1_memory_config_if_it_fits(x_raw, 1.0, _PAIR_L1_CONSUMER_RESERVE)
+                        is ttnn.L1_MEMORY_CONFIG):
+                    try:
+                        x = ttnn.layer_norm(
+                            x_raw,
+                            weight=self.layer_norm_weight,
+                            bias=self.layer_norm_bias,
+                            epsilon=1e-5,
+                            compute_kernel_config=ln_compute_kernel_config(
+                                self.compute_kernel_config),
+                            memory_config=ttnn.L1_MEMORY_CONFIG,
+                        )
+                    except RuntimeError as exc:
+                        if not _of3l1_refusal("tri-att start layer_norm", exc):
+                            raise
+                        _OF3L1_REFUSED.add(ta_key)
+                        OF3L1_STATS["taln"][2] += 1
+                        x = None
+                else:
+                    OF3L1_STATS["taln"][1] += 1
+            if x is None:
+                x = ttnn.layer_norm(
+                    x_raw,
+                    weight=self.layer_norm_weight,
+                    bias=self.layer_norm_bias,
+                    epsilon=1e-5,
+                    compute_kernel_config=ln_compute_kernel_config(self.compute_kernel_config),
+                    memory_config=ttnn.DRAM_MEMORY_CONFIG,
+                )
+            if _OF3L1_TALN and x.memory_config().buffer_type == ttnn.BufferType.L1 \
+                    and not self.ending:
+                try:
+                    pre_qkv, pre_g, triangle_bias = self._fused_qkvgb(x, allow_l1=True)
+                except RuntimeError as exc:
+                    if not _of3l1_refusal("tri-att start qkvgb over an L1 norm", exc):
+                        raise
+                    _OF3L1_REFUSED.add(ta_key)
+                    OF3L1_STATS["taln"][2] += 1
+                    pre_qkv = None
+                else:
+                    if pre_qkv is not None:
+                        OF3L1_STATS["taln"][0] += 1
+                if pre_qkv is None:
+                    x_dram = ttnn.to_memory_config(x, ttnn.DRAM_MEMORY_CONFIG)
+                    ttnn.deallocate(x)
+                    x = x_dram
+                    pre_qkv, pre_g, triangle_bias = self._fused_qkvgb(x)
+            else:
+                pre_qkv, pre_g, triangle_bias = self._fused_qkvgb(x)
             if triangle_bias is None:
                 triangle_bias = _pair_proj_linear(
                     x, self.bias_weight, self.compute_kernel_config, ttnn.bfloat16
@@ -12004,7 +12171,10 @@ class Transition(Module):
     def _add_rows_ok(self, x, memory_config) -> bool:
         return (_TRANSITION_ADD_ROWS and not ops.taping() and len(x.shape) == 4
                 and x.shape[1] <= SEQ_LEN_MORE_CHUNKING
-                and (memory_config is None or memory_config.buffer_type == ttnn.BufferType.DRAM)
+                # The sum lands in x's own rows, so `memory_config` (where an assembled update
+                # would go) has nothing to place; TT_BIO_OF3L1_TRANS stops it vetoing add_rows.
+                and (memory_config is None or memory_config.buffer_type == ttnn.BufferType.DRAM
+                     or _OF3L1_TRANS)
                 and (self.dtype or _dtype()) == ttnn.bfloat16 and _pair_add.ok(x, x))
 
     def _transition(self, x: ttnn.Tensor, memory_config: ttnn.MemoryConfig | None,
@@ -12082,7 +12252,7 @@ class Transition(Module):
                     return out
             return swiglu_l1(x)
 
-        def swiglu_l1(x):
+        def swiglu_l1(x, out_mc=ttnn.DRAM_MEMORY_CONFIG):
             dtype = self.dtype if self.dtype is not None else _dtype()
             hidden = ttnn.bfloat8_b if self._hidden_b8 else dtype
             x_norm = ttnn.layer_norm(
@@ -12117,7 +12287,7 @@ class Transition(Module):
                 "fc3", x, self.fc3_weight,
                 compute_kernel_config=ckc if is_wormhole() else bfp8_fidelity(ckc, x, self.fc3_weight),
                 dtype=dtype,
-                memory_config=ttnn.DRAM_MEMORY_CONFIG,
+                memory_config=out_mc,
             )
             ttnn.deallocate(x)
             return x_dram
@@ -12427,11 +12597,43 @@ class Transition(Module):
             # the whole pair: 2P + 3P of traffic for 3P here. swiglu is row-local, so block I's
             # update depends on x[I] alone and x[I] can take the sum once the block is done. Same
             # heights, same blocks, and `pair_add` adds the way ttnn.add does: the same bytes.
+            #
+            # TT_BIO_OF3L1_TRANS: the block is cut straight into L1 and fc3 writes its update
+            # there, so neither crosses DRAM; `pair_add` reads blk through its TensorAccessor,
+            # which takes an L1 buffer as is. Interleaved swiglu only (the sharded one plans its
+            # own placement). A refusal re-runs that block on the DRAM path -- nothing has been
+            # added into x yet when it can throw -- and keeps DRAM for the shape from then on.
+            l1_key = ("trans", tuple(x.padded_shape), transition_h_chunk_size)
+            l1_blk = (_OF3L1_TRANS and not shard_rows and not ops.taping()
+                      and transition_h_chunk_size < H and l1_key not in _OF3L1_REFUSED)
+            if _OF3L1_TRANS:
+                OF3L1_STATS["trans"][0 if l1_blk else 1] += 1
             for s in range(0, H, transition_h_chunk_size):
-                c = x if transition_h_chunk_size >= H else _rows(x, s, min(s + transition_h_chunk_size, H))
-                y = swiglu(c)
-                if c is not x:
-                    ttnn.deallocate(c)
+                e = min(s + transition_h_chunk_size, H)
+                y = None
+                if l1_blk:
+                    c = y = None
+                    try:
+                        c = ttnn.slice(x, [0, s, 0, 0], [x.shape[0], e, x.shape[2], x.shape[3]],
+                                       memory_config=ttnn.L1_MEMORY_CONFIG)
+                        y = swiglu_l1(c, ttnn.L1_MEMORY_CONFIG)
+                    except RuntimeError as exc:
+                        if not _of3l1_refusal("transition add_rows block", exc):
+                            raise
+                        for t in (c, y):
+                            if t is not None and t.is_allocated():
+                                ttnn.deallocate(t)
+                        y = None
+                        l1_blk = False
+                        _OF3L1_REFUSED.add(l1_key)
+                        OF3L1_STATS["trans"][2] += 1
+                    else:
+                        ttnn.deallocate(c)
+                if y is None:
+                    c = x if transition_h_chunk_size >= H else _rows(x, s, e)
+                    y = swiglu(c)
+                    if c is not x:
+                        ttnn.deallocate(c)
                 _pair_add.add_rows(x, y, s)
                 ttnn.deallocate(y)
                 PAIR_INPLACE_STATS[1] += 1

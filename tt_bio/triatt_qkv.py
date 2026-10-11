@@ -60,14 +60,19 @@ def _taping():
     return ops.taping()
 
 
-def _common_ok(x, w, dtype):
-    """The dtype, layout and memory-config conditions the transcription was verified under."""
+def _common_ok(x, w, dtype, allow_l1=False):
+    """The dtype, layout and memory-config conditions the transcription was verified under.
+
+    `allow_l1` also takes an interleaved L1 `x` (TT_BIO_OF3L1_TALN): the reader goes through a
+    TensorAccessor built from x's own args and the descriptor cache keys on x's memory config,
+    so only the bank the tiles come from changes. The outputs stay explicitly DRAM."""
     if not G.fast_dtypes_ok(x.dtype, w.dtype, dest=dtype):
         return False
     if x.layout != ttnn.TILE_LAYOUT or len(x.shape) != 3:
         return False
     xmc, wmc = x.memory_config(), w.memory_config()
-    return (xmc.buffer_type == ttnn.BufferType.DRAM
+    return ((xmc.buffer_type == ttnn.BufferType.DRAM
+             or (allow_l1 and xmc.buffer_type == ttnn.BufferType.L1))
             and xmc.memory_layout == ttnn.TensorMemoryLayout.INTERLEAVED
             and wmc.memory_layout == ttnn.TensorMemoryLayout.INTERLEAVED)
 
@@ -583,7 +588,8 @@ def _qkvgb_reject(reason, shape):
     return None
 
 
-def qkvgb_heads(x, w, w_o, ckc, n_heads, head_dim, dtype, mm_config, bias_channels):
+def qkvgb_heads(x, w, w_o, ckc, n_heads, head_dim, dtype, mm_config, bias_channels,
+                allow_l1=False):
     """`((q, k, v), gate, bias)` from ONE pass over `x`, or `None` to leave all three alone.
 
     `w` is the qkv weight with the gate weight and the (tile-padded) bias weight concatenated on
@@ -600,7 +606,7 @@ def qkvgb_heads(x, w, w_o, ckc, n_heads, head_dim, dtype, mm_config, bias_channe
         return _qkvgb_reject("head_dim_or_width", shape)
     if not 0 < bias_channels <= TILE:
         return _qkvgb_reject("bias_wider_than_a_tile", shape)
-    if not _common_ok(x, w, dtype) or mm_config is None:
+    if not _common_ok(x, w, dtype, allow_l1) or mm_config is None:
         return _qkvgb_reject("dtype_or_memory_or_config", shape)
     if len(w_o.shape) != 2 or int(w_o.shape[-2]) // TILE != c // TILE:
         return _qkvgb_reject("out_weight_shape", shape)

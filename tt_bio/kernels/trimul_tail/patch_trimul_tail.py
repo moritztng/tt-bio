@@ -183,6 +183,43 @@ def patch_in0(src: str) -> str:
     return HEADER + patch_resid(patch_abl_write(src))
 
 
+def patch_in0_xb(src: str) -> str:
+    """Pass 1's activation through its OWN accessor when the caller gives it one.
+
+    Without `TRIMUL_TAIL_XB_CTA` the second accessor is the first one's args, so the program is the
+    one it always was. With it (trimul_tail._build sets it to where it appended xb's accessor args)
+    xa and xb may sit in different buffer types -- an L1 xa beside a DRAM xb, TT_BIO_OF3L1_TMOUTLN.
+    The two accessors are then different types, so the pass select is a call through a generic
+    lambda instead of a ternary. Idempotent on an already-patched source.
+    """
+    if "TRIMUL_TAIL_XB_CTA" in src:
+        return src
+    src = sub(src, "    const auto in0b_reader = TensorAccessor(in0_args, in2_addr, in0_tile_size);",
+              "#ifdef TRIMUL_TAIL_XB_CTA\n"
+              "    constexpr auto in0b_args = TensorAccessorArgs<TRIMUL_TAIL_XB_CTA>();\n"
+              "#else\n"
+              "    constexpr auto in0b_args = in0_args;\n"
+              "#endif\n"
+              "    const auto in0b_reader = TensorAccessor(in0b_args, in2_addr, in0_tile_size);",
+              "in0b accessor")
+    src = sub(src, """                    if (!(TRIMUL_TAIL_ABL & 1)) read_in0_block_sync<M_block_tiles, K_block_tiles>(
+                        pass == 0 ? in0_reader : in0b_reader,""",
+              """                    auto rd_in0 = [&](const auto& in0_rdr) {
+                    if (!(TRIMUL_TAIL_ABL & 1)) read_in0_block_sync<M_block_tiles, K_block_tiles>(
+                        in0_rdr,""", "in0 pass select open")
+    src = sub(src, """                        (k_block + 1) * K_block_tiles);
+                } else {""",
+              """                        (k_block + 1) * K_block_tiles);
+                    };
+                    if (pass == 0) {
+                        rd_in0(in0_reader);
+                    } else {
+                        rd_in0(in0b_reader);
+                    }
+                } else {""", "in0 pass select close")
+    return src
+
+
 def patch_in1(src: str) -> str:
     src = sub(src, "const auto in1_reader = TensorAccessor(in1_args, in1_addr, in1_tile_size);",
               "const auto in1_reader = TensorAccessor(in1_args, in1_addr, in1_tile_size);\n"
@@ -585,7 +622,8 @@ def main() -> int:
     OUT.mkdir(parents=True, exist_ok=True)
     (OUT / "matmul_dataflow_common.hpp").write_text(
         (kd / "matmul_dataflow_common.hpp").read_text())
-    (OUT / "dm_in0_sender.cpp").write_text(patch_in0((kd / "dm_in0_sender.cpp").read_text()))
+    (OUT / "dm_in0_sender.cpp").write_text(
+        patch_in0_xb(patch_in0((kd / "dm_in0_sender.cpp").read_text())))
     (OUT / "dm_in1_sender_out.cpp").write_text(patch_in1((kd / "dm_in1_sender_out.cpp").read_text()))
     (OUT / "compute.cpp").write_text(patch_compute((kd / "compute.cpp").read_text()))
     print(f"generated from {kd}")

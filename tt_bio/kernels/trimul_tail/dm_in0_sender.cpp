@@ -104,7 +104,12 @@ void kernel_main() {
     // Tensor accessor for input tensor
     constexpr auto in0_args = TensorAccessorArgs<22>();
     const auto in0_reader = TensorAccessor(in0_args, in0_addr, in0_tile_size);
-    const auto in0b_reader = TensorAccessor(in0_args, in2_addr, in0_tile_size);
+#ifdef TRIMUL_TAIL_XB_CTA
+    constexpr auto in0b_args = TensorAccessorArgs<TRIMUL_TAIL_XB_CTA>();
+#else
+    constexpr auto in0b_args = in0_args;
+#endif
+    const auto in0b_reader = TensorAccessor(in0b_args, in2_addr, in0_tile_size);
 
     // Always create tuple of output accessors (size = N_chunks)
     constexpr uint32_t out_tensor_args_cta_offset = in0_args.next_compile_time_args_offset();
@@ -305,8 +310,9 @@ void kernel_main() {
                             fused_op_receiver.compute_actual_k_block_iter(n_block_iter == 0, k_block_iter, k_forward);
                     }
 #endif
+                    auto rd_in0 = [&](const auto& in0_rdr) {
                     if (!(TRIMUL_TAIL_ABL & 1)) read_in0_block_sync<M_block_tiles, K_block_tiles>(
-                        pass == 0 ? in0_reader : in0b_reader,
+                        in0_rdr,
                         in0_shape,
                         in0_start_address,
                         in0_tile_size,
@@ -320,6 +326,12 @@ void kernel_main() {
                         m_tile_end,
                         k_block * K_block_tiles,
                         (k_block + 1) * K_block_tiles);
+                    };
+                    if (pass == 0) {
+                        rd_in0(in0_reader);
+                    } else {
+                        rd_in0(in0b_reader);
+                    }
                 } else {
                     // Get from previous device
                     noc_semaphore_set(in0_receiver_semaphore_addr_ptr, INVALID);
