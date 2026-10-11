@@ -252,11 +252,9 @@ class OF3SampleDiffusion:
 
     def _traceable(self, S, width):
         """Replay one captured step instead of dispatching ~1,500 ops 200 times. Needs the trace
-        region reserved at device open, every sample in one call (a chunked step has a short
-        tail), and the fp32 module: the bf16 one pads atoms through the host, which a trace
-        cannot hold."""
-        return (TRACE and trace_region_size() > 0 and width >= S
-                and self._act_dtype == ttnn.float32)
+        region reserved at device open and every sample in one call (a chunked step has a short
+        tail). Both the fp32 and the bf16 (`diffusion_bf16`) module pad atoms on device."""
+        return TRACE and trace_region_size() > 0 and width >= S
 
     def _rollout_traced(self, xl_host, atom_mask_host, rots_list, trans_list, noise_list,
                         t_list, c_tau_list, step_scale, progress_fn, dm_args, inv_cache,
