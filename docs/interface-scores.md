@@ -4,7 +4,14 @@
 campaigns rank by: ipSAE, ipTM, interface pAE, pDockQ, pDockQ2 and LIS. They are arithmetic on
 the PAE matrix, the pLDDT and the coordinates, so they need no device. `tt-bio predict
 --write_pae` adds them to each Boltz-2 results row, and `tt-bio score` computes them for a fold
-you already have.
+you already have:
+
+```bash
+tt-bio score complex.cif complex_pae.npz --plddt complex_plddt.npz --confidence confidence.json
+```
+
+It prints JSON. `--plddt` lifts pDockQ and pDockQ2 off their floor, `--confidence` adds the model's own chain-pair
+ipTM, and `--pae_cutoff` and `--dist_cutoff` (both 15 Å by default, the Nipah competition's) set the PAE and distance cutoffs.
 
 ## Which ipSAE
 

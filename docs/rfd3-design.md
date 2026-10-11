@@ -160,6 +160,9 @@ tt-bio design specs.json --model rfd3 --from_pdb --out_dir ./designs \
   --num_designs 32 --devices 0,1,2,3
 ```
 
+Two more options: `--spec a,b` runs only those spec ids from the inputs file, and `--fp32_residual` keeps the
+residual stream of the DiT, encoder and token encoder in fp32 instead of bf16 (off by default).
+
 ## Checkpoint
 
 The RFD3 checkpoint downloads automatically on first use, straight from the
