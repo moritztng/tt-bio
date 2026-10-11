@@ -11502,6 +11502,9 @@ MASK_TRANS_STATS = {"stacks": 0, "blocks": 0, "ones": 0, "declined_rank": 0, "de
 # fc3 stops at K block 2: on Wormhole an fp32 dest that sums more K tiles writes +-2 / +-4 into
 # ~1e-8 of the outputs at HiFi3 (2 in 139M at K block 4, none at 2, outlier_stage.py), and fc3 runs
 # ~7e10 outputs a c730 fold. fc1/fc2 sum at most 8 tiles, with no such value in the same audit.
+# Wormhole only (`_IS_SMALL_GRID`, like transition_shard): on Blackhole it saves nothing (c730 normal 114.8 ->
+# 115.8 s, fast 94.1 -> 94.2, qb1 1350 MHz) and its normal 11-set grade against staging19 fails on one 9-complex
+# pose flip (DockQ -0.0034 [-0.0069, -0.0003], top pose median 0.060 A), so Blackhole keeps ttnn's pick.
 _TRANSITION_KB_FC3 = 2
 # Shape classes the device refused (a circular-buffer clash beside live L1): ttnn's pick from then on.
 _TRANSITION_BW_REFUSED: set = set()
@@ -11551,7 +11554,7 @@ def _transition_bw_config(op: str, mt: int, kt: int, nt: int, b8: bool, silu: bo
 def _transition_linear(op: str, x: ttnn.Tensor, w: ttnn.Tensor, silu: bool = False, **kw) -> ttnn.Tensor:
     """`ttnn.linear(x, w, core_grid=CORE_GRID_MAIN)`, at `_transition_kb`'s K block under `transition_bw`."""
     cfg = None
-    if lever("transition_bw"):
+    if lever("transition_bw") and _IS_SMALL_GRID:
         xs = [int(d) for d in x.padded_shape]
         key = (op, prod(xs[:-1]) // 32, xs[-1] // 32, int(w.shape[-1]) // 32, w.dtype == ttnn.bfloat8_b, silu)
         if key in _TRANSITION_BW_REFUSED:
