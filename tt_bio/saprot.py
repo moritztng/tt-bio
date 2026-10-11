@@ -325,6 +325,7 @@ class SaprotModel(Module):
         self.norm_weight = self.torch_to_tt("norm.weight")
         self.norm_bias = self.torch_to_tt("norm.bias")
         self.head = SaprotLMHead(self.scope("head"), compute_kernel_config)
+        self._rope = {}
 
     def __call__(self, tokens, attn_mask=None, key_valid=None, embed_mask=None,
                  want_logits: bool = True):
@@ -337,11 +338,15 @@ class SaprotModel(Module):
         shape of fix as ``ESMCHiddenStatesModel``'s ``last_hidden_only``.
         """
         seq_len = tokens.shape[-1]
-        attn = self.blocks[0].attn
-        if attn.fold_rope:
-            cos, sin = fold_rope_tables(seq_len, self.n_heads, attn.head_dim, self.device)
-        else:
-            cos, sin = rope_tables(seq_len, attn.head_dim, device=self.device)
+        rope = self._rope.get(seq_len)
+        if rope is None:  # built and uploaded once per bucket length, then resident
+            attn = self.blocks[0].attn
+            if attn.fold_rope:
+                rope = fold_rope_tables(seq_len, self.n_heads, attn.head_dim, self.device)
+            else:
+                rope = rope_tables(seq_len, attn.head_dim, device=self.device)
+            self._rope[seq_len] = rope
+        cos, sin = rope
         x = self.embed(tokens, embed_mask)
         for block in self.blocks:
             x = block(x, cos, sin, attn_mask, key_valid)
