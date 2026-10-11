@@ -47,6 +47,12 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   [`docs/tuning-flags.md`](docs/tuning-flags.md#tt_bio_levers).
 
 ### Fixed
+- **Protenix-v2 on Wormhole returns the same structure for an input however many folds the process has run.**
+  From about the fourth fold in one process the outer product mean could fall back to a narrowed path and
+  return structures up to 20 A away from a fresh run. It now splits its work by size up front, which gives
+  identical values. OpenFold3 and Boltz-2 output is unchanged.
+- **A device open that never returns no longer blocks the host.** A chip left dirty by a killed process used to
+  hang every later open on the machine; the process now exits after 10 minutes with a stack dump. Reset that chip.
 - **ESMFold2 and ESMFold2-Fast are back near their earlier speed.** Since the per-loop LM dropout fix, each of
   the 11 trunk loops re-ran the MSA encoder on the same input and did the injection projection on the host. The
   encoder now runs once per fold and the projection on the device: 30.2 s at 512 residues on a Blackhole p300c
