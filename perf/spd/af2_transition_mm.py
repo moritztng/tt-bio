@@ -72,16 +72,47 @@ for n in NS:
                                               memory_config=ttnn.DRAM_MEMORY_CONFIG)
     arms["fc2_2d"] = lambda h=h2: ttnn.linear(h, w2, bias=b2, compute_kernel_config=ckc,
                                               memory_config=ttnn.DRAM_MEMORY_CONFIG)
+    # The batch folded into M without a data move: a 1D program config with fuse_batch runs the
+    # padded B*Mt row tiles as one matmul. Each config either runs or is refused by the op.
+    mt = n * ((n + 31) // 32)
+    for cfg_name, grid, per_m, sub_w in (("fold64", (8, 8), -(-mt // 64), 8), ("fold64w4", (8, 8), -(-mt // 64), 4)):
+        for leg, (src, w, b, k, nt, act) in (("fc1", (z4, w1, b1, C // 32, F // 32, "relu")),
+                                             ("fc2", (h4, w2, b2, F // 32, C // 32, None))):
+            cfg = ttnn.MatmulMultiCoreReuseMultiCast1DProgramConfig(
+                compute_with_storage_grid_size=ttnn.CoreCoord(*grid), in0_block_w=min(k, 4),
+                out_subblock_h=1, out_subblock_w=min(sub_w, nt), per_core_M=per_m, per_core_N=nt,
+                fuse_batch=True, fused_activation=None, mcast_in0=False)
+            arms[f"{leg}_{cfg_name}"] = (lambda src=src, w=w, b=b, cfg=cfg, act=act:
+                                         ttnn.linear(src, w, bias=b, activation=act, program_config=cfg,
+                                                     compute_kernel_config=ckc,
+                                                     memory_config=ttnn.DRAM_MEMORY_CONFIG))
+    # What the 2D form would cost if it had to move data: a reshape of the pair tensor there and back.
+    # Its own source and a clone, so deallocating the result can never free a tensor other arms read.
+    zr = tt(torch.randn(1, n, n, C) * 0.5)
+    arms["reshape_to_2d"] = lambda z=zr: ttnn.clone(ttnn.reshape(z, (1, 1, n * n, C)))
     arms["ln_4d"] = lambda z=z4: ttnn.layer_norm(z, epsilon=1e-5, compute_kernel_config=ckc,
                                                  memory_config=ttnn.DRAM_MEMORY_CONFIG)
+    ref1 = ttnn.to_torch(h4).float()
     for name, fn in arms.items():
-        s = timed(fn)
+        try:
+            s = timed(fn)
+        except RuntimeError as exc:
+            print(f"N={n:4d} {name:14} refused: {str(exc).splitlines()[0][:120]}", flush=True)
+            rows.append(dict(n=n, arm=name, refused=str(exc)[:300]))
+            continue
+        if name.startswith("fc1_fold"):
+            o = fn()
+            same = torch.equal(ttnn.to_torch(o).float(), ref1)
+            ttnn.deallocate(o)
+            print(f"N={n:4d} {name:14} equal to fc1_4d: {same}", flush=True)
         k, m = (C, F) if name.startswith("fc1") else ((F, C) if name.startswith("fc2") else (C, 0))
+        if name.startswith("reshape"):
+            m = 0
         flops = 2.0 * n * n * k * m
         rows.append(dict(n=n, arm=name, s=s, gflops=flops / s / 1e9 if m else None))
-        print(f"N={n:4d} {name:8} {s * 1e3:8.3f} ms"
+        print(f"N={n:4d} {name:14} {s * 1e3:8.3f} ms"
               + (f"  {flops / s / 1e9:8.1f} GFLOP/s" if m else ""), flush=True)
-    for t in (z4, z2, h4, h2):
+    for t in (z4, z2, h4, h2, zr):
         ttnn.deallocate(t)
 
 out = os.environ.get("OUT")
