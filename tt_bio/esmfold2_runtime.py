@@ -695,51 +695,8 @@ def patch_esmfold2(model, esmc_repo: str = "biohub/ESMC-6B", persistent_lm: bool
     # loop-invariant LM/MSA/injection work and run the parcae recurrence on
     # device), avoiding per-loop host<->device round-trips of the L²·256 pair.
     _install_resident_trunk_loop(model)
-    _install_pair_state_prefetch(model)
     dram_peak("esmfold2/head-built")
     return model
-
-
-PAIR_STATE_PREFETCH = True  # read per fold, so an in-process A/B can flip it
-
-
-def _install_pair_state_prefetch(model):
-    """Draw the trunk's random initial pair state on a host thread while the device runs the embedder,
-    the relative positions and the ESMC-6B, instead of after them with the device idle.
-
-    `_init_pair_state` is a truncated normal over [B, L, L, c_z] from the global torch RNG: ~1.0 s of
-    host time at 512 aa (cProfile, p300c). Nothing between the embedder and that call draws from the
-    global RNG, so the thread consumes the same stream at the same position and the state is
-    identical; the fold's seed is set before the embedder runs.
-    """
-    from concurrent.futures import ThreadPoolExecutor
-
-    pool = ThreadPoolExecutor(1)
-    orig = model._init_pair_state
-    c_z = model.z_init_1.out_features
-    pending = []
-
-    def draw(shape):
-        return orig(torch.empty(shape))  # untouched, only its shape and dtype are read
-
-    def start(_mod, args, kw):
-        while pending:  # a fold that died before taking its draw: let it finish, then drop it
-            pending.pop().result()
-        if not PAIR_STATE_PREFETCH:
-            return
-        aatype = kw["aatype"] if "aatype" in kw else args[0]
-        B, L = aatype.shape[:2]
-        pending.append(pool.submit(draw, (B, L, L, c_z)))
-
-    def take(ref):
-        fut = pending.pop() if pending else None
-        state = fut.result() if fut is not None else None
-        if state is None or state.shape != ref.shape:
-            return orig(ref)
-        return state.to(dtype=ref.dtype)
-
-    model.inputs_embedder.register_forward_pre_hook(start, with_kwargs=True)
-    model._init_pair_state = take
 
 
 def load_ttnn_esmfold2(esmfold2_repo: str = "biohub/ESMFold2",
