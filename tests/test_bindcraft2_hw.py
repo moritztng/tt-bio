@@ -299,7 +299,8 @@ def test_switching_checkpoints_hands_the_last_one_back(capsys):
         try:
             for i in range(6):
                 model.sequence_gradients(protein_states, losses, model=names[i % 2])
-                trunks.append(weakref.ref(build.pool._trunks[names[i % 2]]))
+                # The loop ran through the device model, not its `_Trunk` wrapper.
+                trunks.append(weakref.ref(build.pool._trunks[names[i % 2]].model))
                 survived += [(j, i) for j, t in enumerate(trunks[:-1]) if t() is not None]
                 gc.collect()
                 readings.append(held())

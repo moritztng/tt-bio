@@ -26,6 +26,9 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   [`docs/tuning-flags.md`](docs/tuning-flags.md#tt_bio_levers).
 
 ### Fixed
+- **OpenDDE at 1536 tokens is back to its old trunk speed** on Wormhole (3:44 per recycle, from about 10 to
+  12 minutes). Each recycle's 1280 alignment rows were padded to 2048 before the MSA module; they no longer are.
+  Outputs are unchanged.
 - **BindCraft 2 applies dropout on the card** (#17), the known issue since 0.13.1. A design stage with
   `design_dropout` on now drops the same updates in the on-card Evoformer, extra-MSA and template stacks
   that BindCraft 2 drops on host JAX, drawn from the same key, so a trajectory takes the same dropout
