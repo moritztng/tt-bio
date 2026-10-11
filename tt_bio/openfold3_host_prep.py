@@ -391,8 +391,12 @@ def run_input_atom_encoder(dev, compute_kernel_config, sd: dict, features: dict,
     kidx = aux["key_block_idxs"].reshape(1, nb * N_KEY).to(torch.int32)
     kidx_tt = ttnn.from_torch(kidx, layout=ttnn.ROW_MAJOR_LAYOUT, device=dev,
                               dtype=ttnn.uint32)
-    ql_d = at(ft(a_pad), ft(a_pad.clone()), ft(plm.unsqueeze(0)), ft(atom_mask_col),
-              kidx_tt, ft(valid), ft(mask_bias), n_atom, NP, nb)
+    # One upload of a_pad, copied on the card; the channel-1 masks go up without their unit
+    # dim (a trailing 1 tile-pads 32x in the host tilize) and get it back on the card.
+    a_d = ft(a_pad)
+    ql_d = at(a_d, ttnn.clone(a_d), ft(plm.unsqueeze(0)),
+              ttnn.unsqueeze(ft(atom_mask_col.squeeze(-1)), -1),
+              kidx_tt, ttnn.unsqueeze(ft(valid.squeeze(-1)), -1), ft(mask_bias), n_atom, NP, nb)
     if env_flag(DEVICE_REF_ATOM, False):
         # The aggregation head on the card. `linear_q.0.weight` is 0.74055 % of the model's
         # squared gradient norm on its own -- the single heaviest of the seventeen tensors
