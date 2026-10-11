@@ -43,7 +43,8 @@ from .protenix_weights import remap_adaln  # single source of all v2->tt-bio wei
 from . import ops
 from .tenstorrent import (Module, CORE_GRID_MAIN, get_device, dram_peak,
                           MSA_CHUNK_SIZE, batched_matmul, msa_depth_chunks, host_park,
-                          host_unpark, msa_embed, msa_row_bucket, msa_rows_host, msa_update_chunks,
+                          host_unpark, msa_embed, msa_row_bucket, msa_rows_host, msa_rows_mask, msa_rows_table,
+                          msa_rows_device, msa_upload_whole, msa_update_chunks,
                           pair_row_blocks,
                           row_block_after_refusal, device_generation, accurate_softmax_site,
                           softmax_ckc, host_f64_softmax_site, site_softmax, stack_samples)
@@ -3585,8 +3586,18 @@ class Trunk(_KeyedWeights):
             m_feat = None
             n_rows = ms.shape[1]
             step = 1024 if depth is None else 32
-            cut = lambda c: hostlane.submit(msa_rows_host, ms, rows[c], msa_row_bucket(len(rows[c]), n_rows, step))
-            next_rows = cut(0)
+            bucket = lambda c: msa_row_bucket(len(rows[c]), n_rows, step)
+            cut = lambda c: hostlane.submit(msa_rows_host, ms, rows[c], bucket(c))
+            # The cycle's rows are picked on the chip from the alignment, uploaded once, when every cycle
+            # would upload its rows in one piece and no MSA this size was refused on the chip: the host
+            # then sends row indices, not up to ~0.9 GB of rows the chip waits for (1.5 s a cycle at
+            # 9,216 rows x 736 tokens on a Wormhole host). Otherwise the host lane cuts the next cycle's
+            # rows while this one runs. Both hand the MSA module the same bf16 tensor.
+            table = next_rows = None
+            if msa_upload_whole(msa_row_bucket(n_rows, n_rows, step), *ms.shape[2:]) and _msa_keep_bytes(*m_key):
+                table = msa_rows_table(ms)
+            else:
+                next_rows = cut(0)
         z3 = ttnn.reshape(ttnn.mul(z_init, 0.0), (1, N, N, self.C_Z))
         # Both are read once per cycle and never written, so past 1 GiB they wait on the host.
         z_init, tpl_a = host_park(z_init), host_park(tpl_a)
@@ -3627,6 +3638,20 @@ class Trunk(_KeyedWeights):
             trunk_tap(f"cyc{cyc}_after_PF:z3", z3, always=True)
             return [z3, s]
 
+        def sampled(cyc, carry, x):
+            # One cycle over its sampled rows x [1, bucket, N, c], host or device, the real ones first.
+            k = len(rows[cyc])
+            m_c = msa_embed(x, m_proj, keep=_msa_keep_bytes(N, x.shape[1] * m_key[1] // ms.shape[1]))
+            if torch.is_tensor(m_c):
+                # Parked on the host: drop the padding there, which costs nothing.
+                return cycle(cyc, carry, m_c[:, :k])
+            mask = ttnn.from_torch(msa_rows_mask(k, m_c.shape[1]), layout=ttnn.TILE_LAYOUT, device=get_device(),
+                                   dtype=ttnn.bfloat16)
+            carry = cycle(cyc, carry, m_c, (mask, k))
+            ttnn.deallocate(m_c)
+            ttnn.deallocate(mask)
+            return carry
+
         carry = [z3, s]
         del z3, s
 
@@ -3640,20 +3665,30 @@ class Trunk(_KeyedWeights):
                 if progress_fn:
                     progress_fn("trunk", step=cyc, total=n_cycles)
                 if rows is not None:
-                    x, mask = next_rows.result()
+                    if table is not None:
+                        # As for a resident m below: a cycle DRAM refuses with the alignment on the chip
+                        # runs again from its inputs with rows cut on the host, and so does every later one.
+                        inputs = list(carry)
+                        try:
+                            carry = sampled(cyc, carry, msa_rows_device(table, rows[cyc], bucket(cyc), N))
+                            inputs = None
+                        except RuntimeError as exc:
+                            if not is_alloc_refusal(exc):
+                                raise
+                        if inputs is None:
+                            continue
+                        _MSA_RESIDENT_REFUSED.append(m_key)
+                        print(f"[tt-bio] DRAM refused a recycling cycle with the MSA {tuple(ms.shape)} on the "
+                              f"chip; cutting each cycle's rows on the host from here on. The tt-metal 'Out of "
+                              f"Memory' line above is expected and handled.", file=sys.stderr, flush=True)
+                        ttnn.deallocate(table)
+                        table, carry, inputs = None, inputs, None
+                        gc.collect()
+                        next_rows = cut(cyc)
+                    x, _ = next_rows.result()
                     if cyc + 1 < n_cycles:
                         next_rows = cut(cyc + 1)
-                    k = len(rows[cyc])
-                    m_c = msa_embed(x, m_proj, keep=_msa_keep_bytes(N, x.shape[1] * m_key[1] // ms.shape[1]))
-                    if torch.is_tensor(m_c):
-                        # Parked on the host: drop the padding there, which costs nothing.
-                        carry = cycle(cyc, carry, m_c[:, :k])
-                        continue
-                    mask = ttnn.from_torch(mask, layout=ttnn.TILE_LAYOUT, device=get_device(),
-                                           dtype=ttnn.bfloat16)
-                    carry = cycle(cyc, carry, m_c, (mask, k))
-                    ttnn.deallocate(m_c)
-                    ttnn.deallocate(mask)
+                    carry = sampled(cyc, carry, x)
                     continue
                 if torch.is_tensor(m_feat):
                     carry = cycle(cyc, carry, m_feat)
@@ -3683,6 +3718,8 @@ class Trunk(_KeyedWeights):
         z3, s = carry
         if rows is not None:
             ttnn.deallocate(s_m)
+            if table is not None:
+                ttnn.deallocate(table)
         for t in [z_init, *tpl_a]:
             if t.storage_type() == ttnn.StorageType.DEVICE:
                 ttnn.deallocate(t)

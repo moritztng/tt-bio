@@ -15,6 +15,7 @@ ap.add_argument("--depths", default="9216,5120,2048")
 ap.add_argument("--tokens", type=int, default=736)
 ap.add_argument("--reps", type=int, default=3)
 ap.add_argument("--load", type=int, default=0)
+ap.add_argument("--ways", default="host_tilize,device_tilize")
 a = ap.parse_args()
 
 
@@ -46,6 +47,29 @@ def dev_tile(t):
     return x
 
 
+def wide_tile(t):
+    """Row-major with one page per alignment row (tokens x channels), reshaped and tilized on the chip."""
+    D, N, c = t.shape[1:]
+    r = ttnn.from_torch(t.view(1, D, N * c), layout=ttnn.ROW_MAJOR_LAYOUT, device=dev, dtype=ttnn.bfloat16)
+    v = ttnn.reshape(r, (1, D, N, c))
+    x = ttnn.to_layout(v, ttnn.TILE_LAYOUT)
+    ttnn.deallocate(r)
+    return x
+
+
+def split_rm(t):
+    """Host half and device half of the row-major upload, timed apart."""
+    t0 = time.perf_counter()
+    h = ttnn.from_torch(t, layout=ttnn.ROW_MAJOR_LAYOUT, dtype=ttnn.bfloat16)
+    t1 = time.perf_counter()
+    r = ttnn.to_device(h, dev)
+    t2 = time.perf_counter()
+    x = ttnn.to_layout(r, ttnn.TILE_LAYOUT)
+    ttnn.deallocate(r)
+    print(json.dumps(dict(depth=t.shape[1], from_torch_rm_s=t1 - t0, to_device_s=t2 - t1)), flush=True)
+    return x
+
+
 def gil_share(fn, t):
     """Fraction of fn's host time a second Python thread could run (1.0 = GIL released throughout)."""
     n, done = [0], threading.Event()
@@ -63,6 +87,8 @@ def gil_share(fn, t):
     return x, min(1.0, n[0] / (base_rate * h)), h
 
 
+WAYS = [w for w in (("host_tilize", host_tile), ("device_tilize", dev_tile), ("wide_tilize", wide_tile),
+                     ("split_rm", split_rm)) if w[0] in a.ways.split(",")]
 for D in [int(d) for d in a.depths.split(",")]:
     # One-hot over 32 tokens + has_deletion + deletion_value, as host_inputs builds it.
     tok = torch.randint(0, 32, (D, a.tokens), generator=g)
@@ -70,7 +96,7 @@ for D in [int(d) for d in a.depths.split(",")]:
                    (torch.rand(D, a.tokens, 1, generator=g) > 0.8).to(torch.bfloat16),
                    torch.rand(D, a.tokens, 1, generator=g).to(torch.bfloat16)], -1).unsqueeze(0).contiguous()
     outs = {}
-    for name, fn in (("host_tilize", host_tile), ("device_tilize", dev_tile)):
+    for name, fn in WAYS:
         hs, ws, gs = [], [], []
         for r in range(a.reps + 1):
             ttnn.synchronize_device(dev)
@@ -88,8 +114,10 @@ for D in [int(d) for d in a.depths.split(",")]:
         print(json.dumps(dict(depth=D, tokens=a.tokens, way=name, load=a.load, host_s=sorted(hs)[len(hs) // 2],
                               wall_s=sorted(ws)[len(ws) // 2], gil_free=round(sorted(gs)[len(gs) // 2], 3),
                               loadavg=os.getloadavg()[0])), flush=True)
-    (xa, ya), (xb, yb) = outs["host_tilize"], outs["device_tilize"]
-    print(json.dumps(dict(depth=D, x_equal=bool(torch.equal(xa.view(torch.int16), xb.view(torch.int16))),
-                          proj_equal=bool(torch.equal(ya.view(torch.int16), yb.view(torch.int16))),
-                          x_matches_input=bool(torch.equal(xa.view(torch.int16), t.view(torch.int16))))), flush=True)
+    xa, ya = outs["host_tilize"]
+    bits = lambda u: u.view(torch.int16)
+    for name, (xb, yb) in outs.items():
+        print(json.dumps(dict(depth=D, way=name, x_equal=bool(torch.equal(bits(xa), bits(xb))),
+                              proj_equal=bool(torch.equal(bits(ya), bits(yb))),
+                              x_matches_input=bool(torch.equal(bits(xb), bits(t))))), flush=True)
 stop.set()

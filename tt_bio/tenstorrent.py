@@ -6992,6 +6992,12 @@ def _up_tilize_on_device(t):
     return x
 
 
+def msa_upload_whole(depth, tokens, channels):
+    """Whether `msa_embed` uploads an MSA feature of this size in one piece rather than in depth chunks."""
+    v = os.environ.get("TT_BIO_MSA_HOST_OFFLOAD_MIN_BYTES")
+    return depth * tokens * (-(-channels // 32) * 32) * 2 <= (int(v) if v else MSA_HOST_OFFLOAD_MIN_BYTES)
+
+
 def msa_embed(feat, project, rows=MSA_CHUNK_SIZE, keep=None):
     """The trunk's pristine `m` = `project(feat)`, placed the way `msa_host_offload(m, keep)` places it.
 
@@ -7008,14 +7014,13 @@ def msa_embed(feat, project, rows=MSA_CHUNK_SIZE, keep=None):
                     ttnn.from_torch(t.float().contiguous(), layout=ttnn.TILE_LAYOUT, device=get_device(),
                                     dtype=ttnn.bfloat16))
     v = os.environ.get("TT_BIO_MSA_HOST_OFFLOAD_MIN_BYTES")
-    lim = int(v) if v else MSA_HOST_OFFLOAD_MIN_BYTES
     host = torch.is_tensor(feat)
-    D, N, c = feat.shape[1:] if host else (0, 0, 0)
-    if D * N * (-(-c // 32) * 32) * 2 <= lim:
+    if not host or msa_upload_whole(*feat.shape[1:]):
         x = up(feat) if host else feat
         m = project(x)
         ttnn.deallocate(x)
         return msa_host_offload(m, keep)
+    D, N = feat.shape[1:3]
     # A whole `m` that `msa_host_offload` would keep stays on the chip: the projected chunks are
     # joined there instead of each making a trip to the host. At 678 tokens against 13,602 rows
     # the 1.14 GiB feature missed the one-upload size, so the trunk streamed an `m` it had room
@@ -7060,9 +7065,36 @@ def msa_rows_host(feat, rows, bucket):
     and the real row count and adds nothing for them."""
     x = feat.new_zeros((1, bucket, *feat.shape[2:]))
     x[:, :len(rows)] = feat[:, rows]
+    return x, msa_rows_mask(len(rows), bucket)
+
+
+def msa_rows_mask(k, bucket):
+    """[bucket, 1, 1]: 1 for the first `k` rows, the real ones, 0 for the padding."""
     mask = torch.zeros(bucket, 1, 1)
-    mask[:len(rows)] = 1.0
-    return x, mask
+    mask[:k] = 1.0
+    return mask
+
+
+def msa_rows_table(feat):
+    """The host feature [1, depth, tokens, c] on the chip as a row-major table [depth + 1, tokens * c], one
+    alignment row per page and a zero row last, so `msa_rows_device` can pick a cycle's rows there."""
+    D, N, c = feat.shape[1:]
+    flat = torch.cat([feat.reshape(D, N * c), feat.new_zeros(1, N * c)])
+    return ttnn.from_torch(flat, layout=ttnn.ROW_MAJOR_LAYOUT, device=get_device(), dtype=ttnn.bfloat16)
+
+
+def msa_rows_device(table, rows, bucket, tokens):
+    """`msa_rows_host`'s feature, gathered on the chip from `msa_rows_table`: [1, bucket, tokens, c] in TILE
+    layout, rows `rows` then zero rows. The gather and the tilize only move bf16 values, so it is the tensor the
+    host cut uploads, and the host sends the chip `bucket` row indices instead of the rows."""
+    idx = torch.full((1, bucket), table.shape[0] - 1, dtype=torch.int32)
+    idx[0, :len(rows)] = rows
+    i = ttnn.from_torch(idx, layout=ttnn.ROW_MAJOR_LAYOUT, device=get_device(), dtype=ttnn.uint32)
+    g = ttnn.embedding(i, table, layout=ttnn.ROW_MAJOR_LAYOUT, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+    ttnn.deallocate(i)
+    x = ttnn.to_layout(ttnn.reshape(g, (1, bucket, tokens, table.shape[1] // tokens)), ttnn.TILE_LAYOUT)
+    ttnn.deallocate(g)
+    return x
 
 
 def _join_depth_chunks(chunks, group=8):
