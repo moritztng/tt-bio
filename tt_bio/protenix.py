@@ -2109,7 +2109,15 @@ class ConfidenceHead:
         return z_base.float().to(torch.bfloat16).contiguous()
 
     def z_base_upload(self, z_base):
+        """z_base on the device, or kept on the host above `concat_host_bytes()`.
+
+        There each sample uploads its own copy and builds its pair into it (`_pair_embed_rows`),
+        so the confidence pairformer runs beside one pair tensor, as the trunk does. Resident, the
+        2 GiB z_base of protenix-v2 at 2048 tokens left no single block for the distance embed's
+        2 GiB sum on a 12 GiB Wormhole chip in any mode."""
         import ttnn
+        if z_base.numel() * 2 > _T.concat_host_bytes():
+            return z_base
         return _T.upload(z_base, ttnn.bfloat16, self.dev)
 
     def confidence_device(self, s_inputs, s_trunk, z_base_dev, coords, feats):
@@ -2136,6 +2144,29 @@ class ConfidenceHead:
             confs.append(hostlane.submit(self._postprocess_read, reads, feats))
         return [f.result() for f in confs]
 
+    def _pair_embed(self, z_base, rc, dist):
+        """z_base + linear_no_bias_d(onehot bins of dist) + linear_no_bias_d_wo_onehot(dist), a new
+        tensor. dist is the host (1,R,N) fp32 distance block of rows of z_base."""
+        d = ttnn.from_torch(dist, layout=ttnn.TILE_LAYOUT, device=self.dev, dtype=ttnn.float32)
+        d3 = ttnn.unsqueeze(d, -1)                                           # (1,R,N,1)
+        ge = ttnn.ge(d3, rc["lb4"])                                          # (1,R,N,39)
+        lt = ttnn.lt(d3, rc["ub4"])
+        oh = ttnn.typecast(ttnn.multiply(ge, lt), ttnn.bfloat16)             # AND, 0/1 exact in bf16
+        d3 = ttnn.typecast(d3, ttnn.bfloat16)
+        z = ttnn.add(z_base, self._dev_lin(oh, "linear_no_bias_d.weight"))
+        return ttnn.add(z, self._dev_lin(d3, "linear_no_bias_d_wo_onehot.weight"))
+
+    def _pair_embed_rows(self, z, rc, dist, rows=128):
+        """`_pair_embed` written into z itself, `rows` rows at a time: block I reads only z's rows
+        I, so each sum takes their place (`_T._write_rows`) and no second pair tensor exists."""
+        N, C = int(z.shape[1]), int(z.shape[3])
+        for r0 in range(0, N, rows):
+            r1 = min(N, r0 + rows)
+            zr = ttnn.slice(z, (0, r0, 0, 0), (1, r1, N, C))
+            blk = self._pair_embed(zr, rc, dist[:, r0:r1].contiguous())
+            ttnn.deallocate(zr)
+            _T._write_rows(z, blk, r0)
+
     def _postprocess_read(self, reads, feats):
         """`_postprocess` of one sample's logits as `hostlane.read` returned them."""
         pae, pde, plddt = (torch.Tensor(h.to_torch()).float() for h in reads)
@@ -2161,15 +2192,12 @@ class ConfidenceHead:
         # 2 x.y cancels: 40 A from the origin |x|^2 is ~1600, where bf16 steps by 8 A^2, so a 3.8 A
         # neighbour pair (14.4 A^2) came out anywhere from 0 to ~5 A and pLDDT fell 0.046 at c730.
         xr = coords.float().reshape(-1, 3)[feats["distogram_rep_atom_mask"].bool()]
-        d = ttnn.from_torch(torch.cdist(xr, xr).reshape(1, N, N), layout=ttnn.TILE_LAYOUT,
-                            device=self.dev, dtype=ttnn.float32)                # (1,N,N), 2 MB at N=730
-        d3 = ttnn.unsqueeze(d, -1)                                           # (1,N,N,1)
-        ge = ttnn.ge(d3, rc["lb4"])                                          # (1,N,N,39)
-        lt = ttnn.lt(d3, rc["ub4"])
-        oh = ttnn.typecast(ttnn.multiply(ge, lt), ttnn.bfloat16)             # AND, 0/1 exact in bf16
-        d3 = ttnn.typecast(d3, ttnn.bfloat16)
-        z = ttnn.add(rc["z_base"], self._dev_lin(oh, "linear_no_bias_d.weight"))
-        z = ttnn.add(z, self._dev_lin(d3, "linear_no_bias_d_wo_onehot.weight"))
+        dist = torch.cdist(xr, xr).reshape(1, N, N)
+        if isinstance(rc["z_base"], torch.Tensor):                           # held on the host
+            z = _T.upload(rc["z_base"], ttnn.bfloat16, self.dev)
+            self._pair_embed_rows(z, rc, dist)
+        else:
+            z = self._pair_embed(rc["z_base"], rc, dist)
         # ---- confidence Pairformer (device, z stays resident) ----
         # The pairformer adds its residuals into s in place, so every sample gets its own copy of the
         # cached s_t. Handed s_t itself, sample k started from sample k-1's output: pLDDT 0.768 on
@@ -2181,6 +2209,7 @@ class ConfidenceHead:
                                  bias=(self._wtt("pae_ln.bias", False) if "pae_ln.bias" in self._w else None),
                                  epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
         pae_logits = self._dev_lin(pae_ln, "linear_no_bias_pae.weight")      # (1,N,N,64)
+        ttnn.deallocate(pae_ln)
         zot = ttnn.permute(zof, (0, 2, 1, 3))                                # transpose token axes
         # The symmetrising add feeds nothing but this norm, so it folds into the norm's
         # own kernel (tt_bio/eltwise_fusion.py).
@@ -2188,6 +2217,8 @@ class ConfidenceHead:
                                bias=(self._wtt("pde_ln.bias", False) if "pde_ln.bias" in self._w else None),
                                epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
         pde_logits = self._dev_lin(pde_ln, "linear_no_bias_pde.weight")      # (1,N,N,64)
+        for t in (pde_ln, zot, zof):
+            ttnn.deallocate(t)
         # plddt: a = s_single[a2t]; aln = LN(a)*w+b; logits = einsum('nc,ncb->nb', aln, pw[a2ta])
         s_single = ttnn.reshape(so, (N, 384))
         a = ttnn.embedding(rc["a2t_dev"], ttnn.to_layout(s_single, ttnn.ROW_MAJOR_LAYOUT),
