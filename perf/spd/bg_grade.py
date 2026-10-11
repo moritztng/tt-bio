@@ -36,7 +36,8 @@ def load(run):
     df = pd.read_csv(m[0])
     with gzip.open(p[0]) as f:
         ca = pickle.load(f)
-    idx = lambda s: int(re.search(r"(\d+)$", str(s)).group(1))
+    # design ids are <target>, <target>_1, <target>_2, ...: the first carries no suffix
+    idx = lambda s: int(m.group(1)) if (m := re.search(r"_(\d+)$", str(s))) else 0
     df["k"] = df["id"].map(idx)
     ca = {idx(r.id): (np.array(json.loads(r.ca_coords), float).reshape(-1, 3), r.sequence) for r in ca.itertuples()}
     passed = sum(1 for _ in run.rglob("final_ranked_designs/final_*_designs/*.cif"))
@@ -86,7 +87,9 @@ def main():
     if len(kt) < n_base or len(test[0]) < n_base:
         fail.append(f"designs paired {len(kt)} of {n_base}")
     keys = [(c, hi) for c, hi in KEY if c in base[0] and c in test[0]]
-    num = [c for c in base[0].columns if c in test[0].columns and pd.api.types.is_numeric_dtype(base[0][c])]
+    num = [c for c in base[0].columns
+           if all(c in r[0].columns and pd.api.types.is_numeric_dtype(r[0][c]) and not pd.api.types.is_bool_dtype(r[0][c])
+                  for r in (base, flo, test))]
 
     L += ["| metric | floor median abs | paired mean (test - base) | 95 % CI | better |", "|---|---|---|---|---|"]
     for c in num:

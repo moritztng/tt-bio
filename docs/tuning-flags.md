@@ -671,7 +671,9 @@ median same-seed top-pose deviation of 1.29 A against 1.70 A between two seeds o
 **RoseTTAFold3 and BoltzGen** take a lever set per mode too. Normal mode is empty for both. RoseTTAFold3's
 `--fast` set is the shared fast set without the three triangle-multiplication levers: on Blackhole it moves
 the top pose 0.30 A median over 40 paired folds (a different seed moves it 2.8 A) and saves about 1.9 s
-at 512 aa. BoltzGen's `--fast` set is still empty, so its `--fast` runs the normal design. Their older block-fp8 fast path was slower than normal mode at 512 aa
+at 512 aa. BoltzGen's `--fast` set is the whole shared fast set: over 8 same-seed designs on Blackhole
+no confidence metric drops by more than 0.01 and all 8 pass the filters, and it saves about 4.7 s per design
+at 512 aa. Their older block-fp8 fast path was slower than normal mode at 512 aa
 (Blackhole p150a, 1350 MHz: RoseTTAFold3 54.4 s against 45.2 s, BoltzGen 44.5 against 38.4 s per
 design), because the fused triangle-attention and channel-move kernels refuse block-fp8 operands and
 the fold fell back to the stock ops.
