@@ -75,35 +75,54 @@ def overlap(a, b):
 
 def device_operands(dev, mask, x):
     """Explicitly padded operands, so no tile padding (zeros) can pose as a near atom: rows to a
-    multiple of 32, columns to W, FAR in the mask for every masked or padded column. The
-    coordinates are centred first to keep |x|^2 + |y|^2 - 2 x.y from cancelling large terms."""
+    multiple of 32, columns to W, FAR in the mask for every masked or padded column. Each
+    coordinate is its own [Lr, 1] column and [1, W] row, so d^2 is three broadcast differences in
+    fp32 rather than |x|^2 + |y|^2 - 2 x.y, which cancels in the FPU's reduced-mantissa matmul."""
     L = x.shape[1]
     Lr = -(-L // 32) * 32
     xc = x[0] - x[0].mean(0)
-    rows = torch.zeros(1, 1, Lr, 32)
-    rows[0, 0, :L, :3] = xc
-    cols = torch.zeros(1, 1, W, 32)
-    cols[0, 0, :L, :3] = xc
+    up = lambda t: ttnn.from_torch(t, dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=dev)
+    cols, rows = [], []
+    for c in range(3):
+        r = torch.zeros(1, 1, Lr, 1)
+        r[0, 0, :L, 0] = xc[:, c]
+        k = torch.zeros(1, 1, 1, W)
+        k[0, 0, 0, :L] = xc[:, c]
+        rows.append(up(r))
+        cols.append(up(k))
     m = torch.full((1, 1, Lr, W), FAR)
     m[0, 0, :L, :L] = torch.where(mask, FAR, 0.0)
-    up = lambda t: ttnn.from_torch(t, dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=dev)
-    return up(rows), up(cols), up(m)
+    return rows, cols, up(m)
 
 
-def device_fill(dev, ops, L, ckc):
+PHASES = {"dist": [], "topk1": [], "topk2": []}
+
+
+def device_fill(dev, ops, L, ckc, timed=False):
     """Ascending indices of the 128 nearest unmasked atoms per row, built on the card."""
-    xr, xc, m = ops
-    sr = ttnn.sum(ttnn.multiply(xr, xr), dim=-1, keepdim=True)              # [1,1,Lr,1]
-    sc = ttnn.transpose(ttnn.sum(ttnn.multiply(xc, xc), dim=-1, keepdim=True), -2, -1)  # [1,1,1,W]
-    g = ttnn.matmul(xr, ttnn.transpose(xc, -2, -1), compute_kernel_config=ckc)  # [1,1,Lr,W]
-    d2 = ttnn.add(ttnn.add(ttnn.add(ttnn.multiply(g, -2.0), sr), sc), m)
+    rows, cols, m = ops
+    t0 = time.perf_counter()
+    d2 = m
+    for r, k in zip(rows, cols):
+        dd = ttnn.subtract(r, k)                                            # [1,1,Lr,W]
+        d2 = ttnn.add(d2, ttnn.multiply(dd, dd))
     d2 = ttnn.typecast(d2, ttnn.bfloat16)
+    if timed:
+        ttnn.synchronize_device(dev); t1 = time.perf_counter()
     v1, i1 = ttnn.topk(d2, 64, dim=-1, largest=False, sorted=True)
+    if timed:
+        ttnn.synchronize_device(dev); t2 = time.perf_counter()
     t = ttnn.slice(v1, [0, 0, 0, 63], [1, 1, int(v1.shape[2]), 64])
     d2b = ttnn.where(ttnn.le(d2, t), FAR, d2)
     _v2, i2 = ttnn.topk(d2b, 64, dim=-1, largest=False, sorted=True)
     idx = ttnn.concat([i1, i2], dim=-1)
-    return ttnn.to_torch(idx).reshape(-1, 128)[:L].long()
+    out = ttnn.to_torch(idx).reshape(-1, 128)[:L].long()
+    if timed:
+        t3 = time.perf_counter()
+        PHASES["dist"].append((t1 - t0) * 1e3)
+        PHASES["topk1"].append((t2 - t1) * 1e3)
+        PHASES["topk2"].append((t3 - t2) * 1e3)
+    return out
 
 
 def main():
@@ -134,8 +153,14 @@ def main():
             t0 = time.perf_counter()
             device_fill(dev, ops, L, ckc)
             td.append((time.perf_counter() - t0) * 1e3)
+        for _ in range(3):
+            device_fill(dev, ops, L, ckc, timed=True)
         devidx = merge(fill, seq_idx, L)
-        row = {"capture": n, "L": L, "x_absmax": float(x.abs().max()),
+        fill_ref = torch.topk(torch.cdist(x[0].double(), x[0].double()).masked_fill_(mask, float("inf")),
+                              k, dim=-1, largest=False).indices
+        row = {"fill_vs_f64": overlap(fill, fill_ref),
+               "phase_ms": {p: statistics.median(v[-3:]) for p, v in PHASES.items()},
+               "capture": n, "L": L, "x_absmax": float(x.abs().max()),
                "host_ms": statistics.median(ts), "dev_ms": statistics.median(td),
                "host_vs_f64": overlap(host, ref), "dev_vs_f64": overlap(devidx, ref),
                "threads": torch.get_num_threads()}
