@@ -15,10 +15,12 @@ from __future__ import annotations
 import argparse
 import cProfile
 import glob
+import hashlib
 import io
 import json
 import pstats
 import statistics
+import sys
 import threading
 import time
 from collections import defaultdict
@@ -30,9 +32,15 @@ p.add_argument("--params", required=True)
 p.add_argument("--out", type=Path, required=True)
 p.add_argument("--warm", type=int, default=2)
 p.add_argument("--reps", type=int, default=3)
+p.add_argument("--trace", action="store_true",
+               help="replay the two device stacks from a trace (AF2DeviceModel.trace_stacks)")
+p.add_argument("--ops", action="store_true",
+               help="end with one fold timed per ttnn call between two syncs (perf/hallgrad/census.py's "
+                    "Recorder), aggregated by op, call site and shapes into census.json 'ops'")
 a = p.parse_args()
 a.out.mkdir(parents=True, exist_ok=True)
 
+import numpy as np  # noqa: E402
 import torch  # noqa: E402
 import ttnn  # noqa: E402
 
@@ -41,7 +49,11 @@ from tt_bio.af2_weights import load_af2_state_dict  # noqa: E402
 from tt_bio.af2ig import fold, token_count  # noqa: E402
 from tt_bio.af2ig_input import read_af2ig_input  # noqa: E402
 
+if a.trace:
+    from tt_bio.tenstorrent import get_device
+    get_device(trace="af2")
 model = load_af2_device_model(load_af2_state_dict(a.params), template=True).eval()
+model.trace_stacks = a.trace
 spec = read_af2ig_input(a.input)
 dev = model._device
 
@@ -80,12 +92,13 @@ for _ in range(a.warm):
     fold(model, spec)
 ttnn.synchronize_device(dev)
 
-plain = []
+plain, digests = [], []
 for _ in range(a.reps):
     t0 = time.perf_counter()
-    fold(model, spec)
+    pred = fold(model, spec)
     ttnn.synchronize_device(dev)
     plain.append(time.perf_counter() - t0)
+    digests.append(hashlib.sha256(np.ascontiguousarray(pred.coords).tobytes()).hexdigest()[:16])
 
 # A stage is a bound method or a submodule; a submodule is timed through its forward, because
 # nn.Module refuses a plain function in its place.
@@ -132,12 +145,47 @@ ttnn_calls = sum(v[1] for k, v in st.stats.items() if "ttnn" in k[0] or "ttnn" i
 by_node = defaultdict(list)
 for n, c in clocks:
     by_node[n].append(c)
-res = {"input": a.input, "tokens": token_count(spec),
+res = {"input": a.input, "tokens": token_count(spec), "trace": a.trace, "coords_sha16": digests,
        "plain_fold_s": plain, "staged_fold_s": staged, "per_fold_stage_s": per_fold,
        "calls_per_fold": {k: len(v) // a.reps for k, v in T.items()},
        "profiled_fold_s": prof_s, "ttnn_frames_calls": ttnn_calls,
        "aiclk": {n: {"median": statistics.median(v), "min": min(v), "max": max(v), "n": len(v)}
                  for n, v in by_node.items()}}
+if a.ops and not a.trace:  # a synced call inside a capture is exactly what a trace refuses
+    from perf.hallgrad.census import CLASS, Recorder
+    class SiteRecorder(Recorder):
+        def _origin(self):  # no autograd here: name the innermost tt_bio frame and the AF2 block
+            f, inner, block = sys._getframe(2), None, None
+            while f is not None and block is None:
+                fn = f.f_code.co_filename
+                if "/tt_bio/" in fn:
+                    site = f"{Path(fn).name}:{f.f_code.co_name}"
+                    inner = inner or site
+                    if fn.endswith(("/af2.py", "/af2_reference.py")):
+                        block = site
+                f = f.f_back
+            return f"{block} > {inner}" if block and block != inner else (inner or "harness")
+
+    rec = SiteRecorder(ttnn, dev, 0)
+    rec.rec = []
+    rec.install_all()
+    rec.active = True
+    t0 = time.perf_counter()
+    fold(model, spec)
+    ttnn.synchronize_device(dev)
+    rec.active = False
+    agg: dict = defaultdict(lambda: {"calls": 0, "synced_s": 0.0})
+    for r in rec.rec:
+        d = agg[(r["name"], r["origin"], r["sig"])]
+        d["calls"] += 1
+        d["synced_s"] += r["synced_s"]
+    rows = sorted(({"name": n, "origin": o, "sig": g, "cls": CLASS.get(n, "other"), **d}
+                   for (n, o, g), d in agg.items()), key=lambda r: -r["synced_s"])
+    by_cls: dict = defaultdict(float)
+    for r in rows:
+        by_cls[r["cls"]] += r["synced_s"]
+    res["ops"] = {"fold_s": time.perf_counter() - t0, "calls": len(rec.rec),
+                  "synced_total_s": sum(by_cls.values()), "by_class": dict(by_cls), "top": rows[:80]}
 (a.out / "census.json").write_text(json.dumps(res, indent=1))
 (a.out / "profile.txt").write_text(buf.getvalue())
 st.dump_stats(str(a.out / "profile.pstats"))

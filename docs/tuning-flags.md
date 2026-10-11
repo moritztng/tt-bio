@@ -53,6 +53,7 @@ move against the accuracy bar and the seed-to-seed spread.
 | [`TT_BIO_NOGRAD_INFERENCE`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2 | gradients only |
 | [`TT_BIO_OPM_JOIN_PARTS`, `TT_BIO_OPM_PROJ_BATCH`](#msa-module-flags) | on | MSA models; graded on Protenix-v2 | join moves, inside the bar; projection batch identical |
 | [`TT_BIO_OPM_LEGACY_LAYOUT`](#tt_bio_opm_legacy_layout) | off | | moves, inside the seed spread |
+| [`TT_BIO_OPM_SMALL_DEPTH`](#tt_bio_opm_small_depth) | on | MSA depth 8 or less (AF2-IG, single-sequence folds) | moves, inside the bar |
 | [`TT_BIO_PAIR_FFN_L1_FC1`](#tt_bio_pair_ffn_l1_fc1) | on | ESMFold2 | identical |
 | [`TT_BIO_PAIR_INPLACE`, `TT_BIO_TRIMUL_INPROJ_ROWBLOCK_NORM`](#tt_bio_pair_inplace-tt_bio_trimul_inproj_rowblock_norm) | on | large pair tensors | identical |
 | [`TT_BIO_PAIR_MM`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2, Blackhole | gradients only |
@@ -838,6 +839,21 @@ no padding to drop, so the fused path moves the same bytes with a tile transpose
 path pays two general permutes. Its row blocks sit on whole tiles. Bit for bit; together with
 `TT_BIO_DIT_SHARED_COND` the Boltz-2 730-token fold goes from 158.0 to 146.0 s on a Wormhole Galaxy
 chip at 1000 MHz, and the whole-tile row blocks took it from 174.9 to 158.0 s before that.
+
+## `TT_BIO_OPM_SMALL_DEPTH`
+
+Default: on. `TT_BIO_OPM_SMALL_DEPTH_MAX` sets the depth limit (default 8).
+
+With an MSA of 8 rows or fewer, the outer product mean folds its output projection into one of its
+two inputs and never builds the full outer product. At depth 1 that is 32x less arithmetic and
+skips a pair-sized intermediate. Deeper alignments keep the original form, which is cheaper there.
+
+**Accuracy: moves, inside the bar.** The sum is reassociated, so the output is not byte-identical.
+Against a float64 evaluation of the same operands its error is 1.02x the original's. On AF2-IG
+(three PD-L1 binder complexes, 195 tokens) the all-atom deviation from the original form is
+0.02 to 0.25 A and ipTM moves by at most 0.0005. Per complex it saves 1.1 s on a p150a
+(5.63 to 4.54 s at 1350 MHz) and 6.4 s on a Wormhole Galaxy chip (16.16 to 9.73 s at 1000 MHz).
+Set `TT_BIO_OPM_SMALL_DEPTH=0` to get the original form.
 
 ## `TT_BIO_OPM_LEGACY_LAYOUT`
 
