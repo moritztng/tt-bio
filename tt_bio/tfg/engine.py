@@ -182,6 +182,16 @@ class Term:
         e, g = self._potential.energy_and_grad(coords, feats, self._params_at(t))
         return e * w, g * w
 
+    def descend(self, coords, feats, t: float, *, step_size: float, steps: int):
+        """The inner refinement loop on this term alone, if its potential runs one (else None)."""
+        fn = getattr(self._potential, "descend", None)
+        if fn is None:
+            return None
+        w = float(self.weight(t))
+        if w == 0.0:
+            return coords                       # zero gradient: a fixed point
+        return fn(coords, feats, self._params_at(t), w, step_size, steps)
+
     def project(self, coords, feats, t: float) -> torch.Tensor:
         """Projection delta; not weighted (weight 0 still projects)."""
         if not hasattr(self._potential, "project"):
@@ -333,20 +343,21 @@ class TFGEngine:
 
     def _energy_and_grad(self, coords, feats, *, t: float, step_i: int):
         """Sum of active weighted terms: `(E [*batch], dE/dx [*batch, N, 3])`."""
-        energy = torch.zeros(coords.shape[:-2], device=coords.device, dtype=coords.dtype)
-        grad = torch.zeros_like(coords)
+        energy = grad = None
         for term in self.cfg.terms:
             if not term.active(step_i) or term.inert(feats):      # an inert term adds exact zeros
                 continue
             e, g = term.energy_and_grad(coords, feats, t)
-            energy = energy + e
-            grad = grad + g
+            energy, grad = (e, g) if energy is None else (energy + e, grad + g)
+        if energy is None:
+            return torch.zeros(coords.shape[:-2], device=coords.device, dtype=coords.dtype), torch.zeros_like(coords)
         return energy, grad
 
     def _logp_and_grad_x0(self, x0, eps, feats, *, t: float, step_i: int, log_components: bool = False):
         """Monte-Carlo `log p(x0)` and `d log p / d x0` over perturbations `eps [K, *x0.shape]`."""
         k = eps.shape[0]
-        x0_eps = (x0.unsqueeze(0) + eps).reshape(-1, *x0.shape[-2:])
+        # std 0 draws one all-zero perturbation (_sample_eps), and x0 + 0 is x0
+        x0_eps = (x0.unsqueeze(0) if self.cfg.eps_std == 0.0 else x0.unsqueeze(0) + eps).reshape(-1, *x0.shape[-2:])
         e, g = self._energy_and_grad(x0_eps, feats, t=t, step_i=step_i)
         e = e.reshape(k, *x0.shape[:-2])
         g = g.reshape(k, *x0.shape)
@@ -430,14 +441,24 @@ class TFGEngine:
         x0_ref = x0_ref + self._project(x0_ref, feats, t=t, step_i=step_i)
         if x0_hook is not None:
             x0_ref = x0_hook(x0_ref, step_i)
-        if cfg.mu != 0.0:
+        last_log = cfg.log_last_step_energy and step_i == num_diffusion_steps - 1
+        descended = None
+        if cfg.mu != 0.0 and cfg.eps_std == 0.0 and not last_log:
+            acting = [term for term in cfg.terms if term.active(step_i) and not term.inert(feats)]
+            if len(acting) == 1:                # e.g. the steric term alone on a protein complex
+                descended = acting[0].descend(x0_ref, feats, t, step_size=float(cfg.mu), steps=cfg.inner_steps)
+        if descended is not None:
+            x0_ref = descended
+        elif cfg.mu != 0.0:
             for inner in range(cfg.inner_steps):
-                log_components = (
-                    cfg.log_last_step_energy and step_i == num_diffusion_steps - 1 and inner == cfg.inner_steps - 1
-                )
+                log_components = last_log and inner == cfg.inner_steps - 1
                 _, grad_x0 = self._logp_and_grad_x0(
                     x0_ref, eps, feats, t=t, step_i=step_i, log_components=log_components
                 )
+                # Without perturbations the terms are a function of x0_ref alone, so a zero gradient is a fixed
+                # point: every remaining inner step would add exact zeros (the last step still logs its energies).
+                if cfg.eps_std == 0.0 and not last_log and not grad_x0.any():
+                    break
                 x0_ref = x0_ref + grad_x0 * float(cfg.mu)
         # Upstream adds a zero x_t shift (rho == 0) to x_noisy in both places; x + 0 == x.
         direction = (x_noisy - x0_ref) / t_hat[..., None, None]

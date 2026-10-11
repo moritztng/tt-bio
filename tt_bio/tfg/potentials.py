@@ -13,6 +13,7 @@ returns `(energy, dE/dcoords)`; `project` returns an additive `delta_x` shaped l
 import math
 from typing import Any, Optional
 
+import numpy as np
 import torch
 
 from tt_bio.data.const import vdw_radii as rdkit_vdws  # element-for-element opendde rdkit_vdws
@@ -870,19 +871,22 @@ class VinaStericPotential(Potential):
         return _cache_and_return((sel_idx, r_eq))
 
     def _active_dense(self, coords_b, feats, buf):
-        """Active pairs (b, i, j, r_eq, d) from every inter-chain candidate (upstream's dense pass 1)."""
+        """Active pairs (b, i, j, r_eq, d, r, |r|) from every inter-chain candidate (upstream's dense pass 1, then the
+        pass-2 geometry of the active pairs)."""
         idx, eq = self._get_collision_candidates(feats)
         if idx.numel() == 0:
             return None
         value0, _ = _distance_value_and_grad(coords_b, idx, False)
         active = value0 < (eq.to(value0.dtype) * (1.0 - buf)).unsqueeze(0)
         b_idx, m_idx = active.nonzero(as_tuple=True)
-        return b_idx, idx[0][m_idx], idx[1][m_idx], eq[m_idx], value0[b_idx, m_idx]
+        i, j = idx[0][m_idx], idx[1][m_idx]
+        r = coords_b[b_idx, i] - coords_b[b_idx, j]
+        return b_idx, i, j, eq[m_idx], value0[b_idx, m_idx], r, torch.linalg.norm(r, dim=-1).clamp_min(1e-8)
 
-    def _active_sparse(self, coords_b, feats, buf):
-        """The same active pairs from a cell-list pair list (tt_bio.tfg.neighbors): only pairs within the largest
-        active cutoff plus a skin are listed, and the list is reused while no atom has moved by half the skin."""
-        from .neighbors import pairs_within, square_length
+    def _pair_list(self, coords_b, feats, buf):
+        """The cell-list pair list state (tt_bio.tfg.neighbors) valid at coords_b: only pairs within the largest active
+        cutoff plus a skin are listed, and the list is reused while no atom has moved by half the skin."""
+        from .neighbors import interchain_pairs, square_length
 
         key = (self._cache_key_from_feats(feats), tuple(coords_b.shape), buf)
         st = getattr(self, "_sparse", None)
@@ -903,32 +907,45 @@ class VinaStericPotential(Potential):
             rank = torch.empty_like(order)
             rank[order] = torch.arange(order.numel(), device=order.device)
             pos = rank - (torch.cumsum(cnt, 0) - cnt)[c_map]
-            members = [torch.nonzero(c_map == c).flatten() for c in range(n_chains)]
             st = self._sparse = dict(key=key, chain=c_map, r=r_atom, allowed=allowed, pos=pos, n_chains=n_chains,
-                                     search=[(members[c], torch.cat(members[c + 1:])) for c in range(n_chains - 1)],
                                      X=None, cut=float(2 * r_atom.max() * (1.0 - buf)), skin=self.SKIN)
         X = coords_b.detach()
         # rebuild once an atom may have moved by half the skin (1e-3 A short of it, so rounding cannot matter)
         if st["X"] is None or float(square_length(X - st["X"]).max()) >= (0.5 * st["skin"] - 1e-3) ** 2:
-            # search each chain only against the chains after it: no intra-chain or mirrored candidates
-            parts = []
-            for a, b in st["search"]:
-                if a.numel() and b.numel():
-                    s, i, j = pairs_within(X[:, a], X[:, b], st["cut"] + st["skin"])
-                    parts.append((s, a[i], b[j]))
-            s, i, j = (torch.cat(t) for t in zip(*parts)) if parts else (st["pos"][:0],) * 3
+            # inter-chain pairs that may pair only (chain i < chain j): no intra-chain or mirrored candidates
+            st["raw"], st["X"], st["pairs"] = interchain_pairs(X, st["chain"], st["allowed"], st["cut"] + st["skin"]), X.clone(), None
+        return st
+
+    @staticmethod
+    def _listed(st, buf, ordered):
+        """The listed pairs (s, i, j, flat i, flat j, r_eq, active cutoff); `ordered` puts them in the dense candidate
+        order (equal fp32 sums to the dense path), which only the torch evaluation needs."""
+        if not ordered:
+            s, i, j = st["raw"]
+        elif st["pairs"] is not None:
+            return st["pairs"]
+        else:
+            s, i, j = st["raw"]
             ci, cj = st["chain"][i], st["chain"][j]
-            keep = st["allowed"][ci, cj]
-            s, i, j, ci, cj = s[keep], i[keep], j[keep], ci[keep], cj[keep]
-            n, nc, pos = X.shape[1], st["n_chains"], st["pos"]
-            rank = (((s * nc + ci) * nc + cj) * n + pos[i]) * n + pos[j]
-            o = torch.argsort(rank)
-            st["pairs"], st["X"] = (s[o], i[o], j[o]), X.clone()
-        s, i, j = st["pairs"]
-        v = torch.linalg.norm(coords_b[s, i] - coords_b[s, j], dim=-1).clamp_min(1e-8)
+            n, nc, pos = st["X"].shape[1], st["n_chains"], st["pos"]
+            o = torch.argsort((((s * nc + ci) * nc + cj) * n + pos[i]) * n + pos[j])
+            s, i, j = s[o], i[o], j[o]
+        n = st["X"].shape[1]
         eq = st["r"][i] + st["r"][j]
-        act = v < eq * (1.0 - buf)
-        return s[act], i[act], j[act], eq[act], v[act]
+        out = (s, i, j, s * n + i, s * n + j, eq, eq * (1.0 - buf))
+        if ordered:
+            st["pairs"] = out
+        return out
+
+    def _active_sparse(self, coords_b, feats, buf):
+        """The same active pairs as _active_dense, from the pair list."""
+        s, i, j, fi, fj, eq, lim = self._listed(self._pair_list(coords_b, feats, buf), buf, True)
+        X = coords_b.reshape(-1, 3)
+        r = X[fi] - X[fj]
+        v = torch.linalg.norm(r, dim=-1).clamp_min(1e-8)
+        a = torch.nonzero(v < lim).squeeze(1)
+        v = v[a]
+        return s[a], i[a], j[a], eq[a], v, r[a], v
 
     def _eval(self, coords, feats, params, need_grad: bool):
         buf = float(params["buffer"])
@@ -948,13 +965,8 @@ class VinaStericPotential(Potential):
         act = (self._active_dense if core == "off" else self._active_sparse)(coords_b, feats, buf)
         if act is None or act[0].numel() == 0:
             return _zeros(coords, need_grad)
-        b_idx, i_atom, j_atom, eq_a, v = act
-        eq_a = eq_a.to(dtype)
-        v = v.to(dtype)
-        dist_diff = v - eq_a
-        norm_d = dist_diff / 0.5
-        g1 = -0.0356 * torch.exp(-(norm_d**2))
-        g2 = -0.00516 * torch.exp(-(((dist_diff - 3.0) / 2.0) ** 2))
+        b_idx, i_atom, j_atom, eq_a, v, r, norm = act
+        dist_diff, norm_d, g1, g2 = self._pair_terms(v.to(dtype), eq_a.to(dtype))
         rep = 0.840 * torch.where(dist_diff < 0.0, dist_diff**2, 0.0)
         e_pair = g1 + g2 + rep
         e_out = torch.zeros((b,), device=device, dtype=dtype)
@@ -963,15 +975,63 @@ class VinaStericPotential(Potential):
         if not need_grad:
             return e_out
         # Pass 2: gradients on active pairs only.
-        r = coords_b[b_idx, i_atom] - coords_b[b_idx, j_atom]
-        norm = torch.linalg.norm(r, dim=-1).clamp_min(1e-8)
+        gi = self._pair_gradient(dist_diff, norm_d, g1, g2, r, norm)
+        g_flat = torch.zeros((b * n_atom, 3), device=device, dtype=dtype)
+        g_flat.scatter_add_(0, (b_idx * n_atom + i_atom).unsqueeze(-1).expand(-1, 3), gi)
+        g_flat.scatter_add_(0, (b_idx * n_atom + j_atom).unsqueeze(-1).expand(-1, 3), -gi)
+        return e_out, g_flat.reshape(*coords.shape)
+
+    @staticmethod
+    def _pair_terms(v, eq):
+        dist_diff = v - eq
+        norm_d = dist_diff / 0.5
+        g1 = -0.0356 * torch.exp(-(norm_d**2))
+        g2 = -0.00516 * torch.exp(-(((dist_diff - 3.0) / 2.0) ** 2))
+        return dist_diff, norm_d, g1, g2
+
+    @staticmethod
+    def _pair_gradient(dist_diff, norm_d, g1, g2, r, norm):
+        """dE/dx_i of each active pair (dE/dx_j is its negative)."""
         r_hat = r / norm.unsqueeze(-1)
         dg1 = -2.0 * g1 * norm_d * (1.0 / 0.5)
         dg2 = -0.5 * g2 * (dist_diff - 3.0)
         drep = 0.840 * torch.where(dist_diff < 0.0, 2.0 * dist_diff, 0.0)
-        gi = (dg1 + dg2 + drep).unsqueeze(-1) * r_hat
-        gj = -gi
-        g_flat = torch.zeros((b * n_atom, 3), device=device, dtype=dtype)
-        g_flat.scatter_add_(0, (b_idx * n_atom + i_atom).unsqueeze(-1).expand(-1, 3), gi)
-        g_flat.scatter_add_(0, (b_idx * n_atom + j_atom).unsqueeze(-1).expand(-1, 3), gj)
-        return e_out, g_flat.reshape(*coords.shape)
+        return (dg1 + dg2 + drep).unsqueeze(-1) * r_hat
+
+    def descend(self, coords, feats, params, weight: float, step_size: float, steps: int):
+        """`steps` of coords += step_size * -(weight * dE/dcoords), stopping at a zero gradient: the engine's inner loop
+        when this is its only acting term, with the same values. Only atoms in the pair list can move while it is valid,
+        so the steps run on those atoms alone and are written back once."""
+        params = self._resolve_params(params)
+        buf = float(params["buffer"])
+        if params.get("core", "auto") != "auto" or coords.dtype != torch.float32 or coords.device.type != "cpu":
+            return None                         # the engine runs its generic loop
+        from .neighbors import _steric_descend, square_length
+        shape = coords.shape
+        n_atom = int(shape[-2])
+        coords_b = coords.reshape(-1, n_atom, 3)
+        done = 0
+        while done < steps:
+            st = self._pair_list(coords_b, feats, buf)
+            s, i, j, fi, fj, eq, lim = self._listed(st, buf, False)
+            atoms, local = torch.unique(torch.cat((fi, fj)), return_inverse=True)
+            li, lj = local[: fi.numel()], local[fi.numel():]
+            flat = coords_b.reshape(-1, 3)
+            sub, ref = flat[atoms], st["X"].reshape(-1, 3)
+            # atoms outside the list do not move here: their displacement from the build pose is fixed
+            rest = square_length(flat - ref)
+            rest[atoms] = 0.0
+            rest = float(rest.max())
+            ref_sub, limit = ref[atoms], (0.5 * st["skin"] - 1e-3) ** 2
+            sub = sub.contiguous()
+            ran, status = _steric_descend(sub.numpy(), li.numpy(), lj.numpy(), eq.contiguous().numpy(),
+                                          lim.contiguous().numpy(), ref_sub.contiguous().numpy(), rest, limit,
+                                          np.float32(weight), np.float32(step_size), steps - done, done > 0)
+            done += ran
+            stop = status == 2
+            flat = flat.clone()
+            flat[atoms] = sub
+            coords_b = flat.reshape(coords_b.shape)
+            if stop:
+                break
+        return coords_b.reshape(shape)
