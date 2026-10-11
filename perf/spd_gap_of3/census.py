@@ -138,6 +138,10 @@ def main():
         res["folds"].append(row)
         print(json.dumps(row), flush=True)
         flush()
+    # The last fold's structure beside the result, so two arms can be compared in Angstrom.
+    import shutil
+    for f in sorted(Path(meta["struct_dir"]).glob("**/*.cif")):
+        shutil.copy(f, a.out.parent / f.name)
     w = sorted(f["fold_s"] for f in res["folds"])
     res["median_s"] = round(statistics.median(w), 3)
     flush()

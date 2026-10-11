@@ -69,6 +69,7 @@ from .tenstorrent import AdaLN, CORE_GRID_MAIN, Module, _cached, _dtype, batched
 from .openfold3_atom_transformer import remap_of3_adaln
 from .token_axis import TILE, bucketed_width
 from .eltwise_fusion import scale_add, mask_add
+from .envflags import env_flag
 
 C_A = 768
 C_S = 384
@@ -77,6 +78,9 @@ N_HEADS = 16
 HEAD_DIM = 48
 PADDED_HEAD_DIM = 64  # -48 % 32 = 16 -> 64 (tile-aligned)
 N_BLOCKS = 24
+# The 24 blocks' AdaLN and gate projections of s as one layer norm and two concatenated matmuls a
+# call (Boltz-2's `_B2_DIT_COND_HOIST` on OpenFold3's block layout). OF3_DIT_COND_HOIST=1 turns it on.
+COND_HOIST = env_flag("OF3_DIT_COND_HOIST", False)
 
 # Pair shapes whose single-pass pair-bias projection DRAM refused, and the block they settled at.
 _PAIR_BIAS_ROWS_REFUSED: dict = {}
@@ -272,14 +276,34 @@ class _DiTBlock(Module):
             ttnn.deallocate(mask)
         return o
 
-    def __call__(self, a, s, z, mask_bias, tok_mask_col, cache=None):
+    def cond_weights(self):
+        """This block's six projections of ``s`` for the stack's concatenated conditioning:
+        ``(w, b)`` of the four AdaLN projections (attention scale, shift; transition scale,
+        shift) with each AdaLN's ``s`` norm gain folded in, then of the two output gates."""
+        ad_w, ad_b = [], []
+        for ad in (self.adaln_a, self.adaln_t):
+            g = ad.weights["s_norm.weight"].to(torch.bfloat16).double().reshape(-1, 1)
+            for key, bias in (("s_scale.weight", "s_scale.bias"), ("s_bias.weight", None)):
+                # The block's AdaLN reads bf16 weights; g * w of two bf16 values is exact in fp32.
+                ad_w.append((ad.weights[key].to(torch.bfloat16).double().t() * g).float())
+                ad_b.append(ad.weights[bias].to(torch.bfloat16).float() if bias
+                            else torch.zeros(ad_w[-1].shape[1]))
+        apb, ct = "attention_pair_bias.", "conditioned_transition."
+        op_w = [self._w[apb + "linear_ada_out.weight"].t(), self._w[ct + "linear_g.weight"].t()]
+        op_b = [self._w[apb + "linear_ada_out.bias"], self._w[ct + "linear_g.bias"]]
+        return ad_w, ad_b, op_w, op_b
+
+    def __call__(self, a, s, z, mask_bias, tok_mask_col, cache=None, cond=None):
+        """``cond``: the stack's precomputed ``((attn scale, shift), (transition scale, shift),
+        attention gate, transition gate)`` for this block, all owned by this call."""
         lin, lp = self._lin, self.lp
+        ta, tt, og, lg = cond or (None, None, None, None)
         # Under lp each adaLN writes lp.act, read only by linears; the transition's hidden linears
         # write bf16, their product lp.mid, and every linear into the stream writes lp.out.
         act, out_dt = (lp.act, lp.out) if lp else (None, None)
         mid = {"dtype": lp.mid} if lp else {}
         # AdaLN-conditioned a.
-        a_ln = self.adaln_a(a, s, dtype=act)
+        a_ln = self.adaln_a(a, s, dtype=act, s_terms=ta)
 
         if self.sdpa32:
             bias = _cached(cache, (id(self), "pair_bias32"),
@@ -307,14 +331,15 @@ class _DiTBlock(Module):
         ttnn.deallocate(g)
         o = self._lin_lp(o, self.w_o, out_dt)           # [1, N, 768]
         # APB output gate from s.
-        og = lin(s, self.w_ada_out, bias=self.b_ada_out)
+        if og is None:
+            og = lin(s, self.w_ada_out, bias=self.b_ada_out)
         o = ttnn.multiply(o, og, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
         ttnn.deallocate(og); ttnn.deallocate(a_ln)
         a = ttnn.add(a, o)
         ttnn.deallocate(o)
 
         # Conditioned SwiGLU transition.
-        a_t = self.adaln_t(a, s, dtype=act)
+        a_t = self.adaln_t(a, s, dtype=act, s_terms=tt)
         b1 = self._lin_lp(a_t, self.w_la, ttnn.bfloat16, activation="silu")
         b2 = self._lin_lp(a_t, self.w_lb, ttnn.bfloat16)
         ttnn.deallocate(a_t)
@@ -322,11 +347,14 @@ class _DiTBlock(Module):
         ttnn.deallocate(b1); ttnn.deallocate(b2)
         out = self._lin_lp(bb, self.w_lout, out_dt)
         ttnn.deallocate(bb)
-        lg = lin(s, self.w_lg, bias=self.b_lg)
+        if lg is None:
+            lg = lin(s, self.w_lg, bias=self.b_lg)
         out = ttnn.multiply(out, lg, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
         ttnn.deallocate(lg)
         a = mask_add(a, out, tok_mask_col)
         ttnn.deallocate(out)
+        for x in (*(ta or ()), *(tt or ())):
+            ttnn.deallocate(x)
         return a
 
 
@@ -381,6 +409,34 @@ class OF3DiffusionTransformer(Module):
                                  ln_z_w=ln_z_w)
                        for b in range(n_blocks)]
         self.n_blocks = n_blocks
+        self._cond_w = self._cond_weights() if COND_HOIST else None
+
+    def _cond_weights(self):
+        """The blocks' conditioning projections in two weight blocks (`_DiTBlock.cond_weights`),
+        so a call runs one layer norm and two matmuls instead of 48 norms and 144 matmuls."""
+        parts = [blk.cond_weights() for blk in self.blocks]
+
+        def cat(i, dim):
+            return ttnn.from_torch(torch.cat([x for p in parts for x in p[i]], dim=dim).contiguous(),
+                                   layout=ttnn.TILE_LAYOUT, device=self.device, dtype=self._act_dtype)
+        return cat(0, 1), cat(1, 0), cat(2, 1), cat(3, 0)
+
+    def _cond(self, s):
+        """Per block, the ``cond`` tuple `_DiTBlock.__call__` takes, from one pass over ``s``."""
+        adw, adb, opw, opb = self._cond_w
+        ckc = self.blocks[0].compute_kernel_config
+        s_hat = ttnn.layer_norm(s, epsilon=1e-5, compute_kernel_config=ckc)
+        o_ad = ttnn.linear(s_hat, adw, bias=adb, compute_kernel_config=ckc)
+        ttnn.deallocate(s_hat)
+        o_op = ttnn.linear(s, opw, bias=opb, compute_kernel_config=ckc)
+        lead = list(s.shape[:-1])
+
+        def cut(t, j):
+            return ttnn.slice(t, [0] * len(lead) + [j * C_A], lead + [(j + 1) * C_A])
+        out = [((cut(o_ad, 4 * b), cut(o_ad, 4 * b + 1)), (cut(o_ad, 4 * b + 2), cut(o_ad, 4 * b + 3)),
+                cut(o_op, 2 * b), cut(o_op, 2 * b + 1)) for b in range(self.n_blocks)]
+        ttnn.deallocate(o_ad); ttnn.deallocate(o_op)
+        return out
 
     def _masks(self, token_mask, N, padded_N, rows):
         """``(mask_bias [1,1,1,padded_N], tok_mask_col at rows or ())``: -1e9 on padded and masked
@@ -431,8 +487,9 @@ class OF3DiffusionTransformer(Module):
             a_d, s_d = (ttnn.pad(x, [(0, 0), (0, rows - padded_N), (0, 0)], value=0.0)
                         for x in (a_d, s_d))
         x = a_d
-        for blk in self.blocks:
-            x = blk(x, s_d, z_d, mask_bias, tmc_d, cache=cache)
+        conds = self._cond(s_d) if self._cond_w is not None else [None] * self.n_blocks
+        for blk, cond in zip(self.blocks, conds):
+            x = blk(x, s_d, z_d, mask_bias, tmc_d, cache=cache, cond=cond)
         if rows == N:
             return x
         x = ttnn.to_layout(x, ttnn.ROW_MAJOR_LAYOUT)
