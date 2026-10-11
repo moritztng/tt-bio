@@ -341,16 +341,24 @@ def ref_atom_embed_device(compute_kernel_config, w: dict, features: dict,
     return rafe(*ref_atom_device_inputs(dev, features, atom_mask, n_pad))
 
 
+def input_atom_transformer(compute_kernel_config, sd: dict):
+    """The input embedder's ``OF3AtomTransformer``. Build it once per model and pass it to
+    every ``run_input_atom_encoder`` call: a fresh one uploads its weights again on each fold."""
+    from .openfold3_atom_transformer import OF3AtomTransformer
+
+    return OF3AtomTransformer(_sub(sd, "input_embedder.atom_attn_enc.atom_transformer"),
+                              compute_kernel_config)
+
+
 def run_input_atom_encoder(dev, compute_kernel_config, sd: dict, features: dict,
-                           aux: dict) -> torch.Tensor:
+                           aux: dict, at=None) -> torch.Tensor:
     """Input-embedder atom-encoder leg -> ``ai`` [n_token, 384].
 
     Host: ref-atom embedding + pair-rep completion. Device: the PCC-gated
-    ``OF3AtomTransformer`` (P7). Host: ``relu(linear_q(...))`` + mean aggregation to
-    tokens via ``atom_to_token_mean``.
+    ``OF3AtomTransformer`` (P7), ``at`` from ``input_atom_transformer`` (built here when
+    None). Host: ``relu(linear_q(...))`` + mean aggregation to tokens via
+    ``atom_to_token_mean``.
     """
-    from .openfold3_atom_transformer import OF3AtomTransformer
-
     enc = _sub(sd, "input_embedder.atom_attn_enc")
     atom_mask = aux["atom_mask"]
     n_atom, nb, NP = aux["n_atom"], aux["nb"], aux["NP"]
@@ -369,7 +377,7 @@ def run_input_atom_encoder(dev, compute_kernel_config, sd: dict, features: dict,
         h = _lin(h.relu(), enc, key)
     plm = (plm + h) * pair_mask.unsqueeze(-1)
 
-    at = OF3AtomTransformer(_sub(enc, "atom_transformer"), compute_kernel_config)
+    at = at or input_atom_transformer(compute_kernel_config, sd)
 
     def ft(x, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT):
         return ttnn.from_torch(x.float(), layout=layout, device=dev, dtype=dtype)
