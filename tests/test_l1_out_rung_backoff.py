@@ -242,3 +242,15 @@ def test_a_caller_named_block_retires_instead_of_narrowing(monkeypatch):
     rung, retired, l1_attempts = _drive_pair_proj(monkeypatch, 16)
     assert (rung, retired) == (0, True)
     assert l1_attempts == 1          # one refusal, then the class is done asking
+
+
+def test_a_silu_epilogue_is_its_own_cached_config(monkeypatch):
+    """The factory is lru_cached, so one object is shared by every projection of a key. A SiLU
+    epilogue set on that object after the fact leaked into the pair FFN's fc1b (same shape as fc1a)
+    and every later same-shape projection, in the switch-off arm too. It has to be part of the key."""
+    monkeypatch.setattr(T, "_l1_bank_bytes", lambda: BANK)
+    T._pair_proj_program_config.cache_clear()
+    on = T._pair_proj_program_config(RF3_M_TILES, 2, 2, 2, 2, True, None, 0, True)
+    off = T._pair_proj_program_config(RF3_M_TILES, 2, 2, 2, 2, True, None, 0)
+    assert on is not off and on.fused_activation is not None and off.fused_activation is None
+    T._pair_proj_program_config.cache_clear()

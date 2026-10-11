@@ -72,8 +72,8 @@ s2, _ = sharded(h2, 8, 8)
 
 def fc1a_silu():
     """fc1a on the shipped L1 config with the silu in its epilogue: the gate is then a plain FPU multiply."""
-    cfg = T._pair_proj_config(x, wa, bw_cap=T._PAIR_FFN_FC1_BW, out_l1=True, block_w=T._PAIR_FFN_FC1_BLOCK_W)
-    cfg.fused_activation = ttnn.UnaryWithParam(SILU)
+    cfg = T._pair_proj_config(x, wa, bw_cap=T._PAIR_FFN_FC1_BW, out_l1=True, block_w=T._PAIR_FFN_FC1_BLOCK_W,
+                              silu=True)
     return ttnn.linear(x, wa, memory_config=L1, dtype=ttnn.bfloat16, compute_kernel_config=ck, program_config=cfg)
 
 
