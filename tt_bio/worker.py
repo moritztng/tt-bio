@@ -1786,7 +1786,8 @@ class _WorkerState:
             build_openfold3_features, make_openfold3_msa_features)
         from tt_bio.envflags import env_flag
         from tt_bio.openfold3_host_prep import (
-            DEVICE_REF_ATOM, dedup_template_slots, derive_block_aux, derive_relpos,
+            DEVICE_REF_ATOM, RELPOS_CODES, dedup_template_slots, derive_block_aux, derive_relpos,
+            derive_relpos_codes,
             derive_template_feat, ref_atom_embed, ref_atom_embed_device,
             run_input_atom_encoder)
         from tt_bio.openfold3_weights import _sub
@@ -1881,7 +1882,8 @@ class _WorkerState:
         aux = derive_block_aux(features)
         template_feat, template_slots = dedup_template_slots(
             derive_template_feat(features))
-        relpos = derive_relpos(features)
+        relpos = (derive_relpos_codes(features) if env_flag(RELPOS_CODES, False)
+                  else derive_relpos(features))
 
         model = self.model
         dev = model.device
