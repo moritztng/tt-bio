@@ -14625,12 +14625,26 @@ class OuterProductMean(Module):
         z_cap = _OPM_DRAM_ROW_CAP.get((I, C, D, J))
         if z_cap is not None:
             rows_blk = min(rows_blk, z_cap)
+        # Above the host-join size each `residual + update` row block overwrites its own rows of
+        # the residual (dead once the block is computed), so no join holds the residual, its
+        # blocks and the result at once. Protenix-v2 at 2048 tokens (c_z 256) was refused that
+        # 2 GiB join on every MSA block and sent it to the host. Same bytes in the same place.
+        # `done` lets a narrowed retry resume after the rows already written.
+        inplace = residual is not None and _pair_inplace(residual, True)
+        done = [0]
 
         def run(rows_blk):
-            if rows_blk >= I:
+            if rows_blk >= I and not done[0]:
                 OPM_ROW_STATS["whole"] += 1
                 return outer_product_mean(0, I)
             OPM_ROW_STATS["blocked"] += 1
+            if inplace:
+                for i in range(done[0], I, rows_blk):
+                    i1 = min(i + rows_blk, I)
+                    blk = outer_product_mean(i, i1)
+                    _write_rows(residual, ttnn.reshape(blk, (1, *blk.shape)), i)
+                    done[0] = i1
+                return ttnn.reshape(residual, tuple(residual.shape)[1:])
             # One concat at the end, not a running one: growing the accumulator a block at a
             # time re-allocates a nearly whole pair tensor per block, and boltz2 at 1792 tokens
             # died on the sixth of those (704643072 B) with 227 MiB per bank free. _acc_concat
@@ -14662,10 +14676,10 @@ class OuterProductMean(Module):
                 depth_parts = [(ttnn.reallocate(acp), ttnn.reallocate(bcp), Sc)
                                for acp, bcp, Sc in depth_parts]
 
-        z = _with_dram_narrowing(
+        z = _inplace_guarded("outer product mean", lambda: _with_dram_narrowing(
             run, rows_blk,
             lambda b: _dram_narrow(_OPM_DRAM_ROW_CAP, (I, C, D, J), b, OPM_ROW_STATS),
-            compact=compact)
+            compact=compact))
         if depth_parts is None:
             ttnn.deallocate(a)
             ttnn.deallocate(b)
