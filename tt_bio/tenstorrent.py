@@ -7490,7 +7490,10 @@ def trace_region_bytes(capture):
     """Bytes of trace region to reserve at open for ``capture`` (a TRACE_REGIONS key) on this arch.
 
     A device total, not per DRAM bank: ttnn reports "only 134217728B is allocated for trace region"
-    for a 128 MiB entry."""
+    for a 128 MiB entry. `TT_BIO_TRACE_REGION_MB` overrides it, for sizing a capture on a new arch."""
+    mb = os.environ.get("TT_BIO_TRACE_REGION_MB")
+    if mb:
+        return int(mb) << 20
     try:
         return TRACE_REGIONS[capture][arch_name()]
     except KeyError:
