@@ -357,8 +357,10 @@ def build_fold(model: str, msa_dir: Path, target: Path, a3m: Path,
     _E.set_progress(_noop)
 
     # --trace replays a captured ttnn trace of the per-step diffusion device graph, and
-    # Protenix/OpenDDE fold(trace=True) refuses unless the device carries a region.
-    get_device(trace="protenix" if trace else None)  # open the chip once (lease enforced here)
+    # Protenix/OpenDDE fold(trace=True) refuses unless the device carries a region. Boltz-2's
+    # DiT step is a different capture (its --diffusion_trace), with its own region.
+    region = "diffusion" if model == "boltz2" else "protenix"
+    get_device(trace=region if trace else None)  # open the chip once (lease enforced here)
     hw = arch_name()
 
     work = Path(tempfile.mkdtemp(prefix=f"ttbase-{model}-"))

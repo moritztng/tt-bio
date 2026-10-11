@@ -53,7 +53,8 @@ def main():
     # Per-fold host / device / transfer split from tt_baseline's whole-function brackets (no device
     # sync added), recorded per fold beside the wall it splits. The cold fold's row is first.
     ap.add_argument("--instrument", action="store_true")
-    # Replay the captured diffusion-step trace (the CLI's --trace; protenix-v2 / opendde).
+    # Replay the captured diffusion-step trace (the CLI's --trace for protenix-v2 / opendde,
+    # --diffusion_trace for boltz2).
     ap.add_argument("--trace", action="store_true")
     # Paired trace A/B in ONE process: the region is reserved once, then each warm pair folds
     # traced and untraced in alternating order. --repeat counts pairs. Host load on a shared
@@ -94,7 +95,7 @@ def main():
         sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "other512"))
         from fold_ab_multi import patch_boltz2_cfg
         sys.path[:] = snap
-        patch_boltz2_cfg()
+        patch_boltz2_cfg(diffusion_trace=a.trace or a.ab_trace)
 
     # Reachability counters. Installed only for --census: they wrap a function the diffusion
     # rollout calls tens of thousands of times, so they are host cost inside the timed region.
@@ -121,9 +122,9 @@ def main():
     # was a no-op, so --recycles folded at the default and the record named the request.
     _bf = {} if a.samples is None else {"samples": a.samples}
     _bf["recycling_steps"] = a.recycles
-    one_fold, meta = B.build_fold(a.model, msa_dir, tgt, a3m, fast=a.fast,
-                                   instrument=a.instrument, trace=a.trace or a.ab_trace,
-                                   **_bf)[:2]
+    one_fold, meta, state = B.build_fold(a.model, msa_dir, tgt, a3m, fast=a.fast,
+                                          instrument=a.instrument, trace=a.trace or a.ab_trace,
+                                          **_bf)[:3]
     struct_dir = Path(meta["struct_dir"])
 
     import importlib.metadata as im
@@ -168,6 +169,8 @@ def main():
         for i in range(a.repeat):
             for tr in ((True, False) if i % 2 == 0 else (False, True)):
                 meta["job_cfg"]["trace"] = tr
+                if a.model == "boltz2":     # Boltz-2 reads its DiT trace flag off the model
+                    state.model.structure_module._diffusion_trace = tr
                 rec = one(f"warm{i}-{'trace' if tr else 'plain'}")
                 res["folds"].append(rec)
                 arm[tr].append(rec["fold_s"])
