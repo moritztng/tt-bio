@@ -43,8 +43,9 @@ from tt_bio.tenstorrent import (
     _dtype,
     _PAIR_FFN_FC1_BLOCK_W,
     _PAIR_FFN_FC1_BW,
+    _capped_sdpa_chunk_size,
     _pair_proj_linear,
-    _sdpa_program_config_for_lengths,
+    _sdpa_program_config,
     fused_sdpa,
     get_device,
     trace_region_size,
@@ -168,6 +169,18 @@ def _rope(q: ttnn.Tensor, k: ttnn.Tensor, cos: ttnn.Tensor, sin: ttnn.Tensor):
     return apply_rotary(q, cos, sin), apply_rotary(k, cos, sin)
 
 
+# The protein LMs' (ESMC, SaProt) SDPA chunks. The shared cap (256 x 256) was 1.285 ms a call at the page shape (batch 7 x 18 heads x 544
+# tokens x d 64, p150a, 1350 MHz); q 128 x k 64 is 0.629 ms, the fastest of the 25 pairs swept, at the same error to a
+# float64 reference (PCC 0.99970 vs 0.99969, perf/wh-embed/sdpa_sweep.py). Chunking only reorders the online softmax.
+ESMC_SDPA_Q_CHUNK = 128
+ESMC_SDPA_K_CHUNK = 64
+
+
+def lm_sdpa_config(q_len: int, k_len: int):
+    return _sdpa_program_config(min(ESMC_SDPA_Q_CHUNK, _capped_sdpa_chunk_size(q_len)),
+                                min(ESMC_SDPA_K_CHUNK, _capped_sdpa_chunk_size(k_len)))
+
+
 class Embedding(Module):
     """Token embedding lookup (mirrors nn.Embedding(64, d_model)).
 
@@ -236,16 +249,16 @@ class Attention(Module):
         ttnn.deallocate(q); ttnn.deallocate(k); ttnn.deallocate(v)
         q, k, v = self._split_heads(qkv, self.n_heads)
         q, k = _rope(q, k, cos, sin)
-        if key_valid is not None:
-            # Zero padded keys/values so their attention contribution is exactly
-            # 0 (weight x 0) — exact masking, not reliant on bf16 exp(-inf).
+        if key_valid is not None and attn_mask is None:
+            # Zero padded keys/values so their attention contribution is exactly 0. With the -inf
+            # additive mask present this is redundant: the masked softmax weight is already exactly
+            # 0, and dropping the two multiplies leaves every output byte unchanged at every chunk
+            # config swept (perf/wh-embed/sdpa_sweep.py), 0.22 ms a layer at the page shape.
             k = ttnn.multiply(k, key_valid)
             v = ttnn.multiply(v, key_valid)
 
-        o = fused_sdpa(
-            q, k, v, attn_mask=attn_mask, scale=head_dim**-0.5,
-            program_config=_sdpa_program_config_for_lengths(q.shape[2], k.shape[2], q.shape[0] * q.shape[1], site="esmc", d=q.shape[3]),
-        )
+        o = fused_sdpa(q, k, v, attn_mask=attn_mask, scale=head_dim**-0.5,
+                       program_config=lm_sdpa_config(int(q.shape[2]), int(k.shape[2])))
         ttnn.deallocate(q); ttnn.deallocate(k); ttnn.deallocate(v)
         o = self._merge_heads(o)  # [B, L, d_model]
         out = self._lin(o, self.out_weight)
