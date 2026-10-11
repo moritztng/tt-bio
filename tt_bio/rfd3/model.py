@@ -169,6 +169,27 @@ _CONCAT_ALIGNED = env_flag("RFD3_CONCAT_ALIGNED", True)
 # fp32 accumulation into two bf16-rounded halves is not bit-exact (~1 bf16 ulp, rel median
 # 4.8e-3), so it is off by default and release-gated.
 _PROCESS_Z_COLLAPSE = env_flag("RFD3_PROCESS_Z_COLLAPSE", False)
+# The atom neighbour index (_create_attention_indices: cdist + top-128 over every atom) is pure
+# host torch and used to run first in every step, with the device idle: 91.5 ms/step of the
+# page fold's 547 (p150a census, scripts/rfd3_port/gap_census.py). Nothing before the atom
+# encoder reads it, so it is built on a host thread while the step's first device work runs.
+# Same function, same inputs: exact by construction.
+_ATTN_OVERLAP = env_flag("RFD3_ATTN_OVERLAP", True)
+# With the overlap on, the recycle-1 token encoder can also be dispatched before the atom
+# encoder: it reads only S_I, Z_II and the CA coordinates, so the device has its ~74 ms of
+# work queued while the host builds the index. Same ops on the same inputs, reordered. Off by
+# default until the A/B and a large-size memory check: it keeps z ([I,I,128]) resident across
+# the atom encoder.
+_TOKEN_ENC_FIRST = env_flag("RFD3_TOKEN_ENC_FIRST", False)
+_INDEX_POOL = None
+
+
+def _index_pool():
+    global _INDEX_POOL
+    if _INDEX_POOL is None:
+        from concurrent.futures import ThreadPoolExecutor
+        _INDEX_POOL = ThreadPoolExecutor(max_workers=1, thread_name_prefix="rfd3-attn-idx")
+    return _INDEX_POOL
 # The per-step neighbour graph is the largest single host cost in a design. At the page fixture
 # (6051 atoms) the ledger puts it at 51.9 + 19.8 ms of an 84.8 ms host body, and P3.7 measured
 # 54.3 ms/step of that reaching the wall. It is one chain -- cdist -> masked_fill_ -> topk -- over
@@ -3348,7 +3369,12 @@ class RFD3DiffusionModule(Module):
         if Z_II.ndim == 3: Z_II = Z_II.unsqueeze(0)
         if P_LL.ndim == 3: P_LL = P_LL.unsqueeze(0)
         f = dict(f)
-        f["attn_indices"] = _create_attention_indices(f, X_noisy_L, tok_idx, self.N_ATTN_KEYS, self.N_ATTN_SEQ)
+        if _ATTN_OVERLAP:
+            idx_job = _index_pool().submit(_create_attention_indices, f, X_noisy_L, tok_idx,
+                                           self.N_ATTN_KEYS, self.N_ATTN_SEQ)
+        else:
+            f["attn_indices"] = _create_attention_indices(f, X_noisy_L, tok_idx, self.N_ATTN_KEYS,
+                                                          self.N_ATTN_SEQ)
         is_motif = f["is_motif_atom_with_fixed_coord"]
         t_L = t.unsqueeze(-1).expand(-1, L) * (~is_motif).float().unsqueeze(0)
         t_I = t.unsqueeze(-1).expand(-1, I) * (~f["is_motif_token_with_fully_fixed_coord"]).float().unsqueeze(0)
@@ -3373,22 +3399,30 @@ class RFD3DiffusionModule(Module):
         C_L = C_L + ttnn.to_torch(
             ttnn.linear(ttnn.rms_norm(_tt(C_L, dev, dt), weight=self.process_c_n, epsilon=1e-6, compute_kernel_config=ckc),
                         self.process_c_w, compute_kernel_config=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID)).float()
+        first_tok = None
+        if _ATTN_OVERLAP:
+            if _TOKEN_ENC_FIRST:
+                first_tok = self.diffusion_token_encoder.run_device(
+                    R_L_uniform[..., f["is_ca"], :], S_I, Z_II, D_II_self=None)
+            f["attn_indices"] = idx_job.result()
         Q_L = self.encoder(Q_L, C_L, P_LL, indices=f["attn_indices"])
         A_I = self._downcast_q(Q_L, A_I, S_I, tok_idx)
         recycled = self._forward_with_recycle(
             n_recycle, X_noisy_L=X_noisy_L, R_L_uniform=R_L_uniform, t_L=t_L, f=f, Q_L=Q_L,
-            C_L=C_L, P_LL=P_LL, A_I=A_I, S_I=S_I, Z_II=Z_II)
+            C_L=C_L, P_LL=P_LL, A_I=A_I, S_I=S_I, Z_II=Z_II, first_tok=first_tok)
         return {"X_L": recycled["X_L"], "sequence_logits_I": recycled["sequence_logits_I"],
                 "sequence_restype_I": recycled["sequence_restype_I"]}
 
-    def _forward_with_recycle(self, n_recycle, **kw):
+    def _forward_with_recycle(self, n_recycle, first_tok=None, **kw):
         n_recycle = n_recycle if n_recycle is not None else self.N_RECYCLE
         rec = {}
         for i in range(n_recycle):
-            rec = self._process_(D_II_self=rec.get("D_II_self"), X_L_self=rec.get("X_L"), **kw)
+            rec = self._process_(D_II_self=rec.get("D_II_self"), X_L_self=rec.get("X_L"),
+                                 tok=first_tok if i == 0 else None, **kw)
         return rec
 
-    def _process_(self, D_II_self, X_L_self, *, R_L_uniform, X_noisy_L, t_L, f, Q_L, C_L, P_LL, A_I, S_I, Z_II):
+    def _process_(self, D_II_self, X_L_self, *, R_L_uniform, X_noisy_L, t_L, f, Q_L, C_L, P_LL, A_I, S_I, Z_II,
+                  tok=None):
         is_ca = f["is_ca"]
         R_L_ca = R_L_uniform[..., is_ca, :]
         # z stays on the card between these two: it is [B,I,I,128], the only O(I^2)
@@ -3396,7 +3430,7 @@ class RFD3DiffusionModule(Module):
         # at 3359 atoms against 13.9% at 419 (p19 step 0) -- the size-dependent cost the
         # GPU does not pay. s is O(I*c_s) and still crosses, because the decoder wants it
         # on host anyway.
-        s_dev, z_dev = self.diffusion_token_encoder.run_device(R_L_ca, S_I, Z_II, D_II_self=D_II_self)
+        s_dev, z_dev = tok or self.diffusion_token_encoder.run_device(R_L_ca, S_I, Z_II, D_II_self=D_II_self)
         S_I = ttnn.to_torch(s_dev).float()
         X_L_ca = X_noisy_L[..., is_ca, :] if X_L_self is None else X_L_self[..., is_ca, :]
         dit_idx = _create_attention_indices(f, X_L_ca, torch.arange(I := S_I.shape[1], device=X_L_ca.device),
