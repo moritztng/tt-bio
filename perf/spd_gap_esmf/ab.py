@@ -6,7 +6,7 @@ alternates a module global between folds: one cold fold per arm first (discarded
 of arm A, arm B interleaved, so both arms see the same clock and host load. Every fold records its wall,
 pLDDT, CIF digest, the opened node's AICLK median during the fold, and loadavg.
 
-    python perf/spd_gap_esmf/ab.py --model esmfold2-fast --alt tt_bio.esmfold2.DIFFUSION_TRACE --out r.json
+    python perf/spd_gap_esmf/ab.py --model esmfold2-fast --alt tt_bio.esmfold2_runtime.LEVERS_NORMAL --a normal --b none --out r.json
     python perf/spd_gap_esmf/ab.py --model esmfold2 --alt tt_bio.esmfold2_runtime.LEVERS_NORMAL --a normal --b none ...
 """
 import argparse, hashlib, importlib, json, os, statistics, sys, threading, time
@@ -52,7 +52,7 @@ def sampler():
         time.sleep(0.5)
 threading.Thread(target=sampler, daemon=True).start()
 
-res = {"model": a.model, "fast": a.fast, "alt": a.alt, "a": a.a, "b": a.b, "nodes": nodes, "trace_region": T.trace_region_size(),
+res = {"model": a.model, "fast": a.fast, "alt": a.alt, "a": a.a, "b": a.b, "nodes": nodes,
        "card": os.environ.get("TT_VISIBLE_DEVICES"), "host": os.uname().nodename, "folds": []}
 def fold(arm, tag):
     setattr(mod, attr, (a.a if a.a is not None else True) if arm == "A" else (a.b if a.b is not None else False))
@@ -70,9 +70,6 @@ for i in range(a.repeat):
 for arm in "AB":
     w = sorted(f["fold_s"] for f in res["folds"] if f["arm"] == arm and f["tag"] != "cold")
     res[f"median_{arm}"], res[f"spread_{arm}"] = statistics.median(w), round(w[-1] - w[0], 3)
-for name in ("DIFFUSION_TRACE_STATS",):
-    import tt_bio.esmfold2 as E
-    res[name] = list(getattr(E, name, []))
 a.out.write_text(json.dumps(res, indent=1))
 print(f"A {res['median_A']:.3f}  B {res['median_B']:.3f}  delta {res['median_B'] - res['median_A']:+.3f} s", flush=True)
 T.cleanup()
