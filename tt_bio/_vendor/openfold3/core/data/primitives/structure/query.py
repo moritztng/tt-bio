@@ -190,6 +190,17 @@ def atom_array_from_mol(
 # all-canonical protein). 0 keeps the sequential path. 24 is where the scaling stops on a
 # 32-core host; a smaller box gets its own core count.
 CONFORMER_THREADS = min(24, os.cpu_count() or 1)
+# One pool for the process: starting 24 threads per fold cost 0.2 s on a loaded 32-core host.
+_CONFORMER_POOL = None
+
+
+def _drop_conformer_pool():
+    # A forked child inherits the pool object but none of its threads.
+    global _CONFORMER_POOL
+    _CONFORMER_POOL = None
+
+
+os.register_at_fork(after_in_child=_drop_conformer_pool)
 
 
 def _pooled_reference_molecules(jobs: list) -> list:
@@ -207,8 +218,11 @@ def _pooled_reference_molecules(jobs: list) -> list:
         arr, leaving = jobs[i]
         return processed_reference_molecule_from_atom_array(arr, atoms_to_mask=leaving)
 
-    with ThreadPoolExecutor(max_workers=CONFORMER_THREADS) as ex:
-        return list(ex.map(one, range(len(jobs))))
+    global _CONFORMER_POOL
+    if _CONFORMER_POOL is None:
+        _CONFORMER_POOL = ThreadPoolExecutor(max_workers=CONFORMER_THREADS,
+                                             thread_name_prefix="of3-conformer")
+    return list(_CONFORMER_POOL.map(one, range(len(jobs))))
 
 
 # One reference conformer per residue TYPE instead of one per residue. A 512-residue
