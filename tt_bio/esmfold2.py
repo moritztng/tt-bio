@@ -38,6 +38,7 @@ from tt_bio.tenstorrent import (
     accurate_softmax_site,
     attn_value_matmul,
     fused_sdpa,
+    trunk_compute_kernel_config,
 )
 from tt_bio.eltwise_fusion import scale_add
 
@@ -174,15 +175,12 @@ class PairUpdateBlock(Module):
             _remap_transition(sd), compute_kernel_config, fuse_swiglu=True
         )
 
-    def _residual(self, z: ttnn.Tensor, update: ttnn.Tensor) -> ttnn.Tensor:
-        out = ttnn.add(z, update)
-        ttnn.deallocate(z)
-        ttnn.deallocate(update)
-        return out
-
     def __call__(self, z: ttnn.Tensor, mask: ttnn.Tensor | None = None) -> ttnn.Tensor:
-        z = self._residual(z, self.tri_out(z, mask))
-        z = self._residual(z, self.tri_in(z, mask))
+        # `z + tri(z)` through the trimul's own residual path, as the Pairformer runs it: the
+        # in-place add (`_add_input`), or under the trimul_tail lever the add folded into the
+        # tail's epilogue, which saves one pair-tensor pass per trimul.
+        z = self.tri_out(z, mask, add_to_input=True)
+        z = self.tri_in(z, mask, add_to_input=True)
         # `z + transition(z)`, but the add belongs to the transition: on the row-blocked path it
         # runs per block so fc2's output never round-trips DRAM (lever F, esmc.PAIR_FFN_FUSED_
         # RESIDUAL). Bit-exact -- the add is elementwise and row-independent.
@@ -216,7 +214,9 @@ class FoldingTrunk(TorchWrapper):
         self.d_pair = d_pair
 
     def _create_module(self, weights: WeightScope) -> FoldingTrunkModel:
-        return FoldingTrunkModel(self.n_layers, weights, self.compute_kernel_config)
+        # The trunk's matmul fidelity, as every Pairformer-family trunk takes it (`trunk_hifi3`).
+        return FoldingTrunkModel(self.n_layers, weights,
+                                 trunk_compute_kernel_config(self.compute_kernel_config))
 
     def forward(self, z):
         # Pad both sequence axes to a tile multiple and mask padding out of the
