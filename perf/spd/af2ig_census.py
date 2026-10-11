@@ -34,6 +34,12 @@ p.add_argument("--warm", type=int, default=2)
 p.add_argument("--reps", type=int, default=3)
 p.add_argument("--trace", action="store_true",
                help="replay the two device stacks from a trace (AF2DeviceModel.trace_stacks)")
+p.add_argument("--trace-stacks", default="",
+               help="comma list of stacks to trace (extra_msa,evoformer); default both")
+p.add_argument("--trace-blocks", type=int, default=None, help="trace only the first N Evoformer blocks")
+p.add_argument("--trace-blocking", action="store_true", help="execute the replay blocking")
+p.add_argument("--trimul-dram", action="store_true",
+               help="keep every trimul tensor in DRAM (no L1 residency), for the trace-hang bisection")
 p.add_argument("--ops", action="store_true",
                help="end with one fold timed per ttnn call between two syncs (perf/hallgrad/census.py's "
                     "Recorder), aggregated by op, call site and shapes into census.json 'ops'")
@@ -53,7 +59,24 @@ if a.trace:
     from tt_bio.tenstorrent import get_device
     get_device(trace="af2")
 model = load_af2_device_model(load_af2_state_dict(a.params), template=True).eval()
-model.trace_stacks = a.trace
+model.trace_stacks = (set(a.trace_stacks.split(",")) if a.trace and a.trace_stacks else a.trace)
+model.trace_blocks, model.trace_blocking = a.trace_blocks, a.trace_blocking
+if a.trimul_dram:
+    from tt_bio import tenstorrent as _tt
+    _tt._TRIMUL_DRAM_SHAPES.update(range(1, 4097))
+if a.trace:  # say where a hang sits: capture, first replay or a later one
+    _replay = model._replay
+
+    def _logged(name, run, *inputs):
+        key = (name, *(tuple(t.shape) for t in inputs))
+        state = ("eager" if key not in model._traces else
+                 "capture" if model._traces[key] is None else "replay")
+        print(f"trace {name} {state} t={time.time():.1f}", flush=True)
+        out = _replay(name, run, *inputs)
+        ttnn.synchronize_device(model._device)
+        print(f"trace {name} done t={time.time():.1f}", flush=True)
+        return out
+    model._replay = _logged
 spec = read_af2ig_input(a.input)
 dev = model._device
 

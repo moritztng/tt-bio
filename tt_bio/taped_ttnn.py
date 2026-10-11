@@ -1668,6 +1668,7 @@ def _taped_verb(qual, shipped):
 _SHIM = _Ttnn(ttnn)
 _SHIMMED: list = []
 _NEVER_SHIM = (__name__, "tt_bio.autograd")
+_TT_MODULES: tuple = (-1, [])
 
 
 def forget_shim_bindings(*names: str) -> None:
@@ -1700,13 +1701,18 @@ def _swap(to_shim: bool) -> None:
     `ttnn.Tensor.__getitem__` goes in and out with the modules, so an inference fold never
     executes `_param_getitem`.
     """
-    global _SHIMMED
+    global _SHIMMED, _TT_MODULES
     from . import ops
     if to_shim:
         _SHIMMED = []
-        for name, mod in list(sys.modules.items()):
-            if not name.startswith("tt_bio") or mod is None or name in _NEVER_SHIM:
-                continue
+        # The tt-bio modules, rescanned only when an import has grown `sys.modules`: a design
+        # iteration opens this scope per callback and a full scan of thousands of jax and
+        # torch modules was ~3 % of BindCraft 2's callback time on a Wormhole.
+        if _TT_MODULES[0] != len(sys.modules):
+            _TT_MODULES = (len(sys.modules), [
+                mod for name, mod in list(sys.modules.items())
+                if name.startswith("tt_bio") and mod is not None and name not in _NEVER_SHIM])
+        for mod in _TT_MODULES[1]:
             if getattr(mod, "ttnn", None) is ttnn:
                 mod.ttnn = _SHIM
                 _SHIMMED.append(mod)
