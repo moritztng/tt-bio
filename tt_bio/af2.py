@@ -361,9 +361,10 @@ class AF2PairBlock(Module):
     #: `tt_bio/rne_add.py` is graded bit-exact against `round_rne_bf16(exact_sum)` in float64 on
     #: random pairs, a 256x operand ratio and real ties -- at 6 B/element instead of 30, which is
     #: 398 GB and ~1.41 s of BindCraft 2's composed round (`state/perf10/bcx-CALLS.md` leg 3).
-    #: OFF by default and release-gated. Under a tape it also needs `rne_add`'s entry in
-    #: TT_BIO_TAPED_KERNELS; without it `rne_add.eligible` declines and the four calls run.
-    rne_kernel = False
+    #: AF2-IG on a Wormhole chip: digests identical on all three PD-L1 fixtures, 0.5-0.7 s less per
+    #: complex at 195 tokens. Under a tape it also needs `rne_add`'s entry in TT_BIO_TAPED_KERNELS;
+    #: without it `rne_add.eligible` declines and the four calls run.
+    rne_kernel = True
 
     #: Ride linear_g.bias inside the triangle attentions' gate matmul as well as linear_o.bias, one
     #: rounding instead of a matmul then a 200 us row-broadcast add at 1x288x288x128. Read at call
@@ -1055,7 +1056,10 @@ class AF2DeviceModel(AF2Model):
     #: triangle attention too. Not bit-exact against the materialised path: an online softmax
     #: reduces over k in a different order, so a change here is an accuracy question, scored by
     #: `filter_flip_rate.py` over both design populations.
-    triatt_fused: frozenset | None = None
+    #: Default: every stack. AF2-IG on a Wormhole chip (three PD-L1 complexes, 195 tokens): all-atom
+    #: RMSD to the materialised softmax 0.05-0.38 A, ipTM within 0.0007, ~2 s less per complex.
+    #: Below `_TRIATT_FUSED_HIFI_MIN_S` tokens the materialised path still runs.
+    triatt_fused: frozenset | None = frozenset(TRIATT_FUSED_STACKS)
 
     #: Off recomputes the template every pass. It must change no number anywhere, which is what
     #: `tap_gate.py --device --no-template-cache` checks against the same reference taps. On, the

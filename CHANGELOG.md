@@ -6,10 +6,12 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 ## [Unreleased]
 
 ### Changed
-- **AF2-IG is 1.2x faster on Blackhole and 1.7x faster on Wormhole.** With an MSA of 8 rows or fewer the outer
-  product mean no longer builds the full outer product. Per complex at 195 tokens: 4.54 s instead of 5.63 s on a
-  p150a at 1350 MHz, 9.73 s instead of 16.16 s on a Wormhole Galaxy chip at 1000 MHz. Structures move by 0.02 to
-  0.25 A, ipTM by at most 0.0005. Any single-sequence fold takes the same path. `TT_BIO_OPM_SMALL_DEPTH=0` restores the old one.
+- **AF2-IG is up to 2.5x faster.** Three changes. With an MSA of 8 rows or fewer the outer product mean no longer
+  builds the full outer product (`TT_BIO_OPM_SMALL_DEPTH=0` restores it; any single-sequence fold takes this path).
+  Triangle attention runs on the fused attention kernel from 128 tokens up. Residual adds run as one kernel, with
+  identical output. Per complex at 195 tokens on a Wormhole Galaxy chip at 1000 MHz: 6.41 s instead of 16.16 s.
+  On a p150a at 1350 MHz the outer product change alone takes it from 5.63 s to 4.54 s. Against the previous
+  release, structures move by 0.05 to 0.20 A and ipTM by at most 0.0007.
 - **OpenFold3 and OpenBind-0 replay the diffusion step from a device trace**, with identical output. On a
   Blackhole p150a at 1350 MHz the 512-aa fold takes 15.1 to 15.8 s instead of 17.8 to 18.9 s. If the trace
   cannot be captured the fold runs the old step-by-step path; `OF3_DIFFUSION_TRACE=0` forces it.
