@@ -2043,6 +2043,19 @@ class GatedCrossAttention(Module):
         return ttnn.to_torch(self.run_device(q, kv, attn_mask)).float()
 
 
+# The atom/DiT blocks' five sigmoid gates per block (two adaLN gains, the attention gate, the two
+# output gates) as the multiply's own operand activation instead of a separate sigmoid op: 5 fewer
+# device programs per block, 180 a step in the DiT alone, where per-op fixed cost is the limit.
+# RFD3_SIGMOID_FOLD=0 restores the separate op for the A/B.
+_SIGMOID_FOLD = env_flag("RFD3_SIGMOID_FOLD", True)
+
+
+def _gated(x, gate):
+    if _SIGMOID_FOLD:
+        return ttnn.multiply(x, gate, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
+    return ttnn.multiply(x, ttnn.sigmoid(gate))
+
+
 class RFD3AtomBlock(Module):
     """One dense-mask RFD3 structure-local transformer block.
 
@@ -2096,7 +2109,7 @@ class RFD3AtomBlock(Module):
         bias = _tuned_linear(
             s, bias_w, ckc=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID
         )
-        return ttnn.add(ttnn.multiply(a, ttnn.sigmoid(gain)), bias)
+        return ttnn.add(_gated(a, gain), bias)
 
     def _sparse_pair_bias(self, p, cache):
         """The compact `[1, H, L, K]` bf16 neighbour pair bias, for the fused score path.
@@ -2382,7 +2395,7 @@ class RFD3AtomBlock(Module):
         else:
             out = bs_out
         out = _merge_heads(out, (batch, length, self.n_head * self.head_dim))
-        out = ttnn.multiply(out, ttnn.sigmoid(gg))
+        out = _gated(out, gg)
         out = _tuned_linear(
             out, self.o_w, ckc=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID
         )
@@ -2390,7 +2403,7 @@ class RFD3AtomBlock(Module):
             c, self.a_out_w, bias=self.a_out_b, compute_kernel_config=ckc,
             dtype=dt, core_grid=BATCH_INVARIANT_GRID,
         )
-        upd = ttnn.multiply(out, ttnn.sigmoid(gate))
+        upd = _gated(out, gate)
         if f32:
             q = ttnn.add(q, ttnn.typecast(upd, ttnn.float32, memory_config=upd.memory_config()))
         else:
@@ -2416,7 +2429,7 @@ class RFD3AtomBlock(Module):
             c, self.t_out_w, bias=self.t_out_b, compute_kernel_config=ckc,
             dtype=dt, core_grid=BATCH_INVARIANT_GRID,
         )
-        upd = ttnn.multiply(update, ttnn.sigmoid(gate))
+        upd = _gated(update, gate)
         if f32:
             q = ttnn.add(q, ttnn.typecast(upd, ttnn.float32, memory_config=upd.memory_config()))
         else:

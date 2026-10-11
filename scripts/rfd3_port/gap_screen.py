@@ -12,6 +12,7 @@ ARM is a '+'-joined set of knobs applied before the denoiser is built:
   asdpa     RFD3_ATOM_SDPA, atom attention as one fused SDPA (on by default since 10-11)
   dsdpa     RFD3_DIT_SDPA, the dense (DiT) attention as one fused SDPA (new, off by default)
   tb8       RFD3_TRANSITION_B8, the pair Transitions' hidden activations in bfp8
+  sf        RFD3_SIGMOID_FOLD, sigmoid gates folded into their multiply (on by default)
   gsm bs pzc fgrid   the existing off-by-default levers RFD3_GATHERED_SOFTMAX, RFD3_BLOCK_SPARSE,
             RFD3_PROCESS_Z_COLLAPSE, RFD3_FAST_GRID (declined before only for not being bit-exact)
 
@@ -31,7 +32,7 @@ import time
 ENV_KNOBS = {"gsm": "RFD3_GATHERED_SOFTMAX", "bs": "RFD3_BLOCK_SPARSE",
              "pzc": "RFD3_PROCESS_Z_COLLAPSE", "fgrid": "RFD3_FAST_GRID",
              "asdpa": "RFD3_ATOM_SDPA", "tb8": "RFD3_TRANSITION_B8",
-             "dsdpa": "RFD3_DIT_SDPA", "hifi2": "RFD3_HIFI2"}
+             "dsdpa": "RFD3_DIT_SDPA", "hifi2": "RFD3_HIFI2", "sf": "RFD3_SIGMOID_FOLD"}
 _arm = set(sys.argv[1].split("+")) if len(sys.argv) > 1 else set()
 for _k, _env in ENV_KNOBS.items():
     os.environ[_env] = "1" if _k in _arm else "0"   # read at import, so before tt_bio.rfd3 loads
