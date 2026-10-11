@@ -1076,6 +1076,10 @@ class AF2DeviceModel(AF2Model):
     #: without the region, or under any instrument (`block_tap`, `substitute`, `skip`) or a real
     #: mask, the stack runs eagerly as before. Same ops on the same buffers as the eager loop.
     trace_stacks = False
+    #: Bisection knobs for the trace: replay only the first `trace_blocks` Evoformer blocks (the
+    #: rest run eagerly on clones of the trace's outputs) and execute the replay blocking.
+    trace_blocks: int | None = None
+    trace_blocking = False
 
     @property
     def template_cacheable(self) -> bool:
@@ -1250,8 +1254,9 @@ class AF2DeviceModel(AF2Model):
 
     # ------------------------------------------------------------------ the two stacks
 
-    def _traceable(self, *masks) -> bool:
-        return (self.trace_stacks and self.block_tap is None and not self.substitute
+    def _traceable(self, *masks, name: str = "") -> bool:
+        stacks = self.trace_stacks
+        return (stacks and (stacks is True or name in stacks) and self.block_tap is None and not self.substitute
                 and not self.skip and all(m is None for m in masks)
                 and trace_region_size() > 0)
 
@@ -1281,7 +1286,7 @@ class AF2DeviceModel(AF2Model):
                 ttnn.copy_host_to_device_tensor(
                     ttnn.from_torch(t.unsqueeze(0).to(torch.bfloat16), layout=ttnn.TILE_LAYOUT,
                                     dtype=ttnn.bfloat16), buf)
-        ttnn.execute_trace(self._device, tr[0], cq_id=0, blocking=False)
+        ttnn.execute_trace(self._device, tr[0], cq_id=0, blocking=self.trace_blocking)
         return tr[2]
 
     def release_traces(self) -> None:
@@ -1304,7 +1309,7 @@ class AF2DeviceModel(AF2Model):
             "collapses to under an all-zero mask; a real extra MSA needs the track written")
         shape = tuple(pair.shape)
         masks = af2_pair_masks(pair_mask, self._device)
-        if self._traceable(*masks):
+        if self._traceable(*masks, name="extra_msa"):
             if len(self._opm_constant_tt) != len(self.opm_constant):
                 self._opm_constant_tt = [self._up(c.reshape(1, 1, -1)) for c in self.opm_constant]
 
@@ -1340,13 +1345,23 @@ class AF2DeviceModel(AF2Model):
         pair_masks = af2_pair_masks(pair_mask, self._device)
         msa_mask_tt = (None if bool((msa_mask == 1).all())
                        else self._up(msa_mask.float()))
-        if self._traceable(msa_mask_tt, *pair_masks):
+        if self._traceable(msa_mask_tt, *pair_masks, name="evoformer"):
+            n = len(self.device_evoformer) if self.trace_blocks is None else self.trace_blocks
+
             def run(m, z):
-                for block in self.device_evoformer:
+                for block in self.device_evoformer[:n]:
                     m, z = block(m, z, None, *pair_masks)
                 return m, z
 
             m, z = self._replay("evoformer", run, msa, pair)
+            if n < len(self.device_evoformer):
+                m, z = ttnn.clone(m), ttnn.clone(z)
+                for block in self.device_evoformer[n:]:
+                    m, z = block(m, z, None, *pair_masks)
+                out = self._down(m, msa_shape), self._down(z, pair_shape)
+                ttnn.deallocate(m)
+                ttnn.deallocate(z)
+                return out
             return self._down(m, msa_shape), self._down(z, pair_shape)
         m, z = self._up(msa), self._up(pair)
         for block in self.device_evoformer:
