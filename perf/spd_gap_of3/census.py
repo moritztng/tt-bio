@@ -33,6 +33,9 @@ def main():
     ap.add_argument("--sites", action="store_true",
                     help="bin every device upload and every read by its tt_bio call site: count, MB, the wait for "
                          "the device queue before it (synchronised) and the call itself")
+    ap.add_argument("--prof-feat", action="store_true",
+                    help="cProfile build_openfold3_features on the warm folds; the top 40 functions by cumulative "
+                         "time land in OUT beside the result (prof_feat.txt)")
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
     tree = a.tree.resolve()
@@ -146,6 +149,24 @@ def main():
                       MD.AtomPairUpdate, MC.OF3DiffusionConditioning):
             wrap(owner, "__call__", owner.__name__, True)
 
+    if a.prof_feat:
+        import cProfile, io, pstats
+        from tt_bio import openfold3_data as MDATA, worker as MW
+        prof = cProfile.Profile()
+        feat = MDATA.build_openfold3_features
+
+        def feat_prof(*x, **k):
+            if not on["v"]:
+                return feat(*x, **k)
+            prof.enable()
+            try:
+                return feat(*x, **k)
+            finally:
+                prof.disable()
+        MDATA.build_openfold3_features = feat_prof
+        if getattr(MW, "build_openfold3_features", None) is feat:
+            MW.build_openfold3_features = feat_prof
+
     fixdir = tree / "perf" / "size512" / "fixtures"
     tgt, a3m = fixdir / "cdk2x2_512.yaml", fixdir / "cdk2x2_512.a3m"
     one_fold, meta = B.build_fold(a.model, tree / f".msa_xmodel_{a.model}_512", tgt, a3m,
@@ -186,6 +207,11 @@ def main():
     import shutil
     for f in sorted(Path(meta["struct_dir"]).glob("**/*.cif")):
         shutil.copy(f, a.out.parent / f.name)
+    if a.prof_feat:
+        buf = io.StringIO()
+        pstats.Stats(prof, stream=buf).sort_stats("cumulative").print_stats(40)
+        pstats.Stats(prof, stream=buf).sort_stats("tottime").print_stats(25)
+        (a.out.parent / "prof_feat.txt").write_text(buf.getvalue())
     w = sorted(f["fold_s"] for f in res["folds"])
     res["median_s"] = round(statistics.median(w), 3)
     flush()
