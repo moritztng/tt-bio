@@ -9161,22 +9161,23 @@ class TriangleMultiplication(Module):
         x_out_pre, keep_chunks = None, False
         if (large_seq and _TRIMUL_BACK_INTO and not _TRIMUL_RAW_CHANNEL_MOVES
                 and not _host_concat(x)):
-            try:
-                x_out_pre = ttnn.allocate_tensor_on_device(
-                    ttnn.Shape([1, H, H, self._hidden]), _dtype(), ttnn.TILE_LAYOUT,
-                    self.device, memory_config)
-            except RuntimeError as exc:
-                from tt_bio.size_limits import is_alloc_refusal
-                if not is_alloc_refusal(exc):
-                    raise
-                if row_norm:
-                    # Not even beside the bare pair (exact mode at 2048: 172 of the 179 MiB per bank
-                    # a 2 GiB tensor needs). Keep the channel chunks on the device as they come and
-                    # let the row-blocked tail join one row block of them at a time.
-                    keep_chunks = True
-                else:
-                    ttnn.deallocate(x_norm_in)
-                    x_norm_in, row_norm = None, True
+            from tt_bio.size_limits import is_alloc_refusal
+            while x_out_pre is None and not keep_chunks:
+                try:
+                    x_out_pre = ttnn.allocate_tensor_on_device(
+                        ttnn.Shape([1, H, H, self._hidden]), _dtype(), ttnn.TILE_LAYOUT,
+                        self.device, memory_config)
+                except RuntimeError as exc:
+                    if not is_alloc_refusal(exc):
+                        raise
+                    if row_norm:
+                        # Not even beside the bare pair (exact mode at 2048: 172 of the 179 MiB per
+                        # bank a 2 GiB tensor needs). Keep the channel chunks on the device as they
+                        # come and let the row-blocked tail join one row block of them at a time.
+                        keep_chunks = True
+                    else:
+                        ttnn.deallocate(x_norm_in)
+                        x_norm_in, row_norm = None, True
         chunk_size = _trimul_chunk_size(H, self._hidden, batch)
         if large_seq:
             # Start inside the byte budget this shape has already been refused above, instead of
