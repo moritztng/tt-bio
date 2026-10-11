@@ -27,6 +27,9 @@ def main():
     ap.add_argument("--steps", type=int, default=None)
     ap.add_argument("--recycles", type=int, default=None)
     ap.add_argument("--plain", action="store_true", help="no brackets: the uninstrumented wall")
+    ap.add_argument("--deep", action="store_true",
+                    help="also device-synchronised brackets on every trunk / diffusion sub-module; run it with "
+                         "OF3_DIFFUSION_TRACE=0 (a sync cannot sit inside a trace capture)")
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
     tree = a.tree.resolve()
@@ -89,6 +92,15 @@ def main():
         wrap(MD.OF3DiffusionModule, "__call__", "dm_issue", False)
         wrap(MC.OF3DiffusionConditioning, "single", "cond_single_issue", False)
         wrap(ttnn, "to_torch", "to_torch(all)", False)
+    if a.deep:
+        from tt_bio import openfold3_template as MTP, openfold3_msa_embedder as MME
+        from tt_bio import openfold3_diffusion_transformer as MDT, openfold3_atom_transformer as MAT
+        from tt_bio import openfold3_diffusion_decoder as MDD
+        for owner in (T.TriangleMultiplication, T.TriangleAttention, T.AttentionPairBias, T.Transition,
+                      T.OuterProductMean, MME.MSAModuleBlock, MTP.TemplateEmbedder, MDT._DiTBlock,
+                      MAT.OF3AtomTransformer, MDD.OF3AtomAttentionDecoder, MD.OF3NoisyPositionEmbedder,
+                      MD.AtomPairUpdate, MC.OF3DiffusionConditioning):
+            wrap(owner, "__call__", owner.__name__, True)
 
     fixdir = tree / "perf" / "size512" / "fixtures"
     tgt, a3m = fixdir / "cdk2x2_512.yaml", fixdir / "cdk2x2_512.a3m"
