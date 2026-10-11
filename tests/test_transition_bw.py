@@ -51,5 +51,5 @@ def test_narrow_output_splits_rows_wide_output_splits_both(monkeypatch):
     assert tt._transition_bw_config("fc2", 115, 8, 32, False, False).fused_activation is None
 
 
-def test_lever_is_in_both_modes():
-    assert "transition_bw" in tt.NORMAL_LEVERS & tt.FAST_LEVERS
+def test_lever_is_fast_only():
+    assert "transition_bw" in tt.FAST_LEVERS and "transition_bw" not in tt.NORMAL_LEVERS

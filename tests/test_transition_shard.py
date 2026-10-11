@@ -42,12 +42,13 @@ def test_blackhole_grid_takes_eight_columns(monkeypatch):
     assert tt._transition_shard_grid(230, 32, 8) == (8, 10)
 
 
-def test_lever_is_in_both_modes_and_rides_on_transition_bw():
-    # Normal mode's answer must not depend on the core grid (release gate rg:l1-budget): the shard
-    # path and the interleaved path take the same K blocks, so whether a block shards changes no byte.
+def test_lever_is_fast_only_and_rides_on_transition_bw():
+    # The shard path and the interleaved path take the same K blocks, so whether a block shards
+    # changes no byte; normal mode still holds both out (staging22 WH normal grade, spd-trans2).
     assert "transition_shard" in tt.LEVERS
     assert "transition_shard" not in tt.UNGRADED_LEVERS
-    assert {"transition_shard", "transition_bw"} <= tt.FAST_LEVERS & tt.NORMAL_LEVERS
+    assert {"transition_shard", "transition_bw"} <= tt.FAST_LEVERS
+    assert not {"transition_shard", "transition_bw"} & tt.NORMAL_LEVERS
     assert "transition_shard" in tt.LATCH_STATS
 
 
