@@ -1200,8 +1200,23 @@ class Transition(Module):
             kw["dtype"] = hid
         m = ttnn.multiply(a, b, **kw)
         ttnn.deallocate(b)
-        out = _tuned_linear(m, self.fc3_w, ckc=self.compute_kernel_config,
-                            dtype=self.dtype, core_grid=CORE_GRID_MAIN)
+        refused = False
+        try:
+            out = _tuned_linear(m, self.fc3_w, ckc=self.compute_kernel_config,
+                                dtype=self.dtype, core_grid=CORE_GRID_MAIN)
+        except RuntimeError as exc:
+            # ttnn's heuristic program for a bfp8 `m` can ask more circular-buffer L1 than a
+            # Wormhole core has (1630624 of 1499136 B whole-tensor at 685 tokens, perf
+            # gap_pt_bench on .114). The throw comes at program build, before anything runs, so
+            # fc3 is redone on a bf16 copy of `m`, the dtype the exact path feeds it.
+            if hid == self.dtype or "beyond max L1 size" not in str(exc):
+                raise
+            refused = True
+        if refused:
+            m16 = ttnn.typecast(m, self.dtype)
+            out = _tuned_linear(m16, self.fc3_w, ckc=self.compute_kernel_config,
+                                dtype=self.dtype, core_grid=CORE_GRID_MAIN)
+            ttnn.deallocate(m16)
         ttnn.deallocate(m)
         return out
 
