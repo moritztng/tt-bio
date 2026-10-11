@@ -40,6 +40,8 @@ p.add_argument("--trace-blocks", type=int, default=None, help="trace only the fi
 p.add_argument("--trace-blocking", action="store_true", help="execute the replay blocking")
 p.add_argument("--trimul-dram", action="store_true",
                help="keep every trimul tensor in DRAM (no L1 residency), for the trace-hang bisection")
+p.add_argument("--trimul-budget-scale", type=float, default=0,
+               help="tenstorrent.SMALL_GRID_TRIMUL_BUDGET_SCALE (Wormhole trimul L1 chunk budget); 0 keeps the shipped")
 p.add_argument("--ops", action="store_true",
                help="end with one fold timed per ttnn call between two syncs (perf/hallgrad/census.py's "
                     "Recorder), aggregated by op, call site and shapes into census.json 'ops'")
@@ -61,6 +63,9 @@ if a.trace:
 model = load_af2_device_model(load_af2_state_dict(a.params), template=True).eval()
 model.trace_stacks = (set(a.trace_stacks.split(",")) if a.trace and a.trace_stacks else a.trace)
 model.trace_blocks, model.trace_blocking = a.trace_blocks, a.trace_blocking
+if a.trimul_budget_scale:
+    from tt_bio import tenstorrent as _tt
+    _tt.SMALL_GRID_TRIMUL_BUDGET_SCALE = a.trimul_budget_scale
 if a.trimul_dram:
     from tt_bio import tenstorrent as _tt
     _tt._TRIMUL_DRAM_SHAPES.update(range(1, 4097))
