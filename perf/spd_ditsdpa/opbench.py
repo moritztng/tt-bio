@@ -38,7 +38,7 @@ dev = T.get_device()
 NODES = sorted({int(os.readlink(f"/proc/self/fd/{fd}").rsplit("/", 1)[1]) for fd in os.listdir("/proc/self/fd")
                 if os.path.exists(f"/proc/self/fd/{fd}")
                 and os.readlink(f"/proc/self/fd/{fd}").startswith("/dev/tenstorrent/")})
-CLKF = OUT / "aiclk.tsv"; CLKF.touch()
+CLKF = OUT / "opbench_aiclk.tsv"; CLKF.touch()  # not aiclk.tsv: a run wrapper may write its own there
 subprocess.Popen([sys.executable, "-c", f"""
 import os, time
 f = open({str(CLKF)!r}, "a"); parent = os.getppid()
