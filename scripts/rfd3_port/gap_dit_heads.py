@@ -106,7 +106,8 @@ def arm_b():
     k, v = M.pad_axis(k, nk, 2, 0.0), M.pad_axis(v, nk, 2, 0.0)
     o = M.fused_sdpa(M.pad_axis(q, nk, 2, 0.0), k, v, attn_mask=mask_dev, scale=D ** -0.5,
                      program_config=cfg, compute_kernel_config=ckc)
-    o = ttnn.reshape(ttnn.experimental.nlp_concat_heads(o), (1, L, H * DP))
+    o = ttnn.experimental.nlp_concat_heads(o)                             # [1, 1, nk, H*DP]
+    o = ttnn.reshape(ttnn.slice(o, [0, 0, 0, 0], [1, 1, L, H * DP]), (1, L, H * DP))
     return ttnn.linear(o, B_w["o"], **lin)
 
 
