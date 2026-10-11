@@ -50,6 +50,9 @@ def main():
     ap.add_argument("--steps", type=int, default=None)
     # Diffusion multiplicity. build_fold's `samples` reaches n_sample; the service offers up to 5.
     ap.add_argument("--samples", type=int, default=None)
+    # Per-fold host / device / transfer split from tt_baseline's whole-function brackets (no device
+    # sync added), recorded per fold beside the wall it splits. The cold fold's row is first.
+    ap.add_argument("--instrument", action="store_true")
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
 
@@ -112,7 +115,8 @@ def main():
     tgt, a3m = fixdir / f"cdk2x2_{a.size}.yaml", fixdir / f"cdk2x2_{a.size}.a3m"
     msa_dir = tree / f".msa_xmodel_{a.model}_{a.size}"
     _bf = {} if a.samples is None else {"samples": a.samples}
-    one_fold, meta = B.build_fold(a.model, msa_dir, tgt, a3m, fast=a.fast, **_bf)[:2]
+    one_fold, meta = B.build_fold(a.model, msa_dir, tgt, a3m, fast=a.fast,
+                                   instrument=a.instrument, **_bf)[:2]
     struct_dir = Path(meta["struct_dir"])
 
     import importlib.metadata as im
@@ -165,6 +169,8 @@ def main():
         print(f"[{a.label}] median {res['median_s']:.3f}s spread {res['spread_s']:.3f}s",
               flush=True)
 
+    if a.instrument:
+        res["phase_times"] = meta["phase_times"]
     res["reach"] = dict(reach)
     # Which fused kernels actually served a call, and why the declines. Every one of them is
     # gated on a constant fitted on a 130-core Blackhole grid, so "ships default-ON" says nothing
