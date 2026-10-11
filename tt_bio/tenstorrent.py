@@ -593,13 +593,15 @@ _FAST_MODE = False
 #                   multiply op; the gate multiplies fc2 in dest rather than its stored copy. Needs silu_f32.
 #   dit_sdpa_pm     with dit_sdpa, the token DiT's fused SDPA reads its bias once per head instead of once per
 #                   sample (`token_dit_sdpa_pm`, triangle attention's persistent-mask kernel)
+#   dit_s16         an fp32 token DiT's six s-path linears (adaLN scale/shift, the two s gates) on bf16
+#                   operands with fp32 accumulation (OpenFold3's DiT)
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in",
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
           "transition_shard", "dit_mm16", "atom_k1", "dit_b8", "dit_qkv16", "atom_mm16", "adaln_mod",
-          "swiglu_fc12g", "msa_sample", "dit_sdpa_pm")
+          "swiglu_fc12g", "msa_sample", "dit_sdpa_pm", "dit_s16")
 # Named but in no mode until their fold grade puts them in one.
-UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "adaln_mod"})
+UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "adaln_mod", "dit_s16"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
