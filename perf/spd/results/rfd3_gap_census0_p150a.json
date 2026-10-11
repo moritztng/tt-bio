@@ -1,0 +1,71 @@
+{
+ "fixture": "perf/dsfix/fixtures/rfd3_R4.json",
+ "steps": 200,
+ "warm_s": 215.8652923500049,
+ "plain_s": 109.43827387900092,
+ "census_s": 113.67542715498712,
+ "digests": {
+  "warm": "5295e526ebd0b757",
+  "plain": "5295e526ebd0b757",
+  "census": "5295e526ebd0b757"
+ },
+ "sync_inflation_s": 4.237153275986202,
+ "regions": {
+  "attn_indices": {
+   "ms_per_step": 91.54841543990187,
+   "calls_per_step": 2.985,
+   "share_of_step": 0.16122433525212587
+  },
+  "downcast_c": {
+   "ms_per_step": 3.4765867042005993,
+   "calls_per_step": 0.995,
+   "share_of_step": 0.006122556874827341
+  },
+  "atom_block": {
+   "ms_per_step": 201.46887535025598,
+   "calls_per_step": 44.775,
+   "share_of_step": 0.3548033611096354
+  },
+  "encoder": {
+   "ms_per_step": 66.55450436170213,
+   "calls_per_step": 0.995,
+   "share_of_step": 0.11720798958878886
+  },
+  "downcast_q": {
+   "ms_per_step": 5.874716358375736,
+   "calls_per_step": 0.995,
+   "share_of_step": 0.010345861641872813
+  },
+  "token_encoder": {
+   "ms_per_step": 148.20062287006294,
+   "calls_per_step": 1.99,
+   "share_of_step": 0.26099356052603795
+  },
+  "dit": {
+   "ms_per_step": 131.05494609568268,
+   "calls_per_step": 1.99,
+   "share_of_step": 0.23079860491578025
+  },
+  "decoder": {
+   "ms_per_step": 88.20293757569743,
+   "calls_per_step": 1.99,
+   "share_of_step": 0.1553326718938328
+  },
+  "seq_head": {
+   "ms_per_step": 0.9306208245106973,
+   "calls_per_step": 1.99,
+   "share_of_step": 0.0016389002811525153
+  },
+  "step": {
+   "ms_per_step": 567.832488170825,
+   "calls_per_step": 0.995,
+   "share_of_step": 1.0
+  },
+  "glue (step - top regions)": {
+   "ms_per_step": 31.989137940690853,
+   "share_of_step": 0.05633551902558161
+  }
+ },
+ "card": "1",
+ "host": "tt-quietbox"
+}

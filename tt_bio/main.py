@@ -4351,8 +4351,8 @@ def _run_pxdesign_cli(inputs: Path, out_dir, cache, num_designs, n_step, seed) -
               help="boltzgen only. Reuse existing results in --out_dir and generate only as "
                    "many new designs as --num_designs still needs.")
 @click.option("--fast", is_flag=True,
-              help="boltzgen only. Use block-fp8 for some operations (slightly lower "
-                   "precision, faster).")
+              help="boltzgen and rfd3. Faster, slightly lower-precision kernels (boltzgen: "
+                   "block-fp8 for some operations; rfd3: fused atom attention).")
 @click.option("--diffusion_trace", is_flag=True,
               help="boltzgen only. Replay a captured ttnn trace of the per-step diffusion "
                    "DiT device stream (lossless; collapses per-step host dispatch). Opt-in; "
@@ -4516,7 +4516,7 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
     # --model rfd3
     for flag, name in (("--protocol", "protocol"), ("--steps", "steps"),
                        ("--config", "configs"), ("--budget", "budget"),
-                       ("--reuse", "reuse"), ("--fast", "fast"),
+                       ("--reuse", "reuse"),
                        ("--diffusion_trace", "diffusion_trace"), ("--debug", "debug"),
                        ("--log", "log"), ("--n_step", "n_step")):
         if _explicit(name):
@@ -4564,7 +4564,7 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
                 specs, out_dir, controller_url=controller, num_timesteps=num_timesteps,
                 seed=seed, partial_t=partial_t, fp32_residual=fp32_residual,
                 num_designs=num_designs, batch_size=batch_size,
-                run_id=run_id, owner=owner, verbose=True,
+                run_id=run_id, owner=owner, fast=fast, verbose=True,
             )
         except (ValueError, TypeError, RuntimeError, NotImplementedError) as e:
             raise click.ClickException(str(e))
@@ -4593,7 +4593,7 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
             specs, out_dir, checkpoint_dir=gdir, from_pdb=from_pdb, num_timesteps=num_timesteps,
             seed=seed, partial_t=partial_t, fp32_residual=fp32_residual, num_designs=num_designs,
             batch_size=batch_size, devices=device_list, host_threads=host_threads,
-            verbose=True,
+            fast=fast, verbose=True,
         )
     except (ValueError, TypeError, NotImplementedError) as e:
         # RFD3 refuses a spec it cannot featurize with NotImplementedError, naming

@@ -90,6 +90,7 @@ def _build(bias, idx, out, device, ct_head, acc_args):
     B, H, L, K = (int(bias.shape[0]), int(bias.shape[1]), int(bias.shape[2]),
                   int(bias.shape[3]))
     N = int(out.shape[3])
+    out16 = out.dtype == ttnn.bfloat16
     It = (L + TILE_H - 1) // TILE_H
     Jt = N // TILE_W
     Kt = (K + TILE_W - 1) // TILE_W
@@ -116,7 +117,7 @@ def _build(bias, idx, out, device, ct_head, acc_args):
         return [
             cb(base + IDX_CB, ttnn.uint32, K * 4, TILE_H),
             cb(base + BIAS_CB, ttnn.bfloat16, TILE_H * TILE_W * 2, Kt),
-            cb(base + OUT_CB, ttnn.float32, TILE_H * TILE_W * 4, OUT_SLOTS),
+            cb(base + OUT_CB, out.dtype, TILE_H * TILE_W * (2 if out16 else 4), OUT_SLOTS),
             cb(base + SLOT_CB, ttnn.uint32, TILE_H * 4, OUT_SLOTS),
         ]
 
@@ -137,7 +138,7 @@ def _build(bias, idx, out, device, ct_head, acc_args):
         start += n
     assert start == B * H * It, (start, B * H * It)
 
-    tail = [It, Jt, Kt, K, L, _fill_bits(-1e4), OUT_SLOTS, H * It] + list(acc_args)
+    tail = [It, Jt, Kt, K, L, _fill_bits(-1e4), OUT_SLOTS, H * It, int(out16)] + list(acc_args)
     kernels = [
         ttnn.KernelDescriptor(
             kernel_source=str(KERNEL_DIR / "writer_sparse_bias.cpp"),
@@ -210,6 +211,22 @@ def sparse_bias_fp32(pair_bias, idx_rm, out=None, memory_config=None, device=Non
         )
     STATS[0] += 1
     return ttnn.generic_op([pair_bias, idx_rm, out], pd)
+
+
+def sparse_mask_bf16(pair_bias, idx_rm):
+    """The same bias as `sparse_bias_fp32`, written as bf16 at ``[B, H, N, N]``.
+
+    For a fused SDPA mask: half the bytes of the fp32 form and no separate typecast. Every value
+    is the bf16 the fp32 form would have widened, so nothing is rounded. The query axis is
+    allocated out to N as well; the kernel walks whole tile rows, so the padded rows come out as
+    all-fill (a uniform row the caller slices off) and no pad op runs afterwards.
+    """
+    device = pair_bias.device()
+    B, H, L = int(pair_bias.shape[0]), int(pair_bias.shape[1]), int(pair_bias.shape[2])
+    N = ((L + TILE_W - 1) // TILE_W) * TILE_W
+    out = ttnn.allocate_tensor_on_device(
+        ttnn.Shape([B, H, N, N]), ttnn.bfloat16, ttnn.TILE_LAYOUT, device, ttnn.DRAM_MEMORY_CONFIG)
+    return sparse_bias_fp32(pair_bias, idx_rm, out=out)
 
 
 def _reject(reason, shape):

@@ -30,7 +30,7 @@ from . import block_sparse as _BS
 from .tiles import TILE, align_tile, pad_axis
 from ..tenstorrent import (Module, get_device, CORE_GRID_MAIN, attn_value_matmul, silu_ckc,
                            atom_pair_budget_bytes, l1_resident_budget_bytes, row_block,
-                           _dram_oom)
+                           _dram_oom, fused_sdpa, _sdpa_program_config)
 
 # This is a SNAPSHOT, and deliberately left as one. `_configure_active_compute_grid` widens
 # tenstorrent.CORE_GRID_MAIN to 13x10 when a Blackhole device opens, after this import has
@@ -169,6 +169,27 @@ _CONCAT_ALIGNED = env_flag("RFD3_CONCAT_ALIGNED", True)
 # fp32 accumulation into two bf16-rounded halves is not bit-exact (~1 bf16 ulp, rel median
 # 4.8e-3), so it is off by default and release-gated.
 _PROCESS_Z_COLLAPSE = env_flag("RFD3_PROCESS_Z_COLLAPSE", False)
+# The atom neighbour index (_create_attention_indices: cdist + top-128 over every atom) is pure
+# host torch and used to run first in every step, with the device idle: 91.5 ms/step of the
+# page fold's 547 (p150a census, scripts/rfd3_port/gap_census.py). The recycle-1 token encoder
+# does not read it (only S_I, Z_II and the CA coordinates), so with RFD3_ATTN_OVERLAP on that
+# encoder is dispatched first and the host builds the index while the card runs it. Same ops on
+# the same inputs, reordered: exact by construction, checked by the fold digest.
+# The index stays on the main thread on purpose. Built on a worker thread it gets its own
+# OpenMP team, which fights the main thread's for the cores: on qb1 (16 physical cores) the
+# build went from 72-88 to 115-140 ms and the page fold from 107.1 to 124.0 s/design.
+_ATTN_OVERLAP = env_flag("RFD3_ATTN_OVERLAP", True)
+# A denoise step crossed to the host ~15 times: process_a/r/c and both time embeddings came back
+# for host adds, the encoder, downcast_q, the DiT and every recycle's s were read back only to be
+# uploaded again by the next module. Each crossing drains the card, and Tracy on p150a put the
+# device busy for 296 of the step's 481 ms. With RESIDENT_STEP the step stays on the card from
+# R_noisy_L in to R_upd out; the only reads left are R_upd and the sequence logits per recycle.
+# Not bit-exact: the adds round in bf16 on the card instead of fp32 on the host, and process_a
+# pools the coordinates before its (bias-free) linear instead of after, equal in exact math.
+# Graded on Blackhole and Wormhole (4 seeds at 685 and 418 tokens, normal and --fast): drift
+# inside the seed floor, design quality equal to exact. On by default; RFD3_RESIDENT_STEP=0 restores
+# the host round trips.
+_RESIDENT_STEP = env_flag("RFD3_RESIDENT_STEP", True)
 # The per-step neighbour graph is the largest single host cost in a design. At the page fixture
 # (6051 atoms) the ledger puts it at 51.9 + 19.8 ms of an 84.8 ms host body, and P3.7 measured
 # 54.3 ms/step of that reaching the wall. It is one chain -- cdist -> masked_fill_ -> topk -- over
@@ -299,6 +320,55 @@ def set_fc1_split_enabled(on):
 # pair-bias calls on the H200 arm that produces our own 12.974 s/design denominator. The dense
 # formulation is a tt-bio tiling choice, not the reference's.
 _GATHERED_SOFTMAX = env_flag("RFD3_GATHERED_SOFTMAX", False)
+# Atom attention as one fused SDPA: the dense [1,H,L,L] bias (mask plus neighbour pair bias) is
+# built once per block in bf16 and the kernel never writes the scores. The shipped chain writes
+# the bf16 scores, rereads them into 2x as many fp32 bytes and rereads those for the softmax,
+# about 1.2 GB a call at 6051 atoms, 9 calls a step. Online softmax changes the reduction order,
+# so the digest moves; the result is closer to float64 than the shipped chain (one call at the
+# page shape: maxabs 0.047 against 0.087, PCC 0.99981 against 0.99975). On by default: over 4
+# seeds of the 685-token page design the same-seed drift is 5.5-9.3 A, the size of the 7.3 A by
+# which the shipped chain's own Blackhole and Wormhole designs differ, with design quality unchanged
+# (docs/rfd3-design.md). RFD3_ATOM_SDPA=0 restores the chain.
+_ATOM_SDPA = env_flag("RFD3_ATOM_SDPA", True)
+ATOM_SDPA_CALLS = [0]
+# The SDPA mask is cached per atom block for the step, so three to six [1, H, N, N] bf16 masks live
+# at once. Above this size per mask the shipped chain runs instead: 6080 atoms (the 685-token page
+# fixture) is 296 MB, while the 12085-atom top of the size ladder would hold ~1.2 GB per block on a
+# 12 GB Wormhole chip, a size whose memory headroom has not been measured with the cache.
+_ATOM_SDPA_MAX_MASK_BYTES = int(float(os.environ.get("RFD3_ATOM_SDPA_MAX_MASK_BYTES", "6e8")))
+# The pair Transitions' hidden activations (fc1 and fc2 outputs, the gated product) in bfp8:
+# 1088 instead of 2048 bytes a tile on the region that is ~65 % of the token encoder and is bound
+# by per-tile pack/unpack. The input norm and the output stay bf16. Off by default while graded.
+_TRANSITION_B8 = env_flag("RFD3_TRANSITION_B8", False)
+# Every RFD3 matmul at HiFi2 instead of HiFi4: two multiplier passes per bf16 product instead of
+# four. Off, and not in --fast: on top of the fast set it saved nothing on a p300c (4 seeds, 685
+# tokens) and doubled the clashes of one 418-token design.
+_HIFI2 = env_flag("RFD3_HIFI2", False)
+# The dense attention (the DiT's 36 blocks a step, and atom blocks below the sparse cutoff) as one
+# fused SDPA, the way Protenix's and Boltz-2's token DiTs run it (`dit_sdpa`): the [1,16,685,704]
+# fp32 scores, their fused bias add and the softmax+PV pass become one kernel that never writes a
+# score. The mask is (pair bias + neighbour mask) with the bias pre-scaled by sqrt(head_dim), same
+# as the atom SDPA. Online softmax changes the reduction order, so it is graded on accuracy: with the
+# heads padded to 64 in the weights it saves 15 % of a 685-token design (p300c, 72.7 -> 61.4 s) and
+# grades inside the seed floor with design quality equal to exact on Blackhole and Wormhole (4 seeds
+# at 685 and 418 tokens each). On by default; RFD3_DIT_SDPA=0 restores the materialised scores. The
+# mask-size cap is the atom SDPA's.
+_DIT_SDPA = env_flag("RFD3_DIT_SDPA", True)
+DIT_SDPA_CALLS = [0]
+# The DiT builds all 18 blocks' masks in one pass while the stack fits under this many bytes
+# (bf16, 18 x 16 heads x n_key^2: 1317 tokens); above it each block builds its own.
+_DIT_SDPA_STACK_BYTES = int(float(os.environ.get("RFD3_DIT_SDPA_STACK_BYTES", "1e9")))
+_DIT_SDPA_CHUNKS = tuple(int(x) for x in os.environ.get("RFD3_DIT_SDPA_CHUNKS", "64,352").split(","))
+
+
+def _dense_sdpa_config(n):
+    """SDPA chunks that divide the padded axis `n` exactly (q near the asked size, k the widest up
+    to it), so the kernel never pads the mask grid past `n`."""
+    div = [c for c in range(32, n + 1, 32) if n % c == 0]
+    q = min(div, key=lambda c: abs(c - _DIT_SDPA_CHUNKS[0]))
+    k = max(c for c in div if c <= max(_DIT_SDPA_CHUNKS[1], 32))
+    return _sdpa_program_config(q, k)
+_ATOM_SDPA_CHUNKS = tuple(int(x) for x in os.environ.get("RFD3_ATOM_SDPA_CHUNKS", "160,320").split(","))
 # ttnn.gather (0.68.0) on dim 3 silently returns wrong data for every tile-row after the first
 # once the indexed axis exceeds this many elements: 99.87 % of elements wrong at the production
 # [1,4,6051,6080], and ~100x slower at the same threshold. The trigger is element count, not
@@ -323,6 +393,20 @@ def set_gathered_softmax(on):
 # process_z branches count themselves: the on arm must show shipped == 0 and the off arm
 # collapsed == 0, at the same total.
 PZSTATS = [0, 0]
+
+
+# `--fast` for RFD3: the levers that pass the fast accuracy bar but not (yet) the normal one. Same
+# steps, recycles and designs; only kernels change. Each flag keeps its own env switch for A/B work,
+# and set_fast(False) restores exactly what the environment asked for.
+_FAST_SET = {"_TRANSITION_B8": "RFD3_TRANSITION_B8", "_PROCESS_Z_COLLAPSE": "RFD3_PROCESS_Z_COLLAPSE"}
+
+
+def set_fast(on):
+    """Turn RFD3's fast set on, or back to the environment's defaults. Call before building the
+    modules: the fidelity is read when they take their compute kernel config."""
+    g = globals()
+    for name, env in _FAST_SET.items():
+        g[name] = True if on else env_flag(env, False)
 
 
 def set_process_z_collapse(on):
@@ -763,6 +847,13 @@ def _tt(x, dev, dtype=ttnn.bfloat16):
     return ttnn.from_torch(x, layout=ttnn.TILE_LAYOUT, device=dev, dtype=dtype)
 
 
+def _dev(x, dev, dtype=ttnn.bfloat16):
+    """`_tt` for a host tensor; a tensor already on the card passes through (cast if needed)."""
+    if isinstance(x, ttnn.Tensor):
+        return x if x.dtype == dtype else ttnn.typecast(x, dtype)
+    return _tt(x, dev, dtype)
+
+
 # The diffusion loop re-uploads several tensors that cannot have changed. p41 measured 32 _tt
 # calls per step costing 14.6 ms at 3359 atoms, of which 7.5 ms is byte-identical on every one
 # of the 199 steps: the trunk pair stream Z_init_II (5.14 ms/step, 2 x [1,250,250,128]), the
@@ -912,6 +1003,21 @@ class Transition(Module):
                 k = "w=%d no-chunked-site" % int(x.padded_shape[2])
                 FC1DECLINES[k] = FC1DECLINES.get(k, 0) + 1
                 FC1STATS[1] += 1
+            if _TRANSITION_B8 and len(x.shape) == 4 and x.shape[0] > 1:
+                # With a bfp8 hidden, ttnn's heuristic fc3 program for a [B, I, I, hidden] input
+                # sizes its circular buffers from the batch: at B=8 (the CLI default) and I~150 it
+                # asked 1564704 B of a Wormhole core's 1499136 B of L1 and threw. One element at a
+                # time runs the batch-1 program, so a design comes out the same at any batch.
+                B, I, J, C = (int(d) for d in x.shape)
+                parts = []
+                for b in range(B):
+                    xb = ttnn.slice(x, [b, 0, 0, 0], [b + 1, I, J, C])
+                    parts.append(self._swiglu(xb, None))
+                    ttnn.deallocate(xb)
+                out = ttnn.concat(parts, dim=0)
+                for p in parts:
+                    ttnn.deallocate(p)
+                return out
             return self._swiglu(x, None)
         H, hidden = x.shape[1], int(self.fc1_w.shape[-1])
         w_pad = int(x.padded_shape[2])
@@ -1054,6 +1160,7 @@ class Transition(Module):
         """
         xn = ttnn.rms_norm(x, weight=self.norm_w, epsilon=1e-6,
                             compute_kernel_config=self.compute_kernel_config)
+        hid = ttnn.bfloat8_b if _TRANSITION_B8 and len(x.shape) == 4 else self.dtype
         if fc1_mem is not None:
             # Only the chunked pair path asks for the split, so only it has a rank-4 `xn` to key
             # a census row on -- `Transition` also serves 2D and 3D sites.
@@ -1071,9 +1178,9 @@ class Transition(Module):
         if fc1_mem is None:
             a = ttnn.linear(xn, self.fc1_w, activation="silu",
                              compute_kernel_config=silu_ckc(self.compute_kernel_config),
-                             dtype=self.dtype, core_grid=BATCH_INVARIANT_GRID)
+                             dtype=hid, core_grid=BATCH_INVARIANT_GRID)
         else:
-            a = _tuned_linear(xn, self.fc1_w, ckc=self.compute_kernel_config, dtype=self.dtype,
+            a = _tuned_linear(xn, self.fc1_w, ckc=self.compute_kernel_config, dtype=hid,
                               core_grid=BATCH_INVARIANT_GRID, mem=fc1_mem)
             a, pre = ttnn.silu(a, memory_config=fc1_mem), a
             ttnn.deallocate(pre)
@@ -1087,12 +1194,30 @@ class Transition(Module):
                     else (FC1DECLINES, rows + " no-pinned-config"))
             c[k] = c.get(k, 0) + 1
         b = _tuned_linear(xn, self.fc2_w, ckc=self.compute_kernel_config,
-                          dtype=self.dtype, core_grid=BATCH_INVARIANT_GRID, mem=mem)
+                          dtype=hid, core_grid=BATCH_INVARIANT_GRID, mem=mem)
         ttnn.deallocate(xn)
-        m = ttnn.multiply(a, b) if mem is None else ttnn.multiply(a, b, memory_config=mem)
+        kw = {} if mem is None else {"memory_config": mem}
+        if hid != self.dtype:
+            kw["dtype"] = hid
+        m = ttnn.multiply(a, b, **kw)
         ttnn.deallocate(b)
-        out = _tuned_linear(m, self.fc3_w, ckc=self.compute_kernel_config,
-                            dtype=self.dtype, core_grid=CORE_GRID_MAIN)
+        refused = False
+        try:
+            out = _tuned_linear(m, self.fc3_w, ckc=self.compute_kernel_config,
+                                dtype=self.dtype, core_grid=CORE_GRID_MAIN)
+        except RuntimeError as exc:
+            # ttnn's heuristic program for a bfp8 `m` can ask more circular-buffer L1 than a
+            # Wormhole core has (1630624 of 1499136 B whole-tensor at 685 tokens, perf
+            # gap_pt_bench on .114). The throw comes at program build, before anything runs, so
+            # fc3 is redone on a bf16 copy of `m`, the dtype the exact path feeds it.
+            if hid == self.dtype or "beyond max L1 size" not in str(exc):
+                raise
+            refused = True
+        if refused:
+            m16 = ttnn.typecast(m, self.dtype)
+            out = _tuned_linear(m16, self.fc3_w, ckc=self.compute_kernel_config,
+                                dtype=self.dtype, core_grid=CORE_GRID_MAIN)
+            ttnn.deallocate(m16)
         ttnn.deallocate(m)
         return out
 
@@ -1972,6 +2097,29 @@ class GatedCrossAttention(Module):
         return ttnn.to_torch(self.run_device(q, kv, attn_mask)).float()
 
 
+# The atom/DiT blocks' five sigmoid gates per block (two adaLN gains, the attention gate, the two
+# output gates) as the multiply's own operand activation instead of a separate sigmoid op: 5 fewer
+# device programs per block, 180 a step in the DiT alone, where per-op fixed cost is the limit.
+# RFD3_SIGMOID_FOLD=0 restores the separate op for the A/B.
+_SIGMOID_FOLD = env_flag("RFD3_SIGMOID_FOLD", True)
+
+
+def _gated(x, gate):
+    if _SIGMOID_FOLD:
+        return ttnn.multiply(x, gate, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
+    return ttnn.multiply(x, ttnn.sigmoid(gate))
+
+
+def _sdpa_dense_mask(pair_bias, additive_mask, head_dim, n_key):
+    """The dense SDPA mask from head-major pair bias [.., H, L, L]: the kernel adds the mask before
+    it scales, so only the bias is pre-scaled; the -1e4 neighbour mask and the pad rows/columns
+    stay where their weight is 0."""
+    pb = ttnn.multiply(pair_bias, head_dim**0.5)
+    mask = pad_axis(pad_axis(ttnn.add(pb, additive_mask), n_key, 3, -1e4), n_key, 2, -1e4)
+    ttnn.deallocate(pb)
+    return mask
+
+
 class RFD3AtomBlock(Module):
     """One dense-mask RFD3 structure-local transformer block.
 
@@ -2003,6 +2151,8 @@ class RFD3AtomBlock(Module):
         self.o_w = self.torch_to_tt(a + "to_o.weight", dtype=dt)
         self.a_out_w = self.torch_to_tt(a + "linear_output_project.0.weight", dtype=dt)
         self.a_out_b = self.torch_to_tt(a + "linear_output_project.0.bias", dtype=dt)
+        # The DiT's 48-wide heads, padded to a tile in the weights for the dense SDPA arm.
+        self.pad_w = self._padded_head_weights(a) if _DIT_SDPA and self.head_dim % TILE else None
 
         t = "transition_block."
         self.t_ln_s = self.torch_to_tt(t + "ada_ln.ln_s.weight", dtype=dt)
@@ -2025,7 +2175,7 @@ class RFD3AtomBlock(Module):
         bias = _tuned_linear(
             s, bias_w, ckc=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID
         )
-        return ttnn.add(ttnn.multiply(a, ttnn.sigmoid(gain)), bias)
+        return ttnn.add(_gated(a, gain), bias)
 
     def _sparse_pair_bias(self, p, cache):
         """The compact `[1, H, L, K]` bf16 neighbour pair bias, for the fused score path.
@@ -2048,6 +2198,26 @@ class RFD3AtomBlock(Module):
         if cache is not None:
             cache[(id(self), "pb")] = (key, p, pair_bias)
         return pair_bias
+
+    def _sdpa_bias(self, p, attn_idx_dev, cache):
+        """The atom-SDPA mask: the neighbour bias times sqrt(head_dim), bf16, [1, H, N, N].
+
+        The kernel adds the mask before it applies `scale`, so the compact [1, H, L, 128] bias is
+        pre-scaled here, before it is spread. The -1e4 fill is not: after the kernel's scale it
+        still sits ~1765 below every real score and its weight is exactly 0. Cached per pair
+        stream like `_sparse_bias_f32`, so the decoder's second recycle reuses it.
+        """
+        key = (id(p), id(attn_idx_dev))
+        if cache is not None:
+            hit = cache.get((id(self), "sdpa"))
+            if hit is not None and hit[0] == key and hit[1] is p:
+                return hit[2]
+        pb = ttnn.multiply(self._sparse_pair_bias(p, cache), self.head_dim**0.5)
+        bias = rfd3_bias.sparse_mask_bf16(pb, attn_idx_dev)
+        ttnn.deallocate(pb)
+        if cache is not None:
+            cache[(id(self), "sdpa")] = (key, p, bias)
+        return bias
 
     def _sparse_bias_f32(self, p, dense_bias, attn_idx_dev, cache):
         """The dense fp32 attention bias for one atom block, built once per pair stream.
@@ -2096,7 +2266,7 @@ class RFD3AtomBlock(Module):
         return bias_f
 
     def __call__(self, q, c, p, additive_mask=None, sparse_qk=None, bias_cache=None,
-                 pair_bias=None):
+                 pair_bias=None, sdpa_mask=None):
         ckc, dt = self.compute_kernel_config, self.dtype
         f32 = self.fp32_residual
         if f32 and q.dtype != ttnn.float32:
@@ -2110,6 +2280,55 @@ class RFD3AtomBlock(Module):
         norm = self._adaln(
             q_compute, c, self.a_ln_s, self.a_gain_w, self.a_gain_b, self.a_bias_w
         )
+        n_key = align_tile(length)
+        if (self.pad_w is not None and sparse_qk is None and dt == ttnn.bfloat16
+                and (sdpa_mask is not None
+                     or 2 * self.n_head * n_key * n_key <= _ATOM_SDPA_MAX_MASK_BYTES)):
+            out = self._dense_sdpa_padded(norm, p, additive_mask, pair_bias, sdpa_mask, batch, length)
+        else:
+            out = self._attention(norm, p, additive_mask, sparse_qk, bias_cache, pair_bias, sdpa_mask,
+                                  batch, length)
+        gate = ttnn.linear(
+            c, self.a_out_w, bias=self.a_out_b, compute_kernel_config=ckc,
+            dtype=dt, core_grid=BATCH_INVARIANT_GRID,
+        )
+        upd = _gated(out, gate)
+        if f32:
+            q = ttnn.add(q, ttnn.typecast(upd, ttnn.float32, memory_config=upd.memory_config()))
+        else:
+            q = ttnn.add(q, upd)
+        ttnn.deallocate(upd)
+
+        q_compute = ttnn.typecast(q, dt, memory_config=q.memory_config()) if f32 else q
+        norm = self._adaln(
+            q_compute, c, self.t_ln_s, self.t_gain_w, self.t_gain_b, self.t_bias_w
+        )
+        left = ttnn.linear(
+            norm, self.t_fc1, activation="silu", compute_kernel_config=silu_ckc(ckc),
+            dtype=dt, core_grid=BATCH_INVARIANT_GRID,
+        )
+        right = _tuned_linear(
+            norm, self.t_fc2, ckc=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID,
+        )
+        update = _tuned_linear(
+            ttnn.multiply(left, right), self.t_fc3, ckc=ckc,
+            dtype=dt, core_grid=BATCH_INVARIANT_GRID,
+        )
+        gate = ttnn.linear(
+            c, self.t_out_w, bias=self.t_out_b, compute_kernel_config=ckc,
+            dtype=dt, core_grid=BATCH_INVARIANT_GRID,
+        )
+        upd = _gated(update, gate)
+        if f32:
+            q = ttnn.add(q, ttnn.typecast(upd, ttnn.float32, memory_config=upd.memory_config()))
+        else:
+            q = ttnn.add(q, upd)
+        return q
+
+    def _attention(self, norm, p, additive_mask, sparse_qk, bias_cache, pair_bias, sdpa_mask,
+                   batch, length):
+        """Attention with pair bias on the adaLN'd stream, through the output projection."""
+        ckc, dt = self.compute_kernel_config, self.dtype
         qq = _tuned_linear(norm, self.q_w, ckc=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID)
         kk = _tuned_linear(norm, self.k_w, ckc=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID)
         vv = _tuned_linear(norm, self.v_w, ckc=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID)
@@ -2151,23 +2370,54 @@ class RFD3AtomBlock(Module):
             pb = pad_axis(pb, nb * q_block, 2, -1e4)
             bs_out = _BS.attention(qq, kk, vv, pb, pos_rm, gather_dev, nb, q_block, u_width,
                                    self.head_dim**-0.5, dt, ckc)
-        if bs_out is not None:
+        if (bs_out is None and _ATOM_SDPA and sparse_qk is not None and sparse_qk[2] is None
+                and rfd3_bias.fused_enabled() and dt == ttnn.bfloat16
+                and 2 * self.n_head * n_key * n_key <= _ATOM_SDPA_MAX_MASK_BYTES):
+            mask = self._sdpa_bias(p, sparse_qk[1], bias_cache)
+            o = fused_sdpa(pad_axis(qq, n_key, 2, 0.0), kk, vv, attn_mask=mask,
+                           scale=self.head_dim**-0.5,
+                           program_config=_sdpa_program_config(*_ATOM_SDPA_CHUNKS),
+                           compute_kernel_config=ckc)
+            bs_out = ttnn.slice(o, [0, 0, 0, 0], [batch, self.n_head, length, self.head_dim])
+            ATOM_SDPA_CALLS[0] += 1
+        elif bs_out is not None:
             _BS.STATS[0] += 1
         elif sparse_qk is not None and len(sparse_qk) > 4:
             _BS.STATS[1 if _BS.enabled() else 2] += 1
         fused = False
         dense_fused = False
         gathered = None
+        if bs_out is None and sparse_qk is None:
+            # `pair_bias` arrives precomputed when the caller hoisted all of its blocks'
+            # projections into one matmul; see _PAIRBIAS_FUSED. `sdpa_mask` arrives when the
+            # caller also built every block's SDPA mask at once (_dit_sdpa_masks).
+            if sdpa_mask is None:
+                if pair_bias is None:
+                    pair_bias = _tuned_linear(
+                        p, self.b_w, ckc=ckc, dtype=dt, core_grid=CORE_GRID_MAIN,
+                    )
+                pair_bias = ttnn.permute(pair_bias, (0, 3, 1, 2))
+            if sdpa_mask is not None or (_DIT_SDPA and dt == ttnn.bfloat16
+                    and 2 * self.n_head * n_key * n_key <= _ATOM_SDPA_MAX_MASK_BYTES):
+                mask = sdpa_mask
+                if mask is None:
+                    mask = _sdpa_dense_mask(pair_bias, additive_mask, self.head_dim, n_key)
+                    ttnn.deallocate(pair_bias)
+                # SDPA refuses a head_dim that is not a tile multiple (the DiT's is 48), so the
+                # heads get zero columns out to the next tile: they add 0 to every q.k and come
+                # back as zero columns of the output, sliced off below. The scale stays 48^-0.5.
+                hd = align_tile(self.head_dim)
+                qq, kk, vv = (pad_axis(x, hd, 3, 0.0) for x in (qq, kk, vv))
+                o = fused_sdpa(pad_axis(qq, n_key, 2, 0.0), kk, vv, attn_mask=mask,
+                               scale=self.head_dim**-0.5,
+                               program_config=_dense_sdpa_config(n_key),
+                               compute_kernel_config=ckc)
+                ttnn.deallocate(mask)
+                bs_out = ttnn.slice(o, [0, 0, 0, 0], [batch, self.n_head, length, self.head_dim])
+                DIT_SDPA_CALLS[0] += 1
         if bs_out is not None:
             pass
         elif sparse_qk is None:
-            # `pair_bias` arrives precomputed when the caller hoisted all of its blocks'
-            # projections into one matmul; see _PAIRBIAS_FUSED.
-            if pair_bias is None:
-                pair_bias = _tuned_linear(
-                    p, self.b_w, ckc=ckc, dtype=dt, core_grid=CORE_GRID_MAIN,
-                )
-            pair_bias = ttnn.permute(pair_bias, (0, 3, 1, 2))
             bias = pad_axis(ttnn.add(pair_bias, additive_mask), n_key, 3, -1e4)
             scores = ttnn.matmul(
                 qq, ttnn.permute(kk, (0, 1, 3, 2)),
@@ -2265,46 +2515,74 @@ class RFD3AtomBlock(Module):
         else:
             out = bs_out
         out = _merge_heads(out, (batch, length, self.n_head * self.head_dim))
-        out = ttnn.multiply(out, ttnn.sigmoid(gg))
+        out = _gated(out, gg)
         out = _tuned_linear(
             out, self.o_w, ckc=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID
         )
-        gate = ttnn.linear(
-            c, self.a_out_w, bias=self.a_out_b, compute_kernel_config=ckc,
-            dtype=dt, core_grid=BATCH_INVARIANT_GRID,
-        )
-        upd = ttnn.multiply(out, ttnn.sigmoid(gate))
-        if f32:
-            q = ttnn.add(q, ttnn.typecast(upd, ttnn.float32, memory_config=upd.memory_config()))
-        else:
-            q = ttnn.add(q, upd)
-        ttnn.deallocate(upd)
+        return out
 
-        q_compute = ttnn.typecast(q, dt, memory_config=q.memory_config()) if f32 else q
-        norm = self._adaln(
-            q_compute, c, self.t_ln_s, self.t_gain_w, self.t_gain_b, self.t_bias_w
-        )
-        left = ttnn.linear(
-            norm, self.t_fc1, activation="silu", compute_kernel_config=silu_ckc(ckc),
-            dtype=dt, core_grid=BATCH_INVARIANT_GRID,
-        )
-        right = _tuned_linear(
-            norm, self.t_fc2, ckc=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID,
-        )
-        update = _tuned_linear(
-            ttnn.multiply(left, right), self.t_fc3, ckc=ckc,
-            dtype=dt, core_grid=BATCH_INVARIANT_GRID,
-        )
-        gate = ttnn.linear(
-            c, self.t_out_w, bias=self.t_out_b, compute_kernel_config=ckc,
-            dtype=dt, core_grid=BATCH_INVARIANT_GRID,
-        )
-        upd = ttnn.multiply(update, ttnn.sigmoid(gate))
-        if f32:
-            q = ttnn.add(q, ttnn.typecast(upd, ttnn.float32, memory_config=upd.memory_config()))
-        else:
-            q = ttnn.add(q, upd)
-        return q
+    def _dense_sdpa_padded(self, norm, p, additive_mask, pair_bias, sdpa_mask, batch, length):
+        """The DiT's dense SDPA with its 48-wide heads padded to 64 in the weights (`pad_w`).
+
+        q/k/v/g come out of their projections already head-major-padded, so one
+        `nlp_create_qkv_heads` splits them and one `nlp_concat_heads` merges the output, where
+        the 48-wide layout needs a reshape + permute + pad per tensor and a slice + permute +
+        reshape back. The zero columns add 0 to every q.k and come back as zero output columns,
+        which the padded rows of `o` (zero) drop. gap_dit_heads.py: 1.27 -> 0.39 ms per call at
+        685 tokens, same error against float64.
+        """
+        ckc, dt, w = self.compute_kernel_config, self.dtype, self.pad_w
+        lin = dict(ckc=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID)
+        n_key, hp = align_tile(length), self.n_head * align_tile(self.head_dim)
+        qq = ttnn.rms_norm(_tuned_linear(norm, w["q"], **lin), weight=w["q_ln"], epsilon=w["eps"],
+                           compute_kernel_config=ckc)
+        kk = ttnn.rms_norm(_tuned_linear(norm, w["k"], **lin), weight=w["k_ln"], epsilon=w["eps"],
+                           compute_kernel_config=ckc)
+        vv = _tuned_linear(norm, w["v"], **lin)
+        gg = _tuned_linear(norm, w["g"], **lin)
+        qkv = ttnn.reshape(ttnn.concat([qq, kk, vv], dim=-1), (batch, 1, length, 3 * hp))
+        for x in (qq, kk, vv):
+            ttnn.deallocate(x)
+        qq, kk, vv = ttnn.experimental.nlp_create_qkv_heads(
+            qkv, num_heads=self.n_head, num_kv_heads=self.n_head, transpose_k_heads=False,
+            memory_config=ttnn.DRAM_MEMORY_CONFIG)
+        ttnn.deallocate(qkv)
+        mask = sdpa_mask
+        if mask is None:
+            if pair_bias is None:
+                pair_bias = _tuned_linear(p, self.b_w, ckc=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)
+            pair_bias = ttnn.permute(pair_bias, (0, 3, 1, 2))
+            mask = _sdpa_dense_mask(pair_bias, additive_mask, self.head_dim, n_key)
+            ttnn.deallocate(pair_bias)
+        o = fused_sdpa(pad_axis(qq, n_key, 2, 0.0), pad_axis(kk, n_key, 2, 0.0), pad_axis(vv, n_key, 2, 0.0),
+                       attn_mask=mask, scale=self.head_dim**-0.5,
+                       program_config=_dense_sdpa_config(n_key), compute_kernel_config=ckc)
+        ttnn.deallocate(mask)
+        DIT_SDPA_CALLS[0] += 1
+        o = ttnn.experimental.nlp_concat_heads(o)                            # [B, 1, n_key, hp]
+        o = ttnn.reshape(ttnn.slice(o, [0, 0, 0, 0], [batch, 1, length, hp]), (batch, length, hp))
+        return _tuned_linear(_gated(o, gg), w["o"], **lin)
+
+    def _padded_head_weights(self, a):
+        """q/k/v/g with zero output columns after each head and o with zero input rows, so every
+        head is a tile wide. rms_norm over the padded width sees the same sum of squares over
+        more columns, so its weight is scaled by sqrt(c/padded) and its eps by c/padded."""
+        hd, dp, c = self.head_dim, align_tile(self.head_dim), self.n_head * self.head_dim
+        dt, s = self.dtype, c / (self.n_head * dp)
+
+        def cols(w):                                                     # [in, c] -> [in, H*dp]
+            return F.pad(w.reshape(w.shape[0], self.n_head, hd), (0, dp - hd)).reshape(w.shape[0], -1)
+
+        out = {k: self.torch_to_tt(a + n, transform=lambda w: cols(w.t()), dtype=dt)
+               for k, n in (("q", "to_q.weight"), ("k", "to_k.weight"), ("v", "to_v.weight"),
+                            ("g", "to_g.0.weight"))}
+        out["o"] = self.torch_to_tt(a + "to_o.weight", transform=lambda w: cols(w).t(), dtype=dt)
+        for k, n in (("q_ln", "ln_q.weight"), ("k_ln", "ln_k.weight")):
+            out[k] = self.torch_to_tt(a + n, transform=lambda w: cols(w.reshape(1, -1) * s ** 0.5)[0],
+                                      dtype=dt)
+        out["eps"] = 1e-6 * s
+        return out
+
 
 
 class LocalAtomTransformer(Module):
@@ -2325,25 +2603,26 @@ class LocalAtomTransformer(Module):
             q = block(q, c, p, additive_mask)
         return q
 
-    def __call__(self, q_host, c_host, p_host, indices):
+    def __call__(self, q_host, c_host, p_host, indices, resident=False):
+        """q/c may already be on the card; `resident` returns the device tensor."""
         dt, dev = self.dtype, self.device
         p_host = p_host.unsqueeze(0) if p_host.ndim == 3 else p_host
         if env_flag("RFD3_SPARSE_QK", True):
             p, n_keys, attn_idx_dev, dense_bias, gathered, block = _sparse_qk_inputs(
                 p_host, indices, dev, dt, mask_cache=self._mask_cache
             )
-            q, c = _tt(q_host, dev, dt), _tt(c_host, dev, dt)
+            q, c = _dev(q_host, dev, dt), _dev(c_host, dev, dt)
             sparse_qk = (n_keys, attn_idx_dev, dense_bias, gathered, block)
             for block in self.blocks:
                 q = block(q, c, p, sparse_qk=sparse_qk)
             out = q
         else:
-            q = _tt(q_host, dev, dt)
-            c = _tt(c_host, dev, dt)
+            q = _dev(q_host, dev, dt)
+            c = _dev(c_host, dev, dt)
             p = _tt(p_host, dev, dt)
             mask = _tt(_dense_attention_mask(indices), dev, dt)
             out = self.run_device(q, c, p, mask)
-        return ttnn.to_torch(out).float()
+        return out if resident else ttnn.to_torch(out).float()
 
 
 class CompactStreamingDecoder(Module):
@@ -2491,7 +2770,7 @@ class CompactStreamingDecoder(Module):
                 p_host, indices, dev, dt, mask_cache=self._mask_cache
             )
             sparse_qk = (n_keys, attn_idx_dev, dense_bias, gathered, block)
-            a, q, c = (_tt(x, dev, dt) for x in (a_host, q_host, c_host))
+            a, q, c = (_dev(x, dev, dt) for x in (a_host, q_host, c_host))
             # The two recycle calls in a step share p and the neighbour index, so
             # each atom block's dense bias is bit-identical between them; build it
             # on the first call only (see GatedCrossAttention._sparse_bias_f32).
@@ -2501,9 +2780,7 @@ class CompactStreamingDecoder(Module):
                 bias_cache=self._bias_cache,
             )
         else:
-            a = _tt(a_host, dev, dt)
-            q = _tt(q_host, dev, dt)
-            c = _tt(c_host, dev, dt)
+            a, q, c = (_dev(x, dev, dt) for x in (a_host, q_host, c_host))
             p = _tt(p_host, dev, dt)
             mask = _tt(_dense_attention_mask(indices), dev, dt)
             q = self.run_device(a, q, c, p, mask, upcast_mask_dev, pack_idx_dev, unpack_idx_dev, valid, length)
@@ -2514,7 +2791,7 @@ class CompactStreamingDecoder(Module):
         a_update = ttnn.squeeze(
             self.downcast.run_device(query, q_grouped, down_mask), 2
         )
-        s = _tt(s_host, dev, dt)
+        s = _dev(s_host, dev, dt)
         s = ttnn.rms_norm(
             s, weight=self.process_s_n, epsilon=1e-6, compute_kernel_config=ckc
         )
@@ -2804,9 +3081,9 @@ class DiffusionTokenEncoder(Module):
         dev, ckc, dt = self.device, self.compute_kernel_config, self.dtype
         f32 = self.fp32_residual
         B, I = R_L_ca.shape[0], R_L_ca.shape[1]
-        if S_init_I.ndim == 2:
+        if not isinstance(S_init_I, ttnn.Tensor) and S_init_I.ndim == 2:
             S_init_I = S_init_I.unsqueeze(0).expand(B, -1, -1).contiguous()
-        s = _tt(S_init_I, dev, dt)
+        s = _dev(S_init_I, dev, dt)
         if f32:
             s = ttnn.typecast(s, ttnn.float32, memory_config=s.memory_config())
         for tr in self.transition_1:
@@ -2871,6 +3148,7 @@ class LocalTokenTransformer(Module):
         # weights rather than through torch_to_tt, which advances the shared tiled-weight cache
         # counter and would shift every later weight's cache key.
         self.b_w_fused = None
+        self._b_w_packed = None         # [c_pair, N_HEAD * n_block], built on first _dit_sdpa_masks
         if _PAIRBIAS_FUSED:
             cols = torch.zeros(self.C_PAIR, _PAIRBIAS_SLOT * n_block)
             for i in range(n_block):
@@ -2879,7 +3157,38 @@ class LocalTokenTransformer(Module):
             self.b_w_fused = ttnn.from_torch(cols, layout=ttnn.TILE_LAYOUT, device=self.device,
                                              dtype=self.dtype)
 
+    def _dit_sdpa_masks(self, z, additive_mask, n_key):
+        """Every block's SDPA mask from one projection: [1, n_block * N_HEAD, n_key, n_key], block i
+        in heads [N_HEAD * i, N_HEAD * (i + 1)). The same elementwise ops as the per-block path,
+        run once over the stack, so the DiT pays one permute, scale, add and pad pair per call
+        instead of 18 (each block's permute alone was 0.39 ms)."""
+        if self._b_w_packed is None:
+            cols = torch.cat([self.weights[f"blocks.{i}.attention_pair_bias.to_b.weight"].t().float()
+                              for i in range(len(self.blocks))], dim=1)
+            self._b_w_packed = ttnn.from_torch(cols, layout=ttnn.TILE_LAYOUT, device=self.device,
+                                               dtype=self.dtype)
+        pb = _tuned_linear(z, self._b_w_packed, ckc=self.compute_kernel_config, dtype=self.dtype,
+                           core_grid=CORE_GRID_MAIN)
+        pb_t = ttnn.permute(pb, (0, 3, 1, 2))
+        ttnn.deallocate(pb)
+        masks = _sdpa_dense_mask(pb_t, additive_mask, self.blocks[0].head_dim, n_key)
+        ttnn.deallocate(pb_t)
+        return masks
+
     def run_device(self, a, s, z, additive_mask):
+        n_key = align_tile(int(a.shape[1]))
+        B = int(z.shape[0])
+        if (_DIT_SDPA and self.dtype == ttnn.bfloat16
+                and 2 * B * self.N_HEAD * len(self.blocks) * n_key * n_key <= _DIT_SDPA_STACK_BYTES):
+            masks = self._dit_sdpa_masks(z, additive_mask, n_key)
+            H = self.N_HEAD
+            for i, block in enumerate(self.blocks):
+                # Every design in the batch keeps its own pair bias: slicing batch [0, 1) here gave
+                # all of them design 0's, and 7 of 8 --fast designs at batch 8 came out clashing.
+                m = ttnn.slice(masks, [0, H * i, 0, 0], [B, H * (i + 1), n_key, n_key])
+                a = block(a, s, z, additive_mask, sdpa_mask=m)
+            ttnn.deallocate(masks)
+            return a
         fused, end = None, None
         if self.b_w_fused is not None:
             fused = _tuned_linear(z, self.b_w_fused, ckc=self.compute_kernel_config,
@@ -2895,19 +3204,21 @@ class LocalTokenTransformer(Module):
             ttnn.deallocate(fused)
         return a
 
-    def __call__(self, a_host, s_host, z, indices):
-        """z may be a host tensor (the parity-script path) or an already-resident ttnn
-        tensor handed straight over by DiffusionTokenEncoder.run_device."""
+    def __call__(self, a_host, s_host, z, indices, resident=False):
+        """z (and a, s) may be host tensors (the parity-script path) or already-resident ttnn
+        tensors handed straight over by DiffusionTokenEncoder.run_device; `resident` returns
+        the device tensor."""
         dev, dt = self.device, self.dtype
-        a = _tt(a_host, dev, dt)
-        s = _tt(s_host, dev, dt)
+        a = _dev(a_host, dev, dt)
+        s = _dev(s_host, dev, dt)
         if isinstance(z, ttnn.Tensor):
             if z.dtype != dt:
                 z = ttnn.typecast(z, dt)
         else:
             z = _tt(z.unsqueeze(0) if z.ndim == 2 else z, dev, dt)
         mask = _tt(_dense_attention_mask(indices), dev, dt)
-        return ttnn.to_torch(self.run_device(a, s, z, mask)).float()
+        out = self.run_device(a, s, z, mask)
+        return out if resident else ttnn.to_torch(out).float()
 
 
 def _default_compute_kernel_config():
@@ -2918,7 +3229,7 @@ def _default_compute_kernel_config():
         else ttnn.types.BlackholeComputeKernelConfig
     )
     return kernel_cls(
-        math_fidelity=ttnn.MathFidelity.HiFi4,
+        math_fidelity=ttnn.MathFidelity.HiFi2 if _HIFI2 else ttnn.MathFidelity.HiFi4,
         math_approx_mode=False,
         fp32_dest_acc_en=True,
         packer_l1_acc=True,
@@ -3224,6 +3535,8 @@ class RFD3DiffusionModule(Module):
                                  f"eager.")
         self._grouping_cache = {}      # batch -> {"valid", "pack_idx_dev", ...}, shared by downcast_c/downcast_q
         self._grouping_owner = None    # (id(tok_idx), shape) the cached slots belong to
+        self._downcast_c_memo = None   # (key, inputs, device result, host result): see _downcast_c
+        self._row_masks = {}           # _free_rows_dev
         self.encoder = LocalAtomTransformer(self.scope("encoder"), ckc, n_blocks=3, dtype=dt,
                                             fp32_residual=self._dit_fp32_residual)
         self.decoder = CompactStreamingDecoder(self.scope("decoder"), ckc, dtype=dt,
@@ -3260,6 +3573,28 @@ class RFD3DiffusionModule(Module):
         out = ttnn.linear(x, self.process_n_w[i], compute_kernel_config=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID)
         return ttnn.to_torch(out).float()
 
+    def _process_time_dev(self, t, motif, i):
+        """_process_time without the host round trip. Every row of the time embedding is either
+        the step's one fourier row or zero (motif atoms, t == 0), and rms_norm and the bias-free
+        linear act per row and send 0 to 0, so one row is embedded and spread by the 0/1 mask."""
+        dev, ckc, dt = self.device, self.compute_kernel_config, self.dtype
+        tt = 0.25 * torch.log(torch.clamp(t, min=1e-20) / self.SIGMA_DATA)[:, None, None]
+        emb = torch.cos(2 * math.pi * (tt * self.fourier_w[i] + self.fourier_b[i]))
+        x = _tt(emb * (t > 0).float()[:, None, None], dev, dt)                # [B, 1, 256]
+        x = ttnn.rms_norm(x, weight=self.process_n_n[i], epsilon=1e-6, compute_kernel_config=ckc)
+        x = ttnn.linear(x, self.process_n_w[i], compute_kernel_config=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID)
+        return ttnn.multiply(x, self._free_rows_dev(motif, int(x.shape[-1])))
+
+    def _free_rows_dev(self, motif, width):
+        """[1, N, width] device copy of ~motif as 0/1, uploaded once per design (the sampler
+        threads the same `f` tensors through every step)."""
+        key = (id(motif), tuple(motif.shape), width)
+        ent = self._row_masks.get(key)
+        if ent is None or ent[0] is not motif:
+            m = (~motif).float().reshape(1, -1, 1).expand(1, motif.numel(), width).contiguous()
+            ent = self._row_masks[key] = (motif, _tt(m, self.device, self.dtype))
+        return ent[1]
+
     def _grouping_buffers(self, tok_idx, batch):
         """Cache the atom<->token grouping index (pack_idx_dev/valid) by tok_idx identity,
         shared by _downcast_c and _downcast_q (both group by the SAME atom_to_token_map).
@@ -3295,16 +3630,28 @@ class RFD3DiffusionModule(Module):
         return st["valid"], st["pack_idx_dev"], st["downcast_mask_dev"]
 
     def _downcast_c(self, C_L, S_I, tok_idx):
-        dev, dt = self.device, self.dtype
+        """S_I + GCA(S_I, C_L). Both inputs are the token initializer's outputs, fixed for the
+        design, so every step after the first returns the first step's result: the same device
+        program on the same bytes. Keyed like _tt_cached (storage, shape, stride, version), with
+        the inputs held so an address cannot be reused under a live key."""
         if C_L.ndim == 2: C_L = C_L.unsqueeze(0)
         if S_I.ndim == 2: S_I = S_I.unsqueeze(0)
+        key = tuple((x.data_ptr(), tuple(x.shape), tuple(x.stride()), x._version) for x in (C_L, S_I, tok_idx))
+        memo = self._downcast_c_memo
+        if memo is None or memo[0] != key:
+            dev_out = self._downcast_c_device(C_L, S_I, tok_idx)
+            memo = self._downcast_c_memo = (key, (C_L, S_I, tok_idx), dev_out, ttnn.to_torch(dev_out).float())
+        return memo[2] if _RESIDENT_STEP else memo[3].clone()
+
+    def _downcast_c_device(self, C_L, S_I, tok_idx):
+        dev, dt = self.device, self.dtype
         B, I, _ = S_I.shape
         valid, pack_idx_dev, mask_dev = self._grouping_buffers(tok_idx, B)
         c_g = _pack_atoms_dev_core(_tt_cached(C_L, dev, dt), pack_idx_dev, valid)
         S_I_dev = _tt_cached(S_I, dev, dt)  # uploaded once, reused below (was 2x, p23 perf)
         q = ttnn.unsqueeze(S_I_dev, 2)
         upd = ttnn.squeeze(self.downcast_c.run_device(q, c_g, attn_mask_dev=mask_dev), 2)
-        return ttnn.to_torch(ttnn.add(S_I_dev, upd)).float()
+        return ttnn.add(S_I_dev, upd)
 
     def _downcast_q_device(self, q_g, a, s, mask_dev):
         """Pure-device tail of downcast_q (GCA + s-norm/linear). mask_dev is the
@@ -3321,11 +3668,9 @@ class RFD3DiffusionModule(Module):
         dev, dt = self.device, self.dtype
         B, I, _ = A_I.shape
         valid, pack_idx_dev, mask_dev = self._grouping_buffers(tok_idx, B)
-        q_g = _pack_atoms_dev_core(_tt(Q_L, dev, dt), pack_idx_dev, valid)
-        a = _tt(A_I, dev, dt)
-        s = _tt(S_I, dev, dt)
-        out = self._downcast_q_device(q_g, a, s, mask_dev)
-        return ttnn.to_torch(out).float()
+        q_g = _pack_atoms_dev_core(_dev(Q_L, dev, dt), pack_idx_dev, valid)
+        out = self._downcast_q_device(q_g, _dev(A_I, dev, dt), _dev(S_I, dev, dt), mask_dev)
+        return out if _RESIDENT_STEP else ttnn.to_torch(out).float()
 
     def __call__(self, X_noisy_L, t, f, Q_L_init, C_L, P_LL, S_I, Z_II, n_recycle=None):
         dev, ckc, dt = self.device, self.compute_kernel_config, self.dtype
@@ -3348,7 +3693,9 @@ class RFD3DiffusionModule(Module):
         if Z_II.ndim == 3: Z_II = Z_II.unsqueeze(0)
         if P_LL.ndim == 3: P_LL = P_LL.unsqueeze(0)
         f = dict(f)
-        f["attn_indices"] = _create_attention_indices(f, X_noisy_L, tok_idx, self.N_ATTN_KEYS, self.N_ATTN_SEQ)
+        if not _ATTN_OVERLAP:
+            f["attn_indices"] = _create_attention_indices(f, X_noisy_L, tok_idx, self.N_ATTN_KEYS,
+                                                          self.N_ATTN_SEQ)
         is_motif = f["is_motif_atom_with_fixed_coord"]
         t_L = t.unsqueeze(-1).expand(-1, L) * (~is_motif).float().unsqueeze(0)
         t_I = t.unsqueeze(-1).expand(-1, I) * (~f["is_motif_token_with_fully_fixed_coord"]).float().unsqueeze(0)
@@ -3361,6 +3708,18 @@ class RFD3DiffusionModule(Module):
         # host-dispatch-bound small-protein path, bit-identical since it's
         # the same deterministic bf16 cast either way).
         R_noisy_L_dev = _tt(R_noisy_L, dev, dt)
+        if _RESIDENT_STEP:
+            lin = dict(compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)
+            A_I = ttnn.linear(_tt(_scatter_mean(R_noisy_L, tok_idx, I), dev, dt), self.process_a_w, **lin)
+            S_I = ttnn.add(self._downcast_c(C_L, S_I, tok_idx),
+                           self._process_time_dev(t, f["is_motif_token_with_fully_fixed_coord"], 1))
+            Q_L = ttnn.add(_tt_cached(Q_L_init, dev, dt), ttnn.linear(R_noisy_L_dev, self.process_r_w, **lin))
+            C_L = ttnn.add(_tt_cached(C_L, dev, dt), self._process_time_dev(t, is_motif, 0))
+            C_L = ttnn.add(C_L, ttnn.linear(
+                ttnn.rms_norm(C_L, weight=self.process_c_n, epsilon=1e-6, compute_kernel_config=ckc),
+                self.process_c_w, compute_kernel_config=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID))
+            return self._denoise(n_recycle, X_noisy_L, R_L_uniform, t_L, f, tok_idx, Q_L, C_L, P_LL,
+                                 A_I, S_I, Z_II)
         # process_a (host scatter after device linear)
         a_emb = ttnn.to_torch(ttnn.linear(R_noisy_L_dev, self.process_a_w,
                                           compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)).float()
@@ -3373,22 +3732,33 @@ class RFD3DiffusionModule(Module):
         C_L = C_L + ttnn.to_torch(
             ttnn.linear(ttnn.rms_norm(_tt(C_L, dev, dt), weight=self.process_c_n, epsilon=1e-6, compute_kernel_config=ckc),
                         self.process_c_w, compute_kernel_config=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID)).float()
-        Q_L = self.encoder(Q_L, C_L, P_LL, indices=f["attn_indices"])
+        return self._denoise(n_recycle, X_noisy_L, R_L_uniform, t_L, f, tok_idx, Q_L, C_L, P_LL, A_I, S_I, Z_II)
+
+    def _denoise(self, n_recycle, X_noisy_L, R_L_uniform, t_L, f, tok_idx, Q_L, C_L, P_LL, A_I, S_I, Z_II):
+        first_tok = None
+        if _ATTN_OVERLAP:
+            first_tok = self.diffusion_token_encoder.run_device(
+                R_L_uniform[..., f["is_ca"], :], S_I, Z_II, D_II_self=None)
+            f["attn_indices"] = _create_attention_indices(f, X_noisy_L, tok_idx, self.N_ATTN_KEYS,
+                                                          self.N_ATTN_SEQ)
+        Q_L = self.encoder(Q_L, C_L, P_LL, indices=f["attn_indices"], resident=_RESIDENT_STEP)
         A_I = self._downcast_q(Q_L, A_I, S_I, tok_idx)
         recycled = self._forward_with_recycle(
             n_recycle, X_noisy_L=X_noisy_L, R_L_uniform=R_L_uniform, t_L=t_L, f=f, Q_L=Q_L,
-            C_L=C_L, P_LL=P_LL, A_I=A_I, S_I=S_I, Z_II=Z_II)
+            C_L=C_L, P_LL=P_LL, A_I=A_I, S_I=S_I, Z_II=Z_II, first_tok=first_tok)
         return {"X_L": recycled["X_L"], "sequence_logits_I": recycled["sequence_logits_I"],
                 "sequence_restype_I": recycled["sequence_restype_I"]}
 
-    def _forward_with_recycle(self, n_recycle, **kw):
+    def _forward_with_recycle(self, n_recycle, first_tok=None, **kw):
         n_recycle = n_recycle if n_recycle is not None else self.N_RECYCLE
         rec = {}
         for i in range(n_recycle):
-            rec = self._process_(D_II_self=rec.get("D_II_self"), X_L_self=rec.get("X_L"), **kw)
+            rec = self._process_(D_II_self=rec.get("D_II_self"), X_L_self=rec.get("X_L"),
+                                 tok=first_tok if i == 0 else None, **kw)
         return rec
 
-    def _process_(self, D_II_self, X_L_self, *, R_L_uniform, X_noisy_L, t_L, f, Q_L, C_L, P_LL, A_I, S_I, Z_II):
+    def _process_(self, D_II_self, X_L_self, *, R_L_uniform, X_noisy_L, t_L, f, Q_L, C_L, P_LL, A_I, S_I, Z_II,
+                  tok=None):
         is_ca = f["is_ca"]
         R_L_ca = R_L_uniform[..., is_ca, :]
         # z stays on the card between these two: it is [B,I,I,128], the only O(I^2)
@@ -3396,12 +3766,13 @@ class RFD3DiffusionModule(Module):
         # at 3359 atoms against 13.9% at 419 (p19 step 0) -- the size-dependent cost the
         # GPU does not pay. s is O(I*c_s) and still crosses, because the decoder wants it
         # on host anyway.
-        s_dev, z_dev = self.diffusion_token_encoder.run_device(R_L_ca, S_I, Z_II, D_II_self=D_II_self)
-        S_I = ttnn.to_torch(s_dev).float()
+        s_dev, z_dev = tok or self.diffusion_token_encoder.run_device(R_L_ca, S_I, Z_II, D_II_self=D_II_self)
+        # Built before the s readback so the host works while the encoder is still on the card.
         X_L_ca = X_noisy_L[..., is_ca, :] if X_L_self is None else X_L_self[..., is_ca, :]
-        dit_idx = _create_attention_indices(f, X_L_ca, torch.arange(I := S_I.shape[1], device=X_L_ca.device),
+        dit_idx = _create_attention_indices(f, X_L_ca, torch.arange(S_I.shape[-2], device=X_L_ca.device),
                                             self.DIT_KEYS, self.DIT_SEQ)
-        A_I = self.diffusion_transformer(A_I, S_I, z_dev, dit_idx)
+        S_I = s_dev if _RESIDENT_STEP else ttnn.to_torch(s_dev).float()
+        A_I = self.diffusion_transformer(A_I, S_I, z_dev, dit_idx, resident=_RESIDENT_STEP)
         ttnn.deallocate(z_dev)
         # Both of the decoder's outputs feed device consumers only -- q the R update below,
         # a the sequence head -- so neither crosses. Each ttnn.to_torch is a blocking drain,
