@@ -15142,12 +15142,6 @@ class Diffusion(Module):
         state_dict: Weights,
         compute_kernel_config: ttnn.DeviceComputeKernelConfig,
     ):
-        # Boltz-2's fast set carries acc_off; without this its DiT linears kept fp32 accumulation
-        # (HiFi4, 1.44 s of the 11.0 s device time of a 512-token fast fold on p150a), the one stage
-        # the lever did not reach. Inert in every set without acc_off/lofi, and under the opt-in fp32
-        # diffusion hybrid, which asks for fp32 on purpose.
-        if not _DIFFUSION_FP32_DEVICE:
-            compute_kernel_config = lpx_compute_kernel_config(compute_kernel_config)
         super().__init__(state_dict, compute_kernel_config)
         self._s_conditioned = None
         self._c_reshaped = None
