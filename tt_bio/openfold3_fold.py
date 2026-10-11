@@ -19,14 +19,14 @@ from .openfold3_host_prep import relpos_codes_device
 from .openfold3_weights import _sub
 from .envflags import env_flag
 
-# OpenFold3's `--fast` set is its normal set. The two fast-only levers that reach it buy no time
+# OpenFold3's `--fast` set is its normal set plus dit_s16 (graded in tenstorrent.py). The two other fast-only levers that reach it buy no time
 # and cost confidence: on Wormhole, 9LLG warm 139.6 s normal against 143.2 (diffusion_bf16),
 # 142.8 (acc_off) and 141.0 (FAST_LEVERS), with mean pLDDT 0.733 falling to 0.688, 0.712 and
 # 0.631; FAST_LEVERS fails the fast bar on the 11-set (CA-lDDT -0.101, six complexes collapse).
 # transition_bw and transition_shard stay out: OpenFold3 c730 gains nothing with them (113.2 -> 112.9 s, Wormhole
 # 1000 MHz) and its normal 11-set grade fails DockQ (-0.0168 [-0.0474, -0.0006], 44 paired folds, spd-trans2).
 NORMAL_LEVERS = _T.NORMAL_LEVERS - {"transition_bw", "transition_shard"}
-FAST_LEVERS = NORMAL_LEVERS
+FAST_LEVERS = NORMAL_LEVERS | {"dit_s16"}
 
 def kabsch_rmsd(pred_ca, gt_ca):
     """Optimal-superposition Cα-RMSD (Kabsch). pred_ca, gt_ca: [N, 3].
