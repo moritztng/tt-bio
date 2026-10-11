@@ -1,7 +1,8 @@
 #!/bin/bash
 # run_qb1.sh CARD JOBFILE : run each line of JOBFILE (NAME TIMEOUT CMD...) on qb1 CARD, in order, each under the
 # card's SPD flock, with AICLK of every node + loadavg sampled every 0.5 s during the job (OUT/aiclk.tsv).
-# A job whose run.log already says rc=0 is skipped, so the chain can be re-launched. Never waits on a release leg.
+# A job whose run.log already says rc=0 is skipped, so the chain can be re-launched. Yields to release legs unless
+# GATEWAIT=0 (a card no leg uses). LOCK overrides the flock path (qb2: /home/ttuser/spd_qb2_chip$CARD.lock).
 set -u
 CARD=$1 JOBS=$2
 R=$HOME/spd/spd-gap-of3
@@ -12,8 +13,8 @@ while read -r N TMO TREE CMD; do
   OUT=$R/out/$N; mkdir -p "$OUT"
   grep -q "end rc=0" "$OUT/run.log" 2>/dev/null && continue
   say() { echo "$(date -u +%FT%TZ) $*" >> "$OUT/run.log"; }
-  while pgrep -f "release_gate.py|gate_fanout.py" >/dev/null; do sleep 60; done
-  exec 9> "/home/ttuser/spd_qb1_card$CARD.lock"
+  while [ "${GATEWAIT:-1}" = 1 ] && pgrep -f "release_gate.py|gate_fanout.py" >/dev/null; do sleep 60; done
+  exec 9> "${LOCK:-/home/ttuser/spd_qb1_card$CARD.lock}"
   flock -w 14400 9 || { say "flock busy"; continue; }
   say "start card $CARD tree $(cat $TREE/TREE_SHA) cmd: $CMD"
   ( while :; do l=$(cut -d' ' -f1 /proc/loadavg); for n in /sys/class/tenstorrent/tenstorrent\!*; do
