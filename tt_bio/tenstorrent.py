@@ -6979,6 +6979,19 @@ def place_by_reserve(t, reserve):
     return h
 
 
+def _up_tilize_on_device(t):
+    """A bf16 host tensor on the chip in TILE layout, tilized by the chip rather than the host.
+
+    ttnn's host tilize holds the GIL and runs on one core: an MSA feature of 9,216 rows x 736 tokens
+    (msa_sample's per-cycle upload at c730) sat the chip idle for over a second each recycling cycle,
+    longer on a loaded host. Uploaded row-major the host only copies the bytes, and the chip's tilize
+    places the same bf16 values and zero-pads the channels as the host does, so the tensor is the same."""
+    r = ttnn.from_torch(t.contiguous(), layout=ttnn.ROW_MAJOR_LAYOUT, device=get_device(), dtype=ttnn.bfloat16)
+    x = ttnn.to_layout(r, ttnn.TILE_LAYOUT)
+    ttnn.deallocate(r)
+    return x
+
+
 def msa_embed(feat, project, rows=MSA_CHUNK_SIZE, keep=None):
     """The trunk's pristine `m` = `project(feat)`, placed the way `msa_host_offload(m, keep)` places it.
 
@@ -6991,8 +7004,9 @@ def msa_embed(feat, project, rows=MSA_CHUNK_SIZE, keep=None):
     `keep` (capped at `MSA_JOIN_MAX_BYTES`) holds the whole `m`, else each comes straight back to
     the host. Every op in the projection is per alignment row, so the chunks hold the rows the
     whole pass does."""
-    up = lambda t: ttnn.from_torch((t if t.dtype == torch.bfloat16 else t.float()).contiguous(),
-                                   layout=ttnn.TILE_LAYOUT, device=get_device(), dtype=ttnn.bfloat16)
+    up = lambda t: (_up_tilize_on_device(t) if t.dtype == torch.bfloat16 else
+                    ttnn.from_torch(t.float().contiguous(), layout=ttnn.TILE_LAYOUT, device=get_device(),
+                                    dtype=ttnn.bfloat16))
     v = os.environ.get("TT_BIO_MSA_HOST_OFFLOAD_MIN_BYTES")
     lim = int(v) if v else MSA_HOST_OFFLOAD_MIN_BYTES
     host = torch.is_tensor(feat)
