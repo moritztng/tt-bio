@@ -40,7 +40,7 @@ from . import autograd as ag
 from .envflags import env_flag
 from . import mm_layout as _mm_layout
 from .autograd import Tensor, precise_config
-from .autograd import (_axis, _differentiating, _flat2d, _matmul, _on_tape, _raw,
+from .autograd import (_axis, _differentiating, _dims, _flat2d, _matmul, _on_tape, _raw,
                        _reduce_to, _sum_leading, _tape,
                        _taped_layer_norm, _taped_linear, _unwrap, _via2d, _wrap)
 
@@ -690,13 +690,13 @@ def _binary(grad_a, grad_b, scalar, out_of_place=None, needs=(True, True), both=
                 # then ignored.
                 if (both is not None and fa is None and fb is None
                         and a.requires_grad and b.requires_grad
-                        and tuple(av.shape) == tuple(bv.shape) == tuple(g.shape)):
+                        and av.shape == bv.shape == g.shape):
                     da, db = both(g, av, bv)
                     a.add_grad(da)
                     b.add_grad(db)
                     return
                 if (gate_b and a.requires_grad and b.requires_grad
-                        and tuple(av.shape) == tuple(bv.shape) == tuple(g.shape)):
+                        and av.shape == bv.shape == g.shape):
                     from . import gate_bw as _gb
                     if _gb.eligible(g, av, bv):
                         do, dg = _gb.gate_bw(g, av, bv)
@@ -787,7 +787,7 @@ def _v_reshape(shipped, args, kwargs):
     """reshape, unsqueeze and squeeze differ only in how they name the target shape, and
     the backward of all three is the source shape, read here rather than inferred there."""
     x = _wrap(args[0])
-    src = [int(d) for d in x.value.shape]
+    src = _dims(x.value.shape)
     ra, rk = _raw(args, kwargs)
     out_v = shipped(*ra, **rk)
 
@@ -1398,7 +1398,7 @@ def _k_rne_add(shipped, args, kwargs):
     a, b = _wrap(args[0]), _wrap(args[1])
     ra, rk = _raw(args, kwargs)
     out_v = shipped(*ra, **rk)
-    shapes = ([int(d) for d in args[0].shape], [int(d) for d in args[1].shape])
+    shapes = (_dims(args[0].shape), _dims(args[1].shape))
 
     def make():
         def bw(g):

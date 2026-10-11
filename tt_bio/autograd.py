@@ -556,9 +556,13 @@ class Tensor:
         """
         if not self.requires_grad:
             return
-        want, got = tuple(self.value.shape), tuple(grad.shape)
-        if want != got:
-            raise ValueError(f"gradient shape {got} does not match value shape {want}")
+        # Shapes compared as they come: `tuple()` of a ttnn.Shape walks its iterator at ~0.5 us
+        # a dim, and this runs once per contribution. The tuples are still the arbiter, so a
+        # shape type that does not compare to a ttnn.Shape cannot raise here where it did not.
+        want, got = self.value.shape, grad.shape
+        if want != got and tuple(want) != tuple(got):
+            raise ValueError(f"gradient shape {tuple(got)} does not match value shape "
+                             f"{tuple(want)}")
         # A parent receives its cotangent in ITS OWN layout. Closures compute in whatever
         # layout their output arrived in, and most of the tape is tiled end to end so this
         # never came up; a row-major activation -- `ttnn.embedding`'s table, the atom
@@ -1435,6 +1439,12 @@ def _bmm_blocked(a, b, transpose_a: bool, transpose_b: bool, kw):
     return out
 
 
+def _dims(shape) -> list:
+    """`[int(d) for d in shape]`, by index: a ttnn.Shape's iterator costs ~0.5 us a dim and
+    `shape[i]` ~40 ns, which matters on paths that run once per taped call."""
+    return [int(shape[i]) for i in range(len(shape))]
+
+
 def _reduce_to(g, shape):
     """A broadcast operand's gradient: the output's, summed over the axes it was spread along.
 
@@ -1446,7 +1456,11 @@ def _reduce_to(g, shape):
     has been summed over the wrong thing or not at all. Same volume is a reshape; a genuinely
     stretched axis is a sum, at fp32 fidelity for `_sum_leading`'s reason.
     """
-    gs = [int(d) for d in g.shape]
+    if g.shape == shape:
+        # The common case, without the two list copies below (~4 us for a 4D ttnn.Shape).
+        # Only a True is trusted; anything else is decided by the ints as before.
+        return g
+    gs = _dims(g.shape)
     ws = [int(d) for d in shape]
     if gs == ws:
         return g
@@ -3394,32 +3408,49 @@ def _unwrap(t):
 
 
 def _walk(args, kwargs):
-    for v in list(args) + list(kwargs.values()):
-        if isinstance(v, (list, tuple)):
-            yield from v
-        else:
-            yield v
+    for vs in (args, kwargs.values()):
+        for v in vs:
+            if isinstance(v, (list, tuple)):
+                yield from v
+            else:
+                yield v
 
 
 def _on_tape(args, kwargs):
     # A registered parameter counts, even though it arrives as a raw handle: it is the first
     # taped thing in a forward whose inputs are all data, and without it the short circuit
     # below reaches the shipped op and the whole downstream chain is never taped.
-    return any(isinstance(v, Tensor) or _param_on_tape(v) is not None
-               for v in _walk(args, kwargs))
+    #
+    # `_walk` spelled out, because every ttnn call under a tape comes through here (~64k per
+    # BC2 step) and the generator plus two list copies were most of its cost. Same operands in
+    # the same order, same short circuit, so `_param` touches exactly what it touched before;
+    # with nothing registered it can only answer None, and it is not asked.
+    scan = _PARAM_SCAN and bool(_PARAMS)
+    for vs in (args, kwargs.values()):
+        for v in vs:
+            if isinstance(v, (list, tuple)):
+                for u in v:
+                    if isinstance(u, Tensor) or (scan and _param(u) is not None):
+                        return True
+            elif isinstance(v, Tensor) or (scan and _param(v) is not None):
+                return True
+    return False
 
 
 def _differentiating(args, kwargs):
     if not _GRAD_ENABLED:
         return False
-    for v in _walk(args, kwargs):
-        if isinstance(v, Tensor):
-            if v.requires_grad:
-                return True
-        else:
-            p = _param_on_tape(v)
-            if p is not None and p.requires_grad:
-                return True
+    scan = _PARAM_SCAN and bool(_PARAMS)
+    for vs in (args, kwargs.values()):
+        for v in vs:
+            for u in (v if isinstance(v, (list, tuple)) else (v,)):
+                if isinstance(u, Tensor):
+                    if u.requires_grad:
+                        return True
+                elif scan:
+                    p = _param(u)
+                    if p is not None and p.requires_grad:
+                        return True
     return False
 
 
