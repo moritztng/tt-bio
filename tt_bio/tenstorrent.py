@@ -7470,15 +7470,18 @@ TRACE_REGIONS = {
     "openfold3": {"wormhole_b0": 48 << 20, "blackhole": 64 << 20},    # openfold3 / openbind step
     "esmc": {"wormhole_b0": 221 << 20, "blackhole": 126 << 20},       # ESMC._TRACE_CACHE_MAX live traces
     "af2": {"wormhole_b0": 240 << 20, "blackhole": 240 << 20},        # AF2 extra-MSA + Evoformer stacks, unmeasured
-    # BC2 traced block recomputes (autograd.TRACE_RECOMPUTE), unmeasured. Per bank: 1024 MiB is a whole
-    # Wormhole bank (12 GB over 12), and that open dies in firmware init with TT_FATAL "unexpected
-    # run_mailbox value" (.114 chips 18 and 24); 128 MiB x 12 banks is 1.5 GiB for 240 block traces.
-    "bc2": {"wormhole_b0": 128 << 20, "blackhole": 1024 << 20},
+    # BC2 traced block recomputes (autograd.TRACE_RECOMPUTE). 128 MiB is too small on Wormhole: the
+    # captures there asked for 135,331,840 B (mesh_trace.cpp:182, .114 chip 13); Blackhole runs every
+    # capture inside 1 GiB.
+    "bc2": {"wormhole_b0": 1024 << 20, "blackhole": 1024 << 20},
 }
 
 
 def trace_region_bytes(capture):
-    """Bytes per DRAM bank to reserve at open for ``capture`` (a TRACE_REGIONS key) on this arch."""
+    """Bytes of trace region to reserve at open for ``capture`` (a TRACE_REGIONS key) on this arch.
+
+    A device total, not per DRAM bank: ttnn reports "only 134217728B is allocated for trace region"
+    for a 128 MiB entry."""
     try:
         return TRACE_REGIONS[capture][arch_name()]
     except KeyError:
