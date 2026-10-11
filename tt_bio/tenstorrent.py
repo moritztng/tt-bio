@@ -628,8 +628,8 @@ FAST_LEVERS = frozenset(LEVERS) - {"lofi", "triatt_b8", "triatt_bias_b8"} - UNGR
 # 0.204 A against the 0.60 A bar (A/A seed floor 0.807 A), every paired CI covers 0 or sits on the
 # better side (state/spd/BOARD.md, spd-trimul 2026-10-08 22:40Z).
 # trunk_hifi3: Wormhole 11-set grade PASS on staging2 and staging3, 44 paired folds, top pose median
-# 0.289 A against the exact floor (spd-msa 2026-10-09 02:10Z). Inert under acc_off, so in fast mode
-# it changes nothing.
+# 0.289 A against the exact floor (spd-msa 2026-10-09 02:10Z). Under acc_off (fast) it was inert until
+# spd-gap-small made acc_off apply on top of it; fast with and without it: `fast` vs `fast-trunk_hifi3`.
 # dit_sdpa32: alone it moves pLDDT by -0.0001 (CI excludes 0) with the structure null (top pose 0.220 A
 # vs the 0.60 A bar); the base softmax loses 0.3-1.3 % row mass in float64 and the lever 4-6x less
 # (spd-diffusion g2). In normal mode for the staging6 stack grade, which decides it.
@@ -1167,8 +1167,6 @@ def trunk_compute_kernel_config(base):
     if fid not in _MATH_FIDELITIES:
         raise ValueError(f"TT_BIO_TRUNK_MATH_FIDELITY must be one of {sorted(_MATH_FIDELITIES)}, "
                          f"got {fid!r}")
-    if lever("lofi") or lever("acc_off"):
-        return lpx_compute_kernel_config(base)
     cfg = type(base)(
         math_fidelity=getattr(ttnn.MathFidelity, _MATH_FIDELITIES[fid]),
         math_approx_mode=base.math_approx_mode,
@@ -1178,7 +1176,10 @@ def trunk_compute_kernel_config(base):
     # The constructor takes four of the six fields; carry the other two rather than re-defaulting them.
     cfg.dst_full_sync_en = base.dst_full_sync_en
     cfg.throttle_level = base.throttle_level
-    return cfg
+    # `acc_off` / `lofi` apply on top of the trunk's fidelity. They used to return `base` (HiFi4)
+    # instead, so the fast set, which also carries `trunk_hifi3`, ran its trunk at HiFi4 while
+    # normal mode ran HiFi3.
+    return lpx_compute_kernel_config(cfg)
 # MEASURED LOSS, kept only as the A/B toggle behind perf/trimul_kernel/w2_arms.py.
 # Letting the output channel move write straight to DRAM drops the separate clone that used
 # to move the chunk there, but it also moves that permute's forced 64-byte writes from L1 to
