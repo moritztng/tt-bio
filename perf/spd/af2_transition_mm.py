@@ -92,7 +92,17 @@ for n in NS:
     arms["reshape_to_2d"] = lambda z=zr: ttnn.clone(ttnn.reshape(z, (1, 1, n * n, C)))
     arms["ln_4d"] = lambda z=z4: ttnn.layer_norm(z, epsilon=1e-5, compute_kernel_config=ckc,
                                                  memory_config=ttnn.DRAM_MEMORY_CONFIG)
-    ref1 = ttnn.to_torch(h4).float()
+    # float64 references for both legs, from the same bf16 operands the device holds.
+    zt, w1t, b1t = (ttnn.to_torch(t).double() for t in (z4, w1, b1))
+    w2t, b2t = (ttnn.to_torch(t).double() for t in (w2, b2))
+    h64 = torch.relu(zt @ w1t + b1t)
+    ref = {"fc1": h64, "fc2": ttnn.to_torch(h4).double() @ w2t + b2t}
+
+    def rel_err(o, leg):
+        r = ref[leg]
+        a = ttnn.to_torch(o).double().reshape(-1)[: r.numel()].reshape(r.shape)
+        return float((a - r).norm() / r.norm())
+
     for name, fn in arms.items():
         try:
             s = timed(fn)
@@ -100,11 +110,11 @@ for n in NS:
             print(f"N={n:4d} {name:14} refused: {str(exc).splitlines()[0][:120]}", flush=True)
             rows.append(dict(n=n, arm=name, refused=str(exc)[:300]))
             continue
-        if name.startswith("fc1_fold"):
+        if name[:3] in ("fc1", "fc2") and "_2d" not in name:
             o = fn()
-            same = torch.equal(ttnn.to_torch(o).float(), ref1)
+            err = rel_err(o, name[:3])
             ttnn.deallocate(o)
-            print(f"N={n:4d} {name:14} equal to fc1_4d: {same}", flush=True)
+            print(f"N={n:4d} {name:14} rel L2 vs float64 {err:.3e}", flush=True)
         k, m = (C, F) if name.startswith("fc1") else ((F, C) if name.startswith("fc2") else (C, 0))
         if name.startswith("reshape"):
             m = 0
