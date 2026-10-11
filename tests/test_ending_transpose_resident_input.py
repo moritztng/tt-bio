@@ -1,10 +1,12 @@
 """The ending triangle attention's output transpose has to see an L1-resident input beside it.
 
 RF3 on a Blackhole p300c (11x10) died at 778 tokens in its template pairformer (c=64), every seed,
-both modes: `transition_z`'s residual-L1 route left the pair tensor in L1, the ending transpose
-put its update in L1 as well because its gate prices the whole grid, and the caller's `add_`
-threw "L1 buffer allocated at 122880 and static circular buffer region ends at 123392" (9W8A,
-649 + 129 aa). At 768 tokens the two tensors still leave the add its room, so it folds.
+both modes: the output projection left the untransposed update in L1 (`l1_out`), the ending
+transpose put its result in L1 as well, underneath it, because its gate prices the whole grid, and
+the caller's `add_` threw "L1 buffer allocated at 122880 and static circular buffer region ends at
+123392" (9W8A, 649 + 129 aa). The diag on the fold showed the residual in DRAM and the result as
+the only L1 buffer left, 12 KB above the CB base. At 768 tokens the two tensors still leave the add
+its room, so it folds. The residual is priced the same way when it is the resident one.
 """
 from types import SimpleNamespace
 
@@ -39,17 +41,18 @@ def p300c(monkeypatch):
     monkeypatch.setattr(tt, "COMPUTE_GRID_MAIN", (11, 10))
 
 
-def route(s, c, resident, add_to_input=True):
+def route(s, c, resident, add_to_input=True, which="input"):
     att = SimpleNamespace(transpose_l1_reserve=0)
-    mc = tt.TriangleAttention._out_transpose_memory_config(
-        att, _T(s, c, False), _T(s, c, resident), add_to_input)
+    x, x_in = _T(s, c, resident and which == "input"), _T(s, c, resident and which == "residual")
+    mc = tt.TriangleAttention._out_transpose_memory_config(att, x, x_in, add_to_input)
     return mc.buffer_type
 
 
 def test_the_crash_shape_goes_to_dram(p300c):
     # Premise: the whole-grid gate alone admits the update at 778.
     assert tt._transpose_memory_config(_T(778, 64, False)).buffer_type == ttnn.BufferType.L1
-    assert route(778, 64, resident=True) == ttnn.BufferType.DRAM
+    for which in ("input", "residual"):
+        assert route(778, 64, resident=True, which=which) == ttnn.BufferType.DRAM
 
 
 def test_768_keeps_its_l1_route_and_fits(p300c):
@@ -62,13 +65,24 @@ def test_a_dram_input_keeps_the_old_gate(p300c):
     for s in (512, 768, 778):
         old = tt._transpose_memory_config(_T(s, 64, False)).buffer_type
         assert route(s, 64, resident=False) == old
-        assert route(s, 64, resident=True, add_to_input=False) == old
+        assert route(s, 64, resident=True, add_to_input=False, which="residual") == old
+
+
+def test_both_resident_counts_both(p300c):
+    att = SimpleNamespace(transpose_l1_reserve=0)
+    mc = tt.TriangleAttention._out_transpose_memory_config(
+        att, _T(512, 64, True), _T(512, 64, True), True)
+    assert mc.buffer_type == ttnn.BufferType.L1          # 3 x 0.30 MB fits
+    mc = tt.TriangleAttention._out_transpose_memory_config(
+        att, _T(640, 64, True), _T(640, 64, True), True)
+    assert mc.buffer_type == ttnn.BufferType.DRAM        # 3 x 0.48 MB does not
 
 
 def test_monotone_in_tokens(p300c):
-    seen_dram = False
-    for s in range(32, 1025, 2):
-        if route(s, 64, resident=True) == ttnn.BufferType.DRAM:
-            seen_dram = True
-        else:
-            assert not seen_dram, s
+    for which in ("input", "residual"):
+        seen_dram = False
+        for s in range(32, 1025, 2):
+            if route(s, 64, resident=True, which=which) == ttnn.BufferType.DRAM:
+                seen_dram = True
+            else:
+                assert not seen_dram, (which, s)
