@@ -24,7 +24,7 @@ from . import page_copy as _page_copy
 from . import pair_add as _pair_add
 from . import pair_transpose_add as _pair_tr_add
 from .envflags import env_flag, env_int
-from .device_lease import device_init_lock
+from .device_lease import CONTENDED_EXIT_CODE, device_init_lock
 from .eltwise_fusion import scale_add
 
 TRIANGLE_MULT_CHUNK_SIZE = 32
@@ -7260,10 +7260,44 @@ _device_lease = None
 _device_generation = 0
 
 
+#: A healthy single-chip open takes 1-15 s on a Galaxy (bench.jsonl ``device_open``, .114
+#: 2026-10-11). An open still running after this is a chip left dirty by a process killed
+#: mid-op: it spins in C at 100 % CPU, ignores SIGINT and SIGTERM, and never returns. It also
+#: holds the host-wide bring-up lock, so every other open on the box queues behind it (.114
+#: 2026-10-11: 21 opens waited 24 min behind one such process, 13 of 31 chips busy).
+_OPEN_WEDGE_TIMEOUT_S = 600.0
+
+
+def _exit_if_open_wedged(device_id):
+    """Start a timer that ends this process if the open below never returns.
+
+    Python cannot interrupt the spinning C call, so the only way to release the lock is to
+    exit; the kernel drops the flock and the device fds with the process. Exits with
+    ``CONTENDED_EXIT_CODE`` because the input is fine and a rerun on another chip is the
+    right response, not an accuracy verdict.
+    """
+    import threading
+
+    def _fire():
+        print(f"[tt-bio] device {device_id}: open did not return in {_OPEN_WEDGE_TIMEOUT_S:.0f} s "
+              f"(chip left dirty by a killed process?); exiting to release the host-wide "
+              f"bring-up lock. Reset this chip before reusing it.", file=sys.stderr, flush=True)
+        os._exit(CONTENDED_EXIT_CODE)
+
+    t = threading.Timer(_OPEN_WEDGE_TIMEOUT_S, _fire)
+    t.daemon = True
+    t.start()
+    return t
+
+
 def _open_device_locked(device_id, kwargs):
     """Open + configure the device with bring-up strictly serialized host-wide."""
     with device_init_lock():
-        dev = ttnn.open_device(device_id=device_id, **kwargs)
+        watchdog = _exit_if_open_wedged(device_id)
+        try:
+            dev = ttnn.open_device(device_id=device_id, **kwargs)
+        finally:
+            watchdog.cancel()
         _configure_active_compute_grid(dev)
         dev.enable_program_cache()
         return dev
