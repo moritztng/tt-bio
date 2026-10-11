@@ -55,8 +55,8 @@ def main():
     ap.add_argument("--instrument", action="store_true")
     # Replay the captured diffusion-step trace (the CLI's --trace for protenix-v2 / opendde,
     # --diffusion_trace for boltz2).
-    # Unset folds at the shipped default (tt_bio.worker._protenix_trace: on for protenix-v1/v2
-    # on Blackhole); --no-trace forces the untraced fold.
+    # Unset folds at the shipped default (tt_bio.worker._trace_default: on for protenix-v1/v2
+    # and boltz2 on Blackhole); --no-trace forces the untraced fold.
     ap.add_argument("--trace", action="store_const", const=True, default=None)
     ap.add_argument("--no-trace", dest="trace", action="store_const", const=False)
     # Paired trace A/B in ONE process: the region is reserved once, then each warm pair folds
@@ -69,7 +69,7 @@ def main():
     # sides and its inclusive seconds summed per fold (nested stages each count their own time).
     # The syncs cost overlap, so a --phases fold is slower than a plain one: read it as a split,
     # never as a wall.
-    ap.add_argument("--phases", default=None, metavar="MODULE:Class.method,...")
+    ap.add_argument("--phases", default=None, metavar="MODULE:[Class.]name,...")
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
 
@@ -106,7 +106,7 @@ def main():
         from fold_ab_multi import patch_boltz2_cfg
         sys.path[:] = snap
         B.RECYCLING_STEPS = _resolve_recycling_steps(a.recycles, a.model)   # the injector reads it
-        patch_boltz2_cfg(diffusion_trace=bool(a.trace) or a.ab_trace)
+        patch_boltz2_cfg(diffusion_trace=True if a.ab_trace else a.trace)   # None: shipped default
 
     # Reachability counters. Installed only for --census: they wrap a function the diffusion
     # rollout calls tens of thousands of times, so they are host cost inside the timed region.
@@ -146,8 +146,10 @@ def main():
             return w
         for spec in a.phases.split(","):
             mod, path = spec.split(":")
-            cls, meth = path.split(".")
-            owner = getattr(importlib.import_module(mod), cls)
+            owner = importlib.import_module(mod)
+            *cls, meth = path.split(".")        # Class.method, or a module-level function
+            for c in cls:
+                owner = getattr(owner, c)
             setattr(owner, meth, _timed(path, getattr(owner, meth)))
 
     fixdir = tree / "perf" / "size512" / "fixtures"

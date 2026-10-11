@@ -3143,10 +3143,10 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
                    "stream (lossless; collapses per-step host dispatch). protenix-v1, "
                    "protenix-v2 and opendde. Default on for protenix-v1/v2 on Blackhole, "
                    "off elsewhere; reserves 0.2-0.3 GB of device memory.")
-@click.option("--diffusion_trace", is_flag=True,
+@click.option("--diffusion_trace/--no_diffusion_trace", default=None,
               help="Replay a captured ttnn trace of the per-step diffusion DiT device "
                    "stream (lossless; collapses per-step host dispatch). boltz2 only. "
-                   "Opt-in; reserves 0.2-0.3 GB of device memory.")
+                   "Default on for Blackhole, off elsewhere; reserves 0.2 GB of device memory.")
 @click.option("--use_tfg_guidance", is_flag=True,
               help="opendde and opendde-abag. Guided sampling (OpenDDE 1.2.0): apply the input's "
                    "`constraint:` block (contact pairs or an epitope) by moving the movable "

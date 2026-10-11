@@ -730,28 +730,38 @@ def _protenix_family() -> tuple[str, ...]:
     return PROTENIX_FAMILY
 
 
-def _protenix_trace(cfg: dict[str, Any]) -> bool:
-    """Whether a protenix-v1/v2 fold replays its per-step diffusion from a captured trace.
+def _trace_default(flag) -> bool:
+    """Whether a fold replays its per-step diffusion from a captured trace.
 
-    --trace / --no_trace decide. Unset, it is on for Blackhole: the replay is lossless (same
-    CIF digest) and cuts 1.0-1.1 s off a 512-token single-sample fold on a p150a in both modes,
-    paired in one process (state/spd-gap-small.md), for a 36 MiB/bank region. Wormhole stays
-    opt-in until its 2048-residue ceiling is re-walked with the region reserved.
+    An explicit flag decides. Unset (None), it is on for Blackhole: the replay is lossless (same
+    CIF digest) and, paired in one process on a p150a at 512 tokens x 1 sample, cuts 1.0-1.4 s off
+    a Protenix fold and ~0.3 s off a Boltz-2 fold in both modes (state/spd-gap-small.md), for a
+    27-36 MiB/bank region. Wormhole stays opt-in until its ceilings are re-walked with the region
+    reserved.
     """
-    if cfg.get("trace") is not None:
-        return bool(cfg["trace"])
+    if flag is not None:
+        return bool(flag)
     from tt_bio.tenstorrent import arch_name
 
     return arch_name() == "blackhole"
 
 
-def _protenix_region_reserved() -> bool:
-    """Whether the open chip carries a region a Protenix diffusion step fits in. A worker kept
-    resident across jobs reloads on the model config only (run_config_hash), not on --trace,
-    so a fold asks the chip it got rather than assume load_model reserved one."""
+def _protenix_trace(cfg: dict[str, Any]) -> bool:
+    """protenix-v1/v2: --trace / --no_trace, else the arch default (`_trace_default`)."""
+    return _trace_default(cfg.get("trace"))
+
+
+def _region_reserved(capture: str) -> bool:
+    """Whether the open chip carries a region ``capture``'s step fits in. A worker kept resident
+    across jobs reloads on the model config only (run_config_hash), so a load asks the chip it
+    got rather than assume an earlier load reserved one."""
     from tt_bio.tenstorrent import trace_region_bytes, trace_region_size
 
-    return trace_region_size() >= trace_region_bytes("protenix")
+    return trace_region_size() >= trace_region_bytes(capture)
+
+
+def _protenix_region_reserved() -> bool:
+    return _region_reserved("protenix")
 
 
 def _of3_family() -> tuple[str, ...]:
@@ -996,9 +1006,20 @@ class _WorkerState:
                 ctx = diffusion_fp32_device(struct_fp32_device)
             else:
                 ctx = contextlib.nullcontext()
+            conf_kwargs = cfg["conf_kwargs"]
+            if self.accelerator == "tenstorrent":
+                # --diffusion_trace / --no_diffusion_trace, else the arch default. The region is
+                # reserved only at open, so a chip opened without it is closed and reopened.
+                dit_trace = _trace_default(conf_kwargs.get("diffusion_trace"))
+                if dit_trace and not _region_reserved("diffusion"):
+                    from tt_bio.tenstorrent import cleanup, get_device
+
+                    cleanup()
+                    get_device(trace="diffusion")
+                conf_kwargs = {**conf_kwargs, "diffusion_trace": dit_trace}
             with ctx:
                 self.model = (
-                    Boltz2.load_from_checkpoint(cfg["conf_ckpt"], **cfg["conf_kwargs"])
+                    Boltz2.load_from_checkpoint(cfg["conf_ckpt"], **conf_kwargs)
                     .eval()
                     .to(self.torch_device)
                 )

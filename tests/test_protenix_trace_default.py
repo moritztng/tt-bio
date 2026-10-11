@@ -1,4 +1,4 @@
-"""protenix-v1/v2 replay their diffusion step from a trace by default on Blackhole only.
+"""protenix-v1/v2 and Boltz-2 replay their diffusion step from a trace by default on Blackhole only.
 
 --trace / --no_trace decide when given; unset (None) is the shipped default, read off the arch.
 A fold replays only when the chip it got carries the Protenix region, because a resident worker
@@ -36,3 +36,17 @@ def test_the_cli_leaves_trace_unset_by_default():
 
     opt = next(p for p in predict.params if p.name == "trace")
     assert opt.default is None and "--no_trace" in opt.secondary_opts
+
+
+@pytest.mark.parametrize("arch, want", [("blackhole", True), ("wormhole_b0", False)])
+def test_boltz2_dit_trace_follows_the_same_rule(monkeypatch, arch, want):
+    monkeypatch.setattr(T, "arch_name", lambda: arch)
+    assert W._trace_default(None) is want
+    assert W._trace_default(True) is True and W._trace_default(False) is False
+
+
+def test_the_cli_leaves_diffusion_trace_unset_by_default():
+    from tt_bio.main import predict
+
+    opt = next(p for p in predict.params if p.name == "diffusion_trace")
+    assert opt.default is None and "--no_diffusion_trace" in opt.secondary_opts
