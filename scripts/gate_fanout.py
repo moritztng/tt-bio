@@ -1105,6 +1105,15 @@ class Gate:
         return self.results
 
 
+def cardfree(workers: list, arch: str) -> list:
+    """One cardless worker per host of `arch`, all drawing on the shared "any" queue, so the
+    card-free legs run on whichever host is free. Each stands aside while a timed leg holds its
+    host quiet. They used to run only on the first host: pre2-e6ae723c4 (10-11) listed g107
+    first, g107 went back to JapanFold, and check/packaging_smoke/pytest_cpu waited 5 h."""
+    hosts = {h.name: h for h, _ in workers if h.arch == arch}
+    return [(h, None) for h in hosts.values()]
+
+
 def pool_job(host: Host, leg: Leg, rdir: str, name: str) -> str:
     """A job file for the host's chip pool (CHIPS.md "Chip pool"): the pool starts it as
     `CHIP=<umd> bash <job>` on an idle healthy chip, and it leaves its log and exit code in rdir."""
@@ -1483,8 +1492,7 @@ def main() -> int:
 
     # Per run, so a job a stopped run left in a pool can never share a directory with a new one.
     execute = make_executor(sha, args.out, ledger, keys, f"out-{sha[:12]}/{args.out.name}")
-    # Card-free legs run one at a time on the first host, as a worker without a card, so they
-    # also stand aside while a timed leg holds that host quiet.
+    # Card-free legs run on a worker without a card on each host of the first arch (`cardfree`).
     # Started in the background by a non-interactive shell, SIGINT arrives ignored and the
     # cleanup below never ran; SIGTERM never reached it at all. Both stop the runner the same way.
     def _stop(*_):
@@ -1492,7 +1500,7 @@ def main() -> int:
     signal.signal(signal.SIGINT, _stop)
     signal.signal(signal.SIGTERM, _stop)
     try:
-        results += Gate(todo, workers + [(first[archs[0]], None)], timed, execute, args.out,
+        results += Gate(todo, workers + cardfree(workers, archs[0]), timed, execute, args.out,
                         None if args.no_reuse else ledger, keys, roster).run()
     except KeyboardInterrupt:
         # A stopped runner takes back what it queued and ends every leg it started: a remote leg

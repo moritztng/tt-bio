@@ -829,6 +829,21 @@ def test_a_lent_pool_takes_no_leg_the_lend_would_hold_and_another_host_runs_it(t
     assert _pool_host("p", tmp_path, paused=True).lent(1) and not free.lent(10 ** 6)
 
 
+def test_card_free_legs_run_on_a_free_host_when_the_first_one_is_lent(tmp_path):
+    lent = _pool_host("g107", tmp_path, paused=True)
+    free = _pool_host("g114", tmp_path)
+    workers = [(lent, gf.POOL), (free, gf.POOL)]
+    assert gf.cardfree(workers + [(free, gf.POOL)], "wh") == [(lent, None), (free, None)]
+
+    def execute(h, card, leg):
+        return {"leg": leg.name, "arch": "any", "verdict": "PASS", "worker": h.name}
+
+    legs = [gf.Leg(n, [], n) for n in ("check", "packaging_smoke", "pytest_cpu")]
+    res = gf.Gate({"any": legs}, workers + gf.cardfree(workers, "wh"), set(), execute, tmp_path).run()
+    assert sorted(r["leg"] for r in res) == ["check", "packaging_smoke", "pytest_cpu"]
+    assert {r["worker"] for r in res} == {"g114"}
+
+
 def test_a_leg_queued_before_the_lend_was_booked_is_taken_back(tmp_path, monkeypatch):
     monkeypatch.setattr(gf, "POOL_POLL_S", 0.01)
     monkeypatch.setattr(gf, "LEND_READ_S", 0)
