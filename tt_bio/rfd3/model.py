@@ -2288,6 +2288,11 @@ class RFD3AtomBlock(Module):
                 ttnn.deallocate(pair_bias)
                 mask = pad_axis(pad_axis(ttnn.add(pb, additive_mask), n_key, 3, -1e4), n_key, 2, -1e4)
                 ttnn.deallocate(pb)
+                # SDPA refuses a head_dim that is not a tile multiple (the DiT's is 48), so the
+                # heads get zero columns out to the next tile: they add 0 to every q.k and come
+                # back as zero columns of the output, sliced off below. The scale stays 48^-0.5.
+                hd = align_tile(self.head_dim)
+                qq, kk, vv = (pad_axis(x, hd, 3, 0.0) for x in (qq, kk, vv))
                 o = fused_sdpa(pad_axis(qq, n_key, 2, 0.0), kk, vv, attn_mask=mask,
                                scale=self.head_dim**-0.5,
                                program_config=_dense_sdpa_config(n_key),
