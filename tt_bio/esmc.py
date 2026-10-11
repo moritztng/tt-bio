@@ -173,6 +173,9 @@ def _rope(q: ttnn.Tensor, k: ttnn.Tensor, cos: ttnn.Tensor, sin: ttnn.Tensor):
 # tokens x d 64, p150a, 1350 MHz); q 128 x k 64 is 0.629 ms, the fastest of the 25 pairs swept, at the same error to a
 # float64 reference (PCC 0.99970 vs 0.99969, perf/wh-embed/sdpa_sweep.py). Chunking only reorders the online softmax.
 ESMC_SDPA_Q_CHUNK = 128
+# q, k and v as three projections from the packed weight's column blocks instead of one projection and a
+# 3-way `ttnn.chunk` copy of its output. Off until the page-cell A/B (perf/spd_gap_esmf/esmc_ab.py) says.
+_ESMC_QKV_SPLIT = os.environ.get("TT_BIO_ESMC_QKV_SPLIT", "0") == "1"
 ESMC_SDPA_K_CHUNK = 64
 
 
@@ -225,6 +228,15 @@ class Attention(Module):
         self.k_ln_weight = self.torch_to_tt("k_ln.weight")
         self.out_weight = self.torch_to_tt("out_proj.weight", transform=_scaled_t(out_scale), dtype=_dtype())
 
+    def _qkv_split(self):
+        """The q, k and v column blocks of the packed qkv weight, sliced on device once and cached."""
+        if getattr(self, "_qkv_w", None) is None:
+            w = self.qkv_weight
+            d_in, d3 = int(w.shape[0]), int(w.shape[1])
+            d = d3 // 3
+            self._qkv_w = tuple(ttnn.slice(w, [0, i * d], [d_in, (i + 1) * d]) for i in range(3))
+        return self._qkv_w
+
     def __call__(self, x: ttnn.Tensor, cos: ttnn.Tensor, sin: ttnn.Tensor,
                  attn_mask: ttnn.Tensor | None = None,
                  key_valid: ttnn.Tensor | None = None) -> ttnn.Tensor:
@@ -236,11 +248,14 @@ class Attention(Module):
             x, weight=self.in_norm_weight, bias=self.in_norm_bias,
             epsilon=1e-5, compute_kernel_config=ck,
         )
-        qkv = self._lin(x_norm, self.qkv_weight)
-        ttnn.deallocate(x_norm)
-
-        q, k, v = ttnn.chunk(qkv, 3, dim=-1)
-        ttnn.deallocate(qkv)
+        if _ESMC_QKV_SPLIT:
+            q, k, v = (self._lin(x_norm, w) for w in self._qkv_split())
+            ttnn.deallocate(x_norm)
+        else:
+            qkv = self._lin(x_norm, self.qkv_weight)
+            ttnn.deallocate(x_norm)
+            q, k, v = ttnn.chunk(qkv, 3, dim=-1)
+            ttnn.deallocate(qkv)
         q = ttnn.layer_norm(q, weight=self.q_ln_weight, epsilon=1e-5, compute_kernel_config=ck)
         k = ttnn.layer_norm(k, weight=self.k_ln_weight, epsilon=1e-5, compute_kernel_config=ck)
 
