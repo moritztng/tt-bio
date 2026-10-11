@@ -930,6 +930,14 @@ def _covalent_bonds(spi, bonds):
 WH_LM_RESIDENT_MAX_TOKENS = 1088
 
 
+# The shared-kernel levers (tenstorrent.LEVERS) ESMFold2 folds under, per mode. Empty until a set is graded on
+# ESMFold2 itself: the sets Protenix and Boltz-2 ship were graded on their folds, not on this one. A harness
+# grades a candidate through TT_BIO_LEVERS. `levers`, not `lever_scope`: --fast here is still the bfp8
+# `_FAST_MODE` the weights were built under, so it must stay set while the fold runs.
+LEVERS_NORMAL = "none"
+LEVERS_FAST = "none"
+
+
 def fold_complex(model, chains, *, num_loops=3, num_sampling_steps=20,
                  num_diffusion_samples=1, seed=0, return_all=False, bonds=None):
     """Fold one (possibly multi-chain) complex on an already-patched model.
@@ -977,10 +985,12 @@ def fold_complex(model, chains, *, num_loops=3, num_sampling_steps=20,
                   and is_wormhole())
     if release_lm:
         esmc._persistent = False
+    from tt_bio import tenstorrent
     try:
-        res = ESMFold2InputBuilder().fold(
-            model, spi, num_loops=num_loops, num_sampling_steps=num_sampling_steps,
-            num_diffusion_samples=num_diffusion_samples, seed=seed)
+        with tenstorrent.levers(tenstorrent.model_levers(LEVERS_NORMAL, LEVERS_FAST)):
+            res = ESMFold2InputBuilder().fold(
+                model, spi, num_loops=num_loops, num_sampling_steps=num_sampling_steps,
+                num_diffusion_samples=num_diffusion_samples, seed=seed)
     finally:
         if release_lm:
             esmc._persistent = True

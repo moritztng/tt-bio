@@ -7,6 +7,7 @@ of arm A, arm B interleaved, so both arms see the same clock and host load. Ever
 pLDDT, CIF digest, the opened node's AICLK median during the fold, and loadavg.
 
     python perf/spd_gap_esmf/ab.py --model esmfold2-fast --alt tt_bio.esmfold2.DIFFUSION_TRACE --out r.json
+    python perf/spd_gap_esmf/ab.py --model esmfold2 --alt tt_bio.esmfold2_runtime.LEVERS_NORMAL --a normal --b none ...
 """
 import argparse, hashlib, importlib, json, os, statistics, sys, threading, time
 from pathlib import Path
@@ -17,6 +18,8 @@ ap = argparse.ArgumentParser()
 ap.add_argument("--model", default="esmfold2", choices=("esmfold2", "esmfold2-fast"))
 ap.add_argument("--fast", action="store_true")
 ap.add_argument("--alt", required=True, help="module.ATTR flipped between arms; arm A = True, arm B = False")
+ap.add_argument("--a", help="string value of ATTR in arm A instead of True (e.g. a lever spec)")
+ap.add_argument("--b", help="string value of ATTR in arm B instead of False")
 ap.add_argument("--repeat", type=int, default=3)
 ap.add_argument("--size", type=int, default=512)
 ap.add_argument("--out", type=Path, required=True)
@@ -49,10 +52,10 @@ def sampler():
         time.sleep(0.5)
 threading.Thread(target=sampler, daemon=True).start()
 
-res = {"model": a.model, "fast": a.fast, "alt": a.alt, "nodes": nodes, "trace_region": T.trace_region_size(),
+res = {"model": a.model, "fast": a.fast, "alt": a.alt, "a": a.a, "b": a.b, "nodes": nodes, "trace_region": T.trace_region_size(),
        "card": os.environ.get("TT_VISIBLE_DEVICES"), "host": os.uname().nodename, "folds": []}
 def fold(arm, tag):
-    setattr(mod, attr, arm == "A")
+    setattr(mod, attr, (a.a if a.a is not None else True) if arm == "A" else (a.b if a.b is not None else False))
     t0 = time.monotonic(); s, m = one_fold(); t1 = time.monotonic()
     c = sorted(v for t, v in clk if t0 <= t <= t1)
     rec = {"arm": arm, "tag": tag, "fold_s": round(s, 3), "plddt": m.get("plddt"),
