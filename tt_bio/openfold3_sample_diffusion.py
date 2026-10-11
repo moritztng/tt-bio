@@ -268,7 +268,8 @@ class OF3SampleDiffusion:
         scaled noisy coordinates, staged into persistent buffers before each replay. ``t``
         enters only the EDM scaling, which runs here on the host in fp32 next to the update
         it feeds. Step 0 runs eagerly (it compiles every program and fills the rollout cache),
-        step 1 is captured and every step from 1 on replays it. Between replays nothing but
+        step 1 is captured and every step from 1 on replays it (a capture that fails, e.g. on a
+        trace region too small for the step, leaves every step eager). Between replays nothing but
         the staging copies and the output reads touch the device, and the trace is released
         before the cache it reads is freed.
         """
@@ -292,6 +293,7 @@ class OF3SampleDiffusion:
             return outs
 
         tid = outs = None
+        traced = True
         try:
             for tau in range(len(t_list)):
                 if progress_fn:
@@ -305,20 +307,30 @@ class OF3SampleDiffusion:
                     rl = xl_noisy[k] * mask / math.sqrt(t * t + self.sigma_data ** 2)
                     ttnn.copy_host_to_device_tensor(host(self._pad_atoms_host(rl, n_atom, NP)),
                                                     rl_bufs[k])
-                if tau == 0:
-                    eager = step()
-                    rl_update = torch.stack([ttnn.to_torch(o).float().reshape(n_atom, 3)
-                                             for o in eager])
-                    for o in eager:
-                        ttnn.deallocate(o)
-                else:
-                    if tid is None:
-                        tid = ttnn.begin_trace_capture(dev, cq_id=0)
+                if tau > 0 and tid is None and traced:
+                    tid = ttnn.begin_trace_capture(dev, cq_id=0)
+                    try:
                         outs = step()
                         ttnn.end_trace_capture(dev, tid, cq_id=0)
+                    except Exception as e:      # e.g. the step outgrew the trace region
+                        print(f"  [of3 diffusion] trace capture failed, steps run eagerly: {e}")
+                        try:
+                            ttnn.end_trace_capture(dev, tid, cq_id=0)
+                        except Exception:
+                            pass
+                        ttnn.release_trace(dev, tid)
+                        tid = outs = None
+                        traced = False
+                if tid is not None:
                     ttnn.execute_trace(dev, tid, cq_id=0, blocking=False)
-                    rl_update = torch.stack([ttnn.to_torch(o).float().reshape(n_atom, 3)
-                                             for o in outs])
+                    res = outs
+                else:                           # step 0, or the capture failed: the same program
+                    res = step()
+                rl_update = torch.stack([ttnn.to_torch(o).float().reshape(n_atom, 3)
+                                         for o in res])
+                if res is not outs:
+                    for o in res:
+                        ttnn.deallocate(o)
                 # EDM output scaling, then the EDM step.
                 sd2 = self.sigma_data ** 2
                 c_skip = sd2 / (sd2 + t * t)
