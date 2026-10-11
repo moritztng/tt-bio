@@ -21,7 +21,7 @@ main on qb2, cards 1 and 3, fold this fixture to 9eee996d71653d1b and da9b4ed68f
 (perf/trimul_f1/census_openfold3_512_qb2c1.json against the page cell). Never compare a
 digest from this file to one recorded on another card.
 """
-import argparse, hashlib, importlib, json, os, statistics, sys, time
+import argparse, hashlib, importlib, json, os, shutil, statistics, sys, time
 from pathlib import Path
 
 
@@ -149,6 +149,8 @@ def main():
 
     def one(tag):
         fold_s, m = one_fold()
+        for p in sorted(struct_dir.glob("*.cif")):  # the structure itself, for an RMSD between arms
+            shutil.copyfile(p, a.out.parent / f"{tag}_{p.name}")
         plddt = m.get("plddt")
         if plddt is None:
             plddt = m.get("complex_plddt")
