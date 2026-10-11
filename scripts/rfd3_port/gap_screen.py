@@ -7,6 +7,7 @@ ARM is a '+'-joined set of knobs applied before the denoiser is built:
   exact     nothing (the shipped path)
   hifi2     every RFD3 compute kernel config at MathFidelity.HiFi2 (default HiFi4)
   lofi      ... at MathFidelity.LoFi
+  acco      ... with fp32_dest_acc_en off (bf16 dest: twice the dest tiles, larger subblocks)
   w8        every 2-D, tile-aligned weight that Module.torch_to_tt uploads as bf16 goes up as bfloat8_b
   asdpa     RFD3_ATOM_SDPA, atom attention as one fused SDPA (new, off by default)
   gsm bs pzc fgrid   the existing off-by-default levers RFD3_GATHERED_SOFTMAX, RFD3_BLOCK_SPARSE,
@@ -46,18 +47,20 @@ STEPS = int(args[2]) if len(args) > 2 else 200
 SEEDS = [int(s) for s in (args[3] if len(args) > 3 else "42").split(",")]
 FIXTURE = opts.get("fixture", "perf/dsfix/fixtures/rfd3_R4.json")
 knobs = set(ARM.split("+")) - {"exact"}
-assert knobs <= {"hifi2", "lofi", "w8"} | set(ENV_KNOBS), knobs
+assert knobs <= {"hifi2", "lofi", "w8", "acco"} | set(ENV_KNOBS), knobs
 
 fid = {"hifi2": ttnn.MathFidelity.HiFi2, "lofi": ttnn.MathFidelity.LoFi}
 pick = [fid[k] for k in ("hifi2", "lofi") if k in knobs]
-if pick:
+if pick or "acco" in knobs:
     _ckc = M._default_compute_kernel_config
 
 
     def _ckc_fid():
         c = _ckc()
-        return type(c)(math_fidelity=pick[0], math_approx_mode=c.math_approx_mode,
-                       fp32_dest_acc_en=c.fp32_dest_acc_en, packer_l1_acc=c.packer_l1_acc)
+        return type(c)(math_fidelity=pick[0] if pick else c.math_fidelity,
+                       math_approx_mode=c.math_approx_mode,
+                       fp32_dest_acc_en=c.fp32_dest_acc_en and "acco" not in knobs,
+                       packer_l1_acc=c.packer_l1_acc)
     M._default_compute_kernel_config = _ckc_fid
 
 W8 = [0, 0]
