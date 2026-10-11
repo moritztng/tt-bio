@@ -196,6 +196,32 @@ class Recorder:
         self.ttnn.Tensor.__getitem__ = lambda self_, key: wrapped(self_, key)
         return self
 
+    # Ops outside WRAP (the fused SDPA, ttnn.experimental kernels, to_torch/from_torch) dispatch
+    # async; their device time lands inside the NEXT wrapped call's leading sync, before its clock
+    # starts, so a census that does not wrap them cannot see them at all.
+    SKIP = ("_", "get_", "set_", "open_", "close_", "enable", "disable", "is_", "synchronize",
+            "Read", "Dump", "manage", "register", "dump", "load_", "create_", "query", "device",
+            "num_", "list_")
+
+    def install_all(self):
+        """`install`, then every other public callable in ttnn, ttnn.experimental, ttnn.transformer."""
+        self.install()
+        done = set()
+        for mod_name in ("", "experimental", "transformer"):
+            mod = getattr(self.ttnn, mod_name) if mod_name else self.ttnn
+            for n in dir(mod):
+                fn = getattr(mod, n, None)
+                if (not callable(fn) or isinstance(fn, type) or n.startswith(self.SKIP)
+                        or getattr(fn, "__module__", "") in ("typing", "builtins") or id(fn) in done):
+                    continue
+                label = f"{mod_name}.{n}" if mod_name else n
+                if not mod_name and n in self.orig:
+                    continue
+                done.add(id(fn))
+                self.orig[label] = fn
+                setattr(mod, n, self._wrap(label, fn))
+        return self
+
 
 def one_step(ag, ttnn, device, Wtt, cfg, logits_np, mask_t, M, inC, rec=None):
     """Forward, host loss seed, backward, and both host reads -- halloop's step without Adam."""
