@@ -74,9 +74,12 @@ def shipped():
 
 
 def mask():
+    return rfd3_bias.sparse_mask_bf16(ttnn.multiply(pbd, D ** 0.5), idx_rm)
+
+
+def mask_f32():  # the first cut: fp32 bias, scaled, cast, padded (kept for its price)
     b = rfd3_bias.sparse_bias_fp32(pbd, idx_rm)
-    s = ttnn.multiply(b, D ** 0.5)
-    return pad_axis(ttnn.typecast(s, dt), N, 2, 0.0)
+    return pad_axis(ttnn.typecast(ttnn.multiply(b, D ** 0.5), dt), N, 2, 0.0)
 
 
 def sdpa(m, qc, kc):
@@ -103,7 +106,12 @@ def grade(o):
 
 res = {"L": L, "N": N, "arch": str(dev.arch()), "shipped": {"ms": timed(shipped), **grade(shipped())}}
 m = mask()
+pbs = ttnn.multiply(pbd, D ** 0.5)
+m16 = ttnn.to_torch(rfd3_bias.sparse_mask_bf16(pbs, idx_rm))[:, :, :L, :N]
+m32 = ttnn.to_torch(rfd3_bias.sparse_bias_fp32(pbs, idx_rm))[:, :, :L, :N]
+res["mask_bf16_equals_fp32_kernel"] = bool(torch.equal(m16.float(), m32.float()))
 res["mask_build_ms"] = timed(mask)
+res["mask_f32_build_ms"] = timed(mask_f32)
 for qc, kc in chunks:
     try:
         res[f"sdpa_{qc}_{kc}"] = {"ms": timed(lambda: sdpa(m, qc, kc)), **grade(sdpa(m, qc, kc))}
