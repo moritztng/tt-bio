@@ -10,9 +10,9 @@ shape, compile) then N warm reps, each on its own seed. Every rep appends one JS
     python perf/spd/bench.py --out RUN/of3   --chip 3 --model openfold3 --inputs c730
     python perf/spd/bench.py --out RUN/bc2   --chip 3 --model bindcraft2 --warm 2
 
---model: protenix-v2 (default), opendde, openfold3 or boltz2 fold through `Worker.load_model` and
+--model: protenix-v2 (default), opendde, openfold3, boltz2 or rf3 fold through `Worker.load_model` and
 `predict_one`, the code a JapanFold worker runs, and time the model's own fold call (`fold`; Boltz-2's
-`predict_step`). Protenix-v2 alone is built by hand, as before, because it is the one model that reads
+`predict_step`, RF3's `predict`). Protenix-v2 alone is built by hand, as before, because it is the one model that reads
 the `L=` lever set. bindcraft2 is a design loop, not a fold: see "BindCraft 2" below.
 
 ARM grammar: NAME[:K=V[,K=V...]][:L=<set>[+lever|-lever...]][:fast]. K=V are environment variables set
@@ -50,7 +50,7 @@ ap = argparse.ArgumentParser()
 ap.add_argument("--out", required=True, type=Path)
 ap.add_argument("--chip", required=True, type=int, help="UMD index handed to TT_VISIBLE_DEVICES")
 ap.add_argument("--model", default="protenix-v2",
-                choices=("protenix-v2", "opendde", "openfold3", "boltz2", "bindcraft2"))
+                choices=("protenix-v2", "opendde", "openfold3", "boltz2", "rf3", "bindcraft2"))
 ap.add_argument("--arm", default="exact")
 ap.add_argument("--inputs", default="c730")
 ap.add_argument("--warm", type=int, default=3)
@@ -94,11 +94,11 @@ def parse_arm(spec):
 
 ARM, ARM_ENV, FAST, LEVER_SPEC = parse_arm(a.arm)
 PV2 = a.model == "protenix-v2"
-if LEVER_SPEC is not None and a.model == "openfold3":
-    # OpenFold3 builds under `tenstorrent.model_levers()`, which reads the set from TT_BIO_LEVERS.
+if LEVER_SPEC is not None and a.model in ("openfold3", "rf3"):
+    # OpenFold3 and RF3 build under `tenstorrent.model_levers()`, which reads the set from TT_BIO_LEVERS.
     ARM_ENV["TT_BIO_LEVERS"] = LEVER_SPEC
 elif LEVER_SPEC is not None and not PV2:
-    sys.exit(f"L= arms build Protenix-v2 and OpenFold3 only; {a.model} reads no tenstorrent.LEVERS, so "
+    sys.exit(f"L= arms build Protenix-v2, OpenFold3 and RF3 only; {a.model} reads no tenstorrent.LEVERS, so "
              f"`{a.arm}` would fold its default. Use K=V switches for {a.model}.")
 os.environ.update(ARM_ENV)
 a.out.mkdir(parents=True, exist_ok=True)
@@ -361,14 +361,17 @@ m = state.model
 BUILT_FAST = T._FAST_MODE if PV2 else getattr(m, "_fast", T._FAST_MODE)
 log(ev="build", s=time.monotonic() - t, fast=BUILT_FAST, levers=sorted(getattr(m, "_levers", ())))
 LAST = {}
-FOLD_CALL = "predict_step" if a.model == "boltz2" else "fold"
+FOLD_CALL = {"boltz2": "predict_step", "rf3": "predict"}.get(a.model, "fold")
 orig = getattr(m, FOLD_CALL)
 CONF = {"plddt": "plddt", "ptm": "ptm", "iptm": "iptm"}
 
 
 def unpack(r):
     """(coords, per-sample confidences) from whatever the model's fold call returns: Protenix-v2 and
-    OpenDDE a (coords, conf) tuple, OpenFold3 a FoldResult, Boltz-2 its prediction dict."""
+    OpenDDE a (coords, conf) tuple, OpenFold3 a FoldResult, Boltz-2 its prediction dict, RF3 its output dict
+    (coordinates only: the worker reduces RF3's confidence logits after the call, into the record's metrics)."""
+    if isinstance(r, dict) and "X_L" in r:
+        return r["X_L"], None
     if isinstance(r, dict):  # Boltz-2: per-sample tensors; complex_plddt is the scalar pLDDT
         if r.get("exception") or r.get("coords") is None:
             return None, None
