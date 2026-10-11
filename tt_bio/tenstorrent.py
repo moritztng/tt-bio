@@ -93,6 +93,9 @@ _TRIATT_BLOCK_REFUSED: dict = {}
 # row blocks to 5. It does NOT make 9i3p fold -- the target then hits the pair representation
 # (980*992*384*2) instead, which is a separate limit this constant has no bearing on.
 OPM_Z_BUDGET_BYTES = 1 << 28              # 0.25 GiB
+# OuterProductMean also blocks once its whole z is over this fraction of the chip's DRAM (see the
+# call site): 805306368 B on a 12 GiB Wormhole chip, so from ~628 tokens there.
+OPM_WHOLE_DRAM_DEN = 16
 # `I > SEQ_LEN_MORE_CHUNKING` decides whether that budget is consulted at all, and that constant
 # answers a DIFFERENT question: it bounds how many full PAIR tensors are live at once, which is
 # why _apply_grid_thresholds re-expressed it against DRAM and moved it 608 -> 1088 on a 12 GiB
@@ -4254,9 +4257,11 @@ def _with_dram_narrowing(run, blk: int, narrow, compact=None):
 
     Let the device have the last word on the block. Every byte budget in this file is a
     constant and DRAM occupancy is not, so on a full device a budget can decline to block a
-    tensor the allocator then refuses, which used to end the fold. Both callers partition a
-    row axis bit-exactly, so a retry at half the height can only change whether the call
-    finishes.
+    tensor the allocator then refuses, which used to end the fold. Each caller partitions a row
+    axis, but a narrower or ragged block can be a different matmul (OuterProductMean's is), and
+    the narrowed block is remembered for the process. So this is a crash guard: a size that
+    folds must be blocked from its own bytes up front, or the process's later folds compute a
+    different function from a fresh process's.
 
     Stops at one tile row: below that there is nothing left to give back, and re-raising is
     the honest answer rather than spinning on a block that cannot shrink.
@@ -14718,19 +14723,22 @@ class OuterProductMean(Module):
             return out
 
         per_row = C * D * J * 2
-        # Token count only. A byte arm that also row-blocked from 887 tokens up, to bound the
-        # whole path's (tokens, C*D, tokens) product, was measured and removed: _with_dram_narrowing
-        # below already catches that refusal reactively, and main folded 992 on one refused
-        # allocation in 1209 s against 1213 s with the arm in. Gating up front bought no wall time
-        # and re-blocked the whole 887-1088 band, where a ragged final block is a different matmul
-        # (960 tokens: plDDT 0.708054 against 0.708594) -- for every model sharing this op, at sizes
-        # that already folded. state/ceiling-opendde.md; do not re-add without a size main cannot
-        # fold at all.
-        if I > SEQ_LEN_MORE_CHUNKING:
+        # Blocked past SEQ_LEN_MORE_CHUNKING, or once the whole z is over 1/OPM_WHOLE_DRAM_DEN of
+        # the chip's DRAM. The byte arm is about which program a fold runs, not about whether it
+        # fits. Without it Protenix-v2 at 730 tokens on a Wormhole chip (z = 1109393408 B, 1/11 of
+        # DRAM) took the whole path until fragmentation refused the permute's copy by 384 B a
+        # bank, and `_with_dram_narrowing` then switched that process to row blocks for good. A
+        # ragged block is a different matmul, so a serving process's answer for the same input
+        # and seed depended on how many folds it had run (fold 4 on, up to 11 A on c730). Decided
+        # from the input and the part, the program is the same in every process; the refusal
+        # retry below stays as a crash guard. On a 32 GiB Blackhole this blocks above ~1024
+        # tokens; the blocked path costs ~0.3 % of a 992-token fold (1213 s against 1209 s).
+        total = _dram_total_bytes()
+        if I > SEQ_LEN_MORE_CHUNKING or (total and I * per_row * OPM_WHOLE_DRAM_DEN > total):
             # Row block sized so the per-block matmul result stays under OPM_Z_BUDGET_BYTES. That
             # result is (rows*C, D*J), so at a fixed row count it grows with J -- the constant 256
             # is fine at 285 tokens and is what 9i3p (992 padded) dies on. Never below one tile.
-            rows_blk = row_block(C * D * J * 2, OPM_Z_BUDGET_BYTES, cap=OPM_CHUNK_SIZE)
+            rows_blk = row_block(per_row, OPM_Z_BUDGET_BYTES, cap=OPM_CHUNK_SIZE)
         else:
             rows_blk = I
         # A block this shape class was already refused at never gets asked for a second time.
