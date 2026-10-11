@@ -65,6 +65,11 @@ def main():
     ap.add_argument("--ab-trace", action="store_true")
     # The same pairing for any module-level bool, e.g. tt_bio.runtime:SERIAL_HOST.
     ap.add_argument("--ab-attr", metavar="MODULE:NAME", default=None)
+    # Stage split inside the fold: each MODULE:Class.method is wrapped in a device sync on both
+    # sides and its inclusive seconds summed per fold (nested stages each count their own time).
+    # The syncs cost overlap, so a --phases fold is slower than a plain one: read it as a split,
+    # never as a wall.
+    ap.add_argument("--phases", default=None, metavar="MODULE:Class.method,...")
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
 
@@ -121,6 +126,30 @@ def main():
                 return _terms(self, *args, **kw)
             AdaLN.s_terms = counted_terms
 
+    phase_s = {}
+    if a.phases:
+        import ttnn
+
+        def _sync():
+            d = T.get_device()
+            ttnn.synchronize_device(d)
+
+        def _timed(key, fn):
+            def w(*args, **kw):
+                _sync()
+                t0 = time.perf_counter()
+                try:
+                    return fn(*args, **kw)
+                finally:
+                    _sync()
+                    phase_s[key] = phase_s.get(key, 0.0) + time.perf_counter() - t0
+            return w
+        for spec in a.phases.split(","):
+            mod, path = spec.split(":")
+            cls, meth = path.split(".")
+            owner = getattr(importlib.import_module(mod), cls)
+            setattr(owner, meth, _timed(path, getattr(owner, meth)))
+
     fixdir = tree / "perf" / "size512" / "fixtures"
     tgt, a3m = fixdir / f"cdk2x2_{a.size}.yaml", fixdir / f"cdk2x2_{a.size}.a3m"
     msa_dir = tree / f".msa_xmodel_{a.model}_{a.size}"
@@ -148,6 +177,7 @@ def main():
            "loadavg": open("/proc/loadavg").read().split()[:3], "folds": []}
 
     def one(tag):
+        phase_s.clear()
         fold_s, m = one_fold()
         for p in sorted(struct_dir.glob("*.cif")):  # the structure itself, for an RMSD between arms
             shutil.copyfile(p, a.out.parent / f"{tag}_{p.name}")
@@ -160,7 +190,8 @@ def main():
                 "n_tokens": m.get("n_tokens"), "n_atoms": m.get("n_atoms"),
                 "cif_sha256": {p.name: hashlib.sha256(p.read_bytes()).hexdigest()[:16]
                                for p in sorted(struct_dir.glob("*")) if p.is_file()},
-                "loadavg": open("/proc/loadavg").read().split()[:3]}
+                "loadavg": open("/proc/loadavg").read().split()[:3],
+                **({"phases": {k: round(v, 3) for k, v in phase_s.items()}} if a.phases else {})}
 
     def flush():
         a.out.parent.mkdir(parents=True, exist_ok=True)
