@@ -55,7 +55,10 @@ def main():
     ap.add_argument("--instrument", action="store_true")
     # Replay the captured diffusion-step trace (the CLI's --trace for protenix-v2 / opendde,
     # --diffusion_trace for boltz2).
-    ap.add_argument("--trace", action="store_true")
+    # Unset folds at the shipped default (tt_bio.worker._protenix_trace: on for protenix-v1/v2
+    # on Blackhole); --no-trace forces the untraced fold.
+    ap.add_argument("--trace", action="store_const", const=True, default=None)
+    ap.add_argument("--no-trace", dest="trace", action="store_const", const=False)
     # Paired trace A/B in ONE process: the region is reserved once, then each warm pair folds
     # traced and untraced in alternating order. --repeat counts pairs. Host load on a shared
     # box drifts by more than the trace saving, so only a paired delta can read it.
@@ -96,7 +99,7 @@ def main():
         from fold_ab_multi import patch_boltz2_cfg
         sys.path[:] = snap
         B.RECYCLING_STEPS = _resolve_recycling_steps(a.recycles, a.model)   # the injector reads it
-        patch_boltz2_cfg(diffusion_trace=a.trace or a.ab_trace)
+        patch_boltz2_cfg(diffusion_trace=bool(a.trace) or a.ab_trace)
 
     # Reachability counters. Installed only for --census: they wrap a function the diffusion
     # rollout calls tens of thousands of times, so they are host cost inside the timed region.
@@ -124,7 +127,7 @@ def main():
     _bf = {} if a.samples is None else {"samples": a.samples}
     _bf["recycling_steps"] = a.recycles
     one_fold, meta, state = B.build_fold(a.model, msa_dir, tgt, a3m, fast=a.fast,
-                                          instrument=a.instrument, trace=a.trace or a.ab_trace,
+                                          instrument=a.instrument, trace=True if a.ab_trace else a.trace,
                                           **_bf)[:3]
     struct_dir = Path(meta["struct_dir"])
 

@@ -12,6 +12,10 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   identical output. Per complex at 195 tokens on a Wormhole Galaxy chip at 1000 MHz: 6.41 s instead of 16.16 s.
   On a p150a at 1350 MHz the outer product change alone takes it from 5.63 s to 4.54 s. Against the previous
   release, structures move by 0.05 to 0.20 A and ipTM by at most 0.0007.
+- **Protenix-v1 and Protenix-v2 replay the diffusion step from a device trace on Blackhole by default**,
+  with identical output. On a p150a at 1350 MHz the 512-token single-sample fold takes 1.0 s less in normal
+  mode and 1.0-1.4 s less in `--fast` (Protenix-v2 35.1-35.4 s instead of 36.2-36.3 s fast). `--no_trace`
+  turns it off; Wormhole keeps it opt-in with `--trace`.
 - **OpenFold3 and OpenBind-0 replay the diffusion step from a device trace**, with identical output. On a
   Blackhole p150a at 1350 MHz the 512-aa fold takes 15.1 to 15.8 s instead of 17.8 to 18.9 s. If the trace
   cannot be captured the fold runs the old step-by-step path; `OF3_DIFFUSION_TRACE=0` forces it.

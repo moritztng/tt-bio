@@ -730,6 +730,30 @@ def _protenix_family() -> tuple[str, ...]:
     return PROTENIX_FAMILY
 
 
+def _protenix_trace(cfg: dict[str, Any]) -> bool:
+    """Whether a protenix-v1/v2 fold replays its per-step diffusion from a captured trace.
+
+    --trace / --no_trace decide. Unset, it is on for Blackhole: the replay is lossless (same
+    CIF digest) and cuts 1.0-1.1 s off a 512-token single-sample fold on a p150a in both modes,
+    paired in one process (state/spd-gap-small.md), for a 36 MiB/bank region. Wormhole stays
+    opt-in until its 2048-residue ceiling is re-walked with the region reserved.
+    """
+    if cfg.get("trace") is not None:
+        return bool(cfg["trace"])
+    from tt_bio.tenstorrent import arch_name
+
+    return arch_name() == "blackhole"
+
+
+def _protenix_region_reserved() -> bool:
+    """Whether the open chip carries a region a Protenix diffusion step fits in. A worker kept
+    resident across jobs reloads on the model config only (run_config_hash), not on --trace,
+    so a fold asks the chip it got rather than assume load_model reserved one."""
+    from tt_bio.tenstorrent import trace_region_bytes, trace_region_size
+
+    return trace_region_size() >= trace_region_bytes("protenix")
+
+
 def _of3_family() -> tuple[str, ...]:
     """The --model ids the OpenFold3 implementation serves (preview2 and OpenBind).
 
@@ -864,10 +888,12 @@ class _WorkerState:
             self.model._esmc.preload()
         elif model_id in _protenix_family():
             from tt_bio.protenix import Protenix
-            from tt_bio.tenstorrent import get_device
+            from tt_bio.tenstorrent import cleanup, get_device
 
-            if cfg.get("trace"):
-                get_device(trace="protenix")   # reset() closed the chip; this open reserves it
+            if _protenix_trace(cfg) and not _protenix_region_reserved():
+                # The region is reserved only at open: close a chip opened without it.
+                cleanup()
+                get_device(trace="protenix")
 
             # Same class for both ids: c_z, the stack depths and the recycling count all come
             # off the weights (Trunk._derive_c_z / n_blocks / trunk_recycles).
@@ -1457,7 +1483,7 @@ class _WorkerState:
                 # Protenix.fold accepts trace=, but this call site never forwarded it, so
                 # every protenix fold ran the untraced per-step dispatch. The OpenDDE branch
                 # above forwards it, which is why the flag looked plumbed.
-                trace=cfg.get("trace", False),
+                trace=_protenix_trace(cfg) and _protenix_region_reserved(),
             )
         confs = conf if isinstance(conf, list) else [conf]
         return self._protenix_emit(path, cfg, feats, chains, chain_specs, coords, confs)

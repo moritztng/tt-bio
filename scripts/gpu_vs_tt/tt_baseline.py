@@ -318,7 +318,7 @@ class Instrument:
 
 def build_fold(model: str, msa_dir: Path, target: Path, a3m: Path,
                samples: int = DIFFUSION_SAMPLES, hoist: bool = False,
-               instrument: bool = False, fast: bool = False, trace: bool = False,
+               instrument: bool = False, fast: bool = False, trace: bool | None = None,
                recycling_steps: int | None = None):
     """Open the card, load the model, seed the MSA cache; return ``(one_fold, meta)``.
 
@@ -464,7 +464,7 @@ def build_fold(model: str, msa_dir: Path, target: Path, a3m: Path,
 
 def measure(model: str, repeat: int, msa_dir: Path, out_path: Path,
             target: Path, a3m: Path, label: str, fast: bool = False,
-            keep_cif: Path | None = None, trace: bool = False,
+            keep_cif: Path | None = None, trace: bool | None = None,
             ab_env: str | None = None, ab_values: tuple[str, str] = ("1", "0"),
             recycling_steps: int | None = None) -> dict:
     one_fold, meta, state = build_fold(model, msa_dir, target, a3m, fast=fast, trace=trace,
@@ -603,8 +603,11 @@ def main() -> int:
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--fast", action="store_true",
                     help="fold with the shipped --fast block-fp8 path (not the default arm)")
-    ap.add_argument("--trace", action="store_true",
-                    help="replay a captured ttnn trace of the diffusion step")
+    ap.add_argument("--trace", action="store_const", const=True, default=None,
+                    help="replay a captured ttnn trace of the diffusion step (unset: the "
+                         "shipped default, on for protenix-v1/v2 on Blackhole)")
+    ap.add_argument("--no-trace", dest="trace", action="store_const", const=False,
+                    help="fold untraced")
     ap.add_argument("--keep-cif", type=Path, default=None,
                     help="copy each fold's CIF here, so an arm can be scored against another")
     ap.add_argument("--ab-env", default=None, metavar="NAME",
