@@ -297,6 +297,9 @@ try:
 except _Stop:
     pass
 cfg0 = dict(captured["payload"]["config"])
+# the CLI can turn --fast on itself (ESMFold2 on Wormhole: the normal ESMC-6B does not fit 12 GB);
+# every build below passes fast=FAST, so take the CLI's word or a normal arm OOMs at preload
+FAST = FAST or bool(cfg0.get("fast"))
 if a.dry:  # the run config the CLI built, before any weights or device
     log(ev="dry", model=a.model, cli=argv, cfg={k: v for k, v in cfg0.items() if "key" not in k and "pass" not in k})
     os._exit(0)
