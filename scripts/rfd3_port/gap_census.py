@@ -10,6 +10,10 @@ Two folds of the page fixture (seed 42, 1 design, batch 1), after one discarded 
      wall includes its own device work and its own host work, and the entry sync charges queued work
      to the caller. The census fold is slower than the plain one by the syncs it adds; the gap
      between the census total and the plain total is reported, not hidden.
+  3. drain: only the step is synced, at entry and exit. `return_ms` is the time until the step's
+     Python returns (host torch, op dispatch, and any sync the step itself does); `drain_ms` is the
+     device work still queued after it returns. A step with a small drain is waiting on its host,
+     which is what trace capture would remove; a large drain means the device is the bound.
 
 Regions are class methods, patched on the class, so the census sees every instance. The residual
 (step wall minus the sum of the top-level regions) is the host glue in RFD3DiffusionModule.__call__
@@ -56,6 +60,7 @@ ATTN_IDX = ("attn_indices", M, "_create_attention_indices", True)
 acc = collections.defaultdict(float)
 cnt = collections.Counter()
 ON = [False]
+DRAIN = [False, [], []]
 
 
 def sync():
@@ -66,6 +71,15 @@ def wrap(label, owner, name):
     fn = getattr(owner, name)
 
     def timed(*a, **k):
+        if DRAIN[0] and label == "step":
+            sync()
+            t0 = time.perf_counter()
+            out = fn(*a, **k)
+            t1 = time.perf_counter()
+            sync()
+            DRAIN[1].append(t1 - t0)
+            DRAIN[2].append(time.perf_counter() - t1)
+            return out
         if not ON[0]:
             return fn(*a, **k)
         sync()
@@ -115,6 +129,12 @@ ON[0] = True
 cen_s, cen_d = fold("census")
 ON[0] = False
 print("[census] census %.3f s %s" % (cen_s, cen_d), flush=True)
+DRAIN[0] = True
+drain_s, drain_d = fold("drain")
+DRAIN[0] = False
+ret_ms, drn_ms = (1e3 * sum(x) / max(len(x), 1) for x in DRAIN[1:])
+print("[census] drain  %.3f s %s  step returns after %.2f ms, then drains %.2f ms" % (drain_s, drain_d, ret_ms, drn_ms),
+      flush=True)
 
 top = [r[0] for r in REGIONS + [ATTN_IDX] if r[3]]
 step_total = acc["step"]
@@ -131,6 +151,7 @@ print("  sampler outside the module: %.2f ms/step" % (1e3 * (cen_s - step_total)
 rec = {"fixture": FIXTURE, "steps": STEPS, "warm_s": warm_s, "plain_s": plain_s, "census_s": cen_s,
        "digests": {"warm": warm_d, "plain": plain_d, "census": cen_d},
        "sync_inflation_s": cen_s - plain_s, "regions": rows,
+       "drain": {"fold_s": drain_s, "digest": drain_d, "steps": len(DRAIN[1]), "return_ms": ret_ms, "drain_ms": drn_ms},
        "card": os.environ.get("TT_VISIBLE_DEVICES"), "host": os.uname().nodename}
 OUT.parent.mkdir(parents=True, exist_ok=True)
 OUT.write_text(json.dumps(rec, indent=1))
