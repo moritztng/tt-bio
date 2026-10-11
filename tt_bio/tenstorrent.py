@@ -9153,6 +9153,24 @@ class TriangleMultiplication(Module):
         # budget has to see the batch a confidence head arrives with, not just H.
         batch = prod(shp[:-3])
         large_seq = memory_config.buffer_type == ttnn.BufferType.DRAM
+        # The output the channel chunks are written into (`_TRIMUL_BACK_INTO`) is a second
+        # pair-sized tensor beside the whole input norm. Made lazily at the first chunk it was
+        # refused at Protenix-v2's 2048 tokens (2 GiB against 165 MiB/bank free after the norm)
+        # and sent every trimul of the process to the host join. Reserve it here, and if it does
+        # not fit beside the norm, drop the norm for the row blocks, which do not hold one.
+        x_out_pre = None
+        if (large_seq and _TRIMUL_BACK_INTO and not _TRIMUL_RAW_CHANNEL_MOVES
+                and not _host_concat(x)):
+            try:
+                x_out_pre = ttnn.allocate_tensor_on_device(
+                    ttnn.Shape([1, H, H, self._hidden]), _dtype(), ttnn.TILE_LAYOUT,
+                    self.device, memory_config)
+            except RuntimeError as exc:
+                from tt_bio.size_limits import is_alloc_refusal
+                if not is_alloc_refusal(exc) or row_norm:
+                    raise
+                ttnn.deallocate(x_norm_in)
+                x_norm_in, row_norm = None, True
         chunk_size = _trimul_chunk_size(H, self._hidden, batch)
         if large_seq:
             # Start inside the byte budget this shape has already been refused above, instead of
@@ -9487,6 +9505,12 @@ class TriangleMultiplication(Module):
                     if into:
                         # Each chunk lands in its own channel slice of one output tensor, so the
                         # concat below never runs. Bit-exact: the same bytes in the same order.
+                        if x_out is None and x_out_pre is not None:
+                            if x_out_pre.dtype == x_chunk.dtype:
+                                x_out = x_out_pre
+                            else:
+                                ttnn.deallocate(x_out_pre)
+                            x_out_pre = None
                         if x_out is None:
                             x_out = ttnn.allocate_tensor_on_device(
                                 ttnn.Shape([1, H, H, self._hidden]), x_chunk.dtype,
@@ -9566,6 +9590,9 @@ class TriangleMultiplication(Module):
                 if x_out is not None:
                     ttnn.deallocate(x_out)
                 x_out, c_done = None, 0
+                if x_out_pre is not None:
+                    ttnn.deallocate(x_out_pre)
+                    x_out_pre = None
                 # Drop the interrupted iteration's intermediates: whatever was live
                 # at the throw still holds L1, and the retry must allocate against a
                 # clean slate, not against the corpse of the failed attempt.
@@ -9644,6 +9671,8 @@ class TriangleMultiplication(Module):
                 ttnn.deallocate(g_out_fused)
             if H <= SEQ_LEN_MORE_CHUNKING:
                 TRIMUL_TAIL_ROWS_STATS[1] += 1
+        if x_out_pre is not None:       # reserved, but no chunk took the write-into path
+            ttnn.deallocate(x_out_pre)
         if rows_tail and host_acc:
             # The hidden stays on the host as its channel chunks and the tail uploads one row
             # block of it at a time: uploaded whole it is a second pair-sized tensor beside z.
