@@ -9,7 +9,8 @@ for e in $1; do
   [ $m = colabdesign ] && { SET=box_bc_setup.sh; ARMS=box_bc_arms.sh; BP=/opt/burn-venv/bin/python; }
   bash $SET $m > setup-$m.log 2>&1 || { echo $m setup-failed >> CHAIN-PROGRESS; continue; }
   # a JAX kit (af2ig) has no torch either: same venv, created on first need
-  $BP -c 'import torch' 2>/dev/null || { BP=/opt/burn-venv/bin/python; [ -x $BP ] || { python3 -m venv /opt/burn-venv &&
+  $BP -c 'import torch' 2>/dev/null || { BP=/opt/burn-venv/bin/python; [ -x $BP ] || { for PB in /usr/local/bin/python3 /opt/py3.12.1/bin/python3 /opt/py3.12.10/bin/python3; do [ -x $PB ] && break; done
+    $PB -m venv /opt/burn-venv &&
     $BP -m pip install -q torch --index-url https://download.pytorch.org/whl/cu130; } >> burn-venv.log 2>&1; }
   [ -f burn.log ] || $BP burn_gate.py > burn.log 2>&1 || { echo THERMAL-FAIL > THERMAL-FAIL; exit 3; }
   # model:modes:levers_off, e.g. rosettafold3:exact,fast:prefetch,awrite
