@@ -544,10 +544,9 @@ def _tfg_guidance(path, cfg, feats, chains, bonds):
     gfeats = dict(feats)
     gfeats.update(F.constraint_features(constraint, feats, chains, entities))
     gfeats.update(F.geometry_features(feats, chains, entities, bonds=bonds))
-    # Samples are guided independently, so each host thread of this fold's share takes a group of them in its own
-    # one-thread process (same output for any count, faster than torch threads on one batch).
-    import torch
-    return Guidance(gfeats, workers=min(int(cfg.get("diffusion_samples") or 1), torch.get_num_threads()))
+    # In-process on the fold's own threads: a step is milliseconds, so per-sample child processes lost more to their
+    # pipes than they saved (1bzq 0.9 vs 2.7 s, 9xqn 2.3-2.8 vs 5.7-6.1 s per fold on a Galaxy host).
+    return Guidance(gfeats)
 
 
 def search_msas(path, chains, cfg, progress=None) -> None:
