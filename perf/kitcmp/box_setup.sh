@@ -92,9 +92,22 @@ case $M in
   pxdesign)   # stock's LayerNorm extension compiles here once, as the Dockerfile does
     python -c "import os, protenix.model.layer_norm.layer_norm as m; p = os.path.join(os.path.dirname(m.__file__), 'fastfold_layer_norm_cuda.so'); assert os.path.isfile(p), p"
     export PXDESIGN_CKPT_DIR=/weights/pxdesign/checkpoint PROTENIX_DATA_ROOT_DIR=/weights/pxdesign/ccd_cache; W=/weights/pxdesign;;
-  protenix_v1) pip install -q --no-deps stock/protenix-1.1.0-py3-none-any.whl; export PROTENIX_ROOT_DIR=/weights/protenix_v1; W=$PROTENIX_ROOT_DIR;;
+  protenix_v1)  # nccl/cudnn cu12 and cu13 share one lib path; the cu12 wheel lands last and torch 2.13 misses ncclCommResume (as RF3)
+    pip install -q --no-deps --force-reinstall nvidia-cudnn-cu13==9.20.0.48 nvidia-nccl-cu13==2.29.7
+    pip install -q --no-deps stock/protenix-1.1.0-py3-none-any.whl; export PROTENIX_ROOT_DIR=/weights/protenix_v1; W=$PROTENIX_ROOT_DIR;;
   af2ig) export AF2IG_DIR=$K/dl_binder_design/af2_initial_guess AF2_PARAMS=/weights/af2ig; W=/weights/af2ig;;
-  esmc)  export HF_HOME=/weights/esmc/hf; W=/weights/esmc;;
+  esmc)  export HF_HOME=/weights/esmc/hf; W=/weights/esmc
+    # upstream re-published ESMC-300M after the pin; fetch each pinned snapshot by revision so install only checks digests
+    python - <<'PY'
+import json
+from huggingface_hub import snapshot_download
+p = json.load(open('stock/PINS.json'))
+for v in p['variants'].values():
+    if isinstance(v, dict) and 'hf_repo' in v:
+        r = v['hf_repo']
+        print(snapshot_download(r, revision=p['weights'][r]['snapshot_commit'], allow_patterns=['*.json', '*.safetensors']))
+PY
+    ;;
   protenix_v2) pip install -q --no-deps stock/protenix-2.0.0-py3-none-any.whl; export PROTENIX_ROOT_DIR=/weights/protenix; W=$PROTENIX_ROOT_DIR;;
 esac
 SP=$(python -c 'import site; print(site.getsitepackages()[0])'); cp /root/kc/kctime.py $SP/ && echo "import kctime" > $SP/kctime.pth
