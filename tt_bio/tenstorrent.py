@@ -586,7 +586,6 @@ _FAST_MODE = False
 #                   the adaLN outputs, the gated attention output and the swiglu product are written bfp8;
 #                   q/k/v, the gate, the residual updates and the residual stream stay bf16. On an fp32 DiT
 #                   (OpenFold3) the same operands accumulate in fp32 (`k1_linear`) and the stream stays fp32.
-#                   Boltz-2's token DiT (`Diffusion`) takes the HiFi2 half only, on its bf16 operands.
 #   dit_qkv16       with dit_mm16 and dit_sdpa32, the fp32 token DiT's q/k/v written bf16: the head split
 #                   and `_sdpa32` read them at bf16, the mask and the attention output stay fp32
 #   atom_k1         the fp32 diffusion atom transformer's linears on `k1_linear`'s program (Wormhole:
@@ -1120,15 +1119,6 @@ def lpx_compute_kernel_config(base):
                      math_approx_mode=base.math_approx_mode,
                      fp32_dest_acc_en=base.fp32_dest_acc_en and not lever("acc_off"),
                      packer_l1_acc=base.packer_l1_acc)
-    cfg.dst_full_sync_en = base.dst_full_sync_en
-    cfg.throttle_level = base.throttle_level
-    return cfg
-
-
-def fidelity_compute_kernel_config(base, fidelity):
-    """`base` at another math fidelity, everything else kept."""
-    cfg = type(base)(math_fidelity=fidelity, math_approx_mode=base.math_approx_mode,
-                     fp32_dest_acc_en=base.fp32_dest_acc_en, packer_l1_acc=base.packer_l1_acc)
     cfg.dst_full_sync_en = base.dst_full_sync_en
     cfg.throttle_level = base.throttle_level
     return cfg
@@ -15215,10 +15205,6 @@ class Diffusion(Module):
         self.s_to_a_linear_weight = self.torch_to_tt("s_to_a_linear.1.weight")
         self.token_transformer_fp32 = _DIFFUSION_FP32_DEVICE
         token_dtype = ttnn.float32 if self.token_transformer_fp32 else None
-        # dit_b8 on Boltz-2's bf16 token DiT: its linears at HiFi2. They are compute-bound at HiFi4
-        # (the per-step 768 -> 73728 conditioning linear is 58 GFLOP, 1.13 ms on p150a = HiFi4's roof).
-        token_ckc = (fidelity_compute_kernel_config(compute_kernel_config, ttnn.MathFidelity.HiFi2)
-                     if lever("dit_b8") and not self.token_transformer_fp32 else compute_kernel_config)
         with device_dtype_override(token_dtype):
             self.token_transformer = DiffusionTransformer(
                 n_layers=TOKEN_N_LAYERS,
@@ -15226,7 +15212,7 @@ class Diffusion(Module):
                 n_heads=TOKEN_N_HEADS,
                 atom_level=False,
                 state_dict=self.scope("token_transformer"),
-                compute_kernel_config=token_ckc,
+                compute_kernel_config=compute_kernel_config,
             )
         self.a_norm_weight = self.torch_to_tt("a_norm.weight")
         self.a_norm_bias = self.torch_to_tt("a_norm.bias")
