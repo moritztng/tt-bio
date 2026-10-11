@@ -79,6 +79,7 @@ def _trunk_host(n_msa=1):
 def _fake_rf3(recycles_seen):
     """A bare RF3 whose device collaborators are counted instead of run."""
     m = object.__new__(RF3)
+    m._levers = frozenset()
     m.feature_initializer = lambda *a: ("s_inputs", "s_init", "z_init")
     m.recycler = types.SimpleNamespace(
         template_embedder=types.SimpleNamespace(

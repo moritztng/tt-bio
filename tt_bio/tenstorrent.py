@@ -93,6 +93,9 @@ _TRIATT_BLOCK_REFUSED: dict = {}
 # row blocks to 5. It does NOT make 9i3p fold -- the target then hits the pair representation
 # (980*992*384*2) instead, which is a separate limit this constant has no bearing on.
 OPM_Z_BUDGET_BYTES = 1 << 28              # 0.25 GiB
+# OuterProductMean also blocks once its whole z is over this fraction of the chip's DRAM (see the
+# call site): 805306368 B on a 12 GiB Wormhole chip, so from ~628 tokens there.
+OPM_WHOLE_DRAM_DEN = 16
 # `I > SEQ_LEN_MORE_CHUNKING` decides whether that budget is consulted at all, and that constant
 # answers a DIFFERENT question: it bounds how many full PAIR tensors are live at once, which is
 # why _apply_grid_thresholds re-expressed it against DRAM and moved it 608 -> 1088 on a 12 GiB
@@ -560,8 +563,8 @@ _FAST_MODE = False
 #                   (the template pair) 2.29 -> 0.88 ms.
 #   silu_f32        every silu fused into a matmul (the swiglu fc1) runs calculate_silu_f32: 6e-6
 #                   of float64 at 32 SFPU instructions a row against the wheel's 92 (kernels/silu_f32)
-#   transition_bw   the transition's three matmuls take the K block and grid measured fastest at
-#                   no loss against float64 (`_TRANSITION_BW`); others keep ttnn's in0_block_w
+#   transition_bw   the transition's three matmuls take a K block fixed by the op and K alone
+#                   (`_transition_kb`), on every path and grid; ttnn's own pick otherwise
 #   transition_shard the pair transition's swiglu on block-sharded intermediates, in row blocks that
 #                   fill the grid (`_transition_swiglu_sharded`); fc3's K block becomes the shard width
 #   dit_mm16        the fp32 token DiT's linears on bf16 operands with fp32 accumulation (`k1_linear`):
@@ -584,13 +587,15 @@ _FAST_MODE = False
 #   swiglu_fc12g    inside transition_shard, silu(x w1) * (x w2) as ONE matmul over [w1_j | w2_j] with the silu
 #                   and the gate multiply in the compute kernel (kernels/fc12g): no fc1/fc2 tensors, no
 #                   multiply op; the gate multiplies fc2 in dest rather than its stored copy. Needs silu_f32.
+#   dit_sdpa_pm     with dit_sdpa, the token DiT's fused SDPA reads its bias once per head instead of once per
+#                   sample (`token_dit_sdpa_pm`, triangle attention's persistent-mask kernel)
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in",
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
           "transition_shard", "dit_mm16", "atom_k1", "dit_b8", "dit_qkv16", "atom_mm16", "adaln_mod",
-          "swiglu_fc12g", "msa_sample")
+          "swiglu_fc12g", "msa_sample", "dit_sdpa_pm")
 # Named but in no mode until their fold grade puts them in one.
-UNGRADED_LEVERS = frozenset({"trimul_b8in", "transition_bw", "atom_mm16", "adaln_mod"})
+UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "adaln_mod"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -600,6 +605,11 @@ UNGRADED_LEVERS = frozenset({"trimul_b8in", "transition_bw", "atom_mm16", "adaln
 # dit_b8 is fast-only. Protenix-v2 fast grade (fast vs fast+dit_b8, same tree, Wormhole 11-set, 44 paired
 # folds) PASS: CA-lDDT -0.0122 [-0.0209, -0.0044] against the 0.03 bar, pLDDT -0.0021, docking 33 -> 33 of 44
 # (spd-difflin gf1, 2026-10-09). Saves 1.81 s of the Wormhole c730 sampler (34.95 -> 33.14 s, 1000 MHz).
+# dit_sdpa_pm is fast-only (normal mode's fp32 DiT runs `_sdpa32`). Protenix-v2 fast grade (fast vs
+# fast+dit_sdpa_pm, Wormhole 11-set, 44 paired folds) PASS: CA-lDDT +0.0024 [+0.0013, +0.0036], same-seed top pose
+# median 0.271 A against the 0.60 A bar (A/A floor 1.206 A), docking 35 -> 35 of 44. Per call at c730, 0.928 ->
+# 0.532 ms on Wormhole (1000 MHz) and 0.410 -> 0.367 ms on Blackhole p150a (1350 MHz); c730 warm fold, same
+# seeds, 189.2 -> 187.8 s on a Galaxy chip and 94.4 -> 93.5 s on p150a (spd-ditsdpa, 2026-10-11).
 FAST_LEVERS = frozenset(LEVERS) - {"lofi", "triatt_b8", "triatt_bias_b8"} - UNGRADED_LEVERS
 # trimul_ibw + trimul_tail: Wormhole 11-set grade PASS, 44 paired folds, same-seed top pose median
 # 0.204 A against the 0.60 A bar (A/A seed floor 0.807 A), every paired CI covers 0 or sits on the
@@ -662,6 +672,9 @@ FAST_LEVERS = frozenset(LEVERS) - {"lofi", "triatt_b8", "triatt_bias_b8"} - UNGR
 # OuterProductMean's refused-call retry reading a freed operand, not the rows; with that fixed the same 308
 # pairs pass: CA-lDDT -0.0057 [-0.0151, +0.0008], top pose median 0.704 A (floor 0.754 A), docking 231 -> 232
 # of 308 (state/spd-msasample.md, 2026-10-10).
+# transition_bw and transition_shard are fast-only. Wormhole fast vs staging21 fast, 185 paired folds: PASS (DockQ
+# +0.009, docking 143 -> 146). Normal vs staging21 normal, 161 paired folds: FAIL on pose-flip tails (lrmsd +2.60 A
+# [+0.21, +6.44], same-seed top pose median 0.081 A, max 40 A). c730 speed is flat either way (spd-orchestrator g22x).
 NORMAL_LEVERS = frozenset({"trimul_ibw", "trimul_tail", "trunk_hifi3", "dit_sdpa32", "silu_f32", "triatt_tail",
                            "atom_k1", "dit_mm16", "dit_qkv16", "msa_sample"})
 _LEVERS = frozenset()
@@ -1098,6 +1111,19 @@ def ln_compute_kernel_config(ckc):
         out.throttle_level = ckc.throttle_level
         _LN_CKCS[key] = out
     return out
+
+
+#: Run `precise_config` (and AF2's trunk config, `af2.compute_kernel_config`) at HiFi3 instead of
+#: HiFi4. HiFi3 drops only the A_lo*B_lo pass, below a bf16 output's own rounding step
+#: (`tenstorrent.trunk_compute_kernel_config`), and on Wormhole HiFi4 with fp32 accumulation returns
+#: a wrong element now and then: [0, 57, 88, 421] of a 128x128x128 @ 128x512 bf16 product reads
+#: -3.83 against a true 0.163 on every chip, in ttnn.matmul and minimal_matmul alike, while HiFi3
+#: returns the correctly rounded 0.1631 (perf/spd/matmul_spike_repro.py). Read per call.
+PRECISE_HIFI3 = env_flag("TT_BIO_PRECISE_HIFI3", False)
+
+
+def precise_fidelity():
+    return ttnn.MathFidelity.HiFi3 if PRECISE_HIFI3 else ttnn.MathFidelity.HiFi4
 
 
 def trunk_compute_kernel_config(base):
@@ -2692,6 +2718,40 @@ def _sdpa_masked(fn, q, k, v, bias, *args, site: str, pad: bool = False, **kw):
     return sl
 
 
+# (batch, q_len, heads, head_dim, dtype) -> the (q_chunk, k_chunk, padded) pair `token_dit_sdpa_pm`
+# serves, or None once every pair declined. Filled on the first call of a shape.
+_DIT_PM_PICK: dict = {}
+
+
+def token_dit_sdpa_pm(q, k, v, bias, scale: float):
+    """The bf16 token DiT's SDPA with its bias read once per head instead of once per sample.
+
+    The stock op re-reads the [1, H, S, S] bias for every batch row, and the DiT's batch is its
+    samples: at c730 that is 5 x 17.3 MB per call for 4.6 MB of q/k/v. `triatt_sdpa.sdpa` holds a
+    head's bias rows in L1 across the batch loop (the same kernel triangle attention runs), the pair
+    taken from `fused_pairs` priced at the real batch. Wormhole c730, 1000 MHz: 0.928 -> 0.523 ms a
+    call, rel_rms to float64 0.0271 -> 0.0267 (perf/spd_ditsdpa/opbench.py). Returns None when no
+    pair serves; the caller then runs the stock op. Fast mode's `dit_sdpa_pm` lever.
+    """
+    B, H, S, D = (int(d) for d in q.shape)
+    key = (B, S, H, D, q.dtype)
+    if key not in _DIT_PM_PICK:
+        cores = COMPUTE_GRID_MAIN[0] * COMPUTE_GRID_MAIN[1]
+        cands = [(qc, kc, pad) for pad in (False, True)
+                 for qc, kc in _triatt_sdpa.fused_pairs(S, H, D, cores, q.dtype, padded=pad, batch=B)]
+        for qc, kc, pad in cands:
+            o = _triatt_sdpa.sdpa(q, k, v, bias, scale, qc, kc, q_split_cap=0, padded_mask=pad)
+            if o is not None:
+                _DIT_PM_PICK[key] = (qc, kc, pad)
+                return o
+        _DIT_PM_PICK[key] = None
+    pick = _DIT_PM_PICK[key]
+    if pick is None:
+        return None
+    qc, kc, pad = pick
+    return _triatt_sdpa.sdpa(q, k, v, bias, scale, qc, kc, q_split_cap=0, padded_mask=pad)
+
+
 def _tri_att_sdpa(q, k, v, bias, scale: float, ckc=None, pad: bool = False):
     """SDPA for triangle attention at the widest q_chunk this device's L1 will hold.
 
@@ -4213,9 +4273,11 @@ def _with_dram_narrowing(run, blk: int, narrow, compact=None):
 
     Let the device have the last word on the block. Every byte budget in this file is a
     constant and DRAM occupancy is not, so on a full device a budget can decline to block a
-    tensor the allocator then refuses, which used to end the fold. Both callers partition a
-    row axis bit-exactly, so a retry at half the height can only change whether the call
-    finishes.
+    tensor the allocator then refuses, which used to end the fold. Each caller partitions a row
+    axis, but a narrower or ragged block can be a different matmul (OuterProductMean's is), and
+    the narrowed block is remembered for the process. So this is a crash guard: a size that
+    folds must be blocked from its own bytes up front, or the process's later folds compute a
+    different function from a fresh process's.
 
     Stops at one tile row: below that there is nothing left to give back, and re-raising is
     the honest answer rather than spinning on a block that cannot shrink.
@@ -6979,6 +7041,25 @@ def place_by_reserve(t, reserve):
     return h
 
 
+def _up_tilize_on_device(t):
+    """A bf16 host tensor on the chip in TILE layout, tilized by the chip rather than the host.
+
+    ttnn's host tilize holds the GIL and runs on one core: an MSA feature of 9,216 rows x 736 tokens
+    (msa_sample's per-cycle upload at c730) sat the chip idle for over a second each recycling cycle,
+    longer on a loaded host. Uploaded row-major the host only copies the bytes, and the chip's tilize
+    places the same bf16 values and zero-pads the channels as the host does, so the tensor is the same."""
+    r = ttnn.from_torch(t.contiguous(), layout=ttnn.ROW_MAJOR_LAYOUT, device=get_device(), dtype=ttnn.bfloat16)
+    x = ttnn.to_layout(r, ttnn.TILE_LAYOUT)
+    ttnn.deallocate(r)
+    return x
+
+
+def msa_upload_whole(depth, tokens, channels):
+    """Whether `msa_embed` uploads an MSA feature of this size in one piece rather than in depth chunks."""
+    v = os.environ.get("TT_BIO_MSA_HOST_OFFLOAD_MIN_BYTES")
+    return depth * tokens * (-(-channels // 32) * 32) * 2 <= (int(v) if v else MSA_HOST_OFFLOAD_MIN_BYTES)
+
+
 def msa_embed(feat, project, rows=MSA_CHUNK_SIZE, keep=None):
     """The trunk's pristine `m` = `project(feat)`, placed the way `msa_host_offload(m, keep)` places it.
 
@@ -6991,17 +7072,17 @@ def msa_embed(feat, project, rows=MSA_CHUNK_SIZE, keep=None):
     `keep` (capped at `MSA_JOIN_MAX_BYTES`) holds the whole `m`, else each comes straight back to
     the host. Every op in the projection is per alignment row, so the chunks hold the rows the
     whole pass does."""
-    up = lambda t: ttnn.from_torch((t if t.dtype == torch.bfloat16 else t.float()).contiguous(),
-                                   layout=ttnn.TILE_LAYOUT, device=get_device(), dtype=ttnn.bfloat16)
+    up = lambda t: (_up_tilize_on_device(t) if t.dtype == torch.bfloat16 else
+                    ttnn.from_torch(t.float().contiguous(), layout=ttnn.TILE_LAYOUT, device=get_device(),
+                                    dtype=ttnn.bfloat16))
     v = os.environ.get("TT_BIO_MSA_HOST_OFFLOAD_MIN_BYTES")
-    lim = int(v) if v else MSA_HOST_OFFLOAD_MIN_BYTES
     host = torch.is_tensor(feat)
-    D, N, c = feat.shape[1:] if host else (0, 0, 0)
-    if D * N * (-(-c // 32) * 32) * 2 <= lim:
+    if not host or msa_upload_whole(*feat.shape[1:]):
         x = up(feat) if host else feat
         m = project(x)
         ttnn.deallocate(x)
         return msa_host_offload(m, keep)
+    D, N = feat.shape[1:3]
     # A whole `m` that `msa_host_offload` would keep stays on the chip: the projected chunks are
     # joined there instead of each making a trip to the host. At 678 tokens against 13,602 rows
     # the 1.14 GiB feature missed the one-upload size, so the trunk streamed an `m` it had room
@@ -7046,9 +7127,36 @@ def msa_rows_host(feat, rows, bucket):
     and the real row count and adds nothing for them."""
     x = feat.new_zeros((1, bucket, *feat.shape[2:]))
     x[:, :len(rows)] = feat[:, rows]
+    return x, msa_rows_mask(len(rows), bucket)
+
+
+def msa_rows_mask(k, bucket):
+    """[bucket, 1, 1]: 1 for the first `k` rows, the real ones, 0 for the padding."""
     mask = torch.zeros(bucket, 1, 1)
-    mask[:len(rows)] = 1.0
-    return x, mask
+    mask[:k] = 1.0
+    return mask
+
+
+def msa_rows_table(feat):
+    """The host feature [1, depth, tokens, c] on the chip as a row-major table [depth + 1, tokens * c], one
+    alignment row per page and a zero row last, so `msa_rows_device` can pick a cycle's rows there."""
+    D, N, c = feat.shape[1:]
+    flat = torch.cat([feat.reshape(D, N * c), feat.new_zeros(1, N * c)])
+    return ttnn.from_torch(flat, layout=ttnn.ROW_MAJOR_LAYOUT, device=get_device(), dtype=ttnn.bfloat16)
+
+
+def msa_rows_device(table, rows, bucket, tokens):
+    """`msa_rows_host`'s feature, gathered on the chip from `msa_rows_table`: [1, bucket, tokens, c] in TILE
+    layout, rows `rows` then zero rows. The gather and the tilize only move bf16 values, so it is the tensor the
+    host cut uploads, and the host sends the chip `bucket` row indices instead of the rows."""
+    idx = torch.full((1, bucket), table.shape[0] - 1, dtype=torch.int32)
+    idx[0, :len(rows)] = rows
+    i = ttnn.from_torch(idx, layout=ttnn.ROW_MAJOR_LAYOUT, device=get_device(), dtype=ttnn.uint32)
+    g = ttnn.embedding(i, table, layout=ttnn.ROW_MAJOR_LAYOUT, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+    ttnn.deallocate(i)
+    x = ttnn.to_layout(ttnn.reshape(g, (1, bucket, tokens, table.shape[1] // tokens)), ttnn.TILE_LAYOUT)
+    ttnn.deallocate(g)
+    return x
 
 
 def _join_depth_chunks(chunks, group=8):
@@ -7157,10 +7265,37 @@ _device_lease = None
 _device_generation = 0
 
 
+#: A healthy single-chip open takes 1-15 s on a Galaxy (bench.jsonl ``device_open``, .114
+#: 2026-10-11). An open still running after this is a chip left dirty by a process killed
+#: mid-op: it spins in C at 100 % CPU, ignores SIGINT and SIGTERM, and never returns. It also
+#: holds the host-wide bring-up lock, so every other open on the box queues behind it (.114
+#: 2026-10-11: 21 opens waited 24 min behind one such process, 13 of 31 chips busy).
+_OPEN_WEDGE_TIMEOUT_S = 600.0
+
+
+@contextlib.contextmanager
+def _exit_if_open_wedged():
+    """End this process if the open inside the block never returns.
+
+    ``ttnn.open_device`` holds the GIL while it spins, so a Python timer thread never gets to
+    run. faulthandler's watchdog is a C thread: it dumps every thread's stack and ``_exit(1)``,
+    the code any other failed open exits with, and the kernel drops the flock and device fds.
+    The dump ends in ``open_device``; reset that chip before reusing it.
+    """
+    import faulthandler
+
+    faulthandler.dump_traceback_later(_OPEN_WEDGE_TIMEOUT_S, exit=True)
+    try:
+        yield
+    finally:
+        faulthandler.cancel_dump_traceback_later()
+
+
 def _open_device_locked(device_id, kwargs):
     """Open + configure the device with bring-up strictly serialized host-wide."""
     with device_init_lock():
-        dev = ttnn.open_device(device_id=device_id, **kwargs)
+        with _exit_if_open_wedged():
+            dev = ttnn.open_device(device_id=device_id, **kwargs)
         _configure_active_compute_grid(dev)
         dev.enable_program_cache()
         return dev
@@ -7310,6 +7445,7 @@ def _assert_local_dispatch(dev, timeout_s=None):
 TRACE_REGIONS = {
     "diffusion": {"wormhole_b0": 16 << 20, "blackhole": 27 << 20},    # boltz2 / boltzgen DiT step
     "protenix": {"wormhole_b0": 20 << 20, "blackhole": 36 << 20},     # protenix-v1/v2, opendde step
+    "openfold3": {"wormhole_b0": 48 << 20, "blackhole": 64 << 20},    # openfold3 / openbind step
     "esmc": {"wormhole_b0": 221 << 20, "blackhole": 126 << 20},       # ESMC._TRACE_CACHE_MAX live traces
 }
 
@@ -7750,7 +7886,10 @@ def host_acc_after_refusal(key, x, run):
         if not is_alloc_refusal(exc) or not x.is_allocated():
             raise
         _HOST_ACC_KEYS.add(key)
-        print(f"[tt-bio] DRAM refused {key[0]} with its blocks joined on device; re-running it "
+        import traceback
+        at = [f for f in traceback.extract_tb(exc.__traceback__) if "/tt_bio/" in f.filename]
+        at = f" at {os.path.basename(at[-1].filename)}:{at[-1].lineno}" if at else ""
+        print(f"[tt-bio] DRAM refused {key[0]} {key[1]} {x.dtype}{at} with its blocks joined on device; re-running it "
               f"with them joined on the host. The tt-metal 'Out of Memory' line above is expected "
               f"and handled.", file=sys.stderr, flush=True)
     else:
@@ -7819,7 +7958,7 @@ def _acc_concat(acc: list, dim: int, host: bool, memory_config=None, consume=Non
             # largest run was 4096 B short of the upload. The residual input is one whole pair
             # tensor in one piece, so freeing it is what makes the room contiguous.
             ttnn.deallocate(consume)
-        print(f"[tt-bio] DRAM refused a {len(host)}-block device concat; assembling it on the "
+        print(f"[tt-bio] DRAM refused a {len(host)}-block device concat of {tuple(acc[0].shape)} {dtype} on dim {dim}; assembling it on the "
               f"host. The tt-metal 'Out of Memory' line above is expected and handled.",
               file=sys.stderr, flush=True)
         kw = {} if memory_config is None else {"memory_config": memory_config}
@@ -9137,12 +9276,50 @@ class TriangleMultiplication(Module):
                 if not is_alloc_refusal(exc):
                     raise
                 row_norm = True
+            if not row_norm and H > SEQ_LEN_MORE_CHUNKING:
+                # Compact large input activation for better large-sequence placement. The compaction
+                # is a second whole copy, and at Protenix-v2's 2048 tokens (a 2 GiB pair) DRAM refused
+                # it; the refusal sent every trimul of the process to the host join, ~14 min per
+                # recycle. Fall to the row blocks instead, as a refused norm does.
+                try:
+                    x_norm_in = ttnn.reallocate(x_norm_in)
+                except RuntimeError as exc:
+                    if not is_alloc_refusal(exc):
+                        raise
+                    if x_norm_in.is_allocated():
+                        ttnn.deallocate(x_norm_in)
+                    x_norm_in, row_norm = None, True
         dram_peak(f"trimul({'end' if self.ending else 'start'}) x_norm_in [z={'x'.join(str(d) for d in x.shape)}]")
         memory_config = _triangle_mul_memory_config(H)
         # Every L1 tensor the channel loop holds is [batch, chunk, H, H], so the width
         # budget has to see the batch a confidence head arrives with, not just H.
         batch = prod(shp[:-3])
         large_seq = memory_config.buffer_type == ttnn.BufferType.DRAM
+        # The output the channel chunks are written into (`_TRIMUL_BACK_INTO`) is a second
+        # pair-sized tensor beside the whole input norm. Made lazily at the first chunk it was
+        # refused at Protenix-v2's 2048 tokens (2 GiB against 165 MiB/bank free after the norm)
+        # and sent every trimul of the process to the host join. Reserve it here, and if it does
+        # not fit beside the norm, drop the norm for the row blocks, which do not hold one.
+        x_out_pre, keep_chunks = None, False
+        if (large_seq and _TRIMUL_BACK_INTO and not _TRIMUL_RAW_CHANNEL_MOVES
+                and not _host_concat(x)):
+            from tt_bio.size_limits import is_alloc_refusal
+            while x_out_pre is None and not keep_chunks:
+                try:
+                    x_out_pre = ttnn.allocate_tensor_on_device(
+                        ttnn.Shape([1, H, H, self._hidden]), _dtype(), ttnn.TILE_LAYOUT,
+                        self.device, memory_config)
+                except RuntimeError as exc:
+                    if not is_alloc_refusal(exc):
+                        raise
+                    if row_norm:
+                        # Not even beside the bare pair (exact mode at 2048: 172 of the 179 MiB per
+                        # bank a 2 GiB tensor needs). Keep the channel chunks on the device as they
+                        # come and let the row-blocked tail join one row block of them at a time.
+                        keep_chunks = True
+                    else:
+                        ttnn.deallocate(x_norm_in)
+                        x_norm_in, row_norm = None, True
         chunk_size = _trimul_chunk_size(H, self._hidden, batch)
         if large_seq:
             # Start inside the byte budget this shape has already been refused above, instead of
@@ -9166,9 +9343,6 @@ class TriangleMultiplication(Module):
         g_out_fused = None
         seq_len_tiles = (H + 31) // 32
         program_config = _triangle_mul_program_config(seq_len_tiles, _trimul_ibw_full(), _trimul_subblock())
-        if not row_norm and H > SEQ_LEN_MORE_CHUNKING:
-            # Compact large input activation for better large-sequence placement.
-            x_norm_in = ttnn.reallocate(x_norm_in)
         # The channel-axis mask, built on first read and not before. `unsqueeze(mask, -1)` is a
         # view only when the last axis is already tile-wide: on a [1,S,S] pair mask it pads that
         # axis from 1 to 32, so it writes a 16.8 MB tensor for a 0.52 MB mask and dispatches a
@@ -9475,11 +9649,17 @@ class TriangleMultiplication(Module):
                         large_seq
                         or (_TRIMUL_BACK_ONE_PASS_L1
                             and _reblock.eligible_back(x_chunk, back_mc)))
-                    into = (one_pass and _TRIMUL_BACK_INTO and large_seq and not host_acc
+                    into = (one_pass and _TRIMUL_BACK_INTO and large_seq and not host_acc and not keep_chunks
                             and _reblock.eligible_back(x_chunk, back_mc))
                     if into:
                         # Each chunk lands in its own channel slice of one output tensor, so the
                         # concat below never runs. Bit-exact: the same bytes in the same order.
+                        if x_out is None and x_out_pre is not None:
+                            if x_out_pre.dtype == x_chunk.dtype:
+                                x_out = x_out_pre
+                            else:
+                                ttnn.deallocate(x_out_pre)
+                            x_out_pre = None
                         if x_out is None:
                             x_out = ttnn.allocate_tensor_on_device(
                                 ttnn.Shape([1, H, H, self._hidden]), x_chunk.dtype,
@@ -9559,6 +9739,9 @@ class TriangleMultiplication(Module):
                 if x_out is not None:
                     ttnn.deallocate(x_out)
                 x_out, c_done = None, 0
+                if x_out_pre is not None:
+                    ttnn.deallocate(x_out_pre)
+                    x_out_pre = None
                 # Drop the interrupted iteration's intermediates: whatever was live
                 # at the throw still holds L1, and the retry must allocate against a
                 # clean slate, not against the corpse of the failed attempt.
@@ -9637,7 +9820,9 @@ class TriangleMultiplication(Module):
                 ttnn.deallocate(g_out_fused)
             if H <= SEQ_LEN_MORE_CHUNKING:
                 TRIMUL_TAIL_ROWS_STATS[1] += 1
-        if rows_tail and host_acc:
+        if x_out_pre is not None:       # reserved, but no chunk took the write-into path
+            ttnn.deallocate(x_out_pre)
+        if rows_tail and (host_acc or keep_chunks):
             # The hidden stays on the host as its channel chunks and the tail uploads one row
             # block of it at a time: uploaded whole it is a second pair-sized tensor beside z.
             dram_peak(f"trimul({'end' if self.ending else 'start'}) channel loop done [z={'x'.join(str(d) for d in x_in.shape)}]")
@@ -9735,7 +9920,8 @@ class TriangleMultiplication(Module):
         host path `add_to_input` adds each block's rows of `x_in` before the block leaves and the
         join frees `x_in` before its upload (`_add_input`).
         """
-        on_host = isinstance(x, list)
+        chunks = isinstance(x, list)
+        on_host = chunks and not isinstance(x[0], ttnn.Tensor)
         # Block s reads only rows s:e of `x_in`, so past `concat_host_bytes()` it overwrites them
         # (`_pair_inplace`) instead of joining the blocks on the host.
         inplace = _pair_inplace(x_in, add_to_input)
@@ -9763,10 +9949,17 @@ class TriangleMultiplication(Module):
             ttnn.deallocate(z_rows)
             if not residual and e - s < H:  # a whole-axis slice is x_in itself
                 ttnn.deallocate(r)
-            x_blk = (ttnn.from_torch(torch.cat([c[:, s:e] for c in x], dim=-1),
-                                     layout=ttnn.TILE_LAYOUT, device=get_device(),
-                                     dtype=ttnn.bfloat16)
-                     if on_host else x[:, s:e])
+            if on_host:
+                x_blk = ttnn.from_torch(torch.cat([c[:, s:e] for c in x], dim=-1),
+                                        layout=ttnn.TILE_LAYOUT, device=get_device(),
+                                        dtype=ttnn.bfloat16)
+            elif chunks:                    # device chunks kept apart (`keep_chunks`)
+                parts = [c[:, s:e] for c in x]
+                x_blk = ttnn.concat(parts, dim=-1)
+                for t in parts:
+                    ttnn.deallocate(t)
+            else:
+                x_blk = x[:, s:e]
             x_rows = ttnn.layer_norm(
                 x_blk,
                 weight=self.out_norm_weight,
@@ -9784,7 +9977,7 @@ class TriangleMultiplication(Module):
                 core_grid=CORE_GRID_MAIN,
             )
             ttnn.deallocate(x_rows)
-            if on_host:
+            if chunks:
                 ttnn.deallocate(x_blk)
             y = ttnn.multiply_(
                 p_block, g_block, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
@@ -9800,7 +9993,8 @@ class TriangleMultiplication(Module):
             else:
                 _acc_append(blocks, y, host_acc)
         if not on_host:
-            ttnn.deallocate(x)
+            for t in (x if chunks else [x]):
+                ttnn.deallocate(t)
         dram_peak(f"trimul({'end' if self.ending else 'start'}) tail blocks done [z={'x'.join(str(d) for d in x_in.shape)}]")
         if inplace:
             return x_in
@@ -11328,17 +11522,21 @@ class AttentionPairBias(Module):
                 # additive mask along with QK, so scale=head_dim**-0.5 reproduces the unfused
                 # chain's (q@k^T + z) * head_dim**-0.5 exactly in exact arithmetic; what differs
                 # is the bf16 exponentiated-score buffer, hence the accuracy gate on this arm.
-                o = _sdpa_masked(
-                    lambda q_, k_, v_, b_: fused_sdpa(
+                def stock(q_, k_, v_, b_):
+                    return fused_sdpa(
                         q_, k_, v_,
                         attn_mask=b_,
                         scale=self.head_dim**-0.5,
                         program_config=_sdpa_program_config_for_lengths(
                             q_.shape[2], k_.shape[2], q_.shape[0] * q_.shape[1],
                             site="token_dit", d=q_.shape[3]),
-                    ),
-                    q, k, v, z, site="token_dit",
-                )
+                    )
+
+                def pm(q_, k_, v_, b_):
+                    o_ = token_dit_sdpa_pm(q_, k_, v_, b_, self.head_dim**-0.5)
+                    return stock(q_, k_, v_, b_) if o_ is None else o_
+
+                o = _sdpa_masked(pm if lever("dit_sdpa_pm") else stock, q, k, v, z, site="token_dit")
             else:
                 if seq_mask is not None:
                     z = ttnn.add_(z, seq_mask)
@@ -11492,52 +11690,63 @@ _MASK_TRANS_ONES = env_flag("TT_BIO_MASK_TRANS_ONES", False)
 MASK_TRANS_STATS = {"stacks": 0, "blocks": 0, "ones": 0, "declined_rank": 0, "declined_off": 0}
 
 
-# transition_bw: (op, K tiles, N tiles, bfp8 weights) -> (1D?, in0_block_w). ttnn.linear(core_grid=)
-# takes in0_block_w = 1 (fc3, MSA fc1/fc2) or 4 (pair fc1/fc2), so the K loop pays the in1
-# multicast, a dest clear and a packer_l1_acc pass per tile of K. Measured on a Wormhole Galaxy
-# chip, AICLK 1000, Protenix's transition config, c730 row blocks (perf/spd_swiglu/mm_bench.py,
-# .107 mm11): us per call against ttnn's pick, error vs float64 never above it.
-#   bf16  pair fc1 (silu)  91.2 ->  85.2    fc2  61.2 ->  52.7    fc3 none: in0_block_w 4/8 raise
-#         MSA  fc1 (silu) 158.9 -> 128.4    fc2 109.0 ->  83.7    fc3 135.4 -> 118.4 (1D)
-#   bfp8  pair fc1 (silu)  85.9 ->  76.8    fc2  45.4 ->  43.4    fc3 113.6 ->  70.1
-#         MSA  fc1 (silu) 150.2 -> 115.6    fc2  75.0 ->  44.6    fc3 116.1 -> 101.9 (1D)
-# bf16 pair fc3 is absent on purpose: in0_block_w 4 and 8 put rel_rms at 4.6e-3 / 2.6e-3 against
-# 1.74e-3 (the K partials round once per block), and so does MSA fc2 at 4 (2.35e-3), so it takes 2.
-# The 2D entries need N to split evenly over the grid's x, which holds on the Wormhole 8x9 grid; a
-# shape that does not fit keeps ttnn's pick.
-_TRANSITION_BW = {
-    ("fc1", 8, 32, False): (False, 8), ("fc2", 8, 32, False): (False, 8),
-    ("fc1", 4, 16, False): (False, 4), ("fc2", 4, 16, False): (False, 2), ("fc3", 16, 4, False): (True, 2),
-    ("fc1", 8, 32, True): (False, 8), ("fc2", 8, 32, True): (False, 8), ("fc3", 32, 8, True): (False, 8),
-    ("fc1", 4, 16, True): (False, 4), ("fc2", 4, 16, True): (False, 4), ("fc3", 16, 4, True): (True, 2),
-}
+# transition_bw: every transition matmul takes its K block (in0_block_w) from the op and K alone,
+# `_transition_kb`, on the interleaved path, on the sharded path and on any grid. The K block is
+# the one program parameter that moves bits: it decides which K partials sum in dest and which the
+# packer adds in fp32. Rows per core, grid, layout and drain block only move work around, so with
+# it fixed the answer no longer depends on the card (perf/spd_trans2/fc3_probe.py: every arm writes
+# the same bytes on 8x9 and 8x8). ttnn's own pick (ttnn.linear(core_grid=)) is K block 4 for the
+# pair fc1/fc2 and 1 everywhere else; at 1 every output tile goes through the packer once per K
+# tile, which is what holds fc3 [rows, 1024] x [1024, 256] at 0.35 of its roof. On a Wormhole
+# Galaxy chip, AICLK 1000, c730 row blocks, HiFi3 fp32 dest (fc3_probe .114 p1, mm_bench .107 mm11):
+#   pair fc1 (silu)  91.2 ->  85.2 us (K 8)   fc2  61.2 ->  52.7 (K 8)   fc3 119.7 -> 104.7 (K 2, 1D)
+#   MSA  fc1 (silu) 158.9 -> 128.4 (K 4)     fc2 109.0 ->  81.1 (K 4)   fc3 135.4 -> 119.5 (K 2, 1D)
+# fc3 stops at K block 2: on Wormhole an fp32 dest that sums more K tiles writes +-2 / +-4 into
+# ~1e-8 of the outputs at HiFi3 (2 in 139M at K block 4, none at 2, outlier_stage.py), and fc3 runs
+# ~7e10 outputs a c730 fold. fc1/fc2 sum at most 8 tiles, with no such value in the same audit.
+# Wormhole only (`_IS_SMALL_GRID`, like transition_shard): on Blackhole it saves nothing (c730 normal 114.8 ->
+# 115.8 s, fast 94.1 -> 94.2, qb1 1350 MHz) and its normal 11-set grade against staging19 fails on one 9-complex
+# pose flip (DockQ -0.0034 [-0.0069, -0.0003], top pose median 0.060 A), so Blackhole keeps ttnn's pick.
+_TRANSITION_KB_FC3 = 2
 # Shape classes the device refused (a circular-buffer clash beside live L1): ttnn's pick from then on.
 _TRANSITION_BW_REFUSED: set = set()
 
 
+def _transition_kb(op: str, kt: int) -> int:
+    """K block of a transition matmul with `kt` K tiles: all of K up to 8 tiles, fc3 at most 2."""
+    cap = _TRANSITION_KB_FC3 if op == "fc3" else 8
+    return max(b for b in (8, 4, 2, 1) if b <= cap and kt % b == 0)
+
+
 @lru_cache(maxsize=None)
 def _transition_bw_config(op: str, mt: int, kt: int, nt: int, b8: bool, silu: bool):
-    ent = _TRANSITION_BW.get((op, kt, nt, b8))
-    if ent is None:
-        return None
-    one_d, bw = ent
+    """Program config at `_transition_kb`'s K block on the current grid, or None where none fits L1.
+
+    A narrow output (fc3, N <= 8 tiles) is split by rows over every core with the weight multicast
+    once (1D); a wide one (fc1/fc2) over a 2D grid as wide as divides N. The drain block is the
+    tallest that fits the circular-buffer budget, so the L1 use follows the shape, not the grid.
+    """
+    bw = _transition_kb(op, kt)
     gx, gy = COMPUTE_GRID_MAIN
     act = ttnn.UnaryWithParam(ttnn.UnaryOpType.SILU) if silu else None
+    one_d = nt <= 8
     if one_d:
         pm = -(-mt // (gx * gy))
         pn, grid = nt, (gx, gy)
     else:
-        if nt % gx:
-            return None
+        gx = max(d for d in range(1, gx + 1) if nt % d == 0)
         pm = -(-mt // gy)
         pn, grid = nt // gx, (gx, -(-mt // pm))
+    eb = 1 if b8 else 2
+    obh = next((h for h in range(pm, 0, -1) if pm % h == 0
+                and _matmul_cb_bytes(bw, h, pn, eb, buffered=bw < kt) <= _matmul_cb_budget()), None)
+    if obh is None:
+        return None
     # Largest out subblock that fits one fp32 dest half (4 tiles), widest first.
     sh, sw = max(((h, w) for h in range(1, 5) for w in range(1, 5)
-                  if h * w <= 4 and pm % h == 0 and pn % w == 0), key=lambda s: (s[0] * s[1], s[1]))
-    if _matmul_cb_bytes(bw, pm, pn, 1 if b8 else 2) > _matmul_cb_budget():
-        return None
+                  if h * w <= 4 and obh % h == 0 and pn % w == 0), key=lambda s: (s[0] * s[1], s[1]))
     kw = dict(compute_with_storage_grid_size=_mm_core_coord(*grid), in0_block_w=bw, out_subblock_h=sh,
-              out_subblock_w=sw, out_block_h=pm, out_block_w=pn, per_core_M=pm, per_core_N=pn,
+              out_subblock_w=sw, out_block_h=obh, out_block_w=pn, per_core_M=pm, per_core_N=pn,
               fused_activation=act, fuse_batch=True)
     if one_d:
         return ttnn.MatmulMultiCoreReuseMultiCast1DProgramConfig(mcast_in0=False, **kw)
@@ -11545,15 +11754,11 @@ def _transition_bw_config(op: str, mt: int, kt: int, nt: int, b8: bool, silu: bo
 
 
 def _transition_linear(op: str, x: ttnn.Tensor, w: ttnn.Tensor, silu: bool = False, **kw) -> ttnn.Tensor:
-    """`ttnn.linear(x, w, core_grid=CORE_GRID_MAIN)` with the `transition_bw` config where one applies."""
+    """`ttnn.linear(x, w, core_grid=CORE_GRID_MAIN)`, at `_transition_kb`'s K block under `transition_bw`."""
     cfg = None
-    if lever("transition_bw"):
+    if lever("transition_bw") and _IS_SMALL_GRID:
         xs = [int(d) for d in x.padded_shape]
-        mt = 1
-        for d in xs[:-1]:
-            mt *= d
-        mt //= 32
-        key = (op, mt, xs[-1] // 32, int(w.shape[-1]) // 32, w.dtype == ttnn.bfloat8_b, silu)
+        key = (op, prod(xs[:-1]) // 32, xs[-1] // 32, int(w.shape[-1]) // 32, w.dtype == ttnn.bfloat8_b, silu)
         if key in _TRANSITION_BW_REFUSED:
             _latch("transition_bw", "blocked")
         else:
@@ -11668,7 +11873,14 @@ def _transition_swiglu_sharded(x, w1, w2, w3, ckc, silu_ckc, hidden, dtype, w12=
     cores = ttnn.CoreRangeSet({ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(gx - 1, gy - 1))})
     mc = ttnn.MemoryConfig(ttnn.TensorMemoryLayout.BLOCK_SHARDED, ttnn.BufferType.L1,
                            ttnn.ShardSpec(cores, [pm * 32, pn * 32], ttnn.ShardOrientation.ROW_MAJOR))
-    bw = max(b for b in (8, 4, 2, 1) if kt % b == 0)
+    bw = _transition_kb("fc1", kt)
+    # fc3's K is split over x, so its K block must divide the shard width. Under fp32 dest it is
+    # `_transition_kb`'s, the interleaved path's, which makes the two paths write the same bytes and
+    # leaves whether a block shards (a question of the grid's rows) with no say in the answer.
+    # Without fp32 dest (fast) it is the shard width, as graded.
+    bw3 = _transition_kb("fc3", nt) if ckc.fp32_dest_acc_en else pn
+    if pn % bw3:
+        return None
     x1 = x2 = None
     try:
         if w12 is not None and gx == 8 and pn <= 4 and kt == bw:
@@ -11685,11 +11897,6 @@ def _transition_swiglu_sharded(x, w1, w2, w3, ckc, silu_ckc, hidden, dtype, w12=
             ttnn.deallocate(x2)
             x2 = None
         h = x1
-        # K block 1 under fp32 dest acc: a K block of several tiles accumulates in dest, which is where
-        # the Wormhole HiFi3/HiFi4 + fp32-acc erratum writes its ~4.0 errors (fc3 at the shard width:
-        # 2 pixels per 736-token call at HiFi3). One tile per block accumulates through the packer
-        # instead and is clean at every fidelity (perf/spd_swiglu/outlier_stage.py).
-        bw3 = 1 if ckc.fp32_dest_acc_en else pn
         out = ttnn.linear(h, w3, program_config=cfg(bw3, ct // gx), compute_kernel_config=bfp8_fidelity(ckc, h, w3),
                           dtype=dtype, memory_config=ttnn.DRAM_MEMORY_CONFIG)
     except Exception as e:  # noqa: BLE001  a circular-buffer clash beside live L1: ttnn's path from then on
@@ -12076,7 +12283,9 @@ class Transition(Module):
         # the size, i.e. LESS element-work, and still takes more than twice the wall clock. Forcing
         # the height is what separates "h=2 is a bad height here" from "the size is the problem",
         # and it must not require editing a derivation to find out. Unset in production.
-        if (lever("transition_shard") and (_IS_SMALL_GRID or (_TRANSITION_SHARD_BH_B8 and self._hidden_b8))
+        # transition_bw is what makes the sharded and the interleaved swiglu write the same bytes.
+        if (lever("transition_shard") and lever("transition_bw")
+                and (_IS_SMALL_GRID or (_TRANSITION_SHARD_BH_B8 and self._hidden_b8))
                 and not (ops.taping() or _UNFUSED_SILU or w_chunked)):
             shard_rows = _transition_shard_rows(W, _c, _hid)
             if shard_rows:
@@ -14569,31 +14778,48 @@ class OuterProductMean(Module):
             return out
 
         per_row = C * D * J * 2
-        # Token count only. A byte arm that also row-blocked from 887 tokens up, to bound the
-        # whole path's (tokens, C*D, tokens) product, was measured and removed: _with_dram_narrowing
-        # below already catches that refusal reactively, and main folded 992 on one refused
-        # allocation in 1209 s against 1213 s with the arm in. Gating up front bought no wall time
-        # and re-blocked the whole 887-1088 band, where a ragged final block is a different matmul
-        # (960 tokens: plDDT 0.708054 against 0.708594) -- for every model sharing this op, at sizes
-        # that already folded. state/ceiling-opendde.md; do not re-add without a size main cannot
-        # fold at all.
-        if I > SEQ_LEN_MORE_CHUNKING:
+        # Blocked past SEQ_LEN_MORE_CHUNKING, or once the whole z is over 1/OPM_WHOLE_DRAM_DEN of
+        # the chip's DRAM. The byte arm is about which program a fold runs, not about whether it
+        # fits. Without it Protenix-v2 at 730 tokens on a Wormhole chip (z = 1109393408 B, 1/11 of
+        # DRAM) took the whole path until fragmentation refused the permute's copy by 384 B a
+        # bank, and `_with_dram_narrowing` then switched that process to row blocks for good. A
+        # ragged block is a different matmul, so a serving process's answer for the same input
+        # and seed depended on how many folds it had run (fold 4 on, up to 11 A on c730). Decided
+        # from the input and the part, the program is the same in every process; the refusal
+        # retry below stays as a crash guard. On a 32 GiB Blackhole this blocks above ~1024
+        # tokens; the blocked path costs ~0.3 % of a 992-token fold (1213 s against 1209 s).
+        total = _dram_total_bytes()
+        if I > SEQ_LEN_MORE_CHUNKING or (total and I * per_row * OPM_WHOLE_DRAM_DEN > total):
             # Row block sized so the per-block matmul result stays under OPM_Z_BUDGET_BYTES. That
             # result is (rows*C, D*J), so at a fixed row count it grows with J -- the constant 256
             # is fine at 285 tokens and is what 9i3p (992 padded) dies on. Never below one tile.
-            rows_blk = row_block(C * D * J * 2, OPM_Z_BUDGET_BYTES, cap=OPM_CHUNK_SIZE)
+            rows_blk = row_block(per_row, OPM_Z_BUDGET_BYTES, cap=OPM_CHUNK_SIZE)
         else:
             rows_blk = I
         # A block this shape class was already refused at never gets asked for a second time.
         z_cap = _OPM_DRAM_ROW_CAP.get((I, C, D, J))
         if z_cap is not None:
             rows_blk = min(rows_blk, z_cap)
+        # Above the host-join size each `residual + update` row block overwrites its own rows of
+        # the residual (dead once the block is computed), so no join holds the residual, its
+        # blocks and the result at once. Protenix-v2 at 2048 tokens (c_z 256) was refused that
+        # 2 GiB join on every MSA block and sent it to the host. Same bytes in the same place.
+        # `done` lets a narrowed retry resume after the rows already written.
+        inplace = residual is not None and _pair_inplace(residual, True)
+        done = [0]
 
         def run(rows_blk):
-            if rows_blk >= I:
+            if rows_blk >= I and not done[0]:
                 OPM_ROW_STATS["whole"] += 1
                 return outer_product_mean(0, I)
             OPM_ROW_STATS["blocked"] += 1
+            if inplace:
+                for i in range(done[0], I, rows_blk):
+                    i1 = min(i + rows_blk, I)
+                    blk = outer_product_mean(i, i1)
+                    _write_rows(residual, ttnn.reshape(blk, (1, *blk.shape)), i)
+                    done[0] = i1
+                return ttnn.reshape(residual, tuple(residual.shape)[1:])
             # One concat at the end, not a running one: growing the accumulator a block at a
             # time re-allocates a nearly whole pair tensor per block, and boltz2 at 1792 tokens
             # died on the sixth of those (704643072 B) with 227 MiB per bank free. _acc_concat
@@ -14625,10 +14851,10 @@ class OuterProductMean(Module):
                 depth_parts = [(ttnn.reallocate(acp), ttnn.reallocate(bcp), Sc)
                                for acp, bcp, Sc in depth_parts]
 
-        z = _with_dram_narrowing(
+        z = _inplace_guarded("outer product mean", lambda: _with_dram_narrowing(
             run, rows_blk,
             lambda b: _dram_narrow(_OPM_DRAM_ROW_CAP, (I, C, D, J), b, OPM_ROW_STATS),
-            compact=compact)
+            compact=compact))
         if depth_parts is None:
             ttnn.deallocate(a)
             ttnn.deallocate(b)

@@ -112,6 +112,23 @@ def test_a_canceled_run_is_not_reopened_by_a_completion(tmp_path, clock):
     assert store.run_status(run) == {"status": "canceled"}
 
 
+def test_a_run_created_again_under_its_id_runs_its_jobs_again(tmp_path, clock):
+    """JapanFold passes its job id as the run id, so a retry that lands on the same host re-creates
+    the run. The first attempt's rows and events must not answer for it (job 9c1aec9f, 10-11: the
+    retry found its job already `ok`, nothing leased it, and it stalled out after 10 minutes)."""
+    store = H.ControllerStore(tmp_path / "c.sqlite3")
+    payload = {"run_id": "job1", "data": "d", "out_dir": "o", "result_dir": "r",
+               "config": {"model": "opendde"}, "jobs": [{"id": "x", "name": "x.yaml"}]}
+    store.create_run(payload)
+    store.lease({"worker": _worker("a")})
+    store.complete_job({"run_id": "job1", "worker_id": "a", "result": {"id": "x", "status": "ok"}})
+    assert store.run_status("job1") == {"status": "ok"}
+    store.create_run(payload)
+    assert store.run_status("job1") == {"status": "running"}
+    assert [e["event"] for e in store.events("job1", 0)["events"]] == ["run"]
+    assert [j["id"] for j in store.lease({"worker": _worker("b")})["jobs"]] == ["x"]
+
+
 def test_the_controller_serves_loopback_only(tmp_path):
     server = H.ControllerServer(0, tmp_path / "c.sqlite3")
     try:

@@ -52,6 +52,23 @@ from tt_bio.boltzgen.model.modules.inverse_fold import (
     InverseFoldingDecoder,
 )
 
+# BoltzGen's precision levers per mode (`tenstorrent.model_levers`). The device modules are built at
+# state-dict load and run in `forward`, both inside `lever_scope`, so the process-wide `--fast` switch
+# (`tenstorrent._FAST_MODE`: bfp8 activations and weights, narrower chunks) is off inside BoltzGen, as
+# in Boltz-2. At 512 aa that switch designed slower than normal mode (p150a 44.52 vs 38.40 s/design).
+# Fast is the normal design until a lever set is graded for BoltzGen.
+LEVERS_NORMAL = frozenset()
+LEVERS_FAST = frozenset()
+
+
+def _under_levers(method):
+    import functools
+
+    @functools.wraps(method)
+    def run(self, *a, **kw):
+        return tenstorrent.under_lever_scope(method)(self, *a, **kw)
+    return run
+
 
 class Boltz(nn.Module):
     """Boltz model (vendored from BoltzGen, inference-only)."""
@@ -114,6 +131,7 @@ class Boltz(nn.Module):
         diffusion_trace: bool = False,
     ) -> None:
         super().__init__()
+        self._levers = tenstorrent.model_levers(LEVERS_NORMAL, LEVERS_FAST)
         """
         Module that does either:
         1. Design
@@ -464,6 +482,11 @@ class Boltz(nn.Module):
             use_kernels=self.use_kernels,
         )
 
+    @_under_levers
+    def load_state_dict(self, *a, **kw):
+        return super().load_state_dict(*a, **kw)
+
+    @_under_levers
     def forward(
         self,
         feats: Dict[str, Tensor],

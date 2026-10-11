@@ -43,8 +43,9 @@ from tt_bio.tenstorrent import (
     _dtype,
     _PAIR_FFN_FC1_BLOCK_W,
     _PAIR_FFN_FC1_BW,
+    _capped_sdpa_chunk_size,
     _pair_proj_linear,
-    _sdpa_program_config_for_lengths,
+    _sdpa_program_config,
     fused_sdpa,
     get_device,
     trace_region_size,
@@ -168,6 +169,18 @@ def _rope(q: ttnn.Tensor, k: ttnn.Tensor, cos: ttnn.Tensor, sin: ttnn.Tensor):
     return apply_rotary(q, cos, sin), apply_rotary(k, cos, sin)
 
 
+# The protein LMs' (ESMC, SaProt) SDPA chunks. The shared cap (256 x 256) was 1.285 ms a call at the page shape (batch 7 x 18 heads x 544
+# tokens x d 64, p150a, 1350 MHz); q 128 x k 64 is 0.629 ms, the fastest of the 25 pairs swept, at the same error to a
+# float64 reference (PCC 0.99970 vs 0.99969, perf/wh-embed/sdpa_sweep.py). Chunking only reorders the online softmax.
+ESMC_SDPA_Q_CHUNK = 128
+ESMC_SDPA_K_CHUNK = 64
+
+
+def lm_sdpa_config(q_len: int, k_len: int):
+    return _sdpa_program_config(min(ESMC_SDPA_Q_CHUNK, _capped_sdpa_chunk_size(q_len)),
+                                min(ESMC_SDPA_K_CHUNK, _capped_sdpa_chunk_size(k_len)))
+
+
 class Embedding(Module):
     """Token embedding lookup (mirrors nn.Embedding(64, d_model)).
 
@@ -198,7 +211,7 @@ class Attention(Module):
       o = SDPA(rope(q), rope(k), v, scale=d_head**-0.5); out_proj(o)
     """
 
-    def __init__(self, n_heads: int, state_dict: Weights, compute_kernel_config):
+    def __init__(self, n_heads: int, state_dict: Weights, compute_kernel_config, out_scale: float = 1.0):
         super().__init__(state_dict, compute_kernel_config)
         self.n_heads = n_heads
         self.in_norm_weight = self.torch_to_tt("layernorm_qkv.0.weight")
@@ -210,7 +223,7 @@ class Attention(Module):
         self.qkv_weight = self.torch_to_tt("layernorm_qkv.1.weight", dtype=_dtype())
         self.q_ln_weight = self.torch_to_tt("q_ln.weight")
         self.k_ln_weight = self.torch_to_tt("k_ln.weight")
-        self.out_weight = self.torch_to_tt("out_proj.weight", dtype=_dtype())
+        self.out_weight = self.torch_to_tt("out_proj.weight", transform=_scaled_t(out_scale), dtype=_dtype())
 
     def __call__(self, x: ttnn.Tensor, cos: ttnn.Tensor, sin: ttnn.Tensor,
                  attn_mask: ttnn.Tensor | None = None,
@@ -236,16 +249,16 @@ class Attention(Module):
         ttnn.deallocate(q); ttnn.deallocate(k); ttnn.deallocate(v)
         q, k, v = self._split_heads(qkv, self.n_heads)
         q, k = _rope(q, k, cos, sin)
-        if key_valid is not None:
-            # Zero padded keys/values so their attention contribution is exactly
-            # 0 (weight x 0) — exact masking, not reliant on bf16 exp(-inf).
+        if key_valid is not None and attn_mask is None:
+            # Zero padded keys/values so their attention contribution is exactly 0. With the -inf
+            # additive mask present this is redundant: the masked softmax weight is already exactly
+            # 0, and dropping the two multiplies leaves every output byte unchanged at every chunk
+            # config swept (perf/wh-embed/sdpa_sweep.py), 0.22 ms a layer at the page shape.
             k = ttnn.multiply(k, key_valid)
             v = ttnn.multiply(v, key_valid)
 
-        o = fused_sdpa(
-            q, k, v, attn_mask=attn_mask, scale=head_dim**-0.5,
-            program_config=_sdpa_program_config_for_lengths(q.shape[2], k.shape[2], q.shape[0] * q.shape[1], site="esmc", d=q.shape[3]),
-        )
+        o = fused_sdpa(q, k, v, attn_mask=attn_mask, scale=head_dim**-0.5,
+                       program_config=lm_sdpa_config(int(q.shape[2]), int(k.shape[2])))
         ttnn.deallocate(q); ttnn.deallocate(k); ttnn.deallocate(v)
         o = self._merge_heads(o)  # [B, L, d_model]
         out = self._lin(o, self.out_weight)
@@ -542,6 +555,13 @@ def set_pair_ffn_row_block(rows: int) -> int:
     return prev
 
 
+def _scaled_t(scale: float):
+    """Weight transform: transpose, times `scale` in fp32 when it is not 1 (then byte-identical)."""
+    if scale == 1.0:
+        return lambda w: w.t()
+    return lambda w: (w.float() * scale).t()
+
+
 def _pack_swiglu_weight(weight: torch.Tensor) -> torch.Tensor:
     packed = weight.t()
     rows, two_n = packed.shape
@@ -553,7 +573,8 @@ class SwiGLUFFN(Module):
       h = Linear(LayerNorm(x)); x1,x2 = chunk(h,2); Linear(silu(x1) * x2).
     """
 
-    def __init__(self, state_dict: Weights, compute_kernel_config, fuse_swiglu: bool = False):
+    def __init__(self, state_dict: Weights, compute_kernel_config, fuse_swiglu: bool = False,
+                 out_scale: float = 1.0):
         super().__init__(state_dict, compute_kernel_config)
         self.norm_weight = self.torch_to_tt("0.weight")
         self.norm_bias = self.torch_to_tt("0.bias")
@@ -581,7 +602,7 @@ class SwiGLUFFN(Module):
         else:
             transform = _pack_swiglu_weight if self.fuse_swiglu else lambda weight: weight.t()
             self.fc1_weight = self.torch_to_tt("1.weight", transform=transform, dtype=_dtype())
-        self.fc2_weight = self.torch_to_tt("3.weight", dtype=_dtype())
+        self.fc2_weight = self.torch_to_tt("3.weight", transform=_scaled_t(out_scale), dtype=_dtype())
 
     def _fc1_full(self) -> ttnn.Tensor:
         """The unsplit fc1 weight, built on demand for the A/B control arm.
@@ -874,22 +895,28 @@ class SwiGLUFFN(Module):
 class Block(Module):
     """UnifiedTransformerBlock, plain path (mirrors esm.layers.blocks):
       x = x + attn(x) / s ; x = x + ffn(x) / s,  s = sqrt(n_layers / 36).
+
+    1/s is folded into the out_proj and fc2 weights in fp32 before their one cast to the device
+    dtype, so each residual is a single add instead of a multiply and an add over the whole
+    activation. The FFN takes the split-fc1 SwiGLU (two half matmuls, SiLU as the multiply's
+    operand activation), which drops the chunk copy and the separate silu.
     """
 
     def __init__(self, n_heads: int, n_layers: int, state_dict: Weights, compute_kernel_config):
         super().__init__(state_dict, compute_kernel_config)
-        self.attn = Attention(n_heads, self.scope("attn"), compute_kernel_config)
-        self.ffn = SwiGLUFFN(self.scope("ffn"), compute_kernel_config)
-        self.inv_scale = 1.0 / (n_layers / 36) ** 0.5
+        inv_scale = 1.0 / (n_layers / 36) ** 0.5
+        self.attn = Attention(n_heads, self.scope("attn"), compute_kernel_config, out_scale=inv_scale)
+        self.ffn = SwiGLUFFN(self.scope("ffn"), compute_kernel_config, fuse_swiglu=True,
+                             out_scale=inv_scale)
 
     def __call__(self, x: ttnn.Tensor, cos: ttnn.Tensor, sin: ttnn.Tensor,
                  attn_mask: ttnn.Tensor | None = None,
                  key_valid: ttnn.Tensor | None = None) -> ttnn.Tensor:
         r1 = self.attn(x, cos, sin, attn_mask, key_valid)
-        x = ttnn.add(x, ttnn.multiply(r1, self.inv_scale))
+        x = ttnn.add(x, r1)
         ttnn.deallocate(r1)
         r3 = self.ffn(x)
-        x = ttnn.add(x, ttnn.multiply(r3, self.inv_scale))
+        x = ttnn.add(x, r3)
         ttnn.deallocate(r3)
         return x
 
