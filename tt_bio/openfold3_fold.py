@@ -138,6 +138,47 @@ def sample_rotation(dtype=torch.float32):
     return _quat_to_rot(q)                      # [3, 3]
 
 
+# Default OFF until graded: the pae / pde softmax and the bin reductions run on the card in fp32
+# instead of on the host, which is not bit-identical (pTM / ipTM rank the samples).
+CONF_BINS = "TT_BIO_OF3_CONF_BINS"
+
+
+def _pae_bin_vectors(n_tok, asym_id, nb=64, max_a=32.0):
+    """Every bin vector the confidence readings multiply softmax(pae) by: the bin centres (the
+    PAE / PDE matrices) and the TM kernel at each token count pTM / ipTM and the chain reductions
+    normalise on, built with the same expressions as `ConfidenceHead._ptm_iptm` and
+    `_chain_confidence`, so `_BinProj` finds them by equality."""
+    centers = (torch.arange(nb, dtype=torch.float32) + 0.5) * (max_a / nb)
+    counts = {max(n_tok, 19)}
+    if asym_id is not None:
+        a = asym_id.long().reshape(-1)
+        ids = [int(x) for x in torch.unique(a)]
+        if a.numel() == n_tok and len(ids) > 1:
+            for i, ci in enumerate(ids):
+                counts.add(max(int((a == ci).sum()), 19))
+                for cj in ids[i + 1:]:
+                    counts.add(max(int(((a == ci) | (a == cj)).sum()), 19))
+    vecs = [centers]
+    for n in sorted(counts):
+        d0 = 1.24 * (n - 15) ** (1.0 / 3.0) - 1.8
+        vecs.append(1.0 / (1.0 + (centers / d0) ** 2))
+    return vecs
+
+
+class _BinProj:
+    """Stands in for softmax(pae_logits) [N, N, 64] when the card returned only its products
+    with `vecs`: `probs @ v` is answered from the matching column."""
+
+    def __init__(self, proj, vecs):
+        self.proj, self.vecs = proj, vecs
+
+    def __matmul__(self, v):
+        for i, u in enumerate(self.vecs):
+            if u.shape == v.shape and torch.equal(u, v.float()):
+                return self.proj[..., i]
+        raise KeyError("this bin vector was not reduced on the card")
+
+
 def build_dm_device_aux(dev, ft, *, cl0, plm0, atom_mask, atom_to_token_index,
                         npe_q_indices, npe_k_indices, zij_mask, key_block_idxs,
                         invalid_mask, mask_trunked, atom_to_token_mean,
@@ -301,12 +342,20 @@ class OpenFold3(Module):
                 atom_mask=aux["repr_batch"]["atom_mask"])
         else:
             representative = sample[aux["representative_atom_indices"].long()]
+        n_tok = si_trunk.shape[0]
+        vecs = _pae_bin_vectors(n_tok, aux.get("asym_id")) if env_flag(CONF_BINS, False) else None
         out = self.confidence_head.forward(
             si_input=si_input.float(), si_trunk=si_trunk.float(),
             zij_trunk=zij_trunk.float(), repr_x_pred=representative.float(),
             max_atom_per_token_mask=aux["max_atom_per_token_mask"].float(),
             use_zij_trunk_embedding=True, shared=shared,
+            bin_vectors=None if vecs is None else torch.stack(vecs, -1),
         )
+        if "pae_proj" in out:
+            # The pae / pde heads were reduced on the card: every reading below is softmax(pae)
+            # times one bin vector, so the [N, N, 64] logits never cross.
+            out["pae_logits"] = torch.empty(n_tok, n_tok, 64, device="meta")
+            pae_probs = _BinProj(out["pae_proj"], vecs)
         bins = (torch.arange(50, dtype=torch.float32) + 0.5) / 50
         plddt_atom = (torch.softmax(out["plddt_logits"].float(), -1) * bins).sum(-1)
         from .protenix import ConfidenceHead
@@ -328,7 +377,8 @@ class OpenFold3(Module):
             has_frame = has_frame.bool()
         # One softmax over the [N, N, 64] PAE bins serves pTM/ipTM, the chain reductions and
         # the PAE matrix; on the host at 730 tokens each one costs ~0.2 s per sample.
-        pae_probs = torch.softmax(out["pae_logits"].float(), -1)
+        if "pae_proj" not in out:
+            pae_probs = torch.softmax(out["pae_logits"].float(), -1)
         ptm, iptm = ConfidenceHead._ptm_iptm(
             out["pae_logits"], aux.get("asym_id"), has_frame=has_frame, probs=pae_probs)
         disorder = _disorder_score(aux["atom_array"], sample) if aux.get("atom_array") is not None else 0.0
@@ -351,8 +401,9 @@ class OpenFold3(Module):
             "plddt": float(plddt_atom.mean()), "plddt_atom": plddt_atom,
             "ptm": ptm, "iptm": iptm, "disorder": disorder,
             "has_clash": has_clash, "ranking_score": ranking_score,
-            "pae": (pae_probs * centers).sum(-1),
-            "pde": (torch.softmax(out["pde_logits"].float(), -1) * centers).sum(-1),
+            "pae": (pae_probs @ centers if "pae_proj" in out else (pae_probs * centers).sum(-1)),
+            "pde": (out["pde_proj"] if "pae_proj" in out
+                    else (torch.softmax(out["pde_logits"].float(), -1) * centers).sum(-1)),
             "distogram": out["distogram_logits"],
         }
 
