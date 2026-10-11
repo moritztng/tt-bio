@@ -330,7 +330,8 @@ _ATOM_SDPA_MAX_MASK_BYTES = int(float(os.environ.get("RFD3_ATOM_SDPA_MAX_MASK_BY
 # by per-tile pack/unpack. The input norm and the output stay bf16. Off by default while graded.
 _TRANSITION_B8 = env_flag("RFD3_TRANSITION_B8", False)
 # Every RFD3 matmul at HiFi2 instead of HiFi4: two multiplier passes per bf16 product instead of
-# four. A fast-set lever, off by default.
+# four. Off, and not in --fast: on top of the fast set it saved nothing on a p300c (4 seeds, 685
+# tokens) and doubled the clashes of one 418-token design.
 _HIFI2 = env_flag("RFD3_HIFI2", False)
 # The dense attention (the DiT's 36 blocks a step, and atom blocks below the sparse cutoff) as one
 # fused SDPA, the way Protenix's and Boltz-2's token DiTs run it (`dit_sdpa`): the [1,16,685,704]
@@ -380,8 +381,7 @@ PZSTATS = [0, 0]
 # `--fast` for RFD3: the levers that pass the fast accuracy bar but not (yet) the normal one. Same
 # steps, recycles and designs; only kernels change. Each flag keeps its own env switch for A/B work,
 # and set_fast(False) restores exactly what the environment asked for.
-_FAST_SET = {"_TRANSITION_B8": "RFD3_TRANSITION_B8", "_PROCESS_Z_COLLAPSE": "RFD3_PROCESS_Z_COLLAPSE",
-             "_HIFI2": "RFD3_HIFI2"}
+_FAST_SET = {"_TRANSITION_B8": "RFD3_TRANSITION_B8", "_PROCESS_Z_COLLAPSE": "RFD3_PROCESS_Z_COLLAPSE"}
 
 
 def set_fast(on):
