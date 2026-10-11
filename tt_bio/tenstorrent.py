@@ -9158,7 +9158,7 @@ class TriangleMultiplication(Module):
         # refused at Protenix-v2's 2048 tokens (2 GiB against 165 MiB/bank free after the norm)
         # and sent every trimul of the process to the host join. Reserve it here, and if it does
         # not fit beside the norm, drop the norm for the row blocks, which do not hold one.
-        x_out_pre = None
+        x_out_pre, keep_chunks = None, False
         if (large_seq and _TRIMUL_BACK_INTO and not _TRIMUL_RAW_CHANNEL_MOVES
                 and not _host_concat(x)):
             try:
@@ -9167,10 +9167,16 @@ class TriangleMultiplication(Module):
                     self.device, memory_config)
             except RuntimeError as exc:
                 from tt_bio.size_limits import is_alloc_refusal
-                if not is_alloc_refusal(exc) or row_norm:
+                if not is_alloc_refusal(exc):
                     raise
-                ttnn.deallocate(x_norm_in)
-                x_norm_in, row_norm = None, True
+                if row_norm:
+                    # Not even beside the bare pair (exact mode at 2048: 172 of the 179 MiB per bank
+                    # a 2 GiB tensor needs). Keep the channel chunks on the device as they come and
+                    # let the row-blocked tail join one row block of them at a time.
+                    keep_chunks = True
+                else:
+                    ttnn.deallocate(x_norm_in)
+                    x_norm_in, row_norm = None, True
         chunk_size = _trimul_chunk_size(H, self._hidden, batch)
         if large_seq:
             # Start inside the byte budget this shape has already been refused above, instead of
@@ -9500,7 +9506,7 @@ class TriangleMultiplication(Module):
                         large_seq
                         or (_TRIMUL_BACK_ONE_PASS_L1
                             and _reblock.eligible_back(x_chunk, back_mc)))
-                    into = (one_pass and _TRIMUL_BACK_INTO and large_seq and not host_acc
+                    into = (one_pass and _TRIMUL_BACK_INTO and large_seq and not host_acc and not keep_chunks
                             and _reblock.eligible_back(x_chunk, back_mc))
                     if into:
                         # Each chunk lands in its own channel slice of one output tensor, so the
@@ -9673,7 +9679,7 @@ class TriangleMultiplication(Module):
                 TRIMUL_TAIL_ROWS_STATS[1] += 1
         if x_out_pre is not None:       # reserved, but no chunk took the write-into path
             ttnn.deallocate(x_out_pre)
-        if rows_tail and host_acc:
+        if rows_tail and (host_acc or keep_chunks):
             # The hidden stays on the host as its channel chunks and the tail uploads one row
             # block of it at a time: uploaded whole it is a second pair-sized tensor beside z.
             dram_peak(f"trimul({'end' if self.ending else 'start'}) channel loop done [z={'x'.join(str(d) for d in x_in.shape)}]")
@@ -9771,7 +9777,8 @@ class TriangleMultiplication(Module):
         host path `add_to_input` adds each block's rows of `x_in` before the block leaves and the
         join frees `x_in` before its upload (`_add_input`).
         """
-        on_host = isinstance(x, list)
+        chunks = isinstance(x, list)
+        on_host = chunks and not isinstance(x[0], ttnn.Tensor)
         # Block s reads only rows s:e of `x_in`, so past `concat_host_bytes()` it overwrites them
         # (`_pair_inplace`) instead of joining the blocks on the host.
         inplace = _pair_inplace(x_in, add_to_input)
@@ -9799,10 +9806,17 @@ class TriangleMultiplication(Module):
             ttnn.deallocate(z_rows)
             if not residual and e - s < H:  # a whole-axis slice is x_in itself
                 ttnn.deallocate(r)
-            x_blk = (ttnn.from_torch(torch.cat([c[:, s:e] for c in x], dim=-1),
-                                     layout=ttnn.TILE_LAYOUT, device=get_device(),
-                                     dtype=ttnn.bfloat16)
-                     if on_host else x[:, s:e])
+            if on_host:
+                x_blk = ttnn.from_torch(torch.cat([c[:, s:e] for c in x], dim=-1),
+                                        layout=ttnn.TILE_LAYOUT, device=get_device(),
+                                        dtype=ttnn.bfloat16)
+            elif chunks:                    # device chunks kept apart (`keep_chunks`)
+                parts = [c[:, s:e] for c in x]
+                x_blk = ttnn.concat(parts, dim=-1)
+                for t in parts:
+                    ttnn.deallocate(t)
+            else:
+                x_blk = x[:, s:e]
             x_rows = ttnn.layer_norm(
                 x_blk,
                 weight=self.out_norm_weight,
@@ -9820,7 +9834,7 @@ class TriangleMultiplication(Module):
                 core_grid=CORE_GRID_MAIN,
             )
             ttnn.deallocate(x_rows)
-            if on_host:
+            if chunks:
                 ttnn.deallocate(x_blk)
             y = ttnn.multiply_(
                 p_block, g_block, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
@@ -9836,7 +9850,8 @@ class TriangleMultiplication(Module):
             else:
                 _acc_append(blocks, y, host_acc)
         if not on_host:
-            ttnn.deallocate(x)
+            for t in (x if chunks else [x]):
+                ttnn.deallocate(t)
         dram_peak(f"trimul({'end' if self.ending else 'start'}) tail blocks done [z={'x'.join(str(d) for d in x_in.shape)}]")
         if inplace:
             return x_in
