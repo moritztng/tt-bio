@@ -89,7 +89,7 @@ def main() -> int:
     kcls = type(model.compute_kernel_config)
 
     base = None
-    for fid, acc32 in (VARIANTS[:1] if args.shipped_only else VARIANTS):
+    for fid, acc32 in (VARIANTS[:1] if a.shipped_only else VARIANTS):
         ck = kcls(math_fidelity=getattr(ttnn.MathFidelity, fid), math_approx_mode=False,
                   fp32_dest_acc_en=acc32, packer_l1_acc=True)
         swap_config(model, ck)
