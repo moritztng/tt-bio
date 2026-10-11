@@ -95,12 +95,12 @@ def call(spec, opts):
     o = dict(opts)
     prev_rows = E.set_pair_ffn_row_block(o["rows"]) if "rows" in o else None
     prev_bw, E._PAIR_FFN_FC1_BW = E._PAIR_FFN_FC1_BW, o.get("bw", E._PAIR_FFN_FC1_BW)
-    prev_silu, E._PAIR_FFN_SILU_FC1 = E._PAIR_FFN_SILU_FC1, bool(o.get("silu", E._PAIR_FFN_SILU_FC1))
+    prev_silu, E._SWIGLU_SILU_FC1 = E._SWIGLU_SILU_FC1, bool(o.get("silu", E._SWIGLU_SILU_FC1))
     try:
         with T.lever_scope(spec):
             return mods[(spec, opts)].residual(x)
     finally:
-        E._PAIR_FFN_FC1_BW, E._PAIR_FFN_SILU_FC1 = prev_bw, prev_silu
+        E._PAIR_FFN_FC1_BW, E._SWIGLU_SILU_FC1 = prev_bw, prev_silu
         if prev_rows is not None:
             E.set_pair_ffn_row_block(prev_rows)
 
