@@ -16,6 +16,7 @@ export CUDA_HOME=/usr/local/cuda${CV:+-$CV} PYTHONHASHSEED=0 OPENFOLD3_CKPT=/wei
   OPENDDE_ROOT_DIR=/weights/opendde BOLTZ_CACHE=/weights/boltz2 PROTENIX_ROOT_DIR=/weights/protenix \
   ROSETTAFOLD3_OPT_STOCK_PYTHON=$K/venv/bin/python ROSETTAFOLD3_OPT_CKPT=/weights/rosettafold3/rf3_foundry_01_24_latest_remapped.ckpt \
   RFDIFFUSION3_STOCK_PYTHON=/opt/rfd3-stock/bin/python RFD3_CKPT=/weights/rfd3/rfd3_latest.ckpt \
+  AF2IG_DIR=$K/dl_binder_design/af2_initial_guess AF2_PARAMS=/weights/af2ig \
   PXDESIGN_CKPT_DIR=/weights/pxdesign/checkpoint PROTENIX_DATA_ROOT_DIR=/weights/pxdesign/ccd_cache \
   HF_HOME=/weights/esmfold2 NVTE_FRAMEWORK=pytorch XFORMERS_IGNORE_FLASH_VERSION_CHECK=1
 mkdir -p /work/targets2 && cp -n $I/pxdesign/laczc_512.cif /work/targets2/
@@ -39,6 +40,16 @@ run(){ # <mode>
                  --recycling_steps 3 --sampling_steps 200 --diffusion_samples 1;;
     protenix_v2) bash run.sh pred --config a100 --mode $1 --input $I/protenix.json --out_dir $d/pred --model_name protenix-v2 \
                  --seeds 0 --cycle 10 --step 200 --sample 1 --use_msa true --use_template false;;
+    protenix_v1)  # tt-bio's protenix-v1 is upstream's v0.5.0 checkpoint (sha256 9ea20b0a, pushed by session.sh), not the kit's v1.0.0 default
+               PROTENIX_ROOT_DIR=/weights/protenix_v1 bash run.sh pred --config a100 --mode $1 --input $I/protenix.json --out_dir $d/pred \
+                 --model_name protenix_base_default_v0.5.0 --seeds 0 --cycle 10 --step 200 --sample 1 --use_msa true --use_template false;;
+    af2ig)     # dl_binder_design's af2_initial_guess (the original implementation), model_1_ptm, 3 recycles; six 195-token PD-L1
+               # complexes, chain A = binder; the first is cold (one XLA program per length), out.sc carries per-structure time
+               bash run.sh pred --config a100 --mode $1 --pdbdir $I/af2ig --out $d/pred;;
+    esmc)      # the page's embed protocol: prot512.seq copied to fill the batch (7; 6B batch 1), bf16, n=15 warm, cold discarded
+               for v in 300m 600m 6b; do [ $v = 6b ] && b=1 || b=7
+                 HF_HOME=/weights/esmc/hf HF_HUB_OFFLINE=1 ESMC_OPT=$([ $1 = off ] || echo $1) \
+                   python /root/kc/esmc_gpu.py --variant $v --batch $b --warm 15 --seq $I/prot512.seq --out $d/esmc-$v.jsonl; done;;
     opendde)   bash run.sh pred --config a100 --mode $1 -i $I/protenix.json -o $d/pred --seeds 0 \
                  --cycle 10 --step 200 --sample 1 --use_msa true --use_template false;;
     openfold3|openfold3_ob0)  # ob0's kit off base config is bf16-mixed: off overlays the shipped fp32 predict config first

@@ -15,10 +15,11 @@ py(){ # <dir> <url> <sha256>: python-build-standalone, the interpreter each kit'
   mkdir -p $1 && tar -xzf /tmp/py.tgz -C /tmp && cp -rL /tmp/python/. $1/ && rm -rf /tmp/python /tmp/py.tgz; }
 G=https://github.com/indygreg/python-build-standalone/releases/download
 case $M in
+  esmc|esmfold2) command -v git >/dev/null || { apt-get update -q && DEBIAN_FRONTEND=noninteractive apt-get install -y -q git; };;&
   esmfold2) PY=/opt/py3.12.10; py $PY "$G/20250409/cpython-3.12.10+20250409-x86_64-unknown-linux-gnu-install_only.tar.gz" \
               e9cf6f7da499a4400ba30ae1da8f7ef25ce97827bd8c1084717aa05438035186
             command -v git >/dev/null || { apt-get update -q && DEBIAN_FRONTEND=noninteractive apt-get install -y -q git; };;
-  rosettafold3|rfdiffusion3) PY=/opt/py3.12.1; py $PY "$G/20240107/cpython-3.12.1+20240107-x86_64_v3-unknown-linux-gnu-install_only.tar.gz" \
+  rosettafold3|rfdiffusion3|esmc) PY=/opt/py3.12.1; py $PY "$G/20240107/cpython-3.12.1+20240107-x86_64_v3-unknown-linux-gnu-install_only.tar.gz" \
               a7bcc6c9f66dbd47ea99615f30f101c5d2dd0084ca333d2f7336e64050951338;;
   *) PY=/usr/local; py $PY "$G/20230826/cpython-3.11.5+20230826-x86_64-unknown-linux-gnu-install_only.tar.gz" \
               fbed6f7694b2faae5d7c401a856219c945397f772eea5ca50c6eb825cbc9d1e1;;
@@ -44,7 +45,8 @@ case $M in
   openfold3|openfold3_ob0) X='openfold3|deepspeed';;
   opendde)     X='opendde';;
   boltz2)      X='boltz';;
-  protenix_v2) X='protenix';;
+  protenix_v2|protenix_v1) X='protenix';;
+  af2ig|esmc)  X='-';;
   esmfold2)    X='flash_attn|transformer_engine|xformers';;
   rosettafold3) X='-';;
   rfdiffusion3) X='apex|rc-foundry';;
@@ -90,12 +92,17 @@ case $M in
   pxdesign)   # stock's LayerNorm extension compiles here once, as the Dockerfile does
     python -c "import os, protenix.model.layer_norm.layer_norm as m; p = os.path.join(os.path.dirname(m.__file__), 'fastfold_layer_norm_cuda.so'); assert os.path.isfile(p), p"
     export PXDESIGN_CKPT_DIR=/weights/pxdesign/checkpoint PROTENIX_DATA_ROOT_DIR=/weights/pxdesign/ccd_cache; W=/weights/pxdesign;;
+  protenix_v1) pip install -q --no-deps stock/protenix-1.1.0-py3-none-any.whl; export PROTENIX_ROOT_DIR=/weights/protenix_v1; W=$PROTENIX_ROOT_DIR;;
+  af2ig) export AF2IG_DIR=$K/dl_binder_design/af2_initial_guess AF2_PARAMS=/weights/af2ig; W=/weights/af2ig;;
+  esmc)  export HF_HOME=/weights/esmc/hf; W=/weights/esmc;;
   protenix_v2) pip install -q --no-deps stock/protenix-2.0.0-py3-none-any.whl; export PROTENIX_ROOT_DIR=/weights/protenix; W=$PROTENIX_ROOT_DIR;;
 esac
 SP=$(python -c 'import site; print(site.getsitepackages()[0])'); cp /root/kc/kctime.py $SP/ && echo "import kctime" > $SP/kctime.pth
 mkdir -p $W
-bash run.sh install $([ $M = rosettafold3 ] && echo --make-venv) --weights $W
+if [ $M = esmc ]; then for v in 300m 600m 6b; do bash run.sh install --weights $W --variant $v; done
+else bash run.sh install $([ $M = rosettafold3 ] && echo --make-venv) --weights $W; fi
 [ $M = rfdiffusion3 ] && python -m rfdiffusion3_opt.install apply && python -m rfdiffusion3_opt.install check-only
 [ -d opt/venv ] && { S2=$(opt/venv/bin/python -c 'import site; print(site.getsitepackages()[0])'); cp /root/kc/kctime.py $S2/ && echo 'import kctime' > $S2/kctime.pth; }
-bash run.sh check --config a100 --mode fast $([ $M = esmfold2 ] && echo --variant fast)
+case $M in esmc) HF_HUB_OFFLINE=1 bash run.sh check --variant 6b --mode exact;;
+  *) bash run.sh check --config a100 --mode fast $([ $M = esmfold2 ] && echo --variant fast);; esac
 echo SETUP-OK > /root/kc/SETUP-OK-$M
