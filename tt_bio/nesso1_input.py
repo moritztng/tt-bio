@@ -32,8 +32,10 @@ from tt_bio.weights import NESSO_REPO, NESSO_REVISION
 # to be set before ccd.pkl is read or every standard-residue mol comes back without its
 # ``name`` prop and the featurizer dies with KeyError: 'name'. The vendored
 # ``featurizer`` module sets the same thing as an import side-effect, which makes the
-# whole pipeline import-order dependent; set it here where the load happens.
-Chem.SetDefaultPickleProperties(Chem.PropertyPickleOptions.AtomProps)
+# whole pipeline import-order dependent; set it here where the load happens. The option
+# is process-wide and atomworks (RF3, OpenFold3) asserts it is AllProps, so add atom
+# properties to it rather than replace it.
+Chem.SetDefaultPickleProperties(Chem.GetDefaultPickleProperties() | Chem.PropertyPickleOptions.AtomProps)
 
 ESM2_MODEL = "facebook/esm2_t33_650M_UR50D"
 
