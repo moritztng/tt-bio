@@ -382,6 +382,21 @@ class OF3DiffusionTransformer(Module):
                        for b in range(n_blocks)]
         self.n_blocks = n_blocks
 
+    def _masks(self, token_mask, N, padded_N, rows):
+        """``(mask_bias [1,1,1,padded_N], tok_mask_col at rows or ())``: -1e9 on padded and masked
+        keys; the column mask is ``()`` when the caller's ``tok_mask_col`` already fits."""
+        tok = ttnn.to_torch(token_mask).float().reshape(-1)  # [N]
+        mb_t = torch.full((padded_N,), -1e9, dtype=torch.float32)
+        mb_t[:N] = (tok - 1.0) * 1e9
+        mask_bias = ttnn.from_torch(mb_t.reshape(1, 1, 1, padded_N), layout=ttnn.TILE_LAYOUT,
+                                    device=self.device, dtype=self._act_dtype)
+        if rows == N:
+            return mask_bias, ()
+        tmc_p = torch.zeros(1, rows, 1, dtype=torch.float32)
+        tmc_p[0, :N, 0] = tok
+        return mask_bias, ttnn.from_torch(tmc_p, layout=ttnn.TILE_LAYOUT, device=self.device,
+                                          dtype=self._act_dtype)
+
     def __call__(self, a, s, z, token_mask, tok_mask_col, cache=None):
         # Pad to the tile-aligned logical width so the SDPA's tiled key extent is
         # fully masked. from_torch pads *storage* with 0 (="unmasked" for an additive
@@ -394,36 +409,27 @@ class OF3DiffusionTransformer(Module):
         N = token_mask.shape[-1]
         S = a.shape[0]
         padded_N = bucketed_width(N, TILE)
-        tok = ttnn.to_torch(token_mask).float().reshape(-1)  # [N]
+        rows = _T.sdpa32_rows(padded_N) if self.blocks[0].sdpa32 else padded_N
+        # The masks are functions of token_mask alone, so a rollout builds them once. Building
+        # them reads the mask back to the host, which on every step stalled the host until the
+        # atom encoder had drained, and a traced step cannot hold a read or an upload at all.
+        mask_bias, tmc_d = _cached(cache, (id(self), "masks", rows),
+                                   lambda: self._masks(token_mask, N, padded_N, rows))
+        if isinstance(tmc_d, tuple):
+            tmc_d = tok_mask_col
         if padded_N == N:
-            a_d, s_d, z_d, tmc_d = a, s, z, tok_mask_col
-            mb_t = (tok - 1.0) * 1e9
+            a_d, s_d, z_d = a, s, z
         else:
             a_d = _pad_single(a, padded_N, self._act_dtype)
             s_d = _pad_single(s, padded_N, self._act_dtype)
             z_d = _pad_pair(z, padded_N, self._act_dtype)
-            tok_p = torch.zeros(padded_N, dtype=torch.float32)
-            tok_p[:N] = tok
-            tmc_p = tok_p.reshape(1, padded_N, 1)
-            tmc_d = ttnn.from_torch(tmc_p, layout=ttnn.TILE_LAYOUT, device=self.device,
-                                    dtype=self._act_dtype)
-            mb_t = torch.full((padded_N,), -1e9, dtype=torch.float32)
-            mb_t[:N] = (tok - 1.0) * 1e9
-        mb = mb_t.reshape(1, 1, 1, padded_N)
-        mask_bias = ttnn.from_torch(mb, layout=ttnn.TILE_LAYOUT, device=self.device,
-                                    dtype=self._act_dtype)
         # dit_sdpa32 runs at sdpa32_rows. The stream is padded to it here, once a call, not q, k
         # and v in every block: rows are independent everywhere but the attention, and its mask
         # (`_sdpa32_mask`, built from the padded_N bias) hides the new keys. The same padding
         # Protenix's token DiT does.
-        rows = _T.sdpa32_rows(padded_N) if self.blocks[0].sdpa32 else padded_N
         if rows != padded_N:
             a_d, s_d = (ttnn.pad(x, [(0, 0), (0, rows - padded_N), (0, 0)], value=0.0)
                         for x in (a_d, s_d))
-            tmc_p = torch.zeros(1, rows, 1, dtype=torch.float32)
-            tmc_p[0, :N, 0] = tok
-            tmc_d = ttnn.from_torch(tmc_p, layout=ttnn.TILE_LAYOUT, device=self.device,
-                                    dtype=self._act_dtype)
         x = a_d
         for blk in self.blocks:
             x = blk(x, s_d, z_d, mask_bias, tmc_d, cache=cache)

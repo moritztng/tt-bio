@@ -1113,6 +1113,19 @@ def ln_compute_kernel_config(ckc):
     return out
 
 
+#: Run `precise_config` (and AF2's trunk config, `af2.compute_kernel_config`) at HiFi3 instead of
+#: HiFi4. HiFi3 drops only the A_lo*B_lo pass, below a bf16 output's own rounding step
+#: (`tenstorrent.trunk_compute_kernel_config`), and on Wormhole HiFi4 with fp32 accumulation returns
+#: a wrong element now and then: [0, 57, 88, 421] of a 128x128x128 @ 128x512 bf16 product reads
+#: -3.83 against a true 0.163 on every chip, in ttnn.matmul and minimal_matmul alike, while HiFi3
+#: returns the correctly rounded 0.1631 (perf/spd/matmul_spike_repro.py). Read per call.
+PRECISE_HIFI3 = env_flag("TT_BIO_PRECISE_HIFI3", False)
+
+
+def precise_fidelity():
+    return ttnn.MathFidelity.HiFi3 if PRECISE_HIFI3 else ttnn.MathFidelity.HiFi4
+
+
 def trunk_compute_kernel_config(base):
     """`base` with the trunk's matmul fidelity, as a distinct object.
 
@@ -7405,6 +7418,7 @@ def _assert_local_dispatch(dev, timeout_s=None):
 TRACE_REGIONS = {
     "diffusion": {"wormhole_b0": 16 << 20, "blackhole": 27 << 20},    # boltz2 / boltzgen DiT step
     "protenix": {"wormhole_b0": 20 << 20, "blackhole": 36 << 20},     # protenix-v1/v2, opendde step
+    "openfold3": {"wormhole_b0": 48 << 20, "blackhole": 64 << 20},    # openfold3 / openbind step
     "esmc": {"wormhole_b0": 221 << 20, "blackhole": 126 << 20},       # ESMC._TRACE_CACHE_MAX live traces
 }
 

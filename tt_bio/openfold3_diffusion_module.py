@@ -335,7 +335,7 @@ class OF3DiffusionModule(Module):
                  enc_key_block_idxs_tt, enc_valid_mask, enc_mask_bias, enc_pair_mask,
                  atom_to_token_mean_tt, token_mask_pad_tt, tok_mask_col_pad_tt,
                  n_atom, NP, nb, n_token, n_tok_pad, t, sigma_data,
-                 _return_intermediates=False, cache=None, samples=None):
+                 _return_intermediates=False, cache=None, samples=None, edm=True):
         """Run the post-conditioning ``DiffusionModule`` forward -> ``xl_out``.
 
         See the class docstring for the topology. Device bf16 inputs:
@@ -359,7 +359,9 @@ class OF3DiffusionModule(Module):
         ``samples`` gives the module a sample axis: a list of ``(si, rl_noisy, xl_noisy, t)``,
         one per noised structure, which replaces the four per-sample arguments above and
         returns a list of ``xl_out`` in the same order. See ``_denoise_samples``. A caller
-        must check ``self.dit.supports_multiplicity`` before passing it.
+        must check ``self.dit.supports_multiplicity`` before passing it. With ``edm=False``
+        (sample axis only) it returns each sample's ``rl_update`` [1, n_atom, 3] instead and
+        the caller applies the EDM scaling, which is how a traced step leaves ``t`` out.
         """
         lin = self._lin
 
@@ -382,7 +384,7 @@ class OF3DiffusionModule(Module):
                 samples, cl_pad, plm, zij, atom_mask_col, atom_mask_col_na,
                 atom_to_token_idx_tt, enc_key_block_idxs_tt, enc_valid_mask, enc_mask_bias,
                 atom_to_token_mean_tt, token_mask_pad_tt, tok_mask_col_pad_tt,
-                n_atom, NP, nb, n_token, n_tok_pad, sigma_data, cache)
+                n_atom, NP, nb, n_token, n_tok_pad, sigma_data, cache, edm)
         ql_pad = self.npe.ql_at_np(cl_pad, rl_noisy)               # [1, NP, 128]
         plm_postpu = ttnn.clone(plm) if _return_intermediates else None
 
@@ -404,7 +406,7 @@ class OF3DiffusionModule(Module):
                          atom_to_token_idx_tt, enc_key_block_idxs_tt, enc_valid_mask,
                          enc_mask_bias, atom_to_token_mean_tt, token_mask_pad_tt,
                          tok_mask_col_pad_tt, n_atom, NP, nb, n_token, n_tok_pad,
-                         sigma_data, cache):
+                         sigma_data, cache, edm=True):
         """``S`` noised structures through one encoder, one token DiT and one decoder call.
 
         ``samples`` is ``[(si, rl_noisy, xl_noisy, t), ...]``; the return is one ``xl_out``
@@ -468,6 +470,12 @@ class OF3DiffusionModule(Module):
         rl_update = self._decode(a_b, ql, cl_pad, plm, atom_mask_col, atom_to_token_idx_tt,
                                  enc_key_block_idxs_tt, enc_valid_mask, enc_mask_bias,
                                  n_atom, NP, nb, cache)            # [S, n_atom, 3]
+        if not edm:
+            if S == 1:
+                return [rl_update]
+            out = [rl_update[k:k + 1] for k in range(S)]
+            ttnn.deallocate(rl_update)
+            return out
         if S == 1:
             return [self._edm(samples[0][2], rl_update, atom_mask_col_na, samples[0][3],
                               sigma_data)]
