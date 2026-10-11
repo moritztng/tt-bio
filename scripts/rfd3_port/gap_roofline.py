@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-import json, sys
-d = json.load(open('/home/moritz/.coworker/wt/spd-gap-rfd3/perf/p63/traffic_census_lever.json'))
+import json, pathlib, sys
+d = json.loads((pathlib.Path(__file__).resolve().parents[2] / 'perf/p63/traffic_census_lever.json').read_text())
 MB = 1e-3  # MB -> GB
 P_BW, A_BW, A_TF = 448.0, 2039.0, 312.0
 def base():
