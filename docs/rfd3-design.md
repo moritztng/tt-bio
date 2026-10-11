@@ -172,13 +172,14 @@ unchanged: CA-CA geometry, chain breaks and amino-acid diversity match, with few
 8,600 atoms the older chain runs instead, because the fused kernel's cached mask would take more than
 600 MB per atom block. `RFD3_ATOM_SDPA=0` restores it.
 
-`--fast` additionally keeps the pair transitions' hidden activations in 8-bit block floating point and
-collapses the pair-feature projection that does not change between steps into a table lookup. It runs the
-same diffusion steps and recycles; only the kernels change. A 685-residue design takes about 8 % less time
-than the default and about 17 % less than before the fused attention. Graded over four seeds at 685 and
-418 residues against the default: CA-CA geometry, chain breaks and clashes match, and a design moves
-2.4 to 12.1 A at the same seed, inside what changing the seed does (13 to 19 A). One 418-residue design
-used fewer distinct amino acids (9 against 11).
+`--fast` additionally keeps the pair transitions' hidden activations in 8-bit block floating point,
+collapses the pair-feature projection that does not change between steps into a table lookup, and runs the
+token transformer's attention as one fused kernel. It runs the same diffusion steps and recycles; only the
+kernels change. A 685-residue design takes about 10 % less time than the default. Graded over four seeds
+at 685 and 418 residues against the exact chain: CA-CA geometry, chain breaks and amino-acid diversity
+match, clashes are in the same range (20 to 28 against 23 to 48 at 685 residues, 52 to 127 against 51 to
+73 at 418), and a design moves 3.4 to 13.5 A at the same seed, inside what changing the seed does (13 to
+19 A).
 
 ## Checkpoint
 
