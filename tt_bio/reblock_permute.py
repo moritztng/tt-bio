@@ -369,6 +369,30 @@ def reblock_permute(x, memory_config=None, device=None):
 L1_N_MIN = int(os.environ.get("TT_BIO_REBLOCK_L1_N_MIN", "288"))
 L1_N_MAX = int(os.environ.get("TT_BIO_REBLOCK_L1_N_MAX", "352"))
 
+# Below L1_N_MIN the forward move still opens on L1 once its Nt*Nt work groups reach this many per
+# core. The 288 edge was measured on 110- and 130-core grids, where it is Nt=9 = 81 groups; on a
+# Wormhole chip's 64 cores the same kernel already wins at Nt=7 = 49 groups (N=195: 1.17x at C=64,
+# N=224: 1.22x) and loses at Nt=6 = 36 groups (N=192: 0.97x), every point torch.equal
+# (.114 chip 7, perf/bigswing/reblock_window_band.py, state/spd-gap-bind.md). What decides the win is
+# whether the groups fill the grid: 0.62-0.77 groups per core win on both grids, 0.56-0.58 lose
+# (N=256 on 110 cores measured 0.952x). 0 restores the plain N edge. Only the forward move: the back
+# leg splits Nt*Nt*Ct groups and the gated move was measured on its own, both keep L1_N_MIN.
+L1_GROUPS_PER_CORE = float(os.environ.get("TT_BIO_REBLOCK_L1_GROUPS_PER_CORE", "0.6"))
+_GRID_CORES = {}
+
+
+def _l1_fills_grid(x, N: int) -> bool:
+    """Whether the forward move's Nt*Nt groups reach L1_GROUPS_PER_CORE per core of x's grid."""
+    if not L1_GROUPS_PER_CORE:
+        return False
+    device = x.device()
+    key = device.id()
+    if key not in _GRID_CORES:
+        g = device.compute_with_storage_grid_size()
+        _GRID_CORES[key] = g.x * g.y
+    nt = (N + TILE_H - 1) // TILE_H
+    return nt * nt >= L1_GROUPS_PER_CORE * _GRID_CORES[key]
+
 
 def eligible(x, memory_config, taped_ok: bool = False) -> bool:
     """The gate, measured against the wheel's own ``ttnn.permute`` on the card that runs it.
@@ -378,7 +402,8 @@ def eligible(x, memory_config, taped_ok: bool = False) -> bool:
     On L1 the margin is smaller and grid-dependent. It opens at 288 because below that there are
     fewer work groups than cores and the per-call cost is not amortised: N=256 on an L1 output
     measures 0.952x on 110 cores, a real loss, and it is the shape boltzgen runs 2384 of its 3024
-    channel moves on.
+    channel moves on. Below 288 the L1 leg still opens where the Nt*Nt groups fill the grid
+    (`L1_GROUPS_PER_CORE`), which on a 64-core Wormhole chip is from N=193.
 
     The upper edge stays 352. It was widened to 544 on qb2 evidence and reverted: the widening is
     worth 0.000 s/fold at 512 aa (the fit test already routes the pair tensor to DRAM, where the leg
@@ -424,7 +449,8 @@ def eligible(x, memory_config, taped_ok: bool = False) -> bool:
         return _reject("sharded_in", shape)
     bt = memory_config.buffer_type
     if not ((bt == ttnn.BufferType.DRAM and N >= 256)
-            or (bt == ttnn.BufferType.L1 and L1_N_MIN <= N <= L1_N_MAX)):
+            or (bt == ttnn.BufferType.L1 and N <= L1_N_MAX
+                and (N >= L1_N_MIN or _l1_fills_grid(x, N)))):
         return _reject(f"window_{bt}", shape)
     return True
 
