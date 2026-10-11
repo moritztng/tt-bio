@@ -601,7 +601,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "transition_shard", "dit_mm16", "atom_k1", "dit_b8", "dit_qkv16", "atom_mm16", "adaln_mod",
           "swiglu_fc12g", "msa_sample", "dit_sdpa_pm", "dit_s16")
 # Named but in no mode until their fold grade puts them in one.
-UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "adaln_mod", "dit_s16"})
+UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "adaln_mod"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -616,6 +616,10 @@ UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "adaln_mod", "dit_s16"}
 # median 0.271 A against the 0.60 A bar (A/A floor 1.206 A), docking 35 -> 35 of 44. Per call at c730, 0.928 ->
 # 0.532 ms on Wormhole (1000 MHz) and 0.410 -> 0.367 ms on Blackhole p150a (1350 MHz); c730 warm fold, same
 # seeds, 189.2 -> 187.8 s on a Galaxy chip and 94.4 -> 93.5 s on p150a (spd-ditsdpa, 2026-10-11).
+# dit_s16 is fast-only (only OpenFold3's fp32 DiT reads it). OpenBind-0 11-set grade (normal vs normal+dit_s16,
+# Blackhole, 44 paired folds): fast PASS, normal FAIL on CA-lDDT -0.0002 [-0.0003, -0.0000] against an A/A floor
+# of 0.0010; same-seed top pose median 0.171 A vs the 0.60 A bar, docking 26 -> 26 of 44. OpenFold3 normal grade
+# PASS (top pose median 0.227 A). Saves ~0.3 s of the 512-token fold on p150a (spd-gap-of3, 2026-10-12).
 FAST_LEVERS = frozenset(LEVERS) - {"lofi", "triatt_b8", "triatt_bias_b8"} - UNGRADED_LEVERS
 # trimul_ibw + trimul_tail: Wormhole 11-set grade PASS, 44 paired folds, same-seed top pose median
 # 0.204 A against the 0.60 A bar (A/A seed floor 0.807 A), every paired CI covers 0 or sits on the
