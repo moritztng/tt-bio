@@ -7481,8 +7481,8 @@ TRACE_REGIONS = {
     # captures asked for 135,331,840 B, mesh_trace.cpp:182, .114 chip 13) and 1 GiB never got past
     # bring-up: four of four opens on .114 died in firmware init or hung in the first dispatch,
     # while the 128 MiB open came up. 160 MiB covers the measured need with ~20 % to spare.
-    # Blackhole runs every capture inside 1 GiB.
-    "bc2": {"wormhole_b0": 160 << 20, "blackhole": 1024 << 20},
+    # Blackhole is unmeasured; 240 MiB keeps it under the quarter-bank cap every entry obeys.
+    "bc2": {"wormhole_b0": 160 << 20, "blackhole": 240 << 20},
 }
 
 

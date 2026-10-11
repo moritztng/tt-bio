@@ -48,6 +48,7 @@ import torch
 import ttnn
 
 from .af2_reference import AF2Model, load_af2_model
+from .envflags import env_flag
 from .tenstorrent import (
     CORE_GRID_MAIN,
     PAIR_ROW_BLOCK,
@@ -113,7 +114,7 @@ TRANSITION_ROWBLOCK_BYTES = int(os.environ.get("TT_BIO_TRANSITION_ROWBLOCK_BYTES
 # The transition's normed input and its 4x-wide hidden in L1 when the grid has room, so fc1 and fc2
 # read them on chip instead of a DRAM round trip. Same arithmetic, so bit-exact; never under a tape
 # (`_l1_fits` declines there), so a BindCraft 2 round is unchanged.
-TRANSITION_L1 = os.environ.get("TT_BIO_AF2_TRANSITION_L1", "0") == "1"
+TRANSITION_L1 = env_flag("TT_BIO_AF2_TRANSITION_L1", False)
 
 
 #: The op classes `scripts/af2_port/tap_gate.py --substitute` moves to host torch, one class per
