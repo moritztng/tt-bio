@@ -1,0 +1,134 @@
+"""Where does an AF2-IG fold spend its time? Per-stage wall clock, then one cProfiled fold.
+
+Loads the model the way the worker does (`load_af2_device_model(..., template=True)`), folds one
+fixture `--warm` times untimed, then `--reps` times with every stage of `AF2Model.forward`
+wrapped in a timer that synchronises the device on exit, so each stage's number includes the
+device work it queued. A last fold runs unwrapped under cProfile for the host-side breakdown
+(ttnn call count and the Python cost around it). AICLK is sampled from sysfs during the reps.
+
+    TT_VISIBLE_DEVICES=<card> PYTHONPATH=. python perf/spd/af2ig_census.py \\
+        --input perf/kitcmp/fixtures/af2ig_pdl1_l80_s0.yaml --params ~/.boltz/af2/params/params_model_1_ptm.npz \\
+        --out out/af2ig_census
+"""
+from __future__ import annotations
+
+import argparse
+import cProfile
+import glob
+import io
+import json
+import pstats
+import statistics
+import threading
+import time
+from collections import defaultdict
+from pathlib import Path
+
+p = argparse.ArgumentParser()
+p.add_argument("--input", required=True)
+p.add_argument("--params", required=True)
+p.add_argument("--out", type=Path, required=True)
+p.add_argument("--warm", type=int, default=2)
+p.add_argument("--reps", type=int, default=3)
+a = p.parse_args()
+a.out.mkdir(parents=True, exist_ok=True)
+
+import torch  # noqa: E402
+import ttnn  # noqa: E402
+
+from tt_bio.af2 import load_af2_device_model  # noqa: E402
+from tt_bio.af2_weights import load_af2_state_dict  # noqa: E402
+from tt_bio.af2ig import fold, token_count  # noqa: E402
+from tt_bio.af2ig_input import read_af2ig_input  # noqa: E402
+
+model = load_af2_device_model(load_af2_state_dict(a.params), template=True).eval()
+spec = read_af2ig_input(a.input)
+dev = model._device
+
+T: dict[str, list[float]] = defaultdict(list)
+
+
+def timed(name, fn):
+    def wrapper(*args, **kw):
+        t0 = time.perf_counter()
+        r = fn(*args, **kw)
+        ttnn.synchronize_device(dev)
+        T[name].append(time.perf_counter() - t0)
+        return r
+    return wrapper
+
+
+STAGES = ("template_embedding", "extra_msa_stack", "evoformer_stack", "single_activations",
+          "structure", "relative_encoding")
+
+clocks: list[int] = []
+stop = threading.Event()
+
+
+def sample():
+    nodes = glob.glob("/sys/class/tenstorrent/tenstorrent!*/tt_aiclk")
+    while not stop.is_set():
+        for n in nodes:
+            try:
+                clocks.append((n.split("!")[1].split("/")[0], int(open(n).read().strip(), 0)))
+            except (OSError, ValueError):
+                pass
+        time.sleep(0.25)
+
+
+for _ in range(a.warm):
+    fold(model, spec)
+ttnn.synchronize_device(dev)
+
+plain = []
+for _ in range(a.reps):
+    t0 = time.perf_counter()
+    fold(model, spec)
+    ttnn.synchronize_device(dev)
+    plain.append(time.perf_counter() - t0)
+
+saved = {s: getattr(model, s) for s in STAGES}
+for s in STAGES:
+    setattr(model, s, timed(s, saved[s]))
+th = threading.Thread(target=sample, daemon=True)
+th.start()
+staged = []
+for _ in range(a.reps):
+    t0 = time.perf_counter()
+    fold(model, spec)
+    ttnn.synchronize_device(dev)
+    staged.append(time.perf_counter() - t0)
+stop.set()
+th.join()
+for s in STAGES:
+    setattr(model, s, saved[s])
+
+per_fold = {k: sum(v) / a.reps for k, v in T.items()}
+per_fold["rest (embeddings, recycle, heads, confidence, host glue)"] = (
+    statistics.median(staged) - sum(per_fold.values()))
+
+prof = cProfile.Profile()
+t0 = time.perf_counter()
+prof.enable()
+fold(model, spec)
+ttnn.synchronize_device(dev)
+prof.disable()
+prof_s = time.perf_counter() - t0
+buf = io.StringIO()
+st = pstats.Stats(prof, stream=buf)
+st.sort_stats("tottime").print_stats(40)
+ttnn_calls = sum(v[1] for k, v in st.stats.items() if "ttnn" in k[0] or "ttnn" in str(k[2]))
+by_node = defaultdict(list)
+for n, c in clocks:
+    by_node[n].append(c)
+res = {"input": a.input, "tokens": token_count(spec),
+       "plain_fold_s": plain, "staged_fold_s": staged, "per_fold_stage_s": per_fold,
+       "calls_per_fold": {k: len(v) // a.reps for k, v in T.items()},
+       "profiled_fold_s": prof_s, "ttnn_frames_calls": ttnn_calls,
+       "aiclk": {n: {"median": statistics.median(v), "min": min(v), "max": max(v), "n": len(v)}
+                 for n, v in by_node.items()}}
+(a.out / "census.json").write_text(json.dumps(res, indent=1))
+(a.out / "profile.txt").write_text(buf.getvalue())
+st.dump_stats(str(a.out / "profile.pstats"))
+print(json.dumps(res, indent=1))
+print(buf.getvalue()[:6000])
