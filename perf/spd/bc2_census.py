@@ -269,6 +269,9 @@ def write(partial=False):
     doc = dict(**HEAD, iteration_s=state["instrumented"], uninstrumented=state["uninstrumented"],
                iteration_trunk_loads=state.get("instrumented_loads"), iteration_load1=state.get("instrumented_load1"),
                aiclk=state["cl"], synced_total_s=total, ops=rows, calls=len(rec.rec), partial=partial)
+    ag = sys.modules.get("tt_bio.autograd")
+    if ag is not None:
+        doc.update(rtrace_stats=dict(ag.RTRACE_STATS), rtrace_checks=list(ag.RTRACE_CHECKS))
     (a.out / "census.json").write_text(json.dumps(doc, indent=1))
 
     warm = [u["s"] for u in state["uninstrumented"]]

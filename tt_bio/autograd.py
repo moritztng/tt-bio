@@ -2944,6 +2944,11 @@ TRACE_RECOMPUTE = env_flag("TT_BIO_TRACE_RECOMPUTE", False)
 _RTRACE: dict = {}    # (key, signature) -> rounds seen (int), then (trace id, shared)
 _RSHARED: dict = {}   # signature -> dict(ins=[...], seeds=[...], outs=[...])
 RTRACE_STATS = {"eager": 0, "capture": 0, "replay": 0}
+# Diagnostic: the first N replays also run the block eagerly on the same inputs and record the
+# relative L2 error of each input gradient against it (RTRACE_CHECKS). Replays are expected to be
+# exact; anything else means a replay read or wrote memory the eager side now owns.
+TRACE_RECOMPUTE_CHECK = int(os.environ.get("TT_BIO_TRACE_RECOMPUTE_CHECK", "0"))
+RTRACE_CHECKS: list = []
 
 
 def _rt_raw(t, home):
@@ -3017,10 +3022,36 @@ def _traced_recompute(key, fn, inputs, home, seeded) -> bool:
     else:
         RTRACE_STATS["replay"] += 1
     ttnn.execute_trace(device, st[0], cq_id=0, blocking=False)
+    if RTRACE_STATS["replay"] <= TRACE_RECOMPUTE_CHECK:
+        _check_replay(key, fn, inputs, vals, seeded, sh["outs"])
     for src, ob in zip(inputs, sh["outs"]):
         if ob is not None and isinstance(src, Tensor):
             src.add_grad(ttnn.clone(ob))
     return True
+
+
+def _check_replay(key, fn, inputs, vals, seeded, outs) -> None:
+    """Run the block eagerly on the replay's own inputs and record each gradient's error."""
+    from .taped_ttnn import recompute_scope
+    inner = [Tensor(ttnn.clone(v), requires_grad=t.requires_grad) if isinstance(t, Tensor)
+             else (ttnn.clone(v) if v is not None else t) for t, v in zip(inputs, vals)]
+    with recompute_scope():
+        y = fn(*inner)
+    roots = [y[k] if k is not None else y for k, _ in seeded]
+    backward(roots, [ttnn.clone(g) for _, g in seeded])
+    rels = []
+    for dup, ob in zip(inner, outs):
+        ref = _grad_value(dup) if isinstance(dup, Tensor) else None
+        if ob is None or ref is None:
+            continue
+        a = ttnn.to_torch(ob).double()
+        b = ttnn.to_torch(ref).double()
+        den = float(b.norm())
+        rels.append(float((a - b).norm()) / den if den else float((a - b).norm()))
+    RTRACE_CHECKS.append(dict(key=repr(key), replay=RTRACE_STATS["replay"], rel=rels))
+    if rels and max(rels) > 1e-3:
+        print(f"[trace-check] replay {RTRACE_STATS['replay']} {key!r}: grad rel L2 {max(rels):.3e}", flush=True)
+    del y, inner, roots
 
 
 def release_recompute_traces(device) -> None:
