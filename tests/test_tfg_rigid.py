@@ -439,6 +439,24 @@ def test_pair_list_descent_batches_backtracking(cases):
     assert torch.equal(counts["off"], counts["auto"])
 
 
+def test_compiled_refinements_check_with_the_gates_own_test(cases, monkeypatch):
+    """The compiled descents accept a step by compiled_eval's severe pairs, so their entry and exit checks must read
+    the same test: the torch clash test rounds 1 ulp differently at the threshold (on ~15 % of distances) and then
+    raised 'introduced a severe interchain clash' on poses the gate had accepted (3 of ~320 panel folds)."""
+    coords, feats = cases[3]
+    seen = []
+    real = rc.compiled_eval
+    monkeypatch.setattr(rc, "compiled_eval", lambda *a, **k: seen.append(1) or real(*a, **k))
+
+    def torch_test(*a, **k):
+        raise AssertionError("a compiled refinement read the torch clash test")
+
+    monkeypatch.setattr(rc.SparseClash, "terms", torch_test)
+    rc.refine_rigid_contact(coords, contact_feats(feats), core="auto")
+    ep.refine_epitope(coords, feats, core="auto")
+    assert len(seen) == 4
+
+
 def test_check_core_returns_dense(cases):
     coords, feats = cases[2]
     cf = contact_feats(feats)

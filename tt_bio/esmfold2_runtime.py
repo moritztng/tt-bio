@@ -260,11 +260,13 @@ class _DevPair:
         return (1, self.seq_len, self.seq_len, self.t.shape[-1])
 
 
-def _trunk_on_device(ftw, dev):
+def _trunk_on_device(ftw, dev, to_host=True):
     """`E.FoldingTrunk.forward` on an already-resident input, minus the upload.
 
     The incoming bf16 device tensor is exactly what `_from_torch` would have
-    produced from the host fp32 copy, so this is the same computation.
+    produced from the host fp32 copy, so this is the same computation. With
+    `to_host=False` the output stays on the device, still padded to the trunk's
+    tile bucket.
     """
     import ttnn
 
@@ -284,6 +286,8 @@ def _trunk_on_device(ftw, dev):
                 ttnn.deallocate(t)
             except Exception:
                 pass
+    if not to_host:
+        return out
     return ftw._to_torch(out)[:, :seq_len, :seq_len, :]
 
 
@@ -379,26 +383,69 @@ def _msa_per_loop(kw, total_steps, max_depth, col_rate):
     return loops
 
 
-def _lm_dropout(lm_z, p):
+def _lm_dropout(lm_z, p, keep=None):
     """esm 3.4.1's per-loop `F.dropout(lm_z, p, training=True)` (`model.py::_run_one_loop`).
 
     The keep mask comes from the global torch RNG, which `fold()` seeds, so the draw follows the
     seed and not the card. A device-resident pair is masked on the device: the 0/1 mask is exact
-    in bf16, the 1/(1-p) scale is applied after it rather than baked into the mask.
+    in bf16, the 1/(1-p) scale is applied after it rather than baked into the mask. `keep` is an
+    already drawn bf16 host mask (`_KeepDraws`).
     """
     if not isinstance(lm_z, _DevPair):
         return lm_z * torch.empty(lm_z.shape).bernoulli_(1.0 - p).to(lm_z.dtype) / (1.0 - p)
     import ttnn
 
     t = lm_z.t
-    keep = torch.empty(tuple(t.shape)).bernoulli_(1.0 - p)
-    m = ttnn.from_torch(keep.to(torch.bfloat16), device=t.device(), layout=ttnn.TILE_LAYOUT,
-                        dtype=ttnn.bfloat16)
+    if keep is None:
+        keep = torch.empty(tuple(t.shape)).bernoulli_(1.0 - p).to(torch.bfloat16)
+    m = ttnn.from_torch(keep, device=t.device(), layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16)
     kept = ttnn.multiply(t, m)
     ttnn.deallocate(m)
     out = ttnn.multiply(kept, 1.0 / (1.0 - p))
     ttnn.deallocate(kept)
     return _DevPair(out, lm_z.seq_len)
+
+
+class _KeepDraws:
+    """The fold's per-loop LM dropout masks, each drawn on a host thread while the device runs
+    the previous loop. Only torch runs on the thread; the upload stays on the caller's.
+
+    The generator is seeded with one draw from the global torch RNG, so the masks follow the
+    fold's seed and not the card. Drawing them inline cost ~0.4 s of host time per loop at 512 aa.
+    """
+
+    def __init__(self, shape, p, n):
+        from concurrent.futures import ThreadPoolExecutor
+
+        self.gen = torch.Generator().manual_seed(int(torch.randint(2 ** 62, ())))
+        self.shape, self.p, self.left = shape, p, n
+        self.pool = ThreadPoolExecutor(1)
+        self.nxt = self.pool.submit(self._draw)
+
+    def _draw(self):
+        return (torch.rand(self.shape, generator=self.gen) >= self.p).to(torch.bfloat16)
+
+    def take(self):
+        keep = self.nxt.result()
+        self.left -= 1
+        self.nxt = self.pool.submit(self._draw) if self.left > 0 else None
+        if self.nxt is None:
+            self.pool.shutdown(wait=False)
+        return keep
+
+
+# The per-loop injection on the device. Since the LM dropout is redrawn every trunk loop
+# (43f72be60) the injection `b_mat @ LN(msa_pair + lm_encoder(dropout(lm_z)))` is per-loop,
+# and on the host each loop paid the LM encoder's download, a host LayerNorm and linear over
+# L^2 x 256, and the upload. On the device the LM encoder's output never leaves it. Declined
+# (host path) when the MSA draw itself changes per loop.
+_DEVICE_INJECTION = True
+INJECTION_STATS = [0, 0]  # [loops served on the device, loops on the host]
+
+
+def set_device_injection(on: bool) -> None:
+    global _DEVICE_INJECTION
+    _DEVICE_INJECTION = bool(on)
 
 
 def _install_resident_trunk_loop(model):
@@ -448,14 +495,25 @@ def _install_resident_trunk_loop(model):
         if self.msa_encoder is not None and _msa_kwargs is not None:
             msa_loops = _msa_per_loop(_msa_kwargs, total_steps, max_depth, col_rate)
 
+        def msa_inject(msa_kw):
+            # reference passes x_pair (the current pair state) separately from _msa_kwargs
+            msa_pair = self.msa_encoder(x_pair=z_init, **msa_kw).to(z_init.dtype)
+            dram_peak("esmfold2/msa-encoder")
+            return msa_pair if overwrite else (z_init + msa_pair)
+
+        # The MSA encoder reads z_init and the loop's MSA draw. With one draw for every loop
+        # (an MSA no deeper than max_depth) its output is the same in every loop, so it is
+        # encoded once even when the LM dropout makes the rest of the injection per-loop.
+        msa_fixed = msa_inject(msa_loops[0]) if msa_loops is not None and len(msa_loops) == 1 \
+            else None
+
         def inject_proj(msa_kw):
             refined = lm_refined() if use_lm else None
             z_inject = z_init
-            if msa_kw is not None:
-                # reference passes x_pair (the current pair state) separately from _msa_kwargs
-                msa_pair = self.msa_encoder(x_pair=z_inject, **msa_kw).to(z_init.dtype)
-                z_inject = msa_pair if overwrite else (z_inject + msa_pair)
-                dram_peak("esmfold2/msa-encoder")
+            if msa_fixed is not None:
+                z_inject = msa_fixed
+            elif msa_kw is not None:
+                z_inject = msa_inject(msa_kw)
             if refined is not None:
                 z_inject = z_inject + refined
             injected = self.parcae_input_norm(z_inject)
@@ -476,11 +534,45 @@ def _install_resident_trunk_loop(model):
         ipt = None if per_loop else ftw._from_torch(
             padz(inject_proj(msa_loops[0] if msa_loops else None)).float())
         at = ftw._from_torch(a.reshape(1, 1, 1, -1).float())  # parcae a, broadcasts over L,L
+        on_dev = (_DEVICE_INJECTION and per_loop and isinstance(lm_z, _DevPair)
+                  and (msa_loops is None or msa_fixed is not None))
+        if on_dev:
+            # What no loop redraws, uploaded once: the MSA pair (or z_init), LN and b_mat.
+            base = ftw._from_torch(padz(msa_fixed if msa_fixed is not None else z_init).float())
+            norm = self.parcae_input_norm
+            ln_w, ln_b = (ttnn.from_torch(t.detach().float(), device=ftw.tt_device,
+                                          layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16)
+                          for t in (norm.weight, norm.bias))
+            b_t = ftw._from_torch(b_mat.t().contiguous().float())
+            ck = ftw.compute_kernel_config
+            draws = _KeepDraws(tuple(lm_z.t.shape), lm_p, total_steps)
+
+        def inject_dev():
+            x = _lm_dropout(lm_z, lm_p, draws.take())
+            refined = _trunk_on_device(self.lm_encoder.m, x, to_host=False)
+            ttnn.deallocate(x.t)
+            s = ttnn.add(base, refined)
+            ttnn.deallocate(refined)
+            n = ttnn.layer_norm(s, weight=ln_w, bias=ln_b, epsilon=norm.eps, compute_kernel_config=ck)
+            ttnn.deallocate(s)
+            out = ttnn.linear(n, b_t, compute_kernel_config=ck)
+            ttnn.deallocate(n)
+            if pad:  # the host path pads the projection with zeros; LN(0) @ b is not zero
+                real = ttnn.slice(out, [0, 0, 0, 0], [1, Lp, Lp, out.shape[-1]])
+                ttnn.deallocate(out)
+                out = ttnn.pad(real, [(0, 0), (0, pad), (0, pad), (0, 0)], value=0.0)
+                ttnn.deallocate(real)
+            return out
+
         for _step in range(total_steps):
             E.report_progress("trunk", _step, total_steps)
-            if per_loop:
+            if on_dev:
+                ipt = inject_dev()
+                INJECTION_STATS[0] += 1
+            elif per_loop:
                 ipt = ftw._from_torch(padz(inject_proj(
                     msa_loops[min(_step, len(msa_loops) - 1)] if msa_loops else None)).float())
+                INJECTION_STATS[1] += 1
             az = ttnn.multiply(zt, at)
             ttnn.deallocate(zt)
             znew = ttnn.add(az, ipt)
@@ -491,7 +583,7 @@ def _install_resident_trunk_loop(model):
             zt = ftw.module(znew, mask)  # folding trunk consumes znew, returns new z
         dram_peak("esmfold2/trunk-done")
         z_out = ftw._to_torch(zt)[:, :Lp, :Lp, :].to(z.dtype)
-        for t in (zt, ipt, at, mask):
+        for t in (zt, ipt, at, mask) + ((base, ln_w, ln_b, b_t) if on_dev else ()):
             if t is not None:
                 try:
                     ttnn.deallocate(t)

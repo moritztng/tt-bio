@@ -23,7 +23,8 @@ nesso1-ccd          nesso1         huggingface.co   present     0.38G  /home/you
 - `tt-bio weights --download boltz2 rf3` fetches just those models' artifacts.
 - `tt-bio weights --prune` reclaims superseded Hugging Face revisions and staging
   leftovers, printing the bytes and asking first. Naming models (`--prune saprot-1.3b`)
-  also drops those models' artifacts.
+  also drops those models' artifacts. `--yes` skips the question.
+- `--force` with `--download` re-fetches artifacts that are already intact.
 
 The SOURCE column is the host the bytes come from. A row with more than one source shows
 the first and how many follow (`huggingface.co+1`).

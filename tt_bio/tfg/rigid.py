@@ -8,8 +8,9 @@ touched. Constants, step sizes, candidate poses, acceptance rules and op order a
 Two clash cores, chosen by ``core`` (upstream's OPENDDE_RIGID_CORE):
   "off"    upstream's dense path (every moving-fixed pair), op for op; what upstream runs on CPU.
   "auto"   the exact pair-list core of tt_bio.tfg.neighbors (the role of upstream's Triton cell lists): the same
-           pairs, so the same energies up to fp32 summation order and the same severe sets. Refinement scores
-           the nine shorter backtracking proposals in one call; the coarse searches score every candidate in
+           pairs, so the same energies up to fp32 summation order and the same severe sets. The contact refinement
+           runs compiled, one sample at a time (_descend); the epitope refinement scores the nine shorter
+           backtracking proposals in one call; the coarse searches score every candidate in
            batches and keep the first lowest feasible one below the entry energy, which is the pose the
            sequential strict-improvement loop keeps. Samples that already meet the request are not scored.
   "check"  both; logs the largest coordinate difference and returns the dense result.
@@ -31,9 +32,11 @@ import math
 from dataclasses import dataclass
 from typing import Optional
 
+import numba
+import numpy as np
 import torch
 
-from tt_bio.tfg.neighbors import SparseClash, square_length
+from tt_bio.tfg.neighbors import HARD, SOFT, SevereSet, SparseClash, square_length
 
 # Identical to upstream opendde.data.constants.rdkit_vdws (118 entries, H..Og, index 0 = H).
 from tt_bio.data.const import vdw_radii as rdkit_vdws
@@ -475,9 +478,15 @@ def refine_rigid_contact(coords, feats, iterations=40, core=None):
     atomic_number_index = feats["ref_element"].argmax(-1)
     if (atomic_number_index == 0).any():
         raise ValueError("Rigid contact expects heavy-atom protein input; hydrogen found.")
-    clash = clash_core(core, fixed, radii[atomic_number_index[moving_ids]], radii[atomic_number_index[fixed_ids]])
     lower = feats["user_distance_restraint_lower_bound"].float()
     upper = feats["user_distance_restraint_upper_bound"].float()
+    if core != "off":
+        # the descent leaves satisfied samples alone: with every sample satisfied it moves nothing
+        pair_d = torch.linalg.vector_norm(moving[:, ri] - fixed[:, li], dim=-1).clamp_min(1e-6)
+        if bool(((pair_d >= lower - 1e-6) & (pair_d <= upper + 1e-6)).all()):
+            logger.info("RIGID_CONTACT refine: every sample already meets its contacts")
+            return coords.clone()
+    clash = clash_core(core, fixed, radii[atomic_number_index[moving_ids]], radii[atomic_number_index[fixed_ids]])
     entry = moving.clone()
 
     def evaluate(x, gradient=False, terms=None):
@@ -498,8 +507,24 @@ def refine_rigid_contact(coords, feats, iterations=40, core=None):
     def satisfied(pair_d):
         return ((pair_d >= lower - 1e-6) & (pair_d <= upper + 1e-6)).all(-1)
 
+    compiled = core == "auto" and moving.dtype == torch.float32 and moving.device.type == "cpu"
+    if compiled:
+        def evaluate(x):
+            """The descent's own evaluation, so the exit check reads the same severe pairs its gate accepted."""
+            energy, severe, depth = compiled_eval(x, fixed, clash, ri, li, lower, upper)
+            return energy, severe, depth, torch.linalg.vector_norm(x[:, ri] - fixed[:, li], dim=-1).clamp_min(1e-6)
+
     first_energy, first_severe, _, first_d = evaluate(moving)
-    moving, accepted_count = rigid_descent(moving, evaluate, satisfied, idx.shape[1], iterations, clash, ri.unique())
+    if compiled:
+        moving = moving.contiguous()
+        none = np.zeros((len(moving), 0, 3), np.float32)
+        accepted_count = torch.from_numpy(_descend(
+            moving.numpy(), fixed.contiguous().numpy(), clash.ra.contiguous().numpy(), clash.rb.contiguous().numpy(),
+            iterations, idx.shape[1], clash.cut, 2.0, 0, ri.contiguous().numpy(), li.contiguous().numpy(),
+            lower.contiguous().numpy(), upper.contiguous().numpy(), none, np.zeros((0, 1), np.bool_),
+            np.zeros(0, np.int64), np.zeros((0, 1), np.int64), none, np.zeros((len(moving), 0), np.float32), 0.0))
+    else:
+        moving, accepted_count = rigid_descent(moving, evaluate, satisfied, idx.shape[1], iterations, clash, ri.unique())
     final_energy, final_severe, _, final_d = evaluate(moving)
     intact = clash.no_new(entry, first_severe, moving, final_severe)
     if not bool(intact.all()):
@@ -532,10 +557,17 @@ def search_rigid_contact(coords, feats, core=None):
     if core == "check":
         return checked(search_rigid_contact, coords, feats)
     fi, mi, fix_atoms, mov_atoms = contact_groups(coords, feats)
+    lower = feats["user_distance_restraint_lower_bound"]
+    upper = feats["user_distance_restraint_upper_bound"]
+    target = coords[:, fix_atoms].float()
+    entry_distance = torch.linalg.vector_norm(coords[:, mov_atoms].float() - target, dim=-1)
+    satisfied = ((entry_distance >= lower - 1e-6) & (entry_distance <= upper + 1e-6)).all(-1)
+    if core != "off" and bool(satisfied.all()):
+        logger.info("RIGID_CONTACT coarse search satisfied=%s candidates=0", satisfied.tolist())
+        return coords.clone()
     fixed = coords[:, fi].float()
     moving = coords[:, mi].float()
     source = coords[:, mov_atoms].float()
-    target = coords[:, fix_atoms].float()
     sc = source.mean(1, keepdim=True)
     tc = target.mean(1, keepdim=True)
     u, _, vh = torch.linalg.svd(torch.bmm((source - sc).transpose(1, 2), target - tc))
@@ -548,14 +580,13 @@ def search_rigid_contact(coords, feats, core=None):
     outward /= torch.linalg.vector_norm(outward, dim=-1, keepdim=True).clamp_min(1e-6)
     radii = torch.as_tensor(rdkit_vdws, device=coords.device, dtype=torch.float32)
     r = radii[feats["ref_element"].argmax(-1)]
-    rsum = r[mi][:, None] + r[fi][None, :]
-    lower = feats["user_distance_restraint_lower_bound"]
-    upper = feats["user_distance_restraint_upper_bound"]
 
     def score_contact(contact):
         tgt = target if contact.dim() == 3 else target[todo, None]
         distance = torch.linalg.vector_norm(contact - tgt, dim=-1)
         return torch.relu(distance - upper) + torch.relu(lower - distance)
+
+    rsum = r[mi][:, None] + r[fi][None, :] if core == "off" else None     # dense [moving, fixed]: reference only
 
     def score(x, contact):
         distance = torch.linalg.vector_norm(contact - target, dim=-1)
@@ -574,8 +605,6 @@ def search_rigid_contact(coords, feats, core=None):
         best_energy = 0.5 * score_contact(source).square().sum(-1) + 10 * clash_energy[:, 0]
         bad = bad[:, 0]
     best_energy = torch.where(bad, torch.full_like(best_energy, float("inf")), best_energy)
-    entry_distance = torch.linalg.vector_norm(coords[:, mov_atoms].float() - target, dim=-1)
-    satisfied = ((entry_distance >= lower - 1e-6) & (entry_distance <= upper + 1e-6)).all(-1)
     normals = [outward]
     for i in range(24):
         z = 1 - 2 * (i + 0.5) / 24
@@ -619,6 +648,40 @@ def search_rigid_contact(coords, feats, core=None):
                 torch.add(rot_contacts.transpose(0, 1)[:, :, None], shift[:, None], out=contact6[:, a])
             return x, contact
 
+        if todo.numel() and fitted.dtype == torch.float32 and fitted.device.type == "cpu":
+            # compiled: every candidate placed and scored in one pass per sample, same order and rule
+            T = len(todo)
+            rots, shifts = [], []
+            for normal in normals:
+                normal = normal[todo]
+                w = torch.cat([normal * turn for turn in turns])
+                rots.append(torch.linalg.matrix_exp(skew_matrix(w, t_fit.repeat(len(turns), 1, 1))).transpose(1, 2)
+                            .reshape(len(turns), T, 3, 3).transpose(0, 1))
+                shifts.append((t_tc[:, None] + torch.tensor(radii_out, dtype=t_tc.dtype)[None, :, None, None]
+                               * normal[:, None, None])[:, :, 0])
+            rot = torch.stack(rots, 1).contiguous()                                  # [T, normals, turns, 3, 3]
+            shift = torch.stack(shifts, 1)[:, :, None].expand(-1, -1, len(turns), -1, -1).contiguous()
+            field = clash.field
+            ra = r[mi].float()
+            far_at = (SOFT * ra + field.margin) + field.delta
+            severe_below = (HARD * ra - field.margin) - (field.lift + field.delta)
+            sub_best = best_energy[todo].contiguous()
+            pick, n_feasible, n_better = _search_contact(
+                t_fitted.contiguous().numpy(), t_contacts.contiguous().numpy(), rot.numpy(), shift.numpy(),
+                target[todo].contiguous().numpy(), lower.float().contiguous().numpy(), upper.float().contiguous().numpy(),
+                fixed[todo].contiguous().numpy(), ra.contiguous().numpy(), r[fi].float().contiguous().numpy(),
+                clash.cut, sub_best.numpy(), todo.numpy(), field.soft.numpy(), field.lo.contiguous().numpy(),
+                np.float32(1.0 / field.v), field.dims.numpy(), field.nvox, far_at.contiguous().numpy(),
+                severe_below.contiguous().numpy())
+            best_energy[todo] = sub_best
+            feasible[todo] += torch.from_numpy(n_feasible)
+            improving[todo] += torch.from_numpy(n_better)
+            accepted[todo] += torch.from_numpy(n_better)
+            for t, (a, b, k) in enumerate(pick.tolist()):
+                if a >= 0:
+                    turned = torch.bmm(t_fitted[t:t + 1], rot[t, a, b][None])
+                    best[todo[t]] = turned[0] + shift[t, a, b, k]
+            todo = todo[:0]
         for start in range(0, len(normals), SEARCH_CHUNK_NORMALS):
             chunk = normals[start:start + SEARCH_CHUNK_NORMALS]
             tested += len(chunk) * len(turns) * len(radii_out)
@@ -660,3 +723,564 @@ def search_rigid_contact(coords, feats, core=None):
             best_energy.tolist(),
         )
     return result
+
+
+# ---- compiled contact refinement (core "auto"): rigid_descent with refine_rigid_contact's evaluate, one sample at a
+# time (a sample's descent never reads another's), on a moving-fixed pair list with a skin over a cell grid of the
+# fixed group. Same rule, constants and op order per value; sums and the mean round in a different order.
+
+@numba.njit(cache=True, nogil=True)
+def _fixed_grid(fixed, h):
+    """Counting-sorted cell grid of fixed [N, 3] with cell size h: (lo, dims, start, atoms)."""
+    N = fixed.shape[0]
+    lo = np.empty(3, np.float32)
+    dims = np.empty(3, np.int64)
+    for k in range(3):
+        lo[k] = fixed[:, k].min() - np.float32(1e-3)
+        dims[k] = np.int64((fixed[:, k].max() - lo[k]) / h) + 1
+    cell = np.empty(N, np.int64)
+    count = np.zeros(dims[0] * dims[1] * dims[2] + 1, np.int64)
+    for a in range(N):
+        c0 = np.int64((fixed[a, 0] - lo[0]) / h)
+        c1 = np.int64((fixed[a, 1] - lo[1]) / h)
+        c2 = np.int64((fixed[a, 2] - lo[2]) / h)
+        cell[a] = (c0 * dims[1] + c1) * dims[2] + c2
+        count[cell[a] + 1] += 1
+    start = np.cumsum(count)
+    fill = start[:-1].copy()
+    atoms = np.empty(N, np.int64)
+    for a in range(N):                              # ascending atom order inside a cell
+        atoms[fill[cell[a]]] = a
+        fill[cell[a]] += 1
+    return lo, dims, start, atoms
+
+
+@numba.njit(cache=True, nogil=True)
+def _pairs_near(x, fixed, lo, dims, start, atoms, h):
+    """Every (moving i, fixed j) with |x_i - fixed_j| < h, i ascending, then j ascending."""
+    out_i, out_j = [], []
+    h2 = h * h
+    for i in range(x.shape[0]):
+        c = np.empty(3, np.int64)
+        outside = False
+        for k in range(3):
+            f = np.floor((x[i, k] - lo[k]) / h)
+            if f < -1 or f > dims[k]:
+                outside = True
+            c[k] = np.int64(f) if not outside else 0
+        if outside:
+            continue
+        js = []
+        for a in range(max(c[0] - 1, 0), min(c[0] + 2, dims[0])):
+            for b in range(max(c[1] - 1, 0), min(c[1] + 2, dims[1])):
+                for d in range(max(c[2] - 1, 0), min(c[2] + 2, dims[2])):
+                    q = (a * dims[1] + b) * dims[2] + d
+                    for t in range(start[q], start[q + 1]):
+                        j = atoms[t]
+                        r0, r1, r2 = x[i, 0] - fixed[j, 0], x[i, 1] - fixed[j, 1], x[i, 2] - fixed[j, 2]
+                        if (r0 * r0 + r1 * r1) + r2 * r2 < h2:
+                            js.append(j)
+        js.sort()
+        for j in js:
+            out_i.append(i)
+            out_j.append(j)
+    pi = np.empty(len(out_i), np.int64)
+    pj = np.empty(len(out_j), np.int64)
+    for p in range(len(out_i)):
+        pi[p], pj[p] = out_i[p], out_j[p]
+    return pi, pj
+
+
+@numba.njit(cache=True, nogil=True)
+def _contact_eval(x, fixed, pi, pj, ra, rb, ri, li, lower, upper, grad, want):
+    """refine_rigid_contact's evaluate on one sample: (energy, depth, sorted severe keys, satisfied); fills grad
+    [M, 3] when want."""
+    f = np.float32
+    N = fixed.shape[0]
+    e = f(0.0)
+    depth = f(0.0)
+    sev = []
+    if want:
+        grad[:] = 0
+    for p in range(pi.shape[0]):
+        i, j = pi[p], pj[p]
+        r0, r1, r2 = x[i, 0] - fixed[j, 0], x[i, 1] - fixed[j, 1], x[i, 2] - fixed[j, 2]
+        d = max(np.sqrt((r0 * r0 + r2 * r2) + r1 * r1), f(1e-6))
+        rs = ra[i] + rb[j]
+        ov = max(f(SOFT) * rs - d, f(0.0))
+        e += ov * ov
+        depth = max(depth, max(f(HARD) * rs - d, f(0.0)))
+        if d < f(HARD) * rs:
+            sev.append(i * N + j)
+        if want and d > f(1e-6):
+            c = f(-20.0) * ov / d
+            grad[i, 0] += c * r0
+            grad[i, 1] += c * r1
+            grad[i, 2] += c * r2
+    v2 = f(0.0)
+    ok = True
+    for c in range(ri.shape[0]):
+        m, q = ri[c], li[c]
+        p0, p1, p2 = x[m, 0] - fixed[q, 0], x[m, 1] - fixed[q, 1], x[m, 2] - fixed[q, 2]
+        pd = max(np.sqrt((p0 * p0 + p1 * p1) + p2 * p2), f(1e-6))
+        viol = max(pd - upper[c], f(0.0)) - max(lower[c] - pd, f(0.0))
+        v2 += viol * viol
+        ok = ok and pd >= lower[c] - f(1e-6) and pd <= upper[c] + f(1e-6)
+        if want and pd > f(1e-6):
+            grad[m, 0] += viol * p0 / pd
+            grad[m, 1] += viol * p1 / pd
+            grad[m, 2] += viol * p2 / pd
+    keys = np.empty(len(sev), np.int64)
+    for k in range(len(sev)):
+        keys[k] = sev[k]
+    keys.sort()
+    return f(0.5) * (v2 + f(20.0) * e), depth, keys, ok
+
+
+def compiled_eval(x, fixed, clash, ri=None, li=None, lower=None, upper=None):
+    """_descend's evaluation of poses x [S, M, 3] against fixed [S, N, 3]: (energy, SevereSet, depth) per sample,
+    with the contact term over ri/li in [lower, upper] when given (energy otherwise the clash term alone). A
+    refinement's entry and exit checks must use this, not the torch clash test: the two round a distance at the
+    severe threshold differently, and a pose the gate accepted could then read as a new severe clash."""
+    if ri is None:
+        ri = li = torch.zeros(0, dtype=torch.long)
+        lower = upper = torch.zeros(0)
+    ra, rb, cut, n_atoms = clash.ra.contiguous().numpy(), clash.rb.contiguous().numpy(), np.float32(clash.cut), fixed.shape[1]
+    energy, depth, keys = [], [], []
+    for s, (xs, fs) in enumerate(zip(x.contiguous().numpy(), fixed.contiguous().numpy())):
+        pi, pj = _pairs_near(xs, fs, *_fixed_grid(fs, cut), cut)
+        e, d, k, _ = _contact_eval(xs, fs, pi, pj, ra, rb, ri.numpy(), li.numpy(), lower.numpy(), upper.numpy(),
+                                   np.empty((0, 3), np.float32), False)
+        energy.append(e), depth.append(d), keys.append(torch.from_numpy(k) + s * x.shape[1] * n_atoms)
+    keys = torch.cat(keys)
+    return (torch.tensor(energy), SevereSet(keys, torch.zeros_like(keys), len(x), 1, x.shape[1] * n_atoms),
+            torch.tensor(depth))
+
+
+@numba.njit(cache=True, nogil=True)
+def _epitope_eval(x, epi, valid, para, qslots, ecentre, eradius, k, margin, grad, want):
+    """epitope.contact_energy_and_gradient on one sample: (energy, satisfied), adds the gradient to grad when want.
+    Residue distances use ResidueDistances' sphere bound; the nearest pair is the first minimum in (slot, paratope)
+    order, as residue_distances' argmin."""
+    f = np.float32
+    n, mm = valid.shape[0], valid.shape[1]
+    Q, W, P = qslots.shape[0], qslots.shape[1], para.shape[0]
+    cen = np.zeros((Q, 3), np.float32)
+    rad = np.zeros(Q, np.float32)
+    for q in range(Q):
+        c = 0
+        for w in range(W):
+            if qslots[q, w] >= 0:
+                c += 1
+                for t in range(3):
+                    cen[q, t] += x[para[qslots[q, w]], t]
+        for t in range(3):
+            cen[q, t] /= f(max(c, 1))
+        for w in range(W):
+            if qslots[q, w] >= 0:
+                a = para[qslots[q, w]]
+                d0, d1, d2 = x[a, 0] - cen[q, 0], x[a, 1] - cen[q, 1], x[a, 2] - cen[q, 2]
+                rad[q] = max(rad[q], np.sqrt((d0 * d0 + d1 * d1) + d2 * d2))
+    d = np.empty(n, np.float32)
+    bu = np.zeros(n, np.int64)
+    bp = np.zeros(n, np.int64)
+    gap = np.empty(Q, np.float32)
+    for e in range(n):
+        q0 = 0
+        for q in range(Q):
+            g0, g1, g2 = ecentre[e, 0] - cen[q, 0], ecentre[e, 1] - cen[q, 1], ecentre[e, 2] - cen[q, 2]
+            gap[q] = np.sqrt((g0 * g0 + g1 * g1) + g2 * g2) - eradius[e] - rad[q]
+            if gap[q] < gap[q0]:
+                q0 = q
+        best = f(np.inf)
+        flat = 2 ** 62
+        upper = f(np.inf)
+        for sweep in range(2):
+            for q in range(Q):
+                if (sweep == 0 and q != q0) or (sweep == 1 and (q == q0 or gap[q] > upper)):
+                    continue
+                for w in range(W):
+                    sl = qslots[q, w]
+                    if sl < 0:
+                        continue
+                    a = para[sl]
+                    for u in range(mm):
+                        if not valid[e, u]:
+                            continue
+                        x0, x1, x2 = epi[e * mm + u, 0] - x[a, 0], epi[e * mm + u, 1] - x[a, 1], epi[e * mm + u, 2] - x[a, 2]
+                        dist = np.sqrt((x0 * x0 + x2 * x2) + x1 * x1)
+                        key = u * P + sl
+                        if dist < best or (dist == best and key < flat):
+                            best, flat = dist, key
+            upper = best + f(margin)
+        d[e], bu[e], bp[e] = best, flat // P, flat % P
+    order = np.argsort(d, kind="mergesort")
+    energy = f(0.0)
+    reached = 0
+    for e in range(n):
+        if d[e] <= f(5.0):
+            reached += 1
+    for i in range(k):
+        e = order[i]
+        v = max(d[e] - f(4.5), f(0.0))
+        energy += v * v
+        if want:
+            a = para[bp[e]]
+            r0, r1, r2 = x[a, 0] - epi[e * mm + bu[e], 0], x[a, 1] - epi[e * mm + bu[e], 1], x[a, 2] - epi[e * mm + bu[e], 2]
+            dist = max(np.sqrt((r0 * r0 + r1 * r1) + r2 * r2), f(1e-6))
+            grad[a, 0] += v * r0 / dist
+            grad[a, 1] += v * r1 / dist
+            grad[a, 2] += v * r2 / dist
+    return f(0.5) * energy, reached >= k
+
+
+@numba.njit(cache=True, nogil=True)
+def _request_eval(x, fixed, pi, pj, ra, rb, mode, ri, li, lower, upper, epi, valid, para, qslots, ecentre, eradius,
+                  k, margin, grad, want):
+    """The descent's evaluate: mode 0 refine_rigid_contact's, mode 1 refine_epitope's (energy, depth, keys, ok)."""
+    if mode == 0:
+        return _contact_eval(x, fixed, pi, pj, ra, rb, ri, li, lower, upper, grad, want)
+    e, depth, keys, _ = _contact_eval(x, fixed, pi, pj, ra, rb, ri[:0], li[:0], lower[:0], upper[:0], grad, want)
+    ce, ok = _epitope_eval(x, epi, valid, para, qslots, ecentre, eradius, k, margin, grad, want)
+    return ce + e, depth, keys, ok
+
+
+@numba.njit(cache=True, nogil=True)
+def _small_rotation(w0, w1, w2):
+    """small_rotation for one w, float64 series, fp32 matrix."""
+    t = (w0 * w0 + w1 * w1) + w2 * w2
+    a = 1 - t / 6 * (1 - t / 20 * (1 - t / 42 * (1 - t / 72)))
+    b = 0.5 * (1 - t / 12 * (1 - t / 30 * (1 - t / 56 * (1 - t / 90))))
+    v = (w0, w1, w2)
+    K = ((0.0, -w2, w1), (w2, 0.0, -w0), (-w1, w0, 0.0))
+    R = np.empty((3, 3), np.float32)
+    for r in range(3):
+        for c in range(3):
+            R[r, c] = np.float32(((1 - t * b) * (1.0 if r == c else 0.0) + a * K[r][c]) + b * v[r] * v[c])
+    return R
+
+
+@numba.njit(cache=True, nogil=True)
+def _solve3(A, b):
+    """A x = b for 3 x 3 A by Gaussian elimination with partial pivoting (float64), fp32 result."""
+    m = np.empty((3, 4), np.float64)
+    for r in range(3):
+        for c in range(3):
+            m[r, c] = A[r, c]
+        m[r, 3] = b[r]
+    for c in range(3):
+        p = c
+        for r in range(c + 1, 3):
+            if abs(m[r, c]) > abs(m[p, c]):
+                p = r
+        for k in range(4):
+            m[c, k], m[p, k] = m[p, k], m[c, k]
+        for r in range(c + 1, 3):
+            q = m[r, c] / m[c, c]
+            for k in range(c, 4):
+                m[r, k] -= q * m[c, k]
+    x = np.empty(3, np.float32)
+    v = np.zeros(3, np.float64)
+    for r in range(2, -1, -1):
+        t = m[r, 3]
+        for k in range(r + 1, 3):
+            t -= m[r, k] * v[k]
+        v[r] = t / m[r, r]
+        x[r] = np.float32(v[r])
+    return x
+
+
+@numba.njit(cache=True, nogil=True)
+def _descend(moving, fixed, ra, rb, iterations, n_terms, cut, skin, mode, ri, li, lower, upper, epi, valid, para, qslots,
+             ecentre, eradius, margin):
+    """rigid_descent on moving [S, M, 3] in place with refine_rigid_contact's evaluate (mode 0: contacts ri/li in
+    [lower, upper]) or refine_epitope's (mode 1: the n_terms nearest of the epitope residues epi/valid [S, n * m, 3] /
+    [n, m] to the paratope para / qslots); returns accepted steps [S]."""
+    f = np.float32
+    S, M = moving.shape[0], moving.shape[1]
+    accepted = np.zeros(S, np.int64)
+    h = f(cut + skin)
+    lim = f((skin - 1e-3) ** 2)
+    grad = np.empty((M, 3), np.float32)
+    g2 = np.empty((M, 3), np.float32)
+    prop = np.empty((M, 3), np.float32)
+    centered = np.empty((M, 3), np.float32)
+    for s in range(S):
+        x = moving[s].copy()
+        fx = fixed[s]
+        lo, dims, start, atoms = _fixed_grid(fx, h)
+        built = x.copy()
+        pi, pj = _pairs_near(x, fx, lo, dims, start, atoms, h)
+        for _ in range(iterations):
+            energy, depth, keys, ok = _request_eval(x, fx, pi, pj, ra, rb, mode, ri, li, lower, upper, epi[s], valid,
+                                                    para, qslots, ecentre[s], eradius[s], n_terms, margin, grad, True)
+            if ok:
+                break                                    # satisfied samples are left alone
+            cen = np.zeros(3, np.float32)
+            for m in range(M):
+                for k in range(3):
+                    cen[k] += x[m, k]
+            for k in range(3):
+                cen[k] /= f(M)
+            tr = np.zeros(3, np.float32)
+            tq = np.zeros(3, np.float32)
+            ine = np.zeros((3, 3), np.float64)
+            for m in range(M):
+                c0, c1, c2 = x[m, 0] - cen[0], x[m, 1] - cen[1], x[m, 2] - cen[2]
+                centered[m, 0], centered[m, 1], centered[m, 2] = c0, c1, c2
+                g0, g1, g2_ = grad[m, 0], grad[m, 1], grad[m, 2]
+                tr[0] += g0
+                tr[1] += g1
+                tr[2] += g2_
+                tq[0] += c1 * g2_ - c2 * g1
+                tq[1] += c2 * g0 - c0 * g2_
+                tq[2] += c0 * g1 - c1 * g0
+                cc = (c0, c1, c2)
+                n2 = (c0 * c0 + c1 * c1) + c2 * c2
+                for a in range(3):
+                    ine[a, a] += n2
+                    for b in range(3):
+                        ine[a, b] -= cc[a] * cc[b]
+            for k in range(3):
+                tr[k] = f(-0.2) * tr[k] / f(n_terms)
+            tn = np.sqrt((tr[0] * tr[0] + tr[1] * tr[1]) + tr[2] * tr[2])
+            sc = f(0.5) / max(tn, f(0.5))
+            for k in range(3):
+                tr[k] *= sc
+            A = np.empty((3, 3), np.float32)
+            for a in range(3):
+                for b in range(3):
+                    A[a, b] = f(ine[a, b]) + (f(1e-3) if a == b else f(0.0))
+            rot = _solve3(A, tq)
+            for k in range(3):
+                rot[k] = f(-0.15) * f(M) / f(n_terms) * rot[k]
+            rn = np.sqrt((rot[0] * rot[0] + rot[1] * rot[1]) + rot[2] * rot[2])
+            sc = f(0.03) / max(rn, f(0.03))
+            for k in range(3):
+                rot[k] *= sc
+            found = False
+            for bt in range(10):
+                scale = 0.5 ** bt
+                R = _small_rotation(np.float64(rot[0] * f(scale)), np.float64(rot[1] * f(scale)), np.float64(rot[2] * f(scale)))
+                far = f(0.0)
+                for m in range(M):
+                    for k in range(3):
+                        prop[m, k] = ((centered[m, 0] * R[k, 0] + centered[m, 1] * R[k, 1]) + centered[m, 2] * R[k, 2]
+                                      + cen[k]) + tr[k] * f(scale)
+                    d0, d1, d2 = prop[m, 0] - built[m, 0], prop[m, 1] - built[m, 1], prop[m, 2] - built[m, 2]
+                    far = max(far, (d0 * d0 + d1 * d1) + d2 * d2)
+                if far >= lim:                           # the list no longer covers this pose: rebuild there
+                    built[:] = prop
+                    pi, pj = _pairs_near(prop, fx, lo, dims, start, atoms, h)
+                    # the current pose x must stay covered too for the next iteration's evaluate
+                e2, dep2, keys2, _ = _request_eval(prop, fx, pi, pj, ra, rb, mode, ri, li, lower, upper, epi[s], valid,
+                                                   para, qslots, ecentre[s], eradius[s], n_terms, margin, g2, False)
+                new = False
+                for k in range(keys2.shape[0]):
+                    q = np.searchsorted(keys, keys2[k])
+                    if q >= keys.shape[0] or keys[q] != keys2[k]:
+                        new = True
+                        break
+                if (not new) and dep2 <= depth + f(1e-6) and e2 < energy - f(1e-7):
+                    x[:] = prop
+                    accepted[s] += 1
+                    found = True
+                    break
+            if not found:
+                break
+            far = f(0.0)
+            for m in range(M):
+                d0, d1, d2 = x[m, 0] - built[m, 0], x[m, 1] - built[m, 1], x[m, 2] - built[m, 2]
+                far = max(far, (d0 * d0 + d1 * d1) + d2 * d2)
+            if far >= lim:
+                built[:] = x
+                pi, pj = _pairs_near(x, fx, lo, dims, start, atoms, h)
+        moving[s] = x
+    return accepted
+
+
+@numba.njit(cache=True, nogil=True)
+def _pose_clash(turned, s0, s1, s2, fx, ra, rb, cut, glo, gdims, gstart, gatoms, soft, base, l0, l1, l2, inv_v, fdims,
+                far_at, severe_below, rest, best):
+    """Clash of the pose turned + (s0, s1, s2) against fx: (rejected, sum overlap^2). BoundField's soft table skips
+    points that touch nothing and rejects points it proves severe; every other point is scored on exact pairs.
+    The pose is also rejected, unscored, once rest + 10 * clash cannot fall below best: the overlap sum only grows and
+    fp32 rounding is monotone, so such a pose could never be taken."""
+    f = np.float32
+    if rest >= best:
+        return True, f(0.0)
+    hi0, hi1, hi2 = f(fdims[0] - 1), f(fdims[1] - 1), f(fdims[2] - 1)
+    clash = f(0.0)
+    for m in range(turned.shape[0]):
+        p0, p1, p2 = turned[m, 0] + s0, turned[m, 1] + s1, turned[m, 2] + s2
+        c0 = min(max(np.floor((p0 - l0) * inv_v), f(0.0)), hi0)
+        c1 = min(max(np.floor((p1 - l1) * inv_v), f(0.0)), hi1)
+        c2 = min(max(np.floor((p2 - l2) * inv_v), f(0.0)), hi2)
+        v = soft[base + (np.int64(c0) * fdims[1] + np.int64(c1)) * fdims[2] + np.int64(c2)]
+        if v >= far_at[m]:
+            continue
+        if v < severe_below[m]:
+            return True, clash
+        g0 = np.int64(np.floor((p0 - glo[0]) / f(cut)))
+        g1 = np.int64(np.floor((p1 - glo[1]) / f(cut)))
+        g2 = np.int64(np.floor((p2 - glo[2]) / f(cut)))
+        for x0 in range(max(g0 - 1, 0), min(g0 + 2, gdims[0])):
+            for x1 in range(max(g1 - 1, 0), min(g1 + 2, gdims[1])):
+                for x2 in range(max(g2 - 1, 0), min(g2 + 2, gdims[2])):
+                    q = (x0 * gdims[1] + x1) * gdims[2] + x2
+                    for u in range(gstart[q], gstart[q + 1]):
+                        j = gatoms[u]
+                        r0, r1, r2 = p0 - fx[j, 0], p1 - fx[j, 1], p2 - fx[j, 2]
+                        d = max(np.sqrt((r0 * r0 + r2 * r2) + r1 * r1), f(1e-6))
+                        rs = ra[m] + rb[j]
+                        if d < f(HARD) * rs:
+                            return True, clash
+                        ov = max(f(SOFT) * rs - d, f(0.0))
+                        clash += ov * ov
+        if rest + f(10.0) * clash >= best:
+            return True, clash
+    return False, clash
+
+
+@numba.njit(cache=True, nogil=True)
+def _search_contact(fitted, contacts, rot, shift, target, lower, upper, fixed, ra, rb, cut, best_energy,
+                    samp, soft, flo, inv_v, fdims, nvox, far_at, severe_below):
+    """search_rigid_contact's candidate loop for the samples it is handed (row t of every array): poses
+    x = fitted @ rot[t, a, b] + shift[t, a, b, r] in upstream's (normal a, turn b, radius r) order; a pose is taken
+    when it has no severe pair and its energy 0.5 sum err^2 + 10 sum overlap^2 is strictly below the best so far.
+    BoundField's soft table (soft, flo, inv_v, fdims, nvox, far_at, severe_below; per sample row t) skips points that
+    touch nothing and rejects poses it proves severe; every other point is scored on exact pairs.
+    Returns (pick [T, 3] (-1 when none), feasible, improving) and updates best_energy [T]; feasible counts the poses
+    _pose_clash did not reject, so it leaves out poses that could not have been taken."""
+    f = np.float32
+    T, A, B, Rn = shift.shape[0], shift.shape[1], shift.shape[2], shift.shape[3]
+    M, C = fitted.shape[1], contacts.shape[1]
+    pick = np.full((T, 3), -1, np.int64)
+    feasible = np.zeros(T, np.int64)
+    improving = np.zeros(T, np.int64)
+    turned = np.empty((M, 3), np.float32)
+    tcon = np.empty((C, 3), np.float32)
+    for t in range(T):
+        fx = fixed[t]
+        glo, gdims, gstart, gatoms = _fixed_grid(fx, f(cut))
+        base = samp[t] * nvox
+        l0, l1, l2 = flo[samp[t], 0], flo[samp[t], 1], flo[samp[t], 2]
+        for a in range(A):
+            for b in range(B):
+                Rm = rot[t, a, b]
+                for m in range(M):
+                    for k in range(3):
+                        turned[m, k] = (fitted[t, m, 0] * Rm[0, k] + fitted[t, m, 1] * Rm[1, k]) + fitted[t, m, 2] * Rm[2, k]
+                for m in range(C):
+                    for k in range(3):
+                        tcon[m, k] = (contacts[t, m, 0] * Rm[0, k] + contacts[t, m, 1] * Rm[1, k]) + contacts[t, m, 2] * Rm[2, k]
+                for r in range(Rn):
+                    s0, s1, s2 = shift[t, a, b, r, 0], shift[t, a, b, r, 1], shift[t, a, b, r, 2]
+                    err = f(0.0)
+                    for c in range(C):
+                        d0 = (tcon[c, 0] + s0) - target[t, c, 0]
+                        d1 = (tcon[c, 1] + s1) - target[t, c, 1]
+                        d2 = (tcon[c, 2] + s2) - target[t, c, 2]
+                        dist = np.sqrt((d0 * d0 + d1 * d1) + d2 * d2)
+                        e = max(dist - upper[c], f(0.0)) + max(lower[c] - dist, f(0.0))
+                        err += e * e
+                    bad, clash = _pose_clash(turned, s0, s1, s2, fx, ra, rb, cut, glo, gdims, gstart, gatoms, soft,
+                                             base, l0, l1, l2, inv_v, fdims, far_at, severe_below, f(0.5) * err,
+                                             best_energy[t])
+                    if bad:
+                        continue
+                    feasible[t] += 1
+                    energy = f(0.5) * err + f(10.0) * clash
+                    if energy < best_energy[t]:
+                        best_energy[t] = energy
+                        improving[t] += 1
+                        pick[t, 0], pick[t, 1], pick[t, 2] = a, b, r
+    return pick, feasible, improving
+
+
+@numba.njit(cache=True, nogil=True)
+def _search_epitope(aligned, spin, shift, acentre, radius, qslots, para, epi, valid, ecentre, eradius, k, margin,
+                    fixed, ra, rb, cut, best_energy, samp, soft, flo, inv_v, fdims, nvox, far_at, severe_below):
+    """epitope.search_epitope's candidate loop for the samples it is handed (row t): poses
+    x = aligned[a, t] @ spin[a, b, t]^T + shift[a, r, t] in (axis a, spin b, standoff r) order, energy = contact energy
+    over the k nearest epitope residues + 10 sum overlap^2, the first lowest feasible pose below the best is kept.
+    Residue distances use ResidueDistances' bound: a paratope residue (sphere acentre/radius, posed like the atoms)
+    further from an epitope residue's sphere than a measured distance cannot hold its nearest pair.
+    Returns (pick [T, 3], feasible, improving) and updates best_energy."""
+    f = np.float32
+    A, B, Rn, T = spin.shape[0], spin.shape[1], shift.shape[1], aligned.shape[1]
+    M, Q, W = aligned.shape[2], qslots.shape[0], qslots.shape[1]
+    n, mm = valid.shape[0], valid.shape[1]
+    pick = np.full((T, 3), -1, np.int64)
+    feasible = np.zeros(T, np.int64)
+    improving = np.zeros(T, np.int64)
+    turned = np.empty((M, 3), np.float32)
+    tc = np.empty((Q, 3), np.float32)
+    d = np.empty(n, np.float32)
+    gap = np.empty(Q, np.float32)
+    for t in range(T):
+        fx = fixed[t]
+        glo, gdims, gstart, gatoms = _fixed_grid(fx, f(cut))
+        base = samp[t] * nvox
+        l0, l1, l2 = flo[samp[t], 0], flo[samp[t], 1], flo[samp[t], 2]
+        for a in range(A):
+            for b in range(B):
+                Rm = spin[a, b, t]
+                for m in range(M):
+                    for c in range(3):
+                        turned[m, c] = (aligned[a, t, m, 0] * Rm[c, 0] + aligned[a, t, m, 1] * Rm[c, 1]) + aligned[a, t, m, 2] * Rm[c, 2]
+                for q in range(Q):
+                    for c in range(3):
+                        tc[q, c] = (acentre[a, t, q, 0] * Rm[c, 0] + acentre[a, t, q, 1] * Rm[c, 1]) + acentre[a, t, q, 2] * Rm[c, 2]
+                for r in range(Rn):
+                    s0, s1, s2 = shift[a, r, t, 0], shift[a, r, t, 1], shift[a, r, t, 2]
+                    for e in range(n):
+                        best = f(np.inf)
+                        q0 = 0
+                        for q in range(Q):
+                            g0 = ecentre[t, e, 0] - (tc[q, 0] + s0)
+                            g1 = ecentre[t, e, 1] - (tc[q, 1] + s1)
+                            g2 = ecentre[t, e, 2] - (tc[q, 2] + s2)
+                            gap[q] = np.sqrt((g0 * g0 + g1 * g1) + g2 * g2) - eradius[t, e] - radius[t, q]
+                            if gap[q] < gap[q0]:
+                                q0 = q
+                        upper = f(np.inf)
+                        for sweep in range(2):
+                            for q in range(Q):
+                                if (sweep == 0 and q != q0) or (sweep == 1 and (q == q0 or gap[q] > upper)):
+                                    continue
+                                for w in range(W):
+                                    sl = qslots[q, w]
+                                    if sl < 0:
+                                        continue
+                                    pm = para[sl]
+                                    p0, p1, p2 = turned[pm, 0] + s0, turned[pm, 1] + s1, turned[pm, 2] + s2
+                                    for u in range(mm):
+                                        if not valid[e, u]:
+                                            continue
+                                        x0 = epi[t, e * mm + u, 0] - p0
+                                        x1 = epi[t, e * mm + u, 1] - p1
+                                        x2 = epi[t, e * mm + u, 2] - p2
+                                        dist = np.sqrt((x0 * x0 + x2 * x2) + x1 * x1)
+                                        if dist < best:
+                                            best = dist
+                            upper = best + f(margin)
+                        d[e] = best
+                    srt = np.sort(d)
+                    contact = f(0.0)
+                    for i in range(k):
+                        v = max(srt[i] - f(4.5), f(0.0))
+                        contact += v * v
+                    contact = f(0.5) * contact
+                    bad, clash = _pose_clash(turned, s0, s1, s2, fx, ra, rb, cut, glo, gdims, gstart, gatoms, soft,
+                                             base, l0, l1, l2, inv_v, fdims, far_at, severe_below, contact,
+                                             best_energy[t])
+                    if bad:
+                        continue
+                    feasible[t] += 1
+                    energy = contact + f(10.0) * clash
+                    if energy < best_energy[t]:
+                        best_energy[t] = energy
+                        improving[t] += 1
+                        pick[t, 0], pick[t, 1], pick[t, 2] = a, b, r
+    return pick, feasible, improving

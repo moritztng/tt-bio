@@ -28,6 +28,7 @@ from __future__ import annotations
 import logging
 import math
 
+import numpy as np
 import torch
 
 from tt_bio.tfg import rigid as rc
@@ -307,6 +308,10 @@ def refine_epitope(coords, feats, iterations=40, core=None):
     original_dtype = coords.dtype
     fixed = coords[:, fixed_ids].float()
     moving = coords[:, moving_ids].float().clone()
+    if core != "off" and bool((reached_count(residue_distances(moving, fixed, epi_local, valid, para_local)[0]) >= k).all()):
+        # the descent leaves satisfied samples alone: with every sample satisfied it moves nothing
+        logger.info("EPITOPE_GUIDANCE refine: every sample already meets the request K=%d", k)
+        return coords.clone()
     clash = rc.clash_core(core, fixed, *_atom_radii(coords, feats, moving_ids, fixed_ids))
     distances = None if core == "off" else ResidueDistances(
         moving[:, para_local], feats["atom_to_token_idx"][moving_ids[para_local]],
@@ -324,10 +329,29 @@ def refine_epitope(coords, feats, iterations=40, core=None):
     def satisfied(d):
         return reached_count(d) >= k
 
+    compiled = distances is not None and moving.dtype == torch.float32 and moving.device.type == "cpu"
+    if compiled:
+        def evaluate(x):
+            """The descent's own clash evaluation, so the exit check reads the same severe pairs its gate accepted."""
+            clash_energy, severe, depth = rc.compiled_eval(x, fixed, clash)
+            contact_energy, _, d = contact_energy_and_gradient(x, fixed, epi_local, valid, para_local, k, distances)
+            return contact_energy + clash_energy, severe, depth, d
+
     first_energy, first_severe, _, first_d = evaluate(moving)
     entry_ok = reached_count(first_d) >= k
     entry = moving.clone()
-    moving, accepted = rc.rigid_descent(moving, evaluate, satisfied, k, iterations, clash, para_local)
+    if compiled:
+        epi = fixed[:, epi_local.clamp_min(0).reshape(-1)].contiguous()
+        ecentre, eradius = ResidueDistances._spheres(epi.view(len(epi), *epi_local.shape, 3), valid)
+        empty = np.zeros(0, np.float32)
+        moving = moving.contiguous()
+        accepted = torch.from_numpy(rc._descend(
+            moving.numpy(), fixed.contiguous().numpy(), clash.ra.contiguous().numpy(), clash.rb.contiguous().numpy(),
+            iterations, k, clash.cut, 2.0, 1, np.zeros(0, np.int64), np.zeros(0, np.int64), empty, empty, epi.numpy(),
+            valid.contiguous().numpy(), para_local.contiguous().numpy(), distances.para.contiguous().numpy(),
+            ecentre.contiguous().numpy(), eradius.contiguous().numpy(), ResidueDistances.MARGIN))
+    else:
+        moving, accepted = rc.rigid_descent(moving, evaluate, satisfied, k, iterations, clash, para_local)
     final_energy, final_severe, _, final_d = evaluate(moving)
     intact = clash.no_new(entry, first_severe, moving, final_severe)
     if not bool(intact.all()):
@@ -568,21 +592,64 @@ def search_epitope(coords, feats, core=None):
         # poses are placed for the unsatisfied samples only (per-sample ops: same values)
         t_face, t_moving, t_tip, t_centroid = face[todo], moving[todo], tip[todo], centroid[todo]
 
-        def placements(u):
-            u = u[todo]
-            align = rotation_aligning(t_face, -u)
-            aligned = torch.bmm(t_moving - t_tip[:, None], align.transpose(1, 2))
-            for i in range(SPINS):
-                rotated = torch.bmm(aligned, rotation_about(u, 2.0 * math.pi * i / SPINS).transpose(1, 2))
-                for radius in STANDOFFS:
-                    yield rotated + (t_centroid + radius * u)[:, None]
+        spin_angle = torch.tensor([2.0 * math.pi * i / SPINS for i in range(SPINS)], dtype=torch.float64)
+        standoff = torch.tensor(STANDOFFS)
 
+        def placements(chunk):
+            """Every placement of a chunk of axes -> [n, axis * spin * standoff, M, 3], in the loop order (axis,
+            spin, standoff). Rows are independent in every op, so batching them gives the per-axis values."""
+            n, A = todo.numel(), len(chunk)
+            u = torch.stack([v[todo] for v in chunk])                                   # [A, n, 3]
+            align = rotation_aligning(t_face.repeat(A, 1), -u.reshape(-1, 3))
+            aligned = torch.bmm((t_moving - t_tip[:, None]).repeat(A, 1, 1), align.transpose(1, 2))
+            uu = u[:, None].expand(A, SPINS, n, 3).reshape(-1, 3)
+            spin = rotation_about(uu, spin_angle[None, :, None].expand(A, SPINS, n).reshape(-1))
+            rotated = torch.bmm(aligned.view(A, 1, n, -1, 3).expand(A, SPINS, n, -1, 3).reshape(A * SPINS * n, -1, 3),
+                                spin.transpose(1, 2)).view(A, SPINS, n, -1, 3)
+            shift = t_centroid + standoff[:, None, None] * u[:, None]                    # [A, R, n, 3]
+            x = rotated[:, :, None] + shift[:, None, :, :, None]                         # [A, spin, R, n, M, 3]
+            return x.permute(3, 0, 1, 2, 4, 5).reshape(n, A * SPINS * len(STANDOFFS), -1, 3)
+
+        if todo.numel() and moving.dtype == torch.float32 and moving.device.type == "cpu":
+            # compiled: every candidate placed and scored in one pass per sample, same order and rule
+            n, A = todo.numel(), len(axes)
+            u = torch.stack([v[todo] for v in axes])                                       # [A, n, 3]
+            align = rotation_aligning(t_face.repeat(A, 1), -u.reshape(-1, 3))
+            aligned = torch.bmm((t_moving - t_tip[:, None]).repeat(A, 1, 1), align.transpose(1, 2)).view(A, n, -1, 3)
+            acentre = torch.bmm((distances.centre[todo] - t_tip[:, None]).repeat(A, 1, 1),
+                                align.transpose(1, 2)).view(A, n, -1, 3)
+            uu = u[:, None].expand(A, SPINS, n, 3).reshape(-1, 3)
+            spin = rotation_about(uu, spin_angle[None, :, None].expand(A, SPINS, n).reshape(-1)).view(A, SPINS, n, 3, 3)
+            shift = t_centroid + standoff[:, None, None] * u[:, None]                         # [A, R, n, 3]
+            ecentre, eradius = ResidueDistances._spheres(epi_atoms[todo][:, epi_slots], valid)
+            field = clash.field
+            far_at = (rc.SOFT * ra + field.margin) + field.delta
+            severe_below = (rc.HARD * ra - field.margin) - (field.lift + field.delta)
+            sub_best = best_energy[todo].contiguous()
+            pick, n_feasible, n_better = rc._search_epitope(
+                aligned.contiguous().numpy(), spin.contiguous().numpy(), shift.contiguous().numpy(),
+                acentre.contiguous().numpy(), distances.radius[todo].contiguous().numpy(),
+                distances.para.contiguous().numpy(), para_local.contiguous().numpy(),
+                epi_atoms[todo].contiguous().numpy(), valid.contiguous().numpy(), ecentre.contiguous().numpy(),
+                eradius.contiguous().numpy(), k, ResidueDistances.MARGIN, fixed[todo].contiguous().numpy(),
+                ra.float().contiguous().numpy(), rb.float().contiguous().numpy(), clash.cut, sub_best.numpy(),
+                todo.numpy(), field.soft.numpy(), field.lo.contiguous().numpy(), np.float32(1.0 / field.v),
+                field.dims.numpy(), field.nvox, far_at.contiguous().numpy(), severe_below.contiguous().numpy())
+            best_energy[todo] = sub_best
+            feasible[todo] += torch.from_numpy(n_feasible)
+            improving[todo] += torch.from_numpy(n_better)
+            accepted[todo] += torch.from_numpy(n_better)
+            for t, (a, b, r) in enumerate(pick.tolist()):
+                if a >= 0:
+                    turned = torch.bmm(aligned[a, t][None], spin[a, b, t].transpose(0, 1)[None])
+                    best[todo[t]] = turned[0] + shift[a, r, t]
+            todo = todo[:0]
         for start in range(0, len(axes), SEARCH_CHUNK_AXES):
             chunk = axes[start:start + SEARCH_CHUNK_AXES]
             tested += len(chunk) * SPINS * len(STANDOFFS)
             if todo.numel() == 0:
                 continue
-            x = torch.stack([p for u in chunk for p in placements(u)], 1)
+            x = placements(chunk)
             energy, bad = score_many(x, todo)
             index, taken = rc._take_first_best(energy, bad, todo, best_energy, feasible, improving, accepted)
             pick = torch.nonzero(taken).squeeze(1)

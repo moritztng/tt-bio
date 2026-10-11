@@ -658,12 +658,12 @@ FAST_LEVERS = frozenset(LEVERS) - {"lofi", "triatt_b8", "triatt_bias_b8"} - UNGR
 # 0.809 A), docking 32 -> 35 of 44; fast vs fast 0.424 A (floor 0.957 A), docking 33 -> 35 of 44; every
 # paired CI covers 0. c730 at AICLK 1000: normal 250.3 -> 247.7 s, fast 201.3 -> 196.1 s; deep alignments
 # gain most (9DBP 556 -> 419 s, 9PCQ 427 -> 310 s) (state/spd-msasample.md, 2026-10-10).
-# It is fast-only now. On 308 more normal pairs (seeds 129-153) it failed the normal bar, CA-lDDT -0.0109
-# [-0.0205, -0.0028], top pose median 0.754 A, with folds that collapse the same way on any chip (9DBP s145
-# pLDDT 0.94 -> 0.67, 9W89 s129). The same tree without it: -0.0022 [-0.0050, +0.0001], 0.436 A, no collapse
-# (spd-galaxy s15bx, 2026-10-10).
+# On seeds 129-153 it first failed (CA-lDDT -0.0109, two cold folds collapsed: 9DBP s145, 9W89 s129). Both were
+# OuterProductMean's refused-call retry reading a freed operand, not the rows; with that fixed the same 308
+# pairs pass: CA-lDDT -0.0057 [-0.0151, +0.0008], top pose median 0.704 A (floor 0.754 A), docking 231 -> 232
+# of 308 (state/spd-msasample.md, 2026-10-10).
 NORMAL_LEVERS = frozenset({"trimul_ibw", "trimul_tail", "trunk_hifi3", "dit_sdpa32", "silu_f32", "triatt_tail",
-                           "atom_k1", "dit_mm16", "dit_qkv16"})
+                           "atom_k1", "dit_mm16", "dit_qkv16", "msa_sample"})
 _LEVERS = frozenset()
 # silu_f32 is a kernel, so it needs ttnn's headers patched before the first device open (metal_overlay)
 # in any process that may run it. The patch only changes silu under math_approx_mode, and every fused
@@ -822,9 +822,11 @@ def under_lever_scope(method):
 # Blackhole dispatch on Ethernet cores instead of a Tensix column. Stock p150a firmware reports 12 Tensix
 # columns; Tensix dispatch takes one, so tt-bio computes on 11x10. Ethernet dispatch leaves all 12: 120 cores,
 # +9.1 %. It needs a ttnn built with scripts/ttnn_bh_eth (stock 0.68.0 cannot fit the dispatch kernels on an
-# Ethernet core), so it is on only where metal_overlay.bh_eth_dispatch_supported() finds one.
-# TT_BIO_BH_ETH_DISPATCH=0 keeps Tensix dispatch.
-_BH_ETH_DISPATCH = env_flag("TT_BIO_BH_ETH_DISPATCH", True)
+# Ethernet core), so it is on only where metal_overlay.bh_eth_dispatch_supported() finds one, and by default only on
+# single-chip boards (p150a): on a p300c chip a c730 fold under Ethernet dispatch came out in one of three digests
+# run to run (2 of 6 folds, one diffusion sample each, 0.14 A), where Tensix dispatch on the same chip was stable 8/8.
+# TT_BIO_BH_ETH_DISPATCH=1 turns it on for p300c as well, =0 keeps Tensix dispatch everywhere.
+_BH_ETH_DISPATCH = env_flag("TT_BIO_BH_ETH_DISPATCH", True) if os.environ.get("TT_BIO_BH_ETH_DISPATCH", "").strip() else None
 _DTYPE_OVERRIDE = None
 _DIFFUSION_FP32_DEVICE = False
 # Release-gated (DEFAULT OFF): run the attention/triangle-attention SOFTMAX in fp32
@@ -5834,8 +5836,8 @@ def set_trimul_ibw_full(on: bool) -> bool:
 # limit at lower fidelity is the unpack of both operands per tile-matmul that a 1x1 subblock forces.
 # A dimension that does not divide the per-core block falls back to 1. Not bit-exact only if the
 # factory reorders K, which it does not: the subblock tiles the OUTPUT.
-# Default (None) is 1x3 on Wormhole and 1x1 on Blackhole (spd-trikern, c730 trimul module,
-# bit-exact both: WH 1000 MHz -2.3 %, BH p150a 1350 MHz +0.4 %).
+# Default (None) is 1x1 on both archs. 1x3 won 2.3 % on the isolated c730 trimul module on Wormhole but
+# ran 5 % slower per call inside the fold (staging13 census, +0.34 s normal, +0.57 s fast), so it is off.
 _TRIMUL_SUBBLOCK = (tuple(int(v) for v in os.environ["TT_BIO_TRIMUL_SUBBLOCK"].split("x"))
                     if "TT_BIO_TRIMUL_SUBBLOCK" in os.environ else None)
 
@@ -5848,9 +5850,7 @@ def set_trimul_subblock(sub: tuple) -> tuple:
 
 
 def _trimul_subblock() -> tuple:
-    if _TRIMUL_SUBBLOCK is not None:
-        return _TRIMUL_SUBBLOCK
-    return (1, 3) if is_wormhole() else (1, 1)
+    return _TRIMUL_SUBBLOCK or (1, 1)
 
 
 def _trimul_ibw_full() -> bool:
@@ -7961,7 +7961,11 @@ def _acc_append(acc: list, t: ttnn.Tensor, host: bool) -> None:
 def bh_eth_dispatch() -> bool:
     """Whether a Blackhole chip opens with Ethernet dispatch (the 12x10 grid) in this process."""
     from .metal_overlay import bh_eth_dispatch_supported
-    return _BH_ETH_DISPATCH and bh_eth_dispatch_supported()
+    if _BH_ETH_DISPATCH is None:   # unset: single-chip boards only
+        from .main import _detect_p300_devices, _visible_tt_devices
+        if set(_visible_tt_devices()) & set(_detect_p300_devices()):
+            return False
+    return _BH_ETH_DISPATCH is not False and bh_eth_dispatch_supported()
 
 
 def _open_and_init_device(trace_region_size):

@@ -360,6 +360,24 @@ def test_vina_single_chain_is_zero():
     assert not e.any() and not g.any()
 
 
+def test_vina_descend_equals_the_generic_loop():
+    """The steric term's own compiled inner loop (used when it is the only acting term) gives the generic loop's values
+    up to norm/exp rounding."""
+    feats, _, x0 = make_inputs()
+    x0 = x0 * 0.35                                   # packed tight, so pairs clash and the pair list is rebuilt
+    vina = tt_pot.VinaStericPotential()
+    w, mu, steps = 0.1, 0.1, 20
+    x = x0.clone()
+    for _ in range(steps):
+        _, g = vina.energy_and_grad(x, feats)
+        grad = -(g * w)
+        if not grad.any():
+            break
+        x = x + grad * mu
+    assert not torch.equal(x, x0)
+    torch.testing.assert_close(tt_pot.VinaStericPotential().descend(x0, feats, None, w, mu, steps), x, rtol=0, atol=1e-5)
+
+
 def test_validate_features_names_missing_keys():
     feats, x_noisy, x0 = make_inputs()
     del feats["chiral_index"]
