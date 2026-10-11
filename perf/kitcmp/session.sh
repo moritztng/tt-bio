@@ -67,7 +67,7 @@ print(x.get("public_ipaddr","").strip(), p[0]["HostPort"] if p else "") if x.get
   echo "$S" > $OUT/ssh; echo "$I $O" > $OUT/instance
   R(){ rsync -a -e "${S% root@*}" "$@"; }; H=root@$IP
   $S 'mkdir -p /root/kit /root/kc/in /root/kc/results' && R $OUT/kit.tgz $H:/root/ && $S 'tar -xzf /root/kit.tgz -C /root/kit' &&
-    R $OUT/in/ $H:/root/kc/in/ && R $P/box_setup.sh $P/box_arms.sh $P/burn_gate.py $P/kctime.py $H:/root/kc/ || { destroy $I "push failed"; continue; }
+    R $OUT/in/ $H:/root/kc/in/ && R $P/box_setup.sh $P/box_arms.sh $P/box_bc_setup.sh $P/box_bc_arms.sh $P/bc2_gpu.py $P/burn_gate.py $P/kctime.py $H:/root/kc/ || { destroy $I "push failed"; continue; }
   # files whose upstream URL fails from vast, pushed from pc (sha256 checked by the kit's own install)
   for m in protenix_v2 opendde; do case " $KITS " in *" $m "*)
     W=/weights/${m%_v2}; $S "mkdir -p $W/common $W/checkpoint" && R $PKL $H:$W/common/ || { destroy $I "pkl push failed"; continue 2; };; esac; done
