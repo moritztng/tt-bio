@@ -26,6 +26,13 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   [`docs/tuning-flags.md`](docs/tuning-flags.md#tt_bio_levers).
 
 ### Fixed
+- **ESMFold2 and ESMFold2-Fast are back near their earlier speed.** Since the per-loop LM dropout fix, each of
+  the 11 trunk loops re-ran the MSA encoder on the same input and did the injection projection on the host. The
+  encoder now runs once per fold and the projection on the device: 30.2 s at 512 residues on a Blackhole p300c
+  (was 48.0 s), 182 s on Wormhole (was 221 s); Fast 19.5 s and 57 s. The dropout masks come from a different
+  random stream, so a given seed's structure moves slightly (0.11 A CA-RMSD at 512 residues).
+- **Ethernet dispatch on Blackhole is on by default only on p150a.** On a p300c board repeated folds under it
+  were not identical; set `TT_BIO_BH_ETH_DISPATCH=1` to use it there anyway.
 - **OpenDDE at 1536 tokens is back to its old trunk speed** on Wormhole (3:44 per recycle, from about 10 to
   12 minutes). Each recycle's 1280 alignment rows were padded to 2048 before the MSA module; they no longer are.
   Outputs are unchanged.
