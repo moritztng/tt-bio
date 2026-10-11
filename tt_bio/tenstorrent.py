@@ -6348,8 +6348,10 @@ _PAIR_FFN_FC1_BLOCK_W = 16
 
 def _pair_proj_linear(x, w, ckc, dtype, l1_out: bool = False,
                       l1_bw: int | None = None, l1_block_w: int | None = None,
-                      bias=None):
+                      bias=None, silu: bool = False):
     """`ttnn.linear` on a pair-track projection, with the tuned config when the shape allows.
+
+    `silu` applies SiLU in the matmul's epilogue, on the fp32 accumulator before the pack, on every path.
 
     `l1_out` is for the members whose consumer reads the result straight back on device (the
     trimul's `multiply_`, the Pairformer layer's residual `add_`): the projection's 48.82 MB DRAM
@@ -6379,9 +6381,9 @@ def _pair_proj_linear(x, w, ckc, dtype, l1_out: bool = False,
         laddered = l1_block_w is None
         retired = key in _L1_OUT_REFUSED
         rung = _l1_out_rung(key)
-        cfg = None if retired else _pair_proj_config(
+        cfg = None if retired else _with_silu(_pair_proj_config(
             x, w, bw_cap=_PAIR_PROJ_L1_BW if l1_bw is None else l1_bw,
-            out_l1=True, block_w=l1_block_w, rung=rung)
+            out_l1=True, block_w=l1_block_w, rung=rung), silu)
         if cfg is None:
             if rung:
                 _L1_OUT_REFUSED.add(key)
@@ -6402,12 +6404,12 @@ def _pair_proj_linear(x, w, ckc, dtype, l1_out: bool = False,
                 else:
                     _L1_OUT_REFUSED.add(key)
                 _latch("l1_out", "refused", e)
-    mm = _pair_proj_minimal_matmul(x, w, ckc, dtype, bias)
+    mm = None if silu else _pair_proj_minimal_matmul(x, w, ckc, dtype, bias)
     if mm is not None:
         if bias is not None:
             _pair_bias_stat("o_in_matmul_exit_mm")
         return mm
-    cfg = _pair_proj_config(x, w)
+    cfg = _with_silu(_pair_proj_config(x, w), silu)
     if cfg is not None:
         out = ttnn.linear(
             x, w, bias=bias, memory_config=ttnn.DRAM_MEMORY_CONFIG, dtype=dtype,
@@ -6418,11 +6420,18 @@ def _pair_proj_linear(x, w, ckc, dtype, l1_out: bool = False,
         return out
     out = ttnn.linear(
         x, w, bias=bias, memory_config=ttnn.DRAM_MEMORY_CONFIG, dtype=dtype,
-        compute_kernel_config=ckc, core_grid=CORE_GRID_MAIN,
+        compute_kernel_config=ckc, core_grid=CORE_GRID_MAIN, activation="silu" if silu else None,
     )
     if bias is not None:
         _pair_bias_stat("o_in_matmul_exit_grid")
     return out
+
+
+def _with_silu(cfg, silu: bool):
+    """`cfg` with SiLU as its fused epilogue when `silu`, else unchanged (None stays None)."""
+    if cfg is not None and silu:
+        cfg.fused_activation = ttnn.UnaryWithParam(ttnn.UnaryOpType.SILU)
+    return cfg
 
 
 def _narrow_proj_linear(x, w, ckc, dtype, l1_out: bool = False):
