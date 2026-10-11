@@ -186,7 +186,10 @@ _ATTN_OVERLAP = env_flag("RFD3_ATTN_OVERLAP", True)
 # R_noisy_L in to R_upd out; the only reads left are R_upd and the sequence logits per recycle.
 # Not bit-exact: the adds round in bf16 on the card instead of fp32 on the host, and process_a
 # pools the coordinates before its (bias-free) linear instead of after, equal in exact math.
-_RESIDENT_STEP = env_flag("RFD3_RESIDENT_STEP", False)
+# Graded on Blackhole and Wormhole (4 seeds at 685 and 418 tokens, normal and --fast): drift
+# inside the seed floor, design quality equal to exact. On by default; RFD3_RESIDENT_STEP=0 restores
+# the host round trips.
+_RESIDENT_STEP = env_flag("RFD3_RESIDENT_STEP", True)
 # The per-step neighbour graph is the largest single host cost in a design. At the page fixture
 # (6051 atoms) the ledger puts it at 51.9 + 19.8 ms of an 84.8 ms host body, and P3.7 measured
 # 54.3 ms/step of that reaching the wall. It is one chain -- cdist -> masked_fill_ -> topk -- over

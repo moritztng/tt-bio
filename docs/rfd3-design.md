@@ -172,6 +172,14 @@ unchanged: CA-CA geometry, chain breaks and amino-acid diversity match, with few
 8,600 atoms the older chain runs instead, because the fused kernel's cached mask would take more than
 600 MB per atom block. `RFD3_ATOM_SDPA=0` restores it.
 
+Each diffusion step stays on the card from the noisy coordinates in to the update out. The modules used to
+hand their outputs back to the host for a few additions and upload them again, about 15 round trips a step,
+each of which left the card idle. A 685-residue design takes about 14 % less time on a Blackhole p150a
+(89.0 to 76.1 s). The additions now round in bf16 on the card, so a design moves at the same seed: 3.6 to
+13.5 A on Blackhole and 4.5 to 11.2 A on Wormhole at 685 residues, against 13 to 20 A for a seed change,
+with CA-CA geometry, chain breaks, clashes and amino-acid diversity unchanged. `RFD3_RESIDENT_STEP=0`
+restores the round trips.
+
 `--fast` additionally keeps the pair transitions' hidden activations in 8-bit block floating point,
 collapses the pair-feature projection that does not change between steps into a table lookup, and runs the
 token transformer's attention as one fused kernel. It runs the same diffusion steps and recycles; only the
