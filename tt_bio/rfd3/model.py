@@ -1002,6 +1002,21 @@ class Transition(Module):
                 k = "w=%d no-chunked-site" % int(x.padded_shape[2])
                 FC1DECLINES[k] = FC1DECLINES.get(k, 0) + 1
                 FC1STATS[1] += 1
+            if _TRANSITION_B8 and len(x.shape) == 4 and x.shape[0] > 1:
+                # With a bfp8 hidden, ttnn's heuristic fc3 program for a [B, I, I, hidden] input
+                # sizes its circular buffers from the batch: at B=8 (the CLI default) and I~150 it
+                # asked 1564704 B of a Wormhole core's 1499136 B of L1 and threw. One element at a
+                # time runs the batch-1 program, so a design comes out the same at any batch.
+                B, I, J, C = (int(d) for d in x.shape)
+                parts = []
+                for b in range(B):
+                    xb = ttnn.slice(x, [b, 0, 0, 0], [b + 1, I, J, C])
+                    parts.append(self._swiglu(xb, None))
+                    ttnn.deallocate(xb)
+                out = ttnn.concat(parts, dim=0)
+                for p in parts:
+                    ttnn.deallocate(p)
+                return out
             return self._swiglu(x, None)
         H, hidden = x.shape[1], int(self.fc1_w.shape[-1])
         w_pad = int(x.padded_shape[2])
