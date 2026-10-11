@@ -98,6 +98,7 @@ t0 = time.perf_counter(); pr.enable(); one_fold(); pr.disable(); res["profile_s"
 buf = io.StringIO()
 st = pstats.Stats(pr, stream=buf)
 st.sort_stats("tottime").print_stats(60); st.sort_stats("cumulative").print_stats(80)
+st.print_callers(r"core.py.*\((from_torch|to_torch)\)")
 Path(str(a.out) + ".prof.txt").write_text(buf.getvalue())
 a.out.write_text(json.dumps(res, indent=1))
 T.cleanup()
