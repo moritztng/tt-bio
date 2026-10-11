@@ -2528,7 +2528,7 @@ _SDPA32_PAD_MASK = -1e4
 _SDPA32_CKC = (ttnn.MathFidelity.HiFi4, False, True, False)
 
 
-def k1_linear(x, w, bias=None, *, compute_kernel_config, dtype, activation=None):
+def k1_linear(x, w, bias=None, *, compute_kernel_config, dtype, activation=None, memory_config=None):
     """`x @ w (+ bias)` accumulated in fp32 dest and written at `dtype`, any operand formats.
 
     The matmul of the `dit_mm16` and `atom_k1` levers. On Wormhole the program takes one K tile
@@ -2536,8 +2536,10 @@ def k1_linear(x, w, bias=None, *, compute_kernel_config, dtype, activation=None)
     the outputs there (state/spd-wherr.md), and in0_block_w 1 is the blocking with no wrong pixel
     in any draw of the diffusion shapes (perf/spd_difflin/op_probe.py). It is also the faster
     program for the atom transformer's narrow fp32 linears (529 -> 467 us at [5,5919,128] x
-    [128,128]). Blackhole takes ttnn's own program.
+    [128,128]). Blackhole takes ttnn's own program. `memory_config` places the output only (None:
+    ttnn's default, DRAM); the program and so every bit are the same.
     """
+    mc = {} if memory_config is None else {"memory_config": memory_config}
     if activation == "silu":
         compute_kernel_config = silu_ckc(compute_kernel_config)
     pc = None
@@ -2552,9 +2554,9 @@ def k1_linear(x, w, bias=None, *, compute_kernel_config, dtype, activation=None)
                          g.x, g.y, activation, tiles)
     if pc is None:
         return ttnn.linear(x, w, bias=bias, activation=activation, dtype=dtype,
-                           compute_kernel_config=compute_kernel_config, core_grid=CORE_GRID_MAIN)
+                           compute_kernel_config=compute_kernel_config, core_grid=CORE_GRID_MAIN, **mc)
     return ttnn.linear(x, w, bias=bias, dtype=dtype, compute_kernel_config=compute_kernel_config,
-                       program_config=pc)
+                       program_config=pc, **mc)
 
 
 class DitLowp(NamedTuple):
@@ -2567,11 +2569,13 @@ class DitLowp(NamedTuple):
     k1: bool        # fp32 accumulation: k1_linear's program
     qkv: object     # q/k/v when the attention is `_sdpa32` (else `out`)
 
-    def linear(self, x, w, bias=None, *, dtype, activation=None):
+    def linear(self, x, w, bias=None, *, dtype, activation=None, memory_config=None):
         if self.k1:
-            return k1_linear(x, w, bias, compute_kernel_config=self.ckc, dtype=dtype, activation=activation)
+            return k1_linear(x, w, bias, compute_kernel_config=self.ckc, dtype=dtype, activation=activation,
+                             memory_config=memory_config)
+        mc = {} if memory_config is None else {"memory_config": memory_config}
         return ttnn.linear(x, w, bias=bias, activation=activation, dtype=dtype, core_grid=CORE_GRID_MAIN,
-                           compute_kernel_config=silu_ckc(self.ckc) if activation == "silu" else self.ckc)
+                           compute_kernel_config=silu_ckc(self.ckc) if activation == "silu" else self.ckc, **mc)
 
 
 def dit_lowp(dit_dtype, ckc):
@@ -2668,10 +2672,11 @@ def _sdpa32(q, k, v, mask, scale: float) -> ttnn.Tensor:
     return out
 
 
-def _sdpa32_fused(qkv, mask, scale: float, heads: int) -> ttnn.Tensor:
+def _sdpa32_fused(qkv, mask, scale: float, heads: int, memory_config=None) -> ttnn.Tensor:
     """`_sdpa32` read straight out of a fused `[S, 1, N, 3 * heads * DH]` qkv projection, written
     `[S, 1, N, heads * DH]`: what nlp_create_qkv_heads, `_sdpa32` and nlp_concat_heads give, as one
-    program and the same arithmetic (`sdpa_generic.qkv_fused_kernel_dir`)."""
+    program and the same arithmetic (`sdpa_generic.qkv_fused_kernel_dir`). `memory_config` places
+    the output (default DRAM); the kernels address it through a TensorAccessor either way."""
     from . import sdpa_generic as SG
     S, _, n, w = (int(d) for d in qkv.shape)
     assert n % 128 == 0 and int(mask.shape[-1]) == n, ("_sdpa32 wants the token axis padded by sdpa32_rows", qkv.shape, mask.shape)
@@ -2680,7 +2685,7 @@ def _sdpa32_fused(qkv, mask, scale: float, heads: int) -> ttnn.Tensor:
     k_chunk = 32 if dev.arch() == ttnn.Arch.WORMHOLE_B0 else chunk
     g = dev.compute_with_storage_grid_size()
     out = ttnn.allocate_tensor_on_device(ttnn.Shape([S, 1, n, w // 3]), ttnn.float32,
-                                         ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG)
+                                         ttnn.TILE_LAYOUT, dev, memory_config or ttnn.DRAM_MEMORY_CONFIG)
     SG.sdpa(dev, qkv, qkv, qkv, mask, out, chunk, k_chunk, (g.x, g.y), _SDPA32_CKC, scale,
             qkv_fused=heads)
     return out
@@ -13519,7 +13524,7 @@ class AdaLN(Module):
         self.s_scale_bias = self.torch_to_tt("s_scale.bias", dtype=dtype)
         self.s_bias_weight = self.torch_to_tt("s_bias.weight", dtype=dtype)
 
-    def s_terms(self, s: ttnn.Tensor, large_seq_len: bool = False):
+    def s_terms(self, s: ttnn.Tensor, large_seq_len: bool = False, memory_config=None):
         """``(s_scale, s_bias)``: the conditioning half, a pure function of ``s``.
 
         Split out so a caller whose ``s`` is a loop invariant computes it once instead of
@@ -13534,7 +13539,9 @@ class AdaLN(Module):
         # pins 12 x 1.83 MB of L1 for the whole rollout, which throws `Statically allocated
         # circular buffers ... clash with L1 buffers` in the confidence stack downstream.
         s_src = s
-        memory_config = _adaln_memory_config(self.atom_level, large_seq_len)
+        # A token-level caller may place the pair itself (the OF3 DiT's L1 lever); atom-level
+        # AdaLNs keep their own rule.
+        memory_config = _adaln_memory_config(self.atom_level, large_seq_len) or memory_config
         if self.atom_level:
             s = ttnn.to_memory_config(s, memory_config=memory_config)
         s = ttnn.layer_norm(
@@ -13582,9 +13589,11 @@ class AdaLN(Module):
                 self.weights["s_bias.weight"].t() * g)
 
     def __call__(self, a: ttnn.Tensor, s: ttnn.Tensor, large_seq_len: bool = False,
-                 s_terms=None, dtype=None) -> ttnn.Tensor:
+                 s_terms=None, dtype=None, out_memory_config=None) -> ttnn.Tensor:
         """`dtype`: write the modulated output at this dtype (the norm and the modulation run at
-        the input's); the `dit_mm16` lever takes it bf16 for the linears that read it."""
+        the input's); the `dit_mm16` lever takes it bf16 for the linears that read it.
+        `out_memory_config`: where the output (and an own s-term pair) lives, default DRAM; the
+        OF3 DiT's L1 lever keeps it in L1. Placement only, the same bits."""
         memory_config = _adaln_memory_config(self.atom_level, large_seq_len)
         if self.atom_level:
             a = ttnn.to_memory_config(a, memory_config=memory_config)
@@ -13593,7 +13602,7 @@ class AdaLN(Module):
         )
         own = s_terms is None
         if own:
-            s_terms = self.s_terms(s, large_seq_len)
+            s_terms = self.s_terms(s, large_seq_len, memory_config=out_memory_config)
             # A memoised pair belongs to the memo and must survive this call.
             own = self._s_memo is not s_terms
         s_scale, s_bias = s_terms
@@ -13619,7 +13628,7 @@ class AdaLN(Module):
         if own:                     # a cached pair belongs to the caller
             ttnn.deallocate(s_scale)
             ttnn.deallocate(s_bias)
-        a = ttnn.to_memory_config(a, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+        a = ttnn.to_memory_config(a, memory_config=out_memory_config or ttnn.DRAM_MEMORY_CONFIG)
         return a
 
 

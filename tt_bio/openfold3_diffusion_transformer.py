@@ -70,6 +70,7 @@ from .tenstorrent import AdaLN, CORE_GRID_MAIN, Module, _cached, _dtype, batched
 from .openfold3_atom_transformer import remap_of3_adaln
 from .token_axis import TILE, bucketed_width
 from .eltwise_fusion import scale_add, mask_add
+from .envflags import env_flag
 
 C_A = 768
 C_S = 384
@@ -78,6 +79,19 @@ N_HEADS = 16
 HEAD_DIM = 48
 PADDED_HEAD_DIM = 64  # -48 % 32 = 16 -> 64 (tile-aligned)
 N_BLOCKS = 24
+
+
+def dit_l1() -> bool:
+    """TT_BIO_OF3_DIT_L1 (default off): the block's per-step activations -- the stream ``a``, the
+    conditioning ``s`` and every intermediate a block makes -- live in L1 (interleaved) instead
+    of DRAM; the cached pair biases and the weights stay in DRAM. Placement only: every op runs
+    the same program on the same operands, so the fold is bit-identical. Each tensor is 0.4-3 MB
+    at 512 tokens and moves at 150-260 GB/s from DRAM, latency-bound, not bandwidth-bound.
+
+    Trace-safe: everything it puts in L1 is allocated and freed inside the stack call, so a
+    captured step frees what it allocates and the replay owns the same addresses."""
+    return env_flag("TT_BIO_OF3_DIT_L1", False)
+
 
 # Pair shapes whose single-pass pair-bias projection DRAM refused, and the block they settled at.
 _PAIR_BIAS_ROWS_REFUSED: dict = {}
@@ -127,6 +141,9 @@ class _DiTBlock(Module):
         # dit_sdpa32 (normal-mode lever, shared with Protenix-v2's token DiT): the fp32 attention
         # as one `_sdpa32` program instead of matmul, scale_add, softmax and matmul. Inert in bf16.
         self.sdpa32 = _T.lever("dit_sdpa32") and self._act_dtype == ttnn.float32
+        # dit_l1: where every per-step tensor of the block is written (None = ttnn's DRAM).
+        self.mc = ttnn.L1_MEMORY_CONFIG if dit_l1() else None
+        self._mckw = {} if self.mc is None else {"memory_config": self.mc}
 
         apb = "attention_pair_bias."
         self.adaln_a = AdaLN(False, remap_of3_adaln(_sub(self._w, apb + "layer_norm_a")),
@@ -202,7 +219,7 @@ class _DiTBlock(Module):
     def _s16_lin(self, x, wb):
         w, b = wb
         return ttnn.linear(x, w, bias=b, dtype=ttnn.float32, compute_kernel_config=self.s16[3],
-                           core_grid=CORE_GRID_MAIN)
+                           core_grid=CORE_GRID_MAIN, **self._mckw)
 
     def _s16_terms(self, s16, i):
         w_sc, b_sc, w_sb = self.s16[0][i]
@@ -230,13 +247,13 @@ class _DiTBlock(Module):
     def _lin(self, x, w, bias=None, activation=None):
         return ops.linear(x, w, bias=bias, activation=activation,
                           compute_kernel_config=self.compute_kernel_config,
-                          core_grid=CORE_GRID_MAIN)
+                          core_grid=CORE_GRID_MAIN, **self._mckw)
 
     def _lin_lp(self, x, w, dtype, bias=None, activation=None):
         """A linear off an adaLN output: written at `dtype` under `self.lp`, else the shared path."""
         if self.lp is None:
             return self._lin(x, w, bias, activation)
-        return self.lp.linear(x, w, bias, dtype=dtype, activation=activation)
+        return self.lp.linear(x, w, bias, dtype=dtype, activation=activation, memory_config=self.mc)
 
     def _z_bias(self, z):
         """linear_z(LN_z(z)), per pair position."""
@@ -310,7 +327,7 @@ class _DiTBlock(Module):
         mid = {"dtype": lp.mid} if lp else {}
         # AdaLN-conditioned a.
         st = self._s16_terms(s16, 0) if s16 else None
-        a_ln = self.adaln_a(a, s, dtype=act, s_terms=st)
+        a_ln = self.adaln_a(a, s, dtype=act, s_terms=st, out_memory_config=self.mc)
         if st:
             ttnn.deallocate(st[0]); ttnn.deallocate(st[1])
 
@@ -329,7 +346,7 @@ class _DiTBlock(Module):
             # The heads read and written in place inside the one attention program, so
             # nlp_create_qkv_heads and nlp_concat_heads (63 us a block on Blackhole) do not run.
             # Same arithmetic: digests unchanged on OpenFold3 and OpenBind-0 at 512 tokens.
-            o = _T._sdpa32_fused(qkv, bias, HEAD_DIM ** -0.5, N_HEADS)
+            o = _T._sdpa32_fused(qkv, bias, HEAD_DIM ** -0.5, N_HEADS, memory_config=self.mc)
             ttnn.deallocate(qkv)
             if cache is None:
                 ttnn.deallocate(bias)
@@ -360,7 +377,7 @@ class _DiTBlock(Module):
 
         # Conditioned SwiGLU transition.
         st = self._s16_terms(s16, 1) if s16 else None
-        a_t = self.adaln_t(a, s, dtype=act, s_terms=st)
+        a_t = self.adaln_t(a, s, dtype=act, s_terms=st, out_memory_config=self.mc)
         if st:
             ttnn.deallocate(st[0]); ttnn.deallocate(st[1])
         b1 = self._lin_lp(a_t, self.w_la, ttnn.bfloat16, activation="silu")
@@ -478,6 +495,13 @@ class OF3DiffusionTransformer(Module):
         if rows != padded_N:
             a_d, s_d = (ttnn.pad(x, [(0, 0), (0, rows - padded_N), (0, 0)], value=0.0)
                         for x in (a_d, s_d))
+        l1 = self.blocks[0].mc
+        if l1 is not None:
+            # dit_l1: the stream and the conditioning enter L1 once a call; every op after them
+            # writes where its first input lives, the linears are told. Copies, so the caller's
+            # tensors are untouched; ours are freed below.
+            a_d = ttnn.to_memory_config(a_d, l1)
+            s_d = s_l1 = ttnn.to_memory_config(s_d, l1)
         x = a_d
         s16 = None
         if self.blocks[0].s16:
@@ -489,6 +513,11 @@ class OF3DiffusionTransformer(Module):
             x = blk(x, s_d, z_d, mask_bias, tmc_d, cache=cache, s16=s16)
         for t in s16 or ():
             ttnn.deallocate(t)
+        if l1 is not None:
+            ttnn.deallocate(s_l1)
+            if x is not a_d:
+                ttnn.deallocate(a_d)
+            x = ttnn.to_memory_config(x, ttnn.DRAM_MEMORY_CONFIG)
         if rows == N:
             return x
         x = ttnn.to_layout(x, ttnn.ROW_MAJOR_LAYOUT)
