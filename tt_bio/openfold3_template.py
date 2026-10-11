@@ -41,6 +41,16 @@ from .openfold3_weights import remap_template_pair_stack, _sub
 _TRI_DIMS = (16, 4)
 
 
+def _unbroadcast(key, v):
+    """``restype_ti`` / ``restype_tj`` reduced to the row they broadcast, when they are one
+    (checked, so a caller that builds them otherwise keeps the full tensor)."""
+    axis = {"restype_ti": -2, "restype_tj": -3}.get(key)
+    if axis is None:
+        return v
+    r = v.narrow(axis, 0, 1)
+    return r.contiguous() if torch.equal(r.expand_as(v), v) else v
+
+
 class TemplatePairFeatureEmbedder(Module):
     """OF3 ``TemplatePairEmbedderAllAtom`` feature embedder (leg 1).
 
@@ -78,19 +88,39 @@ class TemplatePairFeatureEmbedder(Module):
         A host feature is uploaded, projected and freed one at a time, so only ``a`` is
         left on the device. The eight features are 288 tile-padded bf16 channels per
         template slot against ``a``'s 64: at 1536 tokens that is 1.27 GiB per slot that
-        otherwise sat through the whole trunk, and a real template adds a slot."""
+        otherwise sat through the whole trunk, and a real template adds a slot.
+
+        A host feature that is all zero is skipped: the linears carry no bias, so it projects to
+        exactly zero. Without a template that is six of the eight. ``restype_ti`` / ``restype_tj``
+        are one per-token row broadcast over the pair (``derive_template_feat``), so they are
+        projected at [N_t, N, 1, 32] / [N_t, 1, N, 32] and broadcast by the add: the same values
+        as projecting the [N_t, N, N, 32] copy, at 1/N of the upload. At 512 tokens the eight
+        uploads were 113 MB and 0.30 s of host time per fold."""
         a = None
         for key, w in (("distogram", self.w_dgram), ("pseudo_beta_pair_mask", self.w_pbm),
                        ("restype_ti", self.w_aa1), ("restype_tj", self.w_aa2),
                        ("unit_vec_x", self.w_x), ("unit_vec_y", self.w_y),
                        ("unit_vec_z", self.w_z), ("backbone_frame_pair_mask", self.w_bb)):
             v = feat[key]
+            if torch.is_tensor(v):
+                if not v.any():
+                    continue
+                full = list(v.shape[:-1])
+                v = _unbroadcast(key, v)
             x = ttnn.from_torch(v.float(), layout=ttnn.TILE_LAYOUT, device=self.device,
                                 dtype=ttnn.bfloat16) if torch.is_tensor(v) else v
             y = self._lin(x, w)
-            if x is not v:
+            if torch.is_tensor(v):
                 ttnn.deallocate(x)
+            if a is None and torch.is_tensor(v) and list(v.shape[:-1]) != full:
+                # The first term is a broadcast row: start from zeros of the full shape (0 + y = y).
+                a = ttnn.zeros(full + [int(y.shape[-1])], dtype=y.dtype, layout=ttnn.TILE_LAYOUT,
+                               device=self.device)
             a = y if a is None else ttnn.add(a, y)
+        if a is None:
+            # Every feature was zero, so is `a`; project one to get its shape and dtype.
+            a = self._lin(ttnn.from_torch(feat["distogram"].float(), layout=ttnn.TILE_LAYOUT,
+                                          device=self.device, dtype=ttnn.bfloat16), self.w_dgram)
         return a
 
     def __call__(self, feat, z, a=None):

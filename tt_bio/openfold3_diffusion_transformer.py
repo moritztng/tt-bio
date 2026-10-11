@@ -60,13 +60,11 @@ from the atom-encoder/conditioning host math.
 """
 from __future__ import annotations
 
-import os
 
 import torch
 import ttnn
 
 from . import ops
-from .envflags import env_flag
 from . import tenstorrent as _T
 from .tenstorrent import AdaLN, CORE_GRID_MAIN, Module, _cached, _dtype, batched_matmul, host_f64_softmax_site, pair_row_blocks, row_block_after_refusal, site_softmax, softmax_ckc
 from .openfold3_atom_transformer import remap_of3_adaln
@@ -80,11 +78,6 @@ N_HEADS = 16
 HEAD_DIM = 48
 PADDED_HEAD_DIM = 64  # -48 % 32 = 16 -> 64 (tile-aligned)
 N_BLOCKS = 24
-
-# OF3_DIT_QKV_DIRECT=1 (measurement switch, off): under dit_sdpa32 the attention reads q, k and v
-# out of the fused projection and writes the concatenated heads itself, so nlp_create_qkv_heads and
-# nlp_concat_heads (63 us a block on Blackhole, 0.3 s a 512-token fold) do not run.
-QKV_DIRECT = env_flag("OF3_DIT_QKV_DIRECT", False)
 
 # Pair shapes whose single-pass pair-bias projection DRAM refused, and the block they settled at.
 _PAIR_BIAS_ROWS_REFUSED: dict = {}
@@ -186,13 +179,12 @@ class _DiTBlock(Module):
                 setattr(self, k, self._round(getattr(self, k), self.lp.w))
             self.qkv_b = self._round(self.qkv_b, ttnn.bfloat16)
 
-        # OF3_DIT_S16=<fidelity> (measurement only, unset = unchanged): the six s-path linears (both
-        # adaLNs' scale and shift, the two s gates) on bf16 operands with fp32 accumulation, written
-        # fp32. The adaLNs read one parameter-free LN(s) per call that the stack shares, with their
-        # gammas folded into the weights on the host. On an fp32 DiT these are math-bound at HiFi4.
+        # dit_s16: the six s-path linears (both adaLNs' scale and shift, the two s gates) on bf16
+        # operands with fp32 accumulation at HiFi4, written fp32. The adaLNs read one parameter-free
+        # LN(s) per call that the stack shares, with their gammas folded into the weights on the host.
+        # On an fp32 DiT these linears are math-bound at fp32 operands.
         self.s16 = None
-        fid = os.environ.get("OF3_DIT_S16")
-        if fid and self._act_dtype == ttnn.float32:
+        if self._act_dtype == ttnn.float32 and _T.lever("dit_s16"):
             bf = lambda w: ttnn.from_torch(w.float().contiguous(), dtype=ttnn.bfloat16,  # noqa: E731
                                            layout=ttnn.TILE_LAYOUT, device=self.device)
             ada = []
@@ -200,7 +192,7 @@ class _DiTBlock(Module):
                 w_sc, b_sc, w_sb = ln.folded_weights()
                 ada.append((bf(w_sc), bf(b_sc.reshape(1, -1)), bf(w_sb)))
             ckc = ttnn.WormholeComputeKernelConfig(
-                math_fidelity=getattr(ttnn.MathFidelity, fid), math_approx_mode=False,
+                math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=False,
                 fp32_dest_acc_en=True, packer_l1_acc=True)
             self.s16 = (ada, (bf(self._w[apb + "linear_ada_out.weight"].t()),
                               bf(self._w[apb + "linear_ada_out.bias"].reshape(1, -1))),
@@ -333,8 +325,10 @@ class _DiTBlock(Module):
         qkv = self._lin_lp(a_ln, self.qkv_w, lp.qkv if lp and self.sdpa32 else out_dt,
                            bias=self.qkv_b)                              # [1, N, 3072]
         qkv = ttnn.unsqueeze(qkv, 1)
-        if self.sdpa32 and QKV_DIRECT:
-            # The heads read and written in place inside the one attention program.
+        if self.sdpa32:
+            # The heads read and written in place inside the one attention program, so
+            # nlp_create_qkv_heads and nlp_concat_heads (63 us a block on Blackhole) do not run.
+            # Same arithmetic: digests unchanged on OpenFold3 and OpenBind-0 at 512 tokens.
             o = _T._sdpa32_fused(qkv, bias, HEAD_DIM ** -0.5, N_HEADS)
             ttnn.deallocate(qkv)
             if cache is None:

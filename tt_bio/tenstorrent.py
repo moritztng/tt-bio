@@ -593,13 +593,15 @@ _FAST_MODE = False
 #                   multiply op; the gate multiplies fc2 in dest rather than its stored copy. Needs silu_f32.
 #   dit_sdpa_pm     with dit_sdpa, the token DiT's fused SDPA reads its bias once per head instead of once per
 #                   sample (`token_dit_sdpa_pm`, triangle attention's persistent-mask kernel)
+#   dit_s16         an fp32 token DiT's six s-path linears (adaLN scale/shift, the two s gates) on bf16
+#                   operands with fp32 accumulation (OpenFold3's DiT)
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in",
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
           "transition_shard", "dit_mm16", "atom_k1", "dit_b8", "dit_qkv16", "atom_mm16", "adaln_mod",
-          "swiglu_fc12g", "msa_sample", "dit_sdpa_pm")
+          "swiglu_fc12g", "msa_sample", "dit_sdpa_pm", "dit_s16")
 # Named but in no mode until their fold grade puts them in one.
-UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "adaln_mod"})
+UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "adaln_mod", "dit_s16"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -1668,19 +1670,24 @@ def pad_dim(x: ttnn.Tensor, dtype, n: int, n_pad: int, *, dims: int = 1) -> ttnn
                 spec[-1 - d] = (0, n_pad - n)
             y = ttnn.pad(y, spec, 0.0)
         return y if y.dtype == dtype else ttnn.typecast(y, dtype)
-    if dims == 1 and dtype == ttnn.float32:
+    if dims == 1 and dtype in (ttnn.float32, ttnn.bfloat16):
         # The same zeros on device, row major so nothing of the last tile's padding is kept:
         # the host route cost one untilize + fp32 widen + re-tilize on one host thread per
         # call, 27 ms at OpenFold3's [5, 5917, 128] atoms and three calls a diffusion step.
-        # Only an fp32 result goes row major, cast first in tile layout (bf16 -> fp32 is exact):
-        # a bf16 [5, 5917, 128] taken row major hung the device (spd-of3 pp21), the fp32 one
-        # is bit-exact with the host route.
+        # Only fp32 goes row major, cast first in tile layout: a bf16 [5, 5917, 128] taken row
+        # major hung the device (spd-of3 pp21), the fp32 one is bit-exact with the host route.
+        # A bf16 result pads in fp32 and casts back (bf16 -> fp32 -> bf16 is exact), so the
+        # bf16 diffusion module has no host trip left and its rollout can be traced too.
         # The square pair (`dims == 2`) is padded once a fold and keeps the host route, which
         # holds no second copy of it on device.
-        y = ttnn.to_layout(x if x.dtype == dtype else ttnn.typecast(x, dtype), ttnn.ROW_MAJOR_LAYOUT)
+        f32 = x if x.dtype == ttnn.float32 else ttnn.typecast(x, ttnn.float32)
+        y = ttnn.to_layout(f32, ttnn.ROW_MAJOR_LAYOUT)
+        if f32 is not x:
+            ttnn.deallocate(f32)
         spec = [(0, 0)] * len(y.shape)
         spec[-2] = (0, n_pad - n)
-        return ttnn.to_layout(ttnn.pad(y, spec, 0.0), ttnn.TILE_LAYOUT)
+        y = ttnn.to_layout(ttnn.pad(y, spec, 0.0), ttnn.TILE_LAYOUT)
+        return y if dtype == ttnn.float32 else ttnn.typecast(y, dtype)
     th = ttnn.to_torch(x).float()
     if n_pad > n:
         th = torch.nn.functional.pad(th, (0, 0) + (0, n_pad - n) * dims)

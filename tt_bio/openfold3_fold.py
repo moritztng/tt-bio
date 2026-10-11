@@ -171,12 +171,18 @@ def build_dm_device_aux(dev, ft, *, cl0, plm0, atom_mask, atom_to_token_index,
     mask_bias = (1e9 * (mask_trunked - 1)).reshape(1, nb, 1, 32, 128)
     pair_mask_m = mask_trunked.reshape(1, nb, 32, 128, 1)
     tok_pad = torch.zeros(n_tok_pad, dtype=torch.float32); tok_pad[:n_token] = token_mask.float()
+
+    def ft_col(x):
+        # A trailing channel of 1 tile-pads 32x on the host (pm_d: ~40 MB of tilize for 1.3 MB
+        # of mask); upload without it and add the unit dim on the card. Same values, same tiles.
+        return ttnn.unsqueeze(ft(x.squeeze(-1)), -1)
+
     return dict(
         cl0_d=cl0_d, plm0_d=plm0_d,
         amc_d=ft(amc), amc_na_d=ft(amc_na),
         idx_tt=idx_tt, flat_tt=flat_tt,
-        zij_mask_d=ft(zij_mask.unsqueeze(0).unsqueeze(-1)),
-        kidx_tt=kidx_tt, valid_d=ft(valid), mb_d=ft(mask_bias), pm_d=ft(pair_mask_m),
+        zij_mask_d=ft_col(zij_mask.unsqueeze(0).unsqueeze(-1)),
+        kidx_tt=kidx_tt, valid_d=ft_col(valid), mb_d=ft(mask_bias), pm_d=ft_col(pair_mask_m),
         mean_d=ft(atom_to_token_mean.unsqueeze(0)),
         tok_pad_tt=ft(tok_pad.reshape(1, n_tok_pad)),
         tok_col_pad_tt=ft(tok_pad.reshape(1, n_tok_pad, 1)),

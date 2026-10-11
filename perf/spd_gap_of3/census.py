@@ -30,6 +30,12 @@ def main():
     ap.add_argument("--deep", action="store_true",
                     help="also device-synchronised brackets on every trunk / diffusion sub-module; run it with "
                          "OF3_DIFFUSION_TRACE=0 (a sync cannot sit inside a trace capture)")
+    ap.add_argument("--sites", action="store_true",
+                    help="bin every device upload and every read by its tt_bio call site: count, MB, the wait for "
+                         "the device queue before it (synchronised) and the call itself")
+    ap.add_argument("--prof-feat", action="store_true",
+                    help="cProfile build_openfold3_features on the warm folds; the top 40 functions by cumulative "
+                         "time land in OUT beside the result (prof_feat.txt)")
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
     tree = a.tree.resolve()
@@ -64,11 +70,11 @@ def main():
         if d is not None:
             ttnn.synchronize_device(d)
 
-    def wrap(owner, attr, name, synced):
+    def wrap(owner, attr, name, synced, when=None):
         fn = getattr(owner, attr)
 
         def inner(*x, **k):
-            if not on["v"]:
+            if not on["v"] or (when and not when(x, k)):
                 return fn(*x, **k)
             if synced:
                 sync()
@@ -81,7 +87,8 @@ def main():
                 r = acc.setdefault(name, [0.0, 0])
                 r[0] += time.perf_counter() - t0
                 r[1] += 1
-        setattr(owner, attr, inner)
+        setattr(owner, attr, staticmethod(inner) if isinstance(owner.__dict__.get(attr), staticmethod)
+                else inner)
 
     if not a.plain:
         wrap(MF.OpenFold3, "fold", "model.fold", True)
@@ -92,6 +99,46 @@ def main():
         wrap(MD.OF3DiffusionModule, "__call__", "dm_issue", False)
         wrap(MC.OF3DiffusionConditioning, "single", "cond_single_issue", False)
         wrap(ttnn, "to_torch", "to_torch(all)", False)
+        # The rollout's per-step host work between a read and the next replay, while the device idles.
+        wrap(MS.OF3SampleDiffusion, "_augment", "augment", False)
+        wrap(ttnn, "from_torch", "from_torch(all)", False)
+        # No device = a host-side tilize: the rollout's per-step n_emb and rl staging.
+        wrap(ttnn, "from_torch", "from_torch(host)", False, when=lambda x, k: k.get("device") is None)
+        wrap(ttnn, "copy_host_to_device_tensor", "h2d_copy", False)
+    if a.sites:
+        import traceback
+
+        # One-line upload helpers (`_ft`, `ft = lambda ...`) would bin every caller on their own line.
+        helpers = {"_ft", "ft", "<lambda>", "_to_dev", "to_dev", "up", "host", "bf", "_w_tt", "torch_to_tt"}
+
+        def site():
+            for f in reversed(traceback.extract_stack(limit=14)[:-2]):
+                if "/tt_bio/" in f.filename and f.name not in helpers:
+                    return f"{Path(f.filename).name}:{f.lineno}"
+            return "?"
+
+        def by_site(attr, kind, when):
+            fn = getattr(ttnn, attr)
+
+            def inner(*x, **k):
+                if not on["v"] or not when(x, k):
+                    return fn(*x, **k)
+                t0 = time.perf_counter()
+                sync()
+                t1 = time.perf_counter()
+                out = fn(*x, **k)
+                t2 = time.perf_counter()
+                t = x[0] if attr == "from_torch" else out
+                r = acc.setdefault(f"{kind} {site()}", [0.0, 0, 0.0, 0.0])
+                r[0] += t2 - t1
+                r[1] += 1
+                r[2] += t.numel() * t.element_size() / 1e6 if hasattr(t, "element_size") else 0.0
+                r[3] += t1 - t0
+                return out
+            setattr(ttnn, attr, inner)
+
+        by_site("from_torch", "up", lambda x, k: k.get("device") is not None)
+        by_site("to_torch", "read", lambda x, k: True)
     if a.deep:
         from tt_bio import openfold3_template as MTP, openfold3_msa_embedder as MME
         from tt_bio import openfold3_diffusion_transformer as MDT, openfold3_atom_transformer as MAT
@@ -101,6 +148,24 @@ def main():
                       MAT.OF3AtomTransformer, MDD.OF3AtomAttentionDecoder, MD.OF3NoisyPositionEmbedder,
                       MD.AtomPairUpdate, MC.OF3DiffusionConditioning):
             wrap(owner, "__call__", owner.__name__, True)
+
+    if a.prof_feat:
+        import cProfile, io, pstats
+        from tt_bio import openfold3_data as MDATA, worker as MW
+        prof = cProfile.Profile()
+        feat = MDATA.build_openfold3_features
+
+        def feat_prof(*x, **k):
+            if not on["v"]:
+                return feat(*x, **k)
+            prof.enable()
+            try:
+                return feat(*x, **k)
+            finally:
+                prof.disable()
+        MDATA.build_openfold3_features = feat_prof
+        if getattr(MW, "build_openfold3_features", None) is feat:
+            MW.build_openfold3_features = feat_prof
 
     fixdir = tree / "perf" / "size512" / "fixtures"
     tgt, a3m = fixdir / "cdk2x2_512.yaml", fixdir / "cdk2x2_512.a3m"
@@ -131,7 +196,7 @@ def main():
         acc.clear()
         s, m = one_fold()
         row = {"fold_s": round(s, 3), "plddt": m.get("plddt", m.get("complex_plddt")),
-               "digest": digest(), "sections": {k: [round(v[0], 3), v[1]] for k, v in acc.items()}}
+               "digest": digest(), "sections": {k: [round(e, 4) for e in v] for k, v in acc.items()}}
         pt = meta.get("phase_times")
         if pt:
             row["phases"] = pt[-1]
@@ -142,6 +207,11 @@ def main():
     import shutil
     for f in sorted(Path(meta["struct_dir"]).glob("**/*.cif")):
         shutil.copy(f, a.out.parent / f.name)
+    if a.prof_feat:
+        buf = io.StringIO()
+        pstats.Stats(prof, stream=buf).sort_stats("cumulative").print_stats(40)
+        pstats.Stats(prof, stream=buf).sort_stats("tottime").print_stats(25)
+        (a.out.parent / "prof_feat.txt").write_text(buf.getvalue())
     w = sorted(f["fold_s"] for f in res["folds"])
     res["median_s"] = round(statistics.median(w), 3)
     flush()

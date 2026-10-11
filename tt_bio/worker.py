@@ -1789,7 +1789,7 @@ class _WorkerState:
             DEVICE_REF_ATOM, RELPOS_CODES, dedup_template_slots, derive_block_aux, derive_relpos,
             derive_relpos_codes,
             derive_template_feat, ref_atom_embed, ref_atom_embed_device,
-            run_input_atom_encoder)
+            input_atom_transformer, run_input_atom_encoder)
         from tt_bio.openfold3_weights import _sub
 
         with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as fh:
@@ -1887,7 +1887,10 @@ class _WorkerState:
 
         model = self.model
         dev = model.device
-        ai = run_input_atom_encoder(dev, model.ckc, model.sd, features, aux)
+        if getattr(model, "input_atom_transformer", None) is None:
+            model.input_atom_transformer = input_atom_transformer(model.ckc, model.sd)
+        ai = run_input_atom_encoder(dev, model.ckc, model.sd, features, aux,
+                                    model.input_atom_transformer)
         s_input = _torch.cat(
             [ai, features["restype"], features["profile"],
              features["deletion_mean"].unsqueeze(-1)], dim=-1)

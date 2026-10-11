@@ -341,16 +341,24 @@ def ref_atom_embed_device(compute_kernel_config, w: dict, features: dict,
     return rafe(*ref_atom_device_inputs(dev, features, atom_mask, n_pad))
 
 
+def input_atom_transformer(compute_kernel_config, sd: dict):
+    """The input embedder's ``OF3AtomTransformer``. Build it once per model and pass it to
+    every ``run_input_atom_encoder`` call: a fresh one uploads its weights again on each fold."""
+    from .openfold3_atom_transformer import OF3AtomTransformer
+
+    return OF3AtomTransformer(_sub(sd, "input_embedder.atom_attn_enc.atom_transformer"),
+                              compute_kernel_config)
+
+
 def run_input_atom_encoder(dev, compute_kernel_config, sd: dict, features: dict,
-                           aux: dict) -> torch.Tensor:
+                           aux: dict, at=None) -> torch.Tensor:
     """Input-embedder atom-encoder leg -> ``ai`` [n_token, 384].
 
     Host: ref-atom embedding + pair-rep completion. Device: the PCC-gated
-    ``OF3AtomTransformer`` (P7). Host: ``relu(linear_q(...))`` + mean aggregation to
-    tokens via ``atom_to_token_mean``.
+    ``OF3AtomTransformer`` (P7), ``at`` from ``input_atom_transformer`` (built here when
+    None). Host: ``relu(linear_q(...))`` + mean aggregation to tokens via
+    ``atom_to_token_mean``.
     """
-    from .openfold3_atom_transformer import OF3AtomTransformer
-
     enc = _sub(sd, "input_embedder.atom_attn_enc")
     atom_mask = aux["atom_mask"]
     n_atom, nb, NP = aux["n_atom"], aux["nb"], aux["NP"]
@@ -369,7 +377,7 @@ def run_input_atom_encoder(dev, compute_kernel_config, sd: dict, features: dict,
         h = _lin(h.relu(), enc, key)
     plm = (plm + h) * pair_mask.unsqueeze(-1)
 
-    at = OF3AtomTransformer(_sub(enc, "atom_transformer"), compute_kernel_config)
+    at = at or input_atom_transformer(compute_kernel_config, sd)
 
     def ft(x, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT):
         return ttnn.from_torch(x.float(), layout=layout, device=dev, dtype=dtype)
@@ -383,8 +391,12 @@ def run_input_atom_encoder(dev, compute_kernel_config, sd: dict, features: dict,
     kidx = aux["key_block_idxs"].reshape(1, nb * N_KEY).to(torch.int32)
     kidx_tt = ttnn.from_torch(kidx, layout=ttnn.ROW_MAJOR_LAYOUT, device=dev,
                               dtype=ttnn.uint32)
-    ql_d = at(ft(a_pad), ft(a_pad.clone()), ft(plm.unsqueeze(0)), ft(atom_mask_col),
-              kidx_tt, ft(valid), ft(mask_bias), n_atom, NP, nb)
+    # One upload of a_pad, copied on the card; the channel-1 masks go up without their unit
+    # dim (a trailing 1 tile-pads 32x in the host tilize) and get it back on the card.
+    a_d = ft(a_pad)
+    ql_d = at(a_d, ttnn.clone(a_d), ft(plm.unsqueeze(0)),
+              ttnn.unsqueeze(ft(atom_mask_col.squeeze(-1)), -1),
+              kidx_tt, ttnn.unsqueeze(ft(valid.squeeze(-1)), -1), ft(mask_bias), n_atom, NP, nb)
     if env_flag(DEVICE_REF_ATOM, False):
         # The aggregation head on the card. `linear_q.0.weight` is 0.74055 % of the model's
         # squared gradient norm on its own -- the single heaviest of the seventeen tensors
