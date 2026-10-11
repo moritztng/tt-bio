@@ -313,8 +313,12 @@ _GATHERED_SOFTMAX = env_flag("RFD3_GATHERED_SOFTMAX", False)
 # built once per block in bf16 and the kernel never writes the scores. The shipped chain writes
 # the bf16 scores, rereads them into 2x as many fp32 bytes and rereads those for the softmax,
 # about 1.2 GB a call at 6051 atoms, 9 calls a step. Online softmax changes the reduction order,
-# so this is graded on accuracy, not digest. Off by default while it is graded.
-_ATOM_SDPA = env_flag("RFD3_ATOM_SDPA", False)
+# so the digest moves; the result is closer to float64 than the shipped chain (one call at the
+# page shape: maxabs 0.047 against 0.087, PCC 0.99981 against 0.99975). On by default: over 4
+# seeds of the 685-token page design the same-seed drift is 5.5-9.3 A, the size of the 7.3 A by
+# which the shipped chain's own Blackhole and Wormhole designs differ, with design quality unchanged
+# (docs/rfd3-design.md). RFD3_ATOM_SDPA=0 restores the chain.
+_ATOM_SDPA = env_flag("RFD3_ATOM_SDPA", True)
 ATOM_SDPA_CALLS = [0]
 # The SDPA mask is cached per atom block for the step, so three to six [1, H, N, N] bf16 masks live
 # at once. Above this size per mask the shipped chain runs instead: 6080 atoms (the 685-token page
@@ -325,6 +329,9 @@ _ATOM_SDPA_MAX_MASK_BYTES = int(float(os.environ.get("RFD3_ATOM_SDPA_MAX_MASK_BY
 # 1088 instead of 2048 bytes a tile on the region that is ~65 % of the token encoder and is bound
 # by per-tile pack/unpack. The input norm and the output stay bf16. Off by default while graded.
 _TRANSITION_B8 = env_flag("RFD3_TRANSITION_B8", False)
+# Every RFD3 matmul at HiFi2 instead of HiFi4: two multiplier passes per bf16 product instead of
+# four. A fast-set lever, off by default.
+_HIFI2 = env_flag("RFD3_HIFI2", False)
 # The dense attention (the DiT's 36 blocks a step, and atom blocks below the sparse cutoff) as one
 # fused SDPA, the way Protenix's and Boltz-2's token DiTs run it (`dit_sdpa`): the [1,16,685,704]
 # fp32 scores, their fused bias add and the softmax+PV pass become one kernel that never writes a
@@ -373,11 +380,13 @@ PZSTATS = [0, 0]
 # `--fast` for RFD3: the levers that pass the fast accuracy bar but not (yet) the normal one. Same
 # steps, recycles and designs; only kernels change. Each flag keeps its own env switch for A/B work,
 # and set_fast(False) restores exactly what the environment asked for.
-_FAST_SET = {"_ATOM_SDPA": "RFD3_ATOM_SDPA"}
+_FAST_SET = {"_TRANSITION_B8": "RFD3_TRANSITION_B8", "_PROCESS_Z_COLLAPSE": "RFD3_PROCESS_Z_COLLAPSE",
+             "_HIFI2": "RFD3_HIFI2"}
 
 
 def set_fast(on):
-    """Turn RFD3's fast set on, or back to the environment's defaults. Read per call, not at import."""
+    """Turn RFD3's fast set on, or back to the environment's defaults. Call before building the
+    modules: the fidelity is read when they take their compute kernel config."""
     g = globals()
     for name, env in _FAST_SET.items():
         g[name] = True if on else env_flag(env, False)
@@ -3026,7 +3035,7 @@ def _default_compute_kernel_config():
         else ttnn.types.BlackholeComputeKernelConfig
     )
     return kernel_cls(
-        math_fidelity=ttnn.MathFidelity.HiFi4,
+        math_fidelity=ttnn.MathFidelity.HiFi2 if _HIFI2 else ttnn.MathFidelity.HiFi4,
         math_approx_mode=False,
         fp32_dest_acc_en=True,
         packer_l1_acc=True,

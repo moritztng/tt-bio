@@ -4,18 +4,19 @@
     gap_screen.py ARM OUTDIR [STEPS] [SEEDS] [--fixture=perf/dsfix/fixtures/rfd3_R4.json]
 
 ARM is a '+'-joined set of knobs applied before the denoiser is built:
-  exact     nothing (the shipped path)
-  hifi2     every RFD3 compute kernel config at MathFidelity.HiFi2 (default HiFi4)
+  exact     the pre-SDPA shipped chain: every knob below off, whatever the defaults are
+  hifi2     RFD3_HIFI2, every RFD3 compute kernel config at MathFidelity.HiFi2 (default HiFi4)
   lofi      ... at MathFidelity.LoFi
   acco      ... with fp32_dest_acc_en off (bf16 dest: twice the dest tiles, larger subblocks)
   w8        every 2-D, tile-aligned weight that Module.torch_to_tt uploads as bf16 goes up as bfloat8_b
-  asdpa     RFD3_ATOM_SDPA, atom attention as one fused SDPA (new, off by default)
+  asdpa     RFD3_ATOM_SDPA, atom attention as one fused SDPA (on by default since 10-11)
   dsdpa     RFD3_DIT_SDPA, the dense (DiT) attention as one fused SDPA (new, off by default)
   tb8       RFD3_TRANSITION_B8, the pair Transitions' hidden activations in bfp8
   gsm bs pzc fgrid   the existing off-by-default levers RFD3_GATHERED_SOFTMAX, RFD3_BLOCK_SPARSE,
             RFD3_PROCESS_Z_COLLAPSE, RFD3_FAST_GRID (declined before only for not being bit-exact)
 
-SEEDS is a comma list (default 42). Per seed: one discarded warmup fold for the first seed only, then
+Arms are absolute: every env knob not named is set to 0, so "exact" keeps meaning the same path
+after a default flips. SEEDS is a comma list (default 42). Per seed: one discarded warmup fold for the first seed only, then
 one timed fold; the CIF is copied to OUTDIR/<arm>_s<seed>.cif so accuracy is graded offline against
 the exact arm's CIF of the same seed (same-seed drift) and against other seeds (the seed floor).
 """
@@ -30,10 +31,10 @@ import time
 ENV_KNOBS = {"gsm": "RFD3_GATHERED_SOFTMAX", "bs": "RFD3_BLOCK_SPARSE",
              "pzc": "RFD3_PROCESS_Z_COLLAPSE", "fgrid": "RFD3_FAST_GRID",
              "asdpa": "RFD3_ATOM_SDPA", "tb8": "RFD3_TRANSITION_B8",
-             "dsdpa": "RFD3_DIT_SDPA"}
-for _k in sys.argv[1].split("+") if len(sys.argv) > 1 else ():
-    if _k in ENV_KNOBS:
-        os.environ[ENV_KNOBS[_k]] = "1"   # read at import, so before tt_bio.rfd3 loads
+             "dsdpa": "RFD3_DIT_SDPA", "hifi2": "RFD3_HIFI2"}
+_arm = set(sys.argv[1].split("+")) if len(sys.argv) > 1 else set()
+for _k, _env in ENV_KNOBS.items():
+    os.environ[_env] = "1" if _k in _arm else "0"   # read at import, so before tt_bio.rfd3 loads
 
 sys.path.insert(0, os.getcwd())
 import ttnn                                                               # noqa: E402
@@ -50,10 +51,9 @@ STEPS = int(args[2]) if len(args) > 2 else 200
 SEEDS = [int(s) for s in (args[3] if len(args) > 3 else "42").split(",")]
 FIXTURE = opts.get("fixture", "perf/dsfix/fixtures/rfd3_R4.json")
 knobs = set(ARM.split("+")) - {"exact"}
-assert knobs <= {"hifi2", "lofi", "w8", "acco"} | set(ENV_KNOBS), knobs
+assert knobs <= {"lofi", "w8", "acco"} | set(ENV_KNOBS), knobs
 
-fid = {"hifi2": ttnn.MathFidelity.HiFi2, "lofi": ttnn.MathFidelity.LoFi}
-pick = [fid[k] for k in ("hifi2", "lofi") if k in knobs]
+pick = [ttnn.MathFidelity.LoFi] if "lofi" in knobs else []
 if pick or "acco" in knobs:
     _ckc = M._default_compute_kernel_config
 
