@@ -170,3 +170,19 @@ def test_bh_eth_dispatch_reads_the_users_runtime_root(tmp_path, monkeypatch):
     _kernel_ld(tmp_path, 40)
     monkeypatch.setenv("TT_METAL_RUNTIME_ROOT", str(tmp_path))
     assert MO.bh_eth_dispatch_supported()
+
+
+@pytest.mark.parametrize("flag,visible,want", [
+    (None, [0], True),     # unset, a p150a: on
+    (None, [1], False),    # unset, a p300c chip: off (not run-to-run deterministic there)
+    (True, [1], True),     # TT_BIO_BH_ETH_DISPATCH=1 on a p300c chip
+    (False, [0], False),   # TT_BIO_BH_ETH_DISPATCH=0
+])
+def test_bh_eth_dispatch_defaults_to_single_chip_boards(monkeypatch, flag, visible, want):
+    T = pytest.importorskip("tt_bio.tenstorrent")
+    from tt_bio import main
+    monkeypatch.setattr(T, "_BH_ETH_DISPATCH", flag)
+    monkeypatch.setattr(MO, "bh_eth_dispatch_supported", lambda root=None: True)
+    monkeypatch.setattr(main, "_detect_p300_devices", lambda: [1, 2])
+    monkeypatch.setattr(main, "_visible_tt_devices", lambda: visible)
+    assert T.bh_eth_dispatch() is want
