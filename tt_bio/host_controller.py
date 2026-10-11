@@ -195,6 +195,10 @@ class ControllerStore:
         jobs = payload["jobs"]
         config = payload["config"]
         with self._lock, self._connect() as conn:
+            # A run created again under its id (JapanFold's retry of a job on the same host) starts
+            # over: the earlier attempt's job rows and events would otherwise answer for it.
+            conn.execute("DELETE FROM jobs WHERE run_id = ?", (run_id,))
+            conn.execute("DELETE FROM events WHERE run_id = ?", (run_id,))
             conn.execute(
                 """
                 INSERT OR REPLACE INTO runs
