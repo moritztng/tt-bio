@@ -406,7 +406,11 @@ def _lm_dropout(lm_z, p, keep=None):
     t = lm_z.t
     if keep is None:
         keep = torch.empty(tuple(t.shape)).bernoulli_(1.0 - p).to(torch.bfloat16)
-    m = ttnn.from_torch(keep, device=t.device(), layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16)
+    # Uploaded row-major and tiled on the device: a tile-layout from_torch tilizes the pair-sized
+    # mask on the host, 0.24 s a loop at 512 aa (cProfile, p300c), with the device waiting.
+    rm = ttnn.from_torch(keep, device=t.device(), layout=ttnn.ROW_MAJOR_LAYOUT, dtype=ttnn.bfloat16)
+    m = ttnn.to_layout(rm, ttnn.TILE_LAYOUT)
+    ttnn.deallocate(rm)
     kept = ttnn.multiply(t, m)
     ttnn.deallocate(m)
     out = ttnn.multiply(kept, 1.0 / (1.0 - p))
