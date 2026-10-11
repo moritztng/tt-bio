@@ -266,7 +266,8 @@ class OF3SampleDiffusion:
         scaled noisy coordinates, staged into persistent buffers before each replay. ``t``
         enters only the EDM scaling, which runs here on the host in fp32 next to the update
         it feeds. Step 0 runs eagerly (it compiles every program and fills the rollout cache),
-        step 1 is captured and every step from 1 on replays it (a capture that fails, e.g. on a
+        the step is captured right behind step 0's dispatch (so the capture's host time overlaps
+        step 0 on the device) and every step from 1 on replays it (a capture that fails, e.g. on a
         trace region too small for the step, leaves every step eager). Between replays nothing but
         the staging copies and the output reads touch the device, and the trace is released
         before the cache it reads is freed.
@@ -305,7 +306,16 @@ class OF3SampleDiffusion:
                     rl = xl_noisy[k] * mask / math.sqrt(t * t + self.sigma_data ** 2)
                     ttnn.copy_host_to_device_tensor(host(self._pad_atoms_host(rl, n_atom, NP)),
                                                     rl_bufs[k])
-                if tau > 0 and tid is None and traced:
+                if tid is not None:
+                    ttnn.execute_trace(dev, tid, cq_id=0, blocking=False)
+                    res = outs
+                else:                           # step 0, or the capture failed: the same program
+                    res = step()
+                if tid is None and traced and tau + 1 < len(t_list):
+                    # Record the replayed step now, behind step 0's eager dispatch and before
+                    # its read: capture is host work only (nothing executes), so it overlaps
+                    # the device still running step 0 instead of idling it. It reads the
+                    # staging buffers, which the next step refills after this step's read.
                     tid = ttnn.begin_trace_capture(dev, cq_id=0)
                     try:
                         outs = step()
@@ -319,11 +329,6 @@ class OF3SampleDiffusion:
                         ttnn.release_trace(dev, tid)
                         tid = outs = None
                         traced = False
-                if tid is not None:
-                    ttnn.execute_trace(dev, tid, cq_id=0, blocking=False)
-                    res = outs
-                else:                           # step 0, or the capture failed: the same program
-                    res = step()
                 rl_update = torch.stack([ttnn.to_torch(o).float().reshape(n_atom, 3)
                                          for o in res])
                 if res is not outs:
