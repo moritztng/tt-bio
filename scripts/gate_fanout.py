@@ -303,19 +303,35 @@ def rerecorded(tree: str, reference: str, note: str) -> str:
     return json.dumps(t, indent=2) + "\n"
 
 
-def baseline_hash(sha: str, family: str, repo: Path = REPO, model: str = "") -> str:
+def baseline_hash(sha: str, family: str, repo: Path = REPO, model: str = "", cards=()) -> str:
     """Blob ids of the baseline files `family` compares against at `sha` ('' for none).
 
     A ladder leg for `model` reads the monolith plus that model's own fragment, so splicing one
-    model's rows reruns that model's ladder leg only."""
+    model's rows reruns that model's ladder leg only. Given the card types the leg can run on,
+    it hashes only what a check on them reads (each file's card stamp and `model` entry for
+    those cards), so recording Wormhole rows does not rerun the Blackhole legs."""
     ps = BASELINES.get(family)
     if not ps:
         return ""
     if family == "ladder" and model:
         ps = (ps[0], f"{ps[1]}{model}.json")
+        if cards:
+            return _ladder_view_hash(_commit(sha, repo), repo, ps, model, tuple(sorted(cards)))
     rows = [ln for ln in _ls_tree(sha, repo) if ln.split("\t", 1)[-1] in ps or (
         not model and ln.split("\t", 1)[-1].startswith(ps))]
     return hashlib.sha256("\n".join(rows).encode()).hexdigest()
+
+
+@functools.lru_cache(maxsize=None)
+def _ladder_view_hash(sha: str, repo: Path, paths: tuple, model: str, cards: tuple) -> str:
+    view = []
+    for path in paths:
+        r = subprocess.run(["git", "-C", str(repo), "show", f"{sha}:{path}"], capture_output=True, text=True)
+        blocks = (json.loads(r.stdout) if r.returncode == 0 else {}).get("cards") or {}
+        view.append({c: {**{k: v for k, v in blocks[c].items() if k != "models"},
+                         "models": (blocks[c].get("models") or {}).get(model)}
+                     for c in cards if c in blocks})
+    return sha256(view)
 
 
 #: The leg families that run the test suite, and so read the test files the content key leaves out.
@@ -417,11 +433,17 @@ def content_hash(sha: str, repo: Path = REPO, baselines: bool = False, tests: bo
                 or (not baselines and path.startswith(_BASELINE_PATHS))):
             continue
         if path == "pyproject.toml":
-            body = "".join(x for x in git("show", f"{sha}:pyproject.toml").splitlines(True)
-                           if not x.startswith("version ="))
-            ln = f"pyproject.toml {hashlib.sha256(body.encode()).hexdigest()}"
+            ln = f"pyproject.toml {dep_spec(sha, repo)}"
         rows.append(ln)
     return hashlib.sha256("\n".join(rows).encode()).hexdigest()
+
+
+def dep_spec(sha: str, repo: Path = REPO) -> str:
+    """pyproject.toml at `sha` without its `version =` line: what a resolution depends on."""
+    body = subprocess.run(["git", "-C", str(repo), "show", f"{sha}:pyproject.toml"], check=True,
+                          capture_output=True, text=True).stdout
+    return hashlib.sha256("".join(x for x in body.splitlines(True)
+                                  if not x.startswith("version =")).encode()).hexdigest()
 
 
 def env_hash(probe: dict) -> str:
@@ -772,6 +794,27 @@ class Ledger:
             except (ValueError, KeyError):
                 continue
         return out
+
+    def pins(self, sha: str, spec: str) -> dict | None:
+        """The package set `sha` was gated with, else the newest one recorded for the same
+        dependency spec: installing it keeps every leg's environment key, so a PyPI patch
+        release between two commits' preps does not rerun the gate (beartype 0.23.1, 10-11)."""
+        own = self.path / "pins" / sha[:12]
+        if not (own / "spec").exists():
+            same = [d for d in (self.path / "pins").glob("*/spec") if d.read_text().strip() == spec]
+            if not same:
+                return None
+            own = max(same, key=lambda d: d.stat().st_mtime).parent
+        return {f.stem: f.read_text() for f in own.glob("*.txt")}
+
+    def save_pins(self, sha: str, spec: str, pins: dict) -> None:
+        d = self.path / "pins" / sha[:12]
+        if (d / "spec").exists():
+            return
+        d.mkdir(parents=True, exist_ok=True)
+        for v, text in pins.items():
+            (d / f"{v}.txt").write_text(text)
+        (d / "spec").write_text(spec + "\n")
 
     def history(self) -> dict:
         """leg name -> the latest wall clock any run of it took, for ordering only."""
@@ -1316,10 +1359,17 @@ def main() -> int:
         if not any(h.arch == a for h, c in workers if (h.name, c) in timed):
             print(f"note: no --timed card for {a}; its timed legs will not run", file=sys.stderr)
 
-    # The first host resolves the packages; every other host installs exactly that resolution.
-    lead, *rest = hosts.values()
-    lead.prepare()
-    pins = lead.pins()
+    # Every host installs one resolution: the one this commit, or an earlier one with the same
+    # dependencies, was gated with; failing that the first host resolves from PyPI and records it.
+    ledger = Ledger(args.ledger)
+    spec = dep_spec(sha)
+    rest = list(hosts.values())
+    pins = ledger.pins(sha, spec)
+    if pins is None:
+        lead = rest.pop(0)
+        lead.prepare()
+        pins = lead.pins()
+    ledger.save_pins(sha, spec, pins)
     with ThreadPoolExecutor() as ex:          # a failure re-raises here
         list(ex.map(lambda h: h.prepare(pins), rest))
     first = {a: next(h for h in hosts.values() if h.arch == a) for a in archs}
@@ -1347,6 +1397,8 @@ def main() -> int:
     # reproduces exactly (qb2's p300c keys as p150a: digests equal seed for seed). Timed legs
     # measure the card itself, so only a host whose card type is the key's may run them.
     ctype = {a: first[a].key_card_type for a in archs}
+    # The baseline blocks a leg of each arch can read: every card type of that arch in hosts.json.
+    reads = {a: {ctype[a]} | {c["card_type"] for c in cfg.values() if c.get("arch") == a} for a in archs}
     for h in hosts.values():
         if h.arch in archs and h.key_card_type != ctype[h.arch]:
             raise SystemExit(f"{h.name} keys as {h.key_card_type}, {first[h.arch].name} as {ctype[h.arch]}")
@@ -1356,7 +1408,6 @@ def main() -> int:
                              "cannot run timed legs")
 
     args.out.mkdir(parents=True, exist_ok=True)
-    ledger = Ledger(args.ledger)
     # Rows written while test files were inside the content key (until 2026-10-09 21Z), at this
     # commit or at any commit with the same code, which a leg accepts when its own inputs match too.
     same = {s for s in {sha} | ledger.shas() if s == sha or _same_code(s, content)}
@@ -1369,7 +1420,8 @@ def main() -> int:
             env, ct, hleg = (envs[f"{a} {first[a].python(lg.family)}"], ctype[a] if lg.card else "cpu",
                              first[a].leg(lg))
             model = lg.name.split(":", 1)[1] if lg.family == "ladder" else ""
-            base, tst = baseline_hash(sha, lg.family, model=model), tests_hash(sha, lg.family)
+            cards = reads[a] if lg.card else ()
+            base, tst = baseline_hash(sha, lg.family, model=model, cards=cards), tests_hash(sha, lg.family)
             # An A/B perf leg reads the reference tree's numbers, not the committed baseline, so
             # committing a re-recorded baseline does not rerun it.
             ab = lg.family == "perf" and bool(first[a].cfg.get("perf_against"))
@@ -1382,9 +1434,12 @@ def main() -> int:
             # A row under an older key scheme proved the same code against the same inputs, so it
             # is as good as a row under the new one: baselines inside the content hash (legacy),
             # or test files inside it, at any commit whose code and this leg's inputs match.
-            match = {s for s in same if s == sha or (baseline_hash(s, lg.family, model=model) == base
+            match = {s for s in same if s == sha or (baseline_hash(s, lg.family, model=model, cards=cards) == base
                                                      and tests_hash(s, lg.family) == tst)}
             olds = ([leg_key(legacy, env, ct, hleg)]
+                    # rows filed when the ladder key was the files' blob ids (until 2026-10-11)
+                    + [leg_key(content, env, ct, hleg, baseline_hash(s, lg.family, model=model), tst)
+                       for s in match if cards and model]
                     + [leg_key(tests_in[s], env, ct, hleg, base) for s in match]
                     + [leg_key(runner_in[s], env, ct, hleg, base, tst) for s in match]
                     + [leg_key(content, env, ct, hleg, baseline_hash(s, "perf"), tst) for s in same if ab])

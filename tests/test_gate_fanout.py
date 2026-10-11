@@ -167,6 +167,39 @@ def test_key_moves_with_code_env_card_and_argv_not_with_markdown(tmp_path):
     assert k != gf.leg_key(c1, "env", "p150a", other)
 
 
+def test_a_ladder_key_sees_only_its_own_card_types_rows(tmp_path):
+    def git(*a):
+        subprocess.run(["git", "-C", str(tmp_path), *a], check=True, capture_output=True)
+    frag = tmp_path / "docs" / "size_ladder_baseline.d" / "nesso1.json"
+    frag.parent.mkdir(parents=True)
+
+    def write(cards):
+        frag.write_text(json.dumps({"cards": cards}))
+        git("add", "."), git("commit", "-qm", "x")
+    git("init", "-q"), git("config", "user.email", "t@t"), git("config", "user.name", "t")
+    bh = {"p150a": {"host_threads": 2, "models": {"nesso1": {"256": 1}}}}
+    write({**bh, "wh": {"host_threads": 2, "models": {"nesso1": {"256": 2}}}})
+    key = lambda cards, model="nesso1": gf.baseline_hash("HEAD", "ladder", tmp_path, model=model, cards=cards)
+    b1, w1, blob1 = key(("p150a", "p300c")), key(("wh",)), gf.baseline_hash("HEAD", "ladder", tmp_path, model="nesso1")
+    write({**bh, "wh": {"host_threads": 2, "models": {"nesso1": {"256": 3}}}})       # a WH re-record
+    assert key(("p150a", "p300c")) == b1                                             # BH legs reuse
+    assert key(("wh",)) != w1                                                        # WH legs rerun
+    assert gf.baseline_hash("HEAD", "ladder", tmp_path, model="nesso1") != blob1     # the blob moved
+    write({"p150a": {"host_threads": 4, "models": bh["p150a"]["models"]}, "wh": {}})
+    assert key(("p150a", "p300c")) != b1                                             # the cap is read too
+
+
+def test_a_commit_with_the_same_dependencies_installs_the_last_gated_resolution(tmp_path):
+    led = gf.Ledger(tmp_path)
+    assert led.pins("a" * 40, "spec1") is None                  # nothing recorded: resolve from PyPI
+    led.save_pins("a" * 40, "spec1", {"venv": "beartype==0.23.0\n"})
+    led.save_pins("a" * 40, "spec1", {"venv": "beartype==0.23.1\n"})   # the first resolution stays
+    assert led.pins("b" * 40, "spec1") == {"venv": "beartype==0.23.0\n"}
+    assert led.pins("b" * 40, "spec2") is None                  # a dependency changed: resolve again
+    assert led.pins("a" * 40, "spec2") == {"venv": "beartype==0.23.0\n"}   # its own, whatever the spec
+    assert not led.shas()                                       # the pins are not ledger rows
+
+
 def test_env_hash_ignores_order_only():
     a = {"python": "3.12.1", "dists": ["ttnn==0.68.0", "torch==2.13.0"]}
     b = {"python": "3.12.1", "dists": ["ttnn==0.68.0", "torch==2.13.0"]}

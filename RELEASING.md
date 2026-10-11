@@ -38,10 +38,13 @@ PYTHONPATH="$PWD" python3 scripts/gate_fanout.py --sha <commit> --hosts hosts.js
 (the wheel's venv, see below), the card lock path and the environment the legs need
 (`ESM_ROOT`, `AF2IG_PARAMS`, `OF3_CKPT`, `OPENDDE_DOCKQ_PYTHON`, ...); the module docstring has
 the format. The runner builds its own tree at exactly `<commit>` on every host and never moves
-a shared checkout. The first host in `--workers` resolves the packages from PyPI; every other host
-installs exactly that set, and the runner refuses to start if two hosts of one architecture still
-differ (a PyPI release between two preps once gave .107 and .114 different pandas and omegaconf). Run it detached; re-running the same command resumes, because every passed
-leg is in the ledger.
+a shared checkout. Every host installs one package set: the one this commit was gated with, or
+else the one the last commit with the same `pyproject.toml` dependencies was gated with (both kept
+in `<ledger>/pins/`). Only a dependency change resolves from PyPI again, on the first host in
+`--workers`, and the others install exactly that set. Without this a PyPI patch release between two
+preps moves every leg's key: beartype 0.23.1 on 2026-10-11 would have rerun the whole Wormhole half
+of 0.15.0. The runner refuses to start if two hosts of one architecture still differ. Run it
+detached; re-running the same command resumes, because every passed leg is in the ledger.
 
 A leg whose ssh connection drops (exit 255 with ssh's own error) is run again once the host
 answers; it is never recorded as a failure. The rerun first ends the attempt it replaces, which
@@ -100,8 +103,9 @@ python3 scripts/gate_fanout.py --sha <commit> ... --legs 'record:*' \
 
 The fragments land in `<out>/recorded/<card_type>/<model>.json`; splice them into the release
 commit with `python3 scripts/splice_ladder_fragments.py <out>/recorded`, which takes only the
-recorded card type's entry (a plain copy would undo any other card type's re-record since). The ladder legs then rerun against them and
-every other leg is reused. A model whose splice is refused (something besides the new lever
+recorded card type's entry (a plain copy would undo any other card type's re-record since). Only
+that model's ladder legs on that architecture then rerun: a ladder leg's key holds just the rows
+its own card types read, so Wormhole rows leave the Blackhole legs reused, and so is every other leg. A model whose splice is refused (something besides the new lever
 moved, e.g. a guard's decline reason) needs a full re-record of its own fragment: add
 `--record-full <model>` and that model's record leg re-records every rung instead.
 
