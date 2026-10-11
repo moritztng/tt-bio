@@ -3595,10 +3595,25 @@ class Trunk(_KeyedWeights):
             z3, s = carry
             carry.clear()
             zc = self._lin(self._ln(z3, "layernorm_z_cycle.weight", "layernorm_z_cycle.bias"), "linear_no_bias_z_cycle.weight")
+            # The previous pair, zc and an unparked z_init are each a whole pair tensor (1 GiB in
+            # bf16 at 2048 tokens), and zc used to live to the end of the cycle. Free the old pair
+            # once zc is made, add into this cycle's own z_init upload, and free zc after: the add
+            # then holds two pair tensors instead of four. --fast died on the fourth at 2048 on a
+            # 12 GiB Wormhole chip. Same op, same operands, so the same bytes. A tape keeps all three.
+            free = not ops.taping()
+            if free:
+                ttnn.deallocate(z3)
             zi = host_unpark(z_init)
-            z3 = ttnn.add(ttnn.reshape(zi, (1, N, N, self.C_Z)), zc)
-            if zi is not z_init:
-                ttnn.deallocate(zi)
+            zr = ttnn.reshape(zi, (1, N, N, self.C_Z))
+            if free and zi is not z_init:
+                z3 = ttnn.add_(zr, zc)
+            else:
+                z3 = ttnn.add(zr, zc)
+                if zi is not z_init:
+                    ttnn.deallocate(zi)
+            if free:
+                ttnn.deallocate(zc)
+            del zc, zr
             if nse_d is not None:
                 z3 = ttnn.add(z3, self._noisy_structure(z3, nse_d))
             # Gate on BOTH the feature's template slots and the checkpoint's own template
