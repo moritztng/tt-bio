@@ -2260,6 +2260,18 @@ _B2_ADALN_S_MEMO = env_flag("BOLTZ2_ADALN_S_MEMO", True)
 # not describe any default. Set TT_BIO_DIT_COND_HOIST=0 to get the per-step form back.
 # Read at CALL time, not import time, so an interleaved A/B can flip it.
 _B2_DIT_COND_HOIST = env_flag("TT_BIO_DIT_COND_HOIST", True)
+# The two hoisted conditioning matmuls at HiFi2 instead of the module's fidelity. At 512 tokens x 1
+# sample they are 87 GFLOP a step and compute-bound at HiFi4 (1.13 + 0.75 ms on a p150a, 0.44 of
+# roof, spd-gap-small census). Off until a paired A/B and a fast grade decide; read at call time.
+_B2_DIT_COND_HIFI2 = env_flag("TT_BIO_DIT_COND_HIFI2", False)
+# Each hoisted AdaLN modulates with one addcmul: the 48 scales get their sigmoid in the matmul
+# epilogue (their own weight block), so `sigmoid(scale) * a` then `+ shift` (two ops, two bf16
+# roundings) becomes one op, 48 fewer per step. Off until a paired A/B and a fast grade decide.
+_B2_ADALN_ADDCMUL = env_flag("TT_BIO_ADALN_ADDCMUL", False)
+
+
+class _SigTerms(tuple):
+    """An AdaLN `(scale, shift)` pair whose scale already went through its sigmoid."""
 # Every diffusion sample of a fold sees the same noise level and the same trunk output, so the
 # token conditioning `s` and everything the DiT derives from it (the hoisted AdaLN and gate
 # projections, the conditioner transitions, s_to_a) are the same row for each sample. With the
@@ -13673,7 +13685,13 @@ class AdaLN(Module):
             # A memoised pair belongs to the memo and must survive this call.
             own = self._s_memo is not s_terms
         s_scale, s_bias = s_terms
-        if lever("adaln_mod") and a.dtype == ttnn.float32:
+        if isinstance(s_terms, _SigTerms):
+            kw = {} if dtype in (None, a.dtype) else {"output_tensor": ttnn.allocate_tensor_on_device(
+                ttnn.Shape(list(a.shape)), dtype, ttnn.TILE_LAYOUT, a.device())}
+            out = ttnn.addcmul(s_bias, a, s_scale, value=1.0, **kw)
+            ttnn.deallocate(a)
+            a = out
+        elif lever("adaln_mod") and a.dtype == ttnn.float32:
             # One addcmul reads and writes the [M, rows, C] activation once; the sigmoid runs on
             # the [1, rows, C] scale. addcmul takes no dtype, so a narrower output is preallocated.
             # Wormhole [5, 768, 768] to bf16: 329 -> 265 us (perf/spd_difflin/mod_check.py).
@@ -13950,6 +13968,22 @@ class DiffusionTransformer(Module):
         self._cond_w = (cat(ad_w, 1), cat(ad_b, 0), cat(op_w, 1), cat(op_b, 0))
         return self._cond_w
 
+    def _cond_weights_split(self):
+        """`_cond_weights`' AdaLN block as two, for `_B2_ADALN_ADDCMUL`: the 48 scales with their
+        biases, then the 48 shifts, each in layer order `(attention, transition)`."""
+        if getattr(self, "_cond_ws", None) is None:
+            sw, sb, bw = [], [], []
+            for layer in self.layers:
+                for ad in (layer.adaln, layer.transition.adaln):
+                    scale_w, scale_b, bias_w = ad.folded_weights()
+                    sw.append(scale_w)
+                    sb.append(scale_b)
+                    bw.append(bias_w)
+            dt = _dtype(ttnn.bfloat16)
+            up = lambda t: ttnn.from_torch(t, layout=ttnn.TILE_LAYOUT, device=self.device, dtype=dt)
+            self._cond_ws = (up(torch.cat(sw, 1)), up(torch.cat(sb, 0)), up(torch.cat(bw, 1)))
+        return self._cond_ws
+
     def _peak_tag(self, a):
         # The DRAM census tag for one layer. The leading dim is the diffusion sample chunk,
         # which is what makes the sample axis visible to TT_BIO_DRAM_PEAK at all.
@@ -13970,14 +14004,24 @@ class DiffusionTransformer(Module):
             adw, adb, opw, opb = self._cond_weights()
             s_hat = ttnn.layer_norm(s, epsilon=1e-5,
                                     compute_kernel_config=self.compute_kernel_config)
-            o_ad = ttnn.linear(s_hat, adw, bias=adb,
-                               compute_kernel_config=self.compute_kernel_config)
+            ckc = self.compute_kernel_config
+            if _B2_DIT_COND_HIFI2 and ckc is not None:
+                ckc = type(ckc)(math_fidelity=ttnn.MathFidelity.HiFi2,
+                                math_approx_mode=ckc.math_approx_mode,
+                                fp32_dest_acc_en=ckc.fp32_dest_acc_en,
+                                packer_l1_acc=ckc.packer_l1_acc)
+            if _B2_ADALN_ADDCMUL:
+                sw, sb, bw = self._cond_weights_split()
+                o_ad = (ttnn.linear(s_hat, sw, bias=sb, compute_kernel_config=ckc,
+                                    activation="sigmoid"),
+                        ttnn.linear(s_hat, bw, compute_kernel_config=ckc))
+            else:
+                o_ad = ttnn.linear(s_hat, adw, bias=adb, compute_kernel_config=ckc)
             ttnn.deallocate(s_hat)
             # `activation="sigmoid"` here is where both output projections' sigmoids go: the
             # attention one already carried it in its own linear, and the transition one moves
             # off its multiply, which is told not to re-apply it.
-            o_op = ttnn.linear(s, opw, bias=opb,
-                               compute_kernel_config=self.compute_kernel_config,
+            o_op = ttnn.linear(s, opw, bias=opb, compute_kernel_config=ckc,
                                activation="sigmoid")
             cond_all = (o_ad, o_op)
 
@@ -13987,15 +14031,21 @@ class DiffusionTransformer(Module):
             if cond_all is None:
                 return None, ()
             o_ad, o_op = cond_all
-            parts = [o_ad[..., (4 * i + j) * d:(4 * i + j + 1) * d] for j in range(4)]
+            if isinstance(o_ad, tuple):
+                sc, sh = o_ad
+                parts = [x[..., (2 * i + j) * d:(2 * i + j + 1) * d]
+                         for j in range(2) for x in (sc, sh)]
+            else:
+                parts = [o_ad[..., (4 * i + j) * d:(4 * i + j + 1) * d] for j in range(4)]
             parts += [o_op[..., (2 * i + j) * d:(2 * i + j + 1) * d] for j in range(2)]
-            return (parts[0], parts[1]), parts
+            pair = _SigTerms if isinstance(o_ad, tuple) else tuple
+            return pair((parts[0], parts[1])), parts
 
         def bundle(i):
             terms, parts = cut(i)
             if terms is None:
                 return None, ()
-            return (terms, parts[4], (parts[2], parts[3]), parts[5]), parts
+            return (terms, parts[4], type(terms)((parts[2], parts[3])), parts[5]), parts
 
         try:
             if isinstance(z, (list, tuple)):
@@ -14027,7 +14077,8 @@ class DiffusionTransformer(Module):
         finally:
             if cond_all is not None:
                 for x in cond_all:
-                    ttnn.deallocate(x)
+                    for t in (x if isinstance(x, tuple) else (x,)):
+                        ttnn.deallocate(t)
 
 
 _PWA_WEIGHT_ROWS_REFUSED = {}  # pair shape -> row block PWA's token weights settled at
