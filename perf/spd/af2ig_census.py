@@ -168,7 +168,7 @@ if a.ops and not a.trace:  # a synced call inside a capture is exactly what a tr
 
     rec = SiteRecorder(ttnn, dev, 0)
     rec.rec = []
-    rec.install()
+    rec.install_all()
     rec.active = True
     t0 = time.perf_counter()
     fold(model, spec)

@@ -135,32 +135,6 @@ HEAD = dict(sha=SHA, dirty=DIRTY, engine=str(Path(tt_bio.__file__).parent), host
 rec = LazyRecorder(__import__("ttnn"), None, a.replay)
 rec.rec = []
 
-# Ops outside census.py's list (the fused SDPA, ttnn.experimental kernels, to_torch/from_torch) are
-# dispatched async; their device time lands inside the NEXT wrapped call's leading sync, before its
-# clock starts, so a census that does not wrap them cannot see them at all. The first WH census
-# (wrap=census) accounted for 5.0 s of a 12.5 s iteration; this is how the rest gets a name.
-SKIP = ("_", "get_", "set_", "open_", "close_", "enable", "disable", "is_", "synchronize", "Read",
-        "Dump", "manage", "register", "dump", "load_", "create_", "query", "device", "num_", "list_")
-
-
-def wrap_everything():
-    import ttnn
-    done = set()
-    for mod_name in ("", "experimental", "transformer"):
-        mod = getattr(ttnn, mod_name) if mod_name else ttnn
-        for n in dir(mod):
-            fn = getattr(mod, n, None)
-            if (not callable(fn) or isinstance(fn, type) or n.startswith(SKIP)
-                    or getattr(fn, "__module__", "") in ("typing", "builtins") or id(fn) in done):
-                continue
-            label = f"{mod_name}.{n}" if mod_name else n
-            if not mod_name and n in rec.orig:
-                continue
-            done.add(id(fn))
-            rec.orig[label] = fn
-            setattr(mod, n, rec._wrap(label, fn))
-
-
 def profiled(fn):
     import cProfile
     import io
@@ -218,9 +192,10 @@ def sequence_gradients(self, *args, **kwargs):
                                                 profiled=state["n"] == a.profile,
                                                 trunk_loads=state["loads"] - loads0,
                                                 load1=load1, ncpu=os.cpu_count()))
-    rec.install()
     if a.wrap == "all":
-        wrap_everything()
+        rec.install_all()
+    else:
+        rec.install()
     rec.active = True
     t0 = time.monotonic()
     try:
