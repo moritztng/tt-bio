@@ -369,7 +369,7 @@ def reblock_permute(x, memory_config=None, device=None):
 L1_N_MIN = int(os.environ.get("TT_BIO_REBLOCK_L1_N_MIN", "288"))
 L1_N_MAX = int(os.environ.get("TT_BIO_REBLOCK_L1_N_MAX", "352"))
 
-# Below L1_N_MIN the forward move still opens on L1 once its Nt*Nt work groups reach this many per
+# Below L1_N_MIN the moves still open on L1 once the Nt*Nt work groups reach this many per
 # core. The 288 edge was measured on 110- and 130-core grids, where it is Nt=9 = 81 groups; on a
 # Wormhole chip's 64 cores the same kernel already wins at Nt=7 = 49 groups (N=195: 1.17x at C=64,
 # N=224: 1.22x) and loses at Nt=6 = 36 groups (N=192: 0.97x), every point torch.equal
@@ -377,14 +377,16 @@ L1_N_MAX = int(os.environ.get("TT_BIO_REBLOCK_L1_N_MAX", "352"))
 # whether the groups fill the grid: 0.74 (Nt=9 on 110 cores) and 0.77 (Nt=7 on 64, Nt=10 on 130) win;
 # 0.62 (Nt=9 on a 130-core p150a: 0.89 / 1.08 / 0.95x at N=257 / 272 / 288, qb1 card 0) is break-even,
 # and 0.56-0.58 lose (N=256 on 110 cores 0.952x, N=192 on 64 cores 0.97x). 0 restores the plain N edge.
-# Only the forward move: the back leg splits Nt*Nt*Ct groups and the gated move was measured on its
-# own, both keep L1_N_MIN.
+# The back and gated legs take the same floor: AF2-IG at 195 tokens on a Wormhole chip folds in 5.395 s
+# with the old gate, 5.336 s with only the forward move opened and 5.232 s with all three, every
+# structure digest identical (.114 chip 6, out/whgate_fa1b3cbfa). On 130 cores the rule needs Nt=10,
+# which is above L1_N_MIN already, so a p150a is unchanged.
 L1_GROUPS_PER_CORE = float(os.environ.get("TT_BIO_REBLOCK_L1_GROUPS_PER_CORE", "0.7"))
 _GRID_CORES = {}
 
 
 def _l1_fills_grid(x, N: int) -> bool:
-    """Whether the forward move's Nt*Nt groups reach L1_GROUPS_PER_CORE per core of x's grid."""
+    """Whether an N x N move's Nt*Nt groups reach L1_GROUPS_PER_CORE per core of x's grid."""
     if not L1_GROUPS_PER_CORE:
         return False
     device = x.device()
@@ -732,7 +734,8 @@ def eligible_back(x, memory_config, taped_ok: bool = False) -> bool:
     # an A/A floor of 1.0002-1.0015x -- 256 LOSES at 0.9918x / 0.9903x, 288 wins 1.0086x /
     # 1.0092x, 320 wins 1.0135x / 1.0172x (perf/trix_layout/back_onepass_qb1c0.json). 256's
     # chunks are 4.19 MB, small enough that the kernel's own dispatch outweighs the deleted pass.
-    if x.memory_config().buffer_type == ttnn.BufferType.L1 and N < L1_N_MIN:
+    if (x.memory_config().buffer_type == ttnn.BufferType.L1 and N < L1_N_MIN
+            and not _l1_fills_grid(x, N)):
         return _reject("back_l1_src_narrow", shape)
     return True
 
@@ -1052,7 +1055,8 @@ def eligible_gated(xw, slice_c, memory_config) -> bool:
         return _reject("gated_sharded_in", shape)
     bt = memory_config.buffer_type
     if not ((bt == ttnn.BufferType.DRAM and N >= 256)
-            or (bt == ttnn.BufferType.L1 and L1_N_MIN <= N <= L1_N_MAX)):
+            or (bt == ttnn.BufferType.L1 and N <= L1_N_MAX
+                and (N >= L1_N_MIN or _l1_fills_grid(xw, N)))):
         return _reject(f"gated_window_{bt}", shape)
     return True
 
