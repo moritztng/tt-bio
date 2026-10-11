@@ -61,6 +61,7 @@ from .tenstorrent import (
     host_f64_softmax_site,
     batched_matmul,
     get_device,
+    precise_fidelity,
 )
 
 # The pair-track shape constants of `model_1_ptm`, from the checkpoint's own config
@@ -205,9 +206,8 @@ def af2_pair_masks(mask_2d: torch.Tensor,
 
 
 def compute_kernel_config() -> ttnn.DeviceComputeKernelConfig:
-    """The repo's trunk kernel config: HiFi4 (HiFi3 under `autograd.PRECISE_HIFI3`) with an fp32
+    """The repo's trunk kernel config: HiFi4 (HiFi3 under `tenstorrent.PRECISE_HIFI3`) with an fp32
     accumulator, per part."""
-    from tt_bio.autograd import precise_fidelity
     device = get_device()
     cls = (ttnn.types.WormholeComputeKernelConfig
            if device.arch() == ttnn.Arch.WORMHOLE_B0
