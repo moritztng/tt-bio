@@ -93,6 +93,14 @@ def dit_l1() -> bool:
     return env_flag("TT_BIO_OF3_DIT_L1", False)
 
 
+def dit_fuse() -> bool:
+    """TT_BIO_OF3_DIT_FUSE (default off): the attention's gated residual ``a + o * sigmoid(og)``
+    as one fp32 addcmul, the sigmoid fused into the ``og`` linear, instead of a multiply (sigmoid
+    on its b) and an add: one ~20 us op a block fewer. Not bit-exact by construction (the sigmoid
+    moves from the multiply's unpacker into the matmul's packer); graded on the fold digest."""
+    return env_flag("TT_BIO_OF3_DIT_FUSE", False)
+
+
 # Pair shapes whose single-pass pair-bias projection DRAM refused, and the block they settled at.
 _PAIR_BIAS_ROWS_REFUSED: dict = {}
 
@@ -144,6 +152,7 @@ class _DiTBlock(Module):
         # dit_l1: where every per-step tensor of the block is written (None = ttnn's DRAM).
         self.mc = ttnn.L1_MEMORY_CONFIG if dit_l1() else None
         self._mckw = {} if self.mc is None else {"memory_config": self.mc}
+        self.fuse = dit_fuse() and self._act_dtype == ttnn.float32
 
         apb = "attention_pair_bias."
         self.adaln_a = AdaLN(False, remap_of3_adaln(_sub(self._w, apb + "layer_norm_a")),
@@ -216,10 +225,10 @@ class _DiTBlock(Module):
                         (bf(self._w[ct + "linear_g.weight"].t()),
                          bf(self._w[ct + "linear_g.bias"].reshape(1, -1))), ckc)
 
-    def _s16_lin(self, x, wb):
+    def _s16_lin(self, x, wb, activation=None):
         w, b = wb
         return ttnn.linear(x, w, bias=b, dtype=ttnn.float32, compute_kernel_config=self.s16[3],
-                           core_grid=CORE_GRID_MAIN, **self._mckw)
+                           core_grid=CORE_GRID_MAIN, activation=activation, **self._mckw)
 
     def _s16_terms(self, s16, i):
         w_sc, b_sc, w_sb = self.s16[0][i]
@@ -368,12 +377,20 @@ class _DiTBlock(Module):
         ttnn.deallocate(g)
         o = self._lin_lp(o, self.w_o, out_dt)           # [1, N, 768]
         # APB output gate from s.
-        og = (self._s16_lin(s16[0], self.s16[1]) if s16
-              else lin(s, self.w_ada_out, bias=self.b_ada_out))
-        o = ttnn.multiply(o, og, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
-        ttnn.deallocate(og); ttnn.deallocate(a_ln)
-        a = ttnn.add(a, o)
-        ttnn.deallocate(o)
+        if self.fuse and o.dtype == a.dtype == ttnn.float32:
+            # dit_fuse: a + o * sigmoid(og) as one addcmul, the sigmoid in the gate's linear.
+            og = (self._s16_lin(s16[0], self.s16[1], activation="sigmoid") if s16
+                  else lin(s, self.w_ada_out, bias=self.b_ada_out, activation="sigmoid"))
+            ttnn.deallocate(a_ln)
+            a = ttnn.addcmul(a, o, og, value=1.0)
+            ttnn.deallocate(og); ttnn.deallocate(o)
+        else:
+            og = (self._s16_lin(s16[0], self.s16[1]) if s16
+                  else lin(s, self.w_ada_out, bias=self.b_ada_out))
+            o = ttnn.multiply(o, og, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
+            ttnn.deallocate(og); ttnn.deallocate(a_ln)
+            a = ttnn.add(a, o)
+            ttnn.deallocate(o)
 
         # Conditioned SwiGLU transition.
         st = self._s16_terms(s16, 1) if s16 else None
