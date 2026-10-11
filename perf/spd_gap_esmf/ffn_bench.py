@@ -9,6 +9,9 @@ row-blocked default, the pair Transition's block-sharded swiglu (`transition_sha
 synchronize), warm program cache, arms round-robin per rep. Every arm records its latch deltas, so an arm that
 silently declined to the default reads as such, and its error against a float64 reference of the same math.
 
+`--opsplit` then times one call per arm with every ttnn op synchronized on both sides (device time plus one
+dispatch each), summed by op name: where inside the 11 ms the time goes.
+
     python perf/spd_gap_esmf/ffn_bench.py OUT --arms normal,normal@bw=8,normal@rows=64,normal+transition_shard+swiglu_fc12g
 """
 import argparse, json, os, statistics, sys, time
@@ -24,6 +27,7 @@ ap.add_argument("--hidden", type=int, default=1024)
 ap.add_argument("--arms", default="normal,normal+transition_shard,normal+transition_shard+swiglu_fc12g")
 ap.add_argument("--reps", type=int, default=5)
 ap.add_argument("--calls", type=int, default=4)
+ap.add_argument("--opsplit", action="store_true", help="also time each ttnn op of one call per arm, synchronized")
 A = ap.parse_args()
 OUT = Path(A.out).resolve(); OUT.mkdir(parents=True, exist_ok=True)
 LOG = open(OUT / "bench.jsonl", "a")
@@ -125,4 +129,42 @@ for rep in range(A.reps):
 summary = {s + "".join(f"@{k}={v}" for k, v in r): {"median_ms": statistics.median(v), "spread_ms": max(v) - min(v)} for (s, r), v in times.items()}
 log(ev="summary", **summary)
 (OUT / "result.json").write_text(json.dumps(summary, indent=1))
+
+
+def opsplit(arm):
+    """ms per op name over one call, every wrapped op synchronized before and after."""
+    acc = {}
+    names = [(ttnn, n) for n in ("layer_norm", "linear", "matmul", "multiply", "multiply_", "add", "add_", "slice",
+                                 "fill_cache", "deallocate", "chunk", "concat", "allocate_tensor_on_device")]
+    names += [(ttnn.experimental, n) for n in ("minimal_matmul", "view") if hasattr(ttnn.experimental, n)]
+    from tt_bio import mm2d_generic
+    names += [(mm2d_generic, "generic_matmul_2d")]
+    saved = []
+    for mod, n in names:
+        f = getattr(mod, n, None)
+        if f is None:
+            continue
+
+        def wrap(*a, _f=f, _n=n, **k):
+            ttnn.synchronize_device(dev); t0 = time.perf_counter()
+            r = _f(*a, **k)
+            ttnn.synchronize_device(dev); acc.setdefault(_n, [0.0, 0])
+            acc[_n][0] += (time.perf_counter() - t0) * 1e3; acc[_n][1] += 1
+            return r
+        saved.append((mod, n, f)); setattr(mod, n, wrap)
+    try:
+        ttnn.synchronize_device(dev); t0 = time.perf_counter()
+        ttnn.deallocate(call(*arm)); ttnn.synchronize_device(dev)
+        total = (time.perf_counter() - t0) * 1e3
+    finally:
+        for mod, n, f in saved:
+            setattr(mod, n, f)
+    return total, {k: [round(v[0], 3), v[1]] for k, v in sorted(acc.items(), key=lambda kv: -kv[1][0])}
+
+
+if A.opsplit:
+    for arm in arms:
+        opsplit(arm)  # first wrapped call compiles nothing new but warms the wrappers' path
+        total, ops = opsplit(arm)
+        log(ev="opsplit", arm=arm[0], opts=arm[1], total_ms=round(total, 3), ops=ops)
 T.cleanup()
