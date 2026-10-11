@@ -105,6 +105,10 @@ tt-bio affinity complex.yaml --trunk fp32          # more faithful under ~150 to
 tt-bio affinity complex.yaml --accelerator cpu     # the torch reference
 ```
 
+`--tokens_budget` (default 256) is the pocket crop: it runs after the first trunk pass and fixes the token count
+for the remaining passes, and it matters for correctness on large targets, not only for speed. `--ccd` points at a
+`ccd.pkl` when it does not sit next to the checkpoint.
+
 Writes `<id>_affinity.json` per input and one `affinity.csv` for the run, plus a `processed/`
 directory holding the parsed structures, the RDKit conformers and the ESM-2 embeddings so a
 re-run skips them. An input that fails, whether its SMILES does not parse or the device raises on

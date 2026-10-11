@@ -831,6 +831,8 @@ export MSA_API_KEY_VALUE=your-api-key
 tt-bio predict ... --model boltz2 --use_msa_server
 ```
 
+`--msa_server_username`, `--msa_server_password` and `--api_key_value` set the same values on the command line and take precedence over the environment.
+
 ## Command-Line Options
 
 Model-specific options are labelled below.
@@ -839,7 +841,7 @@ Model-specific options are labelled below.
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `--model` | `boltz2` | `boltz2`, `esmfold2`, `esmfold2-fast` (single-sequence ESMFold2; protein / DNA / RNA / ligand complexes), `protenix-v1` / `protenix-v2` (AlphaFold3-family folder; protein / RNA / DNA / ligand complexes; `protenix-v1` is upstream's v0.5.0 base checkpoint at 4 trunk recycles, `protenix-v2` the wider one at 10, on weights you supply), `openfold3` (AlphaFold3-family folder; protein / RNA / DNA polymers, optional templates), `openbind` (OpenBind-0; the OpenFold3 stack on upstream v0.5.0 weights, protein-ligand co-folding), `opendde` / `opendde-abag` (antibody-antigen co-folding on the Protenix-v2 stack plus a structural-token expander; `opendde-abag` selects the antibody-antigen checkpoint; protein-only for now), or `rf3` (RoseTTAFold3, AlphaFold3-family folder; protein / RNA / DNA / ligand complexes) |
+| `--model` | `boltz2` | `boltz2`, `esmfold2`, `esmfold2-fast` (single-sequence ESMFold2; protein / DNA / RNA / ligand complexes), `protenix-v1` / `protenix-v2` (AlphaFold3-family folder; protein / RNA / DNA / ligand complexes; `protenix-v1` is upstream's v0.5.0 base checkpoint at 4 trunk recycles, `protenix-v2` the wider one at 10, on weights you supply), `openfold3` (AlphaFold3-family folder; protein / RNA / DNA polymers, optional templates), `openbind` (OpenBind-0; the OpenFold3 stack on upstream v0.5.0 weights, protein-ligand co-folding), `opendde` / `opendde-abag` (antibody-antigen co-folding on the Protenix-v2 stack plus a structural-token expander; `opendde-abag` selects the antibody-antigen checkpoint; protein-only for now), `rf3` (RoseTTAFold3, AlphaFold3-family folder; protein / RNA / DNA / ligand complexes), or `af2ig` (AlphaFold2 initial guess: scores a designed binder complex from its own coordinates) |
 | `--out_dir` | `./` | Output directory |
 | `--cache` | `~/.boltz` | Weight cache directory. Whole-repo models (ESMFold2, ESMC, SaProt, OpenDDE) use the Hugging Face cache; `TT_BIO_CACHE` moves both, see [docs/weights.md](docs/weights.md) |
 | `--accelerator` | `tenstorrent` | **(Boltz-2)** `tenstorrent`, `cpu`, or `gpu`; other models run on Tenstorrent |
@@ -864,6 +866,8 @@ Model-specific options are labelled below.
 | `--msa_endpoint` | none | Fetch unpaired MSAs from a `tt-bio msa-server`. A complex is not paired through it unless its paired MSA is already in `--msa_dir` |
 | `--write_pae` | `False` | **(Protenix-v1/Protenix-v2/OpenDDE)** Write the token-token PAE/PDE matrices to `<name>_pae.npz` |
 | `--use_potentials` | `False` | **(Boltz-2)** Apply physical constraints |
+| `--step_scale` | `1.5` | **(Boltz-2)** Diffusion step scale. Lower values give more diverse samples |
+| `--method` | none | **(Boltz-2)** Condition on an experimental method, e.g. `"X-RAY DIFFRACTION"`, `"ELECTRON MICROSCOPY"`, `"SOLUTION NMR"` or `MD`; an unknown name is refused |
 | `--affinity_mw_correction` | `False` | **(Boltz-2)** Apply MW correction to affinity |
 | `--num_devices` | `0` | Number of TT devices (0=all available) |
 | `--device_ids`, `--devices` | all | Comma-separated TT device IDs (e.g. `0,2`); `--devices` is the shorter alias (matches `tt-bio embed`) |
@@ -880,6 +884,7 @@ Model-specific options are labelled below.
 |--------|---------|-------------|
 | `--sampling_steps_affinity` | `200` | Sampling steps for affinity |
 | `--diffusion_samples_affinity` | `5` | Number of affinity samples |
+| `--affinity_checkpoint` | `<cache>/boltz2_aff.ckpt` | Affinity checkpoint to load instead of the downloaded one |
 
 **MSA Options** (Boltz-2, Protenix-v1, Protenix-v2, OpenFold3, OpenBind-0, OpenDDE and RF3 use an MSA by default; ESMFold2 only when requested):
 
@@ -893,9 +898,19 @@ Model-specific options are labelled below.
 | `--single_sequence` | `False` | Fold without an MSA (Boltz-2/Protenix-v1/Protenix-v2/OpenFold3/OpenDDE) |
 | `--msa_server_url` | `https://api.colabfold.com` | MSA server URL |
 | `--msa_pairing_strategy` | `greedy` | `greedy` or `complete` |
+| `--msa_server_username`, `--msa_server_password` | none | Basic authentication for `--msa_server_url`; see [MSA Server Authentication](#msa-server-authentication) |
+| `--api_key_value` | none | API key for `--msa_server_url`, sent as `X-API-Key` |
 | `--max_msa_seqs` | `8192` | Maximum MSA depth. The default applies to Boltz-2 only. Unless you set it, the other models read what their upstream reads: ESMFold-2, Protenix, OpenDDE, OpenFold3 and OpenBind up to 16384 rows, RF3 1024 rows drawn per recycle. Each fold reports the depth it used as `msa_depth` |
 | `--subsample_msa` | `False` | Subsample MSA |
 | `--num_subsampled_msa` | `1024` | Number of subsampled sequences |
+
+**Kernel Warm-Up** (`tt-bio warmup`, Boltz-2: compiles every ttnn kernel up to a size so the first fold does not pay for it):
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--max_seq` | `1024` | Largest sequence length to warm up |
+| `--max_msa` | `16384` | Largest MSA depth to warm up |
+| `--n_samples` | `1` | Diffusion batch to warm up, as `--diffusion_samples` |
 
 **MSA Database Setup Options:**
 
