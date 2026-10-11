@@ -299,24 +299,6 @@ def _window_q(x, N, NP, nq=32):
     return ttnn.to_layout(ttnn.reshape(x, (NP // nq, nq, x.shape[-1])), ttnn.TILE_LAYOUT)
 
 
-_MSA_RESIDENT_REFUSED = []  # (tokens, m bytes) of every MSA a recycling cycle could not hold on the chip
-
-
-def _msa_keep_bytes(tokens, m_bytes):
-    """Bytes of the pristine MSA representation the trunk keeps on the chip instead of the host.
-
-    All of it, unless a target with no more tokens and no larger `m` was already refused in this
-    process: then the shared host offload size, the streamed path. Held on the chip, `m` is read
-    in place; streamed, every recycling cycle moves it across PCIe seven times up and three times
-    down with the chip idle (130 s of a 624 s fold at 730 tokens against 9947 rows on a Wormhole
-    chip). `msa_embed` holds at most `MSA_JOIN_MAX_BYTES` (2 GiB) of `m` on the chip, and a cycle
-    DRAM refuses is re-run streamed (`Trunk.__call__`), so no size that folds streamed can fail
-    resident. `TT_BIO_MSA_HOST_OFFLOAD_MIN_BYTES` still overrides both."""
-    if any(tokens >= n and m_bytes >= b for n, b in _MSA_RESIDENT_REFUSED):
-        return None
-    return m_bytes
-
-
 _UPLOAD_REFUSED_ROWS = {}  # host m shape -> depth-chunk rows, once DRAM refused its whole upload or the OPM over it
 _TEMPLATE_ROWS_REFUSED = {}  # pair shape -> row block the template residual settled at
 
@@ -3593,7 +3575,7 @@ class Trunk(_KeyedWeights):
         # row, OPM per chunk), so past 1 GiB of feature `msa_embed` builds it one depth chunk at a
         # time on the host and update_msa streams it back up a chunk at a time. Neither the whole
         # `ms` upload nor a full-size device copy of m_feat enters the per-cycle peak. Below that,
-        # m_feat stays on the chip (`_msa_keep_bytes`) unless a cycle is refused.
+        # m_feat stays on the chip up to `MSA_JOIN_MAX_BYTES`, a size decided by the input alone.
         s_m = self._lin(self._up(s_inputs), "msa_module.linear_no_bias_s.weight")
         m_key = (N, ms.shape[1] * N * self._w["msa_module.linear_no_bias_m.weight"].shape[0] * 2)
         m_proj = lambda x: ttnn.add(self._lin(x, "msa_module.linear_no_bias_m.weight"), s_m)
@@ -3605,7 +3587,7 @@ class Trunk(_KeyedWeights):
             rows = (msa_cycle_rows_random(msa.shape[0], n_cycles, gen) if depth is None
                     else msa_cycle_rows(msa, n_cycles, depth, gen))
         if rows is None:
-            m_feat = msa_embed(ms, m_proj, keep=_msa_keep_bytes(*m_key))
+            m_feat = msa_embed(ms, m_proj, keep=m_key[1])
             ttnn.deallocate(s_m)
             dram_peak(f"trunk m_feat built [{tuple(m_feat.shape)} {m_feat.dtype}]")
         else:
@@ -3620,12 +3602,12 @@ class Trunk(_KeyedWeights):
             bucket = lambda c: msa_row_bucket(len(rows[c]), n_rows, step)
             cut = lambda c: hostlane.submit(msa_rows_host, ms, rows[c], bucket(c))
             # The cycle's rows are picked on the chip from the alignment, uploaded once, when every cycle
-            # would upload its rows in one piece and no MSA this size was refused on the chip: the host
+            # would upload its rows in one piece, a test on the input alone: the host
             # then sends row indices, not up to ~0.9 GB of rows the chip waits for (1.5 s a cycle at
             # 9,216 rows x 736 tokens on a Wormhole host). Otherwise the host lane cuts the next cycle's
             # rows while this one runs. Both hand the MSA module the same bf16 tensor.
             table = next_rows = None
-            if msa_upload_whole(msa_row_bucket(n_rows, n_rows, step), *ms.shape[2:]) and _msa_keep_bytes(*m_key):
+            if msa_upload_whole(msa_row_bucket(n_rows, n_rows, step), *ms.shape[2:]):
                 table = msa_rows_table(ms)
             else:
                 next_rows = cut(0)
@@ -3684,7 +3666,7 @@ class Trunk(_KeyedWeights):
         def sampled(cyc, carry, x):
             # One cycle over its sampled rows x [1, bucket, N, c], host or device, the real ones first.
             k = len(rows[cyc])
-            m_c = msa_embed(x, m_proj, keep=_msa_keep_bytes(N, x.shape[1] * m_key[1] // ms.shape[1]))
+            m_c = msa_embed(x, m_proj, keep=x.shape[1] * m_key[1] // ms.shape[1])
             if torch.is_tensor(m_c):
                 # Parked on the host: drop the padding there, which costs nothing.
                 return cycle(cyc, carry, m_c[:, :k])
@@ -3710,7 +3692,7 @@ class Trunk(_KeyedWeights):
                 if rows is not None:
                     if table is not None:
                         # As for a resident m below: a cycle DRAM refuses with the alignment on the chip
-                        # runs again from its inputs with rows cut on the host, and so does every later one.
+                        # runs again from its inputs with rows cut on the host, and so does the rest of this fold.
                         inputs = list(carry)
                         try:
                             carry = sampled(cyc, carry, msa_rows_device(table, rows[cyc], bucket(cyc), N))
@@ -3720,9 +3702,8 @@ class Trunk(_KeyedWeights):
                                 raise
                         if inputs is None:
                             continue
-                        _MSA_RESIDENT_REFUSED.append(m_key)
                         print(f"[tt-bio] DRAM refused a recycling cycle with the MSA {tuple(ms.shape)} on the "
-                              f"chip; cutting each cycle's rows on the host from here on. The tt-metal 'Out of "
+                              f"chip; cutting each cycle's rows on the host for the rest of this fold. The tt-metal 'Out of "
                               f"Memory' line above is expected and handled.", file=sys.stderr, flush=True)
                         ttnn.deallocate(table)
                         table, carry, inputs = None, inputs, None
@@ -3736,10 +3717,12 @@ class Trunk(_KeyedWeights):
                 if torch.is_tensor(m_feat):
                     carry = cycle(cyc, carry, m_feat)
                     continue
-                # A device-resident m keeps its cycle's inputs, so a cycle DRAM refuses runs again
-                # from them with m streamed from the host, the path a larger target takes from the
-                # start. Same ops on the same bytes, so the retry is bit-exact. The retry runs
-                # outside the handler: the traceback pins every tensor the refused cycle made.
+                # Crash guard, not a regime: a cycle DRAM refuses runs again from its kept inputs
+                # with m streamed from the host for the rest of THIS fold only. Nothing is
+                # remembered across folds, because a process-wide switch made a served answer depend
+                # on what the process folded before (state/spd-msaresid.md). Protenix-v2 and OpenDDE
+                # serve the per-cycle sampled path above and never reach it. The retry runs outside
+                # the handler: the traceback pins every tensor the refused cycle made.
                 inputs = list(carry)
                 try:
                     carry = cycle(cyc, carry, m_feat, retry=True)
@@ -3749,9 +3732,8 @@ class Trunk(_KeyedWeights):
                         raise
                 if inputs is None:
                     continue
-                _MSA_RESIDENT_REFUSED.append(m_key)
                 print(f"[tt-bio] DRAM refused a recycling cycle with the MSA {tuple(m_feat.shape)} "
-                      f"on the chip; streaming it from the host from here on. The tt-metal 'Out of "
+                      f"on the chip; streaming it from the host for the rest of this fold. The tt-metal 'Out of "
                       f"Memory' line above is expected and handled.", file=sys.stderr, flush=True)
                 h = ttnn.to_torch(m_feat)
                 ttnn.deallocate(m_feat)
