@@ -87,9 +87,16 @@ for _ in range(a.reps):
     ttnn.synchronize_device(dev)
     plain.append(time.perf_counter() - t0)
 
-saved = {s: getattr(model, s) for s in STAGES}
+# A stage is a bound method or a submodule; a submodule is timed through its forward, because
+# nn.Module refuses a plain function in its place.
+def target(s):
+    o = getattr(model, s)
+    return (o, "forward") if isinstance(o, torch.nn.Module) else (model, s)
+
+
+saved = {s: getattr(*target(s)) for s in STAGES}
 for s in STAGES:
-    setattr(model, s, timed(s, saved[s]))
+    setattr(*target(s), timed(s, saved[s]))
 th = threading.Thread(target=sample, daemon=True)
 th.start()
 staged = []
@@ -101,7 +108,11 @@ for _ in range(a.reps):
 stop.set()
 th.join()
 for s in STAGES:
-    setattr(model, s, saved[s])
+    obj, attr = target(s)
+    if obj is model:
+        setattr(model, s, saved[s])
+    else:
+        del obj.forward  # back to the class's forward
 
 per_fold = {k: sum(v) / a.reps for k, v in T.items()}
 per_fold["rest (embeddings, recycle, heads, confidence, host glue)"] = (
