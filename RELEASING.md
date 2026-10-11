@@ -206,6 +206,9 @@ fold beside it, so the host's `env` carries the same share in `OMP_NUM_THREADS`,
 `OPENBLAS_NUM_THREADS` and `NUMEXPR_NUM_THREADS`, and every leg's folds stay inside it. The cap is stamped into each
 recorded fragment, and a ladder leg run at another cap than its baseline fails with "re-record at
 this cap" instead of scoring the timings. Change a host's cap and you re-record its card type.
+`gate_fanout.py` reads each baseline's cap when it plans: a ladder leg goes only to a host whose
+cap matches its card type's rows, and when no granted host matches it reads OWED with the
+`--record-full` run that clears it, before anything folds.
 
 A committed perf cell ages: qb1's dated from 0.6.x and failed boltz2-affinity and nesso1 on a
 release that changed neither. So qb1 sets `"perf_against": "<last release tag>"` in hosts.json and

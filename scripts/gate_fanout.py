@@ -159,11 +159,41 @@ PY312 = {"pytest_device", "pytest_cpu", "bc2"}
 # arm as well folds the same thing twice.
 PARITY_COVERS_RG = {"boltzgen", "opendde-abag", "capacity", "nesso1", "rf3-1024aa"}
 
+CAP_OWED = "host-threads"   # an OWED entry: no granted host times this ladder at its baseline's cap
+
+
 def owed_by(roster: dict, card_type: str, lg) -> list[str]:
     """Levers a ladder leg's baseline lacks on this card type; every other leg owes none."""
     if lg.family != "ladder":
         return []
     return roster.get("owed", {}).get(card_type, {}).get(lg.name.split(":", 1)[1], [])
+
+
+def ladder_caps(docs, models) -> dict:
+    """{card_type: {model: host_threads}}: the cap each ladder baseline was timed at (None = every
+    core). release_gate refuses to score a ladder run at another cap, so a ladder leg may only run
+    on a host whose `--host-threads` matches. A model's own fragment wins over the merged file, as
+    in release_gate. Runs inside the tree under test (ENUMERATE)."""
+    import json
+    from pathlib import Path
+    docs, out = Path(docs), {}
+    for f in [docs / "size_ladder_baseline.json", *sorted((docs / "size_ladder_baseline.d").glob("*.json"))]:
+        if f.exists():
+            for card, c in json.loads(f.read_text()).get("cards", {}).items():
+                for m in c.get("models", {}):
+                    if m in models:
+                        out.setdefault(card, {})[m] = c.get("host_threads")
+    return out
+
+
+def cap_fits(roster: dict, host, lg) -> bool:
+    """Whether `host` times `lg` at the cap its baseline was timed at (always, for a non-ladder leg
+    or a model with no baseline on this card type: that absence is reported by the leg itself)."""
+    if lg.family != "ladder":
+        return True
+    caps = roster.get("caps", {}).get(host.cfg["card_type"], {})
+    model = lg.name.split(":", 1)[1]
+    return model not in caps or caps[model] == host.ladder_cap
 
 
 def owed_levers(docs, levers, models) -> dict:
@@ -192,12 +222,13 @@ def owed_levers(docs, levers, models) -> dict:
     return out
 
 
-ENUMERATE = inspect.getsource(owed_levers) + r"""
+ENUMERATE = inspect.getsource(owed_levers) + inspect.getsource(ladder_caps) + r"""
 import json, full_parity_gate as f, release_gate as r, capacity_gate as c, ux_regression as u
 import lever_census
 print(json.dumps({"parity": [l.id for l in f.LEGS if not l.opt_in], "rg": r.default_arms(),
                   "ladder": list(r.SIZE_LADDER_MODELS), "capacity": c.roster(), "ux": u.ALL_LEGS,
-                  "owed": owed_levers("docs", lever_census.LEVERS, r.SIZE_LADDER_MODELS)}))
+                  "owed": owed_levers("docs", lever_census.LEVERS, r.SIZE_LADDER_MODELS),
+                  "caps": ladder_caps("docs", r.SIZE_LADDER_MODELS)}))
 """
 ENV_PROBE = r"""
 import json, sys, importlib.metadata as m
@@ -636,6 +667,12 @@ class Host:
     def against(self) -> str:
         return f"{self.root}/trees/{self.cfg['perf_against']}"
 
+    @property
+    def ladder_cap(self) -> int | None:
+        """The `--host-threads` this host's ladder legs run at (None = every core)."""
+        a = self.cfg.get("args", {}).get("ladder", [])
+        return int(a[a.index("--host-threads") + 1]) if "--host-threads" in a else None
+
     def seeding(self, leg: Leg) -> bool:
         return "--update-baseline" in self.cfg.get("args", {}).get(leg.family, [])
 
@@ -833,7 +870,14 @@ def write_verdict(out: Path, sha: str, archs: list, results: list) -> bool:
         lines += ["", "SEEDED: no baseline existed on these card types, so these legs recorded one "
                   "instead of checking against one. Commit the files and drop the host's `args`:"]
         lines += [f"- {r['leg']} {r['card_type']}: {r.get('seeded', '?')}" for r in seeded]
-    owed = sorted({f for r in results if r["verdict"] == "OWED" for f in r["owed"]})
+    owed = sorted({f for r in results if r["verdict"] == "OWED" for f in r["owed"]} - {CAP_OWED})
+    capped = sorted({r["leg"].split(":", 1)[1] for r in results
+                     if r["verdict"] == "OWED" and CAP_OWED in r["owed"]})
+    if capped:
+        lines += ["", "OWED: no granted host runs these ladders at the host-thread cap their baseline "
+                  "was timed at, so they were not folded. Re-record them on the gate's hosts, commit "
+                  "the fragments, and gate that commit:",
+                  f"`gate_fanout.py --legs 'record:*' --record-full {','.join(capped)} ...`"]
     if owed:
         lines += ["", "OWED: the size-ladder baseline at this commit has no row for a lever these "
                   "models resolve, so their ladder legs were not folded. Record it, commit the "
@@ -861,7 +905,7 @@ class Gate:
     on a --timed card and holds its host quiet (no new leg starts there while it runs)."""
 
     def __init__(self, todo: dict, workers: list, timed: set, execute, out: Path,
-                 ledger: "Ledger | None" = None, keys: dict | None = None):
+                 ledger: "Ledger | None" = None, keys: dict | None = None, roster: dict | None = None):
         self.todo = todo          # arch -> list of Leg (card legs), consumed in order
         self.workers = workers    # (Host, card)
         self.timed = timed        # {(host name, card)}
@@ -869,6 +913,7 @@ class Gate:
         self.out = out
         self.ledger = ledger      # with keys: claim each card leg, so another runner can join
         self.keys = keys or {}    # (leg name, arch) -> key
+        self.roster = roster or {}  # ENUMERATE's output; its "caps" keep a ladder leg on a host of its cap
         self.held: dict = {}      # queue -> [Leg] another runner holds
         self.results: list = []
         self.mu = threading.Lock()
@@ -889,7 +934,8 @@ class Gate:
             for timed in (False, True):
                 for i, lg in enumerate(q):
                     if lg.timed == timed and (is_timed or not timed) \
-                            and out_group(lg.name) not in host.outputs and not host.lent(lg.budget):
+                            and out_group(lg.name) not in host.outputs and not host.lent(lg.budget) \
+                            and cap_fits(self.roster, host, lg):
                         return q.pop(i)
         return None
 
@@ -1334,6 +1380,8 @@ def main() -> int:
             hit = (None if args.no_reuse or not lg.card or lg.family == "record"
                    else next(filter(None, map(ledger.get, [k, *olds])), None))
             owes = owed_by(roster, ctype[a], lg)
+            if not owes and not any(h.arch == a and cap_fits(roster, h, lg) for h, _ in workers):
+                owes = [CAP_OWED]
             if owes:
                 results.append({"leg": lg.name, "arch": slot, "verdict": "OWED", "owed": owes,
                                 "card_type": ctype[a]})
@@ -1377,7 +1425,7 @@ def main() -> int:
     signal.signal(signal.SIGTERM, _stop)
     try:
         results += Gate(todo, workers + [(first[archs[0]], None)], timed, execute, args.out,
-                        None if args.no_reuse else ledger, keys).run()
+                        None if args.no_reuse else ledger, keys, roster).run()
     except KeyboardInterrupt:
         # A stopped runner takes back what it queued; a job the pool already started has left
         # the queue and finishes on its own.

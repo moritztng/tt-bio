@@ -631,6 +631,52 @@ def test_an_owed_ladder_leg_fails_the_verdict_and_names_the_record_command(tmp_p
     assert "| ladder:m | OWED B |" in text and "--record-lever B" in text
 
 
+def test_a_ladder_leg_runs_only_on_a_host_timing_it_at_its_baselines_cap(tmp_path):
+    """rel-19d30971f: four p150a ladders were folded for 30-80 min each on qb1 at --host-threads 8
+    against baselines timed uncapped, and each failed "re-record at this cap" at the end. The cap
+    is in the baseline, so the plan knows it before folding, and a host at another cap (qb2 at 5,
+    keyed as p150a but timed against its own p300c rows) must not take the leg."""
+    base = {"cards": {"p": {"host_threads": None, "models": {"m": {}, "n": {}}},
+                      "c": {"host_threads": 5, "models": {"m": {}}}}}
+    (tmp_path / "size_ladder_baseline.d").mkdir()
+    (tmp_path / "size_ladder_baseline.json").write_text(json.dumps(base))
+    (tmp_path / "size_ladder_baseline.d" / "n.json").write_text(json.dumps(
+        {"cards": {"p": {"host_threads": 8, "models": {"n": {}}}}}))
+    roster = {"caps": gf.ladder_caps(tmp_path, ["m", "n"])}
+    assert roster["caps"] == {"p": {"m": None, "n": 8}, "c": {"m": 5}}   # the fragment wins
+
+    def host(card_type, cap):
+        cfg = {"arch": "bh", "card_type": card_type, "root": "/r"}
+        if cap:
+            cfg["args"] = {"ladder": ["--host-threads", str(cap)]}
+        return gf.Host(card_type + str(cap), cfg, "f" * 40)
+    m, n, rec = (gf.Leg("ladder:m", [], "ladder"), gf.Leg("ladder:n", [], "ladder"),
+                 gf.Leg("record:m", [], "record"))
+    assert host("p", 8).ladder_cap == 8 and host("p", None).ladder_cap is None
+    assert gf.cap_fits(roster, host("p", 8), n) and not gf.cap_fits(roster, host("p", 8), m)
+    assert gf.cap_fits(roster, host("p", None), m) and gf.cap_fits(roster, host("c", 5), m)
+    assert gf.cap_fits(roster, host("p", 8), rec)                     # a record sets the cap
+    assert gf.cap_fits(roster, host("c", 5), n)                       # no row: the leg says so
+    results = [{"leg": "ladder:m", "arch": "bh", "verdict": "OWED", "owed": [gf.CAP_OWED]}]
+    assert not gf.write_verdict(tmp_path, "a" * 40, ["bh"], results)
+    text = (tmp_path / "VERDICT.md").read_text()
+    assert "--record-full m" in text and "--record-lever" not in text
+
+
+def test_a_gate_never_hands_a_ladder_leg_to_a_host_at_another_cap(tmp_path):
+    roster = {"caps": {"bh": {"m": 8}}}
+    off, on = _host("qb2", "bh", tmp_path), _host("qb1", "bh", tmp_path)
+    on.cfg["args"] = {"ladder": ["--host-threads", "8"]}
+    ran = []
+
+    def execute(host, card, leg):
+        ran.append(host.name)
+        return {"leg": leg.name, "arch": host.arch, "verdict": "PASS"}
+    gf.Gate({"bh": [gf.Leg("ladder:m", [], "ladder")]}, [(off, 0), (on, 0)], set(), execute,
+            tmp_path, roster=roster).run()
+    assert ran == ["qb1"]
+
+
 def test_only_a_ladder_leg_owes_levers_and_a_bare_leg_name_does_not_crash_the_plan():
     roster = {"owed": {"w": {"m": ["B"]}}}
     assert gf.owed_by(roster, "w", gf.Leg("ladder:m", ["PY"], "ladder")) == ["B"]
