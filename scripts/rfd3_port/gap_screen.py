@@ -26,7 +26,7 @@ import time
 
 ENV_KNOBS = {"gsm": "RFD3_GATHERED_SOFTMAX", "bs": "RFD3_BLOCK_SPARSE",
              "pzc": "RFD3_PROCESS_Z_COLLAPSE", "fgrid": "RFD3_FAST_GRID",
-             "asdpa": "RFD3_ATOM_SDPA"}
+             "asdpa": "RFD3_ATOM_SDPA", "tb8": "RFD3_TRANSITION_B8"}
 for _k in sys.argv[1].split("+") if len(sys.argv) > 1 else ():
     if _k in ENV_KNOBS:
         os.environ[ENV_KNOBS[_k]] = "1"   # read at import, so before tt_bio.rfd3 loads

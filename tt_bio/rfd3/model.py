@@ -316,6 +316,10 @@ _GATHERED_SOFTMAX = env_flag("RFD3_GATHERED_SOFTMAX", False)
 # so this is graded on accuracy, not digest. Off by default while it is graded.
 _ATOM_SDPA = env_flag("RFD3_ATOM_SDPA", False)
 ATOM_SDPA_CALLS = [0]
+# The pair Transitions' hidden activations (fc1 and fc2 outputs, the gated product) in bfp8:
+# 1088 instead of 2048 bytes a tile on the region that is ~65 % of the token encoder and is bound
+# by per-tile pack/unpack. The input norm and the output stay bf16. Off by default while graded.
+_TRANSITION_B8 = env_flag("RFD3_TRANSITION_B8", False)
 _ATOM_SDPA_CHUNKS = tuple(int(x) for x in os.environ.get("RFD3_ATOM_SDPA_CHUNKS", "160,320").split(","))
 # ttnn.gather (0.68.0) on dim 3 silently returns wrong data for every tile-row after the first
 # once the indexed axis exceeds this many elements: 99.87 % of elements wrong at the production
@@ -1085,6 +1089,7 @@ class Transition(Module):
         """
         xn = ttnn.rms_norm(x, weight=self.norm_w, epsilon=1e-6,
                             compute_kernel_config=self.compute_kernel_config)
+        hid = ttnn.bfloat8_b if _TRANSITION_B8 and len(x.shape) == 4 else self.dtype
         if fc1_mem is not None:
             # Only the chunked pair path asks for the split, so only it has a rank-4 `xn` to key
             # a census row on -- `Transition` also serves 2D and 3D sites.
@@ -1102,9 +1107,9 @@ class Transition(Module):
         if fc1_mem is None:
             a = ttnn.linear(xn, self.fc1_w, activation="silu",
                              compute_kernel_config=silu_ckc(self.compute_kernel_config),
-                             dtype=self.dtype, core_grid=BATCH_INVARIANT_GRID)
+                             dtype=hid, core_grid=BATCH_INVARIANT_GRID)
         else:
-            a = _tuned_linear(xn, self.fc1_w, ckc=self.compute_kernel_config, dtype=self.dtype,
+            a = _tuned_linear(xn, self.fc1_w, ckc=self.compute_kernel_config, dtype=hid,
                               core_grid=BATCH_INVARIANT_GRID, mem=fc1_mem)
             a, pre = ttnn.silu(a, memory_config=fc1_mem), a
             ttnn.deallocate(pre)
@@ -1118,9 +1123,12 @@ class Transition(Module):
                     else (FC1DECLINES, rows + " no-pinned-config"))
             c[k] = c.get(k, 0) + 1
         b = _tuned_linear(xn, self.fc2_w, ckc=self.compute_kernel_config,
-                          dtype=self.dtype, core_grid=BATCH_INVARIANT_GRID, mem=mem)
+                          dtype=hid, core_grid=BATCH_INVARIANT_GRID, mem=mem)
         ttnn.deallocate(xn)
-        m = ttnn.multiply(a, b) if mem is None else ttnn.multiply(a, b, memory_config=mem)
+        kw = {} if mem is None else {"memory_config": mem}
+        if hid != self.dtype:
+            kw["dtype"] = hid
+        m = ttnn.multiply(a, b, **kw)
         ttnn.deallocate(b)
         out = _tuned_linear(m, self.fc3_w, ckc=self.compute_kernel_config,
                             dtype=self.dtype, core_grid=CORE_GRID_MAIN)
