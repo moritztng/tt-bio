@@ -194,7 +194,7 @@ import time
 from datetime import date
 from pathlib import Path
 
-from tt_bio.runtime import P150_SUBSYSTEMS, P300_SUBSYSTEMS
+from tt_bio.runtime import P150_SUBSYSTEMS, P300_SUBSYSTEMS, WH_GALAXY_SUBSYSTEMS
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 BASELINE_FILE = REPO_ROOT / "docs" / "perf_baselines.json"
@@ -616,7 +616,9 @@ def detect_card_type() -> str:
               f"report 'unknown' (NO BASELINE). Add tt-smi to PATH (e.g. "
               f"export PATH=$HOME/.local/bin:$PATH) and re-run.",
               file=sys.stderr)
-    # Fallback: sysfs subsystem_device -> known Blackhole board types. An
+    # Fallback: sysfs subsystem_device -> known board types. tt-smi -s aborts for the
+    # whole box when any one chip reads 0xffffffff, which on a Galaxy with a dead chip is
+    # every call, so this path is how Wormhole Galaxy legs find their baseline. An
     # unrecognized subsystem returns a recognizable 'unknown:<sub>' key so the
     # gate fails loudly against a missing baseline instead of silently matching
     # the wrong one.
@@ -625,6 +627,8 @@ def detect_card_type() -> str:
         return "p300c"
     if sub in _P150_SUBSYSTEMS:
         return "p150a"
+    if sub in WH_GALAXY_SUBSYSTEMS:
+        return "tt-galaxy-wh-l"
     if sub:
         return f"unknown:{sub}"
     return "unknown"

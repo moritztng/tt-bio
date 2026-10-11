@@ -242,6 +242,9 @@ def discover_jobs(data: Path, structure_dir: Path, output_format: str, override:
 #: PAIR whose lone chip opens only with a 1x1 mesh descriptor; a p150a is one chip.
 P300_SUBSYSTEMS = frozenset({"0x0044", "0x0045", "0x0046"})
 P150_SUBSYSTEMS = frozenset({"0x0040"})
+#: Wormhole Galaxy chips publish 0x0035, the UPI tt-smi maps to ``tt-galaxy-wh``; every chip the
+#: kernel lists is PCIe-local, which tt-smi suffixes " L", so the board key is ``tt-galaxy-wh-l``.
+WH_GALAXY_SUBSYSTEMS = frozenset({"0x0035"})
 
 
 #: What a chip whose ARC firmware is dead answers from its ``tt_*`` sysfs telemetry, AICLK

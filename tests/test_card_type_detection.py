@@ -54,6 +54,16 @@ def test_sysfs_fallback_still_names_p300():
         assert _detect_with_sysfs(mod, sub) == "p300c", sub
 
 
+def test_sysfs_fallback_names_wormhole_galaxy():
+    """0x0035 is a Wormhole Galaxy chip, keyed tt-galaxy-wh-l like tt-smi's "tt-galaxy-wh L".
+
+    On .107 and .114 (2026-10-11) `tt-smi -s` exits 1 for the whole box because one chip
+    reads 0xffffffff, so every WH ladder and record leg fell back to sysfs and failed
+    'NO BASELINE for card type unknown:0x0035'.
+    """
+    assert _detect_with_sysfs(_load(), "0x0035") == "tt-galaxy-wh-l"
+
+
 def test_unknown_subsystem_still_fails_loudly():
     """An unmapped board must NOT silently borrow another board's baseline.
 
