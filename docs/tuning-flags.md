@@ -687,6 +687,13 @@ median same-seed top-pose deviation of 1.29 A against 1.70 A between two seeds o
 design), because the fused triangle-attention and channel-move kernels refuse block-fp8 operands and
 the fold fell back to the stock ops.
 
+**ESMFold2 and ESMFold2-Fast** with `--fast` keep only the ESMC-6B language model's weights in block-fp8,
+which halves its resident memory (12.8 to 6.4 GB) and is what lets it stay loaded on a 12 GB Wormhole
+chip. The fold itself runs like normal mode under the model's own lever set. The older path also ran the
+trunk in block-fp8, where the triangle multiplications lost their fused in-projection: at 512 aa on a
+Blackhole p150a (1350 MHz) ESMFold2-Fast took 30.2 s with `--fast` against 25.7 s without. It now takes
+24.5 s, and on a p300c chip `--fast` and normal mode fold within 0.7 s of each other.
+
 ## `TT_BIO_LNBW_FUSED`
 
 Default: off, training only.
