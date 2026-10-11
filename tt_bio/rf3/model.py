@@ -51,9 +51,16 @@ from tt_bio.tenstorrent import CORE_GRID_MAIN, Module, Pairformer, WeightScope, 
 # weights, narrower chunks) is off inside it, as in Boltz-2 and OpenFold3. At 512 aa that switch
 # folded slower than normal mode (p150a 54.40 vs 45.21 s): its bfp8 operands are refused by every
 # fused kernel the normal fold runs on (triangle-attention SDPA, the gated channel move), so fast
-# fell back to the stock ttnn ops. Fast is the normal fold until a lever set is graded for RF3.
+# fell back to the stock ttnn ops.
+# Fast is the global fast set without the three trimul levers, the set graded here. Blackhole p300c 11-set fast grade against exact, 40 paired folds:
+# same-seed top pose median 0.304 A against the 0.60 A bar (A/A floor 2.802 A), CA-lDDT +0.0009
+# [+0.0001, +0.0022], docking 28 -> 28 of 40 (9W8A, 778 tokens, crashes in BOTH arms and is not
+# in the count). cdk2x2_512 on p300c: 37.63 -> 35.75 s at AICLK 1350 (spd-gap-inv, 2026-10-11).
 LEVERS_NORMAL = frozenset()
-LEVERS_FAST = frozenset()
+LEVERS_FAST = frozenset({"acc_off", "diffusion_bf16", "dit_sdpa", "transition_b8", "opm_b8", "atom_sdpa",
+                         "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
+                         "transition_shard", "dit_mm16", "atom_k1", "dit_b8", "dit_qkv16", "swiglu_fc12g",
+                         "msa_sample", "dit_sdpa_pm"})
 
 
 def _pairformer_stack(scope: WeightScope, n_blocks: int, cfg, prefix: str
