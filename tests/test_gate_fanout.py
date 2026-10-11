@@ -824,3 +824,25 @@ def test_a_leg_queued_before_the_lend_was_booked_is_taken_back(tmp_path, monkeyp
 
     res = gf.Gate({"wh": [leg]}, [(_pool_host("a", tmp_path), gf.POOL)], set(), execute, tmp_path).run()
     assert len(tries) == 2 and len(res) == 1
+
+
+def test_end_attempt_stops_the_leg_it_started_and_nothing_else(tmp_path):
+    """A stopped runner ends each remote leg it started (10-11: a stopped gate left 86 processes
+    on 23 cards). It ends only its own attempt: a pid file whose process is not that leg's is left."""
+    out = str(tmp_path / "leg")
+    os.makedirs(out)
+    mark = f"GATE_ATTEMPT={out}"
+    attempt = f"echo $$ > {shlex.quote(out + '/attempt.pid')}; exec sleep 60"
+    leg = subprocess.Popen(["bash", "-c", f"env {shlex.quote(mark)} setsid -w bash -c {shlex.quote(attempt)}"])
+    for _ in range(50):
+        if Path(out, "attempt.pid").exists():
+            break
+        time.sleep(0.1)
+    stranger = subprocess.Popen(["sleep", "60"])
+    other = str(tmp_path / "other")
+    os.makedirs(other)
+    Path(other, "attempt.pid").write_text(f"{stranger.pid}\n")
+    subprocess.run(["bash", "-c", gf.Host.end_attempt(out) + "; " + gf.Host.end_attempt(other)], check=True)
+    assert leg.wait(10) != 0
+    assert stranger.poll() is None
+    stranger.kill()

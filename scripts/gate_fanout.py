@@ -152,6 +152,7 @@ LEND_AT = "~/spd/galaxy/LEND-AT"
 LEND_READ_S = 300
 WITHDRAWN = -1           # run_in_pool's code for "taken back from the queue before it started"
 QUEUED: dict = {}         # pool job file -> host, taken back if the runner is stopped
+RUNNING: dict = {}        # leg out dir -> host, its attempt ended if the runner is stopped
 CARD_FREE = ("check", "packaging_smoke", "pytest_cpu")
 PY312 = {"pytest_device", "pytest_cpu", "bc2"}
 # Arms the parity gate already runs in-process by calling release_gate's own runner with the
@@ -712,13 +713,17 @@ class Host:
         # (which survives bash's exec of the last command). When the runner's connection drops the
         # remote side keeps waiting on the card, so a rerun first ends the attempt it replaces;
         # otherwise both run the leg into one directory (qb1, 10-10: five BH legs queued twice).
-        pidf = shlex.quote(f"{out}/attempt.pid")
         mark = shlex.quote(f"GATE_ATTEMPT={out}")
-        prior = (f"{{ p=$(cat {pidf} 2>/dev/null) && tr '\\0' '\\n' < /proc/$p/environ 2>/dev/null "
-                 f"| grep -qxF -- {mark} && pkill -TERM -s $p; true; }}")   # -s: timeout moves the leg to its own group
-        attempt = shlex.quote(f"echo $$ > {pidf}; {run}")
-        return (f"mkdir -p {shlex.quote(out)} && {prior} && cd {self.tree} && {setup}"
+        attempt = shlex.quote(f"echo $$ > {shlex.quote(f'{out}/attempt.pid')}; {run}")
+        return (f"mkdir -p {shlex.quote(out)} && {self.end_attempt(out)} && cd {self.tree} && {setup}"
                 f"env {mark} setsid -w bash -c {attempt}")   # no exec: a pool job writes rc after it
+
+    @staticmethod
+    def end_attempt(out: str) -> str:
+        """Shell that ends the attempt recorded in out/attempt.pid if it is still that leg's."""
+        pidf, mark = shlex.quote(f"{out}/attempt.pid"), shlex.quote(f"GATE_ATTEMPT={out}")
+        return (f"{{ p=$(cat {pidf} 2>/dev/null) && tr '\\0' '\\n' < /proc/$p/environ 2>/dev/null "
+                f"| grep -qxF -- {mark} && pkill -TERM -s $p; true; }}")   # -s: timeout moves the leg to its own group
 
 
 # ---------------------------------------------------------------------------------------------
@@ -1081,6 +1086,7 @@ def run_in_pool(host: Host, card, leg: Leg, rdir: str, f) -> int:
     f.write(f"# queued {host.name}:{job}\n")
     f.flush()
     QUEUED[job] = host
+    RUNNING[rdir] = host
     while True:
         time.sleep(POOL_POLL_S)
         host.read_lend()
@@ -1088,6 +1094,7 @@ def run_in_pool(host: Host, card, leg: Leg, rdir: str, f) -> int:
                                               timeout=120).returncode == 0:
             # the pool had not started it (it moves a job out of the queue when it does)
             QUEUED.pop(job, None)
+            RUNNING.pop(rdir, None)
             f.write(f"# taken back: {host.name}'s pool is lent or paused past this leg's cap\n")
             return WITHDRAWN
         try:
@@ -1098,6 +1105,7 @@ def run_in_pool(host: Host, card, leg: Leg, rdir: str, f) -> int:
             rc = int(r.stdout.strip())
             break
     QUEUED.pop(job, None)
+    RUNNING.pop(rdir, None)
     for _ in range(SSH_LOST_TRIES):
         try:
             r = host.ssh(f"L={q(rdir)}/leg.log; head -c {LOG_CAP} $L; [ $(stat -c%s $L) -le {LOG_CAP} ] || "
@@ -1116,6 +1124,7 @@ def run_in_pool(host: Host, card, leg: Leg, rdir: str, f) -> int:
 def run_over_ssh(host: Host, card, leg: Leg, rdir: str, f) -> int:
     """Run `leg` on a named card, streaming its log into f."""
     cmd = host.command(leg, card, rdir)
+    RUNNING[rdir] = host
     p = subprocess.Popen(["ssh", "-o", "BatchMode=yes", "-o", "ServerAliveInterval=60", host.cfg["ssh"], cmd]
                          if host.cfg.get("ssh") not in (None, "", "localhost") else ["bash", "-c", cmd],
                          stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
@@ -1130,7 +1139,9 @@ def run_over_ssh(host: Host, card, leg: Leg, rdir: str, f) -> int:
             tail = (tail + [line])[-400:]
     if tail:
         f.write(f"\n# ... log capped at {LOG_CAP} bytes; last {len(tail)} lines:\n" + "".join(tail))
-    return p.wait()
+    rc = p.wait()
+    RUNNING.pop(rdir, None)
+    return rc
 
 
 def record_fragment(model_file: str, written: str, card_type: str, model: str):
@@ -1427,10 +1438,16 @@ def main() -> int:
         results += Gate(todo, workers + [(first[archs[0]], None)], timed, execute, args.out,
                         None if args.no_reuse else ledger, keys, roster).run()
     except KeyboardInterrupt:
-        # A stopped runner takes back what it queued; a job the pool already started has left
-        # the queue and finishes on its own.
+        # A stopped runner takes back what it queued and ends every leg it started: a remote leg
+        # outlives its ssh, and on 10-11 a stopped gate left 86 processes holding 23 cards.
         for job, host in list(QUEUED.items()):
             host.ssh(f"rm -f {shlex.quote(job)}", timeout=120)
+        hosts, cmds = {}, {}
+        for rdir, host in list(RUNNING.items()):
+            hosts[host.name] = host
+            cmds.setdefault(host.name, []).append(Host.end_attempt(rdir))
+        for name, c in cmds.items():
+            hosts[name].ssh("; ".join(c), timeout=120)
         raise
     ok = write_verdict(args.out, sha, archs, results)
     print(f"GATE {'PASS' if ok else 'FAIL'}: {args.out / 'VERDICT.md'}")
