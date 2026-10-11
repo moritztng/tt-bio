@@ -9131,6 +9131,19 @@ class TriangleMultiplication(Module):
                 if not is_alloc_refusal(exc):
                     raise
                 row_norm = True
+            if not row_norm and H > SEQ_LEN_MORE_CHUNKING:
+                # Compact large input activation for better large-sequence placement. The compaction
+                # is a second whole copy, and at Protenix-v2's 2048 tokens (a 2 GiB pair) DRAM refused
+                # it; the refusal sent every trimul of the process to the host join, ~14 min per
+                # recycle. Fall to the row blocks instead, as a refused norm does.
+                try:
+                    x_norm_in = ttnn.reallocate(x_norm_in)
+                except RuntimeError as exc:
+                    if not is_alloc_refusal(exc):
+                        raise
+                    if x_norm_in.is_allocated():
+                        ttnn.deallocate(x_norm_in)
+                    x_norm_in, row_norm = None, True
         dram_peak(f"trimul({'end' if self.ending else 'start'}) x_norm_in [z={'x'.join(str(d) for d in x.shape)}]")
         memory_config = _triangle_mul_memory_config(H)
         # Every L1 tensor the channel loop holds is [batch, chunk, H, H], so the width
@@ -9160,9 +9173,6 @@ class TriangleMultiplication(Module):
         g_out_fused = None
         seq_len_tiles = (H + 31) // 32
         program_config = _triangle_mul_program_config(seq_len_tiles, _trimul_ibw_full(), _trimul_subblock())
-        if not row_norm and H > SEQ_LEN_MORE_CHUNKING:
-            # Compact large input activation for better large-sequence placement.
-            x_norm_in = ttnn.reallocate(x_norm_in)
         # The channel-axis mask, built on first read and not before. `unsqueeze(mask, -1)` is a
         # view only when the last axis is already tile-wide: on a [1,S,S] pair mask it pads that
         # axis from 1 to 32, so it writes a 16.8 MB tensor for a 0.52 MB mask and dispatches a
