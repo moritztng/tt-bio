@@ -6,6 +6,11 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 ## [Unreleased]
 
 ### Changed
+- **OpenFold3 and OpenBind-0 replay the diffusion step from a device trace**, with identical output. On a
+  Blackhole p150a at 1350 MHz the 512-aa fold takes 15.1 to 15.8 s instead of 17.8 to 18.9 s. If the trace
+  cannot be captured the fold runs the old step-by-step path; `OF3_DIFFUSION_TRACE=0` forces it.
+- **BindCraft 2 runs its fused gradient kernels on Wormhole too**: 7.20 s per design iteration instead of
+  9.33 s at 1000 MHz, graded on 12 seeds (11 accepted designs against 6).
 - **RoseTTAFold3 and BoltzGen `--fast` are no longer slower than normal mode.** `--fast` now runs the normal
   fold for both, with identical output. At 512 aa on a Blackhole p300c, RoseTTAFold3 `--fast` takes 37.6 s
   instead of 46.8 s and BoltzGen 34.1 s instead of 38.6 s per design.
