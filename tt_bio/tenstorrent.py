@@ -11053,10 +11053,31 @@ class TriangleAttention(Module):
                 ttnn.deallocate(x)
                 return x_in
         if self.ending:
-            x = _pair_transpose(
-                x, _transpose_memory_config(x, self.transpose_l1_reserve))
+            x = _pair_transpose(x, self._out_transpose_memory_config(x, x_in, add_to_input))
         x = ttnn.reshape(x, (1, *x.shape))
         return x
+
+    def _out_transpose_memory_config(self, x, x_in, add_to_input):
+        """Where the ending variant's transposed update goes.
+
+        `_transpose_memory_config` prices the grid's whole L1 as if the update were alone in it.
+        It is not when its input is L1-resident: the output projection writes the untransposed
+        update to L1 (`l1_out`), the transpose allocates its result underneath it, and freeing the
+        input afterwards leaves the result at the bottom of every bank, exactly where the caller's
+        `add_` lays out its circular buffers. RF3's template pairformer (c=64) at 778 tokens on a
+        p300c: 2 x 0.72 MB/core, "L1 buffer allocated at 122880 and static circular buffer region
+        ends at 123392"; at 768, 2 x 0.69 leaves the room. So every L1-resident pair operand alive
+        across the transpose (its input, and the residual the add reads) is priced per core, with
+        the add's room on top. A memory config cannot change a value: bit-exact either way.
+        """
+        resident = [t for t in (x, x_in if add_to_input else None)
+                    if t is not None and t.is_allocated()
+                    and t.memory_config().buffer_type == ttnn.BufferType.L1]
+        if not resident:
+            return _transpose_memory_config(x, self.transpose_l1_reserve)
+        reserve = (sum(_chunk_l1_per_core(t) for t in resident)
+                   + max(self.transpose_l1_reserve, _TRANSPOSE_L1_RESERVE_PER_CORE))
+        return _l1_memory_config_if_it_fits(x, 1.0, reserve_per_core=reserve)
 
 
 def _tri_att_fused_qkv_sdpa(att, x, bias):

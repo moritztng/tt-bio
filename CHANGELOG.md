@@ -18,8 +18,9 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 - **BindCraft 2 runs its fused gradient kernels on Wormhole too**: 7.20 s per design iteration instead of
   9.33 s at 1000 MHz, graded on 12 seeds (11 accepted designs against 6).
 - **RoseTTAFold3 and BoltzGen `--fast` are no longer slower than normal mode.** The old block-fp8 path is gone
-  for both. BoltzGen `--fast` runs the normal design (34.1 s instead of 38.6 s per design at 512 aa on a Blackhole
-  p300c). RoseTTAFold3 `--fast` runs a graded lower-precision set (0.30 A median top-pose change over 40 paired
+  for both. BoltzGen `--fast` runs the shared lower-precision set (39.3 s per design at 512 aa on a Blackhole p150a,
+  against 43.9 s in normal mode and 44.5 s on the old path; no confidence metric drops by more than 0.01 over 8
+  same-seed designs). RoseTTAFold3 `--fast` runs a graded lower-precision set (0.30 A median top-pose change over 40 paired
   folds) and takes 35.8 s instead of 46.8 s, against 37.6 s in normal mode.
 - **Triangle multiplication's gate sigmoid is a polynomial inside the fused kernels**, max error 3e-4. On
   Wormhole at 1000 MHz the 730-token Protenix-v2 fold spends 1.3 s less on the device in normal mode and 4.0 s
