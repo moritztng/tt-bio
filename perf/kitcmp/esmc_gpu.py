@@ -23,9 +23,9 @@ times, digest = [], None
 for rep in range(a.warm + 1):
     torch.cuda.synchronize(); t = time.perf_counter()
     with torch.inference_mode(), torch.autocast("cuda", dtype=torch.bfloat16):
-        out = client.model(input_ids=batch["input_ids"], attention_mask=batch["attention_mask"], output_hidden_states=True)
+        out = client.model(input_ids=batch["input_ids"], attention_mask=batch["attention_mask"])
     torch.cuda.synchronize(); times.append(time.perf_counter() - t)
-    emb = out.embeddings  # ESMCOutput; hidden_states is one stacked tensor, not a list
+    emb = out.last_hidden_state  # client.model is the native EsmcForMaskedLM; ESMCOutput.embeddings is this tensor
     digest = hashlib.sha256(emb.float().mean(1).cpu().numpy().tobytes()).hexdigest()[:16]
 warm = sorted(times[1:])
 rec = dict(variant=a.variant, mode=os.environ.get("ESMC_OPT") or "off", batch=a.batch, tokens=int(batch["input_ids"].shape[1]),
