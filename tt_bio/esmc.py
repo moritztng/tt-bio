@@ -175,7 +175,7 @@ def _rope(q: ttnn.Tensor, k: ttnn.Tensor, cos: ttnn.Tensor, sin: ttnn.Tensor):
 ESMC_SDPA_Q_CHUNK = 128
 # q, k and v as three projections from the packed weight's column blocks instead of one projection and a
 # 3-way `ttnn.chunk` copy of its output. Off until the page-cell A/B (perf/spd_gap_esmf/esmc_ab.py) says.
-_ESMC_QKV_SPLIT = os.environ.get("TT_BIO_ESMC_QKV_SPLIT", "0") == "1"
+_ESMC_QKV_SPLIT = env_flag("TT_BIO_ESMC_QKV_SPLIT", False)
 ESMC_SDPA_K_CHUNK = 64
 
 
@@ -406,10 +406,10 @@ PAIR_FFN_L1_LN = True
 # fc1a's matmul epilogue (on the fp32 accumulator, before the bf16 pack) the gate is a plain FPU multiply:
 # gate_bench at a 16-row block, 0.144 ms for the activated multiply vs 0.058 ms plain. One switch for every
 # split-fc1 SwiGLU: the pair transition (row-blocked) and the ESMC LM blocks, which are ESMFold2's LM backbone.
-_SWIGLU_SILU_FC1 = os.environ.get("TT_BIO_SWIGLU_SILU_FC1", "0") == "1"
+_SWIGLU_SILU_FC1 = env_flag("TT_BIO_SWIGLU_SILU_FC1", False)
 # The same activated multiply on ttnn's legacy binary op: same SFPU silu, no per-tile re-init, 0.101 vs 0.144 ms
 # (gate_bench, same block). Off until a fold A/B and its digest say what it does.
-_SWIGLU_GATE_LEGACY = os.environ.get("TT_BIO_SWIGLU_GATE_LEGACY", "0") == "1"
+_SWIGLU_GATE_LEGACY = env_flag("TT_BIO_SWIGLU_GATE_LEGACY", False)
 
 _PAIR_FFN_L1_LN = os.environ.get(
     "TT_BIO_PAIR_FFN_L1_LN", "1" if PAIR_FFN_L1_LN else "0") == "1"

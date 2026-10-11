@@ -725,7 +725,7 @@ def load_ttnn_esmfold2(esmfold2_repo: str = "biohub/ESMFold2",
     model = ESMFold2Model.from_pretrained(esmfold2_repo, load_esmc=False, **kwargs).eval()
     # Built under the set it folds under: some levers are read when a module is built (kernel configs,
     # weight formats), the rest when it runs.
-    with tenstorrent.lever_scope(fold_levers(fast)):
+    with fold_scope(fast):
         return patch_esmfold2(model, esmc_repo=esmc_repo, persistent_lm=persistent_lm, fast=fast)
 
 
@@ -958,6 +958,19 @@ def fold_levers(fast: bool) -> str:
     return os.environ.get("TT_BIO_LEVERS") or (LEVERS_FAST if fast else LEVERS_NORMAL)
 
 
+def fold_scope(fast: bool):
+    """The context ESMFold2 builds and folds in. Blackhole: `lever_scope(fold_levers(fast))`, the older bfp8
+    `_FAST_MODE` off. Wormhole keeps the path main shipped, `_FAST_MODE` = `fast` and no lever set (a harness's
+    TT_BIO_LEVERS still applies): the Blackhole path's --fast threw a circular-buffer clash at 546-559 tokens on a
+    Galaxy chip (program 217, L1 buffer at 188416 under a CB region ending at 300320) and three of four folds then
+    hung, where main folds the same complexes. Neither path has been graded on Wormhole against the other."""
+    from tt_bio import tenstorrent
+    if is_wormhole():
+        tenstorrent.set_fast_mode(fast)
+        return tenstorrent.levers(os.environ.get("TT_BIO_LEVERS") or ())
+    return tenstorrent.lever_scope(fold_levers(fast))
+
+
 def fold_complex(model, chains, *, num_loops=3, num_sampling_steps=20,
                  num_diffusion_samples=1, seed=0, return_all=False, bonds=None):
     """Fold one (possibly multi-chain) complex on an already-patched model.
@@ -1007,7 +1020,7 @@ def fold_complex(model, chains, *, num_loops=3, num_sampling_steps=20,
         esmc._persistent = False
     from tt_bio import tenstorrent
     try:
-        with tenstorrent.lever_scope(fold_levers(getattr(model, "_tt_fast", False))):
+        with fold_scope(getattr(model, "_tt_fast", False)):
             res = ESMFold2InputBuilder().fold(
                 model, spi, num_loops=num_loops, num_sampling_steps=num_sampling_steps,
                 num_diffusion_samples=num_diffusion_samples, seed=seed)
