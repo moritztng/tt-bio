@@ -163,14 +163,21 @@ tt-bio design specs.json --model rfd3 --from_pdb --out_dir ./designs \
 Two more options: `--spec a,b` runs only those spec ids from the inputs file, and `--fp32_residual` keeps the
 residual stream of the DiT, encoder and token encoder in fp32 instead of bf16 (off by default).
 
-`--fast` runs the atom attention as one fused attention kernel instead of materialising the full score
-matrix. It runs the same diffusion steps and recycles; only the kernels change. A 685-residue design
-takes about 15 % less time. At the same seed the design lands somewhere else (the diffusion is chaotic,
-so any rounding change does that; changing the seed moves it twice as far), and design quality is
-unchanged: over four seeds the CA-CA geometry, chain breaks and amino-acid diversity match the default
-run and there are fewer clashes. The fused kernel is also closer to a float64 reference than the
-default one. Above about 8,600 atoms `--fast` keeps the default atom attention, because the fused
-kernel's cached mask would then take more than 600 MB per atom block.
+The atom attention runs as one fused attention kernel that never materialises the full score matrix. It
+is closer to a float64 reference than the older kernel chain, and a 685-residue design takes about 15 %
+less time with it. At the same seed the design lands somewhere else, as it does after any rounding change
+because the diffusion is chaotic: 5.5 to 9.3 A over four seeds, about the 7.3 A by which the older chain's
+own Blackhole and Wormhole designs differ, and half of what changing the seed does. Design quality is
+unchanged: CA-CA geometry, chain breaks and amino-acid diversity match, with fewer clashes. Above about
+8,600 atoms the older chain runs instead, because the fused kernel's cached mask would take more than
+600 MB per atom block. `RFD3_ATOM_SDPA=0` restores it.
+
+`--fast` additionally keeps the pair transitions' hidden activations in 8-bit block floating point,
+collapses the pair-feature projection that does not change between steps into a table lookup, and runs
+every matmul at a lower multiplier fidelity. It runs the same diffusion steps and recycles; only the
+kernels change. A 685-residue design takes about 7 % less time than the default (18 % less than before
+the fused attention). Over four seeds the CA-CA geometry and chain breaks match the default run; the cost
+is a little design quality: more clashes on one seed and fewer distinct amino acids on another.
 
 ## Checkpoint
 
