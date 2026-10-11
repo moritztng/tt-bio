@@ -8,6 +8,7 @@ ARM is a '+'-joined set of knobs applied before the denoiser is built:
   hifi2     every RFD3 compute kernel config at MathFidelity.HiFi2 (default HiFi4)
   lofi      ... at MathFidelity.LoFi
   w8        every 2-D, tile-aligned weight that Module.torch_to_tt uploads as bf16 goes up as bfloat8_b
+  asdpa     RFD3_ATOM_SDPA, atom attention as one fused SDPA (new, off by default)
   gsm bs pzc fgrid   the existing off-by-default levers RFD3_GATHERED_SOFTMAX, RFD3_BLOCK_SPARSE,
             RFD3_PROCESS_Z_COLLAPSE, RFD3_FAST_GRID (declined before only for not being bit-exact)
 
@@ -24,7 +25,8 @@ import sys
 import time
 
 ENV_KNOBS = {"gsm": "RFD3_GATHERED_SOFTMAX", "bs": "RFD3_BLOCK_SPARSE",
-             "pzc": "RFD3_PROCESS_Z_COLLAPSE", "fgrid": "RFD3_FAST_GRID"}
+             "pzc": "RFD3_PROCESS_Z_COLLAPSE", "fgrid": "RFD3_FAST_GRID",
+             "asdpa": "RFD3_ATOM_SDPA"}
 for _k in sys.argv[1].split("+") if len(sys.argv) > 1 else ():
     if _k in ENV_KNOBS:
         os.environ[ENV_KNOBS[_k]] = "1"   # read at import, so before tt_bio.rfd3 loads

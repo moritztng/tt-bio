@@ -30,7 +30,7 @@ from . import block_sparse as _BS
 from .tiles import TILE, align_tile, pad_axis
 from ..tenstorrent import (Module, get_device, CORE_GRID_MAIN, attn_value_matmul, silu_ckc,
                            atom_pair_budget_bytes, l1_resident_budget_bytes, row_block,
-                           _dram_oom)
+                           _dram_oom, fused_sdpa, _sdpa_program_config)
 
 # This is a SNAPSHOT, and deliberately left as one. `_configure_active_compute_grid` widens
 # tenstorrent.CORE_GRID_MAIN to 13x10 when a Blackhole device opens, after this import has
@@ -309,6 +309,14 @@ def set_fc1_split_enabled(on):
 # pair-bias calls on the H200 arm that produces our own 12.974 s/design denominator. The dense
 # formulation is a tt-bio tiling choice, not the reference's.
 _GATHERED_SOFTMAX = env_flag("RFD3_GATHERED_SOFTMAX", False)
+# Atom attention as one fused SDPA: the dense [1,H,L,L] bias (mask plus neighbour pair bias) is
+# built once per block in bf16 and the kernel never writes the scores. The shipped chain writes
+# the bf16 scores, rereads them into 2x as many fp32 bytes and rereads those for the softmax,
+# about 1.2 GB a call at 6051 atoms, 9 calls a step. Online softmax changes the reduction order,
+# so this is graded on accuracy, not digest. Off by default while it is graded.
+_ATOM_SDPA = env_flag("RFD3_ATOM_SDPA", False)
+ATOM_SDPA_CALLS = [0]
+_ATOM_SDPA_CHUNKS = tuple(int(x) for x in os.environ.get("RFD3_ATOM_SDPA_CHUNKS", "160,320").split(","))
 # ttnn.gather (0.68.0) on dim 3 silently returns wrong data for every tile-row after the first
 # once the indexed axis exceeds this many elements: 99.87 % of elements wrong at the production
 # [1,4,6051,6080], and ~100x slower at the same threshold. The trigger is element count, not
@@ -2059,6 +2067,28 @@ class RFD3AtomBlock(Module):
             cache[(id(self), "pb")] = (key, p, pair_bias)
         return pair_bias
 
+    def _sdpa_bias(self, p, attn_idx_dev, n_key, cache):
+        """The atom-SDPA mask: the dense bias times sqrt(head_dim), bf16, rows padded to n_key.
+
+        The kernel adds the mask before it applies `scale`, so the bias is pre-scaled here. Padded
+        query rows get 0 (a fully masked row would divide by zero; they are sliced off). Cached
+        per pair stream like `_sparse_bias_f32`, so the decoder's second recycle reuses it.
+        """
+        key = (id(p), id(attn_idx_dev))
+        if cache is not None:
+            hit = cache.get((id(self), "sdpa"))
+            if hit is not None and hit[0] == key and hit[1] is p:
+                return hit[2]
+        bias_f = rfd3_bias.sparse_bias_fp32(self._sparse_pair_bias(p, cache), attn_idx_dev)
+        scaled = ttnn.multiply(bias_f, self.head_dim**0.5)
+        ttnn.deallocate(bias_f)
+        bias = ttnn.typecast(scaled, self.dtype)
+        ttnn.deallocate(scaled)
+        bias = pad_axis(bias, n_key, 2, 0.0)
+        if cache is not None:
+            cache[(id(self), "sdpa")] = (key, p, bias)
+        return bias
+
     def _sparse_bias_f32(self, p, dense_bias, attn_idx_dev, cache):
         """The dense fp32 attention bias for one atom block, built once per pair stream.
 
@@ -2161,7 +2191,16 @@ class RFD3AtomBlock(Module):
             pb = pad_axis(pb, nb * q_block, 2, -1e4)
             bs_out = _BS.attention(qq, kk, vv, pb, pos_rm, gather_dev, nb, q_block, u_width,
                                    self.head_dim**-0.5, dt, ckc)
-        if bs_out is not None:
+        if (bs_out is None and _ATOM_SDPA and sparse_qk is not None and sparse_qk[2] is None
+                and rfd3_bias.fused_enabled() and dt == ttnn.bfloat16):
+            mask = self._sdpa_bias(p, sparse_qk[1], n_key, bias_cache)
+            o = fused_sdpa(pad_axis(qq, n_key, 2, 0.0), kk, vv, attn_mask=mask,
+                           scale=self.head_dim**-0.5,
+                           program_config=_sdpa_program_config(*_ATOM_SDPA_CHUNKS),
+                           compute_kernel_config=ckc)
+            bs_out = ttnn.slice(o, [0, 0, 0, 0], [batch, self.n_head, length, self.head_dim])
+            ATOM_SDPA_CALLS[0] += 1
+        elif bs_out is not None:
             _BS.STATS[0] += 1
         elif sparse_qk is not None and len(sparse_qk) > 4:
             _BS.STATS[1 if _BS.enabled() else 2] += 1
