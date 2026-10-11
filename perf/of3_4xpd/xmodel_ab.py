@@ -166,6 +166,8 @@ def main():
 
     cold = one("cold")
     res["cold"] = cold
+    # What the chip carries after the load, so a default-path run shows whether it can replay.
+    res["trace_region_bytes"] = T.trace_region_size()
     print(f"[{a.label}] cold {cold['fold_s']:.3f}s plddt={cold['plddt']} "
           f"cif={list(cold['cif_sha256'].values())}", flush=True)
     flush()
