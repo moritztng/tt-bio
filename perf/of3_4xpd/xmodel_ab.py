@@ -68,7 +68,7 @@ def main():
 
     import tt_bio.tenstorrent as T
     import tt_baseline as B
-    from tt_bio.main import (_resolve_recycling_steps, _resolve_sampling_steps,
+    from tt_bio.main import (_resolve_sampling_steps,
                              _detect_p300_devices, _find_ttnn_mesh_graph_descriptor)
     assert Path(T.__file__).resolve().is_relative_to(tree), \
         f"tt_bio came from {T.__file__}, not {tree}"
@@ -79,10 +79,7 @@ def main():
         if mgd:
             os.environ["TT_MESH_GRAPH_DESC_PATH"] = mgd
 
-    B.RECYCLING_STEPS = _resolve_recycling_steps(None, a.model)
     B.SAMPLING_STEPS = _resolve_sampling_steps(None, a.model)
-    if a.recycles is not None:
-        B.RECYCLING_STEPS = a.recycles
     if a.steps is not None:
         B.SAMPLING_STEPS = a.steps
 
@@ -120,7 +117,10 @@ def main():
     fixdir = tree / "perf" / "size512" / "fixtures"
     tgt, a3m = fixdir / f"cdk2x2_{a.size}.yaml", fixdir / f"cdk2x2_{a.size}.a3m"
     msa_dir = tree / f".msa_xmodel_{a.model}_{a.size}"
+    # The recycle count is build_fold's argument, not a tt_baseline global: setting B.RECYCLING_STEPS
+    # was a no-op, so --recycles folded at the default and the record named the request.
     _bf = {} if a.samples is None else {"samples": a.samples}
+    _bf["recycling_steps"] = a.recycles
     one_fold, meta = B.build_fold(a.model, msa_dir, tgt, a3m, fast=a.fast,
                                    instrument=a.instrument, trace=a.trace or a.ab_trace,
                                    **_bf)[:2]
@@ -132,7 +132,7 @@ def main():
            "host": os.uname().nodename,
            "card": os.environ.get("TT_VISIBLE_DEVICES"),
            "grid": [int(T.COMPUTE_GRID_MAIN[0]), int(T.COMPUTE_GRID_MAIN[1])],
-           "recycling_steps": B.RECYCLING_STEPS, "sampling_steps": B.SAMPLING_STEPS,
+           "recycling_steps": meta["recycling_steps"], "sampling_steps": B.SAMPLING_STEPS,
            "samples": a.samples or B.DIFFUSION_SAMPLES,
            "flags": {k: getattr(T, k, "absent") for k in
                      ("ADALN_S_HOIST", "FP32_SOFTMAX_BIAS_HOIST", "TRIMUL_TAIL_F1",
