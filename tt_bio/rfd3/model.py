@@ -171,25 +171,14 @@ _CONCAT_ALIGNED = env_flag("RFD3_CONCAT_ALIGNED", True)
 _PROCESS_Z_COLLAPSE = env_flag("RFD3_PROCESS_Z_COLLAPSE", False)
 # The atom neighbour index (_create_attention_indices: cdist + top-128 over every atom) is pure
 # host torch and used to run first in every step, with the device idle: 91.5 ms/step of the
-# page fold's 547 (p150a census, scripts/rfd3_port/gap_census.py). Nothing before the atom
-# encoder reads it, so it is built on a host thread while the step's first device work runs.
-# Same function, same inputs: exact by construction.
+# page fold's 547 (p150a census, scripts/rfd3_port/gap_census.py). The recycle-1 token encoder
+# does not read it (only S_I, Z_II and the CA coordinates), so with RFD3_ATTN_OVERLAP on that
+# encoder is dispatched first and the host builds the index while the card runs it. Same ops on
+# the same inputs, reordered: exact by construction, checked by the fold digest.
+# The index stays on the main thread on purpose. Built on a worker thread it gets its own
+# OpenMP team, which fights the main thread's for the cores: on qb1 (16 physical cores) the
+# build went from 72-88 to 115-140 ms and the page fold from 107.1 to 124.0 s/design.
 _ATTN_OVERLAP = env_flag("RFD3_ATTN_OVERLAP", True)
-# With the overlap on, the recycle-1 token encoder can also be dispatched before the atom
-# encoder: it reads only S_I, Z_II and the CA coordinates, so the device has its ~74 ms of
-# work queued while the host builds the index. Same ops on the same inputs, reordered. Off by
-# default until the A/B and a large-size memory check: it keeps z ([I,I,128]) resident across
-# the atom encoder.
-_TOKEN_ENC_FIRST = env_flag("RFD3_TOKEN_ENC_FIRST", False)
-_INDEX_POOL = None
-
-
-def _index_pool():
-    global _INDEX_POOL
-    if _INDEX_POOL is None:
-        from concurrent.futures import ThreadPoolExecutor
-        _INDEX_POOL = ThreadPoolExecutor(max_workers=1, thread_name_prefix="rfd3-attn-idx")
-    return _INDEX_POOL
 # The per-step neighbour graph is the largest single host cost in a design. At the page fixture
 # (6051 atoms) the ledger puts it at 51.9 + 19.8 ms of an 84.8 ms host body, and P3.7 measured
 # 54.3 ms/step of that reaching the wall. It is one chain -- cdist -> masked_fill_ -> topk -- over
@@ -3369,10 +3358,7 @@ class RFD3DiffusionModule(Module):
         if Z_II.ndim == 3: Z_II = Z_II.unsqueeze(0)
         if P_LL.ndim == 3: P_LL = P_LL.unsqueeze(0)
         f = dict(f)
-        if _ATTN_OVERLAP:
-            idx_job = _index_pool().submit(_create_attention_indices, f, X_noisy_L, tok_idx,
-                                           self.N_ATTN_KEYS, self.N_ATTN_SEQ)
-        else:
+        if not _ATTN_OVERLAP:
             f["attn_indices"] = _create_attention_indices(f, X_noisy_L, tok_idx, self.N_ATTN_KEYS,
                                                           self.N_ATTN_SEQ)
         is_motif = f["is_motif_atom_with_fixed_coord"]
@@ -3401,10 +3387,10 @@ class RFD3DiffusionModule(Module):
                         self.process_c_w, compute_kernel_config=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID)).float()
         first_tok = None
         if _ATTN_OVERLAP:
-            if _TOKEN_ENC_FIRST:
-                first_tok = self.diffusion_token_encoder.run_device(
-                    R_L_uniform[..., f["is_ca"], :], S_I, Z_II, D_II_self=None)
-            f["attn_indices"] = idx_job.result()
+            first_tok = self.diffusion_token_encoder.run_device(
+                R_L_uniform[..., f["is_ca"], :], S_I, Z_II, D_II_self=None)
+            f["attn_indices"] = _create_attention_indices(f, X_noisy_L, tok_idx, self.N_ATTN_KEYS,
+                                                          self.N_ATTN_SEQ)
         Q_L = self.encoder(Q_L, C_L, P_LL, indices=f["attn_indices"])
         A_I = self._downcast_q(Q_L, A_I, S_I, tok_idx)
         recycled = self._forward_with_recycle(
@@ -3431,10 +3417,11 @@ class RFD3DiffusionModule(Module):
         # GPU does not pay. s is O(I*c_s) and still crosses, because the decoder wants it
         # on host anyway.
         s_dev, z_dev = tok or self.diffusion_token_encoder.run_device(R_L_ca, S_I, Z_II, D_II_self=D_II_self)
-        S_I = ttnn.to_torch(s_dev).float()
+        # Built before the s readback so the host works while the encoder is still on the card.
         X_L_ca = X_noisy_L[..., is_ca, :] if X_L_self is None else X_L_self[..., is_ca, :]
-        dit_idx = _create_attention_indices(f, X_L_ca, torch.arange(I := S_I.shape[1], device=X_L_ca.device),
+        dit_idx = _create_attention_indices(f, X_L_ca, torch.arange(S_I.shape[-2], device=X_L_ca.device),
                                             self.DIT_KEYS, self.DIT_SEQ)
+        S_I = ttnn.to_torch(s_dev).float()
         A_I = self.diffusion_transformer(A_I, S_I, z_dev, dit_idx)
         ttnn.deallocate(z_dev)
         # Both of the decoder's outputs feed device consumers only -- q the R update below,
