@@ -9,7 +9,9 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 - **Protenix-v2 spends less time waiting on the host between recycling cycles.** The alignment goes to the
   chip once per fold and each cycle picks its rows there, so the host no longer cuts and uploads them every cycle.
   On the 730-token fold this saves about 6 s in normal mode and 5 s in `--fast` on Wormhole (1000 MHz), and
-  4 s and 3 s on Blackhole p150a (1350 MHz). Outputs for a given seed are unchanged.
+  4 s and 3 s on Blackhole p150a (1350 MHz). The rows and every value computed from them are unchanged. On
+  Wormhole the extra 0.5 GB of device memory can make a long-running process switch a deep alignment to its
+  streamed path a fold sooner than before, which changes that fold's output within seed-to-seed variation.
 - **Protenix-v2 `--fast` is about 8 s faster on Wormhole** (189 s on the 730-token fold at 1000 MHz, from
   197 s): the sharded Transition and the fused SwiGLU kernel are back in the fast set. They had been taken out
   because fast folds at 1536 tokens collapsed; the cause was a program-cache collision between two ttnn slices,
