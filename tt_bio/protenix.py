@@ -3580,9 +3580,12 @@ class Trunk(_KeyedWeights):
             # The embedding is per alignment row, so embedding a cycle's rows equals picking them
             # out of the embedded whole; only the picked rows are built, padded to a few depths
             # (msa_row_bucket), and the host lane cuts the next cycle's rows while this one runs.
+            # A fixed depth (OpenDDE's 1280) is one shape already: padding it to the next 1024
+            # would run every per-row op on 2048 rows, 60 % of them zeros.
             m_feat = None
             n_rows = ms.shape[1]
-            cut = lambda c: hostlane.submit(msa_rows_host, ms, rows[c], msa_row_bucket(len(rows[c]), n_rows))
+            step = 1024 if depth is None else 32
+            cut = lambda c: hostlane.submit(msa_rows_host, ms, rows[c], msa_row_bucket(len(rows[c]), n_rows, step))
             next_rows = cut(0)
         z3 = ttnn.reshape(ttnn.mul(z_init, 0.0), (1, N, N, self.C_Z))
         # Both are read once per cycle and never written, so past 1 GiB they wait on the host.
