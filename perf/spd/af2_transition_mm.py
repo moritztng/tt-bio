@@ -25,8 +25,15 @@ NS = [int(x) for x in sys.argv[1:]] or [195, 224]
 C, F = 128, 512
 REPS = 20
 dev = T.get_device()
-ckc = ttnn.WormholeComputeKernelConfig(math_fidelity=ttnn.MathFidelity.HiFi2, math_approx_mode=False,
-                                       fp32_dest_acc_en=False, packer_l1_acc=True)
+# CKC=prod: the trunk's own config (af2.compute_kernel_config: HiFi4 or HiFi3, fp32 accumulator),
+# which also caps an output subblock at 4 tiles. The default is the light config the first runs used.
+PROD = os.environ.get("CKC") == "prod"
+if PROD:
+    from tt_bio.af2 import compute_kernel_config
+    ckc = compute_kernel_config()
+else:
+    ckc = ttnn.WormholeComputeKernelConfig(math_fidelity=ttnn.MathFidelity.HiFi2, math_approx_mode=False,
+                                           fp32_dest_acc_en=False, packer_l1_acc=True)
 
 
 def tt(x):
@@ -75,7 +82,7 @@ for n in NS:
     # The batch folded into M without a data move: a 1D program config with fuse_batch runs the
     # padded B*Mt row tiles as one matmul. Each config either runs or is refused by the op.
     mt = n * ((n + 31) // 32)
-    for cfg_name, grid, per_m, sub_w in (("fold64", (8, 8), -(-mt // 64), 8), ("fold64w4", (8, 8), -(-mt // 64), 4)):
+    for cfg_name, grid, per_m, sub_w in (("fold64", (8, 8), -(-mt // 64), 4 if PROD else 8), ("fold64w2", (8, 8), -(-mt // 64), 2)):
         for leg, (src, w, b, k, nt, act) in (("fc1", (z4, w1, b1, C // 32, F // 32, "relu")),
                                              ("fc2", (h4, w2, b2, F // 32, C // 32, None))):
             cfg = ttnn.MatmulMultiCoreReuseMultiCast1DProgramConfig(
