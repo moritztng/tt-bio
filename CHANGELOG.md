@@ -6,17 +6,13 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 ## [Unreleased]
 
 ### Changed
-- **Protenix-v2 `--fast` is about 8 s faster on Wormhole** (189 s on the 730-token fold at 1000 MHz, from
-  197 s): the sharded Transition and the fused SwiGLU kernel are back in the fast set. They had been taken out
-  because fast folds at 1536 tokens collapsed; the cause was a program-cache collision between two ttnn slices,
-  which the Transition now avoids. Fast folds at 1536 tokens score like reference ones again.
 - **OpenDDE seeds now give different trunks, as upstream's do.** Each recycling cycle reads its own 1280
   random alignment rows and every reference conformer is centred and turned by a seeded rotation, both
   drawn from the seed. Before, every seed of a target shared one trunk, so five seeds were one trunk with
   five noise draws. Outputs for a given seed change; candidate diversity across seeds now matches upstream.
 - **Protenix-v2 is 2.0x faster on Wormhole** than 0.13.1, up from 1.6x in 0.14.0. A warm 730-token fold
   (deep MSA, 5 samples, 10 recycles) takes 247 s on a Galaxy chip at 1000 MHz, against 307 s in 0.14.0 and
-  501 s in 0.13.1. Structures stay inside seed-to-seed variation. `--fast`: 194 s on Wormhole, 99 s on a
+  501 s in 0.13.1. Structures stay inside seed-to-seed variation. `--fast`: 189 s on Wormhole, 99 s on a
   Blackhole p150a at 1350 MHz. [`docs/tuning-flags.md`](docs/tuning-flags.md#tt_bio_levers).
 - **OpenFold3 is 2.7x faster on Wormhole.** The 730-token fold takes 117 s on a Galaxy chip at 1000 MHz,
   against 317 s in 0.14.0, with structures inside seed-to-seed variation (11 complexes x 4 seeds).
