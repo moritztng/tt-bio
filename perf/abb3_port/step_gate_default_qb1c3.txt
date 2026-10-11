@@ -1,6 +1,6 @@
 # scripts/abb3_port/step_gate.py at its default and at the --micro 8 value that does not fit, on
 # qb2 card 3 (/dev/tenstorrent/3), Blackhole p300c, 34.23 GB of DRAM (8 banks x 4 278 190 016 B).
-RECORDED-AT: 19d30971fec440a39a32cc41615b07356aa4b79b scripts/abb3_port/step_gate.py
+RECORDED-AT: d229b9e4c8a2ffa12fee9bda416d9ea7caba92a0 scripts/abb3_port/step_gate.py
 #
 # TREE: wk/bcp-land 3e617f520, origin/main 2e2cbacb4 plus BCP (lnbw). Replaces the record taken at
 # 93edb1b24, whose import closure changed in tt_bio/autograd.py when lnbw was wired into the layer-norm
@@ -58,6 +58,12 @@ RECORDED-AT: 19d30971fec440a39a32cc41615b07356aa4b79b scripts/abb3_port/step_gat
 # DRAM peak as in the 92d5924f5 record; --micro 8 still OOMs on the same 100 663 296 B request. Median
 # 18.402 s; AICLK on card 3 over this run and the model gate: 1350 MHz on 222 of 235 samples, 1343 on 6,
 # 800 on 7 (between processes). No cotenant on our node. A fit record, not a perf claim.
+#
+# RE-RECORDED for the 0.15.0 release gate at d229b9e4c (tt-bio main ed6557d22 plus the RDKit pickle fix and
+# the gate runner), 04:39-04:46Z 2026-10-11, qb2 card 3, Blackhole p300c, the gate's wheel venv (TT-NN 0.68.0)
+# with the tree on PYTHONPATH. Losses 4.9937 / 4.9918 / 4.9911 at steps 1, 5, 10, 500 taped parameters and
+# the 30981 MB DRAM peak as in the 19d30971f record; --micro 8 still OOMs on the same 100 663 296 B request.
+# Median 19.178 s at AICLK median 1350 (min 1343), no cotenant on our node. A fit record, not a perf claim.
 #
 == --micro 8 --accumulate 8 --steps 1 --warmup 1 ==
 2026-10-10 17:40:20.258 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 100663296 B DRAM buffer across 8 banks, where each bank needs to store 12582912 B, but bank size is 4278190016 B (allocated: 4252363136 B, free: 25826880 B, largest free block: 8388608 B) (assert.hpp:104)
