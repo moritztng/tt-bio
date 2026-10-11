@@ -39,11 +39,11 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   deep alignments fold up to 25 % faster on Wormhole (a 9,947-row target: 556 to 419 s).
   Confidence on homo-oligomers can read 0.01 to 0.05 pLDDT lower, as upstream's does; structures are unchanged
   within the accuracy bar.
-- **Protenix-v2 is 1.9x faster on Wormhole** than 0.13.1, up from 1.6x in 0.14.0. A warm 730-token fold
-  (deep MSA, 5 samples, 10 recycles) takes 259 s on a Galaxy chip at 1000 MHz, against 307 s in 0.14.0 and
-  501 s in 0.13.1, and 119 s on a Blackhole p150a at 1350 MHz. Structures stay inside seed-to-seed
+- **Protenix-v2 is 2.2x faster on Wormhole** than 0.13.1, up from 1.6x in 0.14.0. A warm 730-token fold
+  (deep MSA, 5 samples, 10 recycles) takes 233 s on a Galaxy chip at 1000 MHz, against 307 s in 0.14.0 and
+  501 s in 0.13.1, and 110 s on a Blackhole p150a at 1350 MHz. Structures stay inside seed-to-seed
   variation (11 complexes, median top-pose deviation 0.26 to 0.34 A over 16 seeds on Wormhole and 0.35 A
-  over 4 on Blackhole, against a 0.8 A re-seed). `--fast`: 209 s on Wormhole, 100 s on Blackhole.
+  over 4 on Blackhole, against a 0.8 A re-seed). `--fast`: 178 s on Wormhole, 90 s on Blackhole.
   [`docs/tuning-flags.md`](docs/tuning-flags.md#tt_bio_levers).
 
 ### Fixed
