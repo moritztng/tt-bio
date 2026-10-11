@@ -2922,8 +2922,117 @@ def _to_host(t: Tensor):
     return home
 
 
+# A checkpointed segment's backward -- its taped recompute and the walk of that inner tape --
+# replayed from a metal trace, keyed by the caller's `trace` key and every operand's shape.
+#
+# On a host-bound card (a Wormhole Galaxy chip runs a BindCraft 2 round at ~60 % idle, the host
+# spending ~14 us dispatching each of ~64k calls plus the tape's own Python) the recompute is
+# pure host overhead: the same programs on the same shapes every round. Rounds 1 and 2 at a key
+# run eagerly; round 2 also allocates the SHARED buffers every segment of that shape copies its
+# operands into and its input gradients out of; round 3 captures; every later round copies in,
+# replays, and clones the gradients out. Shared buffers are allocated in round 2 and not at the
+# capture because a capture keeps its intermediates at addresses the allocator then calls free:
+# anything that is live at a replay and was not live at the capture can sit there and be
+# overwritten. Allocating them a whole round before the first capture makes every later round's
+# allocation sequence -- the forward's pins included -- the one the captures saw.
+#
+# Raw ttnn operands (a segment's dropout masks, new each round) are copied in like the taped
+# ones, so `fn` must take them as inputs rather than close over them. Bit-exact by construction:
+# the replay runs the programs the eager recompute runs, on the same values.
+# Default OFF until graded on a card: TT_BIO_TRACE_RECOMPUTE=1. Needs a trace region at open.
+TRACE_RECOMPUTE = env_flag("TT_BIO_TRACE_RECOMPUTE", False)
+_RTRACE: dict = {}    # (key, signature) -> rounds seen (int), then (trace id, shared)
+_RSHARED: dict = {}   # signature -> dict(ins=[...], seeds=[...], outs=[...])
+RTRACE_STATS = {"eager": 0, "capture": 0, "replay": 0}
+
+
+def _raw(t, home):
+    return home(t) if isinstance(t, Tensor) else (t if isinstance(t, ttnn.Tensor) else None)
+
+
+def _grad_value(dup):
+    g = dup.grad if isinstance(dup, Tensor) else None
+    return g.value if isinstance(g, Tensor) else g
+
+
+def _traced_recompute(key, fn, inputs, home, seeded) -> bool:
+    """`_recompute(seeded)` from a trace, or False to let the caller run it eagerly."""
+    from .taped_ttnn import recompute_scope
+    vals = [_raw(t, home) for t in inputs]
+    sig = (tuple(None if v is None else (tuple(v.shape), str(v.dtype), str(v.layout)) for v in vals),
+           tuple((k, tuple(g.shape), str(g.dtype)) for k, g in seeded))
+    st = _RTRACE.get((key, sig), 0)
+    if isinstance(st, int) and st == 0:
+        _RTRACE[(key, sig)] = 1
+        RTRACE_STATS["eager"] += 1
+        return False
+    device = next(v for v in vals if v is not None).device()
+
+    def run(ins, seeds, outs):
+        inner = [Tensor(ttnn.clone(b), requires_grad=t.requires_grad) if isinstance(t, Tensor)
+                 else (ttnn.clone(b) if b is not None else t) for t, b in zip(inputs, ins)]
+        with recompute_scope():
+            y = fn(*inner)
+        roots = [y[k] if k is not None else y for k, _ in seeded]
+        backward(roots, [ttnn.clone(b) for b in seeds])
+        for dup, ob in zip(inner, outs):
+            if ob is not None:
+                ttnn.copy(_grad_value(dup), ob)
+        del y, inner, roots
+
+    if st == 1:
+        # Round 2: eager, and the shared buffers are born here (see above).
+        inner = [Tensor(v, requires_grad=t.requires_grad) if isinstance(t, Tensor) else t
+                 for t, v in zip(inputs, vals)]
+        with recompute_scope():
+            y = fn(*inner)
+        roots = [y[k] if k is not None else y for k, _ in seeded]
+        backward(roots, [g for _, g in seeded])
+        if sig not in _RSHARED:
+            _RSHARED[sig] = dict(
+                ins=[None if v is None else ttnn.clone(v) for v in vals],
+                seeds=[ttnn.clone(g) for _, g in seeded],
+                outs=[None if _grad_value(d) is None else ttnn.clone(_grad_value(d)) for d in inner])
+        for src, dup in zip(inputs, inner):
+            if isinstance(src, Tensor) and isinstance(dup, Tensor) and dup.grad is not None:
+                src.add_grad(dup.grad)
+        del y, inner, roots
+        _RTRACE[(key, sig)] = 2
+        RTRACE_STATS["eager"] += 1
+        return True
+    sh = _RSHARED[sig]
+    for v, b in zip(vals, sh["ins"]):
+        if b is not None:
+            ttnn.copy(v, b)
+    for (_, g), b in zip(seeded, sh["seeds"]):
+        ttnn.copy(g, b)
+    if st == 2:
+        run(sh["ins"], sh["seeds"], sh["outs"])     # compiles anything only the capture uses
+        ttnn.synchronize_device(device)
+        tid = ttnn.begin_trace_capture(device, cq_id=0)
+        run(sh["ins"], sh["seeds"], sh["outs"])
+        ttnn.end_trace_capture(device, tid, cq_id=0)
+        _RTRACE[(key, sig)] = st = (tid,)
+        RTRACE_STATS["capture"] += 1
+    else:
+        RTRACE_STATS["replay"] += 1
+    ttnn.execute_trace(device, st[0], cq_id=0, blocking=False)
+    for src, ob in zip(inputs, sh["outs"]):
+        if ob is not None and isinstance(src, Tensor):
+            src.add_grad(ttnn.clone(ob))
+    return True
+
+
+def release_recompute_traces(device) -> None:
+    for st in _RTRACE.values():
+        if isinstance(st, tuple):
+            ttnn.release_trace(device, st[0])
+    _RTRACE.clear()
+    _RSHARED.clear()
+
+
 def checkpoint(fn, *inputs: Tensor, params: Sequence[Tensor] = (), offload: bool = False,
-               _nested: bool = False) -> Tensor:
+               _nested: bool = False, trace=None) -> Tensor:
     """Run ``fn`` untaped, and re-run it taped inside its own backward.
 
     Trades one extra forward for dropping every intermediate ``fn`` produced. The
@@ -2985,6 +3094,9 @@ def checkpoint(fn, *inputs: Tensor, params: Sequence[Tensor] = (), offload: bool
         """Re-run the segment on fresh nodes over the same input VALUES and replay its tape
         ONCE, seeding every output in `seeded`, a list of (output index or None, gradient)."""
         from .taped_ttnn import recompute_scope
+        if trace is not None and TRACE_RECOMPUTE and _traced_recompute(
+                trace, fn, inputs, _home, seeded):
+            return
         inner = [Tensor(_home(t), requires_grad=t.requires_grad) if isinstance(t, Tensor) else t
                  for t in inputs]
         with recompute_scope():

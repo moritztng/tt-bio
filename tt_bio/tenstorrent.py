@@ -7470,6 +7470,7 @@ TRACE_REGIONS = {
     "openfold3": {"wormhole_b0": 48 << 20, "blackhole": 64 << 20},    # openfold3 / openbind step
     "esmc": {"wormhole_b0": 221 << 20, "blackhole": 126 << 20},       # ESMC._TRACE_CACHE_MAX live traces
     "af2": {"wormhole_b0": 240 << 20, "blackhole": 240 << 20},        # AF2 extra-MSA + Evoformer stacks, unmeasured
+    "bc2": {"wormhole_b0": 1024 << 20, "blackhole": 1024 << 20},     # BC2 traced block recomputes (autograd.TRACE_RECOMPUTE), unmeasured
 }
 
 

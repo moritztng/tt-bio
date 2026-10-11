@@ -178,17 +178,36 @@ def loadavg():
         return None
 
 
+def gsha(out):
+    """sha256[:16] over every array leaf of the round's result: the eager/trace parity check."""
+    if out is None:
+        return None
+    import hashlib
+    import jax
+    import numpy as np
+    h = hashlib.sha256()
+    for leaf in jax.tree_util.tree_leaves(out):
+        try:
+            h.update(np.asarray(leaf).tobytes())
+        except Exception:                                                     # noqa: BLE001
+            h.update(repr(leaf).encode())
+    return h.hexdigest()[:16]
+
+
 def sequence_gradients(self, *args, **kwargs):
     state["n"] += 1
     loads0, load1 = state["loads"], loadavg()
     if state["n"] != a.at:
         t0 = time.monotonic()
+        out = None
         try:
             if state["n"] == a.profile:
-                return profiled(lambda: real_grads(self, *args, **kwargs))
-            return real_grads(self, *args, **kwargs)
+                out = profiled(lambda: real_grads(self, *args, **kwargs))
+            else:
+                out = real_grads(self, *args, **kwargs)
+            return out
         finally:
-            state["uninstrumented"].append(dict(n=state["n"], s=time.monotonic() - t0,
+            state["uninstrumented"].append(dict(n=state["n"], s=time.monotonic() - t0, gsha=gsha(out),
                                                 profiled=state["n"] == a.profile,
                                                 trunk_loads=state["loads"] - loads0,
                                                 load1=load1, ncpu=os.cpu_count()))
