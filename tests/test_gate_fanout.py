@@ -588,6 +588,36 @@ def test_a_pool_leg_is_one_job_file_that_runs_on_the_chip_the_pool_picks(tmp_pat
     assert gf.parse_workers("g:pool,g:pool", {"g": h}) == [(h, "pool"), (h, "pool")]
 
 
+def test_a_pool_leg_whose_host_rebooted_under_it_is_reported_not_waited_for(tmp_path, monkeypatch):
+    """g114 rebooted under five legs on 2026-10-11 and their runners waited for an exit code that
+    could not come. The job notes the boot id it started under; a new one and no rc ends the wait."""
+    monkeypatch.setattr(gf, "POOL_POLL_S", 0.05)
+    boot = tmp_path / "boot_id"
+    boot.write_text("first\n")
+    monkeypatch.setattr(gf, "BOOT_ID", str(boot))
+    queue = tmp_path / "queue"
+    queue.mkdir()
+    h = gf.Host("g", {"arch": "wh", "card_type": "w", "root": str(tmp_path), "ssh": "localhost",
+                      "lock": str(tmp_path / "chip{card}.lock"), "python": sys.executable,
+                      "pool": {"queue": str(queue), "prio": 0}}, "b" * 40)
+    leg = gf.Leg("ux:x", ["PY", "-c", "pass"], "ux")
+    rdir = tmp_path / "o" / "run1" / "wh" / "ux_x"
+
+    def pool():  # starts the job's first line only (it dies with the host), then the host reboots
+        while not (jobs := list(queue.glob("*.sh"))):
+            time.sleep(0.02)
+        first = jobs[0].read_text().splitlines()[2]
+        subprocess.run(["bash", "-c", first], check=True)
+        assert (rdir / "boot").read_text() == "first\n"
+        boot.write_text("second\n")
+    t = threading.Thread(target=pool)
+    t.start()
+    with open(tmp_path / "leg.log", "w") as f:
+        rc = gf.run_in_pool(h, gf.POOL, leg, str(rdir), f)
+    t.join()
+    assert rc == 1 and gf.REBOOTED in (tmp_path / "leg.log").read_text()
+
+
 def test_a_leg_refused_for_host_load_starts_again_instead_of_failing(tmp_path, monkeypatch):
     monkeypatch.setattr(gf, "LOAD_RETRY_S", 0)
     calls = []

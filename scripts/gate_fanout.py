@@ -144,6 +144,11 @@ CONTENDED_RETRY_S, CONTENDED_TRIES = 300, 3
 #: resets, every chip before it hands it out: g108 chip 0 did this on ladder:boltz2 on 2026-10-10 and
 #: probed OK minutes later. Run such a pool leg once more; a second stop is the leg's result.
 CARD_STUCK = re.compile(r"a fold timed out and its card could not be reset")
+#: A pool job notes the host's boot id when it starts. g114 rebooted under five legs of two gates on
+#: 2026-10-11 19:30Z; they never wrote an exit code and their runners waited for one for over an
+#: hour. A different boot id and no exit code means the leg died with the host: run it once more.
+BOOT_ID = "/proc/sys/kernel/random/boot_id"
+REBOOTED = "rebooted under the leg"
 #: A Galaxy lent out of the pool (spd/galaxy/lend_cfd.sh writes the window's start epoch here and
 #: PAUSEs the pool through it). pool.sh starts no job whose cap reaches the window, so a leg queued
 #: there waits out the whole lend: capacity:opendde of gate cb55af219 sat on .114 for hours on
@@ -1124,7 +1129,7 @@ def pool_job(host: Host, leg: Leg, rdir: str, name: str) -> str:
     cmd = host.command(leg, POOL_CARD, rdir)
     q = shlex.quote
     return (f"#!/bin/bash\n# {name}: gate leg {leg.name} at {host.sha[:12]} (gate_fanout.py)\n"
-            f"mkdir -p {q(rdir)}; rm -f {q(rdir)}/rc\ncmd={q(cmd)}\n"
+            f"mkdir -p {q(rdir)}; rm -f {q(rdir)}/rc; cat {BOOT_ID} > {q(rdir)}/boot\ncmd={q(cmd)}\n"
             f"{{ echo \"##CHIP $CHIP\"; eval \"${{cmd//{POOL_CARD}/$CHIP}}\"; }} > {q(rdir)}/leg.log 2>&1\n"
             f"echo $? > {q(rdir)}/rc.tmp && mv {q(rdir)}/rc.tmp {q(rdir)}/rc\n")
 
@@ -1156,12 +1161,21 @@ def run_in_pool(host: Host, card, leg: Leg, rdir: str, f) -> int:
             f.write(f"# taken back: {host.name}'s pool is lent or paused past this leg's cap\n")
             return WITHDRAWN
         try:
-            r = host.ssh(f"cat {q(rdir)}/rc", capture_output=True, timeout=120)
+            r = host.ssh(f"cat {BOOT_ID}; cat {q(rdir)}/boot 2>/dev/null || echo; cat {q(rdir)}/rc 2>/dev/null",
+                         capture_output=True, timeout=120)
         except subprocess.TimeoutExpired:
             continue        # a busy sshd; the job runs on regardless, ask again
-        if r.returncode == 0 and r.stdout.strip():
-            rc = int(r.stdout.strip())
+        if r.returncode == 255:
+            continue        # the connection, not the job
+        boot, started, rc = (r.stdout.split("\n") + ["", ""])[:3]
+        if rc.strip():
+            rc = int(rc)
             break
+        if started.strip() and started.strip() != boot.strip():
+            QUEUED.pop(job, None)
+            RUNNING.pop(rdir, None)
+            f.write(f"# {host.name} {REBOOTED} (boot id changed) and the leg left no exit code\n")
+            return 1
     QUEUED.pop(job, None)
     RUNNING.pop(rdir, None)
     for _ in range(SSH_LOST_TRIES):
@@ -1229,7 +1243,7 @@ def make_executor(sha: str, out: Path, ledger: Ledger, keys: dict, remote_out: s
         rdir = f"{host.root}/{remote_out}/{host.arch}/{tag}"
         t0 = time.time()
         run = run_in_pool if card == POOL else run_over_ssh
-        lost = full = stuck = contended = 0
+        lost = full = stuck = contended = rebooted = 0
         while True:
             with open(log, "w") as f:
                 f.write(f"# {leg.name} on {host.name}:{card} ({host.cfg['card_type']}) tree {sha}\n")
@@ -1252,6 +1266,9 @@ def make_executor(sha: str, out: Path, ledger: Ledger, keys: dict, remote_out: s
             if rc and CONTENDED.search(text) and contended < CONTENDED_TRIES:
                 contended += 1
                 time.sleep(CONTENDED_RETRY_S)
+                continue
+            if rc and card == POOL and REBOOTED in text and not rebooted:
+                rebooted += 1
                 continue
             if rc and card == POOL and CARD_STUCK.search(text) and not stuck:
                 stuck += 1
