@@ -7748,7 +7748,7 @@ def host_acc_after_refusal(key, x, run):
         if not is_alloc_refusal(exc) or not x.is_allocated():
             raise
         _HOST_ACC_KEYS.add(key)
-        print(f"[tt-bio] DRAM refused {key[0]} with its blocks joined on device; re-running it "
+        print(f"[tt-bio] DRAM refused {key[0]} {key[1]} {x.dtype} with its blocks joined on device; re-running it "
               f"with them joined on the host. The tt-metal 'Out of Memory' line above is expected "
               f"and handled.", file=sys.stderr, flush=True)
     else:
@@ -7817,7 +7817,7 @@ def _acc_concat(acc: list, dim: int, host: bool, memory_config=None, consume=Non
             # largest run was 4096 B short of the upload. The residual input is one whole pair
             # tensor in one piece, so freeing it is what makes the room contiguous.
             ttnn.deallocate(consume)
-        print(f"[tt-bio] DRAM refused a {len(host)}-block device concat; assembling it on the "
+        print(f"[tt-bio] DRAM refused a {len(host)}-block device concat of {tuple(acc[0].shape)} {dtype} on dim {dim}; assembling it on the "
               f"host. The tt-metal 'Out of Memory' line above is expected and handled.",
               file=sys.stderr, flush=True)
         kw = {} if memory_config is None else {"memory_config": memory_config}
