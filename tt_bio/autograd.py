@@ -94,6 +94,19 @@ __all__ = [
 ]
 
 
+#: Run `precise_config` (and AF2's trunk config, `af2.compute_kernel_config`) at HiFi3 instead of
+#: HiFi4. HiFi3 drops only the A_lo*B_lo pass, below a bf16 output's own rounding step
+#: (`tenstorrent.trunk_compute_kernel_config`), and on Wormhole HiFi4 with fp32 accumulation returns
+#: a wrong element now and then: [0, 57, 88, 421] of a 128x128x128 @ 128x512 bf16 product reads
+#: -3.83 against a true 0.163 on every chip, in ttnn.matmul and minimal_matmul alike, while HiFi3
+#: returns the correctly rounded 0.1631 (perf/spd/matmul_spike_repro.py). Read per call.
+PRECISE_HIFI3 = env_flag("TT_BIO_PRECISE_HIFI3", False)
+
+
+def precise_fidelity():
+    return ttnn.MathFidelity.HiFi3 if PRECISE_HIFI3 else ttnn.MathFidelity.HiFi4
+
+
 def precise_config():
     """HiFi4 with fp32 destination accumulation, per ``ComputeKernelConfig::precise()``.
 
@@ -101,10 +114,10 @@ def precise_config():
     ``fp32_dest_acc_en = true``, ``math_approx_mode = false``, ``MathFidelity::HiFi4``,
     ``packer_l1_acc = true``). A backward accumulates over the reduction axis and again
     over fan-in, and bf16 accumulation is how a gradient turns into noise. Every op here
-    defaults to it.
+    defaults to it. `PRECISE_HIFI3` makes it HiFi3.
     """
     return ttnn.WormholeComputeKernelConfig(
-        math_fidelity=ttnn.MathFidelity.HiFi4,
+        math_fidelity=precise_fidelity(),
         math_approx_mode=False,
         fp32_dest_acc_en=True,
         packer_l1_acc=True,

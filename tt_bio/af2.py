@@ -42,6 +42,7 @@ from __future__ import annotations
 import collections
 import functools
 import hashlib
+import os
 
 import torch
 import ttnn
@@ -101,7 +102,11 @@ PAIR_BIAS_ROWBLOCK_BYTES = 128 * 2 ** 20
 # `factor` is 4, so the hidden is 4 pair tensors; at 208 tokens that is 88 MB and fits, and the
 # block is row-local (LayerNorm over channels, two matmuls over channels), so blocking changes
 # nothing a row computes.
-TRANSITION_ROWBLOCK_BYTES = 256 * 2 ** 20
+# 128 MiB, not the 256 MiB this started at: at 480 tokens the hidden is 225 MiB and so ran as one
+# allocation, and that single request is what a 12 GiB Wormhole chip fails in the BindCraft 2
+# Evoformer backward while it still holds 12.49 of 12.885 GB (`state/spd-bc2.md`, the 480 rung of
+# the Wormhole size ladder). Tokens 352-512 block now; 224 and below are unchanged either way.
+TRANSITION_ROWBLOCK_BYTES = int(os.environ.get("TT_BIO_TRANSITION_ROWBLOCK_BYTES", 128 * 2 ** 20))
 
 
 #: The op classes `scripts/af2_port/tap_gate.py --substitute` moves to host torch, one class per
@@ -200,12 +205,14 @@ def af2_pair_masks(mask_2d: torch.Tensor,
 
 
 def compute_kernel_config() -> ttnn.DeviceComputeKernelConfig:
-    """The repo's trunk kernel config: HiFi4 with an fp32 accumulator, per part."""
+    """The repo's trunk kernel config: HiFi4 (HiFi3 under `autograd.PRECISE_HIFI3`) with an fp32
+    accumulator, per part."""
+    from tt_bio.autograd import precise_fidelity
     device = get_device()
     cls = (ttnn.types.WormholeComputeKernelConfig
            if device.arch() == ttnn.Arch.WORMHOLE_B0
            else ttnn.types.BlackholeComputeKernelConfig)
-    return cls(math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=False,
+    return cls(math_fidelity=precise_fidelity(), math_approx_mode=False,
                fp32_dest_acc_en=True, packer_l1_acc=True)
 
 
