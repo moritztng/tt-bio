@@ -7837,7 +7837,10 @@ def host_acc_after_refusal(key, x, run):
         if not is_alloc_refusal(exc) or not x.is_allocated():
             raise
         _HOST_ACC_KEYS.add(key)
-        print(f"[tt-bio] DRAM refused {key[0]} with its blocks joined on device; re-running it "
+        import traceback
+        at = [f for f in traceback.extract_tb(exc.__traceback__) if "/tt_bio/" in f.filename]
+        at = f" at {os.path.basename(at[-1].filename)}:{at[-1].lineno}" if at else ""
+        print(f"[tt-bio] DRAM refused {key[0]} {key[1]} {x.dtype}{at} with its blocks joined on device; re-running it "
               f"with them joined on the host. The tt-metal 'Out of Memory' line above is expected "
               f"and handled.", file=sys.stderr, flush=True)
     else:
@@ -7906,7 +7909,7 @@ def _acc_concat(acc: list, dim: int, host: bool, memory_config=None, consume=Non
             # largest run was 4096 B short of the upload. The residual input is one whole pair
             # tensor in one piece, so freeing it is what makes the room contiguous.
             ttnn.deallocate(consume)
-        print(f"[tt-bio] DRAM refused a {len(host)}-block device concat; assembling it on the "
+        print(f"[tt-bio] DRAM refused a {len(host)}-block device concat of {tuple(acc[0].shape)} {dtype} on dim {dim}; assembling it on the "
               f"host. The tt-metal 'Out of Memory' line above is expected and handled.",
               file=sys.stderr, flush=True)
         kw = {} if memory_config is None else {"memory_config": memory_config}
@@ -9224,12 +9227,50 @@ class TriangleMultiplication(Module):
                 if not is_alloc_refusal(exc):
                     raise
                 row_norm = True
+            if not row_norm and H > SEQ_LEN_MORE_CHUNKING:
+                # Compact large input activation for better large-sequence placement. The compaction
+                # is a second whole copy, and at Protenix-v2's 2048 tokens (a 2 GiB pair) DRAM refused
+                # it; the refusal sent every trimul of the process to the host join, ~14 min per
+                # recycle. Fall to the row blocks instead, as a refused norm does.
+                try:
+                    x_norm_in = ttnn.reallocate(x_norm_in)
+                except RuntimeError as exc:
+                    if not is_alloc_refusal(exc):
+                        raise
+                    if x_norm_in.is_allocated():
+                        ttnn.deallocate(x_norm_in)
+                    x_norm_in, row_norm = None, True
         dram_peak(f"trimul({'end' if self.ending else 'start'}) x_norm_in [z={'x'.join(str(d) for d in x.shape)}]")
         memory_config = _triangle_mul_memory_config(H)
         # Every L1 tensor the channel loop holds is [batch, chunk, H, H], so the width
         # budget has to see the batch a confidence head arrives with, not just H.
         batch = prod(shp[:-3])
         large_seq = memory_config.buffer_type == ttnn.BufferType.DRAM
+        # The output the channel chunks are written into (`_TRIMUL_BACK_INTO`) is a second
+        # pair-sized tensor beside the whole input norm. Made lazily at the first chunk it was
+        # refused at Protenix-v2's 2048 tokens (2 GiB against 165 MiB/bank free after the norm)
+        # and sent every trimul of the process to the host join. Reserve it here, and if it does
+        # not fit beside the norm, drop the norm for the row blocks, which do not hold one.
+        x_out_pre, keep_chunks = None, False
+        if (large_seq and _TRIMUL_BACK_INTO and not _TRIMUL_RAW_CHANNEL_MOVES
+                and not _host_concat(x)):
+            from tt_bio.size_limits import is_alloc_refusal
+            while x_out_pre is None and not keep_chunks:
+                try:
+                    x_out_pre = ttnn.allocate_tensor_on_device(
+                        ttnn.Shape([1, H, H, self._hidden]), _dtype(), ttnn.TILE_LAYOUT,
+                        self.device, memory_config)
+                except RuntimeError as exc:
+                    if not is_alloc_refusal(exc):
+                        raise
+                    if row_norm:
+                        # Not even beside the bare pair (exact mode at 2048: 172 of the 179 MiB per
+                        # bank a 2 GiB tensor needs). Keep the channel chunks on the device as they
+                        # come and let the row-blocked tail join one row block of them at a time.
+                        keep_chunks = True
+                    else:
+                        ttnn.deallocate(x_norm_in)
+                        x_norm_in, row_norm = None, True
         chunk_size = _trimul_chunk_size(H, self._hidden, batch)
         if large_seq:
             # Start inside the byte budget this shape has already been refused above, instead of
@@ -9253,9 +9294,6 @@ class TriangleMultiplication(Module):
         g_out_fused = None
         seq_len_tiles = (H + 31) // 32
         program_config = _triangle_mul_program_config(seq_len_tiles, _trimul_ibw_full(), _trimul_subblock())
-        if not row_norm and H > SEQ_LEN_MORE_CHUNKING:
-            # Compact large input activation for better large-sequence placement.
-            x_norm_in = ttnn.reallocate(x_norm_in)
         # The channel-axis mask, built on first read and not before. `unsqueeze(mask, -1)` is a
         # view only when the last axis is already tile-wide: on a [1,S,S] pair mask it pads that
         # axis from 1 to 32, so it writes a 16.8 MB tensor for a 0.52 MB mask and dispatches a
@@ -9562,11 +9600,17 @@ class TriangleMultiplication(Module):
                         large_seq
                         or (_TRIMUL_BACK_ONE_PASS_L1
                             and _reblock.eligible_back(x_chunk, back_mc)))
-                    into = (one_pass and _TRIMUL_BACK_INTO and large_seq and not host_acc
+                    into = (one_pass and _TRIMUL_BACK_INTO and large_seq and not host_acc and not keep_chunks
                             and _reblock.eligible_back(x_chunk, back_mc))
                     if into:
                         # Each chunk lands in its own channel slice of one output tensor, so the
                         # concat below never runs. Bit-exact: the same bytes in the same order.
+                        if x_out is None and x_out_pre is not None:
+                            if x_out_pre.dtype == x_chunk.dtype:
+                                x_out = x_out_pre
+                            else:
+                                ttnn.deallocate(x_out_pre)
+                            x_out_pre = None
                         if x_out is None:
                             x_out = ttnn.allocate_tensor_on_device(
                                 ttnn.Shape([1, H, H, self._hidden]), x_chunk.dtype,
@@ -9646,6 +9690,9 @@ class TriangleMultiplication(Module):
                 if x_out is not None:
                     ttnn.deallocate(x_out)
                 x_out, c_done = None, 0
+                if x_out_pre is not None:
+                    ttnn.deallocate(x_out_pre)
+                    x_out_pre = None
                 # Drop the interrupted iteration's intermediates: whatever was live
                 # at the throw still holds L1, and the retry must allocate against a
                 # clean slate, not against the corpse of the failed attempt.
@@ -9724,7 +9771,9 @@ class TriangleMultiplication(Module):
                 ttnn.deallocate(g_out_fused)
             if H <= SEQ_LEN_MORE_CHUNKING:
                 TRIMUL_TAIL_ROWS_STATS[1] += 1
-        if rows_tail and host_acc:
+        if x_out_pre is not None:       # reserved, but no chunk took the write-into path
+            ttnn.deallocate(x_out_pre)
+        if rows_tail and (host_acc or keep_chunks):
             # The hidden stays on the host as its channel chunks and the tail uploads one row
             # block of it at a time: uploaded whole it is a second pair-sized tensor beside z.
             dram_peak(f"trimul({'end' if self.ending else 'start'}) channel loop done [z={'x'.join(str(d) for d in x_in.shape)}]")
@@ -9822,7 +9871,8 @@ class TriangleMultiplication(Module):
         host path `add_to_input` adds each block's rows of `x_in` before the block leaves and the
         join frees `x_in` before its upload (`_add_input`).
         """
-        on_host = isinstance(x, list)
+        chunks = isinstance(x, list)
+        on_host = chunks and not isinstance(x[0], ttnn.Tensor)
         # Block s reads only rows s:e of `x_in`, so past `concat_host_bytes()` it overwrites them
         # (`_pair_inplace`) instead of joining the blocks on the host.
         inplace = _pair_inplace(x_in, add_to_input)
@@ -9850,10 +9900,17 @@ class TriangleMultiplication(Module):
             ttnn.deallocate(z_rows)
             if not residual and e - s < H:  # a whole-axis slice is x_in itself
                 ttnn.deallocate(r)
-            x_blk = (ttnn.from_torch(torch.cat([c[:, s:e] for c in x], dim=-1),
-                                     layout=ttnn.TILE_LAYOUT, device=get_device(),
-                                     dtype=ttnn.bfloat16)
-                     if on_host else x[:, s:e])
+            if on_host:
+                x_blk = ttnn.from_torch(torch.cat([c[:, s:e] for c in x], dim=-1),
+                                        layout=ttnn.TILE_LAYOUT, device=get_device(),
+                                        dtype=ttnn.bfloat16)
+            elif chunks:                    # device chunks kept apart (`keep_chunks`)
+                parts = [c[:, s:e] for c in x]
+                x_blk = ttnn.concat(parts, dim=-1)
+                for t in parts:
+                    ttnn.deallocate(t)
+            else:
+                x_blk = x[:, s:e]
             x_rows = ttnn.layer_norm(
                 x_blk,
                 weight=self.out_norm_weight,
@@ -9871,7 +9928,7 @@ class TriangleMultiplication(Module):
                 core_grid=CORE_GRID_MAIN,
             )
             ttnn.deallocate(x_rows)
-            if on_host:
+            if chunks:
                 ttnn.deallocate(x_blk)
             y = ttnn.multiply_(
                 p_block, g_block, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
@@ -9887,7 +9944,8 @@ class TriangleMultiplication(Module):
             else:
                 _acc_append(blocks, y, host_acc)
         if not on_host:
-            ttnn.deallocate(x)
+            for t in (x if chunks else [x]):
+                ttnn.deallocate(t)
         dram_peak(f"trimul({'end' if self.ending else 'start'}) tail blocks done [z={'x'.join(str(d) for d in x_in.shape)}]")
         if inplace:
             return x_in
@@ -14679,12 +14737,26 @@ class OuterProductMean(Module):
         z_cap = _OPM_DRAM_ROW_CAP.get((I, C, D, J))
         if z_cap is not None:
             rows_blk = min(rows_blk, z_cap)
+        # Above the host-join size each `residual + update` row block overwrites its own rows of
+        # the residual (dead once the block is computed), so no join holds the residual, its
+        # blocks and the result at once. Protenix-v2 at 2048 tokens (c_z 256) was refused that
+        # 2 GiB join on every MSA block and sent it to the host. Same bytes in the same place.
+        # `done` lets a narrowed retry resume after the rows already written.
+        inplace = residual is not None and _pair_inplace(residual, True)
+        done = [0]
 
         def run(rows_blk):
-            if rows_blk >= I:
+            if rows_blk >= I and not done[0]:
                 OPM_ROW_STATS["whole"] += 1
                 return outer_product_mean(0, I)
             OPM_ROW_STATS["blocked"] += 1
+            if inplace:
+                for i in range(done[0], I, rows_blk):
+                    i1 = min(i + rows_blk, I)
+                    blk = outer_product_mean(i, i1)
+                    _write_rows(residual, ttnn.reshape(blk, (1, *blk.shape)), i)
+                    done[0] = i1
+                return ttnn.reshape(residual, tuple(residual.shape)[1:])
             # One concat at the end, not a running one: growing the accumulator a block at a
             # time re-allocates a nearly whole pair tensor per block, and boltz2 at 1792 tokens
             # died on the sixth of those (704643072 B) with 227 MiB per bank free. _acc_concat
@@ -14716,10 +14788,10 @@ class OuterProductMean(Module):
                 depth_parts = [(ttnn.reallocate(acp), ttnn.reallocate(bcp), Sc)
                                for acp, bcp, Sc in depth_parts]
 
-        z = _with_dram_narrowing(
+        z = _inplace_guarded("outer product mean", lambda: _with_dram_narrowing(
             run, rows_blk,
             lambda b: _dram_narrow(_OPM_DRAM_ROW_CAP, (I, C, D, J), b, OPM_ROW_STATS),
-            compact=compact)
+            compact=compact))
         if depth_parts is None:
             ttnn.deallocate(a)
             ttnn.deallocate(b)
