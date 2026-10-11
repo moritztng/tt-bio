@@ -42,7 +42,18 @@ from tt_bio.rf3.remap import (PAIRFORMER_DIMS, PAIRFORMER_FLAGS, remap_msa_modul
 from tt_bio.rf3.sampler import DiffusionSampler, Draws
 from tt_bio.rf3.template import TemplateEmbedder
 from tt_bio.rf3.token_dit import TokenDiffusionTransformer
+from tt_bio import tenstorrent as _T
 from tt_bio.tenstorrent import CORE_GRID_MAIN, Module, Pairformer, WeightScope, dram_peak
+
+
+# RF3's precision levers per mode (`tenstorrent.model_levers`). RF3 builds and folds inside
+# `lever_scope`, so the process-wide `--fast` switch (`tenstorrent._FAST_MODE`: bfp8 activations and
+# weights, narrower chunks) is off inside it, as in Boltz-2 and OpenFold3. At 512 aa that switch
+# folded slower than normal mode (p150a 54.40 vs 45.21 s): its bfp8 operands are refused by every
+# fused kernel the normal fold runs on (triangle-attention SDPA, the gated channel move), so fast
+# fell back to the stock ttnn ops. Fast is the normal fold until a lever set is graded for RF3.
+LEVERS_NORMAL = frozenset()
+LEVERS_FAST = frozenset()
 
 
 def _pairformer_stack(scope: WeightScope, n_blocks: int, cfg, prefix: str
@@ -239,6 +250,14 @@ class RF3(Module):
                  sigma_data: float = 16.0, num_timesteps: int = 200,
                  with_confidence: bool = True):
         super().__init__(state_dict, compute_kernel_config)
+        self._levers = _T.model_levers(LEVERS_NORMAL, LEVERS_FAST)
+        with _T.lever_scope(self._levers):
+            self._build(compute_kernel_config, n_pairformer_blocks, n_msa_blocks,
+                        n_dit_blocks, n_confidence_layers, sigma_data, num_timesteps,
+                        with_confidence)
+
+    def _build(self, compute_kernel_config, n_pairformer_blocks, n_msa_blocks, n_dit_blocks,
+               n_confidence_layers, sigma_data, num_timesteps, with_confidence):
         fi = self.scope("feature_initializer")
         self.feature_initializer = FeatureInitializer(
             fi, compute_kernel_config,
@@ -259,6 +278,7 @@ class RF3(Module):
         self.sampler = DiffusionSampler(num_timesteps=num_timesteps,
                                         sigma_data=sigma_data)
 
+    @_T.under_lever_scope
     def trunk(self, host: HostInputs, n_recycles: int, stop_after_first=None,
               progress_fn=None):
         """Feature init followed by `n_recycles` weight-shared trunk passes.
@@ -291,6 +311,7 @@ class RF3(Module):
                 break
         return s_inputs, s, z
 
+    @_T.under_lever_scope
     def predict(self, f: dict, *, n_recycles: int | None = None,
                 diffusion_batch_size: int = 1, rep_atom_idxs: torch.Tensor | None = None,
                 coord_to_be_noised: torch.Tensor | None = None,
@@ -373,6 +394,7 @@ class RF3(Module):
             dram_peak(f"confidence done [D={diffusion_batch_size}]")
         return out
 
+    @_T.under_lever_scope
     def mean_plddt_no_structure(self, s_inputs, s, z,
                                 is_real_atom: torch.Tensor) -> float:
         """Mean pLDDT from the confidence head with no structure fed to it.
@@ -387,6 +409,7 @@ class RF3(Module):
             logits = logits[0]
         return float(rf3_confidence.atomwise_plddt(logits, is_real_atom).mean())
 
+    @_T.under_lever_scope
     def confidence(self, s_inputs, s, z, x_pred: torch.Tensor,
                    rep_atom_idxs: torch.Tensor, per_sample=None) -> dict:
         """The four confidence heads over the diffusion batch, stacked on dim 0.
