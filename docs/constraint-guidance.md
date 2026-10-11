@@ -108,9 +108,9 @@ Unguided, tt-bio and upstream on GPU agree on the same targets (success 0.19 vs 
 DockQ 0.160 vs 0.162). On a smaller set of 8 targets, one or two wrong pairs out of four drop
 contact success to 0.13, below the unguideGuidance itself adds 1 to 3 % to the fold on a Wormhole chip at 1000 MHz, measured against an
 unguided fold with the same fp32 diffusion: 248 tokens +1.2 to +2.6 %, Fv 1a14 (612 tokens)
-+0.7 to +1.0 %, Fab 9xqn (650 tokens) +0.6 to +1.1 %, 894 tokens +0.3 to +0.8 %. It runs on
-the host and takes 1 to 4 seconds per fold on either architecture, about 4 % of a 612-token
-fold on a Blackhole p150a at 1350 MHz. The first guided fold after an install compiles the
++0.7 to +1.0 %, Fab 9xqn (650 tokens) +0.6 to +1.1 %, 894 tokens +0.3 to +0.8 %. On a
+Blackhole p150a at 1350 MHz it adds 1.8 to 2.0 % on 1a14 and 2.0 to 3.0 % on 9xqn. It runs on
+the host and takes 1 to 4 seconds per fold on either architecture. The first guided fold after an install compiles the
 guidance kernels once, about 15 seconds.
 
 both; the Blackhole fold around it is twice as fast.

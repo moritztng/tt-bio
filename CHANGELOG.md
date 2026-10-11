@@ -79,7 +79,7 @@ Protenix-v2 is 1.6x faster on Wormhole and OpenDDE 1.3x, with structures inside 
   across inputs that differ only in their constraint. Without the flag folds are bit-identical to
   before. On 32 held-out antibody-antigen complexes the unguided model gets wrong, top-1 success
   goes from 0.16 to 0.81 with five true contact pairs and to 0.31 with five epitope residues (upstream reports
-  0.78 and 0.33). Guidance adds 1 to 3 % to a fold on Wormhole and about 4 % on Blackhole, on top of
+  0.78 and 0.33). Guidance adds 1 to 3 % to a fold on Wormhole and 2 to 3 % on Blackhole, on top of
   the fp32 diffusion guided folds use.
   `examples/tfg/` carries upstream's four cases (Fv, VHH, two Fabs) in contact, pocket and unconstrained form.
   [`docs/constraint-guidance.md`](docs/constraint-guidance.md).
