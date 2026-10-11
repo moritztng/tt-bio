@@ -12,7 +12,9 @@ export LD_LIBRARY_PATH=$TT_METAL_HOME/build_Release/lib:$B/syslib
 export TT_METAL_LOGS_PATH=$RUN/tt-logs TT_VISIBLE_DEVICES=$CHIP TT_BIO_LEASE_HOLDER=spd-gap-esmf
 export TT_METAL_DEVICE_PROFILER=1 TT_METAL_PROFILER_MID_RUN_DUMP=1 TT_METAL_PROFILER_CPP_POST_PROCESS=1 \
        TT_METAL_PROFILER_DISABLE_DUMP_TO_FILES=1 TT_METAL_PROFILER_DISABLE_PUSH_TO_TRACY=1
-export TT_METAL_PROFILER_DIR=$RUN/profiler TT_METAL_CACHE=$RUN/cache XDG_CACHE_HOME=$RUN/xdg
+# Fresh profiler dir and kernel cache per run (zone-hash collisions, see run.sh). XDG_CACHE_HOME stays: it
+# holds the HF hub cache, and moving it re-downloads ESMC-6B.
+export TT_METAL_PROFILER_DIR=$RUN/profiler TT_METAL_CACHE=$RUN/cache
 mkdir -p "$RUN"
 say(){ echo "$(date -u +%FT%TZ) $*" >> "$RUN/run.log"; }
 G="release_gate.py|gate_fanout.py|perf_ab"
@@ -21,7 +23,7 @@ exec 9> "$LOCK"; say "waiting for flock $LOCK"; flock -w ${WAIT:-43200} 9 || { s
 cd "$TREE"; say "start card $CHIP tree $(cat TREE_SHA 2>/dev/null) arms $ARMS"
 for na in $ARMS; do
   N=${na%%=*}; A=${na#*=}; M=${A%%:*}; FAST=; [ "${A#*:}" = fast ] && FAST=--fast
-  rm -rf "$TT_METAL_PROFILER_DIR" "$TT_METAL_CACHE" "$XDG_CACHE_HOME"; mkdir -p "$TT_METAL_CACHE"
+  rm -rf "$TT_METAL_PROFILER_DIR" "$TT_METAL_CACHE"; mkdir -p "$TT_METAL_CACHE"
   say "arm $N ($A) start, load $(cut -d' ' -f1-3 /proc/loadavg)"
   ( while :; do for n in /sys/class/tenstorrent/tenstorrent\!*; do printf '%s\t%s\t%s\n' "$(date +%s)" "${n##*!}" "$(cat $n/tt_aiclk 2>/dev/null)"; done; sleep 1; done ) >> "$RUN/$N.aiclk.tsv" 2>/dev/null &
   S=$!
@@ -29,5 +31,5 @@ for na in $ARMS; do
   rc=$?; kill $S 2>/dev/null
   say "arm $N end rc=$rc"
 done
-rm -rf "$TT_METAL_CACHE" "$XDG_CACHE_HOME"
+rm -rf "$TT_METAL_CACHE"
 say "end"
