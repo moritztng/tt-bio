@@ -3161,12 +3161,15 @@ class LocalTokenTransformer(Module):
 
     def run_device(self, a, s, z, additive_mask):
         n_key = align_tile(int(a.shape[1]))
+        B = int(z.shape[0])
         if (_DIT_SDPA and self.dtype == ttnn.bfloat16
-                and 2 * self.N_HEAD * len(self.blocks) * n_key * n_key <= _DIT_SDPA_STACK_BYTES):
+                and 2 * B * self.N_HEAD * len(self.blocks) * n_key * n_key <= _DIT_SDPA_STACK_BYTES):
             masks = self._dit_sdpa_masks(z, additive_mask, n_key)
             H = self.N_HEAD
             for i, block in enumerate(self.blocks):
-                m = ttnn.slice(masks, [0, H * i, 0, 0], [1, H * (i + 1), n_key, n_key])
+                # Every design in the batch keeps its own pair bias: slicing batch [0, 1) here gave
+                # all of them design 0's, and 7 of 8 --fast designs at batch 8 came out clashing.
+                m = ttnn.slice(masks, [0, H * i, 0, 0], [B, H * (i + 1), n_key, n_key])
                 a = block(a, s, z, additive_mask, sdpa_mask=m)
             ttnn.deallocate(masks)
             return a
