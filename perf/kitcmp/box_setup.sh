@@ -100,12 +100,18 @@ case $M in
     # upstream re-published ESMC-300M after the pin; fetch each pinned snapshot by revision so install only checks digests
     python - <<'PY'
 import json
+from pathlib import Path
 from huggingface_hub import snapshot_download
+from huggingface_hub.constants import HF_HUB_CACHE
 p = json.load(open('stock/PINS.json'))
 for v in p['variants'].values():
     if isinstance(v, dict) and 'hf_repo' in v:
         r = v['hf_repo']
-        print(snapshot_download(r, revision=p['weights'][r]['snapshot_commit'], allow_patterns=['*.json', '*.safetensors']))
+        c = p['weights'][r]['snapshot_commit']
+        print(snapshot_download(r, revision=c, allow_patterns=['*.json', '*.safetensors']))
+        # ESMC.from_pretrained asks for the default revision; offline that is refs/main, so point it at the pin
+        ref = Path(HF_HUB_CACHE) / f"models--{r.replace('/', '--')}" / "refs" / "main"
+        ref.parent.mkdir(parents=True, exist_ok=True); ref.write_text(c)
 PY
     ;;
   protenix_v2) pip install -q --no-deps stock/protenix-2.0.0-py3-none-any.whl; export PROTENIX_ROOT_DIR=/weights/protenix; W=$PROTENIX_ROOT_DIR;;
