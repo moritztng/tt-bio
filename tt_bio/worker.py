@@ -2634,6 +2634,7 @@ def _execute_rfd3_job_inprocess(
             partial_t=cfg.get("partial_t"),
             cfg_scale=cfg.get("cfg_scale"),
             fp32_residual=bool(cfg.get("fp32_residual")),
+            fast=bool(cfg.get("fast")),
             num_designs=num_designs,
             batch_size=int(cfg.get("batch_size") or 8),
             verbose=False,

@@ -163,6 +163,10 @@ tt-bio design specs.json --model rfd3 --from_pdb --out_dir ./designs \
 Two more options: `--spec a,b` runs only those spec ids from the inputs file, and `--fp32_residual` keeps the
 residual stream of the DiT, encoder and token encoder in fp32 instead of bf16 (off by default).
 
+`--fast` runs the atom attention as one fused attention kernel instead of materialising the full score
+matrix. It runs the same diffusion steps and recycles; only the kernels change, so a design moves
+slightly against the default run at the same seed.
+
 ## Checkpoint
 
 The RFD3 checkpoint downloads automatically on first use, straight from the

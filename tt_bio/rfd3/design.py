@@ -38,7 +38,7 @@ from typing import Mapping, Sequence
 
 import torch
 
-from .model import (build_diffusion_module, build_token_initializer,
+from .model import (build_diffusion_module, build_token_initializer, set_fast,
                     set_tune_matmul_for_atoms)
 from .input import InputSpecification
 from .sampler import RFD3Sampler
@@ -346,6 +346,7 @@ def run_design(
     devices: Sequence[int] | None = None,
     host_threads: int | None = None,
     device_visible: str = "0",
+    fast: bool = False,
     verbose: bool = True,
 ) -> list[DesignResult]:
     """Run on-device diffusion designs for a set of InputSpecifications.
@@ -364,6 +365,8 @@ def run_design(
         protein-binder/motif-scaffold case, see scripts/rfd3_port/parity_artifacts/).
         If False, fall back to the captured golden `f` bridge (p9).
     num_timesteps, seed, partial_t, cfg_scale, fp32_residual : sampler knobs.
+    fast : run the denoiser's fast set (`tt_bio.rfd3.model.set_fast`): same steps and recycles,
+        lower-precision kernels graded against the fast accuracy bar.
     num_designs : number of independent designs to produce per spec (each with a
         different noise seed = ``seed + design_idx``). Output files are
         ``<spec_id>.cif`` when ``num_designs == 1`` (back-compat) else
@@ -403,7 +406,7 @@ def run_design(
                                  partial_t=partial_t, cfg_scale=cfg_scale,
                                  fp32_residual=fp32_residual, batch_size=batch_size,
                                  multi_designs=num_designs > 1, devices=devices,
-                                 host_threads=host_threads,
+                                 host_threads=host_threads, fast=fast,
                                  verbose=verbose)
     if devices and "TT_VISIBLE_DEVICES" not in os.environ:
         # Single card, in-process path: get_device() opens TT_BIO_LOGICAL_DEVICE_ID
@@ -414,7 +417,7 @@ def run_design(
                             from_pdb=from_pdb, num_timesteps=num_timesteps,
                             partial_t=partial_t, cfg_scale=cfg_scale,
                             fp32_residual=fp32_residual, batch_size=batch_size,
-                            multi_designs=num_designs > 1, verbose=verbose)
+                            multi_designs=num_designs > 1, fast=fast, verbose=verbose)
 
 
 def run_design_via_controller(
@@ -431,6 +434,7 @@ def run_design_via_controller(
     batch_size: int = 8,
     run_id: str | None = None,
     owner: str | None = None,
+    fast: bool = False,
     verbose: bool = True,
 ) -> list[DesignResult]:
     """Fleet twin of :func:`run_design`: shard the specs across a controller's
@@ -482,6 +486,7 @@ def run_design_via_controller(
         "partial_t": partial_t,
         "cfg_scale": cfg_scale,
         "fp32_residual": bool(fp32_residual),
+        "fast": bool(fast),
         "batch_size": int(batch_size),
         "specs": [{"name": f"{sid}.json", "content": json.dumps({sid: dict(specs[sid])})}
                   for sid in specs],
@@ -562,12 +567,13 @@ def run_design_via_controller(
 
 def _run_design_jobs(jobs, specs, out_dir, *, checkpoint_dir, from_pdb, num_timesteps,
                      partial_t, cfg_scale, fp32_residual, batch_size,
-                     multi_designs,
+                     multi_designs, fast=False,
                      verbose=True) -> list[DesignResult]:
     """In-process: load weights once, run every (spec_id, design_idx, seed) job
     sequentially on this card. Featurize + TokenInitializer run once per spec and
     are reused across that spec's design_idx draws (they don't depend on the
     noise seed); only the sampler re-runs per design."""
+    set_fast(fast)
     cap = Path(checkpoint_dir)
     dm_weights = torch.load(cap / "diffusion_module.real_weights.pt", map_location="cpu", weights_only=True)
     ti_weights = torch.load(cap / "token_initializer.real_weights.pt", map_location="cpu", weights_only=True)
@@ -676,7 +682,7 @@ def _design_out_path(out_dir, spec_id, design_idx, *, multi: bool) -> Path:
 def _run_design_fanout(jobs, specs, out_dir, *, checkpoint_dir, from_pdb, num_timesteps,
                        partial_t, cfg_scale, fp32_residual, batch_size,
                        multi_designs, devices, verbose,
-                       host_threads=None) -> list[DesignResult]:
+                       host_threads=None, fast=False) -> list[DesignResult]:
     """Data-parallel fan-out: one pinned subprocess per physical card, sharding
     the (spec_id, design_idx) jobs round-robin. Reuses the embed/predict
     subprocess-per-card pattern. Each child runs ``_run_design_shard``."""
@@ -703,7 +709,7 @@ def _run_design_fanout(jobs, specs, out_dir, *, checkpoint_dir, from_pdb, num_ti
                                  checkpoint_dir=str(checkpoint_dir), from_pdb=from_pdb,
                                  num_timesteps=num_timesteps, partial_t=partial_t,
                                  cfg_scale=cfg_scale, fp32_residual=fp32_residual,
-                                 batch_size=batch_size,
+                                 batch_size=batch_size, fast=fast,
                                  multi_designs=multi_designs), fp)
             env = {**os.environ, **thread_cap, "TT_VISIBLE_DEVICES": str(dev),
                    "TT_BIO_LEASE_HOLDER": f"worker:design-fanout-{dev}"}
@@ -748,6 +754,7 @@ def _run_design_shard(in_path: str, out_path: str) -> None:
                            partial_t=cfg["partial_t"], cfg_scale=cfg["cfg_scale"],
                            fp32_residual=cfg["fp32_residual"],
                            batch_size=cfg["batch_size"],
-                           multi_designs=cfg["multi_designs"], verbose=False)
+                           multi_designs=cfg["multi_designs"], fast=cfg.get("fast", False),
+                           verbose=False)
     with open(out_path, "wb") as fp:
         pickle.dump(res, fp)

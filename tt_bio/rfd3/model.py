@@ -343,6 +343,19 @@ def set_gathered_softmax(on):
 PZSTATS = [0, 0]
 
 
+# `--fast` for RFD3: the levers that pass the fast accuracy bar but not (yet) the normal one. Same
+# steps, recycles and designs; only kernels change. Each flag keeps its own env switch for A/B work,
+# and set_fast(False) restores exactly what the environment asked for.
+_FAST_SET = {"_ATOM_SDPA": "RFD3_ATOM_SDPA"}
+
+
+def set_fast(on):
+    """Turn RFD3's fast set on, or back to the environment's defaults. Read per call, not at import."""
+    g = globals()
+    for name, env in _FAST_SET.items():
+        g[name] = True if on else env_flag(env, False)
+
+
 def set_process_z_collapse(on):
     """Toggle the collapsed process_z from a screen without going through the environment."""
     global _PROCESS_Z_COLLAPSE
