@@ -2654,6 +2654,24 @@ def _sdpa32(q, k, v, mask, scale: float) -> ttnn.Tensor:
     return out
 
 
+def _sdpa32_fused(qkv, mask, scale: float, heads: int) -> ttnn.Tensor:
+    """`_sdpa32` read straight out of a fused `[S, 1, N, 3 * heads * DH]` qkv projection, written
+    `[S, 1, N, heads * DH]`: what nlp_create_qkv_heads, `_sdpa32` and nlp_concat_heads give, as one
+    program and the same arithmetic (`sdpa_generic.qkv_fused_kernel_dir`)."""
+    from . import sdpa_generic as SG
+    S, _, n, w = (int(d) for d in qkv.shape)
+    assert n % 128 == 0 and int(mask.shape[-1]) == n, ("_sdpa32 wants the token axis padded by sdpa32_rows", qkv.shape, mask.shape)
+    chunk = 256 if n % 256 == 0 else 128
+    dev = qkv.device()
+    k_chunk = 32 if dev.arch() == ttnn.Arch.WORMHOLE_B0 else chunk
+    g = dev.compute_with_storage_grid_size()
+    out = ttnn.allocate_tensor_on_device(ttnn.Shape([S, 1, n, w // 3]), ttnn.float32,
+                                         ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG)
+    SG.sdpa(dev, qkv, qkv, qkv, mask, out, chunk, k_chunk, (g.x, g.y), _SDPA32_CKC, scale,
+            qkv_fused=heads)
+    return out
+
+
 def fused_sdpa(q, k, v, attn_mask=None, *, scale: float, **kw):
     """`ttnn.transformer.scaled_dot_product_attention`, never unmasked. Every tt_bio call of the
     fused op goes through here; `tests/test_fused_sdpa_single_site.py` fails on one that does not.

@@ -80,6 +80,11 @@ HEAD_DIM = 48
 PADDED_HEAD_DIM = 64  # -48 % 32 = 16 -> 64 (tile-aligned)
 N_BLOCKS = 24
 
+# OF3_DIT_QKV_DIRECT=1 (measurement switch, off): under dit_sdpa32 the attention reads q, k and v
+# out of the fused projection and writes the concatenated heads itself, so nlp_create_qkv_heads and
+# nlp_concat_heads (63 us a block on Blackhole, 0.3 s a 512-token fold) do not run.
+QKV_DIRECT = os.environ.get("OF3_DIT_QKV_DIRECT", "0") == "1"
+
 # Pair shapes whose single-pass pair-bias projection DRAM refused, and the block they settled at.
 _PAIR_BIAS_ROWS_REFUSED: dict = {}
 
@@ -327,13 +332,22 @@ class _DiTBlock(Module):
         qkv = self._lin_lp(a_ln, self.qkv_w, lp.qkv if lp and self.sdpa32 else out_dt,
                            bias=self.qkv_b)                              # [1, N, 3072]
         qkv = ttnn.unsqueeze(qkv, 1)
-        q, k, v = ttnn.experimental.nlp_create_qkv_heads(
-            qkv, num_heads=N_HEADS, num_kv_heads=N_HEADS, transpose_k_heads=False)
-        ttnn.deallocate(qkv)
-        o = (self._attend32 if self.sdpa32 else self._attend)(q, k, v, bias, cache)
-        S, n = o.shape[0], o.shape[2]
-        o = ttnn.reshape(ttnn.experimental.nlp_concat_heads(o),
-                         (S, n, N_HEADS * PADDED_HEAD_DIM))  # [S, N, 1024], pad lanes zero
+        if self.sdpa32 and QKV_DIRECT:
+            # The heads read and written in place inside the one attention program.
+            o = _T._sdpa32_fused(qkv, bias, HEAD_DIM ** -0.5, N_HEADS)
+            ttnn.deallocate(qkv)
+            if cache is None:
+                ttnn.deallocate(bias)
+            S, n = o.shape[0], o.shape[2]
+            o = ttnn.reshape(o, (S, n, N_HEADS * PADDED_HEAD_DIM))
+        else:
+            q, k, v = ttnn.experimental.nlp_create_qkv_heads(
+                qkv, num_heads=N_HEADS, num_kv_heads=N_HEADS, transpose_k_heads=False)
+            ttnn.deallocate(qkv)
+            o = (self._attend32 if self.sdpa32 else self._attend)(q, k, v, bias, cache)
+            S, n = o.shape[0], o.shape[2]
+            o = ttnn.reshape(ttnn.experimental.nlp_concat_heads(o),
+                             (S, n, N_HEADS * PADDED_HEAD_DIM))  # [S, N, 1024], pad lanes zero
         # Query gate (flat == per-head: g.view(N,H,d) * o(H,N,d) == flat multiply).
         # The gate at o's format: a multiply whose b carries a fused sigmoid is wrong on mixed
         # operand formats (Protenix-v2's dit_mm16 grade, perf/spd_difflin/k1_check.py).
