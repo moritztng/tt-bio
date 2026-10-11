@@ -6,6 +6,9 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 ## [Unreleased]
 
 ### Changed
+- **RoseTTAFold3 and BoltzGen `--fast` are no longer slower than normal mode.** `--fast` now runs the normal
+  fold for both, with identical output. At 512 aa on a Blackhole p300c, RoseTTAFold3 `--fast` takes 37.6 s
+  instead of 46.8 s and BoltzGen 34.1 s instead of 38.6 s per design.
 - **Triangle multiplication's gate sigmoid is a polynomial inside the fused kernels**, max error 3e-4. On
   Wormhole at 1000 MHz the 730-token Protenix-v2 fold spends 1.3 s less on the device in normal mode and 4.0 s
   less in `--fast`. Protenix-v2 passes the accuracy grade on Wormhole and Blackhole in both modes. Boltz-2

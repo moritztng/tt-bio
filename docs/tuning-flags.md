@@ -660,6 +660,12 @@ fast set folds the same input in 123.4 s, and 168.3 s instead of 181.6 s at 1024
 -0.0002, DockQ -0.004 with its interval reaching zero, docking success 24 of 44 in both modes, and a
 median same-seed top-pose deviation of 1.29 A against 1.70 A between two seeds of normal mode.
 
+**RoseTTAFold3 and BoltzGen** take a lever set per mode too, and both sets are empty for now, so
+`--fast` runs the normal fold. Their older block-fp8 fast path was slower than normal mode at 512 aa
+(Blackhole p150a, 1350 MHz: RoseTTAFold3 54.4 s against 45.2 s, BoltzGen 44.5 against 38.4 s per
+design), because the fused triangle-attention and channel-move kernels refuse block-fp8 operands and
+the fold fell back to the stock ops.
+
 ## `TT_BIO_LNBW_FUSED`
 
 Default: off, training only.

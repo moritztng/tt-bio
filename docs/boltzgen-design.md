@@ -71,7 +71,7 @@ tt-bio design examples/binder.yaml --out_dir existing/ --steps analysis,filterin
 | `--config STEP key=val` | none | Override per-stage config (e.g. `--config design sampling_steps=200`); an unknown key is refused by name |
 | `--devices` | all cards | Restrict to specific cards (e.g. `0,2`) |
 | `--seed` | fresh draw | Same spec, options, card count and seed give byte-identical designs. On several cards, shard *i* runs at seed + *i* |
-| `--fast` | `False` | Use a lower-precision path for some ops (slightly lower precision, faster) |
+| `--fast` | `False` | Runs the normal design for now: the old lower-precision path was slower at 512 aa ([why](tuning-flags.md#tt_bio_levers)) |
 | `--reuse` | `False` | Keep the designs already in `--out_dir` and generate only as many new ones as `--num_designs` still needs |
 | `--cache` | `~/.boltz/boltzgen` | Cache for downloaded weights |
 | `--debug` | `False` | Disable live display; show raw stage output |
