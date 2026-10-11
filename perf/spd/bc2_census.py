@@ -50,6 +50,9 @@ ap.add_argument("--replay", type=int, default=0, help="extra back-to-back replay
 ap.add_argument("--wrap", choices=("census", "all"), default="all",
                 help="census: census.py's op list only; all: every public ttnn callable, including "
                      "ttnn.experimental, ttnn.transformer and the host<->device transfers")
+ap.add_argument("--dump", type=int, default=0,
+                help="save the first N gradient calls' results to dump_<n>.npz, so two arms can be compared "
+                     "by magnitude when their digests differ")
 ap.add_argument("--profile", type=int, default=3,
                 help="run this (uninstrumented) gradient call under cProfile; 0 = off")
 a = ap.parse_args()
@@ -194,6 +197,19 @@ def gsha(out):
     return h.hexdigest()[:16]
 
 
+def dump(out, path):
+    """Every array leaf of a round's result, in tree order, as float64 (leaf_<i> in an npz)."""
+    import jax
+    import numpy as np
+    leaves = {}
+    for i, leaf in enumerate(jax.tree_util.tree_leaves(out)):
+        try:
+            leaves[f"leaf_{i}"] = np.asarray(leaf, dtype=np.float64)
+        except Exception:                                                     # noqa: BLE001
+            pass
+    np.savez(path, **leaves)
+
+
 def sequence_gradients(self, *args, **kwargs):
     state["n"] += 1
     loads0, load1 = state["loads"], loadavg()
@@ -207,6 +223,8 @@ def sequence_gradients(self, *args, **kwargs):
                 out = real_grads(self, *args, **kwargs)
             return out
         finally:
+            if out is not None and state["n"] <= a.dump:
+                dump(out, a.out / f"dump_{state['n']}.npz")
             state["uninstrumented"].append(dict(n=state["n"], s=time.monotonic() - t0, gsha=gsha(out),
                                                 profiled=state["n"] == a.profile,
                                                 trunk_loads=state["loads"] - loads0,
