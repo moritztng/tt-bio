@@ -180,14 +180,19 @@ each of which left the card idle. A 685-residue design takes about 14 % less tim
 with CA-CA geometry, chain breaks, clashes and amino-acid diversity unchanged. `RFD3_RESIDENT_STEP=0`
 restores the round trips.
 
-`--fast` additionally keeps the pair transitions' hidden activations in 8-bit block floating point,
-collapses the pair-feature projection that does not change between steps into a table lookup, and runs the
-token transformer's attention as one fused kernel. It runs the same diffusion steps and recycles; only the
-kernels change. A 685-residue design takes about 10 % less time than the default. Graded over four seeds
-at 685 and 418 residues against the exact chain: CA-CA geometry, chain breaks and amino-acid diversity
-match, clashes are in the same range (20 to 28 against 23 to 48 at 685 residues, 52 to 127 against 51 to
-73 at 418), and a design moves 3.4 to 13.5 A at the same seed, inside what changing the seed does (13 to
-19 A).
+The token transformer's attention also runs as one fused kernel, with each head's 48 channels padded to 64
+in the weights so the kernel can take them. A 685-residue design takes about 15 % less time (72.7 to 61.4 s
+on a Blackhole p300c). Graded over four seeds at 685 and 418 residues on Blackhole and on Wormhole: a design
+moves 2.9 to 15.2 A at the same seed against 13 to 20 A for a seed change, and CA-CA geometry, chain breaks,
+clashes and amino-acid diversity match the exact chain. `RFD3_DIT_SDPA=0` restores the older attention.
+
+`--fast` additionally keeps the pair transitions' hidden activations in 8-bit block floating point and
+collapses the pair-feature projection that does not change between steps into a table lookup. It runs the
+same diffusion steps and recycles; only the kernels change. A 685-residue design takes about 13 % less time
+than the default (60.6 to 52.5 s on a Blackhole p300c). Graded over four seeds at 685 and 418 residues on
+Blackhole and Wormhole against the exact chain: a design moves 3.8 to 15.4 A at the same seed, inside what
+changing the seed does (13 to 20 A), and CA-CA geometry, chain breaks, clashes and amino-acid diversity
+match.
 
 ## Checkpoint
 

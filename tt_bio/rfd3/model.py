@@ -348,10 +348,12 @@ _HIFI2 = env_flag("RFD3_HIFI2", False)
 # fused SDPA, the way Protenix's and Boltz-2's token DiTs run it (`dit_sdpa`): the [1,16,685,704]
 # fp32 scores, their fused bias add and the softmax+PV pass become one kernel that never writes a
 # score. The mask is (pair bias + neighbour mask) with the bias pre-scaled by sqrt(head_dim), same
-# as the atom SDPA. Online softmax changes the reduction order, so it is graded on accuracy: in
-# --fast (4 seeds at 685 and 418 tokens, quality equal to exact), off in the default path. The
+# as the atom SDPA. Online softmax changes the reduction order, so it is graded on accuracy: with the
+# heads padded to 64 in the weights it saves 15 % of a 685-token design (p300c, 72.7 -> 61.4 s) and
+# grades inside the seed floor with design quality equal to exact on Blackhole and Wormhole (4 seeds
+# at 685 and 418 tokens each). On by default; RFD3_DIT_SDPA=0 restores the materialised scores. The
 # mask-size cap is the atom SDPA's.
-_DIT_SDPA = env_flag("RFD3_DIT_SDPA", False)
+_DIT_SDPA = env_flag("RFD3_DIT_SDPA", True)
 DIT_SDPA_CALLS = [0]
 # The DiT builds all 18 blocks' masks in one pass while the stack fits under this many bytes
 # (bf16, 18 x 16 heads x n_key^2: 1317 tokens); above it each block builds its own.
@@ -396,8 +398,7 @@ PZSTATS = [0, 0]
 # `--fast` for RFD3: the levers that pass the fast accuracy bar but not (yet) the normal one. Same
 # steps, recycles and designs; only kernels change. Each flag keeps its own env switch for A/B work,
 # and set_fast(False) restores exactly what the environment asked for.
-_FAST_SET = {"_TRANSITION_B8": "RFD3_TRANSITION_B8", "_PROCESS_Z_COLLAPSE": "RFD3_PROCESS_Z_COLLAPSE",
-             "_DIT_SDPA": "RFD3_DIT_SDPA"}
+_FAST_SET = {"_TRANSITION_B8": "RFD3_TRANSITION_B8", "_PROCESS_Z_COLLAPSE": "RFD3_PROCESS_Z_COLLAPSE"}
 
 
 def set_fast(on):
