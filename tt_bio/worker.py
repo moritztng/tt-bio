@@ -1882,7 +1882,7 @@ class _WorkerState:
         aux = derive_block_aux(features)
         template_feat, template_slots = dedup_template_slots(
             derive_template_feat(features))
-        relpos = (derive_relpos_codes(features) if env_flag(RELPOS_CODES, False)
+        relpos = (derive_relpos_codes(features) if env_flag(RELPOS_CODES, True)
                   else derive_relpos(features))
 
         model = self.model

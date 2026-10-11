@@ -115,7 +115,8 @@ def derive_relpos(features: dict) -> torch.Tensor:
 
 # The relpos feature as codes: `table[codes]` is `derive_relpos` exactly, but the host builds [N, N] int32
 # and a few hundred one-hot rows instead of 145 MB of float one-hots (0.16 s) and tilizing them (0.26 s on
-# pc), and the device expands it with one embedding. OF3_RELPOS_CODES=0 uploads the dense feature.
+# pc), and the device expands it with one embedding. Same digest as the dense feature on OpenFold3 and
+# OpenBind-0 (qb2 p300c, cdk2x2_512). OF3_RELPOS_CODES=0 uploads the dense feature.
 RELPOS_CODES = "OF3_RELPOS_CODES"
 
 
