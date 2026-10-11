@@ -943,8 +943,12 @@ WH_LM_RESIDENT_MAX_TOKENS = 1088
 # grades a candidate through TT_BIO_LEVERS.
 # FAST: tenstorrent.NORMAL_LEVERS, graded on ESMFold2-Fast against the fast bar (11 complexes x 4 seeds, 44 paired
 # folds vs none): CA-lDDT +0.0009 [-0.0019, +0.0044], pLDDT +0.0007, PASS; 2.6 s off ESMFold2 and 1.1 s off
-# ESMFold2-Fast at 512 aa (p300c, 1350 MHz). The same set fails the normal bar (TM -0.0051, CI excludes 0).
-LEVERS_NORMAL = "none"
+# ESMFold2-Fast at 512 aa (p300c, 1350 MHz). The same set fails the normal bar on ESMFold2-Fast (TM -0.0051, CI
+# excludes 0) and passes it on ESMFold2 (41 paired folds, CA-lDDT +0.0006, top-pose median 0.195 A vs 1.115 A floor).
+# NORMAL: the same set without trunk_hifi3 (the trunk matmuls stay HiFi4) passes the normal bar on ESMFold2-Fast
+# (44 paired folds vs none: CA-lDDT -0.0006 [-0.0022, +0.0006], TM +0.0007, docking 24/44 both, top-pose median
+# 0.93 A vs 1.40 A floor) and folds the 11-set in 9 % less time than none (p300c, paired sums 2498 vs 2751 s).
+LEVERS_NORMAL = "normal-trunk_hifi3"
 LEVERS_FAST = "normal"
 
 
