@@ -2567,13 +2567,6 @@ def dit_lowp(dit_dtype, ckc):
     block 1, the transition b 556 -> 464). `dit_b8`: bfp8 operands at HiFi2 without fp32
     accumulation (qkv 609 -> 481 us, gate/out 180 -> 135, a1/a2 289 -> 230, b 273 -> 187)."""
     if dit_dtype == ttnn.float32 and lever("dit_mm16"):
-        # DIT_MM16_FIDELITY (measurement only, unset = the config's own): the bf16-operand linears
-        # at a lower math fidelity, fp32 accumulation kept. They are math-bound at HiFi4 on BH.
-        fid = os.environ.get("DIT_MM16_FIDELITY")
-        if fid:
-            ckc = ttnn.WormholeComputeKernelConfig(
-                math_fidelity=getattr(ttnn.MathFidelity, fid), math_approx_mode=ckc.math_approx_mode,
-                fp32_dest_acc_en=ckc.fp32_dest_acc_en, packer_l1_acc=ckc.packer_l1_acc)
         return DitLowp(ttnn.bfloat16, ttnn.bfloat16, ttnn.bfloat16, ttnn.float32, ckc, True,
                        ttnn.bfloat16 if lever("dit_qkv16") else ttnn.float32)
     if dit_dtype in (ttnn.bfloat16, ttnn.float32) and lever("dit_b8"):
