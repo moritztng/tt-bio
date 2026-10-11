@@ -3341,6 +3341,7 @@ class RFD3DiffusionModule(Module):
                                  f"eager.")
         self._grouping_cache = {}      # batch -> {"valid", "pack_idx_dev", ...}, shared by downcast_c/downcast_q
         self._grouping_owner = None    # (id(tok_idx), shape) the cached slots belong to
+        self._downcast_c_memo = None   # (key, inputs, result): see _downcast_c
         self.encoder = LocalAtomTransformer(self.scope("encoder"), ckc, n_blocks=3, dtype=dt,
                                             fp32_residual=self._dit_fp32_residual)
         self.decoder = CompactStreamingDecoder(self.scope("decoder"), ckc, dtype=dt,
@@ -3412,9 +3413,20 @@ class RFD3DiffusionModule(Module):
         return st["valid"], st["pack_idx_dev"], st["downcast_mask_dev"]
 
     def _downcast_c(self, C_L, S_I, tok_idx):
-        dev, dt = self.device, self.dtype
+        """S_I + GCA(S_I, C_L). Both inputs are the token initializer's outputs, fixed for the
+        design, so every step after the first returns the first step's result: the same device
+        program on the same bytes. Keyed like _tt_cached (storage, shape, stride, version), with
+        the inputs held so an address cannot be reused under a live key."""
         if C_L.ndim == 2: C_L = C_L.unsqueeze(0)
         if S_I.ndim == 2: S_I = S_I.unsqueeze(0)
+        key = tuple((x.data_ptr(), tuple(x.shape), tuple(x.stride()), x._version) for x in (C_L, S_I, tok_idx))
+        memo = self._downcast_c_memo
+        if memo is None or memo[0] != key:
+            memo = self._downcast_c_memo = (key, (C_L, S_I, tok_idx), self._downcast_c_device(C_L, S_I, tok_idx))
+        return memo[2].clone()
+
+    def _downcast_c_device(self, C_L, S_I, tok_idx):
+        dev, dt = self.device, self.dtype
         B, I, _ = S_I.shape
         valid, pack_idx_dev, mask_dev = self._grouping_buffers(tok_idx, B)
         c_g = _pack_atoms_dev_core(_tt_cached(C_L, dev, dt), pack_idx_dev, valid)
