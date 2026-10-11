@@ -325,6 +325,24 @@ _ATOM_SDPA_MAX_MASK_BYTES = int(float(os.environ.get("RFD3_ATOM_SDPA_MAX_MASK_BY
 # 1088 instead of 2048 bytes a tile on the region that is ~65 % of the token encoder and is bound
 # by per-tile pack/unpack. The input norm and the output stay bf16. Off by default while graded.
 _TRANSITION_B8 = env_flag("RFD3_TRANSITION_B8", False)
+# The dense attention (the DiT's 36 blocks a step, and atom blocks below the sparse cutoff) as one
+# fused SDPA, the way Protenix's and Boltz-2's token DiTs run it (`dit_sdpa`): the [1,16,685,704]
+# fp32 scores, their fused bias add and the softmax+PV pass become one kernel that never writes a
+# score. The mask is (pair bias + neighbour mask) with the bias pre-scaled by sqrt(head_dim), same
+# as the atom SDPA. Online softmax changes the reduction order, so it is graded on accuracy. Off by
+# default while it is graded; the mask-size cap is the atom SDPA's.
+_DIT_SDPA = env_flag("RFD3_DIT_SDPA", False)
+DIT_SDPA_CALLS = [0]
+_DIT_SDPA_CHUNKS = tuple(int(x) for x in os.environ.get("RFD3_DIT_SDPA_CHUNKS", "64,352").split(","))
+
+
+def _dense_sdpa_config(n):
+    """SDPA chunks that divide the padded axis `n` exactly (q near the asked size, k the widest up
+    to it), so the kernel never pads the mask grid past `n`."""
+    div = [c for c in range(32, n + 1, 32) if n % c == 0]
+    q = min(div, key=lambda c: abs(c - _DIT_SDPA_CHUNKS[0]))
+    k = max(c for c in div if c <= max(_DIT_SDPA_CHUNKS[1], 32))
+    return _sdpa_program_config(q, k)
 _ATOM_SDPA_CHUNKS = tuple(int(x) for x in os.environ.get("RFD3_ATOM_SDPA_CHUNKS", "160,320").split(","))
 # ttnn.gather (0.68.0) on dim 3 silently returns wrong data for every tile-row after the first
 # once the indexed axis exceeds this many elements: 99.87 % of elements wrong at the production
@@ -2232,9 +2250,7 @@ class RFD3AtomBlock(Module):
         fused = False
         dense_fused = False
         gathered = None
-        if bs_out is not None:
-            pass
-        elif sparse_qk is None:
+        if bs_out is None and sparse_qk is None:
             # `pair_bias` arrives precomputed when the caller hoisted all of its blocks'
             # projections into one matmul; see _PAIRBIAS_FUSED.
             if pair_bias is None:
@@ -2242,6 +2258,24 @@ class RFD3AtomBlock(Module):
                     p, self.b_w, ckc=ckc, dtype=dt, core_grid=CORE_GRID_MAIN,
                 )
             pair_bias = ttnn.permute(pair_bias, (0, 3, 1, 2))
+            if (_DIT_SDPA and dt == ttnn.bfloat16
+                    and 2 * self.n_head * n_key * n_key <= _ATOM_SDPA_MAX_MASK_BYTES):
+                # The kernel adds the mask before it scales, so only the bias is pre-scaled; the
+                # -1e4 neighbour mask and the pad rows/columns stay where their weight is 0.
+                pb = ttnn.multiply(pair_bias, self.head_dim**0.5)
+                ttnn.deallocate(pair_bias)
+                mask = pad_axis(pad_axis(ttnn.add(pb, additive_mask), n_key, 3, -1e4), n_key, 2, -1e4)
+                ttnn.deallocate(pb)
+                o = fused_sdpa(pad_axis(qq, n_key, 2, 0.0), kk, vv, attn_mask=mask,
+                               scale=self.head_dim**-0.5,
+                               program_config=_dense_sdpa_config(n_key),
+                               compute_kernel_config=ckc)
+                ttnn.deallocate(mask)
+                bs_out = ttnn.slice(o, [0, 0, 0, 0], [batch, self.n_head, length, self.head_dim])
+                DIT_SDPA_CALLS[0] += 1
+        if bs_out is not None:
+            pass
+        elif sparse_qk is None:
             bias = pad_axis(ttnn.add(pair_bias, additive_mask), n_key, 3, -1e4)
             scores = ttnn.matmul(
                 qq, ttnn.permute(kk, (0, 1, 3, 2)),
