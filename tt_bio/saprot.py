@@ -220,15 +220,15 @@ def _fold_rope_qkv(w, b, n_heads: int, d: int):
     return pad(ws), pad(bs), pad(wr), pad(br)
 
 
-def _fold_rope_tables_torch(seq_len: int, n_heads: int, d: int):
+def _fold_rope_tables_torch(seq_len: int, n_heads: int, d: int, dtype=torch.float32):
     """Packed ``[L, 3*H*32]`` cos/sin for ``_fold_rope_qkv``: the head_dim-``d`` NeoX
     tables tiled per head over q and k (zero-padded to 32), cos = 1 / sin = 0 over v."""
-    inv_freq = 1.0 / (ROPE_BASE ** (torch.arange(0, d, 2, dtype=torch.float32) / d))
-    freqs = torch.outer(torch.arange(seq_len, dtype=torch.float32), inv_freq)
+    inv_freq = 1.0 / (ROPE_BASE ** (torch.arange(0, d, 2, dtype=dtype) / d))
+    freqs = torch.outer(torch.arange(seq_len, dtype=dtype), inv_freq)
     head = lambda f: torch.nn.functional.pad(torch.cat([f, f], dim=-1), (0, 32 - d))  # [L, 32]
     qk = lambda f: head(f).repeat(1, 2 * n_heads)
-    cos = torch.cat([qk(freqs.cos()), torch.ones(seq_len, n_heads * 32)], dim=-1)
-    sin = torch.cat([qk(freqs.sin()), torch.zeros(seq_len, n_heads * 32)], dim=-1)
+    cos = torch.cat([qk(freqs.cos()), torch.ones(seq_len, n_heads * 32, dtype=dtype)], dim=-1)
+    sin = torch.cat([qk(freqs.sin()), torch.zeros(seq_len, n_heads * 32, dtype=dtype)], dim=-1)
     return cos, sin
 
 

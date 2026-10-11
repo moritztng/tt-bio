@@ -22,7 +22,7 @@ def _reference(x, w, b, ow, ob, H, d):
 def _folded(x, w, b, ow, ob, H, d):
     B, L, _ = x.shape
     wf, bf, wr, br = saprot._fold_rope_qkv(w, b, H, d)
-    cos, sin = (t.to(x.dtype) for t in saprot._fold_rope_tables_torch(L, H, d))
+    cos, sin = saprot._fold_rope_tables_torch(L, H, d, x.dtype)
     qkv = (x @ wf.T + bf) * cos + (x @ wr.T + br) * sin
     q, k, v = qkv.view(B, L, 3, H, 32).permute(2, 0, 3, 1, 4)
     o = torch.softmax(q @ k.transpose(-1, -2) * d ** -0.5, -1) @ v
