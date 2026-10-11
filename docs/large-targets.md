@@ -130,8 +130,10 @@ single pair-sized allocation that no free block on the chip can hold:
   waits on the host. Before that it failed at 2048 on that bias, with enough memory free but no
   block large enough.
 - `protenix-v2` folds 2048, the top of the ladder, since the pair path row-blocks an allocation
-  the chip refuses and a refused outer product mean re-runs in alignment-depth chunks. Above 1792
-  the trunk joins its pair blocks on the host, so a fold takes 65 to 120 minutes. Before the depth
+  the chip refuses and a refused outer product mean re-runs in alignment-depth chunks. At 2048 its
+  pair is 2 GiB, so the triangle multiplication, outer product mean and confidence head work in row
+  blocks on the chip rather than holding a second pair, and a fold takes about 40 minutes in
+  fast, 47 in normal and 57 in exact on a Galaxy chip at 1000 MHz. Before the depth
   chunks it failed at 1920 in the outer product mean, and before the row blocking at 1792 in the
   diffusion pair conditioning.
 - `rf3` folds 1600 and fails at 1664 in the diffusion atom encoder's pair permute, with enough
