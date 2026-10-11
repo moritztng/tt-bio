@@ -17,6 +17,7 @@ move against the accuracy bar and the seed-to-seed spread.
 | flag | default | scope | output with the flag on |
 |---|---|---|---|
 | [`BOLTZ2_TOKEN_DIT_SDPA`](#boltz2_token_dit_sdpa) | on | Boltz-2 | moves, inside the 298-residue bar |
+| [`OF3_DIFFUSION_TRACE`](#of3_diffusion_trace) | on | OpenFold3, OpenBind-0 | identical |
 | [`TT_BIO_AF2_G_BIAS_IN_MATMUL`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2, Blackhole | gradients only |
 | [`TT_BIO_AF2_OPM_ROWS_IN_K`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2 | moves the forward, closer to float64 |
 | [`TT_BIO_ATOM_AXIS_BUCKET`](#tt_bio_atom_axis_bucket) | on | | identical at 298 residues, not guaranteed at 512 |
@@ -162,6 +163,18 @@ The token-level DiT attention ran as an explicit score matrix: materialise 16x51
 **Accuracy: not bit-exact.** The kernel holds its exponentiated scores in bf16 where the explicit path held fp32. A 298-residue control moves 0.1775 Å CA and 0.3837 Å all-atom, inside its 0.35 Å CA bar, and pLDDT goes up rather than down, 0.909487 to 0.913597.
 
 **Speed: 1.105x on the fold** with `TT_BIO_ATOM_AXIS_BUCKET` (22.195 s to 20.079 s at 512 residues on Blackhole) and 1.400x on the diffusion sampler. On its own it is worth 1.100 s.
+
+## `OF3_DIFFUSION_TRACE`
+
+Default: on. OpenFold3 and OpenBind-0 capture one diffusion step as a device trace and replay it for every
+step, so the host stops dispatching the step's ops one at a time. If the trace cannot be captured, the fold
+runs the step-by-step path. `OF3_DIFFUSION_TRACE=0` forces that path.
+
+**Accuracy: identical.** Traced and step-by-step folds give the same output digest on a Blackhole p150a and
+a p300c.
+
+**Speed:** the 512-aa OpenFold3 fold on a Blackhole p150a at 1350 MHz takes 15.1 to 15.8 s traced against
+17.8 to 18.9 s step by step (same card, arms interleaved, medians of three warm folds per run).
 
 ## `TT_BIO_ATOM_AXIS_BUCKET`
 

@@ -930,9 +930,11 @@ moves a structure, next to the seed-to-seed spread.
 | Flag | Default | What it does |
 |------|---------|--------------|
 | `BOLTZ2_TOKEN_DIT_SDPA` | on | Boltz-2 only: token-level DiT attention as one fused SDPA. Not bit-exact: the kernel holds its exponentiated scores in bf16. |
+| `OF3_DIFFUSION_TRACE` | on | OpenFold3 and OpenBind-0 replay each diffusion step from a device trace instead of dispatching it op by op. Identical output; if the trace cannot be captured the fold takes the step-by-step path. |
 | `TT_BIO_ATOM_AXIS_BUCKET` | on | Sizes the atom axis on the real atom count instead of assuming every token is a tryptophan. Byte-identical at 298 residues; at 512 it reassociates one matmul's contraction. |
 | `TT_BIO_ATOM_SHIFT_GATHER` | on | Builds each atom's attention key window by slicing instead of a matrix multiply. Bit for bit. |
 | `TT_BIO_BH_DRAM_READ_SPLIT` | on, Blackhole only | Splits a kernel's DRAM reads larger than 2 KiB, the tt-metal#59622 workaround for a Blackhole NoC hang. Same bytes. |
+| `TT_BIO_BH_ETH_DISPATCH` | on for p150a when the installed ttnn supports it | Runs the command queue on Ethernet cores so tt-bio computes on all 120 Tensix cores of a Blackhole chip. Stock ttnn does not support it. Graded unchanged on p150a; off on p300c, where it is not run-to-run deterministic. |
 | `TT_BIO_DEVICE_CONDITIONING` | on | Boltz-2 only: runs the diffusion conditioning's pair track on the card. Not bit-exact (device bf16 where the host path was fp32); scored against 1HCL it is flat to slightly closer. |
 | `TT_BIO_DEVICE_CONFIDENCE` | on | Boltz-2 only: assembles the confidence head's pair input on the card. Coordinates are bit-identical; pLDDT moves by at most 0.362 of 100. |
 | `TT_BIO_DEVICE_CONF_HEADS` | on | Boltz-2 only: runs the confidence head's pae/pde projections on the card, so 67.1 MB of bin logits at 512 residues becomes 2.1 MB on Wormhole and 16.8 MB on Blackhole. Coordinates and per-residue pLDDT are bit-identical; pTM shifts by 0.0031 at 512 residues against a 0.0758 four-seed spread. |
