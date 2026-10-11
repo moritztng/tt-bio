@@ -374,10 +374,12 @@ L1_N_MAX = int(os.environ.get("TT_BIO_REBLOCK_L1_N_MAX", "352"))
 # Wormhole chip's 64 cores the same kernel already wins at Nt=7 = 49 groups (N=195: 1.17x at C=64,
 # N=224: 1.22x) and loses at Nt=6 = 36 groups (N=192: 0.97x), every point torch.equal
 # (.114 chip 7, perf/bigswing/reblock_window_band.py, state/spd-gap-bind.md). What decides the win is
-# whether the groups fill the grid: 0.62-0.77 groups per core win on both grids, 0.56-0.58 lose
-# (N=256 on 110 cores measured 0.952x). 0 restores the plain N edge. Only the forward move: the back
-# leg splits Nt*Nt*Ct groups and the gated move was measured on its own, both keep L1_N_MIN.
-L1_GROUPS_PER_CORE = float(os.environ.get("TT_BIO_REBLOCK_L1_GROUPS_PER_CORE", "0.6"))
+# whether the groups fill the grid: 0.74 (Nt=9 on 110 cores) and 0.77 (Nt=7 on 64, Nt=10 on 130) win;
+# 0.62 (Nt=9 on a 130-core p150a: 0.89 / 1.08 / 0.95x at N=257 / 272 / 288, qb1 card 0) is break-even,
+# and 0.56-0.58 lose (N=256 on 110 cores 0.952x, N=192 on 64 cores 0.97x). 0 restores the plain N edge.
+# Only the forward move: the back leg splits Nt*Nt*Ct groups and the gated move was measured on its
+# own, both keep L1_N_MIN.
+L1_GROUPS_PER_CORE = float(os.environ.get("TT_BIO_REBLOCK_L1_GROUPS_PER_CORE", "0.7"))
 _GRID_CORES = {}
 
 
