@@ -7470,10 +7470,12 @@ TRACE_REGIONS = {
     "openfold3": {"wormhole_b0": 48 << 20, "blackhole": 64 << 20},    # openfold3 / openbind step
     "esmc": {"wormhole_b0": 221 << 20, "blackhole": 126 << 20},       # ESMC._TRACE_CACHE_MAX live traces
     "af2": {"wormhole_b0": 240 << 20, "blackhole": 240 << 20},        # AF2 extra-MSA + Evoformer stacks, unmeasured
-    # BC2 traced block recomputes (autograd.TRACE_RECOMPUTE). 128 MiB is too small on Wormhole: the
-    # captures there asked for 135,331,840 B (mesh_trace.cpp:182, .114 chip 13); Blackhole runs every
-    # capture inside 1 GiB.
-    "bc2": {"wormhole_b0": 1024 << 20, "blackhole": 1024 << 20},
+    # BC2 traced block recomputes (autograd.TRACE_RECOMPUTE). On Wormhole 128 MiB is too small (the
+    # captures asked for 135,331,840 B, mesh_trace.cpp:182, .114 chip 13) and 1 GiB never got past
+    # bring-up: four of four opens on .114 died in firmware init or hung in the first dispatch,
+    # while the 128 MiB open came up. 160 MiB covers the measured need with ~20 % to spare.
+    # Blackhole runs every capture inside 1 GiB.
+    "bc2": {"wormhole_b0": 160 << 20, "blackhole": 1024 << 20},
 }
 
 
