@@ -832,6 +832,9 @@ class _Trunk:
                                            template=template, multimer=self.multimer,
                                            trunk_dtype=torch.bfloat16)
         self.device = self.model._device
+        if self.ag.TRACE_RECOMPUTE:
+            # New weights are a persistent allocation made after any capture so far.
+            self.ag.release_recompute_traces(self.device)
         self.blocks = len(self.model.device_evoformer)
         self.extra_blocks = len(self.model.device_extra_msa)
         self.template_blocks = len(self.model.device_template)

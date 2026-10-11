@@ -2946,7 +2946,7 @@ _RSHARED: dict = {}   # signature -> dict(ins=[...], seeds=[...], outs=[...])
 RTRACE_STATS = {"eager": 0, "capture": 0, "replay": 0}
 
 
-def _raw(t, home):
+def _rt_raw(t, home):
     return home(t) if isinstance(t, Tensor) else (t if isinstance(t, ttnn.Tensor) else None)
 
 
@@ -2958,7 +2958,7 @@ def _grad_value(dup):
 def _traced_recompute(key, fn, inputs, home, seeded) -> bool:
     """`_recompute(seeded)` from a trace, or False to let the caller run it eagerly."""
     from .taped_ttnn import recompute_scope
-    vals = [_raw(t, home) for t in inputs]
+    vals = [_rt_raw(t, home) for t in inputs]
     sig = (tuple(None if v is None else (tuple(v.shape), str(v.dtype), str(v.layout)) for v in vals),
            tuple((k, tuple(g.shape), str(g.dtype)) for k, g in seeded))
     st = _RTRACE.get((key, sig), 0)
@@ -3024,9 +3024,17 @@ def _traced_recompute(key, fn, inputs, home, seeded) -> bool:
 
 
 def release_recompute_traces(device) -> None:
+    """Drop every recompute trace and its shared buffers; each key starts again at round 1.
+
+    Called when something persistent is allocated mid-run (a trunk loading its weights): it would
+    sit wherever the allocator then found room, which may be a capture's intermediates."""
     for st in _RTRACE.values():
         if isinstance(st, tuple):
             ttnn.release_trace(device, st[0])
+    for sh in _RSHARED.values():
+        for b in (*sh["ins"], *sh["seeds"], *sh["outs"]):
+            if b is not None:
+                ttnn.deallocate(b)
     _RTRACE.clear()
     _RSHARED.clear()
 
