@@ -24,7 +24,7 @@ from . import page_copy as _page_copy
 from . import pair_add as _pair_add
 from . import pair_transpose_add as _pair_tr_add
 from .envflags import env_flag, env_int
-from .device_lease import CONTENDED_EXIT_CODE, device_init_lock
+from .device_lease import device_init_lock
 from .eltwise_fusion import scale_add
 
 TRIANGLE_MULT_CHUNK_SIZE = 32
@@ -7268,36 +7268,29 @@ _device_generation = 0
 _OPEN_WEDGE_TIMEOUT_S = 600.0
 
 
-def _exit_if_open_wedged(device_id):
-    """Start a timer that ends this process if the open below never returns.
+@contextlib.contextmanager
+def _exit_if_open_wedged():
+    """End this process if the open inside the block never returns.
 
-    Python cannot interrupt the spinning C call, so the only way to release the lock is to
-    exit; the kernel drops the flock and the device fds with the process. Exits with
-    ``CONTENDED_EXIT_CODE`` because the input is fine and a rerun on another chip is the
-    right response, not an accuracy verdict.
+    ``ttnn.open_device`` holds the GIL while it spins, so a Python timer thread never gets to
+    run. faulthandler's watchdog is a C thread: it dumps every thread's stack and ``_exit(1)``,
+    the code any other failed open exits with, and the kernel drops the flock and device fds.
+    The dump ends in ``open_device``; reset that chip before reusing it.
     """
-    import threading
+    import faulthandler
 
-    def _fire():
-        print(f"[tt-bio] device {device_id}: open did not return in {_OPEN_WEDGE_TIMEOUT_S:.0f} s "
-              f"(chip left dirty by a killed process?); exiting to release the host-wide "
-              f"bring-up lock. Reset this chip before reusing it.", file=sys.stderr, flush=True)
-        os._exit(CONTENDED_EXIT_CODE)
-
-    t = threading.Timer(_OPEN_WEDGE_TIMEOUT_S, _fire)
-    t.daemon = True
-    t.start()
-    return t
+    faulthandler.dump_traceback_later(_OPEN_WEDGE_TIMEOUT_S, exit=True)
+    try:
+        yield
+    finally:
+        faulthandler.cancel_dump_traceback_later()
 
 
 def _open_device_locked(device_id, kwargs):
     """Open + configure the device with bring-up strictly serialized host-wide."""
     with device_init_lock():
-        watchdog = _exit_if_open_wedged(device_id)
-        try:
+        with _exit_if_open_wedged():
             dev = ttnn.open_device(device_id=device_id, **kwargs)
-        finally:
-            watchdog.cancel()
         _configure_active_compute_grid(dev)
         dev.enable_program_cache()
         return dev
