@@ -12,8 +12,7 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   that. The token transformer's attention is now one fused kernel too (72.7 to 61.4 s on a p300c). `--fast`
   adds 8-bit pair-transition activations and a collapsed pair projection, about 13 % more. Every change was
   graded on Blackhole and Wormhole over four seeds at 685 and 418 residues: designs move within seed-to-seed
-  variation and design quality matches the exact chain. Batch-8 designs in `--fast` no longer reuse the first
-  design's attention masks, and no longer overflow Wormhole L1.
+  variation and design quality matches the exact chain.
 - **OpenFold3 and OpenBind-0 replay the diffusion step from a device trace**, with identical output. On a
   Blackhole p150a at 1350 MHz the 512-aa fold takes 15.1 to 15.8 s instead of 17.8 to 18.9 s. If the trace
   cannot be captured the fold runs the old step-by-step path; `OF3_DIFFUSION_TRACE=0` forces it.
