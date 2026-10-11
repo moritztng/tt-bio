@@ -590,8 +590,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "transition_shard", "dit_mm16", "atom_k1", "dit_b8", "dit_qkv16", "atom_mm16", "adaln_mod",
           "swiglu_fc12g", "msa_sample")
 # Named but in no mode until their fold grade puts them in one.
-UNGRADED_LEVERS = frozenset({"trimul_b8in", "transition_bw", "atom_mm16", "adaln_mod", "transition_shard",
-                             "swiglu_fc12g"})
+UNGRADED_LEVERS = frozenset({"trimul_b8in", "transition_bw", "atom_mm16", "adaln_mod"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -634,10 +633,13 @@ FAST_LEVERS = frozenset(LEVERS) - {"lofi", "triatt_b8", "triatt_bias_b8"} - UNGR
 # differ on Wormhole (.114) and Blackhole (qb2), CA-RMSD 1.38 A between them on .114, and with it off
 # they are bit-identical. Whether a block shards depends on the grid's rows, and the sharded and
 # interleaved swiglu round differently, so an 8x8 n150 and an 8x9 Galaxy chip would give two answers.
-# Out of fast mode too (2026-10-10): at 1536 tokens it collapses the fold. Wormhole l1536 seed 101, mean
-# pLDDT over 5 samples: fast 0.44-0.46 with it, 0.649 without it (exact 0.676), every other fast lever
-# removed alone stays at 0.44-0.46 (bisect bis17, AICLK 1000). The 11-set grade never reached that size.
-# swiglu_fc12g only acts inside it, so it leaves with it.
+# Fast mode keeps it: fast is held to the accuracy bar, and each grid clears it.
+# At 1536 tokens it once collapsed the fast fold (Wormhole l1536 mean pLDDT 0.44 vs exact 0.676): a ttnn
+# program-cache collision poisoned every 64th row block (see Transition._rows). With the
+# blocks sliced through L1, Wormhole 11-set fast vs normal over 11 seeds, 450 paired folds: PASS, CA-lDDT
+# -0.015 / -0.016 per half against the 0.03 bar, docking at or above normal; q1536/t1536/l1536 sit within
+# 0.5 pLDDT of fast without it. It and swiglu_fc12g save 8.8-9.2 s of the c730 fast fold at AICLK 1000
+# (182.1 vs 190.9 s, both orders; spd-galaxy fixspd 2026-10-11).
 # atom_k1: bit-exact. The c730 sampler (5 samples x 200 steps, seeds 101-103) returns torch.equal
 # coordinates with and without it on Wormhole (.107, 1000 MHz) and on Blackhole (p150a, where it is
 # ttnn's own program), and saves 0.76 s of the Wormhole sampler (63.75 -> 62.99 s, spd-difflin ab2).
@@ -11799,6 +11801,21 @@ class Transition(Module):
         # it declines is cut back to the interleaved path's own height, `safe_h`.
         shard_rows = safe_h = 0
 
+        def _rows(x, s, e):
+            # transition_shard's blocks are 3 rows at W=1536, and a 4-D DRAM slice of 3 rows shares a
+            # ttnn 0.68.0 program-cache entry with a 3-D 64-row slice that ends on the same index (the
+            # triangle attention's chunks): every 64th block came back with the wrong rows (max err
+            # 5.9-7.5 standalone) and collapsed l1536 fast. Cut into L1 the block is exact; it goes
+            # straight back to DRAM because a block left in L1 clashes with the interleaved fallback's
+            # static circular buffers. tests/test_slice_cache_hw.py pins the bug.
+            if shard_rows:
+                b = ttnn.slice(x, [0, s, 0, 0], [x.shape[0], e, x.shape[2], x.shape[3]],
+                               memory_config=ttnn.L1_MEMORY_CONFIG)
+                out = ttnn.to_memory_config(b, ttnn.DRAM_MEMORY_CONFIG)
+                ttnn.deallocate(b)
+                return out
+            return x[:, s:e]
+
         def swiglu(x):
             if shard_rows:
                 dtype = self.dtype if self.dtype is not None else _dtype()
@@ -12121,7 +12138,7 @@ class Transition(Module):
             # A ttnn slice over a whole axis is its input, buffer and all, so freeing it would
             # free x (or c); only a real sub-range is ours to free.
             for s in range(0, H, transition_h_chunk_size):
-                c = x if transition_h_chunk_size >= H else x[:, s:min(s + transition_h_chunk_size, H)]
+                c = x if transition_h_chunk_size >= H else _rows(x, s, min(s + transition_h_chunk_size, H))
                 if not w_chunked:
                     y = swiglu(c)
                     if add_to_input:
@@ -12168,7 +12185,7 @@ class Transition(Module):
             # update depends on x[I] alone and x[I] can take the sum once the block is done. Same
             # heights, same blocks, and `pair_add` adds the way ttnn.add does: the same bytes.
             for s in range(0, H, transition_h_chunk_size):
-                c = x if transition_h_chunk_size >= H else x[:, s:min(s + transition_h_chunk_size, H)]
+                c = x if transition_h_chunk_size >= H else _rows(x, s, min(s + transition_h_chunk_size, H))
                 y = swiglu(c)
                 if c is not x:
                     ttnn.deallocate(c)
