@@ -10989,10 +10989,26 @@ class TriangleAttention(Module):
                 ttnn.deallocate(x)
                 return x_in
         if self.ending:
-            x = _pair_transpose(
-                x, _transpose_memory_config(x, self.transpose_l1_reserve))
+            x = _pair_transpose(x, self._out_transpose_memory_config(x, x_in, add_to_input))
         x = ttnn.reshape(x, (1, *x.shape))
         return x
+
+    def _out_transpose_memory_config(self, x, x_in, add_to_input):
+        """Where the ending variant's transposed update goes.
+
+        `_transpose_memory_config` prices the grid's whole L1, but when the caller's `add_` reads
+        this update against an `x_in` that is itself L1-resident (a residual-L1 `transition_z`
+        wrote it), both pair tensors sit in L1 together and the add's circular buffers go under
+        them. RF3's template pairformer (c=64) at 778 tokens: 2 x 0.72 MB/core, "L1 buffer
+        allocated at 122880 and static circular buffer region ends at 123392"; at 768, 2 x 0.69
+        fits. So the resident input is priced per core, with the add's room on top. A memory
+        config cannot change a value, so the route is bit-exact either way.
+        """
+        if not (add_to_input and x_in.is_allocated()
+                and x_in.memory_config().buffer_type == ttnn.BufferType.L1):
+            return _transpose_memory_config(x, self.transpose_l1_reserve)
+        reserve = _chunk_l1_per_core(x_in) + max(self.transpose_l1_reserve, _TRANSPOSE_L1_RESERVE_PER_CORE)
+        return _l1_memory_config_if_it_fits(x, 1.0, reserve_per_core=reserve)
 
 
 def _tri_att_fused_qkv_sdpa(att, x, bias):
