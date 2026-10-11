@@ -55,6 +55,10 @@ def main():
     ap.add_argument("--instrument", action="store_true")
     # Replay the captured diffusion-step trace (the CLI's --trace; protenix-v2 / opendde).
     ap.add_argument("--trace", action="store_true")
+    # Paired trace A/B in ONE process: the region is reserved once, then each warm pair folds
+    # traced and untraced in alternating order. --repeat counts pairs. Host load on a shared
+    # box drifts by more than the trace saving, so only a paired delta can read it.
+    ap.add_argument("--ab-trace", action="store_true")
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
 
@@ -118,12 +122,13 @@ def main():
     msa_dir = tree / f".msa_xmodel_{a.model}_{a.size}"
     _bf = {} if a.samples is None else {"samples": a.samples}
     one_fold, meta = B.build_fold(a.model, msa_dir, tgt, a3m, fast=a.fast,
-                                   instrument=a.instrument, trace=a.trace, **_bf)[:2]
+                                   instrument=a.instrument, trace=a.trace or a.ab_trace,
+                                   **_bf)[:2]
     struct_dir = Path(meta["struct_dir"])
 
     import importlib.metadata as im
     res = {"label": a.label, "model": a.model, "tree": str(tree), "size": a.size,
-           "census": a.census, "fast": a.fast, "trace": a.trace, "ttnn": im.version("ttnn"),
+           "census": a.census, "fast": a.fast, "trace": a.trace, "ab_trace": a.ab_trace, "ttnn": im.version("ttnn"),
            "host": os.uname().nodename,
            "card": os.environ.get("TT_VISIBLE_DEVICES"),
            "grid": [int(T.COMPUTE_GRID_MAIN[0]), int(T.COMPUTE_GRID_MAIN[1])],
@@ -158,7 +163,25 @@ def main():
           f"cif={list(cold['cif_sha256'].values())}", flush=True)
     flush()
 
-    if not a.census:
+    if a.ab_trace and not a.census:
+        arm = {True: [], False: []}
+        for i in range(a.repeat):
+            for tr in ((True, False) if i % 2 == 0 else (False, True)):
+                meta["job_cfg"]["trace"] = tr
+                rec = one(f"warm{i}-{'trace' if tr else 'plain'}")
+                res["folds"].append(rec)
+                arm[tr].append(rec["fold_s"])
+                print(f"[{a.label}] {rec['tag']} {rec['fold_s']:.3f}s "
+                      f"cif={list(rec['cif_sha256'].values())}", flush=True)
+                flush()
+        d = [round(x - y, 3) for x, y in zip(arm[True], arm[False])]
+        res["ab_trace_s"] = {"trace": arm[True], "plain": arm[False], "delta": d,
+                             "median_delta": round(statistics.median(d), 3)}
+        res["median_s"] = round(statistics.median(arm[True]), 3)
+        res["spread_s"] = round(max(arm[True]) - min(arm[True]), 3)
+        print(f"[{a.label}] trace minus plain {d} s, median {res['ab_trace_s']['median_delta']}",
+              flush=True)
+    elif not a.census:
         for i in range(a.repeat):
             rec = one(f"warm{i}")
             res["folds"].append(rec)
