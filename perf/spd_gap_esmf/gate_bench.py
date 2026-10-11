@@ -70,9 +70,24 @@ def sharded(t, gx, gy):
 s1, smc = sharded(h1, 8, 8)
 s2, _ = sharded(h2, 8, 8)
 
+def fc1a_silu():
+    """fc1a on the shipped L1 config with the silu in its epilogue: the gate is then a plain FPU multiply."""
+    cfg = T._pair_proj_config(x, wa, bw_cap=T._PAIR_FFN_FC1_BW, out_l1=True, block_w=T._PAIR_FFN_FC1_BLOCK_W)
+    cfg.fused_activation = ttnn.UnaryWithParam(SILU)
+    return ttnn.linear(x, wa, memory_config=L1, dtype=ttnn.bfloat16, compute_kernel_config=ck, program_config=cfg)
+
+
+def two_step():
+    a = fc1a_silu()
+    o = ttnn.multiply(a, h2, memory_config=L1)
+    ttnn.deallocate(a)
+    return o
+
+
 # Each arm returns the product (a fresh tensor) or None; the caller frees what it returns.
 ARMS = {
     "mul_silu": lambda: ttnn.multiply(h1, h2, input_tensor_a_activations=[SILU], memory_config=L1),
+    "silu_in_fc1a+mul": two_step,
     "mul": lambda: ttnn.multiply(h1, h2, memory_config=L1),
     "silu": lambda: ttnn.silu(h1, memory_config=L1),
     "mul_silu_legacy": lambda: ttnn.multiply(h1, h2, input_tensor_a_activations=[SILU], memory_config=L1,
@@ -81,12 +96,13 @@ ARMS = {
     "mul_silu_sh8x8": lambda: ttnn.multiply(s1, s2, input_tensor_a_activations=[SILU], memory_config=smc),
     "mul_sh8x8": lambda: ttnn.multiply(s1, s2, memory_config=smc),
     "fc1a": lambda: T._pair_proj_linear(x, wa, ck, ttnn.bfloat16, **l1),
+    "fc1a_cfg_silu": lambda: fc1a_silu(),
     "fc1a_lin": lambda: ttnn.linear(x, wa, compute_kernel_config=ck, memory_config=L1, dtype=ttnn.bfloat16,
                                     core_grid=T.CORE_GRID_MAIN),
     "fc1a_lin_silu": lambda: ttnn.linear(x, wa, compute_kernel_config=ck, memory_config=L1, dtype=ttnn.bfloat16,
                                          core_grid=T.CORE_GRID_MAIN, activation="silu"),
 }
-REFS = {"mul_silu": ref, "mul_silu_legacy": ref, "mul_silu_sh8x8": ref}
+REFS = {"silu_in_fc1a+mul": ref, "mul_silu": ref, "mul_silu_legacy": ref, "mul_silu_sh8x8": ref}
 live = {}
 for name, fn in ARMS.items():
     try:
