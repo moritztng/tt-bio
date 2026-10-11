@@ -832,6 +832,9 @@ class _Trunk:
                                            template=template, multimer=self.multimer,
                                            trunk_dtype=torch.bfloat16)
         self.device = self.model._device
+        if self.ag.TRACE_RECOMPUTE:
+            # New weights are a persistent allocation made after any capture so far.
+            self.ag.release_recompute_traces(self.device)
         self.blocks = len(self.model.device_evoformer)
         self.extra_blocks = len(self.model.device_extra_msa)
         self.template_blocks = len(self.model.device_template)
@@ -875,7 +878,15 @@ class _Trunk:
         """`drop` is one `{op: keep mask}` per block, or None for a stack that drops nothing."""
         for i, block in enumerate(self.model.device_evoformer):
             d = None if drop is None else drop[i]
-            if recompute:
+            if recompute and self.ag.TRACE_RECOMPUTE:
+                # The masks are new tensors every round, so they ride in as inputs, where the
+                # traced backward copies them into its own buffers (`autograd._traced_recompute`).
+                ks = tuple(d) if d else ()
+                m, z = self.ag.checkpoint(
+                    lambda a, b, *dv, blk=block, ks=ks: blk(
+                        a, b, msa_mask, *pair_masks, drop=dict(zip(ks, dv)) if ks else None),
+                    m, z, *(d[k] for k in ks), offload=offload, trace=(id(self), "evoformer", i))
+            elif recompute:
                 m, z = self.ag.checkpoint(
                     lambda a, b, blk=block, d=d: blk(a, b, msa_mask, *pair_masks, drop=d), m, z,
                     offload=offload)
@@ -2526,7 +2537,7 @@ def predictor(*, trunk: str = "device", card: int | str | None = None, checkpoin
     # close at exit runs on the main thread. Left to the first device call, the open happens on
     # one of XLA's CPU pool threads (the device seams run there), the unlock at exit fails with
     # EPERM and the process aborts with exit 134 after the campaign has already finished.
-    get_device()
+    get_device(trace="bc2" if autograd.TRACE_RECOMPUTE else None)
 
     pool = checkpoints if isinstance(checkpoints, TrunkPool) else TrunkPool(
         checkpoints, resident=resident, template=template)

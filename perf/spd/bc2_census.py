@@ -50,6 +50,9 @@ ap.add_argument("--replay", type=int, default=0, help="extra back-to-back replay
 ap.add_argument("--wrap", choices=("census", "all"), default="all",
                 help="census: census.py's op list only; all: every public ttnn callable, including "
                      "ttnn.experimental, ttnn.transformer and the host<->device transfers")
+ap.add_argument("--dump", type=int, default=0,
+                help="save the first N gradient calls' results to dump_<n>.npz, so two arms can be compared "
+                     "by magnitude when their digests differ")
 ap.add_argument("--profile", type=int, default=3,
                 help="run this (uninstrumented) gradient call under cProfile; 0 = off")
 a = ap.parse_args()
@@ -178,17 +181,54 @@ def loadavg():
         return None
 
 
+def gsha(out):
+    """sha256[:16] over every array leaf of the round's result: the eager/trace parity check."""
+    if out is None:
+        return None
+    import hashlib
+    import jax
+    import numpy as np
+    h = hashlib.sha256()
+    for leaf in jax.tree_util.tree_leaves(out):
+        # Array leaves only. A leaf that is not an array used to be hashed by repr(), and that
+        # repr changes from run to run, so two bit-identical eager runs read as different
+        # (eagerC/eagerD on qb1: every gradient array equal, every digest different).
+        try:
+            h.update(np.asarray(leaf).tobytes())
+        except Exception:                                                     # noqa: BLE001
+            continue
+    return h.hexdigest()[:16]
+
+
+def dump(out, path):
+    """Every array leaf of a round's result, in tree order, as float64 (leaf_<i> in an npz)."""
+    import jax
+    import numpy as np
+    leaves = {}
+    for i, leaf in enumerate(jax.tree_util.tree_leaves(out)):
+        try:
+            leaves[f"leaf_{i}"] = np.asarray(leaf, dtype=np.float64)
+        except Exception:                                                     # noqa: BLE001
+            pass
+    np.savez(path, **leaves)
+
+
 def sequence_gradients(self, *args, **kwargs):
     state["n"] += 1
     loads0, load1 = state["loads"], loadavg()
     if state["n"] != a.at:
         t0 = time.monotonic()
+        out = None
         try:
             if state["n"] == a.profile:
-                return profiled(lambda: real_grads(self, *args, **kwargs))
-            return real_grads(self, *args, **kwargs)
+                out = profiled(lambda: real_grads(self, *args, **kwargs))
+            else:
+                out = real_grads(self, *args, **kwargs)
+            return out
         finally:
-            state["uninstrumented"].append(dict(n=state["n"], s=time.monotonic() - t0,
+            if out is not None and state["n"] <= a.dump:
+                dump(out, a.out / f"dump_{state['n']}.npz")
+            state["uninstrumented"].append(dict(n=state["n"], s=time.monotonic() - t0, gsha=gsha(out),
                                                 profiled=state["n"] == a.profile,
                                                 trunk_loads=state["loads"] - loads0,
                                                 load1=load1, ncpu=os.cpu_count()))
@@ -211,7 +251,7 @@ def sequence_gradients(self, *args, **kwargs):
         os._exit(0)
 
 
-def write():
+def write(partial=False):
     agg = collections.defaultdict(lambda: dict(calls=0, synced_s=0.0, replay_s=0.0, replays=0,
                                                flops=0.0, bytes=0.0))
     for r in rec.rec:
@@ -231,10 +271,20 @@ def write():
     total = sum(r["synced_s"] for r in rows)
     doc = dict(**HEAD, iteration_s=state["instrumented"], uninstrumented=state["uninstrumented"],
                iteration_trunk_loads=state.get("instrumented_loads"), iteration_load1=state.get("instrumented_load1"),
-               aiclk=state["cl"], synced_total_s=total, ops=rows, calls=len(rec.rec))
+               aiclk=state["cl"], synced_total_s=total, ops=rows, calls=len(rec.rec), partial=partial)
+    ag = sys.modules.get("tt_bio.autograd")
+    if ag is not None:
+        doc.update(rtrace_stats=dict(ag.RTRACE_STATS), rtrace_checks=list(ag.RTRACE_CHECKS))
     (a.out / "census.json").write_text(json.dumps(doc, indent=1))
 
     warm = [u["s"] for u in state["uninstrumented"]]
+    if partial:
+        # The campaign ended before iteration `at` (a stage gate rejected the trajectory). There is no
+        # instrumented iteration, but the per-call times and gradient digests are the point of an A/B arm.
+        print(f"\nBindCraft 2 census (PARTIAL): campaign ended after {state['n']} gradient calls, "
+              f"no iteration {a.at}")
+        print(f"uninstrumented iterations: {['%.3f' % w for w in warm]} s", flush=True)
+        return
     print(f"\nBindCraft 2 census: iteration {a.at}, {len(rec.rec)} outermost ttnn calls, "
           f"synced sum {total:.3f} s over an instrumented iteration of {state['instrumented']:.3f} s")
     print(f"uninstrumented iterations: {['%.3f' % w for w in warm]} s   AICLK {state['cl']}")
@@ -259,4 +309,5 @@ print(json.dumps(dict(ev="start", **HEAD))[:2000], flush=True)
 with bc2.campaign_predictor(**({"checkpoints": weights["af2_weights"]} if "af2_weights" in weights else {})):
     bc2.run_campaign(settings, str(project), trajectories_per_card=1, **weights)
 print(f"campaign ended before iteration {a.at} (only {state['n']} gradient calls)", flush=True)
+write(partial=True)
 os._exit(1)
