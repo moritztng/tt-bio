@@ -1,6 +1,6 @@
 #!/bin/bash
 # One unattended GPU session for spd-kitcmp, run DETACHED on pc (derived from wk/pfm-gpu perf/pfm_gpu/session.sh).
-# Rents the first offer that passes (ssh up, power limit >= MINW, >= 20 MB/s download, burn_gate.py not throttled),
+# Rents the first offer that passes (ssh up, MINW <= power limit <= MAXW (env, default none), >= 20 MB/s download, burn_gate.py not throttled),
 # sets up and times every kit in MODELS one after another, pulls results every model, destroys the box and confirms
 # it is gone. CAP_H hard-caps the billed time. Refuses to start if credit - CAP_H x max $/h would cross the $20 floor.
 #   usage: session.sh <label> <cap_h> <minW> '<vastai search query>' [max_attempts]
@@ -60,6 +60,8 @@ print(x.get("public_ipaddr","").strip(), p[0]["HostPort"] if p else "") if x.get
     W=$(timeout 30 $S 'nvidia-smi --query-gpu=power.limit --format=csv,noheader,nounits' 2>/dev/null | tail -1 | cut -d. -f1)
     log "$I up at $IP:$PORT, power limit ${W:-?} W"
     [ "${W:-0}" -ge "$MINW" ] || { destroy $I "power limit ${W:-?} W < $MINW"; continue; }
+    # MAXW: the published a100 cells are the 400 W SXM4 80 GB; a 500 W HGX variant is a different operating point
+    [ "${W:-0}" -le "${MAXW:-9999}" ] || { destroy $I "power limit ${W:-?} W > $MAXW"; continue; }
     BW=$(timeout 40 $S 'curl -s -o /dev/null -m 20 -w "%{speed_download}" https://download.pytorch.org/whl/cu130/torch-2.9.0%2Bcu130-cp312-cp312-manylinux_2_28_x86_64.whl' 2>/dev/null | tail -1 | cut -d. -f1)
     log "$I download ${BW:-?} B/s"
     [ "${BW:-0}" -ge 20000000 ] || { destroy $I "download ${BW:-?} B/s < 20 MB/s"; continue; }
