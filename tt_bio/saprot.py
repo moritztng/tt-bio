@@ -122,98 +122,121 @@ class ESM2Attention(Module):
     """ESM-2 self-attention: pre-LN, fused q/k/v (with bias), per-head RoPE, SDPA,
     output projection (with bias). No QK-LayerNorm (that is ESMC-specific).
 
-    For ``head_dim`` not aligned to 64 (the 35M variant, ``head_dim = 24``), the
-    fused on-device ``rotary_embedding`` kernel and the elementwise rotate-half
-    fallback both break (24 is not a multiple of 32, and rotate-half would split
-    the tile-padded 32, not the real 24). We instead split heads, apply RoPE, and
-    pad ``head_dim`` 24->32 on host, then run SDPA on device with ``head_dim = 32``
-    (the 8 zero-padded dims contribute 0 to every score, so softmax and the output
-    are unaffected; the real 24 dims are sliced back after)."""
+    For ``head_dim`` not aligned to 64 (the 35M variant, ``head_dim = 24``) the fused
+    ``rotary_embedding`` kernel and the tile-split rotate-half both break, so RoPE is
+    folded into the weights instead. Every head is zero-padded 24 -> 32 in the q/k/v
+    projection, and a second projection carries ``rotate_half`` as a signed column
+    permutation of the q/k weights (exact in any dtype). RoPE is then
+    ``qkv * cos + qkv_rot * sin`` on the packed ``[B, L, 3*H*32]`` tensor, with tables
+    that are 1/0 over v, before the usual head split. The 8 zero dims add 0 to every
+    score, and the output projection gets matching zero rows, so nothing is sliced."""
 
     def __init__(self, n_heads: int, state_dict: Weights, compute_kernel_config):
         super().__init__(state_dict, compute_kernel_config)
         self.n_heads = n_heads
         self.norm_weight = self.torch_to_tt("norm.weight")
         self.norm_bias = self.torch_to_tt("norm.bias")
-        self.qkv_weight = self.torch_to_tt("qkv.weight", dtype=_dtype())
-        self.qkv_bias = self.torch_to_tt("qkv.bias")
-        self.out_weight = self.torch_to_tt("out.weight", dtype=_dtype())
-        self.out_bias = self.torch_to_tt("out.bias")
-        d_model = self.qkv_weight.shape[-1] // 3  # qkv_weight is [hidden, 3*hidden] (transposed)
+        d_model = self.weights["qkv.weight"].shape[-1]  # torch Linear [3*hidden, hidden]
         self.head_dim = d_model // n_heads
-        self.host_rope = self.head_dim % 64 != 0
-        self._cos = self._sin = None
-
-    def _rope_tables_torch(self, seq_len):
-        if self._cos is not None and self._cos.shape[-2] >= seq_len:
-            return self._cos, self._sin
-        hd = self.head_dim
-        inv_freq = 1.0 / (ROPE_BASE ** (torch.arange(0, hd, 2, dtype=torch.float32) / hd))
-        t = torch.arange(seq_len, dtype=torch.float32)
-        freqs = torch.outer(t, inv_freq)
-        cos = torch.cat([freqs.cos(), freqs.cos()], dim=-1)[None, None]  # [1,1,L,hd]
-        sin = torch.cat([freqs.sin(), freqs.sin()], dim=-1)[None, None]
-        self._cos, self._sin = cos, sin
-        return cos, sin
-
-    def _host_split_rope(self, qkv, cos, sin):
-        """Device [B,L,3h*d] -> device q,k,v [B,H,L,32] with host-side RoPE + pad."""
-        qkv_h = torch.Tensor(ttnn.to_torch(qkv)).to(torch.float32)  # [B,L,3*hidden]
-        ttnn.deallocate(qkv)
-        B, L, _ = qkv_h.shape
-        h, d = self.n_heads, self.head_dim
-        qkv_h = qkv_h.view(B, L, 3, h, d)
-        q_h = qkv_h[:, :, 0].permute(0, 2, 1, 3)  # [B,H,L,d]
-        k_h = qkv_h[:, :, 1].permute(0, 2, 1, 3)
-        v_h = qkv_h[:, :, 2].permute(0, 2, 1, 3)
-        cos = cos[:, :, :L]  # [1,1,L,d]
-        sin = sin[:, :, :L]
-        rotate_half = lambda x: torch.cat((-x[..., d // 2:], x[..., : d // 2]), dim=-1)
-        q_h = q_h * cos + rotate_half(q_h) * sin
-        k_h = k_h * cos + rotate_half(k_h) * sin
-        pad = 32 - d
-        q_h = torch.nn.functional.pad(q_h, (0, pad))  # [B,H,L,32]
-        k_h = torch.nn.functional.pad(k_h, (0, pad))
-        v_h = torch.nn.functional.pad(v_h, (0, pad))
-        to_dev = lambda x: ttnn.from_torch(x.contiguous(), device=self.device,
-                                          layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16)
-        return to_dev(q_h), to_dev(k_h), to_dev(v_h)
+        self.fold_rope = self.head_dim % 64 != 0
+        if self.fold_rope:
+            w, b, wr, br = _fold_rope_qkv(self.weights["qkv.weight"], self.weights["qkv.bias"],
+                                          n_heads, self.head_dim)
+            ow = _pad_heads_in(self.weights["out.weight"], n_heads, self.head_dim)
+            dev = lambda x, dt=None: ttnn.from_torch(x.contiguous(), layout=ttnn.TILE_LAYOUT,
+                                                     device=self.device,
+                                                     dtype=_dtype(ttnn.bfloat16) if dt is None else dt)
+            self.qkv_weight, self.qkv_bias = dev(w.t(), _dtype()), dev(b)
+            self.rot_weight, self.rot_bias = dev(wr.t(), _dtype()), dev(br)
+            self.out_weight = dev(ow.t(), _dtype())
+        else:
+            self.qkv_weight = self.torch_to_tt("qkv.weight", dtype=_dtype())
+            self.qkv_bias = self.torch_to_tt("qkv.bias")
+            self.out_weight = self.torch_to_tt("out.weight", dtype=_dtype())
+        self.out_bias = self.torch_to_tt("out.bias")
 
     def __call__(self, x, cos, sin, attn_mask=None, key_valid=None):
         ck = self.compute_kernel_config
-        d_model = x.shape[-1]
-        head_dim = d_model // self.n_heads
         x_norm = ttnn.layer_norm(
             x, weight=self.norm_weight, bias=self.norm_bias, epsilon=1e-5, compute_kernel_config=ck,
         )
         qkv = self._lin(x_norm, self.qkv_weight, bias=self.qkv_bias)
-        ttnn.deallocate(x_norm)
-        if self.host_rope:
-            cos_t, sin_t = self._rope_tables_torch(qkv.shape[1])
-            q, k, v = self._host_split_rope(qkv, cos_t, sin_t)
+        if self.fold_rope:  # cos/sin are the packed [1, L, 3*H*32] tables from fold_rope_tables
+            rot = self._lin(x_norm, self.rot_weight, bias=self.rot_bias)
+            ttnn.deallocate(x_norm)
+            a = ttnn.multiply(qkv, cos)
+            ttnn.deallocate(qkv)
+            r = ttnn.multiply(rot, sin)
+            ttnn.deallocate(rot)
+            qkv = ttnn.add(a, r)
+            ttnn.deallocate(a); ttnn.deallocate(r)
+            q, k, v = self._split_heads(qkv, self.n_heads)
         else:
+            ttnn.deallocate(x_norm)
             q, k, v = self._split_heads(qkv, self.n_heads)
             q, k = _rope(q, k, cos, sin)
         if key_valid is not None:
             k = ttnn.multiply(k, key_valid)
             v = ttnn.multiply(v, key_valid)
-        scale = head_dim ** -0.5
         o = fused_sdpa(
-            q, k, v, attn_mask=attn_mask, scale=scale,
+            q, k, v, attn_mask=attn_mask, scale=self.head_dim ** -0.5,
             program_config=_sdpa_program_config_for_lengths(q.shape[2], k.shape[2], q.shape[0] * q.shape[1], site="saprot", d=q.shape[3]),
         )
         ttnn.deallocate(q); ttnn.deallocate(k); ttnn.deallocate(v)
-        o = self._merge_heads(o)  # [B, L, H*32] for host_rope
-        if self.host_rope:
-            o_h = torch.Tensor(ttnn.to_torch(o)).to(torch.float32)  # [B,L,H*32]
-            B_, L_ = o_h.shape[0], o_h.shape[1]
-            # padded layout is [head0(32), head1(32), ...]; slice 24 per head, not the first 480.
-            o_h = o_h.view(B_, L_, self.n_heads, 32)[:, :, :, : self.head_dim].contiguous()
-            o_h = o_h.view(B_, L_, self.n_heads * self.head_dim)  # [B,L,hidden]
-            o = ttnn.from_torch(o_h, device=self.device, layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16)
+        o = self._merge_heads(o)  # [B, L, H*32] when fold_rope; out_weight has the zero rows
         out = self._lin(o, self.out_weight, bias=self.out_bias)
         ttnn.deallocate(o)
         return out
+
+
+def _pad_heads(w: torch.Tensor, n_heads: int, d: int) -> torch.Tensor:
+    """[H*d, ...] -> [H*32, ...], each head's d rows followed by 32-d zero rows."""
+    w = w.reshape(n_heads, d, *w.shape[1:])
+    return torch.nn.functional.pad(w, (0, 0) * (w.dim() - 2) + (0, 32 - d)).reshape(n_heads * 32, *w.shape[2:])
+
+
+def _pad_heads_in(w: torch.Tensor, n_heads: int, d: int) -> torch.Tensor:
+    """Output projection [out, H*d] -> [out, H*32] with zero columns for the pad dims."""
+    return _pad_heads(w.t(), n_heads, d).t()
+
+
+def _fold_rope_qkv(w, b, n_heads: int, d: int):
+    """Head-padded q/k/v projection plus its RoPE companion.
+
+    ``w`` is torch Linear ``[3*H*d, hidden]`` (q, k, v stacked), ``b`` is ``[3*H*d]``.
+    Returns ``(w, b)`` padded to ``[3*H*32, ...]`` and ``(w_rot, b_rot)`` of the same
+    shape whose q/k rows are ``rotate_half`` of the q/k rows (``cat(-x2, x1)`` per head)
+    and whose v rows are zero, so ``x @ w_rot.T + b_rot == rotate_half(x @ w.T + b)``
+    over q and k exactly: a row permutation with a sign flip, no arithmetic.
+    """
+    h = d // 2
+    ws, bs = w.reshape(3, n_heads, d, -1), b.reshape(3, n_heads, d)
+    wr = torch.cat([-ws[:, :, h:], ws[:, :, :h]], dim=2)
+    br = torch.cat([-bs[:, :, h:], bs[:, :, :h]], dim=2)
+    wr[2] = 0
+    br[2] = 0
+    pad = lambda t: torch.cat([_pad_heads(t[i].reshape(n_heads * d, *t.shape[3:]), n_heads, d)
+                               for i in range(3)])
+    return pad(ws), pad(bs), pad(wr), pad(br)
+
+
+def _fold_rope_tables_torch(seq_len: int, n_heads: int, d: int):
+    """Packed ``[L, 3*H*32]`` cos/sin for ``_fold_rope_qkv``: the head_dim-``d`` NeoX
+    tables tiled per head over q and k (zero-padded to 32), cos = 1 / sin = 0 over v."""
+    inv_freq = 1.0 / (ROPE_BASE ** (torch.arange(0, d, 2, dtype=torch.float32) / d))
+    freqs = torch.outer(torch.arange(seq_len, dtype=torch.float32), inv_freq)
+    head = lambda f: torch.nn.functional.pad(torch.cat([f, f], dim=-1), (0, 32 - d))  # [L, 32]
+    qk = lambda f: head(f).repeat(1, 2 * n_heads)
+    cos = torch.cat([qk(freqs.cos()), torch.ones(seq_len, n_heads * 32)], dim=-1)
+    sin = torch.cat([qk(freqs.sin()), torch.zeros(seq_len, n_heads * 32)], dim=-1)
+    return cos, sin
+
+
+def fold_rope_tables(seq_len: int, n_heads: int, d: int, device):
+    """``_fold_rope_tables_torch`` on device as ``[1, L, 3*H*32]`` bf16."""
+    cos, sin = _fold_rope_tables_torch(seq_len, n_heads, d)
+    to_tt = lambda t: ttnn.from_torch(t[None], layout=ttnn.TILE_LAYOUT, device=device, dtype=ttnn.bfloat16)
+    return to_tt(cos), to_tt(sin)
 
 
 class ESM2FFN(Module):
@@ -314,8 +337,11 @@ class SaprotModel(Module):
         shape of fix as ``ESMCHiddenStatesModel``'s ``last_hidden_only``.
         """
         seq_len = tokens.shape[-1]
-        head_dim = self.norm_weight.shape[-1] // self.n_heads
-        cos, sin = rope_tables(seq_len, head_dim, device=self.device)
+        attn = self.blocks[0].attn
+        if attn.fold_rope:
+            cos, sin = fold_rope_tables(seq_len, self.n_heads, attn.head_dim, self.device)
+        else:
+            cos, sin = rope_tables(seq_len, attn.head_dim, device=self.device)
         x = self.embed(tokens, embed_mask)
         for block in self.blocks:
             x = block(x, cos, sin, attn_mask, key_valid)
