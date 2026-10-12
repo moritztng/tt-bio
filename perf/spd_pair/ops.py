@@ -190,15 +190,14 @@ if "lnview" in groups:
                     o = fn(); t = ttnn.to_torch(o).reshape(base.shape); ttnn.deallocate(o)
                     return {"equal_r4": bool(torch.equal(t, base))}
                 arms[f"{cname}_{sname}_{mc}"] = (fn, score)
-        # LayerNormDefaultProgramConfig variants on the rank-4 pair (legacy_reduction / legacy_rsqrt /
-        # use_welford): equality against the shipped call plus the float64 distance.
+        # LayerNormDefaultProgramConfig variants on the rank-4 pair (legacy_reduction / legacy_rsqrt;
+        # use_welford needs a reciprocal tensor and is not tried): equality against the shipped call plus the float64 distance.
         xd = z_host.double()
         ref = ((xd - xd.mean(-1, keepdim=True)) / torch.sqrt(xd.var(-1, unbiased=False, keepdim=True) + 1e-5)
                * gamma.double() + beta.double())
         for pname, pkw in {"pc_none": None, "pc_default": {}, "pc_legacy_red": {"legacy_reduction": True},
                            "pc_legacy_rsqrt": {"legacy_rsqrt": True},
-                           "pc_legacy_both": {"legacy_reduction": True, "legacy_rsqrt": True},
-                           "pc_welford": {"use_welford": True}}.items():
+                           "pc_legacy_both": {"legacy_reduction": True, "legacy_rsqrt": True}}.items():
             pc = {} if pkw is None else {"program_config": ttnn.LayerNormDefaultProgramConfig(**pkw)}
 
             def fn(pc=pc):
