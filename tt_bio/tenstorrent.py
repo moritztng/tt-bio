@@ -619,6 +619,9 @@ _FAST_MODE = False
 #                   kernel writing z in place (kernels/trimul_tail_res, compute_ln.cpp; c_z = 128, N >= 160)
 #   trimul_t1_dram  every trimul T1 / T2 can take (N >= 160) runs on the DRAM path, so they also serve the sizes
 #                   that would otherwise stay in L1 (Nesso-1's 256-token crop passes: 0.70 -> 0.36 s each on WH)
+#   trimul_t2cm     with trimul_t2, T2 reads the einsum's channel-major [1, C, S, S] output itself (reader_ln_cm.cpp:
+#                   the reblock gather in its reader, transpose_wh in its compute), so `reblock_permute_back`
+#                   (0.58 ms a call at 512 on p150a) never runs. A pure data move: bit-exact against trimul_t2
 #   conf_bins       OpenFold3's pae / pde heads reduce softmax(logits) to their bin-vector products on the card
 #                   in fp32 (pTM, ipTM, the chain readings, the PAE / PDE matrices), so the [N, N, 64] logits
 #                   never cross to the host
@@ -635,12 +638,13 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
           "transition_shard", "dit_mm16", "atom_k1", "dit_b8", "dit_qkv16", "atom_mm16", "adaln_mod",
           "swiglu_fc12g", "msa_sample", "dit_sdpa_pm", "dit_s16", "dit_chunk", "conf_bins", "trimul_t1", "trimul_t2",
-          "triatt_tail_bias", "dit_cond_hifi2", "transition_ws", "ws_ln", "trimul_t1_dram")
+          "triatt_tail_bias", "dit_cond_hifi2", "transition_ws", "ws_ln", "trimul_t1_dram",
+          "trimul_t2cm")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias in its own set: graded on AF2-IG only, and it would reach any other biased
 # triangle attention. BoltzGen's own --fast set names dit_cond_hifi2, graded on BoltzGen's designs.
-UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "dit_cond_hifi2", "ws_ln"})
+UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "dit_cond_hifi2", "ws_ln", "trimul_t2cm"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -9741,6 +9745,12 @@ class TriangleMultiplication(Module):
         # compile per process and every later call starts narrow.
         x_chunks = []
         x_out, c_done = None, 0      # `_TRIMUL_BACK_INTO`: the output the chunks are written into
+        # `trimul_t2cm`: the whole hidden as ONE channel-major chunk, kept for T2 to read as it is
+        # instead of being moved into x_out. Asked only where the T2 branch below would serve.
+        x_cm, cm_mc = None, None
+        cm_on = (lever("trimul_t2cm") and (_trimul_tail.T2 or lever("trimul_t2"))
+                 and H >= _trimul_tail.MIN_N and add_to_input and not ops.taping()
+                 and self.p_out_bias is None)
         tma_key = ("tma", H, batch, self._hidden, bool(self.ending))
         while True:
             tma_live = False         # an L1 `a` (TT_BIO_OF3L1_TMA) is live in this attempt
@@ -10017,6 +10027,16 @@ class TriangleMultiplication(Module):
                             and _reblock.eligible_back(x_chunk, back_mc)))
                     into = (one_pass and _TRIMUL_BACK_INTO and large_seq and not host_acc and not keep_chunks
                             and _reblock.eligible_back(x_chunk, back_mc))
+                    if (into and cm_on and x_cm is None and x_out is None and c_done == 0
+                            and g_out_fused is not None and int(x_chunk.shape[1]) == self._hidden
+                            and _trimul_tail.t2cm_eligible(
+                                x_chunk, self.out_norm_weight, self.out_norm_bias, self.out_p_weight,
+                                g_out_fused, x_in,
+                                _mm_generic.ckc_args(self.compute_kernel_config)) is None):
+                        # T2CM reads this chunk where it is; the move below never runs.
+                        x_cm, cm_mc = x_chunk, back_mc
+                        c_done += int(x_chunk.shape[1])
+                        continue
                     if into:
                         # Each chunk lands in its own channel slice of one output tensor, so the
                         # concat below never runs. Bit-exact: the same bytes in the same order.
@@ -10123,6 +10143,9 @@ class TriangleMultiplication(Module):
                 if x_out is not None:
                     ttnn.deallocate(x_out)
                 x_out, c_done = None, 0
+                if x_cm is not None:
+                    ttnn.deallocate(x_cm)
+                    x_cm = None
                 if x_out_pre is not None:
                     ttnn.deallocate(x_out_pre)
                     x_out_pre = None
@@ -10209,6 +10232,25 @@ class TriangleMultiplication(Module):
                 TRIMUL_TAIL_ROWS_STATS[1] += 1
         if x_out_pre is not None:       # reserved, but no chunk took the write-into path
             ttnn.deallocate(x_out_pre)
+        if x_cm is not None:
+            # `trimul_t2cm`: T2 on the channel-major chunk. Declined (it was eligible when kept, so
+            # only a row-blocked tail gets here), the chunk takes the move it skipped and every
+            # line below runs as without the lever.
+            fused = None if rows_tail else _trimul_tail.fused_tail_ln_cm(
+                x_cm, self.out_norm_weight, self.out_norm_bias, self.out_p_weight, g_out_fused,
+                x_in, _mm_generic.ckc_args(self.compute_kernel_config), tuple(COMPUTE_GRID_MAIN))
+            if fused is not None:
+                TRIMUL_GOUT_STATS[0] += 1
+                ttnn.deallocate(x_cm)
+                if x_norm_in is not None:      # None under T1
+                    ttnn.deallocate(x_norm_in)
+                ttnn.deallocate(g_out_fused)
+                return fused
+            x_out = ttnn.allocate_tensor_on_device(
+                ttnn.Shape([1, H, H, self._hidden]), x_cm.dtype, ttnn.TILE_LAYOUT, self.device, cm_mc)
+            _reblock.reblock_permute_back(x_cm, cm_mc, out=x_out, c_off=0)
+            ttnn.deallocate(x_cm)
+            x_cm = None
         if rows_tail and (host_acc or keep_chunks):
             # The hidden stays on the host as its channel chunks and the tail uploads one row
             # block of it at a time: uploaded whole it is a second pair-sized tensor beside z.
