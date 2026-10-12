@@ -30,6 +30,8 @@ def main() -> None:
     ap.add_argument("--seed", type=int, default=20260820)
     ap.add_argument("--split", action="store_true",
                     help="also time the forward's parts (trunk passes, ESM fold-in, crop, affinity)")
+    ap.add_argument("--cpu-glue", action="store_true",
+                    help="host model with the trunk stubbed to identity: times the host glue alone, no device")
     a = ap.parse_args()
 
     t_start = time.perf_counter()
@@ -53,7 +55,9 @@ def main() -> None:
     assert not failed, failed
     t0 = time.perf_counter()
     # The same settings screen() ships: bf16 trunk, fp32 affinity heads, 5 recycles.
-    model = Nesso1.from_pretrained(use_tenstorrent=True, trunk_fp32=False, affinity_fp32=True)
+    model = Nesso1.from_pretrained(use_tenstorrent=not a.cpu_glue, trunk_fp32=False, affinity_fp32=True)
+    if a.cpu_glue:
+        model._trunk = lambda z, mask, pair_mask: z
     model.use_kernels = False
     model.predict_args.update(CLI_PREDICT_ARGS)
     model.predict_args["recycling_steps"] = 5
