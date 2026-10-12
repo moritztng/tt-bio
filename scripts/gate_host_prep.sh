@@ -12,7 +12,9 @@
 #                            goes in as a second install: its jax needs numpy >= 2 while ttnn pins
 #                            numpy < 2, so one resolve is unsatisfiable. That is the user's order too
 #                            (pip install tt-bio, then BindCraft 2).
-# and, once per host, <root>/dockq-venv (DockQ 2.1.3, the opendde-abag scorer). DockQ ships no
+# Both venvs also get scripts/gate_reads.py as a .pth hook (re-copied every run, so a venv built
+# before it existed gets it too); it records what a leg reads only when gate_fanout.py asks.
+# And, once per host, <root>/dockq-venv (DockQ 2.1.3, the opendde-abag scorer). DockQ ships no
 # wheel; on a host without a C compiler put a prebuilt one at <root>/prereq/DockQ-*.whl.
 # Hosts of one arch must hold the same interpreters: pin GATE_PYTHON312 (e.g. 3.12.15) where uv would
 # otherwise pick whichever 3.12 each host has. Needs uv (https://docs.astral.sh/uv/). Safe to re-run: finished steps are skipped.
@@ -53,6 +55,9 @@ if [ ! -x "$ROOT/dockq-venv/bin/python" ]; then
     "$UV" pip install -q -p "$ROOT/dockq-venv/bin/python" "${DQ:-DockQ==2.1.3}"
 fi
 for v in "$ROOT/venv-$S" "$ROOT/venv312-$S"; do
+    site=$("$v/bin/python" -c 'import sysconfig; print(sysconfig.get_paths()["purelib"])')
+    cp "$T/scripts/gate_reads.py" "$site/_gate_reads.py"
+    echo "import _gate_reads" > "$site/_gate_reads.pth"
     "$v/bin/python" -c 'import importlib.metadata as m, sys; print(sys.argv[1], "python", sys.version.split()[0],
         *(f"{d} {m.version(d)}" for d in ("tt-bio", "ttnn", "torch", "numpy")))' "$v"
 done
