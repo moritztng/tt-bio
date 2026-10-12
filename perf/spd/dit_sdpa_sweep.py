@@ -37,13 +37,15 @@ b = 2.0 * torch.randn(1, H, S, S, generator=g)
 scale = HD ** -0.5
 up = lambda x: ttnn.from_torch(x, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev)
 qt, kt, vt, bt = up(q), up(k), up(v), up(b)
-# reference on the bf16-rounded inputs, in float64
+# reference on the bf16-rounded inputs, in float64. The op scales the mask with the scores, softmax((q k^T + b) *
+# scale), which is why the DiT hands it a bias pre-multiplied by head_dim**0.5 (p150a 544: rel_l2 0.027 against
+# this reading, 0.925 against q k^T * scale + b).
 r = [x.to(torch.bfloat16).double() for x in (q, k, v, b)]
 sc = r[0] @ r[1].transpose(-1, -2)
-ref = torch.softmax(sc * scale + r[3], -1) @ r[2]
-# alternative readings of the op, to name what a large error means: bias of head 0 only, bias also scaled, no bias
-ALT = {"head0_bias": torch.softmax(sc * scale + r[3][:, :1], -1) @ r[2],
-       "bias_scaled": torch.softmax((sc + r[3]) * scale, -1) @ r[2],
+ref = torch.softmax((sc + r[3]) * scale, -1) @ r[2]
+# alternative readings of the op, to name what a large error means: bias of head 0 only, bias unscaled, no bias
+ALT = {"head0_bias": torch.softmax((sc + r[3][:, :1]) * scale, -1) @ r[2],
+       "bias_unscaled": torch.softmax(sc * scale + r[3], -1) @ r[2],
        "no_bias": torch.softmax(sc * scale, -1) @ r[2]}
 
 
