@@ -63,6 +63,30 @@ inline void _silu_poly_() {
     }
 }
 
+// silu on a cheaper sigmoid: h a degree-6 polynomial in a = min(|x|, 7) itself, with h(0) = 0 and every
+// coefficient exact in fp16, so each loads in one SFPLOADI and no 1/X scale is needed (perf/spd_fastmode/silu_fit.py
+// fits it and emulates this float32 Horner order). Sigmoid factor within 7.4e-4 over all float32 x, so silu is
+// within 7.4e-4 relative for x > 1, under bf16's half-ULP, which the gate is packed to; for negative x the error is
+// |x| * 7.4e-4 at most (0.005 at x = -7). ~2/3 of _silu_poly_'s SFPU instructions.
+template <int ITERATIONS = 8>
+inline void _silu_poly6_() {
+#pragma GCC unroll 0
+    for (int d = 0; d < ITERATIONS; d++) {
+        sfpi::vFloat x = sfpi::dst_reg[0];
+        sfpi::vFloat a = sfpi::abs(x);
+        v_if(a > 7.0f) { a = 7.0f; }
+        v_endif;
+        sfpi::vFloat h = a * 3.552436828613281e-05f - 0.0008435249328613281f;
+        h = h * a + 0.007404327392578125f;
+        h = h * a - 0.0260009765625f;
+        h = h * a - 0.0027103424072265625f;
+        h = h * a + 0.2529296875f;
+        h = h * a;
+        sfpi::dst_reg[0] = x * (sfpi::setsgn(h, x) + 0.5f);
+        sfpi::dst_reg++;
+    }
+}
+
 // Round DST to bf16, nearest-even, so the pack that follows is exact. The fp32 -> bf16 pack from DST
 // truncates: the resident tail's z + p * sigmoid(g) came out a full bf16 ULP short toward zero on
 // 0.18 % of elements, rel_rms 0.0024 to float64 where one rounding gives 0.0014 (epi2_diag.py).
@@ -87,6 +111,11 @@ ALWI void sigmoid_poly_tile(uint32_t idst) {
 ALWI void silu_poly_tile(uint32_t idst) {
     MATH((_llk_math_eltwise_unary_sfpu_params_<false>(
         ckernel::sfpu::_silu_poly_<8>, idst, (int)VectorMode::RC)));
+}
+
+ALWI void silu_poly6_tile(uint32_t idst) {
+    MATH((_llk_math_eltwise_unary_sfpu_params_<false>(
+        ckernel::sfpu::_silu_poly6_<8>, idst, (int)VectorMode::RC)));
 }
 
 ALWI void round_bf16_rne_tile(uint32_t idst) {

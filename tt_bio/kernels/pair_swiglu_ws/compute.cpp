@@ -24,7 +24,8 @@ void kernel_main() {
     constexpr uint32_t KT = get_compile_time_arg_val(0);
     constexpr uint32_t NH = get_compile_time_arg_val(1);
     constexpr uint32_t CT = get_compile_time_arg_val(2);
-    constexpr uint32_t SILU_POLY = get_compile_time_arg_val(3);  // 1: sigmoid_poly.hpp's silu, 0: metal's silu_tile
+    // 0: metal's silu_tile, 1: sigmoid_poly.hpp's degree-8 silu (3e-4), 2: its degree-6 fp16-coefficient silu (7.4e-4)
+    constexpr uint32_t SILU_POLY = get_compile_time_arg_val(3);
     const uint32_t count = get_arg_val<uint32_t>(1);
     constexpr uint32_t SW = 4;
     constexpr uint32_t OG = CT < 4 ? CT : 4;
@@ -54,7 +55,9 @@ void kernel_main() {
 #ifndef WS_NO_SILU
             silu_tile_init();  // the dest-reuse multiply's init does not keep the SFPU's
             for (uint32_t i = 0; i < SW; ++i) {
-                if constexpr (SILU_POLY) {
+                if constexpr (SILU_POLY == 2) {
+                    silu_poly6_tile(i);
+                } else if constexpr (SILU_POLY == 1) {
                     silu_poly_tile(i);
                 } else {
                     silu_tile(i);
