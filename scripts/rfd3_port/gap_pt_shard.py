@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """gap_pt_shard: RFD3's pair Transition on the engine's shared block-sharded SwiGLU, against the shipped path.
 
+`ws` is tt_bio.pair_swiglu_ws, the weight-stationary kernel (z read once, weights in L1).
 tt_bio.tenstorrent already carries a pair SwiGLU with block-sharded intermediates (`transition_shard`) and an
 optional fused fc1|fc2+silu+gate kernel (`swiglu_fc12g`), graded and shipped for ESMFold2. RFD3 runs its own
 chunked L1 path (`Transition.__call__`). This times both at the R4 pair shape [1, 685, 704, 128], hidden 256 and
@@ -14,6 +15,7 @@ sys.path.insert(0, os.getcwd())
 from tt_bio.rfd3 import model as M                                       # noqa: E402
 from tt_bio import tenstorrent as T                                      # noqa: E402
 from tt_bio.tenstorrent import get_device                                # noqa: E402
+from tt_bio import pair_swiglu_ws as WS                                  # noqa: E402
 
 OUT = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else "out/gap_pt_shard.json")
 N = int(sys.argv[2]) if len(sys.argv) > 2 else 5
@@ -88,8 +90,17 @@ def main():
                 ttnn.deallocate(p)
             return o
 
+        ws12, ws3 = WS.weights(w1, w2, w3, dev)
+
+        def ws():
+            n = ttnn.rms_norm(x, weight=t.norm_w, epsilon=1e-6, compute_kernel_config=ckc)
+            o = WS.pair_swiglu(n, ws12, ws3)
+            ttnn.deallocate(n)
+            return o
+
         arms = {
             "rfd3": lambda: t(x),
+            "ws": ws,
             "shard": lambda: shard(ttnn.bfloat16, False),
             "shard+fc12g": lambda: shard(ttnn.bfloat16, True),
             "shard_b8": lambda: shard(ttnn.bfloat8_b, False),
