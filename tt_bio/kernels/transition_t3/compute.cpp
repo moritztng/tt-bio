@@ -7,7 +7,7 @@
 //   2. per group of G hidden tiles: fc1 block -> silu in DST -> gate CB; fc2 block -> * gate (DST reused as
 //      srcB) -> h slots [g*G, g*G + G). Neither fc1 nor fc2 leaves L1 as a tensor.
 //   3. y = h @ W3, all Ht hidden tiles accumulated in one fp32 DST half (Kt <= 4 output tiles).
-//   4. RES: y + x (x from the residual CB, DST reused as srcB). Packed bf16 to the writer.
+//   4. RES: y packed bf16, then y + x (x from the residual CB) packed bf16 to the writer.
 // fp32 DEST (the statistics and the K accumulation), the caller's fidelity; under math_approx_mode silu is
 // the silu_f32 overlay (tenstorrent.silu_ckc), as the incumbent fc1 runs it.
 #include <cstdint>
@@ -47,6 +47,7 @@ constexpr uint32_t cb_var = tt::CBIndex::c_13;
 constexpr uint32_t cb_rstd = tt::CBIndex::c_14;
 constexpr uint32_t cb_xc = tt::CBIndex::c_16;
 constexpr uint32_t cb_tmp = tt::CBIndex::c_17;
+constexpr uint32_t cb_y = tt::CBIndex::c_15;     // fc3 output, bf16, before the residual add
 
 struct LnCbs {
     static constexpr uint32_t Kt = ::Kt, x = cb_x, gamma = cb_gamma, beta = cb_beta, scaler = cb_scaler,
@@ -116,20 +117,33 @@ void kernel_main() {
         pack_reconfig_data_format(out_cb);
         tile_regs_acquire();
         for (uint32_t j = 0; j < Ht; ++j) matmul_block(h_cb, w3_cb, j, j * Kt, 0, false, Kt, 1, Ht);
-        if constexpr (RES) {
-            cb_wait_front(res_cb, Kt);
-            binary_dest_reuse_tiles_init<EltwiseBinaryType::ELWADD, EltwiseBinaryReuseDestType::DEST_TO_SRCB>(res_cb);
-            for (uint32_t i = 0; i < Kt; ++i)
-                binary_dest_reuse_tiles<EltwiseBinaryType::ELWADD, EltwiseBinaryReuseDestType::DEST_TO_SRCB>(
-                    res_cb, i, i);
-        }
+        // 4. + x: y is packed bf16 and added to x as two bf16 operands, the incumbent's fc3 -> add_ rounding.
+        // (Adding x into the fp32 DST by DEST_TO_SRCB reuse put 9 of 33.5M elements exactly 1 or 2 low at 512,
+        // the same elements on every chip and run.)
+        const uint32_t y_cb = RES ? cb_y : out_cb;
         tile_regs_commit();
-        cb_reserve_back(out_cb, Kt);
+        cb_reserve_back(y_cb, Kt);
         tile_regs_wait();
-        for (uint32_t i = 0; i < Kt; ++i) pack_tile(i, out_cb);
+        for (uint32_t i = 0; i < Kt; ++i) pack_tile(i, y_cb);
         tile_regs_release();
-        cb_push_back(out_cb, Kt);
+        cb_push_back(y_cb, Kt);
+        if constexpr (RES) {
+            cb_wait_front(cb_y, Kt);
+            cb_wait_front(res_cb, Kt);
+            reconfig_data_format(cb_y, res_cb);
+            pack_reconfig_data_format(out_cb);
+            add_tiles_init(cb_y, res_cb);
+            cb_reserve_back(out_cb, Kt);
+            tile_regs_acquire();
+            for (uint32_t i = 0; i < Kt; ++i) add_tiles(cb_y, res_cb, i, i, i);
+            tile_regs_commit();
+            tile_regs_wait();
+            for (uint32_t i = 0; i < Kt; ++i) pack_tile(i, out_cb);
+            tile_regs_release();
+            cb_pop_front(cb_y, Kt);
+            cb_push_back(out_cb, Kt);
+            cb_pop_front(res_cb, Kt);
+        }
         cb_pop_front(h_cb, Ht);
-        if constexpr (RES) cb_pop_front(res_cb, Kt);
     }
 }
