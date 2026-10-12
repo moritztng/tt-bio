@@ -63,7 +63,7 @@ for mode, dt, fid in (("fast", ttnn.bfloat8_b, ttnn.MathFidelity.HiFi2),
         continue
     emit(arm=mode + "-metal_silu", fidelity=str(fid), ms=timed(lambda: W.pair_swiglu(x, w12, w3t, fid, (), 0)))
     emit(arm=mode + "-poly6_silu", fidelity=str(fid), ms=timed(lambda: W.pair_swiglu(x, w12, w3t, fid, (), 2)))
-    if dt != ttnn.bfloat16:  # is the bfp8 cast of x (its own op, typecast_bfp8 above) worth its in-kernel saving?
+    if dt != ttnn.bfloat16 and W.eligible(xt, w12, w3t):  # is the bfp8 cast of x (typecast_bfp8 above) worth it?
         emit(arm=mode + "-bf16x", fidelity=str(fid), ms=timed(lambda: W.pair_swiglu(xt, w12, w3t, fid)))
         emit(arm=mode + "-bf16x-poly6_silu", fidelity=str(fid), ms=timed(lambda: W.pair_swiglu(xt, w12, w3t, fid, (), 2)))
     for drop in ("", "FC12", "SILU", "GATE", "FC3", "XREAD", "WRITE"):
