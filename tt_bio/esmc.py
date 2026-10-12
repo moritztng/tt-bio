@@ -1094,6 +1094,7 @@ class ESMC(TorchWrapper):
     # of a length-sorted single-sequence stream. A capture that does not fit
     # raises, and _dispatch falls back to eager.
     _TRACE_CACHE_MAX = 8
+    MATH_FIDELITY = "HiFi3"
 
     def __init__(self, d_model: int, n_heads: int, n_layers: int, *, trace: bool = True):
         super().__init__()
@@ -1104,6 +1105,16 @@ class ESMC(TorchWrapper):
         self._trace_cache: collections.OrderedDict = collections.OrderedDict()
         self._trace_seen: collections.Counter = collections.Counter()
         self._trace_broken = False
+        # HiFi3 with fp32 accumulation, every op. On a Blackhole batch of 7 (qb2 p300c, 1350 MHz) it cuts
+        # 300M 88.5 -> 84.1 ms and 600M 135.0 -> 123.1 ms, with the error against the fp32 reference
+        # unchanged (rel_l2 0.0252 vs 0.0256, 0.0250 vs 0.0236); on Wormhole it saves 1-5 %.
+        # The ESMC-6B (ESMFold2's LM) is ESMCLanguageModel and keeps HiFi4.
+        self.compute_kernel_config = type(self.compute_kernel_config)(
+            math_fidelity=getattr(ttnn.MathFidelity, self.MATH_FIDELITY),
+            math_approx_mode=False,
+            fp32_dest_acc_en=True,
+            packer_l1_acc=True,
+        )
 
     @classmethod
     def from_pretrained(cls, name: str = "esmc-300m", *, trace: bool = True) -> "ESMC":
