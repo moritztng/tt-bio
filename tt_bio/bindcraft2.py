@@ -39,6 +39,7 @@ import pathlib
 import re
 import sys
 import threading
+import warnings
 from collections.abc import Mapping
 from typing import Callable, Iterator
 
@@ -203,6 +204,31 @@ def upload_dropout(trunk, pair_draws, pair_keep, scales, n32, msa_keep=None):
 
 def _pad32(n: int) -> int:
     return -(-n // TOKEN_BUCKET) * TOKEN_BUCKET
+
+
+def _host_view(a) -> torch.Tensor:
+    """A float32 torch view of a callback's array, not a copy of it.
+
+    JAX hands `pure_callback` read-only arrays and `torch.from_numpy` warns about those. Every
+    reader of this view copies out of it into a fresh tensor and none writes, so the `.copy()`
+    the callers used to take first was a full-size host copy bought for nothing.
+    """
+    a = np.asarray(a, dtype=np.float32)
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", message="The given NumPy array is not writable")
+        return torch.from_numpy(a)
+
+
+def _into(t: torch.Tensor, shape, dtype=None) -> torch.Tensor:
+    """`t` in the leading corner of zeros of `shape`, rounded to `dtype` on the way if given.
+
+    One host pass where a zero pad and a later `.to(torch.bfloat16)` took two plus the copy in
+    front of them: 8.1 -> 1.2 ms for a [250, 250, 128] pair on pc. Same bits -- the pad is zero
+    either way and torch rounds float32 to bf16 nearest-even on both paths.
+    """
+    out = torch.zeros(shape, dtype=dtype or t.dtype)
+    out[tuple(slice(0, d) for d in t.shape)] = t
+    return out
 
 
 def design_tokens(settings: Mapping) -> int:
@@ -1289,27 +1315,30 @@ class EvoformerOnDevice:
     # ------------------------------------------------------------------ host <-> card
 
     @staticmethod
-    def _pad(m, z, mask, pair_mask):
+    def _pad(m, z, mask, pair_mask, dtype=None):
         """Pad the token axis to a multiple of 32 and mask what was added.
 
         BindCraft 2 samples a binder length per trajectory, so the complex is whatever it drew and
         is rarely a multiple of 32. Padding does strictly more arithmetic and is faster; the mask
-        keeps it exact and the caller slices the result back.
+        keeps it exact and the caller slices the result back. `dtype` rounds `m` and `z` in the
+        same pass (`_into`); the masks are cache keys and stay as they came.
         """
         n = z.shape[0]
         n32 = _pad32(n)
-        if n32 == n:
+        if n32 == n and dtype is None:
             return m, z, mask, pair_mask, n
         pad = n32 - n
-        m = torch.nn.functional.pad(m, (0, 0, 0, pad))
-        z = torch.nn.functional.pad(z, (0, 0, 0, pad, 0, pad))
+        m = _into(m, (*m.shape[:-2], n32, m.shape[-1]), dtype)
+        z = _into(z, (*z.shape[:-3], n32, n32, z.shape[-1]), dtype)
         mask = torch.nn.functional.pad(mask, (0, pad))
         pair_mask = torch.nn.functional.pad(pair_mask, (0, pad, 0, pad))
         return m, z, mask, pair_mask, n
 
     def _inputs(self, msa_np, pair_np, mask_np, pair_mask_np):
+        """`_pad` on the callback's arrays, `m` and `z` already in bf16: all `_Trunk.up` sends."""
         as_t = lambda a: torch.from_numpy(np.asarray(a).copy()).float()  # noqa: E731
-        return self._pad(as_t(msa_np), as_t(pair_np), as_t(mask_np), as_t(pair_mask_np))
+        return self._pad(_host_view(msa_np), _host_view(pair_np), as_t(mask_np),
+                         as_t(pair_mask_np), torch.bfloat16)
 
     @staticmethod
     def _key(mask: torch.Tensor):
@@ -1459,9 +1488,9 @@ class EvoformerOnDevice:
         m_shape, z_shape = entry["shapes"]
         n = entry["n"]
         # Building the cotangent buffers is torch on the host; only the backward needs the card.
-        gm, gz = torch.zeros(m_shape), torch.zeros(z_shape)
-        gm[:, :n] = torch.from_numpy(np.asarray(g_msa_np).copy()).float()
-        gz[:n, :n] = torch.from_numpy(np.asarray(g_pair_np).copy()).float()
+        # bf16 already, which is what `_Trunk.seed` sends.
+        gm = _into(_host_view(g_msa_np), m_shape, torch.bfloat16)
+        gz = _into(_host_view(g_pair_np), z_shape, torch.bfloat16)
         with _refusal_names_the_size("backward", n, z_shape[0], self.memory), \
                 duotraj.card(slot, "evoformer._backward"):
             trunk = self.pool.trunk_for(slot)
@@ -1571,14 +1600,14 @@ class ExtraMsaOnDevice:
     # ------------------------------------------------------------------ inputs
 
     @staticmethod
-    def _pad(z, pair_mask):
+    def _pad(z, pair_mask, dtype=None):
         """The pair half of `EvoformerOnDevice._pad`, which is all this swap hands the card."""
         n = z.shape[0]
         n32 = _pad32(n)
-        if n32 == n:
+        if n32 == n and dtype is None:
             return z, pair_mask, n
         pad = n32 - n
-        z = torch.nn.functional.pad(z, (0, 0, 0, pad, 0, pad))
+        z = _into(z, (*z.shape[:-3], n32, n32, z.shape[-1]), dtype)
         pair_mask = torch.nn.functional.pad(pair_mask, (0, pad, 0, pad))
         return z, pair_mask, n
 
@@ -1595,7 +1624,7 @@ class ExtraMsaOnDevice:
     def _inputs(self, pair_np, extra_mask_np, pair_mask_np):
         self._check_mask(extra_mask_np)
         as_t = lambda a: torch.from_numpy(np.asarray(a).copy()).float()  # noqa: E731
-        return self._pad(as_t(pair_np), as_t(pair_mask_np))
+        return self._pad(_host_view(pair_np), as_t(pair_mask_np), torch.bfloat16)
 
     def _trunk(self, slot: str) -> _Trunk:
         trunk = self.pool.trunk_for(slot)
@@ -1657,8 +1686,7 @@ class ExtraMsaOnDevice:
         if entry is None:
             raise RuntimeError(f"no live extra-MSA tape for token {int(token)}")
         shape, n = entry["shape"], entry["n"]
-        gz = torch.zeros(shape)
-        gz[:n, :n] = torch.from_numpy(np.asarray(g_pair_np).copy()).float()
+        gz = _into(_host_view(g_pair_np), shape, torch.bfloat16)
         with _refusal_names_the_size("backward", n, shape[0], self.memory,
                                      stack="extra-MSA stack"), \
                 duotraj.card(slot, "extra_msa._backward"):
@@ -1748,20 +1776,20 @@ class TemplateOnDevice:
     # ------------------------------------------------------------------ inputs
 
     @staticmethod
-    def _pad(act, pair_mask):
+    def _pad(act, pair_mask, dtype=None):
         """`ExtraMsaOnDevice._pad`, at the template stack's own channel count."""
         n = act.shape[0]
         n32 = _pad32(n)
-        if n32 == n:
+        if n32 == n and dtype is None:
             return act, pair_mask, n
         pad = n32 - n
-        act = torch.nn.functional.pad(act, (0, 0, 0, pad, 0, pad))
+        act = _into(act, (*act.shape[:-3], n32, n32, act.shape[-1]), dtype)
         pair_mask = torch.nn.functional.pad(pair_mask, (0, pad, 0, pad))
         return act, pair_mask, n
 
     def _inputs(self, act_np, pair_mask_np):
         as_t = lambda a: torch.from_numpy(np.asarray(a).copy()).float()  # noqa: E731
-        act, pair_mask, n = self._pad(as_t(act_np), as_t(pair_mask_np))
+        act, pair_mask, n = self._pad(_host_view(act_np), as_t(pair_mask_np), torch.bfloat16)
         self.seen["calls"] += 1
         self.seen["n"], self.seen["channels"] = n, int(act.shape[-1])
         return act, pair_mask, n
@@ -1826,8 +1854,7 @@ class TemplateOnDevice:
         if entry is None:
             raise RuntimeError(f"no live template tape for token {int(token)}")
         shape, n = entry["shape"], entry["n"]
-        g = torch.zeros(shape)
-        g[:n, :n] = torch.from_numpy(np.asarray(g_act_np).copy()).float()
+        g = _into(_host_view(g_act_np), shape, torch.bfloat16)
         with _refusal_names_the_size("backward", n, shape[0], self.memory,
                                      stack="template stack"), \
                 duotraj.card(slot, "template._backward"):
