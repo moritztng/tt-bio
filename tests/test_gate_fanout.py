@@ -932,3 +932,69 @@ def test_one_runner_per_out(tmp_path):
         gf.hold_out(tmp_path / "g")
     held.close()
     gf.hold_out(tmp_path / "g").close()
+
+
+def test_a_dead_card_is_retired_and_its_leg_runs_on_another_card(tmp_path):
+    host = _host("qb2", "bh", tmp_path)
+    legs = [gf.Leg(f"ux:m{i}", [], "ux") for i in range(6)]
+    ran = []
+
+    def execute(h, card, leg):
+        time.sleep(0.01)
+        res = {"leg": leg.name, "arch": h.arch, "verdict": "PASS", "worker": f"qb2:{card}"}
+        if card == 1:
+            raise gf.CardDead({**res, "verdict": "FAIL"}, "TT_THROW: failed to initialize FW")
+        ran.append((card, leg.name))
+        return res
+
+    res = gf.Gate({"bh": list(legs)}, [(host, 0), (host, 1)], set(), execute, tmp_path).run()
+    assert sorted(r["leg"] for r in res) == sorted(lg.name for lg in legs)
+    assert {r["verdict"] for r in res} == {"PASS"}
+    assert {c for c, _ in ran} == {0}
+
+
+def test_a_leg_that_kills_two_cards_is_recorded_as_it_ran(tmp_path):
+    host = _host("qb2", "bh", tmp_path)
+    killed = []
+
+    def execute(h, card, leg):
+        killed.append(card)
+        raise gf.CardDead({"leg": leg.name, "arch": h.arch, "verdict": "FAIL",
+                           "worker": f"qb2:{card}"}, "ARC core (8, 0) failed to start.")
+
+    res = gf.Gate({"bh": [gf.Leg("ux:killer", [], "ux")]}, [(host, 0), (host, 1), (host, 2)], set(),
+                  execute, tmp_path).run()
+    assert [r["verdict"] for r in res] == ["FAIL"] and len(killed) == 2
+
+
+def test_a_leg_no_card_is_left_to_run_is_unrun_and_fails_the_gate(tmp_path):
+    host = _host("qb2", "bh", tmp_path)
+
+    def execute(h, card, leg):
+        raise gf.CardDead({"leg": leg.name, "arch": h.arch, "verdict": "FAIL",
+                           "worker": f"qb2:{card}"}, "TT_THROW: failed to initialize FW")
+
+    legs = [gf.Leg("ux:a", [], "ux"), gf.Leg("ux:b", [], "ux")]
+    res = gf.Gate({"bh": legs}, [(host, 0)], set(), execute, tmp_path).run()
+    assert {r["leg"]: r["verdict"] for r in res} == {"ux:a": "UNRUN", "ux:b": "UNRUN"}
+    assert not gf.write_verdict(tmp_path, "f" * 40, ["bh"], res)
+
+
+def test_the_card_probe_reads_dead_only_when_it_ran_and_did_not_dispatch(tmp_path):
+    host = gf.Host("qb2", {"arch": "bh", "card_type": "p300c", "root": str(tmp_path),
+                           "lock": "/tmp/chip{card}.lock"}, "f" * 40)
+    seen = []
+
+    def fake(stdout):
+        def ssh(cmd, **kw):
+            seen.append(cmd)
+            return subprocess.CompletedProcess(cmd, 0, stdout, "")
+        return ssh
+
+    host.ssh = fake("CARD_PROBE_START\nCARD_OPEN\nCARD_HEALTHY\n")
+    assert host.card_dead(1) is None
+    assert "TT_VISIBLE_DEVICES=1" in seen[-1] and "flock -w" in seen[-1] and "/tmp/chip1.lock" in seen[-1]
+    host.ssh = fake("")                                       # never got the flock
+    assert host.card_dead(1) is None
+    host.ssh = fake("CARD_PROBE_START\nTT_THROW: Device 0 init: failed to initialize FW!\n")
+    assert "failed to initialize FW" in host.card_dead(1)
