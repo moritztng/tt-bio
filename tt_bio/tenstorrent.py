@@ -12204,23 +12204,32 @@ def _ws_applies(x, ckc) -> bool:
             and not _dest_guard.tail_exposed(ckc))
 
 
-def ws_swiglu(x, norm_weight, norm_bias, ckc, w12, w3):
-    """`fc3(silu(LN(x) w1) * (LN(x) w2))` as one `pair_swiglu_ws` program, or None where the kernel does
-    not take the shape (weights over its L1 budget: c_z 256 in bf16, c_z 384; a hidden width it cannot tile).
+def ws_swiglu(x, norm_weight, norm_bias, ckc, parts):
+    """`fc3(silu(LN(x) w1) * (LN(x) w2))` as `pair_swiglu_ws` programs over the hidden chunks `parts`
+    (`pair_swiglu_ws.weights`), their outputs summed; or None where the kernel does not take the shape (a chunk
+    over its L1 budget, a hidden width it cannot tile).
 
     Shared by the pair `Transition` and ESMFold2's `esmc.SwiGLUFFN`. With bfp8 weights (fast mode) x goes in
     as bfp8 too, and with both operands bfp8 HiFi2 already covers every mantissa bit (`bfp8_fidelity`);
     fc3's bf16 hidden is then read at bfp8-like precision, as fast's own bfp8 hidden is stored.
     """
-    if not _pair_ws.eligible(x, w12, w3):
+    if not all(_pair_ws.eligible(x, w12, w3) for w12, w3 in parts):
         return None
-    b8 = w12.dtype == ttnn.bfloat8_b
+    b8 = parts[0][0].dtype == ttnn.bfloat8_b
     x_norm = ttnn.layer_norm(x, weight=norm_weight, bias=norm_bias, epsilon=1e-5, compute_kernel_config=ckc,
                              memory_config=ttnn.DRAM_MEMORY_CONFIG)
     if b8:  # layer_norm has no output dtype
         x_bf16, x_norm = x_norm, ttnn.typecast(x_norm, ttnn.bfloat8_b)
         ttnn.deallocate(x_bf16)
-    out = _pair_ws.pair_swiglu(x_norm, w12, w3, ttnn.MathFidelity.HiFi2 if b8 else ckc.math_fidelity)
+    fid = ttnn.MathFidelity.HiFi2 if b8 else ckc.math_fidelity
+    out = None
+    for w12, w3 in parts:
+        o = _pair_ws.pair_swiglu(x_norm, w12, w3, fid)
+        if out is None:
+            out = o
+        else:
+            ttnn.add_(out, o)
+            ttnn.deallocate(o)
     ttnn.deallocate(x_norm)
     return out
 
@@ -12287,19 +12296,19 @@ class Transition(Module):
 
     def _weight_stationary(self, x, memory_config):
         """`transition_ws`: layer norm, then the whole swiglu as one `pair_swiglu_ws` program, or None
-        where the kernel does not take the shape (weights over its L1 budget: c_z 256 in bf16, c_z 384;
-        a hidden width it cannot tile; an L1 destination; a tape)."""
+        where the kernel does not take the shape (a hidden width it cannot tile, an L1 destination, a tape).
+        Weights over its L1 budget (c_z 256 in bf16, OpenDDE's c_z 384) run in hidden chunks."""
         if not (_ws_applies(x, self.compute_kernel_config)
                 and (memory_config is None or memory_config.buffer_type == ttnn.BufferType.DRAM)
                 and (self.dtype or _dtype()) == ttnn.bfloat16):
             return None
         if getattr(self, "_ws", None) is None:
             # bfp8 weights where the module's own are (transition_b8, fast mode): that is also what lets
-            # c_z 256 fit L1 whole.
+            # c_z 256 fit L1 in one chunk.
             self._ws = _pair_ws.weights(self.weights["fc1.weight"].t(), self.weights["fc2.weight"].t(),
                                         self.weights["fc3.weight"].t(), self.device,
                                         ttnn.bfloat8_b if self._hidden_b8 else ttnn.bfloat16)
-        return ws_swiglu(x, self.norm_weight, self.norm_bias, self.compute_kernel_config, *self._ws)
+        return ws_swiglu(x, self.norm_weight, self.norm_bias, self.compute_kernel_config, self._ws)
 
     def _add_rows_ok(self, x, memory_config) -> bool:
         return (_TRANSITION_ADD_ROWS and not ops.taping() and len(x.shape) == 4
