@@ -30,7 +30,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from gate_fanout import REPO, content_hash  # noqa: E402
+from gate_fanout import OK, REPO, content_hash  # noqa: E402
 
 #: A staging merge names itself either way: "Merge wk/spd-int-next7 (staging7): ..." or
 #: "Merge staging11d (wk/spd-orch-s11d ...): ...".
@@ -106,6 +106,18 @@ def running_gates(gates: Path | None, partial: bool = False) -> list[str]:
                    if not (p.parent / "verdict.json").exists() and _alive(plan)})
 
 
+def failed_so_far(gates: Path | None, sha: str) -> int:
+    """Legs a running full gate on `sha` has already failed. Such a gate cannot pass: finishing it
+    when main has moved on spends cards on results the next gate cannot reuse (its key differs).
+    On 2026-10-12 the gate on 026b5c71c ran on with 55 failed legs while main was 61 commits ahead."""
+    n = 0
+    for p, plan in _plans(gates):
+        if plan["sha"] == sha and (p.parent / "results.jsonl").exists():
+            n += sum(json.loads(line).get("verdict") not in OK
+                     for line in (p.parent / "results.jsonl").read_text().splitlines() if line.strip())
+    return n
+
+
 def decide(repo: Path = REPO, gates: Path | None = None, ref: str = "origin/main") -> dict:
     head = git("rev-parse", ref, repo=repo)
     tag, tsha = last_release(repo)
@@ -123,9 +135,14 @@ def decide(repo: Path = REPO, gates: Path | None = None, ref: str = "origin/main
         res = json.loads((d / "verdict.json").read_text()).get("results", [])
         if owed := sorted({f for r in res if r.get("verdict") == "OWED" for f in r.get("owed", [])}):
             why += f"; record {','.join(owed)} first (gate_fanout.py --legs 'record:*' --record-lever)"
+    if state == "running" and (n := failed_so_far(gates, json.loads((d / "plan.json").read_text())["sha"])):
+        why += f"; {n} legs already failed, start on them now"
     older = [s for s in out["running"] if d is None or s != json.loads((d / "plan.json").read_text())["sha"]]
-    if older:
-        why += f"; finish the running gate on {', '.join(s[:9] for s in older)}, do not restart it"
+    if dead := [s for s in older if failed_so_far(gates, s)]:
+        why += (f"; stop the running gate on {', '.join(s[:9] for s in dead)}: it has failed legs "
+                f"and main has moved on, so nothing it runs can ship")
+    if live := [s for s in older if s not in dead]:
+        why += f"; finish the running gate on {', '.join(s[:9] for s in live)}, do not restart it"
     if part := running_gates(gates, partial=True):
         why += f"; partial runs on {', '.join(s[:9] for s in part)} fill the ledger the gate reuses"
     return {**out, "do": do, "sha": head, "why": why}

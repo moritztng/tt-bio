@@ -62,6 +62,9 @@ def test_gate_the_newest_staging_and_never_restart_a_running_gate(tmp_path):
     assert d["stagings_since"] == ["8", "10", "11d"]
     assert d["do"] == "GATE" and d["sha"] == head
     assert "finish the running gate on " + s8[:9] in d["why"]
+    (gates / "g8" / "results.jsonl").write_text(json.dumps({"leg": "rg:m", "verdict": "FAIL"}) + "\n")
+    d = rn.decide(tmp_path, gates, "main")
+    assert "stop the running gate on " + s8[:9] in d["why"] and "finish" not in d["why"]
 
     _plan(gates, "cpu10", head, tmp_path, partial=True)
     (gates / "cpu10" / "verdict.json").write_text(json.dumps({"pass": True}))

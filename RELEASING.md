@@ -18,7 +18,9 @@ python3 scripts/release_next.py --gates ~/gates   # GATE <sha> | WAIT | FIX | CU
 ```
 
 If a newer staging lands while a gate runs, finish that gate (do not restart it), release it if
-it passes, and start the next gate on the new head right away.
+it passes, and start the next gate on the new head right away. The exception is a gate that has
+already failed a leg: it cannot ship, and its remaining legs key to code main has left, so
+`release_next.py` says to stop it.
 
 Anything committed for a release (re-recorded baselines and records, gate fixes, a hotfix the
 gate forced) goes back to `main` as soon as the tag is cut. Otherwise the next gate on `main`
@@ -59,7 +61,10 @@ hour). A pool leg that stops because a fold timed out and its card reset was ref
 more, since the pool probes every chip before handing it out; on a named qb card that stop is the
 result, because reopening the card can hard-reset the host. A leg that finds another process
 on its card (the device lease refuses the open) runs again up to three times: nothing of the tree
-was measured. Two legs that write the same results directory, such as a model and its `--fast`
+was measured. A leg that fails on a named card is followed by a short open-and-dispatch probe of
+that card; a card that fails it is dropped for the rest of the run and the leg runs once more on
+another card (qb2 chip 1 died mid-gate on 2026-10-12 and failed 40 legs in 30 minutes before this).
+A leg no card is left to run is recorded UNRUN and fails the gate. Two legs that write the same results directory, such as a model and its `--fast`
 arm, never run at the same time on one host. A capacity leg passes when every cell it fails is a
 size-guard refusal that `docs/capacity_gate_baseline.json` records for that card type
 (OpenDDE on Blackhole is capped at 1024 tokens, so its 1536 cell is refused every run); any
