@@ -10,7 +10,7 @@
 //   3. per output channel tile q of [a | b]: 32 tiles W^T[q] @ xn_il^T (value pass, gate pass with
 //      the sigmoid in DST), then a = p * sigmoid(g) [* m] packed in il order for the writer, which
 //      gathers them into the [B, C, S, S] tiles the einsum reads.
-// fp32 DEST (the statistics), the caller's fidelity. NEVER RUN ON A DEVICE YET.
+// fp32 DEST (the statistics), the caller's fidelity. Step 1 is kernels/common/ln_prologue.hpp.
 #include <cstdint>
 #define REDUCE_OP PoolType::SUM
 #define REDUCE_DIM ReduceDim::REDUCE_ROW
@@ -25,6 +25,7 @@
 #include "api/compute/eltwise_unary/rsqrt.h"
 #include "api/compute/eltwise_binary_sfpu.h"
 #include "../trimul_gin_moved/sigmoid_poly.hpp"
+#include "../common/ln_prologue.hpp"
 
 constexpr uint32_t Kt = get_compile_time_arg_val(0);
 constexpr uint32_t CT2 = get_compile_time_arg_val(1);
@@ -60,96 +61,14 @@ ALWI void sigmoid_bf16_tile(uint32_t idst) {
     MATH((llk_math_eltwise_unary_sfpu_sigmoid<false, false>(idst, (int)VectorMode::RC)));
 }
 
-// Sum of each row of the Kt tiles at the front of `in`, times the 1/K scaler, into one tile.
-ALWI void row_mean(uint32_t in, uint32_t out, bool pop) {
-    reconfig_data_format(in, cb_scaler);
-    pack_reconfig_data_format(out);
-    cb_wait_front(in, Kt);
-    cb_reserve_back(out, 1);
-    tile_regs_acquire();
-    reduce_init<REDUCE_OP, REDUCE_DIM, true>(in, cb_scaler, out);
-    for (uint32_t i = 0; i < Kt; ++i) reduce_tile<REDUCE_OP, REDUCE_DIM, true>(in, cb_scaler, i, 0, 0);
-    reduce_uninit<true>();
-    tile_regs_commit();
-    tile_regs_wait();
-    pack_tile(0, out);
-    tile_regs_release();
-    cb_push_back(out, 1);
-    if (pop) cb_pop_front(in, Kt);
-}
-
-enum Op { SUB_COL, MUL_COL, MUL_ROW, MUL };
-
-// out[i] = a[i] (op) b[i or 0], Kt tiles. Neither input is popped here.
-template <Op OP>
-ALWI void stage(uint32_t a, uint32_t b, uint32_t out) {
-    reconfig_data_format(a, b);
-    pack_reconfig_data_format(out);
-    if constexpr (OP == SUB_COL) sub_bcast_cols_init_short(a, b);
-    if constexpr (OP == MUL_COL) mul_bcast_cols_init_short(a, b);
-    if constexpr (OP == MUL_ROW) mul_bcast_rows_init_short(a, b);
-    if constexpr (OP == MUL) mul_tiles_init(a, b);
-    cb_reserve_back(out, Kt);
-    for (uint32_t i = 0; i < Kt; ++i) {
-        tile_regs_acquire();
-        if constexpr (OP == SUB_COL) sub_tiles_bcast_cols(a, b, i, 0, 0);
-        if constexpr (OP == MUL_COL) mul_tiles_bcast_cols(a, b, i, 0, 0);
-        if constexpr (OP == MUL_ROW) mul_tiles_bcast_rows(a, b, i, i, 0);
-        if constexpr (OP == MUL) mul_tiles(a, b, i, i, 0);
-        tile_regs_commit();
-        tile_regs_wait();
-        pack_tile(0, out);
-        tile_regs_release();
-    }
-    cb_push_back(out, Kt);
-}
+struct LnCbs {
+    static constexpr uint32_t Kt = ::Kt, x = cb_x, gamma = cb_gamma, beta = cb_beta, scaler = cb_scaler,
+        eps = cb_eps, mean = cb_mean, var = cb_var, rstd = cb_rstd, xc = cb_xc, tmp = cb_tmp;
+};
 
 // Row tile il: Kt tiles at the front of cb_x (popped) -> slots dt * 32 + il of the reserved xn_cb.
 ALWI void layer_norm_row(uint32_t il) {
-    row_mean(cb_x, cb_mean, false);                       // mean
-    cb_wait_front(cb_mean, 1);
-    stage<SUB_COL>(cb_x, cb_mean, cb_xc);                 // xc = x - mean
-    cb_pop_front(cb_x, Kt);
-    cb_pop_front(cb_mean, 1);
-    cb_wait_front(cb_xc, Kt);
-    stage<MUL>(cb_xc, cb_xc, cb_tmp);                     // xc^2
-    row_mean(cb_tmp, cb_var, true);                       // var (biased, as layer_norm)
-    cb_wait_front(cb_var, 1);
-    reconfig_data_format(cb_var, cb_eps);
-    pack_reconfig_data_format(cb_rstd);
-    add_tiles_init(cb_var, cb_eps);
-    cb_reserve_back(cb_rstd, 1);
-    tile_regs_acquire();
-    add_tiles(cb_var, cb_eps, 0, 0, 0);                   // rstd = rsqrt(var + eps)
-    rsqrt_tile_init();
-    rsqrt_tile(0);
-    tile_regs_commit();
-    tile_regs_wait();
-    pack_tile(0, cb_rstd);
-    tile_regs_release();
-    cb_push_back(cb_rstd, 1);
-    cb_pop_front(cb_var, 1);
-    cb_wait_front(cb_rstd, 1);
-    stage<MUL_COL>(cb_xc, cb_rstd, cb_tmp);               // norm = xc * rstd
-    cb_pop_front(cb_xc, Kt);
-    cb_pop_front(cb_rstd, 1);
-    cb_wait_front(cb_tmp, Kt);
-    stage<MUL_ROW>(cb_tmp, cb_gamma, cb_xc);              // * gamma
-    cb_pop_front(cb_tmp, Kt);
-    cb_wait_front(cb_xc, Kt);
-    // + beta, packed bf16 straight into the unit's slot for (dt, il); xn_cb is reserved by the caller.
-    reconfig_data_format(cb_xc, cb_beta);
-    pack_reconfig_data_format(xn_cb);
-    add_bcast_rows_init_short(cb_xc, cb_beta);
-    for (uint32_t i = 0; i < Kt; ++i) {
-        tile_regs_acquire();
-        add_tiles_bcast_rows(cb_xc, cb_beta, i, i, 0);
-        tile_regs_commit();
-        tile_regs_wait();
-        pack_tile<true>(0, xn_cb, i * 32 + il);
-        tile_regs_release();
-    }
-    cb_pop_front(cb_xc, Kt);
+    ln_prologue::layer_norm_row<LnCbs>(xn_cb, [il](uint32_t i) { pack_tile<true>(0, xn_cb, i * 32 + il); });
 }
 
 void kernel_main() {
