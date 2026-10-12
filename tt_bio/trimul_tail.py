@@ -690,8 +690,9 @@ def _vec_ok(v, K):
 
 def t2_eligible(x, ln_w, ln_b, wp, g, resid):
     """None when T2 serves this call, else the reason it does not."""
-    from .tenstorrent import lever
-    if not (T2 or lever("trimul_t2")):
+    from .tenstorrent import is_wormhole, lever
+    # The lever is graded on Blackhole only; on Wormhole it fires too but is ungraded, so only the env switch serves it.
+    if not (T2 or (lever("trimul_t2") and not is_wormhole())):
         return "off"
     for t in (x, wp, g, resid):
         if t is None or t.dtype != ttnn.bfloat16 or t.layout != ttnn.TILE_LAYOUT:
@@ -941,8 +942,9 @@ def t1_mask_ok(mask, x):
 
 def t1_eligible(x, ln_w, ln_b, wpT, wgT, wgo, mask=None):
     """None when T1 serves this call, else the reason it does not."""
-    from .tenstorrent import lever
-    if not (T1 or lever("trimul_t1")):
+    from .tenstorrent import is_wormhole, lever
+    # The lever is graded on Blackhole only; on Wormhole it fires too but is ungraded, so only the env switch serves it.
+    if not (T1 or (lever("trimul_t1") and not is_wormhole())):
         return "off"
     for t in (x, wpT, wgT, wgo):
         if t is None or t.dtype != ttnn.bfloat16 or t.layout != ttnn.TILE_LAYOUT:

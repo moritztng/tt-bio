@@ -245,8 +245,12 @@ def test_eligibility(monkeypatch):
     monkeypatch.setattr(T, "_l1_bank_bytes", lambda: L1_ALLOCATOR_BANK)
     monkeypatch.setattr(TTL, "T1", False)
     assert TTL.t1_eligible(**_args()) == "off"
+    monkeypatch.setattr(T, "is_wormhole", lambda: False)
     with T.levers("trimul_t1"):           # the lever alone serves the call (it was inert on 2227e169f)
         assert TTL.t1_eligible(**_args()) is None
+    monkeypatch.setattr(T, "is_wormhole", lambda: True)
+    with T.levers("trimul_t1"):           # graded on Blackhole only: Wormhole needs the env switch
+        assert TTL.t1_eligible(**_args()) == "off"
     monkeypatch.setattr(TTL, "T1", True)
     assert TTL.t1_eligible(**_args()) is None
     assert TTL.t1_eligible(**_args(), mask=_Fake([1, 512, 512])) is None
