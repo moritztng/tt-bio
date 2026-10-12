@@ -660,7 +660,8 @@ def gin_moved(x, wpT, wgT, ckc, grid, mask=None):
 # (1.67 ms); T2's floor is reading x, g, z and writing z, 4 x 67 MB = 600 us at 448 GB/s. Each
 # core holds whole rows of K, so the channel LayerNorm is a per-core prologue. NEVER RUN ON A
 # DEVICE: OFF by default, perf/spd_trimul/tail_t2.py is its first accuracy and timing check.
-T2 = env_flag("TT_BIO_TRIMUL_TAIL_T2", False)
+# The model path takes it under the `trimul_t2` lever; T2 here only forces it on for the benches.
+T2 = False
 T2_STATS = [0, 0]       # served, declined
 T2_KEYS = {(4, 4)}      # (kt, nt): c_z = 128 only, the shape the kernel was written for
 
@@ -841,8 +842,11 @@ def fused_tail_ln(x, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5):
 # Today that is layer_norm (510 us at N = 512), the fused in-projection with g_out appended, two
 # gated moves (645 us each) and the moved mask multiply: 14 P of DRAM traffic, 16 P with the mask,
 # P = one bf16 [S, S, 128] pair tensor (67.1 MB at 512). T1's is 4 P plus every core's copy of the
-# weights. NEVER RUN ON A DEVICE: OFF by default, perf/spd_trimul/in_t1.py is its first check.
-T1 = env_flag("TT_BIO_TRIMUL_IN_T1", False)
+# weights. The model path takes it under the `trimul_t1` lever; T1 here only forces it on for the
+# benches (perf/spd_trimul/in_t1.py). Below MIN_N tokens the incumbent ops are faster (N <= 128 on
+# Blackhole), so both kernels decline there.
+T1 = False
+MIN_N = 160
 T1_STATS = [0, 0]                 # served, declined
 T1_KEYS = {(4, 8, 4)}             # (kt, ct2, ntg): c_z 128, hidden 128, g_out 128 (openfold3, boltz2)
 T1_RB = 8                         # z row tiles per reader barrier

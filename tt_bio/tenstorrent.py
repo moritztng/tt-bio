@@ -606,6 +606,10 @@ _FAST_MODE = False
 #                   operands with fp32 accumulation (OpenFold3's DiT)
 #   dit_chunk       the token DiT's fused SDPA takes q = k = the largest 32-aligned divisor of its length up
 #                   to 320 (`_dit_sdpa_chunk`) instead of 256, which pads every length 256 does not divide
+#   trimul_t1       the triangle multiplication's input layer_norm, gated a/b projection, mask, channel moves
+#                   and g_out as one kernel reading z once (kernels/trimul_in_t1; c_z = hidden = 128, N >= 160)
+#   trimul_t2       its output tail, layer_norm + p projection + sigmoid(g_out) gate + residual add, as one
+#                   kernel writing z in place (kernels/trimul_tail_res, compute_ln.cpp; c_z = 128, N >= 160)
 #   conf_bins       OpenFold3's pae / pde heads reduce softmax(logits) to their bin-vector products on the card
 #                   in fp32 (pTM, ipTM, the chain readings, the PAE / PDE matrices), so the [N, N, 64] logits
 #                   never cross to the host
@@ -613,9 +617,9 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in",
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
           "transition_shard", "dit_mm16", "atom_k1", "dit_b8", "dit_qkv16", "atom_mm16", "adaln_mod",
-          "swiglu_fc12g", "msa_sample", "dit_sdpa_pm", "dit_s16", "dit_chunk", "conf_bins")
+          "swiglu_fc12g", "msa_sample", "dit_sdpa_pm", "dit_s16", "dit_chunk", "conf_bins", "trimul_t1", "trimul_t2")
 # Named but in no mode until their fold grade puts them in one.
-UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "adaln_mod"})
+UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "adaln_mod", "trimul_t1", "trimul_t2"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -9134,7 +9138,7 @@ class TriangleMultiplication(Module):
         the mask past the move, no biases, no tape. Every decline is counted in T1_STATS[1].
         """
         TT1 = _trimul_tail
-        if not TT1.T1:
+        if not (TT1.T1 or lever("trimul_t1")) or H < TT1.MIN_N:
             return None
         mask_ok = mask is None or (_TRIMUL_MASK_AFTER_MOVE and len(mask.shape) == 3)
         if (ops.taping() or _FAST_MODE or _TRIMUL_RAW_CHANNEL_MOVES or _TRIMUL_INPROJ_ROWBLOCK
@@ -9500,7 +9504,7 @@ class TriangleMultiplication(Module):
         # block 3 MB per bank short of the request.
         row_norm = prod(shp) * (2 if x.dtype == ttnn.bfloat16 else 4) > TRIMUL_IN_NORM_ROWBLOCK_BYTES
         x_norm_in = None
-        # T1 (TT_BIO_TRIMUL_IN_T1, default OFF, never run on a device yet): the input norm, the
+        # T1 (the `trimul_t1` lever): the input norm, the
         # gated in-projection with the mask and both channel moves, and the tail's g_out, as one
         # kernel reading z once. Served, the input norm never exists: `t1` is (a, b, g_out, a
         # masked) and the channel loop below takes a and b as they are. None runs everything as
@@ -10130,9 +10134,10 @@ class TriangleMultiplication(Module):
         # result is still alive, so a refusal there can still take the row-blocked tail from the
         # same two inputs. Once it succeeds the result is freed, exactly where rebinding `x` used
         # to free it, so every size that fits keeps its peak and its ops.
-        if (_trimul_tail.T2 and g_out_fused is not None and add_to_input and not ops.taping()
+        if ((_trimul_tail.T2 or lever("trimul_t2")) and H >= _trimul_tail.MIN_N
+                and g_out_fused is not None and add_to_input and not ops.taping()
                 and self.p_out_bias is None):
-            # T2 (TT_BIO_TRIMUL_TAIL_T2, default OFF, never run on a device yet): layer_norm,
+            # T2 (the `trimul_t2` lever): layer_norm,
             # the p projection, the gate and the residual add as one kernel writing x_in in
             # place; `_add_input` then sees `u is x`. None (out of scope) leaves everything
             # untouched and the ops below run unchanged.
