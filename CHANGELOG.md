@@ -19,6 +19,13 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   adds 8-bit pair-transition activations and a collapsed pair projection, about 13 % more. Every change was
   graded on Blackhole and Wormhole over four seeds at 685 and 418 residues: designs move within seed-to-seed
   variation and design quality matches the exact chain.
+- **Protenix-v1 and Protenix-v2 replay the diffusion step from a device trace on Blackhole by default**,
+  with identical output. On a p150a at 1350 MHz the 512-token single-sample fold takes 1.0 s less in normal
+  mode and 1.0-1.4 s less in `--fast` (Protenix-v2 35.1-35.4 s instead of 36.2-36.3 s fast). `--no_trace`
+  turns it off; Wormhole keeps it opt-in with `--trace`.
+- **Boltz-2 replays its diffusion DiT step from a device trace on Blackhole by default**, with identical output.
+  On a p150a at 1350 MHz the 512-token single-sample `--fast` fold takes about 0.3 s less (14.5 s instead of
+  14.85 s). `--no_diffusion_trace` turns it off; Wormhole keeps it opt-in with `--diffusion_trace`.
 - **OpenFold3 and OpenBind-0 replay the diffusion step from a device trace**, with identical output. On a
   Blackhole p150a at 1350 MHz the 512-aa fold takes 15.1 to 15.8 s instead of 17.8 to 18.9 s. If the trace
   cannot be captured the fold runs the old step-by-step path; `OF3_DIFFUSION_TRACE=0` forces it.

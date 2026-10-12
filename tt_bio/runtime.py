@@ -7,6 +7,7 @@ so they can be reused from both the CLI and the worker subprocess.
 
 from __future__ import annotations
 
+import contextlib
 import glob
 import os
 import subprocess
@@ -160,6 +161,36 @@ def host_thread_cap_env(n_workers: int, host_threads: int | None = None) -> dict
     if cap <= IDLE_PARK_THREAD_SHARE and not any(k in os.environ for k in IDLE_THREADS_PARK):
         env.update(IDLE_THREADS_PARK)
     return env
+
+
+#: Whether serial_host() serializes. A switch for paired A/Bs in one process
+#: (perf/of3_4xpd/xmodel_ab.py --ab-attr tt_bio.runtime:SERIAL_HOST), not a user setting.
+SERIAL_HOST = True
+
+
+@contextlib.contextmanager
+def serial_host():
+    """Run a block of tiny host tensor math on one torch thread.
+
+    A diffusion sampler does a few atom-sized ops on the host every step (the random
+    augmentation, Boltz-2's rigid alignment). At 4117 atoms each is microseconds of work, and
+    fanning it out to every core costs more than the work: measured per step on a loaded qb1
+    (loadavg 11-16, 16 threads) 10-12 ms against 1.1 ms on one thread, and on qb2 at loadavg 6
+    0.9 ms against 0.4 ms. Two hundred steps a fold make that 2 s of a 15 s Boltz-2 fold on a
+    busy host. The thread count changes the summation order of the reductions, so the CIF
+    digest can move (it already depends on the host's core count); the accuracy does not.
+    """
+    import torch
+
+    n = torch.get_num_threads()
+    if not SERIAL_HOST or n == 1:
+        yield
+        return
+    torch.set_num_threads(1)
+    try:
+        yield
+    finally:
+        torch.set_num_threads(n)
 
 
 def bind_host_threads() -> None:

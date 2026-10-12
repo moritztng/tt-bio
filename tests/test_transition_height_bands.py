@@ -1,13 +1,9 @@
-"""The Transition row height is a step function of the width, and three rungs share a step.
+"""The Transition row height at OpenDDE's c_z=384 on a Wormhole Galaxy, as a step function of width.
 
-That map is what refuted the first explanation of the 896 aa anomaly. `h=2` covers W=608..896, so
-640 aa (folds in 490 s) and 768 aa (folds in 876 s) run the SAME height as 896 aa (four attempts,
-never finished) -- the height cannot be what distinguishes them. What survives is the width at a
-fixed height: 768 -> 896 is 1.36x the element-work for at least 4.2x the wall clock, and 1024 aa
-does MORE element-work than 896 and finishes in 1553 s.
-
-Pinned here because the whole reading rests on those band edges: if the derivation moves, the
-argument in state/opendde-l1-clash-to-1024.md needs redoing, and this fails first. Host-only.
+Through 1088 tokens the height is the element raise, SMALL_GRID_TRANSITION_ELEMS // (W * c), capped
+by per-core L1; above it the ratio budget takes over. The raise used to stop at the 608-token chunking
+threshold, which left h=2 from 608 to 896 and h=1 from 928 up. The heights it picks now are the ones
+measured torch.equal against h=1 (state/spd-opendde.md, th1). Host-only.
 """
 from __future__ import annotations
 
@@ -51,14 +47,19 @@ def _height(W):
                          / (2 * tile(w) * (tile(C) + 2 * tile(HID))))
     rows_at = lambda w: min(base_h * min(1.0, ref / (w * C)), l1_rows(w))
     w_eff = min(W, T.TRANSITION_W_CHUNK_SIZE) if rows_at(W) < 1.0 else W
-    return min(max(1, int(base_h * min(1.0, ref / (w_eff * C)))), max(1, int(l1_rows(w_eff))))
+    h = max(1, int(base_h * min(1.0, ref / (w_eff * C))))
+    if W <= T.SEQ_LEN_MORE_CHUNKING:   # the c=384 element raise, H = W here
+        h = max(1, min(base_h, T.SMALL_GRID_TRANSITION_ELEMS // (w_eff * C)))
+    return min(h, max(1, int(l1_rows(w_eff))))
 
 
 def test_the_band_edges(wormhole):
     assert T.TRANSITION_H_CHUNK_SIZE == 16                     # the base the bands scale from
-    # Measured edges, not guessed: the h=3 band starts at 480, and h jumps BACK to 3 above 1792
-    # because that is where w_chunked flips on and w_eff drops to TRANSITION_W_CHUNK_SIZE=512.
-    bands = [(480, 576, 3), (608, 896, 2), (928, 1792, 1), (1824, 2080, 3)]
+    assert T.SEQ_LEN_MORE_CHUNKING == 1088                     # the raise's upper bound on this part
+    # Up to 1088 the element raise sets the height (1179648 // (W * 384)); above it the ratio does,
+    # and h jumps back to 3 above 1792 where w_chunked flips on and w_eff drops to 512.
+    bands = [(480, 512, 6), (544, 608, 5), (640, 768, 4), (800, 1024, 3), (1056, 1088, 2),
+             (1120, 1792, 1), (1824, 2080, 3)]
     for lo, hi, h in bands:
         assert _height(lo) == h and _height(hi) == h, (lo, hi, h)
         if lo > 480:
@@ -68,17 +69,8 @@ def test_the_band_edges(wormhole):
     assert _height(1792) == 1 and _height(1824) == 3            # the w_chunked flip, explicitly
 
 
-def test_three_rungs_share_h2_and_two_of_them_fold(wormhole):
-    """The refutation, as an assertion: the height cannot separate 896 from 640 and 768."""
-    assert _height(640) == _height(768) == _height(896) == 2
-    assert _height(1024) == 1
-
-
-def test_the_width_is_what_isolates_896(wormhole):
-    """At the shared height, 896 does more work than 768 and less than 1024 -- and only 896's
-    width is not 2-smooth-with-one-small-odd-factor."""
-    work = lambda W, h: -(-W // h) * h * W * C
-    assert work(768, 2) < work(896, 2) < work(1024, 1)          # 226.5 M < 308.3 M < 402.7 M
-    tiles = {W: W // 32 for W in (640, 768, 896, 1024)}
-    assert tiles == {640: 20, 768: 24, 896: 28, 1024: 32}
-    assert 28 % 7 == 0 and all(t % 7 for t in (20, 24, 32))     # 896 is the only one with a 7
+def test_the_raise_stays_at_measured_exact_heights(wormhole):
+    """th1 (WH .114): every height up to 4 at W=736 is torch.equal to h=1, h=5 and h=6 are not
+    (max |diff| 2.0) although the L1 cap admits 5. 896 and 1024 land on 3."""
+    assert _height(736) == 4
+    assert _height(896) == _height(1024) == 3

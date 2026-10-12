@@ -49,8 +49,8 @@ def shipped_h_for(W, c, hid):
     decides `w_chunked` from whether ANY row fits (`_rows_at(W) < 1.0`), so at OpenDDE's c=384 the
     old rule here predicted w_eff=512 and h=3 at W=896 where the fold actually runs w_eff=896 and
     h=2. A screen that names the wrong shipped arm measures the wrong thing, so the whole chain is
-    reproduced -- ratio, the L1 cap, the floor -- and `_SHIPPED_SELFCHECK` below asserts it against
-    the two heights the DRAM census read off real folds.
+    reproduced -- ratio, the c=384 element raise, the L1 cap, the floor -- and `_SHIPPED_SELFCHECK`
+    below asserts it against heights read off real folds (`TT_BIO_TRANSITION_TRACE`).
     """
     tile = lambda v: -(-int(v) // 32) * 32
     gx, gy = T.COMPUTE_GRID_MAIN
@@ -66,14 +66,17 @@ def shipped_h_for(W, c, hid):
     w_chunked = rows_at(W) < 1.0 if T._IS_SMALL_GRID else W > T.TRANSITION_W_CHUNKING_THRESHOLD
     w_eff = min(W, T.TRANSITION_W_CHUNK_SIZE) if w_chunked else W
     h = max(1, int(base_h * min(1.0, ref / (w_eff * c))))
+    if (T._IS_SMALL_GRID and T.SMALL_GRID_TRANSITION_ELEMS
+            and 256 < c <= T.SMALL_GRID_TRANSITION_MAX_C and W <= T.SEQ_LEN_MORE_CHUNKING):
+        h = max(1, min(base_h, T.SMALL_GRID_TRANSITION_ELEMS // (w_eff * c)))
     if T._IS_SMALL_GRID:
         h = min(h, max(1, int(l1_rows_at(w_eff))))
     return h, w_eff, w_chunked
 
 
-#: (W, c, hid) -> h, as MEASURED on device by the DRAM census (state/opendde-l1-clash-to-1024.md).
+#: (W, c, hid) -> h, as a real fold runs it (`[transition-h]` trace lines, state/spd-opendde.md).
 #: A drift in the mirrored chain above fails here instead of in a silently mislabelled arm.
-_SHIPPED_SELFCHECK = {(896, 384, 1536): 2, (1024, 384, 1536): 1}
+_SHIPPED_SELFCHECK = {(896, 384, 1536): 3, (1024, 384, 1536): 3}
 
 
 def main():
@@ -88,6 +91,7 @@ def main():
     ap.add_argument("--iters", type=int, default=5)
     ap.add_argument("--warm", type=int, default=2)
     ap.add_argument("--targets", default="1,2")
+    ap.add_argument("--levers", default="", help="lever set the module is built under, e.g. transition_b8")
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
 
@@ -101,7 +105,9 @@ def main():
            "transition_h_chunk_size": base_h, "c": a.c, "iters": a.iters, "rows": []}
     print(f"grid {g.x}x{g.y} small={T._IS_SMALL_GRID} base_h={base_h}", flush=True)
 
-    tr = build_transition(a.c)
+    with T.levers(a.levers):
+        tr = build_transition(a.c)
+    res["levers"] = a.levers
     for W in [int(s) for s in a.sizes.split(",")]:
         H = W
         hid = int(tr.fc1_weight.shape[-1])

@@ -6,7 +6,7 @@ Arms: the shipped stock call, stock q/k chunk variants, `token_dit_sdpa_pm` (the
 `fused_pairs` offers plus fixed ones on `triatt_sdpa.sdpa`, with and without the mask preload.
 Accuracy: rel_rms of each arm against float64 on samples 0 and 4. Timing: back-to-back slope (NCALL calls, one
 sync) x REPS, arms interleaved, AICLK sampled out of process during the timed calls.
-usage: opbench.py OUT CHIP [--reps N] [--seq 736]
+usage: opbench.py OUT CHIP [--reps N] [--seq 736] [--batch 5]
 """
 import argparse, json, os, statistics, subprocess, sys, time
 from pathlib import Path
@@ -14,6 +14,7 @@ from pathlib import Path
 ap = argparse.ArgumentParser()
 ap.add_argument("out"); ap.add_argument("chip", type=int)
 ap.add_argument("--reps", type=int, default=10); ap.add_argument("--seq", type=int, default=730)
+ap.add_argument("--batch", type=int, default=5, help="DiT samples (Boltz-2 page cell: 1)")
 a = ap.parse_args()
 OUT = Path(a.out).resolve(); OUT.mkdir(parents=True, exist_ok=True)
 LOG = open(OUT / "bench.jsonl", "a")
@@ -37,7 +38,7 @@ dev = T.get_device()
 NODES = sorted({int(os.readlink(f"/proc/self/fd/{fd}").rsplit("/", 1)[1]) for fd in os.listdir("/proc/self/fd")
                 if os.path.exists(f"/proc/self/fd/{fd}")
                 and os.readlink(f"/proc/self/fd/{fd}").startswith("/dev/tenstorrent/")})
-CLKF = OUT / "aiclk.tsv"; CLKF.touch()
+CLKF = OUT / "opbench_aiclk.tsv"; CLKF.touch()  # not aiclk.tsv: a run wrapper may write its own there
 subprocess.Popen([sys.executable, "-c", f"""
 import os, time
 f = open({str(CLKF)!r}, "a"); parent = os.getppid()
@@ -54,7 +55,7 @@ up = lambda t: ttnn.from_torch(t, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, 
                                memory_config=ttnn.DRAM_MEMORY_CONFIG)
 rel = lambda o, r: float(((o.double() - r).pow(2).mean() / r.pow(2).mean()).sqrt())
 
-M, H, DH, DP, N = 5, 16, 48, 64, a.seq
+M, H, DH, DP, N = a.batch, 16, 48, 64, a.seq
 S = -(-N // 32) * 32
 sc = DH ** -0.5
 torch.manual_seed(N)
@@ -89,8 +90,12 @@ def preload(fn, on):
 
 ARMS["stock shipped"] = lambda: T.fused_sdpa(q, k, v, attn_mask=b, scale=sc, program_config=T._sdpa_program_config_for_lengths(
     q.shape[2], k.shape[2], q.shape[0] * q.shape[1], site="token_dit", d=q.shape[3]))
-for qc, kc in ((128, 256), (64, 256), (256, 128), (128, 128), (64, 128), (256, 64), (32, 256)):
+for qc, kc in ((128, 256), (64, 256), (256, 128), (128, 128), (64, 128), (256, 64), (32, 256), (128, 512), (64, 512)):
     ARMS[f"stock q{qc} k{kc}"] = stock(qc, kc)
+for qc, kc in ((128, 256), (64, 256), (128, 512)):
+    pc = ttnn.SDPAProgramConfig(compute_with_storage_grid_size=T.COMPUTE_GRID_MAIN, exp_approx_mode=True,
+                                q_chunk_size=qc, k_chunk_size=kc)
+    ARMS[f"stock q{qc} k{kc} exp_approx"] = lambda pc=pc: T.fused_sdpa(q, k, v, attn_mask=b, scale=sc, program_config=pc)
 ARMS["pm lever"] = lambda: T.token_dit_sdpa_pm(q, k, v, b, sc)
 cores = T.COMPUTE_GRID_MAIN[0] * T.COMPUTE_GRID_MAIN[1]
 pairs = [(qc, kc, pad) for pad in (False, True) for qc, kc in TS.fused_pairs(S, H, DP, cores, ttnn.bfloat16, padded=pad, batch=M)]

@@ -3138,14 +3138,15 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
 @click.option("--subsample_msa", is_flag=True)
 @click.option("--num_subsampled_msa", default=1024, type=int)
 @click.option("--no_kernels", is_flag=True)
-@click.option("--trace", is_flag=True,
+@click.option("--trace/--no_trace", default=None,
               help="Replay a captured ttnn trace of the per-step diffusion device "
                    "stream (lossless; collapses per-step host dispatch). protenix-v1, "
-                   "protenix-v2 and opendde. Opt-in; reserves 0.2-0.3 GB of device memory.")
-@click.option("--diffusion_trace", is_flag=True,
+                   "protenix-v2 and opendde. Default on for protenix-v1/v2 on Blackhole, "
+                   "off elsewhere; reserves 0.2-0.3 GB of device memory.")
+@click.option("--diffusion_trace/--no_diffusion_trace", default=None,
               help="Replay a captured ttnn trace of the per-step diffusion DiT device "
                    "stream (lossless; collapses per-step host dispatch). boltz2 only. "
-                   "Opt-in; reserves 0.2-0.3 GB of device memory.")
+                   "Default on for Blackhole, off elsewhere; reserves 0.2 GB of device memory.")
 @click.option("--use_tfg_guidance", is_flag=True,
               help="opendde and opendde-abag. Guided sampling (OpenDDE 1.2.0): apply the input's "
                    "`constraint:` block (contact pairs or an epitope) by moving the movable "
@@ -3562,7 +3563,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         steering_args={"fk_steering": use_potentials, "physical_guidance_update": use_potentials,
                        "contact_guidance_update": True, "num_particles": 3, "fk_lambda": 4.0,
                        "fk_resampling_interval": 3, "num_gd_steps": 20},
-        use_kernels=not no_kernels, use_tenstorrent=use_tt, trace=trace,
+        use_kernels=not no_kernels, use_tenstorrent=use_tt, trace=bool(trace),
         diffusion_trace=diffusion_trace,
     )
     aff_kwargs = dict(
@@ -3572,7 +3573,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         steering_args={"fk_steering": False, "physical_guidance_update": False,
                        "contact_guidance_update": False, "num_particles": 3, "fk_lambda": 4.0,
                        "fk_resampling_interval": 3, "num_gd_steps": 20},
-        affinity_mw_correction=affinity_mw_correction, use_tenstorrent=use_tt, trace=trace,
+        affinity_mw_correction=affinity_mw_correction, use_tenstorrent=use_tt, trace=bool(trace),
         diffusion_trace=diffusion_trace,
     )
 

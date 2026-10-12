@@ -210,9 +210,10 @@ def sha_dir(d: Path):
             for p in sorted(Path(d).glob("*")) if p.is_file()}
 
 
-def patch_boltz2_cfg():
+def patch_boltz2_cfg(diffusion_trace=False):
     """`build_fold`'s cfg carries no Boltz-2 hyperparameters, so `_WorkerState.load_model` raises
-    KeyError('conf_kwargs'). Inject exactly what `tt_bio.main` builds. Process-local."""
+    KeyError('conf_kwargs'). Inject exactly what `tt_bio.main` builds. Process-local.
+    diffusion_trace is the CLI's --diffusion_trace (the device must be opened with its region)."""
     from tt_bio import worker as _W
     import tt_baseline as B
 
@@ -234,7 +235,7 @@ def patch_boltz2_cfg():
                                "max_parallel_samples": None},
                  diffusion_process_args=_diffusion, pairformer_args=_pairformer, msa_args=_msa,
                  steering_args=_steering, use_kernels=True, use_tenstorrent=True, trace=False,
-                 diffusion_trace=False)
+                 diffusion_trace=diffusion_trace)
     _aff = dict(predict_args={"recycling_steps": 5, "sampling_steps": 200, "diffusion_samples": 5,
                               "max_parallel_samples": 1},
                 diffusion_process_args=_diffusion, pairformer_args=_pairformer, msa_args=_msa,

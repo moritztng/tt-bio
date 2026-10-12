@@ -854,8 +854,8 @@ Model-specific options are labelled below.
 | `--max_parallel_samples` | `5` | **(Boltz-2/Protenix/OpenDDE)** Diffusion samples denoised in one batched forward. Device memory grows linearly in it; when the chip refuses a batch the fold halves it on its own, down to one sample, instead of failing. ESMFold2 sizes its own chunk to free memory; OpenFold3, OpenBind and RF3 denoise one sample at a time |
 | `--output_format` | `cif` | `cif` or `pdb`. A PDB has one column for the chain id, so a longer name is rewritten `A`, `B`, `C`... and the originals go into a `REMARK 999` block; `cif` keeps them as submitted. See [docs/model-capabilities.md](docs/model-capabilities.md#outputs) |
 | `--seed` | `0` | Random seed for the diffusion sampler |
-| `--trace` | `False` | **(Protenix-v1/Protenix-v2/OpenDDE)** Replay a captured trace of the per-step diffusion device stream instead of dispatching it from the host every step. The output is identical to a run without it. On Wormhole at 512 tokens it did not change the end-to-end time, and it reserves 0.2-0.3 GB of device memory |
-| `--diffusion_trace` | `False` | **(Boltz-2)** The same for Boltz-2's diffusion DiT stream; `tt-bio design --model boltzgen` takes the same flag |
+| `--trace` / `--no_trace` | on for Protenix-v1/v2 on Blackhole, else off | **(Protenix-v1/Protenix-v2/OpenDDE)** Replay a captured trace of the per-step diffusion device stream instead of dispatching it from the host every step. The output is identical to a run without it. On a Blackhole p150a it saves 1.0-1.4 s on a 512-token single-sample Protenix fold; on Wormhole at 512 tokens and for OpenDDE it did not change the end-to-end time. It reserves 0.2-0.3 GB of device memory |
+| `--diffusion_trace` / `--no_diffusion_trace` | on for Boltz-2 on Blackhole, else off | **(Boltz-2)** The same for Boltz-2's diffusion DiT stream, identical output; about 0.3 s off a 512-token single-sample fold on a p150a. `tt-bio design --model boltzgen` takes `--diffusion_trace` as an opt-in |
 | `--write_pde` | `False` | **(Boltz-2)** Write the PDE matrix to its own `<name>_pde.npz`. The Protenix family and OpenDDE put PDE next to PAE in one file under `--write_pae` instead |
 | `--write_embeddings` | `False` | **(Boltz-2)** Write the `s`/`z` embeddings per target |
 | `--override` | `False` | Re-run from scratch, ignoring cached files |
@@ -977,7 +977,7 @@ moves a structure, next to the seed-to-seed spread.
 | `TT_BIO_TRIMUL_MM_TRANSPOSE` | on | The matmul takes a triangle multiplication's operand transpose. Bit for bit; `--fast` keeps the separate op. |
 | `TT_BIO_TRIMUL_TAIL_F1` | on | Output projection, gate projection and gate multiply as one kernel. Bit for bit. |
 | `TT_BIO_TRIMUL_TAIL_F1_L1_OUT` | on | Lands that fused tail's product in L1. Bit for bit. |
-| `TT_PROTENIX_CONF_DEVICE` | on for Protenix-v2, off for OpenDDE | Runs the confidence head on the card; a 730-token Protenix-v2 fold is about 4 % faster. Coordinates are unchanged and confidence scores match the host path to 1e-4. Set `0` to run the heads on the host. |
+| `TT_PROTENIX_CONF_DEVICE` | on | Runs the confidence head on the card (Protenix-v2 and OpenDDE); a 730-token Protenix-v2 fold and a 256-residue OpenDDE fold are both about 4 % faster. Coordinates are unchanged and confidence scores match the host path to 1e-4. Set `0` to run the heads on the host. |
 
 What each one is worth in seconds, at what clock, and how it was measured: [`docs/tuning-flags.md`](docs/tuning-flags.md).
 
