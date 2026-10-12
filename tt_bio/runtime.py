@@ -587,6 +587,8 @@ def build_local_workers(accelerator: str, jobs: list, devices: list[int]) -> lis
 # almost nothing left.
 
 M_ARENA_MAX = -8            # glibc malloc.h
+M_TRIM_THRESHOLD = -1
+M_MMAP_MAX = -4
 
 
 def _libc():
@@ -615,6 +617,22 @@ def cap_malloc_arenas(arenas: int) -> bool:
     if arenas <= 0 or libc is None:
         return False
     return libc.mallopt(M_ARENA_MAX, int(arenas)) == 1
+
+
+def reuse_freed_heap(trim_bytes: int = 1 << 30) -> bool:
+    """Serve large host tensors from memory the process already faulted in. True if it took.
+
+    glibc puts every allocation over its mmap threshold (at most 32 MiB) in a fresh mapping and
+    unmaps it on free, so each [1, N, N, 128] fp32 pair tensor (145 MB at 532 tokens) is paged in
+    from zero on every op. Host glue around a device trunk made that way ran 2.5x slower than
+    the same ops served from freed heap (Nesso-1 forward, +1.1 s per record at 512 aa). With
+    mmap off and the trim threshold raised, a freed tensor stays in the heap for the next one.
+    The cost is that up to ``trim_bytes`` of freed memory is kept rather than returned to the OS.
+    """
+    libc = _libc()
+    if libc is None:
+        return False
+    return libc.mallopt(M_MMAP_MAX, 0) == 1 and libc.mallopt(M_TRIM_THRESHOLD, int(trim_bytes)) == 1
 
 
 def address_space() -> tuple[int, int]:

@@ -16651,7 +16651,8 @@ class TrunkRecycle:
     ``s_norm``/``z_norm`` are ``nn.LayerNorm`` (weight + bias, eps 1e-5);
     ``s_recycle``/``z_recycle`` are ``nn.Linear(.., bias=False)``. The ttnn
     weights are built directly from the already-loaded torch modules so this
-    needs no separate state-dict load.
+    needs no separate state-dict load. A pair-only model (Nesso-1) passes None for
+    the single track and calls ``z_branch``.
     """
 
     def __init__(self, s_norm, z_norm, s_recycle, z_recycle, compute_kernel_config):
@@ -16664,12 +16665,13 @@ class TrunkRecycle:
                 t = t.t().contiguous()
             return ttnn.from_torch(t, layout=ttnn.TILE_LAYOUT, device=device, dtype=ttnn.bfloat16)
 
-        self.s_norm_weight = w(s_norm.weight)
-        self.s_norm_bias = w(s_norm.bias)
+        if s_norm is not None:
+            self.s_norm_weight = w(s_norm.weight)
+            self.s_norm_bias = w(s_norm.bias)
+            # nn.Linear stores weight as [out, in]; ttnn.linear wants [in, out].
+            self.s_recycle_weight = w(s_recycle.weight, transpose=True)
         self.z_norm_weight = w(z_norm.weight)
         self.z_norm_bias = w(z_norm.bias)
-        # nn.Linear stores weight as [out, in]; ttnn.linear wants [in, out].
-        self.s_recycle_weight = w(s_recycle.weight, transpose=True)
         self.z_recycle_weight = w(z_recycle.weight, transpose=True)
 
     def _branch(self, x, norm_weight, norm_bias, recycle_weight, init):
@@ -16691,10 +16693,12 @@ class TrunkRecycle:
         ttnn.deallocate(x_rec)
         return out
 
+    def z_branch(self, z, z_init):
+        return self._branch(z, self.z_norm_weight, self.z_norm_bias, self.z_recycle_weight, z_init)
+
     def __call__(self, s, z, s_init, z_init):
         s_out = self._branch(s, self.s_norm_weight, self.s_norm_bias, self.s_recycle_weight, s_init)
-        z_out = self._branch(z, self.z_norm_weight, self.z_norm_bias, self.z_recycle_weight, z_init)
-        return s_out, z_out
+        return s_out, self.z_branch(z, z_init)
 
 
 def free(*tensors):

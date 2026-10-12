@@ -1,0 +1,109 @@
+"""Which tuned/fused paths the Nesso-1 trunk takes, per size: every `*_STATS` counter in
+tt_bio.tenstorrent, read as the delta over one warm trunk pass.
+
+    TT_VISIBLE_DEVICES=<chip> [TT_BIO_LEVERS=...] PYTHONPATH=<tree> python perf/nesso1/path_stats.py --n 256 532 --report r.json
+
+A warm-up pass at each size first (its refusals and latches are reported separately, since a
+refusal latches and the warm pass then shows it as `blocked`), then one counted pass.
+
+`--why` also records, for every device refusal a tt_bio frame sees (an L1/CB overflow that some
+except block absorbs without a counter), the tt_bio stack at the point it was raised.
+"""
+from __future__ import annotations
+
+import argparse
+import copy
+import json
+import os
+import sys
+from pathlib import Path
+
+import torch
+
+
+def snapshot(tt) -> dict:
+    return {k: copy.deepcopy(v) for k, v in vars(tt).items()
+            if k.endswith("_STATS") and isinstance(v, (dict, list))}
+
+
+def strkeys(x):
+    """Some *_STATS dicts are keyed by shape tuples; JSON wants string keys."""
+    if isinstance(x, dict):
+        return {str(k): strkeys(v) for k, v in x.items()}
+    return x
+
+
+def watch_refusals(seen: list):
+    """settrace hook: the innermost tt_bio frame where each device refusal surfaces, with its callers."""
+    def local(frame, event, arg):
+        if event == "exception":
+            msg = str(arg[1])
+            if ("grow to" in msg or "L1" in msg or "clash" in msg) and id(arg[1]) not in seen_ids:
+                seen_ids.add(id(arg[1]))
+                stack, f = [], frame
+                while f is not None and len(stack) < 6:
+                    if "tt_bio" in f.f_code.co_filename:
+                        stack.append("%s:%d %s" % (Path(f.f_code.co_filename).name, f.f_lineno, f.f_code.co_name))
+                    f = f.f_back
+                seen.append({"msg": msg[:240], "stack": stack})
+        return local
+
+    def call(frame, event, arg):
+        return local if "tt_bio" in frame.f_code.co_filename else None
+
+    seen_ids: set = set()
+    return call
+
+
+def delta(a, b):
+    """b - a over matching numeric leaves; other leaves as they are in b."""
+    if isinstance(b, dict):
+        out = {k: delta(a.get(k) if isinstance(a, dict) else None, v) for k, v in b.items()}
+        return {k: v for k, v in out.items() if v not in (0, [], {}, None)}
+    if isinstance(b, list) and all(isinstance(x, (int, float)) for x in b):
+        a = a if isinstance(a, list) and len(a) == len(b) else [0] * len(b)
+        d = [y - x for x, y in zip(a, b)]
+        return d if any(d) else None
+    if isinstance(b, (int, float)) and not isinstance(b, bool):
+        d = b - (a or 0)
+        return d or None
+    return b if b != a else None
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--n", type=int, nargs="+", default=[256, 532])
+    ap.add_argument("--report", required=True)
+    ap.add_argument("--why", action="store_true", help="record where each absorbed device refusal is raised")
+    a = ap.parse_args()
+
+    from tt_bio import tenstorrent as tt
+    from tt_bio.nesso1 import Nesso1
+
+    model = Nesso1.from_pretrained(use_tenstorrent=True, trunk_fp32=False, affinity_fp32=True)
+    pm = model.pairformer_module
+    rep = {"visible": os.environ.get("TT_VISIBLE_DEVICES"), "levers": sorted(model._levers), "sizes": []}
+    with tt.lever_scope(model._levers):
+        for n in a.n:
+            torch.manual_seed(n)
+            z = torch.randn(1, n, n, 128)
+            mask = torch.ones(1, n)
+            pair = mask[:, :, None] * mask[:, None, :]
+            pm.reset_static_cache()
+            s0 = snapshot(tt)
+            why: list = []
+            if a.why:
+                sys.settrace(watch_refusals(why))
+            pm(None, z, mask=mask, pair_mask=pair)
+            sys.settrace(None)
+            s1 = snapshot(tt)
+            pm(None, z, mask=mask, pair_mask=pair)
+            s2 = snapshot(tt)
+            row = {"n": n, "first_pass": strkeys(delta(s0, s1)), "warm_pass": strkeys(delta(s1, s2)), "why": why}
+            rep["sizes"].append(row)
+            print(json.dumps(row, default=str), flush=True)
+    Path(a.report).write_text(json.dumps(rep, indent=1, default=str) + "\n")
+
+
+if __name__ == "__main__":
+    main()
