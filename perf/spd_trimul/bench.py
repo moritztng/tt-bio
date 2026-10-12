@@ -41,6 +41,8 @@ ap.add_argument("--devprof", action="store_true",
 ap.add_argument("--resid", action="store_true",
                 help="call the way the Pairformer does, add_to_input=True: z += update in place, so every arm\n"
                      "times the residual add too (the epi2 lever folds it into the tail)")
+ap.add_argument("--no-mask", action="store_true",
+                help="call with mask=None, as ESMFold2's trunk does at a full-length bucket (needs --valid = --n)")
 ap.add_argument("--gated-move", action="store_true",
                 help="build the module as ESMFold2 does (gated_move=True), which the gated in-proj routes need")
 ap.add_argument("--fast", action="store_true",
@@ -253,6 +255,9 @@ z_dev = ttnn.from_torch(z_host, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, de
                         memory_config=ttnn.DRAM_MEMORY_CONFIG)
 m_dev = ttnn.from_torch(m_host, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev,
                         memory_config=ttnn.DRAM_MEMORY_CONFIG)
+if A.no_mask:
+    assert A.valid == A.n, "--no-mask needs every token valid"
+    m_dev = None
 
 
 def reference(ending):
