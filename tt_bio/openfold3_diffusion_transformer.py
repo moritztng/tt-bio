@@ -60,7 +60,6 @@ from the atom-encoder/conditioning host math.
 """
 from __future__ import annotations
 
-import os
 
 import torch
 import ttnn
@@ -79,8 +78,6 @@ N_HEADS = 16
 HEAD_DIM = 48
 PADDED_HEAD_DIM = 64  # -48 % 32 = 16 -> 64 (tile-aligned)
 N_BLOCKS = 24
-
-_FUSE_K1 = os.environ.get("TT_BIO_DIT_FUSE_K1") == "1"
 
 # Pair shapes whose single-pass pair-bias projection DRAM refused, and the block they settled at.
 _PAIR_BIAS_ROWS_REFUSED: dict = {}
@@ -231,8 +228,8 @@ class _DiTBlock(Module):
     def _fuse_adaln(self, a, s_hat, i):
         """adaLN under dit_fuse: `s_hat W_sb + LN(a) * sigmoid(s_hat W_sc + b)`, one addcmul."""
         w_sc, b_sc, w_sb = self.fuse[i]
-        sc = self._flin(s_hat, w_sc, bias=b_sc, activation="sigmoid")
-        sb = self._flin(s_hat, w_sb)
+        sc = self._lin(s_hat, w_sc, bias=b_sc, activation="sigmoid")
+        sb = self._lin(s_hat, w_sb)
         an = ttnn.layer_norm(a, epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
         out = ttnn.addcmul(sb, an, sc, value=1.0)
         for t in (sc, sb, an):
@@ -241,7 +238,7 @@ class _DiTBlock(Module):
 
     def _call_fused(self, a, s, z, mask_bias, tok_mask_col, cache, s_hat, tok_ones):
         """`__call__` under dit_fuse (bf16, `_sdpa32`): the same block in 23 ttnn calls."""
-        lin = self._flin
+        lin = self._lin
         a_ln = self._fuse_adaln(a, s_hat, 0)
         bias = _cached(cache, (id(self), "pair_bias32"), lambda: self._sdpa32_mask(z, mask_bias))
         qkv = lin(a_ln, self.qkv_w, bias=self.qkv_b)
@@ -311,13 +308,6 @@ class _DiTBlock(Module):
         """A device weight rounded via bf16 on the host to `dtype`, once."""
         return ttnn.from_torch(ttnn.to_torch(t).float().to(torch.bfloat16), dtype=dtype,
                                layout=ttnn.TILE_LAYOUT, device=self.device)
-
-    def _flin(self, x, w, bias=None, activation=None):
-        """A linear of the fused block (dit_fuse). TT_BIO_DIT_FUSE_K1=1 (measurement): `k1_linear`'s program."""
-        if _FUSE_K1:
-            return _T.k1_linear(x, w, bias, compute_kernel_config=self.compute_kernel_config, dtype=x.dtype,
-                                activation=activation)
-        return self._lin(x, w, bias, activation)
 
     def _lin(self, x, w, bias=None, activation=None):
         return ops.linear(x, w, bias=bias, activation=activation,

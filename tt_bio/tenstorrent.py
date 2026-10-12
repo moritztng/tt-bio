@@ -2736,9 +2736,7 @@ def _k1_program(mt: int, kt: int, nt: int, gx: int, gy: int, activation, tiles):
     t0, t1, tout, tb = tiles
     oh = max((d for d in range(h, pm + 1, h) if pm % d == 0
               and d * (2 * t0 + pn * tout) + pn * (2 * t1 + tb) <= _K1_CB_BUDGET), default=h)
-    act = {"silu": ttnn.UnaryWithParam(ttnn.UnaryOpType.SILU),
-           "sigmoid": ttnn.UnaryWithParam(ttnn.UnaryOpType.SIGMOID)}.get(activation)
-    assert activation is None or act is not None, activation
+    act = ttnn.UnaryWithParam(ttnn.UnaryOpType.SILU) if activation == "silu" else None
     return ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(
         compute_with_storage_grid_size=(gx, gy), in0_block_w=1, out_subblock_h=h, out_subblock_w=w,
         out_block_h=oh, out_block_w=pn, per_core_M=pm, per_core_N=pn, transpose_mcast=False,

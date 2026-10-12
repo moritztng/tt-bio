@@ -94,7 +94,7 @@ class _Rec:
             monkeypatch.setattr(ttnn, name, op(name))
         monkeypatch.setattr(ttnn, "deallocate", lambda t: None)
         monkeypatch.setattr(M, "mask_add", op("mask_add"))
-        monkeypatch.setattr(blk, "_flin", lambda x, w, bias=None, activation=None:
+        monkeypatch.setattr(blk, "_lin", lambda x, w, bias=None, activation=None:
                             op("linear")(x, w, activation=activation))
 
         class _O(tuple):
