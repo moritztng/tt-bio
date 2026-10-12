@@ -53,9 +53,9 @@ def test_the_pair_is_the_argument_each_stack_hands_the_next():
     assert [a.id for a in call.args if isinstance(a, ast.Name)][1] == "pair"
 
 
-def test_default_is_off_and_every_instrument_declines_the_handoff():
+def test_default_is_on_and_every_instrument_declines_the_handoff():
     model = af2.AF2DeviceModel.__new__(af2.AF2DeviceModel)
-    assert af2.AF2DeviceModel.pair_on_card is False, "the gate ships off"
+    assert af2.AF2DeviceModel.pair_on_card is True, "the gate ships on (device A/B 10-12)"
     for name, value in (("pair_on_card", True),):
         setattr(model, name, value)
     for name, value in (("extra_msa_host", False), ("block_tap", None),

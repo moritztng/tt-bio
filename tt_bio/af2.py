@@ -118,9 +118,10 @@ TRANSITION_L1 = env_flag("TT_BIO_AF2_TRANSITION_L1", False)
 # Hand the pair representation from the extra-MSA stack straight to the Evoformer stack as a
 # device tensor, instead of downloading it and uploading the same bytes back. `AF2Model.forward`
 # does not touch `pair` between the two calls -- it only concatenates the template torsion rows
-# onto the MSA -- so this moves no arithmetic and is bit-exact by construction. Off until the
-# device A/B is on the board (`perf/spd/af2ig_census.py`, coords_sha16 must match).
-PAIR_ON_CARD = env_flag("TT_BIO_AF2_PAIR_ON_CARD", False)
+# onto the MSA -- so this moves no arithmetic and is bit-exact by construction. Device A/B on
+# .114 WH 2026-10-12 (off / on / off2 x 3 inputs, AICLK 1000): coords_sha16 identical on every
+# input, extra-MSA stage 0.41-0.44 -> 0.36 s and Evoformer 4.136 -> 4.09 s per fold.
+PAIR_ON_CARD = env_flag("TT_BIO_AF2_PAIR_ON_CARD", True)
 
 
 #: The op classes `scripts/af2_port/tap_gate.py --substitute` moves to host torch, one class per
