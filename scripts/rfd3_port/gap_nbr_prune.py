@@ -48,6 +48,7 @@ def neighbours_pruned(mask, seq_idx, x, k, block=BLOCK, cand=CAND):
     inf = torch.tensor(float("inf"), dtype=x.dtype)
     fill = torch.empty(length, k, dtype=torch.long)
     order = torch.argsort(morton(xs))
+    xmax2 = float((xs * xs).sum(1).max())
     redo = []
     for r0 in range(0, length, block):
         rows = order[r0:r0 + block]
@@ -59,7 +60,10 @@ def neighbours_pruned(mask, seq_idx, x, k, block=BLOCK, cand=CAND):
         keys = keys.sort().values
         d = torch.cdist(q.unsqueeze(0), xs[keys].unsqueeze(0), p=2)[0].masked_fill_(mask[rows][:, keys], inf)
         val, pos = torch.topk(d, k, dim=-1, largest=False)
-        ok = val[:, -1] < dsel.max() - rb
+        # cdist's mm form (|a|^2 + |b|^2 - 2ab) is off the true distance by up to ~8 eps * max|x|^2 in d^2,
+        # so the bound keeps that much distance in hand.
+        gap = dsel.max() - rb
+        ok = val[:, -1] < gap - 8 * 1.2e-7 * xmax2 / gap.clamp(min=1e-3) - 1e-4
         fill[rows[ok]] = keys[pos[ok]].flip(dims=[-1])
         redo.append(rows[~ok])
     redo = torch.cat(redo).sort().values
