@@ -358,6 +358,12 @@ DIT_SDPA_CALLS = [0]
 # The DiT builds all 18 blocks' masks in one pass while the stack fits under this many bytes
 # (bf16, 18 x 16 heads x n_key^2: 1317 tokens); above it each block builds its own.
 _DIT_SDPA_STACK_BYTES = int(float(os.environ.get("RFD3_DIT_SDPA_STACK_BYTES", "1e9")))
+# With the stacked masks and the padded heads, the DiT's token stream runs at the tile-padded length
+# for all 18 blocks: one pad of a and s on entry and one slice on exit, where every block padded q, k
+# and v and sliced its output (144 ops a step at 685 tokens). The pad rows see a -1e4 mask row and
+# column, whose weight is exactly 0 after exp, and every other op is row-wise, so the real rows are
+# the same values. RFD3_DIT_PAD_ONCE=0 restores the per-block pads for the A/B.
+_DIT_PAD_ONCE = env_flag("RFD3_DIT_PAD_ONCE", True)
 _DIT_SDPA_CHUNKS = tuple(int(x) for x in os.environ.get("RFD3_DIT_SDPA_CHUNKS", "64,352").split(","))
 
 
@@ -2560,7 +2566,9 @@ class RFD3AtomBlock(Module):
         ttnn.deallocate(mask)
         DIT_SDPA_CALLS[0] += 1
         o = ttnn.experimental.nlp_concat_heads(o)                            # [B, 1, n_key, hp]
-        o = ttnn.reshape(ttnn.slice(o, [0, 0, 0, 0], [batch, 1, length, hp]), (batch, length, hp))
+        if length != n_key:
+            o = ttnn.slice(o, [0, 0, 0, 0], [batch, 1, length, hp])
+        o = ttnn.reshape(o, (batch, length, hp))
         return _tuned_linear(_gated(o, gg), w["o"], **lin)
 
     def _padded_head_weights(self, a):
@@ -3182,13 +3190,17 @@ class LocalTokenTransformer(Module):
                 and 2 * B * self.N_HEAD * len(self.blocks) * n_key * n_key <= _DIT_SDPA_STACK_BYTES):
             masks = self._dit_sdpa_masks(z, additive_mask, n_key)
             H = self.N_HEAD
+            length, width = int(a.shape[1]), int(a.shape[2])
+            once = _DIT_PAD_ONCE and self.blocks[0].pad_w is not None and length != n_key
+            if once:
+                a, s = pad_axis(a, n_key, 1, 0.0), pad_axis(s, n_key, 1, 0.0)
             for i, block in enumerate(self.blocks):
                 # Every design in the batch keeps its own pair bias: slicing batch [0, 1) here gave
                 # all of them design 0's, and 7 of 8 --fast designs at batch 8 came out clashing.
                 m = ttnn.slice(masks, [0, H * i, 0, 0], [B, H * (i + 1), n_key, n_key])
                 a = block(a, s, z, additive_mask, sdpa_mask=m)
             ttnn.deallocate(masks)
-            return a
+            return ttnn.slice(a, [0, 0, 0], [B, length, width]) if once else a
         fused, end = None, None
         if self.b_w_fused is not None:
             fused = _tuned_linear(z, self.b_w_fused, ckc=self.compute_kernel_config,
