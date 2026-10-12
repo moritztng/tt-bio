@@ -11589,6 +11589,19 @@ class AttentionPairBias(Module):
         pad = self.padded_head_dim - self.head_dim
         if not pad:
             return self._kq_norm_one(t, which)
+        if t.dtype == ttnn.bfloat16:
+            # Gather the real lanes and scatter them back with 0/1 matmuls: every output is one
+            # bf16 value times 1.0 plus exact zeros at HiFi4 into fp32, so the same values as the
+            # reshape/slice/concat chain below (RF3 512: ~2.0 s of kernel per fold in 7 layout ops
+            # a call, 2352 calls), with zeros in the pad lanes.
+            gather, scatter, ckc = self._kq_lane_maps()
+            x = ttnn.matmul(t, gather, compute_kernel_config=ckc, dtype=ttnn.bfloat16)
+            n = self._kq_norm_one(x, which)
+            if n is not x:
+                ttnn.deallocate(x)
+            out = ttnn.matmul(n, scatter, compute_kernel_config=ckc, dtype=ttnn.bfloat16)
+            ttnn.deallocate(n)
+            return out
         lead = tuple(t.shape)[:-1]
         x = ttnn.reshape(t, lead + (self.n_heads, self.padded_head_dim))
         x = x[..., : self.head_dim]
@@ -11599,6 +11612,23 @@ class AttentionPairBias(Module):
                        device=self.device, dtype=x.dtype)
         x = ttnn.concat([x, z], dim=-1)
         return ttnn.reshape(x, lead + (self.n_heads * self.padded_head_dim,))
+
+    def _kq_lane_maps(self):
+        """0/1 matrices [H * padded, H * head_dim] and back, bf16 on device, and an exact matmul
+        config for them (HiFi4, fp32 accumulation)."""
+        maps = getattr(self, "_kq_maps", None)
+        if maps is None:
+            H, D, P = self.n_heads, self.head_dim, self.padded_head_dim
+            g = torch.zeros(H * P, H * D)
+            for h in range(H):
+                g[h * P + torch.arange(D), h * D + torch.arange(D)] = 1.0
+            up = lambda m: ttnn.from_torch(m, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT,
+                                           device=self.device)
+            ckc = ttnn.init_device_compute_kernel_config(
+                self.device.arch(), math_fidelity=ttnn.MathFidelity.HiFi4,
+                fp32_dest_acc_en=True, packer_l1_acc=False)
+            maps = self._kq_maps = (up(g), up(g.t().contiguous()), ckc)
+        return maps
 
     def _apply_kq_norm(self, qkv: ttnn.Tensor) -> ttnn.Tensor:
         """Norm the Q and K slices of the fused qkv, in place of an unfused split."""
