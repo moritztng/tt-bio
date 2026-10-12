@@ -141,6 +141,8 @@ LEVERS = {
     "ginfit": [(T.set_trimul_gated_inproj, True), (_set_gin_fit, True)],
     # the last back move writes the output norm too (back_ln.py)
     "bln": [(BL.set_enabled, True)],
+    # the output tail as one kernel (trimul_t2); under gin it is the GATE form
+    "t2": [(TTL.set_t2, True)],
     "nores": [(TTL.set_res, False)],
     "nomf": [(TTL.set_mask_fold, False)],
 }
