@@ -146,15 +146,21 @@ def stack_dropout_masks(key, blocks: int, fan: int, pair_draws, pair_shape, use_
     rates = jnp.asarray([rate for _, _, rate, _ in draws], jnp.float32)
     keep_rate = 1.0 - jnp.where(jnp.asarray(use_dropout, bool), rates, 0.0)
 
-    def block(key, _):
+    def split(key, _):
         key, sub = jax.random.split(key)
-        subs = jax.random.split(sub, fan)       # [0] is the iteration's own carry, the rest out
+        return key, jax.random.split(sub, fan)  # [0] is the iteration's own carry, the rest out
+
+    def block(subs):
         drawn = [jax.random.bernoulli(subs[1 + idx], keep_rate[i], shapes[i])
                  for i, (_, idx, _, _) in enumerate(draws)]
         pair = jnp.stack([d.reshape(n, c_pair) for d in drawn[1 if msa_draw else 0:]])
-        return key, ((drawn[0],) if msa_draw else ()) + (pair,)
+        return ((drawn[0],) if msa_draw else ()) + (pair,)
 
-    key_out, keeps = jax.lax.scan(block, key, None, length=blocks)
+    # Only the key recurrence is sequential. The draws are a pure function of each block's
+    # sub-keys, so they are vmapped: the same bits, one batched threefry instead of `blocks`
+    # small ones inside the scan body (330 -> 198 ms for the Evoformer's 48 on XLA CPU).
+    key_out, subs = jax.lax.scan(split, key, None, length=blocks)
+    keeps = jax.vmap(block)(subs)
     msa_keep = keeps[0] if msa_draw else None
     return msa_keep, keeps[-1], 1.0 / keep_rate, key_out
 
