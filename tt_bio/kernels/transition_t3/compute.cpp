@@ -29,11 +29,15 @@ constexpr uint32_t Kt = get_compile_time_arg_val(0);
 constexpr uint32_t Ht = get_compile_time_arg_val(1);
 constexpr uint32_t RES = get_compile_time_arg_val(2);
 constexpr uint32_t F3S = get_compile_time_arg_val(3);       // fc3 K chunks: partials via fp32 cb_part between them
+// 1: this is the second of two programs over hidden halves; the first wrote its fc3 partial (fp32, RES = 0), the
+// reader feeds it through cb_part and fc3 accumulates on top of it (the F3S mechanism with the partial in DRAM).
+constexpr uint32_t PART = get_compile_time_arg_val(4);
 static_assert(Ht % F3S == 0, "fc3 chunks divide the hidden tiles");
 constexpr uint32_t G = 4;                                   // fp32 half-sync DST holds 4 tiles
 constexpr uint32_t NG = Kt < G ? Kt : G;                    // fc3 output tiles per DST half
 static_assert(Ht % G == 0 && Kt % NG == 0, "hidden in groups of 4 tiles, fc3 output in groups of NG");
 static_assert(F3S == 1 || Kt <= 4, "fc3 K chunks only where one DST half holds the output row tile");
+static_assert(!(PART && F3S > 1), "a DRAM partial or in-program K chunks, not both");
 
 constexpr uint32_t w12_cb = tt::CBIndex::c_0;    // [W1 | W2], Kt x 2Ht, resident
 constexpr uint32_t w3_cb = tt::CBIndex::c_1;     // W3, Ht x Kt, resident
@@ -145,12 +149,12 @@ void kernel_main() {
         cb_reserve_back(y_cb, Kt);
         for (uint32_t n0 = 0; n0 < Kt; n0 += NG) {
             tile_regs_acquire();
-            if constexpr (F3S > 1) {
+            if constexpr (F3S > 1 || PART) {
                 cb_wait_front(cb_part, Kt);
                 copy_tile_to_dst_init_short(cb_part);
                 reconfig_data_format_srca(cb_part);
-                for (uint32_t i = 0; i < Kt; ++i) copy_tile(cb_part, i, i);
-                cb_pop_front(cb_part, Kt);
+                for (uint32_t i = 0; i < NG; ++i) copy_tile(cb_part, n0 + i, i);
+                if (n0 + NG == Kt) cb_pop_front(cb_part, Kt);
             }
             mm_block_init_short(h_cb, w3_cb, false, NG, 1, Ht);
             reconfig_data_format(w3_cb, h_cb);

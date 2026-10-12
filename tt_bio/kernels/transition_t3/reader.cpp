@@ -14,17 +14,20 @@ void kernel_main() {
     constexpr uint32_t RES = get_compile_time_arg_val(2);      // 1: the residual CB is fed
     constexpr uint32_t SCALER = get_compile_time_arg_val(3);   // packed bf16 pair, 1/K
     constexpr uint32_t EPS = get_compile_time_arg_val(4);      // fp32 bits
-    constexpr auto x_args = TensorAccessorArgs<5>();
+    constexpr uint32_t PART = get_compile_time_arg_val(5);     // 1: feed the first pass's fp32 fc3 partial
+    constexpr auto x_args = TensorAccessorArgs<6>();
     constexpr auto w12_args = TensorAccessorArgs<x_args.next_compile_time_args_offset()>();
     constexpr auto w3_args = TensorAccessorArgs<w12_args.next_compile_time_args_offset()>();
     constexpr auto gm_args = TensorAccessorArgs<w3_args.next_compile_time_args_offset()>();
     constexpr auto bt_args = TensorAccessorArgs<gm_args.next_compile_time_args_offset()>();
+    constexpr auto pt_args = TensorAccessorArgs<bt_args.next_compile_time_args_offset()>();
 
     const auto x = TensorAccessor(x_args, get_common_arg_val<uint32_t>(0));
     const auto w12 = TensorAccessor(w12_args, get_common_arg_val<uint32_t>(1));
     const auto w3 = TensorAccessor(w3_args, get_common_arg_val<uint32_t>(2));
     const auto gm = TensorAccessor(gm_args, get_common_arg_val<uint32_t>(3));
     const auto bt = TensorAccessor(bt_args, get_common_arg_val<uint32_t>(4));
+    const auto pt = TensorAccessor(pt_args, get_common_arg_val<uint32_t>(5));
     const uint32_t u0 = get_arg_val<uint32_t>(0);
     const uint32_t nunits = get_arg_val<uint32_t>(1);
 
@@ -36,6 +39,7 @@ void kernel_main() {
     constexpr uint32_t beta_cb = tt::CBIndex::c_9;
     constexpr uint32_t scaler_cb = tt::CBIndex::c_10;
     constexpr uint32_t eps_cb = tt::CBIndex::c_11;
+    constexpr uint32_t part_cb = tt::CBIndex::c_18;
     const uint32_t tb = get_tile_size(x_cb);
 
     generate_reduce_scaler(scaler_cb, SCALER);
@@ -78,5 +82,13 @@ void kernel_main() {
             cb_push_back(res_cb, Kt);
         }
         cb_push_back(x_cb, Kt);
+        if constexpr (PART) {
+            const uint32_t tp = get_tile_size(part_cb);
+            cb_reserve_back(part_cb, Kt);
+            const uint32_t d = get_write_ptr(part_cb);
+            for (uint32_t dt = 0; dt < Kt; ++dt) noc_async_read_page(page - Kt + dt, pt, d + dt * tp);
+            noc_async_read_barrier();
+            cb_push_back(part_cb, Kt);
+        }
     }
 }

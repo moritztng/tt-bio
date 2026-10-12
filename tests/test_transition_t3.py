@@ -13,6 +13,13 @@ def test_cb_plan_fits_l1():
         assert (kt, ht) in T3.KEYS
         assert T3.cb_bytes(kt, ht, True, wd) <= 0.85 * 1_395_424
     assert T3.cb_bytes(8, 32, True, ttnn.bfloat16) > 0.85 * 1_461_760
+    # ... so bf16 c 256 runs as two programs over hidden halves: pass 1 (fp32 partial out), pass 2 (partial in).
+    for stage in (1, 2):
+        assert T3.cb_bytes(8, 16, stage == 2, ttnn.bfloat16, stage) <= 0.85 * 1_395_424
+    bf, f32, _ = T3.cb_plan(8, 16, False, 1)
+    assert (6, 16) in f32 and all(i != 6 for i, _ in bf)
+    bf, f32, _ = T3.cb_plan(8, 16, True, 2)
+    assert (18, 8) in f32
 
 
 @pytest.mark.parametrize("nu,cores", [(8192, 110), (8192, 130), (2048, 110), (7, 110)])

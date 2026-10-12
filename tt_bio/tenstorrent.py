@@ -12432,10 +12432,20 @@ class Transition(Module):
             return None
         if getattr(self, "_t3_w", None) is None:
             self._t3_w = (ttnn.concat([self.fc1_weight, self.fc2_weight], dim=1), self.fc3_weight)
-        return _transition_t3.transition(
-            x, self.norm_weight, self.norm_bias, *self._t3_w,
-            _mm_generic.ckc_args(silu_ckc(self.compute_kernel_config)), tuple(COMPUTE_GRID_MAIN),
-            add_to_input=add_to_input)
+            if _transition_t3.needs_split(self._t3_w[0]):
+                # c 256 bf16 (Protenix-v2 normal): two programs over hidden halves, `transition_split`.
+                ttnn.deallocate(self._t3_w[0])
+                K, H = (int(d) for d in self.fc1_weight.shape)
+                half = lambda t, i: ttnn.slice(t, [0, i * H // 2], [K, (i + 1) * H // 2])  # noqa: E731
+                self._t3_w = [(ttnn.concat([half(self.fc1_weight, i), half(self.fc2_weight, i)], dim=1),
+                               ttnn.slice(self.fc3_weight, [i * H // 2, 0], [(i + 1) * H // 2, K]))
+                              for i in (0, 1)]
+        args = (_mm_generic.ckc_args(silu_ckc(self.compute_kernel_config)), tuple(COMPUTE_GRID_MAIN))
+        if isinstance(self._t3_w, list):
+            return _transition_t3.transition_split(x, self.norm_weight, self.norm_bias, self._t3_w, *args,
+                                                   add_to_input=add_to_input)
+        return _transition_t3.transition(x, self.norm_weight, self.norm_bias, *self._t3_w, *args,
+                                         add_to_input=add_to_input)
 
     def _add_rows_ok(self, x, memory_config) -> bool:
         return (_TRANSITION_ADD_ROWS and not ops.taping() and len(x.shape) == 4
