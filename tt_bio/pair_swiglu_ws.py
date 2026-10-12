@@ -8,7 +8,8 @@ output written once, and fc1, fc2 and their product never leave the core (kernel
 The engine's shared `_transition_swiglu_sharded` does not serve this shape: it needs the output width to split
 over 8 core columns, and 128 channels are 4 tiles.
 
-Draft: bfloat16 operands and output only; the RMSNorm stays the caller's op.
+x and the output are bfloat16; the weights bfloat16, or bfloat8_b where bf16 weights would not fit L1 (c_z 256,
+hidden 1024: 768 weight tiles are 1.5 MB in bf16, 0.8 MB in bfp8). The norm stays the caller's op.
 """
 
 from __future__ import annotations
@@ -24,38 +25,53 @@ KERNEL_DIR = Path(__file__).resolve().parent / "kernels" / "pair_swiglu_ws"
 X_CB, W12_CB, W3_CB, GATE_CB, HID_CB, OUT_CB = 0, 1, 2, 3, 4, 16
 _TILE = 32 * 32 * 2
 _SW = 4                   # hidden tiles per dest pass (one fp32 dest half)
+# Bytes of a core's L1 the program may take: weights plus its streaming CBs. A Wormhole core has 1464 KiB,
+# a Blackhole core 1536 KiB; the rest is the firmware, the kernel binaries and ttnn's own reserve.
+_L1_BUDGET = 1100 * 1024
+
+
+def _tile_bytes(dtype) -> int:
+    return 1088 if dtype == ttnn.bfloat8_b else _TILE
 _CACHE: dict = {}
 
 
-def weights(w1: torch.Tensor, w2: torch.Tensor, w3: torch.Tensor, device):
-    """`[w1 | w2]` ([C, 2H]) and `w3` ([H, C]) as bfloat16 TILE tensors, from torch [in, out] matrices."""
-    up = lambda t: ttnn.from_torch(t.contiguous(), dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT,  # noqa: E731
+def weights(w1: torch.Tensor, w2: torch.Tensor, w3: torch.Tensor, device, dtype=ttnn.bfloat16):
+    """`[w1 | w2]` ([C, 2H]) and `w3` ([H, C]) as `dtype` TILE tensors, from torch [in, out] matrices."""
+    up = lambda t: ttnn.from_torch(t.contiguous(), dtype=dtype, layout=ttnn.TILE_LAYOUT,  # noqa: E731
                                    device=device)
     return up(torch.cat([w1, w2], 1)), up(w3)
 
 
 def eligible(x, w12, w3) -> bool:
-    """bfloat16 TILE interleaved operands, K = output width <= 4 tiles, hidden a multiple of 4 tiles."""
+    """bfloat16 TILE interleaved x, bf16/bfp8 TILE interleaved weights, hidden a multiple of 4 tiles, output
+    width at most 4 tiles or a multiple of 4, and the weights plus the streaming CBs inside `_L1_BUDGET`."""
+    if x.dtype != ttnn.bfloat16 or w12.dtype != w3.dtype or w12.dtype not in (ttnn.bfloat16, ttnn.bfloat8_b):
+        return False
     for t in (x, w12, w3):
-        if t.dtype != ttnn.bfloat16 or t.layout != ttnn.TILE_LAYOUT:
-            return False
-        if t.memory_config().memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED:
+        if t.layout != ttnn.TILE_LAYOUT or t.memory_config().memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED:
             return False
     kt, ct = int(x.padded_shape[-1]) // 32, int(w3.shape[-1]) // 32
     nh = int(w3.shape[0]) // 32
-    return kt == int(w12.shape[0]) // 32 and int(w12.shape[1]) == 2 * int(w3.shape[0]) and ct <= 4 \
-        and nh % _SW == 0 and kt * 2 * nh + nh * ct <= 512
+    if not (kt == int(w12.shape[0]) // 32 and int(w12.shape[1]) == 2 * int(w3.shape[0])
+            and nh % _SW == 0 and (ct <= 4 or ct % 4 == 0)):
+        return False
+    return _l1_bytes(kt, nh, ct, w12.dtype) <= _L1_BUDGET
+
+
+def _l1_bytes(kt, nh, ct, wdtype) -> int:
+    return (kt * 2 * nh + nh * ct) * _tile_bytes(wdtype) + (2 * kt + 2 * _SW + 2 * nh + 2 * ct) * _TILE
 
 
 def _build(x, w12, w3, out, device, mt, kt, nh, ct, fidelity):
     g = device.compute_with_storage_grid_size()
     num_cores, grid, cg1, cg2, work1, work2 = core_split.split_work_to_cores(g, mt, 0)
 
-    def cb(idx, tiles):
-        fmt = ttnn.CBFormatDescriptor(buffer_index=idx, data_format=ttnn.bfloat16, page_size=_TILE)
-        return ttnn.CBDescriptor(total_size=tiles * _TILE, core_ranges=grid, format_descriptors=[fmt])
+    def cb(idx, tiles, dtype=ttnn.bfloat16):
+        size = _tile_bytes(dtype)
+        fmt = ttnn.CBFormatDescriptor(buffer_index=idx, data_format=dtype, page_size=size)
+        return ttnn.CBDescriptor(total_size=tiles * size, core_ranges=grid, format_descriptors=[fmt])
 
-    cbs = [cb(X_CB, 2 * kt), cb(W12_CB, kt * 2 * nh), cb(W3_CB, nh * ct), cb(GATE_CB, 2 * _SW),
+    cbs = [cb(X_CB, 2 * kt), cb(W12_CB, kt * 2 * nh, w12.dtype), cb(W3_CB, nh * ct, w3.dtype), cb(GATE_CB, 2 * _SW),
            cb(HID_CB, 2 * nh), cb(OUT_CB, 2 * ct)]
     rd, cp, wr = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
     first = 0
@@ -98,7 +114,7 @@ def pair_swiglu(x, w12, w3, fidelity=ttnn.MathFidelity.HiFi4):
     kt, nh, ct = xs[-1] // 32, int(w3.shape[0]) // 32, int(w3.shape[-1]) // 32
     out = ttnn.allocate_tensor_on_device(ttnn.Shape([int(d) for d in x.shape][:-1] + [int(w3.shape[-1])]), ttnn.bfloat16,
                                          ttnn.TILE_LAYOUT, device, ttnn.DRAM_MEMORY_CONFIG)
-    key = (device.id(), tuple(xs), nh, ct, x.memory_config().buffer_type, fidelity)
+    key = (device.id(), tuple(xs), nh, ct, x.memory_config().buffer_type, fidelity, w12.dtype)
     if key not in _CACHE:
         _CACHE[key] = _build(x, w12, w3, out, device, mt, kt, nh, ct, fidelity)
     kernels, cbs = _CACHE[key]
