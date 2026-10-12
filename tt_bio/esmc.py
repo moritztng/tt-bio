@@ -408,7 +408,8 @@ PAIR_FFN_L1_LN = True
 # split-fc1 SwiGLU: the pair transition (row-blocked) and the ESMC LM blocks, which are ESMFold2's LM backbone.
 _SWIGLU_SILU_FC1 = env_flag("TT_BIO_SWIGLU_SILU_FC1", False)
 # The same activated multiply on ttnn's legacy binary op: same SFPU silu, no per-tile re-init, 0.101 vs 0.144 ms
-# (gate_bench, same block). Off until a fold A/B and its digest say what it does.
+# (gate_bench, same block). Pair transition row blocks only (`l1_gated`): folds -1.1 s ESMFold2 / -0.7 s -Fast on
+# p150a, while ESMC 300M's LM blocks measured no faster with it and further from fp32 (cos_min 0.9971 vs 0.9987).
 _SWIGLU_GATE_LEGACY = env_flag("TT_BIO_SWIGLU_GATE_LEGACY", False)
 
 # Wormhole tiles the per-token (3-D) FFN at SMALL_GRID_SEQ_TILE rows so the ESMC-6B's fc1 activation never asks a
@@ -718,7 +719,7 @@ class SwiGLUFFN(Module):
             ttnn.deallocate(x_norm)
             gated = ttnn.multiply(
                 h1, h2, input_tensor_a_activations=[] if silu_done else [ttnn.UnaryOpType.SILU],
-                **({"use_legacy": True} if _SWIGLU_GATE_LEGACY else {}),
+                **({"use_legacy": True} if _SWIGLU_GATE_LEGACY and l1_gated else {}),
                 **({"memory_config": ttnn.L1_MEMORY_CONFIG} if l1_gated else {}),
             )
             ttnn.deallocate(h1)
