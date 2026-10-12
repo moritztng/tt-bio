@@ -72,6 +72,7 @@ chips, starting each job as `CHIP=<id> bash <job>`) names it, `"pool": {"queue":
 "row": "<holder>"}`, and is granted as `host:pool`, once per leg it may run at a time (`g114:pool`
 four times = at most four legs queued or running there). Each leg becomes one job file; the pool
 picks the chip, the leg still takes that chip's flock, and the runner waits for the job's exit code.
+Pool legs skip gate_guard's load ceiling (see LOAD_GUARDED).
 
 FIRST. A release never waits on our own experiments. A pool host queues its legs at the prio
 it names (0, ahead of every grading job), and a flock host shared with other rows sets
