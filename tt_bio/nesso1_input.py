@@ -173,17 +173,29 @@ def run_esm(
     model_name: str = ESM2_MODEL,
     cache_dir: Path | None = None,
 ) -> int:
-    """Write ``[1, L+2, 1280]`` final-layer ESM-2 embeddings, skipping ones on disk."""
-    missing = {m: s for m, s in seqs.items() if not cached(esm_dir / f"{m}.safetensors")}
-    if not missing:
-        return 0
-    from tt_bio._vendor.nesso.data.esm import extract_esm_embedding, setup_esm_model
+    """Write ``[1, L+2, 1280]`` final-layer ESM-2 embeddings, skipping ones on disk.
 
-    model, tokenizer = setup_esm_model(model_name, torch.device("cpu"), cache_dir=cache_dir)
-    for mid, seq in sorted(missing.items()):
-        emb = extract_esm_embedding(seq, model, tokenizer)
-        with staged(esm_dir / f"{mid}.safetensors") as tmp:
-            save_file({"embeddings": emb}, tmp)
+    The embedding is a pure function of the sequence, and a screen re-runs the same target
+    with every new batch of ligands, so it is also kept per user under the cache root and
+    linked in from there: 7.6 s of a 512 aa invocation on qb1 (transformers import, the 650M
+    load, the forward) is paid once per target rather than once per run. Returns how many
+    were computed.
+    """
+    from tt_bio.weights import cache_root
+
+    store = cache_root() / "nesso1" / "esm2" / model_name.replace("/", "--")
+    todo = {m: s for m, s in seqs.items() if not cached(esm_dir / f"{m}.safetensors")}
+    missing = {m: s for m, s in todo.items() if not cached(store / f"{m}.safetensors")}
+    if missing:
+        from tt_bio._vendor.nesso.data.esm import extract_esm_embedding, setup_esm_model
+
+        store.mkdir(parents=True, exist_ok=True)
+        model, tokenizer = setup_esm_model(model_name, torch.device("cpu"), cache_dir=cache_dir)
+        for mid, seq in sorted(missing.items()):
+            emb = extract_esm_embedding(seq, model, tokenizer)
+            with staged(store / f"{mid}.safetensors") as tmp:
+                save_file({"embeddings": emb}, tmp)
+    link_given_esm({m: str(store / f"{m}.safetensors") for m in todo}, esm_dir)
     return len(missing)
 
 

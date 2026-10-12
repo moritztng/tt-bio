@@ -181,3 +181,25 @@ def test_find_ccd_without_download_names_where_it_looked(tmp_path, monkeypatch):
     monkeypatch.setenv("HOME", str(tmp_path))  # so ~/.cache/huggingface is empty too
     with pytest.raises(FileNotFoundError, match="--ccd"):
         find_ccd(tmp_path / "empty", download=False)
+
+
+def test_esm_embedding_is_computed_once_per_sequence_across_runs(tmp_path, monkeypatch):
+    """A screen re-runs the same target with new ligands. The ESM-2 embedding is a pure
+    function of the sequence, so the second run must link the stored one, byte for byte,
+    instead of loading the 650M encoder again."""
+    import torch
+    from safetensors.torch import load_file
+
+    import tt_bio._vendor.nesso.data.esm as esm
+    from tt_bio.nesso1_input import run_esm
+
+    calls = []
+    monkeypatch.setattr(esm, "setup_esm_model", lambda *a, **k: (None, None))
+    monkeypatch.setattr(esm, "extract_esm_embedding",
+                        lambda seq, m, t: calls.append(seq) or torch.randn(1, len(seq) + 2, 4))
+    seqs = {"m1": "MENFQK"}
+    assert run_esm(seqs, (tmp_path / "run1").mkdir() or tmp_path / "run1") == 1
+    assert run_esm(seqs, (tmp_path / "run2").mkdir() or tmp_path / "run2") == 0
+    assert calls == ["MENFQK"]
+    a, b = (load_file(tmp_path / r / "m1.safetensors")["embeddings"] for r in ("run1", "run2"))
+    assert torch.equal(a, b)
