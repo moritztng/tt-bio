@@ -159,3 +159,53 @@ def test_a_gate_failing_only_on_ladder_drift_is_re_recorded_then_cut(tmp_path):
     git("commit", "-qam", "next staging")
     d = rn.decide(tmp_path, gates, "main")
     assert (d["do"], d["sha"], d["records"]) == ("CUT", head, str(r))
+
+
+def test_a_failed_gate_is_fixed_forward_from_its_fixes_not_regated_at_head(tmp_path):
+    git = _repo(tmp_path)
+    (tmp_path / "a.py").write_text("x = 2\n")
+    (tmp_path / "harness.py").write_text("bug = 1\n")
+    git("add", "."), git("commit", "-qm", "staging1")
+    x = git("rev-parse", "HEAD")
+    (tmp_path / "harness.py").write_text("bug = 0\n")
+    git("commit", "-qam", "fix the harness")
+    fix = git("rev-parse", "HEAD")
+    (tmp_path / "a.py").write_text("x = 3\n")
+    git("commit", "-qam", "staging2")
+    gates = tmp_path / "gates"
+    g = _plan(gates, "gx", x, tmp_path)
+    (g / "verdict.json").write_text(json.dumps({"pass": False, "results": []}))
+    d = rn.decide(tmp_path, gates, "main")
+    assert d["do"] == "FIX" and d["sha"] == x and "FIXES" in d["why"]   # not a full gate on staging2
+    old = (g / "verdict.json").stat().st_mtime - rn.FIX_HOLD_S - 60
+    os.utime(g / "verdict.json", (old, old))
+    assert rn.decide(tmp_path, gates, "main")["sha"] == git("rev-parse", "HEAD")   # nobody fixed it
+    (g / "FIXES").write_text(f"{fix[:9]}  # harness\n")
+    d = rn.decide(tmp_path, gates, "main")
+    c = d["sha"]
+    assert d["do"] == "GATE" and d["fixes"]["base"] == x and c != git("rev-parse", "HEAD")
+    assert rn.decide(tmp_path, gates, "main")["sha"] == c                 # the same list, the same commit
+    assert git("show", f"{c}:harness.py") == "bug = 0" and git("show", f"{c}:a.py") == "x = 2"
+    assert git("rev-parse", f"{c}^") == x
+    gc = _plan(gates, "gc", c, tmp_path)
+    assert rn.decide(tmp_path, gates, "main")["do"] == "WAIT"
+    (gc / "verdict.json").write_text(json.dumps({"pass": True}))
+    d = rn.decide(tmp_path, gates, "main")
+    assert d["do"] == "CUT" and d["sha"] == c
+
+
+def test_a_fix_that_does_not_apply_on_the_frozen_commit_is_a_fix(tmp_path):
+    git = _repo(tmp_path)
+    (tmp_path / "a.py").write_text("x = 2\n")
+    git("commit", "-qam", "staging1")
+    x = git("rev-parse", "HEAD")
+    (tmp_path / "a.py").write_text("x = 3\n")
+    git("commit", "-qam", "staging2")
+    (tmp_path / "a.py").write_text("x = 4\n")
+    git("commit", "-qam", "fix on top of staging2")
+    gates = tmp_path / "gates"
+    g = _plan(gates, "gx", x, tmp_path)
+    (g / "verdict.json").write_text(json.dumps({"pass": False, "results": []}))
+    (g / "FIXES").write_text(git("rev-parse", "HEAD") + "\n")
+    d = rn.decide(tmp_path, gates, "main")
+    assert d["do"] == "FIX" and d["sha"] == x and "does not apply" in d["why"]
