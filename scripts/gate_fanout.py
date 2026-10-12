@@ -167,6 +167,15 @@ REBOOTED = "rebooted under the leg"
 LEND_AT = "~/spd/galaxy/LEND-AT"
 LEND_READ_S = 300
 WITHDRAWN = -1           # run_in_pool's code for "taken back from the queue before it started"
+#: A leg failed on a named card and the card is what failed: qb2 chip 1 stopped initialising its
+#: firmware at 06:07Z on 2026-10-12 and the runner handed it 40 more legs of gate 026b5c71c, each
+#: recorded FAIL in 15-90 s. After a failed leg on a named card the runner probes the card
+#: (capacity_gate's open + dispatch probe, under the card's flock). A card that fails the probe is
+#: retired for the run and its leg goes back on the queue, once: a leg that kills a second card is
+#: recorded as it ran. A leg no card is left to run is recorded UNRUN, which fails the gate.
+CARD_PROBE = ("import sys; sys.path.insert(0, 'scripts'); "
+              "from capacity_gate import _CARD_PROBE; exec(_CARD_PROBE)")
+CARD_PROBE_S, CARD_PROBE_LOCK_S = 300, 1800
 QUEUED: dict = {}         # pool job file -> host, taken back if the runner is stopped
 RUNNING: dict = {}        # leg out dir -> host, its attempt ended if the runner is stopped
 CARD_FREE = ("check", "packaging_smoke", "pytest_cpu")
@@ -791,6 +800,22 @@ class Host:
         return (f"mkdir -p {shlex.quote(out)} && {self.end_attempt(out)} && cd {self.tree} && {setup}"
                 f"env {mark} setsid -w bash -c {attempt}")   # no exec: a pool job writes rc after it
 
+    def card_dead(self, card) -> str | None:
+        """Why `card` cannot open and dispatch a program, or None when it can. A probe that never
+        got the card's flock, or never started, says nothing about the card and reads as None."""
+        env = {"PYTHONPATH": self.tree, "TT_VISIBLE_DEVICES": str(card), **self.cfg.get("env", {})}
+        body = (f"echo CARD_PROBE_START; env {' '.join(f'{k}={shlex.quote(v)}' for k, v in env.items())} "
+                f"timeout -s KILL {CARD_PROBE_S} {self.python('parity')} -c {shlex.quote(CARD_PROBE)} 2>&1 "
+                f"| tail -n 4")
+        lock = self.cfg.get("lock")
+        lock = f"flock -w {CARD_PROBE_LOCK_S} {shlex.quote(lock.format(card=card))} " if lock else ""
+        r = self.ssh(f"cd {self.tree} && {lock}bash -c {shlex.quote(body)}",
+                     capture_output=True, timeout=CARD_PROBE_LOCK_S + CARD_PROBE_S + 120)
+        out = r.stdout or ""
+        if "CARD_PROBE_START" not in out or "CARD_HEALTHY" in out:
+            return None
+        return out.split("CARD_PROBE_START", 1)[1].strip()[-600:] or "the probe printed nothing"
+
     @staticmethod
     def end_attempt(out: str) -> str:
         """Shell that ends the attempt recorded in out/attempt.pid if it is still that leg's."""
@@ -953,6 +978,14 @@ def _reused(leg: str, slot: str, key: str, row: dict) -> dict:
             "reused_verdict": row["verdict"]}
 
 
+class CardDead(Exception):
+    """execute() found the leg's card dead after the leg failed; `res` is the leg's result."""
+
+    def __init__(self, res: dict, why: str):
+        super().__init__(why)
+        self.res, self.why = res, why
+
+
 def _alive(pid) -> bool:
     try:
         os.kill(int(pid), 0)
@@ -1033,6 +1066,8 @@ class Gate:
         self.keys = keys or {}    # (leg name, arch) -> key
         self.roster = roster or {}  # ENUMERATE's output; its "caps" keep a ladder leg on a host of its cap
         self.held: dict = {}      # queue -> [Leg] another runner holds
+        self.bounced: set = set()  # (leg name, queue) already put back once off a dead card
+        self.inflight: dict = {}   # queue -> legs started and not yet recorded or put back
         self.results: list = []
         self.mu = threading.Lock()
 
@@ -1132,6 +1167,8 @@ class Gate:
                 if leg is not None and self._joined(leg, queue):
                     continue
                 if leg is not None:
+                    with self.mu:
+                        self.inflight[queue] = self.inflight.get(queue, 0) + 1
                     host.outputs.add(out_group(leg.name))
                     if leg.timed:
                         host.timed_running = True
@@ -1146,9 +1183,17 @@ class Gate:
                 if self._lent_out(host, card):
                     time.sleep(POOL_POLL_S)     # another host may take it first; else the lend ends
                     continue
+                with self.mu:
+                    busy = self.inflight.get(queue, 0) > 0
+                if busy:
+                    time.sleep(1)       # a sibling's leg may come back (withdrawn, or off a dead card)
+                    continue
                 return
+            dead = None
             try:
                 res = self.execute(host, card, leg)
+            except CardDead as e:
+                res, dead = e.res, e.why
             finally:
                 with host.lock:
                     host.running -= 1
@@ -1161,8 +1206,25 @@ class Gate:
             if res is None:
                 with self.mu:
                     self.todo.setdefault(queue, []).insert(0, leg)
+                    self.inflight[queue] -= 1
                 continue
+            if dead:
+                with self.mu:
+                    again = (leg.name, queue) not in self.bounced
+                    self.bounced.add((leg.name, queue))
+                    if again:
+                        self.todo.setdefault(queue, []).insert(0, leg)
+                    self.inflight[queue] -= 1
+                print(f"retired {host.name}:{card} for this run, its card is dead: {dead.splitlines()[-1]}"
+                      + (f"; {leg.name} goes back on the queue" if again else ""), flush=True)
+                if not again:
+                    self._record(res)
+                with host.lock:
+                    host.lock.notify_all()
+                return
             self._record(res)
+            with self.mu:
+                self.inflight[queue] -= 1
 
     def run(self) -> list:
         ts = [threading.Thread(target=self.worker, args=w, daemon=True) for w in self.workers]
@@ -1170,6 +1232,11 @@ class Gate:
             t.start()
         for t in ts:
             t.join()
+        for queue, legs in self.todo.items():
+            for leg in legs:
+                self._record({"leg": leg.name, "arch": queue, "verdict": "UNRUN", "rc": None,
+                              "worker": "none", "wall_s": 0, "ended": now(),
+                              "key": self.keys.get((leg.name, queue))})
         return self.results
 
 
@@ -1335,6 +1402,10 @@ def make_executor(sha: str, out: Path, ledger: Ledger, keys: dict, remote_out: s
             if not (rc and LOAD_REFUSAL in text and time.time() - t0 < LOAD_WAIT_MAX_S):
                 break
             time.sleep(LOAD_RETRY_S)
+        dead = host.card_dead(card) if rc and card not in (None, POOL) else None
+        if dead:
+            with open(log, "a") as f:
+                f.write(f"\n# {host.name}:{card} failed the card probe after this leg: {dead}\n")
         m = re.search(r"^##LEG-START (\d+)", text, re.M)
         start = float(m.group(1)) if m else None
         m = re.search(r"^##CHIP (\d+)", text, re.M)
@@ -1406,6 +1477,8 @@ def make_executor(sha: str, out: Path, ledger: Ledger, keys: dict, remote_out: s
             res["reads"], res["scope"] = reads, scope
         if verdict in OK:
             ledger.put(res["key"], res)
+        elif dead:
+            raise CardDead(res, dead)
         return res
     return execute
 
