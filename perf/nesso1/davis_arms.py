@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Grade DAVIS arms against a base arm, with a second-seed base arm as the floor.
 
-    python perf/nesso1/davis_arms.py DV_DIR --base base --floor seed2 [ARM ...]
+    python perf/nesso1/davis_arms.py DV_DIR --base base --floor seed2[,seed3] ARM [ARM ...]
 
 DV_DIR/<arm>/davis_<target>.json is what davis_validate.py writes. Every arm scores the same
 compounds in the same order, so the per-ligand |arm - base| on the affinity value (`pred`) and the
@@ -9,6 +9,8 @@ binder probability (`prob`) is a parity number; the floor arm's |seed2 - base| i
 model moves with nothing changed but the seed. An arm passes a target when its median and p90
 per-ligand deltas sit inside the floor's and its Pearson vs pKd is not below base by more than the
 floor arm is. `pred` falls as pKd rises, so the correlation is compared by magnitude.
+With several floor arms (other seeds), each bound is the widest any of them shows: the arm has to
+move the model no further than a reseed already did.
 """
 import argparse
 import json
@@ -65,12 +67,19 @@ def main():
     ap.add_argument("dv", type=Path)
     ap.add_argument("arms", nargs="+")
     ap.add_argument("--base", default="base")
-    ap.add_argument("--floor", default="seed2")
+    ap.add_argument("--floor", default="seed2", help="comma-separated floor arms")
     ap.add_argument("--json", type=Path)
     a = ap.parse_args()
     base = load(a.dv / a.base)
-    floor = compare(base, load(a.dv / a.floor))
-    rep = {"base": a.base, "floor": {a.floor: floor}, "arms": {}}
+    floors = {f: compare(base, load(a.dv / f)) for f in a.floor.split(",")}
+    floor = {}
+    for tid in set.intersection(*(set(f) for f in floors.values())):
+        rows = [f[tid] for f in floors.values()]
+        floor[tid] = {"n": min(r["n"] for r in rows),
+                      "pred_med": max(r["pred_med"] for r in rows),
+                      "pred_p90": max(r["pred_p90"] for r in rows),
+                      "r_shift": max(abs(abs(r["r_arm"]) - abs(r["r_base"])) for r in rows)}
+    rep = {"base": a.base, "floor": floors, "arms": {}}
     for name in a.arms:
         rows = compare(base, load(a.dv / name))
         for tid, r in rows.items():
@@ -79,11 +88,11 @@ def main():
                 r["pass"] = None
                 continue
             r["pass"] = (r["pred_med"] <= f["pred_med"] and r["pred_p90"] <= f["pred_p90"]
-                         and abs(r["r_arm"]) >= abs(r["r_base"]) - abs(abs(f["r_arm"]) - abs(f["r_base"])))
+                         and abs(r["r_arm"]) >= abs(r["r_base"]) - f["r_shift"])
         rep["arms"][name] = rows
     hdr = "%-8s %-7s %3s %8s %8s %8s %8s %7s %7s %s"
     print(hdr % ("arm", "target", "n", "pred_med", "pred_p90", "prob_med", "prob_p90", "r_arm", "r_base", "pass"))
-    for name, rows in [(a.floor, floor)] + list(rep["arms"].items()):
+    for name, rows in list(floors.items()) + list(rep["arms"].items()):
         for tid, r in rows.items():
             print("%-8s %-7s %3d %8.4f %8.4f %8.4f %8.4f %7.4f %7.4f %s" % (
                 name, tid, r["n"], r["pred_med"], r["pred_p90"], r["prob_med"], r["prob_p90"],
