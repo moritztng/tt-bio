@@ -217,6 +217,7 @@ def op_table(ttnn, MDT, call, sync, dev, reps):
     """Every ttnn op one block call issues, synchronised on both sides, binned by op and call site."""
     acc, inside, do_trace, seen = {}, {"op": 0}, {"v": True}, set()
     HOST_ONLY = {"unsqueeze", "squeeze", "reshape", "allocate_tensor_on_device"}
+    ALIASING = {"to_memory_config", "typecast", "to_layout", "clone", "move", "reallocate"}
 
     def addrs(v):
         ts = v if isinstance(v, (tuple, list)) else (v,)
@@ -276,7 +277,11 @@ def op_table(ttnn, MDT, call, sync, dev, reps):
                 out = fn(*x, **k)
                 sync()
                 t1 = time.perf_counter()
-                if do_trace["v"] and label not in HOST_ONLY:
+                # An op that hands back its input issued nothing; an empty capture's replay hangs.
+                same = isinstance(out, ttnn.Tensor) and any(
+                    isinstance(t, ttnn.Tensor) and t.is_allocated() and out.is_allocated()
+                    and t.buffer_address() == out.buffer_address() for t in x[:1])
+                if do_trace["v"] and label not in HOST_ONLY and not (same and label in ALIASING):
                     if key not in seen:
                         print("trace", key, flush=True)
                     dev_s = traced(fn, x, k, out)
@@ -303,16 +308,9 @@ def op_table(ttnn, MDT, call, sync, dev, reps):
         acc.clear()
         for _ in range(reps):
             ttnn.deallocate(call())
-        # The bracket's floor: sync + an op that does nothing on the device; an empty trace's replay.
+        # The bracket's floor: sync + an op that does nothing on the device.
         do_trace["v"] = False
-        tid = ttnn.begin_trace_capture(dev, cq_id=0)
-        ttnn.end_trace_capture(dev, tid, cq_id=0)
-        sync(); t0 = time.perf_counter()
-        for _ in range(10):
-            ttnn.execute_trace(dev, tid, cq_id=0, blocking=False)
-        sync()
-        empty_trace_us = (time.perf_counter() - t0) / 10 * 1e6
-        ttnn.release_trace(dev, tid)
+        empty_trace_us = None
         fl = []
         for _ in range(50):
             sync(); t0 = time.perf_counter(); sync(); fl.append(time.perf_counter() - t0)
@@ -321,7 +319,7 @@ def op_table(ttnn, MDT, call, sync, dev, reps):
             setattr(owner, name, fn)
     rows = sorted(({"key": k, "dev_us": round(v[2] / reps * 1e6, 2), "us_per_block": round(v[0] / reps * 1e6, 2),
                     "n_per_block": v[1] / reps} for k, v in acc.items()), key=lambda r: -r["dev_us"])
-    return {"sync_floor_us": round(statistics.median(fl) * 1e6, 2), "empty_trace_us": round(empty_trace_us, 2),
+    return {"sync_floor_us": round(statistics.median(fl) * 1e6, 2), "empty_trace_us": empty_trace_us,
             "n_ops": sum(r["n_per_block"] for r in rows), "sum_us": round(sum(r["us_per_block"] for r in rows), 1),
             "sum_dev_us": round(sum(r["dev_us"] for r in rows), 1), "rows": rows}
 
