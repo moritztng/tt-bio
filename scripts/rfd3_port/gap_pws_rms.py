@@ -3,6 +3,7 @@
 
   shipped  ttnn.rms_norm -> pair_swiglu_ws (what RFD3_PAIR_WS runs)
   fused    pair_swiglu_ws(ln=(gamma, None, eps)), the norm inside the program (RFD3_PAIR_WS_RMS)
+  bare     pair_swiglu_ws alone, no norm; *_shift: the output at a new address every call, as in a fold
 Both against a float64 reference of rmsnorm -> fc3(silu(fc1) * fc2) on the same bf16 inputs, at RFD3's fidelity,
 for hidden 256 and 512. Synced ms per call, median of `reps`.
 
@@ -24,16 +25,24 @@ I = int(sys.argv[3]) if len(sys.argv) > 3 else 685
 C, EPS = 128, 1e-6
 
 
-def timeit(fn, dev):
+def timeit(fn, dev, shift=False):
+    """Synced ms per call. `shift` parks a one-tile tensor before every call so the output lands at a new
+    address each time, as it does inside a fold; a program cache keyed on buffer addresses then misses."""
     o = fn()
     ttnn.synchronize_device(dev)
-    ts = []
+    ts, park, host = [], [], []
     for _ in range(N):
         ttnn.deallocate(o)
+        if shift:
+            park.append(ttnn.from_torch(torch.zeros(32, 32), dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev))
         t0 = time.perf_counter()
         o = fn()
+        host.append((time.perf_counter() - t0) * 1e3)
         ttnn.synchronize_device(dev)
         ts.append((time.perf_counter() - t0) * 1e3)
+    for t in park:
+        ttnn.deallocate(t)
+    timeit.host_ms = statistics.median(host)
     return o, statistics.median(ts), min(ts), max(ts)
 
 
@@ -69,11 +78,14 @@ def main():
             o = WS.pair_swiglu(n, w12, w3d, fid)
             ttnn.deallocate(n)
             return o
-        for name, fn in (("shipped", shipped),
-                         ("fused", lambda: WS.pair_swiglu(x, w12, w3d, fid, ln=(g, None, EPS)))):
+        fused = lambda: WS.pair_swiglu(x, w12, w3d, fid, ln=(g, None, EPS))  # noqa: E731
+        bare = lambda: WS.pair_swiglu(x, w12, w3d, fid)                          # noqa: E731
+        for name, fn, shift in (("shipped", shipped, False), ("fused", fused, False),
+                                ("bare", bare, False), ("bare_shift", bare, True), ("fused_shift", fused, True)):
             try:
-                o, med, lo, hi = timeit(fn, dev)
-                r[name] = {"ms_median": med, "ms_min": lo, "ms_max": hi, **err(o, ref)}
+                o, med, lo, hi = timeit(fn, dev, shift)
+                r[name] = {"ms_median": med, "ms_min": lo, "ms_max": hi, "host_ms": timeit.host_ms,
+                           **({} if name.startswith("bare") else err(o, ref))}
                 ttnn.deallocate(o)
             except Exception as e:                                       # noqa: BLE001
                 r[name] = {"error": repr(e)[:400]}
