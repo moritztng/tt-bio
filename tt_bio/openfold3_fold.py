@@ -33,7 +33,9 @@ NORMAL_LEVERS = _T.NORMAL_LEVERS - {"transition_bw", "transition_shard"}
 # OpenFold3 top pose median 0.352 A (seed floor 1.328 A), CA-lDDT -0.0002 [-0.0012, +0.0008], docking 19 -> 19/44,
 # PASS; OpenBind-0 top pose median 0.391 A (seed floor 2.079 A), CA-lDDT +0.0003 [-0.0004, +0.0011],
 # docking 26 -> 26/44, PASS. 512-token fold on a p300c chip: OpenFold3 11.02 -> 10.08 s, OpenBind-0 11.40 -> 9.99 s.
-FAST_LEVERS = NORMAL_LEVERS | {"dit_s16", "diffusion_bf16", "trimul_t1", "trimul_t2"}
+# trimul_t2cm (T2 reads the einsum's channel-major output, no reblock_permute_back) is bit-exact: Wormhole l512 coords
+# identical to --fast on 4 seeds x both models, fold 43.76 -> 43.45 s (OpenFold3) and 50.33 -> 49.97 s (OpenBind-0).
+FAST_LEVERS = NORMAL_LEVERS | {"dit_s16", "diffusion_bf16", "trimul_t1", "trimul_t2", "trimul_t2cm"}
 
 def kabsch_rmsd(pred_ca, gt_ca):
     """Optimal-superposition Cα-RMSD (Kabsch). pred_ca, gt_ca: [N, 3].
