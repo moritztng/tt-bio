@@ -7636,6 +7636,8 @@ TRACE_REGIONS = {
     # while the 128 MiB open came up. 160 MiB covers the measured need with ~20 % to spare.
     # Blackhole is unmeasured; 240 MiB keeps it under the quarter-bank cap every entry obeys.
     "bc2": {"wormhole_b0": 160 << 20, "blackhole": 240 << 20},
+    # Nesso-1's 48-block pair-only trunk as one capture (perf/nesso1/trunk_trace.py). Unmeasured.
+    "nesso1": {"wormhole_b0": 160 << 20, "blackhole": 240 << 20},
 }
 
 
