@@ -72,6 +72,7 @@ chips, starting each job as `CHIP=<id> bash <job>`) names it, `"pool": {"queue":
 "row": "<holder>"}`, and is granted as `host:pool`, once per leg it may run at a time (`g114:pool`
 four times = at most four legs queued or running there). Each leg becomes one job file; the pool
 picks the chip, the leg still takes that chip's flock, and the runner waits for the job's exit code.
+Pool legs skip gate_guard's load ceiling (see LOAD_GUARDED).
 
 FIRST. A release never waits on our own experiments. A pool host queues its legs at the prio
 it names (0, ahead of every grading job), and a flock host shared with other rows sets
@@ -137,6 +138,12 @@ POOL = "pool"            # --workers host:pool, a slot in the host's chip pool
 POOL_CARD = "@@CARD@@"   # stands for $CHIP in a pool job, filled in when the pool starts it
 POOL_POLL_S = 30
 LOAD_REFUSAL = "refusing to run the gate. host load:"
+#: The scripts that refuse to start above gate_guard's load ceiling. On a pool host the ceiling is
+#: the wrong guard: the pool's per-chip queue bounds the fan-out, and a busy pool keeps a Galaxy's
+#: 1-min loadavg above 1.5x nproc on its own (g114 at ~110 on 64 cores, 10-12), so every leg
+#: refused and was requeued for hours. Timing stays honest without it: release_gate samples the
+#: load beside the clock on every fold and the speed bar voids a rung read above the ceiling.
+LOAD_GUARDED = ("scripts/release_gate.py", "scripts/full_parity_gate.py")
 LOAD_RETRY_S, LOAD_WAIT_MAX_S = 300, 8 * 3600
 #: ssh's own words when the connection, not the leg, failed (exit 255). qb1 dropped off the LAN for
 #: minutes on 2026-10-09 and five BH legs were recorded FAIL without running.
@@ -957,6 +964,8 @@ class Host:
                 a = a.replace(k, v)
             return a
         argv = [self.python(leg.family) if a == "PY" else fill(a) for a in self.leg(leg).argv]
+        if "pool" in c and argv[1:2] and argv[1] in LOAD_GUARDED:
+            argv += ["--load-ceiling", "0"]   # not in the leg's key: it changes nothing measured
         body = (f"echo \"##LEG-START $(date +%s)\"; exec timeout -s INT {leg.budget} nice -n 10 "
                 + " ".join(shlex.quote(a) for a in argv))
         envs = " ".join(f"{k}={shlex.quote(v)}" for k, v in env.items())

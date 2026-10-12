@@ -512,6 +512,8 @@ Three guards can stop either gate before it folds anything:
 * **Load ceiling.** Both gates refuse to start when the 1-min loadavg is above 1.5x nproc, since
   the numbers would be noise and the gate's own fan-out on top of a loaded box is how a QuietBox
   stops answering. Wait for the box to settle, move hosts, or pass `--load-ceiling 0`.
+  gate_fanout passes `--load-ceiling 0` on a pool host: the pool's chip queue bounds the fan-out
+  there, and a busy Galaxy pool sits above the ceiling on its own load.
 
 Each leg's reference fixture carries a `meta.json` pinning the reference
 implementation, version, commit, and settings; the runner fingerprints that

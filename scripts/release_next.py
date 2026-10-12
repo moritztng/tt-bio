@@ -22,7 +22,7 @@ Answers one of:
               on <sha> (gate_fanout --legs 'record:*' --record-full, into <gates>/rec-<sha9>)
     FIX       the gate on <sha> failed; read its VERDICT.md
 
-Size-ladder drift (a lever started firing, or declines on a new clause) is what a staging that adds
+Size-ladder drift (a lever started firing or fires more, or declines on a new clause) is what a staging that adds
 a lever does; parity, capacity and perf judge whether it is right. So a gate whose only failures
 are ladder legs reporting drift counts as passed once a record run on the same commit passed for
 those models, and the release commit carries the new fragments. A lever that went dark, partial
@@ -85,6 +85,12 @@ def gate_state(gates: Path | None, content: str) -> tuple[str, Path | None]:
 
 #: A ladder finding the train re-records rather than fixes (release_gate._size_ladder_compare_levers).
 DRIFT_OK = re.compile(r"started firing\)|: decline clause |: resolved '")
+#: A fired fraction outside the band; upward is drift (older gates labelled both ways "partial darkness").
+FRAC_BAND = re.compile(r": frac ([\d.]+) -> ([\d.]+) exceeds the ")
+
+
+def is_drift(line: str) -> bool:
+    return bool(DRIFT_OK.search(line)) or bool((m := FRAC_BAND.search(line)) and float(m[2]) > float(m[1]))
 DRIFT_LINE = re.compile(r"^\s+FAIL \S+/\d+ \w+: ", re.M)
 
 
@@ -98,7 +104,7 @@ def drift_models(d: Path) -> list[str]:
         text = log.read_text(errors="replace") if r["leg"].startswith("ladder:") and log.is_file() else ""
         lines = [ln for ln in text.splitlines() if DRIFT_LINE.match(ln + " ")]
         if "size-ladder drift vs the recorded baseline" not in text or not lines \
-                or not all(DRIFT_OK.search(ln) for ln in lines):
+                or not all(map(is_drift, lines)):
             return []
         models.add(r["leg"].split(":", 1)[1].split("@", 1)[0])
     return sorted(models)
