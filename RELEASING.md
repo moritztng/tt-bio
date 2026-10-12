@@ -123,6 +123,8 @@ python3 scripts/gate_fanout.py --sha <commit> ... --legs 'record:*' \
     --record-lever SDPA_FUSED_PADDED --out ~/gates/record-<sha9>
 ```
 
+Each model gets one record leg per card type among `--workers` (`record:<model>@<card_type>`), so
+give the record gate a worker of every card type the ladder runs on (p150a, p300c, Wormhole).
 The fragments land in `<out>/recorded/<card_type>/<model>.json`; splice them into the release
 commit with `python3 scripts/splice_ladder_fragments.py <out>/recorded`, which takes only the
 recorded card type's entry (a plain copy would undo any other card type's re-record since). Only
