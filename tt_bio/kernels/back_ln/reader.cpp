@@ -6,7 +6,8 @@
 // channels before it, one output row block (fixed i, all Ct channel tiles) at a time.
 // A unit is (it, jt, part): rows [part * R, part * R + R) of the 32 i rows of tile block (it, jt),
 // R = 32 / P. Rows 0-15 of a tile are its first 1 KB (faces 0 and 1) and rows 16-31 the second, so
-// with P = 2 each channel tile is one contiguous 1 KB read into scratch.
+// with P = 2 each channel tile is one contiguous 1 KB read into scratch; the stage keeps a part's
+// left column half (faces 0/2) before its right half (faces 1/3).
 // Per i the reader pushes the Cp earlier channel tiles of row block (i, jt), already in the
 // output layout in `prev` (rows j, cols c), to cb_prev, and the chunk's Clt gathered tiles
 // M[c, j] = x_chunk[c, i, j] (rows c, cols j; the compute transposes them) to cb_in. The gather is
@@ -83,8 +84,16 @@ void kernel_main() {
             const uint32_t off = (part * R / 16) * 2 * FACE_BYTES + (part * R % 16) * FACE_ROW_BYTES;
             for (uint32_t c = 0; c < Clt * 32; ++c) {
                 const uint64_t a = sx.get_noc_addr(page, off);
-                noc_async_read(a, dst, PART_ROW_BYTES);
-                noc_async_read(a + FACE_BYTES, dst + PART_ROW_BYTES, PART_ROW_BYTES);
+                if constexpr (P == 1) {
+                    // all 32 rows: the left half is faces 0 and 2, the right half faces 1 and 3
+                    noc_async_read(a, dst, FACE_BYTES);
+                    noc_async_read(a + 2 * FACE_BYTES, dst + FACE_BYTES, FACE_BYTES);
+                    noc_async_read(a + FACE_BYTES, dst + PART_ROW_BYTES, FACE_BYTES);
+                    noc_async_read(a + 3 * FACE_BYTES, dst + PART_ROW_BYTES + FACE_BYTES, FACE_BYTES);
+                } else {
+                    noc_async_read(a, dst, PART_ROW_BYTES);
+                    noc_async_read(a + FACE_BYTES, dst + PART_ROW_BYTES, PART_ROW_BYTES);
+                }
                 page += NtNt;
                 dst += STAGE_TILE;
             }
@@ -100,6 +109,9 @@ void kernel_main() {
                     noc_async_read_page(page + t, sp, w);
                     w += TILE_BYTES;
                 }
+                // before the chunk tiles: compute takes these first, and cb_in is only two deep
+                noc_async_read_barrier();
+                cb_push_back(cb_prev, Cp);
             }
             noc_async_read_one_packet_set_state(stage_noc, FACE_ROW_BYTES);
             for (uint32_t ct = 0; ct < Clt; ++ct) {
@@ -117,10 +129,6 @@ void kernel_main() {
                 }
                 noc_async_read_barrier();
                 cb_push_back(cb_in, 1);
-            }
-            if constexpr (Cp > 0) {
-                noc_async_read_barrier();
-                cb_push_back(cb_prev, Cp);
             }
         }
     }
