@@ -57,3 +57,25 @@ def test_release_files_touch_only_the_notes_version_and_install_tag(tmp_path):
     assert cl.startswith("# Changelog\n\n## [Unreleased]\n\n## [0.15.0] - 2026-10-12\n\n### Changed\n- **New lever.**\n\n## [0.14.0]")
     assert 'version = "0.15.0"' in (tmp_path / "pyproject.toml").read_text()
     assert "tt-bio.git@v0.15.0" in (tmp_path / "README.md").read_text()
+
+
+def test_release_commit_changes_only_the_release_files_and_keeps_the_content_key(tmp_path, monkeypatch):
+    import subprocess
+
+    def git(*a):
+        return subprocess.run(["git", "-C", str(tmp_path), *a], check=True, capture_output=True,
+                              text=True).stdout.strip()
+    git("init", "-q"), git("config", "user.email", "t@t"), git("config", "user.name", "t")
+    (tmp_path / "CHANGELOG.md").write_text(CANDIDATE)
+    (tmp_path / "pyproject.toml").write_text('[project]\nversion = "0.14.0"\n')
+    (tmp_path / "README.md").write_text("tt-bio.git@v0.14.0\n")
+    (tmp_path / "a.py").write_text("x = 1\n")
+    git("add", "."), git("commit", "-qm", "c")
+    sha = git("rev-parse", "HEAD")
+    monkeypatch.setattr(rt, "REPO", tmp_path)
+    monkeypatch.setattr(rt, "git", lambda *a, **k: git(*a))
+    rel = rt.release_commit(sha, "0.15.0", "### Changed\n- **New lever.**", "2026-10-12")
+    assert git("diff", "--name-only", sha, rel).split() == ["CHANGELOG.md", "README.md", "pyproject.toml"]
+    assert git("rev-parse", f"{rel}^") == sha and git("rev-parse", "HEAD") == sha   # nothing checked out
+    assert rt.content_hash(rel, tmp_path) == rt.content_hash(sha, tmp_path)
+    assert 'version = "0.15.0"' in git("show", f"{rel}:pyproject.toml")

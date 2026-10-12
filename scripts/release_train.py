@@ -84,6 +84,29 @@ def release_files(tree: Path, version: str, body: str, day: str) -> None:
     rd.write_text(re.sub(r"(tt-bio\.git@)v\d+\.\d+\.\d+", rf"\g<1>v{version}", rd.read_text()))
 
 
+RELEASE_FILES = ("CHANGELOG.md", "README.md", "pyproject.toml")
+
+
+def release_commit(sha: str, version: str, body: str, day: str) -> str:
+    """The release commit on `sha`, built in a scratch index: no checkout, no disk."""
+    with tempfile.TemporaryDirectory() as d:
+        tree = Path(d)
+        for f in RELEASE_FILES:
+            (tree / f).write_text(git("show", f"{sha}:{f}") + "\n")
+        release_files(tree, version, body, day)
+        env = {**os.environ, "GIT_INDEX_FILE": str(tree / "index")}
+
+        def plumb(*a):
+            return subprocess.run(["git", "-C", str(REPO), *a], check=True, capture_output=True, text=True,
+                                  env=env).stdout.strip()
+        plumb("read-tree", sha)
+        for f in RELEASE_FILES:
+            mode = plumb("ls-files", "-s", f).split()[0]
+            plumb("update-index", "--cacheinfo", f"{mode},{plumb('hash-object', '-w', str(tree / f))},{f}")
+        return plumb("commit-tree", plumb("write-tree"), "-p", sha,
+                     "-m", f"Release {version}\n\nGated at {sha}.")
+
+
 def pypi_has(version: str) -> bool:
     try:
         return version in json.load(urllib.request.urlopen(PYPI, timeout=30))["releases"]
@@ -114,16 +137,7 @@ def cut(sha: str, gate_dir: str, remote: str, dry: bool, wait_s: int, record: Pa
     if dry:
         print(body)
         return 0
-    with tempfile.TemporaryDirectory() as d:
-        tree = Path(d) / "tree"
-        git("worktree", "add", "-q", "--detach", str(tree), sha)
-        try:
-            release_files(tree, version, body, day)
-            git("add", "CHANGELOG.md", "README.md", "pyproject.toml", repo=tree)
-            git("commit", "-qm", f"Release {version}\n\nGated at {sha} ({Path(gate_dir).name}).", repo=tree)
-            rel = git("rev-parse", "HEAD", repo=tree)
-        finally:
-            git("worktree", "remove", "--force", str(tree))
+    rel = release_commit(sha, version, body, day)
     if content_hash(rel) != content_hash(sha):
         print(f"release commit {rel[:12]} changed gated code; not tagging")
         return 1
