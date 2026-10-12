@@ -20,7 +20,7 @@ ENV_KNOBS = {"gsm": "RFD3_GATHERED_SOFTMAX", "bs": "RFD3_BLOCK_SPARSE",
              "pzc": "RFD3_PROCESS_Z_COLLAPSE", "fgrid": "RFD3_FAST_GRID",
              "asdpa": "RFD3_ATOM_SDPA", "tb8": "RFD3_TRANSITION_B8",
              "dsdpa": "RFD3_DIT_SDPA", "hifi2": "RFD3_HIFI2", "sf": "RFD3_SIGMOID_FOLD",
-             "rs": "RFD3_RESIDENT_STEP", "pws": "RFD3_PAIR_WS", "kd": "RFD3_ATTN_KDTREE",
+             "rs": "RFD3_RESIDENT_STEP", "pws": "RFD3_PAIR_WS", "pwr": "RFD3_PAIR_WS_RMS", "kd": "RFD3_ATTN_KDTREE",
              "zp": "RFD3_DIT_MASK_ZPAD"}
 args = [a for a in sys.argv[1:] if not a.startswith("--")]
 opts = dict(a[2:].split("=", 1) for a in sys.argv[1:] if a.startswith("--") and "=" in a)
