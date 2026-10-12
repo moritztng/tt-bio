@@ -61,7 +61,8 @@ for mode, dt, fid in (("fast", ttnn.bfloat8_b, ttnn.MathFidelity.HiFi2),
     if not W.eligible(x, w12, w3t):
         emit(arm=mode, ms=None, note="not eligible (L1)")
         continue
-    emit(arm=mode + "-metal_silu", fidelity=str(fid), ms=timed(lambda: W.pair_swiglu(x, w12, w3t, fid, (), False)))
+    emit(arm=mode + "-metal_silu", fidelity=str(fid), ms=timed(lambda: W.pair_swiglu(x, w12, w3t, fid, (), 0)))
+    emit(arm=mode + "-poly6_silu", fidelity=str(fid), ms=timed(lambda: W.pair_swiglu(x, w12, w3t, fid, (), 2)))
     for drop in ("", "FC12", "SILU", "GATE", "FC3", "XREAD", "WRITE"):
         defs = [("WS_NO_" + drop, "1")] if drop else []
         emit(arm=mode + ("-" + drop.lower() if drop else ""), fidelity=str(fid),

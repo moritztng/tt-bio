@@ -30,6 +30,9 @@ _SW = 4                   # hidden tiles per dest pass (one fp32 dest half)
 _L1_BUDGET = 1100 * 1024
 
 
+SILU_POLY = 1
+
+
 def _tile_bytes(dtype) -> int:
     return 1088 if dtype == ttnn.bfloat8_b else _TILE
 _CACHE: dict = {}
@@ -64,7 +67,7 @@ def _l1_bytes(kt, nh, ct, wdtype, xdtype=ttnn.bfloat16) -> int:
             + (2 * _SW + 2 * nh + 2 * ct) * _TILE)
 
 
-def _build(x, w12, w3, out, device, mt, kt, nh, ct, fidelity, defines=(), silu_poly=True):
+def _build(x, w12, w3, out, device, mt, kt, nh, ct, fidelity, defines, silu_poly):
     g = device.compute_with_storage_grid_size()
     num_cores, grid, cg1, cg2, work1, work2 = core_split.split_work_to_cores(g, mt, 0)
 
@@ -97,19 +100,21 @@ def _build(x, w12, w3, out, device, mt, kt, nh, ct, fidelity, defines=(), silu_p
                                    compile_time_args=wct, runtime_args=wr, common_runtime_args=[0],
                                    defines=list(defines), config=ttnn.WriterConfigDescriptor())
     compute = ttnn.KernelDescriptor(
-        kernel_source=src("compute.cpp"), source_type=path, core_ranges=grid, compile_time_args=[kt, nh, ct, int(silu_poly)],
+        kernel_source=src("compute.cpp"), source_type=path, core_ranges=grid, compile_time_args=[kt, nh, ct, silu_poly],
         runtime_args=cp, defines=list(defines), config=ttnn.ComputeConfigDescriptor(math_fidelity=fidelity,
                                                              fp32_dest_acc_en=True))
     return [reader, writer, compute], cbs
 
 
-def pair_swiglu(x, w12, w3, fidelity=ttnn.MathFidelity.HiFi4, defines=(), silu_poly=True):
+def pair_swiglu(x, w12, w3, fidelity=ttnn.MathFidelity.HiFi4, defines=(), silu_poly=None):
     """`fc3(silu(x @ w1) * (x @ w2))` for a TILE `x` [..., C]; a new bfloat16 DRAM tensor [..., C_out].
 
     Accumulation is fp32 in dest at every fidelity; `fidelity` is the caller's matmul fidelity. `defines` are
     the kernels' WS_NO_* time-attribution switches (perf/spd_fastmode/ws_attr.py), empty in production.
-    `silu_poly` takes sigmoid_poly.hpp's silu (sigmoid factor within 3e-4) over metal's silu_tile, whose
-    fp32-dest exp + reciprocal was ~85 % of the kernel on WH (c_z 128: 8.97 ms with it, 1.37 ms without)."""
+    `silu_poly` picks the silu: 0 metal's silu_tile, whose fp32-dest exp + reciprocal was ~85 % of the kernel on WH
+    (c_z 128: 8.97 ms with it, 1.37 ms without), 1 sigmoid_poly.hpp's degree-8 polynomial (sigmoid within 3e-4),
+    2 its degree-6 one with fp16 coefficients (7.4e-4, a third fewer SFPU instructions). None takes `SILU_POLY`."""
+    silu_poly = SILU_POLY if silu_poly is None else silu_poly
     device = x.device()
     xs = [int(d) for d in x.padded_shape]
     mt = 1

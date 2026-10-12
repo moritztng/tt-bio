@@ -16,12 +16,17 @@ ap.add_argument("--c", type=int, default=128)
 ap.add_argument("--hidden", type=int, default=512)
 ap.add_argument("--reps", type=int, default=20)
 ap.add_argument("--seed", type=int, default=0)
+ap.add_argument("--silu", type=int, default=None, help="pair_swiglu_ws silu: 0 metal, 1 degree-8 poly, 2 degree-6")
 a = ap.parse_args()
 
 from tt_bio.main import ensure_p300_mesh_descriptor  # noqa: E402
 ensure_p300_mesh_descriptor()
 import ttnn  # noqa: E402
 from tt_bio import tenstorrent as T  # noqa: E402
+from tt_bio import pair_swiglu_ws as W  # noqa: E402
+
+if a.silu is not None:
+    W.SILU_POLY = a.silu
 
 g = torch.Generator().manual_seed(a.seed)
 c, h = a.c, a.hidden
@@ -56,5 +61,5 @@ for arm in ("normal", "normal+transition_ws", "fast", "fast+transition_ws"):
     assert torch.isfinite(out).all(), arm
     print(json.dumps(dict(arm=arm, n=a.n, c=c, hidden=h, ms=round(1e3 * statistics.median(ts), 3),
                           rel_rms=float(d.pow(2).mean().sqrt() / ref.pow(2).mean().sqrt()),
-                          max_abs=float(d.abs().max()), ws_fired=getattr(mod, "_ws", None) is not None,
+                          max_abs=float(d.abs().max()), ws_fired=getattr(mod, "_ws", None) is not None, silu=W.SILU_POLY,
                           card=os.environ.get("TT_VISIBLE_DEVICES"))), flush=True)
