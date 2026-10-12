@@ -19,7 +19,7 @@ while read -r N TMO TREE CMD; do
   say "start card $CARD tree $(cat $TREE/TREE_SHA) cmd: $CMD"
   ( while :; do l=$(cut -d' ' -f1 /proc/loadavg); for n in /sys/class/tenstorrent/tenstorrent\!*; do
       printf '%s\t%s\t%s\t%s\n' "$(date +%s.%N)" "${n##*!}" "$(cat $n/tt_aiclk 2>/dev/null)" "$l"; done; sleep 0.5; done
-  ) >> "$OUT/aiclk.tsv" 2>/dev/null &
+  ) 9>&- >> "$OUT/aiclk.tsv" 2>/dev/null &
   SAMP=$!
   ( cd "$TREE" && PYTHONPATH=$TREE timeout -s TERM $((TMO + 120)) timeout -s INT "$TMO" $CMD --out "$OUT/result.json" ) \
     > "$OUT/harness.log" 2>&1

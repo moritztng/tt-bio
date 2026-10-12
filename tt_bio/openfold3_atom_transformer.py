@@ -252,9 +252,8 @@ class OF3AtomTransformer(Module):
             zb = ttnn.to_torch(z_bias[b]).float().reshape(nb, H, nq, nk) + mb
             full = torch.full((nb, H, nq, W), -1e9).scatter_(-1, col, zb)
             full = full.clamp(min=-1e4) * dh ** 0.5
-            bias = ttnn.from_torch(full.permute(1, 0, 2, 3).reshape(1, H * nb, nq, W)
-                                   .contiguous(), dtype=self._act_dtype, layout=ttnn.TILE_LAYOUT,
-                                   device=self.device)
+            bias = _T.upload(full.permute(1, 0, 2, 3).reshape(1, H * nb, nq, W),
+                             self._act_dtype, self.device)
             terms = ((self.adaln_q[b].s_terms(s), self.adaln_k[b].s_terms(s))
                      if _T.ADALN_S_HOIST else ((), ()))   # () not None: the cache free walks it
             out.append((bias, *terms))
