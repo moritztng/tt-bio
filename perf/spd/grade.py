@@ -178,6 +178,7 @@ def main():
         cifs = [sd / (f"{r['input']}.cif" if k == 0 else f"{r['input']}_model_{k}.cif")
                 for k in range(len(r["samples_conf"]))]
         (folds if r["input"] in SET else free)[key] = dict(cifs=cifs, conf=r["samples_conf"])
+    failed = [k for k in failed if k not in folds]  # a rerun that finished supersedes a crashed attempt
 
     # Score every sample once; cache next to the data so a re-grade costs nothing.
     cache_f = a.data / "grade_cache.json"

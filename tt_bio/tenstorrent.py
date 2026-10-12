@@ -13,6 +13,7 @@ from functools import lru_cache, partial, wraps
 from types import BuiltinFunctionType, FunctionType, MappingProxyType, MethodType, ModuleType
 
 from . import ops
+from . import back_ln as _back_ln
 from . import reblock_permute as _reblock
 from . import triatt_qkv as _triatt_qkv
 from . import pair_transpose as _pair_tr
@@ -9146,25 +9147,28 @@ class TriangleMultiplication(Module):
         self._gp_cache[key] = chunks
         return chunks
 
-    def _gp_in_gated(self, C: int, group: int,
-                     transposed: bool = False) -> list[tuple[ttnn.Tensor, ttnn.Tensor]]:
+    def _gp_in_gated(self, C: int, group: int, transposed: bool = False,
+                     split: int = 1) -> list:
         """Per channel chunk, the in-projection's `([p_a | p_b], [g_a | g_b])` weights.
 
         The columns of `_gp_in_chunks`, regrouped so one `trimul_tail` call computes
         `a = p_a * sigmoid(g_a)` and `b` alike as the two halves of its split output.
-        `transposed` gives each as [2C, K], for `trimul_tail.gin_moved`.
+        `transposed` gives each as [2C, K], for `trimul_tail.gin_moved`. `split` > 1 gives, per
+        chunk, `split` such pairs over equal channel slices of a and b (`gin_move_split`).
         """
-        key = (C, group, gp_roles(), transposed)
+        key = (C, group, gp_roles(), transposed, split)
         cached = self._gp_gated_cache.get(key)
         if cached is None:
             sc = C * group
-            col = lambda t, r: t[:, gp_off(r, sc):gp_off(r, sc) + sc]  # noqa: E731
+            w = sc // split
+            col = lambda t, r, s: t[:, gp_off(r, sc) + s * w:gp_off(r, sc) + (s + 1) * w]  # noqa: E731
             dev = lambda t: ttnn.from_torch(  # noqa: E731
                 (t.t() if transposed else t).contiguous(), layout=ttnn.TILE_LAYOUT,
                 device=self.device, dtype=ttnn.bfloat16)
+            pair = lambda t, s: (dev(torch.cat([col(t, "p_a", s), col(t, "p_b", s)], dim=-1)),  # noqa: E731
+                                 dev(torch.cat([col(t, "g_a", s), col(t, "g_b", s)], dim=-1)))
             cached = [
-                (dev(torch.cat([col(t, "p_a"), col(t, "p_b")], dim=-1)),
-                 dev(torch.cat([col(t, "g_a"), col(t, "g_b")], dim=-1)))
+                pair(t, 0) if split == 1 else [pair(t, s) for s in range(split)]
                 for t in self._gp_fused_order((self._g_in_t, self._p_in_t), C, group)
             ]
             self._gp_gated_cache[key] = cached
@@ -9764,6 +9768,11 @@ class TriangleMultiplication(Module):
         cm_on = (lever("trimul_t2cm") and (_trimul_tail.T2 or lever("trimul_t2"))
                  and H >= _trimul_tail.MIN_N and add_to_input and not ops.taping()
                  and self.p_out_bias is None)
+        # back_ln writes the output norm with the last chunk's move; the row-blocked tail recomputes
+        # both norms itself, so it must get the raw result.
+        x_normed = False
+        back_ln_skip = (H > SEQ_LEN_MORE_CHUNKING or x_norm_in is None
+                        or (tuple(shp), x_in.dtype) in _TRIMUL_TAIL_ROWS_SHAPES)
         tma_key = ("tma", H, batch, self._hidden, bool(self.ending))
         while True:
             tma_live = False         # an L1 `a` (TT_BIO_OF3L1_TMA) is live in this attempt
@@ -9839,11 +9848,19 @@ class TriangleMultiplication(Module):
                         if _trimul_tail.GIN_MOVE and defer:
                             # The channel moves fused in as well (both chunks leave as (0,3,1,2)
                             # moves once the matmul takes the inner swap).
-                            wpT, wgT = self._gp_in_gated(chunk_size, group, transposed=True)[i]
-                            fold = mask is not None and _trimul_tail.gin_moved_ok(x_norm_in, wpT, mask)
-                            ab = _trimul_tail.gin_moved(x_norm_in, wpT, wgT, ckc,
-                                                        tuple(COMPUTE_GRID_MAIN),
-                                                        mask=mask if fold else None)
+                            ns = _trimul_tail.gin_move_split(
+                                x_norm_in, int(wa.shape[-1]) // 2, mask)
+                            ab = None
+                            if ns is not None:
+                                sl = self._gp_in_gated(chunk_size, group, transposed=True,
+                                                       split=ns)[i]
+                                sl = [sl] if ns == 1 else sl
+                                wpT, wgT = [p for p, _ in sl], [g for _, g in sl]
+                                fold = mask is not None and _trimul_tail.gin_moved_ok(
+                                    x_norm_in, wpT[0], mask)
+                                ab = _trimul_tail.gin_moved(x_norm_in, wpT, wgT, ckc,
+                                                            tuple(COMPUTE_GRID_MAIN),
+                                                            mask=mask if fold else None)
                             if ab is not None:
                                 a_chunk, b_chunk = ab
                                 a_masked = fold
@@ -10063,7 +10080,14 @@ class TriangleMultiplication(Module):
                             x_out = ttnn.allocate_tensor_on_device(
                                 ttnn.Shape([1, H, H, self._hidden]), x_chunk.dtype,
                                 ttnn.TILE_LAYOUT, self.device, back_mc)
-                        _reblock.reblock_permute_back(x_chunk, back_mc, out=x_out, c_off=c_done)
+                        if (c_done + int(x_chunk.shape[1]) == self._hidden and not back_ln_skip
+                                and _back_ln.eligible(x_chunk, x_out, c_done)):
+                            # The last chunk's move also writes the output norm (back_ln.py).
+                            _back_ln.back_ln(x_chunk, x_out, c_done, *_back_ln.weight_rows(
+                                self.out_norm_weight, self.out_norm_bias, self.device), 1e-5)
+                            x_normed = True
+                        else:
+                            _reblock.reblock_permute_back(x_chunk, back_mc, out=x_out, c_off=c_done)
                         c_done += int(x_chunk.shape[1])
                         ttnn.deallocate(x_chunk)
                         continue
@@ -10155,7 +10179,7 @@ class TriangleMultiplication(Module):
                 x_chunks = []
                 if x_out is not None:
                     ttnn.deallocate(x_out)
-                x_out, c_done = None, 0
+                x_out, c_done, x_normed = None, 0, False
                 if x_cm is not None:
                     ttnn.deallocate(x_cm)
                     x_cm = None
@@ -10283,7 +10307,7 @@ class TriangleMultiplication(Module):
         # to free it, so every size that fits keeps its peak and its ops.
         if ((_trimul_tail.T2 or lever("trimul_t2")) and H >= _trimul_tail.MIN_N
                 and g_out_fused is not None and add_to_input and not ops.taping()
-                and self.p_out_bias is None):
+                and self.p_out_bias is None and not x_normed):
             # T2 (the `trimul_t2` lever): layer_norm,
             # the p projection, the gate and the residual add as one kernel writing x_in in
             # place; `_add_input` then sees `u is x`. None (out of scope) leaves everything
@@ -10299,7 +10323,7 @@ class TriangleMultiplication(Module):
                 ttnn.deallocate(g_out_fused)
                 return fused
         try:
-            xn = ttnn.layer_norm(
+            xn = x if x_normed else ttnn.layer_norm(
                 x,
                 weight=self.out_norm_weight,
                 bias=self.out_norm_bias,
@@ -10320,7 +10344,8 @@ class TriangleMultiplication(Module):
                   f"blocks. The tt-metal 'Out of Memory' line above is expected and handled; "
                   f"the blocks compute the same row-local math.", file=sys.stderr, flush=True)
             return self._tail_rows(x_in, x, H, host_acc, add_to_input)
-        ttnn.deallocate(x)
+        if xn is not x:
+            ttnn.deallocate(x)
         x = xn
         if (g_out_fused is None and _TRIMUL_TAIL_F1 and self.p_out_bias is None
                 and self.g_out_bias is None):
