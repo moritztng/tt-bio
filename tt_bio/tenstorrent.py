@@ -6093,6 +6093,17 @@ _TRIMUL_IBW_FULL_REFUSED: set = set()
 _TRIMUL_PER_CHANNEL = env_flag("TT_BIO_TRIMUL_PER_CHANNEL", None)
 # Sequence tiles whose per-channel plan clashed with live L1: they keep the multicast plan.
 _TRIMUL_PER_CHANNEL_REFUSED: set = set()
+# With the operands in L1 the plan is taken up to 7 sequence tiles (224 tokens), the window it was
+# measured in. The CB price alone admitted 8 tiles (256 tokens) and the device refused it: the
+# whole-channel output block is 64 tiles a core against 49, beside operands four times the size of
+# AF2's, and `perf/spd/af2_trimul_bmm_sweep.py --mem l1 --sizes 256` throws at program creation on
+# a quiet chip. That throw is not free. The retry it lands in drops the fused T1 route and narrows
+# the channel chunk, neither of which is the plan swap, so the fold that paid it came out
+# different -- which is what held staging45: Boltz-2 at 256 tokens matched main on the first fold
+# of a process and not on the second, and OpenFold3 and OpenDDE moved 2-5 A. In DRAM the same
+# shapes carry the plan and stay `torch.equal` to the multicast plan (sweep `--mem dram --sizes
+# 256`, C 128 and 256), so the cap is on the L1 path only.
+_TRIMUL_PER_CHANNEL_L1_MAX_ST = 7
 
 
 def set_trimul_per_channel(on) -> object:
@@ -6194,8 +6205,9 @@ def _trimul_ibw_full() -> bool:
 # and already banked by pinning this program config. KIND=placement, and no Wormhole ratio is
 # carried across: the number above is Blackhole's own.
 @lru_cache(maxsize=None)
-def _triangle_mul_program_config(seq_len_tiles: int, full: bool = False,
-                                 sub: tuple = (1, 1)) -> ttnn.MatmulMultiCoreReuseMultiCastProgramConfig:
+def _triangle_mul_program_config(seq_len_tiles: int, full: bool = False, sub: tuple = (1, 1),
+                                 l1_operands: bool = True,
+                                 ) -> ttnn.MatmulMultiCoreReuseMultiCastProgramConfig:
     gx, gy = COMPUTE_GRID_MAIN
     per_core_M = -(-seq_len_tiles // gy)
     per_core_N = -(-seq_len_tiles // gx)
@@ -6223,6 +6235,7 @@ def _triangle_mul_program_config(seq_len_tiles: int, full: bool = False,
         in0_block_w = max(d for d in range(in0_block_w - 1, 0, -1) if seq_len_tiles % d == 0)
     if (per_core_M == per_core_N == 1 and seq_len_tiles not in _TRIMUL_PER_CHANNEL_REFUSED
             and (is_wormhole() if _TRIMUL_PER_CHANNEL is None else _TRIMUL_PER_CHANNEL)
+            and not (l1_operands and seq_len_tiles > _TRIMUL_PER_CHANNEL_L1_MAX_ST)
             and _matmul_cb_bytes(in0_block_w, seq_len_tiles, seq_len_tiles, 2,
                                  extra_tiles=2 * in0_block_w * seq_len_tiles) <= budget):
         return ttnn.MatmulMultiCoreReuseProgramConfig(
@@ -9236,7 +9249,8 @@ class TriangleMultiplication(Module):
         chunk = _trimul_inproj_chunk_cap(H, self._hidden, batch,
                                          _trimul_chunk_size(H, self._hidden, batch))
         n_pairs = self._hidden // chunk
-        pc = _triangle_mul_program_config((H + 31) // 32, _trimul_ibw_full(), _trimul_subblock())
+        # This route is refused above unless the chunk memory is DRAM, so the operands are not L1.
+        pc = _triangle_mul_program_config((H + 31) // 32, _trimul_ibw_full(), _trimul_subblock(), False)
         if (n_pairs // _trimul_inproj_group(H, chunk, batch, n_pairs) != 1
                 or not _mm_transpose_deferred(pc)):
             TT1.T1_STATS[1] += 1
@@ -9694,7 +9708,8 @@ class TriangleMultiplication(Module):
             x_norm_in, H, n_pairs, group, memory_config, row_norm)
         g_out_fused = None if t1 is None else t1[2]
         seq_len_tiles = (H + 31) // 32
-        program_config = _triangle_mul_program_config(seq_len_tiles, _trimul_ibw_full(), _trimul_subblock())
+        program_config = _triangle_mul_program_config(
+            seq_len_tiles, _trimul_ibw_full(), _trimul_subblock(), not large_seq)
         # The channel-axis mask, built on first read and not before. `unsqueeze(mask, -1)` is a
         # view only when the last axis is already tile-wide: on a [1,S,S] pair mask it pads that
         # axis from 1 to 32, so it writes a 16.8 MB tensor for a 0.52 MB mask and dispatches a
@@ -10119,7 +10134,8 @@ class TriangleMultiplication(Module):
                     # multicast plan for this length, same K block, same output.
                     _TRIMUL_PER_CHANNEL_REFUSED.add(seq_len_tiles)
                     _triangle_mul_program_config.cache_clear()
-                    program_config = _triangle_mul_program_config(seq_len_tiles, _trimul_ibw_full(), _trimul_subblock())
+                    program_config = _triangle_mul_program_config(
+                        seq_len_tiles, _trimul_ibw_full(), _trimul_subblock(), not large_seq)
                 ibw_clash = (("clash with L1 buffers" in msg or "beyond max L1 size" in msg)
                              and not mask_clash and not tma_retry and not pc_clash
                              and program_config.in0_block_w > _TRIMUL_IN0_BLOCK_W_BAND)
@@ -10127,7 +10143,8 @@ class TriangleMultiplication(Module):
                     # The full-K block is the newest L1 claimant in this call: give it up first.
                     _TRIMUL_IBW_FULL_REFUSED.add(seq_len_tiles)
                     _triangle_mul_program_config.cache_clear()
-                    program_config = _triangle_mul_program_config(seq_len_tiles, _trimul_ibw_full(), _trimul_subblock())
+                    program_config = _triangle_mul_program_config(
+                        seq_len_tiles, _trimul_ibw_full(), _trimul_subblock(), not large_seq)
                 if (not oom and not mask_clash and not ibw_clash and not pc_clash and not tma_retry
                         and (large_seq or "clash with L1 buffers" not in msg)):
                     raise
