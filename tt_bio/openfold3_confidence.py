@@ -43,7 +43,7 @@ import torch
 import torch.nn.functional as F
 import ttnn
 
-from .tenstorrent import Pairformer, accurate_softmax_site, triatt_sdpa_hifi_site
+from .tenstorrent import Pairformer, accurate_softmax_site, download, triatt_sdpa_hifi_site
 from .openfold3_weights import remap_pairformer_stack
 
 # aux_heads.pairformer_embedding distance bins (config.model_config).
@@ -170,7 +170,7 @@ class OF3ConfidenceHead:
         b = ttnn.linear(zn, self._wd(pfx + "linear_z.weight", True, f32),
                         compute_kernel_config=self.compute_kernel_config)
         ttnn.deallocate(zn)
-        out = torch.Tensor(ttnn.to_torch(b)).float().reshape(N, N, _APB_HEADS).permute(2, 0, 1)
+        out = torch.Tensor(download(b)).float().reshape(N, N, _APB_HEADS).permute(2, 0, 1)
         ttnn.deallocate(b)
         return out
 
@@ -288,7 +288,7 @@ class OF3ConfidenceHead:
         dt = ttnn.permute(dl, (0, 2, 1, 3))
         sym = ttnn.add(dl, dt)
         ttnn.deallocate(dt); ttnn.deallocate(dl)
-        out = torch.Tensor(ttnn.to_torch(sym)).float().reshape(N, N, -1)
+        out = torch.Tensor(download(sym)).float().reshape(N, N, -1)
         ttnn.deallocate(sym)
         return out
 
