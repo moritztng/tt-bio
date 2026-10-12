@@ -364,9 +364,6 @@ _TRANSITION_B8 = env_flag("RFD3_TRANSITION_B8", False)
 # arches: clash delta -1.4 (se 5.4), chain breaks identical seed for seed, same-seed drift
 # 3.9-12.7 A against a 13.5-20.0 A seed floor.
 _PAIR_WS = env_flag("RFD3_PAIR_WS", False)
-# With it, the Transition's input RMSNorm as that program's prologue (ln_prologue.hpp), so the normalised
-# pair tensor is never written to DRAM and read back. Off while graded.
-_PAIR_WS_RMS = env_flag("RFD3_PAIR_WS_RMS", False)
 # Every RFD3 matmul at HiFi2 instead of HiFi4: two multiplier passes per bf16 product instead of
 # four. Off, and not in --fast: on top of the fast set it saved nothing on a p300c (4 seeds, 685
 # tokens) and doubled the clashes of one 418-token design.
@@ -1129,7 +1126,9 @@ class Transition(Module):
         if not _WS.eligible(x, self._ws12, self.fc3_w):
             return None
         fid = self.compute_kernel_config.math_fidelity
-        if _PAIR_WS_RMS and _WS.eligible(x, self._ws12, self.fc3_w, ln=(self.norm_w, None)):
+        # The input RMSNorm as the program's prologue: bit-identical to ttnn.rms_norm first, and the normalised
+        # tensor never goes to DRAM. p150a @1350 2.65 -> 2.39 ms (hidden 256), 4.38 -> 4.09 (512); flat on WH.
+        if _WS.eligible(x, self._ws12, self.fc3_w, ln=(self.norm_w, None)):
             return _WS.pair_swiglu(x, self._ws12, self.fc3_w, fid, ln=(self.norm_w, None, 1e-6))
         xn = ttnn.rms_norm(x, weight=self.norm_w, epsilon=1e-6, compute_kernel_config=self.compute_kernel_config)
         out = _WS.pair_swiglu(xn, self._ws12, self.fc3_w, fid)

@@ -2,7 +2,7 @@
 """gap_pws_rms: RFD3's token pair Transition with its RMSNorm as pair_swiglu_ws's prologue, against shipped.
 
   shipped  ttnn.rms_norm -> pair_swiglu_ws (what RFD3_PAIR_WS runs)
-  fused    pair_swiglu_ws(ln=(gamma, None, eps)), the norm inside the program (RFD3_PAIR_WS_RMS)
+  fused    pair_swiglu_ws(ln=(gamma, None, eps)), the norm inside the program (what --fast ships)
   bare     pair_swiglu_ws alone, no norm; *_shift: the output at a new address every call, as in a fold
 Both against a float64 reference of rmsnorm -> fc3(silu(fc1) * fc2) on the same bf16 inputs, at RFD3's fidelity,
 for hidden 256 and 512. Synced ms per call, median of `reps`.

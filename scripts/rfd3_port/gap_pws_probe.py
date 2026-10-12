@@ -12,7 +12,7 @@ import collections, json, os, pathlib, shutil, statistics, sys, time
 
 ENV_KNOBS = {"pzc": "RFD3_PROCESS_Z_COLLAPSE", "asdpa": "RFD3_ATOM_SDPA", "tb8": "RFD3_TRANSITION_B8",
              "dsdpa": "RFD3_DIT_SDPA", "sf": "RFD3_SIGMOID_FOLD", "rs": "RFD3_RESIDENT_STEP", "pws": "RFD3_PAIR_WS",
-             "pwr": "RFD3_PAIR_WS_RMS", "wf": "RFD3_DIT_MASK_WFOLD", "kd": "RFD3_ATTN_KDTREE"}
+             "wf": "RFD3_DIT_MASK_WFOLD", "kd": "RFD3_ATTN_KDTREE"}
 args = [a for a in sys.argv[1:] if not a.startswith("--")]
 opts = dict(a[2:].split("=", 1) for a in sys.argv[1:] if a.startswith("--") and "=" in a)
 ARM, OUT = args[0], pathlib.Path(args[1])
