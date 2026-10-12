@@ -623,10 +623,11 @@ _FAST_MODE = False
 #   transition_ws   a pair Transition's swiglu as one weight-stationary program after its layer norm
 #                   (`pair_swiglu_ws`, from RFdiffusion3's RFD3_PAIR_WS): [w1 | w2] and w3 resident in L1, x
 #                   read once, fc1 / fc2 / their product never leave the core. Weights in the module's own
-#                   dtype (bfp8 under transition_b8), fp32 dest, the wheel's silu, the trunk's matmul fidelity.
-#                   Fires where the weights fit L1: c_z 128 in either dtype, c_z 256 with bfp8 weights.
+#                   dtype (bfp8 under transition_b8), fp32 dest, a degree-6 polynomial silu, the trunk's matmul
+#                   fidelity. Weights over L1 (c_z 256 in bf16, c_z 384) run in hidden chunks, outputs summed.
 #   ws_ln           with transition_ws, its layer norm as the kernel's prologue (ln_prologue.hpp, as trimul
-#                   T1/T2): the normalised x never goes to DRAM. One-chunk weights only.
+#                   T1/T2): the normalised x never goes to DRAM. One-chunk weights only. WH c_z 128 fast: slower
+#                   (4.31 -> 4.48 ms) and less accurate (rel_rms 0.020 -> 0.028) than the separate norm.
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in",
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
