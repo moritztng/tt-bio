@@ -615,7 +615,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "transition_shard", "dit_mm16", "atom_k1", "dit_b8", "dit_qkv16", "atom_mm16", "adaln_mod",
           "swiglu_fc12g", "msa_sample", "dit_sdpa_pm", "dit_s16", "dit_chunk", "conf_bins")
 # Named but in no mode until their fold grade puts them in one.
-UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "adaln_mod", "conf_bins"})
+UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "adaln_mod"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -714,9 +714,11 @@ FAST_LEVERS = frozenset(LEVERS) - {"lofi", "triatt_b8", "triatt_bias_b8"} - UNGR
 # paired folds vs the same tree (b4c30b6c0, --fast): PASS under both bars, same-seed top pose median 0.000 A, max
 # 3.41 A where the ranking picks another sample (A/A floor 1.34 A), CA-lDDT and pLDDT deltas 0.0000, ipTM -0.0011
 # [-0.0027, +0.0004], docking 19 -> 19 of 44; the 5-sample warm fold sum 469.4 -> 453.9 s at 1350 MHz
-# (spd-gap-of3 g14, 2026-10-12). Ungraded until OpenBind-0, which runs the same class, has its grade.
+# (spd-gap-of3 g14, 2026-10-12). OpenBind-0, same grade: PASS under both bars, top pose median 0.000 A (max
+# 0.682 A, A/A floor 1.209 A), CA-lDDT and pLDDT 0.0000, ipTM -0.0016 [-0.0033, -0.0000] inside CONF_TOL, docking
+# 26 -> 26 of 44.
 NORMAL_LEVERS = frozenset({"trimul_ibw", "trimul_tail", "trunk_hifi3", "dit_sdpa32", "silu_f32", "triatt_tail",
-                           "atom_k1", "dit_mm16", "dit_qkv16", "msa_sample", "dit_sdpa", "dit_chunk"})
+                           "atom_k1", "dit_mm16", "dit_qkv16", "msa_sample", "dit_sdpa", "dit_chunk", "conf_bins"})
 _LEVERS = frozenset()
 # silu_f32 is a kernel, so it needs ttnn's headers patched before the first device open (metal_overlay)
 # in any process that may run it. The patch only changes silu under math_approx_mode, and every fused
