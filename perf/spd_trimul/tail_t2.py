@@ -10,7 +10,7 @@ hang costs one bounded run (synchronize_device does not return to a SIGALRM).
 
 usage: TT_VISIBLE_DEVICES=<chip> timeout 900 python perf/spd_trimul/tail_t2.py [--ns 64,128,512]
 """
-import argparse, json, statistics, sys, time
+import argparse, json, statistics, sys, time, traceback
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
@@ -55,6 +55,7 @@ def timed(f, reps):
     return round(statistics.median(ms), 4)
 
 
+bad = 0
 for n in [int(s) for s in A.ns.split(",") if s]:
     rec = {"n": n}
     # Magnitudes like the tail's: x_out O(1) with a per-row offset (LN must remove it), z O(1).
@@ -109,10 +110,13 @@ for n in [int(s) for s in A.ns.split(",") if s]:
         ttnn.deallocate(z)
     except Exception as e:                                                    # noqa: BLE001
         rec["t2_err"] = str(e).splitlines()[0][:300]
+        traceback.print_exc()
     rec["t2_stats"] = list(TT.T2_STATS)
+    bad += "t2_err" in rec or "inc_err" in rec
     print(json.dumps(rec), flush=True)
     if A.out:
         with open(A.out, "a") as f:
             f.write(json.dumps(rec) + "\n")
     for t in d.values():
         ttnn.deallocate(t)
+sys.exit(1 if bad else 0)
