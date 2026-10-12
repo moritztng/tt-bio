@@ -1,4 +1,4 @@
-"""TT_BIO_OF3_CONF_BINS: softmax(pae) reduced to its bin-vector products answers every confidence
+"""The conf_bins lever: softmax(pae) reduced to its bin-vector products answers every confidence
 reading the host softmax does (pTM / ipTM, the chain reductions, the PAE matrix)."""
 import torch
 

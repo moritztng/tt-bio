@@ -606,13 +606,16 @@ _FAST_MODE = False
 #                   operands with fp32 accumulation (OpenFold3's DiT)
 #   dit_chunk       the token DiT's fused SDPA takes q = k = the largest 32-aligned divisor of its length up
 #                   to 320 (`_dit_sdpa_chunk`) instead of 256, which pads every length 256 does not divide
+#   conf_bins       OpenFold3's pae / pde heads reduce softmax(logits) to their bin-vector products on the card
+#                   in fp32 (pTM, ipTM, the chain readings, the PAE / PDE matrices), so the [N, N, 64] logits
+#                   never cross to the host
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in",
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
           "transition_shard", "dit_mm16", "atom_k1", "dit_b8", "dit_qkv16", "atom_mm16", "adaln_mod",
-          "swiglu_fc12g", "msa_sample", "dit_sdpa_pm", "dit_s16", "dit_chunk")
+          "swiglu_fc12g", "msa_sample", "dit_sdpa_pm", "dit_s16", "dit_chunk", "conf_bins")
 # Named but in no mode until their fold grade puts them in one.
-UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "adaln_mod"})
+UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "adaln_mod", "conf_bins"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -707,6 +710,11 @@ FAST_LEVERS = frozenset(LEVERS) - {"lofi", "triatt_b8", "triatt_bias_b8"} - UNGR
 # Protenix-v2 fast vs fast 0.084 A (floor 0.957 A), docking 33/44 both (g9); OpenDDE fast vs fast 0.000 A
 # (max 0.341 A, floor 1.187 A), docking 24/44 both (g10) (state/spd-opendde.md).
 # OpenDDE c730 at AICLK 1000: normal 395.4 -> 388.7 s; 256 tokens is inert (256 divides it).
+# conf_bins: only the sample ranking can move (the structures are the same folds). OpenFold3 Blackhole 11-set, 44
+# paired folds vs the same tree (b4c30b6c0, --fast): PASS under both bars, same-seed top pose median 0.000 A, max
+# 3.41 A where the ranking picks another sample (A/A floor 1.34 A), CA-lDDT and pLDDT deltas 0.0000, ipTM -0.0011
+# [-0.0027, +0.0004], docking 19 -> 19 of 44; the 5-sample warm fold sum 469.4 -> 453.9 s at 1350 MHz
+# (spd-gap-of3 g14, 2026-10-12). Ungraded until OpenBind-0, which runs the same class, has its grade.
 NORMAL_LEVERS = frozenset({"trimul_ibw", "trimul_tail", "trunk_hifi3", "dit_sdpa32", "silu_f32", "triatt_tail",
                            "atom_k1", "dit_mm16", "dit_qkv16", "msa_sample", "dit_sdpa", "dit_chunk"})
 _LEVERS = frozenset()
