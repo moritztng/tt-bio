@@ -623,12 +623,15 @@ def _qkvgb_reject(reason, shape):
     return None
 
 
-def qkvgb_heads(x, w, w_o, ckc, n_heads, head_dim, dtype, mm_config, bias_channels):
+def qkvgb_heads(x, w, w_o, ckc, n_heads, head_dim, dtype, mm_config, bias_channels, ln=None):
     """`((q, k, v), gate, bias)` from ONE pass over `x`, or `None` to leave all three alone.
 
     `w` is the qkv weight with the gate weight and the (tile-padded) bias weight concatenated on
     its output axis, so the five destinations are five N chunks of one matmul -- four of four
     tiles and one of one. Byte-identical to the three calls it replaces.
+
+    `ln = (gb, eps)` (lever triatt_ln): `x` is the RAW pair and the matmul layer-norms it on the way in
+    (`mm_generic.build`), declining unless the block holds the whole contraction in one K block.
     """
     if _taping():
         return None   # no backward for `generic_op`; the composed ops run instead
@@ -682,9 +685,16 @@ def qkvgb_heads(x, w, w_o, ckc, n_heads, head_dim, dtype, mm_config, bias_channe
     outs.append(ttnn.allocate_tensor_on_device(
         ttnn.Shape([shape[0], shape[1], bias_channels]), dtype, ttnn.TILE_LAYOUT,
         dev, ttnn.DRAM_MEMORY_CONFIG))
+    if ln is not None:
+        from . import dest_guard
+        b = dest_guard.descriptor(blk, G.ckc_args(ckc), "tri")
+        if b[1] != pad[-1] // TILE:
+            for o in outs:
+                ttnn.deallocate(o)
+            return _qkvgb_reject("ln_k_block", shape)
     G.generic_minimal_matmul(
         dev, x, w, outs, (blk, tuple(COMPUTE_GRID_MAIN)), G.ckc_args(ckc),
-        {"HEAD_MAJOR_MT": pad[-2] // TILE}, KERNEL_DIR, n_widths=[c // TILE] * 4 + [1], guard="tri")
+        {"HEAD_MAJOR_MT": pad[-2] // TILE}, KERNEL_DIR, n_widths=[c // TILE] * 4 + [1], guard="tri", ln=ln)
     QKVGB_STATS[0] += 1
     QKVG_STATS[0] += 1
     STATS[0] += 1
