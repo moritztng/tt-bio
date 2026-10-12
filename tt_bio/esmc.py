@@ -164,9 +164,35 @@ def _rope(q: ttnn.Tensor, k: ttnn.Tensor, cos: ttnn.Tensor, sin: ttnn.Tensor):
     the ragged fallback keeps arbitrary single-sequence lengths exact.
     """
     if q.shape[2] % 32 == 0:
+        key = tuple(q.padded_shape)
+        if _ROPE_L1 and key not in _ROPE_L1_REFUSED:
+            l1 = ttnn.L1_MEMORY_CONFIG
+            out = []
+            try:
+                out.append(ttnn.experimental.rotary_embedding(q, cos, sin, memory_config=l1))
+                out.append(ttnn.experimental.rotary_embedding(k, cos, sin, memory_config=l1))
+            except Exception as exc:
+                if not _is_alloc_refusal(exc):
+                    from tt_bio import tenstorrent
+                    tenstorrent.absorb_l1_refusal("esmc rope L1", exc)
+                _ROPE_L1_REFUSED.add(key)
+                for t in out:
+                    ttnn.deallocate(t)
+            else:
+                ROPE_L1_STATS[0] += 1
+                return out[0], out[1]
+        ROPE_L1_STATS[1] += _ROPE_L1
         return (ttnn.experimental.rotary_embedding(q, cos, sin),
                 ttnn.experimental.rotary_embedding(k, cos, sin))
     return apply_rotary(q, cos, sin), apply_rotary(k, cos, sin)
+
+
+# The rotated q and k written to L1: SDPA reads them straight back. Same kernel, same values (a memory
+# placement), refusal falls back to DRAM for that shape for good. Off until the page-cell A/B (esmc_ab.py) says.
+_ROPE_L1 = env_flag("TT_BIO_ESMC_ROPE_L1", False)
+_ROPE_L1_REFUSED: set = set()
+#: [rope calls served from L1, declined], read by the A/B harness.
+ROPE_L1_STATS = [0, 0]
 
 
 # The protein LMs' (ESMC, SaProt) SDPA chunks. The shared cap (256 x 256) was 1.285 ms a call at the page shape (batch 7 x 18 heads x 544
