@@ -49,10 +49,12 @@ void kernel_main() {
     cb_reserve_back(w3_cb, Ht * Kt);
     cb_reserve_back(gamma_cb, Kt);
     cb_reserve_back(beta_cb, Kt);
+    // The weights are bf16 or bfp8 (`transition_b8`): their CBs carry the tensor's format.
+    const uint32_t tw = get_tile_size(w12_cb);
     uint32_t w = get_write_ptr(w12_cb);
-    for (uint32_t t = 0; t < 2 * Ht * Kt; ++t, w += tb) noc_async_read_page(t, w12, w);
+    for (uint32_t t = 0; t < 2 * Ht * Kt; ++t, w += tw) noc_async_read_page(t, w12, w);
     w = get_write_ptr(w3_cb);
-    for (uint32_t t = 0; t < Ht * Kt; ++t, w += tb) noc_async_read_page(t, w3, w);
+    for (uint32_t t = 0; t < Ht * Kt; ++t, w += tw) noc_async_read_page(t, w3, w);
     w = get_write_ptr(gamma_cb);
     for (uint32_t t = 0; t < Kt; ++t, w += tb) noc_async_read_page(t, gm, w);
     w = get_write_ptr(beta_cb);

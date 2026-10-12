@@ -23,6 +23,8 @@ ap.add_argument("--fid", default="", help="override the trunk fidelity for both 
 ap.add_argument("--approx", type=int, default=-1, help="override math_approx_mode (0 = exact silu, no silu_f32)")
 ap.add_argument("--f3s", type=int, default=1, help="transition_t3.F3_SPLIT: fc3 K chunks")
 ap.add_argument("--wh", action="store_true", help="no-op (T3 serves on Wormhole since the hifi4 decline)")
+ap.add_argument("--mode", default="normal", help="lever set of both arms: normal, or fast (bfp8 weights via "
+                "transition_b8, the only way c 256 fits)")
 ap.add_argument("--out", help="also append each JSON line here (the qb runner passes it)")
 A = ap.parse_args()
 os.environ.setdefault("TT_BIO_LEVERS", "normal")
@@ -35,13 +37,14 @@ from tt_bio.af2 import compute_kernel_config
 
 dev = T.get_device()
 T3.F3_SPLIT = A.f3s
+BASE = T.parse_levers(A.mode)
+WITH = T.parse_levers(A.mode + "+transition_t3")
+T._LEVERS = BASE
 kcfg = T.trunk_compute_kernel_config(compute_kernel_config())
 if A.fid:
     kcfg.math_fidelity = getattr(ttnn.MathFidelity, A.fid)
 if A.approx >= 0:
     kcfg.math_approx_mode = bool(A.approx)
-BASE = T.parse_levers("normal")
-WITH = T.parse_levers("normal+transition_t3")
 C, H = A.c, 4 * A.c
 g = torch.Generator().manual_seed(0)
 sd = {"norm.weight": 1 + 0.1 * torch.randn(C, generator=g), "norm.bias": 0.1 * torch.randn(C, generator=g),
@@ -50,7 +53,8 @@ sd = {"norm.weight": 1 + 0.1 * torch.randn(C, generator=g), "norm.bias": 0.1 * t
 sd = {k: v.to(torch.bfloat16).float() for k, v in sd.items()}
 T._LEVERS = BASE
 tr = T.Transition(sd, kcfg)
-print(json.dumps({"grid": tuple(T.COMPUTE_GRID_MAIN), "fid": str(kcfg.math_fidelity), "c": C, "hidden": H}),
+print(json.dumps({"grid": tuple(T.COMPUTE_GRID_MAIN), "fid": str(kcfg.math_fidelity), "c": C, "hidden": H, "mode": A.mode,
+                  "w_dtype": str(tr.fc1_weight.dtype)}),
       flush=True)
 
 

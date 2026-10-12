@@ -7,9 +7,12 @@ from tt_bio import tenstorrent as T, transition_t3 as T3
 
 
 def test_cb_plan_fits_l1():
-    for kt, ht in T3.KEYS:
-        assert T3.cb_bytes(kt, ht, True) <= 0.85 * 1_461_760
-        assert T3.cb_bytes(kt, ht, True) <= 0.85 * 1_499_136 * 0.98
+    # c 128 fits with bf16 weights; Protenix-v2's c 256 only with bfp8 weights (the L1 check declines bf16).
+    for (kt, ht), wd in (((4, 16), ttnn.bfloat16), ((8, 32), ttnn.bfloat8_b)):
+        assert (kt, ht) in T3.KEYS
+        assert T3.cb_bytes(kt, ht, True, wd) <= 0.85 * 1_461_760
+        assert T3.cb_bytes(kt, ht, True, wd) <= 0.85 * 1_499_136 * 0.98
+    assert T3.cb_bytes(8, 32, True, ttnn.bfloat16) > 0.85 * 1_499_136
 
 
 @pytest.mark.parametrize("nu,cores", [(8192, 110), (8192, 130), (2048, 110), (7, 110)])

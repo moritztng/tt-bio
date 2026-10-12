@@ -12426,8 +12426,9 @@ class Transition(Module):
         return masked
 
     def _t3(self, x, add_to_input):
-        """The whole transition as one kernel (`transition_t3`), or None where it does not serve."""
-        if not lever("transition_t3") or self._hidden_b8:
+        """The whole transition as one kernel (`transition_t3`), or None where it does not serve. Under
+        `transition_b8` it reads the bfp8 weights and keeps the hidden activations bf16 in L1."""
+        if not lever("transition_t3"):
             return None
         if getattr(self, "_t3_w", None) is None:
             self._t3_w = (ttnn.concat([self.fc1_weight, self.fc2_weight], dim=1), self.fc3_weight)

@@ -6,7 +6,8 @@
 //   1. xn = layer_norm(x) (kernels/common/ln_prologue.hpp), Kt bf16 tiles.
 //   2. per group of G hidden tiles: fc1 block -> silu in DST -> gate CB; fc2 block -> * gate (DST reused as
 //      srcB) -> h slots [g*G, g*G + G). Neither fc1 nor fc2 leaves L1 as a tensor.
-//   3. y = h @ W3, all Ht hidden tiles accumulated in one fp32 DST half (Kt <= 4 output tiles).
+//   3. y = h @ W3, all Ht hidden tiles accumulated in one fp32 DST half, the Kt output tiles in groups of 4
+//      (two groups at c 256, Protenix-v2).
 //   4. RES: y packed bf16, then y + x (x from the residual CB) packed bf16 to the writer.
 // fp32 DEST (the statistics and the K accumulation), the caller's fidelity; under math_approx_mode silu is
 // the silu_f32 overlay (tenstorrent.silu_ckc), as the incumbent fc1 runs it.
@@ -30,7 +31,9 @@ constexpr uint32_t RES = get_compile_time_arg_val(2);
 constexpr uint32_t F3S = get_compile_time_arg_val(3);       // fc3 K chunks: partials via fp32 cb_part between them
 static_assert(Ht % F3S == 0, "fc3 chunks divide the hidden tiles");
 constexpr uint32_t G = 4;                                   // fp32 half-sync DST holds 4 tiles
-static_assert(Ht % G == 0 && Kt <= 4, "hidden in groups of 4 tiles; the output row tile fits one DST half");
+constexpr uint32_t NG = Kt < G ? Kt : G;                    // fc3 output tiles per DST half
+static_assert(Ht % G == 0 && Kt % NG == 0, "hidden in groups of 4 tiles, fc3 output in groups of NG");
+static_assert(F3S == 1 || Kt <= 4, "fc3 K chunks only where one DST half holds the output row tile");
 
 constexpr uint32_t w12_cb = tt::CBIndex::c_0;    // [W1 | W2], Kt x 2Ht, resident
 constexpr uint32_t w3_cb = tt::CBIndex::c_1;     // W3, Ht x Kt, resident
@@ -136,28 +139,31 @@ void kernel_main() {
             tile_regs_release();
             cb_push_back(cb_part, Kt);
         }
-        tile_regs_acquire();
-        if constexpr (F3S > 1) {
-            cb_wait_front(cb_part, Kt);
-            copy_tile_to_dst_init_short(cb_part);
-            reconfig_data_format_srca(cb_part);
-            for (uint32_t i = 0; i < Kt; ++i) copy_tile(cb_part, i, i);
-            cb_pop_front(cb_part, Kt);
+        const uint32_t y_cb = RES ? cb_y : out_cb;
+        cb_reserve_back(y_cb, Kt);
+        for (uint32_t n0 = 0; n0 < Kt; n0 += NG) {
+            tile_regs_acquire();
+            if constexpr (F3S > 1) {
+                cb_wait_front(cb_part, Kt);
+                copy_tile_to_dst_init_short(cb_part);
+                reconfig_data_format_srca(cb_part);
+                for (uint32_t i = 0; i < Kt; ++i) copy_tile(cb_part, i, i);
+                cb_pop_front(cb_part, Kt);
+            }
+            mm_block_init_short(h_cb, w3_cb, false, NG, 1, Ht);
+            reconfig_data_format(w3_cb, h_cb);
+            pack_reconfig_data_format(y_cb);
+            for (uint32_t j = (F3S - 1) * Hc; j < Ht; ++j)
+                matmul_block(h_cb, w3_cb, j, j * Kt + n0, 0, false, NG, 1, Ht);
+            tile_regs_commit();
+            tile_regs_wait();
+            for (uint32_t i = 0; i < NG; ++i) pack_tile<true>(i, y_cb, n0 + i);
+            tile_regs_release();
         }
-        mm_block_init_short(h_cb, w3_cb, false, Kt, 1, Ht);
-        reconfig_data_format(w3_cb, h_cb);
-        pack_reconfig_data_format(out_cb);
-        for (uint32_t j = (F3S - 1) * Hc; j < Ht; ++j) matmul_block(h_cb, w3_cb, j, j * Kt, 0, false, Kt, 1, Ht);
+        cb_push_back(y_cb, Kt);
         // 4. + x: y is packed bf16 and added to x as two bf16 operands, the incumbent's fc3 -> add_ rounding.
         // (Adding x into the fp32 DST by DEST_TO_SRCB reuse put 9 of 33.5M elements exactly 1 or 2 low at 512,
         // the same elements on every chip and run.)
-        const uint32_t y_cb = RES ? cb_y : out_cb;
-        tile_regs_commit();
-        cb_reserve_back(y_cb, Kt);
-        tile_regs_wait();
-        for (uint32_t i = 0; i < Kt; ++i) pack_tile(i, y_cb);
-        tile_regs_release();
-        cb_push_back(y_cb, Kt);
         if constexpr (RES) {
             cb_wait_front(cb_y, Kt);
             cb_wait_front(res_cb, Kt);
@@ -165,12 +171,14 @@ void kernel_main() {
             pack_reconfig_data_format(out_cb);
             add_tiles_init(cb_y, res_cb);
             cb_reserve_back(out_cb, Kt);
-            tile_regs_acquire();
-            for (uint32_t i = 0; i < Kt; ++i) add_tiles(cb_y, res_cb, i, i, i);
-            tile_regs_commit();
-            tile_regs_wait();
-            for (uint32_t i = 0; i < Kt; ++i) pack_tile(i, out_cb);
-            tile_regs_release();
+            for (uint32_t n0 = 0; n0 < Kt; n0 += NG) {
+                tile_regs_acquire();
+                for (uint32_t i = 0; i < NG; ++i) add_tiles(cb_y, res_cb, n0 + i, n0 + i, i);
+                tile_regs_commit();
+                tile_regs_wait();
+                for (uint32_t i = 0; i < NG; ++i) pack_tile(i, out_cb);
+                tile_regs_release();
+            }
             cb_pop_front(cb_y, Kt);
             cb_push_back(out_cb, Kt);
             cb_pop_front(res_cb, Kt);

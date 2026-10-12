@@ -22,7 +22,9 @@ from . import trimul_tail as TT
 
 KERNEL_DIR = TT.KERNEL_DIR.parent / "transition_t3"
 TILE = 32
-KEYS = {(4, 16)}            # (Kt, Ht): c 128, hidden 512 (OpenFold3 / Boltz-2 / Protenix pair transitions)
+# (Kt, Ht): c 128, hidden 512 (OpenFold3 / Boltz-2 / Protenix-v1); c 256, hidden 1024 (Protenix-v2), whose
+# 768 weight tiles fit L1 only in bfp8 (`transition_b8`): the L1 check declines its bf16 weights.
+KEYS = {(4, 16), (8, 32)}
 STATS = [0, 0]              # served, declined
 WHY: dict = {}              # decline reason -> calls
 REFUSED: set = set()        # program keys the device refused (static-CB clash with live L1 buffers)
@@ -31,10 +33,11 @@ F3_SPLIT = 1               # fc3 K chunks (kernel arg 3); partials go through an
 
 
 def cb_plan(kt, ht, res):
-    """T3's circular buffers per core, ([(index, bf16 tiles)], [(index, fp32 tiles)]); N-independent."""
-    bf = [(0, 2 * ht * kt),      # [W1 | W2], resident
-          (1, ht * kt),          # W3, resident
-          (2, kt),               # layer_norm(x)
+    """T3's circular buffers per core, ([(index, bf16 tiles)], [(index, fp32 tiles)], [(index, weight
+    tiles)]); N-independent. The weight CBs take the weights' own format."""
+    w = [(0, 2 * ht * kt),       # [W1 | W2], resident
+         (1, ht * kt)]           # W3, resident
+    bf = [(2, kt),               # layer_norm(x)
           (3, 4),                # silu(fc1) of one group
           (4, ht),               # h = silu(fc1) * fc2
           (6, 2 * kt),           # output, double buffered
@@ -46,12 +49,13 @@ def cb_plan(kt, ht, res):
                (15, kt)]         # fc3 output before it
     f32 = [(11, 1), (12, 1), (13, 1), (14, 1), (16, kt), (17, kt),   # eps, mean, var, rstd, xc, tmp
            (18, kt)]                                                  # fc3 partial between K chunks
-    return bf, f32
+    return bf, f32, w
 
 
-def cb_bytes(kt, ht, res):
-    bf, f32 = cb_plan(kt, ht, res)
-    return sum(t for _, t in bf) * TT.BF16_TILE + sum(t for _, t in f32) * TT.FP32_TILE
+def cb_bytes(kt, ht, res, wdtype=ttnn.bfloat16):
+    bf, f32, w = cb_plan(kt, ht, res)
+    return (sum(t for _, t in bf) * TT.BF16_TILE + sum(t for _, t in f32) * TT.FP32_TILE
+            + sum(t for _, t in w) * TT.MG.tile_bytes(wdtype))
 
 
 def split(nu, ncores):
@@ -74,10 +78,12 @@ def eligible(x, ln_w, ln_b, w12, w3):
     if ops.taping():
         return _no("tape")
     for t in (x, w12, w3):
-        if t is None or t.dtype != ttnn.bfloat16 or t.layout != ttnn.TILE_LAYOUT:
+        if t is None or t.layout != ttnn.TILE_LAYOUT:
             return _no("dtype")
         if t.memory_config() != ttnn.DRAM_MEMORY_CONFIG:
             return _no("memcfg")
+    if x.dtype != ttnn.bfloat16 or w12.dtype != w3.dtype or w12.dtype not in (ttnn.bfloat16, ttnn.bfloat8_b):
+        return _no("dtype")
     shp = [int(d) for d in x.shape]
     if [int(d) for d in x.padded_shape] != shp or len(shp) < 2 or shp[-1] % TILE or shp[-2] % TILE:
         return _no("shape")
@@ -92,7 +98,7 @@ def eligible(x, ln_w, ln_b, w12, w3):
     if not (TT._vec_ok(ln_w, K) and TT._vec_ok(ln_b, K)):
         return _no("ln_params")
     from .tenstorrent import _l1_bank_bytes
-    if cb_bytes(*key, True) > 0.85 * _l1_bank_bytes():
+    if cb_bytes(*key, True, w12.dtype) > 0.85 * _l1_bank_bytes():
         return _no("l1")
     return None
 
@@ -132,9 +138,10 @@ def _build(x, ln_w, ln_b, w12, w3, out, grid, ckc, res, eps):
         compile_time_args=[kt, ht, int(res), F3_SPLIT], runtime_args=cp,
         config=ttnn.ComputeConfigDescriptor(
             math_fidelity=fid, math_approx_mode=approx, fp32_dest_acc_en=True, dst_full_sync_en=full))
-    bf, f32 = cb_plan(kt, ht, res)
+    bf, f32, w = cb_plan(kt, ht, res)
     cbs = ([TT._cb(i, core_grid, t) for i, t in bf]
-           + [TT._cb_fmt(i, core_grid, t, ttnn.float32) for i, t in f32])
+           + [TT._cb_fmt(i, core_grid, t, ttnn.float32) for i, t in f32]
+           + [TT._cb_fmt(i, core_grid, t, w12.dtype) for i, t in w])
     return {"kernels": [reader, writer, compute], "cbs": cbs}
 
 
@@ -155,7 +162,7 @@ def transition(x, ln_w, ln_b, w12, w3, ckc, grid, add_to_input=False, eps=1e-5):
         return None
     if eligible(x, ln_w, ln_b, w12, w3) is not None:
         return None
-    key = ("t3", str(x.padded_shape), str(w12.padded_shape), tuple(grid), tuple(str(c) for c in ckc),
+    key = ("t3", str(x.padded_shape), str(w12.padded_shape), str(w12.dtype), tuple(grid), tuple(str(c) for c in ckc),
            bool(add_to_input), float(eps), F3_SPLIT)
     if key in REFUSED:
         _no("refused")
