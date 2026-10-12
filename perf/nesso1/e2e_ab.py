@@ -32,6 +32,8 @@ def main() -> None:
                     help="also time the forward's parts (trunk passes, ESM fold-in, crop, affinity)")
     ap.add_argument("--reuse-heap", action="store_true",
                     help="call runtime.reuse_freed_heap() first, as screen() does on trees that have it")
+    ap.add_argument("--affinity", default="fp32", choices=("fp32", "bf16"),
+                    help="the affinity heads' pairformer precision (screen ships fp32)")
     ap.add_argument("--cpu-glue", action="store_true",
                     help="host model with the trunk stubbed to identity: times the host glue alone, no device")
     a = ap.parse_args()
@@ -59,8 +61,9 @@ def main() -> None:
     rep["prepare_s"] = round(time.perf_counter() - t0, 4)
     assert not failed, failed
     t0 = time.perf_counter()
-    # The same settings screen() ships: bf16 trunk, fp32 affinity heads, 5 recycles.
-    model = Nesso1.from_pretrained(use_tenstorrent=not a.cpu_glue, trunk_fp32=False, affinity_fp32=True)
+    # The same settings screen() ships: bf16 trunk, fp32 affinity heads (unless --affinity), 5 recycles.
+    model = Nesso1.from_pretrained(use_tenstorrent=not a.cpu_glue, trunk_fp32=False,
+                                   affinity_fp32=a.affinity == "fp32")
     if a.cpu_glue:
         model._trunk = lambda z, mask, pair_mask: z
     model.use_kernels = False
