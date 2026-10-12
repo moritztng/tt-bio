@@ -851,12 +851,13 @@ def _vec_ok(v, K):
             and v.memory_config().memory_layout == ttnn.TensorMemoryLayout.INTERLEAVED)
 
 
-def t2_eligible(x, ln_w, ln_b, wp, g, resid):
-    """None when T2 serves this call, else the reason it does not."""
+def t2_eligible(x, ln_w, ln_b, wp, g, resid, wg=None):
+    """None when T2 serves this call, else the reason it does not. With `wg`, `g` is the trimul's
+    input norm and T2 computes sigmoid(g @ wg) itself (the GATE form)."""
     from .tenstorrent import lever
     if not (T2 or lever("trimul_t2")):
         return "off"
-    for t in (x, wp, g, resid):
+    for t in (x, wp, g, resid) + ((wg,) if wg is not None else ()):
         if t is None or t.dtype != ttnn.bfloat16 or t.layout != ttnn.TILE_LAYOUT:
             return "dtype"
         if t.memory_config() != ttnn.DRAM_MEMORY_CONFIG:
@@ -871,10 +872,13 @@ def t2_eligible(x, ln_w, ln_b, wp, g, resid):
         return "act_k"
     if not (_vec_ok(ln_w, K) and _vec_ok(ln_b, K)):
         return "ln_params"
+    if wg is not None and [int(d) for d in wg.shape] != [K, N]:
+        return "gate_weight_shape"
     want = [int(d) for d in x.shape][:-1] + [N]
-    if [int(d) for d in g.shape] != want or [int(d) for d in resid.shape] != want:
+    g_want, g_pad = (want, resid.padded_shape) if wg is None else (list(map(int, x.shape)), x.padded_shape)
+    if [int(d) for d in g.shape] != g_want or [int(d) for d in resid.shape] != want:
         return "out_shape"
-    if (tuple(g.padded_shape) != tuple(resid.padded_shape)
+    if (tuple(g.padded_shape) != tuple(g_pad)
             or tuple(resid.padded_shape) != tuple(x.padded_shape)[:-1] + (N,)):
         return "padded_shape"
     from . import tenstorrent as TT    # late: `tenstorrent` imports this module at its own import
@@ -890,19 +894,23 @@ def t2_eligible(x, ln_w, ln_b, wp, g, resid):
     return None
 
 
-def _t2_tiles(kt, nt, Mb):
-    """bf16-tile equivalents of T2's circular buffers per core (an fp32 tile counts 2)."""
+def _t2_tiles(kt, nt, Mb, gate=False):
+    """bf16-tile equivalents of T2's circular buffers per core (an fp32 tile counts 2). The GATE
+    form adds Wg and the double-buffered xb rows, and computes g single-buffered."""
     blk = Mb * nt
     bf16 = 2 * Mb * kt + kt * nt + 2 * blk + Mb * kt + blk + 2 * blk + 2 * blk + 2 * kt + 1
+    if gate:
+        bf16 += kt * nt + 2 * Mb * kt - blk
     fp32 = 1 + 3 + 2 * kt
     return bf16 + 2 * fp32
 
 
-def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps):
+def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, wg=None):
     import struct
     Mb, sbw = block[0], block[4]
     K = int(wp.shape[-2])
     kt, nt = _tiles(K), _tiles(wp.shape[-1])
+    gate = wg is not None
     mt = 1
     for d in [int(d) for d in x.padded_shape][:-1]:
         mt *= d
@@ -931,9 +939,9 @@ def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps):
     d = KERNEL_DIR.parent / "trimul_tail_res"
     reader = ttnn.KernelDescriptor(
         kernel_source=str(d / "reader_ln.cpp"), source_type=src, core_ranges=core_grid,
-        compile_time_args=[kt, nt, Mb, scaler, eps_bits] + acc(x) + acc(wp) + acc(g) + acc(resid)
-        + acc(ln_w) + acc(ln_b),
-        runtime_args=rd, common_runtime_args=[0] * 6, config=ttnn.ReaderConfigDescriptor())
+        compile_time_args=[kt, nt, Mb, scaler, eps_bits, int(gate)] + acc(x) + acc(wp) + acc(g)
+        + acc(resid) + acc(ln_w) + acc(ln_b) + acc(wg if gate else wp),
+        runtime_args=rd, common_runtime_args=[0] * 7, config=ttnn.ReaderConfigDescriptor())
     writer = ttnn.KernelDescriptor(
         kernel_source=str(d / "writer.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[nt, Mb, 1] + acc(resid) + acc(resid),
@@ -941,7 +949,7 @@ def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps):
     fid, approx, _, full = ckc
     compute = ttnn.KernelDescriptor(
         kernel_source=str(d / "compute_ln.cpp"), source_type=src, core_ranges=core_grid,
-        compile_time_args=[kt, nt, Mb, sbw, int(SIGPOLY), RNE],
+        compile_time_args=[kt, nt, Mb, sbw, int(SIGPOLY), RNE, int(gate)],
         runtime_args=cp,
         # fp32 DEST always: the LayerNorm statistics are packed to fp32 CBs and the 4-tile
         # epilogue fits half-sync fp32 DEST. The fidelity stays the caller's, so the GEMM is
@@ -951,25 +959,28 @@ def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps):
             dst_full_sync_en=full))
     blk = Mb * nt
     f32 = ttnn.float32
-    cbs = [_cb(0, core_grid, 2 * Mb * kt), _cb(1, core_grid, kt * nt),
+    cbs = [_cb(0, core_grid, 2 * Mb * kt), _cb(1, core_grid, (1 + gate) * kt * nt),
            _cb(2, core_grid, 2 * blk), _cb(3, core_grid, Mb * kt), _cb(4, core_grid, blk),
-           _cb(5, core_grid, 2 * blk), _cb(7, core_grid, 2 * blk),
+           _cb(5, core_grid, (2 - gate) * blk), _cb(7, core_grid, 2 * blk),
            _cb(8, core_grid, kt), _cb(9, core_grid, kt), _cb(10, core_grid, 1),
            _cb_fmt(11, core_grid, 1, f32), _cb_fmt(12, core_grid, 1, f32),
            _cb_fmt(13, core_grid, 1, f32), _cb_fmt(14, core_grid, 1, f32),
            _cb_fmt(16, core_grid, kt, f32), _cb_fmt(17, core_grid, kt, f32)]
+    if gate:
+        cbs.append(_cb(6, core_grid, 2 * Mb * kt))
     return {"kernels": [reader, writer, compute], "cbs": cbs}
 
 
-def fused_tail_ln(x, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5):
-    """`resid += (layer_norm(x; ln_w, ln_b, eps) @ wp) * sigmoid(g)` in one kernel, `resid`
+def fused_tail_ln(x, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5, wg=None):
+    """`resid += (layer_norm(x; ln_w, ln_b, eps) @ wp) * sigmoid(g)` in one kernel (with `wg`:
+    `* sigmoid(g @ wg)`, g the trimul's input norm), `resid`
     written in place and returned (the caller's `_add_input` then sees `u is x`). None when T2 is
     off or does not cover the call; nothing has been touched then. `x` is not deallocated."""
     from . import ops
     if ops.taping() or dest_guard.exposed_args(ckc):
         T2_STATS[1] += 1
         return None
-    why = t2_eligible(x, ln_w, ln_b, wp, g, resid)
+    why = t2_eligible(x, ln_w, ln_b, wp, g, resid, wg)
     if why is not None:
         T2_STATS[1] += 1
         if why != "off":
@@ -979,22 +990,22 @@ def fused_tail_ln(x, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5):
     from . import tenstorrent as TT
     kt, nt = _tiles(wp.shape[-2]), _tiles(wp.shape[-1])
     block = TT._MM_BLOCK[(kt, nt)]
-    if _t2_tiles(kt, nt, block[0]) * MG.tile_bytes(ttnn.bfloat16) > 0.85 * TT._l1_bank_bytes():
+    if _t2_tiles(kt, nt, block[0], wg is not None) * MG.tile_bytes(ttnn.bfloat16) > 0.85 * TT._l1_bank_bytes():
         T2_STATS[1] += 1
         return None
     spec = lambda t: (str(t.padded_shape), str(t.dtype), str(t.memory_config()))
-    key = ("t2", spec(x), spec(wp), spec(ln_w), spec(ln_b), tuple(grid),
+    key = ("t2", spec(x), spec(wp), spec(ln_w), spec(ln_b), wg is not None, tuple(grid),
            tuple(str(c) for c in ckc), float(eps), SIGPOLY, RNE)
     entry = _CACHE.get(key)
     if entry is None:
-        entry = _CACHE[key] = _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps)
+        entry = _CACHE[key] = _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, wg)
     reader, writer, _ = entry["kernels"]
     reader.common_runtime_args = [x.buffer_address(), wp.buffer_address(), g.buffer_address(),
                                   resid.buffer_address(), ln_w.buffer_address(),
-                                  ln_b.buffer_address()]
+                                  ln_b.buffer_address(), (wg if wg is not None else wp).buffer_address()]
     writer.common_runtime_args = [resid.buffer_address(), resid.buffer_address()]
     pd = ttnn.ProgramDescriptor(kernels=entry["kernels"], semaphores=[], cbs=entry["cbs"])
-    ttnn.generic_op([x, wp, g, ln_w, ln_b, resid], pd)
+    ttnn.generic_op([x, wp, g, ln_w, ln_b, resid] + ([wg] if wg is not None else []), pd)
     T2_STATS[0] += 1
     return resid
 

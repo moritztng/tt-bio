@@ -18,6 +18,8 @@ ap = argparse.ArgumentParser()
 ap.add_argument("--ns", default="64,128,512")
 ap.add_argument("--reps", type=int, default=10)
 ap.add_argument("--c", type=int, default=128)
+ap.add_argument("--gate", action="store_true",
+                help="GATE form: g is the trimul's input norm and T2 computes sigmoid(g @ wg) itself")
 ap.add_argument("--out", help="also append each JSON line here (the qb runner passes it)")
 A = ap.parse_args()
 
@@ -37,7 +39,7 @@ TT.T2_KEYS.add((C // 32, C // 32))   # measurement only: the model path keeps it
 gen = torch.Generator().manual_seed(0)
 up = lambda t: ttnn.from_torch(t.to(torch.bfloat16), dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT,
                                device=dev, memory_config=ttnn.DRAM_MEMORY_CONFIG)
-print(json.dumps({"grid": grid, "ckc": [str(c) for c in ckc], "c": C}), flush=True)
+print(json.dumps({"grid": grid, "ckc": [str(c) for c in ckc], "c": C, "gate": A.gate}), flush=True)
 
 
 def rel(a, r):
@@ -64,13 +66,17 @@ for n in [int(s) for s in A.ns.split(",") if s]:
          "g": torch.randn(1, n, n, C, generator=gen), "z": torch.randn(1, n, n, C, generator=gen),
          "w": torch.randn(C, C, generator=gen) / C ** 0.5,
          "gamma": 1 + 0.1 * torch.randn(C, generator=gen), "beta": 0.1 * torch.randn(C, generator=gen)}
+    if A.gate:
+        h["wg"] = torch.randn(C, C, generator=gen) / C ** 0.5
     h = {k: v.to(torch.bfloat16) for k, v in h.items()}
-    d = {k: up(h[k]) for k in ("x", "g", "w", "gamma", "beta")}
+    d = {k: up(h[k]) for k in ("x", "g", "w", "gamma", "beta") + (("wg",) if A.gate else ())}
+    wg = d.get("wg")
     x64 = {k: v.double() for k, v in h.items()}
     mu = x64["x"].mean(-1, keepdim=True)
     var = (x64["x"] - mu).pow(2).mean(-1, keepdim=True)
     xn = (x64["x"] - mu) / torch.sqrt(var + 1e-5) * x64["gamma"] + x64["beta"]
-    ref = x64["z"] + (xn @ x64["w"]) * torch.sigmoid(x64["g"])
+    g64 = x64["g"] @ x64["wg"] if A.gate else x64["g"]
+    ref = x64["z"] + (xn @ x64["w"]) * torch.sigmoid(g64)
     P = n * n * C * 2
 
     def incumbent(z):
@@ -78,7 +84,10 @@ for n in [int(s) for s in A.ns.split(",") if s]:
                               compute_kernel_config=T.ln_compute_kernel_config(kcfg))
         p = T._trimul_out_proj(xn_, d["w"], kcfg, None)
         ttnn.deallocate(xn_)
-        p = ttnn.multiply_(p, d["g"], input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
+        g = T._trimul_out_proj(d["g"], wg, kcfg, None) if A.gate else d["g"]
+        p = ttnn.multiply_(p, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
+        if A.gate:
+            ttnn.deallocate(g)
         z = ttnn.add_(z, p)
         ttnn.deallocate(p)
         return z
@@ -94,8 +103,8 @@ for n in [int(s) for s in A.ns.split(",") if s]:
 
     try:
         z = up(h["z"])
-        rec["t2_why"] = TT.t2_eligible(d["x"], d["gamma"], d["beta"], d["w"], d["g"], z)
-        y = TT.fused_tail_ln(d["x"], d["gamma"], d["beta"], d["w"], d["g"], z, ckc, grid)
+        rec["t2_why"] = TT.t2_eligible(d["x"], d["gamma"], d["beta"], d["w"], d["g"], z, wg)
+        y = TT.fused_tail_ln(d["x"], d["gamma"], d["beta"], d["w"], d["g"], z, ckc, grid, wg=wg)
         if y is None:
             rec["t2_err"] = f"declined: {rec['t2_why']}"
         else:
@@ -104,7 +113,7 @@ for n in [int(s) for s in A.ns.split(",") if s]:
             rec["t2_finite"] = bool(torch.isfinite(out).all())
             rec["t2_rel_rms_f64"], rec["t2_max_abs"] = rel(out, ref)
             rec["t2_ms"] = timed(lambda: TT.fused_tail_ln(d["x"], d["gamma"], d["beta"], d["w"],
-                                                          d["g"], z, ckc, grid), A.reps)
+                                                          d["g"], z, ckc, grid, wg=wg), A.reps)
             rec["t2_GBps"] = round(4 * P / rec["t2_ms"] / 1e6, 1)
             if "inc_ms" in rec:
                 rec["speedup"] = round(rec["inc_ms"] / rec["t2_ms"], 3)

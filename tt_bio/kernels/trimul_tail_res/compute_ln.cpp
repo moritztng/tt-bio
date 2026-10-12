@@ -35,13 +35,18 @@ constexpr uint32_t SIGPOLY = get_compile_time_arg_val(4);   // 1: sigmoid_poly.h
 // Round DST to bf16 nearest-even: bit 0 before the output pack, bit 2 the product before the
 // residual add (as the res compute's bits 0 / 2).
 constexpr uint32_t RNE = get_compile_time_arg_val(5);
+// GATE 1: g is not read but computed here, sigmoid(xb @ Wg) with xb the trimul's input norm (c_6) and Wg
+// resident in c_1 after Wp, as trimul_tail_res's pass 1. The callers whose in-projection does not
+// leave a g_out (gin_moved, c_z 256) take this form.
+constexpr uint32_t GATE = get_compile_time_arg_val(6);
 
 constexpr uint32_t cb_x = tt::CBIndex::c_0;      // x_out rows, bf16, Mb * Kt double buffered
 constexpr uint32_t cb_w = tt::CBIndex::c_1;      // Wp, Kt * Nt, resident
 constexpr uint32_t cb_out = tt::CBIndex::c_2;    // z + update, to the writer
 constexpr uint32_t cb_ln = tt::CBIndex::c_3;     // layer_norm(x) rows, bf16, Mb * Kt
 constexpr uint32_t cb_p = tt::CBIndex::c_4;      // x_norm @ Wp, bf16, Mb * Nt
-constexpr uint32_t cb_g = tt::CBIndex::c_5;      // g_out rows, bf16, from DRAM
+constexpr uint32_t cb_g = tt::CBIndex::c_5;      // g_out rows, bf16, from DRAM (GATE: sigmoid(xb @ Wg))
+constexpr uint32_t cb_xb = tt::CBIndex::c_6;     // GATE: xb rows, bf16, Mb * Kt double buffered
 constexpr uint32_t cb_z = tt::CBIndex::c_7;      // z rows, bf16, from DRAM
 constexpr uint32_t cb_gamma = tt::CBIndex::c_8;  // Kt tiles, resident
 constexpr uint32_t cb_beta = tt::CBIndex::c_9;   // Kt tiles, resident
@@ -74,7 +79,7 @@ void kernel_main() {
     constexpr uint32_t blk = Mb * Nt;
 
     mm_init(cb_ln, cb_w, cb_p);
-    cb_wait_front(cb_w, Kt * Nt);
+    cb_wait_front(cb_w, (1 + GATE) * Kt * Nt);
     cb_wait_front(cb_gamma, Kt);
     cb_wait_front(cb_beta, Kt);
     cb_wait_front(cb_scaler, 1);
@@ -109,6 +114,42 @@ void kernel_main() {
         cb_push_back(cb_p, blk);
         cb_pop_front(cb_ln, Mb * Kt);
 
+        // 2b (GATE). g = sigmoid(xb @ Wg), the sigmoid in DST before the pack. Its init follows the
+        // GEMM init: the prologue's rsqrt init reprograms the SFPU every block.
+        if constexpr (GATE) {
+            mm_block_init_short(cb_xb, cb_w, false, SBW, 1, Kt);
+            reconfig_data_format(cb_w, cb_xb);
+            pack_reconfig_data_format(cb_g);
+            sigmoid_tile_init();
+            cb_wait_front(cb_xb, Mb * Kt);
+            cb_reserve_back(cb_g, blk);
+            for (uint32_t mi = 0; mi < Mb; ++mi) {
+                for (uint32_t n0 = 0; n0 < Nt; n0 += SBW) {
+                    tile_regs_acquire();
+                    uint32_t i0 = mi * Kt;
+                    uint32_t i1 = Kt * Nt + n0;
+                    for (uint32_t k = 0; k < Kt; ++k) {
+                        matmul_block(cb_xb, cb_w, i0, i1, 0, false, SBW, 1, Kt);
+                        i0++;
+                        i1 += Nt;
+                    }
+                    for (uint32_t i = 0; i < SBW; ++i) {
+                        if constexpr (SIGPOLY) sigmoid_poly_tile(i);
+                        else sigmoid_bf16_tile(i);
+                    }
+                    if constexpr (RNE & 2) {
+                        for (uint32_t i = 0; i < SBW; ++i) round_bf16_rne_tile(i);
+                    }
+                    tile_regs_commit();
+                    tile_regs_wait();
+                    for (uint32_t i = 0; i < SBW; ++i) pack_tile<true>(i, cb_g, mi * Nt + n0 + i);
+                    tile_regs_release();
+                }
+            }
+            cb_push_back(cb_g, blk);
+            cb_pop_front(cb_xb, Mb * Kt);
+        }
+
         // 3 + 4. out = z + p * sigmoid(g). The sigmoid is re-initialised every block: the
         // prologue's rsqrt init reprograms the SFPU.
         cb_wait_front(cb_p, blk);
@@ -122,9 +163,11 @@ void kernel_main() {
             reconfig_data_format_srca(cb_g);
             copy_tile_to_dst_init_short(cb_g);
             for (uint32_t i = 0; i < 4; ++i) copy_tile(cb_g, t0 + i, i);
-            for (uint32_t i = 0; i < 4; ++i) {
-                if constexpr (SIGPOLY) sigmoid_poly_tile(i);
-                else sigmoid_bf16_tile(i);
+            if constexpr (!GATE) {
+                for (uint32_t i = 0; i < 4; ++i) {
+                    if constexpr (SIGPOLY) sigmoid_poly_tile(i);
+                    else sigmoid_bf16_tile(i);
+                }
             }
             reconfig_data_format(cb_p, cb_p);
             binary_dest_reuse_tiles_init<EltwiseBinaryType::ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCB>(
