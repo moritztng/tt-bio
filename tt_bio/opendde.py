@@ -21,6 +21,7 @@ from .protenix import _KeyedWeights
 from . import hostlane
 from .envflags import env_flag
 from .opendde_data import STRUCTURAL_TOKEN_ROLES
+from . import tenstorrent as _T
 from .tenstorrent import _acc_concat, concat_host_bytes, dram_peak, get_device, under_levers
 
 _BACKBONE = (STRUCTURAL_TOKEN_ROLES["protein_bb"],
@@ -377,6 +378,10 @@ def route_opendde_weights(state_dict):
     return dict(expander=exp, refiner=refiner, refiner_blocks=nb, shared=shared)
 
 
+# --fast: the shared fast set plus transition_ws, fast grade PASS on Wormhole and Blackhole (11-set, 88 folds each).
+FAST_LEVERS = _T.FAST_LEVERS | {"transition_ws"}
+
+
 class OpenDDE:
     """OpenDDE co-folding on Tenstorrent: the Protenix-v2 trunk/diffusion/confidence stack
     (reused verbatim, ``tt_bio.protenix``) + the novel :class:`StructuralTokenExpander` +
@@ -388,9 +393,9 @@ class OpenDDE:
         (OPENDDE_DIFFUSION_FP32=1 lifts it). Guided runs pass True (host_controller.diffusion_precision).
         levers: the precision levers this model builds and folds under, the same switches
         Protenix-v2 runs (`tenstorrent.LEVERS`); None takes the mode's set
-        (`tenstorrent.mode_levers`), so `--fast` is `FAST_LEVERS` here too."""
+        (`tenstorrent.model_levers`): `NORMAL_LEVERS`, or `FAST_LEVERS` below under `--fast`."""
         import tt_bio.tenstorrent as _TT
-        self._levers = _TT.parse_levers(_TT.mode_levers() if levers is None else levers)
+        self._levers = _TT.model_levers(fast=FAST_LEVERS, spec=levers)
         with _TT.levers(self._levers):
             self._build(state_dict, compute_kernel_config, device, diffusion_fp32)
 
