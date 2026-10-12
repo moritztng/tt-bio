@@ -92,6 +92,13 @@ def rmsd(P, Q):
     return float(np.sqrt(((P @ R + t - Q) ** 2).sum(-1).mean()))
 
 
+def cache_key(cif):
+    """The score cache is shared by every grade on the host. A bare path collided: relative run dirs (`s263/9TH6/gsmf`)
+    from two different trees, and a rerun written into the same dir, both read the other fold's scores."""
+    c = Path(cif).resolve(); st = c.stat()
+    return f"{c}:{st.st_size}:{st.st_mtime_ns}"
+
+
 def score_one(job):
     cif, ref, pdb = job
     with tempfile.TemporaryDirectory() as tmp:
@@ -183,16 +190,16 @@ def main():
     cache_f = a.data / "grade_cache.json"
     cache = json.loads(cache_f.read_text()) if cache_f.exists() else {}
     jobs = [(str(c), str(a.data / "ref" / f"{k[2]}.cif"), k[2]) for k, f in folds.items() for c in f["cifs"]
-            if str(c) not in cache]
+            if cache_key(c) not in cache]
     with ProcessPoolExecutor(a.jobs) as ex:
         for cif, s in ex.map(score_one, jobs, chunksize=2):
-            cache[cif] = s
+            cache[cache_key(cif)] = s
     cache_f.write_text(json.dumps(cache))
 
     refkeys = {p: ref_keys(a.data / "ref" / f"{p}.cif", p) for p in SET}
     fold_m = {}
     for k, f in folds.items():
-        s = [cache[str(c)] for c in f["cifs"]]
+        s = [cache[cache_key(c)] for c in f["cifs"]]
         top = s[0]  # rank 0 = highest confidence_score
         fold_m[k] = dict(dockq=top["dockq"], irmsd=top["irmsd"], lrmsd=top["lrmsd"], tm=top["tm_complex"],
                          iptm=f["conf"][0]["iptm"], lddt_ca=statistics.mean(x["lddt_ca"] for x in s),

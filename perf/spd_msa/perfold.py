@@ -16,9 +16,10 @@ for d in map(Path, sys.argv[1:]):
                 continue
             sd = Path(r["struct_dir"]); sd = sd if sd.exists() else f.parent / sd.name
             cif = sd / f"{r['input']}.cif"
-            if str(cif) not in cache:
-                cache[str(cif)] = grade.score_one((str(cif), str(data / "ref" / f"{r['input']}.cif"), r["input"]))[1]
-            s = cache[str(cif)]
+            k = grade.cache_key(cif)
+            if k not in cache:
+                cache[k] = grade.score_one((str(cif), str(data / "ref" / f"{r['input']}.cif"), r["input"]))[1]
+            s = cache[k]
             rows.append((r["input"], r["arm"].split(":")[0], r["seed"], s["dockq"], s["lrmsd"], s["irmsd"],
                          r["samples_conf"][0].get("iptm"), str(f.parent)))
 cf.write_text(json.dumps(cache))
