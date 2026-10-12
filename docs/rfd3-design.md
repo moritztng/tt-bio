@@ -196,9 +196,9 @@ match.
 
 `--fast` also runs the token pair transition as one weight-stationary kernel that keeps its weights on
 chip and never writes the hidden activations out. On a Blackhole p150a at 1350 MHz a 685-residue fast
-design drops from 61.3 to 56.3 s (four seeds). Over 14 paired seeds on Blackhole and Wormhole the clash
-count moves by +7 with a confidence interval that covers zero, chain breaks do not increase, and the
-same-seed drift stays inside the seed-to-seed spread.
+design drops from 61.3 to 56.3 s and a Wormhole one from 114.7 to 100.1 s. Over ten paired seeds on both
+chips the clash count moves by -1.4 with a standard error of 5.4, chain breaks are identical seed for seed,
+and the same-seed drift (3.9 to 12.7 A) stays inside the 13.5 to 20.0 A a seed change moves a design.
 
 ## Checkpoint
 

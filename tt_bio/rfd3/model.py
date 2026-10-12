@@ -359,8 +359,10 @@ _TRANSITION_B8 = env_flag("RFD3_TRANSITION_B8", False)
 # The token pair Transition as one weight-stationary program (`tt_bio.pair_swiglu_ws`): x read once,
 # [w1 | w2] and w3 resident in L1, fc1/fc2/the product never leave the core. bf16 only for now, so
 # it takes the token pair tensor ahead of RFD3_TRANSITION_B8's bfp8 hidden (faster and more accurate
-# than either shipped path on WH). In --fast: p150a @1350 fast 61.30 -> 56.25 s/design (seeds 44-47),
-# WH fast 128-130 -> 115-123 s; paired clash delta over 14 seeds +7 (CI covers 0), breaks flat.
+# than either shipped path on WH). In --fast: p150a @1350 61.30 -> 56.25 s/design
+# (seeds 44-47), Wormhole @1000 114.7 -> 100.1 (seeds 50-53). Graded over 10 paired seeds on both
+# arches: clash delta -1.4 (se 5.4), chain breaks identical seed for seed, same-seed drift
+# 3.9-12.7 A against a 13.5-20.0 A seed floor.
 _PAIR_WS = env_flag("RFD3_PAIR_WS", False)
 # Every RFD3 matmul at HiFi2 instead of HiFi4: two multiplier passes per bf16 product instead of
 # four. Off, and not in --fast: on top of the fast set it saved nothing on a p300c (4 seeds, 685
