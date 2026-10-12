@@ -1035,7 +1035,12 @@ WH_LM_RESIDENT_MAX_TOKENS = 1088
 # top-pose median 0.92 A vs 1.40 A floor, docking 24/44 both; ESMFold2 (41 paired) CA-lDDT +0.0021 [-0.0006,
 # +0.0061], top-pose median 0.44 A vs 1.12 A floor, docking 30/41 both. ~1 s off ESMFold2 --fast at 512 aa
 # (p300c, 1350 MHz: 27.80 vs 28.78 s; -Fast 18.71 vs 19.00).
-LEVERS_NORMAL = "normal-trunk_hifi3"
+# trimul_gin (in-projection, both gates and both channel moves in one kernel, as channel slices at c_z 256) passes
+# the normal bar on ESMFold2, 11 complexes x 4 seeds, 44 paired folds against the set without it (p150a + p300c,
+# 1350 MHz): CA-lDDT -0.0017 [-0.0068, +0.0025], top-pose median 0.24 A vs 1.22 A floor, docking 31 -> 30 of 44.
+# Warm fold time at 1350 MHz: 256 and 512 aa unchanged (49.4 vs 49.8 s, 131.1 vs 131.5 s), 1024 aa 436 -> 419 s,
+# 1536 aa 1028 -> 939 s. On ESMFold2-Fast the 11-set folds 8.4 % faster (normal bar PASS, 44 paired folds).
+LEVERS_NORMAL = "normal-trunk_hifi3+trimul_gin"
 # FAST also takes transition_ws (fast grade PASS on both ESMFold2 models, both archs; tenstorrent.FAST_LEVERS).
 LEVERS_FAST = "normal+trimul_b8in+transition_ws"
 
