@@ -993,5 +993,6 @@ def test_gate_reads_records_reads_of_every_python_process_but_not_writes(tmp_pat
     files = list(out.glob("*.txt"))
     seen = {ln for f in files for ln in f.read_text().split("\n") if ln}
     assert len(files) == 3                                          # parent, subprocess, fork
-    # main.py itself was opened before its own import installed the hook (the venv's .pth runs first)
-    assert seen == {"pkg/__init__.py", "pkg/m.py", "data.json", "dir:pkg"}
+    # main.py itself is seen only where a venv's .pth installed the hook before the interpreter read
+    # the script (a gate venv); here the script's own import installs it after
+    assert seen - {"main.py"} == {"pkg/__init__.py", "pkg/m.py", "data.json", "dir:pkg"}
