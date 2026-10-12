@@ -223,12 +223,22 @@ def main():
             T.parse_levers(a.ab_lever)      # an unknown name fails here, not as a silent null A/B
             holders = [o for o in [state.model, *vars(state.model).values()]
                        if isinstance(getattr(o, "_levers", None), frozenset)]
-            assert holders, "the loaded model carries no _levers set"
-            base = {id(o): o._levers - {a.ab_lever} for o in holders}
+            if holders:
+                base = {id(o): o._levers - {a.ab_lever} for o in holders}
 
-            def arm_set(v):
-                for o in holders:
-                    o._levers = base[id(o)] | {a.ab_lever} if v else base[id(o)]
+                def arm_set(v):
+                    for o in holders:
+                        o._levers = base[id(o)] | {a.ab_lever} if v else base[id(o)]
+            else:
+                # ESMFold2 enters its lever set per fold (esmfold2_runtime.fold_scope), from TT_BIO_LEVERS when
+                # set: the mode's set on Blackhole, none on Wormhole.
+                assert a.model == "esmfold2", "the loaded model carries no _levers set"
+                from tt_bio import esmfold2_runtime as ER
+                base_set = T.parse_levers(os.environ.get("TT_BIO_LEVERS") or (
+                    "none" if ER.is_wormhole() else ER.fold_levers(a.fast))) - {a.ab_lever}
+
+                def arm_set(v):
+                    os.environ["TT_BIO_LEVERS"] = ",".join(sorted(base_set | {a.ab_lever} if v else base_set)) or "none"
         else:
             mod, name = a.ab_attr.split(":")
             on, off, key = "on", "off", "ab_attr_s"
