@@ -28,6 +28,7 @@ from .. import rfd3_bias, softmax_generic
 from ..envflags import env_flag
 from . import block_sparse as _BS
 from .tiles import TILE, align_tile, pad_axis
+from .. import pair_swiglu_ws as _WS
 from ..tenstorrent import (Module, get_device, CORE_GRID_MAIN, attn_value_matmul, silu_ckc,
                            atom_pair_budget_bytes, l1_resident_budget_bytes, row_block,
                            _dram_oom, fused_sdpa, _sdpa_program_config)
@@ -203,6 +204,21 @@ _RESIDENT_STEP = env_flag("RFD3_RESIDENT_STEP", True)
 # mask density 0.0078, n=5 medians): it is the fastest block size at both 8 and 16 threads,
 # 53.82 -> 20.59 ms at 8 and 48.81 -> 18.60 at 16, and R=512/1024/2048 are all slower.
 _ATTN_ROW_BLOCK = int(os.environ.get("RFD3_ATTN_ROWBLOCK", "256"))
+# The same index from a k-d tree instead of the dense distance matrix. The fill is the
+# (k - n_seq) nearest atoms outside the row's sequence mask, and the k nearest atoms overall hold
+# at most n_seq masked ones, so a k-nearest query always contains the whole fill: no [L, L]
+# matrix and no top-k over it. The tree measures distances in float64 where torch.cdist uses the
+# fp32 |x|^2 + |y|^2 - 2xy form, so the two can only part on a near-tie at the k-th neighbour.
+# Its worker threads are scipy's own, capped at torch's thread count, so they do not start a
+# second OpenMP team (the reason the index stays off a Python worker thread, see _ATTN_OVERLAP).
+# Synthetic 6051 atoms, k=128, 2 threads: 207.6 -> 60 ms on a loaded Galaxy host, 143.6 -> 52
+# on qb2, every row equal to the cdist build and to a float64 reference. On by default: the tree is
+# the more accurate index (the fp32 cdist misses 0-2 rows per case against float64), and the fold
+# moves only by those near-ties. Wormhole @1000 MHz, page fixture: fast 129.4 -> 117.2 s/design,
+# normal 135.8 -> 131.5. Graded against the cdist arm, 16 fast seeds: clash delta +4.9 +- 4.5,
+# breaks 7 -> 7, design drift 2.6-11.2 A against a 12-20 A seed floor; 6 normal seeds +1.8 +- 4.0.
+# RFD3_ATTN_KDTREE=0 restores the cdist chain.
+_ATTN_KDTREE = env_flag("RFD3_ATTN_KDTREE", True)
 # The 18 DiT blocks project the SAME pair tensor with their own [c_pair, n_head] weight, and that
 # projection is the largest single op in the model: 36 calls/step (18 blocks x 2 recycles),
 # 26.742 ms/step, 42.6 % of this card's measured 390.0 GB/s read roof (perf/p56/linear_census.json).
@@ -340,6 +356,11 @@ _ATOM_SDPA_MAX_MASK_BYTES = int(float(os.environ.get("RFD3_ATOM_SDPA_MAX_MASK_BY
 # 1088 instead of 2048 bytes a tile on the region that is ~65 % of the token encoder and is bound
 # by per-tile pack/unpack. The input norm and the output stay bf16. Off by default while graded.
 _TRANSITION_B8 = env_flag("RFD3_TRANSITION_B8", False)
+# The token pair Transition as one weight-stationary program (`tt_bio.pair_swiglu_ws`): x read once,
+# [w1 | w2] and w3 resident in L1, fc1/fc2/the product never leave the core. bf16 only for now, so
+# it takes the token pair tensor ahead of RFD3_TRANSITION_B8's bfp8 hidden (faster and more accurate
+# than either shipped path on WH). Off while measured.
+_PAIR_WS = env_flag("RFD3_PAIR_WS", False)
 # Every RFD3 matmul at HiFi2 instead of HiFi4: two multiplier passes per bf16 product instead of
 # four. Off, and not in --fast: on top of the fast set it saved nothing on a p300c (4 seeds, 685
 # tokens) and doubled the clashes of one 418-token design.
@@ -993,6 +1014,10 @@ class Transition(Module):
         (`perf/p131/tail_sweep.json`). Not chased further: the gap is sub-ULP rounding, not a
         wrong result.
         """
+        if _PAIR_WS and len(x.shape) == 4:
+            out = self._weight_stationary(x)
+            if out is not None:
+                return out
         if not (_PAIR_TRANSITION_L1 and len(x.shape) == 4
                 and x.shape[2] >= _PAIR_TRANSITION_MIN_W):
             if _FC1_SPLIT_SILU and len(x.shape) == 4:
@@ -1085,6 +1110,18 @@ class Transition(Module):
                 c, blk, ttnn.L1_MEMORY_CONFIG if split and blk is not None else None, shape))
             ttnn.deallocate(c)
         return _pair_transition_join(parts, int(x.shape[0]))
+
+    def _weight_stationary(self, x):
+        """`_swiglu` through `pair_swiglu_ws`, every batch element in one program (rows are tile-aligned per
+        element, so the flattened tensor splits into whole row tiles); None where it declines."""
+        if getattr(self, "_ws12", None) is None:
+            self._ws12 = ttnn.concat([self.fc1_w, self.fc2_w], dim=1)
+        if not _WS.eligible(x, self._ws12, self.fc3_w):
+            return None
+        xn = ttnn.rms_norm(x, weight=self.norm_w, epsilon=1e-6, compute_kernel_config=self.compute_kernel_config)
+        out = _WS.pair_swiglu(xn, self._ws12, self.fc3_w, self.compute_kernel_config.math_fidelity)
+        ttnn.deallocate(xn)
+        return out
 
     def _swiglu_resident(self, x, mem, fc1_mem, key):
         """`_swiglu`, dropping the L1 residency rather than the fold if the allocator refuses.
@@ -3323,6 +3360,30 @@ def _neighbours_row_blocked(mask, seq_idx, x, k, block=None):
     return out
 
 
+def _neighbours_kdtree(mask, seq_idx, x, k):
+    """`_extend_with_neighbours` over a k-d tree query, already sorted (see _ATTN_KDTREE).
+
+    Row r keeps its sequence entries (seq_idx < L) and adds the first k - n_seq atoms of its
+    k-nearest list that lie outside mask[r]; the union has exactly k members, so sorting the
+    two lists side by side and keeping k gives the row _create_attention_indices returns.
+    """
+    import numpy as np
+    from scipy.spatial import cKDTree
+
+    length = x.shape[1]
+    k = min(k, length)
+    xd = x[0].detach().double().cpu().numpy()
+    _, nn = cKDTree(xd).query(xd, k=k, workers=torch.get_num_threads())
+    nn = torch.from_numpy(nn.reshape(length, k))
+    outside = ~mask[torch.arange(length).unsqueeze(1), nn]
+    n_fill = k - (seq_idx < length).sum(1, keepdim=True)
+    keep = outside & (torch.cumsum(outside, 1) <= n_fill)
+    vals = np.concatenate([seq_idx.numpy().astype(np.int32),
+                           np.where(keep.numpy(), nn.numpy().astype(np.int32), length)], 1)
+    vals.sort(1)
+    return torch.from_numpy(vals[:, :k].astype(np.int64)).unsqueeze(0)
+
+
 def _mask_and_seq_idx(tok_idx, n_seq_neighbours, k, chain, base_mask, length):
     mask = _build_index_mask(tok_idx, n_seq_neighbours, k, chain, base_mask).contiguous()
     rows = torch.arange(length, device=tok_idx.device).unsqueeze(0).expand(length, length)
@@ -3388,6 +3449,9 @@ def _create_attention_indices(f, X_L, tok_idx, n_keys, n_seq_neighbours):
         # resident, where the batched form streams three (D,L,L) tensors of 361 MB each.
         # Measured bit-identical indices and 220.7 -> 152.5 ms at 3359 atoms D=8,
         # 142.5 -> 68.9 ms at 2702 (scripts/rfd3_port/p24_attn_indices_variants.py).
+        if _ATTN_KDTREE:
+            return torch.cat([_neighbours_kdtree(mask, seq_idx, x, parts["k"])
+                              for x in X_L.unsqueeze(1)], dim=0)
         idx = torch.cat([
             _neighbours_row_blocked(mask, seq_idx, x, parts["k"]) if _ATTN_ROW_BLOCK else
             _extend_with_neighbours(mask, seq_idx, torch.cdist(x, x, p=2), parts["k"],
