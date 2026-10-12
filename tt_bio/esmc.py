@@ -840,10 +840,18 @@ class SwiGLUFFN(Module):
             ttnn.deallocate(h1)
             ttnn.deallocate(h2)
         else:
-            h = self._lin(x_norm, self._fc1_full())
+            if self.split_swiglu and _SPLIT_SWIGLU:
+                # Below SPLIT_SWIGLU_MIN_SEQ a split-built module still multiplies by its own halves. The
+                # concatenated fc1 is for the TT_BIO_SPLIT_SWIGLU=0 control arm only: built here it stayed
+                # resident in every block, 70.8 MB a layer for the ESMC-6B, which OOMed it on a 12 GB
+                # Wormhole chip for any sequence under 144 tokens.
+                x1 = self._lin(x_norm, self.fc1_a_weight)
+                x2 = self._lin(x_norm, self.fc1_b_weight)
+            else:
+                h = self._lin(x_norm, self._fc1_full())
+                x1, x2 = ttnn.chunk(h, 2, dim=-1)
+                ttnn.deallocate(h)
             ttnn.deallocate(x_norm)
-            x1, x2 = ttnn.chunk(h, 2, dim=-1)
-            ttnn.deallocate(h)
             gated = ttnn.multiply(ttnn.silu(x1), x2)
             ttnn.deallocate(x1); ttnn.deallocate(x2)
         out = self._lin(gated, self.fc2_weight,
