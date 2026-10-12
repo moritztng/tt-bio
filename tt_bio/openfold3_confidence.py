@@ -43,7 +43,7 @@ import torch
 import torch.nn.functional as F
 import ttnn
 
-from .tenstorrent import Pairformer, accurate_softmax_site, download, triatt_sdpa_hifi_site
+from .tenstorrent import Pairformer, accurate_softmax_site, download, k1_linear, triatt_sdpa_hifi_site
 from .openfold3_weights import remap_pairformer_stack
 
 # aux_heads.pairformer_embedding distance bins (config.model_config).
@@ -283,7 +283,9 @@ class OF3ConfidenceHead:
         the bytes of the [N, N, 128] trunk pair it replaces, and no host matmul."""
         N = int(z_d.shape[-2])
         zt = ttnn.typecast(z_d, ttnn.float32)
-        dl = self._lin(zt, "distogram.linear.weight")
+        # k1_linear: ttnn's own plan on Wormhole put single logits 64 off float64 (dgram_check, .113).
+        dl = k1_linear(zt, self._wd("distogram.linear.weight", dtype=ttnn.float32),
+                       compute_kernel_config=self.compute_kernel_config, dtype=ttnn.float32)
         ttnn.deallocate(zt)
         dt = ttnn.permute(dl, (0, 2, 1, 3))
         sym = ttnn.add(dl, dt)
