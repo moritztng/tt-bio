@@ -141,9 +141,12 @@ def compute_distogram_entropy(
 # Nesso-1's precision levers (tenstorrent.LEVERS), graded on this model's own accuracy set before a
 # name goes in, as Boltz-2's are: a lever graded only on another model never reaches it. Nesso-1 has
 # no fast mode. A harness grades a candidate through the serving path with TT_BIO_LEVERS.
-# Boltz-2's trunk set (trimul_ibw, trimul_tail, trunk_hifi3, silu_f32) stays per-ligand inside the
-# seed floor on DAVIS but drops YSK4's Pearson by 0.010 against an allowed 0.007, so it is not in.
-LEVERS_NORMAL = frozenset()
+# DAVIS on Wormhole (2 targets x 30 ligands) against a floor of four reseeded base runs, each bound the
+# widest any reseed shows: trimul_ibw + trimul_tail + silu_f32 PASS (YSK4 Pearson -0.0071, p90 0.0794
+# against 0.0930). Boltz-2's trunk_hifi3 on top also passes there, but a Wormhole grade of a fidelity
+# lever does not carry to Blackhole's HiFi4, so it waits for a Blackhole DAVIS grade. trimul_gin fails
+# (ABL1p p90 0.0748 > 0.0671).
+LEVERS_NORMAL = frozenset({"trimul_ibw", "trimul_tail", "silu_f32"})
 
 
 def _pairformer(
