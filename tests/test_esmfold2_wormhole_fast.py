@@ -30,7 +30,16 @@ def test_load_runs_fast_on_wormhole(monkeypatch, wormhole, fast, want):
     mod.ESMFold2Model = Model
     monkeypatch.setitem(sys.modules, "tt_bio._vendor.esmfold2_hf.modeling_esmfold2", mod)
     monkeypatch.setattr(rt, "is_wormhole", lambda: wormhole)
-    monkeypatch.setattr(rt, "patch_esmfold2", lambda model, **k: model)
+    seen = {}
+
+    def patch(model, **k):
+        seen["fast"], seen["fast_mode"] = k["fast"], tenstorrent._FAST_MODE
+        return model
+
+    monkeypatch.setattr(rt, "patch_esmfold2", patch)
     monkeypatch.setattr(tenstorrent, "_FAST_MODE", False)
     rt.load_ttnn_esmfold2(fast=fast)
-    assert tenstorrent._FAST_MODE is want
+    assert seen["fast"] is want
+    # Wormhole builds under the older bfp8 `_FAST_MODE`; Blackhole keeps it off and folds --fast
+    # through the lever set (`fold_scope`).
+    assert seen["fast_mode"] is wormhole
