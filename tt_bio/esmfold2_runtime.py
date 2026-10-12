@@ -460,6 +460,10 @@ def set_device_injection(on: bool) -> None:
     _DEVICE_INJECTION = bool(on)
 
 
+# The resident trunk's pair-sized transfers (z, the injection, its base, the trunk output) tilize on the chip
+# (tenstorrent.upload / download, bit for bit the host permutation). Off = host tilize in ttnn.from_torch.
+DEVICE_UPLOAD = True
+
 # Off = esm 3.4.1's inline draw from the global RNG (perf/spd_gap_esmf/ab.py flips it between folds).
 PAIR_STATE_THREAD = True
 
@@ -591,6 +595,11 @@ def _install_resident_trunk_loop(model):
             injected = self.parcae_input_norm(z_inject)
             return F.linear(injected.to(z.dtype), b_mat)  # [1,L,L,256] (host)
 
+        from tt_bio import tenstorrent as T
+
+        def up(t):
+            return T.upload(t, device=ftw.tt_device) if DEVICE_UPLOAD else ftw._from_torch(t)
+
         # --- resident-z recurrence on device ---
         Lp = z.shape[1]
         pad = (-Lp) % E.PAD_MULTIPLE
@@ -600,17 +609,17 @@ def _install_resident_trunk_loop(model):
             real = torch.zeros(1, Lp + pad, Lp + pad)
             real[:, :Lp, :Lp] = 1.0
             mask = ftw._from_torch(real)
-        zt = ftw._from_torch(padz(z).float())
+        zt = up(padz(z).float())
         # The injection is loop-invariant only when no loop redraws its LM dropout or MSA rows.
         per_loop = (use_lm and bool(lm_p)) or (msa_loops is not None and len(msa_loops) > 1)
-        ipt = None if per_loop else ftw._from_torch(
+        ipt = None if per_loop else up(
             padz(inject_proj(msa_loops[0] if msa_loops else None)).float())
         at = ftw._from_torch(a.reshape(1, 1, 1, -1).float())  # parcae a, broadcasts over L,L
         on_dev = (_DEVICE_INJECTION and per_loop and isinstance(lm_z, _DevPair)
                   and (msa_loops is None or msa_fixed is not None))
         if on_dev:
             # What no loop redraws, uploaded once: the MSA pair (or z_init), LN and b_mat.
-            base = ftw._from_torch(padz(msa_fixed if msa_fixed is not None else z_init).float())
+            base = up(padz(msa_fixed if msa_fixed is not None else z_init).float())
             norm = self.parcae_input_norm
             ln_w, ln_b = (ttnn.from_torch(t.detach().float(), device=ftw.tt_device,
                                           layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16)
@@ -642,7 +651,7 @@ def _install_resident_trunk_loop(model):
                 ipt = inject_dev()
                 INJECTION_STATS[0] += 1
             elif per_loop:
-                ipt = ftw._from_torch(padz(inject_proj(
+                ipt = up(padz(inject_proj(
                     msa_loops[min(_step, len(msa_loops) - 1)] if msa_loops else None)).float())
                 INJECTION_STATS[1] += 1
             az = ttnn.multiply(zt, at)
@@ -654,7 +663,7 @@ def _install_resident_trunk_loop(model):
                 ipt = None
             zt = ftw.module(znew, mask)  # folding trunk consumes znew, returns new z
         dram_peak("esmfold2/trunk-done")
-        z_out = ftw._to_torch(zt)[:, :Lp, :Lp, :].to(z.dtype)
+        z_out = (T.download(zt) if DEVICE_UPLOAD else ftw._to_torch(zt))[:, :Lp, :Lp, :].to(z.dtype)
         for t in (zt, ipt, at, mask) + ((base, ln_w, ln_b, b_t) if on_dev else ()):
             if t is not None:
                 try:
