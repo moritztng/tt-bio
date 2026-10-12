@@ -271,7 +271,7 @@ def physical_cards():
         from tt_bio.runtime import visible_device_indices
         cards = visible_device_indices(visible)
     else:
-        cards = [int(p.rsplit("/", 1)[-1]) for p in glob.glob("/dev/tenstorrent/[0-9]*")]
+        cards = range(len(glob.glob("/dev/tenstorrent/[0-9]*")))  # UMD indices, not node numbers
     # No cards present (device-free host, CI): keep the single-card behaviour rather than
     # leasing nothing, so a lease is still taken and the open fails on its own terms.
     return [str(c) for c in sorted(set(cards))] or [physical_card()]
