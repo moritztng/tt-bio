@@ -985,7 +985,8 @@ class Block(Module):
         self.attn = Attention(n_heads, self.scope("attn"), compute_kernel_config, out_scale=inv_scale)
         self.ffn = SwiGLUFFN(self.scope("ffn"), compute_kernel_config, fuse_swiglu=True,
                              out_scale=inv_scale)
-        d_ff, d = (int(v) for v in self.ffn.fc2_weight.shape[-2:])
+        shape = self.ffn.fc2_weight.shape  # ttnn.Shape takes no slice
+        d_ff, d = int(shape[-2]), int(shape[-1])
         self.ffn.model_bytes = n_layers * (4 * d * d + 3 * d * d_ff) * 2
 
     def __call__(self, x: ttnn.Tensor, cos: ttnn.Tensor, sin: ttnn.Tensor,
