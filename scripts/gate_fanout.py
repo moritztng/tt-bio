@@ -178,11 +178,38 @@ PARITY_COVERS_RG = {"boltzgen", "opendde-abag", "capacity", "nesso1", "rf3-1024a
 CAP_OWED = "host-threads"   # an OWED entry: no granted host times this ladder at its baseline's cap
 
 
+#: A size ladder runs as one leg per rung group, so the longest ladder no longer sets the gate's
+#: wall clock: Wormhole opendde was a single 13592 s leg of gate 026b5c71c (2026-10-12). The first
+#: group keeps 256, 512 and 768 together, the two intervals the exponent check reads. release_gate's
+#: `--size-ladder-rungs` filters the model's own ladder and the check scores only the rungs it walked.
+LADDER_GROUPS = ((0, 768), (769, 1100), (1101, 1300), (1301, 1 << 20))
+
+
+def ladder_model(name: str) -> str:
+    """'ladder:opendde@896-1024' -> 'opendde' (also 'record:m' -> 'm')."""
+    return name.split(":", 1)[1].split("@", 1)[0]
+
+
+def ladder_rungs(roster: dict, card_type: str, model: str) -> list:
+    """The rungs `model`'s ladder walks on `card_type` (ENUMERATE's "rungs"; "*" for a board with
+    no rungs of its own)."""
+    rungs = roster.get("rungs", {})
+    return (rungs.get(card_type) or rungs.get("*", {})).get(model, [])
+
+
+def rungs_fit(roster: dict, host, lg) -> bool:
+    """Whether `host`'s card walks at least one of a ladder group leg's rungs. A p300c walks only
+    the shared ladder, so the 1152-1536 groups go to a p150a; an empty group would fold nothing."""
+    if lg.family != "ladder" or not lg.rungs:
+        return True
+    return bool(set(lg.rungs) & set(ladder_rungs(roster, host.cfg["card_type"], ladder_model(lg.name))))
+
+
 def owed_by(roster: dict, card_type: str, lg) -> list[str]:
     """Levers a ladder leg's baseline lacks on this card type; every other leg owes none."""
     if lg.family != "ladder":
         return []
-    return roster.get("owed", {}).get(card_type, {}).get(lg.name.split(":", 1)[1], [])
+    return roster.get("owed", {}).get(card_type, {}).get(ladder_model(lg.name), [])
 
 
 def ladder_caps(docs, models) -> dict:
@@ -208,7 +235,7 @@ def cap_fits(roster: dict, host, lg) -> bool:
     if lg.family != "ladder":
         return True
     caps = roster.get("caps", {}).get(host.cfg["card_type"], {})
-    model = lg.name.split(":", 1)[1]
+    model = ladder_model(lg.name)
     return model not in caps or caps[model] == host.ladder_cap
 
 
@@ -244,7 +271,9 @@ import lever_census
 print(json.dumps({"parity": [l.id for l in f.LEGS if not l.opt_in], "rg": r.default_arms(),
                   "ladder": list(r.SIZE_LADDER_MODELS), "capacity": c.roster(), "ux": u.ALL_LEGS,
                   "owed": owed_levers("docs", lever_census.LEVERS, r.SIZE_LADDER_MODELS),
-                  "caps": ladder_caps("docs", r.SIZE_LADDER_MODELS)}))
+                  "caps": ladder_caps("docs", r.SIZE_LADDER_MODELS),
+                  "rungs": {ct: {m: list(r._size_ladder_model_rungs(m, card=ct)) for m in r.SIZE_LADDER_MODELS}
+                            for ct in [*r.SIZE_LADDER_CARD_RUNGS, "*"]}}))
 """
 ENV_PROBE = r"""
 import json, sys, importlib.metadata as m
@@ -484,6 +513,7 @@ class Leg:
     workdir: bool = False  # argv takes the leg's own out dir as "{OUT}"
     tree_on_path: bool = True  # False: import tt_bio from the installed wheel, not the tree
     setup: str = ""        # shell run in the tree before argv, with the same {OUT} substitution
+    rungs: tuple = ()      # a ladder group leg's rungs (any card type's), () for a whole ladder
 
     @property
     def budget(self) -> int:
@@ -507,8 +537,15 @@ def build_legs(roster: dict, test_files: list, shards: int, record_lever: str = 
             continue
         legs.append(Leg(f"rg:{arm}", ["PY", "scripts/release_gate.py", "--model", arm], "rg"))
     for m in roster["ladder"]:
-        legs.append(Leg(f"ladder:{m}", ["PY", "scripts/release_gate.py", "--model", "size-ladder",
-                                        "--size-ladder-models", m], "ladder"))
+        argv = ["PY", "scripts/release_gate.py", "--model", "size-ladder", "--size-ladder-models", m]
+        every = sorted({n for ct in roster.get("rungs", {}) for n in ladder_rungs(roster, ct, m)})
+        if not every:       # a tree whose ENUMERATE predates the groups
+            legs.append(Leg(f"ladder:{m}", argv, "ladder"))
+        for lo, hi in LADDER_GROUPS:
+            g = tuple(n for n in every if lo <= n <= hi)
+            if g:
+                legs.append(Leg(f"ladder:{m}@{g[0]}-{g[-1]}", [*argv, "--size-ladder-rungs",
+                                                               ",".join(map(str, g))], "ladder", rungs=g))
     for m in roster["capacity"]:
         legs.append(Leg(f"capacity:{m}", ["PY", "scripts/capacity_gate.py", "--models", m,
                                           "--workers", "localhost:{CARD}", "--no-card-reset",
@@ -963,7 +1000,7 @@ def write_verdict(out: Path, sha: str, archs: list, results: list) -> bool:
                   "instead of checking against one. Commit the files and drop the host's `args`:"]
         lines += [f"- {r['leg']} {r['card_type']}: {r.get('seeded', '?')}" for r in seeded]
     owed = sorted({f for r in results if r["verdict"] == "OWED" for f in r["owed"]} - {CAP_OWED})
-    capped = sorted({r["leg"].split(":", 1)[1] for r in results
+    capped = sorted({ladder_model(r["leg"]) for r in results
                      if r["verdict"] == "OWED" and CAP_OWED in r["owed"]})
     if capped:
         lines += ["", "OWED: no granted host runs these ladders at the host-thread cap their baseline "
@@ -1029,7 +1066,7 @@ class Gate:
                 for i, lg in enumerate(q):
                     if lg.timed == timed and (is_timed or not timed) \
                             and out_group(lg.name) not in host.outputs and not host.lent(lg.budget) \
-                            and cap_fits(self.roster, host, lg):
+                            and cap_fits(self.roster, host, lg) and rungs_fit(self.roster, host, lg):
                         return q.pop(i)
         return None
 
@@ -1537,7 +1574,7 @@ def main() -> int:
             slot = a if lg.card else "any"
             env, ct, hleg = (envs[f"{a} {first[a].python(lg.family)}"], ctype[a] if lg.card else "cpu",
                              first[a].leg(lg))
-            model = lg.name.split(":", 1)[1] if lg.family == "ladder" else ""
+            model = ladder_model(lg.name) if lg.family == "ladder" else ""
             cards = reads[a] if lg.card else ()
             base, tst = baseline_hash(sha, lg.family, model=model, cards=cards), tests_hash(sha, lg.family)
             # An A/B perf leg reads the reference tree's numbers, not the committed baseline, so
