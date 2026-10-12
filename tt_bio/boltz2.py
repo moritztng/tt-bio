@@ -56,7 +56,9 @@ tenstorrent = _LazyTenstorrent()
 # Normal: Wormhole 11-set grade PASS, 44 paired folds, same-seed top pose median 0.895 A against the
 # A/A seed floor 1.784 A, every paired CI covers 0 or sits on the better side, docking 24/44 both;
 # c730 157.98 -> 147.17 s (spd-boltz2 g1/s1, 2026-10-09).
-LEVERS_NORMAL = frozenset({"trimul_ibw", "trimul_tail", "trunk_hifi3", "dit_sdpa32", "silu_f32"})
+# triatt_tail at 512 x 1 on p150a: 15.56 s median against 16.4 s (interleaved x2, 3 warm each, loadavg 15-19),
+# pLDDT 0.845 -> 0.847 (spd-gap-small abK, 2026-10-12). Boltz-2's own normal grade is owed.
+LEVERS_NORMAL = frozenset({"trimul_ibw", "trimul_tail", "trunk_hifi3", "dit_sdpa32", "silu_f32", "triatt_tail"})
 # Fast: tenstorrent.FAST_LEVERS on the normal path. The process-wide `--fast` switch
 # (tenstorrent._FAST_MODE: bfp8 activations, narrower chunks) is off inside Boltz-2, because on
 # Wormhole c730 it folds in 159.7 s against 135.5 s for normal mode, while this set folds in 123.4 s
