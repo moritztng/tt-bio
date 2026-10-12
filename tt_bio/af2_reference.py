@@ -849,15 +849,18 @@ class QuatAffine:
         translation = self.translation + self.rotate(trans_update.unsqueeze(-2))[..., 0, :]
         return QuatAffine(quaternion, translation)
 
+    # A broadcast multiply-sum rather than an einsum: the einsum lowers to a bmm batched over
+    # residues with a 3x3 matrix each, and CPU bmm walks that batch one select/clone at a time
+    # (14k tiny ops and ~15 ms of a ~95 ms structure module at 195 residues, 2 threads).
     def rotate(self, points: torch.Tensor) -> torch.Tensor:
-        return torch.einsum("...ij,...nj->...ni", self.rotation, points)
+        return (self.rotation.unsqueeze(-3) * points.unsqueeze(-2)).sum(-1)
 
     def apply_to_point(self, points: torch.Tensor) -> torch.Tensor:
         return self.rotate(points) + self.translation.unsqueeze(-2)
 
     def invert_point(self, points: torch.Tensor) -> torch.Tensor:
         centred = points - self.translation.unsqueeze(-2)
-        return torch.einsum("...ji,...nj->...ni", self.rotation, centred)
+        return (self.rotation.transpose(-1, -2).unsqueeze(-3) * centred.unsqueeze(-2)).sum(-1)
 
 
 def _compose(rot_a: torch.Tensor, trans_a: torch.Tensor,

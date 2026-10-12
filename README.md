@@ -957,6 +957,7 @@ moves a structure, next to the seed-to-seed spread.
 | `TT_BIO_PWA_BATCH_HEAD_WEIGHTS` | on | All heads' MSA row weights from one projection of the pair tensor. Bit for bit. |
 | `TT_BIO_PWA_FULL_HEADS_FUSED` | on | Boltz-2's MSA pair-weighted averaging (32-wide heads) takes the batched-heads path with a tile transpose instead of two general permutes. Bit for bit. |
 | `TT_BIO_REBLOCK_PERMUTE_GATED` | on | Folds a triangle multiplication's chunk and sigmoid gates into its channel move. Bit for bit. |
+| `TT_BIO_RF3_DIFFUSION_TRACE` | on | RoseTTAFold3 replays each denoising step from a device trace instead of dispatching it op by op. Identical output. |
 | `TT_BIO_RESIDUAL_L1` | on | Two Pairformer residual updates go to L1 instead of DRAM, up to 512 residues. Bit for bit. |
 | `TT_BIO_SDPA_ADD_GRANULARITY` | auto | Batches the fused SDPA kernel's running-sum/max and mask adds. Bit for bit at every granularity. |
 | `TT_BIO_SDPA_FUSED_LARGE_S` | on | Triangle attention through the fused mask kernel above 1024 tokens. Not bit-exact above 1024: moves a 1536-residue structure 1.007 Å where a different seed moves it 36.6 Å. Untouched at and below 1024. |

@@ -56,14 +56,21 @@ tenstorrent = _LazyTenstorrent()
 # Normal: Wormhole 11-set grade PASS, 44 paired folds, same-seed top pose median 0.895 A against the
 # A/A seed floor 1.784 A, every paired CI covers 0 or sits on the better side, docking 24/44 both;
 # c730 157.98 -> 147.17 s (spd-boltz2 g1/s1, 2026-10-09).
+# triatt_tail is not in the normal set: its 11-set normal grade passed on Wormhole (88 paired folds) but failed on
+# Blackhole p150a (88 paired, seeds 101-108): ipTM -0.0225 [-0.0409, -0.0059], CA-lDDT -0.0003 [-0.0006, -0.0001]
+# (spd-integrate gttbh, 2026-10-12). It was worth ~0.8 s of a 16 s fold at 512 x 1.
 LEVERS_NORMAL = frozenset({"trimul_ibw", "trimul_tail", "trunk_hifi3", "dit_sdpa32", "silu_f32"})
 # Fast: tenstorrent.FAST_LEVERS on the normal path. The process-wide `--fast` switch
 # (tenstorrent._FAST_MODE: bfp8 activations, narrower chunks) is off inside Boltz-2, because on
 # Wormhole c730 it folds in 159.7 s against 135.5 s for normal mode, while this set folds in 123.4 s
 # (l1024: 217.4 / 181.6 / 168.3 s; spd-boltz2 s4, 2026-10-09). Wormhole fast grade against normal, 11-set x 4 seeds:
 # PASS, CA-lDDT +0.0018, pLDDT -0.0002, docking 24/44 both (spd-boltz2 gf1).
+# triatt_tail (the gate, output projection and residual add of triangle attention in one program) is graded on
+# Protenix-v2 in both modes. On Boltz-2 fast at 512 x 1 on p150a it reads 14.60 / 14.67 s against 14.81 / 15.00 s
+# (interleaved, 3 warm each), pLDDT 0.852 -> 0.850 (spd-gap-small abK, 2026-10-12). Boltz-2's own fast grade is owed.
 LEVERS_FAST = frozenset({"acc_off", "diffusion_bf16", "dit_sdpa", "transition_b8", "opm_b8", "atom_sdpa",
-                         "trimul_ibw", "trimul_tail", "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32"})
+                         "trimul_ibw", "trimul_tail", "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32",
+                         "triatt_tail"})
 
 
 def _under_levers(method):
@@ -1658,6 +1665,22 @@ def single_to_keys(single, indexing_matrix, W, H):
     )  # j = 2K, i = W//2, k = h * K
 
 
+def pair_to_atom_windows(z, atom_to_token, to_keys, K, W, H):
+    """``einsum("bijd,bwki,bwlj->bwkld", z, queries, keys)`` over the one-hot ``atom_to_token``,
+    done as the gather it is: entry (w, k, l) is ``z[token(query k), token(key l)]``, or 0 where
+    either atom is padding. Same values (each einsum sum has one nonzero term), without the
+    dense contraction over both token axes that cost ~0.2 s per fold on the host."""
+    B = z.shape[0]
+    valid = atom_to_token.amax(-1)                          # 1 for a real atom, 0 for padding
+    tok = atom_to_token.argmax(-1).to(atom_to_token.dtype)  # token index, exact in fp32
+    tok_q = tok.view(B, K, W).long()
+    tok_k = to_keys(tok.unsqueeze(-1)).view(B, K, H).long()
+    keep = valid.view(B, K, W, 1) * to_keys(valid.unsqueeze(-1)).view(B, K, 1, H)
+    b = torch.arange(B, device=z.device).view(B, 1, 1, 1)
+    out = z[b, tok_q.unsqueeze(-1), tok_k.unsqueeze(-2)]    # [B, K, W, H, D]
+    return out * keep.unsqueeze(-1).to(out.dtype)
+
+
 class AtomEncoder(Module):
     def __init__(
         self,
@@ -1818,18 +1841,9 @@ class AtomEncoder(Module):
                 s_to_c = torch.bmm(atom_to_token, s_to_c)
                 c = c + s_to_c.to(c)
 
-                atom_to_token_queries = atom_to_token.view(
-                    B, K, W, atom_to_token.shape[-1]
-                )
-                atom_to_token_keys = to_keys(atom_to_token)
                 if z_to_p is None:
                     z_to_p = self.z_to_p_trans(z.float())
-                z_to_p = torch.einsum(
-                    "bijd,bwki,bwlj->bwkld",
-                    z_to_p,
-                    atom_to_token_queries,
-                    atom_to_token_keys,
-                )
+                z_to_p = pair_to_atom_windows(z_to_p, atom_to_token, to_keys, K, W, H)
                 p = p + z_to_p.to(p)
 
             p = p + self.c_to_p_trans_q(c.view(B, K, W, 1, c.shape[-1]))

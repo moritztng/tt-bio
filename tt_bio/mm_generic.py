@@ -19,6 +19,9 @@ fused activation, no ternary, no all-gather fusion, N_chunks = 1.
 
 from __future__ import annotations
 
+import collections
+import itertools
+
 import ttnn
 
 from . import dest_guard
@@ -115,6 +118,42 @@ def tile_bytes(dtype):
                          "and bfp8_b") from None
 
 _CACHE: dict = {}
+
+#: Descriptors already built for an address set, keyed `(entry serial, addresses)`, most recent
+#: last. A program's runtime args are its buffer addresses and nothing else that varies, so the
+#: descriptor `rebind` would build for addresses seen before is the one it built then, and a
+#: launch whose buffers sit where an earlier launch's did skips the rebuild: ~107 us of list
+#: writes and binding round-trips per rebind on pc (110 cores, 4 DM kernels), against one dict
+#: lookup. Same descriptor, same program, same arithmetic -- bit-exact by construction. Whether it
+#: HITS is the allocator's business: a fixed-shape loop that allocates in the same order lands on
+#: the same addresses, and `BOUND_STATS` reads the rate. Capped by count at ~34 KB a descriptor,
+#: so the worst case is ~140 MB of host RAM; a cycle longer than the cap only costs the lookup.
+_BOUND: collections.OrderedDict = collections.OrderedDict()
+_BOUND_MAX = 4096
+_SERIAL = itertools.count()
+BOUND_STATS = collections.Counter()
+
+
+def bound_descriptor(entry, addrs):
+    """The descriptor `entry` was given at `addrs` before, or None.
+
+    Keyed on a serial `remember_bound` stamps on the entry rather than `id(entry)`: an id is
+    reused once its dict dies, and a descriptor handed to a different program is a wrong launch.
+    """
+    key = (entry.get("serial"), addrs)
+    pd = _BOUND.get(key)
+    BOUND_STATS["hit" if pd is not None else "miss"] += 1
+    if pd is not None:
+        _BOUND.move_to_end(key)
+    return pd
+
+
+def remember_bound(entry, addrs, pd):
+    if "serial" not in entry:
+        entry["serial"] = next(_SERIAL)
+    _BOUND[(entry["serial"], addrs)] = pd
+    if len(_BOUND) > _BOUND_MAX:
+        _BOUND.popitem(last=False)
 
 
 def ttnn_cpp_root():
@@ -442,7 +481,15 @@ def generic_minimal_matmul(device, in0, in1, outs, cfg, ckc, defines=(), kernel_
     addrs = (in0.buffer_address(), in1.buffer_address(),
              tuple(o.buffer_address() for o in outs))
     if addrs != entry["addrs"]:
-        rebind(entry, *addrs)
+        pd = bound_descriptor(entry, addrs)
+        if pd is None:
+            remember_bound(entry, entry["addrs"], entry["pd"])    # the one `build` made, too
+            rebind(entry, *addrs)
+            remember_bound(entry, entry["addrs"], entry["pd"])
+        else:
+            # `rt` and the kernels keep the last REBUILT addresses; `rebind` rewrites every
+            # address slot, so the next miss starts from them correctly.
+            entry["pd"], entry["addrs"] = pd, addrs
     ttnn.generic_op([in0, in1, *outs], entry["pd"])
     return outs[0] if len(outs) == 1 else outs
 

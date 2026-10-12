@@ -135,6 +135,11 @@ class HostInputs:
 
     def step_inputs(self, r_noisy: torch.Tensor, device
                     ) -> tuple[ttnn.Tensor, ttnn.Tensor]:
+        """`step_inputs_host`, on device."""
+        r_in, ch_in = self.step_inputs_host(r_noisy)
+        return to_device(r_in, device), to_device(ch_in, device)
+
+    def step_inputs_host(self, r_noisy: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """The two per-step atom-level tensors: scaled coordinates and chirality.
 
         The chirality gradient is autograd through the loss module's dihedral term at
@@ -153,7 +158,7 @@ class HostInputs:
                 self.chiral_dihedrals.float(), False).nan_to_num()
         ch_in = torch.zeros(1, Lp, 3)
         ch_in[0, :L] = ch.reshape(-1, 3)[:L]
-        return to_device(r_in, device), to_device(ch_in, device)
+        return r_in, ch_in
 
 
 def distance_onehot(x_pred: torch.Tensor, rep_atom_idxs: torch.Tensor,

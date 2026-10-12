@@ -610,6 +610,63 @@ def test_the_evoformer_path_pads_the_token_axis_before_anything_reaches_the_card
     assert out[4] == 288 and all(a is b for a, b in zip(out[:4], on_tile))
 
 
+
+def _old_upload(a, pad_dims, n32):
+    """What `_inputs` and `_Trunk.up` did before `_into`: copy, float32, zero pad, then bf16."""
+    t = torch.from_numpy(np.asarray(a).copy()).float()
+    pad = []
+    for d in range(t.dim() - 1, -1, -1):
+        pad += [0, n32 - t.shape[d]] if d in pad_dims else [0, 0]
+    return torch.nn.functional.pad(t, pad).to(torch.bfloat16)
+
+
+def _read_only(a):
+    a = np.ascontiguousarray(a, dtype=np.float32)
+    a[(0,) * a.ndim] = np.nan          # the specials round the same way on both paths
+    a.flat[1], a.flat[2], a.flat[3], a.flat[4] = np.inf, -0.0, 3.4e38, 1e-40
+    a.setflags(write=False)            # what a JAX callback hands over
+    return a
+
+
+@pytest.mark.parametrize("n", [275, 288])
+def test_the_inputs_go_up_with_the_same_bits_as_the_float32_pad_did(n):
+    """`_inputs` and the cotangents now pad and round to bf16 in one pass (`_into`).
+
+    Bit-for-bit what the float32 copy, zero pad and `_Trunk.up`'s `.to(torch.bfloat16)` made,
+    on a read-only array with NaN, inf, -0, the bf16 overflow edge and a denormal in it, at a
+    binder length that pads and at one already on the tile.
+    """
+    import collections
+    import warnings
+
+    rng = np.random.default_rng(n)
+    n32 = bindcraft2._pad32(n)
+    msa = _read_only(rng.standard_normal((2, n, 8)) * 40)
+    pair = _read_only(rng.standard_normal((n, n, 4)) * 40)
+    mask, pair_mask = np.ones((2, n), np.float32), np.ones((n, n), np.float32)
+    same = lambda a, b: a.dtype == b.dtype and torch.equal(a.view(torch.int16), b.view(torch.int16))  # noqa: E731
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")         # the read-only view must not warn
+        evo = object.__new__(bindcraft2.EvoformerOnDevice)
+        m, z, maskp, pmp, got_n = evo._inputs(msa, pair, mask, pair_mask)
+        extra = bindcraft2.ExtraMsaOnDevice(pool=None)
+        z2, pmp2, _ = extra._inputs(pair, np.zeros((1, n), np.float32), pair_mask)
+        tmpl = object.__new__(bindcraft2.TemplateOnDevice)
+        tmpl.seen = collections.Counter()
+        act, _, _ = tmpl._inputs(pair, pair_mask)
+        gz = bindcraft2._into(bindcraft2._host_view(pair), (n32, n32, 4), torch.bfloat16)
+        gm = bindcraft2._into(bindcraft2._host_view(msa), (2, n32, 8), torch.bfloat16)
+
+    assert got_n == n
+    assert same(m, _old_upload(msa, {1}, n32))
+    for t in (z, z2, act, gz):
+        assert same(t, _old_upload(pair, {0, 1}, n32))
+    assert same(gm, _old_upload(msa, {1}, n32))
+    assert maskp.dtype == pmp.dtype == pmp2.dtype == torch.float32, "the masks are cache keys"
+    assert maskp.shape == (2, n32) and pmp.shape == pmp2.shape == (n32, n32)
+    assert not msa.flags.writeable and np.isnan(msa[0, 0, 0]), "the caller's array was touched"
+
 def test_an_unknown_validation_trunk_is_refused():
     with pytest.raises(ValueError):
         with bindcraft2.campaign_predictor(validation="cuda"):

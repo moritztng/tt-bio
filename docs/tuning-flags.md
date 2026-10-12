@@ -62,6 +62,7 @@ move against the accuracy bar and the seed-to-seed spread.
 | [`TT_BIO_PWA_BATCH_HEAD_WEIGHTS`](#tt_bio_pwa_batch_head_weights) | on | | identical |
 | [`TT_BIO_PWA_FULL_HEADS_FUSED`](#tt_bio_pwa_full_heads_fused) | on | Boltz-2 (32-wide heads) | identical |
 | [`TT_BIO_REBLOCK_PERMUTE_GATED`](#tt_bio_reblock_permute_gated) | on | | identical |
+| [`TT_BIO_RF3_DIFFUSION_TRACE`](#tt_bio_rf3_diffusion_trace) | on | RoseTTAFold3 | identical |
 | [`TT_BIO_RESIDUAL_L1`](#tt_bio_residual_l1) | on | | identical |
 | [`TT_BIO_SDPA_ADD_GRANULARITY`](#tt_bio_sdpa_add_granularity) | auto | | identical at every value |
 | [`TT_BIO_SDPA_BAND_DIV_K`](#tt_bio_sdpa_band_div_k) | on | Blackhole | moves, inside the bar |
@@ -1086,6 +1087,17 @@ A triangle multiplication moves its pair tensor into a channel-blocked layout, t
 **Accuracy: bit for bit.**
 
 Every triangle multiplication opts in rather than being switched on by model name, so a model whose shapes the fused reader cannot address keeps the separate ops instead of failing.
+
+## `TT_BIO_RF3_DIFFUSION_TRACE`
+
+Default: on. RoseTTAFold3 captures its denoising step as a device trace and replays it for each of the 49
+steps, so the host stops dispatching the step's ~1,600 ops one at a time. `TT_BIO_RF3_DIFFUSION_TRACE=0` runs
+the steps eagerly.
+
+**Accuracy: identical.** Traced and eager folds give the same output.
+
+**Speed:** on a Blackhole p150a at 1350 MHz the 49 steps of a 512-aa fold take 1.6 s instead of 3.6 s, and the
+fold 28.0 s instead of 30.1 s.
 
 ## `TT_BIO_RESIDUAL_L1`
 

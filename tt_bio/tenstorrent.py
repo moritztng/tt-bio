@@ -595,7 +595,8 @@ _FAST_MODE = False
 #                   projections, the residual stream and the superset bias stay fp32. Inert in bf16.
 #   adaln_mod       every fp32 AdaLN modulates in one addcmul, `s_bias + ln(a) * sigmoid(s_scale)`, instead of
 #                   multiply then add: the activation is read and written once. Boltz-2's hoisted token-DiT
-#                   AdaLN (`_B2_ADALN_ADDCMUL`) does the same in any dtype, the sigmoid in the scale matmul.
+#                   AdaLN (`_B2_ADALN_ADDCMUL`) does the same in any dtype, the sigmoid in the scale matmul,
+#                   and so does its DiT's gated residual, `a + s_o * b`.
 #   swiglu_fc12g    inside transition_shard, silu(x w1) * (x w2) as ONE matmul over [w1_j | w2_j] with the silu
 #                   and the gate multiply in the compute kernel (kernels/fc12g): no fc1/fc2 tensors, no
 #                   multiply op; the gate multiplies fc2 in dest rather than its stored copy. Needs silu_f32.
@@ -605,11 +606,14 @@ _FAST_MODE = False
 #                   operands with fp32 accumulation (OpenFold3's DiT)
 #   dit_chunk       the token DiT's fused SDPA takes q = k = the largest 32-aligned divisor of its length up
 #                   to 320 (`_dit_sdpa_chunk`) instead of 256, which pads every length 256 does not divide
+#   conf_bins       OpenFold3's pae / pde heads reduce softmax(logits) to their bin-vector products on the card
+#                   in fp32 (pTM, ipTM, the chain readings, the PAE / PDE matrices), so the [N, N, 64] logits
+#                   never cross to the host
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in",
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
           "transition_shard", "dit_mm16", "atom_k1", "dit_b8", "dit_qkv16", "atom_mm16", "adaln_mod",
-          "swiglu_fc12g", "msa_sample", "dit_sdpa_pm", "dit_s16", "dit_chunk")
+          "swiglu_fc12g", "msa_sample", "dit_sdpa_pm", "dit_s16", "dit_chunk", "conf_bins")
 # Named but in no mode until their fold grade puts them in one.
 UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "adaln_mod"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
@@ -706,8 +710,15 @@ FAST_LEVERS = frozenset(LEVERS) - {"lofi", "triatt_b8", "triatt_bias_b8"} - UNGR
 # Protenix-v2 fast vs fast 0.084 A (floor 0.957 A), docking 33/44 both (g9); OpenDDE fast vs fast 0.000 A
 # (max 0.341 A, floor 1.187 A), docking 24/44 both (g10) (state/spd-opendde.md).
 # OpenDDE c730 at AICLK 1000: normal 395.4 -> 388.7 s; 256 tokens is inert (256 divides it).
+# conf_bins: only the sample ranking can move (the structures are the same folds). OpenFold3 Blackhole 11-set, 44
+# paired folds vs the same tree (b4c30b6c0, --fast): PASS under both bars, same-seed top pose median 0.000 A, max
+# 3.41 A where the ranking picks another sample (A/A floor 1.34 A), CA-lDDT and pLDDT deltas 0.0000, ipTM -0.0011
+# [-0.0027, +0.0004], docking 19 -> 19 of 44; the 5-sample warm fold sum 469.4 -> 453.9 s at 1350 MHz
+# (spd-gap-of3 g14, 2026-10-12). OpenBind-0, same grade: PASS under both bars, top pose median 0.000 A (max
+# 0.682 A, A/A floor 1.209 A), CA-lDDT and pLDDT 0.0000, ipTM -0.0016 [-0.0033, -0.0000] inside CONF_TOL, docking
+# 26 -> 26 of 44.
 NORMAL_LEVERS = frozenset({"trimul_ibw", "trimul_tail", "trunk_hifi3", "dit_sdpa32", "silu_f32", "triatt_tail",
-                           "atom_k1", "dit_mm16", "dit_qkv16", "msa_sample", "dit_sdpa", "dit_chunk"})
+                           "atom_k1", "dit_mm16", "dit_qkv16", "msa_sample", "dit_sdpa", "dit_chunk", "conf_bins"})
 _LEVERS = frozenset()
 # silu_f32 is a kernel, so it needs ttnn's headers patched before the first device open (metal_overlay)
 # in any process that may run it. The patch only changes silu under math_approx_mode, and every fused
@@ -2846,6 +2857,43 @@ def _sdpa_masked(fn, q, k, v, bias, *args, site: str, pad: bool = False, **kw):
 
 # (batch, q_len, heads, head_dim, dtype) -> the (q_chunk, k_chunk, padded) pair `token_dit_sdpa_pm`
 # serves, or None once every pair declined. Filled on the first call of a shape.
+
+def _sdpa_chunk_pad_len(seq_len: int) -> int:
+    """The length to pad a self-attention's q and k axes to so the shipped k chunk divides it, or 0.
+
+    When the tile-padded length is not a multiple of `_capped_sdpa_chunk_size`, ttnn pads the
+    sequence to the chunk grid inside the op, and that path is slow: BoltzGen's 512 aa page design
+    runs its token DiT at 544 tokens (17 tiles, prime), where the op picks q = k = 256 and costs
+    0.905 ms per call on a Wormhole chip. With q/k/v and the bias padded to 768 first, the new keys
+    masked, the grid's own q pick (192 on Wormhole) runs in 0.199 ms and returns an output
+    `torch.equal` to the unpadded call (perf/spd/dit_sdpa_sweep.py); BoltzGen designs at a fixed seed
+    keep identical coordinates. The bias is the expensive operand (19 MB at 768), so it is padded
+    once per rollout (`_stage_token_bias`), not per call.
+    """
+    padded = _padded_sdpa_len(seq_len)
+    kc = _capped_sdpa_chunk_size(seq_len)
+    return 0 if padded % kc == 0 else -(-padded // kc) * kc
+
+
+def _sdpa_to_bias_width(fn):
+    """Wrap a self-attention SDPA `fn(q, k, v, bias)` so q/k/v follow a bias already padded past them.
+
+    `_stage_token_bias` pads the token DiT's bias once per rollout to `_sdpa_chunk_pad_len`, with the
+    new key columns masked; each call then pads only q/k/v (zeros, a few hundred KB) and drops the
+    padded query rows of the output."""
+    def call(q, k, v, bias):
+        L, P = int(q.shape[2]), int(bias.shape[-1])
+        if P == L or int(k.shape[2]) != L:
+            return fn(q, k, v, bias)
+        pad = [(0, 0)] * (len(q.shape) - 2) + [(0, P - L), (0, 0)]
+        o = fn(ttnn.pad(q, pad, value=0.0), ttnn.pad(k, pad, value=0.0), ttnn.pad(v, pad, value=0.0), bias)
+        if o is None:
+            return None
+        sl = o[:, :, :L, :]
+        ttnn.deallocate(o)
+        return sl
+    return call
+
 _DIT_PM_PICK: dict = {}
 
 
@@ -7579,6 +7627,7 @@ TRACE_REGIONS = {
     "diffusion": {"wormhole_b0": 16 << 20, "blackhole": 27 << 20},    # boltz2 / boltzgen DiT step
     "protenix": {"wormhole_b0": 20 << 20, "blackhole": 36 << 20},     # protenix-v1/v2, opendde step
     "openfold3": {"wormhole_b0": 48 << 20, "blackhole": 64 << 20},    # openfold3 / openbind step
+    "rf3": {"wormhole_b0": 48 << 20, "blackhole": 64 << 20},          # rf3 denoiser step, ~1,600 ops like of3's
     "esmc": {"wormhole_b0": 221 << 20, "blackhole": 126 << 20},       # ESMC._TRACE_CACHE_MAX live traces
     "af2": {"wormhole_b0": 240 << 20, "blackhole": 240 << 20},        # AF2 extra-MSA + Evoformer stacks, unmeasured
     # BC2 traced block recomputes (autograd.TRACE_RECOMPUTE). On Wormhole 128 MiB is too small (the
@@ -7594,7 +7643,10 @@ def trace_region_bytes(capture):
     """Bytes of trace region to reserve at open for ``capture`` (a TRACE_REGIONS key) on this arch.
 
     A device total, not per DRAM bank: ttnn reports "only 134217728B is allocated for trace region"
-    for a 128 MiB entry."""
+    for a 128 MiB entry. `TT_BIO_TRACE_REGION_MB` overrides it, for sizing a capture on a new arch."""
+    mb = os.environ.get("TT_BIO_TRACE_REGION_MB")
+    if mb:
+        return int(mb) << 20
     try:
         return TRACE_REGIONS[capture][arch_name()]
     except KeyError:
@@ -11551,6 +11603,19 @@ class AttentionPairBias(Module):
         pad = self.padded_head_dim - self.head_dim
         if not pad:
             return self._kq_norm_one(t, which)
+        if t.dtype == ttnn.bfloat16:
+            # Gather the real lanes and scatter them back with 0/1 matmuls: every output is one
+            # bf16 value times 1.0 plus exact zeros at HiFi4 into fp32, so the same values as the
+            # reshape/slice/concat chain below (RF3 512: ~2.0 s of kernel per fold in 7 layout ops
+            # a call, 2352 calls), with zeros in the pad lanes.
+            gather, scatter, ckc = self._kq_lane_maps()
+            x = ttnn.matmul(t, gather, compute_kernel_config=ckc, dtype=ttnn.bfloat16)
+            n = self._kq_norm_one(x, which)
+            if n is not x:
+                ttnn.deallocate(x)
+            out = ttnn.matmul(n, scatter, compute_kernel_config=ckc, dtype=ttnn.bfloat16)
+            ttnn.deallocate(n)
+            return out
         lead = tuple(t.shape)[:-1]
         x = ttnn.reshape(t, lead + (self.n_heads, self.padded_head_dim))
         x = x[..., : self.head_dim]
@@ -11561,6 +11626,23 @@ class AttentionPairBias(Module):
                        device=self.device, dtype=x.dtype)
         x = ttnn.concat([x, z], dim=-1)
         return ttnn.reshape(x, lead + (self.n_heads * self.padded_head_dim,))
+
+    def _kq_lane_maps(self):
+        """0/1 matrices [H * padded, H * head_dim] and back, bf16 on device, and an exact matmul
+        config for them (HiFi4, fp32 accumulation)."""
+        maps = getattr(self, "_kq_maps", None)
+        if maps is None:
+            H, D, P = self.n_heads, self.head_dim, self.padded_head_dim
+            g = torch.zeros(H * P, H * D)
+            for h in range(H):
+                g[h * P + torch.arange(D), h * D + torch.arange(D)] = 1.0
+            up = lambda m: ttnn.from_torch(m, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT,
+                                           device=self.device)
+            ckc = ttnn.init_device_compute_kernel_config(
+                self.device.arch(), math_fidelity=ttnn.MathFidelity.HiFi4,
+                fp32_dest_acc_en=True, packer_l1_acc=False)
+            maps = self._kq_maps = (up(g), up(g.t().contiguous()), ckc)
+        return maps
 
     def _apply_kq_norm(self, qkv: ttnn.Tensor) -> ttnn.Tensor:
         """Norm the Q and K slices of the fused qkv, in place of an unfused split."""
@@ -11732,7 +11814,8 @@ class AttentionPairBias(Module):
                     o_ = token_dit_sdpa_pm(q_, k_, v_, b_, self.head_dim**-0.5)
                     return stock(q_, k_, v_, b_) if o_ is None else o_
 
-                o = _sdpa_masked(pm if lever("dit_sdpa_pm") else stock, q, k, v, z, site="token_dit")
+                o = _sdpa_masked(_sdpa_to_bias_width(pm if lever("dit_sdpa_pm") else stock),
+                                 q, k, v, z, site="token_dit")
             else:
                 if seq_mask is not None:
                     z = ttnn.add_(z, seq_mask)
@@ -13988,15 +14071,20 @@ class DiffusionTransformerLayer(Module):
                 self.s_o, self._s_o_src = s_o, s
         else:
             s_o = self.s_o
-        b = ttnn.multiply(s_o, b)
+        def gate(a):
+            # adaln_mod: the gated residual a + s_o * b as one addcmul (the product is not rounded
+            # first). Same shapes only: a sample-batched b against a shared s_o keeps the broadcast.
+            if lever("adaln_mod") and tuple(s_o.shape) == tuple(b.shape):
+                return ttnn.addcmul(a, s_o, b, value=1.0)
+            return ttnn.add(a, ttnn.multiply(s_o, b))
         if self.no_residual:
             # transition reads the block input, so it must be evaluated BEFORE a
             # absorbs the attention output
             a_t = self.transition(a, s, large_seq_len=large_seq_len,
                                   cond=None if cond is None else (t_trans, s_o2_pre))
-            a = ttnn.add(ttnn.add(a, b), a_t)
+            a = ttnn.add(gate(a), a_t)
         else:
-            a = ttnn.add(a, b)
+            a = gate(a)
             a_t = self.transition(a, s, large_seq_len=large_seq_len,
                                   cond=None if cond is None else (t_trans, s_o2_pre))
             a = ttnn.add(a, a_t)
@@ -16152,9 +16240,21 @@ class DiffusionModule(TorchWrapper):
             seq_mask = torch.zeros(1, 1, 1, padded_seq)
             seq_mask[..., seq_len:] = -1e9
             bias_token_tt = ttnn.add_(bias_token_tt, self._from_torch(seq_mask))
-        return self._hoist_layer_bias(
+        parts = self._hoist_layer_bias(
             bias_token_tt,
             None if self.module.token_transformer_fp32 else self.module.token_transformer)
+        # Stock SDPA only: `dit_sdpa_pm` picks its own chunks and read slower padded on a p150a
+        # (BoltzGen fast, 52 -> 56-62 ms a step), so it keeps the unpadded bias.
+        to = _sdpa_chunk_pad_len(padded_seq) if _B2_TOKEN_DIT_SDPA and not lever("dit_sdpa_pm") else 0
+        if to and isinstance(parts, list):
+            # The fused SDPA's k chunk does not divide the sequence: pad each layer's bias here, once
+            # per rollout and one layer at a time (no full-size second copy), new keys masked, so no
+            # call pads inside the op (`_sdpa_chunk_pad_len`, `_sdpa_to_bias_width`).
+            for i, b in enumerate(parts):
+                nb = len(b.shape)
+                b = ttnn.pad(b, [(0, 0)] * (nb - 2) + [(0, to - padded_seq), (0, 0)], value=0.0)
+                parts[i] = ttnn.pad(b, [(0, 0)] * (nb - 1) + [(0, to - padded_seq)], value=_SDPA_PAD_MASK)
+        return parts
 
     def _hoist_layer_bias(self, bias: ttnn.Tensor, transformer):
         """L7: cut the per-layer head-ranges once, here, instead of once per denoise step.
