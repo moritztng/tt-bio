@@ -47,7 +47,7 @@ def eligible(x, w12, w3) -> bool:
         and nh % _SW == 0 and kt * 2 * nh + nh * ct <= 512
 
 
-def _build(x, w12, w3, out, device, mt, kt, nh, ct):
+def _build(x, w12, w3, out, device, mt, kt, nh, ct, fidelity):
     g = device.compute_with_storage_grid_size()
     num_cores, grid, cg1, cg2, work1, work2 = core_split.split_work_to_cores(g, mt, 0)
 
@@ -80,13 +80,15 @@ def _build(x, w12, w3, out, device, mt, kt, nh, ct):
                                    config=ttnn.WriterConfigDescriptor())
     compute = ttnn.KernelDescriptor(
         kernel_source=src("compute.cpp"), source_type=path, core_ranges=grid, compile_time_args=[kt, nh, ct],
-        runtime_args=cp, config=ttnn.ComputeConfigDescriptor(math_fidelity=ttnn.MathFidelity.HiFi4,
+        runtime_args=cp, config=ttnn.ComputeConfigDescriptor(math_fidelity=fidelity,
                                                              fp32_dest_acc_en=True))
     return [reader, writer, compute], cbs
 
 
-def pair_swiglu(x, w12, w3):
-    """`fc3(silu(x @ w1) * (x @ w2))` for a bfloat16 TILE `x` [..., C]; a new DRAM tensor [..., C_out]."""
+def pair_swiglu(x, w12, w3, fidelity=ttnn.MathFidelity.HiFi4):
+    """`fc3(silu(x @ w1) * (x @ w2))` for a bfloat16 TILE `x` [..., C]; a new DRAM tensor [..., C_out].
+
+    Accumulation is fp32 in dest at every fidelity; `fidelity` is the caller's matmul fidelity."""
     device = x.device()
     xs = [int(d) for d in x.padded_shape]
     mt = 1
@@ -96,9 +98,9 @@ def pair_swiglu(x, w12, w3):
     kt, nh, ct = xs[-1] // 32, int(w3.shape[0]) // 32, int(w3.shape[-1]) // 32
     out = ttnn.allocate_tensor_on_device(ttnn.Shape([int(d) for d in x.shape][:-1] + [int(w3.shape[-1])]), ttnn.bfloat16,
                                          ttnn.TILE_LAYOUT, device, ttnn.DRAM_MEMORY_CONFIG)
-    key = (device.id(), tuple(xs), nh, ct, x.memory_config().buffer_type)
+    key = (device.id(), tuple(xs), nh, ct, x.memory_config().buffer_type, fidelity)
     if key not in _CACHE:
-        _CACHE[key] = _build(x, w12, w3, out, device, mt, kt, nh, ct)
+        _CACHE[key] = _build(x, w12, w3, out, device, mt, kt, nh, ct, fidelity)
     kernels, cbs = _CACHE[key]
     kernels[0].common_runtime_args = [x.buffer_address(), w12.buffer_address(), w3.buffer_address()]
     kernels[1].common_runtime_args = [out.buffer_address()]

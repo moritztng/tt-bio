@@ -1104,7 +1104,7 @@ class Transition(Module):
         if not _WS.eligible(x, self._ws12, self.fc3_w):
             return None
         xn = ttnn.rms_norm(x, weight=self.norm_w, epsilon=1e-6, compute_kernel_config=self.compute_kernel_config)
-        out = _WS.pair_swiglu(xn, self._ws12, self.fc3_w)
+        out = _WS.pair_swiglu(xn, self._ws12, self.fc3_w, self.compute_kernel_config.math_fidelity)
         ttnn.deallocate(xn)
         return out
 
