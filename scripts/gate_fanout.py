@@ -166,6 +166,10 @@ WITHDRAWN = -1           # run_in_pool's code for "taken back from the queue bef
 CARD_PROBE = ("import sys; sys.path.insert(0, 'scripts'); "
               "from capacity_gate import _CARD_PROBE; exec(_CARD_PROBE)")
 CARD_PROBE_S, CARD_PROBE_LOCK_S = 300, 1800
+#: A card is dead only when it fails every one of these probes, a gap apart. One failed probe right
+#: after a failed leg is not enough: qb1 card 2 failed one on 2026-10-12 08:01Z after a protenix-v2
+#: record leg's fold workers died, was retired, and was running an SPD bench minutes later.
+CARD_PROBE_TRIES, CARD_PROBE_GAP_S = 3, 60
 QUEUED: dict = {}         # pool job file -> host, taken back if the runner is stopped
 RUNNING: dict = {}        # leg out dir -> host, its attempt ended if the runner is stopped
 CARD_FREE = ("check", "packaging_smoke", "pytest_cpu")
@@ -858,12 +862,23 @@ class Host:
                 f"env {mark} setsid -w bash -c {attempt}")   # no exec: a pool job writes rc after it
 
     def card_dead(self, card) -> str | None:
+        """Why `card` failed CARD_PROBE_TRIES probes in a row, or None once one passes."""
+        why = None
+        for i in range(CARD_PROBE_TRIES):
+            if i:
+                time.sleep(CARD_PROBE_GAP_S)
+            why = self.probe_card(card)
+            if why is None:
+                return None
+        return why
+
+    def probe_card(self, card) -> str | None:
         """Why `card` cannot open and dispatch a program, or None when it can. A probe that never
         got the card's flock, or never started, says nothing about the card and reads as None."""
         env = {"PYTHONPATH": self.tree, "TT_VISIBLE_DEVICES": str(card), **self.cfg.get("env", {})}
         body = (f"echo CARD_PROBE_START; env {' '.join(f'{k}={shlex.quote(v)}' for k, v in env.items())} "
                 f"timeout -s KILL {CARD_PROBE_S} {self.python('parity')} -c {shlex.quote(CARD_PROBE)} 2>&1 "
-                f"| tail -n 4")
+                f"| grep -v -e '| DEBUG' -e '^Config{{' | tail -n 12")
         lock = self.cfg.get("lock")
         lock = f"flock -w {CARD_PROBE_LOCK_S} {shlex.quote(lock.format(card=card))} " if lock else ""
         r = self.ssh(f"cd {self.tree} && {lock}bash -c {shlex.quote(body)}",
@@ -871,7 +886,7 @@ class Host:
         out = r.stdout or ""
         if "CARD_PROBE_START" not in out or "CARD_HEALTHY" in out:
             return None
-        return out.split("CARD_PROBE_START", 1)[1].strip()[-600:] or "the probe printed nothing"
+        return out.split("CARD_PROBE_START", 1)[1].strip()[-1200:] or "the probe printed nothing"
 
     @staticmethod
     def end_attempt(out: str) -> str:
