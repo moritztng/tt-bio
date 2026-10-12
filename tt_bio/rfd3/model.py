@@ -379,6 +379,10 @@ _HIFI2 = env_flag("RFD3_HIFI2", False)
 # mask-size cap is the atom SDPA's.
 _DIT_SDPA = env_flag("RFD3_DIT_SDPA", True)
 DIT_SDPA_CALLS = [0]
+# The stacked DiT mask comes out padded to n_key when z is zero-padded to [B, n_key, n_key, c] and the
+# neighbour mask -1e4-padded before the projection: a pad row projects to 0, and 0 * sqrt(d) + -1e4 is
+# the -1e4 the two stack pads would write. One pad of z (128 channels) replaces two of the 288-head stack.
+_DIT_MASK_ZPAD = env_flag("RFD3_DIT_MASK_ZPAD", False)
 # The DiT builds all 18 blocks' masks in one pass while the stack fits under this many bytes
 # (bf16, 18 x 16 heads x n_key^2: 1317 tokens); above it each block builds its own.
 _DIT_SDPA_STACK_BYTES = int(float(os.environ.get("RFD3_DIT_SDPA_STACK_BYTES", "1e9")))
@@ -3208,12 +3212,20 @@ class LocalTokenTransformer(Module):
                               for i in range(len(self.blocks))], dim=1)
             self._b_w_packed = ttnn.from_torch(cols, layout=ttnn.TILE_LAYOUT, device=self.device,
                                                dtype=self.dtype)
+        pad = n_key - int(z.shape[1]) if _DIT_MASK_ZPAD else 0
+        if pad:
+            z = ttnn.pad(z, [(0, 0), (0, pad), (0, pad), (0, 0)], 0.0)
+            additive_mask = pad_axis(pad_axis(additive_mask, n_key, 3, -1e4), n_key, 2, -1e4)
         pb = _tuned_linear(z, self._b_w_packed, ckc=self.compute_kernel_config, dtype=self.dtype,
                            core_grid=CORE_GRID_MAIN)
+        if pad:
+            ttnn.deallocate(z)
         pb_t = ttnn.permute(pb, (0, 3, 1, 2))
         ttnn.deallocate(pb)
         masks = _sdpa_dense_mask(pb_t, additive_mask, self.blocks[0].head_dim, n_key)
         ttnn.deallocate(pb_t)
+        if pad:
+            ttnn.deallocate(additive_mask)
         return masks
 
     def run_device(self, a, s, z, additive_mask):
