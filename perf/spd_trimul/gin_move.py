@@ -4,7 +4,7 @@ route (resident split call `fused_tail(split=2, mask)` then two plain `_channel_
 Both give a, b as [1, C, S, S]; a carries the pair mask. Reports the float64 relative RMS of each,
 the max difference between the two routes, and ms per call (synced, best of reps).
 
-usage: TT_VISIBLE_DEVICES=<chip> python perf/spd_trimul/gin_move.py [--n 736] [--c 128] [--calls 10]
+usage: TT_VISIBLE_DEVICES=<chip> python perf/spd_trimul/gin_move.py [--n 736] [--c 128] [--k 256] [--calls 10]
 """
 import argparse, json, sys, time
 from pathlib import Path
@@ -13,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 ap = argparse.ArgumentParser()
 ap.add_argument("--n", type=int, default=736)
 ap.add_argument("--c", type=int, default=128, help="channels per output chunk (a and b each)")
+ap.add_argument("--k", type=int, default=256, help="input channels (AF2's pair: 128)")
 ap.add_argument("--calls", type=int, default=10)
 ap.add_argument("--reps", type=int, default=3)
 ap.add_argument("--nomask", action="store_true")
@@ -33,7 +34,7 @@ from tt_bio.af2 import compute_kernel_config
 dev = T.get_device()
 ckc = MG.ckc_args(T.trunk_compute_kernel_config(compute_kernel_config()))
 grid = tuple(T.COMPUTE_GRID_MAIN)
-n, C, K = A.n, A.c, 256
+n, C, K = A.n, A.c, A.k
 g = torch.Generator().manual_seed(0)
 x = torch.randn(1, n, n, K, generator=g).to(torch.bfloat16)
 wp = (torch.randn(K, 2 * C, generator=g) / 16).to(torch.bfloat16)
