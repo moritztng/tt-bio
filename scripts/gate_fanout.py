@@ -711,6 +711,14 @@ class Host:
             raise SystemExit(f"{self.name}: cannot prepare {t} at {self.sha}: "
                              f"{(p.stderr or p.stdout).strip()[-600:]}")
         print(f"{self.name}: {p.stdout.strip()}")
+        # The runner's copy of gate_reads.py into every venv a leg runs under (READS), as a .pth
+        # hook so it loads whatever PYTHONPATH a gate script gives its children. Not into a system
+        # interpreter: a leg on one records nothing and reuses on identical code only.
+        hook = (REPO / "scripts" / "gate_reads.py").read_text()
+        site = ("import sys, sysconfig; sys.prefix != sys.base_prefix and print(sysconfig.get_paths()['purelib'])")
+        for py in sorted({self.python(f) for f in EXPECT}):
+            self.ssh(f"s=$({py} -c {shlex.quote(site)}) && [ -n \"$s\" ] && cat > $s/_gate_reads.py && "
+                     f"echo 'import _gate_reads' > $s/_gate_reads.pth", input=hook, timeout=120)
 
     def python(self, family: str) -> str:
         """The interpreter a leg family runs under (pytest and the BindCraft 2 leg need the
