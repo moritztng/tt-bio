@@ -811,7 +811,9 @@ def screen(
     0.058). Seeding makes a tt-bio screen repeatable. Pass None for upstream behaviour.
     """
     from tt_bio.nesso1_input import CLI_PREDICT_ARGS, collate, prepare
+    from tt_bio.runtime import reuse_freed_heap
 
+    reuse_freed_heap()
     out = Path(out_dir).expanduser()
     out.mkdir(parents=True, exist_ok=True)
     dataset, manifest, failed = prepare(

@@ -30,6 +30,8 @@ def main() -> None:
     ap.add_argument("--seed", type=int, default=20260820)
     ap.add_argument("--split", action="store_true",
                     help="also time the forward's parts (trunk passes, ESM fold-in, crop, affinity)")
+    ap.add_argument("--reuse-heap", action="store_true",
+                    help="call runtime.reuse_freed_heap() first, as screen() does on trees that have it")
     ap.add_argument("--cpu-glue", action="store_true",
                     help="host model with the trunk stubbed to identity: times the host glue alone, no device")
     a = ap.parse_args()
@@ -39,6 +41,9 @@ def main() -> None:
     from tt_bio.nesso1 import REPORTED_SCALARS, Nesso1
     from tt_bio.nesso1_input import CLI_PREDICT_ARGS, collate, prepare
 
+    if a.reuse_heap:
+        from tt_bio.runtime import reuse_freed_heap
+        assert reuse_freed_heap(), "mallopt refused"
     out = Path(a.out)
     shutil.rmtree(out, ignore_errors=True)
     (out / "in").mkdir(parents=True)
