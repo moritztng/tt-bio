@@ -64,7 +64,7 @@ def _l1_bytes(kt, nh, ct, wdtype, xdtype=ttnn.bfloat16) -> int:
             + (2 * _SW + 2 * nh + 2 * ct) * _TILE)
 
 
-def _build(x, w12, w3, out, device, mt, kt, nh, ct, fidelity, defines=()):
+def _build(x, w12, w3, out, device, mt, kt, nh, ct, fidelity, defines=(), silu_poly=True):
     g = device.compute_with_storage_grid_size()
     num_cores, grid, cg1, cg2, work1, work2 = core_split.split_work_to_cores(g, mt, 0)
 
@@ -97,17 +97,19 @@ def _build(x, w12, w3, out, device, mt, kt, nh, ct, fidelity, defines=()):
                                    compile_time_args=wct, runtime_args=wr, common_runtime_args=[0],
                                    defines=list(defines), config=ttnn.WriterConfigDescriptor())
     compute = ttnn.KernelDescriptor(
-        kernel_source=src("compute.cpp"), source_type=path, core_ranges=grid, compile_time_args=[kt, nh, ct],
+        kernel_source=src("compute.cpp"), source_type=path, core_ranges=grid, compile_time_args=[kt, nh, ct, int(silu_poly)],
         runtime_args=cp, defines=list(defines), config=ttnn.ComputeConfigDescriptor(math_fidelity=fidelity,
                                                              fp32_dest_acc_en=True))
     return [reader, writer, compute], cbs
 
 
-def pair_swiglu(x, w12, w3, fidelity=ttnn.MathFidelity.HiFi4, defines=()):
+def pair_swiglu(x, w12, w3, fidelity=ttnn.MathFidelity.HiFi4, defines=(), silu_poly=True):
     """`fc3(silu(x @ w1) * (x @ w2))` for a TILE `x` [..., C]; a new bfloat16 DRAM tensor [..., C_out].
 
     Accumulation is fp32 in dest at every fidelity; `fidelity` is the caller's matmul fidelity. `defines` are
-    the kernels' WS_NO_* time-attribution switches (perf/spd_fastmode/ws_attr.py), empty in production."""
+    the kernels' WS_NO_* time-attribution switches (perf/spd_fastmode/ws_attr.py), empty in production.
+    `silu_poly` takes sigmoid_poly.hpp's silu (sigmoid factor within 3e-4) over metal's silu_tile, whose
+    fp32-dest exp + reciprocal was ~85 % of the kernel on WH (c_z 128: 8.97 ms with it, 1.37 ms without)."""
     device = x.device()
     xs = [int(d) for d in x.padded_shape]
     mt = 1
@@ -118,9 +120,9 @@ def pair_swiglu(x, w12, w3, fidelity=ttnn.MathFidelity.HiFi4, defines=()):
     out = ttnn.allocate_tensor_on_device(ttnn.Shape([int(d) for d in x.shape][:-1] + [int(w3.shape[-1])]), ttnn.bfloat16,
                                          ttnn.TILE_LAYOUT, device, ttnn.DRAM_MEMORY_CONFIG)
     key = (device.id(), tuple(xs), nh, ct, x.memory_config().buffer_type, fidelity, w12.dtype, x.dtype,
-           tuple(defines))
+           tuple(defines), silu_poly)
     if key not in _CACHE:
-        _CACHE[key] = _build(x, w12, w3, out, device, mt, kt, nh, ct, fidelity, defines)
+        _CACHE[key] = _build(x, w12, w3, out, device, mt, kt, nh, ct, fidelity, defines, silu_poly)
     kernels, cbs = _CACHE[key]
     kernels[0].common_runtime_args = [x.buffer_address(), w12.buffer_address(), w3.buffer_address()]
     kernels[1].common_runtime_args = [out.buffer_address()]
