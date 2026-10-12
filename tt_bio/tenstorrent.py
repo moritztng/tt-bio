@@ -618,7 +618,7 @@ _FAST_MODE = False
 #   trimul_t2       its output tail, layer_norm + p projection + sigmoid(g_out) gate + residual add, as one
 #                   kernel writing z in place (kernels/trimul_tail_res, compute_ln.cpp; c_z = 128, N >= 160)
 #   transition_t3   the pair Transition (layer_norm, fc1 + silu, fc2, gate, fc3, residual) as one kernel per
-#                   row tile with the weights resident in L1 (kernels/transition_t3; Blackhole, c = 128, hidden 512)
+#                   row tile with the weights resident in L1 (kernels/transition_t3; c = 128, hidden 512; HiFi3/HiFi2, declines HiFi4)
 #   conf_bins       OpenFold3's pae / pde heads reduce softmax(logits) to their bin-vector products on the card
 #                   in fp32 (pTM, ipTM, the chain readings, the PAE / PDE matrices), so the [N, N, 64] logits
 #                   never cross to the host
