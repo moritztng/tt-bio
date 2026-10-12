@@ -30,7 +30,7 @@ _SW = 4                   # hidden tiles per dest pass (one fp32 dest half)
 _L1_BUDGET = 1100 * 1024
 
 
-SILU_POLY = 1
+SILU_POLY = 2  # ws5 on WH 1000 MHz: c_z 128 fast 5.64 -> 4.77 ms, c_z 256 13.08 -> 11.28, rel_rms to float64 unchanged
 
 
 def _tile_bytes(dtype) -> int:
