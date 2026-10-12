@@ -22,6 +22,7 @@ import torch
 from torch import Tensor, nn
 
 from tt_bio import tenstorrent
+from tt_bio.boltz2 import _device_conditioning, _fuse_bias_stack
 from tt_bio.tenstorrent import (
     MiniformerModule as TTMiniformerModule,
     MSAModule as TTMSAModule,
@@ -544,6 +545,7 @@ class Boltz(nn.Module):
                 mask = feats["token_pad_mask"].float()
                 pair_mask = mask[:, :, None] * mask[:, None, :]
 
+            device_z = None
             if not self.inverse_fold:
                 # Run the whole recycling loop resident on the Tenstorrent device
                 # (no per-iteration host round-trips for the recycle glue,
@@ -553,10 +555,16 @@ class Boltz(nn.Module):
                 # iteration); host loop kept as an explicit fallback.
                 if self.use_resident_trunk:
                     _trunk = self._tt_trunk_module()
+                    # Boltz-2's TT_BIO_DEVICE_CONDITIONING: the conditioning's pair track reads
+                    # the trunk's pair tensor where it already is (see the conditioning below).
+                    device_conditioning = (
+                        not self.checkpoint_diffusion_conditioning and _device_conditioning())
                     s, z = _trunk(
                         s_inputs, s_init, z_init, feats, recycling_steps,
-                        relative_position_encoding,
+                        relative_position_encoding, keep_device_z=device_conditioning,
                     )
+                    if device_conditioning:
+                        device_z = _trunk.pop_device_z()
                     # Its staged inputs are dead now; see the same call in boltz2.py.
                     _trunk.reset_static_cache()
                     _emit_progress("trunk", recycling_steps + 1, recycling_steps + 1)
@@ -614,6 +622,20 @@ class Boltz(nn.Module):
                         relative_position_encoding,
                         feats,
                     )
+                elif device_z is not None:
+                    # Built per call, like the trunk driver: BoltzGen swaps checkpoints mid-run.
+                    dc = self.diffusion_conditioning
+                    weight, bias, _shape, eps = _fuse_bias_stack(dc.token_trans_proj_z)
+                    cond = tenstorrent.PairConditioningDevice(
+                        dc.pairwise_conditioner, weight, bias, eps, dc.atom_encoder.z_to_p_trans,
+                        self.msa_module.compute_kernel_config,
+                    )
+                    z_to_p, token_trans_bias = cond(
+                        device_z[0], relative_position_encoding, z.shape[1], device_z[1])
+                    tenstorrent.free(device_z[0])
+                    device_z = None
+                    q, c, to_keys, atom_enc_bias, atom_dec_bias = dc.forward_atoms(
+                        s_trunk=s, z_to_p=z_to_p, feats=feats)
                 else:
                     (
                         q,

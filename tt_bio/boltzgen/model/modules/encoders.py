@@ -471,6 +471,7 @@ class AtomEncoder(Module):
         feats,
         s_trunk=None,  # Float['bm n ts'],
         z=None,  # Float['bm n n tz'],
+        z_to_p=None,  # Float['bm n n az'], `z_to_p_trans(z)` already applied (device conditioning)
     ):
         with torch.autocast("cuda", enabled=False):
             B, N, _ = feats["ref_pos"].shape
@@ -534,7 +535,8 @@ class AtomEncoder(Module):
 
             atom_to_token_queries = atom_to_token.view(B, K, W, atom_to_token.shape[-1])
             atom_to_token_keys = to_keys(atom_to_token)
-            z_to_p = self.z_to_p_trans(z.float())
+            if z_to_p is None:
+                z_to_p = self.z_to_p_trans(z.float())
             z_to_p = torch.einsum(
                 "bijd,bwki,bwlj->bwkld",
                 z_to_p,

@@ -108,3 +108,10 @@ class DiffusionConditioning(Module):
             atom_dec_bias,
             token_trans_bias,
         )
+
+    def forward_atoms(self, s_trunk, z_to_p, feats):
+        """The atom track of ``forward``, with the pair track already done on the device
+        (``tenstorrent.PairConditioningDevice`` returns ``z_to_p`` and the token bias)."""
+        q, c, p, to_keys = self.atom_encoder(feats=feats, s_trunk=s_trunk, z_to_p=z_to_p)
+        return (q, c, to_keys,
+                _bias_stack(self.atom_enc_proj_z, p), _bias_stack(self.atom_dec_proj_z, p))
