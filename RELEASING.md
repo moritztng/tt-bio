@@ -20,6 +20,11 @@ python3 scripts/release_next.py --gates ~/gates   # GATE <sha> | WAIT | FIX | CU
 If a newer staging lands while a gate runs, finish that gate (do not restart it), release it if
 it passes, and start the next gate on the new head right away.
 
+Anything committed for a release (re-recorded baselines and records, gate fixes, a hotfix the
+gate forced) goes back to `main` as soon as the tag is cut. Otherwise the next gate on `main`
+owes every baseline again: 0.15.1's branch held 44 such commits and `main`'s next gate read 11
+size ladders OWED.
+
 ## Run the gate
 
 `scripts/gate_fanout.py` runs every gate below as independent legs (each parity leg, each
