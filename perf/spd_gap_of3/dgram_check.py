@@ -3,7 +3,7 @@
     python perf/spd_gap_of3/dgram_check.py --out out/dgram [--n 512] [--scale 30] [--ckpt of3-p2-155k.pt]
 
 z ~ N(0, scale) at [1, N, N, 128] uploaded bf16 (the trunk pair's dtype), the real checkpoint's distogram weight.
-Reports max / rms abs error of the device logits and of the old host fp32 path against float64 on the same
+Also block 0's attention-pair bias (_pair_bias_device) against float64. Reports max / rms abs error of the device logits and of the old host fp32 path against float64 on the same
 bf16-rounded z, plus the bin argmax agreement, and the device call's wall time (median of --reps, synced).
 """
 import argparse, json, os, statistics, time
@@ -50,6 +50,17 @@ def main():
                      "argmax_agree": float((x.argmax(-1) == ref.argmax(-1)).double().mean())}
     rep = {"arch": str(dev.arch()), "n": a.n, "scale": a.scale, "ref_rms": float(ref.pow(2).mean().sqrt()),
            "device": err(out), "host_fp32": err(host), "device_ms_median": 1e3 * statistics.median(times[1:])}
+    # Block 0's attention-pair bias (LN_z + linear_z, fp32 on device): same z, float64 reference.
+    from tt_bio.openfold3_confidence import _BLK
+    pfx = (_BLK % 0) + "attn_pair_bias."
+    W = lambda k: head._w[pfx + k].double()
+    zn = torch.nn.functional.layer_norm(z.double(), (z.shape[-1],), W("layer_norm_z.weight"),
+                                        W("layer_norm_z.bias"), eps=1e-5)
+    bref = torch.nn.functional.linear(zn, W("linear_z.weight")).permute(2, 0, 1)
+    bdev = head._pair_bias_device(z_d, 0, a.n).double()
+    rep["pair_bias"] = {"ref_rms": float(bref.pow(2).mean().sqrt()),
+                        "max_abs": float((bdev - bref).abs().max()),
+                        "rms": float(((bdev - bref) ** 2).mean().sqrt())}
     a.out.mkdir(parents=True, exist_ok=True)
     (a.out / "dgram.json").write_text(json.dumps(rep, indent=1))
     print(json.dumps(rep, indent=1))
