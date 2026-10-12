@@ -1102,3 +1102,103 @@ def test_a_rung_group_goes_only_to_a_card_whose_ladder_walks_it(tmp_path):
     assert gf.rungs_fit(roster, wh, legs["ladder:boltz2@1152-1280"])        # 1280
     assert not gf.rungs_fit(roster, p300c, legs["ladder:rf3@1152-1280"])
     assert gf.rungs_fit(roster, p300c, gf.Leg("rg:x", [], "rg"))
+
+
+
+def test_record_abb3_leg_only_with_its_flag_and_only_on_p300c():
+    assert gf.ABB3_LEG not in [lg.name for lg in gf.build_legs(ROSTER, [], 1)]
+    leg = {lg.name: lg for lg in gf.build_legs(ROSTER, [], 1, record_abb3=True)}[gf.ABB3_LEG]
+    assert leg.family == "record" and leg.workdir and leg.card_types == ("p300c",)
+
+    class H:
+        def __init__(self, ct):
+            self.cfg = {"card_type": ct}
+    assert gf.type_fits(H("p300c"), leg) and not gf.type_fits(H("p150a"), leg)
+    assert gf.type_fits(H("p150a"), gf.Leg("x", [], "rg"))
+
+
+MODEL_REC = """# The model gate.
+RECORDED-AT: {sha} scripts/abb3_port/model_gate.py
+#
+=== raw ===
+{rows}"""
+STEP_REC = """# The step gate.
+RECORDED-AT: {sha} scripts/abb3_port/step_gate.py
+#
+== --micro 8 ==
+TT_FATAL: Out of Memory: Not enough space to allocate 100663296 B DRAM buffer
+== default: --micro 4 ==
+{step}"""
+ARM = "  ok   frames  1.0e-02  0.0e+00\n  {v} angles  {a}  0.0e+00\n  grad on   atom14 positions: max 0.2 A\n"
+STEP = ("  taped device parameters: 500\n  step   1  19.7 s  loss 4.9937\n  step  10  19.0 s  loss {l10}\n"
+        "STEP: median 19.379 s over 10 COMPLETE steps\n"
+        "CLOCK: AICLK during the run: card 0 min 1343 median 1350 max 1350 MHz over 80\n"
+        "DRAM: peak 30981 MB of the card's 32640 MB\n")
+
+
+def _abb3_tree(tmp_path, arms, step, step_rc=0, oom=True):
+    """A tree whose abb3 gate scripts print canned output, and its committed records."""
+    (tmp_path / "scripts/abb3_port").mkdir(parents=True)
+    (tmp_path / "perf/abb3_port").mkdir(parents=True)
+    (tmp_path / "out").mkdir()
+    (tmp_path / "arms.json").write_text(json.dumps(arms))
+    (tmp_path / "scripts/abb3_port/model_gate.py").write_text(
+        "import json, sys\nfrom pathlib import Path\n"
+        "a = json.loads((Path(__file__).parents[2] / 'arms.json').read_text())[sys.argv[4] + '/' + sys.argv[2]]\n"
+        "print(a); sys.exit('FAIL' in a)\n")
+    (tmp_path / "scripts/abb3_port/step_gate.py").write_text(
+        "import sys\n"
+        f"if '--micro' in sys.argv:\n    print({'TT_FATAL: Out of Memory: Not enough space to allocate 67108864 B' if oom else 'ok'!r}); sys.exit({int(oom)})\n"
+        f"print({step!r}); sys.exit({step_rc})\n")
+    return tmp_path
+
+
+def _abb3_run(tree, sha="b" * 40):
+    return subprocess.run([sys.executable, "-c", gf.ABB3_RECORD, str(tree / "out"), sha, "qb2:3", "p300c",
+                           str(gf.ABB3_LOSS_TOL), *gf.ABB3_FILES], cwd=tree, capture_output=True, text=True)
+
+
+def _abb3_commit(tree, arms, step):
+    order = [arms[f"{s}/{t}"] for s in ("0.05", "0.3") for t in ("64", "256")]
+    (tree / gf.ABB3_FILES[0]).write_text(MODEL_REC.format(sha="a" * 40, rows="".join(order)))
+    (tree / gf.ABB3_FILES[1]).write_text(STEP_REC.format(sha="a" * 40, step=step))
+
+
+ARMS = {f"{s}/{t}": ARM.format(v="ok  ", a="1.5e-02") for s in ("0.05", "0.3") for t in ("64", "256")}
+ARMS["0.3/256"] = ARM.format(v="FAIL", a="5.11e-02")
+
+
+def test_record_abb3_rerecords_when_every_row_matches(tmp_path):
+    tree = _abb3_tree(tmp_path, ARMS, STEP.format(l10="4.9911"))
+    _abb3_commit(tree, ARMS, STEP.format(l10="4.9910"))   # a last-digit loss move is within tolerance
+    r = _abb3_run(tree)
+    assert r.returncode == 0, r.stderr
+    model = (tree / "out/model_gate_qb1c3.txt").read_text()
+    step = (tree / "out/step_gate_default_qb1c3.txt").read_text()
+    assert f"RECORDED-AT: {'b' * 40} scripts/abb3_port/model_gate.py" in model and "a" * 40 not in model
+    assert "identical to the aaaaaaaaa record, which still FAILs angles at 5.11e-02 (sigma 0.3, 256 tokens)" \
+        in " ".join(ln.lstrip("# ") for ln in model.splitlines())
+    assert model.index("RE-RECORDED") < model.index("=== raw ===")
+    flat = " ".join(ln.lstrip("# ") for ln in step.splitlines())
+    assert "Losses 4.9937 / 4.9911 at steps 1, 10, 500 taped parameters and the 30981 MB DRAM peak" in flat
+    assert "67,108,864 B request" in flat and "AICLK median 1350 (min 1343)" in flat
+    assert (tree / "out/model_gate.txt").exists() and (tree / "out/step_gate_micro8.txt").exists()
+
+
+@pytest.mark.parametrize("change", ["row", "loss", "peak", "fits"])
+def test_record_abb3_fails_on_any_difference(tmp_path, change):
+    arms, step, oom = dict(ARMS), STEP.format(l10="4.9911"), True
+    committed = dict(ARMS)
+    if change == "row":
+        arms["0.05/64"] = ARM.format(v="ok  ", a="1.6e-02")
+    elif change == "loss":
+        step = STEP.format(l10="4.9921")
+    elif change == "peak":
+        step = step.replace("30981", "31002")
+    else:
+        oom = False
+    tree = _abb3_tree(tmp_path, arms, step, oom=oom)
+    _abb3_commit(tree, committed, STEP.format(l10="4.9911"))
+    r = _abb3_run(tree)
+    assert r.returncode != 0 and "abb3 records do not match" in r.stderr
+    assert not (tree / "out/model_gate_qb1c3.txt").exists()

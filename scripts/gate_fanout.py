@@ -24,6 +24,8 @@ A ladder leg whose model's baseline has no row for a lever its fold resolves (ow
 folded: it reads OWED, failing the verdict, which names the `--record-lever` run that clears it.
   record:<model>     release_gate.py --size-ladder-record-lever <FLAGS>  only with --record-lever
                      release_gate.py --size-ladder-record                 only with --record-full
+  record:abb3        perf/abb3_port's model and step gate records (ABB3_RECORD), only with
+                     --record-abb3, on a p300c card; the updated files land in <out>/abb3/
 
 TIMED legs measure speed, so they must not share a host with this gate's own load. They run only
 on a --timed card, after every correctness leg of that arch has been handed out, and while one runs
@@ -180,6 +182,98 @@ CARD_PROBE_S, CARD_PROBE_LOCK_S = 300, 1800
 #: after a failed leg is not enough: qb1 card 2 failed one on 2026-10-12 08:01Z after a protenix-v2
 #: record leg's fold workers died, was retired, and was running an SPD bench minutes later.
 CARD_PROBE_TRIES, CARD_PROBE_GAP_S = 3, 60
+#: perf/abb3_port/{model_gate,step_gate_default}_qb1c3.txt are records with a RECORDED-AT line, and
+#: test_recorded_claims fails the release commit when their scripts' import closure moved since, which
+#: it does in most stagings. They were re-run by hand on qb2 card 3 for every release since 0.13.0.
+#: `--record-abb3` runs them as a leg on a p300c card (the step gate's DRAM peak and its --micro 8
+#: OOM are that board's) and checks them against the committed records: every ok/FAIL and gradient
+#: row identical, the same taped parameter count and DRAM peak, losses within ABB3_LOSS_TOL, and
+#: --micro 8 still out of memory. On a match it writes both files with RECORDED-AT at the gate's
+#: commit and a RE-RECORDED stanza; the runner fetches them to <out>/abb3/ for the release commit.
+#: Any difference fails the leg and names it, for a human to judge.
+ABB3_LEG, ABB3_CARD_TYPES, ABB3_LOSS_TOL = "record:abb3", ("p300c",), 2e-4
+ABB3_FILES = ("perf/abb3_port/model_gate_qb1c3.txt", "perf/abb3_port/step_gate_default_qb1c3.txt")
+ABB3_RECORD = r"""
+import re, subprocess, sys, textwrap, time
+from pathlib import Path
+out, sha, worker, card_type, tol = Path(sys.argv[1]), sys.argv[2], sys.argv[3], sys.argv[4], float(sys.argv[5])
+MODEL, STEP = (Path(f) for f in sys.argv[6:8])
+
+def run(*args):
+    p = subprocess.run([sys.executable, *args], capture_output=True, text=True)
+    return p.stdout + p.stderr, p.returncode
+
+t0 = time.gmtime()
+arms = []
+for sigma in ("0.05", "0.3"):
+    for tokens in ("64", "256"):
+        text, rc = run("scripts/abb3_port/model_gate.py", "--tokens", tokens, "--sigma", sigma)
+        arms.append((sigma, tokens, text, rc))
+step, step_rc = run("scripts/abb3_port/step_gate.py")
+micro8, micro8_rc = run("scripts/abb3_port/step_gate.py", "--micro", "8")
+t1 = time.gmtime()
+(out / "model_gate.txt").write_text("".join(f"== model_gate --tokens {t} --sigma {s}\n{x}\nrc={rc}\n"
+                                             for s, t, x, rc in arms))
+(out / "step_gate.txt").write_text(f"{step}\nrc={step_rc}\n")
+(out / "step_gate_micro8.txt").write_text(f"{micro8}\nrc={micro8_rc}\n")
+
+ROW = re.compile(r"^  (?:ok|FAIL) .*$|^  grad (?:on|off) .*$", re.M)
+rows = lambda t: ROW.findall(t)
+def steps(t):
+    return {int(n): float(v) for n, v in re.findall(r"^  step +(\d+) .* loss ([\d.]+)", t, re.M)}
+def one(pat, t):
+    m = re.search(pat, t, re.M)
+    return m.group(1) if m else None
+mt, st = MODEL.read_text(), STEP.read_text()
+st_default = st.split("== default:", 1)[-1]
+new_rows = [r for _, _, x, _ in arms for r in rows(x)]
+bad = []
+if not new_rows or new_rows != rows(mt):
+    bad.append(f"model gate rows differ from {MODEL}: {len(new_rows)} rows against {len(rows(mt))}")
+    for a, b in zip(rows(mt), new_rows):
+        if a != b:
+            bad.append(f"  was {a.strip()}\n  now {b.strip()}")
+    bad += [f"  now {b.strip()}" for b in new_rows[len(rows(mt)):]]
+loss, was = steps(step), steps(st_default)
+if step_rc or not loss or set(loss) != set(was) or any(abs(loss[n] - was[n]) > tol for n in was):
+    bad.append(f"step gate rc {step_rc}, losses {loss} against {was} (tolerance {tol})")
+for what, pat in (("taped parameters", r"taped device parameters: (\d+)"), ("DRAM peak", r"^DRAM: peak (\d+) MB")):
+    if one(pat, step) is None or one(pat, step) != one(pat, st_default):
+        bad.append(f"step gate {what} {one(pat, step)} against {one(pat, st_default)}")
+oom = one(r"Not enough space to allocate (\d+) B", micro8)
+if not micro8_rc or oom is None:
+    bad.append(f"step gate --micro 8 exited {micro8_rc} without the out-of-memory the record carries")
+if bad:
+    sys.exit("abb3 records do not match:\n" + "\n".join(bad))
+
+prev = one(r"^RECORDED-AT: ([0-9a-f]{9})", mt)
+when = f"{time.strftime('%H:%M', t0)}-{time.strftime('%H:%M', t1)}Z {time.strftime('%Y-%m-%d', t1)}"
+where = (f"RE-RECORDED by the release gate (gate_fanout.py record:abb3) at {sha[:9]}, {when}, "
+         f"{worker}, {card_type}, the gate's wheel venv with the tree on PYTHONPATH.")
+fails = [f"{r.split()[1]} at {r.split()[2]} (sigma {s}, {t} tokens)" for s, t, x, _ in arms
+         for r in rows(x) if r.startswith("  FAIL")]
+model_note = (f"{where} Every ok/FAIL row and every gradient row is identical to the {prev} record"
+              + (f", which still FAILs {'; '.join(fails)}" if fails else "") + ". NO TIMING CLAIM.")
+clock = re.search(r"AICLK during the run: card \d+ min (\d+) median (\d+)", step)
+median = one(r"^STEP: median ([\d.]+) s", step)
+taped, peak = one(r"taped device parameters: (\d+)", step), one(r"^DRAM: peak (\d+) MB", step)
+losses = " / ".join(f"{loss[n]:.4f}" for n in sorted(loss))
+step_note = (f"{where} Losses {losses} at steps {', '.join(map(str, sorted(loss)))}, {taped} taped "
+             f"parameters and the {peak} MB DRAM peak as in the {prev} record; "
+             f"--micro 8 still OOMs, on a {int(oom):,} B request. Median {median} s"
+             + (f" at AICLK median {clock.group(2)} (min {clock.group(1)})" if clock else "")
+             + ". A fit record, not a perf claim.")
+
+def rerecord(text, note):
+    text = re.sub(r"^RECORDED-AT: [0-9a-f]+ ", f"RECORDED-AT: {sha} ", text, count=1, flags=re.M)
+    lines = text.splitlines(True)
+    i = next(i for i, ln in enumerate(lines) if i and not ln.startswith("#") and not ln.startswith("RECORDED-AT:"))
+    stanza = [f"# {ln}\n" for ln in textwrap.wrap(note, 104)] + ["#\n"]
+    return "".join(lines[:i] + stanza + lines[i:])
+for src, note in ((MODEL, model_note), (STEP, step_note)):
+    (out / src.name).write_text(rerecord(src.read_text(), note))
+print(f"abb3 records match {prev}; re-recorded at {sha[:9]} in {out}")
+"""
 QUEUED: dict = {}         # pool job file -> host, taken back if the runner is stopped
 RUNNING: dict = {}        # leg out dir -> host, its attempt ended if the runner is stopped
 CARD_FREE = ("check", "packaging_smoke", "pytest_cpu")
@@ -220,6 +314,11 @@ def rungs_fit(roster: dict, host, lg) -> bool:
     if lg.family != "ladder" or not lg.rungs:
         return True
     return bool(set(lg.rungs) & set(ladder_rungs(roster, host.cfg["card_type"], ladder_model(lg.name))))
+
+
+def type_fits(host, lg) -> bool:
+    """Whether `host`'s card type may run `lg` (Leg.card_types)."""
+    return not lg.card_types or host.cfg["card_type"] in lg.card_types
 
 
 def owed_by(roster: dict, card_type: str, lg) -> list[str]:
@@ -553,6 +652,7 @@ class Leg:
     tree_on_path: bool = True  # False: import tt_bio from the installed wheel, not the tree
     setup: str = ""        # shell run in the tree before argv, with the same {OUT} substitution
     rungs: tuple = ()      # a ladder group leg's rungs (any card type's), () for a whole ladder
+    card_types: tuple = ()  # the card types that may run it, () for any
 
     @property
     def budget(self) -> int:
@@ -560,7 +660,7 @@ class Leg:
 
 
 def build_legs(roster: dict, test_files: list, shards: int, record_lever: str = "",
-               record_full: str = "") -> list:
+               record_full: str = "", record_abb3: bool = False) -> list:
     legs = [Leg("check", ["PY", "scripts/full_parity_gate.py", "--check", "--workdir", "{OUT}",
                          "--workers", "localhost:0"], "check",
                 card=False),
@@ -628,6 +728,10 @@ def build_legs(roster: dict, test_files: list, shards: int, record_lever: str = 
                                         "--size-ladder-models", m, *how, "--size-ladder-baseline",
                                         "{OUT}/size_ladder_baseline.json"], "record", workdir=True,
                         setup="cp -r docs/size_ladder_baseline.json docs/size_ladder_baseline.d {OUT}/"))
+    if record_abb3:
+        legs.append(Leg(ABB3_LEG, ["PY", "-c", ABB3_RECORD, "{OUT}", "{SHA}", "{WORKER}", "{CARD_TYPE}",
+                                   str(ABB3_LOSS_TOL), *ABB3_FILES], "record", workdir=True,
+                        card_types=ABB3_CARD_TYPES))
     return legs
 
 
@@ -820,7 +924,8 @@ class Host:
         env = {"PYTHONPATH": pp, "TT_VISIBLE_DEVICES": "" if card is None else str(card),
                "RELEASE_GATE_SIZE_WORKDIR": f"{out}/sizegate-work", **c.get("env", {}),
                "GATE_READS": f"{out}/reads", "GATE_TREE": self.tree}   # gate_reads.py
-        subst = {"{CARD}": str(card), "{OUT}": out,
+        subst = {"{CARD}": str(card), "{OUT}": out, "{SHA}": self.sha, "{WORKER}": f"{self.name}:{card}",
+                 "{CARD_TYPE}": c["card_type"],
                  **{f"{{{k}}}": v for k, v in c.get("env", {}).items()}}
 
         def fill(a: str) -> str:
@@ -1144,7 +1249,8 @@ class Gate:
                 for i, lg in enumerate(q):
                     if lg.timed == timed and (is_timed or not timed) \
                             and out_group(lg.name) not in host.outputs and not host.lent(lg.budget) \
-                            and cap_fits(self.roster, host, lg) and rungs_fit(self.roster, host, lg):
+                            and cap_fits(self.roster, host, lg) and rungs_fit(self.roster, host, lg) \
+                            and type_fits(host, lg):
                         return q.pop(i)
         return None
 
@@ -1508,7 +1614,17 @@ def make_executor(sha: str, out: Path, ledger: Ledger, keys: dict, remote_out: s
                                           f"{host.name} as the A/B reference ({host.cfg['perf_against']}) "
                                           f"of the {sha[:9]} release gate"))
                 seeded = str(dst)
-        if verdict == "PASS" and leg.family == "record":
+        if verdict == "PASS" and leg.name == ABB3_LEG:
+            for f in ABB3_FILES:
+                r = host.ssh(f"cat {shlex.quote(f'{rdir}/{Path(f).name}')}", capture_output=True, timeout=120)
+                if r.returncode:
+                    verdict = "FAIL"
+                    break
+                dst = out / "abb3" / f
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                dst.write_text(r.stdout)
+                seeded = str(out / "abb3")
+        elif verdict == "PASS" and leg.family == "record":
             m = leg.name.split(":", 1)[1]
             dst = out / "recorded" / host.cfg["card_type"] / f"{m}.json"
             dst.parent.mkdir(parents=True, exist_ok=True)
@@ -1578,6 +1694,9 @@ def main() -> int:
     ap.add_argument("--record-full", default="", metavar="MODEL[,MODEL...]",
                     help="fully re-record these ladder models' baselines per card type (for a model "
                          "whose --record-lever splice was refused); fragments land in <out>/recorded/")
+    ap.add_argument("--record-abb3", action="store_true",
+                    help="add record:abb3, perf/abb3_port's records re-run on a p300c card and checked "
+                         "against the committed ones; updated files land in <out>/abb3/")
     ap.add_argument("--arch", default="", help="limit to these archs (default: every arch in --workers)")
     ap.add_argument("--shards", type=int, default=4, help="pytest_device shards")
     ap.add_argument("--out", required=True, type=Path)
@@ -1617,7 +1736,8 @@ def main() -> int:
         list(ex.map(lambda h: h.prepare(pins), rest))
     first = {a: next(h for h in hosts.values() if h.arch == a) for a in archs}
     roster = first[archs[0]].run_py(ENUMERATE)
-    legs = select(build_legs(roster, test_files(sha), args.shards, args.record_lever, args.record_full),
+    legs = select(build_legs(roster, test_files(sha), args.shards, args.record_lever, args.record_full,
+                             args.record_abb3),
                   [p for p in args.legs.split(",") if p])
     content = content_hash(sha)
     legacy = content_hash(sha, baselines=True, tests=True, runner=RUNNER_FILES_0)
@@ -1659,7 +1779,12 @@ def main() -> int:
     keys, scopes, results, todo = {}, {}, [], {a: [] for a in archs}
     nonpy = content_hash(sha, python=False)
     for lg in legs:
-        for a in (archs if lg.card else [archs[0]]):
+        on = [a for a in archs if not lg.card_types
+              or any(h.arch == a and type_fits(h, lg) for h, _ in workers)] if lg.card else [archs[0]]
+        if not on:
+            results.append({"leg": lg.name, "arch": "any", "verdict": "UNRUN", "rc": None,
+                            "why": f"no worker on a {'/'.join(lg.card_types)} card"})
+        for a in on:
             slot = a if lg.card else "any"
             env, ct, hleg = (envs[f"{a} {first[a].python(lg.family)}"], ctype[a] if lg.card else "cpu",
                              first[a].leg(lg))
