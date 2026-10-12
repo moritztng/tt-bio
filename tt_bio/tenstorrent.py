@@ -622,6 +622,10 @@ _FAST_MODE = False
 #   trimul_t2cm     with trimul_t2, T2 reads the einsum's channel-major [1, C, S, S] output itself (reader_ln_cm.cpp:
 #                   the reblock gather in its reader, transpose_wh in its compute), so `reblock_permute_back`
 #                   (0.58 ms a call at 512 on p150a) never runs. A pure data move: bit-exact against trimul_t2
+#   dit_fuse        a bf16 token DiT block (OpenFold3's `--fast` stack) in 23 ttnn calls instead of 33: one shared
+#                   parameter-free LN(s) per stack call with the adaLN gammas folded into the weights, every s-path
+#                   sigmoid in its linear's epilogue, the adaLN modulations and gated residuals as one addcmul each,
+#                   `_sdpa32` writing bf16 (`_DiTBlock._call_fused`). Each fused product skips one bf16 rounding
 #   conf_bins       OpenFold3's pae / pde heads reduce softmax(logits) to their bin-vector products on the card
 #                   in fp32 (pTM, ipTM, the chain readings, the PAE / PDE matrices), so the [N, N, 64] logits
 #                   never cross to the host
@@ -639,12 +643,12 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "transition_shard", "dit_mm16", "atom_k1", "dit_b8", "dit_qkv16", "atom_mm16", "adaln_mod",
           "swiglu_fc12g", "msa_sample", "dit_sdpa_pm", "dit_s16", "dit_chunk", "conf_bins", "trimul_t1", "trimul_t2",
           "triatt_tail_bias", "dit_cond_hifi2", "transition_ws", "ws_ln", "trimul_t1_dram",
-          "trimul_t2cm")
+          "trimul_t2cm", "dit_fuse")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias in its own set: graded on AF2-IG only, and it would reach any other biased
 # triangle attention. BoltzGen's own --fast set names dit_cond_hifi2, graded on BoltzGen's designs.
-UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "dit_cond_hifi2", "ws_ln", "trimul_t2cm"})
+UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "dit_cond_hifi2", "ws_ln", "trimul_t2cm", "dit_fuse"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -2823,7 +2827,7 @@ def _sdpa32(q, k, v, mask, scale: float) -> ttnn.Tensor:
     return out
 
 
-def _sdpa32_fused(qkv, mask, scale: float, heads: int) -> ttnn.Tensor:
+def _sdpa32_fused(qkv, mask, scale: float, heads: int, out_dtype=ttnn.float32) -> ttnn.Tensor:
     """`_sdpa32` read straight out of a fused `[S, 1, N, 3 * heads * DH]` qkv projection, written
     `[S, 1, N, heads * DH]`: what nlp_create_qkv_heads, `_sdpa32` and nlp_concat_heads give, as one
     program and the same arithmetic (`sdpa_generic.qkv_fused_kernel_dir`)."""
@@ -2834,7 +2838,8 @@ def _sdpa32_fused(qkv, mask, scale: float, heads: int) -> ttnn.Tensor:
     dev = qkv.device()
     k_chunk = 32 if dev.arch() == ttnn.Arch.WORMHOLE_B0 else chunk
     g = dev.compute_with_storage_grid_size()
-    out = ttnn.allocate_tensor_on_device(ttnn.Shape([S, 1, n, w // 3]), ttnn.float32,
+    # `out_dtype` bf16 (dit_fuse): the packer writes the result bf16, no typecast program after it.
+    out = ttnn.allocate_tensor_on_device(ttnn.Shape([S, 1, n, w // 3]), out_dtype,
                                          ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG)
     SG.sdpa(dev, qkv, qkv, qkv, mask, out, chunk, k_chunk, (g.x, g.y), _SDPA32_CKC, scale,
             qkv_fused=heads)
