@@ -6,6 +6,12 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 ## [Unreleased]
 
 ### Changed
+- **Protenix-v2 spends less time waiting on the host between recycling cycles.** The alignment goes to the
+  chip once per fold and each cycle picks its rows there, so the host no longer cuts and uploads them every cycle.
+  On the 730-token fold this saves about 6 s in normal mode and 5 s in `--fast` on Wormhole (1000 MHz), and
+  4 s and 3 s on Blackhole p150a (1350 MHz). The rows and every value computed from them are unchanged. On
+  Wormhole the extra 0.5 GB of device memory can make a long-running process switch a deep alignment to its
+  streamed path a fold sooner than before, which changes that fold's output within seed-to-seed variation.
 - **AF2-IG is up to 2.5x faster.** Three changes. With an MSA of 8 rows or fewer the outer product mean no longer
   builds the full outer product (`TT_BIO_OPM_SMALL_DEPTH=0` restores it; any single-sequence fold takes this path).
   Triangle attention runs on the fused attention kernel from 128 tokens up. Residual adds run as one kernel, with
