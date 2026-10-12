@@ -72,6 +72,9 @@ def test_release_commit_changes_only_the_release_files_and_keeps_the_content_key
     (tmp_path / "README.md").write_text("tt-bio.git@v0.14.0\n")
     (tmp_path / "a.py").write_text("x = 1\n")
     (tmp_path / "perf" / "x").mkdir(parents=True)
+    (tmp_path / "docs" / "size_ladder_baseline.d").mkdir(parents=True)
+    (tmp_path / "docs" / "size_ladder_baseline.d" / "m.json").write_text(
+        json.dumps({"cards": {"p150a": {"old": 1}, "p300c": {"old": 3}}}))
     (tmp_path / "perf" / "x" / "gate.txt").write_text(f"RECORDED-AT: {'0' * 40} scripts/gate.py\n")
     git("add", "."), git("commit", "-qm", "c")
     sha = git("rev-parse", "HEAD")
@@ -82,10 +85,17 @@ def test_release_commit_changes_only_the_release_files_and_keeps_the_content_key
     (gate / "abb3" / "perf" / "x" / "gate.txt").write_text(f"RECORDED-AT: {sha} scripts/gate.py\n")
     for verdict, want in (("FAIL", {}), ("PASS", {"perf/x/gate.txt": f"RECORDED-AT: {sha} scripts/gate.py\n"})):
         (gate / "verdict.json").write_text(json.dumps({"results": [{"leg": "record:abb3", "verdict": verdict}]}))
-        assert rt.rerecorded_files(str(gate)) == want
+        assert rt.rerecorded_files(str(gate), sha) == want
+    rec = tmp_path / "rec"                                  # a record run re-recorded one card type
+    (rec / "recorded" / "p150a").mkdir(parents=True)
+    (rec / "recorded" / "p150a" / "m.json").write_text(json.dumps({"cards": {"p150a": {"new": 1}, "p300c": {"x": 9}}}))
+    frag = "docs/size_ladder_baseline.d/m.json"
+    want = {**want, frag: json.dumps({"cards": {"p150a": {"new": 1}, "p300c": {"old": 3}}}, indent=2) + "\n"}
+    assert rt.rerecorded_files(str(gate), sha, str(rec)) == want
     rel = rt.release_commit(sha, "0.15.0", "### Changed\n- **New lever.**", "2026-10-12", want)
-    assert git("diff", "--name-only", sha, rel).split() == ["CHANGELOG.md", "README.md", "perf/x/gate.txt",
-                                                            "pyproject.toml"]
+    assert git("diff", "--name-only", sha, rel).split() == ["CHANGELOG.md", "README.md",
+                                                            "docs/size_ladder_baseline.d/m.json",
+                                                            "perf/x/gate.txt", "pyproject.toml"]
     assert git("show", f"{rel}:perf/x/gate.txt") == f"RECORDED-AT: {sha} scripts/gate.py"
     assert git("rev-parse", f"{rel}^") == sha and git("rev-parse", "HEAD") == sha   # nothing checked out
     assert rt.content_hash(rel, tmp_path) == rt.content_hash(sha, tmp_path)
@@ -101,7 +111,7 @@ def test_a_new_head_waits_for_the_running_gate_instead_of_starting_a_second(tmp_
     cfg.write_text("{}")
     argv = ["release_train.py", "--gates", str(tmp_path), "--gate-config", str(cfg)]
     monkeypatch.setattr(sys, "argv", argv)
-    for running, want in ((["a" * 40], []), ([], [("b" * 40, tmp_path, cfg)])):
+    for running, want in ((["a" * 40], []), ([], [("b" * 40, tmp_path, cfg, None)])):
         monkeypatch.setattr(rt, "decide", lambda **k: {"do": "GATE", "sha": "b" * 40, "why": "", "running": running})
         assert rt.main() == 0 and started == want
     assert "WAIT bbbbbbbbbbbb: gate main's head after the running gate on aaaaaaaaa ends" in capsys.readouterr().out

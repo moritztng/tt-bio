@@ -18,7 +18,15 @@ Answers one of:
     CUT       the gate on <sha> passed on every arch; tag it (RELEASING.md, Cut the release)
     GATE      start gate_fanout.py on <sha> (no gate has run on it)
     WAIT      a gate is running on <sha>; if it is not main's head, start the head's gate as well
+    RECORD    the gate on <sha> failed only on size-ladder drift; re-record those models' ladders
+              on <sha> (gate_fanout --legs 'record:*' --record-full, into <gates>/rec-<sha9>)
     FIX       the gate on <sha> failed; read its VERDICT.md
+
+Size-ladder drift (a lever started firing, or declines on a new clause) is what a staging that adds
+a lever does; parity, capacity and perf judge whether it is right. So a gate whose only failures
+are ladder legs reporting drift counts as passed once a record run on the same commit passed for
+those models, and the release commit carries the new fragments. A lever that went dark, partial
+darkness, an unmeasured rung, a crash or a slower rung is not drift: that stays FIX.
 """
 from __future__ import annotations
 
@@ -75,6 +83,47 @@ def gate_state(gates: Path | None, content: str) -> tuple[str, Path | None]:
     return ("pass" if json.loads(v.read_text()).get("pass") else "fail"), d
 
 
+#: A ladder finding the train re-records rather than fixes (release_gate._size_ladder_compare_levers).
+DRIFT_OK = re.compile(r"started firing\)|: decline clause |: resolved '")
+DRIFT_LINE = re.compile(r"^\s+FAIL \S+/\d+ \w+: ", re.M)
+
+
+def drift_models(d: Path) -> list[str]:
+    """The ladder models whose drift is the gate's only failure, or [] if anything else failed."""
+    res = json.loads((d / "verdict.json").read_text()).get("results", [])
+    bad = [r for r in res if r.get("verdict") not in ("PASS", "REUSED", "BLOCKED", "SEEDED")]
+    models = set()
+    for r in bad:
+        log = Path(r.get("log") or "")
+        text = log.read_text(errors="replace") if r["leg"].startswith("ladder:") and log.is_file() else ""
+        lines = [ln for ln in text.splitlines() if DRIFT_LINE.match(ln + " ")]
+        if "size-ladder drift vs the recorded baseline" not in text or not lines \
+                or not all(DRIFT_OK.search(ln) for ln in lines):
+            return []
+        models.add(r["leg"].split(":", 1)[1].split("@", 1)[0])
+    return sorted(models)
+
+
+def record_run(gates: Path | None, sha: str) -> tuple[str, Path | None]:
+    """('none'|'running'|'pass'|'fail', dir) of the train's record run on `sha` (<gates>/rec-<sha9>)."""
+    d = gates / f"rec-{sha[:9]}" if gates else None
+    if d is None or not (d / "plan.json").exists():
+        return "none", None
+    if (d / "verdict.json").exists():
+        return ("pass" if json.loads((d / "verdict.json").read_text()).get("pass") else "fail"), d
+    return ("running" if _alive(json.loads((d / "plan.json").read_text())) else "none"), d
+
+
+def passed(gates: Path | None, d: Path, sha: str) -> Path | None:
+    """`d` itself when its gate passed; the record run when it failed only on drift that run
+    re-recorded; else None."""
+    v = json.loads((d / "verdict.json").read_text())
+    if v.get("pass"):
+        return d
+    state, rd = record_run(gates, sha)
+    return rd if state == "pass" and drift_models(d) else None
+
+
 def _alive(plan: dict) -> bool:
     """The run's runner is still up. A plan from another host is taken as live."""
     pid = plan.get("pid")
@@ -118,7 +167,7 @@ def passed_since(gates: Path | None, tsha: str, repo: Path = REPO, ref: str = "o
     for p, plan in _plans(gates):
         v, sha = p.parent / "verdict.json", plan.get("sha", "")
         try:
-            if not (v.exists() and json.loads(v.read_text()).get("pass")):
+            if not (v.exists() and passed(gates, p.parent, sha)):
                 continue
             if tsha and (not ancestor(base, sha) or ancestor(sha, tsha) or plan.get("content") == released):
                 continue
@@ -145,14 +194,28 @@ def decide(repo: Path = REPO, gates: Path | None = None, ref: str = "origin/main
         sha, d = cut
         nxt = "" if content_hash(sha, repo) == content_hash(head, repo) else (
             f"; main's head {head[:9]} is the next release, gate it now")
-        return {**out, "do": "CUT", "sha": sha, "gate": str(d),
-                "why": f"gate passed on every arch: {d}/VERDICT.md{nxt}"}
+        rec = passed(gates, d, sha)
+        return {**out, "do": "CUT", "sha": sha, "gate": str(d), "records": str(rec) if rec != d else "",
+                "why": f"gate passed on every arch: {d}/VERDICT.md{nxt}"
+                       + (f"; size ladders re-recorded in {rec}" if rec != d else "")}
     state, d = gate_state(gates, content_hash(head, repo))
     why = {"none": "no gate has run on main's head",
            "running": f"gate running in {d}",
            "fail": f"gate failed: {d}/VERDICT.md",
            "pass": f"gate passed on every arch: {d}/VERDICT.md"}[state]
     do = {"none": "GATE", "running": "WAIT", "fail": "FIX", "pass": "CUT"}[state]
+    if state == "fail" and (models := drift_models(d)):
+        gsha = json.loads((d / "plan.json").read_text())["sha"]
+        rstate, rd = record_run(gates, gsha)
+        if rstate == "pass":
+            return {**out, "do": "CUT", "sha": gsha, "gate": str(d), "records": str(rd),
+                    "why": f"gate failed only on size-ladder drift, re-recorded in {rd}"}
+        if rstate != "fail":
+            do = {"none": "RECORD", "running": "WAIT"}[rstate]
+            return {**out, "do": do, "sha": gsha, "gate": str(d), "models": models,
+                    "why": f"gate failed only on size-ladder drift ({', '.join(models)}): "
+                           + ("re-record them" if do == "RECORD" else f"record run in {rd}")}
+        why += f"; the record run {rd} failed too"
     if state == "fail":
         res = json.loads((d / "verdict.json").read_text()).get("results", [])
         if owed := sorted({f for r in res if r.get("verdict") == "OWED" for f in r.get("owed", [])}):

@@ -122,3 +122,36 @@ def test_a_passed_gate_ships_even_after_main_moved_on(tmp_path):
     git("commit", "-qam", "staging C")
     d = rn.decide(tmp_path, gates, "main")
     assert d["do"] == "CUT" and d["sha"] == head                   # B is after v0.2.0 all the same
+
+
+def test_a_gate_failing_only_on_ladder_drift_is_re_recorded_then_cut(tmp_path):
+    git = _repo(tmp_path)
+    (tmp_path / "a.py").write_text("x = 2\n")
+    git("commit", "-qam", "staging with a new lever")
+    head = git("rev-parse", "main")
+    gates = tmp_path / "gates"
+    g = _plan(gates, f"rel-{head[:9]}", head, tmp_path)
+    logs = {"drift": "    FAIL m/512 SDPA: frac 0.000 -> 1.000 (started firing)\n"
+                     "    FAIL m/768 MM: decline clause [] -> ['k_tiles=2']\n",
+            "dark": "    FAIL m/512 SDPA: frac 1.000 -> 0.000 (went dark on pad)\n"}
+    for name, text in logs.items():
+        (g / f"{name}.log").write_text(text + "GATE FAIL — size-ladder drift vs the recorded baseline\n")
+
+    def verdict(log):
+        (g / "verdict.json").write_text(json.dumps({"pass": False, "results": [
+            {"leg": "parity:m", "verdict": "PASS"},
+            {"leg": "ladder:m@512-768", "verdict": "FAIL", "log": str(g / log)}]}))
+    verdict("dark.log")
+    assert rn.decide(tmp_path, gates, "main")["do"] == "FIX"              # darkness is not drift
+    verdict("drift.log")
+    d = rn.decide(tmp_path, gates, "main")
+    assert (d["do"], d["sha"], d["models"]) == ("RECORD", head, ["m"])
+    r = _plan(gates, f"rec-{head[:9]}", head, tmp_path, partial=True)
+    assert rn.decide(tmp_path, gates, "main")["do"] == "WAIT"
+    (r / "verdict.json").write_text(json.dumps({"pass": True}))
+    d = rn.decide(tmp_path, gates, "main")
+    assert (d["do"], d["sha"], d["records"]) == ("CUT", head, str(r))
+    (tmp_path / "a.py").write_text("x = 3\n")                          # main moved on: still the candidate
+    git("commit", "-qam", "next staging")
+    d = rn.decide(tmp_path, gates, "main")
+    assert (d["do"], d["sha"], d["records"]) == ("CUT", head, str(r))

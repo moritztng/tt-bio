@@ -133,6 +133,15 @@ its own card types read, so Wormhole rows leave the Blackhole legs reused, and s
 moved, e.g. a guard's decline reason) needs a full re-record of its own fragment: add
 `--record-full <model>` and that model's record leg re-records every rung instead.
 
+**Ladder drift.** A staging that adds a lever makes it start firing on some rungs, and the size
+ladder then fails with "size-ladder drift". When that is a gate's only failure (a lever started
+firing, declines on a new clause, or resolves differently; never a lever that went dark, partial
+darkness, an unmeasured rung or a crash), the train re-records those models on the same commit
+(`--legs 'record:*' --record-full <models>`, into `~/gates/rec-<sha9>`), and once that passes it
+cuts the commit with the spliced fragments in the release commit. Parity, capacity and perf are
+what judge the new lever; the ladder records where it fires. Anything else in the gate failing
+leaves it a FIX.
+
 **abb3 records.** `perf/abb3_port/model_gate_qb1c3.txt` and `step_gate_default_qb1c3.txt` go
 stale whenever their scripts' import closure moves, and `tests/test_recorded_claims.py` then fails
 the release commit. The train's gate config carries `--record-abb3`, so nobody re-records them by

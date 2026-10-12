@@ -20,9 +20,11 @@ dropped, so a main that has not merged the last release commit back does not shi
 On GATE, with --gate-config, it starts gate_fanout.py on that commit, detached, so every push to
 main is gated without anyone asking; the ledger means only the legs the push changed run. The
 config is a JSON object of gate_fanout's own flags, {"hosts": "...", "workers": "...", "timed":
-"..."}, and the run goes to <gates>/rel-<sha9>; while another full gate runs it waits for it
-instead. WAIT, FIX and NOTHING are printed and left alone
-(a FIX is a regression for a person or a fix row; the train never re-cuts around it).
+"...", "args": [...]}, and the run goes to <gates>/rel-<sha9>; while another full gate runs it
+waits for it instead. On RECORD (the gate failed only on size-ladder drift, release_next.py) it
+re-records those models' ladders on the same commit into <gates>/rec-<sha9>, and the release
+commit carries the fragments. WAIT, FIX and NOTHING are printed and left alone (a FIX is a
+regression for a person or a fix row; the train never re-cuts around it).
 """
 from __future__ import annotations
 
@@ -41,6 +43,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from gate_fanout import REPO, content_hash  # noqa: E402
 from release_next import decide, git, last_release  # noqa: E402
+from splice_ladder_fragments import splice  # noqa: E402
 
 PYPI = "https://pypi.org/pypi/tt-bio/json"
 SECTION = re.compile(r"^## \[(?P<name>[^\]]+)\][^\n]*\n(?P<body>.*?)(?=^## \[|\Z)", re.M | re.S)
@@ -89,13 +92,23 @@ def release_files(tree: Path, version: str, body: str, day: str) -> None:
 RELEASE_FILES = ("CHANGELOG.md", "README.md", "pyproject.toml")
 
 
-def rerecorded_files(gate_dir: str) -> dict:
-    """{path: text} of the records the gate re-ran and re-stamped (record:abb3, in <gate>/abb3/)."""
+def rerecorded_files(gate_dir: str, sha: str, records: str = "") -> dict:
+    """{path: text} the release commit replaces: the abb3 records the gate's record:abb3 leg re-ran
+    and re-stamped (<gate>/abb3/), and the size-ladder fragments a record run re-recorded
+    (<records>/recorded/<card_type>/<model>.json, one card type's entry each)."""
+    out = {}
     v, d = Path(gate_dir) / "verdict.json", Path(gate_dir) / "abb3"
     res = json.loads(v.read_text()).get("results", []) if v.exists() else []
-    if not any(r["leg"] == "record:abb3" and r["verdict"] == "PASS" for r in res):
-        return {}
-    return {str(f.relative_to(d)): f.read_text() for f in sorted(d.rglob("*.txt"))}
+    if any(r["leg"] == "record:abb3" and r["verdict"] == "PASS" for r in res):
+        out.update({str(f.relative_to(d)): f.read_text() for f in sorted(d.rglob("*.txt"))})
+    if records and (frags := sorted(Path(records).glob("recorded/*/*.json"))):
+        with tempfile.TemporaryDirectory() as tmp:
+            bd = Path(tmp)
+            for name in {f.name for f in frags}:
+                (bd / name).write_text(git("show", f"{sha}:docs/size_ladder_baseline.d/{name}") + "\n")
+            for model, _ in splice([Path(records) / "recorded"], bd):
+                out[f"docs/size_ladder_baseline.d/{model}.json"] = (bd / f"{model}.json").read_text()
+    return out
 
 
 def release_commit(sha: str, version: str, body: str, day: str, records: dict | None = None) -> str:
@@ -140,7 +153,8 @@ def install_check(version: str) -> str:
                               check=True, capture_output=True, text=True).stdout.strip()
 
 
-def cut(sha: str, gate_dir: str, remote: str, dry: bool, wait_s: int, record: Path | None) -> int:
+def cut(sha: str, gate_dir: str, remote: str, dry: bool, wait_s: int, record: Path | None,
+        records: str = "") -> int:
     tag, tsha = last_release()
     taken = set(git("tag", "-l", "v*").split())
     released = git("show", f"{tag}:CHANGELOG.md") if tag else ""
@@ -150,12 +164,12 @@ def cut(sha: str, gate_dir: str, remote: str, dry: bool, wait_s: int, record: Pa
         return 1
     version = next_version(tag or "v0.0.0", body, taken)
     day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    print(f"train: v{version} from {sha[:12]} (last {tag}), gate {gate_dir}, re-stamps {sorted(rerecorded_files(gate_dir))}")
+    print(f"train: v{version} from {sha[:12]} (last {tag}), gate {gate_dir}, re-records {sorted(rerecorded_files(gate_dir, sha, records))}")
     if dry:
         print(body)
         return 0
-    records = rerecorded_files(gate_dir)
-    rel = release_commit(sha, version, body, day, records)
+    files = rerecorded_files(gate_dir, sha, records)
+    rel = release_commit(sha, version, body, day, files)
     if content_hash(rel) != content_hash(sha):
         print(f"release commit {rel[:12]} changed gated code; not tagging")
         return 1
@@ -175,16 +189,19 @@ def cut(sha: str, gate_dir: str, remote: str, dry: bool, wait_s: int, record: Pa
     return 0 if rec["ok"] else 1
 
 
-def start_gate(sha: str, gates: Path, config: Path) -> None:
+def start_gate(sha: str, gates: Path, config: Path, models: list | None = None) -> None:
+    """The full gate on `sha` (<gates>/rel-<sha9>, plus the config's "args"), or with `models` a
+    record run of their size ladders (<gates>/rec-<sha9>)."""
     cfg = json.loads(config.read_text())
-    out = gates / f"rel-{sha[:9]}"
+    out = gates / f"{'rec' if models else 'rel'}-{sha[:9]}"
     out.mkdir(parents=True, exist_ok=True)
     cmd = [sys.executable, "-u", str(REPO / "scripts" / "gate_fanout.py"), "--sha", sha, "--out", str(out),
-           *(x for k in ("hosts", "workers", "timed") if cfg.get(k) for x in (f"--{k}", cfg[k]))]
+           *(x for k in ("hosts", "workers", "timed") if cfg.get(k) for x in (f"--{k}", cfg[k])),
+           *(["--legs", "record:*", "--record-full", ",".join(models)] if models else cfg.get("args", []))]
     with open(out / "train.log", "a") as log:
         p = subprocess.Popen(cmd, cwd=REPO, stdout=log, stderr=subprocess.STDOUT, start_new_session=True,
                              env={**os.environ, "PYTHONPATH": str(REPO)})
-    print(f"GATE {sha[:12]}: started gate_fanout pid {p.pid}, {out}/train.log")
+    print(f"{'RECORD' if models else 'GATE'} {sha[:12]}: started gate_fanout pid {p.pid}, {out}/train.log")
 
 
 def main() -> int:
@@ -206,13 +223,13 @@ def main() -> int:
         # running one's PASSes (with their read sets) are what the next gate reuses.
         d = {**d, "do": "WAIT", "why": f"gate main's head after the running gate on "
                                        f"{', '.join(s[:9] for s in d['running'])} ends"}
-    if d["do"] == "GATE" and args.gate_config and not args.dry_run:
-        start_gate(d["sha"], args.gates, args.gate_config)
+    if d["do"] in ("GATE", "RECORD") and args.gate_config and not args.dry_run:
+        start_gate(d["sha"], args.gates, args.gate_config, d.get("models"))
         return 0
     if d["do"] != "CUT":
         print(f"{d['do']} {d['sha'][:12]}: {d['why']}")
         return 0
-    return cut(d["sha"], d["gate"], args.remote, args.dry_run, args.wait, args.record)
+    return cut(d["sha"], d["gate"], args.remote, args.dry_run, args.wait, args.record, d.get("records", ""))
 
 
 if __name__ == "__main__":
