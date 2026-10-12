@@ -87,6 +87,7 @@ move against the accuracy bar and the seed-to-seed spread.
 | [`TT_BIO_TRIATT_HIFI_PAD_UP`](#tt_bio_triatt_hifi_pad_up) | on | BindCraft 2, and OpenFold3 at 544 and 608 tokens | moves, far inside the bar |
 | [`TT_BIO_TRIATT_NARROW_Q_FALLBACK`](#tt_bio_triatt_narrow_q_fallback) | on | | identical on RoseTTAFold3, moves on OpenBind |
 | [`TT_BIO_TRIATT_SDPA_HIFI_AB`](#tt_bio_triatt_sdpa_hifi_ab) | on at `openfold3.trunk` | OpenFold3 | moves, inside the seed spread |
+| [`TT_BIO_TRIMUL_GIN_RAGGED`](#tt_bio_trimul_gin_ragged) | on for Wormhole | AF2-IG | moves, far inside the bar |
 | [`TT_BIO_TRIMUL_GP_BANK_SPLIT`](#tt_bio_trimul_gp_bank_split) | on | | identical |
 | [`TT_BIO_TRIMUL_MASK_AFTER_MOVE`](#tt_bio_trimul_mask_after_move) | on | | identical |
 | [`TT_BIO_TRIMUL_MASK_L1`](#tt_bio_trimul_mask_l1) | on | | identical |
@@ -1631,6 +1632,21 @@ fold together with the other attention flags, see `TT_BIO_ATOM_SUPERSET_WINDOW`.
 
 **Speed:** 8-11 % on the triangle-attention op on Wormhole at every length measured (736 tokens:
 17.17 to 15.85 ms at 1000 MHz); nothing measurable on Blackhole (6.85 vs 6.83 ms).
+
+## `TT_BIO_TRIMUL_GIN_RAGGED`
+
+Default: on for Wormhole, off for Blackhole until it is graded there.
+
+AF2's triangle multiplication has a biased input projection and a pair grid that is not a whole
+number of tiles (195 tokens for AF2-IG). This flag runs the projection, its gate and the channel move
+as one kernel per channel chunk instead of a biased matmul followed by two gated moves. It only
+applies in normal mode on such grids, so models that pad their token axis to 32 never take it.
+
+**Speed:** AF2-IG on one Wormhole chip, 5.04 to 4.77 s per complex (12 folds per arm, with a
+trailing control arm).
+
+**Accuracy: moves, far inside the bar.** The bias is added in fp32 before the result is packed.
+Across three PD-L1 complexes ipTM moves by at most 0.002 and pLDDT by at most 0.0005.
 
 ## `TT_BIO_TRIMUL_FUSED_GOUT`
 

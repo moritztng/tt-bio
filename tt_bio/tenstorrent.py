@@ -6029,8 +6029,9 @@ _TRIMUL_INPROJ_B8 = env_flag("TT_BIO_TRIMUL_INPROJ_B8", False)
 _TRIMUL_GATED_INPROJ = env_flag("TT_BIO_TRIMUL_GATED_INPROJ", False)
 # `trimul_tail.gin_ragged` for a biased in-projection on a pair grid that is not whole tiles (AF2
 # at 195): projection, gate and channel move in one program instead of a biased matmul into L1 and
-# two gated moves. Opt-in until graded on a fold (perf/spd_gap_bind/gin195.py at op level).
-_TRIMUL_GIN_RAGGED = env_flag("TT_BIO_TRIMUL_GIN_RAGGED", False)
+# two gated moves. Default on for Wormhole: AF2-IG WH fold 5.04 -> 4.77 s, ipTM within 0.002
+# (spd-gap-bind ginfold_134760004). Blackhole stays off until graded there. None = arch default.
+_TRIMUL_GIN_RAGGED = env_flag("TT_BIO_TRIMUL_GIN_RAGGED", None)
 
 
 def set_trimul_gated_inproj(on: bool) -> bool:
@@ -9745,7 +9746,8 @@ class TriangleMultiplication(Module):
                         if a_chunk is not None and defer:
                             defer_a = perm_a == (0, 3, 2, 1)
                             defer_b = perm_b == (0, 3, 2, 1)
-                    if (a_chunk is None and _TRIMUL_GIN_RAGGED and defer
+                    if (a_chunk is None and defer
+                            and (is_wormhole() if _TRIMUL_GIN_RAGGED is None else _TRIMUL_GIN_RAGGED)
                             and int(x_in.shape[-2]) % 32
                             and not row_norm and x_norm_in is not None
                             and self.g_in_weight is None and not ops.taping()
