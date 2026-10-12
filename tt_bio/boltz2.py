@@ -75,7 +75,7 @@ LEVERS_NORMAL = frozenset({"trimul_ibw", "trimul_tail", "trunk_hifi3", "dit_sdpa
 # interleaved: 13.51 / 14.40 s against 14.43 / 14.74 s (spd-gap-small abO, 2026-10-12).
 LEVERS_FAST = frozenset({"acc_off", "diffusion_bf16", "dit_sdpa", "transition_b8", "opm_b8", "atom_sdpa",
                          "trimul_ibw", "trimul_tail", "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32",
-                         "triatt_tail", "adaln_mod"})
+                         "triatt_tail", "adaln_mod", "transition_ws"})
 
 
 def _under_levers(method):

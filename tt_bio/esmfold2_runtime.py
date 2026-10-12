@@ -1032,7 +1032,8 @@ WH_LM_RESIDENT_MAX_TOKENS = 1088
 # +0.0061], top-pose median 0.44 A vs 1.12 A floor, docking 30/41 both. ~1 s off ESMFold2 --fast at 512 aa
 # (p300c, 1350 MHz: 27.80 vs 28.78 s; -Fast 18.71 vs 19.00).
 LEVERS_NORMAL = "normal-trunk_hifi3"
-LEVERS_FAST = "normal+trimul_b8in"
+# FAST also takes transition_ws (fast grade PASS on both ESMFold2 models, both archs; tenstorrent.FAST_LEVERS).
+LEVERS_FAST = "normal+trimul_b8in+transition_ws"
 
 
 def fold_levers(fast: bool) -> str:
