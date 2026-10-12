@@ -82,7 +82,9 @@ Markdown and pyproject's version line, the interpreter's installed packages, the
 the leg's exact command. A leg whose key already passed is not run again and the verdict names
 the run it reused. Recorded measurements (`perf/**.txt` files with a `RECORDED-AT:` line) are
 not part of the key either, so re-recording them in the release commit reuses everything; the
-card-free legs always run, and `pytest_cpu` is where a stale recording fails. The gate baselines
+card-free legs always run, and `pytest_cpu` is where a stale recording fails. A `perf/` entry
+that nothing outside `perf/` (or a `perf/` entry that is itself kept) names is outside the key
+too, so editing a recording helper does not rerun the gate. The gate baselines
 (`docs/size_ladder_baseline*`, `docs/perf_baselines.json`, `docs/capacity_gate_baseline.json`)
 key only the legs that compare against them, so re-recording the size ladder reruns the ladder
 legs and nothing else. Likewise a `tests/test_*.py` file that no Python file outside `tests/` loads keys
