@@ -141,7 +141,7 @@ for n in [int(v) for v in A.ns.split(",")]:
         rec["p_res0_vals"] = [[round(float(yr.reshape(-1)[i]), 4), round(float(y.reshape(-1)[i]), 4)] for i in bi[:6]]
         rec["p_res0_rows"] = sorted({int(i) // C for i in bi[:400]})[:20]
         rec["p_res0_nrows"] = len({int(i) // C for i in bi})
-        w3z = ttnn.from_torch(torch.zeros(H, C, dtype=torch.bfloat16), dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT,
+        w3z = ttnn.from_torch(torch.zeros(H, C, dtype=torch.bfloat16), dtype=w3.dtype, layout=ttnn.TILE_LAYOUT,
                               device=dev, memory_config=ttnn.DRAM_MEMORY_CONFIG)
         o = ttnn.to_torch(T3.transition(up(x0), tr.norm_weight, tr.norm_bias, w12, w3z, ckc, grid,
                                         add_to_input=True)).float()
