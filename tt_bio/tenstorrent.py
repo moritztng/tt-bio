@@ -624,12 +624,12 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
           "transition_shard", "dit_mm16", "atom_k1", "dit_b8", "dit_qkv16", "atom_mm16", "adaln_mod",
           "swiglu_fc12g", "msa_sample", "dit_sdpa_pm", "dit_s16", "dit_chunk", "conf_bins", "trimul_t1", "trimul_t2",
-          "triatt_tail_bias")
+          "triatt_tail_bias", "dit_cond_hifi2")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias in its own set: graded on AF2-IG only, and it would reach any other biased
-# triangle attention.
-UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias"})
+# triangle attention. BoltzGen's own --fast set names dit_cond_hifi2, graded on BoltzGen's designs.
+UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "dit_cond_hifi2"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -2330,6 +2330,7 @@ _B2_DIT_COND_HOIST = env_flag("TT_BIO_DIT_COND_HOIST", True)
 # The two hoisted conditioning matmuls at HiFi2 instead of the module's fidelity. At 512 tokens x 1
 # sample they are 87 GFLOP a step and compute-bound at HiFi4 (1.13 + 0.75 ms on a p150a, 0.44 of
 # roof, spd-gap-small census). Off until a paired A/B and a fast grade decide; read at call time.
+# Also on under the `dit_cond_hifi2` lever (BoltzGen's fast set).
 _B2_DIT_COND_HIFI2 = env_flag("TT_BIO_DIT_COND_HIFI2", False)
 # Each hoisted AdaLN modulates with one addcmul: the 48 scales get their sigmoid in the matmul
 # epilogue (their own weight block), so `sigmoid(scale) * a` then `+ shift` (two ops, two bf16
@@ -11788,10 +11789,16 @@ class AttentionPairBias(Module):
         x = ttnn.reshape(x, lead + (self.n_heads * self.head_dim,))
         x = self._kq_norm_one(x, which)
         x = ttnn.reshape(x, lead + (self.n_heads, self.head_dim))
-        z = ttnn.zeros(lead + (self.n_heads, pad), layout=ttnn.TILE_LAYOUT,
-                       device=self.device, dtype=x.dtype)
-        x = ttnn.concat([x, z], dim=-1)
+        x = ttnn.concat([x, self._kq_zeros(lead + (self.n_heads, pad), x.dtype)], dim=-1)
         return ttnn.reshape(x, lead + (self.n_heads * self.padded_head_dim,))
+
+    def _kq_zeros(self, shape, dtype):
+        """The zero lanes the eager chain concatenates, made once per shape: an upload per call would
+        also keep the denoiser step out of a ttnn trace (no host writes during capture)."""
+        cache = self.__dict__.setdefault("_kq_zero_cache", {})
+        if (shape, dtype) not in cache:
+            cache[shape, dtype] = ttnn.zeros(shape, layout=ttnn.TILE_LAYOUT, device=self.device, dtype=dtype)
+        return cache[shape, dtype]
 
     def _kq_lane_maps(self):
         """0/1 matrices [H * padded, H * head_dim] and back, bf16 on device, and an exact matmul
@@ -11869,6 +11876,16 @@ class AttentionPairBias(Module):
             ))
             if self.kq_norm:
                 qkv = self._apply_kq_norm(qkv)
+            seq = int(qkv.shape[-2])
+            if (bias_precomputed and self.token_dit and _B2_TOKEN_DIT_SDPA and z is not None
+                    and seq_mask is None and not self._raw_fp32() and int(z.shape[-1]) > seq):
+                # The bias was padded past the sequence once per rollout (`_stage_token_bias`).
+                # One pad of the fused qkv here gives q, k and v that width with the same zero
+                # rows `_sdpa_to_bias_width` would add, for one op instead of three.
+                padded = ttnn.pad(qkv, [(0, 0)] * (len(qkv.shape) - 2)
+                                  + [(0, int(z.shape[-1]) - seq), (0, 0)], value=0.0)
+                ttnn.deallocate(qkv)
+                qkv = padded
             qkv = ttnn.unsqueeze(qkv, 1)
             q, k, v = ttnn.experimental.nlp_create_qkv_heads(
                 qkv,
@@ -11982,6 +11999,10 @@ class AttentionPairBias(Module):
 
                 o = _sdpa_masked(_sdpa_to_bias_width(pm if lever("dit_sdpa_pm") else stock),
                                  q, k, v, z, site="token_dit")
+                if int(o.shape[2]) > seq:
+                    sl = o[:, :, :seq, :]
+                    ttnn.deallocate(o)
+                    o = sl
             else:
                 if seq_mask is not None:
                     z = ttnn.add_(z, seq_mask)
@@ -14379,7 +14400,7 @@ class DiffusionTransformer(Module):
             s_hat = ttnn.layer_norm(s, epsilon=1e-5,
                                     compute_kernel_config=self.compute_kernel_config)
             ckc = self.compute_kernel_config
-            if _B2_DIT_COND_HIFI2 and ckc is not None:
+            if (_B2_DIT_COND_HIFI2 or lever("dit_cond_hifi2")) and ckc is not None:
                 ckc = type(ckc)(math_fidelity=ttnn.MathFidelity.HiFi2,
                                 math_approx_mode=ckc.math_approx_mode,
                                 fp32_dest_acc_en=ckc.fp32_dest_acc_en,
@@ -17615,6 +17636,7 @@ class TokenDistanceRecycle:
         self.v_norm_b = w(token_distance_module.v_norm.bias)
         self.z_proj_w = w(token_distance_module.z_proj.weight, transpose=True)
         self.u_proj_w = w(token_distance_module.u_proj.weight, transpose=True)
+        self._a_ij_host = None  # (weights key, input copies, padded host a_ij), see precompute
 
     def precompute(self, feats, relative_position_encoding, seq_pad, mask_tt, attn_tt):
         """Host once-per-protein: a_ij = a_proj(distance features), padded + uploaded.
@@ -17627,6 +17649,21 @@ class TokenDistanceRecycle:
         mod = self.mod
         token_distance_mask = feats["token_distance_mask"]
         token_coords = feats["center_coords"]
+        # A design run calls this once per design with the same target: every input below is a
+        # deterministic function of the target (coords are centred, never re-posed), so the
+        # host a_ij from the last call is reused when the inputs and weights are unchanged.
+        # The upload is redone because the trunk frees its statics after every design.
+        srcs = (token_coords, token_distance_mask) + (
+            (relative_position_encoding, feats["coords"], feats["token_to_bb4_atoms"])
+            if mod.use_token_distance_feats else ())
+        wkey = (seq_pad, tuple((q.data_ptr(), q._version) for q in mod.parameters()))
+        hit = self._a_ij_host
+        if hit is not None and hit[0] == wkey and all(
+                a.shape == b.shape and a.dtype == b.dtype and torch.equal(a, b)
+                for a, b in zip(hit[1], srcs)):
+            a_ij_tt = ttnn.from_torch(hit[2], layout=ttnn.TILE_LAYOUT, device=device,
+                                      dtype=ttnn.bfloat16)
+            return {"a_ij_tt": a_ij_tt, "mask_tt": mask_tt, "attn_tt": attn_tt}
         with torch.autocast(device_type="cuda", enabled=False):
             dists = torch.cdist(token_coords, token_coords)
             boundaries = torch.linspace(mod.min_dist, mod.max_dist, mod.num_bins - 1).to(dists.device)
@@ -17641,6 +17678,7 @@ class TokenDistanceRecycle:
             a_ij = mod.a_proj(a_ij.float())
         if seq_pad:
             a_ij = torch.nn.functional.pad(a_ij, (0, 0, 0, seq_pad, 0, seq_pad))
+        self._a_ij_host = (wkey, tuple(s.clone() for s in srcs), a_ij)
         a_ij_tt = ttnn.from_torch(a_ij, layout=ttnn.TILE_LAYOUT, device=device, dtype=ttnn.bfloat16)
         return {"a_ij_tt": a_ij_tt, "mask_tt": mask_tt, "attn_tt": attn_tt}
 

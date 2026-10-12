@@ -4,6 +4,8 @@ import torch
 from torch import nn
 from torch.nn import Module
 
+from tt_bio.boltz2 import _bias_stack
+
 from tt_bio.boltzgen.model.modules.encoders import (
     PairwiseConditioning,
     AtomEncoder,
@@ -92,20 +94,11 @@ class DiffusionConditioning(Module):
             z=z,  # Float['b n n tz'],
         )
 
-        atom_enc_bias = []
-        for layer in self.atom_enc_proj_z:
-            atom_enc_bias.append(layer(p))
-        atom_enc_bias = torch.cat(atom_enc_bias, dim=-1)
-
-        atom_dec_bias = []
-        for layer in self.atom_dec_proj_z:
-            atom_dec_bias.append(layer(p))
-        atom_dec_bias = torch.cat(atom_dec_bias, dim=-1)
-
-        token_trans_bias = []
-        for layer in self.token_trans_proj_z:
-            token_trans_bias.append(layer(z))
-        token_trans_bias = torch.cat(token_trans_bias, dim=-1)
+        # Each stack is LayerNorm + bias-free Linear over one shared input, so Boltz-2's
+        # _bias_stack runs it as one normalisation and one fused Linear (TT_BIO_FUSE_BIAS_STACKS).
+        atom_enc_bias = _bias_stack(self.atom_enc_proj_z, p)
+        atom_dec_bias = _bias_stack(self.atom_dec_proj_z, p)
+        token_trans_bias = _bias_stack(self.token_trans_proj_z, z)
 
         return (
             q,
@@ -115,3 +108,10 @@ class DiffusionConditioning(Module):
             atom_dec_bias,
             token_trans_bias,
         )
+
+    def forward_atoms(self, s_trunk, z_to_p, feats):
+        """The atom track of ``forward``, with the pair track already done on the device
+        (``tenstorrent.PairConditioningDevice`` returns ``z_to_p`` and the token bias)."""
+        q, c, p, to_keys = self.atom_encoder(feats=feats, s_trunk=s_trunk, z_to_p=z_to_p)
+        return (q, c, to_keys,
+                _bias_stack(self.atom_enc_proj_z, p), _bias_stack(self.atom_dec_proj_z, p))
