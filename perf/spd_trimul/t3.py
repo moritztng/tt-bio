@@ -108,6 +108,9 @@ for n in [int(v) for v in A.ns.split(",")]:
             d = ((o - r.float()).abs() > 0.25).reshape(-1)
             rb.append([int(v) for v in d.nonzero().flatten()[:8]])
         rec["repeat_bad_flat_idx"] = rb
+        fi = torch.tensor(rb[0][:6], dtype=torch.long)
+        xf, rf, tf, nf = x0.float().reshape(-1), r.float().reshape(-1), o.reshape(-1), inc.reshape(-1)
+        rec["bad_vals"] = [[round(float(v[i]), 5) for v in (xf, rf, tf, nf)] for i in fi]   # x, ref, t3, incumbent
     rec["inc_ms"] = timed(BASE, x0, A.reps)
     rec["t3_ms"] = timed(WITH, x0, A.reps)
     line = json.dumps(rec)
