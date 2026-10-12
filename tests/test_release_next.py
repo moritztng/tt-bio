@@ -93,3 +93,32 @@ def test_a_docs_commit_rides_its_parents_gate_and_a_dead_run_is_none(tmp_path):
     assert rn.decide(tmp_path, gates, "main")["do"] == "GATE"
     _plan(gates, "wh", code, tmp_path, partial=True)
     assert "partial runs on " + code[:9] in rn.decide(tmp_path, gates, "main")["why"]
+
+
+def test_a_passed_gate_ships_even_after_main_moved_on(tmp_path):
+    git = _repo(tmp_path)
+    (tmp_path / "a.py").write_text("x = 2\n")
+    git("commit", "-qam", "staging A")
+    a = git("rev-parse", "main")
+    git("checkout", "-qb", "rel")                                 # the release branch's own fix
+    (tmp_path / "b.py").write_text("y = 1\n")
+    git("add", "."), git("commit", "-qm", "gate fix")
+    fix = git("rev-parse", "rel")
+    git("checkout", "-q", "main")
+    (tmp_path / "a.py").write_text("x = 3\n")
+    git("commit", "-qam", "staging B")
+    head = git("rev-parse", "main")
+    gates = tmp_path / "gates"
+    (_plan(gates, "ga", a, tmp_path) / "verdict.json").write_text(json.dumps({"pass": True}))
+    d = rn.decide(tmp_path, gates, "main")
+    assert d["do"] == "CUT" and d["sha"] == a and "gate it now" in d["why"]
+    (_plan(gates, "gfix", fix, tmp_path) / "verdict.json").write_text(json.dumps({"pass": True}))
+    assert rn.decide(tmp_path, gates, "main")["sha"] == fix      # newest passed candidate
+    git("tag", "v0.2.0", fix)                                     # cut: neither is a candidate now
+    d = rn.decide(tmp_path, gates, "main")
+    assert d["do"] == "GATE" and d["sha"] == head
+    (_plan(gates, "gb", head, tmp_path) / "verdict.json").write_text(json.dumps({"pass": True}))
+    (tmp_path / "a.py").write_text("x = 4\n")                       # main never merged the release branch
+    git("commit", "-qam", "staging C")
+    d = rn.decide(tmp_path, gates, "main")
+    assert d["do"] == "CUT" and d["sha"] == head                   # B is after v0.2.0 all the same

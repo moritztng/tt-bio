@@ -932,3 +932,66 @@ def test_one_runner_per_out(tmp_path):
         gf.hold_out(tmp_path / "g")
     held.close()
     gf.hold_out(tmp_path / "g").close()
+
+
+def test_a_pass_is_reused_on_a_commit_that_changed_nothing_the_leg_read(tmp_path):
+    """gate_reads.py records what a leg's Python read; a later commit reuses the PASS when none of
+    it changed, and any non-Python file change keys every leg anew."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    def git(*a):
+        return subprocess.run(["git", "-C", str(repo), *a], check=True, capture_output=True,
+                              text=True).stdout.strip()
+
+    def commit(files, msg):
+        for name, body in files.items():
+            (repo / name).parent.mkdir(parents=True, exist_ok=True)
+            (repo / name).write_text(body)
+        git("add", "."), git("commit", "-qm", msg)
+        return git("rev-parse", "HEAD")
+    git("init", "-q"), git("config", "user.email", "t@t"), git("config", "user.name", "t")
+    a = commit({"m/a.py": "1", "m/b.py": "1", "k/x.cpp": "1", "pyproject.toml": 'version = "1"\n'}, "a")
+    b = commit({"m/b.py": "2", "pyproject.toml": 'version = "2"\n'}, "b: a file the leg never read")
+    c = commit({"m/new.py": "1"}, "c: a module added where the leg listed")
+    d = commit({"m/a.py": "2"}, "d: a file the leg read")
+    assert gf.reads_match(a, b, ["m/a.py", "gone.json"], repo)
+    assert not gf.reads_match(a, c, ["m/a.py", "dir:m"], repo)
+    assert gf.reads_match(a, c, ["m/a.py"], repo)                  # import-system listings are not kept
+    assert not gf.reads_match(a, d, ["m/a.py"], repo)
+    np = [gf.content_hash(s, repo, python=False) for s in (a, b, d)]
+    assert np[0] == np[1] == np[2]                                 # .py and the version line only
+    assert gf.content_hash(commit({"k/x.cpp": "2"}, "e"), repo, python=False) != np[0]
+
+    led = gf.Ledger(tmp_path / "led")
+    row = {"leg": "parity:m", "verdict": "PASS", "sha": a, "ended": "1", "worker": "h:0", "log": "l",
+           "scope": "s", "reads": ["m/a.py"]}
+    led.put("k1", row)
+    led.put("k2", {**row, "verdict": "FAIL", "reads": []})
+    assert led.read_hit("s", b, repo)["sha"] == a
+    assert gf.Ledger(tmp_path / "led").read_hit("s", d, repo) is None
+    assert led.read_hit("other", b, repo) is None
+
+
+def test_gate_reads_records_reads_of_every_python_process_but_not_writes(tmp_path):
+    tree, out = tmp_path / "tree", tmp_path / "reads"
+    (tree / "pkg").mkdir(parents=True)
+    (tree / "pkg" / "__init__.py").write_text("")
+    (tree / "pkg" / "m.py").write_text("X = 1\n")
+    (tree / "data.json").write_text("{}")
+    (tree / "main.py").write_text(
+        "import gate_reads, os, subprocess, sys\n"
+        "import pkg.m\n"
+        "open('data.json').read(); open('out.txt', 'w').write('x'); os.listdir('pkg')\n"
+        "subprocess.run([sys.executable, '-c', 'import gate_reads; open(\"pkg/m.py\").read()'], check=True)\n"
+        "if os.fork() == 0:\n"
+        "    open('pkg/__init__.py').read(); os._exit(0)\n"
+        "os.wait()\n")
+    env = {**os.environ, "GATE_READS": str(out), "GATE_TREE": str(tree),
+           "PYTHONPATH": f"{REPO / 'scripts'}:{tree}", "PYTHONDONTWRITEBYTECODE": "1"}
+    subprocess.run([sys.executable, "main.py"], cwd=tree, env=env, check=True, timeout=60)
+    files = list(out.glob("*.txt"))
+    seen = {ln for f in files for ln in f.read_text().split("\n") if ln}
+    assert len(files) == 3                                          # parent, subprocess, fork
+    # main.py itself was opened before its own import installed the hook (the venv's .pth runs first)
+    assert seen == {"pkg/__init__.py", "pkg/m.py", "data.json", "dir:pkg"}

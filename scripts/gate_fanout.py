@@ -44,6 +44,15 @@ a gated tree does not repeat the gate, and a fix to a test file reruns the pytes
 change to code, scripts, data, fixtures, the interpreter's packages or the card type is a different
 key and runs fresh.
 
+READS. That key changes with any code change, so on its own every staging reruns every leg. Each
+gate venv therefore carries scripts/gate_reads.py, which records every tree file the leg's Python
+processes import, open for reading or list. A PASS row keeps that list and a scope key: the key
+above with only the tracked non-Python files in place of the whole tree (C++ kernels and shell
+scripts are read by something other than Python, so any change to one still reruns every leg).
+A later commit in the same scope reuses the PASS when every file the leg read is the same blob
+there, so a staging that touched one model reruns that model's legs and the ones that import its
+files, not the gate. A row without a list reuses on identical code only.
+
 hosts.json names, per host, how to reach it and what to run with (no host facts live in this file):
     {"qb1": {"ssh": "qb1", "arch": "bh", "card_type": "p150a", "root": "/home/ttuser/gate",
              "lock": "/home/ttuser/spd_qb1_card{card}.lock",
@@ -402,15 +411,17 @@ def tests_hash(sha: str, family: str, repo: Path = REPO) -> str:
 
 
 RUNNER_FILES = ("scripts/gate_fanout.py", "scripts/release_next.py", "scripts/splice_ladder_fragments.py",
-                "scripts/gate_host_prep.sh", "scripts/flock_first.sh",
-                "tests/test_gate_fanout.py", "tests/test_release_next.py")
+                "scripts/gate_host_prep.sh", "scripts/flock_first.sh", "scripts/gate_reads.py",
+                "scripts/release_train.py", "tests/test_gate_fanout.py", "tests/test_release_next.py",
+                "tests/test_release_train.py")
 #: The runner before flock_first.sh joined it, the key every ledger row before 2026-10-10 03Z
 #: was written under.
-RUNNER_FILES_0 = tuple(f for f in RUNNER_FILES if f != "scripts/flock_first.sh")
+RUNNER_FILES_0 = tuple(f for f in RUNNER_FILES if f not in ("scripts/flock_first.sh", "scripts/gate_reads.py",
+                                                         "scripts/release_train.py", "tests/test_release_train.py"))
 
 
 def content_hash(sha: str, repo: Path = REPO, baselines: bool = False, tests: bool = False,
-                 runner: tuple = RUNNER_FILES) -> str:
+                 runner: tuple = RUNNER_FILES, python: bool = True) -> str:
     """Hash of every tracked file at `sha` except Markdown, from git's own blob ids.
 
     pyproject.toml is hashed without its `version =` line: the release commit bumps it, and that
@@ -436,12 +447,31 @@ def content_hash(sha: str, repo: Path = REPO, baselines: bool = False, tests: bo
     for ln in _ls_tree(sha, repo):
         path = ln.split("\t", 1)[-1]
         if (path.endswith(".md") or path in recorded or path in runner or path in only
+                or (not python and path.endswith(".py"))
                 or (not baselines and path.startswith(_BASELINE_PATHS))):
             continue
         if path == "pyproject.toml":
             ln = f"pyproject.toml {dep_spec(sha, repo)}"
         rows.append(ln)
     return hashlib.sha256("\n".join(rows).encode()).hexdigest()
+
+
+def reads_match(a: str, b: str, reads: list, repo: Path = REPO) -> bool:
+    """True when every file a leg read at `a` (gate_reads.py) is the same blob at `b`, and every
+    directory it listed holds the same names. A file absent at both is the same file."""
+    def tree(sha):
+        return {ln.split("\t", 1)[1]: ln.split()[2] for ln in _ls_tree(sha, repo)}
+    ta, tb = tree(a), tree(b)
+    for r in reads:
+        if r.startswith("dir:"):
+            d = r[4:].strip("/")
+            d = d + "/" if d else ""
+            kids = [{p[len(d):].split("/", 1)[0] for p in t if p.startswith(d)} for t in (ta, tb)]
+            if kids[0] != kids[1]:
+                return False
+        elif ta.get(r) != tb.get(r):
+            return False
+    return True
 
 
 def dep_spec(sha: str, repo: Path = REPO) -> str:
@@ -681,6 +711,14 @@ class Host:
             raise SystemExit(f"{self.name}: cannot prepare {t} at {self.sha}: "
                              f"{(p.stderr or p.stdout).strip()[-600:]}")
         print(f"{self.name}: {p.stdout.strip()}")
+        # The runner's copy of gate_reads.py into every venv a leg runs under (READS), as a .pth
+        # hook so it loads whatever PYTHONPATH a gate script gives its children. Not into a system
+        # interpreter: a leg on one records nothing and reuses on identical code only.
+        hook = (REPO / "scripts" / "gate_reads.py").read_text()
+        site = ("import sys, sysconfig; sys.prefix != sys.base_prefix and print(sysconfig.get_paths()['purelib'])")
+        for py in sorted({self.python(f) for f in EXPECT}):
+            self.ssh(f"s=$({py} -c {shlex.quote(site)}) && [ -n \"$s\" ] && cat > $s/_gate_reads.py && "
+                     f"echo 'import _gate_reads' > $s/_gate_reads.pth", input=hook, timeout=120)
 
     def python(self, family: str) -> str:
         """The interpreter a leg family runs under (pytest and the BindCraft 2 leg need the
@@ -725,7 +763,8 @@ class Host:
         # the leg's own: the first ladder or record leg to finish rmtrees the shared default under
         # the others, and a fold whose census dumps vanished reads every lever "not-imported".
         env = {"PYTHONPATH": pp, "TT_VISIBLE_DEVICES": "" if card is None else str(card),
-               "RELEASE_GATE_SIZE_WORKDIR": f"{out}/sizegate-work", **c.get("env", {})}
+               "RELEASE_GATE_SIZE_WORKDIR": f"{out}/sizegate-work", **c.get("env", {}),
+               "GATE_READS": f"{out}/reads", "GATE_TREE": self.tree}   # gate_reads.py
         subst = {"{CARD}": str(card), "{OUT}": out,
                  **{f"{{{k}}}": v for k, v in c.get("env", {}).items()}}
 
@@ -838,6 +877,25 @@ class Ledger:
             if r.get("wall_s") and r.get("ended", "") >= seen.get(r["leg"], ("", 0))[0]:
                 seen[r["leg"]] = (r["ended"], r["wall_s"])
         return {k: v[1] for k, v in seen.items()}
+
+    def read_hit(self, scope: str, sha: str, repo: Path = REPO) -> dict | None:
+        """The newest passing row in `scope` whose recorded reads are unchanged at `sha`."""
+        if not hasattr(self, "_scopes"):
+            self._scopes = {}
+            for p in self.path.glob("*.json"):
+                try:
+                    r = json.loads(p.read_text())
+                except ValueError:
+                    continue
+                if r.get("scope") and r.get("reads") and r.get("verdict") in OK:
+                    self._scopes.setdefault(r["scope"], []).append(r)
+        for r in sorted(self._scopes.get(scope, []), key=lambda r: r.get("ended", ""), reverse=True):
+            try:
+                if reads_match(r["sha"], sha, r["reads"], repo):
+                    return r
+            except subprocess.CalledProcessError:
+                continue                       # a commit this clone does not have
+        return None
 
     def put(self, key: str, rec: dict) -> None:
         p = self.path / f"{key}.json"
@@ -1231,7 +1289,7 @@ def record_fragment(model_file: str, written: str, card_type: str, model: str):
     return json.dumps(base, indent=2) + "\n"
 
 
-def make_executor(sha: str, out: Path, ledger: Ledger, keys: dict, remote_out: str):
+def make_executor(sha: str, out: Path, ledger: Ledger, keys: dict, remote_out: str, scopes: dict | None = None):
     def execute(host: Host, card, leg: Leg) -> dict:
         tag = leg.name.replace(":", "_").replace("/", "-")
         log = out / "logs" / host.arch / f"{tag}.log"
@@ -1295,6 +1353,14 @@ def make_executor(sha: str, out: Path, ledger: Ledger, keys: dict, remote_out: s
             if r.returncode == 0:
                 baseline = (json.loads(r.stdout).get("cards", {}).get(host.cfg["card_type"]) or {}).get("cells", {})
         verdict = classify(leg, rc, report, baseline)
+        # What the leg's Python read (gate_reads.py), so a later commit that changed none of it
+        # reuses this result. No list (an interpreter without the hook) reuses on the same code only.
+        scope = (scopes or {}).get((leg.name, host.arch)) if leg.card else None
+        reads = []
+        if scope:
+            r = host.ssh(f"cat {shlex.quote(rdir)}/reads/*.txt 2>/dev/null | sort -u", capture_output=True,
+                         timeout=120)
+            reads = r.stdout.splitlines() if r.returncode == 0 else []
         seeded = None
         if verdict == "PASS" and host.seeding(leg):
             verdict = "SEEDED"
@@ -1335,6 +1401,8 @@ def make_executor(sha: str, out: Path, ledger: Ledger, keys: dict, remote_out: s
                "key": keys[(leg.name, host.arch if leg.card else "any")]}
         if seeded:
             res["seeded"] = seeded
+        if reads:
+            res["reads"], res["scope"] = reads, scope
         if verdict in OK:
             ledger.put(res["key"], res)
         return res
@@ -1458,7 +1526,8 @@ def main() -> int:
     same = {s for s in {sha} | ledger.shas() if s == sha or _same_code(s, content)}
     tests_in = {s: content_hash(s, tests=True, runner=RUNNER_FILES_0) for s in same}
     runner_in = {s: content_hash(s, runner=RUNNER_FILES_0) for s in same}
-    keys, results, todo = {}, [], {a: [] for a in archs}
+    keys, scopes, results, todo = {}, {}, [], {a: [] for a in archs}
+    nonpy = content_hash(sha, python=False)
     for lg in legs:
         for a in (archs if lg.card else [archs[0]]):
             slot = a if lg.card else "any"
@@ -1474,6 +1543,9 @@ def main() -> int:
                 base = ""
             k = leg_key(content, env, ct, hleg, base, tst)
             keys[(lg.name, slot)] = k
+            # The same leg on any commit with the same non-Python files, whose Python read nothing
+            # this commit changed (gate_reads.py), proved this commit's result too.
+            scopes[(lg.name, slot)] = scope = leg_key(nonpy, env, ct, hleg, base, tst)
             # Card-free legs always run: they are cheap, and pytest_cpu checks the recorded
             # measurements the key leaves out.
             # A row under an older key scheme proved the same code against the same inputs, so it
@@ -1489,7 +1561,7 @@ def main() -> int:
                     + [leg_key(runner_in[s], env, ct, hleg, base, tst) for s in match]
                     + [leg_key(content, env, ct, hleg, baseline_hash(s, "perf"), tst) for s in same if ab])
             hit = (None if args.no_reuse or not lg.card or lg.family == "record"
-                   else next(filter(None, map(ledger.get, [k, *olds])), None))
+                   else next(filter(None, map(ledger.get, [k, *olds])), None) or ledger.read_hit(scope, sha))
             owes = owed_by(roster, ctype[a], lg)
             if not owes and not any(h.arch == a and cap_fits(roster, h, lg) for h, _ in workers):
                 owes = [CAP_OWED]
@@ -1527,7 +1599,7 @@ def main() -> int:
     # Per run, so a job a stopped run left in a pool can never share a directory with a new one,
     # and a stopped run's cleanup (pool job names, end_attempt's GATE_ATTEMPT mark) can never
     # reach a later run on the same --out: on 10-11 one ended five legs of its successor.
-    execute = make_executor(sha, args.out, ledger, keys, f"out-{sha[:12]}/{args.out.name}-{os.getpid()}")
+    execute = make_executor(sha, args.out, ledger, keys, f"out-{sha[:12]}/{args.out.name}-{os.getpid()}", scopes)
     # Card-free legs run on a worker without a card on each host of the first arch (`cardfree`).
     # Started in the background by a non-interactive shell, SIGINT arrives ignored and the
     # cleanup below never ran; SIGTERM never reached it at all. Both stop the runner the same way.
