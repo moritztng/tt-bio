@@ -922,8 +922,10 @@ class SwiGLUFFN(Module):
             chunk = tenstorrent.pair_row_tile(L)
         else:
             t = tenstorrent.SMALL_GRID_SEQ_TILE
-            fc1_bytes = int(x.shape[0]) * int(L) * 2 * int(self.fc2_weight.shape[0]) * 2
-            chunk = t if (t and L > t and not 0 < fc1_bytes <= _LM_FFN_TILE_BYTES) else 0
+            chunk = t if (t and L > t) else 0
+            if chunk and _LM_FFN_TILE_BYTES:
+                fc1_bytes = int(x.shape[0]) * int(L) * 2 * int(self.fc2_weight.shape[0]) * 2
+                chunk = 0 if fc1_bytes <= _LM_FFN_TILE_BYTES else chunk
         try:
             if chunk:
                 parts = ttnn.chunk(x, -(-L // chunk), dim=1)
