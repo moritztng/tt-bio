@@ -34,8 +34,10 @@ from .tenstorrent import (Module, AdaLN, CORE_GRID_MAIN, _dtype, _cached, batche
 from .eltwise_fusion import gated_add, scale_add, mask_add, _taping
 from .envflags import env_flag
 
-# Measurement switch: build the superset bias on the host (the pre-device reference path).
-_SUPERSET_HOST = env_flag("TT_BIO_OF3_SUPERSET_HOST", False)
+# Where the superset bias is built. Host by default: the card path builds a bit-exact bias (superset_check.py) yet
+# moves the Wormhole fold digest, unexplained so far (perf/spd_gap_of3/superset_fold_check.py);
+# TT_BIO_OF3_SUPERSET_HOST=0 runs it.
+_SUPERSET_HOST = env_flag("TT_BIO_OF3_SUPERSET_HOST", True)
 
 
 def remap_of3_adaln(sd: dict) -> dict:
@@ -262,7 +264,7 @@ class OF3AtomTransformer(Module):
     def _superset(self, z_bias, mask_bias, key_block_idxs_tt, s, nb):
         """Per block ``(bias, q_terms, k_terms)`` for the superset attention, or ``()`` when a
         key window is not a contiguous run of atoms inside the superset (then the gathered path
-        runs). Built once per rollout on the card (`_superset_device`): the bias of key ``j`` of
+        runs). Built once per rollout (`_superset_host`, or `_superset_device` on the card): the bias of key ``j`` of
         block ``i`` moves to superset column ``ws_i - (32 i - lead) + j``, every other column
         is -1e9, and the whole is pre-multiplied by sqrt(dh) because the SDPA kernel scales the
         mask with the scores. The AdaLN conditioning terms are taken on the per-atom ``s``: the
