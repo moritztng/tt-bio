@@ -27,6 +27,7 @@ STATS = [0, 0]              # served, declined
 WHY: dict = {}              # decline reason -> calls
 REFUSED: set = set()        # program keys the device refused (static-CB clash with live L1 buffers)
 _CACHE: dict = {}
+WORMHOLE = False            # bench-only: serve on Wormhole too (perf/spd_trimul/t3.py --wh); no model path sets it
 
 
 def cb_plan(kt, ht, res):
@@ -68,7 +69,7 @@ def eligible(x, ln_w, ln_b, w12, w3):
     from . import ops
     if not lever("transition_t3"):
         return "off"
-    if _IS_SMALL_GRID:
+    if _IS_SMALL_GRID and not WORMHOLE:
         return _no("wormhole")
     if ops.taping():
         return _no("tape")
