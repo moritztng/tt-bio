@@ -31,7 +31,10 @@ WHY: dict = {}              # decline reason -> calls
 REFUSED: set = set()        # program keys the device refused (static-CB clash with live L1 buffers)
 _CACHE: dict = {}
 F3_SPLIT = 1               # fc3 K chunks (kernel arg 3); partials go through an fp32 CB between chunks
-F3_L1ACC = 0               # > 0: fc3 hidden tiles per DST chunk, chunks summed by the packer into fp32 (kernel arg 5)
+# > 0: fc3 hidden tiles per DST chunk, chunks summed by the packer into fp32 (kernel arg 5). One DST chain over all
+# hidden tiles drops a carry now and then (WH .113, c 256 N 512: one element exactly 2.0 low at chunk 32, 1.0 low at 8
+# and 4, the same element every run); 2 and 1 are clean at HiFi3, 1 also at HiFi4. 2: 12.83 ms against 12.65 for one chain.
+F3_L1ACC = 2
 
 
 def cb_plan(kt, ht, res, stage=0):
