@@ -200,36 +200,56 @@ def loadavg():
         return None
 
 
+def arrays(out):
+    """Every numeric array in a round's result, in a fixed order.
+
+    BC2 returns its `StructurePredictions` as a plain object, so `tree_leaves` hands it over
+    whole and `np.asarray` makes it an object array whose bytes are pointers: the old digest
+    read different on two bit-identical runs, and the dump skipped the predictions entirely.
+    Non-array leaves are opened through their attributes instead.
+    """
+    import jax
+    import numpy as np
+
+    def walk(x, depth=0):
+        if x is None or depth > 4:
+            return
+        try:
+            a = np.asarray(x)
+        except Exception:                                                     # noqa: BLE001
+            a = None
+        if a is not None and a.dtype.kind in "biufc":
+            yield a
+            return
+        if isinstance(x, (list, tuple)):
+            for y in x:
+                yield from walk(y, depth + 1)
+        elif isinstance(x, dict):
+            for k in sorted(x, key=str):
+                yield from walk(x[k], depth + 1)
+        elif hasattr(x, "__dict__"):
+            for k in sorted(vars(x)):
+                yield from walk(vars(x)[k], depth + 1)
+
+    for leaf in jax.tree_util.tree_leaves(out):
+        yield from walk(leaf)
+
+
 def gsha(out):
-    """sha256[:16] over every array leaf of the round's result: the eager/trace parity check."""
+    """sha256[:16] over every numeric array of the round's result: the eager/trace parity check."""
     if out is None:
         return None
     import hashlib
-    import jax
-    import numpy as np
     h = hashlib.sha256()
-    for leaf in jax.tree_util.tree_leaves(out):
-        # Array leaves only. A leaf that is not an array used to be hashed by repr(), and that
-        # repr changes from run to run, so two bit-identical eager runs read as different
-        # (eagerC/eagerD on qb1: every gradient array equal, every digest different).
-        try:
-            h.update(np.asarray(leaf).tobytes())
-        except Exception:                                                     # noqa: BLE001
-            continue
+    for a in arrays(out):
+        h.update(a.tobytes())
     return h.hexdigest()[:16]
 
 
 def dump(out, path):
-    """Every array leaf of a round's result, in tree order, as float64 (leaf_<i> in an npz)."""
-    import jax
+    """Every numeric array of a round's result, in `arrays` order, as float64 (leaf_<i> in an npz)."""
     import numpy as np
-    leaves = {}
-    for i, leaf in enumerate(jax.tree_util.tree_leaves(out)):
-        try:
-            leaves[f"leaf_{i}"] = np.asarray(leaf, dtype=np.float64)
-        except Exception:                                                     # noqa: BLE001
-            pass
-    np.savez(path, **leaves)
+    np.savez(path, **{f"leaf_{i}": np.asarray(a, dtype=np.float64) for i, a in enumerate(arrays(out))})
 
 
 def sequence_gradients(self, *args, **kwargs):
