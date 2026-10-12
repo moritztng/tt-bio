@@ -23,6 +23,9 @@
 #include "api/compute/eltwise_unary/activations.h"
 #include "api/compute/eltwise_unary/rsqrt.h"
 #include "../common/ln_prologue.hpp"
+#if defined(T3_PACK_SILU) && defined(TRISC_PACK)
+#include "llk_math_eltwise_unary_sfpu_silu.h"
+#endif
 
 constexpr uint32_t Kt = get_compile_time_arg_val(0);
 constexpr uint32_t Ht = get_compile_time_arg_val(1);
@@ -77,7 +80,13 @@ void kernel_main() {
 
         // 2. h = silu(xn @ W1) * (xn @ W2), G hidden tiles at a time. silu is re-initialised every unit:
         // the prologue's rsqrt init reprograms the SFPU.
+#ifdef T3_PACK_SILU
+        // PACK runs silu on fc1's DST half while MATH starts fc2 in the other (kernels/fc12g FC12G_PACK_SILU). PACK
+        // reaches this init only after packing xn, so after the prologue's last SFPU op on MATH.
+        PACK((llk_math_eltwise_unary_sfpu_silu_init<true>()));
+#else
         silu_tile_init();
+#endif
         cb_reserve_back(h_cb, Ht);
         for (uint32_t g = 0; g < Ht; g += G) {
             mm_block_init_short(xn_cb, w12_cb, false, G, 1, Kt);
@@ -85,10 +94,21 @@ void kernel_main() {
             pack_reconfig_data_format(gate_cb);
             tile_regs_acquire();
             for (uint32_t k = 0; k < Kt; ++k) matmul_block(xn_cb, w12_cb, k, k * 2 * Ht + g, 0, false, G, 1, Kt);
+#ifndef T3_PACK_SILU
             for (uint32_t i = 0; i < G; ++i) silu_tile(i);
+#endif
             tile_regs_commit();
             cb_reserve_back(gate_cb, G);
+#ifdef T3_PACK_SILU
+            // tile_regs_wait() that also points the SFPU at the packer's DST half, then silu before the pack
+            PACK(TTI_SEMWAIT(
+                p_stall::STALL_TDMA | p_stall::STALL_CFG, semaphore::t6_sem(semaphore::MATH_PACK), p_stall::STALL_ON_ZERO));
+            PACK(TT_SETC16(DEST_TARGET_REG_CFG_MATH_Offset_ADDR32, ckernel::packer::get_packer_dest_offset()));
+            for (uint32_t i = 0; i < G; ++i) PACK((llk_math_eltwise_unary_sfpu_silu<true, DST_ACCUM_MODE>(i)));
+            PACK(TTI_STALLWAIT(p_stall::STALL_PACK, p_stall::WAIT_SFPU));
+#else
             tile_regs_wait();
+#endif
             for (uint32_t i = 0; i < G; ++i) pack_tile(i, gate_cb);
             tile_regs_release();
             cb_push_back(gate_cb, G);

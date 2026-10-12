@@ -21,6 +21,7 @@ ap.add_argument("--probe", action="store_true", help="isolate a T3 defect: RES=0
                 "and W3 = 0 (output must be x exactly)")
 ap.add_argument("--fid", default="", help="override the trunk fidelity for both arms (HiFi2, HiFi3, LoFi)")
 ap.add_argument("--approx", type=int, default=-1, help="override math_approx_mode (0 = exact silu, no silu_f32)")
+ap.add_argument("--pack-silu", type=int, default=1, help="transition_t3.PACK_SILU")
 ap.add_argument("--f3s", type=int, default=1, help="transition_t3.F3_SPLIT: fc3 K chunks")
 ap.add_argument("--wh", action="store_true", help="no-op (T3 serves on Wormhole since the hifi4 decline)")
 ap.add_argument("--out", help="also append each JSON line here (the qb runner passes it)")
@@ -35,6 +36,7 @@ from tt_bio.af2 import compute_kernel_config
 
 dev = T.get_device()
 T3.F3_SPLIT = A.f3s
+T3.PACK_SILU = bool(A.pack_silu)
 kcfg = T.trunk_compute_kernel_config(compute_kernel_config())
 if A.fid:
     kcfg.math_fidelity = getattr(ttnn.MathFidelity, A.fid)

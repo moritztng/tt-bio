@@ -27,6 +27,7 @@ STATS = [0, 0]              # served, declined
 WHY: dict = {}              # decline reason -> calls
 REFUSED: set = set()        # program keys the device refused (static-CB clash with live L1 buffers)
 _CACHE: dict = {}
+PACK_SILU = True            # under the silu_f32 overlay (approx), silu on the PACK thread overlapping fc2 (T3_PACK_SILU)
 F3_SPLIT = 1               # fc3 K chunks (kernel arg 3); partials go through an fp32 CB between chunks
 
 
@@ -129,6 +130,7 @@ def _build(x, ln_w, ln_b, w12, w3, out, grid, ckc, res, eps):
     fid, approx, _, full = ckc
     compute = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "compute.cpp"), source_type=src, core_ranges=core_grid,
+        defines=[("T3_PACK_SILU", "1")] if PACK_SILU and approx else [],
         compile_time_args=[kt, ht, int(res), F3_SPLIT], runtime_args=cp,
         config=ttnn.ComputeConfigDescriptor(
             math_fidelity=fid, math_approx_mode=approx, fp32_dest_acc_en=True, dst_full_sync_en=full))
@@ -156,7 +158,7 @@ def transition(x, ln_w, ln_b, w12, w3, ckc, grid, add_to_input=False, eps=1e-5):
     if eligible(x, ln_w, ln_b, w12, w3) is not None:
         return None
     key = ("t3", str(x.padded_shape), str(w12.padded_shape), tuple(grid), tuple(str(c) for c in ckc),
-           bool(add_to_input), float(eps), F3_SPLIT)
+           bool(add_to_input), float(eps), F3_SPLIT, PACK_SILU)
     if key in REFUSED:
         _no("refused")
         return None
