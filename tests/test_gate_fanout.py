@@ -1066,3 +1066,39 @@ def test_the_card_probe_reads_dead_only_when_it_ran_and_did_not_dispatch(tmp_pat
     outs = iter(["CARD_PROBE_START\nRuntimeError: lease held\n", "CARD_PROBE_START\nCARD_OPEN\nCARD_HEALTHY\n"])
     host.ssh = lambda cmd, **kw: subprocess.CompletedProcess(cmd, 0, next(outs), "")
     assert host.card_dead(1) is None              # a failed leg's workers let go: not dead
+
+
+SHARED = [256, 512, 640, 768, 896, 1024]
+RUNGS = {"p150a": {"boltz2": SHARED + [1152, 1280, 1408, 1536], "rf3": SHARED + [1088, 1152, 1280, 1408, 1536]},
+         "tt-galaxy-wh-l": {"boltz2": SHARED + [1280, 1536], "rf3": SHARED + [1088, 1280, 1536]},
+         "*": {"boltz2": SHARED, "rf3": SHARED + [1088]}}
+
+
+def test_a_ladder_runs_as_rung_groups_that_keep_the_exponent_rungs_together():
+    legs = {lg.name: lg for lg in gf.build_legs({**ROSTER, "rungs": RUNGS}, [], 1) if lg.family == "ladder"}
+    assert sorted(legs) == ["ladder:boltz2@1152-1280", "ladder:boltz2@1408-1536", "ladder:boltz2@256-768",
+                            "ladder:boltz2@896-1024", "ladder:rf3@1152-1280", "ladder:rf3@1408-1536",
+                            "ladder:rf3@256-768", "ladder:rf3@896-1088"]
+    a = legs["ladder:boltz2@256-768"]
+    assert a.rungs == (256, 512, 640, 768)
+    assert a.argv[-2:] == ["--size-ladder-rungs", "256,512,640,768"]
+    assert gf.ladder_model(a.name) == "boltz2" and gf.out_group(a.name) == a.name
+    # a tree whose roster carries no rungs keeps one leg per model
+    assert [lg.name for lg in gf.build_legs(ROSTER, [], 1) if lg.family == "ladder"] == ["ladder:boltz2", "ladder:rf3"]
+
+
+def test_a_rung_group_goes_only_to_a_card_whose_ladder_walks_it(tmp_path):
+    roster = {"rungs": RUNGS}
+    legs = {lg.name: lg for lg in gf.build_legs({**ROSTER, **roster}, [], 1) if lg.family == "ladder"}
+
+    def host(ct):
+        return gf.Host(ct, {"arch": "bh", "card_type": ct, "root": "/r"}, "f" * 40)
+
+    p300c, p150a, wh = host("p300c"), host("p150a"), host("tt-galaxy-wh-l")
+    assert gf.rungs_fit(roster, p300c, legs["ladder:boltz2@896-1024"])
+    assert not gf.rungs_fit(roster, p300c, legs["ladder:boltz2@1408-1536"])
+    assert gf.rungs_fit(roster, p150a, legs["ladder:boltz2@1408-1536"])
+    assert gf.rungs_fit(roster, wh, legs["ladder:boltz2@1408-1536"])       # 1536
+    assert gf.rungs_fit(roster, wh, legs["ladder:boltz2@1152-1280"])        # 1280
+    assert not gf.rungs_fit(roster, p300c, legs["ladder:rf3@1152-1280"])
+    assert gf.rungs_fit(roster, p300c, gf.Leg("rg:x", [], "rg"))
