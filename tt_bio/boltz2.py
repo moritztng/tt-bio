@@ -67,10 +67,15 @@ LEVERS_NORMAL = frozenset({"trimul_ibw", "trimul_tail", "trunk_hifi3", "dit_sdpa
 # PASS, CA-lDDT +0.0018, pLDDT -0.0002, docking 24/44 both (spd-boltz2 gf1).
 # triatt_tail (the gate, output projection and residual add of triangle attention in one program) is graded on
 # Protenix-v2 in both modes. On Boltz-2 fast at 512 x 1 on p150a it reads 14.60 / 14.67 s against 14.81 / 15.00 s
-# (interleaved, 3 warm each), pLDDT 0.852 -> 0.850 (spd-gap-small abK, 2026-10-12). Boltz-2's own fast grade is owed.
+# (interleaved, 3 warm each), pLDDT 0.852 -> 0.850 (spd-gap-small abK, 2026-10-12). Boltz-2 fast grade on
+# Blackhole PASS, 44 paired folds (spd-integrate gttbh/fast, 2026-10-12).
+# adaln_mod (each fp32 AdaLN modulates in one addcmul) is graded on Boltz-2 fast against this set without it:
+# Wormhole PASS, 42 paired, top pose 0.989 A vs a 1.801 A seed floor (spd-integrate gad); Blackhole PASS, 44 paired,
+# top pose median 1.255 A vs a 1.779 A floor, pLDDT within +-0.003 per complex, docking 24/44 both. p150a 512 x 1,
+# interleaved: 13.51 / 14.40 s against 14.43 / 14.74 s (spd-gap-small abO, 2026-10-12).
 LEVERS_FAST = frozenset({"acc_off", "diffusion_bf16", "dit_sdpa", "transition_b8", "opm_b8", "atom_sdpa",
                          "trimul_ibw", "trimul_tail", "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32",
-                         "triatt_tail"})
+                         "triatt_tail", "adaln_mod"})
 
 
 def _under_levers(method):
