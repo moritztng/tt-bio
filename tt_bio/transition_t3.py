@@ -27,7 +27,7 @@ STATS = [0, 0]              # served, declined
 WHY: dict = {}              # decline reason -> calls
 REFUSED: set = set()        # program keys the device refused (static-CB clash with live L1 buffers)
 _CACHE: dict = {}
-WORMHOLE = False            # bench-only: serve on Wormhole too (perf/spd_trimul/t3.py --wh); no model path sets it
+F3_SPLIT = 1               # fc3 K chunks (kernel arg 3); partials go through an fp32 CB between chunks
 
 
 def cb_plan(kt, ht, res):
@@ -44,7 +44,8 @@ def cb_plan(kt, ht, res):
     if res:
         bf += [(5, 2 * kt),      # x for the residual add
                (15, kt)]         # fc3 output before it
-    f32 = [(11, 1), (12, 1), (13, 1), (14, 1), (16, kt), (17, kt)]   # eps, mean, var, rstd, xc, tmp
+    f32 = [(11, 1), (12, 1), (13, 1), (14, 1), (16, kt), (17, kt),   # eps, mean, var, rstd, xc, tmp
+           (18, kt)]                                                  # fc3 partial between K chunks
     return bf, f32
 
 
@@ -66,12 +67,10 @@ def _no(why):
 
 def eligible(x, ln_w, ln_b, w12, w3):
     """None when T3 serves this call, else the reason it does not (counted in WHY)."""
-    from .tenstorrent import lever, _IS_SMALL_GRID
+    from .tenstorrent import lever
     from . import ops
     if not lever("transition_t3"):
         return "off"
-    if _IS_SMALL_GRID and not WORMHOLE:
-        return _no("wormhole")
     if ops.taping():
         return _no("tape")
     for t in (x, w12, w3):
@@ -130,7 +129,7 @@ def _build(x, ln_w, ln_b, w12, w3, out, grid, ckc, res, eps):
     fid, approx, _, full = ckc
     compute = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "compute.cpp"), source_type=src, core_ranges=core_grid,
-        compile_time_args=[kt, ht, int(res)], runtime_args=cp,
+        compile_time_args=[kt, ht, int(res), F3_SPLIT], runtime_args=cp,
         config=ttnn.ComputeConfigDescriptor(
             math_fidelity=fid, math_approx_mode=approx, fp32_dest_acc_en=True, dst_full_sync_en=full))
     bf, f32 = cb_plan(kt, ht, res)
@@ -148,10 +147,16 @@ def transition(x, ln_w, ln_b, w12, w3, ckc, grid, add_to_input=False, eps=1e-5):
     if dest_guard.exposed_args((fid, approx, True, full)):
         _no("dest_guard")
         return None
+    if fid == ttnn.MathFidelity.HiFi4 and F3_SPLIT == 1:
+        # At HiFi4 the one-run 16-tile fc3 accumulation put isolated elements exactly 2^k low (WH .113: 2 of 8.4M
+        # at N=256, 97 of 33.5M at 512, the same elements on four chips; HiFi3 and HiFi2 clean, silu exact or not).
+        # The trunk runs HiFi3 (trunk_hifi3).
+        _no("hifi4")
+        return None
     if eligible(x, ln_w, ln_b, w12, w3) is not None:
         return None
     key = ("t3", str(x.padded_shape), str(w12.padded_shape), tuple(grid), tuple(str(c) for c in ckc),
-           bool(add_to_input), float(eps))
+           bool(add_to_input), float(eps), F3_SPLIT)
     if key in REFUSED:
         _no("refused")
         return None
