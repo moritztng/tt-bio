@@ -46,6 +46,11 @@ def main():
     ap.add_argument("--inner", type=int, default=10)
     ap.add_argument("--sizes", default="195,224")
     ap.add_argument("--channels", default="64,128")
+    ap.add_argument("--mem", default="dram", choices=("dram", "l1"),
+                    help="operand/output memory; production is L1 untaped at <= _trimul_l1_max_seq, DRAM taped")
+    ap.add_argument("--transpose", default="none", choices=("none", "a", "b"),
+                    help="the deferred transpose production hands the matmul (ending: a, starting: b)")
+    ap.add_argument("--no-reuse2", action="store_true", help="skip reuse_c2 (hung on .114 chip 12, 10-12)")
     a = ap.parse_args()
     dev = tt.get_device()
     gx, gy = tt.COMPUTE_GRID_MAIN
@@ -55,25 +60,30 @@ def main():
                   fp32_dest_acc_en=True, packer_l1_acc=True)
     res = {"arch": str(dev.arch()), "grid": [gx, gy], "loadavg": open("/proc/loadavg").read().split()[:3],
            "inner": a.inner, "cells": []}
+    mc = ttnn.L1_MEMORY_CONFIG if a.mem == "l1" else ttnn.DRAM_MEMORY_CONFIG
+    res.update(mem=a.mem, transpose=a.transpose)
+    tkw = {"transpose_a": a.transpose == "a", "transpose_b": a.transpose == "b"}
     up = lambda t: ttnn.from_torch(t, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16,  # noqa: E731
-                                   memory_config=ttnn.DRAM_MEMORY_CONFIG)
+                                   memory_config=mc)
     torch.manual_seed(0)
     for S in map(int, a.sizes.split(",")):
         for C in map(int, a.channels.split(",")):
             at = torch.randn(1, C, S, S, dtype=torch.bfloat16)
             bt = torch.randn(1, C, S, S, dtype=torch.bfloat16)
-            ref64 = at.double() @ bt.double()
+            ref64 = ((at.double().transpose(-1, -2) if tkw["transpose_a"] else at.double())
+                     @ (bt.double().transpose(-1, -2) if tkw["transpose_b"] else bt.double()))
             x, y = up(at), up(bt)
             St = (S + 31) // 32
-            mm = lambda **kw: (lambda: ttnn.matmul(x, y, memory_config=ttnn.DRAM_MEMORY_CONFIG,  # noqa: E731
-                                                   dtype=ttnn.bfloat16, compute_kernel_config=ckc, **kw))
+            mm = lambda **kw: (lambda: ttnn.matmul(x, y, memory_config=mc,  # noqa: E731
+                                                   dtype=ttnn.bfloat16, compute_kernel_config=ckc,
+                                                   **tkw, **kw))
             arms = [("prod", mm(program_config=tt._triangle_mul_program_config(
                 St, tt._trimul_ibw_full(), tt._trimul_subblock()))),
                     ("plain", mm()),
                     (f"grid{gx}x{gy}", mm(core_grid=ttnn.CoreGrid(y=gy, x=gx))),
                     ("grid8x8", mm(core_grid=ttnn.CoreGrid(y=8, x=8)))]
             # 1D reuse: batch folded into M, whole channels per core (per_core_M a multiple of St).
-            for chans in (1, 2):
+            for chans in ((1,) if a.no_reuse2 else (1, 2)):
                 for kw in (1, St):
                     if St % kw:
                         continue
