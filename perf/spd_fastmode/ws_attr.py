@@ -1,0 +1,67 @@
+"""Where pair_swiglu_ws spends its time: the kernel with one phase dropped at a time, plus LN and the bfp8 cast alone.
+
+    TT_VISIBLE_DEVICES=<card> python perf/spd_fastmode/ws_attr.py [--n 512] [--c 256] [--hidden 1024] [--reps 20]
+
+Arms: `fast` (bfp8 x and weights, HiFi2) and `normal` (bf16, HiFi4), each built plain and with one of the kernels'
+WS_NO_* defines (FC12, SILU, GATE, FC3 in compute; XREAD in the reader; WRITE in the writer). A dropped phase makes the
+output wrong by design, so this prints time only: ms/call, median of --reps after 3 warm calls. One JSON line per arm.
+"""
+import argparse, json, os, statistics, time
+
+import torch
+
+ap = argparse.ArgumentParser()
+ap.add_argument("--n", type=int, default=512)
+ap.add_argument("--c", type=int, default=256)
+ap.add_argument("--hidden", type=int, default=1024)
+ap.add_argument("--reps", type=int, default=20)
+a = ap.parse_args()
+
+from tt_bio.main import ensure_p300_mesh_descriptor  # noqa: E402
+ensure_p300_mesh_descriptor()
+import ttnn  # noqa: E402
+from tt_bio import tenstorrent as T  # noqa: E402
+from tt_bio import pair_swiglu_ws as W  # noqa: E402
+
+g = torch.Generator().manual_seed(0)
+c, h = a.c, a.hidden
+w1, w2 = (torch.randn(c, h, generator=g) / c ** 0.5 for _ in range(2))
+w3 = torch.randn(h, c, generator=g) / h ** 0.5
+dev = T.get_device()
+xt = ttnn.from_torch(torch.randn(1, a.n, a.n, c, generator=g), dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT,
+                     device=dev)
+nw = ttnn.from_torch(torch.ones(c), dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev)
+
+
+def timed(fn):
+    for _ in range(3):
+        ttnn.deallocate(fn())
+    ttnn.synchronize_device(dev)
+    ts = []
+    for _ in range(a.reps):
+        t0 = time.perf_counter()
+        o = fn()
+        ttnn.synchronize_device(dev)
+        ts.append(time.perf_counter() - t0)
+        ttnn.deallocate(o)
+    return round(1e3 * statistics.median(ts), 3)
+
+
+def emit(**kw):
+    print(json.dumps(dict(n=a.n, c=c, hidden=h, card=os.environ.get("TT_VISIBLE_DEVICES"), **kw)), flush=True)
+
+
+emit(arm="layer_norm", ms=timed(lambda: ttnn.layer_norm(xt, weight=nw, epsilon=1e-5,
+                                                         memory_config=ttnn.DRAM_MEMORY_CONFIG)))
+emit(arm="typecast_bfp8", ms=timed(lambda: ttnn.typecast(xt, ttnn.bfloat8_b)))
+for mode, dt, fid in (("fast", ttnn.bfloat8_b, ttnn.MathFidelity.HiFi2),
+                      ("normal", ttnn.bfloat16, ttnn.MathFidelity.HiFi4)):
+    w12, w3t = W.weights(w1, w2, w3, dev, dt)
+    x = ttnn.typecast(xt, dt) if dt != ttnn.bfloat16 else xt
+    if not W.eligible(x, w12, w3t):
+        emit(arm=mode, ms=None, note="not eligible (L1)")
+        continue
+    for drop in ("", "FC12", "SILU", "GATE", "FC3", "XREAD", "WRITE"):
+        defs = [("WS_NO_" + drop, "1")] if drop else []
+        emit(arm=mode + ("-" + drop.lower() if drop else ""), fidelity=str(fid),
+             ms=timed(lambda: W.pair_swiglu(x, w12, w3t, fid, defs)))

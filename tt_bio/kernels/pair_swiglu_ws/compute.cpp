@@ -10,6 +10,8 @@
 // The gate, the hidden and the output are bf16; x and the weights are bf16 or bfp8, each CB in its own format, and
 // srcA / srcB are reconfigured at every phase change. SW = 4 hidden tiles per fc1/fc2 pass, fc3 in groups of 4 output tiles
 // (one fp32 dest half each), so c_z = 256 (CT = 8) runs two fc3 groups per row tile.
+// WS_NO_{FC12,SILU,GATE,FC3} drop one phase for time attribution only (perf/spd_fastmode/ws_attr.py); the output
+// is then wrong by design. No production call sets them.
 #include <cstdint>
 
 #include "api/compute/matmul.h"
@@ -42,13 +44,17 @@ void kernel_main() {
             reconfig_data_format(cb_w12, cb_x);  // srcA = the weights, srcB = x, each in its own format
             // fc1 group -> silu -> gate
             tile_regs_acquire();
+#ifndef WS_NO_FC12
             for (uint32_t k = 0; k < KT; ++k) {
                 matmul_block(cb_x, cb_w12, k, k * 2 * NH + j, 0, false, SW, 1, KT);
             }
+#endif
+#ifndef WS_NO_SILU
             silu_tile_init();  // the dest-reuse multiply's init does not keep the SFPU's
             for (uint32_t i = 0; i < SW; ++i) {
                 silu_tile(i);
             }
+#endif
             tile_regs_commit();
             cb_reserve_back(cb_gate, SW);
             tile_regs_wait();
@@ -57,20 +63,24 @@ void kernel_main() {
             cb_push_back(cb_gate, SW);
             // fc2 group, times the gate in dest -> hidden
             tile_regs_acquire();
+#ifndef WS_NO_FC12
             for (uint32_t k = 0; k < KT; ++k) {
                 matmul_block(cb_x, cb_w12, k, k * 2 * NH + NH + j, 0, false, SW, 1, KT);
             }
+#endif
+            cb_wait_front(cb_gate, SW);
+#ifndef WS_NO_GATE
             reconfig_data_format_srca(cb_w12, cb_gate);  // bfp8 weights leave srcA in their format
             UNPACK((llk_unpack_A_init<BroadcastType::NONE, true, EltwiseBinaryReuseDestType::DEST_TO_SRCB>(
                 false, false, cb_gate)));
             MATH((llk_math_eltwise_binary_init<ELWMUL, NONE, mul_fidelity, EltwiseBinaryReuseDestType::DEST_TO_SRCB>(
                 false)));
-            cb_wait_front(cb_gate, SW);
             for (uint32_t i = 0; i < SW; ++i) {
                 UNPACK((llk_unpack_A<BroadcastType::NONE, true, EltwiseBinaryReuseDestType::DEST_TO_SRCB>(cb_gate, i)));
                 MATH((llk_math_eltwise_binary<ELWMUL, NONE, DST_ACCUM_MODE, mul_fidelity,
                                               EltwiseBinaryReuseDestType::DEST_TO_SRCB>(cb_gate, cb_gate, i, true)));
             }
+#endif
             cb_pop_front(cb_gate, SW);
             tile_regs_commit();
             cb_reserve_back(cb_hid, SW);
@@ -86,9 +96,11 @@ void kernel_main() {
         cb_wait_front(cb_hid, NH);
         for (uint32_t c = 0; c < CT; c += OG) {
             tile_regs_acquire();
+#ifndef WS_NO_FC3
             for (uint32_t k = 0; k < NH; ++k) {
                 matmul_block(cb_hid, cb_w3, k, k * CT + c, 0, false, OG, 1, NH);
             }
+#endif
             tile_regs_commit();
             cb_reserve_back(cb_out, OG);
             tile_regs_wait();

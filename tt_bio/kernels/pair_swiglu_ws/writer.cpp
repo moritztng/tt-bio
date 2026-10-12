@@ -17,9 +17,11 @@ void kernel_main() {
     for (uint32_t r = first; r < first + count; ++r) {
         cb_wait_front(cb_out, CT);
         uint32_t rd = get_read_ptr(cb_out);
+#ifndef WS_NO_WRITE  // time attribution only (ws_attr.py)
         for (uint32_t c = 0; c < CT; ++c, rd += to) {
             noc_async_write_page(r * CT + c, so, rd);
         }
+#endif
         noc_async_write_barrier();
         cb_pop_front(cb_out, CT);
     }
