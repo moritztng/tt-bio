@@ -152,7 +152,7 @@ def apply_rotary(x: ttnn.Tensor, cos: ttnn.Tensor, sin: ttnn.Tensor) -> ttnn.Ten
     return out
 
 
-def _rope(q: ttnn.Tensor, k: ttnn.Tensor, cos: ttnn.Tensor, sin: ttnn.Tensor):
+def _rope(q: ttnn.Tensor, k: ttnn.Tensor, cos: ttnn.Tensor, sin: ttnn.Tensor, l1: bool = True):
     """RoPE for per-head q, k [B, H, L, head_dim].
 
     When L is tile-aligned (the bucketed LM path — ``BUCKET`` is 32, and the 6B
@@ -165,7 +165,7 @@ def _rope(q: ttnn.Tensor, k: ttnn.Tensor, cos: ttnn.Tensor, sin: ttnn.Tensor):
     """
     if q.shape[2] % 32 == 0:
         key = tuple(q.padded_shape)
-        if _ROPE_L1 and key not in _ROPE_L1_REFUSED:
+        if _ROPE_L1 and l1 and key not in _ROPE_L1_REFUSED:
             l1 = ttnn.L1_MEMORY_CONFIG
             out = []
             try:
@@ -181,15 +181,17 @@ def _rope(q: ttnn.Tensor, k: ttnn.Tensor, cos: ttnn.Tensor, sin: ttnn.Tensor):
             else:
                 ROPE_L1_STATS[0] += 1
                 return out[0], out[1]
-        ROPE_L1_STATS[1] += _ROPE_L1
+        ROPE_L1_STATS[1] += _ROPE_L1 and l1
         return (ttnn.experimental.rotary_embedding(q, cos, sin),
                 ttnn.experimental.rotary_embedding(k, cos, sin))
     return apply_rotary(q, cos, sin), apply_rotary(k, cos, sin)
 
 
 # The rotated q and k written to L1: SDPA reads them straight back. Same kernel, same values (a memory
-# placement), refusal falls back to DRAM for that shape for good. Off until the page-cell A/B (esmc_ab.py) says.
-_ROPE_L1 = env_flag("TT_BIO_ESMC_ROPE_L1", False)
+# placement), refusal falls back to DRAM for that shape for good. p150a page cell (esmc_ab.py, qb1 card 2, 1350 MHz,
+# 2 rounds each, output identical to the DRAM path), batch of 7: 300M 81.1 -> 79.5 ms, 300M --fast 87.4 -> 81.1,
+# 600M 139.9 -> 135.1, 600M --fast 119.2 -> 114.9. Same model gate as QK_L1 (Attention.qk_l1): the 6B is not measured.
+_ROPE_L1 = env_flag("TT_BIO_ESMC_ROPE_L1", True)
 _ROPE_L1_REFUSED: set = set()
 #: [rope calls served from L1, declined], read by the A/B harness.
 ROPE_L1_STATS = [0, 0]
@@ -343,7 +345,7 @@ class Attention(Module):
             q, k, v = self._qkv(x)
         # Re-pack and use the tile-aware head split, then apply per-head RoPE.
         q, k, v = self._qk_heads(q, k, v)
-        q, k = _rope(q, k, cos, sin)
+        q, k = _rope(q, k, cos, sin, l1=self.qk_l1)
         if key_valid is not None and attn_mask is None:
             # Zero padded keys/values so their attention contribution is exactly 0. With the -inf
             # additive mask present this is redundant: the masked softmax weight is already exactly
