@@ -110,12 +110,16 @@ def _time_parts(model, log: list) -> None:
     wrap(model.esm_module, "forward", "esm_fold")
     for m in (model.affinity_module, model.affinity_module2):
         wrap(m, "forward", "affinity_member")
+    if hasattr(model.pairformer_module, "_to_torch"):
+        # The trunk's host<->device crossings, inside the trunk time above.
+        wrap(model.pairformer_module, "_from_torch", "trunk_upload")
+        wrap(model.pairformer_module, "_to_torch", "trunk_download")
 
 
 def _summarise(log: list) -> dict:
     out: dict = {}
     for name, n, s in log:
-        key = f"{name}@{n}" if name in ("trunk", "esm_fold") else name
+        key = f"{name}@{n}" if name in ("trunk", "esm_fold", "trunk_upload") else name
         out[key] = round(out.get(key, 0.0) + s, 4)
     out["trunk_calls"] = [(n, round(s, 4)) for name, n, s in log if name == "trunk"]
     return out
