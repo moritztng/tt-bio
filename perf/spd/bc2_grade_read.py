@@ -4,7 +4,10 @@ R = sys.argv[1]
 rows = {}
 TRAJ = {}  # arm -> per-trajectory last-iteration i_pTM, the continuous outcome a test can use
 for d in sorted(glob.glob(f"{R}/*_s*/")):
-    arm, seed = re.match(r".*/(\w+)_s(\d+)/$", d).groups()
+    hit = re.match(r".*/(\w+)_s(\d+)/$", d)
+    if not hit:  # a pool-preempted arm is moved aside as <arm>_s<seed>.preempt-<stamp>; its rerun is the record
+        continue
+    arm, seed = hit.groups()
     m = {}
     for s in glob.glob(f"{d}campaign_*/summary.csv"):
         for r in csv.DictReader(open(s)):
@@ -19,8 +22,8 @@ for d in sorted(glob.glob(f"{R}/*_s*/")):
             lr = list(csv.DictReader(open(L[0])))
             if int(r["trajectory"]) > 1: spi.append(float(t["design"]) / len(lr))
             last_iptm.append(float(lr[-1]["hPDL1.iptm"]))
-    TRAJ.setdefault(arm, []).extend(last_iptm)
     if not m: continue
+    TRAJ.setdefault(arm, []).extend(last_iptm)  # finished campaigns only, the same set the table reads
     g = lambda k: m.get(k, (float("nan"), 0))
     rows[(arm, int(seed))] = dict(
         traj=int(g(("campaign", "trajectories"))[0]),
