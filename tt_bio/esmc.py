@@ -1037,15 +1037,16 @@ class SwiGLUFFN(Module):
 
     def _weight_stationary(self, x: ttnn.Tensor):
         """`transition_ws` on ESMFold2's split pair FFN: the shared `tenstorrent.ws_swiglu` kernel over this
-        module's weights in the dtype its fc1 halves carry, in as many hidden chunks as keep each inside the
-        kernel's L1 budget (c_z 256 / d_ff 1024 takes one chunk in bfp8, two in bf16), or None."""
+        module's weights in bfp8 on both archs, or None. bfp8 is what the lever was graded with (Wormhole's fast
+        weights) and fits c_z 256 / d_ff 1024 in one chunk; Blackhole's fast keeps bf16 module weights, which
+        took no kernel at all (b9: on and off wrote the same CIF), and two bf16 chunks carry wd1's chunk-0 fault."""
         from tt_bio import tenstorrent as T
         if not (self.split_swiglu and T._ws_applies(x, self.compute_kernel_config)):
             return None
         if getattr(self, "_ws", None) is None:
             w1, half = self.weights["1.weight"], self.weights["1.weight"].shape[0] // 2
             w3 = _scaled_t(self.out_scale)(self.weights["3.weight"])
-            self._ws = T._pair_ws.weights(w1[:half].t(), w1[half:].t(), w3, self.device, self.fc1_a_weight.dtype)
+            self._ws = T._pair_ws.weights(w1[:half].t(), w1[half:].t(), w3, self.device, ttnn.bfloat8_b)
             if not all(T._pair_ws.eligible(x, *p) for p in self._ws):  # the weights decide, not x: drop for good
                 for p in self._ws:
                     for t in p:
