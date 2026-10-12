@@ -353,7 +353,7 @@ class OpenFold3(Module):
         vecs = _pae_bin_vectors(n_tok, aux.get("asym_id")) if _T.lever("conf_bins") else None
         out = self.confidence_head.forward(
             si_input=si_input.float(), si_trunk=si_trunk.float(),
-            zij_trunk=zij_trunk.float(), repr_x_pred=representative.float(),
+            zij_trunk=None if zij_trunk is None else zij_trunk.float(), repr_x_pred=representative.float(),
             max_atom_per_token_mask=aux["max_atom_per_token_mask"].float(),
             use_zij_trunk_embedding=True, shared=shared,
             bin_vectors=None if vecs is None else torch.stack(vecs, -1),
@@ -555,12 +555,12 @@ class OpenFold3(Module):
             if progress_fn is not None:
                 progress_fn("confidence", step=0, total=0)
             si_trunk = torch.Tensor(ttnn.to_torch(si_trunk_d)).float().reshape(n_token, -1)
-            zij_trunk = torch.Tensor(ttnn.to_torch(zij_trunk_d)).float().reshape(n_token, n_token, -1)
             # Trunk terms, computed with the first sample; the device trunk pair lets the head
-            # build each sample's pair embedding on device (OF3ConfidenceHead._z_embed_device).
+            # build each sample's pair embedding and the distogram on device, so the pair itself
+            # never comes back (OF3ConfidenceHead._z_embed_device).
             shared = {"zij_trunk_d": zij_trunk_d}
             confidence = [
-                self._confidence(sample, s_input, si_trunk, zij_trunk, confidence_aux_host,
+                self._confidence(sample, s_input, si_trunk, None, confidence_aux_host,
                                  shared)
                 for sample in samples
             ]
