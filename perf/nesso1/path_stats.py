@@ -22,6 +22,13 @@ def snapshot(tt) -> dict:
             if k.endswith("_STATS") and isinstance(v, (dict, list))}
 
 
+def strkeys(x):
+    """Some *_STATS dicts are keyed by shape tuples; JSON wants string keys."""
+    if isinstance(x, dict):
+        return {str(k): strkeys(v) for k, v in x.items()}
+    return x
+
+
 def delta(a, b):
     """b - a over matching numeric leaves; other leaves as they are in b."""
     if isinstance(b, dict):
@@ -61,9 +68,9 @@ def main() -> None:
             s1 = snapshot(tt)
             pm(None, z, mask=mask, pair_mask=pair)
             s2 = snapshot(tt)
-            row = {"n": n, "first_pass": delta(s0, s1), "warm_pass": delta(s1, s2)}
+            row = {"n": n, "first_pass": strkeys(delta(s0, s1)), "warm_pass": strkeys(delta(s1, s2))}
             rep["sizes"].append(row)
-            print(json.dumps(row), flush=True)
+            print(json.dumps(row, default=str), flush=True)
     Path(a.report).write_text(json.dumps(rep, indent=1, default=str) + "\n")
 
 
