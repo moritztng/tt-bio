@@ -140,8 +140,13 @@ def test_the_generic_op_route_is_only_reached_masked(monkeypatch):
     # (lever dit_sdpa32) and `_sdpa32_fused` (its read-from-the-fused-projection form), which both
     # read their mask's shape before the call, so None cannot reach them.
     # OpenFold3's atom transformer runs it in `_attend_superset`, which reads `sup_b.shape` first.
-    assert _generic_sdpa_runners() == ["tt_bio/openfold3_atom_transformer.py", "tt_bio/protenix.py",
-                                       "tt_bio/tenstorrent.py", "tt_bio/triatt_sdpa.py"]
+    # ESMFold2's windowed atom attention runs it in `attend` with `self.bias`, which `__init__` always uploads.
+    assert _generic_sdpa_runners() == ["tt_bio/esmfold2.py", "tt_bio/openfold3_atom_transformer.py",
+                                       "tt_bio/protenix.py", "tt_bio/tenstorrent.py", "tt_bio/triatt_sdpa.py"]
+    ef2 = ast.parse((PKG / "esmfold2.py").read_text())
+    ecalls = [n for n in ast.walk(ef2) if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
+              and n.func.attr == "sdpa" and isinstance(n.func.value, ast.Name) and n.func.value.id == "SG"]
+    assert len(ecalls) == 1 and ast.unparse(ecalls[0].args[4]) == "self.bias"
     of3 = ast.parse((PKG / "openfold3_atom_transformer.py").read_text())
     sup = next(n for n in ast.walk(of3) if isinstance(n, ast.FunctionDef) and n.name == "_attend_superset")
     ocalls = [n for n in ast.walk(of3) if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)

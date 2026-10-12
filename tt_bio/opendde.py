@@ -378,8 +378,8 @@ def route_opendde_weights(state_dict):
     return dict(expander=exp, refiner=refiner, refiner_blocks=nb, shared=shared)
 
 
-# --fast: the shared fast set plus transition_ws, fast grade PASS on Wormhole and Blackhole (11-set, 88 folds each).
-FAST_LEVERS = _T.FAST_LEVERS | {"transition_ws"}
+# --fast: the shared fast set (transition_ws included: OpenDDE fast grade PASS on Wormhole and Blackhole, 11-set).
+FAST_LEVERS = _T.FAST_LEVERS
 
 
 class OpenDDE:

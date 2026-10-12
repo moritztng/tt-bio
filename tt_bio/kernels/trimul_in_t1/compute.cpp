@@ -26,6 +26,12 @@
 #include "api/compute/eltwise_binary_sfpu.h"
 #include "../trimul_gin_moved/sigmoid_poly.hpp"
 #include "../common/ln_prologue.hpp"
+// ABL (bench-only define, trimul_tail.T1_ABL; 0 in every model path): bits that skip one stage's
+// work while keeping its circular-buffer traffic, to time each stage by difference (perf/spd_trimul/in_t1.py --abl).
+//   1 layer_norm, 2 g_out matmul, 4 [a | b] matmuls, 8 gate multiply, 16 z reads, 32 writer gather, 64 writer writes.
+#ifndef ABL
+#define ABL 0
+#endif
 
 constexpr uint32_t Kt = get_compile_time_arg_val(0);
 constexpr uint32_t CT2 = get_compile_time_arg_val(1);
@@ -68,6 +74,11 @@ struct LnCbs {
 
 // Row tile il: Kt tiles at the front of cb_x (popped) -> slots dt * 32 + il of the reserved xn_cb.
 ALWI void layer_norm_row(uint32_t il) {
+    if constexpr (ABL & 1) {
+        cb_wait_front(cb_x, Kt);
+        cb_pop_front(cb_x, Kt);
+        return;
+    }
     ln_prologue::layer_norm_row<LnCbs>(xn_cb, [il](uint32_t i) { pack_tile<true>(0, xn_cb, i * 32 + il); });
 }
 
@@ -96,7 +107,7 @@ void kernel_main() {
             pack_reconfig_data_format(go_cb);
             for (uint32_t il = 0; il < 32; ++il) {
                 cb_reserve_back(go_cb, NTG);
-                for (uint32_t n0 = 0; n0 < NTG; n0 += GSBW) {
+                for (uint32_t n0 = 0; n0 < NTG && !(ABL & 2); n0 += GSBW) {
                     tile_regs_acquire();
                     uint32_t i0 = il;
                     uint32_t i1 = n0;
@@ -122,7 +133,7 @@ void kernel_main() {
                 reconfig_data_format(xn_cb, w_cb);
                 pack_reconfig_data_format(pass_cb);
                 cb_reserve_back(pass_cb, 32);
-                for (uint32_t il0 = 0; il0 < 32; il0 += SBW) {
+                for (uint32_t il0 = 0; il0 < 32 && !(ABL & 4); il0 += SBW) {
                     tile_regs_acquire();
                     uint32_t i0 = (pass * CT2 + q) * Kt;
                     uint32_t i1 = il0;
@@ -149,7 +160,7 @@ void kernel_main() {
             cb_reserve_back(out_cb, 32);
             reconfig_data_format(p_cb, g_cb);
             pack_reconfig_data_format(out_cb);
-            for (uint32_t t0 = 0; t0 < 32; t0 += 4) {
+            for (uint32_t t0 = 0; t0 < 32 && !(ABL & 8); t0 += 4) {
                 tile_regs_acquire();
                 if (MASK && q < CT2 / 2) {
                     mul_bcast_rows_init_short(g_cb, m_cb);
