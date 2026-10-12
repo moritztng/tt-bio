@@ -1664,6 +1664,22 @@ def single_to_keys(single, indexing_matrix, W, H):
     )  # j = 2K, i = W//2, k = h * K
 
 
+def pair_to_atom_windows(z, atom_to_token, to_keys, K, W, H):
+    """``einsum("bijd,bwki,bwlj->bwkld", z, queries, keys)`` over the one-hot ``atom_to_token``,
+    done as the gather it is: entry (w, k, l) is ``z[token(query k), token(key l)]``, or 0 where
+    either atom is padding. Same values (each einsum sum has one nonzero term), without the
+    dense contraction over both token axes that cost ~0.2 s per fold on the host."""
+    B = z.shape[0]
+    valid = atom_to_token.amax(-1)                          # 1 for a real atom, 0 for padding
+    tok = atom_to_token.argmax(-1).to(atom_to_token.dtype)  # token index, exact in fp32
+    tok_q = tok.view(B, K, W).long()
+    tok_k = to_keys(tok.unsqueeze(-1)).view(B, K, H).long()
+    keep = valid.view(B, K, W, 1) * to_keys(valid.unsqueeze(-1)).view(B, K, 1, H)
+    b = torch.arange(B, device=z.device).view(B, 1, 1, 1)
+    out = z[b, tok_q.unsqueeze(-1), tok_k.unsqueeze(-2)]    # [B, K, W, H, D]
+    return out * keep.unsqueeze(-1).to(out.dtype)
+
+
 class AtomEncoder(Module):
     def __init__(
         self,
@@ -1824,18 +1840,9 @@ class AtomEncoder(Module):
                 s_to_c = torch.bmm(atom_to_token, s_to_c)
                 c = c + s_to_c.to(c)
 
-                atom_to_token_queries = atom_to_token.view(
-                    B, K, W, atom_to_token.shape[-1]
-                )
-                atom_to_token_keys = to_keys(atom_to_token)
                 if z_to_p is None:
                     z_to_p = self.z_to_p_trans(z.float())
-                z_to_p = torch.einsum(
-                    "bijd,bwki,bwlj->bwkld",
-                    z_to_p,
-                    atom_to_token_queries,
-                    atom_to_token_keys,
-                )
+                z_to_p = pair_to_atom_windows(z_to_p, atom_to_token, to_keys, K, W, H)
                 p = p + z_to_p.to(p)
 
             p = p + self.c_to_p_trans_q(c.view(B, K, W, 1, c.shape[-1]))
