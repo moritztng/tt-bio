@@ -95,7 +95,7 @@ class TestVisibleDeviceIndices:
         """
         monkeypatch.setattr(runtime.glob, "glob",
                             lambda pat: ["/dev/tenstorrent/0", "/dev/tenstorrent/1",
-                                         "/dev/tenstorrent/2"])
+                                         "/dev/tenstorrent/2"] if pat.startswith("/dev/") else [])
         monkeypatch.setenv("TT_VISIBLE_DEVICES", "1")
         assert runtime.detect_tenstorrent_devices(None, 0, 8) == [1]
         monkeypatch.setenv("TT_VISIBLE_DEVICES", "99")
@@ -106,7 +106,7 @@ class TestVisibleDeviceIndices:
         monkeypatch.setenv("TT_VISIBLE_DEVICES", "0000:02:00.0")
         monkeypatch.setattr(runtime.glob, "glob",
                             lambda pat: ["/dev/tenstorrent/0", "/dev/tenstorrent/1",
-                                         "/dev/tenstorrent/2"])
+                                         "/dev/tenstorrent/2"] if pat.startswith("/dev/") else [])
         assert runtime.detect_tenstorrent_devices(None, 0, 8) == [1]
 
 

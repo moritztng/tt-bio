@@ -14,7 +14,7 @@ from tt_bio import runtime
 @pytest.fixture
 def two_cards(monkeypatch):
     monkeypatch.setattr(runtime.glob, "glob",
-                        lambda pat: ["/dev/tenstorrent/0", "/dev/tenstorrent/1"])
+                        lambda pat: ["/dev/tenstorrent/0", "/dev/tenstorrent/1"] if pat.startswith("/dev/") else [])
     # detect_tenstorrent_devices also filters by ambient TT_VISIBLE_DEVICES, so a suite run
     # from a shell pinned to one card would see through the fake two-card box and fail.
     monkeypatch.delenv("TT_VISIBLE_DEVICES", raising=False)
@@ -207,3 +207,19 @@ def test_boltzgen_fanout_still_respects_an_explicit_operator_setting(monkeypatch
         assert env["OMP_NUM_THREADS"] == "7"
         # They capped threads, not the wait policy, so parking is still ours to set.
         assert runtime.IDLE_THREADS_PARK.items() <= env.items()
+
+
+def test_visible_umd_index_resolves_through_its_node(monkeypatch):
+    """TT_VISIBLE_DEVICES names a UMD index, which need not equal any present node number.
+
+    .114 after its 2026-10-12 reboot: nodes 20, 24, 25 off the bus, UMD 24 on node 3. Checking
+    the index against the node list reported "No Tenstorrent devices found" for a healthy chip.
+    """
+    present = [n for n in range(32) if n not in (20, 24, 25)]
+    monkeypatch.setattr(runtime.glob, "glob",
+                        lambda pat: [f"/dev/tenstorrent/{n}" for n in present] if pat.startswith("/dev/") else [])
+    monkeypatch.setattr(runtime, "dev_node_to_umd_index", lambda: {3: 24, 4: 25, 15: 20, 16: 0})
+    monkeypatch.setenv("TT_VISIBLE_DEVICES", "24")
+    assert runtime.detect_tenstorrent_devices(None, 0, 8) == [24]
+    monkeypatch.delenv("TT_VISIBLE_DEVICES")
+    assert runtime.detect_tenstorrent_devices(None, 0, 8) == [0, 20, 24, 25]

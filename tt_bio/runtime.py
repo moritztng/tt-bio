@@ -523,7 +523,15 @@ def detect_tenstorrent_devices(device_ids: str | None, num_devices: int, max_wor
     on a two-card box) raises a clear error naming the available ids, instead of passing straight
     through and failing much later with an opaque low-level device-open error.
     """
-    all_devices = sorted(int(p.rsplit("/", 1)[-1]) for p in glob.glob("/dev/tenstorrent/[0-9]*"))
+    nodes = [int(p.rsplit("/", 1)[-1]) for p in glob.glob("/dev/tenstorrent/[0-9]*")]
+    # Device ids are UMD indices (what TT_VISIBLE_DEVICES and the worker slots name), not node
+    # numbers. On a Galaxy the two differ, and once a chip drops off the bus a UMD index can equal
+    # a node number that no longer exists: .114 after its 2026-10-12 reboot lost nodes 20, 24 and
+    # 25, so every job pinned to UMD 20, 24 or 25 (healthy chips on nodes 15, 3, 4) reported "No
+    # Tenstorrent devices found". Without the sysfs map (CPU hosts, containers) the node numbers
+    # are the best guess left.
+    to_umd = dev_node_to_umd_index()
+    all_devices = sorted(to_umd[n] for n in nodes if n in to_umd) if to_umd else sorted(nodes)
     # Honor ambient TT_VISIBLE_DEVICES (the same env ttnn/tt-smi read at
     # device-open time): a job pinned to card N via the environment must fan out
     # only onto card N. Without this filter, a predict launched with
