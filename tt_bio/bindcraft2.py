@@ -2041,15 +2041,40 @@ _IPA_POINT_EINSUM = """    _vp = jnp.concatenate([v_point.x, v_point.y, v_point.
     result_point_global = geometry.Vec3Array(*jnp.split(_vp, 3, axis=-1))"""
 
 
-@contextlib.contextmanager
-def ipa_point_einsum(enabled: bool = True):
-    """Swap BindCraft 2's IPA point reduction for one einsum (`IPA_POINT_EINSUM`).
+#: The point term of IPA's logits, ``square_euclidean_distance(q[:, None], k[None, :])``, builds
+#: the q - k differences as three ``[N, N, heads, points]`` f32 arrays a layer. They are what the
+#: backward of ``x*x + y*y + z*z`` needs, so under BindCraft 2's gradient the structure module's
+#: ``hk.scan`` stacks them, with their tangents, into ``[8, N, N, heads, points]`` buffers: about
+#: 51 MB a layer at 211 tokens, the single largest write of the host step (152 ms of
+#: ``dynamic_update_slice`` a gradient call on qb1's CPU, after the point einsum). Wrapping that one
+#: term in ``jax.checkpoint`` keeps only q, k and the head weights (``[N, heads, points]``) as
+#: residuals and recomputes the differences in the backward, so XLA can also fuse the forward
+#: subtraction into its reduction. Same operations on the same inputs: bit-exact.
+IPA_DIST_REMAT = env_flag("TT_BIO_BC2_IPA_DIST_REMAT", False)
 
-    The method is recompiled from its own source with the one statement replaced and installed
-    on a subclass, so haiku wraps it exactly as it wraps the original (same module name, same
-    parameters). `FoldIteration` looks the class up by module global at trace time.
+_IPA_DIST = """    dist2 = geometry.square_euclidean_distance(
+        q_point[:, None, :, :], k_point[None, :, :, :], epsilon=0.)
+    attn_qk_point = -0.5 * jnp.sum(point_weights[:, None] * dist2, axis=-1)"""
+_IPA_DIST_REMAT = """    def _qk_point(q_point, k_point, point_weights):
+        dist2 = geometry.square_euclidean_distance(
+            q_point[:, None, :, :], k_point[None, :, :, :], epsilon=0.)
+        return -0.5 * jnp.sum(point_weights[:, None] * dist2, axis=-1)
+    attn_qk_point = jax.checkpoint(_qk_point)(q_point, k_point, point_weights)"""
+
+
+@contextlib.contextmanager
+def ipa_rewrites(einsum: bool = False, dist_remat: bool = False):
+    """Rewrite BindCraft 2's `InvariantPointAttention.__call__` (`IPA_POINT_EINSUM`,
+    `IPA_DIST_REMAT`), yielding whether anything was rewritten.
+
+    The method is recompiled from its own source with the chosen statements replaced and
+    installed on a subclass, so haiku wraps it exactly as it wraps the original (same module
+    name, same parameters). `FoldIteration` looks the class up by module global at trace time.
+    Both rewrites go through one recompile: a second one could not read the first's source.
     """
-    if not enabled:
+    rewrites = (((_IPA_POINT_SUM, _IPA_POINT_EINSUM, "point reduction"),) if einsum else ()) + \
+        (((_IPA_DIST, _IPA_DIST_REMAT, "point distance"),) if dist_remat else ())
+    if not rewrites:
         yield False
         return
     import inspect
@@ -2059,17 +2084,29 @@ def ipa_point_einsum(enabled: bool = True):
 
     original = fm.InvariantPointAttention
     src = inspect.getsource(original.__call__)
-    if src.count(_IPA_POINT_SUM) != 1:
-        raise ValueError("the point reduction in InvariantPointAttention.__call__ moved")
+    for old, new, what in rewrites:
+        if src.count(old) != 1:
+            raise ValueError(f"the {what} in InvariantPointAttention.__call__ moved")
+        src = src.replace(old, new)
     scope: dict = {}
-    exec(compile(textwrap.dedent(src.replace(_IPA_POINT_SUM, _IPA_POINT_EINSUM)),
-                 inspect.getsourcefile(original), "exec"), fm.__dict__, scope)
+    exec(compile(textwrap.dedent(src), inspect.getsourcefile(original), "exec"),
+         fm.__dict__, scope)
     fm.InvariantPointAttention = type(original)(
         original.__name__, (original,), {"__call__": scope["__call__"]})
     try:
         yield True
     finally:
         fm.InvariantPointAttention = original
+
+
+def ipa_point_einsum(enabled: bool = True):
+    """`ipa_rewrites` with only the point einsum."""
+    return ipa_rewrites(einsum=enabled)
+
+
+def ipa_dist_remat(enabled: bool = True):
+    """`ipa_rewrites` with only the rematerialised point distance."""
+    return ipa_rewrites(dist_remat=enabled)
 
 
 def find_use_dropout(fn):
@@ -2646,7 +2683,7 @@ def predictor(*, trunk: str = "device", card: int | str | None = None, checkpoin
     # it was raised as even when JAX stringified it into a `JaxRuntimeError` on the way out.
     with refusals_unwrapped(), \
             autograd.exact_training(exact), evoformer_on_device(evo, extra), \
-            template_on_device(tmpl, evo), ipa_point_einsum(IPA_POINT_EINSUM), \
+            template_on_device(tmpl, evo), ipa_rewrites(IPA_POINT_EINSUM, IPA_DIST_REMAT), \
             (fast_round() if fast else contextlib.nullcontext()) as armed:
         build = _factory(trunk="device", pool=pool, evoformer=evo, extra_msa=extra,
                          template=tmpl, exact=exact)
