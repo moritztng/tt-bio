@@ -62,8 +62,12 @@ LEVERS_NORMAL = frozenset({"trimul_ibw", "trimul_tail", "trunk_hifi3", "dit_sdpa
 # Wormhole c730 it folds in 159.7 s against 135.5 s for normal mode, while this set folds in 123.4 s
 # (l1024: 217.4 / 181.6 / 168.3 s; spd-boltz2 s4, 2026-10-09). Wormhole fast grade against normal, 11-set x 4 seeds:
 # PASS, CA-lDDT +0.0018, pLDDT -0.0002, docking 24/44 both (spd-boltz2 gf1).
+# triatt_tail (the gate, output projection and residual add of triangle attention in one program) is graded on
+# Protenix-v2 in both modes. On Boltz-2 fast at 512 x 1 on p150a it reads 14.60 / 14.67 s against 14.81 / 15.00 s
+# (interleaved, 3 warm each), pLDDT 0.852 -> 0.850 (spd-gap-small abK, 2026-10-12). Boltz-2's own fast grade is owed.
 LEVERS_FAST = frozenset({"acc_off", "diffusion_bf16", "dit_sdpa", "transition_b8", "opm_b8", "atom_sdpa",
-                         "trimul_ibw", "trimul_tail", "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32"})
+                         "trimul_ibw", "trimul_tail", "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32",
+                         "triatt_tail"})
 
 
 def _under_levers(method):
