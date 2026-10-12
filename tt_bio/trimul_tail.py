@@ -283,7 +283,7 @@ if env_flag("TT_BIO_TRIMUL_STATS", False):
     def _print_stats():
         from . import tenstorrent as _T
         print("TRIMUL_STATS " + json.dumps({
-            "tail": STATS, "res": RES_STATS, "mask_fold": MASK_STATS, "resid": RESID_STATS, "t1": T1_STATS,
+            "tail": STATS, "res": RES_STATS, "mask_fold": MASK_STATS, "resid": RESID_STATS, "t1": T1_STATS, "t1_why": T1_WHY, "t2": T2_STATS,
             "rejects": {f"{k[0]}:{k[1]}": v for k, v in REJECTS.items()},
             "routes": {f"{k[0]}/{k[1]}": v for k, v in _T.TRIMUL_MM_TRANSPOSE_STATS.items()}}),
             file=sys.stderr, flush=True)
@@ -848,6 +848,7 @@ def fused_tail_ln(x, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5):
 T1 = False
 MIN_N = 160
 T1_STATS = [0, 0]                 # served, declined
+T1_WHY = {}                       # decline reason -> calls (tenstorrent._t1_in)
 T1_KEYS = {(4, 8, 4)}             # (kt, ct2, ntg): c_z 128, hidden 128, g_out 128 (openfold3, boltz2)
 T1_RB = 8                         # z row tiles per reader barrier
 T1_SBW = 4                        # DST tiles per matmul block (half-sync fp32 DST holds 4)
