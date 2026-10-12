@@ -180,7 +180,9 @@ _ESMC_QKV_SPLIT = env_flag("TT_BIO_ESMC_QKV_SPLIT", False)
 # DRAM: the qkv projection and the head split read them straight back, so DRAM never carries them. Same ops, same values (a memory
 # placement). An L1 refusal at a shape falls back to DRAM for that shape for good, decided in the
 # warm passes before a trace capture. p150a page cell (esmc_ab.py, 2 rounds each, output identical to the DRAM path):
-# 600M 136.0/122.4 -> 113.9/115.4 ms, 300M --fast 85.4/88.1 -> 79.8/80.4 ms per batch of 7.
+# 600M 136.0/122.4 -> 113.9/115.4 ms, 300M --fast 85.4/88.1 -> 79.8/80.4 ms per batch of 7. Inside ESMFold2 the
+# ESMC-6B gains nothing (p300c page cell, identical digests: ESMFold2 +0.76 s on a 0.89 s spread, ESMFold2-Fast
+# 16.48 -> 16.55 s), so the Block of a model past _LM_FFN_TILE_MODEL_BYTES keeps the DRAM path (Attention.qk_l1).
 _ESMC_QK_L1 = env_flag("TT_BIO_ESMC_QK_L1", True)
 _QK_L1_REFUSED: set = set()
 #: [attention calls served from L1, declined], read by the A/B harness.
@@ -226,6 +228,7 @@ class Attention(Module):
     def __init__(self, n_heads: int, state_dict: Weights, compute_kernel_config, out_scale: float = 1.0):
         super().__init__(state_dict, compute_kernel_config)
         self.n_heads = n_heads
+        self.qk_l1 = True  # this model may take the L1 path; Block clears it for the 6B
         self.in_norm_weight = self.torch_to_tt("layernorm_qkv.0.weight")
         self.in_norm_bias = self.torch_to_tt("layernorm_qkv.0.bias")
         # The two big projection weights (qkv, out_proj) carry the bulk of the
@@ -265,7 +268,7 @@ class Attention(Module):
         (the tile-aware head split wants one packed tensor); frees q, k and v."""
         ck = self.compute_kernel_config
         key = tuple(v.padded_shape)
-        if _ESMC_QK_L1 and key not in _QK_L1_REFUSED:
+        if _ESMC_QK_L1 and self.qk_l1 and key not in _QK_L1_REFUSED:
             l1 = ttnn.L1_MEMORY_CONFIG
             live = []
             try:
@@ -285,7 +288,7 @@ class Attention(Module):
                 return heads
             for t in live:
                 ttnn.deallocate(t)
-        QK_L1_STATS[1] += _ESMC_QK_L1
+        QK_L1_STATS[1] += _ESMC_QK_L1 and self.qk_l1
         qn = ttnn.layer_norm(q, weight=self.q_ln_weight, epsilon=1e-5, compute_kernel_config=ck)
         kn = ttnn.layer_norm(k, weight=self.k_ln_weight, epsilon=1e-5, compute_kernel_config=ck)
         qkv = ttnn.concat([qn, kn, v], dim=-1)
@@ -301,7 +304,7 @@ class Attention(Module):
         head_dim = d_model // self.n_heads
 
         key = tuple(x.padded_shape)
-        if _ESMC_QK_L1 and key not in _QK_L1_REFUSED:
+        if _ESMC_QK_L1 and self.qk_l1 and key not in _QK_L1_REFUSED:
             try:
                 q, k, v = self._qkv(x, ttnn.L1_MEMORY_CONFIG)
             except Exception as exc:
@@ -1059,6 +1062,7 @@ class Block(Module):
         shape = self.ffn.fc2_weight.shape  # ttnn.Shape takes no slice
         d_ff, d = int(shape[-2]), int(shape[-1])
         self.ffn.model_bytes = n_layers * (4 * d * d + 3 * d * d_ff) * 2
+        self.attn.qk_l1 = self.ffn.model_bytes <= _LM_FFN_TILE_MODEL_BYTES
 
     def __call__(self, x: ttnn.Tensor, cos: ttnn.Tensor, sin: ttnn.Tensor,
                  attn_mask: ttnn.Tensor | None = None,
