@@ -19,6 +19,7 @@ from . import pair_transpose as _pair_tr
 from . import triatt_sdpa as _triatt_sdpa
 from . import dest_guard as _dest_guard
 from . import trimul_tail as _trimul_tail
+from . import transition_t3 as _transition_t3
 from . import mm_generic as _mm_generic
 from . import page_copy as _page_copy
 from . import pair_add as _pair_add
@@ -616,6 +617,8 @@ _FAST_MODE = False
 #                   and g_out as one kernel reading z once (kernels/trimul_in_t1; c_z = hidden = 128, N >= 160)
 #   trimul_t2       its output tail, layer_norm + p projection + sigmoid(g_out) gate + residual add, as one
 #                   kernel writing z in place (kernels/trimul_tail_res, compute_ln.cpp; c_z = 128, N >= 160)
+#   transition_t3   the pair Transition (layer_norm, fc1 + silu, fc2, gate, fc3, residual) as one kernel per
+#                   row tile with the weights resident in L1 (kernels/transition_t3; Blackhole, c = 128, hidden 512)
 #   conf_bins       OpenFold3's pae / pde heads reduce softmax(logits) to their bin-vector products on the card
 #                   in fp32 (pTM, ipTM, the chain readings, the PAE / PDE matrices), so the [N, N, 64] logits
 #                   never cross to the host
@@ -624,12 +627,12 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
           "transition_shard", "dit_mm16", "atom_k1", "dit_b8", "dit_qkv16", "atom_mm16", "adaln_mod",
           "swiglu_fc12g", "msa_sample", "dit_sdpa_pm", "dit_s16", "dit_chunk", "conf_bins", "trimul_t1", "trimul_t2",
-          "triatt_tail_bias")
+          "triatt_tail_bias", "transition_t3")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias in its own set: graded on AF2-IG only, and it would reach any other biased
 # triangle attention.
-UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias"})
+UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "transition_t3"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -12405,6 +12408,11 @@ class Transition(Module):
         if mask is not None and add_to_input:
             raise ValueError("Transition: mask with add_to_input would mask the residual "
                              "on padded positions; upstream masks t(x) only")
+        if mask is None and (add_to_input or memory_config is None
+                             or memory_config == ttnn.DRAM_MEMORY_CONFIG):
+            out = self._t3(x, add_to_input)
+            if out is not None:
+                return out
         out = host_acc_after_refusal(
             ("transition", tuple(x.padded_shape)), x, lambda: _inplace_guarded(
                 "transition", lambda: self._transition_fit(x, memory_config, add_to_input)))
@@ -12416,6 +12424,17 @@ class Transition(Module):
             # storage.cpp:60 TT_THROW); inference keeps the free, 48 MB at 384 aa.
             ttnn.deallocate(out)
         return masked
+
+    def _t3(self, x, add_to_input):
+        """The whole transition as one kernel (`transition_t3`), or None where it does not serve."""
+        if not lever("transition_t3") or self._hidden_b8:
+            return None
+        if getattr(self, "_t3_w", None) is None:
+            self._t3_w = (ttnn.concat([self.fc1_weight, self.fc2_weight], dim=1), self.fc3_weight)
+        return _transition_t3.transition(
+            x, self.norm_weight, self.norm_bias, *self._t3_w,
+            _mm_generic.ckc_args(silu_ckc(self.compute_kernel_config)), tuple(COMPUTE_GRID_MAIN),
+            add_to_input=add_to_input)
 
     def _add_rows_ok(self, x, memory_config) -> bool:
         return (_TRANSITION_ADD_ROWS and not ops.taping() and len(x.shape) == 4
