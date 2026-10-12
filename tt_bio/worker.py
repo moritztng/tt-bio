@@ -934,8 +934,13 @@ class _WorkerState:
             import ttnn
 
             from tt_bio.rf3 import model as rf3_model
-            from tt_bio.tenstorrent import get_device
+            from tt_bio.tenstorrent import cleanup, get_device, trace_region_size
 
+            if rf3_model.TRACE and trace_region_size() <= 0:
+                # The rollout replays a captured denoiser step, and its region is reserved only
+                # at open: close a chip opened without one (as for openfold3 above).
+                cleanup()
+                get_device(trace="rf3")
             dev = get_device()
             ckc = ttnn.init_device_compute_kernel_config(
                 dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi4,

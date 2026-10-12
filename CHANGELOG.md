@@ -36,6 +36,14 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   against 43.9 s in normal mode and 44.5 s on the old path; no confidence metric drops by more than 0.01 over 8
   same-seed designs). RoseTTAFold3 `--fast` runs a graded lower-precision set (0.30 A median top-pose change over 40 paired
   folds) and takes 35.8 s instead of 46.8 s, against 37.6 s in normal mode.
+- **BoltzGen's diffusion attention no longer pays ttnn's internal padding** when the sequence does not split into
+  256-token chunks (a 512-aa page design runs at 544 tokens). The attention bias is padded once per design and the
+  op runs 4.5x faster per call, with identical designs at a fixed seed; on a Wormhole chip a design takes 66 s
+  instead of 73 s. Normal mode only, where Boltz-2 takes the same path at such lengths; `--fast` keeps its own
+  attention kernel unchanged.
+- **RoseTTAFold3 replays its denoising step from a captured device trace**, with identical output. The 49 steps of a
+  512-aa fold take 1.6 s instead of 3.6 s and the fold 28.0 s instead of 30.1 s on a Blackhole p150a at 1350 MHz.
+  `TT_BIO_RF3_DIFFUSION_TRACE=0` runs the steps eagerly.
 - **RoseTTAFold3 featurizes a 512-aa input in 6 s instead of 21 s**, with identical output. Reference conformers
   are generated concurrently in a small helper process instead of one fork of the serving process per residue
   type. The normal-mode fold takes 29.6 s instead of 45.8 s on a Blackhole p150a at 1350 MHz; `--fast` uses the
