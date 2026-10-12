@@ -3822,11 +3822,11 @@ class RFD3DiffusionModule(Module):
         rec = {}
         for i in range(n_recycle):
             rec = self._process_(D_II_self=rec.get("D_II_self"), X_L_self=rec.get("X_L"),
-                                 tok=first_tok if i == 0 else None, **kw)
+                                 tok=first_tok if i == 0 else None, last=i == n_recycle - 1, **kw)
         return rec
 
     def _process_(self, D_II_self, X_L_self, *, R_L_uniform, X_noisy_L, t_L, f, Q_L, C_L, P_LL, A_I, S_I, Z_II,
-                  tok=None):
+                  tok=None, last=True):
         is_ca = f["is_ca"]
         R_L_ca = R_L_uniform[..., is_ca, :]
         # z stays on the card between these two: it is [B,I,I,128], the only O(I^2)
@@ -3854,9 +3854,13 @@ class RFD3DiffusionModule(Module):
                                           dtype=self.dtype, core_grid=CORE_GRID_MAIN)).float()
         ttnn.deallocate(Q_L)
         X_out = self.scale_positions_out(R_upd, X_noisy_L, t_L)
-        logits, aatype = self.sequence_head(A_I)
+        # Only the last recycle's sequence head is returned and only an earlier recycle's
+        # distogram is read (by the next one): each runs where its output is used, so a
+        # 2-recycle step saves one blocking logits read and one host distogram.
+        logits, aatype = self.sequence_head(A_I) if last else (None, None)
         ttnn.deallocate(A_I)
-        D_II_self = _scaled_distogram_bins(X_out[..., is_ca, :].detach(), sigma_data=self.SIGMA_DATA, n_bins=65)
+        D_II_self = None if last else _scaled_distogram_bins(X_out[..., is_ca, :].detach(),
+                                                             sigma_data=self.SIGMA_DATA, n_bins=65)
         return {"X_L": X_out, "D_II_self": D_II_self, "sequence_logits_I": logits,
                 "sequence_restype_I": aatype}
 
