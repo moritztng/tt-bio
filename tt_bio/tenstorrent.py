@@ -9147,25 +9147,28 @@ class TriangleMultiplication(Module):
         self._gp_cache[key] = chunks
         return chunks
 
-    def _gp_in_gated(self, C: int, group: int,
-                     transposed: bool = False) -> list[tuple[ttnn.Tensor, ttnn.Tensor]]:
+    def _gp_in_gated(self, C: int, group: int, transposed: bool = False,
+                     split: int = 1) -> list:
         """Per channel chunk, the in-projection's `([p_a | p_b], [g_a | g_b])` weights.
 
         The columns of `_gp_in_chunks`, regrouped so one `trimul_tail` call computes
         `a = p_a * sigmoid(g_a)` and `b` alike as the two halves of its split output.
-        `transposed` gives each as [2C, K], for `trimul_tail.gin_moved`.
+        `transposed` gives each as [2C, K], for `trimul_tail.gin_moved`. `split` > 1 gives, per
+        chunk, `split` such pairs over equal channel slices of a and b (`gin_move_split`).
         """
-        key = (C, group, gp_roles(), transposed)
+        key = (C, group, gp_roles(), transposed, split)
         cached = self._gp_gated_cache.get(key)
         if cached is None:
             sc = C * group
-            col = lambda t, r: t[:, gp_off(r, sc):gp_off(r, sc) + sc]  # noqa: E731
+            w = sc // split
+            col = lambda t, r, s: t[:, gp_off(r, sc) + s * w:gp_off(r, sc) + (s + 1) * w]  # noqa: E731
             dev = lambda t: ttnn.from_torch(  # noqa: E731
                 (t.t() if transposed else t).contiguous(), layout=ttnn.TILE_LAYOUT,
                 device=self.device, dtype=ttnn.bfloat16)
+            pair = lambda t, s: (dev(torch.cat([col(t, "p_a", s), col(t, "p_b", s)], dim=-1)),  # noqa: E731
+                                 dev(torch.cat([col(t, "g_a", s), col(t, "g_b", s)], dim=-1)))
             cached = [
-                (dev(torch.cat([col(t, "p_a"), col(t, "p_b")], dim=-1)),
-                 dev(torch.cat([col(t, "g_a"), col(t, "g_b")], dim=-1)))
+                pair(t, 0) if split == 1 else [pair(t, s) for s in range(split)]
                 for t in self._gp_fused_order((self._g_in_t, self._p_in_t), C, group)
             ]
             self._gp_gated_cache[key] = cached
@@ -9840,11 +9843,19 @@ class TriangleMultiplication(Module):
                         if _trimul_tail.GIN_MOVE and defer:
                             # The channel moves fused in as well (both chunks leave as (0,3,1,2)
                             # moves once the matmul takes the inner swap).
-                            wpT, wgT = self._gp_in_gated(chunk_size, group, transposed=True)[i]
-                            fold = mask is not None and _trimul_tail.gin_moved_ok(x_norm_in, wpT, mask)
-                            ab = _trimul_tail.gin_moved(x_norm_in, wpT, wgT, ckc,
-                                                        tuple(COMPUTE_GRID_MAIN),
-                                                        mask=mask if fold else None)
+                            ns = _trimul_tail.gin_move_split(
+                                x_norm_in, int(wa.shape[-1]) // 2, mask)
+                            ab = None
+                            if ns is not None:
+                                sl = self._gp_in_gated(chunk_size, group, transposed=True,
+                                                       split=ns)[i]
+                                sl = [sl] if ns == 1 else sl
+                                wpT, wgT = [p for p, _ in sl], [g for _, g in sl]
+                                fold = mask is not None and _trimul_tail.gin_moved_ok(
+                                    x_norm_in, wpT[0], mask)
+                                ab = _trimul_tail.gin_moved(x_norm_in, wpT, wgT, ckc,
+                                                            tuple(COMPUTE_GRID_MAIN),
+                                                            mask=mask if fold else None)
                             if ab is not None:
                                 a_chunk, b_chunk = ab
                                 a_masked = fold

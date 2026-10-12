@@ -14,7 +14,11 @@ void kernel_main() {
     constexpr uint32_t St = get_compile_time_arg_val(1);
     constexpr uint32_t ABL = get_compile_time_arg_val(2);   // bit 2: no gather, no write (diagnostic)
     constexpr uint32_t NB = get_compile_time_arg_val(3);    // output tiles gathered per read barrier
-    constexpr auto a_args = TensorAccessorArgs<4>();
+    // This launch's first channel tile in `a` and `b`, and how many each holds: a call too wide for
+    // L1 runs as several launches over channel slices that write into the same two tensors.
+    constexpr uint32_t CTO = get_compile_time_arg_val(4);
+    constexpr uint32_t CTT = get_compile_time_arg_val(5);
+    constexpr auto a_args = TensorAccessorArgs<6>();
     constexpr auto b_args = TensorAccessorArgs<a_args.next_compile_time_args_offset()>();
     const auto oa = TensorAccessor(a_args, get_common_arg_val<uint32_t>(0));
     const auto ob = TensorAccessor(b_args, get_common_arg_val<uint32_t>(1));
@@ -38,7 +42,7 @@ void kernel_main() {
         const uint32_t cube = u % SS;          // xt * St + yt
         for (uint32_t q = 0; q < CT2; ++q) {
             const bool is_a = q < CT;
-            uint32_t page = (b * CT + (is_a ? q : q - CT)) * 32 * SS + cube;
+            uint32_t page = (b * CTT + CTO + (is_a ? q : q - CT)) * 32 * SS + cube;
             cb_wait_front(out_cb, 32);
             const uint32_t src = get_read_ptr(out_cb);
             for (uint32_t c0 = 0; c0 < 32 && !(ABL & 4); c0 += NB) {
