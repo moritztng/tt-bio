@@ -40,7 +40,7 @@ from . import autograd as ag
 from .envflags import env_flag
 from . import mm_layout as _mm_layout
 from .autograd import Tensor, precise_config
-from .autograd import (_axis, _differentiating, _flat2d, _matmul, _on_tape, _raw,
+from .autograd import (_axis, _differentiating, _dims, _flat2d, _matmul, _on_tape, _raw,
                        _reduce_to, _sum_leading, _tape,
                        _taped_layer_norm, _taped_linear, _unwrap, _via2d, _wrap)
 
@@ -690,13 +690,13 @@ def _binary(grad_a, grad_b, scalar, out_of_place=None, needs=(True, True), both=
                 # then ignored.
                 if (both is not None and fa is None and fb is None
                         and a.requires_grad and b.requires_grad
-                        and tuple(av.shape) == tuple(bv.shape) == tuple(g.shape)):
+                        and av.shape == bv.shape == g.shape):
                     da, db = both(g, av, bv)
                     a.add_grad(da)
                     b.add_grad(db)
                     return
                 if (gate_b and a.requires_grad and b.requires_grad
-                        and tuple(av.shape) == tuple(bv.shape) == tuple(g.shape)):
+                        and av.shape == bv.shape == g.shape):
                     from . import gate_bw as _gb
                     if _gb.eligible(g, av, bv):
                         do, dg = _gb.gate_bw(g, av, bv)
@@ -787,7 +787,7 @@ def _v_reshape(shipped, args, kwargs):
     """reshape, unsqueeze and squeeze differ only in how they name the target shape, and
     the backward of all three is the source shape, read here rather than inferred there."""
     x = _wrap(args[0])
-    src = [int(d) for d in x.value.shape]
+    src = _dims(x.value.shape)
     ra, rk = _raw(args, kwargs)
     out_v = shipped(*ra, **rk)
 
@@ -1312,6 +1312,26 @@ def _weight_vjp(a, b, g, cfg):
                               b.value.shape))
 
 
+class _QKVSink:
+    """Where `triatt_bw` sends the packed q/k/v cotangent of one `triatt_qkv_heads` call.
+
+    Module-level on purpose. Defined inside the entry, a fresh class per call, it was a
+    reference cycle (a class always is: it sits in its own `__mro__`), so refcounting never
+    freed it and the `x` its method closed over stayed on the card until the cyclic collector
+    happened to run. At 480 tokens on Wormhole that held three extra pair tensors per Evoformer
+    block, 177 MB a block and ~3 GB over the backward, which is what ran a 12 GiB chip out of
+    memory (`perf/spd/bc2_blockmem.py`, `state/spd-bc2.md`). The collector never saw it in a
+    probe either: ttnn tensors are not GC-tracked, so they do not appear in `gc.garbage`.
+    """
+    __slots__ = ("x", "w", "shape", "cfg")
+
+    def __init__(self, x, w, shape, cfg):
+        self.x, self.w, self.shape, self.cfg = x, w, shape, cfg
+
+    def add_grad(self, G):
+        _weight_vjp(self.x, self.w, ttnn.reshape(G, self.shape), self.cfg)
+
+
 @_kernel("triatt_qkv_heads")
 def _k_triatt_qkv_heads(shipped, args, kwargs):
     """`triatt_qkv.qkv_heads`: the qkv projection written head-major, so the taped recompute
@@ -1328,12 +1348,7 @@ def _k_triatt_qkv_heads(shipped, args, kwargs):
         return None
     B, H, L, dh = (int(d) for d in outs[0].shape)
     width, K = H * dh, int(w.value.shape[0])
-
-    class _Sink:
-        def add_grad(self, G):
-            _weight_vjp(x, w, ttnn.reshape(G, [B, L, 3 * width]), cfg)
-
-    sink = _Sink()
+    sink = _QKVSink(x, w, [B, L, 3 * width], cfg)
 
     def slot(s):
         def make():
@@ -1383,7 +1398,7 @@ def _k_rne_add(shipped, args, kwargs):
     a, b = _wrap(args[0]), _wrap(args[1])
     ra, rk = _raw(args, kwargs)
     out_v = shipped(*ra, **rk)
-    shapes = ([int(d) for d in args[0].shape], [int(d) for d in args[1].shape])
+    shapes = (_dims(args[0].shape), _dims(args[1].shape))
 
     def make():
         def bw(g):
@@ -1653,6 +1668,7 @@ def _taped_verb(qual, shipped):
 _SHIM = _Ttnn(ttnn)
 _SHIMMED: list = []
 _NEVER_SHIM = (__name__, "tt_bio.autograd")
+_TT_MODULES: tuple = (-1, [])
 
 
 def forget_shim_bindings(*names: str) -> None:
@@ -1685,13 +1701,18 @@ def _swap(to_shim: bool) -> None:
     `ttnn.Tensor.__getitem__` goes in and out with the modules, so an inference fold never
     executes `_param_getitem`.
     """
-    global _SHIMMED
+    global _SHIMMED, _TT_MODULES
     from . import ops
     if to_shim:
         _SHIMMED = []
-        for name, mod in list(sys.modules.items()):
-            if not name.startswith("tt_bio") or mod is None or name in _NEVER_SHIM:
-                continue
+        # The tt-bio modules, rescanned only when an import has grown `sys.modules`: a design
+        # iteration opens this scope per callback and a full scan of thousands of jax and
+        # torch modules was ~3 % of BindCraft 2's callback time on a Wormhole.
+        if _TT_MODULES[0] != len(sys.modules):
+            _TT_MODULES = (len(sys.modules), [
+                mod for name, mod in list(sys.modules.items())
+                if name.startswith("tt_bio") and mod is not None and name not in _NEVER_SHIM])
+        for mod in _TT_MODULES[1]:
             if getattr(mod, "ttnn", None) is ttnn:
                 mod.ttnn = _SHIM
                 _SHIMMED.append(mod)

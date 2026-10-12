@@ -60,6 +60,7 @@ from the atom-encoder/conditioning host math.
 """
 from __future__ import annotations
 
+
 import torch
 import ttnn
 
@@ -178,6 +179,35 @@ class _DiTBlock(Module):
                 setattr(self, k, self._round(getattr(self, k), self.lp.w))
             self.qkv_b = self._round(self.qkv_b, ttnn.bfloat16)
 
+        # dit_s16: the six s-path linears (both adaLNs' scale and shift, the two s gates) on bf16
+        # operands with fp32 accumulation at HiFi4, written fp32. The adaLNs read one parameter-free
+        # LN(s) per call that the stack shares, with their gammas folded into the weights on the host.
+        # On an fp32 DiT these linears are math-bound at fp32 operands.
+        self.s16 = None
+        if self._act_dtype == ttnn.float32 and _T.lever("dit_s16"):
+            bf = lambda w: ttnn.from_torch(w.float().contiguous(), dtype=ttnn.bfloat16,  # noqa: E731
+                                           layout=ttnn.TILE_LAYOUT, device=self.device)
+            ada = []
+            for ln in (self.adaln_a, self.adaln_t):
+                w_sc, b_sc, w_sb = ln.folded_weights()
+                ada.append((bf(w_sc), bf(b_sc.reshape(1, -1)), bf(w_sb)))
+            ckc = ttnn.WormholeComputeKernelConfig(
+                math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=False,
+                fp32_dest_acc_en=True, packer_l1_acc=True)
+            self.s16 = (ada, (bf(self._w[apb + "linear_ada_out.weight"].t()),
+                              bf(self._w[apb + "linear_ada_out.bias"].reshape(1, -1))),
+                        (bf(self._w[ct + "linear_g.weight"].t()),
+                         bf(self._w[ct + "linear_g.bias"].reshape(1, -1))), ckc)
+
+    def _s16_lin(self, x, wb):
+        w, b = wb
+        return ttnn.linear(x, w, bias=b, dtype=ttnn.float32, compute_kernel_config=self.s16[3],
+                           core_grid=CORE_GRID_MAIN)
+
+    def _s16_terms(self, s16, i):
+        w_sc, b_sc, w_sb = self.s16[0][i]
+        return self._s16_lin(s16[1], (w_sc, b_sc)), self._s16_lin(s16[1], (w_sb, None))
+
     def _w_tt(self, key, transpose=True):
         v = self._wc.get((key, transpose))
         if v is None:
@@ -272,14 +302,17 @@ class _DiTBlock(Module):
             ttnn.deallocate(mask)
         return o
 
-    def __call__(self, a, s, z, mask_bias, tok_mask_col, cache=None):
+    def __call__(self, a, s, z, mask_bias, tok_mask_col, cache=None, s16=None):
         lin, lp = self._lin, self.lp
         # Under lp each adaLN writes lp.act, read only by linears; the transition's hidden linears
         # write bf16, their product lp.mid, and every linear into the stream writes lp.out.
         act, out_dt = (lp.act, lp.out) if lp else (None, None)
         mid = {"dtype": lp.mid} if lp else {}
         # AdaLN-conditioned a.
-        a_ln = self.adaln_a(a, s, dtype=act)
+        st = self._s16_terms(s16, 0) if s16 else None
+        a_ln = self.adaln_a(a, s, dtype=act, s_terms=st)
+        if st:
+            ttnn.deallocate(st[0]); ttnn.deallocate(st[1])
 
         if self.sdpa32:
             bias = _cached(cache, (id(self), "pair_bias32"),
@@ -292,13 +325,24 @@ class _DiTBlock(Module):
         qkv = self._lin_lp(a_ln, self.qkv_w, lp.qkv if lp and self.sdpa32 else out_dt,
                            bias=self.qkv_b)                              # [1, N, 3072]
         qkv = ttnn.unsqueeze(qkv, 1)
-        q, k, v = ttnn.experimental.nlp_create_qkv_heads(
-            qkv, num_heads=N_HEADS, num_kv_heads=N_HEADS, transpose_k_heads=False)
-        ttnn.deallocate(qkv)
-        o = (self._attend32 if self.sdpa32 else self._attend)(q, k, v, bias, cache)
-        S, n = o.shape[0], o.shape[2]
-        o = ttnn.reshape(ttnn.experimental.nlp_concat_heads(o),
-                         (S, n, N_HEADS * PADDED_HEAD_DIM))  # [S, N, 1024], pad lanes zero
+        if self.sdpa32:
+            # The heads read and written in place inside the one attention program, so
+            # nlp_create_qkv_heads and nlp_concat_heads (63 us a block on Blackhole) do not run.
+            # Same arithmetic: digests unchanged on OpenFold3 and OpenBind-0 at 512 tokens.
+            o = _T._sdpa32_fused(qkv, bias, HEAD_DIM ** -0.5, N_HEADS)
+            ttnn.deallocate(qkv)
+            if cache is None:
+                ttnn.deallocate(bias)
+            S, n = o.shape[0], o.shape[2]
+            o = ttnn.reshape(o, (S, n, N_HEADS * PADDED_HEAD_DIM))
+        else:
+            q, k, v = ttnn.experimental.nlp_create_qkv_heads(
+                qkv, num_heads=N_HEADS, num_kv_heads=N_HEADS, transpose_k_heads=False)
+            ttnn.deallocate(qkv)
+            o = (self._attend32 if self.sdpa32 else self._attend)(q, k, v, bias, cache)
+            S, n = o.shape[0], o.shape[2]
+            o = ttnn.reshape(ttnn.experimental.nlp_concat_heads(o),
+                             (S, n, N_HEADS * PADDED_HEAD_DIM))  # [S, N, 1024], pad lanes zero
         # Query gate (flat == per-head: g.view(N,H,d) * o(H,N,d) == flat multiply).
         # The gate at o's format: a multiply whose b carries a fused sigmoid is wrong on mixed
         # operand formats (Protenix-v2's dit_mm16 grade, perf/spd_difflin/k1_check.py).
@@ -307,14 +351,18 @@ class _DiTBlock(Module):
         ttnn.deallocate(g)
         o = self._lin_lp(o, self.w_o, out_dt)           # [1, N, 768]
         # APB output gate from s.
-        og = lin(s, self.w_ada_out, bias=self.b_ada_out)
+        og = (self._s16_lin(s16[0], self.s16[1]) if s16
+              else lin(s, self.w_ada_out, bias=self.b_ada_out))
         o = ttnn.multiply(o, og, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
         ttnn.deallocate(og); ttnn.deallocate(a_ln)
         a = ttnn.add(a, o)
         ttnn.deallocate(o)
 
         # Conditioned SwiGLU transition.
-        a_t = self.adaln_t(a, s, dtype=act)
+        st = self._s16_terms(s16, 1) if s16 else None
+        a_t = self.adaln_t(a, s, dtype=act, s_terms=st)
+        if st:
+            ttnn.deallocate(st[0]); ttnn.deallocate(st[1])
         b1 = self._lin_lp(a_t, self.w_la, ttnn.bfloat16, activation="silu")
         b2 = self._lin_lp(a_t, self.w_lb, ttnn.bfloat16)
         ttnn.deallocate(a_t)
@@ -322,7 +370,7 @@ class _DiTBlock(Module):
         ttnn.deallocate(b1); ttnn.deallocate(b2)
         out = self._lin_lp(bb, self.w_lout, out_dt)
         ttnn.deallocate(bb)
-        lg = lin(s, self.w_lg, bias=self.b_lg)
+        lg = self._s16_lin(s16[0], self.s16[2]) if s16 else lin(s, self.w_lg, bias=self.b_lg)
         out = ttnn.multiply(out, lg, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
         ttnn.deallocate(lg)
         a = mask_add(a, out, tok_mask_col)
@@ -382,6 +430,21 @@ class OF3DiffusionTransformer(Module):
                        for b in range(n_blocks)]
         self.n_blocks = n_blocks
 
+    def _masks(self, token_mask, N, padded_N, rows):
+        """``(mask_bias [1,1,1,padded_N], tok_mask_col at rows or ())``: -1e9 on padded and masked
+        keys; the column mask is ``()`` when the caller's ``tok_mask_col`` already fits."""
+        tok = ttnn.to_torch(token_mask).float().reshape(-1)  # [N]
+        mb_t = torch.full((padded_N,), -1e9, dtype=torch.float32)
+        mb_t[:N] = (tok - 1.0) * 1e9
+        mask_bias = ttnn.from_torch(mb_t.reshape(1, 1, 1, padded_N), layout=ttnn.TILE_LAYOUT,
+                                    device=self.device, dtype=self._act_dtype)
+        if rows == N:
+            return mask_bias, ()
+        tmc_p = torch.zeros(1, rows, 1, dtype=torch.float32)
+        tmc_p[0, :N, 0] = tok
+        return mask_bias, ttnn.from_torch(tmc_p, layout=ttnn.TILE_LAYOUT, device=self.device,
+                                          dtype=self._act_dtype)
+
     def __call__(self, a, s, z, token_mask, tok_mask_col, cache=None):
         # Pad to the tile-aligned logical width so the SDPA's tiled key extent is
         # fully masked. from_torch pads *storage* with 0 (="unmasked" for an additive
@@ -394,39 +457,38 @@ class OF3DiffusionTransformer(Module):
         N = token_mask.shape[-1]
         S = a.shape[0]
         padded_N = bucketed_width(N, TILE)
-        tok = ttnn.to_torch(token_mask).float().reshape(-1)  # [N]
+        rows = _T.sdpa32_rows(padded_N) if self.blocks[0].sdpa32 else padded_N
+        # The masks are functions of token_mask alone, so a rollout builds them once. Building
+        # them reads the mask back to the host, which on every step stalled the host until the
+        # atom encoder had drained, and a traced step cannot hold a read or an upload at all.
+        mask_bias, tmc_d = _cached(cache, (id(self), "masks", rows),
+                                   lambda: self._masks(token_mask, N, padded_N, rows))
+        if isinstance(tmc_d, tuple):
+            tmc_d = tok_mask_col
         if padded_N == N:
-            a_d, s_d, z_d, tmc_d = a, s, z, tok_mask_col
-            mb_t = (tok - 1.0) * 1e9
+            a_d, s_d, z_d = a, s, z
         else:
             a_d = _pad_single(a, padded_N, self._act_dtype)
             s_d = _pad_single(s, padded_N, self._act_dtype)
             z_d = _pad_pair(z, padded_N, self._act_dtype)
-            tok_p = torch.zeros(padded_N, dtype=torch.float32)
-            tok_p[:N] = tok
-            tmc_p = tok_p.reshape(1, padded_N, 1)
-            tmc_d = ttnn.from_torch(tmc_p, layout=ttnn.TILE_LAYOUT, device=self.device,
-                                    dtype=self._act_dtype)
-            mb_t = torch.full((padded_N,), -1e9, dtype=torch.float32)
-            mb_t[:N] = (tok - 1.0) * 1e9
-        mb = mb_t.reshape(1, 1, 1, padded_N)
-        mask_bias = ttnn.from_torch(mb, layout=ttnn.TILE_LAYOUT, device=self.device,
-                                    dtype=self._act_dtype)
         # dit_sdpa32 runs at sdpa32_rows. The stream is padded to it here, once a call, not q, k
         # and v in every block: rows are independent everywhere but the attention, and its mask
         # (`_sdpa32_mask`, built from the padded_N bias) hides the new keys. The same padding
         # Protenix's token DiT does.
-        rows = _T.sdpa32_rows(padded_N) if self.blocks[0].sdpa32 else padded_N
         if rows != padded_N:
             a_d, s_d = (ttnn.pad(x, [(0, 0), (0, rows - padded_N), (0, 0)], value=0.0)
                         for x in (a_d, s_d))
-            tmc_p = torch.zeros(1, rows, 1, dtype=torch.float32)
-            tmc_p[0, :N, 0] = tok
-            tmc_d = ttnn.from_torch(tmc_p, layout=ttnn.TILE_LAYOUT, device=self.device,
-                                    dtype=self._act_dtype)
         x = a_d
+        s16 = None
+        if self.blocks[0].s16:
+            s16 = (ttnn.typecast(s_d, ttnn.bfloat16),
+                   ttnn.typecast(ttnn.layer_norm(s_d, epsilon=1e-5,
+                                                 compute_kernel_config=self.compute_kernel_config),
+                                 ttnn.bfloat16))
         for blk in self.blocks:
-            x = blk(x, s_d, z_d, mask_bias, tmc_d, cache=cache)
+            x = blk(x, s_d, z_d, mask_bias, tmc_d, cache=cache, s16=s16)
+        for t in s16 or ():
+            ttnn.deallocate(t)
         if rows == N:
             return x
         x = ttnn.to_layout(x, ttnn.ROW_MAJOR_LAYOUT)

@@ -42,11 +42,13 @@ from __future__ import annotations
 import collections
 import functools
 import hashlib
+import os
 
 import torch
 import ttnn
 
 from .af2_reference import AF2Model, load_af2_model
+from .envflags import env_flag
 from .tenstorrent import (
     CORE_GRID_MAIN,
     PAIR_ROW_BLOCK,
@@ -57,9 +59,12 @@ from .tenstorrent import (
     Weights,
     _fp32_softmax_attention,
     _pair_bias_from_z,
+    _residual_update_memory_config,
     host_f64_softmax_site,
     batched_matmul,
     get_device,
+    precise_fidelity,
+    trace_region_size,
 )
 
 # The pair-track shape constants of `model_1_ptm`, from the checkpoint's own config
@@ -101,7 +106,15 @@ PAIR_BIAS_ROWBLOCK_BYTES = 128 * 2 ** 20
 # `factor` is 4, so the hidden is 4 pair tensors; at 208 tokens that is 88 MB and fits, and the
 # block is row-local (LayerNorm over channels, two matmuls over channels), so blocking changes
 # nothing a row computes.
-TRANSITION_ROWBLOCK_BYTES = 256 * 2 ** 20
+# 128 MiB, not the 256 MiB this started at: at 480 tokens the hidden is 225 MiB and so ran as one
+# allocation, and that single request is what a 12 GiB Wormhole chip fails in the BindCraft 2
+# Evoformer backward while it still holds 12.49 of 12.885 GB (`state/spd-bc2.md`, the 480 rung of
+# the Wormhole size ladder). Tokens 352-512 block now; 224 and below are unchanged either way.
+TRANSITION_ROWBLOCK_BYTES = int(os.environ.get("TT_BIO_TRANSITION_ROWBLOCK_BYTES", 128 * 2 ** 20))
+# The transition's normed input and its 4x-wide hidden in L1 when the grid has room, so fc1 and fc2
+# read them on chip instead of a DRAM round trip. Same arithmetic, so bit-exact; never under a tape
+# (`_l1_fits` declines there), so a BindCraft 2 round is unchanged.
+TRANSITION_L1 = env_flag("TT_BIO_AF2_TRANSITION_L1", False)
 
 
 #: The op classes `scripts/af2_port/tap_gate.py --substitute` moves to host torch, one class per
@@ -200,12 +213,13 @@ def af2_pair_masks(mask_2d: torch.Tensor,
 
 
 def compute_kernel_config() -> ttnn.DeviceComputeKernelConfig:
-    """The repo's trunk kernel config: HiFi4 with an fp32 accumulator, per part."""
+    """The repo's trunk kernel config: HiFi4 (HiFi3 under `tenstorrent.PRECISE_HIFI3`) with an fp32
+    accumulator, per part."""
     device = get_device()
     cls = (ttnn.types.WormholeComputeKernelConfig
            if device.arch() == ttnn.Arch.WORMHOLE_B0
            else ttnn.types.BlackholeComputeKernelConfig)
-    return cls(math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=False,
+    return cls(math_fidelity=precise_fidelity(), math_approx_mode=False,
                fp32_dest_acc_en=True, packer_l1_acc=True)
 
 
@@ -226,17 +240,39 @@ class ReluTransition(Module):
         self.fc2_bias = self.torch_to_tt("fc2.bias")
 
     def _rows(self, x: ttnn.Tensor) -> ttnn.Tensor:
+        if TRANSITION_L1:
+            from .size_limits import is_alloc_refusal
+            try:
+                return self._rows_at(x, True)
+            except RuntimeError as exc:
+                # A refusal, or circular buffers that clash with what L1 already holds: both
+                # throw before anything runs, so the DRAM form below recomputes cleanly.
+                if not (is_alloc_refusal(exc) or "clash" in str(exc)):
+                    raise
+        return self._rows_at(x, False)
+
+    def _rows_at(self, x: ttnn.Tensor, l1: bool) -> ttnn.Tensor:
+        shape = [int(d) for d in x.shape]
+        hidden = shape[:-1] + [int(self.fc1_weight.shape[-1])]
+        xn_mc = _residual_update_memory_config(shape, x.dtype) if l1 else None
+        h_mc = (_residual_update_memory_config(hidden, ttnn.bfloat16) if l1 else None) \
+            or ttnn.DRAM_MEMORY_CONFIG
         xn = ttnn.layer_norm(
             x, weight=self.norm_weight, bias=self.norm_bias, epsilon=1e-5,
-            compute_kernel_config=self.compute_kernel_config,
+            compute_kernel_config=self.compute_kernel_config, memory_config=xn_mc,
         )
-        h = self._lin(xn, self.fc1_weight, bias=self.fc1_bias, activation="relu",
-                      memory_config=ttnn.DRAM_MEMORY_CONFIG)
+        try:
+            h = self._lin(xn, self.fc1_weight, bias=self.fc1_bias, activation="relu",
+                          memory_config=h_mc)
+        except RuntimeError:
+            ttnn.deallocate(xn)
+            raise
         ttnn.deallocate(xn)
-        out = self._lin(h, self.fc2_weight, bias=self.fc2_bias,
-                        memory_config=ttnn.DRAM_MEMORY_CONFIG)
-        ttnn.deallocate(h)
-        return out
+        try:
+            return self._lin(h, self.fc2_weight, bias=self.fc2_bias,
+                             memory_config=ttnn.DRAM_MEMORY_CONFIG)
+        finally:
+            ttnn.deallocate(h)
 
     def __call__(self, x: ttnn.Tensor) -> ttnn.Tensor:
         shape = [int(d) for d in x.shape]
@@ -353,9 +389,10 @@ class AF2PairBlock(Module):
     #: `tt_bio/rne_add.py` is graded bit-exact against `round_rne_bf16(exact_sum)` in float64 on
     #: random pairs, a 256x operand ratio and real ties -- at 6 B/element instead of 30, which is
     #: 398 GB and ~1.41 s of BindCraft 2's composed round (`state/perf10/bcx-CALLS.md` leg 3).
-    #: OFF by default and release-gated. Under a tape it also needs `rne_add`'s entry in
-    #: TT_BIO_TAPED_KERNELS; without it `rne_add.eligible` declines and the four calls run.
-    rne_kernel = False
+    #: AF2-IG on a Wormhole chip: digests identical on all three PD-L1 fixtures, 0.5-0.7 s less per
+    #: complex at 195 tokens. Under a tape it also needs `rne_add`'s entry in TT_BIO_TAPED_KERNELS;
+    #: without it `rne_add.eligible` declines and the four calls run.
+    rne_kernel = True
 
     #: Ride linear_g.bias inside the triangle attentions' gate matmul as well as linear_o.bias, one
     #: rounding instead of a matmul then a 200 us row-broadcast add at 1x288x288x128. Read at call
@@ -1047,7 +1084,10 @@ class AF2DeviceModel(AF2Model):
     #: triangle attention too. Not bit-exact against the materialised path: an online softmax
     #: reduces over k in a different order, so a change here is an accuracy question, scored by
     #: `filter_flip_rate.py` over both design populations.
-    triatt_fused: frozenset | None = None
+    #: Default: every stack. AF2-IG on a Wormhole chip (three PD-L1 complexes, 195 tokens): all-atom
+    #: RMSD to the materialised softmax 0.05-0.38 A, ipTM within 0.0007, ~2 s less per complex.
+    #: Below `_TRIATT_FUSED_HIFI_MIN_S` tokens the materialised path still runs.
+    triatt_fused: frozenset | None = frozenset(TRIATT_FUSED_STACKS)
 
     #: Off recomputes the template every pass. It must change no number anywhere, which is what
     #: `tap_gate.py --device --no-template-cache` checks against the same reference taps. On, the
@@ -1055,6 +1095,18 @@ class AF2DeviceModel(AF2Model):
     #: invalidated by the next design rather than served to it. Only the monomer may take it --
     #: see `template_cacheable`.
     template_cached = True
+
+    #: Replay the extra-MSA and Evoformer stacks from a captured trace, which takes the host's
+    #: per-op dispatch off the critical path. The first call at a shape runs the stack eagerly,
+    #: the second runs it eagerly once more, captures it and replays it, and later calls only
+    #: replay (see `_replay` for why the capture waits a call). Needs a device opened with `get_device(trace="af2")`;
+    #: without the region, or under any instrument (`block_tap`, `substitute`, `skip`) or a real
+    #: mask, the stack runs eagerly as before. Same ops on the same buffers as the eager loop.
+    trace_stacks = False
+    #: Bisection knobs for the trace: replay only the first `trace_blocks` Evoformer blocks (the
+    #: rest run eagerly on clones of the trace's outputs) and execute the replay blocking.
+    trace_blocks: int | None = None
+    trace_blocking = False
 
     @property
     def template_cacheable(self) -> bool:
@@ -1086,6 +1138,8 @@ class AF2DeviceModel(AF2Model):
         self.opm_constant: list = []
         self._device = None
         self._template_cache = None
+        self._traces: dict = {}
+        self._opm_constant_tt: list = []
 
     def to_device(self) -> "AF2DeviceModel":
         """Build the ttnn blocks from the parameters already loaded into the torch modules."""
@@ -1227,6 +1281,57 @@ class AF2DeviceModel(AF2Model):
 
     # ------------------------------------------------------------------ the two stacks
 
+    def _traceable(self, *masks, name: str = "") -> bool:
+        stacks = self.trace_stacks
+        return (stacks and (stacks is True or name in stacks) and self.block_tap is None and not self.substitute
+                and not self.skip and all(m is None for m in masks)
+                and trace_region_size() > 0)
+
+    def _replay(self, name: str, run, *inputs: torch.Tensor) -> tuple | None:
+        """`run(*inputs on card)` from a trace keyed on `name` and the input shapes, or None.
+
+        None on the first call at a key: the caller runs its eager loop. A capture must come
+        after every program and every persistent buffer the fold allocates lazily exists. A
+        buffer first allocated after a capture can sit where the trace keeps an intermediate,
+        and each replay then overwrites it: capturing the extra-MSA stack before the Evoformer
+        had ever run, or one Evoformer block before the other 47, changed the fold's digest on
+        a p150a, while capturing all 48 after a whole eager pass reproduced it exactly.
+
+        The second call runs `run` once eagerly on the same clones and then captures it: a
+        capture must not compile or upload anything, and only the exact code it records is
+        sure to have compiled every program it dispatches (the `clone`s included). The trace
+        owns persistent input buffers that each replay overwrites, and `run` reads clones of
+        them, because the blocks deallocate their inputs as they go. The outputs are the
+        trace's own buffers: download them, never deallocate them.
+        """
+        key = (name, *(tuple(t.shape) for t in inputs))
+        if key not in self._traces:
+            self._traces[key] = None
+            return None
+        tr = self._traces[key]
+        if tr is None:
+            bufs = [self._up(t) for t in inputs]
+            for out in run(*[ttnn.clone(b) for b in bufs]):
+                ttnn.deallocate(out)
+            ttnn.synchronize_device(self._device)
+            tid = ttnn.begin_trace_capture(self._device, cq_id=0)
+            outs = run(*[ttnn.clone(b) for b in bufs])
+            ttnn.end_trace_capture(self._device, tid, cq_id=0)
+            tr = self._traces[key] = (tid, bufs, outs)
+        else:
+            for t, buf in zip(inputs, tr[1]):
+                ttnn.copy_host_to_device_tensor(
+                    ttnn.from_torch(t.unsqueeze(0).to(torch.bfloat16), layout=ttnn.TILE_LAYOUT,
+                                    dtype=ttnn.bfloat16), buf)
+        ttnn.execute_trace(self._device, tr[0], cq_id=0, blocking=self.trace_blocking)
+        return tr[2]
+
+    def release_traces(self) -> None:
+        for tr in self._traces.values():
+            if tr is not None:
+                ttnn.release_trace(self._device, tr[0])
+        self._traces.clear()
+
     def extra_msa_stack(self, extra: torch.Tensor, pair: torch.Tensor,
                         extra_mask: torch.Tensor, pair_mask: torch.Tensor) -> torch.Tensor:
         if self.extra_msa_host:
@@ -1242,6 +1347,18 @@ class AF2DeviceModel(AF2Model):
             "collapses to under an all-zero mask; a real extra MSA needs the track written")
         shape = tuple(pair.shape)
         masks = af2_pair_masks(pair_mask, self._device)
+        if self._traceable(*masks, name="extra_msa"):
+            if len(self._opm_constant_tt) != len(self.opm_constant):
+                self._opm_constant_tt = [self._up(c.reshape(1, 1, -1)) for c in self.opm_constant]
+
+            def run(z):
+                for block, const in zip(self.device_extra_msa, self._opm_constant_tt):
+                    z = block(block._residual(z, ttnn.clone(const)), *masks)
+                return (z,)
+
+            out = self._replay("extra_msa", run, pair)
+            if out is not None:
+                return self._down(out[0], shape)
         z = self._up(pair)
         for index, block in enumerate(self.device_extra_msa):
             if self.block_tap is not None:
@@ -1268,6 +1385,28 @@ class AF2DeviceModel(AF2Model):
         pair_masks = af2_pair_masks(pair_mask, self._device)
         msa_mask_tt = (None if bool((msa_mask == 1).all())
                        else self._up(msa_mask.float()))
+        if self._traceable(msa_mask_tt, *pair_masks, name="evoformer"):
+            n = len(self.device_evoformer) if self.trace_blocks is None else self.trace_blocks
+
+            def run(m, z):
+                for block in self.device_evoformer[:n]:
+                    m, z = block(m, z, None, *pair_masks)
+                return m, z
+
+            out = self._replay("evoformer", run, msa, pair)
+        else:
+            out = None
+        if out is not None:
+            m, z = out
+            if n < len(self.device_evoformer):
+                m, z = ttnn.clone(m), ttnn.clone(z)
+                for block in self.device_evoformer[n:]:
+                    m, z = block(m, z, None, *pair_masks)
+                out = self._down(m, msa_shape), self._down(z, pair_shape)
+                ttnn.deallocate(m)
+                ttnn.deallocate(z)
+                return out
+            return self._down(m, msa_shape), self._down(z, pair_shape)
         m, z = self._up(msa), self._up(pair)
         for block in self.device_evoformer:
             m, z = block(m, z, msa_mask_tt, *pair_masks)

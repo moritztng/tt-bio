@@ -23,6 +23,9 @@ CAPTURE_SITES = {
     "tt_bio/tenstorrent.py": "diffusion",
     "tt_bio/protenix.py": "protenix",
     "tt_bio/esmc.py": "esmc",
+    "tt_bio/openfold3_sample_diffusion.py": "openfold3",
+    "tt_bio/af2.py": "af2",
+    "tt_bio/autograd.py": "bc2",
 }
 
 

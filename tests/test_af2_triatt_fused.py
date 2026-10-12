@@ -47,11 +47,11 @@ def test_pinned_ignores_the_process_default(process_default, default, pinned):
     assert TT._fused_hifi_on(pinned) is pinned
 
 
-def test_default_model_pins_nothing():
-    """The class default has to leave every stack on the variable, or it changes today's folds."""
+def test_default_model_pins_every_stack():
+    """The class default pins all three stacks to the fused SDPA, whatever the variable says."""
     model = AF2DeviceModel.__new__(AF2DeviceModel)
-    assert model.triatt_fused is None
-    assert [model._fused_hifi(s) for s in TRIATT_FUSED_STACKS] == [None] * 3
+    assert model.triatt_fused == frozenset(TRIATT_FUSED_STACKS)
+    assert [model._fused_hifi(s) for s in TRIATT_FUSED_STACKS] == [True] * 3
 
 
 @pytest.mark.parametrize("stacks, want", [

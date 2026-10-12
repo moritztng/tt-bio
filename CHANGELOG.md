@@ -6,6 +6,29 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 ## [Unreleased]
 
 ### Changed
+- **AF2-IG is up to 2.5x faster.** Three changes. With an MSA of 8 rows or fewer the outer product mean no longer
+  builds the full outer product (`TT_BIO_OPM_SMALL_DEPTH=0` restores it; any single-sequence fold takes this path).
+  Triangle attention runs on the fused attention kernel from 128 tokens up. Residual adds run as one kernel, with
+  identical output. Per complex at 195 tokens on a Wormhole Galaxy chip at 1000 MHz: 6.41 s instead of 16.16 s.
+  On a p150a at 1350 MHz the outer product change alone takes it from 5.63 s to 4.54 s. Against the previous
+  release, structures move by 0.05 to 0.20 A and ipTM by at most 0.0007.
+- **RFdiffusion3 designs take about 30 % less time, and `--fast` now exists for it.** On a Blackhole p150a at
+  1350 MHz a 685-residue design (200 steps) takes 76.1 s instead of 106.8 s before the DiT attention change
+  below; the attention-index overlap, fused atom attention, sigmoid fold and a step that stays on the card did
+  that. The token transformer's attention is now one fused kernel too (72.7 to 61.4 s on a p300c). `--fast`
+  adds 8-bit pair-transition activations and a collapsed pair projection, about 13 % more. Every change was
+  graded on Blackhole and Wormhole over four seeds at 685 and 418 residues: designs move within seed-to-seed
+  variation and design quality matches the exact chain.
+- **OpenFold3 and OpenBind-0 replay the diffusion step from a device trace**, with identical output. On a
+  Blackhole p150a at 1350 MHz the 512-aa fold takes 15.1 to 15.8 s instead of 17.8 to 18.9 s. If the trace
+  cannot be captured the fold runs the old step-by-step path; `OF3_DIFFUSION_TRACE=0` forces it.
+- **BindCraft 2 runs its fused gradient kernels on Wormhole too**: 7.20 s per design iteration instead of
+  9.33 s at 1000 MHz, graded on 12 seeds (11 accepted designs against 6).
+- **RoseTTAFold3 and BoltzGen `--fast` are no longer slower than normal mode.** The old block-fp8 path is gone
+  for both. BoltzGen `--fast` runs the shared lower-precision set (39.3 s per design at 512 aa on a Blackhole p150a,
+  against 43.9 s in normal mode and 44.5 s on the old path; no confidence metric drops by more than 0.01 over 8
+  same-seed designs). RoseTTAFold3 `--fast` runs a graded lower-precision set (0.30 A median top-pose change over 40 paired
+  folds) and takes 35.8 s instead of 46.8 s, against 37.6 s in normal mode.
 - **Triangle multiplication's gate sigmoid is a polynomial inside the fused kernels**, max error 3e-4. On
   Wormhole at 1000 MHz the 730-token Protenix-v2 fold spends 1.3 s less on the device in normal mode and 4.0 s
   less in `--fast`. Protenix-v2 passes the accuracy grade on Wormhole and Blackhole in both modes. Boltz-2
@@ -31,14 +54,20 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   deep alignments fold up to 25 % faster on Wormhole (a 9,947-row target: 556 to 419 s).
   Confidence on homo-oligomers can read 0.01 to 0.05 pLDDT lower, as upstream's does; structures are unchanged
   within the accuracy bar.
-- **Protenix-v2 is 1.9x faster on Wormhole** than 0.13.1, up from 1.6x in 0.14.0. A warm 730-token fold
-  (deep MSA, 5 samples, 10 recycles) takes 259 s on a Galaxy chip at 1000 MHz, against 307 s in 0.14.0 and
-  501 s in 0.13.1, and 119 s on a Blackhole p150a at 1350 MHz. Structures stay inside seed-to-seed
+- **Protenix-v2 is 2.2x faster on Wormhole** than 0.13.1, up from 1.6x in 0.14.0. A warm 730-token fold
+  (deep MSA, 5 samples, 10 recycles) takes 233 s on a Galaxy chip at 1000 MHz, against 307 s in 0.14.0 and
+  501 s in 0.13.1, and 110 s on a Blackhole p150a at 1350 MHz. Structures stay inside seed-to-seed
   variation (11 complexes, median top-pose deviation 0.26 to 0.34 A over 16 seeds on Wormhole and 0.35 A
-  over 4 on Blackhole, against a 0.8 A re-seed). `--fast`: 209 s on Wormhole, 100 s on Blackhole.
+  over 4 on Blackhole, against a 0.8 A re-seed). `--fast`: 178 s on Wormhole, 90 s on Blackhole.
   [`docs/tuning-flags.md`](docs/tuning-flags.md#tt_bio_levers).
 
 ### Fixed
+- **Protenix-v2 on Wormhole returns the same structure for an input however many folds the process has run.**
+  From about the fourth fold in one process the outer product mean could fall back to a narrowed path and
+  return structures up to 20 A away from a fresh run. It now splits its work by size up front, which gives
+  identical values. OpenFold3 and Boltz-2 output is unchanged.
+- **A device open that never returns no longer blocks the host.** A chip left dirty by a killed process used to
+  hang every later open on the machine; the process now exits after 10 minutes with a stack dump. Reset that chip.
 - **ESMFold2 and ESMFold2-Fast are back near their earlier speed.** Since the per-loop LM dropout fix, each of
   the 11 trunk loops re-ran the MSA encoder on the same input and did the injection projection on the host. The
   encoder now runs once per fold and the projection on the device: 30.2 s at 512 residues on a Blackhole p300c

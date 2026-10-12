@@ -369,6 +369,34 @@ def reblock_permute(x, memory_config=None, device=None):
 L1_N_MIN = int(os.environ.get("TT_BIO_REBLOCK_L1_N_MIN", "288"))
 L1_N_MAX = int(os.environ.get("TT_BIO_REBLOCK_L1_N_MAX", "352"))
 
+# Below L1_N_MIN the moves still open on L1 once the Nt*Nt work groups reach this many per
+# core. The 288 edge was measured on 110- and 130-core grids, where it is Nt=9 = 81 groups; on a
+# Wormhole chip's 64 cores the same kernel already wins at Nt=7 = 49 groups (N=195: 1.17x at C=64,
+# N=224: 1.22x) and loses at Nt=6 = 36 groups (N=192: 0.97x), every point torch.equal
+# (.114 chip 7, perf/bigswing/reblock_window_band.py, state/spd-gap-bind.md). What decides the win is
+# whether the groups fill the grid: 0.74 (Nt=9 on 110 cores) and 0.77 (Nt=7 on 64, Nt=10 on 130) win;
+# 0.62 (Nt=9 on a 130-core p150a: 0.89 / 1.08 / 0.95x at N=257 / 272 / 288, qb1 card 0) is break-even,
+# and 0.56-0.58 lose (N=256 on 110 cores 0.952x, N=192 on 64 cores 0.97x). 0 restores the plain N edge.
+# The back and gated legs take the same floor: AF2-IG at 195 tokens on a Wormhole chip folds in 5.395 s
+# with the old gate, 5.336 s with only the forward move opened and 5.232 s with all three, every
+# structure digest identical (.114 chip 6, out/whgate_fa1b3cbfa). On 130 cores the rule needs Nt=10,
+# which is above L1_N_MIN already, so a p150a is unchanged.
+L1_GROUPS_PER_CORE = float(os.environ.get("TT_BIO_REBLOCK_L1_GROUPS_PER_CORE", "0.7"))
+_GRID_CORES = {}
+
+
+def _l1_fills_grid(x, N: int) -> bool:
+    """Whether an N x N move's Nt*Nt groups reach L1_GROUPS_PER_CORE per core of x's grid."""
+    if not L1_GROUPS_PER_CORE:
+        return False
+    device = x.device()
+    key = device.id()
+    if key not in _GRID_CORES:
+        g = device.compute_with_storage_grid_size()
+        _GRID_CORES[key] = g.x * g.y
+    nt = (N + TILE_H - 1) // TILE_H
+    return nt * nt >= L1_GROUPS_PER_CORE * _GRID_CORES[key]
+
 
 def eligible(x, memory_config, taped_ok: bool = False) -> bool:
     """The gate, measured against the wheel's own ``ttnn.permute`` on the card that runs it.
@@ -378,7 +406,8 @@ def eligible(x, memory_config, taped_ok: bool = False) -> bool:
     On L1 the margin is smaller and grid-dependent. It opens at 288 because below that there are
     fewer work groups than cores and the per-call cost is not amortised: N=256 on an L1 output
     measures 0.952x on 110 cores, a real loss, and it is the shape boltzgen runs 2384 of its 3024
-    channel moves on.
+    channel moves on. Below 288 the L1 leg still opens where the Nt*Nt groups fill the grid
+    (`L1_GROUPS_PER_CORE`), which on a 64-core Wormhole chip is from N=193.
 
     The upper edge stays 352. It was widened to 544 on qb2 evidence and reverted: the widening is
     worth 0.000 s/fold at 512 aa (the fit test already routes the pair tensor to DRAM, where the leg
@@ -424,7 +453,8 @@ def eligible(x, memory_config, taped_ok: bool = False) -> bool:
         return _reject("sharded_in", shape)
     bt = memory_config.buffer_type
     if not ((bt == ttnn.BufferType.DRAM and N >= 256)
-            or (bt == ttnn.BufferType.L1 and L1_N_MIN <= N <= L1_N_MAX)):
+            or (bt == ttnn.BufferType.L1 and N <= L1_N_MAX
+                and (N >= L1_N_MIN or _l1_fills_grid(x, N)))):
         return _reject(f"window_{bt}", shape)
     return True
 
@@ -704,7 +734,8 @@ def eligible_back(x, memory_config, taped_ok: bool = False) -> bool:
     # an A/A floor of 1.0002-1.0015x -- 256 LOSES at 0.9918x / 0.9903x, 288 wins 1.0086x /
     # 1.0092x, 320 wins 1.0135x / 1.0172x (perf/trix_layout/back_onepass_qb1c0.json). 256's
     # chunks are 4.19 MB, small enough that the kernel's own dispatch outweighs the deleted pass.
-    if x.memory_config().buffer_type == ttnn.BufferType.L1 and N < L1_N_MIN:
+    if (x.memory_config().buffer_type == ttnn.BufferType.L1 and N < L1_N_MIN
+            and not _l1_fills_grid(x, N)):
         return _reject("back_l1_src_narrow", shape)
     return True
 
@@ -1024,7 +1055,8 @@ def eligible_gated(xw, slice_c, memory_config) -> bool:
         return _reject("gated_sharded_in", shape)
     bt = memory_config.buffer_type
     if not ((bt == ttnn.BufferType.DRAM and N >= 256)
-            or (bt == ttnn.BufferType.L1 and L1_N_MIN <= N <= L1_N_MAX)):
+            or (bt == ttnn.BufferType.L1 and N <= L1_N_MAX
+                and (N >= L1_N_MIN or _l1_fills_grid(xw, N)))):
         return _reject(f"gated_window_{bt}", shape)
     return True
 

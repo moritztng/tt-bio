@@ -93,6 +93,9 @@ _TRIATT_BLOCK_REFUSED: dict = {}
 # row blocks to 5. It does NOT make 9i3p fold -- the target then hits the pair representation
 # (980*992*384*2) instead, which is a separate limit this constant has no bearing on.
 OPM_Z_BUDGET_BYTES = 1 << 28              # 0.25 GiB
+# OuterProductMean also blocks once its whole z is over this fraction of the chip's DRAM (see the
+# call site): 805306368 B on a 12 GiB Wormhole chip, so from ~628 tokens there.
+OPM_WHOLE_DRAM_DEN = 16
 # `I > SEQ_LEN_MORE_CHUNKING` decides whether that budget is consulted at all, and that constant
 # answers a DIFFERENT question: it bounds how many full PAIR tensors are live at once, which is
 # why _apply_grid_thresholds re-expressed it against DRAM and moved it 608 -> 1088 on a 12 GiB
@@ -297,7 +300,11 @@ SINGLE_SHOT_DRAM_NUM, SINGLE_SHOT_DRAM_DEN = 3, 32
 # 2 I J (C D) c_z to 2 I J D c_z, i.e. by C, and the intermediate (537 MB at 512 tokens,
 # C = D = 32) never exists. It costs one pass per MSA row, so it wins below depth ~C and
 # loses above it: the deep-MSA models keep the materialised form, which is what it is for.
-_OPM_SMALL_DEPTH = env_flag("TT_BIO_OPM_SMALL_DEPTH", False)
+# Against fp64 on the same bf16 operands it reads 6.898e-3 where the materialised form reads
+# 6.776e-3 (25653b9dc). On by default since AF2-IG measured it: per complex 5.63 -> 4.54 s on
+# p150a (1350 MHz) and 16.16 -> 9.73 s on a Wormhole Galaxy chip (1000 MHz), all-atom RMSD to
+# the materialised fold 0.02-0.25 A, ipTM within 0.0005 (state/spd-gap-bind.md, 2026-10-11).
+_OPM_SMALL_DEPTH = env_flag("TT_BIO_OPM_SMALL_DEPTH", True)
 OPM_SMALL_DEPTH_MAX = int(os.environ.get("TT_BIO_OPM_SMALL_DEPTH_MAX", "8"))
 #: [served, declined], so a census can tell a dark gate from a correctly declining one.
 OPM_SMALL_DEPTH_STATS = [0, 0]
@@ -586,13 +593,15 @@ _FAST_MODE = False
 #                   multiply op; the gate multiplies fc2 in dest rather than its stored copy. Needs silu_f32.
 #   dit_sdpa_pm     with dit_sdpa, the token DiT's fused SDPA reads its bias once per head instead of once per
 #                   sample (`token_dit_sdpa_pm`, triangle attention's persistent-mask kernel)
+#   dit_s16         an fp32 token DiT's six s-path linears (adaLN scale/shift, the two s gates) on bf16
+#                   operands with fp32 accumulation (OpenFold3's DiT)
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in",
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
           "transition_shard", "dit_mm16", "atom_k1", "dit_b8", "dit_qkv16", "atom_mm16", "adaln_mod",
-          "swiglu_fc12g", "msa_sample", "dit_sdpa_pm")
+          "swiglu_fc12g", "msa_sample", "dit_sdpa_pm", "dit_s16")
 # Named but in no mode until their fold grade puts them in one.
-UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "adaln_mod"})
+UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "adaln_mod", "dit_s16"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -1108,6 +1117,19 @@ def ln_compute_kernel_config(ckc):
         out.throttle_level = ckc.throttle_level
         _LN_CKCS[key] = out
     return out
+
+
+#: Run `precise_config` (and AF2's trunk config, `af2.compute_kernel_config`) at HiFi3 instead of
+#: HiFi4. HiFi3 drops only the A_lo*B_lo pass, below a bf16 output's own rounding step
+#: (`tenstorrent.trunk_compute_kernel_config`), and on Wormhole HiFi4 with fp32 accumulation returns
+#: a wrong element now and then: [0, 57, 88, 421] of a 128x128x128 @ 128x512 bf16 product reads
+#: -3.83 against a true 0.163 on every chip, in ttnn.matmul and minimal_matmul alike, while HiFi3
+#: returns the correctly rounded 0.1631 (perf/spd/matmul_spike_repro.py). Read per call.
+PRECISE_HIFI3 = env_flag("TT_BIO_PRECISE_HIFI3", False)
+
+
+def precise_fidelity():
+    return ttnn.MathFidelity.HiFi3 if PRECISE_HIFI3 else ttnn.MathFidelity.HiFi4
 
 
 def trunk_compute_kernel_config(base):
@@ -1648,19 +1670,24 @@ def pad_dim(x: ttnn.Tensor, dtype, n: int, n_pad: int, *, dims: int = 1) -> ttnn
                 spec[-1 - d] = (0, n_pad - n)
             y = ttnn.pad(y, spec, 0.0)
         return y if y.dtype == dtype else ttnn.typecast(y, dtype)
-    if dims == 1 and dtype == ttnn.float32:
+    if dims == 1 and dtype in (ttnn.float32, ttnn.bfloat16):
         # The same zeros on device, row major so nothing of the last tile's padding is kept:
         # the host route cost one untilize + fp32 widen + re-tilize on one host thread per
         # call, 27 ms at OpenFold3's [5, 5917, 128] atoms and three calls a diffusion step.
-        # Only an fp32 result goes row major, cast first in tile layout (bf16 -> fp32 is exact):
-        # a bf16 [5, 5917, 128] taken row major hung the device (spd-of3 pp21), the fp32 one
-        # is bit-exact with the host route.
+        # Only fp32 goes row major, cast first in tile layout: a bf16 [5, 5917, 128] taken row
+        # major hung the device (spd-of3 pp21), the fp32 one is bit-exact with the host route.
+        # A bf16 result pads in fp32 and casts back (bf16 -> fp32 -> bf16 is exact), so the
+        # bf16 diffusion module has no host trip left and its rollout can be traced too.
         # The square pair (`dims == 2`) is padded once a fold and keeps the host route, which
         # holds no second copy of it on device.
-        y = ttnn.to_layout(x if x.dtype == dtype else ttnn.typecast(x, dtype), ttnn.ROW_MAJOR_LAYOUT)
+        f32 = x if x.dtype == ttnn.float32 else ttnn.typecast(x, ttnn.float32)
+        y = ttnn.to_layout(f32, ttnn.ROW_MAJOR_LAYOUT)
+        if f32 is not x:
+            ttnn.deallocate(f32)
         spec = [(0, 0)] * len(y.shape)
         spec[-2] = (0, n_pad - n)
-        return ttnn.to_layout(ttnn.pad(y, spec, 0.0), ttnn.TILE_LAYOUT)
+        y = ttnn.to_layout(ttnn.pad(y, spec, 0.0), ttnn.TILE_LAYOUT)
+        return y if dtype == ttnn.float32 else ttnn.typecast(y, dtype)
     th = ttnn.to_torch(x).float()
     if n_pad > n:
         th = torch.nn.functional.pad(th, (0, 0) + (0, n_pad - n) * dims)
@@ -2638,6 +2665,24 @@ def _sdpa32(q, k, v, mask, scale: float) -> ttnn.Tensor:
     out = ttnn.allocate_tensor_on_device(ttnn.Shape([int(q.shape[i]) for i in range(3)] + [int(v.shape[3])]), ttnn.float32,
                                          ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG)
     SG.sdpa(dev, q, k, v, mask, out, chunk, k_chunk, (g.x, g.y), _SDPA32_CKC, scale)
+    return out
+
+
+def _sdpa32_fused(qkv, mask, scale: float, heads: int) -> ttnn.Tensor:
+    """`_sdpa32` read straight out of a fused `[S, 1, N, 3 * heads * DH]` qkv projection, written
+    `[S, 1, N, heads * DH]`: what nlp_create_qkv_heads, `_sdpa32` and nlp_concat_heads give, as one
+    program and the same arithmetic (`sdpa_generic.qkv_fused_kernel_dir`)."""
+    from . import sdpa_generic as SG
+    S, _, n, w = (int(d) for d in qkv.shape)
+    assert n % 128 == 0 and int(mask.shape[-1]) == n, ("_sdpa32 wants the token axis padded by sdpa32_rows", qkv.shape, mask.shape)
+    chunk = 256 if n % 256 == 0 else 128
+    dev = qkv.device()
+    k_chunk = 32 if dev.arch() == ttnn.Arch.WORMHOLE_B0 else chunk
+    g = dev.compute_with_storage_grid_size()
+    out = ttnn.allocate_tensor_on_device(ttnn.Shape([S, 1, n, w // 3]), ttnn.float32,
+                                         ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG)
+    SG.sdpa(dev, qkv, qkv, qkv, mask, out, chunk, k_chunk, (g.x, g.y), _SDPA32_CKC, scale,
+            qkv_fused=heads)
     return out
 
 
@@ -4257,9 +4302,11 @@ def _with_dram_narrowing(run, blk: int, narrow, compact=None):
 
     Let the device have the last word on the block. Every byte budget in this file is a
     constant and DRAM occupancy is not, so on a full device a budget can decline to block a
-    tensor the allocator then refuses, which used to end the fold. Both callers partition a
-    row axis bit-exactly, so a retry at half the height can only change whether the call
-    finishes.
+    tensor the allocator then refuses, which used to end the fold. Each caller partitions a row
+    axis, but a narrower or ragged block can be a different matmul (OuterProductMean's is), and
+    the narrowed block is remembered for the process. So this is a crash guard: a size that
+    folds must be blocked from its own bytes up front, or the process's later folds compute a
+    different function from a fresh process's.
 
     Stops at one tile row: below that there is nothing left to give back, and re-raising is
     the honest answer rather than spinning on a block that cannot shrink.
@@ -7247,10 +7294,37 @@ _device_lease = None
 _device_generation = 0
 
 
+#: A healthy single-chip open takes 1-15 s on a Galaxy (bench.jsonl ``device_open``, .114
+#: 2026-10-11). An open still running after this is a chip left dirty by a process killed
+#: mid-op: it spins in C at 100 % CPU, ignores SIGINT and SIGTERM, and never returns. It also
+#: holds the host-wide bring-up lock, so every other open on the box queues behind it (.114
+#: 2026-10-11: 21 opens waited 24 min behind one such process, 13 of 31 chips busy).
+_OPEN_WEDGE_TIMEOUT_S = 600.0
+
+
+@contextlib.contextmanager
+def _exit_if_open_wedged():
+    """End this process if the open inside the block never returns.
+
+    ``ttnn.open_device`` holds the GIL while it spins, so a Python timer thread never gets to
+    run. faulthandler's watchdog is a C thread: it dumps every thread's stack and ``_exit(1)``,
+    the code any other failed open exits with, and the kernel drops the flock and device fds.
+    The dump ends in ``open_device``; reset that chip before reusing it.
+    """
+    import faulthandler
+
+    faulthandler.dump_traceback_later(_OPEN_WEDGE_TIMEOUT_S, exit=True)
+    try:
+        yield
+    finally:
+        faulthandler.cancel_dump_traceback_later()
+
+
 def _open_device_locked(device_id, kwargs):
     """Open + configure the device with bring-up strictly serialized host-wide."""
     with device_init_lock():
-        dev = ttnn.open_device(device_id=device_id, **kwargs)
+        with _exit_if_open_wedged():
+            dev = ttnn.open_device(device_id=device_id, **kwargs)
         _configure_active_compute_grid(dev)
         dev.enable_program_cache()
         return dev
@@ -7400,12 +7474,23 @@ def _assert_local_dispatch(dev, timeout_s=None):
 TRACE_REGIONS = {
     "diffusion": {"wormhole_b0": 16 << 20, "blackhole": 27 << 20},    # boltz2 / boltzgen DiT step
     "protenix": {"wormhole_b0": 20 << 20, "blackhole": 36 << 20},     # protenix-v1/v2, opendde step
+    "openfold3": {"wormhole_b0": 48 << 20, "blackhole": 64 << 20},    # openfold3 / openbind step
     "esmc": {"wormhole_b0": 221 << 20, "blackhole": 126 << 20},       # ESMC._TRACE_CACHE_MAX live traces
+    "af2": {"wormhole_b0": 240 << 20, "blackhole": 240 << 20},        # AF2 extra-MSA + Evoformer stacks, unmeasured
+    # BC2 traced block recomputes (autograd.TRACE_RECOMPUTE). On Wormhole 128 MiB is too small (the
+    # captures asked for 135,331,840 B, mesh_trace.cpp:182, .114 chip 13) and 1 GiB never got past
+    # bring-up: four of four opens on .114 died in firmware init or hung in the first dispatch,
+    # while the 128 MiB open came up. 160 MiB covers the measured need with ~20 % to spare.
+    # Blackhole is unmeasured; 240 MiB keeps it under the quarter-bank cap every entry obeys.
+    "bc2": {"wormhole_b0": 160 << 20, "blackhole": 240 << 20},
 }
 
 
 def trace_region_bytes(capture):
-    """Bytes per DRAM bank to reserve at open for ``capture`` (a TRACE_REGIONS key) on this arch."""
+    """Bytes of trace region to reserve at open for ``capture`` (a TRACE_REGIONS key) on this arch.
+
+    A device total, not per DRAM bank: ttnn reports "only 134217728B is allocated for trace region"
+    for a 128 MiB entry."""
     try:
         return TRACE_REGIONS[capture][arch_name()]
     except KeyError:
@@ -10975,10 +11060,31 @@ class TriangleAttention(Module):
                 ttnn.deallocate(x)
                 return x_in
         if self.ending:
-            x = _pair_transpose(
-                x, _transpose_memory_config(x, self.transpose_l1_reserve))
+            x = _pair_transpose(x, self._out_transpose_memory_config(x, x_in, add_to_input))
         x = ttnn.reshape(x, (1, *x.shape))
         return x
+
+    def _out_transpose_memory_config(self, x, x_in, add_to_input):
+        """Where the ending variant's transposed update goes.
+
+        `_transpose_memory_config` prices the grid's whole L1 as if the update were alone in it.
+        It is not when its input is L1-resident: the output projection writes the untransposed
+        update to L1 (`l1_out`), the transpose allocates its result underneath it, and freeing the
+        input afterwards leaves the result at the bottom of every bank, exactly where the caller's
+        `add_` lays out its circular buffers. RF3's template pairformer (c=64) at 778 tokens on a
+        p300c: 2 x 0.72 MB/core, "L1 buffer allocated at 122880 and static circular buffer region
+        ends at 123392"; at 768, 2 x 0.69 leaves the room. So every L1-resident pair operand alive
+        across the transpose (its input, and the residual the add reads) is priced per core, with
+        the add's room on top. A memory config cannot change a value: bit-exact either way.
+        """
+        resident = [t for t in (x, x_in if add_to_input else None)
+                    if t is not None and t.is_allocated()
+                    and t.memory_config().buffer_type == ttnn.BufferType.L1]
+        if not resident:
+            return _transpose_memory_config(x, self.transpose_l1_reserve)
+        reserve = (sum(_chunk_l1_per_core(t) for t in resident)
+                   + max(self.transpose_l1_reserve, _TRANSPOSE_L1_RESERVE_PER_CORE))
+        return _l1_memory_config_if_it_fits(x, 1.0, reserve_per_core=reserve)
 
 
 def _tri_att_fused_qkv_sdpa(att, x, bias):
@@ -14732,19 +14838,22 @@ class OuterProductMean(Module):
             return out
 
         per_row = C * D * J * 2
-        # Token count only. A byte arm that also row-blocked from 887 tokens up, to bound the
-        # whole path's (tokens, C*D, tokens) product, was measured and removed: _with_dram_narrowing
-        # below already catches that refusal reactively, and main folded 992 on one refused
-        # allocation in 1209 s against 1213 s with the arm in. Gating up front bought no wall time
-        # and re-blocked the whole 887-1088 band, where a ragged final block is a different matmul
-        # (960 tokens: plDDT 0.708054 against 0.708594) -- for every model sharing this op, at sizes
-        # that already folded. state/ceiling-opendde.md; do not re-add without a size main cannot
-        # fold at all.
-        if I > SEQ_LEN_MORE_CHUNKING:
+        # Blocked past SEQ_LEN_MORE_CHUNKING, or once the whole z is over 1/OPM_WHOLE_DRAM_DEN of
+        # the chip's DRAM. The byte arm is about which program a fold runs, not about whether it
+        # fits. Without it Protenix-v2 at 730 tokens on a Wormhole chip (z = 1109393408 B, 1/11 of
+        # DRAM) took the whole path until fragmentation refused the permute's copy by 384 B a
+        # bank, and `_with_dram_narrowing` then switched that process to row blocks for good. A
+        # ragged block is a different matmul, so a serving process's answer for the same input
+        # and seed depended on how many folds it had run (fold 4 on, up to 11 A on c730). Decided
+        # from the input and the part, the program is the same in every process; the refusal
+        # retry below stays as a crash guard. On a 32 GiB Blackhole this blocks above ~1024
+        # tokens; the blocked path costs ~0.3 % of a 992-token fold (1213 s against 1209 s).
+        total = _dram_total_bytes()
+        if I > SEQ_LEN_MORE_CHUNKING or (total and I * per_row * OPM_WHOLE_DRAM_DEN > total):
             # Row block sized so the per-block matmul result stays under OPM_Z_BUDGET_BYTES. That
             # result is (rows*C, D*J), so at a fixed row count it grows with J -- the constant 256
             # is fine at 285 tokens and is what 9i3p (992 padded) dies on. Never below one tile.
-            rows_blk = row_block(C * D * J * 2, OPM_Z_BUDGET_BYTES, cap=OPM_CHUNK_SIZE)
+            rows_blk = row_block(per_row, OPM_Z_BUDGET_BYTES, cap=OPM_CHUNK_SIZE)
         else:
             rows_blk = I
         # A block this shape class was already refused at never gets asked for a second time.

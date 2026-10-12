@@ -39,7 +39,7 @@ from ._vendor.openfold3.core.utils.atom_attention_block_utils import (
     get_pair_atom_block_mask,
     get_query_block_padding,
 )
-from ._vendor.openfold3.core.utils.relpos import relpos_complex
+from ._vendor.openfold3.core.utils.relpos import apply_cyclic_offsets, relpos_complex
 from .envflags import env_flag
 from .openfold3_weights import _sub
 
@@ -111,6 +111,61 @@ def derive_relpos(features: dict) -> torch.Tensor:
         max_relative_idx=MAX_RELATIVE_IDX,
         max_relative_chain=MAX_RELATIVE_CHAIN,
     ).float()
+
+
+# The relpos feature as codes: `table[codes]` is `derive_relpos` exactly, but the host builds [N, N] int32
+# and a few hundred one-hot rows instead of 145 MB of float one-hots (0.16 s) and tilizing them (0.26 s on
+# pc), and the device expands it with one embedding. Same digest as the dense feature on OpenFold3 and
+# OpenBind-0 (qb2 p300c, cdk2x2_512). OF3_RELPOS_CODES=0 uploads the dense feature.
+RELPOS_CODES = "OF3_RELPOS_CODES"
+
+
+def derive_relpos_codes(features: dict) -> tuple[torch.Tensor, torch.Tensor]:
+    """``(codes [N, N] int32, table [U, 139] float32)`` with ``table[codes] == derive_relpos(features)``.
+
+    The same bins as ``relpos_complex``: three clipped offsets and the same-entity bit, packed into one
+    integer per pair; each distinct packed value is one row of the table."""
+    asym, ent = features["asym_id"], features["entity_id"]
+    same_chain = asym[:, None] == asym[None, :]
+    same_ent = ent[:, None] == ent[None, :]
+    res = features["residue_index"]
+    cyc = features.get("cyclic_mask")
+
+    def binned(pos, cond, clip):
+        off = apply_cyclic_offsets(offset=pos[:, None] - pos[None, :], pos=pos, cyclic_mask=cyc,
+                                   asym_id=asym)
+        return torch.where(cond, torch.clamp(off + clip, 0, 2 * clip), 2 * clip + 1).long()
+
+    nr, nc = 2 * MAX_RELATIVE_IDX + 2, 2 * MAX_RELATIVE_CHAIN + 2
+    parts = (binned(res, same_chain, MAX_RELATIVE_IDX),
+             binned(features["token_index"], same_chain & (res[:, None] == res[None, :]), MAX_RELATIVE_IDX),
+             same_ent.long(), binned(features["sym_id"], same_ent, MAX_RELATIVE_CHAIN))
+    packed = ((parts[0] * nr + parts[1]) * 2 + parts[2]) * nc + parts[3]
+    uniq, codes = torch.unique(packed, return_inverse=True)
+    ch, rest = uniq % nc, uniq // nc
+    e, rest = rest % 2, rest // 2
+    table = torch.cat([F.one_hot(rest // nr, nr), F.one_hot(rest % nr, nr), e[:, None],
+                       F.one_hot(ch, nc)], dim=-1).float()
+    return codes.to(torch.int32), table
+
+
+def relpos_codes_device(codes: torch.Tensor, table: torch.Tensor, device) -> ttnn.Tensor:
+    """[1, N, N, 139] bf16 TILE on ``device`` from ``derive_relpos_codes``: what uploading the dense
+    feature gives (each value is 0 or 1, exact in bf16), from a [N*N] index and a [U, 160] table."""
+    n = codes.shape[0]
+    w = table.shape[-1]
+    idx = ttnn.from_torch(codes.reshape(1, n * n).to(torch.int32), dtype=ttnn.uint32,
+                          layout=ttnn.ROW_MAJOR_LAYOUT, device=device)
+    tab = ttnn.from_torch(F.pad(table, (0, -w % 32)), dtype=ttnn.bfloat16,
+                          layout=ttnn.ROW_MAJOR_LAYOUT, device=device)
+    out = ttnn.embedding(idx, tab, layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16)  # [1, N*N, 160]
+    ttnn.deallocate(idx); ttnn.deallocate(tab)
+    out4 = ttnn.reshape(out, (1, n, n, out.shape[-1]))
+    res = ttnn.slice(out4, (0, 0, 0, 0), (1, n, n, w))
+    ttnn.deallocate(out4)
+    if out4 is not out:
+        ttnn.deallocate(out)
+    return res
 
 
 def derive_block_aux(features: dict) -> dict:
@@ -286,16 +341,24 @@ def ref_atom_embed_device(compute_kernel_config, w: dict, features: dict,
     return rafe(*ref_atom_device_inputs(dev, features, atom_mask, n_pad))
 
 
+def input_atom_transformer(compute_kernel_config, sd: dict):
+    """The input embedder's ``OF3AtomTransformer``. Build it once per model and pass it to
+    every ``run_input_atom_encoder`` call: a fresh one uploads its weights again on each fold."""
+    from .openfold3_atom_transformer import OF3AtomTransformer
+
+    return OF3AtomTransformer(_sub(sd, "input_embedder.atom_attn_enc.atom_transformer"),
+                              compute_kernel_config)
+
+
 def run_input_atom_encoder(dev, compute_kernel_config, sd: dict, features: dict,
-                           aux: dict) -> torch.Tensor:
+                           aux: dict, at=None) -> torch.Tensor:
     """Input-embedder atom-encoder leg -> ``ai`` [n_token, 384].
 
     Host: ref-atom embedding + pair-rep completion. Device: the PCC-gated
-    ``OF3AtomTransformer`` (P7). Host: ``relu(linear_q(...))`` + mean aggregation to
-    tokens via ``atom_to_token_mean``.
+    ``OF3AtomTransformer`` (P7), ``at`` from ``input_atom_transformer`` (built here when
+    None). Host: ``relu(linear_q(...))`` + mean aggregation to tokens via
+    ``atom_to_token_mean``.
     """
-    from .openfold3_atom_transformer import OF3AtomTransformer
-
     enc = _sub(sd, "input_embedder.atom_attn_enc")
     atom_mask = aux["atom_mask"]
     n_atom, nb, NP = aux["n_atom"], aux["nb"], aux["NP"]
@@ -314,7 +377,7 @@ def run_input_atom_encoder(dev, compute_kernel_config, sd: dict, features: dict,
         h = _lin(h.relu(), enc, key)
     plm = (plm + h) * pair_mask.unsqueeze(-1)
 
-    at = OF3AtomTransformer(_sub(enc, "atom_transformer"), compute_kernel_config)
+    at = at or input_atom_transformer(compute_kernel_config, sd)
 
     def ft(x, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT):
         return ttnn.from_torch(x.float(), layout=layout, device=dev, dtype=dtype)
@@ -328,8 +391,12 @@ def run_input_atom_encoder(dev, compute_kernel_config, sd: dict, features: dict,
     kidx = aux["key_block_idxs"].reshape(1, nb * N_KEY).to(torch.int32)
     kidx_tt = ttnn.from_torch(kidx, layout=ttnn.ROW_MAJOR_LAYOUT, device=dev,
                               dtype=ttnn.uint32)
-    ql_d = at(ft(a_pad), ft(a_pad.clone()), ft(plm.unsqueeze(0)), ft(atom_mask_col),
-              kidx_tt, ft(valid), ft(mask_bias), n_atom, NP, nb)
+    # One upload of a_pad, copied on the card; the channel-1 masks go up without their unit
+    # dim (a trailing 1 tile-pads 32x in the host tilize) and get it back on the card.
+    a_d = ft(a_pad)
+    ql_d = at(a_d, ttnn.clone(a_d), ft(plm.unsqueeze(0)),
+              ttnn.unsqueeze(ft(atom_mask_col.squeeze(-1)), -1),
+              kidx_tt, ttnn.unsqueeze(ft(valid.squeeze(-1)), -1), ft(mask_bias), n_atom, NP, nb)
     if env_flag(DEVICE_REF_ATOM, False):
         # The aggregation head on the card. `linear_q.0.weight` is 0.74055 % of the model's
         # squared gradient norm on its own -- the single heaviest of the seventeen tensors

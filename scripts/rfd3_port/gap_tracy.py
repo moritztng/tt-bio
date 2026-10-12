@@ -1,0 +1,194 @@
+#!/usr/bin/env python3
+"""RFD3 device census on the page workload: device kernel time per step, per region and per op, against the wall.
+
+    gap_tracy.py OUT.json [STEPS] [PROFILED_STEPS] [--fixture=perf/dsfix/fixtures/rfd3_R4.json]
+
+Needs the Tracy-enabled tt-metal (the pip wheel compiles the device profiler out); run it through
+perf/spd_census/run.sh's environment (TT_METAL_DEVICE_PROFILER=1, MID_RUN_DUMP, no push to Tracy).
+
+One warm design at STEPS steps and a plain one timed at the sampler boundary (the page number), then a design whose
+first PROFILED_STEPS steps record every ttnn op: its name, the region it ran in (the innermost of the census regions)
+and its device-operation id range. The profiler buffer is read every ~1000 programs. Each program's DEVICE KERNEL
+DURATION is joined back to its op by runtime id. Device kernel ms/step against the plain fold's wall ms/step is the
+share of the step the device is busy; the rest is the host (torch, dispatch, transfers) with the device idle.
+"""
+import collections
+import json
+import os
+import pathlib
+import shutil
+import sys
+import time
+
+sys.path.insert(0, os.getcwd())
+import ttnn                                                               # noqa: E402
+import ttnn.decorators as D                                               # noqa: E402
+from tt_bio import tenstorrent as T                                       # noqa: E402
+from tt_bio.rfd3 import design as rfd3_design                             # noqa: E402
+from tt_bio.rfd3 import model as M                                        # noqa: E402
+from tt_bio.rfd3.sampler import RFD3Sampler                               # noqa: E402
+
+WEIGHTS = pathlib.Path(os.environ.get("BOLTZ_CACHE", pathlib.Path.home() / ".boltz")) / "rfd3" / "weights"
+args = [a for a in sys.argv[1:] if not a.startswith("--")]
+opts = dict(a[2:].split("=", 1) for a in sys.argv[1:] if a.startswith("--") and "=" in a)
+OUT = pathlib.Path(args[0])
+STEPS = int(args[1]) if len(args) > 1 else 200
+PSTEPS = int(args[2]) if len(args) > 2 else 12
+FIXTURE = opts.get("fixture", "perf/dsfix/fixtures/rfd3_R4.json")
+
+REGIONS = [
+    ("encoder", M.LocalAtomTransformer, "__call__"),
+    ("token_encoder", M.DiffusionTokenEncoder, "run_device"),
+    ("dit", M.LocalTokenTransformer, "__call__"),
+    ("decoder", M.CompactStreamingDecoder, "run_full_device"),
+    ("seq_head", M.LinearSequenceHead, "__call__"),
+    ("downcast_q", M.RFD3DiffusionModule, "_downcast_q"),
+]
+REG = []
+ST = {"arm": False, "on": False, "step": 0, "flushed": 0, "depth": 0}
+OPID = ttnn._ttnn.get_device_operation_id
+OPS = []          # (id0, id1, name, region, step)
+KERN = {}         # runtime id >> 10 -> summed kernel ns
+STEP_WALL = []
+
+
+def region(label, owner, name):
+    fn = getattr(owner, name)
+
+    def w(*a, **k):
+        REG.append(label)
+        try:
+            return fn(*a, **k)
+        finally:
+            REG.pop()
+    setattr(owner, name, w)
+
+
+for r in REGIONS:
+    region(*r)
+
+
+def drain():
+    ttnn.synchronize_device(T._device)
+    for attempt in range(4):
+        try:
+            ttnn.ReadDeviceProfiler(T._device)
+            break
+        except RuntimeError as e:
+            if attempt == 3:
+                raise
+            time.sleep(2)
+    for _chip, progs in ttnn.get_latest_programs_perf_data().items():
+        for p in progs:
+            r = p.program_analyses_results.get("DEVICE KERNEL DURATION [ns]")
+            if r is not None:
+                rid = p.program_execution_uid.runtime_id >> 10
+                KERN[rid] = KERN.get(rid, 0) + r.duration
+    ST["flushed"] = OPID()
+
+
+def hook(orig):
+    def call(self, *a, **k):
+        if not ST["on"] or ST["depth"]:
+            return orig(self, *a, **k)
+        ST["depth"] += 1
+        try:
+            id0 = OPID()
+            out = orig(self, *a, **k)
+            id1 = OPID()
+            if id1 > id0:
+                OPS.append((id0, id1, self.python_fully_qualified_name, REG[-1] if REG else "glue", ST["step"]))
+            if id1 - ST["flushed"] >= 1000:
+                drain()
+            return out
+        finally:
+            ST["depth"] -= 1
+    return call
+
+
+D.FastOperation.__call__ = hook(D.FastOperation.__call__)
+D.Operation.__call__ = hook(D.Operation.__call__)
+
+_step = M.RFD3DiffusionModule.__call__
+
+
+def step(self, *a, **k):
+    if ST["arm"]:
+        # the design's one-time initializer has run; profile from the first step on
+        drain()
+        KERN.clear()
+        ST.update(arm=False, on=True, step=0)
+    if ST["on"] and ST["step"] >= PSTEPS:
+        drain()
+        ST["on"] = False
+    t0 = time.perf_counter()
+    out = _step(self, *a, **k)
+    if ST["on"]:
+        STEP_WALL.append(time.perf_counter() - t0)
+        ST["step"] += 1
+    return out
+
+
+M.RFD3DiffusionModule.__call__ = step
+
+WALL = []
+_sample = RFD3Sampler.sample
+
+
+def _timed(self, *a, **k):
+    t0 = time.perf_counter()
+    out = _sample(self, *a, **k)
+    WALL.append(time.perf_counter() - t0)
+    return out
+
+
+RFD3Sampler.sample = _timed
+
+
+def fold(tag):
+    specs = json.loads(pathlib.Path(FIXTURE).read_text())
+    out_dir = "/tmp/gap_tracy_%s" % tag
+    shutil.rmtree(out_dir, ignore_errors=True)
+    WALL.clear()
+    rfd3_design.run_design(specs, out_dir, checkpoint_dir=str(WEIGHTS), from_pdb=True,
+                           num_timesteps=STEPS, seed=42, num_designs=1, batch_size=1, verbose=False)
+    return WALL[0]
+
+
+warm_s = fold("warm")
+plain_s = fold("plain")
+print("[tracy] warm %.2f s, plain %.2f s (%.1f ms/step)" % (warm_s, plain_s, 1e3 * plain_s / STEPS), flush=True)
+ST["arm"] = True
+prof_s = fold("profiled")
+if ST["on"]:
+    drain()
+    ST["on"] = False
+
+n = max(ST["step"], 1)
+by_op = collections.defaultdict(lambda: [0.0, 0])
+by_reg = collections.defaultdict(float)
+missing = 0
+for id0, id1, name, reg, _s in OPS:
+    ns = sum(KERN.get(i, 0) for i in range(id0, id1))
+    missing += all(i not in KERN for i in range(id0, id1))
+    by_op[(reg, name)][0] += ns / 1e6 / n
+    by_op[(reg, name)][1] += 1
+    by_reg[reg] += ns / 1e6 / n
+dev_ms = sum(by_reg.values())
+wall_ms = 1e3 * plain_s / STEPS
+print("[tracy] %d profiled steps, %d ops (%d with no program read back); device kernel %.1f ms/step against "
+      "the plain wall %.1f ms/step: device busy %.0f %%" % (n, len(OPS), missing, dev_ms, wall_ms, 100 * dev_ms / wall_ms))
+for reg, ms in sorted(by_reg.items(), key=lambda kv: -kv[1]):
+    print("  %-14s %7.2f ms/step" % (reg, ms))
+top = sorted(by_op.items(), key=lambda kv: -kv[1][0])[:40]
+for (reg, name), (ms, c) in top:
+    print("  %-14s %-48s %7.2f ms/step  %6.1f calls/step" % (reg, name[-48:], ms, c / n))
+rec = {"fixture": FIXTURE, "steps": STEPS, "profiled_steps": n, "warm_s": warm_s, "plain_s": plain_s,
+       "profiled_fold_s": prof_s, "step_wall_ms_profiled": [1e3 * x for x in STEP_WALL],
+       "device_ms_per_step": dev_ms, "plain_wall_ms_per_step": wall_ms, "ops": len(OPS), "ops_missing": missing,
+       "regions_ms_per_step": dict(by_reg),
+       "top_ops": [{"region": r, "op": o, "ms_per_step": ms, "calls_per_step": c / n} for (r, o), (ms, c) in top],
+       "card": os.environ.get("TT_VISIBLE_DEVICES"), "host": os.uname().nodename}
+OUT.parent.mkdir(parents=True, exist_ok=True)
+OUT.write_text(json.dumps(rec, indent=1))
+print("wrote", OUT)
