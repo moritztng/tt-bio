@@ -25,6 +25,28 @@ from tt_bio import tenstorrent as tt  # noqa: E402
 WARM, REPS = 2, 5
 
 
+def _plan(St, per_channel):
+    prev = tt.set_trimul_per_channel(per_channel)
+    try:
+        return tt._triangle_mul_program_config(St, tt._trimul_ibw_full(), tt._trimul_subblock())
+    finally:
+        tt.set_trimul_per_channel(prev)
+
+
+def _mcast_config(St):
+    """The 2D multicast plan, the reference every arm is compared against."""
+    return _plan(St, False)
+
+
+def _per_channel_config(St):
+    """The plan `TT_BIO_TRIMUL_PER_CHANNEL` actually ships, for this many sequence tiles.
+
+    `prod` is the same call with the lever off, so `exact_vs_prod` on this arm is the bit-exactness
+    claim the lever rests on, at whatever shape the sweep is pointed at.
+    """
+    return _plan(St, True)
+
+
 def timed(dev, fn, inner):
     for _ in range(WARM):
         o = fn(); ttnn.synchronize_device(dev); ttnn.deallocate(o)
@@ -77,8 +99,8 @@ def main():
             mm = lambda **kw: (lambda: ttnn.matmul(x, y, memory_config=mc,  # noqa: E731
                                                    dtype=ttnn.bfloat16, compute_kernel_config=ckc,
                                                    **tkw, **kw))
-            arms = [("prod", mm(program_config=tt._triangle_mul_program_config(
-                St, tt._trimul_ibw_full(), tt._trimul_subblock()))),
+            arms = [("prod", mm(program_config=_mcast_config(St))),
+                    ("perchan", mm(program_config=_per_channel_config(St))),
                     ("plain", mm()),
                     (f"grid{gx}x{gy}", mm(core_grid=ttnn.CoreGrid(y=gy, x=gx))),
                     ("grid8x8", mm(core_grid=ttnn.CoreGrid(y=8, x=8)))]
