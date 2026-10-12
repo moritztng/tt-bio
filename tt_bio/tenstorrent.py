@@ -446,6 +446,13 @@ TRANSITION_H_CHUNK_REJECTS: dict = {}
 # ladder rung dies partway through a fold -- "served=2 then a CB clash" does not identify the
 # shape, and the row height that ships has to be derived from the shape that binds.
 TRANSITION_H_CHUNK_SHAPES: dict = {}
+# {(tiled W, c, hidden): smallest row height the device refused}. The derived heights are fits to
+# an EMPTY L1, and a call site can hold resident L1 the fit never saw: OpenDDE at 256 tokens on a
+# p150a runs the c=64 MSA Transition beside its update-first MSA block, and fc2's static circular
+# buffers ran 2,560 B into a live buffer (890880 vs 893440, 11x9 cores) on every seed. A refused
+# height is recorded here and the call re-run at half of it; row height is row-local, so the
+# re-run writes the same bytes, and the record keeps every later call off the refused height.
+TRANSITION_H_CLASH: dict = {}
 # Measured ceiling for one Transition row chunk on a small grid, in L1 bytes PER CORE.
 # The chunk's live L1 (x_norm + x_1 + x_2) is interleaved across the grid, so what binds is
 # aggregate L1 / cores, and the budget above never sees core count. On UF-EV-A13-GWH02
@@ -587,7 +594,8 @@ _FAST_MODE = False
 #                   the adaLN outputs, q/k/v, the gate and the swiglu hidden are written bf16, the output
 #                   projections, the residual stream and the superset bias stay fp32. Inert in bf16.
 #   adaln_mod       every fp32 AdaLN modulates in one addcmul, `s_bias + ln(a) * sigmoid(s_scale)`, instead of
-#                   multiply then add: the activation is read and written once. Inert in bf16.
+#                   multiply then add: the activation is read and written once. Boltz-2's hoisted token-DiT
+#                   AdaLN (`_B2_ADALN_ADDCMUL`) does the same in any dtype, the sigmoid in the scale matmul.
 #   swiglu_fc12g    inside transition_shard, silu(x w1) * (x w2) as ONE matmul over [w1_j | w2_j] with the silu
 #                   and the gate multiply in the compute kernel (kernels/fc12g): no fc1/fc2 tensors, no
 #                   multiply op; the gate multiplies fc2 in dest rather than its stored copy. Needs silu_f32.
@@ -595,13 +603,15 @@ _FAST_MODE = False
 #                   sample (`token_dit_sdpa_pm`, triangle attention's persistent-mask kernel)
 #   dit_s16         an fp32 token DiT's six s-path linears (adaLN scale/shift, the two s gates) on bf16
 #                   operands with fp32 accumulation (OpenFold3's DiT)
+#   dit_chunk       the token DiT's fused SDPA takes q = k = the largest 32-aligned divisor of its length up
+#                   to 320 (`_dit_sdpa_chunk`) instead of 256, which pads every length 256 does not divide
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in",
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
           "transition_shard", "dit_mm16", "atom_k1", "dit_b8", "dit_qkv16", "atom_mm16", "adaln_mod",
-          "swiglu_fc12g", "msa_sample", "dit_sdpa_pm", "dit_s16")
+          "swiglu_fc12g", "msa_sample", "dit_sdpa_pm", "dit_s16", "dit_chunk")
 # Named but in no mode until their fold grade puts them in one.
-UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "adaln_mod", "dit_s16"})
+UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "adaln_mod"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -616,13 +626,17 @@ UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "adaln_mod", "dit_s16"}
 # median 0.271 A against the 0.60 A bar (A/A floor 1.206 A), docking 35 -> 35 of 44. Per call at c730, 0.928 ->
 # 0.532 ms on Wormhole (1000 MHz) and 0.410 -> 0.367 ms on Blackhole p150a (1350 MHz); c730 warm fold, same
 # seeds, 189.2 -> 187.8 s on a Galaxy chip and 94.4 -> 93.5 s on p150a (spd-ditsdpa, 2026-10-11).
+# dit_s16 is fast-only (only OpenFold3's fp32 DiT reads it). OpenBind-0 11-set grade (normal vs normal+dit_s16,
+# Blackhole, 44 paired folds): fast PASS, normal FAIL on CA-lDDT -0.0002 [-0.0003, -0.0000] against an A/A floor
+# of 0.0010; same-seed top pose median 0.171 A vs the 0.60 A bar, docking 26 -> 26 of 44. OpenFold3 normal grade
+# PASS (top pose median 0.227 A). Saves ~0.3 s of the 512-token fold on p150a (spd-gap-of3, 2026-10-12).
 FAST_LEVERS = frozenset(LEVERS) - {"lofi", "triatt_b8", "triatt_bias_b8"} - UNGRADED_LEVERS
 # trimul_ibw + trimul_tail: Wormhole 11-set grade PASS, 44 paired folds, same-seed top pose median
 # 0.204 A against the 0.60 A bar (A/A seed floor 0.807 A), every paired CI covers 0 or sits on the
 # better side (state/spd/BOARD.md, spd-trimul 2026-10-08 22:40Z).
 # trunk_hifi3: Wormhole 11-set grade PASS on staging2 and staging3, 44 paired folds, top pose median
-# 0.289 A against the exact floor (spd-msa 2026-10-09 02:10Z). Inert under acc_off, so in fast mode
-# it changes nothing.
+# 0.289 A against the exact floor (spd-msa 2026-10-09 02:10Z). Under acc_off (fast) it was inert until
+# spd-gap-small made acc_off apply on top of it; fast with and without it: `fast` vs `fast-trunk_hifi3`.
 # dit_sdpa32: alone it moves pLDDT by -0.0001 (CI excludes 0) with the structure null (top pose 0.220 A
 # vs the 0.60 A bar); the base softmax loses 0.3-1.3 % row mass in float64 and the lever 4-6x less
 # (spd-diffusion g2). In normal mode for the staging6 stack grade, which decides it.
@@ -681,8 +695,19 @@ FAST_LEVERS = frozenset(LEVERS) - {"lofi", "triatt_b8", "triatt_bias_b8"} - UNGR
 # transition_bw and transition_shard are fast-only. Wormhole fast vs staging21 fast, 185 paired folds: PASS (DockQ
 # +0.009, docking 143 -> 146). Normal vs staging21 normal, 161 paired folds: FAIL on pose-flip tails (lrmsd +2.60 A
 # [+0.21, +6.44], same-seed top pose median 0.081 A, max 40 A). c730 speed is flat either way (spd-orchestrator g22x).
+# dit_sdpa: fires only where the token DiT runs bf16, which in normal mode is OpenDDE (Protenix-v2's
+# DiT is fp32 there, so it takes dit_sdpa32 and this one is inert). OpenDDE Wormhole 11-set grade
+# PASS, 44 paired folds against the normal set: top pose median 0.299 A (A/A seed floor 1.027 A),
+# every CI covers 0 or sits on the better side, ipTM -0.0010 inside CONF_TOL, docking 24/44 both;
+# 1.10x at 256 tokens, 1.16x at 730, 1.19x at 1024 end to end (state/spd-opendde.md g1, sp1).
+# dit_chunk: fires where dit_sdpa does (a bf16 token DiT): OpenDDE in both modes, Protenix-v2 in fast mode.
+# Wormhole 11-set, 44 paired folds each, same tree: OpenDDE normal vs normal top pose median 0.000 A (max
+# 0.385 A, A/A floor 0.941 A), every CI covers 0 or sits on the better side, docking unchanged (g8);
+# Protenix-v2 fast vs fast 0.084 A (floor 0.957 A), docking 33/44 both (g9); OpenDDE fast vs fast 0.000 A
+# (max 0.341 A, floor 1.187 A), docking 24/44 both (g10) (state/spd-opendde.md).
+# OpenDDE c730 at AICLK 1000: normal 395.4 -> 388.7 s; 256 tokens is inert (256 divides it).
 NORMAL_LEVERS = frozenset({"trimul_ibw", "trimul_tail", "trunk_hifi3", "dit_sdpa32", "silu_f32", "triatt_tail",
-                           "atom_k1", "dit_mm16", "dit_qkv16", "msa_sample"})
+                           "atom_k1", "dit_mm16", "dit_qkv16", "msa_sample", "dit_sdpa", "dit_chunk"})
 _LEVERS = frozenset()
 # silu_f32 is a kernel, so it needs ttnn's headers patched before the first device open (metal_overlay)
 # in any process that may run it. The patch only changes silu under math_approx_mode, and every fused
@@ -695,6 +720,12 @@ if "silu_f32" in NORMAL_LEVERS | FAST_LEVERS or "silu_f32" in os.environ.get("TT
 
 def lever(name: str) -> bool:
     return name in _LEVERS
+
+
+def mode_levers():
+    """The lever set a model built now takes: its mode's (`FAST_LEVERS` under `--fast`, else
+    `NORMAL_LEVERS`), or TT_BIO_LEVERS when a harness grades a set through the serving path."""
+    return os.environ.get("TT_BIO_LEVERS") or (FAST_LEVERS if _FAST_MODE else NORMAL_LEVERS)
 
 
 _SILU_CKCS = {}
@@ -978,6 +1009,33 @@ _TRIMUL_MASK_L1 = env_flag("TT_BIO_TRIMUL_MASK_L1", True)
 # trip at 0.4923 -> 0.3805 ms a call (`util-op-deletes`, perf/util_op_deletes/). Both producers
 # fall back to DRAM when the pair tensor does not fit, which is what happens above 512 aa.
 _RESIDUAL_L1 = env_flag("TT_BIO_RESIDUAL_L1", True)
+# Trimul gated in-projection writes `a` (the mask-multiplied operand) to L1 when it fits, so the
+# mask multiply and the channel matmul read it there. Placement only: bit-exact. On an L1 refusal
+# (allocator "Out of Memory" or a static-CB clash) the shape is remembered in `_OF3L1_REFUSED`
+# and keeps DRAM for the rest of the process. OpenFold3 / OpenBind-0 at 512 aa on p150a, 1350 MHz,
+# six warm folds per arm: mean 14.70 vs 15.43 s (OpenBind 14.59 vs 15.91 s), same digests.
+_OF3L1_TMA = env_flag("TT_BIO_OF3L1_TMA", True)
+_OF3L1_REFUSED: set = set()
+# lever -> [served, declined (static gate or remembered refusal), refused live (fell back)]
+OF3L1_STATS: dict = {k: [0, 0, 0] for k in ("tma",)}
+
+
+def _of3l1_refusal(where: str, exc: BaseException) -> bool:
+    """Is `exc` L1 saying no (allocator OOM or a static-CB clash)? Reports it on stderr if so.
+
+    Only these two are absorbed: anything else is a real error and the caller re-raises it.
+    """
+    if not (_dram_oom(exc) or "circular buffers" in str(exc)):
+        return False
+    try:
+        os.write(2, (f"[tt-bio] of3l1 {where}: L1 refused ({str(exc).splitlines()[0][:160]}), "
+                     "falling back to the DRAM placement (expected, not a crash)\n")
+                 .encode("utf-8", "replace"))
+    except OSError:
+        pass
+    return True
+
+
 TRIMUL_MASK_L1_STATS = [0, 0]           # [mask read from L1, mask read from DRAM]
 # Trimul shapes whose L1 mask clashed with the channel matmul's static circular buffers. The L1
 # test above reserves a fixed 640 KiB per core, but the matmul plan's buffers grow with the axis:
@@ -1143,8 +1201,6 @@ def trunk_compute_kernel_config(base):
     if fid not in _MATH_FIDELITIES:
         raise ValueError(f"TT_BIO_TRUNK_MATH_FIDELITY must be one of {sorted(_MATH_FIDELITIES)}, "
                          f"got {fid!r}")
-    if lever("lofi") or lever("acc_off"):
-        return lpx_compute_kernel_config(base)
     cfg = type(base)(
         math_fidelity=getattr(ttnn.MathFidelity, _MATH_FIDELITIES[fid]),
         math_approx_mode=base.math_approx_mode,
@@ -1154,7 +1210,10 @@ def trunk_compute_kernel_config(base):
     # The constructor takes four of the six fields; carry the other two rather than re-defaulting them.
     cfg.dst_full_sync_en = base.dst_full_sync_en
     cfg.throttle_level = base.throttle_level
-    return cfg
+    # `acc_off` / `lofi` apply on top of the trunk's fidelity. They used to return `base` (HiFi4)
+    # instead, so the fast set, which also carries `trunk_hifi3`, ran its trunk at HiFi4 while
+    # normal mode ran HiFi3.
+    return lpx_compute_kernel_config(cfg)
 # MEASURED LOSS, kept only as the A/B toggle behind perf/trimul_kernel/w2_arms.py.
 # Letting the output channel move write straight to DRAM drops the separate clone that used
 # to move the chunk there, but it also moves that permute's forced 64-byte writes from L1 to
@@ -2089,6 +2148,31 @@ def _dividing_sdpa_chunk_size(seq_len: int) -> int:
 
 
 @lru_cache(maxsize=None)
+def _dit_sdpa_chunk(seq_len: int) -> int:
+    """q and k chunk for the token DiT's fused SDPA under `dit_chunk`: the largest 32-aligned
+    divisor of the padded length in [96, 320], else the capped 256.
+
+    The capped 256 pads every length it does not divide, and the kernel pays for the padding far
+    beyond its share. MEASURED on a Galaxy Wormhole chip at 1000 MHz, q/k/v [5, 16, N, 64] (head dim
+    48 padded) against a [1, 16, N, N] bias, us per call, 256 -> this pick
+    (perf/wh-opendde/ditsdpa.py, .114 ds2):
+
+        N     480 -> 160   576 -> 288   640 -> 320   800 -> 160   960 -> 320   1440 -> 288
+        us    500 -> 431  2567 -> 509  1548 -> 605  3123 -> 1028 1825 -> 1212 3906 -> 2484
+
+    512 and 1024 keep 256, which divides them. 736 (23 tiles) has no divisor in range and keeps it
+    too. k_chunk sets the online-softmax reduction order, so this is not bit-exact; error against a
+    float64 softmax attention is lower than the shipped 256 at every length above (rel_rms 0.0273 ->
+    0.0271 at 1440), and the wider the chunk the lower it reads. q = k = 480 or 512 does not fit L1.
+    """
+    padded = _padded_sdpa_len(seq_len)
+    for c in range(320, 95, -SDPA_CHUNK_TILE):
+        if padded % c == 0:
+            return c
+    return _capped_sdpa_chunk_size(seq_len)
+
+
+@lru_cache(maxsize=None)
 def _tri_att_sdpa_program_config(q_len: int, k_len: int) -> ttnn.SDPAProgramConfig:
     q_chunk, k_chunk = _sdpa_chunks_shipped(q_len, k_len)
     return _sdpa_program_config(q_chunk_size=q_chunk, k_chunk_size=k_chunk)
@@ -2215,6 +2299,19 @@ _B2_ADALN_S_MEMO = env_flag("BOLTZ2_ADALN_S_MEMO", True)
 # not describe any default. Set TT_BIO_DIT_COND_HOIST=0 to get the per-step form back.
 # Read at CALL time, not import time, so an interleaved A/B can flip it.
 _B2_DIT_COND_HOIST = env_flag("TT_BIO_DIT_COND_HOIST", True)
+# The two hoisted conditioning matmuls at HiFi2 instead of the module's fidelity. At 512 tokens x 1
+# sample they are 87 GFLOP a step and compute-bound at HiFi4 (1.13 + 0.75 ms on a p150a, 0.44 of
+# roof, spd-gap-small census). Off until a paired A/B and a fast grade decide; read at call time.
+_B2_DIT_COND_HIFI2 = env_flag("TT_BIO_DIT_COND_HIFI2", False)
+# Each hoisted AdaLN modulates with one addcmul: the 48 scales get their sigmoid in the matmul
+# epilogue (their own weight block), so `sigmoid(scale) * a` then `+ shift` (two ops, two bf16
+# roundings) becomes one op, 48 fewer per step. Also on under the `adaln_mod` lever. p150a, Boltz-2 fast, 512 x 1:
+# -0.22 s per fold paired (median of 4 pairs), pLDDT 0.852 -> 0.868 (spd-gap-small abJ, 2026-10-12).
+_B2_ADALN_ADDCMUL = env_flag("TT_BIO_ADALN_ADDCMUL", False)
+
+
+class _SigTerms(tuple):
+    """An AdaLN `(scale, shift)` pair whose scale already went through its sigmoid."""
 # Every diffusion sample of a fold sees the same noise level and the same trunk output, so the
 # token conditioning `s` and everything the DiT derives from it (the hoisted AdaLN and gate
 # projections, the conditioner transitions, s_to_a) are the same row for each sample. With the
@@ -6153,7 +6250,7 @@ def _pair_proj_l1_rungs(per_core_M: int, out_block_w: int) -> list[tuple[int, in
 @lru_cache(maxsize=None)
 def _pair_proj_program_config(
     m_tiles: int, k_tiles: int, n_tiles: int, in0_block_w: int, elem_bytes: int,
-    out_l1: bool = False, block_w: int | None = None, rung: int = 0,
+    out_l1: bool = False, block_w: int | None = None, rung: int = 0, silu: bool = False,
 ) -> ttnn.MatmulMultiCoreReuseMultiCast1DProgramConfig | None:
     """Program config for a tall pair-track projection, or None if the shape is outside it.
 
@@ -6172,6 +6269,9 @@ def _pair_proj_program_config(
 
     Returns None whenever anything does not divide or the circular buffers do not fit, so a
     shape outside the measured set keeps today's behaviour.
+
+    `silu` fuses SiLU into the epilogue. It is part of the cache key: the returned object is shared
+    by every caller of the same key, so it must never be mutated after the fact.
     """
     gx, gy = COMPUTE_GRID_MAIN
     num_cores = gx * gy
@@ -6217,14 +6317,14 @@ def _pair_proj_program_config(
         per_core_M=per_core_M,
         per_core_N=n_tiles,
         fuse_batch=True,
-        fused_activation=None,
+        fused_activation=ttnn.UnaryWithParam(ttnn.UnaryOpType.SILU) if silu else None,
         mcast_in0=False,
     )
 
 
 def _pair_proj_config(x: ttnn.Tensor, w: ttnn.Tensor, bw_cap: int | None = -1,
                       out_l1: bool = False, block_w: int | None = None,
-                      rung: int = 0) -> object | None:
+                      rung: int = 0, silu: bool = False) -> object | None:
     """_pair_proj_program_config for a concrete operand pair, or None if it does not apply.
 
     `bw_cap` defaults to the module's `_PAIR_PROJ_BW`; the narrow-output sites pass
@@ -6251,7 +6351,7 @@ def _pair_proj_config(x: ttnn.Tensor, w: ttnn.Tensor, bw_cap: int | None = -1,
         bw = max((d for d in (k_tiles, 8, 4, 2, 1)
                   if d <= cap and k_tiles % d == 0), default=1)
         return _pair_proj_program_config(m_tiles, k_tiles, n_tiles, bw, 2, out_l1, block_w,
-                                        rung)
+                                        rung, silu)
     except Exception:
         return None
 
@@ -6293,9 +6393,11 @@ def _l1_out_narrow(key) -> None:
 #     298   0.4016 -> 0.3154 ms   320   0.4132 -> 0.3312   384   0.5888 -> 0.4589
 #     512   0.9949 -> 0.7844      576   1.2548 -> 0.9889   640   1.5561 -> 1.2052
 # The L1-output leg still wins where it applies (298: 0.2838), so this sits BELOW it and above
-# the DRAM linear. Scoped to a single-block contraction (kt == 8) because that is the class where
-# the identical accumulation order was verified.
+# the DRAM linear. Scoped to the single-block contractions where the identical accumulation order
+# was verified: kt == 8 above, and kt == 12 (OpenDDE's c_z=384 trimul output projections,
+# [1,736,736,384] x [384,384], `torch.equal` against the shipped call, perf/wh-opendde/oproj384.py).
 PAIR_PROJ_MINIMAL_MATMUL = True
+_PAIR_PROJ_MM_KT = frozenset({8, 12})
 _PAIR_PROJ_MM = os.environ.get(
     "TT_BIO_PAIR_PROJ_MM", "1" if PAIR_PROJ_MINIMAL_MATMUL else "0") == "1"
 
@@ -6338,7 +6440,7 @@ def _pair_proj_minimal_matmul(x, w, ckc, dtype, bias=None):
     """`minimal_matmul` for a pair projection whose contraction fits one K block, else None."""
     if not _PAIR_PROJ_MM or x.dtype != ttnn.bfloat16 or w.dtype != ttnn.bfloat16:
         return None
-    if len(w.shape) != 2 or -(-int(w.shape[-2]) // 32) != 8:
+    if len(w.shape) != 2 or -(-int(w.shape[-2]) // 32) not in _PAIR_PROJ_MM_KT:
         return None
     cfg = _qkv_mm_config(x, w)
     if cfg is None:
@@ -6377,8 +6479,10 @@ _PAIR_FFN_FC1_BLOCK_W = 16
 
 def _pair_proj_linear(x, w, ckc, dtype, l1_out: bool = False,
                       l1_bw: int | None = None, l1_block_w: int | None = None,
-                      bias=None):
+                      bias=None, silu: bool = False):
     """`ttnn.linear` on a pair-track projection, with the tuned config when the shape allows.
+
+    `silu` applies SiLU in the matmul's epilogue, on the fp32 accumulator before the pack, on every path.
 
     `l1_out` is for the members whose consumer reads the result straight back on device (the
     trimul's `multiply_`, the Pairformer layer's residual `add_`): the projection's 48.82 MB DRAM
@@ -6410,7 +6514,7 @@ def _pair_proj_linear(x, w, ckc, dtype, l1_out: bool = False,
         rung = _l1_out_rung(key)
         cfg = None if retired else _pair_proj_config(
             x, w, bw_cap=_PAIR_PROJ_L1_BW if l1_bw is None else l1_bw,
-            out_l1=True, block_w=l1_block_w, rung=rung)
+            out_l1=True, block_w=l1_block_w, rung=rung, silu=silu)
         if cfg is None:
             if rung:
                 _L1_OUT_REFUSED.add(key)
@@ -6431,12 +6535,12 @@ def _pair_proj_linear(x, w, ckc, dtype, l1_out: bool = False,
                 else:
                     _L1_OUT_REFUSED.add(key)
                 _latch("l1_out", "refused", e)
-    mm = _pair_proj_minimal_matmul(x, w, ckc, dtype, bias)
+    mm = None if silu else _pair_proj_minimal_matmul(x, w, ckc, dtype, bias)
     if mm is not None:
         if bias is not None:
             _pair_bias_stat("o_in_matmul_exit_mm")
         return mm
-    cfg = _pair_proj_config(x, w)
+    cfg = _pair_proj_config(x, w, silu=silu)
     if cfg is not None:
         out = ttnn.linear(
             x, w, bias=bias, memory_config=ttnn.DRAM_MEMORY_CONFIG, dtype=dtype,
@@ -6447,7 +6551,7 @@ def _pair_proj_linear(x, w, ckc, dtype, l1_out: bool = False,
         return out
     out = ttnn.linear(
         x, w, bias=bias, memory_config=ttnn.DRAM_MEMORY_CONFIG, dtype=dtype,
-        compute_kernel_config=ckc, core_grid=CORE_GRID_MAIN,
+        compute_kernel_config=ckc, core_grid=CORE_GRID_MAIN, activation="silu" if silu else None,
     )
     if bias is not None:
         _pair_bias_stat("o_in_matmul_exit_grid")
@@ -9460,7 +9564,9 @@ class TriangleMultiplication(Module):
         # compile per process and every later call starts narrow.
         x_chunks = []
         x_out, c_done = None, 0      # `_TRIMUL_BACK_INTO`: the output the chunks are written into
+        tma_key = ("tma", H, batch, self._hidden, bool(self.ending))
         while True:
+            tma_live = False         # an L1 `a` (TT_BIO_OF3L1_TMA) is live in this attempt
             try:
                 # Re-read inside the try: a clash retry narrows chunk_size and regroups, and the
                 # biases have to follow the weights to the new column order.
@@ -9607,10 +9713,28 @@ class TriangleMultiplication(Module):
                             ttnn.deallocate(gp_in_fused)
                             gp_in_fused = _b
                         if gated:
+                            # TT_BIO_OF3L1_TMA: `a` is written to L1 by the gated move, so the
+                            # mask multiply and the channel matmul read it there. Only where the
+                            # move is the last op on `a` (no transpose left for it, no
+                            # reallocate), so L1 holds one copy. A refusal anywhere downstream is
+                            # caught by this loop's handler below, which retries the whole
+                            # channel loop with `a` back in DRAM WITHOUT narrowing anything.
+                            a_mc = memory_config
+                            if _OF3L1_TMA:
+                                if (not ops.taping() and tma_key not in _OF3L1_REFUSED
+                                        and n_pairs // group == 1
+                                        and (perm_a != (0, 3, 2, 1) or defer)
+                                        and _l1_fits(_padded_bytes([1, slice_c, H, H], 2), 1.0,
+                                                     _PAIR_L1_CONSUMER_RESERVE)):
+                                    a_mc = ttnn.L1_MEMORY_CONFIG
+                                    tma_live = True
+                                    OF3L1_STATS["tma"][0] += 1
+                                else:
+                                    OF3L1_STATS["tma"][1] += 1
                             a_chunk = self._transform_chunk_gated(
                                 gp_in_fused,
                                 (gp_off("p_a", slice_c), gp_off("g_a", slice_c), slice_c),
-                                perm_a, memory_config,
+                                perm_a, a_mc,
                                 n_pairs // group > 1, defer_transpose=defer,
                             )
                             b_chunk = self._transform_chunk_gated(
@@ -9728,6 +9852,14 @@ class TriangleMultiplication(Module):
                 break
             except RuntimeError as e:
                 msg = str(e)
+                # TT_BIO_OF3L1_TMA's own refusal, first: an L1 "Out of Memory" would otherwise
+                # read as the DRAM refusal below (`_dram_oom` matches the allocator's wording,
+                # not the buffer type) and narrow the in-projection group for good, and an L1
+                # clash would narrow the chunk. Neither is owed: drop `a` back to DRAM and redo.
+                tma_retry = tma_live and _of3l1_refusal("trimul a operand", e)
+                if tma_retry:
+                    _OF3L1_REFUSED.add(tma_key)
+                    OF3L1_STATS["tma"][2] += 1
                 # Two refusals, one retry loop. The L1 clash is a program-validation throw on
                 # the L1 path. A DRAM "Out of Memory" on the large path is this module's own
                 # peak: the fused in-projection plus the four-way split it feeds is ~2x the
@@ -9738,21 +9870,21 @@ class TriangleMultiplication(Module):
                 # happens after a throw -- so a size that folds today keeps its arithmetic and
                 # its launch count, and only a size that produces no structure at all sees a
                 # different partition.
-                oom = large_seq and _dram_oom(e)
+                oom = large_seq and _dram_oom(e) and not tma_retry
                 # On the DRAM path the only L1 tensor this call holds is the moved mask, so a
                 # clash there is the mask against the matmul's buffers: move it and retry.
-                mask_clash = (large_seq and "clash with L1 buffers" in msg
+                mask_clash = (large_seq and not tma_retry and "clash with L1 buffers" in msg
                               and any(_m.memory_config().buffer_type == ttnn.BufferType.L1
                                       for _m in _mask_moved_memo.values()))
                 ibw_clash = (("clash with L1 buffers" in msg or "beyond max L1 size" in msg)
-                             and not mask_clash
+                             and not mask_clash and not tma_retry
                              and program_config.in0_block_w > _TRIMUL_IN0_BLOCK_W_BAND)
                 if ibw_clash:
                     # The full-K block is the newest L1 claimant in this call: give it up first.
                     _TRIMUL_IBW_FULL_REFUSED.add(seq_len_tiles)
                     _triangle_mul_program_config.cache_clear()
                     program_config = _triangle_mul_program_config(seq_len_tiles, _trimul_ibw_full(), _trimul_subblock())
-                if (not oom and not mask_clash and not ibw_clash
+                if (not oom and not mask_clash and not ibw_clash and not tma_retry
                         and (large_seq or "clash with L1 buffers" not in msg)):
                     raise
                 if mask_clash:
@@ -9813,7 +9945,7 @@ class TriangleMultiplication(Module):
                           f"above is expected and handled; the result is unchanged.",
                           file=sys.stderr, flush=True)
                     continue
-                if mask_clash or ibw_clash:
+                if mask_clash or ibw_clash or tma_retry:
                     continue
                 _record_trimul_clash(H, self._hidden, batch, chunk_size)
                 # tt-metal logs the clash at `critical` before raising, which reads like a
@@ -11587,9 +11719,13 @@ class AttentionPairBias(Module):
                         q_, k_, v_,
                         attn_mask=b_,
                         scale=self.head_dim**-0.5,
-                        program_config=_sdpa_program_config_for_lengths(
-                            q_.shape[2], k_.shape[2], q_.shape[0] * q_.shape[1],
-                            site="token_dit", d=q_.shape[3]),
+                        program_config=(
+                            _sdpa_program_config(q_chunk_size=_dit_sdpa_chunk(q_.shape[2]),
+                                                 k_chunk_size=_dit_sdpa_chunk(k_.shape[2]))
+                            if lever("dit_chunk") else
+                            _sdpa_program_config_for_lengths(
+                                q_.shape[2], k_.shape[2], q_.shape[0] * q_.shape[1],
+                                site="token_dit", d=q_.shape[3])),
                     )
 
                 def pm(q_, k_, v_, b_):
@@ -12021,7 +12157,7 @@ class Transition(Module):
                              "on padded positions; upstream masks t(x) only")
         out = host_acc_after_refusal(
             ("transition", tuple(x.padded_shape)), x, lambda: _inplace_guarded(
-                "transition", lambda: self._transition(x, memory_config, add_to_input)))
+                "transition", lambda: self._transition_fit(x, memory_config, add_to_input)))
         if mask is None:
             return out
         masked = ttnn.multiply(out, mask)
@@ -12036,6 +12172,23 @@ class Transition(Module):
                 and x.shape[1] <= SEQ_LEN_MORE_CHUNKING
                 and (memory_config is None or memory_config.buffer_type == ttnn.BufferType.DRAM)
                 and (self.dtype or _dtype()) == ttnn.bfloat16 and _pair_add.ok(x, x))
+
+    def _transition_fit(self, x, memory_config, add_to_input):
+        """`_transition`, re-run at half the row height while the device refuses the height's
+        circular buffers (TRANSITION_H_CLASH). Only before any block was written into `x`."""
+        n0 = PAIR_INPLACE_STATS[1]
+        while True:
+            self._h_last = None
+            try:
+                return self._transition(x, memory_config, add_to_input)
+            except RuntimeError as exc:
+                last = self._h_last
+                if (last is None or last[1] <= 1 or PAIR_INPLACE_STATS[1] != n0
+                        or not x.is_allocated() or TRANSITION_H_CLASH.get(last[0], last[1] + 1) <= last[1]
+                        or not report_l1_refusal("transition", exc)):
+                    raise
+                TRANSITION_H_CLASH[last[0]] = last[1]
+                gc.collect()        # the refused attempt's L1 blocks, still referenced from its traceback
 
     def _transition(self, x: ttnn.Tensor, memory_config: ttnn.MemoryConfig | None,
                     add_to_input: bool) -> ttnn.Tensor:
@@ -12275,18 +12428,21 @@ class Transition(Module):
         # Scoped to 256 < c <= 384 on purpose. c=128 is already unshrunk and its shipped h=16
         # measured fastest with no clash at any height; c=256 measures 1.0738x at W=512 but is
         # protenix-v2's channel and the cap above is its crash fix, so it is left exactly alone.
-        # The W/H guard keeps this to the regime where every arm was torch.equal. It reads the
-        # 608-token threshold as a plain bound on that regime, NOT as the chunking decision, which
-        # is now derived from the budget a few lines up. Widening it would need its own arms.
+        #
+        # Up to 1088 tokens, not only below the 608-token chunking threshold: at c=384 the ratio
+        # alone left h=2 from 608 to 896 and h=1 from 928 up. MEASURED, same harness, WH Galaxy
+        # .114 (state/spd-opendde.md th1): W=736 h=2 153.41 ms | h=3 137.65 | h=4 139.02 (1.104x);
+        # W=896 h=2 217.16 | h=3 207.96 (1.044x). Every arm at or under the element budget is
+        # torch.equal to h=1. The budget is also the correctness bound here: above it, inside the
+        # L1 cap below, the module returns WRONG values without raising (W=736 h=5/6, W=896 h=4/5,
+        # max |diff| 2.0) before it clashes (W=896 h=6), so the cap must never raise the height.
+        # Hence `=` and not `max`: under --fast the base is 32 and the ratio alone lands above the
+        # budget (h=4 at W=896, one of the wrong arms), so the budget sets the height both ways.
         _c = int(x.shape[-1])
         if (_IS_SMALL_GRID and SMALL_GRID_TRANSITION_ELEMS
-                and 256 < _c <= SMALL_GRID_TRANSITION_MAX_C
-                # NOT `w_chunked`: this bound is the regime the raise was validated in
-                # (every arm torch.equal below it), which is a token count of its own and does
-                # not follow the chunking gate above.
-                and W <= transition_w_chunking_threshold and H <= SEQ_LEN_MORE_CHUNKING):
-            transition_h_chunk_size = max(transition_h_chunk_size,
-                                          min(_base_h, SMALL_GRID_TRANSITION_ELEMS // (w_eff * _c)))
+                and 256 < _c <= SMALL_GRID_TRANSITION_MAX_C and H <= SEQ_LEN_MORE_CHUNKING):
+            transition_h_chunk_size = max(1, min(_base_h,
+                                                 SMALL_GRID_TRANSITION_ELEMS // (w_eff * _c)))
         if _IS_SMALL_GRID:
             # Cap the row chunk by measured per-core L1. The budget above scales by per-core L1
             # and by the channel excess; neither term sees that the Galaxy has 45% fewer cores
@@ -12350,9 +12506,14 @@ class Transition(Module):
             shard_rows = _transition_shard_rows(W, _c, _hid)
             if shard_rows:
                 safe_h, transition_h_chunk_size = transition_h_chunk_size, min(shard_rows, H)
+        _clash_key = (_tile(w_eff), _c, _hid)
+        if _clash_key in TRANSITION_H_CLASH:
+            transition_h_chunk_size = min(transition_h_chunk_size,
+                                          max(1, TRANSITION_H_CLASH[_clash_key] // 2))
         _h = os.environ.get("TT_BIO_TRANSITION_H_CHUNK")
         if _h:
             transition_h_chunk_size = max(1, min(int(_h), H))
+        self._h_last = (_clash_key, transition_h_chunk_size)
         # Record what the height actually came out as, AFTER every clause including the screen
         # hook, because a ladder rung that reads "served" off a constant and not off the call is
         # reading the wrong thing: the ratio, the small-grid L1 cap and the H clamp all still get
@@ -13627,7 +13788,13 @@ class AdaLN(Module):
             # A memoised pair belongs to the memo and must survive this call.
             own = self._s_memo is not s_terms
         s_scale, s_bias = s_terms
-        if lever("adaln_mod") and a.dtype == ttnn.float32:
+        if isinstance(s_terms, _SigTerms):
+            kw = {} if dtype in (None, a.dtype) else {"output_tensor": ttnn.allocate_tensor_on_device(
+                ttnn.Shape(list(a.shape)), dtype, ttnn.TILE_LAYOUT, a.device())}
+            out = ttnn.addcmul(s_bias, a, s_scale, value=1.0, **kw)
+            ttnn.deallocate(a)
+            a = out
+        elif lever("adaln_mod") and a.dtype == ttnn.float32:
             # One addcmul reads and writes the [M, rows, C] activation once; the sigmoid runs on
             # the [1, rows, C] scale. addcmul takes no dtype, so a narrower output is preallocated.
             # Wormhole [5, 768, 768] to bf16: 329 -> 265 us (perf/spd_difflin/mod_check.py).
@@ -13904,6 +14071,22 @@ class DiffusionTransformer(Module):
         self._cond_w = (cat(ad_w, 1), cat(ad_b, 0), cat(op_w, 1), cat(op_b, 0))
         return self._cond_w
 
+    def _cond_weights_split(self):
+        """`_cond_weights`' AdaLN block as two, for `_B2_ADALN_ADDCMUL`: the 48 scales with their
+        biases, then the 48 shifts, each in layer order `(attention, transition)`."""
+        if getattr(self, "_cond_ws", None) is None:
+            sw, sb, bw = [], [], []
+            for layer in self.layers:
+                for ad in (layer.adaln, layer.transition.adaln):
+                    scale_w, scale_b, bias_w = ad.folded_weights()
+                    sw.append(scale_w)
+                    sb.append(scale_b)
+                    bw.append(bias_w)
+            dt = _dtype(ttnn.bfloat16)
+            up = lambda t: ttnn.from_torch(t, layout=ttnn.TILE_LAYOUT, device=self.device, dtype=dt)
+            self._cond_ws = (up(torch.cat(sw, 1)), up(torch.cat(sb, 0)), up(torch.cat(bw, 1)))
+        return self._cond_ws
+
     def _peak_tag(self, a):
         # The DRAM census tag for one layer. The leading dim is the diffusion sample chunk,
         # which is what makes the sample axis visible to TT_BIO_DRAM_PEAK at all.
@@ -13924,14 +14107,24 @@ class DiffusionTransformer(Module):
             adw, adb, opw, opb = self._cond_weights()
             s_hat = ttnn.layer_norm(s, epsilon=1e-5,
                                     compute_kernel_config=self.compute_kernel_config)
-            o_ad = ttnn.linear(s_hat, adw, bias=adb,
-                               compute_kernel_config=self.compute_kernel_config)
+            ckc = self.compute_kernel_config
+            if _B2_DIT_COND_HIFI2 and ckc is not None:
+                ckc = type(ckc)(math_fidelity=ttnn.MathFidelity.HiFi2,
+                                math_approx_mode=ckc.math_approx_mode,
+                                fp32_dest_acc_en=ckc.fp32_dest_acc_en,
+                                packer_l1_acc=ckc.packer_l1_acc)
+            if _B2_ADALN_ADDCMUL or lever("adaln_mod"):
+                sw, sb, bw = self._cond_weights_split()
+                o_ad = (ttnn.linear(s_hat, sw, bias=sb, compute_kernel_config=ckc,
+                                    activation="sigmoid"),
+                        ttnn.linear(s_hat, bw, compute_kernel_config=ckc))
+            else:
+                o_ad = ttnn.linear(s_hat, adw, bias=adb, compute_kernel_config=ckc)
             ttnn.deallocate(s_hat)
             # `activation="sigmoid"` here is where both output projections' sigmoids go: the
             # attention one already carried it in its own linear, and the transition one moves
             # off its multiply, which is told not to re-apply it.
-            o_op = ttnn.linear(s, opw, bias=opb,
-                               compute_kernel_config=self.compute_kernel_config,
+            o_op = ttnn.linear(s, opw, bias=opb, compute_kernel_config=ckc,
                                activation="sigmoid")
             cond_all = (o_ad, o_op)
 
@@ -13941,15 +14134,21 @@ class DiffusionTransformer(Module):
             if cond_all is None:
                 return None, ()
             o_ad, o_op = cond_all
-            parts = [o_ad[..., (4 * i + j) * d:(4 * i + j + 1) * d] for j in range(4)]
+            if isinstance(o_ad, tuple):
+                sc, sh = o_ad
+                parts = [x[..., (2 * i + j) * d:(2 * i + j + 1) * d]
+                         for j in range(2) for x in (sc, sh)]
+            else:
+                parts = [o_ad[..., (4 * i + j) * d:(4 * i + j + 1) * d] for j in range(4)]
             parts += [o_op[..., (2 * i + j) * d:(2 * i + j + 1) * d] for j in range(2)]
-            return (parts[0], parts[1]), parts
+            pair = _SigTerms if isinstance(o_ad, tuple) else tuple
+            return pair((parts[0], parts[1])), parts
 
         def bundle(i):
             terms, parts = cut(i)
             if terms is None:
                 return None, ()
-            return (terms, parts[4], (parts[2], parts[3]), parts[5]), parts
+            return (terms, parts[4], type(terms)((parts[2], parts[3])), parts[5]), parts
 
         try:
             if isinstance(z, (list, tuple)):
@@ -13981,7 +14180,8 @@ class DiffusionTransformer(Module):
         finally:
             if cond_all is not None:
                 for x in cond_all:
-                    ttnn.deallocate(x)
+                    for t in (x if isinstance(x, tuple) else (x,)):
+                        ttnn.deallocate(t)
 
 
 _PWA_WEIGHT_ROWS_REFUSED = {}  # pair shape -> row block PWA's token weights settled at
@@ -15890,9 +16090,12 @@ class DiffusionModule(TorchWrapper):
             def prepare_atom_bias(bias_pt):
                 if atom_pad:
                     bias_pt = torch.nn.functional.pad(bias_pt, (0, 0, 0, 0, 0, 0, 0, NW_padded - NW))
-                bias = self._from_torch(bias_pt)
-                bias = ttnn.reshape(bias, (B * NW_padded, ATOM_WINDOW, ATOM_DIM, -1))
-                bias = ttnn.permute(bias, (0, 3, 1, 2))
+                # Heads-major on the host, then upload: tilizing [.., 128, heads] pads every
+                # 12-wide row to a 32-wide tile on one host thread, 0.43 s per fold at 512 aa
+                # (py-spy, p150a), where [.., heads, 32, 128] tiles without padding. The same
+                # values move either way, so the staged bias is bit-identical.
+                bias = self._from_torch(
+                    bias_pt.reshape(B * NW_padded, ATOM_WINDOW, ATOM_DIM, -1).permute(0, 3, 1, 2).contiguous())
                 bias = ttnn.add_(bias, mask)
                 return ttnn.multiply_(bias, ATOM_WINDOW ** 0.5)
 
@@ -16483,8 +16686,8 @@ class PairConditioningDevice:
         rel_pos = relative_position_encoding
         if seq_pad:
             rel_pos = torch.nn.functional.pad(rel_pos, (0, 0, 0, seq_pad, 0, seq_pad))
-        rel_pos_tt = ttnn.from_torch(rel_pos, layout=ttnn.TILE_LAYOUT, device=get_device(),
-                                     dtype=ttnn.bfloat16)
+        # `upload` tiles it on the card: the host tilize was 0.26 s a fold at 512 aa (py-spy, p150a).
+        rel_pos_tt = upload(rel_pos, ttnn.bfloat16, get_device())
         self.wall.mark("rel_pos")
         x = ttnn.concat([z, rel_pos_tt], dim=-1)
         ttnn.deallocate(rel_pos_tt)
@@ -17477,8 +17680,9 @@ class TrunkModule(TorchWrapper):
                                 z_init_build)
         seq_len = st["seq_len"]
 
-        s = self._from_torch(torch.zeros(list(st["s_init_tt"].shape), dtype=s_init.dtype))
-        z = self._from_torch(torch.zeros(list(st["z_init_tt"].shape), dtype=s_init.dtype))
+        # Filled on the card: the pair's zeros built and tilized on the host cost 0.2 s a fold at 512 aa.
+        s, z = (ttnn.zeros(list(st[k].shape), dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT,
+                           device=self.tt_device) for k in ("s_init_tt", "z_init_tt"))
         # Tick the live view once per recycling iteration, mirroring the host
         # fallback loop in Boltz2.forward — the resident loop runs entirely on
         # device, so without this the bar sits at "Trunk 0/N" then jumps to the

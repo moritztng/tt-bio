@@ -19,6 +19,7 @@ from tt_bio._vendor.atomworks.ml.transforms._checks import check_atom_array_anno
 from tt_bio._vendor.atomworks.ml.transforms.base import Transform
 from tt_bio._vendor.atomworks.ml.transforms.rdkit_utils import (
     ccd_code_to_rdkit_with_conformers,
+    ccd_codes_to_rdkit_with_conformers,
     sample_rdkit_conformer_for_atom_array,
 )
 from tt_bio._vendor.atomworks.ml.utils.geometry import masked_center, random_rigid_augmentation
@@ -91,6 +92,23 @@ def _get_rdkit_mols_with_conformers(
         `AF3 Supplementary Information <https://static-content.springer.com/esm/art%3A10.1038%2Fs41586-024-07487-w/MediaObjects/41586_2024_7487_MOESM1_ESM.pdf>`_
     """
     ref_mols = {}
+    jobs = [
+        (res_name, min(count, max_conformers_per_residue) if max_conformers_per_residue is not None else count)
+        for res_name, count in res_stochiometry.items()
+        if res_name in get_known_ccd_codes()
+    ]
+    # tt-bio: one forked child per CCD code, run concurrently (4.6 s -> about 1 s of a 512-residue featurize)
+    if (
+        len(jobs) > 1
+        and timeout is not None
+        and timeout_strategy == "subprocess"
+        and not {"seed", "skip_rdkit_conformer_generation"} & generate_conformers_kwargs.keys()
+    ):
+        mols = ccd_codes_to_rdkit_with_conformers(jobs, timeout=timeout, **generate_conformers_kwargs)
+        if mols is not None:
+            got = dict(zip((r for r, _ in jobs), mols))
+            return {res_name: got.get(res_name) for res_name in res_stochiometry}
+
     for res_name, count in res_stochiometry.items():
         if res_name not in get_known_ccd_codes():
             ref_mols[res_name] = None  # placeholder so that the unknown CCD codes are still counted later on

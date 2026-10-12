@@ -10,14 +10,15 @@ shape, compile) then N warm reps, each on its own seed. Every rep appends one JS
     python perf/spd/bench.py --out RUN/of3   --chip 3 --model openfold3 --inputs c730
     python perf/spd/bench.py --out RUN/bc2   --chip 3 --model bindcraft2 --warm 2
 
---model: protenix-v2 (default), opendde, openfold3, openbind, boltz2, rf3 or af2ig fold through `Worker.load_model` and
-`predict_one`, the code a JapanFold worker runs, and time the model's own fold call (`fold`; Boltz-2's
-`predict_step`, RF3's `predict`; AF2-IG's `af2ig.fold`, which draws no samples and reads no seed, so its warm reps are repeats).
+--model: protenix-v2 (default), opendde, openfold3, openbind, boltz2, rf3, af2ig, esmfold2 or esmfold2-fast fold
+through `Worker.load_model` and `predict_one`, the code a JapanFold worker runs, and time the model's own fold call
+(`fold`; Boltz-2's `predict_step`, RF3's `predict`, ESMFold2's `forward`; AF2-IG's `af2ig.fold`, which draws no samples
+and reads no seed, so its warm reps are repeats).
 Protenix-v2 alone is built by hand, as before, because it is the one model that reads
 the `L=` lever set. bindcraft2 is a design loop, not a fold: see "BindCraft 2" below.
 
 ARM grammar: NAME[:K=V[,K=V...]][:L=<set>[+lever|-lever...]][:fast]. K=V are environment variables set
-before tt_bio is imported; `fast` passes --fast; `L=` builds Protenix-v2 or OpenFold3 under that precision-lever set
+before tt_bio is imported; `fast` passes --fast; `L=` builds Protenix-v2, OpenFold3, RF3 or ESMFold2 under that precision-lever set
 (tenstorrent.LEVERS, e.g. `L=fast-lofi`, `L=normal+opm_b8`), otherwise the mode's own set. Nothing here edits the model: an arm is only switches the engine already has.
 `L=` is refused for every other model: none of them reads tenstorrent.LEVERS, so the arm would be a no-op.
 
@@ -51,7 +52,8 @@ ap = argparse.ArgumentParser()
 ap.add_argument("--out", required=True, type=Path)
 ap.add_argument("--chip", required=True, type=int, help="UMD index handed to TT_VISIBLE_DEVICES")
 ap.add_argument("--model", default="protenix-v2",
-                choices=("protenix-v2", "opendde", "openfold3", "openbind", "boltz2", "rf3", "bindcraft2", "af2ig"))
+                choices=("protenix-v2", "opendde", "openfold3", "openbind", "boltz2", "rf3", "bindcraft2", "af2ig",
+                         "esmfold2", "esmfold2-fast"))
 ap.add_argument("--arm", default="exact")
 ap.add_argument("--inputs", default="c730")
 ap.add_argument("--warm", type=int, default=3)
@@ -95,11 +97,12 @@ def parse_arm(spec):
 
 ARM, ARM_ENV, FAST, LEVER_SPEC = parse_arm(a.arm)
 PV2 = a.model == "protenix-v2"
-if LEVER_SPEC is not None and a.model in ("openfold3", "openbind", "rf3"):
-    # OpenFold3, OpenBind-0 and RF3 build under `tenstorrent.model_levers()`, which reads the set from TT_BIO_LEVERS.
+if LEVER_SPEC is not None and a.model in ("openfold3", "openbind", "rf3", "esmfold2", "esmfold2-fast"):
+    # OpenFold3, OpenBind-0 and RF3 build under `tenstorrent.model_levers()`, ESMFold2 folds under `lever_scope`;
+    # all read the set from TT_BIO_LEVERS.
     ARM_ENV["TT_BIO_LEVERS"] = LEVER_SPEC
 elif LEVER_SPEC is not None and not PV2:
-    sys.exit(f"L= arms build Protenix-v2, OpenFold3, OpenBind-0 and RF3 only; {a.model} reads no tenstorrent.LEVERS, so "
+    sys.exit(f"L= arms build Protenix-v2, OpenFold3, OpenBind-0, RF3 and ESMFold2 only; {a.model} reads no tenstorrent.LEVERS, so "
              f"`{a.arm}` would fold its default. Use K=V switches for {a.model}.")
 os.environ.update(ARM_ENV)
 a.out.mkdir(parents=True, exist_ok=True)
@@ -295,6 +298,9 @@ try:
 except _Stop:
     pass
 cfg0 = dict(captured["payload"]["config"])
+# the CLI can turn --fast on itself (ESMFold2 on Wormhole: the normal ESMC-6B does not fit 12 GB);
+# every build below passes fast=FAST, so take the CLI's word or a normal arm OOMs at preload
+FAST = FAST or bool(cfg0.get("fast"))
 if a.dry:  # the run config the CLI built, before any weights or device
     log(ev="dry", model=a.model, cli=argv, cfg={k: v for k, v in cfg0.items() if "key" not in k and "pass" not in k})
     os._exit(0)
@@ -364,7 +370,9 @@ m = state.model
 BUILT_FAST = T._FAST_MODE if PV2 else getattr(m, "_fast", T._FAST_MODE)
 log(ev="build", s=time.monotonic() - t, fast=BUILT_FAST, levers=sorted(getattr(m, "_levers", ())))
 LAST = {}
-FOLD_CALL = {"boltz2": "predict_step", "rf3": "predict"}.get(a.model, "fold")
+# ESMFold2 has no fold method of its own: `fold_complex` calls the vendored forward through the input builder.
+FOLD_CALL = {"boltz2": "predict_step", "rf3": "predict", "esmfold2": "forward",
+             "esmfold2-fast": "forward"}.get(a.model, "fold")
 orig = None if AF2IG else getattr(m, FOLD_CALL)
 CONF = {"plddt": "plddt", "ptm": "ptm", "iptm": "iptm"}
 
@@ -375,6 +383,9 @@ def unpack(r):
     (coordinates only: the worker reduces RF3's confidence logits after the call, into the record's metrics)."""
     if isinstance(r, dict) and "X_L" in r:
         return r["X_L"], None
+    if isinstance(r, dict) and "sample_atom_coords" in r:  # ESMFold2's forward
+        conf = [{"plddt": float(v)} for v in r["complex_plddt"].reshape(-1)] if "complex_plddt" in r else None
+        return r["sample_atom_coords"], conf
     if isinstance(r, dict):  # Boltz-2: per-sample tensors; complex_plddt is the scalar pLDDT
         if r.get("exception") or r.get("coords") is None:
             return None, None

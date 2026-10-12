@@ -6,6 +6,7 @@ and from https://github.com/chaidiscovery/chai-lab/blob/main/chai_lab/utils/time
 """
 
 import multiprocessing
+import os
 import queue as _queue
 import signal
 import time
@@ -147,50 +148,78 @@ def timeout_using_subprocess(timeout: float | int | None) -> Callable:
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         def wrapped_func(*args, **kwargs):  # noqa: ANN202
-            # NOTE: 'fork' context is useful to speed up the timeout handling,
-            #  as using 'spawn' instead will re-trigger imports that are needed to run the function
-            #  and understand the context in which it is used in, which can be slow.
-            ctx = multiprocessing.get_context("fork")
-            queue = ctx.Queue()
-
-            # ... create subprocess to run the function
-            proc = ctx.Process(target=_timeout_handler, args=(queue, func, args, kwargs), daemon=True)
-            # ... start the subprocess (ensure it is not a daemon to allow doing this in multiprocessing)
-            with _AllowSubprocessForDeamonicProcess():
-                proc.start()
-
-            # ... wait for the subprocess to finish and check if it timed out
-            proc.join(timeout=float(timeout))
-
-            # ... if the subprocess is still running, terminate it and raise a TimeoutError
-            if proc.is_alive():
-                proc.terminate()
-                proc.join()
-                raise TimeoutError(f"Function {func} timed out after {timeout} seconds")
-
-            # ... try retrieving the result, if available
-            try:
-                status, value = queue.get(timeout=0.1)  # short timeout to prevent hang
-                # NOTE: Hang can happen when the child process dies unexpectedly
-                #       and the main process is waiting for the result in the queue.
-                # See Issue(https://bugs.python.org/issue43805)
-            except _queue.Empty:
-                raise ChildProcessError("Child process died unexpectedly")  # noqa: B904
-
-            match status:
-                case _TimeoutHandlerStatus.SUCCESS:
-                    # ... return the result of the function
-                    return value
-                case _TimeoutHandlerStatus.EXCEPTION:
-                    # ... raise the exception caught in the child process
-                    raise value
-                case _:
-                    # ... this code should be unreachable, if reached raise an error
-                    raise ValueError(f"Invalid status: {status}. Must be 'SUCCESS' or 'EXCEPTION'.")
+            proc, queue = _start_in_subprocess(func, args, kwargs)
+            return _finish_in_subprocess(proc, queue, func, timeout, float(timeout))
 
         return wrapped_func
 
     return decorator
+
+
+def _start_in_subprocess(func: Callable, args: Any, kwargs: Any):
+    # NOTE: 'fork' context is useful to speed up the timeout handling,
+    #  as using 'spawn' instead will re-trigger imports that are needed to run the function
+    #  and understand the context in which it is used in, which can be slow.
+    ctx = multiprocessing.get_context("fork")
+    queue = ctx.Queue()
+
+    # ... create subprocess to run the function
+    proc = ctx.Process(target=_timeout_handler, args=(queue, func, args, kwargs), daemon=True)
+    # ... start the subprocess (ensure it is not a daemon to allow doing this in multiprocessing)
+    with _AllowSubprocessForDeamonicProcess():
+        proc.start()
+    return proc, queue
+
+
+def _finish_in_subprocess(proc, queue, func: Callable, timeout: float, wait: float) -> Any:
+    # ... wait for the subprocess to finish and check if it timed out
+    proc.join(timeout=max(wait, 0.0))
+
+    # ... if the subprocess is still running, terminate it and raise a TimeoutError
+    if proc.is_alive():
+        proc.terminate()
+        proc.join()
+        raise TimeoutError(f"Function {func} timed out after {timeout} seconds")
+
+    # ... try retrieving the result, if available
+    try:
+        status, value = queue.get(timeout=0.1)  # short timeout to prevent hang
+        # NOTE: Hang can happen when the child process dies unexpectedly
+        #       and the main process is waiting for the result in the queue.
+        # See Issue(https://bugs.python.org/issue43805)
+    except _queue.Empty:
+        raise ChildProcessError("Child process died unexpectedly")  # noqa: B904
+
+    match status:
+        case _TimeoutHandlerStatus.SUCCESS:
+            # ... return the result of the function
+            return value
+        case _TimeoutHandlerStatus.EXCEPTION:
+            # ... raise the exception caught in the child process
+            raise value
+        case _:
+            # ... this code should be unreachable, if reached raise an error
+            raise ValueError(f"Invalid status: {status}. Must be 'SUCCESS' or 'EXCEPTION'.")
+
+
+def run_in_subprocesses(calls: list[tuple[float, Callable, tuple, dict]]) -> list[tuple[bool, Any]]:
+    """tt-bio: `timeout_using_subprocess` for several calls at once. Every child is forked from the calling
+    thread, in order, before any is waited on (forking from worker threads can hand a child a lock another
+    thread holds); each keeps its own timeout from its own start. At most one child per usable CPU runs at a
+    time, so no child is slower than it would be alone. Returns (ok, value or exception) per call."""
+    width = max(1, len(os.sched_getaffinity(0)))
+    out = []
+    for i in range(0, len(calls), width):
+        started = []
+        for timeout, func, args, kwargs in calls[i : i + width]:
+            t0 = time.monotonic()
+            started.append((t0, timeout, func, *_start_in_subprocess(func, args, kwargs)))
+        for t0, timeout, func, proc, queue in started:
+            try:
+                out.append((True, _finish_in_subprocess(proc, queue, func, timeout, t0 + timeout - time.monotonic())))
+            except Exception as e:  # noqa: BLE001 -- handed back to the caller like the decorator raises it
+                out.append((False, e))
+    return out
 
 
 # TODO: This is dangerous: revert once the underlying problem in rdkit is fixed

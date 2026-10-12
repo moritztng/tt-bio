@@ -18,7 +18,7 @@ def test_a_model_names_its_own_sets_and_the_harness_switch_still_wins(monkeypatc
     monkeypatch.delenv("TT_BIO_LEVERS", raising=False)
     monkeypatch.setattr(T, "_FAST_MODE", True)
     assert T.model_levers() == T.FAST_LEVERS
-    assert T.model_levers(of3.NORMAL_LEVERS, of3.FAST_LEVERS) == of3.NORMAL_LEVERS
+    assert T.model_levers(of3.NORMAL_LEVERS, of3.FAST_LEVERS) == of3.FAST_LEVERS == of3.NORMAL_LEVERS | {"dit_s16"}
     monkeypatch.setenv("TT_BIO_LEVERS", "fast")
     assert T.model_levers(of3.NORMAL_LEVERS, of3.FAST_LEVERS) == T.FAST_LEVERS
     monkeypatch.setattr(T, "_FAST_MODE", False)
@@ -112,6 +112,13 @@ def test_fold_runs_under_the_models_levers_and_restores():
                 return T.lever("acc_off")
 
         assert M().fold() is True and not T.lever("acc_off")
+
+
+def test_opendde_entry_points_run_under_its_levers():
+    from tt_bio.opendde import OpenDDE
+
+    for name in ("fold", "expand_and_refine"):
+        assert getattr(OpenDDE, name).__wrapped__
 
 
 def test_boltz2_folds_with_the_process_fast_switch_off(monkeypatch):

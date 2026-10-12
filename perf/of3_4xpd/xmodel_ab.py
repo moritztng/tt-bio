@@ -21,7 +21,7 @@ main on qb2, cards 1 and 3, fold this fixture to 9eee996d71653d1b and da9b4ed68f
 (perf/trimul_f1/census_openfold3_512_qb2c1.json against the page cell). Never compare a
 digest from this file to one recorded on another card.
 """
-import argparse, hashlib, json, os, statistics, sys, time
+import argparse, hashlib, importlib, json, os, shutil, statistics, sys, time
 from pathlib import Path
 
 
@@ -50,6 +50,26 @@ def main():
     ap.add_argument("--steps", type=int, default=None)
     # Diffusion multiplicity. build_fold's `samples` reaches n_sample; the service offers up to 5.
     ap.add_argument("--samples", type=int, default=None)
+    # Per-fold host / device / transfer split from tt_baseline's whole-function brackets (no device
+    # sync added), recorded per fold beside the wall it splits. The cold fold's row is first.
+    ap.add_argument("--instrument", action="store_true")
+    # Replay the captured diffusion-step trace (the CLI's --trace for protenix-v2 / opendde,
+    # --diffusion_trace for boltz2).
+    # Unset folds at the shipped default (tt_bio.worker._trace_default: on for protenix-v1/v2
+    # and boltz2 on Blackhole); --no-trace forces the untraced fold.
+    ap.add_argument("--trace", action="store_const", const=True, default=None)
+    ap.add_argument("--no-trace", dest="trace", action="store_const", const=False)
+    # Paired trace A/B in ONE process: the region is reserved once, then each warm pair folds
+    # traced and untraced in alternating order. --repeat counts pairs. Host load on a shared
+    # box drifts by more than the trace saving, so only a paired delta can read it.
+    ap.add_argument("--ab-trace", action="store_true")
+    # The same pairing for any module-level bool, e.g. tt_bio.runtime:SERIAL_HOST.
+    ap.add_argument("--ab-attr", metavar="MODULE:NAME", default=None)
+    # Stage split inside the fold: each MODULE:Class.method is wrapped in a device sync on both
+    # sides and its inclusive seconds summed per fold (nested stages each count their own time).
+    # The syncs cost overlap, so a --phases fold is slower than a plain one: read it as a split,
+    # never as a wall.
+    ap.add_argument("--phases", default=None, metavar="MODULE:[Class.]name,...")
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
 
@@ -59,7 +79,7 @@ def main():
 
     import tt_bio.tenstorrent as T
     import tt_baseline as B
-    from tt_bio.main import (_resolve_recycling_steps, _resolve_sampling_steps,
+    from tt_bio.main import (_resolve_sampling_steps, _resolve_recycling_steps,
                              _detect_p300_devices, _find_ttnn_mesh_graph_descriptor)
     assert Path(T.__file__).resolve().is_relative_to(tree), \
         f"tt_bio came from {T.__file__}, not {tree}"
@@ -70,10 +90,7 @@ def main():
         if mgd:
             os.environ["TT_MESH_GRAPH_DESC_PATH"] = mgd
 
-    B.RECYCLING_STEPS = _resolve_recycling_steps(None, a.model)
     B.SAMPLING_STEPS = _resolve_sampling_steps(None, a.model)
-    if a.recycles is not None:
-        B.RECYCLING_STEPS = a.recycles
     if a.steps is not None:
         B.SAMPLING_STEPS = a.steps
 
@@ -88,7 +105,8 @@ def main():
         sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "other512"))
         from fold_ab_multi import patch_boltz2_cfg
         sys.path[:] = snap
-        patch_boltz2_cfg()
+        B.RECYCLING_STEPS = _resolve_recycling_steps(a.recycles, a.model)   # the injector reads it
+        patch_boltz2_cfg(diffusion_trace=True if a.ab_trace else a.trace)   # None: shipped default
 
     # Reachability counters. Installed only for --census: they wrap a function the diffusion
     # rollout calls tens of thousands of times, so they are host cost inside the timed region.
@@ -108,20 +126,51 @@ def main():
                 return _terms(self, *args, **kw)
             AdaLN.s_terms = counted_terms
 
+    phase_s = {}
+    if a.phases:
+        import ttnn
+
+        def _sync():
+            d = T.get_device()
+            ttnn.synchronize_device(d)
+
+        def _timed(key, fn):
+            def w(*args, **kw):
+                _sync()
+                t0 = time.perf_counter()
+                try:
+                    return fn(*args, **kw)
+                finally:
+                    _sync()
+                    phase_s[key] = phase_s.get(key, 0.0) + time.perf_counter() - t0
+            return w
+        for spec in a.phases.split(","):
+            mod, path = spec.split(":")
+            owner = importlib.import_module(mod)
+            *cls, meth = path.split(".")        # Class.method, or a module-level function
+            for c in cls:
+                owner = getattr(owner, c)
+            setattr(owner, meth, _timed(path, getattr(owner, meth)))
+
     fixdir = tree / "perf" / "size512" / "fixtures"
     tgt, a3m = fixdir / f"cdk2x2_{a.size}.yaml", fixdir / f"cdk2x2_{a.size}.a3m"
     msa_dir = tree / f".msa_xmodel_{a.model}_{a.size}"
+    # The recycle count is build_fold's argument, not a tt_baseline global: setting B.RECYCLING_STEPS
+    # was a no-op, so --recycles folded at the default and the record named the request.
     _bf = {} if a.samples is None else {"samples": a.samples}
-    one_fold, meta = B.build_fold(a.model, msa_dir, tgt, a3m, fast=a.fast, **_bf)[:2]
+    _bf["recycling_steps"] = a.recycles
+    one_fold, meta, state = B.build_fold(a.model, msa_dir, tgt, a3m, fast=a.fast,
+                                          instrument=a.instrument, trace=True if a.ab_trace else a.trace,
+                                          **_bf)[:3]
     struct_dir = Path(meta["struct_dir"])
 
     import importlib.metadata as im
     res = {"label": a.label, "model": a.model, "tree": str(tree), "size": a.size,
-           "census": a.census, "fast": a.fast, "ttnn": im.version("ttnn"),
+           "census": a.census, "fast": a.fast, "trace": a.trace, "ab_trace": a.ab_trace, "ab_attr": a.ab_attr, "ttnn": im.version("ttnn"),
            "host": os.uname().nodename,
            "card": os.environ.get("TT_VISIBLE_DEVICES"),
            "grid": [int(T.COMPUTE_GRID_MAIN[0]), int(T.COMPUTE_GRID_MAIN[1])],
-           "recycling_steps": B.RECYCLING_STEPS, "sampling_steps": B.SAMPLING_STEPS,
+           "recycling_steps": meta["recycling_steps"], "sampling_steps": B.SAMPLING_STEPS,
            "samples": a.samples or B.DIFFUSION_SAMPLES,
            "flags": {k: getattr(T, k, "absent") for k in
                      ("ADALN_S_HOIST", "FP32_SOFTMAX_BIAS_HOIST", "TRIMUL_TAIL_F1",
@@ -130,7 +179,10 @@ def main():
            "loadavg": open("/proc/loadavg").read().split()[:3], "folds": []}
 
     def one(tag):
+        phase_s.clear()
         fold_s, m = one_fold()
+        for p in sorted(struct_dir.glob("*.cif")):  # the structure itself, for an RMSD between arms
+            shutil.copyfile(p, a.out.parent / f"{tag}_{p.name}")
         plddt = m.get("plddt")
         if plddt is None:
             plddt = m.get("complex_plddt")
@@ -140,7 +192,8 @@ def main():
                 "n_tokens": m.get("n_tokens"), "n_atoms": m.get("n_atoms"),
                 "cif_sha256": {p.name: hashlib.sha256(p.read_bytes()).hexdigest()[:16]
                                for p in sorted(struct_dir.glob("*")) if p.is_file()},
-                "loadavg": open("/proc/loadavg").read().split()[:3]}
+                "loadavg": open("/proc/loadavg").read().split()[:3],
+                **({"phases": {k: round(v, 3) for k, v in phase_s.items()}} if a.phases else {})}
 
     def flush():
         a.out.parent.mkdir(parents=True, exist_ok=True)
@@ -148,11 +201,45 @@ def main():
 
     cold = one("cold")
     res["cold"] = cold
+    # What the chip carries after the load, so a default-path run shows whether it can replay.
+    res["trace_region_bytes"] = T.trace_region_size()
     print(f"[{a.label}] cold {cold['fold_s']:.3f}s plddt={cold['plddt']} "
           f"cif={list(cold['cif_sha256'].values())}", flush=True)
     flush()
 
-    if not a.census:
+    if (a.ab_trace or a.ab_attr) and not a.census:
+        if a.ab_trace:
+            on, off, key = "trace", "plain", "ab_trace_s"
+
+            def arm_set(v):
+                meta["job_cfg"]["trace"] = v
+                if a.model == "boltz2":     # Boltz-2 reads its DiT trace flag off the model
+                    state.model.structure_module._diffusion_trace = v
+        else:
+            mod, name = a.ab_attr.split(":")
+            on, off, key = "on", "off", "ab_attr_s"
+
+            def arm_set(v):
+                setattr(importlib.import_module(mod), name, v)
+        arm = {True: [], False: []}
+        for i in range(a.repeat):
+            for v in ((True, False) if i % 2 == 0 else (False, True)):
+                arm_set(v)
+                rec = one(f"warm{i}-{on if v else off}")
+                res["folds"].append(rec)
+                arm[v].append(rec["fold_s"])
+                print(f"[{a.label}] {rec['tag']} {rec['fold_s']:.3f}s "
+                      f"cif={list(rec['cif_sha256'].values())}", flush=True)
+                flush()
+        d = [round(x - y, 3) for x, y in zip(arm[True], arm[False])]
+        res[key] = {on: arm[True], off: arm[False], "delta": d,
+                    "median_delta": round(statistics.median(d), 3),
+                    **({"attr": a.ab_attr} if a.ab_attr else {})}
+        res["median_s"] = round(statistics.median(arm[True]), 3)
+        res["spread_s"] = round(max(arm[True]) - min(arm[True]), 3)
+        print(f"[{a.label}] {on} minus {off} {d} s, median {res[key]['median_delta']}",
+              flush=True)
+    elif not a.census:
         for i in range(a.repeat):
             rec = one(f"warm{i}")
             res["folds"].append(rec)
@@ -165,12 +252,13 @@ def main():
         print(f"[{a.label}] median {res['median_s']:.3f}s spread {res['spread_s']:.3f}s",
               flush=True)
 
+    if a.instrument:
+        res["phase_times"] = meta["phase_times"]
     res["reach"] = dict(reach)
     # Which fused kernels actually served a call, and why the declines. Every one of them is
     # gated on a constant fitted on a 130-core Blackhole grid, so "ships default-ON" says nothing
     # about whether it fired on an 8x9 Wormhole. These counters live inside the kernels, so
     # reading them is free -- unlike the --census wrappers above they are always on.
-    import importlib
 
     def _kern(name):
         try:

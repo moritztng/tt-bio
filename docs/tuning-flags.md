@@ -92,7 +92,7 @@ move against the accuracy bar and the seed-to-seed spread.
 | [`TT_BIO_TRIMUL_TAIL_F1`](#tt_bio_trimul_tail_f1) | on | | identical |
 | [`TT_BIO_TRIMUL_TAIL_F1_L1_OUT`](#tt_bio_trimul_tail_f1_l1_out) | on | | identical |
 | [`TT_BIO_UNFUSED_SILU`](#tt_bio_unfused_silu) | off | | moves, and costs Protenix-v2 accuracy |
-| [`TT_PROTENIX_CONF_DEVICE`](#tt_protenix_conf_device) | on (Protenix-v2), off (OpenDDE) | Protenix-v2, OpenDDE | coordinates identical, confidence within 1e-4 |
+| [`TT_PROTENIX_CONF_DEVICE`](#tt_protenix_conf_device) | on | Protenix-v2, OpenDDE | coordinates identical, confidence within 1e-4 |
 
 A blank scope means the flag names no model: it applies wherever a model reaches the code it
 changes, and its section says which ones do. The OpenMP thread settings tt-bio fills in for per-card
@@ -691,6 +691,20 @@ at 512 aa. Their older block-fp8 fast path was slower than normal mode at 512 aa
 (Blackhole p150a, 1350 MHz: RoseTTAFold3 54.4 s against 45.2 s, BoltzGen 44.5 against 38.4 s per
 design), because the fused triangle-attention and channel-move kernels refuse block-fp8 operands and
 the fold fell back to the stock ops.
+
+**ESMFold2 and ESMFold2-Fast** with `--fast` keep only the ESMC-6B language model's weights in block-fp8,
+which halves its resident memory (12.8 to 6.4 GB) and is what lets it stay loaded on a 12 GB Wormhole
+chip. The fold runs under the normal lever set (`tenstorrent.NORMAL_LEVERS`). Normal mode ships that set without
+`trunk_hifi3`, so the trunk matmuls stay HiFi4: against `none` on ESMFold2-Fast (44 paired folds) it moves CA-lDDT
+by -0.0006 [-0.0022, +0.0006] and TM-score by +0.0007, docking success 24/44 on both, median same-seed top-pose
+deviation 0.93 A where a different seed moves it 1.40 A, and the 11 folds take 9 % less time. The full set fails
+the normal bar on ESMFold2-Fast (TM-score -0.005, 95 % CI excludes zero), while against the fast bar it passes (11 complexes x 4 seeds, 44 paired folds against `none`: CA-lDDT +0.0009
+[-0.0019, +0.0044], pLDDT +0.0007, docking success 25/44 against 24/44, median same-seed top-pose deviation
+0.61 A where a different seed moves it 1.40 A). On a p300c chip at 1350 MHz it takes 2.6 s off ESMFold2's
+512 aa fold and 1.1 s off ESMFold2-Fast's. The older path also ran the
+trunk in block-fp8, where the triangle multiplications lost their fused in-projection: at 512 aa on a
+Blackhole p150a (1350 MHz) ESMFold2-Fast took 30.2 s with `--fast` against 25.7 s without. It now takes
+24.5 s, and on a p300c chip `--fast` and normal mode fold within 0.7 s of each other.
 
 ## `TT_BIO_LNBW_FUSED`
 
@@ -1952,11 +1966,11 @@ neither reads this flag.
 
 ## `TT_PROTENIX_CONF_DEVICE`
 
-Default: on for Protenix-v2, off for OpenDDE. `TT_PROTENIX_CONF_DEVICE=0` turns it off, `1` turns it on for OpenDDE.
+Default: on. `TT_PROTENIX_CONF_DEVICE=0` runs the heads on the host.
 
 The sample-invariant pair base is built once on device and only the pae/pde/pLDDT logits come back, so per sample the host uploads coordinates rather than a pair tensor. On a many-sample run that is most of the confidence head's host time.
 
-It matches the host path: on a 730-token Protenix-v2 fold on Wormhole every sample's pLDDT agrees to 1e-4 and pTM and ipTM to 2e-4, and a warm fold is 16 s shorter (368 against 384 s at 1000 MHz). On the 11-complex benchmark set at four seeds each, per-complex pLDDT moves by at most 0.003 and docking success is unchanged (33 of 44 both ways). Coordinates do not change either way. OpenDDE shares the code but has not been graded with it, so it stays opt-in there.
+It matches the host path: on a 730-token Protenix-v2 fold on Wormhole every sample's pLDDT agrees to 1e-4 and pTM and ipTM to 2e-4, and a warm fold is 16 s shorter (368 against 384 s at 1000 MHz). On the 11-complex benchmark set at four seeds each, per-complex pLDDT moves by at most 0.003 and docking success is unchanged (33 of 44 both ways). Coordinates do not change either way. OpenDDE graded the same way: coordinates unchanged, CA-lDDT +0.0009 and docking success 25 to 26 of 44, and a warm 256-residue fold is 3.3 s shorter (81.5 against 84.8 s).
 
 It feature-detects the ops it needs and stays off on a ttnn that lacks one, so setting it on an older runtime is a no-op rather than a crash.
 

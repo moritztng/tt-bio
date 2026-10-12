@@ -29,7 +29,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
-from tt_bio.envflags import env_flag
+from tt_bio.envflags import env_flag, env_int
 
 import numpy as np
 import torch
@@ -173,6 +173,9 @@ def _rope(q: ttnn.Tensor, k: ttnn.Tensor, cos: ttnn.Tensor, sin: ttnn.Tensor):
 # tokens x d 64, p150a, 1350 MHz); q 128 x k 64 is 0.629 ms, the fastest of the 25 pairs swept, at the same error to a
 # float64 reference (PCC 0.99970 vs 0.99969, perf/wh-embed/sdpa_sweep.py). Chunking only reorders the online softmax.
 ESMC_SDPA_Q_CHUNK = 128
+# q, k and v as three projections from the packed weight's column blocks instead of one projection and a
+# 3-way `ttnn.chunk` copy of its output. Off until the page-cell A/B (perf/spd_gap_esmf/esmc_ab.py) says.
+_ESMC_QKV_SPLIT = env_flag("TT_BIO_ESMC_QKV_SPLIT", False)
 ESMC_SDPA_K_CHUNK = 64
 
 
@@ -225,6 +228,15 @@ class Attention(Module):
         self.k_ln_weight = self.torch_to_tt("k_ln.weight")
         self.out_weight = self.torch_to_tt("out_proj.weight", transform=_scaled_t(out_scale), dtype=_dtype())
 
+    def _qkv_split(self):
+        """The q, k and v column blocks of the packed qkv weight, sliced on device once and cached."""
+        if getattr(self, "_qkv_w", None) is None:
+            w = self.qkv_weight
+            d_in, d3 = int(w.shape[0]), int(w.shape[1])
+            d = d3 // 3
+            self._qkv_w = tuple(ttnn.slice(w, [0, i * d], [d_in, (i + 1) * d]) for i in range(3))
+        return self._qkv_w
+
     def __call__(self, x: ttnn.Tensor, cos: ttnn.Tensor, sin: ttnn.Tensor,
                  attn_mask: ttnn.Tensor | None = None,
                  key_valid: ttnn.Tensor | None = None) -> ttnn.Tensor:
@@ -236,11 +248,14 @@ class Attention(Module):
             x, weight=self.in_norm_weight, bias=self.in_norm_bias,
             epsilon=1e-5, compute_kernel_config=ck,
         )
-        qkv = self._lin(x_norm, self.qkv_weight)
-        ttnn.deallocate(x_norm)
-
-        q, k, v = ttnn.chunk(qkv, 3, dim=-1)
-        ttnn.deallocate(qkv)
+        if _ESMC_QKV_SPLIT:
+            q, k, v = (self._lin(x_norm, w) for w in self._qkv_split())
+            ttnn.deallocate(x_norm)
+        else:
+            qkv = self._lin(x_norm, self.qkv_weight)
+            ttnn.deallocate(x_norm)
+            q, k, v = ttnn.chunk(qkv, 3, dim=-1)
+            ttnn.deallocate(qkv)
         q = ttnn.layer_norm(q, weight=self.q_ln_weight, epsilon=1e-5, compute_kernel_config=ck)
         k = ttnn.layer_norm(k, weight=self.k_ln_weight, epsilon=1e-5, compute_kernel_config=ck)
 
@@ -385,6 +400,25 @@ L1_FC1_STATS = [0, 0]
 # refusal instead of falling back the way `_pair_proj_linear` does. Keyed on `padded_shape`, so a
 # size that declines costs one exception per fold, not one per block.
 PAIR_FFN_L1_LN = True
+# The gate silu(h1) * h2 as ttnn.multiply with an input activation runs binary_ng's per-tile preprocess: copy h1
+# into dest, silu, pack to a scratch CB, re-init the binary op, unpack both, multiply, pack, one tile at a time.
+# On the 512 aa row block that is ~0.28 ms for 16k tiles, ~40 % of the FFN (ffn-split, qb2 p300c). With the silu in
+# fc1a's matmul epilogue (on the fp32 accumulator, before the bf16 pack) the gate is a plain FPU multiply:
+# gate_bench at a 16-row block, 0.144 ms for the activated multiply vs 0.058 ms plain. One switch for every
+# split-fc1 SwiGLU: the pair transition (row-blocked) and the ESMC LM blocks, which are ESMFold2's LM backbone.
+_SWIGLU_SILU_FC1 = env_flag("TT_BIO_SWIGLU_SILU_FC1", False)
+# The same activated multiply on ttnn's legacy binary op: same SFPU silu, no per-tile re-init, 0.101 vs 0.144 ms
+# (gate_bench, same block). Pair transition row blocks only (`l1_gated`): folds -1.1 s ESMFold2 / -0.7 s -Fast on
+# p150a, while ESMC 300M's LM blocks measured no faster with it and further from fp32 (cos_min 0.9971 vs 0.9987).
+_SWIGLU_GATE_LEGACY = env_flag("TT_BIO_SWIGLU_GATE_LEGACY", False)
+
+# Wormhole tiles the per-token (3-D) FFN at SMALL_GRID_SEQ_TILE rows so the ESMC-6B's fc1 activation never asks a
+# 12 GB chip that already holds the 6B for one large block. A row count also cuts ESMC 300M/600M's whole page batch
+# ([7, 544, 2*d_ff], 39-47 MB of fc1) into three blocks plus a chunk and a concat: 35 of 212 ms (300M) and 75 of 346 ms
+# (600M) on a Galaxy chip (perf/wh-embed/op_census.py, 2026-10-11). A non-zero budget tiles only when the fc1
+# activation is larger than this many bytes. Row blocking is row-local, so the output is bit-identical either way.
+_LM_FFN_TILE_BYTES = env_int("TT_BIO_LM_FFN_TILE_BYTES", 0)
+
 _PAIR_FFN_L1_LN = os.environ.get(
     "TT_BIO_PAIR_FFN_L1_LN", "1" if PAIR_FFN_L1_LN else "0") == "1"
 
@@ -653,6 +687,11 @@ class SwiGLUFFN(Module):
             )
             ttnn.deallocate(x_norm)
         elif split and self.split_swiglu:
+            from tt_bio import tenstorrent as _T
+            out = self._sharded(x_norm) if _T.lever("transition_shard") else None
+            if out is not None:
+                ttnn.deallocate(x_norm)
+                return out
             if l1_gated and _PAIR_FFN_L1_FC1:
                 L1_FC1_STATS[0] += 2
                 l1 = dict(l1_out=True, l1_bw=_PAIR_FFN_FC1_BW,
@@ -668,15 +707,19 @@ class SwiGLUFFN(Module):
                       if (_SPLIT_SWIGLU_SMALL_GRID
                           and getattr(_T, "_IS_SMALL_GRID", False))
                       else _dtype())
-                h1 = _pair_proj_linear(x_norm, self.fc1_a_weight, ck, dt, **l1)
+                h1 = _pair_proj_linear(x_norm, self.fc1_a_weight, ck, dt, silu=_SWIGLU_SILU_FC1, **l1)
                 h2 = _pair_proj_linear(x_norm, self.fc1_b_weight, ck, dt, **l1)
+                silu_done = _SWIGLU_SILU_FC1
             else:
                 L1_FC1_STATS[1] += 2 * bool(l1_gated)
-                h1 = self._lin(x_norm, self.fc1_a_weight)
+                h1 = self._lin(x_norm, self.fc1_a_weight,
+                               activation="silu" if _SWIGLU_SILU_FC1 else None)
                 h2 = self._lin(x_norm, self.fc1_b_weight)
+                silu_done = _SWIGLU_SILU_FC1
             ttnn.deallocate(x_norm)
             gated = ttnn.multiply(
-                h1, h2, input_tensor_a_activations=[ttnn.UnaryOpType.SILU],
+                h1, h2, input_tensor_a_activations=[] if silu_done else [ttnn.UnaryOpType.SILU],
+                **({"use_legacy": True} if _SWIGLU_GATE_LEGACY and l1_gated else {}),
                 **({"memory_config": ttnn.L1_MEMORY_CONFIG} if l1_gated else {}),
             )
             ttnn.deallocate(h1)
@@ -693,6 +736,24 @@ class SwiGLUFFN(Module):
         ttnn.deallocate(gated)
         return out
 
+    def _sharded(self, x_norm: ttnn.Tensor):
+        """fc2(silu(x fc1_a) * (x fc1_b)) on the pair Transition's block-sharded swiglu
+        (`transition_shard`; with `swiglu_fc12g` and `silu_f32` the fused fc12g kernel, no fc1 tensors
+        and no multiply), None when the block does not shard. Same structure as tenstorrent.Transition's
+        fc1/fc2/fc3, so ESMFold2's trunk FFN takes the shared path and levers.
+        """
+        from tt_bio import tenstorrent as T
+        w12 = None
+        if T.lever("swiglu_fc12g") and T.lever("silu_f32"):
+            if getattr(self, "_w12", None) is None:
+                w1, w2 = (ttnn.to_torch(w).float() for w in (self.fc1_a_weight, self.fc1_b_weight))
+                self._w12 = ttnn.from_torch(T._fc12_interleave(w1, w2, 8), layout=ttnn.TILE_LAYOUT,
+                                            device=self.fc1_a_weight.device(), dtype=self.fc1_a_weight.dtype)
+            w12 = self._w12
+        ck = self.compute_kernel_config
+        return T._transition_swiglu_sharded(x_norm, self.fc1_a_weight, self.fc1_b_weight, self.fc2_weight,
+                                            ck, T.silu_ckc(ck), _dtype(), x_norm.dtype, w12=w12)
+
     def _split_plan(self, x: ttnn.Tensor) -> tuple[bool, int]:
         """(split fc1?, rows per block) for this input, 0 rows if the 4-D row-blocked pair path
         does not apply. Carries no census; the caller owns `SPLIT_STATS`."""
@@ -706,6 +767,10 @@ class SwiGLUFFN(Module):
         lo, hi = PAIR_FFN_ROW_BLOCK_SEQ
         rows = _PAIR_FFN_ROW_BLOCK
         blocked = split and len(x.shape) == 4 and rows and lo <= x.shape[1] <= hi
+        if blocked and tenstorrent.lever("transition_shard"):
+            # the sharded swiglu needs a block of at most _TRANSITION_SHARD_PM row tiles per core row
+            rows = tenstorrent._transition_shard_rows(x.shape[2], x.shape[3],
+                                                      int(self.fc1_a_weight.shape[-1])) or rows
         return split, (rows if blocked else 0)
 
     def _rows_after_refusal(self, x: ttnn.Tensor) -> int:
@@ -858,6 +923,9 @@ class SwiGLUFFN(Module):
         else:
             t = tenstorrent.SMALL_GRID_SEQ_TILE
             chunk = t if (t and L > t) else 0
+            if chunk and _LM_FFN_TILE_BYTES:
+                fc1_bytes = int(x.shape[0]) * int(L) * 2 * int(self.fc2_weight.shape[0]) * 2
+                chunk = 0 if fc1_bytes <= _LM_FFN_TILE_BYTES else chunk
         try:
             if chunk:
                 parts = ttnn.chunk(x, -(-L // chunk), dim=1)

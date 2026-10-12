@@ -20,6 +20,14 @@ from tt_bio.runtime import build_local_workers
 PROTENIX = {"model": "protenix-v2", "fast": False}
 
 
+@pytest.fixture(autouse=True)
+def _restore_fast_mode(monkeypatch):
+    # `load_model` sets the process-wide fast mode from its config; a `fast: True` case left
+    # it on and every later host test read bfloat8_b as the device dtype.
+    import tt_bio.tenstorrent as T
+    monkeypatch.setattr(T, "_FAST_MODE", T._FAST_MODE)
+
+
 def test_unset_keeps_the_hash_it_had_before():
     assert H.run_config_hash({**PROTENIX, "diffusion_precision": None}) == H.run_config_hash(PROTENIX)
 
