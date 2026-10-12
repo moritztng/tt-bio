@@ -115,7 +115,7 @@ def test_key_moves_with_code_env_card_and_argv_not_with_markdown(tmp_path):
     assert gf.content_hash("HEAD", tmp_path) == c6          # a re-recorded measurement: same key
     (perf / "data.txt").write_text("fixture\n")
     git("add", "."), git("commit", "-qm", "8")
-    assert gf.content_hash("HEAD", tmp_path) != c6          # any other perf/ file: new key
+    assert gf.content_hash("HEAD", tmp_path) == c6          # a perf/ file nothing reaches: same key
     c8, l8 = gf.content_hash("HEAD", tmp_path), gf.baseline_hash("HEAD", "ladder", tmp_path)
     b8, o8 = (gf.baseline_hash("HEAD", "ladder", tmp_path, model=m) for m in ("boltz2", "other"))
     p8 = gf.baseline_hash("HEAD", "perf", tmp_path)
@@ -1034,3 +1034,31 @@ def test_a_rung_group_goes_only_to_a_card_whose_ladder_walks_it(tmp_path):
     assert gf.rungs_fit(roster, wh, legs["ladder:boltz2@1152-1280"])        # 1280
     assert not gf.rungs_fit(roster, p300c, legs["ladder:rf3@1152-1280"])
     assert gf.rungs_fit(roster, p300c, gf.Leg("rg:x", [], "rg"))
+
+
+def test_a_perf_entry_no_leg_can_reach_is_outside_the_content_key(tmp_path, monkeypatch):
+    monkeypatch.setattr(gf, "PERF_ONLY_CACHE", tmp_path / "cache")
+
+    def git(*a):
+        subprocess.run(["git", "-C", str(tmp_path), *a], check=True, capture_output=True)
+
+    files = {"scripts/gate.py": 'P = ROOT / "perf" / "fixtures" / "x.json"\nimport probe_a\n',
+             "pyproject.toml": 'version = "1"\n',
+             "perf/fixtures/x.json": '{"helper": "perf/chained/run.sh"}\n',
+             "perf/chained/run.sh": "echo\n",
+             "perf/tools/probe_a.py": "x = 1\n",
+             "perf/helpers/reasons.py": "x = 1\n"}
+    for f, body in files.items():
+        (tmp_path / f).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / f).write_text(body)
+    git("init", "-q"), git("config", "user.email", "t@t"), git("config", "user.name", "t")
+    git("add", "."), git("commit", "-qm", "x")
+    assert gf.perf_only("HEAD", tmp_path) == {"perf/helpers/reasons.py"}
+    before, old = gf.content_hash("HEAD", tmp_path), gf.content_hash("HEAD", tmp_path, perf=True)
+    (tmp_path / "perf/helpers/reasons.py").write_text("x = 2\n")
+    git("commit", "-qam", "a recording helper moves")
+    assert gf.content_hash("HEAD", tmp_path) == before
+    assert gf.content_hash("HEAD", tmp_path, perf=True) != old
+    (tmp_path / "perf/chained/run.sh").write_text("echo 2\n")      # reached through a kept entry
+    git("commit", "-qam", "an instrument a fixture names moves")
+    assert gf.content_hash("HEAD", tmp_path) != before

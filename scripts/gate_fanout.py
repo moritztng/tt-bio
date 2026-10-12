@@ -412,6 +412,59 @@ def _test_only_at(sha: str, repo: Path) -> frozenset:
     return frozenset(t for stem, t in stems.items() if stem not in named)
 
 
+PERF_ONLY_CACHE = Path.home() / ".cache" / "tt-bio-gate" / "perf_only-v1"
+#: What may load a perf/ entry: code and the config it reads. Result dumps (jsonl, logs) do not.
+_LOADERS = (".py", ".sh", ".bash", ".toml", ".yaml", ".yml", ".json", ".cfg", ".ini")
+_WORDS = (re.compile(rb"[A-Za-z0-9_]+"), re.compile(rb"[A-Za-z0-9_-]+"))
+
+
+def perf_only(sha: str, repo: Path = REPO) -> frozenset:
+    return _perf_only_at(_commit(sha, repo), repo)
+
+
+@functools.lru_cache(maxsize=None)
+def _perf_only_at(sha: str, repo: Path) -> frozenset:
+    """Files under perf/ that no gate leg can read: nothing outside perf/, nor any perf/ entry that
+    is itself kept, names their top-level perf/ entry or one of its scripts' module names.
+    perf/ holds campaign instruments and recording helpers; 7e43fbd5f changed one
+    (perf/sizeladder_whgalaxy/reasons_whgalaxy.py) and re-keyed all 239 legs of the 0.15.1 gate.
+    A name counts anywhere it appears as a word, comments and data included, and release_gate
+    builds its paths as `REPO_ROOT / "perf" / "<dir>"`, so an entry any code reaches stays in."""
+    cache = PERF_ONLY_CACHE / f"{sha}.json"
+    if cache.exists():
+        return frozenset(json.loads(cache.read_text()))
+    groups: dict = {}
+    outside = []
+    for ln in _ls_tree_at(sha, repo):
+        meta, path = ln.split("\t", 1)
+        obj = meta.split()[2]
+        if path.startswith("perf/"):
+            groups.setdefault(path.split("/")[1], []).append((obj, path))
+        elif not path.endswith(".md"):
+            outside.append(obj)
+
+    def words(objs: list) -> set:
+        if not objs:
+            return set()
+        d = subprocess.run(["git", "-C", str(repo), "cat-file", "--batch"], check=True, capture_output=True,
+                           input=b"".join(o.encode() + b"\n" for o in objs)).stdout
+        return set().union(*(set(w.findall(d)) for w in _WORDS))
+
+    tokens = {g: {Path(g).stem.encode()} | {Path(x).stem.encode() for _, x in ps if x.endswith((".py", ".sh"))}
+              for g, ps in groups.items()}
+    named, kept = words(outside), set()
+    while new := {g for g in groups if g not in kept and tokens[g] & named}:
+        kept |= new
+        named |= words([o for g in new for o, x in groups[g] if x.endswith(_LOADERS)])
+    out = sorted(x for g, ps in groups.items() if g not in kept for _, x in ps)
+    try:
+        cache.parent.mkdir(parents=True, exist_ok=True)
+        cache.write_text(json.dumps(out))
+    except OSError:
+        pass
+    return frozenset(out)
+
+
 def _code_strings(src: str) -> list:
     """String literals and imported module names of a Python file, docstrings and comments left
     out. Unparseable source is returned whole, which can only keep a test in the content key."""
@@ -452,7 +505,7 @@ RUNNER_FILES_0 = tuple(f for f in RUNNER_FILES if f != "scripts/flock_first.sh")
 
 
 def content_hash(sha: str, repo: Path = REPO, baselines: bool = False, tests: bool = False,
-                 runner: tuple = RUNNER_FILES) -> str:
+                 runner: tuple = RUNNER_FILES, perf: bool = False) -> str:
     """Hash of every tracked file at `sha` except Markdown, from git's own blob ids.
 
     pyproject.toml is hashed without its `version =` line: the release commit bumps it, and that
@@ -465,7 +518,8 @@ def content_hash(sha: str, repo: Path = REPO, baselines: bool = False, tests: bo
     So is this runner (RUNNER_FILES): it decides where a leg runs, not what the leg computes, and
     a fix to it must not throw away a gate's worth of evidence. Test files only pytest reads
     (test_only) are keyed on the pytest legs instead; `tests=True` keeps them, the key every
-    ledger row before 2026-10-09 21Z was written under."""
+    ledger row before 2026-10-09 21Z was written under. Files under perf/ no leg can read
+    (perf_only) are left out; `perf=True` keeps them, the key before 2026-10-12 08Z."""
     def git(*a, ok=(0,)):
         p = subprocess.run(["git", "-C", str(repo), *a], capture_output=True, text=True)
         if p.returncode not in ok:
@@ -473,7 +527,9 @@ def content_hash(sha: str, repo: Path = REPO, baselines: bool = False, tests: bo
         return p.stdout
     recorded = {ln.split(":", 1)[1] for ln in git("grep", "-l", "^RECORDED-AT:", sha, "--", "perf/*.txt",
                                                   ok=(0, 1)).splitlines()}
-    only = set() if tests else test_only(sha, repo)
+    only = set() if tests else set(test_only(sha, repo))
+    if not perf:
+        only |= perf_only(sha, repo)
     rows = []
     for ln in _ls_tree(sha, repo):
         path = ln.split("\t", 1)[-1]
@@ -1572,6 +1628,7 @@ def main() -> int:
     same = {s for s in {sha} | ledger.shas() if s == sha or _same_code(s, content)}
     tests_in = {s: content_hash(s, tests=True, runner=RUNNER_FILES_0) for s in same}
     runner_in = {s: content_hash(s, runner=RUNNER_FILES_0) for s in same}
+    perf_in = {s: content_hash(s, perf=True) for s in same}
     keys, results, todo = {}, [], {a: [] for a in archs}
     for lg in legs:
         for a in (archs if lg.card else [archs[0]]):
@@ -1601,6 +1658,7 @@ def main() -> int:
                        for s in match if cards and model]
                     + [leg_key(tests_in[s], env, ct, hleg, base) for s in match]
                     + [leg_key(runner_in[s], env, ct, hleg, base, tst) for s in match]
+                    + [leg_key(perf_in[s], env, ct, hleg, base, tst) for s in match]
                     + [leg_key(content, env, ct, hleg, baseline_hash(s, "perf"), tst) for s in same if ab])
             hit = (None if args.no_reuse or not lg.card or lg.family == "record"
                    else next(filter(None, map(ledger.get, [k, *olds])), None))
