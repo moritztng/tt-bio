@@ -8542,7 +8542,7 @@ def _in_proj_matmul(x, w, ckc, memory_config, bias=None, split=None, dtype=None)
         return None
     return ttnn.experimental.minimal_matmul(
         x, w, bias_tensor=bias, memory_config=memory_config, dtype=dtype,
-        compute_kernel_config=ckc, config=_mm_config_wh(w))
+        compute_kernel_config=ckc)
 
 
 def _trimul_out_proj(
@@ -10183,57 +10183,6 @@ def _mm_core_coord(gx, gy):
     return ttnn.CoreCoord(gx, gy)
 
 
-# Wormhole (8x8 = 64 cores) only, and only where the table above gives NO config. AF2-IG's pair
-# tensor is ragged at every size it runs (195 tokens: mt = 1189 = 29 * 41), so the `mt % M` guard in
-# `_qkv_mm_config` refuses the c_z=128 entries and these sites run the op's default (8, 8, 8, 2, 2),
-# whose K_block = 8 pads the 4-tile contraction to 8. Swept off-fold at AF2-IG's exact shapes on the
-# .114 WH Galaxy (perf/spd/af2_mm_sweep.py, perf/spd/results/af2_mm_sweep_wh114_r{1,2}.json, two
-# chips; HiFi4, fp32 dest acc, bf16, warm 2, median of 5 reps of 10 back-to-back calls, torch.equal
-# against the default), run 1 / run 2:
-#
-#     [195,195,128] x [128,384]          0.4847 -> 0.3251 ms  1.491x / 1.478x  M=8 K=4 N=2 sub=4x1
-#     [195,195,128] x [128,128]          0.3351 -> 0.1626 ms  2.061x / 2.052x  M=6 K=4 N=1 sub=3x1
-#     [1,195,195,128] x [128,256] + bias 0.3824 -> 0.2302 ms  1.661x / 1.646x  M=6 K=4 N=1 sub=3x1
-#
-# ~0.26 s off a 13.07 s fold at 416 + 416 + 832 calls -- a per-call screen, not a fold A/B.
-#
-# All three are bit-exact: K_block = kt is one K block, and the default's extra 4 K tiles are zero
-# products added to an fp32 accumulator, so the sum is the same. M_block does not enter the
-# accumulation order at all (the op pads M per core), which is why no `mt % M` guard is applied
-# here. Every non-exact arm (K_block 1 or 2) was slower than the best exact one at every site.
-# Keyed on the 64-core grid so Blackhole (p150a 130 / p300c 110 cores) never reads it, and consulted
-# only after `_qkv_mm_config` returns None, so where the table above already configures a shape
-# (and the head-major kernels in triatt_qkv.py fire on it) nothing changes.
-_MM_BLOCK_WH = {
-    (4, 12): (8, 4, 2, 4, 1),   # AF2 tri-att qkv           at c_z=128
-    (4, 4): (6, 4, 1, 3, 1),    # AF2 tri-att gate          at c_z=128
-    (4, 8): (6, 4, 1, 3, 1),    # AF2 trimul in-projection  at c_z=128, 2 x 64-channel chunks
-}
-_MM_WH_GRID = (8, 8)
-
-
-def _mm_config_wh(w):
-    """The 64-core Wormhole fallback config for this weight, or None (see `_MM_BLOCK_WH`)."""
-    if not _MM_CFG or tuple(COMPUTE_GRID_MAIN) != _MM_WH_GRID:
-        return None
-    kt = (int(w.shape[-2]) + 31) // 32
-    nt = (int(w.shape[-1]) + 31) // 32
-    blk = _MM_BLOCK_WH.get((kt, nt))
-    if blk is None or kt % blk[1] or nt % blk[2]:
-        return None
-    M, K, N, sh, sw = blk
-    return ttnn.MinimalMatmulConfig(
-        M_block_size=M, K_block_size=K, N_block_size=N, subblock_h=sh, subblock_w=sw,
-        compute_with_storage_grid_size=_mm_core_coord(*COMPUTE_GRID_MAIN))
-
-
-def _qkv_mm_config_or_wh(inp, w):
-    """`_qkv_mm_config`, else the Wormhole fallback. Only for a plain `minimal_matmul` call: the
-    head-major kernels keep reading `_qkv_mm_config` alone, so they fire exactly where they did."""
-    cfg = _qkv_mm_config(inp, w)
-    return cfg if cfg is not None else _mm_config_wh(w)
-
-
 def _qkv_mm_config(inp, w):
     """The swept block config for this (activation, weight) pair, or None to leave the op alone."""
     if not _MM_CFG:
@@ -11058,7 +11007,7 @@ class TriangleAttention(Module):
                         weight_tensor=self.qkv_weight,
                         compute_kernel_config=self.compute_kernel_config,
                         dtype=_triatt_dtype(),
-                        config=_qkv_mm_config_or_wh(x, self.qkv_weight),
+                        config=_qkv_mm_config(x, self.qkv_weight),
                     )
             if g is None and (isinstance(qkv, tuple) or fold_o is not None) \
                     and not self.biased:
@@ -11075,7 +11024,7 @@ class TriangleAttention(Module):
                     bias_tensor=self.g_bias if g_in_mm else None,
                     compute_kernel_config=self.compute_kernel_config,
                     dtype=_dtype(),
-                    config=_qkv_mm_config_or_wh(x, self.g_weight),
+                    config=_qkv_mm_config(x, self.g_weight),
                 )
                 if g_in_mm:
                     _pair_bias_stat("g_in_matmul")
