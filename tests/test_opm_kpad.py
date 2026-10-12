@@ -79,7 +79,10 @@ class _Grid:
 
 
 @pytest.mark.parametrize("tokens,kt,pcm,obw", [(736, 312, 84, 23), (512, 312, 60, 16), (1024, 432, 116, 16)])
-def test_contract_config_picks_the_measured_plan(tokens, kt, pcm, obw):
+def test_contract_config_picks_the_measured_plan(tokens, kt, pcm, obw, monkeypatch):
+    # The budget an open Blackhole chip reports. Without a device `_matmul_cb_budget` falls back to the
+    # looser unreserved size (1532416 B on Blackhole), which admits a 4 x 32 block the device refuses.
+    monkeypatch.setattr(T, "_matmul_cb_budget", lambda: 1461760)
     cfg = T.opm_contract_config(tokens, tokens, kt, _Grid)
     assert (cfg.per_core_M, cfg.in0_block_w, cfg.out_block_h, cfg.out_block_w) == (pcm, T.OPM_K_BLOCK, 4, obw)
     assert cfg.out_subblock_h * cfg.out_subblock_w == 4
