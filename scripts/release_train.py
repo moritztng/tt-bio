@@ -23,8 +23,10 @@ config is a JSON object of gate_fanout's own flags, {"hosts": "...", "workers": 
 "...", "args": [...]}, and the run goes to <gates>/rel-<sha9>; while another full gate runs it
 waits for it instead. On RECORD (the gate failed only on size-ladder drift, release_next.py) it
 re-records those models' ladders on the same commit into <gates>/rec-<sha9>, and the release
-commit carries the fragments. WAIT, FIX and NOTHING are printed and left alone (a FIX is a
-regression for a person or a fix row; the train never re-cuts around it).
+commit carries the fragments. When a failed gate's dir lists fixes in FIXES (release_next.py, Fix
+forward), the commit it gates is the failed one plus those fixes, pushed first as rel-cand/<sha9> so
+the gate hosts can fetch it. WAIT, FIX and NOTHING are printed and left alone (a FIX is a regression
+for a person or a fix row, who fixes it forward through FIXES; the train never re-cuts around it).
 """
 from __future__ import annotations
 
@@ -224,6 +226,9 @@ def main() -> int:
         d = {**d, "do": "WAIT", "why": f"gate main's head after the running gate on "
                                        f"{', '.join(s[:9] for s in d['running'])} ends"}
     if d["do"] in ("GATE", "RECORD") and args.gate_config and not args.dry_run:
+        if fx := d.get("fixes"):
+            subprocess.run(["git", "-C", str(REPO), "push", "-q", "-f", args.remote,
+                            f"{d['sha']}:refs/heads/rel-cand/{fx['base'][:9]}"], check=True)
         start_gate(d["sha"], args.gates, args.gate_config, d.get("models"))
         return 0
     if d["do"] != "CUT":
