@@ -55,6 +55,9 @@ class _Probe:
     __call__ = E.SwiGLUFFN.__call__
     residual = E.SwiGLUFFN.residual
 
+    def _weight_stationary(self, x):
+        return None                         # transition_ws declines: the fake has no weights
+
     def _split_plan(self, x):
         return True, 0                      # split on, row block off: above the window
 
