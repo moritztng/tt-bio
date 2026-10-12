@@ -276,6 +276,9 @@ _MEASURED_CEILINGS = (
 #: All three run the same ops on the same values; only what the card holds in between differs.
 MEMORY_MODES = ("fast", "lean", "offload")
 
+#: Experiment knob (spd-gap-bind): how many of the last Evoformer blocks run un-checkpointed.
+RESIDENT_BLOCKS = int(os.environ.get("TT_BIO_BC2_RESIDENT_BLOCKS", "0"))
+
 #: Device bytes a gradient round peaks at, per mode: a constant plus a count of bf16
 #: `[N, N, 128]` pair tensors (256 B a token pair). `fast` is `bcw-census`'s account, which the
 #: Wormhole and Blackhole ladders fit to 0.01-0.03 GB (`state/bcw/MEMORY.md`).
@@ -875,10 +878,17 @@ class _Trunk:
 
     def evoformer(self, m, z, msa_mask, pair_masks, recompute: bool, offload: bool = False,
                   drop=None):
-        """`drop` is one `{op: keep mask}` per block, or None for a stack that drops nothing."""
-        for i, block in enumerate(self.model.device_evoformer):
+        """`drop` is one `{op: keep mask}` per block, or None for a stack that drops nothing.
+
+        The last `RESIDENT_BLOCKS` blocks skip the checkpoint and keep their whole tape: the
+        backward reaches them first and frees them first, and they cost no recompute."""
+        blocks = self.model.device_evoformer
+        keep = len(blocks) - RESIDENT_BLOCKS
+        for i, block in enumerate(blocks):
             d = None if drop is None else drop[i]
-            if recompute and self.ag.TRACE_RECOMPUTE:
+            if i >= keep:
+                m, z = block(m, z, msa_mask, *pair_masks, drop=d)
+            elif recompute and self.ag.TRACE_RECOMPUTE:
                 # The masks are new tensors every round, so they ride in as inputs, where the
                 # traced backward copies them into its own buffers (`autograd._traced_recompute`).
                 ks = tuple(d) if d else ()
