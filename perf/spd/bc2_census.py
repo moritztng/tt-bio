@@ -173,6 +173,25 @@ def trunk_init(self, *args, **kwargs):
 
 bc2._Trunk.__init__ = trunk_init
 
+# Wall of every tt-bio callback, by stack and verb, so each iteration splits into the time spent
+# inside tt-bio (device + dispatch + tape) and the rest, which is BindCraft 2's own JAX on the host.
+cb = collections.Counter()
+
+
+def timed(name, fn):
+    def run(*args, **kwargs):
+        t0 = time.monotonic()
+        try:
+            return fn(*args, **kwargs)
+        finally:
+            cb[name] += time.monotonic() - t0
+    return run
+
+
+for _cls in (bc2.EvoformerOnDevice, bc2.ExtraMsaOnDevice, bc2.TemplateOnDevice):
+    for _verb in ("_primal", "_taped", "_backward"):
+        setattr(_cls, _verb, timed(f"{_cls.__name__}.{_verb}", getattr(_cls, _verb)))
+
 
 def loadavg():
     try:
@@ -217,6 +236,7 @@ def sequence_gradients(self, *args, **kwargs):
     state["n"] += 1
     loads0, load1 = state["loads"], loadavg()
     if state["n"] != a.at:
+        cb.clear()
         t0 = time.monotonic()
         out = None
         try:
@@ -228,7 +248,10 @@ def sequence_gradients(self, *args, **kwargs):
         finally:
             if out is not None and state["n"] <= a.dump:
                 dump(out, a.out / f"dump_{state['n']}.npz")
-            state["uninstrumented"].append(dict(n=state["n"], s=time.monotonic() - t0, gsha=gsha(out),
+            wall = time.monotonic() - t0
+            state["uninstrumented"].append(dict(n=state["n"], s=wall, gsha=gsha(out),
+                                                callbacks={k: round(v, 4) for k, v in cb.items()},
+                                                host_jax_s=round(wall - sum(cb.values()), 4),
                                                 profiled=state["n"] == a.profile,
                                                 trunk_loads=state["loads"] - loads0,
                                                 load1=load1, ncpu=os.cpu_count()))
