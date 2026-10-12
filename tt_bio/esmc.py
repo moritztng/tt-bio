@@ -596,14 +596,17 @@ PAIR_FFN_ROW_BLOCK_MIN = 8
 # checked to alias (`buffer_address()` equal), and `fill_cache` was checked to accept an L1
 # input -- with a DRAM input it would pay the traffic the concat already pays and return nothing.
 #
-# Rides on F: it needs the block's output to be the final content of its rows. Needs
+# On the residual path it rides on F, which makes the block's output the final content of its
+# rows; without a residual (the MSA encoder's pair transition) fc2's output already is, and the
+# concat it replaces needed a second whole-pair buffer: 2 GiB at 2048 aa, the --fast OOM on a
+# p300c chip (spd-trifuse 10-12). Needs
 # `nblk * rows == L` for the view's volume to match, so a length that does not divide by the row
 # block keeps the concat.
 PAIR_FFN_FILL_ASSEMBLY = True
 _PAIR_FFN_FILL_ASSEMBLY = os.environ.get(
     "TT_BIO_PAIR_FFN_FILL_ASSEMBLY", "1" if PAIR_FFN_FILL_ASSEMBLY else "0") == "1"
 
-# [served, declined] residual row-blocked calls, same idiom as `FUSED_RESID_STATS`.
+# [served, declined] row-blocked calls, same idiom as `FUSED_RESID_STATS`.
 FILL_ASSEMBLY_STATS = [0, 0]
 _FILL_ASSEMBLY_REFUSED = set()
 
@@ -927,7 +930,9 @@ class SwiGLUFFN(Module):
         nblk = -(-L // rows)
         lazy = _PAIR_FFN_L1_SLICE and key not in _L1_SLICE_REFUSED
         fused = residual and _PAIR_FFN_FUSED_RESIDUAL and key not in _FUSED_RESID_REFUSED
-        filled = (fused and _PAIR_FFN_FILL_ASSEMBLY and nblk * rows == L
+        # G needs each block's output to be the final content of its rows: fc2's output when
+        # there is no residual, the folded add's under F. Either way that output sits in L1.
+        filled = ((fused or not residual) and _PAIR_FFN_FILL_ASSEMBLY and nblk * rows == L
                   and key not in _FILL_ASSEMBLY_REFUSED)
         while True:
             parts = None if lazy else ttnn.chunk(x, nblk, dim=1)
@@ -945,7 +950,7 @@ class SwiGLUFFN(Module):
                         [1, min((i + 1) * rows, L), x.shape[2], x.shape[3]],
                         memory_config=ttnn.L1_MEMORY_CONFIG) if lazy else parts[i])
                     out = self._ffn(part, split=True, l1_gated=True,
-                                    out_mc=ttnn.L1_MEMORY_CONFIG if fused else None)
+                                    out_mc=ttnn.L1_MEMORY_CONFIG if fused or filled else None)
                     if fused:
                         out, ffn_out = ttnn.add(
                             part, out,
@@ -987,7 +992,7 @@ class SwiGLUFFN(Module):
         L1_SLICE_STATS[0 if lazy else 1] += 1
         if residual:
             FUSED_RESID_STATS[0 if fused else 1] += 1
-            FILL_ASSEMBLY_STATS[0 if filled else 1] += 1
+        FILL_ASSEMBLY_STATS[0 if filled else 1] += 1
         if filled:
             return dst
         out = ttnn.concat(outs, dim=1)
