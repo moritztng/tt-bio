@@ -24,6 +24,7 @@ from . import page_copy as _page_copy
 from . import pair_add as _pair_add
 from . import pair_swiglu_ws as _pair_ws
 from . import pair_transpose_add as _pair_tr_add
+from . import pair_ln_transpose as _pair_ln_tr
 from .envflags import env_flag, env_int
 from .device_lease import device_init_lock
 from .eltwise_fusion import scale_add
@@ -10805,6 +10806,19 @@ class TriangleAttention(Module):
             if self.ending and not self.transpose_bias:
                 triangle_bias = ttnn.permute(triangle_bias, (0, 1, 3, 2))
             dram_peak(f"tri_att({'end' if self.ending else 'start'}) bias built [z={'x'.join(str(d) for d in x.shape)}]")
+        elif (self.ending and lever("triatt_tr") and not ops.taping()
+              and _pair_ln_tr.eligible(x, self.layer_norm_weight, self.layer_norm_bias)):
+            # LN(z)^T in one program (2P), where the transpose then the norm below move 4P
+            x = _pair_ln_tr.ln_transpose(x, self.layer_norm_weight, self.layer_norm_bias, 1e-5)
+            pre_qkv, pre_g, triangle_bias = self._fused_qkvgb(x)
+            if triangle_bias is None:
+                triangle_bias = _pair_proj_linear(
+                    x, self.bias_weight, self.compute_kernel_config, ttnn.bfloat16
+                )
+            triangle_bias = ttnn.unsqueeze(triangle_bias, 0)
+            triangle_bias = ttnn.permute(triangle_bias, (0, 3, 1, 2))
+            if not self.transpose_bias:
+                triangle_bias = ttnn.permute(triangle_bias, (0, 1, 3, 2))
         else:
             if self.ending:
                 # The DESTINATION stays DRAM here: this transpose's consumer is the layer_norm

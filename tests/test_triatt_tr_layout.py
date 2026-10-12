@@ -80,3 +80,40 @@ def test_reader_tr_writer_tr_put_the_update_into_z(S, H, N):
                 got[i, jt * T:(jt + 1) * T, n * T:(n + 1) * T] = from_faces(zp[(i * St + jt) * Nt + n])
     upd = np.einsum("ahbd,hdn->abn", o * (1 / (1 + np.exp(-g))), w.reshape(H, T, N))
     np.testing.assert_allclose(got, z + upd.transpose(1, 0, 2), rtol=1e-12, atol=1e-12)
+
+
+@pytest.mark.parametrize("S1,S2,C", [(64, 96, 128), (128, 64, 64)])
+def test_pair_ln_transpose_writer_puts_row_tiles_transposed(S1, S2, C):
+    """kernels/pair_ln_transpose: unit (It, Jt) reads row tiles (i, Jt) in i order, the normed tile (r, ct)
+    goes to output tile (Jt*32 + q, It, ct) row r from its row q; every output page written once."""
+    rng = np.random.default_rng(S1 + S2)
+    x = rng.standard_normal((S1, S2, C))
+    Kt, S1t, S2t = C // T, S1 // T, S2 // T
+    xp = pair_pages(x)
+    outp = [None] * (S2 * S1t * Kt)
+    for u in range(S1t * S2t):
+        It, Jt = u // S2t, u % S2t
+        normed = []
+        for r in range(32):
+            p0 = ((It * 32 + r) * S2t + Jt) * Kt
+            row = np.concatenate([from_faces(xp[p0 + k]) for k in range(Kt)], 1)   # 32 j x C
+            n = (row - row.mean(1, keepdims=True)) / np.sqrt(row.var(1, keepdims=True) + 1e-5)
+            normed += [to_faces(n[:, k * T:(k + 1) * T]) for k in range(Kt)]        # slot r * Kt + k
+        for ct in range(Kt):
+            scratch = [np.zeros(1024) for _ in range(32)]
+            for r in range(32):
+                for q in range(32):
+                    s, d = face_row(q), face_row(r)
+                    for half in (0, 256):
+                        scratch[q][d + half:d + half + ROW] = normed[r * Kt + ct][s + half:s + half + ROW]
+            for q in range(32):
+                page = ((Jt * 32 + q) * S1t + It) * Kt + ct
+                assert outp[page] is None
+                outp[page] = scratch[q]
+    got = np.empty((S2, S1, C))
+    for j in range(S2):
+        for it in range(S1t):
+            for ct in range(Kt):
+                got[j, it * T:(it + 1) * T, ct * T:(ct + 1) * T] = from_faces(outp[(j * S1t + it) * Kt + ct])
+    ref = (x - x.mean(2, keepdims=True)) / np.sqrt(x.var(2, keepdims=True) + 1e-5)
+    np.testing.assert_allclose(got, ref.transpose(1, 0, 2), rtol=1e-10, atol=1e-10)
