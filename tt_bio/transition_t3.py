@@ -8,7 +8,7 @@ written once, to the same pages (in place into x with `add_to_input`). Kernels: 
 
 Numerics differ from the incumbent by rounding only: LayerNorm is the trimul kernels' fp32 two-pass prologue,
 fc2 enters the gate multiply from fp32 DST instead of a bf16 tensor, fc3 accumulates all hidden tiles in one
-fp32 pass and the residual add happens in fp32 before the one bf16 pack. Lever `transition_t3`, ungraded.
+fp32 pass and fc3's bf16 output is added to x as the incumbent's add_ does. Lever `transition_t3`, ungraded.
 """
 
 from __future__ import annotations
@@ -42,7 +42,8 @@ def cb_plan(kt, ht, res):
           (8, kt), (9, kt),      # gamma, beta
           (10, 1)]               # 1/K reduce scaler
     if res:
-        bf.append((5, 2 * kt))   # x for the residual add
+        bf += [(5, 2 * kt),      # x for the residual add
+               (15, kt)]         # fc3 output before it
     f32 = [(11, 1), (12, 1), (13, 1), (14, 1), (16, kt), (17, kt)]   # eps, mean, var, rstd, xc, tmp
     return bf, f32
 
