@@ -826,7 +826,7 @@ def gin_ragged(x, wpT, wgT, bias, ckc, grid, S, mask=None, memory_config=None):
 # The model path takes it under the `trimul_t2` lever; T2 here only forces it on for the benches.
 T2 = False
 T2_STATS = [0, 0]       # served, declined
-T2_KEYS = {(4, 4)}      # (kt, nt): c_z = 128 only, the shape the kernel was written for
+T2_KEYS = {(4, 4), (8, 8)}   # (kt, nt): c_z 128 and 256 (ESMFold2)
 
 
 def set_t2(on: bool) -> bool:
@@ -930,7 +930,7 @@ def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, wg=None):
         cp[cx][cy] = [n]
         b0 += n
     assert b0 == nb, (b0, nb)
-    # 1/K as a packed bf16 pair (exact: K = 128) and eps as fp32 bits, as lnbw generates them.
+    # 1/K as a packed bf16 pair (exact: K is a power of two) and eps as fp32 bits, as lnbw generates them.
     inv = struct.unpack("<I", struct.pack("<f", 1.0 / K))[0] >> 16
     scaler = (inv << 16) | inv
     eps_bits = struct.unpack("<I", struct.pack("<f", float(eps)))[0]

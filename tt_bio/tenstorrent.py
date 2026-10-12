@@ -10250,22 +10250,27 @@ class TriangleMultiplication(Module):
         # result is still alive, so a refusal there can still take the row-blocked tail from the
         # same two inputs. Once it succeeds the result is freed, exactly where rebinding `x` used
         # to free it, so every size that fits keeps its peak and its ops.
+        t2_gate = g_out_fused is None and x_norm_in is not None and self.g_out_bias is None
         if ((_trimul_tail.T2 or lever("trimul_t2")) and H >= _trimul_tail.MIN_N
-                and g_out_fused is not None and add_to_input and not ops.taping()
-                and self.p_out_bias is None):
+                and (g_out_fused is not None or t2_gate) and add_to_input and not ops.taping()
+                and self.p_out_bias is None and not x_normed):
             # T2 (the `trimul_t2` lever): layer_norm,
             # the p projection, the gate and the residual add as one kernel writing x_in in
-            # place; `_add_input` then sees `u is x`. None (out of scope) leaves everything
-            # untouched and the ops below run unchanged.
+            # place; `_add_input` then sees `u is x`. Without a fused g_out (trimul_gin, or no
+            # fused in-projection) it takes the GATE form and computes sigmoid(x_norm_in @ Wg)
+            # itself. None (out of scope) leaves everything untouched and the ops below run unchanged.
             fused = _trimul_tail.fused_tail_ln(
-                x, self.out_norm_weight, self.out_norm_bias, self.out_p_weight, g_out_fused,
-                x_in, _mm_generic.ckc_args(self.compute_kernel_config), tuple(COMPUTE_GRID_MAIN))
+                x, self.out_norm_weight, self.out_norm_bias, self.out_p_weight,
+                x_norm_in if t2_gate else g_out_fused, x_in,
+                _mm_generic.ckc_args(self.compute_kernel_config), tuple(COMPUTE_GRID_MAIN),
+                wg=self.g_out_weight if t2_gate else None)
             if fused is not None:
-                TRIMUL_GOUT_STATS[0] += 1
                 ttnn.deallocate(x)
                 if x_norm_in is not None:      # None under T1
                     ttnn.deallocate(x_norm_in)
-                ttnn.deallocate(g_out_fused)
+                if g_out_fused is not None:
+                    TRIMUL_GOUT_STATS[0] += 1
+                    ttnn.deallocate(g_out_fused)
                 return fused
         try:
             xn = x if x_normed else ttnn.layer_norm(
