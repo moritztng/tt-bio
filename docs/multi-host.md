@@ -32,7 +32,8 @@ tt-bio controller --port 8765 --no-local-workers
 tt-bio worker --connect http://127.0.0.1:8765 --device_ids 0     # one per chip, or omit for all
 ```
 
-The controller binds 127.0.0.1 and nothing else. It has no authentication, so reach it
+The controller keeps its job queue in SQLite in a temporary directory that is discarded on exit; `--state-dir`
+keeps it in a directory you choose. The controller binds 127.0.0.1 and nothing else. It has no authentication, so reach it
 from a process on the same host or through ssh.
 
 ## Submitting work

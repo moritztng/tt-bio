@@ -129,7 +129,10 @@ class OF3ConfidenceHead:
                              tri_att_scale_pair_bias=False,
                              fp32_softmax=True,
                              accurate_softmax=accurate_softmax_site("openfold3.confidence"),
-                             tri_att_sdpa_hifi=triatt_sdpa_hifi_site("openfold3.confidence"),
+                             # Default ON: the fused route moves no coordinate (this head runs
+                             # after sampling) and at 730 tokens on Wormhole it takes 14 s off
+                             # a 184 s fold (spd-of3 ab11c, 5 samples x 4 blocks).
+                             tri_att_sdpa_hifi=triatt_sdpa_hifi_site("openfold3.confidence", True),
                              s_fp32_residual=True)
         self.n_blocks = n_blocks
 
@@ -155,12 +158,29 @@ class OF3ConfidenceHead:
     def _bw(self, i, name):
         return self._w[(_BLK % i) + name].to(self._dtype)
 
-    def _host_s_block(self, s, z_host, i, s_mask=None):
+    def _pair_bias_device(self, z_d, i, N):
+        """Block ``i``'s attention-pair bias, LN_z + linear_z in fp32 on device -> host [H, N, N]."""
+        pfx = (_BLK % i) + "attn_pair_bias."
+        f32 = ttnn.float32
+        z32 = ttnn.typecast(z_d, f32)
+        zn = ttnn.layer_norm(z32, weight=self._wd(pfx + "layer_norm_z.weight", False, f32),
+                             bias=self._wd(pfx + "layer_norm_z.bias", False, f32), epsilon=1e-5,
+                             compute_kernel_config=self.compute_kernel_config)
+        ttnn.deallocate(z32)
+        b = ttnn.linear(zn, self._wd(pfx + "linear_z.weight", True, f32),
+                        compute_kernel_config=self.compute_kernel_config)
+        ttnn.deallocate(zn)
+        out = torch.Tensor(ttnn.to_torch(b)).float().reshape(N, N, _APB_HEADS).permute(2, 0, 1)
+        ttnn.deallocate(b)
+        return out
+
+    def _host_s_block(self, s, z_host, i, s_mask=None, bias=None):
         """One host-fp32 s-path block: AttentionPairBias + Transition (reference formula).
 
         ``s`` is [N, c_s] fp32; ``z_host`` is the device-computed [N, N, c_z] pair for this
         block (brought host-side for the pair-bias LN+linear, which must match the
-        reference's no-sqrt-scaling formula). Returns the updated ``s``.
+        reference's no-sqrt-scaling formula), unless ``bias`` [H, N, N] is passed already
+        computed (:meth:`_pair_bias_device`). Returns the updated ``s``.
 
         ``s_mask`` is the reference's ``single_mask`` as a [N] float, or None. Upstream's
         AttentionPairBias adds ``inf * (mask - 1)`` to the scores over the key axis and its
@@ -169,9 +189,10 @@ class OF3ConfidenceHead:
         pfx = "attn_pair_bias."
         a = F.layer_norm(s, (_C_S,), self._bw(i, pfx + "layer_norm_a.weight"),
                          self._bw(i, pfx + "layer_norm_a.bias"))
-        zn = F.layer_norm(z_host, (_C_Z,), self._bw(i, pfx + "layer_norm_z.weight"),
-                          self._bw(i, pfx + "layer_norm_z.bias"))
-        bias = F.linear(zn, self._bw(i, pfx + "linear_z.weight")).permute(2, 0, 1)  # [H, N, N]
+        if bias is None:
+            zn = F.layer_norm(z_host, (_C_Z,), self._bw(i, pfx + "layer_norm_z.weight"),
+                              self._bw(i, pfx + "layer_norm_z.bias"))
+            bias = F.linear(zn, self._bw(i, pfx + "linear_z.weight")).permute(2, 0, 1)  # [H, N, N]
         q = F.linear(a, self._bw(i, pfx + "mha.linear_q.weight"),
                      self._bw(i, pfx + "mha.linear_q.bias"))
         k = F.linear(a, self._bw(i, pfx + "mha.linear_k.weight"))
@@ -277,6 +298,22 @@ class OF3ConfidenceHead:
                                bias=self._wd(prefix + ".layer_norm.bias", False, dt),
                                epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
 
+    def _distance_bins(self, repr_x_pred, onehot=False):
+        """AF3 Algorithm 31 line 3's distance bin of every token pair, in ``self._dtype``.
+
+        ``onehot`` gives the reference's [N, N, no_bin] one-hot, ``(d2 > lower) & (d2 < upper)``.
+        Otherwise the bin index [N, N], with ``no_bin`` for a pair in no bin (on or below the first
+        edge, or exactly on an edge, where both strict comparisons fail): the bins tile the line,
+        so a one-hot row times a weight is the weight row this index picks."""
+        x = repr_x_pred.to(self._dtype)
+        d2 = torch.sum((x[..., None, :] - x[..., None, :, :]) ** 2, dim=-1)        # [N, N]
+        lo, up = self._squared_bins.to(d2.dtype), self._upper.to(d2.dtype)
+        if onehot:
+            return ((d2[..., None] > lo) & (d2[..., None] < up)).to(self._dtype)
+        k = torch.searchsorted(lo, d2.contiguous(), right=False) - 1              # lo[k] < d2 <= lo[k+1]
+        ok = (k >= 0) & (d2 < up[k.clamp(min=0)])
+        return torch.where(ok, k, torch.full_like(k, _NO_BIN))
+
     def distance_onehot(self, repr_x_pred):
         """The AF3 Algorithm 31 line-3 distance one-hot, host -> device.
 
@@ -285,11 +322,57 @@ class OF3ConfidenceHead:
         structure that upstream detaches, so no gradient flows to ``repr_x_pred``. The
         one-hot is exact in bf16 (it is 0 and 1), so the upload costs no accuracy.
         """
-        dij = torch.sum((repr_x_pred[..., None, :] - repr_x_pred[..., None, :, :]) ** 2,
-                        dim=-1, keepdim=True)
-        oh = ((dij > self._squared_bins) & (dij < self._upper)).float()
+        oh = self._distance_bins(repr_x_pred.float(), onehot=True).float()
         return ttnn.from_torch(oh.unsqueeze(0), layout=ttnn.TILE_LAYOUT, device=self.dev,
                                dtype=ttnn.bfloat16)
+
+    def _z_embed_device(self, shared, si_input, repr_x_pred, use_zij_trunk_embedding=True):
+        """AF3 Algorithm 31 lines 1-3 on device for one sample, bf16 [1, N, N, c_z].
+
+        The host path's sums in the host path's order, in fp32, rounded to bf16 once as its
+        upload did: the trunk pair is the fold's own device tensor (``shared["zij_trunk_d"]``, the
+        bf16 the host copy came from), the two ``si_input`` projections are computed on the host in
+        fp32 and go up once per fold, and the distance term is the linear_distance weight row of
+        each pair's bin, looked up on device. Per sample only the bin indices cross, 4 B a pair
+        where the host path uploaded the whole 128-channel pair. ``ttnn.embedding`` only takes a
+        bf16 table, so the fp32 table goes up as a bf16 head and the bf16 of its remainder, looked
+        up separately and summed in fp32: 16 mantissa bits, well under the final bf16 rounding."""
+        f32 = ttnn.float32
+        N = int(si_input.shape[0])
+        if "z_ij_d" not in shared:
+            up = lambda x, **kw: ttnn.from_torch(x.contiguous(), dtype=f32, device=self.dev, **kw)
+            pe = "pairformer_embedding."
+            li = F.linear(si_input, self._g(pe + "linear_i.weight"))
+            lj = F.linear(si_input, self._g(pe + "linear_j.weight"))
+            table = torch.cat([self._g(pe + "linear_distance.weight").t().float(),
+                               torch.zeros(1, _C_Z)])                             # row no_bin = no bin
+            hi = table.to(torch.bfloat16)
+            lo = (table - hi.float()).to(torch.bfloat16)
+            bf = lambda x: ttnn.from_torch(x.contiguous(), dtype=ttnn.bfloat16, device=self.dev,
+                                           layout=ttnn.ROW_MAJOR_LAYOUT)
+            shared["z_ij_d"] = (up(li.reshape(1, N, 1, _C_Z), layout=ttnn.TILE_LAYOUT),
+                                up(lj.reshape(1, 1, N, _C_Z), layout=ttnn.TILE_LAYOUT),
+                                (bf(hi), bf(lo)))
+        li_d, lj_d, tables_d = shared["z_ij_d"]
+        z = ttnn.typecast(shared["zij_trunk_d"], f32)
+        if not use_zij_trunk_embedding:
+            z = ttnn.multiply_(z, 0.0)
+        z = ttnn.add_(ttnn.add_(z, li_d), lj_d)
+        k = self._distance_bins(repr_x_pred).reshape(1, N * N).to(torch.int32)
+        k_d = ttnn.from_torch(k, dtype=ttnn.uint32, layout=ttnn.ROW_MAJOR_LAYOUT, device=self.dev)
+        for table_d in tables_d:
+            e = ttnn.embedding(k_d, table_d, layout=ttnn.ROW_MAJOR_LAYOUT,
+                               memory_config=ttnn.DRAM_MEMORY_CONFIG)             # [1, N*N, c_z]
+            et = ttnn.to_layout(ttnn.reshape(e, (1, N, N, _C_Z)), ttnn.TILE_LAYOUT)
+            ttnn.deallocate(e)
+            e32 = ttnn.typecast(et, f32)
+            ttnn.deallocate(et)
+            z = ttnn.add_(z, e32)
+            ttnn.deallocate(e32)
+        ttnn.deallocate(k_d)
+        zb = ttnn.typecast(z, ttnn.bfloat16)
+        ttnn.deallocate(z)
+        return zb
 
     def forward_device(self, si_input_d, si_trunk_d, zij_trunk_d, oh_d,
                        use_zij_trunk_embedding=True, pair_mask_d=None, attn_mask_d=None):
@@ -355,7 +438,8 @@ class OF3ConfidenceHead:
 
     def forward(self, si_input, si_trunk, zij_trunk, repr_x_pred,
                 max_atom_per_token_mask, use_zij_trunk_embedding=True,
-                s_path=None, dtype=None, token_mask=None, single_mask=None):
+                s_path=None, dtype=None, token_mask=None, single_mask=None, shared=None,
+                return_pair=False):
         """Confidence forward -> dict of head logits (host fp32) + the confidence
         Pairformer (si_conf, zij_conf).
 
@@ -371,6 +455,9 @@ class OF3ConfidenceHead:
                 with None this runs unmasked, which is only equal to the reference when every
                 token is real. Pass it whenever the token axis carries padding.
             single_mask: [N_tok], the reference's ``repr_x_mask``. Defaults to ``token_mask``.
+            shared: a dict the caller keeps across the samples of one fold (same trunk
+                inputs); the sample-independent z-embedding and distogram are computed into
+                it once. None computes them for this call alone.
 
         Returns:
             plddt_logits:                [N_atom, 50]
@@ -379,7 +466,8 @@ class OF3ConfidenceHead:
             pde_logits:      [N_tok, N_tok, 64]
             distogram_logits: [N_tok, N_tok, 64]
             si_conf:         [N_tok, 384]   (confidence Pairformer single, host-fp32)
-            zij_conf:        [N_tok, N_tok, 128] (device z-path output)
+            zij_conf:        [N_tok, N_tok, 128] (device z-path output); in fp32 inference
+                             None unless ``return_pair`` (it is not otherwise pulled)
         """
         N = si_trunk.shape[0]
         self._dtype = dtype or torch.float32
@@ -400,22 +488,31 @@ class OF3ConfidenceHead:
             return host
 
         # --- z-embedding (host, AF3 Algorithm 31 lines 1-3) ---
+        # The trunk terms are the same for every sample of a fold: `shared` carries them from the
+        # first sample's call to the next (same ops on the same inputs, so the same bits).
         si_input, si_trunk = si_input.to(self._dtype), si_trunk.to(self._dtype)
         zij_trunk, repr_x_pred = zij_trunk.to(self._dtype), repr_x_pred.to(self._dtype)
-        z = zij_trunk if use_zij_trunk_embedding else zij_trunk * 0.0
-        z = (z
-             + F.linear(si_input, self._g("pairformer_embedding.linear_i.weight")).unsqueeze(-2)
-             + F.linear(si_input, self._g("pairformer_embedding.linear_j.weight")).unsqueeze(-3))
-        dij = torch.sum((repr_x_pred[..., None, :] - repr_x_pred[..., None, :, :]) ** 2, dim=-1,
-                        keepdim=True)  # [N, N, 1]
-        oh = ((dij > self._squared_bins.to(dij.dtype)) &
-              (dij < self._upper.to(dij.dtype))).to(z.dtype)  # [N, N, no_bin]
-        z = z + F.linear(oh, self._g("pairformer_embedding.linear_distance.weight"))
-
-        # --- confidence Pairformer: device z-path + host-fp32 s-path ---
+        if shared is None:
+            shared = {}
+        # In fp32 inference the pair never comes back to the host: each block's attention bias
+        # (LN_z + linear_z, 16 channels) and the pae / pde heads run on device in fp32, and only
+        # their outputs cross. The float64 reference keeps the whole pair on the host.
+        device_pair = self._dtype == torch.float32
         to_dev = lambda x: ttnn.from_torch(x.float(), layout=ttnn.TILE_LAYOUT, device=self.dev,
                                            dtype=ttnn.bfloat16)
-        z_d = to_dev(z.unsqueeze(0))
+        if device_pair and shared.get("zij_trunk_d") is not None:
+            z_d, z = self._z_embed_device(shared, si_input, repr_x_pred, use_zij_trunk_embedding), None
+        else:
+            if "z_trunk" not in shared:
+                z = zij_trunk if use_zij_trunk_embedding else zij_trunk * 0.0
+                shared["z_trunk"] = (
+                    z
+                    + F.linear(si_input, self._g("pairformer_embedding.linear_i.weight")).unsqueeze(-2)
+                    + F.linear(si_input, self._g("pairformer_embedding.linear_j.weight")).unsqueeze(-3))
+            z = shared["z_trunk"] + F.linear(self._distance_bins(repr_x_pred, onehot=True),
+                                             self._g("pairformer_embedding.linear_distance.weight"))
+            z_d = to_dev(z.unsqueeze(0))
+
         # The reference masks the confidence Pairformer; running it unmasked lets padded tokens
         # into every k-axis reduction and every softmax key axis. pair_mask goes to the two
         # triangle multiplications and to the pair transition's output, the additive -1e9
@@ -440,24 +537,38 @@ class OF3ConfidenceHead:
             if pm_d is not None:
                 u = ttnn.multiply_(u, pm_u)
             z_d = ttnn.add_(z_d, u); ttnn.deallocate(u)
-            z_host = torch.Tensor(ttnn.to_torch(z_d)).float().reshape(N, N, _C_Z)
-            s = self._host_s_block(s, z_host, i, s_mask)
-            zf = z_host
-        s_single, zij_conf = s, zf
+            if device_pair:
+                s = self._host_s_block(s, None, i, s_mask, bias=self._pair_bias_device(z_d, i, N))
+            else:
+                zf = torch.Tensor(ttnn.to_torch(z_d)).float().reshape(N, N, _C_Z)
+                s = self._host_s_block(s, zf, i, s_mask)
+        s_single = s
 
         # --- output heads (host fp32) ---
         # Distogram reads the TRUNK pair (reference: computed before the confidence
         # Pairformer), symmetrised as L(z) + L(z).T (no LayerNorm).
-        dlog = F.linear(zij_trunk, self._g("distogram.linear.weight"))
-        distogram_logits = dlog + dlog.transpose(-2, -3)
+        if "distogram" not in shared:
+            dlog = F.linear(zij_trunk, self._g("distogram.linear.weight"))
+            shared["distogram"] = dlog + dlog.transpose(-2, -3)
+        distogram_logits = shared["distogram"]
 
-        pae_logits = F.linear(
-            F.layer_norm(zij_conf, (_C_Z,)) * self._g("pae.layer_norm.weight") + self._bias("pae.layer_norm.bias"),
-            self._g("pae.linear.weight"))
-
-        plog = F.linear(
-            F.layer_norm(zij_conf, (_C_Z,)) * self._g("pde.layer_norm.weight") + self._bias("pde.layer_norm.bias"),
-            self._g("pde.linear.weight"))
+        if device_pair:
+            z32 = ttnn.typecast(z_d, ttnn.float32)
+            pae_logits, plog = (
+                torch.Tensor(ttnn.to_torch(self._lin(self._ln(z32, h, fp32=True), h + ".linear.weight")))
+                .float().reshape(N, N, -1) for h in ("pae", "pde"))
+            ttnn.deallocate(z32)
+            zij_conf = (torch.Tensor(ttnn.to_torch(z_d)).float().reshape(N, N, _C_Z)
+                        if return_pair else None)
+            ttnn.deallocate(z_d)
+        else:
+            zij_conf = zf
+            pae_logits = F.linear(
+                F.layer_norm(zij_conf, (_C_Z,)) * self._g("pae.layer_norm.weight") + self._bias("pae.layer_norm.bias"),
+                self._g("pae.linear.weight"))
+            plog = F.linear(
+                F.layer_norm(zij_conf, (_C_Z,)) * self._g("pde.layer_norm.weight") + self._bias("pde.layer_norm.bias"),
+                self._g("pde.linear.weight"))
         pde_logits = plog + plog.transpose(-2, -3)
 
         plddt_logits = self._atom_head(s_single, "plddt", max_atom_per_token_mask, 50)

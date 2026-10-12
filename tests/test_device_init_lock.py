@@ -141,6 +141,49 @@ def test_two_processes_serialize_when_shared_path_unwritable():
         assert a1 - a0 >= hold and b1 - b0 >= hold
 
 
+# A child that runs the real _open_device_locked() with ttnn.open_device swapped for a call
+# that holds the GIL the way the C open does when it spins on a dirty chip.
+OPENER = r"""
+import os, re, sys
+sys.path.insert(0, os.environ["REPO"])
+from tt_bio import device_lease as dl, tenstorrent as tt
+dl.DEVICE_INIT_LOCK_PATH = os.environ["LOCK"]
+tt._OPEN_WEDGE_TIMEOUT_S = 1.0
+class Dev:
+    def enable_program_cache(self): pass
+def wedged(**kw):
+    re.match(r"(a+)+$", "a" * 40 + "b")  # minutes of C, GIL held throughout
+    return Dev()
+def healthy(**kw):
+    return Dev()
+tt.ttnn.open_device = wedged if os.environ["MODE"] == "wedged" else healthy
+tt._configure_active_compute_grid = lambda dev: None
+tt._open_device_locked(0, {})
+import time; time.sleep(1.5)  # outlive the watchdog: a healthy open must have cancelled it
+print("opened")
+"""
+
+
+def _run_opener(mode):
+    with tempfile.TemporaryDirectory() as d:
+        env = dict(os.environ, REPO=REPO, LOCK=os.path.join(d, "open.lock"), MODE=mode)
+        t = time.time()
+        p = subprocess.run([sys.executable, "-c", OPENER], env=env, capture_output=True,
+                           text=True, timeout=120)
+        return p, time.time() - t
+
+
+def test_wedged_open_exits_and_releases_the_lock():
+    p, dt = _run_opener("wedged")
+    assert p.returncode == 1 and "opened" not in p.stdout, (p.returncode, p.stdout, p.stderr)
+    assert "Timeout" in p.stderr and dt < 60, (dt, p.stderr)
+
+
+def test_healthy_open_cancels_the_watchdog():
+    p, _ = _run_opener("healthy")
+    assert p.returncode == 0 and "opened" in p.stdout, (p.returncode, p.stdout, p.stderr)
+
+
 if __name__ == "__main__":
     for name, fn in sorted(globals().items()):
         if name.startswith("test_") and callable(fn):

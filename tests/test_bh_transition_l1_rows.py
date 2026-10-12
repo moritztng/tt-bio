@@ -32,7 +32,7 @@ def _height(W, c=C, hid=HID, grid=P300C, budget=None, b8=False):
     base = max(1, int(b * min(1.0, (1024 * 128) / (W * c))))
     if c > (T._BH_TRANSITION_L1_ROWS_MAX_C_B8 if b8 else T._BH_TRANSITION_L1_ROWS_MAX_C):
         return base
-    hb = 1088 / 1024 if b8 else 2
+    hb = 1088 / 1024 if b8 and c > T._BH_TRANSITION_L1_ROWS_MAX_C else 2
     l1_rows = budget * gx * gy / (tile(W) * (2 * tile(c) + 2 * hb * tile(hid)))
     elems = T._BH_TRANSITION_CHUNK_ELEMS * 18 / (W * c * (2 + 8 * hb))
     return max(base, max(1, int(min(l1_rows, elems))))
@@ -133,10 +133,12 @@ def test_bfp8_hidden_is_priced_at_its_own_width(W, h_bf16, h_b8):
     assert _height(W, c=256, hid=1024, b8=True) == h_b8
 
 
-def test_bfp8_hidden_at_the_bf16_bound_is_the_byte_ratio():
-    # c=128: the same bytes per row hold (2 + 8 * 2) / (2 + 8 * 1.0625) = 1.714x the rows.
-    assert _height(736) == 33
-    assert _height(736, b8=True) == 57
+@pytest.mark.parametrize("W", [512, 704, 736, 768, 1024])
+def test_bfp8_hidden_keeps_the_bf16_height_at_c128(W):
+    """The byte ratio would give 1.7x the rows (59 at 704 tokens), which threw the static-CB clash
+    at fc2 on every seed of Boltz-2 fast on 9TH6 (p150a); the bf16 height there runs clean."""
+    assert _height(W, b8=True) == _height(W)
+    assert _height(W, c=MSA_C, hid=MSA_HID, b8=True) == _height(W, c=MSA_C, hid=MSA_HID)
 
 
 def test_bfp8_hidden_does_not_reach_opendde_channel():

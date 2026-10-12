@@ -1,5 +1,8 @@
 # Boltz-2 `--fast` accuracy parity (on-hardware)
 
+Historical: this is the block-fp8 fast path Boltz-2 used before October 2026. Boltz-2's `--fast` now runs
+the shared fast lever set instead; its grade is in [`tuning-flags.md`](tuning-flags.md#tt_bio_levers).
+
 `--fast` swaps `bfloat16 → bfloat8_b` (block-fp8) in the heavy matmuls (trunk +
 diffusion), via `tt_bio.tenstorrent.set_fast_mode`. This is the on-hardware
 verification that it is accuracy-lossless. Reproduce with

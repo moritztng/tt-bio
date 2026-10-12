@@ -44,10 +44,10 @@ the write), and one cast to bf16 at the end. `serving_plan` takes the whole quer
 otherwise the largest chunk that divides `Nt` and fits, which serves every bucket from 288 to 1024
 tokens. At a shape where the whole query fits, the program is the pre-loop one, bit for bit.
 
-WORMHOLE SERVES THE WHOLE-QUERY FORM ONLY. The chunked form has been graded against float64 on
-Blackhole and has not run on a Wormhole chip, so `serving_plan` declines a chunk there and the
-caller keeps the chunked-recompute fallback. Lifting that is deleting one line in `serving_plan`,
-after `perf/bcw_dbias/grade.py` has run on Wormhole at 288, 544 and 768.
+Wormhole serves the chunk too. Graded against float64 through teacher-forced Evoformer VJPs on a
+Wormhole chip at 288, 480, 512 and 576 tokens (`perf/spd/whchunk_grade.py`): at every size its
+distance from float64 is within 1.5 % of the chunked-recompute fallback's (Evoformer block 0 dz
+rel L2 0.0713 vs 0.0705 at 576).
 
 Driven through `tt_bio.sdpa_generic`'s machinery rather than the wheel's SDPA kernels: the forward
 inherits `reader_interleaved.cpp`'s chain-forwarding, multicast, paging and MLA arguments, all of
@@ -203,8 +203,6 @@ def serving_plan(B, H, N, d, grid, wormhole=None, **kw):
     p = plan(B, H, N, d, grid, **kw)
     if fits_l1(p, wormhole):
         return p
-    if wormhole:
-        return None   # the chunked form is ungraded on Wormhole (module docstring)
     return largest_fitting_q_chunk(B, H, N, d, grid, wormhole, **kw)
 
 

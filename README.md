@@ -83,6 +83,8 @@ Drop the `[tenstorrent]` extra on a host without a Tenstorrent card.
 ### Optional: Build TT-Metal / TT-NN from Source
 If you need to build from source, follow the [Tenstorrent Installation Guide](https://github.com/tenstorrent/tt-metal/blob/main/INSTALLING.md).
 
+On a Blackhole p150a, a ttnn built with `scripts/ttnn_bh_eth/build_wheel.sh` lets tt-bio compute on all 120 cores instead of 110 (about 4 % faster folds, same accuracy). tt-bio detects it and uses it automatically (not on p300c, where it is not yet run-to-run deterministic); see [`TT_BIO_BH_ETH_DISPATCH`](docs/tuning-flags.md#tt_bio_bh_eth_dispatch).
+
 ### Verify Installation
 ```bash
 tt-bio --version   # or -V; prints the installed version
@@ -296,11 +298,11 @@ OpenFold3's preview2 checkpoint runs on an upstream release that drops the paire
 (OpenBind pairs).
 ESMFold2 needs no MSA and uses one when a source is given.
 
-`--fast` makes some operations use a lower-precision numeric format that runs faster. Accuracy is typically very close; the Boltz-2 measurement is in [`docs/boltz2-fast-parity.md`](docs/boltz2-fast-parity.md).
+`--fast` makes some operations use a lower-precision numeric format that runs faster. Accuracy is typically very close. For Boltz-2 it runs a larger set of cheaper kernels on top of normal mode: the 730-token fold takes 123 s instead of 136 s on a Wormhole chip, with structures and docking success unchanged on 11 complexes; [`docs/tuning-flags.md`](docs/tuning-flags.md#tt_bio_levers) has the grade.
 
 For Protenix, `--diffusion_precision bf16` is the faster setting to reach for: about 9 % per fold on Wormhole. On most complexes the structures match fp32 closely, but where the binding mode is uncertain it can rank a different one first. See [`docs/protenix-diffusion-precision.md`](docs/protenix-diffusion-precision.md).
 
-Protenix-v2 folds a 730-token complex (deep MSA, 5 samples, 10 recycles) in about 252 s on one Wormhole chip, 2x faster than before, and in about 119 s on a Blackhole p150a, with structures inside seed-to-seed variation on both; [`docs/tuning-flags.md`](docs/tuning-flags.md#tt_bio_levers) has the grade and the switch back to the reference numerics. With `--fast` the same fold takes about 201 s on Wormhole and 100 s on Blackhole. That costs about 0.004 CA-lDDT against the default on Wormhole (11 complexes x 24 seeds) and 0.003 on Blackhole, where docking success is unchanged.
+Protenix-v2 folds a 730-token complex (deep MSA, 5 samples, 10 recycles) in about 233 s on one Wormhole chip, 2.2x faster than before, and in about 110 s on a Blackhole p150a, with structures inside seed-to-seed variation on both; [`docs/tuning-flags.md`](docs/tuning-flags.md#tt_bio_levers) has the grade and the switch back to the reference numerics. With `--fast` the same fold takes about 178 s on Wormhole and 90 s on Blackhole. That costs about 0.017 CA-lDDT against the default on Wormhole (11 complexes x 16 seeds) and 0.015 on Blackhole (x 4 seeds), inside the 0.03 bar, and docking success does not drop on either.
 
 ### Many Inputs and Cards
 
@@ -402,7 +404,7 @@ tt-bio design specs.json --model rfd3 --from_pdb --out_dir designs/
 
 **[BoltzGen](https://github.com/HannesStark/boltzgen)** designs binders against a target structure. The pipeline runs design → inverse folding → folding → analysis → filtering and writes the top-ranked binders to `<out_dir>/final_ranked_designs/`. Pass `--seed N` to make a design reproducible; without it every run draws fresh. Input grammar, protocols, pipeline subsets, and options: [`docs/boltzgen-design.md`](docs/boltzgen-design.md). Designability (scRMSD) QA: [`docs/boltzgen-designability.md`](docs/boltzgen-designability.md).
 
-**[RFdiffusion3](https://www.biorxiv.org/content/10.1101/2025.09.18.676967)** (RFD3) is an all-atom generative model that designs new protein structures and sequences from a specification, rather than folding an existing one. Design modes, the contig-string input grammar, and which conditioning fields a spec can and cannot ask for: [`docs/rfd3-design.md`](docs/rfd3-design.md).
+**[RFdiffusion3](https://www.biorxiv.org/content/10.1101/2025.09.18.676967)** (RFD3) is an all-atom generative model that designs new protein structures and sequences from a specification, rather than folding an existing one. Design modes, the contig-string input grammar, and which conditioning fields a spec can and cannot ask for: [`docs/rfd3-design.md`](docs/rfd3-design.md). `--fast` makes a design about 13 % faster with the same design quality ([how it was graded](docs/rfd3-design.md)).
 
 **[PXDesign](https://github.com/bytedance/PXDesign)** generates binder backbones against a target structure, conditioned on a distogram of the target rather than its coordinates. Input is a target YAML naming a structure file, the chains to condition on (with optional per-chain crop and hotspots) and a `binder_length`; each design is written as a CIF in the target structure's own frame, so it opens alongside your input file. A `designs.json` lands beside them with each design's numbers: fit RMSD against the target, binder residue and atom counts, and how many target tokens it was conditioned on. The binder is written as GLY because PXDesign generates a backbone with no sequence. Hotspot residues are `label_seq` numbers, not the author numbering a viewer shows, and a number that names no residue is refused rather than dropped. `--num_designs` is also the batch axis for this model: every requested design comes from one batched diffusion trajectory, and the gain per design grows with the batch and shrinks with the target: 2.7x at 8 designs against a 256-residue target, 1.5x against a 512-residue one, and flat from 16 up rather than turning back. A given `--seed` and `--num_designs` always reproduce the same designs, but `--num_designs 1` and `--num_designs 2` do not share their design 0: asking for more designs currently changes which ones you get, so pin both values when you want a run back. Selecting designs, which upstream does with a Protenix and an AF2-IG filter, is not on the CLI yet.
 
@@ -829,6 +831,8 @@ export MSA_API_KEY_VALUE=your-api-key
 tt-bio predict ... --model boltz2 --use_msa_server
 ```
 
+`--msa_server_username`, `--msa_server_password` and `--api_key_value` set the same values on the command line and take precedence over the environment.
+
 ## Command-Line Options
 
 Model-specific options are labelled below.
@@ -837,7 +841,7 @@ Model-specific options are labelled below.
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `--model` | `boltz2` | `boltz2`, `esmfold2`, `esmfold2-fast` (single-sequence ESMFold2; protein / DNA / RNA / ligand complexes), `protenix-v1` / `protenix-v2` (AlphaFold3-family folder; protein / RNA / DNA / ligand complexes; `protenix-v1` is upstream's v0.5.0 base checkpoint at 4 trunk recycles, `protenix-v2` the wider one at 10, on weights you supply), `openfold3` (AlphaFold3-family folder; protein / RNA / DNA polymers, optional templates), `openbind` (OpenBind-0; the OpenFold3 stack on upstream v0.5.0 weights, protein-ligand co-folding), `opendde` / `opendde-abag` (antibody-antigen co-folding on the Protenix-v2 stack plus a structural-token expander; `opendde-abag` selects the antibody-antigen checkpoint; protein-only for now), or `rf3` (RoseTTAFold3, AlphaFold3-family folder; protein / RNA / DNA / ligand complexes) |
+| `--model` | `boltz2` | `boltz2`, `esmfold2`, `esmfold2-fast` (single-sequence ESMFold2; protein / DNA / RNA / ligand complexes), `protenix-v1` / `protenix-v2` (AlphaFold3-family folder; protein / RNA / DNA / ligand complexes; `protenix-v1` is upstream's v0.5.0 base checkpoint at 4 trunk recycles, `protenix-v2` the wider one at 10, on weights you supply), `openfold3` (AlphaFold3-family folder; protein / RNA / DNA polymers, optional templates), `openbind` (OpenBind-0; the OpenFold3 stack on upstream v0.5.0 weights, protein-ligand co-folding), `opendde` / `opendde-abag` (antibody-antigen co-folding on the Protenix-v2 stack plus a structural-token expander; `opendde-abag` selects the antibody-antigen checkpoint; protein-only for now), `rf3` (RoseTTAFold3, AlphaFold3-family folder; protein / RNA / DNA / ligand complexes), or `af2ig` (AlphaFold2 initial guess: scores a designed binder complex from its own coordinates) |
 | `--out_dir` | `./` | Output directory |
 | `--cache` | `~/.boltz` | Weight cache directory. Whole-repo models (ESMFold2, ESMC, SaProt, OpenDDE) use the Hugging Face cache; `TT_BIO_CACHE` moves both, see [docs/weights.md](docs/weights.md) |
 | `--accelerator` | `tenstorrent` | **(Boltz-2)** `tenstorrent`, `cpu`, or `gpu`; other models run on Tenstorrent |
@@ -862,6 +866,8 @@ Model-specific options are labelled below.
 | `--msa_endpoint` | none | Fetch unpaired MSAs from a `tt-bio msa-server`. A complex is not paired through it unless its paired MSA is already in `--msa_dir` |
 | `--write_pae` | `False` | **(Protenix-v1/Protenix-v2/OpenDDE)** Write the token-token PAE/PDE matrices to `<name>_pae.npz` |
 | `--use_potentials` | `False` | **(Boltz-2)** Apply physical constraints |
+| `--step_scale` | `1.5` | **(Boltz-2)** Diffusion step scale. Lower values give more diverse samples |
+| `--method` | none | **(Boltz-2)** Condition on an experimental method, e.g. `"X-RAY DIFFRACTION"`, `"ELECTRON MICROSCOPY"`, `"SOLUTION NMR"` or `MD`; an unknown name is refused |
 | `--affinity_mw_correction` | `False` | **(Boltz-2)** Apply MW correction to affinity |
 | `--num_devices` | `0` | Number of TT devices (0=all available) |
 | `--device_ids`, `--devices` | all | Comma-separated TT device IDs (e.g. `0,2`); `--devices` is the shorter alias (matches `tt-bio embed`) |
@@ -878,6 +884,7 @@ Model-specific options are labelled below.
 |--------|---------|-------------|
 | `--sampling_steps_affinity` | `200` | Sampling steps for affinity |
 | `--diffusion_samples_affinity` | `5` | Number of affinity samples |
+| `--affinity_checkpoint` | `<cache>/boltz2_aff.ckpt` | Affinity checkpoint to load instead of the downloaded one |
 
 **MSA Options** (Boltz-2, Protenix-v1, Protenix-v2, OpenFold3, OpenBind-0, OpenDDE and RF3 use an MSA by default; ESMFold2 only when requested):
 
@@ -891,9 +898,19 @@ Model-specific options are labelled below.
 | `--single_sequence` | `False` | Fold without an MSA (Boltz-2/Protenix-v1/Protenix-v2/OpenFold3/OpenDDE) |
 | `--msa_server_url` | `https://api.colabfold.com` | MSA server URL |
 | `--msa_pairing_strategy` | `greedy` | `greedy` or `complete` |
+| `--msa_server_username`, `--msa_server_password` | none | Basic authentication for `--msa_server_url`; see [MSA Server Authentication](#msa-server-authentication) |
+| `--api_key_value` | none | API key for `--msa_server_url`, sent as `X-API-Key` |
 | `--max_msa_seqs` | `8192` | Maximum MSA depth. The default applies to Boltz-2 only. Unless you set it, the other models read what their upstream reads: ESMFold-2, Protenix, OpenDDE, OpenFold3 and OpenBind up to 16384 rows, RF3 1024 rows drawn per recycle. Each fold reports the depth it used as `msa_depth` |
 | `--subsample_msa` | `False` | Subsample MSA |
 | `--num_subsampled_msa` | `1024` | Number of subsampled sequences |
+
+**Kernel Warm-Up** (`tt-bio warmup`, Boltz-2: compiles every ttnn kernel up to a size so the first fold does not pay for it):
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--max_seq` | `1024` | Largest sequence length to warm up |
+| `--max_msa` | `16384` | Largest MSA depth to warm up |
+| `--n_samples` | `1` | Diffusion batch to warm up, as `--diffusion_samples` |
 
 **MSA Database Setup Options:**
 
@@ -913,27 +930,32 @@ moves a structure, next to the seed-to-seed spread.
 | Flag | Default | What it does |
 |------|---------|--------------|
 | `BOLTZ2_TOKEN_DIT_SDPA` | on | Boltz-2 only: token-level DiT attention as one fused SDPA. Not bit-exact: the kernel holds its exponentiated scores in bf16. |
+| `OF3_DIFFUSION_TRACE` | on | OpenFold3 and OpenBind-0 replay each diffusion step from a device trace instead of dispatching it op by op. Identical output; if the trace cannot be captured the fold takes the step-by-step path. |
 | `TT_BIO_ATOM_AXIS_BUCKET` | on | Sizes the atom axis on the real atom count instead of assuming every token is a tryptophan. Byte-identical at 298 residues; at 512 it reassociates one matmul's contraction. |
 | `TT_BIO_ATOM_SHIFT_GATHER` | on | Builds each atom's attention key window by slicing instead of a matrix multiply. Bit for bit. |
 | `TT_BIO_BH_DRAM_READ_SPLIT` | on, Blackhole only | Splits a kernel's DRAM reads larger than 2 KiB, the tt-metal#59622 workaround for a Blackhole NoC hang. Same bytes. |
+| `TT_BIO_BH_ETH_DISPATCH` | on for p150a when the installed ttnn supports it | Runs the command queue on Ethernet cores so tt-bio computes on all 120 Tensix cores of a Blackhole chip. Stock ttnn does not support it. Graded unchanged on p150a; off on p300c, where it is not run-to-run deterministic. |
 | `TT_BIO_DEVICE_CONDITIONING` | on | Boltz-2 only: runs the diffusion conditioning's pair track on the card. Not bit-exact (device bf16 where the host path was fp32); scored against 1HCL it is flat to slightly closer. |
 | `TT_BIO_DEVICE_CONFIDENCE` | on | Boltz-2 only: assembles the confidence head's pair input on the card. Coordinates are bit-identical; pLDDT moves by at most 0.362 of 100. |
 | `TT_BIO_DEVICE_CONF_HEADS` | on | Boltz-2 only: runs the confidence head's pae/pde projections on the card, so 67.1 MB of bin logits at 512 residues becomes 2.1 MB on Wormhole and 16.8 MB on Blackhole. Coordinates and per-residue pLDDT are bit-identical; pTM shifts by 0.0031 at 512 residues against a 0.0758 four-seed spread. |
 | `TT_BIO_DEVICE_ZINIT` | on | Boltz-2 only: builds the trunk's `z_init` pair tensor on the card. Not bit-exact: moves a 298 aa structure 0.264 Å all-atom inside its 0.35 Å bar; CA-lDDT against 1HCL is flat over eight seeds. |
 | `TT_BIO_DIT_COND_HOIST` | on | Hoists the token diffusion transformer's conditioning out of the layer loop; RF3's token DiT inherits it. Not bit-exact: one bf16 rounding changes order. |
+| `TT_BIO_DIT_SHARED_COND` | on | Every diffusion sample shares one noise level and one trunk output, so the diffusion transformer computes its conditioning once and broadcasts it. Bit for bit. |
 | `TT_BIO_FUSE_BIAS_STACKS` | on | Boltz-2 only: builds the diffusion conditioning's per-layer bias stack in one pass. Not bit-exact: moves a 298 aa structure 0.218 Å all-atom, inside its 0.35 Å bar. |
 | `TT_BIO_FUSE_MASK_ADD` | on | Gated-residual write-back as one `ttnn.addcmul`. Bit for bit. |
 | `TT_BIO_FUSE_NORM_RESIDUAL` | on | Passes an add whose only consumer is a layer norm to the norm as its residual input. Bit for bit. |
 | `TT_BIO_FUSE_SCALE_ADD` | on | Attention's scale-then-bias as one `ttnn.addalpha`, fp32 operands only. Bit-identical at every call shape. |
 | `TT_BIO_GATE_GRANULARITY` | 2 | Tiles per DST acquire in the reblock-permute gate kernel. Bit for bit at every value. |
 | `TT_BIO_HOST_LEVERS` | on | Master switch for the host-side Boltz-2 levers (`TT_BIO_FUSE_BIAS_STACKS` and `TT_BIO_HOST_BLOCK_PAIRWISE`); `0` takes the host path for all of them. |
-| `TT_BIO_LEVERS` | the graded set for the mode | Protenix-v2 only: a graded set of cheaper numerics (triangle multiplication in one block, HiFi3 trunk matmuls, fused fp32 diffusion attention, fused triangle-attention output); `--fast` uses a larger set. Not bit-exact: on 11 complexes the median top-pose deviation is 0.26 to 0.34 A on Wormhole (16 seeds) and 0.35 A on Blackhole (4 seeds), where a different seed moves it 0.8 A. `none` restores the reference numerics. [docs](docs/tuning-flags.md#tt_bio_levers) |
-| `TT_BIO_LNBW_FUSED` | on inside a BindCraft 2 round on Blackhole, off elsewhere | The layer-norm backward as one kernel instead of about 22 ttnn calls: 1.15x on a BindCraft 2 gradient round at 288 tokens, with a gradient closer to float64 than the composed path's. Wormhole and every other model keep the composed path. |
+| `TT_BIO_LEVERS` | the graded set for the mode | Protenix-v2 and Boltz-2 (RoseTTAFold3 and BoltzGen take it too: each with a graded `--fast` set and normal mode unchanged), each with its own graded set of cheaper numerics (triangle multiplication in one block, HiFi3 trunk matmuls, fused fp32 diffusion attention, fused triangle-attention output); `--fast` uses a larger set. Not bit-exact: on 11 complexes the median top-pose deviation is 0.26 to 0.34 A on Wormhole (16 seeds) and 0.35 A on Blackhole (4 seeds), where a different seed moves it 0.8 A. Boltz-2's normal set moves the top pose 0.90 A median on Wormhole against a 1.78 A seed spread. `none` restores the reference numerics. [docs](docs/tuning-flags.md#tt_bio_levers) |
+| `TT_BIO_LNBW_FUSED` | on inside a BindCraft 2 round, off elsewhere | The layer-norm backward as one kernel instead of about 22 ttnn calls: 1.15x on a BindCraft 2 gradient round at 288 tokens, with a gradient closer to float64 than the composed path's. Every other model keeps the composed path. |
 | `TT_BIO_MSA_LADDER` | on | Boltz-2 and BoltzGen: pads the MSA depth to the smallest of 64, 128, 256, 512, 1024 that holds the alignment instead of always 1024. Not bit-exact; scored against 1HCL it is as accurate or closer. |
 | `TT_BIO_OPM_LEGACY_LAYOUT` | off | Restores `OuterProductMean`'s old output stage in every model that builds it (Boltz-2, BoltzGen, Protenix, OpenFold3, RF3, AF2). The default differs by one bf16 step: 0.29 to 1.59 A worst pseudo-domain on the hinged 512-residue fixture, against 1.09 to 1.42 A for the old path against its own seeds. |
+| `TT_BIO_OPM_SMALL_DEPTH` | on | With an MSA of 8 rows or fewer (AF2-IG, any single-sequence fold), the outer product mean skips building the full outer product. AF2-IG runs 1.2x faster on Blackhole and 1.7x on Wormhole; structures move by 0.02 to 0.25 A. `0` restores the old path. [More](docs/tuning-flags.md#tt_bio_opm_small_depth). |
 | `TT_BIO_PAIR_FFN_L1_FC1` | on | ESMFold2 only: keeps the pair transition's first matmul in L1 up to 512 residues. Bit for bit. |
 | `TT_BIO_PAIR_INPLACE` | on | Writes a too-big pair tensor's blocks back on the card instead of assembling on the host. Bit for bit. Only OpenDDE's structural-token refiner reaches that size at 1536 residues or below. |
 | `TT_BIO_PWA_BATCH_HEAD_WEIGHTS` | on | All heads' MSA row weights from one projection of the pair tensor. Bit for bit. |
+| `TT_BIO_PWA_FULL_HEADS_FUSED` | on | Boltz-2's MSA pair-weighted averaging (32-wide heads) takes the batched-heads path with a tile transpose instead of two general permutes. Bit for bit. |
 | `TT_BIO_REBLOCK_PERMUTE_GATED` | on | Folds a triangle multiplication's chunk and sigmoid gates into its channel move. Bit for bit. |
 | `TT_BIO_RESIDUAL_L1` | on | Two Pairformer residual updates go to L1 instead of DRAM, up to 512 residues. Bit for bit. |
 | `TT_BIO_SDPA_ADD_GRANULARITY` | auto | Batches the fused SDPA kernel's running-sum/max and mask adds. Bit for bit at every granularity. |

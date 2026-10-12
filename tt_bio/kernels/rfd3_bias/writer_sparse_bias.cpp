@@ -58,6 +58,17 @@ inline uint32_t face_off(uint32_t r, uint32_t c) {
     return ((((r >> 4) << 1) | (c >> 4)) << 8) + ((r & 15) << 4) + (c & 15);
 }
 
+// Store one element of an output tile at element offset `off`. `v32` is the fp32 bit pattern; the
+// bf16 form is its top half, which is exact for every value written here (all are widened bf16).
+template <uint32_t OUT16>
+inline void put(uint32_t tile_addr, uint32_t off, uint32_t v32) {
+    if constexpr (OUT16) {
+        reinterpret_cast<volatile tt_l1_ptr uint16_t*>(tile_addr)[off] = static_cast<uint16_t>(v32 >> 16);
+    } else {
+        reinterpret_cast<volatile tt_l1_ptr uint32_t*>(tile_addr)[off] = v32;
+    }
+}
+
 void kernel_main() {
     // The three buffer addresses are the only values that change between calls at a fixed
     // shape/grid, so they live in the common runtime args and the host caches the whole
@@ -81,14 +92,17 @@ void kernel_main() {
     constexpr uint32_t fill = get_compile_time_arg_val(9);      // fp32 bit pattern
     constexpr uint32_t OUT_SLOTS = get_compile_time_arg_val(10);
     constexpr uint32_t HIt = get_compile_time_arg_val(11);   // heads * tile rows, one design's bands
-    constexpr auto bias_args = TensorAccessorArgs<12>();
+    // 1: write bf16 tiles (the fused-SDPA mask, sparse_mask_bf16), the bias as read and the
+    // fill's top half; 0: the fp32 widen above.
+    constexpr uint32_t OUT16 = get_compile_time_arg_val(12);
+    constexpr auto bias_args = TensorAccessorArgs<13>();
     constexpr auto idx_args = TensorAccessorArgs<bias_args.next_compile_time_args_offset()>();
     constexpr auto out_args = TensorAccessorArgs<idx_args.next_compile_time_args_offset()>();
 
     constexpr uint32_t TILE_H = 32;
     constexpr uint32_t IDX_ROW_WORDS = K;
     constexpr uint32_t BIAS_TILE_BYTES = 32 * 32 * 2;
-    constexpr uint32_t OUT_TILE_BYTES = 32 * 32 * 4;
+    constexpr uint32_t OUT_TILE_BYTES = 32 * 32 * (OUT16 ? 2 : 4);
     constexpr uint32_t OUT_TILE_WORDS = 32 * 32;
 
     const auto s_bias = TensorAccessor(bias_args, bias_addr);
@@ -107,10 +121,8 @@ void kernel_main() {
     // Prime every output slot with the fill value once. From here on a slot is only ever
     // repaired, never refilled.
     for (uint32_t slot = 0; slot < OUT_SLOTS; ++slot) {
-        volatile tt_l1_ptr uint32_t* p =
-            reinterpret_cast<volatile tt_l1_ptr uint32_t*>(out_base + slot * OUT_TILE_BYTES);
         for (uint32_t w = 0; w < OUT_TILE_WORDS; ++w) {
-            p[w] = fill;
+            put<OUT16>(out_base + slot * OUT_TILE_BYTES, w, fill);
         }
     }
 
@@ -156,8 +168,7 @@ void kernel_main() {
             if (slot_jt[slot] == NO_TILE) {
                 return;
             }
-            volatile tt_l1_ptr uint32_t* out_l1 = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(
-                out_base + slot * OUT_TILE_BYTES);
+            const uint32_t tile_l1 = out_base + slot * OUT_TILE_BYTES;
             volatile tt_l1_ptr uint32_t* sc = slot_l1 + slot * TILE_H;
             const uint32_t lo = slot_jt[slot] * 32;
             const uint32_t hi = lo + 32;
@@ -169,7 +180,7 @@ void kernel_main() {
                     if (j >= hi) {
                         break;
                     }
-                    out_l1[face_off(r, j - lo)] = fill;
+                    put<OUT16>(tile_l1, face_off(r, j - lo), fill);
                 }
             }
             slot_jt[slot] = NO_TILE;
@@ -179,8 +190,6 @@ void kernel_main() {
         for (uint32_t jt = 0; jt < Jt; ++jt) {
             const uint32_t slot = jt & (OUT_SLOTS - 1);
             const uint32_t out_addr_l1 = out_base + slot * OUT_TILE_BYTES;
-            volatile tt_l1_ptr uint32_t* out_l1 =
-                reinterpret_cast<volatile tt_l1_ptr uint32_t*>(out_addr_l1);
             repair(slot);
 
             volatile tt_l1_ptr uint32_t* sc = slot_l1 + slot * TILE_H;
@@ -197,7 +206,7 @@ void kernel_main() {
                     }
                     const uint32_t bv =
                         bias_l1[(sidx >> 5) * (BIAS_TILE_BYTES / 2) + face_off(r, sidx & 31)];
-                    out_l1[face_off(r, j - col_lo)] = bv << 16;
+                    put<OUT16>(out_addr_l1, face_off(r, j - col_lo), bv << 16);
                     ++sidx;
                 }
                 cur[r] = sidx;

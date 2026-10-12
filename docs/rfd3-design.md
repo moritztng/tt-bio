@@ -160,6 +160,40 @@ tt-bio design specs.json --model rfd3 --from_pdb --out_dir ./designs \
   --num_designs 32 --devices 0,1,2,3
 ```
 
+Two more options: `--spec a,b` runs only those spec ids from the inputs file, and `--fp32_residual` keeps the
+residual stream of the DiT, encoder and token encoder in fp32 instead of bf16 (off by default).
+
+The atom attention runs as one fused attention kernel that never materialises the full score matrix. It
+is closer to a float64 reference than the older kernel chain, and a 685-residue design takes about 15 %
+less time with it. At the same seed the design lands somewhere else, as it does after any rounding change
+because the diffusion is chaotic: 5.5 to 9.3 A over four seeds, about the 7.3 A by which the older chain's
+own Blackhole and Wormhole designs differ, and half of what changing the seed does. Design quality is
+unchanged: CA-CA geometry, chain breaks and amino-acid diversity match, with fewer clashes. Above about
+8,600 atoms the older chain runs instead, because the fused kernel's cached mask would take more than
+600 MB per atom block. `RFD3_ATOM_SDPA=0` restores it.
+
+Each diffusion step stays on the card from the noisy coordinates in to the update out. The modules used to
+hand their outputs back to the host for a few additions and upload them again, about 15 round trips a step,
+each of which left the card idle. A 685-residue design takes about 14 % less time on a Blackhole p150a
+(89.0 to 76.1 s). The additions now round in bf16 on the card, so a design moves at the same seed: 3.6 to
+13.5 A on Blackhole and 4.5 to 11.2 A on Wormhole at 685 residues, against 13 to 20 A for a seed change,
+with CA-CA geometry, chain breaks, clashes and amino-acid diversity unchanged. `RFD3_RESIDENT_STEP=0`
+restores the round trips.
+
+The token transformer's attention also runs as one fused kernel, with each head's 48 channels padded to 64
+in the weights so the kernel can take them. A 685-residue design takes about 15 % less time (72.7 to 61.4 s
+on a Blackhole p300c). Graded over four seeds at 685 and 418 residues on Blackhole and on Wormhole: a design
+moves 2.9 to 15.2 A at the same seed against 13 to 20 A for a seed change, and CA-CA geometry, chain breaks,
+clashes and amino-acid diversity match the exact chain. `RFD3_DIT_SDPA=0` restores the older attention.
+
+`--fast` additionally keeps the pair transitions' hidden activations in 8-bit block floating point and
+collapses the pair-feature projection that does not change between steps into a table lookup. It runs the
+same diffusion steps and recycles; only the kernels change. A 685-residue design takes about 13 % less time
+than the default (60.6 to 52.5 s on a Blackhole p300c). Graded over four seeds at 685 and 418 residues on
+Blackhole and Wormhole against the exact chain: a design moves 3.8 to 15.4 A at the same seed, inside what
+changing the seed does (13 to 20 A), and CA-CA geometry, chain breaks, clashes and amino-acid diversity
+match.
+
 ## Checkpoint
 
 The RFD3 checkpoint downloads automatically on first use, straight from the

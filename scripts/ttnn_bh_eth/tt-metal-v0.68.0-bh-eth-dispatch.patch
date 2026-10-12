@@ -1,0 +1,81 @@
+diff --git a/tt_metal/hw/inc/internal/tt-1xx/blackhole/dev_mem_map.h b/tt_metal/hw/inc/internal/tt-1xx/blackhole/dev_mem_map.h
+index a0d00b2caac..5d2829dc242 100644
+--- a/tt_metal/hw/inc/internal/tt-1xx/blackhole/dev_mem_map.h
++++ b/tt_metal/hw/inc/internal/tt-1xx/blackhole/dev_mem_map.h
+@@ -288,9 +288,12 @@
+ #define MEM_IERISC_L1_INLINE_BASE MEM_IERISC_MAILBOX_END
+ #define MEM_IERISC_L1_INLINE_END (MEM_IERISC_L1_INLINE_BASE + (MEM_L1_INLINE_SIZE_PER_NOC * 2) * 2)
+ #define MEM_IERISC_FIRMWARE_BASE MEM_IERISC_L1_INLINE_END
+-#define MEM_IERISC_FIRMWARE_SIZE MEM_ERISC_FIRMWARE_SIZE
++// An idle-ERISC kernel is linked right after its firmware, inside this region. At 24 KB the firmware (~13.6 KB)
++// left ~10.9 KB, less than the -Os cq_dispatch (12.6 KB) and cq_prefetch (18.4 KB) kernels, so Ethernet dispatch
++// could not open on Blackhole. 40 KB leaves ~27 KB.
++#define MEM_IERISC_FIRMWARE_SIZE (40 * 1024)
+ #define MEM_SUBORDINATE_IERISC_FIRMWARE_BASE (MEM_IERISC_FIRMWARE_BASE + MEM_IERISC_FIRMWARE_SIZE)
+-#define MEM_SUBORDINATE_IERISC_FIRMWARE_SIZE MEM_ERISC_FIRMWARE_SIZE
++#define MEM_SUBORDINATE_IERISC_FIRMWARE_SIZE (40 * 1024)
+ #define MEM_SUBORDINATE_IERISC_FIRMWARE_END \
+     (MEM_SUBORDINATE_IERISC_FIRMWARE_BASE + MEM_SUBORDINATE_IERISC_FIRMWARE_SIZE)
+ 
+@@ -306,7 +309,8 @@
+ #define MEM_IERISC_EXIT_NODE_TABLE_END (MEM_IERISC_EXIT_NODE_TABLE_BASE + MEM_EXIT_NODE_TABLE_SIZE)
+ 
+ #define MEM_IERISC_MAP_END (MEM_IERISC_EXIT_NODE_TABLE_END + MEM_ROUTING_TABLE_PADDING)
+-#define MEM_IERISC_KERNEL_SIZE MEM_ERISC_KERNEL_SIZE
++// The kernel is linked into the same region as the firmware (see MEM_IERISC_FIRMWARE_SIZE); the loader's limit is this.
++#define MEM_IERISC_KERNEL_SIZE MEM_IERISC_FIRMWARE_SIZE
+ #define MEM_IERISC_INIT_LOCAL_L1_BASE_SCRATCH MEM_IERISC_MAP_END
+ #define MEM_SUBORDINATE_IERISC_INIT_LOCAL_L1_BASE_SCRATCH (MEM_IERISC_INIT_LOCAL_L1_BASE_SCRATCH + MEM_ERISC_LOCAL_SIZE)
+ #define MEM_IERISC_STACK_MIN_SIZE MEM_ERISC_STACK_MIN_SIZE
+diff --git a/tt_metal/llrt/core_descriptor.cpp b/tt_metal/llrt/core_descriptor.cpp
+index e86c9659c3e..eef6158f0c1 100644
+--- a/tt_metal/llrt/core_descriptor.cpp
++++ b/tt_metal/llrt/core_descriptor.cpp
+@@ -241,6 +241,10 @@ const core_descriptor_t& get_core_descriptor_config(
+         logical_active_eth_cores = env.get_control_plane().get_active_ethernet_cores(device_id);
+     }
+ 
++    // The descriptor lists every Ethernet core the die has; a part with some harvested (p150a: 12 of 14) has fewer.
++    const size_t num_logical_eth_cores =
++        env.get_cluster().get_soc_desc(device_id).get_cores(CoreType::ETH, CoordSystem::LOGICAL).size();
++
+     for (const auto& core_node : desc_yaml[dispatch_cores_string]) {
+         RelativeCoreCoord coord = {};
+         if (core_node.IsSequence()) {
+@@ -248,7 +252,7 @@ const core_descriptor_t& get_core_descriptor_config(
+             coord = RelativeCoreCoord({.x = core_node[0].as<int>(), .y = core_node[1].as<int>()});
+             if (get_core_type_from_config(dispatch_core_config) == CoreType::ETH) {
+                 auto logical_coord = get_core_coord_from_relative(coord, grid_size);
+-                if (logical_active_eth_cores.contains(logical_coord)) {
++                if (logical_coord.y >= num_logical_eth_cores || logical_active_eth_cores.contains(logical_coord)) {
+                     continue;
+                 }
+             }
+diff --git a/tt_metal/llrt/hal/tt-1xx/blackhole/bh_hal_idle_eth.cpp b/tt_metal/llrt/hal/tt-1xx/blackhole/bh_hal_idle_eth.cpp
+index 5010992ba32..ef2f8140b8d 100644
+--- a/tt_metal/llrt/hal/tt-1xx/blackhole/bh_hal_idle_eth.cpp
++++ b/tt_metal/llrt/hal/tt-1xx/blackhole/bh_hal_idle_eth.cpp
+@@ -10,6 +10,7 @@
+ #include "hostdev/fabric_telemetry_msgs.h"
+ using namespace tt::tt_metal::blackhole::idle_eth;
+ 
++#include <algorithm>
+ #include <cstdint>
+ 
+ #include "blackhole/bh_hal.hpp"
+@@ -49,8 +50,13 @@ HalCoreInfoType create_idle_eth_mem_map() {
+         GET_IERISC_MAILBOX_ADDRESS_HOST(dprint_buf);
+     mem_map_bases[static_cast<std::size_t>(HalL1MemAddrType::PROFILER)] = GET_IERISC_MAILBOX_ADDRESS_HOST(profiler);
+     mem_map_bases[static_cast<std::size_t>(HalL1MemAddrType::KERNEL_CONFIG)] = MEM_IERISC_MAP_END;
+-    mem_map_bases[static_cast<std::size_t>(HalL1MemAddrType::UNRESERVED)] =
+-        tt::align(MEM_AERISC_MAP_END + MEM_ERISC_KERNEL_CONFIG_SIZE, max_alignment);
++    // The idle map ends past the active one (larger firmware regions), so start above whichever ends last.
++    mem_map_bases[static_cast<std::size_t>(HalL1MemAddrType::UNRESERVED)] = tt::align(
++        std::max<std::uint32_t>(
++            {MEM_AERISC_MAP_END + MEM_ERISC_KERNEL_CONFIG_SIZE,
++             MEM_IERISC_MAP_END + MEM_ERISC_KERNEL_CONFIG_SIZE,
++             MEM_IERISC_BANK_TO_NOC_SCRATCH + MEM_IERISC_BANK_TO_NOC_SIZE}),
++        max_alignment);
+     mem_map_bases[static_cast<std::size_t>(HalL1MemAddrType::CORE_INFO)] = GET_IERISC_MAILBOX_ADDRESS_HOST(core_info);
+     mem_map_bases[static_cast<std::size_t>(HalL1MemAddrType::GO_MSG)] = GET_IERISC_MAILBOX_ADDRESS_HOST(go_messages);
+     mem_map_bases[static_cast<std::size_t>(HalL1MemAddrType::GO_MSG_INDEX)] =

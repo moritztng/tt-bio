@@ -112,6 +112,7 @@ LEVERS = {
     "glean": [(RB.set_gate_lean, 1)],
     "gleanx": [(RB.set_gate_lean, 2)],
     "noglean": [(RB.set_gate_lean, 0)],
+    "sb11": [(T.set_trimul_subblock, (1, 1))],
     "sb13": [(T.set_trimul_subblock, (1, 3))],
     "sb31": [(T.set_trimul_subblock, (3, 1))],
     # the tail's GEMM block (M, K, N, sh, sw); production is (4, 8, 1, 4, 1)
@@ -309,7 +310,7 @@ for var in A.variants.split(","):
         try:
             back0 = list(RB.STATS_BACK)
             tail0, resid0, mf0 = list(TTL.STATS), list(TTL.RESID_STATS), TTL.MASK_STATS[0]
-            fired = {"in0_block_w": T._triangle_mul_program_config(-(-N // 32), T._trimul_ibw_full(), T._TRIMUL_SUBBLOCK).in0_block_w,
+            fired = {"in0_block_w": T._triangle_mul_program_config(-(-N // 32), T._trimul_ibw_full(), T._trimul_subblock()).in0_block_w,
                      "ibw_refused": sorted(T._TRIMUL_IBW_FULL_REFUSED)}
             for _ in range(2):
                 yt = accuracy_call(mod)
@@ -321,7 +322,7 @@ for var in A.variants.split(","):
             fired["tail_f1"] = [a - b for a, b in zip(TTL.STATS, tail0)]
             fired["tail_epi"] = TTL.EPI
             fired["gate_lean"] = RB.GATE_LEAN
-            fired["subblock"] = T._TRIMUL_SUBBLOCK
+            fired["subblock"] = T._trimul_subblock()
             fired["tail_resid"] = [a - b for a, b in zip(TTL.RESID_STATS, resid0)]
             fired["tail_res"] = list(TTL.RES_STATS)
             fired["mask_fold"] = TTL.MASK_STATS[0] - mf0

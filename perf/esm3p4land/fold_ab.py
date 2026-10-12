@@ -24,7 +24,8 @@ sys.path.insert(0, str(ROOT / "scripts" / "gpu_vs_tt"))
 # that did not land.
 ARMS = {"base": False, "l2": True, "ship": None, "f1": None, "nof1": None,
         "B": None, "D": None, "BD": None, "off": None, "E": None, "noE": None,
-        "Cin": None, "F": None, "CinF": None, "noCinF": None, "G": None, "noG": None}
+        "Cin": None, "F": None, "CinF": None, "noCinF": None, "G": None, "noG": None,
+        "noI": None}
 
 # B, the LM shim -> LM encoder handoff (esmfold2 only). Every arm sets the gate on every fold:
 # a lever arm to what it names, any other arm back to the snapshotted shipped default. Neither
@@ -60,6 +61,11 @@ FUSEDRES = {"F": True, "CinF": True, "Cin": False, "noCinF": False, "off": False
 # it OFF so they stay the arms they were when they were measured.
 FILL = {"G": True, "noG": False, "Cin": False, "F": False, "CinF": False, "noCinF": False,
         "off": False}
+
+
+# I (esmfold2_runtime.set_device_injection): the per-loop parcae injection on the device. I ships
+# ON, so `noI` isolates it: ship - noI is the device injection on the current tree.
+INJECT = {"noI": False, "off": False}
 
 
 def sha_dir(d):
@@ -129,7 +135,8 @@ def main():
                "l1_ln": getattr(EC, "_PAIR_FFN_L1_LN", None),
                "l1_slice": getattr(EC, "_PAIR_FFN_L1_SLICE", None),
                "fused_resid": getattr(EC, "_PAIR_FFN_FUSED_RESIDUAL", None),
-               "fill_assembly": getattr(EC, "_PAIR_FFN_FILL_ASSEMBLY", None)}
+               "fill_assembly": getattr(EC, "_PAIR_FFN_FILL_ASSEMBLY", None),
+               "inject": getattr(RT, "_DEVICE_INJECTION", None)}
     res["shipped_defaults"] = dict(SHIPPED)
 
     def run(tag, arm):
@@ -159,6 +166,11 @@ def main():
             EC.FILL_ASSEMBLY_STATS[0] = EC.FILL_ASSEMBLY_STATS[1] = 0
         elif arm in FILL:
             raise SystemExit("arm %s needs set_pair_ffn_fill_assembly, absent here" % arm)
+        if SHIPPED["inject"] is not None:
+            RT.set_device_injection(INJECT.get(arm, SHIPPED["inject"]))
+            RT.INJECTION_STATS[0] = RT.INJECTION_STATS[1] = 0
+        elif arm in INJECT and arm != "off":
+            raise SystemExit("arm %s needs set_device_injection, absent here" % arm)
         DN.STATS[0] = DN.STATS[1] = 0
         DN.REJECTS.clear()
         # The fc1 census above counts REQUESTS: `L1_FC1_STATS[0] += 2` runs before
@@ -195,6 +207,7 @@ def main():
                and EC._PAIR_FFN_FILL_ASSEMBLY,
                "fill_assembly_stats": list(getattr(EC, "FILL_ASSEMBLY_STATS", [])),
                "lm_handoff": list(RT.LM_HANDOFF_STATS),
+               "inject_stats": list(getattr(RT, "INJECTION_STATS", [])),
                "fwd_move": list(RP.STATS), "back_move": list(RP.STATS_BACK),
                "l1_out_refused": len(T._L1_OUT_REFUSED),
                "l1_out_latch": {k: v for k, v in T.LATCH_STATS["l1_out"].items()},

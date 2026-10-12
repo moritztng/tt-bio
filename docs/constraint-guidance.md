@@ -78,6 +78,13 @@ required for an epitope, and for contacts unless the complex has exactly two cha
   chirality, planarity) to the clean estimate. This part runs for any input, constrained or
   not, exactly as upstream's flag does.
 
+- A guided fold runs the diffusion module in fp32, as upstream does, in normal and `--fast`
+  mode alike. With bf16 diffusion the clean estimate carried more interface clashes, guidance
+  re-docked those samples by large rotations, and the movable chains came back compressed about
+  nine times as often as upstream's (9 of 90 samples against 1 of 90; 2 of 90 in fp32). fp32
+  costs 35 to 70 % fold time on a Wormhole chip at 1000 MHz (248 tokens 54 vs 40 s, 612 tokens
+  222 vs 152 s, 650 tokens 294 vs 171 s).
+
 Without the flag nothing changes: the fold is the same as before, bit for bit. Contact pairs
 given without the flag are ignored with a warning; an epitope without the flag is an error,
 as upstream.
@@ -101,9 +108,12 @@ Unguided, tt-bio and upstream on GPU agree on the same targets (success 0.19 vs 
 DockQ 0.160 vs 0.162). On a smaller set of 8 targets, one or two wrong pairs out of four drop
 contact success to 0.13, below the unguided 0.25 on that set, so only give contacts you trust.
 
-A guided fold takes about 5 to 15 % longer than an unguided one on a Wormhole chip at
-1000 MHz (Fv 1a14 +7 to +9 %, Fab 9xqn +7 to +8 % with an epitope and +11 to +13 % with
-contacts).
+Guidance itself adds 1 to 3 % to the fold on a Wormhole chip at 1000 MHz, measured against an
+unguided fold with the same fp32 diffusion: 248 tokens +1.2 to +2.6 %, Fv 1a14 (612 tokens)
++0.7 to +1.0 %, Fab 9xqn (650 tokens) +0.6 to +1.1 %, 894 tokens +0.3 to +0.8 %. On a
+Blackhole p150a at 1350 MHz it adds 1.8 to 2.0 % on 1a14 and 2.0 to 3.0 % on 9xqn. It runs on
+the host and takes 1 to 4 seconds per fold on either architecture. The first guided fold after
+an install compiles the guidance kernels once, about 15 seconds.
 
 ## Several constraints on one input
 

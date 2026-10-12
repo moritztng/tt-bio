@@ -414,9 +414,7 @@ def test_fast_round_keeps_blackhole_only_levers_off_on_wormhole(monkeypatch):
     before = _fast_round_now()
     with bindcraft2.fast_round() as armed:
         for _m, _o, attr, _e, value in bindcraft2._FAST_ROUND:
-            if attr == "TAPED_KERNELS_DEFAULT":
-                assert armed[attr] == bindcraft2._FAST_ROUND_WORMHOLE_KERNELS
-            elif attr in bindcraft2._BLACKHOLE_ONLY:
+            if attr in bindcraft2._BLACKHOLE_ONLY:
                 assert armed[attr] == before[attr]
             else:
                 assert armed[attr] == value
@@ -726,7 +724,7 @@ def test_the_extra_msa_segment_survives_being_recomputed():
             update.alive = False
             return x
 
-        def __call__(self, z, *pair_masks):
+        def __call__(self, z, *pair_masks, drop=None):
             return z
 
     # The stub bites: consuming one buffer twice is what the shipped code did.

@@ -64,6 +64,142 @@ TOKEN_BUCKET = 32
 #: running a partial trunk.
 EVOFORMER_BLOCKS = 48
 
+#: AlphaFold 2's Evoformer dropout, which BindCraft 2 designs with: `design_dropout` is true by
+#: default and only the `harden` stage turns it off (`bindcraft/trajectory.py:301`).
+#:
+#: One entry per op that draws, as `(op, sub-key index, rate, shared axis)`. `EvoformerIteration`
+#: consumes nine sub-keys in a fixed order (`modules.py:1309`) and the index is the position in
+#: that order; the rate and the orientation are `config.py`'s, and the axis is the one
+#: `shared_dropout: True` broadcasts the mask along -- 0 for `per_row`, 1 for `per_column`
+#: (`modules.apply_dropout`'s `broadcast_dim`). The four ops not listed -- the column attention,
+#: the MSA transition, the outer product mean and the pair transition -- are configured at rate
+#: 0 in both the monomer and the multimer config, so they draw a key and never a mask.
+#:
+#: `outer_product_mean.first` moves the MSA track's draw one place later, which is the whole
+#: difference between the monomer models and multimer_v3; the pair track's four are at the same
+#: index in both. The extra-MSA stack is the same `EvoformerIteration` and draws the same
+#: schedule; tt-bio runs only its pair track (`_Trunk.extra_msa`), so it takes the pair draws.
+DROPOUT_DRAWS = (("msa_row_attn", 0, 0.15, 0),
+                 ("tri_mul_out", 4, 0.25, 0),
+                 ("tri_mul_in", 5, 0.25, 0),
+                 ("tri_att_start", 6, 0.25, 0),
+                 ("tri_att_end", 7, 0.25, 1))
+
+#: The ops whose mask rides the pair representation, in the order every schedule stacks them.
+DROPOUT_PAIR_OPS = tuple(op for op, _, _, _ in DROPOUT_DRAWS[1:])
+
+#: multimer_v3's template pair stack, the one tt-bio puts on card: `TemplateEmbeddingIteration`
+#: splits its key twenty ways and hands the multiplications the first two
+#: (`modules_multimer.py:706`), with the same rates and orientations as the Evoformer's.
+TEMPLATE_DROPOUT_DRAWS = (("tri_mul_out", 0, 0.25, 0),
+                          ("tri_mul_in", 1, 0.25, 0),
+                          ("tri_att_start", 2, 0.25, 0),
+                          ("tri_att_end", 3, 0.25, 1))
+#: How many ways each iteration splits its key: the stream depends on it, not just the index.
+EVOFORMER_KEY_FAN, TEMPLATE_KEY_FAN = 10, 20
+
+
+def _zero_cotangent(x):
+    """A zero cotangent for `x`, which is `float0` when `x` does not carry derivatives."""
+    import jax
+    import jax.numpy as jnp
+
+    if jnp.issubdtype(jnp.asarray(x).dtype, jnp.inexact):
+        return jnp.zeros_like(x)
+    return np.zeros(jnp.shape(x), dtype=jax.dtypes.float0)
+
+
+def stack_dropout_masks(key, blocks: int, fan: int, pair_draws, pair_shape, use_dropout,
+                        msa_draw=None, msa_shape=None):
+    """The Bernoulli keep masks AF2 would draw for `blocks` blocks of one stack, in JAX.
+
+    Drawn here rather than on the card, from the key the host stack carries, so a trajectory on
+    a card takes the same dropout path as the same trajectory on host JAX instead of a different
+    one from the same distribution. That is what makes the two arms comparable at all, and it is
+    gradable: `tests/test_bc2_evoformer_dropout.py` checks these masks element-for-element
+    against `modules.dropout_wrapper`'s own.
+
+    The key schedule is the host's, and every stack tt-bio swaps runs the same one: the stack
+    function splits its carry once per block (`modules.py:1586`, `modules_multimer.py:650`) and
+    the iteration splits that `fan` ways, keeping the first and handing out the rest in a fixed
+    order. A `lax.scan` over the blocks is the same recurrence the host's `layer_stack` scan
+    runs, so the stream does not depend on the depth being unrolled here.
+
+    Returns `(msa_keep, pair_keep, scales, key_out)`: booleans of `[blocks, 1, n, c_msa]` (None
+    without `msa_draw`) and `[blocks, len(pair_draws), n, c_pair]`, the `1 / keep_rate` rescales
+    as float32 in draw order (MSA first when there is one), and the key the host carries out of
+    the stack. Booleans because the seam is a host callback and a bool mask is a quarter of a
+    float32 one on the wire; the rescale is applied when the mask is uploaded. `use_dropout` is
+    an argument rather than a flag, gated exactly as the reference gates it
+    (`rate = where(use_dropout, rate, 0)`), because BindCraft 2 passes it as a traced value and
+    one compiled program serves both stages.
+    """
+    import jax
+    import jax.numpy as jnp
+
+    draws = ((msa_draw,) if msa_draw else ()) + tuple(pair_draws)
+    n, c_pair = int(pair_shape[0]), int(pair_shape[-1])
+    shapes = [((1, n, c_pair) if axis == 0 else (n, 1, c_pair)) for _, _, _, axis in pair_draws]
+    if msa_draw:
+        shapes.insert(0, (1, n, int(msa_shape[-1])))
+    rates = jnp.asarray([rate for _, _, rate, _ in draws], jnp.float32)
+    keep_rate = 1.0 - jnp.where(jnp.asarray(use_dropout, bool), rates, 0.0)
+
+    def block(key, _):
+        key, sub = jax.random.split(key)
+        subs = jax.random.split(sub, fan)       # [0] is the iteration's own carry, the rest out
+        drawn = [jax.random.bernoulli(subs[1 + idx], keep_rate[i], shapes[i])
+                 for i, (_, idx, _, _) in enumerate(draws)]
+        pair = jnp.stack([d.reshape(n, c_pair) for d in drawn[1 if msa_draw else 0:]])
+        return key, ((drawn[0],) if msa_draw else ()) + (pair,)
+
+    key_out, keeps = jax.lax.scan(block, key, None, length=blocks)
+    msa_keep = keeps[0] if msa_draw else None
+    return msa_keep, keeps[-1], 1.0 / keep_rate, key_out
+
+
+def dropout_masks(key, blocks: int, msa_shape, pair_shape, use_dropout, opm_first: bool):
+    """`stack_dropout_masks` for the Evoformer: the MSA row attention's draw and the pair's four.
+
+    `opm_first` moves the MSA draw one sub-key later (see `DROPOUT_DRAWS`).
+    """
+    op, idx, rate, axis = DROPOUT_DRAWS[0]
+    return stack_dropout_masks(key, blocks, EVOFORMER_KEY_FAN, DROPOUT_DRAWS[1:], pair_shape,
+                               use_dropout, (op, idx + (1 if opm_first else 0), rate, axis),
+                               msa_shape)
+
+
+def upload_dropout(trunk, pair_draws, pair_keep, scales, n32, msa_keep=None):
+    """The drawn masks, uploaded: one `{op: tensor}` per block, or None if nothing was drawn.
+
+    The rescale rides the mask, so the block pays one multiply per draw and not two. A mask
+    is a single row or column of the representation it multiplies -- `shared_dropout` -- so
+    what goes up is `[n, c]` per draw and the broadcast happens on card. The token axis is
+    padded with keeps: the pad is masked out of every update already, and a 0 there would be
+    a second mask with no meaning.
+
+    Everything arrives as `[blocks, k, n, c]` from `stack_dropout_masks`, drawn at the host's
+    token count; `n32` is the padded axis the card folds at.
+    """
+    if pair_keep is None or not len(np.shape(pair_keep)):
+        return None
+    pair_keep = np.asarray(pair_keep)
+    scales = np.asarray(scales, dtype=np.float32)
+    has_msa = msa_keep is not None and len(np.shape(msa_keep))
+    draws = ((DROPOUT_DRAWS[0],) if has_msa else ()) + tuple(pair_draws)
+    pad = n32 - pair_keep.shape[-2]
+    out = []
+    for b in range(pair_keep.shape[0]):
+        masks = ([np.asarray(msa_keep)[b, 0]] if has_msa else []) + list(pair_keep[b])
+        block = {}
+        for (op, _, _, axis), raw, scale in zip(draws, masks, scales):
+            t = torch.from_numpy(np.array(raw, dtype=np.float32)) * float(scale)
+            if pad:
+                t = torch.nn.functional.pad(t, (0, 0, 0, pad), value=float(scale))
+            block[op] = trunk.up(t.unsqueeze(1) if axis else t.unsqueeze(0))
+        out.append(block)
+    return out
+
 
 def _pad32(n: int) -> int:
     return -(-n // TOKEN_BUCKET) * TOKEN_BUCKET
@@ -696,6 +832,9 @@ class _Trunk:
                                            template=template, multimer=self.multimer,
                                            trunk_dtype=torch.bfloat16)
         self.device = self.model._device
+        if self.ag.TRACE_RECOMPUTE:
+            # New weights are a persistent allocation made after any capture so far.
+            self.ag.release_recompute_traces(self.device)
         self.blocks = len(self.model.device_evoformer)
         self.extra_blocks = len(self.model.device_extra_msa)
         self.template_blocks = len(self.model.device_template)
@@ -734,17 +873,28 @@ class _Trunk:
             block.step_runner = run
         return mode == "offload"
 
-    def evoformer(self, m, z, msa_mask, pair_masks, recompute: bool, offload: bool = False):
-        for block in self.model.device_evoformer:
-            if recompute:
+    def evoformer(self, m, z, msa_mask, pair_masks, recompute: bool, offload: bool = False,
+                  drop=None):
+        """`drop` is one `{op: keep mask}` per block, or None for a stack that drops nothing."""
+        for i, block in enumerate(self.model.device_evoformer):
+            d = None if drop is None else drop[i]
+            if recompute and self.ag.TRACE_RECOMPUTE:
+                # The masks are new tensors every round, so they ride in as inputs, where the
+                # traced backward copies them into its own buffers (`autograd._traced_recompute`).
+                ks = tuple(d) if d else ()
                 m, z = self.ag.checkpoint(
-                    lambda a, b, blk=block: blk(a, b, msa_mask, *pair_masks), m, z,
+                    lambda a, b, *dv, blk=block, ks=ks: blk(
+                        a, b, msa_mask, *pair_masks, drop=dict(zip(ks, dv)) if ks else None),
+                    m, z, *(d[k] for k in ks), offload=offload, trace=(id(self), "evoformer", i))
+            elif recompute:
+                m, z = self.ag.checkpoint(
+                    lambda a, b, blk=block, d=d: blk(a, b, msa_mask, *pair_masks, drop=d), m, z,
                     offload=offload)
             else:
-                m, z = block(m, z, msa_mask, *pair_masks)
+                m, z = block(m, z, msa_mask, *pair_masks, drop=d)
         return m, z
 
-    def extra_msa(self, z, pair_masks, recompute: bool, offload: bool = False):
+    def extra_msa(self, z, pair_masks, recompute: bool, offload: bool = False, drop=None):
         """The extra-MSA stack's four pair blocks, `pair -> pair`, left on card throughout.
 
         `AF2DeviceModel.extra_msa_stack` is this same loop with the dead MSA track written for
@@ -767,15 +917,18 @@ class _Trunk:
             return model._up(model.opm_constant[index].reshape(1, 1, -1))
 
         for index, block in enumerate(model.device_extra_msa):
+            d = None if drop is None else drop[index]
             if recompute:
                 z = self.ag.checkpoint(
-                    lambda t, blk=block, i=index: blk(blk._residual(t, const(i)), *pair_masks), z,
+                    lambda t, blk=block, i=index, d=d: blk(blk._residual(t, const(i)),
+                                                           *pair_masks, drop=d), z,
                     offload=offload)
             else:
-                z = block(block._residual(z, const(index)), *pair_masks)
+                z = block(block._residual(z, const(index)), *pair_masks, drop=d)
         return z
 
-    def template_stack(self, z, pair_masks, recompute: bool, offload: bool = False):
+    def template_stack(self, z, pair_masks, recompute: bool, offload: bool = False,
+                       drop=None):
         """The template embedder's two c=64 pair blocks, `act -> act`, left on card throughout.
 
         `AF2DeviceModel`'s fold path runs these same blocks through
@@ -783,12 +936,13 @@ class _Trunk:
         which is what a gradient round needs. No `opm_constant`: the template stack has no MSA
         track for an outer product mean to collapse, unlike `extra_msa` above.
         """
-        for block in self.model.device_template:
+        for i, block in enumerate(self.model.device_template):
+            d = None if drop is None else drop[i]
             if recompute:
-                z = self.ag.checkpoint(lambda t, blk=block: blk(t, *pair_masks), z,
+                z = self.ag.checkpoint(lambda t, blk=block, d=d: blk(t, *pair_masks, drop=d), z,
                                        offload=offload)
             else:
-                z = block(z, *pair_masks)
+                z = block(z, *pair_masks, drop=d)
         return z
 
     def seed(self, t: torch.Tensor, like):
@@ -1191,7 +1345,8 @@ class EvoformerOnDevice:
                              f"blocks and this splice was built for {self.blocks}")
         return trunk
 
-    def _primal(self, slot, msa_np, pair_np, mask_np, pair_mask_np):
+    def _primal(self, slot, msa_np, pair_np, mask_np, pair_mask_np,
+                msa_keep=None, pair_keep=None, scales=None):
         """No tape. `predict` is forward-only and a validation refold calls it once per model, so
         a primal that banks a tape is an out-of-memory bug."""
         # `_inputs` is numpy and torch padding and touches no card, so it runs OUTSIDE
@@ -1201,13 +1356,16 @@ class EvoformerOnDevice:
                 duotraj.card(slot, "evoformer._primal"):
             trunk = self._trunk(slot)
             mo, zo = trunk.evoformer(trunk.up(m), trunk.up(z), self._msa_mask(trunk, mask),
-                                     self._pair_masks(trunk, pair_mask), recompute=False)
+                                     self._pair_masks(trunk, pair_mask), recompute=False,
+                                     drop=upload_dropout(trunk, DROPOUT_DRAWS[1:], pair_keep, scales,
+                                                         z.shape[0], msa_keep))
             trunk.sync()
             self.calls["primal"] += 1
             return (trunk.down(mo, tuple(m.shape))[:, :n].numpy(),
                     trunk.down(zo, tuple(z.shape))[:n, :n].numpy())
 
-    def _taped(self, slot, msa_np, pair_np, mask_np, pair_mask_np):
+    def _taped(self, slot, msa_np, pair_np, mask_np, pair_mask_np,
+               msa_keep=None, pair_keep=None, scales=None):
         m, z, mask, pair_mask, n = self._inputs(msa_np, pair_np, mask_np, pair_mask_np)
         # The fused arm's L1 fit is a property of the token axis, so one forward at each new
         # axis decides it for every later fold at that size.
@@ -1218,10 +1376,15 @@ class EvoformerOnDevice:
             mode = self.memory.mode(trunk, z.shape[0])
             offload = trunk.arm(mode)
             ml, zl = trunk.leaf(m), trunk.leaf(z)
+            # Uploaded OUTSIDE the tape: the masks are constants of this fold, so the tape holds
+            # them as reads and the backward multiplies the cotangent by the same mask the
+            # forward did, which is what AF2's dropout means for a gradient.
+            drop = upload_dropout(trunk, DROPOUT_DRAWS[1:], pair_keep, scales, z.shape[0],
+                                  msa_keep)
             with trunk.taped.tape():
                 mo, zo = trunk.evoformer(ml, zl, self._msa_mask(trunk, mask),
                                          self._pair_masks(trunk, pair_mask),
-                                         recompute=self.recompute, offload=offload)
+                                         recompute=self.recompute, offload=offload, drop=drop)
             trunk.sync()
         # AlphaFold 2 stops the gradient on every recycle but the last and JAX still routes all
         # of them through the forward rule, so the superseded tapes are dropped here. At several
@@ -1230,7 +1393,7 @@ class EvoformerOnDevice:
             trunk.ag.release_pins()
             token = self._tapes.bank({"roots": (mo, zo), "leaves": (ml, zl),
                                       "shapes": (tuple(m.shape), tuple(z.shape)), "n": n,
-                                      "mode": mode},
+                                      "mode": mode, "drop": drop},
                                      slot)
             self.calls["taped"] += 1
             out = (trunk.down(mo.value, tuple(m.shape))[:, :n].numpy(),
@@ -1330,30 +1493,38 @@ class EvoformerOnDevice:
                     jax.ShapeDtypeStruct(pair.shape, jnp.float32))
 
         @jax.custom_vjp
-        def stack(msa, pair, mask, pair_mask):
+        def stack(msa, pair, mask, pair_mask, msa_keep, pair_keep, scales):
             m, z = jax.pure_callback(functools.partial(self._primal, slot), shapes(msa, pair),
                                      msa.astype(jnp.float32), pair.astype(jnp.float32),
-                                     mask.astype(jnp.float32), pair_mask.astype(jnp.float32))
+                                     mask.astype(jnp.float32), pair_mask.astype(jnp.float32),
+                                     msa_keep, pair_keep, scales)
             return m.astype(msa.dtype), z.astype(pair.dtype)
 
-        def fwd(msa, pair, mask, pair_mask):
+        def fwd(msa, pair, mask, pair_mask, msa_keep, pair_keep, scales):
             m, z, token = jax.pure_callback(
                 functools.partial(self._taped, slot),
                 shapes(msa, pair) + (jax.ShapeDtypeStruct((), jnp.int32),),
                 msa.astype(jnp.float32), pair.astype(jnp.float32), mask.astype(jnp.float32),
-                pair_mask.astype(jnp.float32))
-            return (m.astype(msa.dtype), z.astype(pair.dtype)), (token, mask, pair_mask)
+                pair_mask.astype(jnp.float32), msa_keep, pair_keep, scales)
+            return ((m.astype(msa.dtype), z.astype(pair.dtype)),
+                    (token, mask, pair_mask, msa_keep, pair_keep, scales))
 
         def bwd(res, cotangents):
-            token, mask, pair_mask = res
+            token, mask, pair_mask, msa_keep, pair_keep, scales = res
             g_msa, g_pair = cotangents
             gm, gz = jax.pure_callback(
                 functools.partial(self._backward, slot),
                 (jax.ShapeDtypeStruct(g_msa.shape, jnp.float32),
                  jax.ShapeDtypeStruct(g_pair.shape, jnp.float32)),
                 token, g_msa.astype(jnp.float32), g_pair.astype(jnp.float32))
+            # The masks are draws, not activations: nothing differentiates them, and the one
+            # gradient dropout owes -- the same mask on the update's cotangent -- is on the tape.
+            # The keeps are booleans, and the cotangent of a non-float input is JAX's `float0`,
+            # not a zero of its own dtype.
             return (gm.astype(g_msa.dtype), gz.astype(g_pair.dtype),
-                    jnp.zeros_like(mask), jnp.zeros_like(pair_mask))
+                    jnp.zeros_like(mask), jnp.zeros_like(pair_mask),
+                    _zero_cotangent(msa_keep), _zero_cotangent(pair_keep),
+                    _zero_cotangent(scales))
 
         stack.defvjp(fwd, bwd)
         return stack
@@ -1435,18 +1606,20 @@ class ExtraMsaOnDevice:
 
     # ------------------------------------------------------------------ forward and backward
 
-    def _primal(self, slot, pair_np, extra_mask_np, pair_mask_np):
+    def _primal(self, slot, pair_np, extra_mask_np, pair_mask_np, pair_keep=None, scales=None):
         z, pair_mask, n = self._inputs(pair_np, extra_mask_np, pair_mask_np)
         with _refusal_names_the_size("forward", n, z.shape[0], stack="extra-MSA stack"), \
                 duotraj.card(slot, "extra_msa._primal"):
             trunk = self._trunk(slot)
             zo = trunk.extra_msa(trunk.up(z), self._pair_masks(trunk, pair_mask),
-                                 recompute=False)
+                                 recompute=False,
+                                 drop=upload_dropout(trunk, DROPOUT_DRAWS[1:], pair_keep,
+                                                     scales, z.shape[0]))
             trunk.sync()
             self.calls["primal"] += 1
             return trunk.down(zo, tuple(z.shape))[:n, :n].numpy()
 
-    def _taped(self, slot, pair_np, extra_mask_np, pair_mask_np):
+    def _taped(self, slot, pair_np, extra_mask_np, pair_mask_np, pair_keep=None, scales=None):
         z, pair_mask, n = self._inputs(pair_np, extra_mask_np, pair_mask_np)
         with _refusal_names_the_size("forward", n, z.shape[0], self.memory,
                                      stack="extra-MSA stack"), \
@@ -1455,16 +1628,17 @@ class ExtraMsaOnDevice:
             mode = self.memory.mode(trunk, z.shape[0])
             offload = trunk.arm(mode)
             zl = trunk.leaf(z)
+            drop = upload_dropout(trunk, DROPOUT_DRAWS[1:], pair_keep, scales, z.shape[0])
             with trunk.taped.tape():
                 zo = trunk.extra_msa(zl, self._pair_masks(trunk, pair_mask),
-                                     recompute=self.recompute, offload=offload)
+                                     recompute=self.recompute, offload=offload, drop=drop)
             trunk.sync()
         # Every recycle but the last is stop_gradient'ed and still goes through the forward
         # rule, so the superseded tapes are dropped here -- `EvoformerOnDevice._taped`'s reason.
             self._tapes.sweep(slot)
             trunk.ag.release_pins()
             token = self._tapes.bank({"root": zo, "leaf": zl, "shape": tuple(z.shape), "n": n,
-                                      "mode": mode}, slot)
+                                      "mode": mode, "drop": drop}, slot)
             self.calls["taped"] += 1
             return (trunk.down(zo.value, tuple(z.shape))[:n, :n].numpy(), np.int32(token))
 
@@ -1502,29 +1676,30 @@ class ExtraMsaOnDevice:
         def f32(pair):
             return jax.ShapeDtypeStruct(pair.shape, jnp.float32)
 
-        def args(pair, extra_mask, pair_mask):
+        def args(pair, extra_mask, pair_mask, pair_keep, scales):
             return (pair.astype(jnp.float32), extra_mask.astype(jnp.float32),
-                    pair_mask.astype(jnp.float32))
+                    pair_mask.astype(jnp.float32), pair_keep, scales)
 
         @jax.custom_vjp
-        def stack(pair, extra_mask, pair_mask):
+        def stack(pair, extra_mask, pair_mask, pair_keep, scales):
             z = jax.pure_callback(functools.partial(self._primal, slot), f32(pair),
-                                  *args(pair, extra_mask, pair_mask))
+                                  *args(pair, extra_mask, pair_mask, pair_keep, scales))
             return z.astype(pair.dtype)
 
-        def fwd(pair, extra_mask, pair_mask):
+        def fwd(pair, extra_mask, pair_mask, pair_keep, scales):
             z, token = jax.pure_callback(
                 functools.partial(self._taped, slot),
                 (f32(pair), jax.ShapeDtypeStruct((), jnp.int32)),
-                *args(pair, extra_mask, pair_mask))
-            return z.astype(pair.dtype), (token, extra_mask, pair_mask)
+                *args(pair, extra_mask, pair_mask, pair_keep, scales))
+            return z.astype(pair.dtype), (token, extra_mask, pair_mask, pair_keep, scales)
 
         def bwd(res, g_pair):
-            token, extra_mask, pair_mask = res
+            token, extra_mask, pair_mask, pair_keep, scales = res
             gz = jax.pure_callback(functools.partial(self._backward, slot), f32(g_pair), token,
                                    g_pair.astype(jnp.float32))
             return (gz.astype(g_pair.dtype), jnp.zeros_like(extra_mask),
-                    jnp.zeros_like(pair_mask))
+                    jnp.zeros_like(pair_mask), _zero_cotangent(pair_keep),
+                    _zero_cotangent(scales))
 
         stack.defvjp(fwd, bwd)
         return stack
@@ -1599,18 +1774,20 @@ class TemplateOnDevice:
 
     # ------------------------------------------------------------------ forward and backward
 
-    def _primal(self, slot, act_np, pair_mask_np):
+    def _primal(self, slot, act_np, pair_mask_np, pair_keep=None, scales=None):
         act, pair_mask, n = self._inputs(act_np, pair_mask_np)
         with _refusal_names_the_size("forward", n, act.shape[0], stack="template stack"), \
                 duotraj.card(slot, "template._primal"):
             trunk = self._trunk(slot)
             out = trunk.template_stack(trunk.up(act), self._pair_masks(trunk, pair_mask),
-                                       recompute=False)
+                                       recompute=False,
+                                       drop=upload_dropout(trunk, TEMPLATE_DROPOUT_DRAWS,
+                                                           pair_keep, scales, act.shape[0]))
             trunk.sync()
             self.calls["primal"] += 1
             return trunk.down(out, tuple(act.shape))[:n, :n].numpy()
 
-    def _taped(self, slot, act_np, pair_mask_np):
+    def _taped(self, slot, act_np, pair_mask_np, pair_keep=None, scales=None):
         act, pair_mask, n = self._inputs(act_np, pair_mask_np)
         with _refusal_names_the_size("forward", n, act.shape[0], self.memory,
                                      stack="template stack"), \
@@ -1619,16 +1796,17 @@ class TemplateOnDevice:
             mode = self.memory.mode(trunk, act.shape[0])
             offload = trunk.arm(mode)
             leaf = trunk.leaf(act)
+            drop = upload_dropout(trunk, TEMPLATE_DROPOUT_DRAWS, pair_keep, scales, act.shape[0])
             with trunk.taped.tape():
                 out = trunk.template_stack(leaf, self._pair_masks(trunk, pair_mask),
-                                           recompute=self.recompute, offload=offload)
+                                           recompute=self.recompute, offload=offload, drop=drop)
             trunk.sync()
         # Every recycle but the last is stop_gradient'ed and still goes through the forward
         # rule, so the superseded tapes are dropped here -- `ExtraMsaOnDevice._taped`'s reason.
             self._tapes.sweep(slot)
             trunk.ag.release_pins()
             token = self._tapes.bank({"root": out, "leaf": leaf, "shape": tuple(act.shape),
-                                      "n": n, "mode": mode}, slot)
+                                      "n": n, "mode": mode, "drop": drop}, slot)
             self.calls["taped"] += 1
             return (trunk.down(out.value, tuple(act.shape))[:n, :n].numpy(),
                     np.int32(token))
@@ -1667,27 +1845,28 @@ class TemplateOnDevice:
         def f32(act):
             return jax.ShapeDtypeStruct(act.shape, jnp.float32)
 
-        def args(act, pair_mask):
-            return act.astype(jnp.float32), pair_mask.astype(jnp.float32)
+        def args(act, pair_mask, pair_keep, scales):
+            return act.astype(jnp.float32), pair_mask.astype(jnp.float32), pair_keep, scales
 
         @jax.custom_vjp
-        def stack(act, pair_mask):
+        def stack(act, pair_mask, pair_keep, scales):
             out = jax.pure_callback(functools.partial(self._primal, slot), f32(act),
-                                    *args(act, pair_mask))
+                                    *args(act, pair_mask, pair_keep, scales))
             return out.astype(act.dtype)
 
-        def fwd(act, pair_mask):
+        def fwd(act, pair_mask, pair_keep, scales):
             out, token = jax.pure_callback(
                 functools.partial(self._taped, slot),
                 (f32(act), jax.ShapeDtypeStruct((), jnp.int32)),
-                *args(act, pair_mask))
-            return out.astype(act.dtype), (token, pair_mask)
+                *args(act, pair_mask, pair_keep, scales))
+            return out.astype(act.dtype), (token, pair_mask, pair_keep, scales)
 
         def bwd(res, g_act):
-            token, pair_mask = res
+            token, pair_mask, pair_keep, scales = res
             g = jax.pure_callback(functools.partial(self._backward, slot), f32(g_act), token,
                                   g_act.astype(jnp.float32))
-            return g.astype(g_act.dtype), jnp.zeros_like(pair_mask)
+            return (g.astype(g_act.dtype), jnp.zeros_like(pair_mask),
+                    _zero_cotangent(pair_keep), _zero_cotangent(scales))
 
         stack.defvjp(fwd, bwd)
         return stack
@@ -1768,10 +1947,19 @@ def template_on_device(tmpl: "TemplateOnDevice | None",
                         "padding_mask_2d is not reachable from the template stack's closure; "
                         "the splice point in SingleTemplateEmbedding.__call__ moved")
                 tmpl.seen["blocks_swapped"] = int(num_block)
+                use_dropout = _free_variable(fn, "use_dropout", lambda v: v is not None)
+                if use_dropout is None:
+                    raise ValueError(
+                        "use_dropout is not reachable from the template stack's closure; the "
+                        "splice point in SingleTemplateEmbedding.__call__ moved")
 
                 def run(carry):
+                    from bindcraft.af.alphafold.model import prng
                     act, key = carry
-                    return device_stack(act, mask), key
+                    _, pair_keep, scales, key_out = stack_dropout_masks(
+                        key.get(), int(num_block), TEMPLATE_KEY_FAN, TEMPLATE_DROPOUT_DRAWS,
+                        act.shape, use_dropout)
+                    return device_stack(act, mask, pair_keep, scales), prng.SafeKey(key_out)
 
                 return run
 
@@ -1792,6 +1980,28 @@ def template_on_device(tmpl: "TemplateOnDevice | None",
         yield tmpl
     finally:
         modules_multimer.SingleTemplateEmbedding.__call__ = original
+
+
+def find_use_dropout(fn):
+    """`batch["use_dropout"]`, read off `evoformer_fn`'s closure.
+
+    BindCraft 2 passes it as a traced value rather than a Python flag (`bindcraft/af2.py:318`),
+    so one compiled program serves a stage that designs with dropout and one that does not, and
+    the card has to read it the same way the host stack does.
+    """
+    batch = _free_variable(fn, "batch", lambda v: isinstance(v, dict) and "use_dropout" in v)
+    return None if batch is None else batch["use_dropout"]
+
+
+def find_opm_first(fn):
+    """Whether this checkpoint runs the outer product mean first, from the traced iteration.
+
+    It decides which sub-key each MSA-track draw takes, and it is the one thing that differs
+    between the monomer config and multimer_v3's (`config.py:177` against `config.py:411`).
+    """
+    it = _free_variable(fn, "evoformer_iteration",
+                        lambda v: hasattr(getattr(v, "config", None), "outer_product_mean"))
+    return None if it is None else bool(it.config.outer_product_mean.first)
 
 
 def find_evoformer_masks(fn):
@@ -1893,15 +2103,25 @@ def evoformer_on_device(evo: EvoformerOnDevice,
                 "extra-MSA and pair masks to fold a padded complex and guessing one is worse "
                 "than stopping.")
         extra_msa.swapped.append(num_layers)
+        use_dropout = find_use_dropout(fn)
+        if use_dropout is None:
+            raise RuntimeError(
+                "batch['use_dropout'] not found in the extra-MSA stack's closure. The stack draws "
+                "AlphaFold 2's dropout from the key the host stack carries, and folding without "
+                "it would design against a different regulariser than BindCraft 2 asked for.")
 
         def extra_on_device(x):
+            from bindcraft.af.alphafold.model import prng
             activations, safe_key = x
-            pair = extra_stack(activations["pair"], masks["msa"], masks["pair"])
-            # The scan splits the key once per block and carries the first half on, so what
-            # follows the stack sees the key it would have seen.
-            for _ in range(num_layers):
-                safe_key, _unused = safe_key.split()
-            return {**activations, "pair": pair}, safe_key
+            # The same iteration as the Evoformer's, so the same schedule; only the pair track
+            # runs on card, so only the pair track's draws are taken. `key_out` is what the
+            # scan carries out, which is what follows the stack sees on host.
+            _, pair_keep, scales, key_out = stack_dropout_masks(
+                safe_key.get(), num_layers, EVOFORMER_KEY_FAN, DROPOUT_DRAWS[1:],
+                activations["pair"].shape, use_dropout)
+            pair = extra_stack(activations["pair"], masks["msa"], masks["pair"], pair_keep,
+                               scales)
+            return {**activations, "pair": pair}, prng.SafeKey(key_out)
         return extra_on_device
 
     def factory(num_layers, *args, **kwargs):
@@ -1940,11 +2160,26 @@ def evoformer_on_device(evo: EvoformerOnDevice,
                     "MSA and pair masks to fold a padded complex and guessing one is worse than "
                     "stopping.")
 
+            use_dropout = find_use_dropout(fn)
+            opm_first = find_opm_first(fn)
+            if use_dropout is None or opm_first is None:
+                raise RuntimeError(
+                    "use_dropout/evoformer_iteration not found in evoformer_fn's closure. The "
+                    "trunk draws AlphaFold 2's dropout from the key the host stack carries, and "
+                    "folding without it would design against a different regulariser than "
+                    "BindCraft 2 asked for.")
+
             def on_device(x):
                 activations, safe_key = x
+                # The draws are the host's: same key, same schedule, same masks (`dropout_masks`).
+                msa_keep, pair_keep, scales, key_out = dropout_masks(
+                    safe_key.get(), evo.blocks, activations["msa"].shape,
+                    activations["pair"].shape, use_dropout, opm_first)
                 msa, pair = device_stack(activations["msa"], activations["pair"],
-                                         masks["msa"], masks["pair"])
-                return {**activations, "msa": msa, "pair": pair}, safe_key
+                                         masks["msa"], masks["pair"],
+                                         msa_keep, pair_keep, scales)
+                from bindcraft.af.alphafold.model import prng
+                return {**activations, "msa": msa, "pair": pair}, prng.SafeKey(key_out)
             return on_device
         return choose
 
@@ -2177,14 +2412,11 @@ _FAST_ROUND = (
 )
 
 #: Rows graded on Blackhole only (qb2 p300c, `state/bcp-evo.md`). On Wormhole `fast_round` leaves
-#: them at the value it found, or for the taped-kernel list at `_FAST_ROUND_WORMHOLE_KERNELS`, until
-#: each has a float64 grade and a round on a Wormhole chip. A named env var still wins.
-_BLACKHOLE_ONLY = frozenset({
-    "QKV_PACKED", "EXP_21F", "FANIN_CAST_FUSED", "PAIR_TRANSPOSE_FUSED", "GATED_GRAD_PACKED",
-    "GATED_BW_FUSED", "GATE_BW_FUSED", "LEAD_SUM_FUSED", "PAIR_MM_FUSED", "NOGRAD_IS_INFERENCE",
-    "tri_att_g_in_matmul", "TAPED_KERNELS_DEFAULT",
-})
-_FAST_ROUND_WORMHOLE_KERNELS = "tri_att_sdpa_hifi,rne_add"
+#: them at the value it found until each has a float64 grade and a round on a Wormhole chip. The
+#: other rows were graded there too: on three input seeds of the float64 stack grade they move
+#: dL/dlogits by no more than the seeds move each other (`perf/spd/bc2_stack_grade.py`). A named
+#: env var still wins.
+_BLACKHOLE_ONLY = frozenset({"PAIR_MM_FUSED", "tri_att_g_in_matmul"})
 
 
 @contextlib.contextmanager
@@ -2209,8 +2441,7 @@ def fast_round():
                 target = getattr(target, owner)
             saved.append((target, attr, getattr(target, attr)))
             if wormhole and attr in _BLACKHOLE_ONLY:
-                value = (_FAST_ROUND_WORMHOLE_KERNELS if attr == "TAPED_KERNELS_DEFAULT"
-                         else getattr(target, attr))
+                value = getattr(target, attr)
             setattr(target, attr, env_flag(env, value) if env else value)
         yield {attr: getattr(t, attr) for t, attr, _ in saved}
     finally:
@@ -2306,7 +2537,7 @@ def predictor(*, trunk: str = "device", card: int | str | None = None, checkpoin
     # close at exit runs on the main thread. Left to the first device call, the open happens on
     # one of XLA's CPU pool threads (the device seams run there), the unlock at exit fails with
     # EPERM and the process aborts with exit 134 after the campaign has already finished.
-    get_device()
+    get_device(trace="bc2" if autograd.TRACE_RECOMPUTE else None)
 
     pool = checkpoints if isinstance(checkpoints, TrunkPool) else TrunkPool(
         checkpoints, resident=resident, template=template)

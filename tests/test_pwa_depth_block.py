@@ -96,3 +96,14 @@ def test_env_override_exists_for_an_ab_screen():
     finally:
         os.environ.pop("TT_BIO_PWA_SINGLE_SHOT_BYTES", None)
         T._PWA_SINGLE_SHOT_BYTES = None
+
+
+def test_fused_row_block_is_whole_tiles_under_the_budget():
+    # Boltz-2 c730: 736 tokens, 8 heads. Unrounded this was 712 rows, so `_heads_unpadded`'s
+    # reshapes copied every block instead of viewing it.
+    assert T.pwa_fused_row_block(736, 8) == 704
+    for tokens in (128, 256, 512, 736, 768, 1024, 1536, 2048):
+        for heads in (4, 8, 16):
+            blk = T.pwa_fused_row_block(tokens, heads)
+            assert blk % 32 == 0 and blk >= 32
+            assert blk == 32 or blk * tokens * heads * 32 * 2 <= T.PWA_DEPTH_BUDGET_BYTES

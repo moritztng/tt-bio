@@ -499,7 +499,9 @@ class OpenFold3Forward:
         """The shipped module plus everything the training step adds to it."""
         from ..openfold3_fold import OpenFold3
         dev = self.device
-        self._model = OpenFold3(sd, ckc, num_cycles=self.num_cycles)
+        # No precision levers: the step differentiates the plain verbs (a fused `_sdpa32` has no
+        # backward), and training was graded without them.
+        self._model = OpenFold3(sd, ckc, num_cycles=self.num_cycles, levers=())
         # The confidence heads upload their device weights lazily inside
         # `forward_device`, so a walk run before the first forward would not find them
         # and the optimizer's parameter set would be short by the whole confidence head.

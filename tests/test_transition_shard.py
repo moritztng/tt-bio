@@ -42,9 +42,26 @@ def test_blackhole_grid_takes_eight_columns(monkeypatch):
     assert tt._transition_shard_grid(230, 32, 8) == (8, 10)
 
 
-def test_lever_is_in_both_modes():
+def test_lever_is_fast_only_and_rides_on_transition_bw():
+    # The shard path runs only beside transition_bw, whose fixed K blocks keep the answer off the core
+    # grid (release gate rg:l1-budget). Both are fast-only: normal failed its grade on pose-flip tails.
     assert "transition_shard" in tt.LEVERS
     assert "transition_shard" not in tt.UNGRADED_LEVERS
-    assert "transition_shard" in tt.FAST_LEVERS
-    assert "transition_shard" in tt.NORMAL_LEVERS
+    assert {"transition_shard", "transition_bw"} <= tt.FAST_LEVERS
+    assert not {"transition_shard", "transition_bw"} & tt.NORMAL_LEVERS
     assert "transition_shard" in tt.LATCH_STATS
+
+
+def test_fc12_interleave_gives_each_core_column_its_fc1_then_fc2_block():
+    import torch
+    w1, w2 = torch.arange(4 * 16.).reshape(4, 16), -torch.arange(4 * 16.).reshape(4, 16)
+    w12 = tt._fc12_interleave(w1, w2, 8)
+    assert w12.shape == (4, 32)
+    for j in range(8):
+        assert torch.equal(w12[:, 4 * j:4 * j + 2], w1[:, 2 * j:2 * j + 2])
+        assert torch.equal(w12[:, 4 * j + 2:4 * j + 4], w2[:, 2 * j:2 * j + 2])
+
+
+def test_fc12g_is_fast_only():
+    assert "swiglu_fc12g" in tt.FAST_LEVERS and "silu_f32" in tt.FAST_LEVERS
+    assert "swiglu_fc12g" not in tt.NORMAL_LEVERS | tt.UNGRADED_LEVERS

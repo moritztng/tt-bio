@@ -27,8 +27,8 @@ broadcast and the per-row layer_norm do not leak into real atoms.
 """
 import ttnn
 
-from .tenstorrent import Module, CORE_GRID_MAIN, _dtype, pad_dim
-from .openfold3_atom_transformer import OF3AtomTransformer
+from .tenstorrent import Module, CORE_GRID_MAIN, _cached, _dtype, pad_dim
+from .openfold3_atom_transformer import OF3AtomTransformer, sample_offset_index
 from .openfold3_weights import _sub
 
 
@@ -50,6 +50,8 @@ class OF3AtomAttentionDecoder(Module):
 
     Output (device bf16):
         rl_update: [1, n_atom, 3]
+
+    ``ai`` and ``ql`` may carry S samples on the leading dim; ``rl_update`` then does too.
     """
 
     def __init__(self, state_dict, compute_kernel_config):
@@ -71,12 +73,18 @@ class OF3AtomAttentionDecoder(Module):
             _bf = ttnn.typecast(q_in_tok, ttnn.bfloat16)
             ttnn.deallocate(q_in_tok)
             q_in_tok = _bf
+        S, n_tok_pad = q_in_tok.shape[0], q_in_tok.shape[1]
+        tok_idx = atom_to_token_index_tt if S == 1 else _cached(
+            cache, (id(self), "tok_idx", S),
+            lambda: sample_offset_index(atom_to_token_index_tt, S, n_tok_pad))
         q_in_2d = ttnn.reshape(ttnn.to_layout(q_in_tok, ttnn.ROW_MAJOR_LAYOUT),
-                               (q_in_tok.shape[1], 128))
-        bcast = ttnn.embedding(atom_to_token_index_tt, q_in_2d,
+                               (S * n_tok_pad, 128))
+        bcast = ttnn.embedding(tok_idx, q_in_2d,
                                layout=ttnn.ROW_MAJOR_LAYOUT,
-                               memory_config=ttnn.DRAM_MEMORY_CONFIG)  # [NP, 128]
-        bcast = ttnn.to_layout(ttnn.reshape(bcast, (1, NP, 128)), ttnn.TILE_LAYOUT)
+                               memory_config=ttnn.DRAM_MEMORY_CONFIG)  # [S*NP, 128]
+        if cache is None and tok_idx is not atom_to_token_index_tt:
+            ttnn.deallocate(tok_idx)
+        bcast = ttnn.to_layout(ttnn.reshape(bcast, (S, NP, 128)), ttnn.TILE_LAYOUT)
         if self._act_dtype != ttnn.bfloat16:
             bcast = ttnn.typecast(bcast, self._act_dtype)
         bcast = ttnn.multiply(bcast, atom_mask_col)  # zero padded atoms
@@ -104,6 +112,6 @@ class OF3AtomAttentionDecoder(Module):
                          core_grid=CORE_GRID_MAIN)  # [1, NP, 3]
         ttnn.deallocate(ln)
         rl = ttnn.to_layout(rl, ttnn.ROW_MAJOR_LAYOUT)
-        rl = ttnn.slice(rl, [0, 0, 0], [1, n_atom, 3])
+        rl = ttnn.slice(rl, [0, 0, 0], [S, n_atom, 3])
         return ttnn.to_layout(rl, ttnn.TILE_LAYOUT)
 

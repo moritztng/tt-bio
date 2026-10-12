@@ -260,7 +260,7 @@ def _one_k_chunk(seq: int) -> int:
 
 @lru_cache(maxsize=None)
 def fused_pairs(seq: int, heads: int, head_dim: int, cores: int, mask_dtype=None,
-                padded: bool = False) -> tuple:
+                padded: bool = False, batch: int = 0) -> tuple:
     """(q_chunk, k_chunk) pairs this kernel can serve at padded length `seq`, best first.
 
     Its two constraints pull in opposite directions, and neither is on the stock op's ladder:
@@ -290,6 +290,11 @@ def fused_pairs(seq: int, heads: int, head_dim: int, cores: int, mask_dtype=None
     `sdpa(..., padded_mask=True)`, whose persistent-mask reader fills the tail tiles with -inf as
     the per-chunk read does. Priced on the padded extents the kernel actually runs, and drawn from
     `_PADDED_CHUNK_TILES` rather than every multiple of 32.
+
+    `batch` is triangle attention's `seq` unless given. The token DiT's batch is its 5 samples, and
+    priced at batch `seq` the order put q384 k256 first at c730 on Wormhole (0.693 ms) where q192
+    k384 / k768 measure 0.523 / 0.532 ms (perf/spd_ditsdpa/opbench.py): the q split that lights 64
+    cores only wins once the batch each core loops over is the real one.
     """
     out = []
     chunks = (tuple(t * SG.TILE for t in _PADDED_CHUNK_TILES if t * SG.TILE < seq) if padded
@@ -303,7 +308,7 @@ def fused_pairs(seq: int, heads: int, head_dim: int, cores: int, mask_dtype=None
             # instead of answering, so `TT_BIO_SDPA_FUSED_LARGE_S=1` raised AssertionError out of
             # the fold rather than falling through to the stock ladder.
             p = SG.plan_for_shape(seq, heads, head_dim, qc, kc, grid=(cores, 1), split=(
-                max(cores // (heads * q_pf), 1), heads, q_pf), dtype=mask_dtype)
+                max(cores // (heads * q_pf), 1), heads, q_pf), dtype=mask_dtype, batch=batch)
             if p["q_per_core"] != 1 or p["nh_per_core"] != 1 or p["use_padded_mask"] != padded:
                 continue
             pers = p["k_num_chunks"] * p["Sq_chunk_t"] * p["Sk_chunk_t"]

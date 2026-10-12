@@ -91,7 +91,8 @@ class MSAModuleBlock:
             *_MSA_TRI_DIMS, None, None, False, block_remap["pair_stack"], ckc,
             scale_pair_bias=False, fp32_softmax=True, transpose_bias=transpose_bias,
             accurate_softmax=accurate_softmax_site("openfold3.msa"),
-            tri_att_sdpa_hifi=triatt_sdpa_hifi_site("openfold3.msa"),
+            # Default ON with the template and confidence sites (spd-of3 g14, see openfold3_template).
+            tri_att_sdpa_hifi=triatt_sdpa_hifi_site("openfold3.msa", True),
             z_fp32_residual=z_fp32_residual)
 
     def __call__(self, m, z, pair_mask=None, attn_mask=None):

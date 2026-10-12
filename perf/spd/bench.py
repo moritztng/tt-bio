@@ -10,13 +10,14 @@ shape, compile) then N warm reps, each on its own seed. Every rep appends one JS
     python perf/spd/bench.py --out RUN/of3   --chip 3 --model openfold3 --inputs c730
     python perf/spd/bench.py --out RUN/bc2   --chip 3 --model bindcraft2 --warm 2
 
---model: protenix-v2 (default), opendde, openfold3 or boltz2 fold through `Worker.load_model` and
+--model: protenix-v2 (default), opendde, openfold3, openbind, boltz2, rf3 or af2ig fold through `Worker.load_model` and
 `predict_one`, the code a JapanFold worker runs, and time the model's own fold call (`fold`; Boltz-2's
-`predict_step`). Protenix-v2 alone is built by hand, as before, because it is the one model that reads
+`predict_step`, RF3's `predict`; AF2-IG's `af2ig.fold`, which draws no samples and reads no seed, so its warm reps are repeats).
+Protenix-v2 alone is built by hand, as before, because it is the one model that reads
 the `L=` lever set. bindcraft2 is a design loop, not a fold: see "BindCraft 2" below.
 
 ARM grammar: NAME[:K=V[,K=V...]][:L=<set>[+lever|-lever...]][:fast]. K=V are environment variables set
-before tt_bio is imported; `fast` passes --fast; `L=` builds Protenix under that precision-lever set
+before tt_bio is imported; `fast` passes --fast; `L=` builds Protenix-v2 or OpenFold3 under that precision-lever set
 (tenstorrent.LEVERS, e.g. `L=fast-lofi`, `L=normal+opm_b8`), otherwise the mode's own set. Nothing here edits the model: an arm is only switches the engine already has.
 `L=` is refused for every other model: none of them reads tenstorrent.LEVERS, so the arm would be a no-op.
 
@@ -43,14 +44,14 @@ A trajectory BindCraft 2 stops early (`terminated` names the stage) is shorter b
 trajectories with completed ones.
 --inputs names the binder length (default 80, `--inputs 80`); --data is unused.
 """
-import argparse, gc, glob, hashlib, json, os, socket, subprocess, sys, threading, time
+import argparse, gc, glob, hashlib, json, os, re, socket, subprocess, sys, threading, time
 from pathlib import Path
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--out", required=True, type=Path)
 ap.add_argument("--chip", required=True, type=int, help="UMD index handed to TT_VISIBLE_DEVICES")
 ap.add_argument("--model", default="protenix-v2",
-                choices=("protenix-v2", "opendde", "openfold3", "boltz2", "bindcraft2"))
+                choices=("protenix-v2", "opendde", "openfold3", "openbind", "boltz2", "rf3", "bindcraft2", "af2ig"))
 ap.add_argument("--arm", default="exact")
 ap.add_argument("--inputs", default="c730")
 ap.add_argument("--warm", type=int, default=3)
@@ -87,15 +88,19 @@ def parse_arm(spec):
         elif p.startswith("L="):
             lv = p[2:]
         elif p:
-            env.update(kv.split("=", 1) for kv in p.split(","))
+            # A comma starts a new pair only before NAME=, so a value can list several sites.
+            env.update(kv.split("=", 1) for kv in re.split(r",(?=[A-Za-z_][A-Za-z0-9_]*=)", p))
     return parts[0], env, fast, lv
 
 
 ARM, ARM_ENV, FAST, LEVER_SPEC = parse_arm(a.arm)
 PV2 = a.model == "protenix-v2"
-if LEVER_SPEC is not None and not PV2:
-    sys.exit(f"L= arms build Protenix-v2 only; {a.model} reads no tenstorrent.LEVERS, so `{a.arm}` would fold "
-             f"its default. Use K=V switches for {a.model}.")
+if LEVER_SPEC is not None and a.model in ("openfold3", "openbind", "rf3"):
+    # OpenFold3, OpenBind-0 and RF3 build under `tenstorrent.model_levers()`, which reads the set from TT_BIO_LEVERS.
+    ARM_ENV["TT_BIO_LEVERS"] = LEVER_SPEC
+elif LEVER_SPEC is not None and not PV2:
+    sys.exit(f"L= arms build Protenix-v2, OpenFold3, OpenBind-0 and RF3 only; {a.model} reads no tenstorrent.LEVERS, so "
+             f"`{a.arm}` would fold its default. Use K=V switches for {a.model}.")
 os.environ.update(ARM_ENV)
 a.out.mkdir(parents=True, exist_ok=True)
 LOG = open(a.out / "bench.jsonl", "a")
@@ -277,10 +282,12 @@ def _grab(*args, **kw):
 
 
 M._dispatch_run = _grab; M._dispatch_to_controller = _grab
-argv = ["predict", str(INPUTS[0][1]), "--model", a.model, "--diffusion_samples", str(a.samples),
+AF2IG = a.model == "af2ig"
+argv = ["predict", str(INPUTS[0][1]), "--model", a.model,
+        *([] if AF2IG else ["--diffusion_samples", str(a.samples)]),
         *(["--recycling_steps", str(a.recycles)] if a.recycles is not None else []),
         "--accelerator", "tenstorrent", "--output_format", "cif",
-        "--msa_dir", str(a.data / "msa"), "--msa_cache_only", "--out_dir", str(a.out / "cli")]
+        *([] if AF2IG else ["--msa_dir", str(a.data / "msa"), "--msa_cache_only"]), "--out_dir", str(a.out / "cli")]
 if FAST:
     argv.append("--fast")
 try:
@@ -357,20 +364,25 @@ m = state.model
 BUILT_FAST = T._FAST_MODE if PV2 else getattr(m, "_fast", T._FAST_MODE)
 log(ev="build", s=time.monotonic() - t, fast=BUILT_FAST, levers=sorted(getattr(m, "_levers", ())))
 LAST = {}
-FOLD_CALL = "predict_step" if a.model == "boltz2" else "fold"
-orig = getattr(m, FOLD_CALL)
+FOLD_CALL = {"boltz2": "predict_step", "rf3": "predict"}.get(a.model, "fold")
+orig = None if AF2IG else getattr(m, FOLD_CALL)
 CONF = {"plddt": "plddt", "ptm": "ptm", "iptm": "iptm"}
 
 
 def unpack(r):
     """(coords, per-sample confidences) from whatever the model's fold call returns: Protenix-v2 and
-    OpenDDE a (coords, conf) tuple, OpenFold3 a FoldResult, Boltz-2 its prediction dict."""
+    OpenDDE a (coords, conf) tuple, OpenFold3 a FoldResult, Boltz-2 its prediction dict, RF3 its output dict
+    (coordinates only: the worker reduces RF3's confidence logits after the call, into the record's metrics)."""
+    if isinstance(r, dict) and "X_L" in r:
+        return r["X_L"], None
     if isinstance(r, dict):  # Boltz-2: per-sample tensors; complex_plddt is the scalar pLDDT
         if r.get("exception") or r.get("coords") is None:
             return None, None
         n = r["coords"].shape[0]
         keys = {"plddt": "complex_plddt", "ptm": "ptm", "iptm": "iptm"}
         return r["coords"], [{k: float(r[v][i]) for k, v in keys.items() if v in r} for i in range(n)]
+    if hasattr(r, "binder_length"):  # AF2-IG: one structure, ColabDesign's scalars
+        return torch.from_numpy(r.coords), [{k: float(r.metrics[k]) for k in CONF if k in r.metrics}]
     if hasattr(r, "samples"):  # OpenFold3
         return torch.stack(list(r.samples)), [{k: float(c[k]) for k in CONF if k in c} for c in r.confidence]
     coords, conf = r if isinstance(r, tuple) else (r, None)
@@ -394,7 +406,12 @@ def fold(*args, **kw):
     return r
 
 
-setattr(m, FOLD_CALL, fold)
+if AF2IG:  # the model is the trunk module; the fold is af2ig.fold, which the worker calls by module
+    import tt_bio.af2ig as AF2IG_MOD  # noqa: E402
+    orig = AF2IG_MOD.fold
+    AF2IG_MOD.fold = fold
+else:
+    setattr(m, FOLD_CALL, fold)
 
 
 for name, y in INPUTS:

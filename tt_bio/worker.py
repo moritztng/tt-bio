@@ -27,7 +27,8 @@ import torch
 
 from tt_bio.device_lease import CONTENDED_EXIT_CODE, DeviceInUseError, install_parent_death_guard
 from tt_bio.host_controller import (HEARTBEAT_PER_LEASE, LEASE_S, ControllerClient,
-                                    HttpProgressQueue, run_config_hash)
+                                    HttpProgressQueue, diffusion_precision,
+                                    run_config_hash)
 from tt_bio.envflags import env_flag
 from tt_bio import ranking as rank
 from tt_bio.cache import EMPTY_MSA, cached, msa_pinned, seq_hash, staged
@@ -543,10 +544,9 @@ def _tfg_guidance(path, cfg, feats, chains, bonds):
     gfeats = dict(feats)
     gfeats.update(F.constraint_features(constraint, feats, chains, entities))
     gfeats.update(F.geometry_features(feats, chains, entities, bonds=bonds))
-    # Samples are guided independently, so each host thread of this fold's share takes a group of them in its own
-    # one-thread process (same output for any count, faster than torch threads on one batch).
-    import torch
-    return Guidance(gfeats, workers=min(int(cfg.get("diffusion_samples") or 1), torch.get_num_threads()))
+    # In-process on the fold's own threads: a step is milliseconds, so per-sample child processes lost more to their
+    # pipes than they saved (1bzq 0.9 vs 2.7 s, 9xqn 2.3-2.8 vs 5.7-6.1 s per fold on a Galaxy host).
+    return Guidance(gfeats)
 
 
 def search_msas(path, chains, cfg, progress=None) -> None:
@@ -878,9 +878,15 @@ class _WorkerState:
         elif model_id in _of3_family():
             import ttnn
 
+            from tt_bio import openfold3_sample_diffusion
             from tt_bio.openfold3_fold import OpenFold3
-            from tt_bio.tenstorrent import get_device
+            from tt_bio.tenstorrent import cleanup, get_device, trace_region_size
 
+            if openfold3_sample_diffusion.TRACE and trace_region_size() <= 0:
+                # The rollout replays a captured step, and the region it needs is reserved only
+                # at open: close a chip opened without one (as for esmc-300m/600m below).
+                cleanup()
+                get_device(trace="openfold3")
             dev = get_device()
             ckc = ttnn.init_device_compute_kernel_config(
                 dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi4,
@@ -908,8 +914,10 @@ class _WorkerState:
             if cfg.get("trace"):
                 get_device(trace="protenix")
 
+            prec = diffusion_precision(cfg)
             self.model = OpenDDE.load_from_checkpoint(
-                cfg.get("opendde_ckpt"), abag=(model_id == "opendde-abag"))
+                cfg.get("opendde_ckpt"), abag=(model_id == "opendde-abag"),
+                diffusion_fp32=None if prec is None else prec == "fp32")
         elif model_id == "af2ig":
             from tt_bio.af2 import load_af2_device_model
             from tt_bio.af2_weights import load_af2_state_dict
@@ -1778,9 +1786,10 @@ class _WorkerState:
             build_openfold3_features, make_openfold3_msa_features)
         from tt_bio.envflags import env_flag
         from tt_bio.openfold3_host_prep import (
-            DEVICE_REF_ATOM, dedup_template_slots, derive_block_aux, derive_relpos,
+            DEVICE_REF_ATOM, RELPOS_CODES, dedup_template_slots, derive_block_aux, derive_relpos,
+            derive_relpos_codes,
             derive_template_feat, ref_atom_embed, ref_atom_embed_device,
-            run_input_atom_encoder)
+            input_atom_transformer, run_input_atom_encoder)
         from tt_bio.openfold3_weights import _sub
 
         with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as fh:
@@ -1873,11 +1882,15 @@ class _WorkerState:
         aux = derive_block_aux(features)
         template_feat, template_slots = dedup_template_slots(
             derive_template_feat(features))
-        relpos = derive_relpos(features)
+        relpos = (derive_relpos_codes(features) if env_flag(RELPOS_CODES, True)
+                  else derive_relpos(features))
 
         model = self.model
         dev = model.device
-        ai = run_input_atom_encoder(dev, model.ckc, model.sd, features, aux)
+        if getattr(model, "input_atom_transformer", None) is None:
+            model.input_atom_transformer = input_atom_transformer(model.ckc, model.sd)
+        ai = run_input_atom_encoder(dev, model.ckc, model.sd, features, aux,
+                                    model.input_atom_transformer)
         s_input = _torch.cat(
             [ai, features["restype"], features["profile"],
              features["deletion_mean"].unsqueeze(-1)], dim=-1)
@@ -1928,7 +1941,7 @@ class _WorkerState:
             n_atom=aux["n_atom"], n_token=aux["n_token"],
             no_rollout_steps=int(cfg["sampling_steps"]), seed=seed,
             no_samples=n_sample, confidence_aux_host=confidence_aux,
-            progress_fn=report_progress)
+            progress_fn=report_progress, max_parallel_samples=cfg.get("max_parallel_samples"))
 
         confs = result.confidence
         order = sorted(range(len(confs)),
@@ -2632,6 +2645,7 @@ def _execute_rfd3_job_inprocess(
             partial_t=cfg.get("partial_t"),
             cfg_scale=cfg.get("cfg_scale"),
             fp32_residual=bool(cfg.get("fp32_residual")),
+            fast=bool(cfg.get("fast")),
             num_designs=num_designs,
             batch_size=int(cfg.get("batch_size") or 8),
             verbose=False,
