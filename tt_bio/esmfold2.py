@@ -729,8 +729,11 @@ def band_mask(n_or_mask, half_window: int):
 # Keys outside the band get zero weight on both paths, so it is the same attention; the softmax reduces
 # over 160 keys instead of N, which is ~26x fewer scores at 512 tokens. When a valid atom's window does
 # not fit the 160 keys (padding inside the atom list) the dense band runs instead. p300c 512 aa: -0.82 s ESMFold2,
-# -1.05 s ESMFold2-Fast; passes the normal bar on both and the fast bar on ESMFold2-Fast (perf/spd/grade.py, 11 complexes).
-_SWA_WINDOW = env_flag("TT_BIO_ESMFOLD2_SWA_WINDOW", True)
+# -1.05 s ESMFold2-Fast; passes the normal and the fast bar on both models on Blackhole (perf/spd/grade.py, 11 complexes),
+# so on by default there. Wormhole is not graded and keeps the dense band (and its digests) unless the switch is set:
+# None = by arch.
+_SWA_WINDOW = (env_flag("TT_BIO_ESMFOLD2_SWA_WINDOW", False)
+               if os.environ.get("TT_BIO_ESMFOLD2_SWA_WINDOW", "").strip() else None)
 SWA_STATS = [0, 0]  # atom transformer masks built (windowed, dense)
 
 
@@ -796,7 +799,11 @@ def swa_band(n_or_mask, half_window, upload, device, heads=4, head_dim=32):
     """The atom transformer's attention mask on the device: a SWAWindow when the windowed path holds,
     else the dense [1, 1, N, N] band."""
     dense = band_mask(n_or_mask, half_window)
-    win = _window_bias(dense[0, 0], half_window) if _SWA_WINDOW else None
+    on = _SWA_WINDOW
+    if on is None:
+        from tt_bio import tenstorrent
+        on = tenstorrent.arch_name() == "blackhole"
+    win = _window_bias(dense[0, 0], half_window) if on else None
     SWA_STATS[win is None] += 1
     if win is None:
         return upload(dense.float())
