@@ -624,12 +624,12 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
           "transition_shard", "dit_mm16", "atom_k1", "dit_b8", "dit_qkv16", "atom_mm16", "adaln_mod",
           "swiglu_fc12g", "msa_sample", "dit_sdpa_pm", "dit_s16", "dit_chunk", "conf_bins", "trimul_t1", "trimul_t2",
-          "triatt_tail_bias")
+          "triatt_tail_bias", "dit_cond_hifi2")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias in its own set: graded on AF2-IG only, and it would reach any other biased
-# triangle attention.
-UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias"})
+# triangle attention. BoltzGen's own --fast set names dit_cond_hifi2, graded on BoltzGen's designs.
+UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "dit_cond_hifi2"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -2330,6 +2330,7 @@ _B2_DIT_COND_HOIST = env_flag("TT_BIO_DIT_COND_HOIST", True)
 # The two hoisted conditioning matmuls at HiFi2 instead of the module's fidelity. At 512 tokens x 1
 # sample they are 87 GFLOP a step and compute-bound at HiFi4 (1.13 + 0.75 ms on a p150a, 0.44 of
 # roof, spd-gap-small census). Off until a paired A/B and a fast grade decide; read at call time.
+# Also on under the `dit_cond_hifi2` lever (BoltzGen's fast set).
 _B2_DIT_COND_HIFI2 = env_flag("TT_BIO_DIT_COND_HIFI2", False)
 # Each hoisted AdaLN modulates with one addcmul: the 48 scales get their sigmoid in the matmul
 # epilogue (their own weight block), so `sigmoid(scale) * a` then `+ shift` (two ops, two bf16
@@ -14379,7 +14380,7 @@ class DiffusionTransformer(Module):
             s_hat = ttnn.layer_norm(s, epsilon=1e-5,
                                     compute_kernel_config=self.compute_kernel_config)
             ckc = self.compute_kernel_config
-            if _B2_DIT_COND_HIFI2 and ckc is not None:
+            if (_B2_DIT_COND_HIFI2 or lever("dit_cond_hifi2")) and ckc is not None:
                 ckc = type(ckc)(math_fidelity=ttnn.MathFidelity.HiFi2,
                                 math_approx_mode=ckc.math_approx_mode,
                                 fp32_dest_acc_en=ckc.fp32_dest_acc_en,

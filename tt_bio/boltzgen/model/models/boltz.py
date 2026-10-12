@@ -57,17 +57,19 @@ from tt_bio.boltzgen.model.modules.inverse_fold import (
 # state-dict load and run in `forward`, both inside `lever_scope`, so the process-wide `--fast` switch
 # (`tenstorrent._FAST_MODE`: bfp8 activations and weights, narrower chunks) is off inside BoltzGen, as
 # in Boltz-2. At 512 aa that switch designed slower than normal mode (p150a 44.52 vs 38.40 s/design).
-# Fast is tenstorrent.FAST_LEVERS as graded, pinned by name so a lever added there later is not in
-# BoltzGen's fast mode ungraded. Grade (Blackhole p150a, bg_R3 8 designs, seed 0 against exact seed 0,
-# floor exact seed 1, perf/spd/bg_grade.py): every design present, mean change of design ipTM +0.008,
-# pTM +0.003, complex pLDDT +0.002, design pTM +0.024 against the 0.03 drop bar, filter pass 8 of 8 in
-# both. Same-seed design CA RMSD median 7.5 A against a 10.5 A seed floor: a design rollout decorrelates
-# under any numeric change, so that number is no bar here. p150a 512 aa, 1350 MHz: 43.94 -> 39.28 s/design.
+# Fast is pinned by name so a lever added to tenstorrent.FAST_LEVERS later is not in BoltzGen's fast
+# mode ungraded. It is the shared fast set without dit_sdpa_pm (at 544 tokens its kernel loses to the
+# stock SDPA on the 768 pad: Wormhole 66.3 -> 61.7 s/design) plus adaln_mod and dit_cond_hifi2 (the
+# hoisted conditioning matmuls at HiFi2: 61.7 -> 60.4). Grade (Wormhole, bg_R3, 8 designs at each of
+# seeds 0, 1, 3-7 against exact normal at the same seed, floor = exact at the next seed,
+# perf/spd/bg_grade.py): 56 designs, filter pass 56 of 56 in both, every confidence CI covers 0
+# (design ipTM -0.020 [-0.047, +0.006], design pTM -0.011, complex pLDDT -0.001). Same-seed design CA
+# RMSD is no bar here: a design rollout decorrelates under any numeric change (floor median 11.8 A).
 LEVERS_NORMAL = frozenset()
 LEVERS_FAST = frozenset({"acc_off", "diffusion_bf16", "dit_sdpa", "transition_b8", "opm_b8", "atom_sdpa",
                          "trimul_ibw", "trimul_tail", "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32",
                          "ln_f32", "triatt_tail", "transition_bw", "transition_shard", "dit_mm16", "atom_k1",
-                         "dit_b8", "dit_qkv16", "swiglu_fc12g", "msa_sample", "dit_sdpa_pm"})
+                         "dit_b8", "dit_qkv16", "swiglu_fc12g", "msa_sample", "adaln_mod", "dit_cond_hifi2"})
 
 
 def _under_levers(method):
