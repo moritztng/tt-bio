@@ -43,6 +43,12 @@ shards, the BindCraft 2 wheel check, plus the card-free legs) once per architect
 card of that architecture, each under the card's own `flock`, longest legs first. It writes one
 `VERDICT.md` with a row per leg and a column per architecture.
 
+Each size ladder runs as up to four legs by rung group (`ladder:<model>@256-768`, `@896-1024`,
+`@1152-1280`, `@1408-1536`), so the longest ladder no longer sets the gate's wall clock. The first
+group keeps 256, 512 and 768 together because the exponent check reads those intervals. A group leg
+only goes to a card whose ladder walks one of its rungs: on Blackhole the top groups need a p150a.
+Select a whole ladder with `--legs 'ladder:opendde@*'`.
+
 ```bash
 PYTHONPATH="$PWD" python3 scripts/gate_fanout.py --sha <commit> --hosts hosts.json \
     --workers qb1:0,qb1:1,qb1:2,qb1:3,g114:4,g114:5,g114:6,g114:7 \

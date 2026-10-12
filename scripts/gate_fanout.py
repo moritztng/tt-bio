@@ -13,7 +13,7 @@ legs run one after another; spread over N cards the gate takes about as long as 
 Legs (enumerated from the tree under test, so a new arm or model is picked up without editing here):
   parity:<leg>       full_parity_gate.py --leg <leg>                     every non-opt-in leg
   rg:<arm>           release_gate.py --model <arm>                       every arm but size-ladder
-  ladder:<model>     release_gate.py --model size-ladder --size-ladder-models <model>
+  ladder:<model>@<lo>-<hi>  release_gate.py --model size-ladder --size-ladder-models <model> --size-ladder-rungs <group>
   capacity:<model>   capacity_gate.py --models <model>
   ux:<model>         ux_regression.py --model <model>
   pytest_device:i/K  pytest over every K-th test file, starting at i
