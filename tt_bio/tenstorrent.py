@@ -12442,10 +12442,18 @@ class Transition(Module):
         w12, w3 = self._ws
         if not _pair_ws.eligible(x, w12, w3):
             return None
+        # Under transition_b8 x goes in as bfp8 too, and with both operands bfp8 HiFi2 already covers every
+        # mantissa bit (`bfp8_fidelity`); fc3's bf16 hidden is then read at bfp8-like precision, as fast's
+        # own bfp8 hidden is stored.
+        b8 = w12.dtype == ttnn.bfloat8_b
         x_norm = ttnn.layer_norm(x, weight=self.norm_weight, bias=self.norm_bias, epsilon=1e-5,
                                  compute_kernel_config=self.compute_kernel_config,
                                  memory_config=ttnn.DRAM_MEMORY_CONFIG)
-        out = _pair_ws.pair_swiglu(x_norm, w12, w3, self.compute_kernel_config.math_fidelity)
+        if b8:  # layer_norm has no output dtype
+            x_bf16, x_norm = x_norm, ttnn.typecast(x_norm, ttnn.bfloat8_b)
+            ttnn.deallocate(x_bf16)
+        fid = self.compute_kernel_config.math_fidelity
+        out = _pair_ws.pair_swiglu(x_norm, w12, w3, ttnn.MathFidelity.HiFi2 if b8 else fid)
         ttnn.deallocate(x_norm)
         return out
 
