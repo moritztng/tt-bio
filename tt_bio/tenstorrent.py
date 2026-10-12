@@ -13,6 +13,7 @@ from functools import lru_cache, partial, wraps
 from types import BuiltinFunctionType, FunctionType, MappingProxyType, MethodType, ModuleType
 
 from . import ops
+from . import back_ln as _back_ln
 from . import reblock_permute as _reblock
 from . import triatt_qkv as _triatt_qkv
 from . import pair_transpose as _pair_tr
@@ -9744,6 +9745,11 @@ class TriangleMultiplication(Module):
         # compile per process and every later call starts narrow.
         x_chunks = []
         x_out, c_done = None, 0      # `_TRIMUL_BACK_INTO`: the output the chunks are written into
+        # back_ln writes the output norm with the last chunk's move; the row-blocked tail recomputes
+        # both norms itself, so it must get the raw result.
+        x_normed = False
+        back_ln_skip = (H > SEQ_LEN_MORE_CHUNKING or x_norm_in is None
+                        or (tuple(shp), x_in.dtype) in _TRIMUL_TAIL_ROWS_SHAPES)
         tma_key = ("tma", H, batch, self._hidden, bool(self.ending))
         while True:
             tma_live = False         # an L1 `a` (TT_BIO_OF3L1_TMA) is live in this attempt
@@ -10041,7 +10047,14 @@ class TriangleMultiplication(Module):
                             x_out = ttnn.allocate_tensor_on_device(
                                 ttnn.Shape([1, H, H, self._hidden]), x_chunk.dtype,
                                 ttnn.TILE_LAYOUT, self.device, back_mc)
-                        _reblock.reblock_permute_back(x_chunk, back_mc, out=x_out, c_off=c_done)
+                        if (c_done + int(x_chunk.shape[1]) == self._hidden and not back_ln_skip
+                                and _back_ln.eligible(x_chunk, x_out, c_done)):
+                            # The last chunk's move also writes the output norm (back_ln.py).
+                            _back_ln.back_ln(x_chunk, x_out, c_done, *_back_ln.weight_rows(
+                                self.out_norm_weight, self.out_norm_bias, self.device), 1e-5)
+                            x_normed = True
+                        else:
+                            _reblock.reblock_permute_back(x_chunk, back_mc, out=x_out, c_off=c_done)
                         c_done += int(x_chunk.shape[1])
                         ttnn.deallocate(x_chunk)
                         continue
@@ -10133,7 +10146,7 @@ class TriangleMultiplication(Module):
                 x_chunks = []
                 if x_out is not None:
                     ttnn.deallocate(x_out)
-                x_out, c_done = None, 0
+                x_out, c_done, x_normed = None, 0, False
                 if x_out_pre is not None:
                     ttnn.deallocate(x_out_pre)
                     x_out_pre = None
@@ -10255,7 +10268,7 @@ class TriangleMultiplication(Module):
                 ttnn.deallocate(g_out_fused)
                 return fused
         try:
-            xn = ttnn.layer_norm(
+            xn = x if x_normed else ttnn.layer_norm(
                 x,
                 weight=self.out_norm_weight,
                 bias=self.out_norm_bias,
@@ -10276,7 +10289,8 @@ class TriangleMultiplication(Module):
                   f"blocks. The tt-metal 'Out of Memory' line above is expected and handled; "
                   f"the blocks compute the same row-local math.", file=sys.stderr, flush=True)
             return self._tail_rows(x_in, x, H, host_acc, add_to_input)
-        ttnn.deallocate(x)
+        if xn is not x:
+            ttnn.deallocate(x)
         x = xn
         if (g_out_fused is None and _TRIMUL_TAIL_F1 and self.p_out_bias is None
                 and self.g_out_bias is None):

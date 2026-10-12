@@ -73,6 +73,7 @@ import ttnn
 import tt_bio.tenstorrent as T
 import tt_bio.reblock_permute as RB
 import tt_bio.trimul_tail as TTL
+import tt_bio.back_ln as BL
 
 dev = T.get_device()
 opened = sorted({int(os.readlink(f"/proc/self/fd/{fd}").rsplit("/", 1)[1]) for fd in os.listdir("/proc/self/fd")
@@ -138,6 +139,8 @@ LEVERS = {
     # gin_moved past its 0.85-of-L1 guard: measurement only, on a bench device with nothing else in L1
     # (ESMFold2's c_z 256 / hidden 256 needs 677 tiles, 1.386 MB of a 1.462 MB bank; the guard admits 606).
     "ginfit": [(T.set_trimul_gated_inproj, True), (_set_gin_fit, True)],
+    # the last back move writes the output norm too (back_ln.py)
+    "bln": [(BL.set_enabled, True)],
     "nores": [(TTL.set_res, False)],
     "nomf": [(TTL.set_mask_fold, False)],
 }
@@ -337,6 +340,7 @@ for var in A.variants.split(","):
             fired["mm_transpose"] = dict((f"{k[0]}/{k[1]}", v) for k, v in T.TRIMUL_MM_TRANSPOSE_STATS.items())
             fired["einsum_fid"] = T._TRIMUL_EINSUM_FID or "trunk"
             fired["back_into"] = T._TRIMUL_BACK_INTO
+            fired["back_ln"] = dict(BL.REACH)
             fired["inproj_b8"] = T._TRIMUL_INPROJ_B8
             fired["tail_f1"] = [a - b for a, b in zip(TTL.STATS, tail0)]
             fired["tail_epi"] = TTL.EPI
