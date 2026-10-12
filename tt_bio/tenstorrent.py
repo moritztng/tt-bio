@@ -620,10 +620,11 @@ _FAST_MODE = False
 #   conf_bins       OpenFold3's pae / pde heads reduce softmax(logits) to their bin-vector products on the card
 #                   in fp32 (pTM, ipTM, the chain readings, the PAE / PDE matrices), so the [N, N, 64] logits
 #                   never cross to the host
-#   transition_ws   a c_z <= 128 pair Transition's swiglu as one weight-stationary program after its layer norm
+#   transition_ws   a pair Transition's swiglu as one weight-stationary program after its layer norm
 #                   (`pair_swiglu_ws`, from RFdiffusion3's RFD3_PAIR_WS): [w1 | w2] and w3 resident in L1, x
-#                   read once, fc1 / fc2 / their product never leave the core. bf16 weights, fp32 dest, the
-#                   wheel's silu; the trunk's own matmul fidelity.
+#                   read once, fc1 / fc2 / their product never leave the core. Weights in the module's own
+#                   dtype (bfp8 under transition_b8), fp32 dest, the wheel's silu, the trunk's matmul fidelity.
+#                   Fires where the weights fit L1: c_z 128 in either dtype, c_z 256 with bfp8 weights.
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in",
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
@@ -12424,15 +12425,18 @@ class Transition(Module):
 
     def _weight_stationary(self, x, memory_config):
         """`transition_ws`: layer norm, then the whole swiglu as one `pair_swiglu_ws` program, or None
-        where the kernel does not take the shape (c_z > 128, a hidden width it cannot tile, L1-bound
-        output, a tape)."""
+        where the kernel does not take the shape (weights over its L1 budget: c_z 256 in bf16, c_z 384;
+        a hidden width it cannot tile; an L1 destination; a tape)."""
         if not (lever("transition_ws") and len(x.shape) == 4 and not ops.taping()
                 and (memory_config is None or memory_config.buffer_type == ttnn.BufferType.DRAM)
                 and x.dtype == ttnn.bfloat16 and (self.dtype or _dtype()) == ttnn.bfloat16):
             return None
         if getattr(self, "_ws", None) is None:
+            # bfp8 weights where the module's own are (transition_b8, fast mode): that is also what lets
+            # c_z 256 fit L1 whole.
             self._ws = _pair_ws.weights(self.weights["fc1.weight"].t(), self.weights["fc2.weight"].t(),
-                                        self.weights["fc3.weight"].t(), self.device)
+                                        self.weights["fc3.weight"].t(), self.device,
+                                        ttnn.bfloat8_b if self._hidden_b8 else ttnn.bfloat16)
         w12, w3 = self._ws
         if not _pair_ws.eligible(x, w12, w3):
             return None
