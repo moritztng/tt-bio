@@ -21,7 +21,6 @@ ARM is a '+'-joined set of knobs applied before the denoiser is built:
   sf        RFD3_SIGMOID_FOLD, sigmoid gates folded into their multiply (on by default)
   rs        RFD3_RESIDENT_STEP, the denoise step stays on the card between modules (on by default)
   pws       RFD3_PAIR_WS, the token pair Transition as one weight-stationary program (tt_bio.pair_swiglu_ws)
-  zp        RFD3_DIT_MASK_ZPAD, the stacked DiT mask built from zero-padded z, no stack pads (gap_dit_mask.py)
   gsm bs pzc fgrid   the existing off-by-default levers RFD3_GATHERED_SOFTMAX, RFD3_BLOCK_SPARSE,
             RFD3_PROCESS_Z_COLLAPSE, RFD3_FAST_GRID (declined before only for not being bit-exact)
 
@@ -42,8 +41,7 @@ ENV_KNOBS = {"gsm": "RFD3_GATHERED_SOFTMAX", "bs": "RFD3_BLOCK_SPARSE",
              "pzc": "RFD3_PROCESS_Z_COLLAPSE", "fgrid": "RFD3_FAST_GRID",
              "asdpa": "RFD3_ATOM_SDPA", "tb8": "RFD3_TRANSITION_B8",
              "dsdpa": "RFD3_DIT_SDPA", "hifi2": "RFD3_HIFI2", "sf": "RFD3_SIGMOID_FOLD",
-             "rs": "RFD3_RESIDENT_STEP", "pws": "RFD3_PAIR_WS", "kd": "RFD3_ATTN_KDTREE",
-             "zp": "RFD3_DIT_MASK_ZPAD"}
+             "rs": "RFD3_RESIDENT_STEP", "pws": "RFD3_PAIR_WS", "kd": "RFD3_ATTN_KDTREE"}
 _arm = set(sys.argv[1].split("+")) if len(sys.argv) > 1 else set()
 for _k, _env in ENV_KNOBS.items():
     os.environ[_env] = "1" if _k in _arm else "0"   # read at import, so before tt_bio.rfd3 loads
