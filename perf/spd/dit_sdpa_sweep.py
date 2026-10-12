@@ -39,7 +39,12 @@ up = lambda x: ttnn.from_torch(x, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, 
 qt, kt, vt, bt = up(q), up(k), up(v), up(b)
 # reference on the bf16-rounded inputs, in float64
 r = [x.to(torch.bfloat16).double() for x in (q, k, v, b)]
-ref = torch.softmax(r[0] @ r[1].transpose(-1, -2) * scale + r[3], -1) @ r[2]
+sc = r[0] @ r[1].transpose(-1, -2)
+ref = torch.softmax(sc * scale + r[3], -1) @ r[2]
+# alternative readings of the op, to name what a large error means: bias of head 0 only, bias also scaled, no bias
+ALT = {"head0_bias": torch.softmax(sc * scale + r[3][:, :1], -1) @ r[2],
+       "bias_scaled": torch.softmax((sc + r[3]) * scale, -1) @ r[2],
+       "no_bias": torch.softmax(sc * scale, -1) @ r[2]}
 
 
 def run(qc, kc, pad_to):
@@ -91,8 +96,10 @@ for qc, kc, p in arms:
         base = out
     err = (out.double()[..., :HD] - ref[..., :HD]).abs()
     rel = (err.norm() / ref[..., :HD].norm()).item()
+    alt = {n: ((out.double()[..., :HD] - x[..., :HD]).norm() / x[..., :HD].norm()).item() for n, x in ALT.items()}
     res.append(dict(q=qc, k=kc, pad=p, ms=round(ms, 4), finite=bool(torch.isfinite(out).all()),
-                    rel_l2_f64=rel, max_abs_f64=err.max().item(), equal_ship=bool(torch.equal(out, base))))
+                    rel_l2_f64=rel, max_abs_f64=err.max().item(), equal_ship=bool(torch.equal(out, base)),
+                    rel_l2_alt=alt))
     print(res[-1], flush=True)
 json.dump(dict(seq=S, heads=H, ship=[ship.q_chunk_size, ship.k_chunk_size], arms=res,
                aiclk_note="sampled by the harness"), open(a.out, "w"), indent=1)
