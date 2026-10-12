@@ -2853,14 +2853,35 @@ def _sdpa_chunk_pad_len(seq_len: int) -> int:
     When the tile-padded length is not a multiple of `_capped_sdpa_chunk_size`, ttnn pads the
     sequence to the chunk grid inside the op, and that path is slow: BoltzGen's 512 aa page design
     runs its token DiT at 544 tokens (17 tiles, prime), where the op picks q = k = 256 and costs
-    0.905 ms per call on a Wormhole chip. Padding q/k/v to 768 first, with the new keys masked
-    (`_sdpa_pad_ragged`), runs the same chunks over the same padded grid in 0.23-0.25 ms and returns
-    an output `torch.equal` to the unpadded call (perf/spd/dit_sdpa_sweep.py). The masked keys add
-    exp(-inf) = 0 to every row, so only the op's internal padding path changes, not the reduction.
+    0.905 ms per call on a Wormhole chip. With q/k/v and the bias padded to 768 first, the new keys
+    masked, the grid's own q pick (192 on Wormhole) runs in 0.199 ms and returns an output
+    `torch.equal` to the unpadded call (perf/spd/dit_sdpa_sweep.py); BoltzGen designs at a fixed seed
+    keep identical coordinates. The bias is the expensive operand (19 MB at 768), so it is padded
+    once per rollout (`_stage_token_bias`), not per call.
     """
     padded = _padded_sdpa_len(seq_len)
     kc = _capped_sdpa_chunk_size(seq_len)
     return 0 if padded % kc == 0 else -(-padded // kc) * kc
+
+
+def _sdpa_to_bias_width(fn):
+    """Wrap a self-attention SDPA `fn(q, k, v, bias)` so q/k/v follow a bias already padded past them.
+
+    `_stage_token_bias` pads the token DiT's bias once per rollout to `_sdpa_chunk_pad_len`, with the
+    new key columns masked; each call then pads only q/k/v (zeros, a few hundred KB) and drops the
+    padded query rows of the output."""
+    def call(q, k, v, bias):
+        L, P = int(q.shape[2]), int(bias.shape[-1])
+        if P == L or int(k.shape[2]) != L:
+            return fn(q, k, v, bias)
+        pad = [(0, 0)] * (len(q.shape) - 2) + [(0, P - L), (0, 0)]
+        o = fn(ttnn.pad(q, pad, value=0.0), ttnn.pad(k, pad, value=0.0), ttnn.pad(v, pad, value=0.0), bias)
+        if o is None:
+            return None
+        sl = o[:, :, :L, :]
+        ttnn.deallocate(o)
+        return sl
+    return call
 
 _DIT_PM_PICK: dict = {}
 
@@ -11731,11 +11752,7 @@ class AttentionPairBias(Module):
                 # chain's (q@k^T + z) * head_dim**-0.5 exactly in exact arithmetic; what differs
                 # is the bf16 exponentiated-score buffer, hence the accuracy gate on this arm.
                 def stock(q_, k_, v_, b_):
-                    L = int(q_.shape[2])
-                    to = _sdpa_chunk_pad_len(L) if int(k_.shape[2]) == L else 0
-                    if to:
-                        q_, k_, v_, b_, _ = _sdpa_pad_ragged(q_, k_, v_, b_, to=to)
-                    o_ = fused_sdpa(
+                    return fused_sdpa(
                         q_, k_, v_,
                         attn_mask=b_,
                         scale=self.head_dim**-0.5,
@@ -11747,17 +11764,13 @@ class AttentionPairBias(Module):
                                 q_.shape[2], k_.shape[2], q_.shape[0] * q_.shape[1],
                                 site="token_dit", d=q_.shape[3])),
                     )
-                    if not to:
-                        return o_
-                    sl = o_[:, :, :L, :]
-                    ttnn.deallocate(o_)
-                    return sl
 
                 def pm(q_, k_, v_, b_):
                     o_ = token_dit_sdpa_pm(q_, k_, v_, b_, self.head_dim**-0.5)
                     return stock(q_, k_, v_, b_) if o_ is None else o_
 
-                o = _sdpa_masked(pm if lever("dit_sdpa_pm") else stock, q, k, v, z, site="token_dit")
+                o = _sdpa_masked(_sdpa_to_bias_width(pm if lever("dit_sdpa_pm") else stock),
+                                 q, k, v, z, site="token_dit")
             else:
                 if seq_mask is not None:
                     z = ttnn.add_(z, seq_mask)
@@ -16177,9 +16190,19 @@ class DiffusionModule(TorchWrapper):
             seq_mask = torch.zeros(1, 1, 1, padded_seq)
             seq_mask[..., seq_len:] = -1e9
             bias_token_tt = ttnn.add_(bias_token_tt, self._from_torch(seq_mask))
-        return self._hoist_layer_bias(
+        parts = self._hoist_layer_bias(
             bias_token_tt,
             None if self.module.token_transformer_fp32 else self.module.token_transformer)
+        to = _sdpa_chunk_pad_len(padded_seq) if _B2_TOKEN_DIT_SDPA else 0
+        if to and isinstance(parts, list):
+            # The fused SDPA's k chunk does not divide the sequence: pad each layer's bias here, once
+            # per rollout and one layer at a time (no full-size second copy), new keys masked, so no
+            # call pads inside the op (`_sdpa_chunk_pad_len`, `_sdpa_to_bias_width`).
+            for i, b in enumerate(parts):
+                nb = len(b.shape)
+                b = ttnn.pad(b, [(0, 0)] * (nb - 2) + [(0, to - padded_seq), (0, 0)], value=0.0)
+                parts[i] = ttnn.pad(b, [(0, 0)] * (nb - 1) + [(0, to - padded_seq)], value=_SDPA_PAD_MASK)
+        return parts
 
     def _hoist_layer_bias(self, bias: ttnn.Tensor, transformer):
         """L7: cut the per-layer head-ranges once, here, instead of once per denoise step.
