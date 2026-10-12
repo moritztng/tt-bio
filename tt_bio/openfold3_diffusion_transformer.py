@@ -463,6 +463,16 @@ class OF3DiffusionTransformer(Module):
         return mask_bias, ttnn.from_torch(tmc_p, layout=ttnn.TILE_LAYOUT, device=self.device,
                                           dtype=self._act_dtype)
 
+    def shared_s(self, s_d):
+        """What every block of one call reads off ``s`` and the stack computes once (``s16`` in
+        ``_DiTBlock.__call__``), or None. The caller frees the tensors after the last block."""
+        if self.blocks[0].s16:
+            return (ttnn.typecast(s_d, ttnn.bfloat16),
+                    ttnn.typecast(ttnn.layer_norm(s_d, epsilon=1e-5,
+                                                  compute_kernel_config=self.compute_kernel_config),
+                                  ttnn.bfloat16))
+        return None
+
     def __call__(self, a, s, z, token_mask, tok_mask_col, cache=None):
         # Pad to the tile-aligned logical width so the SDPA's tiled key extent is
         # fully masked. from_torch pads *storage* with 0 (="unmasked" for an additive
@@ -497,12 +507,7 @@ class OF3DiffusionTransformer(Module):
             a_d, s_d = (ttnn.pad(x, [(0, 0), (0, rows - padded_N), (0, 0)], value=0.0)
                         for x in (a_d, s_d))
         x = a_d
-        s16 = None
-        if self.blocks[0].s16:
-            s16 = (ttnn.typecast(s_d, ttnn.bfloat16),
-                   ttnn.typecast(ttnn.layer_norm(s_d, epsilon=1e-5,
-                                                 compute_kernel_config=self.compute_kernel_config),
-                                 ttnn.bfloat16))
+        s16 = self.shared_s(s_d)
         for blk in self.blocks:
             x = blk(x, s_d, z_d, mask_bias, tmc_d, cache=cache, s16=s16)
         for t in s16 or ():
