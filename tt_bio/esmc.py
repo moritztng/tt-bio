@@ -635,7 +635,7 @@ class SwiGLUFFN(Module):
         # With no fused kernel in the wheel, `fuse_swiglu=True` really selects the split-fc1
         # path (see SPLIT_SWIGLU above). Build only the fc1 layout the live path reads.
         self.split_swiglu = bool(fuse_swiglu and not self.fuse_swiglu)
-        self.tile_rows = True  # per-token row tiling on small grids; ESMC's Block clears it for small models
+        self.model_bytes = float("inf")  # resident weights of the model this FFN is in; ESMC's Block sets it
         if self.split_swiglu:
             half = self.weights["1.weight"].shape[0] // 2
             self.fc1_weight = None
@@ -934,7 +934,7 @@ class SwiGLUFFN(Module):
             chunk = tenstorrent.pair_row_tile(L)
         else:
             t = tenstorrent.SMALL_GRID_SEQ_TILE
-            chunk = t if (t and L > t and self.tile_rows) else 0
+            chunk = t if (t and L > t and self.model_bytes > _LM_FFN_TILE_MODEL_BYTES) else 0
         try:
             if chunk:
                 parts = ttnn.chunk(x, -(-L // chunk), dim=1)
@@ -986,7 +986,7 @@ class Block(Module):
         self.ffn = SwiGLUFFN(self.scope("ffn"), compute_kernel_config, fuse_swiglu=True,
                              out_scale=inv_scale)
         d_ff, d = (int(v) for v in self.ffn.fc2_weight.shape[-2:])
-        self.ffn.tile_rows = n_layers * (4 * d * d + 3 * d * d_ff) * 2 > _LM_FFN_TILE_MODEL_BYTES
+        self.ffn.model_bytes = n_layers * (4 * d * d + 3 * d * d_ff) * 2
 
     def __call__(self, x: ttnn.Tensor, cos: ttnn.Tensor, sin: ttnn.Tensor,
                  attn_mask: ttnn.Tensor | None = None,
