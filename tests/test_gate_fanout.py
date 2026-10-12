@@ -1013,7 +1013,7 @@ def test_a_ladder_runs_as_rung_groups_that_keep_the_exponent_rungs_together():
                             "ladder:rf3@256-768", "ladder:rf3@896-1088"]
     a = legs["ladder:boltz2@256-768"]
     assert a.rungs == (256, 512, 640, 768)
-    assert a.argv[-2:] == ["--size-ladder-rungs", "256,512,640,768"]
+    assert a.argv[-3:] == ["--size-ladder-part", "--size-ladder-rungs", "256,512,640,768"]
     assert gf.ladder_model(a.name) == "boltz2" and gf.out_group(a.name) == a.name
     # a tree whose roster carries no rungs keeps one leg per model
     assert [lg.name for lg in gf.build_legs(ROSTER, [], 1) if lg.family == "ladder"] == ["ladder:boltz2", "ladder:rf3"]

@@ -182,6 +182,9 @@ CAP_OWED = "host-threads"   # an OWED entry: no granted host times this ladder a
 #: wall clock: Wormhole opendde was a single 13592 s leg of gate 026b5c71c (2026-10-12). The first
 #: group keeps 256, 512 and 768 together, the two intervals the exponent check reads. release_gate's
 #: `--size-ladder-rungs` filters the model's own ladder and the check scores only the rungs it walked.
+#: A release_gate refuses a rung subset in check mode (a lone subset run would pass without the
+#: rungs where levers go dark), so the runner splits only a tree whose release_gate sets
+#: SIZE_LADDER_PARTS and takes `--size-ladder-part`; the groups together cover every rung.
 LADDER_GROUPS = ((0, 768), (769, 1100), (1101, 1300), (1301, 1 << 20))
 
 
@@ -273,7 +276,8 @@ print(json.dumps({"parity": [l.id for l in f.LEGS if not l.opt_in], "rg": r.defa
                   "owed": owed_levers("docs", lever_census.LEVERS, r.SIZE_LADDER_MODELS),
                   "caps": ladder_caps("docs", r.SIZE_LADDER_MODELS),
                   "rungs": {ct: {m: list(r._size_ladder_model_rungs(m, card=ct)) for m in r.SIZE_LADDER_MODELS}
-                            for ct in [*r.SIZE_LADDER_CARD_RUNGS, "*"]}}))
+                            for ct in [*r.SIZE_LADDER_CARD_RUNGS, "*"]}
+                           if getattr(r, "SIZE_LADDER_PARTS", False) else {}}))
 """
 ENV_PROBE = r"""
 import json, sys, importlib.metadata as m
@@ -544,7 +548,7 @@ def build_legs(roster: dict, test_files: list, shards: int, record_lever: str = 
         for lo, hi in LADDER_GROUPS:
             g = tuple(n for n in every if lo <= n <= hi)
             if g:
-                legs.append(Leg(f"ladder:{m}@{g[0]}-{g[-1]}", [*argv, "--size-ladder-rungs",
+                legs.append(Leg(f"ladder:{m}@{g[0]}-{g[-1]}", [*argv, "--size-ladder-part", "--size-ladder-rungs",
                                                                ",".join(map(str, g))], "ladder", rungs=g))
     for m in roster["capacity"]:
         legs.append(Leg(f"capacity:{m}", ["PY", "scripts/capacity_gate.py", "--models", m,
