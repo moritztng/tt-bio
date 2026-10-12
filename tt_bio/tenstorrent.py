@@ -11876,6 +11876,16 @@ class AttentionPairBias(Module):
             ))
             if self.kq_norm:
                 qkv = self._apply_kq_norm(qkv)
+            seq = int(qkv.shape[-2])
+            if (bias_precomputed and self.token_dit and _B2_TOKEN_DIT_SDPA and z is not None
+                    and seq_mask is None and not self._raw_fp32() and int(z.shape[-1]) > seq):
+                # The bias was padded past the sequence once per rollout (`_stage_token_bias`).
+                # One pad of the fused qkv here gives q, k and v that width with the same zero
+                # rows `_sdpa_to_bias_width` would add, for one op instead of three.
+                padded = ttnn.pad(qkv, [(0, 0)] * (len(qkv.shape) - 2)
+                                  + [(0, int(z.shape[-1]) - seq), (0, 0)], value=0.0)
+                ttnn.deallocate(qkv)
+                qkv = padded
             qkv = ttnn.unsqueeze(qkv, 1)
             q, k, v = ttnn.experimental.nlp_create_qkv_heads(
                 qkv,
@@ -11989,6 +11999,10 @@ class AttentionPairBias(Module):
 
                 o = _sdpa_masked(_sdpa_to_bias_width(pm if lever("dit_sdpa_pm") else stock),
                                  q, k, v, z, site="token_dit")
+                if int(o.shape[2]) > seq:
+                    sl = o[:, :, :seq, :]
+                    ttnn.deallocate(o)
+                    o = sl
             else:
                 if seq_mask is not None:
                     z = ttnn.add_(z, seq_mask)
