@@ -32,6 +32,8 @@ p.add_argument("--params", required=True)
 p.add_argument("--out", type=Path, required=True)
 p.add_argument("--warm", type=int, default=2)
 p.add_argument("--reps", type=int, default=3)
+p.add_argument("--save-coords", action="store_true",
+               help="write every timed rep's coordinates to <out>/coords-<rep>.npy")
 p.add_argument("--trace", action="store_true",
                help="replay the two device stacks from a trace (AF2DeviceModel.trace_stacks)")
 p.add_argument("--trace-stacks", default="",
@@ -127,6 +129,9 @@ for _ in range(a.reps):
     ttnn.synchronize_device(dev)
     plain.append(time.perf_counter() - t0)
     digests.append(hashlib.sha256(np.ascontiguousarray(pred.coords).tobytes()).hexdigest()[:16])
+    if a.save_coords:
+        a.out.mkdir(parents=True, exist_ok=True)
+        np.save(a.out / f"coords-{len(digests) - 1}.npy", np.asarray(pred.coords))
 
 # A stage is a bound method or a submodule; a submodule is timed through its forward, because
 # nn.Module refuses a plain function in its place.
