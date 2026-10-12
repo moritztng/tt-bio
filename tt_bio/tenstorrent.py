@@ -6025,6 +6025,10 @@ _TRIMUL_INPROJ_B8 = env_flag("TT_BIO_TRIMUL_INPROJ_B8", False)
 # spd-trimul A/B: the in-projection and its two gates as one `trimul_tail` call per channel chunk
 # (`_gp_in_gated`), so the projection is never written whole and the gated moves become plain ones.
 _TRIMUL_GATED_INPROJ = env_flag("TT_BIO_TRIMUL_GATED_INPROJ", False)
+# `trimul_tail.gin_ragged` for a biased in-projection on a pair grid that is not whole tiles (AF2
+# at 195): projection, gate and channel move in one program instead of a biased matmul into L1 and
+# two gated moves. Opt-in until graded on a fold (perf/spd_gap_bind/gin195.py at op level).
+_TRIMUL_GIN_RAGGED = env_flag("TT_BIO_TRIMUL_GIN_RAGGED", False)
 
 
 def set_trimul_gated_inproj(on: bool) -> bool:
@@ -9240,6 +9244,27 @@ class TriangleMultiplication(Module):
             for i in range(n_pairs // group)
         ]
 
+    def _gp_in_gated_bias(self, C: int, group: int) -> list[ttnn.Tensor]:
+        """Per channel chunk, the bias tiles `trimul_tail.gin_ragged` takes, in `_gp_in_gated`'s
+        column order ([b_p_a | b_p_b], [b_g_a | b_g_b]); zeros where the model has no bias."""
+        key = (C, group, gp_roles(), "ragged")
+        cached = self._gp_bias_cache.get(key)
+        if cached is None:
+            sc = C * group
+            col = lambda t, r: t[..., gp_off(r, sc):gp_off(r, sc) + sc]  # noqa: E731
+            gb, pb = self._g_in_b, self._p_in_b
+            if gb is None:
+                gb = torch.zeros(int(self._g_in_t.shape[-1]))
+            if pb is None:
+                pb = torch.zeros(int(self._p_in_t.shape[-1]))
+            cached = [
+                _trimul_tail.gin_ragged_bias(torch.cat([col(t, "p_a"), col(t, "p_b")], -1),
+                                             torch.cat([col(t, "g_a"), col(t, "g_b")], -1), self.device)
+                for t in self._gp_fused_order((gb.reshape(-1), pb.reshape(-1)), C, group)
+            ]
+            self._gp_bias_cache[key] = cached
+        return cached
+
     def _gp_in_biases(self, C: int, group: int = 1) -> list[ttnn.Tensor] | None:
         """The fused input biases in `_gp_in_chunks`' column order, or None without any."""
         if self._g_in_b is None:
@@ -9716,6 +9741,25 @@ class TriangleMultiplication(Module):
                             defer_transpose=defer, x_in=x_in)
                         branch = "rowblock" if a_chunk is not None else "rowblock-declined"
                         if a_chunk is not None and defer:
+                            defer_a = perm_a == (0, 3, 2, 1)
+                            defer_b = perm_b == (0, 3, 2, 1)
+                    if (a_chunk is None and _TRIMUL_GIN_RAGGED and defer
+                            and int(x_in.shape[-2]) % 32
+                            and not row_norm and x_norm_in is not None
+                            and self.g_in_weight is None and not ops.taping()
+                            and not _FAST_MODE and not _TRIMUL_RAW_CHANNEL_MOVES
+                            and (mask is None or mask_moved_ok)):
+                        wpT, wgT = self._gp_in_gated(chunk_size, group, transposed=True)[i]
+                        S_ = int(x_in.shape[-2])
+                        fold = mask is not None and _trimul_tail.gin_ragged_ok(x_norm_in, wpT, S_, mask)
+                        ab = _trimul_tail.gin_ragged(
+                            x_norm_in, wpT, wgT, self._gp_in_gated_bias(chunk_size, group)[i],
+                            _mm_generic.ckc_args(self.compute_kernel_config), tuple(COMPUTE_GRID_MAIN),
+                            S_, mask=mask if fold else None, memory_config=memory_config)
+                        if ab is not None:
+                            a_chunk, b_chunk = ab
+                            a_masked = fold
+                            branch = "gin-ragged"
                             defer_a = perm_a == (0, 3, 2, 1)
                             defer_b = perm_b == (0, 3, 2, 1)
                     if (a_chunk is None and (_TRIMUL_GATED_INPROJ or lever("trimul_gin"))
