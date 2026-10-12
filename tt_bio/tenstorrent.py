@@ -616,6 +616,8 @@ _FAST_MODE = False
 #                   and g_out as one kernel reading z once (kernels/trimul_in_t1; c_z = hidden = 128, N >= 160)
 #   trimul_t2       its output tail, layer_norm + p projection + sigmoid(g_out) gate + residual add, as one
 #                   kernel writing z in place (kernels/trimul_tail_res, compute_ln.cpp; c_z = 128, N >= 160)
+#   pair_mm         pair-track linears on minimal_matmul with pair_mm's block table (ReLU at pack); the lever form of
+#                   TT_BIO_PAIR_MM for a model that names it in its own set (AF2 on Wormhole)
 #   conf_bins       OpenFold3's pae / pde heads reduce softmax(logits) to their bin-vector products on the card
 #                   in fp32 (pTM, ipTM, the chain readings, the PAE / PDE matrices), so the [N, N, 64] logits
 #                   never cross to the host
@@ -624,12 +626,12 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
           "transition_shard", "dit_mm16", "atom_k1", "dit_b8", "dit_qkv16", "atom_mm16", "adaln_mod",
           "swiglu_fc12g", "msa_sample", "dit_sdpa_pm", "dit_s16", "dit_chunk", "conf_bins", "trimul_t1", "trimul_t2",
-          "triatt_tail_bias")
+          "triatt_tail_bias", "pair_mm")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias in its own set: graded on AF2-IG only, and it would reach any other biased
 # triangle attention.
-UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "adaln_mod", "triatt_tail_bias"})
+UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "adaln_mod", "triatt_tail_bias", "pair_mm"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands

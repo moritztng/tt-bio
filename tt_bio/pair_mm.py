@@ -24,6 +24,14 @@ from .envflags import env_flag
 #: The lever. Default OFF and release-gated; armed by `bindcraft2.fast_round()`.
 PAIR_MM_FUSED = env_flag("TT_BIO_PAIR_MM", False)
 
+def armed() -> bool:
+    """The process flag (a BindCraft 2 round), or the `pair_mm` lever of the model folding now."""
+    if PAIR_MM_FUSED:
+        return True
+    from .tenstorrent import lever
+    return lever("pair_mm")
+
+
 #: Rows below this keep ttnn's plan: the MSA and single tracks were not swept.
 MIN_ROWS = 128 * 128
 
@@ -78,10 +86,15 @@ def config(x, w, transpose_b: bool = False):
     for d in shape[:-1]:
         rows *= d
     blk = _BLOCK.get((K // 32, N // 32))
-    if blk is None or rows < MIN_ROWS or rows % 32:
+    if blk is None or rows < MIN_ROWS:
         return None
+    # A ragged pair grid (AF2-IG at 195 x 195) is tiles padded per row, which minimal_matmul runs
+    # as they lie, the last M block partial. Whole-tile grids keep the divisibility they were
+    # swept and graded under. Measured on Wormhole at [1,195,195,K], every block
+    # of the table at float64 rel L2 0.0017 like the shipped linear (perf/spd/af2_pair_linear_sweep.py).
     Mb, Kb, Nb, sh, sw = blk
-    if (rows // 32) % Mb or (K // 32) % Kb or (N // 32) % Nb:
+    ragged = shape[-2] % 32 != 0
+    if (not ragged and (rows % 32 or (rows // 32) % Mb)) or (K // 32) % Kb or (N // 32) % Nb:
         return None
     from .tenstorrent import COMPUTE_GRID_MAIN, _mm_core_coord
     return ttnn.MinimalMatmulConfig(
@@ -109,7 +122,7 @@ _ACTIVATIONS = {"relu": ttnn.UnaryOpType.RELU}
 def matmul(x, w, bias=None, compute_kernel_config=None, dtype=None, transpose_b: bool = False,
            memory_config=None, activation=None):
     """``act(x @ op(w) (+ bias))`` on minimal_matmul, DRAM out, or None to leave the call alone."""
-    if not PAIR_MM_FUSED:
+    if not armed():
         return None
     if activation is not None and activation not in _ACTIVATIONS:
         _decline(x, w, transpose_b, "activation")
