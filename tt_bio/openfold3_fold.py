@@ -138,11 +138,6 @@ def sample_rotation(dtype=torch.float32):
     return _quat_to_rot(q)                      # [3, 3]
 
 
-# Default OFF until graded: the pae / pde softmax and the bin reductions run on the card in fp32
-# instead of on the host, which is not bit-identical (pTM / ipTM rank the samples).
-CONF_BINS = "TT_BIO_OF3_CONF_BINS"
-
-
 def _pae_bin_vectors(n_tok, asym_id, nb=64, max_a=32.0):
     """Every bin vector the confidence readings multiply softmax(pae) by: the bin centres (the
     PAE / PDE matrices) and the TM kernel at each token count pTM / ipTM and the chain reductions
@@ -342,7 +337,7 @@ class OpenFold3(Module):
         else:
             representative = sample[aux["representative_atom_indices"].long()]
         n_tok = si_trunk.shape[0]
-        vecs = _pae_bin_vectors(n_tok, aux.get("asym_id")) if env_flag(CONF_BINS, False) else None
+        vecs = _pae_bin_vectors(n_tok, aux.get("asym_id")) if _T.lever("conf_bins") else None
         out = self.confidence_head.forward(
             si_input=si_input.float(), si_trunk=si_trunk.float(),
             zij_trunk=zij_trunk.float(), repr_x_pred=representative.float(),
