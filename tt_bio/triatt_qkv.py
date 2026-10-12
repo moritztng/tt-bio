@@ -379,11 +379,12 @@ _TAIL_DIR = Path(__file__).resolve().parent / "kernels" / "triatt_tail"
 _TAIL_CACHE: dict = {}
 
 
-def tail_on() -> bool:
+def tail_on(biased: bool = False) -> bool:
+    """The `triatt_tail` lever, or `triatt_tail_bias` for a block with biases (graded apart)."""
     if TAIL_FORCE is not None:
         return TAIL_FORCE == "1"
     from .tenstorrent import lever
-    return lever("triatt_tail")
+    return lever("triatt_tail_bias" if biased else "triatt_tail")
 
 
 def set_tail(v):
@@ -508,7 +509,7 @@ def gated_out_proj(o, g, w, ckc, resid=None, bias=None):
     too or as its projection wrote it (`[.., B, S, H*32]`, a biased block's gate), as `[B, S, N]`;
     with `resid` (the pair `[1?, B, S, N]` the update belongs to) the sum is written into `resid`
     in place and `resid` is returned. None where it declines; the caller then runs the three ops."""
-    if _taping() or not tail_on() or not _tail_ok(o, g, w, resid, bias):
+    if _taping() or not tail_on(bias is not None or _g3d(o, g)) or not _tail_ok(o, g, w, resid, bias):
         GOP_STATS[1] += 1
         return None
     from .tenstorrent import COMPUTE_GRID_MAIN

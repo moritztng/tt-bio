@@ -575,6 +575,9 @@ _FAST_MODE = False
 #                   tail goes 11.95 -> 5.22 ms per call. sigmoid(g) is no longer rounded to bf16 before
 #                   the multiply and the kernel runs HiFi3 with fp32 DST in both modes. At 64 channels
 #                   (the template pair) 2.29 -> 0.88 ms.
+#   triatt_tail_bias  the same program for a block with linear_o / linear_g biases (AF2): g read as its
+#                   projection wrote it, the out bias added in the fp32 sum. AF2-IG on WH at 195 tokens:
+#                   the head concat, gate multiply, out linear and bias add go.
 #   silu_f32        every silu fused into a matmul (the swiglu fc1) runs calculate_silu_f32: 6e-6
 #                   of float64 at 32 SFPU instructions a row against the wheel's 92 (kernels/silu_f32)
 #   transition_bw   the transition's three matmuls take a K block fixed by the op and K alone
@@ -620,10 +623,11 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in",
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
           "transition_shard", "dit_mm16", "atom_k1", "dit_b8", "dit_qkv16", "atom_mm16", "adaln_mod",
-          "swiglu_fc12g", "msa_sample", "dit_sdpa_pm", "dit_s16", "dit_chunk", "conf_bins", "trimul_t1", "trimul_t2")
+          "swiglu_fc12g", "msa_sample", "dit_sdpa_pm", "dit_s16", "dit_chunk", "conf_bins", "trimul_t1", "trimul_t2",
+          "triatt_tail_bias")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in, graded on ESMFold2's fold.
-UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "adaln_mod"})
+UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "adaln_mod", "triatt_tail_bias"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -11329,7 +11333,7 @@ class TriangleAttention(Module):
                 # A biased block's gate stays as its projection wrote it; the one-program tail reads
                 # that form too, so o stays head-major for it and the head concat goes.
                 g3d = (len(g.shape) != 4 and self.o_bias is not None and not self.subtile
-                       and self.head_dim == 32 and _triatt_qkv.tail_on())
+                       and self.head_dim == 32 and _triatt_qkv.tail_on(biased=True))
                 o = attend(qkv, triangle_bias, len(g.shape) == 4 or g3d,
                            g if len(g.shape) == 4 else None)
             if qkv is not None and not isinstance(qkv, tuple):  # the triple is freed inside attend
