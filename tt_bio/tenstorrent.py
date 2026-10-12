@@ -3900,7 +3900,9 @@ def _tri_att_hifi_ladder(q, k, v, bias, scale: float, one_k_chunk: bool):
             # 3.46x the 18944 B that refused the widest q there. Bit-identical, and measured
             # perf-neutral (1.167x vs 1.177x at 768, same q and k). Only offered at one k chunk.
             for kv_bf in ((2, 1) if wide else (2,)):
-                cfg = (q_len, k_len, q_chunk, k_chunk, kv_bf, q.dtype)
+                # Every operand's dtype, not q's alone: triatt_sdpa declines a MIXED set (bfp8 q/k/v with a
+                # bf16 bias) on dtype, and keyed on q.dtype that decline retired the all-bfp8 config too.
+                cfg = (q_len, k_len, q_chunk, k_chunk, kv_bf, q.dtype, k.dtype, v.dtype, getattr(bias, "dtype", None))
                 if cfg in _TRIATT_HIFI_OVER_L1:
                     continue
                 try:
