@@ -1097,25 +1097,15 @@ class Transition(Module):
         return _pair_transition_join(parts, int(x.shape[0]))
 
     def _weight_stationary(self, x):
-        """`_swiglu` through `pair_swiglu_ws`, one batch element at a time; None where it declines."""
+        """`_swiglu` through `pair_swiglu_ws`, every batch element in one program (rows are tile-aligned per
+        element, so the flattened tensor splits into whole row tiles); None where it declines."""
         if getattr(self, "_ws12", None) is None:
             self._ws12 = ttnn.concat([self.fc1_w, self.fc2_w], dim=1)
         if not _WS.eligible(x, self._ws12, self.fc3_w):
             return None
-        parts = []
-        for b in range(int(x.shape[0])):
-            xb = x if x.shape[0] == 1 else ttnn.slice(x, [b, 0, 0, 0], [b + 1] + [int(d) for d in x.shape][1:])
-            xn = ttnn.rms_norm(xb, weight=self.norm_w, epsilon=1e-6,
-                               compute_kernel_config=self.compute_kernel_config)
-            if xb is not x:
-                ttnn.deallocate(xb)
-            parts.append(_WS.pair_swiglu(xn, self._ws12, self.fc3_w))
-            ttnn.deallocate(xn)
-        if len(parts) == 1:
-            return parts[0]
-        out = ttnn.concat(parts, dim=0)
-        for p in parts:
-            ttnn.deallocate(p)
+        xn = ttnn.rms_norm(x, weight=self.norm_w, epsilon=1e-6, compute_kernel_config=self.compute_kernel_config)
+        out = _WS.pair_swiglu(xn, self._ws12, self.fc3_w)
+        ttnn.deallocate(xn)
         return out
 
     def _swiglu_resident(self, x, mem, fc1_mem, key):
