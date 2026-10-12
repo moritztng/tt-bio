@@ -391,13 +391,52 @@ def _msa_per_loop(kw, total_steps, max_depth, col_rate):
     return loops
 
 
+# The device keep mask crosses PCIe as bits: 16 rows of the pair per int32 word, 16 MB a loop at 512 aa
+# instead of the 128 MB bf16 mask (2.2 s of uploads per fold, p300c). Same mask, same output.
+_PACKED_KEEP = True
+_KEEP_BITS = 16
+
+
+def _pack_keep(keep):
+    """bool [B, L, ...] -> int32 [B, L / 16, ...]: row j * L/16 + g of `keep` is bit j of word row g."""
+    k = keep.unflatten(1, (_KEEP_BITS, keep.shape[1] // _KEEP_BITS)).to(torch.int32)
+    w = k[:, 0].clone()
+    for j in range(1, _KEEP_BITS):
+        w |= k[:, j] << j
+    return w
+
+
+def _unpack_keep_dev(w, device):
+    """`_pack_keep`'s words to the bf16 0/1 mask on the device."""
+    import ttnn
+
+    wt = ttnn.from_torch(w, device=device, layout=ttnn.TILE_LAYOUT, dtype=ttnn.int32)
+    rows = []
+    for j in range(_KEEP_BITS):
+        s = ttnn.bitwise_right_shift(wt, j) if j else wt
+        b = ttnn.bitwise_and(s, 1)
+        if j:
+            ttnn.deallocate(s)
+        rows.append(ttnn.typecast(b, ttnn.bfloat16))
+        ttnn.deallocate(b)
+    ttnn.deallocate(wt)
+    m = ttnn.concat(rows, dim=1)
+    for r in rows:
+        ttnn.deallocate(r)
+    return m
+
+
+def _packable(shape):
+    return _PACKED_KEEP and len(shape) == 4 and shape[1] % _KEEP_BITS == 0
+
+
 def _lm_dropout(lm_z, p, keep=None):
     """esm 3.4.1's per-loop `F.dropout(lm_z, p, training=True)` (`model.py::_run_one_loop`).
 
     The keep mask comes from the global torch RNG, which `fold()` seeds, so the draw follows the
     seed and not the card. A device-resident pair is masked on the device: the 0/1 mask is exact
     in bf16, the 1/(1-p) scale is applied after it rather than baked into the mask. `keep` is an
-    already drawn bf16 host mask (`_KeepDraws`).
+    already drawn host mask (`_KeepDraws`): int32 words from `_pack_keep`, or bf16 0/1.
     """
     if not isinstance(lm_z, _DevPair):
         return lm_z * torch.empty(lm_z.shape).bernoulli_(1.0 - p).to(lm_z.dtype) / (1.0 - p)
@@ -406,11 +445,16 @@ def _lm_dropout(lm_z, p, keep=None):
     t = lm_z.t
     if keep is None:
         keep = torch.empty(tuple(t.shape)).bernoulli_(1.0 - p).to(torch.bfloat16)
-    # Uploaded row-major and tiled on the device: a tile-layout from_torch tilizes the pair-sized
-    # mask on the host, 0.24 s a loop at 512 aa (cProfile, p300c), with the device waiting.
-    rm = ttnn.from_torch(keep, device=t.device(), layout=ttnn.ROW_MAJOR_LAYOUT, dtype=ttnn.bfloat16)
-    m = ttnn.to_layout(rm, ttnn.TILE_LAYOUT)
-    ttnn.deallocate(rm)
+        if _packable(keep.shape):
+            keep = _pack_keep(keep.bool())
+    if keep.dtype == torch.int32:
+        m = _unpack_keep_dev(keep, t.device())
+    else:
+        # Uploaded row-major and tiled on the device: a tile-layout from_torch tilizes the pair-sized
+        # mask on the host, 0.24 s a loop at 512 aa (cProfile, p300c), with the device waiting.
+        rm = ttnn.from_torch(keep, device=t.device(), layout=ttnn.ROW_MAJOR_LAYOUT, dtype=ttnn.bfloat16)
+        m = ttnn.to_layout(rm, ttnn.TILE_LAYOUT)
+        ttnn.deallocate(rm)
     kept = ttnn.multiply(t, m)
     ttnn.deallocate(m)
     out = ttnn.multiply(kept, 1.0 / (1.0 - p))
@@ -419,8 +463,9 @@ def _lm_dropout(lm_z, p, keep=None):
 
 
 class _KeepDraws:
-    """The fold's per-loop LM dropout masks, each drawn on a host thread while the device runs
-    the previous loop. Only torch runs on the thread; the upload stays on the caller's.
+    """The fold's per-loop LM dropout masks, each drawn (and bit-packed, `_pack_keep`) on a host
+    thread while the device runs the previous loop. Only torch runs on the thread; the upload
+    stays on the caller's.
 
     The generator is seeded with one draw from the global torch RNG, so the masks follow the
     fold's seed and not the card. Drawing them inline cost ~0.4 s of host time per loop at 512 aa.
@@ -435,7 +480,8 @@ class _KeepDraws:
         self.nxt = self.pool.submit(self._draw)
 
     def _draw(self):
-        return (torch.rand(self.shape, generator=self.gen) >= self.p).to(torch.bfloat16)
+        keep = torch.rand(self.shape, generator=self.gen) >= self.p
+        return _pack_keep(keep) if _packable(self.shape) else keep.to(torch.bfloat16)
 
     def take(self):
         keep = self.nxt.result()
