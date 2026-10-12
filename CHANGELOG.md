@@ -6,6 +6,10 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 ## [Unreleased]
 
 ### Changed
+- **BoltzGen's normal mode runs the shared normal lever set** (HiFi3 trunk matmuls, fused triangle
+  multiplication and attention tails, fused diffusion attention). A 512-aa design on a Wormhole chip at
+  1000 MHz takes 58.0 s instead of 61.2 s. Graded on 64 designs over 8 seeds against the exact path: filter
+  pass 64 of 64 and every confidence change inside its 95 % interval. `TT_BIO_LEVERS=none` restores it.
 - **BoltzGen builds its diffusion conditioning on the chip.** The pair track's conditioning and bias stacks
   run on the card as in Boltz-2 (`TT_BIO_DEVICE_CONDITIONING`, `TT_BIO_FUSE_BIAS_STACKS`), and the token
   distance features are computed once per target instead of once per design. On a Wormhole chip at 1000 MHz

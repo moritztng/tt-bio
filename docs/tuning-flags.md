@@ -694,12 +694,16 @@ fast set folds the same input in 123.4 s, and 168.3 s instead of 181.6 s at 1024
 -0.0002, DockQ -0.004 with its interval reaching zero, docking success 24 of 44 in both modes, and a
 median same-seed top-pose deviation of 1.29 A against 1.70 A between two seeds of normal mode.
 
-**RoseTTAFold3 and BoltzGen** take a lever set per mode too. Normal mode is empty for both. RoseTTAFold3's
-`--fast` set is the shared fast set without the three triangle-multiplication levers: on Blackhole it moves
-the top pose 0.30 A median over 40 paired folds (a different seed moves it 2.8 A) and saves about 1.9 s
-at 512 aa. BoltzGen's `--fast` set is the whole shared fast set: over 8 same-seed designs on Blackhole
-no confidence metric drops by more than 0.01 and all 8 pass the filters, and it saves about 4.7 s per design
-at 512 aa. Their older block-fp8 fast path was slower than normal mode at 512 aa
+**RoseTTAFold3 and BoltzGen** take a lever set per mode too, pinned by name in each model so a lever added to the
+shared sets later does not reach them ungraded. RoseTTAFold3's normal mode is empty and its `--fast` set is the
+shared fast set without the three triangle-multiplication levers: on Blackhole it moves the top pose 0.30 A
+median over 40 paired folds (a different seed moves it 2.8 A) and saves about 1.9 s at 512 aa. BoltzGen's normal
+mode runs the shared normal set and its `--fast` set is the shared fast set without `dit_sdpa_pm`, plus
+`adaln_mod` and `dit_cond_hifi2`. Design outputs at a fixed seed decorrelate under any numeric change, so BoltzGen
+is graded on design confidence and filters, 8 designs per seed against the exact normal path: normal over 64
+designs (8 seeds) keeps every confidence change inside its 95 % interval with 64 of 64 passing the filters,
+`--fast` the same over 56 designs. On a Wormhole chip at 1000 MHz the normal set takes a 512-aa design from
+61.2 to 58.0 s. Their older block-fp8 fast path was slower than normal mode at 512 aa
 (Blackhole p150a, 1350 MHz: RoseTTAFold3 54.4 s against 45.2 s, BoltzGen 44.5 against 38.4 s per
 design), because the fused triangle-attention and channel-move kernels refuse block-fp8 operands and
 the fold fell back to the stock ops.
