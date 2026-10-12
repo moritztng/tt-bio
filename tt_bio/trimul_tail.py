@@ -553,6 +553,26 @@ def _gin_move_tiles(kt, ct2, mask):
     return 2 * ct2 * kt + 32 * kt + 64 + 2 * 32 + 2 * GIN_MOVE_NB + (33 if mask else 0)
 
 
+def gin_move_split(x, c, mask=None):
+    """How many channel slices `gin_moved` runs `c` output channels of `a` (and of `b`) in, or None.
+
+    One launch keeps the whole [2c, K] weight pair resident, which is 256 of the 677 tiles at
+    ESMFold2's c_z 256 / hidden 256 and over the 0.85-of-L1 budget. Each slice holds 1/n of the
+    weights and reads the activations again; per channel the arithmetic is the one-launch kernel's,
+    so the output is the same bits. The smallest n that fits, with every slice whole tiles of a and b.
+    """
+    shp = [int(d) for d in x.shape]
+    if c % TILE or shp[-1] % TILE:
+        return None
+    from .tenstorrent import _l1_bank_bytes
+    ct, kt = c // TILE, shp[-1] // TILE
+    for n in (1, 2, 4):
+        if ct % n == 0 and (_gin_move_tiles(kt, 2 * ct // n, mask is not None) * MG.tile_bytes(ttnn.bfloat16)
+                            <= 0.85 * _l1_bank_bytes()):
+            return n
+    return None
+
+
 def gin_moved_ok(x, wpT, mask=None):
     """Whether `gin_moved` serves this call: bf16 tiled interleaved DRAM pair tensor [B?, S, S, K]
     with S a whole number of tiles, transposed weights [2C, K] with C a whole number of tiles, the
@@ -577,7 +597,7 @@ def gin_moved_ok(x, wpT, mask=None):
     return tiles * MG.tile_bytes(ttnn.bfloat16) <= 0.85 * _l1_bank_bytes()
 
 
-def _build_gin_move(x, wpT, wgT, outs, grid, ckc, mask):
+def _build_gin_move(x, wpT, wgT, outs, grid, ckc, mask, cto=0, ctt=None):
     shp = [int(d) for d in x.shape]
     B = shp[0] if len(shp) == 4 else 1
     St, kt, ct2 = shp[-2] // TILE, shp[-1] // TILE, int(wpT.shape[-2]) // TILE
@@ -605,7 +625,8 @@ def _build_gin_move(x, wpT, wgT, outs, grid, ckc, mask):
         runtime_args=rd, common_runtime_args=[0] * 4, config=ttnn.ReaderConfigDescriptor())
     writer = ttnn.KernelDescriptor(
         kernel_source=str(d / "writer.cpp"), source_type=src, core_ranges=core_grid,
-        compile_time_args=[ct2, St, GIN_MOVE_ABL, GIN_MOVE_NB] + acc(outs[0]) + acc(outs[1]),
+        compile_time_args=[ct2, St, GIN_MOVE_ABL, GIN_MOVE_NB, cto, ct2 // 2 if ctt is None else ctt]
+        + acc(outs[0]) + acc(outs[1]),
         runtime_args=wr, common_runtime_args=[0, 0], config=ttnn.WriterConfigDescriptor())
     fid, approx, fp32, full = ckc
     compute = ttnn.KernelDescriptor(
@@ -625,29 +646,39 @@ def _build_gin_move(x, wpT, wgT, outs, grid, ckc, mask):
 def gin_moved(x, wpT, wgT, ckc, grid, mask=None):
     """`a, b` of the gated in-projection, already channel-moved: [B, C, S, S] each, for
     `[a | b] = (x @ Wp) * sigmoid(x @ Wg)` with `wpT`, `wgT` the transposed [2C, K] weights, and
-    `a` times the pair mask when `mask` is given. None where `gin_moved_ok` declines."""
+    `a` times the pair mask when `mask` is given. None where `gin_moved_ok` declines.
+
+    `wpT` and `wgT` may also be equal-length sequences of channel slices (`gin_move_split`): slice
+    s holds rows s of `[p_a | p_b]`'s n equal parts of each half, and writes channels
+    [s * C/n, (s+1) * C/n) of `a` and of `b`."""
     from . import ops
-    if ops.taping() or dest_guard.exposed_args(ckc) or not gin_moved_ok(x, wpT, mask):
+    wps = list(wpT) if isinstance(wpT, (list, tuple)) else [wpT]
+    wgs = list(wgT) if isinstance(wgT, (list, tuple)) else [wgT]
+    if ops.taping() or dest_guard.exposed_args(ckc) or not all(gin_moved_ok(x, w, mask) for w in wps):
         GIN_MOVE_STATS[1] += 1
         return None
     shp = [int(d) for d in x.shape]
     B = shp[0] if len(shp) == 4 else 1
-    S, C = shp[-2], int(wpT.shape[-2]) // 2
+    n = len(wps)
+    S, Cs = shp[-2], int(wps[0].shape[-2]) // 2
     device = x.device()
-    outs = [ttnn.allocate_tensor_on_device(ttnn.Shape([B, C, S, S]), ttnn.bfloat16,
+    outs = [ttnn.allocate_tensor_on_device(ttnn.Shape([B, n * Cs, S, S]), ttnn.bfloat16,
                                            ttnn.TILE_LAYOUT, device, ttnn.DRAM_MEMORY_CONFIG)
             for _ in range(2)]
-    key = ("gin_move", str(x.padded_shape), str(wpT.padded_shape), tuple(grid),
-           tuple(str(c) for c in ckc), mask is not None, GIN_MOVE_ABL, GIN_MOVE_NB, SIGPOLY, RNE)
-    entry = _CACHE.get(key)
-    if entry is None:
-        entry = _CACHE[key] = _build_gin_move(x, wpT, wgT, outs, grid, ckc, mask)
-    reader, writer, _ = entry["kernels"]
-    reader.common_runtime_args = [x.buffer_address(), wpT.buffer_address(), wgT.buffer_address(),
-                                  (mask if mask is not None else x).buffer_address()]
-    writer.common_runtime_args = [outs[0].buffer_address(), outs[1].buffer_address()]
-    pd = ttnn.ProgramDescriptor(kernels=entry["kernels"], semaphores=[], cbs=entry["cbs"])
-    ttnn.generic_op([x, wpT, wgT, *outs] + ([mask] if mask is not None else []), pd)
+    for s_, (wp, wg) in enumerate(zip(wps, wgs)):
+        key = ("gin_move", str(x.padded_shape), str(wp.padded_shape), tuple(grid),
+               tuple(str(c) for c in ckc), mask is not None, GIN_MOVE_ABL, GIN_MOVE_NB, SIGPOLY, RNE,
+               s_, n)
+        entry = _CACHE.get(key)
+        if entry is None:
+            entry = _CACHE[key] = _build_gin_move(x, wp, wg, outs, grid, ckc, mask,
+                                                  cto=s_ * Cs // TILE, ctt=n * Cs // TILE)
+        reader, writer, _ = entry["kernels"]
+        reader.common_runtime_args = [x.buffer_address(), wp.buffer_address(), wg.buffer_address(),
+                                      (mask if mask is not None else x).buffer_address()]
+        writer.common_runtime_args = [outs[0].buffer_address(), outs[1].buffer_address()]
+        pd = ttnn.ProgramDescriptor(kernels=entry["kernels"], semaphores=[], cbs=entry["cbs"])
+        ttnn.generic_op([x, wp, wg, *outs] + ([mask] if mask is not None else []), pd)
     GIN_MOVE_STATS[0] += 1
     MASK_STATS[0] += mask is not None
     return outs

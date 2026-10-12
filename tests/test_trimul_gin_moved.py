@@ -71,3 +71,44 @@ def test_gin_moved_matches_split_route_and_float64(n, masked, monkeypatch):
         # no isolated gross element hiding under a good rms (the WH HiFi4 erratum looked like this)
         assert (mv - r).abs().max().item() < 0.1
         assert _rel_rms(mv, sp) < 4e-3
+
+
+@pytest.mark.parametrize("masked", [True, False])
+def test_gin_moved_channel_slices_equal_one_launch(masked, monkeypatch):
+    """ESMFold2's c_z 256 / hidden 256 overflows one launch's L1 budget, so gin_moved runs it as two
+    channel slices. Per channel the arithmetic is the one-launch kernel's: same bits, same float64 error."""
+    dev = T.get_device()
+    monkeypatch.setattr(T, "_TRUNK_MATH_FIDELITY", "hifi3")
+    monkeypatch.setattr(TTL, "GIN_MOVE", True)
+    n, c = 128, 256
+    g = torch.Generator().manual_seed(7)
+    x = torch.randn(1, n, n, CZ, generator=g).to(torch.bfloat16)
+    wp = (torch.randn(CZ, 2 * c, generator=g) / 16).to(torch.bfloat16)
+    wg = (torch.randn(CZ, 2 * c, generator=g) / 16).to(torch.bfloat16)
+    m = (torch.rand(1, n, n, generator=g) > 0.1).to(torch.bfloat16) if masked else None
+    dx = _dev(x, dev)
+    dm = None if m is None else _dev(m, dev)
+    ckc = MG.ckc_args(T.trunk_compute_kernel_config(compute_kernel_config()))
+    grid = tuple(T.COMPUTE_GRID_MAIN)
+
+    ns = TTL.gin_move_split(dx, c, dm)
+    assert ns == 2, ns
+    w = c // ns
+    sl = lambda t, s: torch.cat([t[:, s * w:(s + 1) * w], t[:, c + s * w:c + (s + 1) * w]], dim=-1)  # noqa: E731
+    sliced = TTL.gin_moved(dx, [_dev(sl(wp, s).t(), dev) for s in range(ns)],
+                           [_dev(sl(wg, s).t(), dev) for s in range(ns)], ckc, grid, mask=dm)
+    monkeypatch.setattr(TTL, "_gin_move_tiles", lambda kt, ct2, mask: 0)   # idle device: one launch fits
+    whole = TTL.gin_moved(dx, _dev(wp.t(), dev), _dev(wg.t(), dev), ckc, grid, mask=dm)
+    assert sliced is not None and whole is not None
+
+    d = torch.float64
+    x64 = x.to(d).reshape(n * n, CZ)
+    ab = ((x64 @ wp.to(d)) * torch.sigmoid(x64 @ wg.to(d))).reshape(1, n, n, 2 * c)
+    ref = [ab[..., :c], ab[..., c:]]
+    if m is not None:
+        ref[0] = ref[0] * m.to(d)[..., None]
+    for s_, w_, r in zip(sliced, whole, ref):
+        s_, w_ = ttnn.to_torch(s_).to(d), ttnn.to_torch(w_).to(d)
+        assert torch.isfinite(s_).all()
+        assert torch.equal(s_, w_)
+        assert _rel_rms(s_, r.permute(0, 3, 1, 2)) < 1e-2
