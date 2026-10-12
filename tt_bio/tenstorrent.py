@@ -620,8 +620,6 @@ _FAST_MODE = False
 #                   parameter-free LN(s) per stack call with the adaLN gammas folded into the weights, every s-path
 #                   sigmoid in its linear's epilogue, the adaLN modulations and gated residuals as one addcmul each,
 #                   `_sdpa32` writing bf16 (`_DiTBlock._call_fused`). Each fused product skips one bf16 rounding
-#   dit_hifi2       with dit_fuse, that block's linears at HiFi2 instead of HiFi4 (fp32 accumulation kept): a precision
-#                   lever, srcB's low mantissa bits leave each bf16 product
 #   conf_bins       OpenFold3's pae / pde heads reduce softmax(logits) to their bin-vector products on the card
 #                   in fp32 (pTM, ipTM, the chain readings, the PAE / PDE matrices), so the [N, N, 64] logits
 #                   never cross to the host
@@ -630,9 +628,9 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
           "transition_shard", "dit_mm16", "atom_k1", "dit_b8", "dit_qkv16", "atom_mm16", "adaln_mod",
           "swiglu_fc12g", "msa_sample", "dit_sdpa_pm", "dit_s16", "dit_chunk", "conf_bins", "trimul_t1", "trimul_t2",
-          "transition_t3", "trimul_t2cm", "dit_fuse", "dit_hifi2")
+          "transition_t3", "trimul_t2cm", "dit_fuse")
 # Named but in no mode until their fold grade puts them in one.
-UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "adaln_mod", "transition_t3", "trimul_t2cm", "dit_fuse", "dit_hifi2"})
+UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "adaln_mod", "transition_t3", "trimul_t2cm", "dit_fuse"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
