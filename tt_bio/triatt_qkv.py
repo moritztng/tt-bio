@@ -383,8 +383,10 @@ def tail_on(biased: bool = False) -> bool:
     """The `triatt_tail` lever, or `triatt_tail_bias` for a block with biases (graded apart)."""
     if TAIL_FORCE is not None:
         return TAIL_FORCE == "1"
-    from .tenstorrent import lever
-    return lever("triatt_tail_bias" if biased else "triatt_tail")
+    from .tenstorrent import is_wormhole, lever
+    if biased:   # graded on Wormhole only (AF2-IG); Blackhole keeps today's fold until its own grade
+        return lever("triatt_tail_bias") and is_wormhole()
+    return lever("triatt_tail")
 
 
 def set_tail(v):
