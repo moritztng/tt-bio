@@ -10062,6 +10062,21 @@ class TriangleMultiplication(Module):
         # result is still alive, so a refusal there can still take the row-blocked tail from the
         # same two inputs. Once it succeeds the result is freed, exactly where rebinding `x` used
         # to free it, so every size that fits keeps its peak and its ops.
+        if (_trimul_tail.T2 and g_out_fused is not None and add_to_input and not ops.taping()
+                and self.p_out_bias is None):
+            # T2 (TT_BIO_TRIMUL_TAIL_T2, default OFF, never run on a device yet): layer_norm,
+            # the p projection, the gate and the residual add as one kernel writing x_in in
+            # place; `_add_input` then sees `u is x`. None (out of scope) leaves everything
+            # untouched and the ops below run unchanged.
+            fused = _trimul_tail.fused_tail_ln(
+                x, self.out_norm_weight, self.out_norm_bias, self.out_p_weight, g_out_fused,
+                x_in, _mm_generic.ckc_args(self.compute_kernel_config), tuple(COMPUTE_GRID_MAIN))
+            if fused is not None:
+                TRIMUL_GOUT_STATS[0] += 1
+                ttnn.deallocate(x)
+                ttnn.deallocate(x_norm_in)
+                ttnn.deallocate(g_out_fused)
+                return fused
         try:
             xn = ttnn.layer_norm(
                 x,
