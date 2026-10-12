@@ -700,7 +700,7 @@ class SwiGLUFFN(Module):
             ttnn.deallocate(x_norm)
         elif split and self.split_swiglu:
             from tt_bio import tenstorrent as _T
-            out = self._sharded(x_norm) if _T.lever("transition_shard") else None
+            out = self._sharded(x_norm, out_mc) if _T.lever("transition_shard") else None
             if out is not None:
                 ttnn.deallocate(x_norm)
                 return out
@@ -748,10 +748,11 @@ class SwiGLUFFN(Module):
         ttnn.deallocate(gated)
         return out
 
-    def _sharded(self, x_norm: ttnn.Tensor):
+    def _sharded(self, x_norm: ttnn.Tensor, out_mc=None):
         """fc2(silu(x fc1_a) * (x fc1_b)) on the pair Transition's block-sharded swiglu
         (`transition_shard`; with `swiglu_fc12g` and `silu_f32` the fused fc12g kernel, no fc1 tensors
-        and no multiply), None when the block does not shard. Same structure as tenstorrent.Transition's
+        and no multiply), None when the block does not shard. fc2 writes to `out_mc`, so the row-blocked
+        residual add reads it from L1 as on the unsharded path. Same structure as tenstorrent.Transition's
         fc1/fc2/fc3, so ESMFold2's trunk FFN takes the shared path and levers.
         """
         from tt_bio import tenstorrent as T
@@ -764,7 +765,7 @@ class SwiGLUFFN(Module):
             w12 = self._w12
         ck = self.compute_kernel_config
         return T._transition_swiglu_sharded(x_norm, self.fc1_a_weight, self.fc1_b_weight, self.fc2_weight,
-                                            ck, T.silu_ckc(ck), _dtype(), x_norm.dtype, w12=w12)
+                                            ck, T.silu_ckc(ck), _dtype(), x_norm.dtype, w12=w12, out_mc=out_mc)
 
     def _split_plan(self, x: ttnn.Tensor) -> tuple[bool, int]:
         """(split fc1?, rows per block) for this input, 0 rows if the 4-D row-blocked pair path

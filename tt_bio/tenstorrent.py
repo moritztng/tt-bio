@@ -12128,8 +12128,9 @@ def _fc12_interleave(w1: torch.Tensor, w2: torch.Tensor, gx: int) -> torch.Tenso
     return torch.cat([t for j in range(gx) for t in (w1[:, j * b:(j + 1) * b], w2[:, j * b:(j + 1) * b])], 1)
 
 
-def _transition_swiglu_sharded(x, w1, w2, w3, ckc, silu_ckc, hidden, dtype, w12=None):
-    """fc3(silu(fc1(x)) * fc2(x)) with block-sharded intermediates, or None where no grid fits.
+def _transition_swiglu_sharded(x, w1, w2, w3, ckc, silu_ckc, hidden, dtype, w12=None, out_mc=None):
+    """fc3(silu(fc1(x)) * fc2(x)) with block-sharded intermediates, or None where no grid fits. fc3 writes
+    to `out_mc` (DRAM when None).
 
     `w12` (fc1 and fc2 interleaved per core column, `_fc12_interleave`) runs the fused fc12g kernel instead of
     fc1, fc2 and the multiply."""
@@ -12178,7 +12179,7 @@ def _transition_swiglu_sharded(x, w1, w2, w3, ckc, silu_ckc, hidden, dtype, w12=
             x2 = None
         h = x1
         out = ttnn.linear(h, w3, program_config=cfg(bw3, ct // gx), compute_kernel_config=bfp8_fidelity(ckc, h, w3),
-                          dtype=dtype, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+                          dtype=dtype, memory_config=out_mc or ttnn.DRAM_MEMORY_CONFIG)
     except Exception as e:  # noqa: BLE001  a circular-buffer clash beside live L1: ttnn's path from then on
         for t in (x1, x2):
             if t is not None:
