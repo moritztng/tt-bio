@@ -895,6 +895,9 @@ class SwiGLUFFN(Module):
         with ESMC's LM FFN, Boltz-2, Protenix-v2, OpenFold3 and OpenDDE and none of them wants
         `x + ffn(x)`. Does not free `x`; the caller does, as it did around the add it used to own.
         """
+        out = self._weight_stationary(x)
+        if out is not None:
+            return ttnn.add_(out, x)  # x is the caller's to free
         split, rows = self._split_plan(x)
         rows = rows or self._rows_after_refusal(x)
         if rows:
@@ -902,6 +905,22 @@ class SwiGLUFFN(Module):
             return self._row_blocked(x, rows, residual=True)
         FUSED_RESID_STATS[1] += 1
         return ttnn.add(x, self(x))
+
+    def _weight_stationary(self, x: ttnn.Tensor):
+        """`transition_ws` on ESMFold2's split pair FFN: the shared `tenstorrent.ws_swiglu` kernel with this
+        module's own fc1 halves and fc2 (bf16 in normal, which at c_z 256 / d_ff 1024 is over the kernel's L1
+        budget, so only fast's bfp8 weights take it), or None."""
+        from tt_bio import tenstorrent as T
+        if not (self.split_swiglu and T._ws_applies(x, self.compute_kernel_config)):
+            return None
+        if getattr(self, "_ws", None) is None:
+            self._ws = (ttnn.concat([self.fc1_a_weight, self.fc1_b_weight], dim=-1), self.fc2_weight)
+            if not T._pair_ws.eligible(x, *self._ws):  # the weights decide this, not x: drop the copy for good
+                ttnn.deallocate(self._ws[0])
+                self._ws = False
+        if not self._ws:
+            return None
+        return T.ws_swiglu(x, self.norm_weight, self.norm_bias, self.compute_kernel_config, *self._ws)
 
     def __call__(self, x: ttnn.Tensor) -> ttnn.Tensor:
         # The fc1 activation (2*d_ff wide) is several GB at long L and, on top of

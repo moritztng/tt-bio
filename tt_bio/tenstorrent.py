@@ -12197,6 +12197,34 @@ def _transition_swiglu_sharded(x, w1, w2, w3, ckc, silu_ckc, hidden, dtype, w12=
     return out
 
 
+def _ws_applies(x, ckc) -> bool:
+    """`transition_ws` is on and this pair input can take it: 4-D bf16, no tape, and not where the
+    Wormhole fp32-dest guard is on (the kernel keeps all of K in dest)."""
+    return (lever("transition_ws") and len(x.shape) == 4 and not ops.taping() and x.dtype == ttnn.bfloat16
+            and not _dest_guard.tail_exposed(ckc))
+
+
+def ws_swiglu(x, norm_weight, norm_bias, ckc, w12, w3):
+    """`fc3(silu(LN(x) w1) * (LN(x) w2))` as one `pair_swiglu_ws` program, or None where the kernel does
+    not take the shape (weights over its L1 budget: c_z 256 in bf16, c_z 384; a hidden width it cannot tile).
+
+    Shared by the pair `Transition` and ESMFold2's `esmc.SwiGLUFFN`. With bfp8 weights (fast mode) x goes in
+    as bfp8 too, and with both operands bfp8 HiFi2 already covers every mantissa bit (`bfp8_fidelity`);
+    fc3's bf16 hidden is then read at bfp8-like precision, as fast's own bfp8 hidden is stored.
+    """
+    if not _pair_ws.eligible(x, w12, w3):
+        return None
+    b8 = w12.dtype == ttnn.bfloat8_b
+    x_norm = ttnn.layer_norm(x, weight=norm_weight, bias=norm_bias, epsilon=1e-5, compute_kernel_config=ckc,
+                             memory_config=ttnn.DRAM_MEMORY_CONFIG)
+    if b8:  # layer_norm has no output dtype
+        x_bf16, x_norm = x_norm, ttnn.typecast(x_norm, ttnn.bfloat8_b)
+        ttnn.deallocate(x_bf16)
+    out = _pair_ws.pair_swiglu(x_norm, w12, w3, ttnn.MathFidelity.HiFi2 if b8 else ckc.math_fidelity)
+    ttnn.deallocate(x_norm)
+    return out
+
+
 class Transition(Module):
     def __init__(
         self,
@@ -12261,11 +12289,9 @@ class Transition(Module):
         """`transition_ws`: layer norm, then the whole swiglu as one `pair_swiglu_ws` program, or None
         where the kernel does not take the shape (weights over its L1 budget: c_z 256 in bf16, c_z 384;
         a hidden width it cannot tile; an L1 destination; a tape)."""
-        if not (lever("transition_ws") and len(x.shape) == 4 and not ops.taping()
+        if not (_ws_applies(x, self.compute_kernel_config)
                 and (memory_config is None or memory_config.buffer_type == ttnn.BufferType.DRAM)
-                and x.dtype == ttnn.bfloat16 and (self.dtype or _dtype()) == ttnn.bfloat16
-                # The kernel keeps all of K in dest, so it steps aside where the Wormhole fp32-dest guard is on.
-                and not _dest_guard.tail_exposed(self.compute_kernel_config)):
+                and (self.dtype or _dtype()) == ttnn.bfloat16):
             return None
         if getattr(self, "_ws", None) is None:
             # bfp8 weights where the module's own are (transition_b8, fast mode): that is also what lets
@@ -12273,23 +12299,7 @@ class Transition(Module):
             self._ws = _pair_ws.weights(self.weights["fc1.weight"].t(), self.weights["fc2.weight"].t(),
                                         self.weights["fc3.weight"].t(), self.device,
                                         ttnn.bfloat8_b if self._hidden_b8 else ttnn.bfloat16)
-        w12, w3 = self._ws
-        if not _pair_ws.eligible(x, w12, w3):
-            return None
-        # Under transition_b8 x goes in as bfp8 too, and with both operands bfp8 HiFi2 already covers every
-        # mantissa bit (`bfp8_fidelity`); fc3's bf16 hidden is then read at bfp8-like precision, as fast's
-        # own bfp8 hidden is stored.
-        b8 = w12.dtype == ttnn.bfloat8_b
-        x_norm = ttnn.layer_norm(x, weight=self.norm_weight, bias=self.norm_bias, epsilon=1e-5,
-                                 compute_kernel_config=self.compute_kernel_config,
-                                 memory_config=ttnn.DRAM_MEMORY_CONFIG)
-        if b8:  # layer_norm has no output dtype
-            x_bf16, x_norm = x_norm, ttnn.typecast(x_norm, ttnn.bfloat8_b)
-            ttnn.deallocate(x_bf16)
-        fid = self.compute_kernel_config.math_fidelity
-        out = _pair_ws.pair_swiglu(x_norm, w12, w3, ttnn.MathFidelity.HiFi2 if b8 else fid)
-        ttnn.deallocate(x_norm)
-        return out
+        return ws_swiglu(x, self.norm_weight, self.norm_bias, self.compute_kernel_config, *self._ws)
 
     def _add_rows_ok(self, x, memory_config) -> bool:
         return (_TRANSITION_ADD_ROWS and not ops.taping() and len(x.shape) == 4
