@@ -68,6 +68,9 @@ def fold(arm, tag):
                        if (d := {f: v.get(f, 0) - before.get(k, {}).get(f, 0)
                                  for f in ("served", "refused", "blocked", "declined")
                                  if v.get(f, 0) != before.get(k, {}).get(f, 0)})}}
+    swa = getattr(sys.modules.get("tt_bio.esmfold2"), "SWA_STATS", None)
+    if swa is not None:
+        rec["swa_stats"] = list(swa)  # cumulative (windowed, dense) atom masks built
     res["folds"].append(rec); print(json.dumps(rec), flush=True)
     a.out.write_text(json.dumps(res, indent=1))
 fold("A", "cold"); fold("B", "cold")
