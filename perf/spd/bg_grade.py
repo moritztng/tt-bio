@@ -1,11 +1,13 @@
 """SPD accuracy harness for BoltzGen: grade a lever arm against the exact arm on same-seed designs.
 
     python perf/spd/bg_grade.py --base BASE_S0 --floor BASE_S1 --test ARM_S0 --mode normal|fast [--out report.md]
+    python perf/spd/bg_grade.py --base BASE_S0 BASE_S1 .. --test ARM_S0 ARM_S1 .. --mode ...   (pooled seeds)
 
 Each directory is one `tt-bio design <fixture> --model boltzgen --num_designs N --seed S --out_dir DIR` run through
 the full pipeline (design, inverse folding, refold, analysis, filter). `--seed` reseeds every step, so design k of
 two runs at the same seed is a pair: base vs test at seed 0 measures the lever, base seed 0 vs base seed 1 is the
-FLOOR (what a re-seed moves). Read from each run's `aggregate_metrics_analyze.csv` (BoltzGen's own refold metrics)
+FLOOR (what a re-seed moves). With several seeds, base i pairs with test i, every pair is pooled, and the floor
+defaults to the base runs rotated by one seed. Read from each run's `aggregate_metrics_analyze.csv` (BoltzGen's own refold metrics)
 and `ca_coords_sequences.pkl.gz` (design CA trace and sequence).
 
 Per pair: |delta| of every shared numeric metric, design CA RMSD after a Kabsch fit, sequence identity.
@@ -44,6 +46,17 @@ def load(run):
     return df.set_index("k"), ca, passed
 
 
+def load_all(runs):
+    """Several seed runs as one: design k of run i becomes key i * 10000 + k."""
+    dfs, ca, passed = [], {}, 0
+    for i, run in enumerate(runs):
+        df, c, p = load(run)
+        dfs.append(df.set_axis(df.index + i * 10000))
+        ca.update({k + i * 10000: v for k, v in c.items()})
+        passed += p
+    return pd.concat(dfs), ca, passed
+
+
 def kabsch_rmsd(P, Q):
     P, Q = P - P.mean(0), Q - Q.mean(0)
     U, _, Vt = np.linalg.svd(P.T @ Q)
@@ -72,14 +85,21 @@ def boot(v, n=20000, seed=0):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--base", required=True, type=Path)
-    ap.add_argument("--floor", required=True, type=Path, help="base arm at another seed")
-    ap.add_argument("--test", required=True, type=Path)
+    ap.add_argument("--base", required=True, type=Path, nargs="+")
+    ap.add_argument("--floor", type=Path, nargs="+", help="base arm at other seeds (default: --base rotated by one)")
+    ap.add_argument("--test", required=True, type=Path, nargs="+")
     ap.add_argument("--mode", required=True, choices=["normal", "fast"])
     ap.add_argument("--out", type=Path)
     a = ap.parse_args()
-    base, flo, test = load(a.base), load(a.floor), load(a.test)
-    L = [f"# BoltzGen grade: {a.test.name} vs {a.base.name}, {a.mode} mode", ""]
+    if len(a.test) != len(a.base):
+        ap.error("--test needs one run per --base run")
+    if a.floor is None:
+        if len(a.base) < 2:
+            ap.error("--floor is required with a single --base run")
+        a.floor = a.base[1:] + a.base[:1]
+    base, flo, test = load_all(a.base), load_all(a.floor), load_all(a.test)
+    names = lambda rs: " ".join(r.name for r in rs)
+    L = [f"# BoltzGen grade: {names(a.test)} vs {names(a.base)}, {a.mode} mode", ""]
     fail = []
     n_base = len(base[0])
     kf, fl = pairs(base, flo)
