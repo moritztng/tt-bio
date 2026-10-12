@@ -138,7 +138,8 @@ def decide(repo: Path = REPO, gates: Path | None = None, ref: str = "origin/main
         sha, d = cut
         nxt = "" if content_hash(sha, repo) == content_hash(head, repo) else (
             f"; main's head {head[:9]} is the next release, gate it now")
-        return {**out, "do": "CUT", "sha": sha, "why": f"gate passed on every arch: {d}/VERDICT.md{nxt}"}
+        return {**out, "do": "CUT", "sha": sha, "gate": str(d),
+                "why": f"gate passed on every arch: {d}/VERDICT.md{nxt}"}
     state, d = gate_state(gates, content_hash(head, repo))
     why = {"none": "no gate has run on main's head",
            "running": f"gate running in {d}",
@@ -154,7 +155,7 @@ def decide(repo: Path = REPO, gates: Path | None = None, ref: str = "origin/main
         why += f"; finish the running gate on {', '.join(s[:9] for s in older)}, do not restart it"
     if part := running_gates(gates, partial=True):
         why += f"; partial runs on {', '.join(s[:9] for s in part)} fill the ledger the gate reuses"
-    return {**out, "do": do, "sha": head, "why": why}
+    return {**out, "do": do, "sha": head, "gate": str(d or ""), "why": why}
 
 
 def main() -> int:

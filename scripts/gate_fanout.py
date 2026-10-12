@@ -412,10 +412,12 @@ def tests_hash(sha: str, family: str, repo: Path = REPO) -> str:
 
 RUNNER_FILES = ("scripts/gate_fanout.py", "scripts/release_next.py", "scripts/splice_ladder_fragments.py",
                 "scripts/gate_host_prep.sh", "scripts/flock_first.sh", "scripts/gate_reads.py",
-                "tests/test_gate_fanout.py", "tests/test_release_next.py")
+                "scripts/release_train.py", "tests/test_gate_fanout.py", "tests/test_release_next.py",
+                "tests/test_release_train.py")
 #: The runner before flock_first.sh joined it, the key every ledger row before 2026-10-10 03Z
 #: was written under.
-RUNNER_FILES_0 = tuple(f for f in RUNNER_FILES if f not in ("scripts/flock_first.sh", "scripts/gate_reads.py"))
+RUNNER_FILES_0 = tuple(f for f in RUNNER_FILES if f not in ("scripts/flock_first.sh", "scripts/gate_reads.py",
+                                                         "scripts/release_train.py", "tests/test_release_train.py"))
 
 
 def content_hash(sha: str, repo: Path = REPO, baselines: bool = False, tests: bool = False,
