@@ -23,6 +23,45 @@ pytestmark = pytest.mark.skipif(
 )
 
 
+@pytest.fixture(autouse=True)
+def _private_cache(tmp_path, monkeypatch):
+    """CcdMols writes its sidecar under the cache root; keep it out of the user's."""
+    monkeypatch.setenv("TT_BIO_CACHE", str(tmp_path / "cache"))
+
+
+def _mol_key(m):
+    from rdkit import Chem
+
+    return (Chem.MolToMolBlock(m), [sorted(a.GetPropsAsDict().items()) for a in m.GetAtoms()])
+
+
+def test_ccd_sidecar_serves_the_same_mols_as_the_full_pickle(tmp_path):
+    """build_dataset used to unpickle all of ccd.pkl a second time to keep 21 mols, and
+    preprocess unpickled it once more: 10 s of a 20 s featurisation. CcdMols serves the
+    standard residues from a derived sidecar. They must be the mols the full load gives,
+    on the first (sidecar written) and second (sidecar read) construction alike, and a
+    code outside the standard set must still come from the full pickle."""
+    import pickle
+
+    import tt_bio.nesso1_input as NI
+    from tt_bio._vendor.nesso.data.inference import STANDARD_AA
+    from tt_bio._vendor.nesso.data.yaml_input import load_ccd_mol_dict
+
+    full = load_ccd_mol_dict(CCD)
+    extra = tmp_path / "ccd.pkl"
+    with extra.open("wb") as f:
+        pickle.dump({**full, "XYZ": full["ALA"]}, f)
+    for writes_sidecar in (True, False):
+        NI.CcdMols._full.clear()
+        mols = NI.CcdMols(extra)
+        std = mols.standard()
+        assert sorted(std) == sorted(k for k in STANDARD_AA if k in full)
+        assert all(_mol_key(std[k]) == _mol_key(full[k]) for k in std)
+        assert bool(NI.CcdMols._full) == writes_sidecar, "only writing the sidecar reads ccd.pkl"
+    assert "XYZ" in mols and _mol_key(mols["XYZ"]) == _mol_key(full["ALA"])
+    assert "NOPE" not in mols
+
+
 def _preprocess(out_dir, num_workers):
     from tt_bio.nesso1_input import preprocess, resolve_paths
 
@@ -142,3 +181,25 @@ def test_find_ccd_without_download_names_where_it_looked(tmp_path, monkeypatch):
     monkeypatch.setenv("HOME", str(tmp_path))  # so ~/.cache/huggingface is empty too
     with pytest.raises(FileNotFoundError, match="--ccd"):
         find_ccd(tmp_path / "empty", download=False)
+
+
+def test_esm_embedding_is_computed_once_per_sequence_across_runs(tmp_path, monkeypatch):
+    """A screen re-runs the same target with new ligands. The ESM-2 embedding is a pure
+    function of the sequence, so the second run must link the stored one, byte for byte,
+    instead of loading the 650M encoder again."""
+    import torch
+    from safetensors.torch import load_file
+
+    import tt_bio._vendor.nesso.data.esm as esm
+    from tt_bio.nesso1_input import run_esm
+
+    calls = []
+    monkeypatch.setattr(esm, "setup_esm_model", lambda *a, **k: (None, None))
+    monkeypatch.setattr(esm, "extract_esm_embedding",
+                        lambda seq, m, t: calls.append(seq) or torch.randn(1, len(seq) + 2, 4))
+    seqs = {"m1": "MENFQK"}
+    assert run_esm(seqs, (tmp_path / "run1").mkdir() or tmp_path / "run1") == 1
+    assert run_esm(seqs, (tmp_path / "run2").mkdir() or tmp_path / "run2") == 0
+    assert calls == ["MENFQK"]
+    a, b = (load_file(tmp_path / r / "m1.safetensors")["embeddings"] for r in ("run1", "run2"))
+    assert torch.equal(a, b)

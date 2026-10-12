@@ -606,6 +606,10 @@ _FAST_MODE = False
 #                   operands with fp32 accumulation (OpenFold3's DiT)
 #   dit_chunk       the token DiT's fused SDPA takes q = k = the largest 32-aligned divisor of its length up
 #                   to 320 (`_dit_sdpa_chunk`) instead of 256, which pads every length 256 does not divide
+#   trimul_t1       the triangle multiplication's input layer_norm, gated a/b projection, mask, channel moves
+#                   and g_out as one kernel reading z once (kernels/trimul_in_t1; c_z = hidden = 128, N >= 160)
+#   trimul_t2       its output tail, layer_norm + p projection + sigmoid(g_out) gate + residual add, as one
+#                   kernel writing z in place (kernels/trimul_tail_res, compute_ln.cpp; c_z = 128, N >= 160)
 #   conf_bins       OpenFold3's pae / pde heads reduce softmax(logits) to their bin-vector products on the card
 #                   in fp32 (pTM, ipTM, the chain readings, the PAE / PDE matrices), so the [N, N, 64] logits
 #                   never cross to the host
@@ -613,9 +617,10 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in",
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
           "transition_shard", "dit_mm16", "atom_k1", "dit_b8", "dit_qkv16", "atom_mm16", "adaln_mod",
-          "swiglu_fc12g", "msa_sample", "dit_sdpa_pm", "dit_s16", "dit_chunk", "conf_bins")
-# Named but in no mode until their fold grade puts them in one.
-UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "adaln_mod"})
+          "swiglu_fc12g", "msa_sample", "dit_sdpa_pm", "dit_s16", "dit_chunk", "conf_bins", "trimul_t1", "trimul_t2")
+# Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
+# (esmfold2_runtime.LEVERS_FAST) names trimul_b8in, graded on ESMFold2's fold.
+UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "adaln_mod", "trimul_t1", "trimul_t2"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -9024,6 +9029,7 @@ class TriangleMultiplication(Module):
         # lever ever takes a call at this width.
         self._gp_gout_cache: dict[tuple[int, int], ttnn.Tensor] = {}
         self._gp_gated_cache: dict = {}
+        self._t1_w = None     # T1's (wpT, wgT), built on its first served call
         # The in-projection as device leaves, set only by `train_in_proj`. Inference never
         # sets them and reads the caches above.
         self.g_in_weight = self.p_in_weight = None
@@ -9124,6 +9130,48 @@ class TriangleMultiplication(Module):
             )
             self._gp_gout_cache[key] = cached
         return cached
+
+    def _t1_in(self, x, mask, H, shp):
+        """T1's `(a, b, g_out, a_masked)` for this call, or None, in which case nothing ran.
+
+        Asks for exactly the route the channel loop would otherwise take at this shape with the
+        fused gate: the DRAM path, one channel-loop iteration, the matmul taking the inner swap,
+        the mask past the move, no biases, no tape. Every decline is counted in T1_STATS[1].
+        """
+        TT1 = _trimul_tail
+        if not (TT1.T1 or lever("trimul_t1")) or H < TT1.MIN_N:
+            return None
+        mask_ok = mask is None or (_TRIMUL_MASK_AFTER_MOVE and len(mask.shape) == 3)
+        if (ops.taping() or _FAST_MODE or _TRIMUL_RAW_CHANNEL_MOVES or _TRIMUL_INPROJ_ROWBLOCK
+                or self.g_in_weight is not None or self._g_in_b is not None
+                or self.g_out_bias is not None or not mask_ok
+                or not (self.gated_move or _TRIMUL_MASK_AFTER_MOVE)
+                or H > SEQ_LEN_MORE_CHUNKING
+                or _triangle_mul_memory_config(H).buffer_type != ttnn.BufferType.DRAM
+                or _host_concat(x)):
+            TT1.T1_STATS[1] += 1
+            return None
+        batch = prod(shp[:-3])
+        chunk = _trimul_inproj_chunk_cap(H, self._hidden, batch,
+                                         _trimul_chunk_size(H, self._hidden, batch))
+        n_pairs = self._hidden // chunk
+        pc = _triangle_mul_program_config((H + 31) // 32, _trimul_ibw_full(), _trimul_subblock())
+        if (n_pairs // _trimul_inproj_group(H, chunk, batch, n_pairs) != 1
+                or not _mm_transpose_deferred(pc)):
+            TT1.T1_STATS[1] += 1
+            return None
+        if self._t1_w is None:
+            wpT, wgT, _ = TT1.t1_host_weights(self._g_in_t, self._p_in_t,
+                                              self.weights["g_out.weight"].t())
+            up = lambda t: ttnn.from_torch(  # noqa: E731
+                t, layout=ttnn.TILE_LAYOUT, device=self.device, dtype=ttnn.bfloat16)
+            self._t1_w = (up(wpT), up(wgT))
+        fold = mask is not None and TT1.t1_mask_ok(mask, x)
+        outs = TT1.fused_in_ln(
+            x, self.in_norm_weight, self.in_norm_bias, *self._t1_w, self.g_out_weight,
+            _mm_generic.ckc_args(self.compute_kernel_config), tuple(COMPUTE_GRID_MAIN),
+            mask=mask if fold else None)
+        return None if outs is None else (outs[0], outs[1], outs[2], fold)
 
     def _gout_eligible(self, x_norm_in, H, n_pairs, group, memory_config, row_norm) -> bool:
         """Whether `g_out` may ride the in-projection. Every decline names its own reason."""
@@ -9457,7 +9505,13 @@ class TriangleMultiplication(Module):
         # block 3 MB per bank short of the request.
         row_norm = prod(shp) * (2 if x.dtype == ttnn.bfloat16 else 4) > TRIMUL_IN_NORM_ROWBLOCK_BYTES
         x_norm_in = None
-        if not row_norm:
+        # T1 (the `trimul_t1` lever): the input norm, the
+        # gated in-projection with the mask and both channel moves, and the tail's g_out, as one
+        # kernel reading z once. Served, the input norm never exists: `t1` is (a, b, g_out, a
+        # masked) and the channel loop below takes a and b as they are. None runs everything as
+        # before.
+        t1 = None if row_norm else self._t1_in(x, mask, H, shp)
+        if not row_norm and t1 is None:
             from tt_bio.size_limits import is_alloc_refusal
             try:
                 x_norm_in = ttnn.layer_norm(
@@ -9507,7 +9561,7 @@ class TriangleMultiplication(Module):
                 except RuntimeError as exc:
                     if not is_alloc_refusal(exc):
                         raise
-                    if row_norm:
+                    if row_norm or t1 is not None:
                         # Not even beside the bare pair (exact mode at 2048: 172 of the 179 MiB per
                         # bank a 2 GiB tensor needs). Keep the channel chunks on the device as they
                         # come and let the row-blocked tail join one row block of them at a time.
@@ -9533,9 +9587,9 @@ class TriangleMultiplication(Module):
         # Rank 2 of the block's redundancy census: the tail's gate reads the very tensor the
         # in-projection is about to read. Fold it in when nothing else in this call wants that
         # tensor for itself. Re-asked after a clash retry, which can change the channel loop.
-        fuse_gout = _TRIMUL_FUSED_GOUT and self._gout_eligible(
+        fuse_gout = t1 is None and _TRIMUL_FUSED_GOUT and self._gout_eligible(
             x_norm_in, H, n_pairs, group, memory_config, row_norm)
-        g_out_fused = None
+        g_out_fused = None if t1 is None else t1[2]
         seq_len_tiles = (H + 31) // 32
         program_config = _triangle_mul_program_config(seq_len_tiles, _trimul_ibw_full(), _trimul_subblock())
         # The channel-axis mask, built on first read and not before. `unsqueeze(mask, -1)` is a
@@ -9635,7 +9689,13 @@ class TriangleMultiplication(Module):
                     defer_a = defer_b = False
                     branch = "?"
                     defer = _mm_transpose_deferred(program_config)
-                    if ((_TRIMUL_INPROJ_ROWBLOCK and not row_norm
+                    if t1 is not None:
+                        # One iteration (`_t1_in` asked for it); both chunks are (0,3,1,2) moves.
+                        a_chunk, b_chunk, a_masked = t1[0], t1[1], t1[3]
+                        branch = "t1"
+                        defer_a = perm_a == (0, 3, 2, 1)
+                        defer_b = perm_b == (0, 3, 2, 1)
+                    if a_chunk is None and ((_TRIMUL_INPROJ_ROWBLOCK and not row_norm
                          or _TRIMUL_INPROJ_ROWBLOCK_NORM and row_norm and len(shp) == 4)
                             and not _FAST_MODE
                             and not _TRIMUL_RAW_CHANNEL_MOVES
@@ -9939,6 +9999,16 @@ class TriangleMultiplication(Module):
                 if (not oom and not mask_clash and not ibw_clash and not tma_retry
                         and (large_seq or "clash with L1 buffers" not in msg)):
                     raise
+                if t1 is not None:
+                    # T1's a and b may already be consumed, so the retry takes the incumbent route
+                    # from a fresh input norm; its g_out goes with g_out_fused below.
+                    for _t in t1[:2]:
+                        if _t.is_allocated():
+                            ttnn.deallocate(_t)
+                    t1 = None
+                    x_norm_in = ttnn.layer_norm(
+                        x_in, weight=self.in_norm_weight, bias=self.in_norm_bias, epsilon=1e-5,
+                        compute_kernel_config=ln_compute_kernel_config(self.compute_kernel_config))
                 if mask_clash:
                     _TRIMUL_MASK_DRAM_SHAPES.add(mask_key)
                     for _transposed, _m in list(_mask_moved_memo.items()):
@@ -10031,14 +10101,17 @@ class TriangleMultiplication(Module):
         # Take the row-blocked tail then too: it recomputes both norms from x_in and is
         # bit-identical, so the guard only ever fires where the else path would crash.
         tail_key = (tuple(shp), x.dtype)
-        rows_tail = (H > SEQ_LEN_MORE_CHUNKING or x_norm_in is None
-                     or tail_key in _TRIMUL_TAIL_ROWS_SHAPES)
-        if rows_tail and x_norm_in is not None:
+        # Under T1 there is no input norm and g_out_fused carries the gate, so only a kept-chunks
+        # refusal (`keep_chunks`, which without T1 implies a row-blocked norm) sends it row-wise.
+        rows_tail = (H > SEQ_LEN_MORE_CHUNKING or (x_norm_in is None and t1 is None)
+                     or keep_chunks or tail_key in _TRIMUL_TAIL_ROWS_SHAPES)
+        if rows_tail and (x_norm_in is not None or t1 is not None):
             # x_norm_in is dead on the row-blocked tail path (both norms are
             # recomputed per row block from x_in). Freeing it before the concat
             # drops that peak from 4 pair-tensor multiples to 3 -- the difference
             # between fitting and the 9i3p/9j4c refusal.
-            ttnn.deallocate(x_norm_in)
+            if x_norm_in is not None:
+                ttnn.deallocate(x_norm_in)
             if g_out_fused is not None:
                 ttnn.deallocate(g_out_fused)
             if H <= SEQ_LEN_MORE_CHUNKING:
@@ -10062,6 +10135,23 @@ class TriangleMultiplication(Module):
         # result is still alive, so a refusal there can still take the row-blocked tail from the
         # same two inputs. Once it succeeds the result is freed, exactly where rebinding `x` used
         # to free it, so every size that fits keeps its peak and its ops.
+        if ((_trimul_tail.T2 or lever("trimul_t2")) and H >= _trimul_tail.MIN_N
+                and g_out_fused is not None and add_to_input and not ops.taping()
+                and self.p_out_bias is None):
+            # T2 (the `trimul_t2` lever): layer_norm,
+            # the p projection, the gate and the residual add as one kernel writing x_in in
+            # place; `_add_input` then sees `u is x`. None (out of scope) leaves everything
+            # untouched and the ops below run unchanged.
+            fused = _trimul_tail.fused_tail_ln(
+                x, self.out_norm_weight, self.out_norm_bias, self.out_p_weight, g_out_fused,
+                x_in, _mm_generic.ckc_args(self.compute_kernel_config), tuple(COMPUTE_GRID_MAIN))
+            if fused is not None:
+                TRIMUL_GOUT_STATS[0] += 1
+                ttnn.deallocate(x)
+                if x_norm_in is not None:      # None under T1
+                    ttnn.deallocate(x_norm_in)
+                ttnn.deallocate(g_out_fused)
+                return fused
         try:
             xn = ttnn.layer_norm(
                 x,
@@ -10073,7 +10163,8 @@ class TriangleMultiplication(Module):
         except RuntimeError as exc:
             if not _dram_oom(exc):
                 raise
-            ttnn.deallocate(x_norm_in)
+            if x_norm_in is not None:
+                ttnn.deallocate(x_norm_in)
             if g_out_fused is not None:
                 ttnn.deallocate(g_out_fused)
             _TRIMUL_TAIL_ROWS_SHAPES.add(tail_key)
@@ -10112,7 +10203,7 @@ class TriangleMultiplication(Module):
         p_out = _trimul_out_proj(x, self.out_p_weight, self.compute_kernel_config,
                                  self.p_out_bias)
         ttnn.deallocate(x)
-        dram_peak(f"trimul({'end' if self.ending else 'start'}) p_out done [z={'x'.join(str(d) for d in x_norm_in.shape)}]")
+        dram_peak(f"trimul({'end' if self.ending else 'start'}) p_out done [z={'x'.join(str(d) for d in x_in.shape)}]")
         if g_out_fused is not None:
             # counted where it is USED, not where it is computed: a tail that took another branch
             # would otherwise report a lever that changed nothing
@@ -10121,7 +10212,8 @@ class TriangleMultiplication(Module):
         else:
             g_out = _trimul_out_proj(x_norm_in, self.g_out_weight, self.compute_kernel_config,
                                      self.g_out_bias)
-        ttnn.deallocate(x_norm_in)
+        if x_norm_in is not None:          # None under T1, which leaves g_out_fused
+            ttnn.deallocate(x_norm_in)
         x = ttnn.multiply_(
             p_out, g_out, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID]
         )
@@ -12127,8 +12219,9 @@ def _fc12_interleave(w1: torch.Tensor, w2: torch.Tensor, gx: int) -> torch.Tenso
     return torch.cat([t for j in range(gx) for t in (w1[:, j * b:(j + 1) * b], w2[:, j * b:(j + 1) * b])], 1)
 
 
-def _transition_swiglu_sharded(x, w1, w2, w3, ckc, silu_ckc, hidden, dtype, w12=None):
-    """fc3(silu(fc1(x)) * fc2(x)) with block-sharded intermediates, or None where no grid fits.
+def _transition_swiglu_sharded(x, w1, w2, w3, ckc, silu_ckc, hidden, dtype, w12=None, out_mc=None):
+    """fc3(silu(fc1(x)) * fc2(x)) with block-sharded intermediates, or None where no grid fits. fc3 writes
+    to `out_mc` (DRAM when None).
 
     `w12` (fc1 and fc2 interleaved per core column, `_fc12_interleave`) runs the fused fc12g kernel instead of
     fc1, fc2 and the multiply."""
@@ -12177,7 +12270,7 @@ def _transition_swiglu_sharded(x, w1, w2, w3, ckc, silu_ckc, hidden, dtype, w12=
             x2 = None
         h = x1
         out = ttnn.linear(h, w3, program_config=cfg(bw3, ct // gx), compute_kernel_config=bfp8_fidelity(ckc, h, w3),
-                          dtype=dtype, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+                          dtype=dtype, memory_config=out_mc or ttnn.DRAM_MEMORY_CONFIG)
     except Exception as e:  # noqa: BLE001  a circular-buffer clash beside live L1: ttnn's path from then on
         for t in (x1, x2):
             if t is not None:
@@ -16558,7 +16651,8 @@ class TrunkRecycle:
     ``s_norm``/``z_norm`` are ``nn.LayerNorm`` (weight + bias, eps 1e-5);
     ``s_recycle``/``z_recycle`` are ``nn.Linear(.., bias=False)``. The ttnn
     weights are built directly from the already-loaded torch modules so this
-    needs no separate state-dict load.
+    needs no separate state-dict load. A pair-only model (Nesso-1) passes None for
+    the single track and calls ``z_branch``.
     """
 
     def __init__(self, s_norm, z_norm, s_recycle, z_recycle, compute_kernel_config):
@@ -16571,12 +16665,13 @@ class TrunkRecycle:
                 t = t.t().contiguous()
             return ttnn.from_torch(t, layout=ttnn.TILE_LAYOUT, device=device, dtype=ttnn.bfloat16)
 
-        self.s_norm_weight = w(s_norm.weight)
-        self.s_norm_bias = w(s_norm.bias)
+        if s_norm is not None:
+            self.s_norm_weight = w(s_norm.weight)
+            self.s_norm_bias = w(s_norm.bias)
+            # nn.Linear stores weight as [out, in]; ttnn.linear wants [in, out].
+            self.s_recycle_weight = w(s_recycle.weight, transpose=True)
         self.z_norm_weight = w(z_norm.weight)
         self.z_norm_bias = w(z_norm.bias)
-        # nn.Linear stores weight as [out, in]; ttnn.linear wants [in, out].
-        self.s_recycle_weight = w(s_recycle.weight, transpose=True)
         self.z_recycle_weight = w(z_recycle.weight, transpose=True)
 
     def _branch(self, x, norm_weight, norm_bias, recycle_weight, init):
@@ -16598,10 +16693,12 @@ class TrunkRecycle:
         ttnn.deallocate(x_rec)
         return out
 
+    def z_branch(self, z, z_init):
+        return self._branch(z, self.z_norm_weight, self.z_norm_bias, self.z_recycle_weight, z_init)
+
     def __call__(self, s, z, s_init, z_init):
         s_out = self._branch(s, self.s_norm_weight, self.s_norm_bias, self.s_recycle_weight, s_init)
-        z_out = self._branch(z, self.z_norm_weight, self.z_norm_bias, self.z_recycle_weight, z_init)
-        return s_out, z_out
+        return s_out, self.z_branch(z, z_init)
 
 
 def free(*tensors):

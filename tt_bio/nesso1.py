@@ -38,6 +38,7 @@ from tt_bio.boltz2 import (
     LinearNoBias,
     PairwiseConditioning,
     RelativePositionEncoder,
+    _under_levers,
     init,
     tenstorrent,
 )
@@ -135,6 +136,14 @@ def compute_distogram_entropy(
 # ---------------------------------------------------------------------------
 # new modules
 # ---------------------------------------------------------------------------
+
+
+# Nesso-1's precision levers (tenstorrent.LEVERS), graded on this model's own accuracy set before a
+# name goes in, as Boltz-2's are: a lever graded only on another model never reaches it. Nesso-1 has
+# no fast mode. A harness grades a candidate through the serving path with TT_BIO_LEVERS.
+# Boltz-2's trunk set (trimul_ibw, trimul_tail, trunk_hifi3, silu_f32) stays per-ligand inside the
+# seed floor on DAVIS but drops YSK4's Pearson by 0.010 against an allowed 0.007, so it is not in.
+LEVERS_NORMAL = frozenset()
 
 
 def _pairformer(
@@ -356,6 +365,8 @@ class Nesso1(nn.Module):
         super().__init__()
         self.predict_args = dict(predict_args or {})
         self.use_tenstorrent = use_tenstorrent
+        self._levers = (tenstorrent.model_levers(LEVERS_NORMAL, LEVERS_NORMAL)
+                        if use_tenstorrent else frozenset())
         self.affinity_prediction = affinity_prediction
         self.use_kernels = use_kernels
         self.num_dist_bins = num_dist_bins
@@ -509,6 +520,12 @@ class Nesso1(nn.Module):
 
     # -- forward ------------------------------------------------------------
 
+    @_under_levers
+    def load_state_dict(self, *a, **kw):
+        # The device modules are built here (TorchWrapper._load_from_state_dict).
+        return super().load_state_dict(*a, **kw)
+
+    @_under_levers
     def forward(
         self,
         feats: dict[str, Tensor],
@@ -538,16 +555,34 @@ class Nesso1(nn.Module):
         # an eltwise broadcast, padded-N against the crop budget.
         self._invalidate_device_masks()
 
+        # Device-resident recycling: from the second pass at a size on, z stays on the card and
+        # the recycle (z_init + ESM fold-in + z_recycle(z_norm(z))) runs there, so a pass costs no
+        # download, no host LayerNorm/Linear and no upload. The host keeps z where it reads it:
+        # the pocket crop after the first pass and the heads after the last. Graded on DAVIS (2 targets
+        # x 30 ligands, WH): per-ligand |delta pred| median 0.009-0.011, p90 0.020-0.031, inside two
+        # reseeded base arms (median 0.015-0.029, p90 0.062-0.074); Pearson vs pKd moves <= 0.002.
+        resident = self._resident_recycle()
+        z_dev = c_dev = None
         for i in range(recycling_steps + 1):
-            z = z_init + self.z_recycle(self.z_norm(z))
-            z = self.esm_module(
-                z,
-                s_inputs=s_inputs,
-                s_esm=s_esm,
-                pair_mask=pair_mask,
-                use_kernels=self.use_kernels,
-            )
-            z = self._trunk(z, mask, pair_mask)
+            keep = resident and i < recycling_steps and not (refine_pocket and i == 0)
+            if z_dev is None:
+                z = z_init + self.z_recycle(self.z_norm(z))
+                z = self.esm_module(
+                    z,
+                    s_inputs=s_inputs,
+                    s_esm=s_esm,
+                    pair_mask=pair_mask,
+                    use_kernels=self.use_kernels,
+                )
+                z = self._trunk(z, mask, pair_mask, keep_device=keep)
+            else:
+                if c_dev is None:
+                    c_dev = self._recycle_constant(z_init, s_inputs, s_esm, pair_mask)
+                z_in = self._tt_recycle.z_branch(z_dev, c_dev)
+                tenstorrent.free(z_dev)
+                z = self._trunk(None, mask, pair_mask, keep_device=keep,
+                                z_device=z_in, seq_len=z_init.shape[1])
+            z_dev = z if keep else None
 
             if refine_pocket and i == 0:
                 # One crop, after the first trunk pass: the remaining recycles run on
@@ -579,6 +614,8 @@ class Nesso1(nn.Module):
                 # N just changed, so the cached device masks no longer describe
                 # this input.
                 self._invalidate_device_masks()
+        if c_dev is not None:
+            tenstorrent.free(c_dev)
 
         pdistogram_local = self.distogram_head(z + z.transpose(1, 2))
 
@@ -596,13 +633,39 @@ class Nesso1(nn.Module):
             )
         return dict_out
 
-    def _trunk(self, z: Tensor, mask: Tensor, pair_mask: Tensor) -> Tensor:
+    def _trunk(self, z: Optional[Tensor], mask: Tensor, pair_mask: Tensor,
+               keep_device: bool = False, z_device=None, seq_len: Optional[int] = None):
+        """The pair stack. With ``keep_device`` it returns the padded device tensor."""
         if self.use_tenstorrent:
-            _, z = self.pairformer_module(None, z, mask=mask, pair_mask=pair_mask)
+            _, z = self.pairformer_module(None, z, mask=mask, pair_mask=pair_mask,
+                                          z_device=z_device, seq_len=seq_len,
+                                          keep_z_device=keep_device)
             return z
         return self.pairformer_module(
             z, pair_mask=pair_mask, use_kernels=self.use_kernels
         )
+
+    def _resident_recycle(self) -> bool:
+        """Whether recycles run on the card: the bf16 trunk only (the fp32 one takes no z_device)."""
+        if not (self.use_tenstorrent and isinstance(self.pairformer_module, tenstorrent.PairformerModule)):
+            return False
+        if getattr(self, "_tt_recycle", None) is None:
+            self._tt_recycle = tenstorrent.TrunkRecycle(
+                None, self.z_norm, None, self.z_recycle,
+                self.pairformer_module.compute_kernel_config)
+        return True
+
+    def _recycle_constant(self, z_init, s_inputs, s_esm, pair_mask):
+        """z_init plus the ESM fold-in, on the card, padded as the trunk pads: the part of every
+        recycle that does not depend on z. Padded positions are 0, as the host path leaves them."""
+        c = self.esm_module(z_init, s_inputs=s_inputs, s_esm=s_esm, pair_mask=pair_mask,
+                            use_kernels=self.use_kernels)
+        n = c.shape[1]
+        pad = (tenstorrent.pad_amount(n, tenstorrent.PAIRFORMER_PAD_MULTIPLE)
+               if tenstorrent.bucket_enabled() else 0)
+        if pad:
+            c = torch.nn.functional.pad(c, (0, 0, 0, pad, 0, pad))
+        return self.pairformer_module._from_torch(c)
 
     def _affinity(
         self,
@@ -811,7 +874,9 @@ def screen(
     0.058). Seeding makes a tt-bio screen repeatable. Pass None for upstream behaviour.
     """
     from tt_bio.nesso1_input import CLI_PREDICT_ARGS, collate, prepare
+    from tt_bio.runtime import reuse_freed_heap
 
+    reuse_freed_heap()
     out = Path(out_dir).expanduser()
     out.mkdir(parents=True, exist_ok=True)
     dataset, manifest, failed = prepare(
