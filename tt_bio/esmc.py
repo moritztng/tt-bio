@@ -176,6 +176,14 @@ ESMC_SDPA_Q_CHUNK = 128
 # q, k and v as three projections from the packed weight's column blocks instead of one projection and a
 # 3-way `ttnn.chunk` copy of its output. Off until the page-cell A/B (perf/spd_gap_esmf/esmc_ab.py) says.
 _ESMC_QKV_SPLIT = env_flag("TT_BIO_ESMC_QKV_SPLIT", False)
+# The q/k layer norms and the qkv re-pack written to L1 instead of DRAM: the head split reads the
+# packed tensor straight back, so DRAM only carries it once. Same ops, same values (a memory
+# placement). An L1 refusal at a shape falls back to DRAM for that shape for good, decided in the
+# warm passes before a trace capture. Off until the page-cell A/B (esmc_ab.py) says.
+_ESMC_QK_L1 = env_flag("TT_BIO_ESMC_QK_L1", False)
+_QK_L1_REFUSED: set = set()
+#: [attention calls served from L1, declined], read by the A/B harness.
+QK_L1_STATS = [0, 0]
 ESMC_SDPA_K_CHUNK = 64
 
 
@@ -237,6 +245,39 @@ class Attention(Module):
             self._qkv_w = tuple(ttnn.slice(w, [0, i * d], [d_in, (i + 1) * d]) for i in range(3))
         return self._qkv_w
 
+    def _qk_heads(self, q, k, v):
+        """LayerNorm(q), LayerNorm(k) and v re-packed and split into per-head [B, H, L, d_head]
+        (the tile-aware head split wants one packed tensor); frees q, k and v."""
+        ck = self.compute_kernel_config
+        key = tuple(v.padded_shape)
+        if _ESMC_QK_L1 and key not in _QK_L1_REFUSED:
+            l1 = ttnn.L1_MEMORY_CONFIG
+            live = []
+            try:
+                live.append(ttnn.layer_norm(q, weight=self.q_ln_weight, epsilon=1e-5, compute_kernel_config=ck, memory_config=l1))
+                live.append(ttnn.layer_norm(k, weight=self.k_ln_weight, epsilon=1e-5, compute_kernel_config=ck, memory_config=l1))
+                live.append(ttnn.concat([live[0], live[1], v], dim=-1, memory_config=l1))
+                heads = self._split_heads(live[2], self.n_heads)
+            except Exception as exc:
+                if not _is_alloc_refusal(exc):
+                    from tt_bio import tenstorrent
+                    tenstorrent.absorb_l1_refusal("esmc qk L1", exc)
+                _QK_L1_REFUSED.add(key)
+            else:
+                QK_L1_STATS[0] += 1
+                for t in (live[0], live[1], q, k, v):
+                    ttnn.deallocate(t)
+                return heads
+            for t in live:
+                ttnn.deallocate(t)
+        QK_L1_STATS[1] += _ESMC_QK_L1
+        qn = ttnn.layer_norm(q, weight=self.q_ln_weight, epsilon=1e-5, compute_kernel_config=ck)
+        kn = ttnn.layer_norm(k, weight=self.k_ln_weight, epsilon=1e-5, compute_kernel_config=ck)
+        qkv = ttnn.concat([qn, kn, v], dim=-1)
+        for t in (q, k, v, qn, kn):
+            ttnn.deallocate(t)
+        return self._split_heads(qkv, self.n_heads)
+
     def __call__(self, x: ttnn.Tensor, cos: ttnn.Tensor, sin: ttnn.Tensor,
                  attn_mask: ttnn.Tensor | None = None,
                  key_valid: ttnn.Tensor | None = None) -> ttnn.Tensor:
@@ -256,13 +297,8 @@ class Attention(Module):
             ttnn.deallocate(x_norm)
             q, k, v = ttnn.chunk(qkv, 3, dim=-1)
             ttnn.deallocate(qkv)
-        q = ttnn.layer_norm(q, weight=self.q_ln_weight, epsilon=1e-5, compute_kernel_config=ck)
-        k = ttnn.layer_norm(k, weight=self.k_ln_weight, epsilon=1e-5, compute_kernel_config=ck)
-
         # Re-pack and use the tile-aware head split, then apply per-head RoPE.
-        qkv = ttnn.concat([q, k, v], dim=-1)
-        ttnn.deallocate(q); ttnn.deallocate(k); ttnn.deallocate(v)
-        q, k, v = self._split_heads(qkv, self.n_heads)
+        q, k, v = self._qk_heads(q, k, v)
         q, k = _rope(q, k, cos, sin)
         if key_valid is not None and attn_mask is None:
             # Zero padded keys/values so their attention contribution is exactly 0. With the -inf
