@@ -422,6 +422,9 @@ TRANSITION_W_CHUNKING_THRESHOLD = 1024
 # Blackhole never reaches any of this: the whole branch is behind _IS_SMALL_GRID.
 SMALL_GRID_TRANSITION_ELEMS = int(os.environ.get("TT_BIO_SMALL_GRID_TRANSITION_ELEMS", 1179648))
 SMALL_GRID_TRANSITION_MAX_C = 384
+# The 512-token c=384 bfp8 height in Transition._transition (twice the element budget). A module
+# bool so a paired fold A/B can toggle it in one process.
+_SMALL_GRID_TRANSITION_H512 = True
 TRANSITION_H_CHUNK_SIZE_FAST = 32
 TRANSITION_H_CHUNK_SIZE = 16
 # Measured 1.87x at the protenix pair shape (microbench M4, W=320/c=256) but 32 clashes
@@ -620,7 +623,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "swiglu_fc12g", "msa_sample", "dit_sdpa_pm", "dit_s16", "dit_chunk", "conf_bins", "trimul_t1", "trimul_t2")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in, graded on ESMFold2's fold.
-UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "adaln_mod", "trimul_t1", "trimul_t2"})
+UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "adaln_mod"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -639,7 +642,9 @@ UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "adaln_mod", "trimul_t1
 # Blackhole, 44 paired folds): fast PASS, normal FAIL on CA-lDDT -0.0002 [-0.0003, -0.0000] against an A/A floor
 # of 0.0010; same-seed top pose median 0.171 A vs the 0.60 A bar, docking 26 -> 26 of 44. OpenFold3 normal grade
 # PASS (top pose median 0.227 A). Saves ~0.3 s of the 512-token fold on p150a (spd-gap-of3, 2026-10-12).
-FAST_LEVERS = frozenset(LEVERS) - {"lofi", "triatt_b8", "triatt_bias_b8"} - UNGRADED_LEVERS
+# trimul_t1 / trimul_t2 are graded on OpenFold3 / OpenBind-0 only (their own FAST_LEVERS), so the shared set leaves
+# them out until a Boltz-2 / Protenix-v2 grade puts them in.
+FAST_LEVERS = frozenset(LEVERS) - {"lofi", "triatt_b8", "triatt_bias_b8", "trimul_t1", "trimul_t2"} - UNGRADED_LEVERS
 # trimul_ibw + trimul_tail: Wormhole 11-set grade PASS, 44 paired folds, same-seed top pose median
 # 0.204 A against the 0.60 A bar (A/A seed floor 0.807 A), every paired CI covers 0 or sits on the
 # better side (state/spd/BOARD.md, spd-trimul 2026-10-08 22:40Z).
@@ -12619,6 +12624,16 @@ class Transition(Module):
                 and 256 < _c <= SMALL_GRID_TRANSITION_MAX_C and H <= SEQ_LEN_MORE_CHUNKING):
             transition_h_chunk_size = max(1, min(_base_h,
                                                  SMALL_GRID_TRANSITION_ELEMS // (w_eff * _c)))
+        # c=384 bfp8 hidden (OpenDDE --fast) runs the bf16 element budget's h=6 at 512 tokens where
+        # bfp8 needs half the bytes: 38.79 -> 34.49 ms at h=12 (WH .114 chip 13, real module,
+        # perf/spd_bh/transition_h.py), -1.28 s per fold and bit-exact in every fold. Bounded at
+        # W=512: the c=384 budget is a correctness bound at W=736/896 in bf16 (wrong values before
+        # the clash, see above), and nobody has measured bfp8 there.
+        if (_IS_SMALL_GRID and _SMALL_GRID_TRANSITION_H512 and _tile(w_eff) <= 512
+                and H <= SEQ_LEN_MORE_CHUNKING and 256 < _c <= SMALL_GRID_TRANSITION_MAX_C
+                and self._hidden_b8):
+            transition_h_chunk_size = max(1, min(_base_h,
+                                                 2 * SMALL_GRID_TRANSITION_ELEMS // (w_eff * _c)))
         if _IS_SMALL_GRID:
             # Cap the row chunk by measured per-core L1. The budget above scales by per-core L1
             # and by the channel excess; neither term sees that the Galaxy has 45% fewer cores
