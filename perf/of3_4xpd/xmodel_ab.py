@@ -64,7 +64,7 @@ def main():
     # box drifts by more than the trace saving, so only a paired delta can read it.
     ap.add_argument("--ab-trace", action="store_true")
     # The same pairing for any module-level bool, e.g. tt_bio.runtime:SERIAL_HOST.
-    ap.add_argument("--ab-attr", metavar="MODULE:NAME", default=None)
+    ap.add_argument("--ab-attr", metavar="MODULE:NAME[,MODULE:NAME...]", default=None)
     # Stage split inside the fold: each MODULE:Class.method is wrapped in a device sync on both
     # sides and its inclusive seconds summed per fold (nested stages each count their own time).
     # The syncs cost overlap, so a --phases fold is slower than a plain one: read it as a split,
@@ -216,11 +216,12 @@ def main():
                 if a.model == "boltz2":     # Boltz-2 reads its DiT trace flag off the model
                     state.model.structure_module._diffusion_trace = v
         else:
-            mod, name = a.ab_attr.split(":")
+            attrs = [x.split(":") for x in a.ab_attr.split(",")]
             on, off, key = "on", "off", "ab_attr_s"
 
             def arm_set(v):
-                setattr(importlib.import_module(mod), name, v)
+                for mod, name in attrs:
+                    setattr(importlib.import_module(mod), name, v)
         arm = {True: [], False: []}
         for i in range(a.repeat):
             for v in ((True, False) if i % 2 == 0 else (False, True)):
