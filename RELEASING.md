@@ -24,6 +24,12 @@ gate fix. Never re-cut a candidate because `main` moved: from 2026-10-10 to 10-1
 started 13 gates on successive heads and shipped none of them. Aim for a release at least every
 48 hours.
 
+`scripts/release_train.py` does all of this unattended and runs from cron. On CUT it cuts the
+release (see [Cut the release](#cut-the-release)); on GATE, given `--gate-config` with
+`gate_fanout.py`'s `--hosts`, `--workers` and `--timed`, it starts the gate on `main`'s head. A
+gate after a push is cheap: each leg records the files its Python read, and a leg whose files a
+push did not touch keeps its earlier PASS (the module docstring of `gate_fanout.py`, READS).
+
 Anything committed for a release (re-recorded baselines and records, gate fixes, a hotfix the
 gate forced) goes back to `main` as soon as the tag is cut. Otherwise the next gate on `main`
 owes every baseline again: 0.15.1's branch held 44 such commits and `main`'s next gate read 11
@@ -838,6 +844,11 @@ single leg, drop the a3m into the gate output's `msa/` directory, which is
 `predict`'s default `msa_dir`.)
 
 ## Cut the release
+
+`scripts/release_train.py` does these steps itself: it turns `[Unreleased]` into the version's
+section, sets the version and the README install tag in one commit on the gated commit (and
+refuses to tag if that commit changed gated code), pushes the tag, waits for PyPI and installs
+the version into a fresh venv. By hand:
 
 1. Add a dated changelog section with the measured accuracy, performance, UX,
    and supported-size results.
