@@ -100,13 +100,17 @@ def main():
 
         arms = {
             "rfd3": lambda: t(x),
-            "ws": ws,
             "shard": lambda: shard(ttnn.bfloat16, False),
             "shard+fc12g": lambda: shard(ttnn.bfloat16, True),
             "shard_b8": lambda: shard(ttnn.bfloat8_b, False),
             "shard_b8+fc12g": lambda: shard(ttnn.bfloat8_b, True),
+            "rfd3_b8": lambda: t(x),
+            "ws": ws,                     # last: a new kernel that hangs must not cost the other arms
         }
-        for arm, fn in list(arms.items()) + [("rfd3_b8", lambda: t(x))]:
+        keep = os.environ.get("PT_ARMS")
+        for arm, fn in arms.items():
+            if keep and arm not in keep.split(","):
+                continue
             M._TRANSITION_B8 = arm == "rfd3_b8"
             with T.lever_scope(["silu_f32"] if "fc12g" in arm else []):
                 try:
