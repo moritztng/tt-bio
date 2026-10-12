@@ -2542,8 +2542,11 @@ _FAST_ROUND = (
 #: them at the value it found until each has a float64 grade and a round on a Wormhole chip. The
 #: other rows were graded there too: on three input seeds of the float64 stack grade they move
 #: dL/dlogits by no more than the seeds move each other (`perf/spd/bc2_stack_grade.py`). A named
-#: env var still wins.
-_BLACKHOLE_ONLY = frozenset({"PAIR_MM_FUSED", "tri_att_g_in_matmul"})
+#: env var still wins. `PAIR_MM_FUSED` left this set once it had a Wormhole round of its own: over
+#: six campaign seeds on one Wormhole chip it accepted 11 designs of 30 trajectories against the
+#: composed path's 12 (Fisher p=1.00), with mean pLDDT 0.893 against 0.885 and last-iteration ipTM
+#: 0.624 against 0.571, at 7.45 against 7.81 s per iteration.
+_BLACKHOLE_ONLY = frozenset({"tri_att_g_in_matmul"})
 
 
 @contextlib.contextmanager

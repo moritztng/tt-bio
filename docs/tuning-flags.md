@@ -56,7 +56,7 @@ move against the accuracy bar and the seed-to-seed spread.
 | [`TT_BIO_OPM_SMALL_DEPTH`](#tt_bio_opm_small_depth) | on | MSA depth 8 or less (AF2-IG, single-sequence folds) | moves, inside the bar |
 | [`TT_BIO_PAIR_FFN_L1_FC1`](#tt_bio_pair_ffn_l1_fc1) | on | ESMFold2 | identical |
 | [`TT_BIO_PAIR_INPLACE`, `TT_BIO_TRIMUL_INPROJ_ROWBLOCK_NORM`](#tt_bio_pair_inplace-tt_bio_trimul_inproj_rowblock_norm) | on | large pair tensors | identical |
-| [`TT_BIO_PAIR_MM`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round; on for AF2 on Wormhole | BindCraft 2 on Blackhole, AF2 and AF2-IG on Wormhole | moves, far inside the bar |
+| [`TT_BIO_PAIR_MM`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round; on for AF2 on Wormhole | BindCraft 2, AF2 and AF2-IG | moves, far inside the bar |
 | [`TT_BIO_PAIR_TRANSPOSE_FUSED`](#tt_bio_pair_transpose_fused) | on | pair tensors, forward and backward | identical |
 | [`TT_BIO_PWA_FUSED_HEADS`, `TT_BIO_PWA_UNPADDED`](#msa-module-flags) | on | MSA models; graded on Protenix-v2 | moves, inside the bar |
 | [`TT_BIO_PWA_BATCH_HEAD_WEIGHTS`](#tt_bio_pwa_batch_head_weights) | on | | identical |
@@ -105,16 +105,21 @@ workers are not flags of ours; they are covered at the end, under
 
 ## BindCraft 2 round kernels
 
-Default: on inside a BindCraft 2 round, off elsewhere. `TT_BIO_PAIR_MM` and
-`TT_BIO_AF2_G_BIAS_IN_MATMUL` are on in the round on Blackhole only.
+Default: on inside a BindCraft 2 round, off elsewhere. `TT_BIO_AF2_G_BIAS_IN_MATMUL` is on in the
+round on Blackhole only.
 
 Kernels that delete DRAM round trips from the AlphaFold 2 Evoformer's gradient. Each is armed by
 `bindcraft2.predictor(exact=False)` through `fast_round`, alongside
 [`TT_BIO_LNBW_FUSED`](#tt_bio_lnbw_fused) and [`TT_BIO_TRIATT_BW_FUSED`](#tt_bio_triatt_bw_fused).
-Outside a BindCraft 2 round every one keeps the composed path. On Wormhole `TT_BIO_PAIR_MM` and
-`TT_BIO_AF2_G_BIAS_IN_MATMUL` keep it too: on three input seeds of the float64 gradient grade they
-read worse than the composed path on one seed and better on two, which does not settle them. Setting a flag to `0` turns that kernel off even inside
+Outside a BindCraft 2 round every one keeps the composed path. On Wormhole
+`TT_BIO_AF2_G_BIAS_IN_MATMUL` keeps it too: on three input seeds of the float64 gradient grade it
+reads worse than the composed path on one seed and better on two, which does not settle it. Setting a flag to `0` turns that kernel off even inside
 the round; `bindcraft2.predictor(fast=False)` turns all of them off together.
+
+`TT_BIO_PAIR_MM` is now on in the round on both architectures. Its Wormhole round, six campaign
+seeds against PD-L1 at binder length 80, accepted 11 designs of 30 trajectories where the composed
+path accepted 12 (Fisher p=1.00), with mean pLDDT 0.893 against 0.885 and last-iteration ipTM 0.624
+against 0.571. One iteration goes from 7.81 to 7.45 s on a Wormhole chip at 1000 MHz.
 
 AF2 itself (AF2-IG, and the AF2 filter inside PXDesign) takes the `TT_BIO_PAIR_MM` path for its pair-track
 linears on Wormhole, through its own lever set rather than the round. On one Wormhole chip at 1000 MHz
