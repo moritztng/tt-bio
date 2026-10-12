@@ -506,6 +506,12 @@ def _swiglu_gate_legacy() -> bool:
 # float32 (rel_l2 0.025 either way; not bit-identical, the matmul blocks differently at the larger M). So only a
 # model whose resident weights exceed this many bytes tiles; the 6B (12.7 GB in bf16) keeps its path exactly.
 _LM_FFN_TILE_MODEL_BYTES = env_int("TT_BIO_LM_FFN_TILE_MODEL_BYTES", 4 << 30)
+# The per-token LM FFN's SwiGLU gate silu(x fc1_a) * (x fc1_b) written to L1, where fc2 reads it back. Same op, same
+# values (a memory placement); a refusal falls back to DRAM for that shape for good. Off until the page-cell A/B says.
+_ESMC_GATE_L1 = env_flag("TT_BIO_ESMC_GATE_L1", False)
+_GATE_L1_REFUSED: set = set()
+#: [gates served from L1, declined], read by the A/B harness.
+GATE_L1_STATS = [0, 0]
 
 _PAIR_FFN_L1_LN = os.environ.get(
     "TT_BIO_PAIR_FFN_L1_LN", "1" if PAIR_FFN_L1_LN else "0") == "1"
@@ -806,11 +812,25 @@ class SwiGLUFFN(Module):
                 h2 = self._lin(x_norm, self.fc1_b_weight)
                 silu_done = _SWIGLU_SILU_FC1
             ttnn.deallocate(x_norm)
-            gated = ttnn.multiply(
-                h1, h2, input_tensor_a_activations=[] if silu_done else [ttnn.UnaryOpType.SILU],
-                **({"use_legacy": True} if l1_gated and _swiglu_gate_legacy() else {}),
-                **({"memory_config": ttnn.L1_MEMORY_CONFIG} if l1_gated else {}),
-            )
+            act = dict(input_tensor_a_activations=[] if silu_done else [ttnn.UnaryOpType.SILU])
+            gated = None
+            key = tuple(h1.padded_shape)
+            if not l1_gated and _ESMC_GATE_L1 and len(h1.shape) == 3 and key not in _GATE_L1_REFUSED:
+                try:
+                    gated = ttnn.multiply(h1, h2, memory_config=ttnn.L1_MEMORY_CONFIG, **act)
+                    GATE_L1_STATS[0] += 1
+                except Exception as exc:
+                    if not _is_alloc_refusal(exc):
+                        from tt_bio import tenstorrent as _T
+                        _T.absorb_l1_refusal("esmc gate L1", exc)
+                    _GATE_L1_REFUSED.add(key)
+            if gated is None:
+                GATE_L1_STATS[1] += bool(not l1_gated and _ESMC_GATE_L1 and len(h1.shape) == 3)
+                gated = ttnn.multiply(
+                    h1, h2, **act,
+                    **({"use_legacy": True} if l1_gated and _swiglu_gate_legacy() else {}),
+                    **({"memory_config": ttnn.L1_MEMORY_CONFIG} if l1_gated else {}),
+                )
             ttnn.deallocate(h1)
             ttnn.deallocate(h2)
         else:
