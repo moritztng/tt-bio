@@ -6,6 +6,10 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 ## [Unreleased]
 
 ### Changed
+- **OpenFold3 and OpenBind-0 `--fast` are faster on Wormhole.** The triangle multiplication's input and output
+  each run as one kernel, as they already do on Blackhole. On a Galaxy chip at 1000 MHz the median fold of the
+  11-complex benchmark set drops from 77 to 72 s (OpenFold3) and from 104 to 90 s (OpenBind-0); the fast-mode
+  accuracy grade passes.
 - **OpenFold3 and OpenBind-0 compute PAE and PDE on the chip.** The confidence heads reduce each 64-bin
   distribution to its expected value on the card, so the full logits no longer travel to the host. About 0.3 s
   less per sample on a Blackhole p150a at 1350 MHz. Structures are unchanged; ipTM moves by about 0.002 on
