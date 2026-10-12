@@ -23,6 +23,8 @@ for arm in $ARMS; do
   timeout -s TERM $((TMO + 120)) timeout -s INT "$TMO" \
     "${PY:-python}" perf/spd/bench.py --out "$OUT/$name" --chip "$CHIP" --arm "$arm" --inputs "$INPUTS" "$@" \
     > "$OUT/$name.log" 2>&1
-  say "arm $arm rc=$?"
+  r=$?; say "arm $arm rc=$r"; [ $r -gt "${rc:-0}" ] && rc=$r
 done
 say "end"
+# The worst arm's rc, so a pool counting failures sees an arm that died (it read 0 for every run before).
+exit "${rc:-0}"
