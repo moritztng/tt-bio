@@ -47,7 +47,8 @@ Each size ladder runs as up to four legs by rung group (`ladder:<model>@256-768`
 `@1152-1280`, `@1408-1536`), so the longest ladder no longer sets the gate's wall clock. The first
 group keeps 256, 512 and 768 together because the exponent check reads those intervals. A group leg
 only goes to a card whose ladder walks one of its rungs: on Blackhole the top groups need a p150a.
-Select a whole ladder with `--legs 'ladder:opendde@*'`.
+Select a whole ladder with `--legs 'ladder:opendde@*'`. A tree whose `release_gate.py` predates
+`--size-ladder-part` runs one ladder leg per model, as before.
 
 ```bash
 PYTHONPATH="$PWD" python3 scripts/gate_fanout.py --sha <commit> --hosts hosts.json \
