@@ -44,6 +44,7 @@ from .tenstorrent import _dtype, dram_peak, pad_dim, trace_region_size
 from .openfold3_diffusion import OF3DiffusionConditioning
 from .openfold3_diffusion_module import OF3DiffusionModule
 from .openfold3_weights import _sub
+from .runtime import serial_host
 from .sample_chunks import denoise_in_chunks, resolve_sample_chunk_width
 
 # Replay the rollout's per-step device work from a ttnn trace when the device reserved a region
@@ -120,6 +121,7 @@ class OF3SampleDiffusion:
             dtype = self._act_dtype
         return ttnn.from_torch(x, layout=layout, device=self.device, dtype=dtype)
 
+    @serial_host()  # the per-step host math (augmentation, EDM step) is atom-sized
     def __call__(self, xl_init_dev, si_trunk_dev, si_input_dev, zij_trunk_dev, relpos_dev,
                  token_mask_dev, pair_mask_dev, tok_mask_dev, cl0_dev, plm0_dev,
                  atom_mask_col_dev, atom_mask_col_na_dev, atom_to_token_idx_tt,
