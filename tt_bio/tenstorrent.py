@@ -625,6 +625,8 @@ _FAST_MODE = False
 #                   read once, fc1 / fc2 / their product never leave the core. Weights in the module's own
 #                   dtype (bfp8 under transition_b8), fp32 dest, the wheel's silu, the trunk's matmul fidelity.
 #                   Fires where the weights fit L1: c_z 128 in either dtype, c_z 256 with bfp8 weights.
+#   ws_ln           with transition_ws, its layer norm as the kernel's prologue (ln_prologue.hpp, as trimul
+#                   T1/T2): the normalised x never goes to DRAM. One-chunk weights only.
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in",
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
@@ -12381,9 +12383,11 @@ def ws_swiglu(x, norm_weight, norm_bias, ckc, parts):
     """
     if not all(_pair_ws.eligible(x, w12, w3) for w12, w3 in parts):
         return None
+    fid = ttnn.MathFidelity.HiFi2 if parts[0][0].dtype == ttnn.bfloat8_b else ckc.math_fidelity
+    if lever("ws_ln") and len(parts) == 1 and _pair_ws.eligible(x, *parts[0], ln=(norm_weight, norm_bias)):
+        return _pair_ws.pair_swiglu(x, *parts[0], fid, ln=(norm_weight, norm_bias, 1e-5))
     x_norm = ttnn.layer_norm(x, weight=norm_weight, bias=norm_bias, epsilon=1e-5, compute_kernel_config=ckc,
                              memory_config=ttnn.DRAM_MEMORY_CONFIG)
-    fid = ttnn.MathFidelity.HiFi2 if parts[0][0].dtype == ttnn.bfloat8_b else ckc.math_fidelity
     out = None
     for w12, w3 in parts:
         o = _pair_ws.pair_swiglu(x_norm, w12, w3, fid)
