@@ -47,6 +47,7 @@ import numpy as np
 import torch
 
 from tt_bio import bcinputs, duotraj
+from tt_bio.envflags import env_flag
 #: Changing BindCraft 2's loss is a seam of its own (`docs/bindcraft2.md`, "Custom loss"), kept in
 #: its own module because it touches BindCraft 2's loss registry and nothing on the card. It is
 #: re-exported here so a user has one import: `bindcraft2.loss_terms`, `bindcraft2.terms`,
@@ -2025,6 +2026,52 @@ def template_on_device(tmpl: "TemplateOnDevice | None",
         modules_multimer.SingleTemplateEmbedding.__call__ = original
 
 
+#: BindCraft 2's structure-module IPA reduces the attended points as
+#: ``jnp.sum(attn[..., None] * x, axis=-3)`` for each of x, y, z, which materialises three
+#: ``[N, N, heads, points]`` f32 products a layer and again in their backward. One einsum over
+#: the concatenated coordinates is the same contraction as a batched matmul: IPA forward plus
+#: backward 740 -> 330 ms a gradient call on the host CPU at 211 tokens. Not bit-exact (the sum
+#: order changes; gradient rel L2 2e-7 to 1.5e-6).
+IPA_POINT_EINSUM = env_flag("TT_BIO_BC2_IPA_EINSUM", False)
+
+_IPA_POINT_SUM = """    result_point_global = jax.tree_util.tree_map(
+        lambda x: jnp.sum(attn[..., None] * x, axis=-3), v_point[None])"""
+_IPA_POINT_EINSUM = """    _vp = jnp.concatenate([v_point.x, v_point.y, v_point.z], axis=-1)
+    _vp = jnp.einsum('qkh,khp->qhp', attn, _vp, precision=jax.lax.Precision.HIGHEST)
+    result_point_global = geometry.Vec3Array(*jnp.split(_vp, 3, axis=-1))"""
+
+
+@contextlib.contextmanager
+def ipa_point_einsum(enabled: bool = True):
+    """Swap BindCraft 2's IPA point reduction for one einsum (`IPA_POINT_EINSUM`).
+
+    The method is recompiled from its own source with the one statement replaced and installed
+    on a subclass, so haiku wraps it exactly as it wraps the original (same module name, same
+    parameters). `FoldIteration` looks the class up by module global at trace time.
+    """
+    if not enabled:
+        yield False
+        return
+    import inspect
+    import textwrap
+
+    from bindcraft.af.alphafold.model import folding_multimer as fm
+
+    original = fm.InvariantPointAttention
+    src = inspect.getsource(original.__call__)
+    if src.count(_IPA_POINT_SUM) != 1:
+        raise ValueError("the point reduction in InvariantPointAttention.__call__ moved")
+    scope: dict = {}
+    exec(compile(textwrap.dedent(src.replace(_IPA_POINT_SUM, _IPA_POINT_EINSUM)),
+                 inspect.getsourcefile(original), "exec"), fm.__dict__, scope)
+    fm.InvariantPointAttention = type(original)(
+        original.__name__, (original,), {"__call__": scope["__call__"]})
+    try:
+        yield True
+    finally:
+        fm.InvariantPointAttention = original
+
+
 def find_use_dropout(fn):
     """`batch["use_dropout"]`, read off `evoformer_fn`'s closure.
 
@@ -2599,7 +2646,7 @@ def predictor(*, trunk: str = "device", card: int | str | None = None, checkpoin
     # it was raised as even when JAX stringified it into a `JaxRuntimeError` on the way out.
     with refusals_unwrapped(), \
             autograd.exact_training(exact), evoformer_on_device(evo, extra), \
-            template_on_device(tmpl, evo), \
+            template_on_device(tmpl, evo), ipa_point_einsum(IPA_POINT_EINSUM), \
             (fast_round() if fast else contextlib.nullcontext()) as armed:
         build = _factory(trunk="device", pool=pool, evoformer=evo, extra_msa=extra,
                          template=tmpl, exact=exact)
