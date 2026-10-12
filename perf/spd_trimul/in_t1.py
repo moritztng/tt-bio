@@ -22,6 +22,8 @@ ap.add_argument("--reps", type=int, default=10)
 ap.add_argument("--c", type=int, default=128, help="c_z")
 ap.add_argument("--hidden", type=int, default=128)
 ap.add_argument("--no-mask", action="store_true")
+ap.add_argument("--abl", default="", help="comma list of T1_ABL stage-skip masks to time after the real T1"
+                " (kernels/trimul_in_t1: 1 LN, 2 g_out mm, 4 [a|b] mm, 8 gate, 16 z reads, 32 gather, 64 writes)")
 ap.add_argument("--out", help="also append each JSON line here (the qb runner passes it)")
 A = ap.parse_args()
 
@@ -144,6 +146,10 @@ for n in [int(s) for s in A.ns.split(",") if s]:
             rec["t1_GBps"] = round(4 * P / rec["t1_ms"] / 1e6, 1)
             if "inc_ms" in rec:
                 rec["speedup"] = round(rec["inc_ms"] / rec["t1_ms"], 3)
+            for m_ in [int(v) for v in A.abl.split(",") if v]:
+                TT.T1_ABL = m_
+                rec[f"abl{m_}_ms"] = timed(lambda: free(t1()), A.reps)
+            TT.T1_ABL = 0
     except Exception as e:                                                    # noqa: BLE001
         rec["t1_err"] = str(e).splitlines()[0][:300]
         traceback.print_exc()
