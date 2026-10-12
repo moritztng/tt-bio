@@ -232,7 +232,7 @@ def main():
             else:
                 # ESMFold2 enters its lever set per fold (esmfold2_runtime.fold_scope), from TT_BIO_LEVERS when
                 # set: the mode's set on Blackhole, none on Wormhole.
-                assert a.model == "esmfold2", "the loaded model carries no _levers set"
+                assert a.model in ("esmfold2", "esmfold2-fast"), "the loaded model carries no _levers set"
                 from tt_bio import esmfold2_runtime as ER
                 base_set = T.parse_levers(os.environ.get("TT_BIO_LEVERS") or (
                     "none" if ER.is_wormhole() else ER.fold_levers(a.fast))) - {a.ab_lever}
