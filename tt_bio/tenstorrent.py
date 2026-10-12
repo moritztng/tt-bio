@@ -674,13 +674,13 @@ UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "di
 # same chip, 44 paired folds (spd-integrate gtw, 2026-10-12), PASS on all six; same-seed top pose median against
 # the A/A seed floor: Protenix-v2 0.32 / 1.24 A, OpenFold3 0.61 / 0.81, Boltz-2 1.33 / 1.88, OpenDDE 0.54 / 1.47,
 # ESMFold2-Fast 0.98 / 1.36, ESMFold2 CA-lDDT -0.0013 [-0.0074, +0.0043]; docking flat or up on every model.
-# Blackhole: Boltz-2 fast grade PASS (44 paired, p300c). ESMFold2 on Blackhole declines the kernel (bf16 weights
-# over its L1 budget), so its fold is unchanged there. Warm 512-token fold on a Galaxy chip (1000 MHz):
+# Blackhole fast grade PASS, 44 paired folds each: Boltz-2 (p300c), OpenDDE, and Protenix-v2 (top pose median
+# 0.336 A vs a 1.364 A floor, pLDDT -0.0032, docking 34 -> 35 of 44). ESMFold2 on Blackhole declines the kernel
+# (bf16 weights over its L1 budget), so its fold is unchanged there. Warm 512-token fold on a Galaxy chip (1000 MHz):
 # ESMFold2 -22.1 s, ESMFold2-Fast -11.3, OpenDDE -5.5, Protenix-v2 -2.8, OpenFold3 -1.5, Boltz-2 -1.1 s.
-# A model's fast set takes it once its Blackhole grade passes too: Boltz-2 and both ESMFold2 models (their own
-# LEVERS_FAST) so far; the shared set (Protenix family, OpenDDE) and OpenFold3 leave it out until theirs read.
+# OpenFold3 / OpenBind-0 (their own FAST_LEVERS) take it once their Blackhole grade reads.
 FAST_LEVERS = (frozenset(LEVERS) - {"lofi", "triatt_b8", "triatt_bias_b8", "trimul_t1", "trimul_t2", "adaln_mod",
-                                    "trimul_t1_dram", "transition_ws"}
+                                    "trimul_t1_dram"}
                - UNGRADED_LEVERS)
 # trimul_ibw + trimul_tail: Wormhole 11-set grade PASS, 44 paired folds, same-seed top pose median
 # 0.204 A against the 0.60 A bar (A/A seed floor 0.807 A), every paired CI covers 0 or sits on the
