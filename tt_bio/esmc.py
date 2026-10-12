@@ -29,7 +29,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
-from tt_bio.envflags import env_flag
+from tt_bio.envflags import env_flag, env_int
 
 import numpy as np
 import torch
@@ -408,8 +408,16 @@ PAIR_FFN_L1_LN = True
 # split-fc1 SwiGLU: the pair transition (row-blocked) and the ESMC LM blocks, which are ESMFold2's LM backbone.
 _SWIGLU_SILU_FC1 = env_flag("TT_BIO_SWIGLU_SILU_FC1", False)
 # The same activated multiply on ttnn's legacy binary op: same SFPU silu, no per-tile re-init, 0.101 vs 0.144 ms
-# (gate_bench, same block). Off until a fold A/B and its digest say what it does.
+# (gate_bench, same block). Pair transition row blocks only (`l1_gated`): folds -1.1 s ESMFold2 / -0.7 s -Fast on
+# p150a, while ESMC 300M's LM blocks measured no faster with it and further from fp32 (cos_min 0.9971 vs 0.9987).
 _SWIGLU_GATE_LEGACY = env_flag("TT_BIO_SWIGLU_GATE_LEGACY", False)
+
+# Wormhole tiles the per-token (3-D) FFN at SMALL_GRID_SEQ_TILE rows so the ESMC-6B's fc1 activation never asks a
+# 12 GB chip that already holds the 6B for one large block. A row count also cuts ESMC 300M/600M's whole page batch
+# ([7, 544, 2*d_ff], 39-47 MB of fc1) into three blocks plus a chunk and a concat: 35 of 212 ms (300M) and 75 of 346 ms
+# (600M) on a Galaxy chip (perf/wh-embed/op_census.py, 2026-10-11). A non-zero budget tiles only when the fc1
+# activation is larger than this many bytes. Row blocking is row-local, so the output is bit-identical either way.
+_LM_FFN_TILE_BYTES = env_int("TT_BIO_LM_FFN_TILE_BYTES", 0)
 
 _PAIR_FFN_L1_LN = os.environ.get(
     "TT_BIO_PAIR_FFN_L1_LN", "1" if PAIR_FFN_L1_LN else "0") == "1"
@@ -711,7 +719,7 @@ class SwiGLUFFN(Module):
             ttnn.deallocate(x_norm)
             gated = ttnn.multiply(
                 h1, h2, input_tensor_a_activations=[] if silu_done else [ttnn.UnaryOpType.SILU],
-                **({"use_legacy": True} if _SWIGLU_GATE_LEGACY else {}),
+                **({"use_legacy": True} if _SWIGLU_GATE_LEGACY and l1_gated else {}),
                 **({"memory_config": ttnn.L1_MEMORY_CONFIG} if l1_gated else {}),
             )
             ttnn.deallocate(h1)
@@ -914,7 +922,8 @@ class SwiGLUFFN(Module):
             chunk = tenstorrent.pair_row_tile(L)
         else:
             t = tenstorrent.SMALL_GRID_SEQ_TILE
-            chunk = t if (t and L > t) else 0
+            fc1_bytes = int(x.shape[0]) * int(L) * 2 * int(self.fc2_weight.shape[0]) * 2
+            chunk = t if (t and L > t and not 0 < fc1_bytes <= _LM_FFN_TILE_BYTES) else 0
         try:
             if chunk:
                 parts = ttnn.chunk(x, -(-L // chunk), dim=1)
