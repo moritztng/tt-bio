@@ -7,8 +7,9 @@ transition of a row tile in L1 against weights resident on every core, so x is r
 written once, to the same pages (in place into x with `add_to_input`). Kernels: kernels/transition_t3.
 
 Numerics differ from the incumbent by rounding only: LayerNorm is the trimul kernels' fp32 two-pass prologue,
-fc2 enters the gate multiply from fp32 DST instead of a bf16 tensor, fc3 accumulates all hidden tiles in one
-fp32 pass and fc3's bf16 output is added to x as the incumbent's add_ does. Lever `transition_t3`, ungraded.
+fc2 enters the gate multiply from fp32 DST instead of a bf16 tensor, fc3 accumulates in fp32 (F3_L1ACC hidden
+tiles per DST chunk, the chunks summed by the packer in L1) and is added to x from fp32. Lever `transition_t3`,
+ungraded.
 """
 
 from __future__ import annotations
@@ -49,15 +50,17 @@ def cb_plan(kt, ht, res, stage=0):
           (7, 2 * kt),           # x, double buffered
           (8, kt), (9, kt),      # gamma, beta
           (10, 1)]               # 1/K reduce scaler
-    l1acc = F3_L1ACC > 0 and stage == 0
+    l1acc = F3_L1ACC > 0
     if res:
         bf += [(5, 2 * kt)]      # x for the residual add
         if not l1acc:
             bf += [(15, kt)]     # fc3 output before it
     f32 = [(11, 1), (12, 1), (13, 1), (14, 1), (16, kt), (17, kt)]   # eps, mean, var, rstd, xc, tmp
     (f32 if stage == 1 else bf).append((6, 2 * kt))                   # output, double buffered
-    if F3_SPLIT > 1 or stage == 2 or l1acc:
+    if F3_SPLIT > 1 or stage == 2 or (l1acc and stage == 0):
         f32 += [(18, kt)]                                             # fc3 partial (K chunks, or pass 1's)
+    if l1acc and stage == 2:
+        f32 += [(19, kt)]                                             # fc3 L1-acc sum beside pass 1's partial
     return bf, f32, w
 
 
@@ -144,7 +147,7 @@ def _build(x, ln_w, ln_b, w12, w3, out, grid, ckc, res, eps, stage=0, part=None)
     fid, approx, _, full = ckc
     compute = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "compute.cpp"), source_type=src, core_ranges=core_grid,
-        compile_time_args=[kt, ht, int(res), F3_SPLIT, int(stage == 2), F3_L1ACC if stage == 0 else 0],
+        compile_time_args=[kt, ht, int(res), F3_SPLIT, int(stage == 2), F3_L1ACC],
         runtime_args=cp,
         config=ttnn.ComputeConfigDescriptor(
             math_fidelity=fid, math_approx_mode=approx, fp32_dest_acc_en=True, dst_full_sync_en=full))
@@ -211,7 +214,7 @@ def transition_split(x, ln_w, ln_b, halves, ckc, grid, add_to_input=False, eps=1
     """`transition` as two programs over hidden halves, for weights too large to sit in L1 whole (c 256 bf16):
     halves = [(w12_a, w3_a), (w12_b, w3_b)], each [W1 | W2] / W3 restricted to one half of the hidden channels.
     Program 1 writes fc3 over half a as an fp32 partial; program 2 recomputes layer_norm(x), accumulates fc3 over
-    half b on top of it in fp32 DST and adds x, so the result rounds as the one-program F3_SPLIT = 2 path does.
+    half b on top of it in fp32 and adds x.
     x is written only by program 2. None when either program does not serve; nothing is written then."""
     (wa, w3a), (wb, w3b) = halves
     if eligible(x, ln_w, ln_b, wb, w3b, 2) is not None:
