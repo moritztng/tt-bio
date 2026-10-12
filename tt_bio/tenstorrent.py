@@ -17615,6 +17615,7 @@ class TokenDistanceRecycle:
         self.v_norm_b = w(token_distance_module.v_norm.bias)
         self.z_proj_w = w(token_distance_module.z_proj.weight, transpose=True)
         self.u_proj_w = w(token_distance_module.u_proj.weight, transpose=True)
+        self._a_ij_host = None  # (weights key, input copies, padded host a_ij), see precompute
 
     def precompute(self, feats, relative_position_encoding, seq_pad, mask_tt, attn_tt):
         """Host once-per-protein: a_ij = a_proj(distance features), padded + uploaded.
@@ -17627,6 +17628,21 @@ class TokenDistanceRecycle:
         mod = self.mod
         token_distance_mask = feats["token_distance_mask"]
         token_coords = feats["center_coords"]
+        # A design run calls this once per design with the same target: every input below is a
+        # deterministic function of the target (coords are centred, never re-posed), so the
+        # host a_ij from the last call is reused when the inputs and weights are unchanged.
+        # The upload is redone because the trunk frees its statics after every design.
+        srcs = (token_coords, token_distance_mask) + (
+            (relative_position_encoding, feats["coords"], feats["token_to_bb4_atoms"])
+            if mod.use_token_distance_feats else ())
+        wkey = (seq_pad, tuple((q.data_ptr(), q._version) for q in mod.parameters()))
+        hit = self._a_ij_host
+        if hit is not None and hit[0] == wkey and all(
+                a.shape == b.shape and a.dtype == b.dtype and torch.equal(a, b)
+                for a, b in zip(hit[1], srcs)):
+            a_ij_tt = ttnn.from_torch(hit[2], layout=ttnn.TILE_LAYOUT, device=device,
+                                      dtype=ttnn.bfloat16)
+            return {"a_ij_tt": a_ij_tt, "mask_tt": mask_tt, "attn_tt": attn_tt}
         with torch.autocast(device_type="cuda", enabled=False):
             dists = torch.cdist(token_coords, token_coords)
             boundaries = torch.linspace(mod.min_dist, mod.max_dist, mod.num_bins - 1).to(dists.device)
@@ -17641,6 +17657,7 @@ class TokenDistanceRecycle:
             a_ij = mod.a_proj(a_ij.float())
         if seq_pad:
             a_ij = torch.nn.functional.pad(a_ij, (0, 0, 0, seq_pad, 0, seq_pad))
+        self._a_ij_host = (wkey, tuple(s.clone() for s in srcs), a_ij)
         a_ij_tt = ttnn.from_torch(a_ij, layout=ttnn.TILE_LAYOUT, device=device, dtype=ttnn.bfloat16)
         return {"a_ij_tt": a_ij_tt, "mask_tt": mask_tt, "attn_tt": attn_tt}
 
