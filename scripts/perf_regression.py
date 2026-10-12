@@ -87,9 +87,11 @@ against a P150a run — the P150 is a smaller chip and would read as a false 20-
 regression that is just the card, not the code. A baseline seeded on one physical
 p150a (e.g. ``pc``) must not be judged against a run on a different physical p150a
 (e.g. ``qb1``, ~30-36% slower on the same models) — the machine-id layer guards
-that within-card-type machine variance. If the detected card type has no
-recorded baseline at all, the gate FAILS loudly (every model NO BASELINE) rather
-than silently skipping or matching the wrong card's numbers. An intentional perf
+that within-card-type machine variance. If nothing is recorded for the detected
+card type and machine, there is no reference to regress against: the gate records
+this run as the first baseline and reports GATE SEEDED (exit 0, or 1 if a model
+failed to measure) instead of matching another card's numbers. Commit the file it
+wrote. An unidentified card ("unknown:...") still fails. An intentional perf
 change (landed optimization, deliberate accuracy/perf tradeoff) updates the
 baseline via ``--update-baseline --note "<why>"`` (writes to the detected
 machine's machine-specific block) — never silently. A regression the author
@@ -1562,9 +1564,8 @@ def _print_table(rows: list[dict], baselines: dict, card_type: str, machine_id: 
     and a baseline seeded on one physical p150a (e.g. pc) must not be judged
     against a run on a different physical p150a (e.g. qb1, ~30-36% slower) —
     the machine-id layer under card type guards that within-type variance. If
-    no baseline exists at all for the detected card type, the gate FAILS loudly
-    (every model NO BASELINE) rather than silently skipping or matching the
-    wrong card's numbers."""
+    the detected card type has no baseline at all, every model reads NO BASELINE
+    and the table fails (cmd_gate seeds a first baseline instead of calling this)."""
     all_pass = True
     bm = card_baselines(baselines, card_type, machine_id)
     have_card = bm is not None
@@ -1679,8 +1680,28 @@ def cmd_gate(args) -> int:
     baselines = load_baselines()
     card_type = detect_card_type()
     machine_id = detect_machine_id()
+    if not card_baselines(baselines, card_type, machine_id) and not card_type.startswith("unknown"):
+        return _seed_first(rows, args, card_type, machine_id)
     ok = _print_table(rows, baselines, card_type, machine_id, args.threshold)
     return 0 if ok else 1
+
+
+def _seed_first(rows: list[dict], args, card_type: str, machine_id: str) -> int:
+    """Nothing is recorded for this card type and machine, so nothing can have regressed:
+    record this run as the first baseline. The contended and clamped-clock refusals guard
+    against overwriting a good reference; here there is none, and a lent Galaxy pool chip is
+    contended by design, so refusing would mean that card type never gets one. Each cell
+    keeps its host_load and aiclk_mhz, and the note says how it was taken."""
+    loaded = [r["model"] for r in rows if not r.get("failed") and (r.get("contended") or r.get("clock_low"))]
+    note = (f"first {card_type} baseline on {machine_id}, recorded by the perf gate"
+            + (f"; under host load or a low clock for {', '.join(loaded)}" if loaded else ""))
+    args.note, args.allow_contended = note, True
+    _update_baselines(rows, args)
+    failed = [r["model"] for r in rows if r.get("failed")]
+    print(f"{'#' * 78}\nGATE SEEDED — no baseline existed for {card_type} @ {machine_id}; "
+          f"recorded {len(rows) - len(failed)} model(s) as the first one ({note})"
+          + (f"; failed to measure: {', '.join(failed)}" if failed else ""))
+    return 1 if failed else 0
 
 
 def _update_baselines(rows: list[dict], args) -> int:

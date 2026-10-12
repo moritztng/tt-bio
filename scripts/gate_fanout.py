@@ -83,11 +83,11 @@ numbers are measured on the same card in the same session, then the commit is ga
 On a PASS the runner writes the reference's re-measured machine block into <out>/seeded/<arch>/
 perf_baselines.json for the release commit; the A/B leg's key leaves the committed baseline out.
 
-SEEDING. perf_regression.py fails NO BASELINE on a card type with no baseline. That stays a
-failure. A host seeding one names it explicitly, `"args": {"perf": ["--update-baseline", "--note",
-"<why>"]}`: the leg then reports SEEDED, not PASS (there was nothing to regress against), and the
-runner copies the seeded docs/perf_baselines.json to <out>/seeded/<arch>/ to commit. Drop the
-`args` entry once it is committed, and the next gate on that card type is a regression check.
+SEEDING. A perf leg on a card type and machine with no baseline has nothing to regress against:
+perf_regression.py records the run as the first baseline and prints GATE SEEDED. The leg then
+reports SEEDED, not PASS, and the runner copies the seeded docs/perf_baselines.json to
+<out>/seeded/<arch>/ to commit; the next gate on that card is a regression check. A host can also
+re-seed on purpose with `"args": {"perf": ["--update-baseline", "--note", "<why>"]}`.
 """
 from __future__ import annotations
 
@@ -127,6 +127,7 @@ EXPECT = {"parity": 900, "rg": 900, "ladder": 5400, "capacity": 1800, "ux": 300,
 TIMED = {"perf"}
 #: Results that do not fail the gate. REUSED is a ledger hit of one of the others.
 OK = ("PASS", "REUSED", "BLOCKED", "SEEDED")
+SEEDED_FIRST = "\nGATE SEEDED"   # perf_regression.py recorded a card's first baseline
 LOG_CAP = 20 << 20
 POOL = "pool"            # --workers host:pool, a slot in the host's chip pool
 POOL_CARD = "@@CARD@@"   # stands for $CHIP in a pool job, filled in when the pool starts it
@@ -1362,7 +1363,7 @@ def make_executor(sha: str, out: Path, ledger: Ledger, keys: dict, remote_out: s
                          timeout=120)
             reads = r.stdout.splitlines() if r.returncode == 0 else []
         seeded = None
-        if verdict == "PASS" and host.seeding(leg):
+        if verdict == "PASS" and (host.seeding(leg) or (leg.family == "perf" and SEEDED_FIRST in text)):
             verdict = "SEEDED"
             dst = out / "seeded" / host.arch / "perf_baselines.json"
             dst.parent.mkdir(parents=True, exist_ok=True)

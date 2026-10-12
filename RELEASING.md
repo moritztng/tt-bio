@@ -270,10 +270,13 @@ host that does reach it (a gate tree's `msa/`, which holds the paired files for 
 `RELEASE_GATE_MSA_DIR` to it in the host's hosts.json `env`; `release_gate.py` refuses to start
 if it misses a chain. The pxdesign checkpoint is in the agent's `~/japanfold/cache/weights/`.
 
-Wormhole has size-ladder baselines but no `perf_baselines.json` cell. The first Wormhole gate seeds
-one (`"args": {"perf": ["--update-baseline", "--note", ...]}` in hosts.json; the leg reads SEEDED,
-and `perf_regression.py` still refuses to seed from a contended host). Commit the seeded file and
-remove the `args` entry; every later Wormhole gate is then a regression check.
+Wormhole perf is gated against the `tt-galaxy-wh-l` cells for GWH02 (.114), seeded from v0.15.1's
+gate on a lent pool chip under sibling load. Another perf run on that box the same day read up to 42 %
+faster on some models, so this leg catches a large slowdown only; the Wormhole speed of
+a staging is graded by SPD before it reaches `main`. A perf leg on a card type or machine with no
+cells at all records the run as the first baseline and reads SEEDED (no reference, so no regression):
+commit `<out>/seeded/<arch>/perf_baselines.json` with the release, and the next gate on that machine
+compares against it.
 
 The older recipe below is for GWH02, the production Galaxy, and is kept for it.
 
