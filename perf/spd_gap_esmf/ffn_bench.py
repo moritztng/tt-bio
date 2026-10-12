@@ -4,7 +4,7 @@
 Census (c1, p150a, HiFi4): 11.5 ms per call at 512 aa, c_z 256, hidden 1024, 6.07 s of a 24.4 s device fold. The
 roof is ~2 ms (412 GFLOP at HiFi4, 256 MiB of pair in + out), so this bench asks which path gets closest: the
 row-blocked default, the pair Transition's block-sharded swiglu (`transition_shard`) and its fused fc12g kernel
-(`swiglu_fc12g`, needs silu_f32). An arm is a lever set with optional `@rows=R` (row-block height), `@silu=1` (silu in fc1a's epilogue, gate a plain multiply) and `@bw=B`
+(`swiglu_fc12g`, needs silu_f32). An arm is a lever set with optional `@rows=R` (row-block height), `@silu=1` (silu in fc1a's epilogue, gate a plain multiply), `@pm=P` (row tiles per core of a sharded block, `_TRANSITION_SHARD_PM`) and `@bw=B`
 (fc1's in0_block_w, pinned to 1 only because larger K blocks differ from it by one bf16 ulp). Time per call is the back-to-back slope (`--calls` calls, one
 synchronize), warm program cache, arms round-robin per rep. Every arm records its latch deltas, so an arm that
 silently declined to the default reads as such, and its error against a float64 reference of the same math.
@@ -96,11 +96,12 @@ def call(spec, opts):
     prev_rows = E.set_pair_ffn_row_block(o["rows"]) if "rows" in o else None
     prev_bw, E._PAIR_FFN_FC1_BW = E._PAIR_FFN_FC1_BW, o.get("bw", E._PAIR_FFN_FC1_BW)
     prev_silu, E._SWIGLU_SILU_FC1 = E._SWIGLU_SILU_FC1, bool(o.get("silu", E._SWIGLU_SILU_FC1))
+    prev_pm, T._TRANSITION_SHARD_PM = T._TRANSITION_SHARD_PM, o.get("pm", T._TRANSITION_SHARD_PM)
     try:
         with T.lever_scope(spec):
             return mods[(spec, opts)].residual(x)
     finally:
-        E._PAIR_FFN_FC1_BW, E._SWIGLU_SILU_FC1 = prev_bw, prev_silu
+        E._PAIR_FFN_FC1_BW, E._SWIGLU_SILU_FC1, T._TRANSITION_SHARD_PM = prev_bw, prev_silu, prev_pm
         if prev_rows is not None:
             E.set_pair_ffn_row_block(prev_rows)
 

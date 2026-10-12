@@ -43,6 +43,13 @@ shards, the BindCraft 2 wheel check, plus the card-free legs) once per architect
 card of that architecture, each under the card's own `flock`, longest legs first. It writes one
 `VERDICT.md` with a row per leg and a column per architecture.
 
+Each size ladder runs as up to four legs by rung group (`ladder:<model>@256-768`, `@896-1024`,
+`@1152-1280`, `@1408-1536`), so the longest ladder no longer sets the gate's wall clock. The first
+group keeps 256, 512 and 768 together because the exponent check reads those intervals. A group leg
+only goes to a card whose ladder walks one of its rungs: on Blackhole the top groups need a p150a.
+Select a whole ladder with `--legs 'ladder:opendde@*'`. A tree whose `release_gate.py` predates
+`--size-ladder-part` runs one ladder leg per model, as before.
+
 ```bash
 PYTHONPATH="$PWD" python3 scripts/gate_fanout.py --sha <commit> --hosts hosts.json \
     --workers qb1:0,qb1:1,qb1:2,qb1:3,g114:4,g114:5,g114:6,g114:7 \
@@ -79,11 +86,8 @@ other failing cell fails the leg.
 Markdown and pyproject's version line, the interpreter's installed packages, the card type, and
 the leg's exact command. A leg whose key already passed is not run again and the verdict names
 the run it reused. Recorded measurements (`perf/**.txt` files with a `RECORDED-AT:` line) are
-not part of the key either, so re-recording them in the release commit reuses everything. Nobody
-re-records them by hand: each one carries `RERUN:` and `EXPECT:` lines, the gate's
-`recorded:<name>` leg re-runs it on a card (`scripts/rerun_record.py`) and passes when every row
-reads as recorded, and the train moves its `RECORDED-AT:` to the gated commit in the release
-commit. The pytest legs leave the staleness test to that leg; the card-free legs always run. The gate baselines
+not part of the key either, so re-recording them in the release commit reuses everything (see
+"abb3 records" below). The card-free legs always run. The gate baselines
 (`docs/size_ladder_baseline*`, `docs/perf_baselines.json`, `docs/capacity_gate_baseline.json`)
 key only the legs that compare against them, so re-recording the size ladder reruns the ladder
 legs and nothing else. Likewise a `tests/test_*.py` file that no Python file outside `tests/` loads keys
@@ -119,6 +123,8 @@ python3 scripts/gate_fanout.py --sha <commit> ... --legs 'record:*' \
     --record-lever SDPA_FUSED_PADDED --out ~/gates/record-<sha9>
 ```
 
+Each model gets one record leg per card type among `--workers` (`record:<model>@<card_type>`), so
+give the record gate a worker of every card type the ladder runs on (p150a, p300c, Wormhole).
 The fragments land in `<out>/recorded/<card_type>/<model>.json`; splice them into the release
 commit with `python3 scripts/splice_ladder_fragments.py <out>/recorded`, which takes only the
 recorded card type's entry (a plain copy would undo any other card type's re-record since). Only
@@ -126,6 +132,16 @@ that model's ladder legs on that architecture then rerun: a ladder leg's key hol
 its own card types read, so Wormhole rows leave the Blackhole legs reused, and so is every other leg. A model whose splice is refused (something besides the new lever
 moved, e.g. a guard's decline reason) needs a full re-record of its own fragment: add
 `--record-full <model>` and that model's record leg re-records every rung instead.
+
+**abb3 records.** `perf/abb3_port/model_gate_qb1c3.txt` and `step_gate_default_qb1c3.txt` go
+stale whenever their scripts' import closure moves, and `tests/test_recorded_claims.py` then fails
+the release commit. The train's gate config carries `--record-abb3`, so nobody re-records them by
+hand: its `record:abb3` leg runs both gates
+on a p300c card, checks every ok/FAIL and gradient row, the losses (within 2e-4), the taped
+parameter count, the DRAM peak and the `--micro 8` OOM against the committed records, and on a
+match writes both files with `RECORDED-AT` at the gate's commit to `<out>/abb3/`, and the train puts
+them in the release commit (by hand: `cp -r <out>/abb3/perf .`). With the flag the pytest legs leave
+the staleness test to that leg. Any difference fails the leg and names the rows that moved.
 
 **Duplicates.** The parity gate runs `release_gate.py`'s boltzgen, opendde-abag, capacity,
 nesso1 and rf3-1024aa arms in-process with the same arguments and adds a drift check, so the
@@ -236,8 +252,7 @@ A committed perf cell ages: qb1's dated from 0.6.x and failed boltz2-affinity an
 release that changed neither. So every host sets `"perf_against": "last"` in hosts.json and its
 perf leg is an A/B: the newest release tag is measured on the same card in the same session, and
 the commit is gated on those numbers rather than on the committed file. "last" moves with each
-release, so nothing needs editing after a cut, and a card type with no committed cell needs no
-seeding run.
+release, so nothing needs editing after a cut.
 
 The clock sets the fold time on this part. `fold_s = 2.901 + 15355 / AICLK_MHz` on the 512 aa cell,
 so the same tree reads 21.90 s at 800 MHz and 17.34 s at ~1063. An idle card reports 800 because the
@@ -272,8 +287,13 @@ host that does reach it (a gate tree's `msa/`, which holds the paired files for 
 `RELEASE_GATE_MSA_DIR` to it in the host's hosts.json `env`; `release_gate.py` refuses to start
 if it misses a chain. The pxdesign checkpoint is in the agent's `~/japanfold/cache/weights/`.
 
-Wormhole has size-ladder baselines but no `perf_baselines.json` cell. Its perf leg is an A/B
-against the last release like every other host's, so it does not need one.
+With `"perf_against": "last"` (the train's hosts) Wormhole is an A/B like every other host. Without
+it, Wormhole perf is gated against the `tt-galaxy-wh-l` cells for GWH02 (.114), seeded from v0.15.1's
+gate on a lent pool chip under sibling load; another perf run on that box the same day read up to 42 %
+faster on some models, so that comparison catches a large slowdown only. A perf leg on a card type or machine with no
+cells at all records the run as the first baseline and reads SEEDED (no reference, so no regression):
+commit `<out>/seeded/<arch>/perf_baselines.json` with the release, and the next gate on that machine
+compares against it.
 
 The older recipe below is for GWH02, the production Galaxy, and is kept for it.
 

@@ -71,6 +71,7 @@ move against the accuracy bar and the seed-to-seed spread.
 | [`TT_BIO_SDPA_GRID_Q_CHUNK`](#tt_bio_sdpa_grid_q_chunk) | on | | identical |
 | [`TT_BIO_SDPA_WIDE_K`](#tt_bio_sdpa_wide_k) | on | twenty padded lengths | moves, inside the seed spread |
 | [`TT_BIO_SOFTMAX_BW_FP32`](#tt_bio_softmax_bw_fp32) | on | training | gradients only |
+| [`TT_BIO_SWIGLU_GATE_LEGACY`](#tt_bio_swiglu_gate_legacy) | on (Blackhole) | ESMFold2 | moves, inside the bar |
 | [`TT_BIO_TOKEN_BUCKET`](#tt_bio_token_bucket) | on | | switches every model's token bucket |
 | [`TT_BIO_TRANSITION_L1_ROWS`](#tt_bio_transition_l1_rows) | on | Blackhole | identical on the measured shapes |
 | [`TT_BIO_TRIATT_B8`](#tt_bio_triatt_b8) | off | | moves, and depends on the core grid |
@@ -695,7 +696,12 @@ the fold fell back to the stock ops.
 
 **ESMFold2 and ESMFold2-Fast** with `--fast` keep only the ESMC-6B language model's weights in block-fp8,
 which halves its resident memory (12.8 to 6.4 GB) and is what lets it stay loaded on a 12 GB Wormhole
-chip. The fold runs under the normal lever set (`tenstorrent.NORMAL_LEVERS`). Normal mode ships that set without
+chip. The fold runs under the normal lever set (`tenstorrent.NORMAL_LEVERS`) plus `trimul_b8in`, which writes the
+triangle multiplication's in-projection in block-fp8. That addition was graded against `none` on the fast bar on
+Blackhole (11 complexes x 4 seeds): ESMFold2 CA-lDDT +0.0021 [-0.0006, +0.0061], median same-seed
+top-pose deviation 0.44 A where a different seed moves it 1.12 A, docking success 30/41 in both arms; ESMFold2-Fast
+CA-lDDT +0.0012 [-0.0026, +0.0059], 0.92 A against 1.40 A, 24/44 in both. It takes about 1 s off ESMFold2's 512 aa
+`--fast` fold (p300c, 1350 MHz: 27.8 against 28.8 s). Normal mode ships that set without
 `trunk_hifi3`, so the trunk matmuls stay HiFi4: against `none` on ESMFold2-Fast (44 paired folds) it moves CA-lDDT
 by -0.0006 [-0.0022, +0.0006] and TM-score by +0.0007, docking success 24/44 on both, median same-seed top-pose
 deviation 0.93 A where a different seed moves it 1.40 A, and the 11 folds take 9 % less time. The full set fails
@@ -706,6 +712,14 @@ the normal bar on ESMFold2-Fast (TM-score -0.005, 95 % CI excludes zero), while 
 trunk in block-fp8, where the triangle multiplications lost their fused in-projection: at 512 aa on a
 Blackhole p150a (1350 MHz) ESMFold2-Fast took 30.2 s with `--fast` against 25.7 s without. It now takes
 24.5 s, and on a p300c chip `--fast` and normal mode fold within 0.7 s of each other.
+
+**OpenFold3 and OpenBind-0** run the normal set without the two transition levers. Their `--fast` set adds
+`dit_s16` and `diffusion_bf16`, which run the diffusion transformer in bf16 with the same fused attention
+kernels as the fp32 path. Graded against normal mode on 11 complexes x 4 seeds on Blackhole (44 paired folds per
+model): OpenFold3's median same-seed top-pose deviation is 0.40 A where a different seed moves it 1.02 A, CA-lDDT
+-0.0019, docking success 18 -> 19 of 44; OpenBind-0 moves 0.21 A against 1.90 A, CA-lDDT -0.0017, docking success
+26 of 44 in both. A 512-residue single-sample fold takes about 0.9 s less: 12.2 to 11.3 s for OpenFold3 on a
+Blackhole p300c chip at 1350 MHz, same chip, alternating runs.
 
 ## `TT_BIO_LNBW_FUSED`
 
@@ -1344,6 +1358,24 @@ set the memory limit: 576 aa runs out of memory at the same allocation with it o
 `perf/of3t_p10exact/smbw32_off_is_main.py` asserts that the off path reaches `ttnn.sum` with
 exactly the arguments the pre-flag backward used, so `=0` is the old behaviour and not an
 approximation of it.
+
+
+## `TT_BIO_SWIGLU_GATE_LEGACY`
+
+Default: on for Blackhole, off for Wormhole. ESMFold2 only.
+
+The gate of ESMFold2's pair transition, `silu(h1) * h2`, runs on ttnn's older binary multiply,
+which applies the SiLU without re-initialising the op for every tile. It costs 0.101 ms per
+32-row block at 512 residues instead of 0.144 ms, and folds 1.1 s faster on ESMFold2 and 0.7 s
+faster on ESMFold2-Fast (p150a at 1350 MHz). ESMC's own language-model blocks keep the default
+multiply: there it measured no faster and further from float32.
+
+**Accuracy: moves, inside the bar.** The two multiplies round differently. On 11 complexes x 4
+seeds on Blackhole, against the shipped normal set: ESMFold2 same-seed top-pose deviation median
+0.35 A (seed spread 1.40 A), CA-lDDT -0.0027 [-0.0075, +0.0002]; ESMFold2-Fast CA-lDDT +0.0021,
+TM-score +0.0010, docking success 24/44 in both arms. It has not been graded on Wormhole, so
+Wormhole keeps the default multiply unless `TT_BIO_SWIGLU_GATE_LEGACY=1` is set.
+`TT_BIO_SWIGLU_GATE_LEGACY=0` restores the default multiply on Blackhole.
 
 ## `TT_BIO_TOKEN_BUCKET`
 

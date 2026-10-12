@@ -104,3 +104,29 @@ def test_the_clock_floor_is_per_architecture(monkeypatch):
     assert not m._run_measure("boltzgen").get("clock_low")
     monkeypatch.setattr(m, "clock_during", lambda: _Clock(500))
     assert m._run_measure("boltzgen")["clock_low"]
+
+
+def test_a_card_with_no_baseline_is_seeded_not_failed(monkeypatch, tmp_path, capsys):
+    """No baseline on this card and machine means nothing can have regressed: the gate records the
+    run, contended or not, and the next gate compares against it. An unidentified card still fails."""
+    m = _module()
+    row = {"model": "boltz2", "unit": "structures/s", "direction": "higher", "throughput": 0.88,
+           "latency_ms": 1133, "input": "trpcage", "warmup": 2, "repeat": 5, "hardware": "wormhole_b0",
+           "tt_bio_version": "0.15.1", "date": "2026-10-12", "contended": True}
+    monkeypatch.setattr(m, "_assert_full_model_coverage", lambda: None)
+    monkeypatch.setattr(m, "_run_measure", lambda model: dict(row))
+    monkeypatch.setattr(m, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(m, "BASELINE_FILE", tmp_path / "docs" / "perf_baselines.json")
+    monkeypatch.setattr(m, "detect_machine_id", lambda: "GWH02")
+    args = Namespace(model=["boltz2"], update_baseline=False, threshold=15.0, note=None,
+                     allow_contended=False)
+    monkeypatch.setattr(m, "detect_card_type", lambda: "unknown:0x0040")
+    assert m.cmd_gate(Namespace(**vars(args))) == 1
+    assert not m.BASELINE_FILE.exists()
+    monkeypatch.setattr(m, "detect_card_type", lambda: "tt-galaxy-wh-l")
+    assert m.cmd_gate(Namespace(**vars(args))) == 0
+    assert "\nGATE SEEDED" in capsys.readouterr().out
+    cell = m.card_baselines(m.load_baselines(), "tt-galaxy-wh-l", "GWH02")["boltz2"]
+    assert cell["value"] == 0.88 and "under host load" in cell["note"]
+    assert m.cmd_gate(Namespace(**vars(args))) == 0
+    assert "GATE PASS" in capsys.readouterr().out

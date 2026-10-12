@@ -13,20 +13,19 @@ legs run one after another; spread over N cards the gate takes about as long as 
 Legs (enumerated from the tree under test, so a new arm or model is picked up without editing here):
   parity:<leg>       full_parity_gate.py --leg <leg>                     every non-opt-in leg
   rg:<arm>           release_gate.py --model <arm>                       every arm but size-ladder
-  ladder:<model>     release_gate.py --model size-ladder --size-ladder-models <model>
+  ladder:<model>@<lo>-<hi>  release_gate.py --model size-ladder --size-ladder-models <model> --size-ladder-rungs <group>
   capacity:<model>   capacity_gate.py --models <model>
   ux:<model>         ux_regression.py --model <model>
   pytest_device:i/K  pytest over every K-th test file, starting at i
   bc2:boundary       two BindCraft 2 trajectories from the installed wheel
   perf               perf_regression.py, TIMED (see below)
-  recorded:<name>    rerun_record.py <artifact>, per perf/**.txt with RERUN: lines, on its ARCH:
-                     (the release train re-stamps the artifact's RECORDED-AT when it passes;
-                     the pytest legs leave the staleness test to it)
 plus three card-free legs run once on the first host: check, packaging_smoke, pytest_cpu.
 A ladder leg whose model's baseline has no row for a lever its fold resolves (owed_levers) is not
 folded: it reads OWED, failing the verdict, which names the `--record-lever` run that clears it.
   record:<model>     release_gate.py --size-ladder-record-lever <FLAGS>  only with --record-lever
                      release_gate.py --size-ladder-record                 only with --record-full
+  record:abb3        perf/abb3_port's model and step gate records (ABB3_RECORD), only with
+                     --record-abb3, on a p300c card; the updated files land in <out>/abb3/
 
 TIMED legs measure speed, so they must not share a host with this gate's own load. They run only
 on a --timed card, after every correctness leg of that arch has been handed out, and while one runs
@@ -83,16 +82,16 @@ PERF A/B. Committed perf cells age: a cell recorded in August on another softwar
 release that changed nothing. `"perf_against": "<tag>"` on a host checks the timed leg out at the
 last release (root/trees/<tag>) and runs perf_regression.py --against it: the release's own
 numbers are measured on the same card in the same session, then the commit is gated on them.
-`"perf_against": "last"` is the newest v* tag, so the reference moves with every release, and a
-card type with no committed cell (Wormhole Galaxy, until 2026-10) needs no seeding run.
+`"perf_against": "last"` is the newest v* tag, so the reference moves with every release and a
+card type with no committed cell is compared with a real measurement rather than seeded.
 On a PASS the runner writes the reference's re-measured machine block into <out>/seeded/<arch>/
 perf_baselines.json for the release commit; the A/B leg's key leaves the committed baseline out.
 
-SEEDING. perf_regression.py fails NO BASELINE on a card type with no baseline. That stays a
-failure. A host seeding one names it explicitly, `"args": {"perf": ["--update-baseline", "--note",
-"<why>"]}`: the leg then reports SEEDED, not PASS (there was nothing to regress against), and the
-runner copies the seeded docs/perf_baselines.json to <out>/seeded/<arch>/ to commit. Drop the
-`args` entry once it is committed, and the next gate on that card type is a regression check.
+SEEDING. A perf leg on a card type and machine with no baseline has nothing to regress against:
+perf_regression.py records the run as the first baseline and prints GATE SEEDED. The leg then
+reports SEEDED, not PASS, and the runner copies the seeded docs/perf_baselines.json to
+<out>/seeded/<arch>/ to commit; the next gate on that card is a regression check. A host can also
+re-seed on purpose with `"args": {"perf": ["--update-baseline", "--note", "<why>"]}`.
 """
 from __future__ import annotations
 
@@ -123,15 +122,16 @@ REPO = Path(__file__).resolve().parents[1]
 # Per-leg budgets (s). A budget is a hang guard, not an expected time.
 BUDGET = {"parity": 14400, "rg": 7200, "ladder": 14400, "capacity": 14400, "ux": 3600,
           "pytest_device": 7200, "perf": 7200, "check": 900, "packaging_smoke": 1800,
-          "pytest_cpu": 5400, "bc2": 3600, "record": 14400, "recorded": 3600}
+          "pytest_cpu": 5400, "bc2": 3600, "record": 14400}
 # Expected wall (s) per family when the ledger has no history for a leg, from the 0.13.1 and
 # 0.14.0 chains. Legs start longest first so the gate ends close to its longest leg.
 EXPECT = {"parity": 900, "rg": 900, "ladder": 5400, "capacity": 1800, "ux": 300,
           "pytest_device": 3000, "perf": 3600, "check": 60, "packaging_smoke": 600,
-          "pytest_cpu": 1800, "bc2": 1200, "record": 2700, "recorded": 900}
+          "pytest_cpu": 1800, "bc2": 1200, "record": 2700}
 TIMED = {"perf"}
 #: Results that do not fail the gate. REUSED is a ledger hit of one of the others.
 OK = ("PASS", "REUSED", "BLOCKED", "SEEDED")
+SEEDED_FIRST = "\nGATE SEEDED"   # perf_regression.py recorded a card's first baseline
 LOG_CAP = 20 << 20
 POOL = "pool"            # --workers host:pool, a slot in the host's chip pool
 POOL_CARD = "@@CARD@@"   # stands for $CHIP in a pool job, filled in when the pool starts it
@@ -171,6 +171,111 @@ REBOOTED = "rebooted under the leg"
 LEND_AT = "~/spd/galaxy/LEND-AT"
 LEND_READ_S = 300
 WITHDRAWN = -1           # run_in_pool's code for "taken back from the queue before it started"
+#: A leg failed on a named card and the card is what failed: qb2 chip 1 stopped initialising its
+#: firmware at 06:07Z on 2026-10-12 and the runner handed it 40 more legs of gate 026b5c71c, each
+#: recorded FAIL in 15-90 s. After a failed leg on a named card the runner probes the card
+#: (capacity_gate's open + dispatch probe, under the card's flock). A card that fails the probe is
+#: retired for the run and its leg goes back on the queue, once: a leg that kills a second card is
+#: recorded as it ran. A leg no card is left to run is recorded UNRUN, which fails the gate.
+CARD_PROBE = ("import sys; sys.path.insert(0, 'scripts'); "
+              "from capacity_gate import _CARD_PROBE; exec(_CARD_PROBE)")
+CARD_PROBE_S, CARD_PROBE_LOCK_S = 300, 1800
+#: A card is dead only when it fails every one of these probes, a gap apart. One failed probe right
+#: after a failed leg is not enough: qb1 card 2 failed one on 2026-10-12 08:01Z after a protenix-v2
+#: record leg's fold workers died, was retired, and was running an SPD bench minutes later.
+CARD_PROBE_TRIES, CARD_PROBE_GAP_S = 3, 60
+#: perf/abb3_port/{model_gate,step_gate_default}_qb1c3.txt are records with a RECORDED-AT line, and
+#: test_recorded_claims fails the release commit when their scripts' import closure moved since, which
+#: it does in most stagings. They were re-run by hand on qb2 card 3 for every release since 0.13.0.
+#: `--record-abb3` runs them as a leg on a p300c card (the step gate's DRAM peak and its --micro 8
+#: OOM are that board's) and checks them against the committed records: every ok/FAIL and gradient
+#: row identical, the same taped parameter count and DRAM peak, losses within ABB3_LOSS_TOL, and
+#: --micro 8 still out of memory. On a match it writes both files with RECORDED-AT at the gate's
+#: commit and a RE-RECORDED stanza; the runner fetches them to <out>/abb3/ for the release commit.
+#: Any difference fails the leg and names it, for a human to judge.
+ABB3_LEG, ABB3_CARD_TYPES, ABB3_LOSS_TOL = "record:abb3", ("p300c",), 2e-4
+ABB3_FILES = ("perf/abb3_port/model_gate_qb1c3.txt", "perf/abb3_port/step_gate_default_qb1c3.txt")
+ABB3_RECORD = r"""
+import re, subprocess, sys, textwrap, time
+from pathlib import Path
+out, sha, worker, card_type, tol = Path(sys.argv[1]), sys.argv[2], sys.argv[3], sys.argv[4], float(sys.argv[5])
+MODEL, STEP = (Path(f) for f in sys.argv[6:8])
+
+def run(*args):
+    p = subprocess.run([sys.executable, *args], capture_output=True, text=True)
+    return p.stdout + p.stderr, p.returncode
+
+t0 = time.gmtime()
+arms = []
+for sigma in ("0.05", "0.3"):
+    for tokens in ("64", "256"):
+        text, rc = run("scripts/abb3_port/model_gate.py", "--tokens", tokens, "--sigma", sigma)
+        arms.append((sigma, tokens, text, rc))
+step, step_rc = run("scripts/abb3_port/step_gate.py")
+micro8, micro8_rc = run("scripts/abb3_port/step_gate.py", "--micro", "8")
+t1 = time.gmtime()
+(out / "model_gate.txt").write_text("".join(f"== model_gate --tokens {t} --sigma {s}\n{x}\nrc={rc}\n"
+                                             for s, t, x, rc in arms))
+(out / "step_gate.txt").write_text(f"{step}\nrc={step_rc}\n")
+(out / "step_gate_micro8.txt").write_text(f"{micro8}\nrc={micro8_rc}\n")
+
+ROW = re.compile(r"^  (?:ok|FAIL) .*$|^  grad (?:on|off) .*$", re.M)
+rows = lambda t: ROW.findall(t)
+def steps(t):
+    return {int(n): float(v) for n, v in re.findall(r"^  step +(\d+) .* loss ([\d.]+)", t, re.M)}
+def one(pat, t):
+    m = re.search(pat, t, re.M)
+    return m.group(1) if m else None
+mt, st = MODEL.read_text(), STEP.read_text()
+st_default = st.split("== default:", 1)[-1]
+new_rows = [r for _, _, x, _ in arms for r in rows(x)]
+bad = []
+if not new_rows or new_rows != rows(mt):
+    bad.append(f"model gate rows differ from {MODEL}: {len(new_rows)} rows against {len(rows(mt))}")
+    for a, b in zip(rows(mt), new_rows):
+        if a != b:
+            bad.append(f"  was {a.strip()}\n  now {b.strip()}")
+    bad += [f"  now {b.strip()}" for b in new_rows[len(rows(mt)):]]
+loss, was = steps(step), steps(st_default)
+if step_rc or not loss or set(loss) != set(was) or any(abs(loss[n] - was[n]) > tol for n in was):
+    bad.append(f"step gate rc {step_rc}, losses {loss} against {was} (tolerance {tol})")
+for what, pat in (("taped parameters", r"taped device parameters: (\d+)"), ("DRAM peak", r"^DRAM: peak (\d+) MB")):
+    if one(pat, step) is None or one(pat, step) != one(pat, st_default):
+        bad.append(f"step gate {what} {one(pat, step)} against {one(pat, st_default)}")
+oom = one(r"Not enough space to allocate (\d+) B", micro8)
+if not micro8_rc or oom is None:
+    bad.append(f"step gate --micro 8 exited {micro8_rc} without the out-of-memory the record carries")
+if bad:
+    sys.exit("abb3 records do not match:\n" + "\n".join(bad))
+
+prev = one(r"^RECORDED-AT: ([0-9a-f]{9})", mt)
+when = f"{time.strftime('%H:%M', t0)}-{time.strftime('%H:%M', t1)}Z {time.strftime('%Y-%m-%d', t1)}"
+where = (f"RE-RECORDED by the release gate (gate_fanout.py record:abb3) at {sha[:9]}, {when}, "
+         f"{worker}, {card_type}, the gate's wheel venv with the tree on PYTHONPATH.")
+fails = [f"{r.split()[1]} at {r.split()[2]} (sigma {s}, {t} tokens)" for s, t, x, _ in arms
+         for r in rows(x) if r.startswith("  FAIL")]
+model_note = (f"{where} Every ok/FAIL row and every gradient row is identical to the {prev} record"
+              + (f", which still FAILs {'; '.join(fails)}" if fails else "") + ". NO TIMING CLAIM.")
+clock = re.search(r"AICLK during the run: card \d+ min (\d+) median (\d+)", step)
+median = one(r"^STEP: median ([\d.]+) s", step)
+taped, peak = one(r"taped device parameters: (\d+)", step), one(r"^DRAM: peak (\d+) MB", step)
+losses = " / ".join(f"{loss[n]:.4f}" for n in sorted(loss))
+step_note = (f"{where} Losses {losses} at steps {', '.join(map(str, sorted(loss)))}, {taped} taped "
+             f"parameters and the {peak} MB DRAM peak as in the {prev} record; "
+             f"--micro 8 still OOMs, on a {int(oom):,} B request. Median {median} s"
+             + (f" at AICLK median {clock.group(2)} (min {clock.group(1)})" if clock else "")
+             + ". A fit record, not a perf claim.")
+
+def rerecord(text, note):
+    text = re.sub(r"^RECORDED-AT: [0-9a-f]+ ", f"RECORDED-AT: {sha} ", text, count=1, flags=re.M)
+    lines = text.splitlines(True)
+    i = next(i for i, ln in enumerate(lines) if i and not ln.startswith("#") and not ln.startswith("RECORDED-AT:"))
+    stanza = [f"# {ln}\n" for ln in textwrap.wrap(note, 104)] + ["#\n"]
+    return "".join(lines[:i] + stanza + lines[i:])
+for src, note in ((MODEL, model_note), (STEP, step_note)):
+    (out / src.name).write_text(rerecord(src.read_text(), note))
+print(f"abb3 records match {prev}; re-recorded at {sha[:9]} in {out}")
+"""
 QUEUED: dict = {}         # pool job file -> host, taken back if the runner is stopped
 RUNNING: dict = {}        # leg out dir -> host, its attempt ended if the runner is stopped
 CARD_FREE = ("check", "packaging_smoke", "pytest_cpu")
@@ -183,11 +288,46 @@ PARITY_COVERS_RG = {"boltzgen", "opendde-abag", "capacity", "nesso1", "rf3-1024a
 CAP_OWED = "host-threads"   # an OWED entry: no granted host times this ladder at its baseline's cap
 
 
+#: A size ladder runs as one leg per rung group, so the longest ladder no longer sets the gate's
+#: wall clock: Wormhole opendde was a single 13592 s leg of gate 026b5c71c (2026-10-12). The first
+#: group keeps 256, 512 and 768 together, the two intervals the exponent check reads. release_gate's
+#: `--size-ladder-rungs` filters the model's own ladder and the check scores only the rungs it walked.
+#: A release_gate refuses a rung subset in check mode (a lone subset run would pass without the
+#: rungs where levers go dark), so the runner splits only a tree whose release_gate sets
+#: SIZE_LADDER_PARTS and takes `--size-ladder-part`; the groups together cover every rung.
+LADDER_GROUPS = ((0, 768), (769, 1100), (1101, 1300), (1301, 1 << 20))
+
+
+def ladder_model(name: str) -> str:
+    """'ladder:opendde@896-1024' -> 'opendde' (also 'record:m' -> 'm')."""
+    return name.split(":", 1)[1].split("@", 1)[0]
+
+
+def ladder_rungs(roster: dict, card_type: str, model: str) -> list:
+    """The rungs `model`'s ladder walks on `card_type` (ENUMERATE's "rungs"; "*" for a board with
+    no rungs of its own)."""
+    rungs = roster.get("rungs", {})
+    return (rungs.get(card_type) or rungs.get("*", {})).get(model, [])
+
+
+def rungs_fit(roster: dict, host, lg) -> bool:
+    """Whether `host`'s card walks at least one of a ladder group leg's rungs. A p300c walks only
+    the shared ladder, so the 1152-1536 groups go to a p150a; an empty group would fold nothing."""
+    if lg.family != "ladder" or not lg.rungs:
+        return True
+    return bool(set(lg.rungs) & set(ladder_rungs(roster, host.cfg["card_type"], ladder_model(lg.name))))
+
+
+def type_fits(host, lg) -> bool:
+    """Whether `host`'s card type may run `lg` (Leg.card_types)."""
+    return not lg.card_types or host.cfg["card_type"] in lg.card_types
+
+
 def owed_by(roster: dict, card_type: str, lg) -> list[str]:
     """Levers a ladder leg's baseline lacks on this card type; every other leg owes none."""
     if lg.family != "ladder":
         return []
-    return roster.get("owed", {}).get(card_type, {}).get(lg.name.split(":", 1)[1], [])
+    return roster.get("owed", {}).get(card_type, {}).get(ladder_model(lg.name), [])
 
 
 def ladder_caps(docs, models) -> dict:
@@ -213,7 +353,7 @@ def cap_fits(roster: dict, host, lg) -> bool:
     if lg.family != "ladder":
         return True
     caps = roster.get("caps", {}).get(host.cfg["card_type"], {})
-    model = lg.name.split(":", 1)[1]
+    model = ladder_model(lg.name)
     return model not in caps or caps[model] == host.ladder_cap
 
 
@@ -249,7 +389,10 @@ import lever_census
 print(json.dumps({"parity": [l.id for l in f.LEGS if not l.opt_in], "rg": r.default_arms(),
                   "ladder": list(r.SIZE_LADDER_MODELS), "capacity": c.roster(), "ux": u.ALL_LEGS,
                   "owed": owed_levers("docs", lever_census.LEVERS, r.SIZE_LADDER_MODELS),
-                  "caps": ladder_caps("docs", r.SIZE_LADDER_MODELS)}))
+                  "caps": ladder_caps("docs", r.SIZE_LADDER_MODELS),
+                  "rungs": {ct: {m: list(r._size_ladder_model_rungs(m, card=ct)) for m in r.SIZE_LADDER_MODELS}
+                            for ct in [*r.SIZE_LADDER_CARD_RUNGS, "*"]}
+                           if getattr(r, "SIZE_LADDER_PARTS", False) else {}}))
 """
 ENV_PROBE = r"""
 import json, sys, importlib.metadata as m
@@ -510,27 +653,28 @@ class Leg:
     workdir: bool = False  # argv takes the leg's own out dir as "{OUT}"
     tree_on_path: bool = True  # False: import tt_bio from the installed wheel, not the tree
     setup: str = ""        # shell run in the tree before argv, with the same {OUT} substitution
-    archs: tuple = ()      # the architectures it runs on; empty is every one
+    rungs: tuple = ()      # a ladder group leg's rungs (any card type's), () for a whole ladder
+    card_types: tuple = ()  # the card types that may run it, () for any
 
     @property
     def budget(self) -> int:
         return BUDGET[self.family]
 
 
-#: The staleness check of a recorded measurement. In the gate a recorded:<name> leg re-runs it on a
-#: card instead, and the release commit re-stamps it, so the pytest legs leave it out.
+#: The staleness check of the abb3 records. A gate with --record-abb3 answers it on a card instead
+#: (record:abb3), and the release commit carries the re-stamped files, so its pytest legs leave it out.
 STALE_TEST = "tests/test_recorded_claims.py::test_recorded_artifact_is_not_stale"
 
 
 def build_legs(roster: dict, test_files: list, shards: int, record_lever: str = "",
-               record_full: str = "", recorded: dict | None = None) -> list:
-    """`recorded` maps each re-runnable artifact (perf/**.txt with RERUN: lines) to its ARCH: list."""
+               record_full: str = "", record_abb3: bool = False, record_cards: tuple = ()) -> list:
+    skip = ["--deselect", STALE_TEST] if record_abb3 else []
     legs = [Leg("check", ["PY", "scripts/full_parity_gate.py", "--check", "--workdir", "{OUT}",
                          "--workers", "localhost:0"], "check",
                 card=False),
             Leg("packaging_smoke", ["PY", "scripts/packaging_smoke.py"], "packaging_smoke", card=False),
-            Leg("pytest_cpu", ["PY", "-m", "pytest", "-q", "-p", "no:cacheprovider", "--tb=short",
-                               "--deselect", STALE_TEST], "pytest_cpu", card=False)]
+            Leg("pytest_cpu", ["PY", "-m", "pytest", "-q", "-p", "no:cacheprovider", "--tb=short", *skip],
+                "pytest_cpu", card=False)]
     for lid in roster["parity"]:
         legs.append(Leg(f"parity:{lid}", ["PY", "scripts/full_parity_gate.py", "--leg", lid,
                                           "--workers", "localhost:{CARD}", "--workdir", "{OUT}",
@@ -540,8 +684,15 @@ def build_legs(roster: dict, test_files: list, shards: int, record_lever: str = 
             continue
         legs.append(Leg(f"rg:{arm}", ["PY", "scripts/release_gate.py", "--model", arm], "rg"))
     for m in roster["ladder"]:
-        legs.append(Leg(f"ladder:{m}", ["PY", "scripts/release_gate.py", "--model", "size-ladder",
-                                        "--size-ladder-models", m], "ladder"))
+        argv = ["PY", "scripts/release_gate.py", "--model", "size-ladder", "--size-ladder-models", m]
+        every = sorted({n for ct in roster.get("rungs", {}) for n in ladder_rungs(roster, ct, m)})
+        if not every:       # a tree whose ENUMERATE predates the groups
+            legs.append(Leg(f"ladder:{m}", argv, "ladder"))
+        for lo, hi in LADDER_GROUPS:
+            g = tuple(n for n in every if lo <= n <= hi)
+            if g:
+                legs.append(Leg(f"ladder:{m}@{g[0]}-{g[-1]}", [*argv, "--size-ladder-part", "--size-ladder-rungs",
+                                                               ",".join(map(str, g))], "ladder", rungs=g))
     for m in roster["capacity"]:
         legs.append(Leg(f"capacity:{m}", ["PY", "scripts/capacity_gate.py", "--models", m,
                                           "--workers", "localhost:{CARD}", "--no-card-reset",
@@ -553,8 +704,7 @@ def build_legs(roster: dict, test_files: list, shards: int, record_lever: str = 
         part = test_files[i::shards]
         if part:
             legs.append(Leg(f"pytest_device:{i}/{shards}",
-                            ["PY", "-m", "pytest", "-q", "-p", "no:cacheprovider", "--tb=short",
-                             "--deselect", STALE_TEST, *part],
+                            ["PY", "-m", "pytest", "-q", "-p", "no:cacheprovider", "--tb=short", *skip, *part],
                             "pytest_device"))
     # The wheel itself on a card: two short BindCraft 2 trajectories with tt_bio imported from the
     # installed wheel and BindCraft 2 on the path, so a file the wheel drops fails here.
@@ -565,9 +715,6 @@ def build_legs(roster: dict, test_files: list, shards: int, record_lever: str = 
                                      "runpy.run_path('perf/bc2_memory/boundary.py', run_name='__main__')"],
                     "bc2", tree_on_path=False))
     legs.append(Leg("perf", ["PY", "scripts/perf_regression.py"], "perf", timed=True))
-    for path, archs in sorted((recorded or {}).items()):
-        legs.append(Leg(f"recorded:{Path(path).stem}", ["PY", "scripts/rerun_record.py", path], "recorded",
-                        archs=tuple(archs)))
     # --record-lever: add census levers to each ladder model's baseline (one fold per rung, refused
     # unless every other lever still matches), on a copy in the leg's out dir so the tree the
     # ladder legs read stays the commit's. The runner fetches each fragment to <out>/recorded/.
@@ -585,10 +732,20 @@ def build_legs(roster: dict, test_files: list, shards: int, record_lever: str = 
             how = ["--size-ladder-record-lever", record_lever]
         else:
             continue
-        legs.append(Leg(f"record:{m}", ["PY", "scripts/release_gate.py", "--model", "size-ladder",
-                                        "--size-ladder-models", m, *how, "--size-ladder-baseline",
-                                        "{OUT}/size_ladder_baseline.json"], "record", workdir=True,
-                        setup="cp -r docs/size_ladder_baseline.json docs/size_ladder_baseline.d {OUT}/"))
+        # A record writes only the entry of the card type it ran on, and a ladder leg checks the
+        # entry of whichever card it lands on, so each card type the gate holds gets its own record:
+        # gate 29e9c9d44 recorded four BH models on p300c only and left their p150a entries stale.
+        for ct in record_cards or ("",):
+            legs.append(Leg(f"record:{m}@{ct}" if ct else f"record:{m}",
+                            ["PY", "scripts/release_gate.py", "--model", "size-ladder",
+                             "--size-ladder-models", m, *how, "--size-ladder-baseline",
+                             "{OUT}/size_ladder_baseline.json"], "record", workdir=True,
+                            setup="cp -r docs/size_ladder_baseline.json docs/size_ladder_baseline.d {OUT}/",
+                            card_types=(ct,) if ct else ()))
+    if record_abb3:
+        legs.append(Leg(ABB3_LEG, ["PY", "-c", ABB3_RECORD, "{OUT}", "{SHA}", "{WORKER}", "{CARD_TYPE}",
+                                   str(ABB3_LOSS_TOL), *ABB3_FILES], "record", workdir=True,
+                        card_types=ABB3_CARD_TYPES))
     return legs
 
 
@@ -606,19 +763,6 @@ def last_tag(repo: Path = REPO) -> str:
     if not tags:
         raise SystemExit('perf_against "last": this clone has no v* tag')
     return tags[0]
-
-
-def recorded_artifacts(sha: str, repo: Path = REPO) -> dict:
-    """Every perf/**.txt at `sha` carrying RERUN: lines, with the architectures its ARCH: lines name."""
-    def git(*a):
-        p = subprocess.run(["git", "-C", str(repo), *a], capture_output=True, text=True)
-        return p.stdout if p.returncode in (0, 1) else ""
-    found = {}
-    for ln in git("grep", "-l", "^RERUN:", sha, "--", "perf/*.txt").splitlines():
-        path = ln.split(":", 1)[1]
-        text = git("show", f"{sha}:{path}")
-        found[path] = [a for m in re.finditer(r"^ARCH:\s*(.*)$", text, re.M) for a in m[1].split()]
-    return found
 
 
 def select(legs: list, patterns: list) -> list:
@@ -804,7 +948,8 @@ class Host:
         env = {"PYTHONPATH": pp, "TT_VISIBLE_DEVICES": "" if card is None else str(card),
                "RELEASE_GATE_SIZE_WORKDIR": f"{out}/sizegate-work", **c.get("env", {}),
                "GATE_READS": f"{out}/reads", "GATE_TREE": self.tree}   # gate_reads.py
-        subst = {"{CARD}": str(card), "{OUT}": out,
+        subst = {"{CARD}": str(card), "{OUT}": out, "{SHA}": self.sha, "{WORKER}": f"{self.name}:{card}",
+                 "{CARD_TYPE}": c["card_type"],
                  **{f"{{{k}}}": v for k, v in c.get("env", {}).items()}}
 
         def fill(a: str) -> str:
@@ -828,6 +973,33 @@ class Host:
         attempt = shlex.quote(f"echo $$ > {shlex.quote(f'{out}/attempt.pid')}; {run}")
         return (f"mkdir -p {shlex.quote(out)} && {self.end_attempt(out)} && cd {self.tree} && {setup}"
                 f"env {mark} setsid -w bash -c {attempt}")   # no exec: a pool job writes rc after it
+
+    def card_dead(self, card) -> str | None:
+        """Why `card` failed CARD_PROBE_TRIES probes in a row, or None once one passes."""
+        why = None
+        for i in range(CARD_PROBE_TRIES):
+            if i:
+                time.sleep(CARD_PROBE_GAP_S)
+            why = self.probe_card(card)
+            if why is None:
+                return None
+        return why
+
+    def probe_card(self, card) -> str | None:
+        """Why `card` cannot open and dispatch a program, or None when it can. A probe that never
+        got the card's flock, or never started, says nothing about the card and reads as None."""
+        env = {"PYTHONPATH": self.tree, "TT_VISIBLE_DEVICES": str(card), **self.cfg.get("env", {})}
+        body = (f"echo CARD_PROBE_START; env {' '.join(f'{k}={shlex.quote(v)}' for k, v in env.items())} "
+                f"timeout -s KILL {CARD_PROBE_S} {self.python('parity')} -c {shlex.quote(CARD_PROBE)} 2>&1 "
+                f"| grep -v -e '| DEBUG' -e '^Config{{' | tail -n 12")
+        lock = self.cfg.get("lock")
+        lock = f"flock -w {CARD_PROBE_LOCK_S} {shlex.quote(lock.format(card=card))} " if lock else ""
+        r = self.ssh(f"cd {self.tree} && {lock}bash -c {shlex.quote(body)}",
+                     capture_output=True, timeout=CARD_PROBE_LOCK_S + CARD_PROBE_S + 120)
+        out = r.stdout or ""
+        if "CARD_PROBE_START" not in out or "CARD_HEALTHY" in out:
+            return None
+        return out.split("CARD_PROBE_START", 1)[1].strip()[-1200:] or "the probe printed nothing"
 
     @staticmethod
     def end_attempt(out: str) -> str:
@@ -991,6 +1163,14 @@ def _reused(leg: str, slot: str, key: str, row: dict) -> dict:
             "reused_verdict": row["verdict"]}
 
 
+class CardDead(Exception):
+    """execute() found the leg's card dead after the leg failed; `res` is the leg's result."""
+
+    def __init__(self, res: dict, why: str):
+        super().__init__(why)
+        self.res, self.why = res, why
+
+
 def _alive(pid) -> bool:
     try:
         os.kill(int(pid), 0)
@@ -1027,7 +1207,7 @@ def write_verdict(out: Path, sha: str, archs: list, results: list) -> bool:
                   "instead of checking against one. Commit the files and drop the host's `args`:"]
         lines += [f"- {r['leg']} {r['card_type']}: {r.get('seeded', '?')}" for r in seeded]
     owed = sorted({f for r in results if r["verdict"] == "OWED" for f in r["owed"]} - {CAP_OWED})
-    capped = sorted({r["leg"].split(":", 1)[1] for r in results
+    capped = sorted({ladder_model(r["leg"]) for r in results
                      if r["verdict"] == "OWED" and CAP_OWED in r["owed"]})
     if capped:
         lines += ["", "OWED: no granted host runs these ladders at the host-thread cap their baseline "
@@ -1071,6 +1251,8 @@ class Gate:
         self.keys = keys or {}    # (leg name, arch) -> key
         self.roster = roster or {}  # ENUMERATE's output; its "caps" keep a ladder leg on a host of its cap
         self.held: dict = {}      # queue -> [Leg] another runner holds
+        self.bounced: set = set()  # (leg name, queue) already put back once off a dead card
+        self.inflight: dict = {}   # queue -> legs started and not yet recorded or put back
         self.results: list = []
         self.mu = threading.Lock()
 
@@ -1091,7 +1273,8 @@ class Gate:
                 for i, lg in enumerate(q):
                     if lg.timed == timed and (is_timed or not timed) \
                             and out_group(lg.name) not in host.outputs and not host.lent(lg.budget) \
-                            and cap_fits(self.roster, host, lg):
+                            and cap_fits(self.roster, host, lg) and rungs_fit(self.roster, host, lg) \
+                            and type_fits(host, lg):
                         return q.pop(i)
         return None
 
@@ -1170,6 +1353,8 @@ class Gate:
                 if leg is not None and self._joined(leg, queue):
                     continue
                 if leg is not None:
+                    with self.mu:
+                        self.inflight[queue] = self.inflight.get(queue, 0) + 1
                     host.outputs.add(out_group(leg.name))
                     if leg.timed:
                         host.timed_running = True
@@ -1184,9 +1369,17 @@ class Gate:
                 if self._lent_out(host, card):
                     time.sleep(POOL_POLL_S)     # another host may take it first; else the lend ends
                     continue
+                with self.mu:
+                    busy = self.inflight.get(queue, 0) > 0
+                if busy:
+                    time.sleep(1)       # a sibling's leg may come back (withdrawn, or off a dead card)
+                    continue
                 return
+            dead = None
             try:
                 res = self.execute(host, card, leg)
+            except CardDead as e:
+                res, dead = e.res, e.why
             finally:
                 with host.lock:
                     host.running -= 1
@@ -1199,8 +1392,25 @@ class Gate:
             if res is None:
                 with self.mu:
                     self.todo.setdefault(queue, []).insert(0, leg)
+                    self.inflight[queue] -= 1
                 continue
+            if dead:
+                with self.mu:
+                    again = (leg.name, queue) not in self.bounced
+                    self.bounced.add((leg.name, queue))
+                    if again:
+                        self.todo.setdefault(queue, []).insert(0, leg)
+                    self.inflight[queue] -= 1
+                print(f"retired {host.name}:{card} for this run, its card is dead: {dead.splitlines()[-1]}"
+                      + (f"; {leg.name} goes back on the queue" if again else ""), flush=True)
+                if not again:
+                    self._record(res)
+                with host.lock:
+                    host.lock.notify_all()
+                return
             self._record(res)
+            with self.mu:
+                self.inflight[queue] -= 1
 
     def run(self) -> list:
         ts = [threading.Thread(target=self.worker, args=w, daemon=True) for w in self.workers]
@@ -1208,6 +1418,11 @@ class Gate:
             t.start()
         for t in ts:
             t.join()
+        for queue, legs in self.todo.items():
+            for leg in legs:
+                self._record({"leg": leg.name, "arch": queue, "verdict": "UNRUN", "rc": None,
+                              "worker": "none", "wall_s": 0, "ended": now(),
+                              "key": self.keys.get((leg.name, queue))})
         return self.results
 
 
@@ -1373,6 +1588,10 @@ def make_executor(sha: str, out: Path, ledger: Ledger, keys: dict, remote_out: s
             if not (rc and LOAD_REFUSAL in text and time.time() - t0 < LOAD_WAIT_MAX_S):
                 break
             time.sleep(LOAD_RETRY_S)
+        dead = host.card_dead(card) if rc and card not in (None, POOL) else None
+        if dead:
+            with open(log, "a") as f:
+                f.write(f"\n# {host.name}:{card} failed the card probe after this leg: {dead}\n")
         m = re.search(r"^##LEG-START (\d+)", text, re.M)
         start = float(m.group(1)) if m else None
         m = re.search(r"^##CHIP (\d+)", text, re.M)
@@ -1401,7 +1620,7 @@ def make_executor(sha: str, out: Path, ledger: Ledger, keys: dict, remote_out: s
                          timeout=120)
             reads = r.stdout.splitlines() if r.returncode == 0 else []
         seeded = None
-        if verdict == "PASS" and host.seeding(leg):
+        if verdict == "PASS" and (host.seeding(leg) or (leg.family == "perf" and SEEDED_FIRST in text)):
             verdict = "SEEDED"
             dst = out / "seeded" / host.arch / "perf_baselines.json"
             dst.parent.mkdir(parents=True, exist_ok=True)
@@ -1419,8 +1638,18 @@ def make_executor(sha: str, out: Path, ledger: Ledger, keys: dict, remote_out: s
                                           f"{host.name} as the A/B reference ({host.cfg['perf_against']}) "
                                           f"of the {sha[:9]} release gate"))
                 seeded = str(dst)
-        if verdict == "PASS" and leg.family == "record":
-            m = leg.name.split(":", 1)[1]
+        if verdict == "PASS" and leg.name == ABB3_LEG:
+            for f in ABB3_FILES:
+                r = host.ssh(f"cat {shlex.quote(f'{rdir}/{Path(f).name}')}", capture_output=True, timeout=120)
+                if r.returncode:
+                    verdict = "FAIL"
+                    break
+                dst = out / "abb3" / f
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                dst.write_text(r.stdout)
+                seeded = str(out / "abb3")
+        elif verdict == "PASS" and leg.family == "record":
+            m = ladder_model(leg.name)
             dst = out / "recorded" / host.cfg["card_type"] / f"{m}.json"
             dst.parent.mkdir(parents=True, exist_ok=True)
             r = [host.ssh(f"cat {shlex.quote(f'{rdir}/{f}')}", capture_output=True, timeout=120)
@@ -1444,6 +1673,8 @@ def make_executor(sha: str, out: Path, ledger: Ledger, keys: dict, remote_out: s
             res["reads"], res["scope"] = reads, scope
         if verdict in OK:
             ledger.put(res["key"], res)
+        elif dead:
+            raise CardDead(res, dead)
         return res
     return execute
 
@@ -1487,6 +1718,9 @@ def main() -> int:
     ap.add_argument("--record-full", default="", metavar="MODEL[,MODEL...]",
                     help="fully re-record these ladder models' baselines per card type (for a model "
                          "whose --record-lever splice was refused); fragments land in <out>/recorded/")
+    ap.add_argument("--record-abb3", action="store_true",
+                    help="add record:abb3, perf/abb3_port's records re-run on a p300c card and checked "
+                         "against the committed ones; updated files land in <out>/abb3/")
     ap.add_argument("--arch", default="", help="limit to these archs (default: every arch in --workers)")
     ap.add_argument("--shards", type=int, default=4, help="pytest_device shards")
     ap.add_argument("--out", required=True, type=Path)
@@ -1530,7 +1764,7 @@ def main() -> int:
     first = {a: next(h for h in hosts.values() if h.arch == a) for a in archs}
     roster = first[archs[0]].run_py(ENUMERATE)
     legs = select(build_legs(roster, test_files(sha), args.shards, args.record_lever, args.record_full,
-                             recorded_artifacts(sha)),
+                             args.record_abb3, tuple(sorted({h.cfg["card_type"] for h, _ in workers}))),
                   [p for p in args.legs.split(",") if p])
     content = content_hash(sha)
     legacy = content_hash(sha, baselines=True, tests=True, runner=RUNNER_FILES_0)
@@ -1572,13 +1806,16 @@ def main() -> int:
     keys, scopes, results, todo = {}, {}, [], {a: [] for a in archs}
     nonpy = content_hash(sha, python=False)
     for lg in legs:
-        for a in (archs if lg.card else [archs[0]]):
-            if lg.archs and a not in lg.archs:
-                continue
+        on = [a for a in archs if not lg.card_types
+              or any(h.arch == a and type_fits(h, lg) for h, _ in workers)] if lg.card else [archs[0]]
+        if not on:
+            results.append({"leg": lg.name, "arch": "any", "verdict": "UNRUN", "rc": None,
+                            "why": f"no worker on a {'/'.join(lg.card_types)} card"})
+        for a in on:
             slot = a if lg.card else "any"
             env, ct, hleg = (envs[f"{a} {first[a].python(lg.family)}"], ctype[a] if lg.card else "cpu",
                              first[a].leg(lg))
-            model = lg.name.split(":", 1)[1] if lg.family == "ladder" else ""
+            model = ladder_model(lg.name) if lg.family == "ladder" else ""
             cards = reads[a] if lg.card else ()
             base, tst = baseline_hash(sha, lg.family, model=model, cards=cards), tests_hash(sha, lg.family)
             # An A/B perf leg reads the reference tree's numbers, not the committed baseline, so

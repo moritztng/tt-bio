@@ -29,6 +29,13 @@ end-to-end via `tt-bio embed --model esmc-6b` (ubiquitin): output
 distribution (mean ≈ 0, std ≈ 1.2). The 6B is the ESMFold2 language-model
 backbone, whose port is separately parity-verified (`docs/esmfold2-e2e-parity.md`).
 
+ESMC 300M and 600M run their matmuls at HiFi3 with float32 accumulation (the table above was
+taken at HiFi4). Against a float32 reference on a batch of 7 hHSA-length sequences, the error
+does not move: per-residue relative L2 0.0252 vs 0.0256 (300M) and 0.0250 vs 0.0236 (600M),
+worst per-residue cosine 0.9987 vs 0.9987 and 0.9985 vs 0.9987, pooled cosine 0.99998 in all
+four. A batch of 7 takes 84 ms instead of 88 ms (300M) and 123 ms instead of 135 ms (600M) on
+a Blackhole chip at 1350 MHz. ESMC-6B stays at HiFi4.
+
 ## Verdict
 
 **Pass.** Per-residue and pooled embedding PCC are ~0.9995–0.9999 across the

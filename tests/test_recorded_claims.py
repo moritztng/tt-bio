@@ -34,10 +34,6 @@ that one needs a card, so a test cannot ask it. What this file can do is be exac
 cheaper question: it reads the CONTENT of the closure rather than which commits came near it, and
 it names the files that differ. A failure here means the numbers are unconfirmed, not wrong.
 
-The release gate asks the dearer question too: each artifact's RERUN lines are re-run on a card
-(scripts/rerun_record.py, the gate's recorded:<name> leg), and when the rows match, the release commit
-moves RECORDED-AT to the gated commit. So the gate's pytest legs leave the staleness test to that leg.
-
 Run: python3 -m pytest tests/test_recorded_claims.py, or as part of the release suite.
 """
 
@@ -162,16 +158,6 @@ def test_required_artifacts_carry_the_stanza():
     assert set(REQUIRED) <= carried, (
         f"{sorted(set(REQUIRED) - carried)} must carry a `RECORDED-AT: <commit> <script>` line. "
         f"A recorded number without the commit it was recorded at cannot be told from a stale one")
-
-
-def test_every_recorded_artifact_can_be_rerun_by_the_gate():
-    """The release gate leaves the staleness test below to a recorded:<name> leg that re-runs the
-    artifact on a card (scripts/rerun_record.py), and the release commit re-stamps RECORDED-AT. An
-    artifact without RERUN and EXPECT lines would go unchecked there."""
-    bare = [name for name, _, _ in _artifacts()
-            if not re.search(r"^RERUN:", (REPO / name).read_text(), re.M)
-            or not re.search(r"^EXPECT:", (REPO / name).read_text(), re.M)]
-    assert not bare, f"{bare} carry RECORDED-AT but no RERUN/EXPECT lines (scripts/rerun_record.py)"
 
 
 @pytest.mark.parametrize("artifact,sha,script", _artifacts(),

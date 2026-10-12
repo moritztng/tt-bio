@@ -72,24 +72,21 @@ def test_release_commit_changes_only_the_release_files_and_keeps_the_content_key
     (tmp_path / "README.md").write_text("tt-bio.git@v0.14.0\n")
     (tmp_path / "a.py").write_text("x = 1\n")
     (tmp_path / "perf" / "x").mkdir(parents=True)
-    for name in ("gate", "other"):
-        (tmp_path / "perf" / "x" / f"{name}.txt").write_text(
-            f"RECORDED-AT: {'0' * 40} scripts/{name}.py\nRERUN: PY scripts/{name}.py\nEXPECT: ok\n")
+    (tmp_path / "perf" / "x" / "gate.txt").write_text(f"RECORDED-AT: {'0' * 40} scripts/gate.py\n")
     git("add", "."), git("commit", "-qm", "c")
     sha = git("rev-parse", "HEAD")
     monkeypatch.setattr(rt, "REPO", tmp_path)
     monkeypatch.setattr(rt, "git", lambda *a, **k: git(*a))
     gate = tmp_path / "gate"
-    gate.mkdir()
-    (gate / "verdict.json").write_text(json.dumps({"results": [
-        {"leg": "recorded:gate", "verdict": "PASS", "worker": "qb1:3", "ended": "2026-10-12T12:00:00Z"},
-        {"leg": "recorded:other", "verdict": "FAIL", "worker": "qb1:2", "ended": "2026-10-12T12:00:00Z"}]}))
-    records = rt.reproduced(str(gate), sha)
-    assert records == {"perf/x/gate.txt": "recorded:gate qb1:3 2026-10-12T12:00:00Z"}
-    rel = rt.release_commit(sha, "0.15.0", "### Changed\n- **New lever.**", "2026-10-12", records)
+    (gate / "abb3" / "perf" / "x").mkdir(parents=True)
+    (gate / "abb3" / "perf" / "x" / "gate.txt").write_text(f"RECORDED-AT: {sha} scripts/gate.py\n")
+    for verdict, want in (("FAIL", {}), ("PASS", {"perf/x/gate.txt": f"RECORDED-AT: {sha} scripts/gate.py\n"})):
+        (gate / "verdict.json").write_text(json.dumps({"results": [{"leg": "record:abb3", "verdict": verdict}]}))
+        assert rt.rerecorded_files(str(gate)) == want
+    rel = rt.release_commit(sha, "0.15.0", "### Changed\n- **New lever.**", "2026-10-12", want)
     assert git("diff", "--name-only", sha, rel).split() == ["CHANGELOG.md", "README.md", "perf/x/gate.txt",
                                                             "pyproject.toml"]
-    assert f"RECORDED-AT: {sha} scripts/gate.py" in git("show", f"{rel}:perf/x/gate.txt")
+    assert git("show", f"{rel}:perf/x/gate.txt") == f"RECORDED-AT: {sha} scripts/gate.py"
     assert git("rev-parse", f"{rel}^") == sha and git("rev-parse", "HEAD") == sha   # nothing checked out
     assert rt.content_hash(rel, tmp_path) == rt.content_hash(sha, tmp_path)
     assert 'version = "0.15.0"' in git("show", f"{rel}:pyproject.toml")

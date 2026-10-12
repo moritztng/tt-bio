@@ -45,21 +45,11 @@ def test_pytest_shards_cover_every_file_exactly_once():
     assert sorted(files) == ["tests/test_a.py", "tests/test_b.py", "tests/test_c.py"]
 
 
-def test_a_recorded_artifact_is_a_leg_on_its_archs_and_pytest_leaves_its_staleness_to_it(tmp_path):
-    legs = gf.build_legs(ROSTER, ["tests/test_a.py"], 1, recorded={"perf/x/gate.txt": ["bh"]})
-    lg = next(lg for lg in legs if lg.family == "recorded")
-    assert (lg.name, lg.argv, lg.archs, lg.card) == ("recorded:gate", ["PY", "scripts/rerun_record.py",
-                                                                         "perf/x/gate.txt"], ("bh",), True)
-    assert all(gf.STALE_TEST in lg.argv for lg in legs if lg.family in gf.PYTEST)
-
-    rerun = lambda: subprocess.run([sys.executable, str(REPO / "scripts" / "rerun_record.py"), str(art)],
-                                   capture_output=True).returncode
-    art = tmp_path / "a.txt"
-    art.write_text("RERUN: PY -c \"print('  ok   frames  1'); print('  FAIL angles  2'); print('t 9.1 s')\"\n"
-                   "ROW: ^  (ok|FAIL) +(\\S+)  \nROW: ^(rc=\\d+)$\nEXPECT: ok frames | FAIL angles | rc=0\n")
-    assert rerun() == 0
-    art.write_text(art.read_text().replace("FAIL angles |", "ok angles |"))
-    assert rerun() == 1
+def test_pytest_leaves_the_abb3_staleness_test_to_record_abb3_only_when_the_gate_runs_it():
+    for abb3 in (False, True):
+        legs = gf.build_legs(ROSTER, ["tests/test_a.py"], 1, record_abb3=abb3)
+        assert any(lg.name == gf.ABB3_LEG for lg in legs) is abb3
+        assert all((gf.STALE_TEST in lg.argv) is abb3 for lg in legs if lg.family in gf.PYTEST)
 
 
 def test_only_perf_is_timed_and_card_free_legs_take_no_card():
@@ -1023,3 +1013,220 @@ def test_perf_against_last_is_the_newest_release_tag(tmp_path):
     for tag in ("v0.9.0", "v0.15.1", "v0.15.0", "nightly"):
         git("tag", tag)
     assert gf.last_tag(tmp_path) == "v0.15.1"
+
+
+def test_a_dead_card_is_retired_and_its_leg_runs_on_another_card(tmp_path):
+    host = _host("qb2", "bh", tmp_path)
+    legs = [gf.Leg(f"ux:m{i}", [], "ux") for i in range(6)]
+    ran = []
+
+    def execute(h, card, leg):
+        time.sleep(0.01)
+        res = {"leg": leg.name, "arch": h.arch, "verdict": "PASS", "worker": f"qb2:{card}"}
+        if card == 1:
+            raise gf.CardDead({**res, "verdict": "FAIL"}, "TT_THROW: failed to initialize FW")
+        ran.append((card, leg.name))
+        return res
+
+    res = gf.Gate({"bh": list(legs)}, [(host, 0), (host, 1)], set(), execute, tmp_path).run()
+    assert sorted(r["leg"] for r in res) == sorted(lg.name for lg in legs)
+    assert {r["verdict"] for r in res} == {"PASS"}
+    assert {c for c, _ in ran} == {0}
+
+
+def test_a_leg_that_kills_two_cards_is_recorded_as_it_ran(tmp_path):
+    host = _host("qb2", "bh", tmp_path)
+    killed = []
+
+    def execute(h, card, leg):
+        killed.append(card)
+        raise gf.CardDead({"leg": leg.name, "arch": h.arch, "verdict": "FAIL",
+                           "worker": f"qb2:{card}"}, "ARC core (8, 0) failed to start.")
+
+    res = gf.Gate({"bh": [gf.Leg("ux:killer", [], "ux")]}, [(host, 0), (host, 1), (host, 2)], set(),
+                  execute, tmp_path).run()
+    assert [r["verdict"] for r in res] == ["FAIL"] and len(killed) == 2
+
+
+def test_a_leg_no_card_is_left_to_run_is_unrun_and_fails_the_gate(tmp_path):
+    host = _host("qb2", "bh", tmp_path)
+
+    def execute(h, card, leg):
+        raise gf.CardDead({"leg": leg.name, "arch": h.arch, "verdict": "FAIL",
+                           "worker": f"qb2:{card}"}, "TT_THROW: failed to initialize FW")
+
+    legs = [gf.Leg("ux:a", [], "ux"), gf.Leg("ux:b", [], "ux")]
+    res = gf.Gate({"bh": legs}, [(host, 0)], set(), execute, tmp_path).run()
+    assert {r["leg"]: r["verdict"] for r in res} == {"ux:a": "UNRUN", "ux:b": "UNRUN"}
+    assert not gf.write_verdict(tmp_path, "f" * 40, ["bh"], res)
+
+
+def test_the_card_probe_reads_dead_only_when_it_ran_and_did_not_dispatch(tmp_path, monkeypatch):
+    monkeypatch.setattr(gf, "CARD_PROBE_GAP_S", 0)
+    host = gf.Host("qb2", {"arch": "bh", "card_type": "p300c", "root": str(tmp_path),
+                           "lock": "/tmp/chip{card}.lock"}, "f" * 40)
+    seen = []
+
+    def fake(stdout):
+        def ssh(cmd, **kw):
+            seen.append(cmd)
+            return subprocess.CompletedProcess(cmd, 0, stdout, "")
+        return ssh
+
+    host.ssh = fake("CARD_PROBE_START\nCARD_OPEN\nCARD_HEALTHY\n")
+    assert host.card_dead(1) is None
+    assert "TT_VISIBLE_DEVICES=1" in seen[-1] and "flock -w" in seen[-1] and "/tmp/chip1.lock" in seen[-1]
+    host.ssh = fake("")                                       # never got the flock
+    assert host.card_dead(1) is None
+    host.ssh = fake("CARD_PROBE_START\nTT_THROW: Device 0 init: failed to initialize FW!\n")
+    assert "failed to initialize FW" in host.card_dead(1)
+    assert len(seen) == 1 + 1 + gf.CARD_PROBE_TRIES
+    outs = iter(["CARD_PROBE_START\nRuntimeError: lease held\n", "CARD_PROBE_START\nCARD_OPEN\nCARD_HEALTHY\n"])
+    host.ssh = lambda cmd, **kw: subprocess.CompletedProcess(cmd, 0, next(outs), "")
+    assert host.card_dead(1) is None              # a failed leg's workers let go: not dead
+
+
+SHARED = [256, 512, 640, 768, 896, 1024]
+RUNGS = {"p150a": {"boltz2": SHARED + [1152, 1280, 1408, 1536], "rf3": SHARED + [1088, 1152, 1280, 1408, 1536]},
+         "tt-galaxy-wh-l": {"boltz2": SHARED + [1280, 1536], "rf3": SHARED + [1088, 1280, 1536]},
+         "*": {"boltz2": SHARED, "rf3": SHARED + [1088]}}
+
+
+def test_a_ladder_runs_as_rung_groups_that_keep_the_exponent_rungs_together():
+    legs = {lg.name: lg for lg in gf.build_legs({**ROSTER, "rungs": RUNGS}, [], 1) if lg.family == "ladder"}
+    assert sorted(legs) == ["ladder:boltz2@1152-1280", "ladder:boltz2@1408-1536", "ladder:boltz2@256-768",
+                            "ladder:boltz2@896-1024", "ladder:rf3@1152-1280", "ladder:rf3@1408-1536",
+                            "ladder:rf3@256-768", "ladder:rf3@896-1088"]
+    a = legs["ladder:boltz2@256-768"]
+    assert a.rungs == (256, 512, 640, 768)
+    assert a.argv[-3:] == ["--size-ladder-part", "--size-ladder-rungs", "256,512,640,768"]
+    assert gf.ladder_model(a.name) == "boltz2" and gf.out_group(a.name) == a.name
+    # a tree whose roster carries no rungs keeps one leg per model
+    assert [lg.name for lg in gf.build_legs(ROSTER, [], 1) if lg.family == "ladder"] == ["ladder:boltz2", "ladder:rf3"]
+
+
+def test_a_rung_group_goes_only_to_a_card_whose_ladder_walks_it(tmp_path):
+    roster = {"rungs": RUNGS}
+    legs = {lg.name: lg for lg in gf.build_legs({**ROSTER, **roster}, [], 1) if lg.family == "ladder"}
+
+    def host(ct):
+        return gf.Host(ct, {"arch": "bh", "card_type": ct, "root": "/r"}, "f" * 40)
+
+    p300c, p150a, wh = host("p300c"), host("p150a"), host("tt-galaxy-wh-l")
+    assert gf.rungs_fit(roster, p300c, legs["ladder:boltz2@896-1024"])
+    assert not gf.rungs_fit(roster, p300c, legs["ladder:boltz2@1408-1536"])
+    assert gf.rungs_fit(roster, p150a, legs["ladder:boltz2@1408-1536"])
+    assert gf.rungs_fit(roster, wh, legs["ladder:boltz2@1408-1536"])       # 1536
+    assert gf.rungs_fit(roster, wh, legs["ladder:boltz2@1152-1280"])        # 1280
+    assert not gf.rungs_fit(roster, p300c, legs["ladder:rf3@1152-1280"])
+    assert gf.rungs_fit(roster, p300c, gf.Leg("rg:x", [], "rg"))
+
+
+
+def test_record_abb3_leg_only_with_its_flag_and_only_on_p300c():
+    assert gf.ABB3_LEG not in [lg.name for lg in gf.build_legs(ROSTER, [], 1)]
+    leg = {lg.name: lg for lg in gf.build_legs(ROSTER, [], 1, record_abb3=True)}[gf.ABB3_LEG]
+    assert leg.family == "record" and leg.workdir and leg.card_types == ("p300c",)
+
+    class H:
+        def __init__(self, ct):
+            self.cfg = {"card_type": ct}
+    assert gf.type_fits(H("p300c"), leg) and not gf.type_fits(H("p150a"), leg)
+    assert gf.type_fits(H("p150a"), gf.Leg("x", [], "rg"))
+
+
+MODEL_REC = """# The model gate.
+RECORDED-AT: {sha} scripts/abb3_port/model_gate.py
+#
+=== raw ===
+{rows}"""
+STEP_REC = """# The step gate.
+RECORDED-AT: {sha} scripts/abb3_port/step_gate.py
+#
+== --micro 8 ==
+TT_FATAL: Out of Memory: Not enough space to allocate 100663296 B DRAM buffer
+== default: --micro 4 ==
+{step}"""
+ARM = "  ok   frames  1.0e-02  0.0e+00\n  {v} angles  {a}  0.0e+00\n  grad on   atom14 positions: max 0.2 A\n"
+STEP = ("  taped device parameters: 500\n  step   1  19.7 s  loss 4.9937\n  step  10  19.0 s  loss {l10}\n"
+        "STEP: median 19.379 s over 10 COMPLETE steps\n"
+        "CLOCK: AICLK during the run: card 0 min 1343 median 1350 max 1350 MHz over 80\n"
+        "DRAM: peak 30981 MB of the card's 32640 MB\n")
+
+
+def _abb3_tree(tmp_path, arms, step, step_rc=0, oom=True):
+    """A tree whose abb3 gate scripts print canned output, and its committed records."""
+    (tmp_path / "scripts/abb3_port").mkdir(parents=True)
+    (tmp_path / "perf/abb3_port").mkdir(parents=True)
+    (tmp_path / "out").mkdir()
+    (tmp_path / "arms.json").write_text(json.dumps(arms))
+    (tmp_path / "scripts/abb3_port/model_gate.py").write_text(
+        "import json, sys\nfrom pathlib import Path\n"
+        "a = json.loads((Path(__file__).parents[2] / 'arms.json').read_text())[sys.argv[4] + '/' + sys.argv[2]]\n"
+        "print(a); sys.exit('FAIL' in a)\n")
+    (tmp_path / "scripts/abb3_port/step_gate.py").write_text(
+        "import sys\n"
+        f"if '--micro' in sys.argv:\n    print({'TT_FATAL: Out of Memory: Not enough space to allocate 67108864 B' if oom else 'ok'!r}); sys.exit({int(oom)})\n"
+        f"print({step!r}); sys.exit({step_rc})\n")
+    return tmp_path
+
+
+def _abb3_run(tree, sha="b" * 40):
+    return subprocess.run([sys.executable, "-c", gf.ABB3_RECORD, str(tree / "out"), sha, "qb2:3", "p300c",
+                           str(gf.ABB3_LOSS_TOL), *gf.ABB3_FILES], cwd=tree, capture_output=True, text=True)
+
+
+def _abb3_commit(tree, arms, step):
+    order = [arms[f"{s}/{t}"] for s in ("0.05", "0.3") for t in ("64", "256")]
+    (tree / gf.ABB3_FILES[0]).write_text(MODEL_REC.format(sha="a" * 40, rows="".join(order)))
+    (tree / gf.ABB3_FILES[1]).write_text(STEP_REC.format(sha="a" * 40, step=step))
+
+
+ARMS = {f"{s}/{t}": ARM.format(v="ok  ", a="1.5e-02") for s in ("0.05", "0.3") for t in ("64", "256")}
+ARMS["0.3/256"] = ARM.format(v="FAIL", a="5.11e-02")
+
+
+def test_record_abb3_rerecords_when_every_row_matches(tmp_path):
+    tree = _abb3_tree(tmp_path, ARMS, STEP.format(l10="4.9911"))
+    _abb3_commit(tree, ARMS, STEP.format(l10="4.9910"))   # a last-digit loss move is within tolerance
+    r = _abb3_run(tree)
+    assert r.returncode == 0, r.stderr
+    model = (tree / "out/model_gate_qb1c3.txt").read_text()
+    step = (tree / "out/step_gate_default_qb1c3.txt").read_text()
+    assert f"RECORDED-AT: {'b' * 40} scripts/abb3_port/model_gate.py" in model and "a" * 40 not in model
+    assert "identical to the aaaaaaaaa record, which still FAILs angles at 5.11e-02 (sigma 0.3, 256 tokens)" \
+        in " ".join(ln.lstrip("# ") for ln in model.splitlines())
+    assert model.index("RE-RECORDED") < model.index("=== raw ===")
+    flat = " ".join(ln.lstrip("# ") for ln in step.splitlines())
+    assert "Losses 4.9937 / 4.9911 at steps 1, 10, 500 taped parameters and the 30981 MB DRAM peak" in flat
+    assert "67,108,864 B request" in flat and "AICLK median 1350 (min 1343)" in flat
+    assert (tree / "out/model_gate.txt").exists() and (tree / "out/step_gate_micro8.txt").exists()
+
+
+@pytest.mark.parametrize("change", ["row", "loss", "peak", "fits"])
+def test_record_abb3_fails_on_any_difference(tmp_path, change):
+    arms, step, oom = dict(ARMS), STEP.format(l10="4.9911"), True
+    committed = dict(ARMS)
+    if change == "row":
+        arms["0.05/64"] = ARM.format(v="ok  ", a="1.6e-02")
+    elif change == "loss":
+        step = STEP.format(l10="4.9921")
+    elif change == "peak":
+        step = step.replace("30981", "31002")
+    else:
+        oom = False
+    tree = _abb3_tree(tmp_path, arms, step, oom=oom)
+    _abb3_commit(tree, committed, STEP.format(l10="4.9911"))
+    r = _abb3_run(tree)
+    assert r.returncode != 0 and "abb3 records do not match" in r.stderr
+    assert not (tree / "out/model_gate_qb1c3.txt").exists()
+
+
+def test_a_record_runs_once_per_card_type_the_gate_holds():
+    legs = {lg.name: lg for lg in gf.build_legs(ROSTER, [], 1, "", "rf3", record_cards=("p150a", "p300c"))
+            if lg.family == "record"}
+    assert sorted(legs) == ["record:rf3@p150a", "record:rf3@p300c"]
+    assert legs["record:rf3@p300c"].card_types == ("p300c",)
+    assert gf.ladder_model("record:rf3@p300c") == "rf3"
+    qb1 = gf.Host("qb1", {"arch": "bh", "card_type": "p150a", "lock": "/l{card}", "root": "/r"}, "a" * 40)
+    assert gf.type_fits(qb1, legs["record:rf3@p150a"]) and not gf.type_fits(qb1, legs["record:rf3@p300c"])

@@ -14,7 +14,9 @@ from __future__ import annotations
 
 import hashlib
 import os
+import pickle
 import warnings
+from collections.abc import Mapping
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
@@ -171,29 +173,98 @@ def run_esm(
     model_name: str = ESM2_MODEL,
     cache_dir: Path | None = None,
 ) -> int:
-    """Write ``[1, L+2, 1280]`` final-layer ESM-2 embeddings, skipping ones on disk."""
-    missing = {m: s for m, s in seqs.items() if not cached(esm_dir / f"{m}.safetensors")}
-    if not missing:
-        return 0
-    from tt_bio._vendor.nesso.data.esm import extract_esm_embedding, setup_esm_model
+    """Write ``[1, L+2, 1280]`` final-layer ESM-2 embeddings, skipping ones on disk.
 
-    model, tokenizer = setup_esm_model(model_name, torch.device("cpu"), cache_dir=cache_dir)
-    for mid, seq in sorted(missing.items()):
-        emb = extract_esm_embedding(seq, model, tokenizer)
-        with staged(esm_dir / f"{mid}.safetensors") as tmp:
-            save_file({"embeddings": emb}, tmp)
+    The embedding is a pure function of the sequence, and a screen re-runs the same target
+    with every new batch of ligands, so it is also kept per user under the cache root and
+    linked in from there: 7.6 s of a 512 aa invocation on qb1 (transformers import, the 650M
+    load, the forward) is paid once per target rather than once per run. Returns how many
+    were computed.
+    """
+    from tt_bio.weights import cache_root
+
+    store = cache_root() / "nesso1" / "esm2" / model_name.replace("/", "--")
+    todo = {m: s for m, s in seqs.items() if not cached(esm_dir / f"{m}.safetensors")}
+    missing = {m: s for m, s in todo.items() if not cached(store / f"{m}.safetensors")}
+    if missing:
+        from tt_bio._vendor.nesso.data.esm import extract_esm_embedding, setup_esm_model
+
+        store.mkdir(parents=True, exist_ok=True)
+        model, tokenizer = setup_esm_model(model_name, torch.device("cpu"), cache_dir=cache_dir)
+        for mid, seq in sorted(missing.items()):
+            emb = extract_esm_embedding(seq, model, tokenizer)
+            with staged(store / f"{mid}.safetensors") as tmp:
+                save_file({"embeddings": emb}, tmp)
+    link_given_esm({m: str(store / f"{m}.safetensors") for m in todo}, esm_dir)
     return len(missing)
 
 
-_CCD: dict | None = None
+class CcdMols(Mapping):
+    """``ccd.pkl`` as a mapping that only unpickles the whole file when it has to.
+
+    The file is 413 MB and takes 5 s to unpickle, and a protein with a SMILES ligand reads
+    nothing from it but the standard residues. Those are kept in a small sidecar pickle
+    derived from ccd.pkl on first use (keyed on the file's path, size and mtime), and the
+    full dict is loaded, once per process, only for a code outside that set. The sidecar
+    holds the same mols re-pickled under the same RDKit pickle options the full load
+    reads them with, so a caller gets the same objects either way.
+    """
+
+    _full: dict[Path, dict] = {}
+
+    def __init__(self, ccd_pkl: Path):
+        from tt_bio._vendor.nesso.data.inference import STANDARD_AA
+        from tt_bio.weights import cache_root
+
+        self.path = Path(ccd_pkl).resolve()
+        self.covered = frozenset(STANDARD_AA)
+        st = self.path.stat()
+        key = hashlib.sha256(f"{self.path}:{st.st_size}:{st.st_mtime_ns}".encode()).hexdigest()[:16]
+        side = cache_root() / "nesso1" / f"ccd-standard-{key}.pkl"
+        if cached(side):
+            with side.open("rb") as f:
+                self.sub = pickle.load(f)  # noqa: S301 - our own derived file
+        else:
+            full = self.full()
+            self.sub = {k: full[k] for k in sorted(self.covered) if k in full}
+            side.parent.mkdir(parents=True, exist_ok=True)
+            with staged(side) as tmp, open(tmp, "wb") as f:
+                pickle.dump(self.sub, f)
+
+    def full(self) -> dict:
+        if self.path not in self._full:
+            from tt_bio._vendor.nesso.data.yaml_input import load_ccd_mol_dict
+
+            self._full[self.path] = load_ccd_mol_dict(self.path)
+        return self._full[self.path]
+
+    def _src(self, code) -> dict:
+        return self.sub if code in self.covered else self.full()
+
+    def __contains__(self, code) -> bool:
+        return code in self._src(code)
+
+    def __getitem__(self, code):
+        return self._src(code)[code]
+
+    def __iter__(self):
+        return iter(self.full())
+
+    def __len__(self) -> int:
+        return len(self.full())
+
+    def standard(self) -> dict:
+        """The standard residues, the only part of the CCD the featurizer reads."""
+        return dict(self.sub)
+
+
+_CCD: CcdMols | None = None
 
 
 def _init_worker(ccd_pkl: Path | None) -> None:
     global _CCD
     if ccd_pkl is not None:
-        from tt_bio._vendor.nesso.data.yaml_input import load_ccd_mol_dict
-
-        _CCD = load_ccd_mol_dict(ccd_pkl)
+        _CCD = CcdMols(ccd_pkl)
 
 
 def _parse_one(yp: Path, mol_dir: Path, structures_dir: Path, records_dir: Path) -> Record:
@@ -252,7 +323,7 @@ def build_dataset(paths: Paths, manifest: Manifest, ccd_pkl: Path, max_dist: flo
         manifest=manifest,
         target_dir=paths.processed,
         ligand_dir=paths.mol_dir,
-        ccd_pkl=ccd_pkl,
+        standard_aa_mols=CcdMols(ccd_pkl).standard(),
         use_esm_all_layers=False,
         num_dist_bins=64,
         min_dist=2.0,

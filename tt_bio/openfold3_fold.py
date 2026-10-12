@@ -19,14 +19,21 @@ from .openfold3_host_prep import relpos_codes_device
 from .openfold3_weights import _sub
 from .envflags import env_flag
 
-# OpenFold3's `--fast` set is its normal set plus dit_s16 (graded in tenstorrent.py). The two other fast-only levers that reach it buy no time
-# and cost confidence: on Wormhole, 9LLG warm 139.6 s normal against 143.2 (diffusion_bf16),
-# 142.8 (acc_off) and 141.0 (FAST_LEVERS), with mean pLDDT 0.733 falling to 0.688, 0.712 and
-# 0.631; FAST_LEVERS fails the fast bar on the 11-set (CA-lDDT -0.101, six complexes collapse).
+# OpenFold3's `--fast` set is its normal set plus dit_s16 and diffusion_bf16 (the bf16 DiT stack). The stack's
+# Blackhole 11-set fast grade against the normal arm, 44 paired folds per model, seeds 101-104: OpenFold3 top pose
+# median 0.401 A (seed floor 1.023 A), CA-lDDT -0.0019, docking 18 -> 19/44; OpenBind-0 0.209 A (floor 1.898 A),
+# CA-lDDT -0.0017, docking 26 -> 26/44. Both PASS. The old Wormhole reading (9LLG pLDDT 0.733 -> 0.688, 143.2 s against
+# 139.6) predates the on-device bf16 atom pad that lets the bf16 rollout trace. acc_off stays out: it cost confidence
+# (0.712) and bought nothing.
 # transition_bw and transition_shard stay out: OpenFold3 c730 gains nothing with them (113.2 -> 112.9 s, Wormhole
 # 1000 MHz) and its normal 11-set grade fails DockQ (-0.0168 [-0.0474, -0.0006], 44 paired folds, spd-trans2).
 NORMAL_LEVERS = _T.NORMAL_LEVERS - {"transition_bw", "transition_shard"}
-FAST_LEVERS = NORMAL_LEVERS | {"dit_s16"}
+# trimul_t1 + trimul_t2 (the triangle multiplication's input and output as one kernel each, Blackhole only: Wormhole
+# declines them) join --fast on the Blackhole 11-set fast grade against today's --fast, 44 paired folds per model:
+# OpenFold3 top pose median 0.352 A (seed floor 1.328 A), CA-lDDT -0.0002 [-0.0012, +0.0008], docking 19 -> 19/44,
+# PASS; OpenBind-0 top pose median 0.391 A (seed floor 2.079 A), CA-lDDT +0.0003 [-0.0004, +0.0011],
+# docking 26 -> 26/44, PASS. 512-token fold on a p300c chip: OpenFold3 11.02 -> 10.08 s, OpenBind-0 11.40 -> 9.99 s.
+FAST_LEVERS = NORMAL_LEVERS | {"dit_s16", "diffusion_bf16", "trimul_t1", "trimul_t2"}
 
 def kabsch_rmsd(pred_ca, gt_ca):
     """Optimal-superposition Cα-RMSD (Kabsch). pred_ca, gt_ca: [N, 3].

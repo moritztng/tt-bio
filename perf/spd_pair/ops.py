@@ -6,6 +6,7 @@ float64 torch reference of the same math on the same bf16 inputs. AICLK sampled 
 
 Groups (--groups):
   ln    ttnn.layer_norm on [1, N, N, c_z] bf16 under several fidelity / dest-accumulation configs
+  lnview the same norm on the rank-4 pair, a rank-3 and a rank-2 view of it; torch.equal against rank 4
   tail  triangle attention's tail: multiply_(o, g, SIGMOID on b), the head-major out projection, add_
   add   the bare residual add_ of two pair tensors
   trans the pair transition's assembly at row height h (--trans-h): today ttnn.chunk + concat of the
@@ -165,8 +166,53 @@ if "ln" in groups:
     for t in (x, gw, bw):
         ttnn.deallocate(t)
 
+if "lnview" in groups:
+    # The trimul norms run on the rank-4 pair and the triangle attention norm on a rank-3 view of
+    # the same buffer; the census read them 485-507 vs 403-411 us. Same values expected: torch.equal.
+    gamma = (1 + 0.3 * torch.randn(C)).bfloat16(); beta = (0.2 * torch.randn(C)).bfloat16()
+    x = ttnn.from_torch(z_host, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
+    gw = ttnn.from_torch(gamma.reshape(1, C), layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
+    bw = ttnn.from_torch(beta.reshape(1, C), layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
+    shapes = {"r4": (1, N, N, C), "r3": (N, N, C), "r2": (N * N, C)}
+    for cname, (fid, f32) in {"fast_today": ("HiFi4", False), "normal_today": ("HiFi3", True)}.items():
+        k = ckc(fid, f32)
+        arms = {}
+        base = ttnn.to_torch(ttnn.layer_norm(x, weight=gw, bias=bw, epsilon=1e-5, compute_kernel_config=k))
+        for sname, shp in shapes.items():
+            for mc in ("inherit", "dram"):
+                kw = {"memory_config": ttnn.DRAM_MEMORY_CONFIG} if mc == "dram" else {}
+
+                def fn(shp=shp, kw=kw):
+                    v = ttnn.reshape(x, shp) if tuple(x.shape) != shp else x
+                    return ttnn.layer_norm(v, weight=gw, bias=bw, epsilon=1e-5, compute_kernel_config=k, **kw)
+
+                def score(fn=fn):
+                    o = fn(); t = ttnn.to_torch(o).reshape(base.shape); ttnn.deallocate(o)
+                    return {"equal_r4": bool(torch.equal(t, base))}
+                arms[f"{cname}_{sname}_{mc}"] = (fn, score)
+        # LayerNormDefaultProgramConfig variants on the rank-4 pair (legacy_reduction / legacy_rsqrt;
+        # use_welford needs a reciprocal tensor and is not tried): equality against the shipped call plus the float64 distance.
+        xd = z_host.double()
+        ref = ((xd - xd.mean(-1, keepdim=True)) / torch.sqrt(xd.var(-1, unbiased=False, keepdim=True) + 1e-5)
+               * gamma.double() + beta.double())
+        for pname, pkw in {"pc_none": None, "pc_default": {}, "pc_legacy_red": {"legacy_reduction": True},
+                           "pc_legacy_rsqrt": {"legacy_rsqrt": True},
+                           "pc_legacy_both": {"legacy_reduction": True, "legacy_rsqrt": True}}.items():
+            pc = {} if pkw is None else {"program_config": ttnn.LayerNormDefaultProgramConfig(**pkw)}
+
+            def fn(pc=pc):
+                return ttnn.layer_norm(x, weight=gw, bias=bw, epsilon=1e-5, compute_kernel_config=k, **pc)
+
+            def score(fn=fn):
+                o = fn(); t = ttnn.to_torch(o).reshape(base.shape); ttnn.deallocate(o)
+                return {"equal_r4": bool(torch.equal(t, base)), **rel(t.float(), ref)}
+            arms[f"{cname}_{pname}"] = (fn, score)
+        run_arms("lnview", arms, A.calls)
+    for t in (x, gw, bw):
+        ttnn.deallocate(t)
+
 if "add" in groups:
-    za = ttnn.from_torch(z_host, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
+    za =ttnn.from_torch(z_host, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
     zb = ttnn.from_torch(z_host, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
     run_arms("add", {"add_": (lambda: (ttnn.add_(za, zb), None)[1], None)}, A.calls)
     ttnn.deallocate(za); ttnn.deallocate(zb)

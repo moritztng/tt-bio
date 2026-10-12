@@ -30,10 +30,11 @@ def test_load_runs_fast_on_wormhole(monkeypatch, wormhole, fast, want):
     mod.ESMFold2Model = Model
     monkeypatch.setitem(sys.modules, "tt_bio._vendor.esmfold2_hf.modeling_esmfold2", mod)
     monkeypatch.setattr(rt, "is_wormhole", lambda: wormhole)
-    seen = {}
-    monkeypatch.setattr(rt, "patch_esmfold2", lambda model, **k: seen.update(k) or model)
+    built = {}
+    monkeypatch.setattr(rt, "patch_esmfold2", lambda model, **k: built.update(k) or model)
     monkeypatch.setattr(tenstorrent, "_FAST_MODE", False)
     rt.load_ttnn_esmfold2(fast=fast)
-    # The model is built fast (the ESMC-6B in block-fp8). On Blackhole that is a lever set, not the
-    # older _FAST_MODE (fold_scope), so the flag the loader hands on is what this pins.
-    assert seen["fast"] is want
+    # The model is built fast. Only Wormhole does it through the older `_FAST_MODE`; Blackhole builds
+    # --fast under LEVERS_FAST with `_FAST_MODE` off (esmfold2_runtime.fold_scope).
+    assert built["fast"] is want
+    assert tenstorrent._FAST_MODE is (want and wormhole)
