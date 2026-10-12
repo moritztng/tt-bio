@@ -1043,7 +1043,8 @@ def test_a_leg_no_card_is_left_to_run_is_unrun_and_fails_the_gate(tmp_path):
     assert not gf.write_verdict(tmp_path, "f" * 40, ["bh"], res)
 
 
-def test_the_card_probe_reads_dead_only_when_it_ran_and_did_not_dispatch(tmp_path):
+def test_the_card_probe_reads_dead_only_when_it_ran_and_did_not_dispatch(tmp_path, monkeypatch):
+    monkeypatch.setattr(gf, "CARD_PROBE_GAP_S", 0)
     host = gf.Host("qb2", {"arch": "bh", "card_type": "p300c", "root": str(tmp_path),
                            "lock": "/tmp/chip{card}.lock"}, "f" * 40)
     seen = []
@@ -1061,3 +1062,7 @@ def test_the_card_probe_reads_dead_only_when_it_ran_and_did_not_dispatch(tmp_pat
     assert host.card_dead(1) is None
     host.ssh = fake("CARD_PROBE_START\nTT_THROW: Device 0 init: failed to initialize FW!\n")
     assert "failed to initialize FW" in host.card_dead(1)
+    assert len(seen) == 1 + 1 + gf.CARD_PROBE_TRIES
+    outs = iter(["CARD_PROBE_START\nRuntimeError: lease held\n", "CARD_PROBE_START\nCARD_OPEN\nCARD_HEALTHY\n"])
+    host.ssh = lambda cmd, **kw: subprocess.CompletedProcess(cmd, 0, next(outs), "")
+    assert host.card_dead(1) is None              # a failed leg's workers let go: not dead
