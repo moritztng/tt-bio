@@ -6077,6 +6077,27 @@ def set_trimul_inproj_b8(on: bool) -> bool:
     prev, _TRIMUL_INPROJ_B8 = _TRIMUL_INPROJ_B8, bool(on)
     return prev
 _TRIMUL_IBW_FULL_REFUSED: set = set()
+# The triangle product with whole channels per core (`MatmulMultiCoreReuseProgramConfig`, the
+# channel batch spread over the grid) instead of the 2D multicast plan, at sequence lengths where
+# that plan hands every core a single output tile (`per_core_M == per_core_N == 1`: up to 8 tiles
+# on Wormhole's 8x9, 10 on Blackhole's 11x10). There the multicast plan engages St^2 cores (49 of
+# 72 at 195-224 tokens) and loops each over all C channels with a multicast per channel. Same K
+# block, so the output is `torch.equal` to the multicast plan's. MEASURED on Wormhole (.114 chip 2,
+# 1000 MHz, perf/spd/af2_trimul_bmm_sweep.py, both deferred transposes, operands in L1 as the
+# untaped trunk runs them): [1,64,195,195]^2 0.40 -> 0.098 ms, [1,128,195,195]^2 0.80 -> 0.20 ms,
+# [1,64,224,224]^2 0.167 -> 0.103 ms; in DRAM (the taped path) 0.19 -> 0.155 and 0.37 -> 0.29 ms.
+# Blackhole stays off until measured there. None = arch default.
+_TRIMUL_PER_CHANNEL = env_flag("TT_BIO_TRIMUL_PER_CHANNEL", None)
+# Sequence tiles whose per-channel plan clashed with live L1: they keep the multicast plan.
+_TRIMUL_PER_CHANNEL_REFUSED: set = set()
+
+
+def set_trimul_per_channel(on) -> object:
+    """A/B switch for the harness (None = arch default). Returns the previous value."""
+    global _TRIMUL_PER_CHANNEL
+    prev, _TRIMUL_PER_CHANNEL = _TRIMUL_PER_CHANNEL, on
+    _triangle_mul_program_config.cache_clear()
+    return prev
 
 
 # SPD lever (spd-trimul): the einsum's own math fidelity, "" = the trunk's. With all of K in one block
@@ -6197,6 +6218,13 @@ def _triangle_mul_program_config(seq_len_tiles: int, full: bool = False,
     while in0_block_w > 1 and _matmul_cb_bytes(in0_block_w, per_core_M, per_core_N, 2,
                                                extra_tiles=transposed(in0_block_w)) > budget:
         in0_block_w = max(d for d in range(in0_block_w - 1, 0, -1) if seq_len_tiles % d == 0)
+    if (per_core_M == per_core_N == 1 and seq_len_tiles not in _TRIMUL_PER_CHANNEL_REFUSED
+            and (is_wormhole() if _TRIMUL_PER_CHANNEL is None else _TRIMUL_PER_CHANNEL)
+            and _matmul_cb_bytes(in0_block_w, seq_len_tiles, seq_len_tiles, 2,
+                                 extra_tiles=2 * in0_block_w * seq_len_tiles) <= budget):
+        return ttnn.MatmulMultiCoreReuseProgramConfig(
+            compute_with_storage_grid_size=(gx, gy), in0_block_w=in0_block_w,
+            out_subblock_h=1, out_subblock_w=1, per_core_M=seq_len_tiles, per_core_N=seq_len_tiles)
     return ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(
         compute_with_storage_grid_size=(gx, gy),
         in0_block_w=in0_block_w,
@@ -6252,7 +6280,8 @@ def _mm_transpose_deferred(program_config) -> bool:
     is not taken here on that basis.
     """
     return _TRIMUL_MM_TRANSPOSE and not _FAST_MODE and isinstance(
-        program_config, ttnn.MatmulMultiCoreReuseMultiCastProgramConfig)
+        program_config, (ttnn.MatmulMultiCoreReuseMultiCastProgramConfig,
+                         ttnn.MatmulMultiCoreReuseProgramConfig))
 
 
 @lru_cache(maxsize=1)
@@ -10079,15 +10108,24 @@ class TriangleMultiplication(Module):
                 mask_clash = (large_seq and not tma_retry and "clash with L1 buffers" in msg
                               and any(_m.memory_config().buffer_type == ttnn.BufferType.L1
                                       for _m in _mask_moved_memo.values()))
+                pc_clash = (("clash with L1 buffers" in msg or "beyond max L1 size" in msg)
+                            and not mask_clash and not tma_retry
+                            and isinstance(program_config, ttnn.MatmulMultiCoreReuseProgramConfig))
+                if pc_clash:
+                    # The per-channel plan's whole-channel blocks against live L1: back to the
+                    # multicast plan for this length, same K block, same output.
+                    _TRIMUL_PER_CHANNEL_REFUSED.add(seq_len_tiles)
+                    _triangle_mul_program_config.cache_clear()
+                    program_config = _triangle_mul_program_config(seq_len_tiles, _trimul_ibw_full(), _trimul_subblock())
                 ibw_clash = (("clash with L1 buffers" in msg or "beyond max L1 size" in msg)
-                             and not mask_clash and not tma_retry
+                             and not mask_clash and not tma_retry and not pc_clash
                              and program_config.in0_block_w > _TRIMUL_IN0_BLOCK_W_BAND)
                 if ibw_clash:
                     # The full-K block is the newest L1 claimant in this call: give it up first.
                     _TRIMUL_IBW_FULL_REFUSED.add(seq_len_tiles)
                     _triangle_mul_program_config.cache_clear()
                     program_config = _triangle_mul_program_config(seq_len_tiles, _trimul_ibw_full(), _trimul_subblock())
-                if (not oom and not mask_clash and not ibw_clash and not tma_retry
+                if (not oom and not mask_clash and not ibw_clash and not pc_clash and not tma_retry
                         and (large_seq or "clash with L1 buffers" not in msg)):
                     raise
                 if t1 is not None:
