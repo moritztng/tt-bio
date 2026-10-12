@@ -10662,6 +10662,30 @@ def _pair_bias_from_z(z, ln_weight, ln_bias, bias_weight, compute_kernel_config,
     return bias
 
 
+_TRIATT_LN_CHECK = bool(os.environ.get("TT_BIO_TRIATT_LN_CHECK"))   # debug: every fused call vs the incumbent
+
+
+def _triatt_ln_check(mod, x, qkv, g, bias):
+    """Prints one line per served triatt_ln call: each of its five outputs against ttnn.layer_norm +
+    qkvgb on the same input (the incumbent), rel rms and max abs. Debug only (TT_BIO_TRIATT_LN_CHECK)."""
+    xn = ttnn.layer_norm(x, weight=mod.layer_norm_weight, bias=mod.layer_norm_bias, epsilon=1e-5,
+                         compute_kernel_config=ln_compute_kernel_config(mod.compute_kernel_config),
+                         memory_config=ttnn.DRAM_MEMORY_CONFIG)
+    rq, rg, rb = mod._fused_qkvgb(xn)
+    ttnn.deallocate(xn)
+    if rb is None:
+        print("TRIATT_LN_CHECK incumbent declined", flush=True)
+        return
+    parts = []
+    for name, got, ref in zip("qkvgb", (*qkv, g, bias), (*rq, rg, rb)):
+        a, r = ttnn.to_torch(got).double(), ttnn.to_torch(ref).double()
+        parts.append("%s rel %.5f max %.4f" % (name, float((a - r).pow(2).mean().sqrt() / r.pow(2).mean().sqrt()),
+                                               float((a - r).abs().max())))
+        ttnn.deallocate(ref)
+    print("TRIATT_LN_CHECK", "end" if mod.ending else "start", tuple(int(d) for d in x.shape), " | ".join(parts),
+          flush=True)
+
+
 class TriangleAttention(Module):
     def __init__(
         self,
@@ -11007,6 +11031,8 @@ class TriangleAttention(Module):
             if lever("triatt_ln") and int(x.shape[-1]) == 128 and self.layer_norm_bias is not None:
                 pre_qkv, pre_g, triangle_bias = self._fused_qkvgb(x, ln=True)
                 x_owned = self.ending
+                if _TRIATT_LN_CHECK and triangle_bias is not None:
+                    _triatt_ln_check(self, x, pre_qkv, pre_g, triangle_bias)
             if triangle_bias is None:
                 x = ttnn.layer_norm(
                     x,
