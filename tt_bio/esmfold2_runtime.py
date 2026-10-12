@@ -1021,8 +1021,13 @@ WH_LM_RESIDENT_MAX_TOKENS = 1088
 # NORMAL: the same set without trunk_hifi3 (the trunk matmuls stay HiFi4) passes the normal bar on ESMFold2-Fast
 # (44 paired folds vs none: CA-lDDT -0.0006 [-0.0022, +0.0006], TM +0.0007, docking 24/44 both, top-pose median
 # 0.93 A vs 1.40 A floor) and folds the 11-set in 9 % less time than none (p300c, paired sums 2498 vs 2751 s).
+# FAST adds trimul_b8in (the trimul in-projection writes bfp8 for the gated move), graded with the legacy SiLU gate
+# against none on the fast bar, 11 complexes x 4 seeds on Blackhole: ESMFold2-Fast CA-lDDT +0.0012 [-0.0026, +0.0059],
+# top-pose median 0.92 A vs 1.40 A floor, docking 24/44 both; ESMFold2 (41 paired) CA-lDDT +0.0021 [-0.0006,
+# +0.0061], top-pose median 0.44 A vs 1.12 A floor, docking 30/41 both. ~1 s off ESMFold2 --fast at 512 aa
+# (p300c, 1350 MHz: 27.80 vs 28.78 s; -Fast 18.71 vs 19.00).
 LEVERS_NORMAL = "normal-trunk_hifi3"
-LEVERS_FAST = "normal"
+LEVERS_FAST = "normal+trimul_b8in"
 
 
 def fold_levers(fast: bool) -> str:
