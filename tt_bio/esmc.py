@@ -179,8 +179,9 @@ _ESMC_QKV_SPLIT = env_flag("TT_BIO_ESMC_QKV_SPLIT", False)
 # The attention's input layer norm, the q/k layer norms and the qkv re-pack written to L1 instead of
 # DRAM: the qkv projection and the head split read them straight back, so DRAM never carries them. Same ops, same values (a memory
 # placement). An L1 refusal at a shape falls back to DRAM for that shape for good, decided in the
-# warm passes before a trace capture. Off until the page-cell A/B (esmc_ab.py) says.
-_ESMC_QK_L1 = env_flag("TT_BIO_ESMC_QK_L1", False)
+# warm passes before a trace capture. p150a page cell (esmc_ab.py, 2 rounds each, output identical to the DRAM path):
+# 600M 136.0/122.4 -> 113.9/115.4 ms, 300M --fast 85.4/88.1 -> 79.8/80.4 ms per batch of 7.
+_ESMC_QK_L1 = env_flag("TT_BIO_ESMC_QK_L1", True)
 _QK_L1_REFUSED: set = set()
 #: [attention calls served from L1, declined], read by the A/B harness.
 QK_L1_STATS = [0, 0]
