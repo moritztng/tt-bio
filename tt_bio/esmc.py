@@ -423,11 +423,12 @@ def _swiglu_gate_legacy() -> bool:
     return tenstorrent.arch_name() == "blackhole"
 
 # Wormhole tiles the per-token (3-D) FFN at SMALL_GRID_SEQ_TILE rows so the ESMC-6B's fc1 activation never asks a
-# 12 GB chip that already holds the 6B for one large block. A row count also cuts ESMC 300M/600M's whole page batch
-# ([7, 544, 2*d_ff], 39-47 MB of fc1) into three blocks plus a chunk and a concat: 35 of 212 ms (300M) and 75 of 346 ms
-# (600M) on a Galaxy chip (perf/wh-embed/op_census.py, 2026-10-11). A non-zero budget tiles only when the fc1
-# activation is larger than this many bytes. Row blocking is row-local, so the output is bit-identical either way.
-_LM_FFN_TILE_BYTES = env_int("TT_BIO_LM_FFN_TILE_BYTES", 0)
+# 12 GB chip that already holds the 6B for one large block. ESMC 300M/600M (~0.6 / 1.2 GB of weights) never needed it,
+# and on them the row count cut the whole page batch ([7, 544, 2*d_ff]) into three blocks plus a chunk and a concat:
+# off, a Galaxy chip runs a batch of 7 in 190 vs 213 ms (300M) and 276 vs 337 ms (600M), at the same error against
+# float32 (rel_l2 0.025 either way; not bit-identical, the matmul blocks differently at the larger M). So only a
+# model whose resident weights exceed this many bytes tiles; the 6B (12.7 GB in bf16) keeps its path exactly.
+_LM_FFN_TILE_MODEL_BYTES = env_int("TT_BIO_LM_FFN_TILE_MODEL_BYTES", 4 << 30)
 
 _PAIR_FFN_L1_LN = os.environ.get(
     "TT_BIO_PAIR_FFN_L1_LN", "1" if PAIR_FFN_L1_LN else "0") == "1"
@@ -634,6 +635,7 @@ class SwiGLUFFN(Module):
         # With no fused kernel in the wheel, `fuse_swiglu=True` really selects the split-fc1
         # path (see SPLIT_SWIGLU above). Build only the fc1 layout the live path reads.
         self.split_swiglu = bool(fuse_swiglu and not self.fuse_swiglu)
+        self.tile_rows = True  # per-token row tiling on small grids; ESMC's Block clears it for small models
         if self.split_swiglu:
             half = self.weights["1.weight"].shape[0] // 2
             self.fc1_weight = None
@@ -932,10 +934,7 @@ class SwiGLUFFN(Module):
             chunk = tenstorrent.pair_row_tile(L)
         else:
             t = tenstorrent.SMALL_GRID_SEQ_TILE
-            chunk = t if (t and L > t) else 0
-            if chunk and _LM_FFN_TILE_BYTES:
-                fc1_bytes = int(x.shape[0]) * int(L) * 2 * int(self.fc2_weight.shape[0]) * 2
-                chunk = 0 if fc1_bytes <= _LM_FFN_TILE_BYTES else chunk
+            chunk = t if (t and L > t and self.tile_rows) else 0
         try:
             if chunk:
                 parts = ttnn.chunk(x, -(-L // chunk), dim=1)
@@ -986,6 +985,8 @@ class Block(Module):
         self.attn = Attention(n_heads, self.scope("attn"), compute_kernel_config, out_scale=inv_scale)
         self.ffn = SwiGLUFFN(self.scope("ffn"), compute_kernel_config, fuse_swiglu=True,
                              out_scale=inv_scale)
+        d_ff, d = (int(v) for v in self.ffn.fc2_weight.shape[-2:])
+        self.ffn.tile_rows = n_layers * (4 * d * d + 3 * d * d_ff) * 2 > _LM_FFN_TILE_MODEL_BYTES
 
     def __call__(self, x: ttnn.Tensor, cos: ttnn.Tensor, sin: ttnn.Tensor,
                  attn_mask: ttnn.Tensor | None = None,
