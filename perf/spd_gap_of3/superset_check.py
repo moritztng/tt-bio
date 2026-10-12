@@ -1,12 +1,12 @@
 """OpenFold3 atom-transformer superset bias: `_superset_device` against `_superset_host`.
 
-    python perf/spd_gap_of3/superset_check.py --out out/superset [--atoms 4000,4096,1000] [--reps 5] [--dtype float32]
+    python perf/spd_gap_of3/superset_check.py --out out/superset [--atoms 4000,4096,1000] [--reps 5] [--dtype bfloat16]
 
 Random pair bias and a random 0 / -1e9 mask in OpenFold3's block layout, the key windows placed the way OF3 places
 them (128 keys centred on each 32-query block, shifted back inside the atoms at both ends). Reports bit-exactness of
-the device bias against the host path, max abs difference, and the median synced wall time of both. The fold runs
-the atom transformer in float32 (the default here); bfloat16 rounding hides operand truncation, so a bf16 pass
-proves less.
+the device bias against the host path, max abs difference, and the median synced wall time of both. Random inputs
+can pass where the fold's do not: in the fold (bf16) the card path is one bf16 ulp off in ~0.01-0.04 % of elements
+(superset_fold_check.py), and this script found 0 differences in either dtype.
 """
 import argparse, json, math, statistics, time
 from pathlib import Path
@@ -26,7 +26,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--atoms", default="4000,4096,1000")
     ap.add_argument("--reps", type=int, default=5)
-    ap.add_argument("--dtype", default="float32", choices=("float32", "bfloat16"))
+    ap.add_argument("--dtype", default="bfloat16", choices=("float32", "bfloat16"))
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
 
