@@ -713,6 +713,14 @@ trunk in block-fp8, where the triangle multiplications lost their fused in-proje
 Blackhole p150a (1350 MHz) ESMFold2-Fast took 30.2 s with `--fast` against 25.7 s without. It now takes
 24.5 s, and on a p300c chip `--fast` and normal mode fold within 0.7 s of each other.
 
+**OpenFold3 and OpenBind-0** run the normal set without the two transition levers. Their `--fast` set adds
+`dit_s16` and `diffusion_bf16`, which run the diffusion transformer in bf16 with the same fused attention
+kernels as the fp32 path. Graded against normal mode on 11 complexes x 4 seeds on Blackhole (44 paired folds per
+model): OpenFold3's median same-seed top-pose deviation is 0.40 A where a different seed moves it 1.02 A, CA-lDDT
+-0.0019, docking success 18 -> 19 of 44; OpenBind-0 moves 0.21 A against 1.90 A, CA-lDDT -0.0017, docking success
+26 of 44 in both. A 512-residue single-sample fold takes about 0.9 s less: 12.2 to 11.3 s for OpenFold3 on a
+Blackhole p300c chip at 1350 MHz, same chip, alternating runs.
+
 ## `TT_BIO_LNBW_FUSED`
 
 Default: off, training only.

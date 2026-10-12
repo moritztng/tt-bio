@@ -31,7 +31,7 @@ from . import tenstorrent as _T
 from . import ops
 from .tenstorrent import (Module, AdaLN, CORE_GRID_MAIN, _dtype, _cached, batched_matmul,
                           host_f64_softmax_site, site_softmax, softmax_ckc)
-from .eltwise_fusion import scale_add, mask_add, _taping
+from .eltwise_fusion import gated_add, scale_add, mask_add, _taping
 
 
 def remap_of3_adaln(sd: dict) -> dict:
@@ -201,9 +201,35 @@ class OF3AtomTransformer(Module):
         # layer_norm + 2-linear groups are nine tensor pairs per rollout, not per call.
         ada_s = ()          # a cached None would break the sampler free walk
         if _T.ADALN_S_HOIST:
-            ada_s = [(self.adaln_q[b].s_terms(s_q), self.adaln_k[b].s_terms(s_k),
-                      self.adaln_t[b].s_terms(s)) for b in range(3)]
+            ada_s = [(self._sig(self.adaln_q[b].s_terms(s_q)), self._sig(self.adaln_k[b].s_terms(s_k)),
+                      self._sig(self.adaln_t[b].s_terms(s))) for b in range(3)]
+        if self._sig_gates():
+            ada_raw = [ttnn.sigmoid(g) for g in ada_raw]
+            cg_raw = [ttnn.sigmoid(g) for g in cg_raw]
         return z_bias, s_q, s_k, ada_raw, cg_raw, ada_s
+
+    def _sig_gates(self):
+        """adaln_mod on an fp32 stack: every rollout-invariant gate and AdaLN scale is stored past
+        its sigmoid, so each AdaLN is LN + one addcmul (`_SigTerms`), the attention residual one
+        addcmul and the transition gate a plain multiply: 12 fewer ops and no per-call sigmoid in
+        each of the rollout's 400 atom-transformer calls."""
+        return self._act_dtype == ttnn.float32 and _T.lever("adaln_mod")
+
+    def _gate_add(self, x, o, g):
+        """``x + o * sigmoid(g)``, with `g` already past its sigmoid under `_sig_gates`. Frees `o`."""
+        if self._sig_gates():
+            out = gated_add(x, o, g)
+        else:
+            o2 = ttnn.multiply(o, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
+            out = ttnn.add(x, o2)
+            ttnn.deallocate(o2)
+        ttnn.deallocate(o)
+        return out
+
+    def _sig(self, terms):
+        if not self._sig_gates():
+            return terms
+        return _T._SigTerms((ttnn.sigmoid(terms[0]), terms[1]))
 
     def _transition(self, x, s, b, ada_s, cg_raw, atom_mask_col):
         """AdaLN-conditioned SwiGLU transition with the sigmoid(linear_g(s)) zero gate, residual."""
@@ -216,7 +242,8 @@ class OF3AtomTransformer(Module):
         ttnn.deallocate(b1); ttnn.deallocate(b2)
         out = self._lin(bb, ct + "linear_out.weight")
         ttnn.deallocate(bb)
-        out = ttnn.multiply(out, cg_raw[b], input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
+        out = ttnn.multiply(out, cg_raw[b], **({} if self._sig_gates() else
+                                               {"input_tensor_b_activations": [ttnn.UnaryOpType.SIGMOID]}))
         x = mask_add(x, out, atom_mask_col)
         ttnn.deallocate(out)
         return x
@@ -254,7 +281,7 @@ class OF3AtomTransformer(Module):
             full = full.clamp(min=-1e4) * dh ** 0.5
             bias = _T.upload(full.permute(1, 0, 2, 3).reshape(1, H * nb, nq, W),
                              self._act_dtype, self.device)
-            terms = ((self.adaln_q[b].s_terms(s), self.adaln_k[b].s_terms(s))
+            terms = ((self._sig(self.adaln_q[b].s_terms(s)), self._sig(self.adaln_k[b].s_terms(s)))
                      if _T.ADALN_S_HOIST else ((), ()))   # () not None: the cache free walks it
             out.append((bias, *terms))
         return out
@@ -343,9 +370,7 @@ class OF3AtomTransformer(Module):
                                   input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
                 ttnn.deallocate(a_qn)
                 o = self._lin(o, apb + "mha.linear_o.weight")
-                o = ttnn.multiply(o, ada_raw[b], input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
-                x = ttnn.add(x, o)
-                ttnn.deallocate(o)
+                x = self._gate_add(x, o, ada_raw[b])
                 x = self._transition(x, s, b, ada_s, cg_raw, atom_mask_col)
                 continue
             x_q = ttnn.to_layout(x, ttnn.ROW_MAJOR_LAYOUT)
@@ -381,9 +406,7 @@ class OF3AtomTransformer(Module):
             o = self._lin(o, apb + "mha.linear_o.weight")
             o = ttnn.reshape(ttnn.to_layout(o, ttnn.ROW_MAJOR_LAYOUT), (S, NP, 128))
             o = ttnn.to_layout(o, ttnn.TILE_LAYOUT)
-            o = ttnn.multiply(o, ada_raw[b], input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
-            x = ttnn.add(x, o)
-            ttnn.deallocate(o)
+            x = self._gate_add(x, o, ada_raw[b])
 
             ttnn.deallocate(a_qn); ttnn.deallocate(a_kn)
             x = self._transition(x, s, b, ada_s, cg_raw, atom_mask_col)
