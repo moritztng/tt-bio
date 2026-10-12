@@ -1134,7 +1134,12 @@ RFD3_FUSION_TIMEOUT_S = int(os.environ.get("RELEASE_GATE_RFD3_FUSION_TIMEOUT", "
 # `resolved` gate the default as well. A flag already set in the environment WINS over this, so
 # `RFD3_SOFTMAX_PV_FUSED=0 release_gate.py --model rfd3-fusion` is the arm's own negative control
 # and must fail (`negative-control-must-break-what-check-reads`).
-RFD3_FUSION_ENV = {"RFD3_SOFTMAX_PV_FUSED": "1", "RFD3_FC1_SPLIT_SILU": "1"}
+# Since RFD3_ATOM_SDPA and RFD3_DIT_SDPA ship on, no R4 attention reaches the softmax + PV pair at
+# all: both sites run fused SDPA, so region 1 censuses 0 served and 0 declined (rel-f477095f6). The
+# guard still decides every fold run with either SDPA lever off, so the arm turns both off for its
+# own folds and keeps gating the predicate where it still runs.
+RFD3_FUSION_ENV = {"RFD3_SOFTMAX_PV_FUSED": "1", "RFD3_FC1_SPLIT_SILU": "1",
+                   "RFD3_ATOM_SDPA": "0", "RFD3_DIT_SDPA": "0"}
 RFD3_FUSION_PV_DECLINE = "softmax kernel does not engage at this shape @ key 704"
 RFD3_FUSION_PV_SERVED_KEY = "@ key 6080"
 RFD3_FUSION_FC1_DECLINE = "tensor_rows=685 w=704 hidden=512 chunk-height-would-move 64->63"
