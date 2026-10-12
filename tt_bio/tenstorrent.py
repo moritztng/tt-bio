@@ -6219,7 +6219,7 @@ def _pair_proj_l1_rungs(per_core_M: int, out_block_w: int) -> list[tuple[int, in
 @lru_cache(maxsize=None)
 def _pair_proj_program_config(
     m_tiles: int, k_tiles: int, n_tiles: int, in0_block_w: int, elem_bytes: int,
-    out_l1: bool = False, block_w: int | None = None, rung: int = 0,
+    out_l1: bool = False, block_w: int | None = None, rung: int = 0, silu: bool = False,
 ) -> ttnn.MatmulMultiCoreReuseMultiCast1DProgramConfig | None:
     """Program config for a tall pair-track projection, or None if the shape is outside it.
 
@@ -6238,6 +6238,9 @@ def _pair_proj_program_config(
 
     Returns None whenever anything does not divide or the circular buffers do not fit, so a
     shape outside the measured set keeps today's behaviour.
+
+    `silu` fuses SiLU into the epilogue. It is part of the cache key: the returned object is shared
+    by every caller of the same key, so it must never be mutated after the fact.
     """
     gx, gy = COMPUTE_GRID_MAIN
     num_cores = gx * gy
@@ -6283,14 +6286,14 @@ def _pair_proj_program_config(
         per_core_M=per_core_M,
         per_core_N=n_tiles,
         fuse_batch=True,
-        fused_activation=None,
+        fused_activation=ttnn.UnaryWithParam(ttnn.UnaryOpType.SILU) if silu else None,
         mcast_in0=False,
     )
 
 
 def _pair_proj_config(x: ttnn.Tensor, w: ttnn.Tensor, bw_cap: int | None = -1,
                       out_l1: bool = False, block_w: int | None = None,
-                      rung: int = 0) -> object | None:
+                      rung: int = 0, silu: bool = False) -> object | None:
     """_pair_proj_program_config for a concrete operand pair, or None if it does not apply.
 
     `bw_cap` defaults to the module's `_PAIR_PROJ_BW`; the narrow-output sites pass
@@ -6317,7 +6320,7 @@ def _pair_proj_config(x: ttnn.Tensor, w: ttnn.Tensor, bw_cap: int | None = -1,
         bw = max((d for d in (k_tiles, 8, 4, 2, 1)
                   if d <= cap and k_tiles % d == 0), default=1)
         return _pair_proj_program_config(m_tiles, k_tiles, n_tiles, bw, 2, out_l1, block_w,
-                                        rung)
+                                        rung, silu)
     except Exception:
         return None
 
@@ -6445,8 +6448,10 @@ _PAIR_FFN_FC1_BLOCK_W = 16
 
 def _pair_proj_linear(x, w, ckc, dtype, l1_out: bool = False,
                       l1_bw: int | None = None, l1_block_w: int | None = None,
-                      bias=None):
+                      bias=None, silu: bool = False):
     """`ttnn.linear` on a pair-track projection, with the tuned config when the shape allows.
+
+    `silu` applies SiLU in the matmul's epilogue, on the fp32 accumulator before the pack, on every path.
 
     `l1_out` is for the members whose consumer reads the result straight back on device (the
     trimul's `multiply_`, the Pairformer layer's residual `add_`): the projection's 48.82 MB DRAM
@@ -6478,7 +6483,7 @@ def _pair_proj_linear(x, w, ckc, dtype, l1_out: bool = False,
         rung = _l1_out_rung(key)
         cfg = None if retired else _pair_proj_config(
             x, w, bw_cap=_PAIR_PROJ_L1_BW if l1_bw is None else l1_bw,
-            out_l1=True, block_w=l1_block_w, rung=rung)
+            out_l1=True, block_w=l1_block_w, rung=rung, silu=silu)
         if cfg is None:
             if rung:
                 _L1_OUT_REFUSED.add(key)
@@ -6499,12 +6504,12 @@ def _pair_proj_linear(x, w, ckc, dtype, l1_out: bool = False,
                 else:
                     _L1_OUT_REFUSED.add(key)
                 _latch("l1_out", "refused", e)
-    mm = _pair_proj_minimal_matmul(x, w, ckc, dtype, bias)
+    mm = None if silu else _pair_proj_minimal_matmul(x, w, ckc, dtype, bias)
     if mm is not None:
         if bias is not None:
             _pair_bias_stat("o_in_matmul_exit_mm")
         return mm
-    cfg = _pair_proj_config(x, w)
+    cfg = _pair_proj_config(x, w, silu=silu)
     if cfg is not None:
         out = ttnn.linear(
             x, w, bias=bias, memory_config=ttnn.DRAM_MEMORY_CONFIG, dtype=dtype,
@@ -6515,7 +6520,7 @@ def _pair_proj_linear(x, w, ckc, dtype, l1_out: bool = False,
         return out
     out = ttnn.linear(
         x, w, bias=bias, memory_config=ttnn.DRAM_MEMORY_CONFIG, dtype=dtype,
-        compute_kernel_config=ckc, core_grid=CORE_GRID_MAIN,
+        compute_kernel_config=ckc, core_grid=CORE_GRID_MAIN, activation="silu" if silu else None,
     )
     if bias is not None:
         _pair_bias_stat("o_in_matmul_exit_grid")
