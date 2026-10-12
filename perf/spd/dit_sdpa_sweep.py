@@ -23,6 +23,7 @@ ap.add_argument("--seq", type=int, default=544)
 ap.add_argument("--heads", type=int, default=16)
 ap.add_argument("--reps", type=int, default=20)
 ap.add_argument("--out", default="dit_sdpa_sweep.json")
+ap.add_argument("--arms", default="", help="q:k:pad,... instead of the full sweep (the shipped pick always runs first)")
 a = ap.parse_args()
 
 dev = T.get_device()
@@ -67,13 +68,15 @@ def run(qc, kc, pad_to):
 
 ship = T._sdpa_program_config_for_lengths(S, S, H, site="token_dit", d=D)
 arms = [(ship.q_chunk_size, ship.k_chunk_size, S)]
-pads = sorted({S, -(-S // 64) * 64, -(-S // 128) * 128, -(-S // 256) * 256})
+if a.arms:
+    arms += [tuple(map(int, x.split(":"))) for x in a.arms.split(",")]
+pads = [] if a.arms else sorted({S, -(-S // 64) * 64, -(-S // 128) * 128, -(-S // 256) * 256})
 for p in pads:
     for qc in (32, 64, 128, 256):
         for kc in (32, 64, 128, 256, 512):
             if (qc, kc, p) not in arms and p % qc == 0 and p % kc == 0:
                 arms.append((qc, kc, p))
-for qc in (32, 64, 128, 256):
+for qc in (() if a.arms else (32, 64, 128, 256)):
     for kc in (64, 128, 256):
         if (qc, kc, S) not in arms:
             arms.append((qc, kc, S))     # non-dividing: ttnn pads internally

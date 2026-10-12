@@ -2846,6 +2846,22 @@ def _sdpa_masked(fn, q, k, v, bias, *args, site: str, pad: bool = False, **kw):
 
 # (batch, q_len, heads, head_dim, dtype) -> the (q_chunk, k_chunk, padded) pair `token_dit_sdpa_pm`
 # serves, or None once every pair declined. Filled on the first call of a shape.
+
+def _sdpa_chunk_pad_len(seq_len: int) -> int:
+    """The length to pad a self-attention's q and k axes to so the shipped k chunk divides it, or 0.
+
+    When the tile-padded length is not a multiple of `_capped_sdpa_chunk_size`, ttnn pads the
+    sequence to the chunk grid inside the op, and that path is slow: BoltzGen's 512 aa page design
+    runs its token DiT at 544 tokens (17 tiles, prime), where the op picks q = k = 256 and costs
+    0.905 ms per call on a Wormhole chip. Padding q/k/v to 768 first, with the new keys masked
+    (`_sdpa_pad_ragged`), runs the same chunks over the same padded grid in 0.23-0.25 ms and returns
+    an output `torch.equal` to the unpadded call (perf/spd/dit_sdpa_sweep.py). The masked keys add
+    exp(-inf) = 0 to every row, so only the op's internal padding path changes, not the reduction.
+    """
+    padded = _padded_sdpa_len(seq_len)
+    kc = _capped_sdpa_chunk_size(seq_len)
+    return 0 if padded % kc == 0 else -(-padded // kc) * kc
+
 _DIT_PM_PICK: dict = {}
 
 
@@ -11715,7 +11731,11 @@ class AttentionPairBias(Module):
                 # chain's (q@k^T + z) * head_dim**-0.5 exactly in exact arithmetic; what differs
                 # is the bf16 exponentiated-score buffer, hence the accuracy gate on this arm.
                 def stock(q_, k_, v_, b_):
-                    return fused_sdpa(
+                    L = int(q_.shape[2])
+                    to = _sdpa_chunk_pad_len(L) if int(k_.shape[2]) == L else 0
+                    if to:
+                        q_, k_, v_, b_, _ = _sdpa_pad_ragged(q_, k_, v_, b_, to=to)
+                    o_ = fused_sdpa(
                         q_, k_, v_,
                         attn_mask=b_,
                         scale=self.head_dim**-0.5,
@@ -11727,6 +11747,11 @@ class AttentionPairBias(Module):
                                 q_.shape[2], k_.shape[2], q_.shape[0] * q_.shape[1],
                                 site="token_dit", d=q_.shape[3])),
                     )
+                    if not to:
+                        return o_
+                    sl = o_[:, :, :L, :]
+                    ttnn.deallocate(o_)
+                    return sl
 
                 def pm(q_, k_, v_, b_):
                     o_ = token_dit_sdpa_pm(q_, k_, v_, b_, self.head_dim**-0.5)
