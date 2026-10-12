@@ -20,6 +20,7 @@ ap.add_argument("--calls", type=int, default=50)
 ap.add_argument("--reps", type=int, default=3)
 ap.add_argument("--mem", default="l1", choices=["l1", "dram"], help="x and the outputs")
 ap.add_argument("--qs", default="0", help="channel-range splits per cube, comma list (0: by fill)")
+ap.add_argument("--abl", default="", help="time only, af2 ckc: compute ablation bits, e.g. 1,2,16 (16: no matmul)")
 A = ap.parse_args()
 
 from tt_bio.main import ensure_p300_mesh_descriptor
@@ -41,7 +42,7 @@ bg = (torch.randn(2 * C, generator=g) / 4).to(torch.bfloat16)
 up = lambda t, m=ttnn.DRAM_MEMORY_CONFIG: ttnn.from_torch(
     t.contiguous(), dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev, memory_config=m)
 dx, dwpT, dwgT = up(x, mc), up(wp.t()), up(wg.t())
-dbias = TT.gin_ragged_bias(bp, bg, dev)
+dbias = TT.gin_ragged_bias(bp, bg, n, dev)
 
 x64 = x.double().reshape(n * n, K)
 ab = (x64 @ wp.double() + bp.double()) * torch.sigmoid(x64 @ wg.double() + bg.double())
@@ -93,6 +94,13 @@ for name, ckc in ckcs.items():
         print(json.dumps(rec), flush=True)
         a.deallocate(); b.deallocate()
     TT.GIN_RAGGED_QS = 0
+
+for bits in [int(b) for b in A.abl.split(",") if b]:
+    TT.GIN_MOVE_ABL = bits
+    ck = MG.ckc_args(ckcs["af2"])
+    print(json.dumps({"route": "ragged", "abl": bits, "ms": timed(
+        lambda: TT.gin_ragged(dx, dwpT, dwgT, dbias, ck, grid, n, memory_config=mc))}), flush=True)
+TT.GIN_MOVE_ABL = 0
 
 # Stock route: biased projection of [value | gate] into L1, gate, split, channel move.
 W = up(torch.cat([wp, wg], 1))

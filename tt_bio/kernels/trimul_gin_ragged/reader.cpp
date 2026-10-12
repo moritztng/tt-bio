@@ -7,7 +7,8 @@
 // St * Kt pages and the x axis is not padded: row tiles past S re-read row S - 1 (the writer zeroes
 // their output rows). A unit is (cube, part): part splits the channel tiles CT2 into QS ranges so a
 // small grid still fills the cores; each unit reloads its 32 * Kt activation tiles. The bias tiles
-// [bp tiles | bg tiles] (2 * CT2, each row c holding bias[c] in every column) go to c_7 once.
+// [bp tiles | bg tiles | column mask] (2 * CT2 + 1; bias tile rows c hold bias[c] in every column,
+// the mask is 1 in columns < S - 32 * (St - 1)) go to c_7 once.
 #include "api/dataflow/dataflow_api.h"
 
 void kernel_main() {
@@ -42,12 +43,12 @@ void kernel_main() {
     uint32_t w = get_write_ptr(w_cb);
     for (uint32_t t = 0; t < CT2 * Kt; ++t, w += tb) noc_async_read_page(t, wp, w);
     for (uint32_t t = 0; t < CT2 * Kt; ++t, w += tb) noc_async_read_page(t, wg, w);
-    cb_reserve_back(b_cb, 2 * CT2);
+    cb_reserve_back(b_cb, 2 * CT2 + 1);
     w = get_write_ptr(b_cb);
-    for (uint32_t t = 0; t < 2 * CT2; ++t, w += tb) noc_async_read_page(t, bs, w);
+    for (uint32_t t = 0; t < 2 * CT2 + 1; ++t, w += tb) noc_async_read_page(t, bs, w);
     noc_async_read_barrier();
     cb_push_back(w_cb, 2 * CT2 * Kt);
-    cb_push_back(b_cb, 2 * CT2);
+    cb_push_back(b_cb, 2 * CT2 + 1);
 
     for (uint32_t u = u0; u < u0 + nunits; ++u) {
         const uint32_t cu = u / QS;

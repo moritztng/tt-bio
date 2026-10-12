@@ -9244,10 +9244,10 @@ class TriangleMultiplication(Module):
             for i in range(n_pairs // group)
         ]
 
-    def _gp_in_gated_bias(self, C: int, group: int) -> list[ttnn.Tensor]:
+    def _gp_in_gated_bias(self, C: int, group: int, S: int) -> list[ttnn.Tensor]:
         """Per channel chunk, the bias tiles `trimul_tail.gin_ragged` takes, in `_gp_in_gated`'s
         column order ([b_p_a | b_p_b], [b_g_a | b_g_b]); zeros where the model has no bias."""
-        key = (C, group, gp_roles(), "ragged")
+        key = (C, group, gp_roles(), "ragged", S)
         cached = self._gp_bias_cache.get(key)
         if cached is None:
             sc = C * group
@@ -9259,7 +9259,7 @@ class TriangleMultiplication(Module):
                 pb = torch.zeros(int(self._p_in_t.shape[-1]))
             cached = [
                 _trimul_tail.gin_ragged_bias(torch.cat([col(t, "p_a"), col(t, "p_b")], -1),
-                                             torch.cat([col(t, "g_a"), col(t, "g_b")], -1), self.device)
+                                             torch.cat([col(t, "g_a"), col(t, "g_b")], -1), S, self.device)
                 for t in self._gp_fused_order((gb.reshape(-1), pb.reshape(-1)), C, group)
             ]
             self._gp_bias_cache[key] = cached
@@ -9753,7 +9753,7 @@ class TriangleMultiplication(Module):
                         S_ = int(x_in.shape[-2])
                         fold = mask is not None and _trimul_tail.gin_ragged_ok(x_norm_in, wpT, S_, mask)
                         ab = _trimul_tail.gin_ragged(
-                            x_norm_in, wpT, wgT, self._gp_in_gated_bias(chunk_size, group)[i],
+                            x_norm_in, wpT, wgT, self._gp_in_gated_bias(chunk_size, group, S_)[i],
                             _mm_generic.ckc_args(self.compute_kernel_config), tuple(COMPUTE_GRID_MAIN),
                             S_, mask=mask if fold else None, memory_config=memory_config)
                         if ab is not None:

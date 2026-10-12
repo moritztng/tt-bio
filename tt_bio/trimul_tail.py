@@ -681,16 +681,20 @@ def gin_ragged_ok(x, wpT, S, mask=None):
             return False
     from .tenstorrent import _l1_bank_bytes
     tiles = _gin_move_tiles(shp[-1] // TILE, int(wpT.shape[-2]) // TILE, mask is not None) \
-        + int(wpT.shape[-2]) // TILE * 2
+        + int(wpT.shape[-2]) // TILE * 2 + 2
     return tiles * MG.tile_bytes(ttnn.bfloat16) <= 0.85 * _l1_bank_bytes()
 
 
-def gin_ragged_bias(bp, bg, device):
+def gin_ragged_bias(bp, bg, S, device):
     """The bias tiles gin_ragged takes, from the [2C] value and gate biases (torch): [bp | bg], each
-    row c of channel tile t carrying bias[32 t + c] in every column."""
+    row c of channel tile t carrying bias[32 t + c] in every column, then one column-mask tile for
+    the last column tile of an S-wide grid (1 in columns < S - 32 * (ceil(S / 32) - 1))."""
     import torch
     rows = torch.cat([bp.reshape(-1), bg.reshape(-1)]).float()
-    return ttnn.from_torch(rows[:, None].expand(-1, TILE).contiguous().to(torch.bfloat16),
+    last = S - TILE * (-(-S // TILE) - 1)
+    cmask = (torch.arange(TILE) < last).float()[None, :].expand(TILE, -1)
+    t = torch.cat([rows[:, None].expand(-1, TILE), cmask])
+    return ttnn.from_torch(t.contiguous().to(torch.bfloat16),
                            layout=ttnn.TILE_LAYOUT, device=device, memory_config=ttnn.DRAM_MEMORY_CONFIG)
 
 
@@ -736,14 +740,14 @@ def _build_gin_ragged(x, wpT, wgT, bias, outs, grid, ckc, mask, S, qs):
     fid, approx, fp32, full = ckc
     compute = ttnn.KernelDescriptor(
         kernel_source=str(d / "compute.cpp"), source_type=src, core_ranges=core_grid,
-        compile_time_args=[kt, ct2, 4, int(mask is not None), 0, int(SIGPOLY), RNE, qs],
+        compile_time_args=[kt, ct2, 4, int(mask is not None), GIN_MOVE_ABL, int(SIGPOLY), RNE, qs, St],
         runtime_args=cp,
         config=ttnn.ComputeConfigDescriptor(
             math_fidelity=fid, math_approx_mode=approx, fp32_dest_acc_en=fp32,
             dst_full_sync_en=full))
     cbs = [_cb(0, core_grid, 2 * ct2 * kt), _cb(1, core_grid, 32 * kt), _cb(2, core_grid, 64),
-           _cb(4, core_grid, 32), _cb(5, core_grid, 32), _cb(7, core_grid, 2 * ct2),
-           _cb(24, core_grid, 2 * GIN_MOVE_NB)]
+           _cb(4, core_grid, 32), _cb(5, core_grid, 32), _cb(7, core_grid, 2 * ct2 + 1),
+           _cb(24, core_grid, 2 * GIN_MOVE_NB), _cb(25, core_grid, 1)]
     if mask is not None:
         cbs += [_cb(3, core_grid, 1), _cb(6, core_grid, 32)]
     return {"kernels": [reader, writer, compute], "cbs": cbs}
@@ -752,7 +756,7 @@ def _build_gin_ragged(x, wpT, wgT, bias, outs, grid, ckc, mask, S, qs):
 def gin_ragged(x, wpT, wgT, bias, ckc, grid, S, mask=None, memory_config=None):
     """`a, b` of the biased gated in-projection, channel-moved, for a pair grid of S rows that need
     not be whole tiles: [B, C, S, S] each with zero padding, for `[a | b] = (x @ Wp + bp) *
-    sigmoid(x @ Wg + bg)` [* m on a]. `bias` from `gin_ragged_bias`. None where it declines."""
+    sigmoid(x @ Wg + bg)` [* m on a]. `bias` from `gin_ragged_bias` at the same S. None where it declines."""
     from . import ops
     if ops.taping() or dest_guard.exposed_args(ckc) or not gin_ragged_ok(x, wpT, S, mask):
         GIN_RAGGED_STATS[1] += 1
@@ -769,7 +773,7 @@ def gin_ragged(x, wpT, wgT, bias, ckc, grid, S, mask=None, memory_config=None):
                                            ttnn.TILE_LAYOUT, device, mc)
             for _ in range(2)]
     key = ("gin_ragged", str(x.padded_shape), str(x.memory_config().buffer_type), str(wpT.padded_shape),
-           tuple(grid), tuple(str(c) for c in ckc), mask is not None, GIN_MOVE_NB, SIGPOLY, RNE, S, qs,
+           tuple(grid), tuple(str(c) for c in ckc), mask is not None, GIN_MOVE_NB, SIGPOLY, RNE, S, qs, GIN_MOVE_ABL,
            str(mc.buffer_type))
     entry = _CACHE.get(key)
     if entry is None:

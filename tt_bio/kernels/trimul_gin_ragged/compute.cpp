@@ -38,6 +38,7 @@ void kernel_main() {
     constexpr uint32_t RNE = get_compile_time_arg_val(6);
     constexpr uint32_t QS = get_compile_time_arg_val(7);
     constexpr uint32_t QN = CT2 / QS;
+    constexpr uint32_t St = get_compile_time_arg_val(8);
     const uint32_t u0 = get_arg_val<uint32_t>(0);
     const uint32_t nunits = get_arg_val<uint32_t>(1);
 
@@ -52,10 +53,12 @@ void kernel_main() {
     sigmoid_tile_init();
     mm_init(w_cb, x_cb, p_cb, 1);
     cb_wait_front(w_cb, 2 * CT2 * Kt);
-    cb_wait_front(b_cb, 2 * CT2);
+    cb_wait_front(b_cb, 2 * CT2 + 1);
 
     for (uint32_t u = u0; u < u0 + nunits; ++u) {
         const uint32_t qa = (u % QS) * QN;
+        // Last column tile: columns y >= S times the column mask (bias tile 2 * CT2) after the gate.
+        const bool ylast = (u / QS) % St == St - 1;
         cb_wait_front(x_cb, 32 * Kt);
         if constexpr (MASK) cb_wait_front(m_cb, 32);
         for (uint32_t q = qa; q < qa + QN; ++q) {
@@ -109,6 +112,13 @@ void kernel_main() {
                 } else {
                     mul_tiles_init(p_cb, g_cb);
                     for (uint32_t i = 0; i < 4; ++i) mul_tiles(p_cb, g_cb, t0 + i, t0 + i, i);
+                }
+                if (ylast) {
+                    binary_dest_reuse_tiles_init<EltwiseBinaryType::ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCB>(
+                        b_cb);
+                    for (uint32_t i = 0; i < 4; ++i)
+                        binary_dest_reuse_tiles<EltwiseBinaryType::ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCB>(
+                            b_cb, 2 * CT2, i);
                 }
                 if constexpr (RNE & 1) {
                     for (uint32_t i = 0; i < 4; ++i) round_bf16_rne_tile(i);
