@@ -71,6 +71,7 @@ move against the accuracy bar and the seed-to-seed spread.
 | [`TT_BIO_SDPA_GRID_Q_CHUNK`](#tt_bio_sdpa_grid_q_chunk) | on | | identical |
 | [`TT_BIO_SDPA_WIDE_K`](#tt_bio_sdpa_wide_k) | on | twenty padded lengths | moves, inside the seed spread |
 | [`TT_BIO_SOFTMAX_BW_FP32`](#tt_bio_softmax_bw_fp32) | on | training | gradients only |
+| [`TT_BIO_SWIGLU_GATE_LEGACY`](#tt_bio_swiglu_gate_legacy) | on | ESMFold2 | moves, inside the bar |
 | [`TT_BIO_TOKEN_BUCKET`](#tt_bio_token_bucket) | on | | switches every model's token bucket |
 | [`TT_BIO_TRANSITION_L1_ROWS`](#tt_bio_transition_l1_rows) | on | Blackhole | identical on the measured shapes |
 | [`TT_BIO_TRIATT_B8`](#tt_bio_triatt_b8) | off | | moves, and depends on the core grid |
@@ -1344,6 +1345,23 @@ set the memory limit: 576 aa runs out of memory at the same allocation with it o
 `perf/of3t_p10exact/smbw32_off_is_main.py` asserts that the off path reaches `ttnn.sum` with
 exactly the arguments the pre-flag backward used, so `=0` is the old behaviour and not an
 approximation of it.
+
+
+## `TT_BIO_SWIGLU_GATE_LEGACY`
+
+Default: on, ESMFold2 only.
+
+The gate of ESMFold2's pair transition, `silu(h1) * h2`, runs on ttnn's older binary multiply,
+which applies the SiLU without re-initialising the op for every tile. It costs 0.101 ms per
+32-row block at 512 residues instead of 0.144 ms, and folds 1.1 s faster on ESMFold2 and 0.7 s
+faster on ESMFold2-Fast (p150a at 1350 MHz). ESMC's own language-model blocks keep the default
+multiply: there it measured no faster and further from float32.
+
+**Accuracy: moves, inside the bar.** The two multiplies round differently. On 11 complexes x 4
+seeds on Blackhole, against the shipped normal set: ESMFold2 same-seed top-pose deviation median
+0.35 A (seed spread 1.40 A), CA-lDDT -0.0027 [-0.0075, +0.0002]; ESMFold2-Fast CA-lDDT +0.0021,
+TM-score +0.0010, docking success 24/44 in both arms. `TT_BIO_SWIGLU_GATE_LEGACY=0` restores
+the default multiply.
 
 ## `TT_BIO_TOKEN_BUCKET`
 
