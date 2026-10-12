@@ -22,7 +22,7 @@ from . import trimul_tail as TT
 
 KERNEL_DIR = TT.KERNEL_DIR.parent / "transition_t3"
 TILE = 32
-KEYS = {(4, 16)}            # (Kt, Ht): c 128, hidden 512 (OpenFold3 / Boltz-2 / Protenix pair transitions)
+KEYS = {(4, 16), (2, 8)}    # (Kt, Ht): c 128 hidden 512 (pair transitions), c 64 hidden 256 (OpenFold3 MSA transition)
 STATS = [0, 0]              # served, declined
 WHY: dict = {}              # decline reason -> calls
 REFUSED: set = set()        # program keys the device refused (static-CB clash with live L1 buffers)
