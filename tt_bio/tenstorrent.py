@@ -16686,10 +16686,8 @@ class PairConditioningDevice:
         rel_pos = relative_position_encoding
         if seq_pad:
             rel_pos = torch.nn.functional.pad(rel_pos, (0, 0, 0, seq_pad, 0, seq_pad))
-        # Uploaded row-major and tiled on the card: the host tilize of the [n, n, 128] tensor
-        # was 0.26 s a fold at 512 aa (py-spy, p150a). Same bf16 values either way.
-        rel_pos_tt = ttnn.to_layout(ttnn.from_torch(rel_pos, layout=ttnn.ROW_MAJOR_LAYOUT, device=get_device(),
-                                                    dtype=ttnn.bfloat16), ttnn.TILE_LAYOUT)
+        # `upload` tiles it on the card: the host tilize was 0.26 s a fold at 512 aa (py-spy, p150a).
+        rel_pos_tt = upload(rel_pos, ttnn.bfloat16, get_device())
         self.wall.mark("rel_pos")
         x = ttnn.concat([z, rel_pos_tt], dim=-1)
         ttnn.deallocate(rel_pos_tt)
