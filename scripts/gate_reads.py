@@ -57,9 +57,10 @@ if _out and _tree:
                 if (("r" in mode and "+" not in mode) if isinstance(mode, str)
                         else (flags or 0) & os.O_ACCMODE == os.O_RDONLY):
                     _note(r)                      # what it writes is output, not input
-            # The import system lists every package directory to find modules; that names
-            # nothing the leg's result depends on. Code that lists a directory itself does.
-            elif not sys._getframe(1).f_code.co_filename.startswith("<frozen importlib"):
+            # The import system lists every package directory to find modules, and
+            # importlib.metadata every sys.path entry to find dist-info; neither names anything
+            # the leg's result depends on. Code that lists a directory itself does.
+            elif "importlib" not in sys._getframe(1).f_code.co_filename:
                 _note("dir:" + r.rstrip(os.sep))
         except Exception:
             pass
