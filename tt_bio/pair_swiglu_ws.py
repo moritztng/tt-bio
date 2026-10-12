@@ -94,7 +94,7 @@ def pair_swiglu(x, w12, w3):
         mt *= d
     mt //= 32
     kt, nh, ct = xs[-1] // 32, int(w3.shape[0]) // 32, int(w3.shape[-1]) // 32
-    out = ttnn.allocate_tensor_on_device(ttnn.Shape(list(x.shape[:-1]) + [int(w3.shape[-1])]), ttnn.bfloat16,
+    out = ttnn.allocate_tensor_on_device(ttnn.Shape([int(d) for d in x.shape][:-1] + [int(w3.shape[-1])]), ttnn.bfloat16,
                                          ttnn.TILE_LAYOUT, device, ttnn.DRAM_MEMORY_CONFIG)
     key = (device.id(), tuple(xs), nh, ct, x.memory_config().buffer_type)
     if key not in _CACHE:

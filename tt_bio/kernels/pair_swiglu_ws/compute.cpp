@@ -31,7 +31,6 @@ void kernel_main() {
         return;
     }
     mm_block_init(cb_x, cb_w12, cb_gate, false, SW, 1, KT);
-    silu_tile_init();
     cb_wait_front(cb_w12, KT * 2 * NH);
     cb_wait_front(cb_w3, NH * CT);
 
@@ -44,6 +43,7 @@ void kernel_main() {
             for (uint32_t k = 0; k < KT; ++k) {
                 matmul_block(cb_x, cb_w12, k, k * 2 * NH + j, 0, false, SW, 1, KT);
             }
+            silu_tile_init();  // the dest-reuse multiply's init does not keep the SFPU's
             for (uint32_t i = 0; i < SW; ++i) {
                 silu_tile(i);
             }
