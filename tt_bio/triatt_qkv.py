@@ -398,11 +398,21 @@ def _dram_tile_bf16(t):
             and t.memory_config() == ttnn.DRAM_MEMORY_CONFIG)
 
 
-def _tail_ok(o, g, w, resid):
+def _g3d(o, g):
+    """True when g is the projection's own `[.., B, S, Kt*32]` rather than head-major like o."""
     po, pg = [int(d) for d in o.padded_shape], [int(d) for d in g.padded_shape]
-    if not (len(po) == 4 and po == pg and po[-1] == TILE and _dram_tile_bf16(o) and _dram_tile_bf16(g)
-            and _dram_tile_bf16(w) and len(w.shape) == 2 and int(w.shape[-2]) == po[1] * TILE
-            and int(w.shape[-1]) % TILE == 0):
+    return (len(po) == 4 and po != pg and len(pg) >= 3 and all(d == 1 for d in pg[:-3])
+            and pg[-3:] == [po[0], po[2], po[1] * TILE])
+
+
+def _tail_ok(o, g, w, resid, bias=None):
+    po, pg = [int(d) for d in o.padded_shape], [int(d) for d in g.padded_shape]
+    if not (len(po) == 4 and (po == pg or _g3d(o, g)) and po[-1] == TILE and _dram_tile_bf16(o)
+            and _dram_tile_bf16(g) and _dram_tile_bf16(w) and len(w.shape) == 2
+            and int(w.shape[-2]) == po[1] * TILE and int(w.shape[-1]) % TILE == 0):
+        return False
+    if bias is not None and not (TAIL_KB1 and bias.dtype == ttnn.bfloat16
+                                 and int(bias.shape[-1]) == int(w.shape[-1])):
         return False
     if resid is not None:
         pz = [int(d) for d in resid.padded_shape]
@@ -411,8 +421,24 @@ def _tail_ok(o, g, w, resid):
             return False
     from .tenstorrent import _l1_bank_bytes
     kt, nt = po[1], int(w.shape[-1]) // TILE
-    tiles = kt * nt + 5 * kt + (8 if TAIL_KB1 else 7) * nt   # KB1's fp32 partials take two bf16 tiles' room
+    tiles = kt * nt + 5 * kt + (8 if TAIL_KB1 else 7) * nt + (nt if bias is not None else 0)
     return tiles * G.tile_bytes(ttnn.bfloat16) <= 0.6 * _l1_bank_bytes()
+
+
+#: id(bias) -> (bias, its [32, N] tile tensor with every row the bias). Holds the bias so a recycled
+#: id cannot hand a new tensor a stale row tile.
+_BIAS_ROWS: dict = {}
+
+
+def _bias_rows(bias):
+    hit = _BIAS_ROWS.get(id(bias))
+    if hit is None or hit[0] is not bias:
+        import torch
+        b = ttnn.to_torch(bias).reshape(-1)[: int(bias.shape[-1])].to(torch.bfloat16)
+        hit = _BIAS_ROWS[id(bias)] = (bias, ttnn.from_torch(
+            b.expand(TILE, -1).contiguous(), dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT,
+            device=bias.device(), memory_config=ttnn.DRAM_MEMORY_CONFIG))
+    return hit[1]
 
 
 def _tail_cb(idx, core_grid, tiles, dt=ttnn.bfloat16):
@@ -428,7 +454,7 @@ def _tail_dw(kt, nt):
     return next(d for d in (4, 2, 1) if kt % d == 0 and nt % d == 0)
 
 
-def _build_tail(o, g, w, out, z, ckc, grid, resid):
+def _build_tail(o, g, w, out, z, ckc, grid, resid, brows=None):
     B, kt, St = int(o.padded_shape[0]), int(o.padded_shape[1]), int(o.padded_shape[2]) // TILE
     nt = int(w.shape[-1]) // TILE
     nu = B * St
@@ -448,8 +474,9 @@ def _build_tail(o, g, w, out, z, ckc, grid, resid):
     src = ttnn.KernelDescriptor.SourceType.FILE_PATH
     reader = ttnn.KernelDescriptor(
         kernel_source=str(_TAIL_DIR / "reader.cpp"), source_type=src, core_ranges=core_grid,
-        compile_time_args=[kt, nt, St, int(resid)] + acc(o) + acc(g) + acc(w) + acc(z),
-        runtime_args=rd, common_runtime_args=[0] * 4, config=ttnn.ReaderConfigDescriptor())
+        compile_time_args=[kt, nt, St, int(resid), int(_g3d(o, g)), int(brows is not None)]
+        + acc(o) + acc(g) + acc(w) + acc(z) + acc(brows if brows is not None else w),
+        runtime_args=rd, common_runtime_args=[0] * 5, config=ttnn.ReaderConfigDescriptor())
     writer = ttnn.KernelDescriptor(
         kernel_source=str(_TAIL_DIR / "writer.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[nt] + acc(out), runtime_args=wr, common_runtime_args=[0],
@@ -458,7 +485,8 @@ def _build_tail(o, g, w, out, z, ckc, grid, resid):
     fid, fp32 = ttnn.MathFidelity.HiFi3, True
     compute = ttnn.KernelDescriptor(
         kernel_source=str(_TAIL_DIR / "compute.cpp"), source_type=src, core_ranges=core_grid,
-        compile_time_args=[kt, nt, int(resid), TAIL_SIGPOLY, TAIL_RNE, _tail_dw(kt, nt), TAIL_KB1],
+        compile_time_args=[kt, nt, int(resid), TAIL_SIGPOLY, TAIL_RNE, _tail_dw(kt, nt), TAIL_KB1,
+                           int(brows is not None)],
         runtime_args=cp,
         config=ttnn.ComputeConfigDescriptor(math_fidelity=fid, math_approx_mode=approx,
                                             fp32_dest_acc_en=fp32, dst_full_sync_en=full))
@@ -468,16 +496,19 @@ def _build_tail(o, g, w, out, z, ckc, grid, resid):
         cbs.append(_tail_cb(3, core_grid, 2 * nt))
     if TAIL_KB1:
         cbs.append(_tail_cb(6, core_grid, nt, ttnn.float32))
+    if brows is not None:
+        cbs.append(_tail_cb(7, core_grid, nt))
     elif resid:
         cbs.append(_tail_cb(5, core_grid, nt))
     return {"kernels": [reader, writer, compute], "cbs": cbs}
 
 
-def gated_out_proj(o, g, w, ckc, resid=None):
-    """`(o * sigmoid(g)) @ w` from head-major o, g `[B, H, S, 32]`, as `[B, S, N]`; with `resid`
-    (the pair `[1?, B, S, N]` the update belongs to) the sum is written into `resid` in place and
-    `resid` is returned. None where it declines; the caller then runs the three ops."""
-    if _taping() or not tail_on() or not _tail_ok(o, g, w, resid):
+def gated_out_proj(o, g, w, ckc, resid=None, bias=None):
+    """`(o * sigmoid(g)) @ w [+ bias]` from head-major o `[B, H, S, 32]` and g either head-major
+    too or as its projection wrote it (`[.., B, S, H*32]`, a biased block's gate), as `[B, S, N]`;
+    with `resid` (the pair `[1?, B, S, N]` the update belongs to) the sum is written into `resid`
+    in place and `resid` is returned. None where it declines; the caller then runs the three ops."""
+    if _taping() or not tail_on() or not _tail_ok(o, g, w, resid, bias):
         GOP_STATS[1] += 1
         return None
     from .tenstorrent import COMPUTE_GRID_MAIN
@@ -488,17 +519,19 @@ def gated_out_proj(o, g, w, ckc, resid=None):
     else:
         out = resid
     grid = tuple(COMPUTE_GRID_MAIN)
-    key = (str(o.padded_shape), str(w.padded_shape), str(out.padded_shape), grid, G.ckc_args(ckc),
-           resid is not None, TAIL_SIGPOLY, TAIL_RNE, TAIL_KB1)
+    brows = _bias_rows(bias) if bias is not None else None
+    key = (str(o.padded_shape), str(g.padded_shape), str(w.padded_shape), str(out.padded_shape), grid,
+           G.ckc_args(ckc), resid is not None, bias is not None, TAIL_SIGPOLY, TAIL_RNE, TAIL_KB1)
     entry = _TAIL_CACHE.get(key)
     if entry is None:
-        entry = _TAIL_CACHE[key] = _build_tail(o, g, w, out, out, ckc, grid, resid is not None)
+        entry = _TAIL_CACHE[key] = _build_tail(o, g, w, out, out, ckc, grid, resid is not None, brows)
     reader, writer, _ = entry["kernels"]
     reader.common_runtime_args = [o.buffer_address(), g.buffer_address(), w.buffer_address(),
-                                  out.buffer_address()]
+                                  out.buffer_address(),
+                                  brows.buffer_address() if brows is not None else 0]
     writer.common_runtime_args = [out.buffer_address()]
     pd = ttnn.ProgramDescriptor(kernels=entry["kernels"], semaphores=[], cbs=entry["cbs"])
-    ref = _tail_check_ref(o, g, w, resid)
+    ref = _tail_check_ref(o, g, w, resid, bias)
     ttnn.generic_op([o, g, w, out], pd)
     if ref is not None:
         _tail_check_log(ref, out, o, g)
@@ -512,15 +545,19 @@ _CHECK_N = int(os.environ.get("TT_BIO_TRIATT_TAIL_CHECK", "0"))
 _CHECK = [0]
 
 
-def _tail_check_ref(o, g, w, resid):
+def _tail_check_ref(o, g, w, resid, bias=None):
     if _CHECK[0] >= _CHECK_N:
         return None
     _CHECK[0] += 1
     import torch
     O, Gt, W = (ttnn.to_torch(t).double() for t in (o, g, w))
     B, H, S, D = O.shape
+    if Gt.shape != O.shape:
+        Gt = Gt.reshape(B, S, H, D).permute(0, 2, 1, 3)
     x = (O * torch.sigmoid(Gt)).permute(0, 2, 1, 3).reshape(B, S, H * D)
     u = x @ W
+    if bias is not None:
+        u = u + ttnn.to_torch(bias).double().reshape(-1)[: u.shape[-1]]
     if resid is not None:
         u = ttnn.to_torch(resid).double().reshape(u.shape) + u
     return u

@@ -11037,16 +11037,22 @@ class TriangleAttention(Module):
             """The tail's update, or with `resid` (the pair it belongs to) `resid + update` written
             into `resid` when the one-program tail takes it; the caller tells by identity."""
             head_major = len(g_in.shape) == 4
-            if head_major and not gate_fused and self.o_bias is None:
+            o_major = len(o_in.shape) == 4 and not head_major   # kept for the tail, g as projected
+            if (head_major or o_major) and not gate_fused and (o_major or self.o_bias is None):
                 fused = _triatt_qkv.gated_out_proj(o_in, g_in, self.o_weight, self.compute_kernel_config,
-                                                   resid=resid)
+                                                   resid=resid, bias=self.o_bias)
                 if fused is None and resid is not None:
                     fused = _triatt_qkv.gated_out_proj(o_in, g_in, self.o_weight,
-                                                       self.compute_kernel_config)
+                                                       self.compute_kernel_config, bias=self.o_bias)
                 if fused is not None:
                     ttnn.deallocate(o_in)
                     ttnn.deallocate(g_in)
                     return fused
+            if o_major:
+                # the tail declined: the head concat `attend` skipped for it
+                o_heads = ttnn.experimental.nlp_concat_heads(o_in, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+                ttnn.deallocate(o_in)
+                o_in = ttnn.squeeze(o_heads, 1)
             if not gate_fused:
                 o_in = ttnn.multiply_(
                     o_in, g_in, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
@@ -11320,7 +11326,12 @@ class TriangleAttention(Module):
                     ttnn.deallocate(o)
                     o = ttnn.squeeze(o_heads, 1)
             else:
-                o = attend(qkv, triangle_bias, len(g.shape) == 4, g)
+                # A biased block's gate stays as its projection wrote it; the one-program tail reads
+                # that form too, so o stays head-major for it and the head concat goes.
+                g3d = (len(g.shape) != 4 and self.o_bias is not None and not self.subtile
+                       and self.head_dim == 32 and _triatt_qkv.tail_on())
+                o = attend(qkv, triangle_bias, len(g.shape) == 4 or g3d,
+                           g if len(g.shape) == 4 else None)
             if qkv is not None and not isinstance(qkv, tuple):  # the triple is freed inside attend
                 ttnn.deallocate(qkv)
             ttnn.deallocate(triangle_bias)
