@@ -1194,11 +1194,10 @@ def _k_tri_att_sdpa_hifi(shipped, args, kwargs):
 def _reblock_vjp(dims):
     """A channel move's entry: the VJP of a permutation is the inverse permutation.
 
-    Through `ttnn.permute` and not back through the kernel. The kernel's gate is a measured
-    SHAPE WINDOW -- a buffer type and a band of N -- and a cotangent arrives in the output's
-    layout, which is the other side of the move and outside that window by construction. The
-    stock verb is correct at every shape and the gradient of a data movement is not where the
-    seconds are.
+    Through `_permute_back`: the inverse reblock kernel where its own gate takes the cotangent,
+    the stock permute everywhere else. Both are `torch.equal` to `ttnn.permute`. The stock
+    permute of the trimul's [1, 128, 224, 224] cotangent was BindCraft 2's largest backward op on
+    Wormhole, 694 us x 208 calls an iteration (.114, bc2_census, 10-12).
 
     `reads=()` because the closure reads neither operand nor output: a permutation's gradient
     is a function of the cotangent alone. That is what lets the tape drop the moved tensor
@@ -1211,7 +1210,7 @@ def _reblock_vjp(dims):
 
         def make():
             def bw(g):
-                x.add_grad(ttnn.permute(g, dims))
+                x.add_grad(_permute_back(g, list(dims)))
             return bw
 
         return ag._tape(out_v, [x], make, reads=())
