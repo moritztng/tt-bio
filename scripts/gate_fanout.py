@@ -83,6 +83,8 @@ PERF A/B. Committed perf cells age: a cell recorded in August on another softwar
 release that changed nothing. `"perf_against": "<tag>"` on a host checks the timed leg out at the
 last release (root/trees/<tag>) and runs perf_regression.py --against it: the release's own
 numbers are measured on the same card in the same session, then the commit is gated on them.
+`"perf_against": "last"` is the newest v* tag, so the reference moves with every release, and a
+card type with no committed cell (Wormhole Galaxy, until 2026-10) needs no seeding run.
 On a PASS the runner writes the reference's re-measured machine block into <out>/seeded/<arch>/
 perf_baselines.json for the release commit; the A/B leg's key leaves the committed baseline out.
 
@@ -594,6 +596,16 @@ def test_files(sha: str, repo: Path = REPO) -> list:
     out = subprocess.run(["git", "-C", str(repo), "ls-tree", "-r", "--name-only", sha, "tests/"],
                          check=True, capture_output=True, text=True).stdout
     return sorted(p for p in out.splitlines() if Path(p).name.startswith("test_") and p.endswith(".py"))
+
+
+def last_tag(repo: Path = REPO) -> str:
+    """The newest v* tag, fetched first: the last release, wherever it was cut."""
+    subprocess.run(["git", "-C", str(repo), "fetch", "-q", "--tags", "origin"], capture_output=True)
+    tags = subprocess.run(["git", "-C", str(repo), "tag", "-l", "v*", "--sort=-v:refname"],
+                          capture_output=True, text=True).stdout.split()
+    if not tags:
+        raise SystemExit('perf_against "last": this clone has no v* tag')
+    return tags[0]
 
 
 def recorded_artifacts(sha: str, repo: Path = REPO) -> dict:
@@ -1486,6 +1498,9 @@ def main() -> int:
     sha = subprocess.run(["git", "-C", str(REPO), "rev-parse", args.sha], check=True,
                          capture_output=True, text=True).stdout.strip()
     cfg = json.loads(args.hosts.read_text())
+    for c in cfg.values():
+        if c.get("perf_against") == "last":
+            c["perf_against"] = last_tag()
     workers = parse_workers(args.workers, {n: Host(n, c, sha) for n, c in cfg.items()})
     hosts = {}
     for h, _ in workers:

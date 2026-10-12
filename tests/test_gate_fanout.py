@@ -1013,3 +1013,13 @@ def test_gate_reads_records_reads_of_every_python_process_but_not_writes(tmp_pat
     # main.py itself is seen only where a venv's .pth installed the hook before the interpreter read
     # the script (a gate venv); here the script's own import installs it after
     assert seen - {"main.py"} == {"pkg/__init__.py", "pkg/m.py", "data.json", "dir:pkg"}
+
+
+def test_perf_against_last_is_the_newest_release_tag(tmp_path):
+    def git(*a):
+        return subprocess.run(["git", "-C", str(tmp_path), *a], check=True, capture_output=True, text=True)
+    git("init", "-q"), git("config", "user.email", "t@t"), git("config", "user.name", "t")
+    git("commit", "-q", "--allow-empty", "-m", "a")
+    for tag in ("v0.9.0", "v0.15.1", "v0.15.0", "nightly"):
+        git("tag", tag)
+    assert gf.last_tag(tmp_path) == "v0.15.1"
