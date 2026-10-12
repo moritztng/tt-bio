@@ -2,6 +2,15 @@
 # qb2 card 3 (/dev/tenstorrent/3), Blackhole p300c, 34.23 GB of DRAM (8 banks x 4 278 190 016 B).
 RECORDED-AT: 1064f95a1107404a99667614b2c9e8e1945c3339 scripts/abb3_port/step_gate.py
 #
+# Re-run by the release gate's recorded: leg (scripts/rerun_record.py); RECORDED-AT moves when it passes.
+ARCH: bh
+RERUN: PY scripts/abb3_port/step_gate.py
+ROW: ^  (taped device parameters: \d+)
+ROW: ^  step +(\d+) .*loss (\d+\.\d{3})
+ROW: ^DRAM: (peak \d+ MB)
+ROW: ^(rc=\d+)$
+EXPECT: taped device parameters: 500 | 1 4.993 | 5 4.991 | 10 4.991 | peak 30981 MB | rc=0
+#
 # TREE: wk/bcp-land 3e617f520, origin/main 2e2cbacb4 plus BCP (lnbw). Replaces the record taken at
 # 93edb1b24, whose import closure changed in tt_bio/autograd.py when lnbw was wired into the layer-norm
 # backward. Interpreter ~/tt-bio-dev/env, TT-NN 0.68.0 (the same version as the release venv).

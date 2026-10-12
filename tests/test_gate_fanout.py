@@ -41,8 +41,25 @@ def test_every_arm_becomes_a_leg_and_duplicates_of_parity_are_dropped():
 
 def test_pytest_shards_cover_every_file_exactly_once():
     shards = [lg for lg in _legs() if lg.family == "pytest_device"]
-    files = [a for lg in shards for a in lg.argv if a.startswith("tests/")]
+    files = [a for lg in shards for a in lg.argv if a.startswith("tests/") and a != gf.STALE_TEST]
     assert sorted(files) == ["tests/test_a.py", "tests/test_b.py", "tests/test_c.py"]
+
+
+def test_a_recorded_artifact_is_a_leg_on_its_archs_and_pytest_leaves_its_staleness_to_it(tmp_path):
+    legs = gf.build_legs(ROSTER, ["tests/test_a.py"], 1, recorded={"perf/x/gate.txt": ["bh"]})
+    lg = next(lg for lg in legs if lg.family == "recorded")
+    assert (lg.name, lg.argv, lg.archs, lg.card) == ("recorded:gate", ["PY", "scripts/rerun_record.py",
+                                                                         "perf/x/gate.txt"], ("bh",), True)
+    assert all(gf.STALE_TEST in lg.argv for lg in legs if lg.family in gf.PYTEST)
+
+    rerun = lambda: subprocess.run([sys.executable, str(REPO / "scripts" / "rerun_record.py"), str(art)],
+                                   capture_output=True).returncode
+    art = tmp_path / "a.txt"
+    art.write_text("RERUN: PY -c \"print('  ok   frames  1'); print('  FAIL angles  2'); print('t 9.1 s')\"\n"
+                   "ROW: ^  (ok|FAIL) +(\\S+)  \nROW: ^(rc=\\d+)$\nEXPECT: ok frames | FAIL angles | rc=0\n")
+    assert rerun() == 0
+    art.write_text(art.read_text().replace("FAIL angles |", "ok angles |"))
+    assert rerun() == 1
 
 
 def test_only_perf_is_timed_and_card_free_legs_take_no_card():

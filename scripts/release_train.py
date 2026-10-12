@@ -6,7 +6,9 @@
 
 On CUT <sha> it makes one release commit on top of <sha> that changes only CHANGELOG.md (the
 [Unreleased] notes become the version's section), README.md's pinned install tag and pyproject's
-version line. Those are exactly the files the gate's content key leaves out, and the train refuses
+version line, and moves RECORDED-AT in every recorded measurement (perf/**.txt) whose
+recorded:<name> leg passed in the gate to the gated commit. Those are exactly the files the gate's
+content key leaves out, and the train refuses
 to tag if the key moved, so the tag is the gated code. It pushes the commit as rel/v<version> (for
 main to merge back) and the tag; the tag's workflow (.github/workflows/release.yaml) builds,
 publishes to PyPI and creates the GitHub release. The train then waits for PyPI to serve the
@@ -87,20 +89,49 @@ def release_files(tree: Path, version: str, body: str, day: str) -> None:
 RELEASE_FILES = ("CHANGELOG.md", "README.md", "pyproject.toml")
 
 
-def release_commit(sha: str, version: str, body: str, day: str) -> str:
-    """The release commit on `sha`, built in a scratch index: no checkout, no disk."""
+def reproduced(gate_dir: str, sha: str) -> dict:
+    """{artifact: "<leg> <evidence>"} for every recorded:<name> leg that passed in the gate."""
+    v = Path(gate_dir) / "verdict.json"
+    res = json.loads(v.read_text()).get("results", []) if v.exists() else []
+    ok = {r["leg"].split(":", 1)[1]: r for r in res
+          if r["leg"].startswith("recorded:") and r["verdict"] in ("PASS", "REUSED")}
+    grep = subprocess.run(["git", "-C", str(REPO), "grep", "-l", "^RERUN:", sha, "--", "perf/*.txt"],
+                          capture_output=True, text=True).stdout.split()
+    out = {}
+    for path in (g.split(":", 1)[1] for g in grep):
+        r = ok.get(Path(path).stem)
+        if r:
+            out[path] = f"recorded:{Path(path).stem} " + (r.get("evidence") or f"{r['worker']} {r['ended']}")
+    return out
+
+
+def restamp(text: str, sha: str, version: str, how: str) -> str:
+    """RECORDED-AT moved to `sha`, with one line saying which gate leg reproduced it."""
+    text = re.sub(r"^RECORDED-AT:\s*[0-9a-f]{7,40}", f"RECORDED-AT: {sha}", text, count=1, flags=re.M)
+    return text.rstrip("\n") + (f"\n#\n# RE-RECORDED for {version} by the release train: every row as recorded "
+                                f"({how}).\n")
+
+
+def release_commit(sha: str, version: str, body: str, day: str, records: dict | None = None) -> str:
+    """The release commit on `sha`, built in a scratch index: no checkout, no disk. `records` is
+    reproduced()'s map: those artifacts are re-stamped at `sha`."""
+    records = records or {}
     with tempfile.TemporaryDirectory() as d:
         tree = Path(d)
-        for f in RELEASE_FILES:
+        files = (*RELEASE_FILES, *records)
+        for f in files:
+            (tree / f).parent.mkdir(parents=True, exist_ok=True)
             (tree / f).write_text(git("show", f"{sha}:{f}") + "\n")
         release_files(tree, version, body, day)
+        for f, how in records.items():
+            (tree / f).write_text(restamp((tree / f).read_text(), sha, f"v{version}", how))
         env = {**os.environ, "GIT_INDEX_FILE": str(tree / "index")}
 
         def plumb(*a):
             return subprocess.run(["git", "-C", str(REPO), *a], check=True, capture_output=True, text=True,
                                   env=env).stdout.strip()
         plumb("read-tree", sha)
-        for f in RELEASE_FILES:
+        for f in files:
             mode = plumb("ls-files", "-s", f).split()[0]
             plumb("update-index", "--cacheinfo", f"{mode},{plumb('hash-object', '-w', str(tree / f))},{f}")
         return plumb("commit-tree", plumb("write-tree"), "-p", sha,
@@ -133,11 +164,12 @@ def cut(sha: str, gate_dir: str, remote: str, dry: bool, wait_s: int, record: Pa
         return 1
     version = next_version(tag or "v0.0.0", body, taken)
     day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    print(f"train: v{version} from {sha[:12]} (last {tag}), gate {gate_dir}")
+    print(f"train: v{version} from {sha[:12]} (last {tag}), gate {gate_dir}, re-stamps {sorted(reproduced(gate_dir, sha))}")
     if dry:
         print(body)
         return 0
-    rel = release_commit(sha, version, body, day)
+    records = reproduced(gate_dir, sha)
+    rel = release_commit(sha, version, body, day, records)
     if content_hash(rel) != content_hash(sha):
         print(f"release commit {rel[:12]} changed gated code; not tagging")
         return 1

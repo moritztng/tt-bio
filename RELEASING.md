@@ -79,8 +79,11 @@ other failing cell fails the leg.
 Markdown and pyproject's version line, the interpreter's installed packages, the card type, and
 the leg's exact command. A leg whose key already passed is not run again and the verdict names
 the run it reused. Recorded measurements (`perf/**.txt` files with a `RECORDED-AT:` line) are
-not part of the key either, so re-recording them in the release commit reuses everything; the
-card-free legs always run, and `pytest_cpu` is where a stale recording fails. The gate baselines
+not part of the key either, so re-recording them in the release commit reuses everything. Nobody
+re-records them by hand: each one carries `RERUN:` and `EXPECT:` lines, the gate's
+`recorded:<name>` leg re-runs it on a card (`scripts/rerun_record.py`) and passes when every row
+reads as recorded, and the train moves its `RECORDED-AT:` to the gated commit in the release
+commit. The pytest legs leave the staleness test to that leg; the card-free legs always run. The gate baselines
 (`docs/size_ladder_baseline*`, `docs/perf_baselines.json`, `docs/capacity_gate_baseline.json`)
 key only the legs that compare against them, so re-recording the size ladder reruns the ladder
 legs and nothing else. Likewise a `tests/test_*.py` file that no Python file outside `tests/` loads keys

@@ -19,6 +19,9 @@ Legs (enumerated from the tree under test, so a new arm or model is picked up wi
   pytest_device:i/K  pytest over every K-th test file, starting at i
   bc2:boundary       two BindCraft 2 trajectories from the installed wheel
   perf               perf_regression.py, TIMED (see below)
+  recorded:<name>    rerun_record.py <artifact>, per perf/**.txt with RERUN: lines, on its ARCH:
+                     (the release train re-stamps the artifact's RECORDED-AT when it passes;
+                     the pytest legs leave the staleness test to it)
 plus three card-free legs run once on the first host: check, packaging_smoke, pytest_cpu.
 A ladder leg whose model's baseline has no row for a lever its fold resolves (owed_levers) is not
 folded: it reads OWED, failing the verdict, which names the `--record-lever` run that clears it.
@@ -118,12 +121,12 @@ REPO = Path(__file__).resolve().parents[1]
 # Per-leg budgets (s). A budget is a hang guard, not an expected time.
 BUDGET = {"parity": 14400, "rg": 7200, "ladder": 14400, "capacity": 14400, "ux": 3600,
           "pytest_device": 7200, "perf": 7200, "check": 900, "packaging_smoke": 1800,
-          "pytest_cpu": 5400, "bc2": 3600, "record": 14400}
+          "pytest_cpu": 5400, "bc2": 3600, "record": 14400, "recorded": 3600}
 # Expected wall (s) per family when the ledger has no history for a leg, from the 0.13.1 and
 # 0.14.0 chains. Legs start longest first so the gate ends close to its longest leg.
 EXPECT = {"parity": 900, "rg": 900, "ladder": 5400, "capacity": 1800, "ux": 300,
           "pytest_device": 3000, "perf": 3600, "check": 60, "packaging_smoke": 600,
-          "pytest_cpu": 1800, "bc2": 1200, "record": 2700}
+          "pytest_cpu": 1800, "bc2": 1200, "record": 2700, "recorded": 900}
 TIMED = {"perf"}
 #: Results that do not fail the gate. REUSED is a ledger hit of one of the others.
 OK = ("PASS", "REUSED", "BLOCKED", "SEEDED")
@@ -505,20 +508,27 @@ class Leg:
     workdir: bool = False  # argv takes the leg's own out dir as "{OUT}"
     tree_on_path: bool = True  # False: import tt_bio from the installed wheel, not the tree
     setup: str = ""        # shell run in the tree before argv, with the same {OUT} substitution
+    archs: tuple = ()      # the architectures it runs on; empty is every one
 
     @property
     def budget(self) -> int:
         return BUDGET[self.family]
 
 
+#: The staleness check of a recorded measurement. In the gate a recorded:<name> leg re-runs it on a
+#: card instead, and the release commit re-stamps it, so the pytest legs leave it out.
+STALE_TEST = "tests/test_recorded_claims.py::test_recorded_artifact_is_not_stale"
+
+
 def build_legs(roster: dict, test_files: list, shards: int, record_lever: str = "",
-               record_full: str = "") -> list:
+               record_full: str = "", recorded: dict | None = None) -> list:
+    """`recorded` maps each re-runnable artifact (perf/**.txt with RERUN: lines) to its ARCH: list."""
     legs = [Leg("check", ["PY", "scripts/full_parity_gate.py", "--check", "--workdir", "{OUT}",
                          "--workers", "localhost:0"], "check",
                 card=False),
             Leg("packaging_smoke", ["PY", "scripts/packaging_smoke.py"], "packaging_smoke", card=False),
-            Leg("pytest_cpu", ["PY", "-m", "pytest", "-q", "-p", "no:cacheprovider", "--tb=short"],
-                "pytest_cpu", card=False)]
+            Leg("pytest_cpu", ["PY", "-m", "pytest", "-q", "-p", "no:cacheprovider", "--tb=short",
+                               "--deselect", STALE_TEST], "pytest_cpu", card=False)]
     for lid in roster["parity"]:
         legs.append(Leg(f"parity:{lid}", ["PY", "scripts/full_parity_gate.py", "--leg", lid,
                                           "--workers", "localhost:{CARD}", "--workdir", "{OUT}",
@@ -541,7 +551,8 @@ def build_legs(roster: dict, test_files: list, shards: int, record_lever: str = 
         part = test_files[i::shards]
         if part:
             legs.append(Leg(f"pytest_device:{i}/{shards}",
-                            ["PY", "-m", "pytest", "-q", "-p", "no:cacheprovider", "--tb=short", *part],
+                            ["PY", "-m", "pytest", "-q", "-p", "no:cacheprovider", "--tb=short",
+                             "--deselect", STALE_TEST, *part],
                             "pytest_device"))
     # The wheel itself on a card: two short BindCraft 2 trajectories with tt_bio imported from the
     # installed wheel and BindCraft 2 on the path, so a file the wheel drops fails here.
@@ -552,6 +563,9 @@ def build_legs(roster: dict, test_files: list, shards: int, record_lever: str = 
                                      "runpy.run_path('perf/bc2_memory/boundary.py', run_name='__main__')"],
                     "bc2", tree_on_path=False))
     legs.append(Leg("perf", ["PY", "scripts/perf_regression.py"], "perf", timed=True))
+    for path, archs in sorted((recorded or {}).items()):
+        legs.append(Leg(f"recorded:{Path(path).stem}", ["PY", "scripts/rerun_record.py", path], "recorded",
+                        archs=tuple(archs)))
     # --record-lever: add census levers to each ladder model's baseline (one fold per rung, refused
     # unless every other lever still matches), on a copy in the leg's out dir so the tree the
     # ladder legs read stays the commit's. The runner fetches each fragment to <out>/recorded/.
@@ -580,6 +594,19 @@ def test_files(sha: str, repo: Path = REPO) -> list:
     out = subprocess.run(["git", "-C", str(repo), "ls-tree", "-r", "--name-only", sha, "tests/"],
                          check=True, capture_output=True, text=True).stdout
     return sorted(p for p in out.splitlines() if Path(p).name.startswith("test_") and p.endswith(".py"))
+
+
+def recorded_artifacts(sha: str, repo: Path = REPO) -> dict:
+    """Every perf/**.txt at `sha` carrying RERUN: lines, with the architectures its ARCH: lines name."""
+    def git(*a):
+        p = subprocess.run(["git", "-C", str(repo), *a], capture_output=True, text=True)
+        return p.stdout if p.returncode in (0, 1) else ""
+    found = {}
+    for ln in git("grep", "-l", "^RERUN:", sha, "--", "perf/*.txt").splitlines():
+        path = ln.split(":", 1)[1]
+        text = git("show", f"{sha}:{path}")
+        found[path] = [a for m in re.finditer(r"^ARCH:\s*(.*)$", text, re.M) for a in m[1].split()]
+    return found
 
 
 def select(legs: list, patterns: list) -> list:
@@ -1487,7 +1514,8 @@ def main() -> int:
         list(ex.map(lambda h: h.prepare(pins), rest))
     first = {a: next(h for h in hosts.values() if h.arch == a) for a in archs}
     roster = first[archs[0]].run_py(ENUMERATE)
-    legs = select(build_legs(roster, test_files(sha), args.shards, args.record_lever, args.record_full),
+    legs = select(build_legs(roster, test_files(sha), args.shards, args.record_lever, args.record_full,
+                             recorded_artifacts(sha)),
                   [p for p in args.legs.split(",") if p])
     content = content_hash(sha)
     legacy = content_hash(sha, baselines=True, tests=True, runner=RUNNER_FILES_0)
@@ -1530,6 +1558,8 @@ def main() -> int:
     nonpy = content_hash(sha, python=False)
     for lg in legs:
         for a in (archs if lg.card else [archs[0]]):
+            if lg.archs and a not in lg.archs:
+                continue
             slot = a if lg.card else "any"
             env, ct, hleg = (envs[f"{a} {first[a].python(lg.family)}"], ctype[a] if lg.card else "cpu",
                              first[a].leg(lg))
