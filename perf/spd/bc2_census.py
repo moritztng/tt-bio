@@ -173,6 +173,25 @@ def trunk_init(self, *args, **kwargs):
 
 bc2._Trunk.__init__ = trunk_init
 
+# Wall of every tt-bio callback, by stack and verb, so each iteration splits into the time spent
+# inside tt-bio (device + dispatch + tape) and the rest, which is BindCraft 2's own JAX on the host.
+cb = collections.Counter()
+
+
+def timed(name, fn):
+    def run(*args, **kwargs):
+        t0 = time.monotonic()
+        try:
+            return fn(*args, **kwargs)
+        finally:
+            cb[name] += time.monotonic() - t0
+    return run
+
+
+for _cls in (bc2.EvoformerOnDevice, bc2.ExtraMsaOnDevice, bc2.TemplateOnDevice):
+    for _verb in ("_primal", "_taped", "_backward"):
+        setattr(_cls, _verb, timed(f"{_cls.__name__}.{_verb}", getattr(_cls, _verb)))
+
 
 def loadavg():
     try:
@@ -181,42 +200,63 @@ def loadavg():
         return None
 
 
+def arrays(out):
+    """Every numeric array in a round's result, in a fixed order.
+
+    BC2 returns its `StructurePredictions` as a plain object, so `tree_leaves` hands it over
+    whole and `np.asarray` makes it an object array whose bytes are pointers: the old digest
+    read different on two bit-identical runs, and the dump skipped the predictions entirely.
+    Non-array leaves are opened through their attributes instead.
+    """
+    import jax
+    import numpy as np
+
+    def walk(x, depth=0):
+        if x is None or depth > 4:
+            return
+        try:
+            a = np.asarray(x)
+        except Exception:                                                     # noqa: BLE001
+            a = None
+        if a is not None and a.dtype.kind in "biufc":
+            yield a
+            return
+        if isinstance(x, (list, tuple)):
+            for y in x:
+                yield from walk(y, depth + 1)
+        elif isinstance(x, dict):
+            for k in sorted(x, key=str):
+                yield from walk(x[k], depth + 1)
+        elif hasattr(x, "__dict__"):
+            for k in sorted(vars(x)):
+                yield from walk(vars(x)[k], depth + 1)
+
+    for leaf in jax.tree_util.tree_leaves(out):
+        yield from walk(leaf)
+
+
 def gsha(out):
-    """sha256[:16] over every array leaf of the round's result: the eager/trace parity check."""
+    """sha256[:16] over every numeric array of the round's result: the eager/trace parity check."""
     if out is None:
         return None
     import hashlib
-    import jax
-    import numpy as np
     h = hashlib.sha256()
-    for leaf in jax.tree_util.tree_leaves(out):
-        # Array leaves only. A leaf that is not an array used to be hashed by repr(), and that
-        # repr changes from run to run, so two bit-identical eager runs read as different
-        # (eagerC/eagerD on qb1: every gradient array equal, every digest different).
-        try:
-            h.update(np.asarray(leaf).tobytes())
-        except Exception:                                                     # noqa: BLE001
-            continue
+    for a in arrays(out):
+        h.update(a.tobytes())
     return h.hexdigest()[:16]
 
 
 def dump(out, path):
-    """Every array leaf of a round's result, in tree order, as float64 (leaf_<i> in an npz)."""
-    import jax
+    """Every numeric array of a round's result, in `arrays` order, as float64 (leaf_<i> in an npz)."""
     import numpy as np
-    leaves = {}
-    for i, leaf in enumerate(jax.tree_util.tree_leaves(out)):
-        try:
-            leaves[f"leaf_{i}"] = np.asarray(leaf, dtype=np.float64)
-        except Exception:                                                     # noqa: BLE001
-            pass
-    np.savez(path, **leaves)
+    np.savez(path, **{f"leaf_{i}": np.asarray(a, dtype=np.float64) for i, a in enumerate(arrays(out))})
 
 
 def sequence_gradients(self, *args, **kwargs):
     state["n"] += 1
     loads0, load1 = state["loads"], loadavg()
     if state["n"] != a.at:
+        cb.clear()
         t0 = time.monotonic()
         out = None
         try:
@@ -228,7 +268,10 @@ def sequence_gradients(self, *args, **kwargs):
         finally:
             if out is not None and state["n"] <= a.dump:
                 dump(out, a.out / f"dump_{state['n']}.npz")
-            state["uninstrumented"].append(dict(n=state["n"], s=time.monotonic() - t0, gsha=gsha(out),
+            wall = time.monotonic() - t0
+            state["uninstrumented"].append(dict(n=state["n"], s=wall, gsha=gsha(out),
+                                                callbacks={k: round(v, 4) for k, v in cb.items()},
+                                                host_jax_s=round(wall - sum(cb.values()), 4),
                                                 profiled=state["n"] == a.profile,
                                                 trunk_loads=state["loads"] - loads0,
                                                 load1=load1, ncpu=os.cpu_count()))

@@ -381,7 +381,11 @@ L1_N_MAX = int(os.environ.get("TT_BIO_REBLOCK_L1_N_MAX", "352"))
 # with the old gate, 5.336 s with only the forward move opened and 5.232 s with all three, every
 # structure digest identical (.114 chip 6, out/whgate_fa1b3cbfa). On 130 cores the rule needs Nt=10,
 # which is above L1_N_MIN already, so a p150a is unchanged.
-L1_GROUPS_PER_CORE = float(os.environ.get("TT_BIO_REBLOCK_L1_GROUPS_PER_CORE", "0.7"))
+# The floor is 0.68, not 0.7, because the Galaxy's Wormhole chips report 8x9 = 72 cores, where Nt=7 is
+# 0.68 per core. At 0.7 the gate shut there and AF2-IG at 195 tokens fell back to 5.40-5.49 s; at
+# 0.68 it folds in 5.22-5.25 s with the same coordinates (.114 chip 1, 3 reps each,
+# out/af2igwh_rj_322104346). 0.68 moves no other grid listed here (64, 110 or 130 cores).
+L1_GROUPS_PER_CORE = float(os.environ.get("TT_BIO_REBLOCK_L1_GROUPS_PER_CORE", "0.68"))
 _GRID_CORES = {}
 
 

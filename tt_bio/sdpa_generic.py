@@ -31,7 +31,7 @@ from pathlib import Path
 
 import ttnn
 
-from .mm_generic import tile_bytes, ttnn_cpp_root
+from .mm_generic import bound_descriptor, remember_bound, tile_bytes, ttnn_cpp_root
 
 INVALID, VALID = 0, 1
 TILE = 32
@@ -763,23 +763,33 @@ def sdpa(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scal
     fuse_addrs = None if fuse is None else (fuse[0].buffer_address(), fuse[1].buffer_address())
     gate = kw.get("gate")
     gate_addr = None if gate is None else gate[0].buffer_address()
-    if (addrs != e["addrs"] or (fuse is not None and fuse_addrs != e["fuse"][2:])
-            or (gate is not None and gate_addr != e["gate"])):
-        rr, wr, cr = e["rt"]
-        for _, a in rr:
-            a[0], a[1], a[2], a[3] = addrs[0], addrs[1], addrs[2], addrs[3]
-            # The two levers are mutually exclusive (`build` asserts it), so whichever is on owns
-            # the tail of the reader's runtime args.
-            if fuse is not None:
-                a[-2], a[-1] = fuse_addrs
-            elif gate is not None:
-                a[-1] = gate_addr
-        for _, a in wr:
-            a[0] = addrs[4]
-        e["kernels"][0].runtime_args = rr
-        e["kernels"][1].runtime_args = wr
-        e["pd"] = ttnn.ProgramDescriptor(kernels=e["kernels"], semaphores=e["semaphores"],
-                                         cbs=e["cbs"])
+    bound = (addrs, fuse_addrs, gate_addr)
+    held = (e["addrs"], None if fuse is None else e["fuse"][2:], None if gate is None else e["gate"])
+    if bound != held:
+        pd = bound_descriptor(e, bound)
+        if pd is None:
+            remember_bound(e, held, e["pd"])     # the one `build` made, too
+            rr, wr, cr = e["rt"]
+            for _, a in rr:
+                a[0], a[1], a[2], a[3] = addrs[0], addrs[1], addrs[2], addrs[3]
+                # The two levers are mutually exclusive (`build` asserts it), so whichever is on
+                # owns the tail of the reader's runtime args.
+                if fuse is not None:
+                    a[-2], a[-1] = fuse_addrs
+                elif gate is not None:
+                    a[-1] = gate_addr
+            for _, a in wr:
+                a[0] = addrs[4]
+            e["kernels"][0].runtime_args = rr
+            e["kernels"][1].runtime_args = wr
+            e["pd"] = ttnn.ProgramDescriptor(kernels=e["kernels"], semaphores=e["semaphores"],
+                                             cbs=e["cbs"])
+            remember_bound(e, bound, e["pd"])
+        else:
+            # An address set this program launched at before: its descriptor, not a rebuild
+            # (`mm_generic.bound_descriptor`). `rt` and the kernels keep the last REBUILT
+            # addresses, which is safe because the rebuild above rewrites every address slot.
+            e["pd"] = pd
         e["addrs"] = addrs
         if fuse is not None:
             e["fuse"] = e["fuse"][:2] + fuse_addrs
