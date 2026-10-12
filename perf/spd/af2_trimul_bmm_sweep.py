@@ -1,0 +1,112 @@
+#!/usr/bin/env python3
+"""Program-config sweep for the triangle multiplication's batched matmul at AF2 sizes, on Wormhole.
+
+The AF2-IG device profile (.114 out/af2igwh_devprof_8e053986e) puts the two `_multiply` matmuls at
+~390 us a call, 416 calls a fold, at 0.20 of their roofline. At Kt = 7 (195 and 224 tokens) the
+production 2D-mcast config (`_triangle_mul_program_config`) gives each core a 1x1 tile output block
+of every channel, so 49 of 72 cores loop over all C channels with a multicast per channel. The
+arms here put whole channels on cores instead (1D reuse config, batch folded into M), or let ttnn
+plan with a core grid.
+
+Operands [1,C,S,S] @ [1,C,S,S] bf16 in DRAM, AF2's kernel config (HiFi4, fp32 dest acc, packer
+L1 acc). Each arm: warm 2, median of 5 reps of `--inner` calls between syncs. `exact` is torch.equal
+against the production config; every arm carries rel L2 against float64.
+"""
+import argparse, json, statistics, sys, time
+from pathlib import Path
+
+import torch
+
+REPO = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(REPO))
+import ttnn  # noqa: E402
+from tt_bio import tenstorrent as tt  # noqa: E402
+
+WARM, REPS = 2, 5
+
+
+def timed(dev, fn, inner):
+    for _ in range(WARM):
+        o = fn(); ttnn.synchronize_device(dev); ttnn.deallocate(o)
+    ts = []
+    for _ in range(REPS):
+        ttnn.synchronize_device(dev)
+        t0 = time.perf_counter()
+        for _ in range(inner):
+            o = fn(); ttnn.deallocate(o)
+        ttnn.synchronize_device(dev)
+        ts.append((time.perf_counter() - t0) / inner)
+    o = fn(); ttnn.synchronize_device(dev)
+    return statistics.median(ts), o
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--out", required=True)
+    ap.add_argument("--inner", type=int, default=10)
+    ap.add_argument("--sizes", default="195,224")
+    ap.add_argument("--channels", default="64,128")
+    a = ap.parse_args()
+    dev = tt.get_device()
+    gx, gy = tt.COMPUTE_GRID_MAIN
+    ckc_cls = (ttnn.types.WormholeComputeKernelConfig if dev.arch() == ttnn.Arch.WORMHOLE_B0
+               else ttnn.types.BlackholeComputeKernelConfig)
+    ckc = ckc_cls(math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=False,
+                  fp32_dest_acc_en=True, packer_l1_acc=True)
+    res = {"arch": str(dev.arch()), "grid": [gx, gy], "loadavg": open("/proc/loadavg").read().split()[:3],
+           "inner": a.inner, "cells": []}
+    up = lambda t: ttnn.from_torch(t, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16,  # noqa: E731
+                                   memory_config=ttnn.DRAM_MEMORY_CONFIG)
+    torch.manual_seed(0)
+    for S in map(int, a.sizes.split(",")):
+        for C in map(int, a.channels.split(",")):
+            at = torch.randn(1, C, S, S, dtype=torch.bfloat16)
+            bt = torch.randn(1, C, S, S, dtype=torch.bfloat16)
+            ref64 = at.double() @ bt.double()
+            x, y = up(at), up(bt)
+            St = (S + 31) // 32
+            mm = lambda **kw: (lambda: ttnn.matmul(x, y, memory_config=ttnn.DRAM_MEMORY_CONFIG,  # noqa: E731
+                                                   dtype=ttnn.bfloat16, compute_kernel_config=ckc, **kw))
+            arms = [("prod", mm(program_config=tt._triangle_mul_program_config(
+                St, tt._trimul_ibw_full(), tt._trimul_subblock()))),
+                    ("plain", mm()),
+                    (f"grid{gx}x{gy}", mm(core_grid=ttnn.CoreGrid(y=gy, x=gx))),
+                    ("grid8x8", mm(core_grid=ttnn.CoreGrid(y=8, x=8)))]
+            # 1D reuse: batch folded into M, whole channels per core (per_core_M a multiple of St).
+            for chans in (1, 2):
+                for kw in (1, St):
+                    if St % kw:
+                        continue
+                    arms.append((f"reuse_c{chans}_k{kw}", mm(program_config=ttnn.MatmulMultiCoreReuseProgramConfig(
+                        compute_with_storage_grid_size=(gx, gy), in0_block_w=kw, out_subblock_h=1,
+                        out_subblock_w=1, per_core_M=chans * St, per_core_N=St))))
+            cell = {"S": S, "C": C, "St": St, "arms": []}
+            ref = None
+            for name, fn in arms:
+                row = {"arm": name}
+                try:
+                    s, o = timed(dev, fn, a.inner)
+                    got = ttnn.to_torch(o); ttnn.deallocate(o)
+                    if ref is None:
+                        ref = got
+                    d = got.double() - ref64
+                    row.update(ms=1e3 * s, exact_vs_prod=bool(torch.equal(got, ref)),
+                               rel_l2_f64=float(d.norm() / ref64.norm()))
+                except Exception as e:                                          # noqa: BLE001
+                    row["error"] = f"{type(e).__name__}: {str(e)[:200]}"
+                cell["arms"].append(row)
+                print(S, C, row, flush=True)
+            base = cell["arms"][0].get("ms")
+            for r in cell["arms"]:
+                if base and "ms" in r:
+                    r["speedup"] = base / r["ms"]
+            res["cells"].append(cell)
+            ttnn.deallocate(x); ttnn.deallocate(y)
+            Path(a.out).write_text(json.dumps(res, indent=1))
+    res["loadavg_end"] = open("/proc/loadavg").read().split()[:3]
+    Path(a.out).write_text(json.dumps(res, indent=1))
+    print("wrote", a.out)
+
+
+if __name__ == "__main__":
+    main()
