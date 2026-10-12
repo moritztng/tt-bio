@@ -575,6 +575,9 @@ _FAST_MODE = False
 #                   tail goes 11.95 -> 5.22 ms per call. sigmoid(g) is no longer rounded to bf16 before
 #                   the multiply and the kernel runs HiFi3 with fp32 DST in both modes. At 64 channels
 #                   (the template pair) 2.29 -> 0.88 ms.
+#   triatt_tail_bias  the same program for a block with linear_o / linear_g biases (AF2): g read as its
+#                   projection wrote it, the out bias added in the fp32 sum. AF2-IG on WH at 195 tokens:
+#                   the head concat, gate multiply, out linear and bias add go.
 #   silu_f32        every silu fused into a matmul (the swiglu fc1) runs calculate_silu_f32: 6e-6
 #                   of float64 at 32 SFPU instructions a row against the wheel's 92 (kernels/silu_f32)
 #   transition_bw   the transition's three matmuls take a K block fixed by the op and K alone
@@ -620,10 +623,13 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in",
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
           "transition_shard", "dit_mm16", "atom_k1", "dit_b8", "dit_qkv16", "atom_mm16", "adaln_mod",
-          "swiglu_fc12g", "msa_sample", "dit_sdpa_pm", "dit_s16", "dit_chunk", "conf_bins", "trimul_t1", "trimul_t2")
+          "swiglu_fc12g", "msa_sample", "dit_sdpa_pm", "dit_s16", "dit_chunk", "conf_bins", "trimul_t1", "trimul_t2",
+          "triatt_tail_bias")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
-# (esmfold2_runtime.LEVERS_FAST) names trimul_b8in, graded on ESMFold2's fold.
-UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16"})
+# (esmfold2_runtime.LEVERS_FAST) names trimul_b8in, graded on ESMFold2's fold. AF2 names
+# triatt_tail_bias in its own set: graded on AF2-IG only, and it would reach any other biased
+# triangle attention.
+UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -6022,6 +6028,11 @@ _TRIMUL_INPROJ_B8 = env_flag("TT_BIO_TRIMUL_INPROJ_B8", False)
 # spd-trimul A/B: the in-projection and its two gates as one `trimul_tail` call per channel chunk
 # (`_gp_in_gated`), so the projection is never written whole and the gated moves become plain ones.
 _TRIMUL_GATED_INPROJ = env_flag("TT_BIO_TRIMUL_GATED_INPROJ", False)
+# `trimul_tail.gin_ragged` for a biased in-projection on a pair grid that is not whole tiles (AF2
+# at 195): projection, gate and channel move in one program instead of a biased matmul into L1 and
+# two gated moves. Default on for Wormhole: AF2-IG WH fold 5.04 -> 4.77 s, ipTM within 0.002
+# (spd-gap-bind ginfold_134760004). Blackhole stays off until graded there. None = arch default.
+_TRIMUL_GIN_RAGGED = env_flag("TT_BIO_TRIMUL_GIN_RAGGED", None)
 
 
 def set_trimul_gated_inproj(on: bool) -> bool:
@@ -9242,6 +9253,27 @@ class TriangleMultiplication(Module):
             for i in range(n_pairs // group)
         ]
 
+    def _gp_in_gated_bias(self, C: int, group: int, S: int) -> list[ttnn.Tensor]:
+        """Per channel chunk, the bias tiles `trimul_tail.gin_ragged` takes, in `_gp_in_gated`'s
+        column order ([b_p_a | b_p_b], [b_g_a | b_g_b]); zeros where the model has no bias."""
+        key = (C, group, gp_roles(), "ragged", S)
+        cached = self._gp_bias_cache.get(key)
+        if cached is None:
+            sc = C * group
+            col = lambda t, r: t[..., gp_off(r, sc):gp_off(r, sc) + sc]  # noqa: E731
+            gb, pb = self._g_in_b, self._p_in_b
+            if gb is None:
+                gb = torch.zeros(int(self._g_in_t.shape[-1]))
+            if pb is None:
+                pb = torch.zeros(int(self._p_in_t.shape[-1]))
+            cached = [
+                _trimul_tail.gin_ragged_bias(torch.cat([col(t, "p_a"), col(t, "p_b")], -1),
+                                             torch.cat([col(t, "g_a"), col(t, "g_b")], -1), S, self.device)
+                for t in self._gp_fused_order((gb.reshape(-1), pb.reshape(-1)), C, group)
+            ]
+            self._gp_bias_cache[key] = cached
+        return cached
+
     def _gp_in_biases(self, C: int, group: int = 1) -> list[ttnn.Tensor] | None:
         """The fused input biases in `_gp_in_chunks`' column order, or None without any."""
         if self._g_in_b is None:
@@ -9718,6 +9750,26 @@ class TriangleMultiplication(Module):
                             defer_transpose=defer, x_in=x_in)
                         branch = "rowblock" if a_chunk is not None else "rowblock-declined"
                         if a_chunk is not None and defer:
+                            defer_a = perm_a == (0, 3, 2, 1)
+                            defer_b = perm_b == (0, 3, 2, 1)
+                    if (a_chunk is None and defer
+                            and (is_wormhole() if _TRIMUL_GIN_RAGGED is None else _TRIMUL_GIN_RAGGED)
+                            and int(x_in.shape[-2]) % 32
+                            and not row_norm and x_norm_in is not None
+                            and self.g_in_weight is None and not ops.taping()
+                            and not _FAST_MODE and not _TRIMUL_RAW_CHANNEL_MOVES
+                            and (mask is None or mask_moved_ok)):
+                        wpT, wgT = self._gp_in_gated(chunk_size, group, transposed=True)[i]
+                        S_ = int(x_in.shape[-2])
+                        fold = mask is not None and _trimul_tail.gin_ragged_ok(x_norm_in, wpT, S_, mask)
+                        ab = _trimul_tail.gin_ragged(
+                            x_norm_in, wpT, wgT, self._gp_in_gated_bias(chunk_size, group, S_)[i],
+                            _mm_generic.ckc_args(self.compute_kernel_config), tuple(COMPUTE_GRID_MAIN),
+                            S_, mask=mask if fold else None, memory_config=memory_config)
+                        if ab is not None:
+                            a_chunk, b_chunk = ab
+                            a_masked = fold
+                            branch = "gin-ragged"
                             defer_a = perm_a == (0, 3, 2, 1)
                             defer_b = perm_b == (0, 3, 2, 1)
                     if (a_chunk is None and (_TRIMUL_GATED_INPROJ or lever("trimul_gin"))
@@ -11043,16 +11095,22 @@ class TriangleAttention(Module):
             """The tail's update, or with `resid` (the pair it belongs to) `resid + update` written
             into `resid` when the one-program tail takes it; the caller tells by identity."""
             head_major = len(g_in.shape) == 4
-            if head_major and not gate_fused and self.o_bias is None:
+            o_major = len(o_in.shape) == 4 and not head_major   # kept for the tail, g as projected
+            if (head_major or o_major) and not gate_fused and (o_major or self.o_bias is None):
                 fused = _triatt_qkv.gated_out_proj(o_in, g_in, self.o_weight, self.compute_kernel_config,
-                                                   resid=resid)
+                                                   resid=resid, bias=self.o_bias)
                 if fused is None and resid is not None:
                     fused = _triatt_qkv.gated_out_proj(o_in, g_in, self.o_weight,
-                                                       self.compute_kernel_config)
+                                                       self.compute_kernel_config, bias=self.o_bias)
                 if fused is not None:
                     ttnn.deallocate(o_in)
                     ttnn.deallocate(g_in)
                     return fused
+            if o_major:
+                # the tail declined: the head concat `attend` skipped for it
+                o_heads = ttnn.experimental.nlp_concat_heads(o_in, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+                ttnn.deallocate(o_in)
+                o_in = ttnn.squeeze(o_heads, 1)
             if not gate_fused:
                 o_in = ttnn.multiply_(
                     o_in, g_in, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
@@ -11326,7 +11384,12 @@ class TriangleAttention(Module):
                     ttnn.deallocate(o)
                     o = ttnn.squeeze(o_heads, 1)
             else:
-                o = attend(qkv, triangle_bias, len(g.shape) == 4, g)
+                # A biased block's gate stays as its projection wrote it; the one-program tail reads
+                # that form too, so o stays head-major for it and the head concat goes.
+                g3d = (len(g.shape) != 4 and self.o_bias is not None and not self.subtile
+                       and self.head_dim == 32 and _triatt_qkv.tail_on(biased=True))
+                o = attend(qkv, triangle_bias, len(g.shape) == 4 or g3d,
+                           g if len(g.shape) == 4 else None)
             if qkv is not None and not isinstance(qkv, tuple):  # the triple is freed inside attend
                 ttnn.deallocate(qkv)
             ttnn.deallocate(triangle_bias)

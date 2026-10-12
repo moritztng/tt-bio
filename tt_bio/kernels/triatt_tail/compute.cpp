@@ -11,6 +11,9 @@
 // the output. KB1 takes K one tile per DST pass and sums the passes in the packer (fp32 L1
 // accumulate into c_6), the order ttnn's matmul uses at in0_block_w 1: on Wormhole, fp32 DST
 // accumulation across a multi-tile K block writes rare elements off by exactly 1, 2 or 4.
+// OBIAS (KB1 only) seeds that fp32 sum with the out projection's bias: c_7 holds Nt bias tiles with
+// every row equal to b, packed into c_6 before the first K pass, so the bias is added exactly in fp32
+// and rounded once with the sum.
 #include "api/compute/compute_kernel_api.h"
 #include "api/compute/matmul.h"
 #include "api/compute/eltwise_binary.h"
@@ -31,6 +34,7 @@ void kernel_main() {
     constexpr uint32_t RNE = get_compile_time_arg_val(4);
     constexpr uint32_t DW = get_compile_time_arg_val(5);
     constexpr uint32_t KB1 = get_compile_time_arg_val(6);
+    constexpr uint32_t OBIAS = get_compile_time_arg_val(7);
     const uint32_t nunits = get_arg_val<uint32_t>(0);
 
     constexpr uint32_t w_cb = tt::CBIndex::c_0;
@@ -40,6 +44,7 @@ void kernel_main() {
     constexpr uint32_t x_cb = tt::CBIndex::c_4;
     constexpr uint32_t u_cb = tt::CBIndex::c_5;
     constexpr uint32_t acc_cb = tt::CBIndex::c_6;
+    constexpr uint32_t b_cb = tt::CBIndex::c_7;
     constexpr uint32_t out_cb = tt::CBIndex::c_16;
     constexpr uint32_t mm_cb = KB1 ? acc_cb : RESID ? u_cb : out_cb;
     constexpr uint32_t sum_cb = KB1 ? acc_cb : u_cb;   // the update the residual add reads
@@ -47,6 +52,7 @@ void kernel_main() {
     mm_init(x_cb, w_cb, KB1 ? x_cb : mm_cb);
     sigmoid_tile_init();
     cb_wait_front(w_cb, Kt * Nt);
+    if constexpr (OBIAS) cb_wait_front(b_cb, Nt);
 
     for (uint32_t u = 0; u < nunits; ++u) {
         // gate: x = o * sigmoid(g)
@@ -88,12 +94,23 @@ void kernel_main() {
         if constexpr (KB1) {
             pack_reconfig_data_format(acc_cb);
             for (uint32_t n0 = 0; n0 < Nt; n0 += DW) {
+                if constexpr (OBIAS) {
+                    tile_regs_acquire();
+                    copy_tile_to_dst_init_short(b_cb);
+                    for (uint32_t i = 0; i < DW; ++i) copy_tile(b_cb, n0 + i, i);
+                    tile_regs_commit();
+                    tile_regs_wait();
+                    pack_reconfig_l1_acc(0);
+                    for (uint32_t i = 0; i < DW; ++i) pack_tile<true>(i, acc_cb, n0 + i);
+                    tile_regs_release();
+                    mm_block_init_short(x_cb, w_cb, false, DW, 1, Kt);
+                }
                 for (uint32_t k = 0; k < Kt; ++k) {
                     tile_regs_acquire();
                     matmul_block(x_cb, w_cb, k, k * Nt + n0, 0, false, DW, 1, Kt);
                     tile_regs_commit();
                     tile_regs_wait();
-                    pack_reconfig_l1_acc(k > 0);
+                    pack_reconfig_l1_acc(OBIAS || k > 0);
                     for (uint32_t i = 0; i < DW; ++i) pack_tile<true>(i, acc_cb, n0 + i);
                     tile_regs_release();
                 }

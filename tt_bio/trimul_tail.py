@@ -653,6 +653,138 @@ def gin_moved(x, wpT, wgT, ckc, grid, mask=None):
     return outs
 
 
+# gin_moved for a ragged pair grid with the projection biases: AF2's trimul at 195 tokens, whose
+# in-projection carries biases and whose S is not a whole number of tiles, runs today as a biased
+# minimal_matmul into L1 and two reblock_permute_gated moves (~1.09 ms per 64-channel chunk on WH).
+# kernels/trimul_gin_ragged: x rows past S re-read row S - 1, the bias tile seeds DST before the K
+# loop, the writer zeroes rows and columns >= S, and a unit is (cube, channel range) so 49 cubes still
+# fill the grid. x and the outputs may sit in L1. Opt-in (perf/spd_gap_bind/gin195.py grades it).
+GIN_RAGGED_QS = int(os.environ.get("TT_BIO_TRIMUL_GIN_RAGGED_QS", "0"))   # 0: one split
+GIN_RAGGED_STATS = [0, 0]   # served, declined
+
+
+def gin_ragged_ok(x, wpT, S, mask=None):
+    shp = [int(d) for d in x.shape]
+    if not (len(shp) in (3, 4) and shp[-2] == shp[-3] == S and S % TILE
+            and x.dtype == ttnn.bfloat16 and wpT.dtype == ttnn.bfloat16
+            and x.layout == ttnn.TILE_LAYOUT and not x.memory_config().is_sharded()
+            and wpT.memory_config() == ttnn.DRAM_MEMORY_CONFIG
+            and int(wpT.shape[-1]) == shp[-1] and shp[-1] % TILE == 0
+            and int(wpT.shape[-2]) % (2 * TILE) == 0):
+        return False
+    if mask is not None:
+        St = -(-S // TILE)
+        B = shp[0] if len(shp) == 4 else 1
+        if not (tuple(int(d) for d in mask.padded_shape) == (B, St * TILE, St * TILE)
+                and mask.dtype == ttnn.bfloat16 and mask.layout == ttnn.TILE_LAYOUT
+                and mask.memory_config() == ttnn.DRAM_MEMORY_CONFIG):
+            return False
+    from .tenstorrent import _l1_bank_bytes
+    tiles = _gin_move_tiles(shp[-1] // TILE, int(wpT.shape[-2]) // TILE, mask is not None) \
+        + int(wpT.shape[-2]) // TILE * 2 + 2
+    return tiles * MG.tile_bytes(ttnn.bfloat16) <= 0.85 * _l1_bank_bytes()
+
+
+def gin_ragged_bias(bp, bg, S, device):
+    """The bias tiles gin_ragged takes, from the [2C] value and gate biases (torch): [bp | bg], each
+    row c of channel tile t carrying bias[32 t + c] in every column, then one column-mask tile for
+    the last column tile of an S-wide grid (1 in columns < S - 32 * (ceil(S / 32) - 1))."""
+    import torch
+    rows = torch.cat([bp.reshape(-1), bg.reshape(-1)]).float()
+    last = S - TILE * (-(-S // TILE) - 1)
+    cmask = (torch.arange(TILE) < last).float()[None, :].expand(TILE, -1)
+    t = torch.cat([rows[:, None].expand(-1, TILE), cmask])
+    return ttnn.from_torch(t.contiguous().to(torch.bfloat16),
+                           layout=ttnn.TILE_LAYOUT, device=device, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+
+
+def _gin_ragged_qs(ct2):
+    # One unit per cube: splitting the channels re-reads x per split. At 195 x 64 channels on the
+    # Wormhole 8x9 grid qs 1 read 0.49 ms (DRAM) / 0.52 (L1) against 0.58 / 0.80 at qs 4.
+    return GIN_RAGGED_QS if GIN_RAGGED_QS and ct2 % GIN_RAGGED_QS == 0 else 1
+
+
+def _build_gin_ragged(x, wpT, wgT, bias, outs, grid, ckc, mask, S, qs):
+    shp = [int(d) for d in x.shape]
+    B = shp[0] if len(shp) == 4 else 1
+    St, kt, ct2 = -(-S // TILE), shp[-1] // TILE, int(wpT.shape[-2]) // TILE
+    nu = B * St * St * qs
+    gx, gy = grid
+    ncores = gx * gy
+    core_grid = ttnn.CoreRangeSet(
+        [ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(gx - 1, gy - 1))])
+    rd, wr, cp = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
+    u0 = 0
+    for c in range(ncores):
+        n = nu // ncores + (c < nu % ncores)
+        x_, y_ = c % gx, c // gx
+        rd[x_][y_] = [u0, n]
+        wr[x_][y_] = [u0, n]
+        cp[x_][y_] = [u0, n]
+        u0 += n
+    acc = lambda t: list(ttnn.TensorAccessorArgs(t).get_compile_time_args())
+    src = ttnn.KernelDescriptor.SourceType.FILE_PATH
+    d = KERNEL_DIR.parent / "trimul_gin_ragged"
+    reader = ttnn.KernelDescriptor(
+        kernel_source=str(d / "reader.cpp"), source_type=src, core_ranges=core_grid,
+        compile_time_args=[kt, ct2, St, S, int(mask is not None), qs] + acc(x) + acc(wpT) + acc(wgT)
+        + acc(mask if mask is not None else x) + acc(bias),
+        runtime_args=rd, common_runtime_args=[0] * 5, config=ttnn.ReaderConfigDescriptor())
+    writer = ttnn.KernelDescriptor(
+        kernel_source=str(d / "writer.cpp"), source_type=src, core_ranges=core_grid,
+        compile_time_args=[ct2, St, S, GIN_MOVE_NB, qs] + acc(outs[0]) + acc(outs[1]),
+        runtime_args=wr, common_runtime_args=[0, 0], config=ttnn.WriterConfigDescriptor())
+    fid, approx, fp32, full = ckc
+    compute = ttnn.KernelDescriptor(
+        kernel_source=str(d / "compute.cpp"), source_type=src, core_ranges=core_grid,
+        compile_time_args=[kt, ct2, 4, int(mask is not None), GIN_MOVE_ABL, int(SIGPOLY), RNE, qs, St],
+        runtime_args=cp,
+        config=ttnn.ComputeConfigDescriptor(
+            math_fidelity=fid, math_approx_mode=approx, fp32_dest_acc_en=fp32,
+            dst_full_sync_en=full))
+    cbs = [_cb(0, core_grid, 2 * ct2 * kt), _cb(1, core_grid, 32 * kt), _cb(2, core_grid, 64),
+           _cb(4, core_grid, 32), _cb(5, core_grid, 32), _cb(7, core_grid, 2 * ct2 + 1),
+           _cb(24, core_grid, 2 * GIN_MOVE_NB), _cb(25, core_grid, 1)]
+    if mask is not None:
+        cbs += [_cb(3, core_grid, 1), _cb(6, core_grid, 32)]
+    return {"kernels": [reader, writer, compute], "cbs": cbs}
+
+
+def gin_ragged(x, wpT, wgT, bias, ckc, grid, S, mask=None, memory_config=None):
+    """`a, b` of the biased gated in-projection, channel-moved, for a pair grid of S rows that need
+    not be whole tiles: [B, C, S, S] each with zero padding, for `[a | b] = (x @ Wp + bp) *
+    sigmoid(x @ Wg + bg)` [* m on a]. `bias` from `gin_ragged_bias` at the same S. None where it declines."""
+    from . import ops
+    if ops.taping() or dest_guard.exposed_args(ckc) or not gin_ragged_ok(x, wpT, S, mask):
+        GIN_RAGGED_STATS[1] += 1
+        return None
+    shp = [int(d) for d in x.shape]
+    B = shp[0] if len(shp) == 4 else 1
+    C = int(wpT.shape[-2]) // 2
+    ct2 = int(wpT.shape[-2]) // TILE
+    St = -(-S // TILE)
+    qs = _gin_ragged_qs(ct2)
+    mc = memory_config or ttnn.DRAM_MEMORY_CONFIG
+    device = x.device()
+    outs = [ttnn.allocate_tensor_on_device(ttnn.Shape([B, C, S, S]), ttnn.bfloat16,
+                                           ttnn.TILE_LAYOUT, device, mc)
+            for _ in range(2)]
+    key = ("gin_ragged", str(x.padded_shape), str(x.memory_config().buffer_type), str(wpT.padded_shape),
+           tuple(grid), tuple(str(c) for c in ckc), mask is not None, GIN_MOVE_NB, SIGPOLY, RNE, S, qs, GIN_MOVE_ABL,
+           str(mc.buffer_type))
+    entry = _CACHE.get(key)
+    if entry is None:
+        entry = _CACHE[key] = _build_gin_ragged(x, wpT, wgT, bias, outs, grid, ckc, mask, S, qs)
+    reader, writer, _ = entry["kernels"]
+    reader.common_runtime_args = [x.buffer_address(), wpT.buffer_address(), wgT.buffer_address(),
+                                  (mask if mask is not None else x).buffer_address(), bias.buffer_address()]
+    writer.common_runtime_args = [outs[0].buffer_address(), outs[1].buffer_address()]
+    pd = ttnn.ProgramDescriptor(kernels=entry["kernels"], semaphores=[], cbs=entry["cbs"])
+    ttnn.generic_op([x, wpT, wgT, bias, *outs] + ([mask] if mask is not None else []), pd)
+    GIN_RAGGED_STATS[0] += 1
+    return outs
+
+
 # T2: the whole c_z = 128 output tail in the resident program (`kernels/trimul_tail_res`,
 # compute_ln.cpp / reader_ln.cpp, its writer): z += (layer_norm(x) @ Wp) * sigmoid(g) with g the
 # fused in-projection's g_out read from DRAM, z written in place. Today that is four ops: at

@@ -63,8 +63,10 @@ from .tenstorrent import (
     host_f64_softmax_site,
     batched_matmul,
     get_device,
+    model_levers,
     precise_fidelity,
     trace_region_size,
+    under_levers,
 )
 
 # The pair-track shape constants of `model_1_ptm`, from the checkpoint's own config
@@ -1154,7 +1156,14 @@ class AF2DeviceModel(AF2Model):
         self._pair_card_shape: tuple | None = None
         self._traces: dict = {}
         self._opm_constant_tt: list = []
+        # triatt_tail_bias: the biased triangle-attention tail in one program, AF2's only lever (no
+        # other shared trunk lever fires at 195 tokens: biases, Kt = 7, its own kernel config).
+        # AF2-IG on Wormhole (chip 8, 1000 MHz, 12 folds per arm, off/on/off): 5.056 / 4.984 / 5.111 s,
+        # CA RMSD to the untouched fold 0.023 / 0.257 / 0.074 A on seeds 0-2, ipTM within 0.003.
+        self._levers = model_levers(normal=frozenset({"triatt_tail_bias"}),
+                                    fast=frozenset({"triatt_tail_bias"}))
 
+    @under_levers
     def to_device(self) -> "AF2DeviceModel":
         """Build the ttnn blocks from the parameters already loaded into the torch modules."""
         state = self.state_dict()
@@ -1356,6 +1365,7 @@ class AF2DeviceModel(AF2Model):
                 ttnn.release_trace(self._device, tr[0])
         self._traces.clear()
 
+    @under_levers
     def extra_msa_stack(self, extra: torch.Tensor, pair: torch.Tensor,
                         extra_mask: torch.Tensor, pair_mask: torch.Tensor) -> torch.Tensor:
         if self.extra_msa_host:
@@ -1404,6 +1414,7 @@ class AF2DeviceModel(AF2Model):
         ttnn.deallocate(z)
         return out
 
+    @under_levers
     def evoformer_stack(self, msa: torch.Tensor, pair: torch.Tensor, msa_mask: torch.Tensor,
                         pair_mask: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         if self.substitute:
@@ -1487,6 +1498,7 @@ class AF2DeviceModel(AF2Model):
 
         return tuple(digest(t) for t in parts)
 
+    @under_levers
     def template_embedding(self, pair: torch.Tensor, feats: dict, mask_2d: torch.Tensor,
                            multichain_mask: torch.Tensor) -> torch.Tensor:
         key = self._template_key(feats, mask_2d, multichain_mask)
