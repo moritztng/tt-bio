@@ -6,6 +6,10 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 ## [Unreleased]
 
 ### Changed
+- **OpenFold3 and OpenBind-0 compute PAE and PDE on the chip.** The confidence heads reduce each 64-bin
+  distribution to its expected value on the card, so the full logits no longer travel to the host. About 0.3 s
+  less per sample on a Blackhole p150a at 1350 MHz. Structures are unchanged; ipTM moves by about 0.002 on
+  average, inside the confidence tolerance.
 - **Protenix-v2 spends less time waiting on the host between recycling cycles.** The alignment goes to the
   chip once per fold and each cycle picks its rows there, so the host no longer cuts and uploads them every cycle.
   On the 730-token fold this saves about 6 s in normal mode and 5 s in `--fast` on Wormhole (1000 MHz), and
