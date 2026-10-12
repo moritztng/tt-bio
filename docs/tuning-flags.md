@@ -56,7 +56,7 @@ move against the accuracy bar and the seed-to-seed spread.
 | [`TT_BIO_OPM_SMALL_DEPTH`](#tt_bio_opm_small_depth) | on | MSA depth 8 or less (AF2-IG, single-sequence folds) | moves, inside the bar |
 | [`TT_BIO_PAIR_FFN_L1_FC1`](#tt_bio_pair_ffn_l1_fc1) | on | ESMFold2 | identical |
 | [`TT_BIO_PAIR_INPLACE`, `TT_BIO_TRIMUL_INPROJ_ROWBLOCK_NORM`](#tt_bio_pair_inplace-tt_bio_trimul_inproj_rowblock_norm) | on | large pair tensors | identical |
-| [`TT_BIO_PAIR_MM`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2, Blackhole | gradients only |
+| [`TT_BIO_PAIR_MM`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round; on for AF2 on Wormhole | BindCraft 2 on Blackhole, AF2 and AF2-IG on Wormhole | moves, far inside the bar |
 | [`TT_BIO_PAIR_TRANSPOSE_FUSED`](#tt_bio_pair_transpose_fused) | on | pair tensors, forward and backward | identical |
 | [`TT_BIO_PWA_FUSED_HEADS`, `TT_BIO_PWA_UNPADDED`](#msa-module-flags) | on | MSA models; graded on Protenix-v2 | moves, inside the bar |
 | [`TT_BIO_PWA_BATCH_HEAD_WEIGHTS`](#tt_bio_pwa_batch_head_weights) | on | | identical |
@@ -115,6 +115,11 @@ Outside a BindCraft 2 round every one keeps the composed path. On Wormhole `TT_B
 `TT_BIO_AF2_G_BIAS_IN_MATMUL` keep it too: on three input seeds of the float64 gradient grade they
 read worse than the composed path on one seed and better on two, which does not settle them. Setting a flag to `0` turns that kernel off even inside
 the round; `bindcraft2.predictor(fast=False)` turns all of them off together.
+
+AF2 itself (AF2-IG, and the AF2 filter inside PXDesign) takes the `TT_BIO_PAIR_MM` path for its pair-track
+linears on Wormhole, through its own lever set rather than the round. On one Wormhole chip at 1000 MHz
+AF2-IG goes from 4.51 to 4.27 s per complex (three complexes, with a trailing control arm). Across three PD-L1 complexes ipTM moves by at most 0.0004 and the
+structures by 0.02 to 0.06 A, and 0.45 A on the complex that does not bind (ipTM 0.10).
 
 | flag | what it replaces |
 |---|---|
