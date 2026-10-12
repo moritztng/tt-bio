@@ -39,10 +39,17 @@ _CACHE: dict = {}
 
 
 def weights(w1: torch.Tensor, w2: torch.Tensor, w3: torch.Tensor, device, dtype=ttnn.bfloat16):
-    """`[w1 | w2]` ([C, 2H]) and `w3` ([H, C]) as `dtype` TILE tensors, from torch [in, out] matrices."""
+    """`[w1 | w2]` ([C, 2H]) and `w3` ([H, C]) as `dtype` TILE tensors, from torch [in, out] matrices, in as few
+    hidden chunks as keep each chunk's weights inside the L1 budget: a list of (w12, w3) pairs whose
+    `pair_swiglu` outputs sum to the whole. One pair wherever the weights fit (c_z 128; c_z 256 in bfp8); c_z 256
+    in bf16 and OpenDDE's c_z 384 take two or more, each re-reading x."""
     up = lambda t: ttnn.from_torch(t.contiguous(), dtype=dtype, layout=ttnn.TILE_LAYOUT,  # noqa: E731
                                    device=device)
-    return up(torch.cat([w1, w2], 1)), up(w3)
+    kt, nh, ct = w1.shape[0] // 32, w1.shape[1] // 32, w3.shape[1] // 32
+    parts = next((p for p in range(1, nh // _SW + 1) if nh % (p * _SW) == 0
+                  and _l1_bytes(kt, nh // p, ct, dtype) <= _L1_BUDGET), 1)
+    h = w1.shape[1] // parts
+    return [(up(torch.cat([w1[:, i:i + h], w2[:, i:i + h]], 1)), up(w3[i:i + h])) for i in range(0, w1.shape[1], h)]
 
 
 def eligible(x, w12, w3) -> bool:

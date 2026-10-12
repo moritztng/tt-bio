@@ -933,7 +933,7 @@ class SwiGLUFFN(Module):
                 self._ws = False
         if not self._ws:
             return None
-        return T.ws_swiglu(x, self.norm_weight, self.norm_bias, self.compute_kernel_config, *self._ws)
+        return T.ws_swiglu(x, self.norm_weight, self.norm_bias, self.compute_kernel_config, [self._ws])
 
     def __call__(self, x: ttnn.Tensor) -> ttnn.Tensor:
         # The fc1 activation (2*d_ff wide) is several GB at long L and, on top of

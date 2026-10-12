@@ -56,7 +56,11 @@ emit(arm="layer_norm", ms=timed(lambda: ttnn.layer_norm(xt, weight=nw, epsilon=1
 emit(arm="typecast_bfp8", ms=timed(lambda: ttnn.typecast(xt, ttnn.bfloat8_b)))
 for mode, dt, fid in (("fast", ttnn.bfloat8_b, ttnn.MathFidelity.HiFi2),
                       ("normal", ttnn.bfloat16, ttnn.MathFidelity.HiFi4)):
-    w12, w3t = W.weights(w1, w2, w3, dev, dt)
+    parts = W.weights(w1, w2, w3, dev, dt)
+    if len(parts) > 1:  # attribution is per program; a chunked call is several
+        emit(arm=mode, ms=None, note=f"{len(parts)} hidden chunks (L1)")
+        continue
+    (w12, w3t), = parts
     x = ttnn.typecast(xt, dt) if dt != ttnn.bfloat16 else xt
     if not W.eligible(x, w12, w3t):
         emit(arm=mode, ms=None, note="not eligible (L1)")
