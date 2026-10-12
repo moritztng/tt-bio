@@ -39,6 +39,7 @@ from tt_bio.tenstorrent import (
     attn_value_matmul,
     fused_sdpa,
     trunk_compute_kernel_config,
+    trace_region_size,
 )
 from tt_bio.eltwise_fusion import scale_add
 
@@ -50,6 +51,10 @@ _DTYPE = ttnn.bfloat16  # activation dtype for the diffusion / encoders
 # c, the atom adaLN modulation) across the ~20 sampling steps, keyed by source-
 # tensor identity. Bit-identical to recomputing.
 _STEP_CACHE = True
+
+# The token DiT's q/k/v/g with the 48 -> 64 head padding folded into the weights (AttentionPairBias
+# ._folded): two matmuls per block instead of six plus a chunk and a concat. Same arithmetic.
+_APB_FOLD = env_flag("TT_BIO_ESMFOLD2_APB_FOLD", False)
 
 
 # Optional progress callback for the CLI display: report_progress(stage, step, total).
@@ -73,6 +78,18 @@ def report_progress(stage, step=0, total=0):
 # set_trajectory_dump() installs one. It only reads tensors the sampler already made, so a fold is
 # bit-identical with or without it. An exception raised by the hook aborts the fold.
 _DUMP = None
+
+#: Replay the diffusion step from a ttnn trace (StructureHead._step) when the device was opened
+#: with get_device(trace="esmfold2"). Lossless. Off: it lost 0.46 s/fold on p150a while the dense
+#: atom SDPA kept the step device-bound; re-measured with the windowed atom attention.
+DIFFUSION_TRACE = env_flag("TT_BIO_ESMFOLD2_DIFFUSION_TRACE", False)
+DIFFUSION_TRACE_STATS = [0, 0]  # [steps replayed, steps run eager]
+
+
+def set_diffusion_trace(on: bool) -> None:
+    global DIFFUSION_TRACE
+    DIFFUSION_TRACE = bool(on)
+
 
 def set_trajectory_dump(fn):
     global _DUMP
@@ -299,6 +316,21 @@ class AttentionPairBias(Module):
         )
         self.scatter_g = to_tt(Sg)
         self.out_w_padded = to_tt(Op)
+        self._Sg = Sg
+        self._fold = None  # (qkv_w, qkv_b, g_w) with the head padding folded in, built on first use
+
+    def _folded(self):
+        """q/k/v/g projections with scatter_g folded into the weights: W @ Sg only moves columns, so
+        x @ (W @ Sg) is the padded projection exactly, one matmul for q|k|v and one for g."""
+        if self._fold is None:
+            Sg, d = self._Sg, self._Sg.shape[0]
+            W = lambda k: self.weights[k].float()
+            kv = W("kv_proj.weight")
+            qkv = torch.cat([W("q_proj.weight").t() @ Sg, kv[:d].t() @ Sg, kv[d:].t() @ Sg], dim=1)
+            b = torch.cat([W("q_proj.bias").reshape(1, -1) @ Sg, torch.zeros(1, 2 * Sg.shape[1])], dim=1)
+            to_tt = lambda x: ttnn.from_torch(x, layout=ttnn.TILE_LAYOUT, device=self.device, dtype=_DTYPE)
+            self._fold = (to_tt(qkv), to_tt(b), to_tt(W("g_proj.weight").t() @ Sg))
+        return self._fold
 
     def __call__(self, a: ttnn.Tensor, s: ttnn.Tensor, z: ttnn.Tensor) -> ttnn.Tensor:
         ck = self.compute_kernel_config
@@ -307,6 +339,12 @@ class AttentionPairBias(Module):
 
         x = self.adaln(a, s)
         lin = self._lin
+        if _APB_FOLD:
+            qkv_w, qkv_b, g_w = self._folded()
+            qh, kh, vh = self._split_heads(lin(x, qkv_w, qkv_b), self.num_heads)
+            g_pad = ttnn.sigmoid(lin(x, g_w))  # pad lanes read 0.5, against ctx pad lanes that are 0
+            ttnn.deallocate(x)
+            return self._attend(qh, kh, vh, g_pad, s, z, head_dim, ck)
         q = lin(x, self.q_w, self.q_b)
         kv = lin(x, self.kv_w)
         k, v = ttnn.chunk(kv, 2, dim=-1)
@@ -326,7 +364,12 @@ class AttentionPairBias(Module):
         qkv = ttnn.concat([qp, kp, vp], dim=-1)  # [B, L, 3*Dpad]
         ttnn.deallocate(qp); ttnn.deallocate(kp); ttnn.deallocate(vp)
         qh, kh, vh = self._split_heads(qkv, self.num_heads)
+        g_pad = lin(g, self.scatter_g)  # [B, L, Dpad]
+        ttnn.deallocate(g)
+        return self._attend(qh, kh, vh, g_pad, s, z, head_dim, ck)
 
+    def _attend(self, qh, kh, vh, g_pad, s, z, head_dim, ck):
+        lin = self._lin
         # pair_bias = pair_bias_proj(layer_norm(z)) is a pure function of the
         # pair conditioning z, which is constant across the diffusion sampling
         # steps (the resident sampler feeds the same cached z object each step).
@@ -353,8 +396,6 @@ class AttentionPairBias(Module):
         ttnn.deallocate(qh); ttnn.deallocate(kh); ttnn.deallocate(vh)
         ctx = self._merge_heads(ctx)  # [B, L, H*head_dim_pad]  (pad value dims are 0)
         # Gate + out_proj in the padded head layout, then project back to d_model.
-        g_pad = lin(g, self.scatter_g)  # [B, L, Dpad]
-        ttnn.deallocate(g)
         ctx = ttnn.multiply(ctx, g_pad)
         ttnn.deallocate(g_pad)
         out = lin(ctx, self.out_w_padded)  # [B, L, d_model]
@@ -1671,7 +1712,7 @@ class StructureHead(TorchWrapper):
             denom = torch.sqrt(t * t + sigma * sigma)
             r_noisy = x_noisy / denom[:, None, None]
             r_input = torch.cat([r_noisy, torch.zeros_like(r_noisy)], dim=-1)  # [B,N,6]
-            r_update = self._to_torch(dmm.step(ft(n_raw), ft(r_input.float())))
+            r_update = self._step(n_raw, r_input.float())
             sigma2, t2 = sigma * sigma, t * t
             out = (sigma2 / (sigma2 + t2))[:, None, None] * x_noisy
             return out + ((sigma * t) / torch.sqrt(sigma2 + t2))[:, None, None] * r_update
@@ -1680,9 +1721,69 @@ class StructureHead(TorchWrapper):
             return sample_structure(denoise, N, ref_mask, steps=steps,
                                     sigma_data=sigma, seed=seed)
         finally:
+            self._release_trace()
             if dmm._ctx is not self._base:
                 dmm.release_cache()
                 dmm._ctx = self._base
+
+    def _step(self, n_raw, r_input):
+        """One denoiser call. Replayed from a ttnn trace when the device has a region for it.
+
+        The step is shape-stable within a trajectory and reads only two small inputs, so the
+        graph captured once replays every later step with new input contents: the same program
+        on the same buffers, bit-identical to the eager call. What it removes is the host
+        dispatch of every op of every step, which the eager loop pays in full because each step
+        ends in a download. Steps 1-2 run eager (they fill the modules' lazy device caches,
+        which must not be created inside a capture); step 3 is captured and replayed.
+        The trace bakes in the addresses of the trajectory's resident tensors, so it lives
+        exactly as long as one draw().
+        """
+        tr = getattr(self, "_trace", None)
+        key = (tuple(n_raw.shape), tuple(r_input.shape))
+        if tr is not None and tr["key"] != key:
+            self._release_trace()
+            tr = None
+        if tr is None:
+            self._eager_steps = getattr(self, "_eager_steps", 0) + 1
+            if not (DIFFUSION_TRACE and trace_region_size() > 0 and self._eager_steps > 2):
+                DIFFUSION_TRACE_STATS[1] += 1
+                out = self.module.step(self._from_torch(n_raw), self._from_torch(r_input))
+                res = self._to_torch(out)
+                ttnn.deallocate(out)
+                return res
+            tr = self._capture_step(n_raw, r_input, key)
+        host = lambda x: ttnn.from_torch(x, layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16)
+        ttnn.copy_host_to_device_tensor(host(n_raw), tr["n"])
+        ttnn.copy_host_to_device_tensor(host(r_input), tr["r"])
+        ttnn.execute_trace(self.tt_device, tr["tid"], cq_id=0, blocking=False)
+        DIFFUSION_TRACE_STATS[0] += 1
+        return self._to_torch(tr["out"])
+
+    def _capture_step(self, n_raw, r_input, key):
+        dev = self.tt_device
+        n_t, r_t = self._from_torch(n_raw), self._from_torch(r_input)
+        ttnn.synchronize_device(dev)
+        tid = ttnn.begin_trace_capture(dev, cq_id=0)
+        try:
+            out = self.module.step(n_t, r_t)
+        except BaseException:
+            # Close the capture, or the device stays in it and every later upload throws.
+            ttnn.end_trace_capture(dev, tid, cq_id=0)
+            ttnn.release_trace(dev, tid)
+            raise
+        ttnn.end_trace_capture(dev, tid, cq_id=0)
+        self._trace = {"tid": tid, "n": n_t, "r": r_t, "out": out, "key": key}
+        return self._trace
+
+    def _release_trace(self):
+        tr = getattr(self, "_trace", None)
+        self._trace, self._eager_steps = None, 0
+        if tr is None:
+            return
+        ttnn.synchronize_device(self.tt_device)
+        ttnn.release_trace(self.tt_device, tr["tid"])
+        for k in ("n", "r", "out"):
+            ttnn.deallocate(tr[k])
 
     def release(self):
         self.module._ctx = getattr(self, "_base", {}) or {}

@@ -152,7 +152,7 @@ def apply_rotary(x: ttnn.Tensor, cos: ttnn.Tensor, sin: ttnn.Tensor) -> ttnn.Ten
     return out
 
 
-def _rope(q: ttnn.Tensor, k: ttnn.Tensor, cos: ttnn.Tensor, sin: ttnn.Tensor):
+def _rope(q: ttnn.Tensor, k: ttnn.Tensor, cos: ttnn.Tensor, sin: ttnn.Tensor, l1: bool = True):
     """RoPE for per-head q, k [B, H, L, head_dim].
 
     When L is tile-aligned (the bucketed LM path — ``BUCKET`` is 32, and the 6B
@@ -164,9 +164,37 @@ def _rope(q: ttnn.Tensor, k: ttnn.Tensor, cos: ttnn.Tensor, sin: ttnn.Tensor):
     the ragged fallback keeps arbitrary single-sequence lengths exact.
     """
     if q.shape[2] % 32 == 0:
+        key = tuple(q.padded_shape)
+        if _ROPE_L1 and l1 and key not in _ROPE_L1_REFUSED:
+            l1 = ttnn.L1_MEMORY_CONFIG
+            out = []
+            try:
+                out.append(ttnn.experimental.rotary_embedding(q, cos, sin, memory_config=l1))
+                out.append(ttnn.experimental.rotary_embedding(k, cos, sin, memory_config=l1))
+            except Exception as exc:
+                if not _is_alloc_refusal(exc):
+                    from tt_bio import tenstorrent
+                    tenstorrent.absorb_l1_refusal("esmc rope L1", exc)
+                _ROPE_L1_REFUSED.add(key)
+                for t in out:
+                    ttnn.deallocate(t)
+            else:
+                ROPE_L1_STATS[0] += 1
+                return out[0], out[1]
+        ROPE_L1_STATS[1] += _ROPE_L1 and l1
         return (ttnn.experimental.rotary_embedding(q, cos, sin),
                 ttnn.experimental.rotary_embedding(k, cos, sin))
     return apply_rotary(q, cos, sin), apply_rotary(k, cos, sin)
+
+
+# The rotated q and k written to L1: SDPA reads them straight back. Same kernel, same values (a memory
+# placement), refusal falls back to DRAM for that shape for good. p150a page cell (esmc_ab.py, qb1 card 2, 1350 MHz,
+# 2 rounds each, output identical to the DRAM path), batch of 7: 300M 81.1 -> 79.5 ms, 300M --fast 87.4 -> 81.1,
+# 600M 139.9 -> 135.1, 600M --fast 119.2 -> 114.9. Same model gate as QK_L1 (Attention.qk_l1): the 6B is not measured.
+_ROPE_L1 = env_flag("TT_BIO_ESMC_ROPE_L1", True)
+_ROPE_L1_REFUSED: set = set()
+#: [rope calls served from L1, declined], read by the A/B harness.
+ROPE_L1_STATS = [0, 0]
 
 
 # The protein LMs' (ESMC, SaProt) SDPA chunks. The shared cap (256 x 256) was 1.285 ms a call at the page shape (batch 7 x 18 heads x 544
@@ -317,7 +345,7 @@ class Attention(Module):
             q, k, v = self._qkv(x)
         # Re-pack and use the tile-aware head split, then apply per-head RoPE.
         q, k, v = self._qk_heads(q, k, v)
-        q, k = _rope(q, k, cos, sin)
+        q, k = _rope(q, k, cos, sin, l1=self.qk_l1)
         if key_valid is not None and attn_mask is None:
             # Zero padded keys/values so their attention contribution is exactly 0. With the -inf
             # additive mask present this is redundant: the masked softmax weight is already exactly
@@ -483,6 +511,12 @@ def _swiglu_gate_legacy() -> bool:
 # float32 (rel_l2 0.025 either way; not bit-identical, the matmul blocks differently at the larger M). So only a
 # model whose resident weights exceed this many bytes tiles; the 6B (12.7 GB in bf16) keeps its path exactly.
 _LM_FFN_TILE_MODEL_BYTES = env_int("TT_BIO_LM_FFN_TILE_MODEL_BYTES", 4 << 30)
+# The per-token LM FFN's SwiGLU gate silu(x fc1_a) * (x fc1_b) written to L1, where fc2 reads it back. Same op, same
+# values (a memory placement); a refusal falls back to DRAM for that shape for good. Off until the page-cell A/B says.
+_ESMC_GATE_L1 = env_flag("TT_BIO_ESMC_GATE_L1", False)
+_GATE_L1_REFUSED: set = set()
+#: [gates served from L1, declined], read by the A/B harness.
+GATE_L1_STATS = [0, 0]
 
 _PAIR_FFN_L1_LN = os.environ.get(
     "TT_BIO_PAIR_FFN_L1_LN", "1" if PAIR_FFN_L1_LN else "0") == "1"
@@ -567,14 +601,17 @@ PAIR_FFN_ROW_BLOCK_MIN = 8
 # checked to alias (`buffer_address()` equal), and `fill_cache` was checked to accept an L1
 # input -- with a DRAM input it would pay the traffic the concat already pays and return nothing.
 #
-# Rides on F: it needs the block's output to be the final content of its rows. Needs
+# On the residual path it rides on F, which makes the block's output the final content of its
+# rows; without a residual (the MSA encoder's pair transition) fc2's output already is, and the
+# concat it replaces needed a second whole-pair buffer: 2 GiB at 2048 aa, the --fast OOM on a
+# p300c chip (spd-trifuse 10-12). Needs
 # `nblk * rows == L` for the view's volume to match, so a length that does not divide by the row
 # block keeps the concat.
 PAIR_FFN_FILL_ASSEMBLY = True
 _PAIR_FFN_FILL_ASSEMBLY = os.environ.get(
     "TT_BIO_PAIR_FFN_FILL_ASSEMBLY", "1" if PAIR_FFN_FILL_ASSEMBLY else "0") == "1"
 
-# [served, declined] residual row-blocked calls, same idiom as `FUSED_RESID_STATS`.
+# [served, declined] row-blocked calls, same idiom as `FUSED_RESID_STATS`.
 FILL_ASSEMBLY_STATS = [0, 0]
 _FILL_ASSEMBLY_REFUSED = set()
 
@@ -783,18 +820,40 @@ class SwiGLUFFN(Module):
                 h2 = self._lin(x_norm, self.fc1_b_weight)
                 silu_done = _SWIGLU_SILU_FC1
             ttnn.deallocate(x_norm)
-            gated = ttnn.multiply(
-                h1, h2, input_tensor_a_activations=[] if silu_done else [ttnn.UnaryOpType.SILU],
-                **({"use_legacy": True} if l1_gated and _swiglu_gate_legacy() else {}),
-                **({"memory_config": ttnn.L1_MEMORY_CONFIG} if l1_gated else {}),
-            )
+            act = dict(input_tensor_a_activations=[] if silu_done else [ttnn.UnaryOpType.SILU])
+            gated = None
+            key = tuple(h1.padded_shape)
+            if not l1_gated and _ESMC_GATE_L1 and len(h1.shape) == 3 and key not in _GATE_L1_REFUSED:
+                try:
+                    gated = ttnn.multiply(h1, h2, memory_config=ttnn.L1_MEMORY_CONFIG, **act)
+                    GATE_L1_STATS[0] += 1
+                except Exception as exc:
+                    if not _is_alloc_refusal(exc):
+                        from tt_bio import tenstorrent as _T
+                        _T.absorb_l1_refusal("esmc gate L1", exc)
+                    _GATE_L1_REFUSED.add(key)
+            if gated is None:
+                GATE_L1_STATS[1] += bool(not l1_gated and _ESMC_GATE_L1 and len(h1.shape) == 3)
+                gated = ttnn.multiply(
+                    h1, h2, **act,
+                    **({"use_legacy": True} if l1_gated and _swiglu_gate_legacy() else {}),
+                    **({"memory_config": ttnn.L1_MEMORY_CONFIG} if l1_gated else {}),
+                )
             ttnn.deallocate(h1)
             ttnn.deallocate(h2)
         else:
-            h = self._lin(x_norm, self._fc1_full())
+            if self.split_swiglu and _SPLIT_SWIGLU:
+                # Below SPLIT_SWIGLU_MIN_SEQ a split-built module still multiplies by its own halves. The
+                # concatenated fc1 is for the TT_BIO_SPLIT_SWIGLU=0 control arm only: built here it stayed
+                # resident in every block, 70.8 MB a layer for the ESMC-6B, which OOMed it on a 12 GB
+                # Wormhole chip for any sequence under 144 tokens.
+                x1 = self._lin(x_norm, self.fc1_a_weight)
+                x2 = self._lin(x_norm, self.fc1_b_weight)
+            else:
+                h = self._lin(x_norm, self._fc1_full())
+                x1, x2 = ttnn.chunk(h, 2, dim=-1)
+                ttnn.deallocate(h)
             ttnn.deallocate(x_norm)
-            x1, x2 = ttnn.chunk(h, 2, dim=-1)
-            ttnn.deallocate(h)
             gated = ttnn.multiply(ttnn.silu(x1), x2)
             ttnn.deallocate(x1); ttnn.deallocate(x2)
         out = self._lin(gated, self.fc2_weight,
@@ -884,7 +943,9 @@ class SwiGLUFFN(Module):
         nblk = -(-L // rows)
         lazy = _PAIR_FFN_L1_SLICE and key not in _L1_SLICE_REFUSED
         fused = residual and _PAIR_FFN_FUSED_RESIDUAL and key not in _FUSED_RESID_REFUSED
-        filled = (fused and _PAIR_FFN_FILL_ASSEMBLY and nblk * rows == L
+        # G needs each block's output to be the final content of its rows: fc2's output when
+        # there is no residual, the folded add's under F. Either way that output sits in L1.
+        filled = ((fused or not residual) and _PAIR_FFN_FILL_ASSEMBLY and nblk * rows == L
                   and key not in _FILL_ASSEMBLY_REFUSED)
         while True:
             parts = None if lazy else ttnn.chunk(x, nblk, dim=1)
@@ -902,7 +963,7 @@ class SwiGLUFFN(Module):
                         [1, min((i + 1) * rows, L), x.shape[2], x.shape[3]],
                         memory_config=ttnn.L1_MEMORY_CONFIG) if lazy else parts[i])
                     out = self._ffn(part, split=True, l1_gated=True,
-                                    out_mc=ttnn.L1_MEMORY_CONFIG if fused else None)
+                                    out_mc=ttnn.L1_MEMORY_CONFIG if fused or filled else None)
                     if fused:
                         out, ffn_out = ttnn.add(
                             part, out,
@@ -944,7 +1005,7 @@ class SwiGLUFFN(Module):
         L1_SLICE_STATS[0 if lazy else 1] += 1
         if residual:
             FUSED_RESID_STATS[0 if fused else 1] += 1
-            FILL_ASSEMBLY_STATS[0 if filled else 1] += 1
+        FILL_ASSEMBLY_STATS[0 if filled else 1] += 1
         if filled:
             return dst
         out = ttnn.concat(outs, dim=1)
