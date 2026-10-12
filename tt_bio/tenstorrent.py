@@ -22,6 +22,7 @@ from . import trimul_tail as _trimul_tail
 from . import mm_generic as _mm_generic
 from . import page_copy as _page_copy
 from . import pair_add as _pair_add
+from . import pair_swiglu_ws as _pair_ws
 from . import pair_transpose_add as _pair_tr_add
 from .envflags import env_flag, env_int
 from .device_lease import device_init_lock
@@ -616,20 +617,30 @@ _FAST_MODE = False
 #                   and g_out as one kernel reading z once (kernels/trimul_in_t1; c_z = hidden = 128, N >= 160)
 #   trimul_t2       its output tail, layer_norm + p projection + sigmoid(g_out) gate + residual add, as one
 #                   kernel writing z in place (kernels/trimul_tail_res, compute_ln.cpp; c_z = 128, N >= 160)
+#   trimul_t1_dram  every trimul T1 / T2 can take (N >= 160) runs on the DRAM path, so they also serve the sizes
+#                   that would otherwise stay in L1 (Nesso-1's 256-token crop passes: 0.70 -> 0.36 s each on WH)
 #   conf_bins       OpenFold3's pae / pde heads reduce softmax(logits) to their bin-vector products on the card
 #                   in fp32 (pTM, ipTM, the chain readings, the PAE / PDE matrices), so the [N, N, 64] logits
 #                   never cross to the host
+#   transition_ws   a pair Transition's swiglu as one weight-stationary program after its layer norm
+#                   (`pair_swiglu_ws`, from RFdiffusion3's RFD3_PAIR_WS): [w1 | w2] and w3 resident in L1, x
+#                   read once, fc1 / fc2 / their product never leave the core. Weights in the module's own
+#                   dtype (bfp8 under transition_b8), fp32 dest, a degree-6 polynomial silu, the trunk's matmul
+#                   fidelity. Weights over L1 (c_z 256 in bf16, c_z 384) run in hidden chunks, outputs summed.
+#   ws_ln           with transition_ws, its layer norm as the kernel's prologue (ln_prologue.hpp, as trimul
+#                   T1/T2): the normalised x never goes to DRAM. One-chunk weights only. WH c_z 128 fast: slower
+#                   (4.31 -> 4.48 ms) and less accurate (rel_rms 0.020 -> 0.028) than the separate norm.
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in",
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
           "transition_shard", "dit_mm16", "atom_k1", "dit_b8", "dit_qkv16", "atom_mm16", "adaln_mod",
           "swiglu_fc12g", "msa_sample", "dit_sdpa_pm", "dit_s16", "dit_chunk", "conf_bins", "trimul_t1", "trimul_t2",
-          "triatt_tail_bias", "dit_cond_hifi2")
+          "triatt_tail_bias", "dit_cond_hifi2", "transition_ws", "ws_ln", "trimul_t1_dram")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias in its own set: graded on AF2-IG only, and it would reach any other biased
 # triangle attention. BoltzGen's own --fast set names dit_cond_hifi2, graded on BoltzGen's designs.
-UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "dit_cond_hifi2"})
+UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "dit_cond_hifi2", "ws_ln"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -648,9 +659,20 @@ UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "di
 # Blackhole, 44 paired folds): fast PASS, normal FAIL on CA-lDDT -0.0002 [-0.0003, -0.0000] against an A/A floor
 # of 0.0010; same-seed top pose median 0.171 A vs the 0.60 A bar, docking 26 -> 26 of 44. OpenFold3 normal grade
 # PASS (top pose median 0.227 A). Saves ~0.3 s of the 512-token fold on p150a (spd-gap-of3, 2026-10-12).
-# trimul_t1 / trimul_t2 are graded on OpenFold3 / OpenBind-0 only (their own FAST_LEVERS) and adaln_mod on Boltz-2
-# fast only (Boltz-2 LEVERS_FAST), so the shared set leaves them out until a grade on the other models puts them in.
-FAST_LEVERS = (frozenset(LEVERS) - {"lofi", "triatt_b8", "triatt_bias_b8", "trimul_t1", "trimul_t2", "adaln_mod"}
+# trimul_t1 / trimul_t2 are graded on OpenFold3 / OpenBind-0 (their own FAST_LEVERS) and Nesso-1, trimul_t1_dram on
+# Nesso-1 only, and adaln_mod on Boltz-2 fast only (Boltz-2 LEVERS_FAST), so the shared set leaves them out until a
+# grade on the other models puts them in.
+# transition_ws is fast-only. Wormhole 11-set fast grade, each model's fast set vs the same set + transition_ws,
+# same chip, 44 paired folds (spd-integrate gtw, 2026-10-12), PASS on all six; same-seed top pose median against
+# the A/A seed floor: Protenix-v2 0.32 / 1.24 A, OpenFold3 0.61 / 0.81, Boltz-2 1.33 / 1.88, OpenDDE 0.54 / 1.47,
+# ESMFold2-Fast 0.98 / 1.36, ESMFold2 CA-lDDT -0.0013 [-0.0074, +0.0043]; docking flat or up on every model.
+# Blackhole: Boltz-2 fast grade PASS (44 paired, p300c). ESMFold2 on Blackhole declines the kernel (bf16 weights
+# over its L1 budget), so its fold is unchanged there. Warm 512-token fold on a Galaxy chip (1000 MHz):
+# ESMFold2 -22.1 s, ESMFold2-Fast -11.3, OpenDDE -5.5, Protenix-v2 -2.8, OpenFold3 -1.5, Boltz-2 -1.1 s.
+# A model's fast set takes it once its Blackhole grade passes too: Boltz-2 and both ESMFold2 models (their own
+# LEVERS_FAST) so far; the shared set (Protenix family, OpenDDE) and OpenFold3 leave it out until theirs read.
+FAST_LEVERS = (frozenset(LEVERS) - {"lofi", "triatt_b8", "triatt_bias_b8", "trimul_t1", "trimul_t2", "adaln_mod",
+                                    "trimul_t1_dram", "transition_ws"}
                - UNGRADED_LEVERS)
 # trimul_ibw + trimul_tail: Wormhole 11-set grade PASS, 44 paired folds, same-seed top pose median
 # 0.204 A against the 0.60 A bar (A/A seed floor 0.807 A), every paired CI covers 0 or sits on the
@@ -1860,6 +1882,9 @@ def _triangle_mul_memory_config(seq_len: int) -> ttnn.MemoryConfig:
     # fourth block's attention QKV projection then refuses.
     from . import ops
     if seq_len in _TRIMUL_DRAM_SHAPES or ops.taping():
+        return ttnn.DRAM_MEMORY_CONFIG
+    if seq_len >= _trimul_tail.MIN_N and lever("trimul_t1_dram") and (
+            _trimul_tail.T1 or lever("trimul_t1")):
         return ttnn.DRAM_MEMORY_CONFIG
     return ttnn.L1_MEMORY_CONFIG if seq_len <= _trimul_l1_max_seq() else ttnn.DRAM_MEMORY_CONFIG
 
@@ -3892,7 +3917,9 @@ def _tri_att_hifi_ladder(q, k, v, bias, scale: float, one_k_chunk: bool):
             # 3.46x the 18944 B that refused the widest q there. Bit-identical, and measured
             # perf-neutral (1.167x vs 1.177x at 768, same q and k). Only offered at one k chunk.
             for kv_bf in ((2, 1) if wide else (2,)):
-                cfg = (q_len, k_len, q_chunk, k_chunk, kv_bf, q.dtype)
+                # Every operand's dtype, not q's alone: triatt_sdpa declines a MIXED set (bfp8 q/k/v with a
+                # bf16 bias) on dtype, and keyed on q.dtype that decline retired the all-bfp8 config too.
+                cfg = (q_len, k_len, q_chunk, k_chunk, kv_bf, q.dtype, k.dtype, v.dtype, getattr(bias, "dtype", None))
                 if cfg in _TRIATT_HIFI_OVER_L1:
                     continue
                 try:
@@ -12379,6 +12406,41 @@ def _transition_swiglu_sharded(x, w1, w2, w3, ckc, silu_ckc, hidden, dtype, w12=
     return out
 
 
+def _ws_applies(x, ckc) -> bool:
+    """`transition_ws` is on and this pair input can take it: 4-D bf16, no tape, and not where the
+    Wormhole fp32-dest guard is on (the kernel keeps all of K in dest)."""
+    return (lever("transition_ws") and len(x.shape) == 4 and not ops.taping() and x.dtype == ttnn.bfloat16
+            and not _dest_guard.tail_exposed(ckc))
+
+
+def ws_swiglu(x, norm_weight, norm_bias, ckc, parts):
+    """`fc3(silu(LN(x) w1) * (LN(x) w2))` as `pair_swiglu_ws` programs over the hidden chunks `parts`
+    (`pair_swiglu_ws.weights`), their outputs summed; or None where the kernel does not take the shape (a chunk
+    over its L1 budget, a hidden width it cannot tile).
+
+    Shared by the pair `Transition` and ESMFold2's `esmc.SwiGLUFFN`. With bfp8 weights (fast mode) the matmuls
+    run at HiFi2, which covers every bfp8 weight bit (`bfp8_fidelity`); x stays the layer norm's bf16, since the
+    kernel takes it at the same speed as bfp8 x and a separate cast cost 0.46 ms at c_z 128 (ws_attr, WH).
+    """
+    if not all(_pair_ws.eligible(x, w12, w3) for w12, w3 in parts):
+        return None
+    fid = ttnn.MathFidelity.HiFi2 if parts[0][0].dtype == ttnn.bfloat8_b else ckc.math_fidelity
+    if lever("ws_ln") and len(parts) == 1 and _pair_ws.eligible(x, *parts[0], ln=(norm_weight, norm_bias)):
+        return _pair_ws.pair_swiglu(x, *parts[0], fid, ln=(norm_weight, norm_bias, 1e-5))
+    x_norm = ttnn.layer_norm(x, weight=norm_weight, bias=norm_bias, epsilon=1e-5, compute_kernel_config=ckc,
+                             memory_config=ttnn.DRAM_MEMORY_CONFIG)
+    out = None
+    for w12, w3 in parts:
+        o = _pair_ws.pair_swiglu(x_norm, w12, w3, fid)
+        if out is None:
+            out = o
+        else:
+            ttnn.add_(out, o)
+            ttnn.deallocate(o)
+    ttnn.deallocate(x_norm)
+    return out
+
+
 class Transition(Module):
     def __init__(
         self,
@@ -12439,6 +12501,22 @@ class Transition(Module):
             ttnn.deallocate(out)
         return masked
 
+    def _weight_stationary(self, x, memory_config):
+        """`transition_ws`: layer norm, then the whole swiglu as one `pair_swiglu_ws` program, or None
+        where the kernel does not take the shape (a hidden width it cannot tile, an L1 destination, a tape).
+        Weights over its L1 budget (c_z 256 in bf16, OpenDDE's c_z 384) run in hidden chunks."""
+        if not (_ws_applies(x, self.compute_kernel_config)
+                and (memory_config is None or memory_config.buffer_type == ttnn.BufferType.DRAM)
+                and (self.dtype or _dtype()) == ttnn.bfloat16):
+            return None
+        if getattr(self, "_ws", None) is None:
+            # bfp8 weights where the module's own are (transition_b8, fast mode): that is also what lets
+            # c_z 256 fit L1 in one chunk.
+            self._ws = _pair_ws.weights(self.weights["fc1.weight"].t(), self.weights["fc2.weight"].t(),
+                                        self.weights["fc3.weight"].t(), self.device,
+                                        ttnn.bfloat8_b if self._hidden_b8 else ttnn.bfloat16)
+        return ws_swiglu(x, self.norm_weight, self.norm_bias, self.compute_kernel_config, self._ws)
+
     def _add_rows_ok(self, x, memory_config) -> bool:
         return (_TRANSITION_ADD_ROWS and not ops.taping() and len(x.shape) == 4
                 and x.shape[1] <= SEQ_LEN_MORE_CHUNKING
@@ -12474,6 +12552,13 @@ class Transition(Module):
         path each block adds its own rows, so the assembly can free `x` before it needs room
         for the result; elsewhere it is the caller's `ttnn.add_` done here.
         """
+        out = self._weight_stationary(x, memory_config)
+        if out is not None:
+            if not add_to_input:
+                return out
+            x = ttnn.add_(x, out)
+            ttnn.deallocate(out)
+            return x
         add_rows = add_to_input and self._add_rows_ok(x, memory_config)
         if add_to_input and not add_rows and not (len(x.shape) == 4 and x.shape[1] > SEQ_LEN_MORE_CHUNKING):
             u = self(x, memory_config)

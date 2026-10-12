@@ -36,6 +36,7 @@ NORMAL_LEVERS = _T.NORMAL_LEVERS - {"transition_bw", "transition_shard"}
 # Wormhole 11-set fast grade, same chip, AICLK 1000: OpenFold3 top pose median 1.191 A (seed floor 1.122 A),
 # CA-lDDT -0.0014 [-0.0043, +0.0005], docking 21 -> 21/44, PASS, median fold 77.5 -> 72.4 s; OpenBind-0 CA-lDDT
 # +0.0008, docking 27 -> 28/44, PASS, median fold 103.8 -> 89.6 s.
+# transition_ws joins once its Blackhole fast grade passes (Wormhole PASS; see tenstorrent.FAST_LEVERS).
 FAST_LEVERS = NORMAL_LEVERS | {"dit_s16", "diffusion_bf16", "trimul_t1", "trimul_t2"}
 
 def kabsch_rmsd(pred_ca, gt_ca):
