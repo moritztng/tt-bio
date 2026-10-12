@@ -594,7 +594,8 @@ _FAST_MODE = False
 #                   the adaLN outputs, q/k/v, the gate and the swiglu hidden are written bf16, the output
 #                   projections, the residual stream and the superset bias stay fp32. Inert in bf16.
 #   adaln_mod       every fp32 AdaLN modulates in one addcmul, `s_bias + ln(a) * sigmoid(s_scale)`, instead of
-#                   multiply then add: the activation is read and written once. Inert in bf16.
+#                   multiply then add: the activation is read and written once. Boltz-2's hoisted token-DiT
+#                   AdaLN (`_B2_ADALN_ADDCMUL`) does the same in any dtype, the sigmoid in the scale matmul.
 #   swiglu_fc12g    inside transition_shard, silu(x w1) * (x w2) as ONE matmul over [w1_j | w2_j] with the silu
 #                   and the gate multiply in the compute kernel (kernels/fc12g): no fc1/fc2 tensors, no
 #                   multiply op; the gate multiplies fc2 in dest rather than its stored copy. Needs silu_f32.
@@ -2266,7 +2267,8 @@ _B2_DIT_COND_HOIST = env_flag("TT_BIO_DIT_COND_HOIST", True)
 _B2_DIT_COND_HIFI2 = env_flag("TT_BIO_DIT_COND_HIFI2", False)
 # Each hoisted AdaLN modulates with one addcmul: the 48 scales get their sigmoid in the matmul
 # epilogue (their own weight block), so `sigmoid(scale) * a` then `+ shift` (two ops, two bf16
-# roundings) becomes one op, 48 fewer per step. Off until a paired A/B and a fast grade decide.
+# roundings) becomes one op, 48 fewer per step. Also on under the `adaln_mod` lever. p150a, Boltz-2 fast, 512 x 1:
+# -0.22 s per fold paired (median of 4 pairs), pLDDT 0.852 -> 0.868 (spd-gap-small abJ, 2026-10-12).
 _B2_ADALN_ADDCMUL = env_flag("TT_BIO_ADALN_ADDCMUL", False)
 
 
@@ -14010,7 +14012,7 @@ class DiffusionTransformer(Module):
                                 math_approx_mode=ckc.math_approx_mode,
                                 fp32_dest_acc_en=ckc.fp32_dest_acc_en,
                                 packer_l1_acc=ckc.packer_l1_acc)
-            if _B2_ADALN_ADDCMUL:
+            if _B2_ADALN_ADDCMUL or lever("adaln_mod"):
                 sw, sb, bw = self._cond_weights_split()
                 o_ad = (ttnn.linear(s_hat, sw, bias=sb, compute_kernel_config=ckc,
                                     activation="sigmoid"),
