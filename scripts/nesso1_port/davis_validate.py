@@ -67,8 +67,12 @@ def spearman(xs, ys) -> float:
     return pearson(rank(xs), rank(ys))
 
 
-def select(davis: Path) -> list[tuple[str, list[dict]]]:
-    """The GPU arm's selection, verbatim in behaviour: a pure function of davis.csv."""
+def select(davis: Path, names: list[str] | None = None) -> list[tuple[str, list[dict]]]:
+    """The GPU arm's selection, verbatim in behaviour: a pure function of davis.csv.
+
+    `names` picks those DAVIS targets instead of the two largest, same ligand thinning. The GPU
+    arm's two are ~1170 aa, so a lever that only serves mid-size full passes (trimul T1/T2 at
+    ~500-600 tokens) never runs on them; LCK (509 aa) and BLK (599 aa) are where it does."""
     rows = []
     with open(davis, newline="") as fh:
         for r in csv.DictReader(fh):
@@ -90,7 +94,13 @@ def select(davis: Path) -> list[tuple[str, list[dict]]]:
         return math.sqrt(sum((x - m) ** 2 for x in ls) / len(ls))
 
     ranked = sorted(by_target.items(), key=lambda kv: (len(kv[1]), spread(kv[1])), reverse=True)
-    chosen = [t for t in ranked if len(t[1]) >= 8 and spread(t[1]) >= 0.4][:N_TARGETS]
+    if names:
+        missing = [n for n in names if n not in by_target]
+        if missing:
+            raise SystemExit("no non-censored DAVIS rows for %s" % missing)
+        chosen = [(n, by_target[n]) for n in names]
+    else:
+        chosen = [t for t in ranked if len(t[1]) >= 8 and spread(t[1]) >= 0.4][:N_TARGETS]
     if not chosen:
         raise SystemExit("no DAVIS target with >=8 non-censored measurements and log-spread >=0.4")
     out = []
@@ -148,6 +158,8 @@ def main() -> int:
                     default=Path("~/scratch/nesso1/davis/davis.csv").expanduser())
     ap.add_argument("--target-index", type=int, default=None,
                     help="run one target only (0 or 1); default runs both on this card")
+    ap.add_argument("--targets", default=None,
+                    help="comma-separated DAVIS target ids instead of the GPU arm's two, e.g. LCK,BLK")
     ap.add_argument("--scratch", type=Path, default=Path("~/scratch/nesso1/davis").expanduser())
     ap.add_argument("--weights", default="recursionpharma/nesso")
     ap.add_argument("--trunk", default="bf16", choices=("bf16", "fp32"),
@@ -165,7 +177,7 @@ def main() -> int:
     seed = DEFAULT_SEED if args.seed is None else args.seed
     from tt_bio.nesso1_input import CLI_PREDICT_ARGS, collate, prepare
 
-    targets = select(args.davis)
+    targets = select(args.davis, args.targets.split(",") if args.targets else None)
     if args.target_index is not None:
         targets = [targets[args.target_index]]
     print("targets: %s" % [(t, len(r), len(r[0]["seq"])) for t, r in targets], flush=True)
