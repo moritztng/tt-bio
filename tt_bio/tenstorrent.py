@@ -12360,6 +12360,35 @@ def _transition_swiglu_sharded(x, w1, w2, w3, ckc, silu_ckc, hidden, dtype, w12=
     return out
 
 
+_T3_CHECK = bool(os.environ.get("TT_BIO_T3_CHECK"))   # debug: every served transition_t3 call vs float64
+_T3_CALLS = [0]
+
+
+def _t3_probe_in(x):
+    return ttnn.to_torch(x).double()
+
+
+def _t3_probe(mod, xin, out, add_to_input, rows=4096):
+    """Prints one line per served T3 call: its output against a float64 transition of the same input on
+    `rows` sampled rows. Debug only (TT_BIO_T3_CHECK)."""
+    _T3_CALLS[0] += 1
+    K = xin.shape[-1]
+    xf = xin.reshape(-1, K)
+    idx = torch.randperm(xf.shape[0], generator=torch.Generator().manual_seed(0))[:rows]
+    xs = xf[idx]
+    w = {k: mod.weights[k].double() for k in ("norm.weight", "norm.bias", "fc1.weight", "fc2.weight", "fc3.weight")}
+    xn = torch.nn.functional.layer_norm(xs, (K,), w["norm.weight"], w["norm.bias"], 1e-5)
+    ref = (torch.nn.functional.silu(xn @ w["fc1.weight"].t()) * (xn @ w["fc2.weight"].t())) @ w["fc3.weight"].t()
+    if add_to_input:
+        ref = ref + xs
+    got = ttnn.to_torch(out).double().reshape(-1, K)[idx]
+    err = (got - ref).abs()
+    print("T3CHECK", _T3_CALLS[0], tuple(int(d) for d in xin.shape), int(add_to_input), str(mod.fc1_weight.dtype),
+          "rel_rms %.5f max %.4f bad %d nan %d" % (float(((got - ref) ** 2).mean().sqrt() / ref.pow(2).mean().sqrt()),
+                                                   float(err.max()), int((err > 0.5).sum()),
+                                                   int(torch.isnan(got).sum())), flush=True)
+
+
 class Transition(Module):
     def __init__(
         self,
@@ -12408,15 +12437,21 @@ class Transition(Module):
         if mask is not None and add_to_input:
             raise ValueError("Transition: mask with add_to_input would mask the residual "
                              "on padded positions; upstream masks t(x) only")
+        xin = None
         if mask is None and (add_to_input or memory_config is None
                              or memory_config == ttnn.DRAM_MEMORY_CONFIG):
+            xin = _t3_probe_in(x) if _T3_CHECK else None
             out = self._t3(x, add_to_input)
             if out is not None:
+                if xin is not None:
+                    _t3_probe(self, xin, out, add_to_input)
                 return out
         out = host_acc_after_refusal(
             ("transition", tuple(x.padded_shape)), x, lambda: _inplace_guarded(
                 "transition", lambda: self._transition_fit(x, memory_config, add_to_input)))
         if mask is None:
+            if _T3_CHECK and xin is not None:
+                _t3_probe(self, xin, out, add_to_input)   # the incumbent on the same calls: the control
             return out
         masked = ttnn.multiply(out, mask)
         if not ops.taping():
