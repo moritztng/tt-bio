@@ -132,7 +132,7 @@ def main():
                 return dit.shared_s(s_d)
 
             def call(sh):
-                return blk(a_d, s_d, z_d, mask_bias, tmc, cache=cache, s16=sh)
+                return blk(a_d, s_d, z_d, mask_bias, tmc, cache=cache, s16=sh, tok_ones=dit._tok_ones.get(rows, False))
 
             def free(sh):
                 for t in sh or ():
@@ -215,7 +215,8 @@ def main():
 
 def op_table(ttnn, MDT, call, sync, dev, reps):
     """Every ttnn op one block call issues, synchronised on both sides, binned by op and call site."""
-    acc, inside, do_trace = {}, {"op": 0}, {"v": True}
+    acc, inside, do_trace, seen = {}, {"op": 0}, {"v": True}, set()
+    HOST_ONLY = {"unsqueeze", "squeeze", "reshape", "allocate_tensor_on_device"}
 
     def addrs(v):
         ts = v if isinstance(v, (tuple, list)) else (v,)
@@ -275,7 +276,13 @@ def op_table(ttnn, MDT, call, sync, dev, reps):
                 out = fn(*x, **k)
                 sync()
                 t1 = time.perf_counter()
-                dev_s = traced(fn, x, k, out) if do_trace["v"] else 0.0
+                if do_trace["v"] and label not in HOST_ONLY:
+                    if key not in seen:
+                        print("trace", key, flush=True)
+                    dev_s = traced(fn, x, k, out)
+                    if key not in seen:
+                        seen.add(key)
+                        print("  ok", round(dev_s * 1e6, 1), flush=True)
                 return out
             finally:
                 inside["op"] = 0

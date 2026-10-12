@@ -206,6 +206,78 @@ class _DiTBlock(Module):
                         (bf(self._w[ct + "linear_g.weight"].t()),
                          bf(self._w[ct + "linear_g.bias"].reshape(1, -1))), ckc)
 
+        # dit_fuse (bf16 DiT, the `--fast` stack): the adaLNs read one parameter-free LN(s) per stack call
+        # (`OF3DiffusionTransformer.shared_s`) with their gammas folded into bf16 weights on the host, as
+        # dit_s16 does for the fp32 DiT. Every s-path sigmoid runs in its linear's epilogue, so each adaLN
+        # modulates in one addcmul, the APB gated residual is one addcmul and, where the token mask is all
+        # ones, so is the transition's gated, masked residual; `_sdpa32` writes the attention bf16 itself
+        # (no typecast). 33 -> 23 ttnn calls a block. Not bit-exact: each fused product skips one bf16
+        # rounding (which `gated_add` declines in bf16 for exactly that reason), the sigmoid reads the
+        # fp32 accumulator instead of its bf16 rounding, and LN(s) * gamma is rounded once inside W.
+        self.fuse = None
+        if (self._act_dtype == ttnn.bfloat16 and self.sdpa32 and self.lp is None and self.s16 is None
+                and _T.lever("dit_fuse")):
+            bf = lambda w: ttnn.from_torch(w.float().contiguous(), dtype=ttnn.bfloat16,  # noqa: E731
+                                           layout=ttnn.TILE_LAYOUT, device=self.device)
+            ada = []
+            for ln in (self.adaln_a, self.adaln_t):
+                w_sc, b_sc, w_sb = ln.folded_weights()
+                ada.append((bf(w_sc), bf(b_sc.reshape(1, -1)), bf(w_sb)))
+            self.fuse = ada
+
+    def _fuse_adaln(self, a, s_hat, i):
+        """adaLN under dit_fuse: `s_hat W_sb + LN(a) * sigmoid(s_hat W_sc + b)`, one addcmul."""
+        w_sc, b_sc, w_sb = self.fuse[i]
+        sc = self._lin(s_hat, w_sc, bias=b_sc, activation="sigmoid")
+        sb = self._lin(s_hat, w_sb)
+        an = ttnn.layer_norm(a, epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
+        out = ttnn.addcmul(sb, an, sc, value=1.0)
+        for t in (sc, sb, an):
+            ttnn.deallocate(t)
+        return out
+
+    def _call_fused(self, a, s, z, mask_bias, tok_mask_col, cache, s_hat, tok_ones):
+        """`__call__` under dit_fuse (bf16, `_sdpa32`): the same block in 23 ttnn calls."""
+        lin = self._lin
+        a_ln = self._fuse_adaln(a, s_hat, 0)
+        bias = _cached(cache, (id(self), "pair_bias32"), lambda: self._sdpa32_mask(z, mask_bias))
+        qkv = lin(a_ln, self.qkv_w, bias=self.qkv_b)
+        qkv = ttnn.unsqueeze(qkv, 1)
+        o = _T._sdpa32_fused(qkv, bias, HEAD_DIM ** -0.5, N_HEADS, out_dtype=ttnn.bfloat16)
+        ttnn.deallocate(qkv)
+        if cache is None:
+            ttnn.deallocate(bias)
+        S, n = o.shape[0], o.shape[2]
+        o = ttnn.reshape(o, (S, n, N_HEADS * PADDED_HEAD_DIM))
+        g = lin(a_ln, self.w_g)
+        ttnn.deallocate(a_ln)
+        o2 = ttnn.multiply(o, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
+        ttnn.deallocate(g); ttnn.deallocate(o)
+        o = lin(o2, self.w_o)
+        ttnn.deallocate(o2)
+        og = lin(s, self.w_ada_out, bias=self.b_ada_out, activation="sigmoid")
+        a2 = ttnn.addcmul(a, o, og, value=1.0)
+        ttnn.deallocate(og); ttnn.deallocate(o)
+        a = a2
+
+        a_t = self._fuse_adaln(a, s_hat, 1)
+        b1 = lin(a_t, self.w_la, activation="silu")
+        b2 = lin(a_t, self.w_lb)
+        ttnn.deallocate(a_t)
+        bb = ttnn.multiply(b1, b2)
+        ttnn.deallocate(b1); ttnn.deallocate(b2)
+        out = lin(bb, self.w_lout)
+        ttnn.deallocate(bb)
+        lg = lin(s, self.w_lg, bias=self.b_lg, activation="sigmoid")
+        if tok_ones:          # x * 1 is exact: the mask multiply is an identity
+            a2 = ttnn.addcmul(a, out, lg, value=1.0)
+        else:
+            gated = ttnn.multiply(out, lg)
+            a2 = mask_add(a, gated, tok_mask_col)
+            ttnn.deallocate(gated)
+        ttnn.deallocate(out); ttnn.deallocate(lg)
+        return a2
+
     def _s16_lin(self, x, wb, activation=None):
         w, b = wb
         return ttnn.linear(x, w, bias=b, dtype=ttnn.float32, compute_kernel_config=self.s16[3],
@@ -312,7 +384,10 @@ class _DiTBlock(Module):
             ttnn.deallocate(mask)
         return o
 
-    def __call__(self, a, s, z, mask_bias, tok_mask_col, cache=None, s16=None):
+    def __call__(self, a, s, z, mask_bias, tok_mask_col, cache=None, s16=None, tok_ones=False):
+        """`s16`: the stack's `shared_s`. `tok_ones`: the token mask is 1 on every row (dit_fuse)."""
+        if self.fuse:
+            return self._call_fused(a, s, z, mask_bias, tok_mask_col, cache, s16[0], tok_ones)
         lin, lp = self._lin, self.lp
         # Under lp each adaLN writes lp.act, read only by linears; the transition's hidden linears
         # write bf16, their product lp.mid, and every linear into the stream writes lp.out.
@@ -447,11 +522,14 @@ class OF3DiffusionTransformer(Module):
                                  ln_z_w=ln_z_w)
                        for b in range(n_blocks)]
         self.n_blocks = n_blocks
+        self._tok_ones: dict = {}
 
     def _masks(self, token_mask, N, padded_N, rows):
         """``(mask_bias [1,1,1,padded_N], tok_mask_col at rows or ())``: -1e9 on padded and masked
         keys; the column mask is ``()`` when the caller's ``tok_mask_col`` already fits."""
         tok = ttnn.to_torch(token_mask).float().reshape(-1)  # [N]
+        # Whether the transition's mask multiply is an identity on every row the blocks compute.
+        self._tok_ones[rows] = bool(rows == N and (tok == 1.0).all())
         mb_t = torch.full((padded_N,), -1e9, dtype=torch.float32)
         mb_t[:N] = (tok - 1.0) * 1e9
         mask_bias = ttnn.from_torch(mb_t.reshape(1, 1, 1, padded_N), layout=ttnn.TILE_LAYOUT,
@@ -466,6 +544,8 @@ class OF3DiffusionTransformer(Module):
     def shared_s(self, s_d):
         """What every block of one call reads off ``s`` and the stack computes once (``s16`` in
         ``_DiTBlock.__call__``), or None. The caller frees the tensors after the last block."""
+        if self.blocks[0].fuse:
+            return (ttnn.layer_norm(s_d, epsilon=1e-5, compute_kernel_config=self.compute_kernel_config),)
         if self.blocks[0].s16:
             return (ttnn.typecast(s_d, ttnn.bfloat16),
                     ttnn.typecast(ttnn.layer_norm(s_d, epsilon=1e-5,
@@ -509,7 +589,8 @@ class OF3DiffusionTransformer(Module):
         x = a_d
         s16 = self.shared_s(s_d)
         for blk in self.blocks:
-            x = blk(x, s_d, z_d, mask_bias, tmc_d, cache=cache, s16=s16)
+            x = blk(x, s_d, z_d, mask_bias, tmc_d, cache=cache, s16=s16,
+                    tok_ones=self._tok_ones.get(rows, False))
         for t in s16 or ():
             ttnn.deallocate(t)
         if rows == N:
