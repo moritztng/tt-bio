@@ -385,6 +385,9 @@ DIT_SDPA_CALLS = [0]
 # The DiT builds all 18 blocks' masks in one pass while the stack fits under this many bytes
 # (bf16, 18 x 16 heads x n_key^2: 1317 tokens); above it each block builds its own.
 _DIT_SDPA_STACK_BYTES = int(float(os.environ.get("RFD3_DIT_SDPA_STACK_BYTES", "1e9")))
+# The stacked mask's sqrt(head_dim) folded into the packed pair-bias projection weights at load, so the
+# [1, 288, n, n] stack skips one full multiply pass a DiT call. Off while graded.
+_DIT_MASK_WFOLD = env_flag("RFD3_DIT_MASK_WFOLD", False)
 _DIT_SDPA_CHUNKS = tuple(int(x) for x in os.environ.get("RFD3_DIT_SDPA_CHUNKS", "64,352").split(","))
 
 
@@ -2157,13 +2160,14 @@ def _gated(x, gate):
     return ttnn.multiply(x, ttnn.sigmoid(gate))
 
 
-def _sdpa_dense_mask(pair_bias, additive_mask, head_dim, n_key):
+def _sdpa_dense_mask(pair_bias, additive_mask, head_dim, n_key, prescaled=False):
     """The dense SDPA mask from head-major pair bias [.., H, L, L]: the kernel adds the mask before
-    it scales, so only the bias is pre-scaled; the -1e4 neighbour mask and the pad rows/columns
-    stay where their weight is 0."""
-    pb = ttnn.multiply(pair_bias, head_dim**0.5)
+    it scales, so only the bias is pre-scaled (by the caller's weights when `prescaled`); the -1e4
+    neighbour mask and the pad rows/columns stay where their weight is 0."""
+    pb = pair_bias if prescaled else ttnn.multiply(pair_bias, head_dim**0.5)
     mask = pad_axis(pad_axis(ttnn.add(pb, additive_mask), n_key, 3, -1e4), n_key, 2, -1e4)
-    ttnn.deallocate(pb)
+    if not prescaled:
+        ttnn.deallocate(pb)
     return mask
 
 
@@ -3212,13 +3216,15 @@ class LocalTokenTransformer(Module):
         if self._b_w_packed is None:
             cols = torch.cat([self.weights[f"blocks.{i}.attention_pair_bias.to_b.weight"].t().float()
                               for i in range(len(self.blocks))], dim=1)
+            if _DIT_MASK_WFOLD:
+                cols = cols * self.blocks[0].head_dim ** 0.5
             self._b_w_packed = ttnn.from_torch(cols, layout=ttnn.TILE_LAYOUT, device=self.device,
                                                dtype=self.dtype)
         pb = _tuned_linear(z, self._b_w_packed, ckc=self.compute_kernel_config, dtype=self.dtype,
                            core_grid=CORE_GRID_MAIN)
         pb_t = ttnn.permute(pb, (0, 3, 1, 2))
         ttnn.deallocate(pb)
-        masks = _sdpa_dense_mask(pb_t, additive_mask, self.blocks[0].head_dim, n_key)
+        masks = _sdpa_dense_mask(pb_t, additive_mask, self.blocks[0].head_dim, n_key, prescaled=_DIT_MASK_WFOLD)
         ttnn.deallocate(pb_t)
         return masks
 
