@@ -9,7 +9,8 @@ The engine's shared `_transition_swiglu_sharded` does not serve this shape: it n
 over 8 core columns, and 128 channels are 4 tiles.
 
 The output is bfloat16; x bfloat16 or bfloat8_b; the weights bfloat16, or bfloat8_b where bf16 weights would not fit L1 (c_z 256,
-hidden 1024: 768 weight tiles are 1.5 MB in bf16, 0.8 MB in bfp8). The norm stays the caller's op.
+hidden 1024: 768 weight tiles are 1.5 MB in bf16, 0.8 MB in bfp8). The norm is the caller's op, or with `ln` the
+kernel's prologue (kernels/common/ln_prologue.hpp, as trimul T1/T2), so the normalised x never reaches DRAM.
 """
 
 from __future__ import annotations
@@ -23,6 +24,8 @@ from . import core_split
 
 KERNEL_DIR = Path(__file__).resolve().parent / "kernels" / "pair_swiglu_ws"
 X_CB, W12_CB, W3_CB, GATE_CB, HID_CB, OUT_CB = 0, 1, 2, 3, 4, 16
+XRAW_CB, GAMMA_CB, BETA_CB, SCALER_CB = 5, 8, 9, 10     # the LayerNorm prologue's bf16 CBs
+LN_F32_CBS = ((11, 1), (12, 1), (13, 1), (14, 1), (17, None), (18, None))   # eps, mean, var, rstd, xc, tmp (None: kt)
 _TILE = 32 * 32 * 2
 _SW = 4                   # hidden tiles per dest pass (one fp32 dest half)
 # Bytes of a core's L1 the program may take: weights plus its streaming CBs. A Wormhole core has 1464 KiB,
@@ -34,7 +37,7 @@ SILU_POLY = 2  # ws5 on WH 1000 MHz: c_z 128 fast 5.64 -> 4.77 ms, c_z 256 13.08
 
 
 def _tile_bytes(dtype) -> int:
-    return 1088 if dtype == ttnn.bfloat8_b else _TILE
+    return 1088 if dtype == ttnn.bfloat8_b else 2 * _TILE if dtype == ttnn.float32 else _TILE
 _CACHE: dict = {}
 
 
@@ -52,9 +55,22 @@ def weights(w1: torch.Tensor, w2: torch.Tensor, w3: torch.Tensor, device, dtype=
     return [(up(torch.cat([w1[:, i:i + h], w2[:, i:i + h]], 1)), up(w3[i:i + h])) for i in range(0, w1.shape[1], h)]
 
 
-def eligible(x, w12, w3) -> bool:
+def ln_bytes(kt) -> int:
+    """The LayerNorm prologue's extra L1: raw x (2 kt), gamma, beta (kt each), the scaler, and the fp32 CBs."""
+    return (4 * kt + 1) * _TILE + (4 + 2 * kt) * 2 * _TILE
+
+
+def _ln_vec_ok(v, k) -> bool:
+    """gamma / beta as `torch_to_tt` leaves a bf16 norm parameter: TILE, interleaved, k values in row 0."""
+    return (v.dtype == ttnn.bfloat16 and v.layout == ttnn.TILE_LAYOUT and int(v.shape[-1]) == k
+            and all(int(d) == 1 for d in list(v.shape)[:-1])
+            and v.memory_config().memory_layout == ttnn.TensorMemoryLayout.INTERLEAVED)
+
+
+def eligible(x, w12, w3, ln=()) -> bool:
     """bfloat16 TILE interleaved x, bf16/bfp8 TILE interleaved weights, hidden a multiple of 4 tiles, output
-    width at most 4 tiles or a multiple of 4, and the weights plus the streaming CBs inside `_L1_BUDGET`."""
+    width at most 4 tiles or a multiple of 4, and the weights plus the streaming CBs inside `_L1_BUDGET`. With
+    `ln` = (gamma, beta) also the LayerNorm prologue: bf16 x, bf16 [1, C] gamma / beta, and its CBs in budget."""
     if x.dtype not in (ttnn.bfloat16, ttnn.bfloat8_b) or w12.dtype != w3.dtype \
             or w12.dtype not in (ttnn.bfloat16, ttnn.bfloat8_b):
         return False
@@ -66,7 +82,9 @@ def eligible(x, w12, w3) -> bool:
     if not (kt == int(w12.shape[0]) // 32 and int(w12.shape[1]) == 2 * int(w3.shape[0])
             and nh % _SW == 0 and (ct <= 4 or ct % 4 == 0)):
         return False
-    return _l1_bytes(kt, nh, ct, w12.dtype, x.dtype) <= _L1_BUDGET
+    if ln and (x.dtype != ttnn.bfloat16 or not all(_ln_vec_ok(v, 32 * kt) for v in ln)):
+        return False
+    return _l1_bytes(kt, nh, ct, w12.dtype, x.dtype) + (ln_bytes(kt) if ln else 0) <= _L1_BUDGET
 
 
 def _l1_bytes(kt, nh, ct, wdtype, xdtype=ttnn.bfloat16) -> int:
@@ -74,7 +92,7 @@ def _l1_bytes(kt, nh, ct, wdtype, xdtype=ttnn.bfloat16) -> int:
             + (2 * _SW + 2 * nh + 2 * ct) * _TILE)
 
 
-def _build(x, w12, w3, out, device, mt, kt, nh, ct, fidelity, defines, silu_poly):
+def _build(x, w12, w3, out, device, mt, kt, nh, ct, fidelity, defines, silu_poly, ln):
     g = device.compute_with_storage_grid_size()
     num_cores, grid, cg1, cg2, work1, work2 = core_split.split_work_to_cores(g, mt, 0)
 
@@ -85,6 +103,16 @@ def _build(x, w12, w3, out, device, mt, kt, nh, ct, fidelity, defines, silu_poly
 
     cbs = [cb(X_CB, 2 * kt, x.dtype), cb(W12_CB, kt * 2 * nh, w12.dtype), cb(W3_CB, nh * ct, w3.dtype), cb(GATE_CB, 2 * _SW),
            cb(HID_CB, 2 * nh), cb(OUT_CB, 2 * ct)]
+    scaler = eps_bits = 0
+    if ln is not None:
+        import struct
+        cbs[0] = cb(X_CB, 2 * kt)   # the normalised x the matmuls read, bf16
+        cbs += [cb(XRAW_CB, 2 * kt), cb(GAMMA_CB, kt), cb(BETA_CB, kt), cb(SCALER_CB, 1)]
+        cbs += [cb(i, kt if n is None else n, ttnn.float32) for i, n in LN_F32_CBS]
+        inv = struct.unpack("<I", struct.pack("<f", 1.0 / (32 * kt)))[0] >> 16
+        scaler = (inv << 16) | inv          # 1/K as a packed bf16 pair, exact for K a power of two
+        eps_bits = struct.unpack("<I", struct.pack("<f", float(ln[2])))[0]
+        defines = tuple(defines) + (("WS_LN", "1"),)
     rd, cp, wr = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
     first = 0
     for group, per in ((cg1, work1), (cg2, work2)):
@@ -94,14 +122,14 @@ def _build(x, w12, w3, out, device, mt, kt, nh, ct, fidelity, defines, silu_poly
                     rd[cx][cy] = cp[cx][cy] = wr[cx][cy] = [first, per]
                     first += per
     assert first == mt, (first, mt)
-    rct = [kt, nh, ct]
-    for t in (x, w12, w3):
+    rct = [kt, nh, ct, scaler, eps_bits]
+    for t in (x, w12, w3) + (() if ln is None else ln[:2]):
         rct.extend(ttnn.TensorAccessorArgs(t).get_compile_time_args())
     wct = [ct] + list(ttnn.TensorAccessorArgs(out).get_compile_time_args())
     src = lambda n: str(KERNEL_DIR / n)  # noqa: E731
     path = ttnn.KernelDescriptor.SourceType.FILE_PATH
     reader = ttnn.KernelDescriptor(kernel_source=src("reader.cpp"), source_type=path, core_ranges=grid,
-                                   compile_time_args=rct, runtime_args=rd, common_runtime_args=[0, 0, 0],
+                                   compile_time_args=rct, runtime_args=rd, common_runtime_args=[0] * 5,
                                    defines=list(defines), config=ttnn.ReaderConfigDescriptor())
     writer = ttnn.KernelDescriptor(kernel_source=src("writer.cpp"), source_type=path, core_ranges=grid,
                                    compile_time_args=wct, runtime_args=wr, common_runtime_args=[0],
@@ -113,14 +141,16 @@ def _build(x, w12, w3, out, device, mt, kt, nh, ct, fidelity, defines, silu_poly
     return [reader, writer, compute], cbs
 
 
-def pair_swiglu(x, w12, w3, fidelity=ttnn.MathFidelity.HiFi4, defines=(), silu_poly=None):
+def pair_swiglu(x, w12, w3, fidelity=ttnn.MathFidelity.HiFi4, defines=(), silu_poly=None, ln=None):
     """`fc3(silu(x @ w1) * (x @ w2))` for a TILE `x` [..., C]; a new bfloat16 DRAM tensor [..., C_out].
 
     Accumulation is fp32 in dest at every fidelity; `fidelity` is the caller's matmul fidelity. `defines` are
     the kernels' WS_NO_* time-attribution switches (perf/spd_fastmode/ws_attr.py), empty in production.
     `silu_poly` picks the silu: 0 metal's silu_tile, whose fp32-dest exp + reciprocal was ~85 % of the kernel on WH
     (c_z 128: 8.97 ms with it, 1.37 ms without), 1 sigmoid_poly.hpp's degree-8 polynomial (sigmoid within 3e-4),
-    2 its degree-6 one with fp16 coefficients (7.4e-4, a third fewer SFPU instructions). None takes `SILU_POLY`."""
+    2 its degree-6 one with fp16 coefficients (7.4e-4, a third fewer SFPU instructions). None takes `SILU_POLY`.
+    `ln` = (gamma, beta, eps) runs the LayerNorm over the raw bf16 `x` in the kernel first; gamma / beta bf16 TILE
+    [1, C] as `torch_to_tt` leaves a norm parameter."""
     silu_poly = SILU_POLY if silu_poly is None else silu_poly
     device = x.device()
     xs = [int(d) for d in x.padded_shape]
@@ -132,11 +162,12 @@ def pair_swiglu(x, w12, w3, fidelity=ttnn.MathFidelity.HiFi4, defines=(), silu_p
     out = ttnn.allocate_tensor_on_device(ttnn.Shape([int(d) for d in x.shape][:-1] + [int(w3.shape[-1])]), ttnn.bfloat16,
                                          ttnn.TILE_LAYOUT, device, ttnn.DRAM_MEMORY_CONFIG)
     key = (device.id(), tuple(xs), nh, ct, x.memory_config().buffer_type, fidelity, w12.dtype, x.dtype,
-           tuple(defines), silu_poly)
+           tuple(defines), silu_poly, None if ln is None else float(ln[2]))
     if key not in _CACHE:
-        _CACHE[key] = _build(x, w12, w3, out, device, mt, kt, nh, ct, fidelity, defines, silu_poly)
+        _CACHE[key] = _build(x, w12, w3, out, device, mt, kt, nh, ct, fidelity, defines, silu_poly, ln)
     kernels, cbs = _CACHE[key]
-    kernels[0].common_runtime_args = [x.buffer_address(), w12.buffer_address(), w3.buffer_address()]
+    g, b = (0, 0) if ln is None else (ln[0].buffer_address(), ln[1].buffer_address())
+    kernels[0].common_runtime_args = [x.buffer_address(), w12.buffer_address(), w3.buffer_address(), g, b]
     kernels[1].common_runtime_args = [out.buffer_address()]
     pd = ttnn.ProgramDescriptor(kernels=kernels, semaphores=[], cbs=cbs)
-    return ttnn.generic_op([x, w12, w3, out], pd)
+    return ttnn.generic_op([x, w12, w3] + ([] if ln is None else list(ln[:2])) + [out], pd)

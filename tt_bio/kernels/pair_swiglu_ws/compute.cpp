@@ -12,13 +12,25 @@
 // (one fp32 dest half each), so c_z = 256 (CT = 8) runs two fc3 groups per row tile.
 // WS_NO_{FC12,SILU,GATE,FC3} drop one phase for time attribution only (perf/spd_fastmode/ws_attr.py); the output
 // is then wrong by design. No production call sets them.
+// WS_LN (the `ws_ln` lever): the caller's LayerNorm runs here instead, per row tile, from the raw x in c_5 into
+// c_0 (kernels/common/ln_prologue.hpp, shared with trimul T1/T2), so the normalised x never goes to DRAM.
 #include <cstdint>
+#define REDUCE_OP PoolType::SUM
+#define REDUCE_DIM ReduceDim::REDUCE_ROW
 
 #include "api/compute/matmul.h"
 #include "api/compute/eltwise_binary.h"
 #include "api/compute/compute_kernel_api.h"
 #include "api/compute/reconfig_data_format.h"
 #include "../trimul_gin_moved/sigmoid_poly.hpp"
+#ifdef WS_LN
+#include "../common/ln_prologue.hpp"
+
+struct LnCbs {
+    static constexpr uint32_t Kt = get_compile_time_arg_val(0), x = 5, gamma = 8, beta = 9, scaler = 10, eps = 11,
+                              mean = 12, var = 13, rstd = 14, xc = 17, tmp = 18;
+};
+#endif
 
 void kernel_main() {
     constexpr uint32_t KT = get_compile_time_arg_val(0);
@@ -39,8 +51,19 @@ void kernel_main() {
     mm_block_init(cb_x, cb_w12, cb_gate, false, SW, 1, KT);
     cb_wait_front(cb_w12, KT * 2 * NH);
     cb_wait_front(cb_w3, NH * CT);
+#ifdef WS_LN
+    cb_wait_front(LnCbs::gamma, KT);
+    cb_wait_front(LnCbs::beta, KT);
+    cb_wait_front(LnCbs::scaler, 1);
+    cb_wait_front(LnCbs::eps, 1);
+#endif
 
     for (uint32_t r = 0; r < count; ++r) {
+#ifdef WS_LN
+        cb_reserve_back(cb_x, KT);
+        ln_prologue::layer_norm_row<LnCbs>(cb_x, [](uint32_t i) { pack_tile<true>(0, cb_x, i); });
+        cb_push_back(cb_x, KT);
+#endif
         cb_wait_front(cb_x, KT);
         for (uint32_t j = 0; j < NH; j += SW) {
             mm_block_init_short(cb_x, cb_w12, false, SW, 1, KT);

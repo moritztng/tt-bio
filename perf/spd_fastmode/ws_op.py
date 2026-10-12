@@ -43,7 +43,8 @@ dev = T.get_device()
 base = ttnn.WormholeComputeKernelConfig(math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=False,
                                         fp32_dest_acc_en=True, packer_l1_acc=True)
 xt = ttnn.from_torch(x, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev)
-for arm in ("normal", "normal+transition_ws", "fast", "fast+transition_ws"):
+for arm in ("normal", "normal+transition_ws", "normal+transition_ws+ws_ln", "fast", "fast+transition_ws",
+            "fast+transition_ws+ws_ln"):
     with T.levers(arm):
         mod = T.Transition(sd, T.trunk_compute_kernel_config(base))
         for _ in range(3):
