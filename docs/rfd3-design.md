@@ -194,6 +194,12 @@ Blackhole and Wormhole against the exact chain: a design moves 3.8 to 15.4 A at 
 changing the seed does (13 to 20 A), and CA-CA geometry, chain breaks, clashes and amino-acid diversity
 match.
 
+`--fast` also runs the token pair transition as one weight-stationary kernel that keeps its weights on
+chip and never writes the hidden activations out. On a Blackhole p150a at 1350 MHz a 685-residue fast
+design drops from 61.3 to 56.3 s (four seeds). Over 14 paired seeds on Blackhole and Wormhole the clash
+count moves by +7 with a confidence interval that covers zero, chain breaks do not increase, and the
+same-seed drift stays inside the seed-to-seed spread.
+
 ## Checkpoint
 
 The RFD3 checkpoint downloads automatically on first use, straight from the
