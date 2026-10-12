@@ -124,9 +124,11 @@ class _DiTBlock(Module):
         # not because it is expensive. perf/of3t_fwdkcfg/.
         self._softmax_ckc = softmax_ckc("openfold3.diffusion_transformer")
         self._softmax_f64 = host_f64_softmax_site("openfold3.diffusion_transformer")
-        # dit_sdpa32 (normal-mode lever, shared with Protenix-v2's token DiT): the fp32 attention
-        # as one `_sdpa32` program instead of matmul, scale_add, softmax and matmul. Inert in bf16.
-        self.sdpa32 = _T.lever("dit_sdpa32") and self._act_dtype == ttnn.float32
+        # dit_sdpa32 (normal-mode lever, shared with Protenix-v2's token DiT): the attention as one
+        # `_sdpa32` program instead of matmul, scale_add, softmax and matmul. The bf16 stack
+        # (diffusion_bf16) takes it too: bf16 qkv and an fp32 mask, the operands dit_qkv16 already
+        # feeds it, and an fp32 output the out-projection reads.
+        self.sdpa32 = _T.lever("dit_sdpa32")
 
         apb = "attention_pair_bias."
         self.adaln_a = AdaLN(False, remap_of3_adaln(_sub(self._w, apb + "layer_norm_a")),
@@ -287,7 +289,7 @@ class _DiTBlock(Module):
         """The pair bias as `_sdpa32`'s fp32 mask. `_sdpa32` scales mask and scores together, so
         the bias is divided by the scale; the token axis is padded to `sdpa32_rows`."""
         zb = self._pair_bias(z, mask_bias)
-        b = ttnn.multiply(zb, HEAD_DIM ** 0.5)
+        b = ttnn.multiply(zb, HEAD_DIM ** 0.5, dtype=ttnn.float32)
         ttnn.deallocate(zb)
         m = _T.sdpa32_mask(b)
         ttnn.deallocate(b)
@@ -343,6 +345,8 @@ class _DiTBlock(Module):
             S, n = o.shape[0], o.shape[2]
             o = ttnn.reshape(ttnn.experimental.nlp_concat_heads(o),
                              (S, n, N_HEADS * PADDED_HEAD_DIM))  # [S, N, 1024], pad lanes zero
+        if self.lp is None and o.dtype != self._act_dtype:
+            o = ttnn.typecast(o, self._act_dtype)        # bf16 stack: _sdpa32 writes fp32
         # Query gate (flat == per-head: g.view(N,H,d) * o(H,N,d) == flat multiply).
         # The gate at o's format: a multiply whose b carries a fused sigmoid is wrong on mixed
         # operand formats (Protenix-v2's dit_mm16 grade, perf/spd_difflin/k1_check.py).
