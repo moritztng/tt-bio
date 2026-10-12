@@ -150,8 +150,11 @@ def compute_distogram_entropy(
 # DAVIS's 1167 aa targets never run them; they and triatt_tail + transition_bw were graded on LCK
 # (509 aa) and BLK (599 aa) against three reseeds of the set above: PASS (BLK p90 0.0559 against
 # 0.1086, Pearson within 0.003). Wormhole warm forward at 532 tokens 9.80-10.25 -> 8.71-8.91 s.
+# trimul_t1_dram moves the five 256-token crop passes onto the DRAM path so T1/T2 serve them too: PASS on
+# LCK/BLK (BLK p90 0.0651 against 0.1086) and on ABL1p/YSK4 against the four reseeds (YSK4 p90 0.0379
+# against 0.0930). Wormhole warm forward 8.62-8.84 -> 7.12-7.23 s.
 LEVERS_NORMAL = frozenset({"trimul_ibw", "trimul_tail", "silu_f32", "trimul_t1", "trimul_t2",
-                           "triatt_tail", "transition_bw"})
+                           "triatt_tail", "transition_bw", "trimul_t1_dram"})
 
 
 def _pairformer(
