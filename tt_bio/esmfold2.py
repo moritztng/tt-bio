@@ -52,6 +52,10 @@ _DTYPE = ttnn.bfloat16  # activation dtype for the diffusion / encoders
 # tensor identity. Bit-identical to recomputing.
 _STEP_CACHE = True
 
+# The token DiT's q/k/v/g with the 48 -> 64 head padding folded into the weights (AttentionPairBias
+# ._folded): two matmuls per block instead of six plus a chunk and a concat. Same arithmetic.
+_APB_FOLD = env_flag("TT_BIO_ESMFOLD2_APB_FOLD", False)
+
 
 # Optional progress callback for the CLI display: report_progress(stage, step, total).
 # A no-op unless a worker installs one via set_progress(); never affects compute.
@@ -312,6 +316,21 @@ class AttentionPairBias(Module):
         )
         self.scatter_g = to_tt(Sg)
         self.out_w_padded = to_tt(Op)
+        self._Sg = Sg
+        self._fold = None  # (qkv_w, qkv_b, g_w) with the head padding folded in, built on first use
+
+    def _folded(self):
+        """q/k/v/g projections with scatter_g folded into the weights: W @ Sg only moves columns, so
+        x @ (W @ Sg) is the padded projection exactly, one matmul for q|k|v and one for g."""
+        if self._fold is None:
+            Sg, d = self._Sg, self._Sg.shape[0]
+            W = lambda k: self.weights[k].float()
+            kv = W("kv_proj.weight")
+            qkv = torch.cat([W("q_proj.weight").t() @ Sg, kv[:d].t() @ Sg, kv[d:].t() @ Sg], dim=1)
+            b = torch.cat([W("q_proj.bias").reshape(1, -1) @ Sg, torch.zeros(1, 2 * Sg.shape[1])], dim=1)
+            to_tt = lambda x: ttnn.from_torch(x, layout=ttnn.TILE_LAYOUT, device=self.device, dtype=_DTYPE)
+            self._fold = (to_tt(qkv), to_tt(b), to_tt(W("g_proj.weight").t() @ Sg))
+        return self._fold
 
     def __call__(self, a: ttnn.Tensor, s: ttnn.Tensor, z: ttnn.Tensor) -> ttnn.Tensor:
         ck = self.compute_kernel_config
@@ -320,6 +339,12 @@ class AttentionPairBias(Module):
 
         x = self.adaln(a, s)
         lin = self._lin
+        if _APB_FOLD:
+            qkv_w, qkv_b, g_w = self._folded()
+            qh, kh, vh = self._split_heads(lin(x, qkv_w, qkv_b), self.num_heads)
+            g_pad = ttnn.sigmoid(lin(x, g_w))  # pad lanes read 0.5, against ctx pad lanes that are 0
+            ttnn.deallocate(x)
+            return self._attend(qh, kh, vh, g_pad, s, z, head_dim, ck)
         q = lin(x, self.q_w, self.q_b)
         kv = lin(x, self.kv_w)
         k, v = ttnn.chunk(kv, 2, dim=-1)
@@ -339,7 +364,12 @@ class AttentionPairBias(Module):
         qkv = ttnn.concat([qp, kp, vp], dim=-1)  # [B, L, 3*Dpad]
         ttnn.deallocate(qp); ttnn.deallocate(kp); ttnn.deallocate(vp)
         qh, kh, vh = self._split_heads(qkv, self.num_heads)
+        g_pad = lin(g, self.scatter_g)  # [B, L, Dpad]
+        ttnn.deallocate(g)
+        return self._attend(qh, kh, vh, g_pad, s, z, head_dim, ck)
 
+    def _attend(self, qh, kh, vh, g_pad, s, z, head_dim, ck):
+        lin = self._lin
         # pair_bias = pair_bias_proj(layer_norm(z)) is a pure function of the
         # pair conditioning z, which is constant across the diffusion sampling
         # steps (the resident sampler feeds the same cached z object each step).
@@ -366,8 +396,6 @@ class AttentionPairBias(Module):
         ttnn.deallocate(qh); ttnn.deallocate(kh); ttnn.deallocate(vh)
         ctx = self._merge_heads(ctx)  # [B, L, H*head_dim_pad]  (pad value dims are 0)
         # Gate + out_proj in the padded head layout, then project back to d_model.
-        g_pad = lin(g, self.scatter_g)  # [B, L, Dpad]
-        ttnn.deallocate(g)
         ctx = ttnn.multiply(ctx, g_pad)
         ttnn.deallocate(g_pad)
         out = lin(ctx, self.out_w_padded)  # [B, L, d_model]
