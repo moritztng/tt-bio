@@ -16,6 +16,7 @@ ap = argparse.ArgumentParser()
 ap.add_argument("--ns", default="64,256,512")
 ap.add_argument("--reps", type=int, default=10)
 ap.add_argument("--c", type=int, default=128)
+ap.add_argument("--repeat", type=int, default=0, help="rerun T3 on the same input and list its bad elements each time")
 ap.add_argument("--wh", action="store_true", help="let T3 serve on Wormhole (bring-up only)")
 ap.add_argument("--out", help="also append each JSON line here (the qb runner passes it)")
 A = ap.parse_args()
@@ -100,6 +101,13 @@ for n in [int(v) for v in A.ns.split(",")]:
             chans = bad.any(1).any(0).nonzero().flatten()
             rec["bad"] = {"n": int(bad.sum()), "units": ut[:40].tolist(), "nunits": int(ut.numel()),
                           "rows": rows.tolist(), "chans": chans[:40].tolist(), "nchans": int(chans.numel())}
+    if A.repeat:
+        rb = []
+        for _ in range(A.repeat):
+            o = ttnn.to_torch(run(WITH, up(x0))).float()
+            d = ((o - r.float()).abs() > 0.25).reshape(-1)
+            rb.append([int(v) for v in d.nonzero().flatten()[:8]])
+        rec["repeat_bad_flat_idx"] = rb
     rec["inc_ms"] = timed(BASE, x0, A.reps)
     rec["t3_ms"] = timed(WITH, x0, A.reps)
     line = json.dumps(rec)
