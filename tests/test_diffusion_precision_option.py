@@ -57,7 +57,8 @@ def test_worker_builds_the_requested_precision(monkeypatch, prec, want):
 
     monkeypatch.setattr(P.Protenix, "load_from_checkpoint", staticmethod(fake_load))
     state = W._WorkerState("tenstorrent")
-    state.load_model({**PROTENIX, "protenix_ckpt": "ck.pt", "diffusion_precision": prec})
+    # trace off: unset, a Blackhole host turns it on and reopens the chip with a trace region
+    state.load_model({**PROTENIX, "protenix_ckpt": "ck.pt", "diffusion_precision": prec, "trace": False})
     assert seen == {"path": "ck.pt", "diffusion_fp32": want}
 
 
