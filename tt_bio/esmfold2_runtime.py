@@ -794,7 +794,8 @@ def load_ttnn_esmfold2(esmfold2_repo: str = "biohub/ESMFold2",
     fast = fast or is_wormhole()
     # Reserve the diffusion step's trace region (esmfold2.StructureHead._step). A device some
     # caller already opened without one stays as it is, and the sampler runs eager.
-    tenstorrent.get_device(trace="esmfold2")
+    if E.DIFFUSION_TRACE:
+        tenstorrent.get_device(trace="esmfold2")
     from tt_bio._vendor.esmfold2_hf.modeling_esmfold2 import ESMFold2Model
 
     # Pinned commit, not `main` — see weights.HF_REVISIONS for why an unpinned repo
