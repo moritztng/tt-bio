@@ -146,7 +146,12 @@ def compute_distogram_entropy(
 # against 0.0930). Boltz-2's trunk_hifi3 on top also passes there, but a Wormhole grade of a fidelity
 # lever does not carry to Blackhole's HiFi4, so it waits for a Blackhole DAVIS grade. trimul_gin fails
 # (ABL1p p90 0.0748 > 0.0671).
-LEVERS_NORMAL = frozenset({"trimul_ibw", "trimul_tail", "silu_f32"})
+# trimul_t1/t2 serve only full passes of roughly 300-700 tokens (DRAM path, one channel loop), so
+# DAVIS's 1167 aa targets never run them; they and triatt_tail + transition_bw were graded on LCK
+# (509 aa) and BLK (599 aa) against three reseeds of the set above: PASS (BLK p90 0.0559 against
+# 0.1086, Pearson within 0.003). Wormhole warm forward at 532 tokens 9.80-10.25 -> 8.71-8.91 s.
+LEVERS_NORMAL = frozenset({"trimul_ibw", "trimul_tail", "silu_f32", "trimul_t1", "trimul_t2",
+                           "triatt_tail", "transition_bw"})
 
 
 def _pairformer(
