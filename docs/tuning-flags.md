@@ -88,6 +88,7 @@ move against the accuracy bar and the seed-to-seed spread.
 | [`TT_BIO_TRIATT_NARROW_Q_FALLBACK`](#tt_bio_triatt_narrow_q_fallback) | on | | identical on RoseTTAFold3, moves on OpenBind |
 | [`TT_BIO_TRIATT_SDPA_HIFI_AB`](#tt_bio_triatt_sdpa_hifi_ab) | on at `openfold3.trunk` | OpenFold3 | moves, inside the seed spread |
 | [`TT_BIO_TRIMUL_GIN_RAGGED`](#tt_bio_trimul_gin_ragged) | on for Wormhole | AF2-IG | moves, far inside the bar |
+| [`TT_BIO_TRIMUL_PER_CHANNEL`](#tt_bio_trimul_per_channel) | on for Wormhole | up to 256 tokens | identical |
 | [`TT_BIO_TRIMUL_GP_BANK_SPLIT`](#tt_bio_trimul_gp_bank_split) | on | | identical |
 | [`TT_BIO_TRIMUL_MASK_AFTER_MOVE`](#tt_bio_trimul_mask_after_move) | on | | identical |
 | [`TT_BIO_TRIMUL_MASK_L1`](#tt_bio_trimul_mask_l1) | on | | identical |
@@ -1647,6 +1648,21 @@ trailing control arm).
 
 **Accuracy: moves, far inside the bar.** The bias is added in fp32 before the result is packed.
 Across three PD-L1 complexes ipTM moves by at most 0.002 and pLDDT by at most 0.0005.
+
+## `TT_BIO_TRIMUL_PER_CHANNEL`
+
+Default: on for Wormhole, off for Blackhole until it is timed there.
+
+At up to 8 sequence tiles (256 tokens) the triangle multiplication's channel product gives every
+core a single output tile and loops it over all channels, which leaves part of the chip idle. This
+flag gives each core whole channels instead. The K blocking is unchanged, so the output is
+bit-identical. If the larger blocks do not fit beside what is already in L1, that length falls back
+to the old plan.
+
+**Speed:** the product at 195 tokens takes a quarter of the time (0.40 to 0.10 ms per 64-channel
+chunk). AF2-IG on one Wormhole chip, 4.65 to 4.45 s per complex at 1000 MHz.
+
+**Accuracy: identical.** Same coordinates, bit for bit, on three PD-L1 complexes.
 
 ## `TT_BIO_TRIMUL_FUSED_GOUT`
 
