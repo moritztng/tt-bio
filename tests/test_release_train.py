@@ -93,3 +93,18 @@ def test_release_commit_changes_only_the_release_files_and_keeps_the_content_key
     assert git("rev-parse", f"{rel}^") == sha and git("rev-parse", "HEAD") == sha   # nothing checked out
     assert rt.content_hash(rel, tmp_path) == rt.content_hash(sha, tmp_path)
     assert 'version = "0.15.0"' in git("show", f"{rel}:pyproject.toml")
+
+
+def test_a_new_head_waits_for_the_running_gate_instead_of_starting_a_second(tmp_path, monkeypatch, capsys):
+    import subprocess
+    started = []
+    monkeypatch.setattr(subprocess, "run", lambda *a, **k: subprocess.CompletedProcess(a, 0))
+    monkeypatch.setattr(rt, "start_gate", lambda *a: started.append(a))
+    cfg = tmp_path / "gate.json"
+    cfg.write_text("{}")
+    argv = ["release_train.py", "--gates", str(tmp_path), "--gate-config", str(cfg)]
+    monkeypatch.setattr(sys, "argv", argv)
+    for running, want in ((["a" * 40], []), ([], [("b" * 40, tmp_path, cfg)])):
+        monkeypatch.setattr(rt, "decide", lambda **k: {"do": "GATE", "sha": "b" * 40, "why": "", "running": running})
+        assert rt.main() == 0 and started == want
+    assert "WAIT bbbbbbbbbbbb: gate main's head after the running gate on aaaaaaaaa ends" in capsys.readouterr().out

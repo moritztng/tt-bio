@@ -21,7 +21,8 @@ dropped, so a main that has not merged the last release commit back does not shi
 On GATE, with --gate-config, it starts gate_fanout.py on that commit, detached, so every push to
 main is gated without anyone asking; the ledger means only the legs the push changed run. The
 config is a JSON object of gate_fanout's own flags, {"hosts": "...", "workers": "...", "timed":
-"..."}, and the run goes to <gates>/rel-<sha9>. WAIT, FIX and NOTHING are printed and left alone
+"..."}, and the run goes to <gates>/rel-<sha9>; while another full gate runs it waits for it
+instead. WAIT, FIX and NOTHING are printed and left alone
 (a FIX is a regression for a person or a fix row; the train never re-cuts around it).
 """
 from __future__ import annotations
@@ -215,6 +216,11 @@ def main() -> int:
             break                       # (a tag that exists remotely is refused at push)
         time.sleep(20)
     d = decide(gates=args.gates, ref=f"{args.remote}/main")
+    if d["do"] == "GATE" and d["running"]:
+        # One full gate at a time: a second would queue the same legs on the same cards, and the
+        # running one's PASSes (with their read sets) are what the next gate reuses.
+        d = {**d, "do": "WAIT", "why": f"gate main's head after the running gate on "
+                                       f"{', '.join(s[:9] for s in d['running'])} ends"}
     if d["do"] == "GATE" and args.gate_config and not args.dry_run:
         start_gate(d["sha"], args.gates, args.gate_config)
         return 0
