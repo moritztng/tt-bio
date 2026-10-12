@@ -24,12 +24,11 @@ L1_BH_BANK = 1_461_760           # `_l1_bank_bytes` on Blackhole
 L1_WH_BANK = 1_499_136 * 0.98    # the Wormhole figure tests/test_transition_t3.py budgets against
 
 
-def test_lever_named_and_ungraded():
+def test_lever_named_and_fast_only():
     assert "trimul_t2cm" in T.LEVERS
-    assert "trimul_t2cm" in T.UNGRADED_LEVERS
-    assert "trimul_t2cm" not in T.NORMAL_LEVERS | T.FAST_LEVERS
+    assert "trimul_t2cm" not in T.UNGRADED_LEVERS | T.NORMAL_LEVERS
     from tt_bio import openfold3_fold as of3
-    assert "trimul_t2cm" not in of3.NORMAL_LEVERS | of3.FAST_LEVERS
+    assert "trimul_t2cm" in of3.FAST_LEVERS and "trimul_t2cm" not in of3.NORMAL_LEVERS
 
 
 # ---------------------------------------------------------------- eligibility
