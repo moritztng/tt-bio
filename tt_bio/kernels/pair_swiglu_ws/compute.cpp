@@ -7,8 +7,8 @@
 // fc3 accumulates the CT output tiles in dest and packs them to c_16. x is read once, the output written once,
 // and fc1/fc2/the product never leave the core.
 //
-// x, the gate, the hidden and the output are bf16; the weights are bf16 or bfp8 (c_1, c_2 carry their own format and
-// the `_with_dt` inits reconfigure srcA to it). SW = 4 hidden tiles per fc1/fc2 pass, fc3 in groups of 4 output tiles
+// The gate, the hidden and the output are bf16; x and the weights are bf16 or bfp8, each CB in its own format, and
+// srcA / srcB are reconfigured at every phase change. SW = 4 hidden tiles per fc1/fc2 pass, fc3 in groups of 4 output tiles
 // (one fp32 dest half each), so c_z = 256 (CT = 8) runs two fc3 groups per row tile.
 #include <cstdint>
 
@@ -26,11 +26,8 @@ void kernel_main() {
     constexpr uint32_t OG = CT < 4 ? CT : 4;
     static_assert(NH % SW == 0 && CT % OG == 0);
     constexpr uint32_t cb_x = 0, cb_w12 = 1, cb_w3 = 2, cb_gate = 3, cb_hid = 4, cb_out = 16;
-#if !defined(TRISC_MATH)
+    // The gate multiply keeps HiFi4 whatever the matmuls run at: at HiFi2 it would drop the gate's low bits.
     constexpr auto mul_fidelity = MathFidelity::HiFi4;
-#else
-    constexpr auto mul_fidelity = static_cast<MathFidelity>(MATH_FIDELITY);
-#endif
     if (count == 0) {
         return;
     }
@@ -41,7 +38,8 @@ void kernel_main() {
     for (uint32_t r = 0; r < count; ++r) {
         cb_wait_front(cb_x, KT);
         for (uint32_t j = 0; j < NH; j += SW) {
-            mm_block_init_short_with_dt(cb_x, cb_w12, cb_gate, false, SW, 1, KT);
+            mm_block_init_short(cb_x, cb_w12, false, SW, 1, KT);
+            reconfig_data_format(cb_w12, cb_x);  // srcA = the weights, srcB = x, each in its own format
             // fc1 group -> silu -> gate
             tile_regs_acquire();
             for (uint32_t k = 0; k < KT; ++k) {
@@ -83,7 +81,8 @@ void kernel_main() {
         }
         cb_pop_front(cb_x, KT);
         // fc3 over the row's NH hidden tiles, OG output tiles (one fp32 dest half) at a time
-        mm_block_init_short_with_dt(cb_hid, cb_w3, cb_gate, false, OG, 1, NH);
+        mm_block_init_short(cb_hid, cb_w3, false, OG, 1, NH);
+        reconfig_data_format(cb_w3, cb_hid);
         cb_wait_front(cb_hid, NH);
         for (uint32_t c = 0; c < CT; c += OG) {
             tile_regs_acquire();
