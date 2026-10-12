@@ -115,6 +115,12 @@ TRANSITION_ROWBLOCK_BYTES = int(os.environ.get("TT_BIO_TRANSITION_ROWBLOCK_BYTES
 # read them on chip instead of a DRAM round trip. Same arithmetic, so bit-exact; never under a tape
 # (`_l1_fits` declines there), so a BindCraft 2 round is unchanged.
 TRANSITION_L1 = env_flag("TT_BIO_AF2_TRANSITION_L1", False)
+# Hand the pair representation from the extra-MSA stack straight to the Evoformer stack as a
+# device tensor, instead of downloading it and uploading the same bytes back. `AF2Model.forward`
+# does not touch `pair` between the two calls -- it only concatenates the template torsion rows
+# onto the MSA -- so this moves no arithmetic and is bit-exact by construction. Off until the
+# device A/B is on the board (`perf/spd/af2ig_census.py`, coords_sha16 must match).
+PAIR_ON_CARD = env_flag("TT_BIO_AF2_PAIR_ON_CARD", False)
 
 
 #: The op classes `scripts/af2_port/tap_gate.py --substitute` moves to host torch, one class per
@@ -1056,6 +1062,12 @@ class AF2DeviceModel(AF2Model):
     #: sets it and never pays for any of it.
     block_tap = None
 
+    #: Keep the pair on card across the extra-MSA -> Evoformer seam (see `PAIR_ON_CARD`). The
+    #: two stacks are adjacent in `AF2Model.forward` with nothing between them that reads the
+    #: pair, so the download and the matching upload are both dead. Taken only on the eager
+    #: path and with no instrument installed -- `_pair_handoff` is where that is decided.
+    pair_on_card: bool = PAIR_ON_CARD
+
     #: True runs the four extra-MSA blocks in host torch instead of on card. That stack sets
     #: the pair representation the 48 Evoformer blocks start from, so this is the other half of
     #: the substitution instrument: it moves the block-0 input between the two arms without
@@ -1138,6 +1150,7 @@ class AF2DeviceModel(AF2Model):
         self.opm_constant: list = []
         self._device = None
         self._template_cache = None
+        self._pair_card_shape: tuple | None = None
         self._traces: dict = {}
         self._opm_constant_tt: list = []
 
@@ -1184,6 +1197,16 @@ class AF2DeviceModel(AF2Model):
 
     def _down(self, t: ttnn.Tensor, shape: tuple) -> torch.Tensor:
         return _to_host(t, self.trunk_dtype, shape)
+
+    def _pair_handoff(self) -> bool:
+        """Whether the extra-MSA stack may hand the Evoformer stack a device pair.
+
+        Only on the plain eager path: an instrument (`block_tap`, `substitute`, `skip`) wants the
+        host tensor at the seam, `extra_msa_host` never produced a device one, and a traced stack
+        replays out of a buffer the next capture owns, so that one keeps the download.
+        """
+        return (self.pair_on_card and not self.extra_msa_host and self.block_tap is None
+                and not self.substitute and not self.skip and not self.trace_stacks)
 
     @property
     def _device_blocks(self) -> list:
@@ -1371,6 +1394,11 @@ class AF2DeviceModel(AF2Model):
             z = block(block._residual(z, const), *masks)
             if self.block_tap is not None:
                 self._tap("extra_msa_stack", msa=extra, pair=self._down(z, shape))
+        if self._pair_handoff():
+            # The Evoformer stack takes it from here and deallocates it; `forward` only passes
+            # it along, so nothing on host ever looks at these bytes.
+            self._pair_card_shape = shape
+            return z
         out = self._down(z, shape)
         ttnn.deallocate(z)
         return out
@@ -1379,13 +1407,18 @@ class AF2DeviceModel(AF2Model):
                         pair_mask: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         if self.substitute:
             self._install_substitution(msa_mask, pair_mask)
-        msa_shape, pair_shape = tuple(msa.shape), tuple(pair.shape)
+        # `extra_msa_stack` hands the pair over on card under `_pair_handoff`; its host shape
+        # comes with it, because a tiled device tensor is padded and no longer says it.
+        pair_tt = pair if isinstance(pair, ttnn.Tensor) else None
+        msa_shape = tuple(msa.shape)
+        pair_shape = self._pair_card_shape if pair_tt is not None else tuple(pair.shape)
+        assert pair_shape is not None
         # One set of mask tensors for all 48 blocks. `None` on an all-ones mask, which keeps
         # every fold PXDesign runs today on the arithmetic it ran before, bit for bit.
         pair_masks = af2_pair_masks(pair_mask, self._device)
         msa_mask_tt = (None if bool((msa_mask == 1).all())
                        else self._up(msa_mask.float()))
-        if self._traceable(msa_mask_tt, *pair_masks, name="evoformer"):
+        if pair_tt is None and self._traceable(msa_mask_tt, *pair_masks, name="evoformer"):
             n = len(self.device_evoformer) if self.trace_blocks is None else self.trace_blocks
 
             def run(m, z):
@@ -1407,7 +1440,7 @@ class AF2DeviceModel(AF2Model):
                 ttnn.deallocate(z)
                 return out
             return self._down(m, msa_shape), self._down(z, pair_shape)
-        m, z = self._up(msa), self._up(pair)
+        m, z = self._up(msa), (pair_tt if pair_tt is not None else self._up(pair))
         for block in self.device_evoformer:
             m, z = block(m, z, msa_mask_tt, *pair_masks)
             if self.block_tap is not None:
