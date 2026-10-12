@@ -7659,6 +7659,7 @@ TRACE_REGIONS = {
     # while the 128 MiB open came up. 160 MiB covers the measured need with ~20 % to spare.
     # Blackhole is unmeasured; 240 MiB keeps it under the quarter-bank cap every entry obeys.
     "bc2": {"wormhole_b0": 160 << 20, "blackhole": 240 << 20},
+    "esmfold2": {"wormhole_b0": 32 << 20, "blackhole": 48 << 20},     # ESMFold2 / -Fast diffusion step, PROVISIONAL
 }
 
 
