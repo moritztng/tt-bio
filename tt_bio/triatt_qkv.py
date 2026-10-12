@@ -398,12 +398,14 @@ def _dram_tile_bf16(t):
             and t.memory_config() == ttnn.DRAM_MEMORY_CONFIG)
 
 
-def _tail_ok(o, g, w, resid):
+def _tail_ok(o, g, w, resid, transposed=False):
     po, pg = [int(d) for d in o.padded_shape], [int(d) for d in g.padded_shape]
     if not (len(po) == 4 and po == pg and po[-1] == TILE and _dram_tile_bf16(o) and _dram_tile_bf16(g)
             and _dram_tile_bf16(w) and len(w.shape) == 2 and int(w.shape[-2]) == po[1] * TILE
             and int(w.shape[-1]) % TILE == 0):
         return False
+    if transposed and (resid is None or po[0] != po[2] or po[0] % TILE):
+        return False   # the ending variant's square pair, whole a tiles; the update goes into z
     if resid is not None:
         pz = [int(d) for d in resid.padded_shape]
         if not (_dram_tile_bf16(resid) and pz[-3:] == [po[0], po[2], int(w.shape[-1])]
@@ -412,6 +414,8 @@ def _tail_ok(o, g, w, resid):
     from .tenstorrent import _l1_bank_bytes
     kt, nt = po[1], int(w.shape[-1]) // TILE
     tiles = kt * nt + 5 * kt + (8 if TAIL_KB1 else 7) * nt   # KB1's fp32 partials take two bf16 tiles' room
+    if transposed:
+        tiles += 64 * kt   # reader_tr's raw block: 32 a x Kt heads of o and of g
     return tiles * G.tile_bytes(ttnn.bfloat16) <= 0.6 * _l1_bank_bytes()
 
 
@@ -428,10 +432,11 @@ def _tail_dw(kt, nt):
     return next(d for d in (4, 2, 1) if kt % d == 0 and nt % d == 0)
 
 
-def _build_tail(o, g, w, out, z, ckc, grid, resid):
+def _build_tail(o, g, w, out, z, ckc, grid, resid, transposed=False):
     B, kt, St = int(o.padded_shape[0]), int(o.padded_shape[1]), int(o.padded_shape[2]) // TILE
     nt = int(w.shape[-1]) // TILE
-    nu = B * St
+    # reader/writer work items: output row tiles, or under `transposed` (bt, At) blocks of 32 of them
+    nu = B * St // TILE if transposed else B * St
     gx, gy = grid
     ncores = gx * gy
     core_grid = ttnn.CoreRangeSet([ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(gx - 1, gy - 1))])
@@ -442,17 +447,22 @@ def _build_tail(o, g, w, out, z, ckc, grid, resid):
         x_, y_ = c % gx, c // gx
         rd[x_][y_] = [u0, n]
         wr[x_][y_] = [u0, n]
-        cp[x_][y_] = [n]
+        cp[x_][y_] = [32 * n if transposed else n]
         u0 += n
     acc = lambda t: list(ttnn.TensorAccessorArgs(t).get_compile_time_args())
     src = ttnn.KernelDescriptor.SourceType.FILE_PATH
+    rct, wct = [kt, nt, St, int(resid)], [nt]
+    if transposed:
+        rct += [B // TILE, G.tile_bytes(ttnn.bfloat16) // 64]   # a tiles; bytes in a face row (16 bf16)
+        wct += [B // TILE]
+    sfx = "_tr" if transposed else ""
     reader = ttnn.KernelDescriptor(
-        kernel_source=str(_TAIL_DIR / "reader.cpp"), source_type=src, core_ranges=core_grid,
-        compile_time_args=[kt, nt, St, int(resid)] + acc(o) + acc(g) + acc(w) + acc(z),
+        kernel_source=str(_TAIL_DIR / f"reader{sfx}.cpp"), source_type=src, core_ranges=core_grid,
+        compile_time_args=rct + acc(o) + acc(g) + acc(w) + acc(z),
         runtime_args=rd, common_runtime_args=[0] * 4, config=ttnn.ReaderConfigDescriptor())
     writer = ttnn.KernelDescriptor(
-        kernel_source=str(_TAIL_DIR / "writer.cpp"), source_type=src, core_ranges=core_grid,
-        compile_time_args=[nt] + acc(out), runtime_args=wr, common_runtime_args=[0],
+        kernel_source=str(_TAIL_DIR / f"writer{sfx}.cpp"), source_type=src, core_ranges=core_grid,
+        compile_time_args=wct + acc(out), runtime_args=wr, common_runtime_args=[0],
         config=ttnn.WriterConfigDescriptor())
     fid, approx, fp32, full = G.ckc_args(ckc)
     fid, fp32 = ttnn.MathFidelity.HiFi3, True
@@ -470,14 +480,18 @@ def _build_tail(o, g, w, out, z, ckc, grid, resid):
         cbs.append(_tail_cb(6, core_grid, nt, ttnn.float32))
     elif resid:
         cbs.append(_tail_cb(5, core_grid, nt))
+    if transposed:
+        cbs.append(_tail_cb(8, core_grid, 64 * kt))
     return {"kernels": [reader, writer, compute], "cbs": cbs}
 
 
-def gated_out_proj(o, g, w, ckc, resid=None):
+def gated_out_proj(o, g, w, ckc, resid=None, transposed=False):
     """`(o * sigmoid(g)) @ w` from head-major o, g `[B, H, S, 32]`, as `[B, S, N]`; with `resid`
     (the pair `[1?, B, S, N]` the update belongs to) the sum is written into `resid` in place and
-    `resid` is returned. None where it declines; the caller then runs the three ops."""
-    if _taping() or not tail_on() or not _tail_ok(o, g, w, resid):
+    `resid` is returned. None where it declines; the caller then runs the three ops.
+    `transposed` (the ending variant, `triatt_tr`): the update u[a, b] goes into resid[b, a], so neither
+    its transpose nor the transpose_add runs (reader_tr.cpp). Needs resid and B == S."""
+    if _taping() or not tail_on() or not _tail_ok(o, g, w, resid, transposed):
         GOP_STATS[1] += 1
         return None
     from .tenstorrent import COMPUTE_GRID_MAIN
@@ -489,16 +503,16 @@ def gated_out_proj(o, g, w, ckc, resid=None):
         out = resid
     grid = tuple(COMPUTE_GRID_MAIN)
     key = (str(o.padded_shape), str(w.padded_shape), str(out.padded_shape), grid, G.ckc_args(ckc),
-           resid is not None, TAIL_SIGPOLY, TAIL_RNE, TAIL_KB1)
+           resid is not None, TAIL_SIGPOLY, TAIL_RNE, TAIL_KB1, transposed)
     entry = _TAIL_CACHE.get(key)
     if entry is None:
-        entry = _TAIL_CACHE[key] = _build_tail(o, g, w, out, out, ckc, grid, resid is not None)
+        entry = _TAIL_CACHE[key] = _build_tail(o, g, w, out, out, ckc, grid, resid is not None, transposed)
     reader, writer, _ = entry["kernels"]
     reader.common_runtime_args = [o.buffer_address(), g.buffer_address(), w.buffer_address(),
                                   out.buffer_address()]
     writer.common_runtime_args = [out.buffer_address()]
     pd = ttnn.ProgramDescriptor(kernels=entry["kernels"], semaphores=[], cbs=entry["cbs"])
-    ref = _tail_check_ref(o, g, w, resid)
+    ref = None if transposed else _tail_check_ref(o, g, w, resid)
     ttnn.generic_op([o, g, w, out], pd)
     if ref is not None:
         _tail_check_log(ref, out, o, g)

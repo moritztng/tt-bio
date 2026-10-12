@@ -618,14 +618,18 @@ _FAST_MODE = False
 #   ws_ln           with transition_ws, its layer norm as the kernel's prologue (ln_prologue.hpp, as trimul
 #                   T1/T2): the normalised x never goes to DRAM. One-chunk weights only. WH c_z 128 fast: slower
 #                   (4.31 -> 4.48 ms) and less accurate (rel_rms 0.020 -> 0.028) than the separate norm.
+#   triatt_tr       with triatt_tail, the ending-node attention's update goes into z by the tail itself
+#                   (`gated_out_proj(transposed=True)`, kernels/triatt_tail/reader_tr.cpp): o and g are read in
+#                   32x32 (a, b) blocks and row-shuffled in L1, so neither the update's transpose nor
+#                   transpose_add runs. One rounding fewer than transpose_add (the residual joins the fp32 sum).
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in",
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
           "transition_shard", "dit_mm16", "atom_k1", "dit_b8", "dit_qkv16", "atom_mm16", "adaln_mod",
           "swiglu_fc12g", "msa_sample", "dit_sdpa_pm", "dit_s16", "dit_chunk", "conf_bins",
-          "transition_ws", "ws_ln")
+          "transition_ws", "ws_ln", "triatt_tr")
 # Named but in no mode until their fold grade puts them in one.
-UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "adaln_mod", "transition_ws", "ws_ln"})
+UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "adaln_mod", "transition_ws", "ws_ln", "triatt_tr"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -10950,11 +10954,12 @@ class TriangleAttention(Module):
         def gate_and_project(o_in: ttnn.Tensor, g_in: ttnn.Tensor,
                              l1_dest: bool = False, resid: ttnn.Tensor | None = None) -> ttnn.Tensor:
             """The tail's update, or with `resid` (the pair it belongs to) `resid + update` written
-            into `resid` when the one-program tail takes it; the caller tells by identity."""
+            into `resid` when the one-program tail takes it; the caller tells by identity. For the
+            ending variant `resid` is z in its own orientation (`triatt_tr`)."""
             head_major = len(g_in.shape) == 4
             if head_major and not gate_fused and self.o_bias is None:
                 fused = _triatt_qkv.gated_out_proj(o_in, g_in, self.o_weight, self.compute_kernel_config,
-                                                   resid=resid)
+                                                   resid=resid, transposed=self.ending and resid is not None)
                 if fused is None and resid is not None:
                     fused = _triatt_qkv.gated_out_proj(o_in, g_in, self.o_weight,
                                                        self.compute_kernel_config)
@@ -11240,7 +11245,7 @@ class TriangleAttention(Module):
                 ttnn.deallocate(qkv)
             ttnn.deallocate(triangle_bias)
             x = gate_and_project(o, g, l1_dest=_RESIDUAL_L1 and not self.ending,
-                                 resid=x_in if add_to_input and not self.ending else None)
+                                 resid=x_in if add_to_input and (not self.ending or lever("triatt_tr")) else None)
             if x is x_in:
                 return x_in
         if self.ending and add_to_input and _pair_tr_add.eligible(x, x_in):
