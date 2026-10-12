@@ -2,7 +2,7 @@
 
 Measured (perf/bigswing/reblock_window_band.py): on 110 cores the move wins from Nt=9 and loses at
 Nt=8 (N=256, 0.952x); on a 130-core p150a Nt=9 is break-even and Nt=10 wins; on a Wormhole chip's 64
-cores it wins from Nt=7 (N=195) and loses at Nt=6 (N=192). Host only, no card: a fake tensor
+cores (72 on a Galaxy) it wins from Nt=7 (N=195) and loses at Nt=6 (N=192). Host only, no card: a fake tensor
 carries the grid. The p150a's N=288 stays open through the plain L1_N_MIN edge, not this rule.
 """
 
@@ -40,6 +40,7 @@ class _X:
 
 @pytest.mark.parametrize("grid, opens, stays_shut", [
     ((8, 8), [193, 195, 224, 256], [160, 192]),       # Wormhole: Nt=7 wins, Nt=6 loses
+    ((8, 9), [193, 195, 224, 256], [160, 192]),       # Galaxy Wormhole, 72 cores: Nt=7 still wins
     ((11, 10), [257, 288], [224, 256]),               # p300c: Nt=9 wins, Nt=8 loses
     ((13, 10), [289, 320], [256, 257, 288]),          # p150a: Nt=9 break-even, Nt=10 wins
 ])
