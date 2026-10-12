@@ -212,8 +212,13 @@ _ATTN_ROW_BLOCK = int(os.environ.get("RFD3_ATTN_ROWBLOCK", "256"))
 # Its worker threads are scipy's own, capped at torch's thread count, so they do not start a
 # second OpenMP team (the reason the index stays off a Python worker thread, see _ATTN_OVERLAP).
 # Synthetic 6051 atoms, k=128, 2 threads: 207.6 -> 60 ms on a loaded Galaxy host, 143.6 -> 52
-# on qb2, every row equal to the cdist build and to a float64 reference.
-_ATTN_KDTREE = env_flag("RFD3_ATTN_KDTREE", False)
+# on qb2, every row equal to the cdist build and to a float64 reference. On by default: the tree is
+# the more accurate index (the fp32 cdist misses 0-2 rows per case against float64), and the fold
+# moves only by those near-ties. Wormhole @1000 MHz, page fixture: fast 129.4 -> 117.2 s/design,
+# normal 135.8 -> 131.5. Graded against the cdist arm, 16 fast seeds: clash delta +4.9 +- 4.5,
+# breaks 7 -> 7, design drift 2.6-11.2 A against a 12-20 A seed floor; 6 normal seeds +1.8 +- 4.0.
+# RFD3_ATTN_KDTREE=0 restores the cdist chain.
+_ATTN_KDTREE = env_flag("RFD3_ATTN_KDTREE", True)
 # The 18 DiT blocks project the SAME pair tensor with their own [c_pair, n_head] weight, and that
 # projection is the largest single op in the model: 36 calls/step (18 blocks x 2 recycles),
 # 26.742 ms/step, 42.6 % of this card's measured 390.0 GB/s read roof (perf/p56/linear_census.json).
