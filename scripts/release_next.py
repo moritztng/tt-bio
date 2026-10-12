@@ -103,19 +103,26 @@ def _plans(gates: Path | None, partial: bool = False) -> list:
     return out
 
 
-def passed_since(gates: Path | None, tsha: str, repo: Path = REPO) -> tuple[str, Path] | None:
-    """(sha, dir) of the newest commit after the last release whose full gate passed, or None."""
+def passed_since(gates: Path | None, tsha: str, repo: Path = REPO, ref: str = "origin/main"
+                 ) -> tuple[str, Path] | None:
+    """(sha, dir) of the newest commit after the last release whose full gate passed, or None.
+
+    After means: it holds what main held when the release branched off (the tag may sit on a
+    release branch main never merged), it is not already inside the release, and its code is not
+    the release's."""
+    def ancestor(a, b):
+        return subprocess.run(["git", "-C", str(repo), "merge-base", "--is-ancestor", a, b],
+                              capture_output=True).returncode == 0
+    base = git("merge-base", tsha, ref, repo=repo) if tsha else ""
     done, released = [], content_hash(tsha, repo) if tsha else ""
     for p, plan in _plans(gates):
         v, sha = p.parent / "verdict.json", plan.get("sha", "")
         try:
             if not (v.exists() and json.loads(v.read_text()).get("pass")):
                 continue
-            if tsha and (sha == tsha or subprocess.run(
-                    ["git", "-C", str(repo), "merge-base", "--is-ancestor", tsha, sha],
-                    capture_output=True).returncode or plan.get("content") == released):
+            if tsha and (not ancestor(base, sha) or ancestor(sha, tsha) or plan.get("content") == released):
                 continue
-            ahead = git("rev-list", "--count", f"{tsha}..{sha}" if tsha else sha, repo=repo)
+            ahead = git("rev-list", "--count", f"{base}..{sha}" if base else sha, repo=repo)
             done.append((int(git("show", "-s", "--format=%ct", sha, repo=repo)), int(ahead), sha, p.parent))
         except (ValueError, subprocess.CalledProcessError):
             continue                                   # unreadable verdict, or a commit we lack
@@ -134,7 +141,7 @@ def decide(repo: Path = REPO, gates: Path | None = None, ref: str = "origin/main
            "stagings_since": stagings(tsha, head, repo), "running": running_gates(gates)}
     if tsha and content_hash(head, repo) == content_hash(tsha, repo):
         return {**out, "do": "NOTHING", "sha": tsha, "why": f"main's code is {tag}'s"}
-    if (cut := passed_since(gates, tsha, repo)) and cut[0] != head:
+    if (cut := passed_since(gates, tsha, repo, ref)) and cut[0] != head:
         sha, d = cut
         nxt = "" if content_hash(sha, repo) == content_hash(head, repo) else (
             f"; main's head {head[:9]} is the next release, gate it now")

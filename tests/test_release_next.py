@@ -117,3 +117,8 @@ def test_a_passed_gate_ships_even_after_main_moved_on(tmp_path):
     git("tag", "v0.2.0", fix)                                     # cut: neither is a candidate now
     d = rn.decide(tmp_path, gates, "main")
     assert d["do"] == "GATE" and d["sha"] == head
+    (_plan(gates, "gb", head, tmp_path) / "verdict.json").write_text(json.dumps({"pass": True}))
+    (tmp_path / "a.py").write_text("x = 4\n")                       # main never merged the release branch
+    git("commit", "-qam", "staging C")
+    d = rn.decide(tmp_path, gates, "main")
+    assert d["do"] == "CUT" and d["sha"] == head                   # B is after v0.2.0 all the same
