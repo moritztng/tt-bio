@@ -16090,9 +16090,12 @@ class DiffusionModule(TorchWrapper):
             def prepare_atom_bias(bias_pt):
                 if atom_pad:
                     bias_pt = torch.nn.functional.pad(bias_pt, (0, 0, 0, 0, 0, 0, 0, NW_padded - NW))
-                bias = self._from_torch(bias_pt)
-                bias = ttnn.reshape(bias, (B * NW_padded, ATOM_WINDOW, ATOM_DIM, -1))
-                bias = ttnn.permute(bias, (0, 3, 1, 2))
+                # Heads-major on the host, then upload: tilizing [.., 128, heads] pads every
+                # 12-wide row to a 32-wide tile on one host thread, 0.43 s per fold at 512 aa
+                # (py-spy, p150a), where [.., heads, 32, 128] tiles without padding. The same
+                # values move either way, so the staged bias is bit-identical.
+                bias = self._from_torch(
+                    bias_pt.reshape(B * NW_padded, ATOM_WINDOW, ATOM_DIM, -1).permute(0, 3, 1, 2).contiguous())
                 bias = ttnn.add_(bias, mask)
                 return ttnn.multiply_(bias, ATOM_WINDOW ** 0.5)
 
