@@ -176,8 +176,8 @@ ESMC_SDPA_Q_CHUNK = 128
 # q, k and v as three projections from the packed weight's column blocks instead of one projection and a
 # 3-way `ttnn.chunk` copy of its output. Off until the page-cell A/B (perf/spd_gap_esmf/esmc_ab.py) says.
 _ESMC_QKV_SPLIT = env_flag("TT_BIO_ESMC_QKV_SPLIT", False)
-# The q/k layer norms and the qkv re-pack written to L1 instead of DRAM: the head split reads the
-# packed tensor straight back, so DRAM only carries it once. Same ops, same values (a memory
+# The attention's input layer norm, the q/k layer norms and the qkv re-pack written to L1 instead of
+# DRAM: the qkv projection and the head split read them straight back, so DRAM never carries them. Same ops, same values (a memory
 # placement). An L1 refusal at a shape falls back to DRAM for that shape for good, decided in the
 # warm passes before a trace capture. Off until the page-cell A/B (esmc_ab.py) says.
 _ESMC_QK_L1 = env_flag("TT_BIO_ESMC_QK_L1", False)
@@ -245,6 +245,20 @@ class Attention(Module):
             self._qkv_w = tuple(ttnn.slice(w, [0, i * d], [d_in, (i + 1) * d]) for i in range(3))
         return self._qkv_w
 
+    def _qkv(self, x, ln_mc=None):
+        """q, k, v projections of LayerNorm(x), the layer norm written to `ln_mc` (DRAM if None)."""
+        x_norm = ttnn.layer_norm(x, weight=self.in_norm_weight, bias=self.in_norm_bias, epsilon=1e-5,
+                                 compute_kernel_config=self.compute_kernel_config, memory_config=ln_mc)
+        try:
+            if _ESMC_QKV_SPLIT:
+                return tuple(self._lin(x_norm, w) for w in self._qkv_split())
+            qkv = self._lin(x_norm, self.qkv_weight)
+            q, k, v = ttnn.chunk(qkv, 3, dim=-1)
+            ttnn.deallocate(qkv)
+            return q, k, v
+        finally:
+            ttnn.deallocate(x_norm)
+
     def _qk_heads(self, q, k, v):
         """LayerNorm(q), LayerNorm(k) and v re-packed and split into per-head [B, H, L, d_head]
         (the tile-aware head split wants one packed tensor); frees q, k and v."""
@@ -285,18 +299,18 @@ class Attention(Module):
         d_model = x.shape[-1]
         head_dim = d_model // self.n_heads
 
-        x_norm = ttnn.layer_norm(
-            x, weight=self.in_norm_weight, bias=self.in_norm_bias,
-            epsilon=1e-5, compute_kernel_config=ck,
-        )
-        if _ESMC_QKV_SPLIT:
-            q, k, v = (self._lin(x_norm, w) for w in self._qkv_split())
-            ttnn.deallocate(x_norm)
+        key = tuple(x.padded_shape)
+        if _ESMC_QK_L1 and key not in _QK_L1_REFUSED:
+            try:
+                q, k, v = self._qkv(x, ttnn.L1_MEMORY_CONFIG)
+            except Exception as exc:
+                if not _is_alloc_refusal(exc):
+                    from tt_bio import tenstorrent
+                    tenstorrent.absorb_l1_refusal("esmc qkv LN L1", exc)
+                _QK_L1_REFUSED.add(key)
+                q, k, v = self._qkv(x)
         else:
-            qkv = self._lin(x_norm, self.qkv_weight)
-            ttnn.deallocate(x_norm)
-            q, k, v = ttnn.chunk(qkv, 3, dim=-1)
-            ttnn.deallocate(qkv)
+            q, k, v = self._qkv(x)
         # Re-pack and use the tile-aware head split, then apply per-head RoPE.
         q, k, v = self._qk_heads(q, k, v)
         q, k = _rope(q, k, cos, sin)
