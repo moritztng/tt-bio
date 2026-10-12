@@ -626,7 +626,9 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "swiglu_fc12g", "msa_sample", "dit_sdpa_pm", "dit_s16", "dit_chunk", "conf_bins", "trimul_t1", "trimul_t2",
           "triatt_tail_bias")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
-# (esmfold2_runtime.LEVERS_FAST) names trimul_b8in, graded on ESMFold2's fold.
+# (esmfold2_runtime.LEVERS_FAST) names trimul_b8in, graded on ESMFold2's fold. AF2 names
+# triatt_tail_bias in its own set: graded on AF2-IG only, and it would reach any other biased
+# triangle attention.
 UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "adaln_mod", "triatt_tail_bias"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6

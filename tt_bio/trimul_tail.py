@@ -659,7 +659,7 @@ def gin_moved(x, wpT, wgT, ckc, grid, mask=None):
 # kernels/trimul_gin_ragged: x rows past S re-read row S - 1, the bias tile seeds DST before the K
 # loop, the writer zeroes rows and columns >= S, and a unit is (cube, channel range) so 49 cubes still
 # fill the grid. x and the outputs may sit in L1. Opt-in (perf/spd_gap_bind/gin195.py grades it).
-GIN_RAGGED_QS = int(os.environ.get("TT_BIO_TRIMUL_GIN_RAGGED_QS", "0"))   # 0: pick by grid fill
+GIN_RAGGED_QS = int(os.environ.get("TT_BIO_TRIMUL_GIN_RAGGED_QS", "0"))   # 0: one split
 GIN_RAGGED_STATS = [0, 0]   # served, declined
 
 
@@ -698,13 +698,10 @@ def gin_ragged_bias(bp, bg, S, device):
                            layout=ttnn.TILE_LAYOUT, device=device, memory_config=ttnn.DRAM_MEMORY_CONFIG)
 
 
-def _gin_ragged_qs(nc, ct2, ncores):
-    if GIN_RAGGED_QS:
-        return GIN_RAGGED_QS
-    for qs in (1, 2, 4, 8):
-        if ct2 % qs == 0 and nc * qs >= 0.9 * ncores * ((nc * qs + ncores - 1) // ncores):
-            return qs
-    return max(q for q in (1, 2, 4, 8) if ct2 % q == 0)
+def _gin_ragged_qs(ct2):
+    # One unit per cube: splitting the channels re-reads x per split. At 195 x 64 channels on the
+    # Wormhole 8x9 grid qs 1 read 0.49 ms (DRAM) / 0.52 (L1) against 0.58 / 0.80 at qs 4.
+    return GIN_RAGGED_QS if GIN_RAGGED_QS and ct2 % GIN_RAGGED_QS == 0 else 1
 
 
 def _build_gin_ragged(x, wpT, wgT, bias, outs, grid, ckc, mask, S, qs):
@@ -766,7 +763,7 @@ def gin_ragged(x, wpT, wgT, bias, ckc, grid, S, mask=None, memory_config=None):
     C = int(wpT.shape[-2]) // 2
     ct2 = int(wpT.shape[-2]) // TILE
     St = -(-S // TILE)
-    qs = _gin_ragged_qs(B * St * St, ct2, grid[0] * grid[1])
+    qs = _gin_ragged_qs(ct2)
     mc = memory_config or ttnn.DRAM_MEMORY_CONFIG
     device = x.device()
     outs = [ttnn.allocate_tensor_on_device(ttnn.Shape([B, C, S, S]), ttnn.bfloat16,

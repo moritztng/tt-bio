@@ -78,7 +78,7 @@ for name, ckc in ckcs.items():
         a, b = TT.gin_ragged(dx, dwpT, dwgT, dbias, MG.ckc_args(ckc), grid, n, memory_config=mc)
         ta, tb = ttnn.to_torch(a), ttnn.to_torch(b)
         fin = bool(torch.isfinite(ta).all() and torch.isfinite(tb).all())
-        rec = {"route": "ragged", "ckc": name, "qs": TT._gin_ragged_qs(-(-n // 32) ** 2, 2 * C // 32, grid[0] * grid[1])
+        rec = {"route": "ragged", "ckc": name, "qs": TT._gin_ragged_qs(2 * C // 32)
                if qs == 0 else qs, "finite": fin}
         if fin:
             rec.update(rel_a=rr(ta, ref[0]), rel_b=rr(tb, ref[1]),
