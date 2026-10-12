@@ -9143,14 +9143,18 @@ class TriangleMultiplication(Module):
         if not (TT1.T1 or lever("trimul_t1")) or H < TT1.MIN_N:
             return None
         mask_ok = mask is None or (_TRIMUL_MASK_AFTER_MOVE and len(mask.shape) == 3)
-        if (ops.taping() or _FAST_MODE or _TRIMUL_RAW_CHANNEL_MOVES or _TRIMUL_INPROJ_ROWBLOCK
-                or self.g_in_weight is not None or self._g_in_b is not None
-                or self.g_out_bias is not None or not mask_ok
-                or not (self.gated_move or _TRIMUL_MASK_AFTER_MOVE)
-                or H > SEQ_LEN_MORE_CHUNKING
-                or _triangle_mul_memory_config(H).buffer_type != ttnn.BufferType.DRAM
-                or _host_concat(x)):
+        why = next((k for k, bad in (
+            ("tape", lambda: ops.taping()), ("fast_mode", lambda: _FAST_MODE),
+            ("raw_moves", lambda: _TRIMUL_RAW_CHANNEL_MOVES), ("rowblock", lambda: _TRIMUL_INPROJ_ROWBLOCK),
+            ("g_in", lambda: self.g_in_weight is not None or self._g_in_b is not None),
+            ("g_out_bias", lambda: self.g_out_bias is not None), ("mask", lambda: not mask_ok),
+            ("move", lambda: not (self.gated_move or _TRIMUL_MASK_AFTER_MOVE)),
+            ("chunking", lambda: H > SEQ_LEN_MORE_CHUNKING),
+            ("not_dram", lambda: _triangle_mul_memory_config(H).buffer_type != ttnn.BufferType.DRAM),
+            ("host_concat", lambda: _host_concat(x))) if bad()), None)
+        if why:
             TT1.T1_STATS[1] += 1
+            TT1.T1_WHY[why] = TT1.T1_WHY.get(why, 0) + 1
             return None
         batch = prod(shp[:-3])
         chunk = _trimul_inproj_chunk_cap(H, self._hidden, batch,
@@ -9160,6 +9164,7 @@ class TriangleMultiplication(Module):
         if (n_pairs // _trimul_inproj_group(H, chunk, batch, n_pairs) != 1
                 or not _mm_transpose_deferred(pc)):
             TT1.T1_STATS[1] += 1
+            TT1.T1_WHY["route"] = TT1.T1_WHY.get("route", 0) + 1
             return None
         if self._t1_w is None:
             wpT, wgT, _ = TT1.t1_host_weights(self._g_in_t, self._p_in_t,
