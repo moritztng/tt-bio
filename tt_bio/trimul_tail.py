@@ -683,7 +683,7 @@ def _cb_fmt(idx, core_grid, tiles, dtype):
 def _vec_ok(v, K):
     """gamma / beta as `torch_to_tt` leaves a norm parameter: bf16, tiled, K values in row 0."""
     return (v is not None and v.dtype == ttnn.bfloat16 and v.layout == ttnn.TILE_LAYOUT
-            and int(v.shape[-1]) == K and all(int(d) == 1 for d in v.shape[:-1])
+            and int(v.shape[-1]) == K and all(int(d) == 1 for d in list(v.shape)[:-1])
             and v.memory_config().memory_layout == ttnn.TensorMemoryLayout.INTERLEAVED)
 
 
