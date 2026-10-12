@@ -623,7 +623,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "swiglu_fc12g", "msa_sample", "dit_sdpa_pm", "dit_s16", "dit_chunk", "conf_bins", "trimul_t1", "trimul_t2")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in, graded on ESMFold2's fold.
-UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "adaln_mod"})
+UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -642,9 +642,10 @@ UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "adaln_mod"})
 # Blackhole, 44 paired folds): fast PASS, normal FAIL on CA-lDDT -0.0002 [-0.0003, -0.0000] against an A/A floor
 # of 0.0010; same-seed top pose median 0.171 A vs the 0.60 A bar, docking 26 -> 26 of 44. OpenFold3 normal grade
 # PASS (top pose median 0.227 A). Saves ~0.3 s of the 512-token fold on p150a (spd-gap-of3, 2026-10-12).
-# trimul_t1 / trimul_t2 are graded on OpenFold3 / OpenBind-0 only (their own FAST_LEVERS), so the shared set leaves
-# them out until a Boltz-2 / Protenix-v2 grade puts them in.
-FAST_LEVERS = frozenset(LEVERS) - {"lofi", "triatt_b8", "triatt_bias_b8", "trimul_t1", "trimul_t2"} - UNGRADED_LEVERS
+# trimul_t1 / trimul_t2 are graded on OpenFold3 / OpenBind-0 only (their own FAST_LEVERS) and adaln_mod on Boltz-2
+# fast only (Boltz-2 LEVERS_FAST), so the shared set leaves them out until a grade on the other models puts them in.
+FAST_LEVERS = (frozenset(LEVERS) - {"lofi", "triatt_b8", "triatt_bias_b8", "trimul_t1", "trimul_t2", "adaln_mod"}
+               - UNGRADED_LEVERS)
 # trimul_ibw + trimul_tail: Wormhole 11-set grade PASS, 44 paired folds, same-seed top pose median
 # 0.204 A against the 0.60 A bar (A/A seed floor 0.807 A), every paired CI covers 0 or sits on the
 # better side (state/spd/BOARD.md, spd-trimul 2026-10-08 22:40Z).
