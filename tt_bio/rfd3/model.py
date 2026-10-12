@@ -28,6 +28,7 @@ from .. import rfd3_bias, softmax_generic
 from ..envflags import env_flag
 from . import block_sparse as _BS
 from .tiles import TILE, align_tile, pad_axis
+from .. import pair_swiglu_ws as _WS
 from ..tenstorrent import (Module, get_device, CORE_GRID_MAIN, attn_value_matmul, silu_ckc,
                            atom_pair_budget_bytes, l1_resident_budget_bytes, row_block,
                            _dram_oom, fused_sdpa, _sdpa_program_config)
@@ -340,6 +341,10 @@ _ATOM_SDPA_MAX_MASK_BYTES = int(float(os.environ.get("RFD3_ATOM_SDPA_MAX_MASK_BY
 # 1088 instead of 2048 bytes a tile on the region that is ~65 % of the token encoder and is bound
 # by per-tile pack/unpack. The input norm and the output stay bf16. Off by default while graded.
 _TRANSITION_B8 = env_flag("RFD3_TRANSITION_B8", False)
+# The token pair Transition as one weight-stationary program (`tt_bio.pair_swiglu_ws`): x read once,
+# [w1 | w2] and w3 resident in L1, fc1/fc2/the product never leave the core. bf16 only for now, so
+# it declines under RFD3_TRANSITION_B8. Off while measured.
+_PAIR_WS = env_flag("RFD3_PAIR_WS", False)
 # Every RFD3 matmul at HiFi2 instead of HiFi4: two multiplier passes per bf16 product instead of
 # four. Off, and not in --fast: on top of the fast set it saved nothing on a p300c (4 seeds, 685
 # tokens) and doubled the clashes of one 418-token design.
@@ -1019,6 +1024,10 @@ class Transition(Module):
                     ttnn.deallocate(p)
                 return out
             return self._swiglu(x, None)
+        if _PAIR_WS and not _TRANSITION_B8:
+            out = self._weight_stationary(x)
+            if out is not None:
+                return out
         H, hidden = x.shape[1], int(self.fc1_w.shape[-1])
         w_pad = int(x.padded_shape[2])
         h = _pair_transition_chunk_h(w_pad, hidden, H)
@@ -1085,6 +1094,28 @@ class Transition(Module):
                 c, blk, ttnn.L1_MEMORY_CONFIG if split and blk is not None else None, shape))
             ttnn.deallocate(c)
         return _pair_transition_join(parts, int(x.shape[0]))
+
+    def _weight_stationary(self, x):
+        """`_swiglu` through `pair_swiglu_ws`, one batch element at a time; None where it declines."""
+        if getattr(self, "_ws12", None) is None:
+            self._ws12 = ttnn.concat([self.fc1_w, self.fc2_w], dim=1)
+        if not _WS.eligible(x, self._ws12, self.fc3_w):
+            return None
+        parts = []
+        for b in range(int(x.shape[0])):
+            xb = x if x.shape[0] == 1 else ttnn.slice(x, [b, 0, 0, 0], [b + 1, *x.shape[1:]])
+            xn = ttnn.rms_norm(xb, weight=self.norm_w, epsilon=1e-6,
+                               compute_kernel_config=self.compute_kernel_config)
+            if xb is not x:
+                ttnn.deallocate(xb)
+            parts.append(_WS.pair_swiglu(xn, self._ws12, self.fc3_w))
+            ttnn.deallocate(xn)
+        if len(parts) == 1:
+            return parts[0]
+        out = ttnn.concat(parts, dim=0)
+        for p in parts:
+            ttnn.deallocate(p)
+        return out
 
     def _swiglu_resident(self, x, mem, fc1_mem, key):
         """`_swiglu`, dropping the L1 residency rather than the fold if the allocator refuses.
