@@ -48,9 +48,11 @@ void kernel_main() {
     for (uint32_t r = first; r < first + count; ++r) {
         cb_reserve_back(cb_x, KT);
         w = get_write_ptr(cb_x);
+#ifndef WS_NO_XREAD  // time attribution only (ws_attr.py)
         for (uint32_t k = 0; k < KT; ++k, w += tx) {
             noc_async_read_page(r * KT + k, sx, w);
         }
+#endif
         noc_async_read_barrier();
         cb_push_back(cb_x, KT);
     }
