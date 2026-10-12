@@ -460,6 +460,70 @@ def set_device_injection(on: bool) -> None:
     _DEVICE_INJECTION = bool(on)
 
 
+# The resident trunk's pair-sized transfers (z, the injection, its base, the trunk output) tilize on the chip
+# (tenstorrent.upload / download, bit for bit the host permutation). Off = host tilize in ttnn.from_torch.
+DEVICE_UPLOAD = True
+
+# Off = esm 3.4.1's inline draw from the global RNG (perf/spd_gap_esmf/ab.py flips it between folds).
+PAIR_STATE_THREAD = True
+
+
+class _PairStateDraw:
+    """The trunk's initial pair state, esm 3.4.1's `_init_pair_state`: a truncated normal over the
+    [B, L, L, c_z] pair in float32, ~1 s of host at 512 aa that the device used to wait for. It is
+    drawn on a host thread from the fold's first line, while the device runs the input embedding,
+    ESMC-6B and the LM projection, from a generator seeded with one draw from the fold's RNG (as
+    `_KeepDraws`), so it follows the seed and not the timing.
+    """
+
+    def __init__(self):
+        self.pool = self.key = self.nxt = None
+
+    @staticmethod
+    def _draw(shape, seed):
+        std = (2.0 / (5.0 * shape[-1])) ** 0.5
+        state = torch.empty(shape, dtype=torch.float32)
+        return torch.nn.init.trunc_normal_(state, mean=0.0, std=std, a=-3 * std, b=3 * std,
+                                           generator=torch.Generator().manual_seed(seed))
+
+    def start(self, shape):
+        from concurrent.futures import ThreadPoolExecutor
+
+        if self.pool is None:
+            self.pool = ThreadPoolExecutor(1)
+        self.key = tuple(shape)
+        self.nxt = self.pool.submit(self._draw, self.key, int(torch.randint(2 ** 62, ())))
+
+    def take(self, ref):
+        nxt, key, self.nxt = self.nxt, self.key, None
+        if nxt is None or key != tuple(ref.shape):  # not started for this shape: draw inline
+            return self._draw(tuple(ref.shape), int(torch.randint(2 ** 62, ()))).to(ref.dtype)
+        return nxt.result().to(ref.dtype)
+
+
+def _install_pair_state_draw(model):
+    """Start `_PairStateDraw` at forward entry; `_init_pair_state` takes the result."""
+    import functools
+    import inspect
+    import types
+
+    draw = _PairStateDraw()
+    fwd, inline = model.forward, model._init_pair_state
+    sig = inspect.signature(fwd)
+    c_z = model.config.d_pair
+
+    @functools.wraps(fwd)
+    def forward(*args, **kwargs):
+        mask = sig.bind(*args, **kwargs).arguments["token_attention_mask"]
+        if PAIR_STATE_THREAD:
+            draw.start((mask.shape[0], mask.shape[1], mask.shape[1], c_z))
+        return fwd(*args, **kwargs)
+
+    model.forward = forward
+    model._init_pair_state = types.MethodType(
+        lambda self, ref: draw.take(ref) if PAIR_STATE_THREAD else inline(ref), model)
+
+
 def _install_resident_trunk_loop(model):
     """Replace the reference `_run_one_loop` with an on-device, resident-z version.
 
@@ -531,6 +595,11 @@ def _install_resident_trunk_loop(model):
             injected = self.parcae_input_norm(z_inject)
             return F.linear(injected.to(z.dtype), b_mat)  # [1,L,L,256] (host)
 
+        from tt_bio import tenstorrent as T
+
+        def up(t):
+            return T.upload(t, device=ftw.tt_device) if DEVICE_UPLOAD else ftw._from_torch(t)
+
         # --- resident-z recurrence on device ---
         Lp = z.shape[1]
         pad = (-Lp) % E.PAD_MULTIPLE
@@ -540,17 +609,17 @@ def _install_resident_trunk_loop(model):
             real = torch.zeros(1, Lp + pad, Lp + pad)
             real[:, :Lp, :Lp] = 1.0
             mask = ftw._from_torch(real)
-        zt = ftw._from_torch(padz(z).float())
+        zt = up(padz(z).float())
         # The injection is loop-invariant only when no loop redraws its LM dropout or MSA rows.
         per_loop = (use_lm and bool(lm_p)) or (msa_loops is not None and len(msa_loops) > 1)
-        ipt = None if per_loop else ftw._from_torch(
+        ipt = None if per_loop else up(
             padz(inject_proj(msa_loops[0] if msa_loops else None)).float())
         at = ftw._from_torch(a.reshape(1, 1, 1, -1).float())  # parcae a, broadcasts over L,L
         on_dev = (_DEVICE_INJECTION and per_loop and isinstance(lm_z, _DevPair)
                   and (msa_loops is None or msa_fixed is not None))
         if on_dev:
             # What no loop redraws, uploaded once: the MSA pair (or z_init), LN and b_mat.
-            base = ftw._from_torch(padz(msa_fixed if msa_fixed is not None else z_init).float())
+            base = up(padz(msa_fixed if msa_fixed is not None else z_init).float())
             norm = self.parcae_input_norm
             ln_w, ln_b = (ttnn.from_torch(t.detach().float(), device=ftw.tt_device,
                                           layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16)
@@ -582,7 +651,7 @@ def _install_resident_trunk_loop(model):
                 ipt = inject_dev()
                 INJECTION_STATS[0] += 1
             elif per_loop:
-                ipt = ftw._from_torch(padz(inject_proj(
+                ipt = up(padz(inject_proj(
                     msa_loops[min(_step, len(msa_loops) - 1)] if msa_loops else None)).float())
                 INJECTION_STATS[1] += 1
             az = ttnn.multiply(zt, at)
@@ -594,7 +663,7 @@ def _install_resident_trunk_loop(model):
                 ipt = None
             zt = ftw.module(znew, mask)  # folding trunk consumes znew, returns new z
         dram_peak("esmfold2/trunk-done")
-        z_out = ftw._to_torch(zt)[:, :Lp, :Lp, :].to(z.dtype)
+        z_out = (T.download(zt) if DEVICE_UPLOAD else ftw._to_torch(zt))[:, :Lp, :Lp, :].to(z.dtype)
         for t in (zt, ipt, at, mask) + ((base, ln_w, ln_b, b_t) if on_dev else ()):
             if t is not None:
                 try:
@@ -695,6 +764,7 @@ def patch_esmfold2(model, esmc_repo: str = "biohub/ESMC-6B", persistent_lm: bool
     # loop-invariant LM/MSA/injection work and run the parcae recurrence on
     # device), avoiding per-loop host<->device round-trips of the L²·256 pair.
     _install_resident_trunk_loop(model)
+    _install_pair_state_draw(model)
     dram_peak("esmfold2/head-built")
     return model
 
@@ -951,8 +1021,13 @@ WH_LM_RESIDENT_MAX_TOKENS = 1088
 # NORMAL: the same set without trunk_hifi3 (the trunk matmuls stay HiFi4) passes the normal bar on ESMFold2-Fast
 # (44 paired folds vs none: CA-lDDT -0.0006 [-0.0022, +0.0006], TM +0.0007, docking 24/44 both, top-pose median
 # 0.93 A vs 1.40 A floor) and folds the 11-set in 9 % less time than none (p300c, paired sums 2498 vs 2751 s).
+# FAST adds trimul_b8in (the trimul in-projection writes bfp8 for the gated move), graded with the legacy SiLU gate
+# against none on the fast bar, 11 complexes x 4 seeds on Blackhole: ESMFold2-Fast CA-lDDT +0.0012 [-0.0026, +0.0059],
+# top-pose median 0.92 A vs 1.40 A floor, docking 24/44 both; ESMFold2 (41 paired) CA-lDDT +0.0021 [-0.0006,
+# +0.0061], top-pose median 0.44 A vs 1.12 A floor, docking 30/41 both. ~1 s off ESMFold2 --fast at 512 aa
+# (p300c, 1350 MHz: 27.80 vs 28.78 s; -Fast 18.71 vs 19.00).
 LEVERS_NORMAL = "normal-trunk_hifi3"
-LEVERS_FAST = "normal"
+LEVERS_FAST = "normal+trimul_b8in"
 
 
 def fold_levers(fast: bool) -> str:

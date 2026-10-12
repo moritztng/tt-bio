@@ -410,14 +410,25 @@ _SWIGLU_SILU_FC1 = env_flag("TT_BIO_SWIGLU_SILU_FC1", False)
 # The same activated multiply on ttnn's legacy binary op: same SFPU silu, no per-tile re-init, 0.101 vs 0.144 ms
 # (gate_bench, same block). Pair transition row blocks only (`l1_gated`): folds -1.1 s ESMFold2 / -0.7 s -Fast on
 # p150a, while ESMC 300M's LM blocks measured no faster with it and further from fp32 (cos_min 0.9971 vs 0.9987).
-_SWIGLU_GATE_LEGACY = env_flag("TT_BIO_SWIGLU_GATE_LEGACY", False)
+# Graded PASS on the normal bar for both models on Blackhole (11 complexes x 4 seeds, docs/tuning-flags.md), so on by
+# default there. Wormhole is not graded and keeps its multiply (and its digests) unless the switch is set: None = by arch.
+_SWIGLU_GATE_LEGACY = (env_flag("TT_BIO_SWIGLU_GATE_LEGACY", False)
+                       if os.environ.get("TT_BIO_SWIGLU_GATE_LEGACY", "").strip() else None)
+
+
+def _swiglu_gate_legacy() -> bool:
+    if _SWIGLU_GATE_LEGACY is not None:
+        return _SWIGLU_GATE_LEGACY
+    from tt_bio import tenstorrent
+    return tenstorrent.arch_name() == "blackhole"
 
 # Wormhole tiles the per-token (3-D) FFN at SMALL_GRID_SEQ_TILE rows so the ESMC-6B's fc1 activation never asks a
-# 12 GB chip that already holds the 6B for one large block. A row count also cuts ESMC 300M/600M's whole page batch
-# ([7, 544, 2*d_ff], 39-47 MB of fc1) into three blocks plus a chunk and a concat: 35 of 212 ms (300M) and 75 of 346 ms
-# (600M) on a Galaxy chip (perf/wh-embed/op_census.py, 2026-10-11). A non-zero budget tiles only when the fc1
-# activation is larger than this many bytes. Row blocking is row-local, so the output is bit-identical either way.
-_LM_FFN_TILE_BYTES = env_int("TT_BIO_LM_FFN_TILE_BYTES", 0)
+# 12 GB chip that already holds the 6B for one large block. ESMC 300M/600M (~0.6 / 1.2 GB of weights) never needed it,
+# and on them the row count cut the whole page batch ([7, 544, 2*d_ff]) into three blocks plus a chunk and a concat:
+# off, a Galaxy chip runs a batch of 7 in 190 vs 213 ms (300M) and 276 vs 337 ms (600M), at the same error against
+# float32 (rel_l2 0.025 either way; not bit-identical, the matmul blocks differently at the larger M). So only a
+# model whose resident weights exceed this many bytes tiles; the 6B (12.7 GB in bf16) keeps its path exactly.
+_LM_FFN_TILE_MODEL_BYTES = env_int("TT_BIO_LM_FFN_TILE_MODEL_BYTES", 4 << 30)
 
 _PAIR_FFN_L1_LN = os.environ.get(
     "TT_BIO_PAIR_FFN_L1_LN", "1" if PAIR_FFN_L1_LN else "0") == "1"
@@ -624,6 +635,7 @@ class SwiGLUFFN(Module):
         # With no fused kernel in the wheel, `fuse_swiglu=True` really selects the split-fc1
         # path (see SPLIT_SWIGLU above). Build only the fc1 layout the live path reads.
         self.split_swiglu = bool(fuse_swiglu and not self.fuse_swiglu)
+        self.model_bytes = float("inf")  # resident weights of the model this FFN is in; ESMC's Block sets it
         if self.split_swiglu:
             half = self.weights["1.weight"].shape[0] // 2
             self.fc1_weight = None
@@ -688,7 +700,7 @@ class SwiGLUFFN(Module):
             ttnn.deallocate(x_norm)
         elif split and self.split_swiglu:
             from tt_bio import tenstorrent as _T
-            out = self._sharded(x_norm) if _T.lever("transition_shard") else None
+            out = self._sharded(x_norm, out_mc) if _T.lever("transition_shard") else None
             if out is not None:
                 ttnn.deallocate(x_norm)
                 return out
@@ -719,7 +731,7 @@ class SwiGLUFFN(Module):
             ttnn.deallocate(x_norm)
             gated = ttnn.multiply(
                 h1, h2, input_tensor_a_activations=[] if silu_done else [ttnn.UnaryOpType.SILU],
-                **({"use_legacy": True} if _SWIGLU_GATE_LEGACY and l1_gated else {}),
+                **({"use_legacy": True} if l1_gated and _swiglu_gate_legacy() else {}),
                 **({"memory_config": ttnn.L1_MEMORY_CONFIG} if l1_gated else {}),
             )
             ttnn.deallocate(h1)
@@ -736,10 +748,11 @@ class SwiGLUFFN(Module):
         ttnn.deallocate(gated)
         return out
 
-    def _sharded(self, x_norm: ttnn.Tensor):
+    def _sharded(self, x_norm: ttnn.Tensor, out_mc=None):
         """fc2(silu(x fc1_a) * (x fc1_b)) on the pair Transition's block-sharded swiglu
         (`transition_shard`; with `swiglu_fc12g` and `silu_f32` the fused fc12g kernel, no fc1 tensors
-        and no multiply), None when the block does not shard. Same structure as tenstorrent.Transition's
+        and no multiply), None when the block does not shard. fc2 writes to `out_mc`, so the row-blocked
+        residual add reads it from L1 as on the unsharded path. Same structure as tenstorrent.Transition's
         fc1/fc2/fc3, so ESMFold2's trunk FFN takes the shared path and levers.
         """
         from tt_bio import tenstorrent as T
@@ -752,7 +765,7 @@ class SwiGLUFFN(Module):
             w12 = self._w12
         ck = self.compute_kernel_config
         return T._transition_swiglu_sharded(x_norm, self.fc1_a_weight, self.fc1_b_weight, self.fc2_weight,
-                                            ck, T.silu_ckc(ck), _dtype(), x_norm.dtype, w12=w12)
+                                            ck, T.silu_ckc(ck), _dtype(), x_norm.dtype, w12=w12, out_mc=out_mc)
 
     def _split_plan(self, x: ttnn.Tensor) -> tuple[bool, int]:
         """(split fc1?, rows per block) for this input, 0 rows if the 4-D row-blocked pair path
@@ -922,10 +935,7 @@ class SwiGLUFFN(Module):
             chunk = tenstorrent.pair_row_tile(L)
         else:
             t = tenstorrent.SMALL_GRID_SEQ_TILE
-            chunk = t if (t and L > t) else 0
-            if chunk and _LM_FFN_TILE_BYTES:
-                fc1_bytes = int(x.shape[0]) * int(L) * 2 * int(self.fc2_weight.shape[0]) * 2
-                chunk = 0 if fc1_bytes <= _LM_FFN_TILE_BYTES else chunk
+            chunk = t if (t and L > t and self.model_bytes > _LM_FFN_TILE_MODEL_BYTES) else 0
         try:
             if chunk:
                 parts = ttnn.chunk(x, -(-L // chunk), dim=1)
@@ -976,6 +986,9 @@ class Block(Module):
         self.attn = Attention(n_heads, self.scope("attn"), compute_kernel_config, out_scale=inv_scale)
         self.ffn = SwiGLUFFN(self.scope("ffn"), compute_kernel_config, fuse_swiglu=True,
                              out_scale=inv_scale)
+        shape = self.ffn.fc2_weight.shape  # ttnn.Shape takes no slice
+        d_ff, d = int(shape[-2]), int(shape[-1])
+        self.ffn.model_bytes = n_layers * (4 * d * d + 3 * d * d_ff) * 2
 
     def __call__(self, x: ttnn.Tensor, cos: ttnn.Tensor, sin: ttnn.Tensor,
                  attn_mask: ttnn.Tensor | None = None,
@@ -1082,6 +1095,7 @@ class ESMC(TorchWrapper):
     # of a length-sorted single-sequence stream. A capture that does not fit
     # raises, and _dispatch falls back to eager.
     _TRACE_CACHE_MAX = 8
+    MATH_FIDELITY = "HiFi3"
 
     def __init__(self, d_model: int, n_heads: int, n_layers: int, *, trace: bool = True):
         super().__init__()
@@ -1092,6 +1106,16 @@ class ESMC(TorchWrapper):
         self._trace_cache: collections.OrderedDict = collections.OrderedDict()
         self._trace_seen: collections.Counter = collections.Counter()
         self._trace_broken = False
+        # HiFi3 with fp32 accumulation, every op. On a Blackhole batch of 7 (qb2 p300c, 1350 MHz) it cuts
+        # 300M 88.5 -> 84.1 ms and 600M 135.0 -> 123.1 ms, with the error against the fp32 reference
+        # unchanged (rel_l2 0.0252 vs 0.0256, 0.0250 vs 0.0236); on Wormhole it saves 1-5 %.
+        # The ESMC-6B (ESMFold2's LM) is ESMCLanguageModel and keeps HiFi4.
+        self.compute_kernel_config = type(self.compute_kernel_config)(
+            math_fidelity=getattr(ttnn.MathFidelity, self.MATH_FIDELITY),
+            math_approx_mode=False,
+            fp32_dest_acc_en=True,
+            packer_l1_acc=True,
+        )
 
     @classmethod
     def from_pretrained(cls, name: str = "esmc-300m", *, trace: bool = True) -> "ESMC":
