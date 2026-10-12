@@ -71,7 +71,21 @@ try:
             res[on_device] = ([ttnn.to_torch(b).float() for b, *_ in sup], statistics.median(ms))
         host, dv = res[False][0], res[True][0]
         diff = max(float((a - b).abs().max()) for a, b in zip(host, dv))
-        emit({"dtype": A.dtype, "n_atom": n_atom, "nb": nb, "W": int(host[0].shape[-1]),
+        # Where the two builds disagree: real bias (host > -1e3), the clamped mask / pad value, by column.
+        where = {}
+        for b, (h, d) in enumerate(zip(host, dv)):
+            ne = h != d
+            if not ne.any():
+                continue
+            real = h > -1e3
+            i = int((h - d).abs().argmax())
+            col = torch.nonzero(ne)[:, -1]
+            where[b] = {"n_ne": int(ne.sum()), "n_ne_real": int((ne & real).sum()),
+                        "max_abs_real": float(((h - d).abs() * real).max()),
+                        "at": [float(h.flatten()[i]), float(d.flatten()[i])],
+                        "cols": [int(col.min()), int(col.max())],
+                        "dev_values": sorted({round(float(v), 2) for v in d[ne & ~real][:2000].tolist()})[:6]}
+        emit({"dtype": A.dtype, "n_atom": n_atom, "nb": nb, "W": int(host[0].shape[-1]), "where": where,
               "bit_equal": all(torch.equal(a, b) for a, b in zip(host, dv)),
               "max_abs": diff, "finite": all(bool(torch.isfinite(b).all()) for b in dv),
               "host_ms": round(res[False][1], 2), "device_ms": round(res[True][1], 2)})

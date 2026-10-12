@@ -306,9 +306,14 @@ class OF3AtomTransformer(Module):
         ``z_bias`` ``[1, nb, H, nq, nk]`` and ``mask_bias`` ``[1, nb, 1, nq, nk]``: the host
         path's add, clamp and scale, then each run of blocks sharing a window offset ``o`` is
         padded to ``W`` columns with ``o`` in front. Clamping before the pad equals clamping
-        after it: the pad value is ``fill``, the clamped and scaled -1e9."""
+        after it: the pad value is ``fill``, the clamped and scaled -1e9. The arithmetic runs in
+        fp32 whatever the activation dtype, as on the host, so a bf16 bias is rounded once."""
         nq, nk, H, dh = self.N_QUERY, self.N_KEY, self.N_HEADS, self.HEAD_DIM
-        zb = ttnn.add(z_bias, mask_bias)
+        f32 = [t if t.dtype == ttnn.float32 else ttnn.typecast(t, ttnn.float32) for t in (z_bias, mask_bias)]
+        zb = ttnn.add(*f32)
+        for t, src in zip(f32, (z_bias, mask_bias)):
+            if t is not src:
+                ttnn.deallocate(t)
         zc = ttnn.clamp(zb, min=-1e4)
         ttnn.deallocate(zb)
         zs = ttnn.multiply(zc, dh ** 0.5)
