@@ -44,3 +44,10 @@ def test_off_declines_without_counting():
     finally:
         T._LEVERS = prev
     assert T3.STATS == [0, 0]
+
+
+def test_plain_call_sums_fc3_in_fp32():
+    # add_to_input=False (MSA / diffusion-conditioning transitions): no residual CB, fc3's L1-acc chunks go to the
+    # fp32 cb_part and leave as bf16 once; the output CB stays bf16.
+    bf, f32, _ = T3.cb_plan(4, 16, False, 0)
+    assert (18, 4) in f32 and (6, 8) in bf and all(i != 5 for i, _ in bf)

@@ -1,5 +1,6 @@
 """Transition T3 (the pair Transition as one kernel, tt_bio/transition_t3.py) against the incumbent Transition
-module, both with add_to_input=True as the Pairformer calls it: rel rms and max abs against a float64 torch
+module, both with add_to_input=True as the Pairformer calls it (and T3 once more with add_to_input=False, as the
+MSA and diffusion-conditioning transitions call it, against the reference without x): rel rms and max abs against a float64 torch
 reference of x + fc3(silu(fc1(ln(x))) * fc2(ln(x))) built from the same bf16 inputs, T3 finite, T3 served,
 and median ms of warm synchronized calls each. One JSON line per N. Levers: the global normal set (silu_f32
 on, as OpenFold3 runs it), plus transition_t3 for the T3 arm.
@@ -112,6 +113,11 @@ for n in [int(v) for v in A.ns.split(",")]:
         rec["inc_rel_rms_f64"], rec["inc_max_abs"] = rel(inc, r)
         rec["t3_rel_rms_f64"], rec["t3_max_abs"] = rel(t3, r)
         rec["t3_vs_inc_max_abs"] = float((t3 - inc).abs().max())
+        T._LEVERS = WITH
+        s0 = T3.STATS[0]
+        plain = ttnn.to_torch(tr(up(x0), add_to_input=False)).float()
+        rec["t3_plain_served"] = T3.STATS[0] - s0
+        rec["t3_plain_rel_rms_f64"], rec["t3_plain_max_abs"] = rel(plain, r - x0.double())
         bad = ((t3 - r.float()).abs() > 0.25).reshape(-1, 32, C)        # [row tile, row, channel]
         if bad.any():
             ut = bad.any(-1).any(-1).nonzero().flatten()

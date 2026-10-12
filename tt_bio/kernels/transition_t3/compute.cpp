@@ -36,6 +36,9 @@ constexpr uint32_t PART = get_compile_time_arg_val(4);
 // as ttnn's matmul folds its K blocks. One long DST chain over all Ht tiles put isolated elements exactly 2 low
 // at c 256 (WH, the same element every run). y + x then adds cb_part (fp32) to x, no bf16 y in between.
 constexpr uint32_t KC = get_compile_time_arg_val(5);
+// 1: the output CB is fp32 (the first program over hidden halves). A RES = 0 program with a bf16 output (a plain
+// transition, the caller adds x) sums fc3's chunks in fp32 cb_part like RES = 1 and packs them to bf16 once.
+constexpr uint32_t OUT_F32 = get_compile_time_arg_val(6);
 static_assert(Ht % F3S == 0, "fc3 chunks divide the hidden tiles");
 constexpr uint32_t G = 4;                                   // fp32 half-sync DST holds 4 tiles
 constexpr uint32_t NG = Kt < G ? Kt : G;                    // fc3 output tiles per DST half
@@ -66,7 +69,7 @@ constexpr uint32_t cb_y = tt::CBIndex::c_15;     // fc3 output, bf16, before the
 constexpr uint32_t cb_acc = tt::CBIndex::c_19;   // fc3 fp32 L1-acc sum when cb_part carries the DRAM partial
 // KC > 0: where the packer sums fc3's chunks. The first program over hidden halves (RES = 0) sums straight into
 // its fp32 output; the second takes the first's partial from cb_part into DST under its first chunk.
-constexpr uint32_t acc_cb = !RES ? out_cb : PART ? cb_acc : cb_part;
+constexpr uint32_t acc_cb = (!RES && OUT_F32) ? out_cb : PART ? cb_acc : cb_part;
 
 struct LnCbs {
     static constexpr uint32_t Kt = ::Kt, x = cb_x, gamma = cb_gamma, beta = cb_beta, scaler = cb_scaler,
@@ -200,6 +203,22 @@ void kernel_main() {
                 cb_push_back(out_cb, Kt);
                 cb_pop_front(acc_cb, Kt);
                 cb_pop_front(res_cb, Kt);
+            } else if constexpr (!OUT_F32) {
+                cb_wait_front(acc_cb, Kt);
+                copy_tile_to_dst_init_short(acc_cb);
+                reconfig_data_format_srca(acc_cb);
+                pack_reconfig_data_format(out_cb);
+                cb_reserve_back(out_cb, Kt);
+                for (uint32_t n0 = 0; n0 < Kt; n0 += NG) {
+                    tile_regs_acquire();
+                    for (uint32_t i = 0; i < NG; ++i) copy_tile(acc_cb, n0 + i, i);
+                    tile_regs_commit();
+                    tile_regs_wait();
+                    for (uint32_t i = 0; i < NG; ++i) pack_tile(i, out_cb);
+                    tile_regs_release();
+                }
+                cb_push_back(out_cb, Kt);
+                cb_pop_front(acc_cb, Kt);
             }
             cb_pop_front(h_cb, Ht);
             continue;

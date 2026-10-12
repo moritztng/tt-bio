@@ -147,7 +147,7 @@ def _build(x, ln_w, ln_b, w12, w3, out, grid, ckc, res, eps, stage=0, part=None)
     fid, approx, _, full = ckc
     compute = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "compute.cpp"), source_type=src, core_ranges=core_grid,
-        compile_time_args=[kt, ht, int(res), F3_SPLIT, int(stage == 2), F3_L1ACC],
+        compile_time_args=[kt, ht, int(res), F3_SPLIT, int(stage == 2), F3_L1ACC, int(stage == 1)],
         runtime_args=cp,
         config=ttnn.ComputeConfigDescriptor(
             math_fidelity=fid, math_approx_mode=approx, fp32_dest_acc_en=True, dst_full_sync_en=full))
@@ -180,7 +180,9 @@ def transition(x, ln_w, ln_b, w12, w3, ckc, grid, add_to_input=False, eps=1e-5, 
     if key in REFUSED:
         _no("refused")
         return None
-    res = stage != 1
+    # The residual is the caller's: stage 0 adds x only under add_to_input (a plain call returns fc3(...) alone and
+    # the caller adds x itself; adding it here too counted x twice in every non-in-place fold call).
+    res = stage == 2 or (stage == 0 and add_to_input)
     in_place = add_to_input and res
     out = x if in_place else ttnn.allocate_tensor_on_device(
         x.shape, ttnn.float32 if stage == 1 else ttnn.bfloat16, ttnn.TILE_LAYOUT, x.device(),
@@ -217,6 +219,9 @@ def transition_split(x, ln_w, ln_b, halves, ckc, grid, add_to_input=False, eps=1
     half b on top of it in fp32 and adds x.
     x is written only by program 2. None when either program does not serve; nothing is written then."""
     (wa, w3a), (wb, w3b) = halves
+    if not add_to_input:
+        _no("split_no_res")   # program 2 always adds x; its RES = 0 form is not built
+        return None
     if eligible(x, ln_w, ln_b, wb, w3b, 2) is not None:
         return None
     part = transition(x, ln_w, ln_b, wa, w3a, ckc, grid, eps=eps, stage=1)
