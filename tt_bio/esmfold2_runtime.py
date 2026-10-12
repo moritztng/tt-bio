@@ -460,6 +460,66 @@ def set_device_injection(on: bool) -> None:
     _DEVICE_INJECTION = bool(on)
 
 
+# Off = esm 3.4.1's inline draw from the global RNG (perf/spd_gap_esmf/ab.py flips it between folds).
+PAIR_STATE_THREAD = True
+
+
+class _PairStateDraw:
+    """The trunk's initial pair state, esm 3.4.1's `_init_pair_state`: a truncated normal over the
+    [B, L, L, c_z] pair in float32, ~1 s of host at 512 aa that the device used to wait for. It is
+    drawn on a host thread from the fold's first line, while the device runs the input embedding,
+    ESMC-6B and the LM projection, from a generator seeded with one draw from the fold's RNG (as
+    `_KeepDraws`), so it follows the seed and not the timing.
+    """
+
+    def __init__(self):
+        self.pool = self.key = self.nxt = None
+
+    @staticmethod
+    def _draw(shape, seed):
+        std = (2.0 / (5.0 * shape[-1])) ** 0.5
+        state = torch.empty(shape, dtype=torch.float32)
+        return torch.nn.init.trunc_normal_(state, mean=0.0, std=std, a=-3 * std, b=3 * std,
+                                           generator=torch.Generator().manual_seed(seed))
+
+    def start(self, shape):
+        from concurrent.futures import ThreadPoolExecutor
+
+        if self.pool is None:
+            self.pool = ThreadPoolExecutor(1)
+        self.key = tuple(shape)
+        self.nxt = self.pool.submit(self._draw, self.key, int(torch.randint(2 ** 62, ())))
+
+    def take(self, ref):
+        nxt, key, self.nxt = self.nxt, self.key, None
+        if nxt is None or key != tuple(ref.shape):  # not started for this shape: draw inline
+            return self._draw(tuple(ref.shape), int(torch.randint(2 ** 62, ()))).to(ref.dtype)
+        return nxt.result().to(ref.dtype)
+
+
+def _install_pair_state_draw(model):
+    """Start `_PairStateDraw` at forward entry; `_init_pair_state` takes the result."""
+    import functools
+    import inspect
+    import types
+
+    draw = _PairStateDraw()
+    fwd, inline = model.forward, model._init_pair_state
+    sig = inspect.signature(fwd)
+    c_z = model.config.d_pair
+
+    @functools.wraps(fwd)
+    def forward(*args, **kwargs):
+        mask = sig.bind(*args, **kwargs).arguments["token_attention_mask"]
+        if PAIR_STATE_THREAD:
+            draw.start((mask.shape[0], mask.shape[1], mask.shape[1], c_z))
+        return fwd(*args, **kwargs)
+
+    model.forward = forward
+    model._init_pair_state = types.MethodType(
+        lambda self, ref: draw.take(ref) if PAIR_STATE_THREAD else inline(ref), model)
+
+
 def _install_resident_trunk_loop(model):
     """Replace the reference `_run_one_loop` with an on-device, resident-z version.
 
@@ -695,6 +755,7 @@ def patch_esmfold2(model, esmc_repo: str = "biohub/ESMC-6B", persistent_lm: bool
     # loop-invariant LM/MSA/injection work and run the parcae recurrence on
     # device), avoiding per-loop host<->device round-trips of the L²·256 pair.
     _install_resident_trunk_loop(model)
+    _install_pair_state_draw(model)
     dram_peak("esmfold2/head-built")
     return model
 
