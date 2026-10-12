@@ -611,7 +611,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "transition_shard", "dit_mm16", "atom_k1", "dit_b8", "dit_qkv16", "atom_mm16", "adaln_mod",
           "swiglu_fc12g", "msa_sample", "dit_sdpa_pm", "dit_s16", "dit_chunk")
 # Named but in no mode until their fold grade puts them in one.
-UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "adaln_mod", "dit_s16"})
+UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "adaln_mod"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -626,6 +626,10 @@ UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "adaln_mod", "dit_s16"}
 # median 0.271 A against the 0.60 A bar (A/A floor 1.206 A), docking 35 -> 35 of 44. Per call at c730, 0.928 ->
 # 0.532 ms on Wormhole (1000 MHz) and 0.410 -> 0.367 ms on Blackhole p150a (1350 MHz); c730 warm fold, same
 # seeds, 189.2 -> 187.8 s on a Galaxy chip and 94.4 -> 93.5 s on p150a (spd-ditsdpa, 2026-10-11).
+# dit_s16 is fast-only (only OpenFold3's fp32 DiT reads it). OpenBind-0 11-set grade (normal vs normal+dit_s16,
+# Blackhole, 44 paired folds): fast PASS, normal FAIL on CA-lDDT -0.0002 [-0.0003, -0.0000] against an A/A floor
+# of 0.0010; same-seed top pose median 0.171 A vs the 0.60 A bar, docking 26 -> 26 of 44. OpenFold3 normal grade
+# PASS (top pose median 0.227 A). Saves ~0.3 s of the 512-token fold on p150a (spd-gap-of3, 2026-10-12).
 FAST_LEVERS = frozenset(LEVERS) - {"lofi", "triatt_b8", "triatt_bias_b8"} - UNGRADED_LEVERS
 # trimul_ibw + trimul_tail: Wormhole 11-set grade PASS, 44 paired folds, same-seed top pose median
 # 0.204 A against the 0.60 A bar (A/A seed floor 0.807 A), every paired CI covers 0 or sits on the
@@ -1005,6 +1009,33 @@ _TRIMUL_MASK_L1 = env_flag("TT_BIO_TRIMUL_MASK_L1", True)
 # trip at 0.4923 -> 0.3805 ms a call (`util-op-deletes`, perf/util_op_deletes/). Both producers
 # fall back to DRAM when the pair tensor does not fit, which is what happens above 512 aa.
 _RESIDUAL_L1 = env_flag("TT_BIO_RESIDUAL_L1", True)
+# Trimul gated in-projection writes `a` (the mask-multiplied operand) to L1 when it fits, so the
+# mask multiply and the channel matmul read it there. Placement only: bit-exact. On an L1 refusal
+# (allocator "Out of Memory" or a static-CB clash) the shape is remembered in `_OF3L1_REFUSED`
+# and keeps DRAM for the rest of the process. OpenFold3 / OpenBind-0 at 512 aa on p150a, 1350 MHz,
+# six warm folds per arm: mean 14.70 vs 15.43 s (OpenBind 14.59 vs 15.91 s), same digests.
+_OF3L1_TMA = env_flag("TT_BIO_OF3L1_TMA", True)
+_OF3L1_REFUSED: set = set()
+# lever -> [served, declined (static gate or remembered refusal), refused live (fell back)]
+OF3L1_STATS: dict = {k: [0, 0, 0] for k in ("tma",)}
+
+
+def _of3l1_refusal(where: str, exc: BaseException) -> bool:
+    """Is `exc` L1 saying no (allocator OOM or a static-CB clash)? Reports it on stderr if so.
+
+    Only these two are absorbed: anything else is a real error and the caller re-raises it.
+    """
+    if not (_dram_oom(exc) or "circular buffers" in str(exc)):
+        return False
+    try:
+        os.write(2, (f"[tt-bio] of3l1 {where}: L1 refused ({str(exc).splitlines()[0][:160]}), "
+                     "falling back to the DRAM placement (expected, not a crash)\n")
+                 .encode("utf-8", "replace"))
+    except OSError:
+        pass
+    return True
+
+
 TRIMUL_MASK_L1_STATS = [0, 0]           # [mask read from L1, mask read from DRAM]
 # Trimul shapes whose L1 mask clashed with the channel matmul's static circular buffers. The L1
 # test above reserves a fixed 640 KiB per core, but the matmul plan's buffers grow with the axis:
@@ -9533,7 +9564,9 @@ class TriangleMultiplication(Module):
         # compile per process and every later call starts narrow.
         x_chunks = []
         x_out, c_done = None, 0      # `_TRIMUL_BACK_INTO`: the output the chunks are written into
+        tma_key = ("tma", H, batch, self._hidden, bool(self.ending))
         while True:
+            tma_live = False         # an L1 `a` (TT_BIO_OF3L1_TMA) is live in this attempt
             try:
                 # Re-read inside the try: a clash retry narrows chunk_size and regroups, and the
                 # biases have to follow the weights to the new column order.
@@ -9680,10 +9713,28 @@ class TriangleMultiplication(Module):
                             ttnn.deallocate(gp_in_fused)
                             gp_in_fused = _b
                         if gated:
+                            # TT_BIO_OF3L1_TMA: `a` is written to L1 by the gated move, so the
+                            # mask multiply and the channel matmul read it there. Only where the
+                            # move is the last op on `a` (no transpose left for it, no
+                            # reallocate), so L1 holds one copy. A refusal anywhere downstream is
+                            # caught by this loop's handler below, which retries the whole
+                            # channel loop with `a` back in DRAM WITHOUT narrowing anything.
+                            a_mc = memory_config
+                            if _OF3L1_TMA:
+                                if (not ops.taping() and tma_key not in _OF3L1_REFUSED
+                                        and n_pairs // group == 1
+                                        and (perm_a != (0, 3, 2, 1) or defer)
+                                        and _l1_fits(_padded_bytes([1, slice_c, H, H], 2), 1.0,
+                                                     _PAIR_L1_CONSUMER_RESERVE)):
+                                    a_mc = ttnn.L1_MEMORY_CONFIG
+                                    tma_live = True
+                                    OF3L1_STATS["tma"][0] += 1
+                                else:
+                                    OF3L1_STATS["tma"][1] += 1
                             a_chunk = self._transform_chunk_gated(
                                 gp_in_fused,
                                 (gp_off("p_a", slice_c), gp_off("g_a", slice_c), slice_c),
-                                perm_a, memory_config,
+                                perm_a, a_mc,
                                 n_pairs // group > 1, defer_transpose=defer,
                             )
                             b_chunk = self._transform_chunk_gated(
@@ -9801,6 +9852,14 @@ class TriangleMultiplication(Module):
                 break
             except RuntimeError as e:
                 msg = str(e)
+                # TT_BIO_OF3L1_TMA's own refusal, first: an L1 "Out of Memory" would otherwise
+                # read as the DRAM refusal below (`_dram_oom` matches the allocator's wording,
+                # not the buffer type) and narrow the in-projection group for good, and an L1
+                # clash would narrow the chunk. Neither is owed: drop `a` back to DRAM and redo.
+                tma_retry = tma_live and _of3l1_refusal("trimul a operand", e)
+                if tma_retry:
+                    _OF3L1_REFUSED.add(tma_key)
+                    OF3L1_STATS["tma"][2] += 1
                 # Two refusals, one retry loop. The L1 clash is a program-validation throw on
                 # the L1 path. A DRAM "Out of Memory" on the large path is this module's own
                 # peak: the fused in-projection plus the four-way split it feeds is ~2x the
@@ -9811,21 +9870,21 @@ class TriangleMultiplication(Module):
                 # happens after a throw -- so a size that folds today keeps its arithmetic and
                 # its launch count, and only a size that produces no structure at all sees a
                 # different partition.
-                oom = large_seq and _dram_oom(e)
+                oom = large_seq and _dram_oom(e) and not tma_retry
                 # On the DRAM path the only L1 tensor this call holds is the moved mask, so a
                 # clash there is the mask against the matmul's buffers: move it and retry.
-                mask_clash = (large_seq and "clash with L1 buffers" in msg
+                mask_clash = (large_seq and not tma_retry and "clash with L1 buffers" in msg
                               and any(_m.memory_config().buffer_type == ttnn.BufferType.L1
                                       for _m in _mask_moved_memo.values()))
                 ibw_clash = (("clash with L1 buffers" in msg or "beyond max L1 size" in msg)
-                             and not mask_clash
+                             and not mask_clash and not tma_retry
                              and program_config.in0_block_w > _TRIMUL_IN0_BLOCK_W_BAND)
                 if ibw_clash:
                     # The full-K block is the newest L1 claimant in this call: give it up first.
                     _TRIMUL_IBW_FULL_REFUSED.add(seq_len_tiles)
                     _triangle_mul_program_config.cache_clear()
                     program_config = _triangle_mul_program_config(seq_len_tiles, _trimul_ibw_full(), _trimul_subblock())
-                if (not oom and not mask_clash and not ibw_clash
+                if (not oom and not mask_clash and not ibw_clash and not tma_retry
                         and (large_seq or "clash with L1 buffers" not in msg)):
                     raise
                 if mask_clash:
@@ -9886,7 +9945,7 @@ class TriangleMultiplication(Module):
                           f"above is expected and handled; the result is unchanged.",
                           file=sys.stderr, flush=True)
                     continue
-                if mask_clash or ibw_clash:
+                if mask_clash or ibw_clash or tma_retry:
                     continue
                 _record_trimul_clash(H, self._hidden, batch, chunk_size)
                 # tt-metal logs the clash at `critical` before raising, which reads like a

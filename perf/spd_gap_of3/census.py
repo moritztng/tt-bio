@@ -214,6 +214,11 @@ def main():
         (a.out.parent / "prof_feat.txt").write_text(buf.getvalue())
     w = sorted(f["fold_s"] for f in res["folds"])
     res["median_s"] = round(statistics.median(w), 3)
+    try:
+        import tt_bio.tenstorrent as _T          # the trimul L1 `a` lever: fired / declined / refused
+        res["of3l1"] = {"stats": _T.OF3L1_STATS, "refused": sorted(repr(k) for k in _T._OF3L1_REFUSED)}
+    except Exception as exc:                                                   # noqa: BLE001
+        res["of3l1"] = repr(exc)
     flush()
 
 

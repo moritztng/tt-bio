@@ -439,7 +439,7 @@ class OF3ConfidenceHead:
     def forward(self, si_input, si_trunk, zij_trunk, repr_x_pred,
                 max_atom_per_token_mask, use_zij_trunk_embedding=True,
                 s_path=None, dtype=None, token_mask=None, single_mask=None, shared=None,
-                return_pair=False):
+                return_pair=False, bin_vectors=None):
         """Confidence forward -> dict of head logits (host fp32) + the confidence
         Pairformer (si_conf, zij_conf).
 
@@ -455,6 +455,10 @@ class OF3ConfidenceHead:
                 with None this runs unmasked, which is only equal to the reference when every
                 token is real. Pass it whenever the token axis carries padding.
             single_mask: [N_tok], the reference's ``repr_x_mask``. Defaults to ``token_mask``.
+            bin_vectors: [64, K] host fp32, fp32 inference only. The pae / pde heads then stay
+                on the card through their softmax and come back as ``pae_proj`` [N, N, K] =
+                softmax(pae) @ bin_vectors and ``pde_proj`` [N, N] = softmax(pde) @ column 0,
+                instead of two [N, N, 64] fp32 logit tensors (134 MB at 512 tokens).
             shared: a dict the caller keeps across the samples of one fold (same trunk
                 inputs); the sample-independent z-embedding and distogram are computed into
                 it once. None computes them for this call alone.
@@ -552,7 +556,32 @@ class OF3ConfidenceHead:
             shared["distogram"] = dlog + dlog.transpose(-2, -3)
         distogram_logits = shared["distogram"]
 
-        if device_pair:
+        if device_pair and bin_vectors is not None:
+            z32 = ttnn.typecast(z_d, ttnn.float32)
+            w_d = ttnn.from_torch(bin_vectors.float().reshape(1, 1, *bin_vectors.shape),
+                                  layout=ttnn.TILE_LAYOUT, device=self.dev, dtype=ttnn.float32)
+            proj = {}
+            for h in ("pae", "pde"):
+                lg = self._lin(self._ln(z32, h, fp32=True), h + ".linear.weight")
+                if h == "pde":
+                    lt = ttnn.permute(lg, (0, 2, 1, 3))
+                    sym = ttnn.add(lg, lt)
+                    ttnn.deallocate(lt); ttnn.deallocate(lg)
+                    lg = sym
+                pr = ttnn.softmax(lg, dim=-1, numeric_stable=True,
+                                   compute_kernel_config=self.compute_kernel_config)
+                ttnn.deallocate(lg)
+                pj = ttnn.matmul(pr, w_d, compute_kernel_config=self.compute_kernel_config)
+                ttnn.deallocate(pr)
+                proj[h] = torch.Tensor(ttnn.to_torch(pj)).float().reshape(N, N, -1)
+                ttnn.deallocate(pj)
+            ttnn.deallocate(w_d)
+            ttnn.deallocate(z32)
+            zij_conf = (torch.Tensor(ttnn.to_torch(z_d)).float().reshape(N, N, _C_Z)
+                        if return_pair else None)
+            ttnn.deallocate(z_d)
+            pae_logits = pde_logits = None
+        elif device_pair:
             z32 = ttnn.typecast(z_d, ttnn.float32)
             pae_logits, plog = (
                 torch.Tensor(ttnn.to_torch(self._lin(self._ln(z32, h, fp32=True), h + ".linear.weight")))
@@ -569,7 +598,8 @@ class OF3ConfidenceHead:
             plog = F.linear(
                 F.layer_norm(zij_conf, (_C_Z,)) * self._g("pde.layer_norm.weight") + self._bias("pde.layer_norm.bias"),
                 self._g("pde.linear.weight"))
-        pde_logits = plog + plog.transpose(-2, -3)
+        if bin_vectors is None or not device_pair:
+            pde_logits = plog + plog.transpose(-2, -3)
 
         plddt_logits = self._atom_head(s_single, "plddt", max_atom_per_token_mask, 50)
         exp_resolved_logits = self._atom_head(s_single, "experimentally_resolved",
@@ -583,6 +613,8 @@ class OF3ConfidenceHead:
             "distogram_logits": distogram_logits,
             "si_conf": s_single,
             "zij_conf": zij_conf,
+            **({"pae_proj": proj["pae"], "pde_proj": proj["pde"][..., 0]}
+               if device_pair and bin_vectors is not None else {}),
         }
 
     def _atom_head(self, s_single, name, max_atom_per_token_mask, c_out):

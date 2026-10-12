@@ -82,7 +82,7 @@ defect it found, which is fixed.
 | cyclic chains (`cyclic: true`) | supported: sets upstream's `cyclic_mask`, which `relpos_complex` reads to wrap the relative position encoding of that chain |
 | paired MSA | `--model openbind` only, as upstream: a complex with two or more different protein sequences reads its ColabFold paired MSA as `colabfold_paired`, with 0.5.0's fix that keeps those rows (PR #373). `--model openfold3` folds unpaired, because upstream runs preview2 on 0.4.x, which drops the paired rows; feeding them anyway made 8WT4 worse on six of six seeds |
 | `--write_pae` | **not supported**: the confidence head computes PAE logits but the fold does not return the matrices |
-| `--fast` | not gated for OpenFold3; it is a Boltz-2/ESMFold2 lever and no OF3 parity leg runs with it |
+| `--fast` | supported: the normal configuration plus bf16 operands (fp32 accumulation) on the diffusion transformer's conditioning linears, about 0.3 s faster per 512-token fold on p150a. Graded on the 11-complex set: same-seed top pose 0.17 A from normal, docking success unchanged |
 
 ## OpenBind-0
 
