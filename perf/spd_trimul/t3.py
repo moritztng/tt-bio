@@ -93,6 +93,13 @@ for n in [int(v) for v in A.ns.split(",")]:
         rec["inc_rel_rms_f64"], rec["inc_max_abs"] = rel(inc, r)
         rec["t3_rel_rms_f64"], rec["t3_max_abs"] = rel(t3, r)
         rec["t3_vs_inc_max_abs"] = float((t3 - inc).abs().max())
+        bad = ((t3 - r.float()).abs() > 0.25).reshape(-1, 32, C)        # [row tile, row, channel]
+        if bad.any():
+            ut = bad.any(-1).any(-1).nonzero().flatten()
+            rows = bad.any(-1).any(0).nonzero().flatten()
+            chans = bad.any(1).any(0).nonzero().flatten()
+            rec["bad"] = {"n": int(bad.sum()), "units": ut[:40].tolist(), "nunits": int(ut.numel()),
+                          "rows": rows.tolist(), "chans": chans[:40].tolist(), "nchans": int(chans.numel())}
     rec["inc_ms"] = timed(BASE, x0, A.reps)
     rec["t3_ms"] = timed(WITH, x0, A.reps)
     line = json.dumps(rec)
