@@ -26,6 +26,7 @@ import argparse
 import csv
 import json
 import math
+import os
 import sys
 import time
 from pathlib import Path
@@ -153,9 +154,13 @@ def main() -> int:
                     help="fp32 cannot run these targets: 1167 aa asks for more DRAM than a bank has")
     ap.add_argument("--esm-cache", type=Path, default=None)
     ap.add_argument("--out", type=Path, default=REPO / "perf/nesso1")
+    ap.add_argument("--seed", type=int, default=None,
+                    help="featurizer seed (default the screen's); a second seed is the A/A floor a "
+                         "lever grade compares against. Give each arm its own --scratch")
     args = ap.parse_args()
 
     from tt_bio.nesso1 import DEFAULT_SEED, REPORTED_SCALARS, Nesso1
+    seed = DEFAULT_SEED if args.seed is None else args.seed
     from tt_bio.nesso1_input import CLI_PREDICT_ARGS, collate, prepare
 
     targets = select(args.davis)
@@ -170,7 +175,8 @@ def main() -> int:
               "metric": ("within-target Pearson of predicted pAffinity (= -affinity_pred_value) "
                          "against pKd = 9 - log10(Kd_nM)"),
               "control": "molecular weight alone (RDKit Descriptors.MolWt) vs pKd, same ligands",
-              "trunk": args.trunk, "seed": DEFAULT_SEED, "targets": []}
+              "trunk": args.trunk, "seed": seed,
+              "levers": os.environ.get("TT_BIO_LEVERS", ""), "targets": []}
 
     for target_id, recs in targets:
         tag = target_id.replace("/", "_")
@@ -206,7 +212,7 @@ def main() -> int:
             if cached.exists():                       # resume: never recompute a prediction
                 got = json.loads(cached.read_text())
             else:
-                torch.manual_seed(DEFAULT_SEED)       # the featurizer's roto-translation draw
+                torch.manual_seed(seed)               # the featurizer's roto-translation draw
                 item = dataset[idx]
                 if item.get("exception"):
                     got = {"error": "featurizer raised"}
