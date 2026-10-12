@@ -28,7 +28,12 @@ from .envflags import env_flag
 # transition_bw and transition_shard stay out: OpenFold3 c730 gains nothing with them (113.2 -> 112.9 s, Wormhole
 # 1000 MHz) and its normal 11-set grade fails DockQ (-0.0168 [-0.0474, -0.0006], 44 paired folds, spd-trans2).
 NORMAL_LEVERS = _T.NORMAL_LEVERS - {"transition_bw", "transition_shard"}
-FAST_LEVERS = NORMAL_LEVERS | {"dit_s16", "diffusion_bf16"}
+# trimul_t1 + trimul_t2 (the triangle multiplication's input and output as one kernel each, Blackhole only: Wormhole
+# declines them) join --fast on the Blackhole 11-set fast grade against today's --fast, 44 paired folds per model:
+# OpenFold3 top pose median 0.352 A (seed floor 1.328 A), CA-lDDT -0.0002 [-0.0012, +0.0008], docking 19 -> 19/44,
+# PASS; OpenBind-0 top pose median 0.391 A (seed floor 2.079 A), CA-lDDT +0.0003 [-0.0004, +0.0011],
+# docking 26 -> 26/44, PASS. 512-token fold on a p300c chip: OpenFold3 11.02 -> 10.08 s, OpenBind-0 11.40 -> 9.99 s.
+FAST_LEVERS = NORMAL_LEVERS | {"dit_s16", "diffusion_bf16", "trimul_t1", "trimul_t2"}
 
 def kabsch_rmsd(pred_ca, gt_ca):
     """Optimal-superposition Cα-RMSD (Kabsch). pred_ca, gt_ca: [N, 3].
