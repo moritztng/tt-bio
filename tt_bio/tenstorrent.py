@@ -12209,19 +12209,15 @@ def ws_swiglu(x, norm_weight, norm_bias, ckc, parts):
     (`pair_swiglu_ws.weights`), their outputs summed; or None where the kernel does not take the shape (a chunk
     over its L1 budget, a hidden width it cannot tile).
 
-    Shared by the pair `Transition` and ESMFold2's `esmc.SwiGLUFFN`. With bfp8 weights (fast mode) x goes in
-    as bfp8 too, and with both operands bfp8 HiFi2 already covers every mantissa bit (`bfp8_fidelity`);
-    fc3's bf16 hidden is then read at bfp8-like precision, as fast's own bfp8 hidden is stored.
+    Shared by the pair `Transition` and ESMFold2's `esmc.SwiGLUFFN`. With bfp8 weights (fast mode) the matmuls
+    run at HiFi2, which covers every bfp8 weight bit (`bfp8_fidelity`); x stays the layer norm's bf16, since the
+    kernel takes it at the same speed as bfp8 x and a separate cast cost 0.46 ms at c_z 128 (ws_attr, WH).
     """
     if not all(_pair_ws.eligible(x, w12, w3) for w12, w3 in parts):
         return None
-    b8 = parts[0][0].dtype == ttnn.bfloat8_b
     x_norm = ttnn.layer_norm(x, weight=norm_weight, bias=norm_bias, epsilon=1e-5, compute_kernel_config=ckc,
                              memory_config=ttnn.DRAM_MEMORY_CONFIG)
-    if b8:  # layer_norm has no output dtype
-        x_bf16, x_norm = x_norm, ttnn.typecast(x_norm, ttnn.bfloat8_b)
-        ttnn.deallocate(x_bf16)
-    fid = ttnn.MathFidelity.HiFi2 if b8 else ckc.math_fidelity
+    fid = ttnn.MathFidelity.HiFi2 if parts[0][0].dtype == ttnn.bfloat8_b else ckc.math_fidelity
     out = None
     for w12, w3 in parts:
         o = _pair_ws.pair_swiglu(x_norm, w12, w3, fid)
