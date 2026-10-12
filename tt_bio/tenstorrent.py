@@ -22,6 +22,7 @@ from . import trimul_tail as _trimul_tail
 from . import mm_generic as _mm_generic
 from . import page_copy as _page_copy
 from . import pair_add as _pair_add
+from . import pair_swiglu_ws as _pair_ws
 from . import pair_transpose_add as _pair_tr_add
 from .envflags import env_flag, env_int
 from .device_lease import device_init_lock
@@ -619,6 +620,10 @@ _FAST_MODE = False
 #   conf_bins       OpenFold3's pae / pde heads reduce softmax(logits) to their bin-vector products on the card
 #                   in fp32 (pTM, ipTM, the chain readings, the PAE / PDE matrices), so the [N, N, 64] logits
 #                   never cross to the host
+#   transition_ws   a c_z <= 128 pair Transition's swiglu as one weight-stationary program after its layer norm
+#                   (`pair_swiglu_ws`, from RFdiffusion3's RFD3_PAIR_WS): [w1 | w2] and w3 resident in L1, x
+#                   read once, fc1 / fc2 / their product never leave the core. bf16 weights, fp32 dest, the
+#                   wheel's silu; the trunk's own matmul fidelity.
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in",
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
@@ -12417,6 +12422,27 @@ class Transition(Module):
             ttnn.deallocate(out)
         return masked
 
+    def _weight_stationary(self, x, memory_config):
+        """`transition_ws`: layer norm, then the whole swiglu as one `pair_swiglu_ws` program, or None
+        where the kernel does not take the shape (c_z > 128, a hidden width it cannot tile, L1-bound
+        output, a tape)."""
+        if not (lever("transition_ws") and len(x.shape) == 4 and not ops.taping()
+                and (memory_config is None or memory_config.buffer_type == ttnn.BufferType.DRAM)
+                and x.dtype == ttnn.bfloat16 and (self.dtype or _dtype()) == ttnn.bfloat16):
+            return None
+        if getattr(self, "_ws", None) is None:
+            self._ws = _pair_ws.weights(self.weights["fc1.weight"].t(), self.weights["fc2.weight"].t(),
+                                        self.weights["fc3.weight"].t(), self.device)
+        w12, w3 = self._ws
+        if not _pair_ws.eligible(x, w12, w3):
+            return None
+        x_norm = ttnn.layer_norm(x, weight=self.norm_weight, bias=self.norm_bias, epsilon=1e-5,
+                                 compute_kernel_config=self.compute_kernel_config,
+                                 memory_config=ttnn.DRAM_MEMORY_CONFIG)
+        out = _pair_ws.pair_swiglu(x_norm, w12, w3, self.compute_kernel_config.math_fidelity)
+        ttnn.deallocate(x_norm)
+        return out
+
     def _add_rows_ok(self, x, memory_config) -> bool:
         return (_TRANSITION_ADD_ROWS and not ops.taping() and len(x.shape) == 4
                 and x.shape[1] <= SEQ_LEN_MORE_CHUNKING
@@ -12452,6 +12478,13 @@ class Transition(Module):
         path each block adds its own rows, so the assembly can free `x` before it needs room
         for the result; elsewhere it is the caller's `ttnn.add_` done here.
         """
+        out = self._weight_stationary(x, memory_config)
+        if out is not None:
+            if not add_to_input:
+                return out
+            x = ttnn.add_(x, out)
+            ttnn.deallocate(out)
+            return x
         add_rows = add_to_input and self._add_rows_ok(x, memory_config)
         if add_to_input and not add_rows and not (len(x.shape) == 4 and x.shape[1] > SEQ_LEN_MORE_CHUNKING):
             u = self(x, memory_config)
