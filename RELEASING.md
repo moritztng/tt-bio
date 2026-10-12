@@ -8,17 +8,21 @@ quiet host. `scripts/gate_fanout.py` does both for you, see [Run the gate](#run-
 
 ## What ships
 
-Always the newest code on `main`. A staging lands on `main` only after its Wormhole and
-Blackhole grades pass, so `main`'s head is the newest graded staging, and a release that gates
-an older commit ships numbers that are already stale. `scripts/release_next.py` answers what to
-do next from `main`, the last tag and the gate runs:
+The newest commit whose gate passed. A gate that passes is cut as it stands, even if newer
+stagings landed on `main` while it ran: they are the next release, not a reason to restart this
+one. Every staging is already graded on Wormhole and Blackhole before it reaches `main`, and the
+gate reuses every leg whose inputs did not change, so the gate on the next head costs only the
+legs that head changed. `scripts/release_next.py` answers what to do next from `main`, the last
+tag and the gate runs:
 
 ```bash
-python3 scripts/release_next.py --gates ~/gates   # GATE <sha> | WAIT | FIX | CUT | NOTHING
+python3 scripts/release_next.py --gates ~/gates   # CUT <sha> | GATE <sha> | WAIT | FIX | NOTHING
 ```
 
-If a newer staging lands while a gate runs, finish that gate (do not restart it), release it if
-it passes, and start the next gate on the new head right away.
+A candidate is any gated commit after the last tag, on `main` or on a release branch carrying a
+gate fix. Never re-cut a candidate because `main` moved: from 2026-10-10 to 10-12 that habit
+started 13 gates on successive heads and shipped none of them. Aim for a release at least every
+48 hours.
 
 Anything committed for a release (re-recorded baselines and records, gate fixes, a hotfix the
 gate forced) goes back to `main` as soon as the tag is cut. Otherwise the next gate on `main`

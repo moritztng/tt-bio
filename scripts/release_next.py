@@ -1,22 +1,24 @@
 #!/usr/bin/env python3
 """What ships next: the release train's one question, answered from git and the gate runs.
 
-The rule. A release always gates the NEWEST code on main, never an older commit picked when a gate
-started: a staging lands on main only after its Wormhole and Blackhole grades pass, so main's head
-is the newest graded staging. A gate already running on an older commit is finished, not
-restarted, and the next gate starts on main's head the moment it ends (or at once on cards it
-does not use). Nothing ships when main's code equals the last release's (Markdown and the version
-line do not count, the same key gate_fanout.py uses).
+The rule. A release ships the newest commit whose gate PASSED, not the newest commit on main.
+A gate that passes is cut as it stands, even if main moved on while it ran: main's newer code
+is the next release, gated on main's head meanwhile, and most of its legs are ledger hits
+(gate_fanout.py REUSE). Waiting for a gate to pass on whatever main's head is when it ends
+never ends while stagings land faster than a gate runs, which is how 0.15 sat unshipped for two
+days behind 13 gates. A candidate is any gated commit that descends from the last release tag,
+on main or on a release branch. Nothing ships when main's code equals the last release's
+(Markdown and the version line do not count, the same key gate_fanout.py uses).
 
     python3 scripts/release_next.py --gates ~/gates      # gate_fanout --out dirs live under here
     python3 scripts/release_next.py --json
 
 Answers one of:
     NOTHING   main's code is the last release's
+    CUT       the gate on <sha> passed on every arch; tag it (RELEASING.md, Cut the release)
     GATE      start gate_fanout.py on <sha> (no gate has run on it)
     WAIT      a gate is running on <sha>; if it is not main's head, start the head's gate as well
     FIX       the gate on <sha> failed; read its VERDICT.md
-    CUT       the gate on <sha> passed on every arch; tag it (RELEASING.md, Cut the release)
 """
 from __future__ import annotations
 
@@ -101,6 +103,25 @@ def _plans(gates: Path | None, partial: bool = False) -> list:
     return out
 
 
+def passed_since(gates: Path | None, tsha: str, repo: Path = REPO) -> tuple[str, Path] | None:
+    """(sha, dir) of the newest commit after the last release whose full gate passed, or None."""
+    done, released = [], content_hash(tsha, repo) if tsha else ""
+    for p, plan in _plans(gates):
+        v, sha = p.parent / "verdict.json", plan.get("sha", "")
+        try:
+            if not (v.exists() and json.loads(v.read_text()).get("pass")):
+                continue
+            if tsha and (sha == tsha or subprocess.run(
+                    ["git", "-C", str(repo), "merge-base", "--is-ancestor", tsha, sha],
+                    capture_output=True).returncode or plan.get("content") == released):
+                continue
+            ahead = git("rev-list", "--count", f"{tsha}..{sha}" if tsha else sha, repo=repo)
+            done.append((int(git("show", "-s", "--format=%ct", sha, repo=repo)), int(ahead), sha, p.parent))
+        except (ValueError, subprocess.CalledProcessError):
+            continue                                   # unreadable verdict, or a commit we lack
+    return max(done)[2:] if done else None
+
+
 def running_gates(gates: Path | None, partial: bool = False) -> list[str]:
     return sorted({plan["sha"] for p, plan in _plans(gates, partial)
                    if not (p.parent / "verdict.json").exists() and _alive(plan)})
@@ -113,6 +134,11 @@ def decide(repo: Path = REPO, gates: Path | None = None, ref: str = "origin/main
            "stagings_since": stagings(tsha, head, repo), "running": running_gates(gates)}
     if tsha and content_hash(head, repo) == content_hash(tsha, repo):
         return {**out, "do": "NOTHING", "sha": tsha, "why": f"main's code is {tag}'s"}
+    if (cut := passed_since(gates, tsha, repo)) and cut[0] != head:
+        sha, d = cut
+        nxt = "" if content_hash(sha, repo) == content_hash(head, repo) else (
+            f"; main's head {head[:9]} is the next release, gate it now")
+        return {**out, "do": "CUT", "sha": sha, "why": f"gate passed on every arch: {d}/VERDICT.md{nxt}"}
     state, d = gate_state(gates, content_hash(head, repo))
     why = {"none": "no gate has run on main's head",
            "running": f"gate running in {d}",
