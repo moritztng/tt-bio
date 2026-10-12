@@ -47,8 +47,9 @@ def cb_plan(kt, ht, res):
     if res:
         bf += [(5, 2 * kt),      # x for the residual add
                (15, kt)]         # fc3 output before it
-    f32 = [(11, 1), (12, 1), (13, 1), (14, 1), (16, kt), (17, kt),   # eps, mean, var, rstd, xc, tmp
-           (18, kt)]                                                  # fc3 partial between K chunks
+    f32 = [(11, 1), (12, 1), (13, 1), (14, 1), (16, kt), (17, kt)]   # eps, mean, var, rstd, xc, tmp
+    if F3_SPLIT > 1:
+        f32 += [(18, kt)]                                             # fc3 partial between K chunks
     return bf, f32, w
 
 

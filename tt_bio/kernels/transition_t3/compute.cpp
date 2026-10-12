@@ -102,6 +102,8 @@ void kernel_main() {
             for (uint32_t k = 0; k < Kt; ++k)
                 matmul_block(xn_cb, w12_cb, k, k * 2 * Ht + Ht + g, 0, false, G, 1, Kt);
             cb_wait_front(gate_cb, G);
+            // gate_cb goes to srcA, which the matmul left in the weights' format (bfp8 under transition_b8).
+            reconfig_data_format_srca(gate_cb);
             binary_dest_reuse_tiles_init<EltwiseBinaryType::ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCB>(gate_cb);
             for (uint32_t i = 0; i < G; ++i)
                 binary_dest_reuse_tiles<EltwiseBinaryType::ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCB>(

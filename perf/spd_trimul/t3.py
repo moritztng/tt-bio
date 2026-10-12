@@ -54,7 +54,8 @@ sd = {k: v.to(torch.bfloat16).float() for k, v in sd.items()}
 T._LEVERS = BASE
 tr = T.Transition(sd, kcfg)
 print(json.dumps({"grid": tuple(T.COMPUTE_GRID_MAIN), "fid": str(kcfg.math_fidelity), "c": C, "hidden": H, "mode": A.mode,
-                  "w_dtype": str(tr.fc1_weight.dtype)}),
+                  "w_dtype": str(tr.fc1_weight.dtype), "l1_bank": T._l1_bank_bytes(),
+                  "cb_bytes": T3.cb_bytes(C // 32, H // 32, True, tr.fc1_weight.dtype)}),
       flush=True)
 
 
