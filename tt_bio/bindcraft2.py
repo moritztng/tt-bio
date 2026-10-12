@@ -2052,11 +2052,6 @@ _IPA_POINT_EINSUM = """    _vp = jnp.concatenate([v_point.x, v_point.y, v_point.
 #: subtraction into its reduction. Same operations on the same inputs: bit-exact.
 IPA_DIST_REMAT = env_flag("TT_BIO_BC2_IPA_DIST_REMAT", False)
 
-#: Run every recycle but the last untaped (`_untaped_recycles`): same gradient, no tape for the
-#: recycles whose gradient BindCraft 2 discards. The plain forward takes the untaped kernels, so
-#: those recycles' values move within the forward's own precision. Off until graded on designs.
-UNTAPED_RECYCLES = env_flag("TT_BIO_BC2_UNTAPED_RECYCLES", False)
-
 _IPA_DIST = """    dist2 = geometry.square_euclidean_distance(
         q_point[:, None, :, :], k_point[None, :, :, :], epsilon=0.)
     attn_qk_point = -0.5 * jnp.sum(point_weights[:, None] * dist2, axis=-1)"""
@@ -2204,34 +2199,6 @@ def installed() -> EvoformerOnDevice | None:
     return _INSTALLED
 
 
-def _untaped_recycles(real):
-    """`bindcraft.af2.recycled_alphafold_outputs` with every recycle but the last fed constants.
-
-    BindCraft 2 stops the gradient on the OUTPUT of every recycle but the last, but the inputs
-    still carry the sequence's tangent, so JAX runs each of those recycles through the stacks'
-    forward rule: a full tape on the card, recorded and then swept unread. Stopping the gradient
-    on the inputs too changes no value and no gradient (nothing downstream reads one), and with
-    every tangent a symbolic zero JAX calls the plain forward instead.
-    """
-    import jax
-
-    def recycled(runner, params, key, model_inputs, num_recycle):
-        calls = [0]
-
-        class Runner:
-            def apply(self, p, k, x):
-                calls[0] += 1
-                if calls[0] <= num_recycle:
-                    p, x = jax.lax.stop_gradient((p, x))
-                return runner.apply(p, k, x)
-
-            def __getattr__(self, name):
-                return getattr(runner, name)
-
-        return real(Runner(), params, key, model_inputs, num_recycle)
-    return recycled
-
-
 @contextlib.contextmanager
 def evoformer_on_device(evo: EvoformerOnDevice,
                         extra_msa: "ExtraMsaOnDevice | None" = None):
@@ -2343,19 +2310,13 @@ def evoformer_on_device(evo: EvoformerOnDevice,
             return on_device
         return choose
 
-    from bindcraft import af2 as bc2_af2
-    real_recycled = bc2_af2.recycled_alphafold_outputs
-
     global _INSTALLED
     was, _INSTALLED = _INSTALLED, evo
     modules.layer_stack.layer_stack = factory
-    if UNTAPED_RECYCLES:
-        bc2_af2.recycled_alphafold_outputs = _untaped_recycles(real_recycled)
     try:
         yield swapped
     finally:
         modules.layer_stack.layer_stack = real
-        bc2_af2.recycled_alphafold_outputs = real_recycled
         _INSTALLED = was
     # Only on a clean exit, so a real failure inside the block is never replaced by this one.
     # A swap that is asked for and never taken runs the host stack and reports device numbers

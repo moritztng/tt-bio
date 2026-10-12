@@ -102,3 +102,24 @@ def test_relu_rides_the_pack_and_other_activations_decline(monkeypatch):
     before = pair_mm.STATS[1]
     assert pair_mm.matmul(x, w, activation="gelu") is None
     assert pair_mm.STATS[1] == before + 1
+
+
+@pytest.mark.parametrize("x,w", [
+    ((1, 195, 195, 128), (128, 512)),     # AF2-IG at 195: 1365 M tiles, no table M block divides it
+    ((1, 195, 195, 512), (512, 128)),
+    ((1, 195, 195, 128), (128, 128)),
+])
+def test_serves_a_ragged_pair_grid(x, w):
+    """A ragged grid runs with a partial last M block; a whole-tile grid whose M tiles the table's
+    block does not divide still declines, as it was graded."""
+    assert pair_mm.config(_t(x), _t(w)) is not None
+    assert pair_mm.config(_t((1, 257, 64, x[-1])), _t(w)) is None       # 514 whole M tiles
+
+
+def test_the_lever_arms_it_without_the_process_flag():
+    """AF2 names `pair_mm` in its own lever set; inside it the flag stays off and `armed` is on."""
+    from tt_bio import tenstorrent
+    assert not pair_mm.armed()
+    with tenstorrent.levers("pair_mm"):
+        assert pair_mm.armed() and pair_mm.PAIR_MM_FUSED is False
+    assert not pair_mm.armed()
