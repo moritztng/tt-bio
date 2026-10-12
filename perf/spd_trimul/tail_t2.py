@@ -33,6 +33,7 @@ ckc = MG.ckc_args(kcfg)
 grid = tuple(T.COMPUTE_GRID_MAIN)
 TT.set_t2(True)
 C = A.c
+TT.T2_KEYS.add((C // 32, C // 32))   # measurement only: the model path keeps its own keys
 gen = torch.Generator().manual_seed(0)
 up = lambda t: ttnn.from_torch(t.to(torch.bfloat16), dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT,
                                device=dev, memory_config=ttnn.DRAM_MEMORY_CONFIG)
