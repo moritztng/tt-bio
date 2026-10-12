@@ -17,6 +17,8 @@ ap.add_argument("--ns", default="64,256,512")
 ap.add_argument("--reps", type=int, default=10)
 ap.add_argument("--c", type=int, default=128)
 ap.add_argument("--repeat", type=int, default=0, help="rerun T3 on the same input and list its bad elements each time")
+ap.add_argument("--probe", action="store_true", help="isolate a T3 defect: RES=0 direct call vs fp64 fc3 output, "
+                "and W3 = 0 (output must be x exactly)")
 ap.add_argument("--wh", action="store_true", help="let T3 serve on Wormhole (bring-up only)")
 ap.add_argument("--out", help="also append each JSON line here (the qb runner passes it)")
 A = ap.parse_args()
@@ -111,6 +113,39 @@ for n in [int(v) for v in A.ns.split(",")]:
         fi = torch.tensor(rb[0][:6], dtype=torch.long)
         xf, rf, tf, nf = x0.float().reshape(-1), r.float().reshape(-1), o.reshape(-1), inc.reshape(-1)
         rec["bad_vals"] = [[round(float(v[i]), 5) for v in (xf, rf, tf, nf)] for i in fi]   # x, ref, t3, incumbent
+    if A.probe:
+        T._LEVERS = WITH
+        tr._t3(up(x0), True)                                     # builds tr._t3_w
+        w12, w3 = tr._t3_w
+        ckc = T._mm_generic.ckc_args(T.silu_ckc(tr.compute_kernel_config))
+        grid = tuple(T.COMPUTE_GRID_MAIN)
+        y = T3.transition(up(x0), tr.norm_weight, tr.norm_bias, w12, w3, ckc, grid, add_to_input=False)
+        y = ttnn.to_torch(y).float()
+        yr = (r - x0.double()).float()
+        d = (y - yr).abs()
+        bi = (d > 0.25).reshape(-1).nonzero().flatten()
+        rec["p_res0_bad"] = int(bi.numel())
+        rec["p_res0_max_abs"] = float(d.max())
+        rec["p_res0_vals"] = [[round(float(yr.reshape(-1)[i]), 4), round(float(y.reshape(-1)[i]), 4)] for i in bi[:6]]
+        rec["p_res0_rows"] = sorted({int(i) // C for i in bi[:400]})[:20]
+        rec["p_res0_nrows"] = len({int(i) // C for i in bi})
+        w3z = ttnn.from_torch(torch.zeros(H, C, dtype=torch.bfloat16), dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT,
+                              device=dev, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+        o = ttnn.to_torch(T3.transition(up(x0), tr.norm_weight, tr.norm_bias, w12, w3z, ckc, grid,
+                                        add_to_input=True)).float()
+        rec["p_w3zero_max_abs_vs_x"] = float((o - x0.float()).abs().max())
+        rec["p_w3zero_bad"] = int(((o - x0.float()).abs() > 0).sum())
+        # the fp64 hidden activations of the bad rows: a silu outlier would show as a large |h|
+        xd = x0.double().reshape(-1, C)
+        w = {k: v.double() for k, v in sd.items()}
+        rows = torch.tensor(sorted({int(i) // C for i in bi})[:50], dtype=torch.long)
+        if rows.numel():
+            xn = torch.nn.functional.layer_norm(xd[rows], (C,), w["norm.weight"], w["norm.bias"], 1e-5)
+            f1 = xn @ w["fc1.weight"].t()
+            rec["p_bad_rows_fc1_absmax"] = float(f1.abs().max())
+            rec["p_bad_rows_fc1_min"] = float(f1.min())
+        allf1 = torch.nn.functional.layer_norm(xd[:20000], (C,), w["norm.weight"], w["norm.bias"], 1e-5) @ w["fc1.weight"].t()
+        rec["p_ref_fc1_absmax_20k_rows"] = float(allf1.abs().max())
     rec["inc_ms"] = timed(BASE, x0, A.reps)
     rec["t3_ms"] = timed(WITH, x0, A.reps)
     line = json.dumps(rec)
