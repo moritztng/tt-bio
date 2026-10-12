@@ -78,7 +78,7 @@ opened = sorted({int(os.readlink(f"/proc/self/fd/{fd}").rsplit("/", 1)[1]) for f
                  and os.readlink(f"/proc/self/fd/{fd}").startswith("/dev/tenstorrent/")
                  and os.readlink(f"/proc/self/fd/{fd}").rsplit("/", 1)[1].isdigit()})
 NODE = opened[0] if opened else -1
-CLKF = OUT / "aiclk.tsv"; CLKF.touch()
+CLKF = OUT / "bench_aiclk.tsv"; CLKF.touch()
 _SAMPLER = subprocess.Popen([sys.executable, "-c", f"""
 import os, time
 f = open({str(CLKF)!r}, "a"); parent = os.getppid()
@@ -102,6 +102,15 @@ def aiclk(t0, t1, pad=0.3):
 
 
 # ---------------- arms: name -> list of (setter, value) ----------------
+_GIN_TILES = TTL._gin_move_tiles
+
+
+def _set_gin_fit(on):
+    prev = TTL._gin_move_tiles is not _GIN_TILES
+    TTL._gin_move_tiles = (lambda kt, ct2, mask: 0) if on else _GIN_TILES
+    return prev
+
+
 LEVERS = {
     "ibw": [(T.set_trimul_ibw_full, True)],
     "into": [(T.set_trimul_back_into, True)],
@@ -124,6 +133,9 @@ LEVERS = {
     "tb88": [(TTL.set_block, (8, 8, 8, 1, 4))],
     "tb48": [(TTL.set_block, (4, 8, 8, 1, 4))],
     "gin": [(T.set_trimul_gated_inproj, True)],
+    # gin_moved past its 0.85-of-L1 guard: measurement only, on a bench device with nothing else in L1
+    # (ESMFold2's c_z 256 / hidden 256 needs 677 tiles, 1.386 MB of a 1.462 MB bank; the guard admits 606).
+    "ginfit": [(T.set_trimul_gated_inproj, True), (_set_gin_fit, True)],
     "nores": [(TTL.set_res, False)],
     "nomf": [(TTL.set_mask_fold, False)],
 }
@@ -328,6 +340,7 @@ for var in A.variants.split(","):
             fired["tail_resid"] = [a - b for a, b in zip(TTL.RESID_STATS, resid0)]
             fired["tail_res"] = list(TTL.RES_STATS)
             fired["mask_fold"] = TTL.MASK_STATS[0] - mf0
+            fired["gin_move"] = list(TTL.GIN_MOVE_STATS)
         finally:
             restore(prev)
         outs[arm] = yt
