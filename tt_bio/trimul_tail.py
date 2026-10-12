@@ -996,10 +996,11 @@ def set_t1(on: bool) -> bool:
     return prev
 
 
-def t1_cb_plan(kt, ct2, ntg, mask, rb=T1_RB, nb=None):
+def t1_cb_plan(kt, ct2, ntg, mask, rb=None, nb=None):
     """T1's circular buffers per core, ([(index, bf16 tiles)], [(index, fp32 tiles)]). Independent
     of N: N only sets how many units each core runs."""
     nb = GIN_MOVE_NB if nb is None else nb
+    rb = T1_RB if rb is None else rb
     bf = [(0, 2 * ct2 * kt),     # [Wp^T | Wg^T], resident
           (1, 32 * kt),          # layer_norm(z) of one unit, slot dt * 32 + il
           (2, 64),               # a / b tiles to the writer, two channel tiles
@@ -1017,7 +1018,7 @@ def t1_cb_plan(kt, ct2, ntg, mask, rb=T1_RB, nb=None):
     return bf, f32
 
 
-def t1_cb_bytes(kt, ct2, ntg, mask, rb=T1_RB, nb=None):
+def t1_cb_bytes(kt, ct2, ntg, mask, rb=None, nb=None):
     bf, f32 = t1_cb_plan(kt, ct2, ntg, mask, rb, nb)
     return sum(t for _, t in bf) * BF16_TILE + sum(t for _, t in f32) * FP32_TILE
 
@@ -1182,7 +1183,7 @@ def fused_in_ln(x, ln_w, ln_b, wpT, wgT, wgo, ckc, grid, mask=None, eps=1e-5):
     outs = [alloc([B, C, S, S]), alloc([B, C, S, S]), alloc(shp[:-1] + [int(wgo.shape[-1])])]
     key = ("t1", str(x.padded_shape), str(wpT.padded_shape), str(wgo.padded_shape), tuple(grid),
            tuple(str(c) for c in ckc), mask is not None, float(eps), SIGPOLY, RNE, GIN_MOVE_NB,
-           T1_RB, T1_ABL)
+           T1_RB, T1_SBW, T1_ABL)
     entry = _CACHE.get(key)
     if entry is None:
         entry = _CACHE[key] = _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps)
