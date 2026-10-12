@@ -12,7 +12,7 @@ costs one bounded run (synchronize_device does not return to a SIGALRM).
 
 usage: TT_VISIBLE_DEVICES=<chip> timeout 900 python perf/spd_trimul/in_t1.py [--ns 64,128,512]
 """
-import argparse, json, statistics, sys, time
+import argparse, json, statistics, sys, time, traceback
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
@@ -79,6 +79,7 @@ dw = {"gamma": up(w["gamma"]), "beta": up(w["beta"]), "wpT": up(wpT), "wgT": up(
       "wgo": up(wgo), "w_fused": up(torch.cat([fused, w["g_out"].t()], -1)), "w_gp": up(fused)}
 off = lambda r: T.gp_off(r, h)  # noqa: E731
 
+bad = 0
 for n in [int(s) for s in A.ns.split(",") if s]:
     rec = {"n": n}
     # z O(1) with a per-row offset the norm must remove.
@@ -145,10 +146,13 @@ for n in [int(s) for s in A.ns.split(",") if s]:
                 rec["speedup"] = round(rec["inc_ms"] / rec["t1_ms"], 3)
     except Exception as e:                                                    # noqa: BLE001
         rec["t1_err"] = str(e).splitlines()[0][:300]
+        traceback.print_exc()
     rec["t1_stats"] = list(TT.T1_STATS)
+    bad += "t1_err" in rec or "inc_err" in rec
     print(json.dumps(rec), flush=True)
     if A.out:
         with open(A.out, "a") as f:
             f.write(json.dumps(rec) + "\n")
     free([dz, dm])
 free(dw.values())
+sys.exit(1 if bad else 0)
