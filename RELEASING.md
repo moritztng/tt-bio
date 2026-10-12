@@ -233,12 +233,11 @@ cap matches its card type's rows, and when no granted host matches it reads OWED
 `--record-full` run that clears it, before anything folds.
 
 A committed perf cell ages: qb1's dated from 0.6.x and failed boltz2-affinity and nesso1 on a
-release that changed neither. So qb1 sets `"perf_against": "<last release tag>"` in hosts.json and
-its perf leg is an A/B: the last release is measured on the same card in the same session, and the
-commit is gated on those numbers rather than on the committed file. When it passes, the gate writes
-the reference's fresh qb1 cells to `<out>/seeded/bh/perf_baselines.json` (VERDICT.md lists it under
-RE-RECORDED); copy it over `docs/perf_baselines.json` in the release commit. The A/B leg does not
-read the committed file, so this costs no rerun. Move `perf_against` to the new tag once it is out.
+release that changed neither. So every host sets `"perf_against": "last"` in hosts.json and its
+perf leg is an A/B: the newest release tag is measured on the same card in the same session, and
+the commit is gated on those numbers rather than on the committed file. "last" moves with each
+release, so nothing needs editing after a cut, and a card type with no committed cell needs no
+seeding run.
 
 The clock sets the fold time on this part. `fold_s = 2.901 + 15355 / AICLK_MHz` on the 512 aa cell,
 so the same tree reads 21.90 s at 800 MHz and 17.34 s at ~1063. An idle card reports 800 because the
@@ -273,10 +272,8 @@ host that does reach it (a gate tree's `msa/`, which holds the paired files for 
 `RELEASE_GATE_MSA_DIR` to it in the host's hosts.json `env`; `release_gate.py` refuses to start
 if it misses a chain. The pxdesign checkpoint is in the agent's `~/japanfold/cache/weights/`.
 
-Wormhole has size-ladder baselines but no `perf_baselines.json` cell. The first Wormhole gate seeds
-one (`"args": {"perf": ["--update-baseline", "--note", ...]}` in hosts.json; the leg reads SEEDED,
-and `perf_regression.py` still refuses to seed from a contended host). Commit the seeded file and
-remove the `args` entry; every later Wormhole gate is then a regression check.
+Wormhole has size-ladder baselines but no `perf_baselines.json` cell. Its perf leg is an A/B
+against the last release like every other host's, so it does not need one.
 
 The older recipe below is for GWH02, the production Galaxy, and is kept for it.
 
