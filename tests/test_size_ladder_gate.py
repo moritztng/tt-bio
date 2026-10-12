@@ -815,6 +815,10 @@ def test_rungs_arg_cannot_narrow_the_check(rg_fresh, tmp_path):
                                    models=["openfold3"], rungs=(256,))
     assert out["gate"] is False
     assert "RECORD-mode resume aid" in out["error"]
+    part = rg_fresh.run_size_ladder(False, False, tmp_path / "b.json",
+                                    models=["openfold3"], rungs=(256,), part=True)
+    assert "RECORD-mode resume aid" not in (part["error"] or "")   # a gate part reaches the check
+    assert rg_fresh.SIZE_LADDER_PARTS
 
 
 def test_a_model_fragment_does_not_touch_the_shared_baseline(rg_fresh, tmp_path):

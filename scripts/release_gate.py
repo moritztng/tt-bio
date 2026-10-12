@@ -791,6 +791,9 @@ SIZE_LADDER_EXTRA_RUNGS = {"rf3": (1088,)}
 # 850 and 1100 residues (docs/large-targets.md). Two rungs rather than four: 1536 is the bar,
 # and 1280 is what says where a model that folds 1024 but not 1536 stops. Every other board
 # pays for them only if it adds them here.
+#: This release_gate checks one PART of a ladder (--size-ladder-part); gate_fanout.py splits a
+#: ladder into rung-group legs only when the tree under test sets it.
+SIZE_LADDER_PARTS = True
 SIZE_LADDER_CARD_RUNGS = {"p150a": (1152, 1280, 1408, 1536),
                           "tt-galaxy-wh-l": (1280, 1536)}
 # Every rung any board's ladder walks. This is the `rungs` key in the shared json, which
@@ -4540,7 +4543,7 @@ def _size_ladder_arg_rungs(spec: str | None) -> tuple | None:
 
 
 def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
-                    models=None, rungs=None, fragment: bool = False) -> dict:
+                    models=None, rungs=None, fragment: bool = False, part: bool = False) -> dict:
     """The size-generality arm (see the SIZE_LADDER comment block and the module
     docstring for the standing rule it enforces).
 
@@ -4558,7 +4561,9 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
     # carries an extra top rung (SIZE_LADDER_EXTRA_RUNGS).
     want = tuple(rungs) if rungs else None
     rungs = want or _size_ladder_every_rung()
-    if not record and rungs != _size_ladder_every_rung():
+    # A PART is one rung group of a ladder whose other groups run as their own legs
+    # (gate_fanout.py): the gate's verdict needs every part, so no rung goes unread.
+    if not record and not part and rungs != _size_ladder_every_rung():
         return {"model": "size-ladder", "seconds": 0, "gate": False,
                 "card": _size_ladder_card_type(), "rungs": list(rungs),
                 "error": "--size-ladder-rungs is a RECORD-mode resume aid, not a way to "
@@ -5297,6 +5302,10 @@ def main() -> int:
                          "core grid, and dropped with a printed reason when it was not — a "
                          "1024-rung ladder is hours of device time per model and has to be "
                          "resumable a rung at a time, not just a model at a time.")
+    ap.add_argument("--size-ladder-part", action="store_true",
+                    help="Check only the --size-ladder-rungs subset, as one part of a ladder "
+                         "whose other parts run as separate legs (gate_fanout.py's rung groups, "
+                         "which together cover every rung). Alone it is not a size-ladder check.")
     ap.add_argument("--fast", action="store_true",
                     help="Fold with --fast so the gate exercises the block-fp8 trunk path "
                          "(bf8 weights + bf8 matmul output). Defaults off (full precision).")
@@ -5708,7 +5717,7 @@ def main() -> int:
                              args.size_ladder_models.split(",")
                              if args.size_ladder_models else None,
                              rungs=_size_ladder_arg_rungs(args.size_ladder_rungs),
-                             fragment=args.size_ladder_fragment)
+                             fragment=args.size_ladder_fragment, part=args.size_ladder_part)
         all_pass &= sl["gate"]
         rungs = sl.get("rungs") or list(_size_ladder_every_rung())
         design = [l["model"] for l in sl["legs"] if l["model"] in SIZE_LADDER_DESIGN]
