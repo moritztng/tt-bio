@@ -727,6 +727,7 @@ class SwiGLUFFN(Module):
         # path (see SPLIT_SWIGLU above). Build only the fc1 layout the live path reads.
         self.split_swiglu = bool(fuse_swiglu and not self.fuse_swiglu)
         self.model_bytes = float("inf")  # resident weights of the model this FFN is in; ESMC's Block sets it
+        self.out_scale = out_scale
         if self.split_swiglu:
             half = self.weights["1.weight"].shape[0] // 2
             self.fc1_weight = None
@@ -1035,20 +1036,24 @@ class SwiGLUFFN(Module):
         return ttnn.add(x, self(x))
 
     def _weight_stationary(self, x: ttnn.Tensor):
-        """`transition_ws` on ESMFold2's split pair FFN: the shared `tenstorrent.ws_swiglu` kernel with this
-        module's own fc1 halves and fc2 (bf16 in normal, which at c_z 256 / d_ff 1024 is over the kernel's L1
-        budget, so only fast's bfp8 weights take it), or None."""
+        """`transition_ws` on ESMFold2's split pair FFN: the shared `tenstorrent.ws_swiglu` kernel over this
+        module's weights in the dtype its fc1 halves carry, in as many hidden chunks as keep each inside the
+        kernel's L1 budget (c_z 256 / d_ff 1024 takes one chunk in bfp8, two in bf16), or None."""
         from tt_bio import tenstorrent as T
         if not (self.split_swiglu and T._ws_applies(x, self.compute_kernel_config)):
             return None
         if getattr(self, "_ws", None) is None:
-            self._ws = (ttnn.concat([self.fc1_a_weight, self.fc1_b_weight], dim=-1), self.fc2_weight)
-            if not T._pair_ws.eligible(x, *self._ws):  # the weights decide this, not x: drop the copy for good
-                ttnn.deallocate(self._ws[0])
+            w1, half = self.weights["1.weight"], self.weights["1.weight"].shape[0] // 2
+            w3 = _scaled_t(self.out_scale)(self.weights["3.weight"])
+            self._ws = T._pair_ws.weights(w1[:half].t(), w1[half:].t(), w3, self.device, self.fc1_a_weight.dtype)
+            if not all(T._pair_ws.eligible(x, *p) for p in self._ws):  # the weights decide, not x: drop for good
+                for p in self._ws:
+                    for t in p:
+                        ttnn.deallocate(t)
                 self._ws = False
         if not self._ws:
             return None
-        return T.ws_swiglu(x, self.norm_weight, self.norm_bias, self.compute_kernel_config, [self._ws])
+        return T.ws_swiglu(x, self.norm_weight, self.norm_bias, self.compute_kernel_config, self._ws)
 
     def __call__(self, x: ttnn.Tensor) -> ttnn.Tensor:
         # The fc1 activation (2*d_ff wide) is several GB at long L and, on top of
