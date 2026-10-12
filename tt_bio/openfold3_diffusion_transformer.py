@@ -69,7 +69,7 @@ from . import tenstorrent as _T
 from .tenstorrent import AdaLN, CORE_GRID_MAIN, Module, _cached, _dtype, batched_matmul, host_f64_softmax_site, pair_row_blocks, row_block_after_refusal, site_softmax, softmax_ckc
 from .openfold3_atom_transformer import remap_of3_adaln
 from .token_axis import TILE, bucketed_width
-from .eltwise_fusion import scale_add, mask_add
+from .eltwise_fusion import gated_add, scale_add, mask_add
 
 C_A = 768
 C_S = 384
@@ -186,7 +186,12 @@ class _DiTBlock(Module):
         # LN(s) per call that the stack shares, with their gammas folded into the weights on the host.
         # On an fp32 DiT these linears are math-bound at fp32 operands.
         self.s16 = None
+        # adaln_mod on top of dit_s16: every s-path sigmoid runs in its linear's epilogue, so each
+        # adaLN is LN + one addcmul (`_SigTerms`), the APB residual one addcmul and the transition
+        # gate a plain multiply: 72 fewer ops per step at 24 blocks, single rounding of the products.
+        self.sig16 = False
         if self._act_dtype == ttnn.float32 and _T.lever("dit_s16"):
+            self.sig16 = _T.lever("adaln_mod")
             bf = lambda w: ttnn.from_torch(w.float().contiguous(), dtype=ttnn.bfloat16,  # noqa: E731
                                            layout=ttnn.TILE_LAYOUT, device=self.device)
             ada = []
@@ -201,13 +206,16 @@ class _DiTBlock(Module):
                         (bf(self._w[ct + "linear_g.weight"].t()),
                          bf(self._w[ct + "linear_g.bias"].reshape(1, -1))), ckc)
 
-    def _s16_lin(self, x, wb):
+    def _s16_lin(self, x, wb, activation=None):
         w, b = wb
         return ttnn.linear(x, w, bias=b, dtype=ttnn.float32, compute_kernel_config=self.s16[3],
-                           core_grid=CORE_GRID_MAIN)
+                           core_grid=CORE_GRID_MAIN, activation=activation)
 
     def _s16_terms(self, s16, i):
         w_sc, b_sc, w_sb = self.s16[0][i]
+        if self.sig16:
+            return _T._SigTerms((self._s16_lin(s16[1], (w_sc, b_sc), "sigmoid"),
+                                 self._s16_lin(s16[1], (w_sb, None))))
         return self._s16_lin(s16[1], (w_sc, b_sc)), self._s16_lin(s16[1], (w_sb, None))
 
     def _w_tt(self, key, transpose=True):
@@ -355,12 +363,17 @@ class _DiTBlock(Module):
         ttnn.deallocate(g)
         o = self._lin_lp(o, self.w_o, out_dt)           # [1, N, 768]
         # APB output gate from s.
-        og = (self._s16_lin(s16[0], self.s16[1]) if s16
+        sig = "sigmoid" if s16 and self.sig16 else None
+        og = (self._s16_lin(s16[0], self.s16[1], sig) if s16
               else lin(s, self.w_ada_out, bias=self.b_ada_out))
-        o = ttnn.multiply(o, og, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
-        ttnn.deallocate(og); ttnn.deallocate(a_ln)
-        a = ttnn.add(a, o)
-        ttnn.deallocate(o)
+        ttnn.deallocate(a_ln)
+        if sig:
+            a2 = gated_add(a, o, og)
+        else:
+            o = ttnn.multiply(o, og, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
+            a2 = ttnn.add(a, o)
+        ttnn.deallocate(og); ttnn.deallocate(o)
+        a = a2
 
         # Conditioned SwiGLU transition.
         st = self._s16_terms(s16, 1) if s16 else None
@@ -374,8 +387,9 @@ class _DiTBlock(Module):
         ttnn.deallocate(b1); ttnn.deallocate(b2)
         out = self._lin_lp(bb, self.w_lout, out_dt)
         ttnn.deallocate(bb)
-        lg = self._s16_lin(s16[0], self.s16[2]) if s16 else lin(s, self.w_lg, bias=self.b_lg)
-        out = ttnn.multiply(out, lg, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
+        lg = self._s16_lin(s16[0], self.s16[2], sig) if s16 else lin(s, self.w_lg, bias=self.b_lg)
+        out = ttnn.multiply(out, lg, **({} if sig else
+                                        {"input_tensor_b_activations": [ttnn.UnaryOpType.SIGMOID]}))
         ttnn.deallocate(lg)
         a = mask_add(a, out, tok_mask_col)
         ttnn.deallocate(out)
