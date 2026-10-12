@@ -1202,3 +1202,13 @@ def test_record_abb3_fails_on_any_difference(tmp_path, change):
     r = _abb3_run(tree)
     assert r.returncode != 0 and "abb3 records do not match" in r.stderr
     assert not (tree / "out/model_gate_qb1c3.txt").exists()
+
+
+def test_a_record_runs_once_per_card_type_the_gate_holds():
+    legs = {lg.name: lg for lg in gf.build_legs(ROSTER, [], 1, "", "rf3", record_cards=("p150a", "p300c"))
+            if lg.family == "record"}
+    assert sorted(legs) == ["record:rf3@p150a", "record:rf3@p300c"]
+    assert legs["record:rf3@p300c"].card_types == ("p300c",)
+    assert gf.ladder_model("record:rf3@p300c") == "rf3"
+    qb1 = gf.Host("qb1", {"arch": "bh", "card_type": "p150a", "lock": "/l{card}", "root": "/r"}, "a" * 40)
+    assert gf.type_fits(qb1, legs["record:rf3@p150a"]) and not gf.type_fits(qb1, legs["record:rf3@p300c"])

@@ -660,7 +660,7 @@ class Leg:
 
 
 def build_legs(roster: dict, test_files: list, shards: int, record_lever: str = "",
-               record_full: str = "", record_abb3: bool = False) -> list:
+               record_full: str = "", record_abb3: bool = False, record_cards: tuple = ()) -> list:
     legs = [Leg("check", ["PY", "scripts/full_parity_gate.py", "--check", "--workdir", "{OUT}",
                          "--workers", "localhost:0"], "check",
                 card=False),
@@ -724,10 +724,16 @@ def build_legs(roster: dict, test_files: list, shards: int, record_lever: str = 
             how = ["--size-ladder-record-lever", record_lever]
         else:
             continue
-        legs.append(Leg(f"record:{m}", ["PY", "scripts/release_gate.py", "--model", "size-ladder",
-                                        "--size-ladder-models", m, *how, "--size-ladder-baseline",
-                                        "{OUT}/size_ladder_baseline.json"], "record", workdir=True,
-                        setup="cp -r docs/size_ladder_baseline.json docs/size_ladder_baseline.d {OUT}/"))
+        # A record writes only the entry of the card type it ran on, and a ladder leg checks the
+        # entry of whichever card it lands on, so each card type the gate holds gets its own record:
+        # gate 29e9c9d44 recorded four BH models on p300c only and left their p150a entries stale.
+        for ct in record_cards or ("",):
+            legs.append(Leg(f"record:{m}@{ct}" if ct else f"record:{m}",
+                            ["PY", "scripts/release_gate.py", "--model", "size-ladder",
+                             "--size-ladder-models", m, *how, "--size-ladder-baseline",
+                             "{OUT}/size_ladder_baseline.json"], "record", workdir=True,
+                            setup="cp -r docs/size_ladder_baseline.json docs/size_ladder_baseline.d {OUT}/",
+                            card_types=(ct,) if ct else ()))
     if record_abb3:
         legs.append(Leg(ABB3_LEG, ["PY", "-c", ABB3_RECORD, "{OUT}", "{SHA}", "{WORKER}", "{CARD_TYPE}",
                                    str(ABB3_LOSS_TOL), *ABB3_FILES], "record", workdir=True,
@@ -1625,7 +1631,7 @@ def make_executor(sha: str, out: Path, ledger: Ledger, keys: dict, remote_out: s
                 dst.write_text(r.stdout)
                 seeded = str(out / "abb3")
         elif verdict == "PASS" and leg.family == "record":
-            m = leg.name.split(":", 1)[1]
+            m = ladder_model(leg.name)
             dst = out / "recorded" / host.cfg["card_type"] / f"{m}.json"
             dst.parent.mkdir(parents=True, exist_ok=True)
             r = [host.ssh(f"cat {shlex.quote(f'{rdir}/{f}')}", capture_output=True, timeout=120)
@@ -1737,7 +1743,7 @@ def main() -> int:
     first = {a: next(h for h in hosts.values() if h.arch == a) for a in archs}
     roster = first[archs[0]].run_py(ENUMERATE)
     legs = select(build_legs(roster, test_files(sha), args.shards, args.record_lever, args.record_full,
-                             args.record_abb3),
+                             args.record_abb3, tuple(sorted({h.cfg["card_type"] for h, _ in workers}))),
                   [p for p in args.legs.split(",") if p])
     content = content_hash(sha)
     legacy = content_hash(sha, baselines=True, tests=True, runner=RUNNER_FILES_0)
