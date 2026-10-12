@@ -359,7 +359,8 @@ _TRANSITION_B8 = env_flag("RFD3_TRANSITION_B8", False)
 # The token pair Transition as one weight-stationary program (`tt_bio.pair_swiglu_ws`): x read once,
 # [w1 | w2] and w3 resident in L1, fc1/fc2/the product never leave the core. bf16 only for now, so
 # it takes the token pair tensor ahead of RFD3_TRANSITION_B8's bfp8 hidden (faster and more accurate
-# than either shipped path on WH). Off while measured.
+# than either shipped path on WH). In --fast: p150a @1350 fast 61.30 -> 56.25 s/design (seeds 44-47),
+# WH fast 128-130 -> 115-123 s; paired clash delta over 14 seeds +7 (CI covers 0), breaks flat.
 _PAIR_WS = env_flag("RFD3_PAIR_WS", False)
 # Every RFD3 matmul at HiFi2 instead of HiFi4: two multiplier passes per bf16 product instead of
 # four. Off, and not in --fast: on top of the fast set it saved nothing on a p300c (4 seeds, 685
@@ -419,7 +420,8 @@ PZSTATS = [0, 0]
 # `--fast` for RFD3: the levers that pass the fast accuracy bar but not (yet) the normal one. Same
 # steps, recycles and designs; only kernels change. Each flag keeps its own env switch for A/B work,
 # and set_fast(False) restores exactly what the environment asked for.
-_FAST_SET = {"_TRANSITION_B8": "RFD3_TRANSITION_B8", "_PROCESS_Z_COLLAPSE": "RFD3_PROCESS_Z_COLLAPSE"}
+_FAST_SET = {"_TRANSITION_B8": "RFD3_TRANSITION_B8", "_PROCESS_Z_COLLAPSE": "RFD3_PROCESS_Z_COLLAPSE",
+             "_PAIR_WS": "RFD3_PAIR_WS"}
 
 
 def set_fast(on):
