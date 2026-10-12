@@ -379,8 +379,10 @@ def run_input_atom_encoder(dev, compute_kernel_config, sd: dict, features: dict,
 
     at = at or input_atom_transformer(compute_kernel_config, sd)
 
-    def ft(x, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT):
-        return ttnn.from_torch(x.float(), layout=layout, device=dev, dtype=dtype)
+    from .tenstorrent import upload
+
+    def ft(x):
+        return upload(x.float(), ttnn.bfloat16, dev)
 
     a_pad = torch.zeros(1, NP, 128)
     a_pad[0, :n_atom] = cl

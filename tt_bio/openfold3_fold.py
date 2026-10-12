@@ -304,8 +304,7 @@ class OpenFold3(Module):
         self.ns_cfg = dict(sigma_data=sigma_data, s_max=160.0, s_min=4e-4, p=7)
 
     def _ft(self, x, dtype=ttnn.bfloat16):
-        return ttnn.from_torch(x.float(), layout=ttnn.TILE_LAYOUT, device=self.device,
-                               dtype=dtype)
+        return _T.upload(x.float(), dtype, self.device)
 
     def _gen_rollout(self, noise_schedule, n_atom, seed):
         """Fresh per-step (rots, trans, noise, t, c_tau) + xl_init for one sample,
