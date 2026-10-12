@@ -18,11 +18,13 @@
 #include "api/compute/eltwise_binary.h"
 #include "api/compute/compute_kernel_api.h"
 #include "api/compute/reconfig_data_format.h"
+#include "../trimul_gin_moved/sigmoid_poly.hpp"
 
 void kernel_main() {
     constexpr uint32_t KT = get_compile_time_arg_val(0);
     constexpr uint32_t NH = get_compile_time_arg_val(1);
     constexpr uint32_t CT = get_compile_time_arg_val(2);
+    constexpr uint32_t SILU_POLY = get_compile_time_arg_val(3);  // 1: sigmoid_poly.hpp's silu, 0: metal's silu_tile
     const uint32_t count = get_arg_val<uint32_t>(1);
     constexpr uint32_t SW = 4;
     constexpr uint32_t OG = CT < 4 ? CT : 4;
@@ -52,7 +54,11 @@ void kernel_main() {
 #ifndef WS_NO_SILU
             silu_tile_init();  // the dest-reuse multiply's init does not keep the SFPU's
             for (uint32_t i = 0; i < SW; ++i) {
-                silu_tile(i);
+                if constexpr (SILU_POLY) {
+                    silu_poly_tile(i);
+                } else {
+                    silu_tile(i);
+                }
             }
 #endif
             tile_regs_commit();

@@ -39,6 +39,30 @@ inline void _sigmoid_poly_() {
     }
 }
 
+// silu(x) = x * sigmoid(x) on the polynomial above (pair_swiglu_ws). Same error bound on the sigmoid factor; the
+// metal silu_tile under fp32 dest runs the accurate exp and a two-step reciprocal instead, and was ~85 % of that
+// kernel on WH (perf/spd_fastmode/ws_attr.py).
+template <int ITERATIONS = 8>
+inline void _silu_poly_() {
+#pragma GCC unroll 0
+    for (int d = 0; d < ITERATIONS; d++) {
+        sfpi::vFloat x = sfpi::dst_reg[0];
+        sfpi::vFloat t = sfpi::abs(x) * 0.1111111119389534f;
+        v_if(t > 1.0f) { t = 1.0f; }
+        v_endif;
+        sfpi::vFloat h = t * 9.57322883605957f - 51.5362548828125f;
+        h = h * t + 114.75630187988281f;
+        h = h * t - 135.66062927246094f;
+        h = h * t + 89.25188446044922f;
+        h = h * t - 29.09324073791504f;
+        h = h * t + 0.9815341234207153f;
+        h = h * t + 2.2268805503845215f;
+        h = h * t;
+        sfpi::dst_reg[0] = x * (sfpi::setsgn(h, x) + 0.5f);
+        sfpi::dst_reg++;
+    }
+}
+
 // Round DST to bf16, nearest-even, so the pack that follows is exact. The fp32 -> bf16 pack from DST
 // truncates: the resident tail's z + p * sigmoid(g) came out a full bf16 ULP short toward zero on
 // 0.18 % of elements, rel_rms 0.0024 to float64 where one rounding gives 0.0014 (epi2_diag.py).
@@ -58,6 +82,11 @@ inline void _round_bf16_rne_() {
 ALWI void sigmoid_poly_tile(uint32_t idst) {
     MATH((_llk_math_eltwise_unary_sfpu_params_<false>(
         ckernel::sfpu::_sigmoid_poly_<8>, idst, (int)VectorMode::RC)));
+}
+
+ALWI void silu_poly_tile(uint32_t idst) {
+    MATH((_llk_math_eltwise_unary_sfpu_params_<false>(
+        ckernel::sfpu::_silu_poly_<8>, idst, (int)VectorMode::RC)));
 }
 
 ALWI void round_bf16_rne_tile(uint32_t idst) {

@@ -2,8 +2,8 @@
 
     TT_VISIBLE_DEVICES=<card> python perf/spd_fastmode/ws_attr.py [--n 512] [--c 256] [--hidden 1024] [--reps 20]
 
-Arms: `fast` (bfp8 x and weights, HiFi2) and `normal` (bf16, HiFi4), each built plain and with one of the kernels'
-WS_NO_* defines (FC12, SILU, GATE, FC3 in compute; XREAD in the reader; WRITE in the writer). A dropped phase makes the
+Arms: `fast` (bfp8 x and weights, HiFi2) and `normal` (bf16, HiFi4), each once with metal's silu_tile, then with the
+default polynomial silu plain and with one of the kernels' WS_NO_* defines (FC12, SILU, GATE, FC3 in compute; XREAD in the reader; WRITE in the writer). A dropped phase makes the
 output wrong by design, so this prints time only: ms/call, median of --reps after 3 warm calls. One JSON line per arm.
 """
 import argparse, json, os, statistics, time
@@ -61,6 +61,7 @@ for mode, dt, fid in (("fast", ttnn.bfloat8_b, ttnn.MathFidelity.HiFi2),
     if not W.eligible(x, w12, w3t):
         emit(arm=mode, ms=None, note="not eligible (L1)")
         continue
+    emit(arm=mode + "-metal_silu", fidelity=str(fid), ms=timed(lambda: W.pair_swiglu(x, w12, w3t, fid, (), False)))
     for drop in ("", "FC12", "SILU", "GATE", "FC3", "XREAD", "WRITE"):
         defs = [("WS_NO_" + drop, "1")] if drop else []
         emit(arm=mode + ("-" + drop.lower() if drop else ""), fidelity=str(fid),
