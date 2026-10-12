@@ -855,7 +855,7 @@ def t2_eligible(x, ln_w, ln_b, wp, g, resid, wg=None):
     """None when T2 serves this call, else the reason it does not. With `wg`, `g` is the trimul's
     input norm and T2 computes sigmoid(g @ wg) itself (the GATE form)."""
     from .tenstorrent import lever
-    if not (T2 or lever("trimul_t2")):
+    if not (T2 or lever("trimul_t2" if wg is None else "trimul_t2g")):
         return "off"
     for t in (x, wp, g, resid) + ((wg,) if wg is not None else ()):
         if t is None or t.dtype != ttnn.bfloat16 or t.layout != ttnn.TILE_LAYOUT:

@@ -617,7 +617,9 @@ _FAST_MODE = False
 #   trimul_t1       the triangle multiplication's input layer_norm, gated a/b projection, mask, channel moves
 #                   and g_out as one kernel reading z once (kernels/trimul_in_t1; c_z = hidden = 128, N >= 160)
 #   trimul_t2       its output tail, layer_norm + p projection + sigmoid(g_out) gate + residual add, as one
-#                   kernel writing z in place (kernels/trimul_tail_res, compute_ln.cpp; c_z = 128, N >= 160)
+#                   kernel writing z in place (kernels/trimul_tail_res, compute_ln.cpp; c_z 128 / 256, N >= 160)
+#   trimul_t2g      the same kernel where no fused g_out exists (trimul_gin, Wormhole ESMFold2): it computes
+#                   sigmoid(layer_norm_in(z) @ Wg_out) itself, so g_out is never written to DRAM
 #   trimul_t1_dram  every trimul T1 / T2 can take (N >= 160) runs on the DRAM path, so they also serve the sizes
 #                   that would otherwise stay in L1 (Nesso-1's 256-token crop passes: 0.70 -> 0.36 s each on WH)
 #   conf_bins       OpenFold3's pae / pde heads reduce softmax(logits) to their bin-vector products on the card
@@ -636,7 +638,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
           "transition_shard", "dit_mm16", "atom_k1", "dit_b8", "dit_qkv16", "atom_mm16", "adaln_mod",
           "swiglu_fc12g", "msa_sample", "dit_sdpa_pm", "dit_s16", "dit_chunk", "conf_bins", "trimul_t1", "trimul_t2",
-          "triatt_tail_bias", "dit_cond_hifi2", "transition_ws", "ws_ln", "trimul_t1_dram")
+          "trimul_t2g", "triatt_tail_bias", "dit_cond_hifi2", "transition_ws", "ws_ln", "trimul_t1_dram")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias in its own set: graded on AF2-IG only, and it would reach any other biased
@@ -673,7 +675,7 @@ UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "di
 # A model's fast set takes it once its Blackhole grade passes too: Boltz-2 and both ESMFold2 models (their own
 # LEVERS_FAST) so far; the shared set (Protenix family, OpenDDE) and OpenFold3 leave it out until theirs read.
 FAST_LEVERS = (frozenset(LEVERS) - {"lofi", "triatt_b8", "triatt_bias_b8", "trimul_t1", "trimul_t2", "adaln_mod",
-                                    "trimul_t1_dram", "transition_ws"}
+                                    "trimul_t1_dram", "transition_ws", "trimul_t2g"}
                - UNGRADED_LEVERS)
 # trimul_ibw + trimul_tail: Wormhole 11-set grade PASS, 44 paired folds, same-seed top pose median
 # 0.204 A against the 0.60 A bar (A/A seed floor 0.807 A), every paired CI covers 0 or sits on the
@@ -10250,15 +10252,17 @@ class TriangleMultiplication(Module):
         # result is still alive, so a refusal there can still take the row-blocked tail from the
         # same two inputs. Once it succeeds the result is freed, exactly where rebinding `x` used
         # to free it, so every size that fits keeps its peak and its ops.
-        t2_gate = g_out_fused is None and x_norm_in is not None and self.g_out_bias is None
-        if ((_trimul_tail.T2 or lever("trimul_t2")) and H >= _trimul_tail.MIN_N
-                and (g_out_fused is not None or t2_gate) and add_to_input and not ops.taping()
+        t2_gate = (g_out_fused is None and x_norm_in is not None and self.g_out_bias is None
+                   and (_trimul_tail.T2 or lever("trimul_t2g")))
+        if (((g_out_fused is not None and (_trimul_tail.T2 or lever("trimul_t2"))) or t2_gate)
+                and H >= _trimul_tail.MIN_N and add_to_input and not ops.taping()
                 and self.p_out_bias is None and not x_normed):
             # T2 (the `trimul_t2` lever): layer_norm,
             # the p projection, the gate and the residual add as one kernel writing x_in in
             # place; `_add_input` then sees `u is x`. Without a fused g_out (trimul_gin, or no
-            # fused in-projection) it takes the GATE form and computes sigmoid(x_norm_in @ Wg)
-            # itself. None (out of scope) leaves everything untouched and the ops below run unchanged.
+            # fused in-projection) the `trimul_t2g` lever takes the GATE form, which computes
+            # sigmoid(x_norm_in @ Wg) itself. None (out of scope) leaves everything untouched
+            # and the ops below run unchanged.
             fused = _trimul_tail.fused_tail_ln(
                 x, self.out_norm_weight, self.out_norm_bias, self.out_p_weight,
                 x_norm_in if t2_gate else g_out_fused, x_in,

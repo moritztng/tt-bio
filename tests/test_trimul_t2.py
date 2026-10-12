@@ -1,7 +1,7 @@
 """The trimul output tail T2 (`trimul_t2`) against the incumbent ops and float64, both forms.
 
 Plain form: `z += (layer_norm(x) @ Wp) * sigmoid(g)` with g the fused in-projection's g_out.
-GATE form (`wg=`): g is the trimul's input norm and T2 computes `sigmoid(g @ Wg)` itself, the
+GATE form (`wg=`, lever `trimul_t2g`): g is the trimul's input norm and T2 computes `sigmoid(g @ Wg)` itself, the
 shape ESMFold2 calls under trimul_gin. c_z 128 is the OpenFold3 / Boltz-2 key, 256 ESMFold2's.
 
 Run: TT_VISIBLE_DEVICES=<card> python3 -m pytest tests/test_trimul_t2.py
