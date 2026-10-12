@@ -422,6 +422,9 @@ TRANSITION_W_CHUNKING_THRESHOLD = 1024
 # Blackhole never reaches any of this: the whole branch is behind _IS_SMALL_GRID.
 SMALL_GRID_TRANSITION_ELEMS = int(os.environ.get("TT_BIO_SMALL_GRID_TRANSITION_ELEMS", 1179648))
 SMALL_GRID_TRANSITION_MAX_C = 384
+# The 512-token c=384 bfp8 height in Transition._transition (twice the element budget). A module
+# bool so a paired fold A/B can toggle it in one process.
+_SMALL_GRID_TRANSITION_H512 = True
 TRANSITION_H_CHUNK_SIZE_FAST = 32
 TRANSITION_H_CHUNK_SIZE = 16
 # Measured 1.87x at the protenix pair shape (microbench M4, W=320/c=256) but 32 clashes
@@ -12621,6 +12624,16 @@ class Transition(Module):
                 and 256 < _c <= SMALL_GRID_TRANSITION_MAX_C and H <= SEQ_LEN_MORE_CHUNKING):
             transition_h_chunk_size = max(1, min(_base_h,
                                                  SMALL_GRID_TRANSITION_ELEMS // (w_eff * _c)))
+        # c=384 bfp8 hidden (OpenDDE --fast) runs the bf16 element budget's h=6 at 512 tokens where
+        # bfp8 needs half the bytes: 38.79 -> 34.49 ms at h=12 (WH .114 chip 13, real module,
+        # perf/spd_bh/transition_h.py), -1.28 s per fold and bit-exact in every fold. Bounded at
+        # W=512: the c=384 budget is a correctness bound at W=736/896 in bf16 (wrong values before
+        # the clash, see above), and nobody has measured bfp8 there.
+        if (_IS_SMALL_GRID and _SMALL_GRID_TRANSITION_H512 and _tile(w_eff) <= 512
+                and H <= SEQ_LEN_MORE_CHUNKING and 256 < _c <= SMALL_GRID_TRANSITION_MAX_C
+                and self._hidden_b8):
+            transition_h_chunk_size = max(1, min(_base_h,
+                                                 2 * SMALL_GRID_TRANSITION_ELEMS // (w_eff * _c)))
         if _IS_SMALL_GRID:
             # Cap the row chunk by measured per-core L1. The budget above scales by per-core L1
             # and by the channel excess; neither term sees that the Galaxy has 45% fewer cores
