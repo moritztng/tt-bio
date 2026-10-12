@@ -472,33 +472,38 @@ class _PairStateDraw:
     """The trunk's initial pair state, esm 3.4.1's `_init_pair_state`: a truncated normal over the
     [B, L, L, c_z] pair in float32, ~1 s of host at 512 aa that the device used to wait for. It is
     drawn on a host thread from the fold's first line, while the device runs the input embedding,
-    ESMC-6B and the LM projection, from a generator seeded with one draw from the fold's RNG (as
-    `_KeepDraws`), so it follows the seed and not the timing.
+    ESMC-6B and the LM projection, from a copy of the global RNG taken there. `take` then moves the
+    global RNG to where the inline draw would have left it, so the state and every later draw are
+    bit for bit the inline ones. If anything drew from the global RNG in between, it draws inline.
     """
 
     def __init__(self):
-        self.pool = self.key = self.nxt = None
+        self.pool = self.key = self.nxt = self.rng = None
 
     @staticmethod
-    def _draw(shape, seed):
+    def _draw(shape, rng):
         std = (2.0 / (5.0 * shape[-1])) ** 0.5
-        state = torch.empty(shape, dtype=torch.float32)
-        return torch.nn.init.trunc_normal_(state, mean=0.0, std=std, a=-3 * std, b=3 * std,
-                                           generator=torch.Generator().manual_seed(seed))
+        g = torch.Generator()
+        g.set_state(rng)
+        state = torch.nn.init.trunc_normal_(torch.empty(shape, dtype=torch.float32), mean=0.0, std=std,
+                                            a=-3 * std, b=3 * std, generator=g)
+        return state, g.get_state()
 
     def start(self, shape):
         from concurrent.futures import ThreadPoolExecutor
 
         if self.pool is None:
             self.pool = ThreadPoolExecutor(1)
-        self.key = tuple(shape)
-        self.nxt = self.pool.submit(self._draw, self.key, int(torch.randint(2 ** 62, ())))
+        self.key, self.rng = tuple(shape), torch.get_rng_state()
+        self.nxt = self.pool.submit(self._draw, self.key, self.rng)
 
-    def take(self, ref):
-        nxt, key, self.nxt = self.nxt, self.key, None
-        if nxt is None or key != tuple(ref.shape):  # not started for this shape: draw inline
-            return self._draw(tuple(ref.shape), int(torch.randint(2 ** 62, ()))).to(ref.dtype)
-        return nxt.result().to(ref.dtype)
+    def take(self, ref, inline):
+        nxt, key, rng, self.nxt = self.nxt, self.key, self.rng, None
+        if nxt is None or key != tuple(ref.shape) or not torch.equal(torch.get_rng_state(), rng):
+            return inline(ref)
+        state, after = nxt.result()
+        torch.set_rng_state(after)
+        return state.to(ref.dtype)
 
 
 def _install_pair_state_draw(model):
@@ -521,7 +526,7 @@ def _install_pair_state_draw(model):
 
     model.forward = forward
     model._init_pair_state = types.MethodType(
-        lambda self, ref: draw.take(ref) if PAIR_STATE_THREAD else inline(ref), model)
+        lambda self, ref: draw.take(ref, inline) if PAIR_STATE_THREAD else inline(ref), model)
 
 
 def _install_resident_trunk_loop(model):
