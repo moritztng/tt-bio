@@ -523,7 +523,10 @@ def detect_tenstorrent_devices(device_ids: str | None, num_devices: int, max_wor
     on a two-card box) raises a clear error naming the available ids, instead of passing straight
     through and failing much later with an opaque low-level device-open error.
     """
-    all_devices = sorted(int(p.rsplit("/", 1)[-1]) for p in glob.glob("/dev/tenstorrent/[0-9]*"))
+    # Device ids are UMD indices, dense 0..n-1 over the cards present (tt_bdf_to_index), not
+    # /dev node numbers: a Galaxy that lost nodes 20, 24 and 25 after a PCIe error kept UMD
+    # 0-28, and a job pinned to UMD 20 was told the host had no cards.
+    all_devices = list(range(len(glob.glob("/dev/tenstorrent/[0-9]*"))))
     # Honor ambient TT_VISIBLE_DEVICES (the same env ttnn/tt-smi read at
     # device-open time): a job pinned to card N via the environment must fan out
     # only onto card N. Without this filter, a predict launched with
