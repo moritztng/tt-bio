@@ -5887,7 +5887,7 @@
                 "declined": 240,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 240 calls: entered and refused by the kernel's own check, so the call takes the stock ladder this board's baseline was timed on. TRIATT_PERSISTENT_MASK counts the refusals as fill_preconditions (tt_bio/triatt_sdpa.py, the hoisted fill's plan check): none at 768, where this lever serves 112 of 112, then 720 at 896 (240 declines), 1120 at 1024 (280), 1058 at 1280 (352) and 436 at 1536 (432). fused_pairs replayed on the CPU at 72 cores still offers pairs at these lengths, so the planner and the kernel disagree on this grid and the lever is a Wormhole opportunity left open, not a size it was tuned and forgotten at. Nothing slower ships: the stock rungs are byte for byte the path before the lever"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -6211,7 +6211,7 @@
                 "declined": 280,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged [carried from p150a] [carried from p300c]"
+                "reason": "declines all 280 calls: entered and refused by the kernel's own check, so the call takes the stock ladder this board's baseline was timed on. TRIATT_PERSISTENT_MASK counts the refusals as fill_preconditions (tt_bio/triatt_sdpa.py, the hoisted fill's plan check): none at 768, where this lever serves 112 of 112, then 720 at 896 (240 declines), 1120 at 1024 (280), 1058 at 1280 (352) and 436 at 1536 (432). fused_pairs replayed on the CPU at 72 cores still offers pairs at these lengths, so the planner and the kernel disagree on this grid and the lever is a Wormhole opportunity left open, not a size it was tuned and forgotten at. Nothing slower ships: the stock rungs are byte for byte the path before the lever"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -6531,7 +6531,7 @@
                 "declined": 352,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged [carried from p150a] [carried from p300c] [carried from rung 1024]"
+                "reason": "declines all 352 calls: entered and refused by the kernel's own check, so the call takes the stock ladder this board's baseline was timed on. TRIATT_PERSISTENT_MASK counts the refusals as fill_preconditions (tt_bio/triatt_sdpa.py, the hoisted fill's plan check): none at 768, where this lever serves 112 of 112, then 720 at 896 (240 declines), 1120 at 1024 (280), 1058 at 1280 (352) and 436 at 1536 (432). fused_pairs replayed on the CPU at 72 cores still offers pairs at these lengths, so the planner and the kernel disagree on this grid and the lever is a Wormhole opportunity left open, not a size it was tuned and forgotten at. Nothing slower ships: the stock rungs are byte for byte the path before the lever"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -6850,7 +6850,7 @@
                 "declined": 432,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged [carried from p150a] [carried from p300c] [carried from rung 1024]"
+                "reason": "declines all 432 calls: entered and refused by the kernel's own check, so the call takes the stock ladder this board's baseline was timed on. TRIATT_PERSISTENT_MASK counts the refusals as fill_preconditions (tt_bio/triatt_sdpa.py, the hoisted fill's plan check): none at 768, where this lever serves 112 of 112, then 720 at 896 (240 declines), 1120 at 1024 (280), 1058 at 1280 (352) and 436 at 1536 (432). fused_pairs replayed on the CPU at 72 cores still offers pairs at these lengths, so the planner and the kernel disagree on this grid and the lever is a Wormhole opportunity left open, not a size it was tuned and forgotten at. Nothing slower ships: the stock rungs are byte for byte the path before the lever"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
