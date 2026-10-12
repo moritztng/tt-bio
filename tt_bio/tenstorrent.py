@@ -7717,7 +7717,9 @@ def trace_region_bytes(capture):
 # runs in one thread and holds the GIL, so the chip idles through it and the host lane cannot run
 # beside it. Row-major upload + `to_layout` on the chip is the same permutation, bit for bit.
 # Device side costs a second copy of the tensor for a moment, so it is bounded; bigger tensors and
-# TT_BIO_DEVICE_TILIZE=0 take the host path.
+# TT_BIO_DEVICE_TILIZE=0 take the host path. The bound is on the TILE size, padding included: the
+# host writes every pad element, so a [1, N, N, 1] mask (OpenFold3's pair mask and token bonds) costs
+# the host 32x its row-major bytes.
 DEVICE_TILIZE_MIN = 4 << 20
 DEVICE_TILIZE_MAX = 1 << 30
 _TORCH_DT = {ttnn.float32: torch.float32, ttnn.bfloat16: torch.bfloat16}
@@ -7728,10 +7730,16 @@ def _device_tilize(nbytes):
             and env_flag("TT_BIO_DEVICE_TILIZE", True))
 
 
+def _tile_numel(shape):
+    """Element count of ``shape`` in TILE layout: the last two dims padded to whole tiles."""
+    *lead, h, w = (1, *shape) if len(shape) < 2 else shape
+    return prod(lead) * -(-h // 32) * 32 * -(-w // 32) * 32
+
+
 def upload(t, dtype=ttnn.bfloat16, device=None):
     """`ttnn.from_torch(t, TILE_LAYOUT, device, dtype)`, tilized on the chip when that pays."""
     device = device or get_device()
-    if dtype not in _TORCH_DT or not _device_tilize(t.numel() * _TORCH_DT[dtype].itemsize):
+    if dtype not in _TORCH_DT or not _device_tilize(_tile_numel(t.shape) * _TORCH_DT[dtype].itemsize):
         return ttnn.from_torch(t, layout=ttnn.TILE_LAYOUT, device=device, dtype=dtype)
     rm = ttnn.from_torch(t.to(_TORCH_DT[dtype]).contiguous(), layout=ttnn.ROW_MAJOR_LAYOUT,
                          device=device, dtype=dtype)
