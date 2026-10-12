@@ -255,13 +255,15 @@ class OF3AtomTransformer(Module):
     #: and 4 otherwise (`_superset` sizes it), and the frame carries lead zero rows in front and
     #: W - lead - N_QUERY behind. `_attend_superset` reads W off the bias.
 
-    def _superset(self, z_bias, mask_bias, key_block_idxs_tt, s, nb):
+    def _superset(self, z_bias, mask_bias, key_block_idxs_tt, s, nb, on_device=True):
         """Per block ``(bias, q_terms, k_terms)`` for the superset attention, or ``()`` when a
         key window is not a contiguous run of atoms inside the superset (then the gathered path
-        runs). Built once per rollout on the host from the device bias: the bias of key ``j`` of
-        block ``i`` moves to superset column ``ws_i - (32 i - lead) + j``, every other column
-        is -1e9, and the whole is pre-multiplied by sqrt(dh) because the SDPA kernel scales the
-        mask with the scores. The AdaLN conditioning terms are taken on the per-atom ``s``: the
+        runs). Built once per rollout: the bias of key ``j`` of block ``i`` moves to superset
+        column ``ws_i - (32 i - lead) + j``, every other column is -1e9, and the whole is clamped
+        at -1e4 and pre-multiplied by sqrt(dh) because the SDPA kernel scales the mask with the
+        scores. ``on_device`` builds it on the chip (one pad per run of blocks sharing a window
+        offset); False builds it on the host from a read-back, the reference the parity probe
+        compares against. The AdaLN conditioning terms are taken on the per-atom ``s``: the
         query and key rows are now per atom, not per window copy."""
         nq, nk, H, dh = self.N_QUERY, self.N_KEY, self.N_HEADS, self.HEAD_DIM
         idx = ttnn.to_torch(key_block_idxs_tt).reshape(nb, nk).long()
@@ -272,19 +274,65 @@ class OF3AtomTransformer(Module):
         lead = -(int(off.min()) // nq) * nq              # whole tiles holding the furthest start
         W = lead + nk
         off = off + lead
-        col = (off[:, None] + torch.arange(nk))[:, None, None, :].expand(nb, H, nq, nk)
-        mb = ttnn.to_torch(mask_bias).float().reshape(nb, 1, nq, nk)
+        if on_device:
+            runs = []                                    # (first block, end block, offset)
+            for i, o in enumerate(off.tolist()):
+                if runs and runs[-1][2] == o:
+                    runs[-1][1] = i + 1
+                else:
+                    runs.append([i, i + 1, o])
+            # The value every column outside a key window ends at: -1e9, clamped, scaled, in fp32.
+            fill = float(torch.tensor([-1e4]) * dh ** 0.5)
+        else:
+            col = (off[:, None] + torch.arange(nk))[:, None, None, :].expand(nb, H, nq, nk)
+            mb = ttnn.to_torch(mask_bias).float().reshape(nb, 1, nq, nk)
         out = []
         for b in range(3):
-            zb = ttnn.to_torch(z_bias[b]).float().reshape(nb, H, nq, nk) + mb
-            full = torch.full((nb, H, nq, W), -1e9).scatter_(-1, col, zb)
-            full = full.clamp(min=-1e4) * dh ** 0.5
-            bias = _T.upload(full.permute(1, 0, 2, 3).reshape(1, H * nb, nq, W),
-                             self._act_dtype, self.device)
+            if on_device:
+                bias = self._superset_bias_device(z_bias[b], mask_bias, runs, fill, nb, W)
+            else:
+                zb = ttnn.to_torch(z_bias[b]).float().reshape(nb, H, nq, nk) + mb
+                full = torch.full((nb, H, nq, W), -1e9).scatter_(-1, col, zb)
+                full = full.clamp(min=-1e4) * dh ** 0.5
+                bias = _T.upload(full.permute(1, 0, 2, 3).reshape(1, H * nb, nq, W),
+                                 self._act_dtype, self.device)
             terms = ((self._sig(self.adaln_q[b].s_terms(s)), self._sig(self.adaln_k[b].s_terms(s)))
                      if _T.ADALN_S_HOIST else ((), ()))   # () not None: the cache free walks it
             out.append((bias, *terms))
         return out
+
+    def _superset_bias_device(self, z_bias, mask_bias, runs, fill, nb, W):
+        """One block's superset bias ``[1, H * nb, nq, W]`` built on the chip from the device
+        ``z_bias`` ``[1, nb, H, nq, nk]`` and ``mask_bias`` ``[1, nb, 1, nq, nk]``: the host
+        path's add, clamp and scale, then each run of blocks sharing a window offset ``o`` is
+        padded to ``W`` columns with ``o`` in front. Clamping before the pad equals clamping
+        after it: the pad value is ``fill``, the clamped and scaled -1e9."""
+        nq, nk, H, dh = self.N_QUERY, self.N_KEY, self.N_HEADS, self.HEAD_DIM
+        zb = ttnn.add(z_bias, mask_bias)
+        zc = ttnn.clamp(zb, min=-1e4)
+        ttnn.deallocate(zb)
+        zs = ttnn.multiply(zc, dh ** 0.5)
+        ttnn.deallocate(zc)
+        rm = ttnn.to_layout(zs, ttnn.ROW_MAJOR_LAYOUT)
+        ttnn.deallocate(zs)
+        hm = ttnn.reshape(ttnn.permute(rm, (0, 2, 1, 3, 4)), (H, nb, nq, nk))
+        ttnn.deallocate(rm)
+        parts = []
+        for i0, i1, o in runs:
+            run = ttnn.slice(hm, (0, i0, 0, 0), (H, i1, nq, nk))
+            parts.append(ttnn.pad(run, ((0, 0), (0, 0), (0, 0), (o, W - o - nk)), fill))
+            ttnn.deallocate(run)
+        ttnn.deallocate(hm)
+        full = parts[0]
+        if len(parts) > 1:
+            full = ttnn.concat(parts, dim=1)
+            for t in parts:
+                ttnn.deallocate(t)
+        bias = ttnn.to_layout(ttnn.reshape(full, (1, H * nb, nq, W)), ttnn.TILE_LAYOUT)
+        ttnn.deallocate(full)
+        if bias.dtype != self._act_dtype:
+            bias = ttnn.typecast(bias, self._act_dtype)
+        return bias
 
     def _attend_superset(self, a_qn, a_kn, apb, sup_b, NP, nb):
         """softmax(q k^T * scale + bias) v over the superset window, one SDPA program.
