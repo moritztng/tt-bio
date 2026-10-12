@@ -459,7 +459,9 @@ class DeviceIPA:
         for piece, weight in zip(pieces, self.w_out):
             term = ops.linear(piece, weight)
             out = term if out is None else ops.add(out, term)
-        return ops.add(out, ops.reshape(self.b_out, [1, 1, cfg.embed_dim]))
+        # The bias's own width, not `cfg.embed_dim`: ABodyBuilder3's single and pair widths are
+        # both 128, AlphaFold 2's single is 384 (`af2_structure_device`).
+        return ops.add(out, ops.reshape(self.b_out, [1, 1, int(self.b_out.shape[-1])]))
 
 
 class Dropout:
