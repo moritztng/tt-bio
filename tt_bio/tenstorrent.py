@@ -570,9 +570,9 @@ _FAST_MODE = False
 #                   accumulation at HiFi3, i.e. normal mode's config, where acc_off would make them
 #                   bf16-DST: on WH at 736, 3.71 -> 2.83 ms per call and rel_rms to float64 0.0054 ->
 #                   0.0018 (the bf16 floor is 0.0017). Inert unless acc_off is on (perf/spd_pair/ops.py).
-#   ln_rsqrt        the same pair layer norms on the kernel's legacy rsqrt (`ln_rsqrt_kw`), at <= 128 channels:
-#                   on p300c at 512 tokens c_z 128, HiFi3 with fp32 DST, 0.478 -> 0.399 ms per call with rel_rms
-#                   to float64 0.001919 both ways (same max_abs); not bit-identical. Slower at 256 and 384.
+#   ln_rsqrt        the same pair layer norms on the kernel's legacy rsqrt (`ln_rsqrt_kw`): on p300c at 512
+#                   tokens c_z 128, HiFi3 with fp32 DST, 0.478 -> 0.399 ms per call with rel_rms to float64
+#                   0.001919 both ways (same max_abs); not bit-identical to the default rsqrt.
 #   triatt_tail     triangle attention's gate, out projection and residual add in one weights-resident
 #                   program (`triatt_qkv.gated_out_proj`), z read and written once: on WH at 736 the
 #                   tail goes 11.95 -> 5.22 ms per call. sigmoid(g) is no longer rounded to bf16 before
@@ -1181,12 +1181,10 @@ _LN_CKCS = {}
 _LN_RSQRT_KW = []
 
 
-def ln_rsqrt_kw(weight):
-    """Program config for a pair layer norm: under `ln_rsqrt`, the kernel's legacy rsqrt, at widths
-    up to 128 channels only. Empty otherwise, so the op picks its own. On p300c at 512 tokens it is
-    0.478 -> 0.399 ms at 128 channels but 0.848 -> 0.945 at 256 and 1.182 -> 1.279 at 384
-    (perf/spd_pair/ops.py --groups lnview)."""
-    if not lever("ln_rsqrt") or weight is None or weight.shape[-1] > 128:
+def ln_rsqrt_kw():
+    """Program config for a pair layer norm: under `ln_rsqrt`, the kernel's legacy rsqrt.
+    Empty otherwise, so the op picks its own (perf/spd_pair/ops.py --groups lnview)."""
+    if not lever("ln_rsqrt"):
         return {}
     if not _LN_RSQRT_KW:
         _LN_RSQRT_KW.append({"program_config": ttnn.LayerNormDefaultProgramConfig(legacy_rsqrt=True)})
@@ -9328,7 +9326,7 @@ class TriangleMultiplication(Module):
                 weight=self.in_norm_weight,
                 bias=self.in_norm_bias,
                 epsilon=1e-5,
-                **ln_rsqrt_kw(self.in_norm_weight), compute_kernel_config=ln_compute_kernel_config(self.compute_kernel_config),
+                **ln_rsqrt_kw(), compute_kernel_config=ln_compute_kernel_config(self.compute_kernel_config),
             )
             _acc_append(blocks, _in_proj_matmul(
                 rows, w, self.compute_kernel_config, memory_config, bias), host)
@@ -9380,7 +9378,7 @@ class TriangleMultiplication(Module):
                     raw = x_in[:, s_off:s_off + R]
                     rows = ttnn.layer_norm(
                         raw, weight=self.in_norm_weight, bias=self.in_norm_bias, epsilon=1e-5,
-                        **ln_rsqrt_kw(self.in_norm_weight), compute_kernel_config=ln_compute_kernel_config(self.compute_kernel_config),
+                        **ln_rsqrt_kw(), compute_kernel_config=ln_compute_kernel_config(self.compute_kernel_config),
                         memory_config=l1)
                     ttnn.deallocate(raw)
                 else:
@@ -9486,7 +9484,7 @@ class TriangleMultiplication(Module):
                     weight=self.in_norm_weight,
                     bias=self.in_norm_bias,
                     epsilon=1e-5,
-                    **ln_rsqrt_kw(self.in_norm_weight), compute_kernel_config=ln_compute_kernel_config(self.compute_kernel_config),
+                    **ln_rsqrt_kw(), compute_kernel_config=ln_compute_kernel_config(self.compute_kernel_config),
                 )
             except RuntimeError as exc:
                 if not is_alloc_refusal(exc):
@@ -10089,7 +10087,7 @@ class TriangleMultiplication(Module):
                 weight=self.out_norm_weight,
                 bias=self.out_norm_bias,
                 epsilon=1e-5,
-                **ln_rsqrt_kw(self.out_norm_weight), compute_kernel_config=ln_compute_kernel_config(self.compute_kernel_config),
+                **ln_rsqrt_kw(), compute_kernel_config=ln_compute_kernel_config(self.compute_kernel_config),
             )
         except RuntimeError as exc:
             if not _dram_oom(exc):
@@ -10179,7 +10177,7 @@ class TriangleMultiplication(Module):
                 weight=self.in_norm_weight,
                 bias=self.in_norm_bias,
                 epsilon=1e-5,
-                **ln_rsqrt_kw(self.in_norm_weight), compute_kernel_config=ln_compute_kernel_config(self.compute_kernel_config),
+                **ln_rsqrt_kw(), compute_kernel_config=ln_compute_kernel_config(self.compute_kernel_config),
             )
             g_block = ttnn.linear(
                 z_rows,
@@ -10209,7 +10207,7 @@ class TriangleMultiplication(Module):
                 weight=self.out_norm_weight,
                 bias=self.out_norm_bias,
                 epsilon=1e-5,
-                **ln_rsqrt_kw(self.out_norm_weight), compute_kernel_config=ln_compute_kernel_config(self.compute_kernel_config),
+                **ln_rsqrt_kw(), compute_kernel_config=ln_compute_kernel_config(self.compute_kernel_config),
             )
             p_block = ttnn.linear(
                 x_rows,
@@ -10455,7 +10453,7 @@ def _pair_bias_from_z(z, ln_weight, ln_bias, bias_weight, compute_kernel_config,
             blk = _pair_transpose(blk, mc)
             own = True
         ln = dict(weight=ln_weight, bias=ln_bias, epsilon=1e-5,
-                  **ln_rsqrt_kw(ln_weight), compute_kernel_config=ln_compute_kernel_config(compute_kernel_config),
+                  **ln_rsqrt_kw(), compute_kernel_config=ln_compute_kernel_config(compute_kernel_config),
                   memory_config=ttnn.DRAM_MEMORY_CONFIG)
         try:
             zn = ttnn.layer_norm(blk, **ln)
@@ -10799,7 +10797,7 @@ class TriangleAttention(Module):
                     weight=self.layer_norm_weight,
                     bias=self.layer_norm_bias,
                     epsilon=1e-5,
-                    **ln_rsqrt_kw(self.layer_norm_weight), compute_kernel_config=ln_compute_kernel_config(self.compute_kernel_config),
+                    **ln_rsqrt_kw(), compute_kernel_config=ln_compute_kernel_config(self.compute_kernel_config),
                     memory_config=ttnn.DRAM_MEMORY_CONFIG,
                 )
 
@@ -10829,7 +10827,7 @@ class TriangleAttention(Module):
                 weight=self.layer_norm_weight,
                 bias=self.layer_norm_bias,
                 epsilon=1e-5,
-                **ln_rsqrt_kw(self.layer_norm_weight), compute_kernel_config=ln_compute_kernel_config(self.compute_kernel_config),
+                **ln_rsqrt_kw(), compute_kernel_config=ln_compute_kernel_config(self.compute_kernel_config),
                 memory_config=ttnn.DRAM_MEMORY_CONFIG,
             )
             pre_qkv, pre_g, triangle_bias = self._fused_qkvgb(x)
@@ -11742,12 +11740,12 @@ class AttentionPairBias(Module):
                     z, in_l1 = (_l1_layer_norm(z, 1.0, _PAIR_L1_CONSUMER_RESERVE,
                                                weight=self.z_norm_weight,
                                                bias=self.z_norm_bias, epsilon=1e-5,
-                                               **ln_rsqrt_kw(self.z_norm_weight), compute_kernel_config=ln_compute_kernel_config(
+                                               **ln_rsqrt_kw(), compute_kernel_config=ln_compute_kernel_config(
                                                    self.compute_kernel_config))
                                 if _PAIR_BIAS_L1_NORM else
                                 (ttnn.layer_norm(z, weight=self.z_norm_weight, bias=self.z_norm_bias,
                                                  epsilon=1e-5,
-                                                 **ln_rsqrt_kw(self.z_norm_weight), compute_kernel_config=ln_compute_kernel_config(
+                                                 **ln_rsqrt_kw(), compute_kernel_config=ln_compute_kernel_config(
                                                      self.compute_kernel_config)),
                                  False))
                     zb = _narrow_proj_linear(z, self.z_weight, self.compute_kernel_config, z.dtype,
