@@ -16,12 +16,17 @@ per release) to prove the wheel is the one tagged.
 The version is the next minor when the notes carry an Added, Changed or Removed section, else the
 next patch, skipping any tag that already exists. Notes already released under an earlier tag are
 dropped, so a main that has not merged the last release commit back does not ship them twice.
-Anything else release_next.py answers (GATE, WAIT, FIX, NOTHING) is printed and left alone.
+On GATE, with --gate-config, it starts gate_fanout.py on that commit, detached, so every push to
+main is gated without anyone asking; the ledger means only the legs the push changed run. The
+config is a JSON object of gate_fanout's own flags, {"hosts": "...", "workers": "...", "timed":
+"..."}, and the run goes to <gates>/rel-<sha9>. WAIT, FIX and NOTHING are printed and left alone
+(a FIX is a regression for a person or a fix row; the train never re-cuts around it).
 """
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
@@ -138,12 +143,25 @@ def cut(sha: str, gate_dir: str, remote: str, dry: bool, wait_s: int, record: Pa
     return 0 if rec["ok"] else 1
 
 
+def start_gate(sha: str, gates: Path, config: Path) -> None:
+    cfg = json.loads(config.read_text())
+    out = gates / f"rel-{sha[:9]}"
+    out.mkdir(parents=True, exist_ok=True)
+    cmd = [sys.executable, "-u", str(REPO / "scripts" / "gate_fanout.py"), "--sha", sha, "--out", str(out),
+           *(x for k in ("hosts", "workers", "timed") if cfg.get(k) for x in (f"--{k}", cfg[k]))]
+    with open(out / "train.log", "a") as log:
+        p = subprocess.Popen(cmd, cwd=REPO, stdout=log, stderr=subprocess.STDOUT, start_new_session=True,
+                             env={**os.environ, "PYTHONPATH": str(REPO)})
+    print(f"GATE {sha[:12]}: started gate_fanout pid {p.pid}, {out}/train.log")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--gates", type=Path, required=True, help="directory holding gate_fanout --out dirs")
     ap.add_argument("--remote", default="origin")
     ap.add_argument("--record", type=Path, help="append one JSON line per release here")
     ap.add_argument("--wait", type=int, default=3600, help="seconds to wait for PyPI to serve the tag")
+    ap.add_argument("--gate-config", type=Path, help="start gate_fanout on GATE with these flags (JSON)")
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
     for _ in range(3):   # a fetch racing another one on the same clone fails; a stale view is safe
@@ -151,6 +169,9 @@ def main() -> int:
             break                       # (a tag that exists remotely is refused at push)
         time.sleep(20)
     d = decide(gates=args.gates, ref=f"{args.remote}/main")
+    if d["do"] == "GATE" and args.gate_config and not args.dry_run:
+        start_gate(d["sha"], args.gates, args.gate_config)
+        return 0
     if d["do"] != "CUT":
         print(f"{d['do']} {d['sha'][:12]}: {d['why']}")
         return 0
