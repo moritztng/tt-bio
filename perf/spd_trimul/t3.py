@@ -16,6 +16,7 @@ ap = argparse.ArgumentParser()
 ap.add_argument("--ns", default="64,256,512")
 ap.add_argument("--reps", type=int, default=10)
 ap.add_argument("--c", type=int, default=128)
+ap.add_argument("--wh", action="store_true", help="let T3 serve on Wormhole (bring-up only)")
 ap.add_argument("--out", help="also append each JSON line here (the qb runner passes it)")
 A = ap.parse_args()
 os.environ.setdefault("TT_BIO_LEVERS", "normal")
@@ -27,6 +28,7 @@ from tt_bio import tenstorrent as T, transition_t3 as T3
 from tt_bio.af2 import compute_kernel_config
 
 dev = T.get_device()
+T3.WORMHOLE = A.wh
 kcfg = T.trunk_compute_kernel_config(compute_kernel_config())
 BASE = T.parse_levers("normal")
 WITH = T.parse_levers("normal+transition_t3")
