@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """RFD3 fast-mode precision screen: one arm per process, page fixture, warm timing + CIFs kept.
 
-    gap_screen.py ARM OUTDIR [STEPS] [SEEDS] [--fixture=perf/dsfix/fixtures/rfd3_R4.json]
+    gap_screen.py ARM OUTDIR [STEPS] [SEEDS] [--fixture=perf/dsfix/fixtures/rfd3_R4.json] [--batch=1]
+
+--batch=N folds N designs per seed in one batch; design i of seed S is kept as <arm>_s<10*S+i>.cif.
 
 ARM is a '+'-joined set of knobs applied before the denoiser is built:
   exact     the pre-SDPA shipped chain: every knob below off, whatever the defaults are
@@ -54,6 +56,7 @@ ARM, OUT = args[0], pathlib.Path(args[1])
 STEPS = int(args[2]) if len(args) > 2 else 200
 SEEDS = [int(s) for s in (args[3] if len(args) > 3 else "42").split(",")]
 FIXTURE = opts.get("fixture", "perf/dsfix/fixtures/rfd3_R4.json")
+BATCH = int(opts.get("batch", 1))
 knobs = set(ARM.split("+")) - {"exact"}
 assert knobs <= {"lofi", "w8", "acco"} | set(ENV_KNOBS), knobs
 
@@ -104,22 +107,22 @@ def fold(tag, seed):
     shutil.rmtree(out_dir, ignore_errors=True)
     WALL.clear()
     rfd3_design.run_design(specs, out_dir, checkpoint_dir=str(WEIGHTS), from_pdb=True,
-                           num_timesteps=STEPS, seed=seed, num_designs=1, batch_size=1, verbose=False)
+                           num_timesteps=STEPS, seed=seed, num_designs=BATCH, batch_size=BATCH, verbose=False)
     cifs = sorted(pathlib.Path(out_dir).glob("*.cif"))
     dig = "|".join(hashlib.sha256(c.read_bytes()).hexdigest()[:16] for c in cifs) or "NO CIF"
     return WALL[0], dig, cifs
 
 
 OUT.mkdir(parents=True, exist_ok=True)
-rec = {"arm": ARM, "steps": STEPS, "fixture": FIXTURE, "card": os.environ.get("TT_VISIBLE_DEVICES"),
+rec = {"arm": ARM, "steps": STEPS, "fixture": FIXTURE, "batch": BATCH, "card": os.environ.get("TT_VISIBLE_DEVICES"),
        "host": os.uname().nodename, "folds": []}
 s, d, _ = fold("warm", SEEDS[0])
 rec["warm_s"] = s
 print("[screen %s] warmup %.3f s %s  w8 %s" % (ARM, s, d, W8), flush=True)
 for seed in SEEDS:
     s, d, cifs = fold("s%d" % seed, seed)
-    for c in cifs[:1]:
-        shutil.copy(c, OUT / ("%s_s%d.cif" % (ARM, seed)))
+    for i, c in enumerate(cifs[:BATCH]):
+        shutil.copy(c, OUT / ("%s_s%d.cif" % (ARM, seed if BATCH == 1 else 10 * seed + i)))
     rec["folds"].append({"seed": seed, "sampler_s": s, "digest": d})
     print("[screen %s] seed %d %.3f s %s" % (ARM, seed, s, d), flush=True)
 rec["w8_counts"] = W8
