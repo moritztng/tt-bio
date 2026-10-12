@@ -3603,7 +3603,8 @@ class Trunk(_KeyedWeights):
 
         def cycle(cyc, carry, m_feat, rows=None, retry=False):
             # Unpacked and cleared, so the cycle's input pair dies at its first rebind exactly as
-            # it did inline; only a caller that kept its own copy holds it longer.
+            # it did inline; only a caller that kept its own copy holds it longer. `rows` marks a
+            # cycle's own row draw, freed with its mask once the MSA module has read it.
             z3, s = carry
             carry.clear()
             zc = self._lin(self._ln(z3, "layernorm_z_cycle.weight", "layernorm_z_cycle.bias"), "linear_no_bias_z_cycle.weight")
@@ -3637,6 +3638,13 @@ class Trunk(_KeyedWeights):
             if nt > 0 and self.TPL:
                 z3 = self._template(z3, tpl_a, N, nt, pmask_tt, attn_tt)
             z3 = self._msa(z3, m_feat, pmask_tt, attn_tt, rows)
+            if rows is not None and not ops.taping():
+                # Held through the Pairformer, the draw left the 1536-token OpenDDE trunk's
+                # transition no room to join its blocks on device from cycle 1 on, and every
+                # later recycle took the host join: ~12 min instead of ~4:20 on a Wormhole chip.
+                ttnn.deallocate(m_feat)
+                ttnn.deallocate(rows[0])
+                del m_feat, rows
             sc = self._lin(self._ln(s, "layernorm_s.weight", "layernorm_s.bias"), "linear_no_bias_s.weight")
             s = ttnn.add(s_init, sc)
             s, z3 = self.PF(ttnn.reshape(s, (1, N, 384)), z3, pmask_tt, attn_tt, attn_tt)
@@ -3658,8 +3666,7 @@ class Trunk(_KeyedWeights):
             mask = ttnn.from_torch(msa_rows_mask(k, m_c.shape[1]), layout=ttnn.TILE_LAYOUT, device=get_device(),
                                    dtype=ttnn.bfloat16)
             carry = cycle(cyc, carry, m_c, (mask, k))
-            ttnn.deallocate(m_c)
-            ttnn.deallocate(mask)
+            del m_c, mask
             return carry
 
         carry = [z3, s]

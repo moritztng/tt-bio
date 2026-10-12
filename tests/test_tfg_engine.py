@@ -3,7 +3,10 @@
 Live tests import upstream from $TFG_UPSTREAM (default /tmp/tfgsrc/up, a v1.2.0 checkout) and skip
 when it is absent. The fixture tests compare against tests/data/tfg/engine_parity.pt, upstream outputs
 on the same inputs; regenerate it with `python tests/test_tfg_engine.py --regen` (needs the clone).
-All comparisons are torch.equal: the port is op-for-op upstream's arithmetic.
+Live comparisons are torch.equal: the port is op-for-op upstream's arithmetic. The fixture was saved
+under torch FIXTURE_TORCH and is matched bit for bit there; another torch reorders a few float32
+reductions (9e-7 in the potentials, 7.5e-3 A after the engine's update on ~30 A coordinates, torch 2.13
+and 2.14), so there the fixture tests allow FIXTURE_ATOL.
 """
 
 import os
@@ -19,6 +22,8 @@ from tt_bio.tfg import potentials as tt_pot
 UPSTREAM = Path(os.environ.get("TFG_UPSTREAM", "/tmp/tfgsrc/up"))
 FIXTURE = Path(__file__).parent / "data" / "tfg" / "engine_parity.pt"
 N_STEPS = 200
+FIXTURE_TORCH = "2.8."
+FIXTURE_ATOL = {"potentials": 1e-5, "engine": 2e-2} if not torch.__version__.startswith(FIXTURE_TORCH) else {}
 
 # Each case: (name, config edits, step_i, mc std, hook)
 ENGINE_CASES = [
@@ -240,14 +245,15 @@ def upstream_potential_outputs(mods, feats, coords):
     return out
 
 
-def _assert_equal_tree(ours, ref, where=""):
+def _assert_equal_tree(ours, ref, where="", atol=0.0):
     if isinstance(ref, dict):
         assert set(ours) == set(ref), where
         for k in ref:
-            _assert_equal_tree(ours[k], ref[k], f"{where}/{k}")
+            _assert_equal_tree(ours[k], ref[k], f"{where}/{k}", atol)
         return
     assert ours.shape == ref.shape and ours.dtype == ref.dtype, where
-    assert torch.equal(ours, ref), f"{where}: max abs diff {(ours - ref).abs().max().item():.3e}"
+    ok = torch.equal(ours, ref) if not atol else torch.allclose(ours, ref, rtol=0.0, atol=atol)
+    assert ok, f"{where}: max abs diff {(ours - ref).abs().max().item():.3e}"
 
 
 def _nonzero_check(pot_out):
@@ -323,13 +329,17 @@ def fixture_data():
 
 def test_potentials_fixture(fixture_data):
     d = fixture_data
-    _assert_equal_tree(tt_potential_outputs(d["feats"], d["x0"]), d["potentials"])
+    _assert_equal_tree(
+        tt_potential_outputs(d["feats"], d["x0"]), d["potentials"], atol=FIXTURE_ATOL.get("potentials", 0.0)
+    )
 
 
 @pytest.mark.parametrize("case", ENGINE_CASES, ids=[c[0] for c in ENGINE_CASES])
 def test_engine_update_fixture(fixture_data, case):
     d = fixture_data
-    _assert_equal_tree(run_tt(d["feats"], d["x_noisy"], d["x0"], case), d["engine"][case[0]])
+    _assert_equal_tree(
+        run_tt(d["feats"], d["x_noisy"], d["x0"], case), d["engine"][case[0]], atol=FIXTURE_ATOL.get("engine", 0.0)
+    )
 
 
 # ---------------------------------------------------------------- port-only behaviour

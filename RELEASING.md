@@ -20,6 +20,11 @@ python3 scripts/release_next.py --gates ~/gates   # GATE <sha> | WAIT | FIX | CU
 If a newer staging lands while a gate runs, finish that gate (do not restart it), release it if
 it passes, and start the next gate on the new head right away.
 
+Anything committed for a release (re-recorded baselines and records, gate fixes, a hotfix the
+gate forced) goes back to `main` as soon as the tag is cut. Otherwise the next gate on `main`
+owes every baseline again: 0.15.1's branch held 44 such commits and `main`'s next gate read 11
+size ladders OWED.
+
 ## Run the gate
 
 `scripts/gate_fanout.py` runs every gate below as independent legs (each parity leg, each
@@ -38,15 +43,24 @@ PYTHONPATH="$PWD" python3 scripts/gate_fanout.py --sha <commit> --hosts hosts.js
 (the wheel's venv, see below), the card lock path and the environment the legs need
 (`ESM_ROOT`, `AF2IG_PARAMS`, `OF3_CKPT`, `OPENDDE_DOCKQ_PYTHON`, ...); the module docstring has
 the format. The runner builds its own tree at exactly `<commit>` on every host and never moves
-a shared checkout. The first host in `--workers` resolves the packages from PyPI; every other host
-installs exactly that set, and the runner refuses to start if two hosts of one architecture still
-differ (a PyPI release between two preps once gave .107 and .114 different pandas and omegaconf). Run it detached; re-running the same command resumes, because every passed
-leg is in the ledger.
+a shared checkout. Every host installs one package set: the one this commit was gated with, or
+else the one the last commit with the same `pyproject.toml` dependencies was gated with (both kept
+in `<ledger>/pins/`). Only a dependency change resolves from PyPI again, on the first host in
+`--workers`, and the others install exactly that set. Without this a PyPI patch release between two
+preps moves every leg's key: beartype 0.23.1 on 2026-10-11 would have rerun the whole Wormhole half
+of 0.15.0. The runner refuses to start if two hosts of one architecture still differ. Run it
+detached; re-running the same command resumes, because every passed leg is in the ledger.
 
 A leg whose ssh connection drops (exit 255 with ssh's own error) is run again once the host
 answers; it is never recorded as a failure. The rerun first ends the attempt it replaces, which
 the host may still be running, so a leg never runs twice. A result fetch that times out is
-retried the same way. A capacity leg passes when every cell it fails is a
+retried the same way. A leg that hits a full disk on its host waits and runs again (up to an
+hour). A pool leg that stops because a fold timed out and its card reset was refused runs once
+more, since the pool probes every chip before handing it out; on a named qb card that stop is the
+result, because reopening the card can hard-reset the host. A leg that finds another process
+on its card (the device lease refuses the open) runs again up to three times: nothing of the tree
+was measured. Two legs that write the same results directory, such as a model and its `--fast`
+arm, never run at the same time on one host. A capacity leg passes when every cell it fails is a
 size-guard refusal that `docs/capacity_gate_baseline.json` records for that card type
 (OpenDDE on Blackhole is capped at 1024 tokens, so its 1536 cell is refused every run); any
 other failing cell fails the leg.
@@ -70,6 +84,18 @@ re-recordings, costs nothing, and a grade-time crossmodel or suite run done thro
 tests, data, fixtures, packages or card type is a new key and runs fresh. `--legs` also takes
 `!glob` to leave legs out.
 
+**More cards mid-gate.** A gate cannot take new cards once it runs, but a second runner can join
+it: start `gate_fanout.py` again at the same `--sha` and `--ledger` with only the new cards in
+`--workers` and its own `--out`. Every card leg runs under a claim file in the ledger, so each
+runner skips what the other holds, takes the leg's row as REUSED when it lands, and runs it itself
+if the holder stops without a pass. Both write a full verdict. A claim left by a dead runner on the
+same host is dropped; one left by a dead runner on another host has to be deleted by hand
+(`<ledger>/<key>.claim`). Runners from before 2026-10-10 do not claim, so a joiner beside one runs
+legs twice. A host whose card reproduces another card type's results exactly can set
+`key_card_type` in hosts.json and file its results under that type (qb2's p300c keys as p150a:
+its digests equal p150a seed for seed). It can then serve the same gate as qb1, but it may not run
+timed legs, which measure the card itself.
+
 **Baselines a new lever owes.** A census lever that lands without a size-ladder row fails every
 ladder leg at every rung. The runner reads that from the baseline when it plans, so such a leg
 reports OWED without folding (`--dry-run` shows it). Record the missing levers on every card
@@ -82,8 +108,9 @@ python3 scripts/gate_fanout.py --sha <commit> ... --legs 'record:*' \
 
 The fragments land in `<out>/recorded/<card_type>/<model>.json`; splice them into the release
 commit with `python3 scripts/splice_ladder_fragments.py <out>/recorded`, which takes only the
-recorded card type's entry (a plain copy would undo any other card type's re-record since). The ladder legs then rerun against them and
-every other leg is reused. A model whose splice is refused (something besides the new lever
+recorded card type's entry (a plain copy would undo any other card type's re-record since). Only
+that model's ladder legs on that architecture then rerun: a ladder leg's key holds just the rows
+its own card types read, so Wormhole rows leave the Blackhole legs reused, and so is every other leg. A model whose splice is refused (something besides the new lever
 moved, e.g. a guard's decline reason) needs a full re-record of its own fragment: add
 `--record-full <model>` and that model's record leg re-records every rung instead.
 
@@ -169,20 +196,43 @@ Write `--workers localhost:0,localhost:1`, never `pc:0`. `pc` is an ssh alias th
 orchestrator's config and not in qb2's, so the gate would ssh to nothing and every device leg would
 exit 255 in 0 s while the in-process legs passed. The preflight catches it, but only if you read it.
 
-**Cards 0 and 1 only.** qb2 has four chips on two boards; board `...410d` (cards 2 and 3) is
-excluded, and a `tt-smi -r` on any card takes its whole board pair down rather than that chip, so
-pass `--no-card-reset` to the capacity gate when anything else could land on the pair.
+**Never card 2.** qb2 has four chips on two boards. Cards 0 and 1 run the booth demo and are
+used only when it lends them; card 3 is a release card ahead of grading. A `tt-smi -r` on any card
+takes its whole board pair down rather than that chip, so the capacity legs run with
+`--no-card-reset`, and no wedge-risk arm runs on qb2 at all. In `gate_fanout.py`'s hosts file qb2
+keys as p150a (`key_card_type`), so its correctness legs serve the same gate as qb1's.
 
 The perf arm is timed: an arm of your own gate running beside it is a co-tenant like any other, so
 run it with nothing else of the gate on the host (`gate_fanout.py` does this for `--timed` cards).
-The parity, capacity and size-ladder arms are correctness checks and may run on sibling cards. The
-size ladder's exponent is a runtime ratio between rungs folded on one card, with a tolerance of at
-least 0.50, and 0.13.1 already ran two ladder cards beside three other arms on qb1.
+The parity, capacity and size-ladder arms are correctness checks and may run on sibling cards, but
+the ladder also times its rungs, and its small rungs are mostly host work. A fold sizes its thread
+pools to every core unless capped, so three ladder folds on qb2 oversubscribed its 16 cores and
+boltz2's 256 aa rung read 12.9 s against 4.2 s timed alone (1024 aa held at 0.97x). Every ladder and
+record leg therefore runs at a fixed share of its host, set in hosts.json as
+`"args": {"ladder": ["--host-threads", "N"], "record": ["--host-threads", "N"]}`: cores divided by
+the cards the gate runs there (qb1 32/4 = 8, qb2 16/3 = 5, Galaxy 2). The other legs on that host
+fold beside it, so the host's `env` carries the same share in `OMP_NUM_THREADS`, `MKL_NUM_THREADS`,
+`OPENBLAS_NUM_THREADS` and `NUMEXPR_NUM_THREADS`, and every leg's folds stay inside it. The cap is stamped into each
+recorded fragment, and a ladder leg run at another cap than its baseline fails with "re-record at
+this cap" instead of scoring the timings. Change a host's cap and you re-record its card type.
+`gate_fanout.py` reads each baseline's cap when it plans: a ladder leg goes only to a host whose
+cap matches its card type's rows, and when no granted host matches it reads OWED with the
+`--record-full` run that clears it, before anything folds.
+
+A committed perf cell ages: qb1's dated from 0.6.x and failed boltz2-affinity and nesso1 on a
+release that changed neither. So qb1 sets `"perf_against": "<last release tag>"` in hosts.json and
+its perf leg is an A/B: the last release is measured on the same card in the same session, and the
+commit is gated on those numbers rather than on the committed file. When it passes, the gate writes
+the reference's fresh qb1 cells to `<out>/seeded/bh/perf_baselines.json` (VERDICT.md lists it under
+RE-RECORDED); copy it over `docs/perf_baselines.json` in the release commit. The A/B leg does not
+read the committed file, so this costs no rerun. Move `perf_against` to the new tag once it is out.
 
 The clock sets the fold time on this part. `fold_s = 2.901 + 15355 / AICLK_MHz` on the 512 aa cell,
 so the same tree reads 21.90 s at 800 MHz and 17.34 s at ~1063. An idle card reports 800 because the
 governor has not ramped; sample the clock DURING a fold, not before, and record it beside any number
-you publish.
+you publish. `perf_regression.py` samples it during every measurement and refuses to seed a baseline
+from a chip whose clock never reached its busy floor: 1200 MHz on Blackhole, 950 on a Wormhole Galaxy
+chip (which runs at 1000).
 
 ### The gate interpreter on the WH Galaxy
 
@@ -190,7 +240,7 @@ A release never waits on our own experiments. Gate legs queue at prio 0 in a Gal
 of every grading job, and on a card shared through its `flock` (qb1, qb2) the host sets
 `"first": true`: each leg then waits through `scripts/flock_first.sh`, which pauses the other
 waiters on that card (never the job holding it) and resumes them a few minutes after the gate's
-last leg there. Another gate's wait is never paused, so two gates on one card queue in order.
+last leg there, also when a leg is killed. Another gate's wait is never paused, so two gates on one card queue in order.
 A leg still waits for the job already running on its card.
 
 On an SPD pool Galaxy (`.114`, `.107`) use the same `gate_host_prep.sh` venvs as any other host,
@@ -200,8 +250,15 @@ ids are UMD ids and its locks are `~/spd/locks/chip<N>.lock`. Grant the gate poo
 than chips: with `"pool": {"queue": "~/spd/pool/queue", "prio": 0, "row": "<row>"}` in hosts.json,
 `--workers g114:pool,g114:pool,g114:pool,g114:pool` keeps at most four legs queued or running
 there, each as one job file the pool starts on an idle healthy chip. Stopping the runner (SIGINT)
-takes back the jobs that have not started.
+takes back the jobs that have not started. A Galaxy booked out of the pool (`~/spd/galaxy/LEND-AT`)
+or with its pool paused takes no leg whose budget runs into the lend, and a leg it queued before the
+lend was booked is taken back and run by another worker, so grant slots on more than one Galaxy.
 The host has no C compiler, so put a DockQ wheel built elsewhere at `<root>/prereq/`.
+The Galaxies have no route to `api.colabfold.com`, so every MSA-search leg there (the rg folds,
+parity opendde-abag) dies on its first request. Copy a `msa/` directory from a fresh search on a
+host that does reach it (a gate tree's `msa/`, which holds the paired files for 1ahw too) and set
+`RELEASE_GATE_MSA_DIR` to it in the host's hosts.json `env`; `release_gate.py` refuses to start
+if it misses a chain. The pxdesign checkpoint is in the agent's `~/japanfold/cache/weights/`.
 
 Wormhole has size-ladder baselines but no `perf_baselines.json` cell. The first Wormhole gate seeds
 one (`"args": {"perf": ["--update-baseline", "--note", ...]}` in hosts.json; the leg reads SEEDED,

@@ -4,9 +4,10 @@
 # A release gate leg on a shared card uses it (RELEASING.md, "A release never waits"): while it
 # waits for the current holder to finish, every other process blocked on LOCK is SIGSTOPped.
 # Nothing that holds the card is touched. The stopped pids are listed in LOCK.gate-stopped and
-# stay stopped while the gate keeps the card, so its next leg finds the card free; a reaper
-# continues them FLOCK_FIRST_GRACE seconds (default 180) after a leg ends if no gate leg holds
-# the card by then.
+# stay stopped while the gate keeps the card, so its next leg finds the card free. A reaper,
+# started before the wait, continues them FLOCK_FIRST_GRACE seconds (default 180) after this
+# script exits, however it exits (SIGKILL and timeouts included), unless another flock_first.sh
+# on the same LOCK is alive by then: that one's reaper continues them later.
 set -u
 lock=$1; shift
 reg=$lock.gate-stopped
@@ -25,18 +26,15 @@ stop_waiters() {
     done
 }
 
-reap() {
-    setsid bash -c '
-        sleep "$1"
-        exec 9>>"$2"
-        flock -n 9 || exit 0          # a gate leg holds the card again; its own reaper continues them
-        [ -s "$3" ] && xargs -r kill -CONT < "$3" 2>/dev/null
-        : > "$3"' reap "$grace" "$lock" "$reg" </dev/null >/dev/null 2>&1 9>&- &   # 9>&-: or the reaper holds the card through the grace
-}
+setsid bash -c '
+    while kill -0 "$4" 2>/dev/null; do sleep 2; done
+    sleep "$1"
+    pgrep -f "flock_first.sh $2 " >/dev/null && exit 0
+    [ -s "$3" ] && xargs -r kill -CONT < "$3" 2>/dev/null
+    : > "$3"' reap "$grace" "$lock" "$reg" $$ </dev/null >/dev/null 2>&1 &
 
 exec 9>>"$lock"
 # The wait is named gate_fanout-wait so a host-wide release-priority watcher (qb1's relprio.sh
 # matches "gate_fanout") never stops the gate's own waiter.
 until flock -n 9; do stop_waiters; ( exec -a gate_fanout-wait flock -w 2 9 ) && break; done
-trap reap EXIT
 "$@" 9>&-

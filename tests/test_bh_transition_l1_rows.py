@@ -22,6 +22,15 @@ P300C = (11, 10)       # 110 cores, the part every height below was measured on
 P150A = (13, 10)       # 130 cores
 
 
+@pytest.fixture(autouse=True)
+def _blackhole_budget(monkeypatch):
+    """A Wormhole device opened earlier in this process rescales the budget to its own L1
+    (`_apply_grid_thresholds`); the contract here is Blackhole's, so read Blackhole's."""
+    if T._IS_SMALL_GRID:
+        monkeypatch.setattr(T, "TRANSITION_L1_CHUNK_BYTES_PER_CORE",
+                            T._BH_TRANSITION_L1_CHUNK_BYTES_PER_CORE)
+
+
 def _height(W, c=C, hid=HID, grid=P300C, budget=None, b8=False):
     """`Transition.__call__`'s Blackhole height at this shape, mirrored. `b8`: the hidden is bfp8."""
     tile = lambda v: -(-int(v) // 32) * 32
@@ -45,7 +54,8 @@ def test_the_budget_is_the_ceil_of_the_measured_aggregate():
     assert T._BH_TRANSITION_L1_CHUNK_BYTES_PER_CORE == -(-live // (P300C[0] * P300C[1]))
     assert T._BH_TRANSITION_L1_CHUNK_BYTES_PER_CORE == 514_756
     # The default in force on Blackhole is that number: _apply_grid_thresholds returns early there.
-    assert T.TRANSITION_L1_CHUNK_BYTES_PER_CORE == T._BH_TRANSITION_L1_CHUNK_BYTES_PER_CORE
+    if not T._IS_SMALL_GRID:
+        assert T.TRANSITION_L1_CHUNK_BYTES_PER_CORE == T._BH_TRANSITION_L1_CHUNK_BYTES_PER_CORE
     assert T._TRANSITION_L1_ROWS is True
 
 

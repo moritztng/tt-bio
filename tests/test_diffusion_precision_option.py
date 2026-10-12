@@ -102,6 +102,7 @@ def test_guided_opendde_builds_fp32_under_fast(monkeypatch, model, guided, prec,
     from tt_bio import worker as W
 
     monkeypatch.setattr(T, "get_device", lambda *a, **k: pytest.fail("opened a device"))
+    monkeypatch.setattr(T, "_FAST_MODE", T._FAST_MODE)   # load_model sets it for the process
     seen = {}
     monkeypatch.setattr(O.OpenDDE, "load_from_checkpoint",
                         staticmethod(lambda path, **kw: seen.update(kw) or object()))

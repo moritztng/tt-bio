@@ -194,7 +194,7 @@ import time
 from datetime import date
 from pathlib import Path
 
-from tt_bio.runtime import P150_SUBSYSTEMS, P300_SUBSYSTEMS
+from tt_bio.runtime import P150_SUBSYSTEMS, P300_SUBSYSTEMS, WH_GALAXY_SUBSYSTEMS
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 BASELINE_FILE = REPO_ROOT / "docs" / "perf_baselines.json"
@@ -616,7 +616,9 @@ def detect_card_type() -> str:
               f"report 'unknown' (NO BASELINE). Add tt-smi to PATH (e.g. "
               f"export PATH=$HOME/.local/bin:$PATH) and re-run.",
               file=sys.stderr)
-    # Fallback: sysfs subsystem_device -> known Blackhole board types. An
+    # Fallback: sysfs subsystem_device -> known board types. tt-smi -s aborts for the
+    # whole box when any one chip reads 0xffffffff, which on a Galaxy with a dead chip is
+    # every call, so this path is how Wormhole Galaxy legs find their baseline. An
     # unrecognized subsystem returns a recognizable 'unknown:<sub>' key so the
     # gate fails loudly against a missing baseline instead of silently matching
     # the wrong one.
@@ -625,6 +627,8 @@ def detect_card_type() -> str:
         return "p300c"
     if sub in _P150_SUBSYSTEMS:
         return "p150a"
+    if sub in WH_GALAXY_SUBSYSTEMS:
+        return "tt-galaxy-wh-l"
     if sub:
         return f"unknown:{sub}"
     return "unknown"
@@ -673,6 +677,34 @@ def sample_host_load() -> dict:
 #: ``_update_baselines``), because a gated run only misreads one verdict while a
 #: seeded cell misreads every future one.
 CONTENDED_RATIO = 1.0
+
+# A chip whose clock never reached this during a measurement is clamped or latched (an
+# in-place firmware upgrade once held a Blackhole arbiter at 800 MHz), and a timing taken
+# there is an artifact of the clock. A busy Blackhole runs ~1350 MHz, a busy Wormhole Galaxy
+# chip 1000. The peak is compared, not the median: a single-shot harness spends most of its
+# wall loading the CLI with the chip idle (500 MHz on Wormhole), which says nothing.
+MIN_AICLK = {"blackhole": 1200, "wormhole_b0": 950}
+
+
+def hardware_of(card_type: str) -> str:
+    """Architecture of a detect_card_type() key: Wormhole boards are n150/n300 and the
+    tt-galaxy-wh-* Galaxy parts, everything else here is Blackhole (p150a, p300c, ...)."""
+    return "wormhole_b0" if "-wh-" in card_type or card_type.startswith("n") else "blackhole"
+
+
+def clock_during():
+    """perf/clocksample.py's sampler, or a no-op one where the tree has no perf/."""
+    try:
+        sys.path.insert(0, str(REPO_ROOT))
+        from perf.clocksample import during
+        return during()
+    except ImportError:
+        import contextlib
+
+        class _None(contextlib.nullcontext):
+            def summary(self):
+                return {}
+        return _None()
 
 
 def detect_stack() -> dict:
@@ -960,7 +992,7 @@ def _measure_gen(model: str, spec: dict, out_path: Path) -> dict:
         kind=spec["kind"],
         unit=spec["unit"],
         direction=spec["direction"],
-        hardware="blackhole",
+        hardware=hardware_of(card),
         card_type=card,
         throughput=round(throughput, 6),
         latency_ms=round(latency_ms, 2),
@@ -1062,7 +1094,7 @@ def _measure_design(model: str, spec: dict, out_path: Path) -> dict:
         kind=spec["kind"],
         unit=spec["unit"],
         direction=spec["direction"],
-        hardware="blackhole",
+        hardware=hardware_of(card),
         card_type=card,
         throughput=round(throughput, 6),
         latency_ms=round(latency_ms, 2),
@@ -1175,7 +1207,7 @@ def _measure_affinity(model: str, spec: dict, out_path: Path) -> dict:
         kind=spec["kind"],
         unit=spec["unit"],
         direction=spec["direction"],
-        hardware="blackhole",
+        hardware=hardware_of(card),
         card_type=card,
         throughput=round(throughput, 6),
         latency_ms=round(latency_ms, 2),
@@ -1455,8 +1487,10 @@ def _run_measure(model: str) -> dict | None:
     timeout = per_rep * reps + 300
     load_before = sample_host_load()
     proc = subprocess.Popen(cmd, env=env, start_new_session=True)
+    clk = clock_during()
     try:
-        rc = proc.wait(timeout=timeout)
+        with clk:
+            rc = proc.wait(timeout=timeout)
     except subprocess.TimeoutExpired:
         try:
             os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
@@ -1483,6 +1517,16 @@ def _run_measure(model: str) -> dict | None:
     ratios = [x for x in (load_before.get("ratio"), load_after.get("ratio")) if x is not None]
     row["host_load"] = {"before": load_before, "after": load_after,
                         "peak_ratio": max(ratios) if ratios else None}
+    # The clock is sampled in this parent for the whole child, so it covers the timed
+    # region; tt-smi reports the granted chip as index 0 under TT_VISIBLE_DEVICES.
+    row["aiclk_mhz"] = clk.summary().get(0)
+    top = (row["aiclk_mhz"] or {}).get("max")
+    floor = MIN_AICLK.get(row.get("hardware"))
+    if floor and top is not None and top < floor:
+        row["clock_low"] = True
+        print(f"[{model}] WARNING: AICLK peaked at {top} MHz during this measurement "
+              f"(< {floor}). The clock sets the fold time, so this number describes the "
+              f"clock arbiter, not the tree. Do not seed a baseline from it.", file=sys.stderr)
     peak = row["host_load"]["peak_ratio"]
     if peak is not None and peak > CONTENDED_RATIO:
         row["contended"] = True
@@ -1542,7 +1586,7 @@ def _print_table(rows: list[dict], baselines: dict, card_type: str, machine_id: 
              f"| threshold ±{threshold:.0f}%  | {warm_desc}")
     print(f"\n{'#' * 78}\n{title}\n{'#' * 78}")
     hdr = (f"{'model':<16}{'metric':<16}{'baseline':>11}{'current':>11}"
-           f"{'delta':>10}{'verdict':>10}")
+           f"{'delta':>10}{'verdict':>10}{'aiclk MHz':>11}")
     print(hdr)
     print("-" * len(hdr))
     unbacked: list[str] = []
@@ -1575,8 +1619,9 @@ def _print_table(rows: list[dict], baselines: dict, card_type: str, machine_id: 
         if not ok:
             regressed.append(r["model"])
         verdict = "PASS" if ok else "FAIL"
+        clk = (r.get("aiclk_mhz") or {}).get("median", "unclocked")
         print(f"{r['model']:<16}{unit:<16}{base:>11.4g}{r['throughput']:>11.4g}"
-              f"{delta:>10}{verdict:>10}")
+              f"{delta:>10}{verdict:>10}{clk:>11}")
     print("-" * len(hdr))
     # card/machine/hardware/tt-bio really are table-wide (one host, one install), but the
     # input is not: folds read trpcage, esmc/saprot read batched ubiquitin, and boltzgen /
@@ -1658,6 +1703,12 @@ def _update_baselines(rows: list[dict], args) -> int:
     models = m_entry.setdefault("models", {})
     any_ok = False
     measured: set[str] = set()
+    slow = [f"{r['model']} peak {r['aiclk_mhz']['max']} MHz" for r in rows
+            if not r.get("failed") and r.get("clock_low")]
+    if slow and not getattr(args, "allow_contended", False):
+        sys.exit(f"REFUSING to seed a baseline: AICLK never reached its busy floor during "
+                 f"{', '.join(slow)}. Reset the chip or wait for it to unclamp, or pass "
+                 f"--allow-contended and say so in --note.")
     contended = [r["model"] for r in rows
                  if not r.get("failed") and r.get("contended")]
     if contended and not getattr(args, "allow_contended", False):
@@ -1691,7 +1742,7 @@ def _update_baselines(rows: list[dict], args) -> int:
             num_designs=r.get("num_designs"),
             warmup=r["warmup"], repeat=r["repeat"],
             hardware=r["hardware"], card_type=r.get("card_type", card_type),
-            machine_id=machine_id, host_load=r.get("host_load"),
+            machine_id=machine_id, host_load=r.get("host_load"), aiclk_mhz=r.get("aiclk_mhz"),
             tt_bio_version=r["tt_bio_version"], date=r["date"], note=args.note,
         )
     # The machine block's own date/tt_bio_version/note describe the whole block, so

@@ -653,7 +653,9 @@ def _load_pkl(path: str) -> dict:
     if path not in _PKL_CACHE:
         _PKL_CACHE[path] = {}
         if os.path.exists(path):
-            Chem.SetDefaultPickleProperties(Chem.PropertyPickleOptions.AtomProps)
+            # Process-wide; widen it so atomworks' AllProps assertion still holds.
+            Chem.SetDefaultPickleProperties(
+                Chem.GetDefaultPickleProperties() | Chem.PropertyPickleOptions.AtomProps)
             with open(path, "rb") as f:
                 _PKL_CACHE[path] = pickle.load(f)  # noqa: S301
     return _PKL_CACHE[path]

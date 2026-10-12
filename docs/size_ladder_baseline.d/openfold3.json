@@ -3582,23 +3582,24 @@
       "host_threads": null
     },
     "p300c": {
-      "recorded": "2026-09-27",
+      "recorded": "2026-10-10",
       "host": "tt-quietbox2",
-      "commit": "8e5654e21",
+      "commit": "92d5924f5",
+      "host_threads": 5,
       "models": {
         "openfold3": {
           "grid": "11x10",
-          "recorded": "2026-09-27",
+          "recorded": "2026-10-10",
           "host": "tt-quietbox2",
-          "commit": "8e5654e21",
-          "host_threads": null,
+          "commit": "92d5924f5",
+          "host_threads": 5,
           "runtime_s": {
-            "256": 9.0,
-            "512": 18.3,
-            "640": 26.0,
-            "768": 37.4,
-            "896": 49.2,
-            "1024": 59.7
+            "256": 4.6,
+            "512": 10.4,
+            "640": 15.9,
+            "768": 21.4,
+            "896": 29.6,
+            "1024": 39.6
           },
           "levers": {
             "256": {
@@ -3671,36 +3672,38 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 315,
+                "served": 333,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
               },
               "FP32_SOFTMAX_BIAS_HOIST": {
                 "resolved": "True",
-                "served": 56,
-                "declined": 56,
-                "frac": 0.5,
-                "how": "stats-dict"
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "OpenFold3's triangle attention takes the fused HiFi4 route at every site (4d8ffc1d1 confidence+trunk, 400557018 template+msa), so the fp32-softmax path this lever acts on is no longer called"
               },
               "FP32_SOFTMAX_L1_GRID": {
                 "resolved": "(8, 8)",
-                "served": 168,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats-dict"
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "OpenFold3's triangle attention takes the fused HiFi4 route at every site (4d8ffc1d1 confidence+trunk, 400557018 template+msa), so the fp32-softmax path this lever acts on is no longer called"
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 440,
+                "declined": 232,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
                   "l1_dest_is_faster:256x256x64": 16,
-                  "l1_dest_is_faster:256x256x128": 424
+                  "l1_dest_is_faster:256x256x128": 216
                 },
-                "reason": "declines all 440 calls on l1_dest_is_faster:256x256x128 x424, l1_dest_is_faster:256x256x64 x16: the row-major route needs a DRAM destination for a 3-D bf16 tiled pair tensor; wrap-counted, so the clause is not recorded"
+                "reason": "declines all 232 calls on l1_dest_is_faster:256x256x128 x216, l1_dest_is_faster:256x256x64 x16: the row-major route needs a DRAM destination for a 3-D bf16 tiled pair tensor; wrap-counted, so the clause is not recorded"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -3778,7 +3781,7 @@
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 384,
+                "served": 440,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -3798,6 +3801,14 @@
                 "frac": 0.0,
                 "how": "stats",
                 "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb."
+              },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged [carried from p150a]"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -3878,7 +3889,7 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 440,
+                "served": 232,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -3912,8 +3923,8 @@
                 "how": "stats"
               },
               "TRIATT_SDPA_HIFI": {
-                "resolved": "openfold3.trunk",
-                "served": 384,
+                "resolved": "openfold3.confidence,openfold3.msa,openfold3.template,openfold3.trunk",
+                "served": 440,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-dict"
@@ -3985,36 +3996,38 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 315,
+                "served": 333,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
               },
               "FP32_SOFTMAX_BIAS_HOIST": {
                 "resolved": "True",
-                "served": 56,
-                "declined": 56,
-                "frac": 0.5,
-                "how": "stats-dict"
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "OpenFold3's triangle attention takes the fused HiFi4 route at every site (4d8ffc1d1 confidence+trunk, 400557018 template+msa), so the fp32-softmax path this lever acts on is no longer called"
               },
               "FP32_SOFTMAX_L1_GRID": {
                 "resolved": "(8, 8)",
-                "served": 2184,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats-dict"
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "OpenFold3's triangle attention takes the fused HiFi4 route at every site (4d8ffc1d1 confidence+trunk, 400557018 template+msa), so the fp32-softmax path this lever acts on is no longer called"
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 440,
+                "declined": 232,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
                   "l1_dest_is_faster:512x512x64": 16,
-                  "l1_dest_is_faster:512x512x128": 424
+                  "l1_dest_is_faster:512x512x128": 216
                 },
-                "reason": "declines all 440 calls on l1_dest_is_faster:512x512x128 x424, l1_dest_is_faster:512x512x64 x16: the row-major route needs a DRAM destination for a 3-D bf16 tiled pair tensor; wrap-counted, so the clause is not recorded"
+                "reason": "declines all 232 calls on l1_dest_is_faster:512x512x128 x216, l1_dest_is_faster:512x512x64 x16: the row-major route needs a DRAM destination for a 3-D bf16 tiled pair tensor; wrap-counted, so the clause is not recorded"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -4080,9 +4093,9 @@
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 384,
+                "served": 440,
                 "declined": 1,
-                "frac": 0.9974025974025974,
+                "frac": 0.9977324263038548,
                 "how": "stats",
                 "rejects": {
                   "l1_budget": 1
@@ -4103,6 +4116,14 @@
                 "frac": 0.0,
                 "how": "stats",
                 "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb."
+              },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged [carried from p150a]"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -4183,7 +4204,7 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 440,
+                "served": 232,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -4217,8 +4238,8 @@
                 "how": "stats"
               },
               "TRIATT_SDPA_HIFI": {
-                "resolved": "openfold3.trunk",
-                "served": 384,
+                "resolved": "openfold3.confidence,openfold3.msa,openfold3.template,openfold3.trunk",
+                "served": 440,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-dict"
@@ -4290,36 +4311,38 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 315,
+                "served": 333,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
               },
               "FP32_SOFTMAX_BIAS_HOIST": {
                 "resolved": "True",
-                "served": 56,
-                "declined": 56,
-                "frac": 0.5,
-                "how": "stats-dict"
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "OpenFold3's triangle attention takes the fused HiFi4 route at every site (4d8ffc1d1 confidence+trunk, 400557018 template+msa), so the fp32-softmax path this lever acts on is no longer called"
               },
               "FP32_SOFTMAX_L1_GRID": {
                 "resolved": "(8, 8)",
-                "served": 5936,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats-dict"
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "OpenFold3's triangle attention takes the fused HiFi4 route at every site (4d8ffc1d1 confidence+trunk, 400557018 template+msa), so the fp32-softmax path this lever acts on is no longer called"
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 440,
+                "declined": 232,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
                   "l1_dest_is_faster:640x640x64": 16,
-                  "l1_dest_is_faster:640x640x128": 424
+                  "l1_dest_is_faster:640x640x128": 216
                 },
-                "reason": "declines all 440 calls on l1_dest_is_faster:640x640x128 x424, l1_dest_is_faster:640x640x64 x16: the row-major route needs a DRAM destination for a 3-D bf16 tiled pair tensor; wrap-counted, so the clause is not recorded"
+                "reason": "declines all 232 calls on l1_dest_is_faster:640x640x128 x216, l1_dest_is_faster:640x640x64 x16: the row-major route needs a DRAM destination for a 3-D bf16 tiled pair tensor; wrap-counted, so the clause is not recorded"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -4385,9 +4408,9 @@
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 384,
+                "served": 440,
                 "declined": 2,
-                "frac": 0.9948186528497409,
+                "frac": 0.995475113122172,
                 "how": "stats",
                 "rejects": {
                   "l1_budget": 2
@@ -4408,6 +4431,14 @@
                 "frac": 0.0,
                 "how": "stats",
                 "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb."
+              },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged [carried from p150a]"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -4488,7 +4519,7 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 440,
+                "served": 232,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -4522,8 +4553,8 @@
                 "how": "stats"
               },
               "TRIATT_SDPA_HIFI": {
-                "resolved": "openfold3.trunk",
-                "served": 384,
+                "resolved": "openfold3.confidence,openfold3.msa,openfold3.template,openfold3.trunk",
+                "served": 440,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-dict"
@@ -4595,33 +4626,35 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 315,
+                "served": 333,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
               },
               "FP32_SOFTMAX_BIAS_HOIST": {
                 "resolved": "True",
-                "served": 56,
-                "declined": 56,
-                "frac": 0.5,
-                "how": "stats-dict"
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "OpenFold3's triangle attention takes the fused HiFi4 route at every site (4d8ffc1d1 confidence+trunk, 400557018 template+msa), so the fp32-softmax path this lever acts on is no longer called"
               },
               "FP32_SOFTMAX_L1_GRID": {
                 "resolved": "(8, 8)",
-                "served": 5942,
-                "declined": 2,
-                "frac": 0.9996635262449529,
-                "how": "stats-dict"
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "OpenFold3's triangle attention takes the fused HiFi4 route at every site (4d8ffc1d1 confidence+trunk, 400557018 template+msa), so the fp32-softmax path this lever acts on is no longer called"
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 424,
-                "declined": 16,
-                "frac": 0.9636363636363636,
+                "served": 231,
+                "declined": 2,
+                "frac": 0.9914163090128756,
                 "how": "wrap",
                 "rejects": {
-                  "l1_dest_is_faster:768x768x64": 16
+                  "l1_dest_is_faster:768x768x64": 2
                 }
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
@@ -4689,9 +4722,9 @@
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 384,
+                "served": 440,
                 "declined": 4,
-                "frac": 0.9896907216494846,
+                "frac": 0.990990990990991,
                 "how": "stats",
                 "rejects": {
                   "l1_budget": 4
@@ -4712,6 +4745,14 @@
                 "frac": 0.0,
                 "how": "stats",
                 "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb."
+              },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged [carried from p150a]"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -4793,8 +4834,8 @@
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
                 "served": 16,
-                "declined": 424,
-                "frac": 0.03636363636363636,
+                "declined": 216,
+                "frac": 0.06896551724137931,
                 "how": "wrap"
               },
               "SDPA_Q_CHUNK_FITS": {
@@ -4826,8 +4867,8 @@
                 "how": "stats"
               },
               "TRIATT_SDPA_HIFI": {
-                "resolved": "openfold3.trunk",
-                "served": 384,
+                "resolved": "openfold3.confidence,openfold3.msa,openfold3.template,openfold3.trunk",
+                "served": 440,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-dict"
@@ -4899,30 +4940,32 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 315,
+                "served": 333,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
               },
               "FP32_SOFTMAX_BIAS_HOIST": {
                 "resolved": "True",
-                "served": 56,
-                "declined": 56,
-                "frac": 0.5,
-                "how": "stats-dict"
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "OpenFold3's triangle attention takes the fused HiFi4 route at every site (4d8ffc1d1 confidence+trunk, 400557018 template+msa), so the fp32-softmax path this lever acts on is no longer called"
               },
               "FP32_SOFTMAX_L1_GRID": {
                 "resolved": "(8, 8)",
-                "served": 16688,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats-dict"
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "OpenFold3's triangle attention takes the fused HiFi4 route at every site (4d8ffc1d1 confidence+trunk, 400557018 template+msa), so the fp32-softmax path this lever acts on is no longer called"
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 439,
+                "served": 231,
                 "declined": 2,
-                "frac": 0.9954648526077098,
+                "frac": 0.9914163090128756,
                 "how": "wrap",
                 "rejects": {
                   "l1_dest_is_faster:896x896x64": 2
@@ -4993,9 +5036,9 @@
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 384,
+                "served": 440,
                 "declined": 4,
-                "frac": 0.9896907216494846,
+                "frac": 0.990990990990991,
                 "how": "stats",
                 "rejects": {
                   "l1_budget": 4
@@ -5016,6 +5059,14 @@
                 "frac": 0.0,
                 "how": "stats",
                 "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb."
+              },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged [carried from p150a]"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -5097,8 +5148,8 @@
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
                 "served": 16,
-                "declined": 424,
-                "frac": 0.03636363636363636,
+                "declined": 216,
+                "frac": 0.06896551724137931,
                 "how": "wrap"
               },
               "SDPA_Q_CHUNK_FITS": {
@@ -5130,8 +5181,8 @@
                 "how": "stats"
               },
               "TRIATT_SDPA_HIFI": {
-                "resolved": "openfold3.trunk",
-                "served": 384,
+                "resolved": "openfold3.confidence,openfold3.msa,openfold3.template,openfold3.trunk",
+                "served": 440,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-dict"
@@ -5203,33 +5254,35 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 315,
+                "served": 333,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
               },
               "FP32_SOFTMAX_BIAS_HOIST": {
                 "resolved": "True",
-                "served": 56,
-                "declined": 56,
-                "frac": 0.5,
-                "how": "stats-dict"
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "OpenFold3's triangle attention takes the fused HiFi4 route at every site (4d8ffc1d1 confidence+trunk, 400557018 template+msa), so the fp32-softmax path this lever acts on is no longer called"
               },
               "FP32_SOFTMAX_L1_GRID": {
                 "resolved": "(8, 8)",
-                "served": 19096,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats-dict"
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "OpenFold3's triangle attention takes the fused HiFi4 route at every site (4d8ffc1d1 confidence+trunk, 400557018 template+msa), so the fp32-softmax path this lever acts on is no longer called"
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 424,
-                "declined": 16,
-                "frac": 0.9636363636363636,
+                "served": 224,
+                "declined": 1,
+                "frac": 0.9955555555555555,
                 "how": "wrap",
                 "rejects": {
-                  "l1_dest_is_faster:1024x1024x64": 16
+                  "l1_dest_is_faster:1024x1024x64": 1
                 }
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
@@ -5298,9 +5351,9 @@
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 384,
+                "served": 440,
                 "declined": 5,
-                "frac": 0.987146529562982,
+                "frac": 0.9887640449438202,
                 "how": "stats",
                 "rejects": {
                   "l1_budget": 5
@@ -5321,6 +5374,14 @@
                 "frac": 0.0,
                 "how": "stats",
                 "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb."
+              },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged [carried from p150a]"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -5401,9 +5462,9 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 16,
-                "declined": 424,
-                "frac": 0.03636363636363636,
+                "served": 8,
+                "declined": 216,
+                "frac": 0.03571428571428571,
                 "how": "wrap"
               },
               "SDPA_Q_CHUNK_FITS": {
@@ -5435,8 +5496,8 @@
                 "how": "stats"
               },
               "TRIATT_SDPA_HIFI": {
-                "resolved": "openfold3.trunk",
-                "served": 384,
+                "resolved": "openfold3.confidence,openfold3.msa,openfold3.template,openfold3.trunk",
+                "served": 440,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-dict"
@@ -5445,30 +5506,30 @@
           },
           "runtime_reps_s": {
             "256": [
-              9.2,
-              8.9,
-              9.0,
-              9.0,
-              9.3
+              4.7,
+              4.6,
+              4.4,
+              4.2,
+              4.8
             ],
             "512": [
-              17.8,
-              18.4,
-              18.3,
-              18.2,
-              18.5
+              10.1,
+              10.1,
+              10.8,
+              10.4,
+              10.5
             ],
             "640": [
-              26.0
+              15.9
             ],
             "768": [
-              37.4
+              21.4
             ],
             "896": [
-              49.2
+              29.6
             ],
             "1024": [
-              59.7
+              39.6
             ]
           },
           "aiclk": {
@@ -5483,7 +5544,7 @@
                 1350,
                 1350
               ],
-              "n": 35
+              "n": 25
             },
             "512": {
               "card": "0",
@@ -5496,9 +5557,27 @@
                 1350,
                 1350
               ],
-              "n": 45
+              "n": 30
             },
             "640": {
+              "card": "0",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1350
+              ],
+              "n": 7
+            },
+            "768": {
+              "card": "0",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1331
+              ],
+              "n": 9
+            },
+            "896": {
               "card": "0",
               "min": 800,
               "max": 1350,
@@ -5507,7 +5586,7 @@
               ],
               "n": 10
             },
-            "768": {
+            "1024": {
               "card": "0",
               "min": 800,
               "max": 1350,
@@ -5515,69 +5594,51 @@
                 1350
               ],
               "n": 12
-            },
-            "896": {
-              "card": "0",
-              "min": 800,
-              "max": 1350,
-              "rep_median": [
-                1350
-              ],
-              "n": 14
-            },
-            "1024": {
-              "card": "0",
-              "min": 800,
-              "max": 1350,
-              "rep_median": [
-                1350
-              ],
-              "n": 16
             }
           },
           "load": {
             "256": {
-              "max": 0.46,
+              "max": 0.35,
               "rep_median": [
-                0.4,
-                0.4,
-                0.44,
-                0.37,
-                0.34
+                0.33,
+                0.28,
+                0.28,
+                0.27,
+                0.28
               ]
             },
             "512": {
-              "max": 0.64,
+              "max": 0.38,
               "rep_median": [
-                0.48,
-                0.55,
-                0.58,
-                0.46,
-                0.42
+                0.35,
+                0.31,
+                0.36,
+                0.29,
+                0.27
               ]
             },
             "640": {
-              "max": 0.65,
+              "max": 0.3,
               "rep_median": [
-                0.57
+                0.3
               ]
             },
             "768": {
-              "max": 0.57,
+              "max": 0.32,
               "rep_median": [
-                0.5
+                0.31
               ]
             },
             "896": {
-              "max": 0.42,
+              "max": 0.34,
               "rep_median": [
-                0.37
+                0.32
               ]
             },
             "1024": {
-              "max": 0.18,
+              "max": 0.34,
               "rep_median": [
-                0.13
+                0.33
               ]
             }
           },
@@ -5586,82 +5647,83 @@
               "file": "cdk2x2_256.cif",
               "steps": 6,
               "n_ca": 256,
-              "clash_frac": 0.0156,
+              "clash_frac": 0.0,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 102.2393,
-              "radius_of_gyration_A": 81.271,
-              "plddt_mean": 0.308577,
+              "ca_ca_median_A": 101.3699,
+              "radius_of_gyration_A": 80.978,
+              "plddt_mean": 0.30964,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 102.239 A outside [3.6, 4.0]",
+                "median CA-CA 101.370 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 81.3 A outside [9.0, 45.2]"
+                "radius of gyration 81.0 A outside [9.0, 45.2]"
               ]
             },
             "512": {
               "file": "cdk2x2_512.cif",
               "steps": 6,
               "n_ca": 512,
-              "clash_frac": 0.0469,
+              "clash_frac": 0.0293,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 101.3397,
-              "radius_of_gyration_A": 82.203,
-              "plddt_mean": 0.298713,
+              "ca_ca_median_A": 101.6484,
+              "radius_of_gyration_A": 82.415,
+              "plddt_mean": 0.299617,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 101.340 A outside [3.6, 4.0]",
+                "median CA-CA 101.648 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "4.7% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 82.2 A outside [11.8, 58.9]"
+                "2.9% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 82.4 A outside [11.8, 58.9]"
               ]
             },
             "640": {
               "file": "cdk2x2_640.cif",
               "steps": 6,
               "n_ca": 640,
-              "clash_frac": 0.0219,
-              "chain_break_frac": 0.9984,
-              "ca_ca_median_A": 98.0,
-              "radius_of_gyration_A": 81.172,
-              "plddt_mean": 0.293496,
+              "clash_frac": 0.0281,
+              "chain_break_frac": 1.0,
+              "ca_ca_median_A": 97.9346,
+              "radius_of_gyration_A": 81.279,
+              "plddt_mean": 0.292912,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 98.000 A outside [3.6, 4.0]",
-                "99.8% of consecutive CA pairs exceed 5.0 A",
-                "2.2% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 81.2 A outside [12.8, 64.1]"
+                "median CA-CA 97.935 A outside [3.6, 4.0]",
+                "100.0% of consecutive CA pairs exceed 5.0 A",
+                "2.8% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 81.3 A outside [12.8, 64.1]"
               ]
             },
             "768": {
               "file": "cdk2x2_768.cif",
               "steps": 6,
               "n_ca": 768,
-              "clash_frac": 0.0286,
+              "clash_frac": 0.026,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 98.6396,
-              "radius_of_gyration_A": 78.752,
-              "plddt_mean": 0.297556,
+              "ca_ca_median_A": 98.7976,
+              "radius_of_gyration_A": 78.68,
+              "plddt_mean": 0.298334,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 98.640 A outside [3.6, 4.0]",
+                "median CA-CA 98.798 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "2.9% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 78.8 A outside [13.7, 68.7]"
+                "2.6% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 78.7 A outside [13.7, 68.7]"
               ]
             },
             "896": {
               "file": "cdk2x2_896.cif",
               "steps": 6,
               "n_ca": 896,
-              "clash_frac": 0.019,
+              "clash_frac": 0.048,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 102.9783,
-              "radius_of_gyration_A": 84.51,
-              "plddt_mean": 0.287417,
+              "ca_ca_median_A": 102.375,
+              "radius_of_gyration_A": 84.515,
+              "plddt_mean": 0.287364,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 102.978 A outside [3.6, 4.0]",
+                "median CA-CA 102.375 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
+                "4.8% of CA atoms sit under 3.5 A from a non-bonded CA",
                 "radius of gyration 84.5 A outside [14.6, 72.8]"
               ]
             },
@@ -5669,66 +5731,67 @@
               "file": "cdk2x2_1024.cif",
               "steps": 6,
               "n_ca": 1024,
-              "clash_frac": 0.0195,
+              "clash_frac": 0.0352,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 98.1544,
-              "radius_of_gyration_A": 81.32,
-              "plddt_mean": 0.297236,
+              "ca_ca_median_A": 99.581,
+              "radius_of_gyration_A": 81.816,
+              "plddt_mean": 0.297743,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 98.154 A outside [3.6, 4.0]",
+                "median CA-CA 99.581 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 81.3 A outside [15.3, 76.6]"
+                "3.5% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 81.8 A outside [15.3, 76.6]"
               ]
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.0148,
+          "sigma_runtime_512": 0.0284,
           "exponents": {
             "256->512": {
-              "k": 1.024,
+              "k": 1.177,
               "tol": 0.5
             },
             "512->768": {
-              "k": 1.763,
+              "k": 1.78,
               "tol": 0.5
             }
           },
           "sigma_runtime": {
-            "256": 0.0181,
-            "512": 0.0148
+            "256": 0.053,
+            "512": 0.0284
           },
           "exponents_measured": {
-            "256->512": 1.024,
-            "512->640": 1.574,
-            "640->768": 1.994,
-            "768->896": 1.779,
-            "896->1024": 1.449
+            "256->512": 1.177,
+            "512->640": 1.902,
+            "640->768": 1.629,
+            "768->896": 2.104,
+            "896->1024": 2.18
           }
         }
-      },
-      "host_threads": null
+      }
     },
     "tt-galaxy-wh-l": {
-      "recorded": "2026-09-24",
-      "host": "j10glx02",
-      "commit": "bc0c0f37",
+      "recorded": "2026-10-10",
+      "host": "UF-EV-A4-GWH01",
+      "commit": "92d5924f5",
+      "host_threads": 2,
       "models": {
         "openfold3": {
           "grid": "8x9",
-          "recorded": "2026-09-24",
-          "host": "j10glx02",
-          "commit": "bc0c0f37",
+          "recorded": "2026-10-10",
+          "host": "UF-EV-A4-GWH01",
+          "commit": "92d5924f5",
           "host_threads": 2,
           "runtime_s": {
-            "256": 13.8,
-            "512": 33.5,
-            "640": 53.1,
-            "768": 80.2,
-            "896": 112.3,
-            "1024": 147.4,
-            "1536": 481.2,
-            "1280": 370.0
+            "256": 15.6,
+            "512": 26.9,
+            "640": 57.4,
+            "768": 61.7,
+            "896": 88.5,
+            "1024": 111.6,
+            "1280": 197.9,
+            "1536": 282.4
           },
           "levers": {
             "256": {
@@ -5801,36 +5864,38 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 315,
+                "served": 333,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
               },
               "FP32_SOFTMAX_BIAS_HOIST": {
                 "resolved": "True",
-                "served": 56,
-                "declined": 56,
-                "frac": 0.5,
-                "how": "stats-dict"
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "OpenFold3's triangle attention takes the fused HiFi4 route at every site (4d8ffc1d1 confidence+trunk, 400557018 template+msa), so the fp32-softmax path this lever acts on is no longer called"
               },
               "FP32_SOFTMAX_L1_GRID": {
                 "resolved": "(9, 8)",
-                "served": 224,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats-dict"
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "OpenFold3's triangle attention takes the fused HiFi4 route at every site (4d8ffc1d1 confidence+trunk, 400557018 template+msa), so the fp32-softmax path this lever acts on is no longer called"
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 440,
+                "declined": 232,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
                   "l1_dest_is_faster:256x256x64": 16,
-                  "l1_dest_is_faster:256x256x128": 424
+                  "l1_dest_is_faster:256x256x128": 216
                 },
-                "reason": "declines all 440 calls on l1_dest_is_faster:256x256x128 x424, l1_dest_is_faster:256x256x64 x16: the row-major route needs a DRAM destination for a 3-D bf16 tiled pair tensor; wrap-counted, so the clause is not recorded [carried from p150a]"
+                "reason": "declines all 232 calls on l1_dest_is_faster:256x256x128 x216, l1_dest_is_faster:256x256x64 x16: the row-major route needs a DRAM destination for a 3-D bf16 tiled pair tensor; wrap-counted, so the clause is not recorded [carried from p150a]"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -5908,7 +5973,7 @@
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 384,
+                "served": 440,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -5928,6 +5993,14 @@
                 "frac": 0.0,
                 "how": "stats",
                 "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb. [carried from p300c] [carried from p150a]"
+              },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: never offered: the padded pair is tried only ahead of the first stock rung, and every triangle-attention call at this length is served by a dividing fused pair first. It exists for lengths with no dividing chunk (736 = 23 tiles), which no ladder rung is"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -6008,7 +6081,7 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 440,
+                "served": 232,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -6042,19 +6115,11 @@
                 "how": "stats"
               },
               "TRIATT_SDPA_HIFI": {
-                "resolved": "openfold3.trunk",
-                "served": 384,
+                "resolved": "openfold3.confidence,openfold3.msa,openfold3.template,openfold3.trunk",
+                "served": 440,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-dict"
-              },
-              "SDPA_FUSED_PADDED": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: never offered: the padded pair is tried only ahead of the first stock rung, and every triangle-attention call at this length is served by a dividing fused pair first. It exists for lengths with no dividing chunk (736 = 23 tiles), which no ladder rung is"
               }
             },
             "512": {
@@ -6123,36 +6188,38 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 315,
+                "served": 333,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
               },
               "FP32_SOFTMAX_BIAS_HOIST": {
                 "resolved": "True",
-                "served": 56,
-                "declined": 56,
-                "frac": 0.5,
-                "how": "stats-dict"
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "OpenFold3's triangle attention takes the fused HiFi4 route at every site (4d8ffc1d1 confidence+trunk, 400557018 template+msa), so the fp32-softmax path this lever acts on is no longer called"
               },
               "FP32_SOFTMAX_L1_GRID": {
                 "resolved": "(9, 8)",
-                "served": 3136,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats-dict"
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "OpenFold3's triangle attention takes the fused HiFi4 route at every site (4d8ffc1d1 confidence+trunk, 400557018 template+msa), so the fp32-softmax path this lever acts on is no longer called"
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 440,
+                "declined": 232,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
                   "l1_dest_is_faster:512x512x64": 16,
-                  "l1_dest_is_faster:512x512x128": 424
+                  "l1_dest_is_faster:512x512x128": 216
                 },
-                "reason": "declines all 440 calls on l1_dest_is_faster:512x512x128 x424, l1_dest_is_faster:512x512x64 x16: the row-major route needs a DRAM destination for a 3-D bf16 tiled pair tensor; wrap-counted, so the clause is not recorded [carried from p150a]"
+                "reason": "declines all 232 calls on l1_dest_is_faster:512x512x128 x216, l1_dest_is_faster:512x512x64 x16: the row-major route needs a DRAM destination for a 3-D bf16 tiled pair tensor; wrap-counted, so the clause is not recorded [carried from p150a]"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -6218,9 +6285,9 @@
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 384,
+                "served": 440,
                 "declined": 2,
-                "frac": 0.9948186528497409,
+                "frac": 0.995475113122172,
                 "how": "stats",
                 "rejects": {
                   "l1_budget": 2
@@ -6241,6 +6308,14 @@
                 "frac": 0.0,
                 "how": "stats",
                 "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb. [carried from p300c] [carried from p150a]"
+              },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: never offered: the padded pair is tried only ahead of the first stock rung, and every triangle-attention call at this length is served by a dividing fused pair first. It exists for lengths with no dividing chunk (736 = 23 tiles), which no ladder rung is"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -6321,7 +6396,7 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 440,
+                "served": 232,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -6360,19 +6435,11 @@
                 "reason": "declines all 232 calls on base-unraised x220, h-clamped-to-H x12: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tenstorrent.TRANSITION_H_CHUNK_BIG_MAX_W). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 above 384 tokens on every model and the lever has no Wormhole raise to decline"
               },
               "TRIATT_SDPA_HIFI": {
-                "resolved": "openfold3.trunk",
-                "served": 384,
+                "resolved": "openfold3.confidence,openfold3.msa,openfold3.template,openfold3.trunk",
+                "served": 440,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-dict"
-              },
-              "SDPA_FUSED_PADDED": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: never offered: the padded pair is tried only ahead of the first stock rung, and every triangle-attention call at this length is served by a dividing fused pair first. It exists for lengths with no dividing chunk (736 = 23 tiles), which no ladder rung is"
               }
             },
             "640": {
@@ -6441,30 +6508,32 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 315,
+                "served": 333,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
               },
               "FP32_SOFTMAX_BIAS_HOIST": {
                 "resolved": "True",
-                "served": 56,
-                "declined": 56,
-                "frac": 0.5,
-                "how": "stats-dict"
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "OpenFold3's triangle attention takes the fused HiFi4 route at every site (4d8ffc1d1 confidence+trunk, 400557018 template+msa), so the fp32-softmax path this lever acts on is no longer called"
               },
               "FP32_SOFTMAX_L1_GRID": {
                 "resolved": "(9, 8)",
-                "served": 5096,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats-dict"
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "OpenFold3's triangle attention takes the fused HiFi4 route at every site (4d8ffc1d1 confidence+trunk, 400557018 template+msa), so the fp32-softmax path this lever acts on is no longer called"
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 439,
+                "served": 231,
                 "declined": 2,
-                "frac": 0.9954648526077098,
+                "frac": 0.9914163090128756,
                 "how": "wrap",
                 "rejects": {
                   "l1_dest_is_faster:640x640x64": 2
@@ -6535,9 +6604,9 @@
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 384,
+                "served": 440,
                 "declined": 2,
-                "frac": 0.9948186528497409,
+                "frac": 0.995475113122172,
                 "how": "stats",
                 "rejects": {
                   "l1_budget": 2
@@ -6558,6 +6627,14 @@
                 "frac": 0.0,
                 "how": "stats",
                 "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb. [carried from p300c] [carried from p150a]"
+              },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: never offered: the padded pair is tried only ahead of the first stock rung, and every triangle-attention call at this length is served by a dividing fused pair first. It exists for lengths with no dividing chunk (736 = 23 tiles), which no ladder rung is"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -6639,8 +6716,8 @@
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
                 "served": 16,
-                "declined": 424,
-                "frac": 0.03636363636363636,
+                "declined": 216,
+                "frac": 0.06896551724137931,
                 "how": "wrap"
               },
               "SDPA_Q_CHUNK_FITS": {
@@ -6677,19 +6754,11 @@
                 "reason": "declines all 232 calls on base-unraised x220, h-clamped-to-H x12: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tenstorrent.TRANSITION_H_CHUNK_BIG_MAX_W). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 above 384 tokens on every model and the lever has no Wormhole raise to decline"
               },
               "TRIATT_SDPA_HIFI": {
-                "resolved": "openfold3.trunk",
-                "served": 384,
+                "resolved": "openfold3.confidence,openfold3.msa,openfold3.template,openfold3.trunk",
+                "served": 440,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-dict"
-              },
-              "SDPA_FUSED_PADDED": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: never offered: the padded pair is tried only ahead of the first stock rung, and every triangle-attention call at this length is served by a dividing fused pair first. It exists for lengths with no dividing chunk (736 = 23 tiles), which no ladder rung is"
               }
             },
             "768": {
@@ -6758,30 +6827,32 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 315,
+                "served": 333,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
               },
               "FP32_SOFTMAX_BIAS_HOIST": {
                 "resolved": "True",
-                "served": 56,
-                "declined": 56,
-                "frac": 0.5,
-                "how": "stats-dict"
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "OpenFold3's triangle attention takes the fused HiFi4 route at every site (4d8ffc1d1 confidence+trunk, 400557018 template+msa), so the fp32-softmax path this lever acts on is no longer called"
               },
               "FP32_SOFTMAX_L1_GRID": {
                 "resolved": "(9, 8)",
-                "served": 10561,
-                "declined": 1,
-                "frac": 0.9999053209619391,
-                "how": "stats-dict"
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "OpenFold3's triangle attention takes the fused HiFi4 route at every site (4d8ffc1d1 confidence+trunk, 400557018 template+msa), so the fp32-softmax path this lever acts on is no longer called"
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 439,
+                "served": 231,
                 "declined": 2,
-                "frac": 0.9954648526077098,
+                "frac": 0.9914163090128756,
                 "how": "wrap",
                 "rejects": {
                   "l1_dest_is_faster:768x768x64": 2
@@ -6852,9 +6923,9 @@
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 384,
+                "served": 440,
                 "declined": 4,
-                "frac": 0.9896907216494846,
+                "frac": 0.990990990990991,
                 "how": "stats",
                 "rejects": {
                   "l1_budget": 4
@@ -6875,6 +6946,14 @@
                 "frac": 0.0,
                 "how": "stats",
                 "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb. [carried from p300c] [carried from p150a]"
+              },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: never offered: the padded pair is tried only ahead of the first stock rung, and every triangle-attention call at this length is served by a dividing fused pair first. It exists for lengths with no dividing chunk (736 = 23 tiles), which no ladder rung is"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -6956,8 +7035,8 @@
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
                 "served": 16,
-                "declined": 424,
-                "frac": 0.03636363636363636,
+                "declined": 216,
+                "frac": 0.06896551724137931,
                 "how": "wrap"
               },
               "SDPA_Q_CHUNK_FITS": {
@@ -6994,19 +7073,11 @@
                 "reason": "declines all 232 calls on base-unraised x220, h-clamped-to-H x12: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tenstorrent.TRANSITION_H_CHUNK_BIG_MAX_W). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 above 384 tokens on every model and the lever has no Wormhole raise to decline"
               },
               "TRIATT_SDPA_HIFI": {
-                "resolved": "openfold3.trunk",
-                "served": 384,
+                "resolved": "openfold3.confidence,openfold3.msa,openfold3.template,openfold3.trunk",
+                "served": 440,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-dict"
-              },
-              "SDPA_FUSED_PADDED": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: never offered: the padded pair is tried only ahead of the first stock rung, and every triangle-attention call at this length is served by a dividing fused pair first. It exists for lengths with no dividing chunk (736 = 23 tiles), which no ladder rung is"
               }
             },
             "896": {
@@ -7075,28 +7146,30 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 315,
+                "served": 333,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
               },
               "FP32_SOFTMAX_BIAS_HOIST": {
                 "resolved": "True",
-                "served": 56,
-                "declined": 56,
-                "frac": 0.5,
-                "how": "stats-dict"
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "OpenFold3's triangle attention takes the fused HiFi4 route at every site (4d8ffc1d1 confidence+trunk, 400557018 template+msa), so the fp32-softmax path this lever acts on is no longer called"
               },
               "FP32_SOFTMAX_L1_GRID": {
                 "resolved": "(9, 8)",
-                "served": 24642,
-                "declined": 1,
-                "frac": 0.9999594205250985,
-                "how": "stats-dict"
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "OpenFold3's triangle attention takes the fused HiFi4 route at every site (4d8ffc1d1 confidence+trunk, 400557018 template+msa), so the fp32-softmax path this lever acts on is no longer called"
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 440,
+                "served": 224,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -7167,9 +7240,9 @@
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 384,
+                "served": 440,
                 "declined": 4,
-                "frac": 0.9896907216494846,
+                "frac": 0.990990990990991,
                 "how": "stats",
                 "rejects": {
                   "l1_budget": 4
@@ -7190,6 +7263,14 @@
                 "frac": 0.0,
                 "how": "stats",
                 "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb. [carried from p300c] [carried from p150a]"
+              },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: never offered: the padded pair is tried only ahead of the first stock rung, and every triangle-attention call at this length is served by a dividing fused pair first. It exists for lengths with no dividing chunk (736 = 23 tiles), which no ladder rung is"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -7271,10 +7352,10 @@
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
                 "served": 0,
-                "declined": 440,
+                "declined": 224,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "declines all 440 calls: it is a fit test, not a tuned constant, and the pair tensor stops fitting one rung earlier on this grid. PAIR_TRANSPOSE_VIA_ROW_MAJOR takes over the same calls exactly: TRANSPOSE_L1_RESIDENT serves every call at 256 and 512 and the row-major route serves none, then the two swap, and from 896 up the row-major route serves all of them. One of the pair serves at every rung, so no transpose is unoptimised at any size. The Blackhole cards make the same swap at 768; 8x9 Wormhole cores hold less L1, so the headroom test flips at 640. At 1280 and 1536 it serves again: the row-blocked triangle-attention path transposes one row block at a time, and a block fits L1 where the whole pair tensor did not"
+                "reason": "declines all 224 calls: it is a fit test, not a tuned constant, and the pair tensor stops fitting one rung earlier on this grid. PAIR_TRANSPOSE_VIA_ROW_MAJOR takes over the same calls exactly: TRANSPOSE_L1_RESIDENT serves every call at 256 and 512 and the row-major route serves none, then the two swap, and from 896 up the row-major route serves all of them. One of the pair serves at every rung, so no transpose is unoptimised at any size. The Blackhole cards make the same swap at 768; 8x9 Wormhole cores hold less L1, so the headroom test flips at 640. At 1280 and 1536 it serves again: the row-blocked triangle-attention path transposes one row block at a time, and a block fits L1 where the whole pair tensor did not"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -7311,19 +7392,11 @@
                 "reason": "declines all 232 calls on ratio-shrunk x212, h-clamped-to-H x12, base-unraised x8: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tenstorrent.TRANSITION_H_CHUNK_BIG_MAX_W). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 above 384 tokens on every model and the lever has no Wormhole raise to decline"
               },
               "TRIATT_SDPA_HIFI": {
-                "resolved": "openfold3.trunk",
-                "served": 384,
+                "resolved": "openfold3.confidence,openfold3.msa,openfold3.template,openfold3.trunk",
+                "served": 440,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-dict"
-              },
-              "SDPA_FUSED_PADDED": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: never offered: the padded pair is tried only ahead of the first stock rung, and every triangle-attention call at this length is served by a dividing fused pair first. It exists for lengths with no dividing chunk (736 = 23 tiles), which no ladder rung is"
               }
             },
             "1024": {
@@ -7392,28 +7465,30 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 315,
+                "served": 333,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
               },
               "FP32_SOFTMAX_BIAS_HOIST": {
                 "resolved": "True",
-                "served": 56,
-                "declined": 56,
-                "frac": 0.5,
-                "how": "stats-dict"
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "OpenFold3's triangle attention takes the fused HiFi4 route at every site (4d8ffc1d1 confidence+trunk, 400557018 template+msa), so the fp32-softmax path this lever acts on is no longer called"
               },
               "FP32_SOFTMAX_L1_GRID": {
                 "resolved": "(9, 8)",
-                "served": 28162,
-                "declined": 1,
-                "frac": 0.9999644924191314,
-                "how": "stats-dict"
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "OpenFold3's triangle attention takes the fused HiFi4 route at every site (4d8ffc1d1 confidence+trunk, 400557018 template+msa), so the fp32-softmax path this lever acts on is no longer called"
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 440,
+                "served": 224,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -7484,9 +7559,9 @@
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 384,
+                "served": 440,
                 "declined": 5,
-                "frac": 0.987146529562982,
+                "frac": 0.9887640449438202,
                 "how": "stats",
                 "rejects": {
                   "l1_budget": 5
@@ -7507,6 +7582,14 @@
                 "frac": 0.0,
                 "how": "stats",
                 "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb. [carried from p300c] [carried from p150a]"
+              },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: never offered: the padded pair is tried only ahead of the first stock rung, and every triangle-attention call at this length is served by a dividing fused pair first. It exists for lengths with no dividing chunk (736 = 23 tiles), which no ladder rung is"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -7588,10 +7671,10 @@
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
                 "served": 0,
-                "declined": 440,
+                "declined": 224,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "declines all 440 calls: it is a fit test, not a tuned constant, and the pair tensor stops fitting one rung earlier on this grid. PAIR_TRANSPOSE_VIA_ROW_MAJOR takes over the same calls exactly: TRANSPOSE_L1_RESIDENT serves every call at 256 and 512 and the row-major route serves none, then the two swap, and from 896 up the row-major route serves all of them. One of the pair serves at every rung, so no transpose is unoptimised at any size. The Blackhole cards make the same swap at 768; 8x9 Wormhole cores hold less L1, so the headroom test flips at 640. At 1280 and 1536 it serves again: the row-blocked triangle-attention path transposes one row block at a time, and a block fits L1 where the whole pair tensor did not"
+                "reason": "declines all 224 calls: it is a fit test, not a tuned constant, and the pair tensor stops fitting one rung earlier on this grid. PAIR_TRANSPOSE_VIA_ROW_MAJOR takes over the same calls exactly: TRANSPOSE_L1_RESIDENT serves every call at 256 and 512 and the row-major route serves none, then the two swap, and from 896 up the row-major route serves all of them. One of the pair serves at every rung, so no transpose is unoptimised at any size. The Blackhole cards make the same swap at 768; 8x9 Wormhole cores hold less L1, so the headroom test flips at 640. At 1280 and 1536 it serves again: the row-blocked triangle-attention path transposes one row block at a time, and a block fits L1 where the whole pair tensor did not"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -7628,335 +7711,11 @@
                 "reason": "declines all 232 calls on ratio-shrunk x212, h-clamped-to-H x12, base-unraised x8: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tenstorrent.TRANSITION_H_CHUNK_BIG_MAX_W). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 above 384 tokens on every model and the lever has no Wormhole raise to decline"
               },
               "TRIATT_SDPA_HIFI": {
-                "resolved": "openfold3.trunk",
-                "served": 384,
+                "resolved": "openfold3.confidence,openfold3.msa,openfold3.template,openfold3.trunk",
+                "served": 440,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-dict"
-              },
-              "SDPA_FUSED_PADDED": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: never offered: the padded pair is tried only ahead of the first stock rung, and every triangle-attention call at this length is served by a dividing fused pair first. It exists for lengths with no dividing chunk (736 = 23 tiles), which no ladder rung is"
-              }
-            },
-            "1536": {
-              "SPLIT_SWIGLU": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: an ESMC lever; openfold3 does not run that module [carried from p300c] [carried from rung 768] [carried from p150a]"
-              },
-              "SPLIT_SWIGLU_SMALL_GRID": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats-shared",
-                "reason": "declines all 0 calls: an ESMC lever; openfold3 does not run that module [carried from p300c] [carried from rung 768] [carried from p150a]"
-              },
-              "PAIR_FFN_L1_FC1": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openfold3 does not run that module [carried from p300c] [carried from rung 768] [carried from p150a]"
-              },
-              "PAIR_FFN_L1_LN": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openfold3 does not run that module [carried from p300c] [carried from rung 768] [carried from p150a]"
-              },
-              "PAIR_FFN_L1_SLICE": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openfold3 does not run that module [carried from p300c] [carried from rung 768] [carried from p150a]"
-              },
-              "PAIR_FFN_FUSED_RESIDUAL": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openfold3 does not run that module [carried from p300c] [carried from rung 768] [carried from p150a]"
-              },
-              "PAIR_FFN_FILL_ASSEMBLY": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openfold3 does not run that module [carried from p300c] [carried from rung 768] [carried from p150a]"
-              },
-              "TRIMUL_IN_PROJ_DUAL_NOC": {
-                "resolved": "True",
-                "served": 1728,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
-              },
-              "ADALN_S_HOIST": {
-                "resolved": "True",
-                "served": 315,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "wrap"
-              },
-              "FP32_SOFTMAX_BIAS_HOIST": {
-                "resolved": "True",
-                "served": 276,
-                "declined": 278,
-                "frac": 0.4981949458483754,
-                "how": "stats-dict"
-              },
-              "FP32_SOFTMAX_L1_GRID": {
-                "resolved": "(9, 8)",
-                "served": 1,
-                "declined": 1,
-                "frac": 0.5,
-                "how": "stats-dict"
-              },
-              "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
-                "resolved": "True",
-                "served": 1728,
-                "declined": 3456,
-                "frac": 0.3333333333333333,
-                "how": "wrap",
-                "rejects": {
-                  "l1_dest_is_faster:1536x384x64": 64,
-                  "l1_dest_is_faster:1536x192x128": 3392
-                }
-              },
-              "PAIR_PROJ_MINIMAL_MATMUL": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 2412,
-                "frac": 0.0,
-                "how": "wrap",
-                "rejects": {
-                  "k_tiles=2:(2,1)": 56,
-                  "k_tiles=2:(2,2)": 24,
-                  "k_tiles=4:(4,1)": 2332
-                },
-                "reason": "declines all 2412 calls on k_tiles=4:(4,1) x2332, k_tiles=2:(2,1) x56, k_tiles=2:(2,2) x24: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one [carried from p300c] [carried from rung 768] [carried from p150a]"
-              },
-              "TRIMUL_TAIL_F1": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: F1_BLOCK_KEYS allow-lists only (8, 8) and openfold3's trimul tails resolve 4 and 2 K tiles, which are properties of c_hidden and not of N, so F1 is inert on this model at every size and not dark at this one. [carried from p150a]"
-              },
-              "QKV_MM_CONFIG": {
-                "resolved": "True",
-                "served": 7108,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "wrap"
-              },
-              "DEVICE_LM_HANDOFF": {
-                "resolved": "not-imported",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "stats"
-              },
-              "REBLOCK_PERMUTE": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "superseded at this rung, not broken: `TT_BIO_TRIMUL_MASK_AFTER_MOVE` moves the pair mask past the channel move, so the trimul reaches the fused gated kernel first and this ungated site is never called (0 served AND 0 declined). The handover is visible in this same baseline -- `REBLOCK_PERMUTE_GATED` serves 880 per fold here and 0 at 256 aa, which is the one rung where this ungated lever is still the one being called. The fused pair is bit-exact (perf/b2x_trimul/), so the traffic changed route without changing the answer. [carried from p300c] [carried from rung 1024] [carried from p150a]"
-              },
-              "REBLOCK_PERMUTE_BACK": {
-                "resolved": "True",
-                "served": 1728,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
-              },
-              "REBLOCK_PERMUTE_GATED": {
-                "resolved": "True",
-                "served": 3456,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
-              },
-              "TRIMUL_MASK_AFTER_MOVE": {
-                "resolved": "True",
-                "served": 3456,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats-shared"
-              },
-              "TRIATT_PERSISTENT_MASK": {
-                "resolved": "True",
-                "served": 2112,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
-              },
-              "SDPA_WIDE_K": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "structural, not size-specific: both of this lever's counter sites live inside `_tri_att_sdpa_at`'s `if len(k_chunks) > 1` block, and `_dividing_k_chunks` returns a single entry here because the shipped k of 256 divides the padded length of 1536, so K5 has no pick to change. The one other serve site is the above-cap fused route, which SDPA_FUSED_LARGE_S records as 0 served / 0 declined at the same rung. OpenFold3 barely reaches this function at all: all four of its tri-att sites pass fp32_softmax=True, and that branch of `_attend_heads` routes to `_tri_att_sdpa_hifi` or to `_fp32_softmax_attention`. [carried from p150a]"
-              },
-              "SDPA_FUSED_LARGE_S": {
-                "resolved": "True",
-                "served": 2112,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
-              },
-              "RFD3_SPARSE_BIAS": {
-                "resolved": "not-imported",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "stats"
-              },
-              "RFD3_FUSED_SCORES": {
-                "resolved": "not-imported",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "stats"
-              },
-              "TRIATT_HEAD_MAJOR_QKV": {
-                "resolved": "True",
-                "served": 2332,
-                "declined": 56,
-                "frac": 0.9765494137353434,
-                "how": "stats",
-                "rejects": {
-                  "head_dim_or_width": 56
-                }
-              },
-              "TRIATT_HEAD_MAJOR_TAIL": {
-                "resolved": "True",
-                "served": 2332,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
-              },
-              "TRIATT_TAIL_OVER_L1": {
-                "resolved": "True",
-                "served": 2332,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats-shared"
-              },
-              "B2_BIAS_SLICE_HOIST": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "wrap",
-                "reason": "declines all 0 calls: a boltz-2 diffusion lever; openfold3 does not run that module [carried from p300c] [carried from rung 768] [carried from p150a]"
-              },
-              "B2_ADALN_S_MEMO": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "wrap",
-                "reason": "declines all 0 calls: a boltz-2 diffusion lever; openfold3 does not run that module [carried from p300c] [carried from rung 768] [carried from p150a]"
-              },
-              "B2_TOKEN_DIT_SDPA": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter advances only where `AttentionPairBias.token_dit` is True (tt_bio/tenstorrent.py:8026), which only `DiffusionTransformerLayer` sets (`token_dit = not atom_level`, tt_bio/tenstorrent.py:9577) and only Boltz-2 builds (tt_bio/boltz2.py:2031); openfold3 never constructs it. Control in this same baseline: boltz2 serves 144 per fold at every rung. [carried from p300c] [carried from rung 1024] [carried from p150a]"
-              },
-              "APB_CONCAT_HEADS": {
-                "resolved": "False",
-                "served": 0,
-                "declined": 192,
-                "frac": 0.0,
-                "how": "stats"
-              },
-              "ATOM_AXIS_BUCKET": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter sits in `tenstorrent.DiffusionModule._populate_diffusion_cache` (tt_bio/tenstorrent.py:11271-11278), and `tenstorrent.DiffusionModule` is constructed only by Boltz-2 (tt_bio/boltz2.py:4232); openfold3 runs its own diffusion module and never reaches it. Control in this same baseline: boltz2 serves 6 per fold at every rung. [carried from p300c] [carried from rung 1024] [carried from p150a]"
-              },
-              "TRANSPOSE_L1_RESIDENT": {
-                "resolved": "1.25",
-                "served": 1728,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "wrap"
-              },
-              "SDPA_Q_CHUNK_FITS": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "setlen"
-              },
-              "RFD3_SOFTMAX_PV_FUSED": {
-                "resolved": "not-imported",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "stats"
-              },
-              "RFD3_FC1_SPLIT_SILU": {
-                "resolved": "not-imported",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "stats"
-              },
-              "TRANSITION_H_CHUNK": {
-                "resolved": "16",
-                "served": 0,
-                "declined": 232,
-                "frac": 0.0,
-                "how": "stats",
-                "rejects": {
-                  "base-unraised": 8,
-                  "h-clamped-to-H": 12,
-                  "ratio-shrunk": 212
-                },
-                "reason": "declines all 232 calls on ratio-shrunk x212, h-clamped-to-H x12, base-unraised x8: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tenstorrent.TRANSITION_H_CHUNK_BIG_MAX_W). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 above 384 tokens on every model and the lever has no Wormhole raise to decline"
-              },
-              "TRIATT_SDPA_HIFI": {
-                "resolved": "openfold3.trunk",
-                "served": 2112,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats-dict"
-              },
-              "SDPA_FUSED_PADDED": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: never offered: the padded pair is tried only ahead of the first stock rung, and every triangle-attention call at this length is served by a dividing fused pair first. It exists for lengths with no dividing chunk (736 = 23 tiles), which no ladder rung is"
               }
             },
             "1280": {
@@ -8025,24 +7784,26 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 315,
+                "served": 333,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
               },
               "FP32_SOFTMAX_BIAS_HOIST": {
                 "resolved": "True",
-                "served": 228,
-                "declined": 230,
-                "frac": 0.4978165938864629,
-                "how": "stats-dict"
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "OpenFold3's triangle attention takes the fused HiFi4 route at every site (4d8ffc1d1 confidence+trunk, 400557018 template+msa), so the fp32-softmax path this lever acts on is no longer called"
               },
               "FP32_SOFTMAX_L1_GRID": {
                 "resolved": "(9, 8)",
-                "served": 1,
-                "declined": 1,
-                "frac": 0.5,
-                "how": "stats-dict"
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "OpenFold3's triangle attention takes the fused HiFi4 route at every site (4d8ffc1d1 confidence+trunk, 400557018 template+msa), so the fp32-softmax path this lever acts on is no longer called"
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
@@ -8123,7 +7884,7 @@
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 1728,
+                "served": 1956,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -8138,10 +7899,18 @@
               },
               "SDPA_FUSED_LARGE_S": {
                 "resolved": "True",
-                "served": 1728,
+                "served": 1956,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
+              },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: never offered: the padded pair is tried only ahead of the first stock rung, and every triangle-attention call at this length is served by a dividing fused pair first. It exists for lengths with no dividing chunk (736 = 23 tiles), which no ladder rung is"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -8262,11 +8031,196 @@
                 "reason": "declines all 232 calls on ratio-shrunk x212, h-clamped-to-H x12, base-unraised x8: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tenstorrent.TRANSITION_H_CHUNK_BIG_MAX_W). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 above 384 tokens on every model and the lever has no Wormhole raise to decline"
               },
               "TRIATT_SDPA_HIFI": {
-                "resolved": "openfold3.trunk",
-                "served": 1728,
+                "resolved": "openfold3.confidence,openfold3.msa,openfold3.template,openfold3.trunk",
+                "served": 1956,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-dict"
+              }
+            },
+            "1536": {
+              "SPLIT_SWIGLU": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: an ESMC lever; openfold3 does not run that module [carried from p300c] [carried from rung 768] [carried from p150a]"
+              },
+              "SPLIT_SWIGLU_SMALL_GRID": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "declines all 0 calls: an ESMC lever; openfold3 does not run that module [carried from p300c] [carried from rung 768] [carried from p150a]"
+              },
+              "PAIR_FFN_L1_FC1": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openfold3 does not run that module [carried from p300c] [carried from rung 768] [carried from p150a]"
+              },
+              "PAIR_FFN_L1_LN": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openfold3 does not run that module [carried from p300c] [carried from rung 768] [carried from p150a]"
+              },
+              "PAIR_FFN_L1_SLICE": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openfold3 does not run that module [carried from p300c] [carried from rung 768] [carried from p150a]"
+              },
+              "PAIR_FFN_FUSED_RESIDUAL": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openfold3 does not run that module [carried from p300c] [carried from rung 768] [carried from p150a]"
+              },
+              "PAIR_FFN_FILL_ASSEMBLY": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openfold3 does not run that module [carried from p300c] [carried from rung 768] [carried from p150a]"
+              },
+              "TRIMUL_IN_PROJ_DUAL_NOC": {
+                "resolved": "True",
+                "served": 1728,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "ADALN_S_HOIST": {
+                "resolved": "True",
+                "served": 333,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "FP32_SOFTMAX_BIAS_HOIST": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "OpenFold3's triangle attention takes the fused HiFi4 route at every site (4d8ffc1d1 confidence+trunk, 400557018 template+msa), so the fp32-softmax path this lever acts on is no longer called"
+              },
+              "FP32_SOFTMAX_L1_GRID": {
+                "resolved": "(9, 8)",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "OpenFold3's triangle attention takes the fused HiFi4 route at every site (4d8ffc1d1 confidence+trunk, 400557018 template+msa), so the fp32-softmax path this lever acts on is no longer called"
+              },
+              "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
+                "resolved": "True",
+                "served": 1728,
+                "declined": 3456,
+                "frac": 0.3333333333333333,
+                "how": "wrap",
+                "rejects": {
+                  "l1_dest_is_faster:1536x384x64": 64,
+                  "l1_dest_is_faster:1536x192x128": 3392
+                }
+              },
+              "PAIR_PROJ_MINIMAL_MATMUL": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 2412,
+                "frac": 0.0,
+                "how": "wrap",
+                "rejects": {
+                  "k_tiles=2:(2,1)": 56,
+                  "k_tiles=2:(2,2)": 24,
+                  "k_tiles=4:(4,1)": 2332
+                },
+                "reason": "declines all 2412 calls on k_tiles=4:(4,1) x2332, k_tiles=2:(2,1) x56, k_tiles=2:(2,2) x24: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one [carried from p300c] [carried from rung 768] [carried from p150a]"
+              },
+              "TRIMUL_TAIL_F1": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: F1_BLOCK_KEYS allow-lists only (8, 8) and openfold3's trimul tails resolve 4 and 2 K tiles, which are properties of c_hidden and not of N, so F1 is inert on this model at every size and not dark at this one. [carried from p150a]"
+              },
+              "QKV_MM_CONFIG": {
+                "resolved": "True",
+                "served": 7108,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "DEVICE_LM_HANDOFF": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "superseded at this rung, not broken: `TT_BIO_TRIMUL_MASK_AFTER_MOVE` moves the pair mask past the channel move, so the trimul reaches the fused gated kernel first and this ungated site is never called (0 served AND 0 declined). The handover is visible in this same baseline -- `REBLOCK_PERMUTE_GATED` serves 880 per fold here and 0 at 256 aa, which is the one rung where this ungated lever is still the one being called. The fused pair is bit-exact (perf/b2x_trimul/), so the traffic changed route without changing the answer. [carried from p300c] [carried from rung 1024] [carried from p150a]"
+              },
+              "REBLOCK_PERMUTE_BACK": {
+                "resolved": "True",
+                "served": 1728,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE_GATED": {
+                "resolved": "True",
+                "served": 3456,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIMUL_MASK_AFTER_MOVE": {
+                "resolved": "True",
+                "served": 3456,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
+              },
+              "TRIATT_PERSISTENT_MASK": {
+                "resolved": "True",
+                "served": 2388,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "SDPA_WIDE_K": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "structural, not size-specific: both of this lever's counter sites live inside `_tri_att_sdpa_at`'s `if len(k_chunks) > 1` block, and `_dividing_k_chunks` returns a single entry here because the shipped k of 256 divides the padded length of 1536, so K5 has no pick to change. The one other serve site is the above-cap fused route, which SDPA_FUSED_LARGE_S records as 0 served / 0 declined at the same rung. OpenFold3 barely reaches this function at all: all four of its tri-att sites pass fp32_softmax=True, and that branch of `_attend_heads` routes to `_tri_att_sdpa_hifi` or to `_fp32_softmax_attention`. [carried from p150a]"
+              },
+              "SDPA_FUSED_LARGE_S": {
+                "resolved": "True",
+                "served": 2388,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "SDPA_FUSED_PADDED": {
                 "resolved": "True",
@@ -8275,46 +8229,171 @@
                 "frac": 0.0,
                 "how": "stats",
                 "reason": "declines all 0 calls: never offered: the padded pair is tried only ahead of the first stock rung, and every triangle-attention call at this length is served by a dividing fused pair first. It exists for lengths with no dividing chunk (736 = 23 tiles), which no ladder rung is"
+              },
+              "RFD3_SPARSE_BIAS": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FUSED_SCORES": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "TRIATT_HEAD_MAJOR_QKV": {
+                "resolved": "True",
+                "served": 2332,
+                "declined": 56,
+                "frac": 0.9765494137353434,
+                "how": "stats",
+                "rejects": {
+                  "head_dim_or_width": 56
+                }
+              },
+              "TRIATT_HEAD_MAJOR_TAIL": {
+                "resolved": "True",
+                "served": 2332,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIATT_TAIL_OVER_L1": {
+                "resolved": "True",
+                "served": 2332,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
+              },
+              "B2_BIAS_SLICE_HOIST": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "declines all 0 calls: a boltz-2 diffusion lever; openfold3 does not run that module [carried from p300c] [carried from rung 768] [carried from p150a]"
+              },
+              "B2_ADALN_S_MEMO": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "declines all 0 calls: a boltz-2 diffusion lever; openfold3 does not run that module [carried from p300c] [carried from rung 768] [carried from p150a]"
+              },
+              "B2_TOKEN_DIT_SDPA": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter advances only where `AttentionPairBias.token_dit` is True (tt_bio/tenstorrent.py:8026), which only `DiffusionTransformerLayer` sets (`token_dit = not atom_level`, tt_bio/tenstorrent.py:9577) and only Boltz-2 builds (tt_bio/boltz2.py:2031); openfold3 never constructs it. Control in this same baseline: boltz2 serves 144 per fold at every rung. [carried from p300c] [carried from rung 1024] [carried from p150a]"
+              },
+              "APB_CONCAT_HEADS": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 192,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "ATOM_AXIS_BUCKET": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter sits in `tenstorrent.DiffusionModule._populate_diffusion_cache` (tt_bio/tenstorrent.py:11271-11278), and `tenstorrent.DiffusionModule` is constructed only by Boltz-2 (tt_bio/boltz2.py:4232); openfold3 runs its own diffusion module and never reaches it. Control in this same baseline: boltz2 serves 6 per fold at every rung. [carried from p300c] [carried from rung 1024] [carried from p150a]"
+              },
+              "TRANSPOSE_L1_RESIDENT": {
+                "resolved": "1.25",
+                "served": 1728,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "SDPA_Q_CHUNK_FITS": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "setlen"
+              },
+              "RFD3_SOFTMAX_PV_FUSED": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FC1_SPLIT_SILU": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "TRANSITION_H_CHUNK": {
+                "resolved": "16",
+                "served": 0,
+                "declined": 232,
+                "frac": 0.0,
+                "how": "stats",
+                "rejects": {
+                  "base-unraised": 8,
+                  "h-clamped-to-H": 12,
+                  "ratio-shrunk": 212
+                },
+                "reason": "declines all 232 calls on ratio-shrunk x212, h-clamped-to-H x12, base-unraised x8: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tenstorrent.TRANSITION_H_CHUNK_BIG_MAX_W). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 above 384 tokens on every model and the lever has no Wormhole raise to decline"
+              },
+              "TRIATT_SDPA_HIFI": {
+                "resolved": "openfold3.confidence,openfold3.msa,openfold3.template,openfold3.trunk",
+                "served": 2388,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-dict"
               }
             }
           },
           "runtime_reps_s": {
             "256": [
-              13.3,
-              13.2,
-              14.3,
-              14.1,
-              13.8
+              15.8,
+              15.6,
+              16.5,
+              12.6,
+              14.1
             ],
             "512": [
-              33.9,
-              33.4,
-              33.5,
-              33.2,
-              34.1
+              26.1,
+              26.9,
+              26.3,
+              29.3,
+              26.9
             ],
             "640": [
-              53.1
+              57.4
             ],
             "768": [
-              80.2
+              61.7
             ],
             "896": [
-              112.3
+              88.5
             ],
             "1024": [
-              147.4
-            ],
-            "1536": [
-              481.2
+              111.6
             ],
             "1280": [
-              370.0
+              197.9
+            ],
+            "1536": [
+              282.4
             ]
           },
           "aiclk": {
             "256": {
-              "card": "5",
+              "card": "14",
               "min": 500,
               "max": 1000,
               "rep_median": [
@@ -8324,10 +8403,10 @@
                 1000,
                 1000
               ],
-              "n": 40
+              "n": 42
             },
             "512": {
-              "card": "5",
+              "card": "14",
               "min": 500,
               "max": 1000,
               "rep_median": [
@@ -8337,28 +8416,37 @@
                 1000,
                 1000
               ],
-              "n": 55
+              "n": 52
             },
             "640": {
-              "card": "5",
+              "card": "14",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 15
+              "n": 16
             },
             "768": {
-              "card": "5",
+              "card": "14",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 20
+              "n": 17
             },
             "896": {
-              "card": "5",
+              "card": "14",
+              "min": 500,
+              "max": 1000,
+              "rep_median": [
+                1000
+              ],
+              "n": 21
+            },
+            "1024": {
+              "card": "14",
               "min": 500,
               "max": 1000,
               "rep_median": [
@@ -8366,89 +8454,80 @@
               ],
               "n": 26
             },
-            "1024": {
-              "card": "5",
+            "1280": {
+              "card": "14",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 32
+              "n": 42
             },
             "1536": {
-              "card": "31",
+              "card": "14",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 92
-            },
-            "1280": {
-              "card": "31",
-              "min": 500,
-              "max": 1000,
-              "rep_median": [
-                1000
-              ],
-              "n": 74
+              "n": 57
             }
           },
           "load": {
             "256": {
-              "max": 0.49,
+              "max": 0.73,
               "rep_median": [
-                0.44,
-                0.44,
-                0.44,
-                0.42,
-                0.46
+                0.71,
+                0.65,
+                0.61,
+                0.56,
+                0.56
               ]
             },
             "512": {
-              "max": 0.52,
+              "max": 0.65,
               "rep_median": [
-                0.42,
-                0.4,
-                0.45,
-                0.43,
-                0.49
+                0.62,
+                0.59,
+                0.57,
+                0.56,
+                0.6
               ]
             },
             "640": {
-              "max": 0.43,
+              "max": 0.71,
               "rep_median": [
-                0.38
+                0.65
               ]
             },
             "768": {
-              "max": 0.33,
+              "max": 0.6,
               "rep_median": [
-                0.31
+                0.57
               ]
             },
             "896": {
-              "max": 0.38,
+              "max": 0.66,
               "rep_median": [
-                0.32
+                0.57
               ]
             },
             "1024": {
-              "max": 0.37,
+              "max": 0.61,
               "rep_median": [
-                0.31
-              ]
-            },
-            "1536": {
-              "max": 0.99,
-              "rep_median": [
-                0.8
+                0.54
               ]
             },
             "1280": {
-              "max": 1.14,
+              "max": 0.57,
               "rep_median": [
-                0.79
+                0.49
+              ]
+            },
+            "1536": {
+              "max": 0.34,
+              "rep_median": [
+                0.25
               ]
             }
           },
@@ -8457,171 +8536,163 @@
               "file": "cdk2x2_256.cif",
               "steps": 6,
               "n_ca": 256,
-              "clash_frac": 0.0078,
+              "clash_frac": 0.0156,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 100.1865,
-              "radius_of_gyration_A": 80.483,
-              "plddt_mean": 0.343641,
+              "ca_ca_median_A": 101.073,
+              "radius_of_gyration_A": 80.976,
+              "plddt_mean": 0.309262,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 100.187 A outside [3.6, 4.0]",
+                "median CA-CA 101.073 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 80.5 A outside [9.0, 45.2]"
+                "radius of gyration 81.0 A outside [9.0, 45.2]"
               ]
             },
             "512": {
               "file": "cdk2x2_512.cif",
               "steps": 6,
               "n_ca": 512,
-              "clash_frac": 0.0449,
+              "clash_frac": 0.0352,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 102.7175,
-              "radius_of_gyration_A": 82.053,
-              "plddt_mean": 0.335949,
+              "ca_ca_median_A": 100.8015,
+              "radius_of_gyration_A": 82.176,
+              "plddt_mean": 0.297652,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 102.718 A outside [3.6, 4.0]",
+                "median CA-CA 100.801 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "4.5% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 82.1 A outside [11.8, 58.9]"
+                "3.5% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 82.2 A outside [11.8, 58.9]"
               ]
             },
             "640": {
               "file": "cdk2x2_640.cif",
               "steps": 6,
               "n_ca": 640,
-              "clash_frac": 0.025,
+              "clash_frac": 0.0281,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 97.5866,
-              "radius_of_gyration_A": 81.053,
-              "plddt_mean": 0.334734,
+              "ca_ca_median_A": 98.0945,
+              "radius_of_gyration_A": 81.315,
+              "plddt_mean": 0.293148,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 97.587 A outside [3.6, 4.0]",
+                "median CA-CA 98.094 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "2.5% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 81.1 A outside [12.8, 64.1]"
+                "2.8% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 81.3 A outside [12.8, 64.1]"
               ]
             },
             "768": {
               "file": "cdk2x2_768.cif",
               "steps": 6,
               "n_ca": 768,
-              "clash_frac": 0.0417,
-              "chain_break_frac": 1.0,
-              "ca_ca_median_A": 98.9111,
-              "radius_of_gyration_A": 78.17,
-              "plddt_mean": 0.337723,
+              "clash_frac": 0.0286,
+              "chain_break_frac": 0.9987,
+              "ca_ca_median_A": 97.9849,
+              "radius_of_gyration_A": 78.693,
+              "plddt_mean": 0.297458,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 98.911 A outside [3.6, 4.0]",
-                "100.0% of consecutive CA pairs exceed 5.0 A",
-                "4.2% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 78.2 A outside [13.7, 68.7]"
+                "median CA-CA 97.985 A outside [3.6, 4.0]",
+                "99.9% of consecutive CA pairs exceed 5.0 A",
+                "2.9% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 78.7 A outside [13.7, 68.7]"
               ]
             },
             "896": {
               "file": "cdk2x2_896.cif",
               "steps": 6,
               "n_ca": 896,
-              "clash_frac": 0.0223,
+              "clash_frac": 0.0424,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 103.0476,
-              "radius_of_gyration_A": 84.102,
-              "plddt_mean": 0.33546,
+              "ca_ca_median_A": 102.3871,
+              "radius_of_gyration_A": 84.403,
+              "plddt_mean": 0.287712,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 103.048 A outside [3.6, 4.0]",
+                "median CA-CA 102.387 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "2.2% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 84.1 A outside [14.6, 72.8]"
+                "4.2% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 84.4 A outside [14.6, 72.8]"
               ]
             },
             "1024": {
               "file": "cdk2x2_1024.cif",
               "steps": 6,
               "n_ca": 1024,
-              "clash_frac": 0.0391,
+              "clash_frac": 0.043,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 97.8609,
-              "radius_of_gyration_A": 80.665,
-              "plddt_mean": 0.341306,
+              "ca_ca_median_A": 97.986,
+              "radius_of_gyration_A": 81.157,
+              "plddt_mean": 0.292049,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 97.861 A outside [3.6, 4.0]",
+                "median CA-CA 97.986 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "3.9% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 80.7 A outside [15.3, 76.6]"
-              ]
-            },
-            "1536": {
-              "file": "cdk2x2_1536.cif",
-              "steps": 6,
-              "n_ca": 1536,
-              "clash_frac": 0.0534,
-              "chain_break_frac": 1.0,
-              "ca_ca_median_A": 100.9925,
-              "radius_of_gyration_A": 81.19,
-              "plddt_mean": 0.372313,
-              "geometry_ok": false,
-              "geometry_fail": [
-                "median CA-CA 100.993 A outside [3.6, 4.0]",
-                "100.0% of consecutive CA pairs exceed 5.0 A",
-                "5.3% of CA atoms sit under 3.5 A from a non-bonded CA"
+                "4.3% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 81.2 A outside [15.3, 76.6]"
               ]
             },
             "1280": {
               "file": "cdk2x2_1280.cif",
               "steps": 6,
               "n_ca": 1280,
-              "clash_frac": 0.0484,
-              "chain_break_frac": 1.0,
-              "ca_ca_median_A": 99.0975,
-              "radius_of_gyration_A": 82.42,
-              "plddt_mean": 0.35537,
+              "clash_frac": 0.0391,
+              "chain_break_frac": 0.9984,
+              "ca_ca_median_A": 97.9844,
+              "radius_of_gyration_A": 82.98,
+              "plddt_mean": 0.302691,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 99.098 A outside [3.6, 4.0]",
+                "median CA-CA 97.984 A outside [3.6, 4.0]",
+                "99.8% of consecutive CA pairs exceed 5.0 A",
+                "3.9% of CA atoms sit under 3.5 A from a non-bonded CA"
+              ]
+            },
+            "1536": {
+              "file": "cdk2x2_1536.cif",
+              "steps": 6,
+              "n_ca": 1536,
+              "clash_frac": 0.0625,
+              "chain_break_frac": 1.0,
+              "ca_ca_median_A": 100.1468,
+              "radius_of_gyration_A": 81.974,
+              "plddt_mean": 0.312477,
+              "geometry_ok": false,
+              "geometry_fail": [
+                "median CA-CA 100.147 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "4.8% of CA atoms sit under 3.5 A from a non-bonded CA"
+                "6.2% of CA atoms sit under 3.5 A from a non-bonded CA"
               ]
             }
           },
-          "rungs_carried": [
-            "1280",
-            "1536"
-          ],
           "reps": 1,
-          "sigma_runtime_512": 0.011,
+          "sigma_runtime_512": 0.0473,
           "exponents": {
             "256->512": {
-              "k": 1.279,
+              "k": 0.786,
               "tol": 0.5
             },
             "512->768": {
-              "k": 2.153,
+              "k": 2.047,
               "tol": 0.5
             }
           },
           "sigma_runtime": {
-            "256": 0.0351,
-            "512": 0.011
+            "256": 0.1048,
+            "512": 0.0473
           },
           "exponents_measured": {
-            "256->512": 1.279,
-            "512->640": 2.064,
-            "640->768": 2.262,
-            "768->896": 2.184,
-            "896->1024": 2.037,
-            "1024->1280": 4.124,
-            "1280->1536": 1.441
-          },
-          "levers_added": {
-            "SDPA_FUSED_PADDED": "2026-10-09 UF-EV-A4-GWH01 1dd0e40b6"
+            "256->512": 0.786,
+            "512->640": 3.397,
+            "640->768": 0.396,
+            "768->896": 2.34,
+            "896->1024": 1.737,
+            "1024->1280": 2.567,
+            "1280->1536": 1.95
           }
         }
-      },
-      "host_threads": 2
+      }
     }
   }
 }

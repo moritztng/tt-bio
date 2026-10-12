@@ -71,6 +71,8 @@ PERF A/B. Committed perf cells age: a cell recorded in August on another softwar
 release that changed nothing. `"perf_against": "<tag>"` on a host checks the timed leg out at the
 last release (root/trees/<tag>) and runs perf_regression.py --against it: the release's own
 numbers are measured on the same card in the same session, then the commit is gated on them.
+On a PASS the runner writes the reference's re-measured machine block into <out>/seeded/<arch>/
+perf_baselines.json for the release commit; the A/B leg's key leaves the committed baseline out.
 
 SEEDING. perf_regression.py fails NO BASELINE on a card type with no baseline. That stays a
 failure. A host seeding one names it explicitly, `"args": {"perf": ["--update-baseline", "--note",
@@ -82,6 +84,7 @@ from __future__ import annotations
 
 import argparse
 import dataclasses
+import fcntl
 import fnmatch
 import functools
 import hashlib
@@ -127,7 +130,35 @@ SSH_LOST = re.compile(r"^(ssh: connect to host .*|Timeout, server .* not respond
                       r"client_loop: send disconnect: .*|Connection to .* closed by remote host\.|"
                       r"kex_exchange_identification: .*|ssh_dispatch_run_fatal: Connection to .*)$", re.M)
 SSH_LOST_RETRY_S, SSH_LOST_TRIES = 120, 30
+#: A full disk on the leg's host. Another job filled qb1's root on 2026-10-10 and 116 BH legs were
+#: recorded FAIL in an hour, each at its first mkdir. Wait for space and run the leg again.
+DISK_FULL = re.compile(r"No space left on device")
+DISK_FULL_RETRY_S, DISK_FULL_TRIES = 300, 12
+#: Another process held the leg's card through its device lease without taking the card's flock.
+#: The timed perf leg of gate 92d5924f5 lost two models to it on qb1 card 3 (2026-10-10 18:4xZ) and
+#: a third read -19.8 %. Nothing about the tree was measured, so the whole leg runs again.
+CONTENDED = re.compile(r"device contention, nothing ran|Refusing to open it concurrently")
+CONTENDED_RETRY_S, CONTENDED_TRIES = 300, 3
+#: release_gate stops when a fold timed out and the card's reset was refused (its board-pair sibling
+#: was busy). Opening that card again from the same leg is unsafe, but a pool probes, and if need be
+#: resets, every chip before it hands it out: g108 chip 0 did this on ladder:boltz2 on 2026-10-10 and
+#: probed OK minutes later. Run such a pool leg once more; a second stop is the leg's result.
+CARD_STUCK = re.compile(r"a fold timed out and its card could not be reset")
+#: A pool job notes the host's boot id when it starts. g114 rebooted under five legs of two gates on
+#: 2026-10-11 19:30Z; they never wrote an exit code and their runners waited for one for over an
+#: hour. A different boot id and no exit code means the leg died with the host: run it once more.
+BOOT_ID = "/proc/sys/kernel/random/boot_id"
+REBOOTED = "rebooted under the leg"
+#: A Galaxy lent out of the pool (spd/galaxy/lend_cfd.sh writes the window's start epoch here and
+#: PAUSEs the pool through it). pool.sh starts no job whose cap reaches the window, so a leg queued
+#: there waits out the whole lend: capacity:opendde of gate cb55af219 sat on .114 for hours on
+#: 2026-10-10 while .107 and .108 had chips. Such a host takes no leg the lend would hold, and a leg it
+#: queued before the lend was booked is taken back and handed to another worker.
+LEND_AT = "~/spd/galaxy/LEND-AT"
+LEND_READ_S = 300
+WITHDRAWN = -1           # run_in_pool's code for "taken back from the queue before it started"
 QUEUED: dict = {}         # pool job file -> host, taken back if the runner is stopped
+RUNNING: dict = {}        # leg out dir -> host, its attempt ended if the runner is stopped
 CARD_FREE = ("check", "packaging_smoke", "pytest_cpu")
 PY312 = {"pytest_device", "pytest_cpu", "bc2"}
 # Arms the parity gate already runs in-process by calling release_gate's own runner with the
@@ -135,11 +166,41 @@ PY312 = {"pytest_device", "pytest_cpu", "bc2"}
 # arm as well folds the same thing twice.
 PARITY_COVERS_RG = {"boltzgen", "opendde-abag", "capacity", "nesso1", "rf3-1024aa"}
 
+CAP_OWED = "host-threads"   # an OWED entry: no granted host times this ladder at its baseline's cap
+
+
 def owed_by(roster: dict, card_type: str, lg) -> list[str]:
     """Levers a ladder leg's baseline lacks on this card type; every other leg owes none."""
     if lg.family != "ladder":
         return []
     return roster.get("owed", {}).get(card_type, {}).get(lg.name.split(":", 1)[1], [])
+
+
+def ladder_caps(docs, models) -> dict:
+    """{card_type: {model: host_threads}}: the cap each ladder baseline was timed at (None = every
+    core). release_gate refuses to score a ladder run at another cap, so a ladder leg may only run
+    on a host whose `--host-threads` matches. A model's own fragment wins over the merged file, as
+    in release_gate. Runs inside the tree under test (ENUMERATE)."""
+    import json
+    from pathlib import Path
+    docs, out = Path(docs), {}
+    for f in [docs / "size_ladder_baseline.json", *sorted((docs / "size_ladder_baseline.d").glob("*.json"))]:
+        if f.exists():
+            for card, c in json.loads(f.read_text()).get("cards", {}).items():
+                for m in c.get("models", {}):
+                    if m in models:
+                        out.setdefault(card, {})[m] = c.get("host_threads")
+    return out
+
+
+def cap_fits(roster: dict, host, lg) -> bool:
+    """Whether `host` times `lg` at the cap its baseline was timed at (always, for a non-ladder leg
+    or a model with no baseline on this card type: that absence is reported by the leg itself)."""
+    if lg.family != "ladder":
+        return True
+    caps = roster.get("caps", {}).get(host.cfg["card_type"], {})
+    model = lg.name.split(":", 1)[1]
+    return model not in caps or caps[model] == host.ladder_cap
 
 
 def owed_levers(docs, levers, models) -> dict:
@@ -168,12 +229,13 @@ def owed_levers(docs, levers, models) -> dict:
     return out
 
 
-ENUMERATE = inspect.getsource(owed_levers) + r"""
+ENUMERATE = inspect.getsource(owed_levers) + inspect.getsource(ladder_caps) + r"""
 import json, full_parity_gate as f, release_gate as r, capacity_gate as c, ux_regression as u
 import lever_census
 print(json.dumps({"parity": [l.id for l in f.LEGS if not l.opt_in], "rg": r.default_arms(),
                   "ladder": list(r.SIZE_LADDER_MODELS), "capacity": c.roster(), "ux": u.ALL_LEGS,
-                  "owed": owed_levers("docs", lever_census.LEVERS, r.SIZE_LADDER_MODELS)}))
+                  "owed": owed_levers("docs", lever_census.LEVERS, r.SIZE_LADDER_MODELS),
+                  "caps": ladder_caps("docs", r.SIZE_LADDER_MODELS)}))
 """
 ENV_PROBE = r"""
 import json, sys, importlib.metadata as m
@@ -228,19 +290,54 @@ def _same_code(sha: str, content: str, repo: Path = REPO) -> bool:
         return False
 
 
-def baseline_hash(sha: str, family: str, repo: Path = REPO, model: str = "") -> str:
+def rerecorded(tree: str, reference: str, note: str) -> str:
+    """`tree`'s perf_baselines.json with every machine block the A/B reference run rewrote
+    (perf_regression.py notes it "A/B reference for ...") taken from `reference`: the last
+    release measured on that card in the gate's own session, so the committed cells are current
+    instead of dating from whenever the machine was first seeded."""
+    t, ref = json.loads(tree), json.loads(reference)
+    ab = lambda x: str(x.get("note", "")).startswith("A/B reference for")
+    for ct, entry in ref.get("cards", {}).items():
+        for mid, blk in entry.get("machines", {}).items():
+            got = {m: {**v, "note": note} for m, v in blk.get("models", {}).items() if ab(v)}
+            if not got:
+                continue
+            mine = t.setdefault("cards", {}).setdefault(ct, {}).setdefault("machines", {}).setdefault(mid, {})
+            mine.setdefault("models", {}).update(got)
+            if ab(blk):
+                mine.update(date=blk.get("date"), tt_bio_version=blk.get("tt_bio_version"), note=note)
+    return json.dumps(t, indent=2) + "\n"
+
+
+def baseline_hash(sha: str, family: str, repo: Path = REPO, model: str = "", cards=()) -> str:
     """Blob ids of the baseline files `family` compares against at `sha` ('' for none).
 
     A ladder leg for `model` reads the monolith plus that model's own fragment, so splicing one
-    model's rows reruns that model's ladder leg only."""
+    model's rows reruns that model's ladder leg only. Given the card types the leg can run on,
+    it hashes only what a check on them reads (each file's card stamp and `model` entry for
+    those cards), so recording Wormhole rows does not rerun the Blackhole legs."""
     ps = BASELINES.get(family)
     if not ps:
         return ""
     if family == "ladder" and model:
         ps = (ps[0], f"{ps[1]}{model}.json")
+        if cards:
+            return _ladder_view_hash(_commit(sha, repo), repo, ps, model, tuple(sorted(cards)))
     rows = [ln for ln in _ls_tree(sha, repo) if ln.split("\t", 1)[-1] in ps or (
         not model and ln.split("\t", 1)[-1].startswith(ps))]
     return hashlib.sha256("\n".join(rows).encode()).hexdigest()
+
+
+@functools.lru_cache(maxsize=None)
+def _ladder_view_hash(sha: str, repo: Path, paths: tuple, model: str, cards: tuple) -> str:
+    view = []
+    for path in paths:
+        r = subprocess.run(["git", "-C", str(repo), "show", f"{sha}:{path}"], capture_output=True, text=True)
+        blocks = (json.loads(r.stdout) if r.returncode == 0 else {}).get("cards") or {}
+        view.append({c: {**{k: v for k, v in blocks[c].items() if k != "models"},
+                         "models": (blocks[c].get("models") or {}).get(model)}
+                     for c in cards if c in blocks})
+    return sha256(view)
 
 
 #: The leg families that run the test suite, and so read the test files the content key leaves out.
@@ -342,11 +439,17 @@ def content_hash(sha: str, repo: Path = REPO, baselines: bool = False, tests: bo
                 or (not baselines and path.startswith(_BASELINE_PATHS))):
             continue
         if path == "pyproject.toml":
-            body = "".join(x for x in git("show", f"{sha}:pyproject.toml").splitlines(True)
-                           if not x.startswith("version ="))
-            ln = f"pyproject.toml {hashlib.sha256(body.encode()).hexdigest()}"
+            ln = f"pyproject.toml {dep_spec(sha, repo)}"
         rows.append(ln)
     return hashlib.sha256("\n".join(rows).encode()).hexdigest()
+
+
+def dep_spec(sha: str, repo: Path = REPO) -> str:
+    """pyproject.toml at `sha` without its `version =` line: what a resolution depends on."""
+    body = subprocess.run(["git", "-C", str(repo), "show", f"{sha}:pyproject.toml"], check=True,
+                          capture_output=True, text=True).stdout
+    return hashlib.sha256("".join(x for x in body.splitlines(True)
+                                  if not x.startswith("version =")).encode()).hexdigest()
 
 
 def env_hash(probe: dict) -> str:
@@ -460,6 +563,13 @@ def select(legs: list, patterns: list) -> list:
 # ---------------------------------------------------------------------------------------------
 # hosts
 # ---------------------------------------------------------------------------------------------
+def out_group(leg_name: str) -> str:
+    """Legs that write the same output dir in the commit's shared tree on a host. release_gate
+    names its results dir after the model, and a model's --fast arm shares it: rg:esmfold2 and
+    rg:esmfold2-fast ran at once on g107 on 2026-10-10 and the fast arm found its CIFs deleted."""
+    return leg_name.replace("-fast", "")
+
+
 @dataclass
 class Host:
     name: str
@@ -468,6 +578,29 @@ class Host:
     lock: threading.Condition = field(default_factory=threading.Condition)
     running: int = 0
     timed_running: bool = False
+    outputs: set = field(default_factory=set)
+    lend: tuple = (float("-inf"), None, False)   # (read at, LEND-AT epoch, pool PAUSEd)
+
+    def read_lend(self) -> None:
+        """Refresh `lend` from the host's pool at most every LEND_READ_S."""
+        if "pool" not in self.cfg or time.time() - self.lend[0] < LEND_READ_S:
+            return
+        pause = shlex.quote(str(Path(self.cfg["pool"]["queue"]).parent / "PAUSE"))
+        r = self.ssh(f"cat {LEND_AT} 2>/dev/null; echo; test -e {pause} && echo PAUSE",
+                     capture_output=True, timeout=120)
+        if r.returncode in (0, 1):
+            words = r.stdout.split()
+            at = next((int(w) for w in words if w.isdigit()), None)
+            self.lend = (time.time(), at, "PAUSE" in words)
+
+    def lent(self, budget: int) -> bool:
+        """True while this host's pool would not start a job capped at `budget` s (from `lend`)."""
+        _, at, paused = self.lend
+        return paused or (at is not None and time.time() + budget >= at)
+
+    @property
+    def key_card_type(self) -> str:
+        return self.cfg.get("key_card_type", self.cfg["card_type"])
 
     @property
     def arch(self) -> str:
@@ -527,17 +660,22 @@ class Host:
                      input=text, check=True, timeout=120)
         envs = " ".join(f"{k}={shlex.quote(v)}" for k, v in self.cfg.get("prep_env", {}).items())
         cmd = (f"set -e; if [ ! -d {t} ]; then git -C {r}/repo fetch -q origin; "
-               f"git -C {r}/repo worktree add -q --detach {t} {self.sha}; "
-               f"cd {t}; bash scripts/fetch_parity_fixtures.sh >/dev/null; fi; "
+               f"git -C {r}/repo worktree add -q --detach {t} {self.sha}; fi; "
+               # Every time, not only on a new tree: a prep that died after the worktree add left
+               # a tree without the binaries, and the next prep skipped the fetch (1064f95a1, qb1).
+               f"cd {t}; bash scripts/fetch_parity_fixtures.sh >/dev/null; "
                f"test \"$(git -C {t} rev-parse HEAD)\" = {self.sha}")
         if self.cfg.get("perf_against"):
             ref, a = shlex.quote(self.cfg["perf_against"]), self.against
             cmd += (f"; [ -d {a} ] || {{ git -C {r}/repo fetch -q --tags origin; "
                     f"git -C {r}/repo worktree add -q --detach {a} {ref}; }}")
-        p = self.ssh(cmd, capture_output=True, timeout=1800)
+        # One prep at a time per host: two runners preparing at once (a record run beside its
+        # gate, 10-11 on g114) raced `git fetch` on the shared clone's ref locks and one died.
+        lock = f"flock {r}/prep.lock"
+        p = self.ssh(f"mkdir -p {r} && {lock} bash -c {shlex.quote(cmd)}", capture_output=True, timeout=1800)
         if not p.returncode:
             # The runner's own copy of the recipe: the commit under test may predate it.
-            p = self.ssh(f"cd {t} && env {envs} bash -s -- {r} {self.sha}", capture_output=True,
+            p = self.ssh(f"cd {t} && {lock} env {envs} bash -s -- {r} {self.sha}", capture_output=True,
                          timeout=3600, input=(REPO / "scripts" / "gate_host_prep.sh").read_text())
         if p.returncode:
             raise SystemExit(f"{self.name}: cannot prepare {t} at {self.sha}: "
@@ -562,6 +700,12 @@ class Host:
     @property
     def against(self) -> str:
         return f"{self.root}/trees/{self.cfg['perf_against']}"
+
+    @property
+    def ladder_cap(self) -> int | None:
+        """The `--host-threads` this host's ladder legs run at (None = every core)."""
+        a = self.cfg.get("args", {}).get("ladder", [])
+        return int(a[a.index("--host-threads") + 1]) if "--host-threads" in a else None
 
     def seeding(self, leg: Leg) -> bool:
         return "--update-baseline" in self.cfg.get("args", {}).get(leg.family, [])
@@ -602,13 +746,17 @@ class Host:
         # (which survives bash's exec of the last command). When the runner's connection drops the
         # remote side keeps waiting on the card, so a rerun first ends the attempt it replaces;
         # otherwise both run the leg into one directory (qb1, 10-10: five BH legs queued twice).
-        pidf = shlex.quote(f"{out}/attempt.pid")
         mark = shlex.quote(f"GATE_ATTEMPT={out}")
-        prior = (f"{{ p=$(cat {pidf} 2>/dev/null) && tr '\\0' '\\n' < /proc/$p/environ 2>/dev/null "
-                 f"| grep -qxF -- {mark} && pkill -TERM -s $p; true; }}")   # -s: timeout moves the leg to its own group
-        attempt = shlex.quote(f"echo $$ > {pidf}; {run}")
-        return (f"mkdir -p {shlex.quote(out)} && {prior} && cd {self.tree} && {setup}"
+        attempt = shlex.quote(f"echo $$ > {shlex.quote(f'{out}/attempt.pid')}; {run}")
+        return (f"mkdir -p {shlex.quote(out)} && {self.end_attempt(out)} && cd {self.tree} && {setup}"
                 f"env {mark} setsid -w bash -c {attempt}")   # no exec: a pool job writes rc after it
+
+    @staticmethod
+    def end_attempt(out: str) -> str:
+        """Shell that ends the attempt recorded in out/attempt.pid if it is still that leg's."""
+        pidf, mark = shlex.quote(f"{out}/attempt.pid"), shlex.quote(f"GATE_ATTEMPT={out}")
+        return (f"{{ p=$(cat {pidf} 2>/dev/null) && tr '\\0' '\\n' < /proc/$p/environ 2>/dev/null "
+                f"| grep -qxF -- {mark} && pkill -TERM -s $p; true; }}")   # -s: timeout moves the leg to its own group
 
 
 # ---------------------------------------------------------------------------------------------
@@ -658,6 +806,27 @@ class Ledger:
                 continue
         return out
 
+    def pins(self, sha: str, spec: str) -> dict | None:
+        """The package set `sha` was gated with, else the newest one recorded for the same
+        dependency spec: installing it keeps every leg's environment key, so a PyPI patch
+        release between two commits' preps does not rerun the gate (beartype 0.23.1, 10-11)."""
+        own = self.path / "pins" / sha[:12]
+        if not (own / "spec").exists():
+            same = [d for d in (self.path / "pins").glob("*/spec") if d.read_text().strip() == spec]
+            if not same:
+                return None
+            own = max(same, key=lambda d: d.stat().st_mtime).parent
+        return {f.stem: f.read_text() for f in own.glob("*.txt")}
+
+    def save_pins(self, sha: str, spec: str, pins: dict) -> None:
+        d = self.path / "pins" / sha[:12]
+        if (d / "spec").exists():
+            return
+        d.mkdir(parents=True, exist_ok=True)
+        for v, text in pins.items():
+            (d / f"{v}.txt").write_text(text)
+        (d / "spec").write_text(spec + "\n")
+
     def history(self) -> dict:
         """leg name -> the latest wall clock any run of it took, for ordering only."""
         seen = {}
@@ -675,6 +844,64 @@ class Ledger:
         tmp = p.with_suffix(".tmp")
         tmp.write_text(json.dumps(rec, indent=1, sort_keys=True))
         tmp.replace(p)
+
+    # A leg runs under a claim, so a second runner on the same commit (more cards joining a gate
+    # already running) skips what the first holds and waits for its row instead of running it twice.
+    ME = {"host": socket.gethostname(), "pid": os.getpid()}
+
+    def claim(self, key: str) -> dict | None:
+        """Take `key` for this runner: None when taken, else the live holder. A holder on this host
+        whose pid is gone is stale and is replaced."""
+        p = self.path / f"{key}.claim"
+        while True:
+            try:
+                fd = os.open(p, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            except FileExistsError:
+                held = self.holder(key)
+                if held is None:
+                    time.sleep(0.05)       # mid-write, just released, or stale and dropped
+                    continue
+                return None if held == self.ME else held
+            with os.fdopen(fd, "w") as f:
+                json.dump(self.ME, f)
+            return None
+
+    def holder(self, key: str) -> dict | None:
+        """The live holder of `key`; a claim left on this host by a pid that is gone is dropped."""
+        p = self.path / f"{key}.claim"
+        try:
+            held = json.loads(p.read_text())
+        except ValueError:
+            # empty or torn: a runner died between creating and writing it, or is writing it now
+            if time.time() - p.stat().st_mtime > 10:
+                p.unlink(missing_ok=True)
+            return None
+        except OSError:
+            return None
+        if held.get("host") == self.ME["host"] and not _alive(held.get("pid")):
+            p.unlink(missing_ok=True)
+            return None
+        return held
+
+    def release(self, key: str) -> None:
+        if self.holder(key) == self.ME:
+            (self.path / f"{key}.claim").unlink(missing_ok=True)
+
+
+def _reused(leg: str, slot: str, key: str, row: dict) -> dict:
+    return {"leg": leg, "arch": slot, "verdict": "REUSED", "key": key,
+            "evidence": f"{row['worker']} {row['ended']} {row['sha'][:9]} {row['log']}",
+            "reused_verdict": row["verdict"]}
+
+
+def _alive(pid) -> bool:
+    try:
+        os.kill(int(pid), 0)
+    except (TypeError, ValueError, ProcessLookupError):
+        return False
+    except PermissionError:
+        pass
+    return True
 
 
 def write_verdict(out: Path, sha: str, archs: list, results: list) -> bool:
@@ -702,7 +929,14 @@ def write_verdict(out: Path, sha: str, archs: list, results: list) -> bool:
         lines += ["", "SEEDED: no baseline existed on these card types, so these legs recorded one "
                   "instead of checking against one. Commit the files and drop the host's `args`:"]
         lines += [f"- {r['leg']} {r['card_type']}: {r.get('seeded', '?')}" for r in seeded]
-    owed = sorted({f for r in results if r["verdict"] == "OWED" for f in r["owed"]})
+    owed = sorted({f for r in results if r["verdict"] == "OWED" for f in r["owed"]} - {CAP_OWED})
+    capped = sorted({r["leg"].split(":", 1)[1] for r in results
+                     if r["verdict"] == "OWED" and CAP_OWED in r["owed"]})
+    if capped:
+        lines += ["", "OWED: no granted host runs these ladders at the host-thread cap their baseline "
+                  "was timed at, so they were not folded. Re-record them on the gate's hosts, commit "
+                  "the fragments, and gate that commit:",
+                  f"`gate_fanout.py --legs 'record:*' --record-full {','.join(capped)} ...`"]
     if owed:
         lines += ["", "OWED: the size-ladder baseline at this commit has no row for a lever these "
                   "models resolve, so their ladder legs were not folded. Record it, commit the "
@@ -712,6 +946,10 @@ def write_verdict(out: Path, sha: str, archs: list, results: list) -> bool:
     if recorded:
         lines += ["", "RECORDED: copy these over docs/size_ladder_baseline.d/ in the release commit:"]
         lines += [f"- {r['leg']} {r['card_type']}: {r['seeded']}" for r in recorded]
+    ab = [r for r in results if r["leg"] == "perf" and r["verdict"] == "PASS" and r.get("seeded")]
+    if ab:
+        lines += ["", "RE-RECORDED: the A/B reference's cells; copy over docs/perf_baselines.json in the release commit:"]
+        lines += [f"- perf {r['card_type']}: {r['seeded']}" for r in ab]
     (out / "VERDICT.md").write_text("\n".join(lines) + "\n")
     (out / "verdict.json").write_text(json.dumps({"sha": sha, "pass": ok, "archs": archs,
                                                   "results": results}, indent=1))
@@ -725,12 +963,17 @@ class Gate:
     """One worker thread per host:card; each takes the next leg of its arch. A timed leg runs only
     on a --timed card and holds its host quiet (no new leg starts there while it runs)."""
 
-    def __init__(self, todo: dict, workers: list, timed: set, execute, out: Path):
+    def __init__(self, todo: dict, workers: list, timed: set, execute, out: Path,
+                 ledger: "Ledger | None" = None, keys: dict | None = None, roster: dict | None = None):
         self.todo = todo          # arch -> list of Leg (card legs), consumed in order
         self.workers = workers    # (Host, card)
         self.timed = timed        # {(host name, card)}
         self.execute = execute    # (host, card, leg) -> result dict
         self.out = out
+        self.ledger = ledger      # with keys: claim each card leg, so another runner can join
+        self.keys = keys or {}    # (leg name, arch) -> key
+        self.roster = roster or {}  # ENUMERATE's output; its "caps" keep a ladder leg on a host of its cap
+        self.held: dict = {}      # queue -> [Leg] another runner holds
         self.results: list = []
         self.mu = threading.Lock()
 
@@ -739,49 +982,128 @@ class Gate:
         return host.arch if card is not None else "any"
 
     def _take(self, host: Host, card) -> Leg | None:
+        """The next leg this card may run, or None. A leg whose output dir is in use on the host
+        stays queued (see `out_group`); `_blocked` tells the caller to wait for it."""
         is_timed = (host.name, card) in self.timed
+        host.read_lend()
         with self.mu:
             q = self.todo.get(self._queue(host, card), [])
             # Correctness legs first, timed legs last: by then the host's other cards have run out
             # of work, so holding the host quiet idles nothing.
-            for i, lg in enumerate(q):
-                if not lg.timed:
-                    return q.pop(i)
-            for i, lg in enumerate(q):
-                if lg.timed and is_timed:
-                    return q.pop(i)
+            for timed in (False, True):
+                for i, lg in enumerate(q):
+                    if lg.timed == timed and (is_timed or not timed) \
+                            and out_group(lg.name) not in host.outputs and not host.lent(lg.budget) \
+                            and cap_fits(self.roster, host, lg):
+                        return q.pop(i)
         return None
+
+    def _lent_out(self, host: Host, card) -> bool:
+        """True when a leg this card could take is held back only by its host's lend."""
+        is_timed = (host.name, card) in self.timed
+        with self.mu:
+            return any((is_timed or not lg.timed) and host.lent(lg.budget)
+                       for lg in self.todo.get(self._queue(host, card), []))
+
+    def _blocked(self, host: Host, card) -> bool:
+        with self.mu:
+            return any(out_group(lg.name) in host.outputs
+                       for lg in self.todo.get(self._queue(host, card), []))
 
     def _pending(self, queue: str) -> bool:
         with self.mu:
             return bool(self.todo.get(queue))
 
+    def _record(self, res: dict) -> None:
+        with self.mu:
+            self.results.append(res)
+            with open(self.out / "results.jsonl", "a") as f:
+                f.write(json.dumps(res) + "\n")
+
+    def _joined(self, leg: Leg, queue: str) -> bool:
+        """True when another runner holds `leg` or has passed it (then recorded as REUSED)."""
+        if self.ledger is None or not leg.card or leg.family == "record":
+            return False
+        key = self.keys[(leg.name, queue)]
+        row = self.ledger.get(key)
+        if row is None and self.ledger.claim(key) is None:
+            return False
+        if row is None:
+            with self.mu:
+                self.held.setdefault(queue, []).append(leg)
+        else:
+            self._record(_reused(leg.name, queue, key, row))
+        return True
+
+    def _wait_held(self, queue: str) -> bool:
+        """Wait until a leg another runner held is released: its row is REUSED, a leg it left
+        without a passing row goes back on the queue (True). False once nothing is held."""
+        while True:
+            with self.mu:
+                held = list(self.held.get(queue, []))
+            if not held:
+                return False
+            for leg in held:
+                key = self.keys[(leg.name, queue)]
+                if self.ledger.holder(key) is not None:
+                    continue
+                with self.mu:
+                    if leg not in self.held.get(queue, []):
+                        continue
+                    self.held[queue].remove(leg)
+                row = self.ledger.get(key)
+                if row and row.get("verdict") in OK:
+                    self._record(_reused(leg.name, queue, key, row))
+                else:
+                    with self.mu:
+                        self.todo.setdefault(queue, []).insert(0, leg)
+                    return True
+            time.sleep(POOL_POLL_S)
+
     def worker(self, host: Host, card) -> None:
+        queue = self._queue(host, card)
         while True:
             with host.lock:
                 while host.timed_running:
                     host.lock.wait()
                 leg = self._take(host, card)
-                if leg is None:
-                    # nothing left this worker may run (what remains, if anything, is timed)
-                    return
-                if leg.timed:
-                    host.timed_running = True
-                    while host.running:
-                        host.lock.wait()
-                host.running += 1
+                while leg is None and self._blocked(host, card):
+                    host.lock.wait()
+                    leg = self._take(host, card)
+                if leg is not None and self._joined(leg, queue):
+                    continue
+                if leg is not None:
+                    host.outputs.add(out_group(leg.name))
+                    if leg.timed:
+                        host.timed_running = True
+                        while host.running:
+                            host.lock.wait()
+                    host.running += 1
+            if leg is None:
+                # nothing left this worker may run (what remains, if anything, is timed), unless
+                # a leg another runner held comes back
+                if self._wait_held(queue):
+                    continue
+                if self._lent_out(host, card):
+                    time.sleep(POOL_POLL_S)     # another host may take it first; else the lend ends
+                    continue
+                return
             try:
                 res = self.execute(host, card, leg)
             finally:
                 with host.lock:
                     host.running -= 1
+                    host.outputs.discard(out_group(leg.name))
                     if leg.timed:
                         host.timed_running = False
                     host.lock.notify_all()
-            with self.mu:
-                self.results.append(res)
-                with open(self.out / "results.jsonl", "a") as f:
-                    f.write(json.dumps(res) + "\n")
+                if self.ledger is not None and leg.card:
+                    self.ledger.release(self.keys[(leg.name, queue)])
+            if res is None:
+                with self.mu:
+                    self.todo.setdefault(queue, []).insert(0, leg)
+                continue
+            self._record(res)
 
     def run(self) -> list:
         ts = [threading.Thread(target=self.worker, args=w, daemon=True) for w in self.workers]
@@ -792,13 +1114,22 @@ class Gate:
         return self.results
 
 
+def cardfree(workers: list, arch: str) -> list:
+    """One cardless worker per host of `arch`, all drawing on the shared "any" queue, so the
+    card-free legs run on whichever host is free. Each stands aside while a timed leg holds its
+    host quiet. They used to run only on the first host: pre2-e6ae723c4 (10-11) listed g107
+    first, g107 went back to JapanFold, and check/packaging_smoke/pytest_cpu waited 5 h."""
+    hosts = {h.name: h for h, _ in workers if h.arch == arch}
+    return [(h, None) for h in hosts.values()]
+
+
 def pool_job(host: Host, leg: Leg, rdir: str, name: str) -> str:
     """A job file for the host's chip pool (CHIPS.md "Chip pool"): the pool starts it as
     `CHIP=<umd> bash <job>` on an idle healthy chip, and it leaves its log and exit code in rdir."""
     cmd = host.command(leg, POOL_CARD, rdir)
     q = shlex.quote
     return (f"#!/bin/bash\n# {name}: gate leg {leg.name} at {host.sha[:12]} (gate_fanout.py)\n"
-            f"mkdir -p {q(rdir)}; rm -f {q(rdir)}/rc\ncmd={q(cmd)}\n"
+            f"mkdir -p {q(rdir)}; rm -f {q(rdir)}/rc; cat {BOOT_ID} > {q(rdir)}/boot\ncmd={q(cmd)}\n"
             f"{{ echo \"##CHIP $CHIP\"; eval \"${{cmd//{POOL_CARD}/$CHIP}}\"; }} > {q(rdir)}/leg.log 2>&1\n"
             f"echo $? > {q(rdir)}/rc.tmp && mv {q(rdir)}/rc.tmp {q(rdir)}/rc\n")
 
@@ -818,16 +1149,35 @@ def run_in_pool(host: Host, card, leg: Leg, rdir: str, f) -> int:
     f.write(f"# queued {host.name}:{job}\n")
     f.flush()
     QUEUED[job] = host
+    RUNNING[rdir] = host
     while True:
         time.sleep(POOL_POLL_S)
+        host.read_lend()
+        if host.lent(leg.budget) and host.ssh(f"mv {q(job)} {q(job)}.lent", capture_output=True,
+                                              timeout=120).returncode == 0:
+            # the pool had not started it (it moves a job out of the queue when it does)
+            QUEUED.pop(job, None)
+            RUNNING.pop(rdir, None)
+            f.write(f"# taken back: {host.name}'s pool is lent or paused past this leg's cap\n")
+            return WITHDRAWN
         try:
-            r = host.ssh(f"cat {q(rdir)}/rc", capture_output=True, timeout=120)
+            r = host.ssh(f"cat {BOOT_ID}; cat {q(rdir)}/boot 2>/dev/null || echo; cat {q(rdir)}/rc 2>/dev/null",
+                         capture_output=True, timeout=120)
         except subprocess.TimeoutExpired:
             continue        # a busy sshd; the job runs on regardless, ask again
-        if r.returncode == 0 and r.stdout.strip():
-            rc = int(r.stdout.strip())
+        if r.returncode == 255:
+            continue        # the connection, not the job
+        boot, started, rc = (r.stdout.split("\n") + ["", ""])[:3]
+        if rc.strip():
+            rc = int(rc)
             break
+        if started.strip() and started.strip() != boot.strip():
+            QUEUED.pop(job, None)
+            RUNNING.pop(rdir, None)
+            f.write(f"# {host.name} {REBOOTED} (boot id changed) and the leg left no exit code\n")
+            return 1
     QUEUED.pop(job, None)
+    RUNNING.pop(rdir, None)
     for _ in range(SSH_LOST_TRIES):
         try:
             r = host.ssh(f"L={q(rdir)}/leg.log; head -c {LOG_CAP} $L; [ $(stat -c%s $L) -le {LOG_CAP} ] || "
@@ -846,6 +1196,7 @@ def run_in_pool(host: Host, card, leg: Leg, rdir: str, f) -> int:
 def run_over_ssh(host: Host, card, leg: Leg, rdir: str, f) -> int:
     """Run `leg` on a named card, streaming its log into f."""
     cmd = host.command(leg, card, rdir)
+    RUNNING[rdir] = host
     p = subprocess.Popen(["ssh", "-o", "BatchMode=yes", "-o", "ServerAliveInterval=60", host.cfg["ssh"], cmd]
                          if host.cfg.get("ssh") not in (None, "", "localhost") else ["bash", "-c", cmd],
                          stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
@@ -860,7 +1211,24 @@ def run_over_ssh(host: Host, card, leg: Leg, rdir: str, f) -> int:
             tail = (tail + [line])[-400:]
     if tail:
         f.write(f"\n# ... log capped at {LOG_CAP} bytes; last {len(tail)} lines:\n" + "".join(tail))
-    return p.wait()
+    rc = p.wait()
+    RUNNING.pop(rdir, None)
+    return rc
+
+
+def record_fragment(model_file: str, written: str, card_type: str, model: str):
+    """The model's baseline file with `card_type`'s entry replaced by the one the record leg wrote.
+
+    release_gate --size-ladder-record writes its card's entry into the top-level baseline file it
+    was pointed at, not into size_ladder_baseline.d/. Until 2026-10-10 the runner returned the .d
+    copy staged before the leg, so 14 record legs of gate 92d5924f5 "passed" with the old entry.
+    None when the record wrote no entry for this model, which fails the leg."""
+    entry = json.loads(written).get("cards", {}).get(card_type)
+    if not entry or model not in entry.get("models", {}):
+        return None
+    base = json.loads(model_file)
+    base["cards"][card_type] = entry
+    return json.dumps(base, indent=2) + "\n"
 
 
 def make_executor(sha: str, out: Path, ledger: Ledger, keys: dict, remote_out: str):
@@ -868,15 +1236,21 @@ def make_executor(sha: str, out: Path, ledger: Ledger, keys: dict, remote_out: s
         tag = leg.name.replace(":", "_").replace("/", "-")
         log = out / "logs" / host.arch / f"{tag}.log"
         log.parent.mkdir(parents=True, exist_ok=True)
+        # A second runner on the same --out reruns a leg that FAILed: keep the first run's log.
+        n = 1
+        while log.exists():
+            log, n = log.with_name(f"{tag}.{n}.log"), n + 1
         rdir = f"{host.root}/{remote_out}/{host.arch}/{tag}"
         t0 = time.time()
         run = run_in_pool if card == POOL else run_over_ssh
-        lost = 0
+        lost = full = stuck = contended = rebooted = 0
         while True:
             with open(log, "w") as f:
                 f.write(f"# {leg.name} on {host.name}:{card} ({host.cfg['card_type']}) tree {sha}\n")
                 f.flush()
                 rc = run(host, card, leg, rdir, f)
+            if rc == WITHDRAWN:
+                return None     # the worker puts it back on the queue for another host
             text = log.read_text(errors="replace")
             # The gate scripts refuse to start on an overloaded host (gate_guard's load ceiling).
             # That is not a verdict: wait for the load to drop and start the leg again.
@@ -884,6 +1258,20 @@ def make_executor(sha: str, out: Path, ledger: Ledger, keys: dict, remote_out: s
                 # The connection dropped, not the leg: run it again once the host answers.
                 lost += 1
                 time.sleep(SSH_LOST_RETRY_S)
+                continue
+            if rc and DISK_FULL.search(text) and full < DISK_FULL_TRIES:
+                full += 1
+                time.sleep(DISK_FULL_RETRY_S)
+                continue
+            if rc and CONTENDED.search(text) and contended < CONTENDED_TRIES:
+                contended += 1
+                time.sleep(CONTENDED_RETRY_S)
+                continue
+            if rc and card == POOL and REBOOTED in text and not rebooted:
+                rebooted += 1
+                continue
+            if rc and card == POOL and CARD_STUCK.search(text) and not stuck:
+                stuck += 1
                 continue
             if not (rc and LOAD_REFUSAL in text and time.time() - t0 < LOAD_WAIT_MAX_S):
                 break
@@ -916,14 +1304,26 @@ def make_executor(sha: str, out: Path, ledger: Ledger, keys: dict, remote_out: s
             if r.returncode == 0:
                 dst.write_text(r.stdout)
                 seeded = str(dst)
+        if verdict == "PASS" and leg.family == "perf" and host.cfg.get("perf_against"):
+            r = [host.ssh(f"cat {d}/docs/perf_baselines.json", capture_output=True, timeout=120)
+                 for d in (host.tree, host.against)]
+            if not any(x.returncode for x in r):
+                dst = out / "seeded" / host.arch / "perf_baselines.json"
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                dst.write_text(rerecorded(r[0].stdout, r[1].stdout, f"re-recorded {now()[:10]} on "
+                                          f"{host.name} as the A/B reference ({host.cfg['perf_against']}) "
+                                          f"of the {sha[:9]} release gate"))
+                seeded = str(dst)
         if verdict == "PASS" and leg.family == "record":
             m = leg.name.split(":", 1)[1]
             dst = out / "recorded" / host.cfg["card_type"] / f"{m}.json"
             dst.parent.mkdir(parents=True, exist_ok=True)
-            r = host.ssh(f"cat {shlex.quote(f'{rdir}/size_ladder_baseline.d/{m}.json')}",
-                         capture_output=True, timeout=120)
-            if r.returncode == 0:
-                dst.write_text(r.stdout)
+            r = [host.ssh(f"cat {shlex.quote(f'{rdir}/{f}')}", capture_output=True, timeout=120)
+                 for f in (f"size_ladder_baseline.d/{m}.json", "size_ladder_baseline.json")]
+            frag = (record_fragment(r[0].stdout, r[1].stdout, host.cfg["card_type"], m)
+                    if not any(x.returncode for x in r) else None)
+            if frag:
+                dst.write_text(frag)
                 seeded = str(dst)
             else:
                 verdict = "FAIL"
@@ -951,6 +1351,19 @@ def parse_workers(spec: str, hosts: dict) -> list:
             raise SystemExit(f"--workers {w}: {h} has no pool in the hosts file")
         out.append((hosts[h], c if c == POOL else int(c)))
     return out
+
+
+def hold_out(out: Path):
+    """Create `out` and lock it for this runner: a second runner on it would rerun the same legs
+    beside the first. The returned file holds the lock until it is closed or the process exits."""
+    out.mkdir(parents=True, exist_ok=True)
+    lock = open(out / "runner.lock", "w")
+    try:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        lock.close()
+        raise SystemExit(f"another gate_fanout.py is running on {out}")
+    return lock
 
 
 def main() -> int:
@@ -991,10 +1404,17 @@ def main() -> int:
         if not any(h.arch == a for h, c in workers if (h.name, c) in timed):
             print(f"note: no --timed card for {a}; its timed legs will not run", file=sys.stderr)
 
-    # The first host resolves the packages; every other host installs exactly that resolution.
-    lead, *rest = hosts.values()
-    lead.prepare()
-    pins = lead.pins()
+    # Every host installs one resolution: the one this commit, or an earlier one with the same
+    # dependencies, was gated with; failing that the first host resolves from PyPI and records it.
+    ledger = Ledger(args.ledger)
+    spec = dep_spec(sha)
+    rest = list(hosts.values())
+    pins = ledger.pins(sha, spec)
+    if pins is None:
+        lead = rest.pop(0)
+        lead.prepare()
+        pins = lead.pins()
+    ledger.save_pins(sha, spec, pins)
     with ThreadPoolExecutor() as ex:          # a failure re-raises here
         list(ex.map(lambda h: h.prepare(pins), rest))
     first = {a: next(h for h in hosts.values() if h.arch == a) for a in archs}
@@ -1018,10 +1438,21 @@ def main() -> int:
                 if env_hash(h.run_py(ENV_PROBE, py)) != envs[f"{h.arch} {ref}"]:
                     raise SystemExit(f"{h.name} and {first[h.arch].name} hold different packages for "
                                      f"{fam} legs; prepare both from the same commit")
-    ctype = {a: first[a].cfg["card_type"] for a in archs}
+    # A host's `key_card_type` files its results under another card type whose results it
+    # reproduces exactly (qb2's p300c keys as p150a: digests equal seed for seed). Timed legs
+    # measure the card itself, so only a host whose card type is the key's may run them.
+    ctype = {a: first[a].key_card_type for a in archs}
+    # The baseline blocks a leg of each arch can read: every card type of that arch in hosts.json.
+    reads = {a: {ctype[a]} | {c["card_type"] for c in cfg.values() if c.get("arch") == a} for a in archs}
+    for h in hosts.values():
+        if h.arch in archs and h.key_card_type != ctype[h.arch]:
+            raise SystemExit(f"{h.name} keys as {h.key_card_type}, {first[h.arch].name} as {ctype[h.arch]}")
+    for h, c in workers:
+        if (h.name, c) in timed and h.cfg["card_type"] != h.key_card_type:
+            raise SystemExit(f"--timed {h.name}:{c}: a {h.cfg['card_type']} keyed as {h.key_card_type} "
+                             "cannot run timed legs")
 
-    args.out.mkdir(parents=True, exist_ok=True)
-    ledger = Ledger(args.ledger)
+    lock = hold_out(args.out)  # noqa: F841 (held until the runner exits)
     # Rows written while test files were inside the content key (until 2026-10-09 21Z), at this
     # commit or at any commit with the same code, which a leg accepts when its own inputs match too.
     same = {s for s in {sha} | ledger.shas() if s == sha or _same_code(s, content)}
@@ -1034,7 +1465,13 @@ def main() -> int:
             env, ct, hleg = (envs[f"{a} {first[a].python(lg.family)}"], ctype[a] if lg.card else "cpu",
                              first[a].leg(lg))
             model = lg.name.split(":", 1)[1] if lg.family == "ladder" else ""
-            base, tst = baseline_hash(sha, lg.family, model=model), tests_hash(sha, lg.family)
+            cards = reads[a] if lg.card else ()
+            base, tst = baseline_hash(sha, lg.family, model=model, cards=cards), tests_hash(sha, lg.family)
+            # An A/B perf leg reads the reference tree's numbers, not the committed baseline, so
+            # committing a re-recorded baseline does not rerun it.
+            ab = lg.family == "perf" and bool(first[a].cfg.get("perf_against"))
+            if ab:
+                base = ""
             k = leg_key(content, env, ct, hleg, base, tst)
             keys[(lg.name, slot)] = k
             # Card-free legs always run: they are cheap, and pytest_cpu checks the recorded
@@ -1042,21 +1479,25 @@ def main() -> int:
             # A row under an older key scheme proved the same code against the same inputs, so it
             # is as good as a row under the new one: baselines inside the content hash (legacy),
             # or test files inside it, at any commit whose code and this leg's inputs match.
-            match = {s for s in same if s == sha or (baseline_hash(s, lg.family, model=model) == base
+            match = {s for s in same if s == sha or (baseline_hash(s, lg.family, model=model, cards=cards) == base
                                                      and tests_hash(s, lg.family) == tst)}
             olds = ([leg_key(legacy, env, ct, hleg)]
+                    # rows filed when the ladder key was the files' blob ids (until 2026-10-11)
+                    + [leg_key(content, env, ct, hleg, baseline_hash(s, lg.family, model=model), tst)
+                       for s in match if cards and model]
                     + [leg_key(tests_in[s], env, ct, hleg, base) for s in match]
-                    + [leg_key(runner_in[s], env, ct, hleg, base, tst) for s in match])
+                    + [leg_key(runner_in[s], env, ct, hleg, base, tst) for s in match]
+                    + [leg_key(content, env, ct, hleg, baseline_hash(s, "perf"), tst) for s in same if ab])
             hit = (None if args.no_reuse or not lg.card or lg.family == "record"
                    else next(filter(None, map(ledger.get, [k, *olds])), None))
             owes = owed_by(roster, ctype[a], lg)
+            if not owes and not any(h.arch == a and cap_fits(roster, h, lg) for h, _ in workers):
+                owes = [CAP_OWED]
             if owes:
                 results.append({"leg": lg.name, "arch": slot, "verdict": "OWED", "owed": owes,
                                 "card_type": ctype[a]})
             elif hit and hit.get("verdict") in OK:
-                results.append({"leg": lg.name, "arch": slot, "verdict": "REUSED", "key": k,
-                                "evidence": f"{hit['worker']} {hit['ended']} {hit['sha'][:9]} {hit['log']}",
-                                "reused_verdict": hit["verdict"]})
+                results.append(_reused(lg.name, slot, k, hit))
             elif lg.card:
                 todo[a].append(lg)
             else:
@@ -1083,10 +1524,11 @@ def main() -> int:
             print(f"  {a}: " + " ".join(lg.name for lg in q))
         return 0
 
-    # Per run, so a job a stopped run left in a pool can never share a directory with a new one.
-    execute = make_executor(sha, args.out, ledger, keys, f"out-{sha[:12]}/{args.out.name}")
-    # Card-free legs run one at a time on the first host, as a worker without a card, so they
-    # also stand aside while a timed leg holds that host quiet.
+    # Per run, so a job a stopped run left in a pool can never share a directory with a new one,
+    # and a stopped run's cleanup (pool job names, end_attempt's GATE_ATTEMPT mark) can never
+    # reach a later run on the same --out: on 10-11 one ended five legs of its successor.
+    execute = make_executor(sha, args.out, ledger, keys, f"out-{sha[:12]}/{args.out.name}-{os.getpid()}")
+    # Card-free legs run on a worker without a card on each host of the first arch (`cardfree`).
     # Started in the background by a non-interactive shell, SIGINT arrives ignored and the
     # cleanup below never ran; SIGTERM never reached it at all. Both stop the runner the same way.
     def _stop(*_):
@@ -1094,12 +1536,19 @@ def main() -> int:
     signal.signal(signal.SIGINT, _stop)
     signal.signal(signal.SIGTERM, _stop)
     try:
-        results += Gate(todo, workers + [(first[archs[0]], None)], timed, execute, args.out).run()
+        results += Gate(todo, workers + cardfree(workers, archs[0]), timed, execute, args.out,
+                        None if args.no_reuse else ledger, keys, roster).run()
     except KeyboardInterrupt:
-        # A stopped runner takes back what it queued; a job the pool already started has left
-        # the queue and finishes on its own.
+        # A stopped runner takes back what it queued and ends every leg it started: a remote leg
+        # outlives its ssh, and on 10-11 a stopped gate left 86 processes holding 23 cards.
         for job, host in list(QUEUED.items()):
             host.ssh(f"rm -f {shlex.quote(job)}", timeout=120)
+        hosts, cmds = {}, {}
+        for rdir, host in list(RUNNING.items()):
+            hosts[host.name] = host
+            cmds.setdefault(host.name, []).append(Host.end_attempt(rdir))
+        for name, c in cmds.items():
+            hosts[name].ssh("; ".join(c), timeout=120)
         raise
     ok = write_verdict(args.out, sha, archs, results)
     print(f"GATE {'PASS' if ok else 'FAIL'}: {args.out / 'VERDICT.md'}")

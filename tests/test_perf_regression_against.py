@@ -45,3 +45,62 @@ def test_a_failed_reference_run_fails_the_gate(tmp_path):
         assert "exited 3" in str(e)
     else:
         raise AssertionError("a failed reference run must fail the gate")
+
+
+class _Clock:
+    def __init__(self, median):
+        self.median = median
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def summary(self):
+        return {0: {"min": self.median, "max": self.median, "median": self.median, "n": 3}}
+
+
+def _fake_child(row):
+    class Popen:
+        def __init__(self, cmd, **kw):
+            Path(cmd[cmd.index("--out") + 1]).write_text(json.dumps(row))
+            self.pid = 0
+
+        def wait(self, timeout=None):
+            return 0
+    return Popen
+
+
+def test_a_measurement_carries_the_clock_and_a_clamped_one_cannot_seed(monkeypatch, tmp_path):
+    m = _module()
+    row = {"model": "boltz2", "hardware": "blackhole", "throughput": 0.8}
+    monkeypatch.setattr(m.subprocess, "Popen", _fake_child(row))
+    monkeypatch.setattr(m, "clock_during", lambda: _Clock(1350))
+    fast = m._run_measure("boltz2")
+    assert fast["aiclk_mhz"]["median"] == 1350 and not fast.get("clock_low")
+    monkeypatch.setattr(m, "clock_during", lambda: _Clock(800))
+    slow = m._run_measure("boltz2")
+    assert slow["clock_low"]
+    monkeypatch.setattr(m, "BASELINE_FILE", tmp_path / "b.json")
+    try:
+        m._update_baselines([slow], Namespace(note="x", allow_contended=False))
+    except SystemExit as e:
+        assert "boltz2 peak 800 MHz" in str(e)
+    else:
+        raise AssertionError("a baseline was seeded from an 800 MHz measurement")
+    assert not (tmp_path / "b.json").exists()
+
+
+def test_the_clock_floor_is_per_architecture(monkeypatch):
+    """A busy Wormhole Galaxy chip runs at 1000 MHz, under Blackhole's floor; only a peak under
+    Wormhole's own floor is clamped there."""
+    m = _module()
+    assert m.hardware_of("tt-galaxy-wh-l") == "wormhole_b0" and m.hardware_of("n300") == "wormhole_b0"
+    assert m.hardware_of("p150a") == "blackhole" and m.hardware_of("p300c") == "blackhole"
+    row = {"model": "boltzgen", "hardware": "wormhole_b0", "throughput": 0.01}
+    monkeypatch.setattr(m.subprocess, "Popen", _fake_child(row))
+    monkeypatch.setattr(m, "clock_during", lambda: _Clock(1000))
+    assert not m._run_measure("boltzgen").get("clock_low")
+    monkeypatch.setattr(m, "clock_during", lambda: _Clock(500))
+    assert m._run_measure("boltzgen")["clock_low"]

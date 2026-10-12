@@ -79,7 +79,11 @@ class _Grid:
 
 
 @pytest.mark.parametrize("tokens,kt,pcm,obw", [(736, 312, 84, 23), (512, 312, 60, 16), (1024, 432, 116, 16)])
-def test_contract_config_picks_the_measured_plan(tokens, kt, pcm, obw):
+def test_contract_config_picks_the_measured_plan(tokens, kt, pcm, obw, monkeypatch):
+    # The plans were measured against the allocator's 1461760 B per bank. Without an open device
+    # the budget is get_max_worker_l1_unreserved_size(), 1532416 B on Blackhole, which admits a
+    # 4x32 block (1507328 B); whether an earlier test in this process opened a device decided it.
+    monkeypatch.setattr(T, "_matmul_cb_budget", lambda: 1461760)
     cfg = T.opm_contract_config(tokens, tokens, kt, _Grid)
     assert (cfg.per_core_M, cfg.in0_block_w, cfg.out_block_h, cfg.out_block_w) == (pcm, T.OPM_K_BLOCK, 4, obw)
     assert cfg.out_subblock_h * cfg.out_subblock_w == 4

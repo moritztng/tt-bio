@@ -1,7 +1,9 @@
 """gate_fanout.py: leg split, result keys, reuse, scheduling and verdict, all card-free."""
 import importlib.util
 import json
+import os
 import shlex
+import signal
 import subprocess
 import sys
 import threading
@@ -165,6 +167,39 @@ def test_key_moves_with_code_env_card_and_argv_not_with_markdown(tmp_path):
     assert k != gf.leg_key(c1, "env", "p150a", other)
 
 
+def test_a_ladder_key_sees_only_its_own_card_types_rows(tmp_path):
+    def git(*a):
+        subprocess.run(["git", "-C", str(tmp_path), *a], check=True, capture_output=True)
+    frag = tmp_path / "docs" / "size_ladder_baseline.d" / "nesso1.json"
+    frag.parent.mkdir(parents=True)
+
+    def write(cards):
+        frag.write_text(json.dumps({"cards": cards}))
+        git("add", "."), git("commit", "-qm", "x")
+    git("init", "-q"), git("config", "user.email", "t@t"), git("config", "user.name", "t")
+    bh = {"p150a": {"host_threads": 2, "models": {"nesso1": {"256": 1}}}}
+    write({**bh, "wh": {"host_threads": 2, "models": {"nesso1": {"256": 2}}}})
+    key = lambda cards, model="nesso1": gf.baseline_hash("HEAD", "ladder", tmp_path, model=model, cards=cards)
+    b1, w1, blob1 = key(("p150a", "p300c")), key(("wh",)), gf.baseline_hash("HEAD", "ladder", tmp_path, model="nesso1")
+    write({**bh, "wh": {"host_threads": 2, "models": {"nesso1": {"256": 3}}}})       # a WH re-record
+    assert key(("p150a", "p300c")) == b1                                             # BH legs reuse
+    assert key(("wh",)) != w1                                                        # WH legs rerun
+    assert gf.baseline_hash("HEAD", "ladder", tmp_path, model="nesso1") != blob1     # the blob moved
+    write({"p150a": {"host_threads": 4, "models": bh["p150a"]["models"]}, "wh": {}})
+    assert key(("p150a", "p300c")) != b1                                             # the cap is read too
+
+
+def test_a_commit_with_the_same_dependencies_installs_the_last_gated_resolution(tmp_path):
+    led = gf.Ledger(tmp_path)
+    assert led.pins("a" * 40, "spec1") is None                  # nothing recorded: resolve from PyPI
+    led.save_pins("a" * 40, "spec1", {"venv": "beartype==0.23.0\n"})
+    led.save_pins("a" * 40, "spec1", {"venv": "beartype==0.23.1\n"})   # the first resolution stays
+    assert led.pins("b" * 40, "spec1") == {"venv": "beartype==0.23.0\n"}
+    assert led.pins("b" * 40, "spec2") is None                  # a dependency changed: resolve again
+    assert led.pins("a" * 40, "spec2") == {"venv": "beartype==0.23.0\n"}   # its own, whatever the spec
+    assert not led.shas()                                       # the pins are not ledger rows
+
+
 def test_env_hash_ignores_order_only():
     a = {"python": "3.12.1", "dists": ["ttnn==0.68.0", "torch==2.13.0"]}
     b = {"python": "3.12.1", "dists": ["ttnn==0.68.0", "torch==2.13.0"]}
@@ -201,6 +236,34 @@ def test_a_dropped_ssh_connection_is_not_a_leg_result():
     assert not gf.SSH_LOST.search("FAILED tests/test_x.py::test_ssh_connect_to_host\n")
 
 
+def test_a_full_disk_is_not_a_leg_result():
+    assert gf.DISK_FULL.search("mkdir: cannot create directory '/x': No space left on device\n")
+    assert gf.DISK_FULL.search("OSError: [Errno 28] No space left on device: '/tmp/x'\n")
+    assert not gf.DISK_FULL.search("RuntimeError: Out of Memory: Not enough space to allocate\n")
+
+
+def test_a_refused_card_reset_is_matched_from_release_gates_own_words():
+    assert gf.CARD_STUCK.search((REPO / "scripts/release_gate.py").read_text())
+
+
+def test_a_record_leg_returns_the_entry_it_recorded_not_the_staged_copy():
+    staged = {"cards": {"p150a": {"recorded": "old", "models": {"m": 1}},
+                        "p300c": {"recorded": "old", "models": {"m": 2}}}}
+    written = {"cards": {"p150a": {"recorded": "x", "models": {}},
+                         "p300c": {"recorded": "new", "host_threads": 5, "models": {"m": 3}}}}
+    frag = json.loads(gf.record_fragment(json.dumps(staged), json.dumps(written), "p300c", "m"))
+    assert frag["cards"]["p300c"] == written["cards"]["p300c"]
+    assert frag["cards"]["p150a"] == staged["cards"]["p150a"]
+    assert gf.record_fragment(json.dumps(staged), json.dumps(written), "p150a", "m") is None
+
+
+def test_a_contended_card_is_not_a_leg_result():
+    assert gf.CONTENDED.search("[pxdesign] measurement error: design [pxdesign] rep 2/3 exited 75 after 123s: "
+                               "device contention, nothing ran: physical card 3 on tt-quietbox is in use\n")
+    assert gf.CONTENDED.search("waited 120s. Refusing to open it concurrently (would wedge)\n")
+    assert not gf.CONTENDED.search("GATE FAIL — regressed beyond ±15%: boltzgen\n")
+
+
 def _host(name, arch, tmp_path):
     return gf.Host(name, {"arch": arch, "card_type": arch, "root": str(tmp_path)}, "f" * 40)
 
@@ -219,6 +282,8 @@ def test_scheduler_runs_every_leg_once_per_arch_and_timed_legs_alone(tmp_path):
                 violations.append(("timed leg started beside", set(live[host.arch])))
             if any(n == "perf" for n in live[host.arch]):
                 violations.append(("leg started beside timed", leg.name))
+            if gf.out_group(leg.name) in {gf.out_group(n) for n in live[host.arch]}:
+                violations.append(("leg started beside its output dir's other writer", leg.name))
             live[host.arch].add(leg.name)
         time.sleep(0.01)
         with mu:
@@ -233,6 +298,28 @@ def test_scheduler_runs_every_leg_once_per_arch_and_timed_legs_alone(tmp_path):
     perf = [r for r in res if r["leg"] == "perf"]
     assert {r["worker"] for r in perf} == {"qb1:3", "g:6"}
     assert (tmp_path / "results.jsonl").read_text().count("\n") == len(res)
+
+
+def test_a_models_fast_arm_shares_its_output_dir():
+    assert gf.out_group("rg:esmfold2-fast") == gf.out_group("rg:esmfold2")
+    assert gf.out_group("rg:esmfold2") != gf.out_group("ux:esmfold2")
+
+
+def test_legs_sharing_an_output_dir_never_overlap_on_one_host(tmp_path):
+    host = _host("g", "wh", tmp_path)
+    legs = [gf.Leg(n, [], "rg") for n in ("rg:esmfold2", "rg:esmfold2-fast", "rg:boltz2")]
+    spans = {}
+
+    def execute(h, card, leg):
+        t0 = time.monotonic()
+        time.sleep(0.05)
+        spans[leg.name] = (t0, time.monotonic())
+        return {"leg": leg.name, "arch": h.arch, "verdict": "PASS", "worker": f"g:{card}"}
+
+    res = gf.Gate({"wh": legs}, [(host, 0), (host, 1), (host, 2)], set(), execute, tmp_path).run()
+    assert len(res) == 3
+    (a0, a1), (b0, b1) = spans["rg:esmfold2"], spans["rg:esmfold2-fast"]
+    assert a1 <= b0 or b1 <= a0
 
 
 def test_verdict_counts_reused_and_blocked_as_pass_and_fails_on_any_fail(tmp_path):
@@ -297,6 +384,37 @@ def test_flock_first_never_stops_another_gates_wait(tmp_path):
     assert not Path(f"{lock}.gate-stopped").exists() or Path(f"{lock}.gate-stopped").read_text() == ""
     assert holder.wait(10) == 0 and gate.wait(10) == 0 and other.wait(20) == 0
 
+def test_flock_first_continues_its_waiters_when_the_leg_is_sigkilled(tmp_path):
+    """A leg killed by SIGKILL or a timeout runs no exit trap; its waiters must not stay stopped."""
+    lock = tmp_path / "card.lock"
+    lock.touch()
+    holder = subprocess.Popen(["flock", str(lock), "sleep", "2"])
+    time.sleep(0.3)
+    foreign = subprocess.Popen(["flock", str(lock), "true"])
+    time.sleep(0.3)
+    gate = subprocess.Popen(["bash", str(REPO / "scripts" / "flock_first.sh"), str(lock), "sleep", "60"],
+                            env={"FLOCK_FIRST_GRACE": "1", "PATH": "/usr/bin:/bin"}, start_new_session=True)
+    time.sleep(3)
+    os.killpg(gate.pid, signal.SIGKILL)
+    gate.wait(5)                                  # a zombie still answers kill -0
+    assert holder.wait(10) == 0 and foreign.wait(15) == 0
+
+
+def test_flock_first_continues_its_waiters_while_an_ordinary_waiter_holds_the_card(tmp_path):
+    """qb1 10-10: a process that queued after the stop pass took the card during the grace, the
+    reaper read that as a gate leg and left 64 waiters stopped for up to 9 h."""
+    lock = tmp_path / "card.lock"
+    lock.touch()
+    holder = subprocess.Popen(["flock", str(lock), "sleep", "2"])
+    time.sleep(0.3)
+    foreign = subprocess.Popen(["flock", str(lock), "true"])
+    time.sleep(0.3)
+    assert subprocess.run(["bash", str(REPO / "scripts" / "flock_first.sh"), str(lock), "true"],
+                          env={"FLOCK_FIRST_GRACE": "1", "PATH": "/usr/bin:/bin"}).returncode == 0
+    late = subprocess.Popen(["flock", str(lock), "sleep", "3"])
+    assert holder.wait(10) == 0 and late.wait(10) == 0 and foreign.wait(15) == 0
+
+
 def test_flock_first_frees_the_card_when_its_leg_ends(tmp_path):
     """The grace keeps paused waiters paused; it must not keep the card locked."""
     lock = tmp_path / "card.lock"
@@ -304,6 +422,22 @@ def test_flock_first_frees_the_card_when_its_leg_ends(tmp_path):
     assert subprocess.run(["bash", str(REPO / "scripts" / "flock_first.sh"), str(lock), "true"],
                           env={"FLOCK_FIRST_GRACE": "5", "PATH": "/usr/bin:/bin"}).returncode == 0
     assert subprocess.run(["flock", "-n", str(lock), "true"]).returncode == 0
+
+def test_an_ab_pass_rerecords_only_the_cells_the_reference_measured():
+    old = {"note": "seed 0.6.2", "date": "2026-08-01", "value": 1.0}
+    tree = {"cards": {"p150a": {"machines": {"qb1": {"note": "seed 0.6.2", "date": "2026-08-01",
+                                                     "models": {"boltz2": old, "nesso1": old}}}},
+                      "tt-galaxy-wh-l": {"machines": {"g": {"note": "wh seed", "models": {"x": old}}}}}}
+    ab = {"note": "A/B reference for /r/trees/x, same card and session", "date": "2026-10-10", "value": 2.0}
+    ref = {"cards": {"p150a": {"machines": {"qb1": {**ab, "models": {"boltz2": ab}},
+                                            "pc": {"note": "pc", "models": {"boltz2": old}}}}}}
+    out = json.loads(gf.rerecorded(json.dumps(tree), json.dumps(ref), "re-recorded"))
+    qb1 = out["cards"]["p150a"]["machines"]["qb1"]
+    assert qb1["models"]["boltz2"]["value"] == 2.0 and qb1["models"]["boltz2"]["note"] == "re-recorded"
+    assert qb1["models"]["nesso1"] == old and qb1["note"] == "re-recorded" and qb1["date"] == "2026-10-10"
+    assert "pc" not in out["cards"]["p150a"]["machines"]
+    assert out["cards"]["tt-galaxy-wh-l"] == tree["cards"]["tt-galaxy-wh-l"]
+
 
 def test_perf_against_runs_the_timed_leg_against_the_last_release_tree():
     h = gf.Host("qb1", {"arch": "bh", "card_type": "p150a", "root": "/r", "perf_against": "v0.13.1",
@@ -454,6 +588,36 @@ def test_a_pool_leg_is_one_job_file_that_runs_on_the_chip_the_pool_picks(tmp_pat
     assert gf.parse_workers("g:pool,g:pool", {"g": h}) == [(h, "pool"), (h, "pool")]
 
 
+def test_a_pool_leg_whose_host_rebooted_under_it_is_reported_not_waited_for(tmp_path, monkeypatch):
+    """g114 rebooted under five legs on 2026-10-11 and their runners waited for an exit code that
+    could not come. The job notes the boot id it started under; a new one and no rc ends the wait."""
+    monkeypatch.setattr(gf, "POOL_POLL_S", 0.05)
+    boot = tmp_path / "boot_id"
+    boot.write_text("first\n")
+    monkeypatch.setattr(gf, "BOOT_ID", str(boot))
+    queue = tmp_path / "queue"
+    queue.mkdir()
+    h = gf.Host("g", {"arch": "wh", "card_type": "w", "root": str(tmp_path), "ssh": "localhost",
+                      "lock": str(tmp_path / "chip{card}.lock"), "python": sys.executable,
+                      "pool": {"queue": str(queue), "prio": 0}}, "b" * 40)
+    leg = gf.Leg("ux:x", ["PY", "-c", "pass"], "ux")
+    rdir = tmp_path / "o" / "run1" / "wh" / "ux_x"
+
+    def pool():  # starts the job's first line only (it dies with the host), then the host reboots
+        while not (jobs := list(queue.glob("*.sh"))):
+            time.sleep(0.02)
+        first = jobs[0].read_text().splitlines()[2]
+        subprocess.run(["bash", "-c", first], check=True)
+        assert (rdir / "boot").read_text() == "first\n"
+        boot.write_text("second\n")
+    t = threading.Thread(target=pool)
+    t.start()
+    with open(tmp_path / "leg.log", "w") as f:
+        rc = gf.run_in_pool(h, gf.POOL, leg, str(rdir), f)
+    t.join()
+    assert rc == 1 and gf.REBOOTED in (tmp_path / "leg.log").read_text()
+
+
 def test_a_leg_refused_for_host_load_starts_again_instead_of_failing(tmp_path, monkeypatch):
     monkeypatch.setattr(gf, "LOAD_RETRY_S", 0)
     calls = []
@@ -471,6 +635,36 @@ def test_a_leg_refused_for_host_load_starts_again_instead_of_failing(tmp_path, m
     ex = gf.make_executor("c" * 40, tmp_path, gf.Ledger(tmp_path / "l"), {("ux:x", "wh"): "k"}, "o")
     res = ex(h, 3, leg)
     assert len(calls) == 3 and res["verdict"] == "PASS"
+
+
+def test_a_leg_that_met_another_process_on_its_card_runs_again(tmp_path, monkeypatch):
+    monkeypatch.setattr(gf, "CONTENDED_RETRY_S", 0)
+    calls = []
+
+    def fake_run(host, card, leg, rdir, f):
+        calls.append(card)
+        if len(calls) == 1:
+            f.write("##LEG-START 5\n[pxdesign] measurement error: device contention, nothing ran\n")
+            return 1
+        f.write("##LEG-START 5\nok\n")
+        return 0
+    monkeypatch.setattr(gf, "run_over_ssh", fake_run)
+    h = gf.Host("q", {"arch": "bh", "card_type": "p", "root": "/r"}, "c" * 40)
+    ex = gf.make_executor("c" * 40, tmp_path, gf.Ledger(tmp_path / "l"), {("perf", "bh"): "k"}, "o")
+    res = ex(h, 3, gf.Leg("perf", ["PY"], "perf", timed=True))
+    assert len(calls) == 2 and res["verdict"] == "PASS"
+
+
+def test_a_second_run_of_a_leg_keeps_the_first_runs_log(tmp_path, monkeypatch):
+    def fake_run(host, card, leg, rdir, f):
+        f.write("##LEG-START 5\nrun\n")
+        return 1
+    monkeypatch.setattr(gf, "run_over_ssh", fake_run)
+    h = gf.Host("q", {"arch": "bh", "card_type": "p", "root": "/r"}, "c" * 40)
+    ex = gf.make_executor("c" * 40, tmp_path, gf.Ledger(tmp_path / "l"), {("perf", "bh"): "k"}, "o")
+    first = ex(h, 1, gf.Leg("perf", ["PY"], "perf", timed=True))["log"]
+    second = ex(h, 1, gf.Leg("perf", ["PY"], "perf", timed=True))["log"]
+    assert first != second and Path(first).exists() and Path(second).name == "perf.1.log"
 
 
 def test_a_lever_an_imported_module_registers_is_owed_by_a_baseline_without_its_row(tmp_path):
@@ -500,6 +694,52 @@ def test_an_owed_ladder_leg_fails_the_verdict_and_names_the_record_command(tmp_p
     assert "| ladder:m | OWED B |" in text and "--record-lever B" in text
 
 
+def test_a_ladder_leg_runs_only_on_a_host_timing_it_at_its_baselines_cap(tmp_path):
+    """rel-19d30971f: four p150a ladders were folded for 30-80 min each on qb1 at --host-threads 8
+    against baselines timed uncapped, and each failed "re-record at this cap" at the end. The cap
+    is in the baseline, so the plan knows it before folding, and a host at another cap (qb2 at 5,
+    keyed as p150a but timed against its own p300c rows) must not take the leg."""
+    base = {"cards": {"p": {"host_threads": None, "models": {"m": {}, "n": {}}},
+                      "c": {"host_threads": 5, "models": {"m": {}}}}}
+    (tmp_path / "size_ladder_baseline.d").mkdir()
+    (tmp_path / "size_ladder_baseline.json").write_text(json.dumps(base))
+    (tmp_path / "size_ladder_baseline.d" / "n.json").write_text(json.dumps(
+        {"cards": {"p": {"host_threads": 8, "models": {"n": {}}}}}))
+    roster = {"caps": gf.ladder_caps(tmp_path, ["m", "n"])}
+    assert roster["caps"] == {"p": {"m": None, "n": 8}, "c": {"m": 5}}   # the fragment wins
+
+    def host(card_type, cap):
+        cfg = {"arch": "bh", "card_type": card_type, "root": "/r"}
+        if cap:
+            cfg["args"] = {"ladder": ["--host-threads", str(cap)]}
+        return gf.Host(card_type + str(cap), cfg, "f" * 40)
+    m, n, rec = (gf.Leg("ladder:m", [], "ladder"), gf.Leg("ladder:n", [], "ladder"),
+                 gf.Leg("record:m", [], "record"))
+    assert host("p", 8).ladder_cap == 8 and host("p", None).ladder_cap is None
+    assert gf.cap_fits(roster, host("p", 8), n) and not gf.cap_fits(roster, host("p", 8), m)
+    assert gf.cap_fits(roster, host("p", None), m) and gf.cap_fits(roster, host("c", 5), m)
+    assert gf.cap_fits(roster, host("p", 8), rec)                     # a record sets the cap
+    assert gf.cap_fits(roster, host("c", 5), n)                       # no row: the leg says so
+    results = [{"leg": "ladder:m", "arch": "bh", "verdict": "OWED", "owed": [gf.CAP_OWED]}]
+    assert not gf.write_verdict(tmp_path, "a" * 40, ["bh"], results)
+    text = (tmp_path / "VERDICT.md").read_text()
+    assert "--record-full m" in text and "--record-lever" not in text
+
+
+def test_a_gate_never_hands_a_ladder_leg_to_a_host_at_another_cap(tmp_path):
+    roster = {"caps": {"bh": {"m": 8}}}
+    off, on = _host("qb2", "bh", tmp_path), _host("qb1", "bh", tmp_path)
+    on.cfg["args"] = {"ladder": ["--host-threads", "8"]}
+    ran = []
+
+    def execute(host, card, leg):
+        ran.append(host.name)
+        return {"leg": leg.name, "arch": host.arch, "verdict": "PASS"}
+    gf.Gate({"bh": [gf.Leg("ladder:m", [], "ladder")]}, [(off, 0), (on, 0)], set(), execute,
+            tmp_path, roster=roster).run()
+    assert ran == ["qb1"]
+
+
 def test_only_a_ladder_leg_owes_levers_and_a_bare_leg_name_does_not_crash_the_plan():
     roster = {"owed": {"w": {"m": ["B"]}}}
     assert gf.owed_by(roster, "w", gf.Leg("ladder:m", ["PY"], "ladder")) == ["B"]
@@ -524,3 +764,171 @@ def test_splice_takes_only_the_fragments_card_type(tmp_path):
     got = json.loads((base / "m.json").read_text())
     assert got == {"rungs": [1, 2, 3], "cards": {"wh": {"v": 9}, "bh": {"v": 2}}}
     assert sp.splice([tmp_path / "rec"], base) == []          # idempotent
+
+
+def _key(name):
+    return gf.sha256(name)
+
+
+def _runner(host, legs, ledger, me, tmp_path, ran, mu, verdict="PASS"):
+    """A Gate over `legs` on one bh card whose ledger claims as runner `me`."""
+    ledger.ME = me
+    keys = {(lg.name, "bh"): _key(lg.name) for lg in legs}
+
+    def execute(h, card, leg):
+        with mu:
+            ran.append((me["pid"], leg.name))
+        time.sleep(0.02)
+        res = {"leg": leg.name, "arch": "bh", "verdict": verdict, "worker": f"{h.name}:{card}",
+               "ended": "t", "sha": "f" * 40, "log": "l", "key": keys[(leg.name, "bh")]}
+        if verdict in gf.OK:
+            ledger.put(res["key"], res)
+        return res
+
+    out = tmp_path / str(me["pid"])
+    out.mkdir()
+    return gf.Gate({"bh": list(legs)}, [(host, 0)], set(), execute, out, ledger, keys)
+
+
+def test_a_second_runner_joins_a_gate_and_no_leg_runs_twice(tmp_path, monkeypatch):
+    monkeypatch.setattr(gf, "POOL_POLL_S", 0.01)
+    legs = [lg for lg in _legs() if lg.card and not lg.timed and lg.family != "record"][:12]
+    host = _host("qb1", "bh", tmp_path)
+    ran, mu = [], threading.Lock()
+    a = _runner(host, legs, gf.Ledger(tmp_path / "ledger"), {"host": "pc", "pid": 1}, tmp_path, ran, mu)
+    b = _runner(host, legs[::-1], gf.Ledger(tmp_path / "ledger"), {"host": "pc", "pid": 2}, tmp_path, ran, mu)
+    ts = [threading.Thread(target=g.run) for g in (a, b)]
+    for t in ts:
+        t.start()
+    for t in ts:
+        t.join(timeout=30)
+    assert sorted(n for _, n in ran) == sorted(lg.name for lg in legs)
+    assert {p for p, _ in ran} == {1, 2}
+    for g in (a, b):
+        assert sorted(r["leg"] for r in g.results) == sorted(lg.name for lg in legs)
+        assert all(r["verdict"] in ("PASS", "REUSED") for r in g.results)
+    assert not list((tmp_path / "ledger").glob("*.claim"))
+
+
+def test_a_leg_its_holder_left_without_a_pass_runs_again_and_a_dead_holder_is_dropped(tmp_path, monkeypatch):
+    monkeypatch.setattr(gf, "POOL_POLL_S", 0.01)
+    legs = [lg for lg in _legs() if lg.card and not lg.timed and lg.family != "record"][:2]
+    host = _host("qb1", "bh", tmp_path)
+    ledger = gf.Ledger(tmp_path / "ledger")
+    me = {"host": gf.socket.gethostname(), "pid": os.getpid()}
+    held, dead = (_key(lg.name) for lg in legs)
+    (ledger.path / f"{held}.claim").write_text(json.dumps({"host": "elsewhere", "pid": 7}))
+    (ledger.path / f"{dead}.claim").write_text(json.dumps({"host": me["host"], "pid": 2 ** 22 + 12345}))
+    ran, mu = [], threading.Lock()
+    g = _runner(host, legs, ledger, me, tmp_path, ran, mu)
+    t = threading.Thread(target=g.run)
+    t.start()
+    time.sleep(0.3)
+    assert [n for _, n in ran] == [legs[1].name]      # the dead holder's leg ran, the live one waits
+    (ledger.path / f"{held}.claim").unlink()           # the holder stopped without a row
+    t.join(timeout=10)
+    assert sorted(n for _, n in ran) == sorted(lg.name for lg in legs)
+    assert all(r["verdict"] == "PASS" for r in g.results)
+
+
+def test_a_host_keyed_as_another_card_type_keeps_its_own_for_the_record():
+    h = gf.Host("qb2", {"arch": "bh", "card_type": "p300c", "key_card_type": "p150a", "root": "/r"}, "f" * 40)
+    assert (h.cfg["card_type"], h.key_card_type) == ("p300c", "p150a")
+    assert gf.Host("qb1", {"arch": "bh", "card_type": "p150a", "root": "/r"}, "f" * 40).key_card_type == "p150a"
+
+
+def _pool_host(name, tmp_path, lend_at=None, paused=False):
+    h = gf.Host(name, {"arch": "wh", "card_type": "wh", "root": str(tmp_path),
+                       "pool": {"queue": str(tmp_path / name / "queue")}}, "f" * 40)
+    h.lend = (time.time(), lend_at, paused)      # fresh, so no ssh
+    return h
+
+
+def test_a_lent_pool_takes_no_leg_the_lend_would_hold_and_another_host_runs_it(tmp_path):
+    lent = _pool_host("g114", tmp_path, lend_at=int(time.time()) + 3600)
+    free = _pool_host("g107", tmp_path)
+    short, long_ = gf.Leg("check", [], "check", card=True), gf.Leg("capacity:opendde", [], "capacity")
+    assert short.budget < 3600 < long_.budget
+
+    def execute(h, card, leg):
+        return {"leg": leg.name, "arch": h.arch, "verdict": "PASS", "worker": h.name}
+
+    res = gf.Gate({"wh": [long_, short]}, [(lent, gf.POOL), (free, gf.POOL)], set(), execute, tmp_path).run()
+    assert {r["leg"]: r["worker"] for r in res}["capacity:opendde"] == "g107"
+    assert len(res) == 2
+    assert _pool_host("p", tmp_path, paused=True).lent(1) and not free.lent(10 ** 6)
+
+
+def test_card_free_legs_run_on_a_free_host_when_the_first_one_is_lent(tmp_path):
+    lent = _pool_host("g107", tmp_path, paused=True)
+    free = _pool_host("g114", tmp_path)
+    workers = [(lent, gf.POOL), (free, gf.POOL)]
+    assert gf.cardfree(workers + [(free, gf.POOL)], "wh") == [(lent, None), (free, None)]
+
+    def execute(h, card, leg):
+        return {"leg": leg.name, "arch": "any", "verdict": "PASS", "worker": h.name}
+
+    legs = [gf.Leg(n, [], n) for n in ("check", "packaging_smoke", "pytest_cpu")]
+    res = gf.Gate({"any": legs}, workers + gf.cardfree(workers, "wh"), set(), execute, tmp_path).run()
+    assert sorted(r["leg"] for r in res) == ["check", "packaging_smoke", "pytest_cpu"]
+    assert {r["worker"] for r in res} == {"g114"}
+
+
+def test_a_leg_queued_before_the_lend_was_booked_is_taken_back(tmp_path, monkeypatch):
+    monkeypatch.setattr(gf, "POOL_POLL_S", 0.01)
+    monkeypatch.setattr(gf, "LEND_READ_S", 0)
+    lend = tmp_path / "LEND-AT"
+    monkeypatch.setattr(gf, "LEND_AT", str(lend))
+    queue = tmp_path / "queue"
+    queue.mkdir()
+    h = gf.Host("g", {"arch": "wh", "card_type": "w", "root": str(tmp_path), "ssh": "localhost",
+                      "lock": str(tmp_path / "chip{card}.lock"), "python": sys.executable,
+                      "pool": {"queue": str(queue), "prio": 0}}, "b" * 40)
+    leg = gf.Leg("capacity:opendde", ["PY", "-c", "pass"], "capacity")
+    lend.write_text(str(int(time.time()) + 600))
+    with open(tmp_path / "leg.log", "w") as f:
+        rc = gf.run_in_pool(h, gf.POOL, leg, str(tmp_path / "o" / "run1" / "wh" / "capacity_opendde"), f)
+    assert rc == gf.WITHDRAWN
+    assert [p.name for p in queue.iterdir()] == ["0-gate-run1-capacity_opendde.sh.lent"]
+
+    lend.unlink()                # the lend ended
+    tries = []
+
+    def execute(host, card, lg):
+        tries.append(host.name)
+        if len(tries) == 1:
+            return None          # what execute returns for a withdrawn leg
+        return {"leg": lg.name, "arch": host.arch, "verdict": "PASS", "worker": host.name}
+
+    res = gf.Gate({"wh": [leg]}, [(_pool_host("a", tmp_path), gf.POOL)], set(), execute, tmp_path).run()
+    assert len(tries) == 2 and len(res) == 1
+
+
+def test_end_attempt_stops_the_leg_it_started_and_nothing_else(tmp_path):
+    """A stopped runner ends each remote leg it started (10-11: a stopped gate left 86 processes
+    on 23 cards). It ends only its own attempt: a pid file whose process is not that leg's is left."""
+    out = str(tmp_path / "leg")
+    os.makedirs(out)
+    mark = f"GATE_ATTEMPT={out}"
+    attempt = f"echo $$ > {shlex.quote(out + '/attempt.pid')}; exec sleep 60"
+    leg = subprocess.Popen(["bash", "-c", f"env {shlex.quote(mark)} setsid -w bash -c {shlex.quote(attempt)}"])
+    for _ in range(50):
+        if Path(out, "attempt.pid").exists():
+            break
+        time.sleep(0.1)
+    stranger = subprocess.Popen(["sleep", "60"])
+    other = str(tmp_path / "other")
+    os.makedirs(other)
+    Path(other, "attempt.pid").write_text(f"{stranger.pid}\n")
+    subprocess.run(["bash", "-c", gf.Host.end_attempt(out) + "; " + gf.Host.end_attempt(other)], check=True)
+    assert leg.wait(10) != 0
+    assert stranger.poll() is None
+    stranger.kill()
+
+
+def test_one_runner_per_out(tmp_path):
+    held = gf.hold_out(tmp_path / "g")
+    with pytest.raises(SystemExit, match="another gate_fanout.py"):
+        gf.hold_out(tmp_path / "g")
+    held.close()
+    gf.hold_out(tmp_path / "g").close()

@@ -49,8 +49,15 @@ def test_negative_control_torch_default_does_not_divide():
     `host_threads` is ever reverted to returning the machine width, the first test above goes
     red and this one explains why.
     """
-    import torch
-    default = torch.get_num_threads()
+    import subprocess
+    import sys
+    # torch's default as a fresh process with no thread pin sees it. This process may run
+    # under OMP_NUM_THREADS (the release gate's pool hosts set it), and torch then reports
+    # the pin, not its own default.
+    env = {k: v for k, v in os.environ.items() if k not in ("OMP_NUM_THREADS", "MKL_NUM_THREADS")}
+    default = int(subprocess.run(
+        [sys.executable, "-c", "import torch; print(torch.get_num_threads())"],
+        env=env, capture_output=True, text=True, check=True).stdout.split()[-1])
     one = host_threads(1)
     if one < 2:
         pytest.skip("single-core host: there is nothing to divide and no defect to pin")
