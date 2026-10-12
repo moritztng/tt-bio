@@ -161,7 +161,7 @@ def transition(x, ln_w, ln_b, w12, w3, ckc, grid, add_to_input=False, eps=1e-5, 
     if dest_guard.exposed_args((fid, approx, True, full)):
         _no("dest_guard")
         return None
-    if fid == ttnn.MathFidelity.HiFi4 and F3_SPLIT == 1:
+    if fid == ttnn.MathFidelity.HiFi4 and F3_SPLIT == 1 and F3_L1ACC != 1:
         # At HiFi4 the one-run 16-tile fc3 accumulation put isolated elements exactly 2^k low (WH .113: 2 of 8.4M
         # at N=256, 97 of 33.5M at 512, the same elements on four chips; HiFi3 and HiFi2 clean, silu exact or not).
         # The trunk runs HiFi3 (trunk_hifi3).
