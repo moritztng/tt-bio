@@ -728,8 +728,9 @@ def band_mask(n_or_mask, half_window: int):
 # Protenix's and OpenFold3's atom attention run), instead of a dense [N, N] band mask over every atom.
 # Keys outside the band get zero weight on both paths, so it is the same attention; the softmax reduces
 # over 160 keys instead of N, which is ~26x fewer scores at 512 tokens. When a valid atom's window does
-# not fit the 160 keys (padding inside the atom list) the dense band runs instead.
-_SWA_WINDOW = env_flag("TT_BIO_ESMFOLD2_SWA_WINDOW", False)
+# not fit the 160 keys (padding inside the atom list) the dense band runs instead. p300c 512 aa: -0.82 s ESMFold2,
+# -1.05 s ESMFold2-Fast; passes the normal bar on both and the fast bar on ESMFold2-Fast (perf/spd/grade.py, 11 complexes).
+_SWA_WINDOW = env_flag("TT_BIO_ESMFOLD2_SWA_WINDOW", True)
 SWA_STATS = [0, 0]  # atom transformer masks built (windowed, dense)
 
 
