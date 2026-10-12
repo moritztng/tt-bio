@@ -12429,7 +12429,9 @@ class Transition(Module):
         a hidden width it cannot tile; an L1 destination; a tape)."""
         if not (lever("transition_ws") and len(x.shape) == 4 and not ops.taping()
                 and (memory_config is None or memory_config.buffer_type == ttnn.BufferType.DRAM)
-                and x.dtype == ttnn.bfloat16 and (self.dtype or _dtype()) == ttnn.bfloat16):
+                and x.dtype == ttnn.bfloat16 and (self.dtype or _dtype()) == ttnn.bfloat16
+                # The kernel keeps all of K in dest, so it steps aside where the Wormhole fp32-dest guard is on.
+                and not _dest_guard.tail_exposed(self.compute_kernel_config)):
             return None
         if getattr(self, "_ws", None) is None:
             # bfp8 weights where the module's own are (transition_b8, fast mode): that is also what lets
