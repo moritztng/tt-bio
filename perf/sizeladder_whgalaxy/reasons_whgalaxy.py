@@ -45,6 +45,17 @@ TRANSPOSE_L1_RESIDENT = (
     "headroom test flips at 640"
 )
 
+SDPA_FUSED_PADDED = (
+    "entered and refused by the kernel's own check, so the call takes the stock ladder this "
+    "board's baseline was timed on. TRIATT_PERSISTENT_MASK counts the refusals as "
+    "fill_preconditions (tt_bio/triatt_sdpa.py, the hoisted fill's plan check): none at 768, "
+    "where this lever serves 112 of 112, then 720 at 896 (240 declines), 1120 at 1024 (280), "
+    "1058 at 1280 (352) and 436 at 1536 (432). fused_pairs replayed on the CPU at 72 cores "
+    "still offers pairs at these lengths, so the planner and the kernel disagree on this grid "
+    "and the lever is a Wormhole opportunity left open, not a size it was tuned and forgotten "
+    "at. Nothing slower ships: the stock rungs are byte for byte the path before the lever"
+)
+
 # model -> flag -> the rungs where it is dark on this card.
 REBLOCK_PERMUTE = (
     "the traffic moved to the gated channel and the handful left over is the measured band "
@@ -74,10 +85,14 @@ J = {
     "nesso1": {
         "REBLOCK_PERMUTE": ("256", "512", "640", "768", "896", "1024"),
     },
+    "opendde": {
+        "SDPA_FUSED_PADDED": ("896", "1024", "1280", "1536"),
+    },
 }
 WHY = {"TRANSITION_H_CHUNK": TRANSITION_H_CHUNK,
        "TRANSPOSE_L1_RESIDENT": TRANSPOSE_L1_RESIDENT,
-       "REBLOCK_PERMUTE": REBLOCK_PERMUTE}
+       "REBLOCK_PERMUTE": REBLOCK_PERMUTE,
+       "SDPA_FUSED_PADDED": SDPA_FUSED_PADDED}
 
 # nesso1's carried text was the reason this file also rewrites its rungs 512-1024. It opened
 # "the window declining is the window working: 3842 calls at this rung ask for an L1
