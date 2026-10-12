@@ -60,6 +60,7 @@ from the atom-encoder/conditioning host math.
 """
 from __future__ import annotations
 
+import os
 
 import torch
 import ttnn
@@ -224,12 +225,25 @@ class _DiTBlock(Module):
                 w_sc, b_sc, w_sb = ln.folded_weights()
                 ada.append((bf(w_sc), bf(b_sc.reshape(1, -1)), bf(w_sb)))
             self.fuse = ada
+        # dit_hifi2, with dit_fuse: the fused block's linears at HiFi2 instead of HiFi4, fp32 accumulation kept.
+        # A precision change: srcB's low mantissa bits drop out of each product (HiFi2 covers every bit of a
+        # bfloat8_b operand, see `bfp8_fidelity`, not of bf16). The 12 linears are math-bound at HiFi4 at 512
+        # tokens (~700 us of a ~1 ms block on Wormhole). TT_BIO_DIT_MM_FIDELITY / TT_BIO_DIT_MM_ACC=0 are
+        # measurement overrides of the fidelity and the fp32 accumulation, read at build.
+        self._mm_ckc = None
+        if self.fuse and _T.lever("dit_hifi2"):
+            fid = os.environ.get("TT_BIO_DIT_MM_FIDELITY", "HiFi2")
+            base = compute_kernel_config
+            self._mm_ckc = type(base)(
+                math_fidelity=getattr(ttnn.MathFidelity, fid), math_approx_mode=base.math_approx_mode,
+                fp32_dest_acc_en=base.fp32_dest_acc_en and os.environ.get("TT_BIO_DIT_MM_ACC", "1") != "0",
+                packer_l1_acc=base.packer_l1_acc)
 
     def _fuse_adaln(self, a, s_hat, i):
         """adaLN under dit_fuse: `s_hat W_sb + LN(a) * sigmoid(s_hat W_sc + b)`, one addcmul."""
         w_sc, b_sc, w_sb = self.fuse[i]
-        sc = self._lin(s_hat, w_sc, bias=b_sc, activation="sigmoid")
-        sb = self._lin(s_hat, w_sb)
+        sc = self._flin(s_hat, w_sc, bias=b_sc, activation="sigmoid")
+        sb = self._flin(s_hat, w_sb)
         an = ttnn.layer_norm(a, epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
         out = ttnn.addcmul(sb, an, sc, value=1.0)
         for t in (sc, sb, an):
@@ -238,7 +252,7 @@ class _DiTBlock(Module):
 
     def _call_fused(self, a, s, z, mask_bias, tok_mask_col, cache, s_hat, tok_ones):
         """`__call__` under dit_fuse (bf16, `_sdpa32`): the same block in 23 ttnn calls."""
-        lin = self._lin
+        lin = self._flin
         a_ln = self._fuse_adaln(a, s_hat, 0)
         bias = _cached(cache, (id(self), "pair_bias32"), lambda: self._sdpa32_mask(z, mask_bias))
         qkv = lin(a_ln, self.qkv_w, bias=self.qkv_b)
@@ -308,6 +322,12 @@ class _DiTBlock(Module):
         """A device weight rounded via bf16 on the host to `dtype`, once."""
         return ttnn.from_torch(ttnn.to_torch(t).float().to(torch.bfloat16), dtype=dtype,
                                layout=ttnn.TILE_LAYOUT, device=self.device)
+
+    def _flin(self, x, w, bias=None, activation=None):
+        """A linear of the fused block (dit_fuse): `_lin`, at dit_hifi2's config when that is on."""
+        return ops.linear(x, w, bias=bias, activation=activation,
+                          compute_kernel_config=self._mm_ckc or self.compute_kernel_config,
+                          core_grid=CORE_GRID_MAIN)
 
     def _lin(self, x, w, bias=None, activation=None):
         return ops.linear(x, w, bias=bias, activation=activation,

@@ -94,7 +94,7 @@ class _Rec:
             monkeypatch.setattr(ttnn, name, op(name))
         monkeypatch.setattr(ttnn, "deallocate", lambda t: None)
         monkeypatch.setattr(M, "mask_add", op("mask_add"))
-        monkeypatch.setattr(blk, "_lin", lambda x, w, bias=None, activation=None:
+        monkeypatch.setattr(blk, "_flin", lambda x, w, bias=None, activation=None:
                             op("linear")(x, w, activation=activation))
 
         class _O(tuple):
@@ -164,3 +164,25 @@ def test_fused_algebra_is_the_blocks_math_in_float64():
     mask = torch.ones(N, 1, dtype=torch.float64)
     torch.testing.assert_close(torch.addcmul(a, tr, gate), a + (tr * gate) * mask, rtol=1e-12, atol=1e-12)
     torch.testing.assert_close(torch.addcmul(a, o, gate), a + o * gate, rtol=1e-12, atol=1e-12)
+
+
+def test_hifi2_named_ungraded_and_only_under_fuse(hostblock):
+    assert "dit_hifi2" in T.LEVERS and "dit_hifi2" in T.UNGRADED_LEVERS
+    assert "dit_hifi2" not in T.NORMAL_LEVERS | T.FAST_LEVERS
+    from tt_bio import openfold3_fold as of3
+    assert "dit_hifi2" not in of3.NORMAL_LEVERS | of3.FAST_LEVERS
+
+
+def test_hifi2_config(monkeypatch):
+    monkeypatch.setattr(T, "get_device", lambda *a, **k: None)
+    monkeypatch.setattr(ttnn, "from_torch", lambda t, **k: ("tt", tuple(t.shape), k.get("dtype")))
+    base = ttnn.WormholeComputeKernelConfig(math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=False,
+                                            fp32_dest_acc_en=True, packer_l1_acc=True)
+    sd = {k: v.float() for k, v in _sd().items()}
+    with T.lever_scope(FAST + "+dit_fuse"):
+        assert M._DiTBlock(sd, base)._mm_ckc is None
+    with T.lever_scope(FAST + "+dit_hifi2"):                  # without dit_fuse: inert
+        assert M._DiTBlock(sd, base)._mm_ckc is None
+    with T.lever_scope(FAST + "+dit_fuse+dit_hifi2"):
+        c = M._DiTBlock(sd, base)._mm_ckc
+    assert c.math_fidelity == ttnn.MathFidelity.HiFi2 and c.fp32_dest_acc_en and c.packer_l1_acc
