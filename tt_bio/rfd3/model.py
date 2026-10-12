@@ -343,7 +343,8 @@ _ATOM_SDPA_MAX_MASK_BYTES = int(float(os.environ.get("RFD3_ATOM_SDPA_MAX_MASK_BY
 _TRANSITION_B8 = env_flag("RFD3_TRANSITION_B8", False)
 # The token pair Transition as one weight-stationary program (`tt_bio.pair_swiglu_ws`): x read once,
 # [w1 | w2] and w3 resident in L1, fc1/fc2/the product never leave the core. bf16 only for now, so
-# it declines under RFD3_TRANSITION_B8. Off while measured.
+# it takes the token pair tensor ahead of RFD3_TRANSITION_B8's bfp8 hidden (faster and more accurate
+# than either shipped path on WH). Off while measured.
 _PAIR_WS = env_flag("RFD3_PAIR_WS", False)
 # Every RFD3 matmul at HiFi2 instead of HiFi4: two multiplier passes per bf16 product instead of
 # four. Off, and not in --fast: on top of the fast set it saved nothing on a p300c (4 seeds, 685
@@ -998,6 +999,10 @@ class Transition(Module):
         (`perf/p131/tail_sweep.json`). Not chased further: the gap is sub-ULP rounding, not a
         wrong result.
         """
+        if _PAIR_WS and len(x.shape) == 4:
+            out = self._weight_stationary(x)
+            if out is not None:
+                return out
         if not (_PAIR_TRANSITION_L1 and len(x.shape) == 4
                 and x.shape[2] >= _PAIR_TRANSITION_MIN_W):
             if _FC1_SPLIT_SILU and len(x.shape) == 4:
@@ -1024,10 +1029,6 @@ class Transition(Module):
                     ttnn.deallocate(p)
                 return out
             return self._swiglu(x, None)
-        if _PAIR_WS and not _TRANSITION_B8:
-            out = self._weight_stationary(x)
-            if out is not None:
-                return out
         H, hidden = x.shape[1], int(self.fc1_w.shape[-1])
         w_pad = int(x.padded_shape[2])
         h = _pair_transition_chunk_h(w_pad, hidden, H)
@@ -1103,7 +1104,7 @@ class Transition(Module):
             return None
         parts = []
         for b in range(int(x.shape[0])):
-            xb = x if x.shape[0] == 1 else ttnn.slice(x, [b, 0, 0, 0], [b + 1, *x.shape[1:]])
+            xb = x if x.shape[0] == 1 else ttnn.slice(x, [b, 0, 0, 0], [b + 1] + [int(d) for d in x.shape][1:])
             xn = ttnn.rms_norm(xb, weight=self.norm_w, epsilon=1e-6,
                                compute_kernel_config=self.compute_kernel_config)
             if xb is not x:
