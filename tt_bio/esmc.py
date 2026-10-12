@@ -410,8 +410,17 @@ _SWIGLU_SILU_FC1 = env_flag("TT_BIO_SWIGLU_SILU_FC1", False)
 # The same activated multiply on ttnn's legacy binary op: same SFPU silu, no per-tile re-init, 0.101 vs 0.144 ms
 # (gate_bench, same block). Pair transition row blocks only (`l1_gated`): folds -1.1 s ESMFold2 / -0.7 s -Fast on
 # p150a, while ESMC 300M's LM blocks measured no faster with it and further from fp32 (cos_min 0.9971 vs 0.9987).
-# Graded PASS on the normal bar for both models (11 complexes x 4 seeds, docs/tuning-flags.md), so on by default.
-_SWIGLU_GATE_LEGACY = env_flag("TT_BIO_SWIGLU_GATE_LEGACY", True)
+# Graded PASS on the normal bar for both models on Blackhole (11 complexes x 4 seeds, docs/tuning-flags.md), so on by
+# default there. Wormhole is not graded and keeps its multiply (and its digests) unless the switch is set: None = by arch.
+_SWIGLU_GATE_LEGACY = (env_flag("TT_BIO_SWIGLU_GATE_LEGACY", False)
+                       if os.environ.get("TT_BIO_SWIGLU_GATE_LEGACY", "").strip() else None)
+
+
+def _swiglu_gate_legacy() -> bool:
+    if _SWIGLU_GATE_LEGACY is not None:
+        return _SWIGLU_GATE_LEGACY
+    from tt_bio import tenstorrent
+    return tenstorrent.arch_name() == "blackhole"
 
 # Wormhole tiles the per-token (3-D) FFN at SMALL_GRID_SEQ_TILE rows so the ESMC-6B's fc1 activation never asks a
 # 12 GB chip that already holds the 6B for one large block. A row count also cuts ESMC 300M/600M's whole page batch
@@ -720,7 +729,7 @@ class SwiGLUFFN(Module):
             ttnn.deallocate(x_norm)
             gated = ttnn.multiply(
                 h1, h2, input_tensor_a_activations=[] if silu_done else [ttnn.UnaryOpType.SILU],
-                **({"use_legacy": True} if _SWIGLU_GATE_LEGACY and l1_gated else {}),
+                **({"use_legacy": True} if l1_gated and _swiglu_gate_legacy() else {}),
                 **({"memory_config": ttnn.L1_MEMORY_CONFIG} if l1_gated else {}),
             )
             ttnn.deallocate(h1)
