@@ -41,6 +41,8 @@ ap.add_argument("--devprof", action="store_true",
 ap.add_argument("--resid", action="store_true",
                 help="call the way the Pairformer does, add_to_input=True: z += update in place, so every arm\n"
                      "times the residual add too (the epi2 lever folds it into the tail)")
+ap.add_argument("--gated-move", action="store_true",
+                help="build the module as ESMFold2 does (gated_move=True), which the gated in-proj routes need")
 ap.add_argument("--fast", action="store_true",
                 help="build and run the module as Protenix's --fast trunk does: FAST_LEVERS active, fast mode off")
 ap.add_argument("--legacy-fast", action="store_true",
@@ -300,7 +302,7 @@ if "base" in arms and "base'" not in arms:
 res = {"args": vars(A), "nodes": opened, "arch": str(dev.arch()), "variants": {}}
 for var in A.variants.split(","):
     ending = var == "end"
-    mod = T.TriangleMultiplication(ending, W0, CKC)
+    mod = T.TriangleMultiplication(ending, W0, CKC, gated_move=A.gated_move)
     t0 = time.time()
     ref = reference(ending)
     log(ev="reference", variant=var, s=round(time.time() - t0, 1))
