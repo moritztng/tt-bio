@@ -682,6 +682,85 @@ def band_mask(n_or_mask, half_window: int):
     return torch.where(allowed, 0.0, float("-inf")).view(1, 1, n, n)
 
 
+# The atom transformer's sliding window as ONE windowed SDPA: block i of 32 queries reads the 160 keys
+# [32 i - 64, 32 i + 96) straight from a zero-framed K/V (sdpa_generic `kv_window`, the program
+# Protenix's and OpenFold3's atom attention run), instead of a dense [N, N] band mask over every atom.
+# Keys outside the band get zero weight on both paths, so it is the same attention; the softmax reduces
+# over 160 keys instead of N, which is ~26x fewer scores at 512 tokens. When a valid atom's window does
+# not fit the 160 keys (padding inside the atom list) the dense band runs instead.
+_SWA_WINDOW = env_flag("TT_BIO_ESMFOLD2_SWA_WINDOW", False)
+SWA_STATS = [0, 0]  # atom transformer masks built (windowed, dense)
+
+
+def _window_bias(dense, half_window, nq=32):
+    """Dense [N, N] 0/-inf band -> per-block bias [nb, nq, W] over keys [nq*i - lead, nq*i - lead + W),
+    or None when some valid query row has an allowed key outside its window."""
+    N = dense.shape[-1]
+    lead = -(-half_window // nq) * nq
+    W, NP = 2 * lead + nq, -(-N // nq) * nq
+    nb = NP // nq
+    full = torch.full((NP, lead + NP + lead), float("-inf"))
+    full[:N, lead:lead + N] = dense
+    cols = (torch.arange(nb)[:, None] * nq + torch.arange(W)[None, :])  # [nb, W]
+    win = full.view(nb, nq, -1).gather(2, cols[:, None, :].expand(nb, nq, W))
+    if not torch.equal((win.reshape(NP, W)[:N] == 0).sum(1), (dense == 0).sum(1)):
+        return None
+    return win
+
+
+class SWAWindow:
+    """The windowed atom attention's device state: the 0/-big bias [1, H*nb, 32, W] and the zero rows
+    that frame K and V. Stands where the dense band mask stood."""
+
+    NQ = 32
+
+    def __init__(self, win, n, heads, head_dim, upload, device):
+        nb, nq, W = win.shape
+        self.n, self.nb, self.W, self.lead = n, nb, W, (W - nq) // 2
+        # finite, so a fully masked padding row stays finite; pre-scaled because the kernel scales the
+        # mask with the scores (OpenFold3 _superset does the same)
+        bias = win.clamp(min=-1e4) * head_dim ** 0.5
+        self.bias = upload(bias.unsqueeze(0).expand(heads, nb, nq, W).reshape(1, heads * nb, nq, W).contiguous())
+        self.zero = ttnn.zeros((1, heads, self.lead, head_dim), dtype=_DTYPE, layout=ttnn.TILE_LAYOUT, device=device)
+
+    def attend(self, q, k, v, scale):
+        """q, k, v [1, H, N, dh] -> ctx [1, H, N, dh]."""
+        import tt_bio.tenstorrent as _T
+        from tt_bio import sdpa_generic as SG
+        H, dh, nb, nq, N = q.shape[1], q.shape[3], self.nb, self.NQ, self.n
+        NP = nb * nq
+        if NP != N:
+            q, k, v = (ttnn.pad(t, [(0, 0), (0, 0), (0, NP - N), (0, 0)], 0.0) for t in (q, k, v))
+        kf = ttnn.concat([self.zero, k, self.zero], dim=2)
+        vf = ttnn.concat([self.zero, v, self.zero], dim=2)
+        qb = ttnn.reshape(q, (1, H * nb, nq, dh))
+        o = ttnn.allocate_tensor_on_device(ttnn.Shape([1, H * nb, nq, dh]), q.dtype, ttnn.TILE_LAYOUT,
+                                           q.device(), ttnn.DRAM_MEMORY_CONFIG)
+        # the wheel SDPA's default compute config, which the dense band path runs at
+        SG.sdpa(q.device(), qb, kf, vf, self.bias, o, nq, self.W, tuple(_T.COMPUTE_GRID_MAIN),
+                (ttnn.MathFidelity.HiFi2, True, False, False), scale, kv_window=(nb, self.W))
+        ttnn.deallocate(kf); ttnn.deallocate(vf)
+        if NP != N:
+            for t in (q, k, v):
+                ttnn.deallocate(t)
+        o = ttnn.reshape(o, (1, H, NP, dh))
+        return ttnn.slice(o, [0, 0, 0, 0], [1, H, N, dh]) if NP != N else o
+
+    def deallocate(self):
+        ttnn.deallocate(self.bias); ttnn.deallocate(self.zero)
+
+
+def swa_band(n_or_mask, half_window, upload, device, heads=4, head_dim=32):
+    """The atom transformer's attention mask on the device: a SWAWindow when the windowed path holds,
+    else the dense [1, 1, N, N] band."""
+    dense = band_mask(n_or_mask, half_window)
+    win = _window_bias(dense[0, 0], half_window) if _SWA_WINDOW else None
+    SWA_STATS[win is None] += 1
+    if win is None:
+        return upload(dense.float())
+    return SWAWindow(win, dense.shape[-1], heads, head_dim, upload, device)
+
+
 def _rms_norm(x, ck, eps=1e-6):
     return ttnn.rms_norm(x, epsilon=eps, compute_kernel_config=ck)
 
@@ -703,7 +782,10 @@ class SWAAttention(Module):
         q, k, v = self._split_heads(lin(x, self.qkv_w), self.n_heads)
         q = apply_rotary(_rms_norm(q, ck), cos, sin)
         k = apply_rotary(_rms_norm(k, ck), cos, sin)
-        ctx = _sdpa_bf16(q, k, v, attn_mask, head_dim**-0.5)
+        if isinstance(attn_mask, SWAWindow):
+            ctx = attn_mask.attend(q, k, v, head_dim**-0.5)
+        else:
+            ctx = _sdpa_bf16(q, k, v, attn_mask, head_dim**-0.5)
         ttnn.deallocate(q); ttnn.deallocate(k); ttnn.deallocate(v)
         ctx = self._merge_heads(ctx)
         # Zero invalid (padding) atom outputs so they can't blow up / NaN-contaminate
@@ -804,11 +886,10 @@ class SWAAtomTransformer(TorchWrapper):
     def forward(self, q_l, c_l, ref_pos, ref_space_uid):
         n = q_l.shape[1]
         cos, sin = build_3d_rope_tables(ref_pos, ref_space_uid, self.head_dim, **ATOM_ROPE)
-        mask = band_mask(n, self.half_window)
+        mask = swa_band(n, self.half_window, self._from_torch, self.tt_device, self.n_heads, self.head_dim)
         out = self.module(
             self._from_torch(q_l), self._from_torch(c_l),
-            self._from_torch(cos.float()), self._from_torch(sin.float()),
-            self._from_torch(mask.float()),
+            self._from_torch(cos.float()), self._from_torch(sin.float()), mask,
         )
         return self._to_torch(out)
 
@@ -938,9 +1019,9 @@ class DiffusionModuleModel(Module):
 
     def release_cache(self):
         for k, v in getattr(self, "_ctx", {}).items():
-            if isinstance(v, ttnn.Tensor):
+            if isinstance(v, (ttnn.Tensor, SWAWindow)):
                 try:
-                    ttnn.deallocate(v)
+                    v.deallocate() if isinstance(v, SWAWindow) else ttnn.deallocate(v)
                 except Exception:
                     pass
         self._ctx = {}
@@ -977,7 +1058,7 @@ class DiffusionModule(TorchWrapper):
             ref_element, ref_atom_name_chars.reshape(B, N, -1),
         ], dim=-1)  # [B,N,389]
         cos, sin = build_3d_rope_tables(ref_pos, ref_space_uid, 32, **ATOM_ROPE)
-        band = band_mask(ref_mask, 64)
+        band = swa_band(ref_mask, 64, ft, self.tt_device)
         valid = ref_mask.reshape(1, N, 1).float()  # [1,N,1] zero out padding atoms
         oh = F.one_hot(tok_idx[0].long(), L).float() * ref_mask[0].float()[:, None]  # [N,L]
         gather_g = oh.unsqueeze(0)  # [1,N,L]
@@ -986,7 +1067,7 @@ class DiffusionModule(TorchWrapper):
         ft = self._from_torch
         r_update = self.module(
             ft(s_inputs), ft(z_trunk), ft(relpos), ft(n_raw), ft(atom_feats.float()),
-            ft(r_input.float()), ft(cos.float()), ft(sin.float()), ft(band.float()),
+            ft(r_input.float()), ft(cos.float()), ft(sin.float()), band,
             ft(scatter_m.float()), ft(gather_g.float()), ft(valid),
         )
         r_update = self._to_torch(r_update)
@@ -1063,13 +1144,13 @@ class InputsEmbedder(TorchWrapper):
             ref_element, ref_atom_name_chars.reshape(B, N, -1),
         ], dim=-1)
         cos, sin = build_3d_rope_tables(ref_pos, ref_space_uid, 32, **ATOM_ROPE)
-        band = band_mask(atom_mask, 64)
+        band = swa_band(atom_mask, 64, self._from_torch, self.tt_device)
         valid = atom_mask.reshape(1, N, 1).float()
         oh = F.one_hot(atom_to_token[0].long(), L).float() * atom_mask[0].float()[:, None]
         scatter_m = (oh / oh.sum(0).clamp(min=1)).t().unsqueeze(0)
         ft = self._from_torch
         a, _q, _c = self.module(ft(atom_feats.float()), ft(cos.float()), ft(sin.float()),
-                                ft(band.float()), ft(scatter_m.float()), valid=ft(valid))
+                                band, ft(scatter_m.float()), valid=ft(valid))
         a = self._to_torch(a)  # [B,L,384]
         return torch.cat([a, aatype, profile, deletion_mean.unsqueeze(-1)], dim=-1)
 
@@ -1543,13 +1624,13 @@ class StructureHead(TorchWrapper):
             ref_element, ref_atom_name_chars.reshape(B, N, -1),
         ], dim=-1)
         cos, sin = build_3d_rope_tables(ref_pos, ref_space_uid, 32, **ATOM_ROPE)
-        band = band_mask(ref_mask, 64)
+        band = swa_band(ref_mask, 64, ft, self.tt_device)
         valid = ref_mask.reshape(1, N, 1).float()
         oh = F.one_hot(tok_idx[0].long(), L).float() * ref_mask[0].float()[:, None]
         gather_g = oh.unsqueeze(0)
         scatter_m = (oh / oh.sum(0).clamp(min=1)).t().unsqueeze(0)
         dmm.prepare(ft(s_inputs), ft(z_trunk), ft(relpos), ft(atom_feats.float()),
-                    ft(cos.float()), ft(sin.float()), ft(band.float()),
+                    ft(cos.float()), ft(sin.float()), band,
                     ft(scatter_m.float()), ft(gather_g.float()), ft(valid))
         self._base, self._ref_mask, self._n_atoms = dmm._ctx, ref_mask, N
 
