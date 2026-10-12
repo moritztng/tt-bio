@@ -3364,8 +3364,11 @@ def _size_ladder_compare_levers(base: dict, cur: dict, where: str) -> list:
         elif _size_ladder_clause_finding(b, c, flag, where):
             findings.append(_size_ladder_clause_finding(b, c, flag, where))
         elif abs(fc - fb) > SIZE_LADDER_FRAC_TOL:
+            # Upward is a lever reaching more calls (a staging widened it), downward is
+            # partial darkness; release_next re-records the first and fixes the second.
             findings.append(f"{where} {flag}: frac {fb:.3f} -> {fc:.3f} exceeds the "
-                            f"{SIZE_LADDER_FRAC_TOL} band (partial darkness)")
+                            f"{SIZE_LADDER_FRAC_TOL} band "
+                            f"({'fires more' if fc > fb else 'partial darkness'})")
     for flag in cur:
         if flag not in base:
             if cur[flag].get("resolved") == "not-imported":

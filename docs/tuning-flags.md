@@ -28,14 +28,14 @@ move against the accuracy bar and the seed-to-seed spread.
 | [`TT_BIO_ATOM_TILE_HEADS`](#tt_bio_atom_tile_heads-tt_bio_atom_kv_window) | on | Protenix-v2, OpenDDE, PXDesign | identical |
 | [`TT_BIO_BH_DRAM_READ_SPLIT`](#tt_bio_bh_dram_read_split) | on | Blackhole | identical |
 | [`TT_BIO_BH_ETH_DISPATCH`](#tt_bio_bh_eth_dispatch) | on for p150a where the installed ttnn supports it | Blackhole | unchanged on p150a (graded) |
-| [`TT_BIO_DEVICE_CONDITIONING`](#tt_bio_device_conditioning) | on | Boltz-2 | moves, closer to the experimental structure |
+| [`TT_BIO_DEVICE_CONDITIONING`](#tt_bio_device_conditioning) | on | Boltz-2, BoltzGen | moves, closer to the experimental structure |
 | [`TT_BIO_DEVICE_CONFIDENCE`, `TT_BIO_DEVICE_CONF_HEADS`](#tt_bio_device_confidence-tt_bio_device_conf_heads) | on | Boltz-2 | coordinates identical, confidence scores move |
 | [`TT_BIO_DEVICE_TILIZE`](#tt_bio_device_tilize) | on | Protenix-v2, OpenDDE, PXDesign | identical |
 | [`TT_BIO_DEVICE_ZINIT`](#tt_bio_device_zinit) | on | Boltz-2 | moves, flat against the experimental structure |
 | [`TT_BIO_DIT_COND_HOIST`](#tt_bio_dit_cond_hoist) | on | Boltz-2, RF3 token DiT | moves, inside the 298-residue bar |
 | [`TT_BIO_DIT_SHARED_COND`](#tt_bio_dit_shared_cond) | on | Boltz-2, BoltzGen | identical |
 | [`TT_BIO_FANIN_CAST_FUSED`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2 | gradients only |
-| [`TT_BIO_FUSE_BIAS_STACKS`](#tt_bio_fuse_bias_stacks) | on | Boltz-2 | moves, inside the 298-residue bar |
+| [`TT_BIO_FUSE_BIAS_STACKS`](#tt_bio_fuse_bias_stacks) | on | Boltz-2, BoltzGen | moves, inside the 298-residue bar |
 | [`TT_BIO_FUSE_MASK_ADD`](#tt_bio_fuse_mask_add) | on | | identical |
 | [`TT_BIO_FUSE_NORM_RESIDUAL`](#tt_bio_fuse_norm_residual) | on | | identical |
 | [`TT_BIO_FUSE_SCALE_ADD`](#tt_bio_fuse_scale_add) | on | fp32 operands | identical |
@@ -326,7 +326,7 @@ dispatches on Ethernet.
 
 ## `TT_BIO_DEVICE_CONDITIONING`
 
-Default: on, Boltz-2 only.
+Default: on, Boltz-2 and BoltzGen.
 
 Boltz-2's diffusion conditioning reads the trunk's pair tensor three times, and upstream does all
 three on the host: the pairwise conditioner, the 24-layer token bias stack, and the atom encoder's
@@ -358,9 +358,14 @@ every host fold in it. Spread is 0.90 % on the device arm
 
 `TT_BIO_DEVICE_CONDITIONING=0` restores the host path and the previous coordinates.
 
-BoltzGen shares Boltz-2's `TrunkModule` but does not get this flag: it never asks the trunk to keep
-the pair tensor on the device, so it takes the same deallocate it always did. No other model
-reaches the pair track at all.
+BoltzGen runs the same device module: its trunk keeps the pair tensor on the card, and the rest of
+its atom conditioning reads the device's `[n, n, 16]` projection. Graded together with
+`TT_BIO_FUSE_BIAS_STACKS` as BoltzGen's design bar asks (confidence and filter metrics, since a
+design rollout decorrelates under any numeric change): 64 designs over 8 seeds on a Wormhole chip,
+filter pass 64 of 64 in both arms and every confidence change inside its 95 % interval around zero
+(design ipTM -0.005 [-0.030, +0.021], design pTM -0.006 [-0.025, +0.010]). A 512-residue design takes
+70.0 s instead of 76.2 s on a Wormhole chip at 1000 MHz; on a Blackhole p150a the change is inside
+the run-to-run spread. No other model reaches the pair track at all.
 
 ## `TT_BIO_DEVICE_CONFIDENCE`, `TT_BIO_DEVICE_CONF_HEADS`
 
@@ -542,7 +547,7 @@ digest unchanged on 4 seeds). **Speed:** 158.0 to 152.1 s on the Boltz-2 730-tok
 
 ## `TT_BIO_FUSE_BIAS_STACKS`
 
-Default: on, Boltz-2 only.
+Default: on, Boltz-2 and BoltzGen.
 
 Boltz-2's diffusion conditioning builds a per-layer bias stack with one call per layer. This flag
 builds all of them in one pass instead.
@@ -551,6 +556,10 @@ builds all of them in one pass instead.
 control rather than on an algebraic argument. `cdk2x2_298` moves 0.218 Å all-atom against a 0.000 Å
 A/A floor and a 0.35 Å bar, and pLDDT moves 0.0026. `TT_BIO_FUSE_BIAS_STACKS=0` restores the
 per-layer stack and the previous coordinates.
+
+BoltzGen's three bias stacks (atom encoder, atom decoder, token transformer) take the same path and
+are graded with `TT_BIO_DEVICE_CONDITIONING` (see there). A Wormhole design takes 65.0 s instead of
+68.6 s.
 
 **Speed: 1.0085x on the fold.**
 
@@ -685,12 +694,16 @@ fast set folds the same input in 123.4 s, and 168.3 s instead of 181.6 s at 1024
 -0.0002, DockQ -0.004 with its interval reaching zero, docking success 24 of 44 in both modes, and a
 median same-seed top-pose deviation of 1.29 A against 1.70 A between two seeds of normal mode.
 
-**RoseTTAFold3 and BoltzGen** take a lever set per mode too. Normal mode is empty for both. RoseTTAFold3's
-`--fast` set is the shared fast set without the three triangle-multiplication levers: on Blackhole it moves
-the top pose 0.30 A median over 40 paired folds (a different seed moves it 2.8 A) and saves about 1.9 s
-at 512 aa. BoltzGen's `--fast` set is the whole shared fast set: over 8 same-seed designs on Blackhole
-no confidence metric drops by more than 0.01 and all 8 pass the filters, and it saves about 4.7 s per design
-at 512 aa. Their older block-fp8 fast path was slower than normal mode at 512 aa
+**RoseTTAFold3 and BoltzGen** take a lever set per mode too, pinned by name in each model so a lever added to the
+shared sets later does not reach them ungraded. RoseTTAFold3's normal mode is empty and its `--fast` set is the
+shared fast set without the three triangle-multiplication levers: on Blackhole it moves the top pose 0.30 A
+median over 40 paired folds (a different seed moves it 2.8 A) and saves about 1.9 s at 512 aa. BoltzGen's normal
+mode runs the shared normal set and its `--fast` set is the shared fast set without `dit_sdpa_pm`, plus
+`adaln_mod` and `dit_cond_hifi2`. Design outputs at a fixed seed decorrelate under any numeric change, so BoltzGen
+is graded on design confidence and filters, 8 designs per seed against the exact normal path: normal over 64
+designs (8 seeds) keeps every confidence change inside its 95 % interval with 64 of 64 passing the filters,
+`--fast` the same over 56 designs. On a Wormhole chip at 1000 MHz the normal set takes a 512-aa design from
+61.2 to 58.0 s. Their older block-fp8 fast path was slower than normal mode at 512 aa
 (Blackhole p150a, 1350 MHz: RoseTTAFold3 54.4 s against 45.2 s, BoltzGen 44.5 against 38.4 s per
 design), because the fused triangle-attention and channel-move kernels refuse block-fp8 operands and
 the fold fell back to the stock ops.

@@ -141,9 +141,20 @@ def compute_distogram_entropy(
 # Nesso-1's precision levers (tenstorrent.LEVERS), graded on this model's own accuracy set before a
 # name goes in, as Boltz-2's are: a lever graded only on another model never reaches it. Nesso-1 has
 # no fast mode. A harness grades a candidate through the serving path with TT_BIO_LEVERS.
-# Boltz-2's trunk set (trimul_ibw, trimul_tail, trunk_hifi3, silu_f32) stays per-ligand inside the
-# seed floor on DAVIS but drops YSK4's Pearson by 0.010 against an allowed 0.007, so it is not in.
-LEVERS_NORMAL = frozenset()
+# DAVIS on Wormhole (2 targets x 30 ligands) against a floor of four reseeded base runs, each bound the
+# widest any reseed shows: trimul_ibw + trimul_tail + silu_f32 PASS (YSK4 Pearson -0.0071, p90 0.0794
+# against 0.0930). Boltz-2's trunk_hifi3 on top also passes there, but a Wormhole grade of a fidelity
+# lever does not carry to Blackhole's HiFi4, so it waits for a Blackhole DAVIS grade. trimul_gin fails
+# (ABL1p p90 0.0748 > 0.0671).
+# trimul_t1/t2 serve only full passes of roughly 300-700 tokens (DRAM path, one channel loop), so
+# DAVIS's 1167 aa targets never run them; they and triatt_tail + transition_bw were graded on LCK
+# (509 aa) and BLK (599 aa) against three reseeds of the set above: PASS (BLK p90 0.0559 against
+# 0.1086, Pearson within 0.003). Wormhole warm forward at 532 tokens 9.80-10.25 -> 8.71-8.91 s.
+# trimul_t1_dram moves the five 256-token crop passes onto the DRAM path so T1/T2 serve them too: PASS on
+# LCK/BLK (BLK p90 0.0651 against 0.1086) and on ABL1p/YSK4 against the four reseeds (YSK4 p90 0.0379
+# against 0.0930). Wormhole warm forward 8.62-8.84 -> 7.12-7.23 s.
+LEVERS_NORMAL = frozenset({"trimul_ibw", "trimul_tail", "silu_f32", "trimul_t1", "trimul_t2",
+                           "triatt_tail", "transition_bw", "trimul_t1_dram"})
 
 
 def _pairformer(

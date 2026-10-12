@@ -178,3 +178,10 @@ def test_boltz2_mode_sets_name_only_known_levers():
 
     for s in (B.LEVERS_NORMAL, B.LEVERS_FAST):
         assert s <= set(T.LEVERS) and not s & T.UNGRADED_LEVERS
+
+
+def test_boltzgen_mode_sets_name_only_known_levers():
+    from tt_bio.boltzgen.model.models import boltz as B
+
+    assert B.LEVERS_NORMAL <= set(T.LEVERS) and not B.LEVERS_NORMAL & T.UNGRADED_LEVERS
+    assert B.LEVERS_FAST <= set(T.LEVERS) | T.UNGRADED_LEVERS

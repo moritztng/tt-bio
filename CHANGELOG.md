@@ -6,6 +6,31 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 ## [Unreleased]
 
 ### Changed
+- **Nesso-1's normal mode runs the fused triangle kernels** (triangle multiplication, including the
+  256-token crops, the triangle attention tail and the fused pair transition). A 532-token forward on a
+  Wormhole chip at 1000 MHz takes 7.1-7.2 s instead of 9.8-10.3 s. Graded on four DAVIS targets (30
+  ligands each): the 90th-percentile prediction change stays under the reseeded floor on every target.
+  `TT_BIO_LEVERS=none` restores the previous path.
+- **`--fast` runs the pair transition as one weight-stationary kernel on Boltz-2,
+  RFdiffusion3 and OpenDDE.** The kernel keeps its weights on chip and never writes the hidden
+  activations out; the c_z 128 transition takes 2.2 ms instead of 4.1 ms on Blackhole. A 685-residue
+  RFdiffusion3 fast design drops from 61.3 to 56.3 s on a p150a at 1350 MHz and from 114.7 to 100.1 s on
+  a Wormhole chip at 1000 MHz. Boltz-2 and OpenDDE pass the fast accuracy bar on both architectures. Protenix-v2,
+  OpenFold3 and ESMFold2 keep their previous fast path until their own grades read.
+- **BoltzGen's normal mode runs the shared normal lever set** (HiFi3 trunk matmuls, fused triangle
+  multiplication and attention tails, fused diffusion attention). A 512-aa design on a Wormhole chip at
+  1000 MHz takes 58.0 s instead of 61.2 s. Graded on 64 designs over 8 seeds against the exact path: filter
+  pass 64 of 64 and every confidence change inside its 95 % interval. `TT_BIO_LEVERS=none` restores it.
+- **BoltzGen builds its diffusion conditioning on the chip.** The pair track's conditioning and bias stacks
+  run on the card as in Boltz-2 (`TT_BIO_DEVICE_CONDITIONING`, `TT_BIO_FUSE_BIAS_STACKS`), and the token
+  distance features are computed once per target instead of once per design. On a Wormhole chip at 1000 MHz
+  the fused stacks save about 5 % of a 512-aa design and the device conditioning about 8 % (measured one at a
+  time); on a Blackhole p150a both are inside the run-to-run spread. Designs change at a fixed seed; over 64 designs on 8 seeds the
+  filter pass rate and every confidence metric are unchanged within their 95 % intervals.
+- **BoltzGen `--fast` swaps one attention kernel and lowers the precision of two conditioning matmuls.** At 544
+  tokens the stock attention on the padded sequence beats the per-head kernel, and the hoisted conditioning
+  matmuls run at HiFi2. A Wormhole design in `--fast` takes 60.4 s instead of 66.3 s at 1000 MHz. Graded on
+  56 designs over 7 seeds: filter pass 56 of 56 and every confidence change inside its 95 % interval.
 - **OpenFold3 and OpenBind-0 `--fast` are faster on Wormhole.** The triangle multiplication's input and output
   each run as one kernel, as they already do on Blackhole. On a Galaxy chip at 1000 MHz the median fold of the
   11-complex benchmark set drops from 77 to 72 s (OpenFold3) and from 104 to 90 s (OpenBind-0); the fast-mode

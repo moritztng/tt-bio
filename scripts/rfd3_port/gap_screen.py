@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
 """RFD3 fast-mode precision screen: one arm per process, page fixture, warm timing + CIFs kept.
 
-    gap_screen.py ARM OUTDIR [STEPS] [SEEDS] [--fixture=perf/dsfix/fixtures/rfd3_R4.json] [--batch=1]
+    gap_screen.py ARM OUTDIR [STEPS] [SEEDS] [--fixture=perf/dsfix/fixtures/rfd3_R4.json] [--batch=1] [--fast=1]
+
+--fast=1 folds through `design.run_design(fast=True)`, i.e. the fast set as a user gets it, on top of
+the arm's knobs. Without it the arm is exactly what its name says and nothing else, which is what an
+A/B wants; with it the run answers "is this what --fast ships today".
 
 --batch=N folds N designs per seed in one batch; design i of seed S is kept as <arm>_s<10*S+i>.cif.
 
@@ -57,6 +61,7 @@ STEPS = int(args[2]) if len(args) > 2 else 200
 SEEDS = [int(s) for s in (args[3] if len(args) > 3 else "42").split(",")]
 FIXTURE = opts.get("fixture", "perf/dsfix/fixtures/rfd3_R4.json")
 BATCH = int(opts.get("batch", 1))
+FAST = opts.get("fast", "0") == "1"
 knobs = set(ARM.split("+")) - {"exact"}
 assert knobs <= {"lofi", "w8", "acco"} | set(ENV_KNOBS), knobs
 
@@ -107,14 +112,15 @@ def fold(tag, seed):
     shutil.rmtree(out_dir, ignore_errors=True)
     WALL.clear()
     rfd3_design.run_design(specs, out_dir, checkpoint_dir=str(WEIGHTS), from_pdb=True,
-                           num_timesteps=STEPS, seed=seed, num_designs=BATCH, batch_size=BATCH, verbose=False)
+                           num_timesteps=STEPS, seed=seed, num_designs=BATCH, batch_size=BATCH,
+                           fast=FAST, verbose=False)
     cifs = sorted(pathlib.Path(out_dir).glob("*.cif"))
     dig = "|".join(hashlib.sha256(c.read_bytes()).hexdigest()[:16] for c in cifs) or "NO CIF"
     return WALL[0], dig, cifs
 
 
 OUT.mkdir(parents=True, exist_ok=True)
-rec = {"arm": ARM, "steps": STEPS, "fixture": FIXTURE, "batch": BATCH, "card": os.environ.get("TT_VISIBLE_DEVICES"),
+rec = {"arm": ARM, "steps": STEPS, "fixture": FIXTURE, "batch": BATCH, "fast": FAST, "card": os.environ.get("TT_VISIBLE_DEVICES"),
        "host": os.uname().nodename, "folds": []}
 s, d, _ = fold("warm", SEEDS[0])
 rec["warm_s"] = s

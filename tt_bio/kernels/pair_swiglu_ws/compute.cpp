@@ -7,46 +7,86 @@
 // fc3 accumulates the CT output tiles in dest and packs them to c_16. x is read once, the output written once,
 // and fc1/fc2/the product never leave the core.
 //
-// Draft: every CB is bf16 (no unpack/pack reconfig between phases), SW = CT = 4 (one fp32 dest half).
+// The gate, the hidden and the output are bf16; x and the weights are bf16 or bfp8, each CB in its own format, and
+// srcA / srcB are reconfigured at every phase change. SW = 4 hidden tiles per fc1/fc2 pass, fc3 in groups of 4 output tiles
+// (one fp32 dest half each), so c_z = 256 (CT = 8) runs two fc3 groups per row tile.
+// WS_NO_{FC12,SILU,GATE,FC3} drop one phase for time attribution only (perf/spd_fastmode/ws_attr.py); the output
+// is then wrong by design. No production call sets them.
+// WS_LN (the `ws_ln` lever): the caller's LayerNorm runs here instead, per row tile, from the raw x in c_5 into
+// c_0 (kernels/common/ln_prologue.hpp, shared with trimul T1/T2), so the normalised x never goes to DRAM.
 #include <cstdint>
+#define REDUCE_OP PoolType::SUM
+#define REDUCE_DIM ReduceDim::REDUCE_ROW
 
 #include "api/compute/matmul.h"
 #include "api/compute/eltwise_binary.h"
 #include "api/compute/compute_kernel_api.h"
+#include "api/compute/reconfig_data_format.h"
+#include "../trimul_gin_moved/sigmoid_poly.hpp"
+#ifdef WS_LN
+#include "../common/ln_prologue.hpp"
+
+struct LnCbs {
+    static constexpr uint32_t Kt = get_compile_time_arg_val(0), x = 5, gamma = 8, beta = 9, scaler = 10, eps = 11,
+                              mean = 12, var = 13, rstd = 14, xc = 17, tmp = 18;
+};
+#endif
 
 void kernel_main() {
     constexpr uint32_t KT = get_compile_time_arg_val(0);
     constexpr uint32_t NH = get_compile_time_arg_val(1);
     constexpr uint32_t CT = get_compile_time_arg_val(2);
+    // 0: metal's silu_tile, 1: sigmoid_poly.hpp's degree-8 silu (3e-4), 2: its degree-6 fp16-coefficient silu (7.4e-4)
+    constexpr uint32_t SILU_POLY = get_compile_time_arg_val(3);
     const uint32_t count = get_arg_val<uint32_t>(1);
     constexpr uint32_t SW = 4;
-    static_assert(NH % SW == 0 && CT <= 4);
+    constexpr uint32_t OG = CT < 4 ? CT : 4;
+    static_assert(NH % SW == 0 && CT % OG == 0);
     constexpr uint32_t cb_x = 0, cb_w12 = 1, cb_w3 = 2, cb_gate = 3, cb_hid = 4, cb_out = 16;
-#if !defined(TRISC_MATH)
+    // The gate multiply keeps HiFi4 whatever the matmuls run at: at HiFi2 it would drop the gate's low bits.
     constexpr auto mul_fidelity = MathFidelity::HiFi4;
-#else
-    constexpr auto mul_fidelity = static_cast<MathFidelity>(MATH_FIDELITY);
-#endif
     if (count == 0) {
         return;
     }
     mm_block_init(cb_x, cb_w12, cb_gate, false, SW, 1, KT);
     cb_wait_front(cb_w12, KT * 2 * NH);
     cb_wait_front(cb_w3, NH * CT);
+#ifdef WS_LN
+    cb_wait_front(LnCbs::gamma, KT);
+    cb_wait_front(LnCbs::beta, KT);
+    cb_wait_front(LnCbs::scaler, 1);
+    cb_wait_front(LnCbs::eps, 1);
+#endif
 
     for (uint32_t r = 0; r < count; ++r) {
+#ifdef WS_LN
+        cb_reserve_back(cb_x, KT);
+        ln_prologue::layer_norm_row<LnCbs>(cb_x, [](uint32_t i) { pack_tile<true>(0, cb_x, i); });
+        cb_push_back(cb_x, KT);
+#endif
         cb_wait_front(cb_x, KT);
         for (uint32_t j = 0; j < NH; j += SW) {
-            mm_block_init_short_with_dt(cb_x, cb_w12, cb_gate, false, SW, 1, KT);
+            mm_block_init_short(cb_x, cb_w12, false, SW, 1, KT);
+            reconfig_data_format(cb_w12, cb_x);  // srcA = the weights, srcB = x, each in its own format
             // fc1 group -> silu -> gate
             tile_regs_acquire();
+#ifndef WS_NO_FC12
             for (uint32_t k = 0; k < KT; ++k) {
                 matmul_block(cb_x, cb_w12, k, k * 2 * NH + j, 0, false, SW, 1, KT);
             }
+#endif
+#ifndef WS_NO_SILU
             silu_tile_init();  // the dest-reuse multiply's init does not keep the SFPU's
             for (uint32_t i = 0; i < SW; ++i) {
-                silu_tile(i);
+                if constexpr (SILU_POLY == 2) {
+                    silu_poly6_tile(i);
+                } else if constexpr (SILU_POLY == 1) {
+                    silu_poly_tile(i);
+                } else {
+                    silu_tile(i);
+                }
             }
+#endif
             tile_regs_commit();
             cb_reserve_back(cb_gate, SW);
             tile_regs_wait();
@@ -55,19 +95,24 @@ void kernel_main() {
             cb_push_back(cb_gate, SW);
             // fc2 group, times the gate in dest -> hidden
             tile_regs_acquire();
+#ifndef WS_NO_FC12
             for (uint32_t k = 0; k < KT; ++k) {
                 matmul_block(cb_x, cb_w12, k, k * 2 * NH + NH + j, 0, false, SW, 1, KT);
             }
+#endif
+            cb_wait_front(cb_gate, SW);
+#ifndef WS_NO_GATE
+            reconfig_data_format_srca(cb_w12, cb_gate);  // bfp8 weights leave srcA in their format
             UNPACK((llk_unpack_A_init<BroadcastType::NONE, true, EltwiseBinaryReuseDestType::DEST_TO_SRCB>(
                 false, false, cb_gate)));
             MATH((llk_math_eltwise_binary_init<ELWMUL, NONE, mul_fidelity, EltwiseBinaryReuseDestType::DEST_TO_SRCB>(
                 false)));
-            cb_wait_front(cb_gate, SW);
             for (uint32_t i = 0; i < SW; ++i) {
                 UNPACK((llk_unpack_A<BroadcastType::NONE, true, EltwiseBinaryReuseDestType::DEST_TO_SRCB>(cb_gate, i)));
                 MATH((llk_math_eltwise_binary<ELWMUL, NONE, DST_ACCUM_MODE, mul_fidelity,
                                               EltwiseBinaryReuseDestType::DEST_TO_SRCB>(cb_gate, cb_gate, i, true)));
             }
+#endif
             cb_pop_front(cb_gate, SW);
             tile_regs_commit();
             cb_reserve_back(cb_hid, SW);
@@ -77,19 +122,24 @@ void kernel_main() {
             cb_push_back(cb_hid, SW);
         }
         cb_pop_front(cb_x, KT);
-        // fc3 over the row's NH hidden tiles
-        mm_block_init_short_with_dt(cb_hid, cb_w3, cb_gate, false, CT, 1, NH);
+        // fc3 over the row's NH hidden tiles, OG output tiles (one fp32 dest half) at a time
+        mm_block_init_short(cb_hid, cb_w3, false, OG, 1, NH);
+        reconfig_data_format(cb_w3, cb_hid);
         cb_wait_front(cb_hid, NH);
-        tile_regs_acquire();
-        for (uint32_t k = 0; k < NH; ++k) {
-            matmul_block(cb_hid, cb_w3, k, k * CT, 0, false, CT, 1, NH);
+        for (uint32_t c = 0; c < CT; c += OG) {
+            tile_regs_acquire();
+#ifndef WS_NO_FC3
+            for (uint32_t k = 0; k < NH; ++k) {
+                matmul_block(cb_hid, cb_w3, k, k * CT + c, 0, false, OG, 1, NH);
+            }
+#endif
+            tile_regs_commit();
+            cb_reserve_back(cb_out, OG);
+            tile_regs_wait();
+            pack_tile_block(0, cb_out, OG);
+            tile_regs_release();
+            cb_push_back(cb_out, OG);
         }
-        tile_regs_commit();
-        cb_reserve_back(cb_out, CT);
-        tile_regs_wait();
-        pack_tile_block(0, cb_out, CT);
-        tile_regs_release();
-        cb_push_back(cb_out, CT);
         cb_pop_front(cb_hid, NH);
     }
 }

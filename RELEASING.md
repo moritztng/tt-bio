@@ -10,10 +10,8 @@ quiet host. `scripts/gate_fanout.py` does both for you, see [Run the gate](#run-
 
 The newest commit whose gate passed. A gate that passes is cut as it stands, even if newer
 stagings landed on `main` while it ran: they are the next release, not a reason to restart this
-one. Every staging is already graded on Wormhole and Blackhole before it reaches `main`, and the
-gate reuses every leg whose inputs did not change, so the gate on the next head costs only the
-legs that head changed. `scripts/release_next.py` answers what to do next from `main`, the last
-tag and the gate runs:
+one. `scripts/release_next.py` answers what to do next from `main`, the last tag and the gate
+runs:
 
 ```bash
 python3 scripts/release_next.py --gates ~/gates   # CUT <sha> | GATE <sha> | WAIT | FIX | NOTHING
@@ -24,11 +22,28 @@ gate fix. Never re-cut a candidate because `main` moved: from 2026-10-10 to 10-1
 started 13 gates on successive heads and shipped none of them. Aim for a release at least every
 48 hours.
 
+A failed gate is fixed forward, not replaced. List the fix commits in the gate's directory, one
+per line, oldest first (`#` starts a comment):
+
+```bash
+echo '37f7c681f  # ESMFold2 parity harness OOM on Wormhole' >> ~/gates/rel-2d65d109f/FIXES
+```
+
+The train then gates the failed commit with each fix's own change applied on top, pushed as
+`rel-cand/<sha9>`. Only the legs that failed and the legs whose files a fix touched run again, so a
+harness fix costs a few legs instead of a full gate. Gating `main`'s newer head instead reuses
+almost nothing: nearly every staging edits a module that every leg imports
+(`tt_bio/tenstorrent.py`), and on 2026-10-12 the gate on 2d65d109f reused 0 of 240 legs from the
+gate on 948ac4600 an hour older. A failed gate with no FIXES stays the candidate for 12 hours
+after its verdict (or after FIXES last changed); after that the train gates `main`'s head.
+
 `scripts/release_train.py` does all of this unattended and runs from cron. On CUT it cuts the
 release (see [Cut the release](#cut-the-release)); on GATE, given `--gate-config` with
-`gate_fanout.py`'s `--hosts`, `--workers` and `--timed`, it starts the gate on `main`'s head. A
-gate after a push is cheap: each leg records the files its Python read, and a leg whose files a
-push did not touch keeps its earlier PASS (the module docstring of `gate_fanout.py`, READS).
+`gate_fanout.py`'s `--hosts`, `--workers` and `--timed`, it starts the gate on the candidate:
+the fixed-forward commit when a failed gate lists FIXES, else `main`'s head. Each leg records the
+files its Python read, and a leg whose files a commit did not touch keeps its earlier PASS (the
+module docstring of `gate_fanout.py`, READS). C++ kernels are read by the JIT, not by Python, so
+any change to a non-Python file still reruns every leg.
 
 Anything committed for a release (re-recorded baselines and records, gate fixes, a hotfix the
 gate forced) goes back to `main` as soon as the tag is cut. Otherwise the next gate on `main`
@@ -512,6 +527,8 @@ Three guards can stop either gate before it folds anything:
 * **Load ceiling.** Both gates refuse to start when the 1-min loadavg is above 1.5x nproc, since
   the numbers would be noise and the gate's own fan-out on top of a loaded box is how a QuietBox
   stops answering. Wait for the box to settle, move hosts, or pass `--load-ceiling 0`.
+  gate_fanout passes `--load-ceiling 0` on a pool host: the pool's chip queue bounds the fan-out
+  there, and a busy Galaxy pool sits above the ceiling on its own load.
 
 Each leg's reference fixture carries a `meta.json` pinning the reference
 implementation, version, commit, and settings; the runner fingerprints that

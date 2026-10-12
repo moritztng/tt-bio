@@ -851,6 +851,21 @@ def _pool_host(name, tmp_path, lend_at=None, paused=False):
     return h
 
 
+def test_a_pool_leg_skips_the_load_ceiling_and_a_flock_leg_keeps_it(tmp_path):
+    """A busy pool holds its Galaxy above the QuietBox load ceiling by itself; its legs must not
+    refuse on it. The flag stays out of the leg's key, so pool evidence keeps matching."""
+    pool = _pool_host("g114", tmp_path)
+    pool.cfg["lock"] = "/l/chip{card}.lock"
+    flock = gf.Host("qb1", {"arch": "bh", "card_type": "p", "root": "/r", "lock": "/l{card}"}, "a" * 40)
+    for fam in ("parity", "rg", "ladder"):
+        leg = next(lg for lg in _legs() if lg.family == fam)
+        assert "--load-ceiling 0" in pool.command(leg, gf.POOL_CARD, "/o")
+        assert "--load-ceiling" not in flock.command(leg, 3, "/o")
+        assert pool.leg(leg) is leg
+    perf = next(lg for lg in _legs() if lg.name == "perf")
+    assert "--load-ceiling" not in pool.command(perf, gf.POOL_CARD, "/o")
+
+
 def test_a_lent_pool_takes_no_leg_the_lend_would_hold_and_another_host_runs_it(tmp_path):
     lent = _pool_host("g114", tmp_path, lend_at=int(time.time()) + 3600)
     free = _pool_host("g107", tmp_path)

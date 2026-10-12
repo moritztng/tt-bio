@@ -22,6 +22,7 @@ import torch
 from torch import Tensor, nn
 
 from tt_bio import tenstorrent
+from tt_bio.boltz2 import _device_conditioning, _fuse_bias_stack
 from tt_bio.tenstorrent import (
     MiniformerModule as TTMiniformerModule,
     MSAModule as TTMSAModule,
@@ -56,17 +57,24 @@ from tt_bio.boltzgen.model.modules.inverse_fold import (
 # state-dict load and run in `forward`, both inside `lever_scope`, so the process-wide `--fast` switch
 # (`tenstorrent._FAST_MODE`: bfp8 activations and weights, narrower chunks) is off inside BoltzGen, as
 # in Boltz-2. At 512 aa that switch designed slower than normal mode (p150a 44.52 vs 38.40 s/design).
-# Fast is tenstorrent.FAST_LEVERS as graded, pinned by name so a lever added there later is not in
-# BoltzGen's fast mode ungraded. Grade (Blackhole p150a, bg_R3 8 designs, seed 0 against exact seed 0,
-# floor exact seed 1, perf/spd/bg_grade.py): every design present, mean change of design ipTM +0.008,
-# pTM +0.003, complex pLDDT +0.002, design pTM +0.024 against the 0.03 drop bar, filter pass 8 of 8 in
-# both. Same-seed design CA RMSD median 7.5 A against a 10.5 A seed floor: a design rollout decorrelates
-# under any numeric change, so that number is no bar here. p150a 512 aa, 1350 MHz: 43.94 -> 39.28 s/design.
-LEVERS_NORMAL = frozenset()
+# Fast is pinned by name so a lever added to tenstorrent.FAST_LEVERS later is not in BoltzGen's fast
+# mode ungraded. It is the shared fast set without dit_sdpa_pm (at 544 tokens its kernel loses to the
+# stock SDPA on the 768 pad: Wormhole 66.3 -> 61.7 s/design) plus adaln_mod and dit_cond_hifi2 (the
+# hoisted conditioning matmuls at HiFi2: 61.7 -> 60.4). Grade (Wormhole, bg_R3, 8 designs at each of
+# seeds 0, 1, 3-7 against exact normal at the same seed, floor = exact at the next seed,
+# perf/spd/bg_grade.py): 56 designs, filter pass 56 of 56 in both, every confidence CI covers 0
+# (design ipTM -0.020 [-0.047, +0.006], design pTM -0.011, complex pLDDT -0.001). Same-seed design CA
+# RMSD is no bar here: a design rollout decorrelates under any numeric change (floor median 11.8 A).
+# Normal is the shared normal set as of 2026-10-12, pinned by name for the same reason. Grade (same protocol,
+# seeds 0-7, on top of the device conditioning and fused bias stacks, against the exact normal stack): 64
+# designs, filter pass 64 of 64 in both, design ipTM +0.002 [-0.031, +0.035], design pTM -0.000 [-0.019,
+# +0.016], complex pLDDT +0.001. Wormhole 61.2 -> 58.0 s/design, all of it in the trunk (35.3 -> 31.5 s).
+LEVERS_NORMAL = frozenset({"trimul_ibw", "trimul_tail", "trunk_hifi3", "dit_sdpa32", "silu_f32", "triatt_tail",
+                           "atom_k1", "dit_mm16", "dit_qkv16", "msa_sample", "dit_sdpa", "dit_chunk", "conf_bins"})
 LEVERS_FAST = frozenset({"acc_off", "diffusion_bf16", "dit_sdpa", "transition_b8", "opm_b8", "atom_sdpa",
                          "trimul_ibw", "trimul_tail", "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32",
                          "ln_f32", "triatt_tail", "transition_bw", "transition_shard", "dit_mm16", "atom_k1",
-                         "dit_b8", "dit_qkv16", "swiglu_fc12g", "msa_sample", "dit_sdpa_pm"})
+                         "dit_b8", "dit_qkv16", "swiglu_fc12g", "msa_sample", "adaln_mod", "dit_cond_hifi2"})
 
 
 def _under_levers(method):
@@ -544,6 +552,7 @@ class Boltz(nn.Module):
                 mask = feats["token_pad_mask"].float()
                 pair_mask = mask[:, :, None] * mask[:, None, :]
 
+            device_z = None
             if not self.inverse_fold:
                 # Run the whole recycling loop resident on the Tenstorrent device
                 # (no per-iteration host round-trips for the recycle glue,
@@ -553,10 +562,16 @@ class Boltz(nn.Module):
                 # iteration); host loop kept as an explicit fallback.
                 if self.use_resident_trunk:
                     _trunk = self._tt_trunk_module()
+                    # Boltz-2's TT_BIO_DEVICE_CONDITIONING: the conditioning's pair track reads
+                    # the trunk's pair tensor where it already is (see the conditioning below).
+                    device_conditioning = (
+                        not self.checkpoint_diffusion_conditioning and _device_conditioning())
                     s, z = _trunk(
                         s_inputs, s_init, z_init, feats, recycling_steps,
-                        relative_position_encoding,
+                        relative_position_encoding, keep_device_z=device_conditioning,
                     )
+                    if device_conditioning:
+                        device_z = _trunk.pop_device_z()
                     # Its staged inputs are dead now; see the same call in boltz2.py.
                     _trunk.reset_static_cache()
                     _emit_progress("trunk", recycling_steps + 1, recycling_steps + 1)
@@ -614,6 +629,20 @@ class Boltz(nn.Module):
                         relative_position_encoding,
                         feats,
                     )
+                elif device_z is not None:
+                    # Built per call, like the trunk driver: BoltzGen swaps checkpoints mid-run.
+                    dc = self.diffusion_conditioning
+                    weight, bias, _shape, eps = _fuse_bias_stack(dc.token_trans_proj_z)
+                    cond = tenstorrent.PairConditioningDevice(
+                        dc.pairwise_conditioner, weight, bias, eps, dc.atom_encoder.z_to_p_trans,
+                        self.msa_module.compute_kernel_config,
+                    )
+                    z_to_p, token_trans_bias = cond(
+                        device_z[0], relative_position_encoding, z.shape[1], device_z[1])
+                    tenstorrent.free(device_z[0])
+                    device_z = None
+                    q, c, to_keys, atom_enc_bias, atom_dec_bias = dc.forward_atoms(
+                        s_trunk=s, z_to_p=z_to_p, feats=feats)
                 else:
                     (
                         q,

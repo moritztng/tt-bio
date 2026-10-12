@@ -65,6 +65,9 @@ def main():
     ap.add_argument("--ab-trace", action="store_true")
     # The same pairing for any module-level bool, e.g. tt_bio.runtime:SERIAL_HOST.
     ap.add_argument("--ab-attr", metavar="MODULE:NAME[,MODULE:NAME...]", default=None)
+    # The same pairing for one precision lever: NAME joins / leaves the `_levers` set of the loaded model
+    # (and of any attribute of it that carries one), which every model reads per fold.
+    ap.add_argument("--ab-lever", metavar="NAME", default=None)
     # Stage split inside the fold: each MODULE:Class.method is wrapped in a device sync on both
     # sides and its inclusive seconds summed per fold (nested stages each count their own time).
     # The syncs cost overlap, so a --phases fold is slower than a plain one: read it as a split,
@@ -166,7 +169,7 @@ def main():
 
     import importlib.metadata as im
     res = {"label": a.label, "model": a.model, "tree": str(tree), "size": a.size,
-           "census": a.census, "fast": a.fast, "trace": a.trace, "ab_trace": a.ab_trace, "ab_attr": a.ab_attr, "ttnn": im.version("ttnn"),
+           "census": a.census, "fast": a.fast, "trace": a.trace, "ab_trace": a.ab_trace, "ab_attr": a.ab_attr, "ab_lever": a.ab_lever, "ttnn": im.version("ttnn"),
            "host": os.uname().nodename,
            "card": os.environ.get("TT_VISIBLE_DEVICES"),
            "grid": [int(T.COMPUTE_GRID_MAIN[0]), int(T.COMPUTE_GRID_MAIN[1])],
@@ -207,7 +210,7 @@ def main():
           f"cif={list(cold['cif_sha256'].values())}", flush=True)
     flush()
 
-    if (a.ab_trace or a.ab_attr) and not a.census:
+    if (a.ab_trace or a.ab_attr or a.ab_lever) and not a.census:
         if a.ab_trace:
             on, off, key = "trace", "plain", "ab_trace_s"
 
@@ -215,6 +218,27 @@ def main():
                 meta["job_cfg"]["trace"] = v
                 if a.model == "boltz2":     # Boltz-2 reads its DiT trace flag off the model
                     state.model.structure_module._diffusion_trace = v
+        elif a.ab_lever:
+            on, off, key = "on", "off", "ab_lever_s"
+            T.parse_levers(a.ab_lever)      # an unknown name fails here, not as a silent null A/B
+            holders = [o for o in [state.model, *vars(state.model).values()]
+                       if isinstance(getattr(o, "_levers", None), frozenset)]
+            if holders:
+                base = {id(o): o._levers - {a.ab_lever} for o in holders}
+
+                def arm_set(v):
+                    for o in holders:
+                        o._levers = base[id(o)] | {a.ab_lever} if v else base[id(o)]
+            else:
+                # ESMFold2 enters its lever set per fold (esmfold2_runtime.fold_scope), from TT_BIO_LEVERS when
+                # set: the mode's set on Blackhole, none on Wormhole.
+                assert a.model in ("esmfold2", "esmfold2-fast"), "the loaded model carries no _levers set"
+                from tt_bio import esmfold2_runtime as ER
+                base_set = T.parse_levers(os.environ.get("TT_BIO_LEVERS") or (
+                    "none" if ER.is_wormhole() else ER.fold_levers(a.fast))) - {a.ab_lever}
+
+                def arm_set(v):
+                    os.environ["TT_BIO_LEVERS"] = ",".join(sorted(base_set | {a.ab_lever} if v else base_set)) or "none"
         else:
             attrs = [x.split(":") for x in a.ab_attr.split(",")]
             on, off, key = "on", "off", "ab_attr_s"
@@ -235,7 +259,8 @@ def main():
         d = [round(x - y, 3) for x, y in zip(arm[True], arm[False])]
         res[key] = {on: arm[True], off: arm[False], "delta": d,
                     "median_delta": round(statistics.median(d), 3),
-                    **({"attr": a.ab_attr} if a.ab_attr else {})}
+                    **({"attr": a.ab_attr} if a.ab_attr else {}),
+                    **({"lever": a.ab_lever} if a.ab_lever else {})}
         res["median_s"] = round(statistics.median(arm[True]), 3)
         res["spread_s"] = round(max(arm[True]) - min(arm[True]), 3)
         print(f"[{a.label}] {on} minus {off} {d} s, median {res[key]['median_delta']}",

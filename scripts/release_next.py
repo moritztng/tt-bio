@@ -20,13 +20,21 @@ Answers one of:
     WAIT      a gate is running on <sha>; if it is not main's head, start the head's gate as well
     RECORD    the gate on <sha> failed only on size-ladder drift; re-record those models' ladders
               on <sha> (gate_fanout --legs 'record:*' --record-full, into <gates>/rec-<sha9>)
-    FIX       the gate on <sha> failed; read its VERDICT.md
+    FIX       the gate on <sha> failed; read its VERDICT.md, then fix forward (below)
 
-Size-ladder drift (a lever started firing, or declines on a new clause) is what a staging that adds
+Size-ladder drift (a lever started firing or fires more, or declines on a new clause) is what a staging that adds
 a lever does; parity, capacity and perf judge whether it is right. So a gate whose only failures
 are ladder legs reporting drift counts as passed once a record run on the same commit passed for
 those models, and the release commit carries the new fragments. A lever that went dark, partial
 darkness, an unmeasured rung, a crash or a slower rung is not drift: that stays FIX.
+
+Fix forward, never re-cut. A failed gate's commit stays the candidate: list the fix commits in
+<gate dir>/FIXES (one sha per line, oldest first, `#` comments) and the train gates that commit with
+each fix's own change applied on top. Only the legs the fixes touched, and the ones that failed,
+run again; the rest are ledger hits on the frozen code. Gating main's newer head instead reuses
+little, because nearly every staging edits a module every leg imports (tt_bio/tenstorrent.py).
+The candidate is rebuilt from FIXES on every tick with fixed commit metadata, so the same list
+always names the same commit.
 """
 from __future__ import annotations
 
@@ -37,6 +45,8 @@ import re
 import socket
 import subprocess
 import sys
+import tempfile
+import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -50,6 +60,41 @@ STAGING = re.compile(r"^Merge .*?\bstaging(\w+)\b")
 def git(*a, repo: Path = REPO) -> str:
     return subprocess.run(["git", "-C", str(repo), *a], check=True, capture_output=True,
                           text=True).stdout.strip()
+
+
+def _git(*a, repo: Path = REPO, env: dict | None = None, input: str | None = None, strip: bool = True) -> str:
+    out = subprocess.run(["git", "-C", str(repo), *a], check=True, capture_output=True, text=True,
+                         env={**os.environ, **(env or {})}, input=input).stdout
+    return out.strip() if strip else out
+
+
+def patched(sha: str, fixes: list[str], repo: Path = REPO) -> str:
+    """`sha` with each fix commit's own change applied on top, oldest first. Every new commit
+    takes its fix's author, committer and message, so the same list names the same commit on
+    every tick. Raises CalledProcessError when a fix does not apply."""
+    with tempfile.TemporaryDirectory() as tmp:
+        index = {"GIT_INDEX_FILE": f"{tmp}/index"}
+        for f in fixes:
+            an, ae, ad, cn, ce, cd, msg = _git("show", "-s", "--format=%an%x00%ae%x00%ad%x00%cn%x00%ce%x00%cd%x00%B",
+                                               "--date=raw", f, repo=repo).split("\0", 6)
+            if not (diff := _git("diff", "--binary", f"{f}^", f, repo=repo, strip=False)):
+                continue                                 # a merge-only or empty commit
+            _git("read-tree", sha, repo=repo, env=index)
+            _git("apply", "--cached", "--binary", repo=repo, env=index, input=diff)
+            tree = _git("write-tree", repo=repo, env=index)
+            sha = _git("commit-tree", tree, "-p", sha, "-m", f"{msg.strip()}\n\n(cherry picked from commit {f})",
+                       repo=repo, env={"GIT_AUTHOR_NAME": an, "GIT_AUTHOR_EMAIL": ae, "GIT_AUTHOR_DATE": ad,
+                                       "GIT_COMMITTER_NAME": cn, "GIT_COMMITTER_EMAIL": ce,
+                                       "GIT_COMMITTER_DATE": cd})
+    return sha
+
+
+def fixes(d: Path, repo: Path = REPO) -> list[str]:
+    """The fix commits <d>/FIXES lists, as full shas."""
+    f = d / "FIXES"
+    lines = f.read_text().splitlines() if f.exists() else []
+    return [git("rev-parse", "--verify", f"{w}^{{commit}}", repo=repo)
+            for ln in lines if (w := ln.split("#", 1)[0].strip())]
 
 
 def last_release(repo: Path = REPO) -> tuple[str, str]:
@@ -85,6 +130,12 @@ def gate_state(gates: Path | None, content: str) -> tuple[str, Path | None]:
 
 #: A ladder finding the train re-records rather than fixes (release_gate._size_ladder_compare_levers).
 DRIFT_OK = re.compile(r"started firing\)|: decline clause |: resolved '")
+#: A fired fraction outside the band; upward is drift (older gates labelled both ways "partial darkness").
+FRAC_BAND = re.compile(r": frac ([\d.]+) -> ([\d.]+) exceeds the ")
+
+
+def is_drift(line: str) -> bool:
+    return bool(DRIFT_OK.search(line)) or bool((m := FRAC_BAND.search(line)) and float(m[2]) > float(m[1]))
 DRIFT_LINE = re.compile(r"^\s+FAIL \S+/\d+ \w+: ", re.M)
 
 
@@ -98,7 +149,7 @@ def drift_models(d: Path) -> list[str]:
         text = log.read_text(errors="replace") if r["leg"].startswith("ladder:") and log.is_file() else ""
         lines = [ln for ln in text.splitlines() if DRIFT_LINE.match(ln + " ")]
         if "size-ladder drift vs the recorded baseline" not in text or not lines \
-                or not all(DRIFT_OK.search(ln) for ln in lines):
+                or not all(map(is_drift, lines)):
             return []
         models.add(r["leg"].split(":", 1)[1].split("@", 1)[0])
     return sorted(models)
@@ -159,23 +210,71 @@ def passed_since(gates: Path | None, tsha: str, repo: Path = REPO, ref: str = "o
     After means: it holds what main held when the release branched off (the tag may sit on a
     release branch main never merged), it is not already inside the release, and its code is not
     the release's."""
-    def ancestor(a, b):
-        return subprocess.run(["git", "-C", str(repo), "merge-base", "--is-ancestor", a, b],
-                              capture_output=True).returncode == 0
-    base = git("merge-base", tsha, ref, repo=repo) if tsha else ""
-    done, released = [], content_hash(tsha, repo) if tsha else ""
-    for p, plan in _plans(gates):
-        v, sha = p.parent / "verdict.json", plan.get("sha", "")
+    done = []
+    for p, plan in _since(gates, tsha, repo, ref):
+        sha = plan["sha"]
         try:
-            if not (v.exists() and passed(gates, p.parent, sha)):
+            if not ((p.parent / "verdict.json").exists() and passed(gates, p.parent, sha)):
                 continue
-            if tsha and (not ancestor(base, sha) or ancestor(sha, tsha) or plan.get("content") == released):
-                continue
-            ahead = git("rev-list", "--count", f"{base}..{sha}" if base else sha, repo=repo)
+            ahead = git("rev-list", "--count", f"{plan['base']}..{sha}" if plan["base"] else sha, repo=repo)
             done.append((int(git("show", "-s", "--format=%ct", sha, repo=repo)), int(ahead), sha, p.parent))
         except (ValueError, subprocess.CalledProcessError):
             continue                                   # unreadable verdict, or a commit we lack
     return max(done)[2:] if done else None
+
+
+def _since(gates: Path | None, tsha: str, repo: Path = REPO, ref: str = "origin/main") -> list:
+    """(plan path, plan + "base") of the full runs on commits after the last release (passed_since)."""
+    def ancestor(a, b):
+        return subprocess.run(["git", "-C", str(repo), "merge-base", "--is-ancestor", a, b],
+                              capture_output=True).returncode == 0
+    base = git("merge-base", tsha, ref, repo=repo) if tsha else ""
+    released = content_hash(tsha, repo) if tsha else ""
+    out = []
+    for p, plan in _plans(gates):
+        sha = plan.get("sha", "")
+        try:
+            if tsha and (not ancestor(base, sha) or ancestor(sha, tsha) or plan.get("content") == released):
+                continue
+        except subprocess.CalledProcessError:
+            continue
+        out.append((p, {**plan, "base": base}))
+    return out
+
+
+#: How long a failed gate stays the candidate with no FIXES before the train gates main's head
+#: instead: long enough for a fix row to land a fix, short enough that an abandoned failure does
+#: not hold the train past its 48 h bar.
+FIX_HOLD_S = 12 * 3600
+
+
+def frozen(gates: Path | None, tsha: str, repo: Path = REPO, ref: str = "origin/main",
+           now: float | None = None) -> tuple[str, Path, list] | None:
+    """(sha, dir, fixes) of the newest full gate on main's line after the last release when it
+    failed less than FIX_HOLD_S ago, or its FIXES changed less than that ago: the commit the train
+    fixes forward. A gate on a fixed-forward candidate is not on main's line, so it never counts."""
+    runs = []
+    for p, plan in _since(gates, tsha, repo, ref):
+        try:
+            if subprocess.run(["git", "-C", str(repo), "merge-base", "--is-ancestor", plan["sha"], ref],
+                              capture_output=True).returncode:
+                continue
+            runs.append((int(git("show", "-s", "--format=%ct", plan["sha"], repo=repo)), p.stat().st_mtime, p.parent))
+        except subprocess.CalledProcessError:
+            continue
+    if not runs:
+        return None
+    d = max(runs)[2]
+    v = d / "verdict.json"
+    try:
+        failed = v.exists() and not json.loads(v.read_text()).get("pass")
+    except ValueError:
+        return None
+    sha = json.loads((d / "plan.json").read_text())["sha"]
+    if not failed or passed(gates, d, sha):
+        return None
+    last = max(f.stat().st_mtime for f in (v, d / "FIXES") if f.exists())
+    return (sha, d, fixes(d, repo)) if (now or time.time()) - last < FIX_HOLD_S else None
 
 
 def running_gates(gates: Path | None, partial: bool = False) -> list[str]:
@@ -198,8 +297,20 @@ def decide(repo: Path = REPO, gates: Path | None = None, ref: str = "origin/main
         return {**out, "do": "CUT", "sha": sha, "gate": str(d), "records": str(rec) if rec != d else "",
                 "why": f"gate passed on every arch: {d}/VERDICT.md{nxt}"
                        + (f"; size ladders re-recorded in {rec}" if rec != d else "")}
-    state, d = gate_state(gates, content_hash(head, repo))
-    why = {"none": "no gate has run on main's head",
+    target, what = head, "main's head"
+    if fz := frozen(gates, tsha, repo, ref):
+        base, fd, fl = fz
+        target, what = base, f"{base[:9]} (frozen: fix forward through {fd}/FIXES)"
+        if fl:
+            try:
+                target = patched(base, fl, repo)
+            except subprocess.CalledProcessError as e:
+                return {**out, "do": "FIX", "sha": base, "gate": str(fd),
+                        "why": f"{fd}/FIXES does not apply on {base[:9]}: {(e.stderr or '').strip()[-300:]}"}
+            what = f"{base[:9]} + {len(fl)} fix(es) from {fd}/FIXES"
+            out["fixes"] = {"base": base, "gate": str(fd), "commits": fl}
+    state, d = gate_state(gates, content_hash(target, repo))
+    why = {"none": f"no gate has run on {what}",
            "running": f"gate running in {d}",
            "fail": f"gate failed: {d}/VERDICT.md",
            "pass": f"gate passed on every arch: {d}/VERDICT.md"}[state]
@@ -225,7 +336,10 @@ def decide(repo: Path = REPO, gates: Path | None = None, ref: str = "origin/main
         why += f"; finish the running gate on {', '.join(s[:9] for s in older)}, do not restart it"
     if part := running_gates(gates, partial=True):
         why += f"; partial runs on {', '.join(s[:9] for s in part)} fill the ledger the gate reuses"
-    return {**out, "do": do, "sha": head, "gate": str(d or ""), "why": why}
+    if state == "fail" and not out.get("fixes"):
+        why += (f"; fix forward: list the fix commits in {d}/FIXES (main's head is gated instead "
+                f"{FIX_HOLD_S // 3600} h after this verdict if none are listed)")
+    return {**out, "do": do, "sha": target, "gate": str(d or ""), "why": why}
 
 
 def main() -> int:
