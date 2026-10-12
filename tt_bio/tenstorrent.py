@@ -16224,7 +16224,9 @@ class DiffusionModule(TorchWrapper):
         parts = self._hoist_layer_bias(
             bias_token_tt,
             None if self.module.token_transformer_fp32 else self.module.token_transformer)
-        to = _sdpa_chunk_pad_len(padded_seq) if _B2_TOKEN_DIT_SDPA else 0
+        # Stock SDPA only: `dit_sdpa_pm` picks its own chunks and read slower padded on a p150a
+        # (BoltzGen fast, 52 -> 56-62 ms a step), so it keeps the unpadded bias.
+        to = _sdpa_chunk_pad_len(padded_seq) if _B2_TOKEN_DIT_SDPA and not lever("dit_sdpa_pm") else 0
         if to and isinstance(parts, list):
             # The fused SDPA's k chunk does not divide the sequence: pad each layer's bias here, once
             # per rollout and one layer at a time (no full-size second copy), new keys masked, so no

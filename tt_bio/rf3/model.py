@@ -259,7 +259,9 @@ class DiffusionModule(Module):
                 ttnn.end_trace_capture(self.device, tid, cq_id=0)
                 trace["tid"] = tid
             except Exception as e:      # e.g. the step outgrew the trace region
-                print(f"  [rf3 diffusion] trace capture failed, steps run eagerly: {e}")
+                import traceback   # the Python frame names the op; the TT_FATAL alone does not
+                print(f"  [rf3 diffusion] trace capture failed, steps run eagerly: {e}\n"
+                      + "".join(traceback.format_tb(e.__traceback__)[-8:]))
                 try:
                     ttnn.end_trace_capture(self.device, tid, cq_id=0)
                 except Exception:
