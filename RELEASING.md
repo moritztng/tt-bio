@@ -128,6 +128,14 @@ its own card types read, so Wormhole rows leave the Blackhole legs reused, and s
 moved, e.g. a guard's decline reason) needs a full re-record of its own fragment: add
 `--record-full <model>` and that model's record leg re-records every rung instead.
 
+**abb3 records.** `perf/abb3_port/model_gate_qb1c3.txt` and `step_gate_default_qb1c3.txt` go
+stale whenever their scripts' import closure moves, and `tests/test_recorded_claims.py` then fails
+the release commit. Add `--record-abb3` to the pass-1 gate: its `record:abb3` leg runs both gates
+on a p300c card, checks every ok/FAIL and gradient row, the losses (within 2e-4), the taped
+parameter count, the DRAM peak and the `--micro 8` OOM against the committed records, and on a
+match writes both files with `RECORDED-AT` at the gate's commit. Copy them into the release commit
+with `cp -r <out>/abb3/perf .`. Any difference fails the leg and names the rows that moved.
+
 **Duplicates.** The parity gate runs `release_gate.py`'s boltzgen, opendde-abag, capacity,
 nesso1 and rf3-1024aa arms in-process with the same arguments and adds a drift check, so the
 runner does not run those five arms a second time.
