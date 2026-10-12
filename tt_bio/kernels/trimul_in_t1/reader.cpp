@@ -8,6 +8,12 @@
 // tiles R_il = (b, x = xt*32 + il, yt), il = 0..31, in il order, Kt tiles each, RB rows per barrier,
 // into c_7: compute normalises them row by row. With MASK the unit's 32 row-broadcast mask tiles
 // follow in c_6, cut exactly as gin_moved's reader cuts them. NEVER RUN ON A DEVICE YET.
+// ABL (bench-only define, trimul_tail.T1_ABL; 0 in every model path): bits that skip one stage's
+// work while keeping its circular-buffer traffic, to time each stage by difference (perf/spd_trimul/in_t1.py --abl).
+//   1 layer_norm, 2 g_out matmul, 4 [a | b] matmuls, 8 gate multiply, 16 z reads, 32 writer gather, 64 writer writes.
+#ifndef ABL
+#define ABL 0
+#endif
 #include "api/dataflow/dataflow_api.h"
 #include "ttnn/kernel/dataflow/generate_reduce_scaler.hpp"
 
@@ -89,7 +95,8 @@ void kernel_main() {
             cb_reserve_back(x_cb, RB * Kt);
             uint32_t dst = get_write_ptr(x_cb);
             for (uint32_t r = 0; r < RB; ++r, page += St * Kt)
-                for (uint32_t dt = 0; dt < Kt; ++dt, dst += tb) noc_async_read_page(page + dt, x, dst);
+                for (uint32_t dt = 0; dt < Kt; ++dt, dst += tb)
+                    if constexpr (!(ABL & 16)) noc_async_read_page(page + dt, x, dst);
             noc_async_read_barrier();
             cb_push_back(x_cb, RB * Kt);
         }

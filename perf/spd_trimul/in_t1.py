@@ -22,6 +22,9 @@ ap.add_argument("--reps", type=int, default=10)
 ap.add_argument("--c", type=int, default=128, help="c_z")
 ap.add_argument("--hidden", type=int, default=128)
 ap.add_argument("--no-mask", action="store_true")
+ap.add_argument("--abl", default="", help="comma list of T1_ABL stage-skip masks to time after the real T1"
+                " (kernels/trimul_in_t1: 1 LN, 2 g_out mm, 4 [a|b] mm, 8 gate, 16 z reads, 32 gather, 64 writes)")
+ap.add_argument("--set", default="", help="comma list NAME=INT of trimul_tail knobs for T1 (T1_RB, T1_SBW, GIN_MOVE_NB)")
 ap.add_argument("--out", help="also append each JSON line here (the qb runner passes it)")
 A = ap.parse_args()
 
@@ -36,11 +39,15 @@ kcfg = T.trunk_compute_kernel_config(compute_kernel_config())
 ckc = MG.ckc_args(kcfg)
 grid = tuple(T.COMPUTE_GRID_MAIN)
 TT.set_t1(True)
+for kv in [v for v in A.set.split(",") if v]:
+    k, v = kv.split("=")
+    assert k in ("T1_RB", "T1_SBW", "GIN_MOVE_NB"), k
+    setattr(TT, k, int(v))
 C, h = A.c, A.hidden
 gen = torch.Generator().manual_seed(0)
 up = lambda t: ttnn.from_torch(t.to(torch.bfloat16), dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT,
                                device=dev, memory_config=ttnn.DRAM_MEMORY_CONFIG)
-print(json.dumps({"grid": grid, "ckc": [str(c) for c in ckc], "c": C, "hidden": h,
+print(json.dumps({"set": A.set, "grid": grid, "ckc": [str(c) for c in ckc], "c": C, "hidden": h,
                   "mask": not A.no_mask}), flush=True)
 
 
@@ -144,6 +151,10 @@ for n in [int(s) for s in A.ns.split(",") if s]:
             rec["t1_GBps"] = round(4 * P / rec["t1_ms"] / 1e6, 1)
             if "inc_ms" in rec:
                 rec["speedup"] = round(rec["inc_ms"] / rec["t1_ms"], 3)
+            for m_ in [int(v) for v in A.abl.split(",") if v]:
+                TT.T1_ABL = m_
+                rec[f"abl{m_}_ms"] = timed(lambda: free(t1()), A.reps)
+            TT.T1_ABL = 0
     except Exception as e:                                                    # noqa: BLE001
         rec["t1_err"] = str(e).splitlines()[0][:300]
         traceback.print_exc()

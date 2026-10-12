@@ -6,6 +6,12 @@
 // tiles of g_out (NTG tiles each, z's own [.., S, S, N] layout, one page write per tile), then
 // gin_moved's writer as is: per channel tile q of [a | b], 32 tiles in il order, gathered face row by
 // face row into the [B, C, S, S] tiles of a (q < CT) and b. NEVER RUN ON A DEVICE YET.
+// ABL (bench-only define, trimul_tail.T1_ABL; 0 in every model path): bits that skip one stage's
+// work while keeping its circular-buffer traffic, to time each stage by difference (perf/spd_trimul/in_t1.py --abl).
+//   1 layer_norm, 2 g_out matmul, 4 [a | b] matmuls, 8 gate multiply, 16 z reads, 32 writer gather, 64 writer writes.
+#ifndef ABL
+#define ABL 0
+#endif
 #include "api/dataflow/dataflow_api.h"
 
 void kernel_main() {
@@ -46,7 +52,8 @@ void kernel_main() {
             for (uint32_t il = 0; il < 32; ++il, page += St * NTG) {
                 cb_wait_front(go_cb, NTG);
                 uint32_t r = get_read_ptr(go_cb);
-                for (uint32_t n = 0; n < NTG; ++n, r += TB) noc_async_write_page(page + n, og, r);
+                for (uint32_t n = 0; n < NTG; ++n, r += TB)
+                    if constexpr (!(ABL & 64)) noc_async_write_page(page + n, og, r);
                 noc_async_writes_flushed();
                 cb_pop_front(go_cb, NTG);
             }
@@ -60,7 +67,7 @@ void kernel_main() {
                 const uint32_t grp = (c0 / NB) & 1u;
                 const uint32_t gbase = stage0 + grp * NB * TB;
                 if (dirty[grp]) noc_async_writes_flushed();
-                for (uint32_t j = 0; j < NB; ++j) {
+                for (uint32_t j = 0; j < NB && !(ABL & 32); ++j) {
                     const uint32_t c = c0 + j;
                     const uint32_t st = gbase + j * TB;
                     const uint32_t sc = src + (c >> 4) * 2 * FB + (c & 15) * RB;
@@ -78,7 +85,7 @@ void kernel_main() {
                 }
                 noc_async_read_barrier();
                 for (uint32_t j = 0; j < NB; ++j, page += SS)
-                    noc_async_write(gbase + j * TB, is_a ? oa.get_noc_addr(page) : ob.get_noc_addr(page), TB);
+                    if constexpr (!(ABL & 64)) noc_async_write(gbase + j * TB, is_a ? oa.get_noc_addr(page) : ob.get_noc_addr(page), TB);
                 dirty[grp] = true;
             }
             noc_async_write_barrier();

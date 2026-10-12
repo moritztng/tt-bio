@@ -43,7 +43,7 @@ import torch
 import torch.nn.functional as F
 import ttnn
 
-from .tenstorrent import Pairformer, accurate_softmax_site, triatt_sdpa_hifi_site
+from .tenstorrent import Pairformer, accurate_softmax_site, download, k1_linear, triatt_sdpa_hifi_site
 from .openfold3_weights import remap_pairformer_stack
 
 # aux_heads.pairformer_embedding distance bins (config.model_config).
@@ -170,7 +170,7 @@ class OF3ConfidenceHead:
         b = ttnn.linear(zn, self._wd(pfx + "linear_z.weight", True, f32),
                         compute_kernel_config=self.compute_kernel_config)
         ttnn.deallocate(zn)
-        out = torch.Tensor(ttnn.to_torch(b)).float().reshape(N, N, _APB_HEADS).permute(2, 0, 1)
+        out = torch.Tensor(download(b)).float().reshape(N, N, _APB_HEADS).permute(2, 0, 1)
         ttnn.deallocate(b)
         return out
 
@@ -277,6 +277,22 @@ class OF3ConfidenceHead:
     def _lin(self, x, key):
         w = self._wd(key, dtype=x.dtype if x.dtype == ttnn.float32 else None)
         return ttnn.linear(x, w, compute_kernel_config=self.compute_kernel_config)
+
+    def distogram_device(self, z_d):
+        """The trunk distogram L(z) + L(z).T on the card in fp32, read back as host [N, N, 64]: half
+        the bytes of the [N, N, 128] trunk pair it replaces, and no host matmul."""
+        N = int(z_d.shape[-2])
+        zt = ttnn.typecast(z_d, ttnn.float32)
+        # k1_linear: ttnn's own plan on Wormhole put single logits 64 off float64 (dgram_check, .113).
+        dl = k1_linear(zt, self._wd("distogram.linear.weight", dtype=ttnn.float32),
+                       compute_kernel_config=self.compute_kernel_config, dtype=ttnn.float32)
+        ttnn.deallocate(zt)
+        dt = ttnn.permute(dl, (0, 2, 1, 3))
+        sym = ttnn.add(dl, dt)
+        ttnn.deallocate(dt); ttnn.deallocate(dl)
+        out = torch.Tensor(download(sym)).float().reshape(N, N, -1)
+        ttnn.deallocate(sym)
+        return out
 
     def _ln(self, x, prefix, fp32=False):
         """One head LayerNorm. ``fp32`` casts the input and the gain first.
@@ -495,9 +511,12 @@ class OF3ConfidenceHead:
         # The trunk terms are the same for every sample of a fold: `shared` carries them from the
         # first sample's call to the next (same ops on the same inputs, so the same bits).
         si_input, si_trunk = si_input.to(self._dtype), si_trunk.to(self._dtype)
-        zij_trunk, repr_x_pred = zij_trunk.to(self._dtype), repr_x_pred.to(self._dtype)
+        repr_x_pred = repr_x_pred.to(self._dtype)
         if shared is None:
             shared = {}
+        # zij_trunk None: the trunk pair is shared["zij_trunk_d"], read back only by a host path.
+        host_z = lambda: (zij_trunk if zij_trunk is not None else torch.Tensor(
+            ttnn.to_torch(shared["zij_trunk_d"])).float().reshape(N, N, -1)).to(self._dtype)
         # In fp32 inference the pair never comes back to the host: each block's attention bias
         # (LN_z + linear_z, 16 channels) and the pae / pde heads run on device in fp32, and only
         # their outputs cross. The float64 reference keeps the whole pair on the host.
@@ -508,7 +527,7 @@ class OF3ConfidenceHead:
             z_d, z = self._z_embed_device(shared, si_input, repr_x_pred, use_zij_trunk_embedding), None
         else:
             if "z_trunk" not in shared:
-                z = zij_trunk if use_zij_trunk_embedding else zij_trunk * 0.0
+                z = host_z() if use_zij_trunk_embedding else host_z() * 0.0
                 shared["z_trunk"] = (
                     z
                     + F.linear(si_input, self._g("pairformer_embedding.linear_i.weight")).unsqueeze(-2)
@@ -552,8 +571,11 @@ class OF3ConfidenceHead:
         # Distogram reads the TRUNK pair (reference: computed before the confidence
         # Pairformer), symmetrised as L(z) + L(z).T (no LayerNorm).
         if "distogram" not in shared:
-            dlog = F.linear(zij_trunk, self._g("distogram.linear.weight"))
-            shared["distogram"] = dlog + dlog.transpose(-2, -3)
+            if device_pair and shared.get("zij_trunk_d") is not None:
+                shared["distogram"] = self.distogram_device(shared["zij_trunk_d"])
+            else:
+                dlog = F.linear(host_z(), self._g("distogram.linear.weight"))
+                shared["distogram"] = dlog + dlog.transpose(-2, -3)
         distogram_logits = shared["distogram"]
 
         if device_pair and bin_vectors is not None:
