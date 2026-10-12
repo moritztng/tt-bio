@@ -31,6 +31,7 @@ WHY: dict = {}              # decline reason -> calls
 REFUSED: set = set()        # program keys the device refused (static-CB clash with live L1 buffers)
 _CACHE: dict = {}
 F3_SPLIT = 1               # fc3 K chunks (kernel arg 3); partials go through an fp32 CB between chunks
+F3_L1ACC = 0               # > 0: fc3 hidden tiles per DST chunk, chunks summed by the packer into fp32 (kernel arg 5)
 
 
 def cb_plan(kt, ht, res, stage=0):
@@ -45,12 +46,14 @@ def cb_plan(kt, ht, res, stage=0):
           (7, 2 * kt),           # x, double buffered
           (8, kt), (9, kt),      # gamma, beta
           (10, 1)]               # 1/K reduce scaler
+    l1acc = F3_L1ACC > 0 and stage == 0
     if res:
-        bf += [(5, 2 * kt),      # x for the residual add
-               (15, kt)]         # fc3 output before it
+        bf += [(5, 2 * kt)]      # x for the residual add
+        if not l1acc:
+            bf += [(15, kt)]     # fc3 output before it
     f32 = [(11, 1), (12, 1), (13, 1), (14, 1), (16, kt), (17, kt)]   # eps, mean, var, rstd, xc, tmp
     (f32 if stage == 1 else bf).append((6, 2 * kt))                   # output, double buffered
-    if F3_SPLIT > 1 or stage == 2:
+    if F3_SPLIT > 1 or stage == 2 or l1acc:
         f32 += [(18, kt)]                                             # fc3 partial (K chunks, or pass 1's)
     return bf, f32, w
 
@@ -138,7 +141,8 @@ def _build(x, ln_w, ln_b, w12, w3, out, grid, ckc, res, eps, stage=0, part=None)
     fid, approx, _, full = ckc
     compute = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "compute.cpp"), source_type=src, core_ranges=core_grid,
-        compile_time_args=[kt, ht, int(res), F3_SPLIT, int(stage == 2)], runtime_args=cp,
+        compile_time_args=[kt, ht, int(res), F3_SPLIT, int(stage == 2), F3_L1ACC if stage == 0 else 0],
+        runtime_args=cp,
         config=ttnn.ComputeConfigDescriptor(
             math_fidelity=fid, math_approx_mode=approx, fp32_dest_acc_en=True, dst_full_sync_en=full))
     bf, f32, w = cb_plan(kt, ht, res, stage)
@@ -166,7 +170,7 @@ def transition(x, ln_w, ln_b, w12, w3, ckc, grid, add_to_input=False, eps=1e-5, 
     if eligible(x, ln_w, ln_b, w12, w3, stage) is not None:
         return None
     key = ("t3", str(x.padded_shape), str(w12.padded_shape), str(w12.dtype), tuple(grid), tuple(str(c) for c in ckc),
-           bool(add_to_input), float(eps), F3_SPLIT, stage)
+           bool(add_to_input), float(eps), F3_SPLIT, F3_L1ACC, stage)
     if key in REFUSED:
         _no("refused")
         return None

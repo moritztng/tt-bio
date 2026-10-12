@@ -32,12 +32,17 @@ constexpr uint32_t F3S = get_compile_time_arg_val(3);       // fc3 K chunks: par
 // 1: this is the second of two programs over hidden halves; the first wrote its fc3 partial (fp32, RES = 0), the
 // reader feeds it through cb_part and fc3 accumulates on top of it (the F3S mechanism with the partial in DRAM).
 constexpr uint32_t PART = get_compile_time_arg_val(4);
+// > 0: fc3 accumulates KC hidden tiles per DST chunk and the packer sums the chunks into fp32 cb_part (L1 acc),
+// as ttnn's matmul folds its K blocks. One long DST chain over all Ht tiles put isolated elements exactly 2 low
+// at c 256 (WH, the same element every run). y + x then adds cb_part (fp32) to x, no bf16 y in between.
+constexpr uint32_t KC = get_compile_time_arg_val(5);
 static_assert(Ht % F3S == 0, "fc3 chunks divide the hidden tiles");
 constexpr uint32_t G = 4;                                   // fp32 half-sync DST holds 4 tiles
 constexpr uint32_t NG = Kt < G ? Kt : G;                    // fc3 output tiles per DST half
 static_assert(Ht % G == 0 && Kt % NG == 0, "hidden in groups of 4 tiles, fc3 output in groups of NG");
 static_assert(F3S == 1 || Kt <= 4, "fc3 K chunks only where one DST half holds the output row tile");
 static_assert(!(PART && F3S > 1), "a DRAM partial or in-program K chunks, not both");
+static_assert(KC == 0 || (F3S == 1 && !PART && Ht % KC == 0), "L1-acc chunks replace F3S and the DRAM partial");
 
 constexpr uint32_t w12_cb = tt::CBIndex::c_0;    // [W1 | W2], Kt x 2Ht, resident
 constexpr uint32_t w3_cb = tt::CBIndex::c_1;     // W3, Ht x Kt, resident
@@ -144,6 +149,53 @@ void kernel_main() {
             for (uint32_t i = 0; i < Kt; ++i) pack_tile(i, cb_part);
             tile_regs_release();
             cb_push_back(cb_part, Kt);
+        }
+        if constexpr (KC > 0) {
+            mm_block_init_short(h_cb, w3_cb, false, NG, 1, Ht);
+            reconfig_data_format(w3_cb, h_cb);
+            pack_reconfig_data_format(cb_part);
+            cb_reserve_back(cb_part, Kt);
+            for (uint32_t n0 = 0; n0 < Kt; n0 += NG) {
+                for (uint32_t c = 0; c < Ht; c += KC) {
+                    tile_regs_acquire();
+                    for (uint32_t j = c; j < c + KC; ++j)
+                        matmul_block(h_cb, w3_cb, j, j * Kt + n0, 0, false, NG, 1, Ht);
+                    tile_regs_commit();
+                    tile_regs_wait();
+                    pack_reconfig_l1_acc(c > 0);
+                    for (uint32_t i = 0; i < NG; ++i) pack_tile<true>(i, cb_part, n0 + i);
+                    tile_regs_release();
+                }
+            }
+            pack_reconfig_l1_acc(0);
+            cb_push_back(cb_part, Kt);
+            cb_wait_front(cb_part, Kt);
+            if constexpr (RES) {
+                cb_wait_front(res_cb, Kt);
+                reconfig_data_format(cb_part, res_cb);
+                add_tiles_init(cb_part, res_cb);
+            } else {
+                reconfig_data_format_srca(cb_part);
+                copy_tile_to_dst_init_short(cb_part);
+            }
+            pack_reconfig_data_format(out_cb);
+            cb_reserve_back(out_cb, Kt);
+            for (uint32_t n0 = 0; n0 < Kt; n0 += NG) {
+                tile_regs_acquire();
+                for (uint32_t i = 0; i < NG; ++i) {
+                    if constexpr (RES) add_tiles(cb_part, res_cb, n0 + i, n0 + i, i);
+                    else copy_tile(cb_part, n0 + i, i);
+                }
+                tile_regs_commit();
+                tile_regs_wait();
+                for (uint32_t i = 0; i < NG; ++i) pack_tile(i, out_cb);
+                tile_regs_release();
+            }
+            cb_push_back(out_cb, Kt);
+            cb_pop_front(cb_part, Kt);
+            if constexpr (RES) cb_pop_front(res_cb, Kt);
+            cb_pop_front(h_cb, Ht);
+            continue;
         }
         const uint32_t y_cb = RES ? cb_y : out_cb;
         cb_reserve_back(y_cb, Kt);

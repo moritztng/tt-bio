@@ -22,6 +22,7 @@ ap.add_argument("--probe", action="store_true", help="isolate a T3 defect: RES=0
 ap.add_argument("--fid", default="", help="override the trunk fidelity for both arms (HiFi2, HiFi3, LoFi)")
 ap.add_argument("--approx", type=int, default=-1, help="override math_approx_mode (0 = exact silu, no silu_f32)")
 ap.add_argument("--f3s", type=int, default=1, help="transition_t3.F3_SPLIT: fc3 K chunks")
+ap.add_argument("--l1acc", type=int, default=0, help="transition_t3.F3_L1ACC: fc3 hidden tiles per DST chunk")
 ap.add_argument("--wh", action="store_true", help="no-op (T3 serves on Wormhole since the hifi4 decline)")
 ap.add_argument("--mode", default="normal", help="lever set of both arms: normal, or fast (bfp8 weights via "
                 "transition_b8, the only way c 256 fits)")
@@ -37,6 +38,7 @@ from tt_bio.af2 import compute_kernel_config
 
 dev = T.get_device()
 T3.F3_SPLIT = A.f3s
+T3.F3_L1ACC = A.l1acc
 BASE = T.parse_levers(A.mode)
 WITH = T.parse_levers(A.mode + "+transition_t3")
 T._LEVERS = BASE
