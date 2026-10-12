@@ -5,6 +5,9 @@ tt_bio.tenstorrent, read as the delta over one warm trunk pass.
 
 A warm-up pass at each size first (its refusals and latches are reported separately, since a
 refusal latches and the warm pass then shows it as `blocked`), then one counted pass.
+
+`--why` also records, for every device refusal a tt_bio frame sees (an L1/CB overflow that some
+except block absorbs without a counter), the tt_bio stack at the point it was raised.
 """
 from __future__ import annotations
 
@@ -12,6 +15,7 @@ import argparse
 import copy
 import json
 import os
+import sys
 from pathlib import Path
 
 import torch
@@ -27,6 +31,28 @@ def strkeys(x):
     if isinstance(x, dict):
         return {str(k): strkeys(v) for k, v in x.items()}
     return x
+
+
+def watch_refusals(seen: list):
+    """settrace hook: the innermost tt_bio frame where each device refusal surfaces, with its callers."""
+    def local(frame, event, arg):
+        if event == "exception":
+            msg = str(arg[1])
+            if ("grow to" in msg or "L1" in msg or "clash" in msg) and id(arg[1]) not in seen_ids:
+                seen_ids.add(id(arg[1]))
+                stack, f = [], frame
+                while f is not None and len(stack) < 6:
+                    if "tt_bio" in f.f_code.co_filename:
+                        stack.append("%s:%d %s" % (Path(f.f_code.co_filename).name, f.f_lineno, f.f_code.co_name))
+                    f = f.f_back
+                seen.append({"msg": msg[:240], "stack": stack})
+        return local
+
+    def call(frame, event, arg):
+        return local if "tt_bio" in frame.f_code.co_filename else None
+
+    seen_ids: set = set()
+    return call
 
 
 def delta(a, b):
@@ -48,6 +74,7 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--n", type=int, nargs="+", default=[256, 532])
     ap.add_argument("--report", required=True)
+    ap.add_argument("--why", action="store_true", help="record where each absorbed device refusal is raised")
     a = ap.parse_args()
 
     from tt_bio import tenstorrent as tt
@@ -64,11 +91,15 @@ def main() -> None:
             pair = mask[:, :, None] * mask[:, None, :]
             pm.reset_static_cache()
             s0 = snapshot(tt)
+            why: list = []
+            if a.why:
+                sys.settrace(watch_refusals(why))
             pm(None, z, mask=mask, pair_mask=pair)
+            sys.settrace(None)
             s1 = snapshot(tt)
             pm(None, z, mask=mask, pair_mask=pair)
             s2 = snapshot(tt)
-            row = {"n": n, "first_pass": strkeys(delta(s0, s1)), "warm_pass": strkeys(delta(s1, s2))}
+            row = {"n": n, "first_pass": strkeys(delta(s0, s1)), "warm_pass": strkeys(delta(s1, s2)), "why": why}
             rep["sizes"].append(row)
             print(json.dumps(row, default=str), flush=True)
     Path(a.report).write_text(json.dumps(rep, indent=1, default=str) + "\n")
