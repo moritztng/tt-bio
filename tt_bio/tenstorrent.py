@@ -595,7 +595,8 @@ _FAST_MODE = False
 #                   projections, the residual stream and the superset bias stay fp32. Inert in bf16.
 #   adaln_mod       every fp32 AdaLN modulates in one addcmul, `s_bias + ln(a) * sigmoid(s_scale)`, instead of
 #                   multiply then add: the activation is read and written once. Boltz-2's hoisted token-DiT
-#                   AdaLN (`_B2_ADALN_ADDCMUL`) does the same in any dtype, the sigmoid in the scale matmul.
+#                   AdaLN (`_B2_ADALN_ADDCMUL`) does the same in any dtype, the sigmoid in the scale matmul,
+#                   and so does its DiT's gated residual, `a + s_o * b`.
 #   swiglu_fc12g    inside transition_shard, silu(x w1) * (x w2) as ONE matmul over [w1_j | w2_j] with the silu
 #                   and the gate multiply in the compute kernel (kernels/fc12g): no fc1/fc2 tensors, no
 #                   multiply op; the gate multiplies fc2 in dest rather than its stored copy. Needs silu_f32.
@@ -13988,15 +13989,20 @@ class DiffusionTransformerLayer(Module):
                 self.s_o, self._s_o_src = s_o, s
         else:
             s_o = self.s_o
-        b = ttnn.multiply(s_o, b)
+        def gate(a):
+            # adaln_mod: the gated residual a + s_o * b as one addcmul (the product is not rounded
+            # first). Same shapes only: a sample-batched b against a shared s_o keeps the broadcast.
+            if lever("adaln_mod") and tuple(s_o.shape) == tuple(b.shape):
+                return ttnn.addcmul(a, s_o, b, value=1.0)
+            return ttnn.add(a, ttnn.multiply(s_o, b))
         if self.no_residual:
             # transition reads the block input, so it must be evaluated BEFORE a
             # absorbs the attention output
             a_t = self.transition(a, s, large_seq_len=large_seq_len,
                                   cond=None if cond is None else (t_trans, s_o2_pre))
-            a = ttnn.add(ttnn.add(a, b), a_t)
+            a = ttnn.add(gate(a), a_t)
         else:
-            a = ttnn.add(a, b)
+            a = gate(a)
             a_t = self.transition(a, s, large_seq_len=large_seq_len,
                                   cond=None if cond is None else (t_trans, s_o2_pre))
             a = ttnn.add(a, a_t)
