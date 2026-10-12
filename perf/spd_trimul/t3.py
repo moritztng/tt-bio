@@ -19,6 +19,8 @@ ap.add_argument("--c", type=int, default=128)
 ap.add_argument("--repeat", type=int, default=0, help="rerun T3 on the same input and list its bad elements each time")
 ap.add_argument("--probe", action="store_true", help="isolate a T3 defect: RES=0 direct call vs fp64 fc3 output, "
                 "and W3 = 0 (output must be x exactly)")
+ap.add_argument("--fid", default="", help="override the trunk fidelity for both arms (HiFi2, HiFi3, LoFi)")
+ap.add_argument("--approx", type=int, default=-1, help="override math_approx_mode (0 = exact silu, no silu_f32)")
 ap.add_argument("--wh", action="store_true", help="let T3 serve on Wormhole (bring-up only)")
 ap.add_argument("--out", help="also append each JSON line here (the qb runner passes it)")
 A = ap.parse_args()
@@ -33,6 +35,10 @@ from tt_bio.af2 import compute_kernel_config
 dev = T.get_device()
 T3.WORMHOLE = A.wh
 kcfg = T.trunk_compute_kernel_config(compute_kernel_config())
+if A.fid:
+    kcfg.math_fidelity = getattr(ttnn.MathFidelity, A.fid)
+if A.approx >= 0:
+    kcfg.math_approx_mode = bool(A.approx)
 BASE = T.parse_levers("normal")
 WITH = T.parse_levers("normal+transition_t3")
 C, H = A.c, 4 * A.c
