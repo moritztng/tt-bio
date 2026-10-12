@@ -106,3 +106,20 @@ def test_a_split_module_still_takes_the_split_path(monkeypatch):
     monkeypatch.setattr(E, "_PAIR_FFN_L1_FC1", False)   # the plain split arm, no L1 levers
     ffn._ffn(_T("block"), split=True, l1_gated=True)
     assert ffn.lins == ["fc1_a", "fc1_b", "fc2"], ffn.lins
+
+
+def test_a_split_module_below_the_split_threshold_builds_no_full_fc1(monkeypatch):
+    """Under SPLIT_SWIGLU_MIN_SEQ `_ffn` gets split=False. A split-built module must still multiply by its
+    halves: the concatenated fc1 it used to build stayed resident per block, 70.8 MB a layer for the ESMC-6B,
+    and OOMed the 6B on a 12 GB Wormhole chip for any sequence under 144 tokens (gate rel-2d65d109f)."""
+    _stub_ttnn(monkeypatch)
+    ffn = _Unsplit()
+    ffn.split_swiglu = True
+    ffn.fc1_weight = None
+    ffn.fc1_a_weight = _T("fc1_a")
+    ffn.fc1_b_weight = _T("fc1_b")
+    ffn._fc1_full = lambda: pytest.fail("built the full fc1 copy")
+    monkeypatch.setattr(E, "_SPLIT_SWIGLU", True)
+    ffn._ffn(_T("short"), split=False)
+    assert ffn.lins == ["fc1_a", "fc1_b", "fc2"], ffn.lins
+    assert ffn.fc1_weight is None
