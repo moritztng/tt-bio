@@ -16686,8 +16686,10 @@ class PairConditioningDevice:
         rel_pos = relative_position_encoding
         if seq_pad:
             rel_pos = torch.nn.functional.pad(rel_pos, (0, 0, 0, seq_pad, 0, seq_pad))
-        rel_pos_tt = ttnn.from_torch(rel_pos, layout=ttnn.TILE_LAYOUT, device=get_device(),
-                                     dtype=ttnn.bfloat16)
+        # Uploaded row-major and tiled on the card: the host tilize of the [n, n, 128] tensor
+        # was 0.26 s a fold at 512 aa (py-spy, p150a). Same bf16 values either way.
+        rel_pos_tt = ttnn.to_layout(ttnn.from_torch(rel_pos, layout=ttnn.ROW_MAJOR_LAYOUT, device=get_device(),
+                                                    dtype=ttnn.bfloat16), ttnn.TILE_LAYOUT)
         self.wall.mark("rel_pos")
         x = ttnn.concat([z, rel_pos_tt], dim=-1)
         ttnn.deallocate(rel_pos_tt)
@@ -17680,8 +17682,9 @@ class TrunkModule(TorchWrapper):
                                 z_init_build)
         seq_len = st["seq_len"]
 
-        s = self._from_torch(torch.zeros(list(st["s_init_tt"].shape), dtype=s_init.dtype))
-        z = self._from_torch(torch.zeros(list(st["z_init_tt"].shape), dtype=s_init.dtype))
+        # Filled on the card: the pair's zeros built and tilized on the host cost 0.2 s a fold at 512 aa.
+        s, z = (ttnn.zeros(list(st[k].shape), dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT,
+                           device=self.tt_device) for k in ("s_init_tt", "z_init_tt"))
         # Tick the live view once per recycling iteration, mirroring the host
         # fallback loop in Boltz2.forward — the resident loop runs entirely on
         # device, so without this the bar sits at "Trunk 0/N" then jumps to the
