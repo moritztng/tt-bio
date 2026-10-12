@@ -18,6 +18,7 @@ ap = argparse.ArgumentParser()
 ap.add_argument("--ns", default="64,128,512")
 ap.add_argument("--reps", type=int, default=10)
 ap.add_argument("--c", type=int, default=128)
+ap.add_argument("--out", help="also append each JSON line here (the qb runner passes it)")
 A = ap.parse_args()
 
 from tt_bio.main import ensure_p300_mesh_descriptor
@@ -110,5 +111,8 @@ for n in [int(s) for s in A.ns.split(",") if s]:
         rec["t2_err"] = str(e).splitlines()[0][:300]
     rec["t2_stats"] = list(TT.T2_STATS)
     print(json.dumps(rec), flush=True)
+    if A.out:
+        with open(A.out, "a") as f:
+            f.write(json.dumps(rec) + "\n")
     for t in d.values():
         ttnn.deallocate(t)
