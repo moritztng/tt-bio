@@ -16,6 +16,7 @@ ap = argparse.ArgumentParser()
 ap.add_argument("--ns", default="64,256,512")
 ap.add_argument("--reps", type=int, default=10)
 ap.add_argument("--c", type=int, default=128)
+ap.add_argument("--mult", type=int, default=4, help="hidden = mult x c (Protenix diffusion conditioning: 2)")
 ap.add_argument("--repeat", type=int, default=0, help="rerun T3 on the same input and list its bad elements each time")
 ap.add_argument("--probe", action="store_true", help="isolate a T3 defect: RES=0 direct call vs fp64 fc3 output, "
                 "and W3 = 0 (output must be x exactly)")
@@ -48,7 +49,7 @@ if A.fid:
     kcfg.math_fidelity = getattr(ttnn.MathFidelity, A.fid)
 if A.approx >= 0:
     kcfg.math_approx_mode = bool(A.approx)
-C, H = A.c, 4 * A.c
+C, H = A.c, A.mult * A.c
 g = torch.Generator().manual_seed(0)
 sd = {"norm.weight": 1 + 0.1 * torch.randn(C, generator=g), "norm.bias": 0.1 * torch.randn(C, generator=g),
       "fc1.weight": torch.randn(H, C, generator=g) / C ** 0.5, "fc2.weight": torch.randn(H, C, generator=g) / C ** 0.5,
