@@ -38,6 +38,7 @@ from tt_bio.boltz2 import (
     LinearNoBias,
     PairwiseConditioning,
     RelativePositionEncoder,
+    _under_levers,
     init,
     tenstorrent,
 )
@@ -135,6 +136,12 @@ def compute_distogram_entropy(
 # ---------------------------------------------------------------------------
 # new modules
 # ---------------------------------------------------------------------------
+
+
+# Nesso-1's precision levers (tenstorrent.LEVERS), graded on this model's own accuracy set before a
+# name goes in, as Boltz-2's are: a lever graded only on another model never reaches it. Nesso-1 has
+# no fast mode. A harness grades a candidate through the serving path with TT_BIO_LEVERS.
+LEVERS_NORMAL = frozenset()
 
 
 def _pairformer(
@@ -356,6 +363,8 @@ class Nesso1(nn.Module):
         super().__init__()
         self.predict_args = dict(predict_args or {})
         self.use_tenstorrent = use_tenstorrent
+        self._levers = (tenstorrent.model_levers(LEVERS_NORMAL, LEVERS_NORMAL)
+                        if use_tenstorrent else frozenset())
         self.affinity_prediction = affinity_prediction
         self.use_kernels = use_kernels
         self.num_dist_bins = num_dist_bins
@@ -509,6 +518,12 @@ class Nesso1(nn.Module):
 
     # -- forward ------------------------------------------------------------
 
+    @_under_levers
+    def load_state_dict(self, *a, **kw):
+        # The device modules are built here (TorchWrapper._load_from_state_dict).
+        return super().load_state_dict(*a, **kw)
+
+    @_under_levers
     def forward(
         self,
         feats: dict[str, Tensor],
