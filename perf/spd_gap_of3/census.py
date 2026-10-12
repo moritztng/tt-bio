@@ -33,6 +33,10 @@ def main():
     ap.add_argument("--sites", action="store_true",
                     help="bin every device upload and every read by its tt_bio call site: count, MB, the wait for "
                          "the device queue before it (synchronised) and the call itself")
+    ap.add_argument("--ops", default="",
+                    help="comma list of tenstorrent classes (TriangleMultiplication,TriangleAttention,Transition): inside "
+                         "their __call__ every ttnn op is device-synchronised and binned by op and tt_bio call site; "
+                         "run it with OF3_DIFFUSION_TRACE=0")
     ap.add_argument("--prof-feat", action="store_true",
                     help="cProfile build_openfold3_features on the warm folds; the top 40 functions by cumulative "
                          "time land in OUT beside the result (prof_feat.txt)")
@@ -148,6 +152,56 @@ def main():
                       MAT.OF3AtomTransformer, MDD.OF3AtomAttentionDecoder, MD.OF3NoisyPositionEmbedder,
                       MD.AtomPairUpdate, MC.OF3DiffusionConditioning):
             wrap(owner, "__call__", owner.__name__, True)
+
+    if a.ops:
+        # Synced per-op brackets inside the named modules only. An op called from another wrapped op
+        # (ttnn's Python composites) is timed once, at the outermost call.
+        inside = {"cls": None, "op": 0}
+        ops = ("matmul", "linear", "layer_norm", "rms_norm", "permute", "transpose", "reshape", "to_layout",
+               "typecast", "multiply", "multiply_", "add", "add_", "subtract", "sigmoid", "concat", "slice",
+               "pad", "clone", "reallocate", "to_memory_config", "sharded_to_interleaved",
+               "interleaved_to_sharded", "softmax", "generic_op", "addcmul", "where", "repeat", "unsqueeze",
+               "squeeze", "copy", "fill_cache", "move")
+
+        def op_wrap(owner, name):
+            fn = getattr(owner, name, None)
+            if fn is None or not callable(fn):
+                return
+
+            def inner(*x, **k):
+                if not on["v"] or inside["cls"] is None or inside["op"]:
+                    return fn(*x, **k)
+                f = sys._getframe(1)
+                key = f"{inside['cls']} {name} {Path(f.f_code.co_filename).name}:{f.f_lineno}"
+                sync()
+                inside["op"] = 1
+                t0 = time.perf_counter()
+                try:
+                    return fn(*x, **k)
+                finally:
+                    sync()
+                    inside["op"] = 0
+                    r = acc.setdefault(key, [0.0, 0])
+                    r[0] += time.perf_counter() - t0
+                    r[1] += 1
+            setattr(owner, name, inner)
+        for n in ops:
+            op_wrap(ttnn, n)
+        for n in [n for n in dir(ttnn.experimental) if not n.startswith("_")]:
+            op_wrap(ttnn.experimental, n)
+        for cname in a.ops.split(","):
+            owner = getattr(T, cname)
+            fn = owner.__call__
+
+            def call(self, *x, _fn=fn, _c=cname, **k):
+                if inside["cls"] is not None:
+                    return _fn(self, *x, **k)
+                inside["cls"] = _c
+                try:
+                    return _fn(self, *x, **k)
+                finally:
+                    inside["cls"] = None
+            owner.__call__ = call
 
     if a.prof_feat:
         import cProfile, io, pstats
