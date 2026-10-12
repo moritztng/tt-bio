@@ -11788,10 +11788,16 @@ class AttentionPairBias(Module):
         x = ttnn.reshape(x, lead + (self.n_heads * self.head_dim,))
         x = self._kq_norm_one(x, which)
         x = ttnn.reshape(x, lead + (self.n_heads, self.head_dim))
-        z = ttnn.zeros(lead + (self.n_heads, pad), layout=ttnn.TILE_LAYOUT,
-                       device=self.device, dtype=x.dtype)
-        x = ttnn.concat([x, z], dim=-1)
+        x = ttnn.concat([x, self._kq_zeros(lead + (self.n_heads, pad), x.dtype)], dim=-1)
         return ttnn.reshape(x, lead + (self.n_heads * self.padded_head_dim,))
+
+    def _kq_zeros(self, shape, dtype):
+        """The zero lanes the eager chain concatenates, made once per shape: an upload per call would
+        also keep the denoiser step out of a ttnn trace (no host writes during capture)."""
+        cache = self.__dict__.setdefault("_kq_zero_cache", {})
+        if (shape, dtype) not in cache:
+            cache[shape, dtype] = ttnn.zeros(shape, layout=ttnn.TILE_LAYOUT, device=self.device, dtype=dtype)
+        return cache[shape, dtype]
 
     def _kq_lane_maps(self):
         """0/1 matrices [H * padded, H * head_dim] and back, bf16 on device, and an exact matmul
