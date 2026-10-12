@@ -303,11 +303,16 @@ class OF3AtomTransformer(Module):
         fills; the offsets need not be tile multiples."""
         nq, nk, H, dh = self.N_QUERY, self.N_KEY, self.N_HEADS, self.HEAD_DIM
         dev, f32, RM = self.device, ttnn.float32, ttnn.ROW_MAJOR_LAYOUT
-        x = ttnn.add(ttnn.typecast(ttnn.reshape(zb, (nb, H, nq, nk)), f32),
-                     ttnn.typecast(ttnn.reshape(mask_bias, (nb, 1, nq, nk)), f32))
-        x = ttnn.multiply(ttnn.clamp(x, min=-1e4, max=3e38), dh ** 0.5)
-        x = ttnn.permute(ttnn.to_layout(x, RM), (1, 0, 2, 3))          # [H, nb, nq, nk]
+        # mask_bias is 0 or -1e9, so the host's (zb + mb).clamp(-1e4) * sqrt(dh) is zb * sqrt(dh)
+        # where the mask is 0 and the fill elsewhere. Written that way the only arithmetic is one
+        # fp32 multiply: an fp32 add on the FPU rounds its operands to tf32 even when adding 0.
         fill = float(torch.tensor(-1e4, dtype=torch.float32) * dh ** 0.5)
+        x = ttnn.multiply(ttnn.clamp(ttnn.typecast(ttnn.reshape(zb, (nb, H, nq, nk)), f32),
+                                     min=-1e4, max=3e38), dh ** 0.5)
+        m = ttnn.repeat(ttnn.typecast(ttnn.reshape(mask_bias, (nb, 1, nq, nk)), f32), (1, H, 1, 1))
+        x = ttnn.where(m, fill, x)
+        ttnn.deallocate(m)
+        x = ttnn.permute(ttnn.to_layout(x, RM), (1, 0, 2, 3))          # [H, nb, nq, nk]
         offs = off.tolist()
         runs, i0 = [], 0
         for i in range(1, nb + 1):

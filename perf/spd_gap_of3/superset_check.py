@@ -1,10 +1,12 @@
 """OpenFold3 atom-transformer superset bias: `_superset_device` against `_superset_host`.
 
-    python perf/spd_gap_of3/superset_check.py --out out/superset [--atoms 4000,4096,1000] [--reps 5]
+    python perf/spd_gap_of3/superset_check.py --out out/superset [--atoms 4000,4096,1000] [--reps 5] [--dtype float32]
 
 Random pair bias and a random 0 / -1e9 mask in OpenFold3's block layout, the key windows placed the way OF3 places
 them (128 keys centred on each 32-query block, shifted back inside the atoms at both ends). Reports bit-exactness of
-the device bias against the host path (bf16 bits), max abs difference, and the median synced wall time of both.
+the device bias against the host path, max abs difference, and the median synced wall time of both. The fold runs
+the atom transformer in float32 (the default here); bfloat16 rounding hides operand truncation, so a bf16 pass
+proves less.
 """
 import argparse, json, math, statistics, time
 from pathlib import Path
@@ -24,6 +26,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--atoms", default="4000,4096,1000")
     ap.add_argument("--reps", type=int, default=5)
+    ap.add_argument("--dtype", default="float32", choices=("float32", "bfloat16"))
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
 
@@ -32,16 +35,17 @@ def main():
     from tt_bio.openfold3_atom_transformer import OF3AtomTransformer
     dev = T.get_device()
     m = object.__new__(OF3AtomTransformer)
-    m.device, m._act_dtype = dev, ttnn.bfloat16
+    dt = getattr(ttnn, a.dtype)
+    m.device, m._act_dtype = dev, dt
     H = m.N_HEADS
     res, ok = {}, True
     for n_atom in (int(x) for x in a.atoms.split(",")):
         nb, off, W = windows(n_atom)
         g = torch.Generator().manual_seed(n_atom)
-        zb = ttnn.from_torch(torch.randn(1, nb, H, 32, 128, generator=g) * 3, dtype=ttnn.bfloat16,
+        zb = ttnn.from_torch(torch.randn(1, nb, H, 32, 128, generator=g) * 3, dtype=dt,
                              layout=ttnn.TILE_LAYOUT, device=dev)
         mb = ttnn.from_torch(1e9 * ((torch.rand(1, nb, 1, 32, 128, generator=g) > 0.2).float() - 1),
-                             dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev)
+                             dtype=dt, layout=ttnn.TILE_LAYOUT, device=dev)
         ts = {}
         for name, fn in (("host", m._superset_host), ("device", m._superset_device)):
             t = []
@@ -54,12 +58,12 @@ def main():
             ts[name] = (statistics.median(t), ttnn.to_torch(y))
         h, d = ts["host"][1], ts["device"][1]
         finite = bool(torch.isfinite(d.float()).all())
-        same = h.shape == d.shape and torch.equal(h.view(torch.int16), d.view(torch.int16))
+        same = h.shape == d.shape and torch.equal(h, d)
         diff = (h.float() - d.float()).abs()
-        r = {"nb": nb, "W": W, "shape": list(d.shape), "runs": len(set(off.tolist())), "finite": finite,
+        r = {"dtype": a.dtype, "nb": nb, "W": W, "shape": list(d.shape), "runs": len(set(off.tolist())), "finite": finite,
              "bit_exact": same, "n_diff": int((diff > 0).sum()), "max_abs": float(diff.max()),
              "host_s": ts["host"][0], "device_s": ts["device"][0]}
-        ok &= finite and r["max_abs"] <= 1e-2 * float(h.float().abs().max())
+        ok &= finite and same
         res[n_atom] = r
         print(n_atom, r, flush=True)
     res["verdict"] = "PASS" if ok else "FAIL"
