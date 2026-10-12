@@ -283,7 +283,7 @@ if env_flag("TT_BIO_TRIMUL_STATS", False):
     def _print_stats():
         from . import tenstorrent as _T
         print("TRIMUL_STATS " + json.dumps({
-            "tail": STATS, "res": RES_STATS, "mask_fold": MASK_STATS, "resid": RESID_STATS,
+            "tail": STATS, "res": RES_STATS, "mask_fold": MASK_STATS, "resid": RESID_STATS, "t1": T1_STATS,
             "rejects": {f"{k[0]}:{k[1]}": v for k, v in REJECTS.items()},
             "routes": {f"{k[0]}/{k[1]}": v for k, v in _T.TRIMUL_MM_TRANSPOSE_STATS.items()}}),
             file=sys.stderr, flush=True)
@@ -832,3 +832,228 @@ def fused_tail_ln(x, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5):
     ttnn.generic_op([x, wp, g, ln_w, ln_b, resid], pd)
     T2_STATS[0] += 1
     return resid
+
+
+# T1: the input side of the c_z = 128 trimul in one resident program (`kernels/trimul_in_t1`):
+# layer_norm(z) per row tile, then gin_moved's transposed gated projection (a = p_a * sigmoid(g_a)
+# [* m], b alike, written straight into the einsum's (0,3,1,2) layout), and the tail's gate
+# g_out = layer_norm(z) @ Wg_out in z's own layout, for T2 or the incumbent tail. z is read once.
+# Today that is layer_norm (510 us at N = 512), the fused in-projection with g_out appended, two
+# gated moves (645 us each) and the moved mask multiply: 14 P of DRAM traffic, 16 P with the mask,
+# P = one bf16 [S, S, 128] pair tensor (67.1 MB at 512). T1's is 4 P plus every core's copy of the
+# weights. NEVER RUN ON A DEVICE: OFF by default, perf/spd_trimul/in_t1.py is its first check.
+T1 = env_flag("TT_BIO_TRIMUL_IN_T1", False)
+T1_STATS = [0, 0]                 # served, declined
+T1_KEYS = {(4, 8, 4)}             # (kt, ct2, ntg): c_z 128, hidden 128, g_out 128 (openfold3, boltz2)
+T1_RB = 8                         # z row tiles per reader barrier
+T1_SBW = 4                        # DST tiles per matmul block (half-sync fp32 DST holds 4)
+BF16_TILE, FP32_TILE = 2048, 4096
+
+
+def set_t1(on: bool) -> bool:
+    """A/B switch for the paired harness. Returns the previous state."""
+    global T1
+    prev, T1 = T1, bool(on)
+    return prev
+
+
+def t1_cb_plan(kt, ct2, ntg, mask, rb=T1_RB, nb=None):
+    """T1's circular buffers per core, ([(index, bf16 tiles)], [(index, fp32 tiles)]). Independent
+    of N: N only sets how many units each core runs."""
+    nb = GIN_MOVE_NB if nb is None else nb
+    bf = [(0, 2 * ct2 * kt),     # [Wp^T | Wg^T], resident
+          (1, 32 * kt),          # layer_norm(z) of one unit, slot dt * 32 + il
+          (2, 64),               # a / b tiles to the writer, two channel tiles
+          (4, 32), (5, 32),      # p and sigmoid(g) of one channel tile
+          (7, 2 * rb * kt),      # raw z rows, double buffered
+          (8, kt), (9, kt),      # gamma, beta
+          (10, 1),               # 1/K reduce scaler
+          (24, 2 * nb)]          # the writer's gather staging
+    if ntg:
+        bf += [(18, kt * ntg),   # Wg_out [K, N], resident
+               (19, 2 * ntg)]    # g_out of one row tile, double buffered
+    if mask:
+        bf += [(3, 1), (6, 32)]  # the mask tile and its 32 row-broadcast cuts
+    f32 = [(11, 1), (12, 1), (13, 1), (14, 1), (16, kt), (17, kt)]   # eps, mean, var, rstd, xc, tmp
+    return bf, f32
+
+
+def t1_cb_bytes(kt, ct2, ntg, mask, rb=T1_RB, nb=None):
+    bf, f32 = t1_cb_plan(kt, ct2, ntg, mask, rb, nb)
+    return sum(t for _, t in bf) * BF16_TILE + sum(t for _, t in f32) * FP32_TILE
+
+
+def t1_host_weights(g_in_t, p_in_t, g_out_t):
+    """T1's three weights from the checkpoint's [K, 2 * hidden] g_in / p_in (already transposed, as
+    `TriangleMultiplication` keeps them) and [K, c_z] g_out: wpT = [p_a | p_b]^T and
+    wgT = [g_a | g_b]^T, each [2 * hidden, K] with the hidden channels in their natural order (one
+    chunk, so no gp_roles reordering applies), and Wg_out as is."""
+    h = int(g_in_t.shape[-1]) // 2
+    assert int(p_in_t.shape[-1]) == 2 * h
+    assert int(g_in_t.shape[0]) == int(p_in_t.shape[0]) == int(g_out_t.shape[0])
+    return p_in_t.t().contiguous(), g_in_t.t().contiguous(), g_out_t.contiguous()
+
+
+def t1_split(nu, ncores):
+    """Units (b, xt, yt) per core, as gin_moved splits them: [(first unit, count)] per core."""
+    out, u0 = [], 0
+    for c in range(ncores):
+        n = nu // ncores + (c < nu % ncores)
+        out.append((u0, n))
+        u0 += n
+    assert u0 == nu
+    return out
+
+
+# The kernels' page arithmetic, mirrored here so the CPU test can check it against torch.
+def t1_x_page(b, xt, yt, il, dt, S_t, kt):
+    """reader.cpp: z tile of row tile (b, x = xt * 32 + il, yt), channel tile dt."""
+    return ((b * S_t * 32 + xt * 32 + il) * S_t + yt) * kt + dt
+
+
+def t1_ab_page(b, q, c, xt, yt, ct, S_t):
+    """writer.cpp: [B, C, S, S] tile of channel (q % ct) * 32 + c at (xt, yt); q < ct is a."""
+    return ((b * ct + q % ct) * 32 + c) * S_t * S_t + xt * S_t + yt
+
+
+def t1_g_page(b, xt, yt, il, n, S_t, ntg):
+    """writer.cpp: g_out tile of row tile (b, xt * 32 + il, yt), channel tile n, in z's layout."""
+    return ((b * S_t * 32 + xt * 32 + il) * S_t + yt) * ntg + n
+
+
+def t1_mask_ok(mask, x):
+    """Whether T1 folds `mask` into `a`: a bf16 tiled DRAM [B, S, S] pair mask for x [B?, S, S, K],
+    the shape gin_moved's reader cuts (m[b, x, y], applied before the move)."""
+    shp = [int(d) for d in x.shape]
+    B = shp[0] if len(shp) == 4 else 1
+    return (mask is not None and len(shp) in (3, 4)
+            and tuple(int(d) for d in mask.padded_shape) == (B, shp[-2], shp[-2])
+            and tuple(int(d) for d in mask.shape) == (B, shp[-2], shp[-2])
+            and mask.dtype == ttnn.bfloat16 and mask.layout == ttnn.TILE_LAYOUT
+            and mask.memory_config() == ttnn.DRAM_MEMORY_CONFIG)
+
+
+def t1_eligible(x, ln_w, ln_b, wpT, wgT, wgo, mask=None):
+    """None when T1 serves this call, else the reason it does not."""
+    if not T1:
+        return "off"
+    for t in (x, wpT, wgT, wgo):
+        if t is None or t.dtype != ttnn.bfloat16 or t.layout != ttnn.TILE_LAYOUT:
+            return "dtype"
+        if t.memory_config() != ttnn.DRAM_MEMORY_CONFIG:
+            return "memcfg"
+    shp = [int(d) for d in x.shape]
+    if len(shp) not in (3, 4) or shp[-2] != shp[-3] or shp[-2] % TILE or shp[-1] % TILE:
+        return "act_shape"
+    if [int(d) for d in x.padded_shape] != shp:
+        return "padded_shape"
+    K = shp[-1]
+    if (len(wpT.shape) != 2 or [int(d) for d in wpT.shape] != [int(d) for d in wgT.shape]
+            or int(wpT.shape[-1]) != K or int(wpT.shape[-2]) % (2 * TILE)):
+        return "weight_shape"
+    if len(wgo.shape) != 2 or int(wgo.shape[-2]) != K or int(wgo.shape[-1]) % TILE:
+        return "gout_shape"
+    key = (K // TILE, int(wpT.shape[-2]) // TILE, int(wgo.shape[-1]) // TILE)
+    if key not in T1_KEYS:
+        return "key=" + "x".join(map(str, key))
+    if not (_vec_ok(ln_w, K) and _vec_ok(ln_b, K)):
+        return "ln_params"
+    if mask is not None and not t1_mask_ok(mask, x):
+        return "mask"
+    from .tenstorrent import _l1_bank_bytes
+    if t1_cb_bytes(*key, mask is not None) > 0.85 * _l1_bank_bytes():
+        return "l1"
+    return None
+
+
+def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps):
+    import struct
+    shp = [int(d) for d in x.shape]
+    B = shp[0] if len(shp) == 4 else 1
+    St, kt, ct2 = shp[-2] // TILE, shp[-1] // TILE, int(wpT.shape[-2]) // TILE
+    ntg = int(wgo.shape[-1]) // TILE
+    gx, gy = grid
+    core_grid = ttnn.CoreRangeSet(
+        [ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(gx - 1, gy - 1))])
+    rd, wr, cp = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
+    for c, (u0, n) in enumerate(t1_split(B * St * St, gx * gy)):
+        cx, cy = c % gx, c // gx
+        rd[cx][cy] = [u0, n]
+        wr[cx][cy] = [u0, n]
+        cp[cx][cy] = [n]
+    # 1/K as a packed bf16 pair (exact for K a power of two) and eps as fp32 bits, as T2 has them.
+    inv = struct.unpack("<I", struct.pack("<f", 1.0 / shp[-1]))[0] >> 16
+    eps_bits = struct.unpack("<I", struct.pack("<f", float(eps)))[0]
+    acc = lambda t: list(ttnn.TensorAccessorArgs(t).get_compile_time_args())  # noqa: E731
+    src = ttnn.KernelDescriptor.SourceType.FILE_PATH
+    d = KERNEL_DIR.parent / "trimul_in_t1"
+    m = mask if mask is not None else x
+    reader = ttnn.KernelDescriptor(
+        kernel_source=str(d / "reader.cpp"), source_type=src, core_ranges=core_grid,
+        compile_time_args=[kt, ct2, St, int(mask is not None), ntg, T1_RB, (inv << 16) | inv,
+                           eps_bits]
+        + acc(x) + acc(wpT) + acc(wgT) + acc(wgo) + acc(ln_w) + acc(ln_b) + acc(m),
+        runtime_args=rd, common_runtime_args=[0] * 7, config=ttnn.ReaderConfigDescriptor())
+    writer = ttnn.KernelDescriptor(
+        kernel_source=str(d / "writer.cpp"), source_type=src, core_ranges=core_grid,
+        compile_time_args=[ct2, St, GIN_MOVE_NB, ntg] + acc(outs[0]) + acc(outs[1]) + acc(outs[2]),
+        runtime_args=wr, common_runtime_args=[0] * 3, config=ttnn.WriterConfigDescriptor())
+    fid, approx, _, full = ckc
+    compute = ttnn.KernelDescriptor(
+        kernel_source=str(d / "compute.cpp"), source_type=src, core_ranges=core_grid,
+        compile_time_args=[kt, ct2, T1_SBW, int(mask is not None), int(SIGPOLY), RNE, ntg],
+        runtime_args=cp,
+        # fp32 DEST always, as T2: the LayerNorm statistics live in fp32 CBs. The fidelity stays
+        # the caller's, so the projections run as the incumbent in-projection runs them.
+        config=ttnn.ComputeConfigDescriptor(
+            math_fidelity=fid, math_approx_mode=approx, fp32_dest_acc_en=True,
+            dst_full_sync_en=full))
+    bf, f32 = t1_cb_plan(kt, ct2, ntg, mask is not None)
+    cbs = ([_cb(i, core_grid, t) for i, t in bf]
+           + [_cb_fmt(i, core_grid, t, ttnn.float32) for i, t in f32])
+    return {"kernels": [reader, writer, compute], "cbs": cbs}
+
+
+def fused_in_ln(x, ln_w, ln_b, wpT, wgT, wgo, ckc, grid, mask=None, eps=1e-5):
+    """`[a, b, g_out]` of the trimul input side from the raw pair `x`, one kernel:
+    xn = layer_norm(x; ln_w, ln_b, eps), [a | b] = (xn @ wpT^T) * sigmoid(xn @ wgT^T), `a` times
+    the pair mask when `mask` is given, both [B, C, S, S] (gin_moved's layout), and
+    g_out = xn @ wgo as [*x.shape[:-1], N]. None when T1 is off or does not cover the call;
+    nothing is allocated then. `x` is not touched."""
+    from . import ops
+    fid, approx, _, full = ckc
+    if ops.taping() or dest_guard.exposed_args((fid, approx, True, full)):
+        T1_STATS[1] += 1
+        return None
+    why = t1_eligible(x, ln_w, ln_b, wpT, wgT, wgo, mask)
+    if why is not None:
+        T1_STATS[1] += 1
+        if why != "off":
+            k = ("t1:" + why, "x".join(str(int(d)) for d in x.padded_shape))
+            REJECTS[k] = REJECTS.get(k, 0) + 1
+        return None
+    shp = [int(d) for d in x.shape]
+    B = shp[0] if len(shp) == 4 else 1
+    S, C = shp[-2], int(wpT.shape[-2]) // 2
+    device = x.device()
+    alloc = lambda s: ttnn.allocate_tensor_on_device(  # noqa: E731
+        ttnn.Shape(s), ttnn.bfloat16, ttnn.TILE_LAYOUT, device, ttnn.DRAM_MEMORY_CONFIG)
+    outs = [alloc([B, C, S, S]), alloc([B, C, S, S]), alloc(shp[:-1] + [int(wgo.shape[-1])])]
+    key = ("t1", str(x.padded_shape), str(wpT.padded_shape), str(wgo.padded_shape), tuple(grid),
+           tuple(str(c) for c in ckc), mask is not None, float(eps), SIGPOLY, RNE, GIN_MOVE_NB,
+           T1_RB)
+    entry = _CACHE.get(key)
+    if entry is None:
+        entry = _CACHE[key] = _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps)
+    reader, writer, _ = entry["kernels"]
+    reader.common_runtime_args = [x.buffer_address(), wpT.buffer_address(), wgT.buffer_address(),
+                                  wgo.buffer_address(), ln_w.buffer_address(),
+                                  ln_b.buffer_address(),
+                                  (mask if mask is not None else x).buffer_address()]
+    writer.common_runtime_args = [o.buffer_address() for o in outs]
+    pd = ttnn.ProgramDescriptor(kernels=entry["kernels"], semaphores=[], cbs=entry["cbs"])
+    ttnn.generic_op([x, wpT, wgT, wgo, ln_w, ln_b] + ([mask] if mask is not None else []) + outs,
+                    pd)
+    T1_STATS[0] += 1
+    MASK_STATS[0] += mask is not None
+    return outs
