@@ -422,8 +422,8 @@ TRANSITION_W_CHUNKING_THRESHOLD = 1024
 # Blackhole never reaches any of this: the whole branch is behind _IS_SMALL_GRID.
 SMALL_GRID_TRANSITION_ELEMS = int(os.environ.get("TT_BIO_SMALL_GRID_TRANSITION_ELEMS", 1179648))
 SMALL_GRID_TRANSITION_MAX_C = 384
-# The 512-token c=384 bfp8 height in Transition._transition (twice the element budget). A module
-# bool so a paired fold A/B can toggle it in one process.
+# The 512-token heights in Transition._transition (c=256 bf16 at the L1 cap, c=384 bfp8 at twice the
+# element budget). A module bool so a paired fold A/B can toggle it in one process.
 _SMALL_GRID_TRANSITION_H512 = True
 TRANSITION_H_CHUNK_SIZE_FAST = 32
 TRANSITION_H_CHUNK_SIZE = 16
@@ -12693,16 +12693,22 @@ class Transition(Module):
                 and 256 < _c <= SMALL_GRID_TRANSITION_MAX_C and H <= SEQ_LEN_MORE_CHUNKING):
             transition_h_chunk_size = max(1, min(_base_h,
                                                  SMALL_GRID_TRANSITION_ELEMS // (w_eff * _c)))
-        # c=384 bfp8 hidden (OpenDDE --fast) runs the bf16 element budget's h=6 at 512 tokens where
-        # bfp8 needs half the bytes: 38.79 -> 34.49 ms at h=12 (WH .114 chip 13, real module,
-        # perf/spd_bh/transition_h.py), -1.28 s per fold and bit-exact in every fold. Bounded at
+        # Two heights the small-grid derivation leaves short at 512 tokens (WH .114 chip 13, real
+        # module, perf/spd_bh/transition_h.py): c=384 bfp8 hidden (OpenDDE --fast) runs the bf16
+        # element budget's h=6 where bfp8 needs half the bytes, 38.79 -> 34.49 ms at h=12, -1.28 s
+        # per fold and bit-exact in every fold; c=256 bf16 (Protenix-v2 normal) runs h=8 where the
+        # per-core L1 cap allows 12, 28.91 -> 26.13 ms, torch.equal in all 1048 in-fold calls
+        # (perf/spd_bh/transition_infold.py). bf16 activations only: the few fp32 calls at that shape
+        # round differently at the cap height (rel 5e-4) and moved the fold digest. Bounded at
         # W=512: the c=384 budget is a correctness bound at W=736/896 in bf16 (wrong values before
         # the clash, see above), and nobody has measured bfp8 there.
         if (_IS_SMALL_GRID and _SMALL_GRID_TRANSITION_H512 and _tile(w_eff) <= 512
-                and H <= SEQ_LEN_MORE_CHUNKING and 256 < _c <= SMALL_GRID_TRANSITION_MAX_C
-                and self._hidden_b8):
-            transition_h_chunk_size = max(1, min(_base_h,
-                                                 2 * SMALL_GRID_TRANSITION_ELEMS // (w_eff * _c)))
+                and H <= SEQ_LEN_MORE_CHUNKING):
+            if _c == 256 and not self._hidden_b8 and x.dtype == ttnn.bfloat16:
+                transition_h_chunk_size = max(transition_h_chunk_size, int(_l1_rows_at(w_eff)))
+            elif 256 < _c <= SMALL_GRID_TRANSITION_MAX_C and self._hidden_b8:
+                transition_h_chunk_size = max(1, min(_base_h,
+                                                     2 * SMALL_GRID_TRANSITION_ELEMS // (w_eff * _c)))
         if _IS_SMALL_GRID:
             # Cap the row chunk by measured per-core L1. The budget above scales by per-core L1
             # and by the channel excess; neither term sees that the Galaxy has 45% fewer cores
