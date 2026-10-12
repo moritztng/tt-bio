@@ -1156,9 +1156,12 @@ class AF2DeviceModel(AF2Model):
         self._pair_card_shape: tuple | None = None
         self._traces: dict = {}
         self._opm_constant_tt: list = []
-        # AF2 has no graded lever in either mode yet, so this is empty unless a harness names a
-        # set in TT_BIO_LEVERS to grade the shared trimul / triangle-attention levers on it.
-        self._levers = model_levers(normal=frozenset(), fast=frozenset())
+        # triatt_tail_bias: the biased triangle-attention tail in one program. AF2-IG on Wormhole
+        # (195 tokens, AICLK 1000, 12 folds per arm, same chip): 5.524 -> 5.168 s, CA RMSD to the
+        # untouched fold 0.023 / 0.257 / 0.074 A on seeds 0-2. No other shared trunk lever fires on
+        # AF2 (biases, Kt = 7, its own kernel config); TT_BIO_LEVERS still names a set to grade.
+        self._levers = model_levers(normal=frozenset({"triatt_tail_bias"}),
+                                    fast=frozenset({"triatt_tail_bias"}))
 
     @under_levers
     def to_device(self) -> "AF2DeviceModel":

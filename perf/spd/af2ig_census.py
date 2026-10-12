@@ -122,13 +122,14 @@ for _ in range(a.warm):
     fold(model, spec)
 ttnn.synchronize_device(dev)
 
-plain, digests = [], []
+plain, digests, metrics = [], [], []
 for _ in range(a.reps):
     t0 = time.perf_counter()
     pred = fold(model, spec)
     ttnn.synchronize_device(dev)
     plain.append(time.perf_counter() - t0)
     digests.append(hashlib.sha256(np.ascontiguousarray(pred.coords).tobytes()).hexdigest()[:16])
+    metrics.append(dict(pred.metrics))
     if a.save_coords:
         a.out.mkdir(parents=True, exist_ok=True)
         np.save(a.out / f"coords-{len(digests) - 1}.npy", np.asarray(pred.coords))
@@ -178,7 +179,7 @@ ttnn_calls = sum(v[1] for k, v in st.stats.items() if "ttnn" in k[0] or "ttnn" i
 by_node = defaultdict(list)
 for n, c in clocks:
     by_node[n].append(c)
-res = {"input": a.input, "tokens": token_count(spec), "trace": a.trace, "coords_sha16": digests,
+res = {"input": a.input, "tokens": token_count(spec), "trace": a.trace, "coords_sha16": digests, "metrics": metrics,
        "plain_fold_s": plain, "staged_fold_s": staged, "per_fold_stage_s": per_fold,
        "calls_per_fold": {k: len(v) // a.reps for k, v in T.items()},
        "profiled_fold_s": prof_s, "ttnn_frames_calls": ttnn_calls,
