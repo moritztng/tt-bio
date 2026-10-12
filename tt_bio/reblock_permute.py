@@ -780,54 +780,6 @@ KERNEL_DIR_GATED = Path(__file__).resolve().parent / "kernels" / "reblock_permut
 # DST; above that the kernel would corrupt.
 GATE_GRANULARITY = max(1, min(4, int(os.environ.get("TT_BIO_GATE_GRANULARITY", "2"))))
 
-# How many ROWS of a group the gated reader issues before its barrier.
-#
-# The reader owns 32 rows a group and today issues one row -- the p page and the g page -- and
-# waits. That is 32 SERIALISED L1 round trips per group, and at the AF2-IG census shape
-# ([1,195,195,256] -> [1,64,195,195] on a 72-core Wormhole chip) the busiest core runs two groups,
-# so 64 of them sit on the critical path of a 0.285 ms op. Issuing `n` rows behind one barrier
-# turns those into 32/n waits of 2n pages. The pages, their order and the CB slots they land in are
-# unchanged, so the move stays bit-exact by construction; only the barrier placement and the two
-# input CB depths move.
-#
-# 1 (the default) compiles the shipped loop verbatim -- the kernel branches on this value and the
-# `== 1` arm is the old code. Must divide 32 so every push is a whole batch and a reserve cannot
-# wrap mid-batch in a 2*batch-deep CB. Capped at 16: at bf16 a batch of 16 is 64 KB per input CB
-# per core, and the interleaved L1 operands this op is measured on already want ~400 KB of the
-# Wormhole core's 1.5 MB.
-#
-# NOT graded yet. `perf/spd/af2_gated_move.py` is the harness: it A/Bs 1/2/4/8 at the census shape
-# against a `torch.equal` check per arm, and prices the same shape's ungated move, which has the
-# same writer gather and the same number of reader round trips, so the pair says whether the
-# reader is on the critical path at all.
-def _read_batch_env() -> int:
-    n = int(os.environ.get("TT_BIO_GATED_READ_BATCH", "1"))
-    return n if n in (1, 2, 4, 8, 16) else 1
-
-
-GATED_READ_BATCH = _read_batch_env()
-
-
-def set_gated_read_batch(n: int) -> int:
-    """A/B switch for the paired harness. Returns the previous value."""
-    global GATED_READ_BATCH
-    prev = GATED_READ_BATCH
-    assert n in (1, 2, 4, 8, 16), f"read batch {n} must be a divisor of 32 in 1..16"
-    GATED_READ_BATCH = int(n)
-    return prev
-
-
-def _gated_in_depth() -> int:
-    """Depth, in tiles, of the gated move's two INPUT circular buffers.
-
-    Load-bearing and not a tuning number. The reader reserves `GATED_READ_BATCH` tiles at a time
-    and the compute kernel pops `GATE_GRANULARITY` at a time, so the depth has to be a multiple of
-    both or one of them straddles the end of the ring and reads a window that is not contiguous --
-    the same silent-garbage failure `_build_back`'s comment records for the 32-tile group CBs. Both
-    are powers of two, so twice their max is a multiple of each and double-buffers as well.
-    """
-    return 2 * max(GATE_GRANULARITY, GATED_READ_BATCH)
-
 P_CB, G_CB, SIG_CB, MUL_CB = 0, 1, 2, 3
 
 _CACHE_GATED: dict = {}
@@ -849,9 +801,6 @@ def _cache_key_gated(x, out, device, reader_ct, writer_ct):
         # depths, so it has to be in the key. Without it an A/B that flips the granularity gets the
         # FIRST arm's compiled program back for both legs and reads a 1.000x that means nothing.
         GATE_GRANULARITY, _gate_lean(),
-        # Sizes two CB depths and is a per-core runtime arg, so an A/B that flips it must not get
-        # the first arm's compiled program back.
-        GATED_READ_BATCH,
     )
 
 
@@ -896,13 +845,8 @@ def _build_gated(x, out, device, reader_ct, writer_ct, fidelity, fp32_acc):
     # one tile at a time, and a deeper ring would only hold more of a stream the writer is already
     # the slow end of. That last clause is exactly what GATE_GRANULARITY tests -- if the writer is
     # the slow end then removing compute barriers buys nothing and the A/B reads 1.00x.
-    # The two INPUT CBs also have to hold a whole read batch twice over, or the reader's
-    # `cb_reserve_back(batch)` can straddle the end of the ring and the batch's pages would land in
-    # two disjoint windows. Both numbers are powers of two, so the max is a multiple of each and
-    # neither the reader's batch nor the compute's granule can wrap mid-group.
-    in_depth = _gated_in_depth()
-    cbs = [cb(P_CB, in_depth, in_dtype, in_bytes),
-           cb(G_CB, in_depth, in_dtype, in_bytes),
+    cbs = [cb(P_CB, 2 * GATE_GRANULARITY, in_dtype, in_bytes),
+           cb(G_CB, 2 * GATE_GRANULARITY, in_dtype, in_bytes),
            cb(SIG_CB, 2 * GATE_GRANULARITY), cb(MUL_CB, 2 * GATE_GRANULARITY),
            cb(OUT_CB, GROUP_TILES * 2), cb(STAGE_CB, 2)]
 
@@ -915,8 +859,7 @@ def _build_gated(x, out, device, reader_ct, writer_ct, fidelity, fp32_acc):
             for cx in range(cr.start.x, cr.end.x + 1):
                 for cy in range(cr.start.y, cr.end.y + 1):
                     g0, gs, ghi, glo = _walk(WALK, first, block, per_core, num_cores)
-                    reader_rt[cx][cy] = [g0, per_core, Nt, N, Ct, Ctw, gs, ghi, glo,
-                                         GATED_READ_BATCH, in_bytes]
+                    reader_rt[cx][cy] = [g0, per_core, Nt, N, Ct, Ctw, gs, ghi, glo]
                     compute_rt[cx][cy] = [per_core * GROUP_TILES]
                     writer_rt[cx][cy] = [g0, per_core, Nt, N, Ct, gs, ghi, glo]
                     first += 1

@@ -60,14 +60,6 @@ void kernel_main() {
     const uint32_t group_stride = get_arg_val<uint32_t>(6);
     const uint32_t group_wrap_hi = get_arg_val<uint32_t>(7);
     const uint32_t group_wrap_lo = get_arg_val<uint32_t>(8);
-    // How many ROWS of a group are issued before the barrier (TT_BIO_GATED_READ_BATCH). 1 is the
-    // shipped path and takes the loop below verbatim: one row, two pages in flight, one barrier,
-    // so a group costs 32 serialised L1 round trips. A divisor of 32 greater than 1 issues that
-    // many rows (2*batch pages) behind a single barrier, which is the same pages into the same CB
-    // slots in the same order -- only WHEN the kernel waits moves, so the result is bit-identical.
-    // The host sizes cb_p/cb_g at 2*batch tiles so a reserve never wraps mid-batch.
-    const uint32_t read_batch = get_arg_val<uint32_t>(9);
-    const uint32_t page_bytes = get_arg_val<uint32_t>(10);
 
     constexpr uint32_t cb_p = 0;   // c_0
     constexpr uint32_t cb_g = 1;   // c_1
@@ -96,37 +88,7 @@ void kernel_main() {
         const uint32_t first_page = (row_base * Nt + jt) * Ctw;
         const uint32_t pad_page = jt * Ctw;  // row 0 of this tile column; always valid
 
-        if (read_batch != 1) {
-            // Batched: `read_batch` rows (2*read_batch pages) behind one barrier. The padding rows
-            // are issued from `pad_page` exactly as below, so the group is still a fixed 32 pushes
-            // and the page sequence is unchanged.
-            uint32_t p_page = first_page + p_off + ct;
-            uint32_t g_page = first_page + g_off + ct;
-            const uint32_t p_pad = pad_page + p_off + ct;
-            const uint32_t g_pad = pad_page + g_off + ct;
-            for (uint32_t il0 = 0; il0 < TILE_HEIGHT; il0 += read_batch) {
-                cb_reserve_back(cb_p, read_batch);
-                cb_reserve_back(cb_g, read_batch);
-                uint32_t pw = get_write_ptr(cb_p);
-                uint32_t gw = get_write_ptr(cb_g);
-                for (uint32_t j = 0; j < read_batch; ++j) {
-                    if (il0 + j < rows_valid) {
-                        noc_async_read_page(p_page, s, pw);
-                        noc_async_read_page(g_page, s, gw);
-                        p_page += row_stride;
-                        g_page += row_stride;
-                    } else {
-                        noc_async_read_page(p_pad, s, pw);
-                        noc_async_read_page(g_pad, s, gw);
-                    }
-                    pw += page_bytes;
-                    gw += page_bytes;
-                }
-                noc_async_read_barrier();
-                cb_push_back(cb_p, read_batch);
-                cb_push_back(cb_g, read_batch);
-            }
-        } else {
+        {
             uint32_t p_page = first_page + p_off + ct;
             uint32_t g_page = first_page + g_off + ct;
             for (uint32_t il = 0; il < rows_valid; ++il) {
