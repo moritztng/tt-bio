@@ -141,6 +141,8 @@ def compute_distogram_entropy(
 # Nesso-1's precision levers (tenstorrent.LEVERS), graded on this model's own accuracy set before a
 # name goes in, as Boltz-2's are: a lever graded only on another model never reaches it. Nesso-1 has
 # no fast mode. A harness grades a candidate through the serving path with TT_BIO_LEVERS.
+# Boltz-2's trunk set (trimul_ibw, trimul_tail, trunk_hifi3, silu_f32) stays per-ligand inside the
+# seed floor on DAVIS but drops YSK4's Pearson by 0.010 against an allowed 0.007, so it is not in.
 LEVERS_NORMAL = frozenset()
 
 
@@ -556,7 +558,9 @@ class Nesso1(nn.Module):
         # Device-resident recycling: from the second pass at a size on, z stays on the card and
         # the recycle (z_init + ESM fold-in + z_recycle(z_norm(z))) runs there, so a pass costs no
         # download, no host LayerNorm/Linear and no upload. The host keeps z where it reads it:
-        # the pocket crop after the first pass and the heads after the last.
+        # the pocket crop after the first pass and the heads after the last. Graded on DAVIS (2 targets
+        # x 30 ligands, WH): per-ligand |delta pred| median 0.009-0.011, p90 0.020-0.031, inside two
+        # reseeded base arms (median 0.015-0.029, p90 0.062-0.074); Pearson vs pKd moves <= 0.002.
         resident = self._resident_recycle()
         z_dev = c_dev = None
         for i in range(recycling_steps + 1):
