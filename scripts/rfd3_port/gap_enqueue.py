@@ -23,7 +23,7 @@ ENV_KNOBS = {"gsm": "RFD3_GATHERED_SOFTMAX", "bs": "RFD3_BLOCK_SPARSE",
              "pzc": "RFD3_PROCESS_Z_COLLAPSE", "fgrid": "RFD3_FAST_GRID",
              "asdpa": "RFD3_ATOM_SDPA", "tb8": "RFD3_TRANSITION_B8",
              "dsdpa": "RFD3_DIT_SDPA", "hifi2": "RFD3_HIFI2", "sf": "RFD3_SIGMOID_FOLD",
-             "rs": "RFD3_RESIDENT_STEP", "pws": "RFD3_PAIR_WS"}
+             "rs": "RFD3_RESIDENT_STEP", "pws": "RFD3_PAIR_WS", "kd": "RFD3_ATTN_KDTREE"}
 _arm = set(sys.argv[1].split("+"))
 assert _arm <= set(ENV_KNOBS), _arm - set(ENV_KNOBS)
 for _k, _env in ENV_KNOBS.items():
