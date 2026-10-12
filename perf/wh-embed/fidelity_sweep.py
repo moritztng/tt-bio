@@ -59,7 +59,7 @@ def main() -> int:
     ap.add_argument("--fast", action="store_true")
     ap.add_argument("--repeat", type=int, default=5)
     ap.add_argument("--out", required=True)
-    ap.add_argument("--shipped-only", action="store_true", help="only the shipped HiFi4 + fp32-acc config")
+    ap.add_argument("--shipped-only", action="store_true", help="only the config the model was built with, no swap")
     a = ap.parse_args()
     torch.set_grad_enabled(False)
     saprot = a.model.startswith("saprot")
@@ -89,10 +89,12 @@ def main() -> int:
     kcls = type(model.compute_kernel_config)
 
     base = None
-    for fid, acc32 in (VARIANTS[:1] if a.shipped_only else VARIANTS):
-        ck = kcls(math_fidelity=getattr(ttnn.MathFidelity, fid), math_approx_mode=False,
-                  fp32_dest_acc_en=acc32, packer_l1_acc=True)
-        swap_config(model, ck)
+    shipped = model.compute_kernel_config
+    for fid, acc32 in ([(str(shipped.math_fidelity).split(".")[-1], shipped.fp32_dest_acc_en)]
+                       if a.shipped_only else VARIANTS):
+        if not a.shipped_only:
+            swap_config(model, kcls(math_fidelity=getattr(ttnn.MathFidelity, fid), math_approx_mode=False,
+                                    fp32_dest_acc_en=acc32, packer_l1_acc=True))
         for _ in range(2):
             embed7()
         ts = []
