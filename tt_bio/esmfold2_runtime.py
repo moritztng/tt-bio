@@ -591,7 +591,7 @@ def _msa_per_loop(kw, total_steps, max_depth, col_rate):
 _PACKED_KEEP = True
 _KEEP_BITS = 16
 # A dyadic dropout p draws the packed words directly (`_draw_packed_keep`); off = the float draw.
-_BIT_DRAW = True
+_BIT_DRAW = env_flag("TT_BIO_ESMFOLD2_BIT_DRAW", True)
 
 
 def _pack_keep(keep):
