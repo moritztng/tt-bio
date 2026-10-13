@@ -304,12 +304,10 @@ class _DevPair:
 # fp32 one), parcae_coda, the distogram's symmetrisation and the diffusion conditioning; it is
 # downloaded once, for the confidence head. Removes the trunk download and three pair uploads
 # (~1.1 s of transfers at 512 aa on p300c). Not bit-exact (bf16 readout and add): graded PASS on Blackhole
-# (ESMFold2 normal bar, ESMFold2-Fast fast bar, 11 complexes x 4 seeds), so on there by default. Wormhole is not
-# graded and keeps the host tail unless the switch is set.
+# (ESMFold2 normal bar, ESMFold2-Fast fast bar, 11 complexes x 4 seeds) and on Wormhole (fast bar for ESMFold2,
+# which Wormhole folds --fast, normal bar for -Fast; 4-6 s off a 5-sample fold there), so on by default.
 def _device_tail() -> bool:
-    if os.environ.get("TT_BIO_ESMFOLD2_DEVICE_TAIL", "").strip():
-        return env_flag("TT_BIO_ESMFOLD2_DEVICE_TAIL", False)
-    return not is_wormhole()
+    return env_flag("TT_BIO_ESMFOLD2_DEVICE_TAIL", True)
 
 
 DEVICE_TAIL_STATS = [0, 0]  # folds whose tail ran on the device, on the host

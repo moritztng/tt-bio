@@ -35,7 +35,7 @@ move against the accuracy bar and the seed-to-seed spread.
 | [`TT_BIO_DIT_COND_HOIST`](#tt_bio_dit_cond_hoist) | on | Boltz-2, RF3 token DiT | moves, inside the 298-residue bar |
 | [`TT_BIO_DIT_SHARED_COND`](#tt_bio_dit_shared_cond) | on | Boltz-2, BoltzGen | identical |
 | [`TT_BIO_ESMFOLD2_DEVICE_CONF`](#tt_bio_esmfold2_device_conf) | on for Blackhole | ESMFold2 | moves, inside the bar |
-| [`TT_BIO_ESMFOLD2_DEVICE_TAIL`](#tt_bio_esmfold2_device_tail) | on for Blackhole | ESMFold2 | moves, inside the bar |
+| [`TT_BIO_ESMFOLD2_DEVICE_TAIL`](#tt_bio_esmfold2_device_tail) | on | ESMFold2 | moves, inside the bar |
 | [`TT_BIO_ESMFOLD2_SWA_WINDOW`](#tt_bio_esmfold2_swa_window) | on | ESMFold2 | moves, inside the bar |
 | [`TT_BIO_FANIN_CAST_FUSED`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2 | gradients only |
 | [`TT_BIO_FUSE_BIAS_STACKS`](#tt_bio_fuse_bias_stacks) | on | Boltz-2, BoltzGen | moves, inside the 298-residue bar |
@@ -578,21 +578,22 @@ on Blackhole.
 
 ## `TT_BIO_ESMFOLD2_DEVICE_TAIL`
 
-Default: on for Blackhole, off for Wormhole. ESMFold2 and ESMFold2-Fast.
+Default: on. ESMFold2 and ESMFold2-Fast.
 
 The folding trunk's pair output stays on the device through the readout, the distogram
 symmetrisation and the diffusion conditioning; with `TT_BIO_ESMFOLD2_DEVICE_CONF` the confidence head
 reads it there too, otherwise it is downloaded once for the head.
 That removes one 512 x 512 pair download and three uploads per fold: 0.7 s off ESMFold2 and
-1.0 s off ESMFold2-Fast --fast at 512 residues (p300c, 1350 MHz).
+1.0 s off ESMFold2-Fast --fast at 512 residues (p300c, 1350 MHz); on Wormhole 4-6 s off a 5-sample fold.
 
 **Accuracy: moves, inside the bar.** The readout and the residual add run in bf16 instead of host
 float32. On 11 complexes x 4 seeds on Blackhole: ESMFold2 (normal bar) same-seed top-pose deviation
 median 0.48 A against a seed spread of 1.12 A, CA-lDDT -0.0023 [-0.0066, +0.0001], docking success
 30/41 in both arms; ESMFold2-Fast --fast (fast bar) median 0.62 A against 1.40 A, CA-lDDT +0.0014,
-docking success 24/44 in both arms. It has not been graded on Wormhole, so Wormhole keeps the host
-tail unless `TT_BIO_ESMFOLD2_DEVICE_TAIL=1` is set. `TT_BIO_ESMFOLD2_DEVICE_TAIL=0` restores the host
-tail on Blackhole.
+docking success 24/44 in both arms. On Wormhole: ESMFold2 (folds --fast there, fast bar) median 0.26 A
+against 1.34 A, CA-lDDT +0.0002, docking 29/44 in both arms; ESMFold2-Fast (normal bar) median 0.27 A
+against 1.27 A, CA-lDDT +0.0000, docking 25 vs 24/44. `TT_BIO_ESMFOLD2_DEVICE_TAIL=0` restores the host
+tail.
 
 ## `TT_BIO_ESMFOLD2_SWA_WINDOW`
 
