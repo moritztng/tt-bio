@@ -34,6 +34,7 @@ move against the accuracy bar and the seed-to-seed spread.
 | [`TT_BIO_DEVICE_ZINIT`](#tt_bio_device_zinit) | on | Boltz-2 | moves, flat against the experimental structure |
 | [`TT_BIO_DIT_COND_HOIST`](#tt_bio_dit_cond_hoist) | on | Boltz-2, RF3 token DiT | moves, inside the 298-residue bar |
 | [`TT_BIO_DIT_SHARED_COND`](#tt_bio_dit_shared_cond) | on | Boltz-2, BoltzGen | identical |
+| [`TT_BIO_ESMFOLD2_DEVICE_CONF`](#tt_bio_esmfold2_device_conf) | on for Blackhole | ESMFold2 | moves, inside the bar |
 | [`TT_BIO_ESMFOLD2_DEVICE_TAIL`](#tt_bio_esmfold2_device_tail) | on for Blackhole | ESMFold2 | moves, inside the bar |
 | [`TT_BIO_ESMFOLD2_SWA_WINDOW`](#tt_bio_esmfold2_swa_window) | on | ESMFold2 | moves, inside the bar |
 | [`TT_BIO_FANIN_CAST_FUSED`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2 | gradients only |
@@ -558,12 +559,30 @@ equal times and one trunk row the step computes them once and broadcasts. **Accu
 digest unchanged on 4 seeds). **Speed:** 158.0 to 152.1 s on the Boltz-2 730-token fold, Wormhole,
 1000 MHz. `0` restores the per-sample path.
 
+## `TT_BIO_ESMFOLD2_DEVICE_CONF`
+
+Default: on for Blackhole, off for Wormhole. ESMFold2 and ESMFold2-Fast.
+
+The confidence head's pair part (the pair norm, the outer product, its trunk, row pooling and the
+PAE/PDE logits) runs on the device from the trunk's resident pair, so the 512 x 512 pair is never
+downloaded and the head's float32 host work goes away: about 0.9 s off a 512-residue fold on
+Blackhole. The [L, c]-sized inputs and the final softmax stay on the host.
+
+**Accuracy: moves, inside the bar.** The pair part runs in bf16 instead of host float32. Graded
+together with the device tail on 11 complexes x 4 seeds on Blackhole: ESMFold2 (normal bar)
+same-seed top-pose deviation median 0.48 A against a seed spread of 1.12 A, CA-lDDT -0.0000
+[-0.0008, +0.0009], docking success 30/41 in both arms; ESMFold2-Fast --fast (fast bar) median
+0.62 A against 1.40 A, docking success 24/44 in both arms. Wormhole is not graded and keeps the
+host head unless `TT_BIO_ESMFOLD2_DEVICE_CONF=1` is set; `TT_BIO_ESMFOLD2_DEVICE_CONF=0` restores it
+on Blackhole.
+
 ## `TT_BIO_ESMFOLD2_DEVICE_TAIL`
 
 Default: on for Blackhole, off for Wormhole. ESMFold2 and ESMFold2-Fast.
 
 The folding trunk's pair output stays on the device through the readout, the distogram
-symmetrisation and the diffusion conditioning, and is downloaded once, for the confidence head.
+symmetrisation and the diffusion conditioning; with `TT_BIO_ESMFOLD2_DEVICE_CONF` the confidence head
+reads it there too, otherwise it is downloaded once for the head.
 That removes one 512 x 512 pair download and three uploads per fold: 0.7 s off ESMFold2 and
 1.0 s off ESMFold2-Fast --fast at 512 residues (p300c, 1350 MHz).
 
