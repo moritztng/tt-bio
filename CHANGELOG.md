@@ -5,6 +5,21 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+## [0.15.2] - 2026-10-13
+
+Fixes wrong ESMC-300M/600M embeddings. Upgrade if you embed with ESMC.
+
+### Fixed
+- **ESMC embeddings could be wrong after the model had traced two sequence lengths.** ESMC-300M and
+  ESMC-600M capture a device trace the second time they see a padded sequence length and replay it after
+  that. With more than one trace alive, replaying one could overwrite the buffers of another, and the next
+  replay of that length returned wrong embeddings without an error (relative L2 error 1.6 against the
+  untraced forward on a 300-residue sequence after a 544-residue one). It needs a process that embeds
+  sequences of at least two padded lengths, each at least twice: a `tt-bio embed` batch with repeated
+  lengths, or a long-running `tt-bio serve` worker. The model now keeps one trace at a time, so a length
+  change costs a new capture. Releases 0.6.1 through 0.15.1 carry the defect. ESMC-6B, SaProt and the
+  ESMFold2 language model are not traced this way and are not affected.
+
 ## [0.15.1] - 2026-10-12
 
 Protenix-v2 is 2.2x faster on Wormhole than 0.13.1, OpenFold3 2.7x and Boltz-2 1.3x faster than 0.14.0, and
