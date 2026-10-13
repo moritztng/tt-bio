@@ -6,12 +6,10 @@
 # p_out bias, each seeded into the fp32 DST accumulator before the K loop (trimul_gin_ragged's
 # technique). AF2's default lever set is NOT changed; this job decides whether it should be.
 #
-# KNOWN BEFORE RUNNING: AF2-IG's pdl1 fixtures fold at 195 tokens, and T1 reads whole tiles only
-# (trimul_tail.t1_eligible -> "act_shape" when S % 32 != 0; pinned in
-# tests/test_trimul_bias_t1t2.py::test_t1_still_declines_ragged_af2_size). T2 only runs on T1's
-# g_out, so at 195 the t12b arm is expected to serve NOTHING and to read bit-identical to own
-# (coords_sha16 equal). Step 0 below confirms that through the decline counters; a real speed
-# A/B needs either a whole-tile AF2 input (224 tokens) or a ragged T1 (not written).
+# AF2-IG's pdl1 fixtures fold at 195 tokens. T1 takes a ragged S since "Let trimul T1 take a
+# ragged pair size (AF2-IG at 195) behind T1_S" (host-emulated only; this microbench at 195 is its
+# first device check, including the padding check below: a / b must be zero past S, since the
+# einsum contracts over the padded axis). T2 may still decline a ragged S; the counters say.
 #
 # Hosts / cards (pick free ones through the fleet, never a cardblocked card):
 #   WH : a .114 pool chip     ARMS own=triatt_tail_bias,pair_mm
@@ -77,6 +75,15 @@ print(f"unfused rel L2  a {rel(u_a, ref_a):.3e} b {rel(u_b, ref_b):.3e} g_out {r
 if outs:
     fa, fb, fgo = (ttnn.to_torch(o).double() for o in outs)
     print(f"T1      rel L2  a {rel(fa, ref_a):.3e} b {rel(fb, ref_b):.3e} g_out {rel(fgo, ref_go):.3e}")
+    if S % 32:
+        # Ragged S (T1_S): ttnn.matmul contracts over the padded tiles, so nonzero padding in a / b
+        # shows up here and not in to_torch (which drops padding). Both contraction directions.
+        for ta, tb_ in ((False, True), (True, False)):
+            got = ttnn.to_torch(ttnn.matmul(outs[0], outs[1], transpose_a=ta, transpose_b=tb_)).double()
+            ra, rb = (ref_a.transpose(-1, -2) if ta else ref_a), (ref_b.transpose(-1, -2) if tb_ else ref_b)
+            ua_, ub_ = (u_a.transpose(-1, -2) if ta else u_a), (u_b.transpose(-1, -2) if tb_ else u_b)
+            print(f"T1 padding (transpose_a={ta}): fused rel L2 {rel(got, ra @ rb):.3e} "
+                  f"unfused {rel(ua_ @ ub_, ra @ rb):.3e} (PASS if within 1.1x; >> means dirty padding)")
     # T2 on a pair-shaped tail input, the T1 g_out as its gate, p_out's bias seeded
     xo, z = r(1, S, S, H), r(1, S, S, N)
     xon = torch.nn.functional.layer_norm(xo, (H,), lw, lb, 1e-5)

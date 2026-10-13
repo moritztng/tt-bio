@@ -712,8 +712,9 @@ def gin_ragged_bias(bp, bg, S, device):
 # bias itself is the bf16 tensor the unfused path also adds (torch_to_tt keeps biases bf16), so the
 # only difference is the summation order of one extra term in an fp32 accumulator.
 #   T1 [a | b]: the matmul tile is W^T[q] @ xn^T, rows = channels, so the bias is gin_ragged_bias's
-#               layout (rows c carry bias[32 q + c]), reused as is with its column-mask tile (S is
-#               whole tiles under T1, so the mask is all ones and unused).
+#               layout (rows c carry bias[32 q + c]), reused as is with its column-mask tile (all
+#               ones for whole-tile S, unused; for a ragged S, T1_S, compute multiplies the last y
+#               tile of a / b by it, as gin_ragged does).
 #   T1 g_out and T2 p: the tile is xn @ W, columns = channels, so the bias tile has every row equal
 #               to bias[32 n : 32 n + 32] (row_bias_host).
 def row_bias_host(b):
