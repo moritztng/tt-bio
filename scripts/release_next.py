@@ -26,7 +26,10 @@ Size-ladder drift (a lever started firing or fires more, or declines on a new cl
 a lever does; parity, capacity and perf judge whether it is right. So a gate whose only failures
 are ladder legs reporting drift counts as passed once a record run on the same commit passed for
 those models, and the release commit carries the new fragments. A lever that went dark, partial
-darkness, an unmeasured rung, a crash or a slower rung is not drift: that stays FIX.
+darkness, an unmeasured rung, a crash or a slower rung is not drift: that stays FIX, unless the
+leg is waived. <gate dir>/WAIVE (`<leg> <arch>  # why`, the reason required) marks a failure that
+is not a regression: a waived ladder leg is re-recorded with the drift, any other waived leg stops
+counting, and a gate whose failures are all waived is cut.
 
 Fix forward, never re-cut. A failed gate's commit stays the candidate: list the fix commits in
 <gate dir>/FIXES (one sha per line, oldest first, `#` comments) and the train gates that commit with
@@ -338,6 +341,7 @@ def decide(repo: Path = REPO, gates: Path | None = None, ref: str = "origin/main
             f"; main's head {head[:9]} is the next release, gate it now")
         rec = passed(gates, d, sha, repo, ref)
         return {**out, "do": "CUT", "sha": sha, "gate": str(d), "records": str(rec) if rec != d else "",
+                "waived": waivers(d, gates, repo, ref),
                 "why": f"gate passed on every arch: {d}/VERDICT.md{nxt}"
                        + (f"; size ladders re-recorded in {rec}" if rec != d else "")}
     target, what = head, "main's head"
