@@ -33,6 +33,7 @@ def main() -> int:
     ap.add_argument("--seq-file", default="scripts/gpu_vs_tt/fixtures/prot512.seq")
     ap.add_argument("--ref-cache", required=True)
     ap.add_argument("--fast", action="store_true")
+    ap.add_argument("--trace", action="store_true", help="load with ESMC.trace on (the served default; reserves the region)")
     ap.add_argument("--repeat", type=int, default=7)
     ap.add_argument("--rounds", type=int, default=2)
     ap.add_argument("--on-value", type=int, default=None, help="value the on arm sets (default True), for an int switch")
@@ -52,7 +53,7 @@ def main() -> int:
         np.save(key, ref)
 
     page = Path(a.seq_file).read_text().strip()
-    model = E.load_esmc(a.model, fast=a.fast, trace=False)
+    model = E.load_esmc(a.model, fast=a.fast, trace=a.trace)
     one = lambda: E.embed_sequences(model, {"q": aa})[0].per_residue
     batch = {f"s{i}": page for i in range(7)}
     embed7 = lambda: E.embed_sequences(model, batch, batch_size=8)
