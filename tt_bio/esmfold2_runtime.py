@@ -391,10 +391,12 @@ def _conf_pair_dev(head, ftw, z, s_n, relpos, bonds, bins, mask, n):
     prod = swap(op, lin(op, w["po"]))
     p = swap(p, ttnn.add(p, prod))
     ttnn.deallocate(prod)
-    delta = _unpad(_trunk_on_device(ftw, _DevPair(p, L), to_host=False), L)
+    x = ttnn.clone(p)  # the trunk consumes its input; the residual needs p
+    delta = _unpad(_trunk_on_device(ftw, _DevPair(x, L), to_host=False), L)
     pair = ttnn.add(p, delta)
-    for t in (p, delta):
-        ttnn.deallocate(t)
+    for t in (x, p, delta):
+        if t.is_allocated():
+            ttnn.deallocate(t)
     sc = lin(pair, w["ap"])
     scores = ftw._to_torch(sc)[:, :L, :L, 0].float()
     ttnn.deallocate(sc)
