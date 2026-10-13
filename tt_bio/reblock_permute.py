@@ -392,12 +392,12 @@ L1_GROUPS_PER_CORE = float(os.environ.get("TT_BIO_REBLOCK_L1_GROUPS_PER_CORE", "
 # chip a DRAM -> DRAM move wins at Nt=7: forward [1, N, N, 128] 1.31x at N=195 and 1.33x at N=224,
 # every point torch.equal (.114 chip 12, 1000 MHz, out/rbdram_67a5e6b56). That is BindCraft 2's pair
 # track, which lives in DRAM, so its trimul channel moves were all on the stock permute.
-# The fused gated leg keeps the plain edge: it is not an index move, so it is not bit-exact by
-# construction and opening it is a graded change of its own. TT_BIO_REBLOCK_DRAM_FILL=0 restores the
-# plain N edge on the two index moves for an A/B.
+# The fused gated leg is not an index move, so it was graded on its own: at 224 tokens on Wormhole it
+# leaves BindCraft 2's gradients bit-identical over 30 iterations and AF2-IG's coordinates equal, and
+# takes the on-card iteration 5.34 -> 5.02 s (.114 chip 19, 1000 MHz, out/gfill_2c9346e08).
+# TT_BIO_REBLOCK_DRAM_FILL=0 / TT_BIO_REBLOCK_DRAM_FILL_GATED=0 restore the plain N edge for an A/B.
 DRAM_FILL = os.environ.get("TT_BIO_REBLOCK_DRAM_FILL", "1") != "0"
-# The gated leg's own switch for the same rule, default off until a fold A/B says it is free.
-DRAM_FILL_GATED = os.environ.get("TT_BIO_REBLOCK_DRAM_FILL_GATED", "0") == "1"
+DRAM_FILL_GATED = os.environ.get("TT_BIO_REBLOCK_DRAM_FILL_GATED", "1") != "0"
 _GRID_CORES = {}
 
 
