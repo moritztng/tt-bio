@@ -71,6 +71,13 @@ def _reject(reason, shape):
     return None
 
 
+def _in_proj_taped(name):
+    """`ops.fused_kernel`, resolved late so importing this module does not import `ops`."""
+    from . import ops
+    return ops.fused_kernel(name)
+
+
+@_in_proj_taped("mm_dualnoc_in_proj")
 def in_proj(x, w, ckc, dtype, memory_config, split=None):
     """`minimal_matmul(x, w)` with half the drain on the other NOC, or `None` to leave it alone.
 
@@ -84,9 +91,10 @@ def in_proj(x, w, ckc, dtype, memory_config, split=None):
     which buffer it lands in cannot change its value.
     """
     from . import ops
-    if ops.taping():
-        # `generic_op` has no backward. Declining is already this function's contract for
-        # anything outside the class it was verified on, and the caller's fallback,
+    if ops.declines_under_tape("mm_dualnoc_in_proj"):
+        # `generic_op` has no backward of its own, so with no tape entry installed this keeps
+        # the answer it always gave. Declining is already this function's contract for anything
+        # outside the class it was verified on, and the caller's fallback,
         # `ttnn.experimental.minimal_matmul`, is a taped verb.
         return None
 
