@@ -1068,6 +1068,22 @@ class DiffusionModuleModel(Module):
                 except Exception:
                     pass
         self._ctx = {}
+        # The per-layer step caches are keyed on the identity of tensors freed above, so nothing can
+        # hit them again. Freed here rather than when the next fold rebuilds them: left in place, the
+        # token DiT's 12 pair biases alone ([1, 16, L, L], 384 MiB at 1024 tokens) sat through the
+        # next fold's language model and trunk, and a warm 1024-token ESMFold2-Fast fold on a
+        # Wormhole chip ran out of DRAM where the cold one fit.
+        owners = ([(m, "_pb", "_pb_src") for m in self.token_transformer.attn]
+                  + [(b, "_mod", "_mod_src") for b in
+                     self.atom_encoder.transformer.blocks + self.atom_decoder.transformer.blocks]
+                  + [(self.atom_encoder, "_c", "_c_src")])
+        for owner, cache, src in owners:
+            held = getattr(owner, cache)
+            for t in held if isinstance(held, tuple) else (held,):
+                if t is not None and t.is_allocated():
+                    ttnn.deallocate(t)
+            setattr(owner, cache, None)
+            setattr(owner, src, None)
 
 
 class DiffusionModule(TorchWrapper):
@@ -1213,14 +1229,13 @@ class LanguageModelShimModel(Module):
         self.o2_w = self.torch_to_tt("base_z_mlp.0.output_mlp.2.weight"); self.o2_b = self.torch_to_tt("base_z_mlp.0.output_mlp.2.bias", transform=_ROW)
         self.fln_w = self.torch_to_tt("base_z_mlp.1.weight"); self.fln_b = self.torch_to_tt("base_z_mlp.1.bias")
 
-    def __call__(self, hidden, combine_w):  # hidden [B,L,K,d_model]; combine_w torch [K]
+    def __call__(self, hidden, combine_w):  # hidden [B, L*K, d_model] (flat_layers); combine_w torch [K]
         ck = self.compute_kernel_config
         lin = self._lin
         ln = lambda t, w, b: ttnn.layer_norm(t, weight=w, bias=b, epsilon=1e-5, compute_kernel_config=ck)
-        B, L, K, dm = hidden.shape
-        # Per-layer projection in ttnn (reshape L,K together -> 3D, no sub-tile middle dim).
-        hs2 = ttnn.reshape(hidden, (B, L * K, dm))
-        lz = lin(ln(hs2, self.zl_ln_w, self.zl_ln_b), self.zl_w)  # [B, L*K, 256]
+        K = combine_w.numel()
+        B, L = hidden.shape[0], hidden.shape[1] // K
+        lz = lin(ln(hidden, self.zl_ln_w, self.zl_ln_b), self.zl_w)  # [B, L*K, 256]
         # Softmax-weighted layer combine on host (non-learned given combine_w).
         lz_t = torch.Tensor(ttnn.to_torch(lz)).float().reshape(B, L, K, 256)
         x_t = (combine_w.view(1, 1, K, 1) * lz_t).sum(2)  # [B,L,256]
@@ -1255,6 +1270,18 @@ class LanguageModelShimModel(Module):
         return ln(h2, self.fln_w, self.fln_b)
 
 
+def flat_layers(hidden_states):
+    """ESMC hidden states [B, L, K, d] -> [B, L*K, d], the layout the shim projects, on the host.
+
+    A host reshape is a view. The device reshape it replaces went through the tile-padded
+    [B, L, K, d] (K = 81 pads to 96) and left a buffer the process never got back, held by no
+    Python object: 451,215,360 B at 1024 tokens, which a warm 1088-token ESMFold2-Fast fold on a
+    Wormhole chip then ran out of DRAM for. The upload is also 16 % smaller without the padding.
+    """
+    B, L, K, d = hidden_states.shape
+    return hidden_states.reshape(B, L * K, d)
+
+
 class LanguageModelShim(TorchWrapper):
     """ESMC hidden states [B,L,n_layers+1,d_model] -> pair init z [B,L,L,256]."""
 
@@ -1264,7 +1291,7 @@ class LanguageModelShim(TorchWrapper):
 
     def forward(self, hidden_states):
         w = torch.softmax(self._combine, 0)  # [K]
-        return self._to_torch(self.module(self._from_torch(hidden_states), w))
+        return self._to_torch(self.module(self._from_torch(flat_layers(hidden_states)), w))
 
 
 # ===========================================================================
