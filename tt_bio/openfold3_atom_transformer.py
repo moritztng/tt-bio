@@ -34,6 +34,12 @@ from .tenstorrent import (Module, AdaLN, CORE_GRID_MAIN, _dtype, _cached, batche
 from .eltwise_fusion import gated_add, scale_add, mask_add, _taping
 from .envflags import env_flag
 
+
+def _free_after(out, src):
+    """`out`, with `src` (the input it was derived from) freed."""
+    ttnn.deallocate(src)
+    return out
+
 # Where the superset bias is built. Host by default: the card path builds a bit-exact bias (superset_check.py) yet
 # moves the Wormhole fold digest, unexplained so far (perf/spd_gap_of3/superset_fold_check.py);
 # TT_BIO_OF3_SUPERSET_HOST=0 runs it.
@@ -175,7 +181,7 @@ class OF3AtomTransformer(Module):
             xk = ttnn.typecast(xk, self._act_dtype)
         return ttnn.multiply(xk, valid_mask)
 
-    def _invariants(self, s, z, key_block_idxs_tt, valid_mask, nb):
+    def _invariants(self, s, z, key_block_idxs_tt, valid_mask, nb, atom_mask_col=None):
         """Everything in a block that is a pure function of (s, z).
 
         In the sampler rollout ``s`` is the atom conditioning ``cl`` and ``z`` the blocked
@@ -212,18 +218,33 @@ class OF3AtomTransformer(Module):
         if self._sig_gates():
             ada_raw = [ttnn.sigmoid(g) for g in ada_raw]
             cg_raw = [ttnn.sigmoid(g) for g in cg_raw]
+        if self._fold() and atom_mask_col is not None:
+            # dit_adaln_fold: the transition gate carries the atom mask too (both invariant), so the
+            # gated, masked residual is one addcmul. mask is 0 / 1, so only the product's rounding moves.
+            cg_raw = [_free_after(ttnn.multiply(g, atom_mask_col), g) for g in cg_raw]
         return z_bias, s_q, s_k, ada_raw, cg_raw, ada_s
+
+    def _fold(self):
+        """The `dit_adaln_fold` lever (OpenFold3 / OpenBind-0 fast): `_sig_gates` in any dtype, the
+        bf16 residuals included, with the transition gate pre-masked. Per block 5 fewer programs
+        (3 AdaLNs at LN + addcmul, the attention and the transition residuals at one addcmul each),
+        30 a diffusion step over encoder + decoder. Not bit-exact in bf16: each addcmul skips the
+        product's rounding (the reason `gated_add` declines bf16), so fast-only. The taped
+        (training) forward keeps the unfused path."""
+        return _T.lever("dit_adaln_fold") and not _taping()
 
     def _sig_gates(self):
         """adaln_mod on an fp32 stack: every rollout-invariant gate and AdaLN scale is stored past
         its sigmoid, so each AdaLN is LN + one addcmul (`_SigTerms`), the attention residual one
         addcmul and the transition gate a plain multiply: 12 fewer ops and no per-call sigmoid in
         each of the rollout's 400 atom-transformer calls."""
-        return self._act_dtype == ttnn.float32 and _T.lever("adaln_mod")
+        return (self._act_dtype == ttnn.float32 and _T.lever("adaln_mod")) or self._fold()
 
     def _gate_add(self, x, o, g):
         """``x + o * sigmoid(g)``, with `g` already past its sigmoid under `_sig_gates`. Frees `o`."""
-        if self._sig_gates():
+        if self._fold():
+            out = ttnn.addcmul(x, o, g, value=1.0)
+        elif self._sig_gates():
             out = gated_add(x, o, g)
         else:
             o2 = ttnn.multiply(o, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
@@ -248,6 +269,10 @@ class OF3AtomTransformer(Module):
         ttnn.deallocate(b1); ttnn.deallocate(b2)
         out = self._lin(bb, ct + "linear_out.weight")
         ttnn.deallocate(bb)
+        if self._fold():           # cg_raw[b] is sigmoid(g) * atom_mask_col (`_invariants`)
+            x2 = ttnn.addcmul(x, out, cg_raw[b], value=1.0)
+            ttnn.deallocate(out)
+            return x2
         out = ttnn.multiply(out, cg_raw[b], **({} if self._sig_gates() else
                                                {"input_tensor_b_activations": [ttnn.UnaryOpType.SIGMOID]}))
         x = mask_add(x, out, atom_mask_col)
@@ -392,7 +417,7 @@ class OF3AtomTransformer(Module):
 
         z_bias, s_q, s_k, ada_raw, cg_raw, ada_s = _cached(
             cache, (id(self), "block_invariants"),
-            lambda: self._invariants(s, z, key_block_idxs_tt, valid_mask, nb))
+            lambda: self._invariants(s, z, key_block_idxs_tt, valid_mask, nb, atom_mask_col))
 
         S = a.shape[0]
         # The superset bias is built on the host, so a taped (training) forward keeps the

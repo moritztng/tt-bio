@@ -191,7 +191,7 @@ class _DiTBlock(Module):
         # gate a plain multiply: 72 fewer ops per step at 24 blocks, single rounding of the products.
         self.sig16 = False
         if self._act_dtype == ttnn.float32 and _T.lever("dit_s16"):
-            self.sig16 = _T.lever("adaln_mod")
+            self.sig16 = _T.lever("adaln_mod") or _T.lever("dit_adaln_fold")
             bf = lambda w: ttnn.from_torch(w.float().contiguous(), dtype=ttnn.bfloat16,  # noqa: E731
                                            layout=ttnn.TILE_LAYOUT, device=self.device)
             ada = []

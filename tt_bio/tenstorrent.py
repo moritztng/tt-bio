@@ -634,6 +634,11 @@ _FAST_MODE = False
 #                   read once, fc1 / fc2 / their product never leave the core. Weights in the module's own
 #                   dtype (bfp8 under transition_b8), fp32 dest, a degree-6 polynomial silu, the trunk's matmul
 #                   fidelity. Weights over L1 (c_z 256 in bf16, c_z 384) run in hidden chunks, outputs summed.
+#   dit_adaln_fold  OpenFold3 / OpenBind-0's diffusion AdaLNs and gated residuals as one addcmul each in any
+#                   dtype: the atom transformers store their rollout-invariant gates and AdaLN scales past the
+#                   sigmoid (`_sig_gates`, adaln_mod's fp32 path, now bf16 too) with the transition gate pre-masked,
+#                   and an fp32 dit_s16 DiT takes adaln_mod's `_SigTerms` form. 30 fewer programs a step on the
+#                   bf16 `--fast` stack (whose DiT dit_fuse already folds). Each addcmul skips a bf16 rounding
 #   ws_ln           with transition_ws, its layer norm as the kernel's prologue (ln_prologue.hpp, as trimul
 #                   T1/T2): the normalised x never goes to DRAM. One-chunk weights only. WH c_z 128 fast: slower
 #                   (4.31 -> 4.48 ms) and less accurate (rel_rms 0.020 -> 0.028) than the separate norm.
@@ -643,16 +648,17 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "transition_shard", "dit_mm16", "atom_k1", "dit_b8", "dit_qkv16", "atom_mm16", "adaln_mod",
           "swiglu_fc12g", "msa_sample", "dit_sdpa_pm", "dit_s16", "dit_chunk", "conf_bins", "trimul_t1", "trimul_t2",
           "triatt_tail_bias", "dit_cond_hifi2", "transition_ws", "ws_ln", "trimul_t1_dram",
-          "trimul_t2cm", "dit_fuse", "ref_memo")
+          "trimul_t2cm", "dit_fuse", "ref_memo", "dit_adaln_fold")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias in its own set: graded on AF2-IG only, and it would reach any other biased
 # triangle attention. BoltzGen's own --fast set names dit_cond_hifi2, graded on BoltzGen's designs.
 # OpenFold3's own --fast set names dit_fuse, graded on OpenFold3 / OpenBind-0 (openfold3_fold.FAST_LEVERS).
+# dit_adaln_fold is OpenFold3 / OpenBind-0 diffusion only and in no set, their own FAST_LEVERS included, until a fast grade.
 # ref_memo is host featurisation, OpenFold3 / OpenBind-0 only: one reference conformer per residue type
 # (vendored query.REF_MOL_MEMO), read by worker._predict_openfold3_one off the model's lever set.
 UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "dit_cond_hifi2", "ws_ln", "dit_fuse",
-                             "ref_memo"})
+                             "ref_memo", "dit_adaln_fold"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
