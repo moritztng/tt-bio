@@ -130,7 +130,7 @@ OpenDDE gains constraint guidance. There is no 0.15.0; it was superseded before 
   chip at 1000 MHz (172 s before) and 69 s on a Blackhole p150a at 1350 MHz (98 s before). `--fast` takes
   123 s and 64 s. Normal-mode coordinates for a given seed change: on 11 complexes the median top-pose
   deviation is 0.90 A, against 1.78 A between two seeds, and docking success is unchanged.
-   restores the previous path. (This entry first read "structures are unchanged";
+  `TT_BIO_LEVERS=none` restores the previous path. (This entry first read "structures are unchanged";
   that was wrong, see [#23](https://github.com/moritztng/tt-bio/issues/23).)
 - **Triangle multiplication's gate sigmoid is a polynomial inside the fused kernels**, max error 3e-4. On
   Wormhole at 1000 MHz the 730-token Protenix-v2 fold spends 1.3 s less on the device in normal mode and 4.0 s
