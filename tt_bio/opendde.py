@@ -379,9 +379,10 @@ def route_opendde_weights(state_dict):
 
 
 # --fast: the shared fast set (transition_ws included: OpenDDE fast grade PASS on Wormhole and Blackhole, 11-set)
-# without acc_off. On Wormhole, 19 paired folds (5 complexes x 4 seeds), fast minus acc_off moved fast-vs-exact CA-lDDT
-# from -0.023 to -0.010 and bought +0.1 s of a 261 s fold (spd-fastmode ddb, 2026-10-13).
-FAST_LEVERS = _T.FAST_LEVERS - {"acc_off"}
+# without dit_b8. Wormhole 11-set, 44 paired cold folds at 1000 MHz (spd-fastmode ddb/ddc, 2026-10-13): fast vs exact
+# CA-lDDT -0.0248 [-0.0339, -0.0158], fast minus dit_b8 -0.0016 [-0.0035, +0.0005] (same-seed top pose 1.71 -> 0.79 A,
+# A/A floor 1.34 A); dropping each other diffusion lever left the drop in place. dit_b8 buys ~2.5 s of a 255 s fold.
+FAST_LEVERS = _T.FAST_LEVERS - {"dit_b8"}
 
 
 class OpenDDE:
