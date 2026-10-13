@@ -107,14 +107,20 @@ a.out.write_text(json.dumps(res, indent=1))
 xfer = collections.defaultdict(lambda: [0, 0.0, 0])  # site -> [calls, s, bytes]
 
 
+_WRAPPERS = ("_from_torch", "_to_torch", "upload", "download", "_to_host")
+
+
 def _site():
-    f = sys._getframe(2)
+    """First tt_bio frame; through a generic upload/download wrapper, also the frame that called it."""
+    f, out = sys._getframe(2), []
     while f is not None:
         fn = f.f_code.co_filename
         if "/tt_bio/" in fn and "/ttnn/" not in fn:
-            return f"{fn.split('/tt_bio/')[-1]}:{f.f_lineno}({f.f_code.co_name})"
+            out.append(f"{fn.split('/tt_bio/')[-1]}:{f.f_lineno}({f.f_code.co_name})")
+            if f.f_code.co_name not in _WRAPPERS or len(out) == 2:
+                return " <- ".join(out)
         f = f.f_back
-    return "?"
+    return " <- ".join(out) or "?"
 
 
 def _timed(name, fn):
