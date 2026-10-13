@@ -26,6 +26,8 @@ move against the accuracy bar and the seed-to-seed spread.
 | [`TT_BIO_ATOM_SDPA32`](#tt_bio_atom_sdpa32) | on | fp32 atom attention (normal mode) | moves, closer to float64 |
 | [`TT_BIO_ATOM_SUPERSET_WINDOW`](#tt_bio_atom_superset_window) | on | Protenix-v2, OpenDDE, PXDesign | moves, inside the bar |
 | [`TT_BIO_ATOM_TILE_HEADS`](#tt_bio_atom_tile_heads-tt_bio_atom_kv_window) | on | Protenix-v2, OpenDDE, PXDesign | identical |
+| [`TT_BIO_BC2_IPA_DIST_REMAT`](#tt_bio_bc2_ipa_einsum-tt_bio_bc2_ipa_dist_remat) | on | BindCraft 2 | identical |
+| [`TT_BIO_BC2_IPA_EINSUM`](#tt_bio_bc2_ipa_einsum-tt_bio_bc2_ipa_dist_remat) | on | BindCraft 2 | gradients move, designs graded |
 | [`TT_BIO_BH_DRAM_READ_SPLIT`](#tt_bio_bh_dram_read_split) | on | Blackhole | identical |
 | [`TT_BIO_BH_ETH_DISPATCH`](#tt_bio_bh_eth_dispatch) | on for p150a where the installed ttnn supports it | Blackhole | unchanged on p150a (graded) |
 | [`TT_BIO_DEVICE_CONDITIONING`](#tt_bio_device_conditioning) | on | Boltz-2, BoltzGen | moves, closer to the experimental structure |
@@ -294,6 +296,30 @@ paired metric's confidence interval covers zero.
 **Speed: 1.03x on the fold**, 450.58 to 436.39 s on the Protenix-v2 730-token fold on a Wormhole
 Galaxy chip at 1000 MHz (n=3 each, same chip). The atom attention call goes from 9.93 to 3.03 ms
 with `TT_BIO_ATOM_KV_WINDOW`. `TT_BIO_ATOM_SDPA32=0` restores the four calls.
+
+## `TT_BIO_BC2_IPA_EINSUM`, `TT_BIO_BC2_IPA_DIST_REMAT`
+
+Default: both on, BindCraft 2 only. They rewrite two statements of BindCraft 2's own
+`InvariantPointAttention.__call__`, which runs on the host CPU under JAX, not on the device.
+
+`TT_BIO_BC2_IPA_EINSUM` replaces the attended-point reduction
+`jnp.sum(attn[..., None] * x, axis=-3)`, run once per coordinate, with one einsum over the
+concatenated x/y/z. It is the same contraction written as a batched matmul, and it stops three
+`[N, N, heads, points]` f32 products being materialised in the forward and again in the backward.
+
+`TT_BIO_BC2_IPA_DIST_REMAT` wraps the point term of the IPA logits in `jax.checkpoint`. The q - k
+differences it builds are what the backward of `x*x + y*y + z*z` needs, so BindCraft 2's gradient
+stacks them through the structure module's `hk.scan`: about 51 MB a layer at 211 tokens. With the
+checkpoint only q, k and the head weights are kept and the differences are recomputed.
+
+**Speed: -0.42 s/iter on Blackhole**, 9.221 / 8.873 / 9.366 s/iter off/on/off against a 9.294 s
+off-mean, one p150a card at a 1350 MHz mean over 230 in-run samples, 30,343 ttnn calls in every arm.
+On a Wormhole Galaxy chip at 1000 MHz the grading pool read a 7.28 s/iter median off against 6.44 on.
+
+**Accuracy: the remat is bit-exact** (same operations on the same inputs). The einsum changes the
+summation order, so gradients move by 2e-7 to 1.5e-6 rel L2 and designs are graded, not compared:
+over three 30-trajectory batches of PD-L1 binder-80 campaigns the stack accepted 30/80 trajectories
+against 22/90 for the default, with last-trajectory i_pTM 0.574 against 0.518.
 
 ## `TT_BIO_BH_DRAM_READ_SPLIT`
 

@@ -2066,7 +2066,7 @@ def template_on_device(tmpl: "TemplateOnDevice | None",
 #: the concatenated coordinates is the same contraction as a batched matmul: IPA forward plus
 #: backward 740 -> 330 ms a gradient call on the host CPU at 211 tokens. Not bit-exact (the sum
 #: order changes; gradient rel L2 2e-7 to 1.5e-6).
-IPA_POINT_EINSUM = env_flag("TT_BIO_BC2_IPA_EINSUM", False)
+IPA_POINT_EINSUM = env_flag("TT_BIO_BC2_IPA_EINSUM", True)
 
 _IPA_POINT_SUM = """    result_point_global = jax.tree_util.tree_map(
         lambda x: jnp.sum(attn[..., None] * x, axis=-3), v_point[None])"""
@@ -2084,7 +2084,7 @@ _IPA_POINT_EINSUM = """    _vp = jnp.concatenate([v_point.x, v_point.y, v_point.
 #: term in ``jax.checkpoint`` keeps only q, k and the head weights (``[N, heads, points]``) as
 #: residuals and recomputes the differences in the backward, so XLA can also fuse the forward
 #: subtraction into its reduction. Same operations on the same inputs: bit-exact.
-IPA_DIST_REMAT = env_flag("TT_BIO_BC2_IPA_DIST_REMAT", False)
+IPA_DIST_REMAT = env_flag("TT_BIO_BC2_IPA_DIST_REMAT", True)
 
 _IPA_DIST = """    dist2 = geometry.square_euclidean_distance(
         q_point[:, None, :, :], k_point[None, :, :, :], epsilon=0.)
