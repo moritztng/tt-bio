@@ -4,11 +4,18 @@ import pytest
 B = pytest.importorskip("tt_bio.bindcraft2")
 
 WH = 12.885e9  # a Wormhole Galaxy chip's DRAM as the allocator reports it
+HELD = 2.207e9  # what a BindCraft 2 campaign already holds when its first trajectory starts
 
 
 def test_auto_matches_the_measured_wormhole_fit():
     # .114, 224 tokens: 11 resident blocks fit beside a fast round and 12 ran out of memory.
     assert 8 <= B.resident_blocks("fast", 224, WH, requested="auto") <= 11
+
+
+def test_auto_counts_only_free_dram():
+    # The campaign arm that OOMed sized 10 blocks from the whole card while 2.207 GB of it was
+    # already the campaign's (out/kgrade/kauto_s10*). From what is free, 8 fit, and 8 ran clean.
+    assert B.resident_blocks("fast", 224, WH - HELD, requested="auto") <= 8
 
 
 def test_auto_shrinks_with_the_token_axis_and_ends_at_zero():
