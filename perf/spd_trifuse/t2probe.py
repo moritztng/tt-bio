@@ -13,6 +13,7 @@ ap.add_argument("--n", type=int, default=512)
 ap.add_argument("--cz", type=int, default=256)
 ap.add_argument("--arms", required=True, help="comma-separated lever specs; ';' separates arms when specs hold commas")
 ap.add_argument("--ending", action="store_true")
+ap.add_argument("--no-ref", action="store_true", help="skip the float64 reference (large N: ~25 GB host)")
 ap.add_argument("--reps", type=int, default=5, help="timed calls per arm (synced, in-place on one z)")
 ap.add_argument("--fast-mode", action="store_true", help="tenstorrent.set_fast_mode(True), as Wormhole ESMFold2 --fast folds")
 a = ap.parse_args()
@@ -45,7 +46,7 @@ def reference():
     return z + (o @ Wd["p_out.weight"].T) * torch.sigmoid(x @ Wd["g_out.weight"].T)
 
 
-ref = reference()
+ref = None if a.no_ref else reference()
 dev = T.get_device()
 if a.fast_mode:
     T.set_fast_mode(True)
@@ -77,6 +78,10 @@ for spec in (a.arms.split(";") if ";" in a.arms else a.arms.split(",")):
            "max_abs": (yt.double() - ref).abs().max().item(), "finite": bool(torch.isfinite(yt).all()),
            "equal_first": bool(torch.equal(yt, outs[0])) if outs else None,
            "maxdiff_first": (yt - outs[0]).abs().max().item() if outs else None}
+    if ref is not None:
+        u, ur = (yt - z_host).double(), (ref - z_host.double())
+        rec["rel_rms_update"] = ((u - ur).pow(2).mean().sqrt() / ur.pow(2).mean().sqrt()).item()
+        rec["max_abs"] = (yt.double() - ref).abs().max().item()
     outs.append(yt)
     print(json.dumps(rec), flush=True)
 T.cleanup()
