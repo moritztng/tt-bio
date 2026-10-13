@@ -203,28 +203,44 @@ def _drop_conformer_pool():
 os.register_at_fork(after_in_child=_drop_conformer_pool)
 
 
-def _pooled_reference_molecules(jobs: list) -> list:
-    """Every job's reference molecule, computed on a thread pool.
+def _pooled_one(seed, job):
+    conformer_mod.pool_seed(seed)
+    arr, leaving, template = job
+    if template is not None:
+        return _processed_reference_molecule_from_template(template, arr, leaving)
+    return processed_reference_molecule_from_atom_array(arr, atoms_to_mask=leaving)
 
-    The seeds are pre-drawn in residue order and handed out one per residue, so residue i
+
+class _PooledReferenceMolecules:
+    """Reference molecules computed on the thread pool as the residues are submitted.
+
+    Each residue's seed is drawn when it is submitted, in residue order, so residue i
     embeds with exactly the seed the sequential loop would have drawn for it, and a retry
     inside residue i draws from that seed's own stream. No residue can reach another's
     seed, so the pooled result is the sequential result.
     """
-    seeds = [random.randint(0, 10**9) for _ in jobs]
 
-    def one(i):
-        conformer_mod.pool_seed(seeds[i])
-        arr, leaving, template = jobs[i]
-        if template is not None:
-            return _processed_reference_molecule_from_template(template, arr, leaving)
-        return processed_reference_molecule_from_atom_array(arr, atoms_to_mask=leaving)
+    def __init__(self):
+        global _CONFORMER_POOL
+        if _CONFORMER_POOL is None:
+            _CONFORMER_POOL = ThreadPoolExecutor(max_workers=CONFORMER_THREADS,
+                                                 thread_name_prefix="of3-conformer")
+        self._futures = []
 
-    global _CONFORMER_POOL
-    if _CONFORMER_POOL is None:
-        _CONFORMER_POOL = ThreadPoolExecutor(max_workers=CONFORMER_THREADS,
-                                             thread_name_prefix="of3-conformer")
-    return list(_CONFORMER_POOL.map(one, range(len(jobs))))
+    def submit(self, job) -> None:
+        seed = random.randint(0, 10**9)
+        self._futures.append(_CONFORMER_POOL.submit(_pooled_one, seed, job))
+
+    def results(self) -> list:
+        return [f.result() for f in self._futures]
+
+
+def _pooled_reference_molecules(jobs: list) -> list:
+    """Every job's reference molecule, computed on the thread pool (see above)."""
+    pooled = _PooledReferenceMolecules()
+    for job in jobs:
+        pooled.submit(job)
+    return pooled.results()
 
 
 # One reference conformer per residue TYPE instead of one per residue. A 512-residue
@@ -462,7 +478,7 @@ def structure_with_ref_mols_from_sequence(
     unk_res = MOLECULE_TYPE_TO_UKNOWN_RESIDUES_3[poly_type]
     base_leaving_atoms = MOLECULE_TYPE_TO_LEAVING_ATOMS[poly_type]
 
-    atom_array = None
+    res_arrays = []
     processed_reference_mols = []
     pool_jobs = [] if CONFORMER_THREADS > 0 and not REF_MOL_MEMO else None
 
@@ -525,15 +541,11 @@ def structure_with_ref_mols_from_sequence(
                 f"Residue {resname_3} at position {res_id} has no leaving atoms to "
                 "remove. This could cause issues with incorrect polymer linkage."
             )
-        res_array = res_array[~leaving_atom_mask]
+        res_arrays.append(res_array[~leaving_atom_mask])
 
-        # Initialize atom array
-        if atom_array is None:
-            atom_array = res_array
-
-        # Append to atom array
-        else:
-            atom_array += res_array
+    # One concatenation instead of `atom_array += res_array` per residue, which copied the
+    # growing array every time (quadratic in the chain length).
+    atom_array = struc.concatenate(res_arrays)
 
     # Auto-connect bonds
     atom_array.bonds = struc.connect_via_residue_names(atom_array)
@@ -541,6 +553,8 @@ def structure_with_ref_mols_from_sequence(
     # Force coordinates to 0 for consistency
     atom_array.coord[:] = 0.0
 
+    # Submitted after the loop, not from inside it: overlapping the embeddings with the
+    # residue loop made both fight for the GIL and the build 0.1 s slower on pc.
     if pool_jobs is not None:
         processed_reference_mols = _pooled_reference_molecules(pool_jobs)
     return StructureWithReferenceMolecules(
