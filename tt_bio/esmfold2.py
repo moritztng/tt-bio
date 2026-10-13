@@ -1360,6 +1360,7 @@ def _opm_fallback_rows(L: int) -> int:
 #: no tile ever changes shape. "rm": the original with its reshapes done row-major. A/B in
 #: perf/spd_gap_esmf/opm_bench.py.
 _OPM_PATH = os.environ.get("TT_BIO_ESMFOLD2_OPM", "tile")
+_OPM_KQ_MAX_DEPTH = 64
 
 
 class OuterProductMean(Module):
@@ -1445,7 +1446,13 @@ class OuterProductMean(Module):
             b = ttnn.concat([p[1] for p in parts], dim=1)
         else:
             a, b = self._project(m, mf)  # [B,L,M,32]
-        b2 = ttnn.reshape(ttnn.permute(b, (0, 2, 1, 3)), (B, M, L * 32))   # [B,M,L*32]
+        # kq costs 16384 L^2 Mp flops against tile's 2048 L^2 M + 524288 L^2 and holds a [L, 32 Mp, 256] transient,
+        # so it is for shallow MSAs only (the page fixture has 35 rows); deep ones keep the tile path.
+        if _OPM_PATH == "kq" and M <= _OPM_KQ_MAX_DEPTH:
+            b2, rows = b, self._rows_kq  # kq contracts the [B,L,M,32] b itself
+        else:
+            b2 = ttnn.reshape(ttnn.permute(b, (0, 2, 1, 3)), (B, M, L * 32))   # [B,M,L*32]
+            rows = self._rows_rm if _OPM_PATH == "rm" else self._rows
         # The a2@b2 product is [B,L*32,L*32] (~2 GiB at L=1024), which OOMs the
         # 12 GB/chip Wormhole DRAM. Output row i depends only on a[i] and b, so
         # tiling over the i (row) dim is bit-exact. Pair op -> area-bounded tile
@@ -1454,7 +1461,7 @@ class OuterProductMean(Module):
         from tt_bio import tenstorrent
         chunk = tenstorrent.pair_row_tile(L)
         if chunk:
-            return self._row_blocked(a, b2, recip_nvalid, L, M, chunk)
+            return self._row_blocked(a, b2, recip_nvalid, L, M, chunk, rows)
         # `pair_row_tile` returns 0 on a big grid, so Blackhole runs this op in a single
         # pass -- which was right at every size it was measured at and is not at 1536.
         # `_rows` builds a [B, Bl*32, L*32] product, quadratic in L with a 32x blow-up on
@@ -1473,13 +1480,13 @@ class OuterProductMean(Module):
         # shared with the pair transition rather than written out again here.
         return tenstorrent.row_block_after_refusal(
             _OPM_ROWS_REFUSED, L,
-            lambda: self._rows(a, b2, recip_nvalid, L, M),
-            lambda rows: self._row_blocked(a, b2, recip_nvalid, L, M, rows),
+            lambda: rows(a, b2, recip_nvalid, L, M),
+            lambda n: self._row_blocked(a, b2, recip_nvalid, L, M, n, rows),
             rows=_opm_fallback_rows(L), tag="opm")
 
-    def _row_blocked(self, a, b2, recip_nvalid, L, M, chunk):
-        """`_rows` over `chunk`-row blocks. A further refusal is the caller's to shrink."""
-        outs = [self._rows(a[:, s:min(s + chunk, L), :, :], b2,
+    def _row_blocked(self, a, b2, recip_nvalid, L, M, chunk, rows):
+        """`rows` (one of the `_rows*` paths) over `chunk`-row blocks. A further refusal is the caller's to shrink."""
+        outs = [rows(a[:, s:min(s + chunk, L), :, :], b2,
                            recip_nvalid[:, s:min(s + chunk, L), :, :], L, M)
                 for s in range(0, L, chunk)]
         return ttnn.concat(outs, dim=1)
