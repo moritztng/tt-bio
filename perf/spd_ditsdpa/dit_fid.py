@@ -24,11 +24,18 @@ for K, N, calls in SHAPES:
     xk = x[..., :K].contiguous()
     w = (torch.randn(K, N, generator=gen) / K ** 0.5).to(torch.bfloat16)
     ref = xk.reshape(512, K).double() @ w.double()
-    xt, wt = up(xk), up(w)
-    for fid in ("HiFi4", "HiFi3", "HiFi2", "LoFi"):
+    xt = up(xk)
+    arms = [(fid, ttnn.bfloat16, "main") for fid in ("HiFi4", "HiFi3", "HiFi2", "LoFi")]
+    if "--arms" in sys.argv:  # second sweep: weight format and grid at the shipped fidelity
+        arms = [("HiFi4", dt, g) for dt in (ttnn.bfloat16, ttnn.bfloat8_b) for g in ("main", "auto")]
+    for fid, wdt, g in arms:
+        wt = ttnn.from_torch(w, dtype=wdt, layout=ttnn.TILE_LAYOUT, device=dev)
+        wq = ttnn.to_torch(ttnn.typecast(wt, ttnn.bfloat16)).reshape(K, N).double()
+        ref = xk.reshape(512, K).double() @ wq
         ckc = ttnn.WormholeComputeKernelConfig(math_fidelity=getattr(ttnn.MathFidelity, fid), math_approx_mode=False,
                                                fp32_dest_acc_en=True, packer_l1_acc=True)
-        f = lambda: ttnn.linear(xt, wt, compute_kernel_config=ckc, core_grid=T.CORE_GRID_MAIN)
+        kw = {"core_grid": T.CORE_GRID_MAIN} if g == "main" else {}
+        f = lambda: ttnn.linear(xt, wt, compute_kernel_config=ckc, **kw)
         for _ in range(3):
             ttnn.deallocate(f())
         ttnn.synchronize_device(dev)
@@ -42,5 +49,5 @@ for K, N, calls in SHAPES:
         assert torch.isfinite(o).all()
         rel = float((o - ref).pow(2).mean().sqrt() / ref.pow(2).mean().sqrt())
         ms = sorted(ts)[2] * 1e3
-        print(json.dumps({"K": K, "N": N, "fid": fid, "ms": round(ms, 4), "s_per_fold": round(ms * calls / 1e3, 3),
+        print(json.dumps({"K": K, "N": N, "fid": fid, "w": str(wdt).split(".")[-1], "grid": g, "ms": round(ms, 4), "s_per_fold": round(ms * calls / 1e3, 3),
                           "rel_rms": round(rel, 6)}), flush=True)
