@@ -387,3 +387,53 @@ def initial_recycle_state(features: dict[str, np.ndarray], *,
         "prev_pair": np.zeros((num_res, num_res, 128), np.float32),
         "prev_pos": positions,
     }
+
+
+#: Which axes of each feature are the token axis, for `pad_token_axis`. Every key the featurizer
+#: and `initial_recycle_state` emit is listed, and an unlisted key is refused: a new feature that
+#: silently stayed at the ragged length would fail far away, or worse, broadcast.
+TOKEN_AXES: dict[str, tuple[int, ...]] = {
+    **{k: (0,) for k in (
+        "seq_mask", "aatype", "target_feat", "atom14_atom_exists", "atom37_atom_exists",
+        "residx_atom14_to_atom37", "residx_atom37_to_atom14", "residue_index",
+        "batch/aatype", "batch/all_atom_positions", "batch/all_atom_mask",
+        "rm_template", "rm_template_seq", "rm_template_sc", "asym_id", "sym_id", "entity_id",
+        "prev_msa_first_row", "prev_pos")},
+    **{k: (1,) for k in (
+        "msa_mask", "extra_deletion_value", "extra_has_deletion", "extra_msa", "extra_msa_mask",
+        "msa_feat", "template_aatype", "template_all_atom_mask", "template_all_atom_positions",
+        "template_pseudo_beta", "template_pseudo_beta_mask")},
+    **{k: () for k in (
+        "msa_row_mask", "extra_msa_row_mask", "all_atom_positions", "template_mask",
+        "mask_template_interchain")},
+    "prev_pair": (0, 1),
+    "offset": (0, 1),
+}
+
+
+def pad_token_axis(arrays: dict, width: int) -> dict:
+    """Zero-pad every token axis of a feature (or `prev`) dict to `width` residues.
+
+    Zero is the mask value of every mask here (`seq_mask`, `msa_mask`, the template and atom
+    existence masks), so the padded residues are masked residues and AF2's own masking keeps them
+    off the real ones: the triangle and MSA attentions bias the padded keys by -1e9, the
+    triangle multiplication and the outer product mean multiply them by zero, and the structure
+    module's IPA subtracts 1e5 from them. Works on numpy arrays and torch tensors alike; a dict
+    already at `width` comes back as the same objects.
+    """
+    out = {}
+    for key, a in arrays.items():
+        if key not in TOKEN_AXES:
+            raise KeyError(f"pad_token_axis: no token-axis entry for feature {key!r}")
+        axes = TOKEN_AXES[key]
+        shape = list(a.shape)
+        if all(shape[ax] == width for ax in axes):
+            out[key] = a
+            continue
+        for ax in axes:
+            assert shape[ax] <= width, (key, tuple(a.shape), width)
+            shape[ax] = width
+        new = (np.zeros(shape, a.dtype) if isinstance(a, np.ndarray) else a.new_zeros(shape))
+        new[tuple(slice(0, s) for s in a.shape)] = a
+        out[key] = new
+    return out
