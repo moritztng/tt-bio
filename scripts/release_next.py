@@ -176,10 +176,15 @@ def failures(d: Path, waived: dict | None = None) -> tuple[list[str], list[str]]
     """(the ladder models to re-record, every other failed leg as "<leg> <arch>") of gate `d`.
     A ladder leg is re-recorded when it only drifted or when it is waived; any other waived leg
     stops counting. So does a leg whose key has passed since: a rerun of the same code, packages
-    and card type (a partial gate_fanout run) after the card, not the tree, failed it."""
+    and card type (a partial gate_fanout run) after the card, not the tree, failed it. A leg is
+    judged by its latest run on the gate's commit in any run dir beside `d`: the runner's own files
+    are in the key, so a rerun from newer runner scripts files its pass under another key (8b2f8acaa,
+    10-13: ladder:boltz2 bh passed and ladder:opendde bh drifted on rerun, and both kept blocking)."""
     res = json.loads((d / "verdict.json").read_text()).get("results", [])
+    latest = rerun_results(d)
     drift, other = set(), []
     for r in res:
+        r = latest.get((r["leg"], r.get("arch")), r)
         if r.get("verdict") in OK or (r.get("key") and (LEDGER / f"{r['key']}.json").is_file()):
             continue
         name = f"{r['leg']} {r.get('arch', '')}".strip()
@@ -192,6 +197,23 @@ def failures(d: Path, waived: dict | None = None) -> tuple[list[str], list[str]]
         elif name not in (waived or {}):
             other.append(name)
     return sorted(drift), other
+
+
+def rerun_results(d: Path) -> dict:
+    """{(leg, arch): row} of the latest run of each leg at gate `d`'s commit in the run dirs beside
+    it, gate_fanout's results.jsonl rows, ordered by when each leg ended."""
+    sha = json.loads((d / "plan.json").read_text()).get("sha") if (d / "plan.json").is_file() else None
+    rows = []
+    for f in d.parent.glob("*/results.jsonl") if sha else ():
+        if f.parent != d:
+            for ln in f.read_text(errors="replace").splitlines():
+                try:
+                    r = json.loads(ln)
+                except ValueError:
+                    continue
+                if r.get("sha") == sha and r.get("ended"):
+                    rows.append(r)
+    return {(r["leg"], r.get("arch")): r for r in sorted(rows, key=lambda r: r["ended"])}
 
 
 def record_run(gates: Path | None, sha: str) -> tuple[str, Path | None]:

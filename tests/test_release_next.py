@@ -329,3 +329,27 @@ def test_a_failed_leg_whose_key_passed_since_stops_blocking(tmp_path, monkeypatc
     (ledger / "k1.json").write_text("{}")
     d = rn.decide(tmp_path, gates, "main")
     assert (d["do"], d["sha"]) == ("CUT", x)
+
+
+def test_a_failed_leg_is_judged_by_its_latest_run_on_the_same_commit(tmp_path, monkeypatch):
+    """Gate 8b2f8acaa (10-13): the BH ladder reruns ran from newer runner scripts, so their keys
+    differed from the gate's; boltz2's pass and opendde's drift-only rerun still read as card faults."""
+    git = _repo(tmp_path)
+    (tmp_path / "a.py").write_text("x = 2\n")
+    git("commit", "-qam", "staging1")
+    x = git("rev-parse", "HEAD")
+    gates = tmp_path / "gates"
+    monkeypatch.setattr(rn, "LEDGER", tmp_path / "none")
+    g = _plan(gates, "gx", x, tmp_path)
+    (g / "verdict.json").write_text(json.dumps({"pass": False, "results": [
+        {"leg": "rg:b", "arch": "bh", "verdict": "FAIL", "key": "k1"}]}))
+    assert rn.failures(g) == ([], ["rg:b bh"])
+    rerun = gates / "gx-rerun"
+    rerun.mkdir()
+    rows = [{"leg": "rg:b", "arch": "bh", "verdict": "FAIL", "sha": x, "ended": "2026-10-13T20:00:00Z"},
+            {"leg": "rg:b", "arch": "bh", "verdict": "PASS", "sha": x, "ended": "2026-10-13T21:00:00Z"},
+            {"leg": "rg:c", "arch": "bh", "verdict": "PASS", "sha": "0" * 40, "ended": "2026-10-13T22:00:00Z"}]
+    (rerun / "results.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows[:1]))
+    assert rn.failures(g) == ([], ["rg:b bh"])
+    (rerun / "results.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows[::-1]))
+    assert rn.failures(g) == ([], [])
