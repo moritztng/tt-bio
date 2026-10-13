@@ -1327,6 +1327,14 @@ def _opm_fallback_rows(L: int) -> int:
     return max(32, (max(32, L // 4) // 32) * 32)
 
 
+#: How the outer product meets Wout. "tile" (the original): the [L*32, L*32] product, then two tile
+#: reshapes that turn each 32x32 tile into a row of 1024; at 512 aa those reshapes are 95 of the op's
+#: ~114 ms (census c3, p150a). "kq": contract a with Wout's q-blocks first (K = 32 x MSA depth), so
+#: no tile ever changes shape. "rm": the original with its reshapes done row-major. A/B in
+#: perf/spd_gap_esmf/opm_bench.py.
+_OPM_PATH = os.environ.get("TT_BIO_ESMFOLD2_OPM", "tile")
+
+
 class OuterProductMean(Module):
     """MSA -> pair update via outer-product mean (d_hidden=32, tile-aligned -> full ttnn)."""
 
@@ -1335,6 +1343,51 @@ class OuterProductMean(Module):
         self.norm_w = self.torch_to_tt("norm.weight"); self.norm_b = self.torch_to_tt("norm.bias")
         self.W = self.torch_to_tt("W.weight")
         self.Wout = self.torch_to_tt("Wout.weight"); self.Wout_b = self.torch_to_tt("Wout.bias", transform=_ROW)
+        self._wq = None
+
+    def _wout_q(self):
+        """Wout as 32 [32p, 256] blocks, one per q: Wout's input index is p*32 + q."""
+        if self._wq is None:
+            w = self.weights["Wout.weight"].t().reshape(32, 32, -1)  # [p, q, c]
+            self._wq = [ttnn.from_torch(w[:, q].contiguous(), layout=ttnn.TILE_LAYOUT, device=self.device,
+                                        dtype=_DTYPE) for q in range(32)]
+        return self._wq
+
+    def _rows_kq(self, a_blk, b, recip_blk, L, M):  # a_blk [B,Bl,M,32], b [B,L,M,32] -> [B,Bl,L,256]
+        """out[i,j,c] = sum over (q,m) of b[j,m,q] * U[i,(q,m),c], U[i,m,q,c] = sum_p a[i,m,p] Wout[p*32+q,c].
+
+        Same sum as `_rows`, reassociated: the 32x32 outer block is never formed, so nothing is
+        reshaped across tiles. The MSA axis is zero-padded to a tile so it can be the inner run of K."""
+        ck = self.compute_kernel_config
+        B, Bl = int(a_blk.shape[0]), int(a_blk.shape[1])
+        Mp = -(-M // 32) * 32
+        if Mp != M:
+            a_blk = ttnn.pad(a_blk, [(0, 0), (0, 0), (0, Mp - M), (0, 0)], 0.0)
+            b = ttnn.pad(b, [(0, 0), (0, 0), (0, Mp - M), (0, 0)], 0.0)
+        u = ttnn.concat([ttnn.matmul(a_blk, w, compute_kernel_config=ck, dtype=_DTYPE) for w in self._wout_q()],
+                        dim=2)  # [B,Bl,32*Mp,256], row q*Mp + m
+        ut = ttnn.transpose(u, -2, -1)  # [B,Bl,256,32*Mp]
+        ttnn.deallocate(u)
+        bt = ttnn.reshape(ttnn.permute(b, (0, 3, 2, 1)), (1, 1, 32 * Mp, L))  # [(q,m), j]  (B == 1)
+        o = ttnn.matmul(ut, bt, compute_kernel_config=ck, dtype=_DTYPE, core_grid=CORE_GRID_MAIN)  # [B,Bl,256,L]
+        ttnn.deallocate(ut)
+        out = ttnn.add(ttnn.transpose(o, -2, -1), self.Wout_b)
+        ttnn.deallocate(o)
+        return ttnn.multiply(out, recip_blk)
+
+    def _rows_rm(self, a_blk, b2, recip_blk, L, M):
+        """`_rows` with its two cross-tile reshapes done row-major (views) around one untilize/tilize."""
+        ck = self.compute_kernel_config
+        B, Bl = a_blk.shape[0], a_blk.shape[1]
+        a2 = ttnn.reshape(ttnn.permute(a_blk, (0, 1, 3, 2)), (B, Bl * 32, M))
+        prod = ttnn.matmul(a2, b2, compute_kernel_config=ck, dtype=_DTYPE, core_grid=CORE_GRID_MAIN)
+        r = ttnn.to_layout(prod, ttnn.ROW_MAJOR_LAYOUT)
+        ttnn.deallocate(prod)
+        r = ttnn.permute(ttnn.reshape(r, (B, Bl, 32, L, 32)), (0, 1, 3, 2, 4))
+        outer = ttnn.to_layout(ttnn.reshape(r, (B, Bl, L, 1024)), ttnn.TILE_LAYOUT)
+        ttnn.deallocate(r)
+        out = self._lin(outer, self.Wout, self.Wout_b)
+        return ttnn.multiply(out, recip_blk)
 
     def _rows(self, a_blk, b2, recip_blk, L, M):  # a_blk [B,Bl,M,32] -> [B,Bl,L,256]
         ck = self.compute_kernel_config
