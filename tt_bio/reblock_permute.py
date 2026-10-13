@@ -160,13 +160,14 @@ def _genq_ct(assign, core_grid, shape_words):
     core's index in a way the slice alone does not carry, and both are measured, off by default
     and documented above as staying off; a mode this cannot express keeps its per-core args.
     """
+    off = [0] * (8 + len(shape_words))
     if not genq.compact():
-        return [0] * 11
+        return off
     if WALK != "block":
         genq.REFUSED["walk_" + WALK] = genq.REFUSED.get("walk_" + WALK, 0) + 1
-        return [0] * 11
+        return off
     plan = genq.compact_plan(assign, core_grid)
-    return ([1] + plan + shape_words) if plan else [0] * 11
+    return ([1] + plan + shape_words) if plan else off
 
 
 def _walk(mode, i, block, per_core, num_cores):
@@ -222,9 +223,25 @@ def _cache_key(x, out, device, reader_ct, writer_ct):
         int(x.shape[1]), int(x.shape[3]),
         str(x.dtype), str(x.layout),
         str(x.memory_config()), str(out.memory_config()),
-        g.x, g.y, WALK, genq.compact(),
+        g.x, g.y, WALK, genq.compact(), CSPLIT,
         tuple(reader_ct), tuple(writer_ct),
     )
+
+
+# Below one tile-group per core the forward move splits each group by channel tile, so BindCraft 2's
+# 224-token pair (49 groups) runs on the whole p150a grid instead of 49 of its 110 cores.
+# TT_BIO_REBLOCK_CSPLIT=0 keeps one unit per group for an A/B.
+CSPLIT = env_flag("TT_BIO_REBLOCK_CSPLIT", True)
+
+
+def _units_per_group(groups, Ct, cores):
+    """How many units each tile-group is cut into: 1 once the groups reach the core count (those
+    splits are measured as they are), else the divisor of Ct with the shallowest busiest core in
+    tiles, the smallest such divisor on a tie."""
+    if not CSPLIT or groups >= cores:
+        return 1
+    depth = lambda s: -(-groups * s // cores) * (Ct // s)
+    return min((s for s in range(1, Ct + 1) if Ct % s == 0), key=lambda s: (depth(s), s))
 
 
 def _build(x, out, device, reader_ct, writer_ct):
@@ -233,7 +250,9 @@ def _build(x, out, device, reader_ct, writer_ct):
     # The fold runs this at N=298, not at a multiple of 32, so the tile grid is ceil(N/32) in both
     # directions and the last row-group is ragged. The kernels take N and handle it.
     Nt = (N + TILE_H - 1) // TILE_H
-    num_groups = Nt * Nt
+    g = device.compute_with_storage_grid_size()
+    S = _units_per_group(Nt * Nt, Ct, REBLOCK_CORES or g.x * g.y)
+    num_groups = Nt * Nt * S
 
     plan = _split_plan(device, num_groups)
     # `eligible` has already refused any shape with no plan, so this cannot fire from the production
@@ -268,15 +287,15 @@ def _build(x, out, device, reader_ct, writer_ct):
                     placed += per_core
     assert (first, placed) == (num_cores, num_groups), (first, placed, num_cores, num_groups)
 
-    genq_ct = _genq_ct(assign, core_grid, [Nt, N, Ct])
+    genq_ct = _genq_ct(assign, core_grid, [Nt, N, Ct, S])
     if genq_ct[0] == 0:
         for (cx, cy), (blk, per_core) in assign.items():
             i = _index_of(assign, cx, cy)
             g0, gs, ghi, glo = _walk(WALK, i, blk, per_core, num_cores)
-            reader_rt[cx][cy] = [g0, per_core, Nt, N, Ct, gs, ghi, glo]
-            compute_rt[cx][cy] = [per_core * GROUP_TILES * Ct]
-            writer_rt[cx][cy] = [g0, per_core, Nt, N, Ct, gs, ghi, glo]
-    compute_ct = [IN_CB, OUT_CB] + genq_ct[:8] + [GROUP_TILES * Ct]
+            reader_rt[cx][cy] = [g0, per_core, Nt, N, Ct, gs, ghi, glo, S]
+            compute_rt[cx][cy] = [per_core * GROUP_TILES * Ct // S]
+            writer_rt[cx][cy] = [g0, per_core, Nt, N, Ct, gs, ghi, glo, S]
+    compute_ct = [IN_CB, OUT_CB] + genq_ct[:8] + [GROUP_TILES * Ct // S]
 
     reader = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "reader_reblock_permute.cpp"),

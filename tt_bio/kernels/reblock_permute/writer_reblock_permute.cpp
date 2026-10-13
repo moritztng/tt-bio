@@ -96,15 +96,18 @@ void kernel_main() {
     uint32_t group_stride = (GQ_ON ? (1u) : get_arg_val<uint32_t>(5));
     uint32_t group_wrap_hi = (GQ_ON ? (0xFFFFFFFFu) : get_arg_val<uint32_t>(6));
     uint32_t group_wrap_lo = (GQ_ON ? (0u) : get_arg_val<uint32_t>(7));
+    // A unit is channel tiles [(u%S)*Ct/S, ...) of tile-group u/S; see the reader.
+    uint32_t S = (GQ_ON ? (get_compile_time_arg_val(GQ + 11)) : get_arg_val<uint32_t>(8));
+    const uint32_t Ctu = Ct / S;
 
-    constexpr uint32_t element_size = get_compile_time_arg_val(11);
-    constexpr uint32_t cb_id_in = get_compile_time_arg_val(12);     // c_16 (post-WH tiles)
-    constexpr uint32_t TILE_HEIGHT = get_compile_time_arg_val(13);  // 32
-    constexpr uint32_t TILE_WIDTH = get_compile_time_arg_val(14);   // 32
-    constexpr uint32_t FACE_HEIGHT = get_compile_time_arg_val(15);  // 16
-    constexpr uint32_t FACE_WIDTH = get_compile_time_arg_val(16);   // 16
-    constexpr uint32_t stage_cb_id = get_compile_time_arg_val(17);  // c_24
-    constexpr auto dst_args = TensorAccessorArgs<7 + 11>();
+    constexpr uint32_t element_size = get_compile_time_arg_val(12);
+    constexpr uint32_t cb_id_in = get_compile_time_arg_val(13);     // c_16 (post-WH tiles)
+    constexpr uint32_t TILE_HEIGHT = get_compile_time_arg_val(14);  // 32
+    constexpr uint32_t TILE_WIDTH = get_compile_time_arg_val(15);   // 32
+    constexpr uint32_t FACE_HEIGHT = get_compile_time_arg_val(16);  // 16
+    constexpr uint32_t FACE_WIDTH = get_compile_time_arg_val(17);   // 16
+    constexpr uint32_t stage_cb_id = get_compile_time_arg_val(18);  // c_24
+    constexpr auto dst_args = TensorAccessorArgs<7 + 12>();
 
 
 
@@ -129,8 +132,10 @@ void kernel_main() {
     const uint32_t NtNt = Nt * Nt;
     uint32_t group = first_group;
     for (uint32_t gi = 0; gi < num_groups; ++gi) {
-        const uint32_t it = group / Nt;
-        const uint32_t jt = group % Nt;
+        const uint32_t g = group / S;
+        const uint32_t ct0 = (group % S) * Ctu;
+        const uint32_t it = g / Nt;
+        const uint32_t jt = g % Nt;
         const uint32_t page_base = it * Nt + jt;
 
         // Rows [rows_valid, 32) of every output tile in this group are tile padding: zero, the same
@@ -163,8 +168,8 @@ void kernel_main() {
         const uint32_t rows_lo = rows_valid < FACE_HEIGHT ? rows_valid : FACE_HEIGHT;
         const uint32_t rows_hi = rows_valid > FACE_HEIGHT ? rows_valid - FACE_HEIGHT : 0;
 
-        uint32_t out_page = page_base;
-        for (uint32_t ct = 0; ct < Ct; ++ct) {
+        uint32_t out_page = page_base + ct0 * TILE_HEIGHT * NtNt;
+        for (uint32_t ct = 0; ct < Ctu; ++ct) {
             cb_wait_front(cb_id_in, TILE_HEIGHT);
             const uint32_t group_l1_base = get_read_ptr(cb_id_in);
 

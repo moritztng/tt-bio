@@ -97,3 +97,21 @@ def test_gated_fill_off_restores_256(monkeypatch):
     monkeypatch.setattr(R, "DRAM_FILL_GATED", False)
     dev, D = _Dev(11, 10), R.ttnn.DRAM_MEMORY_CONFIG
     assert not R.eligible_gated(_XW(dev, 224), 128, D) and R.eligible_gated(_XW(dev, 256), 128, D)
+
+
+@pytest.mark.parametrize("groups, Ct, cores, S", [
+    (49, 4, 110, 2),     # BindCraft 2's 224-token pair on p150a: 98 units, 64 tiles deep instead of 128
+    (49, 4, 72, 4),      # the same pair on a Galaxy Wormhole chip
+    (36, 4, 110, 2),
+    (49, 1, 110, 1),     # one channel tile: nothing to split
+    (64, 4, 64, 1),      # the groups already fill the grid: the measured split is kept
+    (100, 2, 110, 1),    # Boltz-2 at 298 aa, C=64: splitting does not make the busiest core shallower
+    (400, 4, 110, 1),
+])
+def test_units_per_group(groups, Ct, cores, S):
+    assert R._units_per_group(groups, Ct, cores) == S
+
+
+def test_csplit_off_keeps_one_unit(monkeypatch):
+    monkeypatch.setattr(R, "CSPLIT", False)
+    assert R._units_per_group(49, 4, 110) == 1
