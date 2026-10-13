@@ -341,19 +341,23 @@ def round_device_bytes(mode: str, padded: int) -> int:
     return int(_MODE_BASE_BYTES + _MODE_PAIR_TENSORS[mode] * 256 * int(padded) ** 2)
 
 
-def resident_blocks(mode: str, padded: int, card_bytes: int, slot: str = "",
+def resident_blocks(mode: str, padded: int, free_bytes: int, slot: str = "",
                     blocks: int = EVOFORMER_BLOCKS, requested: str | None = None) -> int:
     """How many of the last `blocks` Evoformer blocks keep their tape (`RESIDENT_BLOCKS`).
 
-    ``auto`` fills what the card has left after a fast round, and is 0 in the slower modes
-    (they exist because the card is short) and for an interleaved trajectory (`slot` set): its
-    neighbours peak at other times, so the room one sees is not its own to spend."""
+    ``auto`` fills what is FREE on the card when the forward starts, not what the card holds:
+    a design campaign enters its first trajectory with the AF2 and MPNN weights and the
+    campaign's own tensors already resident (2.207 GB at 224 tokens on a Wormhole Galaxy chip,
+    out/kgrade/kauto_s10*), and a count sized from total DRAM spends that twice and the
+    template stack refuses mid-campaign. It is 0 in the slower modes (they exist because the
+    card is short) and for an interleaved trajectory (`slot` set): its neighbours peak at other
+    times, so the room one sees is not its own to spend."""
     requested = RESIDENT_BLOCKS if requested is None else requested
     if requested != "auto":
         return max(0, min(blocks, int(requested)))
     if mode != "fast" or slot:
         return 0
-    room = card_bytes * _MODE_USABLE - round_device_bytes("fast", padded) - _RESIDENT_MARGIN_BYTES
+    room = free_bytes * _MODE_USABLE - round_device_bytes("fast", padded) - _RESIDENT_MARGIN_BYTES
     per = _RESIDENT_BLOCK_PAIR_TENSORS * 256 * int(padded) ** 2
     return max(0, min(blocks, int(room // per)))
 
@@ -1461,7 +1465,8 @@ class EvoformerOnDevice:
                                          self._pair_masks(trunk, pair_mask),
                                          recompute=self.recompute, offload=offload, drop=drop,
                                          resident=resident_blocks(mode, z.shape[0],
-                                                                  trunk.card_bytes(), slot))
+                                                                  duotraj.free_device_bytes(),
+                                                                  slot))
             trunk.sync()
             trunk.ag.release_pins()
             token = self._tapes.bank({"roots": (mo, zo), "leaves": (ml, zl),
