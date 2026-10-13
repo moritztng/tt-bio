@@ -1165,6 +1165,32 @@ def relpos_features(residue_index, asym_id, sym_id, entity_id, token_index,
     return torch.cat([a_res.float(), a_tok.float(), same_entity.float().unsqueeze(-1), a_ch.float()], dim=-1)
 
 
+def relpos_lookup(w, residue_index, asym_id, sym_id, entity_id, token_index, r_bins=32, c_bins=2):
+    """`relpos_features(...) @ w.T` without the one-hots: every feature group is one-hot (entity is one
+    0/1 column), so the product is a sum of rows of w.T picked by index. fp32 on the host, no device
+    round trip: at 512 tokens the one-hot path uploads 145 MB of features and downloads a 134 MB pair."""
+    n = 2 * r_bins + 2
+    t = w.t().float()  # [n_feats, d_pair]
+    same_chain = asym_id.unsqueeze(2) == asym_id.unsqueeze(1)
+    same_res = residue_index.unsqueeze(2) == residue_index.unsqueeze(1)
+    same_entity = entity_id.unsqueeze(2) == entity_id.unsqueeze(1)
+    dij = torch.clip(residue_index.unsqueeze(2) - residue_index.unsqueeze(1) + r_bins, 0, 2 * r_bins)
+    dij = torch.where(same_chain, dij, 2 * r_bins + 1)
+    dtok = torch.clip(token_index.unsqueeze(2) - token_index.unsqueeze(1) + r_bins, 0, 2 * r_bins)
+    dtok = torch.where(same_chain & same_res, dtok, 2 * r_bins + 1)
+    dch = torch.clip(sym_id.unsqueeze(2) - sym_id.unsqueeze(1) + c_bins, 0, 2 * c_bins)
+    dch = torch.where(same_chain, 2 * c_bins + 1, dch)
+    out = F.embedding(dij, t[:n])
+    out += F.embedding(dtok, t[n:2 * n])
+    out += F.embedding(dch, t[2 * n + 1:])
+    out += same_entity.unsqueeze(-1) * t[2 * n]
+    return out
+
+
+# Relative positions by table lookup on the host (relpos_lookup); False = one-hot features through a device linear.
+RELPOS_LOOKUP = True
+
+
 class RelPosEncoding(TorchWrapper):
     """Relative-position pair encoding: host one-hot features -> Linear(n_feats, d_pair)."""
 
@@ -1177,6 +1203,9 @@ class RelPosEncoding(TorchWrapper):
         return weights  # no ttnn submodule; we just hold the weight
 
     def forward(self, residue_index, asym_id, sym_id, entity_id, token_index):
+        if RELPOS_LOOKUP:
+            return relpos_lookup(self._w, residue_index, asym_id, sym_id, entity_id, token_index,
+                                 self.r_bins, self.c_bins)
         feats = relpos_features(residue_index, asym_id, sym_id, entity_id, token_index, self.r_bins, self.c_bins)
         w = ttnn.from_torch(self._w.t(), layout=ttnn.TILE_LAYOUT, device=self.tt_device, dtype=_DTYPE)
         out = ttnn.linear(self._from_torch(feats.float()), w, compute_kernel_config=self.compute_kernel_config,
