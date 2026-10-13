@@ -1091,12 +1091,11 @@ class _SeamTraces:
         return SEAM_TRACE and slot == "" and mode != "offload"
 
     def release(self, device) -> None:
-        import ttnn
         for st in self._st.values():
             if isinstance(st, dict):
-                ttnn.release_trace(device, st["tid"])
+                st["ttnn"].release_trace(device, st["tid"])
                 if st["btid"] is not None:
-                    ttnn.release_trace(device, st["btid"])
+                    st["ttnn"].release_trace(device, st["btid"])
         self._st.clear()
 
     def forward(self, key, trunk, host, build):
@@ -1123,7 +1122,7 @@ class _SeamTraces:
             roots, leaves = build(ins)
             outs = [ttnn.clone(r.value) for r in roots]
             ttnn.end_trace_capture(trunk.device, tid, cq_id=0)
-            st = self._st[key] = dict(tid=tid, btid=None, pinned=pinned, roots=roots,
+            st = self._st[key] = dict(ttnn=ttnn, tid=tid, btid=None, pinned=pinned, roots=roots,
                                       leaves=leaves, outs=outs, seeds=None, grads=None)
         else:
             for (t, col), p in zip(host, st["pinned"]):
