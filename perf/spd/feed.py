@@ -11,7 +11,7 @@ Each row declares what it wants measured in state/spd/grids/<row>.yaml:
         prio: 4          # pool prio 3-8
         mem: 24
         cap: 3600
-        hosts: [113]     # optional: only these pools
+        hosts: [113]     # optional: only these pools, while SPD holds one of them (else any pool of the arch)
         active: true     # false parks the experiment without deleting it
         axes: {seed: [103, 104], cpx: [9W8A, 28VJ]}     # product, first axis outermost
         vars: {out: "~/spd/spd-gap-of3/wsd/s{seed}/{cpx}"}
@@ -38,6 +38,7 @@ import itertools
 import json
 import os
 import re
+import shlex
 import subprocess
 import sys
 import time
@@ -231,6 +232,41 @@ def pools(root):
     return p
 
 
+SHA_DIR = re.compile(r"(?:tree-|t)?([0-9a-f]{7,40})")
+
+
+def tree_root(path, repo, _seen={}):
+    """(tree dir, commit) if `path` lies in a tt-bio tree named by its commit (trees/<sha>, tree-<sha>, t<sha>)."""
+    parts = path.split("/")
+    for i, comp in enumerate(parts):
+        m = SHA_DIR.fullmatch(comp)
+        if not m:
+            continue
+        if m.group(1) not in _seen:
+            r = subprocess.run(["git", "-C", repo, "rev-parse", "--verify", "-q", m.group(1) + "^{commit}"],
+                               capture_output=True, text=True)
+            _seen[m.group(1)] = r.stdout.strip() if r.returncode == 0 else None
+        if _seen[m.group(1)]:
+            return "/".join(parts[:i + 1]), m.group(1)
+    return None
+
+
+def provision(ssh, trees, repo, lockdir):
+    """Ship missing trees (git archive of the named commit + TREE_SHA) to a pool, detached, one shipper per pool.
+    A box lent after a row made its tree has none, and every job of that row would end in a second there."""
+    steps = []
+    for d, sha in sorted(trees.items()):
+        d = d.replace("~", "$HOME", 1) if d.startswith("~/") else d
+        q, part = f'"{d}"', f'"{d}.part"'
+        remote_cmd = (f"set -e; [ -e {q} ] && exit 0; rm -rf {part}; mkdir -p {part}; tar -x -C {part}; "
+                      f"echo {sha} > {part}/TREE_SHA; mv -T {part} {q}")
+        steps.append(f"git -C {shlex.quote(repo)} archive {sha} | ssh -o BatchMode=yes {ssh} {shlex.quote(remote_cmd)}")
+    sh = "; ".join(steps)
+    lock = f"{lockdir}/provision.{ssh.split('@')[-1]}.lock"
+    subprocess.Popen(["setsid", "flock", "-n", lock, "timeout", "3000", "bash", "-c", sh],
+                     stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
 def wake(root, row, why, log):
     nb = root / "state/notbefore" / row
     if nb.exists():
@@ -243,6 +279,7 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--root", default=str(D), help="coworker dir: ALLOC.json, grids, ledger, QUARANTINE.md, notbefore")
     ap.add_argument("--depth", type=float, default=2.0, help="queued jobs per healthy chip to keep")
+    ap.add_argument("--repo", default="/home/moritz/tt-bio", help="tt-bio clone that trees missing on a pool are archived from")
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args(argv)
     R = Path(a.root); S = R / "state/spd/feed"; S.mkdir(parents=True, exist_ok=True)
@@ -256,7 +293,11 @@ def main(argv=None):
 
     cs = cells(R / "state/spd/grids")
     P = pools(R)
-    paths = sorted({p for c in cs for p in c["done"] + c["requires"]})
+    for c in cs:  # Galaxies rotate: a pin to one SPD no longer holds lets the cell run on any held pool of its arch
+        if c["hosts"] and not set(c["hosts"]) & set(P):
+            c["hosts"] = []
+    roots = {p: tree_root(p, a.repo) for c in cs for p in c["requires"]}
+    paths = sorted({p for c in cs for p in c["done"] + c["requires"]} | {r[0] for r in roots.values() if r})
     st = {}
     for name, p in P.items():
         try:
@@ -310,6 +351,23 @@ def main(argv=None):
         place[n].append(job); room[n] -= 1
         ledger[c["key"]] = dict(L, host=n, name=c["name"], hash=c["hash"], state="queued", placed=stamp,
                                 fails=L.get("fails", []), quarantined=False, row=c["row"])
+    # 3. trees a pending cell needs and a pool of its arch lacks: ship them so the next pass can place there
+    ship = {n: {} for n in st}
+    for c in cs:
+        L = ledger.get(c["key"], {})
+        if c["is_done"] or L.get("quarantined") or L.get("state") in ("queued", "running"):
+            continue
+        for n in st:
+            if P[n]["arch"] == c["arch"] and (not c["hosts"] or n in c["hosts"]):
+                for x in c["requires"]:
+                    r = roots[x]
+                    if r and not st[n]["exists"].get(x) and not st[n]["exists"].get(r[0]):
+                        ship[n][r[0]] = r[1]
+    for n, trees in ship.items():
+        if trees:
+            log(f"{n}: shipping {len(trees)} tree(s): {' '.join(sorted(trees))}")
+            if not a.dry_run:
+                provision(P[n]["ssh"], trees, a.repo, S)
     qnames = {L["name"] for L in ledger.values() if L.get("quarantined")}
     for n, jobs in place.items():
         s = st[n]
