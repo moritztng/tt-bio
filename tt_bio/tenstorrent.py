@@ -10697,9 +10697,10 @@ def _mm_core_coord(gx, gy):
 # The M guard only ever declines a token axis that is not a multiple of 32, which every bucketed
 # model avoids, so in practice it is AF2-IG's ragged 195 tokens (mt 1189) that falls back to the
 # op's default, K_block 8 over a 4-tile contraction: 473 us on the qkv projection and 324 us on the
-# gate on Wormhole. M_block only tiles the rows, it does not touch the contraction order. Off until
-# the fold A/B reads it bit-exact and faster.
-_MM_RAGGED_M = env_flag("TT_BIO_QKV_MM_RAGGED_M", False)
+# gate on Wormhole. M_block only tiles the rows, it does not touch the contraction order, so the
+# fold stays bit-exact: A/B/A over three AF2-IG complexes read CA RMSD 0.0000 A on both parts and
+# -0.12 s/complex (Wormhole 4.32 -> 4.19, p150a 2.54 -> 2.42). On by default.
+_MM_RAGGED_M = env_flag("TT_BIO_QKV_MM_RAGGED_M", True)
 
 
 def _qkv_mm_config(inp, w):
