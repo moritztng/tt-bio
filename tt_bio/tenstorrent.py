@@ -648,6 +648,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias in its own set: graded on AF2-IG only, and it would reach any other biased
 # triangle attention. BoltzGen's own --fast set names dit_cond_hifi2, graded on BoltzGen's designs.
+# OpenFold3's own --fast set names dit_fuse, graded on OpenFold3 / OpenBind-0 (openfold3_fold.FAST_LEVERS).
 UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "dit_cond_hifi2", "ws_ln", "dit_fuse"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
@@ -678,7 +679,7 @@ UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "di
 # 0.336 A vs a 1.364 A floor, pLDDT -0.0032, docking 34 -> 35 of 44). ESMFold2 on Blackhole declines the kernel
 # (bf16 weights over its L1 budget), so its fold is unchanged there. Warm 512-token fold on a Galaxy chip (1000 MHz):
 # ESMFold2 -22.1 s, ESMFold2-Fast -11.3, OpenDDE -5.5, Protenix-v2 -2.8, OpenFold3 -1.5, Boltz-2 -1.1 s.
-# OpenFold3 / OpenBind-0 (their own FAST_LEVERS) take it once their Blackhole grade reads.
+# OpenFold3 / OpenBind-0 take it through their own FAST_LEVERS (openfold3_fold.py), Blackhole fast grade PASS.
 FAST_LEVERS = (frozenset(LEVERS) - {"lofi", "triatt_b8", "triatt_bias_b8", "trimul_t1", "trimul_t2", "adaln_mod",
                                     "trimul_t1_dram"}
                - UNGRADED_LEVERS)

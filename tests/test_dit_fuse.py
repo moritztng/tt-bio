@@ -60,7 +60,7 @@ def test_lever_named_and_ungraded():
     assert "dit_fuse" in T.UNGRADED_LEVERS
     assert "dit_fuse" not in T.NORMAL_LEVERS | T.FAST_LEVERS
     from tt_bio import openfold3_fold as of3
-    assert "dit_fuse" not in of3.NORMAL_LEVERS | of3.FAST_LEVERS
+    assert "dit_fuse" in of3.FAST_LEVERS and "dit_fuse" not in of3.NORMAL_LEVERS
     assert T.parse_levers(FAST + "+dit_fuse") - T.parse_levers(FAST) == {"dit_fuse"}
 
 

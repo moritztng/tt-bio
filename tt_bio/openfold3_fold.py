@@ -36,10 +36,16 @@ NORMAL_LEVERS = _T.NORMAL_LEVERS - {"transition_bw", "transition_shard"}
 # Wormhole 11-set fast grade, same chip, AICLK 1000: OpenFold3 top pose median 1.191 A (seed floor 1.122 A),
 # CA-lDDT -0.0014 [-0.0043, +0.0005], docking 21 -> 21/44, PASS, median fold 77.5 -> 72.4 s; OpenBind-0 CA-lDDT
 # +0.0008, docking 27 -> 28/44, PASS, median fold 103.8 -> 89.6 s.
-# transition_ws joins once its Blackhole fast grade passes (Wormhole PASS; see tenstorrent.FAST_LEVERS).
+# transition_ws + dit_fuse join on the Blackhole 11-set fast grade (p300c, 44 paired folds) of today's --fast plus
+# t2cm, transition_ws and dit_fuse against the --fast before them: OpenFold3 top pose median 0.406 A (seed floor
+# 0.917 A), CA-lDDT +0.0031 [+0.0002, +0.0078], docking 19 -> 22/44, PASS; OpenBind-0 top pose median 0.454 A
+# (seed floor 0.820 A), CA-lDDT +0.0003 [-0.0005, +0.0012], docking 26 -> 28/44, PASS.
+# Wormhole fast grades: transition_ws PASS (see tenstorrent.FAST_LEVERS), dit_fuse PASS on both models (44 paired
+# each, state/spd/grade-dfuse-*-wh-fast.md; DiT block 1.080 -> 1.004 ms at 1000 MHz).
 # trimul_t2cm (T2 reads the einsum's channel-major output, no reblock_permute_back) is bit-exact: Wormhole l512 coords
 # identical to --fast on 4 seeds x both models, fold 43.76 -> 43.45 s (OpenFold3) and 50.33 -> 49.97 s (OpenBind-0).
-FAST_LEVERS = NORMAL_LEVERS | {"dit_s16", "diffusion_bf16", "trimul_t1", "trimul_t2", "trimul_t2cm"}
+FAST_LEVERS = NORMAL_LEVERS | {"dit_s16", "diffusion_bf16", "trimul_t1", "trimul_t2", "trimul_t2cm", "transition_ws",
+                               "dit_fuse"}
 
 def kabsch_rmsd(pred_ca, gt_ca):
     """Optimal-superposition Cα-RMSD (Kabsch). pred_ca, gt_ca: [N, 3].
