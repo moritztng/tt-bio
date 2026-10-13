@@ -304,12 +304,10 @@ class _DevPair:
 # fp32 one), parcae_coda, the distogram's symmetrisation and the diffusion conditioning; it is
 # downloaded once, for the confidence head. Removes the trunk download and three pair uploads
 # (~1.1 s of transfers at 512 aa on p300c). Not bit-exact (bf16 readout and add): graded PASS on Blackhole
-# (ESMFold2 normal bar, ESMFold2-Fast fast bar, 11 complexes x 4 seeds), so on there by default. Wormhole is not
-# graded and keeps the host tail unless the switch is set.
+# (ESMFold2 normal bar, ESMFold2-Fast fast bar, 11 complexes x 4 seeds) and on Wormhole (fast bar for ESMFold2,
+# which Wormhole folds --fast, normal bar for -Fast; 4-6 s off a 5-sample fold there), so on by default.
 def _device_tail() -> bool:
-    if os.environ.get("TT_BIO_ESMFOLD2_DEVICE_TAIL", "").strip():
-        return env_flag("TT_BIO_ESMFOLD2_DEVICE_TAIL", False)
-    return not is_wormhole()
+    return env_flag("TT_BIO_ESMFOLD2_DEVICE_TAIL", True)
 
 
 DEVICE_TAIL_STATS = [0, 0]  # folds whose tail ran on the device, on the host
@@ -706,13 +704,31 @@ DEVICE_UPLOAD = True
 PAIR_STATE_THREAD = True
 
 
+# The pair state's truncated normal drawn by rejection: a standard normal, the 0.27 % outside +-3
+# redrawn until none is left. Same distribution as torch's trunc_normal_ (inverse-CDF through erfinv),
+# other values for a seed; 0.20 vs 1.23 s at 512 aa on qb2's host. Off = trunc_normal_ (A/B flag).
+TRUNC_REJECT = True
+
+
+def _trunc_normal_reject(shape, g):
+    x = torch.randn(shape, generator=g)
+    flat = x.view(-1)
+    idx = (flat.abs() > 3.0).nonzero().squeeze(1)
+    while idx.numel():
+        flat[idx] = torch.randn(idx.numel(), generator=g)
+        idx = idx[flat[idx].abs() > 3.0]
+    return x
+
+
 class _PairStateDraw:
     """The trunk's initial pair state, esm 3.4.1's `_init_pair_state`: a truncated normal over the
     [B, L, L, c_z] pair in float32, ~1 s of host at 512 aa that the device used to wait for. It is
     drawn on a host thread from the fold's first line, while the device runs the input embedding,
     ESMC-6B and the LM projection, from a copy of the global RNG taken there. `take` then moves the
-    global RNG to where the inline draw would have left it, so the state and every later draw are
-    bit for bit the inline ones. If anything drew from the global RNG in between, it draws inline.
+    global RNG past the draw, so every later draw follows the seed as the inline one would. With
+    TRUNC_REJECT the state's values differ from esm's trunc_normal_ (same distribution); off, they are
+    bit for bit the inline ones. If anything drew from the global RNG in between, or no draw was started,
+    `take` runs the same `_draw` on the spot, so a seed gives one state whichever way it was drawn.
     """
 
     def __init__(self):
@@ -723,8 +739,11 @@ class _PairStateDraw:
         std = (2.0 / (5.0 * shape[-1])) ** 0.5
         g = torch.Generator()
         g.set_state(rng)
-        state = torch.nn.init.trunc_normal_(torch.empty(shape, dtype=torch.float32), mean=0.0, std=std,
-                                            a=-3 * std, b=3 * std, generator=g)
+        if TRUNC_REJECT:
+            state = _trunc_normal_reject(shape, g).mul_(std)
+        else:
+            state = torch.nn.init.trunc_normal_(torch.empty(shape, dtype=torch.float32), mean=0.0, std=std,
+                                                a=-3 * std, b=3 * std, generator=g)
         return state, g.get_state()
 
     def start(self, shape):
@@ -735,11 +754,12 @@ class _PairStateDraw:
         self.key, self.rng = tuple(shape), torch.get_rng_state()
         self.nxt = self.pool.submit(self._draw, self.key, self.rng)
 
-    def take(self, ref, inline):
+    def take(self, ref):
         nxt, key, rng, self.nxt = self.nxt, self.key, self.rng, None
         if nxt is None or key != tuple(ref.shape) or not torch.equal(torch.get_rng_state(), rng):
-            return inline(ref)
-        state, after = nxt.result()
+            state, after = self._draw(tuple(ref.shape), torch.get_rng_state())
+        else:
+            state, after = nxt.result()
         torch.set_rng_state(after)
         return state.to(ref.dtype)
 
@@ -751,7 +771,7 @@ def _install_pair_state_draw(model):
     import types
 
     draw = _PairStateDraw()
-    fwd, inline = model.forward, model._init_pair_state
+    fwd = model.forward
     sig = inspect.signature(fwd)
     c_z = model.config.d_pair
 
@@ -763,8 +783,7 @@ def _install_pair_state_draw(model):
         return fwd(*args, **kwargs)
 
     model.forward = forward
-    model._init_pair_state = types.MethodType(
-        lambda self, ref: draw.take(ref, inline) if PAIR_STATE_THREAD else inline(ref), model)
+    model._init_pair_state = types.MethodType(lambda self, ref: draw.take(ref), model)
 
 
 def _install_resident_trunk_loop(model):
