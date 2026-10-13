@@ -16017,16 +16017,13 @@ class TorchWrapper(nn.Module):
             packer_l1_acc=True,
         )
 
+    # Through upload / download: a large transfer (a pair tensor, the ESMC hidden-state stack) tilizes on
+    # the chip, bit for bit the host permutation; small ones keep ttnn's host path.
     def _from_torch(self, x: torch.Tensor, dtype=ttnn.bfloat16) -> ttnn.Tensor:
-        return ttnn.from_torch(
-            x,
-            device=self.tt_device,
-            layout=ttnn.TILE_LAYOUT,
-            dtype=dtype,
-        )
+        return upload(x, dtype=dtype, device=self.tt_device)
 
     def _to_torch(self, x: ttnn.Tensor) -> torch.Tensor:
-        return torch.Tensor(ttnn.to_torch(x)).to(torch.float32)
+        return torch.Tensor(download(x)).to(torch.float32)
 
     def _cache_set(self, key: str, value):
         self._runtime_cache[key] = value
