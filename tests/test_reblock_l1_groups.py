@@ -57,7 +57,8 @@ def test_zero_restores_the_plain_edge(monkeypatch):
 
 @pytest.mark.parametrize("grid, opens, stays_shut", [
     ((8, 9), [195, 224, 256], [160, 192]),            # Galaxy Wormhole: BindCraft 2's DRAM pair at 224
-    ((13, 10), [256, 320], [224, 255]),               # p150a: below 256 the rule needs Nt=10, so unchanged
+    ((13, 10), [224, 256, 320], [192, 225, 255]),     # p150a: tile-aligned 224 measured, ragged stays shut
+    ((11, 10), [224, 256], [192, 200]),               # p150a qb1 card 0, the measured grid
 ])
 def test_dram_window_by_grid(grid, opens, stays_shut):
     x = _X(_Dev(*grid))
