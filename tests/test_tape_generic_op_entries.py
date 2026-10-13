@@ -98,7 +98,44 @@ def test_the_registry_holds_exactly_the_kernels_that_declare_an_entry():
     and reads in an A/B as a lever that measured nothing."""
     assert set(TT.KERNELS) == {"reblock_permute", "reblock_permute_back", "tri_att_sdpa_hifi",
                                "rne_add", "rne_add_masked", "reblock_permute_gated", "pair_transpose",
-                               "triatt_qkv_heads"}
+                               "triatt_qkv_heads", "mm_dualnoc_in_proj"}
+
+
+def _in_proj_entry(monkeypatch, out, seen):
+    """The dual-NOC in-projection's entry with `_v_matmul` stubbed to report what it was given."""
+    def v_matmul(shipped, args, kwargs):
+        seen.append(("v_matmul", args, dict(kwargs)))
+        return shipped(*args, **kwargs)
+
+    monkeypatch.setattr(TT, "_v_matmul", v_matmul)
+    return TT.KERNELS["mm_dualnoc_in_proj"](lambda *a, **kw: out, ("x", "w", "ckc", "dt", "mc"), {})
+
+
+def test_the_in_projections_vjp_is_the_matmuls_own(monkeypatch, taping):
+    """The kernel is `minimal_matmul` with half the drain on the other NOC, bit-exact against it,
+    so its gradient is `_v_matmul`'s and the entry delegates instead of keeping a second copy."""
+    seen = []
+    assert _in_proj_entry(monkeypatch, "out", seen) == "out"
+    assert len(seen) == 1 and seen[0][1] == ()
+    assert seen[0][2] == {"input_tensor": "x", "weight_tensor": "w",
+                          "compute_kernel_config": "ckc"}
+
+
+def test_a_refused_in_projection_returns_none_before_anything_is_taped(monkeypatch, taping):
+    """`in_proj` returns None outside the class it was transcribed for. A None cannot be taped,
+    so the refusal has to come back out through `_v_matmul` and leave the caller free to run the
+    taped `minimal_matmul` on its own operands."""
+    seen = []
+    assert _in_proj_entry(monkeypatch, None, seen) is None
+
+
+def test_a_split_in_projection_is_refused_by_the_entry(taping):
+    """A split hands back a list of destinations; concatenating their cotangents before the
+    weight gradient contracts is not written, so the entry declines rather than guess."""
+    served = []
+    out = TT.KERNELS["mm_dualnoc_in_proj"](
+        lambda *a, **kw: served.append(a) or "out", ("x", "w", "ckc", "dt", "mc", [128, 128]), {})
+    assert out is None and served == []
 
 
 def test_the_wide_adds_vjp_is_the_cotangent_to_both_operands(monkeypatch, taping):
