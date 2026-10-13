@@ -309,8 +309,15 @@ _MEASURED_CEILINGS = (
 #: All three run the same ops on the same values; only what the card holds in between differs.
 MEMORY_MODES = ("fast", "lean", "offload")
 
-#: Experiment knob (spd-gap-bind): how many of the last Evoformer blocks run un-checkpointed.
-RESIDENT_BLOCKS = int(os.environ.get("TT_BIO_BC2_RESIDENT_BLOCKS", "0"))
+#: How many of the last Evoformer blocks keep their whole tape instead of a checkpoint, so the
+#: backward does not run their forward again: an integer pins it, ``auto`` sizes it from the card
+#: (`resident_blocks`). Default 0 while ``auto`` is in its design grade.
+RESIDENT_BLOCKS = os.environ.get("TT_BIO_BC2_RESIDENT_BLOCKS", "0")
+#: A resident Evoformer block's tape, in pair tensors (256 B a token pair). Fitted on a Wormhole
+#: chip at 224 tokens: 11 resident blocks fit beside a fast round and 12 do not, which puts a
+#: block at 64-70 (.114, out/resk3_14c9d7918). 70 is the safe end.
+_RESIDENT_BLOCK_PAIR_TENSORS = 70
+_RESIDENT_MARGIN_BYTES = int(0.5e9)
 
 #: Device bytes a gradient round peaks at, per mode: a constant plus a count of bf16
 #: `[N, N, 128]` pair tensors (256 B a token pair). `fast` is `bcw-census`'s account, which the
@@ -332,6 +339,23 @@ _MODE_USABLE = 0.978
 def round_device_bytes(mode: str, padded: int) -> int:
     """What a gradient round at this token axis peaks at on the card in `mode`."""
     return int(_MODE_BASE_BYTES + _MODE_PAIR_TENSORS[mode] * 256 * int(padded) ** 2)
+
+
+def resident_blocks(mode: str, padded: int, card_bytes: int, slot: str = "",
+                    blocks: int = EVOFORMER_BLOCKS, requested: str | None = None) -> int:
+    """How many of the last `blocks` Evoformer blocks keep their tape (`RESIDENT_BLOCKS`).
+
+    ``auto`` fills what the card has left after a fast round, and is 0 in the slower modes
+    (they exist because the card is short) and for an interleaved trajectory (`slot` set): its
+    neighbours peak at other times, so the room one sees is not its own to spend."""
+    requested = RESIDENT_BLOCKS if requested is None else requested
+    if requested != "auto":
+        return max(0, min(blocks, int(requested)))
+    if mode != "fast" or slot:
+        return 0
+    room = card_bytes * _MODE_USABLE - round_device_bytes("fast", padded) - _RESIDENT_MARGIN_BYTES
+    per = _RESIDENT_BLOCK_PAIR_TENSORS * 256 * int(padded) ** 2
+    return max(0, min(blocks, int(room // per)))
 
 
 def memory_mode(requested: str, padded: int, card_bytes: int) -> str:
@@ -910,13 +934,13 @@ class _Trunk:
         return mode == "offload"
 
     def evoformer(self, m, z, msa_mask, pair_masks, recompute: bool, offload: bool = False,
-                  drop=None):
+                  drop=None, resident: int = 0):
         """`drop` is one `{op: keep mask}` per block, or None for a stack that drops nothing.
 
-        The last `RESIDENT_BLOCKS` blocks skip the checkpoint and keep their whole tape: the
-        backward reaches them first and frees them first, and they cost no recompute."""
+        The last `resident` blocks skip the checkpoint and keep their whole tape: the backward
+        reaches them first and frees them first, and they cost no recompute."""
         blocks = self.model.device_evoformer
-        keep = len(blocks) - RESIDENT_BLOCKS
+        keep = len(blocks) - resident
         for i, block in enumerate(blocks):
             d = None if drop is None else drop[i]
             if i >= keep:
@@ -1435,7 +1459,9 @@ class EvoformerOnDevice:
             with trunk.taped.tape():
                 mo, zo = trunk.evoformer(ml, zl, self._msa_mask(trunk, mask),
                                          self._pair_masks(trunk, pair_mask),
-                                         recompute=self.recompute, offload=offload, drop=drop)
+                                         recompute=self.recompute, offload=offload, drop=drop,
+                                         resident=resident_blocks(mode, z.shape[0],
+                                                                  trunk.card_bytes(), slot))
             trunk.sync()
             trunk.ag.release_pins()
             token = self._tapes.bank({"roots": (mo, zo), "leaves": (ml, zl),
