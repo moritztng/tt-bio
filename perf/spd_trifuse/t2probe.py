@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Does trimul_t2g change one ESMFold2 trunk call under a lever set? Same z, same random weights, one call per
-arm (ESMFold2's form: add_to_input, no mask), arms are lever specs ("<spec>@gin=hifi2" runs gin_moved at that fidelity, "<spec>@ginfast" lets gin
+arm (ESMFold2's form: add_to_input, no mask), arms are lever specs ("<spec>@gin=hifi2" runs gin_moved at that fidelity, "<spec>@ginfast" adds trimul_gin_b8, so gin can
 serve under --fast-mode). Prints bit equality against the first arm,
 float64 error and T2 served/declined per arm.
 
@@ -59,7 +59,7 @@ for arm in (a.arms.split(";") if ";" in a.arms else a.arms.split(",")):
     # "<spec>@gin=<fid>": gin_moved runs at that math fidelity, the rest of the call at the set's
     spec, _, gfid = arm.partition("@gin=")
     spec, ginfast, _ = spec.partition("@ginfast")
-    T._TRIMUL_GIN_FAST = bool(ginfast)
+    spec += "+trimul_gin_b8" if ginfast else ""
     b0 = dict(T.TRIMUL_MM_TRANSPOSE_STATS)
     TL.gin_moved = _gin if not gfid else (
         lambda x, wpT, wgT, ckc, grid, mask=None, _f=FID[gfid]: _gin(x, wpT, wgT, (_f,) + tuple(ckc[1:]), grid, mask=mask))
