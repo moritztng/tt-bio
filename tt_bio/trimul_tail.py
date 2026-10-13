@@ -1102,6 +1102,8 @@ def fused_tail_ln(x, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5, wg=None, mov
             return None
     elif _t2_tiles(kt, nt, block[0], wg is not None) * MG.tile_bytes(ttnn.bfloat16) > 0.85 * TT._l1_bank_bytes():
         T2_STATS[1] += 1
+        k = ("t2:l1", "x".join(str(int(d)) for d in x.padded_shape))
+        REJECTS[k] = REJECTS.get(k, 0) + 1
         return None
     spec = lambda t: (str(t.padded_shape), str(t.dtype), str(t.memory_config()))
     key = ("t2", spec(x), spec(wp), spec(ln_w), spec(ln_b), wg is not None, tuple(grid),

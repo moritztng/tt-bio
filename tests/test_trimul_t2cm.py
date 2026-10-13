@@ -77,7 +77,7 @@ def test_eligibility_declines_cleanly(monkeypatch):
         a = _args()
         a["g"] = _Fake([1, 512, 512, 128], dtype=ttnn.bfloat8_b)
         assert TTL.t2cm_eligible(**a) == "dtype"
-        monkeypatch.setattr(T, "_l1_bank_bytes", lambda: 600_000)        # a smaller part: refuse, not throw
+        monkeypatch.setattr(T, "_l1_bank_bytes", lambda: 100_000)        # a smaller part: refuse, not throw
         assert TTL.t2cm_eligible(**_args()) == "l1"
 
 
