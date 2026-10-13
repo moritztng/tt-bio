@@ -1263,6 +1263,17 @@ def _covalent_bonds(spi, bonds):
 # Largest token count measured to fold on a 12 GiB Wormhole chip with the ESMC-6B resident
 # (single sequence, whglx 2026-09-23). Above it the LM is released after its forward.
 WH_LM_RESIDENT_MAX_TOKENS = 1088
+WH_LM_RESIDENT_MSA_BYTES = 64 << 20
+WH_LM_RESIDENT_MSA_MAX_TOKENS = 768  # an MSA fold above it releases at any depth (pair track + encoder headroom)
+
+
+def wh_releases_lm(chains) -> bool:
+    """Whether a Wormhole fold of `chains` releases the ESMC-6B after its forward (see fold_complex)."""
+    tokens = sum(len(c[1]) for c in chains)
+    depth = max((c[2].depth for c in chains if len(c) > 2 and c[2] is not None), default=0)
+    if depth:
+        return tokens > WH_LM_RESIDENT_MSA_MAX_TOKENS or tokens * depth * 1024 > WH_LM_RESIDENT_MSA_BYTES
+    return tokens > WH_LM_RESIDENT_MAX_TOKENS
 
 
 # The shared-kernel levers (tenstorrent.LEVERS) ESMFold2 folds under, per mode. Empty until a set is graded on
@@ -1333,12 +1344,14 @@ def fold_complex(model, chains, *, num_loops=3, num_sampling_steps=20,
     spi = build_spi(chains, bonds)
     # A 12 GiB Wormhole chip cannot hold the resident block-fp8 ESMC-6B (6.29 GiB)
     # plus the MSA encoder's [1, L, M, d] activation, which is 1.0 GiB at 128 aa for
-    # the default M=8192 and grows with L: every MSA fold died in the encoder with
-    # ~70 MiB of contiguous DRAM left. Release the language model after its single
-    # forward (it runs once per fold, outside the recycling loop) and pay one reload.
+    # M=8192 and grows with L and M: those MSA folds died in the encoder with ~70 MiB of
+    # contiguous DRAM left. Release the language model after its single forward (it runs
+    # once per fold, outside the recycling loop) and pay one reload, ~75 s on a Galaxy chip.
     # Bit-exact: same weights, same dtype, same order, only the device buffers move.
     # Blackhole (32 GB) always keeps the LM resident, and so does a Wormhole fold without an
-    # MSA up to WH_LM_RESIDENT_MAX_TOKENS.
+    # MSA up to WH_LM_RESIDENT_MAX_TOKENS, or with one up to WH_LM_RESIDENT_MSA_MAX_TOKENS whose
+    # activation (L x depth x 1 KiB, bf16 d=512) stays within WH_LM_RESIDENT_MSA_BYTES: a shallow MSA (the 512-aa page fixture has 35 rows,
+    # 18 MiB) needs no release, so a warm fold there no longer pays the reload.
     #
     # The same holds without an MSA once the pair track is large: single-sequence esmfold2 folded
     # 1088 tokens on the Galaxy with the LM resident and died at 1152 in the MSA encoder's pair FFN
@@ -1346,9 +1359,7 @@ def fold_complex(model, chains, *, num_loops=3, num_sampling_steps=20,
     # pays nothing for the release; a server folding many large targets pays one reload each.
     esmc = getattr(model, "_esmc", None)
     release_lm = (esmc is not None and getattr(esmc, "_persistent", False)
-                  and (any(len(c) > 2 and c[2] is not None for c in chains)
-                       or sum(len(c[1]) for c in chains) > WH_LM_RESIDENT_MAX_TOKENS)
-                  and is_wormhole())
+                  and is_wormhole() and wh_releases_lm(chains))
     if release_lm:
         esmc._persistent = False
     from tt_bio import tenstorrent
