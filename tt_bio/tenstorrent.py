@@ -9254,7 +9254,8 @@ class TriangleMultiplication(Module):
             return None
         mask_ok = mask is None or (_TRIMUL_MASK_AFTER_MOVE and len(mask.shape) == 3)
         why = next((k for k, bad in (
-            ("tape", lambda: ops.taping()), ("fast_mode", lambda: _FAST_MODE),
+            ("tape", lambda: ops.recording()),
+            ("tape_nograd", lambda: ops.taping()), ("fast_mode", lambda: _FAST_MODE),
             ("raw_moves", lambda: _TRIMUL_RAW_CHANNEL_MOVES), ("rowblock", lambda: _TRIMUL_INPROJ_ROWBLOCK),
             # g_in / p_in / g_out biases (AF2) ride T1 as bias tiles (`_t1_bias`); only the
             # training leaves (`train_in_proj`) still decline.
