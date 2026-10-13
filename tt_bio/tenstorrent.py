@@ -15161,11 +15161,11 @@ class PairWeightedAveraging(Module):
         return o_out
 
 
-
 # The small-depth outer product mean's per-row contraction on `batched_matmul` (the I batch spread
-# over the grid) instead of ttnn's default plan. Same K block, so the output is meant to be
-# `torch.equal`; the AF2-IG A/B checks that on coordinates. Off until measured.
-_OPM_SMALL_DEPTH_BMM = env_flag("TT_BIO_OPM_SMALL_DEPTH_BMM", False)
+# over the grid) instead of ttnn's default plan. D is one K tile, so the output is `torch.equal`:
+# AF2-IG at 195 tokens kept CA RMSD 0.0000 A and ran 4.15 -> 4.04 s on Wormhole (1000 MHz),
+# 2.63 -> 2.59 s on p150a (1350 MHz).
+_OPM_SMALL_DEPTH_BMM = env_flag("TT_BIO_OPM_SMALL_DEPTH_BMM", True)
 
 class OuterProductMean(Module):
     def __init__(

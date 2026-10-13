@@ -57,6 +57,7 @@ move against the accuracy bar and the seed-to-seed spread.
 | [`TT_BIO_OPM_JOIN_PARTS`, `TT_BIO_OPM_PROJ_BATCH`](#msa-module-flags) | on | MSA models; graded on Protenix-v2 | join moves, inside the bar; projection batch identical |
 | [`TT_BIO_OPM_LEGACY_LAYOUT`](#tt_bio_opm_legacy_layout) | off | | moves, inside the seed spread |
 | [`TT_BIO_OPM_SMALL_DEPTH`](#tt_bio_opm_small_depth) | on | MSA depth 8 or less (AF2-IG, single-sequence folds) | moves, inside the bar |
+| [`TT_BIO_OPM_SMALL_DEPTH_BMM`](#tt_bio_opm_small_depth) | on | same | identical |
 | [`TT_BIO_PAIR_FFN_L1_FC1`](#tt_bio_pair_ffn_l1_fc1) | on | ESMFold2 | identical |
 | [`TT_BIO_PAIR_INPLACE`, `TT_BIO_TRIMUL_INPROJ_ROWBLOCK_NORM`](#tt_bio_pair_inplace-tt_bio_trimul_inproj_rowblock_norm) | on | large pair tensors | identical |
 | [`TT_BIO_PAIR_MM`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round; on for AF2 on Wormhole | BindCraft 2, AF2 and AF2-IG | moves, far inside the bar |
@@ -977,6 +978,10 @@ Against a float64 evaluation of the same operands its error is 1.02x the origina
 0.02 to 0.25 A and ipTM moves by at most 0.0005. Per complex it saves 1.1 s on a p150a
 (5.63 to 4.54 s at 1350 MHz) and 6.4 s on a Wormhole Galaxy chip (16.16 to 9.73 s at 1000 MHz).
 Set `TT_BIO_OPM_SMALL_DEPTH=0` to get the original form.
+
+`TT_BIO_OPM_SMALL_DEPTH_BMM` (default on) spreads the per-row contraction of this form over the
+whole core grid. The output is identical. On AF2-IG it saves 0.12 s per complex on Wormhole (4.15
+to 4.04 s at 1000 MHz) and 0.04 s on a p150a (2.63 to 2.59 s at 1350 MHz).
 
 ## `TT_BIO_OPM_LEGACY_LAYOUT`
 
