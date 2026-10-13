@@ -10766,6 +10766,14 @@ def _mm_core_coord(gx, gy):
     return ttnn.CoreCoord(gx, gy)
 
 
+# The M guard only ever declines a token axis that is not a multiple of 32, which every bucketed
+# model avoids, so in practice it is AF2-IG's ragged 195 tokens (mt 1189) that falls back to the
+# op's default, K_block 8 over a 4-tile contraction: 473 us on the qkv projection and 324 us on the
+# gate on Wormhole. M_block only tiles the rows, it does not touch the contraction order. Off until
+# the fold A/B reads it bit-exact and faster.
+_MM_RAGGED_M = env_flag("TT_BIO_QKV_MM_RAGGED_M", False)
+
+
 def _qkv_mm_config(inp, w):
     """The swept block config for this (activation, weight) pair, or None to leave the op alone."""
     if not _MM_CFG:
@@ -10785,7 +10793,7 @@ def _qkv_mm_config(inp, w):
     # contraction in a different order than the unconfigured op. `_MM_DEFAULT` cannot: it IS that
     # order. Scope the relaxation by object identity on the one shared tuple, so the six swept
     # entries keep all three guards and every other model stays byte-for-byte on today's path.
-    if blk is not _MM_DEFAULT and (kt % K or mt % M or nt % N):
+    if blk is not _MM_DEFAULT and (kt % K or (mt % M and not _MM_RAGGED_M) or nt % N):
         return None
     return ttnn.MinimalMatmulConfig(
         M_block_size=M, K_block_size=K, N_block_size=N, subblock_h=sh, subblock_w=sw,
