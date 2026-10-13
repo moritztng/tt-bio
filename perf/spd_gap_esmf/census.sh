@@ -9,7 +9,7 @@ TREE=$(cd "$(dirname "$0")/../.." && pwd); LOCK=${LOCK:-$HOME/spd_qb1_card$CHIP.
 export TT_METAL_HOME=$B/tt-metal
 export PYTHONPATH=$TREE:$TT_METAL_HOME/ttnn:$TT_METAL_HOME/tools:$TT_METAL_HOME
 export LD_LIBRARY_PATH=$TT_METAL_HOME/build_Release/lib:$B/syslib
-export TT_METAL_LOGS_PATH=$RUN/tt-logs TT_VISIBLE_DEVICES=$CHIP TT_BIO_LEASE_HOLDER=spd-gap-esmf
+export TT_METAL_LOGS_PATH=$RUN/tt-logs TT_VISIBLE_DEVICES=$CHIP TT_BIO_LEASE_HOLDER=${TT_BIO_LEASE_HOLDER:-spd-gap-esmf}
 export TT_METAL_DEVICE_PROFILER=1 TT_METAL_PROFILER_MID_RUN_DUMP=1 TT_METAL_PROFILER_CPP_POST_PROCESS=1 \
        TT_METAL_PROFILER_DISABLE_DUMP_TO_FILES=1 TT_METAL_PROFILER_DISABLE_PUSH_TO_TRACY=1
 # Fresh profiler dir and kernel cache per run (zone-hash collisions, see run.sh). XDG_CACHE_HOME stays: it
