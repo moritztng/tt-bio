@@ -212,11 +212,6 @@ _ESMC_QKV_SPLIT = env_flag("TT_BIO_ESMC_QKV_SPLIT", False)
 # ESMC-6B gains nothing (p300c page cell, identical digests: ESMFold2 +0.76 s on a 0.89 s spread, ESMFold2-Fast
 # 16.48 -> 16.55 s), so the Block of a model past _LM_FFN_TILE_MODEL_BYTES keeps the DRAM path (Attention.qk_l1).
 _ESMC_QK_L1 = env_flag("TT_BIO_ESMC_QK_L1", True)
-
-# Replay batched forwards from the trace too (ESMC.trace gated on B == 1). The B == 1 gate was set on ubiquitin-sized
-# batches (~1.02x at B=4, ttnn 0.68); a 7 x 544 Blackhole batch spreads 110-127 ms within one process, the signature
-# of a host-dispatch-bound forward. Same captured program, so output is bit-identical to eager. Off until measured.
-_TRACE_BATCH = env_flag("TT_BIO_ESMC_TRACE_BATCH", False)
 _QK_L1_REFUSED: set = set()
 #: [attention calls served from L1, declined], read by the A/B harness.
 QK_L1_STATS = [0, 0]
@@ -520,9 +515,6 @@ _LM_FFN_TILE_MODEL_BYTES = env_int("TT_BIO_LM_FFN_TILE_MODEL_BYTES", 4 << 30)
 # values (a memory placement); a refusal falls back to DRAM for that shape for good. Off until the page-cell A/B says.
 _ESMC_GATE_L1 = env_flag("TT_BIO_ESMC_GATE_L1", False)
 _GATE_L1_REFUSED: set = set()
-# ESMC's own per-token gate on the legacy binary multiply, the variant the pair FFN takes on Blackhole. Off until the
-# esmc_ab page cell and fp32 accuracy say; the pair FFN's switch above does not reach this path.
-_ESMC_GATE_LEGACY = env_flag("TT_BIO_ESMC_GATE_LEGACY", False)
 #: [gates served from L1, declined], read by the A/B harness.
 GATE_L1_STATS = [0, 0]
 
@@ -834,8 +826,7 @@ class SwiGLUFFN(Module):
             key = tuple(h1.padded_shape)
             if not l1_gated and _ESMC_GATE_L1 and len(h1.shape) == 3 and key not in _GATE_L1_REFUSED:
                 try:
-                    gated = ttnn.multiply(h1, h2, memory_config=ttnn.L1_MEMORY_CONFIG, **act,
-                                          **({"use_legacy": True} if _ESMC_GATE_LEGACY else {}))
+                    gated = ttnn.multiply(h1, h2, memory_config=ttnn.L1_MEMORY_CONFIG, **act)
                     GATE_L1_STATS[0] += 1
                 except Exception as exc:
                     if not _is_alloc_refusal(exc):
@@ -846,7 +837,7 @@ class SwiGLUFFN(Module):
                 GATE_L1_STATS[1] += bool(not l1_gated and _ESMC_GATE_L1 and len(h1.shape) == 3)
                 gated = ttnn.multiply(
                     h1, h2, **act,
-                    **({"use_legacy": True} if (_swiglu_gate_legacy() if l1_gated else _ESMC_GATE_LEGACY) else {}),
+                    **({"use_legacy": True} if l1_gated and _swiglu_gate_legacy() else {}),
                     **({"memory_config": ttnn.L1_MEMORY_CONFIG} if l1_gated else {}),
                 )
             ttnn.deallocate(h1)
@@ -1418,7 +1409,7 @@ class ESMC(TorchWrapper):
         return logits[:, :L], emb[:, :L]
 
     def _dispatch(self, tokens, attn_mask, key_valid):
-        if self.trace and not self._trace_broken and (tokens.shape[0] == 1 or _TRACE_BATCH):
+        if self.trace and not self._trace_broken and tokens.shape[0] == 1:
             key = (tuple(tokens.shape), attn_mask is not None, key_valid is not None)
             if key in self._trace_cache:
                 return self._forward_traced(tokens, attn_mask, key_valid)
