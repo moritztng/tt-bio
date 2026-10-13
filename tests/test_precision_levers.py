@@ -185,3 +185,9 @@ def test_boltzgen_mode_sets_name_only_known_levers():
 
     assert B.LEVERS_NORMAL <= set(T.LEVERS) and not B.LEVERS_NORMAL & T.UNGRADED_LEVERS
     assert B.LEVERS_FAST <= set(T.LEVERS) | T.UNGRADED_LEVERS
+
+
+def test_opendde_fast_set_names_only_known_levers():
+    from tt_bio.opendde import FAST_LEVERS
+
+    assert FAST_LEVERS <= set(T.LEVERS) and {"trimul_b8in", "trimul_t2w"} <= FAST_LEVERS and "dit_b8" not in FAST_LEVERS
