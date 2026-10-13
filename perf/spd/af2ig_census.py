@@ -34,6 +34,8 @@ p.add_argument("--warm", type=int, default=2)
 p.add_argument("--reps", type=int, default=3)
 p.add_argument("--save-coords", action="store_true",
                help="write every timed rep's coordinates to <out>/coords-<rep>.npy")
+p.add_argument("--structure", choices=("off", "on", "tr"), default="off",
+               help="structure module on host (off), on card (on), on card replayed from a trace (tr)")
 p.add_argument("--trace", action="store_true",
                help="replay the two device stacks from a trace (AF2DeviceModel.trace_stacks)")
 p.add_argument("--trace-stacks", default="",
@@ -59,10 +61,11 @@ from tt_bio.af2_weights import load_af2_state_dict  # noqa: E402
 from tt_bio.af2ig import fold, token_count  # noqa: E402
 from tt_bio.af2ig_input import read_af2ig_input  # noqa: E402
 
-if a.trace:
+if a.trace or a.structure == "tr":
     from tt_bio.tenstorrent import get_device
     get_device(trace="af2")
 model = load_af2_device_model(load_af2_state_dict(a.params), template=True).eval()
+model.structure_on_card, model.structure_trace = a.structure != "off", a.structure == "tr"
 model.trace_stacks = (set(a.trace_stacks.split(",")) if a.trace and a.trace_stacks else a.trace)
 model.trace_blocks, model.trace_blocking = a.trace_blocks, a.trace_blocking
 if a.trimul_budget_scale:
@@ -100,8 +103,10 @@ def timed(name, fn):
     return wrapper
 
 
+# On card the structure module runs inside run_structure (upload, layers, host geometry tail),
+# which the host path reaches through `structure`; time whichever the arm takes.
 STAGES = ("template_embedding", "extra_msa_stack", "evoformer_stack", "single_activations",
-          "structure", "relative_encoding")
+          "structure" if a.structure == "off" else "run_structure", "relative_encoding")
 
 clocks: list[int] = []
 stop = threading.Event()
@@ -181,6 +186,7 @@ for n, c in clocks:
     by_node[n].append(c)
 res = {"input": a.input, "tokens": token_count(spec), "trace": a.trace, "coords_sha16": digests, "metrics": metrics,
        "plain_fold_s": plain, "staged_fold_s": staged, "per_fold_stage_s": per_fold,
+       "structure": a.structure, "traces_captured": sorted({str(k[0]) for k, v in model._traces.items() if v is not None}),
        "calls_per_fold": {k: len(v) // a.reps for k, v in T.items()},
        "profiled_fold_s": prof_s, "ttnn_frames_calls": ttnn_calls,
        "aiclk": {n: {"median": statistics.median(v), "min": min(v), "max": max(v), "n": len(v)}
