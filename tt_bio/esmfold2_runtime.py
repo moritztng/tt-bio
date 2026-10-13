@@ -700,12 +700,29 @@ DEVICE_UPLOAD = True
 PAIR_STATE_THREAD = True
 
 
+# The pair state's truncated normal drawn by rejection: a standard normal, the 0.27 % outside +-3
+# redrawn until none is left. Same distribution as torch's trunc_normal_ (inverse-CDF through erfinv),
+# other values for a seed; 0.20 vs 1.23 s at 512 aa on qb2's host. Off = trunc_normal_ (A/B flag).
+TRUNC_REJECT = True
+
+
+def _trunc_normal_reject(shape, g):
+    x = torch.randn(shape, generator=g)
+    flat = x.view(-1)
+    idx = (flat.abs() > 3.0).nonzero().squeeze(1)
+    while idx.numel():
+        flat[idx] = torch.randn(idx.numel(), generator=g)
+        idx = idx[flat[idx].abs() > 3.0]
+    return x
+
+
 class _PairStateDraw:
     """The trunk's initial pair state, esm 3.4.1's `_init_pair_state`: a truncated normal over the
     [B, L, L, c_z] pair in float32, ~1 s of host at 512 aa that the device used to wait for. It is
     drawn on a host thread from the fold's first line, while the device runs the input embedding,
     ESMC-6B and the LM projection, from a copy of the global RNG taken there. `take` then moves the
-    global RNG to where the inline draw would have left it, so the state and every later draw are
+    global RNG past the draw, so every later draw follows the seed as the inline one would. With
+    TRUNC_REJECT the state's values differ from esm's trunc_normal_ (same distribution); off, they are
     bit for bit the inline ones. If anything drew from the global RNG in between, it draws inline.
     """
 
@@ -717,8 +734,11 @@ class _PairStateDraw:
         std = (2.0 / (5.0 * shape[-1])) ** 0.5
         g = torch.Generator()
         g.set_state(rng)
-        state = torch.nn.init.trunc_normal_(torch.empty(shape, dtype=torch.float32), mean=0.0, std=std,
-                                            a=-3 * std, b=3 * std, generator=g)
+        if TRUNC_REJECT:
+            state = _trunc_normal_reject(shape, g).mul_(std)
+        else:
+            state = torch.nn.init.trunc_normal_(torch.empty(shape, dtype=torch.float32), mean=0.0, std=std,
+                                                a=-3 * std, b=3 * std, generator=g)
         return state, g.get_state()
 
     def start(self, shape):
