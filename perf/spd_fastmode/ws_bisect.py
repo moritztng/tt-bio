@@ -24,7 +24,7 @@ dev = T.get_device()
 CORES = dev.compute_with_storage_grid_size().x * dev.compute_with_storage_grid_size().y
 
 
-def case(tag, c, h, wdt, fid, silu=2, seed=0):
+def case(tag, c, h, wdt, fid, silu=2, seed=0, defines=()):
     g = torch.Generator().manual_seed(seed)
     w1, w2 = torch.randn(h, c, generator=g) / c ** 0.5, torch.randn(h, c, generator=g) / c ** 0.5
     w3 = torch.randn(c, h, generator=g) / h ** 0.5
@@ -43,7 +43,7 @@ def case(tag, c, h, wdt, fid, silu=2, seed=0):
     if not W.eligible(xt, w12, w3t):
         print(json.dumps(dict(tag=tag, eligible=False, l1=W._l1_bytes(c // 32, h // 32, c // 32, wdt))), flush=True)
         return
-    outs = [ttnn.to_torch(W.pair_swiglu(xt, w12, w3t, fid, silu_poly=silu)).double() for _ in range(2)]
+    outs = [ttnn.to_torch(W.pair_swiglu(xt, w12, w3t, fid, defines=defines, silu_poly=silu)).double() for _ in range(2)]
     d = (outs[0] - ref).abs()
     bad = (d > 0.1).reshape(N * N // 32, 32, c // 32, 32)
     i = int(d.argmax())
@@ -61,7 +61,19 @@ def case(tag, c, h, wdt, fid, silu=2, seed=0):
 
 H4, H2 = ttnn.MathFidelity.HiFi4, ttnn.MathFidelity.HiFi2
 B16, B8 = ttnn.bfloat16, ttnn.bfloat8_b
-for args in (("ctrl c128 h512 bf16 HiFi4", 128, 512, B16, H4),
+import sys  # noqa: E402
+if sys.argv[1:] == ["2"]:
+    # wsb2: wsb1 put the fault on HiFi4 at every shape (HiFi2 clean); which fidelities, and is it init state?
+    CASES = (("c128 h512 bf16 HiFi4", 128, 512, B16, H4),
+             ("c128 h512 bf16 HiFi3", 128, 512, B16, ttnn.MathFidelity.HiFi3),
+             ("c128 h512 bf16 LoFi", 128, 512, B16, ttnn.MathFidelity.LoFi),
+             ("c128 h512 bf16 HiFi2", 128, 512, B16, H2),
+             ("c128 h512 bf16 HiFi4 full init", 128, 512, B16, H4, 2, 0, (("WS_FULL_INIT", "1"),)),
+             ("c128 h512 bf16 HiFi4 full init fc3", 128, 512, B16, H4, 2, 0, (("WS_FULL_INIT_FC3", "1"),)),
+             ("c256 h512 bf16 HiFi3", 256, 512, B16, ttnn.MathFidelity.HiFi3),
+             ("c256 h512 bf16 HiFi4 full init", 256, 512, B16, H4, 2, 0, (("WS_FULL_INIT", "1"),)))
+else:
+    CASES = (("ctrl c128 h512 bf16 HiFi4", 128, 512, B16, H4),
              ("c256 h512 bf16 HiFi4 (= one chunk of the faulty path)", 256, 512, B16, H4),
              ("c256 h512 bf16 HiFi2", 256, 512, B16, H2),
              ("c256 h512 bf16 HiFi4 silu metal", 256, 512, B16, H4, 0),
@@ -69,5 +81,6 @@ for args in (("ctrl c128 h512 bf16 HiFi4", 128, 512, B16, H4),
              ("c256 h512 bfp8 HiFi4", 256, 512, B8, H4),
              ("c256 h1024 bfp8 HiFi2 (shipped fast, one chunk)", 256, 1024, B8, H2),
              ("c128 h1024 bf16 HiFi4", 128, 1024, B16, H4),
-             ("c256 h512 bf16 HiFi4 seed1", 256, 512, B16, H4, 2, 1)):
+             ("c256 h512 bf16 HiFi4 seed1", 256, 512, B16, H4, 2, 1))
+for args in CASES:
     case(*args)
