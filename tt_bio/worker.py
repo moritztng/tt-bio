@@ -960,8 +960,16 @@ class _WorkerState:
                 cfg.get("opendde_ckpt"), abag=(model_id == "opendde-abag"),
                 diffusion_fp32=None if prec is None else prec == "fp32")
         elif model_id == "af2ig":
+            from tt_bio import af2
             from tt_bio.af2 import load_af2_device_model
             from tt_bio.af2_weights import load_af2_state_dict
+            from tt_bio.tenstorrent import cleanup, get_device, trace_region_size
+
+            if af2.STRUCTURE_ON_CARD and af2.STRUCTURE_TRACE and trace_region_size() <= 0:
+                # The structure module replays a captured trace, and its region is reserved
+                # only at open: close a chip opened without one (as for openfold3 above).
+                cleanup()
+                get_device(trace="af2")
 
             # template=True is the binder protocol: AF2-IG's template IS the complex you
             # submitted, which is also its initial guess.
