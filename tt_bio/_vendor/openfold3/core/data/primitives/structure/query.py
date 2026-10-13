@@ -203,44 +203,28 @@ def _drop_conformer_pool():
 os.register_at_fork(after_in_child=_drop_conformer_pool)
 
 
-def _pooled_one(seed, job):
-    conformer_mod.pool_seed(seed)
-    arr, leaving, template = job
-    if template is not None:
-        return _processed_reference_molecule_from_template(template, arr, leaving)
-    return processed_reference_molecule_from_atom_array(arr, atoms_to_mask=leaving)
+def _pooled_reference_molecules(jobs: list) -> list:
+    """Every job's reference molecule, computed on a thread pool.
 
-
-class _PooledReferenceMolecules:
-    """Reference molecules computed on the thread pool as the residues are submitted.
-
-    Each residue's seed is drawn when it is submitted, in residue order, so residue i
+    The seeds are pre-drawn in residue order and handed out one per residue, so residue i
     embeds with exactly the seed the sequential loop would have drawn for it, and a retry
     inside residue i draws from that seed's own stream. No residue can reach another's
     seed, so the pooled result is the sequential result.
     """
+    seeds = [random.randint(0, 10**9) for _ in jobs]
 
-    def __init__(self):
-        global _CONFORMER_POOL
-        if _CONFORMER_POOL is None:
-            _CONFORMER_POOL = ThreadPoolExecutor(max_workers=CONFORMER_THREADS,
-                                                 thread_name_prefix="of3-conformer")
-        self._futures = []
+    def one(i):
+        conformer_mod.pool_seed(seeds[i])
+        arr, leaving, template = jobs[i]
+        if template is not None:
+            return _processed_reference_molecule_from_template(template, arr, leaving)
+        return processed_reference_molecule_from_atom_array(arr, atoms_to_mask=leaving)
 
-    def submit(self, job) -> None:
-        seed = random.randint(0, 10**9)
-        self._futures.append(_CONFORMER_POOL.submit(_pooled_one, seed, job))
-
-    def results(self) -> list:
-        return [f.result() for f in self._futures]
-
-
-def _pooled_reference_molecules(jobs: list) -> list:
-    """Every job's reference molecule, computed on the thread pool (see above)."""
-    pooled = _PooledReferenceMolecules()
-    for job in jobs:
-        pooled.submit(job)
-    return pooled.results()
+    global _CONFORMER_POOL
+    if _CONFORMER_POOL is None:
+        _CONFORMER_POOL = ThreadPoolExecutor(max_workers=CONFORMER_THREADS,
+                                             thread_name_prefix="of3-conformer")
+    return list(_CONFORMER_POOL.map(one, range(len(jobs))))
 
 
 # One reference conformer per residue TYPE instead of one per residue. A 512-residue
