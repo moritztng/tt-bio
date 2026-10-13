@@ -498,7 +498,7 @@ class _ShimAdapter(_Adapter):
         m = self.m
         hs = _to_t(args[0])
         LM_HANDOFF_STATS[0] += 1
-        return _DevPair(m.module(m._from_torch(hs), torch.softmax(m._combine, 0)),
+        return _DevPair(m.module(m._from_torch(E.flat_layers(hs)), torch.softmax(m._combine, 0)),
                         int(hs.shape[1]))
 
 
