@@ -299,13 +299,13 @@ class OF3SampleDiffusion:
         """centre_random_augmentation + the step's noise, on the host, each sample its own draws."""
         xl_noisy = torch.empty_like(xl_host)
         for k in range(xl_host.shape[0]):
-            rots = rots_list[k][tau].float()                 # [3, 3]
-            trans = trans_list[k][tau].float()               # [3]
             x = xl_host[k]
+            rots = rots_list[k][tau].to(x.dtype)             # [3, 3]
+            trans = trans_list[k][tau].to(x.dtype)           # [3]
             mean_xl = (x * atom_mask_host[:, None]).sum(0) / atom_mask_host.sum().clamp_min(1.0)
             xl_aug = (x - mean_xl) @ rots.t() + trans
             xl_aug = xl_aug * atom_mask_host[:, None]
-            xl_noisy[k] = xl_aug + noise_list[k][tau].float()
+            xl_noisy[k] = xl_aug + noise_list[k][tau].to(x.dtype)
         return xl_noisy
 
     def _traceable(self, S, width):
