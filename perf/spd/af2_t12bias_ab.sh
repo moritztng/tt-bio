@@ -93,6 +93,9 @@ if outs:
                             pbias=TTL.t2_bias_tiles(bpo, dev))
     if got is None:
         print(f"T2 declined: {TTL.REJECTS}")
+        from tt_bio import ops as _ops
+        print(f"T2 why: eligible={TTL.t2_eligible(up(xo), lwt, lbt, up(wpo), outs[2], zt)!r} "
+              f"taping={_ops.taping()} dest_guard={TTL.dest_guard.exposed_args(ckc)!r}")
     else:
         xont = ttnn.layer_norm(up(xo), weight=lwt, bias=lbt, epsilon=1e-5)
         uz = ttnn.to_torch(ttnn.add(up(z), ttnn.multiply(
