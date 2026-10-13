@@ -1856,6 +1856,8 @@ class _WorkerState:
         # processes even at fixed --seed. Pin it to the fold seed.
         import random as _pyrandom
         _pyrandom.seed(seed)
+        from tt_bio._vendor.openfold3.core.data.primitives.structure import query as _of3_query
+        _of3_query.REF_MOL_MEMO = "ref_memo" in getattr(self.model, "_levers", ())
         iqs = InferenceQuerySet.from_json(qpath)
         of3_query = next(iter(iqs.queries.values()))
         # The MSA stage delegates to the shared resolver: it exposes the cached
@@ -1993,7 +1995,8 @@ class _WorkerState:
             n_atom=aux["n_atom"], n_token=aux["n_token"],
             no_rollout_steps=int(cfg["sampling_steps"]), seed=seed,
             no_samples=n_sample, confidence_aux_host=confidence_aux,
-            progress_fn=report_progress, max_parallel_samples=cfg.get("max_parallel_samples"))
+            progress_fn=report_progress, max_parallel_samples=cfg.get("max_parallel_samples"),
+            distogram=bool(cfg.get("write_pae")))
 
         confs = result.confidence
         order = sorted(range(len(confs)),

@@ -424,7 +424,7 @@ class OpenFold3(Module):
     def fold(self, *, template_feat, msa_feat, s_input, relpos, token_bonds,
              token_mask, dm_aux_host, n_atom, n_token, no_rollout_steps, seed,
              no_samples=1, confidence_aux_host=None, progress_fn=None,
-             template_slots=None, max_parallel_samples=None):
+             template_slots=None, max_parallel_samples=None, distogram=True):
         """Run the device input glue + trunk and confidence-rank fresh rollouts.
 
         ``msa_feat`` is the searched, post-subsample 34-channel MSA input. The returned
@@ -432,7 +432,8 @@ class OpenFold3(Module):
         the OF3 sample-ranking score (0.8 ipTM + 0.2 pTM + 0.5 disorder - 100 clash).
         ``max_parallel_samples`` caps how many samples share one diffusion-module call
         (default ``protenix.DEFAULT_MAX_PARALLEL_SAMPLES``); it moves memory and time, not a
-        sample's draws.
+        sample's draws. ``distogram=False`` skips the trunk distogram (only ``--write_pae``
+        reads it), which saves its [N, N, 64] fp32 read-back; the confidence reports None for it.
         """
         import torch.nn.functional as F
         from .token_axis import (TILE, bucket_enabled, bucket_multiple, bucketed_width,
@@ -565,6 +566,8 @@ class OpenFold3(Module):
             # build each sample's pair embedding and the distogram on device, so the pair itself
             # never comes back (OF3ConfidenceHead._z_embed_device).
             shared = {"zij_trunk_d": zij_trunk_d}
+            if not distogram:
+                shared["distogram"] = None
             confidence = [
                 self._confidence(sample, s_input, si_trunk, None, confidence_aux_host,
                                  shared)
