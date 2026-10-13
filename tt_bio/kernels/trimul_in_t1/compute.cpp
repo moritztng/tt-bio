@@ -62,6 +62,15 @@ constexpr uint32_t cb_xc = tt::CBIndex::c_16;    // fp32, Kt tiles
 constexpr uint32_t cb_tmp = tt::CBIndex::c_17;   // fp32, Kt tiles
 constexpr uint32_t wo_cb = tt::CBIndex::c_18;    // Wg_out [Kt x NTG], resident
 constexpr uint32_t go_cb = tt::CBIndex::c_19;    // g_out of one row tile, NTG tiles
+#ifdef T1_BIAS
+// T1_BIAS (defined only when the caller passes the biases, AF2): c_20 holds [bp | bg] (2 * CT2
+// tiles, rows c = bias[32 q + c]), a column-mask tile, then NTG g_out bias tiles (every row
+// bias[32 n + col]). Every DST block of a projection starts as its bias tile and the K loop
+// accumulates on top, as kernels/trimul_gin_ragged does, so p, g and g_out are
+// fp32(bias + sum) before the sigmoid and the bf16 pack, which is what linear(..., bias=) computes.
+constexpr uint32_t bias_cb = tt::CBIndex::c_20;
+constexpr uint32_t NBIAS = 2 * CT2 + 1 + NTG;
+#endif
 
 ALWI void sigmoid_bf16_tile(uint32_t idst) {
     MATH((llk_math_eltwise_unary_sfpu_sigmoid<false, false>(idst, (int)VectorMode::RC)));
@@ -92,6 +101,9 @@ void kernel_main() {
     cb_wait_front(cb_scaler, 1);
     cb_wait_front(cb_eps, 1);
     if constexpr (NTG) cb_wait_front(wo_cb, Kt * NTG);
+#ifdef T1_BIAS
+    cb_wait_front(bias_cb, NBIAS);
+#endif
 
     for (uint32_t u = 0; u < nunits; ++u) {
         // 1. layer_norm of the unit's 32 row tiles.
@@ -109,6 +121,11 @@ void kernel_main() {
                 cb_reserve_back(go_cb, NTG);
                 for (uint32_t n0 = 0; n0 < NTG && !(ABL & 2); n0 += GSBW) {
                     tile_regs_acquire();
+#ifdef T1_BIAS
+                    copy_tile_to_dst_init_short(bias_cb);
+                    for (uint32_t i = 0; i < GSBW; ++i) copy_tile(bias_cb, 2 * CT2 + 1 + n0 + i, i);
+                    mm_block_init_short(xn_cb, wo_cb, false, GSBW, 1, Kt);
+#endif
                     uint32_t i0 = il;
                     uint32_t i1 = n0;
                     for (uint32_t k = 0; k < Kt; ++k, i0 += 32, i1 += NTG)
@@ -135,6 +152,11 @@ void kernel_main() {
                 cb_reserve_back(pass_cb, 32);
                 for (uint32_t il0 = 0; il0 < 32 && !(ABL & 4); il0 += SBW) {
                     tile_regs_acquire();
+#ifdef T1_BIAS
+                    copy_tile_to_dst_init_short(bias_cb);
+                    for (uint32_t i = 0; i < SBW; ++i) copy_tile(bias_cb, pass * CT2 + q, i);
+                    mm_block_init_short(w_cb, xn_cb, true, SBW, 1, Kt);
+#endif
                     uint32_t i0 = (pass * CT2 + q) * Kt;
                     uint32_t i1 = il0;
                     for (uint32_t k = 0; k < Kt; ++k, ++i0, i1 += 32)

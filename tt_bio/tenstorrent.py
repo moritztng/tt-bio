@@ -9256,8 +9256,9 @@ class TriangleMultiplication(Module):
         why = next((k for k, bad in (
             ("tape", lambda: ops.taping()), ("fast_mode", lambda: _FAST_MODE),
             ("raw_moves", lambda: _TRIMUL_RAW_CHANNEL_MOVES), ("rowblock", lambda: _TRIMUL_INPROJ_ROWBLOCK),
-            ("g_in", lambda: self.g_in_weight is not None or self._g_in_b is not None),
-            ("g_out_bias", lambda: self.g_out_bias is not None), ("mask", lambda: not mask_ok),
+            # g_in / p_in / g_out biases (AF2) ride T1 as bias tiles (`_t1_bias`); only the
+            # training leaves (`train_in_proj`) still decline.
+            ("g_in", lambda: self.g_in_weight is not None), ("mask", lambda: not mask_ok),
             ("move", lambda: not (self.gated_move or _TRIMUL_MASK_AFTER_MOVE)),
             ("chunking", lambda: H > SEQ_LEN_MORE_CHUNKING),
             ("not_dram", lambda: _triangle_mul_memory_config(H).buffer_type != ttnn.BufferType.DRAM),
@@ -9287,8 +9288,36 @@ class TriangleMultiplication(Module):
         outs = TT1.fused_in_ln(
             x, self.in_norm_weight, self.in_norm_bias, *self._t1_w, self.g_out_weight,
             _mm_generic.ckc_args(self.compute_kernel_config), tuple(COMPUTE_GRID_MAIN),
-            mask=mask if fold else None)
+            mask=mask if fold else None, bias=self._t1_bias(H))
         return None if outs is None else (outs[0], outs[1], outs[2], fold)
+
+    def _has_t1_bias(self) -> bool:
+        return self._g_in_b is not None or "g_out.bias" in self.weights.data
+
+    def _t1_bias(self, S):
+        """T1's bias tiles (`trimul_tail.t1_bias_tiles`: p_in, g_in, g_out biases in T1's natural
+        channel order, zeros for any the checkpoint lacks), or None without any bias, which is
+        every checkpoint but AF2: T1 then builds and runs exactly the program it always did."""
+        if not self._has_t1_bias():
+            return None
+        cache = self.__dict__.setdefault("_t1_bias_cache", {})
+        if S not in cache:
+            zeros = lambda n: torch.zeros(n)  # noqa: E731
+            h2 = int(self._g_in_t.shape[-1])
+            bp = self._p_in_b if self._p_in_b is not None else zeros(h2)
+            bg = self._g_in_b if self._g_in_b is not None else zeros(h2)
+            bgo = (self.weights["g_out.bias"] if "g_out.bias" in self.weights.data
+                   else zeros(int(self.weights["g_out.weight"].shape[0])))
+            cache[S] = _trimul_tail.t1_bias_tiles(bp, bg, bgo, S, self.device)
+        return cache[S]
+
+    def _t2_pbias(self):
+        """T2's p_out bias tiles (`trimul_tail.t2_bias_tiles`), or None without one (all but AF2)."""
+        if self.p_out_bias is None:
+            return None
+        if getattr(self, "_t2_pbias_t", None) is None:
+            self._t2_pbias_t = _trimul_tail.t2_bias_tiles(self.weights["p_out.bias"], self.device)
+        return self._t2_pbias_t
 
     def _gout_eligible(self, x_norm_in, H, n_pairs, group, memory_config, row_norm) -> bool:
         """Whether `g_out` may ride the in-projection. Every decline names its own reason."""
@@ -10344,15 +10373,16 @@ class TriangleMultiplication(Module):
         # same two inputs. Once it succeeds the result is freed, exactly where rebinding `x` used
         # to free it, so every size that fits keeps its peak and its ops.
         if ((_trimul_tail.T2 or lever("trimul_t2")) and H >= _trimul_tail.MIN_N
-                and g_out_fused is not None and add_to_input and not ops.taping()
-                and self.p_out_bias is None):
+                and g_out_fused is not None and add_to_input and not ops.taping()):
+            # p_out's bias (AF2) rides T2 as bias tiles (`_t2_pbias`); None everywhere else.
             # T2 (the `trimul_t2` lever): layer_norm,
             # the p projection, the gate and the residual add as one kernel writing x_in in
             # place; `_add_input` then sees `u is x`. None (out of scope) leaves everything
             # untouched and the ops below run unchanged.
             fused = _trimul_tail.fused_tail_ln(
                 x, self.out_norm_weight, self.out_norm_bias, self.out_p_weight, g_out_fused,
-                x_in, _mm_generic.ckc_args(self.compute_kernel_config), tuple(COMPUTE_GRID_MAIN))
+                x_in, _mm_generic.ckc_args(self.compute_kernel_config), tuple(COMPUTE_GRID_MAIN),
+                pbias=self._t2_pbias())
             if fused is not None:
                 TRIMUL_GOUT_STATS[0] += 1
                 ttnn.deallocate(x)

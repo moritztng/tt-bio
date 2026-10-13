@@ -685,17 +685,69 @@ def gin_ragged_ok(x, wpT, S, mask=None):
     return tiles * MG.tile_bytes(ttnn.bfloat16) <= 0.85 * _l1_bank_bytes()
 
 
+def gin_ragged_bias_host(bp, bg, S):
+    """`gin_ragged_bias`'s tensor on the host: [2C + 32, 32] fp32, one tile per 32 rows."""
+    import torch
+    rows = torch.cat([bp.reshape(-1), bg.reshape(-1)]).float()
+    last = S - TILE * (-(-S // TILE) - 1)
+    cmask = (torch.arange(TILE) < last).float()[None, :].expand(TILE, -1)
+    return torch.cat([rows[:, None].expand(-1, TILE), cmask]).contiguous()
+
+
 def gin_ragged_bias(bp, bg, S, device):
     """The bias tiles gin_ragged takes, from the [2C] value and gate biases (torch): [bp | bg], each
     row c of channel tile t carrying bias[32 t + c] in every column, then one column-mask tile for
     the last column tile of an S-wide grid (1 in columns < S - 32 * (ceil(S / 32) - 1))."""
     import torch
-    rows = torch.cat([bp.reshape(-1), bg.reshape(-1)]).float()
-    last = S - TILE * (-(-S // TILE) - 1)
-    cmask = (torch.arange(TILE) < last).float()[None, :].expand(TILE, -1)
-    t = torch.cat([rows[:, None].expand(-1, TILE), cmask])
-    return ttnn.from_torch(t.contiguous().to(torch.bfloat16),
+    return ttnn.from_torch(gin_ragged_bias_host(bp, bg, S).to(torch.bfloat16),
                            layout=ttnn.TILE_LAYOUT, device=device, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+
+
+# Biases for T1 / T2 (AF2's triangle multiplication; every other model passes none and gets the
+# program it always got: no define, no extra compile-time or runtime argument, the same cache key).
+# Where the bias enters: each projection's DST block is seeded with its bias tile before the K loop
+# (kernels/trimul_gin_ragged's technique), so the fp32 accumulator holds bias + sum(xn * W) before
+# the sigmoid (gate passes) and before the bf16 pack. That is what the unfused path's
+# `linear(x, W, bias=b)` computes: one fp32 accumulation, bias included, rounded once to bf16. The
+# bias itself is the bf16 tensor the unfused path also adds (torch_to_tt keeps biases bf16), so the
+# only difference is the summation order of one extra term in an fp32 accumulator.
+#   T1 [a | b]: the matmul tile is W^T[q] @ xn^T, rows = channels, so the bias is gin_ragged_bias's
+#               layout (rows c carry bias[32 q + c]), reused as is with its column-mask tile (S is
+#               whole tiles under T1, so the mask is all ones and unused).
+#   T1 g_out and T2 p: the tile is xn @ W, columns = channels, so the bias tile has every row equal
+#               to bias[32 n : 32 n + 32] (row_bias_host).
+def row_bias_host(b):
+    """[32 * NT, 32] fp32: tile n has every row equal to b[32 n : 32 n + 32] (columns = channels)."""
+    import torch
+    b = b.reshape(-1).float()
+    n = int(b.numel())
+    assert n % TILE == 0, n
+    return b.reshape(n // TILE, 1, TILE).expand(-1, TILE, -1).reshape(n, TILE).contiguous()
+
+
+def t1_bias_host(bp, bg, bgo, S):
+    """T1's bias tensor on the host: gin_ragged_bias_host(bp, bg, S) then row_bias_host(bgo).
+    Zeros stand in for any of the three the model lacks."""
+    import torch
+    return torch.cat([gin_ragged_bias_host(bp, bg, S), row_bias_host(bgo)]).contiguous()
+
+
+def t1_bias_tiles(bp, bg, bgo, S, device):
+    import torch
+    return ttnn.from_torch(t1_bias_host(bp, bg, bgo, S).to(torch.bfloat16), layout=ttnn.TILE_LAYOUT,
+                           device=device, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+
+
+def t2_bias_tiles(b, device):
+    import torch
+    return ttnn.from_torch(row_bias_host(b).to(torch.bfloat16), layout=ttnn.TILE_LAYOUT,
+                           device=device, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+
+
+def _bias_ok(bias, ntiles):
+    return (bias is not None and bias.dtype == ttnn.bfloat16 and bias.layout == ttnn.TILE_LAYOUT
+            and bias.memory_config() == ttnn.DRAM_MEMORY_CONFIG
+            and [int(d) for d in bias.shape] == [ntiles * TILE, TILE])
 
 
 def _gin_ragged_qs(ct2):
@@ -874,7 +926,7 @@ def _t2_tiles(kt, nt, Mb):
     return bf16 + 2 * fp32
 
 
-def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, cm=False):
+def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, cm=False, pbias=None):
     """T2's program. `cm` (T2CM): x is the einsum's channel-major [1, K, S, S] and the work unit is one
     (it, jt) cube of 32 row tiles (`t2cm_split`), read through reader_ln_cm / writer_ln_cm and transposed
     in compute; everything downstream of compute's x CB is the same program."""
@@ -927,19 +979,25 @@ def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, cm=False):
             compile_time_args=[nt, Mb, St] + acc(resid),
             runtime_args=wr, common_runtime_args=[0, 0], config=ttnn.WriterConfigDescriptor())
     else:
+        # pbias (p_out's bias, AF2 only): one more accessor and runtime argument behind the
+        # T2_BIAS define. Without it the descriptor is the one T2 always built.
         reader = ttnn.KernelDescriptor(
             kernel_source=str(d / "reader_ln.cpp"), source_type=src, core_ranges=core_grid,
             compile_time_args=[kt, nt, Mb, scaler, eps_bits] + acc(x) + acc(wp) + acc(g) + acc(resid)
-            + acc(ln_w) + acc(ln_b),
-            runtime_args=rd, common_runtime_args=[0] * 6, config=ttnn.ReaderConfigDescriptor())
+            + acc(ln_w) + acc(ln_b) + (acc(pbias) if pbias is not None else []),
+            **({"defines": [("T2_BIAS", "1")]} if pbias is not None else {}),
+            runtime_args=rd, common_runtime_args=[0] * (6 + (pbias is not None)),
+            config=ttnn.ReaderConfigDescriptor())
         writer = ttnn.KernelDescriptor(
             kernel_source=str(d / "writer.cpp"), source_type=src, core_ranges=core_grid,
             compile_time_args=[nt, Mb, 1] + acc(resid) + acc(resid),
             runtime_args=wr, common_runtime_args=[0, 0], config=ttnn.WriterConfigDescriptor())
     fid, approx, _, full = ckc
+    assert pbias is None or not cm, "T2CM takes no p bias"
     compute = ttnn.KernelDescriptor(
         kernel_source=str(d / "compute_ln.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[kt, nt, Mb, sbw, int(SIGPOLY), RNE, int(cm)],
+        **({"defines": [("T2_BIAS", "1")]} if pbias is not None else {}),
         runtime_args=cp,
         # fp32 DEST always: the LayerNorm statistics are packed to fp32 CBs and the 4-tile
         # epilogue fits half-sync fp32 DEST. The fidelity stays the caller's, so the GEMM is
@@ -958,18 +1016,34 @@ def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, cm=False):
            _cb_fmt(16, core_grid, kt, f32), _cb_fmt(17, core_grid, kt, f32)]
     if cm:
         cbs += [_cb(T2CM_CB_GATHER, core_grid, 2 * Mb * kt), _cb(T2CM_CB_SCRATCH, core_grid, TILE * kt)]
+    if pbias is not None:
+        cbs += [_cb(T2_CB_BIAS, core_grid, nt)]
     return {"kernels": [reader, writer, compute], "cbs": cbs}
 
 
-def fused_tail_ln(x, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5):
-    """`resid += (layer_norm(x; ln_w, ln_b, eps) @ wp) * sigmoid(g)` in one kernel, `resid`
+T2_CB_BIAS = 20   # T2_BIAS: p_out's bias tiles, resident (compute_ln.cpp / reader_ln.cpp)
+
+
+def t2_key(x, wp, ln_w, ln_b, grid, ckc, eps, pbias=None):
+    """fused_tail_ln's program-cache key. Without a bias it is exactly the key T2 always used."""
+    spec = lambda t: (str(t.padded_shape), str(t.dtype), str(t.memory_config()))  # noqa: E731
+    key = ("t2", spec(x), spec(wp), spec(ln_w), spec(ln_b), tuple(grid),
+           tuple(str(c) for c in ckc), float(eps), SIGPOLY, RNE)
+    return key if pbias is None else key + (("pbias", spec(pbias)),)
+
+
+def fused_tail_ln(x, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5, pbias=None):
+    """`resid += (layer_norm(x; ln_w, ln_b, eps) @ wp [+ bias]) * sigmoid(g)` in one kernel, `resid`
     written in place and returned (the caller's `_add_input` then sees `u is x`). None when T2 is
-    off or does not cover the call; nothing has been touched then. `x` is not deallocated."""
+    off or does not cover the call; nothing has been touched then. `x` is not deallocated.
+    `pbias`: `t2_bias_tiles` of the p projection's bias, or None (every model but AF2)."""
     from . import ops
     if ops.taping() or dest_guard.exposed_args(ckc):
         T2_STATS[1] += 1
         return None
     why = t2_eligible(x, ln_w, ln_b, wp, g, resid)
+    if why is None and pbias is not None and not _bias_ok(pbias, _tiles(wp.shape[-1])):
+        why = "pbias"
     if why is not None:
         T2_STATS[1] += 1
         if why != "off":
@@ -979,22 +1053,23 @@ def fused_tail_ln(x, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5):
     from . import tenstorrent as TT
     kt, nt = _tiles(wp.shape[-2]), _tiles(wp.shape[-1])
     block = TT._MM_BLOCK[(kt, nt)]
-    if _t2_tiles(kt, nt, block[0]) * MG.tile_bytes(ttnn.bfloat16) > 0.85 * TT._l1_bank_bytes():
+    if ((_t2_tiles(kt, nt, block[0]) + (nt if pbias is not None else 0)) * MG.tile_bytes(ttnn.bfloat16)
+            > 0.85 * TT._l1_bank_bytes()):
         T2_STATS[1] += 1
         return None
-    spec = lambda t: (str(t.padded_shape), str(t.dtype), str(t.memory_config()))
-    key = ("t2", spec(x), spec(wp), spec(ln_w), spec(ln_b), tuple(grid),
-           tuple(str(c) for c in ckc), float(eps), SIGPOLY, RNE)
+    key = t2_key(x, wp, ln_w, ln_b, grid, ckc, eps, pbias)
     entry = _CACHE.get(key)
     if entry is None:
-        entry = _CACHE[key] = _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps)
+        entry = _CACHE[key] = _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps,
+                                        pbias=pbias)
     reader, writer, _ = entry["kernels"]
     reader.common_runtime_args = [x.buffer_address(), wp.buffer_address(), g.buffer_address(),
                                   resid.buffer_address(), ln_w.buffer_address(),
-                                  ln_b.buffer_address()]
+                                  ln_b.buffer_address()] + (
+        [pbias.buffer_address()] if pbias is not None else [])
     writer.common_runtime_args = [resid.buffer_address(), resid.buffer_address()]
     pd = ttnn.ProgramDescriptor(kernels=entry["kernels"], semaphores=[], cbs=entry["cbs"])
-    ttnn.generic_op([x, wp, g, ln_w, ln_b, resid], pd)
+    ttnn.generic_op([x, wp, g, ln_w, ln_b, resid] + ([pbias] if pbias is not None else []), pd)
     T2_STATS[0] += 1
     return resid
 
@@ -1241,7 +1316,7 @@ def t1_eligible(x, ln_w, ln_b, wpT, wgT, wgo, mask=None):
     return None
 
 
-def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps):
+def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps, bias=None):
     import struct
     shp = [int(d) for d in x.shape]
     B = shp[0] if len(shp) == 4 else 1
@@ -1264,12 +1339,17 @@ def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps):
     d = KERNEL_DIR.parent / "trimul_in_t1"
     m = mask if mask is not None else x
     abl = [("ABL", str(T1_ABL))] if T1_ABL else []
+    # bias (AF2 only, t1_bias_tiles): one more accessor, runtime argument and CB behind the T1_BIAS
+    # define. Without it every list below is the one T1 always built.
+    bdef = abl + ([("T1_BIAS", "1")] if bias is not None else [])
     reader = ttnn.KernelDescriptor(
         kernel_source=str(d / "reader.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[kt, ct2, St, int(mask is not None), ntg, T1_RB, (inv << 16) | inv,
                            eps_bits]
-        + acc(x) + acc(wpT) + acc(wgT) + acc(wgo) + acc(ln_w) + acc(ln_b) + acc(m),
-        defines=abl, runtime_args=rd, common_runtime_args=[0] * 7, config=ttnn.ReaderConfigDescriptor())
+        + acc(x) + acc(wpT) + acc(wgT) + acc(wgo) + acc(ln_w) + acc(ln_b) + acc(m)
+        + (acc(bias) if bias is not None else []),
+        defines=bdef, runtime_args=rd, common_runtime_args=[0] * (7 + (bias is not None)),
+        config=ttnn.ReaderConfigDescriptor())
     writer = ttnn.KernelDescriptor(
         kernel_source=str(d / "writer.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[ct2, St, GIN_MOVE_NB, ntg] + acc(outs[0]) + acc(outs[1]) + acc(outs[2]),
@@ -1278,7 +1358,7 @@ def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps):
     compute = ttnn.KernelDescriptor(
         kernel_source=str(d / "compute.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[kt, ct2, T1_SBW, int(mask is not None), int(SIGPOLY), RNE, ntg],
-        defines=abl, runtime_args=cp,
+        defines=bdef, runtime_args=cp,
         # fp32 DEST always, as T2: the LayerNorm statistics live in fp32 CBs. The fidelity stays
         # the caller's, so the projections run as the incumbent in-projection runs them.
         config=ttnn.ComputeConfigDescriptor(
@@ -1287,21 +1367,49 @@ def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps):
     bf, f32 = t1_cb_plan(kt, ct2, ntg, mask is not None)
     cbs = ([_cb(i, core_grid, t) for i, t in bf]
            + [_cb_fmt(i, core_grid, t, ttnn.float32) for i, t in f32])
+    if bias is not None:
+        cbs.append(_cb(T1_CB_BIAS, core_grid, t1_bias_ntiles(ct2, ntg)))
     return {"kernels": [reader, writer, compute], "cbs": cbs}
 
 
-def fused_in_ln(x, ln_w, ln_b, wpT, wgT, wgo, ckc, grid, mask=None, eps=1e-5):
+T1_CB_BIAS = 20   # T1_BIAS: the bias tiles, resident (trimul_in_t1 reader.cpp / compute.cpp)
+
+
+def t1_bias_ntiles(ct2, ntg):
+    """Tiles of t1_bias_tiles: [bp | bg] (2 * ct2), gin_ragged's column mask, then ntg g_out tiles."""
+    return 2 * ct2 + 1 + ntg
+
+
+def t1_key(x, wpT, wgo, grid, ckc, mask, eps, bias=None):
+    """fused_in_ln's program-cache key. Without a bias it is exactly the key T1 always used."""
+    key = ("t1", str(x.padded_shape), str(wpT.padded_shape), str(wgo.padded_shape), tuple(grid),
+           tuple(str(c) for c in ckc), mask is not None, float(eps), SIGPOLY, RNE, GIN_MOVE_NB,
+           T1_RB, T1_SBW, T1_ABL)
+    return key if bias is None else key + ("bias",)
+
+
+def fused_in_ln(x, ln_w, ln_b, wpT, wgT, wgo, ckc, grid, mask=None, eps=1e-5, bias=None):
     """`[a, b, g_out]` of the trimul input side from the raw pair `x`, one kernel:
     xn = layer_norm(x; ln_w, ln_b, eps), [a | b] = (xn @ wpT^T) * sigmoid(xn @ wgT^T), `a` times
     the pair mask when `mask` is given, both [B, C, S, S] (gin_moved's layout), and
     g_out = xn @ wgo as [*x.shape[:-1], N]. None when T1 is off or does not cover the call;
-    nothing is allocated then. `x` is not touched."""
+    nothing is allocated then. `x` is not touched. `bias`: `t1_bias_tiles` of the value, gate and
+    g_out biases (each projection then carries `+ b`), or None (every model but AF2)."""
     from . import ops
     fid, approx, _, full = ckc
     if ops.taping() or dest_guard.exposed_args((fid, approx, True, full)):
         T1_STATS[1] += 1
         return None
     why = t1_eligible(x, ln_w, ln_b, wpT, wgT, wgo, mask)
+    if why is None and bias is not None and not _bias_ok(
+            bias, t1_bias_ntiles(int(wpT.shape[-2]) // TILE, int(wgo.shape[-1]) // TILE)):
+        why = "bias"
+    if why is None and bias is not None:
+        from .tenstorrent import _l1_bank_bytes
+        kt_, ct2_, ntg_ = int(x.shape[-1]) // TILE, int(wpT.shape[-2]) // TILE, int(wgo.shape[-1]) // TILE
+        if (t1_cb_bytes(kt_, ct2_, ntg_, mask is not None) + t1_bias_ntiles(ct2_, ntg_) * BF16_TILE
+                > 0.85 * _l1_bank_bytes()):
+            why = "l1"
     if why is not None:
         T1_STATS[1] += 1
         if why != "off":
@@ -1315,21 +1423,21 @@ def fused_in_ln(x, ln_w, ln_b, wpT, wgT, wgo, ckc, grid, mask=None, eps=1e-5):
     alloc = lambda s: ttnn.allocate_tensor_on_device(  # noqa: E731
         ttnn.Shape(s), ttnn.bfloat16, ttnn.TILE_LAYOUT, device, ttnn.DRAM_MEMORY_CONFIG)
     outs = [alloc([B, C, S, S]), alloc([B, C, S, S]), alloc(shp[:-1] + [int(wgo.shape[-1])])]
-    key = ("t1", str(x.padded_shape), str(wpT.padded_shape), str(wgo.padded_shape), tuple(grid),
-           tuple(str(c) for c in ckc), mask is not None, float(eps), SIGPOLY, RNE, GIN_MOVE_NB,
-           T1_RB, T1_SBW, T1_ABL)
+    key = t1_key(x, wpT, wgo, grid, ckc, mask, eps, bias)
     entry = _CACHE.get(key)
     if entry is None:
-        entry = _CACHE[key] = _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps)
+        entry = _CACHE[key] = _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps,
+                                        bias=bias)
     reader, writer, _ = entry["kernels"]
     reader.common_runtime_args = [x.buffer_address(), wpT.buffer_address(), wgT.buffer_address(),
                                   wgo.buffer_address(), ln_w.buffer_address(),
                                   ln_b.buffer_address(),
-                                  (mask if mask is not None else x).buffer_address()]
+                                  (mask if mask is not None else x).buffer_address()] + (
+        [bias.buffer_address()] if bias is not None else [])
     writer.common_runtime_args = [o.buffer_address() for o in outs]
     pd = ttnn.ProgramDescriptor(kernels=entry["kernels"], semaphores=[], cbs=entry["cbs"])
-    ttnn.generic_op([x, wpT, wgT, wgo, ln_w, ln_b] + ([mask] if mask is not None else []) + outs,
-                    pd)
+    ttnn.generic_op([x, wpT, wgT, wgo, ln_w, ln_b] + ([mask] if mask is not None else []) + outs
+                    + ([bias] if bias is not None else []), pd)
     T1_STATS[0] += 1
     MASK_STATS[0] += mask is not None
     return outs

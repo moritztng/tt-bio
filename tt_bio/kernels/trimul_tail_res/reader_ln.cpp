@@ -29,6 +29,13 @@ void kernel_main() {
     const auto z = TensorAccessor(z_args, get_common_arg_val<uint32_t>(3));
     const auto gm = TensorAccessor(gm_args, get_common_arg_val<uint32_t>(4));
     const auto bt = TensorAccessor(bt_args, get_common_arg_val<uint32_t>(5));
+#ifdef T2_BIAS
+    // The p projection's bias (trimul_tail.row_bias_tiles: Nt tiles, every row bias[32 n + col]),
+    // read once into c_20; compute seeds DST with it before the K loop. Absent without the define.
+    constexpr auto pb_args = TensorAccessorArgs<bt_args.next_compile_time_args_offset()>();
+    const auto pb = TensorAccessor(pb_args, get_common_arg_val<uint32_t>(6));
+    constexpr uint32_t pbias_cb = tt::CBIndex::c_20;
+#endif
     const uint32_t m0 = get_arg_val<uint32_t>(0);
     const uint32_t nblocks = get_arg_val<uint32_t>(1);
 
@@ -58,8 +65,16 @@ void kernel_main() {
     for (uint32_t t = 0; t < Kt; ++t, w += tb) noc_async_read_page(t, gm, w);
     w = get_write_ptr(beta_cb);
     for (uint32_t t = 0; t < Kt; ++t, w += tb) noc_async_read_page(t, bt, w);
+#ifdef T2_BIAS
+    cb_reserve_back(pbias_cb, Nt);
+    w = get_write_ptr(pbias_cb);
+    for (uint32_t t = 0; t < Nt; ++t, w += tb) noc_async_read_page(t, pb, w);
+#endif
     noc_async_read_barrier();
     cb_push_back(in1_cb, Kt * Nt);
+#ifdef T2_BIAS
+    cb_push_back(pbias_cb, Nt);
+#endif
     cb_push_back(gamma_cb, Kt);
     cb_push_back(beta_cb, Kt);
 

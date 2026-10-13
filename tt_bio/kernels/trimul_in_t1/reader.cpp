@@ -42,6 +42,15 @@ void kernel_main() {
     const auto gm = TensorAccessor(gm_args, get_common_arg_val<uint32_t>(4));
     const auto bt = TensorAccessor(bt_args, get_common_arg_val<uint32_t>(5));
     const auto mk = TensorAccessor(m_args, get_common_arg_val<uint32_t>(6));
+#ifdef T1_BIAS
+    // The projection biases (trimul_tail.t1_bias_tiles): [bp | bg] as gin_ragged_bias lays them
+    // (2 * CT2 tiles, rows c carry bias[32 q + c]), its column-mask tile (unused here: S is whole
+    // tiles), then NTG g_out bias tiles (every row bias[32 n + col]). Read once into c_20.
+    constexpr auto bias_args = TensorAccessorArgs<m_args.next_compile_time_args_offset()>();
+    const auto bias = TensorAccessor(bias_args, get_common_arg_val<uint32_t>(7));
+    constexpr uint32_t bias_cb = tt::CBIndex::c_20;
+    constexpr uint32_t NBIAS = 2 * CT2 + 1 + NTG;
+#endif
     const uint32_t u0 = get_arg_val<uint32_t>(0);
     const uint32_t nunits = get_arg_val<uint32_t>(1);
 
@@ -79,8 +88,16 @@ void kernel_main() {
         w = get_write_ptr(wo_cb);
         for (uint32_t t = 0; t < Kt * NTG; ++t, w += tb) noc_async_read_page(t, wo, w);
     }
+#ifdef T1_BIAS
+    cb_reserve_back(bias_cb, NBIAS);
+    w = get_write_ptr(bias_cb);
+    for (uint32_t t = 0; t < NBIAS; ++t, w += tb) noc_async_read_page(t, bias, w);
+#endif
     noc_async_read_barrier();
     cb_push_back(w_cb, 2 * CT2 * Kt);
+#ifdef T1_BIAS
+    cb_push_back(bias_cb, NBIAS);
+#endif
     cb_push_back(gamma_cb, Kt);
     cb_push_back(beta_cb, Kt);
     if constexpr (NTG) cb_push_back(wo_cb, Kt * NTG);

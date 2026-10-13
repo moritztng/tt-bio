@@ -58,6 +58,12 @@ constexpr uint32_t cb_var = tt::CBIndex::c_13;
 constexpr uint32_t cb_rstd = tt::CBIndex::c_14;
 constexpr uint32_t cb_xc = tt::CBIndex::c_16;    // fp32, Kt tiles
 constexpr uint32_t cb_tmp = tt::CBIndex::c_17;   // fp32, Kt tiles
+#ifdef T2_BIAS
+// T2_BIAS (defined only when the caller passes p_out's bias, AF2): Nt bias tiles, every row
+// bias[32 n + col], resident. Each p block starts in DST as its bias tile and the K loop
+// accumulates on top (trimul_gin_ragged's seeding), so p = fp32(bias + xn @ Wp) before the pack.
+constexpr uint32_t cb_pbias = tt::CBIndex::c_20;
+#endif
 
 ALWI void sigmoid_bf16_tile(uint32_t idst) {
     MATH((llk_math_eltwise_unary_sfpu_sigmoid<false, false>(idst, (int)VectorMode::RC)));
@@ -102,6 +108,9 @@ void kernel_main() {
     cb_wait_front(cb_beta, Kt);
     cb_wait_front(cb_scaler, 1);
     cb_wait_front(cb_eps, 1);
+#ifdef T2_BIAS
+    cb_wait_front(cb_pbias, Nt);
+#endif
 
     for (uint32_t b = 0; b < nblocks; ++b) {
         // 1. LayerNorm prologue, row tile by row tile.
@@ -119,6 +128,11 @@ void kernel_main() {
         for (uint32_t mi = 0; mi < Mb; ++mi) {
             for (uint32_t n0 = 0; n0 < Nt; n0 += SBW) {
                 tile_regs_acquire();
+#ifdef T2_BIAS
+                copy_tile_to_dst_init_short(cb_pbias);
+                for (uint32_t i = 0; i < SBW; ++i) copy_tile(cb_pbias, n0 + i, i);
+                mm_block_init_short(cb_ln, cb_w, false, SBW, 1, Kt);
+#endif
                 uint32_t i0 = mi * Kt;
                 uint32_t i1 = n0;
                 for (uint32_t k = 0; k < Kt; ++k) {
