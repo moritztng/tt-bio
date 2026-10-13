@@ -594,8 +594,9 @@ def _pack_keep(keep):
 def _unpack_keep_dev(w, device):
     """`_pack_keep`'s words to the bf16 0/1 mask on the device."""
     import ttnn
+    from tt_bio.tenstorrent import upload
 
-    wt = ttnn.from_torch(w, device=device, layout=ttnn.TILE_LAYOUT, dtype=ttnn.int32)
+    wt = upload(w, dtype=ttnn.int32, device=device)
     rows = []
     for j in range(_KEEP_BITS):
         s = ttnn.bitwise_right_shift(wt, j) if j else wt

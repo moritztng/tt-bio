@@ -7772,6 +7772,7 @@ def trace_region_bytes(capture):
 DEVICE_TILIZE_MIN = 4 << 20
 DEVICE_TILIZE_MAX = 1 << 30
 _TORCH_DT = {ttnn.float32: torch.float32, ttnn.bfloat16: torch.bfloat16}
+_UPLOAD_DT = {**_TORCH_DT, ttnn.int32: torch.int32}  # int32 words (ESMFold2's packed keep mask) tilize on the chip too
 
 
 def _device_tilize(nbytes):
@@ -7788,9 +7789,9 @@ def _tile_numel(shape):
 def upload(t, dtype=ttnn.bfloat16, device=None):
     """`ttnn.from_torch(t, TILE_LAYOUT, device, dtype)`, tilized on the chip when that pays."""
     device = device or get_device()
-    if dtype not in _TORCH_DT or not _device_tilize(_tile_numel(t.shape) * _TORCH_DT[dtype].itemsize):
+    if dtype not in _UPLOAD_DT or not _device_tilize(_tile_numel(t.shape) * _UPLOAD_DT[dtype].itemsize):
         return ttnn.from_torch(t, layout=ttnn.TILE_LAYOUT, device=device, dtype=dtype)
-    rm = ttnn.from_torch(t.to(_TORCH_DT[dtype]).contiguous(), layout=ttnn.ROW_MAJOR_LAYOUT,
+    rm = ttnn.from_torch(t.to(_UPLOAD_DT[dtype]).contiguous(), layout=ttnn.ROW_MAJOR_LAYOUT,
                          device=device, dtype=dtype)
     out = ttnn.to_layout(rm, ttnn.TILE_LAYOUT)
     ttnn.deallocate(rm)
