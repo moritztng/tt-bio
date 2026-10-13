@@ -80,7 +80,7 @@ LEVERS_NORMAL = frozenset({"trimul_ibw", "trimul_tail", "trunk_hifi3", "dit_sdpa
 # 0.6 A kill bar on both (top pose 0.876 / 0.845 A), so normal keeps the incumbent.
 LEVERS_FAST = frozenset({"acc_off", "diffusion_bf16", "dit_sdpa", "transition_b8", "opm_b8", "atom_sdpa",
                          "trimul_ibw", "trimul_tail", "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32",
-                         "triatt_tail", "adaln_mod", "transition_ws", "trimul_t1", "trimul_t2"})
+                         "triatt_tail", "adaln_mod", "transition_ws", "trimul_t1", "trimul_t2", "ws_resid"})
 
 
 def _under_levers(method):

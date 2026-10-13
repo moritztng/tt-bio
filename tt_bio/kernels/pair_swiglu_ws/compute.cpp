@@ -18,6 +18,10 @@
 // WS_L1ACC (the `ws_l1acc` lever): every matmul sums at most KC K tiles in dest and the packer adds the chunks into the
 // fp32 c_19, which then comes back into dest by a copy (no accumulation) for the silu, the gate multiply or the bf16
 // pack. On Wormhole an fp32 dest summing all of K writes exact +-1 / 2 / 4 into ~1e-8 of the outputs (dest_guard.py).
+// WS_RESID (the `ws_resid` lever): fc3's fp32 dest is seeded with the residual's row tiles from c_20 (an exact copy)
+// and fc3 accumulates on top, so z + t is rounded to bf16 once, by the pack; the writer puts it back over z. The
+// transition's `z + t` and the hidden-chunk sum then cost no add pass over the pair. (Adding after fc3 with dest
+// reused as srcA truncates t to srcA's bf16 first: rel_rms 0.0037 -> 0.0046 at c 256.)
 #include <cstdint>
 #define REDUCE_OP PoolType::SUM
 #define REDUCE_DIM ReduceDim::REDUCE_ROW
@@ -41,8 +45,9 @@ struct LnCbs {
 constexpr uint32_t KC = 2, cb_acc = 19;
 
 // sum over k of in0[k] x in1[k * s + b], N output tiles, into cb_acc: KC K tiles per dest pass, the packer adds the passes
+// With `seed` (a CB holding N tiles at its front) the first pass starts from them instead of zero.
 template <uint32_t K, uint32_t N>
-void mm_acc(uint32_t in0, uint32_t in1, uint32_t s, uint32_t b) {
+void mm_acc(uint32_t in0, uint32_t in1, uint32_t s, uint32_t b, int32_t seed = -1) {
     static_assert(K % KC == 0);
     mm_block_init_short(in0, in1, false, N, 1, K);
     reconfig_data_format(in1, in0);
@@ -50,6 +55,15 @@ void mm_acc(uint32_t in0, uint32_t in1, uint32_t s, uint32_t b) {
     cb_reserve_back(cb_acc, N);
     for (uint32_t k0 = 0; k0 < K; k0 += KC) {
         tile_regs_acquire();
+        if (seed >= 0 && k0 == 0) {
+            copy_tile_to_dst_init_short(seed);
+            reconfig_data_format_srca(in1, seed);
+            for (uint32_t i = 0; i < N; ++i) {
+                copy_tile(seed, i, i);
+            }
+            mm_block_init_short(in0, in1, false, N, 1, K);
+            reconfig_data_format_srca(seed, in1);
+        }
         for (uint32_t k = k0; k < k0 + KC; ++k) {
             matmul_block(in0, in1, k, k * s + b, 0, false, N, 1, K);
         }
@@ -88,7 +102,7 @@ void kernel_main() {
     constexpr uint32_t SW = 4;
     constexpr uint32_t OG = CT < 4 ? CT : 4;
     static_assert(NH % SW == 0 && CT % OG == 0);
-    constexpr uint32_t cb_x = 0, cb_w12 = 1, cb_w3 = 2, cb_gate = 3, cb_hid = 4, cb_out = 16;
+    constexpr uint32_t cb_x = 0, cb_w12 = 1, cb_w3 = 2, cb_gate = 3, cb_hid = 4, cb_out = 16, cb_res = 20;
     // The gate multiply keeps HiFi4 whatever the matmuls run at: at HiFi2 it would drop the gate's low bits.
     constexpr auto mul_fidelity = MathFidelity::HiFi4;
     if (count == 0) {
@@ -195,18 +209,37 @@ void kernel_main() {
         reconfig_data_format(cb_w3, cb_hid);
 #endif
         for (uint32_t c = 0; c < CT; c += OG) {
+#ifdef WS_RESID
+            cb_wait_front(cb_res, OG);
+#endif
 #ifdef WS_L1ACC
+#ifdef WS_RESID
+            mm_acc<NH, OG>(cb_hid, cb_w3, CT, c, cb_res);
+#else
             mm_acc<NH, OG>(cb_hid, cb_w3, CT, c);
+#endif
             tile_regs_acquire();
             acc_to_dest<OG>();
             pack_reconfig_data_format(cb_out);
 #else
             tile_regs_acquire();
+#ifdef WS_RESID
+            copy_tile_to_dst_init_short(cb_res);
+            reconfig_data_format_srca(cb_w3, cb_res);
+            for (uint32_t i = 0; i < OG; ++i) {
+                copy_tile(cb_res, i, i);
+            }
+            mm_block_init_short(cb_hid, cb_w3, false, OG, 1, NH);
+            reconfig_data_format_srca(cb_res, cb_w3);
+#endif
 #ifndef WS_NO_FC3
             for (uint32_t k = 0; k < NH; ++k) {
                 matmul_block(cb_hid, cb_w3, k, k * CT + c, 0, false, OG, 1, NH);
             }
 #endif
+#endif
+#ifdef WS_RESID
+            cb_pop_front(cb_res, OG);
 #endif
             tile_regs_commit();
             cb_reserve_back(cb_out, OG);

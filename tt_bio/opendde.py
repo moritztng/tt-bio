@@ -436,7 +436,11 @@ def route_opendde_weights(state_dict):
 # without dit_b8. Wormhole 11-set, 44 paired cold folds at 1000 MHz (spd-fastmode ddb/ddc, 2026-10-13): fast vs exact
 # CA-lDDT -0.0248 [-0.0339, -0.0158], fast minus dit_b8 -0.0016 [-0.0035, +0.0005] (same-seed top pose 1.71 -> 0.79 A,
 # A/A floor 1.34 A); dropping each other diffusion lever left the drop in place. dit_b8 buys ~2.5 s of a 255 s fold.
-FAST_LEVERS = _T.FAST_LEVERS - {"dit_b8"}
+# trimul_b8in + trimul_t2w: Wormhole 11-set fast grade, fast vs fast+both, 44 paired folds (spd-gap-small gstk,
+# 2026-10-13): PASS, same-seed top pose median 0.327 A against the 0.60 A bar (A/A floor 1.316 A), CA-lDDT
+# +0.0016 [+0.0001, +0.0039]. OpenDDE WH fast 512 x 1 121.4 -> 106.1 s with ws_resid. Protenix-v2 and Boltz-2 fast
+# read null (their c256 / c128 pair shapes miss both routes), so they stay off the shared set.
+FAST_LEVERS = (_T.FAST_LEVERS - {"dit_b8"}) | {"trimul_b8in", "trimul_t2w"}
 
 
 class OpenDDE:

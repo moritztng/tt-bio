@@ -12,7 +12,7 @@ costs one bounded run (synchronize_device does not return to a SIGALRM).
 
 usage: TT_VISIBLE_DEVICES=<chip> timeout 900 python perf/spd_trimul/in_t1.py [--ns 64,128,512]
 """
-import argparse, json, statistics, sys, time, traceback
+import argparse, hashlib, json, statistics, sys, time, traceback
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
@@ -24,7 +24,7 @@ ap.add_argument("--hidden", type=int, default=128)
 ap.add_argument("--no-mask", action="store_true")
 ap.add_argument("--abl", default="", help="comma list of T1_ABL stage-skip masks to time after the real T1"
                 " (kernels/trimul_in_t1: 1 LN, 2 g_out mm, 4 [a|b] mm, 8 gate, 16 z reads, 32 gather, 64 writes)")
-ap.add_argument("--set", default="", help="comma list NAME=INT of trimul_tail knobs for T1 (T1_RB, T1_SBW, GIN_MOVE_NB)")
+ap.add_argument("--set", default="", help="comma list NAME=INT of trimul_tail knobs for T1 (T1_RB, T1_SBW, GIN_MOVE_NB, T1_ROWS)")
 ap.add_argument("--out", help="also append each JSON line here (the qb runner passes it)")
 A = ap.parse_args()
 
@@ -41,7 +41,7 @@ grid = tuple(T.COMPUTE_GRID_MAIN)
 TT.set_t1(True)
 for kv in [v for v in A.set.split(",") if v]:
     k, v = kv.split("=")
-    assert k in ("T1_RB", "T1_SBW", "GIN_MOVE_NB"), k
+    assert k in ("T1_RB", "T1_SBW", "GIN_MOVE_NB", "T1_ROWS"), k
     setattr(TT, k, int(v))
 C, h = A.c, A.hidden
 gen = torch.Generator().manual_seed(0)
@@ -144,6 +144,10 @@ for n in [int(s) for s in A.ns.split(",") if s]:
             ttnn.synchronize_device(dev)
             host = [ttnn.to_torch(o) for o in outs]
             rec["t1_finite"] = all(bool(torch.isfinite(t).all()) for t in host)
+            # Bit-level digest of a, b, g_out: two runs with different T1 knobs read the same digest
+            # exactly when the knob does not change one bit (the inputs come from a fixed seed).
+            rec["t1_sha"] = hashlib.sha256(b"".join(t.contiguous().view(torch.int16).numpy().tobytes()
+                                                    for t in host)).hexdigest()[:16]
             for k, t in zip("abg", host):
                 rec[f"t1_{k}_rel_rms_f64"], rec[f"t1_{k}_max_abs"] = rel(t.reshape(ref[k].shape), ref[k])
             free(outs)

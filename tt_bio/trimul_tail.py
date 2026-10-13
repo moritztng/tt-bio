@@ -837,6 +837,17 @@ def gin_ragged(x, wpT, wgT, bias, ckc, grid, S, mask=None, memory_config=None):
 T2 = False
 T2_STATS = [0, 0]       # served, declined
 T2_KEYS = {(4, 4), (8, 8)}   # (kt, nt): c_z 128 and 256 (ESMFold2)
+# c_z 384 (OpenDDE) under the `trimul_t2w` lever, at T2's own block: `_MM_BLOCK`'s (8, 12, 1, 2, 1) does not
+# fit L1 and declines. (2, 12, 1, 2, 1) keeps the single K block, so the contraction order is the projection's.
+# WH chip, perf/spd_trimul/tail_t2.py --c 384 vs float64 (10-13): N 512 13.63 -> 6.19 ms, rel_rms 0.0028
+# (four ops it replaces 0.0025), max_abs 2.94 (3.30); every N 32-512 finite, no hang.
+T2_WIDE_KEYS = {(12, 12)}
+T2_BLOCK = {(12, 12): (2, 12, 1, 2, 1)}
+
+
+def _t2_block(kt, nt):
+    from . import tenstorrent as TT
+    return T2_BLOCK.get((kt, nt)) or TT._MM_BLOCK.get((kt, nt))
 
 
 # T2m: T2 reading x where the einsum left it, channel-major, instead of after reblock_permute_back
@@ -884,7 +895,11 @@ def t2_eligible(x, ln_w, ln_b, wp, g, resid, wg=None):
     if not (T2 or lever("trimul_t2" if wg is None else "trimul_t2g")):
         return "off"
     for t in (x, wp, g, resid) + ((wg,) if wg is not None else ()):
-        if t is None or t.dtype != ttnn.bfloat16 or t.layout != ttnn.TILE_LAYOUT:
+        if t is None or t.layout != ttnn.TILE_LAYOUT:
+            return "dtype"
+        # A plain-form g_out may be bfp8 (trimul_b8in writes it so): CB 5 takes g's format and
+        # compute unpacks it into DEST like the bf16 tile, so b8in and T2 stack.
+        if t.dtype != ttnn.bfloat16 and not (t is g and wg is None and t.dtype == ttnn.bfloat8_b):
             return "dtype"
         if t.memory_config() != ttnn.DRAM_MEMORY_CONFIG:
             return "memcfg"
@@ -899,7 +914,9 @@ def _t2_shape_why(xs, xps, ln_w, ln_b, wp, g, resid, wg=None):
         return "weight_shape"
     K, N = int(wp.shape[-2]), int(wp.shape[-1])
     kt, nt = _tiles(K), _tiles(N)
-    if (kt, nt) not in T2_KEYS or K % TILE or N % TILE:
+    from .tenstorrent import lever
+    if ((kt, nt) not in T2_KEYS and not ((kt, nt) in T2_WIDE_KEYS and lever("trimul_t2w"))
+            or K % TILE or N % TILE):
         return f"key={kt}x{nt}"
     if xs[-1] != K or xps[-1] != K:
         return "act_k"
@@ -915,7 +932,7 @@ def _t2_shape_why(xs, xps, ln_w, ln_b, wp, g, resid, wg=None):
             or tuple(resid.padded_shape) != tuple(xps[:-1]) + (N,)):
         return "padded_shape"
     from . import tenstorrent as TT    # late: `tenstorrent` imports this module at its own import
-    block = TT._MM_BLOCK.get((kt, nt))
+    block = _t2_block(kt, nt)
     if block is None:
         return "block"
     mt = 1
@@ -1028,7 +1045,8 @@ def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, wg=None, moved
     cbs = [_cb(0, core_grid, kt if moved is not None else 2 * Mb * kt),
            _cb(1, core_grid, (1 + gate) * kt * nt),
            _cb(2, core_grid, 2 * blk), _cb(3, core_grid, Mb * kt), _cb(4, core_grid, blk),
-           _cb(5, core_grid, (2 - gate) * blk), _cb(7, core_grid, 2 * blk),
+           _cb_fmt(5, core_grid, (2 - gate) * blk, g.dtype if moved is None else ttnn.bfloat16),
+           _cb(7, core_grid, 2 * blk),
            _cb(8, core_grid, kt), _cb(9, core_grid, kt), _cb(10, core_grid, 1),
            _cb_fmt(11, core_grid, 1, f32), _cb_fmt(12, core_grid, 1, f32),
            _cb_fmt(13, core_grid, 1, f32), _cb_fmt(14, core_grid, 1, f32),
@@ -1045,11 +1063,11 @@ def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, wg=None, moved
     return {"kernels": [reader, writer, compute], "cbs": cbs}
 
 
-def t2m_parts(kt, nt, Mb, gate, cp):
-    """Row parts per (it, jt) block for T2m: the fewest whose stage fits beside T2's buffers, or
-    None. Fewer parts read each channel tile in fewer, longer pieces."""
+def t2m_parts(kt, nt, Mb, gate, cp, min_parts=1):
+    """Row parts per (it, jt) block for T2m: the fewest (>= min_parts) whose stage fits beside T2's
+    buffers, or None. Fewer parts read each channel tile in fewer, longer pieces."""
     from . import tenstorrent as TT
-    for P in (1, 2, 4):
+    for P in (p for p in (1, 2, 4) if p >= min_parts):
         if ((TILE // P) % Mb == 0 and _t2_tiles(kt, nt, Mb, gate, (cp, P)) * MG.tile_bytes(ttnn.bfloat16)
                 <= 0.85 * TT._l1_bank_bytes()):
             return P
@@ -1098,10 +1116,10 @@ def fused_tail_ln(x, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5, wg=None, mov
         return None
     from . import tenstorrent as TT
     kt, nt = _tiles(wp.shape[-2]), _tiles(wp.shape[-1])
-    block = TT._MM_BLOCK[(kt, nt)]
+    block = _t2_block(kt, nt)
     P = None
     if moved is not None:
-        why = t2m_eligible(moved[0], x, moved[1])
+        why = t2m_eligible(moved[0], x, moved[1]) or ("g_dtype" if g.dtype != ttnn.bfloat16 else None)
         P = None if why else t2m_parts(kt, nt, block[0], wg is not None, moved[1] // TILE)
         if P is None:
             T2M_STATS[1] += 1
@@ -1116,7 +1134,7 @@ def fused_tail_ln(x, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5, wg=None, mov
         REJECTS[k] = REJECTS.get(k, 0) + 1
         return None
     spec = lambda t: (str(t.padded_shape), str(t.dtype), str(t.memory_config()))
-    key = ("t2", spec(x), spec(wp), spec(ln_w), spec(ln_b), wg is not None, tuple(grid),
+    key = ("t2", spec(x), spec(wp), str(g.dtype), spec(ln_w), spec(ln_b), wg is not None, tuple(grid),
            tuple(str(c) for c in ckc), float(eps), SIGPOLY, RNE,
            None if moved is None else (spec(moved[0]), moved[1], P))
     entry = _CACHE.get(key)
@@ -1189,10 +1207,23 @@ def t2cm_eligible(xcm, ln_w, ln_b, wp, g, resid, ckc=None):
     return None
 
 
-def _t2cm_parts(wp):
+def _t2cm_parts(wp, min_parts=1):
     from . import tenstorrent as TT
     kt, nt = _tiles(wp.shape[-2]), _tiles(wp.shape[-1])
-    return t2m_parts(kt, nt, TT._MM_BLOCK[(kt, nt)][0], False, 0)
+    return t2m_parts(kt, nt, _t2_block(kt, nt)[0], False, 0, min_parts)
+
+
+def balance_split(units, ncores):
+    """2 when cutting every work unit in two lifts the round balance (units per core-round) by at
+    least 10 %, else 1. At 512 tokens 256 units on 110 cores run at 78 %, 512 halves at 93 %."""
+    eff = lambda u: u / (-(-u // ncores) * ncores)  # noqa: E731
+    return 2 if eff(2 * units) >= 1.1 * eff(units) else 1
+
+
+# A/B knob: the fewest row parts T2CM splits each (it, jt) block into; 0 = balance_split's choice
+# (production). Each part's rows compute exactly as in the whole block, so the choice is bit-exact
+# (bht1f: identical CIFs at 512 on both models, OpenBind-0 --fast -0.14 s on p150a).
+T2CM_MIN_P = 0
 
 
 def fused_tail_ln_cm(xcm, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5):
@@ -1208,14 +1239,14 @@ def fused_tail_ln_cm(xcm, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5):
         return None
     from . import tenstorrent as TT
     kt, nt = _tiles(wp.shape[-2]), _tiles(wp.shape[-1])
-    P = _t2cm_parts(wp)
+    P = _t2cm_parts(wp, T2CM_MIN_P or balance_split(_tiles(xcm.shape[2]) ** 2, grid[0] * grid[1])) or _t2cm_parts(wp)
     spec = lambda t: (str(t.padded_shape), str(t.dtype), str(t.memory_config()))
     key = ("t2cm", spec(xcm), spec(wp), spec(ln_w), spec(ln_b), tuple(grid),
            tuple(str(c) for c in ckc), float(eps), SIGPOLY, RNE, P)
     entry = _CACHE.get(key)
     if entry is None:
         # x is only read for the channels before c_off, so with c_off 0 xcm stands in for it.
-        entry = _CACHE[key] = _build_t2(xcm, ln_w, ln_b, wp, g, resid, grid, ckc, TT._MM_BLOCK[(kt, nt)],
+        entry = _CACHE[key] = _build_t2(xcm, ln_w, ln_b, wp, g, resid, grid, ckc, _t2_block(kt, nt),
                                         eps, moved=(xcm, 0, P))
     reader, writer, _ = entry["kernels"]
     a = xcm.buffer_address()
@@ -1246,6 +1277,14 @@ T1_KEYS = {(4, 8, 4)}             # (kt, ct2, ntg): c_z 128, hidden 128, g_out 1
 T1_RB = 8                         # z row tiles per reader barrier
 T1_SBW = 4                        # DST tiles per matmul block (half-sync fp32 DST holds 4)
 T1_ABL = 0                        # bench-only stage-skip bits (kernels/trimul_in_t1 ABL); 0 = the real T1
+# Row tiles per work item: 32 = one unit (b, xt, yt) per item; 16 = each unit as two items, rows 0-15 and
+# 16-31, which are faces 0-1 and 2-3 of every [B, C, S, S] tile the writer gathers, so the two halves
+# write disjoint bytes. Every row is computed exactly as in the whole unit (same LN, same K order).
+# The point is balance: at 512 tokens 256 units on 110 cores is 3 rounds for 36 cores and 2 for the
+# rest (78 %), and T1 is compute-bound (t1abl2-512: 2.08 of 2.18 ms with every DRAM stage skipped);
+# 512 halves is 5 rounds against 4.65 (93 %). Bit-exact (same digest at 64/128/512, identical CIFs);
+# the op runs 2.07 -> 1.78 ms at 512 on a p150a. A/B knob; 0 = balance_split's choice (production).
+T1_ROWS = 0
 BF16_TILE, FP32_TILE = 2048, 4096
 
 
@@ -1377,7 +1416,9 @@ def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps):
     core_grid = ttnn.CoreRangeSet(
         [ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(gx - 1, gy - 1))])
     rd, wr, cp = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
-    for c, (u0, n) in enumerate(t1_split(B * St * St, gx * gy)):
+    R = T1_ROWS or 32 // balance_split(B * St * St, gx * gy)
+    assert R in (16, 32), R
+    for c, (u0, n) in enumerate(t1_split(B * St * St * (32 // R), gx * gy)):
         cx, cy = c % gx, c // gx
         rd[cx][cy] = [u0, n]
         wr[cx][cy] = [u0, n]
@@ -1393,17 +1434,17 @@ def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps):
     reader = ttnn.KernelDescriptor(
         kernel_source=str(d / "reader.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[kt, ct2, St, int(mask is not None), ntg, T1_RB, (inv << 16) | inv,
-                           eps_bits]
+                           eps_bits, R]
         + acc(x) + acc(wpT) + acc(wgT) + acc(wgo) + acc(ln_w) + acc(ln_b) + acc(m),
         defines=abl, runtime_args=rd, common_runtime_args=[0] * 7, config=ttnn.ReaderConfigDescriptor())
     writer = ttnn.KernelDescriptor(
         kernel_source=str(d / "writer.cpp"), source_type=src, core_ranges=core_grid,
-        compile_time_args=[ct2, St, GIN_MOVE_NB, ntg] + acc(outs[0]) + acc(outs[1]) + acc(outs[2]),
+        compile_time_args=[ct2, St, GIN_MOVE_NB, ntg, R] + acc(outs[0]) + acc(outs[1]) + acc(outs[2]),
         defines=abl, runtime_args=wr, common_runtime_args=[0] * 3, config=ttnn.WriterConfigDescriptor())
     fid, approx, _, full = ckc
     compute = ttnn.KernelDescriptor(
         kernel_source=str(d / "compute.cpp"), source_type=src, core_ranges=core_grid,
-        compile_time_args=[kt, ct2, T1_SBW, int(mask is not None), int(SIGPOLY), RNE, ntg],
+        compile_time_args=[kt, ct2, T1_SBW, int(mask is not None), int(SIGPOLY), RNE, ntg, R],
         defines=abl, runtime_args=cp,
         # fp32 DEST always, as T2: the LayerNorm statistics live in fp32 CBs. The fidelity stays
         # the caller's, so the projections run as the incumbent in-projection runs them.
@@ -1443,7 +1484,7 @@ def fused_in_ln(x, ln_w, ln_b, wpT, wgT, wgo, ckc, grid, mask=None, eps=1e-5):
     outs = [alloc([B, C, S, S]), alloc([B, C, S, S]), alloc(shp[:-1] + [int(wgo.shape[-1])])]
     key = ("t1", str(x.padded_shape), str(wpT.padded_shape), str(wgo.padded_shape), tuple(grid),
            tuple(str(c) for c in ckc), mask is not None, float(eps), SIGPOLY, RNE, GIN_MOVE_NB,
-           T1_RB, T1_SBW, T1_ABL)
+           T1_RB, T1_SBW, T1_ABL, T1_ROWS)
     entry = _CACHE.get(key)
     if entry is None:
         entry = _CACHE[key] = _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps)

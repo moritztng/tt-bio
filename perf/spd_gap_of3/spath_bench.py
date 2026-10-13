@@ -13,7 +13,12 @@ The p150a census (cen53, 1350 MHz) reads them at 20.3 us (bias + sigmoid epilogu
 * `wide`: three wide linears per step ([384, blocks*2*768] each) and one `ttnn.slice` per consumer tensor.
 * `wide_noslice`: the wide linears alone (the floor if consumers could read the wide tensor in place).
 
+* `sigapprox`: `block` with the sigmoid epilogue under math_approx_mode (the fast-mode candidate).
+* `sigsep`: `nosig` + one standalone `ttnn.sigmoid` per gate (Accurate); `sigsep_fa` / `sigsep_afe` at
+  SigmoidMode.FastApproximate / AccurateWithFastExp; `epi_p1` / `epi_p2` the epilogue with sigmoid params [4, 1|2].
+
 `exact`: every sliced tensor of `wide` against `block`'s, bitwise (max_abs, n_diff).
+`sig_err`: each sigmoid variant against float64 sigmoid of the float64 linear, max_abs and rms over every gate.
 """
 import argparse, json, statistics, time
 
@@ -43,15 +48,47 @@ def main():
     Bs = [[torch.randn(1, 768, generator=g) for _ in range(4)] for _ in range(B)]
     Wd = [[up(w) for w in ws] for ws in W]
     Bd = [[up(b) for b in bs] for bs in Bs]
-    lin = lambda x, w, b=None, act=None: ops.linear(x, w, bias=b, activation=act, compute_kernel_config=ckc,  # noqa: E731
-                                                    core_grid=T.CORE_GRID_MAIN)
+    ckca = ttnn.init_device_compute_kernel_config(dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi4,
+                                                  math_approx_mode=True, fp32_dest_acc_en=True, packer_l1_acc=True)
+    lin = lambda x, w, b=None, act=None, k=ckc: ops.linear(x, w, bias=b, activation=act,  # noqa: E731
+                                                           compute_kernel_config=k, core_grid=T.CORE_GRID_MAIN)
 
-    def block(act="sigmoid"):
+    def block(act="sigmoid", k=ckc, post=None):
         out = []
         for w, b in zip(Wd, Bd):
-            out += [lin(sh, w[0], b[0], act), lin(sh, w[1]), lin(sh, w[2], b[1], act), lin(sh, w[3]),
-                    lin(s, w[4], b[2], act), lin(s, w[5], b[3], act)]
+            g = [lin(sh, w[0], b[0], act, k), lin(sh, w[2], b[1], act, k), lin(s, w[4], b[2], act, k),
+                 lin(s, w[5], b[3], act, k)]
+            if post is not None:
+                g = [post(t) for t in g]
+            out += [g[0], lin(sh, w[1]), g[1], lin(sh, w[3]), g[2], g[3]]
         return out
+
+    def gates(ts):
+        return [ts[i] for k in range(B) for i in (6 * k, 6 * k + 2, 6 * k + 4, 6 * k + 5)]
+
+    # float64 reference gates from the bf16 operands the device reads
+    rd = lambda t: ttnn.to_torch(t).double()  # noqa: E731
+    s64, sh64 = rd(s), rd(sh)
+    ref_g = []
+    for k in range(B):
+        w64 = [rd(Wd[k][i]) for i in (0, 2, 4, 5)]
+        b64 = [rd(Bd[k][i]) for i in range(4)]
+        ref_g += [torch.sigmoid(x @ w + b) for x, w, b in zip((sh64, sh64, s64, s64), w64, b64)]
+    SM = ttnn.SigmoidMode
+    sep = lambda m: lambda: block(None, post=lambda t: ttnn.sigmoid(t, mode=m))  # noqa: E731
+    epi = lambda p: lambda: block(ttnn.UnaryWithParam(ttnn.UnaryOpType.SIGMOID, [4.0, p]))  # noqa: E731
+    variants = {"block": lambda: block(), "sigapprox": lambda: block(k=ckca),
+                "sigsep": lambda: block(None, post=ttnn.sigmoid), "sigsep_fa": sep(SM.FastApproximate),
+                "sigsep_afe": sep(SM.AccurateWithFastExp), "epi_p1": epi(1.0), "epi_p2": epi(2.0)}
+    res_err = {}
+    for name, fn in variants.items():
+        try:
+            gs = gates([ttnn.to_torch(t) for t in fn()])
+            d = torch.cat([(x.double() - y).flatten() for x, y in zip(gs, ref_g)])
+            res_err[name] = {"max_abs": float(d.abs().max()), "rms": float(d.pow(2).mean().sqrt())}
+        except Exception as e:  # noqa: BLE001
+            res_err[name] = {"error": str(e)[:200]}
+        print("sig_err", name, res_err[name], flush=True)
 
     # wide: sigmoid off LN(s) = [sc0, sc1] per block, plain off LN(s) = [sb0, sb1], sigmoid off s = [og, lg]
     cat = lambda idx: up(torch.cat([W[k][i] for k in range(B) for i in idx], 1))  # noqa: E731
@@ -72,13 +109,16 @@ def main():
             ttnn.deallocate(y)
         return out
 
-    res = {"n": N, "blocks": B, "reps": a.reps, "arms": {}}
+    res = {"n": N, "blocks": B, "reps": a.reps, "arms": {}, "sig_err": res_err}
     ref = [ttnn.to_torch(t) for t in block()]
     wd = [ttnn.to_torch(t) for t in wide()]
     d = torch.stack([(x.float() - y.float()).abs().max() for x, y in zip(ref, wd)])
     res["exact"] = {"max_abs": float(d.max()), "n_tensors_diff": int((d > 0).sum()), "n": len(ref)}
     for name, fn in (("block", block), ("nosig", lambda: block(None)), ("wide", wide),
-                     ("wide_noslice", lambda: wide(False))):
+                     ("wide_noslice", lambda: wide(False)), ("sigapprox", variants["sigapprox"]),
+                     *[(k, variants[k]) for k in ("sigsep", "sigsep_fa", "sigsep_afe", "epi_p1", "epi_p2")]):
+        if "error" in res_err.get(name, {}):
+            continue
         for t in fn():
             ttnn.deallocate(t)
         tid = ttnn.begin_trace_capture(dev, cq_id=0)
