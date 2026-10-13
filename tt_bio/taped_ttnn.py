@@ -1679,8 +1679,10 @@ def forget_shim_bindings(*names: str) -> None:
     call site that has already been through the shim once. `_SHIM` is a module singleton and
     outlives any one `tape()`, so this is not a first-tape problem -- it is the second tape in
     a process, where a lever installed between the two reads as perfectly inert.
+
+    No names drops every binding, sub-proxies included: what a census that wraps all of ttnn needs.
     """
-    for n in names:
+    for n in names or [k for k in vars(_SHIM) if k not in ("_real", "_prefix")]:
         _SHIM.__dict__.pop(n, None)
 
 

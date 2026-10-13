@@ -236,8 +236,7 @@ class Recorder:
         TT = sys.modules.get("tt_bio.taped_ttnn")
         if TT is None:
             return
-        for k in [k for k in vars(TT._SHIM) if k not in ("_real", "_prefix")]:
-            del TT._SHIM.__dict__[k]
+        TT.forget_shim_bindings()
         TT._SHIPPED_GETITEM = self.ttnn.Tensor.__getitem__
 
 
