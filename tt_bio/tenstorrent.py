@@ -12723,13 +12723,14 @@ class Transition(Module):
     def _weight_stationary(self, x, memory_config):
         """`transition_ws`: layer norm, then the whole swiglu as one `pair_swiglu_ws` program, or None
         where the kernel does not take the shape (a hidden width it cannot tile, an L1 destination, a tape).
-        Weights over its L1 budget (OpenDDE's c_z 384) run in hidden chunks. bf16 weights only up to c_z 128:
-        at c_z 256 they read sparse errors of exactly 1, 2 and 4 against float64 (wd1, both hidden chunks),
-        unless `ws_l1acc` keeps the dest sums short."""
+        Weights over its L1 budget (OpenDDE's c_z 384) run in hidden chunks. On Wormhole, bf16 weights only up
+        to c_z 128: at c_z 256 HiFi4 the fp32-dest cancellation fault (`dest_guard`) hits ~10x more outputs
+        (ws_bisect wsb1, 394-472 vs 35 per chunk) unless `ws_l1acc` keeps the dest sums short; Blackhole reads
+        clean at every shape (wsb1bh)."""
         if not (_ws_applies(x, self.compute_kernel_config)
                 and (memory_config is None or memory_config.buffer_type == ttnn.BufferType.DRAM)
                 and (self.dtype or _dtype()) == ttnn.bfloat16
-                and (self._hidden_b8 or x.shape[-1] <= 128 or lever("ws_l1acc"))):
+                and (self._hidden_b8 or x.shape[-1] <= 128 or lever("ws_l1acc") or not is_wormhole())):
             return None
         if getattr(self, "_ws", None) is None:
             # bfp8 weights where the module's own are (transition_b8, fast mode): that is also what lets
