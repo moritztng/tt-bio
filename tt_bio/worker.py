@@ -1995,7 +1995,8 @@ class _WorkerState:
             n_atom=aux["n_atom"], n_token=aux["n_token"],
             no_rollout_steps=int(cfg["sampling_steps"]), seed=seed,
             no_samples=n_sample, confidence_aux_host=confidence_aux,
-            progress_fn=report_progress, max_parallel_samples=cfg.get("max_parallel_samples"))
+            progress_fn=report_progress, max_parallel_samples=cfg.get("max_parallel_samples"),
+            distogram=bool(cfg.get("write_pae")))
 
         confs = result.confidence
         order = sorted(range(len(confs)),
