@@ -277,7 +277,8 @@ def test_eligibility(monkeypatch):
     assert TTL.t1_eligible(**_args()) is None
     assert TTL.t1_eligible(**_args(), mask=_Fake([1, 512, 512])) is None
     assert TTL.t1_eligible(**_args(), mask=_Fake([1, 512, 500], padded=[1, 512, 512])) == "mask"
-    assert TTL.t1_eligible(**_args(K=256)) == "key=8x8x4"            # protenix-v2's c_z
+    assert TTL.t1_eligible(**_args(K=256)) == "key=8x8x4"            # c_z 256 with hidden 128: no plan
+    assert TTL.t1_eligible(**_args(K=256, h=256, N=256)) is None      # protenix-v2 / opendde / esmfold2
     assert TTL.t1_eligible(**_args(h=64)) == "key=4x4x4"
     a = _args()
     a["ln_w"] = _Fake([128], dtype=ttnn.float32)
