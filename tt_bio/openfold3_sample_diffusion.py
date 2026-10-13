@@ -205,7 +205,8 @@ class OF3SampleDiffusion:
                 # sample (the pair branch and zij_pad are loop-invariant and were hoisted above).
                 n_emb = fourier_noise_emb(t, self.sigma_data, self.fourier_w, self.fourier_b)
                 si_dev = self.dc.single(si_trunk_dev, si_input_dev,
-                                        self._to_dev(n_emb.reshape(1, 1, 256)), tok_mask_dev)
+                                        self._to_dev(n_emb.reshape(1, 1, 256)), tok_mask_dev,
+                                        cache=inv_cache)
                 si_pad = pad_dim(si_dev, self._act_dtype, n_token, n_tok_pad)
                 if si_pad is not si_dev:
                     ttnn.deallocate(si_dev)
@@ -284,7 +285,7 @@ class OF3SampleDiffusion:
         rl_bufs = [self._to_dev(torch.zeros(1, NP, 3)) for _ in range(S)]
 
         def step():
-            si = self.dc.single(si_trunk_dev, si_input_dev, n_buf, tok_mask_dev)
+            si = self.dc.single(si_trunk_dev, si_input_dev, n_buf, tok_mask_dev, cache=inv_cache)
             si_pad = pad_dim(si, self._act_dtype, n_token, n_tok_pad)
             if si_pad is not si:
                 ttnn.deallocate(si)

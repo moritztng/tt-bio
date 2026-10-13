@@ -518,6 +518,10 @@ class OF3DiffusionModule(Module):
                                 compute_kernel_config=self.compute_kernel_config)
         si_proj = self._lin(si_ln, self.w_ls)                  # [1, n_tok_pad, 768]
         ttnn.deallocate(si_ln)
+        if tuple(si_proj.padded_shape)[1] == n_token:
+            # Nothing to cut (n_tok_pad == n_token, tile aligned): untilize -> full slice ->
+            # tilize is a pure copy of the same values, so skipping it is bit-exact.
+            return si_proj
         si_proj = ttnn.to_layout(si_proj, ttnn.ROW_MAJOR_LAYOUT)
         si_proj = ttnn.slice(si_proj, [0, 0, 0], [1, n_token, 768])
         return ttnn.to_layout(si_proj, ttnn.TILE_LAYOUT)

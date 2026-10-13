@@ -32,7 +32,7 @@ from __future__ import annotations
 
 import ttnn
 
-from .tenstorrent import Module, pair_row_blocks, row_block_after_refusal
+from .tenstorrent import Module, _cached, pair_row_blocks, row_block_after_refusal
 
 # Pair shapes whose single-pass conditioning DRAM refused, and the row block they settled at.
 _PAIR_ROWS_REFUSED: dict = {}
@@ -120,15 +120,24 @@ class OF3DiffusionConditioning(Module):
             z = ttnn.add(z, tr(z, pair_mask))
         return z
 
-    def single(self, si_trunk, si_input, n_emb, tok_mask):
-        """Single branch: cat([si_trunk, si_input]) -> LN_s -> linear_s, plus the
-        Fourier noise embedding. This is the half that depends on the noise level."""
-        lin = self._lin
+    def _single_trunk(self, si_trunk, si_input):
         sc = ttnn.concat([si_trunk, si_input], dim=-1)       # [1, N, 833]
         s = ttnn.layer_norm(sc, weight=self.ln_s, epsilon=1e-5,
                             compute_kernel_config=self.compute_kernel_config)
         ttnn.deallocate(sc)
-        s = lin(s, self.w_lin_s)                              # [1, N, 384]
+        return self._lin(s, self.w_lin_s)                    # [1, N, 384]
+
+    def single(self, si_trunk, si_input, n_emb, tok_mask, cache=None):
+        """Single branch: cat([si_trunk, si_input]) -> LN_s -> linear_s, plus the
+        Fourier noise embedding. This is the half that depends on the noise level.
+
+        ``cache`` (the rollout's invariant dict): the concat -> LN_s -> linear_s head reads
+        only the trunk outputs, so it is built once per rollout and reused. Bit-exact: the
+        same three programs on the same inputs, run once instead of per step; the add below
+        is out of place, so the cached tensor is never consumed."""
+        lin = self._lin
+        s = _cached(cache, (id(self), "single_trunk", id(si_trunk), id(si_input)),
+                    lambda: self._single_trunk(si_trunk, si_input))
         # Noise embedding: LN_n(n) -> linear_n, broadcast-added over the token dim.
         n_ln = ttnn.layer_norm(n_emb, weight=self.ln_n, epsilon=1e-5,
                                compute_kernel_config=self.compute_kernel_config)
