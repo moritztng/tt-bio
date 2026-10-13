@@ -3,6 +3,7 @@
 # Usage: run_qb1.sh <logical_card> <outdir> <timeout_s> [extra proga args...]
 # Queue it on several cards at once: the first to take its flock claims $R/CLAIM and the others
 # release their card immediately. Remove $R/CLAIM before the next run.
+# proga needs python >= 3.12 so it runs from $R/venv; $VENV (3.10) is only for the tt-bio launcher.
 set -u
 CHIP=$1 OUT=$2 TMO=$3; shift 3
 R=$HOME/proga-review
@@ -25,7 +26,7 @@ export PYTHONPATH="$R/src:$TREE"
 SAMP=$!
 cd "$R/work"
 timeout -s TERM $((TMO + 180)) timeout -s INT "$TMO" \
-  "$VENV/bin/python" -m proga.cli.design \
+  "$R/venv/bin/python" -m proga.cli.design \
     --spec "$R/spec_ubq.yaml" --output_dir "$OUT/design" \
     --oracle-backend ttbio --ttbio-launcher "$R/ttbio_launcher.sh" \
     --objective iptm_ipae --n_cycle 3 --n_step 200 --n_sample 1 \
