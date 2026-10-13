@@ -620,6 +620,8 @@ _FAST_MODE = False
 #                   kernel writing z in place (kernels/trimul_tail_res, compute_ln.cpp; c_z 128 / 256, N >= 160)
 #   trimul_t2g      the same kernel where no fused g_out exists (trimul_gin, Wormhole ESMFold2): it computes
 #                   sigmoid(layer_norm_in(z) @ Wg_out) itself, so g_out is never written to DRAM
+#   trimul_t2m      T2 (either form) reads the einsum's last channel chunk where it lies, channel-major, so
+#                   reblock_permute_back never writes the moved x (kernels/trimul_tail_res/reader_moved.cpp)
 #   trimul_t1_dram  every trimul T1 / T2 can take (N >= 160) runs on the DRAM path, so they also serve the sizes
 #                   that would otherwise stay in L1 (Nesso-1's 256-token crop passes: 0.70 -> 0.36 s each on WH)
 #   conf_bins       OpenFold3's pae / pde heads reduce softmax(logits) to their bin-vector products on the card
@@ -638,12 +640,14 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
           "transition_shard", "dit_mm16", "atom_k1", "dit_b8", "dit_qkv16", "atom_mm16", "adaln_mod",
           "swiglu_fc12g", "msa_sample", "dit_sdpa_pm", "dit_s16", "dit_chunk", "conf_bins", "trimul_t1", "trimul_t2",
-          "trimul_t2g", "triatt_tail_bias", "dit_cond_hifi2", "transition_ws", "ws_ln", "trimul_t1_dram")
+          "trimul_t2g", "triatt_tail_bias", "dit_cond_hifi2", "transition_ws", "ws_ln", "trimul_t1_dram",
+          "trimul_t2m")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias in its own set: graded on AF2-IG only, and it would reach any other biased
 # triangle attention. BoltzGen's own --fast set names dit_cond_hifi2, graded on BoltzGen's designs.
-UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "dit_cond_hifi2", "ws_ln"})
+UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "dit_cond_hifi2", "ws_ln",
+                             "trimul_t2m"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -9750,6 +9754,7 @@ class TriangleMultiplication(Module):
         # back_ln writes the output norm with the last chunk's move; the row-blocked tail recomputes
         # both norms itself, so it must get the raw result.
         x_normed = False
+        t2m_pending = None           # (last chunk, c_off) left channel-major for T2m
         back_ln_skip = (H > SEQ_LEN_MORE_CHUNKING or x_norm_in is None
                         or (tuple(shp), x_in.dtype) in _TRIMUL_TAIL_ROWS_SHAPES)
         tma_key = ("tma", H, batch, self._hidden, bool(self.ending))
@@ -10049,6 +10054,13 @@ class TriangleMultiplication(Module):
                             x_out = ttnn.allocate_tensor_on_device(
                                 ttnn.Shape([1, H, H, self._hidden]), x_chunk.dtype,
                                 ttnn.TILE_LAYOUT, self.device, back_mc)
+                        if (c_done + int(x_chunk.shape[1]) == self._hidden and self._t2_serves(
+                                g_out_fused, x_norm_in, H, add_to_input)
+                                and _trimul_tail.t2m_eligible(x_chunk, x_out, c_done) is None):
+                            # T2m reads this chunk where it lies; the move happens only if it declines.
+                            t2m_pending = (x_chunk, c_done)
+                            c_done += int(x_chunk.shape[1])
+                            continue
                         if (c_done + int(x_chunk.shape[1]) == self._hidden and not back_ln_skip
                                 and _back_ln.eligible(x_chunk, x_out, c_done)):
                             # The last chunk's move also writes the output norm (back_ln.py).
@@ -10148,7 +10160,9 @@ class TriangleMultiplication(Module):
                 x_chunks = []
                 if x_out is not None:
                     ttnn.deallocate(x_out)
-                x_out, c_done, x_normed = None, 0, False
+                if t2m_pending is not None:
+                    ttnn.deallocate(t2m_pending[0])
+                x_out, c_done, x_normed, t2m_pending = None, 0, False, None
                 if x_out_pre is not None:
                     ttnn.deallocate(x_out_pre)
                     x_out_pre = None
@@ -10235,6 +10249,17 @@ class TriangleMultiplication(Module):
                 TRIMUL_TAIL_ROWS_STATS[1] += 1
         if x_out_pre is not None:       # reserved, but no chunk took the write-into path
             ttnn.deallocate(x_out_pre)
+
+        def t2m_flush():
+            """The move T2m skipped, for every route but T2m itself."""
+            nonlocal t2m_pending
+            if t2m_pending is not None:
+                _reblock.reblock_permute_back(t2m_pending[0], ttnn.DRAM_MEMORY_CONFIG, out=x_out,
+                                              c_off=t2m_pending[1])
+                ttnn.deallocate(t2m_pending[0])
+                t2m_pending = None
+        if rows_tail:
+            t2m_flush()
         if rows_tail and (host_acc or keep_chunks):
             # The hidden stays on the host as its channel chunks and the tail uploads one row
             # block of it at a time: uploaded whole it is a second pair-sized tensor beside z.
@@ -10254,20 +10279,26 @@ class TriangleMultiplication(Module):
         # to free it, so every size that fits keeps its peak and its ops.
         t2_gate = (g_out_fused is None and x_norm_in is not None and self.g_out_bias is None
                    and (_trimul_tail.T2 or lever("trimul_t2g")))
-        if (((g_out_fused is not None and (_trimul_tail.T2 or lever("trimul_t2"))) or t2_gate)
-                and H >= _trimul_tail.MIN_N and add_to_input and not ops.taping()
-                and self.p_out_bias is None and not x_normed):
+        if self._t2_serves(g_out_fused, x_norm_in, H, add_to_input) and not x_normed:
             # T2 (the `trimul_t2` lever): layer_norm,
             # the p projection, the gate and the residual add as one kernel writing x_in in
             # place; `_add_input` then sees `u is x`. Without a fused g_out (trimul_gin, or no
             # fused in-projection) the `trimul_t2g` lever takes the GATE form, which computes
             # sigmoid(x_norm_in @ Wg) itself. None (out of scope) leaves everything untouched
             # and the ops below run unchanged.
-            fused = _trimul_tail.fused_tail_ln(
-                x, self.out_norm_weight, self.out_norm_bias, self.out_p_weight,
-                x_norm_in if t2_gate else g_out_fused, x_in,
-                _mm_generic.ckc_args(self.compute_kernel_config), tuple(COMPUTE_GRID_MAIN),
-                wg=self.g_out_weight if t2_gate else None)
+            t2_args = (self.out_norm_weight, self.out_norm_bias, self.out_p_weight,
+                       x_norm_in if t2_gate else g_out_fused, x_in,
+                       _mm_generic.ckc_args(self.compute_kernel_config), tuple(COMPUTE_GRID_MAIN))
+            t2_wg = self.g_out_weight if t2_gate else None
+            fused = None
+            if t2m_pending is not None:
+                fused = _trimul_tail.fused_tail_ln(x, *t2_args, wg=t2_wg, moved=t2m_pending)
+                if fused is not None:
+                    ttnn.deallocate(t2m_pending[0])
+                    t2m_pending = None
+            t2m_flush()
+            if fused is None:
+                fused = _trimul_tail.fused_tail_ln(x, *t2_args, wg=t2_wg)
             if fused is not None:
                 ttnn.deallocate(x)
                 if x_norm_in is not None:      # None under T1
@@ -10276,6 +10307,7 @@ class TriangleMultiplication(Module):
                     TRIMUL_GOUT_STATS[0] += 1
                     ttnn.deallocate(g_out_fused)
                 return fused
+        t2m_flush()
         try:
             xn = x if x_normed else ttnn.layer_norm(
                 x,
@@ -10343,6 +10375,15 @@ class TriangleMultiplication(Module):
             p_out, g_out, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID]
         )
         return x
+
+    def _t2_serves(self, g_out_fused, x_norm_in, H, add_to_input):
+        """Whether the output tail goes to T2 (`trimul_t2` with a fused g_out, else the GATE form
+        under `trimul_t2g`), before T2's own shape checks."""
+        t2_gate = (g_out_fused is None and x_norm_in is not None and self.g_out_bias is None
+                   and (_trimul_tail.T2 or lever("trimul_t2g")))
+        return (((g_out_fused is not None and (_trimul_tail.T2 or lever("trimul_t2"))) or t2_gate)
+                and H >= _trimul_tail.MIN_N and add_to_input and not ops.taping()
+                and self.p_out_bias is None)
 
     def _tail_rows(self, x_in, x, H, host_acc, add_to_input=False):
         """The output projections in row blocks, from the pair input and the channel-loop result.

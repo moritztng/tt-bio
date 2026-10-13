@@ -24,6 +24,7 @@
 #include "api/compute/eltwise_unary/eltwise_unary.h"
 #include "api/compute/eltwise_unary/rsqrt.h"
 #include "api/compute/eltwise_binary_sfpu.h"
+#include "api/compute/transpose_wh.h"
 #include "../trimul_gin_moved/sigmoid_poly.hpp"
 #include "../common/ln_prologue.hpp"
 
@@ -39,6 +40,10 @@ constexpr uint32_t RNE = get_compile_time_arg_val(5);
 // resident in c_1 after Wp, as trimul_tail_res's pass 1. The callers whose in-projection does not
 // leave a g_out (gin_moved, c_z 256) take this form.
 constexpr uint32_t GATE = get_compile_time_arg_val(6);
+// MOVED 1 (T2m, reader_moved.cpp): x arrives per row as CP tiles already in the output layout (c_18)
+// and Kt - CP gathered tiles M = x^T (c_15); this kernel assembles the row in cb_x, transposing M.
+constexpr uint32_t MOVED = get_compile_time_arg_val(7);
+constexpr uint32_t CP = get_compile_time_arg_val(8);
 
 constexpr uint32_t cb_x = tt::CBIndex::c_0;      // x_out rows, bf16, Mb * Kt double buffered
 constexpr uint32_t cb_w = tt::CBIndex::c_1;      // Wp, Kt * Nt, resident
@@ -57,6 +62,8 @@ constexpr uint32_t cb_var = tt::CBIndex::c_13;
 constexpr uint32_t cb_rstd = tt::CBIndex::c_14;
 constexpr uint32_t cb_xc = tt::CBIndex::c_16;    // fp32, Kt tiles
 constexpr uint32_t cb_tmp = tt::CBIndex::c_17;   // fp32, Kt tiles
+constexpr uint32_t cb_in = tt::CBIndex::c_15;    // MOVED: gathered x^T tiles, one at a time
+constexpr uint32_t cb_prev = tt::CBIndex::c_18;  // MOVED: the CP earlier channel tiles of the row
 
 ALWI void sigmoid_bf16_tile(uint32_t idst) {
     MATH((llk_math_eltwise_unary_sfpu_sigmoid<false, false>(idst, (int)VectorMode::RC)));
@@ -69,6 +76,37 @@ struct LnCbs {
 
 // One 32-row tile of x (Kt tiles at the front of cb_x, popped) -> Kt bf16 tiles appended to cb_ln.
 ALWI void layer_norm_row() {
+    if constexpr (MOVED) {
+        pack_reconfig_data_format(cb_x);
+        cb_reserve_back(cb_x, Kt);
+        if constexpr (CP > 0) {
+            reconfig_data_format_srca(cb_prev);
+            copy_tile_to_dst_init_short(cb_prev);
+            cb_wait_front(cb_prev, CP);
+            for (uint32_t t = 0; t < CP; ++t) {
+                tile_regs_acquire();
+                copy_tile(cb_prev, t, 0);
+                tile_regs_commit();
+                tile_regs_wait();
+                pack_tile(0, cb_x);
+                tile_regs_release();
+            }
+            cb_pop_front(cb_prev, CP);
+        }
+        reconfig_data_format_srca(cb_in);
+        transpose_wh_init_short(cb_in);
+        for (uint32_t t = CP; t < Kt; ++t) {
+            cb_wait_front(cb_in, 1);
+            tile_regs_acquire();
+            transpose_wh_tile(cb_in, 0, 0);
+            tile_regs_commit();
+            tile_regs_wait();
+            pack_tile(0, cb_x);
+            tile_regs_release();
+            cb_pop_front(cb_in, 1);
+        }
+        cb_push_back(cb_x, Kt);
+    }
     cb_reserve_back(cb_ln, Kt);
     ln_prologue::layer_norm_row<LnCbs>(cb_ln, [](uint32_t) { pack_tile(0, cb_ln); });
     cb_push_back(cb_ln, Kt);
