@@ -1102,7 +1102,13 @@ class ESMC(TorchWrapper):
     # 1534 residues is 1.25 MB on each of Wormhole's 12 banks) and cover the working set
     # of a length-sorted single-sequence stream. A capture that does not fit
     # raises, and _dispatch falls back to eager.
-    _TRACE_CACHE_MAX = 8
+    #
+    # ONE live trace, not 8: a replay writes its intermediates to the addresses they had at capture, which the
+    # allocator freed afterwards. A second trace's inputs, rope tables and outputs, allocated after the first
+    # capture, can land there, so replaying the first corrupts the second (esmc_trace_check.py, p150a, 600M:
+    # 544 then 300 residues interleaved, the 300 replay read rel_l2 1.61 vs eager). Evicting before each capture
+    # keeps every replayed trace the only one alive; a length switch costs a recapture.
+    _TRACE_CACHE_MAX = env_int("TT_BIO_ESMC_TRACE_CACHE_MAX", 1)
     MATH_FIDELITY = "HiFi3"
 
     def __init__(self, d_model: int, n_heads: int, n_layers: int, *, trace: bool = True):
