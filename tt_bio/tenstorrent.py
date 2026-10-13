@@ -6086,6 +6086,10 @@ _TRIMUL_GATED_INPROJ = env_flag("TT_BIO_TRIMUL_GATED_INPROJ", False)
 # two gated moves. Default on for Wormhole: AF2-IG WH fold 5.04 -> 4.77 s, ipTM within 0.002
 # (spd-gap-bind ginfold_134760004). Blackhole stays off until graded there. None = arch default.
 _TRIMUL_GIN_RAGGED = env_flag("TT_BIO_TRIMUL_GIN_RAGGED", None)
+# Bench switch (perf/spd_trifuse/t2probe.py "@ginfast"): trimul_gin and the matmul's deferred transpose
+# also under the bfp8 `_FAST_MODE`, which is how Wormhole ESMFold2 folds. gin writes a and b in bf16, so the
+# deferral's bfp8 re-quantisation (`_mm_transpose_deferred`) does not arise where gin serves.
+_TRIMUL_GIN_FAST = False
 
 
 def set_trimul_gated_inproj(on: bool) -> bool:
@@ -6317,7 +6321,7 @@ def _mm_transpose_deferred(program_config) -> bool:
     1.0868x on the 512 aa DRAM leg, so it stays a real lever -- just not a layout-only one, and it
     is not taken here on that basis.
     """
-    return _TRIMUL_MM_TRANSPOSE and not _FAST_MODE and isinstance(
+    return _TRIMUL_MM_TRANSPOSE and (not _FAST_MODE or _TRIMUL_GIN_FAST) and isinstance(
         program_config, (ttnn.MatmulMultiCoreReuseMultiCastProgramConfig,
                          ttnn.MatmulMultiCoreReuseProgramConfig))
 
@@ -9898,7 +9902,7 @@ class TriangleMultiplication(Module):
                             and bias_i is None
                             and not row_norm and x_norm_in is not None
                             and self.g_in_weight is None and not ops.taping()
-                            and not _FAST_MODE and not _TRIMUL_RAW_CHANNEL_MOVES
+                            and (not _FAST_MODE or _TRIMUL_GIN_FAST) and not _TRIMUL_RAW_CHANNEL_MOVES
                             and (self.gated_move or _TRIMUL_MASK_AFTER_MOVE)
                             and (mask is None or mask_moved_ok)
                             and memory_config.buffer_type == ttnn.BufferType.DRAM):
