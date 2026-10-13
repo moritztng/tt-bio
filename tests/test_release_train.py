@@ -115,3 +115,29 @@ def test_a_new_head_waits_for_the_running_gate_instead_of_starting_a_second(tmp_
         monkeypatch.setattr(rt, "decide", lambda **k: {"do": "GATE", "sha": "b" * 40, "why": "", "running": running})
         assert rt.main() == 0 and started == want
     assert "WAIT bbbbbbbbbbbb: gate main's head after the running gate on aaaaaaaaa ends" in capsys.readouterr().out
+
+
+def test_a_gate_runs_from_its_own_worktree_removed_once_the_gate_ended(tmp_path, monkeypatch):
+    import fcntl
+    import subprocess
+    repo = tmp_path / "clone"
+    repo.mkdir()
+
+    def git(*a):
+        return subprocess.run(["git", "-C", str(repo), *a], check=True, capture_output=True,
+                              text=True).stdout.strip()
+    git("init", "-q"), git("config", "user.email", "t@t"), git("config", "user.name", "t")
+    (repo / "a.py").write_text("x = 1\n")
+    git("add", "."), git("commit", "-qm", "c")
+    monkeypatch.setattr(rt, "REPO", repo)
+    gates = tmp_path / "gates"
+    live, done = gates / "rel-a", gates / "rel-b"
+    for d in (live, done):
+        d.mkdir(parents=True)
+        assert rt.own_runner(d) == d / "runner" and (d / "runner" / "a.py").exists()
+    (live / "VERDICT.md").write_text(""), (done / "VERDICT.md").write_text("")
+    with open(live / "runner.lock", "w") as held:      # a runner still holds rel-a
+        fcntl.flock(held, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        rt.own_runner(gates / "rel-c")
+    assert (live / "runner").exists() and not (done / "runner").exists()
+    assert git("rev-parse", "HEAD") == git("-C", str(gates / "rel-c" / "runner"), "rev-parse", "HEAD")
