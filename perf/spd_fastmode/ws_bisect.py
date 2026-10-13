@@ -63,15 +63,13 @@ H4, H2 = ttnn.MathFidelity.HiFi4, ttnn.MathFidelity.HiFi2
 B16, B8 = ttnn.bfloat16, ttnn.bfloat8_b
 import sys  # noqa: E402
 if sys.argv[1:] == ["2"]:
-    # wsb2: wsb1 put the fault on HiFi4 at every shape (HiFi2 clean); which fidelities, and is it init state?
+    # wsb2: wsb1 put the fault on HiFi4 at every shape (HiFi2 clean). A full matmul init per phase (a WS_FULL_INIT
+    # define, since removed) left it unchanged: it is dest_guard.py's Wormhole fp32-dest cancellation fault.
     CASES = (("c128 h512 bf16 HiFi4", 128, 512, B16, H4),
              ("c128 h512 bf16 HiFi3", 128, 512, B16, ttnn.MathFidelity.HiFi3),
              ("c128 h512 bf16 LoFi", 128, 512, B16, ttnn.MathFidelity.LoFi),
              ("c128 h512 bf16 HiFi2", 128, 512, B16, H2),
-             ("c128 h512 bf16 HiFi4 full init", 128, 512, B16, H4, 2, 0, (("WS_FULL_INIT", "1"),)),
-             ("c128 h512 bf16 HiFi4 full init fc3", 128, 512, B16, H4, 2, 0, (("WS_FULL_INIT_FC3", "1"),)),
-             ("c256 h512 bf16 HiFi3", 256, 512, B16, ttnn.MathFidelity.HiFi3),
-             ("c256 h512 bf16 HiFi4 full init", 256, 512, B16, H4, 2, 0, (("WS_FULL_INIT", "1"),)))
+             ("c256 h512 bf16 HiFi3", 256, 512, B16, ttnn.MathFidelity.HiFi3))
 else:
     CASES = (("ctrl c128 h512 bf16 HiFi4", 128, 512, B16, H4),
              ("c256 h512 bf16 HiFi4 (= one chunk of the faulty path)", 256, 512, B16, H4),
