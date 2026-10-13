@@ -306,6 +306,16 @@ def main():
 
     res["kernels"] = {n: _kern(n) for n in
                       ("triatt_sdpa", "trimul_tail", "reblock_permute", "rfd3_bias")}
+    # Which trimul in-projection route fed the einsum (gin-ragged, gated-inproj-moved, gated-inproj,
+    # rowblock, ...), and the trimul_tail sub-counters STATS above lumps together.
+    res["trimul_routes"] = {"|".join(k): int(v) for k, v in getattr(T, "TRIMUL_MM_TRANSPOSE_STATS", {}).items()}
+    try:
+        TT_ = importlib.import_module("tt_bio.trimul_tail")
+        res["trimul_tail_sub"] = {k: list(getattr(TT_, k)) for k in
+                                  ("GIN_MOVE_STATS", "RES_STATS", "T1_STATS", "T2_STATS", "MASK_STATS")
+                                  if hasattr(TT_, k)}
+    except Exception as e:
+        res["trimul_tail_sub"] = {"absent": repr(e)}
     # The grid-derived thresholds in effect in this process. _apply_grid_thresholds runs at
     # device open, not at import, so this has to be read after a fold, not from the source.
     res["thresholds"] = {k: getattr(T, k, "absent") for k in (
@@ -321,6 +331,7 @@ def main():
     flush()
     print(f"[{a.label}] reach {res['reach']}", flush=True)
     print(f"[{a.label}] FP32_SOFTMAX_STATS {res['fp32_softmax_stats']}", flush=True)
+    print(f"[{a.label}] TRIMUL_ROUTES {res['trimul_routes']} {res['trimul_tail_sub']}", flush=True)
     print("wrote", a.out, flush=True)
     T.cleanup()
 
