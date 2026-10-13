@@ -22,7 +22,8 @@ ARCH=${1:?wh|bh}; CARD=${2:?card}; OUT=${3:-out/af2_t12bias_ab_$ARCH}
 REPO=$(cd "$(dirname "$0")/../.." && pwd)
 PY=${PY:-python3}
 PARAMS=${PARAMS:-$HOME/.boltz/af2/params/params_model_1_ptm.npz}
-FIX=$REPO/perf/kitcmp/fixtures
+# The fixtures are not in git (af2ig_census.py documents this path); point FIX at the host copy.
+FIX=${FIX:-$REPO/perf/kitcmp/fixtures}
 case $ARCH in
   wh) OWN=triatt_tail_bias,pair_mm ;;
   bh) OWN=triatt_tail_bias ;;
@@ -39,7 +40,7 @@ cd "$REPO"
 for S in 195 224; do
   TT_VISIBLE_DEVICES=$CARD PYTHONPATH=$REPO TT_BIO_LEVERS=$T12B $PY - "$S" <<'EOF' | tee "$OUT/micro_$S.txt"
 import sys, torch, ttnn
-from tt_bio import tenstorrent as T, trimul_tail as TTL, _mm_generic
+from tt_bio import tenstorrent as T, trimul_tail as TTL, mm_generic as _mm_generic
 S, K, H, N = int(sys.argv[1]), 128, 128, 128
 torch.manual_seed(0)
 dev = ttnn.open_device(device_id=0)
