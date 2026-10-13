@@ -10058,7 +10058,7 @@ class TriangleMultiplication(Module):
                                 g_out_fused, x_norm_in, H, add_to_input)
                                 and _trimul_tail.t2m_eligible(x_chunk, x_out, c_done) is None):
                             # T2m reads this chunk where it lies; the move happens only if it declines.
-                            t2m_pending = (x_chunk, c_done)
+                            t2m_pending = (x_chunk, c_done, back_mc)
                             c_done += int(x_chunk.shape[1])
                             continue
                         if (c_done + int(x_chunk.shape[1]) == self._hidden and not back_ln_skip
@@ -10254,7 +10254,7 @@ class TriangleMultiplication(Module):
             """The move T2m skipped, for every route but T2m itself."""
             nonlocal t2m_pending
             if t2m_pending is not None:
-                _reblock.reblock_permute_back(t2m_pending[0], ttnn.DRAM_MEMORY_CONFIG, out=x_out,
+                _reblock.reblock_permute_back(t2m_pending[0], t2m_pending[2], out=x_out,
                                               c_off=t2m_pending[1])
                 ttnn.deallocate(t2m_pending[0])
                 t2m_pending = None
@@ -10292,7 +10292,7 @@ class TriangleMultiplication(Module):
             t2_wg = self.g_out_weight if t2_gate else None
             fused = None
             if t2m_pending is not None:
-                fused = _trimul_tail.fused_tail_ln(x, *t2_args, wg=t2_wg, moved=t2m_pending)
+                fused = _trimul_tail.fused_tail_ln(x, *t2_args, wg=t2_wg, moved=t2m_pending[:2])
                 if fused is not None:
                     ttnn.deallocate(t2m_pending[0])
                     t2m_pending = None
