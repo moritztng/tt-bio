@@ -26,7 +26,7 @@ void kernel_main() {
     constexpr uint32_t RB = get_compile_time_arg_val(5);       // row tiles per read barrier
     constexpr uint32_t SCALER = get_compile_time_arg_val(6);   // packed bf16 pair, 1/K
     constexpr uint32_t EPS = get_compile_time_arg_val(7);      // fp32 bits
-    constexpr uint32_t R = get_compile_time_arg_val(8);        // row tiles per item: 32 (unit) or 16 (half)
+    constexpr uint32_t NR = get_compile_time_arg_val(8);        // row tiles per item: 32 (unit) or 16 (half)
     constexpr auto x_args = TensorAccessorArgs<9>();
     constexpr auto wp_args = TensorAccessorArgs<x_args.next_compile_time_args_offset()>();
     constexpr auto wg_args = TensorAccessorArgs<wp_args.next_compile_time_args_offset()>();
@@ -34,8 +34,8 @@ void kernel_main() {
     constexpr auto gm_args = TensorAccessorArgs<wo_args.next_compile_time_args_offset()>();
     constexpr auto bt_args = TensorAccessorArgs<gm_args.next_compile_time_args_offset()>();
     constexpr auto m_args = TensorAccessorArgs<bt_args.next_compile_time_args_offset()>();
-    static_assert(32 % R == 0 && R % RB == 0, "RB must divide the R row tiles of an item");
-    constexpr uint32_t NH = 32 / R;
+    static_assert(32 % NR == 0 && NR % RB == 0, "RB must divide the NR row tiles of an item");
+    constexpr uint32_t NH = 32 / NR;
 
     const auto x = TensorAccessor(x_args, get_common_arg_val<uint32_t>(0));
     const auto wp = TensorAccessor(wp_args, get_common_arg_val<uint32_t>(1));
@@ -88,15 +88,15 @@ void kernel_main() {
     if constexpr (NTG) cb_push_back(wo_cb, Kt * NTG);
 
     for (uint32_t v = u0; v < u0 + nunits; ++v) {
-        // Item v is half h of unit u (h = 0 when R = 32): row tiles il = h * R .. h * R + R - 1.
+        // Item v is half h of unit u (h = 0 when NR = 32): row tiles il = h * NR .. h * NR + NR - 1.
         const uint32_t u = v / NH;
-        const uint32_t h0 = (v % NH) * R;
+        const uint32_t h0 = (v % NH) * NR;
         const uint32_t b = u / (St * St);
         const uint32_t xt = (u / St) % St;
         const uint32_t yt = u % St;
         // Row tile (b, x, yt) of z is page ((b * S + x) * St + yt) * Kt + dt (trimul_tail.t1_x_page).
         uint32_t page = ((b * S + xt * 32 + h0) * St + yt) * Kt;
-        for (uint32_t il0 = 0; il0 < R; il0 += RB) {
+        for (uint32_t il0 = 0; il0 < NR; il0 += RB) {
             cb_reserve_back(x_cb, RB * Kt);
             uint32_t dst = get_write_ptr(x_cb);
             for (uint32_t r = 0; r < RB; ++r, page += St * Kt)
@@ -109,12 +109,12 @@ void kernel_main() {
             const uint32_t scratch = get_write_ptr(mscratch_cb);
             noc_async_read_page((b * St + xt) * St + yt, mk, scratch);
             noc_async_read_barrier();
-            cb_reserve_back(m_cb, R);
+            cb_reserve_back(m_cb, NR);
             uint32_t d = get_write_ptr(m_cb);
             volatile tt_l1_ptr uint32_t* src = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(scratch);
             // Row il of a bf16 tile: 16 elements in face (il / 16) * 2 and 16 in the face after it,
             // row il % 16 of each; row 0 of the destination is the first row of faces 0 and 1.
-            for (uint32_t il = h0; il < h0 + R; ++il, d += tb) {
+            for (uint32_t il = h0; il < h0 + NR; ++il, d += tb) {
                 volatile tt_l1_ptr uint32_t* dst = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(d);
                 const uint32_t s0 = (((il >> 4) * 2) * 256 + (il & 15) * 16) / 2;
                 for (uint32_t k = 0; k < 8; ++k) {
@@ -122,7 +122,7 @@ void kernel_main() {
                     dst[128 + k] = src[s0 + 128 + k];
                 }
             }
-            cb_push_back(m_cb, R);
+            cb_push_back(m_cb, NR);
         }
     }
 }
