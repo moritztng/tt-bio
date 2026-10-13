@@ -5,17 +5,15 @@
 // reblock_permute reader (multi-core). Single input x [1, N, N, C] bf16 TILE,
 // C a multiple of 32, Ct = C/32 channel tiles.
 //
-// Each core owns a contiguous range of work units [first_group, first_group + num_groups).
-// The host splits each OUTPUT tile-group into S units of Ct/S channel tiles, so a pair that has
-// fewer tile-groups than cores still fills the grid; unit u is group g = u/S, channel tiles
-// [(u%S)*Ct/S, (u%S+1)*Ct/S). A group g -> (it = g/Nt, jt = g%Nt)
+// Each core owns a contiguous range of OUTPUT tile-groups
+// [first_group, first_group + num_groups). A group g -> (it = g/Nt, jt = g%Nt)
 // owns, for each channel tile ct, the 32 input tiles
 // { (it*32 + il, jt, ct) : il in [0,32) } whose flat page index is
 //   page = ((it*32 + il) * Nt + jt) * Ct + ct
 // so the page stride along the permuted axis is Nt*Ct. The reader streams those
 // 32 tiles into CB c_0 in il-ascending order, one channel tile at a time.
 //
-// Per-core CB accounting: num_groups * Ct/S * 32 pushes to c_0 (matched by compute).
+// Per-core CB accounting: num_groups * Ct * 32 pushes to c_0 (matched by compute).
 // A core with num_groups == 0 pushes nothing and exits cleanly.
 //
 // The channel count is NOT fixed at 32: the trunk's chunk width is
@@ -79,14 +77,11 @@ void kernel_main() {
     const uint32_t group_stride = (GQ_ON ? (1u) : get_arg_val<uint32_t>(5));
     const uint32_t group_wrap_hi = (GQ_ON ? (0xFFFFFFFFu) : get_arg_val<uint32_t>(6));
     const uint32_t group_wrap_lo = (GQ_ON ? (0u) : get_arg_val<uint32_t>(7));
-    // Units per tile-group (a divisor of Ct); 1 is the whole group as one unit.
-    const uint32_t S = (GQ_ON ? (get_compile_time_arg_val(GQ + 11)) : get_arg_val<uint32_t>(8));
-    const uint32_t Ctu = Ct / S;
 
     constexpr uint32_t cb_id_in = 0;  // c_0
     constexpr uint32_t TILE_HEIGHT = 32;
 
-    constexpr auto src_args = TensorAccessorArgs<0 + 12>();
+    constexpr auto src_args = TensorAccessorArgs<0 + 11>();
 
 
     const auto s = TensorAccessor(src_args, src_addr);
@@ -95,17 +90,15 @@ void kernel_main() {
     const uint32_t row_stride = Nt * Ct;
     uint32_t group = first_group;
     for (uint32_t gi = 0; gi < num_groups; ++gi) {
-        const uint32_t g = group / S;
-        const uint32_t ct0 = (group % S) * Ctu;
-        const uint32_t it = g / Nt;
-        const uint32_t jt = g % Nt;
+        const uint32_t it = group / Nt;
+        const uint32_t jt = group % Nt;
         const uint32_t row_base = it * TILE_HEIGHT;
         const uint32_t rows_valid = (row_base + TILE_HEIGHT <= D1) ? TILE_HEIGHT
                                                                   : (D1 - row_base);
         const uint32_t first_page = (row_base * Nt + jt) * Ct;
         const uint32_t pad_page = jt * Ct;  // row 0 of this tile column; always valid
 
-        for (uint32_t ct = ct0; ct < ct0 + Ctu; ++ct) {
+        for (uint32_t ct = 0; ct < Ct; ++ct) {
             uint32_t page = first_page + ct;
             for (uint32_t il = 0; il < rows_valid; ++il) {
                 cb_reserve_back(cb_id_in, onetile);
