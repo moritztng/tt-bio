@@ -70,6 +70,13 @@ constexpr uint32_t go_cb = tt::CBIndex::c_19;    // g_out of one row tile, NTG t
 // fp32(bias + sum) before the sigmoid and the bf16 pack, which is what linear(..., bias=) computes.
 constexpr uint32_t bias_cb = tt::CBIndex::c_20;
 constexpr uint32_t NBIAS = 2 * CT2 + 1 + NTG;
+#ifdef T1_S
+// T1_S (a ragged pair size S, only with the biases): units ending on the last y tile multiply a / b
+// by the column-mask tile (bias tile 2 * CT2, 1 in columns < S - 32 * (St - 1)) after the gate, as
+// kernels/trimul_gin_ragged's compute does, so columns y >= S of the einsum's operands are zero
+// (the writer zeroes rows x >= S). Compute needs St (reader / writer have it): the host passes S.
+constexpr uint32_t T1_ST = (T1_S + 31) / 32;
+#endif
 #endif
 
 ALWI void sigmoid_bf16_tile(uint32_t idst) {
@@ -93,6 +100,9 @@ ALWI void layer_norm_row(uint32_t il) {
 
 void kernel_main() {
     const uint32_t nunits = get_arg_val<uint32_t>(0);
+#ifdef T1_S
+    const uint32_t u0 = get_arg_val<uint32_t>(1);   // first unit (b, xt, yt) of this core
+#endif
 
     mm_init(w_cb, xn_cb, p_cb, 1);
     cb_wait_front(w_cb, 2 * CT2 * Kt);
@@ -106,6 +116,10 @@ void kernel_main() {
 #endif
 
     for (uint32_t u = 0; u < nunits; ++u) {
+#ifdef T1_S
+        // (T1_S comes only with the bias define: trimul_tail._build_t1 asserts it.)
+        [[maybe_unused]] const bool ylast = (u0 + u) % T1_ST == T1_ST - 1;
+#endif
         // 1. layer_norm of the unit's 32 row tiles.
         cb_reserve_back(xn_cb, 32 * Kt);
         for (uint32_t il = 0; il < 32; ++il) layer_norm_row(il);
@@ -196,6 +210,17 @@ void kernel_main() {
                     mul_tiles_init(p_cb, g_cb);
                     for (uint32_t i = 0; i < 4; ++i) mul_tiles(p_cb, g_cb, t0 + i, t0 + i, i);
                 }
+#ifdef T1_BIAS
+#ifdef T1_S
+                if (ylast) {
+                    binary_dest_reuse_tiles_init<EltwiseBinaryType::ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCB>(
+                        bias_cb);
+                    for (uint32_t i = 0; i < 4; ++i)
+                        binary_dest_reuse_tiles<EltwiseBinaryType::ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCB>(
+                            bias_cb, 2 * CT2, i);
+                }
+#endif
+#endif
                 if constexpr (RNE & 1) {
                     for (uint32_t i = 0; i < 4; ++i) round_bf16_rne_tile(i);
                 }

@@ -14,6 +14,12 @@
 #ifndef ABL
 #define ABL 0
 #endif
+// T1_S (defined only for a ragged pair size S, S % 32 != 0, e.g. AF2-IG at 195): z is [B?, S, S, K]
+// with only y and K tiled, so the x axis has S rows and the y axis St = ceil(S / 32) tiles. As
+// kernels/trimul_gin_ragged's reader: row tiles x >= S re-read row S - 1 (the writer zeroes their a /
+// b rows and skips their g_out rows). Additionally the padded rows y >= S of the last y tile are
+// zeroed in L1 before compute sees them, so the LayerNorm of a padding row is beta (finite) whatever
+// the padding of z holds; compute zeroes those columns of a / b after the gate with the column mask.
 #include "api/dataflow/dataflow_api.h"
 #include "ttnn/kernel/dataflow/generate_reduce_scaler.hpp"
 
@@ -44,8 +50,8 @@ void kernel_main() {
     const auto mk = TensorAccessor(m_args, get_common_arg_val<uint32_t>(6));
 #ifdef T1_BIAS
     // The projection biases (trimul_tail.t1_bias_tiles): [bp | bg] as gin_ragged_bias lays them
-    // (2 * CT2 tiles, rows c carry bias[32 q + c]), its column-mask tile (unused here: S is whole
-    // tiles), then NTG g_out bias tiles (every row bias[32 n + col]). Read once into c_20.
+    // (2 * CT2 tiles, rows c carry bias[32 q + c]), its column-mask tile (used by compute only under
+    // T1_S, a ragged S), then NTG g_out bias tiles (every row bias[32 n + col]). Read once into c_20.
     constexpr auto bias_args = TensorAccessorArgs<m_args.next_compile_time_args_offset()>();
     const auto bias = TensorAccessor(bias_args, get_common_arg_val<uint32_t>(7));
     constexpr uint32_t bias_cb = tt::CBIndex::c_20;
@@ -63,7 +69,13 @@ void kernel_main() {
     constexpr uint32_t scaler_cb = tt::CBIndex::c_10;
     constexpr uint32_t eps_cb = tt::CBIndex::c_11;
     constexpr uint32_t wo_cb = tt::CBIndex::c_18;
+#ifdef T1_S
+    constexpr uint32_t S = T1_S;
+    static_assert(S > (St - 1) * 32 && S < St * 32, "T1_S is a ragged S of St tiles");
+    constexpr uint32_t LAST = S - (St - 1) * 32;   // valid rows of the last y tile
+#else
     constexpr uint32_t S = St * 32;
+#endif
     const uint32_t tb = get_tile_size(x_cb);
 
     generate_reduce_scaler(scaler_cb, SCALER);
@@ -107,6 +119,35 @@ void kernel_main() {
         const uint32_t xt = (u / St) % St;
         const uint32_t yt = u % St;
         // Row tile (b, x, yt) of z is page ((b * S + x) * St + yt) * Kt + dt (trimul_tail.t1_x_page).
+#ifdef T1_S
+        for (uint32_t il0 = 0; il0 < 32; il0 += RB) {
+            cb_reserve_back(x_cb, RB * Kt);
+            const uint32_t base = get_write_ptr(x_cb);
+            uint32_t dst = base;
+            for (uint32_t r = 0; r < RB; ++r) {
+                const uint32_t xr = xt * 32 + il0 + r < S ? xt * 32 + il0 + r : S - 1;
+                const uint32_t page = ((b * S + xr) * St + yt) * Kt;
+                for (uint32_t dt = 0; dt < Kt; ++dt, dst += tb)
+                    if constexpr (!(ABL & 16)) noc_async_read_page(page + dt, x, dst);
+            }
+            noc_async_read_barrier();
+            if (yt == St - 1) {
+                // Rows y >= S of each bf16 tile: row r is 16 elements (8 words) in face (r / 16) * 2
+                // and 8 more in the face after it, at word (r % 16) * 8 of each face.
+                for (uint32_t t = 0; t < RB * Kt; ++t) {
+                    volatile tt_l1_ptr uint32_t* p = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(base + t * tb);
+                    for (uint32_t r = LAST; r < 32; ++r) {
+                        const uint32_t w0 = (r >> 4) * 2 * 128 + (r & 15) * 8;
+                        for (uint32_t k = 0; k < 8; ++k) {
+                            p[w0 + k] = 0;
+                            p[w0 + 128 + k] = 0;
+                        }
+                    }
+                }
+            }
+            cb_push_back(x_cb, RB * Kt);
+        }
+#else
         uint32_t page = ((b * S + xt * 32) * St + yt) * Kt;
         for (uint32_t il0 = 0; il0 < 32; il0 += RB) {
             cb_reserve_back(x_cb, RB * Kt);
@@ -117,6 +158,7 @@ void kernel_main() {
             noc_async_read_barrier();
             cb_push_back(x_cb, RB * Kt);
         }
+#endif
         if constexpr (MASK) {
             const uint32_t scratch = get_write_ptr(mscratch_cb);
             noc_async_read_page((b * St + xt) * St + yt, mk, scratch);

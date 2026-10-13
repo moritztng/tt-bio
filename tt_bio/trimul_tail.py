@@ -1205,9 +1205,10 @@ def set_t1(on: bool) -> bool:
     return prev
 
 
-def t1_cb_plan(kt, ct2, ntg, mask, rb=None, nb=None):
+def t1_cb_plan(kt, ct2, ntg, mask, rb=None, nb=None, ragged=False):
     """T1's circular buffers per core, ([(index, bf16 tiles)], [(index, fp32 tiles)]). Independent
-    of N: N only sets how many units each core runs."""
+    of N: N only sets how many units each core runs. `ragged` (S % 32 != 0, T1_S) adds the
+    writer's zero row (c_25, as trimul_gin_ragged)."""
     nb = GIN_MOVE_NB if nb is None else nb
     rb = T1_RB if rb is None else rb
     bf = [(0, 2 * ct2 * kt),     # [Wp^T | Wg^T], resident
@@ -1223,12 +1224,14 @@ def t1_cb_plan(kt, ct2, ntg, mask, rb=None, nb=None):
                (19, 2 * ntg)]    # g_out of one row tile, double buffered
     if mask:
         bf += [(3, 1), (6, 32)]  # the mask tile and its 32 row-broadcast cuts
+    if ragged:
+        bf += [(T1_CB_ZERO, 1)]  # T1_S: the writer's zero face row for rows x >= S
     f32 = [(11, 1), (12, 1), (13, 1), (14, 1), (16, kt), (17, kt)]   # eps, mean, var, rstd, xc, tmp
     return bf, f32
 
 
-def t1_cb_bytes(kt, ct2, ntg, mask, rb=None, nb=None):
-    bf, f32 = t1_cb_plan(kt, ct2, ntg, mask, rb, nb)
+def t1_cb_bytes(kt, ct2, ntg, mask, rb=None, nb=None, ragged=False):
+    bf, f32 = t1_cb_plan(kt, ct2, ntg, mask, rb, nb, ragged)
     return sum(t for _, t in bf) * BF16_TILE + sum(t for _, t in f32) * FP32_TILE
 
 
@@ -1275,8 +1278,9 @@ def t1_mask_ok(mask, x):
     the shape gin_moved's reader cuts (m[b, x, y], applied before the move)."""
     shp = [int(d) for d in x.shape]
     B = shp[0] if len(shp) == 4 else 1
+    Sp = -(-shp[-2] // TILE) * TILE    # == S where S is whole tiles (the check T1 always made)
     return (mask is not None and len(shp) in (3, 4)
-            and tuple(int(d) for d in mask.padded_shape) == (B, shp[-2], shp[-2])
+            and tuple(int(d) for d in mask.padded_shape) == (B, Sp, Sp)
             and tuple(int(d) for d in mask.shape) == (B, shp[-2], shp[-2])
             and mask.dtype == ttnn.bfloat16 and mask.layout == ttnn.TILE_LAYOUT
             and mask.memory_config() == ttnn.DRAM_MEMORY_CONFIG)
@@ -1293,9 +1297,10 @@ def t1_eligible(x, ln_w, ln_b, wpT, wgT, wgo, mask=None):
         if t.memory_config() != ttnn.DRAM_MEMORY_CONFIG:
             return "memcfg"
     shp = [int(d) for d in x.shape]
-    if len(shp) not in (3, 4) or shp[-2] != shp[-3] or shp[-2] % TILE or shp[-1] % TILE:
+    if len(shp) not in (3, 4) or shp[-2] != shp[-3] or shp[-1] % TILE:
         return "act_shape"
-    if [int(d) for d in x.padded_shape] != shp:
+    # A ragged S (AF2-IG at 195, T1_S) tiles only the y and channel axes: [.., S, ceil32(S), K].
+    if [int(d) for d in x.padded_shape] != shp[:-2] + [-(-shp[-2] // TILE) * TILE, shp[-1]]:
         return "padded_shape"
     K = shp[-1]
     if (len(wpT.shape) != 2 or [int(d) for d in wpT.shape] != [int(d) for d in wgT.shape]
@@ -1311,7 +1316,7 @@ def t1_eligible(x, ln_w, ln_b, wpT, wgT, wgo, mask=None):
     if mask is not None and not t1_mask_ok(mask, x):
         return "mask"
     from .tenstorrent import _l1_bank_bytes
-    if t1_cb_bytes(*key, mask is not None) > 0.85 * _l1_bank_bytes():
+    if t1_cb_bytes(*key, mask is not None, ragged=bool(shp[-2] % TILE)) > 0.85 * _l1_bank_bytes():
         return "l1"
     return None
 
@@ -1320,7 +1325,9 @@ def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps, bias=Non
     import struct
     shp = [int(d) for d in x.shape]
     B = shp[0] if len(shp) == 4 else 1
-    St, kt, ct2 = shp[-2] // TILE, shp[-1] // TILE, int(wpT.shape[-2]) // TILE
+    S = shp[-2]
+    St, kt, ct2 = -(-S // TILE), shp[-1] // TILE, int(wpT.shape[-2]) // TILE
+    ragged = bool(S % TILE)
     ntg = int(wgo.shape[-1]) // TILE
     gx, gy = grid
     core_grid = ttnn.CoreRangeSet(
@@ -1330,7 +1337,8 @@ def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps, bias=Non
         cx, cy = c % gx, c // gx
         rd[cx][cy] = [u0, n]
         wr[cx][cy] = [u0, n]
-        cp[cx][cy] = [n]
+        # T1_S: compute also takes its first unit, to know which units end on the last y tile.
+        cp[cx][cy] = [n, u0] if ragged else [n]
     # 1/K as a packed bf16 pair (exact for K a power of two) and eps as fp32 bits, as T2 has them.
     inv = struct.unpack("<I", struct.pack("<f", 1.0 / shp[-1]))[0] >> 16
     eps_bits = struct.unpack("<I", struct.pack("<f", float(eps)))[0]
@@ -1342,29 +1350,34 @@ def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps, bias=Non
     # bias (AF2 only, t1_bias_tiles): one more accessor, runtime argument and CB behind the T1_BIAS
     # define. Without it every list below is the one T1 always built.
     bdef = abl + ([("T1_BIAS", "1")] if bias is not None else [])
+    # ragged S (fused_in_ln takes it only with the bias, whose column-mask tile compute needs): the
+    # T1_S define on all three kernels, nothing else; absent for whole-tile S.
+    sdef = [("T1_S", str(S))] if ragged else []
+    assert not ragged or bias is not None
     reader = ttnn.KernelDescriptor(
         kernel_source=str(d / "reader.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[kt, ct2, St, int(mask is not None), ntg, T1_RB, (inv << 16) | inv,
                            eps_bits]
         + acc(x) + acc(wpT) + acc(wgT) + acc(wgo) + acc(ln_w) + acc(ln_b) + acc(m)
         + (acc(bias) if bias is not None else []),
-        defines=bdef, runtime_args=rd, common_runtime_args=[0] * (7 + (bias is not None)),
+        defines=bdef + sdef, runtime_args=rd, common_runtime_args=[0] * (7 + (bias is not None)),
         config=ttnn.ReaderConfigDescriptor())
     writer = ttnn.KernelDescriptor(
         kernel_source=str(d / "writer.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[ct2, St, GIN_MOVE_NB, ntg] + acc(outs[0]) + acc(outs[1]) + acc(outs[2]),
-        defines=abl, runtime_args=wr, common_runtime_args=[0] * 3, config=ttnn.WriterConfigDescriptor())
+        defines=abl + sdef, runtime_args=wr, common_runtime_args=[0] * 3,
+        config=ttnn.WriterConfigDescriptor())
     fid, approx, _, full = ckc
     compute = ttnn.KernelDescriptor(
         kernel_source=str(d / "compute.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[kt, ct2, T1_SBW, int(mask is not None), int(SIGPOLY), RNE, ntg],
-        defines=bdef, runtime_args=cp,
+        defines=bdef + sdef, runtime_args=cp,
         # fp32 DEST always, as T2: the LayerNorm statistics live in fp32 CBs. The fidelity stays
         # the caller's, so the projections run as the incumbent in-projection runs them.
         config=ttnn.ComputeConfigDescriptor(
             math_fidelity=fid, math_approx_mode=approx, fp32_dest_acc_en=True,
             dst_full_sync_en=full))
-    bf, f32 = t1_cb_plan(kt, ct2, ntg, mask is not None)
+    bf, f32 = t1_cb_plan(kt, ct2, ntg, mask is not None, ragged=ragged)
     cbs = ([_cb(i, core_grid, t) for i, t in bf]
            + [_cb_fmt(i, core_grid, t, ttnn.float32) for i, t in f32])
     if bias is not None:
@@ -1373,6 +1386,7 @@ def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps, bias=Non
 
 
 T1_CB_BIAS = 20   # T1_BIAS: the bias tiles, resident (trimul_in_t1 reader.cpp / compute.cpp)
+T1_CB_ZERO = 25   # T1_S: the writer's zero face row (trimul_in_t1 writer.cpp, as trimul_gin_ragged)
 
 
 def t1_bias_ntiles(ct2, ntg):
@@ -1385,7 +1399,9 @@ def t1_key(x, wpT, wgo, grid, ckc, mask, eps, bias=None):
     key = ("t1", str(x.padded_shape), str(wpT.padded_shape), str(wgo.padded_shape), tuple(grid),
            tuple(str(c) for c in ckc), mask is not None, float(eps), SIGPOLY, RNE, GIN_MOVE_NB,
            T1_RB, T1_SBW, T1_ABL)
-    return key if bias is None else key + ("bias",)
+    key = key if bias is None else key + ("bias",)
+    S = int(x.shape[-2])
+    return key + ("S", S) if S % TILE else key
 
 
 def fused_in_ln(x, ln_w, ln_b, wpT, wgT, wgo, ckc, grid, mask=None, eps=1e-5, bias=None):
@@ -1401,13 +1417,16 @@ def fused_in_ln(x, ln_w, ln_b, wpT, wgT, wgo, ckc, grid, mask=None, eps=1e-5, bi
         T1_STATS[1] += 1
         return None
     why = t1_eligible(x, ln_w, ln_b, wpT, wgT, wgo, mask)
+    if why is None and bias is None and int(x.shape[-2]) % TILE:
+        why = "ragged_nobias"   # T1_S masks the padded columns with the bias tensor's mask tile
     if why is None and bias is not None and not _bias_ok(
             bias, t1_bias_ntiles(int(wpT.shape[-2]) // TILE, int(wgo.shape[-1]) // TILE)):
         why = "bias"
     if why is None and bias is not None:
         from .tenstorrent import _l1_bank_bytes
         kt_, ct2_, ntg_ = int(x.shape[-1]) // TILE, int(wpT.shape[-2]) // TILE, int(wgo.shape[-1]) // TILE
-        if (t1_cb_bytes(kt_, ct2_, ntg_, mask is not None) + t1_bias_ntiles(ct2_, ntg_) * BF16_TILE
+        if (t1_cb_bytes(kt_, ct2_, ntg_, mask is not None, ragged=bool(int(x.shape[-2]) % TILE))
+                + t1_bias_ntiles(ct2_, ntg_) * BF16_TILE
                 > 0.85 * _l1_bank_bytes()):
             why = "l1"
     if why is not None:

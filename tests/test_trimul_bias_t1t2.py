@@ -186,10 +186,76 @@ def test_t1_in_no_longer_declines_for_biases(monkeypatch, biased):
     assert TTL.T1_WHY == {"g_in": 1}
 
 
-def test_t1_still_declines_ragged_af2_size():
-    """AF2-IG folds at 195 tokens: T1 reads whole tiles only, so it declines there ("act_shape")
-    even with the biases and trimul_t1_dram. Pinned so a fix to it is a visible change."""
-    x = _Fake([1, 195, 195, 128], [1, 224, 224, 128])
+def test_t1_takes_ragged_af2_size_only_with_the_bias(monkeypatch):
+    """AF2-IG folds at 195 tokens. T1 used to decline every S % 32 != 0 ("act_shape"); under T1_S it
+    is eligible, and fused_in_ln serves it only with the bias tensor (whose column-mask tile zeroes
+    the padded y columns): without one it declines "ragged_nobias" before allocating anything."""
+    x = _Fake([1, 195, 195, 128], [1, 195, 224, 128])
+    vec = _Fake([128], [32, 128])
+    w = (_Fake([256, 128]), _Fake([256, 128]), _Fake([128, 128]))
+    monkeypatch.setattr(T, "_l1_bank_bytes", lambda: 1_461_760)    # Blackhole's bank, no card
     with T.levers("trimul_t1"):
-        assert TTL.t1_eligible(x, None, None, _Fake([256, 128]), _Fake([256, 128]), _Fake([128, 128])) \
-            == "act_shape"
+        assert TTL.t1_eligible(x, vec, vec, *w) is None
+        assert TTL.t1_eligible(_Fake([1, 195, 195, 128], [1, 224, 224, 128]), vec, vec, *w) == "padded_shape"
+        TTL.REJECTS.clear()
+        monkeypatch.setattr(TTL.dest_guard, "exposed_args", lambda ckc: False)
+        assert TTL.fused_in_ln(x, vec, vec, *w, ("HiFi4", False, True, False), (8, 8)) is None
+    assert ("t1:ragged_nobias", "1x195x224x128") in TTL.REJECTS
+
+
+def test_ragged_t1_key_and_bias_mask():
+    """A ragged S adds ("S", S) to the key (whole-tile keys are untouched, test above) and the T1
+    bias tensor's mask tile is gin_ragged's column mask for that S."""
+    x, wpT, wgo = _Fake([1, 195, 195, 128], [1, 195, 224, 128]), _Fake([256, 128]), _Fake([128, 128])
+    ckc, grid = ("HiFi4", False, True, False), (8, 8)
+    k = TTL.t1_key(x, wpT, wgo, grid, ckc, None, 1e-5, bias=object())
+    assert k[-3:] == ("bias", "S", 195)
+    h = TTL.t1_bias_host(torch.zeros(256), torch.zeros(256), torch.zeros(128), 195)
+    assert torch.equal(_tile(h, 16), (torch.arange(32) < 3).float()[None].expand(32, -1))
+
+
+class _Rec:
+    SourceType = SimpleNamespace(FILE_PATH="file")
+
+    def __init__(self, *a, **k):
+        self.__dict__.update(k)
+
+
+class _RA(dict):
+    def __missing__(self, k):
+        v = self[k] = {}
+        return v
+
+
+@pytest.mark.parametrize("S,biased", [(256, False), (256, True), (195, True)])
+def test_build_t1_descriptors(monkeypatch, S, biased):
+    """_build_t1 with the ttnn descriptor types recorded: whole-tile S builds exactly the old
+    defines / runtime args / CBs (no T1_S, compute's args [n], no c_25); ragged adds only T1_S on all
+    three kernels, compute's first unit and the zero-row CB."""
+    for name in ("KernelDescriptor", "ReaderConfigDescriptor", "WriterConfigDescriptor",
+                 "ComputeConfigDescriptor", "CoreRangeSet", "CoreRange", "CoreCoord"):
+        monkeypatch.setattr(ttnn, name, _Rec)
+    monkeypatch.setattr(ttnn, "RuntimeArgs", _RA)
+    monkeypatch.setattr(ttnn, "TensorAccessorArgs",
+                        lambda t: SimpleNamespace(get_compile_time_args=lambda: [7]))
+    monkeypatch.setattr(TTL, "_cb", lambda i, g, t: (i, t))
+    monkeypatch.setattr(TTL, "_cb_fmt", lambda i, g, t, dt: (i, t, "f32"))
+    x = _Fake([1, S, S, 128], [1, S, -(-S // 32) * 32, 128])
+    vec = _Fake([128], [32, 128])
+    w = (_Fake([256, 128]), _Fake([256, 128]), _Fake([128, 128]))
+    bias = _Fake([TTL.t1_bias_ntiles(8, 4) * 32, 32]) if biased else None
+    e = TTL._build_t1(x, vec, vec, *w, [None] * 3, (2, 2), ("HiFi4", False, True, False), None, 1e-5,
+                      bias=bias)
+    rd, wr, cp = e["kernels"]
+    St = -(-S // 32)
+    sdef = [("T1_S", str(S))] if S % 32 else []
+    bdef = [("T1_BIAS", "1")] if biased else []
+    assert rd.defines == bdef + sdef and cp.defines == bdef + sdef and wr.defines == sdef
+    split = TTL.t1_split(St * St, 4)
+    for c, (u0, n) in enumerate(split):
+        assert rd.runtime_args[c % 2][c // 2] == [u0, n] == wr.runtime_args[c % 2][c // 2]
+        assert cp.runtime_args[c % 2][c // 2] == ([n, u0] if S % 32 else [n])
+    assert rd.compile_time_args[2] == St and wr.compile_time_args[1] == St
+    idx = [c[0] for c in e["cbs"]]
+    assert (TTL.T1_CB_ZERO in idx) == bool(S % 32)
+    assert (TTL.T1_CB_BIAS in idx) == biased
