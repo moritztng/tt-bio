@@ -51,8 +51,15 @@ NORMAL_LEVERS = _T.NORMAL_LEVERS - {"transition_bw", "transition_shard"}
 # 1.199 A), CA-lDDT +0.0005 [+0.0000, +0.0011], docking 19 -> 21/44, PASS; OpenBind-0 0.258 A (floor 0.510 A),
 # CA-lDDT +0.0004, docking 27 -> 27/44, PASS (state/spd/grade-edm-*-fast.md). 512-token page fold on a p150a at
 # 1350 MHz: OpenFold3 ~-0.2 s, OpenBind-0 ~-0.5 s.
+# ws_l1dest lets transition_ws take the pair transitions whose residual update fits L1, which at 512 tokens on a
+# p150a was every pairformer transition (ws had never fired there). 11-set fast grade of --fast + ws_l1dest against
+# --fast, 44 paired folds per model and arch: Blackhole p150a OpenFold3 top pose median 0.455 A (seed floor
+# 0.964 A), CA-lDDT -0.0017 [-0.0033, -0.0004], docking 22 -> 20/44, PASS; OpenBind-0 0.450 A (floor 0.790 A),
+# CA-lDDT -0.0002, docking 27 -> 28/44, PASS. Wormhole OpenFold3 0.167 A (floor 1.108 A), CA-lDDT +0.0024,
+# docking 21 -> 23/44, PASS; OpenBind-0 0.091 A (floor 0.642 A), CA-lDDT +0.0000, docking 27 -> 27/44, PASS
+# (state/spd/grade-wsd-*-fast.md). 512-token page fold on a p150a at 1350 MHz: OpenFold3 -0.35 s, OpenBind-0 -0.42 s.
 FAST_LEVERS = NORMAL_LEVERS | {"dit_s16", "diffusion_bf16", "trimul_t1", "trimul_t2", "trimul_t2cm", "transition_ws",
-                               "dit_fuse", "edm_device"}
+                               "dit_fuse", "edm_device", "ws_l1dest"}
 
 def kabsch_rmsd(pred_ca, gt_ca):
     """Optimal-superposition Cα-RMSD (Kabsch). pred_ca, gt_ca: [N, 3].
