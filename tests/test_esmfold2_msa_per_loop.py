@@ -103,3 +103,17 @@ def test_prefetched_keep_masks_follow_the_seed_and_keep_one_minus_p():
     for m in a:
         assert m.dtype == torch.bfloat16 and set(m.unique().tolist()) == {0.0, 1.0}
         assert abs(float(m.float().mean()) - 0.75) < 0.02
+
+
+def test_packed_keep_draw_keeps_one_minus_p_per_bit_for_dyadic_p():
+    from tt_bio.esmfold2_runtime import _draw_packed_keep, _dyadic
+
+    assert _dyadic(0.25) == (1, 2) and _dyadic(0.375) == (3, 3)
+    assert _dyadic(0.1) is None and _dyadic(0.0) is None and _dyadic(1.0) is None
+    for p in (0.25, 0.375, 0.5):
+        m = _unpack(_draw_packed_keep((1, 256, 64, 32), p, torch.Generator().manual_seed(3)))
+        assert m.shape == (1, 256, 64, 32) and set(m.unique().tolist()) == {0.0, 1.0}
+        assert abs(float(m.float().mean()) - (1 - p)) < 0.005
+        # every bit position of the word carries the same law (no row block biased)
+        rows = m.float().mean(dim=(0, 2, 3)).view(16, 16).mean(dim=1)
+        assert float((rows - (1 - p)).abs().max()) < 0.01

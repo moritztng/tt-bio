@@ -601,6 +601,41 @@ def _pack_keep(keep):
     return w
 
 
+def _dyadic(p, max_bits=_KEEP_BITS):
+    """(k, m) with p == k / 2**m, 0 < p < 1, or None when p is not such a fraction of at most `max_bits` bits."""
+    if not 0 < p < 1:
+        return None
+    for m in range(1, max_bits + 1):
+        k = p * (1 << m)
+        if k == int(k):
+            return int(k), m
+    return None
+
+
+def _draw_packed_keep(shape, p, gen):
+    """`_pack_keep(torch.rand(shape) >= p)` in law, drawn as the packed words themselves.
+
+    For p = k / 2**m every mask bit is an m-bit uniform integer u, dropped when u < k; the m bits
+    of 16 elements come from m random 16-bit words and the comparison runs bitwise, MSB first, on
+    whole words. p = 0.25 (ESMFold2's LM dropout) is two words and two ops per 16 elements, where
+    the float draw spent a 32-bit uniform, a compare and a bit-pack on each element: 0.54 s a loop
+    at 512 aa against 0.03 s (p150a host), on the thread the device loop waits for.
+    """
+    k, m = _dyadic(p)
+    w = (shape[0], shape[1] // _KEEP_BITS, *shape[2:])
+    full = (1 << _KEEP_BITS) - 1
+    lt = torch.zeros(w, dtype=torch.int32)
+    eq = torch.full(w, full, dtype=torch.int32)
+    for i in reversed(range(m)):
+        r = torch.randint(0, 1 << _KEEP_BITS, w, dtype=torch.int32, generator=gen)
+        if k >> i & 1:
+            lt |= eq & ~r
+            eq &= r
+        else:
+            eq &= ~r
+    return ~lt & full
+
+
 def _unpack_keep_dev(w, device):
     """`_pack_keep`'s words to the bf16 0/1 mask on the device."""
     import ttnn
@@ -676,6 +711,8 @@ class _KeepDraws:
         self.nxt = self.pool.submit(self._draw)
 
     def _draw(self):
+        if _packable(self.shape) and _dyadic(self.p):
+            return _draw_packed_keep(self.shape, self.p, self.gen)
         keep = torch.rand(self.shape, generator=self.gen) >= self.p
         return _pack_keep(keep) if _packable(self.shape) else keep.to(torch.bfloat16)
 
