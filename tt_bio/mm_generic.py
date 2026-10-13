@@ -267,6 +267,9 @@ def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=Non
     out = outs[0]
     (M_block_tiles, K_block_tiles, N_block_tiles, subblock_h, subblock_w), (gx, gy) = cfg
     math_fidelity, math_approx_mode, fp32_dest_acc_en, dst_full_sync_en = ckc
+    # The LN prologue reduces into fp32 CBs (ln_prologue.hpp), which the LLK only allows with
+    # an fp32 DST, so the fused program keeps it even under a fast (acc_off) config.
+    fp32_dest_acc_en = fp32_dest_acc_en or ln is not None
     defines = [(str(k), str(v)) for k, v in dict(defines).items()]
 
     core_grid = ttnn.CoreRangeSet(
