@@ -659,6 +659,9 @@ _FAST_MODE = False
 #   opm_jd          the OPM contracts against b in (j d) row order, so z's tile (i, j) is pair (i, j)'s [c, d]
 #                   block and one data-movement kernel (opm_relayout) lays it out for the projection in place of
 #                   the 4-op chain. Moves bytes only: bit-exact. C = D = 32 and J a whole number of tiles.
+#   dit_hifi2       a bf16 token DiT's linears (OpenFold3's `--fast` stack) at HiFi2 instead of the model's
+#                   fidelity, fp32 accumulation kept. On a Galaxy chip they are math-bound at HiFi4 (768 x 3072:
+#                   107 us, ~23 TF/s at 1000 MHz) and take 2.5 s of the 512-token fold.
 #   pib_where       OpenDDE's pair-init bias by the old 16-op where-chain instead of one gather from the joint
 #                   (128, c_z) table: the A/B arm for a change that must keep the fold digest (no mode sets it).
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
@@ -668,7 +671,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "swiglu_fc12g", "msa_sample", "dit_sdpa_pm", "dit_s16", "dit_chunk", "conf_bins", "trimul_t1", "trimul_t2",
           "trimul_t2g", "triatt_tail_bias", "dit_cond_hifi2", "transition_ws", "ws_ln", "trimul_t1_dram",
           "trimul_t2m", "trimul_t2cm", "dit_fuse", "pair_mm", "ref_memo", "edm_device", "ws_l1acc", "pib_where",
-          "ws_l1dest", "opm_jd")
+          "ws_l1dest", "opm_jd", "dit_hifi2")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -679,7 +682,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
 # (vendored query.REF_MOL_MEMO), read by worker._predict_openfold3_one off the model's lever set.
 UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "dit_cond_hifi2", "ws_ln", "dit_fuse",
                              "pair_mm", "ref_memo", "trimul_t2m", "edm_device", "ws_l1acc", "pib_where",
-                             "ws_l1dest", "opm_jd"})
+                             "ws_l1dest", "opm_jd", "dit_hifi2"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
