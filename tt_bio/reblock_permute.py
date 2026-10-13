@@ -396,14 +396,23 @@ L1_GROUPS_PER_CORE = float(os.environ.get("TT_BIO_REBLOCK_L1_GROUPS_PER_CORE", "
 # leaves BindCraft 2's gradients bit-identical over 30 iterations and AF2-IG's coordinates equal, and
 # takes the on-card iteration 5.34 -> 5.02 s (.114 chip 19, 1000 MHz, out/gfill_2c9346e08).
 # TT_BIO_REBLOCK_DRAM_FILL=0 / TT_BIO_REBLOCK_DRAM_FILL_GATED=0 restore the plain N edge for an A/B.
+# On Blackhole the plain moves also win at N=224 without filling the grid (49 groups on 110 cores):
+# p150a qb1 card 0, 1350 MHz, [1, 224, 224, C] DRAM -> DRAM, torch.equal throughout: back
+# (0, 2, 3, 1) 0.375 -> 0.128 ms at C=128 and 0.170 -> 0.121 at C=64 against the two transposes,
+# forward (0, 3, 1, 2) 0.267 -> 0.221 and 0.142 -> 0.112 against the stock permute. At N=192 the
+# forward loses (0.202 -> 0.213), so the edge is 224, and only for a tile-aligned N.
+DRAM_N_ALIGNED_MIN = 224
 DRAM_FILL = env_flag("TT_BIO_REBLOCK_DRAM_FILL", True)
 DRAM_FILL_GATED = env_flag("TT_BIO_REBLOCK_DRAM_FILL_GATED", True)
 _GRID_CORES = {}
 
 
 def _dram_open(x, N: int) -> bool:
-    """The DRAM legs' window: N >= 256, or below it where the groups fill the grid (`DRAM_FILL`)."""
-    return N >= 256 or (DRAM_FILL and _l1_fills_grid(x, N))
+    """The DRAM legs' window: N >= 256, a tile-aligned N >= 224, or below that where the groups
+    fill the grid (`DRAM_FILL`)."""
+    if N >= 256:
+        return True
+    return DRAM_FILL and ((N >= DRAM_N_ALIGNED_MIN and N % TILE_H == 0) or _l1_fills_grid(x, N))
 
 
 def _l1_fills_grid(x, N: int) -> bool:
@@ -1075,7 +1084,7 @@ def eligible_gated(xw, slice_c, memory_config) -> bool:
     if xw.memory_config().memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED:
         return _reject("gated_sharded_in", shape)
     bt = memory_config.buffer_type
-    if not ((bt == ttnn.BufferType.DRAM and (N >= 256 or (DRAM_FILL_GATED and _dram_open(xw, N))))
+    if not ((bt == ttnn.BufferType.DRAM and (N >= 256 or (DRAM_FILL_GATED and DRAM_FILL and _l1_fills_grid(xw, N))))
             or (bt == ttnn.BufferType.L1 and N <= L1_N_MAX
                 and (N >= L1_N_MIN or _l1_fills_grid(xw, N)))):
         return _reject(f"gated_window_{bt}", shape)
