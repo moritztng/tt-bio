@@ -246,12 +246,23 @@ class _DiTBlock(Module):
             ttnn.deallocate(t)
         return out
 
+    def _fused_mask(self, z, mask_bias):
+        """`_sdpa32_mask`, rounded to bf16 under dit_mask16: the attention reads the [1, 16, N, N] mask in every
+        block of every step (16 MB fp32 at 512 tokens, ~40 % of the program's time on a p150a) and the rollout
+        builds it once, so the cast is paid 24 times a fold."""
+        m = self._sdpa32_mask(z, mask_bias)
+        if not _T.lever("dit_mask16"):
+            return m
+        m16 = ttnn.typecast(m, ttnn.bfloat16)
+        ttnn.deallocate(m)
+        return m16
+
     def _call_fused(self, a, s, z, mask_bias, tok_mask_col, cache, s_hat, tok_ones, terms=None):
         """`__call__` under dit_fuse (bf16, `_sdpa32`): the same block in 23 ttnn calls. `terms`: this block's six
         s-path tensors computed by the stack (dit_spath), `(sc0, sb0, sc1, sb1, og, lg)`, sigmoids applied."""
         lin = self._lin
         a_ln = self._fuse_adaln(a, s_hat, 0, terms[0:2] if terms else None)
-        bias = _cached(cache, (id(self), "pair_bias32"), lambda: self._sdpa32_mask(z, mask_bias))
+        bias = _cached(cache, (id(self), "pair_bias32"), lambda: self._fused_mask(z, mask_bias))
         qkv = lin(a_ln, self.qkv_w, bias=self.qkv_b)
         qkv = ttnn.unsqueeze(qkv, 1)
         o = _T._sdpa32_fused(qkv, bias, HEAD_DIM ** -0.5, N_HEADS, out_dtype=ttnn.bfloat16)
