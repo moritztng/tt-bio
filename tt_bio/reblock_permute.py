@@ -450,8 +450,7 @@ def eligible(x, memory_config, taped_ok: bool = False) -> bool:
     The channel count is deliberately not part of the window: the kernel handles any ``C`` that is a
     multiple of 32, because the trunk's own chunk width depends on the compute grid.
     """
-    from . import ops
-    if ops.declines_under_tape("reblock_permute") and not (taped_ok and TAPED_MOVE):
+    if _tape_refuses("reblock_permute", taped_ok):
         # A DIRECT caller under a tape gets no node for this `generic_op`, so it has to keep
         # the stock permute the tape can follow. `taped_ok` is the tape itself asking, and for
         # these two moves the tape can follow the kernel: the move is a pure index reordering
@@ -497,6 +496,26 @@ def eligible(x, memory_config, taped_ok: bool = False) -> bool:
 # Default OFF, release-gated. A module switch as well as an env var, so an A/B flips it in one
 # process without a second device context.
 TAPED_MOVE = env_flag("TT_BIO_TAPED_CHANNEL_MOVE", False)
+
+
+def _tape_refuses(name: str, taped_ok: bool) -> bool:
+    """Whether an open tape has to keep the index move ``name`` off the kernel.
+
+    With `TAPED_MOVE` off this is the old blanket refusal. With it on, two callers are let
+    through besides the taped shim (`taped_ok`): a forward the tape is NOT recording -- the
+    untaped first pass of `autograd.checkpoint` under `ops.NOGRAD_IS_INFERENCE` -- where
+    `ops.fused_kernel` already runs the kernel on raw operands and there is no node to drop,
+    and a backward handing in a raw cotangent (`taped_ttnn._permute_back` passes `taped_ok`).
+    Before this, BindCraft 2's Wormhole census showed 384 stock `[1,224,224,128]` moves per
+    iteration in the checkpoint forward and 384 more in the backward, all inside the DRAM window
+    the kernel wins (1.31-1.33x at N=195/224, see `DRAM_FILL`). Bit-exact either way.
+    """
+    from . import ops
+    if not ops.declines_under_tape(name):
+        return False
+    if not TAPED_MOVE:
+        return True
+    return not (taped_ok or not ops.recording())
 
 
 def set_taped_channel_move(on: bool) -> bool:
@@ -723,8 +742,7 @@ def eligible_back(x, memory_config, taped_ok: bool = False) -> bool:
     place the two-transpose pair is expensive, and it is where `_triangle_mul_memory_config` puts the
     chunk from 352 aa up.
     """
-    from . import ops
-    if ops.declines_under_tape("reblock_permute_back") and not (taped_ok and TAPED_MOVE):
+    if _tape_refuses("reblock_permute_back", taped_ok):
         # A DIRECT caller under a tape gets no node for this `generic_op`, so it has to keep
         # the stock permute the tape can follow. `taped_ok` is the tape itself asking, and for
         # these two moves the tape can follow the kernel: the move is a pure index reordering
