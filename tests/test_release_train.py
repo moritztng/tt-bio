@@ -141,3 +141,20 @@ def test_a_gate_runs_from_its_own_worktree_removed_once_the_gate_ended(tmp_path,
         rt.own_runner(gates / "rel-c")
     assert (live / "runner").exists() and not (done / "runner").exists()
     assert git("rev-parse", "HEAD") == git("-C", str(gates / "rel-c" / "runner"), "rev-parse", "HEAD")
+
+
+def test_install_check_waits_for_the_index_that_lags_the_json_api(monkeypatch):
+    import subprocess
+    calls = []
+
+    def run(cmd, **k):
+        calls.append(cmd[:3])
+        install = cmd[:3] == ["uv", "pip", "install"]
+        rc = 1 if install and sum(c == ["uv", "pip", "install"] for c in calls) < 3 else 0
+        return subprocess.CompletedProcess(cmd, rc, stdout="0.16.0\n")
+    monkeypatch.setattr(subprocess, "run", run)
+    monkeypatch.setattr(rt.time, "sleep", lambda s: None)
+    assert rt.install_check("0.16.0") == "0.16.0"
+    assert sum(c == ["uv", "pip", "install"] for c in calls) == 3
+    monkeypatch.setattr(subprocess, "run", lambda cmd, **k: subprocess.CompletedProcess(cmd, cmd[:2] == ["uv", "pip"]))
+    assert rt.install_check("0.16.0", wait_s=-1) == ""

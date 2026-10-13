@@ -147,11 +147,18 @@ def pypi_has(version: str) -> bool:
         return False
 
 
-def install_check(version: str) -> str:
+def install_check(version: str, wait_s: int = 900) -> str:
+    """The version a clean venv gets from `pip install tt-bio==<version>`, or "" if it never does.
+    PyPI's JSON API lists a release before the simple index pip reads serves it: v0.16.0's first
+    install, 20 s after upload, found no such version (2026-10-13), so it retries for wait_s."""
+    t0 = time.time()
     with tempfile.TemporaryDirectory() as d:
         subprocess.run(["uv", "venv", "-q", d], check=True)
-        subprocess.run(["uv", "pip", "install", "-q", "-p", f"{d}/bin/python", "--no-deps", "--no-cache",
-                        f"tt-bio=={version}"], check=True)
+        while subprocess.run(["uv", "pip", "install", "-q", "-p", f"{d}/bin/python", "--no-deps", "--no-cache",
+                              f"tt-bio=={version}"]).returncode:
+            if time.time() - t0 > wait_s:
+                return ""
+            time.sleep(30)
         return subprocess.run([f"{d}/bin/python", "-c", "import importlib.metadata as m; print(m.version('tt-bio'))"],
                               check=True, capture_output=True, text=True).stdout.strip()
 
