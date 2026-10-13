@@ -9,6 +9,7 @@ on a measurement:
   chain    - the shipped TILE->RM, reshape, RM->TILE, permute from [(i c), (d j)]
   tresh    - ttnn.reshape of a tiled [I, J, C, D] to [I*J, C*D] (input built directly in that shape)
   view     - whether ttnn can re-label z's [(i c), (j d)] as [I, J, C, D] without a move
+  kernel   - tt_bio.opm_relayout on z = [(i c), (j d)] (one read and one write of z)
 
 Run: TT_VISIBLE_DEVICES=<card> timeout 600 python perf/spd/opm_relayout_probe.py --out r.json
 """
@@ -19,7 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from tt_bio.main import ensure_p300_mesh_descriptor
 ensure_p300_mesh_descriptor()
 import torch, ttnn
-from tt_bio import tenstorrent as T
+from tt_bio import tenstorrent as T, opm_relayout as OR
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--I", type=int, default=512)
@@ -106,6 +107,12 @@ try:
     res["view_exact"] = None if v is None else torch.equal(ttnn.to_torch(v).float(), blk.float())
 except Exception as e:
     res["view_err2"] = repr(e)[:300]
+
+try:
+    res["kernel_why"] = OR.eligible(put(z_new), C, D)
+    timed("kernel", lambda: put(z_new), lambda z: OR.opm_relayout(z, I, J), want)
+except Exception as e:
+    res["kernel"] = {"error": repr(e)[:600]}
 
 a.out.parent.mkdir(parents=True, exist_ok=True)
 a.out.write_text(json.dumps(res))
