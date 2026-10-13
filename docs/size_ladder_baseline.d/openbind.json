@@ -15,28 +15,28 @@
   ],
   "cards": {
     "p150a": {
-      "recorded": "2026-10-10",
+      "recorded": "2026-10-13",
       "host": "tt-quietbox",
-      "commit": "92d5924f5",
+      "commit": "8b2f8acaa",
       "host_threads": 8,
       "models": {
         "openbind": {
           "grid": "11x10",
-          "recorded": "2026-10-10",
+          "recorded": "2026-10-13",
           "host": "tt-quietbox",
-          "commit": "92d5924f5",
+          "commit": "8b2f8acaa",
           "host_threads": 8,
           "runtime_s": {
-            "256": 9.7,
-            "512": 17.1,
-            "640": 23.1,
-            "768": 29.5,
-            "896": 39.4,
-            "1024": 50.8,
-            "1152": 67.7,
-            "1280": 81.7,
-            "1408": 104.7,
-            "1536": 121.5
+            "256": 9.5,
+            "512": 15.4,
+            "640": 20.5,
+            "768": 26.7,
+            "896": 34.2,
+            "1024": 43.3,
+            "1152": 58.1,
+            "1280": 70.4,
+            "1408": 91.0,
+            "1536": 105.8
           },
           "levers": {
             "256": {
@@ -109,7 +109,7 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 333,
+                "served": 141,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -326,7 +326,7 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 232,
+                "served": 224,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -433,7 +433,7 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 333,
+                "served": 141,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -641,7 +641,7 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 232,
+                "served": 224,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -748,7 +748,7 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 333,
+                "served": 141,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -956,7 +956,7 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 232,
+                "served": 224,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -1056,14 +1056,14 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 440,
+                "served": 441,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 333,
+                "served": 141,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -1097,22 +1097,26 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 440,
+                "declined": 441,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
+                  "k_tiles=2:(2,2)": 1,
                   "k_tiles=2:(2,1)": 16,
                   "k_tiles=4:(4,4)": 424
                 },
-                "reason": "declines all 440 calls on k_tiles=4:(4,4) x424, k_tiles=2:(2,1) x16: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded. The call count rises from 440 to ~1288 at 640 and above, which is the pair track taking its row-blocked path"
+                "reason": "declines all 441 calls on k_tiles=4:(4,4) x424, k_tiles=2:(2,1) x16, k_tiles=2:(2,2) x1: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded. The call count rises from 440 to ~1288 at 640 and above, which is the pair track taking its row-blocked path"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 0,
+                "declined": 1,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "declines all 0 calls: F1_BLOCK_KEYS allow-lists only (8, 8) and openbind's trimul tails resolve 4 and 2 K tiles, which are properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
+                "rejects": {
+                  "k_tiles=2": 1
+                },
+                "reason": "declines all 1 calls on k_tiles=2 x1: F1_BLOCK_KEYS allow-lists only (8, 8) and openbind's trimul tails resolve 4 and 2 K tiles, which are properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -1145,14 +1149,14 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 880,
+                "served": 882,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 880,
+                "served": 882,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -1270,9 +1274,9 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 16,
+                "served": 8,
                 "declined": 216,
-                "frac": 0.06896551724137931,
+                "frac": 0.03571428571428571,
                 "how": "wrap"
               },
               "SDPA_Q_CHUNK_FITS": {
@@ -1377,7 +1381,7 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 333,
+                "served": 141,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -1400,12 +1404,12 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 231,
-                "declined": 2,
-                "frac": 0.9914163090128756,
+                "served": 224,
+                "declined": 8,
+                "frac": 0.9655172413793104,
                 "how": "wrap",
                 "rejects": {
-                  "l1_dest_is_faster:896x896x64": 2
+                  "l1_dest_is_faster:896x896x64": 8
                 }
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
@@ -1584,9 +1588,9 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 16,
+                "served": 8,
                 "declined": 216,
-                "frac": 0.06896551724137931,
+                "frac": 0.03571428571428571,
                 "how": "wrap"
               },
               "SDPA_Q_CHUNK_FITS": {
@@ -1691,7 +1695,7 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 333,
+                "served": 141,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -2006,7 +2010,7 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 333,
+                "served": 141,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -2318,7 +2322,7 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 333,
+                "served": 141,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -2630,7 +2634,7 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 333,
+                "served": 141,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -2942,7 +2946,7 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 333,
+                "served": 141,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -3192,47 +3196,47 @@
           },
           "runtime_reps_s": {
             "256": [
-              9.7,
-              9.7,
-              9.7,
-              9.9,
-              8.9
+              9.5,
+              9.4,
+              9.6,
+              10.0,
+              9.2
             ],
             "512": [
-              17.3,
-              17.0,
-              16.9,
-              17.1,
-              17.2
+              15.6,
+              15.2,
+              15.5,
+              15.4,
+              15.3
             ],
             "640": [
-              23.1
+              20.5
             ],
             "768": [
-              29.5
+              26.7
             ],
             "896": [
-              39.4
+              34.2
             ],
             "1024": [
-              50.8
+              43.3
             ],
             "1152": [
-              67.7
+              58.1
             ],
             "1280": [
-              81.7
+              70.4
             ],
             "1408": [
-              104.7
+              91.0
             ],
             "1536": [
-              121.5
+              105.8
             ]
           },
           "aiclk": {
             "256": {
-              "card": "2",
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
@@ -3242,10 +3246,10 @@
                 1350,
                 1350
               ],
-              "n": 34
+              "n": 31
             },
             "512": {
-              "card": "2",
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
@@ -3255,10 +3259,19 @@
                 1350,
                 1350
               ],
-              "n": 40
+              "n": 37
             },
             "640": {
-              "card": "2",
+              "card": "1",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1350
+              ],
+              "n": 8
+            },
+            "768": {
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
@@ -3266,8 +3279,8 @@
               ],
               "n": 9
             },
-            "768": {
-              "card": "2",
+            "896": {
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
@@ -3275,26 +3288,26 @@
               ],
               "n": 10
             },
-            "896": {
-              "card": "2",
-              "min": 800,
-              "max": 1350,
-              "rep_median": [
-                1350
-              ],
-              "n": 11
-            },
             "1024": {
-              "card": "2",
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
                 1350
               ],
-              "n": 13
+              "n": 12
             },
             "1152": {
-              "card": "2",
+              "card": "1",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1350
+              ],
+              "n": 14
+            },
+            "1280": {
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
@@ -3302,101 +3315,92 @@
               ],
               "n": 16
             },
-            "1280": {
-              "card": "2",
+            "1408": {
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
                 1350
               ],
-              "n": 18
+              "n": 20
             },
-            "1408": {
-              "card": "2",
+            "1536": {
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
                 1350
               ],
               "n": 22
-            },
-            "1536": {
-              "card": "2",
-              "min": 800,
-              "max": 1350,
-              "rep_median": [
-                1350
-              ],
-              "n": 25
             }
           },
           "load": {
             "256": {
-              "max": 0.57,
+              "max": 0.23,
               "rep_median": [
-                0.54,
-                0.49,
-                0.49,
-                0.4,
-                0.35
+                0.18,
+                0.21,
+                0.2,
+                0.21,
+                0.22
               ]
             },
             "512": {
-              "max": 0.5,
+              "max": 0.27,
               "rep_median": [
-                0.45,
-                0.38,
-                0.33,
-                0.34,
-                0.33
+                0.22,
+                0.23,
+                0.24,
+                0.26,
+                0.25
               ]
             },
             "640": {
-              "max": 0.32,
+              "max": 0.22,
               "rep_median": [
-                0.29
+                0.21
               ]
             },
             "768": {
-              "max": 0.32,
-              "rep_median": [
-                0.3
-              ]
-            },
-            "896": {
-              "max": 0.29,
+              "max": 0.28,
               "rep_median": [
                 0.25
               ]
             },
-            "1024": {
-              "max": 0.24,
+            "896": {
+              "max": 0.23,
               "rep_median": [
-                0.23
+                0.21
+              ]
+            },
+            "1024": {
+              "max": 0.23,
+              "rep_median": [
+                0.2
               ]
             },
             "1152": {
-              "max": 0.31,
+              "max": 0.2,
               "rep_median": [
-                0.3
+                0.18
               ]
             },
             "1280": {
-              "max": 0.31,
+              "max": 0.22,
               "rep_median": [
-                0.3
+                0.19
               ]
             },
             "1408": {
-              "max": 0.32,
+              "max": 0.22,
               "rep_median": [
-                0.23
+                0.2
               ]
             },
             "1536": {
-              "max": 0.24,
+              "max": 0.18,
               "rep_median": [
-                0.21
+                0.16
               ]
             }
           },
@@ -3405,31 +3409,30 @@
               "file": "cdk2x2_256.cif",
               "steps": 6,
               "n_ca": 256,
-              "clash_frac": 0.0234,
+              "clash_frac": 0.0078,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 108.6595,
-              "radius_of_gyration_A": 83.918,
-              "plddt_mean": 0.292193,
+              "ca_ca_median_A": 107.8689,
+              "radius_of_gyration_A": 83.767,
+              "plddt_mean": 0.292047,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 108.660 A outside [3.6, 4.0]",
+                "median CA-CA 107.869 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "2.3% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 83.9 A outside [9.0, 45.2]"
+                "radius of gyration 83.8 A outside [9.0, 45.2]"
               ]
             },
             "512": {
               "file": "cdk2x2_512.cif",
               "steps": 6,
               "n_ca": 512,
-              "clash_frac": 0.0156,
+              "clash_frac": 0.0117,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 110.8671,
-              "radius_of_gyration_A": 86.904,
-              "plddt_mean": 0.283122,
+              "ca_ca_median_A": 110.5412,
+              "radius_of_gyration_A": 86.873,
+              "plddt_mean": 0.281568,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 110.867 A outside [3.6, 4.0]",
+                "median CA-CA 110.541 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
                 "radius of gyration 86.9 A outside [11.8, 58.9]"
               ]
@@ -3438,16 +3441,16 @@
               "file": "cdk2x2_640.cif",
               "steps": 6,
               "n_ca": 640,
-              "clash_frac": 0.025,
+              "clash_frac": 0.0219,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 105.9128,
-              "radius_of_gyration_A": 86.238,
-              "plddt_mean": 0.280914,
+              "ca_ca_median_A": 105.8717,
+              "radius_of_gyration_A": 86.195,
+              "plddt_mean": 0.280785,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 105.913 A outside [3.6, 4.0]",
+                "median CA-CA 105.872 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "2.5% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "2.2% of CA atoms sit under 3.5 A from a non-bonded CA",
                 "radius of gyration 86.2 A outside [12.8, 64.1]"
               ]
             },
@@ -3455,83 +3458,82 @@
               "file": "cdk2x2_768.cif",
               "steps": 6,
               "n_ca": 768,
-              "clash_frac": 0.0052,
+              "clash_frac": 0.0182,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 106.0362,
-              "radius_of_gyration_A": 82.869,
-              "plddt_mean": 0.274088,
+              "ca_ca_median_A": 106.755,
+              "radius_of_gyration_A": 82.968,
+              "plddt_mean": 0.273868,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 106.036 A outside [3.6, 4.0]",
+                "median CA-CA 106.755 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 82.9 A outside [13.7, 68.7]"
+                "radius of gyration 83.0 A outside [13.7, 68.7]"
               ]
             },
             "896": {
               "file": "cdk2x2_896.cif",
               "steps": 6,
               "n_ca": 896,
-              "clash_frac": 0.0246,
+              "clash_frac": 0.0134,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 108.1739,
-              "radius_of_gyration_A": 87.137,
-              "plddt_mean": 0.270606,
+              "ca_ca_median_A": 109.1284,
+              "radius_of_gyration_A": 87.237,
+              "plddt_mean": 0.269965,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 108.174 A outside [3.6, 4.0]",
+                "median CA-CA 109.128 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "2.5% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 87.1 A outside [14.6, 72.8]"
+                "radius of gyration 87.2 A outside [14.6, 72.8]"
               ]
             },
             "1024": {
               "file": "cdk2x2_1024.cif",
               "steps": 6,
               "n_ca": 1024,
-              "clash_frac": 0.041,
+              "clash_frac": 0.0303,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 103.765,
-              "radius_of_gyration_A": 84.869,
-              "plddt_mean": 0.280977,
+              "ca_ca_median_A": 103.042,
+              "radius_of_gyration_A": 84.755,
+              "plddt_mean": 0.281474,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 103.765 A outside [3.6, 4.0]",
+                "median CA-CA 103.042 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "4.1% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 84.9 A outside [15.3, 76.6]"
+                "3.0% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 84.8 A outside [15.3, 76.6]"
               ]
             },
             "1152": {
               "file": "cdk2x2_1152.cif",
               "steps": 6,
               "n_ca": 1152,
-              "clash_frac": 0.0408,
+              "clash_frac": 0.0312,
               "chain_break_frac": 0.9991,
-              "ca_ca_median_A": 102.6596,
-              "radius_of_gyration_A": 84.008,
-              "plddt_mean": 0.271423,
+              "ca_ca_median_A": 102.6226,
+              "radius_of_gyration_A": 84.151,
+              "plddt_mean": 0.271446,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 102.660 A outside [3.6, 4.0]",
+                "median CA-CA 102.623 A outside [3.6, 4.0]",
                 "99.9% of consecutive CA pairs exceed 5.0 A",
-                "4.1% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 84.0 A outside [16.0, 80.1]"
+                "3.1% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 84.2 A outside [16.0, 80.1]"
               ]
             },
             "1280": {
               "file": "cdk2x2_1280.cif",
               "steps": 6,
               "n_ca": 1280,
-              "clash_frac": 0.0297,
+              "clash_frac": 0.0477,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 104.6246,
-              "radius_of_gyration_A": 85.838,
-              "plddt_mean": 0.280834,
+              "ca_ca_median_A": 104.2603,
+              "radius_of_gyration_A": 85.811,
+              "plddt_mean": 0.279934,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 104.625 A outside [3.6, 4.0]",
+                "median CA-CA 104.260 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "3.0% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "4.8% of CA atoms sit under 3.5 A from a non-bonded CA",
                 "radius of gyration 85.8 A outside [16.7, 83.4]"
               ]
             },
@@ -3539,84 +3541,84 @@
               "file": "cdk2x2_1408.cif",
               "steps": 6,
               "n_ca": 1408,
-              "clash_frac": 0.0469,
+              "clash_frac": 0.0376,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 105.9379,
-              "radius_of_gyration_A": 85.712,
-              "plddt_mean": 0.28191,
+              "ca_ca_median_A": 106.126,
+              "radius_of_gyration_A": 85.701,
+              "plddt_mean": 0.281881,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 105.938 A outside [3.6, 4.0]",
+                "median CA-CA 106.126 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "4.7% of CA atoms sit under 3.5 A from a non-bonded CA"
+                "3.8% of CA atoms sit under 3.5 A from a non-bonded CA"
               ]
             },
             "1536": {
               "file": "cdk2x2_1536.cif",
               "steps": 6,
               "n_ca": 1536,
-              "clash_frac": 0.0488,
-              "chain_break_frac": 1.0,
-              "ca_ca_median_A": 105.2813,
-              "radius_of_gyration_A": 84.879,
-              "plddt_mean": 0.290236,
+              "clash_frac": 0.0527,
+              "chain_break_frac": 0.9993,
+              "ca_ca_median_A": 105.0249,
+              "radius_of_gyration_A": 84.887,
+              "plddt_mean": 0.290272,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 105.281 A outside [3.6, 4.0]",
-                "100.0% of consecutive CA pairs exceed 5.0 A",
-                "4.9% of CA atoms sit under 3.5 A from a non-bonded CA"
+                "median CA-CA 105.025 A outside [3.6, 4.0]",
+                "99.9% of consecutive CA pairs exceed 5.0 A",
+                "5.3% of CA atoms sit under 3.5 A from a non-bonded CA"
               ]
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.0092,
+          "sigma_runtime_512": 0.0103,
           "exponents": {
             "256->512": {
-              "k": 0.818,
+              "k": 0.697,
               "tol": 0.5
             },
             "512->768": {
-              "k": 1.345,
+              "k": 1.357,
               "tol": 0.5
             }
           },
           "sigma_runtime": {
-            "256": 0.0407,
-            "512": 0.0092
+            "256": 0.0311,
+            "512": 0.0103
           },
           "exponents_measured": {
-            "256->512": 0.818,
-            "512->640": 1.348,
-            "640->768": 1.341,
-            "768->896": 1.877,
-            "896->1024": 1.903,
-            "1024->1152": 2.438,
-            "1152->1280": 1.784,
-            "1280->1408": 2.603,
-            "1408->1536": 1.71
+            "256->512": 0.697,
+            "512->640": 1.282,
+            "640->768": 1.449,
+            "768->896": 1.606,
+            "896->1024": 1.767,
+            "1024->1152": 2.496,
+            "1152->1280": 1.823,
+            "1280->1408": 2.693,
+            "1408->1536": 1.732
           }
         }
       }
     },
     "p300c": {
-      "recorded": "2026-10-10",
+      "recorded": "2026-10-13",
       "host": "tt-quietbox2",
-      "commit": "92d5924f5",
+      "commit": "8b2f8acaa",
       "host_threads": 5,
       "models": {
         "openbind": {
           "grid": "11x10",
-          "recorded": "2026-10-10",
+          "recorded": "2026-10-13",
           "host": "tt-quietbox2",
-          "commit": "92d5924f5",
+          "commit": "8b2f8acaa",
           "host_threads": 5,
           "runtime_s": {
-            "256": 4.5,
-            "512": 10.4,
-            "640": 15.2,
-            "768": 21.4,
-            "896": 29.3,
-            "1024": 38.0
+            "256": 4.1,
+            "512": 9.1,
+            "640": 13.3,
+            "768": 18.7,
+            "896": 25.9,
+            "1024": 33.6
           },
           "levers": {
             "256": {
@@ -3689,7 +3691,7 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 333,
+                "served": 141,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -3906,7 +3908,7 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 232,
+                "served": 224,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -4013,7 +4015,7 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 333,
+                "served": 141,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -4221,7 +4223,7 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 232,
+                "served": 224,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -4328,7 +4330,7 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 333,
+                "served": 141,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -4536,7 +4538,7 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 232,
+                "served": 224,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -4636,14 +4638,14 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 440,
+                "served": 441,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 333,
+                "served": 141,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -4677,22 +4679,26 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 440,
+                "declined": 441,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
+                  "k_tiles=2:(2,2)": 1,
                   "k_tiles=2:(2,1)": 16,
                   "k_tiles=4:(4,4)": 424
                 },
-                "reason": "declines all 440 calls on k_tiles=4:(4,4) x424, k_tiles=2:(2,1) x16: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one"
+                "reason": "declines all 441 calls on k_tiles=4:(4,4) x424, k_tiles=2:(2,1) x16, k_tiles=2:(2,2) x1: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 0,
+                "declined": 1,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "declines all 0 calls: F1_BLOCK_KEYS allow-lists only (8, 8) and openbind's trimul tails resolve 4 and 2 K tiles, which are properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
+                "rejects": {
+                  "k_tiles=2": 1
+                },
+                "reason": "declines all 1 calls on k_tiles=2 x1: F1_BLOCK_KEYS allow-lists only (8, 8) and openbind's trimul tails resolve 4 and 2 K tiles, which are properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -4725,14 +4731,14 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 880,
+                "served": 882,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 880,
+                "served": 882,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -4850,9 +4856,9 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 16,
+                "served": 8,
                 "declined": 216,
-                "frac": 0.06896551724137931,
+                "frac": 0.03571428571428571,
                 "how": "wrap"
               },
               "SDPA_Q_CHUNK_FITS": {
@@ -4957,7 +4963,7 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 333,
+                "served": 141,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -4980,12 +4986,12 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 231,
-                "declined": 2,
-                "frac": 0.9914163090128756,
+                "served": 224,
+                "declined": 8,
+                "frac": 0.9655172413793104,
                 "how": "wrap",
                 "rejects": {
-                  "l1_dest_is_faster:896x896x64": 2
+                  "l1_dest_is_faster:896x896x64": 8
                 }
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
@@ -5164,9 +5170,9 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 16,
+                "served": 8,
                 "declined": 216,
-                "frac": 0.06896551724137931,
+                "frac": 0.03571428571428571,
                 "how": "wrap"
               },
               "SDPA_Q_CHUNK_FITS": {
@@ -5271,7 +5277,7 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 333,
+                "served": 141,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -5523,35 +5529,35 @@
           },
           "runtime_reps_s": {
             "256": [
-              4.6,
-              5.0,
-              4.5,
-              4.4,
-              4.5
+              4.2,
+              4.1,
+              4.1,
+              4.0,
+              4.1
             ],
             "512": [
-              11.0,
-              10.5,
-              10.1,
-              10.2,
-              10.4
+              9.1,
+              9.1,
+              9.0,
+              9.1,
+              9.1
             ],
             "640": [
-              15.2
+              13.3
             ],
             "768": [
-              21.4
+              18.7
             ],
             "896": [
-              29.3
+              25.9
             ],
             "1024": [
-              38.0
+              33.6
             ]
           },
           "aiclk": {
             "256": {
-              "card": "3",
+              "card": "0",
               "min": 800,
               "max": 1350,
               "rep_median": [
@@ -5564,7 +5570,7 @@
               "n": 25
             },
             "512": {
-              "card": "3",
+              "card": "0",
               "min": 800,
               "max": 1350,
               "rep_median": [
@@ -5577,16 +5583,16 @@
               "n": 30
             },
             "640": {
-              "card": "3",
+              "card": "0",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1350
+                1325
               ],
               "n": 7
             },
             "768": {
-              "card": "3",
+              "card": "0",
               "min": 800,
               "max": 1350,
               "rep_median": [
@@ -5595,67 +5601,67 @@
               "n": 8
             },
             "896": {
-              "card": "3",
+              "card": "0",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1350
+                1331
               ],
-              "n": 10
+              "n": 9
             },
             "1024": {
-              "card": "3",
+              "card": "0",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1350
+                1337
               ],
               "n": 11
             }
           },
           "load": {
             "256": {
-              "max": 0.29,
+              "max": 0.14,
               "rep_median": [
-                0.28,
-                0.25,
-                0.23,
-                0.22,
-                0.23
+                0.12,
+                0.11,
+                0.11,
+                0.12,
+                0.1
               ]
             },
             "512": {
-              "max": 0.3,
+              "max": 0.08,
               "rep_median": [
-                0.25,
-                0.27,
-                0.3,
-                0.26,
-                0.26
+                0.07,
+                0.07,
+                0.07,
+                0.08,
+                0.06
               ]
             },
             "640": {
-              "max": 0.22,
+              "max": 0.05,
               "rep_median": [
-                0.21
+                0.05
               ]
             },
             "768": {
-              "max": 0.24,
+              "max": 0.06,
               "rep_median": [
-                0.23
+                0.05
               ]
             },
             "896": {
-              "max": 0.22,
+              "max": 0.07,
               "rep_median": [
-                0.22
+                0.06
               ]
             },
             "1024": {
-              "max": 0.24,
+              "max": 0.09,
               "rep_median": [
-                0.23
+                0.07
               ]
             }
           },
@@ -5664,31 +5670,30 @@
               "file": "cdk2x2_256.cif",
               "steps": 6,
               "n_ca": 256,
-              "clash_frac": 0.0234,
+              "clash_frac": 0.0078,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 108.6595,
-              "radius_of_gyration_A": 83.918,
-              "plddt_mean": 0.292193,
+              "ca_ca_median_A": 107.8689,
+              "radius_of_gyration_A": 83.767,
+              "plddt_mean": 0.292047,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 108.660 A outside [3.6, 4.0]",
+                "median CA-CA 107.869 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "2.3% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 83.9 A outside [9.0, 45.2]"
+                "radius of gyration 83.8 A outside [9.0, 45.2]"
               ]
             },
             "512": {
               "file": "cdk2x2_512.cif",
               "steps": 6,
               "n_ca": 512,
-              "clash_frac": 0.0156,
+              "clash_frac": 0.0117,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 110.8671,
-              "radius_of_gyration_A": 86.904,
-              "plddt_mean": 0.283122,
+              "ca_ca_median_A": 110.5412,
+              "radius_of_gyration_A": 86.873,
+              "plddt_mean": 0.281568,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 110.867 A outside [3.6, 4.0]",
+                "median CA-CA 110.541 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
                 "radius of gyration 86.9 A outside [11.8, 58.9]"
               ]
@@ -5697,16 +5702,16 @@
               "file": "cdk2x2_640.cif",
               "steps": 6,
               "n_ca": 640,
-              "clash_frac": 0.025,
+              "clash_frac": 0.0219,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 105.9128,
-              "radius_of_gyration_A": 86.238,
-              "plddt_mean": 0.280914,
+              "ca_ca_median_A": 105.8717,
+              "radius_of_gyration_A": 86.195,
+              "plddt_mean": 0.280785,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 105.913 A outside [3.6, 4.0]",
+                "median CA-CA 105.872 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "2.5% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "2.2% of CA atoms sit under 3.5 A from a non-bonded CA",
                 "radius of gyration 86.2 A outside [12.8, 64.1]"
               ]
             },
@@ -5714,75 +5719,74 @@
               "file": "cdk2x2_768.cif",
               "steps": 6,
               "n_ca": 768,
-              "clash_frac": 0.0052,
+              "clash_frac": 0.0182,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 106.0362,
-              "radius_of_gyration_A": 82.869,
-              "plddt_mean": 0.274088,
+              "ca_ca_median_A": 106.755,
+              "radius_of_gyration_A": 82.968,
+              "plddt_mean": 0.273868,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 106.036 A outside [3.6, 4.0]",
+                "median CA-CA 106.755 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 82.9 A outside [13.7, 68.7]"
+                "radius of gyration 83.0 A outside [13.7, 68.7]"
               ]
             },
             "896": {
               "file": "cdk2x2_896.cif",
               "steps": 6,
               "n_ca": 896,
-              "clash_frac": 0.0246,
+              "clash_frac": 0.0134,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 108.1739,
-              "radius_of_gyration_A": 87.137,
-              "plddt_mean": 0.270606,
+              "ca_ca_median_A": 109.1284,
+              "radius_of_gyration_A": 87.237,
+              "plddt_mean": 0.269965,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 108.174 A outside [3.6, 4.0]",
+                "median CA-CA 109.128 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "2.5% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 87.1 A outside [14.6, 72.8]"
+                "radius of gyration 87.2 A outside [14.6, 72.8]"
               ]
             },
             "1024": {
               "file": "cdk2x2_1024.cif",
               "steps": 6,
               "n_ca": 1024,
-              "clash_frac": 0.041,
+              "clash_frac": 0.0303,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 103.765,
-              "radius_of_gyration_A": 84.869,
-              "plddt_mean": 0.280977,
+              "ca_ca_median_A": 103.042,
+              "radius_of_gyration_A": 84.755,
+              "plddt_mean": 0.281474,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 103.765 A outside [3.6, 4.0]",
+                "median CA-CA 103.042 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "4.1% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 84.9 A outside [15.3, 76.6]"
+                "3.0% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 84.8 A outside [15.3, 76.6]"
               ]
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.0336,
+          "sigma_runtime_512": 0.0049,
           "exponents": {
             "256->512": {
-              "k": 1.209,
+              "k": 1.15,
               "tol": 0.5
             },
             "512->768": {
-              "k": 1.78,
+              "k": 1.776,
               "tol": 0.5
             }
           },
           "sigma_runtime": {
-            "256": 0.051,
-            "512": 0.0336
+            "256": 0.0172,
+            "512": 0.0049
           },
           "exponents_measured": {
-            "256->512": 1.209,
+            "256->512": 1.15,
             "512->640": 1.701,
-            "640->768": 1.876,
-            "768->896": 2.038,
-            "896->1024": 1.947
+            "640->768": 1.869,
+            "768->896": 2.113,
+            "896->1024": 1.949
           }
         }
       }

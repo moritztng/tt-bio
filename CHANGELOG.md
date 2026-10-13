@@ -5,6 +5,8 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-10-13
+
 ### Changed
 - **BoltzGen's normal mode runs the shared normal lever set** (HiFi3 trunk matmuls, fused triangle
   multiplication and attention tails, fused diffusion attention). A 512-aa design on a Wormhole chip at

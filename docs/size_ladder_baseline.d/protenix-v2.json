@@ -2883,27 +2883,28 @@
       }
     },
     "p150a": {
-      "recorded": "2026-09-28",
+      "recorded": "2026-10-13",
       "host": "tt-quietbox",
-      "commit": "3af7e8be7",
+      "commit": "8b2f8acaa",
+      "host_threads": 8,
       "models": {
         "protenix-v2": {
           "grid": "11x10",
-          "recorded": "2026-10-10",
+          "recorded": "2026-10-13",
           "host": "tt-quietbox",
-          "commit": "6105e740d",
-          "host_threads": null,
+          "commit": "8b2f8acaa",
+          "host_threads": 8,
           "runtime_s": {
-            "256": 21.2,
-            "512": 47.5,
-            "640": 69.9,
-            "768": 97.5,
-            "896": 133.2,
-            "1024": 174.1,
-            "1152": 236.9,
-            "1280": 291.7,
-            "1408": 388.0,
-            "1536": 461.7
+            "256": 17.2,
+            "512": 39.7,
+            "640": 58.9,
+            "768": 83.7,
+            "896": 113.3,
+            "1024": 147.7,
+            "1152": 207.0,
+            "1280": 259.4,
+            "1408": 343.3,
+            "1536": 416.1
           },
           "levers": {
             "256": {
@@ -2976,7 +2977,7 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 315,
+                "served": 171,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -3000,14 +3001,14 @@
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1208,
+                "declined": 604,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "l1_dest_is_faster:256x256x64": 160,
-                  "l1_dest_is_faster:256x256x256": 1048
+                  "l1_dest_is_faster:256x256x64": 80,
+                  "l1_dest_is_faster:256x256x256": 524
                 },
-                "reason": "declines all 1208 calls on l1_dest_is_faster:256x256x256 x1048, l1_dest_is_faster:256x256x64 x160: the row-major route needs a DRAM destination for a 3-D bf16 tiled pair tensor, and it serves at 640 and 768, so the pair buffer is L1-resident here; wrap-counted, so the clause is not recorded"
+                "reason": "declines all 604 calls on l1_dest_is_faster:256x256x256 x524, l1_dest_is_faster:256x256x64 x80: the row-major route needs a DRAM destination for a 3-D bf16 tiled pair tensor, and it serves at 640 and 768, so the pair buffer is L1-resident here; wrap-counted, so the clause is not recorded"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -3171,7 +3172,7 @@
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
                 "served": 0,
-                "declined": 628,
+                "declined": 556,
                 "frac": 0.0,
                 "how": "stats"
               },
@@ -3185,7 +3186,7 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 1208,
+                "served": 604,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -3292,7 +3293,7 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 315,
+                "served": 171,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -3315,12 +3316,12 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 1048,
-                "declined": 161,
-                "frac": 0.8668320926385442,
+                "served": 524,
+                "declined": 81,
+                "frac": 0.8661157024793389,
                 "how": "wrap",
                 "rejects": {
-                  "l1_dest_is_faster:512x512x64": 160,
+                  "l1_dest_is_faster:512x512x64": 80,
                   "l1_dest_is_faster:512x512x256": 1
                 }
               },
@@ -3475,7 +3476,7 @@
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
                 "served": 0,
-                "declined": 628,
+                "declined": 556,
                 "frac": 0.0,
                 "how": "stats"
               },
@@ -3489,7 +3490,7 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 1208,
+                "served": 604,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -3599,7 +3600,7 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 315,
+                "served": 171,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -3622,12 +3623,12 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 1048,
-                "declined": 160,
+                "served": 524,
+                "declined": 80,
                 "frac": 0.8675496688741722,
                 "how": "wrap",
                 "rejects": {
-                  "l1_dest_is_faster:640x640x64": 160
+                  "l1_dest_is_faster:640x640x64": 80
                 }
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
@@ -3781,7 +3782,7 @@
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
                 "served": 0,
-                "declined": 628,
+                "declined": 556,
                 "frac": 0.0,
                 "how": "stats"
               },
@@ -3795,8 +3796,8 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 160,
-                "declined": 1048,
+                "served": 80,
+                "declined": 524,
                 "frac": 0.13245033112582782,
                 "how": "wrap"
               },
@@ -3898,14 +3899,14 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 2256,
+                "served": 2257,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 315,
+                "served": 171,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -3928,28 +3929,34 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 1048,
-                "declined": 160,
+                "served": 524,
+                "declined": 80,
                 "frac": 0.8675496688741722,
                 "how": "wrap",
                 "rejects": {
-                  "l1_dest_is_faster:768x768x64": 160
+                  "l1_dest_is_faster:768x768x64": 80
                 }
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 0,
+                "declined": 1,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "declines all 0 calls: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded"
+                "rejects": {
+                  "k_tiles=2:(2,2)": 1
+                },
+                "reason": "declines all 1 calls on k_tiles=2:(2,2) x1: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 1048,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "declined": 1,
+                "frac": 0.9990467111534795,
+                "how": "stats",
+                "rejects": {
+                  "k_tiles=2": 1
+                }
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -3982,14 +3989,14 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 4512,
+                "served": 4514,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 4512,
+                "served": 4514,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -4091,7 +4098,7 @@
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
                 "served": 0,
-                "declined": 628,
+                "declined": 556,
                 "frac": 0.0,
                 "how": "stats"
               },
@@ -4105,8 +4112,8 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 160,
-                "declined": 1048,
+                "served": 80,
+                "declined": 524,
                 "frac": 0.13245033112582782,
                 "how": "wrap"
               },
@@ -4215,7 +4222,7 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 315,
+                "served": 171,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -4238,12 +4245,12 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 1048,
-                "declined": 160,
+                "served": 524,
+                "declined": 80,
                 "frac": 0.8675496688741722,
                 "how": "wrap",
                 "rejects": {
-                  "l1_dest_is_faster:896x896x64": 160
+                  "l1_dest_is_faster:896x896x64": 80
                 }
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
@@ -4401,7 +4408,7 @@
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
                 "served": 0,
-                "declined": 628,
+                "declined": 556,
                 "frac": 0.0,
                 "how": "stats"
               },
@@ -4415,8 +4422,8 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 160,
-                "declined": 1048,
+                "served": 80,
+                "declined": 524,
                 "frac": 0.13245033112582782,
                 "how": "wrap"
               },
@@ -4525,7 +4532,7 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 315,
+                "served": 171,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -4548,9 +4555,9 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 1208,
+                "served": 604,
                 "declined": 1,
-                "frac": 0.9991728701406121,
+                "frac": 0.9983471074380166,
                 "how": "wrap",
                 "rejects": {
                   "l1_dest_is_faster:1024x1024x64": 1
@@ -4714,7 +4721,7 @@
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
                 "served": 0,
-                "declined": 628,
+                "declined": 556,
                 "frac": 0.0,
                 "how": "stats"
               },
@@ -4728,8 +4735,8 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 160,
-                "declined": 1048,
+                "served": 80,
+                "declined": 524,
                 "frac": 0.13245033112582782,
                 "how": "wrap"
               },
@@ -4838,7 +4845,7 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 315,
+                "served": 171,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -4861,7 +4868,7 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 1208,
+                "served": 604,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -5018,7 +5025,7 @@
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
                 "served": 0,
-                "declined": 628,
+                "declined": 556,
                 "frac": 0.0,
                 "how": "stats"
               },
@@ -5033,10 +5040,10 @@
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
                 "served": 0,
-                "declined": 1208,
+                "declined": 604,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "declines all 1208 calls: a fit test, not a tuned constant. The pair tensor outgrows the 1.25 L1 headroom at this size and PAIR_TRANSPOSE_VIA_ROW_MAJOR serves all 1208 of the same calls on this card, so no transpose is unoptimised; the DRAM permute it falls back to is bit-identical"
+                "reason": "declines all 604 calls: a fit test, not a tuned constant. The pair tensor outgrows the 1.25 L1 headroom at this size and PAIR_TRANSPOSE_VIA_ROW_MAJOR serves all 1208 of the same calls on this card, so no transpose is unoptimised; the DRAM permute it falls back to is bit-identical"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -5143,7 +5150,7 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 315,
+                "served": 171,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -5166,7 +5173,7 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 1208,
+                "served": 604,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -5323,7 +5330,7 @@
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
                 "served": 0,
-                "declined": 628,
+                "declined": 556,
                 "frac": 0.0,
                 "how": "stats"
               },
@@ -5338,10 +5345,10 @@
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
                 "served": 0,
-                "declined": 1208,
+                "declined": 604,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "declines all 1208 calls: a fit test, not a tuned constant. The pair tensor outgrows the 1.25 L1 headroom at this size and PAIR_TRANSPOSE_VIA_ROW_MAJOR serves all 1208 of the same calls on this card, so no transpose is unoptimised; the DRAM permute it falls back to is bit-identical"
+                "reason": "declines all 604 calls: a fit test, not a tuned constant. The pair tensor outgrows the 1.25 L1 headroom at this size and PAIR_TRANSPOSE_VIA_ROW_MAJOR serves all 1208 of the same calls on this card, so no transpose is unoptimised; the DRAM permute it falls back to is bit-identical"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -5448,7 +5455,7 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 315,
+                "served": 171,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -5471,7 +5478,7 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 1208,
+                "served": 604,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -5628,7 +5635,7 @@
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
                 "served": 0,
-                "declined": 628,
+                "declined": 556,
                 "frac": 0.0,
                 "how": "stats"
               },
@@ -5643,10 +5650,10 @@
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
                 "served": 0,
-                "declined": 1208,
+                "declined": 604,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "declines all 1208 calls: a fit test, not a tuned constant. The pair tensor outgrows the 1.25 L1 headroom at this size and PAIR_TRANSPOSE_VIA_ROW_MAJOR serves all 1208 of the same calls on this card, so no transpose is unoptimised; the DRAM permute it falls back to is bit-identical"
+                "reason": "declines all 604 calls: a fit test, not a tuned constant. The pair tensor outgrows the 1.25 L1 headroom at this size and PAIR_TRANSPOSE_VIA_ROW_MAJOR serves all 1208 of the same calls on this card, so no transpose is unoptimised; the DRAM permute it falls back to is bit-identical"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -5753,7 +5760,7 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 315,
+                "served": 171,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -5776,7 +5783,7 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 1208,
+                "served": 604,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -5936,7 +5943,7 @@
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
                 "served": 0,
-                "declined": 628,
+                "declined": 556,
                 "frac": 0.0,
                 "how": "stats"
               },
@@ -5951,10 +5958,10 @@
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
                 "served": 0,
-                "declined": 1208,
+                "declined": 604,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "declines all 1208 calls: a fit test, not a tuned constant. The pair tensor outgrows the 1.25 L1 headroom at this size and PAIR_TRANSPOSE_VIA_ROW_MAJOR serves all 1208 of the same calls on this card, so no transpose is unoptimised; the DRAM permute it falls back to is bit-identical"
+                "reason": "declines all 604 calls: a fit test, not a tuned constant. The pair tensor outgrows the 1.25 L1 headroom at this size and PAIR_TRANSPOSE_VIA_ROW_MAJOR serves all 1208 of the same calls on this card, so no transpose is unoptimised; the DRAM permute it falls back to is bit-identical"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -5998,42 +6005,42 @@
           },
           "runtime_reps_s": {
             "256": [
-              20.3,
-              21.0,
-              21.2,
-              24.1,
-              24.7
+              17.2,
+              17.3,
+              17.8,
+              17.0,
+              16.9
             ],
             "512": [
-              46.3,
-              50.2,
-              53.8,
-              47.5,
-              47.4
+              39.9,
+              39.6,
+              39.7,
+              39.8,
+              39.7
             ],
             "640": [
-              69.9
+              58.9
             ],
             "768": [
-              97.5
+              83.7
             ],
             "896": [
-              133.2
+              113.3
             ],
             "1024": [
-              174.1
+              147.7
             ],
             "1152": [
-              236.9
+              207.0
             ],
             "1280": [
-              291.7
+              259.4
             ],
             "1408": [
-              388.0
+              343.3
             ],
             "1536": [
-              461.7
+              416.1
             ]
           },
           "aiclk": {
@@ -6048,7 +6055,7 @@
                 1350,
                 1350
               ],
-              "n": 47
+              "n": 30
             },
             "512": {
               "card": "2",
@@ -6061,9 +6068,18 @@
                 1350,
                 1350
               ],
-              "n": 68
+              "n": 46
             },
             "640": {
+              "card": "2",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1350
+              ],
+              "n": 13
+            },
+            "768": {
               "card": "2",
               "min": 800,
               "max": 1350,
@@ -6072,7 +6088,7 @@
               ],
               "n": 17
             },
-            "768": {
+            "896": {
               "card": "2",
               "min": 800,
               "max": 1350,
@@ -6081,15 +6097,6 @@
               ],
               "n": 21
             },
-            "896": {
-              "card": "2",
-              "min": 800,
-              "max": 1350,
-              "rep_median": [
-                1350
-              ],
-              "n": 28
-            },
             "1024": {
               "card": "2",
               "min": 800,
@@ -6097,7 +6104,7 @@
               "rep_median": [
                 1350
               ],
-              "n": 32
+              "n": 27
             },
             "1152": {
               "card": "2",
@@ -6106,7 +6113,7 @@
               "rep_median": [
                 1350
               ],
-              "n": 44
+              "n": 37
             },
             "1280": {
               "card": "2",
@@ -6115,7 +6122,7 @@
               "rep_median": [
                 1350
               ],
-              "n": 54
+              "n": 46
             },
             "1408": {
               "card": "2",
@@ -6124,7 +6131,7 @@
               "rep_median": [
                 1350
               ],
-              "n": 69
+              "n": 60
             },
             "1536": {
               "card": "2",
@@ -6133,76 +6140,76 @@
               "rep_median": [
                 1350
               ],
-              "n": 80
+              "n": 72
             }
           },
           "load": {
             "256": {
-              "max": 1.56,
+              "max": 0.31,
               "rep_median": [
-                1.12,
-                1.07,
-                1.01,
-                1.32,
-                1.43
+                0.26,
+                0.27,
+                0.29,
+                0.28,
+                0.28
               ]
             },
             "512": {
-              "max": 1.39,
+              "max": 0.28,
               "rep_median": [
-                0.97,
-                0.72,
-                1.14,
-                1.27,
-                0.98
+                0.27,
+                0.24,
+                0.21,
+                0.21,
+                0.23
               ]
             },
             "640": {
-              "max": 1.3,
+              "max": 0.28,
               "rep_median": [
-                1.01
+                0.24
               ]
             },
             "768": {
-              "max": 1.01,
+              "max": 0.27,
               "rep_median": [
-                0.84
+                0.24
               ]
             },
             "896": {
-              "max": 1.47,
+              "max": 0.25,
               "rep_median": [
-                1.2
+                0.22
               ]
             },
             "1024": {
-              "max": 1.7,
+              "max": 0.24,
               "rep_median": [
-                1.24
+                0.2
               ]
             },
             "1152": {
-              "max": 0.84,
+              "max": 0.23,
               "rep_median": [
-                0.56
+                0.21
               ]
             },
             "1280": {
-              "max": 1.27,
+              "max": 0.28,
               "rep_median": [
-                0.6
+                0.21
               ]
             },
             "1408": {
-              "max": 1.18,
+              "max": 0.22,
               "rep_median": [
-                0.72
+                0.19
               ]
             },
             "1536": {
-              "max": 1.0,
+              "max": 0.23,
               "rep_median": [
-                0.59
+                0.18
               ]
             }
           },
@@ -6213,200 +6220,212 @@
               "n_ca": 256,
               "clash_frac": 0.0,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 132.555,
-              "radius_of_gyration_A": 109.688,
-              "plddt_mean": 0.875247,
+              "ca_ca_median_A": 130.9534,
+              "radius_of_gyration_A": 109.837,
+              "plddt_mean": 0.874973,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 132.555 A outside [3.6, 4.0]",
+                "median CA-CA 130.953 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 109.7 A outside [9.0, 45.2]"
+                "radius of gyration 109.8 A outside [9.0, 45.2]"
               ]
             },
             "512": {
               "file": "cdk2x2_512.cif",
               "steps": 6,
               "n_ca": 512,
-              "clash_frac": 0.0039,
+              "clash_frac": 0.0078,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 132.0801,
-              "radius_of_gyration_A": 112.352,
-              "plddt_mean": 0.820832,
+              "ca_ca_median_A": 132.0292,
+              "radius_of_gyration_A": 112.784,
+              "plddt_mean": 0.824369,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 132.080 A outside [3.6, 4.0]",
+                "median CA-CA 132.029 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 112.4 A outside [11.8, 58.9]"
+                "radius of gyration 112.8 A outside [11.8, 58.9]"
               ]
             },
             "640": {
               "file": "cdk2x2_640.cif",
               "steps": 6,
               "n_ca": 640,
-              "clash_frac": 0.0125,
+              "clash_frac": 0.0156,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 142.0557,
-              "radius_of_gyration_A": 115.751,
-              "plddt_mean": 0.788454,
+              "ca_ca_median_A": 142.5936,
+              "radius_of_gyration_A": 116.25,
+              "plddt_mean": 0.788227,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 142.056 A outside [3.6, 4.0]",
+                "median CA-CA 142.594 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 115.8 A outside [12.8, 64.1]"
+                "radius of gyration 116.3 A outside [12.8, 64.1]"
               ]
             },
             "768": {
               "file": "cdk2x2_768.cif",
               "steps": 6,
               "n_ca": 768,
-              "clash_frac": 0.0104,
+              "clash_frac": 0.0182,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 138.2797,
-              "radius_of_gyration_A": 111.224,
-              "plddt_mean": 0.792264,
+              "ca_ca_median_A": 140.5161,
+              "radius_of_gyration_A": 111.53,
+              "plddt_mean": 0.7934,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 138.280 A outside [3.6, 4.0]",
+                "median CA-CA 140.516 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 111.2 A outside [13.7, 68.7]"
+                "radius of gyration 111.5 A outside [13.7, 68.7]"
               ]
             },
             "896": {
               "file": "cdk2x2_896.cif",
               "steps": 6,
               "n_ca": 896,
-              "clash_frac": 0.0201,
+              "clash_frac": 0.0145,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 133.0592,
-              "radius_of_gyration_A": 111.588,
-              "plddt_mean": 0.761036,
+              "ca_ca_median_A": 133.2295,
+              "radius_of_gyration_A": 112.259,
+              "plddt_mean": 0.760985,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 133.059 A outside [3.6, 4.0]",
+                "median CA-CA 133.229 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "2.0% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 111.6 A outside [14.6, 72.8]"
+                "radius of gyration 112.3 A outside [14.6, 72.8]"
               ]
             },
             "1024": {
               "file": "cdk2x2_1024.cif",
               "steps": 6,
               "n_ca": 1024,
-              "clash_frac": 0.0078,
-              "chain_break_frac": 0.999,
-              "ca_ca_median_A": 136.4023,
-              "radius_of_gyration_A": 116.388,
-              "plddt_mean": 0.73037,
+              "clash_frac": 0.0156,
+              "chain_break_frac": 1.0,
+              "ca_ca_median_A": 135.5474,
+              "radius_of_gyration_A": 116.323,
+              "plddt_mean": 0.736137,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 136.402 A outside [3.6, 4.0]",
-                "99.9% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 116.4 A outside [15.3, 76.6]"
+                "median CA-CA 135.547 A outside [3.6, 4.0]",
+                "100.0% of consecutive CA pairs exceed 5.0 A",
+                "radius of gyration 116.3 A outside [15.3, 76.6]"
               ]
             },
             "1152": {
               "file": "cdk2x2_1152.cif",
               "steps": 6,
               "n_ca": 1152,
-              "clash_frac": 0.0191,
-              "chain_break_frac": 1.0,
-              "ca_ca_median_A": 130.9154,
-              "radius_of_gyration_A": 112.395,
-              "plddt_mean": 0.720872,
+              "clash_frac": 0.0217,
+              "chain_break_frac": 0.9991,
+              "ca_ca_median_A": 132.0556,
+              "radius_of_gyration_A": 112.677,
+              "plddt_mean": 0.727944,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 130.915 A outside [3.6, 4.0]",
-                "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 112.4 A outside [16.0, 80.1]"
+                "median CA-CA 132.056 A outside [3.6, 4.0]",
+                "99.9% of consecutive CA pairs exceed 5.0 A",
+                "2.2% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 112.7 A outside [16.0, 80.1]"
               ]
             },
             "1280": {
               "file": "cdk2x2_1280.cif",
               "steps": 6,
               "n_ca": 1280,
-              "clash_frac": 0.0242,
+              "clash_frac": 0.0187,
               "chain_break_frac": 0.9992,
-              "ca_ca_median_A": 132.296,
-              "radius_of_gyration_A": 113.269,
-              "plddt_mean": 0.714753,
+              "ca_ca_median_A": 131.8489,
+              "radius_of_gyration_A": 113.435,
+              "plddt_mean": 0.711738,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 132.296 A outside [3.6, 4.0]",
+                "median CA-CA 131.849 A outside [3.6, 4.0]",
                 "99.9% of consecutive CA pairs exceed 5.0 A",
-                "2.4% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 113.3 A outside [16.7, 83.4]"
+                "radius of gyration 113.4 A outside [16.7, 83.4]"
               ]
             },
             "1408": {
               "file": "cdk2x2_1408.cif",
               "steps": 6,
               "n_ca": 1408,
-              "clash_frac": 0.0249,
+              "clash_frac": 0.032,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 132.7637,
-              "radius_of_gyration_A": 112.824,
-              "plddt_mean": 0.709267,
+              "ca_ca_median_A": 132.8774,
+              "radius_of_gyration_A": 112.909,
+              "plddt_mean": 0.70998,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 132.764 A outside [3.6, 4.0]",
+                "median CA-CA 132.877 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "2.5% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 112.8 A outside [17.3, 86.5]"
+                "3.2% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 112.9 A outside [17.3, 86.5]"
               ]
             },
             "1536": {
               "file": "cdk2x2_1536.cif",
               "steps": 6,
               "n_ca": 1536,
-              "clash_frac": 0.0293,
+              "clash_frac": 0.0182,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 134.2168,
-              "radius_of_gyration_A": 111.295,
-              "plddt_mean": 0.696014,
+              "ca_ca_median_A": 134.8985,
+              "radius_of_gyration_A": 111.838,
+              "plddt_mean": 0.696085,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 134.217 A outside [3.6, 4.0]",
+                "median CA-CA 134.898 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "2.9% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 111.3 A outside [17.9, 89.4]"
+                "radius of gyration 111.8 A outside [17.9, 89.4]"
               ]
             }
           },
-          "exponents_skipped": "256 aa was timed at 1.6x nproc, above the 1.5x load ceiling: the runtimes are the host's, re-time on a quiet box",
+          "reps": 1,
+          "sigma_runtime_512": 0.0029,
+          "exponents": {
+            "256->512": {
+              "k": 1.207,
+              "tol": 0.5
+            },
+            "512->768": {
+              "k": 1.84,
+              "tol": 0.5
+            }
+          },
+          "sigma_runtime": {
+            "256": 0.0203,
+            "512": 0.0029
+          },
           "exponents_measured": {
-            "256->512": 1.164,
-            "512->640": 1.731,
-            "640->768": 1.825,
-            "768->896": 2.024,
-            "896->1024": 2.005,
-            "1024->1152": 2.615,
-            "1152->1280": 1.975,
-            "1280->1408": 2.993,
-            "1408->1536": 1.999
+            "256->512": 1.207,
+            "512->640": 1.768,
+            "640->768": 1.927,
+            "768->896": 1.964,
+            "896->1024": 1.986,
+            "1024->1152": 2.866,
+            "1152->1280": 2.142,
+            "1280->1408": 2.94,
+            "1408->1536": 2.21
           }
         }
-      },
-      "host_threads": null
+      }
     },
     "p300c": {
-      "recorded": "2026-10-10",
+      "recorded": "2026-10-13",
       "host": "tt-quietbox2",
-      "commit": "92d5924f5",
+      "commit": "8b2f8acaa",
       "host_threads": 5,
       "models": {
         "protenix-v2": {
           "grid": "11x10",
-          "recorded": "2026-10-10",
+          "recorded": "2026-10-13",
           "host": "tt-quietbox2",
-          "commit": "92d5924f5",
+          "commit": "8b2f8acaa",
           "host_threads": 5,
           "runtime_s": {
-            "256": 11.7,
-            "512": 33.4,
-            "640": 52.1,
-            "768": 76.9,
-            "896": 106.9,
-            "1024": 140.4
+            "256": 11.4,
+            "512": 36.7,
+            "640": 54.9,
+            "768": 79.2,
+            "896": 105.6,
+            "1024": 138.8
           },
           "levers": {
             "256": {
@@ -6479,7 +6498,7 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 315,
+                "served": 171,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -6674,7 +6693,7 @@
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
                 "served": 0,
-                "declined": 628,
+                "declined": 556,
                 "frac": 0.0,
                 "how": "stats"
               },
@@ -6795,7 +6814,7 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 315,
+                "served": 171,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -6978,7 +6997,7 @@
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
                 "served": 0,
-                "declined": 628,
+                "declined": 556,
                 "frac": 0.0,
                 "how": "stats"
               },
@@ -7102,7 +7121,7 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 315,
+                "served": 171,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -7284,7 +7303,7 @@
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
                 "served": 0,
-                "declined": 628,
+                "declined": 556,
                 "frac": 0.0,
                 "how": "stats"
               },
@@ -7401,14 +7420,14 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 2256,
+                "served": 2257,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 315,
+                "served": 171,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -7442,17 +7461,23 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 0,
+                "declined": 1,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "declines all 0 calls: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded The call count rises to this level at 640 and above, which is the pair track taking its row-blocked path"
+                "rejects": {
+                  "k_tiles=2:(2,2)": 1
+                },
+                "reason": "declines all 1 calls on k_tiles=2:(2,2) x1: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded The call count rises to this level at 640 and above, which is the pair track taking its row-blocked path"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 1048,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "declined": 1,
+                "frac": 0.9990467111534795,
+                "how": "stats",
+                "rejects": {
+                  "k_tiles=2": 1
+                }
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -7485,14 +7510,14 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 4512,
+                "served": 4514,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 4512,
+                "served": 4514,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -7594,7 +7619,7 @@
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
                 "served": 0,
-                "declined": 628,
+                "declined": 556,
                 "frac": 0.0,
                 "how": "stats"
               },
@@ -7718,7 +7743,7 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 315,
+                "served": 171,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -7904,7 +7929,7 @@
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
                 "served": 0,
-                "declined": 628,
+                "declined": 556,
                 "frac": 0.0,
                 "how": "stats"
               },
@@ -8028,7 +8053,7 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 315,
+                "served": 171,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -8217,7 +8242,7 @@
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
                 "served": 0,
-                "declined": 628,
+                "declined": 556,
                 "frac": 0.0,
                 "how": "stats"
               },
@@ -8278,139 +8303,139 @@
           },
           "runtime_reps_s": {
             "256": [
-              12.1,
-              11.5,
-              11.5,
-              11.7,
-              11.7
+              11.3,
+              11.4,
+              11.4,
+              11.4,
+              11.4
             ],
             "512": [
-              33.5,
-              33.5,
-              33.4,
-              33.1,
-              33.3
+              36.4,
+              36.7,
+              36.6,
+              37.0,
+              36.8
             ],
             "640": [
-              52.1
+              54.9
             ],
             "768": [
-              76.9
+              79.2
             ],
             "896": [
-              106.9
+              105.6
             ],
             "1024": [
-              140.4
+              138.8
             ]
           },
           "aiclk": {
             "256": {
-              "card": "1",
+              "card": "0",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1337,
                 1350,
-                1343,
+                1350,
+                1350,
                 1350,
                 1350
               ],
               "n": 20
             },
             "512": {
-              "card": "1",
+              "card": "0",
               "min": 800,
               "max": 1350,
               "rep_median": [
                 1337,
-                1350,
-                1325,
+                1337,
                 1343,
-                1337
+                1337,
+                1343
               ],
-              "n": 40
+              "n": 50
             },
             "640": {
-              "card": "1",
+              "card": "0",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1325
+                1331
               ],
-              "n": 12
+              "n": 13
             },
             "768": {
-              "card": "1",
+              "card": "0",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1312
+                1343
               ],
               "n": 17
             },
             "896": {
-              "card": "1",
-              "min": 800,
-              "max": 1350,
-              "rep_median": [
-                1318
-              ],
-              "n": 23
-            },
-            "1024": {
-              "card": "1",
+              "card": "0",
               "min": 800,
               "max": 1350,
               "rep_median": [
                 1337
               ],
-              "n": 29
+              "n": 22
+            },
+            "1024": {
+              "card": "0",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1337
+              ],
+              "n": 28
             }
           },
           "load": {
             "256": {
-              "max": 0.38,
+              "max": 0.21,
               "rep_median": [
-                0.38,
-                0.35,
-                0.31,
-                0.32,
-                0.3
+                0.18,
+                0.18,
+                0.19,
+                0.19,
+                0.2
               ]
             },
             "512": {
-              "max": 0.35,
+              "max": 1.8,
               "rep_median": [
-                0.31,
-                0.29,
-                0.33,
-                0.3,
-                0.27
+                0.96,
+                1.27,
+                1.7,
+                1.59,
+                1.72
               ]
             },
             "640": {
-              "max": 0.35,
+              "max": 1.35,
               "rep_median": [
-                0.32
+                1.3
               ]
             },
             "768": {
-              "max": 0.3,
+              "max": 1.29,
               "rep_median": [
-                0.28
+                1.28
               ]
             },
             "896": {
-              "max": 0.39,
+              "max": 0.29,
               "rep_median": [
-                0.29
+                0.2
               ]
             },
             "1024": {
-              "max": 0.34,
+              "max": 0.17,
               "rep_median": [
-                0.29
+                0.15
               ]
             }
           },
@@ -8421,12 +8446,12 @@
               "n_ca": 256,
               "clash_frac": 0.0,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 130.9963,
-              "radius_of_gyration_A": 109.785,
-              "plddt_mean": 0.874875,
+              "ca_ca_median_A": 130.9534,
+              "radius_of_gyration_A": 109.837,
+              "plddt_mean": 0.874973,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 130.996 A outside [3.6, 4.0]",
+                "median CA-CA 130.953 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
                 "radius of gyration 109.8 A outside [9.0, 45.2]"
               ]
@@ -8437,12 +8462,12 @@
               "n_ca": 512,
               "clash_frac": 0.0078,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 133.2269,
-              "radius_of_gyration_A": 112.787,
-              "plddt_mean": 0.822629,
+              "ca_ca_median_A": 132.0292,
+              "radius_of_gyration_A": 112.784,
+              "plddt_mean": 0.824369,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 133.227 A outside [3.6, 4.0]",
+                "median CA-CA 132.029 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
                 "radius of gyration 112.8 A outside [11.8, 58.9]"
               ]
@@ -8451,91 +8476,74 @@
               "file": "cdk2x2_640.cif",
               "steps": 6,
               "n_ca": 640,
-              "clash_frac": 0.0094,
+              "clash_frac": 0.0156,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 141.9557,
-              "radius_of_gyration_A": 115.702,
-              "plddt_mean": 0.788039,
+              "ca_ca_median_A": 142.5936,
+              "radius_of_gyration_A": 116.25,
+              "plddt_mean": 0.788227,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 141.956 A outside [3.6, 4.0]",
+                "median CA-CA 142.594 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 115.7 A outside [12.8, 64.1]"
+                "radius of gyration 116.3 A outside [12.8, 64.1]"
               ]
             },
             "768": {
               "file": "cdk2x2_768.cif",
               "steps": 6,
               "n_ca": 768,
-              "clash_frac": 0.013,
+              "clash_frac": 0.0182,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 139.7246,
-              "radius_of_gyration_A": 112.552,
-              "plddt_mean": 0.797272,
+              "ca_ca_median_A": 140.5161,
+              "radius_of_gyration_A": 111.53,
+              "plddt_mean": 0.7934,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 139.725 A outside [3.6, 4.0]",
+                "median CA-CA 140.516 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 112.6 A outside [13.7, 68.7]"
+                "radius of gyration 111.5 A outside [13.7, 68.7]"
               ]
             },
             "896": {
               "file": "cdk2x2_896.cif",
               "steps": 6,
               "n_ca": 896,
-              "clash_frac": 0.0268,
+              "clash_frac": 0.0145,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 132.5024,
-              "radius_of_gyration_A": 111.92,
-              "plddt_mean": 0.761796,
+              "ca_ca_median_A": 133.2295,
+              "radius_of_gyration_A": 112.259,
+              "plddt_mean": 0.760985,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 132.502 A outside [3.6, 4.0]",
+                "median CA-CA 133.229 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "2.7% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 111.9 A outside [14.6, 72.8]"
+                "radius of gyration 112.3 A outside [14.6, 72.8]"
               ]
             },
             "1024": {
               "file": "cdk2x2_1024.cif",
               "steps": 6,
               "n_ca": 1024,
-              "clash_frac": 0.0215,
+              "clash_frac": 0.0156,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 136.4361,
-              "radius_of_gyration_A": 116.068,
-              "plddt_mean": 0.736593,
+              "ca_ca_median_A": 135.5474,
+              "radius_of_gyration_A": 116.323,
+              "plddt_mean": 0.736137,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 136.436 A outside [3.6, 4.0]",
+                "median CA-CA 135.547 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "2.1% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 116.1 A outside [15.3, 76.6]"
+                "radius of gyration 116.3 A outside [15.3, 76.6]"
               ]
             }
           },
-          "reps": 1,
-          "sigma_runtime_512": 0.005,
-          "exponents": {
-            "256->512": {
-              "k": 1.513,
-              "tol": 0.5
-            },
-            "512->768": {
-              "k": 2.057,
-              "tol": 0.5
-            }
-          },
-          "sigma_runtime": {
-            "256": 0.0209,
-            "512": 0.005
-          },
+          "exponents_skipped": "512 aa was timed at 1.8x nproc, above the 1.5x load ceiling: the runtimes are the host's, re-time on a quiet box",
           "exponents_measured": {
-            "256->512": 1.513,
-            "512->640": 1.992,
-            "640->768": 2.135,
-            "768->896": 2.137,
-            "896->1024": 2.041
+            "256->512": 1.687,
+            "512->640": 1.805,
+            "640->768": 2.01,
+            "768->896": 1.866,
+            "896->1024": 2.047
           }
         }
       }
