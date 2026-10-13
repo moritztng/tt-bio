@@ -79,6 +79,10 @@ def report_progress(stage, step=0, total=0):
 # bit-identical with or without it. An exception raised by the hook aborts the fold.
 _DUMP = None
 
+# The atom transformer's SwiGLU up-projection as two linears (one per half of w_up) instead of one linear and a
+# ttnn.chunk: 6 atom blocks x every sampler step, the chunk was 0.30 s of device time per 512-aa fold (census c3).
+ATOM_FFN_SPLIT = env_flag("TT_BIO_ESMFOLD2_ATOM_FFN_SPLIT", True)
+
 #: Replay the diffusion step from a ttnn trace (StructureHead._step) when the device was opened
 #: with get_device(trace="esmfold2"). Lossless. Off: it lost 0.46 s/fold on p150a while the dense
 #: atom SDPA kept the step device-bound; re-measured with the windowed atom attention.
@@ -851,6 +855,9 @@ class SWAAtomBlock(Module):
         self.adaln_w = self.torch_to_tt("adaln_modulation.1.weight")
         self.attn = SWAAttention(n_heads, self.scope("attn"), compute_kernel_config)
         self.ffn_up = self.torch_to_tt("ffn.w_up.weight")
+        h = self.weights["ffn.w_up.weight"].shape[0] // 2
+        self.ffn_up_ab = tuple(self.torch_to_tt("ffn.w_up.weight", lambda w, s=s: w[s].t())
+                               for s in (slice(0, h), slice(h, None)))
         self.ffn_down = self.torch_to_tt("ffn.w_down.weight")
         self._mod = None       # cached adaLN modulation chunks (see __call__)
         self._mod_src = None   # identity of the conditioning c_l they were built from
@@ -885,7 +892,10 @@ class SWAAtomBlock(Module):
         ttnn.deallocate(attn_out)
 
         ffn_in = self._modulate(x, cf, sf)
-        h1, h2 = ttnn.chunk(lin(ffn_in, self.ffn_up), 2, dim=-1)
+        if ATOM_FFN_SPLIT:
+            h1, h2 = (lin(ffn_in, w) for w in self.ffn_up_ab)
+        else:
+            h1, h2 = ttnn.chunk(lin(ffn_in, self.ffn_up), 2, dim=-1)
         ttnn.deallocate(ffn_in)
         ffn_out = lin(ttnn.multiply(ttnn.silu(h1), h2), self.ffn_down)
         ttnn.deallocate(h1); ttnn.deallocate(h2)
