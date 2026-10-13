@@ -200,7 +200,7 @@ class _StructureHeadAdapter(_Adapter):
         n = max(1, num_diffusion_samples)
         L = int(s_inputs.shape[1])  # residue (token) count
         if isinstance(z_trunk, _DevPair):  # the device tail: prepare consumes (and frees) the device pair
-            if _DEVICE_CONF:  # the confidence head reads its own copy on the device
+            if _device_conf():  # the confidence head reads its own copy on the device
                 import ttnn
                 z_trunk.keep = ttnn.clone(z_trunk.t)
             else:
@@ -340,8 +340,14 @@ def _dev_forward(m, x):
 # The confidence head's L^2 part (ConfidenceHead._pair_outputs) on the device: z_norm, the pair sum, the outer
 # product projection, the trunk, row pooling and the PAE/PDE logits. The host keeps what is [L,c]-sized or a lookup
 # (summed in fp32, one upload) and the row softmax. Host fp32 there costs ~1.1 s per 512-aa fold (xf2 profile).
-# Not bit-exact (bf16 pair), so off until graded. p150a ESMFold2-Fast --fast with the device tail: 15.23 vs 16.17 s.
-_DEVICE_CONF = env_flag("TT_BIO_ESMFOLD2_DEVICE_CONF", False)
+# Not bit-exact (bf16 pair): with the device tail, graded PASS on Blackhole (ESMFold2 normal bar, ESMFold2-Fast fast
+# bar, 11 complexes x 4 seeds), so on there by default like the tail. p150a ESMFold2-Fast --fast: 15.23 vs 16.17 s.
+def _device_conf() -> bool:
+    if os.environ.get("TT_BIO_ESMFOLD2_DEVICE_CONF", "").strip():
+        return env_flag("TT_BIO_ESMFOLD2_DEVICE_CONF", False)
+    return not is_wormhole()
+
+
 DEVICE_CONF_STATS = [0, 0]  # heads on the device, on the host
 
 
@@ -369,7 +375,7 @@ def _conf_pair_dev(head, ftw, z, s_n, relpos, bonds, bins, mask, n):
     n pairs as B=n).
     """
     import ttnn
-    if not _DEVICE_CONF:
+    if not _device_conf():
         DEVICE_CONF_STATS[1] += 1
         if isinstance(z, ttnn.Tensor):
             z = ftw._to_torch(z).float()
