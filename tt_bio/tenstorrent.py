@@ -645,7 +645,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "transition_shard", "dit_mm16", "atom_k1", "dit_b8", "dit_qkv16", "atom_mm16", "adaln_mod",
           "swiglu_fc12g", "msa_sample", "dit_sdpa_pm", "dit_s16", "dit_chunk", "conf_bins", "trimul_t1", "trimul_t2",
           "triatt_tail_bias", "dit_cond_hifi2", "transition_ws", "ws_ln", "trimul_t1_dram",
-          "trimul_t2cm", "dit_fuse", "pair_mm", "ref_memo")
+          "trimul_t2cm", "dit_fuse", "pair_mm", "ref_memo", "triatt_proj_linear")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -654,7 +654,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
 # ref_memo is host featurisation, OpenFold3 / OpenBind-0 only: one reference conformer per residue type
 # (vendored query.REF_MOL_MEMO), read by worker._predict_openfold3_one off the model's lever set.
 UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "dit_cond_hifi2", "ws_ln", "dit_fuse",
-                             "pair_mm", "ref_memo"})
+                             "pair_mm", "ref_memo", "triatt_proj_linear"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -6583,8 +6583,13 @@ _PAIR_BIAS_IN_MATMUL = _bias_in_matmul(os.environ.get("TT_BIO_PAIR_BIAS_IN_MATMU
 # spd-gap-bind A/B: TriangleAttention's qkv and gate projections on `_pair_proj_linear` (the tuned
 # ttnn.linear the trimul projections use) instead of minimal_matmul. AF2-IG at 195 tokens on Wormhole
 # (main 1e3b37664 device profile): gate 128->128 minimal_matmul 324 us vs 189 us for the trimul's
-# linear on the same shape; qkv 128->384 473 us. Not bit-exact (K blocking differs). Default off.
-_TRIATT_PROJ_LINEAR = env_flag("TT_BIO_TRIATT_PROJ_LINEAR", False)
+# linear on the same shape; qkv 128->384 473 us. Not bit-exact (K blocking differs). Default off;
+# the `triatt_proj_linear` lever turns it on for the model whose set names it.
+_TRIATT_PROJ_LINEAR_ENV = env_flag("TT_BIO_TRIATT_PROJ_LINEAR", False)
+
+
+def _triatt_proj_linear() -> bool:
+    return _TRIATT_PROJ_LINEAR_ENV or lever("triatt_proj_linear")
 # served/declined census for the two levers. A form comparison whose changed matmul silently
 # declined its bias would time identically and read as "no effect", which is the mistake the
 # fused-SDPA OF3 arms made, so every call is counted and the `_add` counters have to be 0 on a
@@ -11523,7 +11528,7 @@ class TriangleAttention(Module):
                         memory_config=ttnn.L1_MEMORY_CONFIG,
                         program_config=qkv_cfg,
                     )
-                elif _TRIATT_PROJ_LINEAR:
+                elif _triatt_proj_linear():
                     qkv = _pair_proj_linear(x, self.qkv_weight, self.compute_kernel_config,
                                             _triatt_dtype())
                 else:
@@ -11542,7 +11547,7 @@ class TriangleAttention(Module):
                     _qkv_mm_config(x, self.g_weight),
                 )
             g_in_mm = self.g_bias is not None and "g" in self.bias_in_matmul
-            if g is None and _TRIATT_PROJ_LINEAR:
+            if g is None and _triatt_proj_linear():
                 g = _pair_proj_linear(x, self.g_weight, self.compute_kernel_config, _dtype(),
                                       bias=self.g_bias if g_in_mm else None)
                 if g_in_mm:
