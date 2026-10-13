@@ -18,7 +18,8 @@ Protenix-v2 alone is built by hand, as before, because it is the one model that 
 the `L=` lever set. bindcraft2 is a design loop, not a fold: see "BindCraft 2" below.
 
 ARM grammar: NAME[:K=V[,K=V...]][:L=<set>[+lever|-lever...]][:fast]. K=V are environment variables set
-before tt_bio is imported; `fast` passes --fast; `L=` builds Protenix-v2, OpenFold3, RF3 or ESMFold2 under that precision-lever set
+before tt_bio is imported; `fast` passes --fast; `L=` builds Protenix-v2, OpenFold3, OpenBind-0, RF3, OpenDDE, Boltz-2 or ESMFold2
+under that precision-lever set
 (tenstorrent.LEVERS, e.g. `L=fast-lofi`, `L=normal+opm_b8`), otherwise the mode's own set. Nothing here edits the model: an arm is only switches the engine already has.
 `L=` is refused for every other model: none of them reads tenstorrent.LEVERS, so the arm would be a no-op.
 
@@ -104,12 +105,13 @@ def parse_arm(spec):
 
 ARM, ARM_ENV, FAST, LEVER_SPEC = parse_arm(a.arm)
 PV2 = a.model == "protenix-v2"
-if LEVER_SPEC is not None and a.model in ("openfold3", "openbind", "rf3", "esmfold2", "esmfold2-fast"):
-    # OpenFold3, OpenBind-0 and RF3 build under `tenstorrent.model_levers()`, ESMFold2 folds under `lever_scope`;
-    # all read the set from TT_BIO_LEVERS.
+if LEVER_SPEC is not None and a.model in ("openfold3", "openbind", "rf3", "opendde", "boltz2", "esmfold2",
+                                           "esmfold2-fast"):
+    # OpenFold3, OpenBind-0, RF3, OpenDDE and Boltz-2 build under `tenstorrent.model_levers()`, ESMFold2 folds under
+    # `lever_scope`; all read the set from TT_BIO_LEVERS.
     ARM_ENV["TT_BIO_LEVERS"] = LEVER_SPEC
 elif LEVER_SPEC is not None and not PV2:
-    sys.exit(f"L= arms build Protenix-v2, OpenFold3, OpenBind-0, RF3 and ESMFold2 only; {a.model} reads no tenstorrent.LEVERS, so "
+    sys.exit(f"L= arms build Protenix-v2, OpenFold3, OpenBind-0, RF3, OpenDDE, Boltz-2 and ESMFold2 only; {a.model} reads no tenstorrent.LEVERS, so "
              f"`{a.arm}` would fold its default. Use K=V switches for {a.model}.")
 os.environ.update(ARM_ENV)
 a.out.mkdir(parents=True, exist_ok=True)

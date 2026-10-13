@@ -942,7 +942,7 @@ moves a structure, next to the seed-to-seed spread.
 | `TT_BIO_DIT_COND_HOIST` | on | Hoists the token diffusion transformer's conditioning out of the layer loop; RF3's token DiT inherits it. Not bit-exact: one bf16 rounding changes order. |
 | `TT_BIO_DIT_SHARED_COND` | on | Every diffusion sample shares one noise level and one trunk output, so the diffusion transformer computes its conditioning once and broadcasts it. Bit for bit. |
 | `TT_BIO_ESMFOLD2_DEVICE_CONF` | on (Blackhole) | ESMFold2 only: the confidence head reads the trunk's pair on the chip instead of downloading it, about 0.9 s faster per 512-residue fold. Not bit-exact, inside the accuracy bar. [docs](docs/tuning-flags.md#tt_bio_esmfold2_device_conf) |
-| `TT_BIO_ESMFOLD2_DEVICE_TAIL` | on (Blackhole) | ESMFold2 only: the trunk's pair stays on the chip through the readout, distogram and diffusion conditioning, 0.7-1.0 s faster per 512-residue fold. Not bit-exact, inside the accuracy bar. [docs](docs/tuning-flags.md#tt_bio_esmfold2_device_tail) |
+| `TT_BIO_ESMFOLD2_DEVICE_TAIL` | on | ESMFold2 only: the trunk's pair stays on the chip through the readout, distogram and diffusion conditioning, 0.7-1.0 s faster per 512-residue fold. Not bit-exact, inside the accuracy bar. [docs](docs/tuning-flags.md#tt_bio_esmfold2_device_tail) |
 | `TT_BIO_ESMFOLD2_SWA_WINDOW` | on | ESMFold2 only: the atom transformer attends over its sliding window instead of a dense band, about 1 s faster per 512-residue fold. Not bit-exact, inside the accuracy bar. [docs](docs/tuning-flags.md#tt_bio_esmfold2_swa_window) |
 | `TT_BIO_FUSE_BIAS_STACKS` | on | Boltz-2 only: builds the diffusion conditioning's per-layer bias stack in one pass. Not bit-exact: moves a 298 aa structure 0.218 Å all-atom, inside its 0.35 Å bar. |
 | `TT_BIO_FUSE_MASK_ADD` | on | Gated-residual write-back as one `ttnn.addcmul`. Bit for bit. |
@@ -1166,6 +1166,18 @@ Tiers, cut lines, the escape-hatch test and where `plan()` gets its numbers:
 [`docs/training.md`](docs/training.md). What one gradient step through a pairformer stack costs,
 how it scales with depth and width, and where the headroom is:
 [`docs/gradient-step-cost.md`](docs/gradient-step-cost.md).
+
+## Community projects
+
+Tools other people built that use tt-bio as the fold engine:
+
+- **[proga](https://github.com/ssiddhantsharma/proga)** by [@ssiddhantsharma](https://github.com/ssiddhantsharma) evolves
+  binder sequences against tt-bio's confidence scores with a gradient-free NSGA-II search, so it never needs gradients
+  from the fold oracle. Nice piece of work, and it pairs well with tt-bio. We drove tt-bio with proga's exact oracle
+  command line on a Blackhole card against `boltz2` and `protenix-v2`, and its readers match our confidence outputs
+  key for key, with no patching on either side.
+
+Built something? Open an issue and we'll add it.
 
 ## Cite
 

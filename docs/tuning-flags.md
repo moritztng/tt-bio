@@ -18,7 +18,7 @@ move against the accuracy bar and the seed-to-seed spread.
 |---|---|---|---|
 | [`BOLTZ2_TOKEN_DIT_SDPA`](#boltz2_token_dit_sdpa) | on | Boltz-2 | moves, inside the 298-residue bar |
 | [`OF3_DIFFUSION_TRACE`](#of3_diffusion_trace) | on | OpenFold3, OpenBind-0 | identical |
-| [`TT_BIO_AF2_G_BIAS_IN_MATMUL`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2, Blackhole | gradients only |
+| [`TT_BIO_AF2_G_BIAS_IN_MATMUL`](#bindcraft-2-round-kernels) | on; off in a BindCraft 2 round on Wormhole | AF2-IG, BindCraft 2 on Blackhole | within 0.12 A |
 | [`TT_BIO_AF2_OPM_ROWS_IN_K`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2 | moves the forward, closer to float64 |
 | [`TT_BIO_ATOM_AXIS_BUCKET`](#tt_bio_atom_axis_bucket) | on | | identical at 298 residues, not guaranteed at 512 |
 | [`TT_BIO_ATOM_SHIFT_GATHER`](#tt_bio_atom_shift_gather) | on | | identical |
@@ -26,6 +26,8 @@ move against the accuracy bar and the seed-to-seed spread.
 | [`TT_BIO_ATOM_SDPA32`](#tt_bio_atom_sdpa32) | on | fp32 atom attention (normal mode) | moves, closer to float64 |
 | [`TT_BIO_ATOM_SUPERSET_WINDOW`](#tt_bio_atom_superset_window) | on | Protenix-v2, OpenDDE, PXDesign | moves, inside the bar |
 | [`TT_BIO_ATOM_TILE_HEADS`](#tt_bio_atom_tile_heads-tt_bio_atom_kv_window) | on | Protenix-v2, OpenDDE, PXDesign | identical |
+| [`TT_BIO_BC2_IPA_DIST_REMAT`](#tt_bio_bc2_ipa_einsum-tt_bio_bc2_ipa_dist_remat) | on | BindCraft 2 | identical |
+| [`TT_BIO_BC2_IPA_EINSUM`](#tt_bio_bc2_ipa_einsum-tt_bio_bc2_ipa_dist_remat) | on | BindCraft 2 | gradients move, designs graded |
 | [`TT_BIO_BH_DRAM_READ_SPLIT`](#tt_bio_bh_dram_read_split) | on | Blackhole | identical |
 | [`TT_BIO_BH_ETH_DISPATCH`](#tt_bio_bh_eth_dispatch) | on for p150a where the installed ttnn supports it | Blackhole | unchanged on p150a (graded) |
 | [`TT_BIO_DEVICE_CONDITIONING`](#tt_bio_device_conditioning) | on | Boltz-2, BoltzGen | moves, closer to the experimental structure |
@@ -35,7 +37,7 @@ move against the accuracy bar and the seed-to-seed spread.
 | [`TT_BIO_DIT_COND_HOIST`](#tt_bio_dit_cond_hoist) | on | Boltz-2, RF3 token DiT | moves, inside the 298-residue bar |
 | [`TT_BIO_DIT_SHARED_COND`](#tt_bio_dit_shared_cond) | on | Boltz-2, BoltzGen | identical |
 | [`TT_BIO_ESMFOLD2_DEVICE_CONF`](#tt_bio_esmfold2_device_conf) | on for Blackhole | ESMFold2 | moves, inside the bar |
-| [`TT_BIO_ESMFOLD2_DEVICE_TAIL`](#tt_bio_esmfold2_device_tail) | on for Blackhole | ESMFold2 | moves, inside the bar |
+| [`TT_BIO_ESMFOLD2_DEVICE_TAIL`](#tt_bio_esmfold2_device_tail) | on | ESMFold2 | moves, inside the bar |
 | [`TT_BIO_ESMFOLD2_SWA_WINDOW`](#tt_bio_esmfold2_swa_window) | on | ESMFold2 | moves, inside the bar |
 | [`TT_BIO_FANIN_CAST_FUSED`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2 | gradients only |
 | [`TT_BIO_FUSE_BIAS_STACKS`](#tt_bio_fuse_bias_stacks) | on | Boltz-2, BoltzGen | moves, inside the 298-residue bar |
@@ -57,6 +59,7 @@ move against the accuracy bar and the seed-to-seed spread.
 | [`TT_BIO_OPM_JOIN_PARTS`, `TT_BIO_OPM_PROJ_BATCH`](#msa-module-flags) | on | MSA models; graded on Protenix-v2 | join moves, inside the bar; projection batch identical |
 | [`TT_BIO_OPM_LEGACY_LAYOUT`](#tt_bio_opm_legacy_layout) | off | | moves, inside the seed spread |
 | [`TT_BIO_OPM_SMALL_DEPTH`](#tt_bio_opm_small_depth) | on | MSA depth 8 or less (AF2-IG, single-sequence folds) | moves, inside the bar |
+| [`TT_BIO_OPM_SMALL_DEPTH_BMM`](#tt_bio_opm_small_depth) | on | same | identical |
 | [`TT_BIO_PAIR_FFN_L1_FC1`](#tt_bio_pair_ffn_l1_fc1) | on | ESMFold2 | identical |
 | [`TT_BIO_PAIR_INPLACE`, `TT_BIO_TRIMUL_INPROJ_ROWBLOCK_NORM`](#tt_bio_pair_inplace-tt_bio_trimul_inproj_rowblock_norm) | on | large pair tensors | identical |
 | [`TT_BIO_PAIR_MM`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round; on for AF2 on Wormhole | BindCraft 2, AF2 and AF2-IG | moves, far inside the bar |
@@ -108,8 +111,9 @@ workers are not flags of ours; they are covered at the end, under
 
 ## BindCraft 2 round kernels
 
-Default: on inside a BindCraft 2 round, off elsewhere. `TT_BIO_AF2_G_BIAS_IN_MATMUL` is on in the
-round on Blackhole only.
+Default: on inside a BindCraft 2 round, off elsewhere. `TT_BIO_AF2_G_BIAS_IN_MATMUL` is the exception: it is
+on for every AF2 fold (AF2-IG on Wormhole 4.26 -> 4.16 s per complex, structures within 0.12 A), and a round
+keeps it on Blackhole and turns it off on Wormhole.
 
 Kernels that delete DRAM round trips from the AlphaFold 2 Evoformer's gradient. Each is armed by
 `bindcraft2.predictor(exact=False)` through `fast_round`, alongside
@@ -293,6 +297,30 @@ paired metric's confidence interval covers zero.
 **Speed: 1.03x on the fold**, 450.58 to 436.39 s on the Protenix-v2 730-token fold on a Wormhole
 Galaxy chip at 1000 MHz (n=3 each, same chip). The atom attention call goes from 9.93 to 3.03 ms
 with `TT_BIO_ATOM_KV_WINDOW`. `TT_BIO_ATOM_SDPA32=0` restores the four calls.
+
+## `TT_BIO_BC2_IPA_EINSUM`, `TT_BIO_BC2_IPA_DIST_REMAT`
+
+Default: both on, BindCraft 2 only. They rewrite two statements of BindCraft 2's own
+`InvariantPointAttention.__call__`, which runs on the host CPU under JAX, not on the device.
+
+`TT_BIO_BC2_IPA_EINSUM` replaces the attended-point reduction
+`jnp.sum(attn[..., None] * x, axis=-3)`, run once per coordinate, with one einsum over the
+concatenated x/y/z. It is the same contraction written as a batched matmul, and it stops three
+`[N, N, heads, points]` f32 products being materialised in the forward and again in the backward.
+
+`TT_BIO_BC2_IPA_DIST_REMAT` wraps the point term of the IPA logits in `jax.checkpoint`. The q - k
+differences it builds are what the backward of `x*x + y*y + z*z` needs, so BindCraft 2's gradient
+stacks them through the structure module's `hk.scan`: about 51 MB a layer at 211 tokens. With the
+checkpoint only q, k and the head weights are kept and the differences are recomputed.
+
+**Speed: -0.42 s/iter on Blackhole**, 9.221 / 8.873 / 9.366 s/iter off/on/off against a 9.294 s
+off-mean, one p150a card at a 1350 MHz mean over 230 in-run samples, 30,343 ttnn calls in every arm.
+On a Wormhole Galaxy chip at 1000 MHz the grading pool read a 7.28 s/iter median off against 6.44 on.
+
+**Accuracy: the remat is bit-exact** (same operations on the same inputs). The einsum changes the
+summation order, so gradients move by 2e-7 to 1.5e-6 rel L2 and designs are graded, not compared:
+over three 30-trajectory batches of PD-L1 binder-80 campaigns the stack accepted 30/80 trajectories
+against 22/90 for the default, with last-trajectory i_pTM 0.574 against 0.518.
 
 ## `TT_BIO_BH_DRAM_READ_SPLIT`
 
@@ -578,21 +606,22 @@ on Blackhole.
 
 ## `TT_BIO_ESMFOLD2_DEVICE_TAIL`
 
-Default: on for Blackhole, off for Wormhole. ESMFold2 and ESMFold2-Fast.
+Default: on. ESMFold2 and ESMFold2-Fast.
 
 The folding trunk's pair output stays on the device through the readout, the distogram
 symmetrisation and the diffusion conditioning; with `TT_BIO_ESMFOLD2_DEVICE_CONF` the confidence head
 reads it there too, otherwise it is downloaded once for the head.
 That removes one 512 x 512 pair download and three uploads per fold: 0.7 s off ESMFold2 and
-1.0 s off ESMFold2-Fast --fast at 512 residues (p300c, 1350 MHz).
+1.0 s off ESMFold2-Fast --fast at 512 residues (p300c, 1350 MHz); on Wormhole 4-6 s off a 5-sample fold.
 
 **Accuracy: moves, inside the bar.** The readout and the residual add run in bf16 instead of host
 float32. On 11 complexes x 4 seeds on Blackhole: ESMFold2 (normal bar) same-seed top-pose deviation
 median 0.48 A against a seed spread of 1.12 A, CA-lDDT -0.0023 [-0.0066, +0.0001], docking success
 30/41 in both arms; ESMFold2-Fast --fast (fast bar) median 0.62 A against 1.40 A, CA-lDDT +0.0014,
-docking success 24/44 in both arms. It has not been graded on Wormhole, so Wormhole keeps the host
-tail unless `TT_BIO_ESMFOLD2_DEVICE_TAIL=1` is set. `TT_BIO_ESMFOLD2_DEVICE_TAIL=0` restores the host
-tail on Blackhole.
+docking success 24/44 in both arms. On Wormhole: ESMFold2 (folds --fast there, fast bar) median 0.26 A
+against 1.34 A, CA-lDDT +0.0002, docking 29/44 in both arms; ESMFold2-Fast (normal bar) median 0.27 A
+against 1.27 A, CA-lDDT +0.0000, docking 25 vs 24/44. `TT_BIO_ESMFOLD2_DEVICE_TAIL=0` restores the host
+tail.
 
 ## `TT_BIO_ESMFOLD2_SWA_WINDOW`
 
@@ -975,6 +1004,10 @@ Against a float64 evaluation of the same operands its error is 1.02x the origina
 0.02 to 0.25 A and ipTM moves by at most 0.0005. Per complex it saves 1.1 s on a p150a
 (5.63 to 4.54 s at 1350 MHz) and 6.4 s on a Wormhole Galaxy chip (16.16 to 9.73 s at 1000 MHz).
 Set `TT_BIO_OPM_SMALL_DEPTH=0` to get the original form.
+
+`TT_BIO_OPM_SMALL_DEPTH_BMM` (default on) spreads the per-row contraction of this form over the
+whole core grid. The output is identical. On AF2-IG it saves 0.12 s per complex on Wormhole (4.15
+to 4.04 s at 1000 MHz) and 0.04 s on a p150a (2.63 to 2.59 s at 1350 MHz).
 
 ## `TT_BIO_OPM_LEGACY_LAYOUT`
 

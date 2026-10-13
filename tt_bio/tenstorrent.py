@@ -656,23 +656,32 @@ _FAST_MODE = False
 #   ws_ln           with transition_ws, its layer norm as the kernel's prologue (ln_prologue.hpp, as trimul
 #                   T1/T2): the normalised x never goes to DRAM. One-chunk weights only. WH c_z 128 fast: slower
 #                   (4.31 -> 4.48 ms) and less accurate (rel_rms 0.020 -> 0.028) than the separate norm.
+#   edm_device      OpenFold3's traced rollout keeps the coordinates on the card: augment + EDM step in fp32 inside
+#                   the step's trace, per-step draws / scalars / fourier embedding uploaded once, no per-step read
+#   ws_l1acc        with transition_ws, each matmul sums at most 2 K tiles in the fp32 dest and the packer adds
+#                   the chunks in L1 (the dest_guard remedy), so bf16 weights at c_z 256 / 384 (normal mode)
+#                   can take the kernel: summing all of K in dest wrote exact 1 / 2 / 4 errors there (wd1).
+#   pib_where       OpenDDE's pair-init bias by the old 16-op where-chain instead of one gather from the joint
+#                   (128, c_z) table: the A/B arm for a change that must keep the fold digest (no mode sets it).
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in",
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
           "transition_shard", "dit_mm16", "atom_k1", "dit_b8", "dit_qkv16", "atom_mm16", "adaln_mod",
           "swiglu_fc12g", "msa_sample", "dit_sdpa_pm", "dit_s16", "dit_chunk", "conf_bins", "trimul_t1", "trimul_t2",
           "trimul_t2g", "triatt_tail_bias", "dit_cond_hifi2", "transition_ws", "ws_ln", "trimul_t1_dram",
-          "trimul_t2m", "trimul_t2cm", "dit_fuse", "pair_mm", "ref_memo", "trimul_gin_hifi2", "trimul_gin_b8")
+          "trimul_t2m", "trimul_t2cm", "dit_fuse", "pair_mm", "ref_memo", "edm_device", "ws_l1acc", "pib_where",
+          "trimul_gin_hifi2", "trimul_gin_b8")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
 # model's matching op. BoltzGen's own --fast set names dit_cond_hifi2, graded on BoltzGen's designs.
-# OpenFold3's own --fast set names dit_fuse, graded on OpenFold3 / OpenBind-0 (openfold3_fold.FAST_LEVERS).
+# OpenFold3's own --fast set names dit_fuse and edm_device, graded on OpenFold3 / OpenBind-0
+# (openfold3_fold.FAST_LEVERS).
 # ref_memo is host featurisation, OpenFold3 / OpenBind-0 only: one reference conformer per residue type
 # (vendored query.REF_MOL_MEMO), read by worker._predict_openfold3_one off the model's lever set.
 UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "dit_cond_hifi2", "ws_ln", "dit_fuse",
-                             "pair_mm", "ref_memo", "trimul_t2m", "trimul_gin_hifi2",
-                             "trimul_gin_b8"})
+                             "pair_mm", "ref_memo", "trimul_t2m", "edm_device", "ws_l1acc", "pib_where",
+                             "trimul_gin_hifi2", "trimul_gin_b8"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -12642,16 +12651,17 @@ def ws_swiglu(x, norm_weight, norm_bias, ckc, parts):
     run at HiFi2, which covers every bfp8 weight bit (`bfp8_fidelity`); x stays the layer norm's bf16, since the
     kernel takes it at the same speed as bfp8 x and a separate cast cost 0.46 ms at c_z 128 (ws_attr, WH).
     """
-    if not all(_pair_ws.eligible(x, w12, w3) for w12, w3 in parts):
+    if not all(_pair_ws.eligible(x, w12, w3, l1acc=lever("ws_l1acc")) for w12, w3 in parts):
         return None
     fid = ttnn.MathFidelity.HiFi2 if parts[0][0].dtype == ttnn.bfloat8_b else ckc.math_fidelity
-    if lever("ws_ln") and len(parts) == 1 and _pair_ws.eligible(x, *parts[0], ln=(norm_weight, norm_bias)):
-        return _pair_ws.pair_swiglu(x, *parts[0], fid, ln=(norm_weight, norm_bias, 1e-5))
+    acc = lever("ws_l1acc")
+    if lever("ws_ln") and len(parts) == 1 and _pair_ws.eligible(x, *parts[0], ln=(norm_weight, norm_bias), l1acc=acc):
+        return _pair_ws.pair_swiglu(x, *parts[0], fid, ln=(norm_weight, norm_bias, 1e-5), l1acc=acc)
     x_norm = ttnn.layer_norm(x, weight=norm_weight, bias=norm_bias, epsilon=1e-5, compute_kernel_config=ckc,
                              memory_config=ttnn.DRAM_MEMORY_CONFIG)
     out = None
     for w12, w3 in parts:
-        o = _pair_ws.pair_swiglu(x_norm, w12, w3, fid)
+        o = _pair_ws.pair_swiglu(x_norm, w12, w3, fid, l1acc=acc)
         if out is None:
             out = o
         else:
@@ -12724,12 +12734,14 @@ class Transition(Module):
     def _weight_stationary(self, x, memory_config):
         """`transition_ws`: layer norm, then the whole swiglu as one `pair_swiglu_ws` program, or None
         where the kernel does not take the shape (a hidden width it cannot tile, an L1 destination, a tape).
-        Weights over its L1 budget (OpenDDE's c_z 384) run in hidden chunks. bf16 weights only up to c_z 128:
-        at c_z 256 they read sparse errors of exactly 1, 2 and 4 against float64 (wd1, both hidden chunks)."""
+        Weights over its L1 budget (OpenDDE's c_z 384) run in hidden chunks. On Wormhole, bf16 weights only up
+        to c_z 128: at c_z 256 HiFi4 the fp32-dest cancellation fault (`dest_guard`) hits ~10x more outputs
+        (ws_bisect wsb1, 394-472 vs 35 per chunk) unless `ws_l1acc` keeps the dest sums short; Blackhole reads
+        clean at every shape (wsb1bh)."""
         if not (_ws_applies(x, self.compute_kernel_config)
                 and (memory_config is None or memory_config.buffer_type == ttnn.BufferType.DRAM)
                 and (self.dtype or _dtype()) == ttnn.bfloat16
-                and (self._hidden_b8 or x.shape[-1] <= 128)):
+                and (self._hidden_b8 or x.shape[-1] <= 128 or lever("ws_l1acc") or not is_wormhole())):
             return None
         if getattr(self, "_ws", None) is None:
             # bfp8 weights where the module's own are (transition_b8, fast mode): that is also what lets
@@ -15169,6 +15181,12 @@ class PairWeightedAveraging(Module):
         return o_out
 
 
+# The small-depth outer product mean's per-row contraction on `batched_matmul` (the I batch spread
+# over the grid) instead of ttnn's default plan. D is one K tile, so the output is `torch.equal`:
+# AF2-IG at 195 tokens kept CA RMSD 0.0000 A and ran 4.15 -> 4.04 s on Wormhole (1000 MHz),
+# 2.63 -> 2.59 s on p150a (1350 MHz).
+_OPM_SMALL_DEPTH_BMM = env_flag("TT_BIO_OPM_SMALL_DEPTH_BMM", True)
+
 class OuterProductMean(Module):
     def __init__(
         self,
@@ -15245,7 +15263,14 @@ class OuterProductMean(Module):
             # 67 MB the transpose-free output layout saves.
             b_s = ttnn.reshape(b if S == 1 else b[s:s + 1], (1, J, D))
             b_exp = ttnn.repeat(b_s, (I, 1, 1))
-            part = ttnn.matmul(b_exp, A, compute_kernel_config=self.compute_kernel_config)
+            if _OPM_SMALL_DEPTH_BMM:
+                # The I batch spread over the grid: ttnn's own plan put it on 28 of 72 Wormhole
+                # cores at AF2-IG's 195 tokens (350 us per call against a ~50 us DRAM floor).
+                part = ttnn.reshape(batched_matmul(
+                    ttnn.reshape(b_exp, (1, I, J, D)), ttnn.reshape(A, (1, I, D, c_z)),
+                    self.compute_kernel_config), (I, J, c_z))
+            else:
+                part = ttnn.matmul(b_exp, A, compute_kernel_config=self.compute_kernel_config)
             ttnn.deallocate(b_exp)
             ttnn.deallocate(A)
             if out is None:

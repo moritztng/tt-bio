@@ -2061,7 +2061,7 @@ def template_on_device(tmpl: "TemplateOnDevice | None",
 #: the concatenated coordinates is the same contraction as a batched matmul: IPA forward plus
 #: backward 740 -> 330 ms a gradient call on the host CPU at 211 tokens. Not bit-exact (the sum
 #: order changes; gradient rel L2 2e-7 to 1.5e-6).
-IPA_POINT_EINSUM = env_flag("TT_BIO_BC2_IPA_EINSUM", False)
+IPA_POINT_EINSUM = env_flag("TT_BIO_BC2_IPA_EINSUM", True)
 
 _IPA_POINT_SUM = """    result_point_global = jax.tree_util.tree_map(
         lambda x: jnp.sum(attn[..., None] * x, axis=-3), v_point[None])"""
@@ -2079,7 +2079,7 @@ _IPA_POINT_EINSUM = """    _vp = jnp.concatenate([v_point.x, v_point.y, v_point.
 #: term in ``jax.checkpoint`` keeps only q, k and the head weights (``[N, heads, points]``) as
 #: residuals and recomputes the differences in the backward, so XLA can also fuse the forward
 #: subtraction into its reduction. Same operations on the same inputs: bit-exact.
-IPA_DIST_REMAT = env_flag("TT_BIO_BC2_IPA_DIST_REMAT", False)
+IPA_DIST_REMAT = env_flag("TT_BIO_BC2_IPA_DIST_REMAT", True)
 
 _IPA_DIST = """    dist2 = geometry.square_euclidean_distance(
         q_point[:, None, :, :], k_point[None, :, :, :], epsilon=0.)
@@ -2567,8 +2567,8 @@ _FAST_ROUND = (
     ("autograd", None, "SOFTMAX_BW_FP32", "TT_BIO_SOFTMAX_BW_FP32", False),
 )
 
-#: Rows graded on Blackhole only (qb2 p300c, `state/bcp-evo.md`). On Wormhole `fast_round` leaves
-#: them at the value it found until each has a float64 grade and a round on a Wormhole chip. The
+#: Rows graded on Blackhole only (qb2 p300c, `state/bcp-evo.md`). On Wormhole `fast_round` turns
+#: them off until each has a float64 grade and a round on a Wormhole chip. The
 #: other rows were graded there too: on three input seeds of the float64 stack grade they move
 #: dL/dlogits by no more than the seeds move each other (`perf/spd/bc2_stack_grade.py`). A named
 #: env var still wins. `PAIR_MM_FUSED` left this set once it had a Wormhole round of its own: over
@@ -2600,7 +2600,7 @@ def fast_round():
                 target = getattr(target, owner)
             saved.append((target, attr, getattr(target, attr)))
             if wormhole and attr in _BLACKHOLE_ONLY:
-                value = getattr(target, attr)
+                value = False
             setattr(target, attr, env_flag(env, value) if env else value)
         yield {attr: getattr(t, attr) for t, attr, _ in saved}
     finally:

@@ -209,3 +209,91 @@ def test_a_fix_that_does_not_apply_on_the_frozen_commit_is_a_fix(tmp_path):
     (g / "FIXES").write_text(git("rev-parse", "HEAD") + "\n")
     d = rn.decide(tmp_path, gates, "main")
     assert d["do"] == "FIX" and d["sha"] == x and "does not apply" in d["why"]
+
+
+def test_a_waiver_in_the_base_gate_covers_every_candidate_fixed_forward_from_it(tmp_path):
+    git = _repo(tmp_path)
+    (tmp_path / "a.py").write_text("x = 2\n")
+    (tmp_path / "h1.py").write_text("bug = 1\n")
+    (tmp_path / "h2.py").write_text("bug = 1\n")
+    git("add", "."), git("commit", "-qm", "staging1")
+    x = git("rev-parse", "HEAD")
+    fixes = []
+    for h in ("h1", "h2"):
+        (tmp_path / f"{h}.py").write_text("bug = 0\n")
+        git("commit", "-qam", f"fix {h}")
+        fixes.append(git("rev-parse", "HEAD"))
+    gates = tmp_path / "gates"
+    log = tmp_path / "dark.log"
+    log.write_text("size-ladder drift vs the recorded baseline\n"
+                   "    FAIL m/256 SOME_LEVER: frac 0.942 -> 0.000 (went dark on memory)\n")
+    fail = {"pass": False, "results": [
+        {"leg": "ladder:m", "arch": "wh", "verdict": "FAIL", "log": str(log)},
+        {"leg": "perf", "arch": "wh", "verdict": "FAIL"},
+        {"leg": "ux:e", "arch": "wh", "verdict": "FAIL"}]}
+    g = _plan(gates, "gx", x, tmp_path)
+    (g / "verdict.json").write_text(json.dumps(fail))
+    d = rn.decide(tmp_path, gates, "main")
+    assert d["do"] == "FIX" and "failed: ladder:m wh, perf wh, ux:e wh" in d["why"]
+    assert f"{g}/WAIVE" in d["why"] and f"{g}/FIXES" in d["why"]
+
+    (g / "FIXES").write_text(fixes[0] + "\n")
+    c1 = rn.decide(tmp_path, gates, "main")["sha"]
+    g1 = _plan(gates, "gc1", c1, tmp_path)
+    (g1 / "verdict.json").write_text(json.dumps(fail))
+    (g / "FIXES").write_text(fixes[0] + "\n" + fixes[1] + "\n")
+    c2 = rn.decide(tmp_path, gates, "main")["sha"]
+    assert git("rev-parse", f"{c2}^") == c1                     # candidates chain onto each other
+    g2 = _plan(gates, "gc2", c2, tmp_path)
+    (g2 / "verdict.json").write_text(json.dumps(fail))
+    d = rn.decide(tmp_path, gates, "main")
+    assert d["do"] == "FIX" and f"{g}/WAIVE" in d["why"]       # waivers go to the base, not gc2
+
+    (g / "WAIVE").write_text("perf wh  # no Wormhole baseline yet\nux:e wh\n")   # no reason: no waiver
+    (g1 / "WAIVE").write_text("ladder:m wh  # SOME_LEVER superseded by OTHER_LEVER, e2e faster\n")
+    assert rn.waivers(g2, gates, tmp_path, "main") == {
+        "perf wh": "no Wormhole baseline yet", "ladder:m wh": "SOME_LEVER superseded by OTHER_LEVER, e2e faster"}
+    d = rn.decide(tmp_path, gates, "main")
+    assert d["do"] == "FIX" and "failed: ux:e wh" in d["why"] and "perf wh" not in d["why"].split("failed:")[1]
+    (g / "WAIVE").write_text("perf wh  # no Wormhole baseline yet\nux:e wh  # flaky host, passed on rerun\n")
+    d = rn.decide(tmp_path, gates, "main")
+    assert (d["do"], d["sha"], d["models"]) == ("RECORD", c2, ["m"])   # a waived ladder is re-recorded
+    r = _plan(gates, f"rec-{c2[:9]}", c2, tmp_path, partial=True)
+    (r / "verdict.json").write_text(json.dumps({"pass": True}))
+    d = rn.decide(tmp_path, gates, "main")
+    assert (d["do"], d["sha"], d["records"]) == ("CUT", c2, str(r))
+
+
+def test_a_gate_whose_every_failure_is_waived_is_cut(tmp_path):
+    git = _repo(tmp_path)
+    (tmp_path / "a.py").write_text("x = 2\n")
+    git("commit", "-qam", "staging1")
+    x = git("rev-parse", "HEAD")
+    gates = tmp_path / "gates"
+    g = _plan(gates, "gx", x, tmp_path)
+    (g / "verdict.json").write_text(json.dumps({"pass": False, "results": [
+        {"leg": "perf", "arch": "wh", "verdict": "FAIL"}]}))
+    assert rn.decide(tmp_path, gates, "main")["do"] == "FIX"
+    (g / "WAIVE").write_text("perf wh  # no Wormhole baseline yet\n")
+    d = rn.decide(tmp_path, gates, "main")
+    assert (d["do"], d["sha"], d["waived"]) == ("CUT", x, {"perf wh": "no Wormhole baseline yet"})
+
+
+def test_a_failed_leg_whose_key_passed_since_stops_blocking(tmp_path, monkeypatch):
+    """Gate 8b2f8acaa (10-13): ladder:boltz2 bh died on a card a previous leg left dirty; a partial
+    run of the same key on a clean card filed the pass the verdict lacked."""
+    git = _repo(tmp_path)
+    (tmp_path / "a.py").write_text("x = 2\n")
+    git("commit", "-qam", "staging1")
+    x = git("rev-parse", "HEAD")
+    gates, ledger = tmp_path / "gates", tmp_path / "ledger"
+    ledger.mkdir()
+    monkeypatch.setattr(rn, "LEDGER", ledger)
+    g = _plan(gates, "gx", x, tmp_path)
+    (g / "verdict.json").write_text(json.dumps({"pass": False, "results": [
+        {"leg": "ux:a", "arch": "bh", "verdict": "PASS", "key": "k0"},
+        {"leg": "rg:b", "arch": "bh", "verdict": "FAIL", "key": "k1"}]}))
+    assert rn.decide(tmp_path, gates, "main")["do"] == "FIX"
+    (ledger / "k1.json").write_text("{}")
+    d = rn.decide(tmp_path, gates, "main")
+    assert (d["do"], d["sha"]) == ("CUT", x)

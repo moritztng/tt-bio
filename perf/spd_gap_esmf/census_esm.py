@@ -17,7 +17,7 @@ from pathlib import Path
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--out", required=True, type=Path)
-ap.add_argument("--model", default="esmfold2", choices=("esmfold2", "esmfold2-fast"))
+ap.add_argument("--model", default="esmfold2", choices=("esmfold2", "esmfold2-fast", "openfold3", "openbind"))
 ap.add_argument("--fast", action="store_true")
 ap.add_argument("--size", type=int, default=512)
 ap.add_argument("--recycles", type=int, default=None)
@@ -36,9 +36,15 @@ sys.path.insert(0, str(TREE)); sys.path.insert(0, str(TREE / "scripts" / "gpu_vs
 import torch, ttnn
 import ttnn.decorators as D
 import tt_bio.tenstorrent as T
-import tt_bio.esmfold2 as E
-import tt_bio.esmfold2_runtime as R
-import tt_bio.esmc as C
+ESM = a.model.startswith("esmfold2")
+if ESM:
+    import tt_bio.esmfold2 as E
+    import tt_bio.esmfold2_runtime as R
+    import tt_bio.esmc as C
+else:
+    import tt_bio.openfold3_trunk as OT, tt_bio.openfold3_diffusion_transformer as ODT
+    import tt_bio.openfold3_atom_transformer as OAT, tt_bio.openfold3_diffusion_decoder as ODD
+    import tt_bio.openfold3_confidence as OC, tt_bio.openfold3_msa_embedder as OM, tt_bio.openfold3_template as OTP
 import tt_baseline as B
 from tt_bio.main import (_resolve_recycling_steps, _resolve_sampling_steps,
                          _detect_p300_devices, _find_ttnn_mesh_graph_descriptor)
@@ -77,30 +83,42 @@ def wrap_method(cls, meth, key):
 def wrap_func(mod, name, key):
     f = getattr(mod, name, None)
     if f is not None: setattr(mod, name, _wrap(f, key))
-for cls, meth, key in [
-        (E.FoldingTrunkModel, "__call__", "trunk"), (E.PairUpdateBlock, "__call__", "pub"),
-        (T.TriangleMultiplication, "__call__", "trimul"), (C.SwiGLUFFN, "__call__", "swiglu"),
-        (C.SwiGLUFFN, "residual", "swiglu"), (E.TransitionLayer, "__call__", "transition"),
-        (E.MSAEncoderModel, "__call__", "msa_enc"), (E.OuterProductMean, "__call__", "opm"),
-        (E.MSAPairWeightedAveraging, "__call__", "pwa"), (E.LanguageModelShimModel, "__call__", "lm_shim"),
-        (C.ESMCHiddenStatesModel, "__call__", "esmc"), (E.DiffusionConditioningModel, "__call__", "diff_cond"),
-        (E.DiffusionModuleModel, "prepare", "diff_prep"), (E.SWAAtomTransformerModel, "__call__", "atom_tx"),
-        (E.DiffusionTransformerModel, "__call__", "dit"), (E.AttentionPairBias, "__call__", "apb"),
-        (E.ConditionedTransitionBlock, "__call__", "cond_trans"), (E.DistogramHead, "__call__", "disto"),
-        (E.AtomEncoder, "__call__", "atom_enc"), (E.AtomDecoder, "__call__", "atom_dec")]:
-    wrap_method(cls, meth, key)
-wrap_func(R, "_trunk_on_device", "lm_encoder")
-_step = E.DiffusionModuleModel.__dict__["step"]
-def _denoise(self, *args, **k):
-    CUR["step"] += 1; REG.append("denoise")
-    try: return _step(self, *args, **k)
-    finally: REG.pop()
-E.DiffusionModuleModel.step = _denoise
-_rep = E.report_progress
-def _report(stage, step=0, total=0):
-    if stage == "trunk": CUR["cyc"] = step
-    return _rep(stage, step, total)
-E.report_progress = _report
+if ESM:
+    for cls, meth, key in [
+            (E.FoldingTrunkModel, "__call__", "trunk"), (E.PairUpdateBlock, "__call__", "pub"),
+            (T.TriangleMultiplication, "__call__", "trimul"), (C.SwiGLUFFN, "__call__", "swiglu"),
+            (C.SwiGLUFFN, "residual", "swiglu"), (E.TransitionLayer, "__call__", "transition"),
+            (E.MSAEncoderModel, "__call__", "msa_enc"), (E.OuterProductMean, "__call__", "opm"),
+            (E.MSAPairWeightedAveraging, "__call__", "pwa"), (E.LanguageModelShimModel, "__call__", "lm_shim"),
+            (C.ESMCHiddenStatesModel, "__call__", "esmc"), (E.DiffusionConditioningModel, "__call__", "diff_cond"),
+            (E.DiffusionModuleModel, "prepare", "diff_prep"), (E.SWAAtomTransformerModel, "__call__", "atom_tx"),
+            (E.DiffusionTransformerModel, "__call__", "dit"), (E.AttentionPairBias, "__call__", "apb"),
+            (E.ConditionedTransitionBlock, "__call__", "cond_trans"), (E.DistogramHead, "__call__", "disto"),
+            (E.AtomEncoder, "__call__", "atom_enc"), (E.AtomDecoder, "__call__", "atom_dec")]:
+        wrap_method(cls, meth, key)
+    wrap_func(R, "_trunk_on_device", "lm_encoder")
+    _step = E.DiffusionModuleModel.__dict__["step"]
+    def _denoise(self, *args, **k):
+        CUR["step"] += 1; REG.append("denoise")
+        try: return _step(self, *args, **k)
+        finally: REG.pop()
+    E.DiffusionModuleModel.step = _denoise
+    _rep = E.report_progress
+    def _report(stage, step=0, total=0):
+        if stage == "trunk": CUR["cyc"] = step
+        return _rep(stage, step, total)
+    E.report_progress = _report
+else:
+    # OpenFold3 / OpenBind-0: the shared pairformer ops from tenstorrent.py plus OF3's own module classes.
+    for cls, meth, key in [
+            (OT.OF3Trunk, "__call__", "trunk"), (T.PairformerLayer, "__call__", "pf_layer"),
+            (T.TriangleMultiplication, "__call__", "trimul"), (T.TriangleAttention, "__call__", "triatt"),
+            (T.Transition, "__call__", "transition"), (T.AttentionPairBias, "__call__", "apb"),
+            (T.OuterProductMean, "__call__", "opm"), (T.PairWeightedAveraging, "__call__", "pwa"),
+            (OM.MSAModule, "__call__", "msa"), (OTP.TemplateEmbedder, "__call__", "template"),
+            (ODT._DiTBlock, "__call__", "dit"), (OAT.OF3AtomTransformer, "__call__", "atom_tx"),
+            (ODD.OF3AtomAttentionDecoder, "__call__", "atom_dec"), (OC.OF3ConfidenceHead, "__call__", "confidence")]:
+        wrap_method(cls, meth, key)
 
 # ---------------- per-op attribution by runtime id ----------------
 OPID = ttnn._ttnn.get_device_operation_id

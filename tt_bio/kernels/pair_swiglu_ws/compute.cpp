@@ -15,6 +15,9 @@
 // WS_LN (the `ws_ln` lever): the caller's LayerNorm runs here instead, per row tile, from the raw x in c_5 into
 // c_0 (kernels/common/ln_prologue.hpp, shared with trimul T1/T2), so the normalised x never goes to DRAM.
 // WS_RMS with it: the norm is an RMSNorm (RFdiffusion3's pair Transition); the beta CB is loaded and unused.
+// WS_L1ACC (the `ws_l1acc` lever): every matmul sums at most KC K tiles in dest and the packer adds the chunks into the
+// fp32 c_19, which then comes back into dest by a copy (no accumulation) for the silu, the gate multiply or the bf16
+// pack. On Wormhole an fp32 dest summing all of K writes exact +-1 / 2 / 4 into ~1e-8 of the outputs (dest_guard.py).
 #include <cstdint>
 #define REDUCE_OP PoolType::SUM
 #define REDUCE_DIM ReduceDim::REDUCE_ROW
@@ -23,6 +26,7 @@
 #include "api/compute/eltwise_binary.h"
 #include "api/compute/compute_kernel_api.h"
 #include "api/compute/reconfig_data_format.h"
+#include "api/compute/tile_move_copy.h"
 #include "../trimul_gin_moved/sigmoid_poly.hpp"
 #ifdef WS_LN
 #include "../common/ln_prologue.hpp"
@@ -31,6 +35,47 @@ struct LnCbs {
     static constexpr uint32_t Kt = get_compile_time_arg_val(0), x = 5, gamma = 8, beta = 9, scaler = 10, eps = 11,
                               mean = 12, var = 13, rstd = 14, xc = 17, tmp = 18;
 };
+#endif
+
+#ifdef WS_L1ACC
+constexpr uint32_t KC = 2, cb_acc = 19;
+
+// sum over k of in0[k] x in1[k * s + b], N output tiles, into cb_acc: KC K tiles per dest pass, the packer adds the passes
+template <uint32_t K, uint32_t N>
+void mm_acc(uint32_t in0, uint32_t in1, uint32_t s, uint32_t b) {
+    static_assert(K % KC == 0);
+    mm_block_init_short(in0, in1, false, N, 1, K);
+    reconfig_data_format(in1, in0);
+    pack_reconfig_data_format(cb_acc);
+    cb_reserve_back(cb_acc, N);
+    for (uint32_t k0 = 0; k0 < K; k0 += KC) {
+        tile_regs_acquire();
+        for (uint32_t k = k0; k < k0 + KC; ++k) {
+            matmul_block(in0, in1, k, k * s + b, 0, false, N, 1, K);
+        }
+        tile_regs_commit();
+        tile_regs_wait();
+        pack_reconfig_l1_acc(k0 > 0);
+        for (uint32_t i = 0; i < N; ++i) {
+            pack_tile<true>(i, cb_acc, i);
+        }
+        tile_regs_release();
+    }
+    pack_reconfig_l1_acc(0);
+    cb_push_back(cb_acc, N);
+}
+
+// cb_acc's N summed tiles into dest 0..N-1; the caller holds the dest
+template <uint32_t N>
+void acc_to_dest() {
+    cb_wait_front(cb_acc, N);
+    copy_tile_to_dst_init_short(cb_acc);
+    reconfig_data_format_srca(cb_acc);
+    for (uint32_t i = 0; i < N; ++i) {
+        copy_tile(cb_acc, i, i);
+    }
+    cb_pop_front(cb_acc, N);
+}
 #endif
 
 void kernel_main() {
@@ -71,14 +116,21 @@ void kernel_main() {
 #endif
         cb_wait_front(cb_x, KT);
         for (uint32_t j = 0; j < NH; j += SW) {
+            // fc1 group -> silu -> gate
+#ifdef WS_L1ACC
+            mm_acc<KT, SW>(cb_x, cb_w12, 2 * NH, j);
+            tile_regs_acquire();
+            acc_to_dest<SW>();
+            pack_reconfig_data_format(cb_gate);
+#else
             mm_block_init_short(cb_x, cb_w12, false, SW, 1, KT);
             reconfig_data_format(cb_w12, cb_x);  // srcA = the weights, srcB = x, each in its own format
-            // fc1 group -> silu -> gate
             tile_regs_acquire();
 #ifndef WS_NO_FC12
             for (uint32_t k = 0; k < KT; ++k) {
                 matmul_block(cb_x, cb_w12, k, k * 2 * NH + j, 0, false, SW, 1, KT);
             }
+#endif
 #endif
 #ifndef WS_NO_SILU
             silu_tile_init();  // the dest-reuse multiply's init does not keep the SFPU's
@@ -99,6 +151,14 @@ void kernel_main() {
             tile_regs_release();
             cb_push_back(cb_gate, SW);
             // fc2 group, times the gate in dest -> hidden
+#ifdef WS_L1ACC
+            mm_acc<KT, SW>(cb_x, cb_w12, 2 * NH, NH + j);
+            tile_regs_acquire();
+            acc_to_dest<SW>();
+            pack_reconfig_data_format(cb_hid);
+            cb_wait_front(cb_gate, SW);
+            reconfig_data_format_srca(cb_acc, cb_gate);
+#else
             tile_regs_acquire();
 #ifndef WS_NO_FC12
             for (uint32_t k = 0; k < KT; ++k) {
@@ -106,8 +166,9 @@ void kernel_main() {
             }
 #endif
             cb_wait_front(cb_gate, SW);
-#ifndef WS_NO_GATE
             reconfig_data_format_srca(cb_w12, cb_gate);  // bfp8 weights leave srcA in their format
+#endif
+#ifndef WS_NO_GATE
             UNPACK((llk_unpack_A_init<BroadcastType::NONE, true, EltwiseBinaryReuseDestType::DEST_TO_SRCB>(
                 false, false, cb_gate)));
             MATH((llk_math_eltwise_binary_init<ELWMUL, NONE, mul_fidelity, EltwiseBinaryReuseDestType::DEST_TO_SRCB>(
@@ -128,15 +189,24 @@ void kernel_main() {
         }
         cb_pop_front(cb_x, KT);
         // fc3 over the row's NH hidden tiles, OG output tiles (one fp32 dest half) at a time
+        cb_wait_front(cb_hid, NH);
+#ifndef WS_L1ACC
         mm_block_init_short(cb_hid, cb_w3, false, OG, 1, NH);
         reconfig_data_format(cb_w3, cb_hid);
-        cb_wait_front(cb_hid, NH);
+#endif
         for (uint32_t c = 0; c < CT; c += OG) {
+#ifdef WS_L1ACC
+            mm_acc<NH, OG>(cb_hid, cb_w3, CT, c);
+            tile_regs_acquire();
+            acc_to_dest<OG>();
+            pack_reconfig_data_format(cb_out);
+#else
             tile_regs_acquire();
 #ifndef WS_NO_FC3
             for (uint32_t k = 0; k < NH; ++k) {
                 matmul_block(cb_hid, cb_w3, k, k * CT + c, 0, false, OG, 1, NH);
             }
+#endif
 #endif
             tile_regs_commit();
             cb_reserve_back(cb_out, OG);

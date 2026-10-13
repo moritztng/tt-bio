@@ -37,6 +37,22 @@ almost nothing: nearly every staging edits a module that every leg imports
 gate on 948ac4600 an hour older. A failed gate with no FIXES stays the candidate for 12 hours
 after its verdict (or after FIXES last changed); after that the train gates `main`'s head.
 
+A failure that is not a regression is waived in the same directory, one leg per line with the
+reason (a line without one waives nothing):
+
+```bash
+echo 'ladder:nesso1 wh  # DUAL_NOC superseded by <lever> on WH; perf leg +51 % vs 0.15.1' >> ~/gates/rel-2d65d109f/WAIVE
+```
+
+A waived ladder leg is re-recorded with the drift; any other waived leg stops blocking, and the
+waivers are written into the train's release record. FIXES and WAIVE both live in the frozen gate's
+directory and cover every candidate fixed forward from it. The train's `FIX` line in
+`state/rel-train/cron.log` names the failed legs and both paths.
+
+A leg that failed on its card rather than the code (a card left dirty, two legs racing) needs
+neither: run it again on the same commit with `gate_fanout.py --legs '<leg>' --arch <arch>` into a
+new `--out`. A pass there is filed under the same ledger key, and the train counts it.
+
 `scripts/release_train.py` does all of this unattended and runs from cron. On CUT it cuts the
 release (see [Cut the release](#cut-the-release)); on GATE, given `--gate-config` with
 `gate_fanout.py`'s `--hosts`, `--workers` and `--timed`, it starts the gate on the candidate:
