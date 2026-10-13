@@ -1311,12 +1311,17 @@ def wh_releases_lm(chains) -> bool:
 # 1350 MHz): CA-lDDT -0.0017 [-0.0068, +0.0025], top-pose median 0.24 A vs 1.22 A floor, docking 31 -> 30 of 44.
 # Warm fold time at 1350 MHz: 256 and 512 aa unchanged (49.4 vs 49.8 s, 131.1 vs 131.5 s), 1024 aa 436 -> 419 s,
 # 1536 aa 1028 -> 939 s. On ESMFold2-Fast the 11-set folds 8.4 % faster (normal bar PASS, 44 paired folds).
-LEVERS_NORMAL = "normal-trunk_hifi3+trimul_gin"
+# trimul_t2g (output layer norm, p projection, g_out gate and residual add in one kernel) takes only the calls
+# the F1 tail would serve with the residual folded in, and is bit-exact against it there (torch.equal, both sets,
+# p150a; CIF byte-identical in same-card folds at 544, 576 and 1024 aa). p150a 1350 MHz, ESMFold2's call at
+# 512: 9.79 -> 9.39 ms (normal set), 9.49 -> 8.66 ms (fast set); --fast fold warm, 544 aa 30.5 -> 29.1 s, 1024 aa
+# 98.7 -> 94.0 s. Wormhole (LEVERS_WH, 1000 MHz) folds the same CIF in the same time (544 aa 94.4 vs 94.5 s).
+LEVERS_NORMAL = "normal-trunk_hifi3+trimul_gin+trimul_t2g"
 # FAST also takes transition_ws (fast grade PASS on both ESMFold2 models, both archs; tenstorrent.FAST_LEVERS)
 # and trimul_gin: ESMFold2 fast bar against the set without it, 11 complexes x 4 seeds, 44 paired folds (p300c,
 # 1350 MHz): CA-lDDT +0.0026 [-0.0022, +0.0086], pLDDT +0.0005, top-pose median 0.35 A vs 1.30 A floor, docking
 # 31 -> 30 of 44. Same-card A/B at 544 and 576 tokens (p150a, 1350 MHz): 34.2 -> 33.1 s and 40.7 -> 38.4 s warm.
-LEVERS_FAST = "normal+trimul_b8in+transition_ws+trimul_gin"
+LEVERS_FAST = "normal+trimul_b8in+transition_ws+trimul_gin+trimul_t2g"
 LEVERS_WH = LEVERS_NORMAL + "+transition_ws"
 
 

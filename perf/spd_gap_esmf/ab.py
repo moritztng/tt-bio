@@ -27,6 +27,7 @@ ap.add_argument("--out", type=Path, required=True)
 a = ap.parse_args()
 
 import tt_bio.tenstorrent as T
+import tt_bio.trimul_tail as TL
 import tt_baseline as B
 from tt_bio.main import (_resolve_recycling_steps, _resolve_sampling_steps,
                          _detect_p300_devices, _find_ttnn_mesh_graph_descriptor)
@@ -65,6 +66,7 @@ res = {"model": a.model, "fast": a.fast, "alt": a.alt, "a": a.a, "b": a.b, "node
 def fold(arm, tag):
     setattr(mod, attr, (a.a if a.a is not None else True) if arm == "A" else (a.b if a.b is not None else False))
     before = {k: dict(v) for k, v in T.LATCH_STATS.items()}
+    t2_before, rej_before = list(TL.T2_STATS), dict(TL.REJECTS)
     t0 = time.monotonic(); s, m = one_fold(); t1 = time.monotonic()
     c = sorted(v for t, v in clk if t0 <= t <= t1)
     rec = {"arm": arm, "tag": tag, "fold_s": round(s, 3), "plddt": m.get("plddt"),
@@ -75,7 +77,11 @@ def fold(arm, tag):
            "latches": {k: d for k, v in T.LATCH_STATS.items()
                        if (d := {f: v.get(f, 0) - before.get(k, {}).get(f, 0)
                                  for f in ("served", "refused", "blocked", "declined")
-                                 if v.get(f, 0) != before.get(k, {}).get(f, 0)})}}
+                                 if v.get(f, 0) != before.get(k, {}).get(f, 0)})},
+           # trimul T2 / T2m / T2CM output tail: served, declined, and why (a declining lever arm is no arm)
+           "t2": [TL.T2_STATS[0] - t2_before[0], TL.T2_STATS[1] - t2_before[1]],
+           "t2_rejects": {f"{k[0]}@{k[1]}": v - rej_before.get(k, 0) for k, v in TL.REJECTS.items()
+                          if v != rej_before.get(k, 0) and str(k[0]).startswith("t2")}}
     swa = getattr(sys.modules.get("tt_bio.esmfold2"), "SWA_STATS", None)
     if swa is not None:
         rec["swa_stats"] = list(swa)  # cumulative (windowed, dense) atom masks built
