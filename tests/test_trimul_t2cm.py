@@ -58,7 +58,7 @@ def test_eligibility_declines_cleanly(monkeypatch):
     with T.levers("trimul_t2,trimul_t2cm"):
         assert TTL.t2cm_eligible(**_args()) is None
         assert TTL.t2cm_eligible(**_args(S=256)) is None
-        assert TTL.t2cm_eligible(**_args(K=256, N=256)) == "l1"          # protenix-v2's c_z: T2 serves (8, 8), the gather does not fit
+        assert TTL.t2cm_eligible(**_args(K=256, N=256)) is None          # protenix-v2's c_z: T2m's one-part stage fits beside T2's buffers
         a = _args()
         a["xcm"] = _Fake([1, 128, 500, 500], padded=[1, 128, 512, 512])
         assert TTL.t2cm_eligible(**a) == "cm_shape"                      # ragged: the permute keeps it
