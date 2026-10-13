@@ -55,7 +55,7 @@ def test_kernel_page_expressions_match_the_python_mirror():
     writer = (KDIR / "writer.cpp").read_text()
     assert "uint32_t page = ((b * S + xt * 32 + h0) * St + yt) * Kt;" in reader
     assert "page += St * Kt" in reader
-    assert "uint32_t page = ((b * S + xt * 32 + h * R) * St + yt) * NTG;" in writer
+    assert "uint32_t page = ((b * S + xt * 32 + h * NR) * St + yt) * NTG;" in writer
     assert "page += St * NTG" in writer
     assert "uint32_t page = (b * CT + (is_a ? q : q - CT)) * 32 * SS + cube;" in writer
     assert "page += SS" in writer
