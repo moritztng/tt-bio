@@ -477,9 +477,14 @@ class OF3SampleDiffusion:
                 if ru is not o:
                     ttnn.deallocate(o)
                 if NP > n_atom:
-                    rp = ttnn.pad(ru, padding=[(0, 0), (0, NP - n_atom), (0, 0)], value=0.0)
+                    # Row-major pad: a TILE-layout ttnn.pad of a computed [1, n_atom, 3] at an
+                    # unaligned n_atom diverged the rollout on p300c (probe edm_probe2.py).
+                    rr = ttnn.to_layout(ru, ttnn.ROW_MAJOR_LAYOUT)
                     ttnn.deallocate(ru)
-                    ru = rp
+                    rp = ttnn.pad(rr, padding=[(0, 0), (0, NP - n_atom), (0, 0)], value=0.0)
+                    ttnn.deallocate(rr)
+                    ru = ttnn.to_layout(rp, ttnn.TILE_LAYOUT)
+                    ttnn.deallocate(rp)
                 a = ttnn.multiply(xnm, c_skip)
                 b = ttnn.multiply(ru, c_out)
                 xd0 = ttnn.add(a, b)
