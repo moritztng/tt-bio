@@ -1510,8 +1510,11 @@ def _v_create_qkv_heads(shipped, args, kwargs):
             return bw
         return make
 
-    # `reads=()`: B, L, H and dh are read here; the packed operand's value is not.
-    return tuple(_tape(o, [x], slot(s), reads=()) for s, o in enumerate(outs))
+    # The packed operand stays PINNED although no closure here reads it: `triatt_bw.QKV_PACKED`
+    # writes all three head gradients into `x.grad_slab()`, and a slab is built from
+    # `self.value.shape` and `self.value.device()` -- a released handle has no device. It is
+    # 0.012 GB of a 1.029 GB block tape, the smallest row of the census.
+    return tuple(_tape(o, [x], slot(s)) for s, o in enumerate(outs))
 
 
 @_verb("embedding")
