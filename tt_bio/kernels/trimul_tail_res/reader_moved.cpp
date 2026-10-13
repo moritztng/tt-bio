@@ -86,10 +86,7 @@ void kernel_main() {
             for (uint32_t c = 0; c < Clt * 32; ++c) {
                 const uint64_t a = sx.get_noc_addr(page, off);
                 if constexpr (P == 1) {
-                    noc_async_read(a, dst, FACE_BYTES);
-                    noc_async_read(a + 2 * FACE_BYTES, dst + FACE_BYTES, FACE_BYTES);
-                    noc_async_read(a + FACE_BYTES, dst + PART_ROW_BYTES, FACE_BYTES);
-                    noc_async_read(a + 3 * FACE_BYTES, dst + PART_ROW_BYTES + FACE_BYTES, FACE_BYTES);
+                    noc_async_read(a, dst, TILE_BYTES);         // the whole tile, faces in place
                 } else {
                     noc_async_read(a, dst, PART_ROW_BYTES);
                     noc_async_read(a + FACE_BYTES, dst + PART_ROW_BYTES, PART_ROW_BYTES);
@@ -113,8 +110,11 @@ void kernel_main() {
             for (uint32_t ct = 0; ct < Clt; ++ct) {
                 cb_reserve_back(cb_in, 1);
                 const uint32_t d = get_write_ptr(cb_in);
-                uint32_t s0 = stage + ct * 32 * STAGE_TILE + il * FACE_ROW_BYTES;
-                uint32_t s1 = s0 + PART_ROW_BYTES;
+                // P = 1 stages whole tiles (row il: faces 2 * (il / 16) and + 1); P > 1 stages each
+                // part's left face rows, then its right ones.
+                uint32_t s0 = stage + ct * 32 * STAGE_TILE +
+                              (P == 1 ? (il / 16) * 2 * FACE_BYTES + (il % 16) * FACE_ROW_BYTES : il * FACE_ROW_BYTES);
+                uint32_t s1 = s0 + (P == 1 ? FACE_BYTES : PART_ROW_BYTES);
                 for (uint32_t c = 0; c < 32; ++c) {
                     const uint32_t row = (c / 16) * 2 * FACE_BYTES + (c % 16) * FACE_ROW_BYTES;
                     noc_async_read_one_packet_with_state(s0, d + row);
