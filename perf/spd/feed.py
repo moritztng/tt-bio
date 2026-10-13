@@ -256,23 +256,26 @@ def tree_root(path, repo, _seen={}):
     return None
 
 
+SMALL = (".sh", ".py", ".yaml", ".yml", ".json", ".txt", ".toml", ".cfg", ".env")   # copyable by name; builds and venvs are not
+
+
 def provision(ssh, trees, files, donors, repo, lockdir):
     """Ship what a pool lacks, detached, one shipper per pool: missing trees as a git archive of the named commit
     (+ TREE_SHA), and small files (scripts, sourced configs, <= 1 MB) copied from the first other box that has them.
     A box lent after a row set up its jobs has neither, and every job of that row would end in a second there."""
     steps = []
-    for f in sorted(files):
-        rf = f.replace("~", "$HOME", 1) if f.startswith("~/") else f
-        get = shlex.quote(f'f="{rf}"; [ -s "$f" ] && [ -f "$f" ] && [ $(stat -Lc %s "$f") -le 1048576 ] && cat "$f"')
-        put = shlex.quote(f'f="{rf}"; [ -e "$f" ] || {{ mkdir -p "$(dirname "$f")"; cat > "$f.part" && mv "$f.part" "$f"; }}')
-        steps.append(f"for d in {' '.join(donors)}; do t=$(mktemp); if ssh -o BatchMode=yes -o ConnectTimeout=10 $d {get} > $t; "
-                     f"then ssh -o BatchMode=yes {ssh} {put} < $t; rm -f $t; break; fi; rm -f $t; done")
     for d, sha in sorted(trees.items()):
         d = d.replace("~", "$HOME", 1) if d.startswith("~/") else d
         q, part = f'"{d}"', f'"{d}.part"'
         remote_cmd = (f"set -e; [ -e {q} ] && exit 0; rm -rf {part}; mkdir -p {part}; tar -x -C {part}; "
                       f"echo {sha} > {part}/TREE_SHA; mv -T {part} {q}")
         steps.append(f"git -C {shlex.quote(repo)} archive {sha} | ssh -o BatchMode=yes {ssh} {shlex.quote(remote_cmd)}")
+    for f in sorted(files):
+        rf = f.replace("~", "$HOME", 1) if f.startswith("~/") else f
+        get = shlex.quote(f'f="{rf}"; [ -s "$f" ] && [ -f "$f" ] && [ $(stat -Lc %s "$f") -le 1048576 ] && cat "$f"')
+        put = shlex.quote(f'f="{rf}"; [ -e "$f" ] || {{ mkdir -p "$(dirname "$f")"; cat > "$f.part" && mv "$f.part" "$f"; }}')
+        steps.append(f"for d in {' '.join(donors)}; do t=$(mktemp); if ssh -o BatchMode=yes -o ConnectTimeout=10 $d {get} > $t; "
+                     f"then ssh -o BatchMode=yes {ssh} {put} < $t; rm -f $t; break; fi; rm -f $t; done")
     sh = "; ".join(steps)
     lock = f"{lockdir}/provision.{ssh.split('@')[-1]}.lock"
     subprocess.Popen(["setsid", "flock", "-n", lock, "timeout", "3000", "bash", "-c", sh],
@@ -377,7 +380,7 @@ def main(argv=None):
                         continue
                     if r and not st[n]["exists"].get(r[0]):
                         ship[n][r[0]] = r[1]
-                    elif not r and P[n]["kind"] == "galaxy":
+                    elif not r and P[n]["kind"] == "galaxy" and x.endswith(SMALL):
                         copy[n].add(x)
     for n in st:
         if ship[n] or copy[n]:
