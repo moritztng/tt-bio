@@ -49,10 +49,10 @@ D = Path("/home/moritz/.coworker")
 TIERS = {"red": 0, "amber": 1, "fast": 2, "fill": 3}
 FAST_S = 60
 MAX_FAILS = 3
-# BH boxes: SPD cards and their flocks (state/spd/CHIPS.md). Never qb2 chip 2 (faulty); chip 1 wedged since 10-13 09:05Z.
+# BH boxes: SPD cards and their flocks (state/spd/CHIPS.md). Never qb2 chip 2 (faulty); chip 1 back after the 10-13 power cycle.
 BH_POOLS = {
     "qb1": {"ssh": "qb1", "cards": [0, 1, 2, 3], "lock": "/home/ttuser/spd_qb1_card{c}.lock"},
-    "qb2": {"ssh": "qb2", "cards": [0, 3], "lock": "/home/ttuser/spd_qb2_chip{c}.lock"},
+    "qb2": {"ssh": "qb2", "cards": [0, 1, 3], "lock": "/home/ttuser/spd_qb2_chip{c}.lock"},
 }
 
 # Runs on the pool host: report state, existence of paths, and sweep dead entries. Payload is appended as JSON.
@@ -128,8 +128,10 @@ import json, os, subprocess, sys
 A = json.loads(sys.stdin.readline()); H = os.path.expanduser("~")
 for j in A["jobs"]:
     if A["kind"] == "galaxy":
+        # the Galaxy's `python` is the JapanFold venv, on PATH only after env.sh (a bare `python` job fails in 1 s)
         q = H + "/spd/pool/queue"; t = q + "/." + j["name"]
-        open(t, "w").write(j["body"]); os.rename(t, q + "/" + j["name"])
+        open(t, "w").write("[ -f ~/japanfold/env.sh ] && . ~/japanfold/env.sh > /dev/null 2>&1\n" + j["body"])
+        os.rename(t, q + "/" + j["name"])
     else:
         J = H + "/spd/feed/jobs"; sh = J + "/" + j["name"]
         for x in (".end", ".start", ".pid", ".log"):
