@@ -10767,14 +10767,19 @@ def _mm_core_coord(gx, gy):
 # The M guard only ever declines a token axis that is not a multiple of 32, which every bucketed
 # model avoids, so in practice it is AF2-IG's ragged 195 tokens (mt 1189) that falls back to the
 # op's default, K_block 8 over a 4-tile contraction: 473 us on the qkv projection and 324 us on the
-# gate on Wormhole. M_block only tiles the rows, it does not touch the contraction order, so the
-# fold stays bit-exact: A/B/A over three AF2-IG complexes read CA RMSD 0.0000 A on both parts and
-# -0.12 s/complex (Wormhole 4.32 -> 4.19, p150a 2.54 -> 2.42). On by default.
+# gate on Wormhole. A/B/A over three AF2-IG complexes read CA RMSD 0.0000 A on both parts and
+# -0.12 s/complex (Wormhole 4.32 -> 4.19, p150a 2.54 -> 2.42). It is NOT bit-exact everywhere:
+# OpenFold3 and OpenBind-0 fold 9W3L at a ragged token count too and their normal-mode CIFs moved
+# (spd-integrate d60). So only an attention built with `ragged_m=True` takes it, which is AF2's
+# two triangle attentions; the flag is the kill switch.
 _MM_RAGGED_M = env_flag("TT_BIO_QKV_MM_RAGGED_M", True)
 
 
-def _qkv_mm_config(inp, w):
-    """The swept block config for this (activation, weight) pair, or None to leave the op alone."""
+def _qkv_mm_config(inp, w, ragged_m: bool = False):
+    """The swept block config for this (activation, weight) pair, or None to leave the op alone.
+
+    `ragged_m` lifts the row guard (see `_MM_RAGGED_M`) for a caller graded at ragged token counts.
+    """
     if not _MM_CFG:
         return None
     kt = (int(w.shape[-2]) + 31) // 32
@@ -10792,7 +10797,7 @@ def _qkv_mm_config(inp, w):
     # contraction in a different order than the unconfigured op. `_MM_DEFAULT` cannot: it IS that
     # order. Scope the relaxation by object identity on the one shared tuple, so the six swept
     # entries keep all three guards and every other model stays byte-for-byte on today's path.
-    if blk is not _MM_DEFAULT and (kt % K or (mt % M and not _MM_RAGGED_M) or nt % N):
+    if blk is not _MM_DEFAULT and (kt % K or (mt % M and not (ragged_m and _MM_RAGGED_M)) or nt % N):
         return None
     return ttnn.MinimalMatmulConfig(
         M_block_size=M, K_block_size=K, N_block_size=N, subblock_h=sh, subblock_w=sw,
@@ -10907,6 +10912,7 @@ class TriangleAttention(Module):
         l1_padded_plan: bool | None = None,
         sdpa_ragged_pad: bool = False,
         softmax_site: str = "default",
+        ragged_m: bool = False,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.head_dim = head_dim
@@ -10975,6 +10981,8 @@ class TriangleAttention(Module):
         # Mask the fused SDPA's ragged tile tail at THIS site. Off unless the site's own fold-level
         # accuracy was measured; see `sdpa_ragged_pad_site`.
         self.sdpa_ragged_pad = sdpa_ragged_pad
+        # The swept qkv/gate matmul config at a ragged token count (`_MM_RAGGED_M`). AF2-IG only.
+        self.ragged_m = ragged_m
         self.scale = self.head_dim**0.5
         # Boltz/Protenix fold sqrt(head_dim) into the pair-bias projection (their
         # reference adds the bias pre-scaled); openfold3 pre-scales q by 1/sqrt(d) and
@@ -11077,7 +11085,7 @@ class TriangleAttention(Module):
         return _triatt_qkv.qkvg_heads(
             x, self.qkvg_weight, self.o_weight, self.compute_kernel_config,
             self.n_heads, self.head_dim, _triatt_dtype(),
-            _qkv_mm_config(x, self.qkvg_weight),
+            _qkv_mm_config(x, self.qkvg_weight, self.ragged_m),
         ) or (None, None)
 
     def _fused_qkvgb(self, x):
@@ -11098,7 +11106,7 @@ class TriangleAttention(Module):
         return _triatt_qkv.qkvgb_heads(
             x, self.qkvgb_weight, self.o_weight, self.compute_kernel_config,
             self.n_heads, self.head_dim, _triatt_dtype(),
-            _qkv_mm_config(x, self.qkvgb_weight),
+            _qkv_mm_config(x, self.qkvgb_weight, self.ragged_m),
             int(self.bias_weight.shape[-1]),
         ) or (None, None, None)
 
@@ -11413,7 +11421,7 @@ class TriangleAttention(Module):
                 end = min(s + chunk, S)
                 x_chunk = normed_rows(s, end)
                 qkv_chunk, g_chunk = self._fused_qkvg(x_chunk, True)
-                qkv_cfg_chunk = _qkv_mm_config(x_chunk, self.qkv_weight)
+                qkv_cfg_chunk = _qkv_mm_config(x_chunk, self.qkv_weight, self.ragged_m)
                 qkv_chunk = qkv_chunk if qkv_chunk is not None else _triatt_qkv.qkv_heads(
                     x_chunk, self.qkv_weight, self.compute_kernel_config,
                     self.n_heads, self.head_dim, _dtype(), qkv_cfg_chunk,
@@ -11426,7 +11434,7 @@ class TriangleAttention(Module):
                         dtype=_triatt_dtype(),
                         config=qkv_cfg_chunk,
                     )
-                g_cfg_chunk = _qkv_mm_config(x_chunk, self.g_weight)
+                g_cfg_chunk = _qkv_mm_config(x_chunk, self.g_weight, self.ragged_m)
                 if g_chunk is None and isinstance(qkv_chunk, tuple) and not self.biased:
                     g_chunk = _triatt_qkv.gate_proj(
                         x_chunk, self.g_weight, self.o_weight, self.compute_kernel_config,
@@ -11585,7 +11593,7 @@ class TriangleAttention(Module):
             qkv = qkv if qkv is not None else None if qkv_cfg is not None or fold_o is not None \
                 else _triatt_qkv.qkv_heads(
                 x, self.qkv_weight, self.compute_kernel_config,
-                self.n_heads, self.head_dim, _dtype(), _qkv_mm_config(x, self.qkv_weight),
+                self.n_heads, self.head_dim, _dtype(), _qkv_mm_config(x, self.qkv_weight, self.ragged_m),
             )
             if qkv is None and fold_o is None:
                 if qkv_cfg is not None:
@@ -11603,14 +11611,14 @@ class TriangleAttention(Module):
                         weight_tensor=self.qkv_weight,
                         compute_kernel_config=self.compute_kernel_config,
                         dtype=_triatt_dtype(),
-                        config=_qkv_mm_config(x, self.qkv_weight),
+                        config=_qkv_mm_config(x, self.qkv_weight, self.ragged_m),
                     )
             if g is None and (isinstance(qkv, tuple) or fold_o is not None) \
                     and not self.biased:
                 g = _triatt_qkv.gate_proj(
                     x, self.g_weight, self.o_weight, self.compute_kernel_config,
                     self.n_heads, self.head_dim, _triatt_dtype(),
-                    _qkv_mm_config(x, self.g_weight),
+                    _qkv_mm_config(x, self.g_weight, self.ragged_m),
                 )
             g_in_mm = self.g_bias is not None and "g" in self.bias_in_matmul
             if g is None:
@@ -11620,7 +11628,7 @@ class TriangleAttention(Module):
                     bias_tensor=self.g_bias if g_in_mm else None,
                     compute_kernel_config=self.compute_kernel_config,
                     dtype=_dtype(),
-                    config=_qkv_mm_config(x, self.g_weight),
+                    config=_qkv_mm_config(x, self.g_weight, self.ragged_m),
                 )
                 if g_in_mm:
                     _pair_bias_stat("g_in_matmul")

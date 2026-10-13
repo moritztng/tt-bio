@@ -490,14 +490,18 @@ class AF2PairBlock(Module):
         # pass, bit-exact, `structure_sha16 cd80f8e274306706` unchanged. Named here rather than
         # defaulted in the shared block because the pairformer stacks share this class and were
         # priced with the lever off (state/pxdesign-af2ig-land.md, D2).
+        # `ragged_m=True`: the swept qkv/gate matmul config at 195 tokens, -0.12 s/complex, CA RMSD
+        # 0.0000 A; it moves OpenFold3/OpenBind digests, so it is not the shared default.
         self.tri_att_start = TriangleAttention(
             head_dim, n_heads, False, self.scope("tri_att_start"), compute_kernel_config,
             scale_pair_bias=False, fp32_softmax=True, fused_hifi=fused_hifi,
-            bias_in_matmul="o", l1_padded_plan=True, softmax_site="af2.tri_att")
+            bias_in_matmul="o", l1_padded_plan=True, softmax_site="af2.tri_att",
+            ragged_m=True)
         self.tri_att_end = TriangleAttention(
             head_dim, n_heads, True, self.scope("tri_att_end"), compute_kernel_config,
             scale_pair_bias=False, fp32_softmax=True, fused_hifi=fused_hifi,
-            bias_in_matmul="o", l1_padded_plan=True, softmax_site="af2.tri_att")
+            bias_in_matmul="o", l1_padded_plan=True, softmax_site="af2.tri_att",
+            ragged_m=True)
         self.pair_transition = ReluTransition(
             self.scope("pair_transition"), compute_kernel_config)
 
