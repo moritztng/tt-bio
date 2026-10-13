@@ -6580,6 +6580,11 @@ def _bias_in_matmul(spec: str) -> frozenset:
 
 
 _PAIR_BIAS_IN_MATMUL = _bias_in_matmul(os.environ.get("TT_BIO_PAIR_BIAS_IN_MATMUL", ""))
+# spd-gap-bind A/B: TriangleAttention's qkv and gate projections on `_pair_proj_linear` (the tuned
+# ttnn.linear the trimul projections use) instead of minimal_matmul. AF2-IG at 195 tokens on Wormhole
+# (main 1e3b37664 device profile): gate 128->128 minimal_matmul 324 us vs 189 us for the trimul's
+# linear on the same shape; qkv 128->384 473 us. Not bit-exact (K blocking differs). Default off.
+_TRIATT_PROJ_LINEAR = env_flag("TT_BIO_TRIATT_PROJ_LINEAR", False)
 # served/declined census for the two levers. A form comparison whose changed matmul silently
 # declined its bias would time identically and read as "no effect", which is the mistake the
 # fused-SDPA OF3 arms made, so every call is counted and the `_add` counters have to be 0 on a
@@ -11518,6 +11523,9 @@ class TriangleAttention(Module):
                         memory_config=ttnn.L1_MEMORY_CONFIG,
                         program_config=qkv_cfg,
                     )
+                elif _TRIATT_PROJ_LINEAR:
+                    qkv = _pair_proj_linear(x, self.qkv_weight, self.compute_kernel_config,
+                                            _triatt_dtype())
                 else:
                     qkv = ttnn.experimental.minimal_matmul(
                         input_tensor=x,
@@ -11534,7 +11542,12 @@ class TriangleAttention(Module):
                     _qkv_mm_config(x, self.g_weight),
                 )
             g_in_mm = self.g_bias is not None and "g" in self.bias_in_matmul
-            if g is None:
+            if g is None and _TRIATT_PROJ_LINEAR:
+                g = _pair_proj_linear(x, self.g_weight, self.compute_kernel_config, _dtype(),
+                                      bias=self.g_bias if g_in_mm else None)
+                if g_in_mm:
+                    _pair_bias_stat("g_in_matmul")
+            elif g is None:
                 g = ttnn.experimental.minimal_matmul(
                     input_tensor=x,
                     weight_tensor=self.g_weight,
