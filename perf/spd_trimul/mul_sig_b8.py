@@ -37,5 +37,11 @@ rec["g_b8"] = rel(ttnn.multiply_(up(p), gb8, input_tensor_b_activations=SIG), re
 rec["g_b8_vs_bf16ref"] = rel(ttnn.multiply_(up(p), gb8, input_tensor_b_activations=SIG), ref["bf16"])
 rec["g_b8_cast"] = rel(ttnn.multiply_(up(p), ttnn.typecast(gb8, ttnn.bfloat16), input_tensor_b_activations=SIG), ref["b8"])
 rec["g_b8_sigmoid_op"] = rel(ttnn.multiply_(up(p), ttnn.sigmoid(gb8)), ref["b8"])
+# bfp8 x bfp8: the main sites (esmc.py SILU on a, trimul tail under set_fast_mode) run both operands in bfp8
+pb8 = ttnn.typecast(up(p), ttnn.bfloat8_b)
+p8_host = ttnn.to_torch(ttnn.typecast(pb8, ttnn.bfloat16)).reshape(p.shape).double()
+rec["both_b8_sig_b"] = rel(ttnn.multiply(pb8, gb8, input_tensor_b_activations=SIG), p8_host * torch.sigmoid(g8_host))
+rec["both_b8_silu_a"] = rel(ttnn.multiply(gb8, pb8, input_tensor_a_activations=[ttnn.UnaryOpType.SILU]),
+                            torch.nn.functional.silu(g8_host) * p8_host)
 rec["g_b8_nosig"] = rel(ttnn.multiply_(up(p), gb8), p.double() * g8_host)
 print(json.dumps(rec), flush=True)
