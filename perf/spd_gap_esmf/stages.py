@@ -5,7 +5,8 @@ Builds the fold through tt_baseline.build_fold (as ab.py), runs one cold fold, t
   plain    one fold, nothing wrapped (the reference wall);
   stages   one fold with every stage below wrapped in synchronize_device on both sides, so each stage's
            wall is its own device time plus its own host dispatch, and the sum against the plain wall
-           says how much of the fold is in none of them (host-side glue between stages);
+           says how much of the fold is in none of them (host-side glue between stages); host_s is the time
+           until the stage's Python returns, before the closing sync (host_s ~ s: dispatch-bound);
   profile  one fold under cProfile, no syncs, top functions by tottime / cumtime into --out.prof.txt.
   xfer     one fold with ttnn.from_torch / to_torch timed per call site (first tt_bio frame), no syncs: which
            uploads and downloads the host blocks on (cProfile only sees ttnn's decorator as their caller).
@@ -57,7 +58,7 @@ STAGES = [
     (E.DistogramHeadModel, "forward", "distogram"),
     (E.RelPosEncoding, "forward", "relpos"),
 ]
-acc = collections.defaultdict(float); cnt = collections.Counter(); depth = [0]
+acc = collections.defaultdict(float); host = collections.defaultdict(float); cnt = collections.Counter(); depth = [0]
 dev = T.get_device()
 
 
@@ -75,6 +76,7 @@ def wrap(owner, attr, label):
         try:
             return fn(self, *x, **kw)
         finally:
+            host[lab] += time.perf_counter() - t0  # enqueue done: near the stage wall = host-bound
             ttnn.synchronize_device(dev); depth[0] -= 1
             acc[lab] += time.perf_counter() - t0; cnt[lab] += 1
     setattr(owner, attr, timed)
@@ -88,7 +90,8 @@ print("plain", res["plain_s"], flush=True)
 
 orig = [(o, at, wrap(o, at, lab)) for o, at, lab in STAGES]
 t0 = time.perf_counter(); s, _ = one_fold(); res["stages_s"] = round(time.perf_counter() - t0, 3)
-res["stages"] = {k: {"s": round(v, 3), "n": cnt[k]} for k, v in sorted(acc.items(), key=lambda kv: -kv[1])}
+res["stages"] = {k: {"s": round(v, 3), "host_s": round(host[k], 3), "n": cnt[k]}
+                 for k, v in sorted(acc.items(), key=lambda kv: -kv[1])}
 res["unstaged_s"] = round(res["stages_s"] - sum(acc.values()), 3)
 for o, at, fn in orig:
     setattr(o, at, fn)
