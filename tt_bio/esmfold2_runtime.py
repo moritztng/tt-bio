@@ -1360,9 +1360,10 @@ def fold_scope(fast: bool):
     On Wormhole --fast and trunk_hifi3 change nothing under this set (same digest), so one grade covers both modes.
     Wormhole adds transition_ws (LEVERS_WH): 11 complexes x 4 seeds, the set with vs without it, PASS on the fast and
     the normal bar for both models (ESMFold2 CA-lDDT -0.0010 [-0.0063, +0.0042], top-pose median 0.38 A vs 1.40 A floor;
-    ESMFold2-Fast -0.0013 [-0.0046, +0.0009], 0.98 A vs 1.36 A; docking 29 -> 28 and 23 -> 23 of 44)."""
+    ESMFold2-Fast -0.0013 [-0.0046, +0.0009], 0.98 A vs 1.36 A; docking 29 -> 28 and 23 -> 23 of 44).
+    TT_BIO_ESMFOLD2_WH_BFP8=0 (harness only) folds Wormhole on the Blackhole path, to time and grade it there."""
     from tt_bio import tenstorrent
-    if is_wormhole():
+    if is_wormhole() and env_flag("TT_BIO_ESMFOLD2_WH_BFP8", True):
         tenstorrent.set_fast_mode(fast)
         return tenstorrent.levers(os.environ.get("TT_BIO_LEVERS") or LEVERS_WH)
     return tenstorrent.lever_scope(fold_levers(fast))
