@@ -11,16 +11,25 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+import numpy as np
+
+from tt_bio.data.types import Chain
 from tt_bio.main import _chain_ids
 
 
 @dataclass
 class _Struct:
-    chains: list
+    chains: np.ndarray
 
 
 def _struct(pairs):
-    return _Struct([{"asym_id": a, "name": n} for a, n in pairs])
+    """A structure whose `chains` is the real `Chain` structured array, not a dict stub: the
+    production object is numpy, and a stub would keep passing if that dtype changed."""
+    arr = np.zeros(len(pairs), dtype=Chain)
+    for i, (asym_id, name) in enumerate(pairs):
+        arr[i]["asym_id"] = asym_id
+        arr[i]["name"] = name
+    return _Struct(arr)
 
 
 def test_asym_id_keys_resolve_to_names():
