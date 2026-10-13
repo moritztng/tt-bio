@@ -1672,7 +1672,7 @@ class StructureHead(TorchWrapper):
         oh = F.one_hot(tok_idx[0].long(), L).float() * ref_mask[0].float()[:, None]
         gather_g = oh.unsqueeze(0)
         scatter_m = (oh / oh.sum(0).clamp(min=1)).t().unsqueeze(0)
-        dmm.prepare(ft(s_inputs), ft(z_trunk), ft(relpos), ft(atom_feats.float()),
+        dmm.prepare(ft(s_inputs), z_trunk if isinstance(z_trunk, ttnn.Tensor) else ft(z_trunk), ft(relpos), ft(atom_feats.float()),
                     ft(cos.float()), ft(sin.float()), band,
                     ft(scatter_m.float()), ft(gather_g.float()), ft(valid))
         self._base, self._ref_mask, self._n_atoms = dmm._ctx, ref_mask, N

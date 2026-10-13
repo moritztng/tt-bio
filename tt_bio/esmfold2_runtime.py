@@ -130,6 +130,8 @@ class _Adapter(torch.nn.Module):
     def forward(self, *args, **kw):
         if self.argnames:
             return self.m(*[_to_t(kw[n]) for n in self.argnames])
+        if isinstance(args[0], _DevPair):
+            return _dev_forward(self.m, args[0])
         return self.m(_to_t(args[0]))
 
     # No-ops so a reference module that owns this wrapper (e.g. the confidence
@@ -196,7 +198,10 @@ class _StructureHeadAdapter(_Adapter):
             seed = torch.initial_seed()
         n = max(1, num_diffusion_samples)
         L = int(s_inputs.shape[1])  # residue (token) count
-        args = (z_trunk.float(), s_inputs.float(), relative_position_encoding.float(),
+        if isinstance(z_trunk, _DevPair):  # the device tail: prepare consumes (and frees) the device pair
+            z_trunk.host = self.m._to_torch(z_trunk.t)[:, :L, :L].float()  # for the confidence head
+            z_trunk = z_trunk.t
+        args = (z_trunk.float() if torch.is_tensor(z_trunk) else z_trunk, s_inputs.float(), relative_position_encoding.float(),
                 ref_pos.float(), ref_charge.float(), ref_mask.float(), ref_element.float(),
                 ref_atom_name_chars.float(), ref_space_uid, tok_idx)
         budget = _diffusion_budget()
@@ -256,16 +261,86 @@ def set_device_lm_handoff(on: bool) -> None:
 
 
 class _DevPair:
-    """A pair tensor left on the device, carried through code that only stores it."""
+    """A pair tensor left on the device, carried through code that only stores it.
 
-    __slots__ = ("t", "seq_len")
+    The device tail (`_DEVICE_TAIL`) also runs the vendored forward's own pair glue on it:
+    `.float()` / `.detach()` are no-ops, `z + z.transpose(-2, -3)` is a device permute and add,
+    and `host` keeps the one download the confidence head still needs."""
 
-    def __init__(self, t, seq_len):
-        self.t, self.seq_len = t, int(seq_len)
+    __slots__ = ("t", "seq_len", "host", "_tmp")
+
+    def __init__(self, t, seq_len, tmp=False):
+        self.t, self.seq_len, self.host, self._tmp = t, int(seq_len), None, tmp
 
     @property
     def shape(self):
         return (1, self.seq_len, self.seq_len, self.t.shape[-1])
+
+    def float(self):
+        return self
+
+    detach = float
+
+    def transpose(self, a, b):
+        import ttnn
+        assert {a % 4, b % 4} == {1, 2}, (a, b)
+        return _DevPair(ttnn.permute(self.t, (0, 2, 1, 3)), self.seq_len, tmp=True)
+
+    def __add__(self, other):
+        import ttnn
+        out = _DevPair(ttnn.add(self.t, other.t), self.seq_len, tmp=True)
+        for x in (self, other):
+            if x._tmp and x is not out:
+                ttnn.deallocate(x.t)
+        return out
+
+
+# The trunk's output stays on the device through parcae_readout (a device linear instead of the host
+# fp32 one), parcae_coda, the distogram's symmetrisation and the diffusion conditioning; it is
+# downloaded once, for the confidence head. Removes the trunk download and three pair uploads
+# (~1.1 s of transfers at 512 aa on p300c). Not bit-exact (bf16 readout and add), so off until graded.
+_DEVICE_TAIL = env_flag("TT_BIO_ESMFOLD2_DEVICE_TAIL", False)
+DEVICE_TAIL_STATS = [0, 0]  # folds whose tail ran on the device, on the host
+
+
+def _unpad(t, seq_len):
+    import ttnn
+    if int(t.shape[1]) == seq_len:
+        return t
+    out = ttnn.slice(t, [0, 0, 0, 0], [1, seq_len, seq_len, int(t.shape[-1])])
+    ttnn.deallocate(t)
+    return out
+
+
+def _dev_forward(m, x):
+    """An _Adapter's wrapped module on a device-resident pair: the trunk returns one, the distogram host logits."""
+    import ttnn
+    if isinstance(m, E.DistogramHeadModel):
+        out = m._to_torch(m.module(x.t))[:, :x.seq_len, :x.seq_len]
+        if x._tmp:
+            ttnn.deallocate(x.t)
+        return out
+    out = _DevPair(_unpad(_trunk_on_device(m, x, to_host=False), x.seq_len), x.seq_len)
+    ttnn.deallocate(x.t)
+    return out
+
+
+class _ReadoutAdapter(torch.nn.Module):
+    """parcae_readout: the host nn.Linear, or a device linear on a device-resident pair."""
+
+    def __init__(self, lin, ftw):
+        super().__init__()
+        self.lin, self.ftw, self.w = lin, ftw, None
+
+    def forward(self, z):
+        if not isinstance(z, _DevPair):
+            return self.lin(z)
+        import ttnn
+        if self.w is None:
+            self.w = self.ftw._from_torch(self.lin.weight.detach().t().contiguous().float())
+        out = ttnn.linear(z.t, self.w, compute_kernel_config=self.ftw.compute_kernel_config)
+        ttnn.deallocate(z.t)
+        return _DevPair(out, z.seq_len)
 
 
 def _trunk_on_device(ftw, dev, to_host=True):
@@ -714,7 +789,11 @@ def _install_resident_trunk_loop(model):
                 ipt = None
             zt = ftw.module(znew, mask)  # folding trunk consumes znew, returns new z
         dram_peak("esmfold2/trunk-done")
-        z_out = (T.download(zt) if DEVICE_UPLOAD else ftw._to_torch(zt))[:, :Lp, :Lp, :].to(z.dtype)
+        DEVICE_TAIL_STATS[not _DEVICE_TAIL] += 1
+        if _DEVICE_TAIL:
+            z_out, zt = _DevPair(_unpad(zt, Lp), Lp), None
+        else:
+            z_out = (T.download(zt) if DEVICE_UPLOAD else ftw._to_torch(zt))[:, :Lp, :Lp, :].to(z.dtype)
         for t in (zt, ipt, at, mask) + ((base, ln_w, ln_b, b_t) if on_dev else ()):
             if t is not None:
                 try:
@@ -752,6 +831,7 @@ def patch_esmfold2(model, esmc_repo: str = "biohub/ESMC-6B", persistent_lm: bool
     model.lm_encoder = comps["lm_encoder"]
     model.folding_trunk = comps["folding_trunk"]
     model.parcae_coda = comps["parcae_coda"]
+    model.parcae_readout = _ReadoutAdapter(model.parcae_readout, comps["parcae_coda"].m)
     if model.msa_encoder is not None:
         model.msa_encoder = comps["msa_encoder"]
     model.distogram_head = comps["distogram_head"]
@@ -780,6 +860,8 @@ def patch_esmfold2(model, esmc_repo: str = "biohub/ESMC-6B", persistent_lm: bool
 
     def _chunked_confidence(*args, **kw):
         E.report_progress("confidence")  # confidence head runs an on-device pair trunk
+        if isinstance(kw.get("z"), _DevPair):
+            kw = dict(kw, z=kw["z"].host)
         n = int(kw.get("num_diffusion_samples", 1))
         x_pred, z = kw.get("x_pred"), kw.get("z")
         if x_pred is None or z is None or n <= 1:
