@@ -1,0 +1,9 @@
+=== fold 1 binder EKLRELAEKLWRQAEEMLKRAREN
+rc=0 rows now:
+[{"id": "design", "iptm": 0.562011}]
+=== fold 2 binder SWEEIAKRLHELAQKMLDEAKRLG
+rc=0 rows now:
+[{"id": "design", "iptm": 0.562011}]
+=== fold 2 AGAIN with --override
+rc=0 rows now:
+[('design', 0.763021)]
