@@ -736,14 +736,16 @@ def _install_resident_trunk_loop(model):
             real = torch.zeros(1, Lp + pad, Lp + pad)
             real[:, :Lp, :Lp] = 1.0
             mask = ftw._from_torch(real)
-        zt = up(padz(z).float())
         # The injection is loop-invariant only when no loop redraws its LM dropout or MSA rows.
         per_loop = (use_lm and bool(lm_p)) or (msa_loops is not None and len(msa_loops) > 1)
+        on_dev = (_DEVICE_INJECTION and per_loop and isinstance(lm_z, _DevPair)
+                  and (msa_loops is None or msa_fixed is not None))
+        # The first keep mask draws on its thread while the uploads below run (no RNG use in between).
+        draws = _KeepDraws(tuple(lm_z.t.shape), lm_p, total_steps) if on_dev else None
+        zt = up(padz(z).float())
         ipt = None if per_loop else up(
             padz(inject_proj(msa_loops[0] if msa_loops else None)).float())
         at = ftw._from_torch(a.reshape(1, 1, 1, -1).float())  # parcae a, broadcasts over L,L
-        on_dev = (_DEVICE_INJECTION and per_loop and isinstance(lm_z, _DevPair)
-                  and (msa_loops is None or msa_fixed is not None))
         if on_dev:
             # What no loop redraws, uploaded once: the MSA pair (or z_init), LN and b_mat.
             base = up(padz(msa_fixed if msa_fixed is not None else z_init).float())
@@ -753,7 +755,6 @@ def _install_resident_trunk_loop(model):
                           for t in (norm.weight, norm.bias))
             b_t = ftw._from_torch(b_mat.t().contiguous().float())
             ck = ftw.compute_kernel_config
-            draws = _KeepDraws(tuple(lm_z.t.shape), lm_p, total_steps)
 
         def inject_dev():
             x = _lm_dropout(lm_z, lm_p, draws.take())
