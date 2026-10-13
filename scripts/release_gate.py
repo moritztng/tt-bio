@@ -821,6 +821,13 @@ SIZE_LADDER_EXP_MAX_TOL = 1.40
 # running pass is about to read. Give each card its own.
 SIZE_LADDER_WORKDIR = Path(os.environ.get("RELEASE_GATE_SIZE_WORKDIR")
                                    or REPO_ROOT / "perf" / "sizegate" / "work")
+# Where every arm writes its run outputs (<model>_results_prot/, rfd3_gate_designs/, ...). The repo
+# root by default; gate_fanout gives each leg its own, because all legs on a host fold in one shared
+# tree and two arms can share an output name. On 2026-10-13 rg:protenix-v2 rmtree'd
+# protenix_results_prot/ (v1 and v2 share it) on qb1 card 3 while rg:protenix-v1 on card 1 was
+# parsing it, and v1 failed "predict wrote no CIF output" after a clean fold.
+RUN_DIR = Path(os.environ.get("RELEASE_GATE_RUN_DIR") or REPO_ROOT)
+
 # Record mode keeps the per-rung census artifacts here as the evidence behind
 # docs/size_ladder_baseline.json — the first thing to diff when the arm goes red.
 SIZE_LADDER_PROVENANCE = REPO_ROOT / "perf" / "sizegate" / "baseline"
@@ -1810,7 +1817,7 @@ def _predict_geometry(cifs: list, geom) -> dict:
 def run_model(model: str, harness, keep: bool) -> dict:
     """Fold, parse, and ground-truth-score one model. Returns a result row."""
     from tt_bio.main import predict_results_dir_name
-    out = REPO_ROOT / predict_results_dir_name(model, NAME)
+    out = RUN_DIR / predict_results_dir_name(model, NAME)
     if out.exists():
         shutil.rmtree(out)  # never score a stale run if this predict crashes
 
@@ -1821,7 +1828,7 @@ def run_model(model: str, harness, keep: bool) -> dict:
         "--diffusion_samples", str(DIFFUSION_SAMPLES),
         "--seed", str(SEED),
         *_msa_args(model),
-        "--out_dir", str(REPO_ROOT),
+        "--out_dir", str(RUN_DIR),
     ] + ((["--fast"] if FAST else [])
           + (["--diffusion_trace"] if (DIFFUSION_TRACE and model == "boltz2") else []))
     print(f"\n{'='*70}\n[{model}] folding {DATA.name} "
@@ -1885,7 +1892,7 @@ def run_model(model: str, harness, keep: bool) -> dict:
 
 def run_boltzgen(bg, keep: bool) -> dict:
     """Design, parse, and designability-score BoltzGen. Returns a result row."""
-    out = REPO_ROOT / "boltzgen_gate_binder"
+    out = RUN_DIR / "boltzgen_gate_binder"
     if out.exists():
         shutil.rmtree(out)  # never score a stale run if this design run crashes
 
@@ -2022,7 +2029,7 @@ def _rfd3_atom_digest(cif: Path) -> str:
 
 def run_rfd3(keep: bool) -> dict:
     """Design, parse, and structurally score RFD3. Returns a result row."""
-    out = REPO_ROOT / "rfd3_gate_designs"
+    out = RUN_DIR / "rfd3_gate_designs"
     if out.exists():
         shutil.rmtree(out)  # never score a stale run if this design run crashes
 
@@ -2099,7 +2106,7 @@ def run_rfd3(keep: bool) -> dict:
     # single-run geometry number is blind to.
     digests = []
     for rep in (1, 2):
-        rep_out = REPO_ROOT / f"rfd3_gate_determinism_{rep}"
+        rep_out = RUN_DIR / f"rfd3_gate_determinism_{rep}"
         shutil.rmtree(rep_out, ignore_errors=True)
         rc, timed_out = _run_fold(_rfd3_design_cmd(rep_out, 1, RFD3_DET_TIMESTEPS),
                                   FOLD_TIMEOUT_S, cwd=REPO_ROOT)
@@ -2165,12 +2172,12 @@ def _pxdesign_child(out: Path, js: Path) -> int:
 
 def run_pxdesign(keep: bool) -> dict:
     """Design one binder through the shipped CLI path, parse it, and score the conditioning."""
-    out = REPO_ROOT / "pxdesign_gate_designs"
+    out = RUN_DIR / "pxdesign_gate_designs"
     if out.exists():
         shutil.rmtree(out)  # never score a stale run if this design run crashes
-    js = REPO_ROOT / "pxdesign_gate.json"
+    js = RUN_DIR / "pxdesign_gate.json"
     js.unlink(missing_ok=True)
-    log = REPO_ROOT / "pxdesign_gate.log"
+    log = RUN_DIR / "pxdesign_gate.log"
 
     print(f"\n{'='*70}\n[pxdesign] designing against {PXDESIGN_SPEC.name} "
           f"({PXDESIGN_NUM_DESIGNS} design, {PXDESIGN_N_STEP} steps)\n{'='*70}", flush=True)
@@ -2244,7 +2251,7 @@ def run_opendde_abag(keep: bool) -> dict:
     data = OPENDDE_ABAG_DATA
     from tt_bio.main import predict_results_dir_name
     name = data.stem  # "1ahw_abag" -> opendde_results_1ahw_abag/
-    out = REPO_ROOT / predict_results_dir_name("opendde-abag", name)
+    out = RUN_DIR / predict_results_dir_name("opendde-abag", name)
     if out.exists():
         shutil.rmtree(out)  # never score a stale run if this predict crashes
 
@@ -2255,7 +2262,7 @@ def run_opendde_abag(keep: bool) -> dict:
         "--diffusion_samples", str(DIFFUSION_SAMPLES),
         "--seed", str(SEED),
         *_msa_args("opendde-abag"),
-        "--out_dir", str(REPO_ROOT),
+        "--out_dir", str(RUN_DIR),
     ]
     print(f"\n{'='*70}\n[opendde-abag] docking {data.name} "
           f"({SAMPLING_STEPS} steps, {DIFFUSION_SAMPLES} samples)\n{'='*70}", flush=True)
@@ -2393,7 +2400,7 @@ def run_nesso1(keep: bool) -> dict:
 
     # perf/nesso1/, not the repo root: measurement artifacts belong under perf/ (the 08-13
     # run_*.sh lesson), and --keep leaves this file behind on purpose.
-    out_json = REPO_ROOT / "perf" / "nesso1" / "gate_parity.json"
+    out_json = RUN_DIR / "perf" / "nesso1" / "gate_parity.json"
     out_json.parent.mkdir(parents=True, exist_ok=True)
     # Clear the previous run's report first, the way every other arm rmtree's its output dir. On
     # 2026-09-18 gate2's nesso1 leg exited 75 on device contention and wrote nothing, and this arm
@@ -2458,7 +2465,7 @@ def run_rf3_1024aa(keep: bool) -> dict:
 
     # perf/rf3/, not the repo root: measurement artifacts belong under perf/, and --keep
     # leaves the device coordinates and the report behind on purpose.
-    work = REPO_ROOT / "perf" / "rf3" / "gate_1024aa"
+    work = RUN_DIR / "perf" / "rf3" / "gate_1024aa"
     if work.exists():
         shutil.rmtree(work)  # a cached rollout here would score a previous tree
     work.mkdir(parents=True, exist_ok=True)
@@ -2522,7 +2529,7 @@ def run_capacity(keep: bool, leg) -> dict:
     yaml_rel, model, _tokens, samples, mps, budget = leg
     data = REPO_ROOT / yaml_rel
     name = data.stem
-    out = REPO_ROOT / predict_results_dir_name(model, name)
+    out = RUN_DIR / predict_results_dir_name(model, name)
     if out.exists():
         shutil.rmtree(out)
 
@@ -2535,7 +2542,7 @@ def run_capacity(keep: bool, leg) -> dict:
         "--seed", str(SEED),
         "--single_sequence",
         "--write_pae",          # the per-sample PAE files this leg counts are opt-in
-        "--out_dir", str(REPO_ROOT),
+        "--out_dir", str(RUN_DIR),
     ]
     print(f"\n{'='*70}\n[capacity] {data.name} on {model}, "
           f"{samples} samples / {mps} per batch, "
@@ -3268,7 +3275,7 @@ def _rfd3_fusion_census_fold(spec: Path, label: str, workdir: Path) -> dict:
 
 def run_rfd3_fusion(keep: bool) -> dict:
     """Census both fusion fixtures and assert the opposite verdict on each. Returns a result row."""
-    workdir = REPO_ROOT / "rfd3_fusion_gate"
+    workdir = RUN_DIR / "rfd3_fusion_gate"
     if workdir.exists() and not keep:
         shutil.rmtree(workdir)
     row = {"model": "rfd3-fusion", "seconds": None, "gate": False, "error": None,
@@ -5060,7 +5067,7 @@ def _l1_budget_physical_grid() -> tuple:
 
 def _l1_budget_fold(label: str, grid, cap: int, keep: bool) -> dict:
     """One fkg fold at a forced grid and/or a forced trimul chunk width."""
-    out = REPO_ROOT / f"l1_budget_gate_{label}"
+    out = RUN_DIR / f"l1_budget_gate_{label}"
     if out.exists():
         shutil.rmtree(out)
     env = os.environ.copy()
@@ -5090,7 +5097,7 @@ def _l1_budget_fold(label: str, grid, cap: int, keep: bool) -> dict:
 
     row = {"model": f"l1-budget:{label}", "grid": grid, "cap": cap, "seconds": None,
            "clashes": None, "md5": None, "gate": False, "error": None}
-    log = REPO_ROOT / f"l1_budget_gate_{label}.log"
+    log = RUN_DIR / f"l1_budget_gate_{label}.log"
     t0 = time.monotonic()
     with open(log, "wb") as fh:
         rc, timed_out = _run_fold(cmd, FOLD_TIMEOUT_S, cwd=REPO_ROOT, env=env,
@@ -5209,7 +5216,7 @@ def run_batch_position(keep: bool) -> dict:
     if not BATCH_POSITION_SCRIPT.exists():
         row["error"] = f"missing {BATCH_POSITION_SCRIPT}"
         return row
-    out = REPO_ROOT / "batch_position_gate"
+    out = RUN_DIR / "batch_position_gate"
     if out.exists():
         shutil.rmtree(out)
     js = out / "probe.json"
@@ -5221,7 +5228,7 @@ def run_batch_position(keep: bool) -> dict:
     print(f"\n{'='*70}\n[batch-position] {BATCH_POSITION_N} identical "
           f"{BATCH_POSITION_AA} aa targets + one {BATCH_POSITION_EXTRA_AA} aa control, "
           f"one process\n{'='*70}", flush=True)
-    log = REPO_ROOT / "batch_position_gate.log"
+    log = RUN_DIR / "batch_position_gate.log"
     # Each target is a full structure + affinity fold, so this leg needs N+1 of them.
     timeout = FOLD_TIMEOUT_S * (BATCH_POSITION_N + 1)
     t0 = time.monotonic()
@@ -5336,6 +5343,7 @@ def main() -> int:
     ap.add_argument("--pxdesign-out", default=None, help=argparse.SUPPRESS)
     ap.add_argument("--pxdesign-json", default=None, help=argparse.SUPPRESS)
     args = ap.parse_args()
+    RUN_DIR.mkdir(parents=True, exist_ok=True)
 
     if args.pxdesign_child:
         return _pxdesign_child(Path(args.pxdesign_out), Path(args.pxdesign_json))

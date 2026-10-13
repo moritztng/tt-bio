@@ -310,6 +310,8 @@ def test_scheduler_runs_every_leg_once_per_arch_and_timed_legs_alone(tmp_path):
 def test_a_models_fast_arm_shares_its_output_dir():
     assert gf.out_group("rg:esmfold2-fast") == gf.out_group("rg:esmfold2")
     assert gf.out_group("rg:esmfold2") != gf.out_group("ux:esmfold2")
+    assert gf.out_group("rg:protenix-v1") == gf.out_group("rg:protenix-v2")
+    assert gf.out_group("rg:opendde") != gf.out_group("rg:opendde-abag")
 
 
 def test_legs_sharing_an_output_dir_never_overlap_on_one_host(tmp_path):
@@ -660,6 +662,22 @@ def test_a_leg_that_met_another_process_on_its_card_runs_again(tmp_path, monkeyp
     ex = gf.make_executor("c" * 40, tmp_path, gf.Ledger(tmp_path / "l"), {("perf", "bh"): "k"}, "o")
     res = ex(h, 3, gf.Leg("perf", ["PY"], "perf", timed=True))
     assert len(calls) == 2 and res["verdict"] == "PASS"
+
+
+def test_a_leg_that_reports_its_card_unresettable_retires_the_card_without_a_probe(tmp_path, monkeypatch):
+    """qb2:1, 10-13: ladder:opendde stopped on a refused reset, the probe passed, and the next leg
+    on that card died at its first open."""
+    def fake_run(host, card, leg, rdir, f):
+        f.write("##LEG-START 5\nrelease gate stopping: a fold timed out and its card could not be "
+                "reset (refused).\n")
+        return 1
+    monkeypatch.setattr(gf, "run_over_ssh", fake_run)
+    monkeypatch.setattr(gf.Host, "card_dead", lambda self, card: pytest.fail("probed"))
+    h = gf.Host("q", {"arch": "bh", "card_type": "p", "root": "/r"}, "c" * 40)
+    ex = gf.make_executor("c" * 40, tmp_path, gf.Ledger(tmp_path / "l"), {("ladder:m", "bh"): "k"}, "o")
+    with pytest.raises(gf.CardDead) as e:
+        ex(h, 1, gf.Leg("ladder:m", ["PY"], "ladder"))
+    assert "could not be reset" in e.value.why
 
 
 def test_a_second_run_of_a_leg_keeps_the_first_runs_log(tmp_path, monkeypatch):

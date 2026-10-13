@@ -785,9 +785,11 @@ def select(legs: list, patterns: list) -> list:
 # ---------------------------------------------------------------------------------------------
 def out_group(leg_name: str) -> str:
     """Legs that write the same output dir in the commit's shared tree on a host. release_gate
-    names its results dir after the model, and a model's --fast arm shares it: rg:esmfold2 and
-    rg:esmfold2-fast ran at once on g107 on 2026-10-10 and the fast arm found its CIFs deleted."""
-    return leg_name.replace("-fast", "")
+    names its results dir after the model family: a --fast arm shares its model's (rg:esmfold2 and
+    rg:esmfold2-fast on g107, 10-10, the fast arm found its CIFs deleted) and so do a model's
+    versions (rg:protenix-v2 deleted rg:protenix-v1's on qb1, 10-13). Trees since
+    RELEASE_GATE_RUN_DIR write per leg; this keeps older trees, a fix-forward base say, apart."""
+    return re.sub(r"-(fast|v\d+)$", "", leg_name)
 
 
 @dataclass
@@ -949,11 +951,13 @@ class Host:
     def command(self, leg: Leg, card, out: str) -> str:
         c = self.cfg
         pp = ":".join([self.tree] * leg.tree_on_path + c.get("pythonpath_extra", []))
-        # Every leg folds in one shared tree per host, so release_gate's size-ladder scratch must be
-        # the leg's own: the first ladder or record leg to finish rmtrees the shared default under
-        # the others, and a fold whose census dumps vanished reads every lever "not-imported".
+        # Every leg folds in one shared tree per host, so release_gate's scratch and run outputs must
+        # be the leg's own: the first ladder or record leg to finish rmtrees the shared default under
+        # the others (a fold whose census dumps vanished reads every lever "not-imported"), and
+        # rg:protenix-v2 rmtree'd the protenix_results_prot/ rg:protenix-v1 was parsing (qb1 10-13).
         env = {"PYTHONPATH": pp, "TT_VISIBLE_DEVICES": "" if card is None else str(card),
-               "RELEASE_GATE_SIZE_WORKDIR": f"{out}/sizegate-work", **c.get("env", {}),
+               "RELEASE_GATE_SIZE_WORKDIR": f"{out}/sizegate-work", "RELEASE_GATE_RUN_DIR": f"{out}/run",
+               **c.get("env", {}),
                "GATE_READS": f"{out}/reads", "GATE_TREE": self.tree}   # gate_reads.py
         subst = {"{CARD}": str(card), "{OUT}": out, "{SHA}": self.sha, "{WORKER}": f"{self.name}:{card}",
                  "{CARD_TYPE}": c["card_type"],
@@ -1601,7 +1605,12 @@ def make_executor(sha: str, out: Path, ledger: Ledger, keys: dict, remote_out: s
             if not (rc and LOAD_REFUSAL in text and time.time() - t0 < LOAD_WAIT_MAX_S):
                 break
             time.sleep(LOAD_RETRY_S)
-        dead = host.card_dead(card) if rc and card not in (None, POOL) else None
+        # A leg that stopped because its card is dirty and the reset was refused has already proved
+        # what a probe would guess at, and a probe can pass on that card (it reads None when it
+        # cannot get the flock): qb2:1 passed one after ladder:opendde stopped this way on 10-13,
+        # and ladder:boltz2, next on it, died at its first open with a sysmem TT_THROW.
+        dead = None if not rc or card in (None, POOL) else (
+            m[0] if (m := CARD_STUCK.search(text)) else host.card_dead(card))
         if dead:
             with open(log, "a") as f:
                 f.write(f"\n# {host.name}:{card} failed the card probe after this leg: {dead}\n")

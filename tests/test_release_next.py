@@ -277,3 +277,23 @@ def test_a_gate_whose_every_failure_is_waived_is_cut(tmp_path):
     (g / "WAIVE").write_text("perf wh  # no Wormhole baseline yet\n")
     d = rn.decide(tmp_path, gates, "main")
     assert (d["do"], d["sha"], d["waived"]) == ("CUT", x, {"perf wh": "no Wormhole baseline yet"})
+
+
+def test_a_failed_leg_whose_key_passed_since_stops_blocking(tmp_path, monkeypatch):
+    """Gate 8b2f8acaa (10-13): ladder:boltz2 bh died on a card a previous leg left dirty; a partial
+    run of the same key on a clean card filed the pass the verdict lacked."""
+    git = _repo(tmp_path)
+    (tmp_path / "a.py").write_text("x = 2\n")
+    git("commit", "-qam", "staging1")
+    x = git("rev-parse", "HEAD")
+    gates, ledger = tmp_path / "gates", tmp_path / "ledger"
+    ledger.mkdir()
+    monkeypatch.setattr(rn, "LEDGER", ledger)
+    g = _plan(gates, "gx", x, tmp_path)
+    (g / "verdict.json").write_text(json.dumps({"pass": False, "results": [
+        {"leg": "ux:a", "arch": "bh", "verdict": "PASS", "key": "k0"},
+        {"leg": "rg:b", "arch": "bh", "verdict": "FAIL", "key": "k1"}]}))
+    assert rn.decide(tmp_path, gates, "main")["do"] == "FIX"
+    (ledger / "k1.json").write_text("{}")
+    d = rn.decide(tmp_path, gates, "main")
+    assert (d["do"], d["sha"]) == ("CUT", x)
