@@ -1028,8 +1028,14 @@ class SwiGLUFFN(Module):
 
         A separate entry point rather than a change to `__call__`, because `SwiGLUFFN` is shared
         with ESMC's LM FFN, Boltz-2, Protenix-v2, OpenFold3 and OpenDDE and none of them wants
-        `x + ffn(x)`. Does not free `x`; the caller does, as it did around the add it used to own.
+        `x + ffn(x)`. Does not free `x`; the caller does, as it did around the add it used to own,
+        except under `ws_resid`, where the kernel adds into `x` and returns `x` itself.
         """
+        from tt_bio.tenstorrent import lever
+        if lever("ws_resid"):
+            out = self._weight_stationary(x, resid=x)
+            if out is not None:
+                return out
         out = self._weight_stationary(x)
         if out is not None:
             return ttnn.add_(out, x)  # x is the caller's to free
@@ -1041,7 +1047,7 @@ class SwiGLUFFN(Module):
         FUSED_RESID_STATS[1] += 1
         return ttnn.add(x, self(x))
 
-    def _weight_stationary(self, x: ttnn.Tensor):
+    def _weight_stationary(self, x: ttnn.Tensor, resid: ttnn.Tensor | None = None):
         """`transition_ws` on ESMFold2's split pair FFN: the shared `tenstorrent.ws_swiglu` kernel over this
         module's weights in bfp8 on both archs, or None. bfp8 is what the lever was graded with (Wormhole's fast
         weights) and fits c_z 256 / d_ff 1024 in one chunk; Blackhole's fast keeps bf16 module weights, which
@@ -1060,7 +1066,7 @@ class SwiGLUFFN(Module):
                 self._ws = False
         if not self._ws:
             return None
-        return T.ws_swiglu(x, self.norm_weight, self.norm_bias, self.compute_kernel_config, self._ws)
+        return T.ws_swiglu(x, self.norm_weight, self.norm_bias, self.compute_kernel_config, self._ws, resid=resid)
 
     def __call__(self, x: ttnn.Tensor) -> ttnn.Tensor:
         # The fc1 activation (2*d_ff wide) is several GB at long L and, on top of

@@ -206,7 +206,8 @@ class PairUpdateBlock(Module):
         # runs per block so fc2's output never round-trips DRAM (lever F, esmc.PAIR_FFN_FUSED_
         # RESIDUAL). Bit-exact -- the add is elementwise and row-independent.
         out = self.transition.residual(z)
-        ttnn.deallocate(z)
+        if out is not z:  # ws_resid wrote into z
+            ttnn.deallocate(z)
         return out
 
 
