@@ -199,6 +199,8 @@ chip and never writes the hidden activations out. On a Blackhole p150a at 1350 M
 design drops from 61.3 to 56.3 s and a Wormhole one from 114.7 to 100.1 s. Over ten paired seeds on both
 chips the clash count moves by -1.4 with a standard error of 5.4, chain breaks are identical seed for seed,
 and the same-seed drift (3.9 to 12.7 A) stays inside the 13.5 to 20.0 A a seed change moves a design.
+The same kernel also applies the transition's input norm, with bit-identical output. With everything above,
+a 685-residue `--fast` design takes 50.3 s on a Blackhole p150a at 1350 MHz.
 
 ## Checkpoint
 

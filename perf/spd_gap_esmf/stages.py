@@ -7,6 +7,8 @@ Builds the fold through tt_baseline.build_fold (as ab.py), runs one cold fold, t
            wall is its own device time plus its own host dispatch, and the sum against the plain wall
            says how much of the fold is in none of them (host-side glue between stages);
   profile  one fold under cProfile, no syncs, top functions by tottime / cumtime into --out.prof.txt.
+  xfer     one fold with ttnn.from_torch / to_torch timed per call site (first tt_bio frame), no syncs: which
+           uploads and downloads the host blocks on (cProfile only sees ttnn's decorator as their caller).
 The census (census.sh) gives device kernel seconds per region; stage wall minus that is dispatch.
 
     python perf/spd_gap_esmf/stages.py --model esmfold2 --out r.json
@@ -100,5 +102,39 @@ st = pstats.Stats(pr, stream=buf)
 st.sort_stats("tottime").print_stats(60); st.sort_stats("cumulative").print_stats(80)
 st.print_callers(r"core.py.*\((from_torch|to_torch)\)")
 Path(str(a.out) + ".prof.txt").write_text(buf.getvalue())
+a.out.write_text(json.dumps(res, indent=1))
+
+xfer = collections.defaultdict(lambda: [0, 0.0, 0])  # site -> [calls, s, bytes]
+
+
+def _site():
+    f = sys._getframe(2)
+    while f is not None:
+        fn = f.f_code.co_filename
+        if "/tt_bio/" in fn and "/ttnn/" not in fn:
+            return f"{fn.split('/tt_bio/')[-1]}:{f.f_lineno}({f.f_code.co_name})"
+        f = f.f_back
+    return "?"
+
+
+def _timed(name, fn):
+    def wrap(t, *args, **kw):
+        t0 = time.perf_counter(); out = fn(t, *args, **kw); dt = time.perf_counter() - t0
+        host = t if name == "from_torch" else out
+        r = xfer[f"{name} {_site()}"]
+        r[0] += 1; r[1] += dt; r[2] += host.numel() * host.element_size() if hasattr(host, "numel") else 0
+        return out
+    return wrap
+
+
+orig = {n: getattr(ttnn, n) for n in ("from_torch", "to_torch")}
+for n, fn in orig.items():
+    setattr(ttnn, n, _timed(n, fn))
+t0 = time.perf_counter(); one_fold(); res["xfer_fold_s"] = round(time.perf_counter() - t0, 3)
+for n, fn in orig.items():
+    setattr(ttnn, n, fn)
+res["xfer"] = {k: {"n": v[0], "s": round(v[1], 3), "MB": round(v[2] / 2**20, 1)}
+               for k, v in sorted(xfer.items(), key=lambda kv: -kv[1][1])}
+res["xfer_total_s"] = round(sum(v[1] for v in xfer.values()), 3)
 a.out.write_text(json.dumps(res, indent=1))
 T.cleanup()

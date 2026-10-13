@@ -396,8 +396,8 @@ L1_GROUPS_PER_CORE = float(os.environ.get("TT_BIO_REBLOCK_L1_GROUPS_PER_CORE", "
 # leaves BindCraft 2's gradients bit-identical over 30 iterations and AF2-IG's coordinates equal, and
 # takes the on-card iteration 5.34 -> 5.02 s (.114 chip 19, 1000 MHz, out/gfill_2c9346e08).
 # TT_BIO_REBLOCK_DRAM_FILL=0 / TT_BIO_REBLOCK_DRAM_FILL_GATED=0 restore the plain N edge for an A/B.
-DRAM_FILL = os.environ.get("TT_BIO_REBLOCK_DRAM_FILL", "1") != "0"
-DRAM_FILL_GATED = os.environ.get("TT_BIO_REBLOCK_DRAM_FILL_GATED", "1") != "0"
+DRAM_FILL = env_flag("TT_BIO_REBLOCK_DRAM_FILL", True)
+DRAM_FILL_GATED = env_flag("TT_BIO_REBLOCK_DRAM_FILL_GATED", True)
 _GRID_CORES = {}
 
 

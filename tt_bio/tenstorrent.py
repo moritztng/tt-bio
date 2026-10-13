@@ -619,6 +619,13 @@ _FAST_MODE = False
 #                   kernel writing z in place (kernels/trimul_tail_res, compute_ln.cpp; c_z = 128, N >= 160)
 #   trimul_t1_dram  every trimul T1 / T2 can take (N >= 160) runs on the DRAM path, so they also serve the sizes
 #                   that would otherwise stay in L1 (Nesso-1's 256-token crop passes: 0.70 -> 0.36 s each on WH)
+#   trimul_t2cm     with trimul_t2, T2 reads the einsum's channel-major [1, C, S, S] output itself (reader_ln_cm.cpp:
+#                   the reblock gather in its reader, transpose_wh in its compute), so `reblock_permute_back`
+#                   (0.58 ms a call at 512 on p150a) never runs. A pure data move: bit-exact against trimul_t2
+#   dit_fuse        a bf16 token DiT block (OpenFold3's `--fast` stack) in 23 ttnn calls instead of 33: one shared
+#                   parameter-free LN(s) per stack call with the adaLN gammas folded into the weights, every s-path
+#                   sigmoid in its linear's epilogue, the adaLN modulations and gated residuals as one addcmul each,
+#                   `_sdpa32` writing bf16 (`_DiTBlock._call_fused`). Each fused product skips one bf16 rounding
 #   pair_mm         pair-track linears on minimal_matmul with pair_mm's block table (ReLU at pack); the lever form of
 #                   TT_BIO_PAIR_MM for a model that names it in its own set (AF2 on Wormhole)
 #   conf_bins       OpenFold3's pae / pde heads reduce softmax(logits) to their bin-vector products on the card
@@ -637,13 +644,17 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
           "transition_shard", "dit_mm16", "atom_k1", "dit_b8", "dit_qkv16", "atom_mm16", "adaln_mod",
           "swiglu_fc12g", "msa_sample", "dit_sdpa_pm", "dit_s16", "dit_chunk", "conf_bins", "trimul_t1", "trimul_t2",
-          "triatt_tail_bias", "dit_cond_hifi2", "transition_ws", "ws_ln", "trimul_t1_dram", "pair_mm")
+          "triatt_tail_bias", "dit_cond_hifi2", "transition_ws", "ws_ln", "trimul_t1_dram",
+          "trimul_t2cm", "dit_fuse", "pair_mm", "ref_memo")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
 # model's matching op. BoltzGen's own --fast set names dit_cond_hifi2, graded on BoltzGen's designs.
-UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "dit_cond_hifi2", "ws_ln",
-                             "pair_mm"})
+# OpenFold3's own --fast set names dit_fuse, graded on OpenFold3 / OpenBind-0 (openfold3_fold.FAST_LEVERS).
+# ref_memo is host featurisation, OpenFold3 / OpenBind-0 only: one reference conformer per residue type
+# (vendored query.REF_MOL_MEMO), read by worker._predict_openfold3_one off the model's lever set.
+UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "dit_cond_hifi2", "ws_ln", "dit_fuse",
+                             "pair_mm", "ref_memo"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -669,13 +680,13 @@ UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "di
 # same chip, 44 paired folds (spd-integrate gtw, 2026-10-12), PASS on all six; same-seed top pose median against
 # the A/A seed floor: Protenix-v2 0.32 / 1.24 A, OpenFold3 0.61 / 0.81, Boltz-2 1.33 / 1.88, OpenDDE 0.54 / 1.47,
 # ESMFold2-Fast 0.98 / 1.36, ESMFold2 CA-lDDT -0.0013 [-0.0074, +0.0043]; docking flat or up on every model.
-# Blackhole: Boltz-2 fast grade PASS (44 paired, p300c). ESMFold2 on Blackhole declines the kernel (bf16 weights
-# over its L1 budget), so its fold is unchanged there. Warm 512-token fold on a Galaxy chip (1000 MHz):
+# Blackhole fast grade PASS, 44 paired folds each: Boltz-2 (p300c), OpenDDE, and Protenix-v2 (top pose median
+# 0.336 A vs a 1.364 A floor, pLDDT -0.0032, docking 34 -> 35 of 44). ESMFold2 on Blackhole declines the kernel
+# (bf16 weights over its L1 budget), so its fold is unchanged there. Warm 512-token fold on a Galaxy chip (1000 MHz):
 # ESMFold2 -22.1 s, ESMFold2-Fast -11.3, OpenDDE -5.5, Protenix-v2 -2.8, OpenFold3 -1.5, Boltz-2 -1.1 s.
-# A model's fast set takes it once its Blackhole grade passes too: Boltz-2 and both ESMFold2 models (their own
-# LEVERS_FAST) so far; the shared set (Protenix family, OpenDDE) and OpenFold3 leave it out until theirs read.
+# OpenFold3 / OpenBind-0 take it through their own FAST_LEVERS (openfold3_fold.py), Blackhole fast grade PASS.
 FAST_LEVERS = (frozenset(LEVERS) - {"lofi", "triatt_b8", "triatt_bias_b8", "trimul_t1", "trimul_t2", "adaln_mod",
-                                    "trimul_t1_dram", "transition_ws"}
+                                    "trimul_t1_dram"}
                - UNGRADED_LEVERS)
 # trimul_ibw + trimul_tail: Wormhole 11-set grade PASS, 44 paired folds, same-seed top pose median
 # 0.204 A against the 0.60 A bar (A/A seed floor 0.807 A), every paired CI covers 0 or sits on the
@@ -2822,7 +2833,7 @@ def _sdpa32(q, k, v, mask, scale: float) -> ttnn.Tensor:
     return out
 
 
-def _sdpa32_fused(qkv, mask, scale: float, heads: int) -> ttnn.Tensor:
+def _sdpa32_fused(qkv, mask, scale: float, heads: int, out_dtype=ttnn.float32) -> ttnn.Tensor:
     """`_sdpa32` read straight out of a fused `[S, 1, N, 3 * heads * DH]` qkv projection, written
     `[S, 1, N, heads * DH]`: what nlp_create_qkv_heads, `_sdpa32` and nlp_concat_heads give, as one
     program and the same arithmetic (`sdpa_generic.qkv_fused_kernel_dir`)."""
@@ -2833,7 +2844,8 @@ def _sdpa32_fused(qkv, mask, scale: float, heads: int) -> ttnn.Tensor:
     dev = qkv.device()
     k_chunk = 32 if dev.arch() == ttnn.Arch.WORMHOLE_B0 else chunk
     g = dev.compute_with_storage_grid_size()
-    out = ttnn.allocate_tensor_on_device(ttnn.Shape([S, 1, n, w // 3]), ttnn.float32,
+    # `out_dtype` bf16 (dit_fuse): the packer writes the result bf16, no typecast program after it.
+    out = ttnn.allocate_tensor_on_device(ttnn.Shape([S, 1, n, w // 3]), out_dtype,
                                          ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG)
     SG.sdpa(dev, qkv, qkv, qkv, mask, out, chunk, k_chunk, (g.x, g.y), _SDPA32_CKC, scale,
             qkv_fused=heads)
@@ -7731,6 +7743,7 @@ TRACE_REGIONS = {
     # while the 128 MiB open came up. 160 MiB covers the measured need with ~20 % to spare.
     # Blackhole is unmeasured; 240 MiB keeps it under the quarter-bank cap every entry obeys.
     "bc2": {"wormhole_b0": 160 << 20, "blackhole": 240 << 20},
+    "esmfold2": {"wormhole_b0": 32 << 20, "blackhole": 48 << 20},     # ESMFold2 / -Fast diffusion step, PROVISIONAL
 }
 
 
@@ -7753,7 +7766,9 @@ def trace_region_bytes(capture):
 # runs in one thread and holds the GIL, so the chip idles through it and the host lane cannot run
 # beside it. Row-major upload + `to_layout` on the chip is the same permutation, bit for bit.
 # Device side costs a second copy of the tensor for a moment, so it is bounded; bigger tensors and
-# TT_BIO_DEVICE_TILIZE=0 take the host path.
+# TT_BIO_DEVICE_TILIZE=0 take the host path. The bound is on the TILE size, padding included: the
+# host writes every pad element, so a [1, N, N, 1] mask (OpenFold3's pair mask and token bonds) costs
+# the host 32x its row-major bytes.
 DEVICE_TILIZE_MIN = 4 << 20
 DEVICE_TILIZE_MAX = 1 << 30
 _TORCH_DT = {ttnn.float32: torch.float32, ttnn.bfloat16: torch.bfloat16}
@@ -7764,10 +7779,16 @@ def _device_tilize(nbytes):
             and env_flag("TT_BIO_DEVICE_TILIZE", True))
 
 
+def _tile_numel(shape):
+    """Element count of ``shape`` in TILE layout: the last two dims padded to whole tiles."""
+    *lead, h, w = (1, *shape) if len(shape) < 2 else shape
+    return prod(lead) * -(-h // 32) * 32 * -(-w // 32) * 32
+
+
 def upload(t, dtype=ttnn.bfloat16, device=None):
     """`ttnn.from_torch(t, TILE_LAYOUT, device, dtype)`, tilized on the chip when that pays."""
     device = device or get_device()
-    if dtype not in _TORCH_DT or not _device_tilize(t.numel() * _TORCH_DT[dtype].itemsize):
+    if dtype not in _TORCH_DT or not _device_tilize(_tile_numel(t.shape) * _TORCH_DT[dtype].itemsize):
         return ttnn.from_torch(t, layout=ttnn.TILE_LAYOUT, device=device, dtype=dtype)
     rm = ttnn.from_torch(t.to(_TORCH_DT[dtype]).contiguous(), layout=ttnn.ROW_MAJOR_LAYOUT,
                          device=device, dtype=dtype)
@@ -9788,6 +9809,12 @@ class TriangleMultiplication(Module):
         # compile per process and every later call starts narrow.
         x_chunks = []
         x_out, c_done = None, 0      # `_TRIMUL_BACK_INTO`: the output the chunks are written into
+        # `trimul_t2cm`: the whole hidden as ONE channel-major chunk, kept for T2 to read as it is
+        # instead of being moved into x_out. Asked only where the T2 branch below would serve.
+        x_cm, cm_mc = None, None
+        cm_on = (lever("trimul_t2cm") and (_trimul_tail.T2 or lever("trimul_t2"))
+                 and H >= _trimul_tail.MIN_N and add_to_input and not ops.taping()
+                 and self.p_out_bias is None)
         tma_key = ("tma", H, batch, self._hidden, bool(self.ending))
         while True:
             tma_live = False         # an L1 `a` (TT_BIO_OF3L1_TMA) is live in this attempt
@@ -10064,6 +10091,16 @@ class TriangleMultiplication(Module):
                             and _reblock.eligible_back(x_chunk, back_mc)))
                     into = (one_pass and _TRIMUL_BACK_INTO and large_seq and not host_acc and not keep_chunks
                             and _reblock.eligible_back(x_chunk, back_mc))
+                    if (into and cm_on and x_cm is None and x_out is None and c_done == 0
+                            and g_out_fused is not None and int(x_chunk.shape[1]) == self._hidden
+                            and _trimul_tail.t2cm_eligible(
+                                x_chunk, self.out_norm_weight, self.out_norm_bias, self.out_p_weight,
+                                g_out_fused, x_in,
+                                _mm_generic.ckc_args(self.compute_kernel_config)) is None):
+                        # T2CM reads this chunk where it is; the move below never runs.
+                        x_cm, cm_mc = x_chunk, back_mc
+                        c_done += int(x_chunk.shape[1])
+                        continue
                     if into:
                         # Each chunk lands in its own channel slice of one output tensor, so the
                         # concat below never runs. Bit-exact: the same bytes in the same order.
@@ -10181,6 +10218,9 @@ class TriangleMultiplication(Module):
                 if x_out is not None:
                     ttnn.deallocate(x_out)
                 x_out, c_done = None, 0
+                if x_cm is not None:
+                    ttnn.deallocate(x_cm)
+                    x_cm = None
                 if x_out_pre is not None:
                     ttnn.deallocate(x_out_pre)
                     x_out_pre = None
@@ -10267,6 +10307,25 @@ class TriangleMultiplication(Module):
                 TRIMUL_TAIL_ROWS_STATS[1] += 1
         if x_out_pre is not None:       # reserved, but no chunk took the write-into path
             ttnn.deallocate(x_out_pre)
+        if x_cm is not None:
+            # `trimul_t2cm`: T2 on the channel-major chunk. Declined (it was eligible when kept, so
+            # only a row-blocked tail gets here), the chunk takes the move it skipped and every
+            # line below runs as without the lever.
+            fused = None if rows_tail else _trimul_tail.fused_tail_ln_cm(
+                x_cm, self.out_norm_weight, self.out_norm_bias, self.out_p_weight, g_out_fused,
+                x_in, _mm_generic.ckc_args(self.compute_kernel_config), tuple(COMPUTE_GRID_MAIN))
+            if fused is not None:
+                TRIMUL_GOUT_STATS[0] += 1
+                ttnn.deallocate(x_cm)
+                if x_norm_in is not None:      # None under T1
+                    ttnn.deallocate(x_norm_in)
+                ttnn.deallocate(g_out_fused)
+                return fused
+            x_out = ttnn.allocate_tensor_on_device(
+                ttnn.Shape([1, H, H, self._hidden]), x_cm.dtype, ttnn.TILE_LAYOUT, self.device, cm_mc)
+            _reblock.reblock_permute_back(x_cm, cm_mc, out=x_out, c_off=0)
+            ttnn.deallocate(x_cm)
+            x_cm = None
         if rows_tail and (host_acc or keep_chunks):
             # The hidden stays on the host as its channel chunks and the tail uploads one row
             # block of it at a time: uploaded whole it is a second pair-sized tensor beside z.
@@ -12561,10 +12620,12 @@ class Transition(Module):
     def _weight_stationary(self, x, memory_config):
         """`transition_ws`: layer norm, then the whole swiglu as one `pair_swiglu_ws` program, or None
         where the kernel does not take the shape (a hidden width it cannot tile, an L1 destination, a tape).
-        Weights over its L1 budget (c_z 256 in bf16, OpenDDE's c_z 384) run in hidden chunks."""
+        Weights over its L1 budget (OpenDDE's c_z 384) run in hidden chunks. bf16 weights only up to c_z 128:
+        at c_z 256 they read sparse errors of exactly 1, 2 and 4 against float64 (wd1, both hidden chunks)."""
         if not (_ws_applies(x, self.compute_kernel_config)
                 and (memory_config is None or memory_config.buffer_type == ttnn.BufferType.DRAM)
-                and (self.dtype or _dtype()) == ttnn.bfloat16):
+                and (self.dtype or _dtype()) == ttnn.bfloat16
+                and (self._hidden_b8 or x.shape[-1] <= 128)):
             return None
         if getattr(self, "_ws", None) is None:
             # bfp8 weights where the module's own are (transition_b8, fast mode): that is also what lets

@@ -39,6 +39,7 @@ from tt_bio.tenstorrent import (
     attn_value_matmul,
     fused_sdpa,
     trunk_compute_kernel_config,
+    trace_region_size,
 )
 from tt_bio.eltwise_fusion import scale_add
 
@@ -50,6 +51,10 @@ _DTYPE = ttnn.bfloat16  # activation dtype for the diffusion / encoders
 # c, the atom adaLN modulation) across the ~20 sampling steps, keyed by source-
 # tensor identity. Bit-identical to recomputing.
 _STEP_CACHE = True
+
+# The token DiT's q/k/v/g with the 48 -> 64 head padding folded into the weights (AttentionPairBias
+# ._folded): two matmuls per block instead of six plus a chunk and a concat. Same arithmetic.
+_APB_FOLD = env_flag("TT_BIO_ESMFOLD2_APB_FOLD", False)
 
 
 # Optional progress callback for the CLI display: report_progress(stage, step, total).
@@ -73,6 +78,18 @@ def report_progress(stage, step=0, total=0):
 # set_trajectory_dump() installs one. It only reads tensors the sampler already made, so a fold is
 # bit-identical with or without it. An exception raised by the hook aborts the fold.
 _DUMP = None
+
+#: Replay the diffusion step from a ttnn trace (StructureHead._step) when the device was opened
+#: with get_device(trace="esmfold2"). Lossless. Off: it lost 0.46 s/fold on p150a while the dense
+#: atom SDPA kept the step device-bound; re-measured with the windowed atom attention.
+DIFFUSION_TRACE = env_flag("TT_BIO_ESMFOLD2_DIFFUSION_TRACE", False)
+DIFFUSION_TRACE_STATS = [0, 0]  # [steps replayed, steps run eager]
+
+
+def set_diffusion_trace(on: bool) -> None:
+    global DIFFUSION_TRACE
+    DIFFUSION_TRACE = bool(on)
+
 
 def set_trajectory_dump(fn):
     global _DUMP
@@ -299,6 +316,21 @@ class AttentionPairBias(Module):
         )
         self.scatter_g = to_tt(Sg)
         self.out_w_padded = to_tt(Op)
+        self._Sg = Sg
+        self._fold = None  # (qkv_w, qkv_b, g_w) with the head padding folded in, built on first use
+
+    def _folded(self):
+        """q/k/v/g projections with scatter_g folded into the weights: W @ Sg only moves columns, so
+        x @ (W @ Sg) is the padded projection exactly, one matmul for q|k|v and one for g."""
+        if self._fold is None:
+            Sg, d = self._Sg, self._Sg.shape[0]
+            W = lambda k: self.weights[k].float()
+            kv = W("kv_proj.weight")
+            qkv = torch.cat([W("q_proj.weight").t() @ Sg, kv[:d].t() @ Sg, kv[d:].t() @ Sg], dim=1)
+            b = torch.cat([W("q_proj.bias").reshape(1, -1) @ Sg, torch.zeros(1, 2 * Sg.shape[1])], dim=1)
+            to_tt = lambda x: ttnn.from_torch(x, layout=ttnn.TILE_LAYOUT, device=self.device, dtype=_DTYPE)
+            self._fold = (to_tt(qkv), to_tt(b), to_tt(W("g_proj.weight").t() @ Sg))
+        return self._fold
 
     def __call__(self, a: ttnn.Tensor, s: ttnn.Tensor, z: ttnn.Tensor) -> ttnn.Tensor:
         ck = self.compute_kernel_config
@@ -307,6 +339,12 @@ class AttentionPairBias(Module):
 
         x = self.adaln(a, s)
         lin = self._lin
+        if _APB_FOLD:
+            qkv_w, qkv_b, g_w = self._folded()
+            qh, kh, vh = self._split_heads(lin(x, qkv_w, qkv_b), self.num_heads)
+            g_pad = ttnn.sigmoid(lin(x, g_w))  # pad lanes read 0.5, against ctx pad lanes that are 0
+            ttnn.deallocate(x)
+            return self._attend(qh, kh, vh, g_pad, s, z, head_dim, ck)
         q = lin(x, self.q_w, self.q_b)
         kv = lin(x, self.kv_w)
         k, v = ttnn.chunk(kv, 2, dim=-1)
@@ -326,7 +364,12 @@ class AttentionPairBias(Module):
         qkv = ttnn.concat([qp, kp, vp], dim=-1)  # [B, L, 3*Dpad]
         ttnn.deallocate(qp); ttnn.deallocate(kp); ttnn.deallocate(vp)
         qh, kh, vh = self._split_heads(qkv, self.num_heads)
+        g_pad = lin(g, self.scatter_g)  # [B, L, Dpad]
+        ttnn.deallocate(g)
+        return self._attend(qh, kh, vh, g_pad, s, z, head_dim, ck)
 
+    def _attend(self, qh, kh, vh, g_pad, s, z, head_dim, ck):
+        lin = self._lin
         # pair_bias = pair_bias_proj(layer_norm(z)) is a pure function of the
         # pair conditioning z, which is constant across the diffusion sampling
         # steps (the resident sampler feeds the same cached z object each step).
@@ -353,8 +396,6 @@ class AttentionPairBias(Module):
         ttnn.deallocate(qh); ttnn.deallocate(kh); ttnn.deallocate(vh)
         ctx = self._merge_heads(ctx)  # [B, L, H*head_dim_pad]  (pad value dims are 0)
         # Gate + out_proj in the padded head layout, then project back to d_model.
-        g_pad = lin(g, self.scatter_g)  # [B, L, Dpad]
-        ttnn.deallocate(g)
         ctx = ttnn.multiply(ctx, g_pad)
         ttnn.deallocate(g_pad)
         out = lin(ctx, self.out_w_padded)  # [B, L, d_model]
@@ -682,6 +723,93 @@ def band_mask(n_or_mask, half_window: int):
     return torch.where(allowed, 0.0, float("-inf")).view(1, 1, n, n)
 
 
+# The atom transformer's sliding window as ONE windowed SDPA: block i of 32 queries reads the 160 keys
+# [32 i - 64, 32 i + 96) straight from a zero-framed K/V (sdpa_generic `kv_window`, the program
+# Protenix's and OpenFold3's atom attention run), instead of a dense [N, N] band mask over every atom.
+# Keys outside the band get zero weight on both paths, so it is the same attention; the softmax reduces
+# over 160 keys instead of N, which is ~26x fewer scores at 512 tokens. When a valid atom's window does
+# not fit the 160 keys (padding inside the atom list) the dense band runs instead. p300c 512 aa: -0.82 s ESMFold2,
+# -1.05 s ESMFold2-Fast; passes the normal and the fast bar on both models on Blackhole (perf/spd/grade.py, 11 complexes),
+# so on by default there. Wormhole is not graded and keeps the dense band (and its digests) unless the switch is set:
+# None = by arch.
+_SWA_WINDOW = (env_flag("TT_BIO_ESMFOLD2_SWA_WINDOW", False)
+               if os.environ.get("TT_BIO_ESMFOLD2_SWA_WINDOW", "").strip() else None)
+SWA_STATS = [0, 0]  # atom transformer masks built (windowed, dense)
+
+
+def _window_bias(dense, half_window, nq=32):
+    """Dense [N, N] 0/-inf band -> per-block bias [nb, nq, W] over keys [nq*i - lead, nq*i - lead + W),
+    or None when some valid query row has an allowed key outside its window."""
+    N = dense.shape[-1]
+    lead = -(-half_window // nq) * nq
+    W, NP = 2 * lead + nq, -(-N // nq) * nq
+    nb = NP // nq
+    full = torch.full((NP, lead + NP + lead), float("-inf"))
+    full[:N, lead:lead + N] = dense
+    cols = (torch.arange(nb)[:, None] * nq + torch.arange(W)[None, :])  # [nb, W]
+    win = full.view(nb, nq, -1).gather(2, cols[:, None, :].expand(nb, nq, W))
+    if not torch.equal((win.reshape(NP, W)[:N] == 0).sum(1), (dense == 0).sum(1)):
+        return None
+    return win
+
+
+class SWAWindow:
+    """The windowed atom attention's device state: the 0/-big bias [1, H*nb, 32, W] and the zero rows
+    that frame K and V. Stands where the dense band mask stood."""
+
+    NQ = 32
+
+    def __init__(self, win, n, heads, head_dim, upload, device):
+        nb, nq, W = win.shape
+        self.n, self.nb, self.W, self.lead = n, nb, W, (W - nq) // 2
+        # finite, so a fully masked padding row stays finite; pre-scaled because the kernel scales the
+        # mask with the scores (OpenFold3 _superset does the same)
+        bias = win.clamp(min=-1e4) * head_dim ** 0.5
+        self.bias = upload(bias.unsqueeze(0).expand(heads, nb, nq, W).reshape(1, heads * nb, nq, W).contiguous())
+        self.zero = ttnn.zeros((1, heads, self.lead, head_dim), dtype=_DTYPE, layout=ttnn.TILE_LAYOUT, device=device)
+
+    def attend(self, q, k, v, scale):
+        """q, k, v [1, H, N, dh] -> ctx [1, H, N, dh]."""
+        import tt_bio.tenstorrent as _T
+        from tt_bio import sdpa_generic as SG
+        H, dh, nb, nq, N = q.shape[1], q.shape[3], self.nb, self.NQ, self.n
+        NP = nb * nq
+        if NP != N:
+            q, k, v = (ttnn.pad(t, [(0, 0), (0, 0), (0, NP - N), (0, 0)], 0.0) for t in (q, k, v))
+        kf = ttnn.concat([self.zero, k, self.zero], dim=2)
+        vf = ttnn.concat([self.zero, v, self.zero], dim=2)
+        qb = ttnn.reshape(q, (1, H * nb, nq, dh))
+        o = ttnn.allocate_tensor_on_device(ttnn.Shape([1, H * nb, nq, dh]), q.dtype, ttnn.TILE_LAYOUT,
+                                           q.device(), ttnn.DRAM_MEMORY_CONFIG)
+        # the wheel SDPA's default compute config, which the dense band path runs at
+        SG.sdpa(q.device(), qb, kf, vf, self.bias, o, nq, self.W, tuple(_T.COMPUTE_GRID_MAIN),
+                (ttnn.MathFidelity.HiFi2, True, False, False), scale, kv_window=(nb, self.W))
+        ttnn.deallocate(kf); ttnn.deallocate(vf)
+        if NP != N:
+            for t in (q, k, v):
+                ttnn.deallocate(t)
+        o = ttnn.reshape(o, (1, H, NP, dh))
+        return ttnn.slice(o, [0, 0, 0, 0], [1, H, N, dh]) if NP != N else o
+
+    def deallocate(self):
+        ttnn.deallocate(self.bias); ttnn.deallocate(self.zero)
+
+
+def swa_band(n_or_mask, half_window, upload, device, heads=4, head_dim=32):
+    """The atom transformer's attention mask on the device: a SWAWindow when the windowed path holds,
+    else the dense [1, 1, N, N] band."""
+    dense = band_mask(n_or_mask, half_window)
+    on = _SWA_WINDOW
+    if on is None:
+        from tt_bio import tenstorrent
+        on = tenstorrent.arch_name() == "blackhole"
+    win = _window_bias(dense[0, 0], half_window) if on else None
+    SWA_STATS[win is None] += 1
+    if win is None:
+        return upload(dense.float())
+    return SWAWindow(win, dense.shape[-1], heads, head_dim, upload, device)
+
+
 def _rms_norm(x, ck, eps=1e-6):
     return ttnn.rms_norm(x, epsilon=eps, compute_kernel_config=ck)
 
@@ -703,7 +831,10 @@ class SWAAttention(Module):
         q, k, v = self._split_heads(lin(x, self.qkv_w), self.n_heads)
         q = apply_rotary(_rms_norm(q, ck), cos, sin)
         k = apply_rotary(_rms_norm(k, ck), cos, sin)
-        ctx = _sdpa_bf16(q, k, v, attn_mask, head_dim**-0.5)
+        if isinstance(attn_mask, SWAWindow):
+            ctx = attn_mask.attend(q, k, v, head_dim**-0.5)
+        else:
+            ctx = _sdpa_bf16(q, k, v, attn_mask, head_dim**-0.5)
         ttnn.deallocate(q); ttnn.deallocate(k); ttnn.deallocate(v)
         ctx = self._merge_heads(ctx)
         # Zero invalid (padding) atom outputs so they can't blow up / NaN-contaminate
@@ -804,11 +935,10 @@ class SWAAtomTransformer(TorchWrapper):
     def forward(self, q_l, c_l, ref_pos, ref_space_uid):
         n = q_l.shape[1]
         cos, sin = build_3d_rope_tables(ref_pos, ref_space_uid, self.head_dim, **ATOM_ROPE)
-        mask = band_mask(n, self.half_window)
+        mask = swa_band(n, self.half_window, self._from_torch, self.tt_device, self.n_heads, self.head_dim)
         out = self.module(
             self._from_torch(q_l), self._from_torch(c_l),
-            self._from_torch(cos.float()), self._from_torch(sin.float()),
-            self._from_torch(mask.float()),
+            self._from_torch(cos.float()), self._from_torch(sin.float()), mask,
         )
         return self._to_torch(out)
 
@@ -938,9 +1068,9 @@ class DiffusionModuleModel(Module):
 
     def release_cache(self):
         for k, v in getattr(self, "_ctx", {}).items():
-            if isinstance(v, ttnn.Tensor):
+            if isinstance(v, (ttnn.Tensor, SWAWindow)):
                 try:
-                    ttnn.deallocate(v)
+                    v.deallocate() if isinstance(v, SWAWindow) else ttnn.deallocate(v)
                 except Exception:
                     pass
         self._ctx = {}
@@ -977,7 +1107,7 @@ class DiffusionModule(TorchWrapper):
             ref_element, ref_atom_name_chars.reshape(B, N, -1),
         ], dim=-1)  # [B,N,389]
         cos, sin = build_3d_rope_tables(ref_pos, ref_space_uid, 32, **ATOM_ROPE)
-        band = band_mask(ref_mask, 64)
+        band = swa_band(ref_mask, 64, ft, self.tt_device)
         valid = ref_mask.reshape(1, N, 1).float()  # [1,N,1] zero out padding atoms
         oh = F.one_hot(tok_idx[0].long(), L).float() * ref_mask[0].float()[:, None]  # [N,L]
         gather_g = oh.unsqueeze(0)  # [1,N,L]
@@ -986,7 +1116,7 @@ class DiffusionModule(TorchWrapper):
         ft = self._from_torch
         r_update = self.module(
             ft(s_inputs), ft(z_trunk), ft(relpos), ft(n_raw), ft(atom_feats.float()),
-            ft(r_input.float()), ft(cos.float()), ft(sin.float()), ft(band.float()),
+            ft(r_input.float()), ft(cos.float()), ft(sin.float()), band,
             ft(scatter_m.float()), ft(gather_g.float()), ft(valid),
         )
         r_update = self._to_torch(r_update)
@@ -1063,13 +1193,13 @@ class InputsEmbedder(TorchWrapper):
             ref_element, ref_atom_name_chars.reshape(B, N, -1),
         ], dim=-1)
         cos, sin = build_3d_rope_tables(ref_pos, ref_space_uid, 32, **ATOM_ROPE)
-        band = band_mask(atom_mask, 64)
+        band = swa_band(atom_mask, 64, self._from_torch, self.tt_device)
         valid = atom_mask.reshape(1, N, 1).float()
         oh = F.one_hot(atom_to_token[0].long(), L).float() * atom_mask[0].float()[:, None]
         scatter_m = (oh / oh.sum(0).clamp(min=1)).t().unsqueeze(0)
         ft = self._from_torch
         a, _q, _c = self.module(ft(atom_feats.float()), ft(cos.float()), ft(sin.float()),
-                                ft(band.float()), ft(scatter_m.float()), valid=ft(valid))
+                                band, ft(scatter_m.float()), valid=ft(valid))
         a = self._to_torch(a)  # [B,L,384]
         return torch.cat([a, aatype, profile, deletion_mean.unsqueeze(-1)], dim=-1)
 
@@ -1543,13 +1673,13 @@ class StructureHead(TorchWrapper):
             ref_element, ref_atom_name_chars.reshape(B, N, -1),
         ], dim=-1)
         cos, sin = build_3d_rope_tables(ref_pos, ref_space_uid, 32, **ATOM_ROPE)
-        band = band_mask(ref_mask, 64)
+        band = swa_band(ref_mask, 64, ft, self.tt_device)
         valid = ref_mask.reshape(1, N, 1).float()
         oh = F.one_hot(tok_idx[0].long(), L).float() * ref_mask[0].float()[:, None]
         gather_g = oh.unsqueeze(0)
         scatter_m = (oh / oh.sum(0).clamp(min=1)).t().unsqueeze(0)
         dmm.prepare(ft(s_inputs), ft(z_trunk), ft(relpos), ft(atom_feats.float()),
-                    ft(cos.float()), ft(sin.float()), ft(band.float()),
+                    ft(cos.float()), ft(sin.float()), band,
                     ft(scatter_m.float()), ft(gather_g.float()), ft(valid))
         self._base, self._ref_mask, self._n_atoms = dmm._ctx, ref_mask, N
 
@@ -1582,7 +1712,7 @@ class StructureHead(TorchWrapper):
             denom = torch.sqrt(t * t + sigma * sigma)
             r_noisy = x_noisy / denom[:, None, None]
             r_input = torch.cat([r_noisy, torch.zeros_like(r_noisy)], dim=-1)  # [B,N,6]
-            r_update = self._to_torch(dmm.step(ft(n_raw), ft(r_input.float())))
+            r_update = self._step(n_raw, r_input.float())
             sigma2, t2 = sigma * sigma, t * t
             out = (sigma2 / (sigma2 + t2))[:, None, None] * x_noisy
             return out + ((sigma * t) / torch.sqrt(sigma2 + t2))[:, None, None] * r_update
@@ -1591,9 +1721,69 @@ class StructureHead(TorchWrapper):
             return sample_structure(denoise, N, ref_mask, steps=steps,
                                     sigma_data=sigma, seed=seed)
         finally:
+            self._release_trace()
             if dmm._ctx is not self._base:
                 dmm.release_cache()
                 dmm._ctx = self._base
+
+    def _step(self, n_raw, r_input):
+        """One denoiser call. Replayed from a ttnn trace when the device has a region for it.
+
+        The step is shape-stable within a trajectory and reads only two small inputs, so the
+        graph captured once replays every later step with new input contents: the same program
+        on the same buffers, bit-identical to the eager call. What it removes is the host
+        dispatch of every op of every step, which the eager loop pays in full because each step
+        ends in a download. Steps 1-2 run eager (they fill the modules' lazy device caches,
+        which must not be created inside a capture); step 3 is captured and replayed.
+        The trace bakes in the addresses of the trajectory's resident tensors, so it lives
+        exactly as long as one draw().
+        """
+        tr = getattr(self, "_trace", None)
+        key = (tuple(n_raw.shape), tuple(r_input.shape))
+        if tr is not None and tr["key"] != key:
+            self._release_trace()
+            tr = None
+        if tr is None:
+            self._eager_steps = getattr(self, "_eager_steps", 0) + 1
+            if not (DIFFUSION_TRACE and trace_region_size() > 0 and self._eager_steps > 2):
+                DIFFUSION_TRACE_STATS[1] += 1
+                out = self.module.step(self._from_torch(n_raw), self._from_torch(r_input))
+                res = self._to_torch(out)
+                ttnn.deallocate(out)
+                return res
+            tr = self._capture_step(n_raw, r_input, key)
+        host = lambda x: ttnn.from_torch(x, layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16)
+        ttnn.copy_host_to_device_tensor(host(n_raw), tr["n"])
+        ttnn.copy_host_to_device_tensor(host(r_input), tr["r"])
+        ttnn.execute_trace(self.tt_device, tr["tid"], cq_id=0, blocking=False)
+        DIFFUSION_TRACE_STATS[0] += 1
+        return self._to_torch(tr["out"])
+
+    def _capture_step(self, n_raw, r_input, key):
+        dev = self.tt_device
+        n_t, r_t = self._from_torch(n_raw), self._from_torch(r_input)
+        ttnn.synchronize_device(dev)
+        tid = ttnn.begin_trace_capture(dev, cq_id=0)
+        try:
+            out = self.module.step(n_t, r_t)
+        except BaseException:
+            # Close the capture, or the device stays in it and every later upload throws.
+            ttnn.end_trace_capture(dev, tid, cq_id=0)
+            ttnn.release_trace(dev, tid)
+            raise
+        ttnn.end_trace_capture(dev, tid, cq_id=0)
+        self._trace = {"tid": tid, "n": n_t, "r": r_t, "out": out, "key": key}
+        return self._trace
+
+    def _release_trace(self):
+        tr = getattr(self, "_trace", None)
+        self._trace, self._eager_steps = None, 0
+        if tr is None:
+            return
+        ttnn.synchronize_device(self.tt_device)
+        ttnn.release_trace(self.tt_device, tr["tid"])
+        for k in ("n", "r", "out"):
+            ttnn.deallocate(tr[k])
 
     def release(self):
         self.module._ctx = getattr(self, "_base", {}) or {}

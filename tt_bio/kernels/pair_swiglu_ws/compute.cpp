@@ -14,6 +14,7 @@
 // is then wrong by design. No production call sets them.
 // WS_LN (the `ws_ln` lever): the caller's LayerNorm runs here instead, per row tile, from the raw x in c_5 into
 // c_0 (kernels/common/ln_prologue.hpp, shared with trimul T1/T2), so the normalised x never goes to DRAM.
+// WS_RMS with it: the norm is an RMSNorm (RFdiffusion3's pair Transition); the beta CB is loaded and unused.
 #include <cstdint>
 #define REDUCE_OP PoolType::SUM
 #define REDUCE_DIM ReduceDim::REDUCE_ROW
@@ -61,7 +62,11 @@ void kernel_main() {
     for (uint32_t r = 0; r < count; ++r) {
 #ifdef WS_LN
         cb_reserve_back(cb_x, KT);
+#ifdef WS_RMS
+        ln_prologue::rms_norm_row<LnCbs>(cb_x, [](uint32_t i) { pack_tile<true>(0, cb_x, i); });
+#else
         ln_prologue::layer_norm_row<LnCbs>(cb_x, [](uint32_t i) { pack_tile<true>(0, cb_x, i); });
+#endif
         cb_push_back(cb_x, KT);
 #endif
         cb_wait_front(cb_x, KT);
