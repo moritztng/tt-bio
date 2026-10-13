@@ -15,17 +15,28 @@ def say(good, what, detail=""):
     ok &= good
     print(f"  [{'PASS' if good else 'FAIL'}] {what}{(': ' + detail) if detail else ''}")
 
+# oracle line 63-64: run_dir/structures if it exists, else BoltzOracle._find_pred_dir's
+# **/predictions/* then "parent of the first **/*.cif" fallback.
 struct = run / "structures"
-pred = struct if struct.is_dir() else run
-say(struct.is_dir(), "structures/ exists (oracle line 63)", str(struct))
-cifs = sorted(pred.glob("*.cif")) or sorted(pred.glob("**/*.cif"))
-say(bool(cifs), "cif present for _parse_cif", ", ".join(p.name for p in cifs[:3]))
+if struct.is_dir():
+    pred, how = struct, "run_dir/structures"
+else:
+    c = next((c for c in run.glob("**/predictions/*") if c.is_dir() and any(c.glob("*.cif"))), None)
+    cif0 = next(run.glob("**/*.cif"), None)
+    pred = c or (cif0.parent if cif0 else run)
+    how = "_find_pred_dir fallback -> " + str(pred.relative_to(run))
+say(pred.is_dir() and any(pred.glob("*.cif")), "oracle resolves a pred_dir holding the cif", how)
+cifs = sorted(pred.glob("*.cif"))
+say(bool(cifs), "cif present for _parse_cif", ", ".join(x.name for x in cifs[:3]))
 if cifs:
-    bf = [float(l.split()[14]) for l in cifs[0].read_text().splitlines()
-          if l.startswith("ATOM") and len(l.split()) > 14]
-    if bf:
-        say(max(bf) > 1.5, "pLDDT in B-factor is 0-100 not 0-1 (oracle divides by 100)",
-            f"min={min(bf):.2f} max={max(bf):.2f}")
+    import gemmi  # same reader _parse_cif uses
+    st = gemmi.read_structure(str(cifs[0])); m = st[0]
+    names = [ch.name for ch in m]
+    say(set(["A", "B"]) <= set(names), "cif chain names match the yaml ids the oracle indexes by",
+        ",".join(names))
+    bf = [a.b_iso for ch in m for r in ch for a in r if a.name == "CA"]
+    say(bool(bf) and max(bf) > 1.5, "CA B-factor is pLDDT on 0-100 (oracle divides by 100)",
+        f"n={len(bf)} min={min(bf):.1f} max={max(bf):.1f}" if bf else "no CA atoms")
 
 p = (next(pred.glob(f"{name}*_pae.npz"), None) or next(pred.glob("*_pae.npz"), None)
      or next(pred.glob("**/*_pae.npz"), None))

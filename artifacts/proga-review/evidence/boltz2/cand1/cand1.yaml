@@ -1,0 +1,10 @@
+version: 1
+sequences:
+  - protein:
+      id: A
+      sequence: EKLRELAEKLWRQAEEMLKRAREN
+      msa: /home/ttuser/proga-review/fb/c3/msa/015665551bb202b0.a3m
+  - protein:
+      id: B
+      sequence: MQIFVKTLTGKTITLEVEPSDTIENVKAKIQDKEGIPPDQQRLIFAGKQLEDGRTLSDYNIQKESTLHLVLRLRGG
+      msa: /home/ttuser/proga-review/fb/c3/msa/233b4b0b8c461609.a3m
