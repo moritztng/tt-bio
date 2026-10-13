@@ -5,7 +5,7 @@ float64 error and T2 served/declined per arm.
 
     python perf/spd_trifuse/t2probe.py --n 512 --arms "normal-trunk_hifi3+trimul_gin,normal-trunk_hifi3+trimul_gin+trimul_t2g"
 """
-import argparse, json, sys
+import argparse, json, statistics, sys, time
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 ap = argparse.ArgumentParser()
@@ -13,6 +13,8 @@ ap.add_argument("--n", type=int, default=512)
 ap.add_argument("--cz", type=int, default=256)
 ap.add_argument("--arms", required=True, help="comma-separated lever specs; ';' separates arms when specs hold commas")
 ap.add_argument("--ending", action="store_true")
+ap.add_argument("--reps", type=int, default=5, help="timed calls per arm (synced, in-place on one z)")
+ap.add_argument("--fast-mode", action="store_true", help="tenstorrent.set_fast_mode(True), as Wormhole ESMFold2 --fast folds")
 a = ap.parse_args()
 from tt_bio.main import ensure_p300_mesh_descriptor
 ensure_p300_mesh_descriptor()
@@ -45,6 +47,8 @@ def reference():
 
 ref = reference()
 dev = T.get_device()
+if a.fast_mode:
+    T.set_fast_mode(True)
 outs = []
 for spec in (a.arms.split(";") if ";" in a.arms else a.arms.split(",")):
     with T.lever_scope(spec):
@@ -60,8 +64,16 @@ for spec in (a.arms.split(";") if ";" in a.arms else a.arms.split(",")):
             if zd.is_allocated():
                 ttnn.deallocate(zd)
         t2 = [TL.T2_STATS[0] - s0[0], TL.T2_STATS[1] - s0[1]]
+        zd = ttnn.from_torch(z_host, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev,
+                             memory_config=ttnn.DRAM_MEMORY_CONFIG)
+        ms = []
+        for _ in range(a.reps):
+            ttnn.synchronize_device(dev); t0 = time.perf_counter()
+            zd = mod(zd, None, add_to_input=True)
+            ttnn.synchronize_device(dev); ms.append(1e3 * (time.perf_counter() - t0))
+        ttnn.deallocate(zd)
     u, ur = (yt - z_host).double(), (ref - z_host.double())
-    rec = {"arm": spec, "t2": t2, "rel_rms_update": ((u - ur).pow(2).mean().sqrt() / ur.pow(2).mean().sqrt()).item(),
+    rec = {"arm": spec, "t2": t2, "ms_median": round(statistics.median(ms), 3), "ms": [round(m, 3) for m in ms], "rel_rms_update": ((u - ur).pow(2).mean().sqrt() / ur.pow(2).mean().sqrt()).item(),
            "max_abs": (yt.double() - ref).abs().max().item(), "finite": bool(torch.isfinite(yt).all()),
            "equal_first": bool(torch.equal(yt, outs[0])) if outs else None,
            "maxdiff_first": (yt - outs[0]).abs().max().item() if outs else None}
