@@ -211,7 +211,7 @@ Protenix-v2 is 1.6x faster on Wormhole and OpenDDE 1.3x, with structures inside 
   bf16 head outputs (`TT_BIO_PWA_FUSED_HEADS`). This applies to every model that uses the shared MSA module,
   Boltz-2 included, in both modes. It is closer to a float64 reference (relative error 3.8e-3 against 6.0e-3 at
   Boltz-2's head shape) but not byte-identical, so Boltz-2 coordinates for a given seed change. `TT_BIO_PWA_FUSED_HEADS=0`
-  restores the previous path. (This entry was missing when 0.14.0 shipped, see
+  turns it off. (This entry was missing when 0.14.0 shipped, see
   [#23](https://github.com/moritztng/tt-bio/issues/23).)
 - Blackhole kernels split DRAM reads larger than 2 KiB, the tt-metal#59622 workaround for a NoC hang
   (`TT_BIO_BH_DRAM_READ_SPLIT`, same bytes).
