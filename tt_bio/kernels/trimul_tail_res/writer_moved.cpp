@@ -8,6 +8,11 @@
 // z into c_7, then writes the previous block's output from c_2 into z in place. Reading block b
 // before writing block b - 1 keeps the double-buffered inputs one block ahead of compute; z of a
 // row is always read before this same core writes it, and no other core touches the row.
+//
+// Reads and writes share this RISC's NoC, so a block's reads start only once the earlier writes are
+// acknowledged: DRAM reads and non-posted writes in flight together on one NoC deadlocked
+// reblock_permute_gated on a Blackhole chip (see `../common/l1_copy.hpp`). The writes of block b - 2
+// were flushed a whole block ago, so the wait is normally already over.
 #include "api/dataflow/dataflow_api.h"
 
 void kernel_main() {
@@ -40,6 +45,7 @@ void kernel_main() {
         return i * St + jt;
     };
     auto read_block = [&](uint32_t m) {
+        noc_async_write_barrier();
         cb_reserve_back(g_cb, Mb * gt);
         cb_reserve_back(z_cb, Mb * Nt);
         uint32_t wg = get_write_ptr(g_cb), wz = get_write_ptr(z_cb);

@@ -5,9 +5,9 @@ goes back through ``pair_transpose`` (read u, write a new pair) and then the lay
 that pair, write z): 5P of DRAM traffic per call, P = one bf16 pair (277 MB at 736 tokens). This reads
 u and z once and writes z once, 3P.
 
-Same units and the same reader as ``pair_transpose``'s split kernels (the reader is that file, unchanged).
-The writer reads the z tiles a unit lands on and passes the shuffled slot to a compute kernel instead of
-writing it; the compute kernel adds with ``add_tiles`` into a 32-bit DEST packed to bfloat16, which is
+Same units and the same reader as ``pair_transpose``'s split kernels; with ZADD set that reader also reads
+the z tiles a unit lands on, so all DRAM reads share one NoC and the writer's NoC carries only the z writes.
+The writer passes the shuffled slot to a compute kernel instead of writing it; the compute kernel adds with ``add_tiles`` into a 32-bit DEST packed to bfloat16, which is
 ``ttnn.add``'s arithmetic on two bfloat16 tensors. So the bytes are those of pair_transpose + add_, and
 ``perf/spd_pair/ops.py --groups tadd`` checks it with torch.equal.
 
@@ -28,7 +28,7 @@ from .rne_add import _split_plan
 KERNEL_DIR = Path(__file__).resolve().parent / "kernels" / "pair_transpose_add"
 PAIR_TRANSPOSE_ADD = env_flag("TT_BIO_PAIR_TRANSPOSE_ADD", True)
 GRAN = 4                  # sums per DEST batch: a 32-bit DEST holds four tiles
-QR = 8                    # output tiles the reader shuffles; the writer also carries the z traffic
+QR = 8                    # output tiles the reader shuffles; the writer shuffles the rest
 
 # (calls served, calls declined)
 STATS = [0, 0]
@@ -65,8 +65,9 @@ def _build(u, z, device, S1t, S2t, Ct):
     reader = ttnn.KernelDescriptor(
         kernel_source=str(PT.KERNEL_DIR / "reader_pair_transpose_split.cpp"), source_type=src,
         core_ranges=core_grid,
-        compile_time_args=[S1t, S2t, Ct, row, QR] + list(ttnn.TensorAccessorArgs(u).get_compile_time_args()),
-        runtime_args=rt, common_runtime_args=[0], config=ttnn.ReaderConfigDescriptor())
+        compile_time_args=[S1t, S2t, Ct, row, QR, 1] + list(ttnn.TensorAccessorArgs(u).get_compile_time_args())
+        + list(ttnn.TensorAccessorArgs(z).get_compile_time_args()),
+        runtime_args=rt, common_runtime_args=[0, 0], config=ttnn.ReaderConfigDescriptor())
     writer = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "writer.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[S1t, S2t, Ct, row, QR, GRAN] + list(ttnn.TensorAccessorArgs(z).get_compile_time_args()),
@@ -93,7 +94,7 @@ def transpose_add(u, z):
     if entry is None:
         entry = _CACHE[key] = _build(u, z, device, S1 // 32, S2 // 32, C // 32)
     reader, writer, _ = entry["kernels"]
-    reader.common_runtime_args = [u.buffer_address()]
+    reader.common_runtime_args = [u.buffer_address(), z.buffer_address()]
     writer.common_runtime_args = [z.buffer_address()]
     pd = ttnn.ProgramDescriptor(kernels=entry["kernels"], semaphores=[], cbs=entry["cbs"])
     STATS[0] += 1

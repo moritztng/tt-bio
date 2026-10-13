@@ -4,9 +4,10 @@
 
 // pair_transpose writer. Output tile q of a unit, row r, is input tile r's row q: a tile row is
 // two face rows (columns 0-15 in face 2*(row/16), 16-31 in the face after it), each ROW bytes, so
-// the shuffle is 2048 local L1->L1 NoC reads a unit into a scratch c_16, then 32 whole-tile
+// the shuffle is 2048 local L1->L1 RISC copies a unit into a scratch c_16, then 32 whole-tile
 // DRAM writes. Every element is moved, none is computed: bit-exact by construction.
 #include "api/dataflow/dataflow_api.h"
+#include "../common/l1_copy.hpp"
 
 void kernel_main() {
     const uint32_t dst_addr = get_common_arg_val<uint32_t>(0);
@@ -39,11 +40,11 @@ void kernel_main() {
             for (uint32_t q = 0; q < 32; ++q) {
                 const uint32_t src = src_tile + ((q >> 4) * 2) * FACE + (q & 15) * ROW;
                 const uint32_t dst = scratch + q * tile_bytes + dst_row;
-                noc_async_read(get_noc_addr(src), dst, ROW);
-                noc_async_read(get_noc_addr(src + FACE), dst + FACE, ROW);
+                l1_copy::copy<ROW>(dst, src);
+                l1_copy::copy<ROW>(dst + FACE, src + FACE);
             }
         }
-        noc_async_read_barrier();
+        l1_copy::publish();
         cb_pop_front(cb_in, 32);
         uint32_t r = scratch;
         for (uint32_t q = 0; q < 32; ++q) {

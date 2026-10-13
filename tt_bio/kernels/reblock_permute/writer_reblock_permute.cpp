@@ -24,32 +24,18 @@
 // Double-buffered staging (c_24 depth 2) lets the DRAM write of channel c
 // overlap the L1 gather of channel c+1.
 //
-// TRANSACTION COUNT ON THIS RISC DOMINATES, but it is not the whole cost, and the
-// mix moves with C. 64 NOC transactions per source tile is a floor over all kernel
-// structures, so the axis left is instructions per transaction. Two things are
-// done for it and neither changes the transaction count:
+// THE GATHER IS A RISC COPY, NOT A NOC READ. Source and staging tile are both in this core's L1,
+// and this RISC's NoC carries the non-posted DRAM tile writes; reads and non-posted writes on one
+// NoC deadlocked a Protenix-v2 fold on one Blackhole chip (see `../common/l1_copy.hpp`). The copy
+// moves the same bytes in the same order, so the output is unchanged.
 //
-// An earlier version of this comment claimed a bf16 -> fp32 control "left the time
-// unchanged", i.e. zero byte sensitivity. That does not reproduce and no record of
-// it survives anywhere in the repo. Re-measured on qb2 card 3 at ttnn 0.68.0,
-// doubling the element width costs 1.20-1.25x at C=32 and 1.62-1.78x at C=128, so
-// 75-80% of the time is byte-independent at the narrow width and only ~22% at the
-// wide one (perf/ttx_reblock_bfp8/byte_sensitivity_qb2c3.json). The op does still
-// run at 0.7-1.2% of the 435.2 GB/s Blackhole DRAM roof, which is why transactions
-// dominate -- it is just not the absolute byte floor the old sentence asserted.
-//
-//   * the gather issues `noc_async_read_one_packet_with_state`, with the NOC
-//     coordinates and the 32-byte length written ONCE per kernel invocation
-//     instead of once per transaction inside `tt_memmove`. Every gather read is
-//     local L1 -> L1 at a fixed size, so the two local addresses are the only
-//     per-transaction state.
-//   * every address in the gather loop is an induction variable, and the loop is
-//     split at the face-row boundary, so no multiply, divide or branch survives
-//     in the body.
+// Every address in the gather loop is an induction variable, and the loop is split at the
+// face-row boundary, so no multiply, divide or branch survives in the body.
 //
 // IMPORTANT: use the api/-prefixed include path (bare dataflow_api.h is a known
 // device-wedge cause in this codebase).
 #include "api/dataflow/dataflow_api.h"
+#include "../common/l1_copy.hpp"
 
 #include "../genq/genq_split.h"
 
@@ -119,10 +105,6 @@ void kernel_main() {
     cb_reserve_back(stage_cb_id, 2);
     const uint32_t stage_base0 = get_write_ptr(stage_cb_id);
 
-    // Every gather read is local L1 -> L1 at exactly FACE_ROW_BYTES, so the NOC coordinates and the
-    // transfer length are identical for all of them. Write them into the read command buffer once
-    // here; the loop below then writes only the two local addresses per transaction.
-    noc_async_read_one_packet_set_state(get_noc_addr(stage_base0), FACE_ROW_BYTES);
 
     bool slot_dirty[2] = {false, false};
 
@@ -185,8 +167,8 @@ void kernel_main() {
                 uint32_t d0 = stage_base;
                 uint32_t d1 = stage_base + FACE_BYTES;
                 for (uint32_t il = 0; il < rows_lo; ++il) {
-                    noc_async_read_one_packet_with_state(s0, d0);
-                    noc_async_read_one_packet_with_state(s1, d1);
+                    l1_copy::copy<FACE_ROW_BYTES>(d0, s0);
+                    l1_copy::copy<FACE_ROW_BYTES>(d1, s1);
                     s0 += tile_bytes;
                     s1 += tile_bytes;
                     d0 += FACE_ROW_BYTES;
@@ -198,15 +180,15 @@ void kernel_main() {
                     d0 = stage_base + 2 * FACE_BYTES;
                     d1 = stage_base + 3 * FACE_BYTES;
                     for (uint32_t il = 0; il < rows_hi; ++il) {
-                        noc_async_read_one_packet_with_state(s0, d0);
-                        noc_async_read_one_packet_with_state(s1, d1);
+                        l1_copy::copy<FACE_ROW_BYTES>(d0, s0);
+                        l1_copy::copy<FACE_ROW_BYTES>(d1, s1);
                         s0 += tile_bytes;
                         s1 += tile_bytes;
                         d0 += FACE_ROW_BYTES;
                         d1 += FACE_ROW_BYTES;
                     }
                 }
-                noc_async_read_barrier();  // drain the L1->L1 gather before the DRAM write
+                l1_copy::publish();  // the staged tile is in L1 before the NoC reads it
 
                 // One aligned, contiguous 2KB tile write to DRAM page
                 //   page = (ct*32 + c) * Nt*Nt + it*Nt + jt, walked as an induction variable.
