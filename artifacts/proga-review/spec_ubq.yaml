@@ -1,0 +1,21 @@
+# Small public smoke target for the proga/tt-bio review: human ubiquitin (P0CG48, 76 aa) as the
+# fixed target, a 24-mer de-novo binder. 100 tokens total keeps each fold short enough that a
+# population run fits inside one card window.
+name: proga_review_ubq
+binder:
+    id: A
+    scaffold: null
+    denovo_length: 24
+    mask_char: X
+    alphabet: ADEFGHIKLMNPQRSTVWY
+    name: binder
+chains:
+    - id: B
+      sequence: MQIFVKTLTGKTITLEVEPSDTIENVKAKIQDKEGIPPDQQRLIFAGKQLEDGRTLSDYNIQKESTLHLVLRLRGG
+      role: target
+      name: ubiquitin
+      contact_residues: []
+      avoidance_residues: []
+off_targets: []
+msa_chain_ids: []
+discriminating_positions: []
