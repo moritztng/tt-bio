@@ -45,8 +45,9 @@ import os
 
 import ttnn
 
-from .tenstorrent import (Module, Pairformer, accurate_softmax_site, msa_embed,
-                          triatt_sdpa_hifi_site)
+from .tenstorrent import (Module, Pairformer, accurate_softmax_site, lever, msa_embed,
+                          trace_region_size, triatt_sdpa_hifi_site)
+from . import ops
 from .openfold3_weights import remap_pairformer_stack, is_openbind, _sub
 from .openfold3_template import TemplateEmbedder
 from .openfold3_msa_embedder import MSAModuleEmbedder, MSAModule
@@ -237,6 +238,9 @@ class OF3Trunk(Module):
         # the template feature half is a function of template_feat alone, so it is the
         # same tensor in every cycle -- compute it once, exactly like m above.
         a_tmpl = self.template.features(template_feat)
+        if self._traceable(m):
+            return self._cycles_traced(s, z, (s_init, z_init, template_feat, m, a_tmpl,
+                                              template_slots, pair_mask, attn_mask), progress_fn)
         for cyc in range(self.num_cycles):
             if progress_fn:
                 progress_fn("trunk", step=cyc, total=self.num_cycles)
@@ -248,4 +252,77 @@ class OF3Trunk(Module):
             z = self.msa_module(m, z, pair_mask, attn_mask)[1]   # device 4-block MSA module (degraded z); m reused next cycle
             s = self.glue.glue_s(s, s_init)              # device s-glue
             s, z = self.pairformer(s, z, pair_mask, attn_mask, attn_mask)  # device 48-block Pairformer
+        return s, z
+
+    def _traceable(self, m):
+        """`trunk_trace`: replay one captured cycle instead of dispatching cycles 1.. eagerly.
+        Needs the trace region reserved at device open and a device-resident `m`: a parked `m`
+        (deep alignment, host depth chunks) uploads inside every MSA block, which a trace
+        cannot hold. Never under a tape, where the cycles differ (no_grad on all but the last)."""
+        return (lever("trunk_trace") and self.num_cycles > 1 and trace_region_size() > 0
+                and isinstance(m, ttnn.Tensor) and m.storage_type() == ttnn.StorageType.DEVICE
+                and not ops.taping())
+
+    def _cycle(self, s, z, s_init, z_init, template_feat, m, a_tmpl, template_slots,
+               pair_mask, attn_mask):
+        """One recycle, the loop body of __call__. Reads `s` and `z` and never writes them."""
+        z = self.glue.glue_z(z, z_init)
+        z_tmpl = self.template(template_feat, z, template_slots, a_tmpl, pair_mask, attn_mask)
+        z = ttnn.add(z, z_tmpl)
+        ttnn.deallocate(z_tmpl)
+        z = self.msa_module(m, z, pair_mask, attn_mask)[1]
+        s = self.glue.glue_s(s, s_init)
+        return self.pairformer(s, z, pair_mask, attn_mask, attn_mask)
+
+    def _cycles_traced(self, s, z, args, progress_fn):
+        """Cycle 0 eagerly, then cycle 1 captured and replayed for cycles 1.. .
+
+        Cycle 0 compiles every program and fills the lazy weight caches, so the capture records
+        the same op stream an eager cycle 1 dispatches, and nothing is uploaded inside it. Its
+        outputs are the persistent inputs of the captured cycle: same shape, dtype and memory
+        config as every later cycle's input, so each replay is fed by a device copy of the
+        previous replay's output, and no tensor is allocated between capture and the last
+        replay that a replay's scratch could overwrite. Every constant the cycle reads (`m`,
+        `a_tmpl`, the inits, the masks) is held by the caller until this returns. The trace
+        lives for this call only, so it never meets a different shape. A capture that fails
+        (e.g. outgrows the trace region) runs the remaining cycles eagerly."""
+        dev = self.device
+        n = self.num_cycles
+        if progress_fn:
+            progress_fn("trunk", step=0, total=n)
+        s0, z0 = s, z
+        s, z = self._cycle(s0, z0, *args)
+        ttnn.deallocate(s0)
+        ttnn.deallocate(z0)
+        # Capture is host work only, so it overlaps the device still running cycle 0.
+        tid = ttnn.begin_trace_capture(dev, cq_id=0)
+        try:
+            s_tr, z_tr = self._cycle(s, z, *args)
+            ttnn.end_trace_capture(dev, tid, cq_id=0)
+        except Exception as e:                                                  # noqa: BLE001
+            print(f"  [of3 trunk] trace capture failed, cycles run eagerly: {e}")
+            try:
+                ttnn.end_trace_capture(dev, tid, cq_id=0)
+            except Exception:                                                   # noqa: BLE001
+                pass
+            ttnn.release_trace(dev, tid)
+            for cyc in range(1, n):
+                if progress_fn:
+                    progress_fn("trunk", step=cyc, total=n)
+                s, z = self._cycle(s, z, *args)
+            return s, z
+        try:
+            for cyc in range(1, n):
+                if progress_fn:
+                    progress_fn("trunk", step=cyc, total=n)
+                if cyc > 1:
+                    ttnn.copy(s_tr, s)
+                    ttnn.copy(z_tr, z)
+                ttnn.execute_trace(dev, tid, cq_id=0, blocking=False)
+            # The result goes out in the buffers allocated before capture, not the trace's.
+            ttnn.copy(s_tr, s)
+            ttnn.copy(z_tr, z)
+            ttnn.synchronize_device(dev)
+        finally:
+            ttnn.release_trace(dev, tid)
         return s, z
