@@ -16,7 +16,7 @@
 # Hosts / cards (pick free ones through the fleet, never a cardblocked card):
 #   WH : a .114 pool chip     ARMS own=triatt_tail_bias,pair_mm
 #   BH : a qb1 p150a card     ARMS own=triatt_tail_bias
-# Usage: perf/spd/af2_t12bias_ab.sh <wh|bh> <card> [outdir]
+# Usage: [SIZES="224"] [SEEDS=""] perf/spd/af2_t12bias_ab.sh <wh|bh> <card> [outdir]
 set -euo pipefail
 ARCH=${1:?wh|bh}; CARD=${2:?card}; OUT=${3:-out/af2_t12bias_ab_$ARCH}
 REPO=$(cd "$(dirname "$0")/../.." && pwd)
@@ -37,7 +37,7 @@ cd "$REPO"
 #    the unfused ttnn path's own error vs the same reference. Pass: fused rel L2 within noise of
 #    (<= 1.1x) the unfused rel L2 for a, b, g_out and the T2 residual update. At 195 it records the
 #    decline; at 224 (whole tiles) it grades the kernels.
-for S in 195 224; do
+for S in ${SIZES:-195 224}; do
   TT_VISIBLE_DEVICES=$CARD PYTHONPATH=$REPO TT_BIO_LEVERS=$T12B $PY - "$S" <<'EOF' | tee "$OUT/micro_$S.txt"
 import sys, torch, ttnn
 from tt_bio import tenstorrent as T, trimul_tail as TTL, mm_generic as _mm_generic
@@ -96,8 +96,10 @@ ttnn.close_device(dev)
 EOF
 done
 
+# SEEDS= (empty) stops after the microbench.
+[ -n "${SEEDS-0 1 2}" ] || exit 0
 # 2. AF2-IG census A/B, three seeds, arms own / t12b / own2 (own2 = own again: the noise floor).
-for s in 0 1 2; do
+for s in ${SEEDS-0 1 2}; do
   for arm in own t12b own2; do
     case $arm in t12b) L=$T12B ;; *) L=$OWN ;; esac
     TT_VISIBLE_DEVICES=$CARD PYTHONPATH=$REPO TT_BIO_LEVERS=$L $PY perf/spd/af2ig_census.py \
