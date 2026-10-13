@@ -86,6 +86,33 @@ def edm_step_scalars(t: float, c_tau: float, sigma_data: float, step_scale: floa
             sigma_data * t / math.sqrt(sd2 + t * t), 1.0 / t, step_scale * (c_tau - t))
 
 
+def _matmul_f32(a, b, ckc):
+    """fp32 ``a @ b`` from three bf16-operand matmuls (hi*hi + lo*hi + hi*lo).
+
+    The FPU reads fp32 operands as tf32 (11-bit mantissa), which put ~5e-4 relative error on
+    the edm_device mean and rotation of every step. Each operand is split into a bf16-exact
+    head and its residual; the heads multiply exactly and the dropped lo*lo term is ~2^-16
+    relative, so the result is within ~1e-6 of fp32. The operands here are [NP, 3] and [3, 3],
+    so the two extra matmuls cost nothing measurable.
+    """
+    def split(x):
+        h16 = ttnn.typecast(x, ttnn.bfloat16)
+        h = ttnn.typecast(h16, ttnn.float32)
+        ttnn.deallocate(h16)
+        return h, ttnn.subtract(x, h)
+
+    ah, al = split(a)
+    bh, bl = split(b)
+    hh = ttnn.matmul(ah, bh, compute_kernel_config=ckc)
+    lh = ttnn.matmul(al, bh, compute_kernel_config=ckc)
+    hl = ttnn.matmul(ah, bl, compute_kernel_config=ckc)
+    s1 = ttnn.add(lh, hl)
+    out = ttnn.add(hh, s1)
+    for y in (ah, al, bh, bl, hh, lh, hl, s1):
+        ttnn.deallocate(y)
+    return out
+
+
 def edm_device_step_reference(x, m, rot, trans, noise, scalars, denoise):
     """Pure-torch mirror of one ``edm_device`` step, op for op in the device order.
 
@@ -448,9 +475,9 @@ class OF3SampleDiffusion:
             for k in range(S):
                 rt, tr, nz = st_smp[k]
                 x = xl_bufs[k]
-                mean = ttnn.matmul(mrow_dev, x, compute_kernel_config=ckc)     # [1, 1, 3]
+                mean = _matmul_f32(mrow_dev, x, ckc)                         # [1, 1, 3]
                 xc = ttnn.subtract(x, mean)
-                xr = ttnn.matmul(xc, rt, compute_kernel_config=ckc)            # [1, NP, 3]
+                xr = _matmul_f32(xc, rt, ckc)                                # [1, NP, 3]
                 xa = ttnn.add(xr, tr)
                 xam = ttnn.multiply(xa, m_dev)
                 xn = ttnn.add(xam, nz)
