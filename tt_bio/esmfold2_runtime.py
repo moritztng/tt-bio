@@ -268,7 +268,7 @@ def set_device_lm_handoff(on: bool) -> None:
 class _DevPair:
     """A pair tensor left on the device, carried through code that only stores it.
 
-    The device tail (`_DEVICE_TAIL`) also runs the vendored forward's own pair glue on it:
+    The device tail (`_device_tail()`) also runs the vendored forward's own pair glue on it:
     `.float()` / `.detach()` are no-ops, `z + z.transpose(-2, -3)` is a device permute and add,
     and `host` keeps the one download the confidence head still needs."""
 
@@ -303,8 +303,15 @@ class _DevPair:
 # The trunk's output stays on the device through parcae_readout (a device linear instead of the host
 # fp32 one), parcae_coda, the distogram's symmetrisation and the diffusion conditioning; it is
 # downloaded once, for the confidence head. Removes the trunk download and three pair uploads
-# (~1.1 s of transfers at 512 aa on p300c). Not bit-exact (bf16 readout and add), so off until graded.
-_DEVICE_TAIL = env_flag("TT_BIO_ESMFOLD2_DEVICE_TAIL", False)
+# (~1.1 s of transfers at 512 aa on p300c). Not bit-exact (bf16 readout and add): graded PASS on Blackhole
+# (ESMFold2 normal bar, ESMFold2-Fast fast bar, 11 complexes x 4 seeds), so on there by default. Wormhole is not
+# graded and keeps the host tail unless the switch is set.
+def _device_tail() -> bool:
+    if os.environ.get("TT_BIO_ESMFOLD2_DEVICE_TAIL", "").strip():
+        return env_flag("TT_BIO_ESMFOLD2_DEVICE_TAIL", False)
+    return not is_wormhole()
+
+
 DEVICE_TAIL_STATS = [0, 0]  # folds whose tail ran on the device, on the host
 
 
@@ -893,8 +900,9 @@ def _install_resident_trunk_loop(model):
                 ipt = None
             zt = ftw.module(znew, mask)  # folding trunk consumes znew, returns new z
         dram_peak("esmfold2/trunk-done")
-        DEVICE_TAIL_STATS[not _DEVICE_TAIL] += 1
-        if _DEVICE_TAIL:
+        tail = _device_tail()
+        DEVICE_TAIL_STATS[not tail] += 1
+        if tail:
             z_out, zt = _DevPair(_unpad(zt, Lp), Lp), None
         else:
             z_out = (T.download(zt) if DEVICE_UPLOAD else ftw._to_torch(zt))[:, :Lp, :Lp, :].to(z.dtype)
