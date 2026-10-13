@@ -322,6 +322,27 @@ class _Node:
 # this campaign is measuring.
 DROP_DEAD_VALUES = True
 
+# Whether the bilinear verbs (linear, matmul, multiply) pin an operand only when the OTHER
+# operand wants a gradient. dX = g @ W^T never reads X, so with frozen weights -- BC2 takes
+# its gradient w.r.t. the sequence, not the weights -- every linear input was being held to
+# the backward for a dW nobody asked for. Measured on one resident BC2 Evoformer block at
+# 224 tokens: 1.028 GB of tape, 0.961 GB of it pinned. Same ops, same gradients, same
+# accumulation order; only buffer lifetimes change. Off by default until it is A/B'd.
+NEED_AWARE_READS = env_flag("TT_BIO_NEED_AWARE_READS", False)
+
+
+def cross_reads(*operands) -> Optional[tuple]:
+    """`reads` for a bilinear verb: operand i is read iff some other operand wants a gradient.
+
+    Trailing operands that are None (an absent bias) are skipped by the caller's parent list;
+    pass only the bilinear operands, a bias is never read. Returns None, which pins
+    everything, when NEED_AWARE_READS is off.
+    """
+    if not NEED_AWARE_READS:
+        return None
+    return tuple(i for i in range(len(operands))
+                 if any(o.requires_grad for j, o in enumerate(operands) if j != i))
+
 
 class Tensor:
     """A ttnn tensor plus its place on the tape. The value stays on device throughout.
@@ -1624,7 +1645,7 @@ def matmul(a: Tensor, b: Tensor, *, transpose_a: bool = False, transpose_b: bool
                                               compute_kernel_config=cfg), b.value.shape))
         return bw
 
-    return _tape(out_v, [a, b], make)
+    return _tape(out_v, [a, b], make, reads=cross_reads(a, b))
 
 
 def linear(x: Tensor, w: Tensor, b: Optional[Tensor] = None, *, dtype=None, core_grid=None,
@@ -3546,7 +3567,7 @@ def _taped_linear(shipped, args, kwargs):
                 bias.add_grad(_sum_leading(g, bias.value.shape))
         return bw
 
-    out = _tape(out_v, parents, make)
+    out = _tape(out_v, parents, make, reads=cross_reads(x, w))
     if act is None:
         return out
     activated = act(out)

@@ -262,7 +262,8 @@ def _v_matmul(shipped, args, kwargs):
                 bias.add_grad(_sum_leading(g, bias.value.shape))
         return bw
 
-    return _tape(out_v, [p for p in (a, b, bias) if p is not None], make)
+    return _tape(out_v, [p for p in (a, b, bias) if p is not None], make,
+                 reads=ag.cross_reads(a, b))
 
 
 # `d_logits = y * (g - sum_j g_j y_j)` has EXACTLY zero row sums when `sum_j y_j = 1`, and the
@@ -671,10 +672,16 @@ def _binary(grad_a, grad_b, scalar, out_of_place=None, needs=(True, True), both=
         # unary sits on it. Everything else is dead the moment the shipped forward is done,
         # and naming it here is what lets `_tape` leave it unpinned.
         gate_b = gate and fa is None and _is_sigmoid(kwargs.get("input_tensor_b_activations"))
-        reads_a = needs[0] or (fa is not None and not _act_const(kwargs,
-                                                                 "input_tensor_a_activations"))
-        reads_b = needs[1] or (fb is not None and not _act_const(kwargs,
-                                                                 "input_tensor_b_activations"))
+        # For the multiply verbs each side's rule reads the OTHER side, so under
+        # NEED_AWARE_READS an operand is read only if its partner wants a gradient; a fused
+        # unary on it is read only if it wants one itself (`_chain_fused`).
+        cross = gate and ag.NEED_AWARE_READS
+        reads_a = ((needs[0] and (not cross or b.requires_grad))
+                   or (fa is not None and (not cross or a.requires_grad)
+                       and not _act_const(kwargs, "input_tensor_a_activations")))
+        reads_b = ((needs[1] and (not cross or a.requires_grad))
+                   or (fb is not None and (not cross or b.requires_grad)
+                       and not _act_const(kwargs, "input_tensor_b_activations")))
         out_v = shipped(a.value, b.value, **kw)
         def make():
             def bw(g):
@@ -1370,7 +1377,8 @@ def _k_triatt_qkv_heads(shipped, args, kwargs):
             return bw
         return make
 
-    return tuple(_tape(o, [x, w], slot(s), reads=(0, 1)) for s, o in enumerate(outs))
+    reads = ag.cross_reads(x, w) if ag.NEED_AWARE_READS else (0, 1)
+    return tuple(_tape(o, [x, w], slot(s), reads=reads) for s, o in enumerate(outs))
 
 
 @_kernel("rne_add")
