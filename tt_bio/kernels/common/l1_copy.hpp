@@ -10,6 +10,9 @@
 // deadlocked inside a Protenix-v2 fold: every writer stuck issuing a gather read (watcher NATW),
 // readers stuck on a DRAM read that never returned (NARW). The same pattern is tt-metal PR #59622.
 // A copy whose source and destination are both in this core's L1 does not need the NoC at all.
+// That chip later hung in other ops with this kernel disabled, so the chip is marginal and this
+// rule alone does not make it safe. The copy stays where it costs nothing (reblock_permute,
+// pair_transpose); the trimul gin writers keep their NoC gather, which is 8 % faster in --fast.
 #pragma once
 
 #include <cstdint>
