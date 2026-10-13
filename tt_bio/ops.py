@@ -299,7 +299,7 @@ def linear(x, w, bias=None, *, activation=None, compute_kernel_config=None, dtyp
             from .tenstorrent import silu_ckc
             _SILU_CKC = silu_ckc
         compute_kernel_config = _SILU_CKC(compute_kernel_config)
-    if _pair_mm.PAIR_MM_FUSED and set(kw) <= {"memory_config"}:
+    if set(kw) <= {"memory_config"} and _pair_mm.armed():
         out = _pair_mm.matmul(x, w, bias, compute_kernel_config, dtype,
                               memory_config=kw.get("memory_config"), activation=activation)
         if out is not None:

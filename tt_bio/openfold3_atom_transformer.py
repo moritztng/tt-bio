@@ -32,6 +32,12 @@ from . import ops
 from .tenstorrent import (Module, AdaLN, CORE_GRID_MAIN, _dtype, _cached, batched_matmul,
                           host_f64_softmax_site, site_softmax, softmax_ckc)
 from .eltwise_fusion import gated_add, scale_add, mask_add, _taping
+from .envflags import env_flag
+
+# Where the superset bias is built. Host by default: the card path builds a bit-exact bias (superset_check.py) yet
+# moves the Wormhole fold digest, unexplained so far (perf/spd_gap_of3/superset_fold_check.py);
+# TT_BIO_OF3_SUPERSET_HOST=0 runs it.
+_SUPERSET_HOST = env_flag("TT_BIO_OF3_SUPERSET_HOST", True)
 
 
 def remap_of3_adaln(sd: dict) -> dict:
@@ -258,7 +264,7 @@ class OF3AtomTransformer(Module):
     def _superset(self, z_bias, mask_bias, key_block_idxs_tt, s, nb):
         """Per block ``(bias, q_terms, k_terms)`` for the superset attention, or ``()`` when a
         key window is not a contiguous run of atoms inside the superset (then the gathered path
-        runs). Built once per rollout on the host from the device bias: the bias of key ``j`` of
+        runs). Built once per rollout (`_superset_host`, or `_superset_device` on the card): the bias of key ``j`` of
         block ``i`` moves to superset column ``ws_i - (32 i - lead) + j``, every other column
         is -1e9, and the whole is pre-multiplied by sqrt(dh) because the SDPA kernel scales the
         mask with the scores. The AdaLN conditioning terms are taken on the per-atom ``s``: the
@@ -272,19 +278,60 @@ class OF3AtomTransformer(Module):
         lead = -(int(off.min()) // nq) * nq              # whole tiles holding the furthest start
         W = lead + nk
         off = off + lead
-        col = (off[:, None] + torch.arange(nk))[:, None, None, :].expand(nb, H, nq, nk)
-        mb = ttnn.to_torch(mask_bias).float().reshape(nb, 1, nq, nk)
         out = []
         for b in range(3):
-            zb = ttnn.to_torch(z_bias[b]).float().reshape(nb, H, nq, nk) + mb
-            full = torch.full((nb, H, nq, W), -1e9).scatter_(-1, col, zb)
-            full = full.clamp(min=-1e4) * dh ** 0.5
-            bias = _T.upload(full.permute(1, 0, 2, 3).reshape(1, H * nb, nq, W),
-                             self._act_dtype, self.device)
+            bias = (self._superset_host(z_bias[b], mask_bias, off, W, nb) if _SUPERSET_HOST
+                    else self._superset_device(z_bias[b], mask_bias, off, W, nb))
             terms = ((self._sig(self.adaln_q[b].s_terms(s)), self._sig(self.adaln_k[b].s_terms(s)))
                      if _T.ADALN_S_HOIST else ((), ()))   # () not None: the cache free walks it
             out.append((bias, *terms))
         return out
+
+    def _superset_host(self, zb, mask_bias, off, W, nb):
+        """One block's superset bias built on the host (the reference for `_superset_device`)."""
+        nq, nk, H, dh = self.N_QUERY, self.N_KEY, self.N_HEADS, self.HEAD_DIM
+        col = (off[:, None] + torch.arange(nk))[:, None, None, :].expand(nb, H, nq, nk)
+        zb = (ttnn.to_torch(zb).float().reshape(nb, H, nq, nk)
+              + ttnn.to_torch(mask_bias).float().reshape(nb, 1, nq, nk))
+        full = torch.full((nb, H, nq, W), -1e9).scatter_(-1, col, zb)
+        full = full.clamp(min=-1e4) * dh ** 0.5
+        return _T.upload(full.permute(1, 0, 2, 3).reshape(1, H * nb, nq, W), self._act_dtype, self.device)
+
+    def _superset_device(self, zb, mask_bias, off, W, nb):
+        """`_superset_host` on the card, in fp32 like the host, so the bias never crosses the bus.
+
+        Blocks sharing a window offset are contiguous runs (the interior plus a few at each end),
+        so each run is one slice with its keys placed by a row-major concat between two constant
+        fills; the offsets need not be tile multiples."""
+        nq, nk, H, dh = self.N_QUERY, self.N_KEY, self.N_HEADS, self.HEAD_DIM
+        dev, f32, RM = self.device, ttnn.float32, ttnn.ROW_MAJOR_LAYOUT
+        # mask_bias is 0 or -1e9, so the host's (zb + mb).clamp(-1e4) * sqrt(dh) is zb * sqrt(dh)
+        # where the mask is 0 and the fill elsewhere. Written that way the only arithmetic is one
+        # fp32 multiply: an fp32 add on the FPU rounds its operands to tf32 even when adding 0.
+        fill = float(torch.tensor(-1e4, dtype=torch.float32) * dh ** 0.5)
+        x = ttnn.multiply(ttnn.clamp(ttnn.typecast(ttnn.reshape(zb, (nb, H, nq, nk)), f32),
+                                     min=-1e4, max=3e38), dh ** 0.5)
+        m = ttnn.repeat(ttnn.typecast(ttnn.reshape(mask_bias, (nb, 1, nq, nk)), f32), (1, H, 1, 1))
+        x = ttnn.where(m, fill, x)
+        ttnn.deallocate(m)
+        x = ttnn.permute(ttnn.to_layout(x, RM), (1, 0, 2, 3))          # [H, nb, nq, nk]
+        offs = off.tolist()
+        runs, i0 = [], 0
+        for i in range(1, nb + 1):
+            if i == nb or offs[i] != offs[i0]:
+                runs.append((i0, i, offs[i0])); i0 = i
+        parts = []
+        for i0, i1, o in runs:
+            seg = [ttnn.slice(x, (0, i0, 0, 0), (H, i1, nq, nk))]
+            if o:
+                seg.insert(0, ttnn.full((H, i1 - i0, nq, o), fill, dtype=f32, layout=RM, device=dev))
+            if W - o - nk:
+                seg.append(ttnn.full((H, i1 - i0, nq, W - o - nk), fill, dtype=f32, layout=RM, device=dev))
+            parts.append(ttnn.concat(seg, dim=3) if len(seg) > 1 else seg[0])
+        ttnn.deallocate(x)
+        full = ttnn.concat(parts, dim=1) if len(parts) > 1 else parts[0]
+        full = ttnn.to_layout(ttnn.reshape(full, (1, H * nb, nq, W)), ttnn.TILE_LAYOUT)
+        return ttnn.typecast(full, self._act_dtype) if self._act_dtype != f32 else full
 
     def _attend_superset(self, a_qn, a_kn, apb, sup_b, NP, nb):
         """softmax(q k^T * scale + bias) v over the superset window, one SDPA program.

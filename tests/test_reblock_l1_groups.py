@@ -53,3 +53,19 @@ def test_l1_floor_by_grid(grid, opens, stays_shut):
 def test_zero_restores_the_plain_edge(monkeypatch):
     monkeypatch.setattr(R, "L1_GROUPS_PER_CORE", 0.0)
     assert not R._l1_fills_grid(_X(_Dev(8, 8)), 352)
+
+
+@pytest.mark.parametrize("grid, opens, stays_shut", [
+    ((8, 9), [195, 224, 256], [160, 192]),            # Galaxy Wormhole: BindCraft 2's DRAM pair at 224
+    ((13, 10), [256, 320], [224, 255]),               # p150a: below 256 the rule needs Nt=10, so unchanged
+])
+def test_dram_window_by_grid(grid, opens, stays_shut):
+    x = _X(_Dev(*grid))
+    assert all(R._dram_open(x, n) for n in opens)
+    assert not any(R._dram_open(x, n) for n in stays_shut)
+
+
+def test_dram_fill_off_restores_256(monkeypatch):
+    monkeypatch.setattr(R, "DRAM_FILL", False)
+    x = _X(_Dev(8, 9))
+    assert not R._dram_open(x, 224) and R._dram_open(x, 256)

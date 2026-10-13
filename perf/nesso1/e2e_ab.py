@@ -40,6 +40,8 @@ def main() -> None:
 
     t_start = time.perf_counter()
     import tt_bio
+    from tt_bio.main import ensure_p300_mesh_descriptor
+    ensure_p300_mesh_descriptor()  # a lone p300 chip is a custom topology; no-op elsewhere
     from tt_bio.nesso1 import REPORTED_SCALARS, Nesso1
     from tt_bio.nesso1_input import CLI_PREDICT_ARGS, collate, prepare
 

@@ -5,8 +5,10 @@
 [1, 288, n, n] stack: linear(z) -> permute -> multiply(sqrt d) -> add(additive mask) -> pad axis 3 -> pad axis 2,
 then the DiT slices block i's 16 heads out. Each of those is a full pass over ~285 MB. Arms:
   shipped  as above
-  wfold    sqrt(d) folded into the projection weights (RFD3_DIT_MASK_WFOLD), no multiply pass
-(pad2, zpad and zpad_af were measured 10-12 and closed: no gain, or wrong.)
+  pad2     the two stack pads as one ttnn.pad over both axes
+  zpad     z padded with zeros to [1, n, n, 128] and the additive mask with -1e4 to [1, 1, n, n] first, so the
+           stack comes out padded: pad rows/cols are 0 * sqrt(d) + -1e4 = -1e4, exactly what the pads write
+  zpad_af  zpad with the sqrt(d) scale folded into the add as an input activation (one pass fewer)
 Every arm also slices the 18 blocks, as the DiT does. Each arm is compared with shipped by torch.equal over the full
 padded [1, 288, n, n] stack, and all against a float64 reference on the logical region.
 
@@ -19,6 +21,7 @@ from tt_bio.main import ensure_p300_mesh_descriptor                      # noqa:
 
 ensure_p300_mesh_descriptor()
 from tt_bio.rfd3 import model as M                                       # noqa: E402
+from tt_bio.rfd3.tiles import pad_axis                                   # noqa: E402
 from tt_bio.tenstorrent import get_device                                # noqa: E402
 
 OUT = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else "out/gap_dit_mask.json")
@@ -67,18 +70,37 @@ def main():
         ttnn.deallocate(pt)
         return blocks(stack)
 
-    w_f = up((w_t.double() * HD ** 0.5).bfloat16())
-
-    def wfold():
-        pb = M._tuned_linear(z, w_f, **lin)
+    def pad2():
+        pb = M._tuned_linear(z, w, **lin)
         pt = ttnn.permute(pb, (0, 3, 1, 2))
         ttnn.deallocate(pb)
-        stack = M._sdpa_dense_mask(pt, am, HD, NK, prescaled=True)
+        s = ttnn.add(ttnn.multiply(pt, HD ** 0.5), am)
         ttnn.deallocate(pt)
+        stack = ttnn.pad(s, [(0, 0), (0, 0), (0, NK - I), (0, NK - I)], -1e4)
+        ttnn.deallocate(s)
         return blocks(stack)
 
-    arms = {"shipped": shipped, "wfold": wfold}
-    keep = (am_t.double() == 0).expand_as(ref)
+    def zpad_with(fold):
+        def run():
+            zp = ttnn.pad(z, [(0, 0), (0, NK - I), (0, NK - I), (0, 0)], 0.0)
+            amp = pad_axis(pad_axis(am, NK, 3, -1e4), NK, 2, -1e4)
+            pb = M._tuned_linear(zp, w, **lin)
+            ttnn.deallocate(zp)
+            pt = ttnn.permute(pb, (0, 3, 1, 2))
+            ttnn.deallocate(pb)
+            if fold:
+                stack = ttnn.add(pt, amp, input_tensor_a_activations=[
+                    ttnn.UnaryWithParam(ttnn.UnaryOpType.MUL_UNARY_SFPU, HD ** 0.5)])
+            else:
+                sc = ttnn.multiply(pt, HD ** 0.5)
+                stack = ttnn.add(sc, amp)
+                ttnn.deallocate(sc)
+            ttnn.deallocate(pt)
+            ttnn.deallocate(amp)
+            return blocks(stack)
+        return run
+
+    arms = {"shipped": shipped, "pad2": pad2, "zpad": zpad_with(False), "zpad_af": zpad_with(True)}
     rec = {"I": I, "n_key": NK, "heads": H, "reps": N, "card": os.environ.get("TT_VISIBLE_DEVICES"),
            "host": os.uname().nodename, "arch": str(dev.arch()), "arms": {}}
     base = None
@@ -96,8 +118,7 @@ def main():
             r = {"ms_median": med, "ms_min": lo, "ms_max": hi, "equal_shipped": bool(torch.equal(full, base)),
                  "pads_minus_1e4": pads, "blocks_equal_stack": blk,
                  "max_abs_f64": float((d - ref).abs().max()),
-                 "rel_err_f64": float((d - ref).norm() / ref.norm()),
-                 "rel_err_f64_unmasked": float((d - ref)[keep].norm() / ref[keep].norm())}
+                 "rel_err_f64": float((d - ref).norm() / ref.norm())}
             for x in o:
                 ttnn.deallocate(x)
         except Exception as e:                                           # noqa: BLE001

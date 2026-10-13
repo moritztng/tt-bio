@@ -1018,6 +1018,17 @@ def _covalent_bonds(spi, bonds):
 # Largest token count measured to fold on a 12 GiB Wormhole chip with the ESMC-6B resident
 # (single sequence, whglx 2026-09-23). Above it the LM is released after its forward.
 WH_LM_RESIDENT_MAX_TOKENS = 1088
+WH_LM_RESIDENT_MSA_BYTES = 64 << 20
+WH_LM_RESIDENT_MSA_MAX_TOKENS = 768  # an MSA fold above it releases at any depth (pair track + encoder headroom)
+
+
+def wh_releases_lm(chains) -> bool:
+    """Whether a Wormhole fold of `chains` releases the ESMC-6B after its forward (see fold_complex)."""
+    tokens = sum(len(c[1]) for c in chains)
+    depth = max((c[2].depth for c in chains if len(c) > 2 and c[2] is not None), default=0)
+    if depth:
+        return tokens > WH_LM_RESIDENT_MSA_MAX_TOKENS or tokens * depth * 1024 > WH_LM_RESIDENT_MSA_BYTES
+    return tokens > WH_LM_RESIDENT_MAX_TOKENS
 
 
 # The shared-kernel levers (tenstorrent.LEVERS) ESMFold2 folds under, per mode. Empty until a set is graded on
@@ -1048,14 +1059,16 @@ def fold_levers(fast: bool) -> str:
 
 def fold_scope(fast: bool):
     """The context ESMFold2 builds and folds in. Blackhole: `lever_scope(fold_levers(fast))`, the older bfp8
-    `_FAST_MODE` off. Wormhole keeps the path main shipped, `_FAST_MODE` = `fast` and no lever set (a harness's
-    TT_BIO_LEVERS still applies): the Blackhole path's --fast threw a circular-buffer clash at 546-559 tokens on a
-    Galaxy chip (program 217, L1 buffer at 188416 under a CB region ending at 300320) and three of four folds then
-    hung, where main folds the same complexes. Neither path has been graded on Wormhole against the other."""
+    `_FAST_MODE` off. Wormhole keeps main's `_FAST_MODE` = `fast` path (the Blackhole path's --fast threw a
+    circular-buffer clash at 546-559 tokens on a Galaxy chip, program 217) and takes LEVERS_NORMAL in both modes:
+    graded there against no lever set, 11 complexes x 4 seeds, ESMFold2-Fast on the normal bar (CA-lDDT +0.0014
+    [-0.0007, +0.0045], docking 24 -> 25/44) and ESMFold2 on the fast bar (43 paired, CA-lDDT -0.0050 [-0.0101,
+    -0.0010], docking 30 -> 29/43, top-pose median 0.64 A vs 1.26 A seed floor), ~3 s off a 512-aa fold at 1000 MHz.
+    On Wormhole --fast and trunk_hifi3 change nothing under this set (same digest), so one grade covers both modes."""
     from tt_bio import tenstorrent
     if is_wormhole():
         tenstorrent.set_fast_mode(fast)
-        return tenstorrent.levers(os.environ.get("TT_BIO_LEVERS") or ())
+        return tenstorrent.levers(os.environ.get("TT_BIO_LEVERS") or LEVERS_NORMAL)
     return tenstorrent.lever_scope(fold_levers(fast))
 
 
@@ -1088,12 +1101,14 @@ def fold_complex(model, chains, *, num_loops=3, num_sampling_steps=20,
     spi = build_spi(chains, bonds)
     # A 12 GiB Wormhole chip cannot hold the resident block-fp8 ESMC-6B (6.29 GiB)
     # plus the MSA encoder's [1, L, M, d] activation, which is 1.0 GiB at 128 aa for
-    # the default M=8192 and grows with L: every MSA fold died in the encoder with
-    # ~70 MiB of contiguous DRAM left. Release the language model after its single
-    # forward (it runs once per fold, outside the recycling loop) and pay one reload.
+    # M=8192 and grows with L and M: those MSA folds died in the encoder with ~70 MiB of
+    # contiguous DRAM left. Release the language model after its single forward (it runs
+    # once per fold, outside the recycling loop) and pay one reload, ~75 s on a Galaxy chip.
     # Bit-exact: same weights, same dtype, same order, only the device buffers move.
     # Blackhole (32 GB) always keeps the LM resident, and so does a Wormhole fold without an
-    # MSA up to WH_LM_RESIDENT_MAX_TOKENS.
+    # MSA up to WH_LM_RESIDENT_MAX_TOKENS, or with one up to WH_LM_RESIDENT_MSA_MAX_TOKENS whose
+    # activation (L x depth x 1 KiB, bf16 d=512) stays within WH_LM_RESIDENT_MSA_BYTES: a shallow MSA (the 512-aa page fixture has 35 rows,
+    # 18 MiB) needs no release, so a warm fold there no longer pays the reload.
     #
     # The same holds without an MSA once the pair track is large: single-sequence esmfold2 folded
     # 1088 tokens on the Galaxy with the LM resident and died at 1152 in the MSA encoder's pair FFN
@@ -1101,9 +1116,7 @@ def fold_complex(model, chains, *, num_loops=3, num_sampling_steps=20,
     # pays nothing for the release; a server folding many large targets pays one reload each.
     esmc = getattr(model, "_esmc", None)
     release_lm = (esmc is not None and getattr(esmc, "_persistent", False)
-                  and (any(len(c) > 2 and c[2] is not None for c in chains)
-                       or sum(len(c[1]) for c in chains) > WH_LM_RESIDENT_MAX_TOKENS)
-                  and is_wormhole())
+                  and is_wormhole() and wh_releases_lm(chains))
     if release_lm:
         esmc._persistent = False
     from tt_bio import tenstorrent
