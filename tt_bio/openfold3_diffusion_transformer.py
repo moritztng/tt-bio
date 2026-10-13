@@ -219,27 +219,38 @@ class _DiTBlock(Module):
                 and _T.lever("dit_fuse")):
             bf = lambda w: ttnn.from_torch(w.float().contiguous(), dtype=ttnn.bfloat16,  # noqa: E731
                                            layout=ttnn.TILE_LAYOUT, device=self.device)
-            ada = []
+            ada, host = [], []
             for ln in (self.adaln_a, self.adaln_t):
                 w_sc, b_sc, w_sb = ln.folded_weights()
+                host.append((w_sc, b_sc.reshape(1, -1), w_sb))
                 ada.append((bf(w_sc), bf(b_sc.reshape(1, -1)), bf(w_sb)))
             self.fuse = ada
+            # The host weights the stack concatenates under dit_spath: (w_sc, b_sc, w_sb) per adaLN, then the APB
+            # and transition gates as (w, b).
+            self.fuse_host = (*host, (self._w[apb + "linear_ada_out.weight"].t(),
+                                      self._w[apb + "linear_ada_out.bias"].reshape(1, -1)),
+                              (self._w[ct + "linear_g.weight"].t(), self._w[ct + "linear_g.bias"].reshape(1, -1)))
 
-    def _fuse_adaln(self, a, s_hat, i):
-        """adaLN under dit_fuse: `s_hat W_sb + LN(a) * sigmoid(s_hat W_sc + b)`, one addcmul."""
-        w_sc, b_sc, w_sb = self.fuse[i]
-        sc = self._lin(s_hat, w_sc, bias=b_sc, activation="sigmoid")
-        sb = self._lin(s_hat, w_sb)
+    def _fuse_adaln(self, a, s_hat, i, terms=None):
+        """adaLN under dit_fuse: `s_hat W_sb + LN(a) * sigmoid(s_hat W_sc + b)`, one addcmul. `terms`: the
+        stack's precomputed (sigmoid scale, shift) for this adaLN (dit_spath)."""
+        if terms:
+            sc, sb = terms
+        else:
+            w_sc, b_sc, w_sb = self.fuse[i]
+            sc = self._lin(s_hat, w_sc, bias=b_sc, activation="sigmoid")
+            sb = self._lin(s_hat, w_sb)
         an = ttnn.layer_norm(a, epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
         out = ttnn.addcmul(sb, an, sc, value=1.0)
         for t in (sc, sb, an):
             ttnn.deallocate(t)
         return out
 
-    def _call_fused(self, a, s, z, mask_bias, tok_mask_col, cache, s_hat, tok_ones):
-        """`__call__` under dit_fuse (bf16, `_sdpa32`): the same block in 23 ttnn calls."""
+    def _call_fused(self, a, s, z, mask_bias, tok_mask_col, cache, s_hat, tok_ones, terms=None):
+        """`__call__` under dit_fuse (bf16, `_sdpa32`): the same block in 23 ttnn calls. `terms`: this block's six
+        s-path tensors computed by the stack (dit_spath), `(sc0, sb0, sc1, sb1, og, lg)`, sigmoids applied."""
         lin = self._lin
-        a_ln = self._fuse_adaln(a, s_hat, 0)
+        a_ln = self._fuse_adaln(a, s_hat, 0, terms[0:2] if terms else None)
         bias = _cached(cache, (id(self), "pair_bias32"), lambda: self._sdpa32_mask(z, mask_bias))
         qkv = lin(a_ln, self.qkv_w, bias=self.qkv_b)
         qkv = ttnn.unsqueeze(qkv, 1)
@@ -255,12 +266,12 @@ class _DiTBlock(Module):
         ttnn.deallocate(g); ttnn.deallocate(o)
         o = lin(o2, self.w_o)
         ttnn.deallocate(o2)
-        og = lin(s, self.w_ada_out, bias=self.b_ada_out, activation="sigmoid")
+        og = terms[4] if terms else lin(s, self.w_ada_out, bias=self.b_ada_out, activation="sigmoid")
         a2 = ttnn.addcmul(a, o, og, value=1.0)
         ttnn.deallocate(og); ttnn.deallocate(o)
         a = a2
 
-        a_t = self._fuse_adaln(a, s_hat, 1)
+        a_t = self._fuse_adaln(a, s_hat, 1, terms[2:4] if terms else None)
         b1 = lin(a_t, self.w_la, activation="silu")
         b2 = lin(a_t, self.w_lb)
         ttnn.deallocate(a_t)
@@ -268,7 +279,7 @@ class _DiTBlock(Module):
         ttnn.deallocate(b1); ttnn.deallocate(b2)
         out = lin(bb, self.w_lout)
         ttnn.deallocate(bb)
-        lg = lin(s, self.w_lg, bias=self.b_lg, activation="sigmoid")
+        lg = terms[5] if terms else lin(s, self.w_lg, bias=self.b_lg, activation="sigmoid")
         if tok_ones:          # x * 1 is exact: the mask multiply is an identity
             a2 = ttnn.addcmul(a, out, lg, value=1.0)
         else:
@@ -384,10 +395,11 @@ class _DiTBlock(Module):
             ttnn.deallocate(mask)
         return o
 
-    def __call__(self, a, s, z, mask_bias, tok_mask_col, cache=None, s16=None, tok_ones=False):
-        """`s16`: the stack's `shared_s`. `tok_ones`: the token mask is 1 on every row (dit_fuse)."""
+    def __call__(self, a, s, z, mask_bias, tok_mask_col, cache=None, s16=None, tok_ones=False, terms=None):
+        """`s16`: the stack's `shared_s`. `tok_ones`: the token mask is 1 on every row (dit_fuse). `terms`: this
+        block's s-path tensors under dit_spath, freed here."""
         if self.fuse:
-            return self._call_fused(a, s, z, mask_bias, tok_mask_col, cache, s16[0], tok_ones)
+            return self._call_fused(a, s, z, mask_bias, tok_mask_col, cache, s16[0], tok_ones, terms)
         lin, lp = self._lin, self.lp
         # Under lp each adaLN writes lp.act, read only by linears; the transition's hidden linears
         # write bf16, their product lp.mid, and every linear into the stream writes lp.out.
@@ -523,6 +535,19 @@ class OF3DiffusionTransformer(Module):
                        for b in range(n_blocks)]
         self.n_blocks = n_blocks
         self._tok_ones: dict = {}
+        # dit_spath (with dit_fuse): s and LN(s) are the same for all 24 blocks of a call, so the six 384 -> 768
+        # s-path linears of every block run as three wide linears a call (sigmoid off LN(s): both adaLN scales;
+        # plain off LN(s): both shifts; sigmoid off s: the APB and transition gates), sliced per block. Each output
+        # column is the same K = 384 dot product as before. At 512 tokens the per-block linears run 5x off their
+        # bandwidth roof (20.3 / 9.6 us against ~4 us on a p150a, 0.48 s a fold).
+        self.spath = None
+        if self.blocks[0].fuse and _T.lever("dit_spath"):
+            hb = [b.fuse_host for b in self.blocks]
+            bf = lambda ts: ttnn.from_torch(torch.cat([t.float() for t in ts], 1).contiguous(),  # noqa: E731
+                                            dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=self.device)
+            self.spath = ((bf([h[i][0] for h in hb for i in (0, 1)]), bf([h[i][1] for h in hb for i in (0, 1)])),
+                          bf([h[i][2] for h in hb for i in (0, 1)]),
+                          (bf([h[i][0] for h in hb for i in (2, 3)]), bf([h[i][1] for h in hb for i in (2, 3)])))
 
     def _masks(self, token_mask, N, padded_N, rows):
         """``(mask_bias [1,1,1,padded_N], tok_mask_col at rows or ())``: -1e9 on padded and masked
@@ -552,6 +577,20 @@ class OF3DiffusionTransformer(Module):
                                                   compute_kernel_config=self.compute_kernel_config),
                                   ttnn.bfloat16))
         return None
+
+    def _spath_terms(self, s_hat, s):
+        """dit_spath: every block's `(sc0, sb0, sc1, sb1, og, lg)` from three wide linears, one slice each."""
+        (w_sc, b_sc), w_sb, (w_g, b_g) = self.spath
+        lin = lambda x, w, b=None, act=None: ops.linear(  # noqa: E731
+            x, w, bias=b, activation=act, compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN)
+        ys = (lin(s_hat, w_sc, b_sc, "sigmoid"), lin(s_hat, w_sb), lin(s, w_g, b_g, "sigmoid"))
+        S, n = s.shape[0], s.shape[1]
+        sl = lambda y, j: ttnn.slice(y, [0, 0, j * C_A], [S, n, (j + 1) * C_A])  # noqa: E731
+        out = [(sl(ys[0], 2 * k), sl(ys[1], 2 * k), sl(ys[0], 2 * k + 1), sl(ys[1], 2 * k + 1),
+                sl(ys[2], 2 * k), sl(ys[2], 2 * k + 1)) for k in range(len(self.blocks))]
+        for y in ys:
+            ttnn.deallocate(y)
+        return out
 
     def __call__(self, a, s, z, token_mask, tok_mask_col, cache=None):
         # Pad to the tile-aligned logical width so the SDPA's tiled key extent is
@@ -588,9 +627,10 @@ class OF3DiffusionTransformer(Module):
                         for x in (a_d, s_d))
         x = a_d
         s16 = self.shared_s(s_d)
-        for blk in self.blocks:
+        terms = self._spath_terms(s16[0], s_d) if self.spath else [None] * len(self.blocks)
+        for blk, tm in zip(self.blocks, terms):
             x = blk(x, s_d, z_d, mask_bias, tmc_d, cache=cache, s16=s16,
-                    tok_ones=self._tok_ones.get(rows, False))
+                    tok_ones=self._tok_ones.get(rows, False), terms=tm)
         for t in s16 or ():
             ttnn.deallocate(t)
         if rows == N:
