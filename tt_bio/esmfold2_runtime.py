@@ -590,6 +590,8 @@ def _msa_per_loop(kw, total_steps, max_depth, col_rate):
 # instead of the 128 MB bf16 mask (2.2 s of uploads per fold, p300c). Same mask, same output.
 _PACKED_KEEP = True
 _KEEP_BITS = 16
+# A dyadic dropout p draws the packed words directly (`_draw_packed_keep`); off = the float draw.
+_BIT_DRAW = True
 
 
 def _pack_keep(keep):
@@ -711,7 +713,7 @@ class _KeepDraws:
         self.nxt = self.pool.submit(self._draw)
 
     def _draw(self):
-        if _packable(self.shape) and _dyadic(self.p):
+        if _BIT_DRAW and _packable(self.shape) and _dyadic(self.p):
             return _draw_packed_keep(self.shape, self.p, self.gen)
         keep = torch.rand(self.shape, generator=self.gen) >= self.p
         return _pack_keep(keep) if _packable(self.shape) else keep.to(torch.bfloat16)
