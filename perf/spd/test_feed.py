@@ -103,3 +103,9 @@ def test_changed_grid_entry_releases_quarantine(tmp_path, monkeypatch):
     g.write_text(g.read_text().replace("60 --seed", "90 --seed"))
     run(tmp_path)
     assert len(box.queue) == 1 and box.queue[0] != name
+
+
+def test_inputs_are_what_the_command_reads_first():
+    cmd = ("[ -f ~/japanfold/env.sh ] && . ~/japanfold/env.sh\n. $HOME/spd/r/common.sh\n"
+           "O=/home/u/out/{x}; mkdir -p $O; cd /home/u/trees/abc; TREE=/home/u/t2 bash ~/spd/run_cell.sh $CHIP $O")
+    assert feed.inputs(cmd) == {"~/spd/r/common.sh", "/home/u/trees/abc", "/home/u/t2", "~/spd/run_cell.sh"}

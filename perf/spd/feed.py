@@ -173,6 +173,17 @@ def render(s, ctx):
     return re.sub(r"(?<!\$)\{([A-Za-z_][A-Za-z0-9_]*)\}", lambda m: str(Fmt(ctx)[m.group(1)]), s)
 
 
+# Paths a command reads before it can do anything: what it cd's into, sources, runs with bash, or names as its tree.
+# A job placed on a pool that lacks one ends in a second; on a Galaxy two such ends fence a healthy chip.
+INPUT = re.compile(r"(?:\bcd|(?:^|[;&|(]\s*)\.|\bsource|\bbash|\bTREE=|--tree|\bPYTHONPATH=)[ =]?\s*((?:~|\$HOME|/home)/[^\s;:&|)\"']+)", re.M)
+
+
+def inputs(cmd):
+    optional = set(re.findall(r"\[ -[efd] (\S+) \]", cmd))          # `[ -f X ] && . X` runs without X
+    return {re.sub(r"^\$HOME/", "~/", p) for p in INPUT.findall(cmd)
+            if p not in optional and "$" not in p.replace("$HOME/", "", 1)}
+
+
 def cells(grid_dir):
     """All cells of all active experiments, ordered by tier, rows round-robin within a tier."""
     by_tier = {}
@@ -202,7 +213,7 @@ def cells(grid_dir):
                             "name": f"{prio}-{row}-f-{e['name']}-{cid}-{h}.sh", "body": body,
                             "done": [render(p, ctx) for p in e["done"]],
                             "also": [render(p, ctx) for p in e.get("also_named", [])],
-                            "requires": [render(p, ctx) for p in e.get("requires", [])]})
+                            "requires": sorted(set(render(p, ctx) for p in e.get("requires", [])) | inputs(cmd))})
             by_tier.setdefault(tier, []).append(out)
     ordered = []
     for t in sorted(by_tier):
