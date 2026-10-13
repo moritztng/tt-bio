@@ -64,7 +64,7 @@ def main():
     # box drifts by more than the trace saving, so only a paired delta can read it.
     ap.add_argument("--ab-trace", action="store_true")
     # The same pairing for any module-level bool, e.g. tt_bio.runtime:SERIAL_HOST.
-    ap.add_argument("--ab-attr", metavar="MODULE:NAME[,MODULE:NAME...]", default=None)
+    ap.add_argument("--ab-attr", metavar="MODULE:NAME[=ON/OFF][,...]", default=None)
     # The same pairing for one precision lever: NAME joins / leaves the `_levers` set of the loaded model
     # (and of any attribute of it that carries one), which every model reads per fold.
     ap.add_argument("--ab-lever", metavar="NAME", default=None)
@@ -240,12 +240,18 @@ def main():
                 def arm_set(v):
                     os.environ["TT_BIO_LEVERS"] = ",".join(sorted(base_set | {a.ab_lever} if v else base_set)) or "none"
         else:
-            attrs = [x.split(":") for x in a.ab_attr.split(",")]
+            # MODULE:NAME toggles a bool; MODULE:NAME=ON/OFF sets two integer values instead
+            # (tt_bio.trimul_tail:T1_ROWS=16/32): the "on" arm takes ON.
+            attrs = []
+            for x in a.ab_attr.split(","):
+                mod, name = x.split(":")
+                name, _, vals = name.partition("=")
+                attrs.append((mod, name, tuple(int(t) for t in vals.split("/")) if vals else (True, False)))
             on, off, key = "on", "off", "ab_attr_s"
 
             def arm_set(v):
-                for mod, name in attrs:
-                    setattr(importlib.import_module(mod), name, v)
+                for mod, name, (von, voff) in attrs:
+                    setattr(importlib.import_module(mod), name, von if v else voff)
         arm = {True: [], False: []}
         for i in range(a.repeat):
             for v in ((True, False) if i % 2 == 0 else (False, True)):
