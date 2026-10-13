@@ -15082,6 +15082,12 @@ class PairWeightedAveraging(Module):
         return o_out
 
 
+
+# The small-depth outer product mean's per-row contraction on `batched_matmul` (the I batch spread
+# over the grid) instead of ttnn's default plan. Same K block, so the output is meant to be
+# `torch.equal`; the AF2-IG A/B checks that on coordinates. Off until measured.
+_OPM_SMALL_DEPTH_BMM = env_flag("TT_BIO_OPM_SMALL_DEPTH_BMM", False)
+
 class OuterProductMean(Module):
     def __init__(
         self,
@@ -15158,7 +15164,14 @@ class OuterProductMean(Module):
             # 67 MB the transpose-free output layout saves.
             b_s = ttnn.reshape(b if S == 1 else b[s:s + 1], (1, J, D))
             b_exp = ttnn.repeat(b_s, (I, 1, 1))
-            part = ttnn.matmul(b_exp, A, compute_kernel_config=self.compute_kernel_config)
+            if _OPM_SMALL_DEPTH_BMM:
+                # The I batch spread over the grid: ttnn's own plan put it on 28 of 72 Wormhole
+                # cores at AF2-IG's 195 tokens (350 us per call against a ~50 us DRAM floor).
+                part = ttnn.reshape(batched_matmul(
+                    ttnn.reshape(b_exp, (1, I, J, D)), ttnn.reshape(A, (1, I, D, c_z)),
+                    self.compute_kernel_config), (I, J, c_z))
+            else:
+                part = ttnn.matmul(b_exp, A, compute_kernel_config=self.compute_kernel_config)
             ttnn.deallocate(b_exp)
             ttnn.deallocate(A)
             if out is None:
