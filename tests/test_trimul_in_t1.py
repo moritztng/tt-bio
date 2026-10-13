@@ -45,7 +45,8 @@ def test_cb_plan_covers_every_cb_the_kernels_use():
     bf, f32 = TTL.t1_cb_plan(KT, CT2, NTG, True)
     planned = [i for i, _ in bf] + [i for i, _ in f32]
     assert len(planned) == len(set(planned)), "a CB index is planned twice"
-    assert used == set(planned)
+    # T1_CB_BIAS is planned by _build_t1 only with a bias (AF2); its kernel lines sit behind T1_BIAS.
+    assert used == set(planned) | {TTL.T1_CB_BIAS}
     bf0, _ = TTL.t1_cb_plan(KT, CT2, NTG, False)
     assert {3, 6}.isdisjoint(i for i, _ in bf0)
 

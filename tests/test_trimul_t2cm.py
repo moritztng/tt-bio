@@ -109,8 +109,10 @@ def test_every_cb_the_kernels_name_is_planned():
     used = set()
     for f in ("reader_ln_cm.cpp", "writer_ln_cm.cpp", "compute_ln.cpp"):
         used |= {int(i) for i in re.findall(r"CBIndex::c_(\d+)", (KDIR / f).read_text())}
-    # _build_t2's plan: T2's sixteen plus the two T2CM adds
-    planned = {0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12, 13, 14, 16, 17, TTL.T2CM_CB_GATHER, TTL.T2CM_CB_SCRATCH}
+    # _build_t2's plan: T2's sixteen plus the two T2CM adds, plus the p bias CB (planned only with a
+    # bias, which T2CM never takes; its compute_ln.cpp lines sit behind T2_BIAS)
+    planned = {0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12, 13, 14, 16, 17, TTL.T2CM_CB_GATHER, TTL.T2CM_CB_SCRATCH,
+               TTL.T2_CB_BIAS}
     assert used <= planned, used - planned
     assert {TTL.T2CM_CB_GATHER, TTL.T2CM_CB_SCRATCH} <= used
     src = Path(TTL.__file__).read_text()
