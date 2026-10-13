@@ -41,7 +41,7 @@ import sys, torch, ttnn
 from tt_bio import tenstorrent as T, trimul_tail as TTL, mm_generic as _mm_generic
 S, K, H, N = int(sys.argv[1]), 128, 128, 128
 torch.manual_seed(0)
-dev = ttnn.open_device(device_id=0)
+dev = T.get_device()  # tt_bio open: host-wide device_init_lock; a raw open raced other bring-ups on qb1
 up = lambda t: ttnn.from_torch(t.to(torch.bfloat16), layout=ttnn.TILE_LAYOUT, device=dev,
                                memory_config=ttnn.DRAM_MEMORY_CONFIG)
 r = lambda *s, sc=1.0: (torch.randn(*s) * sc).to(torch.bfloat16).double()
