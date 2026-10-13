@@ -4,7 +4,8 @@ The pair bias, adaLN chunks and atom conditioning are cached per sampling trajec
 identity of tensors release_cache() frees. They used to stay on the chip until the next fold rebuilt
 them, so a warm 1024-token ESMFold2-Fast fold on one Wormhole chip carried 384 MiB of stale pair bias
 through its language model and trunk and died with TT_FATAL Out of Memory where the cold fold fit.
-The device repro is the pool job in docs/esmfold2.md (cold + 3 warm at the largest Wormhole size).
+Device repro on one Wormhole chip: perf/of3_4xpd/xmodel_ab.py --model esmfold2-fast --size 1024 --fast
+--repeat 3 (cold + 3 warm in one process).
 """
 import types
 
