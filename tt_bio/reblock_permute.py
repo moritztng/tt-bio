@@ -396,6 +396,8 @@ L1_GROUPS_PER_CORE = float(os.environ.get("TT_BIO_REBLOCK_L1_GROUPS_PER_CORE", "
 # construction and opening it is a graded change of its own. TT_BIO_REBLOCK_DRAM_FILL=0 restores the
 # plain N edge on the two index moves for an A/B.
 DRAM_FILL = os.environ.get("TT_BIO_REBLOCK_DRAM_FILL", "1") != "0"
+# The gated leg's own switch for the same rule, default off until a fold A/B says it is free.
+DRAM_FILL_GATED = os.environ.get("TT_BIO_REBLOCK_DRAM_FILL_GATED", "0") == "1"
 _GRID_CORES = {}
 
 
@@ -1073,7 +1075,7 @@ def eligible_gated(xw, slice_c, memory_config) -> bool:
     if xw.memory_config().memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED:
         return _reject("gated_sharded_in", shape)
     bt = memory_config.buffer_type
-    if not ((bt == ttnn.BufferType.DRAM and N >= 256)
+    if not ((bt == ttnn.BufferType.DRAM and (N >= 256 or (DRAM_FILL_GATED and _dram_open(xw, N))))
             or (bt == ttnn.BufferType.L1 and N <= L1_N_MAX
                 and (N >= L1_N_MIN or _l1_fills_grid(xw, N)))):
         return _reject(f"gated_window_{bt}", shape)
