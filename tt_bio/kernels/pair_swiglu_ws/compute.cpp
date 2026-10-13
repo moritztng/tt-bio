@@ -19,7 +19,7 @@
 // fp32 c_19, which then comes back into dest by a copy (no accumulation) for the silu, the gate multiply or the bf16
 // pack. On Wormhole an fp32 dest summing all of K writes exact +-1 / 2 / 4 into ~1e-8 of the outputs (dest_guard.py).
 // WS_RESID (the `ws_resid` lever): fc3's dest gets the residual's row tile from c_20 added before the one bf16 pack
-// (dest reused as srcA), and the writer puts the sum back over the residual: the transition's `z + t` and the
+// (dest reused as srcA), rounded to bf16 nearest-even, and the writer puts the sum back over the residual: the transition's `z + t` and the
 // hidden-chunk sum cost no separate add pass over the pair.
 #include <cstdint>
 #define REDUCE_OP PoolType::SUM
@@ -234,6 +234,8 @@ void kernel_main() {
                                               EltwiseBinaryReuseDestType::DEST_TO_SRCA>(cb_res, cb_res, i, true)));
             }
             cb_pop_front(cb_res, OG);
+            // The fp32 -> bf16 pack truncates; z + t is a full-magnitude sum, so round it (sigmoid_poly.hpp).
+            for (uint32_t i = 0; i < OG; ++i) round_bf16_rne_tile(i);
 #endif
             tile_regs_commit();
             cb_reserve_back(cb_out, OG);
