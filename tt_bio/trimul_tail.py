@@ -1045,11 +1045,11 @@ def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, wg=None, moved
     return {"kernels": [reader, writer, compute], "cbs": cbs}
 
 
-def t2m_parts(kt, nt, Mb, gate, cp):
-    """Row parts per (it, jt) block for T2m: the fewest whose stage fits beside T2's buffers, or
-    None. Fewer parts read each channel tile in fewer, longer pieces."""
+def t2m_parts(kt, nt, Mb, gate, cp, min_parts=1):
+    """Row parts per (it, jt) block for T2m: the fewest (>= min_parts) whose stage fits beside T2's
+    buffers, or None. Fewer parts read each channel tile in fewer, longer pieces."""
     from . import tenstorrent as TT
-    for P in (1, 2, 4):
+    for P in (p for p in (1, 2, 4) if p >= min_parts):
         if ((TILE // P) % Mb == 0 and _t2_tiles(kt, nt, Mb, gate, (cp, P)) * MG.tile_bytes(ttnn.bfloat16)
                 <= 0.85 * TT._l1_bank_bytes()):
             return P
@@ -1192,7 +1192,13 @@ def t2cm_eligible(xcm, ln_w, ln_b, wp, g, resid, ckc=None):
 def _t2cm_parts(wp):
     from . import tenstorrent as TT
     kt, nt = _tiles(wp.shape[-2]), _tiles(wp.shape[-1])
-    return t2m_parts(kt, nt, TT._MM_BLOCK[(kt, nt)][0], False, 0)
+    return t2m_parts(kt, nt, TT._MM_BLOCK[(kt, nt)][0], False, 0, T2CM_MIN_P)
+
+
+# A/B knob (1 = production): the fewest row parts T2CM splits each (it, jt) block into. At 512
+# tokens one part per block is 256 work units on 110 cores, 3 rounds for 36 of them and 2 for the rest;
+# 2 parts make 512 (5 rounds against 4.65). Each part's rows compute exactly as in the whole block.
+T2CM_MIN_P = 1
 
 
 def fused_tail_ln_cm(xcm, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5):
