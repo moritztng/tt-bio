@@ -405,12 +405,12 @@ class AF2PairBlock(Module):
     rne_kernel = True
 
     #: Ride linear_g.bias inside the triangle attentions' gate matmul as well as linear_o.bias, one
-    #: rounding instead of a matmul then a 200 us row-broadcast add at 1x288x288x128. Read at call
-    #: time because the blocks are built before `bindcraft2.fast_round()` arms it, which is the
-    #: only place it is armed: AF2-IG's tap gate was scored with "o" alone, and RF3 measured the
-    #: same form with a sign that flips with sequence length (`tenstorrent._bias_in_matmul`).
-    #: `TT_BIO_AF2_G_BIAS_IN_MATMUL=1` sets it for every fold, which is how AF2-IG is A/B'd.
-    tri_att_g_in_matmul = env_flag("TT_BIO_AF2_G_BIAS_IN_MATMUL", False)
+    #: rounding instead of a matmul then a 225 us row-broadcast add at 1x195x195x128. Read at call
+    #: time because `bindcraft2.fast_round()` re-arms it per round (off on Wormhole, where the
+    #: gradient grade is unsettled). AF2-IG fold A/B off/on/off2 x 3 inputs (perf/spd/af2_flag_ab.sh):
+    #: Wormhole 4.258 -> 4.160 s, faster than both off arms on every input; Blackhole 2.754 -> 2.711 s;
+    #: CA RMSD to off <= 0.115 A. RF3 keeps its own separate add (`tenstorrent._bias_in_matmul`).
+    tri_att_g_in_matmul = env_flag("TT_BIO_AF2_G_BIAS_IN_MATMUL", True)
 
     #: `run(step, *inputs)` that every residual step goes through, or None to call each one
     #: directly. `tt_bio.autograd.substep` is the one runner there is: it checkpoints each step

@@ -405,7 +405,7 @@ def _fast_round_now():
 
 
 def test_fast_round_keeps_blackhole_only_levers_off_on_wormhole(monkeypatch):
-    """The levers graded on Blackhole alone stay where they were on a Wormhole chip."""
+    """The levers graded on Blackhole alone are off in a Wormhole round."""
     from tt_bio import tenstorrent
     for _module, _owner, _attr, env, _value in bindcraft2._FAST_ROUND:
         if env:
@@ -415,7 +415,7 @@ def test_fast_round_keeps_blackhole_only_levers_off_on_wormhole(monkeypatch):
     with bindcraft2.fast_round() as armed:
         for _m, _o, attr, _e, value in bindcraft2._FAST_ROUND:
             if attr in bindcraft2._BLACKHOLE_ONLY:
-                assert armed[attr] == before[attr]
+                assert armed[attr] is False
             else:
                 assert armed[attr] == value
     assert _fast_round_now() == before
