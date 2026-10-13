@@ -1412,6 +1412,48 @@ def _k_rne_add(shipped, args, kwargs):
     return ag._tape(out_v, [a, b], make, reads=())
 
 
+class _KernelDeclined(Exception):
+    """The kernel's own gate refused this call from inside its tape entry."""
+
+
+@_kernel("mm_dualnoc_in_proj")
+def _k_in_proj(shipped, args, kwargs):
+    """`tt_bio.mm_dualnoc.in_proj`'s entry: a matmul's VJP, because that is what it computes.
+
+    The kernel is `minimal_matmul(x, w)` with half the output drain issued on the other NOC --
+    same tiles, same addresses, same bytes, bit-exact against the stock op by construction. So
+    its gradient is not a new derivation: it is `_v_matmul`'s, and this entry calls that rather
+    than writing a second copy that could drift from it. The one thing it adds is the kernel's
+    decline path. `in_proj` returns None for any shape outside the class it was transcribed for,
+    and a None cannot be taped, so a refusal is raised out through `_v_matmul` before it has
+    registered anything and the caller falls back to the taped `minimal_matmul` with its
+    operands untouched.
+
+    A `split` call is refused here: it hands back a list of destinations, whose cotangents have
+    to be concatenated before the weight gradient contracts, and that is not written. The
+    caller's own fallback covers it.
+    """
+    def bound(i, name, default=None):
+        return args[i] if len(args) > i else kwargs.get(name, default)
+
+    x, w, ckc = bound(0, "x"), bound(1, "w"), bound(2, "ckc")
+    dtype, memory_config, split = bound(3, "dtype"), bound(4, "memory_config"), bound(5, "split")
+    if split is not None:
+        return None
+
+    def as_matmul(*_ra, **rk):
+        out = shipped(rk["input_tensor"], rk["weight_tensor"], ckc, dtype, memory_config)
+        if out is None:
+            raise _KernelDeclined
+        return out
+
+    try:
+        return _v_matmul(as_matmul, (), {"input_tensor": x, "weight_tensor": w,
+                                         "compute_kernel_config": ckc})
+    except _KernelDeclined:
+        return None
+
+
 # --- attention head packing ------------------------------------------------------------
 # Both layouts below are DERIVED FROM THE DEVICE with an index-valued tensor
 # (`perf/ptx_fastpath/heads.py`), not read off a docstring. A head-split backward written
