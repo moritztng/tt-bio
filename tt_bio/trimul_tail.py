@@ -1189,16 +1189,23 @@ def t2cm_eligible(xcm, ln_w, ln_b, wp, g, resid, ckc=None):
     return None
 
 
-def _t2cm_parts(wp):
+def _t2cm_parts(wp, min_parts=1):
     from . import tenstorrent as TT
     kt, nt = _tiles(wp.shape[-2]), _tiles(wp.shape[-1])
-    return t2m_parts(kt, nt, TT._MM_BLOCK[(kt, nt)][0], False, 0, T2CM_MIN_P)
+    return t2m_parts(kt, nt, TT._MM_BLOCK[(kt, nt)][0], False, 0, min_parts)
 
 
-# A/B knob (1 = production): the fewest row parts T2CM splits each (it, jt) block into. At 512
-# tokens one part per block is 256 work units on 110 cores, 3 rounds for 36 of them and 2 for the rest;
-# 2 parts make 512 (5 rounds against 4.65). Each part's rows compute exactly as in the whole block.
-T2CM_MIN_P = 1
+def balance_split(units, ncores):
+    """2 when cutting every work unit in two lifts the round balance (units per core-round) by at
+    least 10 %, else 1. At 512 tokens 256 units on 110 cores run at 78 %, 512 halves at 93 %."""
+    eff = lambda u: u / (-(-u // ncores) * ncores)  # noqa: E731
+    return 2 if eff(2 * units) >= 1.1 * eff(units) else 1
+
+
+# A/B knob: the fewest row parts T2CM splits each (it, jt) block into; 0 = balance_split's choice
+# (production). Each part's rows compute exactly as in the whole block, so the choice is bit-exact
+# (bht1f: identical CIFs at 512 on both models, OpenBind-0 --fast -0.14 s on p150a).
+T2CM_MIN_P = 0
 
 
 def fused_tail_ln_cm(xcm, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5):
@@ -1214,7 +1221,7 @@ def fused_tail_ln_cm(xcm, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5):
         return None
     from . import tenstorrent as TT
     kt, nt = _tiles(wp.shape[-2]), _tiles(wp.shape[-1])
-    P = _t2cm_parts(wp)
+    P = _t2cm_parts(wp, T2CM_MIN_P or balance_split(_tiles(xcm.shape[2]) ** 2, grid[0] * grid[1])) or _t2cm_parts(wp)
     spec = lambda t: (str(t.padded_shape), str(t.dtype), str(t.memory_config()))
     key = ("t2cm", spec(xcm), spec(wp), spec(ln_w), spec(ln_b), tuple(grid),
            tuple(str(c) for c in ckc), float(eps), SIGPOLY, RNE, P)
@@ -1257,8 +1264,9 @@ T1_ABL = 0                        # bench-only stage-skip bits (kernels/trimul_i
 # write disjoint bytes. Every row is computed exactly as in the whole unit (same LN, same K order).
 # The point is balance: at 512 tokens 256 units on 110 cores is 3 rounds for 36 cores and 2 for the
 # rest (78 %), and T1 is compute-bound (t1abl2-512: 2.08 of 2.18 ms with every DRAM stage skipped);
-# 512 halves is 5 rounds against 4.65 (93 %). A/B knob, 32 = production.
-T1_ROWS = 32
+# 512 halves is 5 rounds against 4.65 (93 %). Bit-exact (same digest at 64/128/512, identical CIFs);
+# the op runs 2.07 -> 1.78 ms at 512 on a p150a. A/B knob; 0 = balance_split's choice (production).
+T1_ROWS = 0
 BF16_TILE, FP32_TILE = 2048, 4096
 
 
@@ -1390,7 +1398,7 @@ def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps):
     core_grid = ttnn.CoreRangeSet(
         [ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(gx - 1, gy - 1))])
     rd, wr, cp = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
-    R = T1_ROWS
+    R = T1_ROWS or 32 // balance_split(B * St * St, gx * gy)
     assert R in (16, 32), R
     for c, (u0, n) in enumerate(t1_split(B * St * St * (32 // R), gx * gy)):
         cx, cy = c % gx, c // gx

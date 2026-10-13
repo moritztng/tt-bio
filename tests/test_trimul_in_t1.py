@@ -282,3 +282,16 @@ def test_call_site_is_inert_when_off(monkeypatch):
     before = list(TTL.T1_STATS)
     assert tm._t1_in(None, None, 512, [1, 512, 512, 128]) is None
     assert TTL.T1_STATS == before
+
+
+# ---------------------------------------------------------------- work split
+
+@pytest.mark.parametrize("units,ncores,want", [
+    (256, 110, 2),   # 512 tokens on a p150a: 78 % -> 93 %
+    (256, 64, 1),    # 512 tokens on a full 8x8 grid: already balanced
+    (256, 56, 1),    # Wormhole 8x7: 91 % either way
+    (1024, 110, 1),  # 1024 tokens: 93 % -> 98 %, under the 10 % bar
+    (144, 110, 2),   # 384 tokens: 65 % -> 87 %
+])
+def test_balance_split(units, ncores, want):
+    assert TTL.balance_split(units, ncores) == want
