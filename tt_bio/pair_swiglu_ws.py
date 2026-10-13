@@ -26,6 +26,7 @@ KERNEL_DIR = Path(__file__).resolve().parent / "kernels" / "pair_swiglu_ws"
 X_CB, W12_CB, W3_CB, GATE_CB, HID_CB, OUT_CB = 0, 1, 2, 3, 4, 16
 XRAW_CB, GAMMA_CB, BETA_CB, SCALER_CB = 5, 8, 9, 10     # the LayerNorm prologue's bf16 CBs
 LN_F32_CBS = ((11, 1), (12, 1), (13, 1), (14, 1), (17, None), (18, None))   # eps, mean, var, rstd, xc, tmp (None: kt)
+ACC_CB = 19               # fp32, _SW tiles: a matmul's K chunks summed by the packer (`l1acc`)
 _TILE = 32 * 32 * 2
 _SW = 4                   # hidden tiles per dest pass (one fp32 dest half)
 # Bytes of a core's L1 the program may take: weights plus its streaming CBs. A Wormhole core has 1464 KiB,
@@ -67,11 +68,11 @@ def _ln_vec_ok(v, k) -> bool:
             and v.memory_config().memory_layout == ttnn.TensorMemoryLayout.INTERLEAVED)
 
 
-def eligible(x, w12, w3, ln=()) -> bool:
+def eligible(x, w12, w3, ln=(), l1acc=False) -> bool:
     """bfloat16 TILE interleaved x, bf16/bfp8 TILE interleaved weights, hidden a multiple of 4 tiles, output
     width at most 4 tiles or a multiple of 4, and the weights plus the streaming CBs inside `_L1_BUDGET`. With
     `ln` = (gamma, beta) also the LayerNorm prologue (beta None: RMSNorm): bf16 x, bf16 [1, C] gamma / beta, and its
-    CBs in budget."""
+    CBs in budget. `l1acc` adds its fp32 accumulator CB."""
     if x.dtype not in (ttnn.bfloat16, ttnn.bfloat8_b) or w12.dtype != w3.dtype \
             or w12.dtype not in (ttnn.bfloat16, ttnn.bfloat8_b):
         return False
@@ -85,7 +86,8 @@ def eligible(x, w12, w3, ln=()) -> bool:
         return False
     if ln and (x.dtype != ttnn.bfloat16 or not all(_ln_vec_ok(v, 32 * kt) for v in ln if v is not None)):
         return False
-    return _l1_bytes(kt, nh, ct, w12.dtype, x.dtype) + (ln_bytes(kt) if ln else 0) <= _L1_BUDGET
+    return (_l1_bytes(kt, nh, ct, w12.dtype, x.dtype) + (ln_bytes(kt) if ln else 0)
+            + (_SW * 2 * _TILE if l1acc else 0) <= _L1_BUDGET)
 
 
 def _l1_bytes(kt, nh, ct, wdtype, xdtype=ttnn.bfloat16) -> int:
@@ -104,6 +106,8 @@ def _build(x, w12, w3, out, device, mt, kt, nh, ct, fidelity, defines, silu_poly
 
     cbs = [cb(X_CB, 2 * kt, x.dtype), cb(W12_CB, kt * 2 * nh, w12.dtype), cb(W3_CB, nh * ct, w3.dtype), cb(GATE_CB, 2 * _SW),
            cb(HID_CB, 2 * nh), cb(OUT_CB, 2 * ct)]
+    if ("WS_L1ACC", "1") in defines:
+        cbs.append(cb(ACC_CB, _SW, ttnn.float32))
     scaler = eps_bits = 0
     if ln is not None:
         import struct
@@ -142,7 +146,7 @@ def _build(x, w12, w3, out, device, mt, kt, nh, ct, fidelity, defines, silu_poly
     return [reader, writer, compute], cbs
 
 
-def pair_swiglu(x, w12, w3, fidelity=ttnn.MathFidelity.HiFi4, defines=(), silu_poly=None, ln=None):
+def pair_swiglu(x, w12, w3, fidelity=ttnn.MathFidelity.HiFi4, defines=(), silu_poly=None, ln=None, l1acc=False):
     """`fc3(silu(x @ w1) * (x @ w2))` for a TILE `x` [..., C]; a new bfloat16 DRAM tensor [..., C_out].
 
     Accumulation is fp32 in dest at every fidelity; `fidelity` is the caller's matmul fidelity. `defines` are
@@ -151,8 +155,12 @@ def pair_swiglu(x, w12, w3, fidelity=ttnn.MathFidelity.HiFi4, defines=(), silu_p
     (c_z 128: 8.97 ms with it, 1.37 ms without), 1 sigmoid_poly.hpp's degree-8 polynomial (sigmoid within 3e-4),
     2 its degree-6 one with fp16 coefficients (7.4e-4, a third fewer SFPU instructions). None takes `SILU_POLY`.
     `ln` = (gamma, beta, eps) runs the LayerNorm over the raw bf16 `x` in the kernel first; gamma / beta bf16 TILE
-    [1, C] as `torch_to_tt` leaves a norm parameter. beta None makes it an RMSNorm, as ttnn.rms_norm."""
+    [1, C] as `torch_to_tt` leaves a norm parameter. beta None makes it an RMSNorm, as ttnn.rms_norm.
+    `l1acc`: every matmul sums at most 2 K tiles in dest and the packer adds the chunks in an fp32 CB. On Wormhole an
+    fp32 dest summing all of K writes exact +-1 / 2 / 4 into ~1e-8 of the outputs (tt_bio/dest_guard.py)."""
     silu_poly = SILU_POLY if silu_poly is None else silu_poly
+    if l1acc:
+        defines = tuple(defines) + (("WS_L1ACC", "1"),)
     if ln is not None and ln[1] is None:
         ln = (ln[0], ln[0], ln[2])   # the reader loads a beta either way; the RMS prologue never reads it
         defines = tuple(defines) + (("WS_RMS", "1"),)
