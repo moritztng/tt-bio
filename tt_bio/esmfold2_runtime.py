@@ -39,6 +39,7 @@ import torch
 import torch.nn.functional as F
 
 from tt_bio import esmfold2 as E
+from tt_bio.envflags import env_flag
 from tt_bio.token_axis import pad_amount
 from tt_bio.esmc import ESMCLanguageModel
 from tt_bio.tenstorrent import dram_peak, is_wormhole
@@ -130,6 +131,8 @@ class _Adapter(torch.nn.Module):
     def forward(self, *args, **kw):
         if self.argnames:
             return self.m(*[_to_t(kw[n]) for n in self.argnames])
+        if isinstance(args[0], _DevPair):
+            return _dev_forward(self.m, args[0])
         return self.m(_to_t(args[0]))
 
     # No-ops so a reference module that owns this wrapper (e.g. the confidence
@@ -196,7 +199,14 @@ class _StructureHeadAdapter(_Adapter):
             seed = torch.initial_seed()
         n = max(1, num_diffusion_samples)
         L = int(s_inputs.shape[1])  # residue (token) count
-        args = (z_trunk.float(), s_inputs.float(), relative_position_encoding.float(),
+        if isinstance(z_trunk, _DevPair):  # the device tail: prepare consumes (and frees) the device pair
+            if _device_conf():  # the confidence head reads its own copy on the device
+                import ttnn
+                z_trunk.keep = ttnn.clone(z_trunk.t)
+            else:
+                z_trunk.host = self.m._to_torch(z_trunk.t)[:, :L, :L].float()  # for the confidence head
+            z_trunk = z_trunk.t
+        args = (z_trunk.float() if torch.is_tensor(z_trunk) else z_trunk, s_inputs.float(), relative_position_encoding.float(),
                 ref_pos.float(), ref_charge.float(), ref_mask.float(), ref_element.float(),
                 ref_atom_name_chars.float(), ref_space_uid, tok_idx)
         budget = _diffusion_budget()
@@ -256,16 +266,197 @@ def set_device_lm_handoff(on: bool) -> None:
 
 
 class _DevPair:
-    """A pair tensor left on the device, carried through code that only stores it."""
+    """A pair tensor left on the device, carried through code that only stores it.
 
-    __slots__ = ("t", "seq_len")
+    The device tail (`_device_tail()`) also runs the vendored forward's own pair glue on it:
+    `.float()` / `.detach()` are no-ops, `z + z.transpose(-2, -3)` is a device permute and add,
+    and `host` keeps the one download the confidence head still needs."""
 
-    def __init__(self, t, seq_len):
-        self.t, self.seq_len = t, int(seq_len)
+    __slots__ = ("t", "seq_len", "host", "keep", "_tmp")
+
+    def __init__(self, t, seq_len, tmp=False):
+        self.t, self.seq_len, self.host, self.keep, self._tmp = t, int(seq_len), None, None, tmp
 
     @property
     def shape(self):
         return (1, self.seq_len, self.seq_len, self.t.shape[-1])
+
+    def float(self):
+        return self
+
+    detach = float
+
+    def transpose(self, a, b):
+        import ttnn
+        assert {a % 4, b % 4} == {1, 2}, (a, b)
+        return _DevPair(ttnn.permute(self.t, (0, 2, 1, 3)), self.seq_len, tmp=True)
+
+    def __add__(self, other):
+        import ttnn
+        out = _DevPair(ttnn.add(self.t, other.t), self.seq_len, tmp=True)
+        for x in (self, other):
+            if x._tmp and x is not out:
+                ttnn.deallocate(x.t)
+        return out
+
+
+# The trunk's output stays on the device through parcae_readout (a device linear instead of the host
+# fp32 one), parcae_coda, the distogram's symmetrisation and the diffusion conditioning; it is
+# downloaded once, for the confidence head. Removes the trunk download and three pair uploads
+# (~1.1 s of transfers at 512 aa on p300c). Not bit-exact (bf16 readout and add): graded PASS on Blackhole
+# (ESMFold2 normal bar, ESMFold2-Fast fast bar, 11 complexes x 4 seeds), so on there by default. Wormhole is not
+# graded and keeps the host tail unless the switch is set.
+def _device_tail() -> bool:
+    if os.environ.get("TT_BIO_ESMFOLD2_DEVICE_TAIL", "").strip():
+        return env_flag("TT_BIO_ESMFOLD2_DEVICE_TAIL", False)
+    return not is_wormhole()
+
+
+DEVICE_TAIL_STATS = [0, 0]  # folds whose tail ran on the device, on the host
+
+
+def _unpad(t, seq_len):
+    import ttnn
+    if int(t.shape[1]) == seq_len:
+        return t
+    out = ttnn.slice(t, [0, 0, 0, 0], [1, seq_len, seq_len, int(t.shape[-1])])
+    ttnn.deallocate(t)
+    return out
+
+
+def _dev_forward(m, x):
+    """An _Adapter's wrapped module on a device-resident pair: the trunk returns one, the distogram host logits."""
+    import ttnn
+    if isinstance(m, E.DistogramHeadModel):
+        out = m._to_torch(m.module(x.t))[:, :x.seq_len, :x.seq_len]
+        if x._tmp:
+            ttnn.deallocate(x.t)
+        return out
+    out = _DevPair(_unpad(_trunk_on_device(m, x, to_host=False), x.seq_len), x.seq_len)
+    ttnn.deallocate(x.t)
+    return out
+
+
+# The confidence head's L^2 part (ConfidenceHead._pair_outputs) on the device: z_norm, the pair sum, the outer
+# product projection, the trunk, row pooling and the PAE/PDE logits. The host keeps what is [L,c]-sized or a lookup
+# (summed in fp32, one upload) and the row softmax. Host fp32 there costs ~1.1 s per 512-aa fold (xf2 profile).
+# Not bit-exact (bf16 pair): with the device tail, graded PASS on Blackhole (ESMFold2 normal bar, ESMFold2-Fast fast
+# bar, 11 complexes x 4 seeds), so on there by default like the tail. p150a ESMFold2-Fast --fast: 15.23 vs 16.17 s.
+def _device_conf() -> bool:
+    if os.environ.get("TT_BIO_ESMFOLD2_DEVICE_CONF", "").strip():
+        return env_flag("TT_BIO_ESMFOLD2_DEVICE_CONF", False)
+    return not is_wormhole()
+
+
+DEVICE_CONF_STATS = [0, 0]  # heads on the device, on the host
+
+
+def _conf_weights(head, ftw):
+    w = getattr(head, "_tt_conf_w", None)
+    if w is None:
+        import ttnn
+        vec = lambda t: ttnn.from_torch(t.detach().float(), device=ftw.tt_device, layout=ttnn.TILE_LAYOUT,
+                                        dtype=ttnn.bfloat16)
+        mat = lambda lin: ftw._from_torch(lin.weight.detach().t().contiguous().float())
+        w = head._tt_conf_w = {
+            "zn": (vec(head.z_norm.weight), vec(head.z_norm.bias)),
+            "pae_ln": (vec(head.pae_ln.weight), vec(head.pae_ln.bias)),
+            "pde_ln": (vec(head.pde_ln.weight), vec(head.pde_ln.bias)),
+            "po": mat(head.s_to_z_prod_out), "ap": mat(head.row_attention_pooling.attn_proj),
+            "pae": mat(head.pae_head), "pde": mat(head.pde_head)}
+    return w
+
+
+def _conf_pair_dev(head, ftw, z, s_n, relpos, bonds, bins, mask, n):
+    """ConfidenceHead._pair_outputs with the pair on the device; `z` is a device tensor (not freed here) or a host one.
+
+    The sample-independent part (z_norm, the [L,c] broadcasts, relpos, bonds, the outer product) is built once; each
+    of the n samples adds its own distance-bin embedding and runs the trunk and heads (the host path batches the same
+    n pairs as B=n).
+    """
+    import ttnn
+    if not _device_conf():
+        DEVICE_CONF_STATS[1] += 1
+        if isinstance(z, ttnn.Tensor):
+            z = ftw._to_torch(z).float()
+        return type(head)._pair_outputs(head, z, s_n, relpos, bonds, bins, mask, n)
+    DEVICE_CONF_STATS[0] += 1
+    w, ck, L = _conf_weights(head, ftw), ftw.compute_kernel_config, int(bins.shape[-1])
+    lin = lambda x, wt: ttnn.linear(x, wt, compute_kernel_config=ck)
+
+    def ln(x, wb, mod):
+        return ttnn.layer_norm(x, weight=wb[0], bias=wb[1], epsilon=mod.eps, compute_kernel_config=ck)
+
+    def swap(old, new):
+        ttnn.deallocate(old)
+        return new
+
+    zt = z if isinstance(z, ttnn.Tensor) else ftw._from_torch(z.float())
+    p0 = ln(zt, w["zn"], head.z_norm)
+    if zt is not z:
+        ttnn.deallocate(zt)
+    host = head.s_to_z(s_n).unsqueeze(2) + head.s_to_z_transpose(s_n).unsqueeze(1)
+    for t in (relpos, bonds):
+        if t is not None:
+            host = host + t
+    ht = ftw._from_torch(host.float())
+    p0 = swap(p0, ttnn.add(p0, ht))
+    ttnn.deallocate(ht)
+    a = ftw._from_torch(head.s_to_z_prod_in1(s_n)[:, :, None, :].float())
+    b = ftw._from_torch(head.s_to_z_prod_in2(s_n)[:, None, :, :].float())
+    op = ttnn.multiply(a, b)  # [1,L,1,c] x [1,1,L,c] -> the outer product [1,L,L,c]
+    for t in (a, b):
+        ttnn.deallocate(t)
+    prod = swap(op, lin(op, w["po"]))
+    p0 = swap(p0, ttnn.add(p0, prod))
+    ttnn.deallocate(prod)
+    singles, pae, pde = [], [], []
+    for k in range(int(bins.shape[0])):
+        et = ftw._from_torch(head.dist_bin_pairwise_embed(bins[k:k + 1]).float())
+        p = ttnn.add(p0, et)
+        ttnn.deallocate(et)
+        x = ttnn.clone(p)  # the trunk consumes its input; the residual needs p
+        delta = _unpad(_trunk_on_device(ftw, _DevPair(x, L), to_host=False), L)
+        pair = ttnn.add(p, delta)
+        for t in (x, p, delta):
+            if t.is_allocated():
+                ttnn.deallocate(t)
+        sc = lin(pair, w["ap"])
+        scores = ftw._to_torch(sc)[:, :L, :L, 0].float()
+        ttnn.deallocate(sc)
+        mk = mask[k:k + 1]
+        scores = scores + torch.where(mk[:, None, :].bool(), torch.zeros_like(scores), torch.full_like(scores, -1e9))
+        wt = ftw._from_torch(torch.softmax(scores, dim=-1).reshape(1, L, 1, L))
+        pooled = ttnn.matmul(wt, pair, compute_kernel_config=ck)  # per row i: weights[i] @ pair[i]
+        ttnn.deallocate(wt)
+        singles.append(head.row_attention_pooling.out_proj(ftw._to_torch(pooled)[:, :L, 0, :].float()))
+        ttnn.deallocate(pooled)
+        for norm, key, out in ((head.pae_ln, "pae", pae), (head.pde_ln, "pde", pde)):
+            xn = ln(pair, w[key + "_ln"], norm)
+            lg = swap(xn, lin(xn, w[key]))
+            out.append(ftw._to_torch(lg)[:, :L, :L, :].float())
+            ttnn.deallocate(lg)
+        ttnn.deallocate(pair)
+    ttnn.deallocate(p0)
+    return torch.cat(singles), torch.cat(pae), torch.cat(pde)
+
+
+class _ReadoutAdapter(torch.nn.Module):
+    """parcae_readout: the host nn.Linear, or a device linear on a device-resident pair."""
+
+    def __init__(self, lin, ftw):
+        super().__init__()
+        self.lin, self.ftw, self.w = lin, ftw, None
+
+    def forward(self, z):
+        if not isinstance(z, _DevPair):
+            return self.lin(z)
+        import ttnn
+        if self.w is None:
+            self.w = self.ftw._from_torch(self.lin.weight.detach().t().contiguous().float())
+        out = ttnn.linear(z.t, self.w, compute_kernel_config=self.ftw.compute_kernel_config)
+        ttnn.deallocate(z.t)
+        return _DevPair(out, z.seq_len)
 
 
 def _trunk_on_device(ftw, dev, to_host=True):
@@ -391,13 +582,53 @@ def _msa_per_loop(kw, total_steps, max_depth, col_rate):
     return loops
 
 
+# The device keep mask crosses PCIe as bits: 16 rows of the pair per int32 word, 16 MB a loop at 512 aa
+# instead of the 128 MB bf16 mask (2.2 s of uploads per fold, p300c). Same mask, same output.
+_PACKED_KEEP = True
+_KEEP_BITS = 16
+
+
+def _pack_keep(keep):
+    """bool [B, L, ...] -> int32 [B, L / 16, ...]: row j * L/16 + g of `keep` is bit j of word row g."""
+    k = keep.unflatten(1, (_KEEP_BITS, keep.shape[1] // _KEEP_BITS)).to(torch.int32)
+    w = k[:, 0].clone()
+    for j in range(1, _KEEP_BITS):
+        w |= k[:, j] << j
+    return w
+
+
+def _unpack_keep_dev(w, device):
+    """`_pack_keep`'s words to the bf16 0/1 mask on the device."""
+    import ttnn
+    from tt_bio.tenstorrent import upload
+
+    wt = upload(w, dtype=ttnn.int32, device=device)
+    rows = []
+    for j in range(_KEEP_BITS):
+        s = ttnn.bitwise_right_shift(wt, j) if j else wt
+        b = ttnn.bitwise_and(s, 1)
+        if j:
+            ttnn.deallocate(s)
+        rows.append(ttnn.typecast(b, ttnn.bfloat16))
+        ttnn.deallocate(b)
+    ttnn.deallocate(wt)
+    m = ttnn.concat(rows, dim=1)
+    for r in rows:
+        ttnn.deallocate(r)
+    return m
+
+
+def _packable(shape):
+    return _PACKED_KEEP and len(shape) == 4 and shape[1] % _KEEP_BITS == 0
+
+
 def _lm_dropout(lm_z, p, keep=None):
     """esm 3.4.1's per-loop `F.dropout(lm_z, p, training=True)` (`model.py::_run_one_loop`).
 
     The keep mask comes from the global torch RNG, which `fold()` seeds, so the draw follows the
     seed and not the card. A device-resident pair is masked on the device: the 0/1 mask is exact
     in bf16, the 1/(1-p) scale is applied after it rather than baked into the mask. `keep` is an
-    already drawn bf16 host mask (`_KeepDraws`).
+    already drawn host mask (`_KeepDraws`): int32 words from `_pack_keep`, or bf16 0/1.
     """
     if not isinstance(lm_z, _DevPair):
         return lm_z * torch.empty(lm_z.shape).bernoulli_(1.0 - p).to(lm_z.dtype) / (1.0 - p)
@@ -406,11 +637,16 @@ def _lm_dropout(lm_z, p, keep=None):
     t = lm_z.t
     if keep is None:
         keep = torch.empty(tuple(t.shape)).bernoulli_(1.0 - p).to(torch.bfloat16)
-    # Uploaded row-major and tiled on the device: a tile-layout from_torch tilizes the pair-sized
-    # mask on the host, 0.24 s a loop at 512 aa (cProfile, p300c), with the device waiting.
-    rm = ttnn.from_torch(keep, device=t.device(), layout=ttnn.ROW_MAJOR_LAYOUT, dtype=ttnn.bfloat16)
-    m = ttnn.to_layout(rm, ttnn.TILE_LAYOUT)
-    ttnn.deallocate(rm)
+        if _packable(keep.shape):
+            keep = _pack_keep(keep.bool())
+    if keep.dtype == torch.int32:
+        m = _unpack_keep_dev(keep, t.device())
+    else:
+        # Uploaded row-major and tiled on the device: a tile-layout from_torch tilizes the pair-sized
+        # mask on the host, 0.24 s a loop at 512 aa (cProfile, p300c), with the device waiting.
+        rm = ttnn.from_torch(keep, device=t.device(), layout=ttnn.ROW_MAJOR_LAYOUT, dtype=ttnn.bfloat16)
+        m = ttnn.to_layout(rm, ttnn.TILE_LAYOUT)
+        ttnn.deallocate(rm)
     kept = ttnn.multiply(t, m)
     ttnn.deallocate(m)
     out = ttnn.multiply(kept, 1.0 / (1.0 - p))
@@ -419,8 +655,9 @@ def _lm_dropout(lm_z, p, keep=None):
 
 
 class _KeepDraws:
-    """The fold's per-loop LM dropout masks, each drawn on a host thread while the device runs
-    the previous loop. Only torch runs on the thread; the upload stays on the caller's.
+    """The fold's per-loop LM dropout masks, each drawn (and bit-packed, `_pack_keep`) on a host
+    thread while the device runs the previous loop. Only torch runs on the thread; the upload
+    stays on the caller's.
 
     The generator is seeded with one draw from the global torch RNG, so the masks follow the
     fold's seed and not the card. Drawing them inline cost ~0.4 s of host time per loop at 512 aa.
@@ -435,7 +672,8 @@ class _KeepDraws:
         self.nxt = self.pool.submit(self._draw)
 
     def _draw(self):
-        return (torch.rand(self.shape, generator=self.gen) >= self.p).to(torch.bfloat16)
+        keep = torch.rand(self.shape, generator=self.gen) >= self.p
+        return _pack_keep(keep) if _packable(self.shape) else keep.to(torch.bfloat16)
 
     def take(self):
         keep = self.nxt.result()
@@ -614,14 +852,16 @@ def _install_resident_trunk_loop(model):
             real = torch.zeros(1, Lp + pad, Lp + pad)
             real[:, :Lp, :Lp] = 1.0
             mask = ftw._from_torch(real)
-        zt = up(padz(z).float())
         # The injection is loop-invariant only when no loop redraws its LM dropout or MSA rows.
         per_loop = (use_lm and bool(lm_p)) or (msa_loops is not None and len(msa_loops) > 1)
+        on_dev = (_DEVICE_INJECTION and per_loop and isinstance(lm_z, _DevPair)
+                  and (msa_loops is None or msa_fixed is not None))
+        # The first keep mask draws on its thread while the uploads below run (no RNG use in between).
+        draws = _KeepDraws(tuple(lm_z.t.shape), lm_p, total_steps) if on_dev else None
+        zt = up(padz(z).float())
         ipt = None if per_loop else up(
             padz(inject_proj(msa_loops[0] if msa_loops else None)).float())
         at = ftw._from_torch(a.reshape(1, 1, 1, -1).float())  # parcae a, broadcasts over L,L
-        on_dev = (_DEVICE_INJECTION and per_loop and isinstance(lm_z, _DevPair)
-                  and (msa_loops is None or msa_fixed is not None))
         if on_dev:
             # What no loop redraws, uploaded once: the MSA pair (or z_init), LN and b_mat.
             base = up(padz(msa_fixed if msa_fixed is not None else z_init).float())
@@ -631,7 +871,6 @@ def _install_resident_trunk_loop(model):
                           for t in (norm.weight, norm.bias))
             b_t = ftw._from_torch(b_mat.t().contiguous().float())
             ck = ftw.compute_kernel_config
-            draws = _KeepDraws(tuple(lm_z.t.shape), lm_p, total_steps)
 
         def inject_dev():
             x = _lm_dropout(lm_z, lm_p, draws.take())
@@ -668,7 +907,12 @@ def _install_resident_trunk_loop(model):
                 ipt = None
             zt = ftw.module(znew, mask)  # folding trunk consumes znew, returns new z
         dram_peak("esmfold2/trunk-done")
-        z_out = (T.download(zt) if DEVICE_UPLOAD else ftw._to_torch(zt))[:, :Lp, :Lp, :].to(z.dtype)
+        tail = _device_tail()
+        DEVICE_TAIL_STATS[not tail] += 1
+        if tail:
+            z_out, zt = _DevPair(_unpad(zt, Lp), Lp), None
+        else:
+            z_out = (T.download(zt) if DEVICE_UPLOAD else ftw._to_torch(zt))[:, :Lp, :Lp, :].to(z.dtype)
         for t in (zt, ipt, at, mask) + ((base, ln_w, ln_b, b_t) if on_dev else ()):
             if t is not None:
                 try:
@@ -706,6 +950,7 @@ def patch_esmfold2(model, esmc_repo: str = "biohub/ESMC-6B", persistent_lm: bool
     model.lm_encoder = comps["lm_encoder"]
     model.folding_trunk = comps["folding_trunk"]
     model.parcae_coda = comps["parcae_coda"]
+    model.parcae_readout = _ReadoutAdapter(model.parcae_readout, comps["parcae_coda"].m)
     if model.msa_encoder is not None:
         model.msa_encoder = comps["msa_encoder"]
     model.distogram_head = comps["distogram_head"]
@@ -722,6 +967,8 @@ def patch_esmfold2(model, esmc_repo: str = "biohub/ESMC-6B", persistent_lm: bool
     conf_trunk = E.FoldingTrunk(n_conf_blocks)
     conf_trunk.load_state_dict(sub("confidence_head.folding_trunk."), strict=False)
     model.confidence_head.folding_trunk = _Adapter(conf_trunk)
+    head = model.confidence_head
+    head._pair_outputs = lambda *a: _conf_pair_dev(head, conf_trunk, *a)
 
     # Best-of-N: the confidence head replicates the pair state to B=N
     # (`pair = repeat_batch(z, N)` -> [N,L,L,c]) before its triangle-mult trunk,
@@ -734,6 +981,19 @@ def patch_esmfold2(model, esmc_repo: str = "biohub/ESMC-6B", persistent_lm: bool
 
     def _chunked_confidence(*args, **kw):
         E.report_progress("confidence")  # confidence head runs an on-device pair trunk
+        keep = None
+        if isinstance(kw.get("z"), _DevPair):
+            z = kw["z"]
+            keep, z.keep = z.keep, None
+            kw = dict(kw, z=keep if keep is not None else z.host)
+        try:
+            return _confidence(*args, **kw)
+        finally:
+            if keep is not None:
+                import ttnn
+                ttnn.deallocate(keep)
+
+    def _confidence(*args, **kw):
         n = int(kw.get("num_diffusion_samples", 1))
         x_pred, z = kw.get("x_pred"), kw.get("z")
         if x_pred is None or z is None or n <= 1:
@@ -1054,13 +1314,15 @@ def wh_releases_lm(chains) -> bool:
 # trimul_t2g (output layer norm, p projection, g_out gate and residual add in one kernel) takes only the calls
 # the F1 tail would serve with the residual folded in, and is bit-exact against it there (torch.equal, both sets,
 # p150a; CIF byte-identical in same-card folds at 544, 576 and 1024 aa). p150a 1350 MHz, ESMFold2's call at
-# 512: 9.79 -> 9.39 ms (normal set), 9.49 -> 8.66 ms (fast set).
+# 512: 9.79 -> 9.39 ms (normal set), 9.49 -> 8.66 ms (fast set); --fast fold warm, 544 aa 30.5 -> 29.1 s, 1024 aa
+# 98.7 -> 94.0 s. Wormhole (LEVERS_WH, 1000 MHz) folds the same CIF in the same time (544 aa 94.4 vs 94.5 s).
 LEVERS_NORMAL = "normal-trunk_hifi3+trimul_gin+trimul_t2g"
 # FAST also takes transition_ws (fast grade PASS on both ESMFold2 models, both archs; tenstorrent.FAST_LEVERS)
 # and trimul_gin: ESMFold2 fast bar against the set without it, 11 complexes x 4 seeds, 44 paired folds (p300c,
 # 1350 MHz): CA-lDDT +0.0026 [-0.0022, +0.0086], pLDDT +0.0005, top-pose median 0.35 A vs 1.30 A floor, docking
 # 31 -> 30 of 44. Same-card A/B at 544 and 576 tokens (p150a, 1350 MHz): 34.2 -> 33.1 s and 40.7 -> 38.4 s warm.
 LEVERS_FAST = "normal+trimul_b8in+transition_ws+trimul_gin+trimul_t2g"
+LEVERS_WH = LEVERS_NORMAL + "+transition_ws"
 
 
 def fold_levers(fast: bool) -> str:
@@ -1076,11 +1338,14 @@ def fold_scope(fast: bool):
     graded there against no lever set, 11 complexes x 4 seeds, ESMFold2-Fast on the normal bar (CA-lDDT +0.0014
     [-0.0007, +0.0045], docking 24 -> 25/44) and ESMFold2 on the fast bar (43 paired, CA-lDDT -0.0050 [-0.0101,
     -0.0010], docking 30 -> 29/43, top-pose median 0.64 A vs 1.26 A seed floor), ~3 s off a 512-aa fold at 1000 MHz.
-    On Wormhole --fast and trunk_hifi3 change nothing under this set (same digest), so one grade covers both modes."""
+    On Wormhole --fast and trunk_hifi3 change nothing under this set (same digest), so one grade covers both modes.
+    Wormhole adds transition_ws (LEVERS_WH): 11 complexes x 4 seeds, the set with vs without it, PASS on the fast and
+    the normal bar for both models (ESMFold2 CA-lDDT -0.0010 [-0.0063, +0.0042], top-pose median 0.38 A vs 1.40 A floor;
+    ESMFold2-Fast -0.0013 [-0.0046, +0.0009], 0.98 A vs 1.36 A; docking 29 -> 28 and 23 -> 23 of 44)."""
     from tt_bio import tenstorrent
     if is_wormhole():
         tenstorrent.set_fast_mode(fast)
-        return tenstorrent.levers(os.environ.get("TT_BIO_LEVERS") or LEVERS_NORMAL)
+        return tenstorrent.levers(os.environ.get("TT_BIO_LEVERS") or LEVERS_WH)
     return tenstorrent.lever_scope(fold_levers(fast))
 
 

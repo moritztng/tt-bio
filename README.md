@@ -70,7 +70,7 @@ On a host without a Tenstorrent card, plain `pip install tt-bio` is enough: the 
 ### From GitHub / source
 Pin to a tagged release, track nightly `main` (may be untested), or work from an editable clone:
 ```bash
-pip install "tt-bio[tenstorrent] @ git+https://github.com/moritztng/tt-bio.git@v0.15.1"   # pinned release, see Releases for the latest
+pip install "tt-bio[tenstorrent] @ git+https://github.com/moritztng/tt-bio.git@v0.15.2"   # pinned release, see Releases for the latest
 pip install "tt-bio[tenstorrent] @ git+https://github.com/moritztng/tt-bio.git@main"     # nightly
 # or
 git clone https://github.com/moritztng/tt-bio.git
@@ -941,7 +941,9 @@ moves a structure, next to the seed-to-seed spread.
 | `TT_BIO_DEVICE_ZINIT` | on | Boltz-2 only: builds the trunk's `z_init` pair tensor on the card. Not bit-exact: moves a 298 aa structure 0.264 Å all-atom inside its 0.35 Å bar; CA-lDDT against 1HCL is flat over eight seeds. |
 | `TT_BIO_DIT_COND_HOIST` | on | Hoists the token diffusion transformer's conditioning out of the layer loop; RF3's token DiT inherits it. Not bit-exact: one bf16 rounding changes order. |
 | `TT_BIO_DIT_SHARED_COND` | on | Every diffusion sample shares one noise level and one trunk output, so the diffusion transformer computes its conditioning once and broadcasts it. Bit for bit. |
-| `TT_BIO_ESMFOLD2_SWA_WINDOW` | on (Blackhole) | ESMFold2 only: the atom transformer attends over its sliding window instead of a dense band, about 1 s faster per 512-residue fold. Not bit-exact, inside the accuracy bar. [docs](docs/tuning-flags.md#tt_bio_esmfold2_swa_window) |
+| `TT_BIO_ESMFOLD2_DEVICE_CONF` | on (Blackhole) | ESMFold2 only: the confidence head reads the trunk's pair on the chip instead of downloading it, about 0.9 s faster per 512-residue fold. Not bit-exact, inside the accuracy bar. [docs](docs/tuning-flags.md#tt_bio_esmfold2_device_conf) |
+| `TT_BIO_ESMFOLD2_DEVICE_TAIL` | on (Blackhole) | ESMFold2 only: the trunk's pair stays on the chip through the readout, distogram and diffusion conditioning, 0.7-1.0 s faster per 512-residue fold. Not bit-exact, inside the accuracy bar. [docs](docs/tuning-flags.md#tt_bio_esmfold2_device_tail) |
+| `TT_BIO_ESMFOLD2_SWA_WINDOW` | on | ESMFold2 only: the atom transformer attends over its sliding window instead of a dense band, about 1 s faster per 512-residue fold. Not bit-exact, inside the accuracy bar. [docs](docs/tuning-flags.md#tt_bio_esmfold2_swa_window) |
 | `TT_BIO_FUSE_BIAS_STACKS` | on | Boltz-2 only: builds the diffusion conditioning's per-layer bias stack in one pass. Not bit-exact: moves a 298 aa structure 0.218 Å all-atom, inside its 0.35 Å bar. |
 | `TT_BIO_FUSE_MASK_ADD` | on | Gated-residual write-back as one `ttnn.addcmul`. Bit for bit. |
 | `TT_BIO_FUSE_NORM_RESIDUAL` | on | Passes an add whose only consumer is a layer norm to the norm as its residual input. Bit for bit. |

@@ -458,6 +458,10 @@ TRANSITION_H_CHUNK_SHAPES: dict = {}
 # height is recorded here and the call re-run at half of it; row height is row-local, so the
 # re-run writes the same bytes, and the record keeps every later call off the refused height.
 TRANSITION_H_CLASH: dict = {}
+# Pair shapes whose whole-tensor `transition_ws` pass DRAM refused. It holds x, LN(x) and the
+# output at once, and OpenDDE's refiner pair at 1024 tokens on Wormhole, (1, 2016, 2016, 384) bf16,
+# is 3.12 GB each: the shape goes to the row-blocked path, which adds into x block by block.
+WS_DRAM_REFUSED: set = set()
 # Measured ceiling for one Transition row chunk on a small grid, in L1 bytes PER CORE.
 # The chunk's live L1 (x_norm + x_1 + x_2) is interleaved across the grid, so what binds is
 # aggregate L1 / cores, and the budget above never sees core count. On UF-EV-A13-GWH02
@@ -679,9 +683,10 @@ UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "di
 # Blackhole, 44 paired folds): fast PASS, normal FAIL on CA-lDDT -0.0002 [-0.0003, -0.0000] against an A/A floor
 # of 0.0010; same-seed top pose median 0.171 A vs the 0.60 A bar, docking 26 -> 26 of 44. OpenFold3 normal grade
 # PASS (top pose median 0.227 A). Saves ~0.3 s of the 512-token fold on p150a (spd-gap-of3, 2026-10-12).
-# trimul_t1 / trimul_t2 are graded on OpenFold3 / OpenBind-0 (their own FAST_LEVERS) and Nesso-1, trimul_t1_dram on
-# Nesso-1 only, and adaln_mod on Boltz-2 fast only (Boltz-2 LEVERS_FAST), so the shared set leaves them out until a
-# grade on the other models puts them in.
+# trimul_t1, trimul_t2 and adaln_mod join the shared set on the Protenix-v1 Wormhole 11-set fast grade against it
+# without them, 44 paired folds: PASS, same-seed top pose median 0.900 A (seed floor 2.190 A), CA-lDDT +0.0006
+# [-0.0010, +0.0023], docking 24 -> 24/44 (spd-fastmode gv1, AICLK 1000). Protenix-v2 and OpenDDE fold bit-identical
+# with and without them (spd-fastmode t12x). trimul_t1_dram stays Nesso-1 only.
 # transition_ws is fast-only. Wormhole 11-set fast grade, each model's fast set vs the same set + transition_ws,
 # same chip, 44 paired folds (spd-integrate gtw, 2026-10-12), PASS on all six; same-seed top pose median against
 # the A/A seed floor: Protenix-v2 0.32 / 1.24 A, OpenFold3 0.61 / 0.81, Boltz-2 1.33 / 1.88, OpenDDE 0.54 / 1.47,
@@ -691,8 +696,7 @@ UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "di
 # (bf16 weights over its L1 budget), so its fold is unchanged there. Warm 512-token fold on a Galaxy chip (1000 MHz):
 # ESMFold2 -22.1 s, ESMFold2-Fast -11.3, OpenDDE -5.5, Protenix-v2 -2.8, OpenFold3 -1.5, Boltz-2 -1.1 s.
 # OpenFold3 / OpenBind-0 take it through their own FAST_LEVERS (openfold3_fold.py), Blackhole fast grade PASS.
-FAST_LEVERS = (frozenset(LEVERS) - {"lofi", "triatt_b8", "triatt_bias_b8", "trimul_t1", "trimul_t2", "adaln_mod",
-                                    "trimul_t1_dram", "trimul_t2g"}
+FAST_LEVERS = (frozenset(LEVERS) - {"lofi", "triatt_b8", "triatt_bias_b8", "trimul_t1_dram", "trimul_t2g"}
                - UNGRADED_LEVERS)
 # trimul_ibw + trimul_tail: Wormhole 11-set grade PASS, 44 paired folds, same-seed top pose median
 # 0.204 A against the 0.60 A bar (A/A seed floor 0.807 A), every paired CI covers 0 or sits on the
@@ -7778,6 +7782,7 @@ def trace_region_bytes(capture):
 DEVICE_TILIZE_MIN = 4 << 20
 DEVICE_TILIZE_MAX = 1 << 30
 _TORCH_DT = {ttnn.float32: torch.float32, ttnn.bfloat16: torch.bfloat16}
+_UPLOAD_DT = {**_TORCH_DT, ttnn.int32: torch.int32}  # int32 words (ESMFold2's packed keep mask) tilize on the chip too
 
 
 def _device_tilize(nbytes):
@@ -7794,9 +7799,9 @@ def _tile_numel(shape):
 def upload(t, dtype=ttnn.bfloat16, device=None):
     """`ttnn.from_torch(t, TILE_LAYOUT, device, dtype)`, tilized on the chip when that pays."""
     device = device or get_device()
-    if dtype not in _TORCH_DT or not _device_tilize(_tile_numel(t.shape) * _TORCH_DT[dtype].itemsize):
+    if dtype not in _UPLOAD_DT or not _device_tilize(_tile_numel(t.shape) * _UPLOAD_DT[dtype].itemsize):
         return ttnn.from_torch(t, layout=ttnn.TILE_LAYOUT, device=device, dtype=dtype)
-    rm = ttnn.from_torch(t.to(_TORCH_DT[dtype]).contiguous(), layout=ttnn.ROW_MAJOR_LAYOUT,
+    rm = ttnn.from_torch(t.to(_UPLOAD_DT[dtype]).contiguous(), layout=ttnn.ROW_MAJOR_LAYOUT,
                          device=device, dtype=dtype)
     out = ttnn.to_layout(rm, ttnn.TILE_LAYOUT)
     ttnn.deallocate(rm)
@@ -12722,7 +12727,20 @@ class Transition(Module):
             self._ws = _pair_ws.weights(self.weights["fc1.weight"].t(), self.weights["fc2.weight"].t(),
                                         self.weights["fc3.weight"].t(), self.device,
                                         ttnn.bfloat8_b if self._hidden_b8 else ttnn.bfloat16)
-        return ws_swiglu(x, self.norm_weight, self.norm_bias, self.compute_kernel_config, self._ws)
+        key = tuple(x.padded_shape)
+        if key in WS_DRAM_REFUSED:
+            return None
+        from tt_bio.size_limits import is_alloc_refusal
+        try:
+            return ws_swiglu(x, self.norm_weight, self.norm_bias, self.compute_kernel_config, self._ws)
+        except RuntimeError as exc:
+            if not is_alloc_refusal(exc) or not x.is_allocated():
+                raise
+            WS_DRAM_REFUSED.add(key)
+            print(f"[tt-bio] DRAM refused transition_ws at {key}; running it in row blocks. The tt-metal "
+                  f"'Out of Memory' line above is expected and handled.", file=sys.stderr, flush=True)
+        gc.collect()        # the refused attempt's LN(x) and partial output, still referenced from its traceback
+        return None
 
     def _add_rows_ok(self, x, memory_config) -> bool:
         return (_TRANSITION_ADD_ROWS and not ops.taping() and len(x.shape) == 4
@@ -16169,16 +16187,13 @@ class TorchWrapper(nn.Module):
             packer_l1_acc=True,
         )
 
+    # Through upload / download: a large transfer (a pair tensor, the ESMC hidden-state stack) tilizes on
+    # the chip, bit for bit the host permutation; small ones keep ttnn's host path.
     def _from_torch(self, x: torch.Tensor, dtype=ttnn.bfloat16) -> ttnn.Tensor:
-        return ttnn.from_torch(
-            x,
-            device=self.tt_device,
-            layout=ttnn.TILE_LAYOUT,
-            dtype=dtype,
-        )
+        return upload(x, dtype=dtype, device=self.tt_device)
 
     def _to_torch(self, x: ttnn.Tensor) -> torch.Tensor:
-        return torch.Tensor(ttnn.to_torch(x)).to(torch.float32)
+        return torch.Tensor(download(x)).to(torch.float32)
 
     def _cache_set(self, key: str, value):
         self._runtime_cache[key] = value

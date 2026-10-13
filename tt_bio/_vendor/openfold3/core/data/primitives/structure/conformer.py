@@ -13,6 +13,8 @@
 # limitations under the License.
 
 import logging
+import os
+import queue
 import random
 import threading
 from collections.abc import Iterable
@@ -20,7 +22,7 @@ from dataclasses import dataclass, field
 from typing import Literal
 
 import numpy as np
-from func_timeout import FunctionTimedOut, func_timeout
+from func_timeout import FunctionTimedOut
 from rdkit import Chem, rdBase
 from rdkit.Chem import AllChem, Mol
 
@@ -112,6 +114,58 @@ def _etkdg_seed() -> int:
     if retries is not None:
         return retries.randint(0, 10**9)
     return random.randint(0, 10**9)
+
+
+# A timed EmbedMolecule on a persistent helper thread per calling thread, under the name
+# the vendored code (and its tests) call. The library func_timeout starts a new thread for
+# every call, 0.4 ms of GIL-held python a residue, about 40 ms of the 512-residue pool.
+# Same contract: the result or the function's own exception, or FunctionTimedOut after
+# `timeout`. Neither can interrupt the C++ embedding, so on a timeout the helper is left to
+# finish on its own and the next call starts a fresh one -- what the library's orphaned
+# thread did.
+_TIMED = threading.local()
+
+
+def _timed_helper(jobs):
+    while True:
+        job = jobs.get()
+        if job is None:
+            return
+        func, args, kwargs, box, done = job
+        try:
+            box.append((True, func(*args, **kwargs)))
+        except BaseException as e:
+            box.append((False, e))
+        done.set()
+
+
+def func_timeout(timeout, func, args=(), kwargs=None):
+    kwargs = kwargs or {}
+    jobs = getattr(_TIMED, "jobs", None)
+    if jobs is None:
+        jobs = _TIMED.jobs = queue.SimpleQueue()
+        threading.Thread(target=_timed_helper, args=(jobs,), daemon=True,
+                         name="of3-embed").start()
+    box, done = [], threading.Event()
+    jobs.put((func, args, kwargs, box, done))
+    if not done.wait(timeout):
+        jobs.put(None)  # the helper exits once the abandoned call returns
+        _TIMED.jobs = None
+        raise FunctionTimedOut(timedOutAfter=timeout, timedOutFunction=func,
+                               timedOutArgs=args, timedOutKwargs=kwargs)
+    ok, value = box[0]
+    if not ok:
+        raise value
+    return value
+
+
+def _drop_timed_helpers():
+    # A forked child inherits this thread's helper queue but not the helper thread.
+    global _TIMED
+    _TIMED = threading.local()
+
+
+os.register_at_fork(after_in_child=_drop_timed_helpers)
 
 
 def _compute_conformer(
@@ -258,7 +312,6 @@ def multistrategy_compute_conformer(
         the name of the strategy that succeeded.
     """
     timeouts = timeouts or {}
-    smiles = Chem.MolToSmiles(mol)
 
     # Validate `start_from` and locate it in the chain.
     _get_strategy(start_from)
@@ -276,8 +329,10 @@ def multistrategy_compute_conformer(
                 **strat.kwargs,
             )
         except (ConformerGenerationError, FunctionTimedOut) as e:
+            # SMILES only names the molecule in this warning: 0.04 ms a residue, held
+            # under the GIL, for a line that almost never prints.
             logger.warning(
-                f"Conformer strategy {strat.name!r} failed for {smiles}: {e}"
+                f"Conformer strategy {strat.name!r} failed for {Chem.MolToSmiles(mol)}: {e}"
             )
             last_exc = e
             continue

@@ -171,6 +171,41 @@ class ConfidenceHead(nn.Module):
             return x.reshape(b * mult, n, c)
         return x
 
+    def _pair_outputs(self, z, s_inputs_normed, relative_position_encoding,
+                      token_bonds_encoding, distogram_bins, mask, num_diffusion_samples):
+        """The L^2 part of the head: the pair, its trunk, row pooling and the PAE/PDE logits.
+
+        tt-bio: split out of forward (same ops, same order per tensor) so the runtime can run it on the device.
+        """
+        z_base = self.z_norm(z)
+        if relative_position_encoding is not None:
+            z_base = z_base + relative_position_encoding
+        if token_bonds_encoding is not None:
+            z_base = z_base + token_bonds_encoding
+        z_base = z_base + self.s_to_z(s_inputs_normed).unsqueeze(2)
+        z_base = z_base + self.s_to_z_transpose(s_inputs_normed).unsqueeze(1)
+        z_base = z_base + self.s_to_z_prod_out(
+            self.s_to_z_prod_in1(s_inputs_normed)[:, :, None, :]
+            * self.s_to_z_prod_in2(s_inputs_normed)[:, None, :, :]
+        )
+
+        pair = self._repeat_batch(z_base, num_diffusion_samples)
+        pair = pair + self.dist_bin_pairwise_embed(distogram_bins)
+
+        pair_mask = mask[:, :, None].float() * mask[:, None, :].float()
+
+        # FoldingTrunk handles the bf16 cast internally during inference so
+        # each block's fused trimul engages. In-place residual avoids an
+        # extra fp32 pair allocation.
+        with torch.amp.autocast("cuda", enabled=pair.is_cuda, dtype=torch.bfloat16):
+            pair_delta = self.folding_trunk(pair, pair_attention_mask=pair_mask)
+        pair.add_(pair_delta.float())
+        del pair_delta
+        single = self.row_attention_pooling(pair, mask)
+        pae_logits = self.pae_head(self.pae_ln(pair))
+        pde_logits = self.pde_head(self.pde_ln(pair))
+        return single, pae_logits, pde_logits
+
     def forward(
         self,
         s_inputs: Tensor,
@@ -188,25 +223,12 @@ class ConfidenceHead(nn.Module):
     ) -> dict[str, Tensor]:
         s_inputs_normed = self.s_inputs_norm(s_inputs)
 
-        z_base = self.z_norm(z)
-        if relative_position_encoding is not None:
-            z_base = z_base + relative_position_encoding
-        if token_bonds_encoding is not None:
-            z_base = z_base + token_bonds_encoding
-        z_base = z_base + self.s_to_z(s_inputs_normed).unsqueeze(2)
-        z_base = z_base + self.s_to_z_transpose(s_inputs_normed).unsqueeze(1)
-        z_base = z_base + self.s_to_z_prod_out(
-            self.s_to_z_prod_in1(s_inputs_normed)[:, :, None, :]
-            * self.s_to_z_prod_in2(s_inputs_normed)[:, None, :, :]
-        )
-
-        pair = self._repeat_batch(z_base, num_diffusion_samples)
         x_pred_flat = self._flatten_sample_axis(x_pred)
         atom_to_token_m = self._repeat_batch(atom_to_token, num_diffusion_samples)
         atom_mask_m = self._repeat_batch(atom_attention_mask, num_diffusion_samples)
         rep_idx_m = self._repeat_batch(distogram_atom_idx, num_diffusion_samples).long()
         mask = self._repeat_batch(token_attention_mask, num_diffusion_samples)
-        Bm = pair.shape[0]
+        Bm = mask.shape[0]
 
         rep_coords = gather_rep_atom_coords(x_pred_flat, rep_idx_m)
         rep_distances = torch.cdist(
@@ -215,18 +237,9 @@ class ConfidenceHead(nn.Module):
         distogram_bins = (
             (rep_distances.unsqueeze(-1) > self.boundaries).sum(dim=-1).long()
         )
-        pair = pair + self.dist_bin_pairwise_embed(distogram_bins)
-
-        pair_mask = mask[:, :, None].float() * mask[:, None, :].float()
-
-        # FoldingTrunk handles the bf16 cast internally during inference so
-        # each block's fused trimul engages. In-place residual avoids an
-        # extra fp32 pair allocation.
-        with torch.amp.autocast("cuda", enabled=pair.is_cuda, dtype=torch.bfloat16):
-            pair_delta = self.folding_trunk(pair, pair_attention_mask=pair_mask)
-        pair.add_(pair_delta.float())
-        del pair_delta
-        single = self.row_attention_pooling(pair, mask)
+        single, pae_logits, pde_logits = self._pair_outputs(
+            z, s_inputs_normed, relative_position_encoding, token_bonds_encoding,
+            distogram_bins, mask, num_diffusion_samples)
 
         atom_mask_f = atom_mask_m.float()
         s_at_atoms = gather_token_to_atom(single, atom_to_token_m)
@@ -278,11 +291,9 @@ class ConfidenceHead(nn.Module):
         plddt_ca = plddt_per_atom.gather(1, rep_idx_m)
 
         # PAE
-        pae_logits = self.pae_head(self.pae_ln(pair))
         pae = _categorical_mean(pae_logits, start=0.0, end=32.0).detach()
 
         # PDE
-        pde_logits = self.pde_head(self.pde_ln(pair))
         pde = _categorical_mean(pde_logits, start=0.0, end=32.0).detach()
 
         # Resolved (per-atom binary).
