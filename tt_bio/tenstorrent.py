@@ -651,6 +651,8 @@ _FAST_MODE = False
 #   ws_ln           with transition_ws, its layer norm as the kernel's prologue (ln_prologue.hpp, as trimul
 #                   T1/T2): the normalised x never goes to DRAM. One-chunk weights only. WH c_z 128 fast: slower
 #                   (4.31 -> 4.48 ms) and less accurate (rel_rms 0.020 -> 0.028) than the separate norm.
+#   ws_l1dest       transition_ws also takes a call whose caller asked for an L1 result (the pair residual update
+#                   where it fits L1) and writes it to DRAM instead of declining to the row-blocked path
 #   edm_device      OpenFold3's traced rollout keeps the coordinates on the card: augment + EDM step in fp32 inside
 #                   the step's trace, per-step draws / scalars / fourier embedding uploaded once, no per-step read
 #   ws_l1acc        with transition_ws, each matmul sums at most 2 K tiles in the fp32 dest and the packer adds
@@ -667,17 +669,19 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "transition_shard", "dit_mm16", "atom_k1", "dit_b8", "dit_qkv16", "atom_mm16", "adaln_mod",
           "swiglu_fc12g", "msa_sample", "dit_sdpa_pm", "dit_s16", "dit_chunk", "conf_bins", "trimul_t1", "trimul_t2",
           "trimul_t2g", "triatt_tail_bias", "dit_cond_hifi2", "transition_ws", "ws_ln", "trimul_t1_dram",
-          "trimul_t2m", "trimul_t2cm", "dit_fuse", "pair_mm", "ref_memo", "edm_device", "ws_l1acc", "ws_resid", "pib_where", "trimul_t2w", "narrow_bw16")
+          "trimul_t2m", "trimul_t2cm", "dit_fuse", "pair_mm", "ref_memo", "edm_device", "ws_l1acc", "ws_resid", "pib_where",
+          "trimul_t2w", "narrow_bw16", "ws_l1dest")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
 # model's matching op. BoltzGen's own --fast set names dit_cond_hifi2, graded on BoltzGen's designs.
-# OpenFold3's own --fast set names dit_fuse and edm_device, graded on OpenFold3 / OpenBind-0
+# OpenFold3's own --fast set names dit_fuse, edm_device and ws_l1dest, graded on OpenFold3 / OpenBind-0
 # (openfold3_fold.FAST_LEVERS).
 # ref_memo is host featurisation, OpenFold3 / OpenBind-0 only: one reference conformer per residue type
 # (vendored query.REF_MOL_MEMO), read by worker._predict_openfold3_one off the model's lever set.
 UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "dit_cond_hifi2", "ws_ln", "dit_fuse",
-                             "pair_mm", "ref_memo", "trimul_t2m", "edm_device", "ws_l1acc", "pib_where", "trimul_t2w", "narrow_bw16"})
+                             "pair_mm", "ref_memo", "trimul_t2m", "edm_device", "ws_l1acc", "pib_where", "trimul_t2w",
+                             "narrow_bw16", "ws_l1dest"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -12753,8 +12757,12 @@ class Transition(Module):
         to c_z 128: at c_z 256 HiFi4 the fp32-dest cancellation fault (`dest_guard`) hits ~10x more outputs
         (ws_bisect wsb1, 394-472 vs 35 per chunk) unless `ws_l1acc` keeps the dest sums short; Blackhole reads
         clean at every shape (wsb1bh)."""
+        # An L1 destination is the row-blocked path's `_residual_update_memory_config` hint; ws writes DRAM.
+        # Without ws_l1dest that hint turns ws off wherever the pair update fits L1: OpenFold3 at 512 tokens
+        # on a p150a ran the row-blocked transition (~4.4 ms a call) with transition_ws on (~2.1 ms).
         if not (_ws_applies(x, self.compute_kernel_config)
-                and (memory_config is None or memory_config.buffer_type == ttnn.BufferType.DRAM)
+                and (memory_config is None or memory_config.buffer_type == ttnn.BufferType.DRAM
+                     or lever("ws_l1dest"))
                 and (self.dtype or _dtype()) == ttnn.bfloat16
                 and (self._hidden_b8 or x.shape[-1] <= 128 or lever("ws_l1acc") or not is_wormhole())):
             return None
