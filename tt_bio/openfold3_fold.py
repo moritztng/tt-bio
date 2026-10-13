@@ -44,8 +44,15 @@ NORMAL_LEVERS = _T.NORMAL_LEVERS - {"transition_bw", "transition_shard"}
 # each, state/spd/grade-dfuse-*-wh-fast.md; DiT block 1.080 -> 1.004 ms at 1000 MHz).
 # trimul_t2cm (T2 reads the einsum's channel-major output, no reblock_permute_back) is bit-exact: Wormhole l512 coords
 # identical to --fast on 4 seeds x both models, fold 43.76 -> 43.45 s (OpenFold3) and 50.33 -> 49.97 s (OpenBind-0).
+# edm_device (the traced rollout keeps the coordinates on the card, augment + EDM step in fp32 inside the step trace)
+# joins on the 11-set fast grade of --fast + edm_device against --fast, 44 paired folds per model and arch:
+# Blackhole p150a OpenFold3 top pose median 0.240 A (seed floor 1.086 A), CA-lDDT +0.0004, docking 22 -> 22/44, PASS;
+# OpenBind-0 0.234 A (floor 0.771 A), CA-lDDT +0.0002, docking 28 -> 27/44, PASS. Wormhole OpenFold3 0.341 A (floor
+# 1.199 A), CA-lDDT +0.0005 [+0.0000, +0.0011], docking 19 -> 21/44, PASS; OpenBind-0 0.258 A (floor 0.510 A),
+# CA-lDDT +0.0004, docking 27 -> 27/44, PASS (state/spd/grade-edm-*-fast.md). 512-token page fold on a p150a at
+# 1350 MHz: OpenFold3 ~-0.2 s, OpenBind-0 ~-0.5 s.
 FAST_LEVERS = NORMAL_LEVERS | {"dit_s16", "diffusion_bf16", "trimul_t1", "trimul_t2", "trimul_t2cm", "transition_ws",
-                               "dit_fuse"}
+                               "dit_fuse", "edm_device"}
 
 def kabsch_rmsd(pred_ca, gt_ca):
     """Optimal-superposition Cα-RMSD (Kabsch). pred_ca, gt_ca: [N, 3].
