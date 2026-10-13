@@ -39,6 +39,7 @@ import torch
 import torch.nn.functional as F
 
 from tt_bio import esmfold2 as E
+from tt_bio.envflags import env_flag
 from tt_bio.token_axis import pad_amount
 from tt_bio.esmc import ESMCLanguageModel
 from tt_bio.tenstorrent import dram_peak, is_wormhole
