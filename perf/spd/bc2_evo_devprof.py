@@ -195,7 +195,9 @@ def tape_census():
                 continue
             vals += list(v) if isinstance(v, (list, tuple)) else [v]
         for v in vals:
+            pin = "raw"              # a ttnn tensor the closure holds directly
             if isinstance(v, autograd.Tensor):
+                pin = "pinned" if getattr(v, "pinned", False) else "unpinned"
                 try:
                     v = v.value
                 except Exception:  # a value the tape already freed holds nothing
@@ -210,19 +212,23 @@ def tape_census():
             bufs.add(key)
             shape = tuple(v.padded_shape)
             nbytes = float(np.prod(shape)) * _ITEM.get(str(v.dtype).split(".")[-1], 2)
-            row = by[(name, str(list(shape)), str(v.dtype).split(".")[-1])]
+            row = by[(name, str(list(shape)), str(v.dtype).split(".")[-1], pin)]
             row[0] += 1
             row[1] += nbytes
-    rows = sorted(({"closure": k[0], "shape": k[1], "dtype": k[2], "buffers": n, "gb": b / 1e9,
+    rows = sorted(({"closure": k[0], "shape": k[1], "dtype": k[2], "pin": k[3], "buffers": n, "gb": b / 1e9,
                     "pair_tensors": b / pair_bytes} for k, (n, b) in by.items()), key=lambda r: -r["gb"])
     total = sum(r["gb"] for r in rows)
+    # pinned: the backward reads it (or `_tape` pinned it with reads=None); unpinned: held by a
+    # node but releasable by the forward's deallocate; raw: a ttnn tensor the closure captured.
+    split = {k: sum(r["gb"] for r in rows if r["pin"] == k) for k in ("pinned", "unpinned", "raw")}
     print(f"\ntape census: {len(seen)} nodes, {len(bufs)} buffers, {total:.3f} GB "
-          f"= {total * 1e9 / pair_bytes:.1f} pair tensors")
+          f"= {total * 1e9 / pair_bytes:.1f} pair tensors; "
+          + ", ".join(f"{k} {g:.3f} GB" for k, g in split.items()))
     for r in rows[:40]:
-        print(f"{r['gb']:7.3f} GB {r['pair_tensors']:6.1f} pt {r['buffers']:5d}x {r['dtype']:9} {r['shape']:24} "
-              f"{r['closure'][:80]}")
+        print(f"{r['gb']:7.3f} GB {r['pair_tensors']:6.1f} pt {r['buffers']:5d}x {r['pin']:8} {r['dtype']:9} "
+              f"{r['shape']:24} {r['closure'][:80]}")
     return dict(nodes=len(seen), buffers=len(bufs), gb=total, pair_tensors=total * 1e9 / pair_bytes,
-                resident=os.environ.get("TT_BIO_BC2_RESIDENT_BLOCKS"), rows=rows)
+                split_gb=split, resident=os.environ.get("TT_BIO_BC2_RESIDENT_BLOCKS"), rows=rows)
 
 
 def summary(reps):
