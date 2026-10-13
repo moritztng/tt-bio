@@ -128,3 +128,41 @@ def test_retry_after_a_timeout_that_still_embedded_returns_conformer_zero():
     assert calls == [99, 99], calls          # same strategy, same seed, as before
     assert conf_id == 0, f"retry inherited the timed-out attempt's conformer: {conf_id}"
     assert mol.GetNumConformers() == 1
+
+
+def _ref_mols(seq, threads, templates):
+    import numpy as np
+    from tt_bio._vendor.openfold3.core.data.primitives.structure import query as Q
+    from tt_bio._vendor.openfold3.core.data.resources.residues import MoleculeType
+    from rdkit import Chem
+
+    old = Q.CONFORMER_THREADS, Q.REF_MOL_TEMPLATES
+    Q.CONFORMER_THREADS, Q.REF_MOL_TEMPLATES = threads, templates
+    try:
+        random.seed(5)
+        out = Q.structure_with_ref_mols_from_sequence(seq, MoleculeType.PROTEIN, "B")
+    finally:
+        Q.CONFORMER_THREADS, Q.REF_MOL_TEMPLATES = old
+    return [(r.mol.GetConformer().GetPositions(), np.asarray(r.in_crop_mask),
+             [(a.GetSymbol(), a.GetFormalCharge(), sorted(a.GetPropsAsDict().items()),
+              a.GetPDBResidueInfo().GetName(), a.GetPDBResidueInfo().GetResidueNumber(),
+              a.GetPDBResidueInfo().GetChainId()) for a in r.mol.GetAtoms()]
+            + [Chem.MolToSmiles(r.mol)])
+            for r in out.processed_reference_mols]
+
+
+def test_pooled_template_path_is_the_sequential_path():
+    """Per-type RDKit templates + the pool give every residue the conformer the plain
+    sequential loop gives it: same seed, same coordinates bit for bit, same atoms and
+    residue info. Repeated residues exercise a reused template."""
+    import numpy as np
+
+    seq = "MKTAYIAKQRGAGAWKK"
+    ref = _ref_mols(seq, threads=0, templates=False)
+    got = _ref_mols(seq, threads=4, templates=True)
+    assert len(ref) == len(got) == len(seq)
+    for i, ((p0, m0, a0), (p1, m1, a1)) in enumerate(zip(ref, got)):
+        assert np.array_equal(p0, p1), f"residue {i + 1} {seq[i]} moved"
+        assert np.array_equal(m0, m1) and a0 == a1, f"residue {i + 1} {seq[i]}"
+    # Residues of one type still carry their own seeds' geometry.
+    assert not np.array_equal(ref[11 - 1][0], ref[13 - 1][0])
