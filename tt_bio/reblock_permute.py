@@ -386,7 +386,24 @@ L1_N_MAX = int(os.environ.get("TT_BIO_REBLOCK_L1_N_MAX", "352"))
 # 0.68 it folds in 5.22-5.25 s with the same coordinates (.114 chip 1, 3 reps each,
 # out/af2igwh_rj_322104346). 0.68 moves no other grid listed here (64, 110 or 130 cores).
 L1_GROUPS_PER_CORE = float(os.environ.get("TT_BIO_REBLOCK_L1_GROUPS_PER_CORE", "0.68"))
+
+# The DRAM legs take the same grid-fill rule below their N=256 edge. 256 was measured on 110- and
+# 130-core Blackhole grids, where the rule needs Nt=10 and so moves nothing; on a 72-core Wormhole
+# chip a DRAM -> DRAM move wins at Nt=7: forward [1, N, N, 128] 1.31x at N=195 and 1.33x at N=224,
+# every point torch.equal (.114 chip 12, 1000 MHz, out/rbdram_67a5e6b56). That is BindCraft 2's pair
+# track, which lives in DRAM, so its trimul channel moves were all on the stock permute.
+# The fused gated leg is not an index move, so it was graded on its own: at 224 tokens on Wormhole it
+# leaves BindCraft 2's gradients bit-identical over 30 iterations and AF2-IG's coordinates equal, and
+# takes the on-card iteration 5.34 -> 5.02 s (.114 chip 19, 1000 MHz, out/gfill_2c9346e08).
+# TT_BIO_REBLOCK_DRAM_FILL=0 / TT_BIO_REBLOCK_DRAM_FILL_GATED=0 restore the plain N edge for an A/B.
+DRAM_FILL = os.environ.get("TT_BIO_REBLOCK_DRAM_FILL", "1") != "0"
+DRAM_FILL_GATED = os.environ.get("TT_BIO_REBLOCK_DRAM_FILL_GATED", "1") != "0"
 _GRID_CORES = {}
+
+
+def _dram_open(x, N: int) -> bool:
+    """The DRAM legs' window: N >= 256, or below it where the groups fill the grid (`DRAM_FILL`)."""
+    return N >= 256 or (DRAM_FILL and _l1_fills_grid(x, N))
 
 
 def _l1_fills_grid(x, N: int) -> bool:
@@ -456,7 +473,7 @@ def eligible(x, memory_config, taped_ok: bool = False) -> bool:
     if x.memory_config().memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED:
         return _reject("sharded_in", shape)
     bt = memory_config.buffer_type
-    if not ((bt == ttnn.BufferType.DRAM and N >= 256)
+    if not ((bt == ttnn.BufferType.DRAM and _dram_open(x, N))
             or (bt == ttnn.BufferType.L1 and N <= L1_N_MAX
                 and (N >= L1_N_MIN or _l1_fills_grid(x, N)))):
         return _reject(f"window_{bt}", shape)
@@ -730,7 +747,7 @@ def eligible_back(x, memory_config, taped_ok: bool = False) -> bool:
         return _reject("back_sharded_out", shape)
     if x.memory_config().memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED:
         return _reject("back_sharded_in", shape)
-    if memory_config.buffer_type != ttnn.BufferType.DRAM or N < 256:
+    if memory_config.buffer_type != ttnn.BufferType.DRAM or not _dram_open(x, N):
         return _reject(f"back_window_{memory_config.buffer_type}", shape)
     # An L1 SOURCE is the channel loop's L1 path, where this kernel replaces a permute into L1
     # plus a clone to DRAM. It carries the forward kernel's L1 floor rather than the DRAM one:
@@ -1058,7 +1075,7 @@ def eligible_gated(xw, slice_c, memory_config) -> bool:
     if xw.memory_config().memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED:
         return _reject("gated_sharded_in", shape)
     bt = memory_config.buffer_type
-    if not ((bt == ttnn.BufferType.DRAM and N >= 256)
+    if not ((bt == ttnn.BufferType.DRAM and (N >= 256 or (DRAM_FILL_GATED and _dram_open(xw, N))))
             or (bt == ttnn.BufferType.L1 and N <= L1_N_MAX
                 and (N >= L1_N_MIN or _l1_fills_grid(xw, N)))):
         return _reject(f"gated_window_{bt}", shape)

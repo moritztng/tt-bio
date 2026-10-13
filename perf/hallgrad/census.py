@@ -220,7 +220,24 @@ class Recorder:
                 done.add(id(fn))
                 self.orig[label] = fn
                 setattr(mod, n, self._wrap(label, fn))
+        self._rebind_shim()
         return self
+
+    def _rebind_shim(self):
+        """Make tt-bio's tape shim call the wrappers too.
+
+        `taped_ttnn._SHIM` caches the shipped callable per verb the first time a tape reads it,
+        and every `tt_bio` module calls through that proxy while a tape (or a checkpoint's
+        recompute) is open. A census installed after any warm-up therefore never sees the
+        forward: on BindCraft 2 it recorded 0.26 s of a 2.21 s Evoformer forward. Dropping the
+        cache makes the shim re-resolve each verb off the wrapped module, and pointing the
+        shipped `__getitem__` at the wrapper keeps it across the shim's swap out.
+        """
+        TT = sys.modules.get("tt_bio.taped_ttnn")
+        if TT is None:
+            return
+        TT.forget_shim_bindings()
+        TT._SHIPPED_GETITEM = self.ttnn.Tensor.__getitem__
 
 
 def one_step(ag, ttnn, device, Wtt, cfg, logits_np, mask_t, M, inC, rec=None):

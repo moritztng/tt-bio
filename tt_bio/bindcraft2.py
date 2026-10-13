@@ -1427,15 +1427,16 @@ class EvoformerOnDevice:
             # forward did, which is what AF2's dropout means for a gradient.
             drop = upload_dropout(trunk, DROPOUT_DRAWS[1:], pair_keep, scales, z.shape[0],
                                   msa_keep)
+            # AlphaFold 2 stops the gradient on every recycle but the last and JAX still routes all
+            # of them through the forward rule, so this trajectory's superseded tapes are dropped
+            # before the next forward records, never beside it: at several GB an Evoformer block,
+            # two recycles' tapes at once is fatal within one trajectory.
+            self._tapes.sweep(slot)
             with trunk.taped.tape():
                 mo, zo = trunk.evoformer(ml, zl, self._msa_mask(trunk, mask),
                                          self._pair_masks(trunk, pair_mask),
                                          recompute=self.recompute, offload=offload, drop=drop)
             trunk.sync()
-        # AlphaFold 2 stops the gradient on every recycle but the last and JAX still routes all
-        # of them through the forward rule, so the superseded tapes are dropped here. At several
-        # GB an Evoformer block, keeping them is fatal within one trajectory.
-            self._tapes.sweep(slot)
             trunk.ag.release_pins()
             token = self._tapes.bank({"roots": (mo, zo), "leaves": (ml, zl),
                                       "shapes": (tuple(m.shape), tuple(z.shape)), "n": n,
@@ -1675,13 +1676,14 @@ class ExtraMsaOnDevice:
             offload = trunk.arm(mode)
             zl = trunk.leaf(z)
             drop = upload_dropout(trunk, DROPOUT_DRAWS[1:], pair_keep, scales, z.shape[0])
+            # Every recycle but the last is stop_gradient'ed and still goes through the forward
+            # rule, so the superseded tapes are dropped before this one records
+            # (`EvoformerOnDevice._taped`).
+            self._tapes.sweep(slot)
             with trunk.taped.tape():
                 zo = trunk.extra_msa(zl, self._pair_masks(trunk, pair_mask),
                                      recompute=self.recompute, offload=offload, drop=drop)
             trunk.sync()
-        # Every recycle but the last is stop_gradient'ed and still goes through the forward
-        # rule, so the superseded tapes are dropped here -- `EvoformerOnDevice._taped`'s reason.
-            self._tapes.sweep(slot)
             trunk.ag.release_pins()
             token = self._tapes.bank({"root": zo, "leaf": zl, "shape": tuple(z.shape), "n": n,
                                       "mode": mode, "drop": drop}, slot)
@@ -1842,13 +1844,14 @@ class TemplateOnDevice:
             offload = trunk.arm(mode)
             leaf = trunk.leaf(act)
             drop = upload_dropout(trunk, TEMPLATE_DROPOUT_DRAWS, pair_keep, scales, act.shape[0])
+            # Every recycle but the last is stop_gradient'ed and still goes through the forward
+            # rule, so the superseded tapes are dropped before this one records
+            # (`ExtraMsaOnDevice._taped`).
+            self._tapes.sweep(slot)
             with trunk.taped.tape():
                 out = trunk.template_stack(leaf, self._pair_masks(trunk, pair_mask),
                                            recompute=self.recompute, offload=offload, drop=drop)
             trunk.sync()
-        # Every recycle but the last is stop_gradient'ed and still goes through the forward
-        # rule, so the superseded tapes are dropped here -- `ExtraMsaOnDevice._taped`'s reason.
-            self._tapes.sweep(slot)
             trunk.ag.release_pins()
             token = self._tapes.bank({"root": out, "leaf": leaf, "shape": tuple(act.shape),
                                       "n": n, "mode": mode, "drop": drop}, slot)
