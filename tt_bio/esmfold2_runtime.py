@@ -66,7 +66,7 @@ class _ESMCAdapter:
         self._persistent = persistent
         self._fast = fast
         self.lm = None  # loaded lazily on first fold
-        # With a shim (LM_COMBINE) the 6B returns the shim's layer-combined state, one layer instead of 81.
+        # Under LM_COMBINE the 6B returns this shim's layer-combined state, one layer instead of 81.
         self._shim = shim
 
     def preload(self):
@@ -99,7 +99,7 @@ class _ESMCAdapter:
             allow = same & valid & (sid[:, None, :] >= 0)
             attn_mask = torch.where(allow, 0.0, float("-inf"))  # [B,L,L]
         self.preload()
-        combine = self._shim.combine_lm() if self._shim is not None else None
+        combine = self._shim.combine_lm() if LM_COMBINE and self._shim is not None else None
         hs = self.lm(input_ids, attn_mask=attn_mask, combine=combine)  # [n_layers+1 or 1,B,L,D]
         dram_peak("esmfold2/lm-forward")
         if not self._persistent:
@@ -1046,11 +1046,7 @@ def patch_esmfold2(model, esmc_repo: str = "biohub/ESMC-6B", persistent_lm: bool
 
     # ttnn ESMC-6B language model. Loaded lazily on the first fold; with
     # persistent_lm it then stays resident for all subsequent folds.
-    shim = None
-    if LM_COMBINE:
-        shim = model.language_model.m
-        shim.precombined = True
-    model._esmc = _ESMCAdapter(esmc_repo, persistent=persistent_lm, fast=fast, shim=shim)
+    model._esmc = _ESMCAdapter(esmc_repo, persistent=persistent_lm, fast=fast, shim=model.language_model.m)
     model._tt_fast = fast
     model._esmc_fp8 = False
 

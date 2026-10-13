@@ -1296,15 +1296,14 @@ class LanguageModelShim(TorchWrapper):
         self._ln_bias = weights["base_z_linear.0.bias"].float()
         return LanguageModelShimModel(weights, self.compute_kernel_config)
 
-    # Set by esmfold2_runtime when the ESMC hands over the layer-combined state (one layer, see combine_lm).
-    precombined = False
-
     def combine_lm(self):
         """What the ESMC needs to combine its layers itself: (softmax weights, LayerNorm weight, bias)."""
         return torch.softmax(self._combine, 0).tolist(), self.module.zl_ln_w, self.module.zl_ln_b
 
-    def is_precombined(self, hidden_states) -> bool:
-        return self.precombined and hidden_states.shape[2] == 1
+    @staticmethod
+    def is_precombined(hidden_states) -> bool:
+        """The ESMC hands over one layer only when it combined them itself (combine_lm); the 6B has 81."""
+        return hidden_states.shape[2] == 1
 
     def fill_absent(self, hidden_states):
         """Non-protein tokens reach the shim as zero rows, and the reference's LayerNorm maps a zero row to
