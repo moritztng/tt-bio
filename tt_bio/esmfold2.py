@@ -1229,17 +1229,23 @@ class LanguageModelShimModel(Module):
         self.o2_w = self.torch_to_tt("base_z_mlp.0.output_mlp.2.weight"); self.o2_b = self.torch_to_tt("base_z_mlp.0.output_mlp.2.bias", transform=_ROW)
         self.fln_w = self.torch_to_tt("base_z_mlp.1.weight"); self.fln_b = self.torch_to_tt("base_z_mlp.1.bias")
 
-    def __call__(self, hidden, combine_w):  # hidden [B, L*K, d_model] (flat_layers); combine_w torch [K]
+    def __call__(self, hidden, combine_w, precombined=False):  # hidden [B, L*K, d_model] (flat_layers); combine_w torch [K]
         ck = self.compute_kernel_config
         lin = self._lin
         ln = lambda t, w, b: ttnn.layer_norm(t, weight=w, bias=b, epsilon=1e-5, compute_kernel_config=ck)
-        K = combine_w.numel()
+        K = 1 if precombined else combine_w.numel()
         B, L = hidden.shape[0], hidden.shape[1] // K
+        if precombined:  # K = 1: the ESMC already summed the weighted layer norms (combine_lm)
+            x = lin(lin(hidden, self.zl_w), self.dp_w, self.dp_b)
+            return self._pair_init(x, L)
         lz = lin(ln(hidden, self.zl_ln_w, self.zl_ln_b), self.zl_w)  # [B, L*K, 256]
         # Softmax-weighted layer combine on host (non-learned given combine_w).
         lz_t = torch.Tensor(ttnn.to_torch(lz)).float().reshape(B, L, K, 256)
         x_t = (combine_w.view(1, 1, K, 1) * lz_t).sum(2)  # [B,L,256]
         x = lin(ttnn.from_torch(x_t, layout=ttnn.TILE_LAYOUT, device=self.device, dtype=_DTYPE), self.dp_w, self.dp_b)
+        return self._pair_init(x, L)
+
+    def _pair_init(self, x, L):
         # The outer-product pair init holds a, b, their product and difference, and the
         # 512-wide concat all at full [B,L,L,*]: ~4.4 GiB at L=1095, which is the
         # allocation esmfold2's 9j4c exclusion dies on (1255833600 B = 1095x1120x512x2,
@@ -1287,11 +1293,31 @@ class LanguageModelShim(TorchWrapper):
 
     def _create_module(self, weights: WeightScope) -> LanguageModelShimModel:
         self._combine = weights["base_z_combine"]  # [n_layers+1]
+        self._ln_bias = weights["base_z_linear.0.bias"].float()
         return LanguageModelShimModel(weights, self.compute_kernel_config)
+
+    # Set by esmfold2_runtime when the ESMC hands over the layer-combined state (one layer, see combine_lm).
+    precombined = False
+
+    def combine_lm(self):
+        """What the ESMC needs to combine its layers itself: (softmax weights, LayerNorm weight, bias)."""
+        return torch.softmax(self._combine, 0).tolist(), self.module.zl_ln_w, self.module.zl_ln_b
+
+    def is_precombined(self, hidden_states) -> bool:
+        return self.precombined and hidden_states.shape[2] == 1
+
+    def fill_absent(self, hidden_states):
+        """Non-protein tokens reach the shim as zero rows, and the reference's LayerNorm maps a zero row to
+        its bias in every layer, so their combined state is that bias (the weights sum to 1)."""
+        absent = (hidden_states == 0).all(-1, keepdim=True)
+        return torch.where(absent, self._ln_bias.to(hidden_states.dtype), hidden_states)
 
     def forward(self, hidden_states):
         w = torch.softmax(self._combine, 0)  # [K]
-        return self._to_torch(self.module(self._from_torch(flat_layers(hidden_states)), w))
+        pre = self.is_precombined(hidden_states)
+        if pre:
+            hidden_states = self.fill_absent(hidden_states)
+        return self._to_torch(self.module(self._from_torch(flat_layers(hidden_states)), w, precombined=pre))
 
 
 # ===========================================================================

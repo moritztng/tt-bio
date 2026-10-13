@@ -61,11 +61,13 @@ class _ESMCAdapter:
     attention for multi-chain / padded batches.
     """
 
-    def __init__(self, repo: str, persistent: bool = True, fast: bool = False):
+    def __init__(self, repo: str, persistent: bool = True, fast: bool = False, shim=None):
         self._repo = repo
         self._persistent = persistent
         self._fast = fast
         self.lm = None  # loaded lazily on first fold
+        # With a shim (LM_COMBINE) the 6B returns the shim's layer-combined state, one layer instead of 81.
+        self._shim = shim
 
     def preload(self):
         """Load the ESMC-6B weights now (≈60 s) instead of lazily on the first
@@ -97,7 +99,8 @@ class _ESMCAdapter:
             allow = same & valid & (sid[:, None, :] >= 0)
             attn_mask = torch.where(allow, 0.0, float("-inf"))  # [B,L,L]
         self.preload()
-        hs = self.lm(input_ids, attn_mask=attn_mask)            # [n_layers+1,B,L,D]
+        combine = self._shim.combine_lm() if self._shim is not None else None
+        hs = self.lm(input_ids, attn_mask=attn_mask, combine=combine)  # [n_layers+1 or 1,B,L,D]
         dram_peak("esmfold2/lm-forward")
         if not self._persistent:
             # Memory-conservative mode: free the ~12.8 GB of 6B device weights
@@ -498,7 +501,10 @@ class _ShimAdapter(_Adapter):
         m = self.m
         hs = _to_t(args[0])
         LM_HANDOFF_STATS[0] += 1
-        return _DevPair(m.module(m._from_torch(E.flat_layers(hs)), torch.softmax(m._combine, 0)),
+        pre = m.is_precombined(hs)
+        if pre:
+            hs = m.fill_absent(hs)
+        return _DevPair(m.module(m._from_torch(E.flat_layers(hs)), torch.softmax(m._combine, 0), precombined=pre),
                         int(hs.shape[1]))
 
 
@@ -1040,7 +1046,11 @@ def patch_esmfold2(model, esmc_repo: str = "biohub/ESMC-6B", persistent_lm: bool
 
     # ttnn ESMC-6B language model. Loaded lazily on the first fold; with
     # persistent_lm it then stays resident for all subsequent folds.
-    model._esmc = _ESMCAdapter(esmc_repo, persistent=persistent_lm, fast=fast)
+    shim = None
+    if LM_COMBINE:
+        shim = model.language_model.m
+        shim.precombined = True
+    model._esmc = _ESMCAdapter(esmc_repo, persistent=persistent_lm, fast=fast, shim=shim)
     model._tt_fast = fast
     model._esmc_fp8 = False
 
@@ -1309,6 +1319,11 @@ def wh_releases_lm(chains) -> bool:
         return tokens > WH_LM_RESIDENT_MSA_MAX_TOKENS or tokens * depth * 1024 > WH_LM_RESIDENT_MSA_BYTES
     return tokens > WH_LM_RESIDENT_MAX_TOKENS
 
+
+# The ESMC-6B sums the shim's weighted per-layer LayerNorms on the device and hands over one state instead of
+# all 81 (each a blocking copy that drains the dispatch pipeline). Same math as the shim, summed before its
+# bias-free linear instead of after, in fp32. Off until A/B'd and graded.
+LM_COMBINE = env_flag("TT_BIO_ESMFOLD2_LM_COMBINE", False)
 
 # The shared-kernel levers (tenstorrent.LEVERS) ESMFold2 folds under, per mode. Empty until a set is graded on
 # ESMFold2 itself: the sets Protenix and Boltz-2 ship were graded on their folds, not on this one. A harness
