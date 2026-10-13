@@ -1048,14 +1048,16 @@ def fold_levers(fast: bool) -> str:
 
 def fold_scope(fast: bool):
     """The context ESMFold2 builds and folds in. Blackhole: `lever_scope(fold_levers(fast))`, the older bfp8
-    `_FAST_MODE` off. Wormhole keeps the path main shipped, `_FAST_MODE` = `fast` and no lever set (a harness's
-    TT_BIO_LEVERS still applies): the Blackhole path's --fast threw a circular-buffer clash at 546-559 tokens on a
-    Galaxy chip (program 217, L1 buffer at 188416 under a CB region ending at 300320) and three of four folds then
-    hung, where main folds the same complexes. Neither path has been graded on Wormhole against the other."""
+    `_FAST_MODE` off. Wormhole keeps main's `_FAST_MODE` = `fast` path (the Blackhole path's --fast threw a
+    circular-buffer clash at 546-559 tokens on a Galaxy chip, program 217) and takes LEVERS_NORMAL in both modes:
+    graded there against no lever set, 11 complexes x 4 seeds, ESMFold2-Fast on the normal bar (CA-lDDT +0.0014
+    [-0.0007, +0.0045], docking 24 -> 25/44) and ESMFold2 on the fast bar (43 paired, CA-lDDT -0.0050 [-0.0101,
+    -0.0010], docking 30 -> 29/43, top-pose median 0.64 A vs 1.26 A seed floor), ~3 s off a 512-aa fold at 1000 MHz.
+    On Wormhole --fast and trunk_hifi3 change nothing under this set (same digest), so one grade covers both modes."""
     from tt_bio import tenstorrent
     if is_wormhole():
         tenstorrent.set_fast_mode(fast)
-        return tenstorrent.levers(os.environ.get("TT_BIO_LEVERS") or ())
+        return tenstorrent.levers(os.environ.get("TT_BIO_LEVERS") or LEVERS_NORMAL)
     return tenstorrent.lever_scope(fold_levers(fast))
 
 
