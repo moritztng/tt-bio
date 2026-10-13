@@ -143,6 +143,8 @@ LEVERS = {
     "bln": [(BL.set_enabled, True)],
     # the output tail as one kernel (trimul_t2); under gin it is the GATE form
     "t2": [(TTL.set_t2, True)],
+    # T2 reads the einsum's last channel chunk channel-major (no back move); needs t2 to serve
+    "t2m": [(TTL.set_t2m, True)],
     "nores": [(TTL.set_res, False)],
     "nomf": [(TTL.set_mask_fold, False)],
 }
