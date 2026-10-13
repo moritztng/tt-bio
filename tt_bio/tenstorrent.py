@@ -10500,6 +10500,11 @@ class TriangleMultiplication(Module):
             # would otherwise report a lever that changed nothing
             g_out = g_out_fused
             TRIMUL_GOUT_STATS[0] += 1
+            if g_out.dtype == ttnn.bfloat8_b:
+                # multiply_'s SIGMOID b-activation is wrong on a bfp8 b (rel_rms 0.58 vs float64,
+                # perf/spd_trimul/mul_sig_b8.py on WH); bf16 first reads 0.0022. T2 reads bfp8 itself.
+                g_out = ttnn.typecast(g_out_fused, ttnn.bfloat16)
+                ttnn.deallocate(g_out_fused)
         else:
             g_out = _trimul_out_proj(x_norm_in, self.g_out_weight, self.compute_kernel_config,
                                      self.g_out_bias)
