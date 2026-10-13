@@ -409,7 +409,8 @@ class AF2PairBlock(Module):
     #: time because the blocks are built before `bindcraft2.fast_round()` arms it, which is the
     #: only place it is armed: AF2-IG's tap gate was scored with "o" alone, and RF3 measured the
     #: same form with a sign that flips with sequence length (`tenstorrent._bias_in_matmul`).
-    tri_att_g_in_matmul = False
+    #: `TT_BIO_AF2_G_BIAS_IN_MATMUL=1` sets it for every fold, which is how AF2-IG is A/B'd.
+    tri_att_g_in_matmul = env_flag("TT_BIO_AF2_G_BIAS_IN_MATMUL", False)
 
     #: `run(step, *inputs)` that every residual step goes through, or None to call each one
     #: directly. `tt_bio.autograd.substep` is the one runner there is: it checkpoints each step
