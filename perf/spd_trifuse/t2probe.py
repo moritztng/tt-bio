@@ -73,9 +73,8 @@ for spec in (a.arms.split(";") if ";" in a.arms else a.arms.split(",")):
             zd = mod(zd, None, add_to_input=True)
             ttnn.synchronize_device(dev); ms.append(1e3 * (time.perf_counter() - t0))
         ttnn.deallocate(zd)
-    u, ur = (yt - z_host).double(), (ref - z_host.double())
-    rec = {"arm": spec, "t2": t2, "ms_median": round(statistics.median(ms), 3), "ms": [round(m, 3) for m in ms], "rel_rms_update": ((u - ur).pow(2).mean().sqrt() / ur.pow(2).mean().sqrt()).item(),
-           "max_abs": (yt.double() - ref).abs().max().item(), "finite": bool(torch.isfinite(yt).all()),
+    rec = {"arm": spec, "t2": t2, "ms_median": round(statistics.median(ms), 3), "ms": [round(m, 3) for m in ms],
+           "finite": bool(torch.isfinite(yt).all()),
            "equal_first": bool(torch.equal(yt, outs[0])) if outs else None,
            "maxdiff_first": (yt - outs[0]).abs().max().item() if outs else None}
     if ref is not None:
