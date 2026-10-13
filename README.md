@@ -1167,6 +1167,18 @@ Tiers, cut lines, the escape-hatch test and where `plan()` gets its numbers:
 how it scales with depth and width, and where the headroom is:
 [`docs/gradient-step-cost.md`](docs/gradient-step-cost.md).
 
+## Community projects
+
+Tools other people built that use tt-bio as the fold engine:
+
+- **[proga](https://github.com/ssiddhantsharma/proga)** by [@ssiddhantsharma](https://github.com/ssiddhantsharma) evolves
+  binder sequences against tt-bio's confidence scores with a gradient-free NSGA-II search, so it never needs gradients
+  from the fold oracle. Nice piece of work, and it pairs well with tt-bio. We exercised its tt-bio backend on a
+  Blackhole card against `boltz2` and `protenix-v2`: it reads our confidence outputs as they are, with no patching on
+  either side.
+
+Built something? Open an issue and we'll add it.
+
 ## Cite
 
 If you use this code or the models in your research, please cite the following papers:
