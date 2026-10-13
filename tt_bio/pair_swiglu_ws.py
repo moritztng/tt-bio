@@ -70,7 +70,8 @@ def _ln_vec_ok(v, k) -> bool:
 def eligible(x, w12, w3, ln=()) -> bool:
     """bfloat16 TILE interleaved x, bf16/bfp8 TILE interleaved weights, hidden a multiple of 4 tiles, output
     width at most 4 tiles or a multiple of 4, and the weights plus the streaming CBs inside `_L1_BUDGET`. With
-    `ln` = (gamma, beta) also the LayerNorm prologue: bf16 x, bf16 [1, C] gamma / beta, and its CBs in budget."""
+    `ln` = (gamma, beta) also the LayerNorm prologue (beta None: RMSNorm): bf16 x, bf16 [1, C] gamma / beta, and its
+    CBs in budget."""
     if x.dtype not in (ttnn.bfloat16, ttnn.bfloat8_b) or w12.dtype != w3.dtype \
             or w12.dtype not in (ttnn.bfloat16, ttnn.bfloat8_b):
         return False
@@ -82,7 +83,7 @@ def eligible(x, w12, w3, ln=()) -> bool:
     if not (kt == int(w12.shape[0]) // 32 and int(w12.shape[1]) == 2 * int(w3.shape[0])
             and nh % _SW == 0 and (ct <= 4 or ct % 4 == 0)):
         return False
-    if ln and (x.dtype != ttnn.bfloat16 or not all(_ln_vec_ok(v, 32 * kt) for v in ln)):
+    if ln and (x.dtype != ttnn.bfloat16 or not all(_ln_vec_ok(v, 32 * kt) for v in ln if v is not None)):
         return False
     return _l1_bytes(kt, nh, ct, w12.dtype, x.dtype) + (ln_bytes(kt) if ln else 0) <= _L1_BUDGET
 
@@ -150,8 +151,11 @@ def pair_swiglu(x, w12, w3, fidelity=ttnn.MathFidelity.HiFi4, defines=(), silu_p
     (c_z 128: 8.97 ms with it, 1.37 ms without), 1 sigmoid_poly.hpp's degree-8 polynomial (sigmoid within 3e-4),
     2 its degree-6 one with fp16 coefficients (7.4e-4, a third fewer SFPU instructions). None takes `SILU_POLY`.
     `ln` = (gamma, beta, eps) runs the LayerNorm over the raw bf16 `x` in the kernel first; gamma / beta bf16 TILE
-    [1, C] as `torch_to_tt` leaves a norm parameter."""
+    [1, C] as `torch_to_tt` leaves a norm parameter. beta None makes it an RMSNorm, as ttnn.rms_norm."""
     silu_poly = SILU_POLY if silu_poly is None else silu_poly
+    if ln is not None and ln[1] is None:
+        ln = (ln[0], ln[0], ln[2])   # the reader loads a beta either way; the RMS prologue never reads it
+        defines = tuple(defines) + (("WS_RMS", "1"),)
     device = x.device()
     xs = [int(d) for d in x.padded_shape]
     mt = 1

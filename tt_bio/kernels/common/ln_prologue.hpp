@@ -2,7 +2,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-// The channel LayerNorm prologue of the resident pair kernels (trimul T1 and T2): one 32-row tile of
+// The channel LayerNorm prologue of the resident pair kernels (trimul T1 and T2, pair_swiglu_ws; the
+// RMSNorm form for pair_swiglu_ws under WS_RMS): one 32-row tile of
 // x, Kt channel tiles, normalised with two-pass statistics in fp32 CBs (mean, then the biased
 // variance of x - mean, as ttnn.layer_norm), times gamma plus beta broadcast from row 0.
 //
@@ -69,6 +70,27 @@ ALWI void stage(uint32_t a, uint32_t b, uint32_t out) {
     cb_push_back(out, C::Kt);
 }
 
+// rstd = rsqrt(var + eps) from the one tile at the front of C::var (popped) into C::rstd (waited on).
+template <class C>
+ALWI void rstd() {
+    cb_wait_front(C::var, 1);
+    reconfig_data_format(C::var, C::eps);
+    pack_reconfig_data_format(C::rstd);
+    add_tiles_init(C::var, C::eps);
+    cb_reserve_back(C::rstd, 1);
+    tile_regs_acquire();
+    add_tiles(C::var, C::eps, 0, 0, 0);
+    rsqrt_tile_init();
+    rsqrt_tile(0);
+    tile_regs_commit();
+    tile_regs_wait();
+    pack_tile(0, C::rstd);
+    tile_regs_release();
+    cb_push_back(C::rstd, 1);
+    cb_pop_front(C::var, 1);
+    cb_wait_front(C::rstd, 1);
+}
+
 // Kt tiles at the front of C::x (popped) -> pack(i) for every channel tile i, `out` the CB pack
 // writes to (its data format is configured here).
 template <class C, class Pack>
@@ -81,22 +103,7 @@ ALWI void layer_norm_row(uint32_t out, Pack pack) {
     cb_wait_front(C::xc, C::Kt);
     stage<C, MUL>(C::xc, C::xc, C::tmp);                  // xc^2
     row_mean<C>(C::tmp, C::var, true);                    // var (biased, as layer_norm)
-    cb_wait_front(C::var, 1);
-    reconfig_data_format(C::var, C::eps);
-    pack_reconfig_data_format(C::rstd);
-    add_tiles_init(C::var, C::eps);
-    cb_reserve_back(C::rstd, 1);
-    tile_regs_acquire();
-    add_tiles(C::var, C::eps, 0, 0, 0);                   // rstd = rsqrt(var + eps)
-    rsqrt_tile_init();
-    rsqrt_tile(0);
-    tile_regs_commit();
-    tile_regs_wait();
-    pack_tile(0, C::rstd);
-    tile_regs_release();
-    cb_push_back(C::rstd, 1);
-    cb_pop_front(C::var, 1);
-    cb_wait_front(C::rstd, 1);
+    rstd<C>();                                            // rstd = rsqrt(var + eps)
     stage<C, MUL_COL>(C::xc, C::rstd, C::tmp);            // norm = xc * rstd
     cb_pop_front(C::xc, C::Kt);
     cb_pop_front(C::rstd, 1);
@@ -116,6 +123,32 @@ ALWI void layer_norm_row(uint32_t out, Pack pack) {
         tile_regs_release();
     }
     cb_pop_front(C::xc, C::Kt);
+}
+
+// RMSNorm, as ttnn.rms_norm: x * rsqrt(mean(x^2) + eps) * gamma, no centring and no beta. Same CBs
+// and contract as layer_norm_row; C::beta and C::xc are not touched.
+template <class C, class Pack>
+ALWI void rms_norm_row(uint32_t out, Pack pack) {
+    cb_wait_front(C::x, C::Kt);
+    stage<C, MUL>(C::x, C::x, C::tmp);                    // x^2
+    row_mean<C>(C::tmp, C::var, true);                    // mean(x^2)
+    rstd<C>();
+    stage<C, MUL_COL>(C::x, C::rstd, C::tmp);             // x * rstd
+    cb_pop_front(C::x, C::Kt);
+    cb_pop_front(C::rstd, 1);
+    cb_wait_front(C::tmp, C::Kt);
+    reconfig_data_format(C::tmp, C::gamma);               // * gamma, packed by the caller's hook
+    pack_reconfig_data_format(out);
+    mul_bcast_rows_init_short(C::tmp, C::gamma);
+    for (uint32_t i = 0; i < C::Kt; ++i) {
+        tile_regs_acquire();
+        mul_tiles_bcast_rows(C::tmp, C::gamma, i, i, 0);
+        tile_regs_commit();
+        tile_regs_wait();
+        pack(i);
+        tile_regs_release();
+    }
+    cb_pop_front(C::tmp, C::Kt);
 }
 
 }  // namespace ln_prologue

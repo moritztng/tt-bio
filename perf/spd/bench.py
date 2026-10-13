@@ -10,7 +10,7 @@ shape, compile) then N warm reps, each on its own seed. Every rep appends one JS
     python perf/spd/bench.py --out RUN/of3   --chip 3 --model openfold3 --inputs c730
     python perf/spd/bench.py --out RUN/bc2   --chip 3 --model bindcraft2 --warm 2
 
---model: protenix-v2 (default), opendde, openfold3, openbind, boltz2, rf3, af2ig, esmfold2 or esmfold2-fast fold
+--model: protenix-v2 (default), protenix-v1, opendde, openfold3, openbind, boltz2, rf3, af2ig, esmfold2 or esmfold2-fast fold
 through `Worker.load_model` and `predict_one`, the code a JapanFold worker runs, and time the model's own fold call
 (`fold`; Boltz-2's `predict_step`, RF3's `predict`, ESMFold2's `forward`; AF2-IG's `af2ig.fold`, which draws no samples
 and reads no seed, so its warm reps are repeats).
@@ -44,6 +44,10 @@ design_s. Design metrics are the trajectory's row in the project's trajectory CS
 A trajectory BindCraft 2 stops early (`terminated` names the stage) is shorter by design: compare completed
 trajectories with completed ones.
 --inputs names the binder length (default 80, `--inputs 80`); --data is unused.
+`--trajectories N|auto` runs the campaign the way a served one runs by default (`trajectories_per_card="auto"`,
+2-3 trajectories interleaved on one card so BindCraft 2's host JAX overlaps the device) and writes one
+`campaign` record: wall, total design iterations over every trajectory, wall per iteration, and each
+trajectory's own design timing. That is a throughput figure; the default 1 stays the per-iteration protocol.
 """
 import argparse, gc, glob, hashlib, json, os, re, socket, subprocess, sys, threading, time
 from pathlib import Path
@@ -52,7 +56,7 @@ ap = argparse.ArgumentParser()
 ap.add_argument("--out", required=True, type=Path)
 ap.add_argument("--chip", required=True, type=int, help="UMD index handed to TT_VISIBLE_DEVICES")
 ap.add_argument("--model", default="protenix-v2",
-                choices=("protenix-v2", "opendde", "openfold3", "openbind", "boltz2", "rf3", "bindcraft2", "af2ig",
+                choices=("protenix-v2", "protenix-v1", "opendde", "openfold3", "openbind", "boltz2", "rf3", "bindcraft2", "af2ig",
                          "esmfold2", "esmfold2-fast"))
 ap.add_argument("--arm", default="exact")
 ap.add_argument("--inputs", default="c730")
@@ -67,6 +71,9 @@ ap.add_argument("--recycles", type=int, default=None,
                 help="Protenix-v2: 10. Other models: the engine's own default unless given")
 ap.add_argument("--bc2", type=Path, default=Path("~/bcx_shipped/bc2").expanduser(),
                 help="BindCraft 2 checkout (examples/pdl1.json); bindcraft itself must be importable")
+ap.add_argument("--trajectories", default="1",
+                help="BindCraft 2 trajectories per card: 1 (the GAP protocol, one at a time) or N / auto, the "
+                     "interleaved campaign a served run takes by default; then one campaign record, no per-rep ones")
 ap.add_argument("--no-coords", action="store_true")
 ap.add_argument("--dry", action="store_true", help="build the run config, log it, stop before weights and device")
 a = ap.parse_args()
@@ -245,9 +252,37 @@ if a.model == "bindcraft2":
         finally:
             traj[-1]["validate_s"] = time.monotonic() - t0
 
-    campaign.run_trajectory, campaign.redesign_and_validate_binders = design, validate
     weights = {k: os.environ[v] for k, v in (("af2_weights", "JAPANFOLD_BC2_AF2_WEIGHTS"),
                                             ("mpnn_weights", "JAPANFOLD_BC2_MPNN_WEIGHTS")) if os.environ.get(v)}
+    if a.trajectories != "1":
+        # Interleaved trajectories run on their own threads, so the per-rep hooks above (which
+        # take the latest trajectory as the running one) do not apply. Time the whole campaign
+        # and read each trajectory's iterations and BindCraft 2's own design timing from its CSVs.
+        n = a.trajectories if a.trajectories == "auto" else int(a.trajectories)
+        t0, err = time.monotonic(), None
+        try:
+            with bc2.campaign_predictor(**({"checkpoints": weights["af2_weights"]}
+                                           if "af2_weights" in weights else {})):
+                bc2.run_campaign(settings, str(project), trajectories_per_card=n, **weights)
+        except Exception:
+            err = traceback.format_exc()[-3000:]
+        wall = time.monotonic() - t0
+        per = []
+        with contextlib.suppress(OSError):
+            for r in csv.DictReader(open(stage_table(str(project), TRAJECTORY_STAGE))):
+                t = dict(kv.split("=") for kv in r.get("Timing", "").split(";") if "=" in kv)
+                L = glob.glob(str(project / "1_Trajectories" / r["design"] / "*_losses.csv"))
+                per.append(dict(trajectory=r.get("trajectory"), design_s=float(t.get("design", "nan")),
+                                iterations=sum(1 for _ in csv.DictReader(open(L[0]))) if L else None,
+                                terminated=r.get("terminated") or None))
+        iters = sum(p["iterations"] or 0 for p in per)
+        nodes = opened_nodes() or opened
+        log(ev="campaign", trajectories_per_card=n, wall_s=wall, trajectories=per, iterations=iters,
+            wall_per_iter=wall / iters if iters else None, aiclk=clock(t0, t0 + wall, nodes), nodes=nodes,
+            err=err, **HEAD)
+        log(ev="end")
+        os._exit(0)
+    campaign.run_trajectory, campaign.redesign_and_validate_binders = design, validate
     try:
         # the card's trunk pool reads the same AF2 params the campaign does, not tt-bio's weights cache
         with bc2.campaign_predictor(**({"checkpoints": weights["af2_weights"]} if "af2_weights" in weights else {})):

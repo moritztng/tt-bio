@@ -1122,8 +1122,13 @@ class Transition(Module):
             self._ws12 = ttnn.concat([self.fc1_w, self.fc2_w], dim=1)
         if not _WS.eligible(x, self._ws12, self.fc3_w):
             return None
+        fid = self.compute_kernel_config.math_fidelity
+        # The input RMSNorm as the program's prologue: bit-identical to ttnn.rms_norm first, and the normalised
+        # tensor never goes to DRAM. p150a @1350 2.65 -> 2.39 ms (hidden 256), 4.38 -> 4.09 (512); flat on WH.
+        if _WS.eligible(x, self._ws12, self.fc3_w, ln=(self.norm_w, None)):
+            return _WS.pair_swiglu(x, self._ws12, self.fc3_w, fid, ln=(self.norm_w, None, 1e-6))
         xn = ttnn.rms_norm(x, weight=self.norm_w, epsilon=1e-6, compute_kernel_config=self.compute_kernel_config)
-        out = _WS.pair_swiglu(xn, self._ws12, self.fc3_w, self.compute_kernel_config.math_fidelity)
+        out = _WS.pair_swiglu(xn, self._ws12, self.fc3_w, fid)
         ttnn.deallocate(xn)
         return out
 
@@ -3822,11 +3827,11 @@ class RFD3DiffusionModule(Module):
         rec = {}
         for i in range(n_recycle):
             rec = self._process_(D_II_self=rec.get("D_II_self"), X_L_self=rec.get("X_L"),
-                                 tok=first_tok if i == 0 else None, **kw)
+                                 tok=first_tok if i == 0 else None, last=i == n_recycle - 1, **kw)
         return rec
 
     def _process_(self, D_II_self, X_L_self, *, R_L_uniform, X_noisy_L, t_L, f, Q_L, C_L, P_LL, A_I, S_I, Z_II,
-                  tok=None):
+                  tok=None, last=True):
         is_ca = f["is_ca"]
         R_L_ca = R_L_uniform[..., is_ca, :]
         # z stays on the card between these two: it is [B,I,I,128], the only O(I^2)
@@ -3854,9 +3859,13 @@ class RFD3DiffusionModule(Module):
                                           dtype=self.dtype, core_grid=CORE_GRID_MAIN)).float()
         ttnn.deallocate(Q_L)
         X_out = self.scale_positions_out(R_upd, X_noisy_L, t_L)
-        logits, aatype = self.sequence_head(A_I)
+        # Only the last recycle's sequence head is returned and only an earlier recycle's
+        # distogram is read (by the next one): each runs where its output is used, so a
+        # 2-recycle step saves one blocking logits read and one host distogram.
+        logits, aatype = self.sequence_head(A_I) if last else (None, None)
         ttnn.deallocate(A_I)
-        D_II_self = _scaled_distogram_bins(X_out[..., is_ca, :].detach(), sigma_data=self.SIGMA_DATA, n_bins=65)
+        D_II_self = None if last else _scaled_distogram_bins(X_out[..., is_ca, :].detach(),
+                                                             sigma_data=self.SIGMA_DATA, n_bins=65)
         return {"X_L": X_out, "D_II_self": D_II_self, "sequence_logits_I": logits,
                 "sequence_restype_I": aatype}
 

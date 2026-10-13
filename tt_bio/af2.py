@@ -63,6 +63,7 @@ from .tenstorrent import (
     host_f64_softmax_site,
     batched_matmul,
     get_device,
+    is_wormhole,
     model_levers,
     precise_fidelity,
     trace_region_size,
@@ -1160,8 +1161,11 @@ class AF2DeviceModel(AF2Model):
         # other shared trunk lever fires at 195 tokens: biases, Kt = 7, its own kernel config).
         # AF2-IG on Wormhole (chip 8, 1000 MHz, 12 folds per arm, off/on/off): 5.056 / 4.984 / 5.111 s,
         # CA RMSD to the untouched fold 0.023 / 0.257 / 0.074 A on seeds 0-2, ipTM within 0.003.
-        self._levers = model_levers(normal=frozenset({"triatt_tail_bias"}),
-                                    fast=frozenset({"triatt_tail_bias"}))
+        # pair_mm: the pair-track linears on minimal_matmul, Wormhole only until Blackhole is timed.
+        # [1,195,195,128] x [128,512] + ReLU 1.17 -> 0.44 ms, 128 -> 128 0.39 -> 0.19 ms (.114,
+        # 1000 MHz, perf/spd/af2_pair_linear_sweep.py), float64 rel L2 unchanged at 0.0017.
+        own = frozenset({"triatt_tail_bias"}) | (frozenset({"pair_mm"}) if is_wormhole() else frozenset())
+        self._levers = model_levers(normal=own, fast=own)
 
     @under_levers
     def to_device(self) -> "AF2DeviceModel":

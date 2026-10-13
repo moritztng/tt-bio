@@ -626,6 +626,8 @@ _FAST_MODE = False
 #                   parameter-free LN(s) per stack call with the adaLN gammas folded into the weights, every s-path
 #                   sigmoid in its linear's epilogue, the adaLN modulations and gated residuals as one addcmul each,
 #                   `_sdpa32` writing bf16 (`_DiTBlock._call_fused`). Each fused product skips one bf16 rounding
+#   pair_mm         pair-track linears on minimal_matmul with pair_mm's block table (ReLU at pack); the lever form of
+#                   TT_BIO_PAIR_MM for a model that names it in its own set (AF2 on Wormhole)
 #   conf_bins       OpenFold3's pae / pde heads reduce softmax(logits) to their bin-vector products on the card
 #                   in fp32 (pTM, ipTM, the chain readings, the PAE / PDE matrices), so the [N, N, 64] logits
 #                   never cross to the host
@@ -643,12 +645,16 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "transition_shard", "dit_mm16", "atom_k1", "dit_b8", "dit_qkv16", "atom_mm16", "adaln_mod",
           "swiglu_fc12g", "msa_sample", "dit_sdpa_pm", "dit_s16", "dit_chunk", "conf_bins", "trimul_t1", "trimul_t2",
           "triatt_tail_bias", "dit_cond_hifi2", "transition_ws", "ws_ln", "trimul_t1_dram",
-          "trimul_t2cm", "dit_fuse")
+          "trimul_t2cm", "dit_fuse", "pair_mm", "ref_memo")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in, graded on ESMFold2's fold. AF2 names
-# triatt_tail_bias in its own set: graded on AF2-IG only, and it would reach any other biased
-# triangle attention. BoltzGen's own --fast set names dit_cond_hifi2, graded on BoltzGen's designs.
-UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "dit_cond_hifi2", "ws_ln", "dit_fuse"})
+# triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
+# model's matching op. BoltzGen's own --fast set names dit_cond_hifi2, graded on BoltzGen's designs.
+# OpenFold3's own --fast set names dit_fuse, graded on OpenFold3 / OpenBind-0 (openfold3_fold.FAST_LEVERS).
+# ref_memo is host featurisation, OpenFold3 / OpenBind-0 only: one reference conformer per residue type
+# (vendored query.REF_MOL_MEMO), read by worker._predict_openfold3_one off the model's lever set.
+UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "dit_cond_hifi2", "ws_ln", "dit_fuse",
+                             "pair_mm", "ref_memo"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -678,7 +684,7 @@ UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "di
 # 0.336 A vs a 1.364 A floor, pLDDT -0.0032, docking 34 -> 35 of 44). ESMFold2 on Blackhole declines the kernel
 # (bf16 weights over its L1 budget), so its fold is unchanged there. Warm 512-token fold on a Galaxy chip (1000 MHz):
 # ESMFold2 -22.1 s, ESMFold2-Fast -11.3, OpenDDE -5.5, Protenix-v2 -2.8, OpenFold3 -1.5, Boltz-2 -1.1 s.
-# OpenFold3 / OpenBind-0 (their own FAST_LEVERS) take it once their Blackhole grade reads.
+# OpenFold3 / OpenBind-0 take it through their own FAST_LEVERS (openfold3_fold.py), Blackhole fast grade PASS.
 FAST_LEVERS = (frozenset(LEVERS) - {"lofi", "triatt_b8", "triatt_bias_b8", "trimul_t1", "trimul_t2", "adaln_mod",
                                     "trimul_t1_dram"}
                - UNGRADED_LEVERS)
@@ -6086,6 +6092,38 @@ def set_trimul_inproj_b8(on: bool) -> bool:
     prev, _TRIMUL_INPROJ_B8 = _TRIMUL_INPROJ_B8, bool(on)
     return prev
 _TRIMUL_IBW_FULL_REFUSED: set = set()
+# The triangle product with whole channels per core (`MatmulMultiCoreReuseProgramConfig`, the
+# channel batch spread over the grid) instead of the 2D multicast plan, at sequence lengths where
+# that plan hands every core a single output tile (`per_core_M == per_core_N == 1`: up to 8 tiles
+# on Wormhole's 8x9, 10 on Blackhole's 11x10). There the multicast plan engages St^2 cores (49 of
+# 72 at 195-224 tokens) and loops each over all C channels with a multicast per channel. Same K
+# block, so the output is `torch.equal` to the multicast plan's. MEASURED on Wormhole (.114 chip 2,
+# 1000 MHz, perf/spd/af2_trimul_bmm_sweep.py, both deferred transposes, operands in L1 as the
+# untaped trunk runs them): [1,64,195,195]^2 0.40 -> 0.098 ms, [1,128,195,195]^2 0.80 -> 0.20 ms,
+# [1,64,224,224]^2 0.167 -> 0.103 ms; in DRAM (the taped path) 0.19 -> 0.155 and 0.37 -> 0.29 ms.
+# Blackhole stays off until measured there. None = arch default.
+_TRIMUL_PER_CHANNEL = env_flag("TT_BIO_TRIMUL_PER_CHANNEL", None)
+# Sequence tiles whose per-channel plan clashed with live L1: they keep the multicast plan.
+_TRIMUL_PER_CHANNEL_REFUSED: set = set()
+# With the operands in L1 the plan is taken up to 7 sequence tiles (224 tokens), the window it was
+# measured in. The CB price alone admitted 8 tiles (256 tokens) and the device refused it: the
+# whole-channel output block is 64 tiles a core against 49, beside operands four times the size of
+# AF2's, and `perf/spd/af2_trimul_bmm_sweep.py --mem l1 --sizes 256` throws at program creation on
+# a quiet chip. That throw is not free. The retry it lands in drops the fused T1 route and narrows
+# the channel chunk, neither of which is the plan swap, so the fold that paid it came out
+# different -- which is what held staging45: Boltz-2 at 256 tokens matched main on the first fold
+# of a process and not on the second, and OpenFold3 and OpenDDE moved 2-5 A. In DRAM the same
+# shapes carry the plan and stay `torch.equal` to the multicast plan (sweep `--mem dram --sizes
+# 256`, C 128 and 256), so the cap is on the L1 path only.
+_TRIMUL_PER_CHANNEL_L1_MAX_ST = 7
+
+
+def set_trimul_per_channel(on) -> object:
+    """A/B switch for the harness (None = arch default). Returns the previous value."""
+    global _TRIMUL_PER_CHANNEL
+    prev, _TRIMUL_PER_CHANNEL = _TRIMUL_PER_CHANNEL, on
+    _triangle_mul_program_config.cache_clear()
+    return prev
 
 
 # SPD lever (spd-trimul): the einsum's own math fidelity, "" = the trunk's. With all of K in one block
@@ -6179,8 +6217,9 @@ def _trimul_ibw_full() -> bool:
 # and already banked by pinning this program config. KIND=placement, and no Wormhole ratio is
 # carried across: the number above is Blackhole's own.
 @lru_cache(maxsize=None)
-def _triangle_mul_program_config(seq_len_tiles: int, full: bool = False,
-                                 sub: tuple = (1, 1)) -> ttnn.MatmulMultiCoreReuseMultiCastProgramConfig:
+def _triangle_mul_program_config(seq_len_tiles: int, full: bool = False, sub: tuple = (1, 1),
+                                 l1_operands: bool = True,
+                                 ) -> ttnn.MatmulMultiCoreReuseMultiCastProgramConfig:
     gx, gy = COMPUTE_GRID_MAIN
     per_core_M = -(-seq_len_tiles // gy)
     per_core_N = -(-seq_len_tiles // gx)
@@ -6206,6 +6245,14 @@ def _triangle_mul_program_config(seq_len_tiles: int, full: bool = False,
     while in0_block_w > 1 and _matmul_cb_bytes(in0_block_w, per_core_M, per_core_N, 2,
                                                extra_tiles=transposed(in0_block_w)) > budget:
         in0_block_w = max(d for d in range(in0_block_w - 1, 0, -1) if seq_len_tiles % d == 0)
+    if (per_core_M == per_core_N == 1 and seq_len_tiles not in _TRIMUL_PER_CHANNEL_REFUSED
+            and (is_wormhole() if _TRIMUL_PER_CHANNEL is None else _TRIMUL_PER_CHANNEL)
+            and not (l1_operands and seq_len_tiles > _TRIMUL_PER_CHANNEL_L1_MAX_ST)
+            and _matmul_cb_bytes(in0_block_w, seq_len_tiles, seq_len_tiles, 2,
+                                 extra_tiles=2 * in0_block_w * seq_len_tiles) <= budget):
+        return ttnn.MatmulMultiCoreReuseProgramConfig(
+            compute_with_storage_grid_size=(gx, gy), in0_block_w=in0_block_w,
+            out_subblock_h=1, out_subblock_w=1, per_core_M=seq_len_tiles, per_core_N=seq_len_tiles)
     return ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(
         compute_with_storage_grid_size=(gx, gy),
         in0_block_w=in0_block_w,
@@ -6261,7 +6308,8 @@ def _mm_transpose_deferred(program_config) -> bool:
     is not taken here on that basis.
     """
     return _TRIMUL_MM_TRANSPOSE and not _FAST_MODE and isinstance(
-        program_config, ttnn.MatmulMultiCoreReuseMultiCastProgramConfig)
+        program_config, (ttnn.MatmulMultiCoreReuseMultiCastProgramConfig,
+                         ttnn.MatmulMultiCoreReuseProgramConfig))
 
 
 @lru_cache(maxsize=1)
@@ -9222,7 +9270,8 @@ class TriangleMultiplication(Module):
         chunk = _trimul_inproj_chunk_cap(H, self._hidden, batch,
                                          _trimul_chunk_size(H, self._hidden, batch))
         n_pairs = self._hidden // chunk
-        pc = _triangle_mul_program_config((H + 31) // 32, _trimul_ibw_full(), _trimul_subblock())
+        # This route is refused above unless the chunk memory is DRAM, so the operands are not L1.
+        pc = _triangle_mul_program_config((H + 31) // 32, _trimul_ibw_full(), _trimul_subblock(), False)
         if (n_pairs // _trimul_inproj_group(H, chunk, batch, n_pairs) != 1
                 or not _mm_transpose_deferred(pc)):
             TT1.T1_STATS[1] += 1
@@ -9680,7 +9729,8 @@ class TriangleMultiplication(Module):
             x_norm_in, H, n_pairs, group, memory_config, row_norm)
         g_out_fused = None if t1 is None else t1[2]
         seq_len_tiles = (H + 31) // 32
-        program_config = _triangle_mul_program_config(seq_len_tiles, _trimul_ibw_full(), _trimul_subblock())
+        program_config = _triangle_mul_program_config(
+            seq_len_tiles, _trimul_ibw_full(), _trimul_subblock(), not large_seq)
         # The channel-axis mask, built on first read and not before. `unsqueeze(mask, -1)` is a
         # view only when the last axis is already tile-wide: on a [1,S,S] pair mask it pads that
         # axis from 1 to 32, so it writes a 16.8 MB tensor for a 0.52 MB mask and dispatches a
@@ -10113,15 +10163,26 @@ class TriangleMultiplication(Module):
                 mask_clash = (large_seq and not tma_retry and "clash with L1 buffers" in msg
                               and any(_m.memory_config().buffer_type == ttnn.BufferType.L1
                                       for _m in _mask_moved_memo.values()))
+                pc_clash = (("clash with L1 buffers" in msg or "beyond max L1 size" in msg)
+                            and not mask_clash and not tma_retry
+                            and isinstance(program_config, ttnn.MatmulMultiCoreReuseProgramConfig))
+                if pc_clash:
+                    # The per-channel plan's whole-channel blocks against live L1: back to the
+                    # multicast plan for this length, same K block, same output.
+                    _TRIMUL_PER_CHANNEL_REFUSED.add(seq_len_tiles)
+                    _triangle_mul_program_config.cache_clear()
+                    program_config = _triangle_mul_program_config(
+                        seq_len_tiles, _trimul_ibw_full(), _trimul_subblock(), not large_seq)
                 ibw_clash = (("clash with L1 buffers" in msg or "beyond max L1 size" in msg)
-                             and not mask_clash and not tma_retry
+                             and not mask_clash and not tma_retry and not pc_clash
                              and program_config.in0_block_w > _TRIMUL_IN0_BLOCK_W_BAND)
                 if ibw_clash:
                     # The full-K block is the newest L1 claimant in this call: give it up first.
                     _TRIMUL_IBW_FULL_REFUSED.add(seq_len_tiles)
                     _triangle_mul_program_config.cache_clear()
-                    program_config = _triangle_mul_program_config(seq_len_tiles, _trimul_ibw_full(), _trimul_subblock())
-                if (not oom and not mask_clash and not ibw_clash and not tma_retry
+                    program_config = _triangle_mul_program_config(
+                        seq_len_tiles, _trimul_ibw_full(), _trimul_subblock(), not large_seq)
+                if (not oom and not mask_clash and not ibw_clash and not pc_clash and not tma_retry
                         and (large_seq or "clash with L1 buffers" not in msg)):
                     raise
                 if t1 is not None:
@@ -12559,10 +12620,12 @@ class Transition(Module):
     def _weight_stationary(self, x, memory_config):
         """`transition_ws`: layer norm, then the whole swiglu as one `pair_swiglu_ws` program, or None
         where the kernel does not take the shape (a hidden width it cannot tile, an L1 destination, a tape).
-        Weights over its L1 budget (c_z 256 in bf16, OpenDDE's c_z 384) run in hidden chunks."""
+        Weights over its L1 budget (OpenDDE's c_z 384) run in hidden chunks. bf16 weights only up to c_z 128:
+        at c_z 256 they read sparse errors of exactly 1, 2 and 4 against float64 (wd1, both hidden chunks)."""
         if not (_ws_applies(x, self.compute_kernel_config)
                 and (memory_config is None or memory_config.buffer_type == ttnn.BufferType.DRAM)
-                and (self.dtype or _dtype()) == ttnn.bfloat16):
+                and (self.dtype or _dtype()) == ttnn.bfloat16
+                and (self._hidden_b8 or x.shape[-1] <= 128)):
             return None
         if getattr(self, "_ws", None) is None:
             # bfp8 weights where the module's own are (transition_b8, fast mode): that is also what lets
