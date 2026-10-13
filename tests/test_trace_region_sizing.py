@@ -27,6 +27,7 @@ CAPTURE_SITES = {
     "tt_bio/rf3/model.py": "rf3",
     "tt_bio/af2.py": "af2",
     "tt_bio/autograd.py": "bc2",
+    "tt_bio/esmfold2.py": "esmfold2",
 }
 
 

@@ -77,7 +77,8 @@ def main() -> int:
             row = {"model": a.model, "fast": a.fast, "round": r, "alt": a.alt, "on": on,
                    "batch7_ms": round(sorted(ts)[len(ts) // 2] * 1000, 2),
                    "batch7_all_ms": [round(t * 1000, 2) for t in ts],
-                   "vs_fp32": acc.metrics(out, ref), "vs_off": acc.metrics(out, base)}
+                   "vs_fp32": acc.metrics(out, ref), "vs_off": acc.metrics(out, base),
+                   "stats": {n: list(v) for n, v in vars(alt_mod).items() if n.endswith("_STATS") and isinstance(v, list)}}
             print(json.dumps(row), flush=True)
             with open(a.out, "a") as fh:
                 fh.write(json.dumps(row) + "\n")

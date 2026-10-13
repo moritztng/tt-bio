@@ -37,7 +37,9 @@ NORMAL_LEVERS = _T.NORMAL_LEVERS - {"transition_bw", "transition_shard"}
 # CA-lDDT -0.0014 [-0.0043, +0.0005], docking 21 -> 21/44, PASS, median fold 77.5 -> 72.4 s; OpenBind-0 CA-lDDT
 # +0.0008, docking 27 -> 28/44, PASS, median fold 103.8 -> 89.6 s.
 # transition_ws joins once its Blackhole fast grade passes (Wormhole PASS; see tenstorrent.FAST_LEVERS).
-FAST_LEVERS = NORMAL_LEVERS | {"dit_s16", "diffusion_bf16", "trimul_t1", "trimul_t2"}
+# trimul_t2cm (T2 reads the einsum's channel-major output, no reblock_permute_back) is bit-exact: Wormhole l512 coords
+# identical to --fast on 4 seeds x both models, fold 43.76 -> 43.45 s (OpenFold3) and 50.33 -> 49.97 s (OpenBind-0).
+FAST_LEVERS = NORMAL_LEVERS | {"dit_s16", "diffusion_bf16", "trimul_t1", "trimul_t2", "trimul_t2cm"}
 
 def kabsch_rmsd(pred_ca, gt_ca):
     """Optimal-superposition Cα-RMSD (Kabsch). pred_ca, gt_ca: [N, 3].
@@ -351,7 +353,7 @@ class OpenFold3(Module):
         vecs = _pae_bin_vectors(n_tok, aux.get("asym_id")) if _T.lever("conf_bins") else None
         out = self.confidence_head.forward(
             si_input=si_input.float(), si_trunk=si_trunk.float(),
-            zij_trunk=zij_trunk.float(), repr_x_pred=representative.float(),
+            zij_trunk=None if zij_trunk is None else zij_trunk.float(), repr_x_pred=representative.float(),
             max_atom_per_token_mask=aux["max_atom_per_token_mask"].float(),
             use_zij_trunk_embedding=True, shared=shared,
             bin_vectors=None if vecs is None else torch.stack(vecs, -1),
@@ -553,12 +555,12 @@ class OpenFold3(Module):
             if progress_fn is not None:
                 progress_fn("confidence", step=0, total=0)
             si_trunk = torch.Tensor(ttnn.to_torch(si_trunk_d)).float().reshape(n_token, -1)
-            zij_trunk = torch.Tensor(ttnn.to_torch(zij_trunk_d)).float().reshape(n_token, n_token, -1)
             # Trunk terms, computed with the first sample; the device trunk pair lets the head
-            # build each sample's pair embedding on device (OF3ConfidenceHead._z_embed_device).
+            # build each sample's pair embedding and the distogram on device, so the pair itself
+            # never comes back (OF3ConfidenceHead._z_embed_device).
             shared = {"zij_trunk_d": zij_trunk_d}
             confidence = [
-                self._confidence(sample, s_input, si_trunk, zij_trunk, confidence_aux_host,
+                self._confidence(sample, s_input, si_trunk, None, confidence_aux_host,
                                  shared)
                 for sample in samples
             ]
