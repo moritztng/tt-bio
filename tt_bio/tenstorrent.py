@@ -458,6 +458,10 @@ TRANSITION_H_CHUNK_SHAPES: dict = {}
 # height is recorded here and the call re-run at half of it; row height is row-local, so the
 # re-run writes the same bytes, and the record keeps every later call off the refused height.
 TRANSITION_H_CLASH: dict = {}
+# Pair shapes whose whole-tensor `transition_ws` pass DRAM refused. It holds x, LN(x) and the
+# output at once, and OpenDDE's refiner pair at 1024 tokens on Wormhole, (1, 2016, 2016, 384) bf16,
+# is 3.12 GB each: the shape goes to the row-blocked path, which adds into x block by block.
+WS_DRAM_REFUSED: set = set()
 # Measured ceiling for one Transition row chunk on a small grid, in L1 bytes PER CORE.
 # The chunk's live L1 (x_norm + x_1 + x_2) is interleaved across the grid, so what binds is
 # aggregate L1 / cores, and the budget above never sees core count. On UF-EV-A13-GWH02
@@ -12706,7 +12710,20 @@ class Transition(Module):
             self._ws = _pair_ws.weights(self.weights["fc1.weight"].t(), self.weights["fc2.weight"].t(),
                                         self.weights["fc3.weight"].t(), self.device,
                                         ttnn.bfloat8_b if self._hidden_b8 else ttnn.bfloat16)
-        return ws_swiglu(x, self.norm_weight, self.norm_bias, self.compute_kernel_config, self._ws)
+        key = tuple(x.padded_shape)
+        if key in WS_DRAM_REFUSED:
+            return None
+        from tt_bio.size_limits import is_alloc_refusal
+        try:
+            return ws_swiglu(x, self.norm_weight, self.norm_bias, self.compute_kernel_config, self._ws)
+        except RuntimeError as exc:
+            if not is_alloc_refusal(exc) or not x.is_allocated():
+                raise
+            WS_DRAM_REFUSED.add(key)
+            print(f"[tt-bio] DRAM refused transition_ws at {key}; running it in row blocks. The tt-metal "
+                  f"'Out of Memory' line above is expected and handled.", file=sys.stderr, flush=True)
+        gc.collect()        # the refused attempt's LN(x) and partial output, still referenced from its traceback
+        return None
 
     def _add_rows_ok(self, x, memory_config) -> bool:
         return (_TRANSITION_ADD_ROWS and not ops.taping() and len(x.shape) == 4
