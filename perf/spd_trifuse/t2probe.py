@@ -63,7 +63,9 @@ for arm in (a.arms.split(";") if ";" in a.arms else a.arms.split(",")):
     b0 = dict(T.TRIMUL_MM_TRANSPOSE_STATS)
     TL.gin_moved = _gin if not gfid else (
         lambda x, wpT, wgT, ckc, grid, mask=None, _f=FID[gfid]: _gin(x, wpT, wgT, (_f,) + tuple(ckc[1:]), grid, mask=mask))
-    with T.lever_scope(spec):
+    # Wormhole ESMFold2 folds under levers() with _FAST_MODE set (esmfold2_runtime.fold_scope); lever_scope would
+    # turn _FAST_MODE off and make --fast-mode a no-op.
+    with (T.levers(spec) if a.fast_mode else T.lever_scope(spec)):
         ckc = T.trunk_compute_kernel_config(compute_kernel_config())
         mod = T.TriangleMultiplication(a.ending, W0, ckc, gated_move=True)
         for rep in range(2):
