@@ -1243,7 +1243,7 @@ A triangle multiplication moves its pair tensor into a channel-blocked layout, t
 
 Every triangle multiplication opts in rather than being switched on by model name, so a model whose shapes the fused reader cannot address keeps the separate ops instead of failing.
 
-On Wormhole the fused move also covers pair tensors in DRAM below 256 tokens (BindCraft 2 and AF2-IG at 195 and 224), which takes BindCraft 2's on-card iteration from 5.34 to 5.02 s with bit-identical gradients. `TT_BIO_REBLOCK_DRAM_FILL_GATED=0` (fused leg) and `TT_BIO_REBLOCK_DRAM_FILL=0` (plain moves) restore the 256-token edge.
+On Wormhole the fused move also covers pair tensors in DRAM below 256 tokens (BindCraft 2 and AF2-IG at 195 and 224), which takes BindCraft 2's on-card iteration from 5.34 to 5.02 s with bit-identical gradients. On Blackhole the plain moves open at 224 tokens too, the size BindCraft 2 runs at, where they are up to 2.9x faster than the stock ops and bit for bit the same. `TT_BIO_REBLOCK_DRAM_FILL_GATED=0` (fused leg) and `TT_BIO_REBLOCK_DRAM_FILL=0` (plain moves) restore the 256-token edge.
 
 ## `TT_BIO_RF3_DIFFUSION_TRACE`
 
