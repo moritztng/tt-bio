@@ -27,6 +27,7 @@ X_CB, W12_CB, W3_CB, GATE_CB, HID_CB, OUT_CB = 0, 1, 2, 3, 4, 16
 XRAW_CB, GAMMA_CB, BETA_CB, SCALER_CB = 5, 8, 9, 10     # the LayerNorm prologue's bf16 CBs
 LN_F32_CBS = ((11, 1), (12, 1), (13, 1), (14, 1), (17, None), (18, None))   # eps, mean, var, rstd, xc, tmp (None: kt)
 ACC_CB = 19               # fp32, _SW tiles: a matmul's K chunks summed by the packer (`l1acc`)
+RES_CB = 20               # bf16, 2 row tiles of the residual fc3 adds into (`resid`)
 _TILE = 32 * 32 * 2
 _SW = 4                   # hidden tiles per dest pass (one fp32 dest half)
 # Bytes of a core's L1 the program may take: weights plus its streaming CBs. A Wormhole core has 1464 KiB,
@@ -68,11 +69,12 @@ def _ln_vec_ok(v, k) -> bool:
             and v.memory_config().memory_layout == ttnn.TensorMemoryLayout.INTERLEAVED)
 
 
-def eligible(x, w12, w3, ln=(), l1acc=False) -> bool:
+def eligible(x, w12, w3, ln=(), l1acc=False, resid=None) -> bool:
     """bfloat16 TILE interleaved x, bf16/bfp8 TILE interleaved weights, hidden a multiple of 4 tiles, output
     width at most 4 tiles or a multiple of 4, and the weights plus the streaming CBs inside `_L1_BUDGET`. With
     `ln` = (gamma, beta) also the LayerNorm prologue (beta None: RMSNorm): bf16 x, bf16 [1, C] gamma / beta, and its
-    CBs in budget. `l1acc` adds its fp32 accumulator CB."""
+    CBs in budget. `l1acc` adds its fp32 accumulator CB; `resid` (bf16, TILE, interleaved DRAM, the output's padded
+    shape) its two row tiles."""
     if x.dtype not in (ttnn.bfloat16, ttnn.bfloat8_b) or w12.dtype != w3.dtype \
             or w12.dtype not in (ttnn.bfloat16, ttnn.bfloat8_b):
         return False
@@ -86,8 +88,14 @@ def eligible(x, w12, w3, ln=(), l1acc=False) -> bool:
         return False
     if ln and (x.dtype != ttnn.bfloat16 or not all(_ln_vec_ok(v, 32 * kt) for v in ln if v is not None)):
         return False
+    if resid is not None and not (
+            resid.dtype == ttnn.bfloat16 and resid.layout == ttnn.TILE_LAYOUT
+            and resid.memory_config().memory_layout == ttnn.TensorMemoryLayout.INTERLEAVED
+            and resid.memory_config().buffer_type == ttnn.BufferType.DRAM
+            and [int(d) for d in resid.padded_shape] == [int(d) for d in x.padded_shape][:-1] + [32 * ct]):
+        return False
     return (_l1_bytes(kt, nh, ct, w12.dtype, x.dtype) + (ln_bytes(kt) if ln else 0)
-            + (_SW * 2 * _TILE if l1acc else 0) <= _L1_BUDGET)
+            + (_SW * 2 * _TILE if l1acc else 0) + (2 * ct * _TILE if resid is not None else 0) <= _L1_BUDGET)
 
 
 def _l1_bytes(kt, nh, ct, wdtype, xdtype=ttnn.bfloat16) -> int:
@@ -108,6 +116,8 @@ def _build(x, w12, w3, out, device, mt, kt, nh, ct, fidelity, defines, silu_poly
            cb(HID_CB, 2 * nh), cb(OUT_CB, 2 * ct)]
     if ("WS_L1ACC", "1") in defines:
         cbs.append(cb(ACC_CB, _SW, ttnn.float32))
+    if ("WS_RESID", "1") in defines:
+        cbs.append(cb(RES_CB, 2 * ct))
     scaler = eps_bits = 0
     if ln is not None:
         import struct
@@ -128,13 +138,13 @@ def _build(x, w12, w3, out, device, mt, kt, nh, ct, fidelity, defines, silu_poly
                     first += per
     assert first == mt, (first, mt)
     rct = [kt, nh, ct, scaler, eps_bits]
-    for t in (x, w12, w3) + (() if ln is None else ln[:2]):
+    for t in (x, w12, w3) + (() if ln is None else ln[:2]) + ((out,) if ("WS_RESID", "1") in defines else ()):
         rct.extend(ttnn.TensorAccessorArgs(t).get_compile_time_args())
     wct = [ct] + list(ttnn.TensorAccessorArgs(out).get_compile_time_args())
     src = lambda n: str(KERNEL_DIR / n)  # noqa: E731
     path = ttnn.KernelDescriptor.SourceType.FILE_PATH
     reader = ttnn.KernelDescriptor(kernel_source=src("reader.cpp"), source_type=path, core_ranges=grid,
-                                   compile_time_args=rct, runtime_args=rd, common_runtime_args=[0] * 5,
+                                   compile_time_args=rct, runtime_args=rd, common_runtime_args=[0] * 6,
                                    defines=list(defines), config=ttnn.ReaderConfigDescriptor())
     writer = ttnn.KernelDescriptor(kernel_source=src("writer.cpp"), source_type=path, core_ranges=grid,
                                    compile_time_args=wct, runtime_args=wr, common_runtime_args=[0],
@@ -146,7 +156,8 @@ def _build(x, w12, w3, out, device, mt, kt, nh, ct, fidelity, defines, silu_poly
     return [reader, writer, compute], cbs
 
 
-def pair_swiglu(x, w12, w3, fidelity=ttnn.MathFidelity.HiFi4, defines=(), silu_poly=None, ln=None, l1acc=False):
+def pair_swiglu(x, w12, w3, fidelity=ttnn.MathFidelity.HiFi4, defines=(), silu_poly=None, ln=None, l1acc=False,
+                resid=None):
     """`fc3(silu(x @ w1) * (x @ w2))` for a TILE `x` [..., C]; a new bfloat16 DRAM tensor [..., C_out].
 
     Accumulation is fp32 in dest at every fidelity; `fidelity` is the caller's matmul fidelity. `defines` are
@@ -157,7 +168,13 @@ def pair_swiglu(x, w12, w3, fidelity=ttnn.MathFidelity.HiFi4, defines=(), silu_p
     `ln` = (gamma, beta, eps) runs the LayerNorm over the raw bf16 `x` in the kernel first; gamma / beta bf16 TILE
     [1, C] as `torch_to_tt` leaves a norm parameter. beta None makes it an RMSNorm, as ttnn.rms_norm.
     `l1acc`: every matmul sums at most 2 K tiles in dest and the packer adds the chunks in an fp32 CB. On Wormhole an
-    fp32 dest summing all of K writes exact +-1 / 2 / 4 into ~1e-8 of the outputs (tt_bio/dest_guard.py)."""
+    fp32 dest summing all of K writes exact +-1 / 2 / 4 into ~1e-8 of the outputs (tt_bio/dest_guard.py).
+    `resid`: fc3's result is added to `resid` in the fp32 dest and written back over it, one bf16 rounding, and
+    `resid` is returned; no new tensor. The kernel reads `resid` row by row before writing the same rows, so it may
+    not be `x` (the caller normalises x first; `ln` reads the raw x and is refused with it)."""
+    if resid is not None:
+        assert ln is None, "resid with the LayerNorm prologue would overwrite the x it still reads"
+        defines = tuple(defines) + (("WS_RESID", "1"),)
     silu_poly = SILU_POLY if silu_poly is None else silu_poly
     if l1acc:
         defines = tuple(defines) + (("WS_L1ACC", "1"),)
@@ -171,15 +188,17 @@ def pair_swiglu(x, w12, w3, fidelity=ttnn.MathFidelity.HiFi4, defines=(), silu_p
         mt *= d
     mt //= 32
     kt, nh, ct = xs[-1] // 32, int(w3.shape[0]) // 32, int(w3.shape[-1]) // 32
-    out = ttnn.allocate_tensor_on_device(ttnn.Shape([int(d) for d in x.shape][:-1] + [int(w3.shape[-1])]), ttnn.bfloat16,
-                                         ttnn.TILE_LAYOUT, device, ttnn.DRAM_MEMORY_CONFIG)
+    out = resid if resid is not None else ttnn.allocate_tensor_on_device(
+        ttnn.Shape([int(d) for d in x.shape][:-1] + [int(w3.shape[-1])]), ttnn.bfloat16, ttnn.TILE_LAYOUT, device,
+        ttnn.DRAM_MEMORY_CONFIG)
     key = (device.id(), tuple(xs), nh, ct, x.memory_config().buffer_type, fidelity, w12.dtype, x.dtype,
            tuple(defines), silu_poly, None if ln is None else float(ln[2]))
     if key not in _CACHE:
         _CACHE[key] = _build(x, w12, w3, out, device, mt, kt, nh, ct, fidelity, defines, silu_poly, ln)
     kernels, cbs = _CACHE[key]
     g, b = (0, 0) if ln is None else (ln[0].buffer_address(), ln[1].buffer_address())
-    kernels[0].common_runtime_args = [x.buffer_address(), w12.buffer_address(), w3.buffer_address(), g, b]
+    kernels[0].common_runtime_args = [x.buffer_address(), w12.buffer_address(), w3.buffer_address(), g, b,
+                                      out.buffer_address()]
     kernels[1].common_runtime_args = [out.buffer_address()]
     pd = ttnn.ProgramDescriptor(kernels=kernels, semaphores=[], cbs=cbs)
     return ttnn.generic_op([x, w12, w3] + ([] if ln is None else list(ln[:2])) + [out], pd)

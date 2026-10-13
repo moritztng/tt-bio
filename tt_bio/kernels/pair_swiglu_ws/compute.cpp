@@ -18,6 +18,9 @@
 // WS_L1ACC (the `ws_l1acc` lever): every matmul sums at most KC K tiles in dest and the packer adds the chunks into the
 // fp32 c_19, which then comes back into dest by a copy (no accumulation) for the silu, the gate multiply or the bf16
 // pack. On Wormhole an fp32 dest summing all of K writes exact +-1 / 2 / 4 into ~1e-8 of the outputs (dest_guard.py).
+// WS_RESID (the `ws_resid` lever): fc3's dest gets the residual's row tile from c_20 added before the one bf16 pack
+// (dest reused as srcA), and the writer puts the sum back over the residual: the transition's `z + t` and the
+// hidden-chunk sum cost no separate add pass over the pair.
 #include <cstdint>
 #define REDUCE_OP PoolType::SUM
 #define REDUCE_DIM ReduceDim::REDUCE_ROW
@@ -88,7 +91,7 @@ void kernel_main() {
     constexpr uint32_t SW = 4;
     constexpr uint32_t OG = CT < 4 ? CT : 4;
     static_assert(NH % SW == 0 && CT % OG == 0);
-    constexpr uint32_t cb_x = 0, cb_w12 = 1, cb_w3 = 2, cb_gate = 3, cb_hid = 4, cb_out = 16;
+    constexpr uint32_t cb_x = 0, cb_w12 = 1, cb_w3 = 2, cb_gate = 3, cb_hid = 4, cb_out = 16, cb_res = 20;
     // The gate multiply keeps HiFi4 whatever the matmuls run at: at HiFi2 it would drop the gate's low bits.
     constexpr auto mul_fidelity = MathFidelity::HiFi4;
     if (count == 0) {
@@ -195,6 +198,12 @@ void kernel_main() {
         reconfig_data_format(cb_w3, cb_hid);
 #endif
         for (uint32_t c = 0; c < CT; c += OG) {
+#if defined(WS_RESID) && !defined(WS_L1ACC)
+            if (c > 0) {  // the residual add left the unpacker on c_20
+                mm_block_init_short(cb_hid, cb_w3, false, OG, 1, NH);
+                reconfig_data_format(cb_w3, cb_hid);
+            }
+#endif
 #ifdef WS_L1ACC
             mm_acc<NH, OG>(cb_hid, cb_w3, CT, c);
             tile_regs_acquire();
@@ -207,6 +216,24 @@ void kernel_main() {
                 matmul_block(cb_hid, cb_w3, k, k * CT + c, 0, false, OG, 1, NH);
             }
 #endif
+#endif
+#ifdef WS_RESID
+            cb_wait_front(cb_res, OG);
+#ifdef WS_L1ACC
+            reconfig_data_format_srca(cb_acc, cb_res);
+#else
+            reconfig_data_format_srca(cb_w3, cb_res);
+#endif
+            UNPACK((llk_unpack_A_init<BroadcastType::NONE, true, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(
+                false, false, cb_res)));
+            MATH((llk_math_eltwise_binary_init<ELWADD, NONE, mul_fidelity, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(
+                false)));
+            for (uint32_t i = 0; i < OG; ++i) {
+                UNPACK((llk_unpack_A<BroadcastType::NONE, true, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(cb_res, i)));
+                MATH((llk_math_eltwise_binary<ELWADD, NONE, DST_ACCUM_MODE, mul_fidelity,
+                                              EltwiseBinaryReuseDestType::DEST_TO_SRCA>(cb_res, cb_res, i, true)));
+            }
+            cb_pop_front(cb_res, OG);
 #endif
             tile_regs_commit();
             cb_reserve_back(cb_out, OG);
