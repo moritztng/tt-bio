@@ -643,7 +643,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "transition_shard", "dit_mm16", "atom_k1", "dit_b8", "dit_qkv16", "atom_mm16", "adaln_mod",
           "swiglu_fc12g", "msa_sample", "dit_sdpa_pm", "dit_s16", "dit_chunk", "conf_bins", "trimul_t1", "trimul_t2",
           "triatt_tail_bias", "dit_cond_hifi2", "transition_ws", "ws_ln", "trimul_t1_dram",
-          "trimul_t2cm", "dit_fuse", "ref_memo")
+          "trimul_t2cm", "dit_fuse", "ref_memo", "triatt_ln")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias in its own set: graded on AF2-IG only, and it would reach any other biased
@@ -652,7 +652,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
 # ref_memo is host featurisation, OpenFold3 / OpenBind-0 only: one reference conformer per residue type
 # (vendored query.REF_MOL_MEMO), read by worker._predict_openfold3_one off the model's lever set.
 UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "dit_cond_hifi2", "ws_ln", "dit_fuse",
-                             "ref_memo"})
+                             "ref_memo", "triatt_ln"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -10719,6 +10719,30 @@ def _pair_bias_from_z(z, ln_weight, ln_bias, bias_weight, compute_kernel_config,
     return bias
 
 
+_TRIATT_LN_CHECK = bool(os.environ.get("TT_BIO_TRIATT_LN_CHECK"))   # debug: every fused call vs the incumbent
+
+
+def _triatt_ln_check(mod, x, qkv, g, bias):
+    """Prints one line per served triatt_ln call: each of its five outputs against ttnn.layer_norm +
+    qkvgb on the same input (the incumbent), rel rms and max abs. Debug only (TT_BIO_TRIATT_LN_CHECK)."""
+    xn = ttnn.layer_norm(x, weight=mod.layer_norm_weight, bias=mod.layer_norm_bias, epsilon=1e-5,
+                         compute_kernel_config=ln_compute_kernel_config(mod.compute_kernel_config),
+                         memory_config=ttnn.DRAM_MEMORY_CONFIG)
+    rq, rg, rb = mod._fused_qkvgb(xn)
+    ttnn.deallocate(xn)
+    if rb is None:
+        print("TRIATT_LN_CHECK incumbent declined", flush=True)
+        return
+    parts = []
+    for name, got, ref in zip("qkvgb", (*qkv, g, bias), (*rq, rg, rb)):
+        a, r = ttnn.to_torch(got).double(), ttnn.to_torch(ref).double()
+        parts.append("%s rel %.5f max %.4f" % (name, float((a - r).pow(2).mean().sqrt() / r.pow(2).mean().sqrt()),
+                                               float((a - r).abs().max())))
+        ttnn.deallocate(ref)
+    print("TRIATT_LN_CHECK", "end" if mod.ending else "start", tuple(int(d) for d in x.shape), " | ".join(parts),
+          flush=True)
+
+
 class TriangleAttention(Module):
     def __init__(
         self,
@@ -10913,7 +10937,18 @@ class TriangleAttention(Module):
             _qkv_mm_config(x, self.qkvg_weight),
         ) or (None, None)
 
-    def _fused_qkvgb(self, x):
+    def _ln_gb(self):
+        """gamma | beta as one [32, 2K] bf16 tile tensor, row 0 carrying both: the triatt_ln constants."""
+        if getattr(self, "_ln_gb_t", None) is None:
+            g = ttnn.to_torch(self.layer_norm_weight).float().reshape(-1)
+            b = ttnn.to_torch(self.layer_norm_bias).float().reshape(-1)
+            t = torch.zeros(32, 2 * g.numel())
+            t[0] = torch.cat([g, b])
+            self._ln_gb_t = ttnn.from_torch(t, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=_device,
+                                            memory_config=ttnn.DRAM_MEMORY_CONFIG)
+        return self._ln_gb_t
+
+    def _fused_qkvgb(self, x, ln=False):
         """`(q, k, v), gate, pair bias` from one pass, or `(None, None, None)`.
 
         The pair-bias projection is the THIRD reader of the same normed tensor, one tile wide
@@ -10933,6 +10968,7 @@ class TriangleAttention(Module):
             self.n_heads, self.head_dim, _triatt_dtype(),
             _qkv_mm_config(x, self.qkvgb_weight),
             int(self.bias_weight.shape[-1]),
+            ln=(self._ln_gb(), 1e-5) if ln else None,
         ) or (None, None, None)
 
     def __call__(self, x: ttnn.Tensor, attn_mask: ttnn.Tensor | None = None,
@@ -10943,6 +10979,7 @@ class TriangleAttention(Module):
 
     def _update(self, x, attn_mask, add_to_input):
         S = x.shape[1]
+        x_owned = True   # False once triatt_ln leaves x as the caller's pair (start node)
 
         def blocked(rows):
             return host_acc_after_refusal(
@@ -11045,15 +11082,25 @@ class TriangleAttention(Module):
             # Explicit DRAM: for the ending variant x is the L1 transpose result
             # (_transpose_memory_config) and ttnn would otherwise inherit L1 here and again
             # for the qkv projection, whose 157 MB does not fit.
-            x = ttnn.layer_norm(
-                x,
-                weight=self.layer_norm_weight,
-                bias=self.layer_norm_bias,
-                epsilon=1e-5,
-                compute_kernel_config=ln_compute_kernel_config(self.compute_kernel_config),
-                memory_config=ttnn.DRAM_MEMORY_CONFIG,
-            )
-            pre_qkv, pre_g, triangle_bias = self._fused_qkvgb(x)
+            # triatt_ln: the layer_norm runs inside the qkvgb matmul on the raw pair (c_z 128 only, where the
+            # bf16 1/K scaler is exact). x then stays the caller's tensor on the start node: not ours to free.
+            pre_qkv = pre_g = triangle_bias = None
+            if lever("triatt_ln") and int(x.shape[-1]) == 128 and self.layer_norm_bias is not None:
+                pre_qkv, pre_g, triangle_bias = self._fused_qkvgb(x, ln=True)
+                x_owned = self.ending
+                if _TRIATT_LN_CHECK and triangle_bias is not None:
+                    _triatt_ln_check(self, x, pre_qkv, pre_g, triangle_bias)
+            if triangle_bias is None:
+                x = ttnn.layer_norm(
+                    x,
+                    weight=self.layer_norm_weight,
+                    bias=self.layer_norm_bias,
+                    epsilon=1e-5,
+                    compute_kernel_config=ln_compute_kernel_config(self.compute_kernel_config),
+                    memory_config=ttnn.DRAM_MEMORY_CONFIG,
+                )
+                x_owned = True
+                pre_qkv, pre_g, triangle_bias = self._fused_qkvgb(x)
             if triangle_bias is None:
                 triangle_bias = _pair_proj_linear(
                     x, self.bias_weight, self.compute_kernel_config, ttnn.bfloat16
@@ -11460,7 +11507,8 @@ class TriangleAttention(Module):
             if self.g_bias is not None and not g_in_mm:
                 g = ttnn.add_(g, self.g_bias)
                 _pair_bias_stat("g_add")
-            ttnn.deallocate(x)
+            if x_owned:
+                ttnn.deallocate(x)
             if fold_o is not None:
                 o = fold_o
                 if len(g.shape) != 4:

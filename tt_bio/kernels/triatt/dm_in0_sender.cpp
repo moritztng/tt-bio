@@ -5,6 +5,9 @@
 #include <stdint.h>
 #include "api/dataflow/dataflow_api.h"
 #include "matmul_dataflow_common.hpp"
+#ifdef LN_IN0
+#include "ttnn/kernel/dataflow/generate_reduce_scaler.hpp"
+#endif
 #include "ttnn/operations/experimental/ccl/strided_all_gather_async/device/kernels/fused_receiver_utils.hpp"
 
 void kernel_main() {
@@ -63,6 +66,39 @@ void kernel_main() {
     constexpr uint32_t out_tensor_args_cta_offset = in0_args.next_compile_time_args_offset();
     constexpr auto outputs_args = make_tensor_accessor_args_tuple<N_chunks, out_tensor_args_cta_offset>();
     auto outputs_tuple = make_tensor_accessor_tuple_uniform_page_size(outputs_args, out_addr_rt_arg_idx, out_tile_size);
+
+#ifdef LN_IN0
+    // triatt_ln: compute layer-norms in0 itself (compute_ln.cpp). Every core, sender or receiver, gets the LN
+    // constants once: gamma | beta from one [32, 2K] bf16 tensor (row 0 carries the vectors, Kt tiles each) into
+    // c_8 / c_9, the 1/K reduce scaler into c_10 (LN_SCALER, packed bf16 pair) and an fp32 eps tile into c_11
+    // (LN_EPS, fp32 bits), as the trimul T1/T2 readers do. Its accessor follows the outputs; its address is the
+    // runtime arg after theirs.
+#if defined(FUSE_BIAS) || defined(FUSE_TERNARY)
+#error "LN_IN0 does not combine with FUSE_BIAS / FUSE_TERNARY"
+#endif
+    {
+        constexpr auto ln_args = TensorAccessorArgs<
+            tensor_accessor::detail::get_tensor_accessor_args_cta_offset<N_chunks, out_tensor_args_cta_offset>()>();
+        constexpr uint32_t gamma_cb = tt::CBIndex::c_8, beta_cb = tt::CBIndex::c_9;
+        constexpr uint32_t scaler_cb = tt::CBIndex::c_10, eps_cb = tt::CBIndex::c_11;
+        const uint32_t tb = get_tile_size(gamma_cb);
+        const auto ln = TensorAccessor(ln_args, get_arg_val<uint32_t>(out_addr_rt_arg_idx + N_chunks), tb);
+        generate_reduce_scaler(scaler_cb, LN_SCALER);
+        cb_reserve_back(eps_cb, 1);
+        volatile tt_l1_ptr uint32_t* p = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(get_write_ptr(eps_cb));
+        for (uint32_t i = 0; i < 1024; ++i) p[i] = LN_EPS;
+        cb_push_back(eps_cb, 1);
+        cb_reserve_back(gamma_cb, K_tiles);
+        cb_reserve_back(beta_cb, K_tiles);
+        uint32_t w = get_write_ptr(gamma_cb);
+        for (uint32_t t = 0; t < K_tiles; ++t, w += tb) noc_async_read_page(t, ln, w);
+        w = get_write_ptr(beta_cb);
+        for (uint32_t t = 0; t < K_tiles; ++t, w += tb) noc_async_read_page(K_tiles + t, ln, w);
+        noc_async_read_barrier();
+        cb_push_back(gamma_cb, K_tiles);
+        cb_push_back(beta_cb, K_tiles);
+    }
+#endif
 
 #ifdef FUSE_BIAS
     constexpr uint32_t in2_args_cta_offset =
