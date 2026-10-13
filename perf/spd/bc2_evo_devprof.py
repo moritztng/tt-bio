@@ -48,6 +48,9 @@ p.add_argument("--no-fast", action="store_true", help="skip bindcraft2.fast_roun
 p.add_argument("--warm", type=int, default=2)
 p.add_argument("--reps", type=int, default=3)
 p.add_argument("--census", action="store_true", help="one more iteration with every ttnn call synced")
+p.add_argument("--tape-census", action="store_true",
+               help="after the reps: one taped Evoformer forward, then the device bytes its tape holds, by "
+                    "the op that saved them (run with TT_BIO_BC2_RESIDENT_BLOCKS>=1 to see a whole block)")
 p.add_argument("--wrap", choices=("census", "all"), default="all")
 p.add_argument("--seed", type=int, default=0)
 p.add_argument("--out", type=Path, required=True)
@@ -161,6 +164,67 @@ def iteration():
     return dict(T)
 
 
+_ITEM = {"BFLOAT16": 2, "FLOAT32": 4, "UINT32": 4, "INT32": 4, "UINT16": 2, "BFLOAT8_B": 1.0625,
+         "BFLOAT4_B": 0.5625, "UINT8": 1}
+
+
+def tape_census():
+    """Walk one taped Evoformer forward's graph from its roots and sum the live device buffers its
+    backward closures hold, once per buffer, by the closure that holds them and the buffer's shape."""
+    mk, pk, sc = draw()["evo"]
+    _, _, tok = evo._taped("", msa, pair, msa_mask, pair_mask, mk, pk, sc)
+    trunk.sync()
+    roots = evo._tapes._live[int(tok)]["roots"]
+    pair_bytes = 256 * a.tokens ** 2
+    seen, bufs = set(), set()
+    by = collections.defaultdict(lambda: [0, 0.0])
+    stack = [r.node for r in roots if r.node is not None]
+    while stack:
+        nd = stack.pop()
+        if id(nd) in seen:
+            continue
+        seen.add(id(nd))
+        stack += [q.node for q in nd.parents if getattr(q, "node", None) is not None]
+        fn = nd.fn
+        name = getattr(fn, "__qualname__", type(fn).__name__).replace(".<locals>", "")
+        vals = []
+        for c in getattr(fn, "__closure__", None) or ():
+            try:
+                v = c.cell_contents
+            except ValueError:
+                continue
+            vals += list(v) if isinstance(v, (list, tuple)) else [v]
+        for v in vals:
+            if isinstance(v, autograd.Tensor):
+                try:
+                    v = v.value
+                except Exception:  # a value the tape already freed holds nothing
+                    continue
+            if isinstance(v, list) and len(v) == 1:          # a one-slot output box
+                v = v[0]
+            if not isinstance(v, ttnn.Tensor):
+                continue
+            key = autograd._storage(v)
+            if key is None or key in bufs:
+                continue
+            bufs.add(key)
+            shape = tuple(v.padded_shape)
+            nbytes = float(np.prod(shape)) * _ITEM.get(str(v.dtype).split(".")[-1], 2)
+            row = by[(name, str(list(shape)), str(v.dtype).split(".")[-1])]
+            row[0] += 1
+            row[1] += nbytes
+    rows = sorted(({"closure": k[0], "shape": k[1], "dtype": k[2], "buffers": n, "gb": b / 1e9,
+                    "pair_tensors": b / pair_bytes} for k, (n, b) in by.items()), key=lambda r: -r["gb"])
+    total = sum(r["gb"] for r in rows)
+    print(f"\ntape census: {len(seen)} nodes, {len(bufs)} buffers, {total:.3f} GB "
+          f"= {total * 1e9 / pair_bytes:.1f} pair tensors")
+    for r in rows[:40]:
+        print(f"{r['gb']:7.3f} GB {r['pair_tensors']:6.1f} pt {r['buffers']:5d}x {r['dtype']:9} {r['shape']:24} "
+              f"{r['closure'][:80]}")
+    return dict(nodes=len(seen), buffers=len(bufs), gb=total, pair_tensors=total * 1e9 / pair_bytes,
+                resident=os.environ.get("TT_BIO_BC2_RESIDENT_BLOCKS"), rows=rows)
+
+
 def summary(reps):
     keys = sorted({k for r in reps for k in r})
     return {k: {"median_s": float(np.median([sum(r[k]) for r in reps])),
@@ -226,6 +290,11 @@ with autograd.exact_training(False), \
         for r in rows[:40]:
             print(f"{r['phase'][:17]:18} {r['name'][:29]:30} {r['origin'][:19]:20} {r['calls']:6d} "
                   f"{r['synced_s']:8.3f}  {r['sig'][:70]}")
+
+        rec = None
+
+    if a.tape_census:
+        doc["tape_census"] = tape_census()
 
 (a.out / "devprof.json").write_text(json.dumps(doc, indent=1, default=str))
 print(json.dumps(doc["summary"], indent=1))
