@@ -60,7 +60,7 @@ def test_eligibility_declines_cleanly(monkeypatch):
     with T.levers("trimul_t2,trimul_t2cm"):
         assert TTL.t2cm_eligible(**_args()) is None
         assert TTL.t2cm_eligible(**_args(S=256)) is None
-        assert TTL.t2cm_eligible(**_args(K=256, N=256)) == "key=8x8"     # protenix-v2's c_z
+        assert TTL.t2cm_eligible(**_args(K=256, N=256)) == "l1"          # protenix-v2's c_z: T2 serves (8, 8), the gather does not fit
         a = _args()
         a["xcm"] = _Fake([1, 128, 500, 500], padded=[1, 128, 512, 512])
         assert TTL.t2cm_eligible(**a) == "cm_shape"                      # ragged: the permute keeps it
@@ -109,8 +109,8 @@ def test_every_cb_the_kernels_name_is_planned():
     used = set()
     for f in ("reader_ln_cm.cpp", "writer_ln_cm.cpp", "compute_ln.cpp"):
         used |= {int(i) for i in re.findall(r"CBIndex::c_(\d+)", (KDIR / f).read_text())}
-    # _build_t2's plan: T2's sixteen plus the two T2CM adds
-    planned = {0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12, 13, 14, 16, 17, TTL.T2CM_CB_GATHER, TTL.T2CM_CB_SCRATCH}
+    # _build_t2's plan: T2's sixteen, T2m's moved-tile gather (c_15) and the two T2CM adds
+    planned = {0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, TTL.T2CM_CB_GATHER, TTL.T2CM_CB_SCRATCH}
     assert used <= planned, used - planned
     assert {TTL.T2CM_CB_GATHER, TTL.T2CM_CB_SCRATCH} <= used
     src = Path(TTL.__file__).read_text()
