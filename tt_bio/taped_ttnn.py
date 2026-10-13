@@ -796,7 +796,8 @@ def _v_reshape(shipped, args, kwargs):
             x.add_grad(ttnn.reshape(g, src))
         return bw
 
-    return _tape(out_v, [x], make)
+    # `reads=()`: the source SHAPE is read here, the source VALUE never.
+    return _tape(out_v, [x], make, reads=())
 
 
 @_verb("permute")
@@ -814,7 +815,8 @@ def _v_permute(shipped, args, kwargs):
             x.add_grad(_permute_back(g, inv))
         return bw
 
-    return _tape(out_v, [x], make)
+    # `reads=()`: the inverse permutation is read off the forward's dims, not off the operand.
+    return _tape(out_v, [x], make, reads=())
 
 
 # Whether a permute's backward goes through the reblock kernels where they serve its inverse.
@@ -898,7 +900,7 @@ def _v_transpose(shipped, args, kwargs):
             x.add_grad(ttnn.transpose(g, d0, d1))
         return bw
 
-    return _tape(out_v, [x], make)
+    return _tape(out_v, [x], make, reads=())
 
 
 @_verb("concat")
@@ -922,7 +924,8 @@ def _v_concat(shipped, args, kwargs):
                 off += n
         return bw
 
-    return _tape(out_v, xs, make)
+    # `reads=()`: the backward slices the COTANGENT at the sizes read here.
+    return _tape(out_v, xs, make, reads=())
 
 
 def _sliced(x: "Tensor", out_v, starts, ends):
@@ -938,7 +941,7 @@ def _sliced(x: "Tensor", out_v, starts, ends):
             x.add_grad_slice(g, starts, ends)
         return bw
 
-    return _tape(out_v, [x], make)
+    return _tape(out_v, [x], make, reads=())
 
 
 @_verb("slice")
@@ -1432,7 +1435,7 @@ def _v_concat_heads(shipped, args, kwargs):
             x.add_grad(ag.split_heads_value(g, H))
         return bw
 
-    return _tape(out_v, [x], make)
+    return _tape(out_v, [x], make, reads=())
 
 
 #: Hand each head's cotangent to `add_grad_slice` as its own slot of the packed axis, so the
@@ -1507,7 +1510,8 @@ def _v_create_qkv_heads(shipped, args, kwargs):
             return bw
         return make
 
-    return tuple(_tape(o, [x], slot(s)) for s, o in enumerate(outs))
+    # `reads=()`: B, L, H and dh are read here; the packed operand's value is not.
+    return tuple(_tape(o, [x], slot(s), reads=()) for s, o in enumerate(outs))
 
 
 @_verb("embedding")
@@ -1838,7 +1842,8 @@ def _v_pad(shipped, args, kwargs):
             x.add_grad(ttnn.slice(g, starts, ends))
         return bw
 
-    return _tape(out_v, [x], make)
+    # `reads=()`: the padded extents come from the forward's shape, not from the operand.
+    return _tape(out_v, [x], make, reads=())
 
 
 @_verb("typecast")
@@ -1894,7 +1899,8 @@ def _v_sum(shipped, args, kwargs):
             x.add_grad(ttnn.add(ag.grad_zeros(shape, g.dtype, g.device()), g))
         return bw
 
-    return _tape(out_v, [x], make)
+    # `reads=()`: a sum broadcasts its cotangent back over a shape read here.
+    return _tape(out_v, [x], make, reads=())
 
 
 @_verb("max")
