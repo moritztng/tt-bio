@@ -895,7 +895,11 @@ def t2_eligible(x, ln_w, ln_b, wp, g, resid, wg=None):
     if not (T2 or lever("trimul_t2" if wg is None else "trimul_t2g")):
         return "off"
     for t in (x, wp, g, resid) + ((wg,) if wg is not None else ()):
-        if t is None or t.dtype != ttnn.bfloat16 or t.layout != ttnn.TILE_LAYOUT:
+        if t is None or t.layout != ttnn.TILE_LAYOUT:
+            return "dtype"
+        # A plain-form g_out may be bfp8 (trimul_b8in writes it so): CB 5 takes g's format and
+        # compute unpacks it into DEST like the bf16 tile, so b8in and T2 stack.
+        if t.dtype != ttnn.bfloat16 and not (t is g and wg is None and t.dtype == ttnn.bfloat8_b):
             return "dtype"
         if t.memory_config() != ttnn.DRAM_MEMORY_CONFIG:
             return "memcfg"
@@ -1041,7 +1045,8 @@ def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, wg=None, moved
     cbs = [_cb(0, core_grid, kt if moved is not None else 2 * Mb * kt),
            _cb(1, core_grid, (1 + gate) * kt * nt),
            _cb(2, core_grid, 2 * blk), _cb(3, core_grid, Mb * kt), _cb(4, core_grid, blk),
-           _cb(5, core_grid, (2 - gate) * blk), _cb(7, core_grid, 2 * blk),
+           _cb_fmt(5, core_grid, (2 - gate) * blk, g.dtype if moved is None else ttnn.bfloat16),
+           _cb(7, core_grid, 2 * blk),
            _cb(8, core_grid, kt), _cb(9, core_grid, kt), _cb(10, core_grid, 1),
            _cb_fmt(11, core_grid, 1, f32), _cb_fmt(12, core_grid, 1, f32),
            _cb_fmt(13, core_grid, 1, f32), _cb_fmt(14, core_grid, 1, f32),
@@ -1114,7 +1119,7 @@ def fused_tail_ln(x, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5, wg=None, mov
     block = _t2_block(kt, nt)
     P = None
     if moved is not None:
-        why = t2m_eligible(moved[0], x, moved[1])
+        why = t2m_eligible(moved[0], x, moved[1]) or ("g_dtype" if g.dtype != ttnn.bfloat16 else None)
         P = None if why else t2m_parts(kt, nt, block[0], wg is not None, moved[1] // TILE)
         if P is None:
             T2M_STATS[1] += 1
@@ -1129,7 +1134,7 @@ def fused_tail_ln(x, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5, wg=None, mov
         REJECTS[k] = REJECTS.get(k, 0) + 1
         return None
     spec = lambda t: (str(t.padded_shape), str(t.dtype), str(t.memory_config()))
-    key = ("t2", spec(x), spec(wp), spec(ln_w), spec(ln_b), wg is not None, tuple(grid),
+    key = ("t2", spec(x), spec(wp), str(g.dtype), spec(ln_w), spec(ln_b), wg is not None, tuple(grid),
            tuple(str(c) for c in ckc), float(eps), SIGPOLY, RNE,
            None if moved is None else (spec(moved[0]), moved[1], P))
     entry = _CACHE.get(key)
