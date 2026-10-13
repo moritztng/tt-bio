@@ -116,7 +116,50 @@ class StructuralTokenExpander(_KeyedWeights):
             cache[(key, "emb_fp32")] = v
         return v
 
+    _PIB_TABLES = (("same_parent_embedding.weight", "same_parent_residue", 2),
+                   ("same_residue_twin_embedding.weight", "same_residue_twin", 2),
+                   ("prev_bb_chain_embedding.weight", "prev_bb_chain", 2),
+                   ("next_bb_chain_embedding.weight", "next_bb_chain", 2),
+                   ("role_pair_type_embedding.weight", "role_pair_type", 8))
+
     def _pair_init_bias(self, pf):
+        """Sum of the five additive pair-init embeddings as ONE row gather. The
+        five indices take 2*2*2*2*8 = 128 joint values, so the host sums the five
+        table rows of every joint value in fp32 in the old order and rounds once
+        to bf16 (the same IEEE fp32 adds + RNE cast as _pair_init_bias_where and
+        the host gather before it), and the device gathers rows of that (128, c_z)
+        bf16 table by one combined index per pair. Replaces 16 eq + 16 where +
+        4 fp32 adds over (clen, Ns, c_z) per chunk (fr 0.08 on WH, 15.4 ms/chunk
+        on the OpenDDE census). Gathered row-major and reshaped before tilize,
+        like the z gather in __call__; a TILE reshape on Ns=249 is what
+        corrupted 6c3f5ecaf."""
+        if _T.lever("pib_where"):
+            return self._pair_init_bias_where(pf)
+        cache = self.__dict__.setdefault("_wc", {})
+        tab = cache.get("pib_joint")
+        if tab is None:
+            C = self.c_z
+            acc = None
+            for tkey, _, n in self._PIB_TABLES:
+                w = self._w[tkey].float()[:n]
+                acc = w if acc is None else (acc[:, None, :] + w[None, :, :]).reshape(-1, C)
+            tab = ttnn.from_torch(acc.to(torch.bfloat16), layout=ttnn.ROW_MAJOR_LAYOUT,
+                                  device=get_device(), dtype=ttnn.bfloat16)
+            cache["pib_joint"] = tab
+        clen, Ns = pf["role_pair_type"].shape
+        idx = None
+        for _, ikey, n in self._PIB_TABLES:
+            v = pf[ikey].long()
+            idx = v if idx is None else idx * n + v
+        g = ttnn.embedding(
+            ttnn.from_torch(idx.reshape(1, -1).to(torch.int32), layout=ttnn.ROW_MAJOR_LAYOUT,
+                            device=get_device(), dtype=ttnn.uint32),
+            tab, layout=ttnn.ROW_MAJOR_LAYOUT, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+        g = ttnn.to_layout(ttnn.reshape(g, (clen, Ns, self.c_z)), ttnn.TILE_LAYOUT)
+        dt = getattr(self, "dtype", ttnn.bfloat16)
+        return g if dt == ttnn.bfloat16 else ttnn.typecast(g, dt)
+
+    def _pair_init_bias_where(self, pf):
         """Sum of the five additive pair-init embeddings, on device. Each table
         lookup is a where-chain row select in fp32 (pure selection, no
         arithmetic, so the row comes through exactly), the five results add in
