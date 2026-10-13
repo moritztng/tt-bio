@@ -1285,10 +1285,14 @@ class AF2Model(nn.Module):
         out["pae_breaks"] = torch.linspace(0.0, PAE_MAX_ERROR_BIN, PAE_BINS - 1)
         if self.structure is None:
             return out
-        out["structure"] = self.structure(out["single"], out["pair"], feats)
+        out["structure"] = self.run_structure(out["single"], out["pair"], feats)
         out["plddt_logits"] = self.heads["plddt"](
             out["structure"]["representations/structure_module"])
         return out
+
+    def run_structure(self, single: torch.Tensor, pair: torch.Tensor, feats: dict) -> dict:
+        """The structure module on the trunk's output; a device model may run it elsewhere."""
+        return self.structure(single, pair, feats)
 
 
 def _extra_msa_feature(feats: dict, multimer: bool = False) -> torch.Tensor:

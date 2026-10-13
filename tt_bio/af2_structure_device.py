@@ -84,35 +84,47 @@ class AF2DeviceStructure:
         self.w_init = upload(sm.initial_projection.weight.detach().t())
         self.b_init = upload(sm.initial_projection.bias.detach())
 
-    def _masked_bias(self, seq_mask: torch.Tensor, n_pad: int):
-        """AF2's `-1e5 * (1 - m_i m_j)` as a `[1, 1, n_pad, n_pad]` float32 constant.
+    def mask_bias(self, seq_mask: torch.Tensor, n_pad: int) -> torch.Tensor:
+        """AF2's `-1e5 * (1 - m_i m_j)` as a `[1, 1, n_pad, n_pad]` float32 host tensor.
 
         Residues past the sequence are masked like any other, so padded keys get no weight and
         padded queries compute rows nobody reads.
         """
         m = torch.zeros(n_pad)
         m[:len(seq_mask)] = seq_mask.float()
-        return self.upload((-self.cfg.inf * (1.0 - m[:, None] * m[None, :]))[None, None])
+        return (-self.cfg.inf * (1.0 - m[:, None] * m[None, :]))[None, None]
 
     def __call__(self, single, pair, feats: dict) -> dict:
         """`single` `[1, n_pad, c_s]` and `pair` `[1, n_pad, n_pad, c_z]` device tensors, float32.
 
         `n_pad` may exceed the sequence length (the trunk pads to a tile); `feats` is unpadded.
         """
-        n_tok = int(single.shape[1])
+        n_pad = int(single.shape[1])
+        bias = self.upload(self.mask_bias(feats["seq_mask"], n_pad))
+        one, zero = self.upload(torch.ones(1, n_pad)), self.upload(torch.zeros(1, n_pad))
+        return self.finish(self.layers(single, pair, bias, one, zero), feats)
+
+    def layers(self, single, pair, bias, one, zero) -> list:
+        """The 8 layers and the angle resnet, device tensors in and out, nothing uploaded or
+        downloaded, so a trace can capture it. `one` / `zero` `[1, n_pad]` seed the identity
+        frame. Returns `[s, *quat, *trans, sin, cos, unnorm_sin, unnorm_cos]`."""
         s = ops.layer_norm(single, *self.single_norm)
         s_initial = s
         s = ops.linear(s, self.w_init, self.b_init)
         z = ops.layer_norm(pair, *self.pair_norm)
-        bias = self._masked_bias(feats["seq_mask"], n_tok)
-        rigid = Rigid.identity(1, n_tok, upload=self.upload)
+        rigid = Rigid(quat=[one, zero, zero, zero], trans=[zero, zero, zero])
         for _ in range(self.cfg.no_blocks):
             s = ops.add(s, self.ipa(s, z, rigid.frame(), bias))
             s = ops.layer_norm(s, *self.attention_norm)
             s = self.transition(s)
             rigid = rigid.compose_update(self.bb_update(s))
         (unnorm_sin, unnorm_cos), (sin, cos) = self.angles(s, s_initial)
-        return self.geometry(rigid, s, (sin, cos), (unnorm_sin, unnorm_cos), feats)
+        return [s, *rigid.quat, *rigid.trans, sin, cos, unnorm_sin, unnorm_cos]
+
+    def finish(self, outs: list, feats: dict) -> dict:
+        s, quat, trans, (sin, cos, unnorm_sin, unnorm_cos) = outs[0], outs[1:5], outs[5:8], outs[8:12]
+        return self.geometry(Rigid(quat=list(quat), trans=list(trans)), s, (sin, cos),
+                             (unnorm_sin, unnorm_cos), feats)
 
     def geometry(self, rigid: Rigid, s, angles, unnorm, feats: dict) -> dict:
         """Download the last layer and run AF2's geometry tail on the host in float32."""

@@ -125,6 +125,15 @@ TRANSITION_L1 = env_flag("TT_BIO_AF2_TRANSITION_L1", False)
 # .114 WH 2026-10-12 (off / on / off2 x 3 inputs, AICLK 1000): coords_sha16 identical on every
 # input, extra-MSA stage 0.41-0.44 -> 0.36 s and Evoformer 4.136 -> 4.09 s per fold.
 PAIR_ON_CARD = env_flag("TT_BIO_AF2_PAIR_ON_CARD", True)
+# Run the structure module's 8 layers on the card (`af2_structure_device`, ABodyBuilder3's device
+# IPA under AF2's weights) instead of in host torch between recycles, where the card sits idle
+# 324-437 ms per recycle on a Wormhole Galaxy chip (device profile, .114 2026-10-13). Float32 on
+# card, not bit-exact: on WH eager it measured 123 ms a pass vs 164 on host, CA RMS 0.10-0.23 A.
+STRUCTURE_ON_CARD = env_flag("TT_BIO_AF2_STRUCTURE_ON_CARD", False)
+# With STRUCTURE_ON_CARD, replay its 8 layers from a captured trace: the eager card version is
+# dispatch-bound (hundreds of small fp32 ops for ~ms of math). Same ops on the same buffers as the
+# eager loop; needs a device opened with `get_device(trace="af2")`, else it runs eagerly.
+STRUCTURE_TRACE = env_flag("TT_BIO_AF2_STRUCTURE_TRACE", False)
 
 
 #: The op classes `scripts/af2_port/tap_gate.py --substitute` moves to host torch, one class per
@@ -1073,6 +1082,11 @@ class AF2DeviceModel(AF2Model):
     #: path and with no instrument installed -- `_pair_handoff` is where that is decided.
     pair_on_card: bool = PAIR_ON_CARD
 
+    #: Run the structure module on card (see `STRUCTURE_ON_CARD`), from a trace with
+    #: `structure_trace`. Built on first use.
+    structure_on_card: bool = STRUCTURE_ON_CARD
+    structure_trace: bool = STRUCTURE_TRACE
+
     #: True runs the four extra-MSA blocks in host torch instead of on card. That stack sets
     #: the pair representation the 48 Evoformer blocks start from, so this is the other half of
     #: the substitution instrument: it moves the block-0 input between the two arms without
@@ -1158,6 +1172,7 @@ class AF2DeviceModel(AF2Model):
         self._pair_card_shape: tuple | None = None
         self._traces: dict = {}
         self._opm_constant_tt: list = []
+        self._device_structure = None
         # triatt_tail_bias: the biased triangle-attention tail in one program, AF2's only lever (no
         # other shared trunk lever fires at 195 tokens: biases, Kt = 7, its own kernel config).
         # AF2-IG on Wormhole (chip 8, 1000 MHz, 12 folds per arm, off/on/off): 5.056 / 4.984 / 5.111 s,
@@ -1207,8 +1222,37 @@ class AF2DeviceModel(AF2Model):
 
     # ------------------------------------------------------------------ the boundary
 
+    def run_structure(self, single: torch.Tensor, pair: torch.Tensor, feats: dict) -> dict:
+        """`AF2Model.run_structure`, on card under `structure_on_card`.
+
+        Single, pair, the IPA mask bias and the identity frame are padded to a tile multiple and
+        uploaded in float32; padded residues are masked out of the IPA. Under `structure_trace`
+        the 8 layers replay from a trace keyed on the padded length, so they run from captured
+        buffers the next call overwrites; the geometry tail only downloads them.
+        """
+        if not self.structure_on_card or self.block_tap is not None:
+            return super().run_structure(single, pair, feats)
+        from .af2_structure_device import AF2DeviceStructure
+        if self._device_structure is None:
+            self._device_structure = AF2DeviceStructure(self.structure)
+        ds = self._device_structure
+        n = single.shape[0]
+        n_pad = -(-n // 32) * 32
+        pad = lambda t, dims: torch.nn.functional.pad(t.float(), [0, 0] + [0, n_pad - n] * dims)
+        inputs = (pad(single, 1)[None], pad(pair, 2)[None], ds.mask_bias(feats["seq_mask"], n_pad),
+                  torch.ones(1, n_pad), torch.zeros(1, n_pad))
+        outs = None
+        if self.structure_trace and trace_region_size() > 0:
+            outs = self._replay("structure", ds.layers, *inputs, fp32=True)
+        if outs is None:
+            outs = ds.layers(*(ds.upload(t) for t in inputs))
+        return ds.finish(outs, feats)
+
     def _up(self, t: torch.Tensor) -> ttnn.Tensor:
         return _to_card(t, self._device)
+
+    def _up_fp32(self, t: torch.Tensor) -> ttnn.Tensor:
+        return ttnn.from_torch(t.float(), layout=ttnn.TILE_LAYOUT, device=self._device, dtype=ttnn.float32)
 
     def _down(self, t: ttnn.Tensor, shape: tuple) -> torch.Tensor:
         return _to_host(t, self.trunk_dtype, shape)
@@ -1325,7 +1369,7 @@ class AF2DeviceModel(AF2Model):
                 and not self.skip and all(m is None for m in masks)
                 and trace_region_size() > 0)
 
-    def _replay(self, name: str, run, *inputs: torch.Tensor) -> tuple | None:
+    def _replay(self, name: str, run, *inputs: torch.Tensor, fp32: bool = False) -> tuple | None:
         """`run(*inputs on card)` from a trace keyed on `name` and the input shapes, or None.
 
         None on the first call at a key: the caller runs its eager loop. A capture must come
@@ -1340,7 +1384,9 @@ class AF2DeviceModel(AF2Model):
         sure to have compiled every program it dispatches (the `clone`s included). The trace
         owns persistent input buffers that each replay overwrites, and `run` reads clones of
         them, because the blocks deallocate their inputs as they go. The outputs are the
-        trace's own buffers: download them, never deallocate them.
+        trace's own buffers: download them, never deallocate them. `fp32` takes the inputs as
+        float32 at their own rank (the structure module) instead of the stacks' bfloat16 with a
+        leading one.
         """
         key = (name, *(tuple(t.shape) for t in inputs))
         if key not in self._traces:
@@ -1348,7 +1394,7 @@ class AF2DeviceModel(AF2Model):
             return None
         tr = self._traces[key]
         if tr is None:
-            bufs = [self._up(t) for t in inputs]
+            bufs = [self._up_fp32(t) if fp32 else self._up(t) for t in inputs]
             for out in run(*[ttnn.clone(b) for b in bufs]):
                 ttnn.deallocate(out)
             ttnn.synchronize_device(self._device)
@@ -1358,9 +1404,10 @@ class AF2DeviceModel(AF2Model):
             tr = self._traces[key] = (tid, bufs, outs)
         else:
             for t, buf in zip(inputs, tr[1]):
-                ttnn.copy_host_to_device_tensor(
-                    ttnn.from_torch(t.unsqueeze(0).to(torch.bfloat16), layout=ttnn.TILE_LAYOUT,
-                                    dtype=ttnn.bfloat16), buf)
+                host = (ttnn.from_torch(t.float(), layout=ttnn.TILE_LAYOUT, dtype=ttnn.float32) if fp32
+                        else ttnn.from_torch(t.unsqueeze(0).to(torch.bfloat16), layout=ttnn.TILE_LAYOUT,
+                                             dtype=ttnn.bfloat16))
+                ttnn.copy_host_to_device_tensor(host, buf)
         ttnn.execute_trace(self._device, tr[0], cq_id=0, blocking=self.trace_blocking)
         return tr[2]
 
