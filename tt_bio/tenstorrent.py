@@ -654,13 +654,16 @@ _FAST_MODE = False
 #   ws_l1acc        with transition_ws, each matmul sums at most 2 K tiles in the fp32 dest and the packer adds
 #                   the chunks in L1 (the dest_guard remedy), so bf16 weights at c_z 256 / 384 (normal mode)
 #                   can take the kernel: summing all of K in dest wrote exact 1 / 2 / 4 errors there (wd1).
+#   ws_resid        with transition_ws, fc3 adds the residual in its fp32 dest and writes over it: the transition's
+#                   `z + t` and the hidden-chunk sum stop being separate add passes over the pair (OpenDDE WH
+#                   fast census: 4.3 s of add_ per fold).
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in",
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
           "transition_shard", "dit_mm16", "atom_k1", "dit_b8", "dit_qkv16", "atom_mm16", "adaln_mod",
           "swiglu_fc12g", "msa_sample", "dit_sdpa_pm", "dit_s16", "dit_chunk", "conf_bins", "trimul_t1", "trimul_t2",
           "trimul_t2g", "triatt_tail_bias", "dit_cond_hifi2", "transition_ws", "ws_ln", "trimul_t1_dram",
-          "trimul_t2m", "trimul_t2cm", "dit_fuse", "pair_mm", "ref_memo", "edm_device", "ws_l1acc")
+          "trimul_t2m", "trimul_t2cm", "dit_fuse", "pair_mm", "ref_memo", "edm_device", "ws_l1acc", "ws_resid")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -670,7 +673,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
 # ref_memo is host featurisation, OpenFold3 / OpenBind-0 only: one reference conformer per residue type
 # (vendored query.REF_MOL_MEMO), read by worker._predict_openfold3_one off the model's lever set.
 UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "dit_cond_hifi2", "ws_ln", "dit_fuse",
-                             "pair_mm", "ref_memo", "trimul_t2m", "edm_device", "ws_l1acc"})
+                             "pair_mm", "ref_memo", "trimul_t2m", "edm_device", "ws_l1acc", "ws_resid"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -12629,7 +12632,7 @@ def _ws_applies(x, ckc) -> bool:
             and not _dest_guard.tail_exposed(ckc))
 
 
-def ws_swiglu(x, norm_weight, norm_bias, ckc, parts):
+def ws_swiglu(x, norm_weight, norm_bias, ckc, parts, resid=None):
     """`fc3(silu(LN(x) w1) * (LN(x) w2))` as `pair_swiglu_ws` programs over the hidden chunks `parts`
     (`pair_swiglu_ws.weights`), their outputs summed; or None where the kernel does not take the shape (a chunk
     over its L1 budget, a hidden width it cannot tile).
@@ -12637,16 +12640,24 @@ def ws_swiglu(x, norm_weight, norm_bias, ckc, parts):
     Shared by the pair `Transition` and ESMFold2's `esmc.SwiGLUFFN`. With bfp8 weights (fast mode) the matmuls
     run at HiFi2, which covers every bfp8 weight bit (`bfp8_fidelity`); x stays the layer norm's bf16, since the
     kernel takes it at the same speed as bfp8 x and a separate cast cost 0.46 ms at c_z 128 (ws_attr, WH).
+    `resid`: every chunk adds into `resid` in place (`pair_swiglu`'s resid) and `resid + out` is returned, so the
+    chunk sum and the caller's residual add cost no pass of their own; None where any chunk declines it.
     """
-    if not all(_pair_ws.eligible(x, w12, w3, l1acc=lever("ws_l1acc")) for w12, w3 in parts):
+    if not all(_pair_ws.eligible(x, w12, w3, l1acc=lever("ws_l1acc"), resid=resid) for w12, w3 in parts):
         return None
     fid = ttnn.MathFidelity.HiFi2 if parts[0][0].dtype == ttnn.bfloat8_b else ckc.math_fidelity
     acc = lever("ws_l1acc")
-    if lever("ws_ln") and len(parts) == 1 and _pair_ws.eligible(x, *parts[0], ln=(norm_weight, norm_bias), l1acc=acc):
+    if (resid is None and lever("ws_ln") and len(parts) == 1
+            and _pair_ws.eligible(x, *parts[0], ln=(norm_weight, norm_bias), l1acc=acc)):
         return _pair_ws.pair_swiglu(x, *parts[0], fid, ln=(norm_weight, norm_bias, 1e-5), l1acc=acc)
     x_norm = ttnn.layer_norm(x, weight=norm_weight, bias=norm_bias, epsilon=1e-5, compute_kernel_config=ckc,
                              memory_config=ttnn.DRAM_MEMORY_CONFIG)
     out = None
+    if resid is not None:
+        for w12, w3 in parts:
+            _pair_ws.pair_swiglu(x_norm, w12, w3, fid, l1acc=acc, resid=resid)
+        ttnn.deallocate(x_norm)
+        return resid
     for w12, w3 in parts:
         o = _pair_ws.pair_swiglu(x_norm, w12, w3, fid, l1acc=acc)
         if out is None:
@@ -12718,7 +12729,7 @@ class Transition(Module):
             ttnn.deallocate(out)
         return masked
 
-    def _weight_stationary(self, x, memory_config):
+    def _weight_stationary(self, x, memory_config, add_to_input=False):
         """`transition_ws`: layer norm, then the whole swiglu as one `pair_swiglu_ws` program, or None
         where the kernel does not take the shape (a hidden width it cannot tile, an L1 destination, a tape).
         Weights over its L1 budget (OpenDDE's c_z 384) run in hidden chunks. bf16 weights only up to c_z 128:
@@ -12740,7 +12751,8 @@ class Transition(Module):
             return None
         from tt_bio.size_limits import is_alloc_refusal
         try:
-            return ws_swiglu(x, self.norm_weight, self.norm_bias, self.compute_kernel_config, self._ws)
+            return ws_swiglu(x, self.norm_weight, self.norm_bias, self.compute_kernel_config, self._ws,
+                             resid=x if add_to_input else None)
         except RuntimeError as exc:
             if not is_alloc_refusal(exc) or not x.is_allocated():
                 raise
@@ -12785,6 +12797,11 @@ class Transition(Module):
         path each block adds its own rows, so the assembly can free `x` before it needs room
         for the result; elsewhere it is the caller's `ttnn.add_` done here.
         """
+        if add_to_input and lever("ws_resid"):
+            # `ws_resid`: the kernel adds into x itself; None (declined) leaves x untouched.
+            out = self._weight_stationary(x, memory_config, add_to_input=True)
+            if out is not None:
+                return out
         out = self._weight_stationary(x, memory_config)
         if out is not None:
             if not add_to_input:
