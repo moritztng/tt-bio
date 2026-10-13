@@ -723,7 +723,8 @@ class _PairStateDraw:
     ESMC-6B and the LM projection, from a copy of the global RNG taken there. `take` then moves the
     global RNG past the draw, so every later draw follows the seed as the inline one would. With
     TRUNC_REJECT the state's values differ from esm's trunc_normal_ (same distribution); off, they are
-    bit for bit the inline ones. If anything drew from the global RNG in between, it draws inline.
+    bit for bit the inline ones. If anything drew from the global RNG in between, or no draw was started,
+    `take` runs the same `_draw` on the spot, so a seed gives one state whichever way it was drawn.
     """
 
     def __init__(self):
@@ -749,11 +750,12 @@ class _PairStateDraw:
         self.key, self.rng = tuple(shape), torch.get_rng_state()
         self.nxt = self.pool.submit(self._draw, self.key, self.rng)
 
-    def take(self, ref, inline):
+    def take(self, ref):
         nxt, key, rng, self.nxt = self.nxt, self.key, self.rng, None
         if nxt is None or key != tuple(ref.shape) or not torch.equal(torch.get_rng_state(), rng):
-            return inline(ref)
-        state, after = nxt.result()
+            state, after = self._draw(tuple(ref.shape), torch.get_rng_state())
+        else:
+            state, after = nxt.result()
         torch.set_rng_state(after)
         return state.to(ref.dtype)
 
@@ -765,7 +767,7 @@ def _install_pair_state_draw(model):
     import types
 
     draw = _PairStateDraw()
-    fwd, inline = model.forward, model._init_pair_state
+    fwd = model.forward
     sig = inspect.signature(fwd)
     c_z = model.config.d_pair
 
@@ -777,8 +779,7 @@ def _install_pair_state_draw(model):
         return fwd(*args, **kwargs)
 
     model.forward = forward
-    model._init_pair_state = types.MethodType(
-        lambda self, ref: draw.take(ref, inline) if PAIR_STATE_THREAD else inline(ref), model)
+    model._init_pair_state = types.MethodType(lambda self, ref: draw.take(ref), model)
 
 
 def _install_resident_trunk_loop(model):
