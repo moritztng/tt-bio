@@ -856,8 +856,12 @@ def _permute_back(g, inv):
     The tape records a model's channel move as the stock permute it falls back to under a tape,
     so its gradient paid the stock permute too: 12 calls on [1, 64, 256, 256] per AF2 Evoformer
     block at n=256. The kernel is a pure index reordering, so the gradient keeps its bits.
-    Outside the gate the kernel's callers fall back to two transposes, slower than the one
-    permute this replaces, so here the fallback is the permute.
+
+    Outside the gate, ``[0, 2, 3, 1]`` goes as ``transpose(1, 2)`` then ``transpose(2, 3)``: on
+    p150a at 1350 MHz the stock permute takes 1.21 ms on [1, 128, 224, 224] against 0.37 ms for
+    the pair (1.00 / 0.33 at 195 tokens, 0.64 / 0.18 at 64 channels), torch.equal in every case.
+    That is BindCraft 2's trimul gradient, 208 calls an iteration. ``[0, 3, 1, 2]`` keeps the
+    permute, the faster of the two there (0.27 / 0.36 ms).
     """
     if REBLOCK_PERMUTE_BW:
         from . import reblock_permute as R
@@ -866,6 +870,11 @@ def _permute_back(g, inv):
             return R.reblock_permute_back(g, mc)
         if inv == [0, 3, 1, 2] and R.eligible(g, mc):
             return R.reblock_permute(g, mc)
+    if list(inv) == [0, 2, 3, 1]:
+        mid = ttnn.transpose(g, 1, 2)
+        out = ttnn.transpose(mid, 2, 3)
+        ttnn.deallocate(mid)
+        return out
     return ttnn.permute(g, inv)
 
 
