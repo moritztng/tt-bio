@@ -200,7 +200,11 @@ class _StructureHeadAdapter(_Adapter):
         n = max(1, num_diffusion_samples)
         L = int(s_inputs.shape[1])  # residue (token) count
         if isinstance(z_trunk, _DevPair):  # the device tail: prepare consumes (and frees) the device pair
-            z_trunk.host = self.m._to_torch(z_trunk.t)[:, :L, :L].float()  # for the confidence head
+            if _DEVICE_CONF and n == 1:  # the confidence head reads its own copy on the device
+                import ttnn
+                z_trunk.keep = ttnn.clone(z_trunk.t)
+            else:
+                z_trunk.host = self.m._to_torch(z_trunk.t)[:, :L, :L].float()  # for the confidence head
             z_trunk = z_trunk.t
         args = (z_trunk.float() if torch.is_tensor(z_trunk) else z_trunk, s_inputs.float(), relative_position_encoding.float(),
                 ref_pos.float(), ref_charge.float(), ref_mask.float(), ref_element.float(),
@@ -268,10 +272,10 @@ class _DevPair:
     `.float()` / `.detach()` are no-ops, `z + z.transpose(-2, -3)` is a device permute and add,
     and `host` keeps the one download the confidence head still needs."""
 
-    __slots__ = ("t", "seq_len", "host", "_tmp")
+    __slots__ = ("t", "seq_len", "host", "keep", "_tmp")
 
     def __init__(self, t, seq_len, tmp=False):
-        self.t, self.seq_len, self.host, self._tmp = t, int(seq_len), None, tmp
+        self.t, self.seq_len, self.host, self.keep, self._tmp = t, int(seq_len), None, None, tmp
 
     @property
     def shape(self):
@@ -324,6 +328,90 @@ def _dev_forward(m, x):
     out = _DevPair(_unpad(_trunk_on_device(m, x, to_host=False), x.seq_len), x.seq_len)
     ttnn.deallocate(x.t)
     return out
+
+
+# The confidence head's L^2 part (ConfidenceHead._pair_outputs) on the device: z_norm, the pair sum, the outer
+# product projection, the trunk, row pooling and the PAE/PDE logits. The host keeps what is [L,c]-sized or a lookup
+# (summed in fp32, one upload) and the row softmax. Host fp32 there costs ~1.1 s per 512-aa fold (xf2 profile).
+# Not bit-exact (bf16 pair), so off until graded. Single sample only (num_diffusion_samples == 1).
+_DEVICE_CONF = env_flag("TT_BIO_ESMFOLD2_DEVICE_CONF", False)
+DEVICE_CONF_STATS = [0, 0]  # heads on the device, on the host
+
+
+def _conf_weights(head, ftw):
+    w = getattr(head, "_tt_conf_w", None)
+    if w is None:
+        import ttnn
+        vec = lambda t: ttnn.from_torch(t.detach().float(), device=ftw.tt_device, layout=ttnn.TILE_LAYOUT,
+                                        dtype=ttnn.bfloat16)
+        mat = lambda lin: ftw._from_torch(lin.weight.detach().t().contiguous().float())
+        w = head._tt_conf_w = {
+            "zn": (vec(head.z_norm.weight), vec(head.z_norm.bias)),
+            "pae_ln": (vec(head.pae_ln.weight), vec(head.pae_ln.bias)),
+            "pde_ln": (vec(head.pde_ln.weight), vec(head.pde_ln.bias)),
+            "po": mat(head.s_to_z_prod_out), "ap": mat(head.row_attention_pooling.attn_proj),
+            "pae": mat(head.pae_head), "pde": mat(head.pde_head)}
+    return w
+
+
+def _conf_pair_dev(head, ftw, z, s_n, relpos, bonds, bins, mask, n):
+    """ConfidenceHead._pair_outputs with the pair on the device; `z` is a device tensor or a host one."""
+    import ttnn
+    if not (_DEVICE_CONF and n == 1 and int(bins.shape[0]) == 1):
+        DEVICE_CONF_STATS[1] += 1
+        if isinstance(z, ttnn.Tensor):
+            z = ftw._to_torch(z).float()
+        return type(head)._pair_outputs(head, z, s_n, relpos, bonds, bins, mask, n)
+    DEVICE_CONF_STATS[0] += 1
+    w, ck, L = _conf_weights(head, ftw), ftw.compute_kernel_config, int(bins.shape[-1])
+    lin = lambda x, wt: ttnn.linear(x, wt, compute_kernel_config=ck)
+
+    def ln(x, wb, mod):
+        return ttnn.layer_norm(x, weight=wb[0], bias=wb[1], epsilon=mod.eps, compute_kernel_config=ck)
+
+    def swap(old, new):
+        ttnn.deallocate(old)
+        return new
+
+    zt = z if isinstance(z, ttnn.Tensor) else ftw._from_torch(z.float())
+    p = swap(zt, ln(zt, w["zn"], head.z_norm))
+    host = head.s_to_z(s_n).unsqueeze(2) + head.s_to_z_transpose(s_n).unsqueeze(1)
+    for t in (relpos, bonds):
+        if t is not None:
+            host = host + t
+    host = host + head.dist_bin_pairwise_embed(bins)
+    ht = ftw._from_torch(host.float())
+    p = swap(p, ttnn.add(p, ht))
+    ttnn.deallocate(ht)
+    a = ftw._from_torch(head.s_to_z_prod_in1(s_n)[:, :, None, :].float())
+    b = ftw._from_torch(head.s_to_z_prod_in2(s_n)[:, None, :, :].float())
+    op = ttnn.multiply(a, b)  # [1,L,1,c] x [1,1,L,c] -> the outer product [1,L,L,c]
+    for t in (a, b):
+        ttnn.deallocate(t)
+    prod = swap(op, lin(op, w["po"]))
+    p = swap(p, ttnn.add(p, prod))
+    ttnn.deallocate(prod)
+    delta = _unpad(_trunk_on_device(ftw, _DevPair(p, L), to_host=False), L)
+    pair = ttnn.add(p, delta)
+    for t in (p, delta):
+        ttnn.deallocate(t)
+    sc = lin(pair, w["ap"])
+    scores = ftw._to_torch(sc)[:, :L, :L, 0].float()
+    ttnn.deallocate(sc)
+    scores = scores + torch.where(mask[:, None, :].bool(), torch.zeros_like(scores), torch.full_like(scores, -1e9))
+    wt = ftw._from_torch(torch.softmax(scores, dim=-1).reshape(1, L, 1, L))
+    pooled = ttnn.matmul(wt, pair, compute_kernel_config=ck)  # per row i: weights[i] @ pair[i]
+    ttnn.deallocate(wt)
+    single = head.row_attention_pooling.out_proj(ftw._to_torch(pooled)[:, :L, 0, :].float())
+    ttnn.deallocate(pooled)
+    logits = []
+    for norm, key in ((head.pae_ln, "pae"), (head.pde_ln, "pde")):
+        x = ln(pair, w[key + "_ln"], norm)
+        lg = swap(x, lin(x, w[key]))
+        logits.append(ftw._to_torch(lg)[:, :L, :L, :].float())
+        ttnn.deallocate(lg)
+    ttnn.deallocate(pair)
+    return single, logits[0], logits[1]
 
 
 class _ReadoutAdapter(torch.nn.Module):
@@ -850,6 +938,8 @@ def patch_esmfold2(model, esmc_repo: str = "biohub/ESMC-6B", persistent_lm: bool
     conf_trunk = E.FoldingTrunk(n_conf_blocks)
     conf_trunk.load_state_dict(sub("confidence_head.folding_trunk."), strict=False)
     model.confidence_head.folding_trunk = _Adapter(conf_trunk)
+    head = model.confidence_head
+    head._pair_outputs = lambda *a: _conf_pair_dev(head, conf_trunk, *a)
 
     # Best-of-N: the confidence head replicates the pair state to B=N
     # (`pair = repeat_batch(z, N)` -> [N,L,L,c]) before its triangle-mult trunk,
@@ -863,7 +953,8 @@ def patch_esmfold2(model, esmc_repo: str = "biohub/ESMC-6B", persistent_lm: bool
     def _chunked_confidence(*args, **kw):
         E.report_progress("confidence")  # confidence head runs an on-device pair trunk
         if isinstance(kw.get("z"), _DevPair):
-            kw = dict(kw, z=kw["z"].host)
+            z = kw["z"]
+            kw = dict(kw, z=z.keep if z.keep is not None else z.host)
         n = int(kw.get("num_diffusion_samples", 1))
         x_pred, z = kw.get("x_pred"), kw.get("z")
         if x_pred is None or z is None or n <= 1:
