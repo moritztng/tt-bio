@@ -167,14 +167,20 @@ def waivers(d: Path, gates: Path | None = None, repo: Path = REPO, ref: str = "o
     return out
 
 
+#: gate_fanout's ledger (its --ledger default): a <key>.json for every leg run that passed.
+LEDGER = Path.home() / ".tt-bio-gate-ledger"
+OK = ("PASS", "REUSED", "BLOCKED", "SEEDED")
+
+
 def failures(d: Path, waived: dict | None = None) -> tuple[list[str], list[str]]:
     """(the ladder models to re-record, every other failed leg as "<leg> <arch>") of gate `d`.
     A ladder leg is re-recorded when it only drifted or when it is waived; any other waived leg
-    stops counting."""
+    stops counting. So does a leg whose key has passed since: a rerun of the same code, packages
+    and card type (a partial gate_fanout run) after the card, not the tree, failed it."""
     res = json.loads((d / "verdict.json").read_text()).get("results", [])
     drift, other = set(), []
     for r in res:
-        if r.get("verdict") in ("PASS", "REUSED", "BLOCKED", "SEEDED"):
+        if r.get("verdict") in OK or (r.get("key") and (LEDGER / f"{r['key']}.json").is_file()):
             continue
         name = f"{r['leg']} {r.get('arch', '')}".strip()
         log = Path(r.get("log") or "")
@@ -211,12 +217,11 @@ def passed(gates: Path | None, d: Path, sha: str, repo: Path = REPO, ref: str = 
     v = json.loads((d / "verdict.json").read_text())
     if v.get("pass"):
         return d
-    drift, other = failures(d, waived := waivers(d, gates, repo, ref))
-    if other or not (drift or set(waived) & {f"{r['leg']} {r.get('arch', '')}".strip()
-                                             for r in v.get("results", [])}):
+    drift, other = failures(d, waivers(d, gates, repo, ref))
+    if other or all(r.get("verdict") in OK for r in v.get("results", [])):
         return None                                    # a fail with no failed leg is no pass either
     if not drift:
-        return d                                       # every failure is waived
+        return d                                       # every failure is waived or passed since
     state, rd = record_run(gates, sha)
     return rd if state == "pass" else None
 

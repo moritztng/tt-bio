@@ -49,6 +49,10 @@ waivers are written into the train's release record. FIXES and WAIVE both live i
 directory and cover every candidate fixed forward from it. The train's `FIX` line in
 `state/rel-train/cron.log` names the failed legs and both paths.
 
+A leg that failed on its card rather than the code (a card left dirty, two legs racing) needs
+neither: run it again on the same commit with `gate_fanout.py --legs '<leg>' --arch <arch>` into a
+new `--out`. A pass there is filed under the same ledger key, and the train counts it.
+
 `scripts/release_train.py` does all of this unattended and runs from cron. On CUT it cuts the
 release (see [Cut the release](#cut-the-release)); on GATE, given `--gate-config` with
 `gate_fanout.py`'s `--hosts`, `--workers` and `--timed`, it starts the gate on the candidate:
