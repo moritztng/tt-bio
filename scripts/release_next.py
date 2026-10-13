@@ -26,7 +26,10 @@ Size-ladder drift (a lever started firing or fires more, or declines on a new cl
 a lever does; parity, capacity and perf judge whether it is right. So a gate whose only failures
 are ladder legs reporting drift counts as passed once a record run on the same commit passed for
 those models, and the release commit carries the new fragments. A lever that went dark, partial
-darkness, an unmeasured rung, a crash or a slower rung is not drift: that stays FIX.
+darkness, an unmeasured rung, a crash or a slower rung is not drift: that stays FIX, unless the
+leg is waived. <gate dir>/WAIVE (`<leg> <arch>  # why`, the reason required) marks a failure that
+is not a regression: a waived ladder leg is re-recorded with the drift, any other waived leg stops
+counting, and a gate whose failures are all waived is cut.
 
 Fix forward, never re-cut. A failed gate's commit stays the candidate: list the fix commits in
 <gate dir>/FIXES (one sha per line, oldest first, `#` comments) and the train gates that commit with
@@ -139,20 +142,57 @@ def is_drift(line: str) -> bool:
 DRIFT_LINE = re.compile(r"^\s+FAIL \S+/\d+ \w+: ", re.M)
 
 
-def drift_models(d: Path) -> list[str]:
-    """The ladder models whose drift is the gate's only failure, or [] if anything else failed."""
+def waivers(d: Path, gates: Path | None = None, repo: Path = REPO, ref: str = "origin/main") -> dict:
+    """{"<leg> <arch>": reason} from <d>/WAIVE, plus the WAIVE of every gated commit between a
+    fixed-forward candidate and its base on main (FIXES and WAIVE live in the base's gate dir).
+    One line per leg, `<leg> <arch>  # reason`; a line without a reason waives nothing, so every
+    waiver says why the failure is not a regression."""
+    dirs = [d]
+    if gates is not None:
+        sha = json.loads((d / "plan.json").read_text())["sha"]
+        gated = {plan.get("sha"): p.parent for p, plan in _plans(gates)}
+        try:
+            off = git("rev-list", "--first-parent", sha, f"^{ref}", repo=repo).split()
+            if off:   # a candidate: every gated commit down its fix chain, and its base on main
+                dirs += [gated[c] for c in off[1:] + [git("merge-base", sha, ref, repo=repo)] if c in gated]
+        except subprocess.CalledProcessError:
+            pass                                       # a commit this clone lacks: its own WAIVE only
+    out = {}
+    for x in dirs:
+        f = x / "WAIVE"
+        for ln in (f.read_text().splitlines() if f.exists() else []):
+            what, _, why = ln.partition("#")
+            if len(what.split()) == 2 and why.strip():
+                out[" ".join(what.split())] = why.strip()
+    return out
+
+
+def failures(d: Path, waived: dict | None = None) -> tuple[list[str], list[str]]:
+    """(the ladder models to re-record, every other failed leg as "<leg> <arch>") of gate `d`.
+    A ladder leg is re-recorded when it only drifted or when it is waived; any other waived leg
+    stops counting."""
     res = json.loads((d / "verdict.json").read_text()).get("results", [])
-    bad = [r for r in res if r.get("verdict") not in ("PASS", "REUSED", "BLOCKED", "SEEDED")]
-    models = set()
-    for r in bad:
+    drift, other = set(), []
+    for r in res:
+        if r.get("verdict") in ("PASS", "REUSED", "BLOCKED", "SEEDED"):
+            continue
+        name = f"{r['leg']} {r.get('arch', '')}".strip()
         log = Path(r.get("log") or "")
         text = log.read_text(errors="replace") if r["leg"].startswith("ladder:") and log.is_file() else ""
         lines = [ln for ln in text.splitlines() if DRIFT_LINE.match(ln + " ")]
-        if "size-ladder drift vs the recorded baseline" not in text or not lines \
-                or not all(map(is_drift, lines)):
-            return []
-        models.add(r["leg"].split(":", 1)[1].split("@", 1)[0])
-    return sorted(models)
+        if r["leg"].startswith("ladder:") and (name in (waived or {}) or (
+                "size-ladder drift vs the recorded baseline" in text and lines and all(map(is_drift, lines)))):
+            drift.add(r["leg"].split(":", 1)[1].split("@", 1)[0])
+        elif name not in (waived or {}):
+            other.append(name)
+    return sorted(drift), other
+
+
+def drift_models(d: Path, gates: Path | None = None, repo: Path = REPO, ref: str = "origin/main") -> list[str]:
+    """The ladder models to re-record when they (and waived legs) are the gate's only failures,
+    or [] if anything else failed."""
+    drift, other = failures(d, waivers(d, gates, repo, ref))
+    return [] if other else drift
 
 
 def record_run(gates: Path | None, sha: str) -> tuple[str, Path | None]:
@@ -165,14 +205,20 @@ def record_run(gates: Path | None, sha: str) -> tuple[str, Path | None]:
     return ("running" if _alive(json.loads((d / "plan.json").read_text())) else "none"), d
 
 
-def passed(gates: Path | None, d: Path, sha: str) -> Path | None:
+def passed(gates: Path | None, d: Path, sha: str, repo: Path = REPO, ref: str = "origin/main") -> Path | None:
     """`d` itself when its gate passed; the record run when it failed only on drift that run
     re-recorded; else None."""
     v = json.loads((d / "verdict.json").read_text())
     if v.get("pass"):
         return d
+    drift, other = failures(d, waived := waivers(d, gates, repo, ref))
+    if other or not (drift or set(waived) & {f"{r['leg']} {r.get('arch', '')}".strip()
+                                             for r in v.get("results", [])}):
+        return None                                    # a fail with no failed leg is no pass either
+    if not drift:
+        return d                                       # every failure is waived
     state, rd = record_run(gates, sha)
-    return rd if state == "pass" and drift_models(d) else None
+    return rd if state == "pass" else None
 
 
 def _alive(plan: dict) -> bool:
@@ -214,7 +260,7 @@ def passed_since(gates: Path | None, tsha: str, repo: Path = REPO, ref: str = "o
     for p, plan in _since(gates, tsha, repo, ref):
         sha = plan["sha"]
         try:
-            if not ((p.parent / "verdict.json").exists() and passed(gates, p.parent, sha)):
+            if not ((p.parent / "verdict.json").exists() and passed(gates, p.parent, sha, repo, ref)):
                 continue
             ahead = git("rev-list", "--count", f"{plan['base']}..{sha}" if plan["base"] else sha, repo=repo)
             done.append((int(git("show", "-s", "--format=%ct", sha, repo=repo)), int(ahead), sha, p.parent))
@@ -271,7 +317,7 @@ def frozen(gates: Path | None, tsha: str, repo: Path = REPO, ref: str = "origin/
     except ValueError:
         return None
     sha = json.loads((d / "plan.json").read_text())["sha"]
-    if not failed or passed(gates, d, sha):
+    if not failed or passed(gates, d, sha, repo, ref):
         return None
     last = max(f.stat().st_mtime for f in (v, d / "FIXES") if f.exists())
     return (sha, d, fixes(d, repo)) if (now or time.time()) - last < FIX_HOLD_S else None
@@ -293,8 +339,9 @@ def decide(repo: Path = REPO, gates: Path | None = None, ref: str = "origin/main
         sha, d = cut
         nxt = "" if content_hash(sha, repo) == content_hash(head, repo) else (
             f"; main's head {head[:9]} is the next release, gate it now")
-        rec = passed(gates, d, sha)
+        rec = passed(gates, d, sha, repo, ref)
         return {**out, "do": "CUT", "sha": sha, "gate": str(d), "records": str(rec) if rec != d else "",
+                "waived": waivers(d, gates, repo, ref),
                 "why": f"gate passed on every arch: {d}/VERDICT.md{nxt}"
                        + (f"; size ladders re-recorded in {rec}" if rec != d else "")}
     target, what = head, "main's head"
@@ -315,8 +362,10 @@ def decide(repo: Path = REPO, gates: Path | None = None, ref: str = "origin/main
            "fail": f"gate failed: {d}/VERDICT.md",
            "pass": f"gate passed on every arch: {d}/VERDICT.md"}[state]
     do = {"none": "GATE", "running": "WAIT", "fail": "FIX", "pass": "CUT"}[state]
-    if state == "fail" and (models := drift_models(d)):
-        gsha = json.loads((d / "plan.json").read_text())["sha"]
+    if state == "fail" and passed(gates, d, gsha := json.loads((d / "plan.json").read_text())["sha"], repo, ref) == d:
+        return {**out, "do": "CUT", "sha": gsha, "gate": str(d), "records": "", "waived": waivers(d, gates, repo, ref),
+                "why": f"gate passed on every arch but for waived legs: {d}/VERDICT.md"}
+    if state == "fail" and (models := drift_models(d, gates, repo, ref)):
         rstate, rd = record_run(gates, gsha)
         if rstate == "pass":
             return {**out, "do": "CUT", "sha": gsha, "gate": str(d), "records": str(rd),
@@ -336,9 +385,17 @@ def decide(repo: Path = REPO, gates: Path | None = None, ref: str = "origin/main
         why += f"; finish the running gate on {', '.join(s[:9] for s in older)}, do not restart it"
     if part := running_gates(gates, partial=True):
         why += f"; partial runs on {', '.join(s[:9] for s in part)} fill the ledger the gate reuses"
-    if state == "fail" and not out.get("fixes"):
-        why += (f"; fix forward: list the fix commits in {d}/FIXES (main's head is gated instead "
-                f"{FIX_HOLD_S // 3600} h after this verdict if none are listed)")
+    if state == "fail":
+        # The FIX line is the work order (flow_watch relays it): which legs, and where a fix goes. A
+        # fixed-forward candidate's fixes go in its base gate's FIXES, not in the candidate's own dir.
+        drift, other = failures(d, waivers(d, gates, repo, ref))
+        fd = Path(out["fixes"]["gate"]) if out.get("fixes") else d
+        if other:
+            why += f"; failed: {', '.join(other)}" + (
+                f" (ladder drift on {', '.join(drift)} is re-recorded by the train)" if drift else "")
+        why += f"; fix forward: append each fix commit to {fd}/FIXES" + ("" if out.get("fixes") else (
+            f" (main's head is gated instead {FIX_HOLD_S // 3600} h after this verdict if none are listed)"))
+        why += f"; a failure that is not a regression goes in {fd}/WAIVE as `<leg> <arch>  # why`"
     return {**out, "do": do, "sha": target, "gate": str(d or ""), "why": why}
 
 

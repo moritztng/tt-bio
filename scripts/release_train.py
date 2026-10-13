@@ -156,7 +156,7 @@ def install_check(version: str) -> str:
 
 
 def cut(sha: str, gate_dir: str, remote: str, dry: bool, wait_s: int, record: Path | None,
-        records: str = "") -> int:
+        records: str = "", waived: dict | None = None) -> int:
     tag, tsha = last_release()
     taken = set(git("tag", "-l", "v*").split())
     released = git("show", f"{tag}:CHANGELOG.md") if tag else ""
@@ -166,7 +166,7 @@ def cut(sha: str, gate_dir: str, remote: str, dry: bool, wait_s: int, record: Pa
         return 1
     version = next_version(tag or "v0.0.0", body, taken)
     day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    print(f"train: v{version} from {sha[:12]} (last {tag}), gate {gate_dir}, re-records {sorted(rerecorded_files(gate_dir, sha, records))}")
+    print(f"train: v{version} from {sha[:12]} (last {tag}), gate {gate_dir}, re-records {sorted(rerecorded_files(gate_dir, sha, records))}, waived {waived or {}}")
     if dry:
         print(body)
         return 0
@@ -178,6 +178,7 @@ def cut(sha: str, gate_dir: str, remote: str, dry: bool, wait_s: int, record: Pa
     git("tag", "-a", f"v{version}", rel, "-m", f"tt-bio {version}")
     git("push", "-q", remote, f"{rel}:refs/heads/rel/v{version}", f"v{version}")
     t0, rec = time.time(), {"version": version, "sha": sha, "release_commit": rel, "gate": gate_dir,
+                            "waived": waived or {},
                             "tagged": datetime.now(timezone.utc).isoformat(timespec="seconds")}
     while not pypi_has(version) and time.time() - t0 < wait_s:
         time.sleep(60)
@@ -234,7 +235,8 @@ def main() -> int:
     if d["do"] != "CUT":
         print(f"{d['do']} {d['sha'][:12]}: {d['why']}")
         return 0
-    return cut(d["sha"], d["gate"], args.remote, args.dry_run, args.wait, args.record, d.get("records", ""))
+    return cut(d["sha"], d["gate"], args.remote, args.dry_run, args.wait, args.record, d.get("records", ""),
+               d.get("waived"))
 
 
 if __name__ == "__main__":
