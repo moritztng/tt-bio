@@ -122,6 +122,24 @@ class StructuralTokenExpander(_KeyedWeights):
                    ("next_bb_chain_embedding.weight", "next_bb_chain", 2),
                    ("role_pair_type_embedding.weight", "role_pair_type", 8))
 
+    @classmethod
+    def _pib_joint(cls, weights):
+        """(128, c_z) bf16: row j is the fp32 sum, in table order, of the five
+        rows that joint index j (`_pib_index`) selects, rounded once."""
+        acc = None
+        for w, (_, _, n) in zip(weights, cls._PIB_TABLES):
+            w = w.float()[:n]
+            acc = w if acc is None else (acc[:, None, :] + w[None, :, :]).reshape(-1, w.shape[-1])
+        return acc.to(torch.bfloat16)
+
+    @classmethod
+    def _pib_index(cls, pf):
+        idx = None
+        for _, ikey, n in cls._PIB_TABLES:
+            v = pf[ikey].long()
+            idx = v if idx is None else idx * n + v
+        return idx
+
     def _pair_init_bias(self, pf):
         """Sum of the five additive pair-init embeddings as ONE row gather. The
         five indices take 2*2*2*2*8 = 128 joint values, so the host sums the five
@@ -138,19 +156,12 @@ class StructuralTokenExpander(_KeyedWeights):
         cache = self.__dict__.setdefault("_wc", {})
         tab = cache.get("pib_joint")
         if tab is None:
-            C = self.c_z
-            acc = None
-            for tkey, _, n in self._PIB_TABLES:
-                w = self._w[tkey].float()[:n]
-                acc = w if acc is None else (acc[:, None, :] + w[None, :, :]).reshape(-1, C)
-            tab = ttnn.from_torch(acc.to(torch.bfloat16), layout=ttnn.ROW_MAJOR_LAYOUT,
+            tab = ttnn.from_torch(self._pib_joint([self._w[k] for k, _, _ in self._PIB_TABLES]),
+                                  layout=ttnn.ROW_MAJOR_LAYOUT,
                                   device=get_device(), dtype=ttnn.bfloat16)
             cache["pib_joint"] = tab
         clen, Ns = pf["role_pair_type"].shape
-        idx = None
-        for _, ikey, n in self._PIB_TABLES:
-            v = pf[ikey].long()
-            idx = v if idx is None else idx * n + v
+        idx = self._pib_index(pf)
         g = ttnn.embedding(
             ttnn.from_torch(idx.reshape(1, -1).to(torch.int32), layout=ttnn.ROW_MAJOR_LAYOUT,
                             device=get_device(), dtype=ttnn.uint32),
