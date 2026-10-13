@@ -89,8 +89,9 @@ if outs:
     xon = torch.nn.functional.layer_norm(xo, (H,), lw, lb, 1e-5)
     ref_z = z + (xon @ wpo + bpo) * torch.sigmoid(fgo)
     zt = up(z)
-    got = TTL.fused_tail_ln(up(xo), lwt, lbt, up(wpo), outs[2], zt, ckc, grid,
-                            pbias=TTL.t2_bias_tiles(bpo, dev))
+    with T.levers("trimul_t1,trimul_t2"):          # T2 reads the lever set too
+        got = TTL.fused_tail_ln(up(xo), lwt, lbt, up(wpo), outs[2], zt, ckc, grid,
+                                pbias=TTL.t2_bias_tiles(bpo, dev))
     if got is None:
         print(f"T2 declined: {TTL.REJECTS}")
         from tt_bio import ops as _ops
