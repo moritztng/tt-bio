@@ -677,7 +677,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
 # ref_memo is host featurisation, OpenFold3 / OpenBind-0 only: one reference conformer per residue type
 # (vendored query.REF_MOL_MEMO), read by worker._predict_openfold3_one off the model's lever set.
 UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "dit_cond_hifi2", "ws_ln", "dit_fuse",
-                             "pair_mm", "ref_memo", "trimul_t2m", "edm_device", "ws_l1acc", "ws_resid", "pib_where", "trimul_t2w", "narrow_bw16"})
+                             "pair_mm", "ref_memo", "trimul_t2m", "edm_device", "ws_l1acc", "pib_where", "trimul_t2w", "narrow_bw16"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -709,6 +709,10 @@ UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "di
 # (bf16 weights over its L1 budget), so its fold is unchanged there. Warm 512-token fold on a Galaxy chip (1000 MHz):
 # ESMFold2 -22.1 s, ESMFold2-Fast -11.3, OpenDDE -5.5, Protenix-v2 -2.8, OpenFold3 -1.5, Boltz-2 -1.1 s.
 # OpenFold3 / OpenBind-0 take it through their own FAST_LEVERS (openfold3_fold.py), Blackhole fast grade PASS.
+# ws_resid is fast-only (it rides transition_ws). Wormhole 11-set fast grade, fast vs fast+ws_resid, 44 paired folds
+# each (spd-fastmode wrs, 2026-10-13), PASS: same-seed top pose median against the A/A floor Protenix-v2 0.59 / 1.24 A,
+# OpenDDE 0.38 / 1.54, Boltz-2 1.05 / 1.92; docking 35 -> 34, 26 -> 24 (bar 5), 24 -> 24 of 44. Warm 512-token fast
+# fold, paired: Galaxy chip (1000 MHz) OpenDDE -3.8 s, Protenix-v2 -0.9 s; p150a (1350 MHz) -1.6 / -0.5 s.
 FAST_LEVERS = (frozenset(LEVERS) - {"lofi", "triatt_b8", "triatt_bias_b8", "trimul_t1_dram", "trimul_t2g"}
                - UNGRADED_LEVERS)
 # trimul_ibw + trimul_tail: Wormhole 11-set grade PASS, 44 paired folds, same-seed top pose median
