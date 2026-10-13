@@ -1311,6 +1311,7 @@ LEVERS_NORMAL = "normal-trunk_hifi3+trimul_gin"
 # 1350 MHz): CA-lDDT +0.0026 [-0.0022, +0.0086], pLDDT +0.0005, top-pose median 0.35 A vs 1.30 A floor, docking
 # 31 -> 30 of 44. Same-card A/B at 544 and 576 tokens (p150a, 1350 MHz): 34.2 -> 33.1 s and 40.7 -> 38.4 s warm.
 LEVERS_FAST = "normal+trimul_b8in+transition_ws+trimul_gin"
+LEVERS_WH = LEVERS_NORMAL + "+transition_ws"
 
 
 def fold_levers(fast: bool) -> str:
@@ -1326,11 +1327,14 @@ def fold_scope(fast: bool):
     graded there against no lever set, 11 complexes x 4 seeds, ESMFold2-Fast on the normal bar (CA-lDDT +0.0014
     [-0.0007, +0.0045], docking 24 -> 25/44) and ESMFold2 on the fast bar (43 paired, CA-lDDT -0.0050 [-0.0101,
     -0.0010], docking 30 -> 29/43, top-pose median 0.64 A vs 1.26 A seed floor), ~3 s off a 512-aa fold at 1000 MHz.
-    On Wormhole --fast and trunk_hifi3 change nothing under this set (same digest), so one grade covers both modes."""
+    On Wormhole --fast and trunk_hifi3 change nothing under this set (same digest), so one grade covers both modes.
+    Wormhole adds transition_ws (LEVERS_WH): 11 complexes x 4 seeds, the set with vs without it, PASS on the fast and
+    the normal bar for both models (ESMFold2 CA-lDDT -0.0010 [-0.0063, +0.0042], top-pose median 0.38 A vs 1.40 A floor;
+    ESMFold2-Fast -0.0013 [-0.0046, +0.0009], 0.98 A vs 1.36 A; docking 29 -> 28 and 23 -> 23 of 44)."""
     from tt_bio import tenstorrent
     if is_wormhole():
         tenstorrent.set_fast_mode(fast)
-        return tenstorrent.levers(os.environ.get("TT_BIO_LEVERS") or LEVERS_NORMAL)
+        return tenstorrent.levers(os.environ.get("TT_BIO_LEVERS") or LEVERS_WH)
     return tenstorrent.lever_scope(fold_levers(fast))
 
 
