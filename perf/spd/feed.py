@@ -223,6 +223,11 @@ def cells(grid_dir):
     return ordered
 
 
+def donors(root):
+    """Every Galaxy, whoever holds it: a file is only read there, never a device touched."""
+    return [f"ubuntu@172.16.102.{ip}" for ip in json.loads((root / "state/glx/ALLOC.json").read_text())["galaxies"]]
+
+
 def pools(root):
     a = json.loads((root / "state/glx/ALLOC.json").read_text())["galaxies"]
     p = {ip: {"ssh": f"ubuntu@172.16.102.{ip}", "kind": "galaxy", "arch": "wh"}
@@ -251,10 +256,17 @@ def tree_root(path, repo, _seen={}):
     return None
 
 
-def provision(ssh, trees, repo, lockdir):
-    """Ship missing trees (git archive of the named commit + TREE_SHA) to a pool, detached, one shipper per pool.
-    A box lent after a row made its tree has none, and every job of that row would end in a second there."""
+def provision(ssh, trees, files, donors, repo, lockdir):
+    """Ship what a pool lacks, detached, one shipper per pool: missing trees as a git archive of the named commit
+    (+ TREE_SHA), and small files (scripts, sourced configs, <= 1 MB) copied from the first other box that has them.
+    A box lent after a row set up its jobs has neither, and every job of that row would end in a second there."""
     steps = []
+    for f in sorted(files):
+        rf = f.replace("~", "$HOME", 1) if f.startswith("~/") else f
+        get = shlex.quote(f'f="{rf}"; [ -s "$f" ] && [ -f "$f" ] && [ $(stat -Lc %s "$f") -le 1048576 ] && cat "$f"')
+        put = shlex.quote(f'f="{rf}"; [ -e "$f" ] || {{ mkdir -p "$(dirname "$f")"; cat > "$f.part" && mv "$f.part" "$f"; }}')
+        steps.append(f"for d in {' '.join(donors)}; do t=$(mktemp); if ssh -o BatchMode=yes -o ConnectTimeout=10 $d {get} > $t; "
+                     f"then ssh -o BatchMode=yes {ssh} {put} < $t; rm -f $t; break; fi; rm -f $t; done")
     for d, sha in sorted(trees.items()):
         d = d.replace("~", "$HOME", 1) if d.startswith("~/") else d
         q, part = f'"{d}"', f'"{d}.part"'
@@ -351,8 +363,8 @@ def main(argv=None):
         place[n].append(job); room[n] -= 1
         ledger[c["key"]] = dict(L, host=n, name=c["name"], hash=c["hash"], state="queued", placed=stamp,
                                 fails=L.get("fails", []), quarantined=False, row=c["row"])
-    # 3. trees a pending cell needs and a pool of its arch lacks: ship them so the next pass can place there
-    ship = {n: {} for n in st}
+    # 3. trees and small files a pending cell needs and a pool of its arch lacks: ship them so a later pass places there
+    ship, copy = {n: {} for n in st}, {n: set() for n in st}
     for c in cs:
         L = ledger.get(c["key"], {})
         if c["is_done"] or L.get("quarantined") or L.get("state") in ("queued", "running"):
@@ -361,13 +373,17 @@ def main(argv=None):
             if P[n]["arch"] == c["arch"] and (not c["hosts"] or n in c["hosts"]):
                 for x in c["requires"]:
                     r = roots[x]
-                    if r and not st[n]["exists"].get(x) and not st[n]["exists"].get(r[0]):
+                    if st[n]["exists"].get(x):
+                        continue
+                    if r and not st[n]["exists"].get(r[0]):
                         ship[n][r[0]] = r[1]
-    for n, trees in ship.items():
-        if trees:
-            log(f"{n}: shipping {len(trees)} tree(s): {' '.join(sorted(trees))}")
+                    elif not r and P[n]["kind"] == "galaxy":
+                        copy[n].add(x)
+    for n in st:
+        if ship[n] or copy[n]:
+            log(f"{n}: shipping {len(ship[n])} tree(s), {len(copy[n])} file(s): {' '.join(sorted(ship[n]) + sorted(copy[n]))}")
             if not a.dry_run:
-                provision(P[n]["ssh"], trees, a.repo, S)
+                provision(P[n]["ssh"], ship[n], copy[n], [d for d in donors(R) if d != P[n]["ssh"]], a.repo, S)
     qnames = {L["name"] for L in ledger.values() if L.get("quarantined")}
     for n, jobs in place.items():
         s = st[n]
