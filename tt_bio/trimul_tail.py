@@ -1264,6 +1264,7 @@ T1_KEYS = {(4, 8, 4)}             # (kt, ct2, ntg): c_z 128, hidden 128, g_out 1
 T1_RB = 8                         # z row tiles per reader barrier
 T1_SBW = 4                        # DST tiles per matmul block (half-sync fp32 DST holds 4)
 T1_ABL = 0                        # bench-only stage-skip bits (kernels/trimul_in_t1 ABL); 0 = the real T1
+T1_B8 = 0                         # bench knob: a and b as bfp8 (lever trimul_t1b8 in a model)
 BF16_TILE, FP32_TILE = 2048, 4096
 
 
@@ -1385,7 +1386,7 @@ def t1_eligible(x, ln_w, ln_b, wpT, wgT, wgo, mask=None):
     return None
 
 
-def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps):
+def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps, b8=False):
     import struct
     shp = [int(d) for d in x.shape]
     B = shp[0] if len(shp) == 4 else 1
@@ -1417,7 +1418,7 @@ def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps):
     writer = ttnn.KernelDescriptor(
         kernel_source=str(d / "writer.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[ct2, St, GIN_MOVE_NB, ntg] + acc(outs[0]) + acc(outs[1]) + acc(outs[2]),
-        defines=abl, runtime_args=wr, common_runtime_args=[0] * 3, config=ttnn.WriterConfigDescriptor())
+        defines=abl + ([("T1B8", "1")] if b8 else []), runtime_args=wr, common_runtime_args=[0] * 3, config=ttnn.WriterConfigDescriptor())
     fid, approx, _, full = ckc
     compute = ttnn.KernelDescriptor(
         kernel_source=str(d / "compute.cpp"), source_type=src, core_ranges=core_grid,
@@ -1429,17 +1430,17 @@ def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps):
             math_fidelity=fid, math_approx_mode=approx, fp32_dest_acc_en=True,
             dst_full_sync_en=full))
     bf, f32 = t1_cb_plan(kt, ct2, ntg, mask is not None)
-    cbs = ([_cb(i, core_grid, t) for i, t in bf]
+    cbs = ([_cb_fmt(i, core_grid, t, ttnn.bfloat8_b) if b8 and i == 2 else _cb(i, core_grid, t) for i, t in bf]
            + [_cb_fmt(i, core_grid, t, ttnn.float32) for i, t in f32])
     return {"kernels": [reader, writer, compute], "cbs": cbs}
 
 
-def fused_in_ln(x, ln_w, ln_b, wpT, wgT, wgo, ckc, grid, mask=None, eps=1e-5):
+def fused_in_ln(x, ln_w, ln_b, wpT, wgT, wgo, ckc, grid, mask=None, eps=1e-5, b8=False):
     """`[a, b, g_out]` of the trimul input side from the raw pair `x`, one kernel:
     xn = layer_norm(x; ln_w, ln_b, eps), [a | b] = (xn @ wpT^T) * sigmoid(xn @ wgT^T), `a` times
     the pair mask when `mask` is given, both [B, C, S, S] (gin_moved's layout), and
     g_out = xn @ wgo as [*x.shape[:-1], N]. None when T1 is off or does not cover the call;
-    nothing is allocated then. `x` is not touched."""
+    nothing is allocated then. `x` is not touched. `b8` (or T1_B8) writes a and b as bfp8."""
     from . import ops
     fid, approx, _, full = ckc
     if ops.taping() or dest_guard.exposed_args((fid, approx, True, full)):
@@ -1456,15 +1457,17 @@ def fused_in_ln(x, ln_w, ln_b, wpT, wgT, wgo, ckc, grid, mask=None, eps=1e-5):
     B = shp[0] if len(shp) == 4 else 1
     S, C = shp[-2], int(wpT.shape[-2]) // 2
     device = x.device()
-    alloc = lambda s: ttnn.allocate_tensor_on_device(  # noqa: E731
-        ttnn.Shape(s), ttnn.bfloat16, ttnn.TILE_LAYOUT, device, ttnn.DRAM_MEMORY_CONFIG)
-    outs = [alloc([B, C, S, S]), alloc([B, C, S, S]), alloc(shp[:-1] + [int(wgo.shape[-1])])]
+    b8 = bool(b8 or T1_B8)
+    alloc = lambda s, dt=ttnn.bfloat16: ttnn.allocate_tensor_on_device(  # noqa: E731
+        ttnn.Shape(s), dt, ttnn.TILE_LAYOUT, device, ttnn.DRAM_MEMORY_CONFIG)
+    ab = ttnn.bfloat8_b if b8 else ttnn.bfloat16
+    outs = [alloc([B, C, S, S], ab), alloc([B, C, S, S], ab), alloc(shp[:-1] + [int(wgo.shape[-1])])]
     key = ("t1", str(x.padded_shape), str(wpT.padded_shape), str(wgo.padded_shape), tuple(grid),
            tuple(str(c) for c in ckc), mask is not None, float(eps), SIGPOLY, RNE, GIN_MOVE_NB,
-           T1_RB, T1_SBW, T1_ABL)
+           T1_RB, T1_SBW, T1_ABL, b8)
     entry = _CACHE.get(key)
     if entry is None:
-        entry = _CACHE[key] = _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps)
+        entry = _CACHE[key] = _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps, b8)
     reader, writer, _ = entry["kernels"]
     reader.common_runtime_args = [x.buffer_address(), wpT.buffer_address(), wgT.buffer_address(),
                                   wgo.buffer_address(), ln_w.buffer_address(),

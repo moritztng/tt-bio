@@ -41,7 +41,7 @@ grid = tuple(T.COMPUTE_GRID_MAIN)
 TT.set_t1(True)
 for kv in [v for v in A.set.split(",") if v]:
     k, v = kv.split("=")
-    assert k in ("T1_RB", "T1_SBW", "GIN_MOVE_NB"), k
+    assert k in ("T1_RB", "T1_SBW", "GIN_MOVE_NB", "T1_B8"), k
     setattr(TT, k, int(v))
 C, h = A.c, A.hidden
 gen = torch.Generator().manual_seed(0)
