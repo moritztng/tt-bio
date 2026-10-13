@@ -1012,10 +1012,14 @@ class Host:
 
     @staticmethod
     def end_attempt(out: str) -> str:
-        """Shell that ends the attempt recorded in out/attempt.pid if it is still that leg's."""
+        """Shell that ends the attempt recorded in out/attempt.pid if it is still that leg's, and
+        every process that carries its marker: a child that starts its own session (lever_census's
+        fold) escapes `pkill -s` but not its inherited environment (rel-c829d6e72, 10-13)."""
         pidf, mark = shlex.quote(f"{out}/attempt.pid"), shlex.quote(f"GATE_ATTEMPT={out}")
         return (f"{{ p=$(cat {pidf} 2>/dev/null) && tr '\\0' '\\n' < /proc/$p/environ 2>/dev/null "
-                f"| grep -qxF -- {mark} && pkill -TERM -s $p; true; }}")   # -s: timeout moves the leg to its own group
+                f"| grep -qxF -- {mark} && pkill -TERM -s $p; "   # -s: timeout moves the leg to its own group
+                f"for e in /proc/[0-9]*/environ; do tr '\\0' '\\n' 2>/dev/null < $e | grep -qxF -- {mark} "
+                f"&& q=${{e#/proc/}} && kill -TERM ${{q%/environ}} 2>/dev/null; done; true; }}")
 
 
 # ---------------------------------------------------------------------------------------------

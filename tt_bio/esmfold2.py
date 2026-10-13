@@ -729,11 +729,9 @@ def band_mask(n_or_mask, half_window: int):
 # Keys outside the band get zero weight on both paths, so it is the same attention; the softmax reduces
 # over 160 keys instead of N, which is ~26x fewer scores at 512 tokens. When a valid atom's window does
 # not fit the 160 keys (padding inside the atom list) the dense band runs instead. p300c 512 aa: -0.82 s ESMFold2,
-# -1.05 s ESMFold2-Fast; passes the normal and the fast bar on both models on Blackhole (perf/spd/grade.py, 11 complexes),
-# so on by default there. Wormhole is not graded and keeps the dense band (and its digests) unless the switch is set:
-# None = by arch.
-_SWA_WINDOW = (env_flag("TT_BIO_ESMFOLD2_SWA_WINDOW", False)
-               if os.environ.get("TT_BIO_ESMFOLD2_SWA_WINDOW", "").strip() else None)
+# -1.05 s ESMFold2-Fast; on a Wormhole Galaxy chip -11.0 s per 5-sample ESMFold2-Fast grade fold. Graded on both
+# models on both architectures (perf/spd/grade.py, 11 complexes x 4 seeds), so on by default; 0 restores the dense band.
+_SWA_WINDOW = env_flag("TT_BIO_ESMFOLD2_SWA_WINDOW", True)
 SWA_STATS = [0, 0]  # atom transformer masks built (windowed, dense)
 
 
@@ -799,11 +797,7 @@ def swa_band(n_or_mask, half_window, upload, device, heads=4, head_dim=32):
     """The atom transformer's attention mask on the device: a SWAWindow when the windowed path holds,
     else the dense [1, 1, N, N] band."""
     dense = band_mask(n_or_mask, half_window)
-    on = _SWA_WINDOW
-    if on is None:
-        from tt_bio import tenstorrent
-        on = tenstorrent.arch_name() == "blackhole"
-    win = _window_bias(dense[0, 0], half_window) if on else None
+    win = _window_bias(dense[0, 0], half_window) if _SWA_WINDOW else None
     SWA_STATS[win is None] += 1
     if win is None:
         return upload(dense.float())
@@ -1333,6 +1327,14 @@ def _opm_fallback_rows(L: int) -> int:
     return max(32, (max(32, L // 4) // 32) * 32)
 
 
+#: How the outer product meets Wout. "tile" (the original): the [L*32, L*32] product, then two tile
+#: reshapes that turn each 32x32 tile into a row of 1024; at 512 aa those reshapes are 95 of the op's
+#: ~114 ms (census c3, p150a). "kq": contract a with Wout's q-blocks first (K = 32 x MSA depth), so
+#: no tile ever changes shape. "rm": the original with its reshapes done row-major. A/B in
+#: perf/spd_gap_esmf/opm_bench.py.
+_OPM_PATH = os.environ.get("TT_BIO_ESMFOLD2_OPM", "tile")
+
+
 class OuterProductMean(Module):
     """MSA -> pair update via outer-product mean (d_hidden=32, tile-aligned -> full ttnn)."""
 
@@ -1341,6 +1343,51 @@ class OuterProductMean(Module):
         self.norm_w = self.torch_to_tt("norm.weight"); self.norm_b = self.torch_to_tt("norm.bias")
         self.W = self.torch_to_tt("W.weight")
         self.Wout = self.torch_to_tt("Wout.weight"); self.Wout_b = self.torch_to_tt("Wout.bias", transform=_ROW)
+        self._wq = None
+
+    def _wout_q(self):
+        """Wout as 32 [32p, 256] blocks, one per q: Wout's input index is p*32 + q."""
+        if self._wq is None:
+            w = self.weights["Wout.weight"].t().reshape(32, 32, -1)  # [p, q, c]
+            self._wq = [ttnn.from_torch(w[:, q].contiguous(), layout=ttnn.TILE_LAYOUT, device=self.device,
+                                        dtype=_DTYPE) for q in range(32)]
+        return self._wq
+
+    def _rows_kq(self, a_blk, b, recip_blk, L, M):  # a_blk [B,Bl,M,32], b [B,L,M,32] -> [B,Bl,L,256]
+        """out[i,j,c] = sum over (q,m) of b[j,m,q] * U[i,(q,m),c], U[i,m,q,c] = sum_p a[i,m,p] Wout[p*32+q,c].
+
+        Same sum as `_rows`, reassociated: the 32x32 outer block is never formed, so nothing is
+        reshaped across tiles. The MSA axis is zero-padded to a tile so it can be the inner run of K."""
+        ck = self.compute_kernel_config
+        B, Bl = int(a_blk.shape[0]), int(a_blk.shape[1])
+        Mp = -(-M // 32) * 32
+        if Mp != M:
+            a_blk = ttnn.pad(a_blk, [(0, 0), (0, 0), (0, Mp - M), (0, 0)], 0.0)
+            b = ttnn.pad(b, [(0, 0), (0, 0), (0, Mp - M), (0, 0)], 0.0)
+        u = ttnn.concat([ttnn.matmul(a_blk, w, compute_kernel_config=ck, dtype=_DTYPE) for w in self._wout_q()],
+                        dim=2)  # [B,Bl,32*Mp,256], row q*Mp + m
+        ut = ttnn.transpose(u, -2, -1)  # [B,Bl,256,32*Mp]
+        ttnn.deallocate(u)
+        bt = ttnn.reshape(ttnn.permute(b, (0, 3, 2, 1)), (1, 1, 32 * Mp, L))  # [(q,m), j]  (B == 1)
+        o = ttnn.matmul(ut, bt, compute_kernel_config=ck, dtype=_DTYPE, core_grid=CORE_GRID_MAIN)  # [B,Bl,256,L]
+        ttnn.deallocate(ut)
+        out = ttnn.add(ttnn.transpose(o, -2, -1), self.Wout_b)
+        ttnn.deallocate(o)
+        return ttnn.multiply(out, recip_blk)
+
+    def _rows_rm(self, a_blk, b2, recip_blk, L, M):
+        """`_rows` with its two cross-tile reshapes done row-major (views) around one untilize/tilize."""
+        ck = self.compute_kernel_config
+        B, Bl = a_blk.shape[0], a_blk.shape[1]
+        a2 = ttnn.reshape(ttnn.permute(a_blk, (0, 1, 3, 2)), (B, Bl * 32, M))
+        prod = ttnn.matmul(a2, b2, compute_kernel_config=ck, dtype=_DTYPE, core_grid=CORE_GRID_MAIN)
+        r = ttnn.to_layout(prod, ttnn.ROW_MAJOR_LAYOUT)
+        ttnn.deallocate(prod)
+        r = ttnn.permute(ttnn.reshape(r, (B, Bl, 32, L, 32)), (0, 1, 3, 2, 4))
+        outer = ttnn.to_layout(ttnn.reshape(r, (B, Bl, L, 1024)), ttnn.TILE_LAYOUT)
+        ttnn.deallocate(r)
+        out = self._lin(outer, self.Wout, self.Wout_b)
+        return ttnn.multiply(out, recip_blk)
 
     def _rows(self, a_blk, b2, recip_blk, L, M):  # a_blk [B,Bl,M,32] -> [B,Bl,L,256]
         ck = self.compute_kernel_config
@@ -1678,7 +1725,7 @@ class StructureHead(TorchWrapper):
         oh = F.one_hot(tok_idx[0].long(), L).float() * ref_mask[0].float()[:, None]
         gather_g = oh.unsqueeze(0)
         scatter_m = (oh / oh.sum(0).clamp(min=1)).t().unsqueeze(0)
-        dmm.prepare(ft(s_inputs), ft(z_trunk), ft(relpos), ft(atom_feats.float()),
+        dmm.prepare(ft(s_inputs), z_trunk if isinstance(z_trunk, ttnn.Tensor) else ft(z_trunk), ft(relpos), ft(atom_feats.float()),
                     ft(cos.float()), ft(sin.float()), band,
                     ft(scatter_m.float()), ft(gather_g.float()), ft(valid))
         self._base, self._ref_mask, self._n_atoms = dmm._ctx, ref_mask, N

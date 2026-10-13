@@ -215,7 +215,9 @@ def _pooled_reference_molecules(jobs: list) -> list:
 
     def one(i):
         conformer_mod.pool_seed(seeds[i])
-        arr, leaving = jobs[i]
+        arr, leaving, template = jobs[i]
+        if template is not None:
+            return _processed_reference_molecule_from_template(template, arr, leaving)
         return processed_reference_molecule_from_atom_array(arr, atoms_to_mask=leaving)
 
     global _CONFORMER_POOL
@@ -259,6 +261,48 @@ def _memo_processed_reference_molecule(res_array, leaving_atoms, key):
         permutations=None if hit.permutations is None
         else [np.array(p, copy=True) for p in hit.permutations],
         component_id=_copy.copy(hit.component_id))
+
+
+# The sanitized, conformer-less RDKit mol of a polymer residue TYPE. Building it (biotite
+# to_mol + sanitize, 0.35 ms of GIL-held python) depends only on the CCD entry, never on
+# the seed, so it is done once per type and every residue embeds a copy with its own seed.
+# Unlike REF_MOL_MEMO this is bit-exact: each residue still gets its own embedding. The
+# copy carries the template's residue number and chain in its PDB residue info, so those
+# are rewritten per residue to keep the mol identical to a freshly converted one.
+REF_MOL_TEMPLATES = True
+_REF_MOL_TEMPLATES: dict = {}
+
+
+def _reference_mol_template(atom_array: struc.AtomArray, key) -> Chem.Mol:
+    template = _REF_MOL_TEMPLATES.get(key)
+    if template is None:
+        template = to_mol(atom_array, kekulize=True)
+        Chem.SanitizeMol(template)
+        # Ligands take AssignStereochemistryFrom3D, which reads the residue's own coords.
+        assert not np.all(atom_array.molecule_type_id == MoleculeType.LIGAND)
+        template.RemoveConformer(0)
+        _REF_MOL_TEMPLATES[key] = template
+    return template
+
+
+def _processed_reference_molecule_from_template(
+    template: Chem.Mol, atom_array: struc.AtomArray, atoms_to_mask: Iterable[str]
+) -> ProcessedReferenceMolecule:
+    """``processed_reference_molecule_from_atom_array`` on a copy of the type template."""
+    atom_mask = ~np.isin(atom_array.atom_name, atoms_to_mask)
+    mol = Chem.Mol(template)
+    res_id = atom_array.res_id[0].item()
+    chain_id = atom_array.chain_id[0].item()
+    for atom in mol.GetAtoms():
+        info = atom.GetPDBResidueInfo()
+        info.SetResidueNumber(res_id)
+        info.SetChainId(chain_id)
+        atom.SetMonomerInfo(info)
+    return processed_reference_molecule_from_mol(
+        mol=mol,
+        atom_names=atom_array.atom_name,
+        atom_mask=atom_mask,
+    )
 
 
 def processed_reference_molecule_from_atom_array(
@@ -418,7 +462,7 @@ def structure_with_ref_mols_from_sequence(
     unk_res = MOLECULE_TYPE_TO_UKNOWN_RESIDUES_3[poly_type]
     base_leaving_atoms = MOLECULE_TYPE_TO_LEAVING_ATOMS[poly_type]
 
-    atom_array = None
+    res_arrays = []
     processed_reference_mols = []
     pool_jobs = [] if CONFORMER_THREADS > 0 and not REF_MOL_MEMO else None
 
@@ -460,7 +504,9 @@ def structure_with_ref_mols_from_sequence(
 
         # Parse into RDKit mol and compute conformer
         if pool_jobs is not None:
-            pool_jobs.append((res_array, leaving_atoms))
+            template = (_reference_mol_template(res_array, (resname_3, poly_type))
+                        if REF_MOL_TEMPLATES else None)
+            pool_jobs.append((res_array, leaving_atoms, template))
         else:
             if REF_MOL_MEMO:
                 processed_ref_mol = _memo_processed_reference_molecule(
@@ -479,15 +525,11 @@ def structure_with_ref_mols_from_sequence(
                 f"Residue {resname_3} at position {res_id} has no leaving atoms to "
                 "remove. This could cause issues with incorrect polymer linkage."
             )
-        res_array = res_array[~leaving_atom_mask]
+        res_arrays.append(res_array[~leaving_atom_mask])
 
-        # Initialize atom array
-        if atom_array is None:
-            atom_array = res_array
-
-        # Append to atom array
-        else:
-            atom_array += res_array
+    # One concatenation instead of `atom_array += res_array` per residue, which copied the
+    # growing array every time (quadratic in the chain length).
+    atom_array = struc.concatenate(res_arrays)
 
     # Auto-connect bonds
     atom_array.bonds = struc.connect_via_residue_names(atom_array)
@@ -495,6 +537,8 @@ def structure_with_ref_mols_from_sequence(
     # Force coordinates to 0 for consistency
     atom_array.coord[:] = 0.0
 
+    # Submitted after the loop, not from inside it: overlapping the embeddings with the
+    # residue loop made both fight for the GIL and the build 0.1 s slower on pc.
     if pool_jobs is not None:
         processed_reference_mols = _pooled_reference_molecules(pool_jobs)
     return StructureWithReferenceMolecules(

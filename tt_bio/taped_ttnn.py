@@ -855,12 +855,9 @@ def _permute_back(g, inv):
     if REBLOCK_PERMUTE_BW:
         from . import reblock_permute as R
         mc = g.memory_config()
-        # A raw cotangent is not on any tape, so the kernel drops no gradient by taking it;
-        # without this the open tape refused it and the backward paid the stock permute.
-        raw = not isinstance(g, ag.Tensor)
-        if inv == [0, 2, 3, 1] and R.eligible_back(g, mc, taped_ok=raw):
+        if inv == [0, 2, 3, 1] and R.eligible_back(g, mc):
             return R.reblock_permute_back(g, mc)
-        if inv == [0, 3, 1, 2] and R.eligible(g, mc, taped_ok=raw):
+        if inv == [0, 3, 1, 2] and R.eligible(g, mc):
             return R.reblock_permute(g, mc)
     return ttnn.permute(g, inv)
 

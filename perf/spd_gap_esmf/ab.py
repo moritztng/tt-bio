@@ -17,7 +17,8 @@ sys.path.insert(0, str(ROOT)); sys.path.insert(0, str(ROOT / "scripts" / "gpu_vs
 ap = argparse.ArgumentParser()
 ap.add_argument("--model", default="esmfold2", choices=("esmfold2", "esmfold2-fast"))
 ap.add_argument("--fast", action="store_true")
-ap.add_argument("--alt", required=True, help="module.ATTR flipped between arms; arm A = True, arm B = False")
+ap.add_argument("--alt", required=True, help="module.ATTR flipped between arms; arm A = True, arm B = False. "
+                "env:NAME sets the environment variable to --a in arm A and to --b (unset when absent) in arm B")
 ap.add_argument("--a", help="string value of ATTR in arm A instead of True (e.g. a lever spec)")
 ap.add_argument("--b", help="string value of ATTR in arm B instead of False")
 ap.add_argument("--repeat", type=int, default=3)
@@ -26,6 +27,7 @@ ap.add_argument("--out", type=Path, required=True)
 a = ap.parse_args()
 
 import tt_bio.tenstorrent as T
+import tt_bio.trimul_tail as TL
 import tt_baseline as B
 from tt_bio.main import (_resolve_recycling_steps, _resolve_sampling_steps,
                          _detect_p300_devices, _find_ttnn_mesh_graph_descriptor)
@@ -35,8 +37,15 @@ if _detect_p300_devices() and not os.environ.get("TT_MESH_GRAPH_DESC_PATH"):
     if mgd: os.environ["TT_MESH_GRAPH_DESC_PATH"] = mgd
 B.RECYCLING_STEPS = _resolve_recycling_steps(None, a.model)
 B.SAMPLING_STEPS = _resolve_sampling_steps(None, a.model)
-modname, attr = a.alt.rsplit(".", 1)
-mod = importlib.import_module(modname)
+if a.alt.startswith("env:"):
+    class _Env:
+        def __setattr__(self, k, v):
+            if v is False: os.environ.pop(k, None)
+            else: os.environ[k] = str(v)
+    mod, attr = _Env(), a.alt[4:]
+else:
+    modname, attr = a.alt.rsplit(".", 1)
+    mod = importlib.import_module(modname)
 
 fix = ROOT / "perf" / "size512" / "fixtures"
 one_fold, meta = B.build_fold(a.model, ROOT / f".msa_ab_{a.model}_{a.size}", fix / f"cdk2x2_{a.size}.yaml",
@@ -57,6 +66,7 @@ res = {"model": a.model, "fast": a.fast, "alt": a.alt, "a": a.a, "b": a.b, "node
 def fold(arm, tag):
     setattr(mod, attr, (a.a if a.a is not None else True) if arm == "A" else (a.b if a.b is not None else False))
     before = {k: dict(v) for k, v in T.LATCH_STATS.items()}
+    t2_before, rej_before = list(TL.T2_STATS), dict(TL.REJECTS)
     t0 = time.monotonic(); s, m = one_fold(); t1 = time.monotonic()
     c = sorted(v for t, v in clk if t0 <= t <= t1)
     rec = {"arm": arm, "tag": tag, "fold_s": round(s, 3), "plddt": m.get("plddt"),
@@ -67,7 +77,11 @@ def fold(arm, tag):
            "latches": {k: d for k, v in T.LATCH_STATS.items()
                        if (d := {f: v.get(f, 0) - before.get(k, {}).get(f, 0)
                                  for f in ("served", "refused", "blocked", "declined")
-                                 if v.get(f, 0) != before.get(k, {}).get(f, 0)})}}
+                                 if v.get(f, 0) != before.get(k, {}).get(f, 0)})},
+           # trimul T2 / T2m / T2CM output tail: served, declined, and why (a declining lever arm is no arm)
+           "t2": [TL.T2_STATS[0] - t2_before[0], TL.T2_STATS[1] - t2_before[1]],
+           "t2_rejects": {f"{k[0]}@{k[1]}": v - rej_before.get(k, 0) for k, v in TL.REJECTS.items()
+                          if v != rej_before.get(k, 0) and str(k[0]).startswith("t2")}}
     swa = getattr(sys.modules.get("tt_bio.esmfold2"), "SWA_STATS", None)
     if swa is not None:
         rec["swa_stats"] = list(swa)  # cumulative (windowed, dense) atom masks built
@@ -79,9 +93,9 @@ for i in range(a.repeat):
 for arm in "AB":
     w = sorted(f["fold_s"] for f in res["folds"] if f["arm"] == arm and f["tag"] != "cold")
     res[f"median_{arm}"], res[f"spread_{arm}"] = statistics.median(w), round(w[-1] - w[0], 3)
-for name in ("DIFFUSION_TRACE_STATS",):
-    import tt_bio.esmfold2 as E
-    res[name] = list(getattr(E, name, []))
+import tt_bio.esmfold2 as E, tt_bio.esmfold2_runtime as R
+for m, name in ((E, "DIFFUSION_TRACE_STATS"), (R, "DEVICE_TAIL_STATS"), (R, "DEVICE_CONF_STATS"), (R, "INJECTION_STATS")):
+    res[name] = list(getattr(m, name, []))
 a.out.write_text(json.dumps(res, indent=1))
 print(f"A {res['median_A']:.3f}  B {res['median_B']:.3f}  delta {res['median_B'] - res['median_A']:+.3f} s", flush=True)
 T.cleanup()

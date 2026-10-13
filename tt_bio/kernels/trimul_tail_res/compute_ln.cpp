@@ -36,18 +36,22 @@ constexpr uint32_t SIGPOLY = get_compile_time_arg_val(4);   // 1: sigmoid_poly.h
 // Round DST to bf16 nearest-even: bit 0 before the output pack, bit 2 the product before the
 // residual add (as the res compute's bits 0 / 2).
 constexpr uint32_t RNE = get_compile_time_arg_val(5);
-// 1 = T2CM: the reader hands over gathered, untransposed tiles of the channel-major x (c_6, Kt per
-// row tile) and each row's Kt tiles are transpose_wh'd into cb_x here, as reblock_permute_back's
-// compute does (fp32 DEST, exact for bf16), before the LayerNorm reads them. 0 = T2, unchanged.
-constexpr uint32_t CM = get_compile_time_arg_val(6);
+// GATE 1: g is not read but computed here, sigmoid(xb @ Wg) with xb the trimul's input norm (c_6) and Wg
+// resident in c_1 after Wp, as trimul_tail_res's pass 1. The callers whose in-projection does not
+// leave a g_out (gin_moved, c_z 256) take this form.
+constexpr uint32_t GATE = get_compile_time_arg_val(6);
+// MOVED 1 (T2m, reader_moved.cpp): x arrives per row as CP tiles already in the output layout (c_18)
+// and Kt - CP gathered tiles M = x^T (c_15); this kernel assembles the row in cb_x, transposing M.
+constexpr uint32_t MOVED = get_compile_time_arg_val(7);
+constexpr uint32_t CP = get_compile_time_arg_val(8);
 
 constexpr uint32_t cb_x = tt::CBIndex::c_0;      // x_out rows, bf16, Mb * Kt double buffered
 constexpr uint32_t cb_w = tt::CBIndex::c_1;      // Wp, Kt * Nt, resident
 constexpr uint32_t cb_out = tt::CBIndex::c_2;    // z + update, to the writer
-constexpr uint32_t cb_gath = tt::CBIndex::c_6;   // T2CM: gathered x tiles from the reader
 constexpr uint32_t cb_ln = tt::CBIndex::c_3;     // layer_norm(x) rows, bf16, Mb * Kt
 constexpr uint32_t cb_p = tt::CBIndex::c_4;      // x_norm @ Wp, bf16, Mb * Nt
-constexpr uint32_t cb_g = tt::CBIndex::c_5;      // g_out rows, bf16, from DRAM
+constexpr uint32_t cb_g = tt::CBIndex::c_5;      // g_out rows, bf16, from DRAM (GATE: sigmoid(xb @ Wg))
+constexpr uint32_t cb_xb = tt::CBIndex::c_6;     // GATE: xb rows, bf16, Mb * Kt double buffered
 constexpr uint32_t cb_z = tt::CBIndex::c_7;      // z rows, bf16, from DRAM
 constexpr uint32_t cb_gamma = tt::CBIndex::c_8;  // Kt tiles, resident
 constexpr uint32_t cb_beta = tt::CBIndex::c_9;   // Kt tiles, resident
@@ -58,12 +62,8 @@ constexpr uint32_t cb_var = tt::CBIndex::c_13;
 constexpr uint32_t cb_rstd = tt::CBIndex::c_14;
 constexpr uint32_t cb_xc = tt::CBIndex::c_16;    // fp32, Kt tiles
 constexpr uint32_t cb_tmp = tt::CBIndex::c_17;   // fp32, Kt tiles
-#ifdef T2_BIAS
-// T2_BIAS (defined only when the caller passes p_out's bias, AF2): Nt bias tiles, every row
-// bias[32 n + col], resident. Each p block starts in DST as its bias tile and the K loop
-// accumulates on top (trimul_gin_ragged's seeding), so p = fp32(bias + xn @ Wp) before the pack.
-constexpr uint32_t cb_pbias = tt::CBIndex::c_20;
-#endif
+constexpr uint32_t cb_in = tt::CBIndex::c_15;    // MOVED: gathered x^T tiles, one at a time
+constexpr uint32_t cb_prev = tt::CBIndex::c_18;  // MOVED: the CP earlier channel tiles of the row
 
 ALWI void sigmoid_bf16_tile(uint32_t idst) {
     MATH((llk_math_eltwise_unary_sfpu_sigmoid<false, false>(idst, (int)VectorMode::RC)));
@@ -74,25 +74,39 @@ struct LnCbs {
         eps = cb_eps, mean = cb_mean, var = cb_var, rstd = cb_rstd, xc = cb_xc, tmp = cb_tmp;
 };
 
-// T2CM: Kt gathered tiles at the front of cb_gath (popped) -> their transposes appended to cb_x.
-ALWI void transpose_row() {
-    cb_wait_front(cb_gath, Kt);
-    cb_reserve_back(cb_x, Kt);
-    transpose_wh_init_short(cb_gath);
-    reconfig_data_format_srca(cb_gath);
-    pack_reconfig_data_format(cb_x);
-    tile_regs_acquire();
-    for (uint32_t k = 0; k < Kt; ++k) transpose_wh_tile(cb_gath, k, k);
-    tile_regs_commit();
-    tile_regs_wait();
-    for (uint32_t k = 0; k < Kt; ++k) pack_tile(k, cb_x);
-    tile_regs_release();
-    cb_pop_front(cb_gath, Kt);
-    cb_push_back(cb_x, Kt);
-}
-
 // One 32-row tile of x (Kt tiles at the front of cb_x, popped) -> Kt bf16 tiles appended to cb_ln.
 ALWI void layer_norm_row() {
+    if constexpr (MOVED) {
+        pack_reconfig_data_format(cb_x);
+        cb_reserve_back(cb_x, Kt);
+        if constexpr (CP > 0) {
+            reconfig_data_format_srca(cb_prev);
+            copy_tile_to_dst_init_short(cb_prev);
+            cb_wait_front(cb_prev, CP);
+            for (uint32_t t = 0; t < CP; ++t) {
+                tile_regs_acquire();
+                copy_tile(cb_prev, t, 0);
+                tile_regs_commit();
+                tile_regs_wait();
+                pack_tile(0, cb_x);
+                tile_regs_release();
+            }
+            cb_pop_front(cb_prev, CP);
+        }
+        reconfig_data_format_srca(cb_in);
+        transpose_wh_init_short(cb_in);
+        for (uint32_t t = CP; t < Kt; ++t) {
+            cb_wait_front(cb_in, 1);
+            tile_regs_acquire();
+            transpose_wh_tile(cb_in, 0, 0);
+            tile_regs_commit();
+            tile_regs_wait();
+            pack_tile(0, cb_x);
+            tile_regs_release();
+            cb_pop_front(cb_in, 1);
+        }
+        cb_push_back(cb_x, Kt);
+    }
     cb_reserve_back(cb_ln, Kt);
     ln_prologue::layer_norm_row<LnCbs>(cb_ln, [](uint32_t) { pack_tile(0, cb_ln); });
     cb_push_back(cb_ln, Kt);
@@ -103,19 +117,15 @@ void kernel_main() {
     constexpr uint32_t blk = Mb * Nt;
 
     mm_init(cb_ln, cb_w, cb_p);
-    cb_wait_front(cb_w, Kt * Nt);
+    cb_wait_front(cb_w, (1 + GATE) * Kt * Nt);
     cb_wait_front(cb_gamma, Kt);
     cb_wait_front(cb_beta, Kt);
     cb_wait_front(cb_scaler, 1);
     cb_wait_front(cb_eps, 1);
-#ifdef T2_BIAS
-    cb_wait_front(cb_pbias, Nt);
-#endif
 
     for (uint32_t b = 0; b < nblocks; ++b) {
         // 1. LayerNorm prologue, row tile by row tile.
         for (uint32_t mi = 0; mi < Mb; ++mi) {
-            if constexpr (CM) transpose_row();
             layer_norm_row();
         }
 
@@ -128,11 +138,6 @@ void kernel_main() {
         for (uint32_t mi = 0; mi < Mb; ++mi) {
             for (uint32_t n0 = 0; n0 < Nt; n0 += SBW) {
                 tile_regs_acquire();
-#ifdef T2_BIAS
-                copy_tile_to_dst_init_short(cb_pbias);
-                for (uint32_t i = 0; i < SBW; ++i) copy_tile(cb_pbias, n0 + i, i);
-                mm_block_init_short(cb_ln, cb_w, false, SBW, 1, Kt);
-#endif
                 uint32_t i0 = mi * Kt;
                 uint32_t i1 = n0;
                 for (uint32_t k = 0; k < Kt; ++k) {
@@ -149,6 +154,42 @@ void kernel_main() {
         cb_push_back(cb_p, blk);
         cb_pop_front(cb_ln, Mb * Kt);
 
+        // 2b (GATE). g = sigmoid(xb @ Wg), the sigmoid in DST before the pack. Its init follows the
+        // GEMM init: the prologue's rsqrt init reprograms the SFPU every block.
+        if constexpr (GATE) {
+            mm_block_init_short(cb_xb, cb_w, false, SBW, 1, Kt);
+            reconfig_data_format(cb_w, cb_xb);
+            pack_reconfig_data_format(cb_g);
+            sigmoid_tile_init();
+            cb_wait_front(cb_xb, Mb * Kt);
+            cb_reserve_back(cb_g, blk);
+            for (uint32_t mi = 0; mi < Mb; ++mi) {
+                for (uint32_t n0 = 0; n0 < Nt; n0 += SBW) {
+                    tile_regs_acquire();
+                    uint32_t i0 = mi * Kt;
+                    uint32_t i1 = Kt * Nt + n0;
+                    for (uint32_t k = 0; k < Kt; ++k) {
+                        matmul_block(cb_xb, cb_w, i0, i1, 0, false, SBW, 1, Kt);
+                        i0++;
+                        i1 += Nt;
+                    }
+                    for (uint32_t i = 0; i < SBW; ++i) {
+                        if constexpr (SIGPOLY) sigmoid_poly_tile(i);
+                        else sigmoid_bf16_tile(i);
+                    }
+                    if constexpr (RNE & 2) {
+                        for (uint32_t i = 0; i < SBW; ++i) round_bf16_rne_tile(i);
+                    }
+                    tile_regs_commit();
+                    tile_regs_wait();
+                    for (uint32_t i = 0; i < SBW; ++i) pack_tile<true>(i, cb_g, mi * Nt + n0 + i);
+                    tile_regs_release();
+                }
+            }
+            cb_push_back(cb_g, blk);
+            cb_pop_front(cb_xb, Mb * Kt);
+        }
+
         // 3 + 4. out = z + p * sigmoid(g). The sigmoid is re-initialised every block: the
         // prologue's rsqrt init reprograms the SFPU.
         cb_wait_front(cb_p, blk);
@@ -162,9 +203,11 @@ void kernel_main() {
             reconfig_data_format_srca(cb_g);
             copy_tile_to_dst_init_short(cb_g);
             for (uint32_t i = 0; i < 4; ++i) copy_tile(cb_g, t0 + i, i);
-            for (uint32_t i = 0; i < 4; ++i) {
-                if constexpr (SIGPOLY) sigmoid_poly_tile(i);
-                else sigmoid_bf16_tile(i);
+            if constexpr (!GATE) {
+                for (uint32_t i = 0; i < 4; ++i) {
+                    if constexpr (SIGPOLY) sigmoid_poly_tile(i);
+                    else sigmoid_bf16_tile(i);
+                }
             }
             reconfig_data_format(cb_p, cb_p);
             binary_dest_reuse_tiles_init<EltwiseBinaryType::ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCB>(

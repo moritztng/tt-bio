@@ -212,6 +212,12 @@ _ESMC_QKV_SPLIT = env_flag("TT_BIO_ESMC_QKV_SPLIT", False)
 # ESMC-6B gains nothing (p300c page cell, identical digests: ESMFold2 +0.76 s on a 0.89 s spread, ESMFold2-Fast
 # 16.48 -> 16.55 s), so the Block of a model past _LM_FFN_TILE_MODEL_BYTES keeps the DRAM path (Attention.qk_l1).
 _ESMC_QK_L1 = env_flag("TT_BIO_ESMC_QK_L1", True)
+
+# Replay batched forwards from the trace too (ESMC.trace gated on B == 1). A 7 x 544 Blackhole batch spreads 110-127 ms
+# within one process, the signature of a host-dispatch-bound forward. Same captured program, so output is bit-identical
+# to eager. The first try (tb-esmc-600m) replayed garbage, but beside several live traces, the fault TRACE_CACHE_MAX=1
+# fixed later; retried on one live trace (esmc_trace_check.py --batch). Off until measured.
+_TRACE_BATCH = env_flag("TT_BIO_ESMC_TRACE_BATCH", False)
 _QK_L1_REFUSED: set = set()
 #: [attention calls served from L1, declined], read by the A/B harness.
 QK_L1_STATS = [0, 0]
@@ -1409,7 +1415,7 @@ class ESMC(TorchWrapper):
         return logits[:, :L], emb[:, :L]
 
     def _dispatch(self, tokens, attn_mask, key_valid):
-        if self.trace and not self._trace_broken and tokens.shape[0] == 1:
+        if self.trace and not self._trace_broken and (tokens.shape[0] == 1 or _TRACE_BATCH):
             key = (tuple(tokens.shape), attn_mask is not None, key_valid is not None)
             if key in self._trace_cache:
                 return self._forward_traced(tokens, attn_mask, key_valid)

@@ -36,7 +36,9 @@ move against the accuracy bar and the seed-to-seed spread.
 | [`TT_BIO_DEVICE_ZINIT`](#tt_bio_device_zinit) | on | Boltz-2 | moves, flat against the experimental structure |
 | [`TT_BIO_DIT_COND_HOIST`](#tt_bio_dit_cond_hoist) | on | Boltz-2, RF3 token DiT | moves, inside the 298-residue bar |
 | [`TT_BIO_DIT_SHARED_COND`](#tt_bio_dit_shared_cond) | on | Boltz-2, BoltzGen | identical |
-| [`TT_BIO_ESMFOLD2_SWA_WINDOW`](#tt_bio_esmfold2_swa_window) | on (Blackhole) | ESMFold2 | moves, inside the bar |
+| [`TT_BIO_ESMFOLD2_DEVICE_CONF`](#tt_bio_esmfold2_device_conf) | on for Blackhole | ESMFold2 | moves, inside the bar |
+| [`TT_BIO_ESMFOLD2_DEVICE_TAIL`](#tt_bio_esmfold2_device_tail) | on | ESMFold2 | moves, inside the bar |
+| [`TT_BIO_ESMFOLD2_SWA_WINDOW`](#tt_bio_esmfold2_swa_window) | on | ESMFold2 | moves, inside the bar |
 | [`TT_BIO_FANIN_CAST_FUSED`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2 | gradients only |
 | [`TT_BIO_FUSE_BIAS_STACKS`](#tt_bio_fuse_bias_stacks) | on | Boltz-2, BoltzGen | moves, inside the 298-residue bar |
 | [`TT_BIO_FUSE_MASK_ADD`](#tt_bio_fuse_mask_add) | on | | identical |
@@ -586,9 +588,45 @@ equal times and one trunk row the step computes them once and broadcasts. **Accu
 digest unchanged on 4 seeds). **Speed:** 158.0 to 152.1 s on the Boltz-2 730-token fold, Wormhole,
 1000 MHz. `0` restores the per-sample path.
 
-## `TT_BIO_ESMFOLD2_SWA_WINDOW`
+## `TT_BIO_ESMFOLD2_DEVICE_CONF`
 
 Default: on for Blackhole, off for Wormhole. ESMFold2 and ESMFold2-Fast.
+
+The confidence head's pair part (the pair norm, the outer product, its trunk, row pooling and the
+PAE/PDE logits) runs on the device from the trunk's resident pair, so the 512 x 512 pair is never
+downloaded and the head's float32 host work goes away: about 0.9 s off a 512-residue fold on
+Blackhole. The [L, c]-sized inputs and the final softmax stay on the host.
+
+**Accuracy: moves, inside the bar.** The pair part runs in bf16 instead of host float32. Graded
+together with the device tail on 11 complexes x 4 seeds on Blackhole: ESMFold2 (normal bar)
+same-seed top-pose deviation median 0.48 A against a seed spread of 1.12 A, CA-lDDT -0.0000
+[-0.0008, +0.0009], docking success 30/41 in both arms; ESMFold2-Fast --fast (fast bar) median
+0.62 A against 1.40 A, docking success 24/44 in both arms. Wormhole is not graded and keeps the
+host head unless `TT_BIO_ESMFOLD2_DEVICE_CONF=1` is set; `TT_BIO_ESMFOLD2_DEVICE_CONF=0` restores it
+on Blackhole.
+
+## `TT_BIO_ESMFOLD2_DEVICE_TAIL`
+
+Default: on. ESMFold2 and ESMFold2-Fast.
+
+The folding trunk's pair output stays on the device through the readout, the distogram
+symmetrisation and the diffusion conditioning; with `TT_BIO_ESMFOLD2_DEVICE_CONF` the confidence head
+reads it there too, otherwise it is downloaded once for the head.
+That removes one 512 x 512 pair download and three uploads per fold: 0.7 s off ESMFold2 and
+1.0 s off ESMFold2-Fast --fast at 512 residues (p300c, 1350 MHz); on Wormhole 4-6 s off a 5-sample fold.
+
+**Accuracy: moves, inside the bar.** The readout and the residual add run in bf16 instead of host
+float32. On 11 complexes x 4 seeds on Blackhole: ESMFold2 (normal bar) same-seed top-pose deviation
+median 0.48 A against a seed spread of 1.12 A, CA-lDDT -0.0023 [-0.0066, +0.0001], docking success
+30/41 in both arms; ESMFold2-Fast --fast (fast bar) median 0.62 A against 1.40 A, CA-lDDT +0.0014,
+docking success 24/44 in both arms. On Wormhole: ESMFold2 (folds --fast there, fast bar) median 0.26 A
+against 1.34 A, CA-lDDT +0.0002, docking 29/44 in both arms; ESMFold2-Fast (normal bar) median 0.27 A
+against 1.27 A, CA-lDDT +0.0000, docking 25 vs 24/44. `TT_BIO_ESMFOLD2_DEVICE_TAIL=0` restores the host
+tail.
+
+## `TT_BIO_ESMFOLD2_SWA_WINDOW`
+
+Default: on. ESMFold2 and ESMFold2-Fast.
 
 The atom transformer attends over its 160-key sliding window with one windowed attention call
 instead of a dense band mask over every atom pair. Keys outside the window carry zero weight on
@@ -600,9 +638,11 @@ per 512-residue fold on ESMFold2 and 1.05 s on ESMFold2-Fast (Blackhole p300c at
 differently. On 11 complexes x 4 seeds on Blackhole: ESMFold2 same-seed top-pose deviation median
 0.83 A (seed spread 1.12 A), TM-score -0.012 [-0.030, +0.002], docking success 29/41 vs 30/41;
 ESMFold2-Fast TM-score -0.003 [-0.008, +0.001], docking success 24/44 in both arms. Both pass
-the normal and the fast bar. It has not been graded on Wormhole, so Wormhole keeps the dense band
-unless `TT_BIO_ESMFOLD2_SWA_WINDOW=1` is set. `TT_BIO_ESMFOLD2_SWA_WINDOW=0` restores the dense
-band on Blackhole.
+the normal and the fast bar. On a Wormhole Galaxy chip (11 complexes x 4 seeds): ESMFold2-Fast
+passes the normal bar (TM-score +0.001 [-0.003, +0.005], docking success 24/44 vs 23/44) and saves
+11.0 s per 5-sample fold; ESMFold2, which runs only in `--fast` on Wormhole, passes the fast bar
+(TM-score -0.004 [-0.012, +0.002], docking success 30/44 vs 31/44, ligand RMSD +3.1 A on average).
+`TT_BIO_ESMFOLD2_SWA_WINDOW=0` restores the dense band.
 
 ## `TT_BIO_FUSE_BIAS_STACKS`
 

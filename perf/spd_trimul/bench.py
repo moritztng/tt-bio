@@ -41,6 +41,10 @@ ap.add_argument("--devprof", action="store_true",
 ap.add_argument("--resid", action="store_true",
                 help="call the way the Pairformer does, add_to_input=True: z += update in place, so every arm\n"
                      "times the residual add too (the epi2 lever folds it into the tail)")
+ap.add_argument("--no-mask", action="store_true",
+                help="call with mask=None, as ESMFold2's trunk does at a full-length bucket (needs --valid = --n)")
+ap.add_argument("--gated-move", action="store_true",
+                help="build the module as ESMFold2 does (gated_move=True), which the gated in-proj routes need")
 ap.add_argument("--fast", action="store_true",
                 help="build and run the module as Protenix's --fast trunk does: FAST_LEVERS active, fast mode off")
 ap.add_argument("--legacy-fast", action="store_true",
@@ -69,6 +73,7 @@ import ttnn
 import tt_bio.tenstorrent as T
 import tt_bio.reblock_permute as RB
 import tt_bio.trimul_tail as TTL
+import tt_bio.back_ln as BL
 
 dev = T.get_device()
 opened = sorted({int(os.readlink(f"/proc/self/fd/{fd}").rsplit("/", 1)[1]) for fd in os.listdir("/proc/self/fd")
@@ -76,7 +81,7 @@ opened = sorted({int(os.readlink(f"/proc/self/fd/{fd}").rsplit("/", 1)[1]) for f
                  and os.readlink(f"/proc/self/fd/{fd}").startswith("/dev/tenstorrent/")
                  and os.readlink(f"/proc/self/fd/{fd}").rsplit("/", 1)[1].isdigit()})
 NODE = opened[0] if opened else -1
-CLKF = OUT / "aiclk.tsv"; CLKF.touch()
+CLKF = OUT / "bench_aiclk.tsv"; CLKF.touch()
 _SAMPLER = subprocess.Popen([sys.executable, "-c", f"""
 import os, time
 f = open({str(CLKF)!r}, "a"); parent = os.getppid()
@@ -100,6 +105,15 @@ def aiclk(t0, t1, pad=0.3):
 
 
 # ---------------- arms: name -> list of (setter, value) ----------------
+_GIN_TILES = TTL._gin_move_tiles
+
+
+def _set_gin_fit(on):
+    prev = TTL._gin_move_tiles is not _GIN_TILES
+    TTL._gin_move_tiles = (lambda kt, ct2, mask: 0) if on else _GIN_TILES
+    return prev
+
+
 LEVERS = {
     "ibw": [(T.set_trimul_ibw_full, True)],
     "into": [(T.set_trimul_back_into, True)],
@@ -122,6 +136,15 @@ LEVERS = {
     "tb88": [(TTL.set_block, (8, 8, 8, 1, 4))],
     "tb48": [(TTL.set_block, (4, 8, 8, 1, 4))],
     "gin": [(T.set_trimul_gated_inproj, True)],
+    # gin_moved past its 0.85-of-L1 guard: measurement only, on a bench device with nothing else in L1
+    # (ESMFold2's c_z 256 / hidden 256 needs 677 tiles, 1.386 MB of a 1.462 MB bank; the guard admits 606).
+    "ginfit": [(T.set_trimul_gated_inproj, True), (_set_gin_fit, True)],
+    # the last back move writes the output norm too (back_ln.py)
+    "bln": [(BL.set_enabled, True)],
+    # the output tail as one kernel (trimul_t2); under gin it is the GATE form
+    "t2": [(TTL.set_t2, True)],
+    # T2 reads the einsum's last channel chunk channel-major (no back move); needs t2 to serve
+    "t2m": [(TTL.set_t2m, True)],
     "nores": [(TTL.set_res, False)],
     "nomf": [(TTL.set_mask_fold, False)],
 }
@@ -239,6 +262,9 @@ z_dev = ttnn.from_torch(z_host, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, de
                         memory_config=ttnn.DRAM_MEMORY_CONFIG)
 m_dev = ttnn.from_torch(m_host, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev,
                         memory_config=ttnn.DRAM_MEMORY_CONFIG)
+if A.no_mask:
+    assert A.valid == A.n, "--no-mask needs every token valid"
+    m_dev = None
 
 
 def reference(ending):
@@ -300,7 +326,7 @@ if "base" in arms and "base'" not in arms:
 res = {"args": vars(A), "nodes": opened, "arch": str(dev.arch()), "variants": {}}
 for var in A.variants.split(","):
     ending = var == "end"
-    mod = T.TriangleMultiplication(ending, W0, CKC)
+    mod = T.TriangleMultiplication(ending, W0, CKC, gated_move=A.gated_move)
     t0 = time.time()
     ref = reference(ending)
     log(ev="reference", variant=var, s=round(time.time() - t0, 1))
@@ -318,6 +344,7 @@ for var in A.variants.split(","):
             fired["mm_transpose"] = dict((f"{k[0]}/{k[1]}", v) for k, v in T.TRIMUL_MM_TRANSPOSE_STATS.items())
             fired["einsum_fid"] = T._TRIMUL_EINSUM_FID or "trunk"
             fired["back_into"] = T._TRIMUL_BACK_INTO
+            fired["back_ln"] = dict(BL.REACH)
             fired["inproj_b8"] = T._TRIMUL_INPROJ_B8
             fired["tail_f1"] = [a - b for a, b in zip(TTL.STATS, tail0)]
             fired["tail_epi"] = TTL.EPI
@@ -326,6 +353,7 @@ for var in A.variants.split(","):
             fired["tail_resid"] = [a - b for a, b in zip(TTL.RESID_STATS, resid0)]
             fired["tail_res"] = list(TTL.RES_STATS)
             fired["mask_fold"] = TTL.MASK_STATS[0] - mf0
+            fired["gin_move"] = list(TTL.GIN_MOVE_STATS)
         finally:
             restore(prev)
         outs[arm] = yt

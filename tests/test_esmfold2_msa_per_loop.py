@@ -71,13 +71,30 @@ def test_lm_dropout_is_upstreams_training_mode_dropout_and_follows_the_seed():
     assert abs(float((a == 0).float().mean()) - 0.25) < 0.02
 
 
+def _unpack(w):
+    """`_pack_keep`'s inverse on the host, as `_unpack_keep_dev` does it on the device."""
+    from tt_bio.esmfold2_runtime import _KEEP_BITS
+
+    assert w.dtype == torch.int32
+    return torch.cat([(w >> j) & 1 for j in range(_KEEP_BITS)], dim=1).to(torch.bfloat16)
+
+
+def test_packed_keep_round_trips_rows_in_order():
+    from tt_bio.esmfold2_runtime import _pack_keep
+
+    keep = torch.rand(1, 96, 40, 8) >= 0.25
+    w = _pack_keep(keep)
+    assert w.shape == (1, 6, 40, 8) and int(w.max()) < 2 ** 16
+    assert torch.equal(_unpack(w), keep.to(torch.bfloat16))
+
+
 def test_prefetched_keep_masks_follow_the_seed_and_keep_one_minus_p():
     from tt_bio.esmfold2_runtime import _KeepDraws
 
     def draws(seed):
         torch.manual_seed(seed)
         d = _KeepDraws((1, 64, 64, 8), 0.25, 3)
-        return [d.take() for _ in range(3)]
+        return [_unpack(d.take()) for _ in range(3)]
 
     a, b, c = draws(5), draws(5), draws(6)
     assert all(torch.equal(x, y) for x, y in zip(a, b))

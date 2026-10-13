@@ -12,9 +12,6 @@
 #ifndef ABL
 #define ABL 0
 #endif
-// T1_S (a ragged pair size S, S % 32 != 0): the x axis has S rows, so g_out rows x >= S of the last
-// row tile are not written (they do not exist) and the a / b rows il >= S - 32 * xt of the last row
-// tile are gathered from a zeroed face row (c_25), exactly as kernels/trimul_gin_ragged's writer.
 #include "api/dataflow/dataflow_api.h"
 
 void kernel_main() {
@@ -36,23 +33,9 @@ void kernel_main() {
     constexpr uint32_t stage_cb = tt::CBIndex::c_24;
     constexpr uint32_t CT = CT2 / 2;
     constexpr uint32_t SS = St * St;
-#ifdef T1_S
-    constexpr uint32_t S = T1_S;
-    constexpr uint32_t LAST = S - (St - 1) * 32;   // valid rows of the last row tile
-    constexpr uint32_t zero_cb = tt::CBIndex::c_25;
-#else
     constexpr uint32_t S = St * 32;
-#endif
     constexpr uint32_t TB = 2048, FB = 512, RB = 32;
 
-#ifdef T1_S
-    cb_reserve_back(zero_cb, 1);
-    const uint32_t zero = get_write_ptr(zero_cb);
-    {
-        volatile tt_l1_ptr uint32_t* zp = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(zero);
-        for (uint32_t k = 0; k < RB / 4; ++k) zp[k] = 0;
-    }
-#endif
     cb_reserve_back(stage_cb, 2 * NB);
     const uint32_t stage0 = get_write_ptr(stage_cb);
     noc_async_read_one_packet_set_state(get_noc_addr(stage0), RB);
@@ -69,9 +52,6 @@ void kernel_main() {
             for (uint32_t il = 0; il < 32; ++il, page += St * NTG) {
                 cb_wait_front(go_cb, NTG);
                 uint32_t r = get_read_ptr(go_cb);
-#ifdef T1_S
-                if (xt * 32 + il < S)
-#endif
                 for (uint32_t n = 0; n < NTG; ++n, r += TB)
                     if constexpr (!(ABL & 64)) noc_async_write_page(page + n, og, r);
                 noc_async_writes_flushed();
@@ -87,20 +67,6 @@ void kernel_main() {
                 const uint32_t grp = (c0 / NB) & 1u;
                 const uint32_t gbase = stage0 + grp * NB * TB;
                 if (dirty[grp]) noc_async_writes_flushed();
-#ifdef T1_S
-                const uint32_t r0 = xt == St - 1 ? LAST : 32;   // first zero row
-                for (uint32_t j = 0; j < NB && !(ABL & 32); ++j) {
-                    const uint32_t c = c0 + j;
-                    const uint32_t st = gbase + j * TB;
-                    const uint32_t sc = src + (c >> 4) * 2 * FB + (c & 15) * RB;
-                    uint32_t s0 = sc, s1 = sc + FB;
-                    for (uint32_t il = 0; il < 32; ++il, s0 += TB, s1 += TB) {
-                        const uint32_t d = st + (il >> 4) * 2 * FB + (il & 15) * RB;
-                        noc_async_read_one_packet_with_state(il < r0 ? s0 : zero, d);
-                        noc_async_read_one_packet_with_state(il < r0 ? s1 : zero, d + FB);
-                    }
-                }
-#else
                 for (uint32_t j = 0; j < NB && !(ABL & 32); ++j) {
                     const uint32_t c = c0 + j;
                     const uint32_t st = gbase + j * TB;
@@ -117,7 +83,6 @@ void kernel_main() {
                         noc_async_read_one_packet_with_state(s1, d1);
                     }
                 }
-#endif
                 noc_async_read_barrier();
                 for (uint32_t j = 0; j < NB; ++j, page += SS)
                     if constexpr (!(ABL & 64)) noc_async_write(gbase + j * TB, is_a ? oa.get_noc_addr(page) : ob.get_noc_addr(page), TB);

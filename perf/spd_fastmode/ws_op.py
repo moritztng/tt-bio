@@ -4,7 +4,8 @@
 
 Arms: shipped (`normal` set), shipped fast (`fast` set) and each + transition_ws, same weights and input, each at
 the trunk's fidelity. Prints ms/call (median of --reps after 3 warm calls) and rel_rms / max_abs to a float64 torch
-reference of LN -> fc3(silu(fc1) * fc2). Output: one JSON line per arm.
+reference of LN -> fc3(silu(fc1) * fc2), and n_bad, the outputs off by more than 0.5 (the Wormhole fp32-dest
+fault writes exact +-1 / 2 / 4). Output: one JSON line per arm.
 """
 import argparse, json, os, statistics, time
 
@@ -17,6 +18,8 @@ ap.add_argument("--hidden", type=int, default=512)
 ap.add_argument("--reps", type=int, default=20)
 ap.add_argument("--seed", type=int, default=0)
 ap.add_argument("--silu", type=int, default=None, help="pair_swiglu_ws silu: 0 metal, 1 degree-8 poly, 2 degree-6")
+ap.add_argument("--arms", default="normal,normal+transition_ws,normal+transition_ws+ws_ln,fast,fast+transition_ws,"
+                "fast+transition_ws+ws_ln", help="comma list of lever sets")
 a = ap.parse_args()
 
 from tt_bio.main import ensure_p300_mesh_descriptor  # noqa: E402
@@ -43,8 +46,7 @@ dev = T.get_device()
 base = ttnn.WormholeComputeKernelConfig(math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=False,
                                         fp32_dest_acc_en=True, packer_l1_acc=True)
 xt = ttnn.from_torch(x, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev)
-for arm in ("normal", "normal+transition_ws", "normal+transition_ws+ws_ln", "fast", "fast+transition_ws",
-            "fast+transition_ws+ws_ln"):
+for arm in a.arms.split(","):
     with T.levers(arm):
         mod = T.Transition(sd, T.trunk_compute_kernel_config(base))
         for _ in range(3):
@@ -62,5 +64,5 @@ for arm in ("normal", "normal+transition_ws", "normal+transition_ws+ws_ln", "fas
     assert torch.isfinite(out).all(), arm
     print(json.dumps(dict(arm=arm, n=a.n, c=c, hidden=h, ms=round(1e3 * statistics.median(ts), 3),
                           rel_rms=float(d.pow(2).mean().sqrt() / ref.pow(2).mean().sqrt()),
-                          max_abs=float(d.abs().max()), ws_fired=getattr(mod, "_ws", None) is not None, silu=W.SILU_POLY,
+                          max_abs=float(d.abs().max()), n_bad=int((d.abs() > 0.5).sum()), ws_fired=getattr(mod, "_ws", None) is not None, silu=W.SILU_POLY,
                           card=os.environ.get("TT_VISIBLE_DEVICES"))), flush=True)

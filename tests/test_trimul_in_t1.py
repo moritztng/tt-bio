@@ -45,10 +45,7 @@ def test_cb_plan_covers_every_cb_the_kernels_use():
     bf, f32 = TTL.t1_cb_plan(KT, CT2, NTG, True)
     planned = [i for i, _ in bf] + [i for i, _ in f32]
     assert len(planned) == len(set(planned)), "a CB index is planned twice"
-    # T1_CB_BIAS is planned by _build_t1 only with a bias (AF2); its kernel lines sit behind T1_BIAS.
-    # T1_CB_ZERO only for a ragged S (t1_cb_plan(ragged=True)); its lines sit behind T1_S.
-    assert used == set(planned) | {TTL.T1_CB_BIAS, TTL.T1_CB_ZERO}
-    assert TTL.T1_CB_ZERO in {i for i, _ in TTL.t1_cb_plan(KT, CT2, NTG, True, ragged=True)[0]}
+    assert used == set(planned)
     bf0, _ = TTL.t1_cb_plan(KT, CT2, NTG, False)
     assert {3, 6}.isdisjoint(i for i, _ in bf0)
 
@@ -260,13 +257,7 @@ def test_eligibility(monkeypatch):
     a["ln_w"] = _Fake([128], dtype=ttnn.float32)
     assert TTL.t1_eligible(**a) == "ln_params"
     a = _args()
-    a["x"] = _Fake([1, 500, 500, 128], padded=[1, 512, 512, 128])    # not ttnn's padding of it
-    assert TTL.t1_eligible(**a) == "padded_shape"
-    a["x"] = _Fake([1, 500, 500, 128], padded=[1, 500, 512, 128])    # ragged S (T1_S): eligible
-    assert TTL.t1_eligible(**a) is None
-    assert TTL.t1_eligible(**a, mask=_Fake([1, 500, 500], padded=[1, 512, 512])) is None
-    assert TTL.t1_eligible(**a, mask=_Fake([1, 500, 500], padded=[1, 500, 512])) == "mask"
-    a["x"] = _Fake([1, 500, 500, 120], padded=[1, 500, 512, 128])
+    a["x"] = _Fake([1, 500, 500, 128], padded=[1, 512, 512, 128])
     assert TTL.t1_eligible(**a) == "act_shape"
     a = _args()
     a["x"] = _Fake([1, 512, 512, 128], mem=ttnn.L1_MEMORY_CONFIG)
@@ -281,145 +272,3 @@ def test_call_site_is_inert_when_off(monkeypatch):
     before = list(TTL.T1_STATS)
     assert tm._t1_in(None, None, 512, [1, 512, 512, 128]) is None
     assert TTL.T1_STATS == before
-
-
-# ---------------------------------------------------------------- ragged S (T1_S, AF2-IG's 195)
-
-@pytest.mark.parametrize("S,masked", [(40, True), (72, False), (75, True)])
-def test_emulated_ragged_data_flow_matches_the_unfused_path(S, masked):
-    """The T1_S kernels, emulated tile by tile: z is [1, S, St * 32, K] (only y and K tiled) with
-    NaN in its y padding, row tiles x >= S re-read row S - 1 (reader), padded y rows are zeroed in
-    L1 before the LayerNorm (reader), every projection is seeded with its bias tile (compute), the
-    last y tile of a / b is multiplied by the bias tensor's column-mask tile after the gate (compute),
-    rows x >= S of a / b come from the zero row and g_out rows x >= S are not written (writer).
-    Against the unfused path: layer_norm, biased linears, a / b zero-padded as gin_ragged leaves
-    them (the einsum contracts over the padded k axis), g_out compared on its logical [S, S]."""
-    d = torch.float64
-    K, h, cz = 128, 128, 128
-    St, Kt, ct2, ct, ntg = -(-S // 32), K // 32, 2 * h // 32, h // 32, cz // 32
-    Sp, LAST = St * 32, S - 32 * (St - 1)
-    g = torch.Generator().manual_seed(S)
-    w = {k: v.to(d) for k, v in _ckpt(K, h, cz, g).items()}
-    bp, bg, bgo = (0.3 * torch.randn(2 * h, generator=g)).to(d), (0.3 * torch.randn(2 * h, generator=g)).to(d), \
-        (0.3 * torch.randn(cz, generator=g)).to(d)
-    z = (torch.randn(1, S, S, K, generator=g) * 2 + torch.randn(1, S, S, 1, generator=g)).to(d)
-    zp = torch.full((1, S, Sp, K), float("nan"), dtype=d)
-    zp[:, :, :S] = z
-    gamma = (1 + 0.1 * torch.randn(K, generator=g)).to(d)
-    beta = (0.1 * torch.randn(K, generator=g)).to(d)
-    m = (torch.rand(1, S, S, generator=g) > 0.2).to(d) if masked else None
-    mp = None
-    if masked:
-        mp = torch.full((1, Sp, Sp), 7.0, dtype=d)       # padding of the mask: anything finite
-        mp[:, :S, :S] = m
-
-    zn = torch.nn.functional.layer_norm(z, (K,), gamma, beta, 1e-5)
-    gi = zn @ w["g_in.weight"].t() + bg
-    pi = zn @ w["p_in.weight"].t() + bp
-    a_ref = pi[..., :h] * torch.sigmoid(gi[..., :h])
-    b_ref = pi[..., h:] * torch.sigmoid(gi[..., h:])
-    if masked:
-        a_ref = a_ref * m[..., None]
-    pad = lambda t: torch.nn.functional.pad(t.permute(0, 3, 1, 2), (0, Sp - S, 0, Sp - S))  # noqa: E731
-    a_ref, b_ref = pad(a_ref), pad(b_ref)
-    go_ref = zn @ w["g_out.weight"].t() + bgo
-
-    wpT, wgT, wgo = TTL.t1_host_weights(w["g_in.weight"].t(), w["p_in.weight"].t(),
-                                        w["g_out.weight"].t())
-    W = _pages(torch.cat([wpT, wgT]))
-    WO = _pages(wgo)
-    BIAS = _pages(TTL.t1_bias_host(bp, bg, bgo, S).to(d))
-    assert len(BIAS) == TTL.t1_bias_ntiles(ct2, ntg)
-    gam = _pages(torch.nn.functional.pad(gamma[None], (0, 0, 0, 31)))
-    bet = _pages(torch.nn.functional.pad(beta[None], (0, 0, 0, 31)))
-    Z = _pages(zp)
-    M = _pages(mp) if masked else None
-    a_pages, b_pages, g_pages = {}, {}, {}
-
-    for c0, n in TTL.t1_split(St * St, 5):
-        for u in range(c0, c0 + n):
-            b, xt, yt = u // (St * St), (u // St) % St, u % St
-            xn = [None] * (32 * Kt)
-            for il in range(32):
-                xr = min(xt * 32 + il, S - 1)                                   # reader: re-read S - 1
-                tiles = [Z[((b * S + xr) * St + yt) * Kt + dt].clone() for dt in range(Kt)]
-                if yt == St - 1:
-                    for t in tiles:
-                        t[LAST:] = 0                                            # reader: zero y >= S
-                row = torch.cat(tiles, 1)
-                mu = row.mean(1, keepdim=True)
-                xc = row - mu
-                rstd = 1 / torch.sqrt((xc * xc).mean(1, keepdim=True) + 1e-5)
-                for dt in range(Kt):
-                    xn[dt * 32 + il] = xc[:, dt * 32:(dt + 1) * 32] * rstd * gam[dt][0:1] + bet[dt][0:1]
-            for il in range(32):
-                for nn in range(ntg):
-                    acc = BIAS[2 * ct2 + 1 + nn] + sum(xn[k * 32 + il] @ WO[k * ntg + nn] for k in range(Kt))
-                    if xt * 32 + il < S:                                        # writer: rows < S only
-                        g_pages[((b * S + xt * 32 + il) * St + yt) * ntg + nn] = acc
-            r0 = LAST if xt == St - 1 else 32
-            for q in range(ct2):
-                P = [BIAS[q] + sum(W[q * Kt + k] @ xn[k * 32 + il].t() for k in range(Kt)) for il in range(32)]
-                G = [torch.sigmoid(BIAS[ct2 + q] + sum(W[(ct2 + q) * Kt + k] @ xn[k * 32 + il].t()
-                                                       for k in range(Kt))) for il in range(32)]
-                out = []
-                for il in range(32):
-                    o = P[il] * G[il]
-                    if masked and q < ct:
-                        o = o * _mask_cut(_tile_to_faces(M[(b * St + xt) * St + yt]), il)[0:1]
-                    if yt == St - 1:
-                        o = o * BIAS[2 * ct2]                                   # compute: column mask
-                    out.append(_tile_to_faces(o if il < r0 else torch.zeros_like(o)))   # writer: zero row
-                for c in range(32):
-                    page = TTL.t1_ab_page(b, q, c, xt, yt, ct, St)
-                    (a_pages if q < ct else b_pages)[page] = _gather(out, c)
-
-    def unpages(pages, shape):
-        cols, R = shape[-1], 1
-        for s in shape[:-1]:
-            R *= s
-        full = torch.empty(R, cols, dtype=d)
-        nc = cols // 32
-        assert sorted(pages) == list(range(R // 32 * nc))
-        for p, t in pages.items():
-            full[(p // nc) * 32:(p // nc + 1) * 32, (p % nc) * 32:(p % nc + 1) * 32] = t
-        return full.reshape(shape)
-
-    a_dev, b_dev = unpages(a_pages, (1, h, Sp, Sp)), unpages(b_pages, (1, h, Sp, Sp))
-    assert torch.isfinite(a_dev).all() and torch.isfinite(b_dev).all()
-    assert torch.allclose(a_dev, a_ref, rtol=0, atol=1e-10)
-    assert torch.allclose(b_dev, b_ref, rtol=0, atol=1e-10)
-    assert torch.equal(a_dev[..., S:, :], torch.zeros_like(a_dev[..., S:, :]))   # exact zeros
-    assert torch.equal(a_dev[..., :, S:], torch.zeros_like(a_dev[..., :, S:]))
-    g_dev = unpages(g_pages, (1, S, Sp, cz))
-    assert torch.isfinite(g_dev).all()                         # padding rows y >= S: beta-row values
-    assert torch.allclose(g_dev[:, :, :S], go_ref, rtol=0, atol=1e-10)
-
-
-def test_ragged_kernel_lines_sit_behind_t1_s():
-    """Whole-tile S compiles exactly the old source: every T1_S line is behind `#ifdef T1_S` and the
-    old whole-tile reader / writer loops survive under its `#else`."""
-    for f in ("reader.cpp", "compute.cpp", "writer.cpp"):
-        src = (KDIR / f).read_text()
-        out, depth = [], 0
-        for line in src.splitlines():
-            s = line.strip()
-            if depth:
-                if s.startswith("#if"):
-                    depth += 1
-                elif s.startswith("#endif") or (s == "#else" and depth == 1):
-                    depth = 0 if s == "#else" else depth - 1
-                continue
-            if s == "#ifdef T1_S":
-                depth = 1
-                continue
-            out.append(line.split("//")[0])
-        assert not [ln for ln in out if re.search(r"T1_S\b|T1_ST|LAST|zero_cb|c_25|ylast|xr\b", ln)], f
-
-
-def test_ragged_cb_plan_adds_only_the_zero_row():
-    for mask in (False, True):
-        bf, f32 = TTL.t1_cb_plan(KT, CT2, NTG, mask)
-        bfr, f32r = TTL.t1_cb_plan(KT, CT2, NTG, mask, ragged=True)
-        assert bfr == bf + [(TTL.T1_CB_ZERO, 1)] and f32r == f32
-        assert TTL.t1_cb_bytes(KT, CT2, NTG, mask, ragged=True) == TTL.t1_cb_bytes(KT, CT2, NTG, mask) + 2048
