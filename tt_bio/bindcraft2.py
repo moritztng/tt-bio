@@ -2572,8 +2572,8 @@ _FAST_ROUND = (
     ("autograd", None, "SOFTMAX_BW_FP32", "TT_BIO_SOFTMAX_BW_FP32", False),
 )
 
-#: Rows graded on Blackhole only (qb2 p300c, `state/bcp-evo.md`). On Wormhole `fast_round` leaves
-#: them at the value it found until each has a float64 grade and a round on a Wormhole chip. The
+#: Rows graded on Blackhole only (qb2 p300c, `state/bcp-evo.md`). On Wormhole `fast_round` turns
+#: them off until each has a float64 grade and a round on a Wormhole chip. The
 #: other rows were graded there too: on three input seeds of the float64 stack grade they move
 #: dL/dlogits by no more than the seeds move each other (`perf/spd/bc2_stack_grade.py`). A named
 #: env var still wins. `PAIR_MM_FUSED` left this set once it had a Wormhole round of its own: over
@@ -2605,7 +2605,7 @@ def fast_round():
                 target = getattr(target, owner)
             saved.append((target, attr, getattr(target, attr)))
             if wormhole and attr in _BLACKHOLE_ONLY:
-                value = getattr(target, attr)
+                value = False
             setattr(target, attr, env_flag(env, value) if env else value)
         yield {attr: getattr(t, attr) for t, attr, _ in saved}
     finally:

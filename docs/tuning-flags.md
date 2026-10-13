@@ -18,7 +18,7 @@ move against the accuracy bar and the seed-to-seed spread.
 |---|---|---|---|
 | [`BOLTZ2_TOKEN_DIT_SDPA`](#boltz2_token_dit_sdpa) | on | Boltz-2 | moves, inside the 298-residue bar |
 | [`OF3_DIFFUSION_TRACE`](#of3_diffusion_trace) | on | OpenFold3, OpenBind-0 | identical |
-| [`TT_BIO_AF2_G_BIAS_IN_MATMUL`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2, Blackhole | gradients only |
+| [`TT_BIO_AF2_G_BIAS_IN_MATMUL`](#bindcraft-2-round-kernels) | on; off in a BindCraft 2 round on Wormhole | AF2-IG, BindCraft 2 on Blackhole | within 0.12 A |
 | [`TT_BIO_AF2_OPM_ROWS_IN_K`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2 | moves the forward, closer to float64 |
 | [`TT_BIO_ATOM_AXIS_BUCKET`](#tt_bio_atom_axis_bucket) | on | | identical at 298 residues, not guaranteed at 512 |
 | [`TT_BIO_ATOM_SHIFT_GATHER`](#tt_bio_atom_shift_gather) | on | | identical |
@@ -106,8 +106,9 @@ workers are not flags of ours; they are covered at the end, under
 
 ## BindCraft 2 round kernels
 
-Default: on inside a BindCraft 2 round, off elsewhere. `TT_BIO_AF2_G_BIAS_IN_MATMUL` is on in the
-round on Blackhole only.
+Default: on inside a BindCraft 2 round, off elsewhere. `TT_BIO_AF2_G_BIAS_IN_MATMUL` is the exception: it is
+on for every AF2 fold (AF2-IG on Wormhole 4.26 -> 4.16 s per complex, structures within 0.12 A), and a round
+keeps it on Blackhole and turns it off on Wormhole.
 
 Kernels that delete DRAM round trips from the AlphaFold 2 Evoformer's gradient. Each is armed by
 `bindcraft2.predictor(exact=False)` through `fast_round`, alongside
