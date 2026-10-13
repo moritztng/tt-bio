@@ -45,6 +45,26 @@ def run(wt, bt, ref, name, pc=None):
         print(json.dumps({"arm": name, "err": str(e).splitlines()[0][:200]}), flush=True)
 
 
+def run_chunks(wc, bc, refc, name, pc):
+    f = lambda: [ttnn.linear(xt, a, bias=c, compute_kernel_config=ckc, program_config=pc) for a, c in zip(wc, bc)]
+    try:
+        for _ in range(3):
+            [ttnn.deallocate(o) for o in f()]
+        ttnn.synchronize_device(dev)
+        ts = []
+        for _ in range(20):
+            t0 = time.perf_counter(); os_ = f(); ttnn.synchronize_device(dev); ts.append(time.perf_counter() - t0)
+            [ttnn.deallocate(o) for o in os_]
+        rel = 0.0
+        for o, r in zip(f(), refc):
+            o = ttnn.to_torch(o).reshape(r.shape).double()
+            assert torch.isfinite(o).all()
+            rel = max(rel, float((o - r).pow(2).mean().sqrt() / r.pow(2).mean().sqrt()))
+        print(json.dumps({"arm": name, "ms": round(sorted(ts)[10] * 1e3, 3), "rel_rms": round(rel, 5)}), flush=True)
+    except Exception as e:
+        print(json.dumps({"arm": name, "err": str(e).splitlines()[0][:200]}), flush=True)
+
+
 for wname, wdt in (("bf16", ttnn.bfloat16), ("bfp8", ttnn.bfloat8_b)):
     wt, bt = up(w, wdt), up(b.reshape(1, N), wdt)
     wq = ttnn.to_torch(ttnn.typecast(wt, ttnn.bfloat16)).reshape(K, N).double() if wdt != ttnn.bfloat16 else w.double()
@@ -52,22 +72,20 @@ for wname, wdt in (("bf16", ttnn.bfloat16), ("bfp8", ttnn.bfloat8_b)):
     ref = x.reshape(M, K).double() @ wq + bq
     run(wt, bt, ref, f"{wname}/default")
     cores = grid.x * grid.y
-    nt = N // 32
-    for ib in (2, 4, 8):
-        pn = -(-nt // cores)
-        for sub in (1, 2, 4):
-            if pn % sub:
-                continue
-            pc = ttnn.MatmulMultiCoreReuseMultiCast1DProgramConfig(
-                compute_with_storage_grid_size=grid, in0_block_w=ib, out_subblock_h=1, out_subblock_w=sub,
-                per_core_M=M // 32, per_core_N=pn, fuse_batch=True, fused_activation=None, mcast_in0=True)
-            run(wt, bt, ref, f"{wname}/1d ib{ib} pn{pn} sw{sub}", pc)
-    for ib in (2, 4):
-        pm, pn = -(-(M // 32) // grid.y), -(-nt // grid.x)
-        for sub in (1, 2, 4):
-            if pn % sub or sub * 1 > 8:
-                continue
-            pc = ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(
-                compute_with_storage_grid_size=grid, in0_block_w=ib, out_subblock_h=1, out_subblock_w=sub,
-                per_core_M=pm, per_core_N=pn, transpose_mcast=False, fused_activation=None)
-            run(wt, bt, ref, f"{wname}/2d ib{ib} pm{pm} pn{pn} sw{sub}", pc)
+    # The full-N output is ~512 KB per core, so every explicit config clashes in L1 (cmm 10-13). The fold slices
+    # the output per layer anyway: time the same product as C column chunks (no concat), each its own linear.
+    for C in (2, 4, 8):
+        nc = N // C
+        wc = [up(w[:, i * nc:(i + 1) * nc], wdt) for i in range(C)]
+        bc = [up(b[i * nc:(i + 1) * nc].reshape(1, nc), wdt) for i in range(C)]
+        refc = [ref[:, i * nc:(i + 1) * nc] for i in range(C)]
+        pn = -(-(nc // 32) // cores)
+        cfgs = [("default", None)]
+        for ib in (2, 4, 8):
+            for sub in (1, 2, 4):
+                if pn % sub == 0:
+                    cfgs.append((f"1d ib{ib} pn{pn} sw{sub}", ttnn.MatmulMultiCoreReuseMultiCast1DProgramConfig(
+                        compute_with_storage_grid_size=grid, in0_block_w=ib, out_subblock_h=1, out_subblock_w=sub,
+                        per_core_M=M // 32, per_core_N=pn, fuse_batch=True, fused_activation=None, mcast_in0=True)))
+        for name, pc in cfgs:
+            run_chunks(wc, bc, refc, f"{wname}/C{C} {name}", pc)
