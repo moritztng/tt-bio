@@ -9967,26 +9967,29 @@ class TriangleMultiplication(Module):
                         gated = True
                         tail_mc = out_mc = memory_config
                     else:
+                        # `_TRIMUL_INPROJ_B8`: the projection is written in bfp8 for the gated
+                        # move to read as is. Asked only where that move can take it (the
+                        # dtype-independent half of `gated` below); a decline casts back. The
+                        # fused in-proj + g_out call writes both destinations in it, so the tail
+                        # gate reads a bfp8 g_out too.
+                        b8 = ((_TRIMUL_INPROJ_B8 or lever("trimul_b8in")) and not row_norm and bias_i is None
+                              and not _FAST_MODE and not _TRIMUL_RAW_CHANNEL_MOVES
+                              and (self.gated_move or _TRIMUL_MASK_AFTER_MOVE)
+                              and (mask is None or mask_moved_ok)
+                              and memory_config.buffer_type == ttnn.BufferType.DRAM)
                         gp_in_fused = None
                         if fuse_gout and bias_i is None and n_pairs // group == 1:
                             pair = _in_proj_matmul(
                                 x_norm_in, self._gp_in_gout(chunk_size, group),
                                 self.compute_kernel_config, memory_config, None,
                                 split=(int(gp_in_chunks[i].shape[-1]),
-                                       int(self.g_out_weight.shape[-1])))
+                                       int(self.g_out_weight.shape[-1])),
+                                dtype=ttnn.bfloat8_b if b8 else None)
                             if pair is None:
                                 fuse_gout = False
                             else:
                                 gp_in_fused, g_out_fused = pair
                         if gp_in_fused is None:
-                            # `_TRIMUL_INPROJ_B8`: the projection is written in bfp8 for the gated
-                            # move to read as is. Asked only where that move can take it (the
-                            # dtype-independent half of `gated` below); a decline casts back.
-                            b8 = ((_TRIMUL_INPROJ_B8 or lever("trimul_b8in")) and not row_norm and bias_i is None
-                                  and not _FAST_MODE and not _TRIMUL_RAW_CHANNEL_MOVES
-                                  and (self.gated_move or _TRIMUL_MASK_AFTER_MOVE)
-                                  and (mask is None or mask_moved_ok)
-                                  and memory_config.buffer_type == ttnn.BufferType.DRAM)
                             gp_in_fused = (
                                 self._in_proj_rows(x_in, gp_in_chunks[i], H, batch, memory_config,
                                                    bias_i)
