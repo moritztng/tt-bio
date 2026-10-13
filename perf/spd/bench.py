@@ -89,6 +89,30 @@ def _latches():
             if any(v for f, v in r.items() if f != "why")}
 
 
+def _kernel_reach():
+    """Which `generic_op` kernels served and which declined, per run.
+
+    A fused kernel that silently declines every call reads in an A/B as a lever worth nothing,
+    and the two cases are indistinguishable from the seconds alone. `taped_ttnn.KERNEL_STATS`
+    is `[served, declined]` per tape entry and `mm_dualnoc.STATS` is the same pair for the
+    in-projection's own gate, so an arm that fired nothing says so in its own record.
+    """
+    out = {}
+    tk = sys.modules.get("tt_bio.taped_ttnn")
+    for name, c in (getattr(tk, "KERNEL_STATS", {}) or {}).items():
+        if any(c):
+            out[f"taped:{name}"] = list(c)
+    dn = sys.modules.get("tt_bio.mm_dualnoc")
+    if dn is not None and any(getattr(dn, "STATS", [0, 0])):
+        out["mm_dualnoc"] = list(dn.STATS)
+        rj = {}
+        for (reason, _shape), n in (getattr(dn, "REJECTS", {}) or {}).items():
+            rj[reason] = rj.get(reason, 0) + n
+        if rj:
+            out["mm_dualnoc_rejects"] = rj
+    return out
+
+
 def parse_arm(spec):
     parts = spec.split(":")
     env, fast, lv = {}, False, None
@@ -234,7 +258,7 @@ if a.model == "bindcraft2":
             fold_s=tr.get("design_s"), aiclk=clock(tr["t0"], tr["t0"] + (tr.get("design_s") or 0), nodes),
             aiclk_traj=clock(tr["t0"], t_end, nodes), nodes=nodes, terminated=row.get("terminated") or None,
             finite=bool(row) and tr.get("err") is None, accepted_total=acc, csv_row=row,
-            err=tr.get("err"), **HEAD)
+            kernels=_kernel_reach(), err=tr.get("err"), **HEAD)
 
     def design(*args, **kw):
         if traj:
@@ -490,6 +514,6 @@ for name, y in INPUTS:
             metrics={k: metrics.get(k) for k in ("plddt", "ptm", "iptm", "msa_depth", "n_tokens", "confidence_score")
                      if k in metrics},
             samples_conf=[{k: v for k, v in r.items() if not isinstance(v, dict)} for r in metrics.get("all_runs", [])],
-            struct_dir=str(sdir), latches=_latches(), **HEAD)
+            struct_dir=str(sdir), latches=_latches(), kernels=_kernel_reach(), **HEAD)
 log(ev="end")
 os._exit(0)
