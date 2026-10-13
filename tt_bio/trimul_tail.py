@@ -1246,6 +1246,13 @@ T1_KEYS = {(4, 8, 4)}             # (kt, ct2, ntg): c_z 128, hidden 128, g_out 1
 T1_RB = 8                         # z row tiles per reader barrier
 T1_SBW = 4                        # DST tiles per matmul block (half-sync fp32 DST holds 4)
 T1_ABL = 0                        # bench-only stage-skip bits (kernels/trimul_in_t1 ABL); 0 = the real T1
+# Row tiles per work item: 32 = one unit (b, xt, yt) per item; 16 = each unit as two items, rows 0-15 and
+# 16-31, which are faces 0-1 and 2-3 of every [B, C, S, S] tile the writer gathers, so the two halves
+# write disjoint bytes. Every row is computed exactly as in the whole unit (same LN, same K order).
+# The point is balance: at 512 tokens 256 units on 110 cores is 3 rounds for 36 cores and 2 for the
+# rest (78 %), and T1 is compute-bound (t1abl2-512: 2.08 of 2.18 ms with every DRAM stage skipped);
+# 512 halves is 5 rounds against 4.65 (93 %). A/B knob, 32 = production.
+T1_ROWS = 32
 BF16_TILE, FP32_TILE = 2048, 4096
 
 
@@ -1377,7 +1384,9 @@ def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps):
     core_grid = ttnn.CoreRangeSet(
         [ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(gx - 1, gy - 1))])
     rd, wr, cp = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
-    for c, (u0, n) in enumerate(t1_split(B * St * St, gx * gy)):
+    R = T1_ROWS
+    assert R in (16, 32), R
+    for c, (u0, n) in enumerate(t1_split(B * St * St * (32 // R), gx * gy)):
         cx, cy = c % gx, c // gx
         rd[cx][cy] = [u0, n]
         wr[cx][cy] = [u0, n]
@@ -1393,17 +1402,17 @@ def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps):
     reader = ttnn.KernelDescriptor(
         kernel_source=str(d / "reader.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[kt, ct2, St, int(mask is not None), ntg, T1_RB, (inv << 16) | inv,
-                           eps_bits]
+                           eps_bits, R]
         + acc(x) + acc(wpT) + acc(wgT) + acc(wgo) + acc(ln_w) + acc(ln_b) + acc(m),
         defines=abl, runtime_args=rd, common_runtime_args=[0] * 7, config=ttnn.ReaderConfigDescriptor())
     writer = ttnn.KernelDescriptor(
         kernel_source=str(d / "writer.cpp"), source_type=src, core_ranges=core_grid,
-        compile_time_args=[ct2, St, GIN_MOVE_NB, ntg] + acc(outs[0]) + acc(outs[1]) + acc(outs[2]),
+        compile_time_args=[ct2, St, GIN_MOVE_NB, ntg, R] + acc(outs[0]) + acc(outs[1]) + acc(outs[2]),
         defines=abl, runtime_args=wr, common_runtime_args=[0] * 3, config=ttnn.WriterConfigDescriptor())
     fid, approx, _, full = ckc
     compute = ttnn.KernelDescriptor(
         kernel_source=str(d / "compute.cpp"), source_type=src, core_ranges=core_grid,
-        compile_time_args=[kt, ct2, T1_SBW, int(mask is not None), int(SIGPOLY), RNE, ntg],
+        compile_time_args=[kt, ct2, T1_SBW, int(mask is not None), int(SIGPOLY), RNE, ntg, R],
         defines=abl, runtime_args=cp,
         # fp32 DEST always, as T2: the LayerNorm statistics live in fp32 CBs. The fidelity stays
         # the caller's, so the projections run as the incumbent in-projection runs them.
@@ -1443,7 +1452,7 @@ def fused_in_ln(x, ln_w, ln_b, wpT, wgT, wgo, ckc, grid, mask=None, eps=1e-5):
     outs = [alloc([B, C, S, S]), alloc([B, C, S, S]), alloc(shp[:-1] + [int(wgo.shape[-1])])]
     key = ("t1", str(x.padded_shape), str(wpT.padded_shape), str(wgo.padded_shape), tuple(grid),
            tuple(str(c) for c in ckc), mask is not None, float(eps), SIGPOLY, RNE, GIN_MOVE_NB,
-           T1_RB, T1_SBW, T1_ABL)
+           T1_RB, T1_SBW, T1_ABL, T1_ROWS)
     entry = _CACHE.get(key)
     if entry is None:
         entry = _CACHE[key] = _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps)
