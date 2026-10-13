@@ -271,7 +271,7 @@ def _build(x, out, device, reader_ct, writer_ct):
         )
 
     # c_16 depth MUST be a multiple of the 32-tile group or the writer's L1 window wraps mid-group.
-    cbs = [cb(IN_CB, 2), cb(OUT_CB, GROUP_TILES * 2), cb(STAGE_CB, 2)]
+    cbs = [cb(IN_CB, 2 * reader_ct[0]), cb(OUT_CB, GROUP_TILES * 2), cb(STAGE_CB, 2)]
 
     reader_rt, compute_rt, writer_rt = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
     # `first` is this core's linear index, `block` the start of its contiguous run of groups. Both
@@ -334,8 +334,12 @@ def _build(x, out, device, reader_ct, writer_ct):
     return {"pd": pd, "kernels": [reader, writer, compute], "cbs": cbs, "core_grid": core_grid}
 
 
+# Forward reader: input tiles issued per DRAM read barrier (a divisor of 32; 1 is the old serial read).
+READ_BATCH = int(os.environ.get("TT_BIO_REBLOCK_READ_BATCH", "8"))
+
+
 def _prepare(x, out, device):
-    reader_ct = list(ttnn.TensorAccessorArgs(x).get_compile_time_args())
+    reader_ct = [READ_BATCH] + list(ttnn.TensorAccessorArgs(x).get_compile_time_args())
     writer_ct = [_elem(), OUT_CB, TILE_H, TILE_W, FACE_H, FACE_W, STAGE_CB]
     writer_ct.extend(ttnn.TensorAccessorArgs(out).get_compile_time_args())
     key = _cache_key(x, out, device, reader_ct, writer_ct)

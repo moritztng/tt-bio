@@ -58,10 +58,6 @@ void kernel_main() {
     // tile padding. Reading a real page for the padding rows keeps the group a fixed 32 pushes --
     // the CB accounting, the compute kernel and the writer's 32-tile L1 window all depend on that --
     // and the writer overwrites those rows with zeros, so the value read is never used.
-    //
-    // The valid rows and the padding rows are two separate loops rather than one loop with a
-    // per-row test: the same-shaped conditional in the writer's gather loop measured 10.7 us on a
-    // 97 us op, and the page index is an induction variable (+Nt*Ct per row) once the test is gone.
     const uint32_t D1 = (GQ_ON ? (get_compile_time_arg_val(GQ + 9)) : get_arg_val<uint32_t>(3));
     const uint32_t Ct = (GQ_ON ? (get_compile_time_arg_val(GQ + 10)) : get_arg_val<uint32_t>(4));
     // The group walk is (first, stride, wrap), not (start, +1), and that is a bandwidth decision.
@@ -86,12 +82,14 @@ void kernel_main() {
     constexpr uint32_t cb_id_in = 0;  // c_0
     constexpr uint32_t TILE_HEIGHT = 32;
 
-    constexpr auto src_args = TensorAccessorArgs<0 + 12>();
+    // Tiles read per barrier, a divisor of 32. One barrier per tile serialised every DRAM round trip
+    // of the group (the back leg's reader already issues its 32 before one barrier).
+    constexpr uint32_t RB = get_compile_time_arg_val(12);
+    constexpr auto src_args = TensorAccessorArgs<0 + 13>();
 
 
     const auto s = TensorAccessor(src_args, src_addr);
 
-    constexpr uint32_t onetile = 1;
     const uint32_t row_stride = Nt * Ct;
     uint32_t group = first_group;
     for (uint32_t gi = 0; gi < num_groups; ++gi) {
@@ -105,23 +103,21 @@ void kernel_main() {
         const uint32_t first_page = (row_base * Nt + jt) * Ct;
         const uint32_t pad_page = jt * Ct;  // row 0 of this tile column; always valid
 
+        // Rows at or above rows_valid are tile padding: they read row 0 of the tile column, which is
+        // always valid, so the group stays a fixed 32 pushes. The writer zeroes those rows.
+        const uint32_t tile_bytes = get_tile_size(cb_id_in);
         for (uint32_t ct = ct0; ct < ct0 + Ctu; ++ct) {
             uint32_t page = first_page + ct;
-            for (uint32_t il = 0; il < rows_valid; ++il) {
-                cb_reserve_back(cb_id_in, onetile);
-                noc_async_read_page(page, s, get_write_ptr(cb_id_in));
+            for (uint32_t il0 = 0; il0 < TILE_HEIGHT; il0 += RB) {
+                cb_reserve_back(cb_id_in, RB);
+                uint32_t dst = get_write_ptr(cb_id_in);
+                for (uint32_t il = il0; il < il0 + RB; ++il) {
+                    noc_async_read_page(il < rows_valid ? page : pad_page + ct, s, dst);
+                    page += row_stride;
+                    dst += tile_bytes;
+                }
                 noc_async_read_barrier();
-                cb_push_back(cb_id_in, onetile);
-                page += row_stride;
-            }
-            // Tile padding: keep the group at a fixed 32 pushes. The writer zeroes these rows, so
-            // the value read is never used.
-            const uint32_t pad = pad_page + ct;
-            for (uint32_t il = rows_valid; il < TILE_HEIGHT; ++il) {
-                cb_reserve_back(cb_id_in, onetile);
-                noc_async_read_page(pad, s, get_write_ptr(cb_id_in));
-                noc_async_read_barrier();
-                cb_push_back(cb_id_in, onetile);
+                cb_push_back(cb_id_in, RB);
             }
         }
 
