@@ -194,13 +194,6 @@ def failures(d: Path, waived: dict | None = None) -> tuple[list[str], list[str]]
     return sorted(drift), other
 
 
-def drift_models(d: Path, gates: Path | None = None, repo: Path = REPO, ref: str = "origin/main") -> list[str]:
-    """The ladder models to re-record when they (and waived legs) are the gate's only failures,
-    or [] if anything else failed."""
-    drift, other = failures(d, waivers(d, gates, repo, ref))
-    return [] if other else drift
-
-
 def record_run(gates: Path | None, sha: str) -> tuple[str, Path | None]:
     """('none'|'running'|'pass'|'fail', dir) of the train's record run on `sha` (<gates>/rec-<sha9>)."""
     d = gates / f"rec-{sha[:9]}" if gates else None
@@ -370,17 +363,24 @@ def decide(repo: Path = REPO, gates: Path | None = None, ref: str = "origin/main
     if state == "fail" and passed(gates, d, gsha := json.loads((d / "plan.json").read_text())["sha"], repo, ref) == d:
         return {**out, "do": "CUT", "sha": gsha, "gate": str(d), "records": "", "waived": waivers(d, gates, repo, ref),
                 "why": f"gate passed on every arch but for waived legs: {d}/VERDICT.md"}
-    if state == "fail" and (models := drift_models(d, gates, repo, ref)):
+    models, other = failures(d, waivers(d, gates, repo, ref)) if state == "fail" else ([], [])
+    # The record run need not wait for a rerun of a ladder leg the card failed: when that leg's
+    # model drifted on another arch it is in the record set already, so the set is final and the
+    # two run side by side (gate 8b2f8acaa queued ~4 h of records behind a 2.5 h BH rerun). The
+    # cut still waits for every non-drift failure to pass.
+    if models and all(o.startswith("ladder:") and o.split()[0][7:].split("@")[0] in models for o in other):
         rstate, rd = record_run(gates, gsha)
-        if rstate == "pass":
+        if rstate == "pass" and not other:
             return {**out, "do": "CUT", "sha": gsha, "gate": str(d), "records": str(rd),
                     "why": f"gate failed only on size-ladder drift, re-recorded in {rd}"}
-        if rstate != "fail":
+        if rstate == "none" or (rstate == "running" and not other):
             do = {"none": "RECORD", "running": "WAIT"}[rstate]
             return {**out, "do": do, "sha": gsha, "gate": str(d), "models": models,
                     "why": f"gate failed only on size-ladder drift ({', '.join(models)}): "
-                           + ("re-record them" if do == "RECORD" else f"record run in {rd}")}
-        why += f"; the record run {rd} failed too"
+                           + ("re-record them" if do == "RECORD" else f"record run in {rd}")
+                           + (f"; {', '.join(other)} must pass before the cut" if other else "")}
+        why += {"fail": f"; the record run {rd} failed too", "running": f"; record run in {rd}",
+                "pass": f"; re-recorded in {rd}"}[rstate]
     if state == "fail":
         res = json.loads((d / "verdict.json").read_text()).get("results", [])
         if owed := sorted({f for r in res if r.get("verdict") == "OWED" for f in r.get("owed", [])}):
@@ -393,11 +393,10 @@ def decide(repo: Path = REPO, gates: Path | None = None, ref: str = "origin/main
     if state == "fail":
         # The FIX line is the work order (flow_watch relays it): which legs, and where a fix goes. A
         # fixed-forward candidate's fixes go in its base gate's FIXES, not in the candidate's own dir.
-        drift, other = failures(d, waivers(d, gates, repo, ref))
         fd = Path(out["fixes"]["gate"]) if out.get("fixes") else d
         if other:
             why += f"; failed: {', '.join(other)}" + (
-                f" (ladder drift on {', '.join(drift)} is re-recorded by the train)" if drift else "")
+                f" (ladder drift on {', '.join(models)} is re-recorded by the train)" if models else "")
         why += f"; fix forward: append each fix commit to {fd}/FIXES" + ("" if out.get("fixes") else (
             f" (main's head is gated instead {FIX_HOLD_S // 3600} h after this verdict if none are listed)"))
         why += f"; a failure that is not a regression goes in {fd}/WAIVE as `<leg> <arch>  # why`"

@@ -161,6 +161,38 @@ def test_a_gate_failing_only_on_ladder_drift_is_re_recorded_then_cut(tmp_path):
     assert (d["do"], d["sha"], d["records"]) == ("CUT", head, str(r))
 
 
+def test_a_card_failed_ladder_leg_of_a_drifted_model_records_alongside_its_rerun(tmp_path, monkeypatch):
+    git = _repo(tmp_path)
+    (tmp_path / "a.py").write_text("x = 2\n")
+    git("commit", "-qam", "staging")
+    head = git("rev-parse", "main")
+    gates = tmp_path / "gates"
+    g = _plan(gates, f"rel-{head[:9]}", head, tmp_path)
+    (g / "drift.log").write_text("    FAIL m/512 SDPA: frac 0.000 -> 1.000 (started firing)\n"
+                                 "GATE FAIL — size-ladder drift vs the recorded baseline\n")
+    (g / "hang.log").write_text("fold timed out\n")
+
+    def verdict(*extra):
+        (g / "verdict.json").write_text(json.dumps({"pass": False, "results": [
+            {"leg": "ladder:m", "arch": "wh", "verdict": "FAIL", "log": str(g / "drift.log")},
+            {"leg": "ladder:m", "arch": "bh", "verdict": "FAIL", "log": str(g / "hang.log"), "key": "k"},
+            *extra]}))
+    verdict({"leg": "parity:m", "arch": "bh", "verdict": "FAIL"})
+    monkeypatch.setattr(rn, "LEDGER", tmp_path / "none")
+    assert rn.decide(tmp_path, gates, "main")["do"] == "FIX"          # a non-ladder failure: no record
+    verdict()
+    d = rn.decide(tmp_path, gates, "main")
+    assert (d["do"], d["models"]) == ("RECORD", ["m"]) and "ladder:m bh must pass" in d["why"]
+    r = _plan(gates, f"rec-{head[:9]}", head, tmp_path, partial=True)
+    (r / "verdict.json").write_text(json.dumps({"pass": True}))
+    assert rn.decide(tmp_path, gates, "main")["do"] == "FIX"          # recorded, but the bh leg is owed
+    monkeypatch.setattr(rn, "LEDGER", tmp_path / "ledger")
+    rn.LEDGER.mkdir()
+    (rn.LEDGER / "k.json").write_text("{}")                           # the rerun passed
+    d = rn.decide(tmp_path, gates, "main")
+    assert (d["do"], d["sha"], d["records"]) == ("CUT", head, str(r))
+
+
 def test_a_failed_gate_is_fixed_forward_from_its_fixes_not_regated_at_head(tmp_path):
     git = _repo(tmp_path)
     (tmp_path / "a.py").write_text("x = 2\n")
