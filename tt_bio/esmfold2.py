@@ -1068,6 +1068,22 @@ class DiffusionModuleModel(Module):
                 except Exception:
                     pass
         self._ctx = {}
+        # The per-layer step caches are keyed on the identity of tensors freed above, so nothing can
+        # hit them again. Freed here rather than when the next fold rebuilds them: left in place, the
+        # token DiT's 12 pair biases alone ([1, 16, L, L], 384 MiB at 1024 tokens) sat through the
+        # next fold's language model and trunk, and a warm 1024-token ESMFold2-Fast fold on a
+        # Wormhole chip ran out of DRAM where the cold one fit.
+        owners = ([(m, "_pb", "_pb_src") for m in self.token_transformer.attn]
+                  + [(b, "_mod", "_mod_src") for b in
+                     self.atom_encoder.transformer.blocks + self.atom_decoder.transformer.blocks]
+                  + [(self.atom_encoder, "_c", "_c_src")])
+        for owner, cache, src in owners:
+            held = getattr(owner, cache)
+            for t in held if isinstance(held, tuple) else (held,):
+                if t is not None and t.is_allocated():
+                    ttnn.deallocate(t)
+            setattr(owner, cache, None)
+            setattr(owner, src, None)
 
 
 class DiffusionModule(TorchWrapper):
