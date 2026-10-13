@@ -678,9 +678,10 @@ UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "di
 # Blackhole, 44 paired folds): fast PASS, normal FAIL on CA-lDDT -0.0002 [-0.0003, -0.0000] against an A/A floor
 # of 0.0010; same-seed top pose median 0.171 A vs the 0.60 A bar, docking 26 -> 26 of 44. OpenFold3 normal grade
 # PASS (top pose median 0.227 A). Saves ~0.3 s of the 512-token fold on p150a (spd-gap-of3, 2026-10-12).
-# trimul_t1 / trimul_t2 are graded on OpenFold3 / OpenBind-0 (their own FAST_LEVERS) and Nesso-1, trimul_t1_dram on
-# Nesso-1 only, and adaln_mod on Boltz-2 fast only (Boltz-2 LEVERS_FAST), so the shared set leaves them out until a
-# grade on the other models puts them in.
+# trimul_t1, trimul_t2 and adaln_mod join the shared set on the Protenix-v1 Wormhole 11-set fast grade against it
+# without them, 44 paired folds: PASS, same-seed top pose median 0.900 A (seed floor 2.190 A), CA-lDDT +0.0006
+# [-0.0010, +0.0023], docking 24 -> 24/44 (spd-fastmode gv1, AICLK 1000). Protenix-v2 and OpenDDE fold bit-identical
+# with and without them (spd-fastmode t12x). trimul_t1_dram stays Nesso-1 only.
 # transition_ws is fast-only. Wormhole 11-set fast grade, each model's fast set vs the same set + transition_ws,
 # same chip, 44 paired folds (spd-integrate gtw, 2026-10-12), PASS on all six; same-seed top pose median against
 # the A/A seed floor: Protenix-v2 0.32 / 1.24 A, OpenFold3 0.61 / 0.81, Boltz-2 1.33 / 1.88, OpenDDE 0.54 / 1.47,
@@ -690,8 +691,7 @@ UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "di
 # (bf16 weights over its L1 budget), so its fold is unchanged there. Warm 512-token fold on a Galaxy chip (1000 MHz):
 # ESMFold2 -22.1 s, ESMFold2-Fast -11.3, OpenDDE -5.5, Protenix-v2 -2.8, OpenFold3 -1.5, Boltz-2 -1.1 s.
 # OpenFold3 / OpenBind-0 take it through their own FAST_LEVERS (openfold3_fold.py), Blackhole fast grade PASS.
-FAST_LEVERS = (frozenset(LEVERS) - {"lofi", "triatt_b8", "triatt_bias_b8", "trimul_t1", "trimul_t2", "adaln_mod",
-                                    "trimul_t1_dram", "trimul_t2g"}
+FAST_LEVERS = (frozenset(LEVERS) - {"lofi", "triatt_b8", "triatt_bias_b8", "trimul_t1_dram", "trimul_t2g"}
                - UNGRADED_LEVERS)
 # trimul_ibw + trimul_tail: Wormhole 11-set grade PASS, 44 paired folds, same-seed top pose median
 # 0.204 A against the 0.60 A bar (A/A seed floor 0.807 A), every paired CI covers 0 or sits on the
