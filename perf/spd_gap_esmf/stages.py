@@ -5,7 +5,8 @@ Builds the fold through tt_baseline.build_fold (as ab.py), runs one cold fold, t
   plain    one fold, nothing wrapped (the reference wall);
   stages   one fold with every stage below wrapped in synchronize_device on both sides, so each stage's
            wall is its own device time plus its own host dispatch, and the sum against the plain wall
-           says how much of the fold is in none of them (host-side glue between stages);
+           says how much of the fold is in none of them (host-side glue between stages); host_s is the time
+           until the stage's Python returns, before the closing sync (host_s ~ s: dispatch-bound);
   profile  one fold under cProfile, no syncs, top functions by tottime / cumtime into --out.prof.txt.
   xfer     one fold with ttnn.from_torch / to_torch timed per call site (first tt_bio frame), no syncs: which
            uploads and downloads the host blocks on (cProfile only sees ttnn's decorator as their caller).
@@ -23,6 +24,7 @@ ap.add_argument("--model", default="esmfold2", choices=("esmfold2", "esmfold2-fa
 ap.add_argument("--fast", action="store_true")
 ap.add_argument("--size", type=int, default=512)
 ap.add_argument("--out", type=Path, required=True)
+ap.add_argument("--cold-stages", action="store_true", help="split the cold fold by stage too (WH: warm reads slower than cold)")
 a = ap.parse_args()
 
 import ttnn
@@ -57,7 +59,7 @@ STAGES = [
     (E.DistogramHeadModel, "forward", "distogram"),
     (E.RelPosEncoding, "forward", "relpos"),
 ]
-acc = collections.defaultdict(float); cnt = collections.Counter(); depth = [0]
+acc = collections.defaultdict(float); host = collections.defaultdict(float); cnt = collections.Counter(); depth = [0]
 dev = T.get_device()
 
 
@@ -75,25 +77,34 @@ def wrap(owner, attr, label):
         try:
             return fn(self, *x, **kw)
         finally:
+            host[lab] += time.perf_counter() - t0  # enqueue done: near the stage wall = host-bound
             ttnn.synchronize_device(dev); depth[0] -= 1
             acc[lab] += time.perf_counter() - t0; cnt[lab] += 1
     setattr(owner, attr, timed)
     return fn
 
 
-one_fold()  # cold
+def staged(tag):
+    acc.clear(); host.clear(); cnt.clear()
+    orig = [(o, at, wrap(o, at, lab)) for o, at, lab in STAGES]
+    t0 = time.perf_counter(); s, _ = one_fold(); res[f"{tag}_s"] = round(time.perf_counter() - t0, 3)
+    res[tag] = {k: {"s": round(v, 3), "host_s": round(host[k], 3), "n": cnt[k]}
+                for k, v in sorted(acc.items(), key=lambda kv: -kv[1])}
+    res[f"un{tag}_s"] = round(res[f"{tag}_s"] - sum(acc.values()), 3)
+    for o, at, fn in orig:
+        setattr(o, at, fn)
+    print(json.dumps({k: res[k] for k in (f"{tag}_s", tag, f"un{tag}_s")}, indent=1), flush=True)
+    a.out.write_text(json.dumps(res, indent=1))
+
+
+if a.cold_stages:
+    staged("cold_stages")
+else:
+    one_fold()  # cold
 t0 = time.perf_counter(); s, m = one_fold(); res["plain_s"] = round(time.perf_counter() - t0, 3)
 res["plain_fold_s"] = round(s, 3); res["plddt"] = m.get("plddt")
 print("plain", res["plain_s"], flush=True)
-
-orig = [(o, at, wrap(o, at, lab)) for o, at, lab in STAGES]
-t0 = time.perf_counter(); s, _ = one_fold(); res["stages_s"] = round(time.perf_counter() - t0, 3)
-res["stages"] = {k: {"s": round(v, 3), "n": cnt[k]} for k, v in sorted(acc.items(), key=lambda kv: -kv[1])}
-res["unstaged_s"] = round(res["stages_s"] - sum(acc.values()), 3)
-for o, at, fn in orig:
-    setattr(o, at, fn)
-print(json.dumps(res, indent=1), flush=True)
-a.out.write_text(json.dumps(res, indent=1))
+staged("stages")
 
 pr = cProfile.Profile()
 t0 = time.perf_counter(); pr.enable(); one_fold(); pr.disable(); res["profile_s"] = round(time.perf_counter() - t0, 3)
@@ -107,14 +118,20 @@ a.out.write_text(json.dumps(res, indent=1))
 xfer = collections.defaultdict(lambda: [0, 0.0, 0])  # site -> [calls, s, bytes]
 
 
+_WRAPPERS = ("_from_torch", "_to_torch", "upload", "download", "_to_host")
+
+
 def _site():
-    f = sys._getframe(2)
+    """First tt_bio frame; through a generic upload/download wrapper, also the frame that called it."""
+    f, out = sys._getframe(2), []
     while f is not None:
         fn = f.f_code.co_filename
         if "/tt_bio/" in fn and "/ttnn/" not in fn:
-            return f"{fn.split('/tt_bio/')[-1]}:{f.f_lineno}({f.f_code.co_name})"
+            out.append(f"{fn.split('/tt_bio/')[-1]}:{f.f_lineno}({f.f_code.co_name})")
+            if f.f_code.co_name not in _WRAPPERS or len(out) == 2:
+                return " <- ".join(out)
         f = f.f_back
-    return "?"
+    return " <- ".join(out) or "?"
 
 
 def _timed(name, fn):

@@ -7781,6 +7781,7 @@ def trace_region_bytes(capture):
 DEVICE_TILIZE_MIN = 4 << 20
 DEVICE_TILIZE_MAX = 1 << 30
 _TORCH_DT = {ttnn.float32: torch.float32, ttnn.bfloat16: torch.bfloat16}
+_UPLOAD_DT = {**_TORCH_DT, ttnn.int32: torch.int32}  # int32 words (ESMFold2's packed keep mask) tilize on the chip too
 
 
 def _device_tilize(nbytes):
@@ -7797,9 +7798,9 @@ def _tile_numel(shape):
 def upload(t, dtype=ttnn.bfloat16, device=None):
     """`ttnn.from_torch(t, TILE_LAYOUT, device, dtype)`, tilized on the chip when that pays."""
     device = device or get_device()
-    if dtype not in _TORCH_DT or not _device_tilize(_tile_numel(t.shape) * _TORCH_DT[dtype].itemsize):
+    if dtype not in _UPLOAD_DT or not _device_tilize(_tile_numel(t.shape) * _UPLOAD_DT[dtype].itemsize):
         return ttnn.from_torch(t, layout=ttnn.TILE_LAYOUT, device=device, dtype=dtype)
-    rm = ttnn.from_torch(t.to(_TORCH_DT[dtype]).contiguous(), layout=ttnn.ROW_MAJOR_LAYOUT,
+    rm = ttnn.from_torch(t.to(_UPLOAD_DT[dtype]).contiguous(), layout=ttnn.ROW_MAJOR_LAYOUT,
                          device=device, dtype=dtype)
     out = ttnn.to_layout(rm, ttnn.TILE_LAYOUT)
     ttnn.deallocate(rm)
@@ -16170,16 +16171,13 @@ class TorchWrapper(nn.Module):
             packer_l1_acc=True,
         )
 
+    # Through upload / download: a large transfer (a pair tensor, the ESMC hidden-state stack) tilizes on
+    # the chip, bit for bit the host permutation; small ones keep ttnn's host path.
     def _from_torch(self, x: torch.Tensor, dtype=ttnn.bfloat16) -> ttnn.Tensor:
-        return ttnn.from_torch(
-            x,
-            device=self.tt_device,
-            layout=ttnn.TILE_LAYOUT,
-            dtype=dtype,
-        )
+        return upload(x, dtype=dtype, device=self.tt_device)
 
     def _to_torch(self, x: ttnn.Tensor) -> torch.Tensor:
-        return torch.Tensor(ttnn.to_torch(x)).to(torch.float32)
+        return torch.Tensor(download(x)).to(torch.float32)
 
     def _cache_set(self, key: str, value):
         self._runtime_cache[key] = value
