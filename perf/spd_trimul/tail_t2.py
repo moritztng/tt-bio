@@ -21,7 +21,7 @@ ap.add_argument("--c", type=int, default=128)
 ap.add_argument("--gate", action="store_true",
                 help="GATE form: g is the trimul's input norm and T2 computes sigmoid(g @ wg) itself")
 ap.add_argument("--block", default=None,
-                help="M,K,N,subblock_h,subblock_w: measurement-only _MM_BLOCK entry for (c/32, c/32)")
+                help="M,K,N,subblock_h,subblock_w: measurement-only T2 block for (c/32, c/32)")
 ap.add_argument("--out", help="also append each JSON line here (the qb runner passes it)")
 A = ap.parse_args()
 
@@ -39,12 +39,12 @@ TT.set_t2(True)
 C = A.c
 TT.T2_KEYS.add((C // 32, C // 32))   # measurement only: the model path keeps its own keys
 if A.block:
-    T._MM_BLOCK[(C // 32, C // 32)] = tuple(int(v) for v in A.block.split(","))
+    TT.T2_BLOCK[(C // 32, C // 32)] = tuple(int(v) for v in A.block.split(","))
 gen = torch.Generator().manual_seed(0)
 up = lambda t: ttnn.from_torch(t.to(torch.bfloat16), dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT,
                                device=dev, memory_config=ttnn.DRAM_MEMORY_CONFIG)
 print(json.dumps({"grid": grid, "ckc": [str(c) for c in ckc], "c": C, "gate": A.gate,
-                  "block": T._MM_BLOCK.get((C // 32, C // 32))}), flush=True)
+                  "block": TT._t2_block(C // 32, C // 32)}), flush=True)
 
 
 def rel(a, r):
