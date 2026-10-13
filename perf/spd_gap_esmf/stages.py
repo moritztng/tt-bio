@@ -24,6 +24,7 @@ ap.add_argument("--model", default="esmfold2", choices=("esmfold2", "esmfold2-fa
 ap.add_argument("--fast", action="store_true")
 ap.add_argument("--size", type=int, default=512)
 ap.add_argument("--out", type=Path, required=True)
+ap.add_argument("--cold-stages", action="store_true", help="split the cold fold by stage too (WH: warm reads slower than cold)")
 a = ap.parse_args()
 
 import ttnn
@@ -83,20 +84,27 @@ def wrap(owner, attr, label):
     return fn
 
 
-one_fold()  # cold
+def staged(tag):
+    acc.clear(); host.clear(); cnt.clear()
+    orig = [(o, at, wrap(o, at, lab)) for o, at, lab in STAGES]
+    t0 = time.perf_counter(); s, _ = one_fold(); res[f"{tag}_s"] = round(time.perf_counter() - t0, 3)
+    res[tag] = {k: {"s": round(v, 3), "host_s": round(host[k], 3), "n": cnt[k]}
+                for k, v in sorted(acc.items(), key=lambda kv: -kv[1])}
+    res[f"un{tag}_s"] = round(res[f"{tag}_s"] - sum(acc.values()), 3)
+    for o, at, fn in orig:
+        setattr(o, at, fn)
+    print(json.dumps({k: res[k] for k in (f"{tag}_s", tag, f"un{tag}_s")}, indent=1), flush=True)
+    a.out.write_text(json.dumps(res, indent=1))
+
+
+if a.cold_stages:
+    staged("cold_stages")
+else:
+    one_fold()  # cold
 t0 = time.perf_counter(); s, m = one_fold(); res["plain_s"] = round(time.perf_counter() - t0, 3)
 res["plain_fold_s"] = round(s, 3); res["plddt"] = m.get("plddt")
 print("plain", res["plain_s"], flush=True)
-
-orig = [(o, at, wrap(o, at, lab)) for o, at, lab in STAGES]
-t0 = time.perf_counter(); s, _ = one_fold(); res["stages_s"] = round(time.perf_counter() - t0, 3)
-res["stages"] = {k: {"s": round(v, 3), "host_s": round(host[k], 3), "n": cnt[k]}
-                 for k, v in sorted(acc.items(), key=lambda kv: -kv[1])}
-res["unstaged_s"] = round(res["stages_s"] - sum(acc.values()), 3)
-for o, at, fn in orig:
-    setattr(o, at, fn)
-print(json.dumps(res, indent=1), flush=True)
-a.out.write_text(json.dumps(res, indent=1))
+staged("stages")
 
 pr = cProfile.Profile()
 t0 = time.perf_counter(); pr.enable(); one_fold(); pr.disable(); res["profile_s"] = round(time.perf_counter() - t0, 3)
