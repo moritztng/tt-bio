@@ -44,16 +44,10 @@ constexpr uint32_t GATE = get_compile_time_arg_val(6);
 // and Kt - CP gathered tiles M = x^T (c_15); this kernel assembles the row in cb_x, transposing M.
 constexpr uint32_t MOVED = get_compile_time_arg_val(7);
 constexpr uint32_t CP = get_compile_time_arg_val(8);
-// 1 = T2CM: the reader hands over gathered, untransposed tiles of the channel-major x (c_6, Kt per
-// row tile) and each row's Kt tiles are transpose_wh'd into cb_x here, as reblock_permute_back's
-// compute does (fp32 DEST, exact for bf16), before the LayerNorm reads them. 0 = T2, unchanged.
-constexpr uint32_t CM = get_compile_time_arg_val(9);
-static_assert(!(CM && (GATE || MOVED)), "T2CM uses c_6 for its gather; GATE and MOVED use their own reader");
 
 constexpr uint32_t cb_x = tt::CBIndex::c_0;      // x_out rows, bf16, Mb * Kt double buffered
 constexpr uint32_t cb_w = tt::CBIndex::c_1;      // Wp, Kt * Nt, resident
 constexpr uint32_t cb_out = tt::CBIndex::c_2;    // z + update, to the writer
-constexpr uint32_t cb_gath = tt::CBIndex::c_6;   // T2CM: gathered x tiles from the reader
 constexpr uint32_t cb_ln = tt::CBIndex::c_3;     // layer_norm(x) rows, bf16, Mb * Kt
 constexpr uint32_t cb_p = tt::CBIndex::c_4;      // x_norm @ Wp, bf16, Mb * Nt
 constexpr uint32_t cb_g = tt::CBIndex::c_5;      // g_out rows, bf16, from DRAM (GATE: sigmoid(xb @ Wg))
@@ -79,23 +73,6 @@ struct LnCbs {
     static constexpr uint32_t Kt = ::Kt, x = cb_x, gamma = cb_gamma, beta = cb_beta, scaler = cb_scaler,
         eps = cb_eps, mean = cb_mean, var = cb_var, rstd = cb_rstd, xc = cb_xc, tmp = cb_tmp;
 };
-
-// T2CM: Kt gathered tiles at the front of cb_gath (popped) -> their transposes appended to cb_x.
-ALWI void transpose_row() {
-    cb_wait_front(cb_gath, Kt);
-    cb_reserve_back(cb_x, Kt);
-    transpose_wh_init_short(cb_gath);
-    reconfig_data_format_srca(cb_gath);
-    pack_reconfig_data_format(cb_x);
-    tile_regs_acquire();
-    for (uint32_t k = 0; k < Kt; ++k) transpose_wh_tile(cb_gath, k, k);
-    tile_regs_commit();
-    tile_regs_wait();
-    for (uint32_t k = 0; k < Kt; ++k) pack_tile(k, cb_x);
-    tile_regs_release();
-    cb_pop_front(cb_gath, Kt);
-    cb_push_back(cb_x, Kt);
-}
 
 // One 32-row tile of x (Kt tiles at the front of cb_x, popped) -> Kt bf16 tiles appended to cb_ln.
 ALWI void layer_norm_row() {
@@ -149,7 +126,6 @@ void kernel_main() {
     for (uint32_t b = 0; b < nblocks; ++b) {
         // 1. LayerNorm prologue, row tile by row tile.
         for (uint32_t mi = 0; mi < Mb; ++mi) {
-            if constexpr (CM) transpose_row();
             layer_norm_row();
         }
 

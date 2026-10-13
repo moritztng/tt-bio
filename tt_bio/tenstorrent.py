@@ -624,8 +624,8 @@ _FAST_MODE = False
 #                   reblock_permute_back never writes the moved x (kernels/trimul_tail_res/reader_moved.cpp)
 #   trimul_t1_dram  every trimul T1 / T2 can take (N >= 160) runs on the DRAM path, so they also serve the sizes
 #                   that would otherwise stay in L1 (Nesso-1's 256-token crop passes: 0.70 -> 0.36 s each on WH)
-#   trimul_t2cm     with trimul_t2, T2 reads the einsum's channel-major [1, C, S, S] output itself (reader_ln_cm.cpp:
-#                   the reblock gather in its reader, transpose_wh in its compute), so `reblock_permute_back`
+#   trimul_t2cm     with trimul_t2, T2 reads the einsum's channel-major [1, C, S, S] output itself (T2m's program with
+#                   the whole hidden as its one chunk), so `reblock_permute_back`
 #                   (0.58 ms a call at 512 on p150a) never runs. A pure data move: bit-exact against trimul_t2
 #   dit_fuse        a bf16 token DiT block (OpenFold3's `--fast` stack) in 23 ttnn calls instead of 33: one shared
 #                   parameter-free LN(s) per stack call with the adaLN gammas folded into the weights, every s-path
