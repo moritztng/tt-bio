@@ -661,6 +661,9 @@ _FAST_MODE = False
 #   ws_resid        with transition_ws, fc3 adds the residual in its fp32 dest and writes over it: the transition's
 #                   `z + t` and the hidden-chunk sum stop being separate add passes over the pair (OpenDDE WH
 #                   fast census: 4.3 s of add_ per fold).
+#   opm_jd          the OPM contracts against b in (j d) row order, so z's tile (i, j) is pair (i, j)'s [c, d]
+#                   block and one data-movement kernel (opm_relayout) lays it out for the projection in place of
+#                   the 4-op chain. Moves bytes only: bit-exact. C = D = 32 and J a whole number of tiles.
 #   pib_where       OpenDDE's pair-init bias by the old 16-op where-chain instead of one gather from the joint
 #                   (128, c_z) table: the A/B arm for a change that must keep the fold digest (no mode sets it).
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
@@ -670,7 +673,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "swiglu_fc12g", "msa_sample", "dit_sdpa_pm", "dit_s16", "dit_chunk", "conf_bins", "trimul_t1", "trimul_t2",
           "trimul_t2g", "triatt_tail_bias", "dit_cond_hifi2", "transition_ws", "ws_ln", "trimul_t1_dram",
           "trimul_t2m", "trimul_t2cm", "dit_fuse", "pair_mm", "ref_memo", "edm_device", "ws_l1acc", "ws_resid", "pib_where",
-          "trimul_t2w", "narrow_bw16", "ws_l1dest")
+          "trimul_t2w", "narrow_bw16", "ws_l1dest", "opm_jd")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -681,7 +684,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
 # (vendored query.REF_MOL_MEMO), read by worker._predict_openfold3_one off the model's lever set.
 UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "dit_cond_hifi2", "ws_ln", "dit_fuse",
                              "pair_mm", "ref_memo", "trimul_t2m", "edm_device", "ws_l1acc", "pib_where", "trimul_t2w",
-                             "narrow_bw16", "ws_l1dest"})
+                             "narrow_bw16", "ws_l1dest", "opm_jd"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -15416,8 +15419,8 @@ class OuterProductMean(Module):
                 _, J, D = bc.shape
                 S += Sc
                 acp = permute_120(ac)                       # (I, C, Sc)
-                bcp = permute_210(bc)                       # (D, J, Sc)
-                bcp = opm_flat_b(bcp)                       # (D*J, Sc)
+                bcp = permute_120(bc) if jd_order(J, C, D) else permute_210(bc)  # (J, D, Sc) / (D, J, Sc)
+                bcp = opm_flat_b(bcp)                       # (J*D, Sc) / (D*J, Sc)
                 parts.append((acp, bcp, Sc))
             return parts, S, I, C, D, J
 
@@ -15430,6 +15433,10 @@ class OuterProductMean(Module):
 
         def small_depth(depth):
             return _OPM_SMALL_DEPTH and depth <= OPM_SMALL_DEPTH_MAX
+
+        def jd_order(J, C, D):
+            """b's rows in (j d) order, for opm_relayout (lever opm_jd)."""
+            return lever("opm_jd") and C == D == 32 and J % 32 == 0
 
         def zero_rows(t, n):
             """`n` zero rows shaped like the depth rows of projection `t` (depth outermost)."""
@@ -15483,7 +15490,7 @@ class OuterProductMean(Module):
                 S, I, C = a.shape
                 _, J, D = b.shape
                 a = permute_120(a)  # (I, C, S)
-                b = opm_flat_b(permute_210(b))
+                b = opm_flat_b(permute_120(b) if jd_order(J, C, D) else permute_210(b))
                 if I > SEQ_LEN_MORE_CHUNKING:
                     # Compact large tensors before OPM matmuls to reduce DRAM fragmentation.
                     a = ttnn.reallocate(a)
@@ -15676,10 +15683,18 @@ class OuterProductMean(Module):
         def outer_product_mean(i0, i1):
             rows = i1 - i0
             z = z_rows(i0, i1)
-            z = ttnn.to_layout(z, ttnn.ROW_MAJOR_LAYOUT)
-            z = ttnn.reshape(z, (rows, C * D, J))
-            z = ttnn.to_layout(z, ttnn.TILE_LAYOUT)
-            z = ttnn.permute(z, (0, 2, 1))
+            if jd_order(J, C, D):
+                from . import opm_relayout as _opm_rl
+                why = _opm_rl.eligible(z, C, D)
+                assert why is None, ("opm_jd: z in (j d) order needs opm_relayout", why)
+                y = _opm_rl.opm_relayout(z, rows, J)
+                ttnn.deallocate(z)
+                z = y
+            else:
+                z = ttnn.to_layout(z, ttnn.ROW_MAJOR_LAYOUT)
+                z = ttnn.reshape(z, (rows, C * D, J))
+                z = ttnn.to_layout(z, ttnn.TILE_LAYOUT)
+                z = ttnn.permute(z, (0, 2, 1))
             if legacy:
                 z = ttnn.multiply_(z, scale)
             else:
