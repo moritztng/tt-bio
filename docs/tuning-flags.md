@@ -67,7 +67,7 @@ move against the accuracy bar and the seed-to-seed spread.
 | [`TT_BIO_PWA_FUSED_HEADS`, `TT_BIO_PWA_UNPADDED`](#msa-module-flags) | on | MSA models; graded on Protenix-v2 | moves, inside the bar |
 | [`TT_BIO_PWA_BATCH_HEAD_WEIGHTS`](#tt_bio_pwa_batch_head_weights) | on | | identical |
 | [`TT_BIO_PWA_FULL_HEADS_FUSED`](#tt_bio_pwa_full_heads_fused) | on | Boltz-2 (32-wide heads) | identical |
-| [`TT_BIO_QKV_MM_RAGGED_M`](#tt_bio_qkv_mm_ragged_m) | on | token counts that are not a multiple of 32 (AF2-IG) | identical |
+| [`TT_BIO_QKV_MM_RAGGED_M`](#tt_bio_qkv_mm_ragged_m) | on | AF2-IG's triangle attention at token counts that are not a multiple of 32 | identical for AF2-IG |
 | [`TT_BIO_REBLOCK_PERMUTE_GATED`](#tt_bio_reblock_permute_gated) | on | | identical |
 | [`TT_BIO_RF3_DIFFUSION_TRACE`](#tt_bio_rf3_diffusion_trace) | on | RoseTTAFold3 | identical |
 | [`TT_BIO_RESIDUAL_L1`](#tt_bio_residual_l1) | on | | identical |
@@ -1225,12 +1225,13 @@ weight divide evenly into the block they were swept at. The row guard is the one
 something: a token count that is not a multiple of 32 declines the config and runs the op's own
 default, which folds a 4-tile contraction in blocks of 8. AF2-IG's 195 tokens is the case that hits
 it, and on Wormhole it cost 473 us on the qkv projection and 324 us on the gate, 416 times per fold.
-Blocking the rows differently does not change the contraction order, so this one guard can be
-dropped while the other two stay.
+The flag drops that one guard for AF2's two triangle attentions and nowhere else.
 
-**Accuracy: identical.** A/B/A over three PD-L1 binder complexes reads CA RMSD 0.0000 A on both
-parts. It saves 0.12 s per complex on both parts: Wormhole 4.32 to 4.19 s at 1000 MHz, p150a 2.54
-to 2.42 s at 1350 MHz. Models with a bucketed token axis never reach the guard and are unaffected.
+**Accuracy: identical for AF2-IG.** A/B/A over three PD-L1 binder complexes reads CA RMSD 0.0000 A
+on both parts. It saves 0.12 s per complex on both parts: Wormhole 4.32 to 4.19 s at 1000 MHz,
+p150a 2.54 to 2.42 s at 1350 MHz. It is not identical everywhere: OpenFold3 and OpenBind-0 also fold
+some targets at a ragged token count, and with the guard dropped their structures moved, so they
+keep it.
 
 ## `TT_BIO_REBLOCK_PERMUTE_GATED`
 
