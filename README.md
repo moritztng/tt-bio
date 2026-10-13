@@ -702,6 +702,10 @@ Each target entry in `results.json` contains confidence metrics. The fields belo
     "pair_chains_iptm": {
         "0": {"0": 0.85, "1": 0.72},
         "1": {"0": 0.82, "1": 0.83}
+    },
+    "chain_ids": {
+        "0": "A",
+        "1": "B"
     }
 }
 ```
@@ -711,7 +715,8 @@ Each target entry in `results.json` contains confidence metrics. The fields belo
 - `iptm`: Interface TM-score (0-1)
 - `complex_plddt`, `plddt`: Mean confidence (0-1), the same value under both names. It is the mean of the B-factor column of the structure file the same fold wrote, so averaging that column reproduces it. Boltz-2 writes one pLDDT per residue, so average over one atom per residue (CA); Protenix-v2, OpenFold3, OpenBind-0 and OpenDDE write one per atom, so average over all of them
 - `chains_ptm`: Per-chain TM-scores (0-1)
-- `pair_chains_iptm`: Per-chain-pair interface TM-scores (0-1), with each chain's own `chains_ptm` on the diagonal. Read `pair_chains_iptm[binder][target]` to score one named interface of a complex; the global `iptm` is the whole-interface number and on a two-chain target the two agree. Like every other confidence value, these are comparable between targets of the same model, not between models
+- `pair_chains_iptm`: Per-chain-pair interface TM-scores (0-1), with each chain's own `chains_ptm` on the diagonal. Both fields are keyed by chain **position**, not by chain name, so `pair_chains_iptm["0"]["1"]` is the ipTM of the interface between the first and second chain. Use `chain_ids` to turn a position into a chain name; `interface_score_distribution` below is keyed by name, and `chain_ids` is what joins the two. The global `iptm` is the whole-interface number and on a two-chain target the two agree. Like every other confidence value, these are comparable between targets of the same model, not between models
+- `chain_ids`: Chain name for each `pair_chains_iptm` key, on a multi-chain target. Read the interface of named chains as `pair_chains_iptm[i][j]` where `chain_ids[i]` and `chain_ids[j]` are the two names
 
 ### Interface Scores
 
