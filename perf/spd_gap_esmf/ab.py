@@ -88,7 +88,7 @@ for arm in "AB":
     w = sorted(f["fold_s"] for f in res["folds"] if f["arm"] == arm and f["tag"] != "cold")
     res[f"median_{arm}"], res[f"spread_{arm}"] = statistics.median(w), round(w[-1] - w[0], 3)
 import tt_bio.esmfold2 as E, tt_bio.esmfold2_runtime as R
-for m, name in ((E, "DIFFUSION_TRACE_STATS"), (R, "DEVICE_TAIL_STATS"), (R, "INJECTION_STATS")):
+for m, name in ((E, "DIFFUSION_TRACE_STATS"), (R, "DEVICE_TAIL_STATS"), (R, "DEVICE_CONF_STATS"), (R, "INJECTION_STATS")):
     res[name] = list(getattr(m, name, []))
 a.out.write_text(json.dumps(res, indent=1))
 print(f"A {res['median_A']:.3f}  B {res['median_B']:.3f}  delta {res['median_B'] - res['median_A']:+.3f} s", flush=True)
