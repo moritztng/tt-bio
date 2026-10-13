@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Does trimul_t2g change one ESMFold2 trunk call under a lever set? Same z, same random weights, one call per
-arm (ESMFold2's form: add_to_input, no mask), arms are lever specs. Prints bit equality against the first arm,
+arm (ESMFold2's form: add_to_input, no mask), arms are lever specs ("<spec>@gin=hifi2" runs gin_moved at that fidelity). Prints bit equality against the first arm,
 float64 error and T2 served/declined per arm.
 
     python perf/spd_trifuse/t2probe.py --n 512 --arms "normal-trunk_hifi3+trimul_gin,normal-trunk_hifi3+trimul_gin+trimul_t2g"
@@ -51,7 +51,14 @@ dev = T.get_device()
 if a.fast_mode:
     T.set_fast_mode(True)
 outs = []
-for spec in (a.arms.split(";") if ";" in a.arms else a.arms.split(",")):
+_gin = TL.gin_moved
+FID = {"lofi": ttnn.MathFidelity.LoFi, "hifi2": ttnn.MathFidelity.HiFi2, "hifi3": ttnn.MathFidelity.HiFi3,
+       "hifi4": ttnn.MathFidelity.HiFi4}
+for arm in (a.arms.split(";") if ";" in a.arms else a.arms.split(",")):
+    # "<spec>@gin=<fid>": gin_moved runs at that math fidelity, the rest of the call at the set's
+    spec, _, gfid = arm.partition("@gin=")
+    TL.gin_moved = _gin if not gfid else (
+        lambda x, wpT, wgT, ckc, grid, mask=None, _f=FID[gfid]: _gin(x, wpT, wgT, (_f,) + tuple(ckc[1:]), grid, mask=mask))
     with T.lever_scope(spec):
         ckc = T.trunk_compute_kernel_config(compute_kernel_config())
         mod = T.TriangleMultiplication(a.ending, W0, ckc, gated_move=True)
@@ -73,7 +80,7 @@ for spec in (a.arms.split(";") if ";" in a.arms else a.arms.split(",")):
             zd = mod(zd, None, add_to_input=True)
             ttnn.synchronize_device(dev); ms.append(1e3 * (time.perf_counter() - t0))
         ttnn.deallocate(zd)
-    rec = {"arm": spec, "t2": t2, "ms_median": round(statistics.median(ms), 3), "ms": [round(m, 3) for m in ms],
+    rec = {"arm": arm, "t2": t2, "ms_median": round(statistics.median(ms), 3), "ms": [round(m, 3) for m in ms],
            "finite": bool(torch.isfinite(yt).all()),
            "equal_first": bool(torch.equal(yt, outs[0])) if outs else None,
            "maxdiff_first": (yt - outs[0]).abs().max().item() if outs else None}
