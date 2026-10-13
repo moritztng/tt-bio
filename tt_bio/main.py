@@ -833,23 +833,6 @@ def _atomic_write(path: Path, content: str):
             tmp.unlink(missing_ok=True)
 
 
-def _chain_ids(struct, pci):
-    """Chain name for every key of `pair_chains_iptm`, in that field's own key space.
-
-    Boltz-2 keys the matrix by asym_id, the AlphaFold3-family heads key it by chain position
-    (OpenFold3's asym_id starts at 1, `tt_bio/protenix.py:2389`). The two key spaces overlap, so
-    the choice is made once for the whole key set rather than per key: an exact match against the
-    asym_ids means asym_id, anything else is read as a position into the chains ordered by asym_id.
-    """
-    chains = sorted(struct.chains, key=lambda c: int(c["asym_id"]))
-    by_asym = {int(c["asym_id"]): str(c["name"]) for c in chains}
-    order = [str(c["name"]) for c in chains]
-    keys = {int(k) for k in pci}
-    if keys == set(by_asym):
-        return {k: by_asym[int(k)] for k in pci}
-    return {k: order[int(k)] for k in pci if 0 <= int(k) < len(order)}
-
-
 def write_result(pred, batch, input_struct, out_dir, fmt,
                  write_pae=False, write_pde=False, write_embeddings=False, contact_cutoff=8.0):
     """Write CIF/PDB structure files. Return (metrics_dict, best_structure).
@@ -932,10 +915,6 @@ def write_result(pred, batch, input_struct, out_dir, fmt,
         metrics["chains_ptm"] = {
             i: round(pci[i][i][best_idx].item(), 6) for i in pci if i in pci[i]
         }
-        # The keys above are chain positions, while `interface_score_distribution.pairs` below is
-        # keyed by chain name. Emit the mapping so a consumer can join the two and say which chain
-        # a number belongs to; without it a two-chain score cannot be told from its mirror image.
-        metrics["chain_ids"] = _chain_ids(struct, pci)
 
     if num_samples > 1:
         idx_by_rank = sorted(rank, key=rank.get)
