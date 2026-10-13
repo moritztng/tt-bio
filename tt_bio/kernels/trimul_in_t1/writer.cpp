@@ -5,7 +5,8 @@
 // trimul input side T1 writer, in the order compute produces: per unit (b, xt, yt) first the 32 row
 // tiles of g_out (NTG tiles each, z's own [.., S, S, N] layout, one page write per tile), then
 // gin_moved's writer as is: per channel tile q of [a | b], 32 tiles in il order, gathered face row by
-// face row into the [B, C, S, S] tiles of a (q < CT) and b. NEVER RUN ON A DEVICE YET.
+// face row into the [B, C, S, S] tiles of a (q < CT) and b. One launch writes the channel group reader.cpp
+// names; with IL = 16 a unit holds half an x tile, so each output write is that half's two faces (1 KB).
 // ABL (bench-only define, trimul_tail.T1_ABL; 0 in every model path): bits that skip one stage's
 // work while keeping its circular-buffer traffic, to time each stage by difference (perf/spd_trimul/in_t1.py --abl).
 //   1 layer_norm, 2 g_out matmul, 4 [a | b] matmuls, 8 gate multiply, 16 z reads, 32 writer gather, 64 writer writes.
@@ -24,8 +25,15 @@ void kernel_main() {
     constexpr uint32_t CT2 = get_compile_time_arg_val(0);
     constexpr uint32_t St = get_compile_time_arg_val(1);
     constexpr uint32_t NB = get_compile_time_arg_val(2);    // output tiles gathered per read barrier
-    constexpr uint32_t NTG = get_compile_time_arg_val(3);   // g_out channel tiles, 0: none
-    constexpr auto a_args = TensorAccessorArgs<4>();
+    constexpr uint32_t NG = get_compile_time_arg_val(3);    // g_out channel tiles of this launch, 0: none
+    constexpr uint32_t Q0 = get_compile_time_arg_val(4);
+    constexpr uint32_t QN = get_compile_time_arg_val(5);
+    constexpr uint32_t N0 = get_compile_time_arg_val(6);
+    constexpr uint32_t NTGT = get_compile_time_arg_val(7);  // g_out channel tiles in all
+    constexpr uint32_t IL = get_compile_time_arg_val(8);    // row tiles per unit, 32 or 16
+    constexpr uint32_t H = 32 / IL;
+    static_assert(!T1B8 || IL == 32, "the bfp8 gather moves whole tiles");
+    constexpr auto a_args = TensorAccessorArgs<9>();
     constexpr auto b_args = TensorAccessorArgs<a_args.next_compile_time_args_offset()>();
     constexpr auto g_args = TensorAccessorArgs<b_args.next_compile_time_args_offset()>();
     const auto oa = TensorAccessor(a_args, get_common_arg_val<uint32_t>(0));
@@ -39,6 +47,7 @@ void kernel_main() {
     constexpr uint32_t stage_cb = tt::CBIndex::c_24;
     constexpr uint32_t CT = CT2 / 2;
     constexpr uint32_t SS = St * St;
+    constexpr uint32_t OB = IL == 32 ? 2048 : 1024;        // bytes of an output tile one unit fills
     constexpr uint32_t S = St * 32;
     constexpr uint32_t TB = 2048, FB = 512, RB = 32;
     // bfp8_b tile: 64 exponent bytes (face-major, one per face row), then 4 faces x 16 rows x 16 mantissa bytes.
@@ -50,26 +59,27 @@ void kernel_main() {
     bool dirty[2] = {false, false};
 
     for (uint32_t u = u0; u < u0 + nunits; ++u) {
-        const uint32_t b = u / SS;
-        const uint32_t cube = u % SS;          // xt * St + yt
-        const uint32_t xt = cube / St;
-        const uint32_t yt = cube % St;
-        if constexpr (NTG) {
+        const uint32_t b = u / (SS * H);
+        const uint32_t xt = (u / (St * H)) % St;
+        const uint32_t h = (u / St) % H;
+        const uint32_t yt = u % St;
+        const uint32_t cube = xt * St + yt;
+        if constexpr (NG) {
             // trimul_tail.t1_g_page: row tile (b, xt*32 + il, yt), channel tile n.
-            uint32_t page = ((b * S + xt * 32) * St + yt) * NTG;
-            for (uint32_t il = 0; il < 32; ++il, page += St * NTG) {
-                cb_wait_front(go_cb, NTG);
+            uint32_t page = ((b * S + xt * 32 + h * IL) * St + yt) * NTGT + N0;
+            for (uint32_t il = 0; il < IL; ++il, page += St * NTGT) {
+                cb_wait_front(go_cb, NG);
                 uint32_t r = get_read_ptr(go_cb);
-                for (uint32_t n = 0; n < NTG; ++n, r += TB)
+                for (uint32_t n = 0; n < NG; ++n, r += TB)
                     if constexpr (!(ABL & 64)) noc_async_write_page(page + n, og, r);
                 noc_async_writes_flushed();
-                cb_pop_front(go_cb, NTG);
+                cb_pop_front(go_cb, NG);
             }
         }
-        for (uint32_t q = 0; q < CT2; ++q) {
+        for (uint32_t q = Q0; q < Q0 + QN; ++q) {
             const bool is_a = q < CT;
             uint32_t page = (b * CT + (is_a ? q : q - CT)) * 32 * SS + cube;
-            cb_wait_front(out_cb, 32);
+            cb_wait_front(out_cb, IL);
             const uint32_t src = get_read_ptr(out_cb);
             for (uint32_t c0 = 0; c0 < 32; c0 += NB) {
                 const uint32_t grp = (c0 / NB) & 1u;
@@ -103,22 +113,26 @@ void kernel_main() {
                         noc_async_read_one_packet_with_state(s0, d0);
                         noc_async_read_one_packet_with_state(s1, d1);
                     }
-                    d0 = st + 2 * FB;
-                    d1 = st + 3 * FB;
-                    for (uint32_t il = 0; il < 16; ++il, s0 += TB, s1 += TB, d0 += RB, d1 += RB) {
-                        noc_async_read_one_packet_with_state(s0, d0);
-                        noc_async_read_one_packet_with_state(s1, d1);
+                    if constexpr (IL == 32) {
+                        d0 = st + 2 * FB;
+                        d1 = st + 3 * FB;
+                        for (uint32_t il = 0; il < 16; ++il, s0 += TB, s1 += TB, d0 += RB, d1 += RB) {
+                            noc_async_read_one_packet_with_state(s0, d0);
+                            noc_async_read_one_packet_with_state(s1, d1);
+                        }
                     }
                 }
 #endif
                 noc_async_read_barrier();
                 for (uint32_t j = 0; j < NB; ++j, page += SS)
-                    if constexpr (!(ABL & 64)) noc_async_write(gbase + j * TB, is_a ? oa.get_noc_addr(page) : ob.get_noc_addr(page), T1B8 ? TB8 : TB);
+                    if constexpr (!(ABL & 64))
+                        noc_async_write(gbase + j * TB, is_a ? oa.get_noc_addr(page, h * OB) : ob.get_noc_addr(page, h * OB),
+                                        T1B8 ? TB8 : OB);
                 dirty[grp] = true;
             }
             noc_async_write_barrier();
             dirty[0] = dirty[1] = false;
-            cb_pop_front(out_cb, 32);
+            cb_pop_front(out_cb, IL);
         }
     }
     noc_async_write_barrier();

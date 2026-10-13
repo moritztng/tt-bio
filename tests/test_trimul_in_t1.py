@@ -38,6 +38,13 @@ def test_cb_budget_fits_l1(mask):
     assert sum(n for _, n in split) == 256 and max(n for _, n in split) == 3
 
 
+@pytest.mark.parametrize("mask", [False, True])
+def test_cb_budget_fits_l1_c256(mask):
+    """c_z 256 in one launch of 32-row units would need ~1.9 MB a core; its plan fits the gate."""
+    assert TTL.T1_PLANS[(8, 16, 8)] == (2, 16)
+    assert TTL.t1_cb_bytes(8, 16, 8, mask) <= 0.85 * L1_ALLOCATOR_BANK
+
+
 def test_cb_plan_covers_every_cb_the_kernels_use():
     used = set()
     for f in ("reader.cpp", "compute.cpp", "writer.cpp"):
@@ -53,10 +60,12 @@ def test_cb_plan_covers_every_cb_the_kernels_use():
 def test_kernel_page_expressions_match_the_python_mirror():
     reader = (KDIR / "reader.cpp").read_text()
     writer = (KDIR / "writer.cpp").read_text()
-    assert "uint32_t page = ((b * S + xt * 32) * St + yt) * Kt;" in reader
+    assert "uint32_t page = ((b * S + xt * 32 + h * IL) * St + yt) * Kt;" in reader
     assert "page += St * Kt" in reader
-    assert "uint32_t page = ((b * S + xt * 32) * St + yt) * NTG;" in writer
-    assert "page += St * NTG" in writer
+    assert "noc_async_read_page(k * NTGT + n, wo, w)" in reader
+    assert "uint32_t page = ((b * S + xt * 32 + h * IL) * St + yt) * NTGT + N0;" in writer
+    assert "page += St * NTGT" in writer
+    assert "get_noc_addr(page, h * OB)" in writer
     assert "uint32_t page = (b * CT + (is_a ? q : q - CT)) * 32 * SS + cube;" in writer
     assert "page += SS" in writer
 
@@ -123,30 +132,36 @@ def _mask_cut(mtile_faces, il):
     return _faces_to_tile(dst.reshape(-1))
 
 
-def _gather(src_tiles_faces, c):
-    """writer.cpp's gather (element offsets = byte offsets / 2): row c of the 32 tiles -> one tile."""
+def _gather(src_tiles_faces, c, il=32):
+    """writer.cpp's gather (element offsets = byte offsets / 2): row c of the `il` tiles -> the
+    staged output tile's first il rows, in faces (the writer sends the first il * 32 elements)."""
     TB, FB, RB = 1024, 256, 16
     src = torch.cat(src_tiles_faces)
-    st = torch.empty(TB_EL, dtype=src.dtype)
+    st = torch.zeros(TB_EL, dtype=src.dtype)
     sc = (c >> 4) * 2 * FB + (c & 15) * RB
     s0, s1, d0, d1 = sc, sc + FB, 0, FB
     for _ in range(16):
         st[d0:d0 + RB] = src[s0:s0 + RB]
         st[d1:d1 + RB] = src[s1:s1 + RB]
         s0, s1, d0, d1 = s0 + TB, s1 + TB, d0 + RB, d1 + RB
-    d0, d1 = 2 * FB, 3 * FB
-    for _ in range(16):
-        st[d0:d0 + RB] = src[s0:s0 + RB]
-        st[d1:d1 + RB] = src[s1:s1 + RB]
-        s0, s1, d0, d1 = s0 + TB, s1 + TB, d0 + RB, d1 + RB
-    return _faces_to_tile(st)
+    if il == 32:
+        d0, d1 = 2 * FB, 3 * FB
+        for _ in range(16):
+            st[d0:d0 + RB] = src[s0:s0 + RB]
+            st[d1:d1 + RB] = src[s1:s1 + RB]
+            s0, s1, d0, d1 = s0 + TB, s1 + TB, d0 + RB, d1 + RB
+    return st[:il * 32]
 
 
-@pytest.mark.parametrize("S,masked", [(64, True), (96, False)])
-def test_emulated_data_flow_matches_the_model(S, masked):
+@pytest.mark.parametrize("S,masked,K", [(64, True, 128), (96, False, 128), (64, True, 256), (96, False, 256)])
+def test_emulated_data_flow_matches_the_model(S, masked, K):
+    """The kernels' loops, page for page, against float64 torch: one launch of 32-row units at
+    c_z 128, two channel groups of 16-row units writing half tiles at c_z 256."""
     d = torch.float64
-    K, h, cz = 128, 128, 128
+    h = cz = K
     St, Kt, ct2, ct, ntg = S // 32, K // 32, 2 * h // 32, h // 32, cz // 32
+    groups, IL = TTL.T1_PLANS[(Kt, ct2, ntg)]
+    H, qn, ng = 32 // IL, ct2 // groups, ntg // groups
     g = torch.Generator().manual_seed(S)
     w = {k: v.to(d) for k, v in _ckpt(K, h, cz, g).items()}
     z = (torch.randn(1, S, S, K, generator=g) * 2 + torch.randn(1, S, S, 1, generator=g)).to(d)
@@ -166,47 +181,58 @@ def test_emulated_data_flow_matches_the_model(S, masked):
 
     wpT, wgT, wgo = TTL.t1_host_weights(w["g_in.weight"].t(), w["p_in.weight"].t(),
                                         w["g_out.weight"].t())
-    W = _pages(torch.cat([wpT, wgT]))             # c_0: Wp^T then Wg^T, (2 * ct2) x Kt tiles
-    WO = _pages(wgo)                              # c_18: Kt x ntg tiles
+    WP, WG = _pages(wpT), _pages(wgT)             # ct2 x Kt tiles each
+    WOP = _pages(wgo)                             # Kt x ntg tiles
     gam = _pages(torch.nn.functional.pad(gamma[None], (0, 0, 0, 31)))   # row 0 carries the vector
     bet = _pages(torch.nn.functional.pad(beta[None], (0, 0, 0, 31)))
     Z = _pages(z)
     M = _pages(m) if masked else None
     a_pages, b_pages, g_pages = {}, {}, {}
 
-    for c0, n in TTL.t1_split(St * St, 7):        # an odd core count, so splits are uneven
-        for u in range(c0, c0 + n):
-            b, xt, yt = u // (St * St), (u // St) % St, u % St
-            # reader + compute 1: layer_norm per row tile into slot dt * 32 + il
-            xn = [None] * (32 * Kt)
-            for il in range(32):
-                row = torch.cat([Z[TTL.t1_x_page(b, xt, yt, il, dt, St, Kt)] for dt in range(Kt)], 1)
-                mu = row.mean(1, keepdim=True)
-                xc = row - mu
-                rstd = 1 / torch.sqrt((xc * xc).mean(1, keepdim=True) + 1e-5)
-                for dt in range(Kt):
-                    t = xc[:, dt * 32:(dt + 1) * 32] * rstd
-                    xn[dt * 32 + il] = t * gam[dt][0:1] + bet[dt][0:1]      # bcast row 0
-            # compute 2 + writer: g_out in z's layout
-            for il in range(32):
-                for nn in range(ntg):
-                    acc = sum(xn[k * 32 + il] @ WO[k * ntg + nn] for k in range(Kt))
-                    g_pages[TTL.t1_g_page(b, xt, yt, il, nn, St, ntg)] = acc
-            # compute 3: per channel tile q, 32 transposed products, gate, mask, then the gather
-            for q in range(ct2):
-                P = [sum(W[q * Kt + k] @ xn[k * 32 + il].t() for k in range(Kt)) for il in range(32)]
-                G = [torch.sigmoid(sum(W[(ct2 + q) * Kt + k] @ xn[k * 32 + il].t() for k in range(Kt)))
-                     for il in range(32)]
-                out = []
-                for il in range(32):
-                    o = P[il] * G[il]
-                    if masked and q < ct:
-                        mt = _mask_cut(_tile_to_faces(M[(b * St + xt) * St + yt]), il)
-                        o = o * mt[0:1]                                       # mul_bcast_rows
-                    out.append(_tile_to_faces(o))
-                for c in range(32):
-                    page = TTL.t1_ab_page(b, q, c, xt, yt, ct, St)
-                    (a_pages if q < ct else b_pages)[page] = _gather(out, c)
+    ab_faces = {}                                 # (is_a, page) -> the output tile in faces
+    for grp in range(groups):
+        Q0, N0 = grp * qn, grp * ng
+        # reader: c_0 = pages Q0 * Kt .. of Wp^T then of Wg^T; c_18 slot k * ng + n = page k * ntg + N0 + n
+        W = WP[Q0 * Kt:(Q0 + qn) * Kt] + WG[Q0 * Kt:(Q0 + qn) * Kt]
+        WO = [WOP[k * ntg + N0 + n] for k in range(Kt) for n in range(ng)]
+        for c0, n in TTL.t1_split(St * St * H, 7):    # an odd core count, so splits are uneven
+            for u in range(c0, c0 + n):
+                b, xt, hh, yt = u // (St * St * H), (u // (St * H)) % St, (u // St) % H, u % St
+                # reader + compute 1: layer_norm per row tile h * IL + il into slot dt * IL + il
+                xn = [None] * (IL * Kt)
+                for il in range(IL):
+                    row = torch.cat([Z[TTL.t1_x_page(b, xt, yt, hh * IL + il, dt, St, Kt)]
+                                     for dt in range(Kt)], 1)
+                    mu = row.mean(1, keepdim=True)
+                    xc = row - mu
+                    rstd = 1 / torch.sqrt((xc * xc).mean(1, keepdim=True) + 1e-5)
+                    for dt in range(Kt):
+                        t = xc[:, dt * 32:(dt + 1) * 32] * rstd
+                        xn[dt * IL + il] = t * gam[dt][0:1] + bet[dt][0:1]      # bcast row 0
+                # compute 2 + writer: g_out in z's layout
+                for il in range(IL):
+                    for nn in range(ng):
+                        acc = sum(xn[k * IL + il] @ WO[k * ng + nn] for k in range(Kt))
+                        g_pages[TTL.t1_g_page(b, xt, yt, hh * IL + il, N0 + nn, St, ntg)] = acc
+                # compute 3: per channel tile q, IL transposed products, gate, mask, then the gather
+                for qq in range(qn):
+                    q = Q0 + qq
+                    P = [sum(W[qq * Kt + k] @ xn[k * IL + il].t() for k in range(Kt)) for il in range(IL)]
+                    G = [torch.sigmoid(sum(W[(qn + qq) * Kt + k] @ xn[k * IL + il].t() for k in range(Kt)))
+                         for il in range(IL)]
+                    out = []
+                    for il in range(IL):
+                        o = P[il] * G[il]
+                        if masked and q < ct:
+                            mt = _mask_cut(_tile_to_faces(M[(b * St + xt) * St + yt]), hh * IL + il)
+                            o = o * mt[0:1]                                       # mul_bcast_rows
+                        out.append(_tile_to_faces(o))
+                    for c in range(32):
+                        key = (q < ct, TTL.t1_ab_page(b, q, c, xt, yt, ct, St))
+                        buf = ab_faces.setdefault(key, torch.full((TB_EL,), float("nan"), dtype=d))
+                        buf[hh * IL * 32:(hh + 1) * IL * 32] = _gather(out, c, IL)   # page offset h * OB
+    for (is_a, page), f in ab_faces.items():
+        (a_pages if is_a else b_pages)[page] = _faces_to_tile(f)
 
     def unpages(pages, shape):
         cols, R = shape[-1], 1

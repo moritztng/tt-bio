@@ -1260,7 +1260,12 @@ T1 = False
 MIN_N = 160
 T1_STATS = [0, 0]                 # served, declined
 T1_WHY = {}                       # decline reason -> calls (tenstorrent._t1_in)
-T1_KEYS = {(4, 8, 4)}             # (kt, ct2, ntg): c_z 128, hidden 128, g_out 128 (openfold3, boltz2)
+# (kt, ct2, ntg) -> (channel groups, row tiles per unit). c_z 128 (openfold3, boltz2) is one launch of
+# whole 32-row units. c_z 256 (protenix-v2, opendde, esmfold2) holds twice the weights and twice the
+# normalised rows per unit, ~1.9 MB of CBs a core; as two channel groups of 16-row units it is ~1.0 MB,
+# at the price of reading z twice (5 pair passes instead of the incumbent's 14).
+T1_PLANS = {(4, 8, 4): (1, 32), (8, 16, 8): (2, 16)}
+T1_KEYS = set(T1_PLANS)
 T1_RB = 8                         # z row tiles per reader barrier
 T1_SBW = 4                        # DST tiles per matmul block (half-sync fp32 DST holds 4)
 T1_ABL = 0                        # bench-only stage-skip bits (kernels/trimul_in_t1 ABL); 0 = the real T1
@@ -1276,23 +1281,27 @@ def set_t1(on: bool) -> bool:
 
 
 def t1_cb_plan(kt, ct2, ntg, mask, rb=None, nb=None):
-    """T1's circular buffers per core, ([(index, bf16 tiles)], [(index, fp32 tiles)]). Independent
-    of N: N only sets how many units each core runs."""
+    """T1's circular buffers per core for one launch of the (kt, ct2, ntg) plan,
+    ([(index, bf16 tiles)], [(index, fp32 tiles)]). Independent of N: N only sets how many units
+    each core runs."""
     nb = GIN_MOVE_NB if nb is None else nb
     rb = T1_RB if rb is None else rb
-    bf = [(0, 2 * ct2 * kt),     # [Wp^T | Wg^T], resident
-          (1, 32 * kt),          # layer_norm(z) of one unit, slot dt * 32 + il
-          (2, 64),               # a / b tiles to the writer, two channel tiles
-          (4, 32), (5, 32),      # p and sigmoid(g) of one channel tile
+    groups, il = T1_PLANS.get((kt, ct2, ntg), (1, 32))
+    rb = min(rb, il // 4)           # 8 at 32-row units (as before), 4 at 16
+    qn, ng = ct2 // groups, ntg // groups
+    bf = [(0, 2 * qn * kt),      # [Wp^T | Wg^T] of the group, resident
+          (1, il * kt),          # layer_norm(z) of one unit, slot dt * il + row
+          (2, 2 * il),           # a / b tiles to the writer, two channel tiles
+          (4, il), (5, il),      # p and sigmoid(g) of one channel tile
           (7, 2 * rb * kt),      # raw z rows, double buffered
           (8, kt), (9, kt),      # gamma, beta
           (10, 1),               # 1/K reduce scaler
           (24, 2 * nb)]          # the writer's gather staging
-    if ntg:
-        bf += [(18, kt * ntg),   # Wg_out [K, N], resident
-               (19, 2 * ntg)]    # g_out of one row tile, double buffered
+    if ng:
+        bf += [(18, kt * ng),    # Wg_out [K, N] of the group, resident
+               (19, 2 * ng)]     # g_out of one row tile, double buffered
     if mask:
-        bf += [(3, 1), (6, 32)]  # the mask tile and its 32 row-broadcast cuts
+        bf += [(3, 1), (6, il)]  # the mask tile and its row-broadcast cuts
     f32 = [(11, 1), (12, 1), (13, 1), (14, 1), (16, kt), (17, kt)]   # eps, mean, var, rstd, xc, tmp
     return bf, f32
 
@@ -1386,17 +1395,21 @@ def t1_eligible(x, ln_w, ln_b, wpT, wgT, wgo, mask=None):
     return None
 
 
-def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps, b8=False):
+def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps, b8=False, group=0):
+    """The program of channel group `group` of the T1_PLANS entry for this call."""
     import struct
     shp = [int(d) for d in x.shape]
     B = shp[0] if len(shp) == 4 else 1
     St, kt, ct2 = shp[-2] // TILE, shp[-1] // TILE, int(wpT.shape[-2]) // TILE
     ntg = int(wgo.shape[-1]) // TILE
+    groups, il = T1_PLANS[(kt, ct2, ntg)]
+    qn, ng = ct2 // groups, ntg // groups
+    rb = min(T1_RB, il // 4)
     gx, gy = grid
     core_grid = ttnn.CoreRangeSet(
         [ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(gx - 1, gy - 1))])
     rd, wr, cp = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
-    for c, (u0, n) in enumerate(t1_split(B * St * St, gx * gy)):
+    for c, (u0, n) in enumerate(t1_split(B * St * St * (32 // il), gx * gy)):
         cx, cy = c % gx, c // gx
         rd[cx][cy] = [u0, n]
         wr[cx][cy] = [u0, n]
@@ -1411,18 +1424,18 @@ def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps, b8=False
     abl = [("ABL", str(T1_ABL))] if T1_ABL else []
     reader = ttnn.KernelDescriptor(
         kernel_source=str(d / "reader.cpp"), source_type=src, core_ranges=core_grid,
-        compile_time_args=[kt, ct2, St, int(mask is not None), ntg, T1_RB, (inv << 16) | inv,
-                           eps_bits]
+        compile_time_args=[kt, qn, St, int(mask is not None), ng, rb, (inv << 16) | inv,
+                           eps_bits, group * qn, group * ng, ntg, il]
         + acc(x) + acc(wpT) + acc(wgT) + acc(wgo) + acc(ln_w) + acc(ln_b) + acc(m),
         defines=abl, runtime_args=rd, common_runtime_args=[0] * 7, config=ttnn.ReaderConfigDescriptor())
     writer = ttnn.KernelDescriptor(
         kernel_source=str(d / "writer.cpp"), source_type=src, core_ranges=core_grid,
-        compile_time_args=[ct2, St, GIN_MOVE_NB, ntg] + acc(outs[0]) + acc(outs[1]) + acc(outs[2]),
+        compile_time_args=[ct2, St, GIN_MOVE_NB, ng, group * qn, qn, group * ng, ntg, il] + acc(outs[0]) + acc(outs[1]) + acc(outs[2]),
         defines=abl + ([("T1B8", "1")] if b8 else []), runtime_args=wr, common_runtime_args=[0] * 3, config=ttnn.WriterConfigDescriptor())
     fid, approx, _, full = ckc
     compute = ttnn.KernelDescriptor(
         kernel_source=str(d / "compute.cpp"), source_type=src, core_ranges=core_grid,
-        compile_time_args=[kt, ct2, T1_SBW, int(mask is not None), int(SIGPOLY), RNE, ntg],
+        compile_time_args=[kt, qn, T1_SBW, int(mask is not None), int(SIGPOLY), RNE, ng, group * qn, ct2, il],
         defines=abl, runtime_args=cp,
         # fp32 DEST always, as T2: the LayerNorm statistics live in fp32 CBs. The fidelity stays
         # the caller's, so the projections run as the incumbent in-projection runs them.
@@ -1457,7 +1470,8 @@ def fused_in_ln(x, ln_w, ln_b, wpT, wgT, wgo, ckc, grid, mask=None, eps=1e-5, b8
     B = shp[0] if len(shp) == 4 else 1
     S, C = shp[-2], int(wpT.shape[-2]) // 2
     device = x.device()
-    b8 = bool(b8 or T1_B8)
+    b8 = bool(b8 or T1_B8) and T1_PLANS[(int(x.shape[-1]) // TILE, 2 * C // TILE,
+                                         int(wgo.shape[-1]) // TILE)][1] == 32   # writer.cpp: whole tiles
     alloc = lambda s, dt=ttnn.bfloat16: ttnn.allocate_tensor_on_device(  # noqa: E731
         ttnn.Shape(s), dt, ttnn.TILE_LAYOUT, device, ttnn.DRAM_MEMORY_CONFIG)
     ab = ttnn.bfloat8_b if b8 else ttnn.bfloat16
@@ -1465,18 +1479,21 @@ def fused_in_ln(x, ln_w, ln_b, wpT, wgT, wgo, ckc, grid, mask=None, eps=1e-5, b8
     key = ("t1", str(x.padded_shape), str(wpT.padded_shape), str(wgo.padded_shape), tuple(grid),
            tuple(str(c) for c in ckc), mask is not None, float(eps), SIGPOLY, RNE, GIN_MOVE_NB,
            T1_RB, T1_SBW, T1_ABL, b8)
-    entry = _CACHE.get(key)
-    if entry is None:
-        entry = _CACHE[key] = _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps, b8)
-    reader, writer, _ = entry["kernels"]
-    reader.common_runtime_args = [x.buffer_address(), wpT.buffer_address(), wgT.buffer_address(),
-                                  wgo.buffer_address(), ln_w.buffer_address(),
-                                  ln_b.buffer_address(),
-                                  (mask if mask is not None else x).buffer_address()]
-    writer.common_runtime_args = [o.buffer_address() for o in outs]
-    pd = ttnn.ProgramDescriptor(kernels=entry["kernels"], semaphores=[], cbs=entry["cbs"])
-    ttnn.generic_op([x, wpT, wgT, wgo, ln_w, ln_b] + ([mask] if mask is not None else []) + outs,
-                    pd)
+    groups = T1_PLANS[(int(x.shape[-1]) // TILE, 2 * C // TILE, int(wgo.shape[-1]) // TILE)][0]
+    for g in range(groups):
+        entry = _CACHE.get(key + (g,))
+        if entry is None:
+            entry = _CACHE[key + (g,)] = _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask,
+                                                   eps, b8, g)
+        reader, writer, _ = entry["kernels"]
+        reader.common_runtime_args = [x.buffer_address(), wpT.buffer_address(), wgT.buffer_address(),
+                                      wgo.buffer_address(), ln_w.buffer_address(),
+                                      ln_b.buffer_address(),
+                                      (mask if mask is not None else x).buffer_address()]
+        writer.common_runtime_args = [o.buffer_address() for o in outs]
+        pd = ttnn.ProgramDescriptor(kernels=entry["kernels"], semaphores=[], cbs=entry["cbs"])
+        ttnn.generic_op([x, wpT, wgT, wgo, ln_w, ln_b] + ([mask] if mask is not None else []) + outs,
+                        pd)
     T1_STATS[0] += 1
     MASK_STATS[0] += mask is not None
     return outs
