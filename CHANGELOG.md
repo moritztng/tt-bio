@@ -206,7 +206,13 @@ Protenix-v2 is 1.6x faster on Wormhole and OpenDDE 1.3x, with structures inside 
   [`docs/tuning-flags.md`](docs/tuning-flags.md#tt_bio_levers).
 - **OpenDDE is 1.3x faster on Wormhole**, because it runs Protenix-v2's trunk and inherits those levers.
   A warm 730-token fold (5 samples) takes 594 s on a Galaxy chip at 1000 MHz, against 763 s before; 256 tokens
-  103 s against 134 s, 1024 tokens 1161 s against 1286 s. OpenFold3 and Boltz-2 are unchanged.
+  103 s against 134 s, 1024 tokens 1161 s against 1286 s. OpenFold3 and Boltz-2 do not run these levers.
+- **The MSA module sums pair-weighted averaging's heads in one fp32 accumulator** instead of adding eight
+  bf16 head outputs (`TT_BIO_PWA_FUSED_HEADS`). This applies to every model that uses the shared MSA module,
+  Boltz-2 included, in both modes. It is closer to a float64 reference (relative error 3.8e-3 against 6.0e-3 at
+  Boltz-2's head shape) but not byte-identical, so Boltz-2 coordinates for a given seed change. `TT_BIO_PWA_FUSED_HEADS=0`
+  restores the previous path. (This entry was missing when 0.14.0 shipped, see
+  [#23](https://github.com/moritztng/tt-bio/issues/23).)
 - Blackhole kernels split DRAM reads larger than 2 KiB, the tt-metal#59622 workaround for a NoC hang
   (`TT_BIO_BH_DRAM_READ_SPLIT`, same bytes).
 - Protenix-v2 runs its confidence head on the card by default (`TT_PROTENIX_CONF_DEVICE`, `0` turns it
