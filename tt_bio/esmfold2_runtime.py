@@ -276,6 +276,7 @@ class _DevPair:
     and `host` keeps the one download the confidence head still needs."""
 
     __slots__ = ("t", "seq_len", "host", "keep", "_tmp")
+    dtype = torch.float32
 
     def __init__(self, t, seq_len, tmp=False):
         self.t, self.seq_len, self.host, self.keep, self._tmp = t, int(seq_len), None, None, tmp
@@ -288,6 +289,12 @@ class _DevPair:
         return self
 
     detach = float
+
+    def to_host(self):
+        if self.host is None:
+            from tt_bio import tenstorrent as T
+            self.host = T.download(self.t)[:, :self.seq_len, :self.seq_len].float()
+        return self.host
 
     def transpose(self, a, b):
         import ttnn
@@ -380,7 +387,7 @@ def _conf_pair_dev(head, ftw, z, s_n, relpos, bonds, bins, mask, n):
         DEVICE_CONF_STATS[1] += 1
         if isinstance(z, ttnn.Tensor):
             z = ftw._to_torch(z).float()
-        return type(head)._pair_outputs(head, z, s_n, relpos, bonds, bins, mask, n)
+        return type(head)._pair_outputs(head, z, s_n, _host(relpos), _host(bonds), bins, mask, n)
     DEVICE_CONF_STATS[0] += 1
     w, ck, L = _conf_weights(head, ftw), ftw.compute_kernel_config, int(bins.shape[-1])
     lin = lambda x, wt: ttnn.linear(x, wt, compute_kernel_config=ck)
@@ -396,13 +403,16 @@ def _conf_pair_dev(head, ftw, z, s_n, relpos, bonds, bins, mask, n):
     p0 = ln(zt, w["zn"], head.z_norm)
     if zt is not z:
         ttnn.deallocate(zt)
-    host = head.s_to_z(s_n).unsqueeze(2) + head.s_to_z_transpose(s_n).unsqueeze(1)
-    for t in (relpos, bonds):
-        if t is not None:
-            host = host + t
-    ht = ftw._from_torch(host.float())
-    p0 = swap(p0, ttnn.add(p0, ht))
-    ttnn.deallocate(ht)
+    if _PAIR_INIT:  # the [L,c] broadcasts and the lookups added on the device, as z_init
+        for t in (head.s_to_z(s_n).unsqueeze(2), head.s_to_z_transpose(s_n).unsqueeze(1), relpos, bonds):
+            if t is not None:
+                p0 = _add_pair(p0, t, ftw)
+    else:
+        host = head.s_to_z(s_n).unsqueeze(2) + head.s_to_z_transpose(s_n).unsqueeze(1)
+        for t in (relpos, bonds):
+            if t is not None:
+                host = host + _host(t)
+        p0 = _add_pair(p0, host, ftw)
     a = ftw._from_torch(head.s_to_z_prod_in1(s_n)[:, :, None, :].float())
     b = ftw._from_torch(head.s_to_z_prod_in2(s_n)[:, None, :, :].float())
     op = ttnn.multiply(a, b)  # [1,L,1,c] x [1,1,L,c] -> the outer product [1,L,L,c]
@@ -809,6 +819,55 @@ class _PairStateDraw:
         return state.to(ref.dtype)
 
 
+# z_init = z_init_1(x)[i] + z_init_2(x)[j] + relpos[i,j] + bonds[i,j] summed on the device: the host built three
+# fp32 [L,L,256] tensors (0.26 s at 512 tokens on qb1) and uploaded the sum. Relative positions stay a PairLookup
+# (codes + rows) that the diffusion conditioning and the confidence head build on the device with one embedding,
+# so the 134 MB bf16 relpos pair never crosses PCIe. Not bit-exact: the parts are rounded to bf16 before the sum.
+_PAIR_INIT = env_flag("TT_BIO_ESMFOLD2_PAIR_INIT", True)
+PAIR_INIT_STATS = [0, 0]  # folds whose pair init ran on the device, on the host
+
+
+def _host(x):
+    """The host tensor of a pair that may be device-resident (_DevPair) or a lookup (PairLookup)."""
+    return x.to_host() if isinstance(x, _DevPair) else x.host() if isinstance(x, E.PairLookup) else x
+
+
+def _install_pair_init(model):
+    import types
+
+    import ttnn
+
+    host_init, ftw, rel = model._pair_init, model.folding_trunk.m, model.rel_pos.m
+
+    def _pair_init(self, x, residue_index, asym_id, sym_id, entity_id, token_index, token_bonds):
+        if not (_PAIR_INIT and E.RELPOS_LOOKUP and x.shape[0] == 1):
+            PAIR_INIT_STATS[1] += 1
+            return host_init(x, residue_index, asym_id, sym_id, entity_id, token_index, token_bonds)
+        PAIR_INIT_STATS[0] += 1
+        relpos = rel.rows(residue_index, asym_id, sym_id, entity_id, token_index)
+        bonds = self.token_bonds(token_bonds.float()) if bool(token_bonds.any()) else None
+        zi, zj = (ftw._from_torch(t.float()) for t in (self.z_init_1(x).unsqueeze(2), self.z_init_2(x).unsqueeze(1)))
+        z = ttnn.add(zi, zj)  # [1,L,1,c] + [1,1,L,c] -> [1,L,L,c]
+        ttnn.deallocate(zi)
+        ttnn.deallocate(zj)
+        for t in (relpos, bonds):
+            if t is not None:
+                z = _add_pair(z, t, ftw)
+        return _DevPair(z, x.shape[1]), relpos, bonds
+
+    model._pair_init = types.MethodType(_pair_init, model)
+
+
+def _add_pair(z, t, ftw):
+    """`z + t` on the device for a host pair or a PairLookup; frees `z`'s old buffer and the upload."""
+    import ttnn
+    tt = t.device(ftw.tt_device) if isinstance(t, E.PairLookup) else ftw._from_torch(t.float())
+    out = ttnn.add(z, tt)
+    ttnn.deallocate(z)
+    ttnn.deallocate(tt)
+    return out
+
+
 def _install_pair_state_draw(model):
     """Start `_PairStateDraw` at forward entry; `_init_pair_state` takes the result."""
     import functools
@@ -880,19 +939,22 @@ def _install_resident_trunk_loop(model):
 
         def msa_inject(msa_kw):
             # reference passes x_pair (the current pair state) separately from _msa_kwargs
-            msa_pair = self.msa_encoder(x_pair=z_init, **msa_kw).to(z_init.dtype)
+            x_pair = z_init.t if isinstance(z_init, _DevPair) else z_init
+            msa_pair = self.msa_encoder(x_pair=x_pair, **msa_kw).to(z_init.dtype)
             dram_peak("esmfold2/msa-encoder")
-            return msa_pair if overwrite else (z_init + msa_pair)
+            return msa_pair if overwrite else (_host(z_init) + msa_pair)
 
         # The MSA encoder reads z_init and the loop's MSA draw. With one draw for every loop
         # (an MSA no deeper than max_depth) its output is the same in every loop, so it is
         # encoded once even when the LM dropout makes the rest of the injection per-loop.
         msa_fixed = msa_inject(msa_loops[0]) if msa_loops is not None and len(msa_loops) == 1 \
             else None
+        if msa_fixed is not None and overwrite and isinstance(z_init, _DevPair):
+            ttnn.deallocate(z_init.t)  # nothing reads z_init past the MSA encoder
 
         def inject_proj(msa_kw):
             refined = lm_refined() if use_lm else None
-            z_inject = z_init
+            z_inject = _host(z_init)
             if msa_fixed is not None:
                 z_inject = msa_fixed
             elif msa_kw is not None:
@@ -928,7 +990,11 @@ def _install_resident_trunk_loop(model):
         at = ftw._from_torch(a.reshape(1, 1, 1, -1).float())  # parcae a, broadcasts over L,L
         if on_dev:
             # What no loop redraws, uploaded once: the MSA pair (or z_init), LN and b_mat.
-            base = up(padz(msa_fixed if msa_fixed is not None else z_init).float())
+            base = msa_fixed if msa_fixed is not None else z_init
+            if isinstance(base, _DevPair):
+                base = ttnn.pad(base.t, [(0, 0), (0, pad), (0, pad), (0, 0)], value=0.0) if pad else base.t
+            else:
+                base = up(padz(base).float())
             norm = self.parcae_input_norm
             ln_w, ln_b = (ttnn.from_torch(t.detach().float(), device=ftw.tt_device,
                                           layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16)
@@ -1094,6 +1160,7 @@ def patch_esmfold2(model, esmc_repo: str = "biohub/ESMC-6B", persistent_lm: bool
     # device), avoiding per-loop host<->device round-trips of the L²·256 pair.
     _install_resident_trunk_loop(model)
     _install_pair_state_draw(model)
+    _install_pair_init(model)
     dram_peak("esmfold2/head-built")
     return model
 

@@ -1165,10 +1165,40 @@ def relpos_features(residue_index, asym_id, sym_id, entity_id, token_index,
     return torch.cat([a_res.float(), a_tok.float(), same_entity.float().unsqueeze(-1), a_ch.float()], dim=-1)
 
 
-def relpos_lookup(w, residue_index, asym_id, sym_id, entity_id, token_index, r_bins=32, c_bins=2):
+class PairLookup:
+    """A [B,L,L,c] pair tensor held as `rows[codes]`: one int code per pair, one fp32 row per distinct code.
+
+    The vendored forward only stores it, adds it or calls `.float()` / `.detach()` on it; `host()` is the
+    dense fp32 tensor and `device(dev)` builds it on the device with one embedding (an L*L index and a
+    [U,c] table cross PCIe instead of the 134 MB bf16 pair at 512 tokens)."""
+
+    dtype = torch.float32
+
+    def __init__(self, codes, rows):
+        self.codes, self.rows = codes, rows
+
+    @property
+    def shape(self):
+        return (*self.codes.shape, self.rows.shape[-1])
+
+    def float(self):
+        return self
+
+    detach = float
+
+    def host(self):
+        return F.embedding(self.codes, self.rows)
+
+    def device(self, dev):
+        assert self.codes.shape[0] == 1, self.codes.shape
+        from tt_bio.tenstorrent import pair_lookup_device
+        return pair_lookup_device(self.codes[0], self.rows, dev)
+
+
+def relpos_rows(w, residue_index, asym_id, sym_id, entity_id, token_index, r_bins=32, c_bins=2) -> PairLookup:
     """`relpos_features(...) @ w.T` without the one-hots: every feature group is one-hot (entity is one
-    0/1 column), so the product is a sum of rows of w.T picked by index. fp32 on the host, no device
-    round trip: at 512 tokens the one-hot path uploads 145 MB of features and downloads a 134 MB pair."""
+    0/1 column), so the product is a sum of rows of w.T picked by index, and each distinct index tuple is
+    one row of the table. Rows are summed in fp32 in the order relpos_lookup always used."""
     n = 2 * r_bins + 2
     t = w.t().float()  # [n_feats, d_pair]
     same_chain = asym_id.unsqueeze(2) == asym_id.unsqueeze(1)
@@ -1180,11 +1210,19 @@ def relpos_lookup(w, residue_index, asym_id, sym_id, entity_id, token_index, r_b
     dtok = torch.where(same_chain & same_res, dtok, 2 * r_bins + 1)
     dch = torch.clip(sym_id.unsqueeze(2) - sym_id.unsqueeze(1) + c_bins, 0, 2 * c_bins)
     dch = torch.where(same_chain, 2 * c_bins + 1, dch)
-    out = F.embedding(dij, t[:n])
-    out += F.embedding(dtok, t[n:2 * n])
-    out += F.embedding(dch, t[2 * n + 1:])
-    out += same_entity.unsqueeze(-1) * t[2 * n]
-    return out
+    nc = 2 * c_bins + 2
+    uniq, codes = torch.unique(((dij.long() * n + dtok) * nc + dch) * 2 + same_entity.long(), return_inverse=True)
+    se, rest = uniq % 2, uniq // 2
+    ch, rest = rest % nc, rest // nc
+    rows = t[:n][rest // n] + t[n:2 * n][rest % n]
+    rows += t[2 * n + 1:][ch]
+    rows += se.bool().unsqueeze(-1) * t[2 * n]
+    return PairLookup(codes, rows)
+
+
+def relpos_lookup(w, residue_index, asym_id, sym_id, entity_id, token_index, r_bins=32, c_bins=2):
+    """Dense fp32 `relpos_features(...) @ w.T` (relpos_rows on the host)."""
+    return relpos_rows(w, residue_index, asym_id, sym_id, entity_id, token_index, r_bins, c_bins).host()
 
 
 # Relative positions by table lookup on the host (relpos_lookup); False = one-hot features through a device linear.
@@ -1202,10 +1240,12 @@ class RelPosEncoding(TorchWrapper):
         self._w = weights["embed.weight"]
         return weights  # no ttnn submodule; we just hold the weight
 
+    def rows(self, residue_index, asym_id, sym_id, entity_id, token_index) -> PairLookup:
+        return relpos_rows(self._w, residue_index, asym_id, sym_id, entity_id, token_index, self.r_bins, self.c_bins)
+
     def forward(self, residue_index, asym_id, sym_id, entity_id, token_index):
         if RELPOS_LOOKUP:
-            return relpos_lookup(self._w, residue_index, asym_id, sym_id, entity_id, token_index,
-                                 self.r_bins, self.c_bins)
+            return self.rows(residue_index, asym_id, sym_id, entity_id, token_index).host()
         feats = relpos_features(residue_index, asym_id, sym_id, entity_id, token_index, self.r_bins, self.c_bins)
         w = ttnn.from_torch(self._w.t(), layout=ttnn.TILE_LAYOUT, device=self.tt_device, dtype=_DTYPE)
         out = ttnn.linear(self._from_torch(feats.float()), w, compute_kernel_config=self.compute_kernel_config,
@@ -1662,7 +1702,9 @@ class MSAEncoder(TorchWrapper):
         ft = self._from_torch
         # An all-ones mask (no column masking) multiplies by one: skip it.
         mf = None if bool(mask_f.all()) else ft(mask_f.unsqueeze(-1))
-        out = self.module(ft(x_pair), ft(x_inputs), ft(m_feat.float()), ft((1.0 / n_valid).float()), mf)
+        # A device x_pair (ESMFold2's z_init built on the device) is copied: the blocks update the pair in place.
+        xp = ttnn.clone(x_pair) if isinstance(x_pair, ttnn.Tensor) else ft(x_pair)
+        out = self.module(xp, ft(x_inputs), ft(m_feat.float()), ft((1.0 / n_valid).float()), mf)
         return self._to_torch(out)
 
 
@@ -1813,7 +1855,8 @@ class StructureHead(TorchWrapper):
         oh = F.one_hot(tok_idx[0].long(), L).float() * ref_mask[0].float()[:, None]
         gather_g = oh.unsqueeze(0)
         scatter_m = (oh / oh.sum(0).clamp(min=1)).t().unsqueeze(0)
-        dmm.prepare(ft(s_inputs), z_trunk if isinstance(z_trunk, ttnn.Tensor) else ft(z_trunk), ft(relpos), ft(atom_feats.float()),
+        relpos = relpos.device(self.tt_device) if isinstance(relpos, PairLookup) else ft(relpos)
+        dmm.prepare(ft(s_inputs), z_trunk if isinstance(z_trunk, ttnn.Tensor) else ft(z_trunk), relpos, ft(atom_feats.float()),
                     ft(cos.float()), ft(sin.float()), band,
                     ft(scatter_m.float()), ft(gather_g.float()), ft(valid))
         self._base, self._ref_mask, self._n_atoms = dmm._ctx, ref_mask, N

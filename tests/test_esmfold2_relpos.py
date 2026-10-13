@@ -5,6 +5,7 @@ import pytest
 torch = pytest.importorskip("torch")
 
 from tt_bio.esmfold2 import relpos_features, relpos_lookup  # noqa: E402
+import torch.nn.functional as F  # noqa: E402
 
 
 def test_lookup_matches_one_hot_product():
@@ -21,3 +22,28 @@ def test_lookup_matches_one_hot_product():
     out = relpos_lookup(w, *args)
     assert out.shape == ref.shape and out.dtype == torch.float32
     assert (out.double() - ref).abs().max().item() < 1e-5
+
+
+def test_rows_are_the_lookup():
+    """`relpos_rows` (codes + one row per distinct code, what the device embeds) is the lookup bit for bit."""
+    from tt_bio.esmfold2 import relpos_rows
+
+    g = torch.Generator().manual_seed(1)
+    ri = torch.cat([torch.arange(30), torch.tensor([4, 4, 4]), torch.arange(20)])
+    ti = torch.arange(ri.numel())
+    asym = torch.cat([torch.zeros(33), torch.ones(20)]).long()
+    sym = torch.zeros(53).long()
+    ent = torch.cat([torch.zeros(33), torch.ones(20)]).long()
+    args = [t.unsqueeze(0) for t in (ri, asym, sym, ent, ti)]
+    w = torch.randn(32, 2 * 66 + 1 + 6, generator=g)
+    p = relpos_rows(w, *args)
+    assert p.shape == (1, 53, 53, 32) and p.rows.shape[0] < 53 * 53
+    assert p.float() is p and p.detach() is p
+    # the per-pair sum relpos_lookup did before the rows: same fp32 adds in the same order
+    feats = relpos_features(*args)
+    n, t = 66, w.t()
+    ref = F.embedding(feats[..., :n].argmax(-1), t[:n])
+    ref += F.embedding(feats[..., n:2 * n].argmax(-1), t[n:2 * n])
+    ref += F.embedding(feats[..., 2 * n + 1:].argmax(-1), t[2 * n + 1:])
+    ref += feats[..., 2 * n].bool().unsqueeze(-1) * t[2 * n]
+    assert torch.equal(p.host(), ref)

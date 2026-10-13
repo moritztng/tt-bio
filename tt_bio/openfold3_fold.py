@@ -15,7 +15,7 @@ from .openfold3_confidence import OF3ConfidenceHead
 from .openfold3_trunk import OF3Trunk
 from .openfold3_sample_diffusion import OF3SampleDiffusion
 from .protenix import DEFAULT_MAX_PARALLEL_SAMPLES, ConfidenceHead
-from .openfold3_host_prep import relpos_codes_device
+from .tenstorrent import pair_lookup_device
 from .openfold3_weights import _sub
 from .envflags import env_flag
 
@@ -473,7 +473,7 @@ class OpenFold3(Module):
         s_input_d = ft(s_input.unsqueeze(0))
         if isinstance(relpos, tuple):
             # derive_relpos_codes: the device expands the one-hots, the host keeps them only to pad.
-            relpos_dev = relpos_codes_device(*relpos, self.device)
+            relpos_dev = pair_lookup_device(*relpos, self.device)
             relpos = relpos[1][relpos[0].long()] if tok_pad else None
         else:
             relpos_dev = ft(relpos.unsqueeze(0))

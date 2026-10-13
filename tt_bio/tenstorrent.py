@@ -7821,6 +7821,27 @@ def _tile_numel(shape):
     return prod(lead) * -(-h // 32) * 32 * -(-w // 32) * 32
 
 
+def pair_lookup_device(codes, table, device):
+    """``table[codes]`` as a [1, N, N, w] bf16 TILE tensor on ``device``: a pair tensor whose rows come from a
+    small table (relative positions, bond kinds) built with one embedding, so the upload is an [N*N] index
+    and a [U, w] table instead of the N*N*w pair."""
+    n, w = codes.shape[-1], table.shape[-1]
+    idx = ttnn.from_torch(codes.reshape(1, n * n).to(torch.int32), dtype=ttnn.uint32,
+                          layout=ttnn.ROW_MAJOR_LAYOUT, device=device)
+    tab = ttnn.from_torch(torch.nn.functional.pad(table.float(), (0, -w % 32)), dtype=ttnn.bfloat16,
+                          layout=ttnn.ROW_MAJOR_LAYOUT, device=device)
+    out = ttnn.embedding(idx, tab, layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16)  # [1, N*N, w padded to 32]
+    ttnn.deallocate(idx); ttnn.deallocate(tab)
+    out4 = ttnn.reshape(out, (1, n, n, out.shape[-1]))
+    if out4.shape[-1] == w:
+        return out4
+    res = ttnn.slice(out4, (0, 0, 0, 0), (1, n, n, w))
+    ttnn.deallocate(out4)
+    if out4 is not out:
+        ttnn.deallocate(out)
+    return res
+
+
 def upload(t, dtype=ttnn.bfloat16, device=None):
     """`ttnn.from_torch(t, TILE_LAYOUT, device, dtype)`, tilized on the chip when that pays."""
     device = device or get_device()
