@@ -420,6 +420,16 @@ def _resid_ok(resid, xa, wa, mem):
             and tuple(resid.padded_shape) == tuple(xa.padded_shape)[:-1] + (int(wa.padded_shape[-1]),))
 
 
+def f1_folds_resid(xa, xb, wa, wb, resid, ckc_args, mem):
+    """Whether `fused_tail(xa, xb, wa, wb, ckc_args, ..., out_memory_config=mem, resid=resid)` serves the
+    call with the residual folded in (EPI 2, product in DRAM). T2's GATE form computes exactly those bits
+    (`perf/spd_trifuse/t2probe.py`: `torch.equal` at 512 and 1024 under ESMFold2's sets), and different ones
+    where F1 lands its product in L1 and adds it separately, so `trimul_t2g` takes only these calls."""
+    from . import ops
+    return (not ops.taping() and not dest_guard.exposed_args(ckc_args) and eligible(xa, xb, wa, wb) is None
+            and _epi() == 2 and _resid_ok(resid, xa, wa, mem or ttnn.DRAM_MEMORY_CONFIG))
+
+
 def _alloc_out(shape, device, mem):
     """The product's buffer and where it landed: `mem`, or DRAM if the allocator refuses L1."""
     try:

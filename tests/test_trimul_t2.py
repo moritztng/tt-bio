@@ -63,3 +63,35 @@ def test_t2_matches_float64_like_the_incumbent(c, gate, monkeypatch):
     assert e_inc < 5e-3, e_inc
     # bench (perf/spd_trimul/tail_t2.py, n 512): GATE within 1.12x of the incumbent, plain 1.45x
     assert e_t2 <= (1.25 if gate else 1.6) * e_inc, (e_t2, e_inc)
+
+
+@pytest.mark.parametrize("levers", ["normal-trunk_hifi3+trimul_gin", "normal+trimul_b8in+transition_ws+trimul_gin"])
+@pytest.mark.parametrize("n", [256, 512])
+def test_t2g_is_the_f1_tail_bit_for_bit(n, levers):
+    """ESMFold2's trimul under its lever sets with and without `trimul_t2g`: the GATE form serves only where F1
+    folds the residual in DRAM (512 here) and is `torch.equal` there; where F1's product fits L1 (256) it
+    declines and the tail runs as before."""
+    dev = T.get_device()
+    c = 256
+    gen = torch.Generator().manual_seed(n)
+    r = lambda *s: torch.randn(*s, generator=gen) / s[-1] ** 0.5
+    W = {"norm_in.weight": 1 + 0.1 * torch.randn(c, generator=gen), "norm_in.bias": 0.1 * torch.randn(c, generator=gen),
+         "norm_out.weight": 1 + 0.1 * torch.randn(c, generator=gen), "norm_out.bias": 0.1 * torch.randn(c, generator=gen),
+         "g_in.weight": r(2 * c, c), "p_in.weight": r(2 * c, c), "g_out.weight": r(c, c), "p_out.weight": r(c, c)}
+    z = torch.randn(1, n, n, c, generator=gen).to(torch.bfloat16)
+    outs, served = [], []
+    for spec in (levers, levers + "+trimul_t2g"):
+        with T.lever_scope(spec):
+            mod = T.TriangleMultiplication(False, W, T.trunk_compute_kernel_config(compute_kernel_config()),
+                                           gated_move=True)
+            s0 = TTL.T2_STATS[0]
+            y = mod(_dev(z, dev), None, add_to_input=True)
+            served.append(TTL.T2_STATS[0] - s0)
+            outs.append(ttnn.to_torch(y))
+            ttnn.deallocate(y)
+    assert served[0] == 0
+    zt = _dev(z, dev)
+    l1 = mod._f1_out_mc(zt) is not None
+    ttnn.deallocate(zt)
+    assert served[1] == (0 if l1 else 1), (served, l1, TTL.REJECTS)
+    assert torch.equal(outs[0], outs[1])

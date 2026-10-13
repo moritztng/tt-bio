@@ -619,7 +619,8 @@ _FAST_MODE = False
 #   trimul_t2       its output tail, layer_norm + p projection + sigmoid(g_out) gate + residual add, as one
 #                   kernel writing z in place (kernels/trimul_tail_res, compute_ln.cpp; c_z 128 / 256, N >= 160)
 #   trimul_t2g      the same kernel where no fused g_out exists (trimul_gin, Wormhole ESMFold2): it computes
-#                   sigmoid(layer_norm_in(z) @ Wg_out) itself, so g_out is never written to DRAM
+#                   sigmoid(layer_norm_in(z) @ Wg_out) itself, so g_out is never written to DRAM. It takes only
+#                   the calls the F1 tail would serve with the residual folded in, and there it is bit-exact
 #   trimul_t2m      T2 (either form) reads the einsum's last channel chunk where it lies, channel-major, so
 #                   reblock_permute_back never writes the moved x (kernels/trimul_tail_res/reader_moved.cpp)
 #   trimul_t1_dram  every trimul T1 / T2 can take (N >= 160) runs on the DRAM path, so they also serve the sizes
@@ -10394,7 +10395,8 @@ class TriangleMultiplication(Module):
         # to free it, so every size that fits keeps its peak and its ops.
         t2_gate = (g_out_fused is None and x_norm_in is not None and self.g_out_bias is None
                    and (_trimul_tail.T2 or lever("trimul_t2g")))
-        if self._t2_serves(g_out_fused, x_norm_in, H, add_to_input) and not x_normed:
+        if (self._t2_serves(g_out_fused, x_norm_in, H, add_to_input) and not x_normed
+                and (not t2_gate or self._t2g_exact(x, x_norm_in, x_in))):
             # T2 (the `trimul_t2` lever): layer_norm,
             # the p projection, the gate and the residual add as one kernel writing x_in in
             # place; `_add_input` then sees `u is x`. Without a fused g_out (trimul_gin, or no
@@ -10455,12 +10457,7 @@ class TriangleMultiplication(Module):
             # The product goes where `multiply_` would have left it: L1 when a pair tensor fits
             # there, which is the same test `_trimul_out_proj` applies to `p_out`. Reserve the
             # consumer's circular buffers underneath it, as the mask path does.
-            out_mc = None
-            if _TRIMUL_TAIL_F1_L1_OUT and _l1_fits(
-                    _padded_bytes([int(d) for d in x.shape][:-1]
-                                  + [int(self.out_p_weight.shape[-1])], 2),
-                    1.0, _PAIR_L1_CONSUMER_RESERVE):
-                out_mc = ttnn.L1_MEMORY_CONFIG
+            out_mc = self._f1_out_mc(x)
             # With TT_BIO_TRIMUL_TAIL_EPI=2 the residual add is folded in: `x_in + update` is
             # written into `x_in` and returned, and `_add_input` sees the sum (`u is x`).
             fused = _trimul_tail.fused_tail(
@@ -10490,6 +10487,25 @@ class TriangleMultiplication(Module):
             p_out, g_out, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID]
         )
         return x
+
+    def _f1_out_mc(self, x):
+        """Where the F1 tail puts its product: L1 when a pair tensor fits there, else None (DRAM)."""
+        if _TRIMUL_TAIL_F1_L1_OUT and _l1_fits(
+                _padded_bytes([int(d) for d in x.shape][:-1] + [int(self.out_p_weight.shape[-1])], 2),
+                1.0, _PAIR_L1_CONSUMER_RESERVE):
+            return ttnn.L1_MEMORY_CONFIG
+        return None
+
+    def _t2g_exact(self, x, x_norm_in, x_in):
+        """T2's GATE form serves only the calls the F1 tail would serve with the residual folded in, where
+        it computes the same bits; elsewhere (F1 off, its product in L1) the tail runs as before."""
+        ok = (_TRIMUL_TAIL_F1 and self.p_out_bias is None and _trimul_tail.f1_folds_resid(
+            x, x_norm_in, self.out_p_weight, self.g_out_weight, x_in,
+            _mm_generic.ckc_args(self.compute_kernel_config), self._f1_out_mc(x)))
+        if not ok:
+            k = ("t2:g_not_f1", "x".join(str(int(d)) for d in x.padded_shape))
+            _trimul_tail.REJECTS[k] = _trimul_tail.REJECTS.get(k, 0) + 1
+        return ok
 
     def _t2_serves(self, g_out_fused, x_norm_in, H, add_to_input):
         """Whether the output tail goes to T2 (`trimul_t2` with a fused g_out, else the GATE form
