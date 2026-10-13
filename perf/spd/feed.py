@@ -280,7 +280,7 @@ def main(argv=None):
     # 2. fill each pool up to depth x healthy, cells in priority order, the pool with most room first
     room = {n: (0 if s.get("paused") else int(a.depth * s["healthy"]) - s["queued"]) for n, s in st.items()}
     place = {n: [] for n in st}
-    waits = {n: dict(st[n].get("wait", {})) for n in st}
+    waits = {n: {int(c): w for c, w in st[n].get("wait", {}).items()} for n in st}
     for c in cs:
         L = ledger.get(c["key"], {})
         if c["is_done"] or L.get("quarantined") or L.get("state") in ("queued", "running") or live & set(c["also"]):
@@ -305,7 +305,10 @@ def main(argv=None):
             continue
         unq = [q for q in qnames if s["jobs"].get(q, {}).get("state") == "queued"] if P[n]["kind"] == "galaxy" else []
         if jobs or unq:
-            remote(P[n]["ssh"], PLACE, {"kind": P[n]["kind"], "jobs": jobs, "unqueue": unq})
+            try:
+                remote(P[n]["ssh"], PLACE, {"kind": P[n]["kind"], "jobs": jobs, "unqueue": unq})
+            except Exception as e:  # the next pass finds these cells lost and places them again
+                log(f"{n}: place failed: {e}")
     if a.dry_run:
         log(f"dry run: cells {len(cs)}, done {sum(c['is_done'] for c in cs)}, twin queued/running {sum(bool(live & set(c['also'])) for c in cs)}")
         return 0
