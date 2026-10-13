@@ -14,6 +14,7 @@
 // order the CB pointer walks). c_2 tells the reader a slot is free again: compute pops c_16 before it
 // pushes the unit's last sums, so once all 32 sums are here the slot is no longer read.
 #include "api/dataflow/dataflow_api.h"
+#include "../common/l1_copy.hpp"
 
 void kernel_main() {
     const uint32_t z_addr = get_common_arg_val<uint32_t>(0);
@@ -40,7 +41,7 @@ void kernel_main() {
         const uint32_t Jt = u / (Ct * S1t);
         auto page = [&](uint32_t q) { return ((Jt * 32 + q) * S1t + It) * Ct + ct; };
 
-        // z tiles of this unit, while the shuffle below runs on the same NoC
+        // z tiles of this unit, in flight while the shuffle below copies on the RISC
         cb_reserve_back(cb_z, 32);
         uint32_t lz = get_write_ptr(cb_z);
         for (uint32_t q = 0; q < 32; ++q, lz += tile_bytes) {
@@ -57,10 +58,11 @@ void kernel_main() {
             for (uint32_t q = QR; q < 32; ++q) {
                 const uint32_t src = src_tile + ((q >> 4) * 2) * FACE + (q & 15) * ROW;
                 const uint32_t dst = slot + q * tile_bytes + dst_row;
-                noc_async_read(get_noc_addr(src), dst, ROW);
-                noc_async_read(get_noc_addr(src + FACE), dst + FACE, ROW);
+                l1_copy::copy<ROW>(dst, src);
+                l1_copy::copy<ROW>(dst + FACE, src + FACE);
             }
         }
+        l1_copy::publish();
         noc_async_read_barrier();
         cb_push_back(cb_z, 32);
         cb_wait_front(cb_half, 1);                  // reader's rows are in the slot, its input read done

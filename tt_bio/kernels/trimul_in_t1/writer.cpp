@@ -13,11 +13,12 @@
 #define ABL 0
 #endif
 #include "api/dataflow/dataflow_api.h"
+#include "../common/l1_copy.hpp"
 
 void kernel_main() {
     constexpr uint32_t CT2 = get_compile_time_arg_val(0);
     constexpr uint32_t St = get_compile_time_arg_val(1);
-    constexpr uint32_t NB = get_compile_time_arg_val(2);    // output tiles gathered per read barrier
+    constexpr uint32_t NB = get_compile_time_arg_val(2);    // output tiles gathered per DRAM write batch
     constexpr uint32_t NTG = get_compile_time_arg_val(3);   // g_out channel tiles, 0: none
     constexpr auto a_args = TensorAccessorArgs<4>();
     constexpr auto b_args = TensorAccessorArgs<a_args.next_compile_time_args_offset()>();
@@ -38,7 +39,6 @@ void kernel_main() {
 
     cb_reserve_back(stage_cb, 2 * NB);
     const uint32_t stage0 = get_write_ptr(stage_cb);
-    noc_async_read_one_packet_set_state(get_noc_addr(stage0), RB);
     bool dirty[2] = {false, false};
 
     for (uint32_t u = u0; u < u0 + nunits; ++u) {
@@ -73,17 +73,17 @@ void kernel_main() {
                     const uint32_t sc = src + (c >> 4) * 2 * FB + (c & 15) * RB;
                     uint32_t s0 = sc, s1 = sc + FB, d0 = st, d1 = st + FB;
                     for (uint32_t il = 0; il < 16; ++il, s0 += TB, s1 += TB, d0 += RB, d1 += RB) {
-                        noc_async_read_one_packet_with_state(s0, d0);
-                        noc_async_read_one_packet_with_state(s1, d1);
+                        l1_copy::copy<RB>(d0, s0);
+                        l1_copy::copy<RB>(d1, s1);
                     }
                     d0 = st + 2 * FB;
                     d1 = st + 3 * FB;
                     for (uint32_t il = 0; il < 16; ++il, s0 += TB, s1 += TB, d0 += RB, d1 += RB) {
-                        noc_async_read_one_packet_with_state(s0, d0);
-                        noc_async_read_one_packet_with_state(s1, d1);
+                        l1_copy::copy<RB>(d0, s0);
+                        l1_copy::copy<RB>(d1, s1);
                     }
                 }
-                noc_async_read_barrier();
+                l1_copy::publish();
                 for (uint32_t j = 0; j < NB; ++j, page += SS)
                     if constexpr (!(ABL & 64)) noc_async_write(gbase + j * TB, is_a ? oa.get_noc_addr(page) : ob.get_noc_addr(page), TB);
                 dirty[grp] = true;

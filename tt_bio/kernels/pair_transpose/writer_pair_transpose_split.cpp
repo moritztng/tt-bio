@@ -6,6 +6,7 @@
 // starts their DRAM writes, then waits for the reader's tiles 0..QR-1 and writes those. Every
 // element is moved, none is computed: bit-exact by construction, like the plain variant.
 #include "api/dataflow/dataflow_api.h"
+#include "../common/l1_copy.hpp"
 
 void kernel_main() {
     const uint32_t dst_addr = get_common_arg_val<uint32_t>(0);
@@ -38,11 +39,11 @@ void kernel_main() {
             for (uint32_t q = QR; q < 32; ++q) {
                 const uint32_t src = src_tile + ((q >> 4) * 2) * FACE + (q & 15) * ROW;
                 const uint32_t dst = slot + q * tile_bytes + dst_row;
-                noc_async_read(get_noc_addr(src), dst, ROW);
-                noc_async_read(get_noc_addr(src + FACE), dst + FACE, ROW);
+                l1_copy::copy<ROW>(dst, src);
+                l1_copy::copy<ROW>(dst + FACE, src + FACE);
             }
         }
-        noc_async_read_barrier();
+        l1_copy::publish();
         for (uint32_t q = QR; q < 32; ++q) {
             noc_async_write(slot + q * tile_bytes, d.get_noc_addr(((Jt * 32 + q) * S1t + It) * Ct + ct), tile_bytes);
         }

@@ -6,7 +6,8 @@ writes are row-granular scatter into DRAM (19 % of the copy roof). Tiling covers
 so swapping the untiled S1 with the tile-row axis S2 moves single rows between tiles; done in L1
 instead, the DRAM side is one read and one write of whole tiles. A unit is the 32 x 32 tile block
 (It, Jt) of one channel tile: the reader brings the 32 input tiles of row-block It, row q of each is
-gathered into output tile q with local NoC reads, and the writer writes the 32 out. In the split
+gathered into output tile q (a NoC read in the reader, a RISC copy in the writer, which keeps its
+NoC for DRAM writes), and the writer writes the 32 out. In the split
 kernels (the default, `PAIR_TRANSPOSE_SPLIT`) the reader gathers the first QR output tiles while the
 next unit's reads land and the writer the rest; the plain pair leaves the whole gather to the writer.
 No compute kernel; bit-exact by construction. The work split is rne_add's.

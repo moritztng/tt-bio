@@ -8,12 +8,13 @@
 // padded tiles: rows il >= S - 32 * xt of the last row tile are gathered from a zeroed face row here,
 // and compute has already zeroed columns >= S - 32 * yt of the last column tile.
 #include "api/dataflow/dataflow_api.h"
+#include "../common/l1_copy.hpp"
 
 void kernel_main() {
     constexpr uint32_t CT2 = get_compile_time_arg_val(0);
     constexpr uint32_t St = get_compile_time_arg_val(1);
     constexpr uint32_t S = get_compile_time_arg_val(2);
-    constexpr uint32_t NB = get_compile_time_arg_val(3);    // output tiles gathered per read barrier
+    constexpr uint32_t NB = get_compile_time_arg_val(3);    // output tiles gathered per DRAM write batch
     constexpr uint32_t QS = get_compile_time_arg_val(4);
     constexpr auto a_args = TensorAccessorArgs<5>();
     constexpr auto b_args = TensorAccessorArgs<a_args.next_compile_time_args_offset()>();
@@ -37,7 +38,6 @@ void kernel_main() {
     for (uint32_t k = 0; k < RB / 4; ++k) zp[k] = 0;
     cb_reserve_back(stage_cb, 2 * NB);
     const uint32_t stage0 = get_write_ptr(stage_cb);
-    noc_async_read_one_packet_set_state(get_noc_addr(stage0), RB);
     bool dirty[2] = {false, false};
 
     for (uint32_t u = u0; u < u0 + nunits; ++u) {
@@ -62,11 +62,11 @@ void kernel_main() {
                     uint32_t s0 = sc, s1 = sc + FB;
                     for (uint32_t il = 0; il < 32; ++il, s0 += TB, s1 += TB) {
                         const uint32_t d = st + (il >> 4) * 2 * FB + (il & 15) * RB;
-                        noc_async_read_one_packet_with_state(il < r0 ? s0 : zero, d);
-                        noc_async_read_one_packet_with_state(il < r0 ? s1 : zero, d + FB);
+                        l1_copy::copy<RB>(d, il < r0 ? s0 : zero);
+                        l1_copy::copy<RB>(d + FB, il < r0 ? s1 : zero);
                     }
                 }
-                noc_async_read_barrier();
+                l1_copy::publish();
                 for (uint32_t j = 0; j < NB; ++j, page += SS)
                     noc_async_write(gbase + j * TB, is_a ? oa.get_noc_addr(page) : ob.get_noc_addr(page), TB);
                 dirty[grp] = true;

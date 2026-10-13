@@ -8,12 +8,13 @@
 // of tile il: 64 local face-row reads assemble it in a staging slot, then one 2 KB DRAM write. The
 // same gather as reblock_permute's writer, whose comment carries the alignment argument.
 #include "api/dataflow/dataflow_api.h"
+#include "../common/l1_copy.hpp"
 
 void kernel_main() {
     constexpr uint32_t CT2 = get_compile_time_arg_val(0);
     constexpr uint32_t St = get_compile_time_arg_val(1);
     constexpr uint32_t ABL = get_compile_time_arg_val(2);   // bit 2: no gather, no write (diagnostic)
-    constexpr uint32_t NB = get_compile_time_arg_val(3);    // output tiles gathered per read barrier
+    constexpr uint32_t NB = get_compile_time_arg_val(3);    // output tiles gathered per DRAM write batch
     // This launch's first channel tile in `a` and `b`, and how many each holds: a call too wide for
     // L1 runs as several launches over channel slices that write into the same two tensors.
     constexpr uint32_t CTO = get_compile_time_arg_val(4);
@@ -34,7 +35,6 @@ void kernel_main() {
     // 2 * NB stage tiles: group g gathers NB tiles into its half while the other half's writes drain.
     cb_reserve_back(stage_cb, 2 * NB);
     const uint32_t stage0 = get_write_ptr(stage_cb);
-    noc_async_read_one_packet_set_state(get_noc_addr(stage0), RB);
     bool dirty[2] = {false, false};
 
     for (uint32_t u = u0; u < u0 + nunits; ++u) {
@@ -55,17 +55,17 @@ void kernel_main() {
                     const uint32_t sc = src + (c >> 4) * 2 * FB + (c & 15) * RB;
                     uint32_t s0 = sc, s1 = sc + FB, d0 = st, d1 = st + FB;
                     for (uint32_t il = 0; il < 16; ++il, s0 += TB, s1 += TB, d0 += RB, d1 += RB) {
-                        noc_async_read_one_packet_with_state(s0, d0);
-                        noc_async_read_one_packet_with_state(s1, d1);
+                        l1_copy::copy<RB>(d0, s0);
+                        l1_copy::copy<RB>(d1, s1);
                     }
                     d0 = st + 2 * FB;
                     d1 = st + 3 * FB;
                     for (uint32_t il = 0; il < 16; ++il, s0 += TB, s1 += TB, d0 += RB, d1 += RB) {
-                        noc_async_read_one_packet_with_state(s0, d0);
-                        noc_async_read_one_packet_with_state(s1, d1);
+                        l1_copy::copy<RB>(d0, s0);
+                        l1_copy::copy<RB>(d1, s1);
                     }
                 }
-                noc_async_read_barrier();
+                l1_copy::publish();
                 for (uint32_t j = 0; j < NB; ++j, page += SS)
                     noc_async_write(gbase + j * TB, is_a ? oa.get_noc_addr(page) : ob.get_noc_addr(page), TB);
                 dirty[grp] = true;
