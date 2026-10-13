@@ -1,6 +1,8 @@
 #!/bin/bash
 # proga-review: one bounded proga GA run on a qb1 Blackhole p150a, behind the card's flock.
 # Usage: run_qb1.sh <logical_card> <outdir> <timeout_s> [extra proga args...]
+# Queue it on several cards at once: the first to take its flock claims $R/CLAIM and the others
+# release their card immediately. Remove $R/CLAIM before the next run.
 set -u
 CHIP=$1 OUT=$2 TMO=$3; shift 3
 R=$HOME/proga-review
@@ -13,6 +15,7 @@ say() { echo "$(date -u +%FT%TZ) $*" >> "$OUT/run.log"; }
 exec 9> "/home/ttuser/spd_qb1_card$CHIP.lock"
 say "waiting for card $CHIP flock"
 flock -w "${WAIT:-10800}" 9 || { say "flock busy after ${WAIT:-10800}s"; exit 3; }
+mkdir "$R/CLAIM" 2>/dev/null || { say "another card won the race; releasing card $CHIP"; exit 0; }
 say "got card $CHIP; tree $(cat $TREE/TREE_SHA 2>/dev/null) venv $VENV"
 
 export TT_VISIBLE_DEVICES=$CHIP TT_BIO_LEASE_HOLDER=proga-review TT_BIO_LEASE_DIR=$R/leases
