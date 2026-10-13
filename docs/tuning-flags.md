@@ -57,7 +57,7 @@ move against the accuracy bar and the seed-to-seed spread.
 | [`TT_BIO_OPM_SMALL_DEPTH`](#tt_bio_opm_small_depth) | on | MSA depth 8 or less (AF2-IG, single-sequence folds) | moves, inside the bar |
 | [`TT_BIO_PAIR_FFN_L1_FC1`](#tt_bio_pair_ffn_l1_fc1) | on | ESMFold2 | identical |
 | [`TT_BIO_PAIR_INPLACE`, `TT_BIO_TRIMUL_INPROJ_ROWBLOCK_NORM`](#tt_bio_pair_inplace-tt_bio_trimul_inproj_rowblock_norm) | on | large pair tensors | identical |
-| [`TT_BIO_PAIR_MM`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2, Blackhole | gradients only |
+| [`TT_BIO_PAIR_MM`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round; on for AF2 on Wormhole | BindCraft 2, AF2 and AF2-IG | moves, far inside the bar |
 | [`TT_BIO_PAIR_TRANSPOSE_FUSED`](#tt_bio_pair_transpose_fused) | on | pair tensors, forward and backward | identical |
 | [`TT_BIO_PWA_FUSED_HEADS`, `TT_BIO_PWA_UNPADDED`](#msa-module-flags) | on | MSA models; graded on Protenix-v2 | moves, inside the bar |
 | [`TT_BIO_PWA_BATCH_HEAD_WEIGHTS`](#tt_bio_pwa_batch_head_weights) | on | | identical |
@@ -89,6 +89,7 @@ move against the accuracy bar and the seed-to-seed spread.
 | [`TT_BIO_TRIATT_NARROW_Q_FALLBACK`](#tt_bio_triatt_narrow_q_fallback) | on | | identical on RoseTTAFold3, moves on OpenBind |
 | [`TT_BIO_TRIATT_SDPA_HIFI_AB`](#tt_bio_triatt_sdpa_hifi_ab) | on at `openfold3.trunk` | OpenFold3 | moves, inside the seed spread |
 | [`TT_BIO_TRIMUL_GIN_RAGGED`](#tt_bio_trimul_gin_ragged) | on for Wormhole | AF2-IG | moves, far inside the bar |
+| [`TT_BIO_TRIMUL_PER_CHANNEL`](#tt_bio_trimul_per_channel) | on for Wormhole | up to 256 tokens | identical |
 | [`TT_BIO_TRIMUL_GP_BANK_SPLIT`](#tt_bio_trimul_gp_bank_split) | on | | identical |
 | [`TT_BIO_TRIMUL_MASK_AFTER_MOVE`](#tt_bio_trimul_mask_after_move) | on | | identical |
 | [`TT_BIO_TRIMUL_MASK_L1`](#tt_bio_trimul_mask_l1) | on | | identical |
@@ -105,16 +106,26 @@ workers are not flags of ours; they are covered at the end, under
 
 ## BindCraft 2 round kernels
 
-Default: on inside a BindCraft 2 round, off elsewhere. `TT_BIO_PAIR_MM` and
-`TT_BIO_AF2_G_BIAS_IN_MATMUL` are on in the round on Blackhole only.
+Default: on inside a BindCraft 2 round, off elsewhere. `TT_BIO_AF2_G_BIAS_IN_MATMUL` is on in the
+round on Blackhole only.
 
 Kernels that delete DRAM round trips from the AlphaFold 2 Evoformer's gradient. Each is armed by
 `bindcraft2.predictor(exact=False)` through `fast_round`, alongside
 [`TT_BIO_LNBW_FUSED`](#tt_bio_lnbw_fused) and [`TT_BIO_TRIATT_BW_FUSED`](#tt_bio_triatt_bw_fused).
-Outside a BindCraft 2 round every one keeps the composed path. On Wormhole `TT_BIO_PAIR_MM` and
-`TT_BIO_AF2_G_BIAS_IN_MATMUL` keep it too: on three input seeds of the float64 gradient grade they
-read worse than the composed path on one seed and better on two, which does not settle them. Setting a flag to `0` turns that kernel off even inside
+Outside a BindCraft 2 round every one keeps the composed path. On Wormhole
+`TT_BIO_AF2_G_BIAS_IN_MATMUL` keeps it too: on three input seeds of the float64 gradient grade it
+reads worse than the composed path on one seed and better on two, which does not settle it. Setting a flag to `0` turns that kernel off even inside
 the round; `bindcraft2.predictor(fast=False)` turns all of them off together.
+
+`TT_BIO_PAIR_MM` is now on in the round on both architectures. Its Wormhole round, six campaign
+seeds against PD-L1 at binder length 80, accepted 11 designs of 30 trajectories where the composed
+path accepted 12 (Fisher p=1.00), with mean pLDDT 0.893 against 0.885 and last-iteration ipTM 0.624
+against 0.571. One iteration goes from 7.81 to 7.45 s on a Wormhole chip at 1000 MHz.
+
+AF2 itself (AF2-IG, and the AF2 filter inside PXDesign) takes the `TT_BIO_PAIR_MM` path for its pair-track
+linears on Wormhole, through its own lever set rather than the round. On one Wormhole chip at 1000 MHz
+AF2-IG goes from 4.51 to 4.27 s per complex (three complexes, with a trailing control arm). Across three PD-L1 complexes ipTM moves by at most 0.0004 and the
+structures by 0.02 to 0.06 A, and 0.45 A on the complex that does not bind (ipTM 0.10).
 
 | flag | what it replaces |
 |---|---|
@@ -745,6 +756,13 @@ the normal bar on ESMFold2-Fast (TM-score -0.005, 95 % CI excludes zero), while 
 trunk in block-fp8, where the triangle multiplications lost their fused in-projection: at 512 aa on a
 Blackhole p150a (1350 MHz) ESMFold2-Fast took 30.2 s with `--fast` against 25.7 s without. It now takes
 24.5 s, and on a p300c chip `--fast` and normal mode fold within 0.7 s of each other.
+On Wormhole both models keep the older `--fast` path and fold under the normal set (without `trunk_hifi3`) in
+both modes. Graded against no lever set on a Galaxy chip
+(11 complexes x 4 seeds): ESMFold2-Fast passes the normal bar, CA-lDDT +0.0014 [-0.0007, +0.0045], TM-score
++0.008, docking success 24 -> 25 of 44, median same-seed top-pose deviation 0.73 A where a different seed moves it
+1.40 A; ESMFold2, which runs only in `--fast` on Wormhole, passes the fast bar, CA-lDDT -0.0050 [-0.0101,
+-0.0010], pLDDT -0.005, docking success 30 -> 29 of 43, median same-seed top-pose deviation 0.64 A where a different
+seed moves it 1.26 A. A 512-residue ESMFold2-Fast fold takes about 50 s instead of 53 s at 1000 MHz.
 
 **OpenFold3 and OpenBind-0** run the normal set without the two transition levers. Their `--fast` set adds
 `dit_s16` and `diffusion_bf16`, which run the diffusion transformer in bf16 with the same fused attention
@@ -1134,6 +1152,8 @@ A triangle multiplication moves its pair tensor into a channel-blocked layout, t
 **Accuracy: bit for bit.**
 
 Every triangle multiplication opts in rather than being switched on by model name, so a model whose shapes the fused reader cannot address keeps the separate ops instead of failing.
+
+On Wormhole the fused move also covers pair tensors in DRAM below 256 tokens (BindCraft 2 and AF2-IG at 195 and 224), which takes BindCraft 2's on-card iteration from 5.34 to 5.02 s with bit-identical gradients. `TT_BIO_REBLOCK_DRAM_FILL_GATED=0` (fused leg) and `TT_BIO_REBLOCK_DRAM_FILL=0` (plain moves) restore the 256-token edge.
 
 ## `TT_BIO_RF3_DIFFUSION_TRACE`
 
@@ -1679,6 +1699,21 @@ trailing control arm).
 
 **Accuracy: moves, far inside the bar.** The bias is added in fp32 before the result is packed.
 Across three PD-L1 complexes ipTM moves by at most 0.002 and pLDDT by at most 0.0005.
+
+## `TT_BIO_TRIMUL_PER_CHANNEL`
+
+Default: on for Wormhole, off for Blackhole until it is timed there.
+
+At up to 8 sequence tiles (256 tokens) the triangle multiplication's channel product gives every
+core a single output tile and loops it over all channels, which leaves part of the chip idle. This
+flag gives each core whole channels instead. The K blocking is unchanged, so the output is
+bit-identical. If the larger blocks do not fit beside what is already in L1, that length falls back
+to the old plan.
+
+**Speed:** the product at 195 tokens takes a quarter of the time (0.40 to 0.10 ms per 64-channel
+chunk). AF2-IG on one Wormhole chip, 4.65 to 4.45 s per complex at 1000 MHz.
+
+**Accuracy: identical.** Same coordinates, bit for bit, on three PD-L1 complexes.
 
 ## `TT_BIO_TRIMUL_FUSED_GOUT`
 

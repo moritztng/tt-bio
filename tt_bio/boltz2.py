@@ -73,9 +73,14 @@ LEVERS_NORMAL = frozenset({"trimul_ibw", "trimul_tail", "trunk_hifi3", "dit_sdpa
 # Wormhole PASS, 42 paired, top pose 0.989 A vs a 1.801 A seed floor (spd-integrate gad); Blackhole PASS, 44 paired,
 # top pose median 1.255 A vs a 1.779 A floor, pLDDT within +-0.003 per complex, docking 24/44 both. p150a 512 x 1,
 # interleaved: 13.51 / 14.40 s against 14.43 / 14.74 s (spd-gap-small abO, 2026-10-12).
+# trimul_t1 / trimul_t2 (the triangle multiplication's in-projection and its tail as fused kernels) are graded on
+# Boltz-2 fast against this set without them: Wormhole PASS, top pose 1.10 A vs a 1.81 A floor; Blackhole PASS,
+# 44 paired, top pose median 1.251 A vs 1.797 A, docking 24/44 both, pLDDT within 0.004 per complex (spd-integrate
+# gb2t). 512 x 1: Wormhole 25.9 -> 24.1 s, p150a 13.58 -> 13.03 s (spd-gap-small). Their normal grade fails the
+# 0.6 A kill bar on both (top pose 0.876 / 0.845 A), so normal keeps the incumbent.
 LEVERS_FAST = frozenset({"acc_off", "diffusion_bf16", "dit_sdpa", "transition_b8", "opm_b8", "atom_sdpa",
                          "trimul_ibw", "trimul_tail", "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32",
-                         "triatt_tail", "adaln_mod", "transition_ws"})
+                         "triatt_tail", "adaln_mod", "transition_ws", "trimul_t1", "trimul_t2"})
 
 
 def _under_levers(method):

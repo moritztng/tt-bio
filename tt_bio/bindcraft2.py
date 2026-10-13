@@ -309,8 +309,15 @@ _MEASURED_CEILINGS = (
 #: All three run the same ops on the same values; only what the card holds in between differs.
 MEMORY_MODES = ("fast", "lean", "offload")
 
-#: Experiment knob (spd-gap-bind): how many of the last Evoformer blocks run un-checkpointed.
-RESIDENT_BLOCKS = int(os.environ.get("TT_BIO_BC2_RESIDENT_BLOCKS", "0"))
+#: How many of the last Evoformer blocks keep their whole tape instead of a checkpoint, so the
+#: backward does not run their forward again: an integer pins it, ``auto`` sizes it from the card
+#: (`resident_blocks`). Default 0 while ``auto`` is in its design grade.
+RESIDENT_BLOCKS = os.environ.get("TT_BIO_BC2_RESIDENT_BLOCKS", "0")
+#: A resident Evoformer block's tape, in pair tensors (256 B a token pair). Fitted on a Wormhole
+#: chip at 224 tokens: 11 resident blocks fit beside a fast round and 12 do not, which puts a
+#: block at 64-70 (.114, out/resk3_14c9d7918). 70 is the safe end.
+_RESIDENT_BLOCK_PAIR_TENSORS = 70
+_RESIDENT_MARGIN_BYTES = int(0.5e9)
 
 #: Device bytes a gradient round peaks at, per mode: a constant plus a count of bf16
 #: `[N, N, 128]` pair tensors (256 B a token pair). `fast` is `bcw-census`'s account, which the
@@ -332,6 +339,23 @@ _MODE_USABLE = 0.978
 def round_device_bytes(mode: str, padded: int) -> int:
     """What a gradient round at this token axis peaks at on the card in `mode`."""
     return int(_MODE_BASE_BYTES + _MODE_PAIR_TENSORS[mode] * 256 * int(padded) ** 2)
+
+
+def resident_blocks(mode: str, padded: int, card_bytes: int, slot: str = "",
+                    blocks: int = EVOFORMER_BLOCKS, requested: str | None = None) -> int:
+    """How many of the last `blocks` Evoformer blocks keep their tape (`RESIDENT_BLOCKS`).
+
+    ``auto`` fills what the card has left after a fast round, and is 0 in the slower modes
+    (they exist because the card is short) and for an interleaved trajectory (`slot` set): its
+    neighbours peak at other times, so the room one sees is not its own to spend."""
+    requested = RESIDENT_BLOCKS if requested is None else requested
+    if requested != "auto":
+        return max(0, min(blocks, int(requested)))
+    if mode != "fast" or slot:
+        return 0
+    room = card_bytes * _MODE_USABLE - round_device_bytes("fast", padded) - _RESIDENT_MARGIN_BYTES
+    per = _RESIDENT_BLOCK_PAIR_TENSORS * 256 * int(padded) ** 2
+    return max(0, min(blocks, int(room // per)))
 
 
 def memory_mode(requested: str, padded: int, card_bytes: int) -> str:
@@ -910,13 +934,13 @@ class _Trunk:
         return mode == "offload"
 
     def evoformer(self, m, z, msa_mask, pair_masks, recompute: bool, offload: bool = False,
-                  drop=None):
+                  drop=None, resident: int = 0):
         """`drop` is one `{op: keep mask}` per block, or None for a stack that drops nothing.
 
-        The last `RESIDENT_BLOCKS` blocks skip the checkpoint and keep their whole tape: the
-        backward reaches them first and frees them first, and they cost no recompute."""
+        The last `resident` blocks skip the checkpoint and keep their whole tape: the backward
+        reaches them first and frees them first, and they cost no recompute."""
         blocks = self.model.device_evoformer
-        keep = len(blocks) - RESIDENT_BLOCKS
+        keep = len(blocks) - resident
         for i, block in enumerate(blocks):
             d = None if drop is None else drop[i]
             if i >= keep:
@@ -1427,15 +1451,18 @@ class EvoformerOnDevice:
             # forward did, which is what AF2's dropout means for a gradient.
             drop = upload_dropout(trunk, DROPOUT_DRAWS[1:], pair_keep, scales, z.shape[0],
                                   msa_keep)
+            # AlphaFold 2 stops the gradient on every recycle but the last and JAX still routes all
+            # of them through the forward rule, so this trajectory's superseded tapes are dropped
+            # before the next forward records, never beside it: at several GB an Evoformer block,
+            # two recycles' tapes at once is fatal within one trajectory.
+            self._tapes.sweep(slot)
             with trunk.taped.tape():
                 mo, zo = trunk.evoformer(ml, zl, self._msa_mask(trunk, mask),
                                          self._pair_masks(trunk, pair_mask),
-                                         recompute=self.recompute, offload=offload, drop=drop)
+                                         recompute=self.recompute, offload=offload, drop=drop,
+                                         resident=resident_blocks(mode, z.shape[0],
+                                                                  trunk.card_bytes(), slot))
             trunk.sync()
-        # AlphaFold 2 stops the gradient on every recycle but the last and JAX still routes all
-        # of them through the forward rule, so the superseded tapes are dropped here. At several
-        # GB an Evoformer block, keeping them is fatal within one trajectory.
-            self._tapes.sweep(slot)
             trunk.ag.release_pins()
             token = self._tapes.bank({"roots": (mo, zo), "leaves": (ml, zl),
                                       "shapes": (tuple(m.shape), tuple(z.shape)), "n": n,
@@ -1675,13 +1702,14 @@ class ExtraMsaOnDevice:
             offload = trunk.arm(mode)
             zl = trunk.leaf(z)
             drop = upload_dropout(trunk, DROPOUT_DRAWS[1:], pair_keep, scales, z.shape[0])
+            # Every recycle but the last is stop_gradient'ed and still goes through the forward
+            # rule, so the superseded tapes are dropped before this one records
+            # (`EvoformerOnDevice._taped`).
+            self._tapes.sweep(slot)
             with trunk.taped.tape():
                 zo = trunk.extra_msa(zl, self._pair_masks(trunk, pair_mask),
                                      recompute=self.recompute, offload=offload, drop=drop)
             trunk.sync()
-        # Every recycle but the last is stop_gradient'ed and still goes through the forward
-        # rule, so the superseded tapes are dropped here -- `EvoformerOnDevice._taped`'s reason.
-            self._tapes.sweep(slot)
             trunk.ag.release_pins()
             token = self._tapes.bank({"root": zo, "leaf": zl, "shape": tuple(z.shape), "n": n,
                                       "mode": mode, "drop": drop}, slot)
@@ -1842,13 +1870,14 @@ class TemplateOnDevice:
             offload = trunk.arm(mode)
             leaf = trunk.leaf(act)
             drop = upload_dropout(trunk, TEMPLATE_DROPOUT_DRAWS, pair_keep, scales, act.shape[0])
+            # Every recycle but the last is stop_gradient'ed and still goes through the forward
+            # rule, so the superseded tapes are dropped before this one records
+            # (`ExtraMsaOnDevice._taped`).
+            self._tapes.sweep(slot)
             with trunk.taped.tape():
                 out = trunk.template_stack(leaf, self._pair_masks(trunk, pair_mask),
                                            recompute=self.recompute, offload=offload, drop=drop)
             trunk.sync()
-        # Every recycle but the last is stop_gradient'ed and still goes through the forward
-        # rule, so the superseded tapes are dropped here -- `ExtraMsaOnDevice._taped`'s reason.
-            self._tapes.sweep(slot)
             trunk.ag.release_pins()
             token = self._tapes.bank({"root": out, "leaf": leaf, "shape": tuple(act.shape),
                                       "n": n, "mode": mode, "drop": drop}, slot)
@@ -2052,11 +2081,6 @@ _IPA_POINT_EINSUM = """    _vp = jnp.concatenate([v_point.x, v_point.y, v_point.
 #: subtraction into its reduction. Same operations on the same inputs: bit-exact.
 IPA_DIST_REMAT = env_flag("TT_BIO_BC2_IPA_DIST_REMAT", False)
 
-#: Run every recycle but the last untaped (`_untaped_recycles`): same gradient, no tape for the
-#: recycles whose gradient BindCraft 2 discards. The plain forward takes the untaped kernels, so
-#: those recycles' values move within the forward's own precision. Off until graded on designs.
-UNTAPED_RECYCLES = env_flag("TT_BIO_BC2_UNTAPED_RECYCLES", False)
-
 _IPA_DIST = """    dist2 = geometry.square_euclidean_distance(
         q_point[:, None, :, :], k_point[None, :, :, :], epsilon=0.)
     attn_qk_point = -0.5 * jnp.sum(point_weights[:, None] * dist2, axis=-1)"""
@@ -2204,34 +2228,6 @@ def installed() -> EvoformerOnDevice | None:
     return _INSTALLED
 
 
-def _untaped_recycles(real):
-    """`bindcraft.af2.recycled_alphafold_outputs` with every recycle but the last fed constants.
-
-    BindCraft 2 stops the gradient on the OUTPUT of every recycle but the last, but the inputs
-    still carry the sequence's tangent, so JAX runs each of those recycles through the stacks'
-    forward rule: a full tape on the card, recorded and then swept unread. Stopping the gradient
-    on the inputs too changes no value and no gradient (nothing downstream reads one), and with
-    every tangent a symbolic zero JAX calls the plain forward instead.
-    """
-    import jax
-
-    def recycled(runner, params, key, model_inputs, num_recycle):
-        calls = [0]
-
-        class Runner:
-            def apply(self, p, k, x):
-                calls[0] += 1
-                if calls[0] <= num_recycle:
-                    p, x = jax.lax.stop_gradient((p, x))
-                return runner.apply(p, k, x)
-
-            def __getattr__(self, name):
-                return getattr(runner, name)
-
-        return real(Runner(), params, key, model_inputs, num_recycle)
-    return recycled
-
-
 @contextlib.contextmanager
 def evoformer_on_device(evo: EvoformerOnDevice,
                         extra_msa: "ExtraMsaOnDevice | None" = None):
@@ -2343,19 +2339,13 @@ def evoformer_on_device(evo: EvoformerOnDevice,
             return on_device
         return choose
 
-    from bindcraft import af2 as bc2_af2
-    real_recycled = bc2_af2.recycled_alphafold_outputs
-
     global _INSTALLED
     was, _INSTALLED = _INSTALLED, evo
     modules.layer_stack.layer_stack = factory
-    if UNTAPED_RECYCLES:
-        bc2_af2.recycled_alphafold_outputs = _untaped_recycles(real_recycled)
     try:
         yield swapped
     finally:
         modules.layer_stack.layer_stack = real
-        bc2_af2.recycled_alphafold_outputs = real_recycled
         _INSTALLED = was
     # Only on a clean exit, so a real failure inside the block is never replaced by this one.
     # A swap that is asked for and never taken runs the host stack and reports device numbers
@@ -2581,8 +2571,11 @@ _FAST_ROUND = (
 #: them at the value it found until each has a float64 grade and a round on a Wormhole chip. The
 #: other rows were graded there too: on three input seeds of the float64 stack grade they move
 #: dL/dlogits by no more than the seeds move each other (`perf/spd/bc2_stack_grade.py`). A named
-#: env var still wins.
-_BLACKHOLE_ONLY = frozenset({"PAIR_MM_FUSED", "tri_att_g_in_matmul"})
+#: env var still wins. `PAIR_MM_FUSED` left this set once it had a Wormhole round of its own: over
+#: six campaign seeds on one Wormhole chip it accepted 11 designs of 30 trajectories against the
+#: composed path's 12 (Fisher p=1.00), with mean pLDDT 0.893 against 0.885 and last-iteration ipTM
+#: 0.624 against 0.571, at 7.45 against 7.81 s per iteration.
+_BLACKHOLE_ONLY = frozenset({"tri_att_g_in_matmul"})
 
 
 @contextlib.contextmanager

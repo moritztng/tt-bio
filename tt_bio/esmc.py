@@ -727,6 +727,7 @@ class SwiGLUFFN(Module):
         # path (see SPLIT_SWIGLU above). Build only the fc1 layout the live path reads.
         self.split_swiglu = bool(fuse_swiglu and not self.fuse_swiglu)
         self.model_bytes = float("inf")  # resident weights of the model this FFN is in; ESMC's Block sets it
+        self.out_scale = out_scale
         if self.split_swiglu:
             half = self.weights["1.weight"].shape[0] // 2
             self.fc1_weight = None
@@ -1035,20 +1036,25 @@ class SwiGLUFFN(Module):
         return ttnn.add(x, self(x))
 
     def _weight_stationary(self, x: ttnn.Tensor):
-        """`transition_ws` on ESMFold2's split pair FFN: the shared `tenstorrent.ws_swiglu` kernel with this
-        module's own fc1 halves and fc2 (bf16 in normal, which at c_z 256 / d_ff 1024 is over the kernel's L1
-        budget, so only fast's bfp8 weights take it), or None."""
+        """`transition_ws` on ESMFold2's split pair FFN: the shared `tenstorrent.ws_swiglu` kernel over this
+        module's weights in bfp8 on both archs, or None. bfp8 is what the lever was graded with (Wormhole's fast
+        weights) and fits c_z 256 / d_ff 1024 in one chunk; Blackhole's fast keeps bf16 module weights, which
+        took no kernel at all (b9: on and off wrote the same CIF), and two bf16 chunks carry wd1's chunk-0 fault."""
         from tt_bio import tenstorrent as T
         if not (self.split_swiglu and T._ws_applies(x, self.compute_kernel_config)):
             return None
         if getattr(self, "_ws", None) is None:
-            self._ws = (ttnn.concat([self.fc1_a_weight, self.fc1_b_weight], dim=-1), self.fc2_weight)
-            if not T._pair_ws.eligible(x, *self._ws):  # the weights decide this, not x: drop the copy for good
-                ttnn.deallocate(self._ws[0])
+            w1, half = self.weights["1.weight"], self.weights["1.weight"].shape[0] // 2
+            w3 = _scaled_t(self.out_scale)(self.weights["3.weight"])
+            self._ws = T._pair_ws.weights(w1[:half].t(), w1[half:].t(), w3, self.device, ttnn.bfloat8_b)
+            if not all(T._pair_ws.eligible(x, *p) for p in self._ws):  # the weights decide, not x: drop for good
+                for p in self._ws:
+                    for t in p:
+                        ttnn.deallocate(t)
                 self._ws = False
         if not self._ws:
             return None
-        return T.ws_swiglu(x, self.norm_weight, self.norm_bias, self.compute_kernel_config, [self._ws])
+        return T.ws_swiglu(x, self.norm_weight, self.norm_bias, self.compute_kernel_config, self._ws)
 
     def __call__(self, x: ttnn.Tensor) -> ttnn.Tensor:
         # The fc1 activation (2*d_ff wide) is several GB at long L and, on top of
@@ -1229,7 +1235,13 @@ class ESMC(TorchWrapper):
     # 1534 residues is 1.25 MB on each of Wormhole's 12 banks) and cover the working set
     # of a length-sorted single-sequence stream. A capture that does not fit
     # raises, and _dispatch falls back to eager.
-    _TRACE_CACHE_MAX = 8
+    #
+    # ONE live trace, not 8: a replay writes its intermediates to the addresses they had at capture, which the
+    # allocator freed afterwards. A second trace's inputs, rope tables and outputs, allocated after the first
+    # capture, can land there, so replaying the first corrupts the second (esmc_trace_check.py, p150a, 600M:
+    # 544 then 300 residues interleaved, the 300 replay read rel_l2 1.61 vs eager). Evicting before each capture
+    # keeps every replayed trace the only one alive; a length switch costs a recapture.
+    _TRACE_CACHE_MAX = env_int("TT_BIO_ESMC_TRACE_CACHE_MAX", 1)
     MATH_FIDELITY = "HiFi3"
 
     def __init__(self, d_model: int, n_heads: int, n_layers: int, *, trace: bool = True):

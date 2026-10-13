@@ -233,7 +233,10 @@ def _pooled_reference_molecules(jobs: list) -> list:
 # `strategy.randomSeed = random.randint(0, 10**9)` per call, so today every one of the
 # 512 residues gets its own randomly seeded conformer and two ALA residues in the same
 # chain do not carry the same reference geometry. Serving them from one cached embedding
-# changes ref_pos, which is a model input. Off by default; the caller turns it on.
+# changes ref_pos, which is a model input. Off by default; the caller turns it on (the
+# OpenFold3 `ref_memo` lever). The cache lives for one structure_with_ref_mols_from_query
+# call, so a fold's conformers depend on its own input and seed, never on what the
+# process folded before.
 REF_MOL_MEMO = False
 _REF_MOL_CACHE: dict = {}
 
@@ -417,7 +420,7 @@ def structure_with_ref_mols_from_sequence(
 
     atom_array = None
     processed_reference_mols = []
-    pool_jobs = [] if CONFORMER_THREADS > 0 else None
+    pool_jobs = [] if CONFORMER_THREADS > 0 and not REF_MOL_MEMO else None
 
     for res_id, resname_1 in enumerate(sequence, start=1):
         # Swap to non-standard residue if necessary
@@ -639,6 +642,7 @@ def structure_with_ref_mols_from_query(query: Query) -> StructureWithReferenceMo
     # Initialize eventually returned objects
     atom_array = None
     processed_reference_mols: list[ProcessedReferenceMolecule] = []
+    _REF_MOL_CACHE.clear()
 
     # Create entity mapping
     all_entities = set()
