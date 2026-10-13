@@ -177,8 +177,8 @@ def dropout_masks(key, blocks: int, msa_shape, pair_shape, use_dropout, opm_firs
                                msa_shape)
 
 
-def upload_dropout(trunk, pair_draws, pair_keep, scales, n32, msa_keep=None):
-    """The drawn masks, uploaded: one `{op: tensor}` per block, or None if nothing was drawn.
+def dropout_host(pair_draws, pair_keep, scales, n32, msa_keep=None):
+    """The drawn masks on the host: one `{op: (tensor, column)}` per block, or None.
 
     The rescale rides the mask, so the block pays one multiply per draw and not two. A mask
     is a single row or column of the representation it multiplies -- `shared_dropout` -- so
@@ -204,10 +204,17 @@ def upload_dropout(trunk, pair_draws, pair_keep, scales, n32, msa_keep=None):
             t = torch.from_numpy(np.array(raw, dtype=np.float32)) * float(scale)
             if pad:
                 t = torch.nn.functional.pad(t, (0, 0, 0, pad), value=float(scale))
-            block[op] = (trunk.up(t.unsqueeze(1), tile_on_card=True) if axis
-                         else trunk.up(t.unsqueeze(0)))
+            block[op] = (t.unsqueeze(1), True) if axis else (t.unsqueeze(0), False)
         out.append(block)
     return out
+
+
+def upload_dropout(trunk, pair_draws, pair_keep, scales, n32, msa_keep=None):
+    """The drawn masks, uploaded: one `{op: tensor}` per block, or None if nothing was drawn.
+    `dropout_host` builds them; a column mask is tiled on card (`_Trunk.up`)."""
+    host = dropout_host(pair_draws, pair_keep, scales, n32, msa_keep)
+    return None if host is None else [{op: trunk.up(t, tile_on_card=col) for op, (t, col) in b.items()}
+                                      for b in host]
 
 
 def _pad32(n: int) -> int:
@@ -900,6 +907,8 @@ class _Trunk:
         if self.ag.TRACE_RECOMPUTE:
             # New weights are a persistent allocation made after any capture so far.
             self.ag.release_recompute_traces(self.device)
+        if SEAM_TRACE:
+            _SEAMS.release(self.device)
         self.blocks = len(self.model.device_evoformer)
         self.extra_blocks = len(self.model.device_extra_msa)
         self.template_blocks = len(self.model.device_template)
@@ -1039,6 +1048,171 @@ class _Trunk:
 
     def grad(self, leaf, shape) -> torch.Tensor:
         return self.down(leaf.grad, shape) if leaf.grad is not None else torch.zeros(shape)
+
+
+#: Default OFF until graded on a card: TT_BIO_BC2_SEAM_TRACE=1. Replays each device seam (forward and
+#: backward of every stack) from a trace instead of dispatching its ~10k ops one by one.
+SEAM_TRACE = env_flag("TT_BIO_BC2_SEAM_TRACE", False)
+
+
+class _SeamTraces:
+    """Each seam's forward and backward captured once and replayed, per (stack, trunk, shapes).
+
+    On p150a the seams are host-bound: of a 3.4 s iteration the card does <= 0.45 s and the ttnn
+    dispatch and the tape's Python ~2.1 s. A replay skips both.
+
+    What makes a replay safe is that every buffer whose content must survive it was live while it
+    was captured. The forward's retained activations, its output copies and the leaf gradients are
+    allocated inside a capture and never freed outside one; inputs, masks and cotangents are
+    written into buffers pinned before the capture. A buffer allocated after a capture sits
+    wherever the allocator found room, which may be that capture's freed intermediates, so
+    anything persistent allocated later (a trunk's weights, a new mask) drops every trace
+    (`release`). The old block-recompute trace (`autograd.TRACE_RECOMPUTE`) broke exactly there:
+    eager tape tensors born between its replays landed on its intermediates.
+
+    A key is captured on its second sighting, so the first ran eagerly and compiled every program
+    it needs; the six seams of one gradient step then capture in the same step.
+    """
+
+    def __init__(self):
+        self._st: dict = {}
+        self._memo: dict = {}
+
+    def memo(self, key, fn):
+        """`fn()` once per key: a choice made from free memory would move as traces fill it."""
+        if key not in self._memo:
+            self._memo[key] = fn()
+        return self._memo[key]
+
+    @staticmethod
+    def wanted(slot: str, mode: str) -> bool:
+        # Offload moves pins to the host mid-seam; interleaved trajectories would need a trace
+        # set per lane.
+        return SEAM_TRACE and slot == "" and mode != "offload"
+
+    def release(self, device) -> None:
+        import ttnn
+        for st in self._st.values():
+            if isinstance(st, dict):
+                ttnn.release_trace(device, st["tid"])
+                if st["btid"] is not None:
+                    ttnn.release_trace(device, st["btid"])
+        self._st.clear()
+
+    def forward(self, key, trunk, host, build):
+        """`host` is `[(tensor, column)]` as `_Trunk.up` takes it; `build(inputs)` runs the taped
+        forward on the device inputs and returns `(roots, leaves)`. Returns the roots' values, or
+        None for the caller to run eagerly."""
+        ttnn = trunk.ttnn
+        st = self._st.get(key)
+        if st is None:
+            self._st[key] = "seen"
+            return None
+        if st == "seen":
+            pinned = [trunk.up(t) if not col else
+                      trunk.ttnn.from_torch(t.detach().unsqueeze(0).to(torch.bfloat16),
+                                            layout=ttnn.ROW_MAJOR_LAYOUT, device=trunk.device,
+                                            dtype=ttnn.bfloat16) for t, col in host]
+            for p, (_, col) in zip(pinned, host):
+                if not col:
+                    ttnn.deallocate(ttnn.clone(p))      # compiles the output copy outside it
+            trunk.sync()
+            tid = ttnn.begin_trace_capture(trunk.device, cq_id=0)
+            ins = [ttnn.to_layout(p, ttnn.TILE_LAYOUT) if col else p
+                   for p, (_, col) in zip(pinned, host)]
+            roots, leaves = build(ins)
+            outs = [ttnn.clone(r.value) for r in roots]
+            ttnn.end_trace_capture(trunk.device, tid, cq_id=0)
+            st = self._st[key] = dict(tid=tid, btid=None, pinned=pinned, roots=roots,
+                                      leaves=leaves, outs=outs, seeds=None, grads=None)
+        else:
+            for (t, col), p in zip(host, st["pinned"]):
+                ttnn.copy_host_to_device_tensor(
+                    ttnn.from_torch(t.detach().unsqueeze(0).to(torch.bfloat16),
+                                    layout=ttnn.ROW_MAJOR_LAYOUT if col else ttnn.TILE_LAYOUT,
+                                    dtype=ttnn.bfloat16), p)
+        ttnn.execute_trace(trunk.device, st["tid"], cq_id=0, blocking=False)
+        return st["outs"]
+
+    def backward(self, key, trunk, cotangents):
+        """The leaves' gradients for `cotangents` (host tensors, one per root)."""
+        ttnn = trunk.ttnn
+        st = self._st[key]
+        if st["btid"] is None:
+            st["seeds"] = [trunk.seed(g, r) for g, r in zip(cotangents, st["roots"])]
+            trunk.sync()
+            btid = ttnn.begin_trace_capture(trunk.device, cq_id=0)
+            trunk.ag.backward(list(st["roots"]), list(st["seeds"]))
+            ttnn.end_trace_capture(trunk.device, btid, cq_id=0)
+            st["btid"], st["grads"] = btid, [leaf.grad for leaf in st["leaves"]]
+        else:
+            for g, s in zip(cotangents, st["seeds"]):
+                ttnn.copy_host_to_device_tensor(
+                    ttnn.from_torch(g.detach().reshape([int(d) for d in s.shape]).to(torch.bfloat16),
+                                    layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16), s)
+        ttnn.execute_trace(trunk.device, st["btid"], cq_id=0, blocking=False)
+        return st["grads"]
+
+
+#: One for the process: a capture's address plan is the whole card's, across every stack.
+_SEAMS = _SeamTraces()
+
+
+def _drop_sig(host):
+    return None if host is None else tuple(tuple((op, tuple(t.shape), col) for op, (t, col) in b.items())
+                                           for b in host)
+
+
+def _seam_grad(trunk, g, shape) -> torch.Tensor:
+    return trunk.down(g, shape) if g is not None else torch.zeros(shape)
+
+
+def _seam_taped_pair(stack, slot, trunk, mode, name, z, pair_mask, n, dh, run):
+    """`_taped` of a pair-only stack (extra-MSA, template) from a replay, or None."""
+    key = (name, id(trunk), mode, stack.recompute, tuple(z.shape),
+           EvoformerOnDevice._key(pair_mask), _drop_sig(dh))
+
+    def build(ins):
+        leaf = trunk.ag.Tensor(ins[0], requires_grad=True)
+        with trunk.taped.tape():
+            root = run(leaf, _unflat_drop(dh, ins[1:]))
+        return (root,), (leaf,)
+
+    stack._tapes.sweep(slot)
+    outs = _SEAMS.forward(key, trunk, [(z, False), *_flat_drop(dh)], build)
+    if outs is None:
+        return None
+    trunk.sync()
+    trunk.ag.release_pins()
+    token = stack._tapes.bank({"seam": key, "shape": tuple(z.shape), "n": n, "mode": mode}, slot)
+    stack.calls["taped"] += 1
+    return trunk.down(outs[0], tuple(z.shape))[:n, :n].numpy(), np.int32(token)
+
+
+def _seam_backward_pair(stack, slot, entry, g_np, what, seam):
+    shape, n = entry["shape"], entry["n"]
+    g = _into(_host_view(g_np), shape, torch.bfloat16)
+    with _refusal_names_the_size("backward", n, shape[0], stack.memory, stack=what), \
+            duotraj.card(slot, seam):
+        trunk = stack.pool.trunk_for(slot)
+        trunk.arm(entry["mode"])
+        gl = _SEAMS.backward(entry["seam"], trunk, [g])
+        trunk.sync()
+        out = _seam_grad(trunk, gl[0], shape)[:n, :n].numpy()
+        trunk.ag.release_pins()
+    stack.calls["backward"] += 1
+    return out
+
+
+def _flat_drop(host):
+    return [] if host is None else [v for b in host for v in b.values()]
+
+
+def _unflat_drop(host, dev):
+    if host is None:
+        return None
+    it = iter(dev)
+    return [{op: next(it) for op in b} for b in host]
 
 
 class _Tapes:
@@ -1406,6 +1580,8 @@ class EvoformerOnDevice:
         key = self._key(mask)
         got = self._mask_dev.get(key)
         if got is None:
+            if SEAM_TRACE:
+                _SEAMS.release(trunk.device)
             got = self._mask_dev[key] = trunk.up(mask)
         return got
 
@@ -1421,6 +1597,8 @@ class EvoformerOnDevice:
         key = self._key(pair_mask)
         got = self._pair_mask_dev.get(key)
         if got is None:
+            if SEAM_TRACE:
+                _SEAMS.release(trunk.device)
             got = self._pair_mask_dev[key] = af2_pair_masks(pair_mask, trunk.device)
         return got
 
@@ -1463,12 +1641,17 @@ class EvoformerOnDevice:
             trunk = self._trunk(slot)
             mode = self.memory.mode(trunk, z.shape[0])
             offload = trunk.arm(mode)
+            dh = dropout_host(DROPOUT_DRAWS[1:], pair_keep, scales, z.shape[0], msa_keep)
+            if _SEAMS.wanted(slot, mode):
+                out = self._seam_taped(slot, trunk, mode, offload, m, z, mask, pair_mask, n, dh)
+                if out is not None:
+                    return out
             ml, zl = trunk.leaf(m), trunk.leaf(z)
             # Uploaded OUTSIDE the tape: the masks are constants of this fold, so the tape holds
             # them as reads and the backward multiplies the cotangent by the same mask the
             # forward did, which is what AF2's dropout means for a gradient.
-            drop = upload_dropout(trunk, DROPOUT_DRAWS[1:], pair_keep, scales, z.shape[0],
-                                  msa_keep)
+            drop = None if dh is None else [{op: trunk.up(x, tile_on_card=col)
+                                             for op, (x, col) in b.items()} for b in dh]
             # AlphaFold 2 stops the gradient on every recycle but the last and JAX still routes all
             # of them through the forward rule, so this trajectory's superseded tapes are dropped
             # before the next forward records, never beside it: at several GB an Evoformer block,
@@ -1532,10 +1715,56 @@ class EvoformerOnDevice:
               f"much cheaper: try one 32-token bucket UP as well as one down.",
               file=sys.stderr)
 
+    def _seam_taped(self, slot, trunk, mode, offload, m, z, mask, pair_mask, n, dh):
+        """`_taped` from a replay (`_SeamTraces`), or None on a key's first sighting."""
+        msa_mask, pair_masks = self._msa_mask(trunk, mask), self._pair_masks(trunk, pair_mask)
+        key = ("evoformer", id(trunk), mode, self.recompute, tuple(m.shape), tuple(z.shape),
+               self._key(mask), self._key(pair_mask), _drop_sig(dh))
+        res = _SEAMS.memo(key, lambda: resident_blocks(mode, z.shape[0],
+                                                       duotraj.free_device_bytes(), slot))
+
+        def build(ins):
+            ml, zl = (trunk.ag.Tensor(x, requires_grad=True) for x in ins[:2])
+            with trunk.taped.tape():
+                roots = trunk.evoformer(ml, zl, msa_mask, pair_masks, recompute=self.recompute,
+                                        offload=offload, drop=_unflat_drop(dh, ins[2:]),
+                                        resident=res)
+            return roots, (ml, zl)
+
+        self._tapes.sweep(slot)
+        outs = _SEAMS.forward(key, trunk, [(m, False), (z, False), *_flat_drop(dh)], build)
+        if outs is None:
+            return None
+        trunk.sync()
+        trunk.ag.release_pins()
+        token = self._tapes.bank({"seam": key, "shapes": (tuple(m.shape), tuple(z.shape)), "n": n,
+                                  "mode": mode}, slot)
+        self.calls["taped"] += 1
+        return (trunk.down(outs[0], tuple(m.shape))[:, :n].numpy(),
+                trunk.down(outs[1], tuple(z.shape))[:n, :n].numpy(), np.int32(token))
+
+    def _seam_backward(self, slot, entry, g_msa_np, g_pair_np):
+        (m_shape, z_shape), n = entry["shapes"], entry["n"]
+        gm = _into(_host_view(g_msa_np), m_shape, torch.bfloat16)
+        gz = _into(_host_view(g_pair_np), z_shape, torch.bfloat16)
+        with _refusal_names_the_size("backward", n, z_shape[0], self.memory), \
+                duotraj.card(slot, "evoformer._backward"):
+            trunk = self.pool.trunk_for(slot)
+            trunk.arm(entry["mode"])
+            gl = _SEAMS.backward(entry["seam"], trunk, [gm, gz])
+            trunk.sync()
+            out = (_seam_grad(trunk, gl[0], m_shape)[:, :n].numpy(),
+                   _seam_grad(trunk, gl[1], z_shape)[:n, :n].numpy())
+            trunk.ag.release_pins()
+        self.calls["backward"] += 1
+        return out
+
     def _backward(self, slot, token, g_msa_np, g_pair_np):
         entry = self._tapes.take(token)
         if entry is None:
             raise RuntimeError(f"no live tape for token {int(token)}")
+        if "seam" in entry:
+            return self._seam_backward(slot, entry, g_msa_np, g_pair_np)
         mo, zo = entry["roots"]
         ml, zl = entry["leaves"]
         m_shape, z_shape = entry["shapes"]
@@ -1693,6 +1922,8 @@ class ExtraMsaOnDevice:
         key = EvoformerOnDevice._key(pair_mask)
         got = self._pair_mask_dev.get(key)
         if got is None:
+            if SEAM_TRACE:
+                _SEAMS.release(trunk.device)
             got = self._pair_mask_dev[key] = af2_pair_masks(pair_mask, trunk.device)
         return got
 
@@ -1719,8 +1950,18 @@ class ExtraMsaOnDevice:
             trunk = self._trunk(slot)
             mode = self.memory.mode(trunk, z.shape[0])
             offload = trunk.arm(mode)
+            dh = dropout_host(DROPOUT_DRAWS[1:], pair_keep, scales, z.shape[0])
+            if _SEAMS.wanted(slot, mode):
+                pm = self._pair_masks(trunk, pair_mask)
+                out = _seam_taped_pair(self, slot, trunk, mode, "extra_msa", z, pair_mask, n, dh,
+                                       lambda zl, drop: trunk.extra_msa(
+                                           zl, pm, recompute=self.recompute, offload=offload,
+                                           drop=drop))
+                if out is not None:
+                    return out
             zl = trunk.leaf(z)
-            drop = upload_dropout(trunk, DROPOUT_DRAWS[1:], pair_keep, scales, z.shape[0])
+            drop = None if dh is None else [{op: trunk.up(x, tile_on_card=col)
+                                             for op, (x, col) in b.items()} for b in dh]
             # Every recycle but the last is stop_gradient'ed and still goes through the forward
             # rule, so the superseded tapes are dropped before this one records
             # (`EvoformerOnDevice._taped`).
@@ -1739,6 +1980,9 @@ class ExtraMsaOnDevice:
         entry = self._tapes.take(token)
         if entry is None:
             raise RuntimeError(f"no live extra-MSA tape for token {int(token)}")
+        if "seam" in entry:
+            return _seam_backward_pair(self, slot, entry, g_pair_np, "extra-MSA stack",
+                                       "extra_msa._backward")
         shape, n = entry["shape"], entry["n"]
         gz = _into(_host_view(g_pair_np), shape, torch.bfloat16)
         with _refusal_names_the_size("backward", n, shape[0], self.memory,
@@ -1861,6 +2105,8 @@ class TemplateOnDevice:
         got = self._pair_mask_dev.get(key)
         if got is None:
             from tt_bio.af2 import af2_pair_masks
+            if SEAM_TRACE:
+                _SEAMS.release(trunk.device)
             got = self._pair_mask_dev[key] = af2_pair_masks(pair_mask, trunk.device)
         return got
 
@@ -1887,8 +2133,18 @@ class TemplateOnDevice:
             trunk = self._trunk(slot)
             mode = self.memory.mode(trunk, act.shape[0])
             offload = trunk.arm(mode)
+            dh = dropout_host(TEMPLATE_DROPOUT_DRAWS, pair_keep, scales, act.shape[0])
+            if _SEAMS.wanted(slot, mode):
+                pm = self._pair_masks(trunk, pair_mask)
+                out = _seam_taped_pair(self, slot, trunk, mode, "template", act, pair_mask, n, dh,
+                                       lambda leaf, drop: trunk.template_stack(
+                                           leaf, pm, recompute=self.recompute, offload=offload,
+                                           drop=drop))
+                if out is not None:
+                    return out
             leaf = trunk.leaf(act)
-            drop = upload_dropout(trunk, TEMPLATE_DROPOUT_DRAWS, pair_keep, scales, act.shape[0])
+            drop = None if dh is None else [{op: trunk.up(x, tile_on_card=col)
+                                             for op, (x, col) in b.items()} for b in dh]
             # Every recycle but the last is stop_gradient'ed and still goes through the forward
             # rule, so the superseded tapes are dropped before this one records
             # (`ExtraMsaOnDevice._taped`).
@@ -1908,6 +2164,9 @@ class TemplateOnDevice:
         entry = self._tapes.take(token)
         if entry is None:
             raise RuntimeError(f"no live template tape for token {int(token)}")
+        if "seam" in entry:
+            return _seam_backward_pair(self, slot, entry, g_act_np, "template stack",
+                                       "template._backward")
         shape, n = entry["shape"], entry["n"]
         g = _into(_host_view(g_act_np), shape, torch.bfloat16)
         with _refusal_names_the_size("backward", n, shape[0], self.memory,
@@ -2715,7 +2974,7 @@ def predictor(*, trunk: str = "device", card: int | str | None = None, checkpoin
     # close at exit runs on the main thread. Left to the first device call, the open happens on
     # one of XLA's CPU pool threads (the device seams run there), the unlock at exit fails with
     # EPERM and the process aborts with exit 134 after the campaign has already finished.
-    get_device(trace="bc2" if autograd.TRACE_RECOMPUTE else None)
+    get_device(trace="bc2" if autograd.TRACE_RECOMPUTE or SEAM_TRACE else None)
 
     pool = checkpoints if isinstance(checkpoints, TrunkPool) else TrunkPool(
         checkpoints, resident=resident, template=template)
