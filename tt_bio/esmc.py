@@ -520,6 +520,9 @@ _LM_FFN_TILE_MODEL_BYTES = env_int("TT_BIO_LM_FFN_TILE_MODEL_BYTES", 4 << 30)
 # values (a memory placement); a refusal falls back to DRAM for that shape for good. Off until the page-cell A/B says.
 _ESMC_GATE_L1 = env_flag("TT_BIO_ESMC_GATE_L1", False)
 _GATE_L1_REFUSED: set = set()
+# ESMC's own per-token gate on the legacy binary multiply, the variant the pair FFN takes on Blackhole. Off until the
+# esmc_ab page cell and fp32 accuracy say; the pair FFN's switch above does not reach this path.
+_ESMC_GATE_LEGACY = env_flag("TT_BIO_ESMC_GATE_LEGACY", False)
 #: [gates served from L1, declined], read by the A/B harness.
 GATE_L1_STATS = [0, 0]
 
@@ -830,7 +833,8 @@ class SwiGLUFFN(Module):
             key = tuple(h1.padded_shape)
             if not l1_gated and _ESMC_GATE_L1 and len(h1.shape) == 3 and key not in _GATE_L1_REFUSED:
                 try:
-                    gated = ttnn.multiply(h1, h2, memory_config=ttnn.L1_MEMORY_CONFIG, **act)
+                    gated = ttnn.multiply(h1, h2, memory_config=ttnn.L1_MEMORY_CONFIG, **act,
+                                          **({"use_legacy": True} if _ESMC_GATE_LEGACY else {}))
                     GATE_L1_STATS[0] += 1
                 except Exception as exc:
                     if not _is_alloc_refusal(exc):
@@ -841,7 +845,7 @@ class SwiGLUFFN(Module):
                 GATE_L1_STATS[1] += bool(not l1_gated and _ESMC_GATE_L1 and len(h1.shape) == 3)
                 gated = ttnn.multiply(
                     h1, h2, **act,
-                    **({"use_legacy": True} if l1_gated and _swiglu_gate_legacy() else {}),
+                    **({"use_legacy": True} if (_swiglu_gate_legacy() if l1_gated else _ESMC_GATE_LEGACY) else {}),
                     **({"memory_config": ttnn.L1_MEMORY_CONFIG} if l1_gated else {}),
                 )
             ttnn.deallocate(h1)
