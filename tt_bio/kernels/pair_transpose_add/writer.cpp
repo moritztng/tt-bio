@@ -4,10 +4,11 @@
 
 // pair_transpose_add writer: z[J, I] += u[I, J] for one 32 x 32 tile block per unit. The reader is
 // pair_transpose's split reader, unchanged: it brings the unit's 32 input tiles and shuffles output
-// tiles 0..QR-1 into the slot. This kernel shuffles QR..31 the same way, reads the 32 z tiles the
-// unit lands on, and hands both to the compute kernel instead of writing the slot out; the sums come
-// back in c_17 and go to the z pages they were read from. Each page belongs to one unit, so it is
-// read before it is written.
+// tiles 0..QR-1 into the slot, and (ZADD) reads the 32 z tiles the unit lands on into c_3. This
+// kernel shuffles QR..31 the same way, on the RISC, and hands the slot to the compute kernel instead
+// of writing it out; the sums come back in c_17 and go to the z pages they were read from. Each page
+// belongs to one unit and the reader pushes its z tiles before compute can produce the sums, so it is
+// read before it is written. This RISC's NoC carries only those writes.
 //
 // The slot CB (c_16, two 32-tile slots) is written by raw address as in pair_transpose; here it is
 // also a compute input, so this kernel reserves and pushes it (32 pages, slot = unit parity, the same
@@ -18,7 +19,7 @@
 
 void kernel_main() {
     const uint32_t z_addr = get_common_arg_val<uint32_t>(0);
-    constexpr uint32_t cb_in = 0, cb_half = 1, cb_free = 2, cb_out = 16, cb_z = 3, cb_sum = 17;
+    constexpr uint32_t cb_in = 0, cb_half = 1, cb_free = 2, cb_out = 16, cb_sum = 17;
     constexpr uint32_t S1t = get_compile_time_arg_val(0);
     constexpr uint32_t S2t = get_compile_time_arg_val(1);
     constexpr uint32_t Ct = get_compile_time_arg_val(2);
@@ -41,13 +42,6 @@ void kernel_main() {
         const uint32_t Jt = u / (Ct * S1t);
         auto page = [&](uint32_t q) { return ((Jt * 32 + q) * S1t + It) * Ct + ct; };
 
-        // z tiles of this unit, in flight while the shuffle below copies on the RISC
-        cb_reserve_back(cb_z, 32);
-        uint32_t lz = get_write_ptr(cb_z);
-        for (uint32_t q = 0; q < 32; ++q, lz += tile_bytes) {
-            noc_async_read(z.get_noc_addr(page(q)), lz, tile_bytes);
-        }
-
         cb_reserve_back(cb_out, 32);
         const uint32_t slot = out_base + (i & 1) * 32 * tile_bytes;
         cb_wait_front(cb_in, 32);
@@ -63,8 +57,6 @@ void kernel_main() {
             }
         }
         l1_copy::publish();
-        noc_async_read_barrier();
-        cb_push_back(cb_z, 32);
         cb_wait_front(cb_half, 1);                  // reader's rows are in the slot, its input read done
         cb_pop_front(cb_half, 1);
         cb_pop_front(cb_in, 32);

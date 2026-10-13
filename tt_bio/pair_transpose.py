@@ -103,13 +103,14 @@ def _build(t, out, device, S1t, S2t, Ct, split=0):
     assert placed == U, (placed, U)
     src = ttnn.KernelDescriptor.SourceType.FILE_PATH
     row = 16 * _ELEM[t.dtype]
-    tag, rd_args, wr_args = ("", [S1t, S2t, Ct], [S1t, S2t, Ct, row]) if not split else (
-        "_split", [S1t, S2t, Ct, row, split], [S1t, S2t, Ct, row, split])
+    t_args = list(ttnn.TensorAccessorArgs(t).get_compile_time_args())
+    # The split reader also serves pair_transpose_add, which has it read z; here z is a dummy (ZADD 0).
+    tag, rd_args, wr_args = ("", [S1t, S2t, Ct] + t_args, [S1t, S2t, Ct, row]) if not split else (
+        "_split", [S1t, S2t, Ct, row, split, 0] + t_args + t_args, [S1t, S2t, Ct, row, split])
     reader = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / f"reader_pair_transpose{tag}.cpp"), source_type=src,
-        core_ranges=core_grid,
-        compile_time_args=rd_args + list(ttnn.TensorAccessorArgs(t).get_compile_time_args()),
-        runtime_args=rt, common_runtime_args=[0], config=ttnn.ReaderConfigDescriptor())
+        core_ranges=core_grid, compile_time_args=rd_args,
+        runtime_args=rt, common_runtime_args=[0, 0], config=ttnn.ReaderConfigDescriptor())
     writer = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / f"writer_pair_transpose{tag}.cpp"), source_type=src,
         core_ranges=core_grid,
@@ -136,7 +137,7 @@ def pair_transpose(t, memory_config=None):
     if entry is None:
         entry = _CACHE[key] = _build(t, out, device, S1 // 32, S2 // 32, C // 32, PAIR_TRANSPOSE_SPLIT)
     reader, writer = entry["kernels"]
-    reader.common_runtime_args = [t.buffer_address()]
+    reader.common_runtime_args = [t.buffer_address(), 0]
     writer.common_runtime_args = [out.buffer_address()]
     pd = ttnn.ProgramDescriptor(kernels=[reader, writer], semaphores=[], cbs=entry["cbs"])
     STATS[0] += 1

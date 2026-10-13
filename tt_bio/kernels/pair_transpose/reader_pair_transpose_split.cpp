@@ -7,6 +7,9 @@
 // leaves to the writer. The next unit's DRAM reads are issued before that shuffle so the two
 // overlap. Two-slot scratch in c_16 (slot = unit parity); c_1 says "my rows of this unit are in
 // the slot and I am done with its input", c_2 says "the writer has written slot k out".
+//
+// ZADD (pair_transpose_add) also reads the 32 z tiles each unit lands on into c_3, so that every DRAM
+// read of the op is on this RISC's NoC and the writer's NoC carries only its DRAM writes.
 #include "api/dataflow/dataflow_api.h"
 
 void kernel_main() {
@@ -17,8 +20,12 @@ void kernel_main() {
     constexpr uint32_t Ct = get_compile_time_arg_val(2);
     constexpr uint32_t ROW = get_compile_time_arg_val(3);   // bytes in one face row: 16 elements
     constexpr uint32_t QR = get_compile_time_arg_val(4);    // output tiles this kernel shuffles
-    constexpr auto s_args = TensorAccessorArgs<5>();
+    constexpr uint32_t ZADD = get_compile_time_arg_val(5);  // also read z into c_3
+    constexpr uint32_t cb_z = 3;
+    constexpr auto s_args = TensorAccessorArgs<6>();
     const auto s = TensorAccessor(s_args, src_addr);
+    constexpr auto z_args = TensorAccessorArgs<s_args.next_compile_time_args_offset()>();
+    const auto z = TensorAccessor(z_args, get_common_arg_val<uint32_t>(1));
 
     const uint32_t first = get_arg_val<uint32_t>(0);
     const uint32_t num = get_arg_val<uint32_t>(1);
@@ -50,6 +57,17 @@ void kernel_main() {
         if (i + 1 < num) {
             next = issue(first + i + 1);            // overlaps the shuffle below
         }
+        if constexpr (ZADD) {
+            const uint32_t u = first + i;
+            const uint32_t ct = u % Ct;
+            const uint32_t It = (u / Ct) % S1t;
+            const uint32_t Jt = u / (Ct * S1t);
+            cb_reserve_back(cb_z, 32);
+            uint32_t lz = get_write_ptr(cb_z);
+            for (uint32_t q = 0; q < 32; ++q, lz += tile_bytes) {
+                noc_async_read_page(((Jt * 32 + q) * S1t + It) * Ct + ct, z, lz);
+            }
+        }
         if (i >= 2) {
             cb_wait_front(cb_free, 1);              // slot (i & 1) written out by the writer
             cb_pop_front(cb_free, 1);
@@ -66,6 +84,9 @@ void kernel_main() {
             }
         }
         noc_async_read_barrier();                   // this shuffle and the next unit's DRAM reads
+        if constexpr (ZADD) {
+            cb_push_back(cb_z, 32);
+        }
         cb_reserve_back(cb_half, 1);
         cb_push_back(cb_half, 1);
         in = next;
