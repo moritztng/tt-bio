@@ -43,42 +43,6 @@ from tt_bio.af2ig_input import (DEFAULT_BINDER_CHAIN, DEFAULT_TARGET_CHAIN,  # n
 _CHAIN_GAP = 50
 
 
-def bucket_on() -> bool:
-    """`TT_BIO_AF2_BUCKET`: fold at the token count rounded up to the fleet bucket (32).
-
-    DEFAULT OFF. The padding is masked by AF2's own masks and is exact on host (see
-    tests/test_af2ig_bucket.py), but the device trunk has not had its A/B and accuracy grade at a
-    padded length yet, so nothing changes until someone turns it on. Also answers to the global
-    `TT_BIO_TOKEN_BUCKET=0` off switch.
-    """
-    from tt_bio.envflags import env_flag
-    from tt_bio.token_axis import bucket_enabled
-    return env_flag("TT_BIO_AF2_BUCKET", False) and bucket_enabled()
-
-
-def bucket_width(n: int) -> int:
-    """The token count the trunk runs at: `n`, or `n` rounded up to the bucket when it is on."""
-    if not bucket_on():
-        return n
-    from tt_bio.token_axis import bucket_multiple, bucketed_width
-    return bucketed_width(n, bucket_multiple("af2ig"))
-
-
-def _slice_out(out: dict, n: int) -> dict:
-    """The parts of one pass's output `fold` reads, cut back to the `n` real residues."""
-    if out["pair"].shape[0] == n:
-        return out
-    structure = dict(out["structure"])
-    structure["final_atom_positions"] = structure["final_atom_positions"][:n]
-    cut = {**out, "msa_first_row": out["msa_first_row"][:n], "pair": out["pair"][:n, :n],
-           "plddt_logits": out["plddt_logits"][:n], "pae_logits": out["pae_logits"][:n, :n],
-           "structure": structure}
-    for key in ("single", "msa"):
-        if key in out:
-            cut[key] = out[key][..., :n, :]
-    return cut
-
-
 def _looks_like_cif(text: str) -> bool:
     return any(line.startswith(("data_", "_atom_site.", "loop_"))
                for line in text.splitlines()[:200])
@@ -217,27 +181,12 @@ def fold(model, spec: AF2IGInput, *, recycles: int = 3, progress=None) -> AF2IGP
                          "and the featurized complex carries none")
     prev = {k: to_torch(v) for k, v in initial_recycle_state(feats_np, initial_guess=True).items()}
 
-    # Token bucketing (TT_BIO_AF2_BUCKET, default off). The trunk, structure module and heads run
-    # at the padded width with every mask zero on the padded rows; each pass's output is cut back
-    # to the real residues before anything reads it, and the recycled state is re-padded with
-    # zeros, so the padded rows never carry a value from one pass into the next. Everything after
-    # the loop, including pTM's d0 and the ipTM sums, therefore sees the real length only.
-    n = len(feats_np["residue_index"])
-    width = bucket_width(n)
-    if width != n:
-        from tt_bio.af2_data import pad_token_axis
-        model_feats = pad_token_axis(feats, width)
-    else:
-        model_feats = feats
-
     out = None
     with torch.no_grad():
         for cycle in range(recycles + 1):
             if progress is not None:
                 progress(cycle, recycles + 1)
-            if width != n:
-                prev = pad_token_axis(prev, width)
-            out = _slice_out(model(model_feats, prev), n)
+            out = model(feats, prev)
             prev = {"prev_msa_first_row": out["msa_first_row"], "prev_pair": out["pair"],
                     "prev_pos": out["structure"]["final_atom_positions"]}
 

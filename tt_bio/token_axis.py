@@ -253,20 +253,17 @@ TOKEN_AXIS = {
     # runs today lands on a primitive that masks its own tile tail. That is the IMMUNE-by-route
     # argument and it is NOT a census: the counters this table asks for come from
     # tests/token_axis_probe.py on a card, and this row was wired on a cpu dispatch.
-    # BUCKETING EXISTS, BEHIND `TT_BIO_AF2_BUCKET` (default OFF). The old note here said it could
-    # not be padded because `af2.AF2Attention` asserted `msa_mask is None`. That stopped being true
-    # when BindCraft 2 wired the mask path (`af2.af2_pair_masks`, `AF2EvoformerBlock._mask_biases`,
-    # `AF2MaskedOuterProductMean`) to run its trunk at 224. `tt_bio/af2ig.py::fold` now pads every
-    # token axis of the feature and recycle dicts with `af2_data.pad_token_axis` (masks zero on the
-    # padded rows), runs trunk + structure module + heads at the bucketed width, and cuts each
-    # pass's output back before it is recycled or scored. On host it is bit-identical at an aligned
-    # length and equal to ~1e-4 on real residues at a ragged one (tests/test_af2ig_bucket.py, with
-    # a leaking-mask negative control). It stays off and this row stays UNCENSUSED until the
-    # device trunk has its A/B and accuracy grade at a padded width and a probe census on a card.
+    # Why it cannot simply be padded, which is the part worth reading before someone tries:
+    # `af2.AF2Attention.__call__` asserts `msa_mask is None` ("a masked AF2 MSA is not wired
+    # up"), and the whole port rests on that -- af2_data builds `msa_mask` all-ones and af2.py
+    # therefore never builds AF2's `1e9 * (msa_mask - 1)` logit bias. Padding the token axis
+    # gives those attentions padded columns with no bias to suppress them, over a LONGER logical
+    # axis, which is exactly the contamination the bucket exists to prevent. So bucketing af2ig
+    # means wiring the mask path first, and that is a trunk change whose A/A control (bit-exact
+    # at an aligned N) needs a device.
     "af2ig": (
         UNCENSUSED, None,
-        "tt_bio/af2ig.py::fold via af2_data.pad_token_axis, behind TT_BIO_AF2_BUCKET (default "
-        "off, so ragged in production). The reduces are the two triangle attentions "
+        "nowhere yet: af2.py pads no token axis. The reduces are the two triangle attentions "
         "tt_bio/af2.py::AF2PairBlock builds and tt_bio/af2.py::AF2Attention (row and column), "
         "all via tt_bio/tenstorrent.py::_fp32_softmax_attention except the column path's own "
         "ttnn.softmax",
