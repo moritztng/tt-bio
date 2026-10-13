@@ -139,3 +139,66 @@ def test_trimul_full_k_plan_fits_at_every_ladder_size(monkeypatch, grid, bank):
         assert T._triangle_mul_program_config(32, True).in0_block_w == 16      # 1024: narrowed
     finally:
         T._triangle_mul_program_config.cache_clear()
+
+
+@pytest.mark.parametrize("grid, bank", [((8, 9), WH_BANK), ((11, 10), BANK)])
+def test_trimul_per_channel_plan_keeps_the_k_block(monkeypatch, grid, bank):
+    """Where the multicast plan gives every core one output tile, `TT_BIO_TRIMUL_PER_CHANNEL`
+    puts whole channels on cores instead, with the multicast plan's own K block (a different
+    block would be a different accumulation order, and the lever is only free because the
+    output is `torch.equal`). Longer sequences, a refused length and the lever off keep the
+    multicast plan, and so does a whole-channel block over the bank (9 tiles on Blackhole); both
+    plans hand the deferred transpose to the matmul."""
+    monkeypatch.setattr(T, "COMPUTE_GRID_MAIN", grid)
+    monkeypatch.setattr(T, "_matmul_cb_budget", lambda: bank)
+    monkeypatch.setattr(T, "_TRIMUL_PER_CHANNEL_REFUSED", set())
+    prev = T.set_trimul_per_channel(False)
+    try:
+        mcast = {kt: T._triangle_mul_program_config(kt) for kt in range(1, 20)}
+        T.set_trimul_per_channel(True)
+        edge = min(grid)
+        for kt, ref in mcast.items():
+            cfg = T._triangle_mul_program_config(kt, l1_operands=False)
+            assert cfg.in0_block_w == ref.in0_block_w, kt
+            fits = T._matmul_cb_bytes(ref.in0_block_w, kt, kt, BF16,
+                                      extra_tiles=2 * ref.in0_block_w * kt) <= bank
+            if kt <= edge and fits:
+                assert isinstance(cfg, ttnn.MatmulMultiCoreReuseProgramConfig), kt
+                assert (cfg.per_core_M, cfg.per_core_N) == (kt, kt)
+                assert _trimul_cb(cfg) <= bank, kt
+            else:
+                assert isinstance(cfg, ttnn.MatmulMultiCoreReuseMultiCastProgramConfig), kt
+            if T._TRIMUL_MM_TRANSPOSE and not T._FAST_MODE:
+                assert T._mm_transpose_deferred(cfg), kt
+        assert isinstance(T._triangle_mul_program_config(7), ttnn.MatmulMultiCoreReuseProgramConfig)
+        T._TRIMUL_PER_CHANNEL_REFUSED.add(7)
+        T._triangle_mul_program_config.cache_clear()
+        assert isinstance(T._triangle_mul_program_config(7),
+                          ttnn.MatmulMultiCoreReuseMultiCastProgramConfig)
+    finally:
+        T.set_trimul_per_channel(prev)
+
+
+@pytest.mark.parametrize("grid, bank", [((8, 9), WH_BANK), ((11, 10), BANK)])
+def test_trimul_per_channel_plan_is_capped_where_the_operands_are_in_l1(monkeypatch, grid, bank):
+    """With the operands in L1 the plan stops at 7 sequence tiles (224 tokens).
+
+    The CB price admits 8 tiles and the device refuses them beside L1 operands, and the throw is
+    not free: the retry drops the fused T1 route and narrows the channel chunk, so a fold that
+    pays it comes out different (`_TRIMUL_PER_CHANNEL_L1_MAX_ST`, staging45). The same shape in
+    DRAM keeps the plan, measured `torch.equal` to the multicast plan.
+    """
+    monkeypatch.setattr(T, "COMPUTE_GRID_MAIN", grid)
+    monkeypatch.setattr(T, "_matmul_cb_budget", lambda: bank)
+    monkeypatch.setattr(T, "_TRIMUL_PER_CHANNEL_REFUSED", set())
+    prev = T.set_trimul_per_channel(True)
+    try:
+        for kt in range(1, min(grid) + 1):
+            l1 = T._triangle_mul_program_config(kt, l1_operands=True)
+            dram = T._triangle_mul_program_config(kt, l1_operands=False)
+            want = ttnn.MatmulMultiCoreReuseProgramConfig
+            assert isinstance(l1, want) is (kt <= T._TRIMUL_PER_CHANNEL_L1_MAX_ST
+                                            and isinstance(dram, want)), kt
+            assert l1.in0_block_w == dram.in0_block_w, kt
+    finally:
+        T.set_trimul_per_channel(prev)
