@@ -1039,6 +1039,12 @@ WH_LM_RESIDENT_MAX_TOKENS = 1088
 LEVERS_NORMAL = "normal-trunk_hifi3+trimul_gin"
 # FAST also takes transition_ws (fast grade PASS on both ESMFold2 models, both archs; tenstorrent.FAST_LEVERS).
 LEVERS_FAST = "normal+trimul_b8in+transition_ws"
+# Wormhole (always --fast through the CLI): trimul_t2g, the trimul output tail (LN, out-projection, gate, residual)
+# as one kernel, passes the fast bar on ESMFold2 against WH main, 11 complexes x 4 seeds x 5 samples, 44 paired
+# folds: CA-lDDT -0.0031 [-0.0096, +0.0012], top-pose median 0.45 A vs 1.32 A floor, docking 31 -> 30 of 44.
+# The 11-set folds 5.5 % faster (1000 MHz, paired warm sums 5136 -> 4845 s, every complex faster); ESMFold2-Fast
+# 1024 aa 336 -> 297 s. It never fires at 1536 aa (same digest) and nowhere in Protenix, OpenDDE, Boltz-2, OF3.
+LEVERS_WH = "trimul_t2g"
 
 
 def fold_levers(fast: bool) -> str:
@@ -1052,11 +1058,12 @@ def fold_scope(fast: bool):
     `_FAST_MODE` off. Wormhole keeps the path main shipped, `_FAST_MODE` = `fast` and no lever set (a harness's
     TT_BIO_LEVERS still applies): the Blackhole path's --fast threw a circular-buffer clash at 546-559 tokens on a
     Galaxy chip (program 217, L1 buffer at 188416 under a CB region ending at 300320) and three of four folds then
-    hung, where main folds the same complexes. Neither path has been graded on Wormhole against the other."""
+    hung, where main folds the same complexes. Neither path has been graded on Wormhole against the other.
+    Wormhole adds LEVERS_WH on top of that path."""
     from tt_bio import tenstorrent
     if is_wormhole():
         tenstorrent.set_fast_mode(fast)
-        return tenstorrent.levers(os.environ.get("TT_BIO_LEVERS") or ())
+        return tenstorrent.levers(os.environ.get("TT_BIO_LEVERS") or LEVERS_WH)
     return tenstorrent.lever_scope(fold_levers(fast))
 
 
