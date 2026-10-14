@@ -64,6 +64,8 @@ from __future__ import annotations
 import torch
 import ttnn
 
+from . import adaln as _adaln
+from . import mm_generic as _mm_generic
 from . import ops
 from . import tenstorrent as _T
 from .tenstorrent import AdaLN, CORE_GRID_MAIN, Module, _cached, _dtype, batched_matmul, host_f64_softmax_site, pair_row_blocks, row_block_after_refusal, site_softmax, softmax_ckc
@@ -248,6 +250,11 @@ class _DiTBlock(Module):
         w_sc, b_sc, w_sb = self.fuse[i]
         sc = self._lin(s_hat, w_sc, bias=b_sc, activation="sigmoid")
         sb = self._lin(s_hat, w_sb)
+        if _T.lever("dit_adaln"):
+            out = _adaln.adaln(a, sc, sb, _mm_generic.ckc_args(self.compute_kernel_config), tuple(_T.COMPUTE_GRID_MAIN))
+            if out is not None:
+                ttnn.deallocate(sc); ttnn.deallocate(sb)
+                return out
         an = ttnn.layer_norm(a, epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
         out = ttnn.addcmul(sb, an, sc, value=1.0)
         for t in (sc, sb, an):
