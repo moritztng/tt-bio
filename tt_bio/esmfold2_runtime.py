@@ -323,6 +323,12 @@ def _device_tail() -> bool:
 DEVICE_TAIL_STATS = [0, 0]  # folds whose tail ran on the device, on the host
 
 
+def _aliases(a, b) -> bool:
+    """True when two device tensors share one buffer. Under `ws_resid` every op of a PairUpdateBlock writes into its
+    input, so a trunk can return the very tensor it was given; whoever frees the input must not free the output."""
+    return a is b or (a.is_allocated() and b.is_allocated() and a.buffer_address() == b.buffer_address())
+
+
 def _unpad(t, seq_len):
     import ttnn
     if int(t.shape[1]) == seq_len:
@@ -340,9 +346,10 @@ def _dev_forward(m, x):
         if x._tmp:
             ttnn.deallocate(x.t)
         return out
-    out = _DevPair(_unpad(_trunk_on_device(m, x, to_host=False), x.seq_len), x.seq_len)
-    ttnn.deallocate(x.t)
-    return out
+    r = _trunk_on_device(m, x, to_host=False)
+    if not _aliases(r, x.t):
+        ttnn.deallocate(x.t)
+    return _DevPair(_unpad(r, x.seq_len), x.seq_len)
 
 
 # The confidence head's L^2 part (ConfidenceHead._pair_outputs) on the device: z_norm, the pair sum, the outer
@@ -490,7 +497,7 @@ def _trunk_on_device(ftw, dev, to_host=True):
         real[:, :seq_len, :seq_len] = 1.0
         mask = ftw._from_torch(real)
     out = ftw.module(z, mask)
-    for t in (z if pad else None, mask):
+    for t in (z if pad and not _aliases(z, out) else None, mask):
         if t is not None:
             try:
                 ttnn.deallocate(t)
@@ -1005,7 +1012,8 @@ def _install_resident_trunk_loop(model):
         def inject_dev():
             x = _lm_dropout(lm_z, lm_p, draws.take())
             refined = _trunk_on_device(self.lm_encoder.m, x, to_host=False)
-            ttnn.deallocate(x.t)
+            if not _aliases(refined, x.t):
+                ttnn.deallocate(x.t)
             s = ttnn.add(base, refined)
             ttnn.deallocate(refined)
             n = ttnn.layer_norm(s, weight=ln_w, bias=ln_b, epsilon=norm.eps, compute_kernel_config=ck)
