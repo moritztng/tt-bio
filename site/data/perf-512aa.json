@@ -393,7 +393,7 @@
           "ref": "stock"
         }
       },
-      "note": "Host work is where this row differs most. The H200 spends 6.31 s per target on featurisation and it does not warm up, 6.22 s cold against 6.28 s warm, because the reference pipeline rebuilds every target's features from scratch. It sits outside the NVIDIA timer, so the published cell does not include it."
+      "note": "Host work is where this row differs most. The reference pipeline rebuilds every target's features from scratch, so featurisation does not get faster when warm. It runs outside the NVIDIA timer and inside the Tenstorrent one."
     },
     {
       "id": "openfold3",
@@ -446,7 +446,7 @@
       "name": "RoseTTAFold3",
       "recycles": 10,
       "sampling_steps": "50 requested, 49 executed",
-      "note": "AtomWorks host featurisation, not accelerator work, is about half of an RF3 fold on every NVIDIA box measured here: 8.3 s of 16.4 s on the B200, 12.5 s of 22.8 s on the H200, 15.0 s of 30.9 s on the A100. The same featuriser runs inside the Tenstorrent number, and this NVIDIA cell times a whole fold too, so a shared host cost that size compresses the ratio between them.",
+      "note": "AtomWorks host featurisation, not accelerator work, is a large share of an RF3 fold. It runs inside the timer on both sides, so a host cost that size compresses the ratio between them.",
       "nvidia_impl": "rc-foundry 0.2.0 and atomworks 2.2.1, which use cuEquivariance whenever it is installed.",
       "cells": {
         "p150a": {
