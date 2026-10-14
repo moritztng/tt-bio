@@ -261,7 +261,7 @@
       "parity_pending": true,
       "recycles": 10,
       "sampling_steps": "100 requested, 68 executed",
-      "note": "The same port and the same stack as the ESMFold2 row on a 24-block trunk against 48, so read the two rows as one model at two depths. It folds 1.643x faster than ESMFold2 on one Blackhole AI Processor (21.058 to 12.818 s) and 1.814x faster on an H200 (7.256 to 3.999 s); the two checkpoints differ only in trunk depth, so the smaller Tenstorrent gain is what a large fixed non-trunk term predicts.",
+      "note": "The same port and the same stack as the ESMFold2 row on a 24-block trunk against 48, so read the two rows as one model at two depths. The checkpoints differ only in trunk depth, so how much faster this row runs than ESMFold2 on a platform shows how much of that platform's fold is trunk; a smaller gain means a larger fixed cost outside it.",
       "nvidia_impl": "The same ESMFold2 code path on esm 3.4.0 and transformers 4.57.6, with the same cuequivariance backend selected.",
       "cells": {
         "p150a": {
