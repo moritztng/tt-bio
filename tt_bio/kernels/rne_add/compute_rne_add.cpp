@@ -120,6 +120,9 @@ void kernel_main() {
     constexpr uint32_t MASKED = get_compile_time_arg_val(G + 8);
     constexpr uint32_t MT = get_compile_time_arg_val(G + 9);
     constexpr uint32_t cb_m = 2;  // c_2
+    // At file scope of a non-template function a discarded `if constexpr` branch is still
+    // checked, so this cannot sit inside the MASKED branch: it would fail every unmasked arm.
+    static_assert(!MASKED || (ADD_MODE == 1 && ROUND_MODE == 1), "the masked residual is the exact arm");
     uint32_t page = 0;
     if constexpr (MASKED) {
         if constexpr (COMPACT) {
@@ -151,7 +154,6 @@ void kernel_main() {
 
         tile_regs_acquire();
         if constexpr (MASKED) {
-            static_assert(ADD_MODE == 1 && ROUND_MODE == 1, "the masked residual is the exact arm");
             for (uint32_t j = 0; j < n; ++j) {
                 const uint32_t s0 = SLOTS * j;
                 copy_tile_to_dst_init_short_with_dt(cb_a, cb_b);
