@@ -117,7 +117,11 @@ void kernel_main() {
     if (count == 0) {
         return;
     }
+#ifdef WS_RELU
+    mm_block_init(cb_x, cb_w12, cb_hid, false, SW, 1, KT);   // no gate CB in this mode
+#else
     mm_block_init(cb_x, cb_w12, cb_gate, false, SW, 1, KT);
+#endif
     cb_wait_front(cb_w12, KT * W12);
     cb_wait_front(cb_w3, NH * CT);
 #ifdef WS_RELU
