@@ -4,6 +4,8 @@ fp32 [N,N,512] layer_norm -> ttnn.linear(x, w[512,256], core_grid=CORE_GRID_MAIN
 packer_l1_acc: ttnn picks MatmulMultiCoreReuseMultiCast1DProgramConfig(mcast_in0=False) on 110 cores.
 --grid none drops core_grid (the v1 fix for widths <= 4 tiles). Prints one line per --every iterations.
 --kz/--kr/--nout/--odt give other models' shapes, e.g. OF3 linear_z: --kz 128 --kr 139 --nout 128 --odt bf16.
+--grid YxX forces another core grid. --atom loops the atom-transformer linear that hung in fold 9 on chip 3
+(fixm a2fce63b8): add -> ttnn.linear([5,5919,128] fp32, w[128,128], bias) on the same compute config.
 usage: TT_VISIBLE_DEVICES=3 timeout -s TERM 1800 python paircond_repro.py --iters 400 [--grid none] [--n 730]
 """
 import argparse, time
@@ -17,7 +19,8 @@ ap = argparse.ArgumentParser()
 ap.add_argument("--n", type=int, default=730)
 ap.add_argument("--iters", type=int, default=400)
 ap.add_argument("--every", type=int, default=10)
-ap.add_argument("--grid", choices=["main", "none"], default="main")
+ap.add_argument("--grid", default="main", help="main | none | YxX")
+ap.add_argument("--atom", action="store_true")
 ap.add_argument("--l1acc", type=int, default=1)
 ap.add_argument("--kz", type=int, default=256)
 ap.add_argument("--kr", type=int, default=256)
@@ -31,19 +34,31 @@ ckc = ttnn.types.BlackholeComputeKernelConfig(math_fidelity=ttnn.MathFidelity.Hi
 g = torch.Generator().manual_seed(0)
 up = lambda t: ttnn.from_torch(t, dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=dev)
 k = a.kz + a.kr
-z = up(torch.randn(a.n, a.n, a.kz, generator=g))
-rp = up(torch.randn(a.n, a.n, a.kr, generator=g))
-lw = up(torch.rand(k, generator=g) + 0.5)
-w = up(torch.randn(k, a.nout, generator=g) / k ** 0.5)
+if a.atom:
+    x0, x1 = (up(torch.randn(5, 5919, 128, generator=g)) for _ in range(2))
+    w = up(torch.randn(128, 128, generator=g) / 128 ** 0.5)
+    b = up(torch.randn(1, 128, generator=g))
+else:
+    z = up(torch.randn(a.n, a.n, a.kz, generator=g))
+    rp = up(torch.randn(a.n, a.n, a.kr, generator=g))
+    lw = up(torch.rand(k, generator=g) + 0.5)
+    w = up(torch.randn(k, a.nout, generator=g) / k ** 0.5)
 kw = dict(compute_kernel_config=ckc, dtype=ttnn.float32 if a.odt == "fp32" else ttnn.bfloat16)
 if a.grid == "main":
     kw["core_grid"] = T.CORE_GRID_MAIN
+elif a.grid != "none":
+    gy, gx = map(int, a.grid.split("x"))
+    kw["core_grid"] = ttnn.CoreGrid(y=gy, x=gx)
 ref = None
 t0 = time.time()
 for i in range(1, a.iters + 1):
-    zc = ttnn.concat([z, rp], dim=-1)
-    zc = ttnn.layer_norm(zc, weight=lw, epsilon=1e-5, compute_kernel_config=ckc)
-    pb = ttnn.linear(zc, w, **kw)
+    if a.atom:
+        zc = ttnn.add(x0, x1)
+        pb = ttnn.linear(zc, w, bias=b, **kw)
+    else:
+        zc = ttnn.concat([z, rp], dim=-1)
+        zc = ttnn.layer_norm(zc, weight=lw, epsilon=1e-5, compute_kernel_config=ckc)
+        pb = ttnn.linear(zc, w, **kw)
     ttnn.deallocate(zc)
     if i % a.every == 0 or i == 1:
         h = ttnn.to_torch(pb)
