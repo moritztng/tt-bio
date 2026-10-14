@@ -953,6 +953,17 @@ def _storage(value):
     return value.memory_config().buffer_type, value.buffer_address()
 
 
+def _same_storage(value, here) -> bool:
+    """`_storage(value) == here`, asking for the address before the memory config.
+
+    Almost every parent lives somewhere else, and its address alone says so; the buffer type
+    is only fetched to settle an address match. Same answer, one pybind call fewer a parent.
+    """
+    if value.storage_type() != ttnn.StorageType.DEVICE or not value.is_allocated():
+        return False
+    return value.buffer_address() == here[1] and value.memory_config().buffer_type == here[0]
+
+
 def _tape(out_value, parents: Sequence[Tensor], make_fn, reads=None) -> Tensor:
     """Wrap ``out_value`` and tape ``make_fn(out)`` if any parent wants a gradient.
 
@@ -980,7 +991,7 @@ def _tape(out_value, parents: Sequence[Tensor], make_fn, reads=None) -> Tensor:
     here = _storage(out_value)
     if here is not None:
         for p in parents:
-            if _storage(p.value) == here:
+            if _same_storage(p.value, here):
                 _share(p, out)
     if needs:
         # `make_fn` takes no arguments and the closure it returns takes the output gradient,

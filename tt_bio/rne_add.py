@@ -128,7 +128,11 @@ def _tile_grid(t) -> tuple:
     Tile padding is added and written like any other element: the wide path pads the same way and
     the padding of an add's operands is the padding of its result.
     """
-    shape = [int(d) for d in t.shape]
+    return _grid_of([int(d) for d in t.shape])
+
+
+def _grid_of(shape) -> tuple:
+    """`_tile_grid` of an already-converted shape list."""
     if len(shape) == 1:
         shape = [1] + shape
     lead = 1
@@ -151,7 +155,11 @@ def _core_shape(t) -> list:
     LEADING 1 is the only difference this tolerates -- an interior one is a broadcast, which is
     a different function and is declined.
     """
-    shape = [int(d) for d in t.shape]
+    return _core_of([int(d) for d in t.shape])
+
+
+def _core_of(shape) -> list:
+    """`_core_shape` of an already-converted shape list (consumed)."""
     while len(shape) > 1 and shape[0] == 1:
         shape.pop(0)
     return shape
@@ -371,8 +379,11 @@ def eligible(a, b, memory_config) -> bool:
         return _reject("dtype", shape_a)
     if a.layout != ttnn.TILE_LAYOUT or b.layout != ttnn.TILE_LAYOUT:
         return _reject("layout", shape_a)
-    if _core_shape(a) != _core_shape(b):
-        return _reject("shape_mismatch", shape_a, [int(d) for d in b.shape])
+    # Each operand's shape converted once: the core shape and the tile grid below are both
+    # functions of these lists, and this gate runs on every residual add.
+    shape_b = [int(d) for d in b.shape]
+    if _core_of(list(shape_a)) != _core_of(list(shape_b)):
+        return _reject("shape_mismatch", shape_a, shape_b)
     # The kernels index both operands and the result with ONE page index, so a broadcast, a
     # different padded tile count or a sharded operand is not this op.
     for t in (a, b):
@@ -381,8 +392,8 @@ def eligible(a, b, memory_config) -> bool:
     if memory_config is not None and \
             memory_config.memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED:
         return _reject("sharded_out", shape_a)
-    if _tile_grid(a) != _tile_grid(b):
-        return _reject("tile_grid", shape_a, [int(d) for d in b.shape])
+    if _grid_of(shape_a) != _grid_of(shape_b):
+        return _reject("tile_grid", shape_a, shape_b)
     return True
 
 
@@ -480,7 +491,9 @@ def widen_eligible(a, b) -> bool:
         return _widen_decline("both float32")
     if a.layout != ttnn.TILE_LAYOUT or b.layout != ttnn.TILE_LAYOUT:
         return _widen_decline("not TILE")
-    if [int(d) for d in a.shape] != [int(d) for d in b.shape]:
+    # Only a True from the shape objects is trusted; anything else is decided by the ints.
+    sa, sb = a.shape, b.shape
+    if not sa == sb and [int(d) for d in sa] != [int(d) for d in sb]:
         return _widen_decline("shape")
     for t in (a, b):
         if t.memory_config().memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED:

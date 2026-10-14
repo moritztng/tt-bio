@@ -1691,8 +1691,9 @@ class _Ttnn:
     """ttnn, with the differentiable verbs taped. Every other attribute is ttnn's own.
 
     Lookups are cached into the instance dict on first use, so a hot call site pays one
-    ordinary attribute load. A verb that never meets a taped tensor -- every config class,
-    every device query -- costs one `_on_tape` scan of its arguments.
+    ordinary attribute load -- constants, dtypes, enums and classes as well as verbs, since
+    `ttnn.TILE_LAYOUT` or `ttnn.bfloat16` is read on most taped calls. A verb that never meets
+    a taped tensor -- every device query -- costs one `_on_tape` scan of its arguments.
     """
 
     def __init__(self, real, prefix: str = ""):
@@ -1711,7 +1712,7 @@ class _Ttnn:
         elif callable(attr) and not isinstance(attr, type):
             out = _taped_verb(qual, attr)
         else:
-            return attr
+            out = attr
         object.__setattr__(self, name, out)
         return out
 
