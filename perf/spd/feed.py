@@ -53,10 +53,11 @@ TIERS = {"red": 0, "amber": 1, "fast": 2, "fill": 3}
 FAST_S = 60
 MAX_FAILS = 3
 STEAL_S = 900   # a BH job still waiting this long moves to a free card (any BH box its cell allows, same box too)
-# BH boxes: SPD cards and their flocks (state/spd/CHIPS.md). Never qb2 chip 2 (faulty); chip 1 back after the 10-13 power cycle.
+# BH boxes: SPD cards and their flocks (state/spd/CHIPS.md). A chip kept off the feed has ~/spd/locks/chip<N>.BAD on its
+# host (qb2 chip 0 since the 2026-10-14 slot swap: marginal at 1350 MHz, and feed trees predate the AICLK cap).
 BH_POOLS = {
     "qb1": {"ssh": "qb1", "cards": [0, 1, 2, 3], "lock": "/home/ttuser/spd_qb1_card{c}.lock"},
-    "qb2": {"ssh": "qb2", "cards": [0, 1, 3], "lock": "/home/ttuser/spd_qb2_chip{c}.lock"},
+    "qb2": {"ssh": "qb2", "cards": [0, 1, 2, 3], "lock": "/home/ttuser/spd_qb2_chip{c}.lock"},
 }
 
 # Runs on the pool host: report state, existence of paths, and sweep dead entries. Payload is appended as JSON.
