@@ -11,8 +11,11 @@ M=$1; K=/root/kit/$M; I=/root/kc/in; R=/root/kc/results/$M${LEVERS_OFF:+-no-${LE
 # LEVERS_OFF=prefetch,awrite: the kit's own ablation switch (MODEL_OPT_LEVERS_OFF) on the kit modes. RF3's prefetch featurizes the
 # NEXT input while the current one folds, so dump gaps over several inputs read pipelined throughput, not one prediction at a time
 [ -n "${LEVERS_OFF:-}" ] && export MODEL_OPT_LEVERS_OFF=$LEVERS_OFF
+[ -f $K/configs/${KC_GPU:-none}.env ] && KC_CFG=$KC_GPU  # the kit's own config for this GPU where it ships one (box_setup.sh)
+echo $KC_CFG > $R/kc-cfg
 cd $K && . venv/bin/activate
 case $M in openfold3|openfold3_ob0) CV=12.8;; opendde) CV=12.6;; pxdesign) CV=12.1; export NVCC_PREPEND_FLAGS="-ccbin /usr/bin/gcc-12" CC=gcc-12 CXX=g++-12;; *) CV=;; esac  # torch JIT appends -ccbin $CC
+[ "${KC_GPU:-}" = b200 ] && case $M in opendde|pxdesign) CV=12.8; unset NVCC_PREPEND_FLAGS CC CXX;; esac  # the cu128 stack (box_setup.sh)
 export CUDA_HOME=/usr/local/cuda${CV:+-$CV} PYTHONHASHSEED=0 OPENFOLD3_CKPT=/weights/openfold3/of3-p2-155k.pt \
   OPENFOLD3_OB0_CKPT=/weights/openfold3_ob0/of3-ob-2025-06-30-174k.pt \
   OPENDDE_ROOT_DIR=/weights/opendde BOLTZ_CACHE=/weights/boltz2 PROTENIX_ROOT_DIR=/weights/protenix \

@@ -9,6 +9,8 @@
 KC_CFG=a100 KC_ARCH=8.0; [ -f /root/kc/gpu.env ] && . /root/kc/gpu.env
 set -eux
 M=$1; K=/root/kit/$M; [ -f /root/kc/SETUP-OK-$M ] && exit 0
+# a kit that ships configs/<gpu>.env (b200: protenix_v2, openfold3, openfold3_ob0) runs it; the rest keep session.sh's nearest
+[ -f $K/configs/${KC_GPU:-none}.env ] && KC_CFG=$KC_GPU
 # python-build-standalone's sysconfig names clang as CC, which the CUDA image lacks: every native build (DeepSpeed's
 # evoformer op, apex, the LayerNorm extension) goes through the image's gcc instead
 export CC=gcc CXX=g++
@@ -30,10 +32,14 @@ cd $K; [ -d venv ] || $PY/bin/python3 -m venv venv; . venv/bin/activate
 # each kit's Dockerfile pins its own nvcc (openfold3 12.8, opendde 12.6, protenix 13.0 = the image's, boltz2 none): install it
 # beside the image's toolkit; box_arms.sh points CUDA_HOME at the same one
 case $M in openfold3|openfold3_ob0) CV=12.8;; opendde) CV=12.6;; *) CV=;; esac
+# B200: torch 2.7.1+cu126 (opendde) and 2.3.1+cu121 (pxdesign) carry no sm_100 code and nvcc 12.1/12.6 cannot emit it. Same torch
+# 2.7.1 from the cu128 index (pxdesign moves up to it), nvcc 12.8, and triton 3.4.0: 3.3.1 hangs on sm_100 launching cuEquivariance's
+# fused_sigmoid_gated_dual_gemm. TS = the torch that replaces the lock's lines.
+TS=; [ "${KC_GPU:-}" = b200 ] && case $M in opendde|pxdesign) CV=12.8 TS=2.7.1;; esac
 if [ -n "$CV" ] && [ ! -x /usr/local/cuda-$CV/bin/nvcc ]; then
   apt-get update -q && DEBIAN_FRONTEND=noninteractive apt-get install -y -q --no-install-recommends cuda-toolkit-${CV/./-}
 fi
-if [ $M = pxdesign ] && [ ! -x /usr/local/cuda-12.1/bin/nvcc ]; then  # CUDA 12.1 has no ubuntu24.04 package: the runfile, toolkit
+if [ $M = pxdesign ] && [ -z "$TS" ] && [ ! -x /usr/local/cuda-12.1/bin/nvcc ]; then  # CUDA 12.1 has no ubuntu24.04 package: the runfile, toolkit
   # only; nvcc 12.1 takes gcc <= 12 (box_arms.sh passes -ccbin gcc-12); git for the lock's editable checkouts
   apt-get update -q && DEBIAN_FRONTEND=noninteractive apt-get install -y -q --no-install-recommends gcc-12 g++-12 git
   curl -fsSL -o /tmp/cu121.run https://developer.download.nvidia.com/compute/cuda/12.1.1/local_installers/cuda_12.1.1_530.30.02_linux.run
@@ -42,7 +48,7 @@ if [ $M = pxdesign ] && [ ! -x /usr/local/cuda-12.1/bin/nvcc ]; then  # CUDA 12.
   sh /tmp/cu121.run --silent --toolkit --toolkitpath=/usr/local/cuda-12.1 --override --no-man-page && rm -f /tmp/cu121.run
   ln -sfn "$I" /usr/local/cuda
 fi
-[ $M = pxdesign ] && CV=12.1 && export NVCC_PREPEND_FLAGS="-ccbin /usr/bin/gcc-12" CC=gcc-12 CXX=g++-12
+[ $M = pxdesign ] && [ -z "$TS" ] && CV=12.1 && export NVCC_PREPEND_FLAGS="-ccbin /usr/bin/gcc-12" CC=gcc-12 CXX=g++-12
 export CUDA_HOME=/usr/local/cuda${CV:+-$CV} PYTHONHASHSEED=0 CFLAGS=-g0; export PATH=$CUDA_HOME/bin:$PATH
 L=environment/requirements.lock
 P=$(grep -E '^(pip|wheel)==' $L || true); [ -z "$P" ] || pip install -q $P
@@ -58,6 +64,10 @@ case $M in
   pxdesign)    X='-';;
 esac
 grep -v -E "^(#|pip==|wheel==|($X)==)" $L > /tmp/stack-$M.txt
+if [ -n "$TS" ]; then  # torch with its own CUDA 12.8 wheels first (so a source build in the lock sees it), then the lock without them
+  sed -i -E '/^(torch @|triton==|nvidia-[a-z-]+-cu12==)/d' /tmp/stack-$M.txt
+  pip install -q torch==$TS --index-url https://download.pytorch.org/whl/cu128 && pip install -q --no-deps triton==3.4.0
+fi
 [ $M = rosettafold3 ] && printf 'hatchling==1.31.0\nhatch-vcs==0.4.0\n' > /tmp/bp.txt && export PIP_CONSTRAINT=/tmp/bp.txt
 pip install -q --no-deps $([ $M = pxdesign ] && echo --src /opt/pxsrc) -r /tmp/stack-$M.txt; unset PIP_CONSTRAINT
 case $M in

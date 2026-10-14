@@ -12,7 +12,7 @@
 set -u
 [ "${1:-}" = --gpu ] || { echo "usage: session.sh --gpu a100|h200|b200 <label> <cap_h> ['<query>'] [max_attempts]" >&2; exit 2; }
 GPU=$2; shift 2
-# kit config / arch / default offer filter / power window (W) per GPU; the kit has no b200 config, h200 is its nearest
+# kit config / arch / default offer filter / power window (W) per GPU; b200: a kit without configs/b200.env runs h200, its nearest (box_setup.sh)
 case $GPU in
   a100) CFG=a100 ARCH=8.0  DQ='gpu_name=A100_SXM4 num_gpus=1 gpu_ram>=79 cuda_max_good>=13.0 inet_down>=200 reliability>=0.98 dph<=1.2' W0=390 W1=400;;
   h200) CFG=h200 ARCH=9.0  DQ='gpu_name=H200 num_gpus=1 cuda_max_good>=13.0 inet_down>=200 reliability>=0.97 dph<=5.5' W0=690 W1=700;;
