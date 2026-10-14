@@ -28,6 +28,9 @@ for r in ('westlake-repl/SaProt_35M_AF2', 'westlake-repl/SaProt_650M_AF2', 'west
   nesso1)   [ -f /work/SETUP_OK ] || PATH=/root/.local/bin:/usr/bin:$PATH bash perf/nesso1/gpu_nesso1_setup.sh; [ -f /work/SETUP_OK ];;
 esac; }
 setup > $R/setup.log 2>&1 || { echo setup-failed > $R/rc; exit 3; }
+case $M in boltzgen) P=/work/venv-bgg;; saprot) P=/work/v_embed;; nesso1) P=/work/v_nesso;; esac
+$UV pip freeze --python $P/bin/python > $R/pip-freeze.txt 2>&1
+nvidia-smi --query-gpu=name,driver_version,power.limit,clocks.max.sm --format=csv > $R/gpu.csv
 nvidia-smi -q -d POWER,CLOCK,PERFORMANCE > $R/power-clock.txt 2>&1
 nohup nvidia-smi --query-gpu=timestamp,clocks.sm,clocks.mem,power.draw,power.limit,temperature.gpu,utilization.gpu,clocks_event_reasons.active,memory.used --format=csv,noheader -lms 500 > $R/smi.csv 2>&1 &
 SMI=$!; date -u +%FT%T.%3NZ > $R/t_start

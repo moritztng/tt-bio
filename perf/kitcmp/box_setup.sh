@@ -126,4 +126,7 @@ else bash run.sh install $([ $M = rosettafold3 ] && echo --make-venv) --weights 
 [ -d opt/venv ] && { S2=$(opt/venv/bin/python -c 'import site; print(site.getsitepackages()[0])'); cp /root/kc/kctime.py $S2/ && echo 'import kctime' > $S2/kctime.pth; }
 case $M in esmc) HF_HUB_OFFLINE=1 bash run.sh check --variant 6b --mode exact;;
   *) bash run.sh check --config $KC_CFG --mode fast $([ $M = esmfold2 ] && echo --variant fast);; esac
+V=/root/kc/results/setup-$M; mkdir -p $V; pip freeze > $V/pip-freeze.txt
+[ -d opt/venv ] && opt/venv/bin/python -m pip freeze > $V/pip-freeze-opt.txt
+nvidia-smi --query-gpu=name,driver_version,power.limit,clocks.max.sm --format=csv > $V/gpu.csv; nvcc --version > $V/nvcc.txt 2>&1 || true
 echo SETUP-OK > /root/kc/SETUP-OK-$M
