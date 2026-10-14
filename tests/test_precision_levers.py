@@ -187,6 +187,14 @@ def test_boltzgen_mode_sets_name_only_known_levers():
     assert B.LEVERS_FAST <= set(T.LEVERS) | T.UNGRADED_LEVERS
 
 
+def test_protenix_family_normal_set():
+    from tt_bio.opendde import NORMAL_LEVERS as DDE
+    from tt_bio.protenix import NORMAL_LEVERS
+
+    assert DDE is NORMAL_LEVERS and NORMAL_LEVERS <= set(T.LEVERS)
+    assert NORMAL_LEVERS - T.NORMAL_LEVERS == {"transition_ws", "ws_l1acc"}
+
+
 def test_opendde_fast_set_names_only_known_levers():
     from tt_bio.opendde import FAST_LEVERS
 
