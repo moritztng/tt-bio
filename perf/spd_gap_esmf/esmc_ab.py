@@ -1,4 +1,5 @@
-"""ESMC page cell and accuracy with one tt_bio module attribute (--alt module.ATTR, a bool switch) on vs off.
+"""ESMC page cell and accuracy with one tt_bio module attribute (--alt module.ATTR, a bool switch) on vs off,
+or (--fidelity NAME) the model's math fidelity at its default vs NAME.
 
 One process, one model load; arms alternate off/on for --rounds so drift lands on both. Per arm: the page workload
 (prot512.seq x7, one forward of 7, warm median of --repeat) and the first --length residues of --pdb scored against the
@@ -6,6 +7,9 @@ fp32 CPU reference (perf/mgx_embed/accuracy.py) and against the off arm of the s
 
     python3 perf/spd_gap_esmf/esmc_ab.py --alt tt_bio.esmc._ESMC_QKV_SPLIT --model esmc-600m --pdb perf/bgx_size/targets/hHSA.pdb \
         --ref-cache ../refcache --out ab.jsonl [--fast]
+
+--fidelity sets math_fidelity on the compute kernel config every ESMC op shares, in place, so one load serves both
+arms. If the flip did not reach the ops, the on arm's vs_off error is exactly 0.
 """
 import argparse
 import importlib
@@ -26,7 +30,8 @@ from tt_bio import esmc as E  # noqa: E402
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--alt", required=True, help="module.ATTR flipped between arms (off first)")
+    ap.add_argument("--alt", default="tt_bio.esmc._ESMC_QKV_SPLIT", help="module.ATTR flipped between arms (off first)")
+    ap.add_argument("--fidelity", default=None, help="on arm = this ttnn.MathFidelity (HiFi4/HiFi3/HiFi2/LoFi); --alt unused")
     ap.add_argument("--model", required=True)
     ap.add_argument("--pdb", required=True)
     ap.add_argument("--length", type=int, default=512)
@@ -58,11 +63,16 @@ def main() -> int:
     batch = {f"s{i}": page for i in range(7)}
     embed7 = lambda: E.embed_sequences(model, batch, batch_size=8)
     dev = model.tt_device
+    ckc = model.compute_kernel_config
+    fid_off = ckc.math_fidelity
 
     base = None
     for r in range(a.rounds):
         for on in (False, True):
-            setattr(alt_mod, attr, (a.on_value if a.on_value is not None else True) if on else type(getattr(alt_mod, attr))(0))
+            if a.fidelity:
+                ckc.math_fidelity = getattr(ttnn.MathFidelity, a.fidelity) if on else fid_off
+            else:
+                setattr(alt_mod, attr, (a.on_value if a.on_value is not None else True) if on else type(getattr(alt_mod, attr))(0))
             # a captured trace replays the program of the arm it was captured under: drop it so this arm recaptures
             model._release_traces()
             model._trace_seen.clear()
@@ -78,7 +88,7 @@ def main() -> int:
             out = one()
             if base is None:
                 base = out
-            row = {"model": a.model, "fast": a.fast, "round": r, "alt": a.alt, "on": on,
+            row = {"model": a.model, "fast": a.fast, "round": r, "alt": f"fidelity:{a.fidelity}" if a.fidelity else a.alt, "on": on,
                    "batch7_ms": round(sorted(ts)[len(ts) // 2] * 1000, 2),
                    "batch7_all_ms": [round(t * 1000, 2) for t in ts],
                    "vs_fp32": acc.metrics(out, ref), "vs_off": acc.metrics(out, base),
