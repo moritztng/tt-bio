@@ -227,6 +227,8 @@ class _DiTBlock(Module):
             self.fuse = ada
 
         # dit_hifi2: the bf16 DiT's linears at HiFi2, everything else as the model's config (read per call).
+        # Wormhole only: graded there (fast, both models), where HiFi4 leaves the linears math-bound; flat on p150a.
+        self._hifi2_arch = _T.is_wormhole()
         c = compute_kernel_config
         self.ckc_hifi2 = ttnn.WormholeComputeKernelConfig(
             math_fidelity=ttnn.MathFidelity.HiFi2, math_approx_mode=getattr(c, "math_approx_mode", True),
@@ -334,7 +336,7 @@ class _DiTBlock(Module):
                                layout=ttnn.TILE_LAYOUT, device=self.device)
 
     def _lin(self, x, w, bias=None, activation=None):
-        hifi2 = self._act_dtype == ttnn.bfloat16 and _T.lever("dit_hifi2")
+        hifi2 = self._hifi2_arch and self._act_dtype == ttnn.bfloat16 and _T.lever("dit_hifi2")
         return ops.linear(x, w, bias=bias, activation=activation,
                           compute_kernel_config=self.ckc_hifi2 if hifi2 else self.compute_kernel_config,
                           core_grid=CORE_GRID_MAIN)
