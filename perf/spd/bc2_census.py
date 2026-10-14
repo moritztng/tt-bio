@@ -318,6 +318,14 @@ def write(partial=False):
                aiclk=state["cl"], synced_total_s=total, ops=rows, calls=len(rec.rec), partial=partial,
                pair_mm_declined=sorted(([list(map(str, k)), v] for k, v in pair_mm.DECLINED.items()),
                                        key=lambda kv: -kv[1])[:40])
+    tn, tt_, dn = (sys.modules.get(m) for m in ("tt_bio.tenstorrent", "tt_bio.taped_ttnn", "tt_bio.mm_dualnoc"))
+    if tn is not None:
+        doc.update(trimul_gout=list(tn.TRIMUL_GOUT_STATS), trimul_gout_rejects=dict(tn.TRIMUL_GOUT_REJECTS))
+    if tt_ is not None:
+        doc.update(kernel_stats={k: list(v) for k, v in tt_.KERNEL_STATS.items()})
+    if dn is not None:
+        doc.update(dualnoc=list(dn.STATS), dualnoc_rejects=sorted(
+            ([list(map(str, k)), v] for k, v in dn.REJECTS.items()), key=lambda kv: -kv[1])[:20])
     ag = sys.modules.get("tt_bio.autograd")
     if ag is not None:
         doc.update(rtrace_stats=dict(ag.RTRACE_STATS), rtrace_checks=list(ag.RTRACE_CHECKS))
