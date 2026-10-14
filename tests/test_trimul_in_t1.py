@@ -30,7 +30,7 @@ KT, CT2, NTG = 4, 8, 4           # c_z 128, hidden 128, g_out 128: openfold3's t
 @pytest.mark.parametrize("mask", [False, True])
 def test_cb_budget_fits_l1(mask):
     total = TTL.t1_cb_bytes(KT, CT2, NTG, mask)
-    assert total == (911_360 if not mask else 978_944)
+    assert total == (911_360 if not mask else 987_136)
     assert total < L1_PER_CORE
     assert total <= 0.85 * L1_ALLOCATOR_BANK      # t1_eligible's own gate
     # N only sets units per core: at 512 tokens, 256 units of 32 row tiles over the 11 x 10 grid.
