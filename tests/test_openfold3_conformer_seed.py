@@ -1,6 +1,6 @@
 """The reference-conformer ETKDG seed: a retry stays inside its own residue.
 
-`_pooled_reference_molecules` hands residue i the seed the sequential loop would have drawn
+`_PooledReferenceMolecules` hands residue i the seed the sequential loop would have drawn
 for it. A retry used to draw its second seed from python's global `random`, which stole the
 next residue's seed and made the caller recompute all 108 conformers off a stream position
 that depended on how many residues had retried -- a different `ref_pos`, which is a model
@@ -130,19 +130,19 @@ def test_retry_after_a_timeout_that_still_embedded_returns_conformer_zero():
     assert mol.GetNumConformers() == 1
 
 
-def _ref_mols(seq, threads, templates):
+def _ref_mols(seq, threads, templates, procs=0):
     import numpy as np
     from tt_bio._vendor.openfold3.core.data.primitives.structure import query as Q
     from tt_bio._vendor.openfold3.core.data.resources.residues import MoleculeType
     from rdkit import Chem
 
-    old = Q.CONFORMER_THREADS, Q.REF_MOL_TEMPLATES
-    Q.CONFORMER_THREADS, Q.REF_MOL_TEMPLATES = threads, templates
+    old = Q.CONFORMER_THREADS, Q.REF_MOL_TEMPLATES, Q.CONFORMER_PROCS
+    Q.CONFORMER_THREADS, Q.REF_MOL_TEMPLATES, Q.CONFORMER_PROCS = threads, templates, procs
     try:
         random.seed(5)
         out = Q.structure_with_ref_mols_from_sequence(seq, MoleculeType.PROTEIN, "B")
     finally:
-        Q.CONFORMER_THREADS, Q.REF_MOL_TEMPLATES = old
+        Q.CONFORMER_THREADS, Q.REF_MOL_TEMPLATES, Q.CONFORMER_PROCS = old
     return [(r.mol.GetConformer().GetPositions(), np.asarray(r.in_crop_mask),
              [(a.GetSymbol(), a.GetFormalCharge(), sorted(a.GetPropsAsDict().items()),
               a.GetPDBResidueInfo().GetName(), a.GetPDBResidueInfo().GetResidueNumber(),
@@ -151,15 +151,17 @@ def _ref_mols(seq, threads, templates):
             for r in out.processed_reference_mols]
 
 
-def test_pooled_template_path_is_the_sequential_path():
-    """Per-type RDKit templates + the pool give every residue the conformer the plain
-    sequential loop gives it: same seed, same coordinates bit for bit, same atoms and
-    residue info. Repeated residues exercise a reused template."""
+@pytest.mark.parametrize("procs", [0, 2], ids=["threads", "processes"])
+def test_pooled_template_path_is_the_sequential_path(procs):
+    """Per-type RDKit templates + the pool (threads, or worker processes fed while the
+    residue loop runs) give every residue the conformer the plain sequential loop gives it:
+    same seed, same coordinates bit for bit, same atoms and residue info. Repeated residues
+    exercise a reused template; 17 residues make a partial last chunk."""
     import numpy as np
 
     seq = "MKTAYIAKQRGAGAWKK"
     ref = _ref_mols(seq, threads=0, templates=False)
-    got = _ref_mols(seq, threads=4, templates=True)
+    got = _ref_mols(seq, threads=4, templates=True, procs=procs)
     assert len(ref) == len(got) == len(seq)
     for i, ((p0, m0, a0), (p1, m1, a1)) in enumerate(zip(ref, got)):
         assert np.array_equal(p0, p1), f"residue {i + 1} {seq[i]} moved"
