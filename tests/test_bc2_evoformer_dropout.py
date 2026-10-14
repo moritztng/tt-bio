@@ -97,6 +97,41 @@ class _StubTrunk:
     def up(t, tile_on_card=False):
         return t.unsqueeze(0)
 
+    @classmethod
+    def up_many(cls, ts, tile_on_card=False):
+        return [cls.up(t, tile_on_card) for t in ts]
+
+
+class _TorchTTNN:
+    """The ttnn calls `_Trunk.up_many` makes, in torch, so its slicing is checked without a card."""
+    ROW_MAJOR_LAYOUT, TILE_LAYOUT, bfloat16 = "rm", "tile", None
+    from_torch = staticmethod(lambda t, **_: t.clone())
+    to_layout = staticmethod(lambda t, _layout: t.clone())
+    reshape = staticmethod(lambda t, shape: t.reshape(shape))
+    deallocate = staticmethod(lambda t: None)
+
+    @staticmethod
+    def slice(t, starts, ends):
+        return t[tuple(slice(a, b) for a, b in zip(starts, ends))]
+
+
+@pytest.mark.parametrize("tile_on_card", [False, True])
+def test_up_many_puts_every_tensor_where_up_does(tile_on_card):
+    """One stacked copy, then a slice each: same shape and same values as one `up` per tensor."""
+    import types
+
+    import torch
+
+    n, c = 32, 8
+    shape = (n, 1, c) if tile_on_card else (1, n, c)
+    ts = [torch.randn(shape) for _ in range(5)]
+    trunk = types.SimpleNamespace(ttnn=_TorchTTNN, device=None)
+    trunk.up = lambda t, tile=False: t.detach().unsqueeze(0).to(torch.bfloat16)
+    got = bindcraft2._Trunk.up_many(trunk, ts, tile_on_card)
+    assert len(got) == len(ts)
+    for g, t in zip(got, ts):
+        assert torch.equal(g, trunk.up(t))
+
 
 def test_the_uploaded_mask_carries_the_rescale_and_pads_with_keeps():
     """What goes to the card is one shared row or column per draw, padded to the token axis."""

@@ -196,17 +196,20 @@ def upload_dropout(trunk, pair_draws, pair_keep, scales, n32, msa_keep=None):
     has_msa = msa_keep is not None and len(np.shape(msa_keep))
     draws = ((DROPOUT_DRAWS[0],) if has_msa else ()) + tuple(pair_draws)
     pad = n32 - pair_keep.shape[-2]
-    out = []
-    for b in range(pair_keep.shape[0]):
+    out = [{} for _ in range(pair_keep.shape[0])]
+    # Grouped by layout and shape so the round's masks go up in a few `up_many` copies.
+    groups = collections.defaultdict(list)
+    for b, block in enumerate(out):
         masks = ([np.asarray(msa_keep)[b, 0]] if has_msa else []) + list(pair_keep[b])
-        block = {}
         for (op, _, _, axis), raw, scale in zip(draws, masks, scales):
             t = torch.from_numpy(np.array(raw, dtype=np.float32)) * float(scale)
             if pad:
                 t = torch.nn.functional.pad(t, (0, 0, 0, pad), value=float(scale))
-            block[op] = (trunk.up(t.unsqueeze(1), tile_on_card=True) if axis
-                         else trunk.up(t.unsqueeze(0)))
-        out.append(block)
+            t = t.unsqueeze(1) if axis else t.unsqueeze(0)
+            groups[(bool(axis), tuple(t.shape))].append((block, op, t))
+    for (tile_on_card, _), items in groups.items():
+        for (block, op, _), x in zip(items, trunk.up_many([t for _, _, t in items], tile_on_card)):
+            block[op] = x
     return out
 
 
@@ -917,6 +920,34 @@ class _Trunk:
         tiled = ttnn.to_layout(x, ttnn.TILE_LAYOUT)
         ttnn.deallocate(x)
         return tiled
+
+    def up_many(self, ts: list, tile_on_card: bool = False) -> list:
+        """`[self.up(t, tile_on_card) for t in ts]` for tensors of one shape, in one copy.
+
+        Each `from_torch` is a blocking host write with ~0.24 ms of fixed cost on a Galaxy host,
+        and a round's dropout masks are ~550 of them issued before the stack starts, so the card
+        waits for all of them. One stacked write and an on-card slice per tensor moves the same
+        bytes: the slice is along the leading axis and the reshape only renames leading axes, so
+        every element lands where `up` puts it.
+        """
+        if len(ts) < 2:
+            return [self.up(t, tile_on_card) for t in ts]
+        ttnn = self.ttnn
+        shape = tuple(ts[0].shape)
+        rows, c = int(np.prod(shape[:-1])), shape[-1]
+        big = ttnn.from_torch(torch.stack([t.detach().reshape(rows, c) for t in ts]).to(torch.bfloat16),
+                              layout=ttnn.ROW_MAJOR_LAYOUT if tile_on_card else ttnn.TILE_LAYOUT,
+                              device=self.device, dtype=ttnn.bfloat16)
+        out = []
+        for k in range(len(ts)):
+            x = ttnn.reshape(ttnn.slice(big, [k, 0, 0], [k + 1, rows, c]), (1, *shape))
+            if tile_on_card:
+                tiled = ttnn.to_layout(x, ttnn.TILE_LAYOUT)
+                ttnn.deallocate(x)
+                x = tiled
+            out.append(x)
+        ttnn.deallocate(big)
+        return out
 
     def down(self, t, shape) -> torch.Tensor:
         x = torch.Tensor(self.ttnn.to_torch(t)).float()
