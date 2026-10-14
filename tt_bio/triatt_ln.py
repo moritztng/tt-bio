@@ -23,6 +23,7 @@ from pathlib import Path
 
 import ttnn
 
+from . import dest_guard
 from . import mm_generic as MG
 from . import ops
 
@@ -42,10 +43,12 @@ def _reject(why, x):
     return None
 
 
-def _check(x, w, ln_w, ln_b):
+def _check(x, w, ln_w, ln_b, ckc):
     """Why the operands cannot take the kernel, or None."""
     if ops.taping():
         return "taping"
+    if dest_guard.exposed_args((ckc[0], ckc[1], True, ckc[3]), "tri"):
+        return "dest_guard"   # all of K accumulates in fp32 DEST: the Wormhole cancellation fault
     for t in (x, w, ln_w, ln_b):
         if t.dtype != ttnn.bfloat16 or t.layout != ttnn.TILE_LAYOUT:
             return "dtype"
@@ -133,7 +136,7 @@ def ln_qkvgb_heads(x, ln_w, ln_b, w, ckc, n_heads, head_dim, bias_channels, grid
     from .tenstorrent import lever
     if not lever("triatt_ln"):
         return None
-    why = _check(x, w, ln_w, ln_b)
+    why = _check(x, w, ln_w, ln_b, ckc)
     if why:
         return _reject(why, x)
     shp, pad = [int(d) for d in x.shape], [int(d) for d in x.padded_shape]
@@ -175,7 +178,7 @@ def ln_proj(x, ln_w, ln_b, w, ckc, grid, eps=1e-5):
     from .tenstorrent import lever
     if not lever("apb_ln"):
         return None
-    why = _check(x, w, ln_w, ln_b)
+    why = _check(x, w, ln_w, ln_b, ckc)
     if why:
         return _reject(why, x)
     shp = [int(d) for d in x.shape]
