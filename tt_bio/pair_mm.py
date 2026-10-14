@@ -114,23 +114,6 @@ def _decline(x, w, transpose_b, why):
     DECLINED[key] = DECLINED.get(key, 0) + 1
 
 
-def or_linear(linear, x, w, bias=None, *, activation=None, compute_kernel_config=None, dtype=None,
-              core_grid=None, **kw):
-    """``linear(x, w, ...)`` with `matmul` asked first where the lever is armed.
-
-    `ops.linear` takes it, and so does the tape shim's ``ttnn.linear``: the shipped pair modules
-    call ``ttnn.linear`` directly, so a BindCraft 2 round's checkpoint forward and recompute
-    reached the lever only through the shim (936 [1,224,224,128] x [128,128] calls a round).
-    """
-    if set(kw) <= {"memory_config"} and armed():
-        out = matmul(x, w, bias, compute_kernel_config, dtype,
-                     memory_config=kw.get("memory_config"), activation=activation)
-        if out is not None:
-            return out
-    return linear(x, w, bias=bias, activation=activation, compute_kernel_config=compute_kernel_config,
-                  dtype=dtype, core_grid=core_grid, **kw)
-
-
 #: Activations minimal_matmul applies at pack, on the fp32 DST. ReLU only: it is a sign test, so
 #: relu(round(v)) == round(relu(v)) and fusing it moves no bit against a separate relu.
 _ACTIVATIONS = {"relu": ttnn.UnaryOpType.RELU}

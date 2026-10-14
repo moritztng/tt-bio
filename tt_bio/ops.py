@@ -299,9 +299,14 @@ def linear(x, w, bias=None, *, activation=None, compute_kernel_config=None, dtyp
             from .tenstorrent import silu_ckc
             _SILU_CKC = silu_ckc
         compute_kernel_config = _SILU_CKC(compute_kernel_config)
-    return _pair_mm.or_linear(ttnn.linear, x, w, bias, activation=activation,
-                              compute_kernel_config=compute_kernel_config, dtype=dtype,
-                              core_grid=core_grid, **kw)
+    if set(kw) <= {"memory_config"} and _pair_mm.armed():
+        out = _pair_mm.matmul(x, w, bias, compute_kernel_config, dtype,
+                              memory_config=kw.get("memory_config"), activation=activation)
+        if out is not None:
+            return out
+    return ttnn.linear(x, w, bias=bias, activation=activation,
+                       compute_kernel_config=compute_kernel_config, dtype=dtype,
+                       core_grid=core_grid, **kw)
 
 
 @_dispatching
