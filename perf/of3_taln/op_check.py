@@ -53,7 +53,9 @@ res = {"n": S, "cases": {}}
 for fid in ("HiFi4", "HiFi2"):
     ckc = ttnn.WormholeComputeKernelConfig(math_fidelity=getattr(ttnn.MathFidelity, fid), math_approx_mode=False,
                                            fp32_dest_acc_en=True, packer_l1_acc=True)
-    fused = lambda: triatt_ln.ln_qkvgb_heads(X, GW, GB, W, MG.ckc_args(ckc), H, 32, 32, tuple(T.COMPUTE_GRID_MAIN))  # noqa: E731
+    def fused():
+        with T.levers(os.environ["TT_BIO_LEVERS"]):   # the env var alone only names a set; this activates it
+            return triatt_ln.ln_qkvgb_heads(X, GW, GB, W, MG.ckc_args(ckc), H, 32, 32, tuple(T.COMPUTE_GRID_MAIN))
 
     def shipped():
         xn_d = ttnn.layer_norm(X, weight=GW, bias=GB, epsilon=1e-5,
