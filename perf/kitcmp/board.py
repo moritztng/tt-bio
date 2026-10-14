@@ -72,6 +72,10 @@ def main():
         ver += f"torch {fz.get('torch', '?')}, {pkg} {fz.get(pkg, '?')}, driver {drv}"
         if r["median"] is None:
             continue
+        logs = [res / (arm or "esmc") / r["mode"] / f for f in ("stdout.log", "stderr.log")]
+        if not r["mode"].startswith(("off", "stock")) and any("NOT ACTIVE" in f.read_text(errors="replace") for f in logs if f.exists()):
+            print(f"skip {r['cell']} {r['mode']}: the kit says NOT ACTIVE, the arm ran stock", file=sys.stderr)  # ESMC has no fast
+            continue
         rng = f"n={r['n']} {min(r['warm']):.4g}-{max(r['warm']):.4g}"
         clk = f"SM {r['sm_mhz']:.0f} MHz med (min {r['sm_min']:.0f}), {r['watts']:.0f} W" if r["sm_mhz"] else "SM not sampled under load"
         print(f"| {r['cell']} | {a.gpu} | {mode} | {r['median']:.4g} | {rng} | {clk} | {ver} | {a.when} | {cmd} | {a.row} |")
