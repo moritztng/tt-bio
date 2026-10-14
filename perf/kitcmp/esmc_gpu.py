@@ -30,6 +30,6 @@ for rep in range(a.warm + 1):
 warm = sorted(times[1:])
 rec = dict(variant=a.variant, mode=os.environ.get("ESMC_OPT") or "off", batch=a.batch, tokens=int(batch["input_ids"].shape[1]),
            seq_sha256=hashlib.sha256(raw).hexdigest()[:16], cold_s=times[0], warm_median_s=warm[len(warm) // 2],
-           warm_min_s=warm[0], warm_max_s=warm[-1], n=len(warm), pooled_digest=digest, gpu=torch.cuda.get_device_name())
+           warm_min_s=warm[0], warm_max_s=warm[-1], n=len(warm), warm_s=times[1:], pooled_digest=digest, gpu=torch.cuda.get_device_name())
 open(a.out, "a").write(json.dumps(rec) + "\n")
 print(json.dumps(rec), flush=True)
