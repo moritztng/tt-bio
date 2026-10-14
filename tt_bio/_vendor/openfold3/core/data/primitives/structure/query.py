@@ -197,9 +197,16 @@ CONFORMER_THREADS = min(24, os.cpu_count() or 1)
 # never got under ~0.4 s on a 32-core p150a host however many threads ran. Workers fork
 # from a forkserver that preloaded this module, so each one costs its unshared pages only.
 # Starting them takes ~1 s, so the first build of a process runs on threads and starts the
-# workers in the background; later builds use them. 0 keeps everything on threads; so does
-# any failure to start or run the pool.
-CONFORMER_PROCS = min(16, (os.cpu_count() or 1) // 2)
+# workers in the background; later builds use them. Sized from this process's share of the
+# host (OMP_NUM_THREADS, which tt-bio sets per worker: runtime.host_thread_cap), so 32 serving
+# workers on a 64-thread Galaxy host stay on threads instead of starting 16 processes each.
+# 1 or 0 keeps everything on threads; so does any failure to start or run the pool.
+def _host_share() -> int:
+    first = os.environ.get("OMP_NUM_THREADS", "").split(",")[0].strip()  # may be a nested list
+    return int(first) if first.isdigit() and int(first) > 0 else (os.cpu_count() or 1)
+
+
+CONFORMER_PROCS = min(16, _host_share() // 2)
 # One pool for the process: starting 24 threads per fold cost 0.2 s on a loaded 32-core host.
 _CONFORMER_POOL = None
 _CONFORMER_PROCS_POOL = None   # set once every worker process runs
