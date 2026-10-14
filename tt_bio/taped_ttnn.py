@@ -29,6 +29,7 @@ tape cannot follow is loud, not a silently dropped gradient.
 from __future__ import annotations
 
 import contextlib
+import functools
 import os
 import re
 import sys
@@ -39,6 +40,7 @@ import ttnn
 from . import autograd as ag
 from .envflags import env_flag
 from . import mm_layout as _mm_layout
+from . import pair_mm as _pair_mm
 from .autograd import Tensor, precise_config
 from .autograd import (_axis, _differentiating, _dims, _flat2d, _matmul, _on_tape, _raw,
                        _reduce_to, _sum_leading, _tape,
@@ -1670,6 +1672,9 @@ _ALWAYS_DISPATCH = frozenset({"deallocate"})
 
 
 def _taped_verb(qual, shipped):
+    if qual == "linear":
+        # The shipped pair modules call `ttnn.linear` directly; `ops.linear` asks `pair_mm` first.
+        shipped = functools.partial(_pair_mm.or_linear, shipped)
     impl = _VERBS.get(qual)
     always = qual in _ALWAYS_DISPATCH
 
