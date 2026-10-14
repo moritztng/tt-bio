@@ -2418,38 +2418,27 @@ class ConfidenceHead:
 # are in the same tile-replan equivalence class as the chunked pair track.
 PAIRCOND_BLOCK_BYTES = int(os.environ.get("TT_BIO_PAIRCOND_BLOCK_BYTES", 5 * 2 ** 28))  # 2.5 GiB
 
-#: Output width, in 32-wide tiles, at or below which the diffusion pair-conditioning projection
-#: must NOT force ``core_grid``. Passing a core grid selects ttnn's MULTICAST matmul program,
-#: whose in0-sender / in1-receiver dataflow deadlocks intermittently when the output is this
-#: narrow and the pair tensor is >=512 tokens: the tt-metal watcher shows every core stopped with
-#: BRISC on a NOC semaphore wait and NCRISC on a circular-buffer reserve-back wait
-#: (perf/pxv1/hang_watcher_capture.txt). Interleaved A/B on protenix-v1 at 512 aa, 8 folds per
-#: arm per round, 3 rounds: 24/24 folds clean with the grid dropped against 7/24 with it forced.
-#:
-#: Gated on the WIDTH, not on the model id, because two shipped checkpoints share it:
-#: protenix-v1 and OpenDDE both project to 128 here (OpenDDE compresses c_z 384 -> 128 first),
-#: so both are exposed, while protenix-v2's 256 is 8 tiles and keeps the forced grid byte for
-#: byte. One mechanism in one place rather than a per-model branch.
-PAIRCOND_MM_NARROW_MAX_TILES = 4
+#: The diffusion pair-conditioning projections never force ``core_grid``. Passing a core grid
+#: selects ttnn's 1D in1-multicast matmul, and on these N*N-row fp32 projections (fp32 dest, packer
+#: L1 accumulation) one core's compute intermittently stalls and every other core waits on it
+#: through the in1 multicast handshake. It was first caught on protenix-v1's 4-tile projection
+#: (perf/pxv1/hang_watcher_capture.txt; 24/24 folds clean without the grid against 7/24 with it)
+#: and then on protenix-v2's 8-tile one, so it is not a width effect. Measured on qb2 chip 3,
+#: 2026-10-14, with perf/spd/nocdeadlock/paircond_repro.py at 730 tokens: the forced grid hung
+#: within 50 calls, without it 1000/1000 ran clean, and with the grid but packer_l1_acc off also
+#: 1000/1000 (that arm loses precision, so it is not the fix). Upstream: tt-metal#58653.
+#: PROTENIX_PAIRCOND_MM_FORCE_GRID=1 restores the forced grid for A/B or bisection.
 
 
-def paircond_mm_kw(compute_kernel_config, dtype, out_width):
+def paircond_mm_kw(compute_kernel_config, dtype):
     """ttnn.linear kwargs for a diffusion pair-conditioning projection.
 
-    ONE place decides the ``core_grid`` policy for every projection in that branch, because the
-    deadlock is a property of the WIDTH plus a forced grid, not of one call site. The pair-cond
-    has four such projections -- relpe, the OpenDDE z_trunk compression (twice: plain and
-    blocked), and linear_no_bias_z (twice: plain and blocked) -- and all of them are 128 wide,
-    i.e. 4 tiles, on N*N rows. A fix applied to only the one that happened to be caught hanging
-    would leave the same projection behaving differently depending on which block-size branch it
-    took, which is how a point patch becomes the next bug.
-
-    ``out_width`` is the projection's output channel count (the weight's dim 0 before the
-    transpose that ttnn.linear wants).
+    ONE place decides the ``core_grid`` policy for every projection in that branch (relpe, the
+    OpenDDE z_trunk compression and linear_no_bias_z, each on the whole and the row-blocked path),
+    so no twin of a fixed call keeps the old program.
     """
     kw = dict(compute_kernel_config=compute_kernel_config, dtype=dtype)
-    narrow = (int(out_width) // 32) <= PAIRCOND_MM_NARROW_MAX_TILES
-    if not narrow or env_flag("PROTENIX_PAIRCOND_MM_FORCE_GRID", False):
+    if env_flag("PROTENIX_PAIRCOND_MM_FORCE_GRID", False):
         kw["core_grid"] = CORE_GRID_MAIN
     return kw
 
@@ -2736,8 +2725,7 @@ class Protenix:
 
         def _relpe(rp):
             out = ttnn.linear(T(rp), w_relpe,
-                              **paircond_mm_kw(self.compute_kernel_config,
-                                               self.diffusion.dtype, _w_relpe.shape[0]))
+                              **paircond_mm_kw(self.compute_kernel_config, self.diffusion.dtype))
             _sync("relpe linear")
             return out
 
@@ -2754,8 +2742,7 @@ class Protenix:
                                  epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
             _w_zt = self._w[C + "linear_no_bias_z_trunk.weight"]
             out = ttnn.linear(zn, T(_w_zt.t().contiguous()),
-                              **paircond_mm_kw(self.compute_kernel_config,
-                                               self.diffusion.dtype, _w_zt.shape[0]))
+                              **paircond_mm_kw(self.compute_kernel_config, self.diffusion.dtype))
             ttnn.deallocate(zn)
             return out
 
@@ -2765,15 +2752,10 @@ class Protenix:
             zc = ttnn.layer_norm(zc, weight=T(self._w[C + "layernorm_z.weight"]), epsilon=1e-5,
                                  compute_kernel_config=self.compute_kernel_config)
             _sync("layernorm_z")
-            # Force the core grid only when the output is wide enough for ttnn's multicast
-            # matmul to be safe -- see PAIRCOND_MM_NARROW_MAX_TILES for the deadlock this avoids
-            # and the A/B behind it. PROTENIX_PAIRCOND_MM_FORCE_GRID=1 restores the old
-            # unconditional behaviour, which is how the A/B arms were taken and how a regression
-            # would be bisected.
+            # No forced core grid: see paircond_mm_kw for the multicast deadlock this avoids.
             _w_z = self._w[C + "linear_no_bias_z.weight"]
             pb = ttnn.linear(zc, T(_w_z.t().contiguous()),
-                             **paircond_mm_kw(self.compute_kernel_config,
-                                              self.diffusion.dtype, _w_z.shape[0]))
+                             **paircond_mm_kw(self.compute_kernel_config, self.diffusion.dtype))
             ttnn.deallocate(zc)
             _sync("linear_z")
             return pb
