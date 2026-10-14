@@ -7,7 +7,7 @@ The board is state/bmk/BOARD.md, a markdown table appended to by the measuring r
 
     | cell | platform | mode | value | n / spread | clock | versions | when | command | row |
 
-`cell` is the page row id (boltz2, nesso1, esmc-6b, ...), `platform` a page platform id (p150a, wh,
+`cell` is the page row id (boltz2, nesso1, esmc-6b, ...), `platform` a page platform id (p150a,
 a100, h200, b200). Modes: Tenstorrent `normal` (headline) and `fast`; NVIDIA `exact` (the Anthropic
 kit's exact mode, headline when present), `fast` (kit fast), `stock` (upstream code, headline when
 the kit has no exact run for the row) and `off` (kit control, not published). The newest board row
@@ -59,13 +59,16 @@ def board_runs(path: Path) -> dict:
         run["clock_mhz"] = num(c[5])
         run["versions"] = c[6]
         run["when"] = c[7]
+        b = re.search(r"--(?:assert-batch|n-seqs|batch)\s+(\d+)", c[8])
+        if b:
+            run["batch"] = int(b.group(1))
         runs[(c[0].lower(), c[1].lower(), mode)] = run   # newest last wins
     return runs
 
 
 def as_run(r: dict, unit: str, vendor: str) -> OrderedDict:
     out = OrderedDict([(unit, r["value"])])
-    for k in ("n", "spread_pct"):
+    for k in ("n", "spread_pct", "batch"):
         if k in r:
             out[k] = r[k]
     if r.get("clock_mhz"):
@@ -96,9 +99,8 @@ def fill(doc: dict, runs: dict) -> list[str]:
                 cell.update(as_run(head, unit, v))
                 if ref:
                     cell["ref"] = ref
-                batch = [c["batch"] for c in m["cells"].values() if "batch" in c]
-                if batch:
-                    cell["batch"] = old.get("batch", batch[0])
+                if "batch" in old and "batch" not in cell:
+                    raise SystemExit(f"{cat}/{m['id']}/{k}: the board command names no batch size")
                 if old.get("parity"):
                     cell["parity"] = old["parity"]   # TT parity claim survives; re-check it by hand
                 for name, r in extra.items():

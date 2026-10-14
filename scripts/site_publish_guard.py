@@ -86,7 +86,7 @@ def subtitle_for(doc: dict) -> str:
              for cat, n in counts(doc) if n]
     listed = join(parts)
     return (listed[0].upper() + listed[1:] +
-            " at 512 residues, measured on Tenstorrent Blackhole and Wormhole and on "
+            " at 512 residues, measured on Tenstorrent Blackhole and on "
             "NVIDIA H200, B200 and A100.")
 
 

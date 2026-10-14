@@ -6,9 +6,8 @@ Two pages, both driven by `data/perf-512aa.json`.
 affinity prediction, protein design, protein embeddings, with the `--model` id in the first column
 and one short cell per capability. That section is static markup, so it renders even if the data
 fetch fails, which also means it goes stale silently -- check it against `tt_bio/main.py`'s model
-tuples when a model lands. Then performance and cost: every published row on Blackhole and Wormhole
-against H200, B200 and A100 at 512 residues, with throughput per dollar of a Galaxy Blackhole and a
-Galaxy Wormhole against a DGX
+tuples when a model lands. Then performance and cost: every published row on Blackhole
+against H200, B200 and A100 at 512 residues, with throughput per dollar of a Galaxy Blackhole against a DGX
 H200, a DGX B200 and a DGX A100 on purchase price and again on total cost of ownership, predictions
 per hour per server, prediction time on one AI Processor, and what each server costs to buy and to
 power. The row counts are deliberately not repeated here: `scripts/site_publish_guard.py` generates
