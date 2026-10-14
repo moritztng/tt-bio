@@ -22,6 +22,9 @@ ap.add_argument("--fast", action="store_true")
 ap.add_argument("--size", type=int, default=512)
 ap.add_argument("--recycles", type=int, default=None)
 ap.add_argument("--steps", type=int, default=None)
+# Traced sections record no ops in the device profiler (unattr 0, diffusion ~0 s on Boltz-2): --no-trace runs
+# the diffusion untraced so its ops are counted. Costs host dispatch, which the kernel totals do not include.
+ap.add_argument("--no-trace", action="store_true")
 a = ap.parse_args()
 os.environ.setdefault("TT_METAL_PROFILER_PROGRAM_SUPPORT_COUNT", "5000")
 OUT = a.out; OUT.mkdir(parents=True, exist_ok=True)
@@ -61,7 +64,7 @@ if a.model == "boltz2":
     sys.path.insert(0, str(TREE / "perf" / "other512"))
     from fold_ab_multi import patch_boltz2_cfg
     sys.path[:] = snap
-    patch_boltz2_cfg(diffusion_trace=None)   # None: shipped default
+    patch_boltz2_cfg(diffusion_trace=False if a.no_trace else None)   # None: shipped default
 log(ev="env", ttnn=ttnn.__file__, tree=str(TREE), TT_VISIBLE_DEVICES=os.environ.get("TT_VISIBLE_DEVICES"),
     recycles=B.RECYCLING_STEPS, steps=B.SAMPLING_STEPS, model=a.model, fast=a.fast,
     prof={k: os.environ.get(k) for k in os.environ if "PROFILER" in k})

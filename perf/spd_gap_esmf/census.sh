@@ -1,7 +1,7 @@
 #!/bin/bash
 # Profiled ESMFold2 folds under a qb1 card's flock, spd-census's Tracy environment (perf/spd_census/run.sh on
 # wk/spd-census, whose comments say why each variable is set).
-# usage: census.sh CARD RUNDIR "NAME=MODEL[:fast] ..."     e.g. census.sh 2 ~/spd/spd-gap-esmf/c1 "ef2=esmfold2 ef2f=esmfold2-fast"
+# usage: [CENSUS_ARGS=--no-trace] census.sh CARD RUNDIR "NAME=MODEL[:fast] ..."     e.g. census.sh 2 ~/spd/spd-gap-esmf/c1 "ef2=esmfold2 ef2f=esmfold2-fast"
 set -u
 CHIP=$1; RUN=$2; ARMS=$3
 B=${B:-$HOME/spd/spd-census}; PY=${PY:-$HOME/tt-bio-dev/env/bin/python}
@@ -28,7 +28,7 @@ for na in $ARMS; do
   say "arm $N ($A) start, load $(cut -d' ' -f1-3 /proc/loadavg)"
   ( while :; do for n in /sys/class/tenstorrent/tenstorrent\!*; do printf '%s\t%s\t%s\n' "$(date +%s)" "${n##*!}" "$(cat $n/tt_aiclk 2>/dev/null)"; done; sleep 1; done ) >> "$RUN/$N.aiclk.tsv" 2>/dev/null &
   S=$!
-  timeout -s TERM 7300 timeout -s INT 7200 $PY perf/spd_gap_esmf/census_esm.py --out "$RUN/$N" --model $M $FAST > "$RUN/$N.log" 2>&1
+  timeout -s TERM 7300 timeout -s INT 7200 $PY perf/spd_gap_esmf/census_esm.py --out "$RUN/$N" --model $M $FAST ${CENSUS_ARGS:-} > "$RUN/$N.log" 2>&1
   rc=$?; kill $S 2>/dev/null
   say "arm $N end rc=$rc"
 done
