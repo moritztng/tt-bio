@@ -3,13 +3,14 @@ coordinates), and mean plDDT of each, on the same fold name. Reads any mmCIF the
 
     python3 perf/kitcmp/acc.py A.cif B.cif        -> one line: rmsd_A, per-half rmsd_A, max_dx_A, plddt_a, plddt_b, n_ca
 """
+import gzip
 import sys
 import numpy as np
 
 
 def ca(path):
     cols, xyz, b = [], [], []
-    for line in open(path):
+    for line in (gzip.open(path, "rt") if str(path).endswith(".gz") else open(path)):
         if line.startswith("_atom_site."):
             cols.append(line.split(".", 1)[1].strip())
         elif cols and line.startswith(("ATOM", "HETATM")):

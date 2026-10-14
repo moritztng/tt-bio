@@ -1,5 +1,6 @@
 """Accuracy table for one model's arms: every arm against `off` on the same fold (CA Kabsch RMSD, raw max |dx|), the
-det pair (exact-det vs off-det: max |dx| 0 means bitwise), and the `off` run-to-run floor (fold i vs fold 0, same input).
+det pair (exact-det vs off-det: max |dx| 0 means bitwise), and two floors: off-det vs off (stock twice, same input) and the
+`off` run-to-run floor (fold i vs fold 0, same input).
 
     python3 perf/kitcmp/acc_arms.py <results>/<model>     -> markdown rows: pair | folds | rmsd | per-copy rmsd | max_dx
 """
@@ -14,12 +15,17 @@ from acc import ca, kabsch  # noqa: E402
 
 
 def structures(arm):
-    """fold name -> CA coords of that fold's first model (fold0 = the cold fold)."""
+    """fold name -> CA coords of that fold's first model (fold0 = the cold fold). RFD3 writes one gzipped design per batch
+    (..._b<binder length>_<i>_model_0.cif.gz), keyed batch<i>, PXDesign one per seed (seed_<i>/predictions/), keyed seed<i>:
+    each is a different design, so neither has a fold-to-fold floor."""
     out = {}
-    for p in sorted(arm.rglob("*.cif")):
-        m = re.search(r"(fold\d+)", p.name)
-        if m and m.group(1) not in out:
-            out[m.group(1)] = ca(p)[0]
+    for p in sorted(arm.rglob("*.cif*")):
+        m = re.search(r"(fold\d+)\S*\.cif$", p.name)
+        b = re.search(r"_b\d+_(\d+)_model_0\.cif\.gz$", p.name)
+        x = re.search(r"seed_(\d+)/predictions/[^/]+\.cif$", p.as_posix())
+        k = m.group(1) if m else b and f"batch{b.group(1)}" or x and f"seed{x.group(1)}"
+        if k and k not in out:
+            out[k] = ca(p)[0]
     return out
 
 
@@ -49,6 +55,8 @@ def main(d):
             print(row(f"{k} vs off", *compare(arms[k], off)))
     if "exact-det" in arms and "off-det" in arms:
         print(row("exact-det vs off-det", *compare(arms["exact-det"], arms["off-det"])))
+    if "off-det" in arms and off:  # stock against stock on the same input: the floor for design models (no fold-to-fold pairs)
+        print(row("off-det vs off (stock floor)", *compare(arms["off-det"], off)))
     if "fold0" in off:
         rest = {f: v for f, v in off.items() if f != "fold0"}
         print(row("off fold i vs fold 0 (floor)", *compare(rest, {f: off["fold0"] for f in rest})))
