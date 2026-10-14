@@ -203,6 +203,31 @@ def test_a_long_waiting_bh_job_moves_to_a_free_card_on_the_other_box(tmp_path, m
     assert json.loads((tmp_path / "state/spd/feed/ledger.json").read_text())[key]["host"] == "qb2"
 
 
+def test_a_long_waiting_bh_job_moves_to_a_free_card_on_its_own_box(tmp_path, monkeypatch):
+    (tmp_path / "state/spd/grids").mkdir(parents=True); (tmp_path / "state/glx").mkdir(parents=True)
+    (tmp_path / "state/spd/grids/spd-x.yaml").write_text(BH_GRID)
+    (tmp_path / "state/glx/ALLOC.json").write_text(json.dumps({"galaxies": {}}))
+    monkeypatch.setattr(feed, "BH_POOLS", {"qb1": {"ssh": "qb1", "cards": [0, 1], "lock": "/l1_{c}"}})
+    c0 = feed.cells(tmp_path / "state/spd/grids")[0]
+    calls = []
+
+    def remote(ssh, script, payload, timeout=120):
+        calls.append((ssh, script, payload))
+        if script is feed.PROBE:
+            return {"healthy": 2, "queued": 1, "wait": {"0": 0, "1": 1}, "free": [0], "paused": False, "swept": 0,
+                    "live": [], "jobs": {c0["name"]: {"state": "queued", "card": 1, "age": feed.STEAL_S + 5}}, "exists": {}}
+        if script is feed.WITHDRAW:
+            return payload["names"]
+        return len(payload["jobs"])
+    monkeypatch.setattr(feed, "remote", remote)
+    (tmp_path / "state/spd/feed").mkdir(parents=True)
+    (tmp_path / "state/spd/feed/ledger.json").write_text(json.dumps({c0["key"]: {
+        "host": "qb1", "name": c0["name"], "state": "queued", "hash": c0["name"].split("-")[-1][:-3], "fails": []}}))
+    run(tmp_path)
+    moved = [c[2]["jobs"] for c in calls if c[1] is feed.PLACE and c[2]["jobs"]]
+    assert moved[0] == [{"name": c0["name"], "body": c0["body"], "cap": 7200, "card": 0, "lock": "/l1_0"}]
+
+
 def test_withdraw_kills_an_unstarted_waiter_and_sets_it_aside(tmp_path):
     jobs = tmp_path / "spd/feed/jobs"; jobs.mkdir(parents=True)
     w = subprocess.Popen(["setsid", "bash", "-c", "sleep 300"])
