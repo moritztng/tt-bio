@@ -43,7 +43,7 @@ TT.set_t1(True)
 TT.T1_C256 = 1
 for kv in [v for v in A.set.split(",") if v]:
     k, v = kv.split("=")
-    assert k in ("T1_RB", "T1_SBW", "GIN_MOVE_NB", "T1_B8"), k
+    assert k in ("T1_RB", "T1_SBW", "GIN_MOVE_NB", "T1_B8", "T1_MASKFIX"), k
     setattr(TT, k, int(v))
 C, h = A.c, A.hidden
 gen = torch.Generator().manual_seed(0)
@@ -72,6 +72,22 @@ def bad_units(a, r, il):
         u = (xt * H + hh) * St + yt
         c = next(i for i, (u0, k) in enumerate(cores) if u0 <= u < u0 + k)
         out.append([u, xt, hh, yt, c, u - cores[c][0], cores[c][1]])
+    return out
+
+
+def unit_map(a, r, il, units):
+    """For each (xt, h, yt) unit: rel rms of `a` by channel tile and by row of the unit (where in the
+    unit the error sits: the last channel tile only would mean the unit's tail races the next unit)."""
+    out = []
+    for _, xt, hh, yt, *_ in units:
+        rows = slice(xt * 32 + hh * il, xt * 32 + hh * il + il)
+        e = (a[0, :, rows, yt * 32:yt * 32 + 32].double() - r[0, :, rows, yt * 32:yt * 32 + 32])
+        rr = r[0, :, rows, yt * 32:yt * 32 + 32]
+        ct = e.shape[0] // 32
+        q = (e.reshape(ct, -1).pow(2).sum(1) / rr.reshape(ct, -1).pow(2).sum(1).clamp_min(1e-30)).sqrt()
+        rw = (e.pow(2).sum((0, 2)) / rr.pow(2).sum((0, 2)).clamp_min(1e-30)).sqrt()
+        out.append({"unit": [xt, hh, yt], "by_q": [round(float(v), 4) for v in q],
+                    "by_row": [round(float(v), 4) for v in rw]})
     return out
 
 
@@ -168,6 +184,7 @@ for n in [int(s) for s in A.ns.split(",") if s]:
                 il = TT.T1_PLANS.get((C // 32, 2 * h // 32, C // 32), (1, 32))[1]
                 bu = bad_units(host[0].reshape(ref["a"].shape), ref["a"], il)
                 rec["a_bad_units"], rec["a_bad_first"] = len(bu), bu[:24]   # [u, xt, h, yt, core, pos, units on core]
+                rec["a_bad_map"] = unit_map(host[0].reshape(ref["a"].shape), ref["a"], il, bu[:3])
             free(outs)
             rec["t1_ms"] = timed(lambda: free(t1()), A.reps)
             rec["t1_GBps"] = round(4 * P / rec["t1_ms"] / 1e6, 1)

@@ -1271,6 +1271,7 @@ T1_SBW = 4                        # DST tiles per matmul block (half-sync fp32 D
 T1_ABL = 0                        # bench-only stage-skip bits (kernels/trimul_in_t1 ABL); 0 = the real T1
 T1_B8 = 0                         # bench knob: a and b as bfp8 (lever trimul_t1b8 in a model)
 T1_C256 = 0                       # bench knob: the c_z 256 plan without lever trimul_t1_c256
+T1_MASKFIX = 0                    # bench knob: kernels/trimul_in_t1 MASKFIX (masked WH fault, open)
 BF16_TILE, FP32_TILE = 2048, 4096
 
 
@@ -1303,6 +1304,8 @@ def t1_cb_plan(kt, ct2, ntg, mask, rb=None, nb=None):
                (19, 2 * ng)]     # g_out of one row tile, double buffered
     if mask:
         bf += [(3, 1), (6, il)]  # the mask tile and its row-broadcast cuts
+        if T1_MASKFIX == 1:
+            bf.append((15, 4))   # g * m of one block
     f32 = [(11, 1), (12, 1), (13, 1), (14, 1), (16, kt), (17, kt)]   # eps, mean, var, rstd, xc, tmp
     return bf, f32
 
@@ -1425,6 +1428,7 @@ def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps, b8=False
     d = KERNEL_DIR.parent / "trimul_in_t1"
     m = mask if mask is not None else x
     abl = [("ABL", str(T1_ABL))] if T1_ABL else []
+    mfix = [("MASKFIX", str(T1_MASKFIX))] if T1_MASKFIX and mask is not None else []
     reader = ttnn.KernelDescriptor(
         kernel_source=str(d / "reader.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[kt, qn, St, int(mask is not None), ng, rb, (inv << 16) | inv,
@@ -1439,7 +1443,7 @@ def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps, b8=False
     compute = ttnn.KernelDescriptor(
         kernel_source=str(d / "compute.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[kt, qn, T1_SBW, int(mask is not None), int(SIGPOLY), RNE, ng, group * qn, ct2, il],
-        defines=abl, runtime_args=cp,
+        defines=abl + mfix, runtime_args=cp,
         # fp32 DEST always, as T2: the LayerNorm statistics live in fp32 CBs. The fidelity stays
         # the caller's, so the projections run as the incumbent in-projection runs them.
         config=ttnn.ComputeConfigDescriptor(
@@ -1481,7 +1485,7 @@ def fused_in_ln(x, ln_w, ln_b, wpT, wgT, wgo, ckc, grid, mask=None, eps=1e-5, b8
     outs = [alloc([B, C, S, S], ab), alloc([B, C, S, S], ab), alloc(shp[:-1] + [int(wgo.shape[-1])])]
     key = ("t1", str(x.padded_shape), str(wpT.padded_shape), str(wgo.padded_shape), tuple(grid),
            tuple(str(c) for c in ckc), mask is not None, float(eps), SIGPOLY, RNE, GIN_MOVE_NB,
-           T1_RB, T1_SBW, T1_ABL, b8)
+           T1_RB, T1_SBW, T1_ABL, b8, T1_MASKFIX)
     groups = T1_PLANS[(int(x.shape[-1]) // TILE, 2 * C // TILE, int(wgo.shape[-1]) // TILE)][0]
     for g in range(groups):
         entry = _CACHE.get(key + (g,))
