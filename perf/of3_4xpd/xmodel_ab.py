@@ -312,7 +312,7 @@ def main():
         return d
 
     res["kernels"] = {n: _kern(n) for n in
-                      ("triatt_sdpa", "trimul_tail", "reblock_permute", "rfd3_bias")}
+                      ("triatt_sdpa", "trimul_tail", "reblock_permute", "rfd3_bias", "triatt_ln")}
     # Which trimul in-projection route fed the einsum (gin-ragged, gated-inproj-moved, gated-inproj,
     # rowblock, ...), and the trimul_tail sub-counters STATS above lumps together.
     res["trimul_routes"] = {"|".join(k): int(v) for k, v in getattr(T, "TRIMUL_MM_TRANSPOSE_STATS", {}).items()}

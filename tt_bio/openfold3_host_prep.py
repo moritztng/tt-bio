@@ -280,12 +280,21 @@ def ref_atom_embed(w: dict, features: dict) -> tuple[torch.Tensor, torch.Tensor]
     cl = sum(_lin(x, w, n) for x, n in zip(ref_atom_single_inputs(features), names))
     dlm, vlm, inv_sq_dists = ref_atom_block_inputs(
         features, features["atom_mask"].float())
-    plm = (
-        _lin(dlm, w, "linear_ref_offset") * vlm
-        + _lin(inv_sq_dists, w, "linear_inv_sq_dists") * vlm
-        + _lin(vlm, w, "linear_valid_mask") * vlm
-    )
-    return cl, plm
+    pair = ("linear_ref_offset", "linear_inv_sq_dists", "linear_valid_mask")
+    if any(f"{n}.bias" in w for n in pair):
+        plm = (
+            _lin(dlm, w, "linear_ref_offset") * vlm
+            + _lin(inv_sq_dists, w, "linear_inv_sq_dists") * vlm
+            + _lin(vlm, w, "linear_valid_mask") * vlm
+        )
+        return cl, plm
+    # The same sum in one buffer. vlm is 0/1, so multiplying each term by it and then the sum
+    # once are equal values, and a one-wide linear is one product per element. Bit-identical
+    # to the three-term form, at half the host time (eight 34 MB passes become four).
+    plm = _lin(dlm, w, "linear_ref_offset")
+    plm.add_(inv_sq_dists * w["linear_inv_sq_dists.weight"].float()[:, 0])
+    plm.add_(w["linear_valid_mask.weight"].float()[:, 0])
+    return cl, plm.mul_(vlm)
 
 
 def ref_atom_device_inputs(dev, features: dict, atom_mask: torch.Tensor,
@@ -331,6 +340,30 @@ def input_atom_transformer(compute_kernel_config, sd: dict):
                               compute_kernel_config)
 
 
+def atom_pair_completion(enc: dict, cl: torch.Tensor, plm: torch.Tensor,
+                         atom_mask: torch.Tensor) -> torch.Tensor:
+    """Algorithm 5 lines 13-14 (pair completion), host replica."""
+    cl_l, cl_m, pair_mask = convert_single_rep_to_blocks(
+        ql=cl, n_query=N_QUERY, n_key=N_KEY, atom_mask=atom_mask)
+    # In place, in two scratch buffers: the same ops in the same order as
+    # (plm + cl_lm*mask) -> 3-layer relu MLP -> (plm + h)*mask, bit for bit, without
+    # allocating a fresh 34 MB tensor per op.
+    pm = pair_mask.unsqueeze(-1)
+    cl_lm = torch.add(_lin(cl_l.relu().unsqueeze(-2), enc, "linear_l"),
+                      _lin(cl_m.relu().unsqueeze(-3), enc, "linear_m"))
+    plm = cl_lm.mul_(pm).add_(plm)
+    flat = plm.view(-1, plm.shape[-1])
+    a, b = torch.empty_like(flat), torch.empty_like(flat)
+    torch.clamp_min(flat, 0, out=a)
+    for i, key in enumerate(("pair_mlp.1", "pair_mlp.3", "pair_mlp.5")):
+        torch.mm(a, enc[f"{key}.weight"].t().float(), out=b)
+        if f"{key}.bias" in enc:
+            b.add_(enc[f"{key}.bias"].float())
+        a, b = (b.clamp_min_(0) if i < 2 else b), a
+    plm = a.view_as(plm).add_(plm).mul_(pm)
+    return plm
+
+
 def run_input_atom_encoder(dev, compute_kernel_config, sd: dict, features: dict,
                            aux: dict, at=None) -> torch.Tensor:
     """Input-embedder atom-encoder leg -> ``ai`` [n_token, 384].
@@ -345,18 +378,7 @@ def run_input_atom_encoder(dev, compute_kernel_config, sd: dict, features: dict,
     n_atom, nb, NP = aux["n_atom"], aux["nb"], aux["NP"]
 
     cl, plm = ref_atom_embed(_sub(enc, "ref_atom_feature_embedder"), features)
-    # Algorithm 5 lines 13-14 (pair completion), host replica.
-    cl_l, cl_m, pair_mask = convert_single_rep_to_blocks(
-        ql=cl, n_query=N_QUERY, n_key=N_KEY, atom_mask=atom_mask)
-    cl_lm = (
-        _lin(cl_l.relu().unsqueeze(-2), enc, "linear_l")
-        + _lin(cl_m.relu().unsqueeze(-3), enc, "linear_m")
-    ) * pair_mask.unsqueeze(-1)
-    plm = plm + cl_lm
-    h = plm
-    for key in ("pair_mlp.1", "pair_mlp.3", "pair_mlp.5"):
-        h = _lin(h.relu(), enc, key)
-    plm = (plm + h) * pair_mask.unsqueeze(-1)
+    plm = atom_pair_completion(enc, cl, plm, atom_mask)
 
     at = at or input_atom_transformer(compute_kernel_config, sd)
 
