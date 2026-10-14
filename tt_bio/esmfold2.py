@@ -38,6 +38,7 @@ from tt_bio.tenstorrent import (
     accurate_softmax_site,
     attn_value_matmul,
     fused_sdpa,
+    is_wormhole,
     lever,
     trunk_compute_kernel_config,
     trace_region_size,
@@ -89,8 +90,9 @@ def gate(flag, name):
     """A branch-stack switch: its setting when given, else whether lever `name` is active in the fold's scope.
     The ef2_* levers pass the fast bar as a stack on both models and fail the normal bar on ESMFold2 (CA-lDDT
     -0.0019 [-0.0050, -0.0001], 44 paired folds), so only esmfold2_runtime.LEVERS_FAST names them until a
-    per-lever normal grade says which one moves the structure."""
-    return lever(name) if flag is None else flag
+    per-lever normal grade says which one moves the structure. Graded on Blackhole only, so Wormhole folds without
+    them until its own fast-bar grade."""
+    return (lever(name) and not is_wormhole()) if flag is None else flag
 
 #: Replay the diffusion step from a ttnn trace (StructureHead._step) when the device was opened
 #: with get_device(trace="esmfold2"). Lossless. Off: it lost 0.46 s/fold on p150a while the dense
@@ -1563,7 +1565,7 @@ class OuterProductMean(Module):
             a, b = self._project(m, mf)  # [B,L,M,32]
         # kq costs 16384 L^2 Mp flops against tile's 2048 L^2 M + 524288 L^2 and holds a [L, 32 Mp, 256] transient,
         # so it is for shallow MSAs only (the page fixture has 35 rows); deep ones keep the tile path.
-        path = _OPM_PATH or ("kq" if lever("ef2_opm_kq") else "tile")
+        path = _OPM_PATH or ("kq" if gate(None, "ef2_opm_kq") else "tile")
         if path == "kq" and M <= _OPM_KQ_MAX_DEPTH:
             b2, rows = b, self._rows_kq  # kq contracts the [B,L,M,32] b itself
         else:
