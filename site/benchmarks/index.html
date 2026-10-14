@@ -491,7 +491,7 @@ details.disclose > div{ padding-top:var(--s-4); }
     if (r.clock_mhz) out.push("SM clock " + r.clock_mhz + " MHz");
     if (r.aiclk_mhz) out.push("AI clock " + r.aiclk_mhz + " MHz");
     if (r.sha) out.push("tt-bio " + r.sha);
-    if (r.versions) out.push(Object.keys(r.versions).map(function (k) { return k + " " + r.versions[k]; }).join(", "));
+    if (r.versions) out.push(r.versions);
     if (r.when) out.push(r.when);
     return out.join(", ");
   }
