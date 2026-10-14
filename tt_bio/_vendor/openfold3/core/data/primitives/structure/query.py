@@ -21,6 +21,7 @@ import dataclasses
 import logging
 import os
 import random
+import threading
 from concurrent.futures import ThreadPoolExecutor
 from collections.abc import Iterable
 from functools import lru_cache
@@ -195,18 +196,20 @@ CONFORMER_THREADS = min(24, os.cpu_count() or 1)
 # timed embed hand-off, the annotations) around a 2-3 ms ETKDG embed, so 512 residues
 # never got under ~0.4 s on a 32-core p150a host however many threads ran. Workers fork
 # from a forkserver that preloaded this module, so each one costs its unshared pages only.
-# 0 keeps everything on threads; so does any failure to start or run the pool.
+# Starting them takes ~1 s, so the first build of a process runs on threads and starts the
+# workers in the background; later builds use them. 0 keeps everything on threads; so does
+# any failure to start or run the pool.
 CONFORMER_PROCS = min(16, (os.cpu_count() or 1) // 2)
 # One pool for the process: starting 24 threads per fold cost 0.2 s on a loaded 32-core host.
 _CONFORMER_POOL = None
-_CONFORMER_PROCS_POOL = None
+_CONFORMER_PROCS_POOL = None   # set once every worker process runs
+_PROCS_STARTER = None          # the thread that starts them, once per process
 
 
 def _drop_conformer_pool():
     # A forked child inherits the pools' objects but none of their threads or processes.
-    global _CONFORMER_POOL, _CONFORMER_PROCS_POOL
-    _CONFORMER_POOL = None
-    _CONFORMER_PROCS_POOL = None
+    global _CONFORMER_POOL, _CONFORMER_PROCS_POOL, _PROCS_STARTER
+    _CONFORMER_POOL = _CONFORMER_PROCS_POOL = _PROCS_STARTER = None
 
 
 os.register_at_fork(after_in_child=_drop_conformer_pool)
@@ -230,26 +233,52 @@ def _procs_init():
                                     | Chem.PropertyPickleOptions.CoordsAsDouble)
 
 
-def _procs_submit(chunk):
-    """Submit one chunk to the process pool, starting it on first use."""
+def _start_procs():
     global _CONFORMER_PROCS_POOL
-    import sys, types
-    if _CONFORMER_PROCS_POOL is None:
-        import multiprocessing as mp
-        from concurrent.futures import ProcessPoolExecutor
-        ctx = mp.get_context("forkserver")
-        ctx.set_forkserver_preload([__name__])
-        _CONFORMER_PROCS_POOL = ProcessPoolExecutor(
-            CONFORMER_PROCS, mp_context=ctx, initializer=_procs_init)
-    # submit() is where workers start. A started worker re-imports the caller's __main__
+    import multiprocessing as mp
+    import sys, time, types
+    from concurrent.futures import ProcessPoolExecutor
+    ctx = mp.get_context("forkserver")
+    ctx.set_forkserver_preload([__name__])
+    pool = ProcessPoolExecutor(CONFORMER_PROCS, mp_context=ctx, initializer=_procs_init)
+    # submit() starts a worker whenever none is idle, so tasks that outlast the submits start
+    # all of them now and none later. A started worker re-imports the caller's __main__
     # unless there is none to import, and an unguarded script (a perf harness) would run
     # again in every worker, device open and all. The workers need only this module.
     main = sys.modules["__main__"]
     sys.modules["__main__"] = types.ModuleType("__main__")
     try:
-        return _CONFORMER_PROCS_POOL.submit(_template_job, chunk)
+        for _ in range(4):
+            busy = [pool.submit(time.sleep, 0.5) for _ in range(CONFORMER_PROCS)]
+            if len(pool._processes) >= CONFORMER_PROCS:
+                break
     finally:
         sys.modules["__main__"] = main
+    for f in busy:
+        f.result()
+    _CONFORMER_PROCS_POOL = pool
+
+
+def _starting_procs():
+    try:
+        _start_procs()
+    except Exception as e:  # no children allowed here, ...
+        logger.warning(f"conformer worker processes unavailable, using threads: {e!r}")
+
+
+def start_conformer_processes(wait: bool = False) -> bool:
+    """Start the conformer worker processes in the background, once per process.
+
+    Returns whether they run; ``wait`` blocks until the start has finished.
+    """
+    global _PROCS_STARTER
+    if CONFORMER_PROCS > 1 and _PROCS_STARTER is None:
+        _PROCS_STARTER = threading.Thread(target=_starting_procs, daemon=True,
+                                          name="of3-conformer-procs")
+        _PROCS_STARTER.start()
+    if wait and _PROCS_STARTER is not None:
+        _PROCS_STARTER.join()
+    return _CONFORMER_PROCS_POOL is not None
 
 
 class _PooledReferenceMolecules:
@@ -258,16 +287,16 @@ class _PooledReferenceMolecules:
     Seeds are drawn in residue order as residues are added, so residue i embeds with exactly
     the seed the sequential loop would have drawn for it, and a retry inside residue i draws
     from that seed's own stream. No residue can reach another's seed, so the pooled result
-    is the sequential result. Template jobs go to worker processes in chunks while the loop
-    is still building the next residues; the rest, or all of them if the processes cannot
-    be used, go to the thread pool at the end.
+    is the sequential result. Template jobs go to the worker processes, once they run, in
+    chunks while the loop is still building the next residues; otherwise every job goes to
+    the thread pool at the end.
     """
 
     CHUNK = 8
 
     def __init__(self):
         self.jobs, self.seeds, self.futures, self.pending = [], [], [], []
-        self.procs = CONFORMER_PROCS > 1
+        self.procs = CONFORMER_PROCS > 1 and start_conformer_processes()
 
     def add(self, arr, leaving, key):
         seed = random.randint(0, 10**9)
@@ -283,9 +312,9 @@ class _PooledReferenceMolecules:
     def _flush(self):
         global _CONFORMER_PROCS_POOL
         try:
-            self.futures.append(_procs_submit(self.pending))
-        except Exception as e:  # no children allowed here, ...
-            logger.warning(f"conformer process pool unavailable, using threads: {e!r}")
+            self.futures.append(_CONFORMER_PROCS_POOL.submit(_template_job, self.pending))
+        except Exception as e:  # a worker died, ...
+            logger.warning(f"conformer worker processes failed, using threads: {e!r}")
             _CONFORMER_PROCS_POOL = None
             self.procs = False
         self.pending = []
@@ -296,10 +325,9 @@ class _PooledReferenceMolecules:
             if self.pending:
                 self._flush()
             try:
-                if self.procs:
-                    return [m for f in self.futures for m in f.result()]
+                return [m for f in self.futures for m in f.result()]
             except Exception as e:  # a worker died, ...
-                logger.warning(f"conformer process pool failed, using threads: {e!r}")
+                logger.warning(f"conformer worker processes failed, using threads: {e!r}")
                 _CONFORMER_PROCS_POOL = None
         for f in self.futures:
             f.cancel()

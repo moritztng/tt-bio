@@ -159,8 +159,16 @@ def test_pooled_template_path_is_the_sequential_path(procs):
     exercise a reused template; 17 residues make a partial last chunk."""
     import numpy as np
 
+    from tt_bio._vendor.openfold3.core.data.primitives.structure import query as Q
+
     seq = "MKTAYIAKQRGAGAWKK"
     ref = _ref_mols(seq, threads=0, templates=False)
+    if procs:
+        old, Q.CONFORMER_PROCS = Q.CONFORMER_PROCS, procs
+        try:
+            assert Q.start_conformer_processes(wait=True)
+        finally:
+            Q.CONFORMER_PROCS = old
     got = _ref_mols(seq, threads=4, templates=True, procs=procs)
     assert len(ref) == len(got) == len(seq)
     for i, ((p0, m0, a0), (p1, m1, a1)) in enumerate(zip(ref, got)):
