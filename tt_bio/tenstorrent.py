@@ -569,6 +569,13 @@ _FAST_MODE = False
 #                   the exponentiated scores and row statistics bf16 (`_sdpa32`). Inert in bf16.
 #   trimul_gin      the trimul in-projection, both gates, the pair mask and both channel moves in one
 #                   weights-resident kernel (`_TRIMUL_GATED_INPROJ`, `trimul_tail.gin_moved`)
+#   trimul_gin_hifi2 trimul_gin's kernel at HiFi2 whatever the trunk's fidelity. ESMFold2's call at 512 on p150a
+#                   (1350 MHz): normal set 9.37 -> 8.71 ms, rel_rms vs float64 0.0088 -> 0.0106; fast set 8.62 -> 8.33
+#                   ms, 0.0088 -> 0.0107 (HiFi3 in the normal set: 9.02 ms at the same error as HiFi4)
+#   trimul_gin_b8   trimul_gin, and the einsum's deferred transpose, also under the bfp8 `_FAST_MODE` (how Wormhole
+#                   ESMFold2 folds). gin writes a and b in bf16, so the deferral's bfp8 re-quantisation does not arise
+#                   where gin serves. ESMFold2's call on Wormhole (1000 MHz, fast set): 512 32.3 -> 18.5 ms, 1024
+#                   132.7 -> 68.6 ms; rel_rms of the update vs float64 0.0211 -> 0.0089 at 512
 #   trunk_hifi3     the trunk's matmuls at HiFi3 instead of HiFi4 (`trunk_compute_kernel_config`).
 #                   Also a correctness fix on Wormhole: HiFi4 with fp32 accumulation returns wrong
 #                   values on some row blocks there (perf/spd_overhead/wh_hifi4_dot.py).
@@ -673,7 +680,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "swiglu_fc12g", "msa_sample", "dit_sdpa_pm", "dit_s16", "dit_chunk", "conf_bins", "trimul_t1", "trimul_t2",
           "trimul_t2g", "triatt_tail_bias", "dit_cond_hifi2", "transition_ws", "ws_ln", "trimul_t1_dram",
           "trimul_t2m", "trimul_t2cm", "dit_fuse", "pair_mm", "ref_memo", "edm_device", "ws_l1acc", "ws_resid", "pib_where",
-          "trimul_t2w", "narrow_bw16", "ws_l1dest", "opm_jd")
+          "trimul_t2w", "narrow_bw16", "ws_l1dest", "opm_jd", "trimul_gin_hifi2", "trimul_gin_b8")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -684,7 +691,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
 # (vendored query.REF_MOL_MEMO), read by worker._predict_openfold3_one off the model's lever set.
 UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "dit_cond_hifi2", "ws_ln", "dit_fuse",
                              "pair_mm", "ref_memo", "trimul_t2m", "edm_device", "ws_l1acc", "pib_where", "trimul_t2w",
-                             "narrow_bw16", "ws_l1dest", "opm_jd"})
+                             "narrow_bw16", "ws_l1dest", "opm_jd", "trimul_gin_hifi2", "trimul_gin_b8"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -6341,7 +6348,7 @@ def _mm_transpose_deferred(program_config) -> bool:
     1.0868x on the 512 aa DRAM leg, so it stays a real lever -- just not a layout-only one, and it
     is not taken here on that basis.
     """
-    return _TRIMUL_MM_TRANSPOSE and not _FAST_MODE and isinstance(
+    return _TRIMUL_MM_TRANSPOSE and (not _FAST_MODE or lever("trimul_gin_b8")) and isinstance(
         program_config, (ttnn.MatmulMultiCoreReuseMultiCastProgramConfig,
                          ttnn.MatmulMultiCoreReuseProgramConfig))
 
@@ -9923,7 +9930,7 @@ class TriangleMultiplication(Module):
                             and bias_i is None
                             and not row_norm and x_norm_in is not None
                             and self.g_in_weight is None and not ops.taping()
-                            and not _FAST_MODE and not _TRIMUL_RAW_CHANNEL_MOVES
+                            and (not _FAST_MODE or lever("trimul_gin_b8")) and not _TRIMUL_RAW_CHANNEL_MOVES
                             and (self.gated_move or _TRIMUL_MASK_AFTER_MOVE)
                             and (mask is None or mask_moved_ok)
                             and memory_config.buffer_type == ttnn.BufferType.DRAM):
@@ -9932,6 +9939,8 @@ class TriangleMultiplication(Module):
                         # two tensors. Only the plain channel moves are left.
                         wa, wb = self._gp_in_gated(chunk_size, group)[i]
                         ckc = _mm_generic.ckc_args(self.compute_kernel_config)
+                        if lever("trimul_gin_hifi2"):
+                            ckc = (ttnn.MathFidelity.HiFi2,) + ckc[1:]
                         if _trimul_tail.GIN_MOVE and defer:
                             # The channel moves fused in as well (both chunks leave as (0,3,1,2)
                             # moves once the matmul takes the inner swap).
