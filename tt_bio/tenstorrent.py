@@ -16,6 +16,7 @@ from . import ops
 from . import back_ln as _back_ln
 from . import reblock_permute as _reblock
 from . import triatt_qkv as _triatt_qkv
+from . import triatt_ln as _triatt_ln
 from . import pair_transpose as _pair_tr
 from . import triatt_sdpa as _triatt_sdpa
 from . import dest_guard as _dest_guard
@@ -687,7 +688,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "trimul_t2g", "triatt_tail_bias", "dit_cond_hifi2", "transition_ws", "ws_ln", "trimul_t1_dram",
           "trimul_t2m", "trimul_t2cm", "dit_fuse", "pair_mm", "ref_memo", "edm_device", "ws_l1acc", "ws_resid", "pib_where",
           "trimul_t2w", "narrow_bw16", "ws_l1dest", "opm_jd", "trimul_gin_hifi2", "trimul_gin_b8", "dit_hifi2", "dit_qsplit",
-          "dit_shoist")
+          "dit_shoist", "triatt_ln")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -699,7 +700,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
 UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "dit_cond_hifi2", "ws_ln", "dit_fuse",
                              "pair_mm", "ref_memo", "trimul_t2m", "edm_device", "ws_l1acc", "pib_where", "trimul_t2w",
                              "narrow_bw16", "ws_l1dest", "opm_jd", "trimul_gin_hifi2", "trimul_gin_b8", "dit_hifi2",
-                             "dit_qsplit", "dit_shoist"})
+                             "dit_qsplit", "dit_shoist", "triatt_ln"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -11282,18 +11283,31 @@ class TriangleAttention(Module):
                 # staging route inside `_pair_transpose`: same DRAM result, 1.887x.
                 x = _pair_transpose(x, _transpose_memory_config(x),
                                     l1_stage_reserve=self.transpose_l1_reserve)
-            # Explicit DRAM: for the ending variant x is the L1 transpose result
-            # (_transpose_memory_config) and ttnn would otherwise inherit L1 here and again
-            # for the qkv projection, whose 157 MB does not fit.
-            x = ttnn.layer_norm(
-                x,
-                weight=self.layer_norm_weight,
-                bias=self.layer_norm_bias,
-                epsilon=1e-5,
-                compute_kernel_config=ln_compute_kernel_config(self.compute_kernel_config),
-                memory_config=ttnn.DRAM_MEMORY_CONFIG,
-            )
-            pre_qkv, pre_g, triangle_bias = self._fused_qkvgb(x)
+            # triatt_ln: the norm and the qkvgb projection as one kernel, the normed copy never
+            # leaves L1. x stays the raw (or transposed) pair then, owned only in the ending variant.
+            fused = (None if self.biased or self.qkvgb_weight is None
+                     or _triatt_dtype() != ttnn.bfloat16
+                     or _qkv_l1_config(x, self.qkv_weight, _dtype()) is not None
+                     else _triatt_ln.ln_qkvgb_heads(
+                         x, self.layer_norm_weight, self.layer_norm_bias, self.qkvgb_weight,
+                         _mm_generic.ckc_args(self.compute_kernel_config), self.n_heads,
+                         self.head_dim, int(self.bias_weight.shape[-1]), tuple(COMPUTE_GRID_MAIN)))
+            x_owned = fused is None or self.ending
+            if fused is not None:
+                pre_qkv, pre_g, triangle_bias = fused
+            else:
+                # Explicit DRAM: for the ending variant x is the L1 transpose result
+                # (_transpose_memory_config) and ttnn would otherwise inherit L1 here and again
+                # for the qkv projection, whose 157 MB does not fit.
+                x = ttnn.layer_norm(
+                    x,
+                    weight=self.layer_norm_weight,
+                    bias=self.layer_norm_bias,
+                    epsilon=1e-5,
+                    compute_kernel_config=ln_compute_kernel_config(self.compute_kernel_config),
+                    memory_config=ttnn.DRAM_MEMORY_CONFIG,
+                )
+                pre_qkv, pre_g, triangle_bias = self._fused_qkvgb(x)
             if triangle_bias is None:
                 triangle_bias = _pair_proj_linear(
                     x, self.bias_weight, self.compute_kernel_config, ttnn.bfloat16
@@ -11700,7 +11714,8 @@ class TriangleAttention(Module):
             if self.g_bias is not None and not g_in_mm:
                 g = ttnn.add_(g, self.g_bias)
                 _pair_bias_stat("g_add")
-            ttnn.deallocate(x)
+            if x_owned:
+                ttnn.deallocate(x)
             if fold_o is not None:
                 o = fold_o
                 if len(g.shape) != 4:
