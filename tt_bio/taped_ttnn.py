@@ -29,6 +29,7 @@ tape cannot follow is loud, not a silently dropped gradient.
 from __future__ import annotations
 
 import contextlib
+import functools
 import os
 import re
 import sys
@@ -39,6 +40,7 @@ import ttnn
 from . import autograd as ag
 from .envflags import env_flag
 from . import mm_layout as _mm_layout
+from . import pair_mm as _pair_mm
 from .autograd import Tensor, precise_config
 from .autograd import (_axis, _differentiating, _dims, _flat2d, _matmul, _on_tape, _raw,
                        _reduce_to, _sum_leading, _tape,
@@ -1418,6 +1420,30 @@ def _k_rne_add(shipped, args, kwargs):
     return ag._tape(out_v, [a, b], make, reads=())
 
 
+@_kernel("rne_add_masked")
+def _k_rne_add_masked(shipped, args, kwargs):
+    """`tt_bio.rne_add.rne_add_masked`'s entry: `a + b * m` with `m` a constant keep mask.
+
+    The VJP is the two verbs it replaces: the sum's cotangent to `a`, and `g * m` to `b`, the
+    same multiply the taped dropout ran. `m` takes no gradient, so it is the only value read:
+    `reads=()` drops `a` and `b` like `rne_add`'s entry, and the mask (one [n, c] slab) is held
+    raw by the closure.
+    """
+    a, b = _wrap(args[0]), _wrap(args[1])
+    ra, rk = _raw(args, kwargs)
+    out_v = shipped(*ra, **rk)
+    mask = ra[2]
+    shapes = (_dims(args[0].shape), _dims(args[1].shape))
+
+    def make():
+        def bw(g):
+            a.add_grad(_reduce_to(g, shapes[0]))
+            b.add_grad(_reduce_to(ttnn.multiply(g, mask), shapes[1]))
+        return bw
+
+    return ag._tape(out_v, [a, b], make, reads=())
+
+
 # --- attention head packing ------------------------------------------------------------
 # Both layouts below are DERIVED FROM THE DEVICE with an index-valued tensor
 # (`perf/ptx_fastpath/heads.py`), not read off a docstring. A head-split backward written
@@ -1646,6 +1672,9 @@ _ALWAYS_DISPATCH = frozenset({"deallocate"})
 
 
 def _taped_verb(qual, shipped):
+    if qual == "linear":
+        # The shipped pair modules call `ttnn.linear` directly; `ops.linear` asks `pair_mm` first.
+        shipped = functools.partial(_pair_mm.or_linear, shipped)
     impl = _VERBS.get(qual)
     always = qual in _ALWAYS_DISPATCH
 
