@@ -64,8 +64,11 @@ NORMAL_LEVERS = _T.NORMAL_LEVERS | {"transition_ws", "ws_l1acc", "trimul_t1_c256
 # --fast takes trimul_t1_c256 too (Protenix-v2; c_z 128 Protenix-v1 is untouched, OpenDDE has its own set).
 # Blackhole 11-set fast grade, fast vs fast+trimul_t1_c256, 43 paired folds (spd-gap-small g256bh, 2026-10-14), PASS:
 # same-seed top pose median 0.125 A vs the 1.342 A A/A floor, CA-lDDT -0.0004 [-0.0010, +0.0001], docking 33 -> 33.
-# Warm 512-token fast fold, paired: p150a (1350 MHz) Protenix-v2 -1.67 s.
+# Warm 512-token fast fold, paired: p150a (1350 MHz) Protenix-v2 -1.67 s. Blackhole only: on a Galaxy chip
+# (1000 MHz, same chip, 3 paired folds, spd-gap-small pv2fr 2026-10-14) it costs +1.5 s (61.2 vs 59.7 s), so
+# Wormhole --fast takes `WH_FAST_LEVERS`. Wormhole normal keeps it (-1.3 s there).
 FAST_LEVERS = _T.FAST_LEVERS | {"trimul_t1_c256"}
+WH_FAST_LEVERS = FAST_LEVERS - {"trimul_t1_c256"}
 from .eltwise_fusion import scale_add, norm_residual, gated_add
 
 
@@ -2575,7 +2578,7 @@ class Protenix:
         # the shipped path. Scoped to this entry point -- OpenDDE builds Protenix directly
         # and passes its own flag.
         if levers is None:
-            levers = _TT.model_levers(NORMAL_LEVERS, FAST_LEVERS)
+            levers = _TT.model_levers(NORMAL_LEVERS, WH_FAST_LEVERS if _TT.is_wormhole() else FAST_LEVERS)
         return cls(sd, ckc, dev, gated_move=True, diffusion_fp32=diffusion_fp32, levers=levers)
 
     def _tt(self, x):
