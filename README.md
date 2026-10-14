@@ -70,7 +70,7 @@ On a host without a Tenstorrent card, plain `pip install tt-bio` is enough: the 
 ### From GitHub / source
 Pin to a tagged release, track nightly `main` (may be untested), or work from an editable clone:
 ```bash
-pip install "tt-bio[tenstorrent] @ git+https://github.com/moritztng/tt-bio.git@v0.15.2"   # pinned release, see Releases for the latest
+pip install "tt-bio[tenstorrent] @ git+https://github.com/moritztng/tt-bio.git@v0.16.0"   # pinned release, see Releases for the latest
 pip install "tt-bio[tenstorrent] @ git+https://github.com/moritztng/tt-bio.git@main"     # nightly
 # or
 git clone https://github.com/moritztng/tt-bio.git
@@ -298,7 +298,7 @@ OpenFold3's preview2 checkpoint runs on an upstream release that drops the paire
 (OpenBind pairs).
 ESMFold2 needs no MSA and uses one when a source is given.
 
-`--fast` makes some operations use a lower-precision numeric format that runs faster. Accuracy is typically very close. For Boltz-2 it runs a larger set of cheaper kernels on top of normal mode: the 730-token fold takes 123 s instead of 136 s on a Wormhole chip, with structures and docking success unchanged on 11 complexes; [`docs/tuning-flags.md`](docs/tuning-flags.md#tt_bio_levers) has the grade. For ESMFold2 and ESMFold2-Fast it stores the ESMC-6B language model in a lower-precision format, which halves its memory so it fits a Wormhole chip, and folds with the cheaper kernel set plus a block-fp8 triangle-multiplication input: a 512-residue fold takes about 3.6 s (ESMFold2) and 1.4 s (ESMFold2-Fast) less on a Blackhole chip, with CA-lDDT and pLDDT unchanged on 11 complexes. For OpenFold3 and OpenBind-0 it runs the diffusion transformer in bf16: a 512-residue fold takes about 0.9 s less on a Blackhole chip, with structures inside seed-to-seed variation on 11 complexes.
+`--fast` makes some operations use a lower-precision numeric format that runs faster. Accuracy is typically very close. For Boltz-2 it runs a larger set of cheaper kernels on top of normal mode: the 730-token fold takes 123 s instead of 136 s on a Wormhole chip, with structures and docking success unchanged on 11 complexes; [`docs/tuning-flags.md`](docs/tuning-flags.md#tt_bio_levers) has the grade. For ESMFold2 and ESMFold2-Fast it stores the ESMC-6B language model in a lower-precision format, which halves its memory so it fits a Wormhole chip, and folds with the cheaper kernel set plus a block-fp8 triangle-multiplication input: a 512-residue fold takes about 3.6 s (ESMFold2) and 1.4 s (ESMFold2-Fast) less on a Blackhole chip, with CA-lDDT and pLDDT unchanged on 11 complexes. Wormhole runs ESMFold2 in this mode always and uses the same kernel set: a 512-residue fold takes 43 s instead of 70 s (ESMFold2) and 31 s instead of 47 s (ESMFold2-Fast) on a Galaxy chip. For OpenFold3 and OpenBind-0 it runs the diffusion transformer in bf16: a 512-residue fold takes about 0.9 s less on a Blackhole chip, with structures inside seed-to-seed variation on 11 complexes.
 
 For Protenix, `--diffusion_precision bf16` is the faster setting to reach for: about 9 % per fold on Wormhole. On most complexes the structures match fp32 closely, but where the binding mode is uncertain it can rank a different one first. See [`docs/protenix-diffusion-precision.md`](docs/protenix-diffusion-precision.md).
 
@@ -941,7 +941,7 @@ moves a structure, next to the seed-to-seed spread.
 | `TT_BIO_DEVICE_ZINIT` | on | Boltz-2 only: builds the trunk's `z_init` pair tensor on the card. Not bit-exact: moves a 298 aa structure 0.264 Å all-atom inside its 0.35 Å bar; CA-lDDT against 1HCL is flat over eight seeds. |
 | `TT_BIO_DIT_COND_HOIST` | on | Hoists the token diffusion transformer's conditioning out of the layer loop; RF3's token DiT inherits it. Not bit-exact: one bf16 rounding changes order. |
 | `TT_BIO_DIT_SHARED_COND` | on | Every diffusion sample shares one noise level and one trunk output, so the diffusion transformer computes its conditioning once and broadcasts it. Bit for bit. |
-| `TT_BIO_ESMFOLD2_DEVICE_CONF` | on (Blackhole) | ESMFold2 only: the confidence head reads the trunk's pair on the chip instead of downloading it, about 0.9 s faster per 512-residue fold. Not bit-exact, inside the accuracy bar. [docs](docs/tuning-flags.md#tt_bio_esmfold2_device_conf) |
+| `TT_BIO_ESMFOLD2_DEVICE_CONF` | on | ESMFold2 only: the confidence head reads the trunk's pair on the chip instead of downloading it, about 0.9 s faster per 512-residue fold. Not bit-exact, inside the accuracy bar. [docs](docs/tuning-flags.md#tt_bio_esmfold2_device_conf) |
 | `TT_BIO_ESMFOLD2_DEVICE_TAIL` | on | ESMFold2 only: the trunk's pair stays on the chip through the readout, distogram and diffusion conditioning, 0.7-1.0 s faster per 512-residue fold. Not bit-exact, inside the accuracy bar. [docs](docs/tuning-flags.md#tt_bio_esmfold2_device_tail) |
 | `TT_BIO_ESMFOLD2_SWA_WINDOW` | on | ESMFold2 only: the atom transformer attends over its sliding window instead of a dense band, about 1 s faster per 512-residue fold. Not bit-exact, inside the accuracy bar. [docs](docs/tuning-flags.md#tt_bio_esmfold2_swa_window) |
 | `TT_BIO_FUSE_BIAS_STACKS` | on | Boltz-2 only: builds the diffusion conditioning's per-layer bias stack in one pass. Not bit-exact: moves a 298 aa structure 0.218 Å all-atom, inside its 0.35 Å bar. |

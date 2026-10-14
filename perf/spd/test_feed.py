@@ -122,16 +122,95 @@ def test_tree_root_names_the_commit_dir():
 
 
 def test_probe_counts_an_empty_marker_and_tails_the_jobs_own_log(tmp_path):
-    """`touch $O/done` is a finished cell (an empty result file is not), and a job that logs into its out dir gets
+    """`touch $O/done` and `touch $O/<arm>.done` are a finished cell (an empty result file is not), and a job that logs into its out dir gets
     that log tailed into the quarantine entry."""
     o = tmp_path / "o"; o.mkdir()
-    (o / "done").touch(); (o / "r.json").touch(); (o / "run.log").write_text("Traceback: boom\n" * 20)
+    (o / "done").touch(); (o / "a=m:fast.done").touch(); (o / "r.json").touch(); (o / "run.log").write_text("Traceback: boom\n" * 20)
     jobs = tmp_path / "spd/feed/jobs"; jobs.mkdir(parents=True)
     (jobs / "4-x.sh").write_text(""); (jobs / "4-x.sh.end").write_text("0\n"); (jobs / "4-x.sh.log").write_text("")
-    a = {"kind": "bh", "cards": [], "sweep": False, "paths": [str(o / "done"), str(o / "r.json")],
+    a = {"kind": "bh", "cards": [], "sweep": False, "paths": [str(o / "done"), str(o / "a=m:fast.done"), str(o / "r.json")],
          "outdirs": {"4-x.sh": [str(o)]}}
     r = subprocess.run([sys.executable, "-c", feed.PROBE], input=json.dumps(a) + "\n", capture_output=True, text=True,
                        env={"HOME": str(tmp_path)}, check=True)
     out = json.loads(r.stdout)
-    assert out["exists"] == {str(o / "done"): True, str(o / "r.json"): False}
+    assert out["exists"] == {str(o / "done"): True, str(o / "a=m:fast.done"): True, str(o / "r.json"): False}
     assert "Traceback: boom" in out["jobs"]["4-x.sh"]["tail"]
+
+
+def test_probe_reports_free_cards_and_waiter_age(tmp_path):
+    """A BH card is free when nothing waits on it, no feed job runs on it and its CHIPS flock is free."""
+    import fcntl
+    jobs = tmp_path / "spd/feed/jobs"; jobs.mkdir(parents=True)
+    me = str(subprocess.os.getpid())
+    for n, card, started in (("4-a.sh", 0, False), ("4-b.sh", 1, True)):
+        (jobs / n).write_text(""); (jobs / f"{n}.card").write_text(str(card)); (jobs / f"{n}.pid").write_text(me)
+        if started:
+            (jobs / f"{n}.start").touch()
+    held = open(tmp_path / "lock2", "a"); fcntl.flock(held, fcntl.LOCK_EX)     # another row's run on card 2
+    a = {"kind": "bh", "cards": [0, 1, 2, 3], "lock": str(tmp_path / "lock{c}"), "sweep": False, "paths": [], "outdirs": {}}
+    r = subprocess.run([sys.executable, "-c", feed.PROBE], input=json.dumps(a) + "\n", capture_output=True, text=True,
+                       env={"HOME": str(tmp_path), "PATH": "/usr/bin:/bin"}, check=True)
+    out = json.loads(r.stdout)
+    assert out["free"] == [3]
+    assert out["jobs"]["4-a.sh"]["state"] == "queued" and out["jobs"]["4-a.sh"]["card"] == 0
+    assert out["jobs"]["4-a.sh"]["age"] >= 0
+
+
+BH_GRID = """
+row: spd-x
+experiments:
+  - name: g
+    arch: bh
+    prio: 4
+    axes: {cpx: [A]}
+    vars: {out: "~/o/{cpx}"}
+    done: ["{out}/r.json"]
+    command: |
+      echo {cpx}
+"""
+
+
+def test_a_long_waiting_bh_job_moves_to_a_free_card_on_the_other_box(tmp_path, monkeypatch):
+    (tmp_path / "state/spd/grids").mkdir(parents=True); (tmp_path / "state/glx").mkdir(parents=True)
+    (tmp_path / "state/spd/grids/spd-x.yaml").write_text(BH_GRID)
+    (tmp_path / "state/glx/ALLOC.json").write_text(json.dumps({"galaxies": {}}))
+    monkeypatch.setattr(feed, "BH_POOLS", {"qb1": {"ssh": "qb1", "cards": [0], "lock": "/l1_{c}"},
+                                           "qb2": {"ssh": "qb2", "cards": [3], "lock": "/l2_{c}"}})
+    name = feed.cells(tmp_path / "state/spd/grids")[0]["name"]
+    calls = []
+
+    def remote(ssh, script, payload, timeout=120):
+        calls.append((ssh, script, payload))
+        if script is feed.PROBE:
+            if ssh == "qb1":
+                return {"healthy": 1, "queued": 1, "wait": {"0": 1}, "free": [], "paused": False, "swept": 0, "live": [],
+                        "jobs": {name: {"state": "queued", "card": 0, "age": feed.STEAL_S + 5}}, "exists": {}}
+            return {"healthy": 1, "queued": 0, "wait": {"3": 0}, "free": [3], "paused": False, "swept": 0, "live": [],
+                    "jobs": {}, "exists": {}}
+        if script is feed.WITHDRAW:
+            return payload["names"]
+        return len(payload["jobs"])
+    monkeypatch.setattr(feed, "remote", remote)
+    (tmp_path / "state/spd/feed").mkdir(parents=True)
+    key = feed.cells(tmp_path / "state/spd/grids")[0]["key"]
+    (tmp_path / "state/spd/feed/ledger.json").write_text(json.dumps({key: {"host": "qb1", "name": name, "state": "queued",
+                                                                            "hash": name.split("-")[-1][:-3], "fails": []}}))
+    run(tmp_path)
+    assert [c[0] for c in calls if c[1] is feed.WITHDRAW] == ["qb1"]
+    placed = [c[2]["jobs"] for c in calls if c[1] is feed.PLACE and c[2]["jobs"]]
+    assert placed == [[{"name": name, "body": feed.cells(tmp_path / "state/spd/grids")[0]["body"], "cap": 7200,
+                        "card": 3, "lock": "/l2_3"}]]
+    assert json.loads((tmp_path / "state/spd/feed/ledger.json").read_text())[key]["host"] == "qb2"
+
+
+def test_withdraw_kills_an_unstarted_waiter_and_sets_it_aside(tmp_path):
+    jobs = tmp_path / "spd/feed/jobs"; jobs.mkdir(parents=True)
+    w = subprocess.Popen(["setsid", "bash", "-c", "sleep 300"])
+    for n, started in (("4-a.sh", False), ("4-b.sh", True)):
+        (jobs / n).write_text(""); (jobs / f"{n}.pid").write_text(str(w.pid) if not started else "1"); (jobs / f"{n}.card").write_text("0")
+    (jobs / "4-b.sh.start").touch()
+    r = subprocess.run([sys.executable, "-c", feed.WITHDRAW], input=json.dumps({"names": ["4-a.sh", "4-b.sh"]}) + "\n",
+                       capture_output=True, text=True, env={"HOME": str(tmp_path)}, check=True)
+    assert json.loads(r.stdout) == ["4-a.sh"]
+    assert w.wait(timeout=5) != 0
+    assert (jobs / "4-a.sh.moved").exists() and not (jobs / "4-a.sh").exists() and (jobs / "4-b.sh").exists()
