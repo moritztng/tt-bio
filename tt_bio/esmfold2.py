@@ -38,6 +38,7 @@ from tt_bio.tenstorrent import (
     accurate_softmax_site,
     attn_value_matmul,
     fused_sdpa,
+    lever,
     trunk_compute_kernel_config,
     trace_region_size,
 )
@@ -1463,8 +1464,8 @@ def _opm_fallback_rows(L: int) -> int:
 #: reshapes that turn each 32x32 tile into a row of 1024; at 512 aa those reshapes are 95 of the op's
 #: ~114 ms (census c3, p150a). "kq": contract a with Wout's q-blocks first (K = 32 x MSA depth), so
 #: no tile ever changes shape. "rm": the original with its reshapes done row-major. A/B in
-#: perf/spd_gap_esmf/opm_bench.py.
-_OPM_PATH = os.environ.get("TT_BIO_ESMFOLD2_OPM", "tile")
+#: perf/spd_gap_esmf/opm_bench.py. Unset: "kq" under the ef2_opm_kq lever (LEVERS_FAST), else "tile".
+_OPM_PATH = os.environ.get("TT_BIO_ESMFOLD2_OPM") or None
 _OPM_KQ_MAX_DEPTH = 64
 
 
@@ -1553,11 +1554,12 @@ class OuterProductMean(Module):
             a, b = self._project(m, mf)  # [B,L,M,32]
         # kq costs 16384 L^2 Mp flops against tile's 2048 L^2 M + 524288 L^2 and holds a [L, 32 Mp, 256] transient,
         # so it is for shallow MSAs only (the page fixture has 35 rows); deep ones keep the tile path.
-        if _OPM_PATH == "kq" and M <= _OPM_KQ_MAX_DEPTH:
+        path = _OPM_PATH or ("kq" if lever("ef2_opm_kq") else "tile")
+        if path == "kq" and M <= _OPM_KQ_MAX_DEPTH:
             b2, rows = b, self._rows_kq  # kq contracts the [B,L,M,32] b itself
         else:
             b2 = ttnn.reshape(ttnn.permute(b, (0, 2, 1, 3)), (B, M, L * 32))   # [B,M,L*32]
-            rows = self._rows_rm if _OPM_PATH == "rm" else self._rows
+            rows = self._rows_rm if path == "rm" else self._rows
         # The a2@b2 product is [B,L*32,L*32] (~2 GiB at L=1024), which OOMs the
         # 12 GB/chip Wormhole DRAM. Output row i depends only on a[i] and b, so
         # tiling over the i (row) dim is bit-exact. Pair op -> area-bounded tile

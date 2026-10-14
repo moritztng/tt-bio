@@ -99,7 +99,7 @@ class _ESMCAdapter:
             allow = same & valid & (sid[:, None, :] >= 0)
             attn_mask = torch.where(allow, 0.0, float("-inf"))  # [B,L,L]
         self.preload()
-        combine = self._shim.combine_lm() if LM_COMBINE and self._shim is not None else None
+        combine = self._shim.combine_lm() if _gate(LM_COMBINE, "ef2_lm_combine") and self._shim is not None else None
         hs = self.lm(input_ids, attn_mask=attn_mask, combine=combine)  # [n_layers+1 or 1,B,L,D]
         dram_peak("esmfold2/lm-forward")
         if not self._persistent:
@@ -410,7 +410,7 @@ def _conf_pair_dev(head, ftw, z, s_n, relpos, bonds, bins, mask, n):
     p0 = ln(zt, w["zn"], head.z_norm)
     if zt is not z:
         ttnn.deallocate(zt)
-    if _PAIR_INIT:  # the [L,c] broadcasts and the lookups added on the device, as z_init
+    if _gate(_PAIR_INIT, "ef2_pair_init"):  # the [L,c] broadcasts and the lookups added on the device, as z_init
         for t in (head.s_to_z(s_n).unsqueeze(2), head.s_to_z_transpose(s_n).unsqueeze(1), relpos, bonds):
             if t is not None:
                 p0 = _add_pair(p0, t, ftw)
@@ -608,7 +608,19 @@ def _msa_per_loop(kw, total_steps, max_depth, col_rate):
 _PACKED_KEEP = True
 _KEEP_BITS = 16
 # A dyadic dropout p draws the packed words directly (`_draw_packed_keep`); off = the float draw.
-_BIT_DRAW = env_flag("TT_BIO_ESMFOLD2_BIT_DRAW", True)
+# Unset follows the ef2_bit_draw lever (LEVERS_FAST), see `_gate`.
+_BIT_DRAW = env_flag("TT_BIO_ESMFOLD2_BIT_DRAW", None)
+
+
+def _gate(flag, name):
+    """A branch-stack switch: its env setting when given, else whether lever `name` is active in the fold's scope.
+    The four ef2_* levers (bit draw, device pair init, LM combine, OPM kq) pass the fast bar as a stack on both
+    models and fail the normal bar on ESMFold2 (CA-lDDT -0.0019 [-0.0050, -0.0001], 44 paired folds), so only
+    LEVERS_FAST names them until a per-lever normal grade says which one moves the structure."""
+    if flag is not None:
+        return flag
+    from tt_bio import tenstorrent
+    return tenstorrent.lever(name)
 
 
 def _pack_keep(keep):
@@ -730,7 +742,7 @@ class _KeepDraws:
         self.nxt = self.pool.submit(self._draw)
 
     def _draw(self):
-        if _BIT_DRAW and _packable(self.shape) and _dyadic(self.p):
+        if _gate(_BIT_DRAW, "ef2_bit_draw") and _packable(self.shape) and _dyadic(self.p):
             return _draw_packed_keep(self.shape, self.p, self.gen)
         keep = torch.rand(self.shape, generator=self.gen) >= self.p
         return _pack_keep(keep) if _packable(self.shape) else keep.to(torch.bfloat16)
@@ -830,7 +842,7 @@ class _PairStateDraw:
 # fp32 [L,L,256] tensors (0.26 s at 512 tokens on qb1) and uploaded the sum. Relative positions stay a PairLookup
 # (codes + rows) that the diffusion conditioning and the confidence head build on the device with one embedding,
 # so the 134 MB bf16 relpos pair never crosses PCIe. Not bit-exact: the parts are rounded to bf16 before the sum.
-_PAIR_INIT = env_flag("TT_BIO_ESMFOLD2_PAIR_INIT", True)
+_PAIR_INIT = env_flag("TT_BIO_ESMFOLD2_PAIR_INIT", None)  # unset: the ef2_pair_init lever
 PAIR_INIT_STATS = [0, 0]  # folds whose pair init ran on the device, on the host
 
 
@@ -847,7 +859,7 @@ def _install_pair_init(model):
     host_init, ftw, rel = model._pair_init, model.folding_trunk.m, model.rel_pos.m
 
     def _pair_init(self, x, residue_index, asym_id, sym_id, entity_id, token_index, token_bonds):
-        if not (_PAIR_INIT and E.RELPOS_LOOKUP and x.shape[0] == 1):
+        if not (_gate(_PAIR_INIT, "ef2_pair_init") and E.RELPOS_LOOKUP and x.shape[0] == 1):
             PAIR_INIT_STATS[1] += 1
             return host_init(x, residue_index, asym_id, sym_id, entity_id, token_index, token_bonds)
         PAIR_INIT_STATS[0] += 1
@@ -1432,8 +1444,8 @@ def wh_releases_lm(chains) -> bool:
 
 # The ESMC-6B sums the shim's weighted per-layer LayerNorms on the device and hands over one state instead of
 # all 81 (each a blocking copy that drains the dispatch pipeline). Same math as the shim, summed before its
-# bias-free linear instead of after, in fp32. Off until A/B'd and graded.
-LM_COMBINE = env_flag("TT_BIO_ESMFOLD2_LM_COMBINE", False)
+# bias-free linear instead of after, in fp32. Unset: the ef2_lm_combine lever.
+LM_COMBINE = env_flag("TT_BIO_ESMFOLD2_LM_COMBINE", None)
 
 # The shared-kernel levers (tenstorrent.LEVERS) ESMFold2 folds under, per mode. Empty until a set is graded on
 # ESMFold2 itself: the sets Protenix and Boltz-2 ship were graded on their folds, not on this one. A harness
@@ -1465,7 +1477,12 @@ LEVERS_NORMAL = "normal-trunk_hifi3+trimul_gin+trimul_t2g"
 # and trimul_gin: ESMFold2 fast bar against the set without it, 11 complexes x 4 seeds, 44 paired folds (p300c,
 # 1350 MHz): CA-lDDT +0.0026 [-0.0022, +0.0086], pLDDT +0.0005, top-pose median 0.35 A vs 1.30 A floor, docking
 # 31 -> 30 of 44. Same-card A/B at 544 and 576 tokens (p150a, 1350 MHz): 34.2 -> 33.1 s and 40.7 -> 38.4 s warm.
-LEVERS_FAST = "normal+trimul_b8in+transition_ws+trimul_gin+trimul_t2g"
+# The ef2_* stack (see `_gate`) is graded on the fast bar: ESMFold2-Fast --fast vs the set without it, 11 complexes
+# x 4 seeds, 44 paired folds (p300c, 1350 MHz): CA-lDDT -0.0000 [-0.0003, +0.0002], TM +0.0013, docking 24 -> 24;
+# ESMFold2 normal-mode folds of the stack also clear the fast bar (CA-lDDT -0.0019). 512 aa --fast on the stack:
+# ESMFold2 16.92 s, ESMFold2-Fast 10.14 s (p300c, 1350 MHz).
+LEVERS_FAST = ("normal+trimul_b8in+transition_ws+trimul_gin+trimul_t2g"
+               "+ef2_bit_draw+ef2_pair_init+ef2_lm_combine+ef2_opm_kq")
 LEVERS_WH = LEVERS_NORMAL + "+transition_ws"
 
 
