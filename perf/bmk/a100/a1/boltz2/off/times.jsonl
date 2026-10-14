@@ -1,0 +1,5 @@
+{"s": 18.9166, "pid": 4935, "fn": "boltz2_opt.kernels._wrap_predict_step.<locals>.predict_step", "t": 1792000109.7453647}
+{"s": 13.9694, "pid": 4935, "fn": "boltz2_opt.kernels._wrap_predict_step.<locals>.predict_step", "t": 1792000124.1370742}
+{"s": 13.9679, "pid": 4935, "fn": "boltz2_opt.kernels._wrap_predict_step.<locals>.predict_step", "t": 1792000138.5170674}
+{"s": 13.9639, "pid": 4935, "fn": "boltz2_opt.kernels._wrap_predict_step.<locals>.predict_step", "t": 1792000152.8904757}
+{"s": 13.9593, "pid": 4935, "fn": "boltz2_opt.kernels._wrap_predict_step.<locals>.predict_step", "t": 1792000167.2644513}
