@@ -1473,7 +1473,12 @@ LM_COMBINE = env_flag("TT_BIO_ESMFOLD2_LM_COMBINE", None)
 # 11 complexes x 4 seeds, 44 paired folds, base and test from one tree (p150a, 1350 MHz): CA-lDDT -0.0025
 # [-0.0070, +0.0002], pLDDT -0.0008, top-pose median 0.67 A vs 1.16 A floor, docking 32 -> 30 of 44. Warm fold at
 # 1350 MHz: 544 aa 26.8 -> 25.8 s, 1024 aa 89.7 -> 87.2 s. Wormhole keeps HiFi3: not graded there, fold_levers drops it.
-LEVERS_NORMAL = "normal-trunk_hifi3+trimul_gin+trimul_t2g+trimul_gin_hifi2"
+# Four ef2_* levers (bit draw, device pair init, relpos lookup, atom FFN split) pass ESMFold2's normal bar as a stack
+# against the set without them, 11 complexes x 4 seeds, 44 paired folds (p300c, 1350 MHz): CA-lDDT -0.0001
+# [-0.0011, +0.0008], TM +0.0092, top-pose median 0.33 A vs 1.15 A seed floor, docking 31 -> 31 of 44. The other
+# two (ef2_lm_combine, ef2_opm_kq) fail it alone (DockQ, L-RMSD and I-RMSD CIs exclude 0) and stay fast-only.
+LEVERS_NORMAL = ("normal-trunk_hifi3+trimul_gin+trimul_t2g+trimul_gin_hifi2"
+                 "+ef2_bit_draw+ef2_pair_init+ef2_relpos_lookup+ef2_atom_ffn_split")
 # FAST also takes transition_ws (fast grade PASS on both ESMFold2 models, both archs; tenstorrent.FAST_LEVERS)
 # and trimul_gin: ESMFold2 fast bar against the set without it, 11 complexes x 4 seeds, 44 paired folds (p300c,
 # 1350 MHz): CA-lDDT +0.0026 [-0.0022, +0.0086], pLDDT +0.0005, top-pose median 0.35 A vs 1.30 A floor, docking
@@ -1481,7 +1486,10 @@ LEVERS_NORMAL = "normal-trunk_hifi3+trimul_gin+trimul_t2g+trimul_gin_hifi2"
 # The ef2_* stack (see esmfold2.gate) is graded on the fast bar: ESMFold2-Fast --fast vs the set without it, 11 complexes
 # x 4 seeds, 44 paired folds (p300c, 1350 MHz): CA-lDDT -0.0000 [-0.0003, +0.0002], TM +0.0013, docking 24 -> 24;
 # ESMFold2 normal-mode folds of the stack also clear the fast bar (CA-lDDT -0.0019). 512 aa --fast on the stack:
-# ESMFold2 16.92 s, ESMFold2-Fast 10.14 s (p300c, 1350 MHz).
+# ESMFold2 16.92 s, ESMFold2-Fast 10.14 s (p300c, 1350 MHz). On Wormhole the stack without ef2_pair_init passes the
+# same fast bar (ESMFold2-Fast, 44 paired folds, 1000 MHz): CA-lDDT -0.0000 [-0.0025, +0.0019], docking 24 -> 24 of
+# 44, and folds 772, 778 and 1024 tokens in both modes on both models. ef2_pair_init stays off there: with it a
+# Wormhole chip runs out of DRAM in the confidence head at 1024 tokens.
 # ws_resid (the pair SwiGLU adds into z in fc3's fp32 dest) passes the fast bar on ESMFold2-Fast against the shipped
 # --fast set, 11 complexes x 4 seeds, 44 paired folds (Blackhole, 1350 MHz): CA-lDDT +0.0008 [-0.0006, +0.0032],
 # TM +0.0073, top-pose median 0.55 A vs 1.65 A seed floor, docking 23 -> 24 of 44. p150a 512 aa: ESMFold2 -0.44 s,
@@ -1495,9 +1503,11 @@ def fold_levers(fast: bool) -> str:
     serving path (no user sets it), else the mode's."""
     if os.environ.get("TT_BIO_LEVERS"):
         return os.environ["TT_BIO_LEVERS"]
-    if fast:
-        return LEVERS_FAST.replace("+ws_resid", "") if is_wormhole() else LEVERS_FAST
-    return LEVERS_NORMAL.replace("+trimul_gin_hifi2", "") if is_wormhole() else LEVERS_NORMAL
+    levers = LEVERS_FAST if fast else LEVERS_NORMAL
+    if is_wormhole():  # not graded there (ws_resid, hifi2), or out of DRAM at 1024 tokens (pair init)
+        for name in ("ef2_pair_init", "ws_resid" if fast else "trimul_gin_hifi2"):
+            levers = levers.replace("+" + name, "")
+    return levers
 
 
 def fold_scope(fast: bool):
