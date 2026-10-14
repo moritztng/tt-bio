@@ -53,6 +53,8 @@ ap.add_argument("--wrap", choices=("census", "all"), default="all",
 ap.add_argument("--dump", type=int, default=0,
                 help="save the first N gradient calls' results to dump_<n>.npz, so two arms can be compared "
                      "by magnitude when their digests differ")
+ap.add_argument("--clock-nodes", default="all",
+                help="sysfs nodes the AICLK sampler reads: all, none, or a comma list (a Galaxy has 32)")
 ap.add_argument("--profile", type=int, default=3,
                 help="run this (uninstrumented) gradient call under cProfile; 0 = off")
 a = ap.parse_args()
@@ -74,6 +76,8 @@ ENV = {k: v for k, v in sorted(os.environ.items()) if k.startswith(("TT_BIO_", "
 # AICLK of every node, from sysfs, every 0.5 s. A dead ARC answers 0xFFFFFFFF without raising, so
 # anything outside 100..3000 MHz is dropped as a non-reading (bench.py does the same).
 NODES = sorted(int(p.rsplit("!", 1)[1]) for p in glob.glob("/sys/class/tenstorrent/tenstorrent!*"))
+if a.clock_nodes != "all":
+    NODES = [] if a.clock_nodes == "none" else [int(n) for n in a.clock_nodes.split(",")]
 samples = []
 
 
