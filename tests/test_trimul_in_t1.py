@@ -289,8 +289,12 @@ def test_eligibility(monkeypatch):
     assert TTL.t1_eligible(**_args(), mask=_Fake([1, 512, 500], padded=[1, 512, 512])) == "mask"
     assert TTL.t1_eligible(**_args(K=256)) == "key=8x8x4"            # c_z 256 with hidden 128: no plan
     assert TTL.t1_eligible(**_args(K=256, h=256, N=256)) == "c256_off"  # protenix / esmfold2: own lever until graded
-    with T.levers("trimul_t1_c256"):
+    with T.levers("trimul_t1_c256"):     # a wide plan's lever turns T1 on for that plan alone
         assert TTL.t1_eligible(**_args(K=256, h=256, N=256)) is None
+        monkeypatch.setattr(TTL, "T1", False)
+        assert TTL.t1_eligible(**_args(K=256, h=256, N=256)) is None
+        assert TTL.t1_eligible(**_args()) == "off"                        # c_z 128 stays off
+        monkeypatch.setattr(TTL, "T1", True)
     assert TTL.t1_eligible(**_args(K=384, h=384, N=384)) == "c384_off"  # opendde: own lever until graded
     with T.levers("trimul_t1_c384"):
         assert TTL.t1_eligible(**_args(K=384, h=384, N=384)) is None

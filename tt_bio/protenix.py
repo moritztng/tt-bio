@@ -56,7 +56,11 @@ from . import tenstorrent as _T   # for the module-level A/B toggles, which must
 # gwa), OpenDDE PASS, same-seed top pose median 0.219 A vs the 1.335 A A/A floor, CA-lDDT -0.0004 [-0.0016, +0.0004],
 # docking 25 -> 24 of 44 (spd-gap-small 2026-10-14); Blackhole Protenix-v2 PASS, 0.080 A vs 1.292 A (gwabh).
 # Galaxy chip (1000 MHz) Protenix-v2 normal 79.1 -> 74.7 s; p150a OpenDDE normal -1.9 s.
-NORMAL_LEVERS = _T.NORMAL_LEVERS | {"transition_ws", "ws_l1acc"}
+# trimul_t1_c256 / _c384: the trimul input side as one kernel at c_z 256 (Protenix-v2) and 384 (OpenDDE); c_z 128
+# (Protenix-v1) is untouched. Wormhole 11-set normal grade of the whole set against shared normal, 44 paired folds
+# each (spd-gap-small gst1, 2026-10-14), PASS: same-seed top pose median Protenix-v2 0.093 A vs the 1.134 A A/A
+# floor, OpenDDE 0.184 vs 1.335 A; CA-lDDT -0.0001 [-0.0006, +0.0003] / +0.0000 [-0.0001, +0.0002].
+NORMAL_LEVERS = _T.NORMAL_LEVERS | {"transition_ws", "ws_l1acc", "trimul_t1_c256", "trimul_t1_c384"}
 from .eltwise_fusion import scale_add, norm_residual, gated_add
 
 

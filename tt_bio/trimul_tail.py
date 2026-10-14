@@ -1292,7 +1292,7 @@ T1_SBW = 4                        # DST tiles per matmul block (half-sync fp32 D
 T1_ABL = 0                        # bench-only stage-skip bits (kernels/trimul_in_t1 ABL); 0 = the real T1
 T1_B8 = 0                         # bench knob: a and b as bfp8 (lever trimul_t1b8 in a model)
 T1_C256 = 0                       # bench knob: the c_z 256 / 384 plans without their levers
-T1_WIDE = {(8, 16, 8): "trimul_t1_c256", (12, 24, 12): "trimul_t1_c384"}   # plan key -> the lever it waits on
+T1_WIDE = {(8, 16, 8): "trimul_t1_c256", (12, 24, 12): "trimul_t1_c384"}   # plan key -> the lever that turns T1 on for it
 # Row tiles per work item: 32 = one unit (b, xt, yt) per item; 16 = each unit as two items, rows 0-15 and
 # 16-31, which are faces 0-1 and 2-3 of every [B, C, S, S] tile the writer gathers, so the two halves
 # write disjoint bytes. Every row is computed exactly as in the whole unit (same LN, same K order).
@@ -1394,10 +1394,17 @@ def t1_mask_ok(mask, x):
             and mask.memory_config() == ttnn.DRAM_MEMORY_CONFIG)
 
 
+def t1_any() -> bool:
+    """T1 may serve some plan: the knob, trimul_t1 (every plan's master), or a wide plan's own lever."""
+    from .tenstorrent import lever
+    return T1 or lever("trimul_t1") or any(lever(v) for v in T1_WIDE.values())
+
+
 def t1_eligible(x, ln_w, ln_b, wpT, wgT, wgo, mask=None):
     """None when T1 serves this call, else the reason it does not."""
     from .tenstorrent import lever
-    if not (T1 or lever("trimul_t1")):
+    on = T1 or lever("trimul_t1")
+    if not t1_any():
         return "off"
     for t in (x, wpT, wgT, wgo):
         if t is None or t.dtype != ttnn.bfloat16 or t.layout != ttnn.TILE_LAYOUT:
@@ -1418,8 +1425,11 @@ def t1_eligible(x, ln_w, ln_b, wpT, wgT, wgo, mask=None):
     key = (K // TILE, int(wpT.shape[-2]) // TILE, int(wgo.shape[-1]) // TILE)
     if key not in T1_KEYS:
         return "key=" + "x".join(map(str, key))
-    if key in T1_WIDE and not (T1_C256 or lever(T1_WIDE[key])):
-        return T1_WIDE[key][len("trimul_t1_"):] + "_off"
+    if key in T1_WIDE:
+        if not (lever(T1_WIDE[key]) or (on and T1_C256)):
+            return T1_WIDE[key][len("trimul_t1_"):] + "_off"
+    elif not on:
+        return "off"
     if not (_vec_ok(ln_w, K) and _vec_ok(ln_b, K)):
         return "ln_params"
     if mask is not None and not t1_mask_ok(mask, x):
