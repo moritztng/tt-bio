@@ -6,8 +6,9 @@ Two pages, both driven by `data/perf-512aa.json`.
 affinity prediction, protein design, protein embeddings, with the `--model` id in the first column
 and one short cell per capability. That section is static markup, so it renders even if the data
 fetch fails, which also means it goes stale silently -- check it against `tt_bio/main.py`'s model
-tuples when a model lands. Then performance and cost: every published row on Blackhole against
-H200, B200 and A100 at 512 residues, with throughput per dollar of a Galaxy Blackhole against a DGX
+tuples when a model lands. Then performance and cost: every published row on Blackhole and Wormhole
+against H200, B200 and A100 at 512 residues, with throughput per dollar of a Galaxy Blackhole and a
+Galaxy Wormhole against a DGX
 H200, a DGX B200 and a DGX A100 on purchase price and again on total cost of ownership, predictions
 per hour per server, prediction time on one AI Processor, and what each server costs to buy and to
 power. The row counts are deliberately not repeated here: `scripts/site_publish_guard.py` generates
@@ -15,9 +16,8 @@ them into the JSON `title` and `subtitle` and into the page's `<title>` and meta
 hand-written fifth copy would only go stale.
 
 `index.html` is the landing page. Its bar chart reads the same JSON and derives the same three
-metrics, and the throughput-per-dollar range in the hero is the spread of the same purchase-price
-figure across the rows measured on both a Galaxy Blackhole and a DGX B200, so the page has no
-numbers of its own. Set `"parity_pending": true` on a row that has no reference-parity run of its
+metrics. The hero's price and throughput-per-dollar figures are written by hand and must be
+re-derived from the data whenever a price or a cell moves. Set `"parity_pending": true` on a row that has no reference-parity run of its
 own and the hero names it when it sets the top of that range: the hero is prose and carries none of
 the per-cell provenance the benchmark page does, so the one row a reader would have to take on trust
 says so where the claim is. Drop the flag when the run lands and the clause goes with it.
@@ -41,17 +41,25 @@ renders as plain text, "stated" rather than "accessed": that is for a figure thi
 than one it read somewhere, and the only one is the DGX A100's $175,000. Do not hang an assumption
 off a vendor document's link.
 
-One cell per model per platform, holding the fastest measured arm that passes parity against its own
-reference. Every Tenstorrent cell states which parity it holds in `parity`, and Methods lists them:
+One cell per model per platform. A Tenstorrent cell's headline is the default mode, with the
+`--fast` run beside it under `fast`. An NVIDIA cell says in `ref` which code ran: `"kit"` is the
+exact mode of Anthropic's biomolecular kit (github.com/anthropics/uplifting-biomolecular-modeling),
+with the kit's fast mode under `fast` and the stock upstream run under `stock`; `"stock"` is the
+model's own upstream release, used where the kit does not cover the model. Only the headline is
+drawn, so every bar compares a default against an exact run. Each run carries `n`, `spread_pct`,
+the clock it ran at (`aiclk_mhz` or `clock_mhz`, sampled during the run), `versions` and `when`.
+
+The numbers come from the campaign board, `~/.coworker/state/bmk/BOARD.md`, where every row has
+the command line that produced it. `python3 perf/bmk/board_to_page.py` shows what it would change
+and `--write` applies it; it also lists any cell still carrying a number from before the board.
+
+Every Tenstorrent cell states which
+parity it holds in `parity`. Every Tenstorrent cell states which parity it holds in `parity`, and Methods lists them:
 bit-exact, byte-identical, or a measured structural delta inside a bar that was fixed before the
 number existed. A cell with no measurement gets a `status` other than `measured` plus a reason, and the two
 available are not the same claim: `"blocked"` with a `reason` renders as "does not run" and means the
 model cannot run there, while `"not measured"` with a `detail` renders as "not measured" and means
 nobody has paid for the run. Do not fill either with an estimate.
-
-The GPU cells were measured on rented boxes and the raw per-cell reports are in
-`perf/gpucatchup/`, one directory per GPU type. Every box also ran an OpenFold3 control
-arm it had to reproduce before its other rows counted.
 
 `cost_model` holds the amortisation window, the electricity rate and the platform both charts are
 indexed to. The window is 4 years and the rate is the US industrial average, and they move the total
@@ -162,9 +170,7 @@ drops the column while the benchmark page draws it.
 Adding a platform, a row or a section must not move any number already on the page. The way to know
 is to diff what the page renders, not what the JSON says: dump the DOM before and after with headless
 Chrome and compare, both pages. Run `node benchmarks/render_check.js`, which runs both pages' own
-scripts against the real data and fails on a row that stopped drawing, and
-`python3 ../perf/perf-page-host-device-publish/check_numbers.py` from the repo root as well; between
-them they catch a row that stopped drawing and a host/device half that stopped adding up. The
+scripts against the real data and fails on a row that stopped drawing. The
 landing page is in that check because it shipped a hand-written copy of the derived values and drew
 6 of the 9 rows the data carried, on the front page, with nothing red.
 
