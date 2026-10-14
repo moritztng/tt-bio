@@ -315,7 +315,9 @@ def write(partial=False):
     total = sum(r["synced_s"] for r in rows)
     doc = dict(**HEAD, iteration_s=state["instrumented"], uninstrumented=state["uninstrumented"],
                iteration_trunk_loads=state.get("instrumented_loads"), iteration_load1=state.get("instrumented_load1"),
-               aiclk=state["cl"], synced_total_s=total, ops=rows, calls=len(rec.rec), partial=partial)
+               aiclk=state["cl"], synced_total_s=total, ops=rows, calls=len(rec.rec), partial=partial,
+               pair_mm_declined=sorted(([list(map(str, k)), v] for k, v in pair_mm.DECLINED.items()),
+                                       key=lambda kv: -kv[1])[:40])
     ag = sys.modules.get("tt_bio.autograd")
     if ag is not None:
         doc.update(rtrace_stats=dict(ag.RTRACE_STATS), rtrace_checks=list(ag.RTRACE_CHECKS))
