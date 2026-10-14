@@ -26,6 +26,7 @@ P=$(cd "$(dirname "$0")" && pwd); V=~/.vast-venv/bin/vastai; B=/home/moritz/.cow
 K=$(cat ~/.config/vastai/vast_api_key); API=https://console.vast.ai/api/v0; FLOOR=20
 KIT=${KIT:-/home/moritz/scratch/kitsrc-bmk/uplifting-biomolecular-modeling}
 PKL=/home/moritz/.cache/opendde/common/components.cif.rdkit_mol.pkl PXCKPT=/home/moritz/.boltz/protenix-v2.pt
+HOLD=/home/moritz/.coworker/state/vast-holder  # <id> -> this pid: vast_guard leaves a box alone while its session lives
 PXV1=/home/moritz/.coworker/protenix-ref-data/protenix_base_default_v0.5.0.pt  # sha256 9ea20b0a = tt-bio protenix-v1
 OUT=$P/results/$L; mkdir -p $OUT
 printf "KC_GPU=%s KC_CFG=%s KC_ARCH=%s KC_N=%s\n" $GPU $CFG $ARCH $KC_N > $OUT/gpu.env; git -C "$KIT" rev-parse HEAD > $OUT/kit-commit
@@ -39,7 +40,7 @@ gone(){ curl -s -H "Authorization: Bearer $K" "$API/instances/?owner=me" | pytho
 destroy(){ # <id> <why>
   curl -s -X DELETE -H "Authorization: Bearer $K" "$API/instances/$1/" >/dev/null; sleep 10
   local n; n=$(gone); log "DESTROYED $1 ($2); instances left: $n"
-  sed -i "s|^$1  $CAP_H  $SLUG$|#$1 DESTROYED $(date -u +%FT%TZ) ($2), confirmed instances=$n|" $B
+  rm -f $HOLD/$1; sed -i "s|^$1  $CAP_H  $SLUG$|#$1 DESTROYED $(date -u +%FT%TZ) ($2), confirmed instances=$n|" $B
 }
 next_offer(){ $V search offers "$Q" -o dph --raw 2>/dev/null | python3 -c 'import json,sys
 t=sys.argv[1].split()
@@ -65,7 +66,7 @@ for _ in $(seq $NMAX); do
     echo "-  $CAP_H  $SLUG  # $L creating on offer $O" >> $B
     I=$($V create instance $O --image nvidia/cuda:13.0.1-cudnn-devel-ubuntu24.04 --disk ${DISK:-250} --ssh --direct --label $SLUG-$L --raw 2>&1 | grep -oP "new_contract['\"]:\s*\K[0-9]+")
     if [ -z "$I" ]; then sed -i '$d' $B; log "offer $O: create failed"; continue; fi
-    sed -i "\$s|.*|$I  $CAP_H  $SLUG|" $B; echo "# ^ $SLUG $L offer $O created $(date -u +%FT%TZ) by perf/kitcmp/session.sh" >> $B
+    mkdir -p $HOLD; echo $$ > $HOLD/$I; sed -i "\$s|.*|$I  $CAP_H  $SLUG|" $B; echo "# ^ $SLUG $L offer $O created $(date -u +%FT%TZ) by perf/kitcmp/session.sh" >> $B
     T0=$(date +%s); log "created $I on offer $O"; S=""
     while [ $(( $(date +%s) - T0 )) -lt 1500 ]; do
       [ $(( $(date +%s) - T0 )) -ge 120 ] && [ "$(state $I)" != running ] && break
@@ -90,7 +91,7 @@ print(x.get("public_ipaddr","").strip(), p[0]["HostPort"] if p else "") if x.get
   else  # ADOPT=<label>: take over that session's live box (kill its session.sh first) instead of renting a new one
     read -r I O < $P/results/$ADOPT/instance; S=$(cat $P/results/$ADOPT/ssh); IP=${S##*root@}; T0=$(date +%s)
     [ "$(state $I)" = running ] || { log "ADOPT: $I is not running"; exit 5; }
-    sed -i "s|^$I  [0-9.]*  $SLUG$|$I  $CAP_H  $SLUG|" $B; log "adopted $I from session $ADOPT, cap $CAP_H h from now"
+    mkdir -p $HOLD; echo $$ > $HOLD/$I; sed -i "s|^$I  [0-9.]*  $SLUG$|$I  $CAP_H  $SLUG|" $B; log "adopted $I from session $ADOPT, cap $CAP_H h from now"
   fi
   echo "$S" > $OUT/ssh; echo "$I $O" > $OUT/instance
   R(){ rsync -a -e "${S% root@*}" "$@"; }; H=root@$IP
