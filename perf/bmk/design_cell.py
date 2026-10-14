@@ -210,8 +210,32 @@ def nesso1():
     import math, torch
     from tt_bio.main import ensure_p300_mesh_descriptor
     from tt_bio.nesso1 import DEFAULT_SEED, REPORTED_SCALARS, Nesso1
+    import tt_bio.nesso1_input as NI
+    import tt_bio.weights as W
+    from tt_bio._vendor.nesso.data import esm as E
     from tt_bio.nesso1_input import CLI_PREDICT_ARGS, collate, prepare
     from tt_bio.runtime import reuse_freed_heap
+    # A served request keeps each target's ESM-2 embedding under the user's cache, so a warm rep would skip the ESM
+    # pass a first-seen target pays (and the GPU invocation pays every time). Give run_esm an empty store per rep and
+    # load the 650M once, outside the cell, as the trunk weights are.
+    esm_once, run_esm, cache_root = {}, NI.run_esm, W.cache_root
+    setup = E.setup_esm_model
+
+    def setup_once(*x, **k):
+        if "m" not in esm_once:
+            esm_once["m"] = setup(*x, **k)
+        return esm_once["m"]
+
+    E.setup_esm_model = setup_once
+
+    def fresh_esm(*x, **k):
+        W.cache_root = lambda: store
+        try:
+            return run_esm(*x, **k)
+        finally:
+            W.cache_root = cache_root
+
+    NI.run_esm = fresh_esm
     reuse_freed_heap()
     ensure_p300_mesh_descriptor()
     t = time.perf_counter()
@@ -223,9 +247,10 @@ def nesso1():
     res["model_init_s"] = round(time.perf_counter() - t, 3)
     src = (TREE / FIX["nesso1"]).parent
     for i in range(a.repeat + 1):
-        torch.manual_seed(DEFAULT_SEED)
+        store = work / f"esm{i}"
         t0 = time.perf_counter()
         dataset, manifest, failed = prepare(src, work / f"r{i}", num_workers=0)
+        torch.manual_seed(DEFAULT_SEED)  # where screen() seeds: the featuriser's random roto-translation
         feats = collate(dataset[0])
         t1 = time.perf_counter()
         with torch.no_grad():
@@ -237,7 +262,8 @@ def nesso1():
              "cif_sha256": hashlib.sha256(json.dumps(sc, sort_keys=True).encode()).hexdigest()[:16]}
         res["folds"].append(f)
         print(json.dumps(f), flush=True)
-        if failed or len(manifest.records) != 1:
+        f["esm_computed"] = len(list(store.rglob("*.safetensors")))
+        if failed or len(manifest.records) != 1 or not f["esm_computed"]:
             res["errors"].append(f"rep {i}: {len(manifest.records)} records, failed {failed}")
         if not sc or not all(math.isfinite(v) for v in sc.values()):
             res["errors"].append(f"rep {i}: scalars {sc}")
