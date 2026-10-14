@@ -71,16 +71,21 @@ T2_TAIL = frozenset({"trimul_t2", "trimul_t2cm", "trimul_t2w"})
 # --fast takes trimul_t1_c256 too (Protenix-v2; c_z 128 Protenix-v1 is untouched, OpenDDE has its own set).
 # Blackhole 11-set fast grade, fast vs fast+trimul_t1_c256, 43 paired folds (spd-gap-small g256bh, 2026-10-14), PASS:
 # same-seed top pose median 0.125 A vs the 1.342 A A/A floor, CA-lDDT -0.0004 [-0.0010, +0.0001], docking 33 -> 33.
-# Warm 512-token fast fold, paired: p150a (1350 MHz) Protenix-v2 -1.67 s.
+# Warm 512-token fast fold, paired: p150a (1350 MHz) Protenix-v2 -1.67 s. Blackhole only: on a Galaxy chip
+# (1000 MHz, same chip, 3 paired folds, spd-gap-small pv2fr 2026-10-14) it costs +1.5 s (61.2 vs 59.7 s), so
+# `mode_levers` leaves it out of the Wormhole fast set. Wormhole normal keeps it (-1.3 s there).
 FAST_LEVERS = _T.FAST_LEVERS | {"trimul_t1_c256"}
+WH_FAST_LEVERS = FAST_LEVERS - {"trimul_t1_c256"}
 from .eltwise_fusion import scale_add, norm_residual, gated_add
 
 
 def mode_levers(state_dict):
     """The mode's lever set for a Protenix checkpoint: `FAST_LEVERS` under --fast, else `NORMAL_LEVERS`,
-    plus `T2_TAIL` for Protenix-v2 (c_z 256), the one width its normal grade covers."""
+    plus `T2_TAIL` for Protenix-v2 (c_z 256), the one width its normal grade covers; Wormhole --fast takes
+    `WH_FAST_LEVERS`."""
     v2 = Trunk._derive_c_z(state_dict) == 256
-    return _T.model_levers(NORMAL_LEVERS | T2_TAIL if v2 else NORMAL_LEVERS, FAST_LEVERS)
+    return _T.model_levers(NORMAL_LEVERS | T2_TAIL if v2 else NORMAL_LEVERS,
+                           WH_FAST_LEVERS if _T.is_wormhole() else FAST_LEVERS)
 
 
 # How many diffusion samples a single batched denoise carries by default. The batched

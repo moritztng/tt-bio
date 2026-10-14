@@ -209,7 +209,10 @@ def test_protenix_v2_normal_takes_t2_tail(monkeypatch):
     assert mode_levers(ck(256)) == NORMAL_LEVERS | T2_TAIL
     assert mode_levers(ck(128)) == NORMAL_LEVERS
     monkeypatch.setattr(T, "_FAST_MODE", True)
+    monkeypatch.setattr(T, "is_wormhole", lambda: False)
     assert mode_levers(ck(256)) == mode_levers(ck(128)) == FAST_LEVERS
+    monkeypatch.setattr(T, "is_wormhole", lambda: True)
+    assert mode_levers(ck(256)) == FAST_LEVERS - {"trimul_t1_c256"}
 
 
 def test_protenix_fast_set_takes_t1_c256(monkeypatch):
