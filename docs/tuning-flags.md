@@ -668,7 +668,11 @@ Together at 512 residues on Blackhole p300c (1350 MHz): ESMFold2 `--fast` 16.92 
 
 On Blackhole `--fast` also folds with the pair SwiGLU adding its residual inside the last matmul's
 float32 accumulator (lever `ws_resid`): 0.44 s off ESMFold2 and 0.19 s off ESMFold2-Fast at 512
-residues, graded inside the fast bar on 11 complexes x 4 seeds. Wormhole leaves it off until graded there.
+residues, graded inside the fast bar on 11 complexes x 4 seeds. Wormhole `--fast` takes it too, together
+with `trimul_gin_hifi2` (the gated trimul in-projection at HiFi2): graded as a pair on the fast bar on a
+Galaxy chip, 11 complexes x 4 seeds per model, ESMFold2 CA-lDDT -0.0004 [-0.0032, +0.0025] and
+ESMFold2-Fast -0.0002 [-0.0015, +0.0008], docking unchanged. On ESMFold2 at 512 residues they take
+1.1 s and 0.8 s off a Wormhole fold.
 
 **Accuracy: moves, inside the fast bar.** On 11 complexes x 4 seeds on Blackhole, ESMFold2-Fast
 `--fast` against the same mode without the stack: CA-lDDT -0.0000 [-0.0003, +0.0002], TM-score
