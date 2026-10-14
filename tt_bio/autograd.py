@@ -1165,18 +1165,6 @@ def _pair_mm_or(v, w, transpose_b, fallback, cfg):
     return fallback() if out is None else out
 
 
-#: `linear` routes its forward and dX through `pair_mm` too (only where that lever is armed).
-#: Default on; `TT_BIO_PAIR_MM_TAPED=0` takes it out for an A/B.
-PAIR_MM_TAPED = env_flag("TT_BIO_PAIR_MM_TAPED", True)
-
-
-def _pair_mm_taped(v, w, bias, cfg, dtype, memory_config):
-    if not PAIR_MM_TAPED:
-        return None
-    from tt_bio import pair_mm
-    return pair_mm.matmul(v, w, bias, cfg, dtype, memory_config=memory_config)
-
-
 def _via2d(x, fn, kw=None):
     """``fn(x)`` on ``x`` with its leading dims collapsed, when collapsing them is a view.
 
@@ -1688,29 +1676,17 @@ def linear(x: Tensor, w: Tensor, b: Optional[Tensor] = None, *, dtype=None, core
     """
     cfg = config or precise_config()
     bwcfg = backward_config or cfg
-    bias = b.value if b is not None else None
-
-    def fwd(v):
-        # A pair-track shape goes to `pair_mm` when its lever is armed (a BindCraft 2 round):
-        # the taped forward and its checkpoint recompute were the pair linears it never saw.
-        if set(kw) <= {"memory_config"}:
-            out = _pair_mm_taped(v, w.value, bias, cfg, dtype, kw.get("memory_config"))
-            if out is not None:
-                return out
-        return ttnn.linear(v, w.value, bias=bias, dtype=dtype, core_grid=core_grid,
-                           compute_kernel_config=cfg, **kw)
-
-    out_v = _via2d(x.value, fwd, kw)
+    out_v = _via2d(x.value, lambda v: ttnn.linear(v, w.value,
+                                                  bias=(b.value if b is not None else None),
+                                                  dtype=dtype, core_grid=core_grid,
+                                                  compute_kernel_config=cfg, **kw), kw)
     parents = [p for p in (x, w, b) if p is not None]
 
     def make():
         def bw(g):
             if x.requires_grad:
-                def dx(v):
-                    plain = lambda: _matmul(v, w.value, transpose_b=True,  # noqa: E731
-                                            compute_kernel_config=bwcfg)
-                    return _pair_mm_or(v, w.value, True, plain, bwcfg) if PAIR_MM_TAPED else plain()
-                x.add_grad(_via2d(g, dx))
+                x.add_grad(_via2d(g, lambda v: _matmul(v, w.value, transpose_b=True,
+                                                      compute_kernel_config=bwcfg)))
             if w.requires_grad:
                 # dW = X^T @ dY, summed over every leading dim, so flatten both first:
                 # a batched matmul would give one dW per batch instead of their sum.
