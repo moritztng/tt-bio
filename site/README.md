@@ -66,7 +66,9 @@ nobody has paid for the run. Do not fill either with an estimate.
 indexed to. The window is 4 years and the rate is the US industrial average, and they move the total
 cost of ownership chart only. The purchase-price chart is predictions per hour divided by the price
 itself, with no window: spreading the price over a window multiplies both sides of that ratio by the
-same number, so it cancels. Only a price change moves it.
+same number, so it cancels. Only a price change moves it. `cost_model.sensitivity` names the other windows and the other rate;
+the page computes the total-cost-of-ownership range under them from the cells, so that sentence
+holds no number of its own.
 
 ## Holding a row back
 
