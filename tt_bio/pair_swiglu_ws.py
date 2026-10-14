@@ -11,6 +11,9 @@ over 8 core columns, and 128 channels are 4 tiles.
 The output is bfloat16; x bfloat16 or bfloat8_b; the weights bfloat16, or bfloat8_b where bf16 weights would not fit L1 (c_z 256,
 hidden 1024: 768 weight tiles are 1.5 MB in bf16, 0.8 MB in bfp8). The norm is the caller's op, or with `ln` the
 kernel's prologue (kernels/common/ln_prologue.hpp, as trimul T1/T2), so the normalised x never reaches DRAM.
+
+`pair_relu` is the same program for AF2's Transition, ``fc2(relu(x @ w1 + b1)) + b2``: one weight matrix in front of
+the activation instead of two, and each bias seeds its matmul's dest.
 """
 
 from __future__ import annotations
@@ -28,6 +31,7 @@ XRAW_CB, GAMMA_CB, BETA_CB, SCALER_CB = 5, 8, 9, 10     # the LayerNorm prologue
 LN_F32_CBS = ((11, 1), (12, 1), (13, 1), (14, 1), (17, None), (18, None))   # eps, mean, var, rstd, xc, tmp (None: kt)
 ACC_CB = 19               # fp32, _SW tiles: a matmul's K chunks summed by the packer (`l1acc`)
 RES_CB = 20               # bf16, 2 row tiles of the residual fc3 adds into (`resid`)
+B1_CB, B3_CB = 21, 22     # bf16, `pair_relu`'s biases as row-replicated tiles
 _TILE = 32 * 32 * 2
 _SW = 4                   # hidden tiles per dest pass (one fp32 dest half)
 # Bytes of a core's L1 the program may take: weights plus its streaming CBs. A Wormhole core has 1464 KiB,
@@ -103,7 +107,7 @@ def _l1_bytes(kt, nh, ct, wdtype, xdtype=ttnn.bfloat16) -> int:
             + (2 * _SW + 2 * nh + 2 * ct) * _TILE)
 
 
-def _build(x, w12, w3, out, device, mt, kt, nh, ct, fidelity, defines, silu_poly, ln):
+def _build(x, w12, w3, out, device, mt, kt, nh, ct, fidelity, defines, silu_poly, ln, bias=None):
     g = device.compute_with_storage_grid_size()
     num_cores, grid, cg1, cg2, work1, work2 = core_split.split_work_to_cores(g, mt, 0)
 
@@ -112,8 +116,12 @@ def _build(x, w12, w3, out, device, mt, kt, nh, ct, fidelity, defines, silu_poly
         fmt = ttnn.CBFormatDescriptor(buffer_index=idx, data_format=dtype, page_size=size)
         return ttnn.CBDescriptor(total_size=tiles * size, core_ranges=grid, format_descriptors=[fmt])
 
-    cbs = [cb(X_CB, 2 * kt, x.dtype), cb(W12_CB, kt * 2 * nh, w12.dtype), cb(W3_CB, nh * ct, w3.dtype), cb(GATE_CB, 2 * _SW),
-           cb(HID_CB, 2 * nh), cb(OUT_CB, 2 * ct)]
+    cbs = [cb(X_CB, 2 * kt, x.dtype), cb(W3_CB, nh * ct, w3.dtype), cb(HID_CB, 2 * nh), cb(OUT_CB, 2 * ct)]
+    if bias is None:
+        cbs += [cb(W12_CB, kt * 2 * nh, w12.dtype), cb(GATE_CB, 2 * _SW)]
+    else:
+        cbs += [cb(W12_CB, kt * nh, w12.dtype), cb(B1_CB, nh), cb(B3_CB, ct)]
+        defines = tuple(defines) + (("WS_RELU", "1"),)
     if ("WS_L1ACC", "1") in defines:
         cbs.append(cb(ACC_CB, _SW, ttnn.float32))
     if ("WS_RESID", "1") in defines:
@@ -138,13 +146,14 @@ def _build(x, w12, w3, out, device, mt, kt, nh, ct, fidelity, defines, silu_poly
                     first += per
     assert first == mt, (first, mt)
     rct = [kt, nh, ct, scaler, eps_bits]
-    for t in (x, w12, w3) + (() if ln is None else ln[:2]) + ((out,) if ("WS_RESID", "1") in defines else ()):
+    for t in ((x, w12, w3) + (() if ln is None else ln[:2]) + ((out,) if ("WS_RESID", "1") in defines else ())
+              + (() if bias is None else bias)):
         rct.extend(ttnn.TensorAccessorArgs(t).get_compile_time_args())
     wct = [ct] + list(ttnn.TensorAccessorArgs(out).get_compile_time_args())
     src = lambda n: str(KERNEL_DIR / n)  # noqa: E731
     path = ttnn.KernelDescriptor.SourceType.FILE_PATH
     reader = ttnn.KernelDescriptor(kernel_source=src("reader.cpp"), source_type=path, core_ranges=grid,
-                                   compile_time_args=rct, runtime_args=rd, common_runtime_args=[0] * 6,
+                                   compile_time_args=rct, runtime_args=rd, common_runtime_args=[0] * 8,
                                    defines=list(defines), config=ttnn.ReaderConfigDescriptor())
     writer = ttnn.KernelDescriptor(kernel_source=src("writer.cpp"), source_type=path, core_ranges=grid,
                                    compile_time_args=wct, runtime_args=wr, common_runtime_args=[0],
@@ -181,6 +190,43 @@ def pair_swiglu(x, w12, w3, fidelity=ttnn.MathFidelity.HiFi4, defines=(), silu_p
     if ln is not None and ln[1] is None:
         ln = (ln[0], ln[0], ln[2])   # the reader loads a beta either way; the RMS prologue never reads it
         defines = tuple(defines) + (("WS_RMS", "1"),)
+    return _run(x, w12, w3, fidelity, defines, silu_poly, ln, resid)
+
+
+def pair_relu(x, w1, b1, w2, b2, fidelity=ttnn.MathFidelity.HiFi4, ln=None):
+    """AF2's Transition after its norm, `relu(x @ w1 + b1) @ w2 + b2`, for a bf16 TILE `x` [..., C]; a new bf16 DRAM
+    tensor [..., C_out]. Weights as `relu_weights` returns them. `ln` = (gamma, beta, eps) runs the LayerNorm in the
+    kernel first, as `pair_swiglu`. Same fp32 dest accumulation, the bias summed into it before the products."""
+    return _run(x, w1, w2, fidelity, (), SILU_POLY, ln, None, (b1, b2))
+
+
+def relu_weights(w1: torch.Tensor, b1: torch.Tensor, w2: torch.Tensor, b2: torch.Tensor, device):
+    """(w1, b1, w2, b2) for `pair_relu` from torch [in, out] matrices and [out] biases: bf16 TILE tensors, each bias
+    repeated over the 32 rows of its tiles (dest is seeded with whole tiles)."""
+    up = lambda t: ttnn.from_torch(t.contiguous(), dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT,  # noqa: E731
+                                   device=device)
+    return up(w1), up(b1.reshape(1, -1).expand(32, -1)), up(w2), up(b2.reshape(1, -1).expand(32, -1))
+
+
+def relu_eligible(x, w1, w2, ln=()) -> bool:
+    """What `pair_relu` serves: bf16 TILE interleaved x and weights, hidden a multiple of 4 tiles, output width at most
+    4 tiles or a multiple of 4, and everything resident inside `_L1_BUDGET`."""
+    if x.dtype != ttnn.bfloat16 or w1.dtype != ttnn.bfloat16 or w2.dtype != ttnn.bfloat16:
+        return False
+    for t in (x, w1, w2):
+        if t.layout != ttnn.TILE_LAYOUT or t.memory_config().memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED:
+            return False
+    kt, nh, ct = int(x.padded_shape[-1]) // 32, int(w2.shape[0]) // 32, int(w2.shape[-1]) // 32
+    if not (kt == int(w1.shape[0]) // 32 and int(w1.shape[1]) == 32 * nh and nh % _SW == 0
+            and (ct <= 4 or ct % 4 == 0)):
+        return False
+    if ln and not all(_ln_vec_ok(v, 32 * kt) for v in ln):
+        return False
+    return ((kt * nh + nh * ct + nh + ct + 2 * kt + 2 * nh + 2 * ct) * _TILE + (ln_bytes(kt) if ln else 0)
+            <= _L1_BUDGET)
+
+
+def _run(x, w12, w3, fidelity, defines, silu_poly, ln, resid, bias=None):
     device = x.device()
     xs = [int(d) for d in x.padded_shape]
     mt = 1
@@ -192,13 +238,15 @@ def pair_swiglu(x, w12, w3, fidelity=ttnn.MathFidelity.HiFi4, defines=(), silu_p
         ttnn.Shape([int(d) for d in x.shape][:-1] + [int(w3.shape[-1])]), ttnn.bfloat16, ttnn.TILE_LAYOUT, device,
         ttnn.DRAM_MEMORY_CONFIG)
     key = (device.id(), tuple(xs), nh, ct, x.memory_config().buffer_type, fidelity, w12.dtype, x.dtype,
-           tuple(defines), silu_poly, None if ln is None else float(ln[2]))
+           tuple(defines), silu_poly, None if ln is None else float(ln[2]), bias is not None)
     if key not in _CACHE:
-        _CACHE[key] = _build(x, w12, w3, out, device, mt, kt, nh, ct, fidelity, defines, silu_poly, ln)
+        _CACHE[key] = _build(x, w12, w3, out, device, mt, kt, nh, ct, fidelity, defines, silu_poly, ln, bias)
     kernels, cbs = _CACHE[key]
     g, b = (0, 0) if ln is None else (ln[0].buffer_address(), ln[1].buffer_address())
+    b1, b3 = (0, 0) if bias is None else (bias[0].buffer_address(), bias[1].buffer_address())
     kernels[0].common_runtime_args = [x.buffer_address(), w12.buffer_address(), w3.buffer_address(), g, b,
-                                      out.buffer_address()]
+                                      out.buffer_address(), b1, b3]
     kernels[1].common_runtime_args = [out.buffer_address()]
     pd = ttnn.ProgramDescriptor(kernels=kernels, semaphores=[], cbs=cbs)
-    return ttnn.generic_op([x, w12, w3] + ([] if ln is None else list(ln[:2])) + [out], pd)
+    return ttnn.generic_op([x, w12, w3] + ([] if ln is None else list(ln[:2])) + ([] if bias is None else list(bias))
+                           + [out], pd)

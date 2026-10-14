@@ -11,7 +11,10 @@
 //
 // Under WS_RESID the residual's row tile (CT pages) follows each x row tile into c_20.
 //
-// Common runtime args: x, w12, w3, gamma, beta, residual addresses. Per-core runtime args: first row tile, row tile count.
+// Under WS_RELU c_1 holds w1 alone ([KT, NH] tiles) and the row-replicated biases are read once into c_21 (b1, NH
+// tiles) and c_22 (b3, CT tiles).
+//
+// Common runtime args: x, w12, w3, gamma, beta, residual, b1, b3 addresses. Per-core runtime args: first row tile, row tile count.
 #include "api/dataflow/dataflow_api.h"
 #ifdef WS_LN
 #include "ttnn/kernel/dataflow/generate_reduce_scaler.hpp"
@@ -56,15 +59,30 @@ void kernel_main() {
     constexpr uint32_t cb_res = 20;
     const uint32_t tr = get_tile_size(cb_res);
 #endif
+#ifdef WS_RELU
+    // the bias accessors follow the last tensor the reader already takes (WS_RELU is never combined with WS_RESID)
+#ifdef WS_LN
+    constexpr uint32_t TAIL = b_args.next_compile_time_args_offset();
+#else
+    constexpr uint32_t TAIL = w3_args.next_compile_time_args_offset();
+#endif
+    constexpr uint32_t W12 = NH, cb_b1 = 21, cb_b3 = 22;
+    constexpr auto b1_args = TensorAccessorArgs<TAIL>();
+    constexpr auto b3_args = TensorAccessorArgs<b1_args.next_compile_time_args_offset()>();
+    const auto sb1 = TensorAccessor(b1_args, get_common_arg_val<uint32_t>(6));
+    const auto sb3 = TensorAccessor(b3_args, get_common_arg_val<uint32_t>(7));
+#else
+    constexpr uint32_t W12 = 2 * NH;
+#endif
     if (count == 0) {
         return;
     }
 
-    // Weights in page order: w12 is [KT, 2*NH] tiles, w3 is [NH, CT].
+    // Weights in page order: w12 is [KT, W12] tiles, w3 is [NH, CT].
     const uint32_t t12 = get_tile_size(cb_w12), t3 = get_tile_size(cb_w3), tx = get_tile_size(cb_x);
-    cb_reserve_back(cb_w12, KT * 2 * NH);
+    cb_reserve_back(cb_w12, KT * W12);
     uint32_t w = get_write_ptr(cb_w12);
-    for (uint32_t p = 0; p < KT * 2 * NH; ++p, w += t12) {
+    for (uint32_t p = 0; p < KT * W12; ++p, w += t12) {
         noc_async_read_page(p, s12, w);
     }
     cb_reserve_back(cb_w3, NH * CT);
@@ -86,12 +104,25 @@ void kernel_main() {
     w = get_write_ptr(cb_beta);
     for (uint32_t p = 0; p < KT; ++p, w += tx) noc_async_read_page(p, sb, w);
 #endif
+#ifdef WS_RELU
+    const uint32_t tb = get_tile_size(cb_b1);
+    cb_reserve_back(cb_b1, NH);
+    w = get_write_ptr(cb_b1);
+    for (uint32_t p = 0; p < NH; ++p, w += tb) noc_async_read_page(p, sb1, w);
+    cb_reserve_back(cb_b3, CT);
+    w = get_write_ptr(cb_b3);
+    for (uint32_t p = 0; p < CT; ++p, w += tb) noc_async_read_page(p, sb3, w);
+#endif
     noc_async_read_barrier();
+#ifdef WS_RELU
+    cb_push_back(cb_b1, NH);
+    cb_push_back(cb_b3, CT);
+#endif
 #ifdef WS_LN
     cb_push_back(cb_gamma, KT);
     cb_push_back(cb_beta, KT);
 #endif
-    cb_push_back(cb_w12, KT * 2 * NH);
+    cb_push_back(cb_w12, KT * W12);
     cb_push_back(cb_w3, NH * CT);
 
     for (uint32_t r = first; r < first + count; ++r) {
