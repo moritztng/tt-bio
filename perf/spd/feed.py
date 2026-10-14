@@ -32,7 +32,7 @@ so the cell comes back by itself once the row changes its grid entry.
 Galaxies: jobs go to ~/spd/pool/queue/ and pool.sh starts them. qb1/qb2 have no pool: feed starts each job detached as
 a waiter on its card's CHIPS.md flock; the job itself gets a private LOCK so run_chip.sh does not wait on its own card.
 A waiter is bound to the card it was placed on, so a BH job still waiting after STEAL_S moves to a card that is free
-now (flock free, no waiter, no release leg) on another BH box its cell allows.
+now (flock free, no waiter, no release leg) on any BH box its cell allows, its own box included.
 """
 import argparse
 import hashlib
@@ -52,7 +52,7 @@ D = Path("/home/moritz/.coworker")
 TIERS = {"red": 0, "amber": 1, "fast": 2, "fill": 3}
 FAST_S = 60
 MAX_FAILS = 3
-STEAL_S = 900   # a BH job still waiting this long moves to a free card on another BH box its cell allows
+STEAL_S = 900   # a BH job still waiting this long moves to a free card (any BH box its cell allows, same box too)
 # BH boxes: SPD cards and their flocks (state/spd/CHIPS.md). Never qb2 chip 2 (faulty); chip 1 back after the 10-13 power cycle.
 BH_POOLS = {
     "qb1": {"ssh": "qb1", "cards": [0, 1, 2, 3], "lock": "/home/ttuser/spd_qb1_card{c}.lock"},
@@ -339,11 +339,13 @@ def wake(root, row, why, log):
 
 
 def steal(cs, ledger, st, P, stamp, dry, log):
-    """Move BH jobs that waited STEAL_S on a busy card to a free card on another BH box, oldest first, one per card."""
+    """Move BH jobs that waited STEAL_S on a busy card to a free card, oldest first, one per card. The free card may be
+    on the job's own box: 10-14 two OF3 deadline A/Bs sat 2.5 h behind qb1's gapboard column and a release leg while
+    qb1 cards 0 and 3 went free and took jobs placed after them."""
     by = {c["name"]: c for c in cs}
     for b in [n for n in st if P[n]["kind"] == "bh"]:
         for card in list(st[b].get("free", [])):
-            cand = [(j["age"], n, name) for n in st if n != b and P[n]["kind"] == "bh"
+            cand = [(j["age"], n, name) for n in st if P[n]["kind"] == "bh"
                     for name, j in st[n]["jobs"].items()
                     if j["state"] == "queued" and j.get("age", 0) >= STEAL_S and name in by
                     and (not by[name]["hosts"] or b in by[name]["hosts"])
