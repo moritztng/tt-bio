@@ -1000,8 +1000,15 @@ def _install_resident_trunk_loop(model):
         if on_dev:
             # What no loop redraws, uploaded once: the MSA pair (or z_init), LN and b_mat.
             base = msa_fixed if msa_fixed is not None else z_init
-            if isinstance(base, _DevPair):
-                base = ttnn.pad(base.t, [(0, 0), (0, pad), (0, pad), (0, 0)], value=0.0) if pad else base.t
+            if isinstance(base, _DevPair) and pad:
+                # Nothing reads the unpadded pair past this point (the caller drops z_init after the loop), and
+                # keeping it beside the padded copy is a second [L,L,c] for the whole trunk: on a 12 GiB Wormhole
+                # chip that OOMed ESMFold2-Fast --fast at ~800 tokens.
+                src = base.t
+                base = ttnn.pad(src, [(0, 0), (0, pad), (0, pad), (0, 0)], value=0.0)
+                ttnn.deallocate(src)
+            elif isinstance(base, _DevPair):
+                base = base.t
             else:
                 base = up(padz(base).float())
             norm = self.parcae_input_norm
