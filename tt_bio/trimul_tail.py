@@ -837,6 +837,17 @@ def gin_ragged(x, wpT, wgT, bias, ckc, grid, S, mask=None, memory_config=None):
 T2 = False
 T2_STATS = [0, 0]       # served, declined
 T2_KEYS = {(4, 4), (8, 8)}   # (kt, nt): c_z 128 and 256 (ESMFold2)
+# c_z 384 (OpenDDE) under the `trimul_t2w` lever, at T2's own block: `_MM_BLOCK`'s (8, 12, 1, 2, 1) does not
+# fit L1 and declines. (2, 12, 1, 2, 1) keeps the single K block, so the contraction order is the projection's.
+# WH chip, perf/spd_trimul/tail_t2.py --c 384 vs float64 (10-13): N 512 13.63 -> 6.19 ms, rel_rms 0.0028
+# (four ops it replaces 0.0025), max_abs 2.94 (3.30); every N 32-512 finite, no hang.
+T2_WIDE_KEYS = {(12, 12)}
+T2_BLOCK = {(12, 12): (2, 12, 1, 2, 1)}
+
+
+def _t2_block(kt, nt):
+    from . import tenstorrent as TT
+    return T2_BLOCK.get((kt, nt)) or TT._MM_BLOCK.get((kt, nt))
 
 
 # T2m: T2 reading x where the einsum left it, channel-major, instead of after reblock_permute_back
@@ -884,7 +895,11 @@ def t2_eligible(x, ln_w, ln_b, wp, g, resid, wg=None):
     if not (T2 or lever("trimul_t2" if wg is None else "trimul_t2g")):
         return "off"
     for t in (x, wp, g, resid) + ((wg,) if wg is not None else ()):
-        if t is None or t.dtype != ttnn.bfloat16 or t.layout != ttnn.TILE_LAYOUT:
+        if t is None or t.layout != ttnn.TILE_LAYOUT:
+            return "dtype"
+        # A plain-form g_out may be bfp8 (trimul_b8in writes it so): CB 5 takes g's format and
+        # compute unpacks it into DEST like the bf16 tile, so b8in and T2 stack.
+        if t.dtype != ttnn.bfloat16 and not (t is g and wg is None and t.dtype == ttnn.bfloat8_b):
             return "dtype"
         if t.memory_config() != ttnn.DRAM_MEMORY_CONFIG:
             return "memcfg"
@@ -899,7 +914,9 @@ def _t2_shape_why(xs, xps, ln_w, ln_b, wp, g, resid, wg=None):
         return "weight_shape"
     K, N = int(wp.shape[-2]), int(wp.shape[-1])
     kt, nt = _tiles(K), _tiles(N)
-    if (kt, nt) not in T2_KEYS or K % TILE or N % TILE:
+    from .tenstorrent import lever
+    if ((kt, nt) not in T2_KEYS and not ((kt, nt) in T2_WIDE_KEYS and lever("trimul_t2w"))
+            or K % TILE or N % TILE):
         return f"key={kt}x{nt}"
     if xs[-1] != K or xps[-1] != K:
         return "act_k"
@@ -915,7 +932,7 @@ def _t2_shape_why(xs, xps, ln_w, ln_b, wp, g, resid, wg=None):
             or tuple(resid.padded_shape) != tuple(xps[:-1]) + (N,)):
         return "padded_shape"
     from . import tenstorrent as TT    # late: `tenstorrent` imports this module at its own import
-    block = TT._MM_BLOCK.get((kt, nt))
+    block = _t2_block(kt, nt)
     if block is None:
         return "block"
     mt = 1
@@ -1028,7 +1045,8 @@ def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, wg=None, moved
     cbs = [_cb(0, core_grid, kt if moved is not None else 2 * Mb * kt),
            _cb(1, core_grid, (1 + gate) * kt * nt),
            _cb(2, core_grid, 2 * blk), _cb(3, core_grid, Mb * kt), _cb(4, core_grid, blk),
-           _cb(5, core_grid, (2 - gate) * blk), _cb(7, core_grid, 2 * blk),
+           _cb_fmt(5, core_grid, (2 - gate) * blk, g.dtype if moved is None else ttnn.bfloat16),
+           _cb(7, core_grid, 2 * blk),
            _cb(8, core_grid, kt), _cb(9, core_grid, kt), _cb(10, core_grid, 1),
            _cb_fmt(11, core_grid, 1, f32), _cb_fmt(12, core_grid, 1, f32),
            _cb_fmt(13, core_grid, 1, f32), _cb_fmt(14, core_grid, 1, f32),
@@ -1098,10 +1116,10 @@ def fused_tail_ln(x, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5, wg=None, mov
         return None
     from . import tenstorrent as TT
     kt, nt = _tiles(wp.shape[-2]), _tiles(wp.shape[-1])
-    block = TT._MM_BLOCK[(kt, nt)]
+    block = _t2_block(kt, nt)
     P = None
     if moved is not None:
-        why = t2m_eligible(moved[0], x, moved[1])
+        why = t2m_eligible(moved[0], x, moved[1]) or ("g_dtype" if g.dtype != ttnn.bfloat16 else None)
         P = None if why else t2m_parts(kt, nt, block[0], wg is not None, moved[1] // TILE)
         if P is None:
             T2M_STATS[1] += 1
@@ -1116,7 +1134,7 @@ def fused_tail_ln(x, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5, wg=None, mov
         REJECTS[k] = REJECTS.get(k, 0) + 1
         return None
     spec = lambda t: (str(t.padded_shape), str(t.dtype), str(t.memory_config()))
-    key = ("t2", spec(x), spec(wp), spec(ln_w), spec(ln_b), wg is not None, tuple(grid),
+    key = ("t2", spec(x), spec(wp), str(g.dtype), spec(ln_w), spec(ln_b), wg is not None, tuple(grid),
            tuple(str(c) for c in ckc), float(eps), SIGPOLY, RNE,
            None if moved is None else (spec(moved[0]), moved[1], P))
     entry = _CACHE.get(key)
@@ -1192,7 +1210,7 @@ def t2cm_eligible(xcm, ln_w, ln_b, wp, g, resid, ckc=None):
 def _t2cm_parts(wp, min_parts=1):
     from . import tenstorrent as TT
     kt, nt = _tiles(wp.shape[-2]), _tiles(wp.shape[-1])
-    return t2m_parts(kt, nt, TT._MM_BLOCK[(kt, nt)][0], False, 0, min_parts)
+    return t2m_parts(kt, nt, _t2_block(kt, nt)[0], False, 0, min_parts)
 
 
 def balance_split(units, ncores):
@@ -1228,7 +1246,7 @@ def fused_tail_ln_cm(xcm, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5):
     entry = _CACHE.get(key)
     if entry is None:
         # x is only read for the channels before c_off, so with c_off 0 xcm stands in for it.
-        entry = _CACHE[key] = _build_t2(xcm, ln_w, ln_b, wp, g, resid, grid, ckc, TT._MM_BLOCK[(kt, nt)],
+        entry = _CACHE[key] = _build_t2(xcm, ln_w, ln_b, wp, g, resid, grid, ckc, _t2_block(kt, nt),
                                         eps, moved=(xcm, 0, P))
     reader, writer, _ = entry["kernels"]
     a = xcm.buffer_address()

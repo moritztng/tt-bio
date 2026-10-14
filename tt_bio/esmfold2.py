@@ -765,32 +765,50 @@ class SWAWindow:
         bias = win.clamp(min=-1e4) * head_dim ** 0.5
         self.bias = upload(bias.unsqueeze(0).expand(heads, nb, nq, W).reshape(1, heads * nb, nq, W).contiguous())
         self.zero = ttnn.zeros((1, heads, self.lead, head_dim), dtype=_DTYPE, layout=ttnn.TILE_LAYOUT, device=device)
+        self._batched = {}  # B -> (bias, zero) for B diffusion samples folded into the heads
+
+    def _frame(self, B):
+        """Bias and zero rows for a batch of B samples run as B * H heads: query block (b H + h) nb + i
+        reads frame head b H + h, which is the row-major [B, H] -> [B H] reshape of q, k and v."""
+        if B == 1:
+            return self.bias, self.zero
+        if B not in self._batched:
+            H, lead, dh = self.zero.shape[1], self.zero.shape[2], self.zero.shape[3]
+            self._batched[B] = (ttnn.repeat(self.bias, [1, B, 1, 1]),
+                                ttnn.zeros((1, B * H, lead, dh), dtype=_DTYPE, layout=ttnn.TILE_LAYOUT,
+                                           device=self.zero.device()))
+        return self._batched[B]
 
     def attend(self, q, k, v, scale):
-        """q, k, v [1, H, N, dh] -> ctx [1, H, N, dh]."""
+        """q, k, v [B, H, N, dh] -> ctx [B, H, N, dh]."""
         import tt_bio.tenstorrent as _T
         from tt_bio import sdpa_generic as SG
-        H, dh, nb, nq, N = q.shape[1], q.shape[3], self.nb, self.NQ, self.n
-        NP = nb * nq
+        B, dh, nb, nq, N = q.shape[0], q.shape[3], self.nb, self.NQ, self.n
+        H, NP = B * q.shape[1], nb * nq
+        bias, zero = self._frame(B)
         if NP != N:
             q, k, v = (ttnn.pad(t, [(0, 0), (0, 0), (0, NP - N), (0, 0)], 0.0) for t in (q, k, v))
-        kf = ttnn.concat([self.zero, k, self.zero], dim=2)
-        vf = ttnn.concat([self.zero, v, self.zero], dim=2)
+        if B > 1:  # tile-aligned rows, so a view
+            q, k, v = (ttnn.reshape(t, (1, H, NP, dh)) for t in (q, k, v))
+        kf = ttnn.concat([zero, k, zero], dim=2)
+        vf = ttnn.concat([zero, v, zero], dim=2)
         qb = ttnn.reshape(q, (1, H * nb, nq, dh))
         o = ttnn.allocate_tensor_on_device(ttnn.Shape([1, H * nb, nq, dh]), q.dtype, ttnn.TILE_LAYOUT,
                                            q.device(), ttnn.DRAM_MEMORY_CONFIG)
         # the wheel SDPA's default compute config, which the dense band path runs at
-        SG.sdpa(q.device(), qb, kf, vf, self.bias, o, nq, self.W, tuple(_T.COMPUTE_GRID_MAIN),
+        SG.sdpa(q.device(), qb, kf, vf, bias, o, nq, self.W, tuple(_T.COMPUTE_GRID_MAIN),
                 (ttnn.MathFidelity.HiFi2, True, False, False), scale, kv_window=(nb, self.W))
         ttnn.deallocate(kf); ttnn.deallocate(vf)
         if NP != N:
             for t in (q, k, v):
                 ttnn.deallocate(t)
-        o = ttnn.reshape(o, (1, H, NP, dh))
-        return ttnn.slice(o, [0, 0, 0, 0], [1, H, N, dh]) if NP != N else o
+        o = ttnn.reshape(o, (B, H // B, NP, dh))
+        return ttnn.slice(o, [0, 0, 0, 0], [B, H // B, N, dh]) if NP != N else o
 
     def deallocate(self):
-        ttnn.deallocate(self.bias); ttnn.deallocate(self.zero)
+        for t in (self.bias, self.zero, *(t for f in self._batched.values() for t in f)):
+            ttnn.deallocate(t)
+        self._batched = {}
 
 
 def swa_band(n_or_mask, half_window, upload, device, heads=4, head_dim=32):
@@ -1797,6 +1815,8 @@ class StructureHead(TorchWrapper):
         finally:
             self._release_trace()
             if dmm._ctx is not self._base:
+                # the replicas, not what they share with the base (the SWAWindow is batched in place)
+                dmm._ctx = {k: v for k, v in dmm._ctx.items() if v is not self._base.get(k)}
                 dmm.release_cache()
                 dmm._ctx = self._base
 

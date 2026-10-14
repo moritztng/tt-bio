@@ -9,7 +9,9 @@
 // Under WS_LN the raw x streams into c_5 instead and the LayerNorm's gamma / beta (Kt tiles each, row 0 carries
 // the [K] vector), the 1/K reduce scaler and an fp32 eps tile are read once into c_8 / c_9 / c_10 / c_11.
 //
-// Common runtime args: x, w12, w3, gamma, beta addresses. Per-core runtime args: first row tile, row tile count.
+// Under WS_RESID the residual's row tile (CT pages) follows each x row tile into c_20.
+//
+// Common runtime args: x, w12, w3, gamma, beta, residual addresses. Per-core runtime args: first row tile, row tile count.
 #include "api/dataflow/dataflow_api.h"
 #ifdef WS_LN
 #include "ttnn/kernel/dataflow/generate_reduce_scaler.hpp"
@@ -43,6 +45,16 @@ void kernel_main() {
     constexpr auto b_args = TensorAccessorArgs<g_args.next_compile_time_args_offset()>();
     const auto sg = TensorAccessor(g_args, get_common_arg_val<uint32_t>(3));
     const auto sb = TensorAccessor(b_args, get_common_arg_val<uint32_t>(4));
+#endif
+#ifdef WS_RESID
+#ifdef WS_LN
+    constexpr auto r_args = TensorAccessorArgs<b_args.next_compile_time_args_offset()>();
+#else
+    constexpr auto r_args = TensorAccessorArgs<w3_args.next_compile_time_args_offset()>();
+#endif
+    const auto sr = TensorAccessor(r_args, get_common_arg_val<uint32_t>(5));
+    constexpr uint32_t cb_res = 20;
+    const uint32_t tr = get_tile_size(cb_res);
 #endif
     if (count == 0) {
         return;
@@ -90,7 +102,17 @@ void kernel_main() {
             noc_async_read_page(r * KT + k, sx, w);
         }
 #endif
+#ifdef WS_RESID
+        cb_reserve_back(cb_res, CT);
+        uint32_t wr = get_write_ptr(cb_res);
+        for (uint32_t c = 0; c < CT; ++c, wr += tr) {
+            noc_async_read_page(r * CT + c, sr, wr);
+        }
+#endif
         noc_async_read_barrier();
         cb_push_back(cb_x, KT);
+#ifdef WS_RESID
+        cb_push_back(cb_res, CT);
+#endif
     }
 }
