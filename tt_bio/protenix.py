@@ -1573,9 +1573,7 @@ class DiffusionModule(_KeyedWeights):
         _ = run()                                            # warmup / compile
         _ = run()                                            # 2nd warmup: populate any lazy caches
         ttnn.synchronize_device(self.dev)
-        tid = ttnn.begin_trace_capture(self.dev, cq_id=0)
-        out = run()                                          # record
-        ttnn.end_trace_capture(self.dev, tid, cq_id=0)
+        tid, out = _T.capture_trace(self.dev, run)
         self._trace = {"N": N, "M": M, "tid": tid, "in_fou": fou_dev, "in_r": r_dev, "out": out,
                        "cond": self._cond_token(cond)}
         return self._trace

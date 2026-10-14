@@ -7715,6 +7715,28 @@ def _close_device_locked(dev):
         _release_ownership_fn()()
 
 
+def capture_trace(dev, run):
+    """Record ``run()`` into a trace and return ``(tid, run's result)``.
+
+    If ``run`` throws, the capture is closed and released before the exception propagates.
+    A capture left open makes every later upload throw, and ``close_device`` then spins in
+    ``synchronize_device`` while holding the host-wide device-init lock, which stalls every
+    other chip on the host (qb2 2026-10-14: one TT_FATAL mid-capture held chips 1 and 3 for
+    30 min until the process was killed).
+    """
+    tid = ttnn.begin_trace_capture(dev, cq_id=0)
+    try:
+        out = run()
+    except BaseException:
+        try:
+            ttnn.end_trace_capture(dev, tid, cq_id=0)
+        finally:
+            ttnn.release_trace(dev, tid)
+        raise
+    ttnn.end_trace_capture(dev, tid, cq_id=0)
+    return tid, out
+
+
 # How long the bring-up probe may take before it is called a wedge. A healthy open plus
 # dispatch on a qb1 p150a is 1.6 s, so this is a ~75x margin and needs no tuning.
 _DISPATCH_PROBE_TIMEOUT_S = 120.0
@@ -17032,9 +17054,8 @@ class DiffusionModule(TorchWrapper):
         _ = self._run_diffusion_device(in_r, in_times, large_seq_len)   # warmup / compile
         _ = self._run_diffusion_device(in_r, in_times, large_seq_len)   # 2nd warmup: populate lazy _s_conditioned/_c_reshaped + per-layer s_o
         ttnn.synchronize_device(self.tt_device)
-        tid = ttnn.begin_trace_capture(self.tt_device, cq_id=0)
-        out = self._run_diffusion_device(in_r, in_times, large_seq_len)  # record
-        ttnn.end_trace_capture(self.tt_device, tid, cq_id=0)
+        tid, out = capture_trace(self.tt_device,
+                                 lambda: self._run_diffusion_device(in_r, in_times, large_seq_len))
         self._diff_trace = {"tid": tid, "in_r": in_r, "in_times": in_times,
                             "out": out, "B": B, "N_padded": N_padded}
         return self._diff_trace

@@ -33,6 +33,7 @@ from tt_bio.tenstorrent import (
     TriangleMultiplication,
     Weights,
     WeightScope,
+    capture_trace,
     _accurate_softmax,
     _sdpa_program_config_for_lengths,
     accurate_softmax_site,
@@ -1985,15 +1986,7 @@ class StructureHead(TorchWrapper):
         dev = self.tt_device
         n_t, r_t = self._from_torch(n_raw), self._from_torch(r_input)
         ttnn.synchronize_device(dev)
-        tid = ttnn.begin_trace_capture(dev, cq_id=0)
-        try:
-            out = self.module.step(n_t, r_t)
-        except BaseException:
-            # Close the capture, or the device stays in it and every later upload throws.
-            ttnn.end_trace_capture(dev, tid, cq_id=0)
-            ttnn.release_trace(dev, tid)
-            raise
-        ttnn.end_trace_capture(dev, tid, cq_id=0)
+        tid, out = capture_trace(dev, lambda: self.module.step(n_t, r_t))
         self._trace = {"tid": tid, "n": n_t, "r": r_t, "out": out, "key": key}
         return self._trace
 
