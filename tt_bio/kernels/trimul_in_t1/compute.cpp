@@ -34,12 +34,6 @@
 #ifndef ABL
 #define ABL 0
 #endif
-// MASKFIX (bench knob trimul_tail.T1_MASKFIX while the masked WH fault is open): 1 multiplies the mask
-// into g through c_15 and then p * (g m) as a plain binary op, no dest reuse; 2 keeps the dest reuse and
-// re-initialises the plain binary path after each unit's last masked tile.
-#ifndef MASKFIX
-#define MASKFIX 0
-#endif
 
 constexpr uint32_t Kt = get_compile_time_arg_val(0);
 constexpr uint32_t QN = get_compile_time_arg_val(1);        // [a | b] channel tiles of this launch
@@ -61,7 +55,10 @@ constexpr uint32_t out_cb = tt::CBIndex::c_2;    // a / b tiles to the writer
 constexpr uint32_t p_cb = tt::CBIndex::c_4;
 constexpr uint32_t g_cb = tt::CBIndex::c_5;
 constexpr uint32_t m_cb = tt::CBIndex::c_6;
-constexpr uint32_t gm_cb = tt::CBIndex::c_15;    // MASKFIX 1: g * m of one 4-tile block
+// g * m of one 4-tile block. The mask goes into g through its own CB and p * (g m) is a plain binary op:
+// reusing DEST for p * (g m) left every unit but each core's last wrong on Wormhole at c_z 256 and 384,
+// the unit's tail racing the next unit's layer_norm.
+constexpr uint32_t gm_cb = tt::CBIndex::c_15;
 constexpr uint32_t cb_x = tt::CBIndex::c_7;      // raw z rows, Kt per row tile
 constexpr uint32_t cb_gamma = tt::CBIndex::c_8;
 constexpr uint32_t cb_beta = tt::CBIndex::c_9;
@@ -174,7 +171,7 @@ void kernel_main() {
             pack_reconfig_data_format(out_cb);
             for (uint32_t t0 = 0; t0 < IL && !(ABL & 8); t0 += 4) {
                 const bool masked = MASK && Q0 + q < CT2 / 2;
-                if (MASKFIX == 1 && masked) {
+                if (masked) {
                     cb_reserve_back(gm_cb, 4);
                     tile_regs_acquire();
                     mul_bcast_rows_init_short(g_cb, m_cb);
@@ -189,17 +186,9 @@ void kernel_main() {
                     pack_reconfig_data_format(out_cb);
                 }
                 tile_regs_acquire();
-                if (MASKFIX == 1 && masked) {
+                if (masked) {
                     mul_tiles_init(p_cb, gm_cb);
                     for (uint32_t i = 0; i < 4; ++i) mul_tiles(p_cb, gm_cb, t0 + i, i, i);
-                } else if (masked) {
-                    mul_bcast_rows_init_short(g_cb, m_cb);
-                    for (uint32_t i = 0; i < 4; ++i) mul_tiles_bcast_rows(g_cb, m_cb, t0 + i, t0 + i, i);
-                    binary_dest_reuse_tiles_init<EltwiseBinaryType::ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCB>(
-                        p_cb);
-                    for (uint32_t i = 0; i < 4; ++i)
-                        binary_dest_reuse_tiles<EltwiseBinaryType::ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCB>(
-                            p_cb, t0 + i, i);
                 } else {
                     mul_tiles_init(p_cb, g_cb);
                     for (uint32_t i = 0; i < 4; ++i) mul_tiles(p_cb, g_cb, t0 + i, t0 + i, i);
@@ -211,7 +200,7 @@ void kernel_main() {
                 tile_regs_wait();
                 for (uint32_t i = 0; i < 4; ++i) pack_tile(i, out_cb);
                 tile_regs_release();
-                if (MASKFIX == 1 && masked) cb_pop_front(gm_cb, 4);
+                if (masked) cb_pop_front(gm_cb, 4);
             }
             cb_push_back(out_cb, IL);
             cb_pop_front(p_cb, IL);
@@ -219,6 +208,5 @@ void kernel_main() {
         }
         cb_pop_front(xn_cb, IL * Kt);
         if constexpr (MASK) cb_pop_front(m_cb, IL);
-        if constexpr (MASK && MASKFIX == 2) mul_tiles_init(p_cb, g_cb);
     }
 }

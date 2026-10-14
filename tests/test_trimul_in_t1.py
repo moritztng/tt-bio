@@ -52,8 +52,7 @@ def test_cb_budget_fits_l1_c384(mask):
     assert TTL.t1_cb_bytes(12, 24, 12, mask) <= 0.85 * L1_ALLOCATOR_BANK
 
 
-def test_cb_plan_covers_every_cb_the_kernels_use(monkeypatch):
-    monkeypatch.setattr(TTL, "T1_MASKFIX", 1)       # c_15 exists only under that bench knob
+def test_cb_plan_covers_every_cb_the_kernels_use():
     used = set()
     for f in ("reader.cpp", "compute.cpp", "writer.cpp"):
         used |= {int(i) for i in re.findall(r"CBIndex::c_(\d+)", (KDIR / f).read_text())}
@@ -62,7 +61,7 @@ def test_cb_plan_covers_every_cb_the_kernels_use(monkeypatch):
     assert len(planned) == len(set(planned)), "a CB index is planned twice"
     assert used == set(planned)
     bf0, _ = TTL.t1_cb_plan(KT, CT2, NTG, False)
-    assert {3, 6}.isdisjoint(i for i, _ in bf0)
+    assert {3, 6, 15}.isdisjoint(i for i, _ in bf0)
 
 
 def test_kernel_page_expressions_match_the_python_mirror():
