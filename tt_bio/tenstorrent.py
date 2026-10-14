@@ -569,6 +569,13 @@ _FAST_MODE = False
 #                   the exponentiated scores and row statistics bf16 (`_sdpa32`). Inert in bf16.
 #   trimul_gin      the trimul in-projection, both gates, the pair mask and both channel moves in one
 #                   weights-resident kernel (`_TRIMUL_GATED_INPROJ`, `trimul_tail.gin_moved`)
+#   trimul_gin_hifi2 trimul_gin's kernel at HiFi2 whatever the trunk's fidelity. ESMFold2's call at 512 on p150a
+#                   (1350 MHz): normal set 9.37 -> 8.71 ms, rel_rms vs float64 0.0088 -> 0.0106; fast set 8.62 -> 8.33
+#                   ms, 0.0088 -> 0.0107 (HiFi3 in the normal set: 9.02 ms at the same error as HiFi4)
+#   trimul_gin_b8   trimul_gin, and the einsum's deferred transpose, also under the bfp8 `_FAST_MODE` (how Wormhole
+#                   ESMFold2 folds). gin writes a and b in bf16, so the deferral's bfp8 re-quantisation does not arise
+#                   where gin serves. ESMFold2's call on Wormhole (1000 MHz, fast set): 512 32.3 -> 18.5 ms, 1024
+#                   132.7 -> 68.6 ms; rel_rms of the update vs float64 0.0211 -> 0.0089 at 512
 #   trunk_hifi3     the trunk's matmuls at HiFi3 instead of HiFi4 (`trunk_compute_kernel_config`).
 #                   Also a correctness fix on Wormhole: HiFi4 with fp32 accumulation returns wrong
 #                   values on some row blocks there (perf/spd_overhead/wh_hifi4_dot.py).
@@ -627,6 +634,12 @@ _FAST_MODE = False
 #                   the calls the F1 tail would serve with the residual folded in, and there it is bit-exact
 #   trimul_t2w      with trimul_t2, T2 also takes c_z 384 (OpenDDE) at its own (2, 12, 1, 2, 1) block (trimul_tail.T2_BLOCK)
 #   narrow_bw16     the narrow-output pair projections (`_narrow_proj_linear`) at in0_block_w 16, not `_NARROW_PROJ_BW`
+#   trimul_t1b8     T1 (c_z 128) writes a and b as bfp8, as trimul_b8in does at c_z 256: the einsum reads half
+#                   the bytes (Boltz-2 WH fast census: T1 1.0 s + einsum 0.86 s per fold, both DRAM-bound)
+#   trimul_t1_c256  with trimul_t1, T1 also takes c_z = hidden = 256 (Protenix, ESMFold2) as two channel-group launches
+#                   of 16-row units (trimul_tail.T1_PLANS)
+#   trimul_t1_c384  with trimul_t1, T1 also takes c_z = hidden = 384 (OpenDDE) as three channel-group launches
+#                   of 8-row units
 #   trimul_t2m      T2 (either form) reads the einsum's last channel chunk where it lies, channel-major, so
 #                   reblock_permute_back never writes the moved x (kernels/trimul_tail_res/reader_moved.cpp)
 #   trimul_t1_dram  every trimul T1 / T2 can take (N >= 160) runs on the DRAM path, so they also serve the sizes
@@ -664,6 +677,12 @@ _FAST_MODE = False
 #   opm_jd          the OPM contracts against b in (j d) row order, so z's tile (i, j) is pair (i, j)'s [c, d]
 #                   block and one data-movement kernel (opm_relayout) lays it out for the projection in place of
 #                   the 4-op chain. Moves bytes only: bit-exact. C = D = 32 and J a whole number of tiles.
+#   dit_hifi2       a bf16 token DiT's linears (OpenFold3's `--fast` stack) at HiFi2 instead of the model's
+#                   fidelity, fp32 accumulation kept. On a Galaxy chip they are math-bound at HiFi4 (768 x 3072:
+#                   107 us, ~23 TF/s at 1000 MHz) and take 2.5 s of the 512-token fold.
+#   dit_qsplit      `_sdpa32` / `_sdpa32_fused` (the token DiT's attention) take the q chunk that puts the fewest
+#                   rows on the busiest core: 128 at 512 tokens and one sample, 64 busy cores where 256 left 32.
+#                   The k chunk stays, so each row's arithmetic is unchanged: expected bit-exact (fold A/B digest).
 #   pib_where       OpenDDE's pair-init bias by the old 16-op where-chain instead of one gather from the joint
 #                   (128, c_z) table: the A/B arm for a change that must keep the fold digest (no mode sets it).
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
@@ -673,9 +692,11 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "swiglu_fc12g", "msa_sample", "dit_sdpa_pm", "dit_s16", "dit_chunk", "conf_bins", "trimul_t1", "trimul_t2",
           "trimul_t2g", "triatt_tail_bias", "dit_cond_hifi2", "transition_ws", "ws_ln", "trimul_t1_dram",
           "trimul_t2m", "trimul_t2cm", "dit_fuse", "pair_mm", "ref_memo", "edm_device", "ws_l1acc", "ws_resid", "pib_where",
-          "trimul_t2w", "narrow_bw16", "ws_l1dest", "opm_jd")
+          "trimul_t2w", "narrow_bw16", "ws_l1dest", "opm_jd", "trimul_gin_hifi2", "trimul_gin_b8",
+          "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine", "ef2_opm_kq", "ef2_relpos_lookup",
+          "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit", "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
-# (esmfold2_runtime.LEVERS_FAST) names trimul_b8in, graded on ESMFold2's fold. AF2 names
+# (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
 # model's matching op. BoltzGen's own --fast set names dit_cond_hifi2, graded on BoltzGen's designs.
 # OpenFold3's own --fast set names dit_fuse, edm_device and ws_l1dest, graded on OpenFold3 / OpenBind-0
@@ -684,7 +705,10 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
 # (vendored query.REF_MOL_MEMO), read by worker._predict_openfold3_one off the model's lever set.
 UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "dit_cond_hifi2", "ws_ln", "dit_fuse",
                              "pair_mm", "ref_memo", "trimul_t2m", "edm_device", "ws_l1acc", "pib_where", "trimul_t2w",
-                             "narrow_bw16", "ws_l1dest", "opm_jd"})
+                             "narrow_bw16", "ws_l1dest", "trimul_gin_hifi2", "trimul_gin_b8",
+                             "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine", "ef2_opm_kq",
+                             "ef2_relpos_lookup", "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit",
+                             "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -720,6 +744,8 @@ UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "di
 # each (spd-fastmode wrs, 2026-10-13), PASS: same-seed top pose median against the A/A floor Protenix-v2 0.59 / 1.24 A,
 # OpenDDE 0.38 / 1.54, Boltz-2 1.05 / 1.92; docking 35 -> 34, 26 -> 24 (bar 5), 24 -> 24 of 44. Warm 512-token fast
 # fold, paired: Galaxy chip (1000 MHz) OpenDDE -3.8 s, Protenix-v2 -0.9 s; p150a (1350 MHz) -1.6 / -0.5 s.
+# Protenix-v1 (shared set) graded the same way, PASS (spd-fastmode wr1): top pose 0.744 A vs a 2.366 A floor, CA-lDDT
+# +0.0020 [-0.0004, +0.0051], docking 24 -> 24 of 44.
 FAST_LEVERS = (frozenset(LEVERS) - {"lofi", "triatt_b8", "triatt_bias_b8", "trimul_t1_dram", "trimul_t2g"}
                - UNGRADED_LEVERS)
 # trimul_ibw + trimul_tail: Wormhole 11-set grade PASS, 44 paired folds, same-seed top pose median
@@ -804,8 +830,13 @@ FAST_LEVERS = (frozenset(LEVERS) - {"lofi", "triatt_b8", "triatt_bias_b8", "trim
 # (spd-gap-of3 g14, 2026-10-12). OpenBind-0, same grade: PASS under both bars, top pose median 0.000 A (max
 # 0.682 A, A/A floor 1.209 A), CA-lDDT and pLDDT 0.0000, ipTM -0.0016 [-0.0033, -0.0000] inside CONF_TOL, docking
 # 26 -> 26 of 44.
+# opm_jd moves bytes, not arithmetic, so it is in both modes on its digest: CIFs identical on and off on a
+# Galaxy chip (1000 MHz, 512-token --fast, 3 pairs) for Boltz-2, Protenix-v2 and OpenDDE, and on both archs for
+# OpenFold3 / OpenBind-0. Warm fold on the Galaxy chip: Protenix-v2 60.92 -> 60.08 s, OpenDDE 106.62 -> 105.80 s,
+# Boltz-2 flat; the OPM relayout itself 11.7 -> 3.2 ms a call on p150a.
 NORMAL_LEVERS = frozenset({"trimul_ibw", "trimul_tail", "trunk_hifi3", "dit_sdpa32", "silu_f32", "triatt_tail",
-                           "atom_k1", "dit_mm16", "dit_qkv16", "msa_sample", "dit_sdpa", "dit_chunk", "conf_bins"})
+                           "atom_k1", "dit_mm16", "dit_qkv16", "msa_sample", "dit_sdpa", "dit_chunk", "conf_bins",
+                           "opm_jd"})
 _LEVERS = frozenset()
 # silu_f32 is a kernel, so it needs ttnn's headers patched before the first device open (metal_overlay)
 # in any process that may run it. The patch only changes silu under math_approx_mode, and every fused
@@ -818,12 +849,6 @@ if "silu_f32" in NORMAL_LEVERS | FAST_LEVERS or "silu_f32" in os.environ.get("TT
 
 def lever(name: str) -> bool:
     return name in _LEVERS
-
-
-def mode_levers():
-    """The lever set a model built now takes: its mode's (`FAST_LEVERS` under `--fast`, else
-    `NORMAL_LEVERS`), or TT_BIO_LEVERS when a harness grades a set through the serving path."""
-    return os.environ.get("TT_BIO_LEVERS") or (FAST_LEVERS if _FAST_MODE else NORMAL_LEVERS)
 
 
 _SILU_CKCS = {}
@@ -2841,6 +2866,34 @@ def sdpa32_mask(b: ttnn.Tensor) -> ttnn.Tensor:
     return ttnn.clone(m) if m.buffer_address() == b.buffer_address() else m
 
 
+def _sdpa32_chunks(dev, B: int, heads: int, n: int):
+    """(q chunk, k chunk, grid) for `_sdpa32` / `_sdpa32_fused`: 256 where it divides the token axis, else 128.
+
+    On Wormhole the PV product accumulates k_chunk / 32 tiles in the fp32 dest, which writes an
+    occasional wrong value (tt_bio/dest_guard.py); one key tile per chunk keeps it out of dest.
+    Measured at (5, 16, 768, 64): 1.92 -> 2.50 ms a call, errors of 1.2-1.7 gone (perf/spd_wherr/sdpa_probe.py).
+
+    sdpa_generic.plan spreads (batch, head, q chunk) over the grid, so at one sample and 16 heads
+    a 512-token call is 32 units of 256 rows: 32 busy cores of 72 on Wormhole, of 110 on Blackhole.
+    Under dit_qsplit the q chunk is the one with the fewest rows on the busiest core (ties keep the
+    larger). The k chunk does not move, so every row's softmax reads its keys in the same order:
+    work moves between cores, not arithmetic.
+    """
+    g = dev.compute_with_storage_grid_size()
+    big = 256 if n % 256 == 0 else 128
+    k_chunk = 32 if dev.arch() == ttnn.Arch.WORMHOLE_B0 else big
+    cores = g.x * g.y
+
+    def rows(chunk):
+        bp = min(B, cores)
+        hp = min(cores // bp, heads)
+        qc = n // chunk
+        qp = min(cores // (bp * hp), qc)
+        return -(-B // bp) * -(-heads // hp) * -(-qc // qp) * chunk
+    q_chunk = 128 if big == 256 and lever("dit_qsplit") and rows(128) < rows(256) else big
+    return q_chunk, k_chunk, (g.x, g.y)
+
+
 def _sdpa32(q, k, v, mask, scale: float) -> ttnn.Tensor:
     """softmax((q @ k^T + mask) * scale) @ v with fp32 operands and output, as ONE program.
 
@@ -2854,16 +2907,11 @@ def _sdpa32(q, k, v, mask, scale: float) -> ttnn.Tensor:
     n = int(q.shape[2])
     assert n % 128 == 0 and int(mask.shape[-1]) == n == int(k.shape[2]), \
         ("_sdpa32 wants the token axis padded by sdpa32_rows", q.shape, k.shape, mask.shape)
-    chunk = 256 if n % 256 == 0 else 128
     dev = q.device()
-    # On Wormhole the PV product accumulates k_chunk / 32 tiles in the fp32 dest, which writes an
-    # occasional wrong value (tt_bio/dest_guard.py); one key tile per chunk keeps it out of dest.
-    # Measured at (5, 16, 768, 64): 1.92 -> 2.50 ms a call, errors of 1.2-1.7 gone (perf/spd_wherr/sdpa_probe.py).
-    k_chunk = 32 if dev.arch() == ttnn.Arch.WORMHOLE_B0 else chunk
-    g = dev.compute_with_storage_grid_size()
+    chunk, k_chunk, grid = _sdpa32_chunks(dev, int(q.shape[0]), int(q.shape[1]), n)
     out = ttnn.allocate_tensor_on_device(ttnn.Shape([int(q.shape[i]) for i in range(3)] + [int(v.shape[3])]), ttnn.float32,
                                          ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG)
-    SG.sdpa(dev, q, k, v, mask, out, chunk, k_chunk, (g.x, g.y), _SDPA32_CKC, scale)
+    SG.sdpa(dev, q, k, v, mask, out, chunk, k_chunk, grid, _SDPA32_CKC, scale)
     return out
 
 
@@ -2874,14 +2922,12 @@ def _sdpa32_fused(qkv, mask, scale: float, heads: int, out_dtype=ttnn.float32) -
     from . import sdpa_generic as SG
     S, _, n, w = (int(d) for d in qkv.shape)
     assert n % 128 == 0 and int(mask.shape[-1]) == n, ("_sdpa32 wants the token axis padded by sdpa32_rows", qkv.shape, mask.shape)
-    chunk = 256 if n % 256 == 0 else 128
     dev = qkv.device()
-    k_chunk = 32 if dev.arch() == ttnn.Arch.WORMHOLE_B0 else chunk
-    g = dev.compute_with_storage_grid_size()
+    chunk, k_chunk, grid = _sdpa32_chunks(dev, S, heads, n)
     # `out_dtype` bf16 (dit_fuse): the packer writes the result bf16, no typecast program after it.
     out = ttnn.allocate_tensor_on_device(ttnn.Shape([S, 1, n, w // 3]), out_dtype,
                                          ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG)
-    SG.sdpa(dev, qkv, qkv, qkv, mask, out, chunk, k_chunk, (g.x, g.y), _SDPA32_CKC, scale,
+    SG.sdpa(dev, qkv, qkv, qkv, mask, out, chunk, k_chunk, grid, _SDPA32_CKC, scale,
             qkv_fused=heads)
     return out
 
@@ -6341,7 +6387,7 @@ def _mm_transpose_deferred(program_config) -> bool:
     1.0868x on the 512 aa DRAM leg, so it stays a real lever -- just not a layout-only one, and it
     is not taken here on that basis.
     """
-    return _TRIMUL_MM_TRANSPOSE and not _FAST_MODE and isinstance(
+    return _TRIMUL_MM_TRANSPOSE and (not _FAST_MODE or lever("trimul_gin_b8")) and isinstance(
         program_config, (ttnn.MatmulMultiCoreReuseMultiCastProgramConfig,
                          ttnn.MatmulMultiCoreReuseProgramConfig))
 
@@ -7826,6 +7872,27 @@ def _tile_numel(shape):
     return prod(lead) * -(-h // 32) * 32 * -(-w // 32) * 32
 
 
+def pair_lookup_device(codes, table, device):
+    """``table[codes]`` as a [1, N, N, w] bf16 TILE tensor on ``device``: a pair tensor whose rows come from a
+    small table (relative positions, bond kinds) built with one embedding, so the upload is an [N*N] index
+    and a [U, w] table instead of the N*N*w pair."""
+    n, w = codes.shape[-1], table.shape[-1]
+    idx = ttnn.from_torch(codes.reshape(1, n * n).to(torch.int32), dtype=ttnn.uint32,
+                          layout=ttnn.ROW_MAJOR_LAYOUT, device=device)
+    tab = ttnn.from_torch(torch.nn.functional.pad(table.float(), (0, -w % 32)), dtype=ttnn.bfloat16,
+                          layout=ttnn.ROW_MAJOR_LAYOUT, device=device)
+    out = ttnn.embedding(idx, tab, layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16)  # [1, N*N, w padded to 32]
+    ttnn.deallocate(idx); ttnn.deallocate(tab)
+    out4 = ttnn.reshape(out, (1, n, n, out.shape[-1]))
+    if out4.shape[-1] == w:
+        return out4
+    res = ttnn.slice(out4, (0, 0, 0, 0), (1, n, n, w))
+    ttnn.deallocate(out4)
+    if out4 is not out:
+        ttnn.deallocate(out)
+    return res
+
+
 def upload(t, dtype=ttnn.bfloat16, device=None):
     """`ttnn.from_torch(t, TILE_LAYOUT, device, dtype)`, tilized on the chip when that pays."""
     device = device or get_device()
@@ -9294,7 +9361,7 @@ class TriangleMultiplication(Module):
         the mask past the move, no biases, no tape. Every decline is counted in T1_STATS[1].
         """
         TT1 = _trimul_tail
-        if not (TT1.T1 or lever("trimul_t1")) or H < TT1.MIN_N:
+        if not TT1.t1_any() or H < TT1.MIN_N:
             return None
         mask_ok = mask is None or (_TRIMUL_MASK_AFTER_MOVE and len(mask.shape) == 3)
         why = next((k for k, bad in (
@@ -9331,7 +9398,7 @@ class TriangleMultiplication(Module):
         outs = TT1.fused_in_ln(
             x, self.in_norm_weight, self.in_norm_bias, *self._t1_w, self.g_out_weight,
             _mm_generic.ckc_args(self.compute_kernel_config), tuple(COMPUTE_GRID_MAIN),
-            mask=mask if fold else None)
+            mask=mask if fold else None, b8=lever("trimul_t1b8") and (mask is None or fold))
         return None if outs is None else (outs[0], outs[1], outs[2], fold)
 
     def _gout_eligible(self, x_norm_in, H, n_pairs, group, memory_config, row_norm) -> bool:
@@ -9928,7 +9995,7 @@ class TriangleMultiplication(Module):
                             and bias_i is None
                             and not row_norm and x_norm_in is not None
                             and self.g_in_weight is None and not ops.taping()
-                            and not _FAST_MODE and not _TRIMUL_RAW_CHANNEL_MOVES
+                            and (not _FAST_MODE or lever("trimul_gin_b8")) and not _TRIMUL_RAW_CHANNEL_MOVES
                             and (self.gated_move or _TRIMUL_MASK_AFTER_MOVE)
                             and (mask is None or mask_moved_ok)
                             and memory_config.buffer_type == ttnn.BufferType.DRAM):
@@ -9937,6 +10004,8 @@ class TriangleMultiplication(Module):
                         # two tensors. Only the plain channel moves are left.
                         wa, wb = self._gp_in_gated(chunk_size, group)[i]
                         ckc = _mm_generic.ckc_args(self.compute_kernel_config)
+                        if lever("trimul_gin_hifi2"):
+                            ckc = (ttnn.MathFidelity.HiFi2,) + ckc[1:]
                         if _trimul_tail.GIN_MOVE and defer:
                             # The channel moves fused in as well (both chunks leave as (0,3,1,2)
                             # moves once the matmul takes the inner swap).

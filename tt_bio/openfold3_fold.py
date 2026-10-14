@@ -15,7 +15,7 @@ from .openfold3_confidence import OF3ConfidenceHead
 from .openfold3_trunk import OF3Trunk
 from .openfold3_sample_diffusion import OF3SampleDiffusion
 from .protenix import DEFAULT_MAX_PARALLEL_SAMPLES, ConfidenceHead
-from .openfold3_host_prep import relpos_codes_device
+from .tenstorrent import pair_lookup_device
 from .openfold3_weights import _sub
 from .envflags import env_flag
 
@@ -27,7 +27,10 @@ from .envflags import env_flag
 # (0.712) and bought nothing.
 # transition_bw and transition_shard stay out: OpenFold3 c730 gains nothing with them (113.2 -> 112.9 s, Wormhole
 # 1000 MHz) and its normal 11-set grade fails DockQ (-0.0168 [-0.0474, -0.0006], 44 paired folds, spd-trans2).
-NORMAL_LEVERS = _T.NORMAL_LEVERS - {"transition_bw", "transition_shard"}
+# dit_qsplit moves work between cores, not arithmetic: CIFs identical with and without it on both models, Wormhole
+# and Blackhole (512-token --fast fold A/B, xmodel_ab); -0.22 s (OpenFold3) / -0.24 s (OpenBind-0) on a Galaxy chip
+# at 1000 MHz, flat on p150a. opm_jd comes with the shared normal set.
+NORMAL_LEVERS = _T.NORMAL_LEVERS - {"transition_bw", "transition_shard"} | {"dit_qsplit"}
 # trimul_t1 + trimul_t2 (the triangle multiplication's input and output as one kernel each) join --fast on the
 # Blackhole 11-set fast grade against today's --fast, 44 paired folds per model:
 # OpenFold3 top pose median 0.352 A (seed floor 1.328 A), CA-lDDT -0.0002 [-0.0012, +0.0008], docking 19 -> 19/44,
@@ -473,7 +476,7 @@ class OpenFold3(Module):
         s_input_d = ft(s_input.unsqueeze(0))
         if isinstance(relpos, tuple):
             # derive_relpos_codes: the device expands the one-hots, the host keeps them only to pad.
-            relpos_dev = relpos_codes_device(*relpos, self.device)
+            relpos_dev = pair_lookup_device(*relpos, self.device)
             relpos = relpos[1][relpos[0].long()] if tok_pad else None
         else:
             relpos_dev = ft(relpos.unsqueeze(0))

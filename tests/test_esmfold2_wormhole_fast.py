@@ -34,7 +34,18 @@ def test_load_runs_fast_on_wormhole(monkeypatch, wormhole, fast, want):
     monkeypatch.setattr(rt, "patch_esmfold2", lambda model, **k: built.update(k) or model)
     monkeypatch.setattr(tenstorrent, "_FAST_MODE", False)
     rt.load_ttnn_esmfold2(fast=fast)
-    # The model is built fast. Only Wormhole does it through the older `_FAST_MODE`; Blackhole builds
-    # --fast under LEVERS_FAST with `_FAST_MODE` off (esmfold2_runtime.fold_scope).
+    # The model is built fast, on both archs under LEVERS_FAST with the older `_FAST_MODE` off
+    # (esmfold2_runtime.fold_scope).
     assert built["fast"] is want
-    assert tenstorrent._FAST_MODE is (want and wormhole)
+    assert tenstorrent._FAST_MODE is False
+
+
+@pytest.mark.parametrize("wormhole", [True, False])
+def test_normal_set_takes_hifi2_only_where_graded(monkeypatch, wormhole):
+    # trimul_gin_hifi2 passed ESMFold2's normal bar on Blackhole; Wormhole was never graded on it.
+    from tt_bio import esmfold2_runtime as rt
+    monkeypatch.delenv("TT_BIO_LEVERS", raising=False)
+    monkeypatch.setattr(rt, "is_wormhole", lambda: wormhole)
+    assert ("trimul_gin_hifi2" in rt.fold_levers(False).split("+")) is not wormhole
+    # ws_resid passed ESMFold2's fast bar on Blackhole only, so Wormhole's fast set drops it.
+    assert ("ws_resid" in rt.fold_levers(True).split("+")) is not wormhole

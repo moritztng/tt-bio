@@ -63,6 +63,9 @@ def main() -> int:
     for r in range(a.rounds):
         for on in (False, True):
             setattr(alt_mod, attr, (a.on_value if a.on_value is not None else True) if on else type(getattr(alt_mod, attr))(0))
+            # a captured trace replays the program of the arm it was captured under: drop it so this arm recaptures
+            model._release_traces()
+            model._trace_seen.clear()
             for _ in range(2):
                 embed7()
             ts = []

@@ -821,6 +821,25 @@ class ESMFold2Model(PreTrainedModel):
 
         return z
 
+    def _pair_init(
+        self, x_inputs, residue_index, asym_id, sym_id, entity_id, token_index, token_bonds
+    ):
+        """(z_init, relative_position_encoding, token_bonds_encoding); tt_bio's runtime builds them on
+        the device instead."""
+        relative_position_encoding = self.rel_pos(
+            residue_index=residue_index,
+            asym_id=asym_id,
+            sym_id=sym_id,
+            entity_id=entity_id,
+            token_index=token_index,
+        )
+        token_bonds_encoding = self.token_bonds(token_bonds.float())
+        z_init = self.z_init_1(x_inputs).unsqueeze(2) + self.z_init_2(
+            x_inputs
+        ).unsqueeze(1)
+        z_init = z_init + relative_position_encoding + token_bonds_encoding
+        return z_init, relative_position_encoding, token_bonds_encoding
+
     @torch.inference_mode()
     def forward(
         self,
@@ -917,19 +936,9 @@ class ESMFold2Model(PreTrainedModel):
                 atom_to_token=atom_to_token,
             )
 
-            z_init = self.z_init_1(x_inputs).unsqueeze(2) + self.z_init_2(
-                x_inputs
-            ).unsqueeze(1)
-
-            relative_position_encoding = self.rel_pos(
-                residue_index=residue_index,
-                asym_id=asym_id,
-                sym_id=sym_id,
-                entity_id=entity_id,
-                token_index=token_index,
+            z_init, relative_position_encoding, token_bonds_encoding = self._pair_init(
+                x_inputs, residue_index, asym_id, sym_id, entity_id, token_index, token_bonds
             )
-            token_bonds_encoding = self.token_bonds(token_bonds.float())
-            z_init = z_init + relative_position_encoding + token_bonds_encoding
 
             if (
                 lm_hidden_states is None
@@ -1043,7 +1052,9 @@ class ESMFold2Model(PreTrainedModel):
             mol_type=mol_type,
             num_diffusion_samples=n_samples,
             relative_position_encoding=relative_position_encoding.detach(),
-            token_bonds_encoding=token_bonds_encoding.detach(),
+            token_bonds_encoding=None
+            if token_bonds_encoding is None
+            else token_bonds_encoding.detach(),
         )
         output.update(confidence_output)
         output["atom_pad_mask"] = (

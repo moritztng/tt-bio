@@ -24,7 +24,7 @@ def test_a_model_names_its_own_sets_and_the_harness_switch_still_wins(monkeypatc
     monkeypatch.setattr(T, "_FAST_MODE", False)
     monkeypatch.delenv("TT_BIO_LEVERS")
     assert T.model_levers(of3.NORMAL_LEVERS, of3.FAST_LEVERS) == of3.NORMAL_LEVERS
-    assert of3.NORMAL_LEVERS == T.NORMAL_LEVERS - {"transition_bw", "transition_shard"}
+    assert of3.NORMAL_LEVERS == T.NORMAL_LEVERS - {"transition_bw", "transition_shard"} | {"opm_jd", "dit_qsplit"}
 
 
 def test_parse_expands_modes_and_rejects_unknown_names():
@@ -78,11 +78,12 @@ def test_dit_lowp_formats_follow_the_dit_dtype_and_the_levers():
     assert T.dit_lowp(ttnn.float32, ckc) is None
 
 
-@pytest.mark.parametrize("fast,want", [(False, T.NORMAL_LEVERS), (True, T.FAST_LEVERS)])
-def test_checkpoint_entry_takes_the_modes_set(monkeypatch, tmp_path, fast, want):
+@pytest.mark.parametrize("fast", [False, True])
+def test_checkpoint_entry_takes_the_modes_set(monkeypatch, tmp_path, fast):
     import torch
     import tt_bio.protenix as P
 
+    want = T.FAST_LEVERS if fast else P.NORMAL_LEVERS
     seen = {}
 
     def fake_init(self, sd, ckc, dev, **kw):
@@ -185,6 +186,14 @@ def test_boltzgen_mode_sets_name_only_known_levers():
 
     assert B.LEVERS_NORMAL <= set(T.LEVERS) and not B.LEVERS_NORMAL & T.UNGRADED_LEVERS
     assert B.LEVERS_FAST <= set(T.LEVERS) | T.UNGRADED_LEVERS
+
+
+def test_protenix_family_normal_set():
+    from tt_bio.opendde import NORMAL_LEVERS as DDE
+    from tt_bio.protenix import NORMAL_LEVERS
+
+    assert DDE is NORMAL_LEVERS and NORMAL_LEVERS <= set(T.LEVERS)
+    assert NORMAL_LEVERS - T.NORMAL_LEVERS == {"transition_ws", "ws_l1acc", "trimul_t1_c256", "trimul_t1_c384"}
 
 
 def test_opendde_fast_set_names_only_known_levers():

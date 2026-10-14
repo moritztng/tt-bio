@@ -226,6 +226,8 @@ PHASES: dict[str, list[tuple[str, str, str]]] = {
         ("mod", "tt_bio.worker:_write_atom_array_structure", "host"),          # :1409
     ],
 }
+# OpenBind-0 is OpenFold3's model code under other weights: same _predict_openfold3_one, same phases.
+PHASES["openbind"] = PHASES["openfold3"]
 
 
 class Instrument:

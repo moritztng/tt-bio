@@ -18,6 +18,24 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   a Wormhole chip at 1000 MHz. Boltz-2, OpenDDE and Protenix-v2 pass the fast accuracy bar on both architectures; a
   512-token Protenix-v2 fast fold on a Wormhole chip saves 2.8 s. OpenFold3 and ESMFold2 keep their
   previous fast path until their own grades read.
+
+## [0.16.1] - 2026-10-14
+
+Fixes wrong ESMC-300M/600M embeddings, again. Upgrade if you embed with ESMC.
+
+### Fixed
+- **ESMC embeddings could be wrong after the model had traced two sequence lengths.** 0.16.0 was cut from a
+  tree that predates the 0.15.2 fix and shipped the defect again. ESMC-300M and ESMC-600M capture a device
+  trace the second time they see a padded sequence length and replay it after that. With more than one trace
+  alive, replaying one could overwrite the buffers of another, and the next replay of that length returned
+  wrong embeddings without an error. It needs a process that embeds sequences of at least two padded
+  lengths, each at least twice: a `tt-bio embed` batch with repeated lengths, or a long-running
+  `tt-bio serve` worker. The model now keeps one trace at a time. Affected: 0.6.1 through 0.15.1 and 0.16.0;
+  0.15.2 is not. ESMC-6B, SaProt and the ESMFold2 language model are not traced this way.
+
+## [0.16.0] - 2026-10-13
+
+### Changed
 - **BoltzGen's normal mode runs the shared normal lever set** (HiFi3 trunk matmuls, fused triangle
   multiplication and attention tails, fused diffusion attention). A 512-aa design on a Wormhole chip at
   1000 MHz takes 58.0 s instead of 61.2 s. Graded on 64 designs over 8 seeds against the exact path: filter

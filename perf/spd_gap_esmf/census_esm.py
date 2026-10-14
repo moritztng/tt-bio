@@ -17,7 +17,7 @@ from pathlib import Path
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--out", required=True, type=Path)
-ap.add_argument("--model", default="esmfold2", choices=("esmfold2", "esmfold2-fast", "openfold3", "openbind"))
+ap.add_argument("--model", default="esmfold2", choices=("esmfold2", "esmfold2-fast", "openfold3", "openbind", "boltz2", "protenix-v2", "opendde"))
 ap.add_argument("--fast", action="store_true")
 ap.add_argument("--size", type=int, default=512)
 ap.add_argument("--recycles", type=int, default=None)
@@ -37,11 +37,12 @@ import torch, ttnn
 import ttnn.decorators as D
 import tt_bio.tenstorrent as T
 ESM = a.model.startswith("esmfold2")
+OF3 = a.model in ("openfold3", "openbind")
 if ESM:
     import tt_bio.esmfold2 as E
     import tt_bio.esmfold2_runtime as R
     import tt_bio.esmc as C
-else:
+elif OF3:
     import tt_bio.openfold3_trunk as OT, tt_bio.openfold3_diffusion_transformer as ODT
     import tt_bio.openfold3_atom_transformer as OAT, tt_bio.openfold3_diffusion_decoder as ODD
     import tt_bio.openfold3_confidence as OC, tt_bio.openfold3_msa_embedder as OM, tt_bio.openfold3_template as OTP
@@ -108,7 +109,7 @@ if ESM:
         if stage == "trunk": CUR["cyc"] = step
         return _rep(stage, step, total)
     E.report_progress = _report
-else:
+elif OF3:
     # OpenFold3 / OpenBind-0: the shared pairformer ops from tenstorrent.py plus OF3's own module classes.
     for cls, meth, key in [
             (OT.OF3Trunk, "__call__", "trunk"), (T.PairformerLayer, "__call__", "pf_layer"),
@@ -118,6 +119,18 @@ else:
             (OM.MSAModule, "__call__", "msa"), (OTP.TemplateEmbedder, "__call__", "template"),
             (ODT._DiTBlock, "__call__", "dit"), (OAT.OF3AtomTransformer, "__call__", "atom_tx"),
             (ODD.OF3AtomAttentionDecoder, "__call__", "atom_dec"), (OC.OF3ConfidenceHead, "__call__", "confidence")]:
+        wrap_method(cls, meth, key)
+else:
+    # Boltz-2 / Protenix-v2 / OpenDDE fold on the shared stack: label its module classes only.
+    for cls, meth, key in [
+            (T.Pairformer, "__call__", "pairformer"), (T.PairformerLayer, "__call__", "pf_layer"),
+            (T.TriangleMultiplication, "__call__", "trimul"), (T.TriangleAttention, "__call__", "triatt"),
+            (T.Transition, "__call__", "transition"), (T.AttentionPairBias, "__call__", "apb"),
+            (T.OuterProductMean, "__call__", "opm"), (T.PairWeightedAveraging, "__call__", "pwa"),
+            (T.MSA, "__call__", "msa"), (T.Diffusion, "__call__", "diffusion"),
+            (T.DiffusionTransformerLayer, "__call__", "dit"), (T.AdaLN, "__call__", "adaln"),
+            (T.ConditionedTransitionBlock, "__call__", "cond_trans"),
+            (T.ConfidenceHeadsDevice, "__call__", "confidence")]:
         wrap_method(cls, meth, key)
 
 # ---------------- per-op attribution by runtime id ----------------

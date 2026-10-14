@@ -970,7 +970,7 @@ class Host:
         argv = [self.python(leg.family) if a == "PY" else fill(a) for a in self.leg(leg).argv]
         if "pool" in c and argv[1:2] and argv[1] in LOAD_GUARDED:
             argv += ["--load-ceiling", "0"]   # not in the leg's key: it changes nothing measured
-        body = (f"echo \"##LEG-START $(date +%s)\"; exec timeout -s INT {leg.budget} nice -n 10 "
+        body = (f"echo \"##LEG-START $(date +%s)\"; exec timeout -s INT -k 600 {leg.budget} nice -n 10 "
                 + " ".join(shlex.quote(a) for a in argv))
         envs = " ".join(f"{k}={shlex.quote(v)}" for k, v in env.items())
         run = f"env {envs} bash -c {shlex.quote(body)}"
