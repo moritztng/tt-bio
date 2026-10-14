@@ -38,7 +38,6 @@ from tt_bio.tenstorrent import (
     accurate_softmax_site,
     attn_value_matmul,
     fused_sdpa,
-    is_wormhole,
     lever,
     trunk_compute_kernel_config,
     trace_region_size,
@@ -88,11 +87,9 @@ ATOM_FFN_SPLIT = env_flag("TT_BIO_ESMFOLD2_ATOM_FFN_SPLIT", None)  # unset: the 
 
 def gate(flag, name):
     """A branch-stack switch: its setting when given, else whether lever `name` is active in the fold's scope.
-    The ef2_* levers pass the fast bar as a stack on both models and fail the normal bar on ESMFold2 (CA-lDDT
-    -0.0019 [-0.0050, -0.0001], 44 paired folds), so only esmfold2_runtime.LEVERS_FAST names them until a
-    per-lever normal grade says which one moves the structure. Graded on Blackhole only, so Wormhole folds without
-    them until its own fast-bar grade."""
-    return (lever(name) and not is_wormhole()) if flag is None else flag
+    esmfold2_runtime.fold_levers decides which ef2_* levers each mode and arch carries."""
+    return lever(name) if flag is None else flag
+
 
 #: Replay the diffusion step from a ttnn trace (StructureHead._step) when the device was opened
 #: with get_device(trace="esmfold2"). Lossless. Off: it lost 0.46 s/fold on p150a while the dense
