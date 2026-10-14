@@ -179,7 +179,7 @@
           "aiclk_mhz": 1350,
           "versions": "tt-bio main 148605b31, ttnn 0.68.0, qb1 p150a card 0",
           "when": "2026-10-14T15:16:46Z",
-          "parity": "A measured structural delta inside a bar fixed before the number existed. Not bit-exact: of the three levers this arm ships, the two granularity ones are bit-exact at the op (torch.equal, max |delta| exactly 0, perf/b2z_levers/addgran_512_qb2c0.json and gategran_512_qb2c0.json) and the fused bias stacks in the diffusion conditioning is the one that moves a coordinate. Scored against the same tree with all three forced off: 0.2181 A all-atom and 0.1373 A CA on the 298-residue monomeric control, inside the 0.35 A bar this lineage fixed before the number existed, with an A/A structural floor of exactly 0 over six reps of each arm, so the delta is the change and not the fixture. plDDT is flat, 0.845488 to 0.842856 at 512 aa and 0.917806 to 0.917809 at 298 aa. The 512 aa fixture cannot carry that bar -- it is CDK2 fused to a truncated copy of itself and its free inter-domain hinge inflates whole-molecule RMSD -- so the reading there is per pseudo-domain: 0.35 and 0.31 A with a 3.2 deg hinge, 0.334 A pooled, against a whole-molecule 0.505 A all-atom and 0.395 A CA. The preceding default generation, the fused token-DiT attention and the atom-axis bucket this cell published before, moved the same fixture 0.52 A pooled with a 1.9 deg hinge, so this step is the smaller of the two the cell has taken. The gather elision added since is bit-exact and changes none of the above: eighteen folds at this size across both its arms wrote one digest and one plDDT, and off the device the slice reproduces the selection matrix it replaces under torch.equal at every window count the fold produces (perf/b2z2_elision/test_shift_equiv.py). TT_BIO_DEVICE_CONDITIONING, shipped after the above, is the second lever on this cell that moves a coordinate: it runs the diffusion conditioning's pair track on the card in bf16 where the host did it in fp32, so the digest moves from a91aa44441f0d9c5 to 2bc758a1fb24ef30. It is scored against the experimental structure 1HCL rather than against the previous coordinates, four seeds per arm interleaved in one process, and it does not cost accuracy: native CA-lDDT rises on both pseudo-domains at 512 aa, 0.93732 to 0.94036 and 0.91573 to 0.91860 as a mean of four seeds, and is flat at 298 aa, 0.96742 against 0.96741, with native CA-RMSD moving the same way on all three. Three of the four seeds move 0.15 to 0.29 A per pseudo-domain and the fourth moves 1.26 to 1.51 A, against a seed floor of 0.97 to 1.87 A over the same pairs; that fourth seed is the worst fold either arm produced on the host path and the device arm puts it back with the rest, so it is a basin and not degradation. The A/A structural floor is bit-exact at both sizes in the same run (perf/b2z2_cond/out/score_acc_qb2c1.json). TT_BIO_TRIMUL_GP_BANK_SPLIT, shipped after the above, changes none of it: it permutes which quarter of the triangle multiplication's fused input projection holds which role, and no arithmetic, so it is bit-exact by construction and was measured that way rather than assumed. torch.equal on both triangle multiplications at 298, 320, 512 and 640 residues and both slice widths, 8 cells of 8, against a negative control that reads the new layout at the old offsets and is required to differ (perf/k10_b1_permute/b1_equiv_qb2c0.json). At the fold, one digest across all sixteen folds of both arms at this size and one across all sixteen at 298 residues (de5d77b220e32a7a at pLDDT 0.90916). OpenDDE, the sibling model that reaches the same shared code, folds the same 512-residue target to one digest in both arms with the moved path serving 2464 calls (perf/k10_b1_permute/xmodel_opendde_qb2c0.json).",
+          "parity": "2 of 4 release-gate accuracy legs inside the reference envelope on Blackhole, tt-bio 0c7025169; boltz2-9ncy-nomsa, boltz2-prot-nomsa outside it, reproducing a committed bf16 floor",
           "fast": {
             "s_per_fold": 12.294,
             "n": 4,
@@ -225,7 +225,7 @@
           "aiclk_mhz": 1350,
           "versions": "tt-bio main 148605b31, ttnn 0.68.0, qb1 p150a card 0",
           "when": "2026-10-14T15:44:26Z",
-          "parity": "bit-exact",
+          "parity": "2 of 2 release-gate accuracy legs inside the reference envelope on Blackhole, tt-bio 0c7025169",
           "fast": {
             "s_per_fold": 17.309,
             "n": 4,
@@ -272,7 +272,7 @@
           "aiclk_mhz": 1350,
           "versions": "tt-bio main 148605b31, ttnn 0.68.0, qb1 p150a card 0",
           "when": "2026-10-14T15:50:38Z",
-          "parity": "Same port as ESMFold2, which is bit-exact against its own reference. This checkpoint now has a reference-parity run of its own, on this fixture and this protocol (docs/esmfold2-e2e-parity.md, scripts/esmfold2_e2e_parity.py --checkpoint esmfold2-fast --proteins cdk2x2_512 --loops 10 --steps 100 --seeds 0,1, qb2 card 1). Structure agrees: Kabsch 0.92 A against a 1.19 A device seed-to-seed floor, distance-matrix 1-pcc 0.00080 against a 0.00108 floor, distogram_pcc 0.9942, distogram_rel_l2 0.125 against a 0.25 bound. Confidence does not: the vendored CPU fp32 torch reference reads mean plDDT 0.9197 on the same seed where the device reads 0.8987, a 0.0210 gap against a 0.0043 reference seed spread and a 0.0003 device seed spread, and ptm 0.7980 against 0.7679. That reference number reproduces the three NVIDIA folds' 0.9148-0.9155 from our own implementation with no esm release in the path, so the 0.017 this cell used to flag is the port, not a difference between esm 3.4.0 and 3.3.0. The Tenstorrent fold is bit-identical across five rounds (CIF sha256 6b4a5a4c53fbaa53) and passes the same five-check accuracy gate the NVIDIA cells were scored by. The cause is now measured rather than open, and it is the trunk's pair state, not the confidence head and not the structure. Substituting the reference trunk's own pair state into the device fold's confidence head, with the coordinates and every other input left as the device produced them, moves mean plDDT from 0.8977 to 0.9147 and ptm from 0.7560 to 0.7822: it recovers 0.017 of the 0.024 gap and lands inside the three NVIDIA folds' 0.9148-0.9171. The head itself is exact, the device and reference confidence heads agreeing to 8e-6 on identical inputs, and substituting the reference's s_inputs, its relative-position encoding, or a published NVIDIA reference structure of this target each move plDDT by 7e-4 or less. The pair state differs by 12.1 % relative L2, which is what 3.4 % per trunk pass of ordinary bf16 arithmetic accumulates to across the four passes of the parcae recurrence, and its direction matters far more than its size: a random perturbation of the same 12.1 % costs 3e-4. So there is no wrong formula to correct here. parity_pending stays: the structure this row reports is sound and the plDDT it prints is 0.021 low against this repo's own reference.",
+          "parity": "1 of 1 release-gate accuracy legs inside the reference envelope on Blackhole, tt-bio 0c7025169",
           "fast": {
             "s_per_fold": 10.464,
             "n": 4,
@@ -318,7 +318,7 @@
           "aiclk_mhz": 1350,
           "versions": "tt-bio main 148605b31, ttnn 0.68.0, qb1 p150a card 0",
           "when": "2026-10-14T15:22:59Z",
-          "parity": "byte-identical",
+          "parity": "4 of 4 release-gate accuracy legs inside the reference envelope on Blackhole, tt-bio 0c7025169",
           "fast": {
             "s_per_fold": 30.802,
             "n": 4,
@@ -364,7 +364,7 @@
           "aiclk_mhz": 1350,
           "versions": "tt-bio main 148605b31, ttnn 0.68.0, qb1 p150a card 0",
           "when": "2026-10-14T15:33:04Z",
-          "parity": "0.867 A CA RMSD on the 298-residue control, outside the 0.35 A bar this cell fixed before the measurement. One disordered loop carries the whole excess: trim the worst 5 % of atoms and the two arms agree to 0.339 A, which is what this control read before the token-bucket pad shipped on by default (see ref).",
+          "parity": "2 of 2 release-gate accuracy legs inside the reference envelope on Blackhole, tt-bio 0c7025169",
           "fast": {
             "s_per_fold": 50.99,
             "n": 4,
@@ -410,7 +410,7 @@
           "aiclk_mhz": 1350,
           "versions": "tt-bio main 148605b31, ttnn 0.68.0, qb1 p150a card 0",
           "when": "2026-10-14T15:39:48Z",
-          "parity": "bit-exact",
+          "parity": "6 of 7 release-gate accuracy legs inside the reference envelope on Blackhole, tt-bio 0c7025169; openfold3-7xi5-notmpl outside it, reproducing a committed bf16 floor",
           "fast": {
             "s_per_fold": 9.459,
             "n": 4,
@@ -457,7 +457,7 @@
           "aiclk_mhz": 1350,
           "versions": "tt-bio main 324cd5910, ttnn 0.68.0, qb1 p150a card 3",
           "when": "2026-10-14T11:37:30Z",
-          "parity": "reference-relative PASS on the fused arm, 7ROA 0.1780 A and ubiquitin 0.2208 A, bit-exact run-to-run and cross-process",
+          "parity": "1 of 1 release-gate accuracy legs inside the reference envelope on Blackhole, tt-bio 0c7025169",
           "fast": {
             "s_per_fold": 26.316,
             "n": 4,
@@ -503,7 +503,7 @@
           "aiclk_mhz": 1350,
           "versions": "tt-bio main 148605b31, ttnn 0.68.0, qb1 p150a card 0",
           "when": "2026-10-14T15:41:09Z",
-          "parity": "Release-gate floor, 3.5 A CA RMSD and 0.70 TM (scripts/release_gate.py), fixed before this number existed and measured at 1.693 A / 0.894 on 7ROA. That is the gate's floor for the model, not a per-fixture check on this target, which has no experimental structure to score against.",
+          "parity": "2 of 2 release-gate accuracy legs inside the reference envelope on Blackhole, tt-bio 0c7025169",
           "fast": {
             "s_per_fold": 9.309,
             "n": 4,
@@ -710,7 +710,7 @@
             "aiclk_mhz": 1350,
             "versions": "tt-bio main 148605b31, ttnn None, qb1 p150a card 0",
             "when": "2026-10-14T15:03:20Z",
-            "parity": "per-residue embedding PCC 0.99875 at 20 aa, 0.99953 at 56, 0.99961 at 76 and 0.99919 at 129 against the esm reference, a default leg of scripts/full_parity_gate.py. Measured at 20-129 aa, not at the 512 aa this cell was timed at.",
+            "parity": "1 of 1 release-gate accuracy legs inside the reference envelope on Blackhole, tt-bio 0c7025169",
             "fast": {
               "s_per_batch": 0.07484,
               "n": 7,
@@ -764,7 +764,7 @@
             "aiclk_mhz": 1350,
             "versions": "tt-bio main 148605b31, ttnn None, qb1 p150a card 0",
             "when": "2026-10-14T15:04:59Z",
-            "parity": "per-residue embedding PCC 0.99939 at worst over the same four targets at 20-129 aa, a default leg of scripts/full_parity_gate.py. Measured at 20-129 aa, not at the 512 aa this cell was timed at.",
+            "parity": "1 of 1 release-gate accuracy legs inside the reference envelope on Blackhole, tt-bio 0c7025169",
             "fast": {
               "s_per_batch": 0.11223,
               "n": 7,
@@ -819,7 +819,6 @@
             "aiclk_mhz": 1350,
             "versions": "tt-bio main 148605b31, ttnn None, qb1 p150a card 0",
             "when": "2026-10-14T15:06:51Z",
-            "parity": "per-residue embedding PCC 0.99904 at worst over the same four targets at 20-129 aa, an opt-in leg of scripts/full_parity_gate.py. Measured at 20-129 aa, not at the 512 aa this cell was timed at.",
             "fast": {
               "s_per_batch": 0.15804,
               "n": 7,
@@ -875,7 +874,7 @@
             "aiclk_mhz": 1350,
             "versions": "tt-bio main 148605b31, ttnn None, qb1 p150a card 0",
             "when": "2026-10-14T15:09:48Z",
-            "parity": "per-residue embedding PCC 0.999138 and masked-LM logits PCC 0.999772 against the HuggingFace EsmForMaskedLM reference at 76 aa, a default leg of scripts/full_parity_gate.py. Measured at 76 aa, not at the 512 aa this cell was timed at.",
+            "parity": "1 of 1 release-gate accuracy legs inside the reference envelope on Blackhole, tt-bio 0c7025169",
             "fast": {
               "s_per_batch": 0.03228,
               "n": 7,
@@ -929,7 +928,7 @@
             "aiclk_mhz": 1350,
             "versions": "tt-bio main 148605b31, ttnn None, qb1 p150a card 0",
             "when": "2026-10-14T15:11:10Z",
-            "parity": "per-residue embedding PCC 0.999638 and masked-LM logits PCC 0.999927 against the same reference at 76 aa, a default leg of scripts/full_parity_gate.py. Measured at 76 aa, not at the 512 aa this cell was timed at.",
+            "parity": "1 of 1 release-gate accuracy legs inside the reference envelope on Blackhole, tt-bio 0c7025169",
             "fast": {
               "s_per_batch": 0.11487,
               "n": 7,
@@ -983,7 +982,6 @@
             "aiclk_mhz": 1350,
             "versions": "tt-bio main 148605b31, ttnn None, qb1 p150a card 0",
             "when": "2026-10-14T15:13:05Z",
-            "parity": "per-residue embedding PCC 0.995076, a documented near-pass under the 0.9987 bar the other two SaProt sizes clear, with masked-LM logits at 0.998952. It is the one row here with no gate leg. Attributed to bf16 accumulation over depth: this is the 650M's width at twice the layers, 66 against 33 (docs/saprot-parity.md). Measured at 76 aa, not at the 512 aa this cell was timed at.",
             "fast": {
               "s_per_batch": 0.22476,
               "n": 7,

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Fill site/data/perf-512aa.json cells from the BMK board, the only source the page may quote.
 
-    python3 perf/bmk/board_to_page.py [--board PATH] [--write]
+    python3 perf/bmk/board_to_page.py --gate ~/gates/rel-<sha> [--board PATH] [--write]
 
 The board is state/bmk/BOARD.md, a markdown table appended to by the measuring rows:
 
@@ -14,7 +14,9 @@ the kit has no exact run for the row) and `off` (kit control, not published). Th
 for a (cell, platform, mode) wins.
 
 A cell that receives a headline run is rebuilt from the board alone: the provenance prose, notes and
-host/device split it carried described the old measurement and are dropped. Without --write this
+host/device split it carried described the old measurement and are dropped. A Tenstorrent cell's
+parity is the claim perf/bmk/gate_parity.py reads from the release gate named by --gate, or
+none at all when that gate has no leg for the row. Without --write this
 prints old against new for every cell it would change and touches nothing.
 """
 from __future__ import annotations
@@ -25,6 +27,9 @@ import re
 import sys
 from collections import OrderedDict
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import gate_parity  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[2]
 DATA = REPO / "site" / "data" / "perf-512aa.json"
@@ -78,7 +83,7 @@ def as_run(r: dict, unit: str, vendor: str) -> OrderedDict:
     return out
 
 
-def fill(doc: dict, runs: dict) -> list[str]:
+def fill(doc: dict, runs: dict, parity: dict) -> list[str]:
     vendor = {p["id"]: p["vendor"] for p in doc["platforms"]}
     changes = []
     for cat, unit in UNIT.items():
@@ -101,8 +106,8 @@ def fill(doc: dict, runs: dict) -> list[str]:
                     cell["ref"] = ref
                 if "batch" in old and "batch" not in cell:
                     raise SystemExit(f"{cat}/{m['id']}/{k}: the board command names no batch size")
-                if old.get("parity"):
-                    cell["parity"] = old["parity"]   # TT parity claim survives; re-check it by hand
+                if v == "tenstorrent" and parity.get(m["id"]):
+                    cell["parity"] = parity[m["id"]]
                 for name, r in extra.items():
                     if r:
                         cell[name] = as_run(r, unit, v)
@@ -115,10 +120,11 @@ def fill(doc: dict, runs: dict) -> list[str]:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--board", type=Path, default=BOARD)
+    ap.add_argument("--gate", type=Path, required=True, help="release gate dir, ~/gates/rel-<sha>")
     ap.add_argument("--write", action="store_true")
     a = ap.parse_args()
     doc = json.loads(DATA.read_text(), object_pairs_hook=OrderedDict)
-    changes = fill(doc, board_runs(a.board))
+    changes = fill(doc, board_runs(a.board), gate_parity.claims(a.gate.expanduser()))
     print("\n".join(changes) or "no board row matches a page cell")
     stale = [f"{cat}/{m['id']}/{k}" for cat in UNIT
              for m in (doc[cat] if isinstance(doc[cat], list) else doc[cat]["models"])
