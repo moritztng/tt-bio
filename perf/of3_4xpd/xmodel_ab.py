@@ -317,6 +317,9 @@ def main():
     # Which trimul in-projection route fed the einsum (gin-ragged, gated-inproj-moved, gated-inproj,
     # rowblock, ...), and the trimul_tail sub-counters STATS above lumps together.
     res["trimul_routes"] = {"|".join(k): int(v) for k, v in getattr(T, "TRIMUL_MM_TRANSPOSE_STATS", {}).items()}
+    # g_out riding the in-projection is what lets T2 serve the tail without T1: its served/declined count and why.
+    res["trimul_gout"] = {"stats": list(getattr(T, "TRIMUL_GOUT_STATS", [])),
+                          "rejects": dict(getattr(T, "TRIMUL_GOUT_REJECTS", {}))}
     try:
         TT_ = importlib.import_module("tt_bio.trimul_tail")
         res["trimul_tail_sub"] = {k: list(getattr(TT_, k)) for k in
