@@ -135,14 +135,14 @@
       "accelerators": 8,
       "per_accelerator": "h200",
       "spec": "NVIDIA DGX H200, 8x H200 SXM, 1,128 GB HBM3e, NVSwitch",
-      "price_usd": 410000,
-      "price_kind": "list price",
-      "price_source": "dgx-h200",
+      "price_usd": 467311.3,
+      "price_kind": "reseller price, base configuration",
+      "price_source": "broadberry-dgx-h200",
       "power_kw": 10.2,
       "power_kind": "vendor maximum",
       "power_source": "dgx-h200",
       "scaling_efficiency": 1.0,
-      "note": "NVIDIA's own 8-GPU H200 system, the box a buyer quotes against, at $410,000 list."
+      "note": "NVIDIA's own 8-GPU H200 system, priced at a US reseller's base configuration."
     },
     {
       "id": "dgx_b200",
@@ -153,14 +153,14 @@
       "accelerators": 8,
       "per_accelerator": "b200",
       "spec": "NVIDIA DGX B200, 8x B200 SXM, 1,440 GB HBM3e, NVSwitch",
-      "price_usd": 550000,
-      "price_kind": "list price",
-      "price_source": "dgx-b200",
+      "price_usd": 562154.09,
+      "price_kind": "reseller price, base configuration",
+      "price_source": "broadberry-dgx-b200",
       "power_kw": 14.3,
       "power_kind": "vendor maximum",
       "power_source": "dgx-b200",
       "scaling_efficiency": 1.0,
-      "note": "The Blackwell generation of the same system, at $550,000 list."
+      "note": "The Blackwell generation of the same system, priced the same way."
     },
     {
       "id": "dgx_a100",
@@ -973,16 +973,16 @@
       "detail": "Blackhole p150a $1,399 list, 120 Tensix cores, 32 GB GDDR6 at 512 GB/s, 300 W."
     },
     "dgx-h200": {
-      "label": "NVIDIA DGX H200 datasheet",
-      "url": "https://resources.nvidia.com/en-us-dgx-systems/dgx-h200-datasheet",
-      "accessed": "2026-08-12",
-      "detail": "The 8-GPU H200 system, 1,128 GB HBM3e on one NVSwitch baseboard, 10.2 kW maximum system power. NVIDIA's DGX SuperPOD data-center design guide gives the same 10.2 kW as the peak demand per system circuit. NVIDIA does not post DGX pricing; the $410,000 this page uses is the DGX H200 list price."
+      "label": "NVIDIA DGX H100/H200 User Guide",
+      "url": "https://docs.nvidia.com/dgx/dgxh100-user-guide/introduction-to-dgxh100.html",
+      "accessed": "2026-10-14",
+      "detail": "8x H200 with 1,128 GB total GPU memory, 10.2 kW maximum system power."
     },
     "dgx-b200": {
       "label": "NVIDIA DGX B200",
       "url": "https://www.nvidia.com/en-us/data-center/dgx-b200/",
-      "accessed": "2026-08-12",
-      "detail": "The 8-GPU B200 system, 1,440 GB HBM3e, system power usage stated as ~14.3 kW max. Priced here at the $550,000 DGX B200 list price, on the same basis as the H200 system."
+      "accessed": "2026-10-14",
+      "detail": "8x Blackwell GPU, 1,440 GB HBM3e, system power usage ~14.3 kW max. NVIDIA posts no price."
     },
     "dgx-a100": {
       "label": "NVIDIA DGX A100 datasheet",
@@ -1012,6 +1012,18 @@
       "url": "https://docs.tenstorrent.com/_downloads/c4109b0d0781fdf84837b8d2fb2e4871/galaxy-wormhole.pdf",
       "accessed": "2026-10-14",
       "detail": "6U server, 32 Wormhole processors, four 4,000 W supplies in a 3+1 configuration, expected peak power consumption 12 kW. 12 GB GDDR6 per Wormhole processor (Tenstorrent Wormhole specifications)."
+    },
+    "broadberry-dgx-h200": {
+      "label": "Broadberry, NVIDIA DGX H200",
+      "url": "https://www.broadberry.com/xeon-scalable-processor-gen4-rackmount-servers/nvidia-dgx-h200",
+      "accessed": "2026-10-14",
+      "detail": "$467,311.30 excluding sales tax for the base configuration with 3 years of NVIDIA support and installation, against a stated RRP of $584,139.13. NVIDIA publishes no DGX price, so this page uses what a US buyer is quoted."
+    },
+    "broadberry-dgx-b200": {
+      "label": "Broadberry, NVIDIA DGX B200",
+      "url": "https://www.broadberry.com/xeon-scalable-processor-gen4-rackmount-servers/nvidia-dgx-b200",
+      "accessed": "2026-10-14",
+      "detail": "$562,154.09 excluding sales tax for the base configuration with 3 years of NVIDIA support and installation, against a stated RRP of $702,692.62. NVIDIA publishes no DGX price, so this page uses what a US buyer is quoted."
     }
   },
   "caveats": [
