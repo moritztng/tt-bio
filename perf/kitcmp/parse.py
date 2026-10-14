@@ -53,7 +53,7 @@ def row(cell, mode, warm, cold, rc, fn, clk, engaged="-", **extra):
 
 
 def kit_arms(m, samples):
-    for mode in ("off", "exact", "fast"):
+    for mode in ("off", "exact", "fast", "off-det", "exact-det"):
         d = m / mode
         if not d.exists():
             continue

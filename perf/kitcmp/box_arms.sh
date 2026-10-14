@@ -34,45 +34,45 @@ esac
 nvidia-smi -q -d POWER,CLOCK,PERFORMANCE > $R/power-clock.txt 2>&1
 nohup nvidia-smi --query-gpu=timestamp,clocks.sm,clocks.mem,power.draw,power.limit,temperature.gpu,utilization.gpu,clocks_event_reasons.active,memory.used --format=csv,noheader -lms 500 > $R/smi.csv 2>&1 &
 SMI=$!
-run(){ # <mode>
-  local d=$R/$1; mkdir -p $d; date -u +%FT%T.%3NZ > $d/t_start; export KC_TIMES=$d/times.jsonl
+run(){ # <mode>: off | exact | fast, or <mode>-det = the kit's deterministic recipe (--det 1), where exact claims bitwise = off
+  local d=$R/$1 mo=${1%-det} dt=; [ $mo = $1 ] || dt="--det 1"; mkdir -p $d; date -u +%FT%T.%3NZ > $d/t_start; export KC_TIMES=$d/times.jsonl
   case $M in
-    boltz2)    [ $1 = off ] && S="--seed 0" || S="--seeds 0"   # off is stock boltz predict (--seed), exact/fast the worker route
-               bash run.sh pred --config $KC_CFG --mode $1 --input $I/boltz2 --out_dir $d/pred $S \
+    boltz2)    [ $mo = off ] && S="--seed 0" || S="--seeds 0"   # off is stock boltz predict (--seed), exact/fast the worker route
+               bash run.sh pred --config $KC_CFG --mode $mo $dt --input $I/boltz2 --out_dir $d/pred $S \
                  --recycling_steps 3 --sampling_steps 200 --diffusion_samples 1;;
-    protenix_v2) bash run.sh pred --config $KC_CFG --mode $1 --input $I/protenix.json --out_dir $d/pred --model_name protenix-v2 \
+    protenix_v2) bash run.sh pred --config $KC_CFG --mode $mo $dt --input $I/protenix.json --out_dir $d/pred --model_name protenix-v2 \
                  --seeds 0 --cycle 10 --step 200 --sample 1 --use_msa true --use_template false;;
     protenix_v1)  # tt-bio's protenix-v1 is upstream's v0.5.0 checkpoint (sha256 9ea20b0a, pushed by session.sh), not the kit's v1.0.0 default
-               PROTENIX_ROOT_DIR=/weights/protenix_v1 bash run.sh pred --config $KC_CFG --mode $1 --input $I/protenix.json --out_dir $d/pred \
+               PROTENIX_ROOT_DIR=/weights/protenix_v1 bash run.sh pred --config $KC_CFG --mode $mo $dt --input $I/protenix.json --out_dir $d/pred \
                  --model_name protenix_base_default_v0.5.0 --seeds 0 --cycle 10 --step 200 --sample 1 --use_msa true --use_template false;;
     af2ig)     # dl_binder_design's af2_initial_guess (the original implementation), model_1_ptm, 3 recycles; six 195-token PD-L1
                # complexes, chain A = binder; the first is cold (one XLA program per length), out.sc carries per-structure time
-               bash run.sh pred --config $KC_CFG --mode $1 --pdbdir $I/af2ig --out $d/pred;;
+               bash run.sh pred --config $KC_CFG --mode $mo $dt --pdbdir $I/af2ig --out $d/pred;;
     esmc)      # the page's embed protocol: prot512.seq copied to fill the batch (7; 6B batch 1), bf16, n=15 warm, cold discarded
                for v in 300m 600m 6b; do [ $v = 6b ] && b=1 || b=7
-                 HF_HOME=/weights/esmc/hf HF_HUB_OFFLINE=1 ESMC_OPT=$([ $1 = off ] || echo $1) \
+                 HF_HOME=/weights/esmc/hf HF_HUB_OFFLINE=1 ESMC_OPT=$([ $mo = off ] || echo $mo) \
                    python /root/kc/esmc_gpu.py --variant $v --batch $b --warm 15 --seq $I/prot512.seq --out $d/esmc-$v.jsonl; done;;
-    opendde)   bash run.sh pred --config $KC_CFG --mode $1 -i $I/protenix.json -o $d/pred --seeds 0 \
+    opendde)   bash run.sh pred --config $KC_CFG --mode $mo $dt -i $I/protenix.json -o $d/pred --seeds 0 \
                  --cycle 10 --step 200 --sample 1 --use_msa true --use_template false;;
     openfold3|openfold3_ob0)  # ob0's kit off base config is bf16-mixed: off overlays the shipped fp32 predict config first
-               Y=""; [ $M = openfold3_ob0 ] && [ $1 = off ] && Y="--runner-yaml opt/openfold3_ob0_opt/shipped_predict.yml"
-               bash run.sh pred --config $KC_CFG --mode $1 --query-json $I/openfold3.json --output-dir $d/pred \
+               Y=""; [ $M = openfold3_ob0 ] && [ $mo = off ] && Y="--runner-yaml opt/openfold3_ob0_opt/shipped_predict.yml"
+               bash run.sh pred --config $KC_CFG --mode $mo $dt --query-json $I/openfold3.json --output-dir $d/pred \
                  $Y --runner-yaml $I/openfold3.yaml --num-diffusion-samples 1 --use-msa-server false --use-templates false;;
     rosettafold3)  # no MSA and no early stop, as the published cell (perf/rf3/gpu_rf3_run.py)
-               bash run.sh pred --config $KC_CFG --mode $1 --input $I/rf3.json --out_dir $d/pred --seeds 0 \
+               bash run.sh pred --config $KC_CFG --mode $mo $dt --input $I/rf3.json --out_dir $d/pred --seeds 0 \
                  n_recycles=10 num_steps=50 diffusion_batch_size=1 early_stopping_plddt_threshold=0;;
     rfdiffusion3)  # the published cell: 585-residue target + 100 designed, seed 7, batch 1, 200 timesteps, KC_N batches in
                    # one process; timed by the engine's own "Finished inference batch in X s" (every mode prints it)
-               ( cd $I/rfd3 && bash $K/run.sh design --config $KC_CFG --mode $1 inputs=rfd3_R4_gpu.json out_dir=$d/pred \
+               ( cd $I/rfd3 && bash $K/run.sh design --config $KC_CFG --mode $mo $dt inputs=rfd3_R4_gpu.json out_dir=$d/pred \
                  inference_sampler.num_timesteps=200 diffusion_batch_size=1 n_batches=$KC_N seed=7 skip_existing=False );;
     pxdesign)  # the published cell: LacZ crop (yaml names /work/targets2/laczc_512.cif), 80-res binder, N_sample 1, 400 steps, bf16,
                # DS4Sci evo attention, eta const 2.5, seeds 0..KC_N-1 in one process (cold = seed 0)
-               bash run.sh design --config $KC_CFG --mode $1 -i $I/pxdesign/laczc_512_nomsa.yaml -o $d/pred --seeds $(seq -s, 0 $((KC_N - 1))) \
+               bash run.sh design --config $KC_CFG --mode $mo $dt -i $I/pxdesign/laczc_512_nomsa.yaml -o $d/pred --seeds $(seq -s, 0 $((KC_N - 1))) \
                  --N_sample 1 --N_step 400 --dtype bf16 --use_fast_ln true --use_deepspeed_evo_attention true \
                  --eta_type const --eta_min 2.5 --eta_max 2.5;;
     esmfold2)  # single sequence, as the published cells (the MSA is dropped by design); off on the fused backend exact reproduces
-               [ $1 = off ] && B="--backend fused" || B=""
-               bash run.sh pred --config $KC_CFG --variant $VAR --mode $1 $B --input $I/esmfold2.json --out_dir $d/pred --seeds 0 \
+               [ $mo = off ] && B="--backend fused" || B=""
+               bash run.sh pred --config $KC_CFG --variant $VAR --mode $mo $dt $B --input $I/esmfold2.json --out_dir $d/pred --seeds 0 \
                  --num_loops 10 --num_sampling_steps 100 --num_diffusion_samples 1;;
   esac > $d/stdout.log 2> $d/stderr.log
   echo $? > $d/rc; date -u +%FT%T.%3NZ > $d/t_end
