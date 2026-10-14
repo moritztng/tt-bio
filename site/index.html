@@ -347,15 +347,18 @@ function hero(D){
   const per$ = (c, p) => 3600 / secs(c) * p.accelerators / p.price_usd;
   const r = [...D.models, ...(D.design?.models ?? []), ...(D.affinity?.models ?? [])]
     .filter(m => !m.hidden && m.cells.p150a?.status === "measured" && m.cells.b200?.status === "measured")
-    .map(m => per$(m.cells.p150a, gx) / per$(m.cells.b200, nv)).sort((a, b) => a - b);
+    .map(m => ({m, v: per$(m.cells.p150a, gx) / per$(m.cells.b200, nv)})).sort((a, b) => a.v - b.v);
   if (!r.length) return;
-  const med = r.length % 2 ? r[(r.length - 1) / 2] : (r[r.length / 2 - 1] + r[r.length / 2]) / 2;
+  const top = r[r.length - 1].m, v = r.map(o => o.v);
+  const med = v.length % 2 ? v[(v.length - 1) / 2] : (v[v.length / 2 - 1] + v[v.length / 2]) / 2;
   const x = v => v.toFixed(1) + "\u00d7";
   document.getElementById("h-title").innerHTML =
     'Biomolecular AI at<br class="lb"> <em>' + x(med) + '</em> the throughput per dollar';
   document.getElementById("h-lede").textContent = " A Galaxy Blackhole costs " +
     Math.round(100 * gx.price_usd / nv.price_usd) + " % of an NVIDIA DGX B200 and returns " +
-    x(r[0]) + " to " + x(r[r.length - 1]) + " its throughput per dollar, depending on the model.";
+    x(v[0]) + " to " + x(v[v.length - 1]) + " its throughput per dollar, depending on the model." +
+    (top.parity_pending ? " The top of that range is " + top.name +
+      ", which does not yet match its reference on every accuracy check." : "");
   document.getElementById("h-x").textContent = x(med);
 }
 function drawChart(){
