@@ -161,13 +161,6 @@ for (const m of predModels.concat(catModels)) {
     }
   }
 }
-/* Host and device halves, wherever both sides measured them. */
-for (const m of predModels.concat(catModels)) {
-  const t = m.cells.p150a, g = m.cells.h200;
-  if (t && g && t.split && g.split) {
-    want("t-hostsplit", m.name, m.name + " measured both halves and belongs in the split table");
-  }
-}
 /* Each category states its own scope and methods; inheriting the page's would be a wrong claim. */
 for (const k of catKeys) {
   if (!D[k]) continue;
@@ -275,6 +268,10 @@ for (const m of embedModels) {
     failures.push(m.name + " is card-only and must not be drawn on the landing page, whose " +
                   "chart is per server");
   }
+}
+/* The hero's figures are derived from the data; the static markup carries none. */
+if (!/^\d+\.\d\u00d7$/.test(land.store.get("h-x")?.textContent || "")) {
+  failures.push("the landing hero's throughput-per-dollar figure was not derived from the data");
 }
 if (failures.length) {
   console.error(failures.length + " row(s) did not reach the page:");

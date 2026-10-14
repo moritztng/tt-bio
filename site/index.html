@@ -8,7 +8,7 @@
 <link rel="icon" href="assets/icon-500.png?v=c70df9a5" sizes="500x500" type="image/png">
 <link rel="apple-touch-icon" href="assets/apple-touch-icon.png?v=b63e0473" sizes="180x180">
 <title>TT-Bio</title>
-<meta name="description" content="Open-source biomolecular AI: folding, binder design and protein embeddings on Tenstorrent hardware. A Blackhole Galaxy matches an NVIDIA DGX B200 on throughput at a fifth of the purchase price, with accuracy matched to reference implementations.">
+<meta name="description" content="Open-source biomolecular AI: folding, binder design and protein embeddings on Tenstorrent hardware, with throughput per dollar measured against NVIDIA DGX systems and accuracy matched to reference implementations.">
 <link rel="preload" href="assets/manrope-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="assets/site.css?v=80720702">
 <style>
@@ -139,10 +139,9 @@ h2{font-size:clamp(1.85rem,3.5vw,2.5rem);margin:0 0 18px;max-width:22ch}
 
   <div class="hero">
     <p class="kicker">Open source</p>
-    <h1>Biomolecular AI at<br class="lb"> <em>a fifth</em> of the cost</h1>
+    <h1 id="h-title">Biomolecular AI on<br class="lb"> <em>Tenstorrent</em> hardware</h1>
     <p class="lede">TT-Bio runs folding, binder design and protein embeddings on Tenstorrent
-      hardware. One Blackhole Galaxy matches an NVIDIA DGX B200 on throughput, for a fifth of
-      the price.</p>
+      hardware.<span id="h-lede"></span></p>
     <div class="cta">
       <a class="btn solid" href="https://japanfold.com">Try it free</a>
       <a class="btn line" href="https://github.com/moritztng/tt-bio">Read the code</a>
@@ -150,8 +149,8 @@ h2{font-size:clamp(1.85rem,3.5vw,2.5rem);margin:0 0 18px;max-width:22ch}
   </div>
 
   <div class="facts">
-    <div><div class="n">5&times;</div><div class="k">throughput per dollar</div>
-      <div class="s">of purchase price, against a DGX B200.</div></div>
+    <div><div class="n" id="h-x">&nbsp;</div><div class="k">throughput per dollar</div>
+      <div class="s">of purchase price, a Galaxy Blackhole against a DGX B200, median over every row.</div></div>
     <div><div class="n">One</div><div class="k">codebase</div>
       <div class="s">optimized from silicon to serving</div></div>
     <div><div class="n">1:1</div><div class="k">accuracy parity</div>
@@ -318,7 +317,7 @@ function build(D){
     tco:  "Ownership is purchase price plus electricity. Over " + m.amortisation_years +
           " years that is " +
           srv.map(p => usd(ownUsd(p))).join(", ") + " respectively.",
-    tph:  "32 Blackhole processors against 8 GPUs, on the same " + D.scope.size_aa +
+    tph:  "32 Tenstorrent processors against 8 GPUs, on the same " + D.scope.size_aa +
           "-residue protein, each stack on its own shipped settings. " +
           srv.map(p => p.power_kw + " kW").join(" against ") + "."
   };
@@ -339,6 +338,29 @@ function groupHTML(model){
   }).join("");
   return `<div class="mgroup"><div class="mname">${model}</div><div class="bars">${bars}</div></div>`;
 }
+/* The hero's figures, from the same data as the chart: what a Galaxy Blackhole costs against a DGX
+ * B200, and the median and range of its throughput per dollar of purchase price over every row
+ * measured on both. The static markup says nothing numeric, so a failed fetch shows no stale claim. */
+function hero(D){
+  const P = Object.fromEntries(D.platforms.map(p => [p.id, p]));
+  const gx = P.galaxy_bh, nv = P.dgx_b200, secs = c => c.s_per_fold ?? c.s_per_design;
+  const per$ = (c, p) => 3600 / secs(c) * p.accelerators / p.price_usd;
+  const r = [...D.models, ...(D.design?.models ?? []), ...(D.affinity?.models ?? [])]
+    .filter(m => !m.hidden && m.cells.p150a?.status === "measured" && m.cells.b200?.status === "measured")
+    .map(m => ({m, v: per$(m.cells.p150a, gx) / per$(m.cells.b200, nv)})).sort((a, b) => a.v - b.v);
+  if (!r.length) return;
+  const top = r[r.length - 1].m, v = r.map(o => o.v);
+  const med = v.length % 2 ? v[(v.length - 1) / 2] : (v[v.length / 2 - 1] + v[v.length / 2]) / 2;
+  const x = v => v.toFixed(1) + "\u00d7";
+  document.getElementById("h-title").innerHTML =
+    'Biomolecular AI at<br class="lb"> <em>' + x(med) + '</em> the throughput per dollar';
+  document.getElementById("h-lede").textContent = " A Galaxy Blackhole costs " +
+    Math.round(100 * gx.price_usd / nv.price_usd) + " % of an NVIDIA DGX B200 and returns " +
+    x(v[0]) + " to " + x(v[v.length - 1]) + " its throughput per dollar, depending on the model." +
+    (top.parity_pending ? " The top of that range is " + top.name +
+      ", which does not yet match its reference on every accuracy check." : "");
+  document.getElementById("h-x").textContent = x(med);
+}
 function drawChart(){
   const AXIS = {perk:["Predictions per hour, per $1,000 of purchase price.", "per $1k"],
                 tco:["Predictions per hour, per $1,000 of four-year ownership.", "per $1k"],
@@ -358,7 +380,7 @@ document.getElementById("metric").addEventListener("click", e => {
 });
 fetch("data/perf-512aa.json", {cache:"no-store"})
   .then(r => r.json())
-  .then(D => { build(D); drawChart();
+  .then(D => { build(D); drawChart(); hero(D);
     document.getElementById("prov").textContent = D.scope.nvidia_code; })
   .catch(e => {
     document.getElementById("cap").textContent =

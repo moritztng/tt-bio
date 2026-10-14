@@ -515,6 +515,21 @@ class AF2PairBlock(Module):
         mask = None if drop is None else drop.get(name)
         return update if mask is None or update is None else ttnn.multiply(update, mask)
 
+    def _residual_dropped(self, x, name: str, update, drop):
+        """`_residual(x, _dropped(name, update, drop))`, in one kernel where `rne_add_masked`
+        serves the mask (`TT_BIO_RNE_MASK`): the update is read once and the masked update is
+        never written. Same function, rounded the way torch rounds each of the two steps."""
+        mask = None if drop is None or update is None else drop.get(name)
+        if mask is not None and self.rne_residual and self.rne_kernel:
+            from . import rne_add as K
+            config = x.memory_config()
+            if K.masked_eligible(x, update, mask, config):
+                out = K.rne_add_masked(x, update, mask, memory_config=config)
+                ttnn.deallocate(update)
+                ttnn.deallocate(x)
+                return out
+        return self._residual(x, self._dropped(name, update, drop))
+
     def _update(self, name: str, device, x: ttnn.Tensor,
                 *args: ttnn.Tensor) -> ttnn.Tensor | None:
         """One op's residual update: from the card, or from its host-torch twin if substituted.
@@ -546,8 +561,8 @@ class AF2PairBlock(Module):
             order = order[2:] + order[:2]
         for name, device in order + [("pair_transition", self.pair_transition)]:
             z = self._step(lambda t, name=name, device=device:
-                           self._residual(t, self._dropped(name, self._update(name, device, t),
-                                                           drop)), z)
+                           self._residual_dropped(t, name, self._update(name, device, t),
+                                                  drop), z)
         return z
 class AF2DeviceTemplatePairStack:
     """The template's two `PairBlock`s in ttnn: host torch in, host torch out.
