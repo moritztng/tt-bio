@@ -396,8 +396,9 @@ def eligible(a, b, memory_config) -> bool:
 # 32-bit DEST, so rounding it to even reproduces torch's bfloat16 multiply, and the add is
 # `rne_add`'s. The per-column draw `(n, 1, c)` broadcasts inside a tile and is declined.
 
-#: The lever. Default OFF until a BC2 round grades it: `AF2PairBlock.rne_mask` is the model switch.
-MASKED = env_flag("TT_BIO_RNE_MASK", False)
+#: The lever, on by default: a BindCraft 2 round on Wormhole writes the same gradient with it on
+#: and off (identical digest) in 648 fewer calls, 5.70 -> 5.64 s per iteration at 1000 MHz.
+MASKED = env_flag("TT_BIO_RNE_MASK", True)
 
 #: Slab tiles a core holds in L1 (2 KiB each). 64 is 128 KiB, n*c <= 65,536.
 MAX_MASK_TILES = 64

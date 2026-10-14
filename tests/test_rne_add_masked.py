@@ -37,8 +37,8 @@ def gate(monkeypatch):
 Z = FakeTensor([1, 224, 224, 128])
 
 
-def test_off_by_default():
-    assert rne_add.MASKED is False or "TT_BIO_RNE_MASK" in __import__("os").environ
+def test_on_by_default():
+    assert rne_add.MASKED is True or "TT_BIO_RNE_MASK" in __import__("os").environ
 
 
 def test_a_per_row_mask_is_served(gate):
