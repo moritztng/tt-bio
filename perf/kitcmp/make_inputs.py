@@ -1,8 +1,8 @@
 """Write the tt-bio.com perf-page fixture (cdk2x2_512.yaml + cdk2x2_512.a3m, 512 aa, 35 MSA rows) in each kit's input
-format, four copies under four names (fold0..fold3) so one process does 1 cold + 3 warm folds with one weight load,
-exactly as scripts/gpu_vs_tt/gpu_bench.py and gpu5_bench.py did for the published stock cells.
+format, N copies under N names (fold0..fold{N-1}) so one process does 1 cold + N-1 warm folds with one weight load,
+as scripts/gpu_vs_tt/gpu_bench.py and gpu5_bench.py did for the published stock cells. N=5 (4 warm) is the BMK protocol.
 
-    python perf/kitcmp/make_inputs.py OUTDIR [--root /root/kc/in]
+    python perf/kitcmp/make_inputs.py OUTDIR [--root /root/kc/in] [--n 5]
 
 The a3m is copied byte for byte (as msa/uniref90_hits.a3m, the slot OF3 reads an unpaired main MSA from); sha256 of
 both fixtures goes to OUTDIR/SHA256SUMS so the box re-verifies them.
@@ -13,6 +13,7 @@ from pathlib import Path
 ap = argparse.ArgumentParser()
 ap.add_argument("out", type=Path)
 ap.add_argument("--root", default="/root/kc/in")
+ap.add_argument("--n", type=int, default=5)
 a = ap.parse_args()
 fx = Path(__file__).resolve().parents[1] / "size512/fixtures"
 y, m = fx / "cdk2x2_512.yaml", fx / "cdk2x2_512.a3m"
@@ -21,7 +22,7 @@ assert len(seq) == 512 and m.read_text().splitlines()[1] == seq
 (a.out / "msa").mkdir(parents=True, exist_ok=True)
 shutil.copyfile(m, a.out / "msa/uniref90_hits.a3m")
 shutil.copyfile(y, a.out / "cdk2x2_512.yaml")
-R, N = a.root, 4
+R, N = a.root, a.n
 A3M = f"{R}/msa/uniref90_hits.a3m"
 (a.out / "boltz2").mkdir(exist_ok=True)
 for i in range(N):  # the fixture yaml plus the msa key, the only change, as gpu5_bench run_boltz
@@ -39,7 +40,7 @@ job = lambda i: {"name": f"fold{i}", "modelSeeds": [0], "sequences": [{"proteinC
 (a.out / "esmfold2.json").write_text(json.dumps([{"id": f"fold{i}", "sequences": [{"type": "protein", "id": "A",
     "sequence": seq, "msa": None}], "seeds": [0], "num_diffusion_samples": 1} for i in range(N)], indent=1))
 (a.out / "rf3.json").write_text(json.dumps([{"name": f"fold{i}", "components": [{"seq": seq, "chain_id": "A"}]}
-    for i in range(2 * N)], indent=1))  # eight names in one engine.run: the kit's warm-up spans two folds, so four left 2 warm gaps
+    for i in range(2 * N)], indent=1))  # 2N names in one engine.run: the kit's warm-up spans two folds
 # RFdiffusion3: the published fixture staged at a root, so its repo-relative target path resolves (scripts/gpu_vs_tt/rfd3_prod_run.sh)
 rf = Path(__file__).resolve().parents[1] / "dsfix"
 (a.out / "rfd3/perf/dsfix/targets").mkdir(parents=True, exist_ok=True)

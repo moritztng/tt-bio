@@ -5,6 +5,8 @@
 # Also drops kctime.py + kctime.pth into the venv (the synced per-fold timer, inert unless KC_WRAP is set).
 # Weights are fetched by the kit's own `install --weights` into /weights/<model>; session.sh pre-places the files whose
 # upstream URL fails from vast (Protenix-v2 checkpoint: 403; components.cif.rdkit_mol.pkl: a newer file than the pin).
+# GPU of this session (session.sh pushes /root/kc/gpu.env): the kit's --config and TORCH_CUDA_ARCH_LIST
+KC_CFG=a100 KC_ARCH=8.0; [ -f /root/kc/gpu.env ] && . /root/kc/gpu.env
 set -eux
 M=$1; K=/root/kit/$M; [ -f /root/kc/SETUP-OK-$M ] && exit 0
 # python-build-standalone's sysconfig names clang as CC, which the CUDA image lacks: every native build (DeepSpeed's
@@ -56,21 +58,21 @@ grep -v -E "^(#|pip==|wheel==|($X)==)" $L > /tmp/stack-$M.txt
 [ $M = rosettafold3 ] && printf 'hatchling==1.31.0\nhatch-vcs==0.4.0\n' > /tmp/bp.txt && export PIP_CONSTRAINT=/tmp/bp.txt
 pip install -q --no-deps $([ $M = pxdesign ] && echo --src /opt/pxsrc) -r /tmp/stack-$M.txt; unset PIP_CONSTRAINT
 case $M in
-  openfold3|openfold3_ob0)  # DS4Sci evoformer kernel built for the A100 (sm 8.0), as the Dockerfile does for sm 9.0
+  openfold3|openfold3_ob0)  # DS4Sci evoformer kernel built for this GPU (KC_ARCH), as the Dockerfile does for sm 9.0
     pip install -q --no-deps stock/openfold3-*-py3-none-any.whl
-    DS_ACCELERATOR=cuda DS_BUILD_EVOFORMER_ATTN=1 TORCH_CUDA_ARCH_LIST=8.0 MAX_JOBS=$(nproc) \
+    DS_ACCELERATOR=cuda DS_BUILD_EVOFORMER_ATTN=1 TORCH_CUDA_ARCH_LIST=$KC_ARCH MAX_JOBS=$(nproc) \
       pip install -q --no-deps --no-build-isolation --no-binary deepspeed $(grep -E '^deepspeed==' $L)
     export OPENFOLD3_CKPT=/weights/openfold3/of3-p2-155k.pt OPENFOLD3_OB0_CKPT=/weights/openfold3_ob0/of3-ob-2025-06-30-174k.pt; W=/weights/$M;;
   opendde)    pip install -q --no-deps stock/opendde-1.1.1-py3-none-any.whl; export OPENDDE_ROOT_DIR=/weights/opendde; W=$OPENDDE_ROOT_DIR;;
   boltz2)     pip install -q --no-deps stock/boltz-2.2.1-py3-none-any.whl; export BOLTZ_CACHE=/weights/boltz2; W=$BOLTZ_CACHE;;
-  esmfold2)   # xformers, transformer_engine, flash-attn have no index wheel for torch 2.13+cu130: the kit's own build, sm 8.0 alone
+  esmfold2)   # xformers, transformer_engine, flash-attn have no index wheel for torch 2.13+cu130: the kit's own build, KC_ARCH alone
     export NVTE_FRAMEWORK=pytorch XFORMERS_IGNORE_FLASH_VERSION_CHECK=1 HF_HOME=/weights/esmfold2
-    TORCH_CUDA_ARCH_LIST=8.0 bash environment/build_wheels.sh --stack img_esmfold2_a100; W=$HF_HOME;;
+    TORCH_CUDA_ARCH_LIST=$KC_ARCH bash environment/build_wheels.sh --stack img_esmfold2_a100; W=$HF_HOME;;
   rosettafold3)  # the stock interpreter is this venv; install --make-venv builds the kit's opt/venv from it
     pip install -q --no-deps --force-reinstall nvidia-cudnn-cu13==9.20.0.48 nvidia-nccl-cu13==2.29.7
     export ROSETTAFOLD3_OPT_STOCK_PYTHON=$K/venv/bin/python; W=/weights/rosettafold3;;
   rfdiffusion3)  # two interpreters from one lock (pristine stock + the kit's patched one), foundry at the pin and apex
-    # built here from its pinned commit for sm 8.0 with the image's nvcc 13.0, installed into both (environment/Dockerfile)
+    # built here from its pinned commit for KC_ARCH with the image's nvcc 13.0, installed into both (environment/Dockerfile)
     SV=/opt/rfd3-stock; [ -d $SV ] || $PY/bin/python3 -m venv $SV
     $SV/bin/pip install -q --no-deps $(grep -E '^pip==' $L); $SV/bin/pip install -q --no-deps -r /tmp/stack-$M.txt
     printf 'hatchling==1.32.0\nhatch-vcs==0.4.0\nsetuptools-scm==10.2.1\nvcs-versioning==2.3.1\n' > /tmp/bp.txt
@@ -82,7 +84,7 @@ case $M in
       echo "f3cc6e36d357f5c47e39fe6f7ab7282ec7fc19af0b4a8425758ec2f2c6cc038e  /tmp/apex.tar.gz" | sha256sum -c -
       mkdir -p /tmp/src && tar -xzf /tmp/apex.tar.gz -C /tmp/src && $SV/bin/pip install -q ninja==1.13.0
       ( cd /tmp/src/apex-$AC && PATH=$SV/bin:$PATH APEX_CPP_EXT=1 APEX_CUDA_EXT=1 APEX_PARALLEL_BUILD=8 MAX_JOBS=4 \
-          NVCC_APPEND_FLAGS="--threads 4" TORCH_CUDA_ARCH_LIST=8.0 $SV/bin/python -m pip wheel --no-deps --no-build-isolation -w /tmp/apexw . )
+          NVCC_APPEND_FLAGS="--threads 4" TORCH_CUDA_ARCH_LIST=$KC_ARCH $SV/bin/python -m pip wheel --no-deps --no-build-isolation -w /tmp/apexw . )
     fi
     for v in $K/venv $SV; do $v/bin/pip install -q --no-deps /tmp/apexw/apex-0.1-*.whl
       $v/bin/python -c "import rfd3, apex, importlib; importlib.import_module('apex.normalization.fused_layer_norm'); import fused_layer_norm_cuda"; done
@@ -123,5 +125,5 @@ else bash run.sh install $([ $M = rosettafold3 ] && echo --make-venv) --weights 
 [ $M = rfdiffusion3 ] && python -m rfdiffusion3_opt.install apply && python -m rfdiffusion3_opt.install check-only
 [ -d opt/venv ] && { S2=$(opt/venv/bin/python -c 'import site; print(site.getsitepackages()[0])'); cp /root/kc/kctime.py $S2/ && echo 'import kctime' > $S2/kctime.pth; }
 case $M in esmc) HF_HUB_OFFLINE=1 bash run.sh check --variant 6b --mode exact;;
-  *) bash run.sh check --config a100 --mode fast $([ $M = esmfold2 ] && echo --variant fast);; esac
+  *) bash run.sh check --config $KC_CFG --mode fast $([ $M = esmfold2 ] && echo --variant fast);; esac
 echo SETUP-OK > /root/kc/SETUP-OK-$M
