@@ -16,7 +16,7 @@ them into the JSON `title` and `subtitle` and into the page's `<title>` and meta
 hand-written fifth copy would only go stale.
 
 `index.html` is the landing page. Its bar chart reads the same JSON and derives the same three
-metrics. The hero's price and throughput-per-dollar figures are written by hand and must be
+metrics. The hero derives its price share and throughput-per-dollar figures from the same data, a
 re-derived from the data whenever a price or a cell moves. Set `"parity_pending": true` on a row that has no reference-parity run of its
 own and the hero names it when it sets the top of that range: the hero is prose and carries none of
 the per-cell provenance the benchmark page does, so the one row a reader would have to take on trust

@@ -269,6 +269,10 @@ for (const m of embedModels) {
                   "chart is per server");
   }
 }
+/* The hero's figures are derived from the data; the static markup carries none. */
+if (!/^\d+\.\d\u00d7$/.test(land.store.get("h-x")?.textContent || "")) {
+  failures.push("the landing hero's throughput-per-dollar figure was not derived from the data");
+}
 if (failures.length) {
   console.error(failures.length + " row(s) did not reach the page:");
   for (const f of failures) console.error("  " + f);
