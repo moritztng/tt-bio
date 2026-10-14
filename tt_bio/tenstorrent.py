@@ -688,7 +688,8 @@ _FAST_MODE = False
 #                   key tile. The PV product then accumulates k_chunk / 32 tiles in the fp32 dest, which is the
 #                   erratum dest_guard.py describes (rare -2/-4/-8 pixels); the rest of the fold runs unguarded
 #                   too, so this arms the same exposure for ~30 % of the call (perf/spd_wherr/sdpa_probe.py).
-#   dit_mask16      under dit_fuse, OpenFold3's token-DiT attention reads its cached pair-bias mask bf16, not fp32.
+#   dit_mask16      under dit_fuse on Wormhole, OpenFold3's token-DiT attention reads its cached pair-bias mask bf16,
+#                   not fp32 (Blackhole ignores it).
 #   pib_where       OpenDDE's pair-init bias by the old 16-op where-chain instead of one gather from the joint
 #                   (128, c_z) table: the A/B arm for a change that must keep the fold digest (no mode sets it).
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
