@@ -25,6 +25,7 @@ ap.add_argument("--no-mask", action="store_true")
 ap.add_argument("--abl", default="", help="comma list of T1_ABL stage-skip masks to time after the real T1"
                 " (kernels/trimul_in_t1: 1 LN, 2 g_out mm, 4 [a|b] mm, 8 gate, 16 z reads, 32 gather, 64 writes)")
 ap.add_argument("--set", default="", help="comma list NAME=INT of trimul_tail knobs for T1 (T1_RB, T1_SBW, GIN_MOVE_NB)")
+ap.add_argument("--grid", default="", help="gx,gy: run T1 on this core grid instead of COMPUTE_GRID_MAIN")
 ap.add_argument("--out", help="also append each JSON line here (the qb runner passes it)")
 A = ap.parse_args()
 
@@ -37,7 +38,7 @@ from tt_bio.af2 import compute_kernel_config
 dev = T.get_device()
 kcfg = T.trunk_compute_kernel_config(compute_kernel_config())
 ckc = MG.ckc_args(kcfg)
-grid = tuple(T.COMPUTE_GRID_MAIN)
+grid = tuple(int(v) for v in A.grid.split(",")) if A.grid else tuple(T.COMPUTE_GRID_MAIN)
 TT.set_t1(True)
 for kv in [v for v in A.set.split(",") if v]:
     k, v = kv.split("=")
@@ -55,6 +56,22 @@ def rel(a, r):
     a = a.double()
     return (float((a - r).pow(2).mean().sqrt() / r.pow(2).mean().sqrt()),
             float((a - r).abs().max()))
+
+
+def bad_units(a, r, il):
+    """The units (xt, h, yt) of `a` [1, h, n, n] whose rel rms vs `r` exceeds 0.02, each with its
+    core and its position among that core's units (the order the kernels run them in)."""
+    n = r.shape[-1]
+    St, H = n // 32, 32 // il
+    e = (a.double() - r).pow(2).reshape(-1, St, H, il, St, 32).sum((0, 3, 5))
+    s = r.pow(2).reshape(-1, St, H, il, St, 32).sum((0, 3, 5)).clamp_min(1e-30)
+    cores = TT.t1_split(St * St * H, grid[0] * grid[1])
+    out = []
+    for xt, hh, yt in (e / s).sqrt().gt(0.02).nonzero().tolist():
+        u = (xt * H + hh) * St + yt
+        c = next(i for i, (u0, k) in enumerate(cores) if u0 <= u < u0 + k)
+        out.append([u, xt, hh, yt, c, u - cores[c][0], cores[c][1]])
+    return out
 
 
 def timed(f, reps):
@@ -146,6 +163,10 @@ for n in [int(s) for s in A.ns.split(",") if s]:
             rec["t1_finite"] = all(bool(torch.isfinite(t).all()) for t in host)
             for k, t in zip("abg", host):
                 rec[f"t1_{k}_rel_rms_f64"], rec[f"t1_{k}_max_abs"] = rel(t.reshape(ref[k].shape), ref[k])
+            if m is not None:
+                il = TT.T1_PLANS.get((C // 32, 2 * h // 32, C // 32), (1, 32))[1]
+                bu = bad_units(host[0].reshape(ref["a"].shape), ref["a"], il)
+                rec["a_bad_units"], rec["a_bad_first"] = len(bu), bu[:24]   # [u, xt, h, yt, core, pos, units on core]
             free(outs)
             rec["t1_ms"] = timed(lambda: free(t1()), A.reps)
             rec["t1_GBps"] = round(4 * P / rec["t1_ms"] / 1e6, 1)
