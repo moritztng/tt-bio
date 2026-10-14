@@ -480,6 +480,21 @@ details.disclose > div{ padding-top:var(--s-4); }
     if (c.provenance) bits.push(c.provenance);
     return bits.join("\n");
   }
+  /* Which NVIDIA cells are the kit and which are stock, per GPU, read from each cell's `ref`, so the
+   * label cannot drift from the numbers while one column has been re-measured and another not. */
+  function nvidiaRefs() {
+    var all = D.models.concat(catRows().map(function (r) { return r.m; }));
+    return CELLS.filter(function (k) { return plat(k).vendor === "nvidia"; }).map(function (k) {
+      function named(ref) {
+        return all.filter(function (m) { return m.cells[k] && m.cells[k].ref === ref; })
+          .map(function (m) { return m.name; });
+      }
+      var kit = named("kit"), stock = named("stock"), out = [];
+      if (kit.length) out.push("kit exact for " + (stock.length ? kit.join(", ") : "every row"));
+      if (stock.length) out.push("stock upstream for " + (kit.length ? stock.join(", ") : "every row"));
+      return plat(k).short + ": " + out.join("; ") + ".";
+    }).join(" ");
+  }
   /* One measured run in a line: value, sample count, spread, clock and the software it ran. */
   function runLine(r) {
     var v = secs(r), out = [];
@@ -922,7 +937,8 @@ details.disclose > div{ padding-top:var(--s-4); }
     /* The scope list carries the run conditions and nothing else. How the two NVIDIA generations
      * split across the rows, and what each side's timer covers, are methodology: they read as
      * "H200 against B200" and "Timed region" in Methods below. */
-    scopeRows.push(["Run", s.protocol], ["NVIDIA code", s.nvidia_code + " " + s.nvidia_impl], ["Updated", D.updated]);
+    scopeRows.push(["Run", s.protocol], ["NVIDIA code", s.nvidia_code + " " + s.nvidia_impl + " " + nvidiaRefs()],
+      ["Updated", D.updated]);
     scopeRows.forEach(function (kv) {
       dl.appendChild(Object.assign(document.createElement("dt"), { textContent: kv[0] }));
       dl.appendChild(Object.assign(document.createElement("dd"), { textContent: kv[1] }));
