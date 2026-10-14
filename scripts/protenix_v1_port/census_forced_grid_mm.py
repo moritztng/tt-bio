@@ -13,9 +13,9 @@ Static grep cannot answer it: most of those sites are inside generic helpers who
 from the caller. So this wraps ``ttnn.linear``/``ttnn.matmul`` before tt_bio is imported, runs a
 real fold in-process, and reports every distinct (M, K, N, core_grid) actually issued.
 
-EXPOSED = a core_grid was passed AND the output is <= PAIRCOND_MM_NARROW_MAX_TILES tiles wide
-AND M is large (a multicast over many rows is what starves). Those three together are what the
-watcher caught; any one alone is common and harmless.
+EXPOSED = a core_grid was passed AND M is large. The first capture was a 4-tile output and the
+census used to require that; protenix-v2's 8-tile projection hung the same way on 2026-10-14,
+so width is not part of the regime (tt_bio/protenix.py, paircond_mm_kw).
 
     TT_VISIBLE_DEVICES=0 ... python3 scripts/protenix_v1_port/census_forced_grid_mm.py \
         [model] [target.yaml]
@@ -71,7 +71,7 @@ ttnn.matmul = _wrap(_orig_matmul, "matmul")
 # and its call sites resolve through the patched attributes.
 from tt_bio import weights                                          # noqa: E402
 from tt_bio.main import _read_bio_chains, _read_bio_constraints     # noqa: E402
-from tt_bio.protenix import PAIRCOND_MM_NARROW_MAX_TILES, Protenix  # noqa: E402
+from tt_bio.protenix import Protenix                                # noqa: E402
 from tt_bio.protenix_data import build_complex_features             # noqa: E402
 
 BIG_M = 4096   # a multicast over this many rows or more; the hang was at M = 512*512 = 262144
@@ -91,12 +91,11 @@ def main(model, target):
     rows = sorted(RECORDS.items(), key=lambda kv: -kv[1])
     exposed = [(kk, c) for kk, c in rows
                if kk[4] and isinstance(kk[3], int) and isinstance(kk[1], int)
-               and kk[3] // 32 <= PAIRCOND_MM_NARROW_MAX_TILES and kk[1] >= BIG_M]
+               and kk[1] >= BIG_M]
     fp32_exposed = [(kk, c) for kk, c in exposed if "FLOAT32" in kk[5]]
     print(f"\ndistinct matmul shapes issued: {len(rows)}   total calls: {sum(RECORDS.values())}")
     print(f"forced-core_grid shapes: {sum(1 for kk, _ in rows if kk[4])}")
-    print(f"\nEXPOSED (core_grid forced, out <= {PAIRCOND_MM_NARROW_MAX_TILES} tiles, "
-          f"M >= {BIG_M}): {len(exposed)}")
+    print(f"\nEXPOSED (core_grid forced, M >= {BIG_M}): {len(exposed)}")
     for (op, mm, k, n, grid, dt) in [kk for kk, _ in exposed]:
         c = RECORDS[(op, mm, k, n, grid, dt)]
         print(f"  {op:7s} M={mm:8} K={k:5} N={n:5} (out {n // 32} tiles)  {dt:9s} x{c}")
