@@ -38,3 +38,13 @@ def test_load_runs_fast_on_wormhole(monkeypatch, wormhole, fast, want):
     # (esmfold2_runtime.fold_scope).
     assert built["fast"] is want
     assert tenstorrent._FAST_MODE is False
+
+
+@pytest.mark.parametrize("wormhole", [True, False])
+def test_normal_set_takes_hifi2_only_where_graded(monkeypatch, wormhole):
+    # trimul_gin_hifi2 passed ESMFold2's normal bar on Blackhole; Wormhole was never graded on it.
+    from tt_bio import esmfold2_runtime as rt
+    monkeypatch.delenv("TT_BIO_LEVERS", raising=False)
+    monkeypatch.setattr(rt, "is_wormhole", lambda: wormhole)
+    assert ("trimul_gin_hifi2" in rt.fold_levers(False).split("+")) is not wormhole
+    assert rt.fold_levers(True) == rt.LEVERS_FAST
