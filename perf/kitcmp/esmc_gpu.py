@@ -19,17 +19,33 @@ raw = open(a.seq, "rb").read()
 seq = "".join(raw.decode().split()[-1:]) if raw.startswith(b">") else raw.decode().strip()
 client = ESMC.from_pretrained(f"esmc_{a.variant}", device=torch.device("cuda"))
 batch = client.tokenizer([seq] * a.batch, return_tensors="pt", padding=True).to("cuda")
+
+
+def fwd():
+    with torch.inference_mode(), torch.autocast("cuda", dtype=torch.bfloat16):
+        return client.model(input_ids=batch["input_ids"], attention_mask=batch["attention_mask"])
+
+
+# cuDNN SDPA builds no plan for some shapes (H200 at batch 7 x 514, every B200 shape): drop that one backend when it
+# cannot execute, before timing, and record it. Shapes cuDNN runs are untouched.
+cudnn_off = False
+try:
+    fwd()
+except RuntimeError as e:
+    if "cudnn" not in str(e).lower():
+        raise
+    torch.backends.cuda.enable_cudnn_sdp(False); cudnn_off = True
 times, digest = [], None
 for rep in range(a.warm + 1):
     torch.cuda.synchronize(); t = time.perf_counter()
-    with torch.inference_mode(), torch.autocast("cuda", dtype=torch.bfloat16):
-        out = client.model(input_ids=batch["input_ids"], attention_mask=batch["attention_mask"])
+    out = fwd()
     torch.cuda.synchronize(); times.append(time.perf_counter() - t)
     emb = out.last_hidden_state  # client.model is the native EsmcForMaskedLM; ESMCOutput.embeddings is this tensor
     digest = hashlib.sha256(emb.float().mean(1).cpu().numpy().tobytes()).hexdigest()[:16]
 warm = sorted(times[1:])
 rec = dict(variant=a.variant, mode=os.environ.get("ESMC_OPT") or "off", batch=a.batch, tokens=int(batch["input_ids"].shape[1]),
            seq_sha256=hashlib.sha256(raw).hexdigest()[:16], cold_s=times[0], warm_median_s=warm[len(warm) // 2],
-           warm_min_s=warm[0], warm_max_s=warm[-1], n=len(warm), warm_s=times[1:], pooled_digest=digest, gpu=torch.cuda.get_device_name())
+           warm_min_s=warm[0], warm_max_s=warm[-1], n=len(warm), warm_s=times[1:], pooled_digest=digest, gpu=torch.cuda.get_device_name(),
+           cudnn_sdp_off=cudnn_off)
 open(a.out, "a").write(json.dumps(rec) + "\n")
 print(json.dumps(rec), flush=True)
