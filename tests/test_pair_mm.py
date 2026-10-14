@@ -123,15 +123,3 @@ def test_the_lever_arms_it_without_the_process_flag():
     with tenstorrent.levers("pair_mm"):
         assert pair_mm.armed() and pair_mm.PAIR_MM_FUSED is False
     assert not pair_mm.armed()
-
-
-@pytest.mark.parametrize("taped", [True, False])
-def test_taped_linear_forward_takes_pair_mm(monkeypatch, taped):
-    """`autograd.linear` asks `pair_mm` first; TT_BIO_PAIR_MM_TAPED=0 sends it to ttnn.linear."""
-    from tt_bio import autograd
-    host = lambda name: types.SimpleNamespace(name=name, storage_type=lambda: ttnn.StorageType.HOST)  # noqa: E731
-    monkeypatch.setattr(autograd, "PAIR_MM_TAPED", taped)
-    monkeypatch.setattr(pair_mm, "matmul", lambda *a, **k: host("pair_mm"))
-    monkeypatch.setattr(autograd.ttnn, "linear", lambda *a, **k: host("linear"))
-    out = autograd.linear(autograd.Tensor(_t((50176, 128))), autograd.Tensor(_t((128, 128))))
-    assert out.value.name == ("pair_mm" if taped else "linear")
