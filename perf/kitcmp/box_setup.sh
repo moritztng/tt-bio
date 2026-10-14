@@ -64,6 +64,9 @@ case $M in
   pxdesign)    X='-';;
 esac
 grep -v -E "^(#|pip==|wheel==|($X)==)" $L > /tmp/stack-$M.txt
+# B200, esmc: the lock's flash_attn and transformer_engine_torch are upstream's py312-pt211-cu13-sm80-90 wheels, no sm_100 code (b1's
+# every arm died "no kernel image"); the same two releases build from their PyPI sdists for KC_ARCH in the esmc step below
+[ $M = esmc ] && [ "${KC_GPU:-}" = b200 ] && sed -i -E '/^(flash_attn|transformer_engine_torch) @ /d' /tmp/stack-$M.txt
 if [ -n "$TS" ]; then  # torch with its own CUDA 12.8 wheels first (so a source build in the lock sees it), then the lock without them
   sed -i -E '/^(torch @|triton==|nvidia-[a-z-]+-cu12==)/d' /tmp/stack-$M.txt
   pip install -q torch==$TS --index-url https://download.pytorch.org/whl/cu128 && pip install -q --no-deps triton==3.4.0
@@ -112,6 +115,18 @@ case $M in
     pip install -q --no-deps stock/protenix-1.1.0-py3-none-any.whl; export PROTENIX_ROOT_DIR=/weights/protenix_v1; W=$PROTENIX_ROOT_DIR;;
   af2ig) export AF2IG_DIR=$K/dl_binder_design/af2_initial_guess AF2_PARAMS=/weights/af2ig; W=/weights/af2ig;;
   esmc)  export HF_HOME=/weights/esmc/hf; W=/weights/esmc
+    if [ "${KC_GPU:-}" = b200 ]; then SA=$(echo $KC_ARCH | tr -d .); mkdir -p /tmp/esrc; J=$(nproc); JF=$(( $(awk '/MemAvailable/{print int($2/1048576)}' /proc/meminfo) / 9 ))
+      [ $JF -le $J ] || JF=$J; [ $JF -ge 1 ] || JF=1
+      sd(){ curl -fsSL -o /tmp/esrc/$(basename $1) $1; echo "$2  /tmp/esrc/$(basename $1)" | sha256sum -c -; }
+      sd https://files.pythonhosted.org/packages/8f/72/903015a80c5c39b715a5865d24ad4d1db00025e7f72c985764fd9a9c3843/transformer_engine_torch-2.15.0.tar.gz 883a222c342be7df1551e0d9038a124555422ee554d15a789609758352eaf8b2
+      sd https://files.pythonhosted.org/packages/11/34/9bf60e736ed7bbe15055ac2dab48ec67d9dbd088d2b4ae318fd77190ab4e/flash_attn-2.7.4.post1.tar.gz f03485c9a49a4d68d0733acdcad80ab0e72afa025a777fdc2966ceccf9d51765
+      pip install -q wheel==0.45.1  # both setup.py import wheel.bdist_wheel; a build tool, removed after
+      NVTE_CUDA_ARCHS=$SA MAX_JOBS=$J pip install -q --no-deps --no-build-isolation /tmp/esrc/transformer_engine_torch-2.15.0.tar.gz
+      FLASH_ATTN_CUDA_ARCHS=$SA FLASH_ATTENTION_FORCE_BUILD=TRUE MAX_JOBS=$JF pip install -q --no-deps --no-build-isolation /tmp/esrc/flash_attn-2.7.4.post1.tar.gz
+      python -c "import torch, flash_attn, transformer_engine.pytorch as te; q = torch.randn(1, 64, 4, 64, device='cuda', dtype=torch.bfloat16)
+flash_attn.flash_attn_func(q, q, q); te.LayerNorm(64).cuda()(torch.randn(8, 64, device='cuda')); torch.cuda.synchronize(); print('sm_100 accel ok')"
+      pip uninstall -y -q wheel
+    fi
     # upstream re-published ESMC-300M after the pin; fetch each pinned snapshot by revision so install only checks digests
     python - <<'PY'
 import json
