@@ -27,7 +27,10 @@ from .envflags import env_flag
 # (0.712) and bought nothing.
 # transition_bw and transition_shard stay out: OpenFold3 c730 gains nothing with them (113.2 -> 112.9 s, Wormhole
 # 1000 MHz) and its normal 11-set grade fails DockQ (-0.0168 [-0.0474, -0.0006], 44 paired folds, spd-trans2).
-NORMAL_LEVERS = _T.NORMAL_LEVERS - {"transition_bw", "transition_shard"}
+# opm_jd and dit_qsplit move work, not arithmetic: CIFs identical with and without each on both models, Wormhole and
+# Blackhole (512-token --fast fold A/B, xmodel_ab). opm_jd: OPM relayout 11.7 -> 3.2 ms a call on p150a. dit_qsplit:
+# -0.22 s (OpenFold3) / -0.24 s (OpenBind-0) on a Galaxy chip at 1000 MHz, flat on p150a.
+NORMAL_LEVERS = _T.NORMAL_LEVERS - {"transition_bw", "transition_shard"} | {"opm_jd", "dit_qsplit"}
 # trimul_t1 + trimul_t2 (the triangle multiplication's input and output as one kernel each) join --fast on the
 # Blackhole 11-set fast grade against today's --fast, 44 paired folds per model:
 # OpenFold3 top pose median 0.352 A (seed floor 1.328 A), CA-lDDT -0.0002 [-0.0012, +0.0008], docking 19 -> 19/44,
