@@ -128,6 +128,7 @@ def boltzgen():
 
 def rfd3():
     import torch
+    from tt_bio.main import ensure_rfd3_weights
     from tt_bio.rfd3 import design as D
     from tt_bio.rfd3.sampler import RFD3Sampler
     walls, sample = [], RFD3Sampler.sample
@@ -137,12 +138,13 @@ def rfd3():
 
     RFD3Sampler.sample = timed
     specs = json.loads((TREE / FIX["rfd3"]).read_text())
+    ckpt = str(ensure_rfd3_weights(Path.home() / ".boltz"))  # what `tt-bio design --model rfd3` loads
     for i in range(a.repeat + 1):
         d = work / f"r{i}"
         walls.clear()
         t = time.perf_counter()
         with torch.no_grad():
-            D.run_design(specs, d, checkpoint_dir=str(Path.home() / ".boltz/rfd3/weights"), from_pdb=True,
+            D.run_design(specs, d, checkpoint_dir=ckpt, from_pdb=True,
                          num_timesteps=200, seed=42, num_designs=1, batch_size=1, fast=a.fast, verbose=False)
         wall = time.perf_counter() - t
         cifs = sorted(d.glob("*.cif"))
