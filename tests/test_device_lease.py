@@ -272,9 +272,10 @@ def test_an_empty_visibility_declaration_leases_nothing(d):
     finally:
         os.environ.pop("TT_VISIBLE_DEVICES", None)
     # Unset still means the whole box, which is the case the lease exists to make visible.
+    # Cards are UMD indices (dense 0..n-1), not node numbers: a box that lost a node to a PCIe
+    # error lists /dev/tenstorrent/21 while UMD calls that card 20.
     if present:
-        assert physical_cards() == sorted(
-            (p.rsplit("/", 1)[-1] for p in present), key=int), physical_cards()
+        assert physical_cards() == [str(i) for i in range(len(present))], physical_cards()
     print("  empty visibility: leases nothing, and unset still covers the box  OK")
 
 

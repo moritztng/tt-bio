@@ -65,8 +65,9 @@ def ok(p):
     p = os.path.expanduser(p)
     if any(c in p for c in "*?["):
         return any(ok(q) for q in glob.glob(p))
-    # a result file must be non-empty; an extensionless marker (`touch $O/done`) is empty by design
-    return (os.path.isfile(p) and (os.path.getsize(p) > 0 or "." not in os.path.basename(p))
+    # a result file must be non-empty; a marker (`touch $O/done`, `touch $O/$arm.done`) is empty by design
+    b = os.path.basename(p)
+    return (os.path.isfile(p) and (os.path.getsize(p) > 0 or "." not in b or b.endswith(".done"))
             or os.path.isdir(p) and bool(os.listdir(p)))
 for p in A["paths"]:
     out["exists"][p] = ok(p)
