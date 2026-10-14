@@ -190,37 +190,94 @@ def atom_array_from_mol(
 # all-canonical protein). 0 keeps the sequential path. 24 is where the scaling stops on a
 # 32-core host; a smaller box gets its own core count.
 CONFORMER_THREADS = min(24, os.cpu_count() or 1)
+# Template jobs (every canonical residue) go to worker PROCESSES. A thread pool is held to
+# the GIL: each residue carries 0.6-0.9 ms of python (mol copy, residue info, AddHs, the
+# timed embed hand-off, the annotations) around a 2-3 ms ETKDG embed, so 512 residues
+# never got under ~0.4 s on a 32-core p150a host however many threads ran. Workers fork
+# from a forkserver that preloaded this module, so each one costs its unshared pages only.
+# 0 keeps everything on threads; so does any failure to start or run the pool.
+CONFORMER_PROCS = min(16, (os.cpu_count() or 1) // 2)
 # One pool for the process: starting 24 threads per fold cost 0.2 s on a loaded 32-core host.
 _CONFORMER_POOL = None
+_CONFORMER_PROCS_POOL = None
 
 
 def _drop_conformer_pool():
-    # A forked child inherits the pool object but none of its threads.
-    global _CONFORMER_POOL
+    # A forked child inherits the pools' objects but none of their threads or processes.
+    global _CONFORMER_POOL, _CONFORMER_PROCS_POOL
     _CONFORMER_POOL = None
+    _CONFORMER_PROCS_POOL = None
 
 
 os.register_at_fork(after_in_child=_drop_conformer_pool)
 
 
+def _template_job(job):
+    """One residue's reference molecule in a worker process, from its type's template."""
+    seed, arr, leaving, key = job
+    conformer_mod.pool_seed(seed)
+    return _processed_reference_molecule_from_template(
+        _reference_mol_template(arr, key), arr, leaving)
+
+
+def _procs_init():
+    # A pickled Mol carries atom properties only when asked to, and the annot_* properties
+    # are features (atom names, used-atom mask).
+    Chem.SetDefaultPickleProperties(Chem.PropertyPickleOptions.AllProps)
+
+
+def _procs_pool():
+    global _CONFORMER_PROCS_POOL
+    if _CONFORMER_PROCS_POOL is None:
+        import multiprocessing as mp
+        from concurrent.futures import ProcessPoolExecutor
+        ctx = mp.get_context("forkserver")
+        ctx.set_forkserver_preload([__name__])
+        _CONFORMER_PROCS_POOL = ProcessPoolExecutor(
+            CONFORMER_PROCS, mp_context=ctx, initializer=_procs_init)
+    return _CONFORMER_PROCS_POOL
+
+
 def _pooled_reference_molecules(jobs: list) -> list:
-    """Every job's reference molecule, computed on a thread pool.
+    """Every job's reference molecule, computed on worker processes or a thread pool.
 
     The seeds are pre-drawn in residue order and handed out one per residue, so residue i
     embeds with exactly the seed the sequential loop would have drawn for it, and a retry
     inside residue i draws from that seed's own stream. No residue can reach another's
     seed, so the pooled result is the sequential result.
     """
+    global _CONFORMER_POOL, _CONFORMER_PROCS_POOL
     seeds = [random.randint(0, 10**9) for _ in jobs]
+
+    if CONFORMER_PROCS > 1 and all(key is not None for _, _, key in jobs):
+        try:
+            pool = _procs_pool()
+            work = [(seeds[i], arr, leaving, key) for i, (arr, leaving, key) in enumerate(jobs)]
+            # Workers are spawned inside submit(), so map() is where they start. A started
+            # worker re-imports the caller's __main__ unless there is none to import, and
+            # an unguarded script (a perf harness) would run again in every worker, device
+            # open and all. The workers need only this module.
+            import sys, types
+            main = sys.modules["__main__"]
+            sys.modules["__main__"] = types.ModuleType("__main__")
+            try:
+                done = pool.map(_template_job, work,
+                                chunksize=max(1, len(work) // (4 * CONFORMER_PROCS)))
+            finally:
+                sys.modules["__main__"] = main
+            return list(done)
+        except Exception as e:  # no children allowed here, a worker died, ...
+            logger.warning(f"conformer process pool unavailable, using threads: {e!r}")
+            _CONFORMER_PROCS_POOL = None
 
     def one(i):
         conformer_mod.pool_seed(seeds[i])
-        arr, leaving, template = jobs[i]
-        if template is not None:
-            return _processed_reference_molecule_from_template(template, arr, leaving)
+        arr, leaving, key = jobs[i]
+        if key is not None:
+            return _processed_reference_molecule_from_template(
+                _reference_mol_template(arr, key), arr, leaving)
         return processed_reference_molecule_from_atom_array(arr, atoms_to_mask=leaving)
 
-    global _CONFORMER_POOL
     if _CONFORMER_POOL is None:
         _CONFORMER_POOL = ThreadPoolExecutor(max_workers=CONFORMER_THREADS,
                                              thread_name_prefix="of3-conformer")
@@ -504,9 +561,10 @@ def structure_with_ref_mols_from_sequence(
 
         # Parse into RDKit mol and compute conformer
         if pool_jobs is not None:
-            template = (_reference_mol_template(res_array, (resname_3, poly_type))
-                        if REF_MOL_TEMPLATES else None)
-            pool_jobs.append((res_array, leaving_atoms, template))
+            # The type's template is built where the job runs (and cached there), so a
+            # process job ships its key, not a Mol.
+            pool_jobs.append((res_array, leaving_atoms,
+                              (resname_3, poly_type) if REF_MOL_TEMPLATES else None))
         else:
             if REF_MOL_MEMO:
                 processed_ref_mol = _memo_processed_reference_molecule(

@@ -1,6 +1,6 @@
 """Host-only profile of OpenFold3's featurisation (build_openfold3_features) on a fixture, no device.
 
-python perf/of3_host/featprof.py perf/size512/fixtures/cdk2x2_512.yaml [--openbind] [--reps 3] [--prof out.prof]
+python perf/of3_host/featprof.py perf/size512/fixtures/cdk2x2_512.yaml [--openbind] [--reps 3] [--prof out.prof] [--dump f.pt]
 Prints wall per rep; the last rep's cProfile top-30 cumulative.
 """
 import argparse, cProfile, json, pstats, random, tempfile, time
@@ -16,6 +16,7 @@ from tt_bio.openfold3_data import build_openfold3_features, normalize_openfold3_
 ap = argparse.ArgumentParser()
 ap.add_argument("yaml"); ap.add_argument("--openbind", action="store_true")
 ap.add_argument("--reps", type=int, default=3); ap.add_argument("--prof")
+ap.add_argument("--dump", help="torch.save the last rep's tensor features here (exactness checks)")
 a = ap.parse_args()
 path = Path(a.yaml).resolve()
 msa_dir = Path(tempfile.mkdtemp())
@@ -43,3 +44,4 @@ for r in range(a.reps):
     print(f"rep {r}: {time.perf_counter() - t:.3f} s, {len(f)} features, restype {tuple(f['restype'].shape)}", flush=True)
 st = pstats.Stats(pr).sort_stats("cumulative"); st.print_stats(30)
 if a.prof: pr.dump_stats(a.prof)
+if a.dump: torch.save({k: v for k, v in f.items() if isinstance(v, torch.Tensor)}, a.dump)
