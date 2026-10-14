@@ -226,6 +226,11 @@ if a.ops and not a.trace:  # a synced call inside a capture is exactly what a tr
         by_cls[r["cls"]] += r["synced_s"]
     res["ops"] = {"fold_s": time.perf_counter() - t0, "calls": len(rec.rec),
                   "synced_total_s": sum(by_cls.values()), "by_class": dict(by_cls), "top": rows[:80]}
+_tn, _dn = sys.modules.get("tt_bio.tenstorrent"), sys.modules.get("tt_bio.mm_dualnoc")
+if _tn is not None:
+    res.update(trimul_gout=list(_tn.TRIMUL_GOUT_STATS), trimul_gout_rejects=dict(_tn.TRIMUL_GOUT_REJECTS))
+if _dn is not None:
+    res.update(dualnoc=list(_dn.STATS))
 (a.out / "census.json").write_text(json.dumps(res, indent=1))
 (a.out / "profile.txt").write_text(buf.getvalue())
 st.dump_stats(str(a.out / "profile.pstats"))
