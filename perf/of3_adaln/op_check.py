@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """dit_adaln (adaln.adaln: layer_norm and the per-token scale / shift in one kernel) against float64 and
-against the shipped pair (ttnn.layer_norm, then ttnn.addcmul), plus microseconds per call of both.
+against the shipped pair (ttnn.layer_norm, then ttnn.addcmul), plus microseconds per call of both: host wall with a sync, and
+per call replayed from a trace (device time; the fold replays the DiT from a trace).
 
 Shape: OpenFold3's token DiT at 512 tokens and one sample, a [1, 512, 768]; scale = sigmoid(..) in (0, 1),
 shift ~ N(0, 1). Cases cover the dtypes the fold can hand it (bf16 everywhere; fp32 scale / shift).
@@ -20,7 +21,7 @@ ap.add_argument("--c", type=int, default=768)
 ap.add_argument("--reps", type=int, default=50)
 ap.add_argument("--out", required=True)
 a = ap.parse_args()
-dev = T.get_device()
+dev = T.get_device(trace="openfold3")
 torch.manual_seed(0)
 xs = torch.randn(1, a.n, a.c) * 3 + 0.7
 scs = torch.sigmoid(torch.randn(1, a.n, a.c))
@@ -40,6 +41,22 @@ def timed(f):
         t0 = time.perf_counter(); o = f(); ttnn.synchronize_device(dev); ts.append(time.perf_counter() - t0)
         ttnn.deallocate(o)
     return sorted(ts)[len(ts) // 2] * 1e6
+
+
+def traced(f, k=20):
+    """Device microseconds per call: k calls replayed from one trace, as the fold's diffusion runs them."""
+    f(); ttnn.synchronize_device(dev)
+
+    def run():
+        for _ in range(k):
+            ttnn.deallocate(f())
+    tid, _ = T.capture_trace(dev, run)
+    ttnn.execute_trace(dev, tid, cq_id=0, blocking=True)
+    ts = []
+    for _ in range(max(3, a.reps // 5)):
+        t0 = time.perf_counter(); ttnn.execute_trace(dev, tid, cq_id=0, blocking=True); ts.append(time.perf_counter() - t0)
+    ttnn.release_trace(dev, tid)
+    return sorted(ts)[len(ts) // 2] * 1e6 / k
 
 
 res = {"n": a.n, "c": a.c, "arch": str(dev.arch()), "cases": {}}
@@ -69,10 +86,15 @@ for name, xd, sd in (("bf16", ttnn.bfloat16, ttnn.bfloat16), ("x_bf16_s_fp32", t
         case["fused"] = err(ttnn.to_torch(f), ref)
         case["fused_vs_shipped_max"] = float((ttnn.to_torch(f).double() - ttnn.to_torch(shipped()).double()).abs().max())
         case["fused_us"] = timed(fused)
+        case["fused_trace_us"] = traced(fused)
     except Exception as e:  # noqa: BLE001
         case["fused_error"] = repr(e)[:600]
-    case["shipped"] = err(ttnn.to_torch(shipped()), ref)
-    case["shipped_us"] = timed(shipped)
+    try:
+        case["shipped"] = err(ttnn.to_torch(shipped()), ref)
+        case["shipped_us"] = timed(shipped)
+        case["shipped_trace_us"] = traced(shipped)
+    except Exception as e:  # noqa: BLE001
+        case["shipped_error"] = repr(e)[:600]
     res["cases"][name] = case
     print(name, json.dumps(case), flush=True)
 Path(a.out).write_text(json.dumps(res, indent=1))
