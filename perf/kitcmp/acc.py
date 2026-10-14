@@ -29,7 +29,8 @@ def kabsch(p, q):
     return float(np.sqrt(((p @ r - q) ** 2).sum(1).mean()))
 
 
-a, ba = ca(sys.argv[1]); b, bb = ca(sys.argv[2])
-assert len(a) == len(b) > 0, (len(a), len(b))
-h = len(a) // 2  # the page fixture is two CDK2 copies in one chain: per-copy RMSD separates fold from copy placement
-print(f"rmsd {kabsch(a, b):.3f} A  halves {kabsch(a[:h], b[:h]):.3f}/{kabsch(a[h:], b[h:]):.3f} A  max_dx {np.abs(a - b).max():.4f} A  plddt {np.nanmean(ba):.4f} vs {np.nanmean(bb):.4f}  n_ca {len(a)}")
+if __name__ == "__main__":
+    a, ba = ca(sys.argv[1]); b, bb = ca(sys.argv[2])
+    assert len(a) == len(b) > 0, (len(a), len(b))
+    h = len(a) // 2  # the page fixture is two CDK2 copies in one chain: per-copy RMSD separates fold from copy placement
+    print(f"rmsd {kabsch(a, b):.3f} A  halves {kabsch(a[:h], b[:h]):.3f}/{kabsch(a[h:], b[h:]):.3f} A  max_dx {np.abs(a - b).max():.4f} A  plddt {np.nanmean(ba):.4f} vs {np.nanmean(bb):.4f}  n_ca {len(a)}")
