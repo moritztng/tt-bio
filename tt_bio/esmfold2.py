@@ -82,7 +82,15 @@ _DUMP = None
 
 # The atom transformer's SwiGLU up-projection as two linears (one per half of w_up) instead of one linear and a
 # ttnn.chunk: 6 atom blocks x every sampler step, the chunk was 0.30 s of device time per 512-aa fold (census c3).
-ATOM_FFN_SPLIT = env_flag("TT_BIO_ESMFOLD2_ATOM_FFN_SPLIT", True)
+ATOM_FFN_SPLIT = env_flag("TT_BIO_ESMFOLD2_ATOM_FFN_SPLIT", None)  # unset: the ef2_atom_ffn_split lever
+
+
+def gate(flag, name):
+    """A branch-stack switch: its setting when given, else whether lever `name` is active in the fold's scope.
+    The ef2_* levers pass the fast bar as a stack on both models and fail the normal bar on ESMFold2 (CA-lDDT
+    -0.0019 [-0.0050, -0.0001], 44 paired folds), so only esmfold2_runtime.LEVERS_FAST names them until a
+    per-lever normal grade says which one moves the structure."""
+    return lever(name) if flag is None else flag
 
 #: Replay the diffusion step from a ttnn trace (StructureHead._step) when the device was opened
 #: with get_device(trace="esmfold2"). Lossless. Off: it lost 0.46 s/fold on p150a while the dense
@@ -894,7 +902,7 @@ class SWAAtomBlock(Module):
         ttnn.deallocate(attn_out)
 
         ffn_in = self._modulate(x, cf, sf)
-        if ATOM_FFN_SPLIT:
+        if gate(ATOM_FFN_SPLIT, "ef2_atom_ffn_split"):
             h1, h2 = (lin(ffn_in, w) for w in self.ffn_up_ab)
         else:
             h1, h2 = ttnn.chunk(lin(ffn_in, self.ffn_up), 2, dim=-1)
@@ -1238,7 +1246,8 @@ def relpos_lookup(w, residue_index, asym_id, sym_id, entity_id, token_index, r_b
 
 
 # Relative positions by table lookup on the host (relpos_lookup); False = one-hot features through a device linear.
-RELPOS_LOOKUP = True
+# None follows the ef2_relpos_lookup lever.
+RELPOS_LOOKUP = None
 
 
 class RelPosEncoding(TorchWrapper):
@@ -1256,7 +1265,7 @@ class RelPosEncoding(TorchWrapper):
         return relpos_rows(self._w, residue_index, asym_id, sym_id, entity_id, token_index, self.r_bins, self.c_bins)
 
     def forward(self, residue_index, asym_id, sym_id, entity_id, token_index):
-        if RELPOS_LOOKUP:
+        if gate(RELPOS_LOOKUP, "ef2_relpos_lookup"):
             return self.rows(residue_index, asym_id, sym_id, entity_id, token_index).host()
         feats = relpos_features(residue_index, asym_id, sym_id, entity_id, token_index, self.r_bins, self.c_bins)
         w = ttnn.from_torch(self._w.t(), layout=ttnn.TILE_LAYOUT, device=self.tt_device, dtype=_DTYPE)
