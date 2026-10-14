@@ -31,6 +31,8 @@ so the cell comes back by itself once the row changes its grid entry.
 
 Galaxies: jobs go to ~/spd/pool/queue/ and pool.sh starts them. qb1/qb2 have no pool: feed starts each job detached as
 a waiter on its card's CHIPS.md flock; the job itself gets a private LOCK so run_chip.sh does not wait on its own card.
+A waiter is bound to the card it was placed on, so a BH job still waiting after STEAL_S moves to a card that is free
+now (flock free, no waiter, no release leg) on another BH box its cell allows.
 """
 import argparse
 import hashlib
@@ -50,6 +52,7 @@ D = Path("/home/moritz/.coworker")
 TIERS = {"red": 0, "amber": 1, "fast": 2, "fill": 3}
 FAST_S = 60
 MAX_FAILS = 3
+STEAL_S = 900   # a BH job still waiting this long moves to a free card on another BH box its cell allows
 # BH boxes: SPD cards and their flocks (state/spd/CHIPS.md). Never qb2 chip 2 (faulty); chip 1 back after the 10-13 power cycle.
 BH_POOLS = {
     "qb1": {"ssh": "qb1", "cards": [0, 1, 2, 3], "lock": "/home/ttuser/spd_qb1_card{c}.lock"},
@@ -115,7 +118,7 @@ if A["kind"] == "galaxy":
 else:
     J = H + "/spd/feed/jobs"; os.makedirs(J, exist_ok=True)
     cards = [c for c in A["cards"] if not os.path.exists(H + "/spd/locks/chip%d.BAD" % c)]
-    out["healthy"] = len(cards); wait = {c: 0 for c in cards}
+    out["healthy"] = len(cards); wait = {c: 0 for c in cards}; held = set()
     for sh in glob.glob(J + "/*.sh"):
         n = os.path.basename(sh); card = int(open(sh + ".card").read()) if os.path.exists(sh + ".card") else -1
         if os.path.exists(sh + ".end"):
@@ -123,10 +126,20 @@ else:
         elif not os.path.exists(sh + ".pid") or not os.path.exists("/proc/" + open(sh + ".pid").read().strip()):
             open(sh + ".end", "w").write("lost\n"); out["jobs"][n] = ended(sh, sh + ".end", sh)
         elif os.path.exists(sh + ".start"):
-            out["jobs"][n] = {"state": "running"}
+            out["jobs"][n] = {"state": "running"}; held.add(card)
         else:
-            out["jobs"][n] = {"state": "queued"}
+            out["jobs"][n] = {"state": "queued", "card": card, "age": int(now - os.path.getmtime(sh))}
             if card in wait: wait[card] += 1
+    import fcntl, subprocess
+    def lock_free(c):
+        try:
+            with open(A["lock"].format(c=c), "a") as f:
+                fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB); fcntl.flock(f, fcntl.LOCK_UN); return True
+        except (OSError, KeyError):
+            return False
+    rel = lambda c: subprocess.run(["pgrep", "-f", "(spd_qb1_card|spd_qb2_chip|TT_VISIBLE_DEVICES=)%d[. ].*"
+                                    "(release_gate|gate_fanout|perf_ab)" % c], capture_output=True).returncode == 0
+    out["free"] = [c for c in cards if not wait[c] and c not in held and lock_free(c) and not rel(c)]
     out["live"] = []
     out["queued"] = sum(wait.values()); out["wait"] = wait; out["paused"] = os.path.exists(J + "/PAUSE")
 print(json.dumps(out))
@@ -162,6 +175,26 @@ for n in A.get("unqueue", []):
     p = H + "/spd/pool/queue/" + n
     if os.path.exists(p): os.makedirs(H + "/spd/pool/quarantine", exist_ok=True); os.rename(p, H + "/spd/pool/quarantine/" + n)
 print(len(A["jobs"]))
+'''
+
+
+# Withdraws BH waiters that have not started: kill the waiter's session (feed started it under setsid), then set the
+# job aside as .moved so the probe no longer sees it. Prints the names withdrawn before they started.
+WITHDRAW = r'''
+import json, os, signal, sys, time
+A = json.loads(sys.stdin.readline()); J = os.path.expanduser("~/spd/feed/jobs"); got = []
+for n in A["names"]:
+    sh = J + "/" + n
+    if not os.path.exists(sh) or os.path.exists(sh + ".start") or os.path.exists(sh + ".end"): continue
+    try: os.killpg(int(open(sh + ".pid").read()), signal.SIGTERM)
+    except (OSError, ValueError): pass
+    time.sleep(0.5)
+    if os.path.exists(sh + ".start"): continue          # took its card in that half second: let it run
+    os.rename(sh, sh + ".moved")
+    for x in (".pid", ".card"):
+        if os.path.exists(sh + x): os.remove(sh + x)
+    got.append(n)
+print(json.dumps(got))
 '''
 
 
@@ -305,6 +338,36 @@ def wake(root, row, why, log):
     log(f"woke {row}: {why}")
 
 
+def steal(cs, ledger, st, P, stamp, dry, log):
+    """Move BH jobs that waited STEAL_S on a busy card to a free card on another BH box, oldest first, one per card."""
+    by = {c["name"]: c for c in cs}
+    for b in [n for n in st if P[n]["kind"] == "bh"]:
+        for card in list(st[b].get("free", [])):
+            cand = [(j["age"], n, name) for n in st if n != b and P[n]["kind"] == "bh"
+                    for name, j in st[n]["jobs"].items()
+                    if j["state"] == "queued" and j.get("age", 0) >= STEAL_S and name in by
+                    and (not by[name]["hosts"] or b in by[name]["hosts"])
+                    and all(st[b]["exists"].get(x) for x in by[name]["requires"])]
+            if not cand:
+                break
+            _, n, name = max(cand); c = by[name]
+            st[n]["jobs"][name]["state"] = "moving"
+            log(f"steal {c['key']}: waited {max(cand)[0] // 60} min on {n} card {st[n]['jobs'][name]['card']} -> {b} card {card}")
+            if dry:
+                continue
+            try:
+                if name not in remote(P[n]["ssh"], WITHDRAW, {"names": [name]}):
+                    continue
+                remote(P[b]["ssh"], PLACE, {"kind": "bh", "jobs": [{"name": name, "body": c["body"], "cap": c["cap"],
+                                                                   "card": card, "lock": P[b]["lock"].format(c=card)}]})
+            except Exception as e:   # withdrawn but not placed: the next pass finds the cell lost and places it again
+                log(f"steal {c['key']} failed: {e}")
+                continue
+            st[n]["queued"] -= 1; st[b]["queued"] += 1
+            st[n]["wait"][str(st[n]["jobs"][name]["card"])] -= 1; st[b]["wait"][str(card)] += 1   # JSON keys
+            ledger[c["key"]] = dict(ledger.get(c["key"], {}), host=b, state="queued", placed=stamp)
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--root", default=str(D), help="coworker dir: ALLOC.json, grids, ledger, QUARANTINE.md, notbefore")
@@ -333,7 +396,7 @@ def main(argv=None):
     for name, p in P.items():
         try:
             st[name] = remote(p["ssh"], PROBE, {"kind": p["kind"], "paths": [x for x in paths], "cards": p.get("cards", []),
-                                             "sweep": not a.dry_run, "outdirs": outdirs})
+                                             "lock": p.get("lock", ""), "sweep": not a.dry_run, "outdirs": outdirs})
         except Exception as e:  # an unreachable box is skipped, never fatal
             log(f"{name}: probe failed: {e}")
     # 1. account every ledger entry: done, pending, or a failed attempt
@@ -362,6 +425,7 @@ def main(argv=None):
         elif L.get("state") in ("queued", "running") and L.get("host") in st:
             L["state"] = "lost"                  # vanished from queue/running without an end: place again
     live = {n for s in st.values() for n in s.get("live", [])}
+    steal(cs, ledger, st, P, stamp, a.dry_run, log)
     # 2. fill each pool up to depth x healthy, cells in priority order, the pool with most room first
     room = {n: (0 if s.get("paused") else int(a.depth * s["healthy"]) - s["queued"]) for n, s in st.items()}
     place = {n: [] for n in st}
