@@ -122,16 +122,16 @@ def test_tree_root_names_the_commit_dir():
 
 
 def test_probe_counts_an_empty_marker_and_tails_the_jobs_own_log(tmp_path):
-    """`touch $O/done` is a finished cell (an empty result file is not), and a job that logs into its out dir gets
+    """`touch $O/done` and `touch $O/<arm>.done` are a finished cell (an empty result file is not), and a job that logs into its out dir gets
     that log tailed into the quarantine entry."""
     o = tmp_path / "o"; o.mkdir()
-    (o / "done").touch(); (o / "r.json").touch(); (o / "run.log").write_text("Traceback: boom\n" * 20)
+    (o / "done").touch(); (o / "a=m:fast.done").touch(); (o / "r.json").touch(); (o / "run.log").write_text("Traceback: boom\n" * 20)
     jobs = tmp_path / "spd/feed/jobs"; jobs.mkdir(parents=True)
     (jobs / "4-x.sh").write_text(""); (jobs / "4-x.sh.end").write_text("0\n"); (jobs / "4-x.sh.log").write_text("")
-    a = {"kind": "bh", "cards": [], "sweep": False, "paths": [str(o / "done"), str(o / "r.json")],
+    a = {"kind": "bh", "cards": [], "sweep": False, "paths": [str(o / "done"), str(o / "a=m:fast.done"), str(o / "r.json")],
          "outdirs": {"4-x.sh": [str(o)]}}
     r = subprocess.run([sys.executable, "-c", feed.PROBE], input=json.dumps(a) + "\n", capture_output=True, text=True,
                        env={"HOME": str(tmp_path)}, check=True)
     out = json.loads(r.stdout)
-    assert out["exists"] == {str(o / "done"): True, str(o / "r.json"): False}
+    assert out["exists"] == {str(o / "done"): True, str(o / "a=m:fast.done"): True, str(o / "r.json"): False}
     assert "Traceback: boom" in out["jobs"]["4-x.sh"]["tail"]
