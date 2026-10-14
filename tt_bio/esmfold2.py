@@ -1157,13 +1157,13 @@ class DiffusionModule(TorchWrapper):
             ref_element, ref_atom_name_chars.reshape(B, N, -1),
         ], dim=-1)  # [B,N,389]
         cos, sin = build_3d_rope_tables(ref_pos, ref_space_uid, 32, **ATOM_ROPE)
+        ft = self._from_torch
         band = swa_band(ref_mask, 64, ft, self.tt_device)
         valid = ref_mask.reshape(1, N, 1).float()  # [1,N,1] zero out padding atoms
         oh = F.one_hot(tok_idx[0].long(), L).float() * ref_mask[0].float()[:, None]  # [N,L]
         gather_g = oh.unsqueeze(0)  # [1,N,L]
         scatter_m = (oh / oh.sum(0).clamp(min=1)).t().unsqueeze(0)  # [1,L,N]
 
-        ft = self._from_torch
         r_update = self.module(
             ft(s_inputs), ft(z_trunk), ft(relpos), ft(n_raw), ft(atom_feats.float()),
             ft(r_input.float()), ft(cos.float()), ft(sin.float()), band,
