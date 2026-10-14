@@ -8910,11 +8910,10 @@ def _in_proj_matmul(x, w, ckc, memory_config, bias=None, split=None, dtype=None)
     generic path can do; a caller that asks for it and is refused gets None and falls back itself.
     """
     dtype = dtype or _dtype()
-    if bias is None:
-        from . import mm_dualnoc as DN
-        out = DN.in_proj(x, w, ckc, dtype, memory_config, split)
-        if out is not None:
-            return out
+    from . import mm_dualnoc as DN
+    out = DN.in_proj(x, w, ckc, dtype, memory_config, split, bias)
+    if out is not None:
+        return out
     if split is not None:
         return None
     return ttnn.experimental.minimal_matmul(
@@ -9247,6 +9246,7 @@ class TriangleMultiplication(Module):
         # Same four weights again with `g_out`'s columns on the end, built only if the fused-gate
         # lever ever takes a call at this width.
         self._gp_gout_cache: dict[tuple[int, int], ttnn.Tensor] = {}
+        self._gp_gout_bias_cache: dict = {}
         self._gp_gated_cache: dict = {}
         self._t1_w = None     # T1's (wpT, wgT), built on its first served call
         # The in-projection as device leaves, set only by `train_in_proj`. Inference never
@@ -9353,6 +9353,28 @@ class TriangleMultiplication(Module):
             self._gp_gout_cache[key] = cached
         return cached
 
+    def _gp_in_gout_bias(self, C: int, group: int) -> ttnn.Tensor | None:
+        """`_gp_in_gout`'s bias: the in-projection's biases then `g_out`'s, zeros for an absent one.
+
+        None when the module has neither, so the call stays the bias-free kernel it always was.
+        """
+        if self._g_in_b is None and self.g_out_bias is None:
+            return None
+        key = (C, group, gp_roles())
+        cached = self._gp_gout_bias_cache.get(key)
+        if cached is None:
+            parts = (self._gp_fused_order((self._g_in_b, self._p_in_b), C, group)
+                     if self._g_in_b is not None else
+                     [torch.zeros(int(self._gp_in_chunks(C, group)[0].shape[-1]))])
+            assert len(parts) == 1, ("the fused gate needs a one-iteration channel loop", len(parts))
+            g = self.weights["g_out.bias"] if "g_out.bias" in self.weights.data else \
+                torch.zeros(int(self.g_out_weight.shape[-1]))
+            cached = ttnn.from_torch(
+                torch.cat([parts[0].reshape(-1), g.reshape(-1)]).to(torch.float32),
+                layout=ttnn.TILE_LAYOUT, device=self.device, dtype=ttnn.bfloat16)
+            self._gp_gout_bias_cache[key] = cached
+        return cached
+
     def _t1_in(self, x, mask, H, shp):
         """T1's `(a, b, g_out, a_masked)` for this call, or None, in which case nothing ran.
 
@@ -9407,18 +9429,16 @@ class TriangleMultiplication(Module):
             TRIMUL_GOUT_REJECTS[reason] = TRIMUL_GOUT_REJECTS.get(reason, 0) + 1
             TRIMUL_GOUT_STATS[1] += 1
             return False
-        if ops.taping():
-            # `_in_proj_matmul` cannot split under the tape, so the fused call would decline
-            # after its weight had been built for nothing.
-            return no("taped")
+        if ops.taping() and self.g_in_weight is not None:
+            # The split's tape entry writes the input's gradient only; trainable in-projection
+            # weights would make the fused call decline after its weight had been built.
+            return no("trainable_in_proj")
         if row_norm or x_norm_in is None:
             return no("row_blocked_input_norm")
         if H > SEQ_LEN_MORE_CHUNKING:
             return no("row_blocked_tail")
         if n_pairs // group != 1:
             return no("multi_chunk_channel_loop")
-        if self.g_out_bias is not None:
-            return no("g_out_bias")
         if memory_config.buffer_type != ttnn.BufferType.DRAM:
             return no("l1_channel_path")
         if _FAST_MODE:
@@ -10066,10 +10086,11 @@ class TriangleMultiplication(Module):
                               and (mask is None or mask_moved_ok)
                               and memory_config.buffer_type == ttnn.BufferType.DRAM)
                         gp_in_fused = None
-                        if fuse_gout and bias_i is None and n_pairs // group == 1:
+                        if fuse_gout and n_pairs // group == 1:
                             pair = _in_proj_matmul(
                                 x_norm_in, self._gp_in_gout(chunk_size, group),
-                                self.compute_kernel_config, memory_config, None,
+                                self.compute_kernel_config, memory_config,
+                                self._gp_in_gout_bias(chunk_size, group),
                                 split=(int(gp_in_chunks[i].shape[-1]),
                                        int(self.g_out_weight.shape[-1])),
                                 dtype=ttnn.bfloat8_b if b8 else None)

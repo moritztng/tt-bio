@@ -129,13 +129,43 @@ def test_a_refused_in_projection_returns_none_before_anything_is_taped(monkeypat
     assert _in_proj_entry(monkeypatch, None, seen) is None
 
 
-def test_a_split_in_projection_is_refused_by_the_entry(taping):
-    """A split hands back a list of destinations; concatenating their cotangents before the
-    weight gradient contracts is not written, so the entry declines rather than guess."""
-    served = []
+def test_a_split_in_projection_tapes_each_destination_as_its_own_matmul(monkeypatch, taping):
+    """A split is `x @ [w_1 | w_2] + [b_1 | b_2]` written to two buffers. Each buffer is taped as
+    the matmul over its own column block, so the input's cotangent is the fan-in sum of the two,
+    the same sum the two unfused projections give."""
+    class W:
+        shape = [128, 640]
+
+    cuts, seen, served = [], [], []
+    monkeypatch.setattr(TT.ttnn, "slice", lambda t, a, b: cuts.append((a, b)) or ("w", a[1], b[1]))
+
+    def v_matmul(shipped, args, kwargs):
+        seen.append(dict(kwargs))
+        return shipped()
+
+    monkeypatch.setattr(TT, "_v_matmul", v_matmul)
+    outs = TT.KERNELS["mm_dualnoc_in_proj"](
+        lambda *a, **kw: served.append(a) or ["o1", "o2"],
+        ("x", W(), "ckc", "dt", "mc", [512, 128], "bias"), {})
+    assert outs == ["o1", "o2"]
+    assert len(served) == 1 and served[0][5:] == ([512, 128], "bias"), "one kernel call, with its bias"
+    assert cuts == [([0, 0], [128, 512]), ([0, 512], [128, 640])]
+    assert [k["weight_tensor"] for k in seen] == [("w", 0, 512), ("w", 512, 640)]
+    assert all(k["input_tensor"] == "x" for k in seen)
+
+
+def test_a_biased_in_projection_hands_its_bias_to_the_matmuls_vjp(monkeypatch, taping):
+    seen = []
+
+    def v_matmul(shipped, args, kwargs):
+        seen.append(dict(kwargs))
+        return shipped(**kwargs)
+
+    monkeypatch.setattr(TT, "_v_matmul", v_matmul)
+    got = []
     out = TT.KERNELS["mm_dualnoc_in_proj"](
-        lambda *a, **kw: served.append(a) or "out", ("x", "w", "ckc", "dt", "mc", [128, 128]), {})
-    assert out is None and served == []
+        lambda *a: got.append(a) or "out", ("x", "w", "ckc", "dt", "mc", None, "b"), {})
+    assert out == "out" and seen[0]["bias_tensor"] == "b" and got[0][-1] == "b"
 
 
 def test_the_wide_adds_vjp_is_the_cotangent_to_both_operands(monkeypatch, taping):

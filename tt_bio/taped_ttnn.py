@@ -1463,38 +1463,57 @@ class _KernelDeclined(Exception):
 def _k_in_proj(shipped, args, kwargs):
     """`tt_bio.mm_dualnoc.in_proj`'s entry: a matmul's VJP, because that is what it computes.
 
-    The kernel is `minimal_matmul(x, w)` with half the output drain issued on the other NOC --
-    same tiles, same addresses, same bytes, bit-exact against the stock op by construction. So
-    its gradient is not a new derivation: it is `_v_matmul`'s, and this entry calls that rather
-    than writing a second copy that could drift from it. The one thing it adds is the kernel's
-    decline path. `in_proj` returns None for any shape outside the class it was transcribed for,
-    and a None cannot be taped, so a refusal is raised out through `_v_matmul` before it has
-    registered anything and the caller falls back to the taped `minimal_matmul` with its
-    operands untouched.
+    The kernel is `minimal_matmul(x, w, bias_tensor=bias)` with half the output drain issued on
+    the other NOC -- same tiles, same addresses, same bytes, bit-exact against the stock op by
+    construction. So its gradient is not a new derivation: it is `_v_matmul`'s, and this entry
+    calls that rather than writing a second copy that could drift from it. The one thing it adds
+    is the kernel's decline path. `in_proj` returns None for any shape outside the class it was
+    transcribed for, and a None cannot be taped, so a refusal is raised out through `_v_matmul`
+    before it has registered anything and the caller falls back to the taped `minimal_matmul`
+    with its operands untouched.
 
-    A `split` call is refused here: it hands back a list of destinations, whose cotangents have
-    to be concatenated before the weight gradient contracts, and that is not written. The
-    caller's own fallback covers it.
+    A `split` call hands back one destination per column block of `w`. Each is `x @ w_k (+ b_k)`
+    for its own block, so each is taped as that matmul over the block's columns, and the input
+    cotangent is the fan-in sum of the blocks', the same sum the unsplit projections give. Only
+    the input's gradient is written for a split: a weight or bias that wants one declines it.
     """
     def bound(i, name, default=None):
         return args[i] if len(args) > i else kwargs.get(name, default)
 
     x, w, ckc = bound(0, "x"), bound(1, "w"), bound(2, "ckc")
     dtype, memory_config, split = bound(3, "dtype"), bound(4, "memory_config"), bound(5, "split")
-    if split is not None:
-        return None
+    bias = bound(6, "bias")
 
-    def as_matmul(*_ra, **rk):
-        out = shipped(rk["input_tensor"], rk["weight_tensor"], ckc, dtype, memory_config)
-        if out is None:
-            raise _KernelDeclined
-        return out
+    if split is None:
+        def as_matmul(*_ra, **rk):
+            out = shipped(rk["input_tensor"], rk["weight_tensor"], ckc, dtype, memory_config,
+                          None, rk.get("bias_tensor"))
+            if out is None:
+                raise _KernelDeclined
+            return out
 
-    try:
-        return _v_matmul(as_matmul, (), {"input_tensor": x, "weight_tensor": w,
-                                         "compute_kernel_config": ckc})
-    except _KernelDeclined:
+        kw = {"input_tensor": x, "weight_tensor": w, "compute_kernel_config": ckc}
+        if bias is not None:
+            kw["bias_tensor"] = bias
+        try:
+            return _v_matmul(as_matmul, (), kw)
+        except _KernelDeclined:
+            return None
+
+    if any(isinstance(t, Tensor) and t.requires_grad for t in (w, bias)):
         return None
+    wv = ag._unwrap(w)
+    outs = shipped(ag._unwrap(x), wv, ckc, dtype, memory_config, split, ag._unwrap(bias))
+    if outs is None:
+        return None
+    K, off, taped = int(wv.shape[-2]), 0, []
+    for out, c in zip(outs, split):
+        wk = ttnn.slice(ag._unwrap(wv), [0, off], [K, off + int(c)])
+        taped.append(_v_matmul(lambda *_a, _o=out, **_k: _o, (),
+                               {"input_tensor": x, "weight_tensor": ag._unwrap(wk),
+                                "compute_kernel_config": ckc}))
+        off += int(c)
+    return taped
 
 
 # --- attention head packing ------------------------------------------------------------
