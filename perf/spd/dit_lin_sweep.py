@@ -36,6 +36,10 @@ SITES = [  # name, K, N, bias
     ("k1536_n768", 1536, 768, False),
     ("k768_n1024", 768, 1024, False),
     ("k1024_n768", 1024, 768, False),
+    # Boltz-2's hoisted DiT conditioning (DiffusionTransformer, every layer's s-path in one product per
+    # step): p150a census xdif, 200 calls each, 0.754 ms with bias (38 TF/s) and 0.436 ms without.
+    ("b2_cond", 768, 36864, True),
+    ("b2_cond_nb", 768, 36864, False),
 ]
 WARM, REPS = 2, 5
 M_VALS = (1, 2, 4, 8, 16)
