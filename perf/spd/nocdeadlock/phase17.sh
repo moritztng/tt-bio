@@ -1,5 +1,7 @@
 #!/bin/bash
 # phase17.sh: kernel-patch legs on qb2 chip 0 at 1350 MHz after phase 16 (tree fixk = fixm + TT_BIO_KPATCH hook).
+# cgoff: Tensix clock gating off on chip 0 (cgctl.py set 0 after the reset; fw 19.15 turned it on) with the stock
+# kernel, read back after the run to prove it persisted. Then
 # k1_push_sync: tensix_sync after the tiles_received publish (where does TRISC2 hang now?);
 # k2_push_riscv: RISC-V publishes tiles_received after the pack thread drains; ibw16: one inner block (no partials
 # CB, no packer L1 acc) on the same forced grid. Each pcG x1000; stock hangs chip 0 at iteration 1. Index phase17.log.
@@ -9,12 +11,16 @@ for c in 0 1; do eval "exec $((8+c))>~/spd_qb2_chip$c.lock"; flock $((8+c)); don
 echo "locks 0,1 held $(date -u +%FT%TZ)"
 py=~/.tenstorrent-venv/bin/python; tree=~/spd/spd-nocdeadlock/fixk
 $py tel.py p17_tel.csv 0.2 & tp=$!
+cg() { TT_VISIBLE_DEVICES=0 timeout -s TERM 300 ~/triage_venv/bin/python cgctl.py "$@" 2>&1 | tail -1; }
 leg() { tag=$1; shift
   timeout 300 ~/.local/bin/tt-smi -r 0,1 > /dev/null 2>&1; echo "reset 0,1 rc=$? $(date -u +%FT%TZ)"; sleep 15
+  echo "cg after reset: $(cg read)"; [ -n "$CGSET" ] && echo "cg set $CGSET: $(cg set $CGSET)"
   echo "== $tag c0 KPATCH=${TT_BIO_KPATCH:-none} args=$* start $(date -u +%FT%TZ)"
   ./repro.sh 0 $tag $tree --iters 1000 --every 50 "$@"
   echo "$tag c0: last: $(grep "^it " rp_${tag}_c0.log | tail -1), done=$(grep -c REPRO-DONE rp_${tag}_c0.log), timeout=$(grep -c "TIMEOUT: device timeout" rp_${tag}_c0.log) end $(date -u +%FT%TZ)"
+  echo "cg after run: $(cg read)"
 }
+export CGSET=0; leg p17_cgoff_a; leg p17_cgoff_b; leg p17_cgoff_c; unset CGSET
 export TT_BIO_KPATCH=~/spd/spd-nocdeadlock/kpatch/k1_push_sync.py; leg p17_k1a
 export TT_BIO_KPATCH=~/spd/spd-nocdeadlock/kpatch/k2_push_riscv.py; leg p17_k2a
 export TT_BIO_KPATCH=~/spd/spd-nocdeadlock/kpatch/k2_push_riscv.py; leg p17_k2b
