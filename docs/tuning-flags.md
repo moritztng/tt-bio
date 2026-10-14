@@ -647,6 +647,10 @@ the variables to `1` / `0` (or `TT_BIO_ESMFOLD2_OPM` to `kq` / `tile`) forces it
 Together at 512 residues on Blackhole p300c (1350 MHz): ESMFold2 `--fast` 16.92 s, ESMFold2-Fast
 `--fast` 10.14 s.
 
+On Blackhole `--fast` also folds with the pair SwiGLU adding its residual inside the last matmul's
+float32 accumulator (lever `ws_resid`): 0.44 s off ESMFold2 and 0.19 s off ESMFold2-Fast at 512
+residues, graded inside the fast bar on 11 complexes x 4 seeds. Wormhole leaves it off until graded there.
+
 **Accuracy: moves, inside the fast bar.** On 11 complexes x 4 seeds on Blackhole, ESMFold2-Fast
 `--fast` against the same mode without the stack: CA-lDDT -0.0000 [-0.0003, +0.0002], TM-score
 +0.0013, docking success 24/44 in both arms. ESMFold2 with the stack in normal mode clears the fast
