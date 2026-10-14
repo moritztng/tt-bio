@@ -49,6 +49,10 @@ waivers are written into the train's release record. FIXES and WAIVE both live i
 directory and cover every candidate fixed forward from it. The train's `FIX` line in
 `state/rel-train/cron.log` names the failed legs and both paths.
 
+A leg that failed on its card rather than the code (a card left dirty, two legs racing) needs
+neither: run it again on the same commit with `gate_fanout.py --legs '<leg>' --arch <arch>` into a
+new `--out`. A pass there is filed under the same ledger key, and the train counts it.
+
 `scripts/release_train.py` does all of this unattended and runs from cron. On CUT it cuts the
 release (see [Cut the release](#cut-the-release)); on GATE, given `--gate-config` with
 `gate_fanout.py`'s `--hosts`, `--workers` and `--timed`, it starts the gate on the candidate:
@@ -167,7 +171,9 @@ darkness, an unmeasured rung or a crash), the train re-records those models on t
 (`--legs 'record:*' --record-full <models>`, into `~/gates/rec-<sha9>`), and once that passes it
 cuts the commit with the spliced fragments in the release commit. Parity, capacity and perf are
 what judge the new lever; the ladder records where it fires. Anything else in the gate failing
-leaves it a FIX.
+leaves it a FIX, with one exception: a ladder leg the card failed (a hang, a dead card) whose model
+drifted on another arch is already in the record set, so the record run starts alongside that
+leg's rerun and the cut waits for both.
 
 **abb3 records.** `perf/abb3_port/model_gate_qb1c3.txt` and `step_gate_default_qb1c3.txt` go
 stale whenever their scripts' import closure moves, and `tests/test_recorded_claims.py` then fails

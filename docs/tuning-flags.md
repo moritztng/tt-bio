@@ -955,7 +955,9 @@ These four make the MSA module do the same arithmetic in fewer, larger device ca
   instead of one matmul with several hundred thousand rows. Same bytes out.
 * `TT_BIO_PWA_FUSED_HEADS`: pair-weighted averaging projects, averages and gates all heads at once
   and sums the heads inside the output projection, instead of looping over heads and adding their
-  outputs in bf16.
+  outputs in bf16. Against a float64 reference on random inputs the fused sum's relative error is
+  3.8e-3 and the loop's 6.0e-3 for Boltz-2's 8 heads of width 32, 3.8e-3 and 5.7e-3 for Protenix-v2's
+  (`tests/test_pwa_fused_heads_accuracy.py`). Boltz-2 runs this path too, so its output moves as well.
 * `TT_BIO_PWA_UNPADDED`: the fused heads without padding each head to a full 32-wide tile, which
   matters for narrow heads (Protenix-v2 uses 8 heads of width 8).
 

@@ -47,6 +47,7 @@ void kernel_main() {
     constexpr uint32_t scaler_cb = tt::CBIndex::c_10;
     constexpr uint32_t eps_cb = tt::CBIndex::c_11;
     const uint32_t tb = get_tile_size(in0_cb);
+    const uint32_t tg = get_tile_size(g_cb);                    // bf16, or bfp8 g_out (trimul_b8in)
 
     generate_reduce_scaler(scaler_cb, SCALER);
     {
@@ -82,7 +83,7 @@ void kernel_main() {
 
         cb_reserve_back(g_cb, Mb * gt);
         w = get_write_ptr(g_cb);
-        for (uint32_t t = 0; t < Mb * gt; ++t, w += tb) noc_async_read_page(m * gt + t, g, w);
+        for (uint32_t t = 0; t < Mb * gt; ++t, w += tg) noc_async_read_page(m * gt + t, g, w);
         cb_reserve_back(z_cb, Mb * Nt);
         uint32_t wz = get_write_ptr(z_cb);
         for (uint32_t t = 0; t < Mb * Nt; ++t, wz += tb) noc_async_read_page(m * Nt + t, z, wz);

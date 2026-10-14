@@ -161,6 +161,38 @@ def test_a_gate_failing_only_on_ladder_drift_is_re_recorded_then_cut(tmp_path):
     assert (d["do"], d["sha"], d["records"]) == ("CUT", head, str(r))
 
 
+def test_a_card_failed_ladder_leg_of_a_drifted_model_records_alongside_its_rerun(tmp_path, monkeypatch):
+    git = _repo(tmp_path)
+    (tmp_path / "a.py").write_text("x = 2\n")
+    git("commit", "-qam", "staging")
+    head = git("rev-parse", "main")
+    gates = tmp_path / "gates"
+    g = _plan(gates, f"rel-{head[:9]}", head, tmp_path)
+    (g / "drift.log").write_text("    FAIL m/512 SDPA: frac 0.000 -> 1.000 (started firing)\n"
+                                 "GATE FAIL — size-ladder drift vs the recorded baseline\n")
+    (g / "hang.log").write_text("fold timed out\n")
+
+    def verdict(*extra):
+        (g / "verdict.json").write_text(json.dumps({"pass": False, "results": [
+            {"leg": "ladder:m", "arch": "wh", "verdict": "FAIL", "log": str(g / "drift.log")},
+            {"leg": "ladder:m", "arch": "bh", "verdict": "FAIL", "log": str(g / "hang.log"), "key": "k"},
+            *extra]}))
+    verdict({"leg": "parity:m", "arch": "bh", "verdict": "FAIL"})
+    monkeypatch.setattr(rn, "LEDGER", tmp_path / "none")
+    assert rn.decide(tmp_path, gates, "main")["do"] == "FIX"          # a non-ladder failure: no record
+    verdict()
+    d = rn.decide(tmp_path, gates, "main")
+    assert (d["do"], d["models"]) == ("RECORD", ["m"]) and "ladder:m bh must pass" in d["why"]
+    r = _plan(gates, f"rec-{head[:9]}", head, tmp_path, partial=True)
+    (r / "verdict.json").write_text(json.dumps({"pass": True}))
+    assert rn.decide(tmp_path, gates, "main")["do"] == "FIX"          # recorded, but the bh leg is owed
+    monkeypatch.setattr(rn, "LEDGER", tmp_path / "ledger")
+    rn.LEDGER.mkdir()
+    (rn.LEDGER / "k.json").write_text("{}")                           # the rerun passed
+    d = rn.decide(tmp_path, gates, "main")
+    assert (d["do"], d["sha"], d["records"]) == ("CUT", head, str(r))
+
+
 def test_a_failed_gate_is_fixed_forward_from_its_fixes_not_regated_at_head(tmp_path):
     git = _repo(tmp_path)
     (tmp_path / "a.py").write_text("x = 2\n")
@@ -277,3 +309,47 @@ def test_a_gate_whose_every_failure_is_waived_is_cut(tmp_path):
     (g / "WAIVE").write_text("perf wh  # no Wormhole baseline yet\n")
     d = rn.decide(tmp_path, gates, "main")
     assert (d["do"], d["sha"], d["waived"]) == ("CUT", x, {"perf wh": "no Wormhole baseline yet"})
+
+
+def test_a_failed_leg_whose_key_passed_since_stops_blocking(tmp_path, monkeypatch):
+    """Gate 8b2f8acaa (10-13): ladder:boltz2 bh died on a card a previous leg left dirty; a partial
+    run of the same key on a clean card filed the pass the verdict lacked."""
+    git = _repo(tmp_path)
+    (tmp_path / "a.py").write_text("x = 2\n")
+    git("commit", "-qam", "staging1")
+    x = git("rev-parse", "HEAD")
+    gates, ledger = tmp_path / "gates", tmp_path / "ledger"
+    ledger.mkdir()
+    monkeypatch.setattr(rn, "LEDGER", ledger)
+    g = _plan(gates, "gx", x, tmp_path)
+    (g / "verdict.json").write_text(json.dumps({"pass": False, "results": [
+        {"leg": "ux:a", "arch": "bh", "verdict": "PASS", "key": "k0"},
+        {"leg": "rg:b", "arch": "bh", "verdict": "FAIL", "key": "k1"}]}))
+    assert rn.decide(tmp_path, gates, "main")["do"] == "FIX"
+    (ledger / "k1.json").write_text("{}")
+    d = rn.decide(tmp_path, gates, "main")
+    assert (d["do"], d["sha"]) == ("CUT", x)
+
+
+def test_a_failed_leg_is_judged_by_its_latest_run_on_the_same_commit(tmp_path, monkeypatch):
+    """Gate 8b2f8acaa (10-13): the BH ladder reruns ran from newer runner scripts, so their keys
+    differed from the gate's; boltz2's pass and opendde's drift-only rerun still read as card faults."""
+    git = _repo(tmp_path)
+    (tmp_path / "a.py").write_text("x = 2\n")
+    git("commit", "-qam", "staging1")
+    x = git("rev-parse", "HEAD")
+    gates = tmp_path / "gates"
+    monkeypatch.setattr(rn, "LEDGER", tmp_path / "none")
+    g = _plan(gates, "gx", x, tmp_path)
+    (g / "verdict.json").write_text(json.dumps({"pass": False, "results": [
+        {"leg": "rg:b", "arch": "bh", "verdict": "FAIL", "key": "k1"}]}))
+    assert rn.failures(g) == ([], ["rg:b bh"])
+    rerun = gates / "gx-rerun"
+    rerun.mkdir()
+    rows = [{"leg": "rg:b", "arch": "bh", "verdict": "FAIL", "sha": x, "ended": "2026-10-13T20:00:00Z"},
+            {"leg": "rg:b", "arch": "bh", "verdict": "PASS", "sha": x, "ended": "2026-10-13T21:00:00Z"},
+            {"leg": "rg:c", "arch": "bh", "verdict": "PASS", "sha": "0" * 40, "ended": "2026-10-13T22:00:00Z"}]
+    (rerun / "results.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows[:1]))
+    assert rn.failures(g) == ([], ["rg:b bh"])
+    (rerun / "results.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows[::-1]))
+    assert rn.failures(g) == ([], [])
