@@ -14976,20 +14976,32 @@ class PairWeightedAveraging(Module):
         self.o_weight = self.torch_to_tt("proj_o.weight")
 
     def _z_heads(self, z, attn_mask):
-        """PWA's pair half: `(zn, token_weight, token_weights)`, the normed pair and the per-head
-        and all-head token softmaxes over it. Functions of `z` alone."""
-        z = ttnn.reshape(z, tuple(z.shape)[1:])
-        # One z layer_norm, `n_heads` projections of it: every head reads the whole normed pair
-        # tensor to write one tile of width, so all eight are source-bound and one L1-resident
-        # copy serves all of them. 3572.2 -> 991.0 us on the eight-head region, `torch.equal`.
-        z, z_in_l1 = (_l1_layer_norm(z, 1.0, _PAIR_L1_CONSUMER_RESERVE,
-                                     weight=self.z_norm_weight, bias=self.z_norm_bias,
+        """PWA's pair half: `(release, token_weight, token_weights)`, the per-head and all-head
+        token softmaxes over the normed pair and `release()`, which frees the normed copy once the
+        caller is done with them. Functions of `z` alone."""
+        zr = ttnn.reshape(z, tuple(z.shape)[1:])
+        normed = []
+
+        def zn():
+            # One z layer_norm, `n_heads` projections of it: every head reads the whole normed pair
+            # tensor to write one tile of width, so all eight are source-bound and one L1-resident
+            # copy serves all of them. 3572.2 -> 991.0 us on the eight-head region, `torch.equal`.
+            # Built on first use: apb_ln's fused path below never needs it.
+            if not normed:
+                normed.extend(
+                    _l1_layer_norm(zr, 1.0, _PAIR_L1_CONSUMER_RESERVE,
+                                   weight=self.z_norm_weight, bias=self.z_norm_bias,
+                                   epsilon=1e-5,
+                                   compute_kernel_config=self.compute_kernel_config)
+                    if _PWA_L1_NORM else
+                    (ttnn.layer_norm(zr, weight=self.z_norm_weight, bias=self.z_norm_bias,
                                      epsilon=1e-5,
-                                     compute_kernel_config=self.compute_kernel_config)
-                      if _PWA_L1_NORM else
-                      (ttnn.layer_norm(z, weight=self.z_norm_weight, bias=self.z_norm_bias,
-                                       epsilon=1e-5,
-                                       compute_kernel_config=self.compute_kernel_config), False))
+                                     compute_kernel_config=self.compute_kernel_config), False))
+            return normed
+
+        def release():
+            if normed:
+                ttnn.deallocate(normed[0])
         def _softmax_over_tokens(b):
             b = ttnn.permute(b, (2, 0, 1))
             if attn_mask is not None:
@@ -15002,10 +15014,20 @@ class PairWeightedAveraging(Module):
             )
 
         def _proj_z(zw):
-            b = _narrow_proj_linear(z, zw, self.compute_kernel_config, z.dtype, l1_out=z_in_l1)
+            if zw is self.z_weight and len(z.shape) == 4 and z.shape[0] == 1:
+                # apb_ln: every head's column from the raw pair in one kernel (triatt_ln.ln_proj),
+                # the normed pair never written. On Wormhole it misses L1 at 512 tokens and the
+                # two-call path reads it back from DRAM.
+                b = _triatt_ln.ln_proj(zr, self.z_norm_weight, self.z_norm_bias, zw,
+                                       _mm_generic.ckc_args(self.compute_kernel_config),
+                                       tuple(COMPUTE_GRID_MAIN))
+                if b is not None:
+                    return b
+            zn_, in_l1 = zn()
+            b = _narrow_proj_linear(zn_, zw, self.compute_kernel_config, zn_.dtype, l1_out=in_l1)
             if b is None:
                 b = ttnn.linear(
-                    z,
+                    zn_,
                     zw,
                     compute_kernel_config=self.compute_kernel_config,
                     core_grid=CORE_GRID_MAIN,
@@ -15031,7 +15053,7 @@ class PairWeightedAveraging(Module):
             ttnn.deallocate(b)
             return out
 
-        return z, token_weight, token_weights
+        return release, token_weight, token_weights
 
     def _batch_head_weights(self):
         # A property of the shape, never a model name: the batching is correct at any head
@@ -15159,10 +15181,10 @@ class PairWeightedAveraging(Module):
         holds exactly the rows of the single pass.
         """
         def weights(zr):
-            zn, token_weight, token_weights = self._z_heads(zr, attn_mask)
+            release, token_weight, token_weights = self._z_heads(zr, attn_mask)
             ws = (token_weights() if self._batch_head_weights()
                   else [token_weight(i) for i in range(self.n_heads)])
-            ttnn.deallocate(zn)
+            release()
             return ws
 
         n = int(z.shape[1])
