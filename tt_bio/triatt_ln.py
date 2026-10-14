@@ -90,7 +90,7 @@ def _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT):
     fid, approx, _, full = ckc
     compute = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "compute.cpp"), source_type=src, core_ranges=core_grid,
-        compile_time_args=[kt, nw, 1], runtime_args=cp,
+        compile_time_args=[kt, nw, 0], runtime_args=cp,   # RNE off: pack truncates, as T1 ships
         config=ttnn.ComputeConfigDescriptor(math_fidelity=fid, math_approx_mode=approx,
                                             fp32_dest_acc_en=True, dst_full_sync_en=full))
     cbs = [_cb(0, core_grid, kt * nw), _cb(1, core_grid, 2 * kt), _cb(2, core_grid, 2 * nw),
@@ -116,6 +116,8 @@ def ln_qkvgb_heads(x, ln_w, ln_b, w, ckc, n_heads, head_dim, bias_channels, grid
         if t.memory_config().memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED:
             return _reject("memcfg", x)
     if x.memory_config() != ttnn.DRAM_MEMORY_CONFIG:
+        # The ending variant's transposed pair is L1-resident: its ~0.6 MB a core beside these CBs
+        # is unmeasured, so it keeps the two-call path until a device run says it fits.
         return _reject("memcfg", x)
     shp, pad = [int(d) for d in x.shape], [int(d) for d in x.padded_shape]
     K = shp[-1]
