@@ -93,7 +93,7 @@ def stock_arms(m, samples):
             if r:
                 x = r[-1]
                 yield row("boltzgen", "stock", x.get("s_per_design_all", []), x.get("cold_loop_s"), rc if x.get("ok", True) else "not-ok",
-                          "Boltz.predict_step", clk, f"boltzgen {x.get('versions', {}).get('boltzgen', '0.3.2')} batch 1")
+                          "Boltz.predict_step", clk, f"batch {x['batch']}, {x.get('n_warm_loops', '?')} warm loops")
     elif what == "saprot":
         for f in sorted(m.glob("gpu_embed_saprot-*.json")):
             j = json.loads(f.read_text())
