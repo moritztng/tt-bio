@@ -193,7 +193,7 @@ def test_protenix_family_normal_set():
     from tt_bio.protenix import NORMAL_LEVERS
 
     assert DDE is NORMAL_LEVERS and NORMAL_LEVERS <= set(T.LEVERS)
-    assert NORMAL_LEVERS - T.NORMAL_LEVERS == {"transition_ws", "ws_l1acc"}
+    assert NORMAL_LEVERS - T.NORMAL_LEVERS == {"transition_ws", "ws_l1acc", "trimul_t1_c256", "trimul_t1_c384"}
 
 
 def test_opendde_fast_set_names_only_known_levers():
