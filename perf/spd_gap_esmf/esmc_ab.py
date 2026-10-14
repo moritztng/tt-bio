@@ -60,7 +60,7 @@ def main() -> int:
     page = Path(a.seq_file).read_text().strip()
     model = E.load_esmc(a.model, fast=a.fast, trace=a.trace)
     one = lambda: E.embed_sequences(model, {"q": aa})[0].per_residue
-    batch = {f"s{i}": page for i in range(7)}
+    batch = {f"s{i}": page for i in range(1 if a.model == "esmc-6b" else 7)}   # the GAP cell's batch
     embed7 = lambda: E.embed_sequences(model, batch, batch_size=8)
     dev = model.tt_device
     ckc = model.compute_kernel_config
@@ -74,8 +74,9 @@ def main() -> int:
             else:
                 setattr(alt_mod, attr, (a.on_value if a.on_value is not None else True) if on else type(getattr(alt_mod, attr))(0))
             # a captured trace replays the program of the arm it was captured under: drop it so this arm recaptures
-            model._release_traces()
-            model._trace_seen.clear()
+            if hasattr(model, "_release_traces"):   # ESMC-6B (ESMCLanguageModel) runs eager
+                model._release_traces()
+                model._trace_seen.clear()
             for _ in range(2):
                 embed7()
             ts = []
