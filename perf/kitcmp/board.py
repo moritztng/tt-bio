@@ -4,7 +4,7 @@ the arm, versions (GPU driver, torch, the stock package, kit commit) and the com
     python3 perf/kitcmp/board.py perf/kitcmp/results/<label> --gpu a100 --row bmk-a100 [--when 2026-10-14]
     python3 perf/kitcmp/board.py perf/bmk/a100/<label> ...   (banked: the model dirs sit directly in it)
 """
-import argparse, csv, re, sys
+import argparse, csv, json, re, sys
 from pathlib import Path
 from urllib.parse import unquote
 
@@ -68,6 +68,10 @@ def main():
             key = k
             cmd = (f"MODELS={k}:{r['mode']} perf/kitcmp/session.sh --gpu {a.gpu} <label> <cap> "
                    f"(box_arms.sh {k}: run.sh --config <gpu> --mode {r['mode'].replace('-det', ' --det 1')})")
+        if key == "esmc":  # the batch esmc_gpu.py ran, read back from its own records
+            f = res / "esmc" / r["mode"] / f"{r['cell']}.jsonl"
+            if f.exists():
+                cmd = cmd[:-1] + f" --batch {json.loads(f.read_text().splitlines()[0])['batch']})"
         pkg = PKG.get(key, "")
         ver += f"torch {fz.get('torch', '?')}, {pkg} {fz.get(pkg, '?')}, driver {drv}"
         if r["median"] is None or r["rc"] != "0":  # a failed arm's records are not a time (openfold3 fast on sm_100: 0.04 s)
