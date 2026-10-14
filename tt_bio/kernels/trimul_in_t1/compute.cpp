@@ -22,6 +22,7 @@
 #include "api/compute/eltwise_binary.h"
 #include "api/compute/reduce.h"
 #include "api/compute/tile_move_copy.h"
+#include "api/compute/transpose_wh.h"
 #include "api/compute/eltwise_unary/sfpu_split_includes.h"
 #include "api/compute/eltwise_unary/eltwise_unary.h"
 #include "api/compute/eltwise_unary/rsqrt.h"
@@ -33,6 +34,12 @@
 //   1 layer_norm, 2 g_out matmul, 4 [a | b] matmuls, 8 gate multiply, 16 z reads, 32 writer gather, 64 writer writes.
 #ifndef ABL
 #define ABL 0
+#endif
+// XT (bench knob trimul_tail.T1_XT): transpose each xn tile once per unit into c_20 and run the [a | b]
+// matmuls on it without matmul_block's in-tile transpose, which otherwise transposes every xn tile once per
+// output channel tile and pass (2 * QN times). Same products, same K order.
+#ifndef XT
+#define XT 0
 #endif
 
 constexpr uint32_t Kt = get_compile_time_arg_val(0);
@@ -71,6 +78,8 @@ constexpr uint32_t cb_xc = tt::CBIndex::c_16;    // fp32, Kt tiles
 constexpr uint32_t cb_tmp = tt::CBIndex::c_17;   // fp32, Kt tiles
 constexpr uint32_t wo_cb = tt::CBIndex::c_18;    // Wg_out [Kt x NG] of the group, resident
 constexpr uint32_t go_cb = tt::CBIndex::c_19;    // g_out of one row tile, NG tiles
+constexpr uint32_t xt_cb = tt::CBIndex::c_20;    // XT: xn with every tile transposed, IL * Kt
+constexpr uint32_t ab_in1 = XT ? xt_cb : xn_cb;
 
 ALWI void sigmoid_bf16_tile(uint32_t idst) {
     MATH((llk_math_eltwise_unary_sfpu_sigmoid<false, false>(idst, (int)VectorMode::RC)));
@@ -131,6 +140,23 @@ void kernel_main() {
             }
         }
 
+        if constexpr (XT) {
+            cb_reserve_back(xt_cb, IL * Kt);
+            transpose_wh_init_short(xn_cb);
+            reconfig_data_format_srca(xn_cb);
+            pack_reconfig_data_format(xt_cb);
+            for (uint32_t t0 = 0; t0 < IL * Kt; t0 += 4) {
+                tile_regs_acquire();
+                for (uint32_t i = 0; i < 4; ++i) transpose_wh_tile(xn_cb, t0 + i, i);
+                tile_regs_commit();
+                tile_regs_wait();
+                for (uint32_t i = 0; i < 4; ++i) pack_tile<true>(i, xt_cb, t0 + i);
+                tile_regs_release();
+            }
+            cb_push_back(xt_cb, IL * Kt);
+            cb_wait_front(xt_cb, IL * Kt);
+        }
+
         // 3. gin_moved's gated projection on xn. The sigmoid is re-initialised every unit: the
         // prologue's rsqrt init reprograms the SFPU (as in T2).
         sigmoid_tile_init();
@@ -138,8 +164,8 @@ void kernel_main() {
         for (uint32_t q = 0; q < QN; ++q) {
             for (uint32_t pass = 0; pass < 2; ++pass) {
                 const uint32_t pass_cb = pass == 0 ? p_cb : g_cb;
-                mm_block_init_short(w_cb, xn_cb, true, SBW, 1, Kt);
-                reconfig_data_format(xn_cb, w_cb);
+                mm_block_init_short(w_cb, ab_in1, !XT, SBW, 1, Kt);
+                reconfig_data_format(ab_in1, w_cb);
                 pack_reconfig_data_format(pass_cb);
                 cb_reserve_back(pass_cb, IL);
                 for (uint32_t il0 = 0; il0 < IL && !(ABL & 4); il0 += SBW) {
@@ -147,7 +173,7 @@ void kernel_main() {
                     uint32_t i0 = (pass * QN + q) * Kt;
                     uint32_t i1 = il0;
                     for (uint32_t k = 0; k < Kt; ++k, ++i0, i1 += IL)
-                        matmul_block(w_cb, xn_cb, i0, i1, 0, true, SBW, 1, Kt);
+                        matmul_block(w_cb, ab_in1, i0, i1, 0, !XT, SBW, 1, Kt);
                     if (pass == 1) {
                         for (uint32_t i = 0; i < SBW; ++i) {
                             if constexpr (SIGPOLY) sigmoid_poly_tile(i);
@@ -207,6 +233,7 @@ void kernel_main() {
             cb_pop_front(g_cb, IL);
         }
         cb_pop_front(xn_cb, IL * Kt);
+        if constexpr (XT) cb_pop_front(xt_cb, IL * Kt);
         if constexpr (MASK) cb_pop_front(m_cb, IL);
     }
 }
