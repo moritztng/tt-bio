@@ -26,6 +26,14 @@ ref = d(z) + t_ref
 floor = ((d(ref.bfloat16()) - ref).pow(2).mean().sqrt() / t_ref.pow(2).mean().sqrt()).item()
 print(f"c {c} rows {rows} n {n} z_scale {zs}: one-rounding floor rel_rms {floor:.5f}", flush=True)
 up = lambda t: ttnn.from_torch(t, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev)  # noqa: E731
+def report(wdt, parts, l1acc, resid, out):
+    assert torch.isfinite(out).all(), "non-finite output"
+    e = out - ref
+    rel = (e.pow(2).mean().sqrt() / t_ref.pow(2).mean().sqrt()).item()
+    print(f"w={wdt} parts={len(parts)} l1acc={l1acc} resid={resid}: rel_rms {rel:.5f} "
+          f"max|e| {e.abs().max().item():.4f} n>|0.5| {(e.abs() > 0.5).sum().item()}", flush=True)
+
+
 for wdt in (ttnn.bfloat16, ttnn.bfloat8_b):
     parts = W.weights(w1.float(), w2.float(), w3.float(), dev, wdt)
     fid = ttnn.MathFidelity.HiFi2 if wdt == ttnn.bfloat8_b else ttnn.MathFidelity.HiFi4
@@ -46,8 +54,11 @@ for wdt in (ttnn.bfloat16, ttnn.bfloat8_b):
                     o = d(ttnn.to_torch(W.pair_swiglu(xt, a, b, fid, l1acc=l1acc)))
                     acc = o if acc is None else acc + o
                 out = d((d(z) + d(acc.bfloat16())).bfloat16())  # the shipped add_: bf16 t, bf16 z + t
-            assert torch.isfinite(out).all(), "non-finite output"
-            e = out - ref
-            rel = (e.pow(2).mean().sqrt() / t_ref.pow(2).mean().sqrt()).item()
-            print(f"w={wdt} parts={len(parts)} l1acc={l1acc} resid={resid}: rel_rms {rel:.5f} "
-                  f"max|e| {e.abs().max().item():.4f} n>|0.5| {(e.abs() > 0.5).sum().item()}", flush=True)
+            report(wdt, parts, l1acc, resid, out)
+        if len(parts) > 1:   # ws_chain: chunk 1 writes t, later chunks add into it, then the shipped add_
+            xt = up(xn)
+            t = W.pair_swiglu(xt, *parts[0], fid, l1acc=True)
+            for a, b in parts[1:]:
+                W.pair_swiglu(xt, a, b, fid, l1acc=True, resid=t)
+            report(wdt, parts, True, "chain", d((d(z) + d(ttnn.to_torch(t))).bfloat16()))
+

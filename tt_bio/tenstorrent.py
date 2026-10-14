@@ -674,7 +674,10 @@ _FAST_MODE = False
 #                   can take the kernel: summing all of K in dest wrote exact 1 / 2 / 4 errors there (wd1).
 #   ws_resid        with transition_ws, fc3 adds the residual in its fp32 dest and writes over it: the transition's
 #                   `z + t` and the hidden-chunk sum stop being separate add passes over the pair (OpenDDE WH
-#                   fast census: 4.3 s of add_ per fold).
+#                   fast census: 4.3 s of add_ per fold). Only where the weights take one hidden chunk (`ws_swiglu`).
+#   ws_chain        with transition_ws, where the weights take n > 1 hidden chunks: chunk 1 writes t, each later
+#                   chunk adds into it in its fp32 dest (`pair_swiglu` resid), so the n - 1 chunk-sum add passes go;
+#                   the sum rounds at t's magnitude as before, once per chunk instead of once per add.
 #   opm_jd          the OPM contracts against b in (j d) row order, so z's tile (i, j) is pair (i, j)'s [c, d]
 #                   block and one data-movement kernel (opm_relayout) lays it out for the projection in place of
 #                   the 4-op chain. Moves bytes only: bit-exact. C = D = 32 and J a whole number of tiles.
@@ -696,7 +699,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "trimul_t2w", "narrow_bw16", "ws_l1dest", "opm_jd", "trimul_gin_hifi2", "trimul_gin_b8",
           "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine", "ef2_opm_kq", "ef2_relpos_lookup",
           "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit", "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384",
-          "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi")
+          "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -711,7 +714,7 @@ UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "di
                              "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine", "ef2_opm_kq",
                              "ef2_relpos_lookup", "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit",
                              "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384",
-                             "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi"})
+                             "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -12830,6 +12833,14 @@ def ws_swiglu(x, norm_weight, norm_bias, ckc, parts, resid=None):
             _pair_ws.pair_swiglu(x_norm, w12, w3, fid, l1acc=acc, resid=resid)
         ttnn.deallocate(x_norm)
         return resid
+    if (len(parts) > 1 and lever("ws_chain")
+            and all(_pair_ws.eligible(x_norm, w12, w3, l1acc=acc, resid=x_norm) for w12, w3 in parts[1:])):
+        # x_norm stands in for t's layout: same padded shape (the transition is c -> c), bf16, TILE, DRAM.
+        out = _pair_ws.pair_swiglu(x_norm, *parts[0], fid, l1acc=acc)
+        for w12, w3 in parts[1:]:
+            _pair_ws.pair_swiglu(x_norm, w12, w3, fid, l1acc=acc, resid=out)
+        ttnn.deallocate(x_norm)
+        return out
     for w12, w3 in parts:
         o = _pair_ws.pair_swiglu(x_norm, w12, w3, fid, l1acc=acc)
         if out is None:
