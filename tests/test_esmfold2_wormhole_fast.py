@@ -55,3 +55,5 @@ def test_normal_set_takes_hifi2_only_where_graded(monkeypatch, wormhole):
         assert "ef2_relpos_lookup" in names and "ef2_bit_draw" in names
         assert ("ef2_pair_init" in names) is not wormhole
     assert "ef2_opm_kq" not in rt.fold_levers(False).split("+")
+    # trimul_t2m is bit-exact and measured on Wormhole only.
+    assert all(("trimul_t2m" in rt.fold_levers(f).split("+")) is wormhole for f in (False, True))
