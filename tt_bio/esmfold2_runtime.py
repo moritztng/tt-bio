@@ -1335,13 +1335,17 @@ def wh_releases_lm(chains) -> bool:
 # p150a; CIF byte-identical in same-card folds at 544, 576 and 1024 aa). p150a 1350 MHz, ESMFold2's call at
 # 512: 9.79 -> 9.39 ms (normal set), 9.49 -> 8.66 ms (fast set); --fast fold warm, 544 aa 30.5 -> 29.1 s, 1024 aa
 # 98.7 -> 94.0 s. Wormhole (LEVERS_WH, 1000 MHz) folds the same CIF in the same time (544 aa 94.4 vs 94.5 s).
-LEVERS_NORMAL = "normal-trunk_hifi3+trimul_gin+trimul_t2g"
+# trimul_gin_hifi2 (gin's kernel at HiFi2) passes the normal bar on ESMFold2 against the same set without it,
+# 11 complexes x 4 seeds, 44 paired folds, base and test from one tree (p150a, 1350 MHz): CA-lDDT -0.0025
+# [-0.0070, +0.0002], pLDDT -0.0008, top-pose median 0.67 A vs 1.16 A floor, docking 32 -> 30 of 44. Warm fold at
+# 1350 MHz: 544 aa 26.8 -> 25.8 s, 1024 aa 89.7 -> 87.2 s. Wormhole keeps HiFi3 (LEVERS_WH, not graded there).
+LEVERS_NORMAL = "normal-trunk_hifi3+trimul_gin+trimul_t2g+trimul_gin_hifi2"
 # FAST also takes transition_ws (fast grade PASS on both ESMFold2 models, both archs; tenstorrent.FAST_LEVERS)
 # and trimul_gin: ESMFold2 fast bar against the set without it, 11 complexes x 4 seeds, 44 paired folds (p300c,
 # 1350 MHz): CA-lDDT +0.0026 [-0.0022, +0.0086], pLDDT +0.0005, top-pose median 0.35 A vs 1.30 A floor, docking
 # 31 -> 30 of 44. Same-card A/B at 544 and 576 tokens (p150a, 1350 MHz): 34.2 -> 33.1 s and 40.7 -> 38.4 s warm.
 LEVERS_FAST = "normal+trimul_b8in+transition_ws+trimul_gin+trimul_t2g"
-LEVERS_WH = LEVERS_NORMAL + "+transition_ws"
+LEVERS_WH = "normal-trunk_hifi3+trimul_gin+trimul_t2g+transition_ws"
 
 
 def fold_levers(fast: bool) -> str:
