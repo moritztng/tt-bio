@@ -1248,8 +1248,8 @@ def relpos_lookup(w, residue_index, asym_id, sym_id, entity_id, token_index, r_b
 
 
 # Relative positions by table lookup on the host (relpos_lookup); False = one-hot features through a device linear.
-# None follows the ef2_relpos_lookup lever.
-RELPOS_LOOKUP = None
+# Unset follows the ef2_relpos_lookup lever.
+RELPOS_LOOKUP = env_flag("TT_BIO_ESMFOLD2_RELPOS_LOOKUP", None)
 
 
 class RelPosEncoding(TorchWrapper):

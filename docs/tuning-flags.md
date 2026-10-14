@@ -38,7 +38,7 @@ move against the accuracy bar and the seed-to-seed spread.
 | [`TT_BIO_DIT_SHARED_COND`](#tt_bio_dit_shared_cond) | on | Boltz-2, BoltzGen | identical |
 | [`TT_BIO_ESMFOLD2_DEVICE_CONF`](#tt_bio_esmfold2_device_conf) | on | ESMFold2 | moves, inside the bar |
 | [`TT_BIO_ESMFOLD2_DEVICE_TAIL`](#tt_bio_esmfold2_device_tail) | on | ESMFold2 | moves, inside the bar |
-| [`TT_BIO_ESMFOLD2_BIT_DRAW`, `TT_BIO_ESMFOLD2_PAIR_INIT`, `TT_BIO_ESMFOLD2_LM_COMBINE`, `TT_BIO_ESMFOLD2_OPM`, `TT_BIO_ESMFOLD2_ATOM_FFN_SPLIT`](#esmfold2---fast-stack) | on with `--fast` on Blackhole | ESMFold2 | moves, inside the fast bar |
+| [`TT_BIO_ESMFOLD2_BIT_DRAW`, `TT_BIO_ESMFOLD2_PAIR_INIT`, `TT_BIO_ESMFOLD2_LM_COMBINE`, `TT_BIO_ESMFOLD2_OPM`, `TT_BIO_ESMFOLD2_ATOM_FFN_SPLIT`, `TT_BIO_ESMFOLD2_RELPOS_LOOKUP`](#esmfold2---fast-stack) | on with `--fast` on Blackhole | ESMFold2 | moves, inside the fast bar |
 | [`TT_BIO_ESMFOLD2_SWA_WINDOW`](#tt_bio_esmfold2_swa_window) | on | ESMFold2 | moves, inside the bar |
 | [`TT_BIO_FANIN_CAST_FUSED`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2 | gradients only |
 | [`TT_BIO_FUSE_BIAS_STACKS`](#tt_bio_fuse_bias_stacks) | on | Boltz-2, BoltzGen | moves, inside the 298-residue bar |
@@ -641,8 +641,8 @@ the variables to `1` / `0` (or `TT_BIO_ESMFOLD2_OPM` to `kq` / `tile`) forces it
   avoids two tile reshapes per call. Used for MSAs up to 64 rows.
 - `TT_BIO_ESMFOLD2_ATOM_FFN_SPLIT`: the atom transformer's SwiGLU up-projection runs as two matmuls,
   one per half of the weight, instead of one matmul and a split.
-- Relative positions come from a float32 table lookup on the host instead of one-hot features through
-  a device matmul (no variable; it follows `--fast`).
+- `TT_BIO_ESMFOLD2_RELPOS_LOOKUP`: relative positions come from a float32 table lookup on the host
+  instead of one-hot features through a device matmul.
 
 Together at 512 residues on Blackhole p300c (1350 MHz): ESMFold2 `--fast` 16.92 s, ESMFold2-Fast
 `--fast` 10.14 s.
