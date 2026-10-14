@@ -69,7 +69,7 @@ def main():
                    f"(box_arms.sh {k}: run.sh --config <gpu> --mode {r['mode'].replace('-det', ' --det 1')})")
         pkg = PKG.get(key, "")
         ver += f"torch {fz.get('torch', '?')}, {pkg} {fz.get(pkg, '?')}, driver {drv}"
-        if r["median"] is None:
+        if r["median"] is None or r["rc"] != "0":  # a failed arm's records are not a time (openfold3 fast on sm_100: 0.04 s)
             continue
         rng = f"n={r['n']} {min(r['warm']):.4g}-{max(r['warm']):.4g}"
         clk = f"SM {r['sm_mhz']:.0f} MHz med (min {r['sm_min']:.0f}), {r['watts']:.0f} W" if r["sm_mhz"] else "SM not sampled under load"
