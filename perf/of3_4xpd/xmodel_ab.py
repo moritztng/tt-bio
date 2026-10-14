@@ -241,13 +241,14 @@ def main():
                 def arm_set(v):
                     os.environ["TT_BIO_LEVERS"] = ",".join(sorted(base_set | ab if v else base_set)) or "none"
         else:
-            # MODULE:NAME toggles a bool; MODULE:NAME=ON/OFF sets two integer values instead
-            # (tt_bio.trimul_tail:T1_ROWS=16/32): the "on" arm takes ON.
+            # MODULE:NAME toggles a bool; MODULE:NAME=ON/OFF sets two values instead, integers where they
+            # parse (tt_bio.trimul_tail:T1_ROWS=16/32), else strings (tt_bio.tenstorrent:_TRIMUL_EINSUM_FID=hifi2/):
+            # the "on" arm takes ON.
             attrs = []
             for x in a.ab_attr.split(","):
                 mod, name = x.split(":")
                 name, _, vals = name.partition("=")
-                attrs.append((mod, name, tuple(int(t) for t in vals.split("/")) if vals else (True, False)))
+                attrs.append((mod, name, tuple(int(t) if t.lstrip("-").isdigit() else t for t in vals.split("/")) if vals else (True, False)))
             on, off, key = "on", "off", "ab_attr_s"
 
             def arm_set(v):
