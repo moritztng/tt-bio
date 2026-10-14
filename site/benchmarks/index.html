@@ -16,9 +16,9 @@
    Tenstorrent bar reads first in every chart without introducing a hue.
    The chart JS writes these as var(--tt) etc. into SVG fill attributes, so
    the @supports block below must always be changed together with this one. */
-:root{ --tt:#15171a; --h200:#6b727a; --b200:#9aa1a9; --a100:#c2c7cd; }
+:root{ --tt:#15171a; --wh:#3d4247; --h200:#6b727a; --b200:#9aa1a9; --a100:#c2c7cd; }
 @supports (color: oklch(0.5 0.1 200)){
-  :root{ --tt:oklch(0.20 0.008 260); --h200:oklch(0.53 0.008 260);
+  :root{ --tt:oklch(0.20 0.008 260); --wh:oklch(0.36 0.008 260); --h200:oklch(0.53 0.008 260);
          --b200:oklch(0.70 0.007 260); --a100:oklch(0.83 0.005 260); }
 }
 
@@ -473,10 +473,27 @@ details.disclose > div{ padding-top:var(--s-4); }
     var c = m.cells[key], p = plat(key), bits = [m.name + " on " + p.name, headline];
     if (c.parity) bits.push("parity: " + c.parity);
     if (c.note) bits.push(c.note);
+    if (c.ref) bits.push(c.ref === "kit" ? "Anthropic kit, exact mode" : "stock upstream code");
+    var run = runLine(c);
+    if (run) bits.push(run);
+    if (c.fast) bits.push((p.vendor === "nvidia" ? "kit fast mode " : "--fast ") + runLine(c.fast));
+    if (c.stock) bits.push("stock upstream " + runLine(c.stock));
     var board = c.measured_on || p.measured_on;
     if (board) bits.push(board);
-    if (c.ref) bits.push(c.ref);
+    if (c.provenance) bits.push(c.provenance);
     return bits.join("\n");
+  }
+  /* One measured run in a line: value, sample count, spread, clock and the software it ran. */
+  function runLine(r) {
+    var v = secs(r), out = [];
+    if (v !== undefined && r !== undefined && r.n) out.push(fmtSec(v) + " s, median of n=" + r.n);
+    if (r.spread_pct !== undefined) out.push("spread " + r.spread_pct + " %");
+    if (r.clock_mhz) out.push("SM clock " + r.clock_mhz + " MHz");
+    if (r.aiclk_mhz) out.push("AI clock " + r.aiclk_mhz + " MHz");
+    if (r.sha) out.push("tt-bio " + r.sha);
+    if (r.versions) out.push(Object.keys(r.versions).map(function (k) { return k + " " + r.versions[k]; }).join(", "));
+    if (r.when) out.push(r.when);
+    return out.join(", ");
   }
 
   /* A cell can be absent for two different reasons and they are not the same claim: the model
@@ -601,22 +618,23 @@ details.disclose > div{ padding-top:var(--s-4); }
   /* ---------- the four charts ---------- */
   var SER = {
     galaxy_bh: "var(--tt)", p150a: "var(--tt)",
+    galaxy_wh: "var(--wh)", wh: "var(--wh)",
     dgx_h200: "var(--h200)", h200: "var(--h200)",
     dgx_b200: "var(--b200)", b200: "var(--b200)",
     dgx_a100: "var(--a100)", a100: "var(--a100)"
   };
-  var SERVER_OF = { p150a: "galaxy_bh", h200: "dgx_h200", b200: "dgx_b200", a100: "dgx_a100" };
+  var SERVER_OF = { p150a: "galaxy_bh", wh: "galaxy_wh", h200: "dgx_h200", b200: "dgx_b200", a100: "dgx_a100" };
   // One list, in the order every chart, legend and table reads. Each id is a measured accelerator
   // and needs a SERVER_OF entry with a price and a power rating: the server and cost paths look the
   // box up through that map, and an id without one would evaluate plat(undefined) and blank the page.
-  var CELLS = ["p150a", "h200", "b200", "a100"];
+  var CELLS = ["p150a", "wh", "h200", "b200", "a100"];
   var SERVERS = CELLS.map(function (k) { return SERVER_OF[k]; });
 
   function serverLabel(p) {
-    return p.name + ", " + p.accelerators + (p.id === "galaxy_bh" ? " AI Processors" : " GPUs");
+    return p.name + ", " + p.accelerators + (p.vendor === "tenstorrent" ? " AI Processors" : " GPUs");
   }
   function serverShort(p) {
-    return p.id === "galaxy_bh" ? p.accelerators + "x Blackhole" : p.short;
+    return p.vendor === "tenstorrent" ? p.accelerators + "x " + plat(p.per_accelerator).short : p.short;
   }
 
   /* Charts 1 and 2 share their shape: one measured accelerator scaled to its server. */
@@ -754,8 +772,7 @@ details.disclose > div{ padding-top:var(--s-4); }
         return {
           series: p.name, seriesShort: p.short, color: SER[k], value: secs(c),
           label: fmtSec(secs(c), 1) + " s",
-          tip: [m.name + " on " + p.name, fmtSec(secs(c)) + " s per " + r.c.one,
-                m.target, c.ref].join("\n")
+          tip: tip(m, k, fmtSec(secs(c)) + " s per " + r.c.one + "\n" + m.target)
         };
       });
       groups.push({ label: m.name, sub: m.target, bars: bars });
@@ -819,8 +836,8 @@ details.disclose > div{ padding-top:var(--s-4); }
         : "<td class=\"n blocked\" title=\"" + blockedWhy(c).replace(/"/g, "&quot;") + "\">" + blockedLabel(c) + "</td>";
     }
     document.getElementById("t-measured").innerHTML =
-      "<thead><tr><th>Model</th><th>Recycles</th><th class=\"n\">Blackhole p150a</th><th class=\"n\">H200</th>" +
-      "<th class=\"n\">B200</th><th class=\"n\">A100</th></tr></thead><tbody>" +
+      "<thead><tr><th>Model</th><th>Recycles</th>" +
+      CELLS.map(function (k) { return "<th class=\"n\">" + plat(k).name + "</th>"; }).join("") + "</tr></thead><tbody>" +
       D.models.map(function (m) {
         return "<tr><td>" + m.name + "</td><td class=\"num\">" + m.recycles + "</td>" +
           CELLS.map(function (k) {
@@ -886,8 +903,8 @@ details.disclose > div{ padding-top:var(--s-4); }
         ? m.recycling_steps + " recycles" : m.sampling_steps + " sampling";
     }
     document.getElementById("t-design").innerHTML =
-      "<thead><tr><th>Model</th><th class=\"n\">Steps</th><th>Batch</th><th class=\"n\">Blackhole p150a</th>" +
-      "<th class=\"n\">H200</th><th class=\"n\">B200</th><th class=\"n\">A100</th></tr></thead><tbody>" +
+      "<thead><tr><th>Model</th><th class=\"n\">Steps</th><th>Batch</th>" +
+      CELLS.map(function (k) { return "<th class=\"n\">" + plat(k).name + "</th>"; }).join("") + "</tr></thead><tbody>" +
       catRows().map(function (r) {
         var m = r.m;
         return "<tr><td>" + m.name + "</td><td class=\"n num\">" + stepsCell(m) + "</td>" +
