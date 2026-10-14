@@ -16,6 +16,7 @@ from . import ops
 from . import back_ln as _back_ln
 from . import reblock_permute as _reblock
 from . import triatt_qkv as _triatt_qkv
+from . import triatt_ln as _triatt_ln
 from . import pair_transpose as _pair_tr
 from . import triatt_sdpa as _triatt_sdpa
 from . import dest_guard as _dest_guard
@@ -634,6 +635,12 @@ _FAST_MODE = False
 #                   the calls the F1 tail would serve with the residual folded in, and there it is bit-exact
 #   trimul_t2w      with trimul_t2, T2 also takes c_z 384 (OpenDDE) at its own (2, 12, 1, 2, 1) block (trimul_tail.T2_BLOCK)
 #   narrow_bw16     the narrow-output pair projections (`_narrow_proj_linear`) at in0_block_w 16, not `_NARROW_PROJ_BW`
+#   trimul_t1b8     T1 (c_z 128) writes a and b as bfp8, as trimul_b8in does at c_z 256: the einsum reads half
+#                   the bytes (Boltz-2 WH fast census: T1 1.0 s + einsum 0.86 s per fold, both DRAM-bound)
+#   trimul_t1_c256  with trimul_t1, T1 also takes c_z = hidden = 256 (Protenix, ESMFold2) as two channel-group launches
+#                   of 16-row units (trimul_tail.T1_PLANS)
+#   trimul_t1_c384  with trimul_t1, T1 also takes c_z = hidden = 384 (OpenDDE) as three channel-group launches
+#                   of 8-row units
 #   trimul_t2m      T2 (either form) reads the einsum's last channel chunk where it lies, channel-major, so
 #                   reblock_permute_back never writes the moved x (kernels/trimul_tail_res/reader_moved.cpp)
 #   trimul_t1_dram  every trimul T1 / T2 can take (N >= 160) runs on the DRAM path, so they also serve the sizes
@@ -688,12 +695,13 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "trimul_t2m", "trimul_t2cm", "dit_fuse", "pair_mm", "ref_memo", "edm_device", "ws_l1acc", "ws_resid", "pib_where",
           "trimul_t2w", "narrow_bw16", "ws_l1dest", "opm_jd", "trimul_gin_hifi2", "trimul_gin_b8",
           "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine", "ef2_opm_kq", "ef2_relpos_lookup",
-          "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit")
+          "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit", "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384",
+          "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
 # model's matching op. BoltzGen's own --fast set names dit_cond_hifi2, graded on BoltzGen's designs.
-# OpenFold3's own --fast set names dit_fuse, edm_device and ws_l1dest, graded on OpenFold3 / OpenBind-0
+# OpenFold3's own --fast set names dit_fuse, edm_device, ws_l1dest and dit_hifi2 (Wormhole), graded on OpenFold3 / OpenBind-0
 # (openfold3_fold.FAST_LEVERS).
 # ref_memo is host featurisation, OpenFold3 / OpenBind-0 only: one reference conformer per residue type
 # (vendored query.REF_MOL_MEMO), read by worker._predict_openfold3_one off the model's lever set.
@@ -701,7 +709,9 @@ UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "di
                              "pair_mm", "ref_memo", "trimul_t2m", "edm_device", "ws_l1acc", "pib_where", "trimul_t2w",
                              "narrow_bw16", "ws_l1dest", "trimul_gin_hifi2", "trimul_gin_b8",
                              "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine", "ef2_opm_kq",
-                             "ef2_relpos_lookup", "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit"})
+                             "ef2_relpos_lookup", "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit",
+                             "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384",
+                             "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -737,6 +747,8 @@ UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "di
 # each (spd-fastmode wrs, 2026-10-13), PASS: same-seed top pose median against the A/A floor Protenix-v2 0.59 / 1.24 A,
 # OpenDDE 0.38 / 1.54, Boltz-2 1.05 / 1.92; docking 35 -> 34, 26 -> 24 (bar 5), 24 -> 24 of 44. Warm 512-token fast
 # fold, paired: Galaxy chip (1000 MHz) OpenDDE -3.8 s, Protenix-v2 -0.9 s; p150a (1350 MHz) -1.6 / -0.5 s.
+# Protenix-v1 (shared set) graded the same way, PASS (spd-fastmode wr1): top pose 0.744 A vs a 2.366 A floor, CA-lDDT
+# +0.0020 [-0.0004, +0.0051], docking 24 -> 24 of 44.
 FAST_LEVERS = (frozenset(LEVERS) - {"lofi", "triatt_b8", "triatt_bias_b8", "trimul_t1_dram", "trimul_t2g"}
                - UNGRADED_LEVERS)
 # trimul_ibw + trimul_tail: Wormhole 11-set grade PASS, 44 paired folds, same-seed top pose median
@@ -840,12 +852,6 @@ if "silu_f32" in NORMAL_LEVERS | FAST_LEVERS or "silu_f32" in os.environ.get("TT
 
 def lever(name: str) -> bool:
     return name in _LEVERS
-
-
-def mode_levers():
-    """The lever set a model built now takes: its mode's (`FAST_LEVERS` under `--fast`, else
-    `NORMAL_LEVERS`), or TT_BIO_LEVERS when a harness grades a set through the serving path."""
-    return os.environ.get("TT_BIO_LEVERS") or (FAST_LEVERS if _FAST_MODE else NORMAL_LEVERS)
 
 
 _SILU_CKCS = {}
@@ -7721,6 +7727,28 @@ def _close_device_locked(dev):
         _release_ownership_fn()()
 
 
+def capture_trace(dev, run):
+    """Record ``run()`` into a trace and return ``(tid, run's result)``.
+
+    If ``run`` throws, the capture is closed and released before the exception propagates.
+    A capture left open makes every later upload throw, and ``close_device`` then spins in
+    ``synchronize_device`` while holding the host-wide device-init lock, which stalls every
+    other chip on the host (qb2 2026-10-14: one TT_FATAL mid-capture held chips 1 and 3 for
+    30 min until the process was killed).
+    """
+    tid = ttnn.begin_trace_capture(dev, cq_id=0)
+    try:
+        out = run()
+    except BaseException:
+        try:
+            ttnn.end_trace_capture(dev, tid, cq_id=0)
+        finally:
+            ttnn.release_trace(dev, tid)
+        raise
+    ttnn.end_trace_capture(dev, tid, cq_id=0)
+    return tid, out
+
+
 # How long the bring-up probe may take before it is called a wedge. A healthy open plus
 # dispatch on a qb1 p150a is 1.6 s, so this is a ~75x margin and needs no tuning.
 _DISPATCH_PROBE_TIMEOUT_S = 120.0
@@ -9353,7 +9381,7 @@ class TriangleMultiplication(Module):
         the mask past the move, no biases, no tape. Every decline is counted in T1_STATS[1].
         """
         TT1 = _trimul_tail
-        if not (TT1.T1 or lever("trimul_t1")) or H < TT1.MIN_N:
+        if not TT1.t1_any() or H < TT1.MIN_N:
             return None
         mask_ok = mask is None or (_TRIMUL_MASK_AFTER_MOVE and len(mask.shape) == 3)
         why = next((k for k, bad in (
@@ -9390,7 +9418,7 @@ class TriangleMultiplication(Module):
         outs = TT1.fused_in_ln(
             x, self.in_norm_weight, self.in_norm_bias, *self._t1_w, self.g_out_weight,
             _mm_generic.ckc_args(self.compute_kernel_config), tuple(COMPUTE_GRID_MAIN),
-            mask=mask if fold else None)
+            mask=mask if fold else None, b8=lever("trimul_t1b8") and (mask is None or fold))
         return None if outs is None else (outs[0], outs[1], outs[2], fold)
 
     def _gout_eligible(self, x_norm_in, H, n_pairs, group, memory_config, row_norm) -> bool:
@@ -11310,18 +11338,31 @@ class TriangleAttention(Module):
                 # staging route inside `_pair_transpose`: same DRAM result, 1.887x.
                 x = _pair_transpose(x, _transpose_memory_config(x),
                                     l1_stage_reserve=self.transpose_l1_reserve)
-            # Explicit DRAM: for the ending variant x is the L1 transpose result
-            # (_transpose_memory_config) and ttnn would otherwise inherit L1 here and again
-            # for the qkv projection, whose 157 MB does not fit.
-            x = ttnn.layer_norm(
-                x,
-                weight=self.layer_norm_weight,
-                bias=self.layer_norm_bias,
-                epsilon=1e-5,
-                compute_kernel_config=ln_compute_kernel_config(self.compute_kernel_config),
-                memory_config=ttnn.DRAM_MEMORY_CONFIG,
-            )
-            pre_qkv, pre_g, triangle_bias = self._fused_qkvgb(x)
+            # triatt_ln: the norm and the qkvgb projection as one kernel, the normed copy never
+            # leaves L1. x stays the raw (or transposed) pair then, owned only in the ending variant.
+            fused = (None if self.biased or self.qkvgb_weight is None
+                     or _triatt_dtype() != ttnn.bfloat16
+                     or _qkv_l1_config(x, self.qkv_weight, _dtype()) is not None
+                     else _triatt_ln.ln_qkvgb_heads(
+                         x, self.layer_norm_weight, self.layer_norm_bias, self.qkvgb_weight,
+                         _mm_generic.ckc_args(self.compute_kernel_config), self.n_heads,
+                         self.head_dim, int(self.bias_weight.shape[-1]), tuple(COMPUTE_GRID_MAIN)))
+            x_owned = fused is None or self.ending
+            if fused is not None:
+                pre_qkv, pre_g, triangle_bias = fused
+            else:
+                # Explicit DRAM: for the ending variant x is the L1 transpose result
+                # (_transpose_memory_config) and ttnn would otherwise inherit L1 here and again
+                # for the qkv projection, whose 157 MB does not fit.
+                x = ttnn.layer_norm(
+                    x,
+                    weight=self.layer_norm_weight,
+                    bias=self.layer_norm_bias,
+                    epsilon=1e-5,
+                    compute_kernel_config=ln_compute_kernel_config(self.compute_kernel_config),
+                    memory_config=ttnn.DRAM_MEMORY_CONFIG,
+                )
+                pre_qkv, pre_g, triangle_bias = self._fused_qkvgb(x)
             if triangle_bias is None:
                 triangle_bias = _pair_proj_linear(
                     x, self.bias_weight, self.compute_kernel_config, ttnn.bfloat16
@@ -11728,7 +11769,8 @@ class TriangleAttention(Module):
             if self.g_bias is not None and not g_in_mm:
                 g = ttnn.add_(g, self.g_bias)
                 _pair_bias_stat("g_add")
-            ttnn.deallocate(x)
+            if x_owned:
+                ttnn.deallocate(x)
             if fold_o is not None:
                 o = fold_o
                 if len(g.shape) != 4:
@@ -12251,6 +12293,17 @@ class AttentionPairBias(Module):
             # bias_precomputed: z is ALREADY finish_bias(compute_bias(z)), (1,n_heads,S,S) -> skip recompute
             if self.compute_pair_bias and not bias_precomputed:
                 def whole(z=z):
+                    # apb_ln: norm and projection as one kernel (triatt_ln.ln_proj), the normed pair
+                    # never written anywhere. On a Wormhole chip it does not fit L1 at 512 tokens, so
+                    # the two-call path below writes it to DRAM and reads it back at 80 GB/s.
+                    zb = (None if len(z.shape) != 4 or z.shape[0] != 1 else _triatt_ln.ln_proj(
+                        ttnn.reshape(z, tuple(z.shape)[1:]), self.z_norm_weight, self.z_norm_bias, self.z_weight,
+                        _mm_generic.ckc_args(self.compute_kernel_config), tuple(COMPUTE_GRID_MAIN)))
+                    if zb is not None:
+                        zb = ttnn.reshape(zb, (1,) + tuple(zb.shape))
+                        z = ttnn.permute(zb, (0, 3, 1, 2))
+                        ttnn.deallocate(zb)
+                        return z
                     # The z->bias projection below reads this whole tensor (48.82 MB at 298 aa) to
                     # write one tile of width, so it is bound by its SOURCE, not by its own write.
                     # Handing it an L1-resident normed z removes the norm's DRAM write and the
@@ -12753,6 +12806,8 @@ def ws_swiglu(x, norm_weight, norm_bias, ckc, parts, resid=None):
     if not all(_pair_ws.eligible(x, w12, w3, l1acc=lever("ws_l1acc"), resid=resid) for w12, w3 in parts):
         return None
     fid = ttnn.MathFidelity.HiFi2 if parts[0][0].dtype == ttnn.bfloat8_b else ckc.math_fidelity
+    if lever("ws_lofi"):   # ungraded: LoFi drops the low bits of every operand (cen3: 4.1 s at ~48 TFLOP/s, WH PV2 fast)
+        fid = ttnn.MathFidelity.LoFi
     acc = lever("ws_l1acc")
     if (resid is None and lever("ws_ln") and len(parts) == 1
             and _pair_ws.eligible(x, *parts[0], ln=(norm_weight, norm_bias), l1acc=acc)):
@@ -14948,20 +15003,32 @@ class PairWeightedAveraging(Module):
         self.o_weight = self.torch_to_tt("proj_o.weight")
 
     def _z_heads(self, z, attn_mask):
-        """PWA's pair half: `(zn, token_weight, token_weights)`, the normed pair and the per-head
-        and all-head token softmaxes over it. Functions of `z` alone."""
-        z = ttnn.reshape(z, tuple(z.shape)[1:])
-        # One z layer_norm, `n_heads` projections of it: every head reads the whole normed pair
-        # tensor to write one tile of width, so all eight are source-bound and one L1-resident
-        # copy serves all of them. 3572.2 -> 991.0 us on the eight-head region, `torch.equal`.
-        z, z_in_l1 = (_l1_layer_norm(z, 1.0, _PAIR_L1_CONSUMER_RESERVE,
-                                     weight=self.z_norm_weight, bias=self.z_norm_bias,
+        """PWA's pair half: `(release, token_weight, token_weights)`, the per-head and all-head
+        token softmaxes over the normed pair and `release()`, which frees the normed copy once the
+        caller is done with them. Functions of `z` alone."""
+        zr = ttnn.reshape(z, tuple(z.shape)[1:])
+        normed = []
+
+        def zn():
+            # One z layer_norm, `n_heads` projections of it: every head reads the whole normed pair
+            # tensor to write one tile of width, so all eight are source-bound and one L1-resident
+            # copy serves all of them. 3572.2 -> 991.0 us on the eight-head region, `torch.equal`.
+            # Built on first use: apb_ln's fused path below never needs it.
+            if not normed:
+                normed.extend(
+                    _l1_layer_norm(zr, 1.0, _PAIR_L1_CONSUMER_RESERVE,
+                                   weight=self.z_norm_weight, bias=self.z_norm_bias,
+                                   epsilon=1e-5,
+                                   compute_kernel_config=self.compute_kernel_config)
+                    if _PWA_L1_NORM else
+                    (ttnn.layer_norm(zr, weight=self.z_norm_weight, bias=self.z_norm_bias,
                                      epsilon=1e-5,
-                                     compute_kernel_config=self.compute_kernel_config)
-                      if _PWA_L1_NORM else
-                      (ttnn.layer_norm(z, weight=self.z_norm_weight, bias=self.z_norm_bias,
-                                       epsilon=1e-5,
-                                       compute_kernel_config=self.compute_kernel_config), False))
+                                     compute_kernel_config=self.compute_kernel_config), False))
+            return normed
+
+        def release():
+            if normed:
+                ttnn.deallocate(normed[0])
         def _softmax_over_tokens(b):
             b = ttnn.permute(b, (2, 0, 1))
             if attn_mask is not None:
@@ -14974,10 +15041,20 @@ class PairWeightedAveraging(Module):
             )
 
         def _proj_z(zw):
-            b = _narrow_proj_linear(z, zw, self.compute_kernel_config, z.dtype, l1_out=z_in_l1)
+            if zw is self.z_weight and len(z.shape) == 4 and z.shape[0] == 1:
+                # apb_ln: every head's column from the raw pair in one kernel (triatt_ln.ln_proj),
+                # the normed pair never written. On Wormhole it misses L1 at 512 tokens and the
+                # two-call path reads it back from DRAM.
+                b = _triatt_ln.ln_proj(zr, self.z_norm_weight, self.z_norm_bias, zw,
+                                       _mm_generic.ckc_args(self.compute_kernel_config),
+                                       tuple(COMPUTE_GRID_MAIN))
+                if b is not None:
+                    return b
+            zn_, in_l1 = zn()
+            b = _narrow_proj_linear(zn_, zw, self.compute_kernel_config, zn_.dtype, l1_out=in_l1)
             if b is None:
                 b = ttnn.linear(
-                    z,
+                    zn_,
                     zw,
                     compute_kernel_config=self.compute_kernel_config,
                     core_grid=CORE_GRID_MAIN,
@@ -15003,7 +15080,7 @@ class PairWeightedAveraging(Module):
             ttnn.deallocate(b)
             return out
 
-        return z, token_weight, token_weights
+        return release, token_weight, token_weights
 
     def _batch_head_weights(self):
         # A property of the shape, never a model name: the batching is correct at any head
@@ -15131,10 +15208,10 @@ class PairWeightedAveraging(Module):
         holds exactly the rows of the single pass.
         """
         def weights(zr):
-            zn, token_weight, token_weights = self._z_heads(zr, attn_mask)
+            release, token_weight, token_weights = self._z_heads(zr, attn_mask)
             ws = (token_weights() if self._batch_head_weights()
                   else [token_weight(i) for i in range(self.n_heads)])
-            ttnn.deallocate(zn)
+            release()
             return ws
 
         n = int(z.shape[1])
@@ -17038,9 +17115,8 @@ class DiffusionModule(TorchWrapper):
         _ = self._run_diffusion_device(in_r, in_times, large_seq_len)   # warmup / compile
         _ = self._run_diffusion_device(in_r, in_times, large_seq_len)   # 2nd warmup: populate lazy _s_conditioned/_c_reshaped + per-layer s_o
         ttnn.synchronize_device(self.tt_device)
-        tid = ttnn.begin_trace_capture(self.tt_device, cq_id=0)
-        out = self._run_diffusion_device(in_r, in_times, large_seq_len)  # record
-        ttnn.end_trace_capture(self.tt_device, tid, cq_id=0)
+        tid, out = capture_trace(self.tt_device,
+                                 lambda: self._run_diffusion_device(in_r, in_times, large_seq_len))
         self._diff_trace = {"tid": tid, "in_r": in_r, "in_times": in_times,
                             "out": out, "B": B, "N_padded": N_padded}
         return self._diff_trace

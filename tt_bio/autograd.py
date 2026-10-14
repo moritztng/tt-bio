@@ -3028,9 +3028,8 @@ def _traced_recompute(key, fn, inputs, home, seeded) -> bool:
     if st == 2:
         run(sh["ins"], sh["seeds"], sh["outs"])     # compiles anything only the capture uses
         ttnn.synchronize_device(device)
-        tid = ttnn.begin_trace_capture(device, cq_id=0)
-        run(sh["ins"], sh["seeds"], sh["outs"])
-        ttnn.end_trace_capture(device, tid, cq_id=0)
+        from .tenstorrent import capture_trace
+        tid, _ = capture_trace(device, lambda: run(sh["ins"], sh["seeds"], sh["outs"]))
         _RTRACE[(key, sig)] = st = (tid,)
         RTRACE_STATS["capture"] += 1
     else:

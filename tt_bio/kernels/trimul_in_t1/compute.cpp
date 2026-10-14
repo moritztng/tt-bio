@@ -2,8 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-// trimul input side T1, weights resident. Per item, NR = 32 row tiles R_il of the raw pair z (one unit
-// (b, xt, yt)) or NR = 16 (half h of it, rows 16h..16h+15; trimul_tail.T1_ROWS), in the steps below:
+// trimul input side T1, weights resident. Per unit (b, xt, yt), 32 row tiles R_il of the raw pair z:
 //   1. layer_norm, row tile by row tile: T2's prologue (two-pass statistics in fp32 CBs, scaler 1/K,
 //      * gamma + beta broadcast from row 0), the result packed bf16 into c_1 at slot dt * 32 + il,
 //      the slot order gin_moved's reader gives its activation, so step 3 is gin_moved's loop as is.
@@ -11,6 +10,8 @@
 //   3. per output channel tile q of [a | b]: 32 tiles W^T[q] @ xn_il^T (value pass, gate pass with
 //      the sigmoid in DST), then a = p * sigmoid(g) [* m] packed in il order for the writer, which
 //      gathers them into the [B, C, S, S] tiles the einsum reads.
+// One launch covers the channel group reader.cpp names (Q0, QN of CT2; NG g_out tiles) and IL row
+// tiles per unit (32, or 16 where c_z 256 would not fit L1); every "32" above is IL then.
 // fp32 DEST (the statistics), the caller's fidelity. Step 1 is kernels/common/ln_prologue.hpp.
 #include <cstdint>
 #define REDUCE_OP PoolType::SUM
@@ -35,24 +36,29 @@
 #endif
 
 constexpr uint32_t Kt = get_compile_time_arg_val(0);
-constexpr uint32_t CT2 = get_compile_time_arg_val(1);
+constexpr uint32_t QN = get_compile_time_arg_val(1);        // [a | b] channel tiles of this launch
 constexpr uint32_t SBW = get_compile_time_arg_val(2);
 constexpr uint32_t MASK = get_compile_time_arg_val(3);
 constexpr uint32_t SIGPOLY = get_compile_time_arg_val(4);   // 1: sigmoid_poly.hpp's polynomial
 // Round to nearest even before a pack (the pack truncates): bit 0 the output, bit 1 p and g.
 constexpr uint32_t RNE = get_compile_time_arg_val(5);
-constexpr uint32_t NTG = get_compile_time_arg_val(6);       // g_out channel tiles, 0: none
-constexpr uint32_t NR = get_compile_time_arg_val(7);         // row tiles per item: 32 (unit) or 16 (half)
-constexpr uint32_t GSBW = NTG % 4 == 0 ? 4 : (NTG % 2 == 0 ? 2 : 1);
-static_assert(NR % SBW == 0 && SBW <= 4, "fp32 half-sync DST holds 4 tiles");
-static_assert(NR == 32 || NR == 16, "an item is a unit or one face-row half of it");
+constexpr uint32_t NG = get_compile_time_arg_val(6);        // g_out channel tiles of this launch, 0: none
+constexpr uint32_t Q0 = get_compile_time_arg_val(7);        // first [a | b] channel tile of this launch
+constexpr uint32_t CT2 = get_compile_time_arg_val(8);       // [a | b] channel tiles in all; q < CT2 / 2 is a
+constexpr uint32_t IL = get_compile_time_arg_val(9);        // row tiles per unit, 32 or 16 (reader.cpp)
+constexpr uint32_t GSBW = NG % 4 == 0 ? 4 : (NG % 2 == 0 ? 2 : 1);
+static_assert(IL % SBW == 0 && IL % 4 == 0 && SBW <= 4, "fp32 half-sync DST holds 4 tiles");
 
-constexpr uint32_t w_cb = tt::CBIndex::c_0;      // [Wp^T | Wg^T], 2 * CT2 * Kt, resident
-constexpr uint32_t xn_cb = tt::CBIndex::c_1;     // layer_norm(z) of the unit, bf16, 32 * Kt
+constexpr uint32_t w_cb = tt::CBIndex::c_0;      // [Wp^T | Wg^T] of the group, 2 * QN * Kt, resident
+constexpr uint32_t xn_cb = tt::CBIndex::c_1;     // layer_norm(z) of the unit, bf16, IL * Kt
 constexpr uint32_t out_cb = tt::CBIndex::c_2;    // a / b tiles to the writer
 constexpr uint32_t p_cb = tt::CBIndex::c_4;
 constexpr uint32_t g_cb = tt::CBIndex::c_5;
 constexpr uint32_t m_cb = tt::CBIndex::c_6;
+// g * m of one 4-tile block. The mask goes into g through its own CB and p * (g m) is a plain binary op:
+// reusing DEST for p * (g m) left every unit but each core's last wrong on Wormhole at c_z 256 and 384,
+// the unit's tail racing the next unit's layer_norm.
+constexpr uint32_t gm_cb = tt::CBIndex::c_15;
 constexpr uint32_t cb_x = tt::CBIndex::c_7;      // raw z rows, Kt per row tile
 constexpr uint32_t cb_gamma = tt::CBIndex::c_8;
 constexpr uint32_t cb_beta = tt::CBIndex::c_9;
@@ -63,8 +69,8 @@ constexpr uint32_t cb_var = tt::CBIndex::c_13;
 constexpr uint32_t cb_rstd = tt::CBIndex::c_14;
 constexpr uint32_t cb_xc = tt::CBIndex::c_16;    // fp32, Kt tiles
 constexpr uint32_t cb_tmp = tt::CBIndex::c_17;   // fp32, Kt tiles
-constexpr uint32_t wo_cb = tt::CBIndex::c_18;    // Wg_out [Kt x NTG], resident
-constexpr uint32_t go_cb = tt::CBIndex::c_19;    // g_out of one row tile, NTG tiles
+constexpr uint32_t wo_cb = tt::CBIndex::c_18;    // Wg_out [Kt x NG] of the group, resident
+constexpr uint32_t go_cb = tt::CBIndex::c_19;    // g_out of one row tile, NG tiles
 
 ALWI void sigmoid_bf16_tile(uint32_t idst) {
     MATH((llk_math_eltwise_unary_sfpu_sigmoid<false, false>(idst, (int)VectorMode::RC)));
@@ -75,72 +81,72 @@ struct LnCbs {
         eps = cb_eps, mean = cb_mean, var = cb_var, rstd = cb_rstd, xc = cb_xc, tmp = cb_tmp;
 };
 
-// Row tile il: Kt tiles at the front of cb_x (popped) -> slots dt * NR + il of the reserved xn_cb.
+// Row tile il: Kt tiles at the front of cb_x (popped) -> slots dt * IL + il of the reserved xn_cb.
 ALWI void layer_norm_row(uint32_t il) {
     if constexpr (ABL & 1) {
         cb_wait_front(cb_x, Kt);
         cb_pop_front(cb_x, Kt);
         return;
     }
-    ln_prologue::layer_norm_row<LnCbs>(xn_cb, [il](uint32_t i) { pack_tile<true>(0, xn_cb, i * NR + il); });
+    ln_prologue::layer_norm_row<LnCbs>(xn_cb, [il](uint32_t i) { pack_tile<true>(0, xn_cb, i * IL + il); });
 }
 
 void kernel_main() {
     const uint32_t nunits = get_arg_val<uint32_t>(0);
 
     mm_init(w_cb, xn_cb, p_cb, 1);
-    cb_wait_front(w_cb, 2 * CT2 * Kt);
+    cb_wait_front(w_cb, 2 * QN * Kt);
     cb_wait_front(cb_gamma, Kt);
     cb_wait_front(cb_beta, Kt);
     cb_wait_front(cb_scaler, 1);
     cb_wait_front(cb_eps, 1);
-    if constexpr (NTG) cb_wait_front(wo_cb, Kt * NTG);
+    if constexpr (NG) cb_wait_front(wo_cb, Kt * NG);
 
     for (uint32_t u = 0; u < nunits; ++u) {
-        // 1. layer_norm of the item's NR row tiles.
-        cb_reserve_back(xn_cb, NR * Kt);
-        for (uint32_t il = 0; il < NR; ++il) layer_norm_row(il);
-        cb_push_back(xn_cb, NR * Kt);
-        cb_wait_front(xn_cb, NR * Kt);
+        // 1. layer_norm of the unit's IL row tiles.
+        cb_reserve_back(xn_cb, IL * Kt);
+        for (uint32_t il = 0; il < IL; ++il) layer_norm_row(il);
+        cb_push_back(xn_cb, IL * Kt);
+        cb_wait_front(xn_cb, IL * Kt);
 
         // 2. g_out = xn @ Wg_out, row tile by row tile, one K block in k order.
-        if constexpr (NTG) {
+        if constexpr (NG) {
             mm_block_init_short(xn_cb, wo_cb, false, GSBW, 1, Kt);
             reconfig_data_format(wo_cb, xn_cb);
             pack_reconfig_data_format(go_cb);
-            for (uint32_t il = 0; il < NR; ++il) {
-                cb_reserve_back(go_cb, NTG);
-                for (uint32_t n0 = 0; n0 < NTG && !(ABL & 2); n0 += GSBW) {
+            for (uint32_t il = 0; il < IL; ++il) {
+                cb_reserve_back(go_cb, NG);
+                for (uint32_t n0 = 0; n0 < NG && !(ABL & 2); n0 += GSBW) {
                     tile_regs_acquire();
                     uint32_t i0 = il;
                     uint32_t i1 = n0;
-                    for (uint32_t k = 0; k < Kt; ++k, i0 += NR, i1 += NTG)
+                    for (uint32_t k = 0; k < Kt; ++k, i0 += IL, i1 += NG)
                         matmul_block(xn_cb, wo_cb, i0, i1, 0, false, GSBW, 1, Kt);
                     tile_regs_commit();
                     tile_regs_wait();
                     for (uint32_t i = 0; i < GSBW; ++i) pack_tile<true>(i, go_cb, n0 + i);
                     tile_regs_release();
                 }
-                cb_push_back(go_cb, NTG);
+                cb_push_back(go_cb, NG);
             }
         }
 
         // 3. gin_moved's gated projection on xn. The sigmoid is re-initialised every unit: the
         // prologue's rsqrt init reprograms the SFPU (as in T2).
         sigmoid_tile_init();
-        if constexpr (MASK) cb_wait_front(m_cb, NR);
-        for (uint32_t q = 0; q < CT2; ++q) {
+        if constexpr (MASK) cb_wait_front(m_cb, IL);
+        for (uint32_t q = 0; q < QN; ++q) {
             for (uint32_t pass = 0; pass < 2; ++pass) {
                 const uint32_t pass_cb = pass == 0 ? p_cb : g_cb;
                 mm_block_init_short(w_cb, xn_cb, true, SBW, 1, Kt);
                 reconfig_data_format(xn_cb, w_cb);
                 pack_reconfig_data_format(pass_cb);
-                cb_reserve_back(pass_cb, NR);
-                for (uint32_t il0 = 0; il0 < NR && !(ABL & 4); il0 += SBW) {
+                cb_reserve_back(pass_cb, IL);
+                for (uint32_t il0 = 0; il0 < IL && !(ABL & 4); il0 += SBW) {
                     tile_regs_acquire();
-                    uint32_t i0 = (pass * CT2 + q) * Kt;
+                    uint32_t i0 = (pass * QN + q) * Kt;
                     uint32_t i1 = il0;
-                    for (uint32_t k = 0; k < Kt; ++k, ++i0, i1 += NR)
+                    for (uint32_t k = 0; k < Kt; ++k, ++i0, i1 += IL)
                         matmul_block(w_cb, xn_cb, i0, i1, 0, true, SBW, 1, Kt);
                     if (pass == 1) {
                         for (uint32_t i = 0; i < SBW; ++i) {
@@ -156,23 +162,33 @@ void kernel_main() {
                     for (uint32_t i = 0; i < SBW; ++i) pack_tile<true>(i, pass_cb, il0 + i);
                     tile_regs_release();
                 }
-                cb_push_back(pass_cb, NR);
+                cb_push_back(pass_cb, IL);
             }
-            cb_wait_front(p_cb, NR);
-            cb_wait_front(g_cb, NR);
-            cb_reserve_back(out_cb, NR);
+            cb_wait_front(p_cb, IL);
+            cb_wait_front(g_cb, IL);
+            cb_reserve_back(out_cb, IL);
             reconfig_data_format(p_cb, g_cb);
             pack_reconfig_data_format(out_cb);
-            for (uint32_t t0 = 0; t0 < NR && !(ABL & 8); t0 += 4) {
-                tile_regs_acquire();
-                if (MASK && q < CT2 / 2) {
+            for (uint32_t t0 = 0; t0 < IL && !(ABL & 8); t0 += 4) {
+                const bool masked = MASK && Q0 + q < CT2 / 2;
+                if (masked) {
+                    cb_reserve_back(gm_cb, 4);
+                    tile_regs_acquire();
                     mul_bcast_rows_init_short(g_cb, m_cb);
                     for (uint32_t i = 0; i < 4; ++i) mul_tiles_bcast_rows(g_cb, m_cb, t0 + i, t0 + i, i);
-                    binary_dest_reuse_tiles_init<EltwiseBinaryType::ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCB>(
-                        p_cb);
-                    for (uint32_t i = 0; i < 4; ++i)
-                        binary_dest_reuse_tiles<EltwiseBinaryType::ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCB>(
-                            p_cb, t0 + i, i);
+                    tile_regs_commit();
+                    tile_regs_wait();
+                    pack_reconfig_data_format(gm_cb);
+                    for (uint32_t i = 0; i < 4; ++i) pack_tile(i, gm_cb);
+                    tile_regs_release();
+                    cb_push_back(gm_cb, 4);
+                    cb_wait_front(gm_cb, 4);
+                    pack_reconfig_data_format(out_cb);
+                }
+                tile_regs_acquire();
+                if (masked) {
+                    mul_tiles_init(p_cb, gm_cb);
+                    for (uint32_t i = 0; i < 4; ++i) mul_tiles(p_cb, gm_cb, t0 + i, i, i);
                 } else {
                     mul_tiles_init(p_cb, g_cb);
                     for (uint32_t i = 0; i < 4; ++i) mul_tiles(p_cb, g_cb, t0 + i, t0 + i, i);
@@ -184,12 +200,13 @@ void kernel_main() {
                 tile_regs_wait();
                 for (uint32_t i = 0; i < 4; ++i) pack_tile(i, out_cb);
                 tile_regs_release();
+                if (masked) cb_pop_front(gm_cb, 4);
             }
-            cb_push_back(out_cb, NR);
-            cb_pop_front(p_cb, NR);
-            cb_pop_front(g_cb, NR);
+            cb_push_back(out_cb, IL);
+            cb_pop_front(p_cb, IL);
+            cb_pop_front(g_cb, IL);
         }
-        cb_pop_front(xn_cb, NR * Kt);
-        if constexpr (MASK) cb_pop_front(m_cb, NR);
+        cb_pop_front(xn_cb, IL * Kt);
+        if constexpr (MASK) cb_pop_front(m_cb, IL);
     }
 }

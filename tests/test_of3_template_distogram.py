@@ -47,3 +47,21 @@ def test_indexed_binning_is_the_broadcast_compare():
         assert torch.equal(got, want), (n_templates, n_tokens, dtype)
         # the edge cases really are exercised: the 3.25 A pair is in no bin (strict compare)
         assert float(got[0, 0, 1].sum()) == 0.0
+
+
+def test_dummy_templates_skip_to_the_same_zeros():
+    """A template-less fold's dummy templates mask every token: the shortcut returns upstream's
+    tensor (all zeros) with its shape and dtype, for the distogram and the unit vector."""
+    from tt_bio._vendor.openfold3.core.data.primitives.featurization.template import (
+        create_template_unit_vector,
+    )
+    coords, mask, pair_mask = _case(4, 64, np.float32, 3)
+    mask = torch.zeros_like(mask)
+    want = _upstream(coords, mask, pair_mask)
+    got = create_template_distogram(coords, mask, pair_mask)
+    assert got.shape == want.shape and got.dtype == want.dtype and torch.equal(got, want)
+
+    frames = np.full((4, 64, 3, 3), np.nan, dtype=np.float32)
+    got = create_template_unit_vector(frames, mask, pair_mask)
+    want = torch.zeros(4, 64, 64, 3) * pair_mask
+    assert got.shape == want.shape and got.dtype == want.dtype and not got.any()

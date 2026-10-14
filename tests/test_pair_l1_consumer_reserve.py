@@ -15,6 +15,7 @@ Host-only: pure allocator arithmetic, stubbed part figures, no device and no fol
 """
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -111,5 +112,5 @@ def test_a_part_with_less_l1_per_core_only_gets_more_conservative(monkeypatch):
 def test_both_pair_sites_pass_the_reserve():
     """One site fixed and one forgotten is the same crash from the other module."""
     src = (Path(T.__file__)).read_text()
-    assert src.count("_l1_layer_norm(z, 1.0, _PAIR_L1_CONSUMER_RESERVE") == 2
-    assert "_l1_layer_norm(z, 1.5" not in src
+    assert len(re.findall(r"_l1_layer_norm\(\w+, 1\.0, _PAIR_L1_CONSUMER_RESERVE", src)) == 2
+    assert not re.search(r"_l1_layer_norm\(\w+, 1\.5", src)

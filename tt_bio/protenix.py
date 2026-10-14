@@ -49,6 +49,23 @@ from .tenstorrent import (Module, CORE_GRID_MAIN, get_device, dram_peak,
                           row_block_after_refusal, device_generation, accurate_softmax_site,
                           softmax_ckc, host_f64_softmax_site, site_softmax, stack_samples)
 from . import tenstorrent as _T   # for the module-level A/B toggles, which must be read live
+
+# The Protenix family's normal set (Protenix-v2, Protenix-v1, OpenDDE): the shared one plus transition_ws with
+# ws_l1acc, which keeps each matmul's fp32 dest sum to 2 K tiles so bf16 weights at c_z 256 / 384 take the fused
+# transition. Wormhole 11-set normal grade, normal vs this set, 44 paired folds each: Protenix-v2 PASS (spd-integrate
+# gwa), OpenDDE PASS, same-seed top pose median 0.219 A vs the 1.335 A A/A floor, CA-lDDT -0.0004 [-0.0016, +0.0004],
+# docking 25 -> 24 of 44 (spd-gap-small 2026-10-14); Blackhole Protenix-v2 PASS, 0.080 A vs 1.292 A (gwabh).
+# Galaxy chip (1000 MHz) Protenix-v2 normal 79.1 -> 74.7 s; p150a OpenDDE normal -1.9 s.
+# trimul_t1_c256 / _c384: the trimul input side as one kernel at c_z 256 (Protenix-v2) and 384 (OpenDDE); c_z 128
+# (Protenix-v1) is untouched. Wormhole 11-set normal grade of the whole set against shared normal, 44 paired folds
+# each (spd-gap-small gst1, 2026-10-14), PASS: same-seed top pose median Protenix-v2 0.093 A vs the 1.134 A A/A
+# floor, OpenDDE 0.184 vs 1.335 A; CA-lDDT -0.0001 [-0.0006, +0.0003] / +0.0000 [-0.0001, +0.0002].
+NORMAL_LEVERS = _T.NORMAL_LEVERS | {"transition_ws", "ws_l1acc", "trimul_t1_c256", "trimul_t1_c384"}
+# --fast takes trimul_t1_c256 too (Protenix-v2; c_z 128 Protenix-v1 is untouched, OpenDDE has its own set).
+# Blackhole 11-set fast grade, fast vs fast+trimul_t1_c256, 43 paired folds (spd-gap-small g256bh, 2026-10-14), PASS:
+# same-seed top pose median 0.125 A vs the 1.342 A A/A floor, CA-lDDT -0.0004 [-0.0010, +0.0001], docking 33 -> 33.
+# Warm 512-token fast fold, paired: p150a (1350 MHz) Protenix-v2 -1.67 s.
+FAST_LEVERS = _T.FAST_LEVERS | {"trimul_t1_c256"}
 from .eltwise_fusion import scale_add, norm_residual, gated_add
 
 
@@ -1565,9 +1582,7 @@ class DiffusionModule(_KeyedWeights):
         _ = run()                                            # warmup / compile
         _ = run()                                            # 2nd warmup: populate any lazy caches
         ttnn.synchronize_device(self.dev)
-        tid = ttnn.begin_trace_capture(self.dev, cq_id=0)
-        out = run()                                          # record
-        ttnn.end_trace_capture(self.dev, tid, cq_id=0)
+        tid, out = _T.capture_trace(self.dev, run)
         self._trace = {"N": N, "M": M, "tid": tid, "in_fou": fou_dev, "in_r": r_dev, "out": out,
                        "cond": self._cond_token(cond)}
         return self._trace
@@ -2406,38 +2421,27 @@ class ConfidenceHead:
 # are in the same tile-replan equivalence class as the chunked pair track.
 PAIRCOND_BLOCK_BYTES = int(os.environ.get("TT_BIO_PAIRCOND_BLOCK_BYTES", 5 * 2 ** 28))  # 2.5 GiB
 
-#: Output width, in 32-wide tiles, at or below which the diffusion pair-conditioning projection
-#: must NOT force ``core_grid``. Passing a core grid selects ttnn's MULTICAST matmul program,
-#: whose in0-sender / in1-receiver dataflow deadlocks intermittently when the output is this
-#: narrow and the pair tensor is >=512 tokens: the tt-metal watcher shows every core stopped with
-#: BRISC on a NOC semaphore wait and NCRISC on a circular-buffer reserve-back wait
-#: (perf/pxv1/hang_watcher_capture.txt). Interleaved A/B on protenix-v1 at 512 aa, 8 folds per
-#: arm per round, 3 rounds: 24/24 folds clean with the grid dropped against 7/24 with it forced.
-#:
-#: Gated on the WIDTH, not on the model id, because two shipped checkpoints share it:
-#: protenix-v1 and OpenDDE both project to 128 here (OpenDDE compresses c_z 384 -> 128 first),
-#: so both are exposed, while protenix-v2's 256 is 8 tiles and keeps the forced grid byte for
-#: byte. One mechanism in one place rather than a per-model branch.
-PAIRCOND_MM_NARROW_MAX_TILES = 4
+#: The diffusion pair-conditioning projections never force ``core_grid``. Passing a core grid
+#: selects ttnn's 1D in1-multicast matmul, and on these N*N-row fp32 projections (fp32 dest, packer
+#: L1 accumulation) one core's compute intermittently stalls and every other core waits on it
+#: through the in1 multicast handshake. It was first caught on protenix-v1's 4-tile projection
+#: (perf/pxv1/hang_watcher_capture.txt; 24/24 folds clean without the grid against 7/24 with it)
+#: and then on protenix-v2's 8-tile one, so it is not a width effect. Measured on qb2 chip 3,
+#: 2026-10-14, with perf/spd/nocdeadlock/paircond_repro.py at 730 tokens: the forced grid hung
+#: within 50 calls, without it 1000/1000 ran clean, and with the grid but packer_l1_acc off also
+#: 1000/1000 (that arm loses precision, so it is not the fix). Upstream: tt-metal#58653.
+#: PROTENIX_PAIRCOND_MM_FORCE_GRID=1 restores the forced grid for A/B or bisection.
 
 
-def paircond_mm_kw(compute_kernel_config, dtype, out_width):
+def paircond_mm_kw(compute_kernel_config, dtype):
     """ttnn.linear kwargs for a diffusion pair-conditioning projection.
 
-    ONE place decides the ``core_grid`` policy for every projection in that branch, because the
-    deadlock is a property of the WIDTH plus a forced grid, not of one call site. The pair-cond
-    has four such projections -- relpe, the OpenDDE z_trunk compression (twice: plain and
-    blocked), and linear_no_bias_z (twice: plain and blocked) -- and all of them are 128 wide,
-    i.e. 4 tiles, on N*N rows. A fix applied to only the one that happened to be caught hanging
-    would leave the same projection behaving differently depending on which block-size branch it
-    took, which is how a point patch becomes the next bug.
-
-    ``out_width`` is the projection's output channel count (the weight's dim 0 before the
-    transpose that ttnn.linear wants).
+    ONE place decides the ``core_grid`` policy for every projection in that branch (relpe, the
+    OpenDDE z_trunk compression and linear_no_bias_z, each on the whole and the row-blocked path),
+    so no twin of a fixed call keeps the old program.
     """
     kw = dict(compute_kernel_config=compute_kernel_config, dtype=dtype)
-    narrow = (int(out_width) // 32) <= PAIRCOND_MM_NARROW_MAX_TILES
-    if not narrow or env_flag("PROTENIX_PAIRCOND_MM_FORCE_GRID", False):
+    if env_flag("PROTENIX_PAIRCOND_MM_FORCE_GRID", False):
         kw["core_grid"] = CORE_GRID_MAIN
     return kw
 
@@ -2553,8 +2557,8 @@ class Protenix:
         """Load a v2 checkpoint (.pt) and build the model. Untrusted weights are read
         with weights_only=True. diffusion_fp32 is the per-run precision (`--diffusion_precision`);
         None keeps the mode's default (fp32 unless PROTENIX_DIFFUSION_FP32_DEVICE=0, bf16 under
-        the `diffusion_bf16` lever). levers: None takes the mode's set, `FAST_LEVERS` under
-        `--fast` and `NORMAL_LEVERS` otherwise. A harness grading a lever set through the serving
+        the `diffusion_bf16` lever). levers: None takes the mode's set, this module's `FAST_LEVERS`
+        under `--fast` and its `NORMAL_LEVERS` otherwise. A harness grading a lever set through the serving
         path sets TT_BIO_LEVERS (`parse_levers` grammar, e.g. `fast-lofi`); no user does."""
         import tt_bio.tenstorrent as _TT
         import torch
@@ -2571,7 +2575,7 @@ class Protenix:
         # the shipped path. Scoped to this entry point -- OpenDDE builds Protenix directly
         # and passes its own flag.
         if levers is None:
-            levers = _TT.mode_levers()
+            levers = _TT.model_levers(NORMAL_LEVERS, FAST_LEVERS)
         return cls(sd, ckc, dev, gated_move=True, diffusion_fp32=diffusion_fp32, levers=levers)
 
     def _tt(self, x):
@@ -2724,8 +2728,7 @@ class Protenix:
 
         def _relpe(rp):
             out = ttnn.linear(T(rp), w_relpe,
-                              **paircond_mm_kw(self.compute_kernel_config,
-                                               self.diffusion.dtype, _w_relpe.shape[0]))
+                              **paircond_mm_kw(self.compute_kernel_config, self.diffusion.dtype))
             _sync("relpe linear")
             return out
 
@@ -2742,8 +2745,7 @@ class Protenix:
                                  epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
             _w_zt = self._w[C + "linear_no_bias_z_trunk.weight"]
             out = ttnn.linear(zn, T(_w_zt.t().contiguous()),
-                              **paircond_mm_kw(self.compute_kernel_config,
-                                               self.diffusion.dtype, _w_zt.shape[0]))
+                              **paircond_mm_kw(self.compute_kernel_config, self.diffusion.dtype))
             ttnn.deallocate(zn)
             return out
 
@@ -2753,15 +2755,10 @@ class Protenix:
             zc = ttnn.layer_norm(zc, weight=T(self._w[C + "layernorm_z.weight"]), epsilon=1e-5,
                                  compute_kernel_config=self.compute_kernel_config)
             _sync("layernorm_z")
-            # Force the core grid only when the output is wide enough for ttnn's multicast
-            # matmul to be safe -- see PAIRCOND_MM_NARROW_MAX_TILES for the deadlock this avoids
-            # and the A/B behind it. PROTENIX_PAIRCOND_MM_FORCE_GRID=1 restores the old
-            # unconditional behaviour, which is how the A/B arms were taken and how a regression
-            # would be bisected.
+            # No forced core grid: see paircond_mm_kw for the multicast deadlock this avoids.
             _w_z = self._w[C + "linear_no_bias_z.weight"]
             pb = ttnn.linear(zc, T(_w_z.t().contiguous()),
-                             **paircond_mm_kw(self.compute_kernel_config,
-                                              self.diffusion.dtype, _w_z.shape[0]))
+                             **paircond_mm_kw(self.compute_kernel_config, self.diffusion.dtype))
             ttnn.deallocate(zc)
             _sync("linear_z")
             return pb

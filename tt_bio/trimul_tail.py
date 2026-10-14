@@ -1220,6 +1220,14 @@ def balance_split(units, ncores):
     return 2 if eff(2 * units) >= 1.1 * eff(units) else 1
 
 
+def t1_rows(plan_il, units, ncores):
+    """Row tiles per T1 work item: the plan's (T1_PLANS), except that whole 32-row units run as two
+    16-row halves where balance_split says so (`units` of them on `ncores`). T1_ROWS forces it."""
+    if T1_ROWS:
+        return min(plan_il, T1_ROWS)
+    return plan_il // balance_split(units, ncores) if plan_il == 32 else plan_il
+
+
 # A/B knob: the fewest row parts T2CM splits each (it, jt) block into; 0 = balance_split's choice
 # (production). Each part's rows compute exactly as in the whole block, so the choice is bit-exact
 # (bht1f: identical CIFs at 512 on both models, OpenBind-0 --fast -0.14 s on p150a).
@@ -1273,10 +1281,18 @@ T1 = False
 MIN_N = 160
 T1_STATS = [0, 0]                 # served, declined
 T1_WHY = {}                       # decline reason -> calls (tenstorrent._t1_in)
-T1_KEYS = {(4, 8, 4)}             # (kt, ct2, ntg): c_z 128, hidden 128, g_out 128 (openfold3, boltz2)
+# (kt, ct2, ntg) -> (channel groups, row tiles per unit). c_z 128 (openfold3, boltz2) is one launch of
+# whole 32-row units. c_z 256 (protenix-v2, opendde, esmfold2) holds twice the weights and twice the
+# normalised rows per unit, ~1.9 MB of CBs a core; as two channel groups of 16-row units it is ~1.0 MB,
+# at the price of reading z twice (5 pair passes instead of the incumbent's 14).
+T1_PLANS = {(4, 8, 4): (1, 32), (8, 16, 8): (2, 16), (12, 24, 12): (3, 8)}
+T1_KEYS = set(T1_PLANS)
 T1_RB = 8                         # z row tiles per reader barrier
 T1_SBW = 4                        # DST tiles per matmul block (half-sync fp32 DST holds 4)
 T1_ABL = 0                        # bench-only stage-skip bits (kernels/trimul_in_t1 ABL); 0 = the real T1
+T1_B8 = 0                         # bench knob: a and b as bfp8 (lever trimul_t1b8 in a model)
+T1_C256 = 0                       # bench knob: the c_z 256 / 384 plans without their levers
+T1_WIDE = {(8, 16, 8): "trimul_t1_c256", (12, 24, 12): "trimul_t1_c384"}   # plan key -> the lever that turns T1 on for it
 # Row tiles per work item: 32 = one unit (b, xt, yt) per item; 16 = each unit as two items, rows 0-15 and
 # 16-31, which are faces 0-1 and 2-3 of every [B, C, S, S] tile the writer gathers, so the two halves
 # write disjoint bytes. Every row is computed exactly as in the whole unit (same LN, same K order).
@@ -1295,24 +1311,30 @@ def set_t1(on: bool) -> bool:
     return prev
 
 
-def t1_cb_plan(kt, ct2, ntg, mask, rb=None, nb=None):
-    """T1's circular buffers per core, ([(index, bf16 tiles)], [(index, fp32 tiles)]). Independent
-    of N: N only sets how many units each core runs."""
+def t1_cb_plan(kt, ct2, ntg, mask, rb=None, nb=None, il=None):
+    """T1's circular buffers per core for one launch of the (kt, ct2, ntg) plan,
+    ([(index, bf16 tiles)], [(index, fp32 tiles)]). Independent of N: N only sets how many units
+    each core runs."""
     nb = GIN_MOVE_NB if nb is None else nb
     rb = T1_RB if rb is None else rb
-    bf = [(0, 2 * ct2 * kt),     # [Wp^T | Wg^T], resident
-          (1, 32 * kt),          # layer_norm(z) of one unit, slot dt * 32 + il
-          (2, 64),               # a / b tiles to the writer, two channel tiles
-          (4, 32), (5, 32),      # p and sigmoid(g) of one channel tile
+    groups, plan_il = T1_PLANS.get((kt, ct2, ntg), (1, 32))
+    il = plan_il if il is None else il
+    rb = min(rb, il // 4)           # 8 at 32-row units (as before), 4 at 16, 2 at 8
+    qn, ng = ct2 // groups, ntg // groups
+    bf = [(0, 2 * qn * kt),      # [Wp^T | Wg^T] of the group, resident
+          (1, il * kt),          # layer_norm(z) of one unit, slot dt * il + row
+          (2, 2 * il),           # a / b tiles to the writer, two channel tiles
+          (4, il), (5, il),      # p and sigmoid(g) of one channel tile
           (7, 2 * rb * kt),      # raw z rows, double buffered
           (8, kt), (9, kt),      # gamma, beta
           (10, 1),               # 1/K reduce scaler
           (24, 2 * nb)]          # the writer's gather staging
-    if ntg:
-        bf += [(18, kt * ntg),   # Wg_out [K, N], resident
-               (19, 2 * ntg)]    # g_out of one row tile, double buffered
+    if ng:
+        bf += [(18, kt * ng),    # Wg_out [K, N] of the group, resident
+               (19, 2 * ng)]     # g_out of one row tile, double buffered
     if mask:
-        bf += [(3, 1), (6, 32)]  # the mask tile and its 32 row-broadcast cuts
+        bf += [(3, 1), (6, il),  # the mask tile and its row-broadcast cuts
+               (15, 4)]          # g * m of one block
     f32 = [(11, 1), (12, 1), (13, 1), (14, 1), (16, kt), (17, kt)]   # eps, mean, var, rstd, xc, tmp
     return bf, f32
 
@@ -1372,10 +1394,17 @@ def t1_mask_ok(mask, x):
             and mask.memory_config() == ttnn.DRAM_MEMORY_CONFIG)
 
 
+def t1_any() -> bool:
+    """T1 may serve some plan: the knob, trimul_t1 (every plan's master), or a wide plan's own lever."""
+    from .tenstorrent import lever
+    return T1 or lever("trimul_t1") or any(lever(v) for v in T1_WIDE.values())
+
+
 def t1_eligible(x, ln_w, ln_b, wpT, wgT, wgo, mask=None):
     """None when T1 serves this call, else the reason it does not."""
     from .tenstorrent import lever
-    if not (T1 or lever("trimul_t1")):
+    on = T1 or lever("trimul_t1")
+    if not t1_any():
         return "off"
     for t in (x, wpT, wgT, wgo):
         if t is None or t.dtype != ttnn.bfloat16 or t.layout != ttnn.TILE_LAYOUT:
@@ -1396,6 +1425,11 @@ def t1_eligible(x, ln_w, ln_b, wpT, wgT, wgo, mask=None):
     key = (K // TILE, int(wpT.shape[-2]) // TILE, int(wgo.shape[-1]) // TILE)
     if key not in T1_KEYS:
         return "key=" + "x".join(map(str, key))
+    if key in T1_WIDE:
+        if not (lever(T1_WIDE[key]) or (on and T1_C256)):
+            return T1_WIDE[key][len("trimul_t1_"):] + "_off"
+    elif not on:
+        return "off"
     if not (_vec_ok(ln_w, K) and _vec_ok(ln_b, K)):
         return "ln_params"
     if mask is not None and not t1_mask_ok(mask, x):
@@ -1406,19 +1440,21 @@ def t1_eligible(x, ln_w, ln_b, wpT, wgT, wgo, mask=None):
     return None
 
 
-def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps):
+def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps, il, b8=False, group=0):
+    """The program of channel group `group` of the T1_PLANS entry for this call, `il` row tiles per item."""
     import struct
     shp = [int(d) for d in x.shape]
     B = shp[0] if len(shp) == 4 else 1
     St, kt, ct2 = shp[-2] // TILE, shp[-1] // TILE, int(wpT.shape[-2]) // TILE
     ntg = int(wgo.shape[-1]) // TILE
+    groups = T1_PLANS[(kt, ct2, ntg)][0]
+    qn, ng = ct2 // groups, ntg // groups
+    rb = min(T1_RB, il // 4)
     gx, gy = grid
     core_grid = ttnn.CoreRangeSet(
         [ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(gx - 1, gy - 1))])
     rd, wr, cp = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
-    R = T1_ROWS or 32 // balance_split(B * St * St, gx * gy)
-    assert R in (16, 32), R
-    for c, (u0, n) in enumerate(t1_split(B * St * St * (32 // R), gx * gy)):
+    for c, (u0, n) in enumerate(t1_split(B * St * St * (32 // il), gx * gy)):
         cx, cy = c % gx, c // gx
         rd[cx][cy] = [u0, n]
         wr[cx][cy] = [u0, n]
@@ -1433,36 +1469,36 @@ def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps):
     abl = [("ABL", str(T1_ABL))] if T1_ABL else []
     reader = ttnn.KernelDescriptor(
         kernel_source=str(d / "reader.cpp"), source_type=src, core_ranges=core_grid,
-        compile_time_args=[kt, ct2, St, int(mask is not None), ntg, T1_RB, (inv << 16) | inv,
-                           eps_bits, R]
+        compile_time_args=[kt, qn, St, int(mask is not None), ng, rb, (inv << 16) | inv,
+                           eps_bits, group * qn, group * ng, ntg, il]
         + acc(x) + acc(wpT) + acc(wgT) + acc(wgo) + acc(ln_w) + acc(ln_b) + acc(m),
         defines=abl, runtime_args=rd, common_runtime_args=[0] * 7, config=ttnn.ReaderConfigDescriptor())
     writer = ttnn.KernelDescriptor(
         kernel_source=str(d / "writer.cpp"), source_type=src, core_ranges=core_grid,
-        compile_time_args=[ct2, St, GIN_MOVE_NB, ntg, R] + acc(outs[0]) + acc(outs[1]) + acc(outs[2]),
-        defines=abl, runtime_args=wr, common_runtime_args=[0] * 3, config=ttnn.WriterConfigDescriptor())
+        compile_time_args=[ct2, St, GIN_MOVE_NB, ng, group * qn, qn, group * ng, ntg, il] + acc(outs[0]) + acc(outs[1]) + acc(outs[2]),
+        defines=abl + ([("T1B8", "1")] if b8 else []), runtime_args=wr, common_runtime_args=[0] * 3, config=ttnn.WriterConfigDescriptor())
     fid, approx, _, full = ckc
     compute = ttnn.KernelDescriptor(
         kernel_source=str(d / "compute.cpp"), source_type=src, core_ranges=core_grid,
-        compile_time_args=[kt, ct2, T1_SBW, int(mask is not None), int(SIGPOLY), RNE, ntg, R],
+        compile_time_args=[kt, qn, T1_SBW, int(mask is not None), int(SIGPOLY), RNE, ng, group * qn, ct2, il],
         defines=abl, runtime_args=cp,
         # fp32 DEST always, as T2: the LayerNorm statistics live in fp32 CBs. The fidelity stays
         # the caller's, so the projections run as the incumbent in-projection runs them.
         config=ttnn.ComputeConfigDescriptor(
             math_fidelity=fid, math_approx_mode=approx, fp32_dest_acc_en=True,
             dst_full_sync_en=full))
-    bf, f32 = t1_cb_plan(kt, ct2, ntg, mask is not None)
-    cbs = ([_cb(i, core_grid, t) for i, t in bf]
+    bf, f32 = t1_cb_plan(kt, ct2, ntg, mask is not None, il=il)
+    cbs = ([_cb_fmt(i, core_grid, t, ttnn.bfloat8_b) if b8 and i == 2 else _cb(i, core_grid, t) for i, t in bf]
            + [_cb_fmt(i, core_grid, t, ttnn.float32) for i, t in f32])
     return {"kernels": [reader, writer, compute], "cbs": cbs}
 
 
-def fused_in_ln(x, ln_w, ln_b, wpT, wgT, wgo, ckc, grid, mask=None, eps=1e-5):
+def fused_in_ln(x, ln_w, ln_b, wpT, wgT, wgo, ckc, grid, mask=None, eps=1e-5, b8=False):
     """`[a, b, g_out]` of the trimul input side from the raw pair `x`, one kernel:
     xn = layer_norm(x; ln_w, ln_b, eps), [a | b] = (xn @ wpT^T) * sigmoid(xn @ wgT^T), `a` times
     the pair mask when `mask` is given, both [B, C, S, S] (gin_moved's layout), and
     g_out = xn @ wgo as [*x.shape[:-1], N]. None when T1 is off or does not cover the call;
-    nothing is allocated then. `x` is not touched."""
+    nothing is allocated then. `x` is not touched. `b8` (or T1_B8) writes a and b as bfp8."""
     from . import ops
     fid, approx, _, full = ckc
     if ops.taping() or dest_guard.exposed_args((fid, approx, True, full)):
@@ -1479,24 +1515,30 @@ def fused_in_ln(x, ln_w, ln_b, wpT, wgT, wgo, ckc, grid, mask=None, eps=1e-5):
     B = shp[0] if len(shp) == 4 else 1
     S, C = shp[-2], int(wpT.shape[-2]) // 2
     device = x.device()
-    alloc = lambda s: ttnn.allocate_tensor_on_device(  # noqa: E731
-        ttnn.Shape(s), ttnn.bfloat16, ttnn.TILE_LAYOUT, device, ttnn.DRAM_MEMORY_CONFIG)
-    outs = [alloc([B, C, S, S]), alloc([B, C, S, S]), alloc(shp[:-1] + [int(wgo.shape[-1])])]
+    groups, il = T1_PLANS[(int(x.shape[-1]) // TILE, 2 * C // TILE, int(wgo.shape[-1]) // TILE)]
+    il = t1_rows(il, B * (S // TILE) ** 2, grid[0] * grid[1])
+    b8 = bool(b8 or T1_B8) and il == 32   # writer.cpp: whole tiles
+    alloc = lambda s, dt=ttnn.bfloat16: ttnn.allocate_tensor_on_device(  # noqa: E731
+        ttnn.Shape(s), dt, ttnn.TILE_LAYOUT, device, ttnn.DRAM_MEMORY_CONFIG)
+    ab = ttnn.bfloat8_b if b8 else ttnn.bfloat16
+    outs = [alloc([B, C, S, S], ab), alloc([B, C, S, S], ab), alloc(shp[:-1] + [int(wgo.shape[-1])])]
     key = ("t1", str(x.padded_shape), str(wpT.padded_shape), str(wgo.padded_shape), tuple(grid),
            tuple(str(c) for c in ckc), mask is not None, float(eps), SIGPOLY, RNE, GIN_MOVE_NB,
-           T1_RB, T1_SBW, T1_ABL, T1_ROWS)
-    entry = _CACHE.get(key)
-    if entry is None:
-        entry = _CACHE[key] = _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps)
-    reader, writer, _ = entry["kernels"]
-    reader.common_runtime_args = [x.buffer_address(), wpT.buffer_address(), wgT.buffer_address(),
-                                  wgo.buffer_address(), ln_w.buffer_address(),
-                                  ln_b.buffer_address(),
-                                  (mask if mask is not None else x).buffer_address()]
-    writer.common_runtime_args = [o.buffer_address() for o in outs]
-    pd = ttnn.ProgramDescriptor(kernels=entry["kernels"], semaphores=[], cbs=entry["cbs"])
-    ttnn.generic_op([x, wpT, wgT, wgo, ln_w, ln_b] + ([mask] if mask is not None else []) + outs,
-                    pd)
+           T1_RB, T1_SBW, T1_ABL, b8, il)
+    for g in range(groups):
+        entry = _CACHE.get(key + (g,))
+        if entry is None:
+            entry = _CACHE[key + (g,)] = _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask,
+                                                   eps, il, b8, g)
+        reader, writer, _ = entry["kernels"]
+        reader.common_runtime_args = [x.buffer_address(), wpT.buffer_address(), wgT.buffer_address(),
+                                      wgo.buffer_address(), ln_w.buffer_address(),
+                                      ln_b.buffer_address(),
+                                      (mask if mask is not None else x).buffer_address()]
+        writer.common_runtime_args = [o.buffer_address() for o in outs]
+        pd = ttnn.ProgramDescriptor(kernels=entry["kernels"], semaphores=[], cbs=entry["cbs"])
+        ttnn.generic_op([x, wpT, wgT, wgo, ln_w, ln_b] + ([mask] if mask is not None else []) + outs,
+                        pd)
     T1_STATS[0] += 1
     MASK_STATS[0] += mask is not None
     return outs
