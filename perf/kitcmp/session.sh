@@ -4,6 +4,7 @@
 # sets up and times every kit in MODELS one after another, pulls results every model, destroys the box and confirms
 # it is gone. CAP_H hard-caps the billed time. Refuses to start if credit - CAP_H x max $/h would cross the $20 floor.
 #   usage: session.sh --gpu a100|h200|b200 <label> <cap_h> ['<vastai search query>'] [max_attempts]
+#   WAIT_H=<h>: keep looking for a matching offer that long (every 10 min) before giving up.
 #   The GPU picks the offer filter, the power-limit window (MINW/MAXW, env overrides), the kit's --config and the
 #   TORCH_CUDA_ARCH_LIST every native build on the box uses; the query argument replaces the default filter.
 # Status: stdout (redirect it); results perf/kitcmp/results/<label>/<model>/...
@@ -32,7 +33,7 @@ credit(){ curl -s -H "Authorization: Bearer $K" "$API/users/current/" | python3 
 MAXDPH=$(echo "$Q" | grep -oP 'dph<=\K[0-9.]+'); C=$(credit)
 python3 -c "import sys; sys.exit(0 if $C - $CAP_H * ${MAXDPH:-1.5} >= $FLOOR else 1)" ||
   { log "REFUSED: credit \$$C - $CAP_H h x \$${MAXDPH:-1.5}/h would cross the \$$FLOOR floor"; exit 4; }
-log "credit \$$C at start"
+log "credit \$$C at start"; TW=$(date +%s)
 gone(){ curl -s -H "Authorization: Bearer $K" "$API/instances/?owner=me" | python3 -c 'import json,sys;print(len(json.load(sys.stdin)["instances"]))'; }
 destroy(){ # <id> <why>
   curl -s -X DELETE -H "Authorization: Bearer $K" "$API/instances/$1/" >/dev/null; sleep 10
@@ -54,7 +55,12 @@ tar -czf $OUT/kit.tgz -C "$KIT" common $KITS
 tar -czf $OUT/work.tgz -C $P/../.. scripts/gpu_vs_tt perf/nesso1 perf/dsfix examples/ground_truth_structures
 for _ in $(seq $NMAX); do
   if [ -z "${ADOPT:-}" ]; then
-    O=$(next_offer); [ -z "$O" ] && { log "no offer matches: $Q"; break; }; TRIED="$TRIED$O "
+    # WAIT_H: no matching offer yet (the driver >= 580 boxes are often all rented) -> look again every 10 min, bounded
+    O=$(next_offer); while [ -z "$O" ] && [ $(( $(date +%s) - TW )) -lt $(python3 -c "print(int(${WAIT_H:-0}*3600))") ]; do
+      sleep 600; O=$(next_offer); done
+    [ -z "$O" ] && { log "no offer matches: $Q"; break; }; TRIED="$TRIED$O "
+    C=$(credit); python3 -c "import sys; sys.exit(0 if $C - $CAP_H * ${MAXDPH:-1.5} >= $FLOOR else 1)" ||
+      { log "REFUSED at offer $O: credit \$$C - $CAP_H h x \$${MAXDPH:-1.5}/h would cross the \$$FLOOR floor"; exit 4; }
     echo "-  $CAP_H  $SLUG  # $L creating on offer $O" >> $B
     I=$($V create instance $O --image nvidia/cuda:13.0.1-cudnn-devel-ubuntu24.04 --disk ${DISK:-250} --ssh --direct --label $SLUG-$L --raw 2>&1 | grep -oP "new_contract['\"]:\s*\K[0-9]+")
     if [ -z "$I" ]; then sed -i '$d' $B; log "offer $O: create failed"; continue; fi
