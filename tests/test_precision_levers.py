@@ -205,6 +205,12 @@ def test_protenix_fast_set_takes_t1_c256(monkeypatch):
     assert T.model_levers(NORMAL_LEVERS, FAST_LEVERS) == FAST_LEVERS
 
 
+def test_protenix_wormhole_fast_set_drops_t1_c256():
+    from tt_bio.protenix import FAST_LEVERS, WH_FAST_LEVERS
+
+    assert FAST_LEVERS - WH_FAST_LEVERS == {"trimul_t1_c256"}
+
+
 def test_opendde_fast_set_names_only_known_levers():
     from tt_bio.opendde import FAST_LEVERS
 
