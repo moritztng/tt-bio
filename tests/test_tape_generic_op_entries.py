@@ -97,7 +97,7 @@ def test_the_registry_holds_exactly_the_kernels_that_declare_an_entry():
     """Pinned on purpose: a kernel that registers no entry declines under every tape, silently,
     and reads in an A/B as a lever that measured nothing."""
     assert set(TT.KERNELS) == {"reblock_permute", "reblock_permute_back", "tri_att_sdpa_hifi",
-                               "rne_add", "reblock_permute_gated", "pair_transpose",
+                               "rne_add", "rne_add_masked", "reblock_permute_gated", "pair_transpose",
                                "triatt_qkv_heads", "mm_dualnoc_in_proj"}
 
 
@@ -159,6 +159,24 @@ def test_the_wide_adds_vjp_is_the_cotangent_to_both_operands(monkeypatch, taping
     assert (a.got, b.got) == ("cotangent", "cotangent")
     assert reduced == [[1, 2, 288, 256], [2, 288, 256]], \
         "each operand's cotangent is reshaped to that operand's own shape"
+
+
+def test_the_masked_residuals_vjp_is_the_dropout_multiply_and_the_sum(monkeypatch, taping):
+    """`rne(x + rne(u * m))` with `m` a constant mask: x gets the cotangent, u gets `g * m`, the
+    multiply the taped dropout ran, and neither operand is pinned."""
+    ag = pytest.importorskip("tt_bio.autograd")
+    monkeypatch.setattr(ag, "_tape", lambda out, parents, make, **kw: (out, parents, make(), kw))
+    monkeypatch.setattr(TT, "_wrap", lambda t: t)
+    monkeypatch.setattr(TT, "_raw", lambda args, kwargs: (args, kwargs))
+    monkeypatch.setattr(TT, "_reduce_to", lambda g, shape: g)
+    monkeypatch.setattr(TT.ttnn, "multiply", lambda g, m: (g, "times", m))
+    a, b = _Parent([1, 224, 224, 128]), _Parent([1, 224, 224, 128])
+    out, parents, bw, kw = TT.KERNELS["rne_add_masked"](
+        lambda *x, **k: "fused", (a, b, "mask"), {})
+    assert out == "fused" and parents == [a, b] and kw == {"reads": ()}
+    bw("g")
+    assert a.got == "g"
+    assert b.got == ("g", "times", "mask")
 
 
 def test_the_wide_add_declines_under_a_tape_with_no_entry_installed(monkeypatch, taping):
