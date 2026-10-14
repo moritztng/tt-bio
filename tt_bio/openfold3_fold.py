@@ -15,7 +15,7 @@ from .openfold3_confidence import OF3ConfidenceHead
 from .openfold3_trunk import OF3Trunk
 from .openfold3_sample_diffusion import OF3SampleDiffusion
 from .protenix import DEFAULT_MAX_PARALLEL_SAMPLES, ConfidenceHead
-from .openfold3_host_prep import relpos_codes_device
+from .tenstorrent import pair_lookup_device
 from .openfold3_weights import _sub
 from .envflags import env_flag
 
@@ -27,7 +27,10 @@ from .envflags import env_flag
 # (0.712) and bought nothing.
 # transition_bw and transition_shard stay out: OpenFold3 c730 gains nothing with them (113.2 -> 112.9 s, Wormhole
 # 1000 MHz) and its normal 11-set grade fails DockQ (-0.0168 [-0.0474, -0.0006], 44 paired folds, spd-trans2).
-NORMAL_LEVERS = _T.NORMAL_LEVERS - {"transition_bw", "transition_shard"}
+# dit_qsplit moves work between cores, not arithmetic: CIFs identical with and without it on both models, Wormhole
+# and Blackhole (512-token --fast fold A/B, xmodel_ab); -0.22 s (OpenFold3) / -0.24 s (OpenBind-0) on a Galaxy chip
+# at 1000 MHz, flat on p150a. opm_jd comes with the shared normal set.
+NORMAL_LEVERS = _T.NORMAL_LEVERS - {"transition_bw", "transition_shard"} | {"dit_qsplit"}
 # trimul_t1 + trimul_t2 (the triangle multiplication's input and output as one kernel each) join --fast on the
 # Blackhole 11-set fast grade against today's --fast, 44 paired folds per model:
 # OpenFold3 top pose median 0.352 A (seed floor 1.328 A), CA-lDDT -0.0002 [-0.0012, +0.0008], docking 19 -> 19/44,
@@ -51,8 +54,15 @@ NORMAL_LEVERS = _T.NORMAL_LEVERS - {"transition_bw", "transition_shard"}
 # 1.199 A), CA-lDDT +0.0005 [+0.0000, +0.0011], docking 19 -> 21/44, PASS; OpenBind-0 0.258 A (floor 0.510 A),
 # CA-lDDT +0.0004, docking 27 -> 27/44, PASS (state/spd/grade-edm-*-fast.md). 512-token page fold on a p150a at
 # 1350 MHz: OpenFold3 ~-0.2 s, OpenBind-0 ~-0.5 s.
+# ws_l1dest lets transition_ws take the pair transitions whose residual update fits L1, which at 512 tokens on a
+# p150a was every pairformer transition (ws had never fired there). 11-set fast grade of --fast + ws_l1dest against
+# --fast, 44 paired folds per model and arch: Blackhole p150a OpenFold3 top pose median 0.455 A (seed floor
+# 0.964 A), CA-lDDT -0.0017 [-0.0033, -0.0004], docking 22 -> 20/44, PASS; OpenBind-0 0.450 A (floor 0.790 A),
+# CA-lDDT -0.0002, docking 27 -> 28/44, PASS. Wormhole OpenFold3 0.167 A (floor 1.108 A), CA-lDDT +0.0024,
+# docking 21 -> 23/44, PASS; OpenBind-0 0.091 A (floor 0.642 A), CA-lDDT +0.0000, docking 27 -> 27/44, PASS
+# (state/spd/grade-wsd-*-fast.md). 512-token page fold on a p150a at 1350 MHz: OpenFold3 -0.35 s, OpenBind-0 -0.42 s.
 FAST_LEVERS = NORMAL_LEVERS | {"dit_s16", "diffusion_bf16", "trimul_t1", "trimul_t2", "trimul_t2cm", "transition_ws",
-                               "dit_fuse", "edm_device"}
+                               "dit_fuse", "edm_device", "ws_l1dest"}
 
 def kabsch_rmsd(pred_ca, gt_ca):
     """Optimal-superposition Cα-RMSD (Kabsch). pred_ca, gt_ca: [N, 3].
@@ -466,7 +476,7 @@ class OpenFold3(Module):
         s_input_d = ft(s_input.unsqueeze(0))
         if isinstance(relpos, tuple):
             # derive_relpos_codes: the device expands the one-hots, the host keeps them only to pad.
-            relpos_dev = relpos_codes_device(*relpos, self.device)
+            relpos_dev = pair_lookup_device(*relpos, self.device)
             relpos = relpos[1][relpos[0].long()] if tok_pad else None
         else:
             relpos_dev = ft(relpos.unsqueeze(0))

@@ -149,25 +149,6 @@ def derive_relpos_codes(features: dict) -> tuple[torch.Tensor, torch.Tensor]:
     return codes.to(torch.int32), table
 
 
-def relpos_codes_device(codes: torch.Tensor, table: torch.Tensor, device) -> ttnn.Tensor:
-    """[1, N, N, 139] bf16 TILE on ``device`` from ``derive_relpos_codes``: what uploading the dense
-    feature gives (each value is 0 or 1, exact in bf16), from a [N*N] index and a [U, 160] table."""
-    n = codes.shape[0]
-    w = table.shape[-1]
-    idx = ttnn.from_torch(codes.reshape(1, n * n).to(torch.int32), dtype=ttnn.uint32,
-                          layout=ttnn.ROW_MAJOR_LAYOUT, device=device)
-    tab = ttnn.from_torch(F.pad(table, (0, -w % 32)), dtype=ttnn.bfloat16,
-                          layout=ttnn.ROW_MAJOR_LAYOUT, device=device)
-    out = ttnn.embedding(idx, tab, layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16)  # [1, N*N, 160]
-    ttnn.deallocate(idx); ttnn.deallocate(tab)
-    out4 = ttnn.reshape(out, (1, n, n, out.shape[-1]))
-    res = ttnn.slice(out4, (0, 0, 0, 0), (1, n, n, w))
-    ttnn.deallocate(out4)
-    if out4 is not out:
-        ttnn.deallocate(out)
-    return res
-
-
 def derive_block_aux(features: dict) -> dict:
     """Atom-attention block auxiliaries from ``atom_mask``/``atom_to_token_index``.
 

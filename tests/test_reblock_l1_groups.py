@@ -57,7 +57,8 @@ def test_zero_restores_the_plain_edge(monkeypatch):
 
 @pytest.mark.parametrize("grid, opens, stays_shut", [
     ((8, 9), [195, 224, 256], [160, 192]),            # Galaxy Wormhole: BindCraft 2's DRAM pair at 224
-    ((13, 10), [256, 320], [224, 255]),               # p150a: below 256 the rule needs Nt=10, so unchanged
+    ((13, 10), [224, 256, 320], [192, 225, 255]),     # p150a: tile-aligned 224 measured, ragged stays shut
+    ((11, 10), [224, 256], [192, 200]),               # p150a qb1 card 0, the measured grid
 ])
 def test_dram_window_by_grid(grid, opens, stays_shut):
     x = _X(_Dev(*grid))
@@ -69,3 +70,30 @@ def test_dram_fill_off_restores_256(monkeypatch):
     monkeypatch.setattr(R, "DRAM_FILL", False)
     x = _X(_Dev(8, 9))
     assert not R._dram_open(x, 224) and R._dram_open(x, 256)
+
+
+class _XW(_X):
+    """A fused [1, N, N, 4C] bf16 projection, interleaved in DRAM, on a fake grid."""
+
+    def __init__(self, dev, N, C=128):
+        super().__init__(dev)
+        self.shape, self.dtype, self.layout = [1, N, N, 4 * C], R._DTYPE, R.ttnn.TILE_LAYOUT
+
+    def memory_config(self):
+        return R.ttnn.DRAM_MEMORY_CONFIG
+
+
+@pytest.mark.parametrize("grid, opens, stays_shut", [
+    ((8, 9), [195, 224, 256], [192]),                 # Galaxy Wormhole: open by grid fill already
+    ((11, 10), [224, 256], [192, 200]),               # p150a: BindCraft 2's gated trimul move at 224
+])
+def test_gated_dram_window_follows_the_plain_one(grid, opens, stays_shut):
+    dev, D = _Dev(*grid), R.ttnn.DRAM_MEMORY_CONFIG
+    assert all(R.eligible_gated(_XW(dev, n), 128, D) for n in opens)
+    assert not any(R.eligible_gated(_XW(dev, n), 128, D) for n in stays_shut)
+
+
+def test_gated_fill_off_restores_256(monkeypatch):
+    monkeypatch.setattr(R, "DRAM_FILL_GATED", False)
+    dev, D = _Dev(11, 10), R.ttnn.DRAM_MEMORY_CONFIG
+    assert not R.eligible_gated(_XW(dev, 224), 128, D) and R.eligible_gated(_XW(dev, 256), 128, D)

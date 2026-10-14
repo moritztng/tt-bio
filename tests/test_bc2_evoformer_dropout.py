@@ -94,7 +94,7 @@ class _StubTrunk:
     """`_Trunk.up` without a card: the same leading axis, nothing else."""
 
     @staticmethod
-    def up(t):
+    def up(t, tile_on_card=False):
         return t.unsqueeze(0)
 
 

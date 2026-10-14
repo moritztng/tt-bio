@@ -569,6 +569,13 @@ _FAST_MODE = False
 #                   the exponentiated scores and row statistics bf16 (`_sdpa32`). Inert in bf16.
 #   trimul_gin      the trimul in-projection, both gates, the pair mask and both channel moves in one
 #                   weights-resident kernel (`_TRIMUL_GATED_INPROJ`, `trimul_tail.gin_moved`)
+#   trimul_gin_hifi2 trimul_gin's kernel at HiFi2 whatever the trunk's fidelity. ESMFold2's call at 512 on p150a
+#                   (1350 MHz): normal set 9.37 -> 8.71 ms, rel_rms vs float64 0.0088 -> 0.0106; fast set 8.62 -> 8.33
+#                   ms, 0.0088 -> 0.0107 (HiFi3 in the normal set: 9.02 ms at the same error as HiFi4)
+#   trimul_gin_b8   trimul_gin, and the einsum's deferred transpose, also under the bfp8 `_FAST_MODE` (how Wormhole
+#                   ESMFold2 folds). gin writes a and b in bf16, so the deferral's bfp8 re-quantisation does not arise
+#                   where gin serves. ESMFold2's call on Wormhole (1000 MHz, fast set): 512 32.3 -> 18.5 ms, 1024
+#                   132.7 -> 68.6 ms; rel_rms of the update vs float64 0.0211 -> 0.0089 at 512
 #   trunk_hifi3     the trunk's matmuls at HiFi3 instead of HiFi4 (`trunk_compute_kernel_config`).
 #                   Also a correctness fix on Wormhole: HiFi4 with fp32 accumulation returns wrong
 #                   values on some row blocks there (perf/spd_overhead/wh_hifi4_dot.py).
@@ -657,6 +664,8 @@ _FAST_MODE = False
 #   ws_ln           with transition_ws, its layer norm as the kernel's prologue (ln_prologue.hpp, as trimul
 #                   T1/T2): the normalised x never goes to DRAM. One-chunk weights only. WH c_z 128 fast: slower
 #                   (4.31 -> 4.48 ms) and less accurate (rel_rms 0.020 -> 0.028) than the separate norm.
+#   ws_l1dest       transition_ws also takes a call whose caller asked for an L1 result (the pair residual update
+#                   where it fits L1) and writes it to DRAM instead of declining to the row-blocked path
 #   edm_device      OpenFold3's traced rollout keeps the coordinates on the card: augment + EDM step in fp32 inside
 #                   the step's trace, per-step draws / scalars / fourier embedding uploaded once, no per-step read
 #   ws_l1acc        with transition_ws, each matmul sums at most 2 K tiles in the fp32 dest and the packer adds
@@ -665,6 +674,15 @@ _FAST_MODE = False
 #   ws_resid        with transition_ws, fc3 adds the residual in its fp32 dest and writes over it: the transition's
 #                   `z + t` and the hidden-chunk sum stop being separate add passes over the pair (OpenDDE WH
 #                   fast census: 4.3 s of add_ per fold).
+#   opm_jd          the OPM contracts against b in (j d) row order, so z's tile (i, j) is pair (i, j)'s [c, d]
+#                   block and one data-movement kernel (opm_relayout) lays it out for the projection in place of
+#                   the 4-op chain. Moves bytes only: bit-exact. C = D = 32 and J a whole number of tiles.
+#   dit_hifi2       a bf16 token DiT's linears (OpenFold3's `--fast` stack) at HiFi2 instead of the model's
+#                   fidelity, fp32 accumulation kept. On a Galaxy chip they are math-bound at HiFi4 (768 x 3072:
+#                   107 us, ~23 TF/s at 1000 MHz) and take 2.5 s of the 512-token fold.
+#   dit_qsplit      `_sdpa32` / `_sdpa32_fused` (the token DiT's attention) take the q chunk that puts the fewest
+#                   rows on the busiest core: 128 at 512 tokens and one sample, 64 busy cores where 256 left 32.
+#                   The k chunk stays, so each row's arithmetic is unchanged: expected bit-exact (fold A/B digest).
 #   pib_where       OpenDDE's pair-init bias by the old 16-op where-chain instead of one gather from the joint
 #                   (128, c_z) table: the A/B arm for a change that must keep the fold digest (no mode sets it).
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
@@ -673,18 +691,23 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "transition_shard", "dit_mm16", "atom_k1", "dit_b8", "dit_qkv16", "atom_mm16", "adaln_mod",
           "swiglu_fc12g", "msa_sample", "dit_sdpa_pm", "dit_s16", "dit_chunk", "conf_bins", "trimul_t1", "trimul_t2",
           "trimul_t2g", "triatt_tail_bias", "dit_cond_hifi2", "transition_ws", "ws_ln", "trimul_t1_dram",
-          "trimul_t2m", "trimul_t2cm", "dit_fuse", "pair_mm", "ref_memo", "edm_device", "ws_l1acc", "ws_resid", "pib_where", "trimul_t2w", "narrow_bw16",
-          "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384")
+          "trimul_t2m", "trimul_t2cm", "dit_fuse", "pair_mm", "ref_memo", "edm_device", "ws_l1acc", "ws_resid", "pib_where",
+          "trimul_t2w", "narrow_bw16", "ws_l1dest", "opm_jd", "trimul_gin_hifi2", "trimul_gin_b8",
+          "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine", "ef2_opm_kq", "ef2_relpos_lookup",
+          "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit", "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
-# (esmfold2_runtime.LEVERS_FAST) names trimul_b8in, graded on ESMFold2's fold. AF2 names
+# (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
 # model's matching op. BoltzGen's own --fast set names dit_cond_hifi2, graded on BoltzGen's designs.
-# OpenFold3's own --fast set names dit_fuse and edm_device, graded on OpenFold3 / OpenBind-0
+# OpenFold3's own --fast set names dit_fuse, edm_device and ws_l1dest, graded on OpenFold3 / OpenBind-0
 # (openfold3_fold.FAST_LEVERS).
 # ref_memo is host featurisation, OpenFold3 / OpenBind-0 only: one reference conformer per residue type
 # (vendored query.REF_MOL_MEMO), read by worker._predict_openfold3_one off the model's lever set.
 UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "dit_cond_hifi2", "ws_ln", "dit_fuse",
-                             "pair_mm", "ref_memo", "trimul_t2m", "edm_device", "ws_l1acc", "pib_where", "trimul_t2w", "narrow_bw16",
+                             "pair_mm", "ref_memo", "trimul_t2m", "edm_device", "ws_l1acc", "pib_where", "trimul_t2w",
+                             "narrow_bw16", "ws_l1dest", "trimul_gin_hifi2", "trimul_gin_b8",
+                             "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine", "ef2_opm_kq",
+                             "ef2_relpos_lookup", "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit",
                              "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
@@ -807,8 +830,13 @@ FAST_LEVERS = (frozenset(LEVERS) - {"lofi", "triatt_b8", "triatt_bias_b8", "trim
 # (spd-gap-of3 g14, 2026-10-12). OpenBind-0, same grade: PASS under both bars, top pose median 0.000 A (max
 # 0.682 A, A/A floor 1.209 A), CA-lDDT and pLDDT 0.0000, ipTM -0.0016 [-0.0033, -0.0000] inside CONF_TOL, docking
 # 26 -> 26 of 44.
+# opm_jd moves bytes, not arithmetic, so it is in both modes on its digest: CIFs identical on and off on a
+# Galaxy chip (1000 MHz, 512-token --fast, 3 pairs) for Boltz-2, Protenix-v2 and OpenDDE, and on both archs for
+# OpenFold3 / OpenBind-0. Warm fold on the Galaxy chip: Protenix-v2 60.92 -> 60.08 s, OpenDDE 106.62 -> 105.80 s,
+# Boltz-2 flat; the OPM relayout itself 11.7 -> 3.2 ms a call on p150a.
 NORMAL_LEVERS = frozenset({"trimul_ibw", "trimul_tail", "trunk_hifi3", "dit_sdpa32", "silu_f32", "triatt_tail",
-                           "atom_k1", "dit_mm16", "dit_qkv16", "msa_sample", "dit_sdpa", "dit_chunk", "conf_bins"})
+                           "atom_k1", "dit_mm16", "dit_qkv16", "msa_sample", "dit_sdpa", "dit_chunk", "conf_bins",
+                           "opm_jd"})
 _LEVERS = frozenset()
 # silu_f32 is a kernel, so it needs ttnn's headers patched before the first device open (metal_overlay)
 # in any process that may run it. The patch only changes silu under math_approx_mode, and every fused
@@ -2838,6 +2866,34 @@ def sdpa32_mask(b: ttnn.Tensor) -> ttnn.Tensor:
     return ttnn.clone(m) if m.buffer_address() == b.buffer_address() else m
 
 
+def _sdpa32_chunks(dev, B: int, heads: int, n: int):
+    """(q chunk, k chunk, grid) for `_sdpa32` / `_sdpa32_fused`: 256 where it divides the token axis, else 128.
+
+    On Wormhole the PV product accumulates k_chunk / 32 tiles in the fp32 dest, which writes an
+    occasional wrong value (tt_bio/dest_guard.py); one key tile per chunk keeps it out of dest.
+    Measured at (5, 16, 768, 64): 1.92 -> 2.50 ms a call, errors of 1.2-1.7 gone (perf/spd_wherr/sdpa_probe.py).
+
+    sdpa_generic.plan spreads (batch, head, q chunk) over the grid, so at one sample and 16 heads
+    a 512-token call is 32 units of 256 rows: 32 busy cores of 72 on Wormhole, of 110 on Blackhole.
+    Under dit_qsplit the q chunk is the one with the fewest rows on the busiest core (ties keep the
+    larger). The k chunk does not move, so every row's softmax reads its keys in the same order:
+    work moves between cores, not arithmetic.
+    """
+    g = dev.compute_with_storage_grid_size()
+    big = 256 if n % 256 == 0 else 128
+    k_chunk = 32 if dev.arch() == ttnn.Arch.WORMHOLE_B0 else big
+    cores = g.x * g.y
+
+    def rows(chunk):
+        bp = min(B, cores)
+        hp = min(cores // bp, heads)
+        qc = n // chunk
+        qp = min(cores // (bp * hp), qc)
+        return -(-B // bp) * -(-heads // hp) * -(-qc // qp) * chunk
+    q_chunk = 128 if big == 256 and lever("dit_qsplit") and rows(128) < rows(256) else big
+    return q_chunk, k_chunk, (g.x, g.y)
+
+
 def _sdpa32(q, k, v, mask, scale: float) -> ttnn.Tensor:
     """softmax((q @ k^T + mask) * scale) @ v with fp32 operands and output, as ONE program.
 
@@ -2851,16 +2907,11 @@ def _sdpa32(q, k, v, mask, scale: float) -> ttnn.Tensor:
     n = int(q.shape[2])
     assert n % 128 == 0 and int(mask.shape[-1]) == n == int(k.shape[2]), \
         ("_sdpa32 wants the token axis padded by sdpa32_rows", q.shape, k.shape, mask.shape)
-    chunk = 256 if n % 256 == 0 else 128
     dev = q.device()
-    # On Wormhole the PV product accumulates k_chunk / 32 tiles in the fp32 dest, which writes an
-    # occasional wrong value (tt_bio/dest_guard.py); one key tile per chunk keeps it out of dest.
-    # Measured at (5, 16, 768, 64): 1.92 -> 2.50 ms a call, errors of 1.2-1.7 gone (perf/spd_wherr/sdpa_probe.py).
-    k_chunk = 32 if dev.arch() == ttnn.Arch.WORMHOLE_B0 else chunk
-    g = dev.compute_with_storage_grid_size()
+    chunk, k_chunk, grid = _sdpa32_chunks(dev, int(q.shape[0]), int(q.shape[1]), n)
     out = ttnn.allocate_tensor_on_device(ttnn.Shape([int(q.shape[i]) for i in range(3)] + [int(v.shape[3])]), ttnn.float32,
                                          ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG)
-    SG.sdpa(dev, q, k, v, mask, out, chunk, k_chunk, (g.x, g.y), _SDPA32_CKC, scale)
+    SG.sdpa(dev, q, k, v, mask, out, chunk, k_chunk, grid, _SDPA32_CKC, scale)
     return out
 
 
@@ -2871,14 +2922,12 @@ def _sdpa32_fused(qkv, mask, scale: float, heads: int, out_dtype=ttnn.float32) -
     from . import sdpa_generic as SG
     S, _, n, w = (int(d) for d in qkv.shape)
     assert n % 128 == 0 and int(mask.shape[-1]) == n, ("_sdpa32 wants the token axis padded by sdpa32_rows", qkv.shape, mask.shape)
-    chunk = 256 if n % 256 == 0 else 128
     dev = qkv.device()
-    k_chunk = 32 if dev.arch() == ttnn.Arch.WORMHOLE_B0 else chunk
-    g = dev.compute_with_storage_grid_size()
+    chunk, k_chunk, grid = _sdpa32_chunks(dev, S, heads, n)
     # `out_dtype` bf16 (dit_fuse): the packer writes the result bf16, no typecast program after it.
     out = ttnn.allocate_tensor_on_device(ttnn.Shape([S, 1, n, w // 3]), out_dtype,
                                          ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG)
-    SG.sdpa(dev, qkv, qkv, qkv, mask, out, chunk, k_chunk, (g.x, g.y), _SDPA32_CKC, scale,
+    SG.sdpa(dev, qkv, qkv, qkv, mask, out, chunk, k_chunk, grid, _SDPA32_CKC, scale,
             qkv_fused=heads)
     return out
 
@@ -6338,7 +6387,7 @@ def _mm_transpose_deferred(program_config) -> bool:
     1.0868x on the 512 aa DRAM leg, so it stays a real lever -- just not a layout-only one, and it
     is not taken here on that basis.
     """
-    return _TRIMUL_MM_TRANSPOSE and not _FAST_MODE and isinstance(
+    return _TRIMUL_MM_TRANSPOSE and (not _FAST_MODE or lever("trimul_gin_b8")) and isinstance(
         program_config, (ttnn.MatmulMultiCoreReuseMultiCastProgramConfig,
                          ttnn.MatmulMultiCoreReuseProgramConfig))
 
@@ -7816,6 +7865,27 @@ def _tile_numel(shape):
     """Element count of ``shape`` in TILE layout: the last two dims padded to whole tiles."""
     *lead, h, w = (1, *shape) if len(shape) < 2 else shape
     return prod(lead) * -(-h // 32) * 32 * -(-w // 32) * 32
+
+
+def pair_lookup_device(codes, table, device):
+    """``table[codes]`` as a [1, N, N, w] bf16 TILE tensor on ``device``: a pair tensor whose rows come from a
+    small table (relative positions, bond kinds) built with one embedding, so the upload is an [N*N] index
+    and a [U, w] table instead of the N*N*w pair."""
+    n, w = codes.shape[-1], table.shape[-1]
+    idx = ttnn.from_torch(codes.reshape(1, n * n).to(torch.int32), dtype=ttnn.uint32,
+                          layout=ttnn.ROW_MAJOR_LAYOUT, device=device)
+    tab = ttnn.from_torch(torch.nn.functional.pad(table.float(), (0, -w % 32)), dtype=ttnn.bfloat16,
+                          layout=ttnn.ROW_MAJOR_LAYOUT, device=device)
+    out = ttnn.embedding(idx, tab, layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16)  # [1, N*N, w padded to 32]
+    ttnn.deallocate(idx); ttnn.deallocate(tab)
+    out4 = ttnn.reshape(out, (1, n, n, out.shape[-1]))
+    if out4.shape[-1] == w:
+        return out4
+    res = ttnn.slice(out4, (0, 0, 0, 0), (1, n, n, w))
+    ttnn.deallocate(out4)
+    if out4 is not out:
+        ttnn.deallocate(out)
+    return res
 
 
 def upload(t, dtype=ttnn.bfloat16, device=None):
@@ -9920,7 +9990,7 @@ class TriangleMultiplication(Module):
                             and bias_i is None
                             and not row_norm and x_norm_in is not None
                             and self.g_in_weight is None and not ops.taping()
-                            and not _FAST_MODE and not _TRIMUL_RAW_CHANNEL_MOVES
+                            and (not _FAST_MODE or lever("trimul_gin_b8")) and not _TRIMUL_RAW_CHANNEL_MOVES
                             and (self.gated_move or _TRIMUL_MASK_AFTER_MOVE)
                             and (mask is None or mask_moved_ok)
                             and memory_config.buffer_type == ttnn.BufferType.DRAM):
@@ -9929,6 +9999,8 @@ class TriangleMultiplication(Module):
                         # two tensors. Only the plain channel moves are left.
                         wa, wb = self._gp_in_gated(chunk_size, group)[i]
                         ckc = _mm_generic.ckc_args(self.compute_kernel_config)
+                        if lever("trimul_gin_hifi2"):
+                            ckc = (ttnn.MathFidelity.HiFi2,) + ckc[1:]
                         if _trimul_tail.GIN_MOVE and defer:
                             # The channel moves fused in as well (both chunks leave as (0,3,1,2)
                             # moves once the matmul takes the inner swap).
@@ -10788,8 +10860,22 @@ def _mm_core_coord(gx, gy):
     return ttnn.CoreCoord(gx, gy)
 
 
-def _qkv_mm_config(inp, w):
-    """The swept block config for this (activation, weight) pair, or None to leave the op alone."""
+# The M guard only ever declines a token axis that is not a multiple of 32, which every bucketed
+# model avoids, so in practice it is AF2-IG's ragged 195 tokens (mt 1189) that falls back to the
+# op's default, K_block 8 over a 4-tile contraction: 473 us on the qkv projection and 324 us on the
+# gate on Wormhole. A/B/A over three AF2-IG complexes read CA RMSD 0.0000 A on both parts and
+# -0.12 s/complex (Wormhole 4.32 -> 4.19, p150a 2.54 -> 2.42). It is NOT bit-exact everywhere:
+# OpenFold3 and OpenBind-0 fold 9W3L at a ragged token count too and their normal-mode CIFs moved
+# (spd-integrate d60). So only an attention built with `ragged_m=True` takes it, which is AF2's
+# two triangle attentions; the flag is the kill switch.
+_MM_RAGGED_M = env_flag("TT_BIO_QKV_MM_RAGGED_M", True)
+
+
+def _qkv_mm_config(inp, w, ragged_m: bool = False):
+    """The swept block config for this (activation, weight) pair, or None to leave the op alone.
+
+    `ragged_m` lifts the row guard (see `_MM_RAGGED_M`) for a caller graded at ragged token counts.
+    """
     if not _MM_CFG:
         return None
     kt = (int(w.shape[-2]) + 31) // 32
@@ -10807,7 +10893,7 @@ def _qkv_mm_config(inp, w):
     # contraction in a different order than the unconfigured op. `_MM_DEFAULT` cannot: it IS that
     # order. Scope the relaxation by object identity on the one shared tuple, so the six swept
     # entries keep all three guards and every other model stays byte-for-byte on today's path.
-    if blk is not _MM_DEFAULT and (kt % K or mt % M or nt % N):
+    if blk is not _MM_DEFAULT and (kt % K or (mt % M and not (ragged_m and _MM_RAGGED_M)) or nt % N):
         return None
     return ttnn.MinimalMatmulConfig(
         M_block_size=M, K_block_size=K, N_block_size=N, subblock_h=sh, subblock_w=sw,
@@ -10922,6 +11008,7 @@ class TriangleAttention(Module):
         l1_padded_plan: bool | None = None,
         sdpa_ragged_pad: bool = False,
         softmax_site: str = "default",
+        ragged_m: bool = False,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.head_dim = head_dim
@@ -10990,6 +11077,8 @@ class TriangleAttention(Module):
         # Mask the fused SDPA's ragged tile tail at THIS site. Off unless the site's own fold-level
         # accuracy was measured; see `sdpa_ragged_pad_site`.
         self.sdpa_ragged_pad = sdpa_ragged_pad
+        # The swept qkv/gate matmul config at a ragged token count (`_MM_RAGGED_M`). AF2-IG only.
+        self.ragged_m = ragged_m
         self.scale = self.head_dim**0.5
         # Boltz/Protenix fold sqrt(head_dim) into the pair-bias projection (their
         # reference adds the bias pre-scaled); openfold3 pre-scales q by 1/sqrt(d) and
@@ -11092,7 +11181,7 @@ class TriangleAttention(Module):
         return _triatt_qkv.qkvg_heads(
             x, self.qkvg_weight, self.o_weight, self.compute_kernel_config,
             self.n_heads, self.head_dim, _triatt_dtype(),
-            _qkv_mm_config(x, self.qkvg_weight),
+            _qkv_mm_config(x, self.qkvg_weight, self.ragged_m),
         ) or (None, None)
 
     def _fused_qkvgb(self, x):
@@ -11113,7 +11202,7 @@ class TriangleAttention(Module):
         return _triatt_qkv.qkvgb_heads(
             x, self.qkvgb_weight, self.o_weight, self.compute_kernel_config,
             self.n_heads, self.head_dim, _triatt_dtype(),
-            _qkv_mm_config(x, self.qkvgb_weight),
+            _qkv_mm_config(x, self.qkvgb_weight, self.ragged_m),
             int(self.bias_weight.shape[-1]),
         ) or (None, None, None)
 
@@ -11428,7 +11517,7 @@ class TriangleAttention(Module):
                 end = min(s + chunk, S)
                 x_chunk = normed_rows(s, end)
                 qkv_chunk, g_chunk = self._fused_qkvg(x_chunk, True)
-                qkv_cfg_chunk = _qkv_mm_config(x_chunk, self.qkv_weight)
+                qkv_cfg_chunk = _qkv_mm_config(x_chunk, self.qkv_weight, self.ragged_m)
                 qkv_chunk = qkv_chunk if qkv_chunk is not None else _triatt_qkv.qkv_heads(
                     x_chunk, self.qkv_weight, self.compute_kernel_config,
                     self.n_heads, self.head_dim, _dtype(), qkv_cfg_chunk,
@@ -11441,7 +11530,7 @@ class TriangleAttention(Module):
                         dtype=_triatt_dtype(),
                         config=qkv_cfg_chunk,
                     )
-                g_cfg_chunk = _qkv_mm_config(x_chunk, self.g_weight)
+                g_cfg_chunk = _qkv_mm_config(x_chunk, self.g_weight, self.ragged_m)
                 if g_chunk is None and isinstance(qkv_chunk, tuple) and not self.biased:
                     g_chunk = _triatt_qkv.gate_proj(
                         x_chunk, self.g_weight, self.o_weight, self.compute_kernel_config,
@@ -11600,7 +11689,7 @@ class TriangleAttention(Module):
             qkv = qkv if qkv is not None else None if qkv_cfg is not None or fold_o is not None \
                 else _triatt_qkv.qkv_heads(
                 x, self.qkv_weight, self.compute_kernel_config,
-                self.n_heads, self.head_dim, _dtype(), _qkv_mm_config(x, self.qkv_weight),
+                self.n_heads, self.head_dim, _dtype(), _qkv_mm_config(x, self.qkv_weight, self.ragged_m),
             )
             if qkv is None and fold_o is None:
                 if qkv_cfg is not None:
@@ -11618,14 +11707,14 @@ class TriangleAttention(Module):
                         weight_tensor=self.qkv_weight,
                         compute_kernel_config=self.compute_kernel_config,
                         dtype=_triatt_dtype(),
-                        config=_qkv_mm_config(x, self.qkv_weight),
+                        config=_qkv_mm_config(x, self.qkv_weight, self.ragged_m),
                     )
             if g is None and (isinstance(qkv, tuple) or fold_o is not None) \
                     and not self.biased:
                 g = _triatt_qkv.gate_proj(
                     x, self.g_weight, self.o_weight, self.compute_kernel_config,
                     self.n_heads, self.head_dim, _triatt_dtype(),
-                    _qkv_mm_config(x, self.g_weight),
+                    _qkv_mm_config(x, self.g_weight, self.ragged_m),
                 )
             g_in_mm = self.g_bias is not None and "g" in self.bias_in_matmul
             if g is None:
@@ -11635,7 +11724,7 @@ class TriangleAttention(Module):
                     bias_tensor=self.g_bias if g_in_mm else None,
                     compute_kernel_config=self.compute_kernel_config,
                     dtype=_dtype(),
-                    config=_qkv_mm_config(x, self.g_weight),
+                    config=_qkv_mm_config(x, self.g_weight, self.ragged_m),
                 )
                 if g_in_mm:
                     _pair_bias_stat("g_in_matmul")
@@ -12757,8 +12846,12 @@ class Transition(Module):
         to c_z 128: at c_z 256 HiFi4 the fp32-dest cancellation fault (`dest_guard`) hits ~10x more outputs
         (ws_bisect wsb1, 394-472 vs 35 per chunk) unless `ws_l1acc` keeps the dest sums short; Blackhole reads
         clean at every shape (wsb1bh)."""
+        # An L1 destination is the row-blocked path's `_residual_update_memory_config` hint; ws writes DRAM.
+        # Without ws_l1dest that hint turns ws off wherever the pair update fits L1: OpenFold3 at 512 tokens
+        # on a p150a ran the row-blocked transition (~4.4 ms a call) with transition_ws on (~2.1 ms).
         if not (_ws_applies(x, self.compute_kernel_config)
-                and (memory_config is None or memory_config.buffer_type == ttnn.BufferType.DRAM)
+                and (memory_config is None or memory_config.buffer_type == ttnn.BufferType.DRAM
+                     or lever("ws_l1dest"))
                 and (self.dtype or _dtype()) == ttnn.bfloat16
                 and (self._hidden_b8 or x.shape[-1] <= 128 or lever("ws_l1acc") or not is_wormhole())):
             return None
@@ -15395,8 +15488,8 @@ class OuterProductMean(Module):
                 _, J, D = bc.shape
                 S += Sc
                 acp = permute_120(ac)                       # (I, C, Sc)
-                bcp = permute_210(bc)                       # (D, J, Sc)
-                bcp = opm_flat_b(bcp)                       # (D*J, Sc)
+                bcp = permute_120(bc) if jd_order(J, C, D) else permute_210(bc)  # (J, D, Sc) / (D, J, Sc)
+                bcp = opm_flat_b(bcp)                       # (J*D, Sc) / (D*J, Sc)
                 parts.append((acp, bcp, Sc))
             return parts, S, I, C, D, J
 
@@ -15409,6 +15502,10 @@ class OuterProductMean(Module):
 
         def small_depth(depth):
             return _OPM_SMALL_DEPTH and depth <= OPM_SMALL_DEPTH_MAX
+
+        def jd_order(J, C, D):
+            """b's rows in (j d) order, for opm_relayout (lever opm_jd)."""
+            return lever("opm_jd") and C == D == 32 and J % 32 == 0
 
         def zero_rows(t, n):
             """`n` zero rows shaped like the depth rows of projection `t` (depth outermost)."""
@@ -15462,7 +15559,7 @@ class OuterProductMean(Module):
                 S, I, C = a.shape
                 _, J, D = b.shape
                 a = permute_120(a)  # (I, C, S)
-                b = opm_flat_b(permute_210(b))
+                b = opm_flat_b(permute_120(b) if jd_order(J, C, D) else permute_210(b))
                 if I > SEQ_LEN_MORE_CHUNKING:
                     # Compact large tensors before OPM matmuls to reduce DRAM fragmentation.
                     a = ttnn.reallocate(a)
@@ -15655,10 +15752,18 @@ class OuterProductMean(Module):
         def outer_product_mean(i0, i1):
             rows = i1 - i0
             z = z_rows(i0, i1)
-            z = ttnn.to_layout(z, ttnn.ROW_MAJOR_LAYOUT)
-            z = ttnn.reshape(z, (rows, C * D, J))
-            z = ttnn.to_layout(z, ttnn.TILE_LAYOUT)
-            z = ttnn.permute(z, (0, 2, 1))
+            if jd_order(J, C, D):
+                from . import opm_relayout as _opm_rl
+                why = _opm_rl.eligible(z, C, D)
+                assert why is None, ("opm_jd: z in (j d) order needs opm_relayout", why)
+                y = _opm_rl.opm_relayout(z, rows, J)
+                ttnn.deallocate(z)
+                z = y
+            else:
+                z = ttnn.to_layout(z, ttnn.ROW_MAJOR_LAYOUT)
+                z = ttnn.reshape(z, (rows, C * D, J))
+                z = ttnn.to_layout(z, ttnn.TILE_LAYOUT)
+                z = ttnn.permute(z, (0, 2, 1))
             if legacy:
                 z = ttnn.multiply_(z, scale)
             else:

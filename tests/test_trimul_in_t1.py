@@ -158,15 +158,17 @@ def _gather(src_tiles_faces, c, il=32, r0=0):
     return st, writes
 
 
-@pytest.mark.parametrize("S,masked,K", [(64, True, 128), (96, False, 128), (64, True, 256), (96, False, 256),
-                                        (64, True, 384), (96, False, 384)])
-def test_emulated_data_flow_matches_the_model(S, masked, K):
+@pytest.mark.parametrize("S,masked,K,rows", [(64, True, 128, 32), (96, False, 128, 32), (64, True, 128, 16),
+                                             (96, False, 128, 16), (64, True, 256, 16), (96, False, 256, 16),
+                                             (64, True, 384, 8), (96, False, 384, 8)])
+def test_emulated_data_flow_matches_the_model(S, masked, K, rows):
     """The kernels' loops, page for page, against float64 torch: one launch of 32-row units at
-    c_z 128, two channel groups of 16-row units writing half tiles at c_z 256, three of 8-row units at 384."""
+    c_z 128 (or of 16-row halves, t1_rows), two channel groups of 16-row units writing half tiles
+    at c_z 256, three of 8-row units at 384."""
     d = torch.float64
     h = cz = K
     St, Kt, ct2, ct, ntg = S // 32, K // 32, 2 * h // 32, h // 32, cz // 32
-    groups, IL = TTL.T1_PLANS[(Kt, ct2, ntg)]
+    groups, IL = TTL.T1_PLANS[(Kt, ct2, ntg)][0], rows
     H, qn, ng = 32 // IL, ct2 // groups, ntg // groups
     g = torch.Generator().manual_seed(S)
     w = {k: v.to(d) for k, v in _ckpt(K, h, cz, g).items()}
@@ -312,3 +314,29 @@ def test_call_site_is_inert_when_off(monkeypatch):
     before = list(TTL.T1_STATS)
     assert tm._t1_in(None, None, 512, [1, 512, 512, 128]) is None
     assert TTL.T1_STATS == before
+
+
+# ---------------------------------------------------------------- work split
+
+@pytest.mark.parametrize("units,ncores,want", [
+    (256, 110, 2),   # 512 tokens on a p150a: 78 % -> 93 %
+    (256, 64, 1),    # 512 tokens on a full 8x8 grid: already balanced
+    (256, 56, 1),    # Wormhole 8x7: 91 % either way
+    (1024, 110, 1),  # 1024 tokens: 93 % -> 98 %, under the 10 % bar
+    (144, 110, 2),   # 384 tokens: 65 % -> 87 %
+])
+def test_balance_split(units, ncores, want):
+    assert TTL.balance_split(units, ncores) == want
+
+
+@pytest.mark.parametrize("plan_il,units,ncores,want", [
+    (32, 256, 110, 16),   # c_z 128 at 512 tokens on a p150a: halves
+    (32, 256, 64, 32),
+    (16, 256, 110, 16),   # c_z 256 / 384 plans keep their own rows
+    (8, 256, 110, 8),
+])
+def test_t1_rows(plan_il, units, ncores, want, monkeypatch):
+    monkeypatch.setattr(TTL, "T1_ROWS", 0)
+    assert TTL.t1_rows(plan_il, units, ncores) == want
+    monkeypatch.setattr(TTL, "T1_ROWS", 16)
+    assert TTL.t1_rows(plan_il, units, ncores) == min(plan_il, 16)

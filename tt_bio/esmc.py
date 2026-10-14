@@ -1028,8 +1028,14 @@ class SwiGLUFFN(Module):
 
         A separate entry point rather than a change to `__call__`, because `SwiGLUFFN` is shared
         with ESMC's LM FFN, Boltz-2, Protenix-v2, OpenFold3 and OpenDDE and none of them wants
-        `x + ffn(x)`. Does not free `x`; the caller does, as it did around the add it used to own.
+        `x + ffn(x)`. Does not free `x`; the caller does, as it did around the add it used to own,
+        except under `ws_resid`, where the kernel adds into `x` and returns `x` itself.
         """
+        from tt_bio.tenstorrent import lever
+        if lever("ws_resid"):
+            out = self._weight_stationary(x, resid=x)
+            if out is not None:
+                return out
         out = self._weight_stationary(x)
         if out is not None:
             return ttnn.add_(out, x)  # x is the caller's to free
@@ -1041,7 +1047,7 @@ class SwiGLUFFN(Module):
         FUSED_RESID_STATS[1] += 1
         return ttnn.add(x, self(x))
 
-    def _weight_stationary(self, x: ttnn.Tensor):
+    def _weight_stationary(self, x: ttnn.Tensor, resid: ttnn.Tensor | None = None):
         """`transition_ws` on ESMFold2's split pair FFN: the shared `tenstorrent.ws_swiglu` kernel over this
         module's weights in bfp8 on both archs, or None. bfp8 is what the lever was graded with (Wormhole's fast
         weights) and fits c_z 256 / d_ff 1024 in one chunk; Blackhole's fast keeps bf16 module weights, which
@@ -1060,7 +1066,7 @@ class SwiGLUFFN(Module):
                 self._ws = False
         if not self._ws:
             return None
-        return T.ws_swiglu(x, self.norm_weight, self.norm_bias, self.compute_kernel_config, self._ws)
+        return T.ws_swiglu(x, self.norm_weight, self.norm_bias, self.compute_kernel_config, self._ws, resid=resid)
 
     def __call__(self, x: ttnn.Tensor) -> ttnn.Tensor:
         # The fc1 activation (2*d_ff wide) is several GB at long L and, on top of
@@ -1577,8 +1583,14 @@ class ESMCHiddenStatesModel(Module):
         self.norm_weight = self.torch_to_tt("transformer.norm.weight")
 
     def __call__(self, tokens: ttnn.Tensor, attn_mask: ttnn.Tensor | None = None,
-                 key_valid: ttnn.Tensor | None = None, last_hidden_only: bool = False):
+                 key_valid: ttnn.Tensor | None = None, last_hidden_only: bool = False,
+                 combine=None):
         """Return the hidden states. With ``last_hidden_only`` only the final-norm one.
+
+        ``combine = (w, ln_w, ln_b)`` returns ONE state instead, sum_k w[k] * LayerNorm(hs[k]) accumulated
+        in fp32 on the device: ESMFold2's LanguageModelShim takes LayerNorm, a bias-free linear and a
+        weighted sum over the layers, so the sum moves ahead of the linear and the 80 per-layer copies
+        (each a pipeline drain) become one.
 
         The intermediate ``_to_host`` calls exist for ESMFold2, whose LanguageModelShim
         consumes all ``n_layers + 1`` states. The standalone embed path uses only the last
@@ -1593,18 +1605,36 @@ class ESMCHiddenStatesModel(Module):
         cos, sin = rope_tables(seq_len, head_dim, device=self.device)
 
         x = self.embed(tokens)
-        hidden = [] if last_hidden_only else [self._to_host(x)]  # hs[0] = embedding output
+        if combine is not None:
+            w, ln_w, ln_b = combine
+            acc = [None]
+
+            def keep(t, k):
+                y = ttnn.layer_norm(t, weight=ln_w, bias=ln_b, epsilon=1e-5,
+                                    compute_kernel_config=self.compute_kernel_config)
+                y = ttnn.multiply(ttnn.typecast(y, ttnn.float32), float(w[k]))
+                acc[0] = y if acc[0] is None else ttnn.add(acc[0], y)
+        else:
+            hidden = []
+
+            def keep(t, k):
+                hidden.append(self._to_host(t))
+        if not last_hidden_only:
+            keep(x, 0)  # hs[0] = embedding output
         for i, block in enumerate(self.blocks):
             x = block(x, cos, sin, attn_mask, key_valid)
             if not last_hidden_only and i < self.n_layers - 1:
-                hidden.append(self._to_host(x))  # hs[i+1] = block i output
+                keep(x, i + 1)  # hs[i+1] = block i output
         norm_x = ttnn.layer_norm(
             x, weight=self.norm_weight, epsilon=1e-5,
             compute_kernel_config=self.compute_kernel_config,
         )
         ttnn.deallocate(x)
-        hidden.append(self._to_host(norm_x))  # hs[n_layers] = post-norm output
-        return hidden
+        if combine is None:
+            hidden.append(self._to_host(norm_x))  # hs[n_layers] = post-norm output
+            return hidden
+        keep(norm_x, self.n_layers)
+        return [self._to_host(acc[0])]
 
     @staticmethod
     def _to_host(t: ttnn.Tensor) -> torch.Tensor:
@@ -1639,8 +1669,9 @@ class ESMCLanguageModel(TorchWrapper):
         return ESMCHiddenStatesModel(self.n_heads, self.n_layers, weights, self.compute_kernel_config)
 
     def forward(self, input_ids: torch.Tensor, attn_mask: torch.Tensor | None = None,
-                last_hidden_only: bool = False) -> torch.Tensor:
-        """``[n_layers+1, B, L, d]``, or ``[1, B, L, d]`` with ``last_hidden_only``.
+                last_hidden_only: bool = False, combine=None) -> torch.Tensor:
+        """``[n_layers+1, B, L, d]``, or ``[1, B, L, d]`` with ``last_hidden_only`` or ``combine``
+        (the layer-combined state, see ESMCHiddenStatesModel).
 
         Either way ``[-1]`` is the final-norm state, which is the whole contract
         ``_trunk_forward`` depends on.
@@ -1678,7 +1709,7 @@ class ESMCLanguageModel(TorchWrapper):
                 layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16,
             )
         hidden = self.module(tokens_tt, mask_tt, key_valid_tt,
-                             last_hidden_only=last_hidden_only)  # list of [B, Lb, d_model]
+                             last_hidden_only=last_hidden_only, combine=combine)  # list of [B, Lb, d_model]
         return torch.stack(hidden, dim=0)[:, :, :Lm, :]  # slice padding -> [n+1, B, Lm, d_model]
 
     def release(self):

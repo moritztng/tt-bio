@@ -36,8 +36,9 @@ move against the accuracy bar and the seed-to-seed spread.
 | [`TT_BIO_DEVICE_ZINIT`](#tt_bio_device_zinit) | on | Boltz-2 | moves, flat against the experimental structure |
 | [`TT_BIO_DIT_COND_HOIST`](#tt_bio_dit_cond_hoist) | on | Boltz-2, RF3 token DiT | moves, inside the 298-residue bar |
 | [`TT_BIO_DIT_SHARED_COND`](#tt_bio_dit_shared_cond) | on | Boltz-2, BoltzGen | identical |
-| [`TT_BIO_ESMFOLD2_DEVICE_CONF`](#tt_bio_esmfold2_device_conf) | on for Blackhole | ESMFold2 | moves, inside the bar |
+| [`TT_BIO_ESMFOLD2_DEVICE_CONF`](#tt_bio_esmfold2_device_conf) | on | ESMFold2 | moves, inside the bar |
 | [`TT_BIO_ESMFOLD2_DEVICE_TAIL`](#tt_bio_esmfold2_device_tail) | on | ESMFold2 | moves, inside the bar |
+| [`TT_BIO_ESMFOLD2_BIT_DRAW`, `TT_BIO_ESMFOLD2_PAIR_INIT`, `TT_BIO_ESMFOLD2_LM_COMBINE`, `TT_BIO_ESMFOLD2_OPM`, `TT_BIO_ESMFOLD2_ATOM_FFN_SPLIT`, `TT_BIO_ESMFOLD2_RELPOS_LOOKUP`](#esmfold2---fast-stack) | on with `--fast` on Blackhole | ESMFold2 | moves, inside the fast bar |
 | [`TT_BIO_ESMFOLD2_SWA_WINDOW`](#tt_bio_esmfold2_swa_window) | on | ESMFold2 | moves, inside the bar |
 | [`TT_BIO_FANIN_CAST_FUSED`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2 | gradients only |
 | [`TT_BIO_FUSE_BIAS_STACKS`](#tt_bio_fuse_bias_stacks) | on | Boltz-2, BoltzGen | moves, inside the 298-residue bar |
@@ -67,6 +68,7 @@ move against the accuracy bar and the seed-to-seed spread.
 | [`TT_BIO_PWA_FUSED_HEADS`, `TT_BIO_PWA_UNPADDED`](#msa-module-flags) | on | MSA models; graded on Protenix-v2 | moves, inside the bar |
 | [`TT_BIO_PWA_BATCH_HEAD_WEIGHTS`](#tt_bio_pwa_batch_head_weights) | on | | identical |
 | [`TT_BIO_PWA_FULL_HEADS_FUSED`](#tt_bio_pwa_full_heads_fused) | on | Boltz-2 (32-wide heads) | identical |
+| [`TT_BIO_QKV_MM_RAGGED_M`](#tt_bio_qkv_mm_ragged_m) | on | AF2-IG's triangle attention at token counts that are not a multiple of 32 | identical for AF2-IG |
 | [`TT_BIO_REBLOCK_PERMUTE_GATED`](#tt_bio_reblock_permute_gated) | on | | identical |
 | [`TT_BIO_RF3_DIFFUSION_TRACE`](#tt_bio_rf3_diffusion_trace) | on | RoseTTAFold3 | identical |
 | [`TT_BIO_RESIDUAL_L1`](#tt_bio_residual_l1) | on | | identical |
@@ -589,20 +591,20 @@ digest unchanged on 4 seeds). **Speed:** 158.0 to 152.1 s on the Boltz-2 730-tok
 
 ## `TT_BIO_ESMFOLD2_DEVICE_CONF`
 
-Default: on for Blackhole, off for Wormhole. ESMFold2 and ESMFold2-Fast.
+Default: on. ESMFold2 and ESMFold2-Fast.
 
 The confidence head's pair part (the pair norm, the outer product, its trunk, row pooling and the
 PAE/PDE logits) runs on the device from the trunk's resident pair, so the 512 x 512 pair is never
 downloaded and the head's float32 host work goes away: about 0.9 s off a 512-residue fold on
-Blackhole. The [L, c]-sized inputs and the final softmax stay on the host.
+Blackhole and 3 to 5 % of the fold on Wormhole. The [L, c]-sized inputs and the final softmax stay on the host.
 
 **Accuracy: moves, inside the bar.** The pair part runs in bf16 instead of host float32. Graded
 together with the device tail on 11 complexes x 4 seeds on Blackhole: ESMFold2 (normal bar)
 same-seed top-pose deviation median 0.48 A against a seed spread of 1.12 A, CA-lDDT -0.0000
 [-0.0008, +0.0009], docking success 30/41 in both arms; ESMFold2-Fast --fast (fast bar) median
-0.62 A against 1.40 A, docking success 24/44 in both arms. Wormhole is not graded and keeps the
-host head unless `TT_BIO_ESMFOLD2_DEVICE_CONF=1` is set; `TT_BIO_ESMFOLD2_DEVICE_CONF=0` restores it
-on Blackhole.
+0.62 A against 1.40 A, docking success 24/44 in both arms. On Wormhole, 11 complexes x 4 seeds,
+both models pass the fast and the normal bar (ESMFold2 CA-lDDT +0.0034, docking 33/44 with and
+without it). `TT_BIO_ESMFOLD2_DEVICE_CONF=0` restores the host head.
 
 ## `TT_BIO_ESMFOLD2_DEVICE_TAIL`
 
@@ -622,6 +624,38 @@ docking success 24/44 in both arms. On Wormhole: ESMFold2 (folds --fast there, f
 against 1.34 A, CA-lDDT +0.0002, docking 29/44 in both arms; ESMFold2-Fast (normal bar) median 0.27 A
 against 1.27 A, CA-lDDT +0.0000, docking 25 vs 24/44. `TT_BIO_ESMFOLD2_DEVICE_TAIL=0` restores the host
 tail.
+
+## ESMFold2 `--fast` stack
+
+Default: on with `--fast` on Blackhole, off otherwise. ESMFold2 and ESMFold2-Fast. Setting any of
+the variables to `1` / `0` (or `TT_BIO_ESMFOLD2_OPM` to `kq` / `tile`) forces it either way.
+
+- `TT_BIO_ESMFOLD2_BIT_DRAW`: the LM-encoder dropout keep mask is drawn directly as packed bits on the
+  host instead of as floats that are then packed. Same keep probability, a different random stream.
+- `TT_BIO_ESMFOLD2_PAIR_INIT`: the initial pair representation is summed on the chip from its row,
+  column and relative-position parts, instead of built on the host in float32 and uploaded.
+  0.27-0.55 s per 512-residue fold.
+- `TT_BIO_ESMFOLD2_LM_COMBINE`: the ESMC-6B combines its per-layer states on the chip and hands over one
+  state instead of 81.
+- `TT_BIO_ESMFOLD2_OPM`: the outer product mean contracts with its output weights first (`kq`), which
+  avoids two tile reshapes per call. Used for MSAs up to 64 rows.
+- `TT_BIO_ESMFOLD2_ATOM_FFN_SPLIT`: the atom transformer's SwiGLU up-projection runs as two matmuls,
+  one per half of the weight, instead of one matmul and a split.
+- `TT_BIO_ESMFOLD2_RELPOS_LOOKUP`: relative positions come from a float32 table lookup on the host
+  instead of one-hot features through a device matmul.
+
+Together at 512 residues on Blackhole p300c (1350 MHz): ESMFold2 `--fast` 16.92 s, ESMFold2-Fast
+`--fast` 10.14 s.
+
+On Blackhole `--fast` also folds with the pair SwiGLU adding its residual inside the last matmul's
+float32 accumulator (lever `ws_resid`): 0.44 s off ESMFold2 and 0.19 s off ESMFold2-Fast at 512
+residues, graded inside the fast bar on 11 complexes x 4 seeds. Wormhole leaves it off until graded there.
+
+**Accuracy: moves, inside the fast bar.** On 11 complexes x 4 seeds on Blackhole, ESMFold2-Fast
+`--fast` against the same mode without the stack: CA-lDDT -0.0000 [-0.0003, +0.0002], TM-score
++0.0013, docking success 24/44 in both arms. ESMFold2 with the stack in normal mode clears the fast
+bar but not the normal one (CA-lDDT -0.0019 [-0.0050, -0.0001]), so normal mode does not take it.
+Wormhole does not take it yet (not graded there).
 
 ## `TT_BIO_ESMFOLD2_SWA_WINDOW`
 
@@ -954,7 +988,9 @@ These four make the MSA module do the same arithmetic in fewer, larger device ca
   instead of one matmul with several hundred thousand rows. Same bytes out.
 * `TT_BIO_PWA_FUSED_HEADS`: pair-weighted averaging projects, averages and gates all heads at once
   and sums the heads inside the output projection, instead of looping over heads and adding their
-  outputs in bf16.
+  outputs in bf16. Against a float64 reference on random inputs the fused sum's relative error is
+  3.8e-3 and the loop's 6.0e-3 for Boltz-2's 8 heads of width 32, 3.8e-3 and 5.7e-3 for Protenix-v2's
+  (`tests/test_pwa_fused_heads_accuracy.py`). Boltz-2 runs this path too, so its output moves as well.
 * `TT_BIO_PWA_UNPADDED`: the fused heads without padding each head to a full 32-wide tile, which
   matters for narrow heads (Protenix-v2 uses 8 heads of width 8).
 
@@ -1215,6 +1251,23 @@ consistent with the optimization never having run. Every fold is recorded with t
 and per-head projections it actually made: 16 on Boltz-2, 30 on Protenix-v2, 12 on OpenFold3, and
 zero in every arm that had the flag off.
 
+## `TT_BIO_QKV_MM_RAGGED_M`
+
+Default: on.
+
+The swept block configs for the attention projections are only applied when the activation and the
+weight divide evenly into the block they were swept at. The row guard is the one that costs
+something: a token count that is not a multiple of 32 declines the config and runs the op's own
+default, which folds a 4-tile contraction in blocks of 8. AF2-IG's 195 tokens is the case that hits
+it, and on Wormhole it cost 473 us on the qkv projection and 324 us on the gate, 416 times per fold.
+The flag drops that one guard for AF2's two triangle attentions and nowhere else.
+
+**Accuracy: identical for AF2-IG.** A/B/A over three PD-L1 binder complexes reads CA RMSD 0.0000 A
+on both parts. It saves 0.12 s per complex on both parts: Wormhole 4.32 to 4.19 s at 1000 MHz,
+p150a 2.54 to 2.42 s at 1350 MHz. It is not identical everywhere: OpenFold3 and OpenBind-0 also fold
+some targets at a ragged token count, and with the guard dropped their structures moved, so they
+keep it.
+
 ## `TT_BIO_REBLOCK_PERMUTE_GATED`
 
 Default: on.
@@ -1225,7 +1278,7 @@ A triangle multiplication moves its pair tensor into a channel-blocked layout, t
 
 Every triangle multiplication opts in rather than being switched on by model name, so a model whose shapes the fused reader cannot address keeps the separate ops instead of failing.
 
-On Wormhole the fused move also covers pair tensors in DRAM below 256 tokens (BindCraft 2 and AF2-IG at 195 and 224), which takes BindCraft 2's on-card iteration from 5.34 to 5.02 s with bit-identical gradients. `TT_BIO_REBLOCK_DRAM_FILL_GATED=0` (fused leg) and `TT_BIO_REBLOCK_DRAM_FILL=0` (plain moves) restore the 256-token edge.
+On Wormhole the fused move also covers pair tensors in DRAM below 256 tokens (BindCraft 2 and AF2-IG at 195 and 224), which takes BindCraft 2's on-card iteration from 5.34 to 5.02 s with bit-identical gradients. On Blackhole the plain moves open at 224 tokens too, the size BindCraft 2 runs at, where they are up to 2.9x faster than the stock ops and bit for bit the same. `TT_BIO_REBLOCK_DRAM_FILL_GATED=0` (fused leg) and `TT_BIO_REBLOCK_DRAM_FILL=0` (plain moves) restore the 256-token edge.
 
 ## `TT_BIO_RF3_DIFFUSION_TRACE`
 
