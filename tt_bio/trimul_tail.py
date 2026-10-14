@@ -1270,6 +1270,7 @@ T1_RB = 8                         # z row tiles per reader barrier
 T1_SBW = 4                        # DST tiles per matmul block (half-sync fp32 DST holds 4)
 T1_ABL = 0                        # bench-only stage-skip bits (kernels/trimul_in_t1 ABL); 0 = the real T1
 T1_B8 = 0                         # bench knob: a and b as bfp8 (lever trimul_t1b8 in a model)
+T1_C256 = 0                       # bench knob: the c_z 256 plan without lever trimul_t1_c256
 BF16_TILE, FP32_TILE = 2048, 4096
 
 
@@ -1385,6 +1386,8 @@ def t1_eligible(x, ln_w, ln_b, wpT, wgT, wgo, mask=None):
     key = (K // TILE, int(wpT.shape[-2]) // TILE, int(wgo.shape[-1]) // TILE)
     if key not in T1_KEYS:
         return "key=" + "x".join(map(str, key))
+    if key == (8, 16, 8) and not (T1_C256 or lever("trimul_t1_c256")):
+        return "c256_off"
     if not (_vec_ok(ln_w, K) and _vec_ok(ln_b, K)):
         return "ln_params"
     if mask is not None and not t1_mask_ok(mask, x):

@@ -40,6 +40,7 @@ kcfg = T.trunk_compute_kernel_config(compute_kernel_config())
 ckc = MG.ckc_args(kcfg)
 grid = tuple(int(v) for v in A.grid.split(",")) if A.grid else tuple(T.COMPUTE_GRID_MAIN)
 TT.set_t1(True)
+TT.T1_C256 = 1
 for kv in [v for v in A.set.split(",") if v]:
     k, v = kv.split("=")
     assert k in ("T1_RB", "T1_SBW", "GIN_MOVE_NB", "T1_B8"), k
