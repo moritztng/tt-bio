@@ -20,6 +20,10 @@ ap.add_argument("--reps", type=int, default=10)
 ap.add_argument("--c", type=int, default=128)
 ap.add_argument("--gate", action="store_true",
                 help="GATE form: g is the trimul's input norm and T2 computes sigmoid(g @ wg) itself")
+ap.add_argument("--block", default=None,
+                help="M,K,N,subblock_h,subblock_w: measurement-only T2 block for (c/32, c/32)")
+ap.add_argument("--gb8", action="store_true",
+                help="g uploaded as bfp8, as trimul_b8in writes g_out (both arms read it; the reference keeps bf16 g)")
 ap.add_argument("--out", help="also append each JSON line here (the qb runner passes it)")
 A = ap.parse_args()
 
@@ -36,10 +40,13 @@ grid = tuple(T.COMPUTE_GRID_MAIN)
 TT.set_t2(True)
 C = A.c
 TT.T2_KEYS.add((C // 32, C // 32))   # measurement only: the model path keeps its own keys
+if A.block:
+    TT.T2_BLOCK[(C // 32, C // 32)] = tuple(int(v) for v in A.block.split(","))
 gen = torch.Generator().manual_seed(0)
 up = lambda t: ttnn.from_torch(t.to(torch.bfloat16), dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT,
                                device=dev, memory_config=ttnn.DRAM_MEMORY_CONFIG)
-print(json.dumps({"grid": grid, "ckc": [str(c) for c in ckc], "c": C, "gate": A.gate}), flush=True)
+print(json.dumps({"grid": grid, "ckc": [str(c) for c in ckc], "c": C, "gate": A.gate, "gb8": A.gb8,
+                  "block": TT._t2_block(C // 32, C // 32)}), flush=True)
 
 
 def rel(a, r):
@@ -70,6 +77,8 @@ for n in [int(s) for s in A.ns.split(",") if s]:
         h["wg"] = torch.randn(C, C, generator=gen) / C ** 0.5
     h = {k: v.to(torch.bfloat16) for k, v in h.items()}
     d = {k: up(h[k]) for k in ("x", "g", "w", "gamma", "beta") + (("wg",) if A.gate else ())}
+    if A.gb8:
+        d["g"] = ttnn.typecast(d["g"], ttnn.bfloat8_b)
     wg = d.get("wg")
     x64 = {k: v.double() for k, v in h.items()}
     mu = x64["x"].mean(-1, keepdim=True)

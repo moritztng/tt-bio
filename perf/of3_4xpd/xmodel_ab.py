@@ -64,10 +64,10 @@ def main():
     # box drifts by more than the trace saving, so only a paired delta can read it.
     ap.add_argument("--ab-trace", action="store_true")
     # The same pairing for any module-level bool, e.g. tt_bio.runtime:SERIAL_HOST.
-    ap.add_argument("--ab-attr", metavar="MODULE:NAME[,MODULE:NAME...]", default=None)
+    ap.add_argument("--ab-attr", metavar="MODULE:NAME[=ON/OFF][,...]", default=None)
     # The same pairing for one precision lever: NAME joins / leaves the `_levers` set of the loaded model
     # (and of any attribute of it that carries one), which every model reads per fold.
-    ap.add_argument("--ab-lever", metavar="NAME", default=None)
+    ap.add_argument("--ab-lever", metavar="NAME[,NAME]", default=None)
     # Stage split inside the fold: each MODULE:Class.method is wrapped in a device sync on both
     # sides and its inclusive seconds summed per fold (nested stages each count their own time).
     # The syncs cost overlap, so a --phases fold is slower than a plain one: read it as a split,
@@ -220,32 +220,39 @@ def main():
                     state.model.structure_module._diffusion_trace = v
         elif a.ab_lever:
             on, off, key = "on", "off", "ab_lever_s"
-            T.parse_levers(a.ab_lever)      # an unknown name fails here, not as a silent null A/B
+            # One name or a comma list, A/B'd as one stack. An unknown name fails here, not as a silent null A/B.
+            ab = T.parse_levers(a.ab_lever)
             holders = [o for o in [state.model, *vars(state.model).values()]
                        if isinstance(getattr(o, "_levers", None), frozenset)]
             if holders:
-                base = {id(o): o._levers - {a.ab_lever} for o in holders}
+                base = {id(o): o._levers - ab for o in holders}
 
                 def arm_set(v):
                     for o in holders:
-                        o._levers = base[id(o)] | {a.ab_lever} if v else base[id(o)]
+                        o._levers = base[id(o)] | ab if v else base[id(o)]
             else:
                 # ESMFold2 enters its lever set per fold (esmfold2_runtime.fold_scope), from TT_BIO_LEVERS when
                 # set: the mode's set on Blackhole, LEVERS_WH on Wormhole.
                 assert a.model in ("esmfold2", "esmfold2-fast"), "the loaded model carries no _levers set"
                 from tt_bio import esmfold2_runtime as ER
                 base_set = T.parse_levers(os.environ.get("TT_BIO_LEVERS") or (
-                    ER.LEVERS_WH if ER.is_wormhole() else ER.fold_levers(a.fast))) - {a.ab_lever}
+                    ER.LEVERS_WH if ER.is_wormhole() else ER.fold_levers(a.fast))) - ab
 
                 def arm_set(v):
-                    os.environ["TT_BIO_LEVERS"] = ",".join(sorted(base_set | {a.ab_lever} if v else base_set)) or "none"
+                    os.environ["TT_BIO_LEVERS"] = ",".join(sorted(base_set | ab if v else base_set)) or "none"
         else:
-            attrs = [x.split(":") for x in a.ab_attr.split(",")]
+            # MODULE:NAME toggles a bool; MODULE:NAME=ON/OFF sets two integer values instead
+            # (tt_bio.trimul_tail:T1_ROWS=16/32): the "on" arm takes ON.
+            attrs = []
+            for x in a.ab_attr.split(","):
+                mod, name = x.split(":")
+                name, _, vals = name.partition("=")
+                attrs.append((mod, name, tuple(int(t) for t in vals.split("/")) if vals else (True, False)))
             on, off, key = "on", "off", "ab_attr_s"
 
             def arm_set(v):
-                for mod, name in attrs:
-                    setattr(importlib.import_module(mod), name, v)
+                for mod, name, (von, voff) in attrs:
+                    setattr(importlib.import_module(mod), name, von if v else voff)
         arm = {True: [], False: []}
         for i in range(a.repeat):
             for v in ((True, False) if i % 2 == 0 else (False, True)):
@@ -306,6 +313,16 @@ def main():
 
     res["kernels"] = {n: _kern(n) for n in
                       ("triatt_sdpa", "trimul_tail", "reblock_permute", "rfd3_bias")}
+    # Which trimul in-projection route fed the einsum (gin-ragged, gated-inproj-moved, gated-inproj,
+    # rowblock, ...), and the trimul_tail sub-counters STATS above lumps together.
+    res["trimul_routes"] = {"|".join(k): int(v) for k, v in getattr(T, "TRIMUL_MM_TRANSPOSE_STATS", {}).items()}
+    try:
+        TT_ = importlib.import_module("tt_bio.trimul_tail")
+        res["trimul_tail_sub"] = {k: list(getattr(TT_, k)) for k in
+                                  ("GIN_MOVE_STATS", "RES_STATS", "T1_STATS", "T2_STATS", "MASK_STATS")
+                                  if hasattr(TT_, k)}
+    except Exception as e:
+        res["trimul_tail_sub"] = {"absent": repr(e)}
     # The grid-derived thresholds in effect in this process. _apply_grid_thresholds runs at
     # device open, not at import, so this has to be read after a fold, not from the source.
     res["thresholds"] = {k: getattr(T, k, "absent") for k in (
@@ -321,6 +338,7 @@ def main():
     flush()
     print(f"[{a.label}] reach {res['reach']}", flush=True)
     print(f"[{a.label}] FP32_SOFTMAX_STATS {res['fp32_softmax_stats']}", flush=True)
+    print(f"[{a.label}] TRIMUL_ROUTES {res['trimul_routes']} {res['trimul_tail_sub']}", flush=True)
     print("wrote", a.out, flush=True)
     T.cleanup()
 

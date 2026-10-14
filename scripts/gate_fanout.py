@@ -1826,6 +1826,13 @@ def main() -> int:
     tests_in = {s: content_hash(s, tests=True, runner=RUNNER_FILES_0) for s in same}
     runner_in = {s: content_hash(s, runner=RUNNER_FILES_0) for s in same}
     keys, scopes, results, todo = {}, {}, [], {a: [] for a in archs}
+    # A record run whose runner died (pc rebooted 2026-10-13 18:13Z with 10 of 27 legs recorded)
+    # resumes in the same --out: a record leg that passed there at this commit, with its fragment
+    # still on disk, keeps that row. The ledger never reuses record legs, so nothing else would.
+    prior = args.out / "results.jsonl"
+    kept = {(r["leg"], r["arch"]): r for r in map(json.loads, prior.read_text().splitlines())
+            if r.get("sha") == sha and r["verdict"] == "PASS" and r["leg"].startswith("record:")
+            and r.get("seeded") and Path(r["seeded"]).is_file()} if prior.exists() else {}
     nonpy = content_hash(sha, python=False)
     for lg in legs:
         on = [a for a in archs if not lg.card_types
@@ -1874,6 +1881,8 @@ def main() -> int:
                                 "card_type": ctype[a]})
             elif hit and hit.get("verdict") in OK:
                 results.append(_reused(lg.name, slot, k, hit))
+            elif (lg.name, slot) in kept:
+                results.append(kept[lg.name, slot])
             elif lg.card:
                 todo[a].append(lg)
             else:

@@ -204,7 +204,8 @@ def upload_dropout(trunk, pair_draws, pair_keep, scales, n32, msa_keep=None):
             t = torch.from_numpy(np.array(raw, dtype=np.float32)) * float(scale)
             if pad:
                 t = torch.nn.functional.pad(t, (0, 0, 0, pad), value=float(scale))
-            block[op] = trunk.up(t.unsqueeze(1) if axis else t.unsqueeze(0))
+            block[op] = (trunk.up(t.unsqueeze(1), tile_on_card=True) if axis
+                         else trunk.up(t.unsqueeze(0)))
         out.append(block)
     return out
 
@@ -899,10 +900,23 @@ class _Trunk:
         self.extra_blocks = len(self.model.device_extra_msa)
         self.template_blocks = len(self.model.device_template)
 
-    def up(self, t: torch.Tensor):
-        return self.ttnn.from_torch(t.detach().unsqueeze(0).to(torch.bfloat16),
-                                    layout=self.ttnn.TILE_LAYOUT, device=self.device,
-                                    dtype=self.ttnn.bfloat16)
+    def up(self, t: torch.Tensor, tile_on_card: bool = False):
+        """`t` on the card in tile layout, with a leading axis.
+
+        `tile_on_card` sends it row-major and tiles it there. For a tensor whose second-to-last
+        axis is 1 (a column dropout mask, `[n, 1, c]`) the host tilize pads that axis to 32 and
+        so builds and ships 32x the bytes: 1.4 ms an upload on a Galaxy host against ~0.1 ms for
+        the same mask as a row.
+        """
+        ttnn = self.ttnn
+        x = ttnn.from_torch(t.detach().unsqueeze(0).to(torch.bfloat16),
+                            layout=ttnn.ROW_MAJOR_LAYOUT if tile_on_card else ttnn.TILE_LAYOUT,
+                            device=self.device, dtype=ttnn.bfloat16)
+        if not tile_on_card:
+            return x
+        tiled = ttnn.to_layout(x, ttnn.TILE_LAYOUT)
+        ttnn.deallocate(x)
+        return tiled
 
     def down(self, t, shape) -> torch.Tensor:
         x = torch.Tensor(self.ttnn.to_torch(t)).float()

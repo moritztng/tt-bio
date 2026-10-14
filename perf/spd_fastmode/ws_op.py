@@ -20,6 +20,9 @@ ap.add_argument("--seed", type=int, default=0)
 ap.add_argument("--silu", type=int, default=None, help="pair_swiglu_ws silu: 0 metal, 1 degree-8 poly, 2 degree-6")
 ap.add_argument("--arms", default="normal,normal+transition_ws,normal+transition_ws+ws_ln,fast,fast+transition_ws,"
                 "fast+transition_ws+ws_ln", help="comma list of lever sets")
+ap.add_argument("--resid", action="store_true",
+                help="time and check the residual form x + transition(x) (Transition._transition, add_to_input), "
+                     "the one the pair stack calls; each call gets a fresh device copy of x, made outside the clock")
 a = ap.parse_args()
 
 from tt_bio.main import ensure_p300_mesh_descriptor  # noqa: E402
@@ -41,6 +44,8 @@ xb = x.to(torch.bfloat16).double()
 ln = torch.nn.functional.layer_norm(xb, (c,), sd["norm.weight"].double(), sd["norm.bias"].double(), 1e-5)
 ref = (torch.nn.functional.silu(ln @ sd["fc1.weight"].double().t()) * (ln @ sd["fc2.weight"].double().t())) \
     @ sd["fc3.weight"].double().t()
+if a.resid:
+    ref = ref + xb
 
 dev = T.get_device()
 base = ttnn.WormholeComputeKernelConfig(math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=False,
@@ -49,20 +54,24 @@ xt = ttnn.from_torch(x, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev
 for arm in a.arms.split(","):
     with T.levers(arm):
         mod = T.Transition(sd, T.trunk_compute_kernel_config(base))
+        call = (lambda t: mod._transition(t, None, True)) if a.resid else mod
+        fresh = (lambda: ttnn.clone(xt, memory_config=ttnn.DRAM_MEMORY_CONFIG)) if a.resid else (lambda: xt)
         for _ in range(3):
-            ttnn.deallocate(mod(xt))
+            ttnn.deallocate(call(fresh()))
         ttnn.synchronize_device(dev)
         ts = []
         for _ in range(a.reps):
+            xi = fresh()
+            ttnn.synchronize_device(dev)
             t0 = time.perf_counter()
-            o = mod(xt)
+            o = call(xi)
             ttnn.synchronize_device(dev)
             ts.append(time.perf_counter() - t0)
             last = o
         out = ttnn.to_torch(last).double()
     d = out - ref
     assert torch.isfinite(out).all(), arm
-    print(json.dumps(dict(arm=arm, n=a.n, c=c, hidden=h, ms=round(1e3 * statistics.median(ts), 3),
+    print(json.dumps(dict(arm=arm, resid=a.resid, n=a.n, c=c, hidden=h, ms=round(1e3 * statistics.median(ts), 3),
                           rel_rms=float(d.pow(2).mean().sqrt() / ref.pow(2).mean().sqrt()),
                           max_abs=float(d.abs().max()), n_bad=int((d.abs() > 0.5).sum()), ws_fired=getattr(mod, "_ws", None) is not None, silu=W.SILU_POLY,
                           card=os.environ.get("TT_VISIBLE_DEVICES"))), flush=True)

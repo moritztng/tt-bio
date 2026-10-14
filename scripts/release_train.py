@@ -31,6 +31,7 @@ for a person or a fix row, who fixes it forward through FIXES; the train never r
 from __future__ import annotations
 
 import argparse
+import fcntl
 import json
 import os
 import re
@@ -192,18 +193,49 @@ def cut(sha: str, gate_dir: str, remote: str, dry: bool, wait_s: int, record: Pa
     return 0 if rec["ok"] else 1
 
 
+def own_runner(out: Path) -> Path:
+    """A worktree at this train's commit, <out>/runner, for the gate in `out` to run from. A gate
+    reads its scripts for hours; run from the train's own clone it pinned that clone, and the cron
+    skipped every tick until it ended, so on 2026-10-13 a gate stalled on a returned Galaxy also held
+    back the cut of an older commit that was ready. Runners of gates that have ended are removed."""
+    for old in out.parent.glob("*/runner"):
+        if (old.parent / "VERDICT.md").exists() and not locked(old.parent / "runner.lock"):
+            subprocess.run(["git", "-C", str(REPO), "worktree", "remove", "--force", str(old)], capture_output=True)
+    subprocess.run(["git", "-C", str(REPO), "worktree", "prune"], capture_output=True)
+    runner = out / "runner"
+    head = git("rev-parse", "HEAD", repo=REPO)
+    if runner.exists():
+        subprocess.run(["git", "-C", str(runner), "checkout", "-q", "--detach", head], check=True)
+    else:
+        subprocess.run(["git", "-C", str(REPO), "worktree", "add", "-q", "--detach", str(runner), head], check=True)
+    return runner
+
+
+def locked(path: Path) -> bool:
+    """True while a gate_fanout runner holds `path` (gate_fanout.hold_out)."""
+    try:
+        with open(path) as f:
+            fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except FileNotFoundError:
+        return False
+    except BlockingIOError:
+        return True
+    return False
+
+
 def start_gate(sha: str, gates: Path, config: Path, models: list | None = None) -> None:
     """The full gate on `sha` (<gates>/rel-<sha9>, plus the config's "args"), or with `models` a
     record run of their size ladders (<gates>/rec-<sha9>)."""
     cfg = json.loads(config.read_text())
     out = gates / f"{'rec' if models else 'rel'}-{sha[:9]}"
     out.mkdir(parents=True, exist_ok=True)
-    cmd = [sys.executable, "-u", str(REPO / "scripts" / "gate_fanout.py"), "--sha", sha, "--out", str(out),
+    runner = own_runner(out)
+    cmd = [sys.executable, "-u", str(runner / "scripts" / "gate_fanout.py"), "--sha", sha, "--out", str(out),
            *(x for k in ("hosts", "workers", "timed") if cfg.get(k) for x in (f"--{k}", cfg[k])),
            *(["--legs", "record:*", "--record-full", ",".join(models)] if models else cfg.get("args", []))]
     with open(out / "train.log", "a") as log:
-        p = subprocess.Popen(cmd, cwd=REPO, stdout=log, stderr=subprocess.STDOUT, start_new_session=True,
-                             env={**os.environ, "PYTHONPATH": str(REPO)})
+        p = subprocess.Popen(cmd, cwd=runner, stdout=log, stderr=subprocess.STDOUT, start_new_session=True,
+                             env={**os.environ, "PYTHONPATH": str(runner)})
     print(f"{'RECORD' if models else 'GATE'} {sha[:12]}: started gate_fanout pid {p.pid}, {out}/train.log")
 
 
