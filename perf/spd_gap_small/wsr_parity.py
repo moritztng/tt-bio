@@ -21,6 +21,9 @@ w3 = (torch.randn(h, c, generator=g) / h ** 0.5).bfloat16()
 d = lambda t: t.double()  # noqa: E731
 t_ref = (torch.nn.functional.silu(d(xn) @ d(w1)) * (d(xn) @ d(w2))) @ d(w3)
 ref = d(z) + t_ref
+# Any bf16 pair output carries this much: ref itself rounded to bf16 once (the shipped add_ rounds t and z + t).
+floor = ((d(ref.bfloat16()) - ref).pow(2).mean().sqrt() / t_ref.pow(2).mean().sqrt()).item()
+print(f"c {c} rows {rows} z_scale {zs}: one-rounding floor rel_rms {floor:.5f}", flush=True)
 up = lambda t: ttnn.from_torch(t, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev)  # noqa: E731
 for wdt in (ttnn.bfloat16, ttnn.bfloat8_b):
     parts = W.weights(w1.float(), w2.float(), w3.float(), dev, wdt)
@@ -41,7 +44,7 @@ for wdt in (ttnn.bfloat16, ttnn.bfloat8_b):
                 for a, b in parts:
                     o = d(ttnn.to_torch(W.pair_swiglu(xt, a, b, fid, l1acc=l1acc)))
                     acc = o if acc is None else acc + o
-                out = d(z) + acc
+                out = d((d(z) + d(acc.bfloat16())).bfloat16())  # the shipped add_: bf16 t, bf16 z + t
             assert torch.isfinite(out).all(), "non-finite output"
             e = out - ref
             rel = (e.pow(2).mean().sqrt() / t_ref.pow(2).mean().sqrt()).item()
