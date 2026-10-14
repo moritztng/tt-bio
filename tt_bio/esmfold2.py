@@ -38,6 +38,8 @@ from tt_bio.tenstorrent import (
     accurate_softmax_site,
     attn_value_matmul,
     fused_sdpa,
+    is_wormhole,
+    lever,
     trunk_compute_kernel_config,
     trace_region_size,
 )
@@ -78,6 +80,19 @@ def report_progress(stage, step=0, total=0):
 # set_trajectory_dump() installs one. It only reads tensors the sampler already made, so a fold is
 # bit-identical with or without it. An exception raised by the hook aborts the fold.
 _DUMP = None
+
+# The atom transformer's SwiGLU up-projection as two linears (one per half of w_up) instead of one linear and a
+# ttnn.chunk: 6 atom blocks x every sampler step, the chunk was 0.30 s of device time per 512-aa fold (census c3).
+ATOM_FFN_SPLIT = env_flag("TT_BIO_ESMFOLD2_ATOM_FFN_SPLIT", None)  # unset: the ef2_atom_ffn_split lever
+
+
+def gate(flag, name):
+    """A branch-stack switch: its setting when given, else whether lever `name` is active in the fold's scope.
+    The ef2_* levers pass the fast bar as a stack on both models and fail the normal bar on ESMFold2 (CA-lDDT
+    -0.0019 [-0.0050, -0.0001], 44 paired folds), so only esmfold2_runtime.LEVERS_FAST names them until a
+    per-lever normal grade says which one moves the structure. Graded on Blackhole only, so Wormhole folds without
+    them until its own fast-bar grade."""
+    return (lever(name) and not is_wormhole()) if flag is None else flag
 
 #: Replay the diffusion step from a ttnn trace (StructureHead._step) when the device was opened
 #: with get_device(trace="esmfold2"). Lossless. Off: it lost 0.46 s/fold on p150a while the dense
@@ -202,7 +217,8 @@ class PairUpdateBlock(Module):
         # runs per block so fc2's output never round-trips DRAM (lever F, esmc.PAIR_FFN_FUSED_
         # RESIDUAL). Bit-exact -- the add is elementwise and row-independent.
         out = self.transition.residual(z)
-        ttnn.deallocate(z)
+        if out is not z:  # ws_resid wrote into z
+            ttnn.deallocate(z)
         return out
 
 
@@ -869,6 +885,9 @@ class SWAAtomBlock(Module):
         self.adaln_w = self.torch_to_tt("adaln_modulation.1.weight")
         self.attn = SWAAttention(n_heads, self.scope("attn"), compute_kernel_config)
         self.ffn_up = self.torch_to_tt("ffn.w_up.weight")
+        h = self.weights["ffn.w_up.weight"].shape[0] // 2
+        self.ffn_up_ab = tuple(self.torch_to_tt("ffn.w_up.weight", lambda w, s=s: w[s].t())
+                               for s in (slice(0, h), slice(h, None)))
         self.ffn_down = self.torch_to_tt("ffn.w_down.weight")
         self._mod = None       # cached adaLN modulation chunks (see __call__)
         self._mod_src = None   # identity of the conditioning c_l they were built from
@@ -903,7 +922,10 @@ class SWAAtomBlock(Module):
         ttnn.deallocate(attn_out)
 
         ffn_in = self._modulate(x, cf, sf)
-        h1, h2 = ttnn.chunk(lin(ffn_in, self.ffn_up), 2, dim=-1)
+        if gate(ATOM_FFN_SPLIT, "ef2_atom_ffn_split"):
+            h1, h2 = (lin(ffn_in, w) for w in self.ffn_up_ab)
+        else:
+            h1, h2 = ttnn.chunk(lin(ffn_in, self.ffn_up), 2, dim=-1)
         ttnn.deallocate(ffn_in)
         ffn_out = lin(ttnn.multiply(ttnn.silu(h1), h2), self.ffn_down)
         ttnn.deallocate(h1); ttnn.deallocate(h2)
@@ -1183,6 +1205,71 @@ def relpos_features(residue_index, asym_id, sym_id, entity_id, token_index,
     return torch.cat([a_res.float(), a_tok.float(), same_entity.float().unsqueeze(-1), a_ch.float()], dim=-1)
 
 
+class PairLookup:
+    """A [B,L,L,c] pair tensor held as `rows[codes]`: one int code per pair, one fp32 row per distinct code.
+
+    The vendored forward only stores it, adds it or calls `.float()` / `.detach()` on it; `host()` is the
+    dense fp32 tensor and `device(dev)` builds it on the device with one embedding (an L*L index and a
+    [U,c] table cross PCIe instead of the 134 MB bf16 pair at 512 tokens)."""
+
+    dtype = torch.float32
+
+    def __init__(self, codes, rows):
+        self.codes, self.rows = codes, rows
+
+    @property
+    def shape(self):
+        return (*self.codes.shape, self.rows.shape[-1])
+
+    def float(self):
+        return self
+
+    detach = float
+
+    def host(self):
+        return F.embedding(self.codes, self.rows)
+
+    def device(self, dev):
+        assert self.codes.shape[0] == 1, self.codes.shape
+        from tt_bio.tenstorrent import pair_lookup_device
+        return pair_lookup_device(self.codes[0], self.rows, dev)
+
+
+def relpos_rows(w, residue_index, asym_id, sym_id, entity_id, token_index, r_bins=32, c_bins=2) -> PairLookup:
+    """`relpos_features(...) @ w.T` without the one-hots: every feature group is one-hot (entity is one
+    0/1 column), so the product is a sum of rows of w.T picked by index, and each distinct index tuple is
+    one row of the table. Rows are summed in fp32 in the order relpos_lookup always used."""
+    n = 2 * r_bins + 2
+    t = w.t().float()  # [n_feats, d_pair]
+    same_chain = asym_id.unsqueeze(2) == asym_id.unsqueeze(1)
+    same_res = residue_index.unsqueeze(2) == residue_index.unsqueeze(1)
+    same_entity = entity_id.unsqueeze(2) == entity_id.unsqueeze(1)
+    dij = torch.clip(residue_index.unsqueeze(2) - residue_index.unsqueeze(1) + r_bins, 0, 2 * r_bins)
+    dij = torch.where(same_chain, dij, 2 * r_bins + 1)
+    dtok = torch.clip(token_index.unsqueeze(2) - token_index.unsqueeze(1) + r_bins, 0, 2 * r_bins)
+    dtok = torch.where(same_chain & same_res, dtok, 2 * r_bins + 1)
+    dch = torch.clip(sym_id.unsqueeze(2) - sym_id.unsqueeze(1) + c_bins, 0, 2 * c_bins)
+    dch = torch.where(same_chain, 2 * c_bins + 1, dch)
+    nc = 2 * c_bins + 2
+    uniq, codes = torch.unique(((dij.long() * n + dtok) * nc + dch) * 2 + same_entity.long(), return_inverse=True)
+    se, rest = uniq % 2, uniq // 2
+    ch, rest = rest % nc, rest // nc
+    rows = t[:n][rest // n] + t[n:2 * n][rest % n]
+    rows += t[2 * n + 1:][ch]
+    rows += se.bool().unsqueeze(-1) * t[2 * n]
+    return PairLookup(codes, rows)
+
+
+def relpos_lookup(w, residue_index, asym_id, sym_id, entity_id, token_index, r_bins=32, c_bins=2):
+    """Dense fp32 `relpos_features(...) @ w.T` (relpos_rows on the host)."""
+    return relpos_rows(w, residue_index, asym_id, sym_id, entity_id, token_index, r_bins, c_bins).host()
+
+
+# Relative positions by table lookup on the host (relpos_lookup); False = one-hot features through a device linear.
+# Unset follows the ef2_relpos_lookup lever.
+RELPOS_LOOKUP = env_flag("TT_BIO_ESMFOLD2_RELPOS_LOOKUP", None)
+
+
 class RelPosEncoding(TorchWrapper):
     """Relative-position pair encoding: host one-hot features -> Linear(n_feats, d_pair)."""
 
@@ -1194,7 +1281,12 @@ class RelPosEncoding(TorchWrapper):
         self._w = weights["embed.weight"]
         return weights  # no ttnn submodule; we just hold the weight
 
+    def rows(self, residue_index, asym_id, sym_id, entity_id, token_index) -> PairLookup:
+        return relpos_rows(self._w, residue_index, asym_id, sym_id, entity_id, token_index, self.r_bins, self.c_bins)
+
     def forward(self, residue_index, asym_id, sym_id, entity_id, token_index):
+        if gate(RELPOS_LOOKUP, "ef2_relpos_lookup"):
+            return self.rows(residue_index, asym_id, sym_id, entity_id, token_index).host()
         feats = relpos_features(residue_index, asym_id, sym_id, entity_id, token_index, self.r_bins, self.c_bins)
         w = ttnn.from_torch(self._w.t(), layout=ttnn.TILE_LAYOUT, device=self.tt_device, dtype=_DTYPE)
         out = ttnn.linear(self._from_torch(feats.float()), w, compute_kernel_config=self.compute_kernel_config,
@@ -1247,17 +1339,23 @@ class LanguageModelShimModel(Module):
         self.o2_w = self.torch_to_tt("base_z_mlp.0.output_mlp.2.weight"); self.o2_b = self.torch_to_tt("base_z_mlp.0.output_mlp.2.bias", transform=_ROW)
         self.fln_w = self.torch_to_tt("base_z_mlp.1.weight"); self.fln_b = self.torch_to_tt("base_z_mlp.1.bias")
 
-    def __call__(self, hidden, combine_w):  # hidden [B, L*K, d_model] (flat_layers); combine_w torch [K]
+    def __call__(self, hidden, combine_w, precombined=False):  # hidden [B, L*K, d_model] (flat_layers); combine_w torch [K]
         ck = self.compute_kernel_config
         lin = self._lin
         ln = lambda t, w, b: ttnn.layer_norm(t, weight=w, bias=b, epsilon=1e-5, compute_kernel_config=ck)
-        K = combine_w.numel()
+        K = 1 if precombined else combine_w.numel()
         B, L = hidden.shape[0], hidden.shape[1] // K
+        if precombined:  # K = 1: the ESMC already summed the weighted layer norms (combine_lm)
+            x = lin(lin(hidden, self.zl_w), self.dp_w, self.dp_b)
+            return self._pair_init(x, L)
         lz = lin(ln(hidden, self.zl_ln_w, self.zl_ln_b), self.zl_w)  # [B, L*K, 256]
         # Softmax-weighted layer combine on host (non-learned given combine_w).
         lz_t = torch.Tensor(ttnn.to_torch(lz)).float().reshape(B, L, K, 256)
         x_t = (combine_w.view(1, 1, K, 1) * lz_t).sum(2)  # [B,L,256]
         x = lin(ttnn.from_torch(x_t, layout=ttnn.TILE_LAYOUT, device=self.device, dtype=_DTYPE), self.dp_w, self.dp_b)
+        return self._pair_init(x, L)
+
+    def _pair_init(self, x, L):
         # The outer-product pair init holds a, b, their product and difference, and the
         # 512-wide concat all at full [B,L,L,*]: ~4.4 GiB at L=1095, which is the
         # allocation esmfold2's 9j4c exclusion dies on (1255833600 B = 1095x1120x512x2,
@@ -1305,11 +1403,30 @@ class LanguageModelShim(TorchWrapper):
 
     def _create_module(self, weights: WeightScope) -> LanguageModelShimModel:
         self._combine = weights["base_z_combine"]  # [n_layers+1]
+        self._ln_bias = weights["base_z_linear.0.bias"].float()
         return LanguageModelShimModel(weights, self.compute_kernel_config)
+
+    def combine_lm(self):
+        """What the ESMC needs to combine its layers itself: (softmax weights, LayerNorm weight, bias)."""
+        return torch.softmax(self._combine, 0).tolist(), self.module.zl_ln_w, self.module.zl_ln_b
+
+    @staticmethod
+    def is_precombined(hidden_states) -> bool:
+        """The ESMC hands over one layer only when it combined them itself (combine_lm); the 6B has 81."""
+        return hidden_states.shape[2] == 1
+
+    def fill_absent(self, hidden_states):
+        """Non-protein tokens reach the shim as zero rows, and the reference's LayerNorm maps a zero row to
+        its bias in every layer, so their combined state is that bias (the weights sum to 1)."""
+        absent = (hidden_states == 0).all(-1, keepdim=True)
+        return torch.where(absent, self._ln_bias.to(hidden_states.dtype), hidden_states)
 
     def forward(self, hidden_states):
         w = torch.softmax(self._combine, 0)  # [K]
-        return self._to_torch(self.module(self._from_torch(flat_layers(hidden_states)), w))
+        pre = self.is_precombined(hidden_states)
+        if pre:
+            hidden_states = self.fill_absent(hidden_states)
+        return self._to_torch(self.module(self._from_torch(flat_layers(hidden_states)), w, precombined=pre))
 
 
 # ===========================================================================
@@ -1376,8 +1493,9 @@ def _opm_fallback_rows(L: int) -> int:
 #: reshapes that turn each 32x32 tile into a row of 1024; at 512 aa those reshapes are 95 of the op's
 #: ~114 ms (census c3, p150a). "kq": contract a with Wout's q-blocks first (K = 32 x MSA depth), so
 #: no tile ever changes shape. "rm": the original with its reshapes done row-major. A/B in
-#: perf/spd_gap_esmf/opm_bench.py.
-_OPM_PATH = os.environ.get("TT_BIO_ESMFOLD2_OPM", "tile")
+#: perf/spd_gap_esmf/opm_bench.py. Unset: "kq" under the ef2_opm_kq lever (LEVERS_FAST), else "tile".
+_OPM_PATH = os.environ.get("TT_BIO_ESMFOLD2_OPM") or None
+_OPM_KQ_MAX_DEPTH = 64
 
 
 class OuterProductMean(Module):
@@ -1463,7 +1581,14 @@ class OuterProductMean(Module):
             b = ttnn.concat([p[1] for p in parts], dim=1)
         else:
             a, b = self._project(m, mf)  # [B,L,M,32]
-        b2 = ttnn.reshape(ttnn.permute(b, (0, 2, 1, 3)), (B, M, L * 32))   # [B,M,L*32]
+        # kq costs 16384 L^2 Mp flops against tile's 2048 L^2 M + 524288 L^2 and holds a [L, 32 Mp, 256] transient,
+        # so it is for shallow MSAs only (the page fixture has 35 rows); deep ones keep the tile path.
+        path = _OPM_PATH or ("kq" if gate(None, "ef2_opm_kq") else "tile")
+        if path == "kq" and M <= _OPM_KQ_MAX_DEPTH:
+            b2, rows = b, self._rows_kq  # kq contracts the [B,L,M,32] b itself
+        else:
+            b2 = ttnn.reshape(ttnn.permute(b, (0, 2, 1, 3)), (B, M, L * 32))   # [B,M,L*32]
+            rows = self._rows_rm if path == "rm" else self._rows
         # The a2@b2 product is [B,L*32,L*32] (~2 GiB at L=1024), which OOMs the
         # 12 GB/chip Wormhole DRAM. Output row i depends only on a[i] and b, so
         # tiling over the i (row) dim is bit-exact. Pair op -> area-bounded tile
@@ -1472,7 +1597,7 @@ class OuterProductMean(Module):
         from tt_bio import tenstorrent
         chunk = tenstorrent.pair_row_tile(L)
         if chunk:
-            return self._row_blocked(a, b2, recip_nvalid, L, M, chunk)
+            return self._row_blocked(a, b2, recip_nvalid, L, M, chunk, rows)
         # `pair_row_tile` returns 0 on a big grid, so Blackhole runs this op in a single
         # pass -- which was right at every size it was measured at and is not at 1536.
         # `_rows` builds a [B, Bl*32, L*32] product, quadratic in L with a 32x blow-up on
@@ -1491,13 +1616,13 @@ class OuterProductMean(Module):
         # shared with the pair transition rather than written out again here.
         return tenstorrent.row_block_after_refusal(
             _OPM_ROWS_REFUSED, L,
-            lambda: self._rows(a, b2, recip_nvalid, L, M),
-            lambda rows: self._row_blocked(a, b2, recip_nvalid, L, M, rows),
+            lambda: rows(a, b2, recip_nvalid, L, M),
+            lambda n: self._row_blocked(a, b2, recip_nvalid, L, M, n, rows),
             rows=_opm_fallback_rows(L), tag="opm")
 
-    def _row_blocked(self, a, b2, recip_nvalid, L, M, chunk):
-        """`_rows` over `chunk`-row blocks. A further refusal is the caller's to shrink."""
-        outs = [self._rows(a[:, s:min(s + chunk, L), :, :], b2,
+    def _row_blocked(self, a, b2, recip_nvalid, L, M, chunk, rows):
+        """`rows` (one of the `_rows*` paths) over `chunk`-row blocks. A further refusal is the caller's to shrink."""
+        outs = [rows(a[:, s:min(s + chunk, L), :, :], b2,
                            recip_nvalid[:, s:min(s + chunk, L), :, :], L, M)
                 for s in range(0, L, chunk)]
         return ttnn.concat(outs, dim=1)
@@ -1619,7 +1744,9 @@ class MSAEncoder(TorchWrapper):
         ft = self._from_torch
         # An all-ones mask (no column masking) multiplies by one: skip it.
         mf = None if bool(mask_f.all()) else ft(mask_f.unsqueeze(-1))
-        out = self.module(ft(x_pair), ft(x_inputs), ft(m_feat.float()), ft((1.0 / n_valid).float()), mf)
+        # A device x_pair (ESMFold2's z_init built on the device) is copied: the blocks update the pair in place.
+        xp = ttnn.clone(x_pair) if isinstance(x_pair, ttnn.Tensor) else ft(x_pair)
+        out = self.module(xp, ft(x_inputs), ft(m_feat.float()), ft((1.0 / n_valid).float()), mf)
         return self._to_torch(out)
 
 
@@ -1770,7 +1897,8 @@ class StructureHead(TorchWrapper):
         oh = F.one_hot(tok_idx[0].long(), L).float() * ref_mask[0].float()[:, None]
         gather_g = oh.unsqueeze(0)
         scatter_m = (oh / oh.sum(0).clamp(min=1)).t().unsqueeze(0)
-        dmm.prepare(ft(s_inputs), z_trunk if isinstance(z_trunk, ttnn.Tensor) else ft(z_trunk), ft(relpos), ft(atom_feats.float()),
+        relpos = relpos.device(self.tt_device) if isinstance(relpos, PairLookup) else ft(relpos)
+        dmm.prepare(ft(s_inputs), z_trunk if isinstance(z_trunk, ttnn.Tensor) else ft(z_trunk), relpos, ft(atom_feats.float()),
                     ft(cos.float()), ft(sin.float()), band,
                     ft(scatter_m.float()), ft(gather_g.float()), ft(valid))
         self._base, self._ref_mask, self._n_atoms = dmm._ctx, ref_mask, N

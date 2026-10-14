@@ -1084,7 +1084,7 @@ def eligible_gated(xw, slice_c, memory_config) -> bool:
     if xw.memory_config().memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED:
         return _reject("gated_sharded_in", shape)
     bt = memory_config.buffer_type
-    if not ((bt == ttnn.BufferType.DRAM and (N >= 256 or (DRAM_FILL_GATED and DRAM_FILL and _l1_fills_grid(xw, N))))
+    if not ((bt == ttnn.BufferType.DRAM and (N >= 256 or (DRAM_FILL_GATED and _dram_open(xw, N))))
             or (bt == ttnn.BufferType.L1 and N <= L1_N_MAX
                 and (N >= L1_N_MIN or _l1_fills_grid(xw, N)))):
         return _reject(f"gated_window_{bt}", shape)

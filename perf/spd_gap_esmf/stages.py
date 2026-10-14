@@ -122,13 +122,14 @@ _WRAPPERS = ("_from_torch", "_to_torch", "upload", "download", "_to_host")
 
 
 def _site():
-    """First tt_bio frame; through a generic upload/download wrapper, also the frame that called it."""
+    """First tt_bio frame, followed through the generic upload/download wrappers (download <- _to_torch <- ...)
+    to the first frame that is not one, so a site names the code that asked for the transfer."""
     f, out = sys._getframe(2), []
     while f is not None:
         fn = f.f_code.co_filename
         if "/tt_bio/" in fn and "/ttnn/" not in fn:
             out.append(f"{fn.split('/tt_bio/')[-1]}:{f.f_lineno}({f.f_code.co_name})")
-            if f.f_code.co_name not in _WRAPPERS or len(out) == 2:
+            if f.f_code.co_name not in _WRAPPERS or len(out) == 4:
                 return " <- ".join(out)
         f = f.f_back
     return " <- ".join(out) or "?"
