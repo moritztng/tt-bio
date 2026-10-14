@@ -54,7 +54,8 @@ NO_REPLAY = {"deallocate"}
 WRAP = ["matmul", "linear", "add", "multiply", "subtract", "mean", "reshape", "concat",
         "layer_norm", "deallocate", "sum", "typecast", "softmax", "sigmoid", "zeros",
         "to_memory_config", "slice", "rsub", "rsqrt", "permute", "transpose", "relu",
-        "ones_like", "gtz", "divide", "clone", "repeat", "pad", "moreh_linear_backward"]
+        "ones_like", "gtz", "divide", "clone", "repeat", "pad", "moreh_linear_backward",
+        "generic_op"]
 
 
 def elem_bytes(ttnn, dt):
@@ -194,6 +195,10 @@ class Recorder:
         self.orig["__getitem__"] = gi
         wrapped = self._wrap("getitem", gi)
         self.ttnn.Tensor.__getitem__ = lambda self_, key: wrapped(self_, key)
+        # Without this the tape shim keeps the unwrapped verbs and the census sees only the
+        # backward: BC2 replays taken this way read "card <= 0.45 s" of an iteration whose forward
+        # alone syncs ~1.9 s (spd-gap-bind, 10-14).
+        self._rebind_shim()
         return self
 
     # Ops outside WRAP (the fused SDPA, ttnn.experimental kernels, to_torch/from_torch) dispatch
