@@ -155,7 +155,8 @@ def rfd3():
         if len(cifs) != 1 or len(walls) != 1:
             res["errors"].append(f"rep {i}: {len(cifs)} CIFs, {len(walls)} sampler calls")
         for c in cifs:
-            res["errors"] += cif_check(c, [100, 585])
+            # the page fixture's contig "A1-585,100" has no "/0" break: the 100 designed residues extend chain A
+            res["errors"] += cif_check(c, [685])
     if len({f["cif_sha256"] for f in res["folds"]}) != 1:
         res["errors"].append("seed 42 CIF digest moved between reps")
 
@@ -256,13 +257,14 @@ def nesso1():
         # from numpy's and Python's global RNGs, which screen() leaves running, so rep i would differ from rep 0
         torch.manual_seed(DEFAULT_SEED); np.random.seed(DEFAULT_SEED); random.seed(DEFAULT_SEED)
         feats = collate(dataset[0])
+        fd = hashlib.sha256(b"".join(v.contiguous().reshape(-1).view(torch.uint8).numpy().tobytes() for _, v in sorted(feats.items()) if torch.is_tensor(v)))
         t1 = time.perf_counter()
         with torch.no_grad():
             pred = model.predict(feats)
         t2 = time.perf_counter()
         sc = {k: float(pred[k].reshape(-1)[0]) for k in REPORTED_SCALARS if k in pred}
         f = {"tag": rep(i), "fold_s": round(t2 - t0, 3), "prepare_s": round(t1 - t0, 3),
-             "predict_s": round(t2 - t1, 3), "n_tokens": int(feats["token_pad_mask"].shape[-1]), "scalars": sc,
+             "predict_s": round(t2 - t1, 3), "feats_sha256": fd.hexdigest()[:16], "n_tokens": int(feats["token_pad_mask"].shape[-1]), "scalars": sc,
              "cif_sha256": hashlib.sha256(json.dumps(sc, sort_keys=True).encode()).hexdigest()[:16]}
         res["folds"].append(f)
         print(json.dumps(f), flush=True)
