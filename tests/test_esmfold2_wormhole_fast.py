@@ -47,4 +47,5 @@ def test_normal_set_takes_hifi2_only_where_graded(monkeypatch, wormhole):
     monkeypatch.delenv("TT_BIO_LEVERS", raising=False)
     monkeypatch.setattr(rt, "is_wormhole", lambda: wormhole)
     assert ("trimul_gin_hifi2" in rt.fold_levers(False).split("+")) is not wormhole
-    assert rt.fold_levers(True) == rt.LEVERS_FAST
+    # ws_resid passed ESMFold2's fast bar on Blackhole only, so Wormhole's fast set drops it.
+    assert ("ws_resid" in rt.fold_levers(True).split("+")) is not wormhole
