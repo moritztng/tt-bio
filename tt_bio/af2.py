@@ -122,8 +122,9 @@ TRANSITION_L1 = env_flag("TT_BIO_AF2_TRANSITION_L1", False)
 # The whole transition as one program (`pair_swiglu_ws.pair_relu`): LayerNorm, fc1 + bias, ReLU, fc2 + bias with
 # both weights resident in L1, so x is read once, the output written once, and the normed x and the 4x-wide hidden
 # never reach DRAM. Under a tape only with the `pair_relu` entry installed (TT_BIO_TAPED_KERNELS): the node saves x
-# alone and its backward is `pair_relu_bw` (pre-activation recomputed in L1) then `lnbw.layer_norm_bw`.
-TRANSITION_WS = env_flag("TT_BIO_AF2_TRANSITION_WS", False)
+# alone and its backward is `pair_relu_bw` (pre-activation recomputed in L1) then `lnbw.layer_norm_bw`. AF2-IG at 195
+# tokens: Evoformer -0.12 s on Wormhole, -0.10 s on p150a, structure within 0.03 A of the composed path.
+TRANSITION_WS = env_flag("TT_BIO_AF2_TRANSITION_WS", True)
 # Hand the pair representation from the extra-MSA stack straight to the Evoformer stack as a
 # device tensor, instead of downloading it and uploading the same bytes back. `AF2Model.forward`
 # does not touch `pair` between the two calls -- it only concatenates the template torsion rows
