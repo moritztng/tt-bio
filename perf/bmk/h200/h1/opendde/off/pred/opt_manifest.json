@@ -1,0 +1,720 @@
+{
+ "schema": "opendde_opt.manifest/1",
+ "model": "opendde",
+ "command": "pred",
+ "mode": "off",
+ "line": null,
+ "activation": {
+  "active": false,
+  "mode": "off",
+  "line_name": null,
+  "route": "cli",
+  "opendde_version": "1.1.1",
+  "package_version": "0.2.72",
+  "gpu": {
+   "name": "NVIDIA H200",
+   "sm": "90",
+   "memory_mib": 143771,
+   "cuda_visible": null
+  },
+  "levers_applied": [],
+  "levers_planned": [],
+  "levers_fallback": [],
+  "partial": false,
+  "notes": [
+   "stock: no switch exported, no kit directory on the path"
+  ],
+  "levers_refused_on_pin": {},
+  "tree": "/root/kit/opendde",
+  "n_gpu": 1,
+  "line": "off",
+  "small_input_floor": null,
+  "levers_gated_off": {},
+  "stock_knobs": null,
+  "chunk_lift_ceiling": null,
+  "stepgraph_gate": null,
+  "ablated": [],
+  "stock_env": {
+   "LAYERNORM_TYPE": "fast_layernorm"
+  },
+  "reason": "mode off: stock opendde (no switch exported, no kit directory on the path)",
+  "logged": true,
+  "stock_proof": {
+   "env_absent": [
+    "OPENDDE_FORCE_",
+    "MODEL_OPT_TEST_",
+    "ODDE_",
+    "DIT_",
+    "CUEQ_",
+    "OO_",
+    "XL_",
+    "K2B_",
+    "OF3T_",
+    "FPF_",
+    "PF_",
+    "PTX_",
+    "OPENDDE_OPT",
+    "OPENDDE_WEIGHTS_DIR",
+    "CUBLAS_WORKSPACE_CONFIG",
+    "PYTORCH_CUDA_ALLOC_CONF"
+   ],
+   "forbidden_present": [],
+   "kit_modules_loaded": [],
+   "kit_dirs_on_path": [],
+   "autoload_armed": [],
+   "kit_sitecustomize": null,
+   "torch_loaded_before_proof": false,
+   "core_modules_loaded": [],
+   "no_user_site": true,
+   "python": "/root/kit/opendde/venv/bin/python",
+   "det_exception": null,
+   "ok": true,
+   "kit_sitecustomize_chained": [],
+   "reads": {
+    "OPENDDE_ROOT_DIR": "/weights/opendde",
+    "LAYERNORM_TYPE": "fast_layernorm",
+    "OPENDDE_FORCE_SAMPLE_DIFFUSION_AMP": null,
+    "OPENDDE_FORCE_CONFIDENCE_AMP": null,
+    "OPENDDE_PAIR_BIAS_ROW_CHUNK": null,
+    "OPENDDE_FOLDCP_MODE": null,
+    "OPENDDE_FOLDCP_SIZE_DP": null,
+    "OPENDDE_FOLDCP_SIZE_CP": null,
+    "OPENDDE_FOLDCP_DEVICES": null,
+    "OPENDDE_FOLDCP_METRICS_JSONL": null,
+    "CUDA_VISIBLE_DEVICES": null,
+    "CUDA_DEVICE_ORDER": null,
+    "RANK": null,
+    "LOCAL_RANK": null,
+    "WORLD_SIZE": null,
+    "LOCAL_WORLD_SIZE": null,
+    "OPENDDE_DEPENDENCY_URL": null,
+    "OPENDDE_COMMON_URL": null,
+    "OPENDDE_SEARCH_DATABASE_URL": null,
+    "OPENDDE_PDB_SEQRES_URL": null,
+    "OPENDDE_RFAM_DB_URL": null,
+    "OPENDDE_NT_RNA_DB_URL": null,
+    "OPENDDE_RNACENTRAL_DB_URL": null,
+    "MMSEQS_SERVICE_HOST_URL": null,
+    "XDG_CACHE_HOME": null,
+    "TRITON_CACHE_DIR": "/root/.cache/opendde_opt/jit/torch2.7.1-cu126-sm90/triton",
+    "TORCH_EXTENSIONS_DIR": "/root/.cache/opendde_opt/jit/torch2.7.1-cu126-sm90/torch_ext",
+    "CUBLAS_WORKSPACE_CONFIG": null,
+    "OPENDDE_FOLDCP_ATOM_WINDOW_PAIR_ROW_CHUNK": null,
+    "OPENDDE_FOLDCP_ATTN_PAIR_BIAS_SOURCE_GRID_MAX_BYTES": null,
+    "OPENDDE_FOLDCP_COMPACT_BF16_384_SOURCE_CHUNK": null,
+    "OPENDDE_FOLDCP_COMPACT_BF16_384_SOURCE_GRID": null,
+    "OPENDDE_FOLDCP_COMPACT_TRIMUL_OUTPUT_GATE": null,
+    "OPENDDE_FOLDCP_CONFIDENCE_COL_CHUNK": null,
+    "OPENDDE_FOLDCP_CONFIDENCE_DISTANCE_ROW_CHUNK": null,
+    "OPENDDE_FOLDCP_CONFIDENCE_GPU_OUTPUT_MAX_BYTES": null,
+    "OPENDDE_FOLDCP_CONFIDENCE_SOURCE_SLAB_MAX_BYTES": null,
+    "OPENDDE_FOLDCP_CONFIDENCE_TRANSPOSE_CPU_OFFLOAD_MIN_BYTES": null,
+    "OPENDDE_FOLDCP_DIFFUSION_BIAS_CACHE_MAX_BYTES": null,
+    "OPENDDE_FOLDCP_DIFFUSION_BIAS_ROW_CHUNK": null,
+    "OPENDDE_FOLDCP_DIFFUSION_CACHE_PAIR_Z_PROJECTION_MAX_BYTES": null,
+    "OPENDDE_FOLDCP_DIFFUSION_CACHE_PAIR_Z_ROW_CHUNK": null,
+    "OPENDDE_FOLDCP_DIFFUSION_CACHE_RELP_ROW_CHUNK": null,
+    "OPENDDE_FOLDCP_DIFFUSION_CACHE_RELP_SLAB_MAX_BYTES": null,
+    "OPENDDE_FOLDCP_DIFFUSION_CACHE_SOURCE_GRID_MAX_BYTES": null,
+    "OPENDDE_FOLDCP_DIFFUSION_CACHE_TRUNK_ROW_CHUNK": null,
+    "OPENDDE_FOLDCP_DIFFUSION_SOURCE_GRID_MAX_ROWS": null,
+    "OPENDDE_FOLDCP_DISTOGRAM_COL_CHUNK": null,
+    "OPENDDE_FOLDCP_DISTOGRAM_SOURCE_SLAB_MAX_BYTES": null,
+    "OPENDDE_FOLDCP_OPM_CHANNEL_CHUNK": null,
+    "OPENDDE_FOLDCP_PAIRFORMER_BLOCK_CACHE_RELEASE": null,
+    "OPENDDE_FOLDCP_PAIRFORMER_BLOCK_CACHE_RELEASE_MIN_ALLOCATED_MIB": null,
+    "OPENDDE_FOLDCP_PAIRFORMER_BLOCK_CACHE_RELEASE_MIN_FREE_MIB": null,
+    "OPENDDE_FOLDCP_PAIR_TRANSITION_FLAT_CHUNK": null,
+    "OPENDDE_FOLDCP_SOURCE_GRID_LINEAR_OUTPUT_CHUNK": null,
+    "OPENDDE_FOLDCP_TEMPLATE_REPLICATED_SERIAL_MAX_PAIR_ELEMENTS": null,
+    "OPENDDE_FOLDCP_TRIATT_ATTENTION_SCORE_BUDGET_BYTES": null,
+    "OPENDDE_FOLDCP_TRIATT_PROJECTION_SOURCE_GRID_MAX_BYTES": null,
+    "OPENDDE_FOLDCP_TRIATT_WRAP_ROW_CHUNK": null,
+    "OPENDDE_FOLDCP_TRIATT_WRAP_SOURCE_GRID_MAX_BYTES": null,
+    "OPENDDE_FOLDCP_TRIMUL_BMM_BLOCK_SIZE": null,
+    "OPENDDE_FOLDCP_TRIMUL_BMM_COL_BLOCK_SIZE": null,
+    "OPENDDE_FOLDCP_TRIMUL_BMM_ROW_BLOCK_SIZE": null,
+    "OPENDDE_FOLDCP_TRIMUL_CHANNEL_CHUNK": null,
+    "OPENDDE_FOLDCP_TRIMUL_DIRECT_B_OWNED_ROWS": null,
+    "OPENDDE_FOLDCP_TRIMUL_LAYERNORM_ROW_SLAB_MAX_BYTES": null,
+    "OPENDDE_FOLDCP_TRIMUL_LAYERNORM_SOURCE_GRID_MAX_BYTES": null,
+    "OPENDDE_FOLDCP_TRIMUL_OUTPUT_GATE_FLAT_CHUNK": null,
+    "OPENDDE_FOLDCP_TRIMUL_OUTPUT_SOURCE_GRID_MAX_BYTES": null,
+    "OPENDDE_FOLDCP_TRIMUL_PROJECTION_SOURCE_GRID_MAX_BYTES": null,
+    "OPENDDE_FOLDCP_TRIMUL_PROJECT_CHANNEL_CHUNK": null,
+    "OPENDDE_FOLDCP_TRIMUL_REPLICATED_SERIAL_MAX_BYTES": null
+   },
+   "cublas_workspace_config": null,
+   "stock_argv": [
+    "pred",
+    "-i",
+    "/root/kc/in/protenix.json",
+    "-o",
+    "/root/kc/results/opendde/off/pred",
+    "--cycle",
+    "10",
+    "--step",
+    "200",
+    "--sample",
+    "1",
+    "--use_msa",
+    "true",
+    "--use_template",
+    "false",
+    "--seeds",
+    "0",
+    "--dtype",
+    "bf16",
+    "--load_checkpoint_path",
+    "/weights/opendde/checkpoint/opendde.pt"
+   ],
+   "kernels": {
+    "route": "stock",
+    "expected": {
+     "fast_layernorm": {
+      "kind": "engaged",
+      "reason": null
+     },
+     "cueq_triatt": {
+      "kind": "engaged",
+      "reason": null,
+      "resolved": "cuequivariance",
+      "need_stack": true
+     },
+     "cueq_trimul": {
+      "kind": "engaged",
+      "reason": null,
+      "resolved": "cuequivariance",
+      "need_stack": true
+     }
+    },
+    "presence": {
+     "sites": {
+      "cueq_triatt": {
+       "ok": true,
+       "func": "cuequivariance_torch.primitives.triangle.triangle_attention",
+       "file": "/root/kit/opendde/venv/lib/python3.11/site-packages/cuequivariance_torch/primitives/triangle.py",
+       "error": null,
+       "threshold": 100
+      },
+      "cueq_trimul": {
+       "ok": true,
+       "func": "cuequivariance_torch.primitives.triangle.triangle_multiplicative_update",
+       "file": "/root/kit/opendde/venv/lib/python3.11/site-packages/cuequivariance_torch/primitives/triangle.py",
+       "error": null,
+       "threshold": 100
+      }
+     },
+     "front_version": "0.10.0",
+     "opendde_version": "1.1.1",
+     "ops_dist": "cuequivariance-ops-torch-cu12",
+     "ops_dist_version": "0.10.0",
+     "ops_build": "cu12",
+     "ops_version": "0.10.0",
+     "ops_commit": "release",
+     "sm100f": false,
+     "ops_error": null,
+     "device_cc": [
+      9,
+      0
+     ],
+     "torch": "2.7.1+cu126"
+    },
+    "probe": {
+     "cueq_triatt": {
+      "ok": true,
+      "served": true,
+      "s": 0.231,
+      "error": null
+     },
+     "cueq_trimul": {
+      "ok": true,
+      "served": true,
+      "s": 1.63,
+      "error": null
+     }
+    },
+    "resolved": {
+     "cueq_triatt": "cuequivariance",
+     "cueq_trimul": "cuequivariance",
+     "dtype": "bf16"
+    },
+    "counts": {
+     "cueq_triatt": {
+      "front": 6240,
+      "reference": 0,
+      "byrule": {},
+      "violations": 0,
+      "violation_examples": [],
+      "errors": 0
+     },
+     "cueq_trimul": {
+      "front": 6080,
+      "reference": 0,
+      "byrule": {},
+      "violations": 0,
+      "violation_examples": [],
+      "errors": 0
+     }
+    },
+    "words": {
+     "fast_layernorm": "engaged:fast_layer_norm_cuda_v2@opendde-1.1.1",
+     "cueq_triatt": "engaged:sm90@0.10.0-cu12[served=6240,byrule=0]",
+     "cueq_trimul": "engaged:sm90@0.10.0-cu12[served=6080,byrule=0]"
+    },
+    "line": "[opendde-opt stock] KERNELS route=stock fast_layernorm=engaged:fast_layer_norm_cuda_v2@opendde-1.1.1 cueq_triatt=engaged:sm90@0.10.0-cu12[served=6240,byrule=0] cueq_trimul=engaged:sm90@0.10.0-cu12[served=6080,byrule=0] others=n/a-upstream:deepspeed_ds4sci,cutlass,flash_attn,xformers,trifast,transformer_engine,apex,tokamax(0_references_in_opendde_1.1.1) cueq_dist=cuequivariance-torch@0.10.0,cuequivariance-ops-torch-cu12@0.10.0(grelease) resolved=cuequivariance,cuequivariance thresholds=triatt:100,trimul:100 probe_s=triatt:0.231,trimul:1.63 torch=2.7.1+cu126",
+    "problems": []
+   },
+   "kit_modules_loaded_after": [],
+   "opendde_version": "1.1.1"
+  },
+  "structures": {
+   "found": {
+    "per_item": {
+     "fold0": 1,
+     "fold1": 1,
+     "fold2": 1,
+     "fold3": 1,
+     "fold4": 1
+    },
+    "total": 5
+   }
+  }
+ },
+ "stock_flags": {
+  "stated": {
+   "cycle": "10",
+   "step": "200",
+   "sample": "1",
+   "use_msa": "true",
+   "use_template": "false",
+   "seeds": "0"
+  },
+  "effective": {
+   "cycle": "10",
+   "step": "200",
+   "sample": "1",
+   "dtype": "bf16",
+   "model_name": "opendde_v1",
+   "use_msa": "true",
+   "use_template": "false",
+   "use_rna_msa": "false",
+   "need_atom_confidence": "true",
+   "trimul_kernel": "auto",
+   "triatt_kernel": "auto",
+   "seeds": "0"
+  },
+  "defaults_source": "runner/batch_inference.py:692-913 (click options of `pred` = `predict`, :914; dtype choices bf16|fp32 and device choices auto|cuda|mps|cpu: opendde/config/schema.py:20-27; the search-binary/database path options :842-913 default to None)",
+  "base": "bf16_fastln",
+  "stock_env": {
+   "LAYERNORM_TYPE": "fast_layernorm"
+  }
+ },
+ "det": {
+  "level": 0,
+  "cli_args": [],
+  "env": {},
+  "recipe": "det=0 env=none unset=none pythonpath=0 (production numerics)",
+  "note": "no deterministic recipe"
+ },
+ "inputs": {
+  "path": "/root/kc/in/protenix.json",
+  "sha256": "1759fcb71d95b8a7a5d2058fe620cc90e4cb97ce37727ce0f13b9fa3b33aa578",
+  "n_items": 5,
+  "items": [
+   "fold0",
+   "fold1",
+   "fold2",
+   "fold3",
+   "fold4"
+  ],
+  "seeds": {
+   "fold0": [
+    0
+   ],
+   "fold1": [
+    0
+   ],
+   "fold2": [
+    0
+   ],
+   "fold3": [
+    0
+   ],
+   "fold4": [
+    0
+   ]
+  }
+ },
+ "outputs": {
+  "n_files": 15
+ },
+ "versions": {
+  "python": "3.11.5",
+  "executable": "/root/kit/opendde/venv/bin/python",
+  "opendde": "1.1.1",
+  "torch": "2.7.1+cu126",
+  "triton": "3.3.1",
+  "numpy": "2.4.1",
+  "scipy": "1.17.1",
+  "gemmi": null,
+  "cuequivariance": "0.10.0",
+  "cuequivariance-torch": "0.10.0",
+  "cuequivariance-ops-torch-cu12": "0.10.0",
+  "cuequivariance-ops-cu12": "0.10.0",
+  "rdkit": "2025.9.3",
+  "biotite": "1.4.0",
+  "biopython": "1.85",
+  "pandas": "2.3.1"
+ },
+ "gpu": {
+  "name": "NVIDIA H200",
+  "sm": "90",
+  "memory_mib": 143771,
+  "cuda_visible": null
+ },
+ "stack_key": "torch2.7.1-cu126-sm90",
+ "core": {
+  "version": "0.5.228.0",
+  "package_dir": "/root/kit/common/opt_core/opt_core"
+ },
+ "weights": {
+  "root": "/weights/opendde",
+  "checkpoint": "/weights/opendde/checkpoint/opendde.pt",
+  "checkpoint_present": true,
+  "checkpoint_bytes": 2625249069,
+  "checkpoint_sha256": "7b826620390afad877ee2babc6a4d0df81b94d3a0be030959853d6a7da0807cc",
+  "files_hashed": [
+   "checkpoint/opendde.pt"
+  ],
+  "digest_memo": "/root/.cache/opendde_opt/jit/weights/weights_digests.json",
+  "digest_cached_utc": "2026-10-14T21:56:54Z",
+  "digest_source": "memo",
+  "digest_memo_error": null,
+  "digest_memo_readonly": false,
+  "common_present": true,
+  "pinned": {
+   "bytes": 2625249069,
+   "sha256": "7b826620390afad877ee2babc6a4d0df81b94d3a0be030959853d6a7da0807cc"
+  },
+  "checkpoint_match": "pinned"
+ },
+ "tree": "/root/kit/opendde",
+ "started_utc": "2026-10-14T21:56:56Z",
+ "finished_utc": "2026-10-14T21:59:40Z",
+ "wall_s": 164.207,
+ "exit_code": 0,
+ "pid": 12377,
+ "argv": [
+  "/root/kit/opendde/opt/opendde_opt/__main__.py",
+  "pred",
+  "--mode",
+  "off",
+  "-i",
+  "/root/kc/in/protenix.json",
+  "-o",
+  "/root/kc/results/opendde/off/pred",
+  "--seeds",
+  "0",
+  "--cycle",
+  "10",
+  "--step",
+  "200",
+  "--sample",
+  "1",
+  "--use_msa",
+  "true",
+  "--use_template",
+  "false"
+ ],
+ "stock_cmd": [
+  "/root/kit/opendde/venv/bin/python",
+  "-s",
+  "-m",
+  "opendde_opt.stock_pred",
+  "--proof-json",
+  "/tmp/stock_proof__v0l4zcf/stock_env_proof.json",
+  "--env-absent",
+  "OPENDDE_FORCE_,MODEL_OPT_TEST_,ODDE_,DIT_,CUEQ_,OO_,XL_,K2B_,OF3T_,FPF_,PF_,PTX_,OPENDDE_OPT,OPENDDE_WEIGHTS_DIR,CUBLAS_WORKSPACE_CONFIG,PYTORCH_CUDA_ALLOC_CONF",
+  "--env-reads",
+  "OPENDDE_ROOT_DIR,LAYERNORM_TYPE,OPENDDE_FORCE_SAMPLE_DIFFUSION_AMP,OPENDDE_FORCE_CONFIDENCE_AMP,OPENDDE_PAIR_BIAS_ROW_CHUNK,OPENDDE_FOLDCP_MODE,OPENDDE_FOLDCP_SIZE_DP,OPENDDE_FOLDCP_SIZE_CP,OPENDDE_FOLDCP_DEVICES,OPENDDE_FOLDCP_METRICS_JSONL,CUDA_VISIBLE_DEVICES,CUDA_DEVICE_ORDER,RANK,LOCAL_RANK,WORLD_SIZE,LOCAL_WORLD_SIZE,OPENDDE_DEPENDENCY_URL,OPENDDE_COMMON_URL,OPENDDE_SEARCH_DATABASE_URL,OPENDDE_PDB_SEQRES_URL,OPENDDE_RFAM_DB_URL,OPENDDE_NT_RNA_DB_URL,OPENDDE_RNACENTRAL_DB_URL,MMSEQS_SERVICE_HOST_URL,XDG_CACHE_HOME,TRITON_CACHE_DIR,TORCH_EXTENSIONS_DIR,CUBLAS_WORKSPACE_CONFIG,OPENDDE_FOLDCP_ATOM_WINDOW_PAIR_ROW_CHUNK,OPENDDE_FOLDCP_ATTN_PAIR_BIAS_SOURCE_GRID_MAX_BYTES,OPENDDE_FOLDCP_COMPACT_BF16_384_SOURCE_CHUNK,OPENDDE_FOLDCP_COMPACT_BF16_384_SOURCE_GRID,OPENDDE_FOLDCP_COMPACT_TRIMUL_OUTPUT_GATE,OPENDDE_FOLDCP_CONFIDENCE_COL_CHUNK,OPENDDE_FOLDCP_CONFIDENCE_DISTANCE_ROW_CHUNK,OPENDDE_FOLDCP_CONFIDENCE_GPU_OUTPUT_MAX_BYTES,OPENDDE_FOLDCP_CONFIDENCE_SOURCE_SLAB_MAX_BYTES,OPENDDE_FOLDCP_CONFIDENCE_TRANSPOSE_CPU_OFFLOAD_MIN_BYTES,OPENDDE_FOLDCP_DIFFUSION_BIAS_CACHE_MAX_BYTES,OPENDDE_FOLDCP_DIFFUSION_BIAS_ROW_CHUNK,OPENDDE_FOLDCP_DIFFUSION_CACHE_PAIR_Z_PROJECTION_MAX_BYTES,OPENDDE_FOLDCP_DIFFUSION_CACHE_PAIR_Z_ROW_CHUNK,OPENDDE_FOLDCP_DIFFUSION_CACHE_RELP_ROW_CHUNK,OPENDDE_FOLDCP_DIFFUSION_CACHE_RELP_SLAB_MAX_BYTES,OPENDDE_FOLDCP_DIFFUSION_CACHE_SOURCE_GRID_MAX_BYTES,OPENDDE_FOLDCP_DIFFUSION_CACHE_TRUNK_ROW_CHUNK,OPENDDE_FOLDCP_DIFFUSION_SOURCE_GRID_MAX_ROWS,OPENDDE_FOLDCP_DISTOGRAM_COL_CHUNK,OPENDDE_FOLDCP_DISTOGRAM_SOURCE_SLAB_MAX_BYTES,OPENDDE_FOLDCP_OPM_CHANNEL_CHUNK,OPENDDE_FOLDCP_PAIRFORMER_BLOCK_CACHE_RELEASE,OPENDDE_FOLDCP_PAIRFORMER_BLOCK_CACHE_RELEASE_MIN_ALLOCATED_MIB,OPENDDE_FOLDCP_PAIRFORMER_BLOCK_CACHE_RELEASE_MIN_FREE_MIB,OPENDDE_FOLDCP_PAIR_TRANSITION_FLAT_CHUNK,OPENDDE_FOLDCP_SOURCE_GRID_LINEAR_OUTPUT_CHUNK,OPENDDE_FOLDCP_TEMPLATE_REPLICATED_SERIAL_MAX_PAIR_ELEMENTS,OPENDDE_FOLDCP_TRIATT_ATTENTION_SCORE_BUDGET_BYTES,OPENDDE_FOLDCP_TRIATT_PROJECTION_SOURCE_GRID_MAX_BYTES,OPENDDE_FOLDCP_TRIATT_WRAP_ROW_CHUNK,OPENDDE_FOLDCP_TRIATT_WRAP_SOURCE_GRID_MAX_BYTES,OPENDDE_FOLDCP_TRIMUL_BMM_BLOCK_SIZE,OPENDDE_FOLDCP_TRIMUL_BMM_COL_BLOCK_SIZE,OPENDDE_FOLDCP_TRIMUL_BMM_ROW_BLOCK_SIZE,OPENDDE_FOLDCP_TRIMUL_CHANNEL_CHUNK,OPENDDE_FOLDCP_TRIMUL_DIRECT_B_OWNED_ROWS,OPENDDE_FOLDCP_TRIMUL_LAYERNORM_ROW_SLAB_MAX_BYTES,OPENDDE_FOLDCP_TRIMUL_LAYERNORM_SOURCE_GRID_MAX_BYTES,OPENDDE_FOLDCP_TRIMUL_OUTPUT_GATE_FLAT_CHUNK,OPENDDE_FOLDCP_TRIMUL_OUTPUT_SOURCE_GRID_MAX_BYTES,OPENDDE_FOLDCP_TRIMUL_PROJECTION_SOURCE_GRID_MAX_BYTES,OPENDDE_FOLDCP_TRIMUL_PROJECT_CHANNEL_CHUNK,OPENDDE_FOLDCP_TRIMUL_REPLICATED_SERIAL_MAX_BYTES",
+  "--kit-dirs",
+  "/root/kit/opendde/opt/forward/fast_inference",
+  "--",
+  "pred",
+  "-i",
+  "/root/kc/in/protenix.json",
+  "-o",
+  "/root/kc/results/opendde/off/pred",
+  "--cycle",
+  "10",
+  "--step",
+  "200",
+  "--sample",
+  "1",
+  "--use_msa",
+  "true",
+  "--use_template",
+  "false",
+  "--seeds",
+  "0",
+  "--dtype",
+  "bf16",
+  "--load_checkpoint_path",
+  "/weights/opendde/checkpoint/opendde.pt"
+ ],
+ "stock_proof": {
+  "env_absent": [
+   "OPENDDE_FORCE_",
+   "MODEL_OPT_TEST_",
+   "ODDE_",
+   "DIT_",
+   "CUEQ_",
+   "OO_",
+   "XL_",
+   "K2B_",
+   "OF3T_",
+   "FPF_",
+   "PF_",
+   "PTX_",
+   "OPENDDE_OPT",
+   "OPENDDE_WEIGHTS_DIR",
+   "CUBLAS_WORKSPACE_CONFIG",
+   "PYTORCH_CUDA_ALLOC_CONF"
+  ],
+  "forbidden_present": [],
+  "kit_modules_loaded": [],
+  "kit_dirs_on_path": [],
+  "autoload_armed": [],
+  "kit_sitecustomize": null,
+  "torch_loaded_before_proof": false,
+  "core_modules_loaded": [],
+  "no_user_site": true,
+  "python": "/root/kit/opendde/venv/bin/python",
+  "det_exception": null,
+  "ok": true,
+  "kit_sitecustomize_chained": [],
+  "reads": {
+   "OPENDDE_ROOT_DIR": "/weights/opendde",
+   "LAYERNORM_TYPE": "fast_layernorm",
+   "OPENDDE_FORCE_SAMPLE_DIFFUSION_AMP": null,
+   "OPENDDE_FORCE_CONFIDENCE_AMP": null,
+   "OPENDDE_PAIR_BIAS_ROW_CHUNK": null,
+   "OPENDDE_FOLDCP_MODE": null,
+   "OPENDDE_FOLDCP_SIZE_DP": null,
+   "OPENDDE_FOLDCP_SIZE_CP": null,
+   "OPENDDE_FOLDCP_DEVICES": null,
+   "OPENDDE_FOLDCP_METRICS_JSONL": null,
+   "CUDA_VISIBLE_DEVICES": null,
+   "CUDA_DEVICE_ORDER": null,
+   "RANK": null,
+   "LOCAL_RANK": null,
+   "WORLD_SIZE": null,
+   "LOCAL_WORLD_SIZE": null,
+   "OPENDDE_DEPENDENCY_URL": null,
+   "OPENDDE_COMMON_URL": null,
+   "OPENDDE_SEARCH_DATABASE_URL": null,
+   "OPENDDE_PDB_SEQRES_URL": null,
+   "OPENDDE_RFAM_DB_URL": null,
+   "OPENDDE_NT_RNA_DB_URL": null,
+   "OPENDDE_RNACENTRAL_DB_URL": null,
+   "MMSEQS_SERVICE_HOST_URL": null,
+   "XDG_CACHE_HOME": null,
+   "TRITON_CACHE_DIR": "/root/.cache/opendde_opt/jit/torch2.7.1-cu126-sm90/triton",
+   "TORCH_EXTENSIONS_DIR": "/root/.cache/opendde_opt/jit/torch2.7.1-cu126-sm90/torch_ext",
+   "CUBLAS_WORKSPACE_CONFIG": null,
+   "OPENDDE_FOLDCP_ATOM_WINDOW_PAIR_ROW_CHUNK": null,
+   "OPENDDE_FOLDCP_ATTN_PAIR_BIAS_SOURCE_GRID_MAX_BYTES": null,
+   "OPENDDE_FOLDCP_COMPACT_BF16_384_SOURCE_CHUNK": null,
+   "OPENDDE_FOLDCP_COMPACT_BF16_384_SOURCE_GRID": null,
+   "OPENDDE_FOLDCP_COMPACT_TRIMUL_OUTPUT_GATE": null,
+   "OPENDDE_FOLDCP_CONFIDENCE_COL_CHUNK": null,
+   "OPENDDE_FOLDCP_CONFIDENCE_DISTANCE_ROW_CHUNK": null,
+   "OPENDDE_FOLDCP_CONFIDENCE_GPU_OUTPUT_MAX_BYTES": null,
+   "OPENDDE_FOLDCP_CONFIDENCE_SOURCE_SLAB_MAX_BYTES": null,
+   "OPENDDE_FOLDCP_CONFIDENCE_TRANSPOSE_CPU_OFFLOAD_MIN_BYTES": null,
+   "OPENDDE_FOLDCP_DIFFUSION_BIAS_CACHE_MAX_BYTES": null,
+   "OPENDDE_FOLDCP_DIFFUSION_BIAS_ROW_CHUNK": null,
+   "OPENDDE_FOLDCP_DIFFUSION_CACHE_PAIR_Z_PROJECTION_MAX_BYTES": null,
+   "OPENDDE_FOLDCP_DIFFUSION_CACHE_PAIR_Z_ROW_CHUNK": null,
+   "OPENDDE_FOLDCP_DIFFUSION_CACHE_RELP_ROW_CHUNK": null,
+   "OPENDDE_FOLDCP_DIFFUSION_CACHE_RELP_SLAB_MAX_BYTES": null,
+   "OPENDDE_FOLDCP_DIFFUSION_CACHE_SOURCE_GRID_MAX_BYTES": null,
+   "OPENDDE_FOLDCP_DIFFUSION_CACHE_TRUNK_ROW_CHUNK": null,
+   "OPENDDE_FOLDCP_DIFFUSION_SOURCE_GRID_MAX_ROWS": null,
+   "OPENDDE_FOLDCP_DISTOGRAM_COL_CHUNK": null,
+   "OPENDDE_FOLDCP_DISTOGRAM_SOURCE_SLAB_MAX_BYTES": null,
+   "OPENDDE_FOLDCP_OPM_CHANNEL_CHUNK": null,
+   "OPENDDE_FOLDCP_PAIRFORMER_BLOCK_CACHE_RELEASE": null,
+   "OPENDDE_FOLDCP_PAIRFORMER_BLOCK_CACHE_RELEASE_MIN_ALLOCATED_MIB": null,
+   "OPENDDE_FOLDCP_PAIRFORMER_BLOCK_CACHE_RELEASE_MIN_FREE_MIB": null,
+   "OPENDDE_FOLDCP_PAIR_TRANSITION_FLAT_CHUNK": null,
+   "OPENDDE_FOLDCP_SOURCE_GRID_LINEAR_OUTPUT_CHUNK": null,
+   "OPENDDE_FOLDCP_TEMPLATE_REPLICATED_SERIAL_MAX_PAIR_ELEMENTS": null,
+   "OPENDDE_FOLDCP_TRIATT_ATTENTION_SCORE_BUDGET_BYTES": null,
+   "OPENDDE_FOLDCP_TRIATT_PROJECTION_SOURCE_GRID_MAX_BYTES": null,
+   "OPENDDE_FOLDCP_TRIATT_WRAP_ROW_CHUNK": null,
+   "OPENDDE_FOLDCP_TRIATT_WRAP_SOURCE_GRID_MAX_BYTES": null,
+   "OPENDDE_FOLDCP_TRIMUL_BMM_BLOCK_SIZE": null,
+   "OPENDDE_FOLDCP_TRIMUL_BMM_COL_BLOCK_SIZE": null,
+   "OPENDDE_FOLDCP_TRIMUL_BMM_ROW_BLOCK_SIZE": null,
+   "OPENDDE_FOLDCP_TRIMUL_CHANNEL_CHUNK": null,
+   "OPENDDE_FOLDCP_TRIMUL_DIRECT_B_OWNED_ROWS": null,
+   "OPENDDE_FOLDCP_TRIMUL_LAYERNORM_ROW_SLAB_MAX_BYTES": null,
+   "OPENDDE_FOLDCP_TRIMUL_LAYERNORM_SOURCE_GRID_MAX_BYTES": null,
+   "OPENDDE_FOLDCP_TRIMUL_OUTPUT_GATE_FLAT_CHUNK": null,
+   "OPENDDE_FOLDCP_TRIMUL_OUTPUT_SOURCE_GRID_MAX_BYTES": null,
+   "OPENDDE_FOLDCP_TRIMUL_PROJECTION_SOURCE_GRID_MAX_BYTES": null,
+   "OPENDDE_FOLDCP_TRIMUL_PROJECT_CHANNEL_CHUNK": null,
+   "OPENDDE_FOLDCP_TRIMUL_REPLICATED_SERIAL_MAX_BYTES": null
+  },
+  "cublas_workspace_config": null,
+  "stock_argv": [
+   "pred",
+   "-i",
+   "/root/kc/in/protenix.json",
+   "-o",
+   "/root/kc/results/opendde/off/pred",
+   "--cycle",
+   "10",
+   "--step",
+   "200",
+   "--sample",
+   "1",
+   "--use_msa",
+   "true",
+   "--use_template",
+   "false",
+   "--seeds",
+   "0",
+   "--dtype",
+   "bf16",
+   "--load_checkpoint_path",
+   "/weights/opendde/checkpoint/opendde.pt"
+  ],
+  "kernels": {
+   "route": "stock",
+   "expected": {
+    "fast_layernorm": {
+     "kind": "engaged",
+     "reason": null
+    },
+    "cueq_triatt": {
+     "kind": "engaged",
+     "reason": null,
+     "resolved": "cuequivariance",
+     "need_stack": true
+    },
+    "cueq_trimul": {
+     "kind": "engaged",
+     "reason": null,
+     "resolved": "cuequivariance",
+     "need_stack": true
+    }
+   },
+   "presence": {
+    "sites": {
+     "cueq_triatt": {
+      "ok": true,
+      "func": "cuequivariance_torch.primitives.triangle.triangle_attention",
+      "file": "/root/kit/opendde/venv/lib/python3.11/site-packages/cuequivariance_torch/primitives/triangle.py",
+      "error": null,
+      "threshold": 100
+     },
+     "cueq_trimul": {
+      "ok": true,
+      "func": "cuequivariance_torch.primitives.triangle.triangle_multiplicative_update",
+      "file": "/root/kit/opendde/venv/lib/python3.11/site-packages/cuequivariance_torch/primitives/triangle.py",
+      "error": null,
+      "threshold": 100
+     }
+    },
+    "front_version": "0.10.0",
+    "opendde_version": "1.1.1",
+    "ops_dist": "cuequivariance-ops-torch-cu12",
+    "ops_dist_version": "0.10.0",
+    "ops_build": "cu12",
+    "ops_version": "0.10.0",
+    "ops_commit": "release",
+    "sm100f": false,
+    "ops_error": null,
+    "device_cc": [
+     9,
+     0
+    ],
+    "torch": "2.7.1+cu126"
+   },
+   "probe": {
+    "cueq_triatt": {
+     "ok": true,
+     "served": true,
+     "s": 0.231,
+     "error": null
+    },
+    "cueq_trimul": {
+     "ok": true,
+     "served": true,
+     "s": 1.63,
+     "error": null
+    }
+   },
+   "resolved": {
+    "cueq_triatt": "cuequivariance",
+    "cueq_trimul": "cuequivariance",
+    "dtype": "bf16"
+   },
+   "counts": {
+    "cueq_triatt": {
+     "front": 6240,
+     "reference": 0,
+     "byrule": {},
+     "violations": 0,
+     "violation_examples": [],
+     "errors": 0
+    },
+    "cueq_trimul": {
+     "front": 6080,
+     "reference": 0,
+     "byrule": {},
+     "violations": 0,
+     "violation_examples": [],
+     "errors": 0
+    }
+   },
+   "words": {
+    "fast_layernorm": "engaged:fast_layer_norm_cuda_v2@opendde-1.1.1",
+    "cueq_triatt": "engaged:sm90@0.10.0-cu12[served=6240,byrule=0]",
+    "cueq_trimul": "engaged:sm90@0.10.0-cu12[served=6080,byrule=0]"
+   },
+   "line": "[opendde-opt stock] KERNELS route=stock fast_layernorm=engaged:fast_layer_norm_cuda_v2@opendde-1.1.1 cueq_triatt=engaged:sm90@0.10.0-cu12[served=6240,byrule=0] cueq_trimul=engaged:sm90@0.10.0-cu12[served=6080,byrule=0] others=n/a-upstream:deepspeed_ds4sci,cutlass,flash_attn,xformers,trifast,transformer_engine,apex,tokamax(0_references_in_opendde_1.1.1) cueq_dist=cuequivariance-torch@0.10.0,cuequivariance-ops-torch-cu12@0.10.0(grelease) resolved=cuequivariance,cuequivariance thresholds=triatt:100,trimul:100 probe_s=triatt:0.231,trimul:1.63 torch=2.7.1+cu126",
+   "problems": []
+  },
+  "kit_modules_loaded_after": [],
+  "opendde_version": "1.1.1"
+ },
+ "stock_args": [
+  "pred",
+  "-i",
+  "/root/kc/in/protenix.json",
+  "-o",
+  "/root/kc/results/opendde/off/pred",
+  "--cycle",
+  "10",
+  "--step",
+  "200",
+  "--sample",
+  "1",
+  "--use_msa",
+  "true",
+  "--use_template",
+  "false",
+  "--seeds",
+  "0",
+  "--dtype",
+  "bf16",
+  "--load_checkpoint_path",
+  "/weights/opendde/checkpoint/opendde.pt"
+ ],
+ "nonfinite_outputs": [],
+ "templates": null
+}

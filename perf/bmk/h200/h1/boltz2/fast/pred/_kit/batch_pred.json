@@ -1,0 +1,65 @@
+{
+ "tag": "pred",
+ "items": [
+  {
+   "name": "fold0",
+   "uid": "fold0",
+   "yaml": "/root/kc/in/boltz2/fold0.yaml",
+   "seeds": [
+    0
+   ]
+  },
+  {
+   "name": "fold1",
+   "uid": "fold1",
+   "yaml": "/root/kc/in/boltz2/fold1.yaml",
+   "seeds": [
+    0
+   ]
+  },
+  {
+   "name": "fold2",
+   "uid": "fold2",
+   "yaml": "/root/kc/in/boltz2/fold2.yaml",
+   "seeds": [
+    0
+   ]
+  },
+  {
+   "name": "fold3",
+   "uid": "fold3",
+   "yaml": "/root/kc/in/boltz2/fold3.yaml",
+   "seeds": [
+    0
+   ]
+  },
+  {
+   "name": "fold4",
+   "uid": "fold4",
+   "yaml": "/root/kc/in/boltz2/fold4.yaml",
+   "seeds": [
+    0
+   ]
+  }
+ ],
+ "seeds": [
+  0
+ ],
+ "cache": "/weights/boltz2",
+ "checkpoint": "/weights/boltz2/boltz2_conf.ckpt",
+ "out_dir": "/root/kc/results/boltz2/fast/pred",
+ "kit_dir": "/root/kc/results/boltz2/fast/pred/_kit",
+ "write_full_pae": false,
+ "write_full_pde": false,
+ "output_format": "mmcif",
+ "step_scale": 1.5,
+ "predict": {
+  "recycling_steps": 3,
+  "sampling_steps": 200,
+  "diffusion_samples": 1,
+  "max_parallel_samples": 5
+ },
+ "options": {
+  "affinity": {}
+ }
+}
