@@ -123,3 +123,16 @@ def test_the_lever_arms_it_without_the_process_flag():
     with tenstorrent.levers("pair_mm"):
         assert pair_mm.armed() and pair_mm.PAIR_MM_FUSED is False
     assert not pair_mm.armed()
+
+
+@pytest.mark.parametrize("armed", [True, False])
+def test_shim_linear_asks_pair_mm_first(monkeypatch, armed):
+    """The tape shim's `ttnn.linear` (what the shipped pair modules call) takes `pair_mm` where armed."""
+    from tt_bio import taped_ttnn
+    monkeypatch.setattr(pair_mm, "PAIR_MM_FUSED", armed)
+    monkeypatch.setattr(pair_mm, "matmul", lambda *a, **k: "pair_mm" if pair_mm.armed() else None)
+    linear = taped_ttnn._taped_verb("linear", lambda *a, **k: "linear")
+    x, w = _t((1, 224, 224, 128)), _t((128, 128))
+    assert linear(x, w, bias=None, dtype=ttnn.bfloat16, core_grid=None,
+                  memory_config=ttnn.DRAM_MEMORY_CONFIG) == ("pair_mm" if armed else "linear")
+    assert linear(x, w, program_config=object()) == "linear"
