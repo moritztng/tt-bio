@@ -105,6 +105,9 @@ def main():
                 (ttnn.to_torch(rne_add.rne_add(dx, du, memory_config=cfg)).reshape(x.shape)
                  != plain_ref).sum())
             ttnn.deallocate(prod)
+            # widen_add is the same program at ROUND_MODE=0: it must still build and be exact.
+            wide = ttnn.to_torch(rne_add.widen_add(dx, du)).reshape(x.shape)
+            cell["widen_wrong"] = int((wide.double() != (x.double() + u.double()).float().double()).sum())
 
             def chain():
                 p = ttnn.multiply(du, dm)
