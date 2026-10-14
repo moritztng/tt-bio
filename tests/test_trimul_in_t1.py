@@ -45,7 +45,15 @@ def test_cb_budget_fits_l1_c256(mask):
     assert TTL.t1_cb_bytes(8, 16, 8, mask) <= 0.85 * L1_ALLOCATOR_BANK
 
 
-def test_cb_plan_covers_every_cb_the_kernels_use():
+@pytest.mark.parametrize("mask", [False, True])
+def test_cb_budget_fits_l1_c384(mask):
+    """c_z 384 (OpenDDE): three channel groups of 8-row units, about the c_z 256 plan's footprint."""
+    assert TTL.T1_PLANS[(12, 24, 12)] == (3, 8)
+    assert TTL.t1_cb_bytes(12, 24, 12, mask) <= 0.85 * L1_ALLOCATOR_BANK
+
+
+def test_cb_plan_covers_every_cb_the_kernels_use(monkeypatch):
+    monkeypatch.setattr(TTL, "T1_MASKFIX", 1)       # c_15 exists only under that bench knob
     used = set()
     for f in ("reader.cpp", "compute.cpp", "writer.cpp"):
         used |= {int(i) for i in re.findall(r"CBIndex::c_(\d+)", (KDIR / f).read_text())}
@@ -65,7 +73,8 @@ def test_kernel_page_expressions_match_the_python_mirror():
     assert "noc_async_read_page(k * NTGT + n, wo, w)" in reader
     assert "uint32_t page = ((b * S + xt * 32 + h * IL) * St + yt) * NTGT + N0;" in writer
     assert "page += St * NTGT" in writer
-    assert "get_noc_addr(page, h * OB)" in writer
+    assert "const uint32_t off0 = IL == 32 ? 0 : (r0 >> 4) * 2 * FB + (r0 & 15) * RB;" in writer
+    assert "get_noc_addr(page, off0)" in writer
     assert "uint32_t page = (b * CT + (is_a ? q : q - CT)) * 32 * SS + cube;" in writer
     assert "page += SS" in writer
 
@@ -132,31 +141,29 @@ def _mask_cut(mtile_faces, il):
     return _faces_to_tile(dst.reshape(-1))
 
 
-def _gather(src_tiles_faces, c, il=32):
-    """writer.cpp's gather (element offsets = byte offsets / 2): row c of the `il` tiles -> the
-    staged output tile's first il rows, in faces (the writer sends the first il * 32 elements)."""
+def _gather(src_tiles_faces, c, il=32, r0=0):
+    """writer.cpp's gather (element offsets = byte offsets / 2): row c of the `il` tiles -> rows
+    r0 .. r0 + il - 1 of the staged output tile, in faces; then its writes, as (offset, length)."""
     TB, FB, RB = 1024, 256, 16
     src = torch.cat(src_tiles_faces)
-    st = torch.zeros(TB_EL, dtype=src.dtype)
-    sc = (c >> 4) * 2 * FB + (c & 15) * RB
-    s0, s1, d0, d1 = sc, sc + FB, 0, FB
-    for _ in range(16):
-        st[d0:d0 + RB] = src[s0:s0 + RB]
-        st[d1:d1 + RB] = src[s1:s1 + RB]
-        s0, s1, d0, d1 = s0 + TB, s1 + TB, d0 + RB, d1 + RB
-    if il == 32:
-        d0, d1 = 2 * FB, 3 * FB
-        for _ in range(16):
-            st[d0:d0 + RB] = src[s0:s0 + RB]
-            st[d1:d1 + RB] = src[s1:s1 + RB]
-            s0, s1, d0, d1 = s0 + TB, s1 + TB, d0 + RB, d1 + RB
-    return st[:il * 32]
+    st = torch.full((TB_EL,), float("nan"), dtype=src.dtype)
+    s0 = (c >> 4) * 2 * FB + (c & 15) * RB
+    for i in range(il):
+        r = r0 + i
+        d = (r >> 4) * 2 * FB + (r & 15) * RB
+        st[d:d + RB] = src[s0 + i * TB:s0 + i * TB + RB]
+        st[d + FB:d + FB + RB] = src[s0 + i * TB + FB:s0 + i * TB + FB + RB]
+    off0 = 0 if il == 32 else (r0 >> 4) * 2 * FB + (r0 & 15) * RB
+    wlen = TB if il == 32 else (2 * FB if il == 16 else il * RB)
+    writes = [(off0, wlen)] + ([(off0 + FB, wlen)] if il == 8 else [])
+    return st, writes
 
 
-@pytest.mark.parametrize("S,masked,K", [(64, True, 128), (96, False, 128), (64, True, 256), (96, False, 256)])
+@pytest.mark.parametrize("S,masked,K", [(64, True, 128), (96, False, 128), (64, True, 256), (96, False, 256),
+                                        (64, True, 384), (96, False, 384)])
 def test_emulated_data_flow_matches_the_model(S, masked, K):
     """The kernels' loops, page for page, against float64 torch: one launch of 32-row units at
-    c_z 128, two channel groups of 16-row units writing half tiles at c_z 256."""
+    c_z 128, two channel groups of 16-row units writing half tiles at c_z 256, three of 8-row units at 384."""
     d = torch.float64
     h = cz = K
     St, Kt, ct2, ct, ntg = S // 32, K // 32, 2 * h // 32, h // 32, cz // 32
@@ -230,7 +237,9 @@ def test_emulated_data_flow_matches_the_model(S, masked, K):
                     for c in range(32):
                         key = (q < ct, TTL.t1_ab_page(b, q, c, xt, yt, ct, St))
                         buf = ab_faces.setdefault(key, torch.full((TB_EL,), float("nan"), dtype=d))
-                        buf[hh * IL * 32:(hh + 1) * IL * 32] = _gather(out, c, IL)   # page offset h * OB
+                        st, writes = _gather(out, c, IL, hh * IL)
+                        for o, n in writes:
+                            buf[o:o + n] = st[o:o + n]
     for (is_a, page), f in ab_faces.items():
         (a_pages if is_a else b_pages)[page] = _faces_to_tile(f)
 
@@ -281,6 +290,9 @@ def test_eligibility(monkeypatch):
     assert TTL.t1_eligible(**_args(K=256, h=256, N=256)) == "c256_off"  # protenix / esmfold2: own lever until graded
     with T.levers("trimul_t1_c256"):
         assert TTL.t1_eligible(**_args(K=256, h=256, N=256)) is None
+    assert TTL.t1_eligible(**_args(K=384, h=384, N=384)) == "c384_off"  # opendde: own lever until graded
+    with T.levers("trimul_t1_c384"):
+        assert TTL.t1_eligible(**_args(K=384, h=384, N=384)) is None
     assert TTL.t1_eligible(**_args(h=64)) == "key=4x4x4"
     a = _args()
     a["ln_w"] = _Fake([128], dtype=ttnn.float32)

@@ -6,7 +6,8 @@
 // tiles of g_out (NTG tiles each, z's own [.., S, S, N] layout, one page write per tile), then
 // gin_moved's writer as is: per channel tile q of [a | b], 32 tiles in il order, gathered face row by
 // face row into the [B, C, S, S] tiles of a (q < CT) and b. One launch writes the channel group reader.cpp
-// names; with IL = 16 a unit holds half an x tile, so each output write is that half's two faces (1 KB).
+// names; with IL < 32 a unit holds rows h * IL .. of an x tile: IL = 16 writes that half's two faces (1 KB),
+// IL = 8 the unit's 8 rows of two faces (two 256 B writes).
 // ABL (bench-only define, trimul_tail.T1_ABL; 0 in every model path): bits that skip one stage's
 // work while keeping its circular-buffer traffic, to time each stage by difference (perf/spd_trimul/in_t1.py --abl).
 //   1 layer_norm, 2 g_out matmul, 4 [a | b] matmuls, 8 gate multiply, 16 z reads, 32 writer gather, 64 writer writes.
@@ -30,7 +31,7 @@ void kernel_main() {
     constexpr uint32_t QN = get_compile_time_arg_val(5);
     constexpr uint32_t N0 = get_compile_time_arg_val(6);
     constexpr uint32_t NTGT = get_compile_time_arg_val(7);  // g_out channel tiles in all
-    constexpr uint32_t IL = get_compile_time_arg_val(8);    // row tiles per unit, 32 or 16
+    constexpr uint32_t IL = get_compile_time_arg_val(8);    // row tiles per unit, 32, 16 or 8
     constexpr uint32_t H = 32 / IL;
     static_assert(!T1B8 || IL == 32, "the bfp8 gather moves whole tiles");
     constexpr auto a_args = TensorAccessorArgs<9>();
@@ -47,7 +48,6 @@ void kernel_main() {
     constexpr uint32_t stage_cb = tt::CBIndex::c_24;
     constexpr uint32_t CT = CT2 / 2;
     constexpr uint32_t SS = St * St;
-    constexpr uint32_t OB = IL == 32 ? 2048 : 1024;        // bytes of an output tile one unit fills
     constexpr uint32_t S = St * 32;
     constexpr uint32_t TB = 2048, FB = 512, RB = 32;
     // bfp8_b tile: 64 exponent bytes (face-major, one per face row), then 4 faces x 16 rows x 16 mantissa bytes.
@@ -64,6 +64,11 @@ void kernel_main() {
         const uint32_t h = (u / St) % H;
         const uint32_t yt = u % St;
         const uint32_t cube = xt * St + yt;
+        // The unit's rows r0 .. r0 + IL - 1 of each output tile: the staged tile keeps them where the output
+        // has them, so one write (IL >= 16) or one per face pair column (IL = 8) moves them.
+        const uint32_t r0 = h * IL;
+        const uint32_t off0 = IL == 32 ? 0 : (r0 >> 4) * 2 * FB + (r0 & 15) * RB;
+        const uint32_t wlen = IL == 32 ? TB : (IL == 16 ? 2 * FB : IL * RB);
         if constexpr (NG) {
             // trimul_tail.t1_g_page: row tile (b, xt*32 + il, yt), channel tile n.
             uint32_t page = ((b * S + xt * 32 + h * IL) * St + yt) * NTGT + N0;
@@ -107,27 +112,29 @@ void kernel_main() {
                 for (uint32_t j = 0; j < NB && !(ABL & 32); ++j) {
                     const uint32_t c = c0 + j;
                     const uint32_t st = gbase + j * TB;
-                    const uint32_t sc = src + (c >> 4) * 2 * FB + (c & 15) * RB;
-                    uint32_t s0 = sc, s1 = sc + FB, d0 = st, d1 = st + FB;
-                    for (uint32_t il = 0; il < 16; ++il, s0 += TB, s1 += TB, d0 += RB, d1 += RB) {
+                    // source row c of tile il: face (c >> 4) * 2 (+1 for the right half), face row c & 15;
+                    // destination row r0 + il, the same face arithmetic
+                    uint32_t s0 = src + (c >> 4) * 2 * FB + (c & 15) * RB;
+                    for (uint32_t il = 0; il < IL; ++il, s0 += TB) {
+                        const uint32_t r = r0 + il;
+                        const uint32_t d0 = st + (r >> 4) * 2 * FB + (r & 15) * RB;
                         noc_async_read_one_packet_with_state(s0, d0);
-                        noc_async_read_one_packet_with_state(s1, d1);
-                    }
-                    if constexpr (IL == 32) {
-                        d0 = st + 2 * FB;
-                        d1 = st + 3 * FB;
-                        for (uint32_t il = 0; il < 16; ++il, s0 += TB, s1 += TB, d0 += RB, d1 += RB) {
-                            noc_async_read_one_packet_with_state(s0, d0);
-                            noc_async_read_one_packet_with_state(s1, d1);
-                        }
+                        noc_async_read_one_packet_with_state(s0 + FB, d0 + FB);
                     }
                 }
 #endif
                 noc_async_read_barrier();
-                for (uint32_t j = 0; j < NB; ++j, page += SS)
-                    if constexpr (!(ABL & 64))
-                        noc_async_write(gbase + j * TB, is_a ? oa.get_noc_addr(page, h * OB) : ob.get_noc_addr(page, h * OB),
-                                        T1B8 ? TB8 : OB);
+                for (uint32_t j = 0; j < NB; ++j, page += SS) {
+                    if constexpr (ABL & 64) continue;
+                    const uint32_t st = gbase + j * TB;
+                    if constexpr (T1B8) {
+                        noc_async_write(st, is_a ? oa.get_noc_addr(page) : ob.get_noc_addr(page), TB8);
+                    } else {
+                        const uint64_t dst = is_a ? oa.get_noc_addr(page, off0) : ob.get_noc_addr(page, off0);
+                        noc_async_write(st + off0, dst, wlen);
+                        if constexpr (IL == 8) noc_async_write(st + off0 + FB, dst + FB, wlen);
+                    }
+                }
                 dirty[grp] = true;
             }
             noc_async_write_barrier();

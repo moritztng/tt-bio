@@ -1264,13 +1264,14 @@ T1_WHY = {}                       # decline reason -> calls (tenstorrent._t1_in)
 # whole 32-row units. c_z 256 (protenix-v2, opendde, esmfold2) holds twice the weights and twice the
 # normalised rows per unit, ~1.9 MB of CBs a core; as two channel groups of 16-row units it is ~1.0 MB,
 # at the price of reading z twice (5 pair passes instead of the incumbent's 14).
-T1_PLANS = {(4, 8, 4): (1, 32), (8, 16, 8): (2, 16)}
+T1_PLANS = {(4, 8, 4): (1, 32), (8, 16, 8): (2, 16), (12, 24, 12): (3, 8)}
 T1_KEYS = set(T1_PLANS)
 T1_RB = 8                         # z row tiles per reader barrier
 T1_SBW = 4                        # DST tiles per matmul block (half-sync fp32 DST holds 4)
 T1_ABL = 0                        # bench-only stage-skip bits (kernels/trimul_in_t1 ABL); 0 = the real T1
 T1_B8 = 0                         # bench knob: a and b as bfp8 (lever trimul_t1b8 in a model)
-T1_C256 = 0                       # bench knob: the c_z 256 plan without lever trimul_t1_c256
+T1_C256 = 0                       # bench knob: the c_z 256 / 384 plans without their levers
+T1_WIDE = {(8, 16, 8): "trimul_t1_c256", (12, 24, 12): "trimul_t1_c384"}   # plan key -> the lever it waits on
 T1_MASKFIX = 0                    # bench knob: kernels/trimul_in_t1 MASKFIX (masked WH fault, open)
 BF16_TILE, FP32_TILE = 2048, 4096
 
@@ -1289,7 +1290,7 @@ def t1_cb_plan(kt, ct2, ntg, mask, rb=None, nb=None):
     nb = GIN_MOVE_NB if nb is None else nb
     rb = T1_RB if rb is None else rb
     groups, il = T1_PLANS.get((kt, ct2, ntg), (1, 32))
-    rb = min(rb, il // 4)           # 8 at 32-row units (as before), 4 at 16
+    rb = min(rb, il // 4)           # 8 at 32-row units (as before), 4 at 16, 2 at 8
     qn, ng = ct2 // groups, ntg // groups
     bf = [(0, 2 * qn * kt),      # [Wp^T | Wg^T] of the group, resident
           (1, il * kt),          # layer_norm(z) of one unit, slot dt * il + row
@@ -1389,8 +1390,8 @@ def t1_eligible(x, ln_w, ln_b, wpT, wgT, wgo, mask=None):
     key = (K // TILE, int(wpT.shape[-2]) // TILE, int(wgo.shape[-1]) // TILE)
     if key not in T1_KEYS:
         return "key=" + "x".join(map(str, key))
-    if key == (8, 16, 8) and not (T1_C256 or lever("trimul_t1_c256")):
-        return "c256_off"
+    if key in T1_WIDE and not (T1_C256 or lever(T1_WIDE[key])):
+        return T1_WIDE[key][len("trimul_t1_"):] + "_off"
     if not (_vec_ok(ln_w, K) and _vec_ok(ln_b, K)):
         return "ln_params"
     if mask is not None and not t1_mask_ok(mask, x):

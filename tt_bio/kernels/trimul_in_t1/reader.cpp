@@ -9,8 +9,9 @@
 // into c_7: compute normalises them row by row. With MASK the unit's 32 row-broadcast mask tiles
 // follow in c_6, cut exactly as gin_moved's reader cuts them.
 // A launch covers one channel group: [a | b] channel tiles Q0 .. Q0 + QN of CT2 and g_out tiles N0 .. N0 + NG
-// of NTGT, so c_z 256 fits L1 as two launches that each read z once. IL = 16 halves the unit to the
-// rows h * 16 .. h * 16 + 15 of its x tile (units (b, xt, h, yt)); the writer then fills half tiles.
+// of NTGT, so c_z 256 / 384 fit L1 as two / three launches that each read z once. IL = 16 or 8 cuts the
+// unit to the rows h * IL .. h * IL + IL - 1 of its x tile (units (b, xt, h, yt)); the writer then fills
+// those rows of each output tile.
 // ABL (bench-only define, trimul_tail.T1_ABL; 0 in every model path): bits that skip one stage's
 // work while keeping its circular-buffer traffic, to time each stage by difference (perf/spd_trimul/in_t1.py --abl).
 //   1 layer_norm, 2 g_out matmul, 4 [a | b] matmuls, 8 gate multiply, 16 z reads, 32 writer gather, 64 writer writes.
@@ -32,7 +33,7 @@ void kernel_main() {
     constexpr uint32_t Q0 = get_compile_time_arg_val(8);
     constexpr uint32_t N0 = get_compile_time_arg_val(9);
     constexpr uint32_t NTGT = get_compile_time_arg_val(10);    // g_out channel tiles in all
-    constexpr uint32_t IL = get_compile_time_arg_val(11);      // row tiles per unit, 32 or 16
+    constexpr uint32_t IL = get_compile_time_arg_val(11);      // row tiles per unit, 32, 16 or 8
     constexpr uint32_t H = 32 / IL;
     constexpr auto x_args = TensorAccessorArgs<12>();
     constexpr auto wp_args = TensorAccessorArgs<x_args.next_compile_time_args_offset()>();
@@ -41,7 +42,7 @@ void kernel_main() {
     constexpr auto gm_args = TensorAccessorArgs<wo_args.next_compile_time_args_offset()>();
     constexpr auto bt_args = TensorAccessorArgs<gm_args.next_compile_time_args_offset()>();
     constexpr auto m_args = TensorAccessorArgs<bt_args.next_compile_time_args_offset()>();
-    static_assert(IL % RB == 0 && (IL == 32 || IL == 16), "RB must divide the IL row tiles of a unit");
+    static_assert(IL % RB == 0 && (IL == 32 || IL == 16 || IL == 8), "RB must divide the IL row tiles of a unit");
 
     const auto x = TensorAccessor(x_args, get_common_arg_val<uint32_t>(0));
     const auto wp = TensorAccessor(wp_args, get_common_arg_val<uint32_t>(1));
