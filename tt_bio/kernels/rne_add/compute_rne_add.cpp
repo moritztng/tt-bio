@@ -31,6 +31,12 @@
 //     Rounding to even in the SFPU first leaves a value that is already exactly bfloat16-
 //     representable, and the pack becomes a pure format change with no tie left to break.
 //
+// MASKED=1 is AF2's dropout folded into its residual: out = rne(a + rne(b * m)), m one tile of a
+// keep-mask slab of MT tiles held in c_2 for the whole call, indexed by global page % MT. A bf16 x
+// bf16 product has 16 significant bits, so the SFPU multiply into the 32-bit DEST is exact and the
+// first RNE gives what torch's bfloat16 multiply gives; the add and its RNE are the unmasked path.
+// Three DEST slots a tile, so the host caps GRAN at 1.
+//
 // `widen_add` is the same program at ADD_MODE=1, ROUND_MODE=0 with a float32 output CB: the
 // backward's gradient fan-in, `f32(a) + f32(b)` rounded once to float32. A bfloat16 operand widens
 // exactly on the way into DEST; a float32 one is unpacked straight to DEST (`UnpackToDestFp32`,
@@ -111,11 +117,30 @@ void kernel_main() {
         num_tiles = get_arg_val<uint32_t>(0);
     }
 
+    constexpr uint32_t MASKED = get_compile_time_arg_val(G + 8);
+    constexpr uint32_t MT = get_compile_time_arg_val(G + 9);
+    constexpr uint32_t cb_m = 2;  // c_2
+    uint32_t page = 0;
+    if constexpr (MASKED) {
+        if constexpr (COMPACT) {
+            page = genq::slice<get_compile_time_arg_val(G + 1), get_compile_time_arg_val(G + 2),
+                               get_compile_time_arg_val(G + 3), get_compile_time_arg_val(G + 4),
+                               get_compile_time_arg_val(G + 5), get_compile_time_arg_val(G + 6),
+                               get_compile_time_arg_val(G + 7)>(
+                get_absolute_logical_x(), get_absolute_logical_y()).first;
+        } else {
+            page = get_arg_val<uint32_t>(1);
+        }
+    }
+
     // The SFPU add holds both operands in DEST, so it costs two slots a tile where the FPU add
     // costs one. A 32-bit DEST is four tiles deep, which is where the host's GRAN cap comes from.
-    constexpr uint32_t SLOTS = (ADD_MODE == 1) ? 2 : 1;
+    constexpr uint32_t SLOTS = MASKED ? 3 : (ADD_MODE == 1) ? 2 : 1;
 
     binary_op_init_common(cb_a, cb_b, cb_out);
+    if constexpr (MASKED) {
+        cb_wait_front(cb_m, MT);
+    }
 
     for (uint32_t i = 0; i < num_tiles; i += GRAN) {
         const uint32_t n = (num_tiles - i < GRAN) ? (num_tiles - i) : GRAN;
@@ -125,7 +150,26 @@ void kernel_main() {
         cb_reserve_back(cb_out, n);
 
         tile_regs_acquire();
-        if constexpr (ADD_MODE == 1) {
+        if constexpr (MASKED) {
+            static_assert(ADD_MODE == 1 && ROUND_MODE == 1, "the masked residual is the exact arm");
+            for (uint32_t j = 0; j < n; ++j) {
+                const uint32_t s0 = SLOTS * j;
+                copy_tile_to_dst_init_short_with_dt(cb_a, cb_b);
+                copy_tile(cb_b, j, s0 + 1);
+                copy_tile_to_dst_init_short_with_dt(cb_b, cb_m);
+                copy_tile(cb_m, (page + i + j) % MT, s0 + 2);
+                mul_binary_tile_init();
+                mul_binary_tile(s0 + 1, s0 + 2, s0 + 1);
+                MATH((llk_math_eltwise_unary_sfpu_init<SfpuType::bitwise_and, false>()));
+                MATH((_llk_math_eltwise_unary_sfpu_params_<false>(
+                    ckernel::sfpu::rne_bf16_in_place<false>, s0 + 1,
+                    static_cast<int>(VectorMode::RC))));
+                copy_tile_to_dst_init_short_with_dt(cb_m, cb_a);
+                copy_tile(cb_a, j, s0);
+                add_binary_tile_init();
+                add_binary_tile(s0, s0 + 1, s0);
+            }
+        } else if constexpr (ADD_MODE == 1) {
             for (uint32_t j = 0; j < n; ++j) {
                 // `_with_dt` reconfigures the unpacker only when the two CBs differ in format,
                 // which is `widen_add`'s float32 accumulator beside a bfloat16 contribution.
@@ -164,5 +208,8 @@ void kernel_main() {
         cb_pop_front(cb_a, n);
         cb_pop_front(cb_b, n);
         cb_push_back(cb_out, n);
+    }
+    if constexpr (MASKED) {
+        cb_pop_front(cb_m, MT);
     }
 }
