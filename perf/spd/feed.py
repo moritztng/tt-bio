@@ -193,8 +193,9 @@ INPUT = re.compile(r"(?:\bcd|(?:^|[;&|(]\s*)\.|\bsource|\bbash|\bTREE=|--tree|\b
 
 
 def inputs(cmd):
-    optional = set(re.findall(r"\[ -[efd] (\S+) \]", cmd))          # `[ -f X ] && . X` runs without X
-    return {re.sub(r"^\$HOME/", "~/", p) for p in INPUT.findall(cmd)
+    optional = set(re.findall(r"\[ -[efsd] (\S+) \] &&", cmd))      # `[ -f X ] && . X` runs without X
+    guarded = re.findall(r"\[ -[efsd] ((?:~|\$HOME|/home)/\S+) \] \|\|", cmd)   # `[ -s X ] || exit 1` cannot
+    return {re.sub(r"^\$HOME/", "~/", p) for p in INPUT.findall(cmd) + guarded
             if p not in optional and "$" not in p.replace("$HOME/", "", 1)}
 
 
