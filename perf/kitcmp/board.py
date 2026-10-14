@@ -70,7 +70,7 @@ def main():
                    f"(box_arms.sh {k}: run.sh --config <gpu> --mode {r['mode'].replace('-det', ' --det 1')})")
         pkg = PKG.get(key, "")
         ver += f"torch {fz.get('torch', '?')}, {pkg} {fz.get(pkg, '?')}, driver {drv}"
-        if r["median"] is None:
+        if r["median"] is None or r["rc"] != "0":  # a failed arm's records are not a time (openfold3 fast on sm_100: 0.04 s)
             continue
         logs = [res / (arm or "esmc") / r["mode"] / f for f in ("stdout.log", "stderr.log")]
         if not r["mode"].startswith(("off", "stock")) and any("NOT ACTIVE" in f.read_text(errors="replace") for f in logs if f.exists()):

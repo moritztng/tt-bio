@@ -28,18 +28,22 @@ def smi(path):
         for r in csv.reader(path.open()):
             try:
                 t = datetime.strptime(r[0].strip(), "%Y/%m/%d %H:%M:%S.%f").replace(tzinfo=timezone.utc).timestamp()
-                out.append((t, float(r[1].split()[0]), float(r[3].split()[0]), float(r[8].split()[0]) / 1024))
+                out.append((t, float(r[1].split()[0]), float(r[3].split()[0]), float(r[8].split()[0]) / 1024, float(r[6].split()[0])))
             except (ValueError, IndexError):
                 pass
     return out
 
 
-def clocks(samples, d):
-    """SM MHz median / min, W median, GB max over the arm's window, under load (> 100 W)."""
+def clocks(samples, d, folds=()):
+    """SM MHz median / min, W median, GB max during the warm folds ((start, end) epochs), else over the arm's window with the
+    GPU busy (utilization > 0; a power floor does not work: an idle B200 draws ~197 W)."""
     if not samples or not (d / "t_start").exists() or not (d / "t_end").exists():
         return None, None, None, None
-    a, b = ts(d / "t_start"), ts(d / "t_end")
-    w = [x for x in samples if a <= x[0] <= b and x[2] > 100]
+    if folds:
+        w = [x for x in samples if any(a <= x[0] <= b for a, b in folds)]
+    else:
+        a, b = ts(d / "t_start"), ts(d / "t_end")
+        w = [x for x in samples if a <= x[0] <= b and x[4] > 0]
     if not w:
         return None, None, None, None
     c = [x[1] for x in w]
@@ -62,8 +66,8 @@ def kit_arms(m, samples):
             rc += " SERVER-MSA"
         log = "".join(f.read_text(errors="replace") for f in (d / "stderr.log", d / "stdout.log") if f.exists())
         act = next((l.strip()[:90] for l in log.splitlines() if "ACTIVE" in l or l.startswith("stock:")), "-")
-        clk = clocks(samples, d)
-        if m.name == "esmc":  # one record per variant, warm list inside
+        if m.name == "esmc":
+            clk = clocks(samples, d)  # one record per variant, warm list inside
             for f in sorted(d.glob("esmc-*.jsonl")):
                 r = json.loads(f.read_text().splitlines()[-1])
                 yield row(f"esmc-{r['variant']}", mode, r.get("warm_s", []), round(r["cold_s"], 4), rc, "esmc_gpu.forward",
@@ -78,6 +82,9 @@ def kit_arms(m, samples):
         if m.name == "rfdiffusion3":  # the engine's own per-batch line, wrapping the sampler loop
             s = [float(x) for x in re.findall(r"Finished inference batch in ([\d.]+) seconds", log)]
             fn = "engine-log"
+        # warm fold i ends at its record's t and lasts s[i] (rfdiffusion3's log lines carry no time: the arm window)
+        folds = [(r["t"] - x, r["t"]) for r, x in zip(rows[1:], s[1:])] if rows and m.name != "rfdiffusion3" else ()
+        clk = clocks(samples, d, folds)
         cell = "rf3" if m.name.startswith("rosettafold3") else CELL.get(m.name, m.name)
         yield row(cell, mode, s[1:], s[0] if s else None, rc, fn, clk, act, arm=m.name)
 
