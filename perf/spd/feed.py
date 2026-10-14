@@ -65,7 +65,9 @@ def ok(p):
     p = os.path.expanduser(p)
     if any(c in p for c in "*?["):
         return any(ok(q) for q in glob.glob(p))
-    return os.path.isfile(p) and os.path.getsize(p) > 0 or os.path.isdir(p) and bool(os.listdir(p))
+    # a result file must be non-empty; an extensionless marker (`touch $O/done`) is empty by design
+    return (os.path.isfile(p) and (os.path.getsize(p) > 0 or "." not in os.path.basename(p))
+            or os.path.isdir(p) and bool(os.listdir(p)))
 for p in A["paths"]:
     out["exists"][p] = ok(p)
 def tail(p):
@@ -75,9 +77,15 @@ def tail(p):
     except OSError:
         return ""
 def ended(sh, end, start_ref):
-    rc = open(end).read().strip()
+    rc = open(end).read().strip(); n = os.path.basename(sh).split("-", 2)[-1] if A["kind"] == "galaxy" else os.path.basename(sh)
+    t = tail(sh + ".log")
+    if len(t.strip()) < 200:   # most jobs write their own logs next to their results: tail the newest one there
+        logs = [q for d in A.get("outdirs", {}).get(n, []) for q in glob.glob(os.path.expanduser(d) + "/*.log")
+                + glob.glob(os.path.expanduser(d) + "/*/*.log") if os.path.getsize(q)]
+        if logs:
+            q = max(logs, key=os.path.getmtime); t += "\n[" + q + "]\n" + tail(q)
     return {"state": "ended", "dur": int(os.path.getmtime(end) - os.path.getmtime(start_ref)), "rc": rc,
-            "at": int(os.path.getmtime(end)), "tail": tail(sh + ".log")}
+            "at": int(os.path.getmtime(end)), "tail": t}
 if A["kind"] == "galaxy":
     P = H + "/spd/pool"
     bad = len(glob.glob(H + "/spd/locks/chip*.BAD"))
@@ -318,11 +326,12 @@ def main(argv=None):
             c["hosts"] = []
     roots = {p: tree_root(p, a.repo) for c in cs for p in c["requires"]}
     paths = sorted({p for c in cs for p in c["done"] + c["requires"]} | {r[0] for r in roots.values() if r})
+    outdirs = {c["name"]: sorted({os.path.dirname(x) for x in c["done"]}) for c in cs}
     st = {}
     for name, p in P.items():
         try:
             st[name] = remote(p["ssh"], PROBE, {"kind": p["kind"], "paths": [x for x in paths], "cards": p.get("cards", []),
-                                             "sweep": not a.dry_run})
+                                             "sweep": not a.dry_run, "outdirs": outdirs})
         except Exception as e:  # an unreachable box is skipped, never fatal
             log(f"{name}: probe failed: {e}")
     # 1. account every ledger entry: done, pending, or a failed attempt
@@ -336,7 +345,7 @@ def main(argv=None):
             L.update(hash=c["hash"], fails=[], quarantined=False)
         j = st.get(L.get("host"), {}).get("jobs", {}).get(L.get("name"))
         if c["is_done"]:
-            L["state"] = "done"
+            L.update(state="done", quarantined=False)
         elif j and j["state"] in ("queued", "running"):
             L["state"] = j["state"]
         elif j and j["state"] == "ended" and j["at"] not in [f["at"] for f in L["fails"]]:
