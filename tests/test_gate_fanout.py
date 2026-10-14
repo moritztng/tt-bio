@@ -1001,7 +1001,11 @@ def test_a_pass_is_reused_on_a_commit_that_changed_nothing_the_leg_read(tmp_path
     assert not gf.reads_match(a, d, ["m/a.py"], repo)
     np = [gf.content_hash(s, repo, python=False) for s in (a, b, d)]
     assert np[0] == np[1] == np[2]                                 # .py and the version line only
-    assert gf.content_hash(commit({"k/x.cpp": "2"}, "e"), repo, python=False) != np[0]
+    e = commit({"k/x.cpp": "2"}, "e")
+    assert gf.content_hash(e, repo, python=False) != np[0]
+    f = commit({"k/fix.json": "1"}, "f: a fixture only Python reads")
+    assert gf.content_hash(f, repo, python=False) != gf.content_hash(e, repo, python=False)
+    assert gf.content_hash(f, repo, python=False, data=False) == gf.content_hash(e, repo, python=False, data=False)
 
     led = gf.Ledger(tmp_path / "led")
     row = {"leg": "parity:m", "verdict": "PASS", "sha": a, "ended": "1", "worker": "h:0", "log": "l",
