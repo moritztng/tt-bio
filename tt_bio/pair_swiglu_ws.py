@@ -32,6 +32,7 @@ LN_F32_CBS = ((11, 1), (12, 1), (13, 1), (14, 1), (17, None), (18, None))   # ep
 ACC_CB = 19               # fp32, _SW tiles: a matmul's K chunks summed by the packer (`l1acc`)
 RES_CB = 20               # bf16, 2 row tiles of the residual fc3 adds into (`resid`)
 B1_CB, B3_CB = 21, 22     # bf16, `pair_relu`'s biases as row-replicated tiles
+DY_CB = 23                # bf16, 2 row tiles of `pair_relu_bw`'s cotangent
 _TILE = 32 * 32 * 2
 _SW = 4                   # hidden tiles per dest pass (one fp32 dest half)
 # Bytes of a core's L1 the program may take: weights plus its streaming CBs. A Wormhole core has 1464 KiB,
@@ -107,7 +108,7 @@ def _l1_bytes(kt, nh, ct, wdtype, xdtype=ttnn.bfloat16) -> int:
             + (2 * _SW + 2 * nh + 2 * ct) * _TILE)
 
 
-def _build(x, w12, w3, out, device, mt, kt, nh, ct, fidelity, defines, silu_poly, ln, bias=None):
+def _build(x, w12, w3, out, device, mt, kt, nh, ct, fidelity, defines, silu_poly, ln, bias=None, bw=False):
     g = device.compute_with_storage_grid_size()
     num_cores, grid, cg1, cg2, work1, work2 = core_split.split_work_to_cores(g, mt, 0)
 
@@ -117,9 +118,12 @@ def _build(x, w12, w3, out, device, mt, kt, nh, ct, fidelity, defines, silu_poly
         return ttnn.CBDescriptor(total_size=tiles * size, core_ranges=grid, format_descriptors=[fmt])
 
     cbs = [cb(X_CB, 2 * kt, x.dtype), cb(W3_CB, nh * ct, w3.dtype), cb(HID_CB, 2 * nh), cb(OUT_CB, 2 * ct)]
-    if bias is None:
+    if bias is None or bw:
         cbs += [cb(W12_CB, kt * 2 * nh, w12.dtype), cb(GATE_CB, 2 * _SW)]
-    else:
+    if bw:
+        cbs += [cb(B1_CB, nh), cb(DY_CB, 2 * kt)]
+        defines = tuple(defines) + (("WS_RELU_BW", "1"),)
+    elif bias is not None:
         cbs += [cb(W12_CB, kt * nh, w12.dtype), cb(B1_CB, nh), cb(B3_CB, ct)]
         defines = tuple(defines) + (("WS_RELU", "1"),)
     if ("WS_L1ACC", "1") in defines:
@@ -226,7 +230,21 @@ def relu_eligible(x, w1, w2, ln=()) -> bool:
             <= _L1_BUDGET)
 
 
-def _run(x, w12, w3, fidelity, defines, silu_poly, ln, resid, bias=None):
+def pair_relu_bw(x, dy, w12, b1, w3, fidelity=ttnn.MathFidelity.HiFi4, ln=None):
+    """The cotangent of `pair_relu`'s normed input: `((xn @ w1 + b1 > 0) * (dy @ w2^T)) @ w1^T`, xn the LayerNorm of x
+    under `ln` (else x itself), from `relu_bw_weights`. The pre-activation is recomputed from x, never stored. The
+    LayerNorm's own backward is the caller's (`lnbw.layer_norm_bw`)."""
+    return _run(x, w12, w3, fidelity, (), SILU_POLY, ln, None, (b1, dy), bw=True)
+
+
+def relu_bw_weights(w1: torch.Tensor, w2: torch.Tensor, device):
+    """(w12, w3) for `pair_relu_bw` from the torch [in, out] matrices: `[w1 | w2^T]` and `w1^T`, bf16 TILE."""
+    up = lambda t: ttnn.from_torch(t.contiguous(), dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT,  # noqa: E731
+                                   device=device)
+    return up(torch.cat([w1, w2.t()], 1)), up(w1.t())
+
+
+def _run(x, w12, w3, fidelity, defines, silu_poly, ln, resid, bias=None, bw=False):
     device = x.device()
     xs = [int(d) for d in x.padded_shape]
     mt = 1
@@ -238,9 +256,9 @@ def _run(x, w12, w3, fidelity, defines, silu_poly, ln, resid, bias=None):
         ttnn.Shape([int(d) for d in x.shape][:-1] + [int(w3.shape[-1])]), ttnn.bfloat16, ttnn.TILE_LAYOUT, device,
         ttnn.DRAM_MEMORY_CONFIG)
     key = (device.id(), tuple(xs), nh, ct, x.memory_config().buffer_type, fidelity, w12.dtype, x.dtype,
-           tuple(defines), silu_poly, None if ln is None else float(ln[2]), bias is not None)
+           tuple(defines), silu_poly, None if ln is None else float(ln[2]), bias is not None, bw)
     if key not in _CACHE:
-        _CACHE[key] = _build(x, w12, w3, out, device, mt, kt, nh, ct, fidelity, defines, silu_poly, ln, bias)
+        _CACHE[key] = _build(x, w12, w3, out, device, mt, kt, nh, ct, fidelity, defines, silu_poly, ln, bias, bw)
     kernels, cbs = _CACHE[key]
     g, b = (0, 0) if ln is None else (ln[0].buffer_address(), ln[1].buffer_address())
     b1, b3 = (0, 0) if bias is None else (bias[0].buffer_address(), bias[1].buffer_address())
