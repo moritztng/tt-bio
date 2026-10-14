@@ -427,6 +427,22 @@ def main(argv=None):
                     wake(R, c["row"], f"{c['key']} quarantined", log)
         elif L.get("state") in ("queued", "running") and L.get("host") in st:
             L["state"] = "lost"                  # vanished from queue/running without an end: place again
+        elif L.get("state") in ("queued", "running") and (L.get("host") not in P or (R / f"state/{L['host']}-offline").exists()):
+            L["state"] = "lost"                  # its box went dark or back to JapanFold: 10-14 qb2 held 11 cells 1.5 h
+    # a box back from dark still queues the cells placed elsewhere meanwhile: withdraw those twins before they run
+    owner = {L["name"]: L["host"] for L in ledger.values() if L.get("name")}
+    for n, s in st.items():
+        twins = [m for m, j in s.get("jobs", {}).items() if j["state"] == "queued" and owner.get(m, n) != n]
+        if twins and not a.dry_run:
+            try:
+                gone = remote(P[n]["ssh"], WITHDRAW, {"names": twins})
+            except Exception as e:
+                log(f"{n}: twin withdraw failed: {e}"); continue
+            for m in gone:
+                j = s["jobs"].pop(m); s["queued"] -= 1
+                if "card" in j:
+                    s["wait"][str(j["card"])] -= 1
+            log(f"{n}: withdrew {len(gone)} twin(s) placed elsewhere while it was dark")
     live = {n for s in st.values() for n in s.get("live", [])}
     steal(cs, ledger, st, P, stamp, a.dry_run, log)
     # 2. fill each pool up to depth x healthy, cells in priority order, the pool with most room first
