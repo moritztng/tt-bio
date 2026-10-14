@@ -33,6 +33,13 @@ setsid bash -c '
     [ -s "$3" ] && xargs -r kill -CONT < "$3" 2>/dev/null
     : > "$3"' reap "$grace" "$lock" "$reg" $$ </dev/null >/dev/null 2>&1 &
 
+# Runners that hold a card across many jobs (qb1's row chains, mp_heavy.sh, gapboard_chain.sh) hand
+# it over between jobs only to a process whose argv names the lock and a gate ("<lock> ... gate_fanout").
+# This leg's own argv carries neither, so a chain held qb1 card 2 for 2 h past a waiting gate leg
+# (10-14). The sentinel follows this script, waiting and running, and dies with it even on SIGKILL.
+( exec -a "flock_first $lock gate_fanout" bash -c 'while kill -0 "$0" 2>/dev/null; do sleep 5; done' $$ ) \
+    </dev/null >/dev/null 2>&1 9>&- &
+
 exec 9>>"$lock"
 # The wait is named gate_fanout-wait so a host-wide release-priority watcher (qb1's relprio.sh
 # matches "gate_fanout") never stops the gate's own waiter.
