@@ -320,7 +320,7 @@ def main():
     try:
         TT_ = importlib.import_module("tt_bio.trimul_tail")
         res["trimul_tail_sub"] = {k: list(getattr(TT_, k)) for k in
-                                  ("GIN_MOVE_STATS", "RES_STATS", "T1_STATS", "T2_STATS", "MASK_STATS")
+                                  ("GIN_MOVE_STATS", "RES_STATS", "T1_STATS", "T2_STATS", "T2CM_STATS", "MASK_STATS")
                                   if hasattr(TT_, k)}
     except Exception as e:
         res["trimul_tail_sub"] = {"absent": repr(e)}
