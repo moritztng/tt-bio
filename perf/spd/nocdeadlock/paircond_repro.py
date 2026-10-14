@@ -6,6 +6,8 @@ packer_l1_acc: ttnn picks MatmulMultiCoreReuseMultiCast1DProgramConfig(mcast_in0
 --kz/--kr/--nout/--odt give other models' shapes, e.g. OF3 linear_z: --kz 128 --kr 139 --nout 128 --odt bf16.
 --grid YxX forces another core grid. --atom loops the atom-transformer linear that hung in fold 9 on chip 3
 (fixm a2fce63b8): add -> ttnn.linear([5,5919,128] fp32, w[128,128], bias) on the same compute config.
+--ibw N passes an explicit 1D mcast_in1 program config on the forced grid with in0_block_w=N (N = K tiles: one
+inner block, so no partials CB and no packer L1 accumulation).
 usage: TT_VISIBLE_DEVICES=3 timeout -s TERM 1800 python paircond_repro.py --iters 400 [--grid none] [--n 730]
 """
 import argparse, time
@@ -21,6 +23,7 @@ ap.add_argument("--iters", type=int, default=400)
 ap.add_argument("--every", type=int, default=10)
 ap.add_argument("--grid", default="main", help="main | none | YxX")
 ap.add_argument("--atom", action="store_true")
+ap.add_argument("--ibw", type=int, default=0)
 ap.add_argument("--l1acc", type=int, default=1)
 ap.add_argument("--kz", type=int, default=256)
 ap.add_argument("--kr", type=int, default=256)
@@ -49,6 +52,14 @@ if a.grid == "main":
 elif a.grid != "none":
     gy, gx = map(int, a.grid.split("x"))
     kw["core_grid"] = ttnn.CoreGrid(y=gy, x=gx)
+if a.ibw:
+    cg = kw.pop("core_grid")
+    mt = 5 * -(-5919 // 32) if a.atom else -(-a.n * a.n // 32)
+    nt = (128 if a.atom else a.nout) // 32
+    kw["program_config"] = ttnn.MatmulMultiCoreReuseMultiCast1DProgramConfig(
+        compute_with_storage_grid_size=(cg.x, cg.y), in0_block_w=a.ibw, out_subblock_h=1,
+        out_subblock_w=min(nt, 4), per_core_M=-(-mt // (cg.x * cg.y)), per_core_N=nt, fuse_batch=True,
+        fused_activation=None, mcast_in0=False)
 ref = None
 t0 = time.time()
 for i in range(1, a.iters + 1):
