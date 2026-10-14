@@ -3,7 +3,7 @@
 # tt-bio.com perf-page fixture (cdk2x2_512, 35-row a3m) N times under N names (make_inputs.py --n, default 5): fold 1 cold, N-1 warm. Settings are the
 # published stock cells': 1 diffusion sample, seed 0, templates off, Protenix-v2 and OpenDDE 10 cycles / 200 steps,
 # Boltz-2 and OpenFold3 3 recycles / 200 steps (their shipped defaults). kctime.py times the model's own predict step,
-# synced, the same step the stock harness timed. nvidia-smi at 1 Hz throughout.
+# synced, the same step the stock harness timed. nvidia-smi every 500 ms throughout.
 #   bash box_arms.sh MODEL      results /root/kc/results/<MODEL>/<mode>/{stdout,stderr}.log, times.jsonl, rc, t_start, t_end
 # GPU of this session (session.sh pushes /root/kc/gpu.env): the kit's --config and TORCH_CUDA_ARCH_LIST
 KC_CFG=a100 KC_ARCH=8.0 KC_N=5; [ -f /root/kc/gpu.env ] && . /root/kc/gpu.env
@@ -32,7 +32,7 @@ case $M in
   esmfold2)    export KC_WRAP=esm.models.esmfold2.processor:ESMFold2InputBuilder.fold;;  # kit off times it unsynced; kctime syncs
 esac
 nvidia-smi -q -d POWER,CLOCK,PERFORMANCE > $R/power-clock.txt 2>&1
-nohup nvidia-smi --query-gpu=timestamp,clocks.sm,clocks.mem,power.draw,power.limit,temperature.gpu,utilization.gpu,clocks_event_reasons.active,memory.used --format=csv,noheader -l 1 > $R/smi.csv 2>&1 &
+nohup nvidia-smi --query-gpu=timestamp,clocks.sm,clocks.mem,power.draw,power.limit,temperature.gpu,utilization.gpu,clocks_event_reasons.active,memory.used --format=csv,noheader -lms 500 > $R/smi.csv 2>&1 &
 SMI=$!
 run(){ # <mode>
   local d=$R/$1; mkdir -p $d; date -u +%FT%T.%3NZ > $d/t_start; export KC_TIMES=$d/times.jsonl

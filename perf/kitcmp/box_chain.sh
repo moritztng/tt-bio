@@ -1,9 +1,11 @@
 #!/bin/bash
 # Runs ON the box: every model in turn, setup then arms, never two arms at once (session.sh pushed the weights vast cannot fetch).
-#   bash box_chain.sh "openfold3 opendde protenix_v2 boltz2:off"   (model[:mode,mode]; default off,exact,fast)   markers CHAIN-PROGRESS, CHAIN-DONE, THERMAL-FAIL
+#   bash box_chain.sh "openfold3 opendde protenix_v2 boltz2:off stock-saprot"   (model[:mode,mode]; default off,exact,fast)   markers CHAIN-PROGRESS, CHAIN-DONE, THERMAL-FAIL
 cd /root/kc
 for e in $1; do
   m=${e%%:*}; md=off,exact,fast; [ $m = $e ] || md=${e#*:}
+  # stock-<row>: a page row on its stock upstream stack (box_stock.sh), after the kits so the burn gate has run
+  case $m in stock-*) bash box_stock.sh ${m#stock-} > $m.log 2>&1; echo $m $? >> CHAIN-PROGRESS; continue;; esac
   SET=box_setup.sh ARMS=box_arms.sh BP=/root/kit/$m/venv/bin/python
   # the BindCraft section: two stacks of its own, and neither carries torch, so the burn gate gets its own venv
   [ $m = colabdesign ] && { SET=box_bc_setup.sh; ARMS=box_bc_arms.sh; BP=/opt/burn-venv/bin/python; }
