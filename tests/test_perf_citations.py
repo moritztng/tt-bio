@@ -354,4 +354,4 @@ def test_the_census_reads_provenance_out_of_a_curated_json():
     """
     named = named_directories()
     assert "docs/perf_baselines.json" in named.get("qb2cardlayer", set())
-    assert "site/data/perf-512aa.json" in named.get("wh-embed", set())
+    assert "site/data/perf-512aa.json" in named.get("p132", set())
