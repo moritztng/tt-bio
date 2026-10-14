@@ -119,6 +119,10 @@ TRANSITION_ROWBLOCK_BYTES = int(os.environ.get("TT_BIO_TRANSITION_ROWBLOCK_BYTES
 # read them on chip instead of a DRAM round trip. Same arithmetic, so bit-exact; never under a tape
 # (`_l1_fits` declines there), so a BindCraft 2 round is unchanged.
 TRANSITION_L1 = env_flag("TT_BIO_AF2_TRANSITION_L1", False)
+# The whole transition as one program (`pair_swiglu_ws.pair_relu`): LayerNorm, fc1 + bias, ReLU, fc2 + bias with
+# both weights resident in L1, so x is read once, the output written once, and the normed x and the 4x-wide hidden
+# never reach DRAM. Not under a tape (it has no backward), so a BindCraft 2 round is unchanged.
+TRANSITION_WS = env_flag("TT_BIO_AF2_TRANSITION_WS", False)
 # Hand the pair representation from the extra-MSA stack straight to the Evoformer stack as a
 # device tensor, instead of downloading it and uploading the same bytes back. `AF2Model.forward`
 # does not touch `pair` between the two calls -- it only concatenates the template torsion rows
@@ -249,6 +253,24 @@ class ReluTransition(Module):
         self.fc1_bias = self.torch_to_tt("fc1.bias")
         self.fc2_weight = self.torch_to_tt("fc2.weight")
         self.fc2_bias = self.torch_to_tt("fc2.bias")
+        self._ws_weights = None
+
+    def _ws(self, x: ttnn.Tensor) -> ttnn.Tensor | None:
+        """The transition as one `pair_relu` program, or None where it does not serve."""
+        from . import ops
+        from . import pair_swiglu_ws as W
+        if ops.taping():
+            return None
+        if self._ws_weights is None:
+            w = self.weights
+            self._ws_weights = W.relu_weights(w["fc1.weight"].t(), w["fc1.bias"], w["fc2.weight"].t(),
+                                              w["fc2.bias"], self.device)
+        w1, b1, w2, b2 = self._ws_weights
+        ln = (self.norm_weight, self.norm_bias)
+        if not W.relu_eligible(x, w1, w2, ln):
+            return None
+        return W.pair_relu(x, w1, b1, w2, b2, fidelity=self.compute_kernel_config.math_fidelity,
+                           ln=ln + (1e-5,))
 
     def _rows(self, x: ttnn.Tensor) -> ttnn.Tensor:
         if TRANSITION_L1:
@@ -286,6 +308,8 @@ class ReluTransition(Module):
             ttnn.deallocate(h)
 
     def __call__(self, x: ttnn.Tensor) -> ttnn.Tensor:
+        if TRANSITION_WS and (out := self._ws(x)) is not None:
+            return out
         shape = [int(d) for d in x.shape]
         hidden_bytes = 1
         for d in shape[:-1]:

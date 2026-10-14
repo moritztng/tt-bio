@@ -22,6 +22,9 @@
 // and fc3 accumulates on top, so z + t is rounded to bf16 once, by the pack; the writer puts it back over z. The
 // transition's `z + t` and the hidden-chunk sum then cost no add pass over the pair. (Adding after fc3 with dest
 // reused as srcA truncates t to srcA's bf16 first: rel_rms 0.0037 -> 0.0046 at c 256.)
+// WS_RELU (AF2's Transition): fc3(relu(x @ w1 + b1)) + b3. c_1 holds w1 alone and there is no gate; each bias is a
+// CB of tiles whose 32 rows all carry the vector (c_21 = b1, NH tiles; c_22 = b3, CT tiles), copied into dest as the
+// seed its matmul accumulates on, so the bias costs no pass and is summed in fp32 with the products.
 #include <cstdint>
 #define REDUCE_OP PoolType::SUM
 #define REDUCE_DIM ReduceDim::REDUCE_ROW
@@ -31,6 +34,7 @@
 #include "api/compute/compute_kernel_api.h"
 #include "api/compute/reconfig_data_format.h"
 #include "api/compute/tile_move_copy.h"
+#include "api/compute/eltwise_unary/relu.h"
 #include "../trimul_gin_moved/sigmoid_poly.hpp"
 #ifdef WS_LN
 #include "../common/ln_prologue.hpp"
@@ -103,14 +107,23 @@ void kernel_main() {
     constexpr uint32_t OG = CT < 4 ? CT : 4;
     static_assert(NH % SW == 0 && CT % OG == 0);
     constexpr uint32_t cb_x = 0, cb_w12 = 1, cb_w3 = 2, cb_gate = 3, cb_hid = 4, cb_out = 16, cb_res = 20;
+#ifdef WS_RELU
+    constexpr uint32_t cb_b1 = 21, cb_b3 = 22, W12 = NH;   // c_1 is w1 alone, [KT, NH]
+#else
+    constexpr uint32_t W12 = 2 * NH;
+#endif
     // The gate multiply keeps HiFi4 whatever the matmuls run at: at HiFi2 it would drop the gate's low bits.
     constexpr auto mul_fidelity = MathFidelity::HiFi4;
     if (count == 0) {
         return;
     }
     mm_block_init(cb_x, cb_w12, cb_gate, false, SW, 1, KT);
-    cb_wait_front(cb_w12, KT * 2 * NH);
+    cb_wait_front(cb_w12, KT * W12);
     cb_wait_front(cb_w3, NH * CT);
+#ifdef WS_RELU
+    cb_wait_front(cb_b1, NH);
+    cb_wait_front(cb_b3, CT);
+#endif
 #ifdef WS_LN
     cb_wait_front(LnCbs::gamma, KT);
     cb_wait_front(LnCbs::beta, KT);
@@ -130,6 +143,30 @@ void kernel_main() {
 #endif
         cb_wait_front(cb_x, KT);
         for (uint32_t j = 0; j < NH; j += SW) {
+#ifdef WS_RELU
+            // fc1 group on top of b1 -> relu -> hidden
+            tile_regs_acquire();
+            copy_tile_to_dst_init_short(cb_b1);
+            reconfig_data_format_srca(cb_b1);
+            for (uint32_t i = 0; i < SW; ++i) {
+                copy_tile(cb_b1, j + i, i);
+            }
+            mm_block_init_short(cb_x, cb_w12, false, SW, 1, KT);
+            reconfig_data_format(cb_w12, cb_x);
+            for (uint32_t k = 0; k < KT; ++k) {
+                matmul_block(cb_x, cb_w12, k, k * W12 + j, 0, false, SW, 1, KT);
+            }
+            relu_tile_init();
+            for (uint32_t i = 0; i < SW; ++i) {
+                relu_tile(i);
+            }
+            tile_regs_commit();
+            cb_reserve_back(cb_hid, SW);
+            tile_regs_wait();
+            pack_tile_block(0, cb_hid, SW);
+            tile_regs_release();
+            cb_push_back(cb_hid, SW);
+#else
             // fc1 group -> silu -> gate
 #ifdef WS_L1ACC
             mm_acc<KT, SW>(cb_x, cb_w12, 2 * NH, j);
@@ -200,6 +237,7 @@ void kernel_main() {
             pack_tile_block(0, cb_hid, SW);
             tile_regs_release();
             cb_push_back(cb_hid, SW);
+#endif
         }
         cb_pop_front(cb_x, KT);
         // fc3 over the row's NH hidden tiles, OG output tiles (one fp32 dest half) at a time
@@ -223,6 +261,15 @@ void kernel_main() {
             pack_reconfig_data_format(cb_out);
 #else
             tile_regs_acquire();
+#ifdef WS_RELU
+            copy_tile_to_dst_init_short(cb_b3);
+            reconfig_data_format_srca(cb_b3);
+            for (uint32_t i = 0; i < OG; ++i) {
+                copy_tile(cb_b3, c + i, i);
+            }
+            mm_block_init_short(cb_hid, cb_w3, false, OG, 1, NH);
+            reconfig_data_format(cb_w3, cb_hid);
+#endif
 #ifdef WS_RESID
             copy_tile_to_dst_init_short(cb_res);
             reconfig_data_format_srca(cb_w3, cb_res);
