@@ -10,6 +10,10 @@ tokens; it was never timed on Wormhole, and it declines AF2-IG's ragged 195 x 19
 on [1, S, S, K] x [K, N] (+ bias, + ReLU as production), every arm with rel L2 against float64.
 
 Each arm: warm 2, median of 5 reps of `--inner` calls between syncs.
+
+`--ckcs` adds the shipped call and the `pair_mm` table again under other fidelity/accumulator
+configs (`hifi2-bf16` = HiFi2, bf16 dest). At K = 128 a tile row is four K tiles, so the fp32 dest
+buys little accuracy and halves the dest's capacity; this prices that against float64.
 """
 import argparse, itertools, json, statistics, sys, time
 from pathlib import Path
@@ -51,13 +55,18 @@ def main():
     ap.add_argument("--inner", type=int, default=10)
     ap.add_argument("--sizes", default="224,195")
     ap.add_argument("--max-arms", type=int, default=48)
+    ap.add_argument("--ckcs", default="", help="extra configs, e.g. hifi4-bf16,hifi2-fp32,hifi2-bf16")
     a = ap.parse_args()
     dev = tt.get_device()
     gx, gy = tt.COMPUTE_GRID_MAIN
     ckc_cls = (ttnn.types.WormholeComputeKernelConfig if dev.arch() == ttnn.Arch.WORMHOLE_B0
                else ttnn.types.BlackholeComputeKernelConfig)
-    ckc = ckc_cls(math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=False,
-                  fp32_dest_acc_en=True, packer_l1_acc=True)
+    def config(name):
+        fid, acc = name.split("-")
+        return ckc_cls(math_fidelity=getattr(ttnn.MathFidelity, {"lofi": "LoFi"}.get(fid, fid.replace("hifi", "HiFi"))),
+                       math_approx_mode=False, fp32_dest_acc_en=acc == "fp32", packer_l1_acc=True)
+    ckc = config("hifi4-fp32")
+    extra = [(n, config(n)) for n in a.ckcs.split(",") if n]
     res = {"arch": str(dev.arch()), "grid": [gx, gy], "loadavg": open("/proc/loadavg").read().split()[:3],
            "inner": a.inner, "cells": []}
     up = lambda t: ttnn.from_torch(t, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16,  # noqa: E731
@@ -76,6 +85,10 @@ def main():
             arms = [("prod", lambda: ttnn.linear(x, w, bias=b, activation=act, compute_kernel_config=ckc,
                                                  dtype=ttnn.bfloat16, core_grid=tt.CORE_GRID_MAIN)),
                     ("pair_mm_table", lambda: pair_mm.matmul(x, w, b, ckc, ttnn.bfloat16, activation=act))]
+            for n, c in extra:
+                arms += [(f"prod@{n}", lambda c=c: ttnn.linear(x, w, bias=b, activation=act, compute_kernel_config=c,
+                                                                dtype=ttnn.bfloat16, core_grid=tt.CORE_GRID_MAIN)),
+                         (f"pair_mm_table@{n}", lambda c=c: pair_mm.matmul(x, w, b, c, ttnn.bfloat16, activation=act))]
             Mt = S * ((S + 31) // 32)
             kt, nt = K // 32, N // 32
             grid = []
