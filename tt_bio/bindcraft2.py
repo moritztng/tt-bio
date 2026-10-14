@@ -1070,13 +1070,28 @@ class _SeamTraces:
     (`release`). The old block-recompute trace (`autograd.TRACE_RECOMPUTE`) broke exactly there:
     eager tape tensors born between its replays landed on its intermediates.
 
-    A key is captured on its second sighting, so the first ran eagerly and compiled every program
-    it needs; the six seams of one gradient step then capture in the same step.
+    A key is captured only after an eager forward AND an eager backward ran under it, so every
+    program both captures need is compiled: a program compiled inside a capture writes its binary
+    to the card, which a capture refuses. Sighting alone is not enough, because the recycles of one
+    step share a key and only the last of them gets a backward (measured on qb1: the backward's
+    `ttnn.softmax` VJP failed the capture). The six seams of one gradient step then capture in the
+    same step.
     """
 
     def __init__(self):
         self._st: dict = {}
         self._memo: dict = {}
+        self._pending = None
+
+    def take_pending(self):
+        """The key of the forward that just fell back to eager, for its tape entry (`warm`)."""
+        key, self._pending = self._pending, None
+        return key
+
+    def warm(self, key) -> None:
+        """An eager backward ran under `key`: its next forward captures."""
+        if key is not None and self._st.get(key) == "seen":
+            self._st[key] = "warm"
 
     def memo(self, key, fn):
         """`fn()` once per key: a choice made from free memory would move as traces fill it."""
@@ -1103,11 +1118,11 @@ class _SeamTraces:
         forward on the device inputs and returns `(roots, leaves)`. Returns the roots' values, or
         None for the caller to run eagerly."""
         ttnn = trunk.ttnn
-        st = self._st.get(key)
-        if st is None:
-            self._st[key] = "seen"
-            return None
+        st = self._st.setdefault(key, "seen")
         if st == "seen":
+            self._pending = key
+            return None
+        if st == "warm":
             pinned = [trunk.up(t) if not col else
                       trunk.ttnn.from_torch(t.detach().unsqueeze(0).to(torch.bfloat16),
                                             layout=ttnn.ROW_MAJOR_LAYOUT, device=trunk.device,
@@ -1667,7 +1682,8 @@ class EvoformerOnDevice:
             trunk.ag.release_pins()
             token = self._tapes.bank({"roots": (mo, zo), "leaves": (ml, zl),
                                       "shapes": (tuple(m.shape), tuple(z.shape)), "n": n,
-                                      "mode": mode, "drop": drop},
+                                      "mode": mode, "drop": drop,
+                                      "warm": _SEAMS.take_pending()},
                                      slot)
             self.calls["taped"] += 1
             out = (trunk.down(mo.value, tuple(m.shape))[:, :n].numpy(),
@@ -1781,6 +1797,7 @@ class EvoformerOnDevice:
             out = (trunk.grad(ml, m_shape)[:, :n].numpy(),
                    trunk.grad(zl, z_shape)[:n, :n].numpy())
             trunk.ag.release_pins()
+        _SEAMS.warm(entry.get("warm"))
         self.calls["backward"] += 1
         return out
 
@@ -1971,7 +1988,8 @@ class ExtraMsaOnDevice:
             trunk.sync()
             trunk.ag.release_pins()
             token = self._tapes.bank({"root": zo, "leaf": zl, "shape": tuple(z.shape), "n": n,
-                                      "mode": mode, "drop": drop}, slot)
+                                      "mode": mode, "drop": drop,
+                                      "warm": _SEAMS.take_pending()}, slot)
             self.calls["taped"] += 1
             return (trunk.down(zo.value, tuple(z.shape))[:n, :n].numpy(), np.int32(token))
 
@@ -1993,6 +2011,7 @@ class ExtraMsaOnDevice:
             trunk.sync()
             out = trunk.grad(entry["leaf"], shape)[:n, :n].numpy()
             trunk.ag.release_pins()
+        _SEAMS.warm(entry.get("warm"))
         self.calls["backward"] += 1
         return out
 
@@ -2154,7 +2173,8 @@ class TemplateOnDevice:
             trunk.sync()
             trunk.ag.release_pins()
             token = self._tapes.bank({"root": out, "leaf": leaf, "shape": tuple(act.shape),
-                                      "n": n, "mode": mode, "drop": drop}, slot)
+                                      "n": n, "mode": mode, "drop": drop,
+                                      "warm": _SEAMS.take_pending()}, slot)
             self.calls["taped"] += 1
             return (trunk.down(out.value, tuple(act.shape))[:n, :n].numpy(),
                     np.int32(token))
@@ -2177,6 +2197,7 @@ class TemplateOnDevice:
             trunk.sync()
             out = trunk.grad(entry["leaf"], shape)[:n, :n].numpy()
             trunk.ag.release_pins()
+        _SEAMS.warm(entry.get("warm"))
         self.calls["backward"] += 1
         return out
 

@@ -1,5 +1,5 @@
-"""`bindcraft2._SeamTraces` without a card: eager on a key's first sighting, captured on the
-second, replayed after, and every trace dropped by `release`. A stub stands in for ttnn and
+"""`bindcraft2._SeamTraces` without a card: eager until an eager forward and backward ran under a
+key, captured on the next forward, replayed after, and every trace dropped by `release`. A stub stands in for ttnn and
 records what reached the device."""
 import types
 
@@ -56,7 +56,7 @@ def _trunk(log):
     return trunk, built
 
 
-def test_first_sighting_eager_second_captures_then_replays():
+def test_eager_until_a_backward_ran_then_captures_and_replays():
     log = []
     trunk, built = _trunk(log)
     seams = bindcraft2._SeamTraces()
@@ -70,8 +70,11 @@ def test_first_sighting_eager_second_captures_then_replays():
         return (_T(ins[0].shape, "root"),), (leaf,)
 
     assert seams.forward("k", trunk, host, build) is None          # first sighting: eager
+    assert seams.take_pending() == "k" and seams.take_pending() is None
+    assert seams.forward("k", trunk, host, build) is None          # a recycle, still no backward
+    seams.warm(seams.take_pending())                                # the eager backward ran
     assert not log
-    outs = seams.forward("k", trunk, host, build)                   # second: capture + execute
+    outs = seams.forward("k", trunk, host, build)                   # now: capture + execute
     assert [o.tag for o in outs] == ["clone"]
     assert runs == [["dev", "tiled"]]                               # the column mask tiles inside
     assert ("begin",) in log and ("execute", 0) in log
