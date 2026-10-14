@@ -137,6 +137,12 @@ LOG_CAP = 20 << 20
 POOL = "pool"            # --workers host:pool, a slot in the host's chip pool
 POOL_CARD = "@@CARD@@"   # stands for $CHIP in a pool job, filled in when the pool starts it
 POOL_POLL_S = 30
+#: A chip marked bad by hand. feed.py skips a chip with ~/spd/locks/chipN.BAD; fleet.sh skips a card
+#: with state/cardblock-<host>-<N>, on pc or on the host itself. A worker reads all three before
+#: each leg: rec-c2b4b898e (10-14) ran protenix-v2 on qb2:0, the chip it deadlocks on, because
+#: gate.json listed it as a worker though both marks were set.
+BAD_MARKS = ("~/spd/locks/chip{card}.BAD", "~/.coworker/state/cardblock-{host}-{card}")
+LOCAL_BLOCKS = Path(os.environ.get("COWORKER_DIR", Path.home() / ".coworker")) / "state"
 LOAD_REFUSAL = "refusing to run the gate. host load:"
 #: The scripts that refuse to start above gate_guard's load ceiling. On a pool host the ceiling is
 #: the wrong guard: the pool's per-chip queue bounds the fan-out, and a busy pool keeps a Galaxy's
@@ -993,6 +999,18 @@ class Host:
         return (f"mkdir -p {shlex.quote(out)} && {self.end_attempt(out)} && cd {self.tree} && {setup}"
                 f"env {mark} setsid -w bash -c {attempt}")   # no exec: a pool job writes rc after it
 
+    def marked_bad(self, card) -> str | None:
+        """The mark that takes `card` out of service (BAD_MARKS), or None. A host that does not
+        answer reads as unmarked: the leg then meets the same lost connection and is retried."""
+        local = LOCAL_BLOCKS / f"cardblock-{self.name}-{card}"
+        if local.exists():
+            return str(local)
+        marks = " ".join(m.format(card=card, host=self.name) for m in BAD_MARKS)
+        r = self.ssh(f"for f in {marks}; do [ -e \"$f\" ] && echo \"$f\"; done; true",
+                     capture_output=True, timeout=120)
+        found = (r.stdout or "").split()
+        return found[0] if r.returncode == 0 and found else None
+
     def card_dead(self, card) -> str | None:
         """Why `card` failed CARD_PROBE_TRIES probes in a row, or None once one passes."""
         why = None
@@ -1366,6 +1384,9 @@ class Gate:
     def worker(self, host: Host, card) -> None:
         queue = self._queue(host, card)
         while True:
+            if card not in (None, POOL) and (mark := host.marked_bad(card)):
+                print(f"skipped {host.name}:{card} for this run, its chip is marked bad: {mark}", flush=True)
+                return
             with host.lock:
                 while host.timed_running:
                     host.lock.wait()
