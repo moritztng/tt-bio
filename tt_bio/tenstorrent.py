@@ -12792,6 +12792,10 @@ def _ws_applies(x, ckc) -> bool:
             and not _dest_guard.tail_exposed(ckc))
 
 
+# How many hidden chunks `ws_swiglu` may add into `resid` (see its docstring); a bench knob, never raised in production.
+_WS_RESID_CHUNKS = 1
+
+
 def ws_swiglu(x, norm_weight, norm_bias, ckc, parts, resid=None):
     """`fc3(silu(LN(x) w1) * (LN(x) w2))` as `pair_swiglu_ws` programs over the hidden chunks `parts`
     (`pair_swiglu_ws.weights`), their outputs summed; or None where the kernel does not take the shape (a chunk
@@ -12807,7 +12811,7 @@ def ws_swiglu(x, norm_weight, norm_bias, ckc, parts, resid=None):
     (the one-rounding floor 0.112), 0.158 at two (c_z 256 bf16), 0.221 at four (c_z 384 bf16); the Protenix-v2 normal
     grade with two-chunk resid lost 0.33 CA-lDDT on the 680-790 token complexes (spd-gap-small gwr, 2026-10-14).
     """
-    if resid is not None and len(parts) > 1:
+    if resid is not None and len(parts) > _WS_RESID_CHUNKS:
         return None
     if not all(_pair_ws.eligible(x, w12, w3, l1acc=lever("ws_l1acc"), resid=resid) for w12, w3 in parts):
         return None
@@ -12822,7 +12826,8 @@ def ws_swiglu(x, norm_weight, norm_bias, ckc, parts, resid=None):
                              memory_config=ttnn.DRAM_MEMORY_CONFIG)
     out = None
     if resid is not None:
-        _pair_ws.pair_swiglu(x_norm, *parts[0], fid, l1acc=acc, resid=resid)
+        for w12, w3 in parts:
+            _pair_ws.pair_swiglu(x_norm, w12, w3, fid, l1acc=acc, resid=resid)
         ttnn.deallocate(x_norm)
         return resid
     for w12, w3 in parts:
