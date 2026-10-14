@@ -107,7 +107,7 @@ def fill(doc: dict, runs: dict, parity: dict) -> list[str]:
                 if "batch" in old and "batch" not in cell:
                     raise SystemExit(f"{cat}/{m['id']}/{k}: the board command names no batch size")
                 if v == "tenstorrent" and parity.get(m["id"]):
-                    cell["parity"] = parity[m["id"]]
+                    cell["parity"] = parity[m["id"]] + (". " + m["parity_caveat"] if m.get("parity_caveat") else "")
                 for name, r in extra.items():
                     if r:
                         cell[name] = as_run(r, unit, v)

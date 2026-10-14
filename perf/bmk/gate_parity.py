@@ -31,6 +31,12 @@ LEGS = {
     "esmc-300m": ["esmc-300m"], "esmc-600m": ["esmc-600m"], "esmc-6b": ["esmc-6b"],
     "saprot-35m": ["saprot-35m"], "saprot-650m": ["saprot-650m"], "saprot-1.3b": ["saprot-1.3b"],
 }
+# What a reader is told for a leg named outside the envelope; any other leg is named by its id.
+TARGETS = {
+    "boltz2-9ncy-nomsa": "the 9NCY antibody-antigen complex without MSA",
+    "boltz2-prot-nomsa": "a 117-residue protein without MSA",
+    "openfold3-7xi5-notmpl": "7XI5 without templates",
+}
 INSIDE = {"PASS", "PASS-caveated"}
 VERDICTS = INSIDE | {"GAP", "GAP-evidenced", "DRIFT", "FAIL", "ERROR", "SKIP"}
 
@@ -39,6 +45,10 @@ def scorer_verdict(log: Path, leg: str) -> str | None:
     """The verdict on the leg's own result row; the header prints before the run, the row after."""
     rows = [l.split() for l in log.read_text(errors="replace").splitlines() if l.split()[:1] == [leg]]
     return next((w for w in rows[-1] if w in VERDICTS), None) if rows else None
+
+
+def join(parts: list[str]) -> str:
+    return ", ".join(parts[:-1]) + " and " + parts[-1] if len(parts) > 1 else parts[0]
 
 
 def legs(gate: Path) -> dict:
@@ -70,11 +80,14 @@ def claims(gate: Path) -> dict:
                 inside.append(n)
             else:
                 floor.append(n)
-        text = f"{len(inside)} of {len(mine)} release-gate accuracy legs inside the reference envelope on Blackhole, tt-bio {sha}"
+        say = lambda names: join([TARGETS.get(n, n) for n in names])
+        text = (f"{len(inside)} of {len(mine)} release-gate accuracy checks" if len(mine) > 1 else
+                f"{'1' if inside else '0'} of 1 release-gate accuracy check")
+        text += f" inside the reference envelope on Blackhole (tt-bio {sha})"
         if floor:
-            text += f"; {', '.join(floor)} outside it, reproducing a committed bf16 floor"
+            text += f"; {say(floor)} {'sits' if len(floor) == 1 else 'sit'} outside it on a documented bf16 floor"
         if failed:
-            text += f"; {', '.join(failed)} failed, errored or left no score in this gate"
+            text += f"; {say(failed)} failed or left no score in this gate"
         out[row] = text
     return out
 
