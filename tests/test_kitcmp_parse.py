@@ -28,8 +28,7 @@ def smi(path, a, b, mhz=1410):
     path.write_text("\n".join(rows) + "\n")
 
 
-def test_every_arm_kind(tmp_path):
-    r = tmp_path
+def build(r):
     d = r / "boltz2/exact"; d.mkdir(parents=True)
     (d / "times.jsonl").write_text("".join(json.dumps({"s": s, "fn": "boltz.model.models.boltz2.Boltz2.predict_step",
                                                        "t": T0 + i}) + "\n" for i, s in enumerate([30.0, 9.0, 8.9, 8.8, 9.1])))
@@ -66,7 +65,11 @@ def test_every_arm_kind(tmp_path):
         (d / f"nesso1_ladder_aa512_cueq_a100_{leg}.json").write_text(json.dumps(dict(
             label="ladder_aa512_cueq", rep_s=reps, ok=True, affinity={"sha256_of_values": "f" * 64})))
 
-    got = {(x["cell"], x["mode"]): x for x in parse.arms(r)}
+
+
+def test_every_arm_kind(tmp_path):
+    build(tmp_path)
+    got = {(x["cell"], x["mode"]): x for x in parse.arms(tmp_path)}
     b = got[("boltz2", "exact")]
     assert (b["n"], b["median"], b["cold"], b["fn"]) == (4, 8.95, 30.0, "Boltz2.predict_step")
     assert b["sm_mhz"] == 1410 and b["watts"] == 380 and b["engaged"].startswith("ACTIVE mode=exact")
@@ -79,3 +82,19 @@ def test_every_arm_kind(tmp_path):
     assert got[("saprot-650m", "stock")]["n"] == 15
     ne = got[("nesso1", "stock")]
     assert ne["n"] == 6 and ne["cold"] == 11.0 and ne["median"] == 7.45
+
+
+def test_board_rows(tmp_path):
+    import subprocess, sys
+    build(tmp_path / "results")
+    (tmp_path / "kit-commit").write_text("f4f62fa6592ae4938d49b1757bea0cfeff9f468e\n")
+    s = tmp_path / "results/setup-boltz2"; s.mkdir()
+    (s / "pip-freeze.txt").write_text("torch==2.13.0+cu130\nboltz @ file:///root/kit/boltz2/stock/boltz-2.2.1-py3-none-any.whl\n")
+    (s / "gpu.csv").write_text("name, driver_version, power.limit [W], clocks.max.sm [MHz]\nNVIDIA A100-SXM4-80GB, 580.173.02, 400.00 W, 1410 MHz\n")
+    out = subprocess.run([sys.executable, str(Path(__file__).parents[1] / "perf/kitcmp/board.py"), str(tmp_path), "--gpu", "a100",
+                          "--row", "bmk-a100"], capture_output=True, text=True, check=True).stdout.splitlines()
+    b = next(l for l in out if l.startswith("| boltz2 | a100 | kit-exact |"))
+    c = [x.strip() for x in b.strip("|").split("|")]
+    assert c[3] == "8.95" and c[4].startswith("n=4") and "SM 1410 MHz" in c[5]
+    assert "kit f4f62fa65" in c[6] and "torch 2.13.0+cu130, boltz 2.2.1" in c[6] and "driver 580.173.02" in c[6] and "--mode exact" in c[8]
+    assert any(l.startswith("| nesso1 | a100 | stock | 7.45 |") for l in out)
