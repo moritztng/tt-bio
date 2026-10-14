@@ -75,6 +75,13 @@ def main():
     ap.add_argument("--phases", default=None, metavar="MODULE:[Class.]name,...")
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
+    # A phase wrapper syncs the device, and a sync inside a trace capture is a TT_FATAL (wl1p Boltz-2,
+    # 10-14): the process then spun in close_device holding the host-wide open lock. So --phases folds
+    # untraced unless a trace was asked for, and refuses the combination outright.
+    if a.phases:
+        if a.trace or a.ab_trace:
+            ap.error("--phases cannot time a traced fold (device sync inside a trace capture); drop --trace/--ab-trace")
+        a.trace = False
 
     tree = a.tree.resolve()
     sys.path.insert(0, str(tree))
