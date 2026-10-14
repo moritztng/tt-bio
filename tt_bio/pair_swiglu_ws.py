@@ -24,6 +24,7 @@ import torch
 import ttnn
 
 from . import core_split
+from . import ops
 
 KERNEL_DIR = Path(__file__).resolve().parent / "kernels" / "pair_swiglu_ws"
 X_CB, W12_CB, W3_CB, GATE_CB, HID_CB, OUT_CB = 0, 1, 2, 3, 4, 16
@@ -197,10 +198,16 @@ def pair_swiglu(x, w12, w3, fidelity=ttnn.MathFidelity.HiFi4, defines=(), silu_p
     return _run(x, w12, w3, fidelity, defines, silu_poly, ln, resid)
 
 
-def pair_relu(x, w1, b1, w2, b2, fidelity=ttnn.MathFidelity.HiFi4, ln=None):
+@ops.fused_kernel("pair_relu")
+def pair_relu(x, w1, b1, w2, b2, fidelity=ttnn.MathFidelity.HiFi4, ln=None, bw_weights=None):
     """AF2's Transition after its norm, `relu(x @ w1 + b1) @ w2 + b2`, for a bf16 TILE `x` [..., C]; a new bf16 DRAM
     tensor [..., C_out]. Weights as `relu_weights` returns them. `ln` = (gamma, beta, eps) runs the LayerNorm in the
-    kernel first, as `pair_swiglu`. Same fp32 dest accumulation, the bias summed into it before the products."""
+    kernel first, as `pair_swiglu`. Same fp32 dest accumulation, the bias summed into it before the products.
+
+    Under a tape it runs only through its entry in `taped_ttnn` (`pair_relu`), which needs `bw_weights`
+    (`relu_bw_weights`) and `ln`; otherwise it returns None and the caller's composed ops run."""
+    if ops.declines_under_tape("pair_relu"):
+        return None
     return _run(x, w1, w2, fidelity, (), SILU_POLY, ln, None, (b1, b2))
 
 

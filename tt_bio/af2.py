@@ -121,7 +121,8 @@ TRANSITION_ROWBLOCK_BYTES = int(os.environ.get("TT_BIO_TRANSITION_ROWBLOCK_BYTES
 TRANSITION_L1 = env_flag("TT_BIO_AF2_TRANSITION_L1", False)
 # The whole transition as one program (`pair_swiglu_ws.pair_relu`): LayerNorm, fc1 + bias, ReLU, fc2 + bias with
 # both weights resident in L1, so x is read once, the output written once, and the normed x and the 4x-wide hidden
-# never reach DRAM. Not under a tape (it has no backward), so a BindCraft 2 round is unchanged.
+# never reach DRAM. Under a tape only with the `pair_relu` entry installed (TT_BIO_TAPED_KERNELS): the node saves x
+# alone and its backward is `pair_relu_bw` (pre-activation recomputed in L1) then `lnbw.layer_norm_bw`.
 TRANSITION_WS = env_flag("TT_BIO_AF2_TRANSITION_WS", False)
 # Hand the pair representation from the extra-MSA stack straight to the Evoformer stack as a
 # device tensor, instead of downloading it and uploading the same bytes back. `AF2Model.forward`
@@ -253,24 +254,26 @@ class ReluTransition(Module):
         self.fc1_bias = self.torch_to_tt("fc1.bias")
         self.fc2_weight = self.torch_to_tt("fc2.weight")
         self.fc2_bias = self.torch_to_tt("fc2.bias")
-        self._ws_weights = None
+        self._ws_weights = self._ws_bw = None
 
     def _ws(self, x: ttnn.Tensor) -> ttnn.Tensor | None:
         """The transition as one `pair_relu` program, or None where it does not serve."""
         from . import ops
         from . import pair_swiglu_ws as W
-        if ops.taping():
+        if ops.declines_under_tape("pair_relu") and ops.recording():
             return None
+        w = self.weights
         if self._ws_weights is None:
-            w = self.weights
             self._ws_weights = W.relu_weights(w["fc1.weight"].t(), w["fc1.bias"], w["fc2.weight"].t(),
                                               w["fc2.bias"], self.device)
+        if ops.recording() and self._ws_bw is None:
+            self._ws_bw = W.relu_bw_weights(w["fc1.weight"].t(), w["fc2.weight"].t(), self.device)
         w1, b1, w2, b2 = self._ws_weights
         ln = (self.norm_weight, self.norm_bias)
         if not W.relu_eligible(x, w1, w2, ln):
             return None
         return W.pair_relu(x, w1, b1, w2, b2, fidelity=self.compute_kernel_config.math_fidelity,
-                           ln=ln + (1e-5,))
+                           ln=ln + (1e-5,), bw_weights=self._ws_bw)
 
     def _rows(self, x: ttnn.Tensor) -> ttnn.Tensor:
         if TRANSITION_L1:
