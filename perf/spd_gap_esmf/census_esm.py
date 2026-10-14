@@ -54,6 +54,14 @@ if _detect_p300_devices() and not os.environ.get("TT_MESH_GRAPH_DESC_PATH"):
     if mgd: os.environ["TT_MESH_GRAPH_DESC_PATH"] = mgd
 B.RECYCLING_STEPS = _resolve_recycling_steps(None, a.model) if a.recycles is None else a.recycles
 B.SAMPLING_STEPS = _resolve_sampling_steps(None, a.model) if a.steps is None else a.steps
+if a.model == "boltz2":
+    # build_fold's cfg has no Boltz-2 hyperparameters (KeyError 'conf_kwargs'); same injector as
+    # perf/of3_4xpd/xmodel_ab.py. Its module body puts its own tree first on sys.path: restore it.
+    snap = list(sys.path)
+    sys.path.insert(0, str(TREE / "perf" / "other512"))
+    from fold_ab_multi import patch_boltz2_cfg
+    sys.path[:] = snap
+    patch_boltz2_cfg(diffusion_trace=None)   # None: shipped default
 log(ev="env", ttnn=ttnn.__file__, tree=str(TREE), TT_VISIBLE_DEVICES=os.environ.get("TT_VISIBLE_DEVICES"),
     recycles=B.RECYCLING_STEPS, steps=B.SAMPLING_STEPS, model=a.model, fast=a.fast,
     prof={k: os.environ.get(k) for k in os.environ if "PROFILER" in k})
