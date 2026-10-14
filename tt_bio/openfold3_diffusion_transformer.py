@@ -225,6 +225,12 @@ class _DiTBlock(Module):
                 ada.append((bf(w_sc), bf(b_sc.reshape(1, -1)), bf(w_sb)))
             self.fuse = ada
 
+        # dit_hifi2: the bf16 DiT's linears at HiFi2, everything else as the model's config (read per call).
+        c = compute_kernel_config
+        self.ckc_hifi2 = ttnn.WormholeComputeKernelConfig(
+            math_fidelity=ttnn.MathFidelity.HiFi2, math_approx_mode=getattr(c, "math_approx_mode", True),
+            fp32_dest_acc_en=getattr(c, "fp32_dest_acc_en", True), packer_l1_acc=getattr(c, "packer_l1_acc", True))
+
     def _fuse_adaln(self, a, s_hat, i):
         """adaLN under dit_fuse: `s_hat W_sb + LN(a) * sigmoid(s_hat W_sc + b)`, one addcmul."""
         w_sc, b_sc, w_sb = self.fuse[i]
@@ -310,8 +316,9 @@ class _DiTBlock(Module):
                                layout=ttnn.TILE_LAYOUT, device=self.device)
 
     def _lin(self, x, w, bias=None, activation=None):
+        hifi2 = self._act_dtype == ttnn.bfloat16 and _T.lever("dit_hifi2")
         return ops.linear(x, w, bias=bias, activation=activation,
-                          compute_kernel_config=self.compute_kernel_config,
+                          compute_kernel_config=self.ckc_hifi2 if hifi2 else self.compute_kernel_config,
                           core_grid=CORE_GRID_MAIN)
 
     def _lin_lp(self, x, w, dtype, bias=None, activation=None):
