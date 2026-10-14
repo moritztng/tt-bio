@@ -72,6 +72,7 @@ move against the accuracy bar and the seed-to-seed spread.
 | [`TT_BIO_REBLOCK_PERMUTE_GATED`](#tt_bio_reblock_permute_gated) | on | | identical |
 | [`TT_BIO_RF3_DIFFUSION_TRACE`](#tt_bio_rf3_diffusion_trace) | on | RoseTTAFold3 | identical |
 | [`TT_BIO_RESIDUAL_L1`](#tt_bio_residual_l1) | on | | identical |
+| [`TT_BIO_RNE_MASK`](#bindcraft-2-round-kernels) | on | BindCraft 2 (AF2 dropout) | identical |
 | [`TT_BIO_SDPA_ADD_GRANULARITY`](#tt_bio_sdpa_add_granularity) | auto | | identical at every value |
 | [`TT_BIO_SDPA_BAND_DIV_K`](#tt_bio_sdpa_band_div_k) | on | Blackhole | moves, inside the bar |
 | [`TT_BIO_SDPA_FUSED_LARGE_S`](#tt_bio_sdpa_fused_large_s) | on | above 1024 tokens | moves, inside the seed spread |
@@ -149,6 +150,7 @@ structures by 0.02 to 0.06 A, and 0.45 A on the complex that does not bind (ipTM
 | `TT_BIO_PAIR_TRANSPOSE_FUSED` | The pair tensor's i/j swap as one move kernel, forward and backward. |
 | `TT_BIO_PAIR_MM` | Pair-track linears and their input gradients on `minimal_matmul` with a per-shape block table, ReLU fused at pack. |
 | `TT_BIO_AF2_OPM_ROWS_IN_K` | The outer product mean sums its MSA rows inside one contraction instead of one product per row. Acts only with more than one MSA row, which a BindCraft 2 round has. Both boards. |
+| `TT_BIO_RNE_MASK` | The dropout keep-mask multiply and the residual add after it as one kernel, so the masked update is never written. On by default, not only in the round: only a round draws dropout masks. |
 
 **Accuracy.** Each was graded on its own against a float64 reference of an Evoformer block's VJP
 at 288 tokens, blocks 0, 3 and 7. The largest move any of them makes is 6e-4 rel L2 (pair_mm on
@@ -167,6 +169,12 @@ kernels do.
 together take the round from 5.70 to 4.50 s (1.27x; arm means of three, 5.48-5.81 against 4.40-4.64), arms alternated in one
 sitting at AICLK 1350 sampled during every arm. The host was shared with other campaigns
 (load1 8 to 13), which slows both arms; a second sitting under the same load read 1.275x.
+
+`TT_BIO_RNE_MASK` rounds the multiply and the add exactly as the two separate calls do. On a
+Wormhole chip at 1000 MHz a BindCraft 2 round writes the same gradient digest with it on and off,
+in 648 fewer calls, and one iteration goes from 5.70 to 5.64 s (two arms each, alternated on one
+chip, PD-L1 at binder length 80). On a p150a the kernel alone is 0.18 against 0.21 ms at the
+round's 195 tokens.
 
 **Sizes.** With all of them on, a p300c chip runs 192, 352, 576 and 864 tokens to a completed
 gradient round; 864 peaks at 27.04 GB resident with 7.19 GB free.

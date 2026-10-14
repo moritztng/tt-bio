@@ -1418,6 +1418,30 @@ def _k_rne_add(shipped, args, kwargs):
     return ag._tape(out_v, [a, b], make, reads=())
 
 
+@_kernel("rne_add_masked")
+def _k_rne_add_masked(shipped, args, kwargs):
+    """`tt_bio.rne_add.rne_add_masked`'s entry: `a + b * m` with `m` a constant keep mask.
+
+    The VJP is the two verbs it replaces: the sum's cotangent to `a`, and `g * m` to `b`, the
+    same multiply the taped dropout ran. `m` takes no gradient, so it is the only value read:
+    `reads=()` drops `a` and `b` like `rne_add`'s entry, and the mask (one [n, c] slab) is held
+    raw by the closure.
+    """
+    a, b = _wrap(args[0]), _wrap(args[1])
+    ra, rk = _raw(args, kwargs)
+    out_v = shipped(*ra, **rk)
+    mask = ra[2]
+    shapes = (_dims(args[0].shape), _dims(args[1].shape))
+
+    def make():
+        def bw(g):
+            a.add_grad(_reduce_to(g, shapes[0]))
+            b.add_grad(_reduce_to(ttnn.multiply(g, mask), shapes[1]))
+        return bw
+
+    return ag._tape(out_v, [a, b], make, reads=())
+
+
 # --- attention head packing ------------------------------------------------------------
 # Both layouts below are DERIVED FROM THE DEVICE with an index-valued tensor
 # (`perf/ptx_fastpath/heads.py`), not read off a docstring. A head-split backward written
