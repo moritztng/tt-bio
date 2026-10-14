@@ -49,6 +49,14 @@ from .tenstorrent import (Module, CORE_GRID_MAIN, get_device, dram_peak,
                           row_block_after_refusal, device_generation, accurate_softmax_site,
                           softmax_ckc, host_f64_softmax_site, site_softmax, stack_samples)
 from . import tenstorrent as _T   # for the module-level A/B toggles, which must be read live
+
+# The Protenix family's normal set (Protenix-v2, Protenix-v1, OpenDDE): the shared one plus transition_ws with
+# ws_l1acc, which keeps each matmul's fp32 dest sum to 2 K tiles so bf16 weights at c_z 256 / 384 take the fused
+# transition. Wormhole 11-set normal grade, normal vs this set, 44 paired folds each: Protenix-v2 PASS (spd-integrate
+# gwa), OpenDDE PASS, same-seed top pose median 0.219 A vs the 1.335 A A/A floor, CA-lDDT -0.0004 [-0.0016, +0.0004],
+# docking 25 -> 24 of 44 (spd-gap-small 2026-10-14); Blackhole Protenix-v2 PASS, 0.080 A vs 1.292 A (gwabh).
+# Galaxy chip (1000 MHz) Protenix-v2 normal 79.1 -> 74.7 s; p150a OpenDDE normal -1.9 s.
+NORMAL_LEVERS = _T.NORMAL_LEVERS | {"transition_ws", "ws_l1acc"}
 from .eltwise_fusion import scale_add, norm_residual, gated_add
 
 
@@ -2554,7 +2562,7 @@ class Protenix:
         with weights_only=True. diffusion_fp32 is the per-run precision (`--diffusion_precision`);
         None keeps the mode's default (fp32 unless PROTENIX_DIFFUSION_FP32_DEVICE=0, bf16 under
         the `diffusion_bf16` lever). levers: None takes the mode's set, `FAST_LEVERS` under
-        `--fast` and `NORMAL_LEVERS` otherwise. A harness grading a lever set through the serving
+        `--fast` and this module's `NORMAL_LEVERS` otherwise. A harness grading a lever set through the serving
         path sets TT_BIO_LEVERS (`parse_levers` grammar, e.g. `fast-lofi`); no user does."""
         import tt_bio.tenstorrent as _TT
         import torch
@@ -2571,7 +2579,7 @@ class Protenix:
         # the shipped path. Scoped to this entry point -- OpenDDE builds Protenix directly
         # and passes its own flag.
         if levers is None:
-            levers = _TT.mode_levers()
+            levers = _TT.model_levers(normal=NORMAL_LEVERS)
         return cls(sd, ckc, dev, gated_move=True, diffusion_fp32=diffusion_fp32, levers=levers)
 
     def _tt(self, x):

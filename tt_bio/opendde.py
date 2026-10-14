@@ -17,7 +17,7 @@ device.
 import torch
 import ttnn
 
-from .protenix import _KeyedWeights
+from .protenix import NORMAL_LEVERS, _KeyedWeights
 from . import hostlane
 from .envflags import env_flag
 from .opendde_data import STRUCTURAL_TOKEN_ROLES
@@ -454,9 +454,9 @@ class OpenDDE:
         (OPENDDE_DIFFUSION_FP32=1 lifts it). Guided runs pass True (host_controller.diffusion_precision).
         levers: the precision levers this model builds and folds under, the same switches
         Protenix-v2 runs (`tenstorrent.LEVERS`); None takes the mode's set
-        (`tenstorrent.model_levers`): `NORMAL_LEVERS`, or `FAST_LEVERS` below under `--fast`."""
+        (`tenstorrent.model_levers`): the Protenix family's `NORMAL_LEVERS`, or `FAST_LEVERS` below under `--fast`."""
         import tt_bio.tenstorrent as _TT
-        self._levers = _TT.model_levers(fast=FAST_LEVERS, spec=levers)
+        self._levers = _TT.model_levers(NORMAL_LEVERS, FAST_LEVERS, spec=levers)
         with _TT.levers(self._levers):
             self._build(state_dict, compute_kernel_config, device, diffusion_fp32)
 

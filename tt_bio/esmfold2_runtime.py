@@ -1000,8 +1000,15 @@ def _install_resident_trunk_loop(model):
         if on_dev:
             # What no loop redraws, uploaded once: the MSA pair (or z_init), LN and b_mat.
             base = msa_fixed if msa_fixed is not None else z_init
-            if isinstance(base, _DevPair):
-                base = ttnn.pad(base.t, [(0, 0), (0, pad), (0, pad), (0, 0)], value=0.0) if pad else base.t
+            if isinstance(base, _DevPair) and pad:
+                # Nothing reads the unpadded pair past this point (the caller drops z_init after the loop), and
+                # keeping it beside the padded copy is a second [L,L,c] for the whole trunk: on a 12 GiB Wormhole
+                # chip that OOMed ESMFold2-Fast --fast at ~800 tokens.
+                src = base.t
+                base = ttnn.pad(src, [(0, 0), (0, pad), (0, pad), (0, 0)], value=0.0)
+                ttnn.deallocate(src)
+            elif isinstance(base, _DevPair):
+                base = base.t
             else:
                 base = up(padz(base).float())
             norm = self.parcae_input_norm
@@ -1475,7 +1482,11 @@ LEVERS_NORMAL = "normal-trunk_hifi3+trimul_gin+trimul_t2g+trimul_gin_hifi2"
 # x 4 seeds, 44 paired folds (p300c, 1350 MHz): CA-lDDT -0.0000 [-0.0003, +0.0002], TM +0.0013, docking 24 -> 24;
 # ESMFold2 normal-mode folds of the stack also clear the fast bar (CA-lDDT -0.0019). 512 aa --fast on the stack:
 # ESMFold2 16.92 s, ESMFold2-Fast 10.14 s (p300c, 1350 MHz).
-LEVERS_FAST = ("normal+trimul_b8in+transition_ws+trimul_gin+trimul_t2g"
+# ws_resid (the pair SwiGLU adds into z in fc3's fp32 dest) passes the fast bar on ESMFold2-Fast against the shipped
+# --fast set, 11 complexes x 4 seeds, 44 paired folds (Blackhole, 1350 MHz): CA-lDDT +0.0008 [-0.0006, +0.0032],
+# TM +0.0073, top-pose median 0.55 A vs 1.65 A seed floor, docking 23 -> 24 of 44. p150a 512 aa: ESMFold2 -0.44 s,
+# ESMFold2-Fast -0.19 s. Wormhole keeps it off: not graded there for ESMFold2, fold_levers drops it.
+LEVERS_FAST = ("normal+trimul_b8in+transition_ws+trimul_gin+trimul_t2g+ws_resid"
                "+ef2_bit_draw+ef2_pair_init+ef2_lm_combine+ef2_opm_kq+ef2_relpos_lookup+ef2_atom_ffn_split")
 
 
@@ -1485,7 +1496,7 @@ def fold_levers(fast: bool) -> str:
     if os.environ.get("TT_BIO_LEVERS"):
         return os.environ["TT_BIO_LEVERS"]
     if fast:
-        return LEVERS_FAST
+        return LEVERS_FAST.replace("+ws_resid", "") if is_wormhole() else LEVERS_FAST
     return LEVERS_NORMAL.replace("+trimul_gin_hifi2", "") if is_wormhole() else LEVERS_NORMAL
 
 
