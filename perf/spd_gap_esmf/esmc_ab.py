@@ -66,13 +66,15 @@ def main() -> int:
     ckc = model.compute_kernel_config
     fid_off = ckc.math_fidelity
 
+    cur = getattr(alt_mod, attr) if not a.fidelity else None
+    off_value = False if cur is None else type(cur)(0)   # tri-state switches (None = per-arch default) read off as False
     base = None
     for r in range(a.rounds):
         for on in (False, True):
             if a.fidelity:
                 ckc.math_fidelity = getattr(ttnn.MathFidelity, a.fidelity) if on else fid_off
             else:
-                setattr(alt_mod, attr, (a.on_value if a.on_value is not None else True) if on else type(getattr(alt_mod, attr))(0))
+                setattr(alt_mod, attr, (a.on_value if a.on_value is not None else True) if on else off_value)
             # a captured trace replays the program of the arm it was captured under: drop it so this arm recaptures
             if hasattr(model, "_release_traces"):   # ESMC-6B (ESMCLanguageModel) runs eager
                 model._release_traces()

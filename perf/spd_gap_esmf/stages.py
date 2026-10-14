@@ -144,6 +144,11 @@ def op_census():
         finally:
             st["depth"] -= 1
         r = "/".join(reg) or "-"
+        if name.endswith("generic_op"):   # one name for every custom kernel: key it by the tt_bio function that launched it
+            f = sys._getframe(1)
+            while f and "/tt_bio/" not in f.f_code.co_filename:
+                f = f.f_back
+            name = f"{name}@{f.f_code.co_name if f else '?'}"
         shp = tuple(x.shape) if hasattr(x, "shape") else None
         for d, key in ((by_op, (r, name)), (by_shape, (r, name, str(shp)))):
             d[key][0] += 1; d[key][1] += dt
