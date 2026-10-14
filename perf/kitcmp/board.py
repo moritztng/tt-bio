@@ -78,6 +78,8 @@ def main():
             continue
         rng = f"n={r['n']} {min(r['warm']):.4g}-{max(r['warm']):.4g}"
         clk = f"SM {r['sm_mhz']:.0f} MHz med (min {r['sm_min']:.0f}), {r['watts']:.0f} W" if r["sm_mhz"] else "SM not sampled under load"
+        if r["sm_mhz"] and r.get("busy_over") == "folds" and r["util_pct"] < 80:  # the GPU is not what bounds this cell
+            clk += f", GPU util {r['util_pct']} % mean over the folds"
         print(f"| {r['cell']} | {a.gpu} | {mode} | {r['median']:.4g} | {rng} | {clk} | {ver} | {a.when} | {cmd} | {a.row} |")
 
 

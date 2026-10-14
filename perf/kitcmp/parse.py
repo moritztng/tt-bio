@@ -35,25 +35,30 @@ def smi(path):
 
 
 def clocks(samples, d, folds=()):
-    """SM MHz median / min, W median, GB max during the warm folds ((start, end) epochs), else over the arm's window with the
-    GPU busy (utilization >= 50 %; a power floor does not work: an idle B200 draws ~197 W)."""
+    """SM MHz median / min, W median, GB max while the GPU is busy, and the mean utilization over the window. The window is the
+    warm folds ((start, end) epochs; busy = utilization > 0, since RF3 idles the GPU for most of each fold and its idle clock
+    is not the one it computed at), else the arm (busy = utilization >= 50 %, which skips model load). A power floor does
+    not work: an idle B200 draws ~197 W."""
     if not samples or not (d / "t_start").exists() or not (d / "t_end").exists():
-        return None, None, None, None
+        return None, None, None, None, None
     if folds:
-        w = [x for x in samples if any(a <= x[0] <= b for a, b in folds)]
+        a = [x for x in samples if any(s <= x[0] <= e for s, e in folds)]
+        w = [x for x in a if x[4] > 0]
     else:
-        a, b = ts(d / "t_start"), ts(d / "t_end")
-        w = [x for x in samples if a <= x[0] <= b and x[4] >= 50]
+        s, e = ts(d / "t_start"), ts(d / "t_end")
+        a = [x for x in samples if s <= x[0] <= e]
+        w = [x for x in a if x[4] >= 50]
     if not w:
-        return None, None, None, None
+        return None, None, None, None, None
     c = [x[1] for x in w]
-    return statistics.median(c), min(c), statistics.median(x[2] for x in w), max(x[3] for x in w)
+    return (statistics.median(c), min(c), statistics.median(x[2] for x in w), max(x[3] for x in w),
+            round(statistics.mean(x[4] for x in a)))
 
 
 def row(cell, mode, warm, cold, rc, fn, clk, engaged="-", **extra):
     return dict(cell=cell, mode=mode, warm=[round(x, 4) for x in warm], n=len(warm),
                 median=round(statistics.median(warm), 4) if warm else None, cold=cold, rc=rc, fn=fn,
-                sm_mhz=clk[0], sm_min=clk[1], watts=clk[2], mem_gb=clk[3], engaged=engaged, **extra)
+                sm_mhz=clk[0], sm_min=clk[1], watts=clk[2], mem_gb=clk[3], util_pct=clk[4], engaged=engaged, **extra)
 
 
 def kit_arms(m, samples):
@@ -86,7 +91,7 @@ def kit_arms(m, samples):
         folds = [(r["t"] - x, r["t"]) for r, x in zip(rows[1:], s[1:])] if rows and m.name != "rfdiffusion3" else ()
         clk = clocks(samples, d, folds)
         cell = "rf3" if m.name.startswith("rosettafold3") else CELL.get(m.name, m.name)
-        yield row(cell, mode, s[1:], s[0] if s else None, rc, fn, clk, act, arm=m.name)
+        yield row(cell, mode, s[1:], s[0] if s else None, rc, fn, clk, act, arm=m.name, busy_over="folds" if folds else "arm")
 
 
 def stock_arms(m, samples):

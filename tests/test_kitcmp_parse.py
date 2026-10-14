@@ -138,3 +138,13 @@ def test_acc_arms_keys_every_layout(tmp_path):
         f.write(cif)
     s = acc_arms.structures(a)
     assert sorted(s) == ["batch4", "fold3", "seed2"] and s["batch4"].shape == (2, 3)
+
+
+def test_clocks_in_folds_skip_idle_samples(tmp_path):
+    # RF3: the GPU idles at 1275 MHz for part of each fold; the clock is the busy samples', the util the whole fold's mean
+    (tmp_path / "t_start").write_text("2026-10-14T22:00:00.000Z")
+    (tmp_path / "t_end").write_text("2026-10-14T22:01:00.000Z")
+    t0 = parse.ts(tmp_path / "t_start")
+    samples = [(t0 + i, 1275.0 if i % 2 else 1410.0, 70.0 if i % 2 else 380.0, 10.0, 0.0 if i % 2 else 100.0) for i in range(60)]
+    mhz, lo, w, gb, util = parse.clocks(samples, tmp_path, folds=[(t0 + 10, t0 + 19)])
+    assert (mhz, lo, w, util) == (1410.0, 1410.0, 380.0, 50)
