@@ -228,7 +228,7 @@ class _DiTBlock(Module):
 
         # dit_hifi2: the bf16 DiT's linears at HiFi2, everything else as the model's config (read per call).
         # Wormhole only: graded there (fast, both models), where HiFi4 leaves the linears math-bound; flat on p150a.
-        self._hifi2_arch = _T.is_wormhole()
+        self._wormhole = _T.is_wormhole()
         c = compute_kernel_config
         self.ckc_hifi2 = ttnn.WormholeComputeKernelConfig(
             math_fidelity=ttnn.MathFidelity.HiFi2, math_approx_mode=getattr(c, "math_approx_mode", True),
@@ -254,11 +254,22 @@ class _DiTBlock(Module):
             ttnn.deallocate(t)
         return out
 
+    def _fused_mask(self, z, mask_bias):
+        """`_sdpa32_mask`, bf16 under dit_mask16 on Wormhole: the attention reads the [1, 16, N, N] mask in every
+        block of every step (16 MB fp32 at 512 tokens), the rollout builds it once per block. On a p150a the A/B was
+        noise (< 0.1 s), so Blackhole keeps fp32 and its digest."""
+        m = self._sdpa32_mask(z, mask_bias)
+        if not (self._wormhole and _T.lever("dit_mask16")):
+            return m
+        m16 = ttnn.typecast(m, ttnn.bfloat16)
+        ttnn.deallocate(m)
+        return m16
+
     def _call_fused(self, a, s, z, mask_bias, tok_mask_col, cache, s_hat, tok_ones, hoist=()):
         """`__call__` under dit_fuse (bf16, `_sdpa32`): the same block in 23 ttnn calls, 17 with `hoist`."""
         lin = self._lin
         a_ln = self._fuse_adaln(a, s_hat, 0, hoist)
-        bias = _cached(cache, (id(self), "pair_bias32"), lambda: self._sdpa32_mask(z, mask_bias))
+        bias = _cached(cache, (id(self), "pair_bias32"), lambda: self._fused_mask(z, mask_bias))
         qkv = lin(a_ln, self.qkv_w, bias=self.qkv_b)
         qkv = ttnn.unsqueeze(qkv, 1)
         o = _T._sdpa32_fused(qkv, bias, HEAD_DIM ** -0.5, N_HEADS, out_dtype=ttnn.bfloat16)
@@ -336,7 +347,7 @@ class _DiTBlock(Module):
                                layout=ttnn.TILE_LAYOUT, device=self.device)
 
     def _lin(self, x, w, bias=None, activation=None):
-        hifi2 = self._hifi2_arch and self._act_dtype == ttnn.bfloat16 and _T.lever("dit_hifi2")
+        hifi2 = self._wormhole and self._act_dtype == ttnn.bfloat16 and _T.lever("dit_hifi2")
         return ops.linear(x, w, bias=bias, activation=activation,
                           compute_kernel_config=self.ckc_hifi2 if hifi2 else self.compute_kernel_config,
                           core_grid=CORE_GRID_MAIN)
