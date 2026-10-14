@@ -38,6 +38,7 @@ move against the accuracy bar and the seed-to-seed spread.
 | [`TT_BIO_DIT_SHARED_COND`](#tt_bio_dit_shared_cond) | on | Boltz-2, BoltzGen | identical |
 | [`TT_BIO_ESMFOLD2_DEVICE_CONF`](#tt_bio_esmfold2_device_conf) | on for Blackhole | ESMFold2 | moves, inside the bar |
 | [`TT_BIO_ESMFOLD2_DEVICE_TAIL`](#tt_bio_esmfold2_device_tail) | on | ESMFold2 | moves, inside the bar |
+| [`TT_BIO_ESMFOLD2_BIT_DRAW`, `TT_BIO_ESMFOLD2_PAIR_INIT`, `TT_BIO_ESMFOLD2_LM_COMBINE`, `TT_BIO_ESMFOLD2_OPM`](#esmfold2---fast-stack) | on with `--fast` on Blackhole | ESMFold2 | moves, inside the fast bar |
 | [`TT_BIO_ESMFOLD2_SWA_WINDOW`](#tt_bio_esmfold2_swa_window) | on | ESMFold2 | moves, inside the bar |
 | [`TT_BIO_FANIN_CAST_FUSED`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2 | gradients only |
 | [`TT_BIO_FUSE_BIAS_STACKS`](#tt_bio_fuse_bias_stacks) | on | Boltz-2, BoltzGen | moves, inside the 298-residue bar |
@@ -623,6 +624,30 @@ docking success 24/44 in both arms. On Wormhole: ESMFold2 (folds --fast there, f
 against 1.34 A, CA-lDDT +0.0002, docking 29/44 in both arms; ESMFold2-Fast (normal bar) median 0.27 A
 against 1.27 A, CA-lDDT +0.0000, docking 25 vs 24/44. `TT_BIO_ESMFOLD2_DEVICE_TAIL=0` restores the host
 tail.
+
+## ESMFold2 `--fast` stack
+
+Default: on with `--fast` on Blackhole, off otherwise. ESMFold2 and ESMFold2-Fast. Setting any of
+the variables to `1` / `0` (or `TT_BIO_ESMFOLD2_OPM` to `kq` / `tile`) forces it either way.
+
+- `TT_BIO_ESMFOLD2_BIT_DRAW`: the LM-encoder dropout keep mask is drawn directly as packed bits on the
+  host instead of as floats that are then packed. Same keep probability, a different random stream.
+- `TT_BIO_ESMFOLD2_PAIR_INIT`: the initial pair representation is summed on the chip from its row,
+  column and relative-position parts, instead of built on the host in float32 and uploaded.
+  0.27-0.55 s per 512-residue fold.
+- `TT_BIO_ESMFOLD2_LM_COMBINE`: the ESMC-6B combines its per-layer states on the chip and hands over one
+  state instead of 81.
+- `TT_BIO_ESMFOLD2_OPM`: the outer product mean contracts with its output weights first (`kq`), which
+  avoids two tile reshapes per call. Used for MSAs up to 64 rows.
+
+Together at 512 residues on Blackhole p300c (1350 MHz): ESMFold2 `--fast` 16.92 s, ESMFold2-Fast
+`--fast` 10.14 s.
+
+**Accuracy: moves, inside the fast bar.** On 11 complexes x 4 seeds on Blackhole, ESMFold2-Fast
+`--fast` against the same mode without the stack: CA-lDDT -0.0000 [-0.0003, +0.0002], TM-score
++0.0013, docking success 24/44 in both arms. ESMFold2 with the stack in normal mode clears the fast
+bar but not the normal one (CA-lDDT -0.0019 [-0.0050, -0.0001]), so normal mode does not take it.
+Wormhole does not take it yet (not graded there).
 
 ## `TT_BIO_ESMFOLD2_SWA_WINDOW`
 
