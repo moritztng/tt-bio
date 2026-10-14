@@ -662,6 +662,9 @@ _FAST_MODE = False
 #   dit_hifi2       a bf16 token DiT's linears (OpenFold3's `--fast` stack) at HiFi2 instead of the model's
 #                   fidelity, fp32 accumulation kept. On a Galaxy chip they are math-bound at HiFi4 (768 x 3072:
 #                   107 us, ~23 TF/s at 1000 MHz) and take 2.5 s of the 512-token fold.
+#   dit_qsplit      `_sdpa32` / `_sdpa32_fused` (the token DiT's attention) take the q chunk that puts the fewest
+#                   rows on the busiest core: 128 at 512 tokens and one sample, 64 busy cores where 256 left 32.
+#                   The k chunk stays, so each row's arithmetic is unchanged: expected bit-exact (fold A/B digest).
 #   pib_where       OpenDDE's pair-init bias by the old 16-op where-chain instead of one gather from the joint
 #                   (128, c_z) table: the A/B arm for a change that must keep the fold digest (no mode sets it).
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
@@ -671,7 +674,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "swiglu_fc12g", "msa_sample", "dit_sdpa_pm", "dit_s16", "dit_chunk", "conf_bins", "trimul_t1", "trimul_t2",
           "trimul_t2g", "triatt_tail_bias", "dit_cond_hifi2", "transition_ws", "ws_ln", "trimul_t1_dram",
           "trimul_t2m", "trimul_t2cm", "dit_fuse", "pair_mm", "ref_memo", "edm_device", "ws_l1acc", "pib_where",
-          "ws_l1dest", "opm_jd", "dit_hifi2")
+          "ws_l1dest", "opm_jd", "dit_hifi2", "dit_qsplit")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -682,7 +685,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
 # (vendored query.REF_MOL_MEMO), read by worker._predict_openfold3_one off the model's lever set.
 UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "dit_cond_hifi2", "ws_ln", "dit_fuse",
                              "pair_mm", "ref_memo", "trimul_t2m", "edm_device", "ws_l1acc", "pib_where",
-                             "ws_l1dest", "opm_jd", "dit_hifi2"})
+                             "ws_l1dest", "opm_jd", "dit_hifi2", "dit_qsplit"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -2835,6 +2838,34 @@ def sdpa32_mask(b: ttnn.Tensor) -> ttnn.Tensor:
     return ttnn.clone(m) if m.buffer_address() == b.buffer_address() else m
 
 
+def _sdpa32_chunks(dev, B: int, heads: int, n: int):
+    """(q chunk, k chunk, grid) for `_sdpa32` / `_sdpa32_fused`: 256 where it divides the token axis, else 128.
+
+    On Wormhole the PV product accumulates k_chunk / 32 tiles in the fp32 dest, which writes an
+    occasional wrong value (tt_bio/dest_guard.py); one key tile per chunk keeps it out of dest.
+    Measured at (5, 16, 768, 64): 1.92 -> 2.50 ms a call, errors of 1.2-1.7 gone (perf/spd_wherr/sdpa_probe.py).
+
+    sdpa_generic.plan spreads (batch, head, q chunk) over the grid, so at one sample and 16 heads
+    a 512-token call is 32 units of 256 rows: 32 busy cores of 72 on Wormhole, of 110 on Blackhole.
+    Under dit_qsplit the q chunk is the one with the fewest rows on the busiest core (ties keep the
+    larger). The k chunk does not move, so every row's softmax reads its keys in the same order:
+    work moves between cores, not arithmetic.
+    """
+    g = dev.compute_with_storage_grid_size()
+    big = 256 if n % 256 == 0 else 128
+    k_chunk = 32 if dev.arch() == ttnn.Arch.WORMHOLE_B0 else big
+    cores = g.x * g.y
+
+    def rows(chunk):
+        bp = min(B, cores)
+        hp = min(cores // bp, heads)
+        qc = n // chunk
+        qp = min(cores // (bp * hp), qc)
+        return -(-B // bp) * -(-heads // hp) * -(-qc // qp) * chunk
+    q_chunk = 128 if big == 256 and lever("dit_qsplit") and rows(128) < rows(256) else big
+    return q_chunk, k_chunk, (g.x, g.y)
+
+
 def _sdpa32(q, k, v, mask, scale: float) -> ttnn.Tensor:
     """softmax((q @ k^T + mask) * scale) @ v with fp32 operands and output, as ONE program.
 
@@ -2848,16 +2879,11 @@ def _sdpa32(q, k, v, mask, scale: float) -> ttnn.Tensor:
     n = int(q.shape[2])
     assert n % 128 == 0 and int(mask.shape[-1]) == n == int(k.shape[2]), \
         ("_sdpa32 wants the token axis padded by sdpa32_rows", q.shape, k.shape, mask.shape)
-    chunk = 256 if n % 256 == 0 else 128
     dev = q.device()
-    # On Wormhole the PV product accumulates k_chunk / 32 tiles in the fp32 dest, which writes an
-    # occasional wrong value (tt_bio/dest_guard.py); one key tile per chunk keeps it out of dest.
-    # Measured at (5, 16, 768, 64): 1.92 -> 2.50 ms a call, errors of 1.2-1.7 gone (perf/spd_wherr/sdpa_probe.py).
-    k_chunk = 32 if dev.arch() == ttnn.Arch.WORMHOLE_B0 else chunk
-    g = dev.compute_with_storage_grid_size()
+    chunk, k_chunk, grid = _sdpa32_chunks(dev, int(q.shape[0]), int(q.shape[1]), n)
     out = ttnn.allocate_tensor_on_device(ttnn.Shape([int(q.shape[i]) for i in range(3)] + [int(v.shape[3])]), ttnn.float32,
                                          ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG)
-    SG.sdpa(dev, q, k, v, mask, out, chunk, k_chunk, (g.x, g.y), _SDPA32_CKC, scale)
+    SG.sdpa(dev, q, k, v, mask, out, chunk, k_chunk, grid, _SDPA32_CKC, scale)
     return out
 
 
@@ -2868,14 +2894,12 @@ def _sdpa32_fused(qkv, mask, scale: float, heads: int, out_dtype=ttnn.float32) -
     from . import sdpa_generic as SG
     S, _, n, w = (int(d) for d in qkv.shape)
     assert n % 128 == 0 and int(mask.shape[-1]) == n, ("_sdpa32 wants the token axis padded by sdpa32_rows", qkv.shape, mask.shape)
-    chunk = 256 if n % 256 == 0 else 128
     dev = qkv.device()
-    k_chunk = 32 if dev.arch() == ttnn.Arch.WORMHOLE_B0 else chunk
-    g = dev.compute_with_storage_grid_size()
+    chunk, k_chunk, grid = _sdpa32_chunks(dev, S, heads, n)
     # `out_dtype` bf16 (dit_fuse): the packer writes the result bf16, no typecast program after it.
     out = ttnn.allocate_tensor_on_device(ttnn.Shape([S, 1, n, w // 3]), out_dtype,
                                          ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG)
-    SG.sdpa(dev, qkv, qkv, qkv, mask, out, chunk, k_chunk, (g.x, g.y), _SDPA32_CKC, scale,
+    SG.sdpa(dev, qkv, qkv, qkv, mask, out, chunk, k_chunk, grid, _SDPA32_CKC, scale,
             qkv_fused=heads)
     return out
 
