@@ -6,8 +6,9 @@
 #                                cold + checkpoint switch dropped, 4 warm (scripts/gpu_vs_tt/bgg_bench.py)
 #   bash box_stock.sh saprot     SaProt 35M / 650M / 1.3B, torch 2.11.0+cu130, transformers 4.57.6, esm 3.4.0 (the
 #                                published embed stack), bf16 sdpa, batch 7, cold + 15 warm (gpu_embed_bench.py)
-#   bash box_stock.sh nesso1     Nesso-1 f0156e9, torch 2.11.0, ladder aa512 (532 tokens), cold + 4 warm, with the
-#                                cuEquivariance kernels (the shipped default) and without (perf/nesso1/gpu_nesso1_run.py)
+#   bash box_stock.sh nesso1     Nesso-1 f0156e9, torch 2.11.0, ladder aa512 (532 tokens), the published protocol
+#                                (perf/gpucatchup/write_gpu_cells.py checks it): two A/A legs of cold + 3 warm with the
+#                                cuEquivariance kernels (the shipped default, 6 warm pooled), one leg without
 # results /root/kc/results/stock-<name>/ : stdout/stderr, the harness's own report, smi.csv, rc, t_start, t_end
 KC_GPU=a100; [ -f /root/kc/gpu.env ] && . /root/kc/gpu.env
 M=$1; R=/root/kc/results/stock-$M; mkdir -p $R /work/results; cd /work
@@ -34,9 +35,10 @@ case $M in
   boltzgen) /work/venv-bgg/bin/python scripts/gpu_vs_tt/bgg_bench.py "${KC_GPU^^}" headline && cp /work/results/bgg_*.jsonl $R/;;
   saprot)   rc=0; for v in 35m 650m 1.3b; do /work/v_embed/bin/python scripts/gpu_vs_tt/gpu_embed_bench.py --model saprot-$v \
               --repeat 15 --out $R/gpu_embed_saprot-${v}_prot512_$KC_GPU.json || rc=1; done; (exit $rc);;
-  nesso1)   rc=0; for k in cueq torch; do NK=""; [ $k = torch ] && NK=--no-kernels
+  nesso1)   rc=0; for leg in cueq:A cueq:B torch:A; do k=${leg%:*}; NK=""; [ $k = torch ] && NK=--no-kernels
               NESSO_CACHE=/work/cache HF_HOME=/work/cache/huggingface /work/v_nesso/bin/python perf/nesso1/gpu_nesso1_run.py \
-                --inputs perf/nesso1/inputs/ladder/aa512 --out-dir /work/out/ladder_aa512_$k \
-                --report $R/nesso1_ladder_aa512_${k}_$KC_GPU.json --reps 5 --refine on --label ladder_aa512_$k $NK || rc=1; done; (exit $rc);;
+                --inputs perf/nesso1/inputs/ladder/aa512 --out-dir /work/out/ladder_aa512_${k}_${leg#*:} \
+                --report $R/nesso1_ladder_aa512_${k}_${KC_GPU}_${leg#*:}.json --reps 4 --refine on --label ladder_aa512_$k $NK || rc=1
+            done; (exit $rc);;
 esac > $R/stdout.log 2> $R/stderr.log
 echo $? > $R/rc; date -u +%FT%T.%3NZ > $R/t_end; kill $SMI
