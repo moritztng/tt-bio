@@ -470,6 +470,72 @@ def refuse_quarantined_chips(indices, path: str | None = None) -> None:
     )
 
 
+def aiclk_cap_path() -> str:
+    return os.path.expanduser(os.environ.get("TT_BIO_AICLK_CAP", "~/japanfold/AICLK_CAP"))
+
+
+def aiclk_caps(path: str | None = None) -> dict[str, tuple[int, str]]:
+    """ASIC id -> (MHz, reason), from the host's AICLK cap list (``<asic id> <MHz> <reason>`` per line).
+
+    For a Blackhole chip that cannot hold its fused top clock: qb2's chip 3 (p300c 0000046131931005,
+    ASIC 6DC6A57C892132D6) deadlocks within one Protenix-v2 pair-conditioning matmul at 1350 MHz on
+    every try, alone on its board, at the same 812-820 mV the healthy chips run, and runs thousands
+    of iterations clean at a forced 1000 MHz (spd-nocdeadlock2, 2026-10-14). Keyed by the chip's own
+    ASIC id (sysfs ``tt_asic_id``), so a renumbering or a move to another slot still finds it.
+    """
+    try:
+        with open(path or aiclk_cap_path()) as f:
+            lines = f.read().splitlines()
+    except OSError:
+        return {}
+    out = {}
+    for line in lines:
+        fields = line.split(None, 2)
+        if len(fields) >= 2 and not line.lstrip().startswith("#"):
+            out[fields[0].upper()] = (int(fields[1]), fields[2].strip() if len(fields) > 2 else "")
+    return out
+
+
+def tt_asic_id(node: int) -> str | None:
+    """The chip's ASIC id from sysfs (``tt_asic_id`` on the class node), upper case; None if unreadable."""
+    try:
+        with open(f"/sys/class/tenstorrent/tenstorrent!{node}/tt_asic_id") as f:
+            return f.read().strip().upper() or None
+    except OSError:
+        return None
+
+
+def apply_aiclk_caps(indices, path: str | None = None) -> dict[int, int]:
+    """Force the AICLK of every listed chip among ``indices`` (UMD) before ttnn opens it; returns index -> MHz.
+
+    ARC message FORCE_AICLK (0x33) through pyluwen on the chip's own device node. The forced clock
+    holds through ttnn's go-busy at open and is cleared by a board reset, so it is re-sent on every
+    open. A listed chip that cannot be capped is refused: at its top clock it hangs.
+    """
+    caps = aiclk_caps(path)
+    if not caps:
+        return {}
+    nodes = umd_index_to_dev_node()
+    done = {}
+    for index in indices:
+        node = nodes.get(index)
+        asic = tt_asic_id(node) if node is not None else None
+        if asic not in caps:
+            continue
+        mhz = caps[asic][0]
+        try:
+            import pyluwen
+            rc = pyluwen.PciChip(pci_interface=node).arc_msg(0x33, wait_for_done=True, arg0=mhz, arg1=0)
+        except Exception as e:  # ImportError, or the ARC did not answer
+            raise RuntimeError(f"Tenstorrent chip {index} (ASIC {asic}) is listed in {path or aiclk_cap_path()} "
+                               f"to run at {mhz} MHz and could not be capped ({e!r}); at its top clock it "
+                               f"deadlocks, so this run is refused. Install pyluwen or pin another chip.") from e
+        if rc[0] != 0:
+            raise RuntimeError(f"FORCE_AICLK {mhz} MHz on chip {index} (ASIC {asic}) returned {rc}")
+        done[index] = mhz
+    return done
+
+
 def missing_device_nodes(indices) -> list[tuple[int, int]]:
     """UMD indices whose chip is listed in sysfs but has no ``/dev/tenstorrent`` node.
 
