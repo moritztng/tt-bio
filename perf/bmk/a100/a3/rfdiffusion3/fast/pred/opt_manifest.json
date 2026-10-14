@@ -1,0 +1,637 @@
+{
+ "schema": "rfdiffusion3_opt.manifest/3",
+ "written_utc": "2026-10-14T22:00:13+00:00",
+ "mode": "fast",
+ "active": true,
+ "env_delta": {
+  "RFD3_HOIST": "1",
+  "RFD3_FZT": "1",
+  "RFD3_CUDAGRAPH": "1",
+  "RFD3_INIT_CHUNK": "1",
+  "RFD3_COMPILE": "1",
+  "RFD3_TOKEN_SDPA": "1",
+  "RFD3_GATHER_ATTN": "1"
+ },
+ "levers_applied": [
+  "RFD3_COMPILE",
+  "RFD3_CUDAGRAPH",
+  "RFD3_FZT",
+  "RFD3_GATHER_ATTN",
+  "RFD3_HOIST",
+  "RFD3_INIT_CHUNK",
+  "RFD3_TOKEN_SDPA"
+ ],
+ "levers_fallback": [],
+ "levers_unavailable": [],
+ "partial": false,
+ "partial_reason": null,
+ "allow_partial": false,
+ "interpreter": {
+  "label": "patched",
+  "detail": "10/10 patched",
+  "site": "/root/kit/rfdiffusion3/venv/lib/python3.12/site-packages",
+  "python": "/root/kit/rfdiffusion3/venv/bin/python",
+  "states": {
+   "rfd3/model/RFD3_diffusion_module.py": "patched",
+   "rfd3/model/cudagraph_sampler.py": "patched",
+   "rfd3/model/hoist.py": "patched",
+   "rfd3/model/inference_sampler.py": "patched",
+   "rfd3/model/layers/attention.py": "patched",
+   "rfd3/model/layers/block_utils.py": "patched",
+   "rfd3/model/layers/blocks.py": "patched",
+   "rfd3/model/layers/encoders.py": "patched",
+   "rfd3/model/layers/layer_utils.py": "patched",
+   "rfd3/model/layers/pairformer_layers.py": "patched"
+  }
+ },
+ "kit": {
+  "ok": true,
+  "kit": "/root/kit/rfdiffusion3/opt/forward/xattempt_addon",
+  "checked": 19,
+  "missing": [],
+  "stray": [],
+  "version": "1.8",
+  "modified": [],
+  "git_check": "skipped: not a git checkout"
+ },
+ "kit_version": "1.8",
+ "core": {
+  "version": "0.5.228.0",
+  "package_dir": "/root/kit/common/opt_core/opt_core"
+ },
+ "package_version": "0.6.2",
+ "upstream": {
+  "rc-foundry": "0.2.1.dev13+g4010e3e2e",
+  "torch": "2.13.0",
+  "triton": "3.7.1",
+  "atomworks": "2.2.1",
+  "biotite": "1.4.0",
+  "lightning": "2.6.5",
+  "numpy": "2.4.4",
+  "hydra-core": "1.3.5"
+ },
+ "pins": {
+  "ok": true,
+  "notes": [],
+  "distribution": {
+   "installed": true,
+   "version": "0.2.1.dev13+g4010e3e2e",
+   "commit": null,
+   "archive_sha256": "2fe8cc01cef09791a80b3172284de9eeedeb5ad59d98fa03f428ae468d91df80",
+   "source": "archive sha256 2fe8cc01cef0\u2026",
+   "pinned": true,
+   "version_ok": true
+  },
+  "stack": {
+   "python": "3.12.1",
+   "torch": "2.13.0",
+   "triton": "3.7.1"
+  },
+  "pinned_stack": {
+   "python": "3.12.1",
+   "torch": "2.13.0+cu130",
+   "triton": "3.7.1"
+  }
+ },
+ "gpu": {
+  "name": "NVIDIA A100-SXM4-80GB",
+  "compute_cap": "8.0",
+  "sm": "80",
+  "memory_mib": 81920,
+  "probe": "nvidia-smi"
+ },
+ "checkpoint": {
+  "path": "/weights/rfd3/rfd3_latest.ckpt",
+  "exists": true,
+  "bytes": 2690316669,
+  "sha256": "9b3f85923e0d51e9453e15cdd2f8c666e7ce096a60577f57d11bbc54ae6d67c1",
+  "sha256_source": "cache",
+  "pinned_sha256": "9b3f85923e0d51e9453e15cdd2f8c666e7ce096a60577f57d11bbc54ae6d67c1",
+  "source_filename": "rfd3_foundry_2025_12_01_remapped.ckpt",
+  "is_pinned_checkpoint": true
+ },
+ "spec": {
+  "value": "rfd3_R4_gpu.json",
+  "is_file": true,
+  "path": "/root/kc/in/rfd3/rfd3_R4_gpu.json",
+  "bytes": 99
+ },
+ "settings": {
+  "values": {
+   "inference_sampler.num_timesteps": "200",
+   "diffusion_batch_size": "1",
+   "n_batches": "5",
+   "seed": "7",
+   "skip_existing": "False"
+  },
+  "route": "fast"
+ },
+ "command": [
+  "rfd3",
+  "design",
+  "inputs=rfd3_R4_gpu.json",
+  "out_dir=/root/kc/results/rfdiffusion3/fast/pred",
+  "inference_sampler.num_timesteps=200",
+  "diffusion_batch_size=1",
+  "n_batches=5",
+  "seed=7",
+  "skip_existing=False",
+  "ckpt_path=/weights/rfd3/rfd3_latest.ckpt"
+ ],
+ "argv": [
+  "rfd3",
+  "design",
+  "inputs=rfd3_R4_gpu.json",
+  "out_dir=/root/kc/results/rfdiffusion3/fast/pred",
+  "inference_sampler.num_timesteps=200",
+  "diffusion_batch_size=1",
+  "n_batches=5",
+  "seed=7",
+  "skip_existing=False",
+  "ckpt_path=/weights/rfd3/rfd3_latest.ckpt"
+ ],
+ "exit_code": 0,
+ "outputs": [
+  {
+   "file": "rfd3_R4_gpu_R4_b100_0_model_0.cif.gz",
+   "bytes": 108826,
+   "sha256": "a6c723b634a78c611645c38ef78ae2956935317ddf342d935575249045f0e1ab"
+  },
+  {
+   "file": "rfd3_R4_gpu_R4_b100_1_model_0.cif.gz",
+   "bytes": 108696,
+   "sha256": "e7829f132ed61a8bd7bf864e9d7c65a0bbfb54f43b3cf7a1753eac350a0537d3"
+  },
+  {
+   "file": "rfd3_R4_gpu_R4_b100_2_model_0.cif.gz",
+   "bytes": 107972,
+   "sha256": "dae47a91e5356fdb9311871c7a1d15a6003e37d330ff8f88eb50e92a713985bd"
+  },
+  {
+   "file": "rfd3_R4_gpu_R4_b100_3_model_0.cif.gz",
+   "bytes": 108729,
+   "sha256": "b2f3327c32e3fd2c48aea2cfb887f6bb3a5eff0594386cd0867a5acffaed83a7"
+  },
+  {
+   "file": "rfd3_R4_gpu_R4_b100_4_model_0.cif.gz",
+   "bytes": 108644,
+   "sha256": "1ab7d36215f83f68fbb359cabc304d439cc7c5c6ab3b4cda0306226aa5d8ece5"
+  },
+  {
+   "file": "rfd3_R4_gpu_R4_b100_0_model_0.json",
+   "bytes": 18146,
+   "sha256": "d61a94773c8276b3578836035e6156b47ad862f12cf2dc1ed55e4e153b810fa7"
+  },
+  {
+   "file": "rfd3_R4_gpu_R4_b100_1_model_0.json",
+   "bytes": 18130,
+   "sha256": "e0c69d6ab3fdbd50233a08d9164c06ad2bb8f342ffb785b54511192079b8d674"
+  },
+  {
+   "file": "rfd3_R4_gpu_R4_b100_2_model_0.json",
+   "bytes": 18130,
+   "sha256": "e8166636e182d29e3a6f966230c237b2391714a0474f8072f448412d6212c671"
+  },
+  {
+   "file": "rfd3_R4_gpu_R4_b100_3_model_0.json",
+   "bytes": 18127,
+   "sha256": "b7a789ff50a6f2c307ca2bd285f8246a8dc32855a1537b452642130fb22adf55"
+  },
+  {
+   "file": "rfd3_R4_gpu_R4_b100_4_model_0.json",
+   "bytes": 18134,
+   "sha256": "12e43863d161a806435571a383515a5cb82ba5877e7078a1a5b7f06f469acbd8"
+  }
+ ],
+ "stock_env_proof": null,
+ "kernels": {
+  "route": "fast",
+  "mode": "fast",
+  "batch": "1",
+  "words": {
+   "cueq": "n/a-upstream:dead-code(attention.py:282,use_kernel=False)",
+   "ds4sci": "n/a-upstream:hard-off(pairformer_layers.py:38;branch-raises:75-76)",
+   "compile": "engaged:kit:torch.compile(inductor,dynamic=auto;4/4;cache-accessors=dynamo-boundaries)@torch2.13.0+cu130",
+   "rmsnorm": "engaged:apex.FusedRMSNorm(215-modules+ext)@apex0.1",
+   "atom_attn": "engaged:gather_attn(gather_attn/1.0;F5.gather_attn)[served=27,stock=0]"
+  },
+  "line": "[rfdiffusion3-opt] KERNELS route=fast mode=fast B=1 compile=engaged:kit:torch.compile(inductor,dynamic=auto;4/4;cache-accessors=dynamo-boundaries)@torch2.13.0+cu130 atom_attn=engaged:gather_attn(gather_attn/1.0;F5.gather_attn)[served=27,stock=0] cueq=n/a-upstream:dead-code(attention.py:282,use_kernel=False) ds4sci=n/a-upstream:hard-off(pairformer_layers.py:38;branch-raises:75-76) rmsnorm=engaged:apex.FusedRMSNorm(215-modules+ext)@apex0.1 compile_s=34.0 inductor_cache=cold(/tmp/model_opt_jit-uid0/torch2.13.0-cu130-sm80/inductor) graphs=39 frames=90/101 graph_breaks=45 torch=2.13.0+cu130 cuda=13.0 tf32_matmul=False tf32_cudnn=True alloc_conf=expandable_segments:True apex=present:0.1 ckpt=rfd3_latest.ckpt@9b3f85923e0d",
+  "refused": null,
+  "not_served": null,
+  "report_only": {},
+  "detail": {
+   "inductor_cache": "cold(/tmp/model_opt_jit-uid0/torch2.13.0-cu130-sm80/inductor)",
+   "attn_shim": "rfd3.model.layers.attention.use_dense_sdpa_pairbias",
+   "batch_source": "engine",
+   "gather": {
+    "RFD3_GATHER_ATTN": true,
+    "installs": 1,
+    "unavailable": null,
+    "served": 27,
+    "stock": 0,
+    "stock_by": {},
+    "cells_served": {
+     "dh32/k128/bfloat16": 27
+    },
+    "idx_builds": 3,
+    "kernel": "gather_attn/1.0",
+    "strategy": "F5.gather_attn",
+    "active": true
+   },
+   "compile": {
+    "compile_model": false,
+    "targets": [
+     "encoder",
+     "diffusion_token_encoder",
+     "diffusion_transformer",
+     "decoder"
+    ],
+    "diffusion_module": "RFD3DiffusionModule",
+    "present": [
+     "encoder",
+     "diffusion_token_encoder",
+     "diffusion_transformer",
+     "decoder"
+    ],
+    "wrapped": [
+     "encoder",
+     "diffusion_token_encoder",
+     "diffusion_transformer",
+     "decoder"
+    ],
+    "dynamo_disabled": false,
+    "kit_compile": {
+     "RFD3_COMPILE": true,
+     "installs": 1,
+     "wrapped": 4,
+     "declared": 4,
+     "graphs": 39,
+     "graph_breaks": 45,
+     "frames_ok": 90,
+     "frames_total": 101,
+     "frames_skipped": 11,
+     "recompile_limit_hits": 0,
+     "cache_entries_max": 1,
+     "cache_size_limit": 64,
+     "at_limit": [],
+     "compile_s": 0.0,
+     "dynamic": "auto",
+     "frames_skipped_allowed": 11,
+     "targets": "RFD3DiffusionModule.encoder,RFD3DiffusionModule.diffusion_token_encoder,RFD3DiffusionModule.diffusion_transformer,RFD3DiffusionModule.decoder",
+     "gate": ""
+    }
+   },
+   "rmsnorm": {
+    "bound": "apex.normalization.fused_layer_norm.FusedRMSNorm",
+    "apex_imported": true,
+    "cuda_ext_loaded": true,
+    "apex_modules": 215,
+    "torch_modules": 0,
+    "apex_version": "0.1"
+   },
+   "preflight": "installed",
+   "gather_preflight": {
+    "B": 1,
+    "n_atoms": 6051,
+    "served_branch": true
+   },
+   "atom_attn": {
+    "chosen": "GATHER",
+    "reason": "RFD3_GATHER_ATTN=1: index-set kernel F5.gather_attn, no dense bias; pinned at pre-flight",
+    "shape": "D=1 L=6051 k=128 H=4",
+    "gather": {
+     "RFD3_GATHER_ATTN": true,
+     "installs": 1,
+     "unavailable": null,
+     "served": 0,
+     "stock": 0,
+     "stock_by": {},
+     "cells_served": {},
+     "idx_builds": 0,
+     "kernel": "gather_attn/1.0",
+     "strategy": "F5.gather_attn",
+     "active": true
+    }
+   },
+   "dynamo": {
+    "unique_graphs": 39,
+    "frames_ok": 90,
+    "frames_total": 101,
+    "graph_breaks": 45,
+    "compile_s": 34.0
+   },
+   "stack": {
+    "torch": "2.13.0+cu130",
+    "cuda": "13.0",
+    "tf32_matmul": "False",
+    "tf32_cudnn": "True",
+    "alloc_conf": "expandable_segments:True",
+    "apex": "present:0.1",
+    "ckpt": "rfd3_latest.ckpt@9b3f85923e0d"
+   }
+  },
+  "batch_seconds": [
+   54.1,
+   13.85,
+   13.74,
+   13.55,
+   13.56
+  ],
+  "items": [
+   {
+    "item": "batch:0",
+    "clock_s": "54.10",
+    "B": "1"
+   },
+   {
+    "item": "batch:1",
+    "clock_s": "13.85",
+    "B": "1"
+   },
+   {
+    "item": "batch:2",
+    "clock_s": "13.74",
+    "B": "1"
+   },
+   {
+    "item": "batch:3",
+    "clock_s": "13.55",
+    "B": "1"
+   },
+   {
+    "item": "batch:4",
+    "clock_s": "13.56",
+    "B": "1"
+   }
+  ],
+  "peaks": [
+   {
+    "item": "batch:0",
+    "alloc_gib": 6.842400074005127,
+    "reserved_gib": 9.943359375,
+    "device": "0"
+   },
+   {
+    "item": "batch:1",
+    "alloc_gib": 9.217241287231445,
+    "reserved_gib": 11.33984375,
+    "device": "0"
+   },
+   {
+    "item": "batch:2",
+    "alloc_gib": 9.217241287231445,
+    "reserved_gib": 11.33984375,
+    "device": "0"
+   },
+   {
+    "item": "batch:3",
+    "alloc_gib": 9.217241287231445,
+    "reserved_gib": 11.33984375,
+    "device": "0"
+   },
+   {
+    "item": "batch:4",
+    "alloc_gib": 9.217241287231445,
+    "reserved_gib": 11.33984375,
+    "device": "0"
+   }
+  ],
+  "attn_path": {
+   "atom_dense": 27,
+   "atom_sparse": 0,
+   "token_full": 108,
+   "compiled": true,
+   "calls_uncounted": true,
+   "preflight": [
+    {
+     "route": "fast",
+     "B": 1,
+     "n_atoms": 6051,
+     "L": 685,
+     "k": 128,
+     "H": 4,
+     "heads": [
+      4
+     ],
+     "atom_sparse": 0,
+     "dense": true,
+     "decisions": {
+      "4": true
+     },
+     "pinned": 1,
+     "free_gib": 72.0308837890625,
+     "est_dense_gib": 0.5456000715494156,
+     "device": "cuda:0",
+     "after_items": 0
+    }
+   ],
+   "pin_hits": 27,
+   "pin_misses": 0
+  },
+  "attn_path_line": "[rfdiffusion3-opt] ATTN_PATH atom_dense=27 atom_sparse=0 token_full=108 compiled=1 calls_uncounted=1",
+  "attn_preflight_lines": [
+   "[rfdiffusion3-opt] ATTN_PREFLIGHT route=fast B=1 n_atoms=6051 L=685 atom_sparse=0 free_gib=72.031 est_dense_gib=0.546 pinned=1"
+  ],
+  "ckpt_path": "/weights/rfd3/rfd3_latest.ckpt",
+  "rmsnorm": "engaged:apex.FusedRMSNorm(215-modules+ext)@apex0.1",
+  "records": [
+   "[rank: 0] Atom attention path: GATHER (RFD3_GATHER_ATTN=1: index-set kernel F5.gather_attn, no dense bias; pinned at pre-flight) [D=1 L=6051 k=128 H=4]. Set RFD3_DENSE_SDPA_ATTENTION=0 to force the original sparse path."
+  ],
+  "expected": {
+   "compile": "engaged",
+   "atom_attn": "engaged",
+   "cueq": "n/a-upstream",
+   "ds4sci": "n/a-upstream",
+   "rmsnorm": "engaged"
+  }
+ },
+ "rfdiffusion3_opt_env": null,
+ "python": "3.12.1",
+ "activation_report": {
+  "active": true,
+  "mode": "fast",
+  "variant": "design",
+  "env": {
+   "RFD3_HOIST": "1",
+   "RFD3_FZT": "1",
+   "RFD3_CUDAGRAPH": "1",
+   "RFD3_INIT_CHUNK": "1",
+   "RFD3_COMPILE": "1",
+   "RFD3_TOKEN_SDPA": "1",
+   "RFD3_GATHER_ATTN": "1"
+  },
+  "env_line": "RFD3_HOIST=1,RFD3_FZT=1,RFD3_CUDAGRAPH=1,RFD3_INIT_CHUNK=1,RFD3_COMPILE=1,RFD3_TOKEN_SDPA=1,RFD3_GATHER_ATTN=1",
+  "tier": "tolerance",
+  "kit_class": "Tier 2 (deltas reported): CUDA-graph sampler + hoist + fused transition + inductor-compiled submodules + token attention on dense SDPA",
+  "activation_point": "the environment before `import rfd3.model` (RFD3_HOIST is read at the import of rfd3.model.hoist, hoist.py:18; RFD3_FZT at the import of rfd3.model.layers.layer_utils; RFD3_CUDAGRAPH at the sampler's construction, inference_sampler.py:610-611); late activation is impossible by construction",
+  "dry_run": false,
+  "trigger": "design",
+  "package_version": "0.6.2",
+  "python": "/root/kit/rfdiffusion3/venv/bin/python",
+  "levers_planned": [
+   "RFD3_COMPILE",
+   "RFD3_CUDAGRAPH",
+   "RFD3_FZT",
+   "RFD3_GATHER_ATTN",
+   "RFD3_HOIST",
+   "RFD3_INIT_CHUNK",
+   "RFD3_TOKEN_SDPA"
+  ],
+  "levers_applied": [
+   "RFD3_COMPILE",
+   "RFD3_CUDAGRAPH",
+   "RFD3_FZT",
+   "RFD3_GATHER_ATTN",
+   "RFD3_HOIST",
+   "RFD3_INIT_CHUNK",
+   "RFD3_TOKEN_SDPA"
+  ],
+  "levers_fallback": [],
+  "levers_unavailable": [],
+  "partial": false,
+  "partial_reason": null,
+  "allow_partial": false,
+  "alloc_conf": "expandable_segments:True",
+  "det": {
+   "level": 0
+  },
+  "core": {
+   "package_dir": "/root/kit/common/opt_core/opt_core",
+   "root": "/root/kit/common/opt_core",
+   "version": "0.5.228.0",
+   "ok": true,
+   "pinned": {
+    "path": "../../common/opt_core",
+    "version": "0.5.18.20",
+    "pyproject": "/root/kit/rfdiffusion3/opt/pyproject.toml"
+   }
+  },
+  "kit": {
+   "ok": true,
+   "kit": "/root/kit/rfdiffusion3/opt/forward/xattempt_addon",
+   "checked": 19,
+   "missing": [],
+   "stray": [],
+   "version": "1.8",
+   "modified": [],
+   "git_check": "skipped: not a git checkout"
+  },
+  "kit_version": "1.8",
+  "interpreter": {
+   "label": "patched",
+   "detail": "10/10 patched",
+   "site": "/root/kit/rfdiffusion3/venv/lib/python3.12/site-packages",
+   "python": "/root/kit/rfdiffusion3/venv/bin/python",
+   "states": {
+    "rfd3/model/RFD3_diffusion_module.py": "patched",
+    "rfd3/model/cudagraph_sampler.py": "patched",
+    "rfd3/model/hoist.py": "patched",
+    "rfd3/model/inference_sampler.py": "patched",
+    "rfd3/model/layers/attention.py": "patched",
+    "rfd3/model/layers/block_utils.py": "patched",
+    "rfd3/model/layers/blocks.py": "patched",
+    "rfd3/model/layers/encoders.py": "patched",
+    "rfd3/model/layers/layer_utils.py": "patched",
+    "rfd3/model/layers/pairformer_layers.py": "patched"
+   }
+  },
+  "pins": {
+   "ok": true,
+   "notes": [],
+   "distribution": {
+    "installed": true,
+    "version": "0.2.1.dev13+g4010e3e2e",
+    "commit": null,
+    "archive_sha256": "2fe8cc01cef09791a80b3172284de9eeedeb5ad59d98fa03f428ae468d91df80",
+    "source": "archive sha256 2fe8cc01cef0\u2026",
+    "pinned": true,
+    "version_ok": true
+   },
+   "stack": {
+    "python": "3.12.1",
+    "torch": "2.13.0",
+    "triton": "3.7.1"
+   },
+   "pinned_stack": {
+    "python": "3.12.1",
+    "torch": "2.13.0+cu130",
+    "triton": "3.7.1"
+   }
+  },
+  "foundry_version": "0.2.1.dev13+g4010e3e2e",
+  "gpu": {
+   "name": "NVIDIA A100-SXM4-80GB",
+   "compute_cap": "8.0",
+   "sm": "80",
+   "memory_mib": 81920,
+   "probe": "nvidia-smi"
+  },
+  "attn_pin": true,
+  "det_env": {},
+  "findings": [],
+  "applied": "read-at-import",
+  "warnings_reopened": 1,
+  "applied_describe": {
+   "RFD3_HOIST": true,
+   "parts": "dedup,downcast,pll,valid,where",
+   "RFD3_COMPILE": true,
+   "RFD3_TOKEN_SDPA": true
+  },
+  "graph_stats": {
+   "installs": 1,
+   "captures": 1,
+   "hits": 4,
+   "fallbacks": 0,
+   "declined": 0,
+   "declined_by": "none"
+  },
+  "graph_line": "[rfdiffusion3-opt] APPLIED rfd3.model.cudagraph_sampler installs=1 captures=1 hits=4 fallbacks=0 declined=0 declined_by=none",
+  "graph_lever_line": "[rfdiffusion3-opt] LEVER name=RFD3_CUDAGRAPH state=on impl=cuda_graphs origin=kit installs=1 captures=1 hits=4 fallbacks=0 declined=0",
+  "fzt_stats": {
+   "RFD3_FZT": true,
+   "installs": 1,
+   "fused_calls": 44,
+   "stock_calls": 44,
+   "cells_fused": {
+    "128x512": 22,
+    "128x256": 22
+   },
+   "cells_stock": {
+    "cell:384x768": 22,
+    "cell:384x1536": 22
+   },
+   "modules_packed": 8,
+   "cells": "128x256,128x512,256x512,256x1024",
+   "rows_cc": "8.0",
+   "rows_served": "128x256:16384-1048544,128x512:4096-1048544,256x512:4096-1048544,256x1024:4096-1048544",
+   "cells_unserved": {},
+   "opt_core_cells_sha256": "175c45666a22a1730dde08e03a011d2b05dd61cf09ed3ff2cf9005cb8641d7b5"
+  },
+  "fzt_line": "[rfdiffusion3-opt] APPLIED rfd3.model.layers.layer_utils RFD3_FZT=True installs=1 fused_calls=44 stock_calls=44 modules_packed=8 cells=128x256,128x512,256x512,256x1024 rows_cc=8.0 rows_served=128x256:16384-1048544,128x512:4096-1048544,256x512:4096-1048544,256x1024:4096-1048544 opt_core_cells_sha256=175c45666a22a1730dde08e03a011d2b05dd61cf09ed3ff2cf9005cb8641d7b5",
+  "init_chunk_stats": {
+   "RFD3_INIT_CHUNK": true,
+   "calls": 5,
+   "chunked_calls": 5,
+   "blocks": 175,
+   "max_atoms": 6051,
+   "pairs_per_block": 1048576
+  },
+  "init_chunk_line": "[rfdiffusion3-opt] APPLIED rfd3.model.layers.layer_utils RFD3_INIT_CHUNK=True calls=5 chunked_calls=5 blocks=175 max_atoms=6051 pairs_per_block=1048576",
+  "gather_stats": {
+   "RFD3_GATHER_ATTN": true,
+   "installs": 1,
+   "unavailable": null,
+   "served": 27,
+   "stock": 0,
+   "stock_by": {},
+   "cells_served": {
+    "dh32/k128/bfloat16": 27
+   },
+   "idx_builds": 3,
+   "kernel": "gather_attn/1.0",
+   "strategy": "F5.gather_attn",
+   "active": true
+  },
+  "gather_line": "[rfdiffusion3-opt] APPLIED rfdiffusion3_opt.gather RFD3_GATHER_ATTN=True installs=1 unavailable=None served=27 stock=0 idx_builds=3 kernel=gather_attn/1.0 strategy=F5.gather_attn stock_by=none cells_served=dh32/k128/bfloat16:27"
+ }
+}

@@ -107,5 +107,18 @@ def test_board_freeze_versions(tmp_path):
     f = tmp_path / "pip-freeze.txt"
     f.write_text("torch @ https://download.pytorch.org/whl/cu126/torch-2.7.1%2Bcu126-cp311-cp311-manylinux_2_28_x86_64.whl#sha256=e1a8\n"
                  "esm @ git+https://github.com/Biohub/esm.git@43ccece2ad485f27db46afdb67da2a9601e8f106\n"
-                 "-e git+https://github.com/bytedance/PXDesign.git@f788441313c84c3074fe9596ac2433f96b15c763#egg=pxdesign\n")
-    assert board.freeze(f) == {"torch": "2.7.1+cu126", "esm": "43ccece2a", "pxdesign": "f78844131"}
+                 "-e git+https://github.com/bytedance/PXDesign.git@f788441313c84c3074fe9596ac2433f96b15c763#egg=pxdesign\n"
+                 "rc-foundry @ file:///root/kit/rfdiffusion3/stock/foundry-4010e3e.tar.gz#sha256=2fe8cc01\n")
+    assert board.freeze(f) == {"torch": "2.7.1+cu126", "esm": "43ccece2a", "pxdesign": "f78844131", "rc-foundry": "4010e3e"}
+
+
+def test_esmfold2_variants_read_the_parent_clock(tmp_path):
+    """box_arms.sh runs both ESMFold2 variants in one call; the nvidia-smi trace is written to esmfold2/, not the variant dirs."""
+    (tmp_path / "esmfold2").mkdir()
+    smi(tmp_path / "esmfold2/smi.csv", T0, T0 + 100, mhz=1395)
+    d = tmp_path / "esmfold2-fast/off"; d.mkdir(parents=True)
+    stamp(d, T0, T0 + 50)
+    (d / "times.jsonl").write_text("".join(json.dumps({"s": s, "fn": "esm.x.fold", "t": T0 + i}) + "\n"
+                                           for i, s in enumerate([9.0, 4.7, 4.7, 4.8, 4.7])))
+    (r,) = [a for a in parse.arms(tmp_path) if a["cell"] == "esmfold2-fast"]
+    assert r["sm_mhz"] == 1395

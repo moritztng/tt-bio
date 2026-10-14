@@ -1,0 +1,569 @@
+{
+ "schema": "rfdiffusion3_opt.manifest/3",
+ "written_utc": "2026-10-14T21:57:59+00:00",
+ "mode": "exact",
+ "active": true,
+ "env_delta": {
+  "RFD3_HOIST": "1",
+  "RFD3_FZT": "1",
+  "RFD3_CUDAGRAPH": "1",
+  "RFD3_INIT_CHUNK": "1"
+ },
+ "levers_applied": [
+  "RFD3_CUDAGRAPH",
+  "RFD3_FZT",
+  "RFD3_HOIST",
+  "RFD3_INIT_CHUNK"
+ ],
+ "levers_fallback": [],
+ "levers_unavailable": [],
+ "partial": false,
+ "partial_reason": null,
+ "allow_partial": false,
+ "interpreter": {
+  "label": "patched",
+  "detail": "10/10 patched",
+  "site": "/root/kit/rfdiffusion3/venv/lib/python3.12/site-packages",
+  "python": "/root/kit/rfdiffusion3/venv/bin/python",
+  "states": {
+   "rfd3/model/RFD3_diffusion_module.py": "patched",
+   "rfd3/model/cudagraph_sampler.py": "patched",
+   "rfd3/model/hoist.py": "patched",
+   "rfd3/model/inference_sampler.py": "patched",
+   "rfd3/model/layers/attention.py": "patched",
+   "rfd3/model/layers/block_utils.py": "patched",
+   "rfd3/model/layers/blocks.py": "patched",
+   "rfd3/model/layers/encoders.py": "patched",
+   "rfd3/model/layers/layer_utils.py": "patched",
+   "rfd3/model/layers/pairformer_layers.py": "patched"
+  }
+ },
+ "kit": {
+  "ok": true,
+  "kit": "/root/kit/rfdiffusion3/opt/forward/xattempt_addon",
+  "checked": 19,
+  "missing": [],
+  "stray": [],
+  "version": "1.8",
+  "modified": [],
+  "git_check": "skipped: not a git checkout"
+ },
+ "kit_version": "1.8",
+ "core": {
+  "version": "0.5.228.0",
+  "package_dir": "/root/kit/common/opt_core/opt_core"
+ },
+ "package_version": "0.6.2",
+ "upstream": {
+  "rc-foundry": "0.2.1.dev13+g4010e3e2e",
+  "torch": "2.13.0",
+  "triton": "3.7.1",
+  "atomworks": "2.2.1",
+  "biotite": "1.4.0",
+  "lightning": "2.6.5",
+  "numpy": "2.4.4",
+  "hydra-core": "1.3.5"
+ },
+ "pins": {
+  "ok": true,
+  "notes": [],
+  "distribution": {
+   "installed": true,
+   "version": "0.2.1.dev13+g4010e3e2e",
+   "commit": null,
+   "archive_sha256": "2fe8cc01cef09791a80b3172284de9eeedeb5ad59d98fa03f428ae468d91df80",
+   "source": "archive sha256 2fe8cc01cef0\u2026",
+   "pinned": true,
+   "version_ok": true
+  },
+  "stack": {
+   "python": "3.12.1",
+   "torch": "2.13.0",
+   "triton": "3.7.1"
+  },
+  "pinned_stack": {
+   "python": "3.12.1",
+   "torch": "2.13.0+cu130",
+   "triton": "3.7.1"
+  }
+ },
+ "gpu": {
+  "name": "NVIDIA A100-SXM4-80GB",
+  "compute_cap": "8.0",
+  "sm": "80",
+  "memory_mib": 81920,
+  "probe": "nvidia-smi"
+ },
+ "checkpoint": {
+  "path": "/weights/rfd3/rfd3_latest.ckpt",
+  "exists": true,
+  "bytes": 2690316669,
+  "sha256": "9b3f85923e0d51e9453e15cdd2f8c666e7ce096a60577f57d11bbc54ae6d67c1",
+  "sha256_source": "cache",
+  "pinned_sha256": "9b3f85923e0d51e9453e15cdd2f8c666e7ce096a60577f57d11bbc54ae6d67c1",
+  "source_filename": "rfd3_foundry_2025_12_01_remapped.ckpt",
+  "is_pinned_checkpoint": true
+ },
+ "spec": {
+  "value": "rfd3_R4_gpu.json",
+  "is_file": true,
+  "path": "/root/kc/in/rfd3/rfd3_R4_gpu.json",
+  "bytes": 99
+ },
+ "settings": {
+  "values": {
+   "inference_sampler.num_timesteps": "200",
+   "diffusion_batch_size": "1",
+   "n_batches": "5",
+   "seed": "7",
+   "skip_existing": "False"
+  },
+  "route": "exact"
+ },
+ "command": [
+  "rfd3",
+  "design",
+  "inputs=rfd3_R4_gpu.json",
+  "out_dir=/root/kc/results/rfdiffusion3/exact/pred",
+  "inference_sampler.num_timesteps=200",
+  "diffusion_batch_size=1",
+  "n_batches=5",
+  "seed=7",
+  "skip_existing=False",
+  "ckpt_path=/weights/rfd3/rfd3_latest.ckpt"
+ ],
+ "argv": [
+  "rfd3",
+  "design",
+  "inputs=rfd3_R4_gpu.json",
+  "out_dir=/root/kc/results/rfdiffusion3/exact/pred",
+  "inference_sampler.num_timesteps=200",
+  "diffusion_batch_size=1",
+  "n_batches=5",
+  "seed=7",
+  "skip_existing=False",
+  "ckpt_path=/weights/rfd3/rfd3_latest.ckpt"
+ ],
+ "exit_code": 0,
+ "outputs": [
+  {
+   "file": "rfd3_R4_gpu_R4_b100_0_model_0.cif.gz",
+   "bytes": 109685,
+   "sha256": "33a4108fc483058412bc77036803a797b542bd046ff3df6a6e34dcf1ed1e6523"
+  },
+  {
+   "file": "rfd3_R4_gpu_R4_b100_1_model_0.cif.gz",
+   "bytes": 108537,
+   "sha256": "193b82bd90d39a5115d8726a159a307573187e0f84253e7aa825a59d0c5952c7"
+  },
+  {
+   "file": "rfd3_R4_gpu_R4_b100_2_model_0.cif.gz",
+   "bytes": 107960,
+   "sha256": "37d1bf34e7b0b4069f991a520a97c39903f65a3293b4b0ccc95c0483fb19e5df"
+  },
+  {
+   "file": "rfd3_R4_gpu_R4_b100_3_model_0.cif.gz",
+   "bytes": 109271,
+   "sha256": "7b77bb7cd6d930915e9cf80c3013883ee326a19eefa3c90b1d9d1560068607fc"
+  },
+  {
+   "file": "rfd3_R4_gpu_R4_b100_4_model_0.cif.gz",
+   "bytes": 109127,
+   "sha256": "c29c4c0aa45ec5c9a7b390f73110acaea986dd20381c01f58b79c675ae49ab00"
+  },
+  {
+   "file": "rfd3_R4_gpu_R4_b100_0_model_0.json",
+   "bytes": 18147,
+   "sha256": "e838c1526dd3a924c44557f6decd56adef59121e7c1c535d9f07ff32cc406365"
+  },
+  {
+   "file": "rfd3_R4_gpu_R4_b100_1_model_0.json",
+   "bytes": 18146,
+   "sha256": "323c071bf926ae8735e8cd3528a011f30d6dbc8940c74242f095b2ddc87e1f19"
+  },
+  {
+   "file": "rfd3_R4_gpu_R4_b100_2_model_0.json",
+   "bytes": 18131,
+   "sha256": "7ecafb5b3d9181f6cbe553a6c9b6acf687a2ca74ae9253fcacc356f6c3ca93a3"
+  },
+  {
+   "file": "rfd3_R4_gpu_R4_b100_3_model_0.json",
+   "bytes": 18133,
+   "sha256": "77243e3ba08650f62fe558fa643c659923a7678d280cb0c60f770f8d97fcafda"
+  },
+  {
+   "file": "rfd3_R4_gpu_R4_b100_4_model_0.json",
+   "bytes": 18134,
+   "sha256": "149d164084bf61ad9b951d2205dff3859516a7cc40d8d37572dd9bfeaff40b86"
+  }
+ ],
+ "stock_env_proof": null,
+ "kernels": {
+  "route": "exact",
+  "mode": "exact",
+  "batch": "1",
+  "words": {
+   "cueq": "n/a-upstream:dead-code(attention.py:282,use_kernel=False)",
+   "ds4sci": "n/a-upstream:hard-off(pairformer_layers.py:38;branch-raises:75-76)",
+   "compile": "off-by-route:compile_model=false",
+   "rmsnorm": "engaged:apex.FusedRMSNorm(215-modules+ext)@apex0.1",
+   "atom_attn": "engaged:dense-sdpa(F.scaled_dot_product_attention)@torch2.13.0+cu130"
+  },
+  "line": "[rfdiffusion3-opt] KERNELS route=exact mode=exact B=1 compile=off-by-route:compile_model=false atom_attn=engaged:dense-sdpa(F.scaled_dot_product_attention)@torch2.13.0+cu130 cueq=n/a-upstream:dead-code(attention.py:282,use_kernel=False) ds4sci=n/a-upstream:hard-off(pairformer_layers.py:38;branch-raises:75-76) rmsnorm=engaged:apex.FusedRMSNorm(215-modules+ext)@apex0.1 torch=2.13.0+cu130 cuda=13.0 tf32_matmul=False tf32_cudnn=True alloc_conf=expandable_segments:True apex=present:0.1 ckpt=rfd3_latest.ckpt@9b3f85923e0d",
+  "refused": null,
+  "not_served": null,
+  "report_only": {},
+  "detail": {
+   "inductor_cache": "cold(/tmp/model_opt_jit-uid0/torch2.13.0-cu130-sm80/inductor)",
+   "attn_shim": "rfd3.model.layers.attention.use_dense_sdpa_pairbias",
+   "batch_source": "engine",
+   "compile": {
+    "compile_model": false,
+    "targets": [
+     "encoder",
+     "diffusion_token_encoder",
+     "diffusion_transformer",
+     "decoder"
+    ],
+    "diffusion_module": "RFD3DiffusionModule",
+    "present": [
+     "encoder",
+     "diffusion_token_encoder",
+     "diffusion_transformer",
+     "decoder"
+    ],
+    "wrapped": [],
+    "dynamo_disabled": false,
+    "kit_compile": {
+     "RFD3_COMPILE": false,
+     "installs": 0,
+     "wrapped": 0,
+     "declared": 0,
+     "graphs": 0,
+     "graph_breaks": 0,
+     "frames_ok": 0,
+     "frames_total": 0,
+     "frames_skipped": 0,
+     "recompile_limit_hits": 0,
+     "cache_entries_max": null,
+     "cache_size_limit": null,
+     "at_limit": [],
+     "compile_s": 0.0,
+     "dynamic": "auto",
+     "frames_skipped_allowed": null,
+     "targets": "-",
+     "gate": ""
+    }
+   },
+   "rmsnorm": {
+    "bound": "apex.normalization.fused_layer_norm.FusedRMSNorm",
+    "apex_imported": true,
+    "cuda_ext_loaded": true,
+    "apex_modules": 215,
+    "torch_modules": 0,
+    "apex_version": "0.1"
+   },
+   "preflight": "installed",
+   "atom_attn": {
+    "chosen": "DENSE-SDPA",
+    "reason": "0.5 GiB bias; pinned at pre-flight",
+    "shape": "D=1 L=6051 k=128 H=4",
+    "bound": "rfd3.model.layers.attention.dense_sdpa_pairbias_attention"
+   },
+   "dynamo": {
+    "unique_graphs": 0,
+    "frames_ok": 0,
+    "frames_total": 0,
+    "graph_breaks": 0,
+    "compile_s": null
+   },
+   "stack": {
+    "torch": "2.13.0+cu130",
+    "cuda": "13.0",
+    "tf32_matmul": "False",
+    "tf32_cudnn": "True",
+    "alloc_conf": "expandable_segments:True",
+    "apex": "present:0.1",
+    "ckpt": "rfd3_latest.ckpt@9b3f85923e0d"
+   }
+  },
+  "batch_seconds": [
+   22.16,
+   19.75,
+   19.34,
+   19.62,
+   19.45
+  ],
+  "items": [
+   {
+    "item": "batch:0",
+    "clock_s": "22.16",
+    "B": "1"
+   },
+   {
+    "item": "batch:1",
+    "clock_s": "19.75",
+    "B": "1"
+   },
+   {
+    "item": "batch:2",
+    "clock_s": "19.34",
+    "B": "1"
+   },
+   {
+    "item": "batch:3",
+    "clock_s": "19.62",
+    "B": "1"
+   },
+   {
+    "item": "batch:4",
+    "clock_s": "19.45",
+    "B": "1"
+   }
+  ],
+  "peaks": [
+   {
+    "item": "batch:0",
+    "alloc_gib": 7.349461078643799,
+    "reserved_gib": 10.64453125,
+    "device": "0"
+   },
+   {
+    "item": "batch:1",
+    "alloc_gib": 9.211453437805176,
+    "reserved_gib": 11.962890625,
+    "device": "0"
+   },
+   {
+    "item": "batch:2",
+    "alloc_gib": 9.211453437805176,
+    "reserved_gib": 11.962890625,
+    "device": "0"
+   },
+   {
+    "item": "batch:3",
+    "alloc_gib": 9.211453437805176,
+    "reserved_gib": 11.962890625,
+    "device": "0"
+   },
+   {
+    "item": "batch:4",
+    "alloc_gib": 9.211453437805176,
+    "reserved_gib": 11.962890625,
+    "device": "0"
+   }
+  ],
+  "attn_path": {
+   "atom_dense": 27,
+   "atom_sparse": 0,
+   "token_full": 108,
+   "compiled": false,
+   "calls_uncounted": true,
+   "preflight": [
+    {
+     "route": "exact",
+     "B": 1,
+     "n_atoms": 6051,
+     "L": 685,
+     "k": 128,
+     "H": 4,
+     "heads": [
+      4
+     ],
+     "atom_sparse": 0,
+     "dense": true,
+     "decisions": {
+      "4": true
+     },
+     "pinned": 1,
+     "free_gib": 72.0308837890625,
+     "est_dense_gib": 0.5456000715494156,
+     "device": "cuda:0",
+     "after_items": 0
+    }
+   ],
+   "pin_hits": 27,
+   "pin_misses": 0
+  },
+  "attn_path_line": "[rfdiffusion3-opt] ATTN_PATH atom_dense=27 atom_sparse=0 token_full=108 compiled=0 calls_uncounted=1",
+  "attn_preflight_lines": [
+   "[rfdiffusion3-opt] ATTN_PREFLIGHT route=exact B=1 n_atoms=6051 L=685 atom_sparse=0 free_gib=72.031 est_dense_gib=0.546 pinned=1"
+  ],
+  "ckpt_path": "/weights/rfd3/rfd3_latest.ckpt",
+  "rmsnorm": "engaged:apex.FusedRMSNorm(215-modules+ext)@apex0.1",
+  "records": [
+   "[rank: 0] Atom attention path: DENSE-SDPA (0.5 GiB bias; pinned at pre-flight) [D=1 L=6051 k=128 H=4]. Set RFD3_DENSE_SDPA_ATTENTION=0 to force the original sparse path."
+  ],
+  "expected": {
+   "compile": "off-by-route",
+   "atom_attn": "engaged",
+   "cueq": "n/a-upstream",
+   "ds4sci": "n/a-upstream",
+   "rmsnorm": "engaged"
+  }
+ },
+ "rfdiffusion3_opt_env": null,
+ "python": "3.12.1",
+ "activation_report": {
+  "active": true,
+  "mode": "exact",
+  "variant": "design",
+  "env": {
+   "RFD3_HOIST": "1",
+   "RFD3_FZT": "1",
+   "RFD3_CUDAGRAPH": "1",
+   "RFD3_INIT_CHUNK": "1"
+  },
+  "env_line": "RFD3_HOIST=1,RFD3_FZT=1,RFD3_CUDAGRAPH=1,RFD3_INIT_CHUNK=1",
+  "tier": "exact",
+  "kit_class": "EXACT (type-A: identical designs)",
+  "activation_point": "the environment before `import rfd3.model` (RFD3_HOIST is read at the import of rfd3.model.hoist, hoist.py:18; RFD3_FZT at the import of rfd3.model.layers.layer_utils; RFD3_CUDAGRAPH at the sampler's construction, inference_sampler.py:610-611); late activation is impossible by construction",
+  "dry_run": false,
+  "trigger": "design",
+  "package_version": "0.6.2",
+  "python": "/root/kit/rfdiffusion3/venv/bin/python",
+  "levers_planned": [
+   "RFD3_CUDAGRAPH",
+   "RFD3_FZT",
+   "RFD3_HOIST",
+   "RFD3_INIT_CHUNK"
+  ],
+  "levers_applied": [
+   "RFD3_CUDAGRAPH",
+   "RFD3_FZT",
+   "RFD3_HOIST",
+   "RFD3_INIT_CHUNK"
+  ],
+  "levers_fallback": [],
+  "levers_unavailable": [],
+  "partial": false,
+  "partial_reason": null,
+  "allow_partial": false,
+  "alloc_conf": "expandable_segments:True",
+  "det": {
+   "level": 0
+  },
+  "core": {
+   "package_dir": "/root/kit/common/opt_core/opt_core",
+   "root": "/root/kit/common/opt_core",
+   "version": "0.5.228.0",
+   "ok": true,
+   "pinned": {
+    "path": "../../common/opt_core",
+    "version": "0.5.18.20",
+    "pyproject": "/root/kit/rfdiffusion3/opt/pyproject.toml"
+   }
+  },
+  "kit": {
+   "ok": true,
+   "kit": "/root/kit/rfdiffusion3/opt/forward/xattempt_addon",
+   "checked": 19,
+   "missing": [],
+   "stray": [],
+   "version": "1.8",
+   "modified": [],
+   "git_check": "skipped: not a git checkout"
+  },
+  "kit_version": "1.8",
+  "interpreter": {
+   "label": "patched",
+   "detail": "10/10 patched",
+   "site": "/root/kit/rfdiffusion3/venv/lib/python3.12/site-packages",
+   "python": "/root/kit/rfdiffusion3/venv/bin/python",
+   "states": {
+    "rfd3/model/RFD3_diffusion_module.py": "patched",
+    "rfd3/model/cudagraph_sampler.py": "patched",
+    "rfd3/model/hoist.py": "patched",
+    "rfd3/model/inference_sampler.py": "patched",
+    "rfd3/model/layers/attention.py": "patched",
+    "rfd3/model/layers/block_utils.py": "patched",
+    "rfd3/model/layers/blocks.py": "patched",
+    "rfd3/model/layers/encoders.py": "patched",
+    "rfd3/model/layers/layer_utils.py": "patched",
+    "rfd3/model/layers/pairformer_layers.py": "patched"
+   }
+  },
+  "pins": {
+   "ok": true,
+   "notes": [],
+   "distribution": {
+    "installed": true,
+    "version": "0.2.1.dev13+g4010e3e2e",
+    "commit": null,
+    "archive_sha256": "2fe8cc01cef09791a80b3172284de9eeedeb5ad59d98fa03f428ae468d91df80",
+    "source": "archive sha256 2fe8cc01cef0\u2026",
+    "pinned": true,
+    "version_ok": true
+   },
+   "stack": {
+    "python": "3.12.1",
+    "torch": "2.13.0",
+    "triton": "3.7.1"
+   },
+   "pinned_stack": {
+    "python": "3.12.1",
+    "torch": "2.13.0+cu130",
+    "triton": "3.7.1"
+   }
+  },
+  "foundry_version": "0.2.1.dev13+g4010e3e2e",
+  "gpu": {
+   "name": "NVIDIA A100-SXM4-80GB",
+   "compute_cap": "8.0",
+   "sm": "80",
+   "memory_mib": 81920,
+   "probe": "nvidia-smi"
+  },
+  "attn_pin": true,
+  "det_env": {},
+  "findings": [],
+  "applied": "read-at-import",
+  "warnings_reopened": 1,
+  "applied_describe": {
+   "RFD3_HOIST": true,
+   "parts": "dedup,downcast,pll,valid,where",
+   "RFD3_COMPILE": false,
+   "RFD3_TOKEN_SDPA": false
+  },
+  "graph_stats": {
+   "installs": 1,
+   "captures": 1,
+   "hits": 4,
+   "fallbacks": 0,
+   "declined": 0,
+   "declined_by": "none"
+  },
+  "graph_line": "[rfdiffusion3-opt] APPLIED rfd3.model.cudagraph_sampler installs=1 captures=1 hits=4 fallbacks=0 declined=0 declined_by=none",
+  "graph_lever_line": "[rfdiffusion3-opt] LEVER name=RFD3_CUDAGRAPH state=on impl=cuda_graphs origin=kit installs=1 captures=1 hits=4 fallbacks=0 declined=0",
+  "fzt_stats": {
+   "RFD3_FZT": true,
+   "installs": 1,
+   "fused_calls": 44,
+   "stock_calls": 44,
+   "cells_fused": {
+    "128x512": 22,
+    "128x256": 22
+   },
+   "cells_stock": {
+    "cell:384x768": 22,
+    "cell:384x1536": 22
+   },
+   "modules_packed": 8,
+   "cells": "128x256,128x512,256x512,256x1024",
+   "rows_cc": "8.0",
+   "rows_served": "128x256:16384-1048544,128x512:4096-1048544,256x512:4096-1048544,256x1024:4096-1048544",
+   "cells_unserved": {},
+   "opt_core_cells_sha256": "175c45666a22a1730dde08e03a011d2b05dd61cf09ed3ff2cf9005cb8641d7b5"
+  },
+  "fzt_line": "[rfdiffusion3-opt] APPLIED rfd3.model.layers.layer_utils RFD3_FZT=True installs=1 fused_calls=44 stock_calls=44 modules_packed=8 cells=128x256,128x512,256x512,256x1024 rows_cc=8.0 rows_served=128x256:16384-1048544,128x512:4096-1048544,256x512:4096-1048544,256x1024:4096-1048544 opt_core_cells_sha256=175c45666a22a1730dde08e03a011d2b05dd61cf09ed3ff2cf9005cb8641d7b5",
+  "init_chunk_stats": {
+   "RFD3_INIT_CHUNK": true,
+   "calls": 5,
+   "chunked_calls": 5,
+   "blocks": 175,
+   "max_atoms": 6051,
+   "pairs_per_block": 1048576
+  },
+  "init_chunk_line": "[rfdiffusion3-opt] APPLIED rfd3.model.layers.layer_utils RFD3_INIT_CHUNK=True calls=5 chunked_calls=5 blocks=175 max_atoms=6051 pairs_per_block=1048576"
+ }
+}
