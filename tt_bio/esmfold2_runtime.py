@@ -339,11 +339,11 @@ def _dev_forward(m, x):
 # product projection, the trunk, row pooling and the PAE/PDE logits. The host keeps what is [L,c]-sized or a lookup
 # (summed in fp32, one upload) and the row softmax. Host fp32 there costs ~1.1 s per 512-aa fold (xf2 profile).
 # Not bit-exact (bf16 pair): with the device tail, graded PASS on Blackhole (ESMFold2 normal bar, ESMFold2-Fast fast
-# bar, 11 complexes x 4 seeds), so on there by default like the tail. p150a ESMFold2-Fast --fast: 15.23 vs 16.17 s.
+# bar, 11 complexes x 4 seeds), so on by default like the tail. p150a ESMFold2-Fast --fast: 15.23 vs 16.17 s.
+# Wormhole (Blackhole fold path), 11 complexes x 4 seeds against the old WH path, fast and normal bar, PASS for both
+# models (ESMFold2 CA-lDDT +0.0034, docking 33/44 as without it); folds clean to 1536 tokens, 3-5 % off the fold.
 def _device_conf() -> bool:
-    if os.environ.get("TT_BIO_ESMFOLD2_DEVICE_CONF", "").strip():
-        return env_flag("TT_BIO_ESMFOLD2_DEVICE_CONF", False)
-    return not is_wormhole()
+    return env_flag("TT_BIO_ESMFOLD2_DEVICE_CONF", True)
 
 
 DEVICE_CONF_STATS = [0, 0]  # heads on the device, on the host
@@ -1334,14 +1334,13 @@ def wh_releases_lm(chains) -> bool:
 # the F1 tail would serve with the residual folded in, and is bit-exact against it there (torch.equal, both sets,
 # p150a; CIF byte-identical in same-card folds at 544, 576 and 1024 aa). p150a 1350 MHz, ESMFold2's call at
 # 512: 9.79 -> 9.39 ms (normal set), 9.49 -> 8.66 ms (fast set); --fast fold warm, 544 aa 30.5 -> 29.1 s, 1024 aa
-# 98.7 -> 94.0 s. Wormhole (LEVERS_WH, 1000 MHz) folds the same CIF in the same time (544 aa 94.4 vs 94.5 s).
+# 98.7 -> 94.0 s. Wormhole (1000 MHz) folds the same CIF in the same time (544 aa 94.4 vs 94.5 s).
 LEVERS_NORMAL = "normal-trunk_hifi3+trimul_gin+trimul_t2g"
 # FAST also takes transition_ws (fast grade PASS on both ESMFold2 models, both archs; tenstorrent.FAST_LEVERS)
 # and trimul_gin: ESMFold2 fast bar against the set without it, 11 complexes x 4 seeds, 44 paired folds (p300c,
 # 1350 MHz): CA-lDDT +0.0026 [-0.0022, +0.0086], pLDDT +0.0005, top-pose median 0.35 A vs 1.30 A floor, docking
 # 31 -> 30 of 44. Same-card A/B at 544 and 576 tokens (p150a, 1350 MHz): 34.2 -> 33.1 s and 40.7 -> 38.4 s warm.
 LEVERS_FAST = "normal+trimul_b8in+transition_ws+trimul_gin+trimul_t2g"
-LEVERS_WH = LEVERS_NORMAL + "+transition_ws"
 
 
 def fold_levers(fast: bool) -> str:
@@ -1351,21 +1350,16 @@ def fold_levers(fast: bool) -> str:
 
 
 def fold_scope(fast: bool):
-    """The context ESMFold2 builds and folds in. Blackhole: `lever_scope(fold_levers(fast))`, the older bfp8
-    `_FAST_MODE` off. Wormhole keeps main's `_FAST_MODE` = `fast` path (the Blackhole path's --fast threw a
-    circular-buffer clash at 546-559 tokens on a Galaxy chip, program 217) and takes LEVERS_NORMAL in both modes:
-    graded there against no lever set, 11 complexes x 4 seeds, ESMFold2-Fast on the normal bar (CA-lDDT +0.0014
-    [-0.0007, +0.0045], docking 24 -> 25/44) and ESMFold2 on the fast bar (43 paired, CA-lDDT -0.0050 [-0.0101,
-    -0.0010], docking 30 -> 29/43, top-pose median 0.64 A vs 1.26 A seed floor), ~3 s off a 512-aa fold at 1000 MHz.
-    On Wormhole --fast and trunk_hifi3 change nothing under this set (same digest), so one grade covers both modes.
-    Wormhole adds transition_ws (LEVERS_WH): 11 complexes x 4 seeds, the set with vs without it, PASS on the fast and
-    the normal bar for both models (ESMFold2 CA-lDDT -0.0010 [-0.0063, +0.0042], top-pose median 0.38 A vs 1.40 A floor;
-    ESMFold2-Fast -0.0013 [-0.0046, +0.0009], 0.98 A vs 1.36 A; docking 29 -> 28 and 23 -> 23 of 44).
-    TT_BIO_ESMFOLD2_WH_BFP8=0 (harness only) folds Wormhole on the Blackhole path, to time and grade it there."""
+    """The context ESMFold2 builds and folds in: `lever_scope(fold_levers(fast))`, the older bfp8 `_FAST_MODE` off,
+    on both archs. Wormhole used to keep `_FAST_MODE` (LEVERS_NORMAL + transition_ws) after the Blackhole path's
+    --fast threw a circular-buffer clash at 546-559 tokens (program 217); that clash no longer reproduces (552 folds
+    clean, 2026-10-13). On a Wormhole Galaxy chip at 1000 MHz the Blackhole path folds 512 aa in 43.4 s vs 69.6 s
+    (ESMFold2) and 30.5 vs 46.9 s (ESMFold2-Fast). Graded against the old path, 11 complexes x 4 seeds, fast and
+    normal bar: ESMFold2-Fast CA-lDDT +0.0003 [-0.0010, +0.0023], pLDDT -0.002, top-pose median 1.08 A vs 1.36 A
+    seed floor, docking 24/44 both. ESMFold2: CA-lDDT +0.0034 [+0.0004, +0.0078], pLDDT +0.0005, top-pose median
+    0.82 A vs 1.71 A seed floor, docking 30 -> 33 of 44. Both models fold clean at 768, 1088 and 1536 tokens on the
+    Blackhole path, 24-33 % faster than the old one at each size."""
     from tt_bio import tenstorrent
-    if is_wormhole() and env_flag("TT_BIO_ESMFOLD2_WH_BFP8", True):
-        tenstorrent.set_fast_mode(fast)
-        return tenstorrent.levers(os.environ.get("TT_BIO_LEVERS") or LEVERS_WH)
     return tenstorrent.lever_scope(fold_levers(fast))
 
 
