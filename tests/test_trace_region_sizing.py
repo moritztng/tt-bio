@@ -113,7 +113,7 @@ def test_every_named_capture_has_an_entry():
 
 def test_every_capture_site_is_sized():
     found = {str(p.relative_to(ROOT)) for p in _py([ROOT / "tt_bio"])
-             for c in _calls(p) if _name(c) == "begin_trace_capture"}
+             for c in _calls(p) if _name(c) in ("begin_trace_capture", "capture_trace")}
     assert found == set(CAPTURE_SITES), (
         f"begin_trace_capture moved or a new site appeared: {sorted(found ^ set(CAPTURE_SITES))}. "
         f"Measure its bytes (perf/mgx_trace_region) and add a TRACE_REGIONS entry.")

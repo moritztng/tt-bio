@@ -60,6 +60,7 @@ from .tenstorrent import (
     _fp32_softmax_attention,
     _pair_bias_from_z,
     _residual_update_memory_config,
+    capture_trace,
     host_f64_softmax_site,
     batched_matmul,
     get_device,
@@ -1356,9 +1357,7 @@ class AF2DeviceModel(AF2Model):
             for out in run(*[ttnn.clone(b) for b in bufs]):
                 ttnn.deallocate(out)
             ttnn.synchronize_device(self._device)
-            tid = ttnn.begin_trace_capture(self._device, cq_id=0)
-            outs = run(*[ttnn.clone(b) for b in bufs])
-            ttnn.end_trace_capture(self._device, tid, cq_id=0)
+            tid, outs = capture_trace(self._device, lambda: run(*[ttnn.clone(b) for b in bufs]))
             tr = self._traces[key] = (tid, bufs, outs)
         else:
             for t, buf in zip(inputs, tr[1]):
