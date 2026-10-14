@@ -9,8 +9,8 @@
 KC_CFG=a100 KC_ARCH=8.0 KC_N=5; [ -f /root/kc/gpu.env ] && . /root/kc/gpu.env
 M=$1; K=/root/kit/$M; I=/root/kc/in; R=/root/kc/results/$M${LEVERS_OFF:+-no-${LEVERS_OFF//,/-}}; mkdir -p $R
 # LEVERS_OFF=prefetch,awrite: the kit's own ablation switch (MODEL_OPT_LEVERS_OFF) on the kit modes. RF3's prefetch featurizes the
-# NEXT input while the current one folds, so dump gaps over several inputs read pipelined throughput, not one prediction at a time
-[ -n "${LEVERS_OFF:-}" ] && export MODEL_OPT_LEVERS_OFF=$LEVERS_OFF
+# NEXT input while the current one folds, so dump gaps over several inputs read pipelined throughput, not one prediction at a time.
+# Set per arm in run(): the kit refuses --mode off with the switch set (off has no lever to withhold), rc 3 and no off arm.
 cd $K && . venv/bin/activate
 case $M in openfold3|openfold3_ob0) CV=12.8;; opendde) CV=12.6;; pxdesign) CV=12.1; export NVCC_PREPEND_FLAGS="-ccbin /usr/bin/gcc-12" CC=gcc-12 CXX=g++-12;; *) CV=;; esac  # torch JIT appends -ccbin $CC
 export CUDA_HOME=/usr/local/cuda${CV:+-$CV} PYTHONHASHSEED=0 OPENFOLD3_CKPT=/weights/openfold3/of3-p2-155k.pt \
@@ -36,6 +36,7 @@ nohup nvidia-smi --query-gpu=timestamp,clocks.sm,clocks.mem,power.draw,power.lim
 SMI=$!
 run(){ # <mode>: off | exact | fast, or <mode>-det = the kit's deterministic recipe (--det 1), where exact claims bitwise = off
   local d=$R/$1 mo=${1%-det} dt=; [ $mo = $1 ] || dt="--det 1"; mkdir -p $d; date -u +%FT%T.%3NZ > $d/t_start; export KC_TIMES=$d/times.jsonl
+  unset MODEL_OPT_LEVERS_OFF; [ $mo != off ] && [ -n "${LEVERS_OFF:-}" ] && export MODEL_OPT_LEVERS_OFF=$LEVERS_OFF
   case $M in
     boltz2)    [ $mo = off ] && S="--seed 0" || S="--seeds 0"   # off is stock boltz predict (--seed), exact/fast the worker route
                bash run.sh pred --config $KC_CFG --mode $mo $dt --input $I/boltz2 --out_dir $d/pred $S \

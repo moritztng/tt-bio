@@ -125,8 +125,9 @@ def arms(root):
     for m in sorted(p for p in root.iterdir() if p.is_dir()):
         if m.name.startswith("stock-"):
             yield from stock_arms(m, smi(m / "smi.csv"))
-        else:
-            yield from kit_arms(m, smi(m / "smi.csv"))
+        else:  # esmfold2-full_nomsa / esmfold2-fast: one box_arms.sh run, its clock trace sits in esmfold2/
+            yield from kit_arms(m, smi(next((d / "smi.csv" for d in (m, root / m.name.split("-")[0]) if (d / "smi.csv").exists()),
+                                            m / "smi.csv")))
 
 
 def fmt(x, nd=3):
