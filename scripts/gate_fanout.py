@@ -575,8 +575,13 @@ RUNNER_FILES_0 = tuple(f for f in RUNNER_FILES if f not in ("scripts/flock_first
                                                          "scripts/release_train.py", "tests/test_release_train.py"))
 
 
+#: Data formats only Python parses in this tree: gate_reads.py sees every read of one, so the
+#: reuse scope leaves them to the leg's recorded reads like a .py file.
+PY_DATA = (".json", ".jsonl", ".yaml", ".yml", ".csv", ".tsv")
+
+
 def content_hash(sha: str, repo: Path = REPO, baselines: bool = False, tests: bool = False,
-                 runner: tuple = RUNNER_FILES, python: bool = True) -> str:
+                 runner: tuple = RUNNER_FILES, python: bool = True, data: bool = True) -> str:
     """Hash of every tracked file at `sha` except Markdown, from git's own blob ids.
 
     pyproject.toml is hashed without its `version =` line: the release commit bumps it, and that
@@ -589,7 +594,8 @@ def content_hash(sha: str, repo: Path = REPO, baselines: bool = False, tests: bo
     So is this runner (RUNNER_FILES): it decides where a leg runs, not what the leg computes, and
     a fix to it must not throw away a gate's worth of evidence. Test files only pytest reads
     (test_only) are keyed on the pytest legs instead; `tests=True` keeps them, the key every
-    ledger row before 2026-10-09 21Z was written under."""
+    ledger row before 2026-10-09 21Z was written under. `python=False` drops the .py files and
+    `data=False` the PY_DATA files too: the reuse scope, whose rows carry the files they read."""
     def git(*a, ok=(0,)):
         p = subprocess.run(["git", "-C", str(repo), *a], capture_output=True, text=True)
         if p.returncode not in ok:
@@ -602,7 +608,7 @@ def content_hash(sha: str, repo: Path = REPO, baselines: bool = False, tests: bo
     for ln in _ls_tree(sha, repo):
         path = ln.split("\t", 1)[-1]
         if (path.endswith(".md") or path in recorded or path in runner or path in only
-                or (not python and path.endswith(".py"))
+                or (not python and path.endswith(".py")) or (not data and path.endswith(PY_DATA))
                 or (not baselines and path.startswith(_BASELINE_PATHS))):
             continue
         if path == "pyproject.toml":
@@ -1833,7 +1839,10 @@ def main() -> int:
     kept = {(r["leg"], r["arch"]): r for r in map(json.loads, prior.read_text().splitlines())
             if r.get("sha") == sha and r["verdict"] == "PASS" and r["leg"].startswith("record:")
             and r.get("seeded") and Path(r["seeded"]).is_file()} if prior.exists() else {}
-    nonpy = content_hash(sha, python=False)
+    # A fixture JSON changed in a fix-forward put every leg in a new scope (rel-c2b4b898e, 10-14:
+    # 240 legs planned, 0 reused, though 125 read nothing the fix touched). Rows filed in the scope
+    # that still keyed data files (until 2026-10-14) stay good where those files did not change.
+    nonpy, nonpy_old = content_hash(sha, python=False, data=False), content_hash(sha, python=False)
     for lg in legs:
         on = [a for a in archs if not lg.card_types
               or any(h.arch == a and type_fits(h, lg) for h, _ in workers)] if lg.card else [archs[0]]
@@ -1857,6 +1866,7 @@ def main() -> int:
             # The same leg on any commit with the same non-Python files, whose Python read nothing
             # this commit changed (gate_reads.py), proved this commit's result too.
             scopes[(lg.name, slot)] = scope = leg_key(nonpy, env, ct, hleg, base, tst)
+            scope_old = leg_key(nonpy_old, env, ct, hleg, base, tst)
             # Card-free legs always run: they are cheap, and pytest_cpu checks the recorded
             # measurements the key leaves out.
             # A row under an older key scheme proved the same code against the same inputs, so it
@@ -1872,7 +1882,8 @@ def main() -> int:
                     + [leg_key(runner_in[s], env, ct, hleg, base, tst) for s in match]
                     + [leg_key(content, env, ct, hleg, baseline_hash(s, "perf"), tst) for s in same if ab])
             hit = (None if args.no_reuse or not lg.card or lg.family == "record"
-                   else next(filter(None, map(ledger.get, [k, *olds])), None) or ledger.read_hit(scope, sha))
+                   else next(filter(None, map(ledger.get, [k, *olds])), None) or ledger.read_hit(scope, sha)
+                   or ledger.read_hit(scope_old, sha))
             owes = owed_by(roster, ctype[a], lg)
             if not owes and not any(h.arch == a and cap_fits(roster, h, lg) for h, _ in workers):
                 owes = [CAP_OWED]

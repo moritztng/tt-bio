@@ -6781,6 +6781,11 @@ def _pair_proj_linear(x, w, ckc, dtype, l1_out: bool = False,
         if bias is not None:
             _pair_bias_stat("o_in_matmul_exit_mm")
         return mm
+    if not silu:
+        from . import pair_mm
+        mm = pair_mm.matmul(x, w, bias, ckc, dtype)
+        if mm is not None:
+            return mm
     cfg = _pair_proj_config(x, w, silu=silu)
     if cfg is not None:
         out = ttnn.linear(
@@ -7979,13 +7984,16 @@ def get_device(trace=None):
         # a backtrace blaming TT_VISIBLE_DEVICES for a chip that is simply not there.
         # And a chip the operators quarantined (DRAM bit flips, folds off the majority) is refused
         # by name: the box agent keeps it out of its pool, but a direct pin went straight to it.
-        from tt_bio.runtime import (refuse_missing_device_nodes, refuse_quarantined_chips,
-                                    visible_device_indices)
+        # And a chip listed as unable to hold its top clock is capped before the open (runtime.apply_aiclk_caps).
+        from tt_bio.runtime import (apply_aiclk_caps, refuse_missing_device_nodes, refuse_quarantined_chips,
+                                    umd_index_to_dev_node, visible_device_indices)
         visible = os.environ.get("TT_VISIBLE_DEVICES")
         if visible is not None:
             pinned = visible_device_indices(visible)
             refuse_missing_device_nodes(pinned)
             refuse_quarantined_chips(pinned)
+        else:
+            pinned = sorted(umd_index_to_dev_node())
         from tt_bio.device_lease import CardSetLease, arm_orphan_guard
         arm_orphan_guard()
         # Normally None here. A cleanup() that failed to hand the chip back keeps its lease
@@ -7994,6 +8002,7 @@ def get_device(trace=None):
         if _device_lease is None:
             _device_lease = CardSetLease().acquire()
         try:
+            apply_aiclk_caps(pinned)
             _device = _open_and_init_device(trace_region_bytes(trace) if trace else 0)
         except Exception:
             _device_lease.release()

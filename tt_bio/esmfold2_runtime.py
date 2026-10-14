@@ -1494,6 +1494,9 @@ LEVERS_NORMAL = ("normal-trunk_hifi3+trimul_gin+trimul_t2g+trimul_gin_hifi2"
 # --fast set, 11 complexes x 4 seeds, 44 paired folds (Blackhole, 1350 MHz): CA-lDDT +0.0008 [-0.0006, +0.0032],
 # TM +0.0073, top-pose median 0.55 A vs 1.65 A seed floor, docking 23 -> 24 of 44. p150a 512 aa: ESMFold2 -0.44 s,
 # ESMFold2-Fast -0.19 s. Wormhole keeps it off: not graded there for ESMFold2, fold_levers drops it.
+# Wormhole adds trimul_t2m (T2 reads the einsum's last chunk channel-major, so the permute-back pass never writes):
+# same digests on 3 seeds x 2 models, 512 aa --fast warm at 1000 MHz, A B A B on one Galaxy chip: ESMFold2 37.50 ->
+# 35.97 s, ESMFold2-Fast 23.55 -> 22.55 s. Blackhole is not measured on it yet.
 LEVERS_FAST = ("normal+trimul_b8in+transition_ws+trimul_gin+trimul_t2g+ws_resid"
                "+ef2_bit_draw+ef2_pair_init+ef2_lm_combine+ef2_opm_kq+ef2_relpos_lookup+ef2_atom_ffn_split")
 
@@ -1507,6 +1510,7 @@ def fold_levers(fast: bool) -> str:
     if is_wormhole():  # not graded there (ws_resid, hifi2), or out of DRAM at 1024 tokens (pair init)
         for name in ("ef2_pair_init", "ws_resid" if fast else "trimul_gin_hifi2"):
             levers = levers.replace("+" + name, "")
+        levers += "+trimul_t2m"
     return levers
 
 

@@ -295,9 +295,6 @@ details.disclose > div{ padding-top:var(--s-4); }
   <div>
     <h4>Measured, seconds per prediction on one AI Processor</h4>
     <div class="tablewrap"><table id="t-measured"></table></div>
-    <h4 style="margin-top:24px">Measured, host and device inside one prediction</h4>
-    <p class="cond" id="t-hostsplit-cond"></p>
-    <div class="tablewrap"><table id="t-hostsplit"></table></div>
     <div class="notes"><ul id="rownotes"></ul></div>
     <h4 style="margin-top:24px">Measured, seconds per design or affinity prediction on one AI Processor</h4>
     <div class="tablewrap"><table id="t-design"></table></div>
@@ -473,10 +470,27 @@ details.disclose > div{ padding-top:var(--s-4); }
     var c = m.cells[key], p = plat(key), bits = [m.name + " on " + p.name, headline];
     if (c.parity) bits.push("parity: " + c.parity);
     if (c.note) bits.push(c.note);
+    if (c.ref) bits.push(c.ref === "kit" ? "Anthropic kit, exact mode" : "stock upstream code");
+    var run = runLine(c);
+    if (run) bits.push(run);
+    if (c.fast) bits.push((p.vendor === "nvidia" ? "kit fast mode " : "--fast ") + runLine(c.fast));
+    if (c.stock) bits.push("stock upstream " + runLine(c.stock));
     var board = c.measured_on || p.measured_on;
     if (board) bits.push(board);
-    if (c.ref) bits.push(c.ref);
+    if (c.provenance) bits.push(c.provenance);
     return bits.join("\n");
+  }
+  /* One measured run in a line: value, sample count, spread, clock and the software it ran. */
+  function runLine(r) {
+    var v = secs(r), out = [];
+    if (v !== undefined && r !== undefined && r.n) out.push(fmtSec(v) + " s, median of n=" + r.n);
+    if (r.spread_pct !== undefined) out.push("spread " + r.spread_pct + " %");
+    if (r.clock_mhz) out.push("SM clock " + r.clock_mhz + " MHz");
+    if (r.aiclk_mhz) out.push("AI clock " + r.aiclk_mhz + " MHz");
+    if (r.sha) out.push("tt-bio " + r.sha);
+    if (r.versions) out.push(r.versions);
+    if (r.when) out.push(r.when);
+    return out.join(", ");
   }
 
   /* A cell can be absent for two different reasons and they are not the same claim: the model
@@ -613,10 +627,10 @@ details.disclose > div{ padding-top:var(--s-4); }
   var SERVERS = CELLS.map(function (k) { return SERVER_OF[k]; });
 
   function serverLabel(p) {
-    return p.name + ", " + p.accelerators + (p.id === "galaxy_bh" ? " AI Processors" : " GPUs");
+    return p.name + ", " + p.accelerators + (p.vendor === "tenstorrent" ? " AI Processors" : " GPUs");
   }
   function serverShort(p) {
-    return p.id === "galaxy_bh" ? p.accelerators + "x Blackhole" : p.short;
+    return p.vendor === "tenstorrent" ? p.accelerators + "x " + plat(p.per_accelerator).short : p.short;
   }
 
   /* Charts 1 and 2 share their shape: one measured accelerator scaled to its server. */
@@ -754,8 +768,7 @@ details.disclose > div{ padding-top:var(--s-4); }
         return {
           series: p.name, seriesShort: p.short, color: SER[k], value: secs(c),
           label: fmtSec(secs(c), 1) + " s",
-          tip: [m.name + " on " + p.name, fmtSec(secs(c)) + " s per " + r.c.one,
-                m.target, c.ref].join("\n")
+          tip: tip(m, k, fmtSec(secs(c)) + " s per " + r.c.one + "\n" + m.target)
         };
       });
       groups.push({ label: m.name, sub: m.target, bars: bars });
@@ -819,8 +832,8 @@ details.disclose > div{ padding-top:var(--s-4); }
         : "<td class=\"n blocked\" title=\"" + blockedWhy(c).replace(/"/g, "&quot;") + "\">" + blockedLabel(c) + "</td>";
     }
     document.getElementById("t-measured").innerHTML =
-      "<thead><tr><th>Model</th><th>Recycles</th><th class=\"n\">Blackhole p150a</th><th class=\"n\">H200</th>" +
-      "<th class=\"n\">B200</th><th class=\"n\">A100</th></tr></thead><tbody>" +
+      "<thead><tr><th>Model</th><th>Recycles</th>" +
+      CELLS.map(function (k) { return "<th class=\"n\">" + plat(k).name + "</th>"; }).join("") + "</tr></thead><tbody>" +
       D.models.map(function (m) {
         return "<tr><td>" + m.name + "</td><td class=\"num\">" + m.recycles + "</td>" +
           CELLS.map(function (k) {
@@ -828,38 +841,6 @@ details.disclose > div{ padding-top:var(--s-4); }
           }).join("") + "</tr>";
       }).join("") + "</tbody>";
 
-    /* Host and device, both readings. The two sides carry their host seconds differently and the
-     * data says which: a Tenstorrent cell already contains its host seconds, an NVIDIA cell mostly
-     * does not, and in_cell is that flag. A cell states device_s only where the device number was
-     * measured in its own right rather than left over from the subtraction, which is RoseTTAFold3's
-     * H200 cell and nothing else. */
-    function deviceS(c) {
-      var sp = c.split;
-      return sp.device_s !== undefined ? sp.device_s
-        : (sp.in_cell ? secs(c) - sp.host_s : secs(c));
-    }
-    function wholeS(c) { return c.split.in_cell ? secs(c) : secs(c) + c.split.host_s; }
-    /* Three decimals here where the rest of the page uses two: these rows sit within 0.01x of each
-     * other, and 3.992x against 3.986x is the entire point of the column. */
-    function fmtX3(v) { return v.toFixed(3) + "x"; }
-    function splitPair(c) {
-      return "<td class=\"n num\" title=\"" + String(c.split.ref || "").replace(/"/g, "&quot;") + "\">" +
-        (c.split.bound === "upper" ? "\u2264 " : "") + fmtSec(c.split.host_s) + "</td>" +
-        "<td class=\"n num\">" + fmtSec(deviceS(c)) + "</td>";
-    }
-    document.getElementById("t-hostsplit").innerHTML =
-      "<thead><tr><th>Model</th><th class=\"n\">Blackhole host</th><th class=\"n\">Blackhole device</th>" +
-      "<th class=\"n\">H200 host</th><th class=\"n\">H200 device</th>" +
-      "<th class=\"n\">Whole fold</th><th class=\"n\">Device only</th></tr></thead><tbody>" +
-      D.models.concat(catRows().map(function (r) { return r.m; }))
-        .filter(function (m) { return m.cells.p150a.split && m.cells.h200.split; })
-        .map(function (m) {
-          var t = m.cells.p150a, g = m.cells.h200;
-          return "<tr><td>" + m.name + "</td>" + splitPair(t) + splitPair(g) +
-            "<td class=\"n num\">" + fmtX3(wholeS(t) / wholeS(g)) + "</td>" +
-            "<td class=\"n num\">" + fmtX3(deviceS(t) / deviceS(g)) + "</td></tr>";
-        }).join("") + "</tbody>";
-    document.getElementById("t-hostsplit-cond").textContent = D.scope.split;
     /* Every note in the file reaches this list: row notes and per-cell notes, from every section.
      * A note that only exists as a hover title is a note most readers never see, and the six
      * H200-against-B200 cell notes are the ones that most need reading. */
@@ -886,8 +867,8 @@ details.disclose > div{ padding-top:var(--s-4); }
         ? m.recycling_steps + " recycles" : m.sampling_steps + " sampling";
     }
     document.getElementById("t-design").innerHTML =
-      "<thead><tr><th>Model</th><th class=\"n\">Steps</th><th>Batch</th><th class=\"n\">Blackhole p150a</th>" +
-      "<th class=\"n\">H200</th><th class=\"n\">B200</th><th class=\"n\">A100</th></tr></thead><tbody>" +
+      "<thead><tr><th>Model</th><th class=\"n\">Steps</th><th>Batch</th>" +
+      CELLS.map(function (k) { return "<th class=\"n\">" + plat(k).name + "</th>"; }).join("") + "</tr></thead><tbody>" +
       catRows().map(function (r) {
         var m = r.m;
         return "<tr><td>" + m.name + "</td><td class=\"n num\">" + stepsCell(m) + "</td>" +
@@ -992,8 +973,9 @@ details.disclose > div{ padding-top:var(--s-4); }
       }).join(" "));
     if (s.timed_region) mrow("Timed region", s.timed_region);
     if (s.gpu_generations) mrow("H200 against B200", s.gpu_generations);
-    mrow("Parity", "Each Tenstorrent figure carries the parity it holds against that model's own " +
-      "reference on this input: " + D.models.map(function (x) {
+    mrow("Parity", "Each Tenstorrent figure carries the accuracy its code holds in tt-bio's release " +
+      "gate, which scores every model against its own reference on a fixed set of targets, each " +
+      "inside an envelope fixed before the run. The gate's build is named beside the timed one: " + D.models.map(function (x) {
         var c = x.cells.p150a;
         return x.name + " " + (c && c.parity ? c.parity : "not measured");
       }).join("; ") + ".");
