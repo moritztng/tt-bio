@@ -417,7 +417,8 @@ def main(argv=None):
         log(f"dry run: cells {len(cs)}, done {sum(c['is_done'] for c in cs)}, twin queued/running {sum(bool(live & set(c['also'])) for c in cs)}")
         return 0
     ledger_f.write_text(json.dumps(ledger, indent=1))
-    q = [(k, L) for k, L in ledger.items() if L.get("quarantined")]
+    keys = {c["key"] for c in cs}           # a cell its row dropped from the grid is no longer anyone's to fix
+    q = [(k, L) for k, L in ledger.items() if L.get("quarantined") and k in keys]
     lines = ["# SPD quarantine (perf/spd/feed.py; a cell returns once its row changes the grid entry)", "",
              f"Updated {stamp}. {len(q)} cell(s).", ""]
     for k, L in q:
