@@ -138,7 +138,12 @@ for j in A["jobs"]:
         for x in (".end", ".start", ".pid", ".log"):
             if os.path.exists(sh + x): os.remove(sh + x)
         open(sh, "w").write(j["body"]); open(sh + ".card", "w").write(str(j["card"]))
-        w = ('exec 9>"$3"; flock -w 86400 9 || { echo flockbusy > "$1.end"; exit 3; }; touch "$1.start"; cd "$(dirname "$1")"; '
+        # yield like every row runner: to a release-gate leg on this card and to the gapboard chain's sentinel (the
+        # scoreboard measuring main), before and right after the flock
+        w = ('exec 9>"$3"; G="(spd_qb1_card|spd_qb2_chip|TT_VISIBLE_DEVICES=)$2[. ].*(release_gate|gate_fanout|perf_ab)"; '
+             'while :; do while pgrep -f "$G" >/dev/null; do sleep 60; done; '
+             'flock -w 86400 9 || { echo flockbusy > "$1.end"; exit 3; }; pgrep -f "$G" >/dev/null || break; flock -u 9; sleep 60; done; '
+             'touch "$1.start"; cd "$(dirname "$1")"; '
              'CHIP=$2 TT_VISIBLE_DEVICES=$2 LOCK="$4" WAIT=60 timeout -s INT "$5" bash "$1" > "$1.log" 2>&1; echo $? > "$1.end"')
         p = subprocess.Popen(["setsid", "nohup", "bash", "-c", w, "_", sh, str(j["card"]), j["lock"],
                               J + "/nolock.%d" % j["card"], str(j["cap"] + 300)],
