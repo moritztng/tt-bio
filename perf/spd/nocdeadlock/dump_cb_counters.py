@@ -1,13 +1,18 @@
 #!/usr/bin/env python3
-"""tt-triage script: compute-side circular buffer counters on every Tensix core of a hung chip.
+"""
+Usage:
+    dump_cb_counters
 
-Per core and CB: TRISC0's local tiles_acked, TRISC2's local tiles_received and fifo_num_pages (the firmware global
-cb_interface[] of each RISC), and the two stream-register counters the threads poll (Blackhole:
-STREAM_REG_ADDR(cb, 10) = tiles_received, STREAM_REG_ADDR(cb, 8) = tiles_acked). A core whose pack thread waits for
-space while its unpack thread waits for tiles shows here whether the packer's last tiles_received store landed.
+Description:
+    Compute-side circular buffer counters on every Tensix core of a hung chip. Per core and CB: TRISC0's local
+    tiles_acked, TRISC2's local tiles_received and fifo_num_pages (each RISC's firmware global cb_interface[]), and
+    the stream-register counters the threads poll (Blackhole: STREAM_REG_ADDR(cb, 10) = tiles_received,
+    STREAM_REG_ADDR(cb, 8) = tiles_acked). A core whose pack thread waits for space while its unpack thread waits for
+    tiles shows here whether the packer's last tiles_received store landed. Run it standalone with hangcap.sh's
+    environment and triage arguments.
 
-usage (same environment and arguments as hangcap.sh's triage.py runs):
-    PYTHONPATH=<triage dir>:... ~/triage_venv/bin/python dump_cb_counters.py -vv --inspector-rpc-port=... ...
+Owner:
+    spd-nocdeadlock2 (tt-bio)
 """
 from ttexalens.context import Context
 from ttexalens.memory_access import MemoryAccess
@@ -26,31 +31,40 @@ def stream_reg(stream, reg):
     return 0xFFB40000 + stream * 0x1000 + reg * 4
 
 
+_warned = set()
+
+
 def field(entry, name):
-    try:
-        return int(getattr(entry, name).read_value())
-    except Exception:
+    errs = []
+    for get in (lambda: getattr(entry, name).read_value(), lambda: entry[name].read_value(), lambda: entry[name]):
         try:
-            return int(entry[name].read_value())
-        except Exception:
-            return None
+            return int(get())
+        except Exception as e:
+            errs.append(repr(e))
+    if name not in _warned:
+        _warned.add(name)
+        print(f"field {name} unreadable on {type(entry).__name__}: {errs}", flush=True)
+    return None
 
 
 def local_cbs(location, risc_name, dispatcher_data, elfs_cache):
     core = dispatcher_data.get_cached_core_data(location, risc_name)
     mem = MemoryAccess.create(location.noc_block.get_risc_debug(risc_name))
     cbi = elfs_cache[core.firmware_path].get_global("cb_interface", mem)
-    return [cbi[cb] for cb in range(NUM_CBS)]
+    return [cbi[cb].local_cb_interface for cb in range(NUM_CBS)]
 
 
 def dump(location, risc_name, dispatcher_data, elfs_cache, context):
-    if risc_name != "trisc2":
+    if "dbg" not in _warned:
+        _warned.add("dbg")
+        print(f"first call: {location.to_user_str()} risc={risc_name!r}", flush=True)
+    if str(risc_name) != "trisc2":
         return
     try:
         unpack = local_cbs(location, "trisc0", dispatcher_data, elfs_cache)
         pack = local_cbs(location, "trisc2", dispatcher_data, elfs_cache)
     except Exception as e:
-        log_check_location(location, False, f"cb_interface unreadable: {e}")
+        print(f"{location.to_user_str()} cb_interface unreadable: {e!r}", flush=True)
         return
     rows = []
     for cb in range(NUM_CBS):
@@ -59,9 +73,12 @@ def dump(location, risc_name, dispatcher_data, elfs_cache, context):
             continue
         recv_reg = read_word_from_device(location, stream_reg(cb, 10), context=context) & 0xFFFF
         ack_reg = read_word_from_device(location, stream_reg(cb, 8), context=context) & 0xFFFF
-        rows.append(f"cb{cb} pages={pages} pack.local_recv={field(pack[cb], 'tiles_received')} reg_recv={recv_reg} "
-                    f"unpack.local_acked={field(unpack[cb], 'tiles_acked')} reg_acked={ack_reg}")
-    log_check_location(location, True, "\n" + "\n".join(rows))
+        # tiles_acked / tiles_received are the low / high halves of one union word
+        pack_word, unpack_word = field(pack[cb], "tiles_acked_received_init"), field(unpack[cb], "tiles_acked_received_init")
+        rows.append(f"cb{cb} pages={pages} pack.local_recv={pack_word >> 16} reg_recv={recv_reg} "
+                    f"unpack.local_acked={unpack_word & 0xFFFF} reg_acked={ack_reg}")
+    for r in rows:
+        print(f"{location.to_user_str()} {r}", flush=True)
 
 
 def run(args, context: Context):
