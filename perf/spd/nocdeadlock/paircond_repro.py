@@ -3,6 +3,7 @@
 fp32 [N,N,512] layer_norm -> ttnn.linear(x, w[512,256], core_grid=CORE_GRID_MAIN), HiFi4, fp32 dest,
 packer_l1_acc: ttnn picks MatmulMultiCoreReuseMultiCast1DProgramConfig(mcast_in0=False) on 110 cores.
 --grid none drops core_grid (the v1 fix for widths <= 4 tiles). Prints one line per --every iterations.
+--kz/--kr/--nout/--odt give other models' shapes, e.g. OF3 linear_z: --kz 128 --kr 139 --nout 128 --odt bf16.
 usage: TT_VISIBLE_DEVICES=3 timeout -s TERM 1800 python paircond_repro.py --iters 400 [--grid none] [--n 730]
 """
 import argparse, time
@@ -18,6 +19,10 @@ ap.add_argument("--iters", type=int, default=400)
 ap.add_argument("--every", type=int, default=10)
 ap.add_argument("--grid", choices=["main", "none"], default="main")
 ap.add_argument("--l1acc", type=int, default=1)
+ap.add_argument("--kz", type=int, default=256)
+ap.add_argument("--kr", type=int, default=256)
+ap.add_argument("--nout", type=int, default=256)
+ap.add_argument("--odt", choices=["fp32", "bf16"], default="fp32")
 a = ap.parse_args()
 
 dev = T.get_device()
@@ -25,11 +30,12 @@ ckc = ttnn.types.BlackholeComputeKernelConfig(math_fidelity=ttnn.MathFidelity.Hi
                                               fp32_dest_acc_en=True, packer_l1_acc=bool(a.l1acc))
 g = torch.Generator().manual_seed(0)
 up = lambda t: ttnn.from_torch(t, dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=dev)
-z = up(torch.randn(a.n, a.n, 256, generator=g))
-rp = up(torch.randn(a.n, a.n, 256, generator=g))
-lw = up(torch.rand(512, generator=g) + 0.5)
-w = up(torch.randn(512, 256, generator=g) / 512 ** 0.5)
-kw = dict(compute_kernel_config=ckc, dtype=ttnn.float32)
+k = a.kz + a.kr
+z = up(torch.randn(a.n, a.n, a.kz, generator=g))
+rp = up(torch.randn(a.n, a.n, a.kr, generator=g))
+lw = up(torch.rand(k, generator=g) + 0.5)
+w = up(torch.randn(k, a.nout, generator=g) / k ** 0.5)
+kw = dict(compute_kernel_config=ckc, dtype=ttnn.float32 if a.odt == "fp32" else ttnn.bfloat16)
 if a.grid == "main":
     kw["core_grid"] = T.CORE_GRID_MAIN
 ref = None
