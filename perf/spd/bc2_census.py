@@ -109,7 +109,7 @@ from perf.hallgrad.census import CLASS, Recorder  # noqa: E402
 from bindcraft.settings import parse_setting_overrides, read_settings  # noqa: E402
 from bindcraft.preflight import cleaned_campaign_settings  # noqa: E402
 import tt_bio  # noqa: E402
-from tt_bio import bindcraft2 as bc2, tenstorrent as TT  # noqa: E402
+from tt_bio import bindcraft2 as bc2, pair_mm, tenstorrent as TT  # noqa: E402
 
 
 class LazyRecorder(Recorder):
@@ -274,7 +274,8 @@ def sequence_gradients(self, *args, **kwargs):
                                                 host_jax_s=round(wall - sum(cb.values()), 4),
                                                 profiled=state["n"] == a.profile,
                                                 trunk_loads=state["loads"] - loads0,
-                                                load1=load1, ncpu=os.cpu_count()))
+                                                load1=load1, ncpu=os.cpu_count(),
+                                                pair_mm=list(pair_mm.STATS)))
     if a.wrap == "all":
         rec.install_all()
     else:
