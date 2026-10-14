@@ -78,7 +78,7 @@ def _in_proj_taped(name):
 
 
 @_in_proj_taped("mm_dualnoc_in_proj")
-def in_proj(x, w, ckc, dtype, memory_config, split=None):
+def in_proj(x, w, ckc, dtype, memory_config, split=None, bias=None):
     """`minimal_matmul(x, w)` with half the drain on the other NOC, or `None` to leave it alone.
 
     Byte-identical to the unconfigured `ttnn.experimental.minimal_matmul` the caller would
@@ -89,6 +89,9 @@ def in_proj(x, w, ckc, dtype, memory_config, split=None):
     that has concatenated two projections of one activation so the activation is read once. The
     return is then a list of tensors in that order. Each output tile is its own contraction, so
     which buffer it lands in cannot change its value.
+
+    `bias` is the stock op's `bias_tensor` over all of `w`'s columns, in the same order; the
+    compute kernel adds it to each output block exactly as `minimal_matmul` does.
     """
     from . import ops
     if ops.declines_under_tape("mm_dualnoc_in_proj"):
@@ -105,6 +108,10 @@ def in_proj(x, w, ckc, dtype, memory_config, split=None):
         return _reject("dtype", shape)
     if x.layout != ttnn.TILE_LAYOUT or len(w.shape) != 2:
         return _reject("layout_or_rank", shape)
+    if bias is not None and (bias.layout != ttnn.TILE_LAYOUT or bias.dtype != ttnn.bfloat16
+                             or int(bias.shape[-1]) != int(w.shape[-1])
+                             or bias.memory_config().buffer_type != ttnn.BufferType.DRAM):
+        return _reject("bias", shape)
     if [int(d) for d in x.padded_shape] != shape:
         # A padded activation changes which tile ids the writer addresses; the transcription was
         # verified unpadded and the F1 tail already shipped one non-tile-aligned crash.
@@ -146,6 +153,6 @@ def in_proj(x, w, ckc, dtype, memory_config, split=None):
     G.generic_minimal_matmul(
         dev, x, w, outs, (_MM_DEFAULT, tuple(COMPUTE_GRID_MAIN)), G.ckc_args(ckc),
         {"MM_DUAL_NOC": 1}, KERNEL_DIR, None, ttnn.NOC_MODE.DM_DYNAMIC_NOC,
-        None if split is None else [c // TILE for c in widths])
+        None if split is None else [c // TILE for c in widths], bias=bias)
     STATS[0] += 1
     return outs[0] if split is None else outs
