@@ -1,7 +1,7 @@
 """ws_resid parity against float64, per (ws_l1acc, resid, weight dtype) arm, at one pair row block.
 
 rel = rms(out - ref) / rms(t), where ref = z + t in float64 and t is the transition. Usage (one chip):
-    TT_VISIBLE_DEVICES=<chip> python wsr_parity.py [c_z] [rows] [z_scale]
+    TT_VISIBLE_DEVICES=<chip> python wsr_parity.py [c_z] [rows] [z_scale] [n_tokens]
 """
 import sys
 import torch
@@ -11,11 +11,12 @@ from tt_bio import pair_swiglu_ws as W
 
 c, rows, zs = (int(sys.argv[1]) if len(sys.argv) > 1 else 256, int(sys.argv[2]) if len(sys.argv) > 2 else 64,
                float(sys.argv[3]) if len(sys.argv) > 3 else 8.0)
+n = int(sys.argv[4]) if len(sys.argv) > 4 else 512
 h = 4 * c
 dev = T.get_device()
 g = torch.Generator().manual_seed(0)
-xn = torch.randn(1, rows, 512, c, generator=g).bfloat16()
-z = (zs * torch.randn(1, rows, 512, c, generator=g)).bfloat16()
+xn = torch.randn(1, rows, n, c, generator=g).bfloat16()
+z = (zs * torch.randn(1, rows, n, c, generator=g)).bfloat16()
 w1, w2 = [(torch.randn(c, h, generator=g) / c ** 0.5).bfloat16() for _ in range(2)]
 w3 = (torch.randn(h, c, generator=g) / h ** 0.5).bfloat16()
 d = lambda t: t.double()  # noqa: E731
@@ -23,7 +24,7 @@ t_ref = (torch.nn.functional.silu(d(xn) @ d(w1)) * (d(xn) @ d(w2))) @ d(w3)
 ref = d(z) + t_ref
 # Any bf16 pair output carries this much: ref itself rounded to bf16 once (the shipped add_ rounds t and z + t).
 floor = ((d(ref.bfloat16()) - ref).pow(2).mean().sqrt() / t_ref.pow(2).mean().sqrt()).item()
-print(f"c {c} rows {rows} z_scale {zs}: one-rounding floor rel_rms {floor:.5f}", flush=True)
+print(f"c {c} rows {rows} n {n} z_scale {zs}: one-rounding floor rel_rms {floor:.5f}", flush=True)
 up = lambda t: ttnn.from_torch(t, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev)  # noqa: E731
 for wdt in (ttnn.bfloat16, ttnn.bfloat8_b):
     parts = W.weights(w1.float(), w2.float(), w3.float(), dev, wdt)
