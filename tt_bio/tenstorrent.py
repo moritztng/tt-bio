@@ -684,6 +684,9 @@ _FAST_MODE = False
 #   dit_qsplit      `_sdpa32` / `_sdpa32_fused` (the token DiT's attention) take the q chunk that puts the fewest
 #                   rows on the busiest core: 128 at 512 tokens and one sample, 64 busy cores where 256 left 32.
 #                   The k chunk stays, so each row's arithmetic is unchanged: expected bit-exact (fold A/B digest).
+#   dit_cond_mm     Boltz-2's hoisted DiT conditioning products (3 per step, N = 36864) on an unconfigured
+#                   minimal_matmul with the sigmoid at pack instead of ttnn.linear (`_cond_linear`): 1.7-1.8x per
+#                   call on Wormhole, same float64 error, not bit-exact
 #   pib_where       OpenDDE's pair-init bias by the old 16-op where-chain instead of one gather from the joint
 #                   (128, c_z) table: the A/B arm for a change that must keep the fold digest (no mode sets it).
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
@@ -696,7 +699,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "trimul_t2w", "narrow_bw16", "ws_l1dest", "opm_jd", "trimul_gin_hifi2", "trimul_gin_b8",
           "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine", "ef2_opm_kq", "ef2_relpos_lookup",
           "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit", "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384",
-          "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi")
+          "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "dit_cond_mm")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -711,7 +714,7 @@ UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "di
                              "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine", "ef2_opm_kq",
                              "ef2_relpos_lookup", "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit",
                              "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384",
-                             "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi"})
+                             "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "dit_cond_mm"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -14798,6 +14801,22 @@ class DiffusionTransformerLayer(Module):
         return a
 
 
+def _cond_linear(x, w, bias, ckc, sigmoid=False):
+    """One of Boltz-2's hoisted DiT conditioning products, [T, 768] x [768, 36864 or 73728].
+
+    Under `dit_cond_mm` it runs on an unconfigured `minimal_matmul` with the sigmoid at pack, on the
+    fp32 dest: `ttnn.linear(core_grid=CORE_GRID_MAIN)` blocks this wide N poorly. Wormhole, 512
+    tokens, HiFi4 (perf/spd/dit_lin_sweep.py, dlw): 1504 -> 880 us with bias, 1471 -> 810 us without,
+    rel L2 against float64 0.00169 / 0.00210 vs the shipped 0.00169 / 0.00169. Not bit-exact."""
+    if lever("dit_cond_mm") and x.dtype == ttnn.bfloat16:
+        return ttnn.experimental.minimal_matmul(
+            x, w, bias_tensor=bias, memory_config=ttnn.DRAM_MEMORY_CONFIG, dtype=x.dtype,
+            compute_kernel_config=ckc,
+            fused_activation=ttnn.UnaryWithParam(ttnn.UnaryOpType.SIGMOID) if sigmoid else None)
+    return ttnn.linear(x, w, bias=bias, compute_kernel_config=ckc,
+                       activation="sigmoid" if sigmoid else None)
+
+
 class DiffusionTransformer(Module):
     def __init__(
         self,
@@ -14910,17 +14929,15 @@ class DiffusionTransformer(Module):
                                 packer_l1_acc=ckc.packer_l1_acc)
             if _B2_ADALN_ADDCMUL or lever("adaln_mod"):
                 sw, sb, bw = self._cond_weights_split()
-                o_ad = (ttnn.linear(s_hat, sw, bias=sb, compute_kernel_config=ckc,
-                                    activation="sigmoid"),
-                        ttnn.linear(s_hat, bw, compute_kernel_config=ckc))
+                o_ad = (_cond_linear(s_hat, sw, sb, ckc, sigmoid=True),
+                        _cond_linear(s_hat, bw, None, ckc))
             else:
-                o_ad = ttnn.linear(s_hat, adw, bias=adb, compute_kernel_config=ckc)
+                o_ad = _cond_linear(s_hat, adw, adb, ckc)
             ttnn.deallocate(s_hat)
-            # `activation="sigmoid"` here is where both output projections' sigmoids go: the
+            # `sigmoid=True` here is where both output projections' sigmoids go: the
             # attention one already carried it in its own linear, and the transition one moves
             # off its multiply, which is told not to re-apply it.
-            o_op = ttnn.linear(s, opw, bias=opb, compute_kernel_config=ckc,
-                               activation="sigmoid")
+            o_op = _cond_linear(s, opw, opb, ckc, sigmoid=True)
             cond_all = (o_ad, o_op)
 
         d = self.dim
