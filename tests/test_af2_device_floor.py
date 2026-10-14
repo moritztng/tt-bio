@@ -153,10 +153,13 @@ def test_a_second_run_reproduces_the_committed_floor():
         pytest.skip(f"{path.name} absent")
     live = json.loads(path.read_text())
     assert df.af2ig_device_floor_verdict(live, _committed())[0] == "GAP"
-    # Bit-identical, which is why DEFAULT_TOL's floor of 1.10 is what binds rather than a
-    # measured cross-card spread.
+    # Every device tap is bit-identical, which is why DEFAULT_TOL's floor of 1.10 is what binds
+    # rather than a measured cross-card spread. The pLDDT head is a host fp32 module, so a second
+    # run on another host's CPU moves its logits in the 11th digit of pcc and nothing else.
     rows = {r["tap"]: r for r in live["rows"]}
-    assert all(rows[r["tap"]].get("pcc") == r.get("pcc") for r in _record_for(live)["rows"])
+    for r in _record_for(live)["rows"]:
+        host = r["tap"].startswith("predicted_lddt_head")
+        assert rows[r["tap"]].get("pcc") == (pytest.approx(r.get("pcc"), abs=1e-9) if host else r.get("pcc")), r["tap"]
 
 
 def test_the_template_host_arm_is_off_the_floor():
