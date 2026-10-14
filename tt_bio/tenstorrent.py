@@ -6775,11 +6775,6 @@ def _pair_proj_linear(x, w, ckc, dtype, l1_out: bool = False,
         if bias is not None:
             _pair_bias_stat("o_in_matmul_exit_mm")
         return mm
-    if not silu:
-        from . import pair_mm
-        mm = pair_mm.matmul(x, w, bias, ckc, dtype)
-        if mm is not None:
-            return mm
     cfg = _pair_proj_config(x, w, silu=silu)
     if cfg is not None:
         out = ttnn.linear(

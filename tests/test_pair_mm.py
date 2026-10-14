@@ -136,16 +136,3 @@ def test_shim_linear_asks_pair_mm_first(monkeypatch, armed):
     assert linear(x, w, bias=None, dtype=ttnn.bfloat16, core_grid=None,
                   memory_config=ttnn.DRAM_MEMORY_CONFIG) == ("pair_mm" if armed else "linear")
     assert linear(x, w, program_config=object()) == "linear"
-
-
-@pytest.mark.parametrize("armed", [True, False])
-def test_pair_proj_linear_asks_pair_mm(monkeypatch, armed):
-    """`_pair_proj_linear` (AF2's pair projections, BC2's checkpoint forward) takes `pair_mm` where armed."""
-    from tt_bio import tenstorrent
-    monkeypatch.setattr(pair_mm, "PAIR_MM_FUSED", armed)
-    monkeypatch.setattr(pair_mm, "matmul", lambda *a, **k: "pair_mm" if pair_mm.armed() else None)
-    monkeypatch.setattr(tenstorrent, "_PAIR_PROJ_MM", False)
-    monkeypatch.setattr(tenstorrent, "_pair_proj_config", lambda *a, **k: None)
-    monkeypatch.setattr(tenstorrent.ttnn, "linear", lambda *a, **k: "linear")
-    out = tenstorrent._pair_proj_linear(_t((1, 195, 195, 128)), _t((128, 128)), None, ttnn.bfloat16)
-    assert out == ("pair_mm" if armed else "linear")
