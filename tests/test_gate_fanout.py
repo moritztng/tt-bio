@@ -505,6 +505,17 @@ def test_every_family_has_a_budget_and_an_expectation():
         assert lg.budget > 0 and lg.family in gf.EXPECT
 
 
+def test_a_leg_known_to_need_longer_than_its_budget_gets_more_and_a_resume_after_a_timeout_does_too():
+    hist = {"record:rf3@tt-galaxy-wh-l": 3000, "ladder:opendde": 15087}
+    prior = [{"leg": "record:rf3@tt-galaxy-wh-l", "rc": gf.TIMED_OUT, "wall_s": 14442},
+             {"leg": "record:boltz2@p150a", "rc": 1, "wall_s": 20000}]   # a failure, not a timeout
+    known = gf.known_walls(hist, prior)
+    assert known == {"record:rf3@tt-galaxy-wh-l": 14442, "ladder:opendde": 15087}
+    leg = gf.Leg("record:rf3@tt-galaxy-wh-l", [], "record", known_s=known["record:rf3@tt-galaxy-wh-l"])
+    assert leg.budget == round(gf.BUDGET_X * 14442) > gf.BUDGET["record"]
+    assert gf.Leg("record:nesso1@p300c", [], "record", known_s=249).budget == gf.BUDGET["record"]
+
+
 def test_command_pins_card_under_its_flock_and_substitutes_placeholders(tmp_path):
     h = gf.Host("qb1", {"arch": "bh", "card_type": "p150a", "root": "/r",
                         "lock": "/l/card{card}.lock", "env": {"ESM_ROOT": "/esm"},

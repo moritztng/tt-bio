@@ -120,7 +120,9 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 
-# Per-leg budgets (s). A budget is a hang guard, not an expected time.
+# Per-leg budgets (s). A budget is a hang guard, not an expected time, so a leg known to need longer
+# gets BUDGET_X times that instead (Leg.known_s): rf3's Wormhole record took 4.6 h of folds that each
+# ran at its baseline's speed and was stopped at the flat 4 h (rec-c2b4b898e, 10-14).
 BUDGET = {"parity": 14400, "rg": 7200, "ladder": 14400, "capacity": 14400, "ux": 3600,
           "pytest_device": 7200, "perf": 7200, "check": 900, "packaging_smoke": 1800,
           "pytest_cpu": 5400, "bc2": 3600, "record": 14400}
@@ -129,6 +131,9 @@ BUDGET = {"parity": 14400, "rg": 7200, "ladder": 14400, "capacity": 14400, "ux":
 EXPECT = {"parity": 900, "rg": 900, "ladder": 5400, "capacity": 1800, "ux": 300,
           "pytest_device": 3000, "perf": 3600, "check": 60, "packaging_smoke": 600,
           "pytest_cpu": 1800, "bc2": 1200, "record": 2700}
+BUDGET_X = 1.5
+#: timeout(1)'s exit status when it stopped a leg at its budget.
+TIMED_OUT = 124
 TIMED = {"perf"}
 #: Results that do not fail the gate. REUSED is a ledger hit of one of the others.
 OK = ("PASS", "REUSED", "BLOCKED", "SEEDED")
@@ -674,10 +679,11 @@ class Leg:
     setup: str = ""        # shell run in the tree before argv, with the same {OUT} substitution
     rungs: tuple = ()      # a ladder group leg's rungs (any card type's), () for a whole ladder
     card_types: tuple = ()  # the card types that may run it, () for any
+    known_s: int = 0       # the longest this leg is known to need: its last pass, or a run stopped at its budget
 
     @property
     def budget(self) -> int:
-        return BUDGET[self.family]
+        return max(BUDGET[self.family], round(BUDGET_X * self.known_s))
 
 
 #: The staleness check of the abb3 records. A gate with --record-abb3 answers it on a card instead
@@ -782,6 +788,16 @@ def last_tag(repo: Path = REPO) -> str:
     if not tags:
         raise SystemExit('perf_against "last": this clone has no v* tag')
     return tags[0]
+
+
+def known_walls(hist: dict, prior: list) -> dict:
+    """{leg name: wall s} from the ledger's passes (`hist`), raised by any row of this --out's earlier
+    run (`prior`) that was stopped at its budget: it needed at least that long, so its resume gets more."""
+    out = dict(hist)
+    for r in prior:
+        if r.get("rc") == TIMED_OUT and r.get("wall_s"):
+            out[r["leg"]] = max(out.get(r["leg"], 0), r["wall_s"])
+    return out
 
 
 def select(legs: list, patterns: list) -> list:
@@ -1119,7 +1135,7 @@ class Ledger:
         (d / "spec").write_text(spec + "\n")
 
     def history(self) -> dict:
-        """leg name -> the latest wall clock any run of it took, for ordering only."""
+        """leg name -> the latest wall clock any passing run of it took, for ordering and budgets."""
         seen = {}
         for p in self.path.glob("*.json"):
             try:
@@ -1856,10 +1872,11 @@ def main() -> int:
     # A record run whose runner died (pc rebooted 2026-10-13 18:13Z with 10 of 27 legs recorded)
     # resumes in the same --out: a record leg that passed there at this commit, with its fragment
     # still on disk, keeps that row. The ledger never reuses record legs, so nothing else would.
-    prior = args.out / "results.jsonl"
-    kept = {(r["leg"], r["arch"]): r for r in map(json.loads, prior.read_text().splitlines())
+    prior = [json.loads(ln) for ln in (args.out / "results.jsonl").read_text().splitlines()] \
+        if (args.out / "results.jsonl").exists() else []
+    kept = {(r["leg"], r["arch"]): r for r in prior
             if r.get("sha") == sha and r["verdict"] == "PASS" and r["leg"].startswith("record:")
-            and r.get("seeded") and Path(r["seeded"]).is_file()} if prior.exists() else {}
+            and r.get("seeded") and Path(r["seeded"]).is_file()}
     # A fixture JSON changed in a fix-forward put every leg in a new scope (rel-c2b4b898e, 10-14:
     # 240 legs planned, 0 reused, though 125 read nothing the fix touched). Rows filed in the scope
     # that still keyed data files (until 2026-10-14) stay good where those files did not change.
@@ -1919,8 +1936,10 @@ def main() -> int:
                 todo[a].append(lg)
             else:
                 todo.setdefault("any", []).append(lg)
-    hist = ledger.history()
+    hist = known_walls(ledger.history(), prior)
     for q in todo.values():
+        for lg in q:
+            lg.known_s = hist.get(lg.name, 0)
         # Record legs first: the ladder legs of the release commit wait on their fragments.
         q.sort(key=lambda lg: (lg.family != "record", -hist.get(lg.name, EXPECT[lg.family])))
     plan = {"sha": sha, "content": content, "envs": envs, "card_types": ctype, "archs": archs,
