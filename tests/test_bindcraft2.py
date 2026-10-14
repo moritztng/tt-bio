@@ -790,16 +790,22 @@ def test_the_extra_msa_segment_survives_being_recomputed():
     with pytest.raises(RuntimeError, match="not allocated"):
         Block._residual(None, dead)
 
-    built = []
+    built, cloned = [], []
 
     class Model:
         device_extra_msa = [Block(), Block()]
         opm_constant = [torch.zeros(3), torch.zeros(3)]
+        _opm_constant_tt = []
 
         @staticmethod
         def _up(_t):
             built.append(Buf())
             return built[-1]
+
+    def clone(buf):
+        assert buf.alive
+        cloned.append(Buf())
+        return cloned[-1]
 
     def checkpoint(fn, z, offload=False):
         out = fn(z)     # the forward
@@ -809,15 +815,18 @@ def test_the_extra_msa_segment_survives_being_recomputed():
     trunk = object.__new__(bindcraft2._Trunk)
     trunk.model = Model()
     trunk.ag = types.SimpleNamespace(checkpoint=checkpoint)
+    trunk.ttnn = types.SimpleNamespace(clone=clone)
 
     assert trunk.extra_msa("z", (), recompute=True) == "z"
-    # One constant per block PER EXECUTION, two blocks run twice. Hoisting it out of the loop
-    # body -- the shape that shipped -- builds 2 and reuses them, which is the failure above.
-    assert len(built) == 4, built
-
-    built.clear()
-    assert trunk.extra_msa("z", (), recompute=False) == "z"
+    # One fresh operand per block PER EXECUTION, two blocks run twice. Hoisting it out of the
+    # loop body -- the shape that shipped -- builds 2 and reuses them, which is the failure above.
+    assert len(cloned) == 4, cloned
+    # Uploaded once: a host write on a later call would TT_FATAL inside a seam trace capture.
     assert len(built) == 2, built
+
+    cloned.clear()
+    assert trunk.extra_msa("z", (), recompute=False) == "z"
+    assert len(cloned) == 2 and len(built) == 2, (cloned, built)
 
     # The control: the loop body as it shipped, hoisting the constant out and letting the closure
     # capture it. Nothing above is production code, so without this the stubs could simply be

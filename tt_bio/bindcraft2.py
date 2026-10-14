@@ -1002,13 +1002,16 @@ class _Trunk:
         """
         model = self.model
 
-        # Built per execution, never captured. `_residual` DEALLOCATES its `update` operand
-        # (`tt_bio/af2.py::_residual`), and under `recompute` the checkpoint runs this same
-        # closure a second time in the backward, so a constant hoisted out of the loop body is
-        # a freed buffer by then and `ttnn.typecast` raises "Buffer is not allocated". The
-        # Evoformer loop above has no such operand, which is why only this stack broke.
+        # A fresh clone per execution of the constants uploaded once, as the fold path does.
+        # `_residual` DEALLOCATES its `update` operand (`tt_bio/af2.py::_residual`), and under
+        # `recompute` the checkpoint runs this same closure a second time in the backward, so
+        # one shared operand would be a freed buffer by then. Uploading per call instead is a
+        # host write, which a seam trace capture refuses.
+        if len(model._opm_constant_tt) != len(model.opm_constant):
+            model._opm_constant_tt = [model._up(c.reshape(1, 1, -1)) for c in model.opm_constant]
+
         def const(index):
-            return model._up(model.opm_constant[index].reshape(1, 1, -1))
+            return self.ttnn.clone(model._opm_constant_tt[index])
 
         for index, block in enumerate(model.device_extra_msa):
             d = None if drop is None else drop[index]
