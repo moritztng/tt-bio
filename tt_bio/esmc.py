@@ -202,8 +202,11 @@ ROPE_L1_STATS = [0, 0]
 # float64 reference (PCC 0.99970 vs 0.99969, perf/wh-embed/sdpa_sweep.py). Chunking only reorders the online softmax.
 ESMC_SDPA_Q_CHUNK = 128
 # q, k and v as three projections from the packed weight's column blocks instead of one projection and a
-# 3-way `ttnn.chunk` copy of its output. Off until the page-cell A/B (perf/spd_gap_esmf/esmc_ab.py) says.
-_ESMC_QKV_SPLIT = env_flag("TT_BIO_ESMC_QKV_SPLIT", False)
+# 3-way `ttnn.chunk` copy of its output. Embeddings identical to the chunk path (same vs_fp32 to every digit). Page
+# cell, batch of 7, perf/spd_gap_esmf/esmc_ab.py: Galaxy chip (1000 MHz) 300M 176.9 -> 172.4 ms, --fast 168.2 ->
+# 161.2, 600M 254.5 -> 252.0, --fast 245.1 -> 242.2; p150a (1350 MHz) 300M 74.5 -> 70.9. The slices are a second
+# copy of the qkv weight, so the 6B (Attention.qk_l1 off, 3 GB of it) keeps the chunk.
+_ESMC_QKV_SPLIT = env_flag("TT_BIO_ESMC_QKV_SPLIT", True)
 # The attention's input layer norm, the q/k layer norms and the qkv re-pack written to L1 instead of
 # DRAM: the qkv projection and the head split read them straight back, so DRAM never carries them. Same ops, same values (a memory
 # placement). An L1 refusal at a shape falls back to DRAM for that shape for good, decided in the
@@ -271,17 +274,21 @@ def _esmc_mm() -> bool:
 
 
 class _MMLin:
-    """`Module._lin`, served by `minimal_matmul` for a plain bf16 projection over ESMC_MM_MIN_ROWS rows."""
+    """`Module._lin`, served by `minimal_matmul` for a plain bf16 projection over ESMC_MM_MIN_ROWS rows. A SiLU
+    (the SwiGLU's fc1a) rides along as the matmul's fused activation, applied per tile at pack as the linear does."""
 
     def _lin(self, x, w, bias=None, dtype=None, **kw):
         mm = _esmc_mm()
-        if (mm and bias is None and not set(kw) - {"memory_config"} and w.dtype == ttnn.bfloat16
-                and x.dtype == ttnn.bfloat16 and x.volume() // int(x.shape[-1]) >= ESMC_MM_MIN_ROWS):
+        act = kw.get("activation")
+        if (mm and bias is None and not set(kw) - {"memory_config", "activation"} and act in (None, "silu")
+                and w.dtype == ttnn.bfloat16 and x.dtype == ttnn.bfloat16
+                and x.volume() // int(x.shape[-1]) >= ESMC_MM_MIN_ROWS):
             try:
                 out = ttnn.experimental.minimal_matmul(
                     x, w, compute_kernel_config=self.compute_kernel_config,
                     dtype=_dtype(ttnn.bfloat16) if dtype is None else dtype,
-                    memory_config=kw.get("memory_config") or ttnn.DRAM_MEMORY_CONFIG)
+                    memory_config=kw.get("memory_config") or ttnn.DRAM_MEMORY_CONFIG,
+                    **({"fused_activation": (ttnn.UnaryOpType.SILU, False)} if act else {}))
                 MM_STATS[0] += 1
                 return out
             except RuntimeError:  # an L1 destination it cannot place: the linear serves it
@@ -328,7 +335,7 @@ class Attention(_MMLin, Module):
         x_norm = ttnn.layer_norm(x, weight=self.in_norm_weight, bias=self.in_norm_bias, epsilon=1e-5,
                                  compute_kernel_config=self.compute_kernel_config, memory_config=ln_mc)
         try:
-            if _ESMC_QKV_SPLIT:
+            if _ESMC_QKV_SPLIT and self.qk_l1:
                 return tuple(self._lin(x_norm, w) for w in self._qkv_split())
             qkv = self._lin(x_norm, self.qkv_weight)
             q, k, v = ttnn.chunk(qkv, 3, dim=-1)
