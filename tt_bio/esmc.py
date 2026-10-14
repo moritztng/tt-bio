@@ -1338,16 +1338,8 @@ class ESMC(TorchWrapper):
             ttnn.deallocate(wl)
             ttnn.deallocate(we)
         ttnn.synchronize_device(dev)
-        tid = ttnn.begin_trace_capture(dev, cq_id=0)
-        try:
-            lg, em = self.module(tok_d, mask_d, kv_d, _rope=rope)
-        except BaseException:
-            # Close the capture, or the device stays in it and the eager fallback's first
-            # upload throws too.
-            ttnn.end_trace_capture(dev, tid, cq_id=0)
-            ttnn.release_trace(dev, tid)
-            raise
-        ttnn.end_trace_capture(dev, tid, cq_id=0)
+        from .tenstorrent import capture_trace
+        tid, (lg, em) = capture_trace(dev, lambda: self.module(tok_d, mask_d, kv_d, _rope=rope))
         tr = {"tid": tid, "tokens": tok_d, "mask": mask_d, "kv": kv_d,
               "cos": rope[0], "sin": rope[1], "logits": lg, "emb": em}
         self._trace_cache[key] = tr

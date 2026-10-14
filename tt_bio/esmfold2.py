@@ -33,12 +33,12 @@ from tt_bio.tenstorrent import (
     TriangleMultiplication,
     Weights,
     WeightScope,
+    capture_trace,
     _accurate_softmax,
     _sdpa_program_config_for_lengths,
     accurate_softmax_site,
     attn_value_matmul,
     fused_sdpa,
-    is_wormhole,
     lever,
     trunk_compute_kernel_config,
     trace_region_size,
@@ -88,11 +88,9 @@ ATOM_FFN_SPLIT = env_flag("TT_BIO_ESMFOLD2_ATOM_FFN_SPLIT", None)  # unset: the 
 
 def gate(flag, name):
     """A branch-stack switch: its setting when given, else whether lever `name` is active in the fold's scope.
-    The ef2_* levers pass the fast bar as a stack on both models and fail the normal bar on ESMFold2 (CA-lDDT
-    -0.0019 [-0.0050, -0.0001], 44 paired folds), so only esmfold2_runtime.LEVERS_FAST names them until a
-    per-lever normal grade says which one moves the structure. Graded on Blackhole only, so Wormhole folds without
-    them until its own fast-bar grade."""
-    return (lever(name) and not is_wormhole()) if flag is None else flag
+    esmfold2_runtime.fold_levers decides which ef2_* levers each mode and arch carries."""
+    return lever(name) if flag is None else flag
+
 
 #: Replay the diffusion step from a ttnn trace (StructureHead._step) when the device was opened
 #: with get_device(trace="esmfold2"). Lossless. Off: it lost 0.46 s/fold on p150a while the dense
@@ -1985,15 +1983,7 @@ class StructureHead(TorchWrapper):
         dev = self.tt_device
         n_t, r_t = self._from_torch(n_raw), self._from_torch(r_input)
         ttnn.synchronize_device(dev)
-        tid = ttnn.begin_trace_capture(dev, cq_id=0)
-        try:
-            out = self.module.step(n_t, r_t)
-        except BaseException:
-            # Close the capture, or the device stays in it and every later upload throws.
-            ttnn.end_trace_capture(dev, tid, cq_id=0)
-            ttnn.release_trace(dev, tid)
-            raise
-        ttnn.end_trace_capture(dev, tid, cq_id=0)
+        tid, out = capture_trace(dev, lambda: self.module.step(n_t, r_t))
         self._trace = {"tid": tid, "n": n_t, "r": r_t, "out": out, "key": key}
         return self._trace
 
