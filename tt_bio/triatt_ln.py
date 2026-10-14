@@ -12,6 +12,8 @@ against the resident [K, 4c + 32] weight, written straight to the head-major q, 
 Not bit-exact with the two calls it replaces: the statistics are ln_prologue's (two-pass, fp32
 CBs) and the normed tile is packed to bf16 before the matmul, as T1 does. Lever `triatt_ln`.
 Declines (None) on anything but bf16 TILE DRAM operands with 32-channel heads and K <= 8 tiles.
+`ln_proj` is the same kernel for a narrow [K, n <= 64] weight with a plain [B, S, n] output
+(lever `apb_ln`: the attention-pair-bias projection of the normed pair).
 """
 
 from __future__ import annotations
@@ -40,6 +42,29 @@ def _reject(why, x):
     return None
 
 
+def _check(x, w, ln_w, ln_b):
+    """Why the operands cannot take the kernel, or None."""
+    if ops.taping():
+        return "taping"
+    for t in (x, w, ln_w, ln_b):
+        if t.dtype != ttnn.bfloat16 or t.layout != ttnn.TILE_LAYOUT:
+            return "dtype"
+        if t.memory_config().memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED:
+            return "memcfg"
+    if x.memory_config() != ttnn.DRAM_MEMORY_CONFIG:
+        # The ending variant's transposed pair is L1-resident: its ~0.6 MB a core beside these CBs
+        # is unmeasured, so it keeps the two-call path until a device run says it fits.
+        return "memcfg"
+    shp, pad = [int(d) for d in x.shape], [int(d) for d in x.padded_shape]
+    K = shp[-1]
+    if len(shp) != 3 or shp != pad or K % TILE or K > 8 * TILE:
+        return "act_shape"
+    for v in (ln_w, ln_b):
+        if int(v.shape[-1]) != K or any(int(d) != 1 for d in list(v.shape)[:-1]):
+            return "ln_params"
+    return None
+
+
 def split_rows(m, ncores):
     """Contiguous row-tile ranges [(first, count)] per core, the first m % ncores one longer."""
     out, r0 = [], 0
@@ -62,7 +87,7 @@ def _cb(idx, core_grid, tiles, dtype=ttnn.bfloat16):
 
 
 def _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT):
-    kt, nw = int(x.shape[-1]) // TILE, int(w.shape[-1]) // TILE
+    kt, nw = int(x.shape[-1]) // TILE, int(w.padded_shape[-1]) // TILE
     m = 1
     for d in x.padded_shape[:-1]:
         m *= int(d)
@@ -85,8 +110,8 @@ def _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT):
         runtime_args=rd, common_runtime_args=[0] * 4, config=ttnn.ReaderConfigDescriptor())
     writer = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "writer.cpp"), source_type=src, core_ranges=core_grid,
-        compile_time_args=[H, MT] + sum((acc(o) for o in outs), []),
-        runtime_args=wr, common_runtime_args=[0] * 5, config=ttnn.WriterConfigDescriptor())
+        compile_time_args=[H, MT, nw] + sum((acc(o) for o in outs), []),
+        runtime_args=wr, common_runtime_args=[0] * len(outs), config=ttnn.WriterConfigDescriptor())
     fid, approx, _, full = ckc
     compute = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "compute.cpp"), source_type=src, core_ranges=core_grid,
@@ -108,35 +133,26 @@ def ln_qkvgb_heads(x, ln_w, ln_b, w, ckc, n_heads, head_dim, bias_channels, grid
     from .tenstorrent import lever
     if not lever("triatt_ln"):
         return None
-    if ops.taping():
-        return _reject("taping", x)
-    for t in (x, w, ln_w, ln_b):
-        if t.dtype != ttnn.bfloat16 or t.layout != ttnn.TILE_LAYOUT:
-            return _reject("dtype", x)
-        if t.memory_config().memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED:
-            return _reject("memcfg", x)
-    if x.memory_config() != ttnn.DRAM_MEMORY_CONFIG:
-        # The ending variant's transposed pair is L1-resident: its ~0.6 MB a core beside these CBs
-        # is unmeasured, so it keeps the two-call path until a device run says it fits.
-        return _reject("memcfg", x)
+    why = _check(x, w, ln_w, ln_b)
+    if why:
+        return _reject(why, x)
     shp, pad = [int(d) for d in x.shape], [int(d) for d in x.padded_shape]
     K = shp[-1]
     c = n_heads * head_dim
-    if len(shp) != 3 or shp != pad or K % TILE or K > 8 * TILE:
-        return _reject("act_shape", x)
     if head_dim != TILE or list(w.shape) != [K, 4 * c + TILE] or not 0 < bias_channels <= TILE:
         return _reject("weight_shape", x)
-    for v in (ln_w, ln_b):
-        if int(v.shape[-1]) != K or any(int(d) != 1 for d in list(v.shape)[:-1]):
-            return _reject("ln_params", x)
     H, MT = c // TILE, pad[-2] // TILE
     dev = x.device()
     outs = [ttnn.allocate_tensor_on_device(ttnn.Shape([shp[0], n_heads, shp[1], head_dim]), ttnn.bfloat16,
                                            ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG) for _ in range(4)]
     outs.append(ttnn.allocate_tensor_on_device(ttnn.Shape([shp[0], shp[1], bias_channels]), ttnn.bfloat16,
                                                ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG))
-    key = (dev.id(), tuple(pad), tuple(int(d) for d in w.shape), bias_channels, tuple(grid),
-           tuple(str(a) for a in ckc), float(eps))
+    return _launch(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, bias_channels)
+
+
+def _launch(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tag):
+    key = (x.device().id(), tuple(int(d) for d in x.padded_shape), tuple(int(d) for d in w.padded_shape), H, tag,
+           tuple(grid), tuple(str(a) for a in ckc), float(eps))
     entry = _CACHE.get(key)
     if entry is None:
         entry = _CACHE[key] = _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT)
@@ -147,4 +163,25 @@ def ln_qkvgb_heads(x, ln_w, ln_b, w, ckc, n_heads, head_dim, bias_channels, grid
     pd = ttnn.ProgramDescriptor(kernels=entry["kernels"], semaphores=[], cbs=entry["cbs"])
     ttnn.generic_op([x, w, ln_w, ln_b] + outs, pd)
     STATS[0] += 1
-    return tuple(outs[:3]), outs[3], outs[4]
+    if H:
+        return tuple(outs[:3]), outs[3], outs[4]
+    return outs[0]
+
+
+def ln_proj(x, ln_w, ln_b, w, ckc, grid, eps=1e-5):
+    """`layer_norm(x) @ w` in one kernel for a narrow `w` ([K, n], n <= 2 tiles), or None (nothing
+    allocated). The pair-bias projections (lever `apb_ln`) read the whole normed pair to write one
+    tile of width; here the normed tile never leaves L1. `x` [B, S, K] bf16 TILE DRAM, out [B, S, n]."""
+    from .tenstorrent import lever
+    if not lever("apb_ln"):
+        return None
+    why = _check(x, w, ln_w, ln_b)
+    if why:
+        return _reject(why, x)
+    shp = [int(d) for d in x.shape]
+    n = int(w.shape[-1])
+    if int(w.shape[0]) != shp[-1] or w.padded_shape[-1] > 2 * TILE:
+        return _reject("weight_shape", x)
+    out = ttnn.allocate_tensor_on_device(ttnn.Shape([shp[0], shp[1], n]), ttnn.bfloat16, ttnn.TILE_LAYOUT,
+                                         x.device(), ttnn.DRAM_MEMORY_CONFIG)
+    return _launch(x, w, ln_w, ln_b, [out], grid, ckc, eps, 0, int(x.padded_shape[-2]) // TILE, "proj")

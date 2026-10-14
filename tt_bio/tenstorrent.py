@@ -690,7 +690,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "trimul_t2w", "narrow_bw16", "ws_l1dest", "opm_jd", "trimul_gin_hifi2", "trimul_gin_b8",
           "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine", "ef2_opm_kq", "ef2_relpos_lookup",
           "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit",
-          "dit_shoist", "triatt_ln")
+          "dit_shoist", "triatt_ln", "apb_ln")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -704,7 +704,7 @@ UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "di
                              "narrow_bw16", "ws_l1dest", "trimul_gin_hifi2", "trimul_gin_b8",
                              "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine", "ef2_opm_kq",
                              "ef2_relpos_lookup", "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit",
-                             "dit_shoist", "triatt_ln"})
+                             "dit_shoist", "triatt_ln", "apb_ln"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -12268,6 +12268,17 @@ class AttentionPairBias(Module):
             # bias_precomputed: z is ALREADY finish_bias(compute_bias(z)), (1,n_heads,S,S) -> skip recompute
             if self.compute_pair_bias and not bias_precomputed:
                 def whole(z=z):
+                    # apb_ln: norm and projection as one kernel (triatt_ln.ln_proj), the normed pair
+                    # never written anywhere. On a Wormhole chip it does not fit L1 at 512 tokens, so
+                    # the two-call path below writes it to DRAM and reads it back at 80 GB/s.
+                    zb = (None if len(z.shape) != 4 or z.shape[0] != 1 else _triatt_ln.ln_proj(
+                        ttnn.reshape(z, tuple(z.shape)[1:]), self.z_norm_weight, self.z_norm_bias, self.z_weight,
+                        _mm_generic.ckc_args(self.compute_kernel_config), tuple(COMPUTE_GRID_MAIN)))
+                    if zb is not None:
+                        zb = ttnn.reshape(zb, (1,) + tuple(zb.shape))
+                        z = ttnn.permute(zb, (0, 3, 1, 2))
+                        ttnn.deallocate(zb)
+                        return z
                     # The z->bias projection below reads this whole tensor (48.82 MB at 298 aa) to
                     # write one tile of width, so it is bound by its SOURCE, not by its own write.
                     # Handing it an L1-resident normed z removes the norm's DRAM write and the
