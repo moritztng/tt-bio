@@ -196,6 +196,22 @@ def test_protenix_family_normal_set():
     assert NORMAL_LEVERS - T.NORMAL_LEVERS == {"transition_ws", "ws_l1acc", "trimul_t1_c256", "trimul_t1_c384"}
 
 
+def test_protenix_v2_normal_takes_t2_tail(monkeypatch):
+    import torch
+    from tt_bio.protenix import FAST_LEVERS, NORMAL_LEVERS, T2_TAIL, mode_levers
+
+    def ck(c_z):
+        return {"layernorm_z_cycle.weight": torch.zeros(c_z)}
+
+    assert T2_TAIL <= set(T.LEVERS) and not T2_TAIL <= NORMAL_LEVERS
+    monkeypatch.setattr(T, "_FAST_MODE", False)
+    monkeypatch.delenv("TT_BIO_LEVERS", raising=False)
+    assert mode_levers(ck(256)) == NORMAL_LEVERS | T2_TAIL
+    assert mode_levers(ck(128)) == NORMAL_LEVERS
+    monkeypatch.setattr(T, "_FAST_MODE", True)
+    assert mode_levers(ck(256)) == mode_levers(ck(128)) == FAST_LEVERS
+
+
 def test_protenix_fast_set_takes_t1_c256(monkeypatch):
     from tt_bio.protenix import FAST_LEVERS, NORMAL_LEVERS
 

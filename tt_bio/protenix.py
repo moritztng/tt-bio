@@ -61,12 +61,26 @@ from . import tenstorrent as _T   # for the module-level A/B toggles, which must
 # each (spd-gap-small gst1, 2026-10-14), PASS: same-seed top pose median Protenix-v2 0.093 A vs the 1.134 A A/A
 # floor, OpenDDE 0.184 vs 1.335 A; CA-lDDT -0.0001 [-0.0006, +0.0003] / +0.0000 [-0.0001, +0.0002].
 NORMAL_LEVERS = _T.NORMAL_LEVERS | {"transition_ws", "ws_l1acc", "trimul_t1_c256", "trimul_t1_c384"}
+# The trimul output tail as one kernel (T2, its channel-major hand-off T2CM, and T2 at c_z 384), Protenix-v2 only:
+# under T1 the normal tail otherwise runs LN + out-proj + gated multiply as three ops. Wormhole 11-set normal grade,
+# normal set vs normal set + these, 44 paired folds (spd-gap-small gt2nwh, 2026-10-14): Protenix-v2 PASS, same-seed
+# top pose median 0.041 A vs the 1.132 A A/A floor, CA-lDDT -0.0001 [-0.0004, +0.0001], docking 35 -> 35;
+# OpenDDE FAIL (DockQ -0.0077 [-0.0225, -0.0000]), so OpenDDE keeps NORMAL_LEVERS. Not graded at c_z 128, so
+# Protenix-v1 keeps NORMAL_LEVERS too (`load_from_checkpoint`). Galaxy chip (1000 MHz) Protenix-v2 normal -2.3 s.
+T2_TAIL = frozenset({"trimul_t2", "trimul_t2cm", "trimul_t2w"})
 # --fast takes trimul_t1_c256 too (Protenix-v2; c_z 128 Protenix-v1 is untouched, OpenDDE has its own set).
 # Blackhole 11-set fast grade, fast vs fast+trimul_t1_c256, 43 paired folds (spd-gap-small g256bh, 2026-10-14), PASS:
 # same-seed top pose median 0.125 A vs the 1.342 A A/A floor, CA-lDDT -0.0004 [-0.0010, +0.0001], docking 33 -> 33.
 # Warm 512-token fast fold, paired: p150a (1350 MHz) Protenix-v2 -1.67 s.
 FAST_LEVERS = _T.FAST_LEVERS | {"trimul_t1_c256"}
 from .eltwise_fusion import scale_add, norm_residual, gated_add
+
+
+def mode_levers(state_dict):
+    """The mode's lever set for a Protenix checkpoint: `FAST_LEVERS` under --fast, else `NORMAL_LEVERS`,
+    plus `T2_TAIL` for Protenix-v2 (c_z 256), the one width its normal grade covers."""
+    v2 = Trunk._derive_c_z(state_dict) == 256
+    return _T.model_levers(NORMAL_LEVERS | T2_TAIL if v2 else NORMAL_LEVERS, FAST_LEVERS)
 
 
 # How many diffusion samples a single batched denoise carries by default. The batched
@@ -2557,8 +2571,7 @@ class Protenix:
         """Load a v2 checkpoint (.pt) and build the model. Untrusted weights are read
         with weights_only=True. diffusion_fp32 is the per-run precision (`--diffusion_precision`);
         None keeps the mode's default (fp32 unless PROTENIX_DIFFUSION_FP32_DEVICE=0, bf16 under
-        the `diffusion_bf16` lever). levers: None takes the mode's set, this module's `FAST_LEVERS`
-        under `--fast` and its `NORMAL_LEVERS` otherwise. A harness grading a lever set through the serving
+        the `diffusion_bf16` lever). levers: None takes the mode's set for this checkpoint (`mode_levers`). A harness grading a lever set through the serving
         path sets TT_BIO_LEVERS (`parse_levers` grammar, e.g. `fast-lofi`); no user does."""
         import tt_bio.tenstorrent as _TT
         import torch
@@ -2575,7 +2588,7 @@ class Protenix:
         # the shipped path. Scoped to this entry point -- OpenDDE builds Protenix directly
         # and passes its own flag.
         if levers is None:
-            levers = _TT.model_levers(NORMAL_LEVERS, FAST_LEVERS)
+            levers = mode_levers(sd)
         return cls(sd, ckc, dev, gated_move=True, diffusion_fp32=diffusion_fp32, levers=levers)
 
     def _tt(self, x):
