@@ -68,6 +68,12 @@ NORMAL_LEVERS = _T.NORMAL_LEVERS | {"transition_ws", "ws_l1acc", "trimul_t1_c256
 # OpenDDE FAIL (DockQ -0.0077 [-0.0225, -0.0000]), so OpenDDE keeps NORMAL_LEVERS. Not graded at c_z 128, so
 # Protenix-v1 keeps NORMAL_LEVERS too (`load_from_checkpoint`). Galaxy chip (1000 MHz) Protenix-v2 normal -2.3 s.
 T2_TAIL = frozenset({"trimul_t2", "trimul_t2cm", "trimul_t2w"})
+# ws_chain: the transition's later hidden chunks add into the first in their fp32 dest instead of separate add
+# passes over the pair. Wormhole 11-set grades, shipped set vs + ws_chain (spd-gap-small gwch, 2026-10-14), PASS:
+# Protenix-v2 normal top pose median 0.080 A vs the 1.050 A A/A floor (37 paired folds), OpenDDE normal 0.241 vs
+# 1.257 A (39), OpenDDE fast 0.625 vs 1.374 A (44); docking within one fold everywhere. Galaxy chip (1000 MHz)
+# OpenDDE normal -3.7 s, fast -2.3 s, Protenix-v2 normal -0.7 s. Not graded at c_z 128, so Protenix-v1 stays off.
+WS_CHAIN = frozenset({"ws_chain"})
 # --fast takes trimul_t1_c256 too (Protenix-v2; c_z 128 Protenix-v1 is untouched, OpenDDE has its own set).
 # Blackhole 11-set fast grade, fast vs fast+trimul_t1_c256, 43 paired folds (spd-gap-small g256bh, 2026-10-14), PASS:
 # same-seed top pose median 0.125 A vs the 1.342 A A/A floor, CA-lDDT -0.0004 [-0.0010, +0.0001], docking 33 -> 33.
@@ -81,10 +87,10 @@ from .eltwise_fusion import scale_add, norm_residual, gated_add
 
 def mode_levers(state_dict):
     """The mode's lever set for a Protenix checkpoint: `FAST_LEVERS` under --fast, else `NORMAL_LEVERS`,
-    plus `T2_TAIL` for Protenix-v2 (c_z 256), the one width its normal grade covers; Wormhole --fast takes
+    plus `T2_TAIL` and `WS_CHAIN` for Protenix-v2 (c_z 256), the one width their normal grades cover; Wormhole --fast takes
     `WH_FAST_LEVERS`."""
     v2 = Trunk._derive_c_z(state_dict) == 256
-    return _T.model_levers(NORMAL_LEVERS | T2_TAIL if v2 else NORMAL_LEVERS,
+    return _T.model_levers(NORMAL_LEVERS | T2_TAIL | WS_CHAIN if v2 else NORMAL_LEVERS,
                            WH_FAST_LEVERS if _T.is_wormhole() else FAST_LEVERS)
 
 

@@ -192,13 +192,13 @@ def test_protenix_family_normal_set():
     from tt_bio.opendde import NORMAL_LEVERS as DDE
     from tt_bio.protenix import NORMAL_LEVERS
 
-    assert DDE is NORMAL_LEVERS and NORMAL_LEVERS <= set(T.LEVERS)
+    assert DDE == NORMAL_LEVERS | {"ws_chain"} and DDE <= set(T.LEVERS)
     assert NORMAL_LEVERS - T.NORMAL_LEVERS == {"transition_ws", "ws_l1acc", "trimul_t1_c256", "trimul_t1_c384"}
 
 
 def test_protenix_v2_normal_takes_t2_tail(monkeypatch):
     import torch
-    from tt_bio.protenix import FAST_LEVERS, NORMAL_LEVERS, T2_TAIL, mode_levers
+    from tt_bio.protenix import FAST_LEVERS, NORMAL_LEVERS, T2_TAIL, WS_CHAIN, mode_levers
 
     def ck(c_z):
         return {"layernorm_z_cycle.weight": torch.zeros(c_z)}
@@ -206,7 +206,7 @@ def test_protenix_v2_normal_takes_t2_tail(monkeypatch):
     assert T2_TAIL <= set(T.LEVERS) and not T2_TAIL <= NORMAL_LEVERS
     monkeypatch.setattr(T, "_FAST_MODE", False)
     monkeypatch.delenv("TT_BIO_LEVERS", raising=False)
-    assert mode_levers(ck(256)) == NORMAL_LEVERS | T2_TAIL
+    assert mode_levers(ck(256)) == NORMAL_LEVERS | T2_TAIL | WS_CHAIN
     assert mode_levers(ck(128)) == NORMAL_LEVERS
     monkeypatch.setattr(T, "_FAST_MODE", True)
     monkeypatch.setattr(T, "is_wormhole", lambda: False)
@@ -227,4 +227,4 @@ def test_protenix_fast_set_takes_t1_c256(monkeypatch):
 def test_opendde_fast_set_names_only_known_levers():
     from tt_bio.opendde import FAST_LEVERS
 
-    assert FAST_LEVERS <= set(T.LEVERS) and {"trimul_b8in", "trimul_t2w"} <= FAST_LEVERS and "dit_b8" not in FAST_LEVERS
+    assert FAST_LEVERS <= set(T.LEVERS) and {"trimul_b8in", "trimul_t2w", "ws_chain"} <= FAST_LEVERS and "dit_b8" not in FAST_LEVERS
