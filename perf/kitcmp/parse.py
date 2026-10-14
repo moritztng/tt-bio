@@ -36,14 +36,14 @@ def smi(path):
 
 def clocks(samples, d, folds=()):
     """SM MHz median / min, W median, GB max during the warm folds ((start, end) epochs), else over the arm's window with the
-    GPU busy (utilization > 0; a power floor does not work: an idle B200 draws ~197 W)."""
+    GPU busy (utilization >= 50 %; a power floor does not work: an idle B200 draws ~197 W)."""
     if not samples or not (d / "t_start").exists() or not (d / "t_end").exists():
         return None, None, None, None
     if folds:
         w = [x for x in samples if any(a <= x[0] <= b for a, b in folds)]
     else:
         a, b = ts(d / "t_start"), ts(d / "t_end")
-        w = [x for x in samples if a <= x[0] <= b and x[4] > 0]
+        w = [x for x in samples if a <= x[0] <= b and x[4] >= 50]
     if not w:
         return None, None, None, None
     c = [x[1] for x in w]
