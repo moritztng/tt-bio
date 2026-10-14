@@ -47,8 +47,9 @@ def test_normal_set_takes_hifi2_only_where_graded(monkeypatch, wormhole):
     monkeypatch.delenv("TT_BIO_LEVERS", raising=False)
     monkeypatch.setattr(rt, "is_wormhole", lambda: wormhole)
     assert ("trimul_gin_hifi2" in rt.fold_levers(False).split("+")) is not wormhole
-    # ws_resid passed ESMFold2's fast bar on Blackhole only, so Wormhole's fast set drops it.
-    assert ("ws_resid" in rt.fold_levers(True).split("+")) is not wormhole
+    # ws_resid passed ESMFold2's fast bar on both archs; Wormhole's fast set also takes trimul_gin_hifi2 (graded with it).
+    assert "ws_resid" in rt.fold_levers(True).split("+")
+    assert ("trimul_gin_hifi2" in rt.fold_levers(True).split("+")) is wormhole
     # The ef2_* levers ride both sets on both archs, except device pair init on Wormhole (out of DRAM at 1024 tokens).
     for fast in (False, True):
         names = rt.fold_levers(fast).split("+")
