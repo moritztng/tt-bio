@@ -12800,9 +12800,15 @@ def ws_swiglu(x, norm_weight, norm_bias, ckc, parts, resid=None):
     Shared by the pair `Transition` and ESMFold2's `esmc.SwiGLUFFN`. With bfp8 weights (fast mode) the matmuls
     run at HiFi2, which covers every bfp8 weight bit (`bfp8_fidelity`); x stays the layer norm's bf16, since the
     kernel takes it at the same speed as bfp8 x and a separate cast cost 0.46 ms at c_z 128 (ws_attr, WH).
-    `resid`: every chunk adds into `resid` in place (`pair_swiglu`'s resid) and `resid + out` is returned, so the
-    chunk sum and the caller's residual add cost no pass of their own; None where any chunk declines it.
+    `resid`: the one chunk adds into `resid` in place (`pair_swiglu`'s resid) and `resid + out` is returned, so the
+    caller's residual add costs no pass of its own; None where the chunk declines it, or where the weights take more
+    than one chunk: each chunk would round z + t_i to bf16 at z's magnitude, n roundings where the add takes one.
+    Measured on Wormhole against float64 (perf/spd_gap_small/wsr_parity.py, |z| ~ 40): rel_rms 0.113 at one chunk
+    (the one-rounding floor 0.112), 0.158 at two (c_z 256 bf16), 0.221 at four (c_z 384 bf16); the Protenix-v2 normal
+    grade with two-chunk resid lost 0.33 CA-lDDT on the 680-790 token complexes (spd-gap-small gwr, 2026-10-14).
     """
+    if resid is not None and len(parts) > 1:
+        return None
     if not all(_pair_ws.eligible(x, w12, w3, l1acc=lever("ws_l1acc"), resid=resid) for w12, w3 in parts):
         return None
     fid = ttnn.MathFidelity.HiFi2 if parts[0][0].dtype == ttnn.bfloat8_b else ckc.math_fidelity
@@ -12816,8 +12822,7 @@ def ws_swiglu(x, norm_weight, norm_bias, ckc, parts, resid=None):
                              memory_config=ttnn.DRAM_MEMORY_CONFIG)
     out = None
     if resid is not None:
-        for w12, w3 in parts:
-            _pair_ws.pair_swiglu(x_norm, w12, w3, fid, l1acc=acc, resid=resid)
+        _pair_ws.pair_swiglu(x_norm, *parts[0], fid, l1acc=acc, resid=resid)
         ttnn.deallocate(x_norm)
         return resid
     for w12, w3 in parts:
