@@ -37,7 +37,10 @@ if [ $M = pxdesign ] && [ ! -x /usr/local/cuda-12.1/bin/nvcc ]; then  # CUDA 12.
   # only; nvcc 12.1 takes gcc <= 12 (box_arms.sh passes -ccbin gcc-12); git for the lock's editable checkouts
   apt-get update -q && DEBIAN_FRONTEND=noninteractive apt-get install -y -q --no-install-recommends gcc-12 g++-12 git
   curl -fsSL -o /tmp/cu121.run https://developer.download.nvidia.com/compute/cuda/12.1.1/local_installers/cuda_12.1.1_530.30.02_linux.run
+  I=$(readlink -f /usr/local/cuda)  # the runfile repoints /usr/local/cuda at 12.1, and every later model on the box then built
+  # with nvcc 12.1 against cu130 torch (a2's rfdiffusion3 apex build died on it): put the image's toolkit back
   sh /tmp/cu121.run --silent --toolkit --toolkitpath=/usr/local/cuda-12.1 --override --no-man-page && rm -f /tmp/cu121.run
+  ln -sfn "$I" /usr/local/cuda
 fi
 [ $M = pxdesign ] && CV=12.1 && export NVCC_PREPEND_FLAGS="-ccbin /usr/bin/gcc-12" CC=gcc-12 CXX=g++-12
 export CUDA_HOME=/usr/local/cuda${CV:+-$CV} PYTHONHASHSEED=0 CFLAGS=-g0; export PATH=$CUDA_HOME/bin:$PATH
