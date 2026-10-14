@@ -1,0 +1,5 @@
+{"s": 42.3945, "pid": 6404, "fn": "runner.inference.InferenceRunner.predict", "t": 1792008078.1811836}
+{"s": 39.0086, "pid": 6404, "fn": "runner.inference.InferenceRunner.predict", "t": 1792008121.0285184}
+{"s": 39.0068, "pid": 6404, "fn": "runner.inference.InferenceRunner.predict", "t": 1792008163.7918406}
+{"s": 39.0221, "pid": 6404, "fn": "runner.inference.InferenceRunner.predict", "t": 1792008206.148162}
+{"s": 39.0428, "pid": 6404, "fn": "runner.inference.InferenceRunner.predict", "t": 1792008248.6181943}

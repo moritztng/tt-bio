@@ -1,0 +1,262 @@
+{
+ "env_absent": [
+  "PXD_",
+  "PXDESIGN_HOIST",
+  "PXDESIGN_OPT",
+  "CUDA_MPS_"
+ ],
+ "forbidden_present": [],
+ "kit_modules_loaded": [],
+ "kit_dirs_on_path": [],
+ "autoload_armed": [],
+ "kit_sitecustomize": null,
+ "torch_loaded_before_proof": false,
+ "core_modules_loaded": [],
+ "no_user_site": true,
+ "python": "3.11.5",
+ "det_exception": null,
+ "ok": true,
+ "forbidden_prefixes": [
+  "PXD_",
+  "PXDESIGN_HOIST",
+  "PXDESIGN_OPT",
+  "CUDA_MPS_"
+ ],
+ "allowed_exceptions": [
+  "CUBLAS_WORKSPACE_CONFIG"
+ ],
+ "violations": {
+  "env": [],
+  "modules": [],
+  "sys_path": [],
+  "autoload_finder": false,
+  "torch_loaded": false,
+  "kit_sitecustomize": null,
+  "det_exception": []
+ },
+ "pxdesign_opt_env": null,
+ "layernorm_env": "fast_layernorm",
+ "env": {
+  "LAYERNORM_TYPE": "fast_layernorm",
+  "PROTENIX_DATA_ROOT_DIR": "/weights/pxdesign/ccd_cache",
+  "TORCH_EXTENSIONS_DIR": null,
+  "CUDA_VISIBLE_DEVICES": null,
+  "CUBLAS_WORKSPACE_CONFIG": null,
+  "PXDESIGN_CKPT_DIR": "/weights/pxdesign/checkpoint",
+  "PYTORCH_CUDA_ALLOC_CONF": null,
+  "TORCH_ALLOW_TF32_CUBLAS_OVERRIDE": null,
+  "NVIDIA_TF32_OVERRIDE": null
+ },
+ "clean": true,
+ "det": 0,
+ "route": "cli",
+ "preflight": {
+  "checkpoint": "/weights/pxdesign/checkpoint/pxdesign_v0.1.0.pt",
+  "required_in_dir": {
+   "protenix_base_default_v0.5.0.pt": true,
+   "protenix_mini_default_v0.5.0.pt": true,
+   "protenix_mini_tmpl_v0.5.0.pt": true
+  },
+  "ccd_root": "/weights/pxdesign/ccd_cache",
+  "ccd_files": {
+   "components.v20240608.cif": true,
+   "components.v20240608.cif.rdkit_mol.pkl": true,
+   "clusters-by-entity-40.txt": true
+  }
+ },
+ "options": {
+  "values": {
+   "N_step": "400",
+   "N_sample": "1",
+   "dtype": "bf16",
+   "eta_type": "const",
+   "eta_min": "2.5",
+   "eta_max": "2.5",
+   "num_workers": "16",
+   "use_msa": "true",
+   "use_fast_ln": "true"
+  },
+  "given": {
+   "N_step": "400",
+   "N_sample": "1",
+   "dtype": "bf16",
+   "eta_type": "const",
+   "eta_min": "2.5",
+   "eta_max": "2.5",
+   "use_fast_ln": "true",
+   "seeds": "0,1,2,3,4"
+  },
+  "defaults": {
+   "N_step": "400",
+   "N_sample": "5",
+   "dtype": "bf16",
+   "eta_type": "const",
+   "eta_min": "2.5",
+   "eta_max": "2.5",
+   "num_workers": "16",
+   "use_msa": "true",
+   "use_fast_ln": "true"
+  },
+  "seeds": [
+   0,
+   1,
+   2,
+   3,
+   4
+  ],
+  "argv": [
+   "--N_step",
+   "400",
+   "--N_sample",
+   "1",
+   "--dtype",
+   "bf16",
+   "--eta_type",
+   "const",
+   "--eta_min",
+   "2.5",
+   "--eta_max",
+   "2.5",
+   "--num_workers",
+   "16",
+   "--use_msa",
+   "true",
+   "--use_fast_ln",
+   "true"
+  ]
+ },
+ "upstream_argv": [
+  "-i",
+  "/root/kc/in/pxdesign/laczc_512_nomsa.yaml",
+  "-o",
+  "/root/kc/results/pxdesign/off/pred",
+  "--N_step",
+  "400",
+  "--N_sample",
+  "1",
+  "--dtype",
+  "bf16",
+  "--eta_type",
+  "const",
+  "--eta_min",
+  "2.5",
+  "--eta_max",
+  "2.5",
+  "--num_workers",
+  "16",
+  "--use_msa",
+  "true",
+  "--use_fast_ln",
+  "true",
+  "--seeds",
+  "0,1,2,3,4",
+  "--load_checkpoint_dir",
+  "/weights/pxdesign/checkpoint",
+  "--use_deepspeed_evo_attention",
+  "true"
+ ],
+ "stamps": {
+  "batch": {
+   "n_sample": 1,
+   "chunk": 10,
+   "batch": 1,
+   "tasks": 1,
+   "seeds": 5,
+   "expected_designs": 5
+  },
+  "layernorm": {
+   "kind": "fused",
+   "class": "protenix.model.layer_norm.layer_norm.FusedLayerNorm",
+   "source": "env",
+   "env": "fast_layernorm"
+  },
+  "kernels": {
+   "torch": "2.3.1+cu121",
+   "cuda": "12.1",
+   "tf32_matmul": false,
+   "tf32_cudnn": true,
+   "alloc_conf": "unset",
+   "layernorm": "fused",
+   "deepspeed": "0.15.4",
+   "ds4sci_evo_attention": "on",
+   "flash_attn": "no",
+   "cuequivariance": "no",
+   "xformers": "no",
+   "compile": "off",
+   "source": "caller_process"
+  }
+ },
+ "command": [
+  "/root/kit/pxdesign/venv/bin/pxdesign",
+  "infer",
+  "-i",
+  "/root/kc/in/pxdesign/laczc_512_nomsa.yaml",
+  "-o",
+  "/root/kc/results/pxdesign/off/pred",
+  "--N_step",
+  "400",
+  "--N_sample",
+  "1",
+  "--dtype",
+  "bf16",
+  "--eta_type",
+  "const",
+  "--eta_min",
+  "2.5",
+  "--eta_max",
+  "2.5",
+  "--num_workers",
+  "16",
+  "--use_msa",
+  "true",
+  "--use_fast_ln",
+  "true",
+  "--seeds",
+  "0,1,2,3,4",
+  "--load_checkpoint_dir",
+  "/weights/pxdesign/checkpoint",
+  "--use_deepspeed_evo_attention",
+  "true"
+ ],
+ "seeding": "upstream: seed_everything(seed, deterministic=False) (runner/inference.py:236)",
+ "layernorm_class": "protenix.model.layer_norm.layer_norm.FusedLayerNorm",
+ "layernorm_kind": "fused",
+ "layernorm_source": "env",
+ "kit_modules_loaded_after": [],
+ "lever_modules_imported": [],
+ "after_ok": true,
+ "exit_code": 0,
+ "wall_s": 177.5,
+ "outputs": {
+  "tasks": [
+   "laczc_512_nomsa"
+  ],
+  "n_tasks": 1,
+  "seeds": [
+   0,
+   1,
+   2,
+   3,
+   4
+  ],
+  "n_seeds": 5,
+  "N_sample": 1,
+  "n_designs": 5,
+  "expected": 5,
+  "complete": true,
+  "scope": "job",
+  "n_pairs": 5,
+  "skipped_existing": 0,
+  "skipped_pairs": [],
+  "produced": 5,
+  "nothing_ran": false,
+  "n_success_files": 5,
+  "cifs": [
+   "laczc_512_nomsa/seed_0/predictions/laczc_512_nomsa_sample_0.cif",
+   "laczc_512_nomsa/seed_1/predictions/laczc_512_nomsa_sample_0.cif",
+   "laczc_512_nomsa/seed_2/predictions/laczc_512_nomsa_sample_0.cif",
+   "laczc_512_nomsa/seed_3/predictions/laczc_512_nomsa_sample_0.cif",
+   "laczc_512_nomsa/seed_4/predictions/laczc_512_nomsa_sample_0.cif"
+  ]
+ }
+}

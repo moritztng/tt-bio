@@ -98,3 +98,14 @@ def test_board_rows(tmp_path):
     assert c[3] == "8.95" and c[4].startswith("n=4") and "SM 1410 MHz" in c[5]
     assert "kit f4f62fa65" in c[6] and "torch 2.13.0+cu130, boltz 2.2.1" in c[6] and "driver 580.173.02" in c[6] and "--mode exact" in c[8]
     assert any(l.startswith("| nesso1 | a100 | stock | 7.45 |") for l in out)
+
+
+def test_board_freeze_versions(tmp_path):
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("kc_board", Path(__file__).parents[1] / "perf/kitcmp/board.py")
+    board = importlib.util.module_from_spec(spec); spec.loader.exec_module(board)
+    f = tmp_path / "pip-freeze.txt"
+    f.write_text("torch @ https://download.pytorch.org/whl/cu126/torch-2.7.1%2Bcu126-cp311-cp311-manylinux_2_28_x86_64.whl#sha256=e1a8\n"
+                 "esm @ git+https://github.com/Biohub/esm.git@43ccece2ad485f27db46afdb67da2a9601e8f106\n"
+                 "-e git+https://github.com/bytedance/PXDesign.git@f788441313c84c3074fe9596ac2433f96b15c763#egg=pxdesign\n")
+    assert board.freeze(f) == {"torch": "2.7.1+cu126", "esm": "43ccece2a", "pxdesign": "f78844131"}
