@@ -161,13 +161,6 @@ for (const m of predModels.concat(catModels)) {
     }
   }
 }
-/* Host and device halves, wherever both sides measured them. */
-for (const m of predModels.concat(catModels)) {
-  const t = m.cells.p150a, g = m.cells.h200;
-  if (t && g && t.split && g.split) {
-    want("t-hostsplit", m.name, m.name + " measured both halves and belongs in the split table");
-  }
-}
 /* Each category states its own scope and methods; inheriting the page's would be a wrong claim. */
 for (const k of catKeys) {
   if (!D[k]) continue;

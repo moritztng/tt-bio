@@ -118,6 +118,11 @@ def main() -> int:
     doc = json.loads(DATA.read_text(), object_pairs_hook=OrderedDict)
     changes = fill(doc, board_runs(a.board))
     print("\n".join(changes) or "no board row matches a page cell")
+    stale = [f"{cat}/{m['id']}/{k}" for cat in UNIT
+             for m in (doc[cat] if isinstance(doc[cat], list) else doc[cat]["models"])
+             for k, c in m["cells"].items() if c.get("provenance")]
+    if stale:
+        print(f"{len(stale)} cells still carry a pre-campaign measurement: " + ", ".join(stale))
     if a.write and changes:
         DATA.write_text(json.dumps(doc, indent=2, ensure_ascii=False) + "\n")
     return 0
