@@ -7,7 +7,8 @@
 #   WAIT_H=<h>: keep looking for a matching offer that long (every 10 min) before giving up.
 #   The GPU picks the offer filter, the power-limit window (MINW/MAXW, env overrides), the kit's --config and the
 #   TORCH_CUDA_ARCH_LIST every native build on the box uses; the query argument replaces the default filter.
-# Status: stdout (redirect it); results perf/kitcmp/results/<label>/<model>/...
+# Status: stdout (redirect it); results perf/kitcmp/results/<label>/<model>/... (<model>/box = the instance it ran on).
+# A box the host stops mid-session: its finished models are kept and the next box runs only the rest.
 set -u
 [ "${1:-}" = --gpu ] || { echo "usage: session.sh --gpu a100|h200|b200 <label> <cap_h> ['<query>'] [max_attempts]" >&2; exit 2; }
 GPU=$2; shift 2
@@ -117,8 +118,18 @@ print(x.get("public_ipaddr","").strip(), p[0]["HostPort"] if p else "") if x.get
   log "$I ended: $END ($(cat $OUT/CHAIN-PROGRESS 2>/dev/null | tr '\n' ' '))"
   R $H:/root/kc/results/ $OUT/results/ 2>/dev/null; R $H:'/root/kc/*.log' $OUT/ 2>/dev/null
   destroy $I "session end: $END"; log "credit \$$(credit) at end"
-  [ "$END" = stopped ] && { mv $OUT/results $OUT/results.stopped-$I; continue; }
+  # stopped: models this box finished stay in results/ (tagged with the box) and leave MODELS; the rest move aside and rerun
+  if [ "$END" = stopped ]; then
+    mkdir -p $OUT/results.stopped-$I
+    for d in $OUT/results/*/; do d=${d%/}; m=${d##*/}; m=${m#setup-}
+      if grep -qx "$m 0" $OUT/CHAIN-PROGRESS 2>/dev/null; then echo "$I $O" > $d/box; else mv $d $OUT/results.stopped-$I/; fi; done
+    grep ' 0$' $OUT/CHAIN-PROGRESS 2>/dev/null | cut -d' ' -f1 >> $OUT/MODELS-DONE
+    MODELS=$(for e in $MODELS; do grep -qx "${e%%:*}" $OUT/MODELS-DONE 2>/dev/null || printf "%s " $e; done)
+    log "resuming on a new box with: $MODELS"; [ -n "${MODELS// }" ] || { echo done > $OUT/SESSION-END; exit 0; }
+    continue
+  fi
   [ "$END" = thermal ] && { mv $OUT/burn.log $OUT/burn-hot-$I.log; rm -rf $OUT/results; continue; }
+  for d in $OUT/results/*/; do [ -f $d/box ] || echo "$I $O" > $d/box; done
   echo "$END" > $OUT/SESSION-END; log "SESSION-END $END"; exit 0
 done
 log "SESSION-END no-offer-passed"; echo no-offer > $OUT/SESSION-END
