@@ -34,7 +34,7 @@ def test_load_runs_fast_on_wormhole(monkeypatch, wormhole, fast, want):
     monkeypatch.setattr(rt, "patch_esmfold2", lambda model, **k: built.update(k) or model)
     monkeypatch.setattr(tenstorrent, "_FAST_MODE", False)
     rt.load_ttnn_esmfold2(fast=fast)
-    # The model is built fast. Only Wormhole does it through the older `_FAST_MODE`; Blackhole builds
-    # --fast under LEVERS_FAST with `_FAST_MODE` off (esmfold2_runtime.fold_scope).
+    # The model is built fast, on both archs under LEVERS_FAST with the older `_FAST_MODE` off
+    # (esmfold2_runtime.fold_scope).
     assert built["fast"] is want
-    assert tenstorrent._FAST_MODE is (want and wormhole)
+    assert tenstorrent._FAST_MODE is False

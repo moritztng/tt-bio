@@ -61,11 +61,13 @@ class _ESMCAdapter:
     attention for multi-chain / padded batches.
     """
 
-    def __init__(self, repo: str, persistent: bool = True, fast: bool = False):
+    def __init__(self, repo: str, persistent: bool = True, fast: bool = False, shim=None):
         self._repo = repo
         self._persistent = persistent
         self._fast = fast
         self.lm = None  # loaded lazily on first fold
+        # Under LM_COMBINE the 6B returns this shim's layer-combined state, one layer instead of 81.
+        self._shim = shim
 
     def preload(self):
         """Load the ESMC-6B weights now (≈60 s) instead of lazily on the first
@@ -97,7 +99,8 @@ class _ESMCAdapter:
             allow = same & valid & (sid[:, None, :] >= 0)
             attn_mask = torch.where(allow, 0.0, float("-inf"))  # [B,L,L]
         self.preload()
-        hs = self.lm(input_ids, attn_mask=attn_mask)            # [n_layers+1,B,L,D]
+        combine = self._shim.combine_lm() if E.gate(LM_COMBINE, "ef2_lm_combine") and self._shim is not None else None
+        hs = self.lm(input_ids, attn_mask=attn_mask, combine=combine)  # [n_layers+1 or 1,B,L,D]
         dram_peak("esmfold2/lm-forward")
         if not self._persistent:
             # Memory-conservative mode: free the ~12.8 GB of 6B device weights
@@ -273,6 +276,7 @@ class _DevPair:
     and `host` keeps the one download the confidence head still needs."""
 
     __slots__ = ("t", "seq_len", "host", "keep", "_tmp")
+    dtype = torch.float32
 
     def __init__(self, t, seq_len, tmp=False):
         self.t, self.seq_len, self.host, self.keep, self._tmp = t, int(seq_len), None, None, tmp
@@ -285,6 +289,12 @@ class _DevPair:
         return self
 
     detach = float
+
+    def to_host(self):
+        if self.host is None:
+            from tt_bio import tenstorrent as T
+            self.host = T.download(self.t)[:, :self.seq_len, :self.seq_len].float()
+        return self.host
 
     def transpose(self, a, b):
         import ttnn
@@ -313,6 +323,12 @@ def _device_tail() -> bool:
 DEVICE_TAIL_STATS = [0, 0]  # folds whose tail ran on the device, on the host
 
 
+def _aliases(a, b) -> bool:
+    """True when two device tensors share one buffer. Under `ws_resid` every op of a PairUpdateBlock writes into its
+    input, so a trunk can return the very tensor it was given; whoever frees the input must not free the output."""
+    return a is b or (a.is_allocated() and b.is_allocated() and a.buffer_address() == b.buffer_address())
+
+
 def _unpad(t, seq_len):
     import ttnn
     if int(t.shape[1]) == seq_len:
@@ -330,20 +346,21 @@ def _dev_forward(m, x):
         if x._tmp:
             ttnn.deallocate(x.t)
         return out
-    out = _DevPair(_unpad(_trunk_on_device(m, x, to_host=False), x.seq_len), x.seq_len)
-    ttnn.deallocate(x.t)
-    return out
+    r = _trunk_on_device(m, x, to_host=False)
+    if not _aliases(r, x.t):
+        ttnn.deallocate(x.t)
+    return _DevPair(_unpad(r, x.seq_len), x.seq_len)
 
 
 # The confidence head's L^2 part (ConfidenceHead._pair_outputs) on the device: z_norm, the pair sum, the outer
 # product projection, the trunk, row pooling and the PAE/PDE logits. The host keeps what is [L,c]-sized or a lookup
 # (summed in fp32, one upload) and the row softmax. Host fp32 there costs ~1.1 s per 512-aa fold (xf2 profile).
 # Not bit-exact (bf16 pair): with the device tail, graded PASS on Blackhole (ESMFold2 normal bar, ESMFold2-Fast fast
-# bar, 11 complexes x 4 seeds), so on there by default like the tail. p150a ESMFold2-Fast --fast: 15.23 vs 16.17 s.
+# bar, 11 complexes x 4 seeds), so on by default like the tail. p150a ESMFold2-Fast --fast: 15.23 vs 16.17 s.
+# Wormhole (Blackhole fold path), 11 complexes x 4 seeds against the old WH path, fast and normal bar, PASS for both
+# models (ESMFold2 CA-lDDT +0.0034, docking 33/44 as without it); folds clean to 1536 tokens, 3-5 % off the fold.
 def _device_conf() -> bool:
-    if os.environ.get("TT_BIO_ESMFOLD2_DEVICE_CONF", "").strip():
-        return env_flag("TT_BIO_ESMFOLD2_DEVICE_CONF", False)
-    return not is_wormhole()
+    return env_flag("TT_BIO_ESMFOLD2_DEVICE_CONF", True)
 
 
 DEVICE_CONF_STATS = [0, 0]  # heads on the device, on the host
@@ -377,7 +394,7 @@ def _conf_pair_dev(head, ftw, z, s_n, relpos, bonds, bins, mask, n):
         DEVICE_CONF_STATS[1] += 1
         if isinstance(z, ttnn.Tensor):
             z = ftw._to_torch(z).float()
-        return type(head)._pair_outputs(head, z, s_n, relpos, bonds, bins, mask, n)
+        return type(head)._pair_outputs(head, z, s_n, _host(relpos), _host(bonds), bins, mask, n)
     DEVICE_CONF_STATS[0] += 1
     w, ck, L = _conf_weights(head, ftw), ftw.compute_kernel_config, int(bins.shape[-1])
     lin = lambda x, wt: ttnn.linear(x, wt, compute_kernel_config=ck)
@@ -393,13 +410,16 @@ def _conf_pair_dev(head, ftw, z, s_n, relpos, bonds, bins, mask, n):
     p0 = ln(zt, w["zn"], head.z_norm)
     if zt is not z:
         ttnn.deallocate(zt)
-    host = head.s_to_z(s_n).unsqueeze(2) + head.s_to_z_transpose(s_n).unsqueeze(1)
-    for t in (relpos, bonds):
-        if t is not None:
-            host = host + t
-    ht = ftw._from_torch(host.float())
-    p0 = swap(p0, ttnn.add(p0, ht))
-    ttnn.deallocate(ht)
+    if E.gate(_PAIR_INIT, "ef2_pair_init"):  # the [L,c] broadcasts and the lookups added on the device, as z_init
+        for t in (head.s_to_z(s_n).unsqueeze(2), head.s_to_z_transpose(s_n).unsqueeze(1), relpos, bonds):
+            if t is not None:
+                p0 = _add_pair(p0, t, ftw)
+    else:
+        host = head.s_to_z(s_n).unsqueeze(2) + head.s_to_z_transpose(s_n).unsqueeze(1)
+        for t in (relpos, bonds):
+            if t is not None:
+                host = host + _host(t)
+        p0 = _add_pair(p0, host, ftw)
     a = ftw._from_torch(head.s_to_z_prod_in1(s_n)[:, :, None, :].float())
     b = ftw._from_torch(head.s_to_z_prod_in2(s_n)[:, None, :, :].float())
     op = ttnn.multiply(a, b)  # [1,L,1,c] x [1,1,L,c] -> the outer product [1,L,L,c]
@@ -477,7 +497,7 @@ def _trunk_on_device(ftw, dev, to_host=True):
         real[:, :seq_len, :seq_len] = 1.0
         mask = ftw._from_torch(real)
     out = ftw.module(z, mask)
-    for t in (z if pad else None, mask):
+    for t in (z if pad and not _aliases(z, out) else None, mask):
         if t is not None:
             try:
                 ttnn.deallocate(t)
@@ -498,7 +518,10 @@ class _ShimAdapter(_Adapter):
         m = self.m
         hs = _to_t(args[0])
         LM_HANDOFF_STATS[0] += 1
-        return _DevPair(m.module(m._from_torch(E.flat_layers(hs)), torch.softmax(m._combine, 0)),
+        pre = m.is_precombined(hs)
+        if pre:
+            hs = m.fill_absent(hs)
+        return _DevPair(m.module(m._from_torch(E.flat_layers(hs)), torch.softmax(m._combine, 0), precombined=pre),
                         int(hs.shape[1]))
 
 
@@ -584,6 +607,10 @@ def _msa_per_loop(kw, total_steps, max_depth, col_rate):
 # instead of the 128 MB bf16 mask (2.2 s of uploads per fold, p300c). Same mask, same output.
 _PACKED_KEEP = True
 _KEEP_BITS = 16
+# A dyadic dropout p draws the packed words directly (`_draw_packed_keep`); off = the float draw.
+# Unset follows the ef2_bit_draw lever (LEVERS_FAST), see esmfold2.gate.
+_BIT_DRAW = env_flag("TT_BIO_ESMFOLD2_BIT_DRAW", None)
+
 
 
 def _pack_keep(keep):
@@ -593,6 +620,41 @@ def _pack_keep(keep):
     for j in range(1, _KEEP_BITS):
         w |= k[:, j] << j
     return w
+
+
+def _dyadic(p, max_bits=_KEEP_BITS):
+    """(k, m) with p == k / 2**m, 0 < p < 1, or None when p is not such a fraction of at most `max_bits` bits."""
+    if not 0 < p < 1:
+        return None
+    for m in range(1, max_bits + 1):
+        k = p * (1 << m)
+        if k == int(k):
+            return int(k), m
+    return None
+
+
+def _draw_packed_keep(shape, p, gen):
+    """`_pack_keep(torch.rand(shape) >= p)` in law, drawn as the packed words themselves.
+
+    For p = k / 2**m every mask bit is an m-bit uniform integer u, dropped when u < k; the m bits
+    of 16 elements come from m random 16-bit words and the comparison runs bitwise, MSB first, on
+    whole words. p = 0.25 (ESMFold2's LM dropout) is two words and two ops per 16 elements, where
+    the float draw spent a 32-bit uniform, a compare and a bit-pack on each element: 0.54 s a loop
+    at 512 aa against 0.03 s (p150a host), on the thread the device loop waits for.
+    """
+    k, m = _dyadic(p)
+    w = (shape[0], shape[1] // _KEEP_BITS, *shape[2:])
+    full = (1 << _KEEP_BITS) - 1
+    lt = torch.zeros(w, dtype=torch.int32)
+    eq = torch.full(w, full, dtype=torch.int32)
+    for i in reversed(range(m)):
+        r = torch.randint(0, 1 << _KEEP_BITS, w, dtype=torch.int32, generator=gen)
+        if k >> i & 1:
+            lt |= eq & ~r
+            eq &= r
+        else:
+            eq &= ~r
+    return ~lt & full
 
 
 def _unpack_keep_dev(w, device):
@@ -670,6 +732,8 @@ class _KeepDraws:
         self.nxt = self.pool.submit(self._draw)
 
     def _draw(self):
+        if E.gate(_BIT_DRAW, "ef2_bit_draw") and _packable(self.shape) and _dyadic(self.p):
+            return _draw_packed_keep(self.shape, self.p, self.gen)
         keep = torch.rand(self.shape, generator=self.gen) >= self.p
         return _pack_keep(keep) if _packable(self.shape) else keep.to(torch.bfloat16)
 
@@ -764,6 +828,55 @@ class _PairStateDraw:
         return state.to(ref.dtype)
 
 
+# z_init = z_init_1(x)[i] + z_init_2(x)[j] + relpos[i,j] + bonds[i,j] summed on the device: the host built three
+# fp32 [L,L,256] tensors (0.26 s at 512 tokens on qb1) and uploaded the sum. Relative positions stay a PairLookup
+# (codes + rows) that the diffusion conditioning and the confidence head build on the device with one embedding,
+# so the 134 MB bf16 relpos pair never crosses PCIe. Not bit-exact: the parts are rounded to bf16 before the sum.
+_PAIR_INIT = env_flag("TT_BIO_ESMFOLD2_PAIR_INIT", None)  # unset: the ef2_pair_init lever
+PAIR_INIT_STATS = [0, 0]  # folds whose pair init ran on the device, on the host
+
+
+def _host(x):
+    """The host tensor of a pair that may be device-resident (_DevPair) or a lookup (PairLookup)."""
+    return x.to_host() if isinstance(x, _DevPair) else x.host() if isinstance(x, E.PairLookup) else x
+
+
+def _install_pair_init(model):
+    import types
+
+    import ttnn
+
+    host_init, ftw, rel = model._pair_init, model.folding_trunk.m, model.rel_pos.m
+
+    def _pair_init(self, x, residue_index, asym_id, sym_id, entity_id, token_index, token_bonds):
+        if not (E.gate(_PAIR_INIT, "ef2_pair_init") and E.gate(E.RELPOS_LOOKUP, "ef2_relpos_lookup") and x.shape[0] == 1):
+            PAIR_INIT_STATS[1] += 1
+            return host_init(x, residue_index, asym_id, sym_id, entity_id, token_index, token_bonds)
+        PAIR_INIT_STATS[0] += 1
+        relpos = rel.rows(residue_index, asym_id, sym_id, entity_id, token_index)
+        bonds = self.token_bonds(token_bonds.float()) if bool(token_bonds.any()) else None
+        zi, zj = (ftw._from_torch(t.float()) for t in (self.z_init_1(x).unsqueeze(2), self.z_init_2(x).unsqueeze(1)))
+        z = ttnn.add(zi, zj)  # [1,L,1,c] + [1,1,L,c] -> [1,L,L,c]
+        ttnn.deallocate(zi)
+        ttnn.deallocate(zj)
+        for t in (relpos, bonds):
+            if t is not None:
+                z = _add_pair(z, t, ftw)
+        return _DevPair(z, x.shape[1]), relpos, bonds
+
+    model._pair_init = types.MethodType(_pair_init, model)
+
+
+def _add_pair(z, t, ftw):
+    """`z + t` on the device for a host pair or a PairLookup; frees `z`'s old buffer and the upload."""
+    import ttnn
+    tt = t.device(ftw.tt_device) if isinstance(t, E.PairLookup) else ftw._from_torch(t.float())
+    out = ttnn.add(z, tt)
+    ttnn.deallocate(z)
+    ttnn.deallocate(tt)
+    return out
+
+
 def _install_pair_state_draw(model):
     """Start `_PairStateDraw` at forward entry; `_init_pair_state` takes the result."""
     import functools
@@ -835,19 +948,22 @@ def _install_resident_trunk_loop(model):
 
         def msa_inject(msa_kw):
             # reference passes x_pair (the current pair state) separately from _msa_kwargs
-            msa_pair = self.msa_encoder(x_pair=z_init, **msa_kw).to(z_init.dtype)
+            x_pair = z_init.t if isinstance(z_init, _DevPair) else z_init
+            msa_pair = self.msa_encoder(x_pair=x_pair, **msa_kw).to(z_init.dtype)
             dram_peak("esmfold2/msa-encoder")
-            return msa_pair if overwrite else (z_init + msa_pair)
+            return msa_pair if overwrite else (_host(z_init) + msa_pair)
 
         # The MSA encoder reads z_init and the loop's MSA draw. With one draw for every loop
         # (an MSA no deeper than max_depth) its output is the same in every loop, so it is
         # encoded once even when the LM dropout makes the rest of the injection per-loop.
         msa_fixed = msa_inject(msa_loops[0]) if msa_loops is not None and len(msa_loops) == 1 \
             else None
+        if msa_fixed is not None and overwrite and isinstance(z_init, _DevPair):
+            ttnn.deallocate(z_init.t)  # nothing reads z_init past the MSA encoder
 
         def inject_proj(msa_kw):
             refined = lm_refined() if use_lm else None
-            z_inject = z_init
+            z_inject = _host(z_init)
             if msa_fixed is not None:
                 z_inject = msa_fixed
             elif msa_kw is not None:
@@ -883,7 +999,11 @@ def _install_resident_trunk_loop(model):
         at = ftw._from_torch(a.reshape(1, 1, 1, -1).float())  # parcae a, broadcasts over L,L
         if on_dev:
             # What no loop redraws, uploaded once: the MSA pair (or z_init), LN and b_mat.
-            base = up(padz(msa_fixed if msa_fixed is not None else z_init).float())
+            base = msa_fixed if msa_fixed is not None else z_init
+            if isinstance(base, _DevPair):
+                base = ttnn.pad(base.t, [(0, 0), (0, pad), (0, pad), (0, 0)], value=0.0) if pad else base.t
+            else:
+                base = up(padz(base).float())
             norm = self.parcae_input_norm
             ln_w, ln_b = (ttnn.from_torch(t.detach().float(), device=ftw.tt_device,
                                           layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16)
@@ -894,7 +1014,8 @@ def _install_resident_trunk_loop(model):
         def inject_dev():
             x = _lm_dropout(lm_z, lm_p, draws.take())
             refined = _trunk_on_device(self.lm_encoder.m, x, to_host=False)
-            ttnn.deallocate(x.t)
+            if not _aliases(refined, x.t):
+                ttnn.deallocate(x.t)
             s = ttnn.add(base, refined)
             ttnn.deallocate(refined)
             n = ttnn.layer_norm(s, weight=ln_w, bias=ln_b, epsilon=norm.eps, compute_kernel_config=ck)
@@ -1040,7 +1161,7 @@ def patch_esmfold2(model, esmc_repo: str = "biohub/ESMC-6B", persistent_lm: bool
 
     # ttnn ESMC-6B language model. Loaded lazily on the first fold; with
     # persistent_lm it then stays resident for all subsequent folds.
-    model._esmc = _ESMCAdapter(esmc_repo, persistent=persistent_lm, fast=fast)
+    model._esmc = _ESMCAdapter(esmc_repo, persistent=persistent_lm, fast=fast, shim=model.language_model.m)
     model._tt_fast = fast
     model._esmc_fp8 = False
 
@@ -1049,6 +1170,7 @@ def patch_esmfold2(model, esmc_repo: str = "biohub/ESMC-6B", persistent_lm: bool
     # device), avoiding per-loop host<->device round-trips of the L²·256 pair.
     _install_resident_trunk_loop(model)
     _install_pair_state_draw(model)
+    _install_pair_init(model)
     dram_peak("esmfold2/head-built")
     return model
 
@@ -1310,6 +1432,11 @@ def wh_releases_lm(chains) -> bool:
     return tokens > WH_LM_RESIDENT_MAX_TOKENS
 
 
+# The ESMC-6B sums the shim's weighted per-layer LayerNorms on the device and hands over one state instead of
+# all 81 (each a blocking copy that drains the dispatch pipeline). Same math as the shim, summed before its
+# bias-free linear instead of after, in fp32. Unset: the ef2_lm_combine lever.
+LM_COMBINE = env_flag("TT_BIO_ESMFOLD2_LM_COMBINE", None)
+
 # The shared-kernel levers (tenstorrent.LEVERS) ESMFold2 folds under, per mode. Empty until a set is graded on
 # ESMFold2 itself: the sets Protenix and Boltz-2 ship were graded on their folds, not on this one. A harness
 # grades a candidate through TT_BIO_LEVERS.
@@ -1334,41 +1461,45 @@ def wh_releases_lm(chains) -> bool:
 # the F1 tail would serve with the residual folded in, and is bit-exact against it there (torch.equal, both sets,
 # p150a; CIF byte-identical in same-card folds at 544, 576 and 1024 aa). p150a 1350 MHz, ESMFold2's call at
 # 512: 9.79 -> 9.39 ms (normal set), 9.49 -> 8.66 ms (fast set); --fast fold warm, 544 aa 30.5 -> 29.1 s, 1024 aa
-# 98.7 -> 94.0 s. Wormhole (LEVERS_WH, 1000 MHz) folds the same CIF in the same time (544 aa 94.4 vs 94.5 s).
+# 98.7 -> 94.0 s. Wormhole (1000 MHz) folds the same CIF in the same time (544 aa 94.4 vs 94.5 s).
 # trimul_gin_hifi2 (gin's kernel at HiFi2) passes the normal bar on ESMFold2 against the same set without it,
 # 11 complexes x 4 seeds, 44 paired folds, base and test from one tree (p150a, 1350 MHz): CA-lDDT -0.0025
 # [-0.0070, +0.0002], pLDDT -0.0008, top-pose median 0.67 A vs 1.16 A floor, docking 32 -> 30 of 44. Warm fold at
-# 1350 MHz: 544 aa 26.8 -> 25.8 s, 1024 aa 89.7 -> 87.2 s. Wormhole keeps HiFi3 (LEVERS_WH, not graded there).
+# 1350 MHz: 544 aa 26.8 -> 25.8 s, 1024 aa 89.7 -> 87.2 s. Wormhole keeps HiFi3: not graded there, fold_levers drops it.
 LEVERS_NORMAL = "normal-trunk_hifi3+trimul_gin+trimul_t2g+trimul_gin_hifi2"
 # FAST also takes transition_ws (fast grade PASS on both ESMFold2 models, both archs; tenstorrent.FAST_LEVERS)
 # and trimul_gin: ESMFold2 fast bar against the set without it, 11 complexes x 4 seeds, 44 paired folds (p300c,
 # 1350 MHz): CA-lDDT +0.0026 [-0.0022, +0.0086], pLDDT +0.0005, top-pose median 0.35 A vs 1.30 A floor, docking
 # 31 -> 30 of 44. Same-card A/B at 544 and 576 tokens (p150a, 1350 MHz): 34.2 -> 33.1 s and 40.7 -> 38.4 s warm.
-LEVERS_FAST = "normal+trimul_b8in+transition_ws+trimul_gin+trimul_t2g"
-LEVERS_WH = "normal-trunk_hifi3+trimul_gin+trimul_t2g+transition_ws"
+# The ef2_* stack (see esmfold2.gate) is graded on the fast bar: ESMFold2-Fast --fast vs the set without it, 11 complexes
+# x 4 seeds, 44 paired folds (p300c, 1350 MHz): CA-lDDT -0.0000 [-0.0003, +0.0002], TM +0.0013, docking 24 -> 24;
+# ESMFold2 normal-mode folds of the stack also clear the fast bar (CA-lDDT -0.0019). 512 aa --fast on the stack:
+# ESMFold2 16.92 s, ESMFold2-Fast 10.14 s (p300c, 1350 MHz).
+LEVERS_FAST = ("normal+trimul_b8in+transition_ws+trimul_gin+trimul_t2g"
+               "+ef2_bit_draw+ef2_pair_init+ef2_lm_combine+ef2_opm_kq+ef2_relpos_lookup+ef2_atom_ffn_split")
 
 
 def fold_levers(fast: bool) -> str:
     """The lever set ESMFold2 builds and folds under: TT_BIO_LEVERS when a harness grades a set through the
     serving path (no user sets it), else the mode's."""
-    return os.environ.get("TT_BIO_LEVERS") or (LEVERS_FAST if fast else LEVERS_NORMAL)
+    if os.environ.get("TT_BIO_LEVERS"):
+        return os.environ["TT_BIO_LEVERS"]
+    if fast:
+        return LEVERS_FAST
+    return LEVERS_NORMAL.replace("+trimul_gin_hifi2", "") if is_wormhole() else LEVERS_NORMAL
 
 
 def fold_scope(fast: bool):
-    """The context ESMFold2 builds and folds in. Blackhole: `lever_scope(fold_levers(fast))`, the older bfp8
-    `_FAST_MODE` off. Wormhole keeps main's `_FAST_MODE` = `fast` path (the Blackhole path's --fast threw a
-    circular-buffer clash at 546-559 tokens on a Galaxy chip, program 217) and takes LEVERS_NORMAL in both modes:
-    graded there against no lever set, 11 complexes x 4 seeds, ESMFold2-Fast on the normal bar (CA-lDDT +0.0014
-    [-0.0007, +0.0045], docking 24 -> 25/44) and ESMFold2 on the fast bar (43 paired, CA-lDDT -0.0050 [-0.0101,
-    -0.0010], docking 30 -> 29/43, top-pose median 0.64 A vs 1.26 A seed floor), ~3 s off a 512-aa fold at 1000 MHz.
-    On Wormhole --fast and trunk_hifi3 change nothing under this set (same digest), so one grade covers both modes.
-    Wormhole adds transition_ws (LEVERS_WH): 11 complexes x 4 seeds, the set with vs without it, PASS on the fast and
-    the normal bar for both models (ESMFold2 CA-lDDT -0.0010 [-0.0063, +0.0042], top-pose median 0.38 A vs 1.40 A floor;
-    ESMFold2-Fast -0.0013 [-0.0046, +0.0009], 0.98 A vs 1.36 A; docking 29 -> 28 and 23 -> 23 of 44)."""
+    """The context ESMFold2 builds and folds in: `lever_scope(fold_levers(fast))`, the older bfp8 `_FAST_MODE` off,
+    on both archs. Wormhole used to keep `_FAST_MODE` (LEVERS_NORMAL + transition_ws) after the Blackhole path's
+    --fast threw a circular-buffer clash at 546-559 tokens (program 217); that clash no longer reproduces (552 folds
+    clean, 2026-10-13). On a Wormhole Galaxy chip at 1000 MHz the Blackhole path folds 512 aa in 43.4 s vs 69.6 s
+    (ESMFold2) and 30.5 vs 46.9 s (ESMFold2-Fast). Graded against the old path, 11 complexes x 4 seeds, fast and
+    normal bar: ESMFold2-Fast CA-lDDT +0.0003 [-0.0010, +0.0023], pLDDT -0.002, top-pose median 1.08 A vs 1.36 A
+    seed floor, docking 24/44 both. ESMFold2: CA-lDDT +0.0034 [+0.0004, +0.0078], pLDDT +0.0005, top-pose median
+    0.82 A vs 1.71 A seed floor, docking 30 -> 33 of 44. Both models fold clean at 768, 1088 and 1536 tokens on the
+    Blackhole path, 24-33 % faster than the old one at each size."""
     from tt_bio import tenstorrent
-    if is_wormhole():
-        tenstorrent.set_fast_mode(fast)
-        return tenstorrent.levers(os.environ.get("TT_BIO_LEVERS") or LEVERS_WH)
     return tenstorrent.lever_scope(fold_levers(fast))
 
 
