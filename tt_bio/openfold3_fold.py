@@ -61,8 +61,13 @@ NORMAL_LEVERS = _T.NORMAL_LEVERS - {"transition_bw", "transition_shard"} | {"dit
 # CA-lDDT -0.0002, docking 27 -> 28/44, PASS. Wormhole OpenFold3 0.167 A (floor 1.108 A), CA-lDDT +0.0024,
 # docking 21 -> 23/44, PASS; OpenBind-0 0.091 A (floor 0.642 A), CA-lDDT +0.0000, docking 27 -> 27/44, PASS
 # (state/spd/grade-wsd-*-fast.md). 512-token page fold on a p150a at 1350 MHz: OpenFold3 -0.35 s, OpenBind-0 -0.42 s.
+# dit_hifi2 (the bf16 DiT's linears at HiFi2) joins on the Wormhole 11-set fast grade of --fast + dit_hifi2 against
+# --fast, 44 paired folds per model: OpenFold3 CA-lDDT -0.0012 [-0.0029, +0.0009], docking 23 -> 22/44, PASS;
+# OpenBind-0 CA-lDDT +0.0003 [-0.0007, +0.0015], docking 27 -> 27/44, PASS. Same-seed top pose median 0.549 A
+# (floor 1.095 A) and 0.604 A (floor 0.587 A). 512-token page fold on a Galaxy chip at 1000 MHz: OpenFold3 -0.16 s,
+# OpenBind-0 -0.28 s. The DiT applies it on Wormhole only (p150a A/B was noise, ungraded there).
 FAST_LEVERS = NORMAL_LEVERS | {"dit_s16", "diffusion_bf16", "trimul_t1", "trimul_t2", "trimul_t2cm", "transition_ws",
-                               "dit_fuse", "edm_device", "ws_l1dest"}
+                               "dit_fuse", "edm_device", "ws_l1dest", "dit_hifi2"}
 
 def kabsch_rmsd(pred_ca, gt_ca):
     """Optimal-superposition Cα-RMSD (Kabsch). pred_ca, gt_ca: [N, 3].
