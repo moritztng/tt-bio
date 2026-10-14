@@ -207,7 +207,9 @@ def pxdesign():
 
 
 def nesso1():
-    import math, torch
+    import math, random
+    import numpy as np
+    import torch
     from tt_bio.main import ensure_p300_mesh_descriptor
     from tt_bio.nesso1 import DEFAULT_SEED, REPORTED_SCALARS, Nesso1
     import tt_bio.nesso1_input as NI
@@ -250,7 +252,9 @@ def nesso1():
         store = work / f"esm{i}"
         t0 = time.perf_counter()
         dataset, manifest, failed = prepare(src, work / f"r{i}", num_workers=0)
-        torch.manual_seed(DEFAULT_SEED)  # where screen() seeds: the featuriser's random roto-translation
+        # where screen() seeds torch (the featuriser's random roto-translation); the vendored featuriser also draws
+        # from numpy's and Python's global RNGs, which screen() leaves running, so rep i would differ from rep 0
+        torch.manual_seed(DEFAULT_SEED); np.random.seed(DEFAULT_SEED); random.seed(DEFAULT_SEED)
         feats = collate(dataset[0])
         t1 = time.perf_counter()
         with torch.no_grad():
