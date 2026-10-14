@@ -89,7 +89,7 @@ def _cb(idx, core_grid, tiles, dtype=ttnn.bfloat16):
 def _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT):
     kt, nw = int(x.shape[-1]) // TILE, int(w.padded_shape[-1]) // TILE
     m = 1
-    for d in x.padded_shape[:-1]:
+    for d in list(x.padded_shape)[:-1]:
         m *= int(d)
     m //= TILE
     gx, gy = grid
