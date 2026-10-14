@@ -153,10 +153,15 @@ def test_a_second_run_reproduces_the_committed_floor():
         pytest.skip(f"{path.name} absent")
     live = json.loads(path.read_text())
     assert df.af2ig_device_floor_verdict(live, _committed())[0] == "GAP"
-    # Bit-identical, which is why DEFAULT_TOL's floor of 1.10 is what binds rather than a
-    # measured cross-card spread.
+    # Identical device output, which is why DEFAULT_TOL's floor of 1.10 is what binds rather than
+    # a measured cross-card spread. The scalars match exactly; a tap's PCC is a float64 reduction
+    # done on the host, and a run harvested on another host's numpy differs in the last ulp
+    # (1e-14 between qb1 and qb2 on 324cd5910), so the PCCs match to 1e-12, not bit for bit.
     rows = {r["tap"]: r for r in live["rows"]}
-    assert all(rows[r["tap"]].get("pcc") == r.get("pcc") for r in _record_for(live)["rows"])
+    record = _record_for(live)
+    assert all(rows[r["tap"]].get("pcc") == pytest.approx(r.get("pcc"), rel=1e-12)
+               for r in record["rows"])
+    assert [s["delta"] for s in live["scalars"]] == [s["delta"] for s in record["scalars"]]
 
 
 def test_the_template_host_arm_is_off_the_floor():
