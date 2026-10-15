@@ -192,6 +192,7 @@ for n in A.get("unqueue", []):
     if os.path.exists(p): os.makedirs(H + "/spd/pool/quarantine", exist_ok=True); os.rename(p, H + "/spd/pool/quarantine/" + n)
 print(len(A["jobs"]))
 '''
+PLACE = f"RUN = {RUN!r}\n" + PLACE   # the waiter string above runs on the BH host, where only what PLACE defines exists
 
 
 # Withdraws BH waiters that have not started: kill the waiter's session (feed started it under setsid), then set the
