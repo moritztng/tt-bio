@@ -1,11 +1,11 @@
 #!/bin/bash
-# run.sh <chip> <out> <tree> <arm> <inputs> <warm> <seed> [stall_s]: one Protenix-v2 bench.py run armed to catch a hang
+# run.sh <chip> <out> <tree> <arm> <inputs> <warm> <seed> [stall_s] [K=V,K=V extra env]: one Protenix-v2 bench.py run armed to catch a hang
 # live. Inspector RPC + a 300 s Metal op timeout run hangcap.sh against the hung process; a stall watch (no new rep and
 # no log line for stall_s, default 1200) runs it too, for a hang Metal does not see (host side, or an op that never
 # times out). After a dump the run is stopped (SIGINT, then SIGTERM) and the card reset (each qb1 p150a is its own board).
 # A device init failure before the first fold (card left dirty by an earlier job) resets the card and retries once.
 # Writes <out>/b/bench.jsonl, <out>/log, <out>/aiclk.tsv, <out>/dump/*, <out>/result (ok | hang <why> | rc <n>).
-c=$1; out=$2; tree=$3; arm=$4; inp=$5; warm=$6; seed=$7; stall=${8:-1200}
+c=$1; out=$2; tree=$3; arm=$4; inp=$5; warm=$6; seed=$7; stall=${8:-1200}; xenv=${9//,/ }
 H=$(dirname $(readlink -f $0)); V=$(ls -dt $HOME/scratch/shipflow/venv-*/ | head -1)
 rm -rf $out; mkdir -p $out/insp; echo $V > $out/venv; cd $tree
 reset() { timeout 300 $HOME/.local/bin/tt-smi -r $c >> $out/log 2>&1; echo "reset rc=$? $(date -u +%FT%TZ)"; }
@@ -13,7 +13,7 @@ reset() { timeout 300 $HOME/.local/bin/tt-smi -r $c >> $out/log 2>&1; echo "rese
 for try in 1 2; do
   env PYTHONPATH=$tree TT_VISIBLE_DEVICES=$c TT_METAL_LOGS_PATH=$out/insp TT_METAL_INSPECTOR=1 TT_METAL_INSPECTOR_RPC=1 \
     TT_METAL_INSPECTOR_RPC_SERVER_ADDRESS=localhost:5008$c TT_METAL_INSPECTOR_SERIALIZE_ON_DISPATCH_TIMEOUT=1 \
-    TT_METAL_OPERATION_TIMEOUT_SECONDS=300 TT_METAL_DISPATCH_TIMEOUT_COMMAND_TO_EXECUTE="bash $H/hangcap.sh $c $out optimeout" \
+    TT_METAL_OPERATION_TIMEOUT_SECONDS=300 TT_METAL_DISPATCH_TIMEOUT_COMMAND_TO_EXECUTE="bash $H/hangcap.sh $c $out optimeout" $xenv \
     ${V}bin/python perf/spd/bench.py --out $out/b --chip $c --model protenix-v2 --arm $arm --inputs $inp --seed $seed \
     --warm $warm > $out/log 2>&1 &
   P=$!; echo $P > $out/bench.pid
