@@ -2553,6 +2553,50 @@ def parse_ccd_residue(
     )
 
 
+def _polymer_residue_atoms(res_corrected: str, components: dict[str, Mol], mol_dir: Path,
+                           unk_chirality: int) -> tuple[ParsedAtom, ...]:
+    """`parse_polymer`'s atoms of standard residue `res_corrected`, in const.ref_atoms order."""
+    ref_mol = get_mol(res_corrected, components, mol_dir)
+    ref_mol = AllChem.RemoveHs(ref_mol, sanitize=False)
+    ref_conformer = get_conformer(ref_mol)
+
+    # Only use reference atoms set in constants
+    ref_name_to_atom = {a.GetProp("name"): a for a in ref_mol.GetAtoms()}
+    ref_atoms = [ref_name_to_atom[a] for a in const.ref_atoms[res_corrected]]
+
+    # Iterate, always in the same order
+    atoms: list[ParsedAtom] = []
+
+    for ref_atom in ref_atoms:
+        # Get atom name
+        atom_name = ref_atom.GetProp("name")
+        idx = ref_atom.GetIdx()
+
+        # Get conformer coordinates
+        ref_coords = ref_conformer.GetAtomPosition(idx)
+        ref_coords = (ref_coords.x, ref_coords.y, ref_coords.z)
+
+        # Set 0 coordinate
+        atom_is_present = True
+        coords = (0, 0, 0)
+
+        # Add atom to list
+        atoms.append(
+            ParsedAtom(
+                name=atom_name,
+                element=ref_atom.GetAtomicNum(),
+                charge=ref_atom.GetFormalCharge(),
+                coords=coords,
+                conformer=ref_coords,
+                is_present=atom_is_present,
+                chirality=const.chirality_type_ids.get(
+                    str(ref_atom.GetChiralTag()), unk_chirality
+                ),
+            )
+        )
+    return tuple(atoms)
+
+
 def parse_polymer(
     sequence: list[str],
     raw_sequence: str,
@@ -2595,6 +2639,10 @@ def parse_polymer(
 
     # Get coordinates and masks
     parsed = []
+    # A standard residue's atoms are the same frozen records wherever it sits, so each type is
+    # built from its reference molecule once per chain, not once per residue (RemoveHs and the
+    # conformer walk were ~0.18 s of a 512-residue Boltz-2 fold on the host).
+    templates: dict[str, tuple[ParsedAtom, ...]] = {}
     for res_idx, res_name in enumerate(sequence):
         # Check if modified residue
         # Map MSE to MET
@@ -2612,45 +2660,10 @@ def parse_polymer(
             parsed.append(residue)
             continue
 
-        # Load ref residue
-        ref_mol = get_mol(res_corrected, components, mol_dir)
-        ref_mol = AllChem.RemoveHs(ref_mol, sanitize=False)
-        ref_conformer = get_conformer(ref_mol)
-
-        # Only use reference atoms set in constants
-        ref_name_to_atom = {a.GetProp("name"): a for a in ref_mol.GetAtoms()}
-        ref_atoms = [ref_name_to_atom[a] for a in const.ref_atoms[res_corrected]]
-
-        # Iterate, always in the same order
-        atoms: list[ParsedAtom] = []
-
-        for ref_atom in ref_atoms:
-            # Get atom name
-            atom_name = ref_atom.GetProp("name")
-            idx = ref_atom.GetIdx()
-
-            # Get conformer coordinates
-            ref_coords = ref_conformer.GetAtomPosition(idx)
-            ref_coords = (ref_coords.x, ref_coords.y, ref_coords.z)
-
-            # Set 0 coordinate
-            atom_is_present = True
-            coords = (0, 0, 0)
-
-            # Add atom to list
-            atoms.append(
-                ParsedAtom(
-                    name=atom_name,
-                    element=ref_atom.GetAtomicNum(),
-                    charge=ref_atom.GetFormalCharge(),
-                    coords=coords,
-                    conformer=ref_coords,
-                    is_present=atom_is_present,
-                    chirality=const.chirality_type_ids.get(
-                        str(ref_atom.GetChiralTag()), unk_chirality
-                    ),
-                )
-            )
+        if res_corrected not in templates:
+            templates[res_corrected] = _polymer_residue_atoms(res_corrected, components, mol_dir,
+                                                              unk_chirality)
+        atoms = list(templates[res_corrected])
 
         atom_center = const.res_to_center_atom_id[res_corrected]
         atom_disto = const.res_to_disto_atom_id[res_corrected]

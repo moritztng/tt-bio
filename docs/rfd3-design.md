@@ -194,13 +194,21 @@ Blackhole and Wormhole against the exact chain: a design moves 3.8 to 15.4 A at 
 changing the seed does (13 to 20 A), and CA-CA geometry, chain breaks, clashes and amino-acid diversity
 match.
 
-`--fast` also runs the token pair transition as one weight-stationary kernel that keeps its weights on
-chip and never writes the hidden activations out. On a Blackhole p150a at 1350 MHz a 685-residue fast
-design drops from 61.3 to 56.3 s and a Wormhole one from 114.7 to 100.1 s. Over ten paired seeds on both
-chips the clash count moves by -1.4 with a standard error of 5.4, chain breaks are identical seed for seed,
-and the same-seed drift (3.9 to 12.7 A) stays inside the 13.5 to 20.0 A a seed change moves a design.
-The same kernel also applies the transition's input norm, with bit-identical output. With everything above,
-a 685-residue `--fast` design takes 50.3 s on a Blackhole p150a at 1350 MHz.
+The token pair transition runs as one weight-stationary kernel that keeps its weights on chip and never
+writes the hidden activations out. On a Blackhole p150a at 1350 MHz a 685-residue fast design drops from
+61.3 to 56.3 s and a Wormhole one from 114.7 to 100.1 s; a default design drops from 62.9 to 51.9 s on
+Blackhole and from about 125 to 91 s on Wormhole at 1000 MHz. Over 28 paired default seeds on both chips
+clashes rise by about 5 per design with a standard error of about 4, chain breaks go from 14 to 15, and the
+same-seed drift (2.9 to 14.1 A) stays inside the 13.8 to 21.7 A a seed change moves a design; the fast
+grade (ten paired seeds) moves clashes by -1.4 and leaves chain breaks identical seed for seed.
+`RFD3_PAIR_WS=0` restores the chunked transition.
+
+The token transformer's attention masks (pair-bias projection, head-first layout, scale and mask) are built
+by one kernel instead of a linear, a permute and three elementwise passes. It is closer to a float64
+reference than the chain it replaces, and a 685-residue default design on Wormhole drops from 100.1 to
+91.4 s. Over four seeds the design moves 3.8 to 10.1 A at the same seed against 14 to 18 A for a seed
+change, with chain breaks, clashes and CA-CA geometry unchanged. It is on by default on Wormhole; Blackhole
+keeps the chain until its own check reads (`RFD3_DPB=1` opts in). `RFD3_DPB=0` restores the chain.
 
 ## Checkpoint
 

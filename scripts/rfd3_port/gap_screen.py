@@ -21,6 +21,10 @@ ARM is a '+'-joined set of knobs applied before the denoiser is built:
   sf        RFD3_SIGMOID_FOLD, sigmoid gates folded into their multiply (on by default)
   rs        RFD3_RESIDENT_STEP, the denoise step stays on the card between modules (on by default)
   pws       RFD3_PAIR_WS, the token pair Transition as one weight-stationary program (tt_bio.pair_swiglu_ws)
+  pwb8      RFD3_PAIR_WS_B8, pws with bfp8 weights at HiFi2
+  at        RFD3_ATTN_THREAD, the atom neighbour index built on a worker thread
+  dpb       RFD3_DPB, the DiT SDPA masks as one program (tt_bio.dit_pair_bias)
+  apb       RFD3_ATOM_PB_FUSED, one pair-bias projection for all three atom blocks (default on)
   gsm bs pzc fgrid   the existing off-by-default levers RFD3_GATHERED_SOFTMAX, RFD3_BLOCK_SPARSE,
             RFD3_PROCESS_Z_COLLAPSE, RFD3_FAST_GRID (declined before only for not being bit-exact)
 
@@ -41,7 +45,9 @@ ENV_KNOBS = {"gsm": "RFD3_GATHERED_SOFTMAX", "bs": "RFD3_BLOCK_SPARSE",
              "pzc": "RFD3_PROCESS_Z_COLLAPSE", "fgrid": "RFD3_FAST_GRID",
              "asdpa": "RFD3_ATOM_SDPA", "tb8": "RFD3_TRANSITION_B8",
              "dsdpa": "RFD3_DIT_SDPA", "hifi2": "RFD3_HIFI2", "sf": "RFD3_SIGMOID_FOLD",
-             "rs": "RFD3_RESIDENT_STEP", "pws": "RFD3_PAIR_WS", "kd": "RFD3_ATTN_KDTREE"}
+             "rs": "RFD3_RESIDENT_STEP", "pws": "RFD3_PAIR_WS", "kd": "RFD3_ATTN_KDTREE",
+             "pwb8": "RFD3_PAIR_WS_B8", "at": "RFD3_ATTN_THREAD", "dpb": "RFD3_DPB",
+             "apb": "RFD3_ATOM_PB_FUSED"}
 _arm = set(sys.argv[1].split("+")) if len(sys.argv) > 1 else set()
 for _k, _env in ENV_KNOBS.items():
     os.environ[_env] = "1" if _k in _arm else "0"   # read at import, so before tt_bio.rfd3 loads
@@ -108,7 +114,7 @@ RFD3Sampler.sample = _timed
 
 def fold(tag, seed):
     specs = json.loads(pathlib.Path(FIXTURE).read_text())
-    out_dir = "/tmp/gap_screen_%s_%s" % (ARM, tag)
+    out_dir = "/tmp/gap_screen_%s_%s_%d" % (ARM, tag, os.getpid())   # parallel jobs of one arm share a box
     shutil.rmtree(out_dir, ignore_errors=True)
     WALL.clear()
     rfd3_design.run_design(specs, out_dir, checkpoint_dir=str(WEIGHTS), from_pdb=True,

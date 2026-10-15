@@ -97,7 +97,11 @@ TRIATT_LN = frozenset({"triatt_ln", "apb_ln"})
 # gwsfx, 2026-10-15), PASS: same-seed top pose median 0.471 A vs the 1.414 A A/A floor, CA-lDDT +0.0001
 # [-0.0013, +0.0021], pLDDT -0.0056, docking 34 -> 34. Galaxy chip (1000 MHz, wsfx): -0.46 s, 4 of 4 pairs faster.
 # Boltz-2 fast null there, so Protenix-v2 Wormhole --fast only.
-WS_FAST = frozenset({"ws_ln", "ws_lofi"})
+# trimul_sig6 (the trimul gate sigmoid as a degree-6 polynomial) joins them. Wormhole 11-set fast grade, shipped
+# Protenix-v2 Wormhole fast set vs + trimul_sig6, 44 paired folds (spd-gap-small gsig6, 2026-10-15), PASS: same-seed
+# top pose median 0.333 A vs the 1.414 A A/A floor, CA-lDDT +0.0001 [-0.0013, +0.0016], docking 34 -> 35. Galaxy chip
+# (1000 MHz, s6x): -0.40 s, 4 of 4 pairs faster. Blackhole not measured.
+WS_FAST = frozenset({"ws_ln", "ws_lofi", "trimul_sig6"})
 from .eltwise_fusion import scale_add, norm_residual, gated_add
 
 
