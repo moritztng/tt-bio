@@ -693,6 +693,9 @@ _FAST_MODE = False
 #                   too, so this arms the same exposure for ~30 % of the call (perf/spd_wherr/sdpa_probe.py).
 #   dit_mask16      under dit_fuse on Wormhole, OpenFold3's token-DiT attention reads its cached pair-bias mask bf16,
 #                   not fp32 (Blackhole ignores it).
+#   dit_cond_at     Boltz-2's bf16 token DiT reads each layer's adaLN scale / shift and attention gate as column
+#                   windows of the hoisted conditioning (`addcmul_at`, as OpenFold3's dit_shoist) instead of
+#                   slicing them out, so 3 of the 6 slices a layer (14,400 copies a 512-token fold) go
 #   pib_where       OpenDDE's pair-init bias by the old 16-op where-chain instead of one gather from the joint
 #                   (128, c_z) table: the A/B arm for a change that must keep the fold digest (no mode sets it).
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
@@ -705,7 +708,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "trimul_t2w", "narrow_bw16", "ws_l1dest", "opm_jd", "trimul_gin_hifi2", "trimul_gin_b8",
           "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine", "ef2_opm_kq", "ef2_relpos_lookup",
           "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit", "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384",
-          "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "dit_kc", "dit_mask16")
+          "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "dit_kc", "dit_mask16", "dit_cond_at")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -720,7 +723,8 @@ UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "di
                              "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine", "ef2_opm_kq",
                              "ef2_relpos_lookup", "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit",
                              "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384",
-                             "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "dit_kc", "dit_mask16"})
+                             "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "dit_kc", "dit_mask16",
+                             "dit_cond_at"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -2451,6 +2455,23 @@ _B2_ADALN_ADDCMUL = env_flag("TT_BIO_ADALN_ADDCMUL", False)
 
 class _SigTerms(tuple):
     """An AdaLN `(scale, shift)` pair whose scale already went through its sigmoid."""
+
+
+class _Win(tuple):
+    """`(tensor, column offset, width)`: a column window of a hoisted conditioning output, read in
+    place by `addcmul_at` (dit_cond_at). `get()` slices it out where the kernel declines."""
+    def get(self):
+        t, off, w = self
+        return t[..., off:off + w]
+
+
+def _addcmul_win(x, y, z):
+    """`x + y * z` where `x` and / or `z` may be a `_Win`; None where `addcmul_at` declines."""
+    from .addcmul_at import addcmul_at
+    w = (x if isinstance(x, _Win) else z)[2]
+    xt, xo = (x[0], x[1]) if isinstance(x, _Win) else (x, 0)
+    zt, zo = (z[0], z[1]) if isinstance(z, _Win) else (z, 0)
+    return addcmul_at(xt, y, zt, w, x_off=xo, z_off=zo)
 # Every diffusion sample of a fold sees the same noise level and the same trunk output, so the
 # token conditioning `s` and everything the DiT derives from it (the hoisted AdaLN and gate
 # projections, the conditioner transitions, s_to_a) are the same row for each sample. With the
@@ -14610,7 +14631,18 @@ class AdaLN(Module):
             # A memoised pair belongs to the memo and must survive this call.
             own = self._s_memo is not s_terms
         s_scale, s_bias = s_terms
-        if isinstance(s_terms, _SigTerms):
+        out = None
+        if isinstance(s_scale, _Win):
+            if a.dtype == ttnn.bfloat16 and dtype in (None, a.dtype):
+                out = _addcmul_win(s_bias, a, s_scale)
+            if out is None:     # declined: slice the windows and take the _SigTerms branch
+                s_terms = _SigTerms((s_scale.get(), s_bias.get()))
+                s_scale, s_bias = s_terms
+                own = True
+        if out is not None:
+            ttnn.deallocate(a)
+            a = out
+        elif isinstance(s_terms, _SigTerms):
             kw = {} if dtype in (None, a.dtype) else {"output_tensor": ttnn.allocate_tensor_on_device(
                 ttnn.Shape(list(a.shape)), dtype, ttnn.TILE_LAYOUT, a.device())}
             out = ttnn.addcmul(s_bias, a, s_scale, value=1.0, **kw)
@@ -14811,6 +14843,12 @@ class DiffusionTransformerLayer(Module):
         else:
             s_o = self.s_o
         def gate(a):
+            nonlocal s_o
+            if isinstance(s_o, _Win):
+                out = _addcmul_win(a, b, s_o) if a.dtype == b.dtype == ttnn.bfloat16 else None
+                if out is not None:
+                    return out
+                s_o = s_o.get()
             # adaln_mod: the gated residual a + s_o * b as one addcmul (the product is not rounded
             # first). Same shapes only: a sample-batched b against a shared s_o keeps the broadcast.
             if lever("adaln_mod") and tuple(s_o.shape) == tuple(b.shape):
@@ -14972,6 +15010,14 @@ class DiffusionTransformer(Module):
             return pair((parts[0], parts[1])), parts
 
         def bundle(i):
+            if cond_all is not None and isinstance(cond_all[0], tuple) and lever("dit_cond_at"):
+                # dit_cond_at: the attention adaLN pair and gate are read in place as windows; the
+                # transition's (its adaLN and its multiply-only gate) stay slices.
+                (sc, sh), o_op = cond_all
+                win = lambda t: _Win((t, 2 * i * d, d))  # noqa: E731
+                cols = slice((2 * i + 1) * d, (2 * i + 2) * d)
+                parts = [sc[..., cols], sh[..., cols], o_op[..., cols]]
+                return (_SigTerms((win(sc), win(sh))), win(o_op), _SigTerms(parts[:2]), parts[2]), parts
             terms, parts = cut(i)
             if terms is None:
                 return None, ()
