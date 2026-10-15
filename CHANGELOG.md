@@ -5,6 +5,8 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-10-15
+
 ### Changed
 - **Nesso-1's normal mode runs the fused triangle kernels** (triangle multiplication, including the
   256-token crops, the triangle attention tail and the fused pair transition). A 532-token forward on a
