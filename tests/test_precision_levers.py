@@ -198,7 +198,7 @@ def test_protenix_family_normal_set():
 
 def test_protenix_v2_normal_takes_t2_tail(monkeypatch):
     import torch
-    from tt_bio.protenix import FAST_LEVERS, NORMAL_LEVERS, T2_TAIL, WS_CHAIN, mode_levers
+    from tt_bio.protenix import FAST_LEVERS, NORMAL_LEVERS, T2_TAIL, TRIATT_LN, WS_CHAIN, mode_levers
 
     def ck(c_z):
         return {"layernorm_z_cycle.weight": torch.zeros(c_z)}
@@ -212,7 +212,9 @@ def test_protenix_v2_normal_takes_t2_tail(monkeypatch):
     monkeypatch.setattr(T, "is_wormhole", lambda: False)
     assert mode_levers(ck(256)) == mode_levers(ck(128)) == FAST_LEVERS
     monkeypatch.setattr(T, "is_wormhole", lambda: True)
-    assert mode_levers(ck(256)) == FAST_LEVERS - {"trimul_t1_c256"}
+    assert mode_levers(ck(256)) == FAST_LEVERS - {"trimul_t1_c256"} | TRIATT_LN
+    assert mode_levers(ck(128)) == FAST_LEVERS - {"trimul_t1_c256"}
+    assert TRIATT_LN <= set(T.LEVERS)
 
 
 def test_protenix_fast_set_takes_t1_c256(monkeypatch):
