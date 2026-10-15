@@ -22,6 +22,7 @@ def main() -> int:
     ap.add_argument("--valid", type=int, default=514)
     ap.add_argument("--d", type=int, default=64)
     ap.add_argument("--repeat", type=int, default=10)
+    ap.add_argument("--configs", default="", help="q:k pairs, comma separated (default: the 5 x 5 power-of-two grid)")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
 
@@ -63,8 +64,9 @@ def main() -> int:
             ttnn.deallocate(o)
         return sorted(ts)[len(ts) // 2]
 
-    configs = [(shipped.q_chunk_size, shipped.k_chunk_size)] + [
-        (a, b) for a in (32, 64, 128, 256, 512) for b in (32, 64, 128, 256, 512)]
+    grid = ([tuple(int(x) for x in c.split(":")) for c in args.configs.split(",")] if args.configs else
+            [(a, b) for a in (32, 64, 128, 256, 512) for b in (32, 64, 128, 256, 512)])
+    configs = [(shipped.q_chunk_size, shipped.k_chunk_size)] + grid
     seen = set()
     with open(args.out, "w") as f:
         for qc, kc in configs:

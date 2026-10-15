@@ -329,6 +329,7 @@ class Attention(_MMLin, Module):
         super().__init__(state_dict, compute_kernel_config)
         self.n_heads = n_heads
         self.qk_l1 = True  # this model may take the L1 path; Block clears it for the 6B
+        self.qkv_split = _ESMC_QKV_SPLIT  # Block clears it with qk_l1
         self.in_norm_weight = self.torch_to_tt("layernorm_qkv.0.weight")
         self.in_norm_bias = self.torch_to_tt("layernorm_qkv.0.bias")
         # The two big projection weights (qkv, out_proj) carry the bulk of the
@@ -341,12 +342,15 @@ class Attention(_MMLin, Module):
         self.out_weight = self.torch_to_tt("out_proj.weight", transform=_scaled_t(out_scale), dtype=_dtype())
 
     def _qkv_split(self):
-        """The q, k and v column blocks of the packed qkv weight, sliced on device once and cached."""
+        """The q, k and v column blocks of the packed qkv weight, sliced on device once; the packed weight is freed,
+        so the split costs no second copy (3 GB on the 6B in bf16)."""
         if getattr(self, "_qkv_w", None) is None:
             w = self.qkv_weight
             d_in, d3 = int(w.shape[0]), int(w.shape[1])
             d = d3 // 3
             self._qkv_w = tuple(ttnn.slice(w, [0, i * d], [d_in, (i + 1) * d]) for i in range(3))
+            ttnn.deallocate(w)
+            self.qkv_weight = None
         return self._qkv_w
 
     def _qkv(self, x, ln_mc=None):
@@ -354,7 +358,7 @@ class Attention(_MMLin, Module):
         x_norm = ttnn.layer_norm(x, weight=self.in_norm_weight, bias=self.in_norm_bias, epsilon=1e-5,
                                  compute_kernel_config=self.compute_kernel_config, memory_config=ln_mc)
         try:
-            if _ESMC_QKV_SPLIT and self.qk_l1:
+            if self.qkv_split or self.qkv_weight is None:  # once split, the packed weight is gone
                 return tuple(self._lin(x_norm, w) for w in self._qkv_split())
             qkv = self._lin(x_norm, self.qkv_weight)
             q, k, v = ttnn.chunk(qkv, 3, dim=-1)
@@ -592,6 +596,10 @@ def _swiglu_gate_legacy() -> bool:
 # A shape the allocator refuses in one piece below the bound is tiled from then on.
 # A model past _LM_LARGE_MODEL_BYTES also keeps the attention's DRAM path (Attention.qk_l1).
 _LM_LARGE_MODEL_BYTES = env_int("TT_BIO_LM_LARGE_MODEL_BYTES", 4 << 30)
+# The 6B on the same attention path as the small models: q, k and v from the split weight (no second copy since the
+# split frees the packed one) and the norms, re-pack and rope in L1, each refusal falling back to DRAM. Its first try
+# kept both weights: --fast 304.8 -> 286.2 ms at 544 aa on a Galaxy chip, normal out of DRAM. Off until measured.
+_ESMC_QK_L1_LARGE = env_flag("TT_BIO_ESMC_QK_L1_LARGE", False)
 _LM_FFN_WHOLE_ROWS = env_int("TT_BIO_LM_FFN_WHOLE_ROWS", 1056)
 # The per-token LM FFN's SwiGLU gate silu(x fc1_a) * (x fc1_b) written to L1, where fc2 reads it back. Same op, same
 # values (a memory placement); a refusal falls back to DRAM for that shape for good. Off until the page-cell A/B says.
@@ -1229,7 +1237,8 @@ class Block(Module):
         shape = self.ffn.fc2_weight.shape  # ttnn.Shape takes no slice
         d_ff, d = int(shape[-2]), int(shape[-1])
         self.ffn.model_bytes = n_layers * (4 * d * d + 3 * d * d_ff) * 2
-        self.attn.qk_l1 = self.ffn.model_bytes <= _LM_LARGE_MODEL_BYTES
+        self.attn.qk_l1 = self.ffn.model_bytes <= _LM_LARGE_MODEL_BYTES or _ESMC_QK_L1_LARGE
+        self.attn.qkv_split &= self.attn.qk_l1
 
     def __call__(self, x: ttnn.Tensor, cos: ttnn.Tensor, sin: ttnn.Tensor,
                  attn_mask: ttnn.Tensor | None = None,
