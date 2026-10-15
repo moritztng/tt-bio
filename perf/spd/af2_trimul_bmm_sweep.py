@@ -73,19 +73,20 @@ def main():
     ap.add_argument("--transpose", default="none", choices=("none", "a", "b"),
                     help="the deferred transpose production hands the matmul (ending: a, starting: b)")
     ap.add_argument("--no-reuse2", action="store_true", help="skip reuse_c2 (hung on .114 chip 12, 10-12)")
-    ap.add_argument("--kws", default="", help="reuse arms' in0_block_w values (default 1 and St)")
-    ap.add_argument("--subs", default="1x1", help="reuse arms' out subblocks, e.g. 1x1,2x2,1x4")
+    ap.add_argument("--kws", default="", help="in0_block_w values for the reuse arms (default: 1 and St)")
+    ap.add_argument("--rows", default="", help="per_core_M values (tiles, dividing St) for row-block reuse arms")
+    ap.add_argument("--fid", default="HiFi4", help="math fidelity of every arm")
     a = ap.parse_args()
     dev = tt.get_device()
     gx, gy = tt.COMPUTE_GRID_MAIN
     ckc_cls = (ttnn.types.WormholeComputeKernelConfig if dev.arch() == ttnn.Arch.WORMHOLE_B0
                else ttnn.types.BlackholeComputeKernelConfig)
-    ckc = ckc_cls(math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=False,
+    ckc = ckc_cls(math_fidelity=getattr(ttnn.MathFidelity, a.fid), math_approx_mode=False,
                   fp32_dest_acc_en=True, packer_l1_acc=True)
     res = {"arch": str(dev.arch()), "grid": [gx, gy], "loadavg": open("/proc/loadavg").read().split()[:3],
            "inner": a.inner, "cells": []}
     mc = ttnn.L1_MEMORY_CONFIG if a.mem == "l1" else ttnn.DRAM_MEMORY_CONFIG
-    res.update(mem=a.mem, transpose=a.transpose)
+    res.update(mem=a.mem, transpose=a.transpose, fid=a.fid)
     tkw = {"transpose_a": a.transpose == "a", "transpose_b": a.transpose == "b"}
     up = lambda t: ttnn.from_torch(t, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16,  # noqa: E731
                                    memory_config=mc)
@@ -107,19 +108,20 @@ def main():
                     (f"grid{gx}x{gy}", mm(core_grid=ttnn.CoreGrid(y=gy, x=gx))),
                     ("grid8x8", mm(core_grid=ttnn.CoreGrid(y=8, x=8)))]
             # 1D reuse: batch folded into M, whole channels per core (per_core_M a multiple of St).
-            kws = [int(k) for k in a.kws.split(",")] if a.kws else [1, St]
             for chans in ((1,) if a.no_reuse2 else (1, 2)):
-                for kw in kws:
+                for kw in (tuple(map(int, a.kws.split(","))) if a.kws else (1, St)):
                     if St % kw:
                         continue
-                    for sub in a.subs.split(","):
-                        sh, sw = map(int, sub.split("x"))
-                        if St % sh or St % sw:
-                            continue
-                        tag = f"reuse_c{chans}_k{kw}" + ("" if sub == "1x1" else f"_s{sub}")
-                        arms.append((tag, mm(program_config=ttnn.MatmulMultiCoreReuseProgramConfig(
-                            compute_with_storage_grid_size=(gx, gy), in0_block_w=kw, out_subblock_h=sh,
-                            out_subblock_w=sw, per_core_M=chans * St, per_core_N=St))))
+                    arms.append((f"reuse_c{chans}_k{kw}", mm(program_config=ttnn.MatmulMultiCoreReuseProgramConfig(
+                        compute_with_storage_grid_size=(gx, gy), in0_block_w=kw, out_subblock_h=1,
+                        out_subblock_w=1, per_core_M=chans * St, per_core_N=St))))
+            # 1D reuse with a row block of each channel per core: the whole output width, `m` tile rows.
+            for m in (tuple(map(int, a.rows.split(","))) if a.rows else ()):
+                for kw in (1, 2):
+                    if St % m == 0:
+                        arms.append((f"reuse_m{m}_k{kw}", mm(program_config=ttnn.MatmulMultiCoreReuseProgramConfig(
+                            compute_with_storage_grid_size=(gx, gy), in0_block_w=kw, out_subblock_h=1,
+                            out_subblock_w=1, per_core_M=m, per_core_N=St))))
             cell = {"S": S, "C": C, "St": St, "arms": []}
             ref = None
             for name, fn in arms:
