@@ -1,5 +1,6 @@
 """addcmul_at against float64: column windows of wide operands, bf16 (FPU) and fp32 (SFPU) inputs,
-bf16 / fp32 / bfp8 outputs, at the DiT's shapes (512 rows, 768-column windows of a 36864-wide tensor).
+bf16 / fp32 / bfp8 outputs, at the DiT's shapes (512 rows, 768-column windows of a 36864-wide tensor), for one
+diffusion sample and for five samples of y reading one sample's x and z.
 
 Prints one line per case: rel_rms and max |err| vs float64, and the same for ttnn.addcmul on the sliced
 operands at the same formats (the incumbent), so the kernel is judged against what it replaces.
@@ -28,10 +29,10 @@ def main():
     R, W, NW = 512, 768, 48
     up = lambda t, dt: ttnn.from_torch(t, dtype=dt, layout=ttnn.TILE_LAYOUT, device=dev)  # noqa: E731
     bad = 0
-    for in_dt in (ttnn.bfloat16, ttnn.float32):
-        xw = torch.randn(R, W * NW)
-        zw = torch.sigmoid(torch.randn(R, W * NW))
-        y = torch.randn(R, W)
+    for S, in_dt in ((1, ttnn.bfloat16), (1, ttnn.float32), (5, ttnn.bfloat16), (5, ttnn.float32)):
+        xw = torch.randn(1, R, W * NW)
+        zw = torch.sigmoid(torch.randn(1, R, W * NW))
+        y = torch.randn(S, R, W)
         xd, zd, yd = up(xw, in_dt), up(zw, in_dt), up(y, in_dt)
         # the reference sees the operands as the device holds them
         xh, zh, yh = (ttnn.to_torch(t).double() for t in (xd, zd, yd))
@@ -40,19 +41,19 @@ def main():
                 off = j * W
                 got = A.addcmul_at(xd, yd, zd, W, x_off=off, z_off=off, out_dtype=out_dt)
                 if got is None:
-                    print(f"in {in_dt} out {out_dt} win {j}: DECLINED", flush=True)
+                    print(f"S {S} in {in_dt} out {out_dt} win {j}: DECLINED", flush=True)
                     bad += 1
                     continue
-                ref = xh[:, off:off + W] + yh * zh[:, off:off + W]
+                ref = xh[..., off:off + W] + yh * zh[..., off:off + W]
                 e = err(ttnn.to_torch(got), ref)
-                xs, zs = xd[:, off:off + W], zd[:, off:off + W]
+                xs, zs = xd[:, :, off:off + W], zd[:, :, off:off + W]
                 inc = ttnn.addcmul(xs, yd, zs, value=1.0)
                 e0 = err(ttnn.to_torch(inc), ref)
                 # the incumbent writes the input dtype, so a narrower output is held to its own rounding floor
                 floor = {ttnn.bfloat8_b: 1e-2, ttnn.bfloat16: 4e-3}.get(out_dt, 1e-6)
                 ok = e[0] <= max(2 * e0[0], floor)
                 bad += not ok
-                print(f"in {in_dt} out {out_dt} win {j}: rel_rms {e[0]:.3e} max {e[1]:.3e} | "
+                print(f"S {S} in {in_dt} out {out_dt} win {j}: rel_rms {e[0]:.3e} max {e[1]:.3e} | "
                       f"ttnn.addcmul {e0[0]:.3e} {e0[1]:.3e} {'ok' if ok else 'BAD'}", flush=True)
                 for t in (got, inc, xs, zs):
                     ttnn.deallocate(t)

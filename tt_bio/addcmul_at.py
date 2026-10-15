@@ -12,7 +12,8 @@ common runtime arg), so one cached program serves all 24 blocks' windows of the 
 call costs the dispatch of a cached descriptor with seven rewritten scalars.
 
 Declines (returns None) on anything but bfloat16 or float32 (all alike) TILE interleaved operands whose row tiles match;
-the caller then runs the ttnn ops.
+the caller then runs the ttnn ops. x and z may instead be one sample of y's rows (leading dims 1, same row count),
+which every sample of y reads: the DiT's conditioning is one row block for all diffusion samples.
 """
 
 from __future__ import annotations
@@ -69,7 +70,7 @@ def _build(x, y, z, out, device, ht, wt):
                     first += per_core
     assert first == num_tiles, (first, num_tiles)
 
-    reader_ct = [_GRAN, wt] + [_grid(t)[1] for t in (x, y, z)]
+    reader_ct = [_GRAN, wt] + [_grid(t)[1] for t in (x, y, z)] + [_grid(t)[0] for t in (x, y, z)]
     for t in (x, y, z):
         reader_ct.extend(ttnn.TensorAccessorArgs(t).get_compile_time_args())
     writer_ct = [_GRAN] + list(ttnn.TensorAccessorArgs(out).get_compile_time_args())
@@ -107,8 +108,11 @@ def _build(x, y, z, out, device, ht, wt):
     return {"pd": pd, "kernels": [reader, writer, compute], "cbs": cbs}
 
 
-def _ok(t, ht, dtype=ttnn.bfloat16):
-    return (t.dtype == dtype and t.layout == ttnn.TILE_LAYOUT and _grid(t)[0] == ht
+def _ok(t, y, ht, dtype=ttnn.bfloat16):
+    """`t` has y's row tiles, or is one sample of them (leading dims 1, y's row count) when `t` is not y."""
+    rows = _grid(t)[0] == ht or (t is not y and all(int(d) == 1 for d in t.shape[:-2])
+                                 and int(t.shape[-2]) == int(y.shape[-2]))
+    return (t.dtype == dtype and t.layout == ttnn.TILE_LAYOUT and rows
             and t.memory_config().memory_layout == ttnn.TensorMemoryLayout.INTERLEAVED)
 
 
@@ -125,7 +129,7 @@ def addcmul_at(x, y, z, width, x_off=0, y_off=0, z_off=0, out_dtype=None):
     if (width % TILE or any(o % TILE for o in (x_off, y_off, z_off))
             or y.dtype not in (ttnn.bfloat16, ttnn.float32)
             or (out_dtype or y.dtype) not in _TILE_BYTES
-            or not all(_ok(t, ht, y.dtype) for t in (x, y, z))
+            or not all(_ok(t, y, ht, y.dtype) for t in (x, y, z))
             or any(o + width > int(t.shape[-1]) for t, o in ((x, x_off), (y, y_off), (z, z_off)))
             or _ops.declines_under_tape("addcmul_at")):
         STATS[1] += 1
@@ -136,7 +140,7 @@ def addcmul_at(x, y, z, width, x_off=0, y_off=0, z_off=0, out_dtype=None):
     shape = list(y.shape)[:-1] + [width]
     out = ttnn.allocate_tensor_on_device(ttnn.Shape(shape), out_dtype or y.dtype, ttnn.TILE_LAYOUT, device,
                                          ttnn.DRAM_MEMORY_CONFIG)
-    key = (device.id(), ht, wt, _grid(x)[1], _grid(y)[1], _grid(z)[1], str(y.dtype), str(out.dtype))
+    key = (device.id(), ht, wt, _grid(x), _grid(y)[1], _grid(z), str(y.dtype), str(out.dtype))
     entry = _CACHE.get(key)
     if entry is None:
         entry = _CACHE[key] = _build(x, y, z, out, device, ht, wt)
