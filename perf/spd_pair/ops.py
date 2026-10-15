@@ -34,7 +34,7 @@ ap.add_argument("--ln-arms", default="fast_today,normal_today,hifi4_f32,hifi2_f3
 ap.add_argument("--tail-arms", default="base,fused")
 ap.add_argument("--tail-variants", default="",
                 help="extra fused arms, name=SIGPOLY/RNE/fidelity/f32 separated by commas, e.g. poly=1/3/HiFi3/1")
-ap.add_argument("--tr-heads", type=int, default=4, help="tailtr: triangle attention heads of 32 (Protenix-v2: 4)")
+ap.add_argument("--tr-heads", type=int, default=4, help="tailtr / lntr: triangle attention heads of 32 (Protenix-v2 at c_z 256: 8)")
 ap.add_argument("--reps", type=int, default=5)
 ap.add_argument("--calls", type=int, default=8)
 ap.add_argument("--chip", type=int, default=None)
@@ -444,7 +444,8 @@ if "lntr" in groups:
         log(ev="lntr_equal", equal=all(torch.equal(a, b) for a, b in zip(ha, hb)),
             ndiff=[int((a != b).sum()) for a, b in zip(ha, hb)],
             rel_tr=rel(hb[0].float(), q_ref.float())["rel_rms"], rel_base=rel(ha[0].float(), q_ref.float())["rel_rms"],
-            finite=all(bool(torch.isfinite(b.float()).all()) for b in hb), served=TL.STATS[:])
+            finite=all(bool(torch.isfinite(b.float()).all()) for b in hb), served=TL.STATS[:],
+            tr_units=TL._tr_buffers(C // 32, (4 * c + 32) // 32, dev))
         drop(ra); drop(rb)
         run_arms("lntr", {"transpose_ln": (lambda: (drop(ln_base()), None)[1], None),
                           "ln_tr": (lambda: (drop(ln_tr()), None)[1], None)}, A.calls)

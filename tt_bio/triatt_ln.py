@@ -100,12 +100,22 @@ def _cb(idx, core_grid, tiles, dtype=ttnn.bfloat16):
                              format_descriptors=[fmt])
 
 
-def _tr_buffers(kt, nw):
-    """16-row x^T units the TR reader can hold in c_7 (2 = double-buffered, 1, or 0: does not fit)."""
-    from .tenstorrent import _l1_bank_bytes
-    fixed = kt * nw + 2 * kt + 2 * nw + 2 * kt + 1 + 16 + 2 * (4 + 2 * kt)   # fp32 CBs count twice
+def _cb_bytes(kt, nw, tr):
+    """L1 bytes per core of `_build`'s circular buffers."""
+    bf = kt * nw + 2 * kt + 2 * nw + (tr * 16 * kt + 16 if tr else 2 * RB * kt) + 2 * kt + 1
+    return bf * MG.tile_bytes(ttnn.bfloat16) + (4 + 2 * kt) * MG.tile_bytes(ttnn.float32)
+
+
+def _tr_buffers(kt, nw, dev):
+    """16-row x^T units the TR reader can hold in c_7 (2 = double-buffered, 1, or 0: does not fit).
+
+    Against the L1 actually free now: the CBs sit below every live L1 buffer, so the largest free
+    block is what they may take. At 8 heads x 32 (w 33 tiles wide, Protenix-v2) and K 256 one unit
+    needs 1.12 MB of a 1.40 MB Wormhole bank, which a fixed fraction of the bank refused."""
+    lcf = ttnn.get_memory_view(dev, ttnn.BufferType.L1).largest_contiguous_bytes_free_per_bank
+    lcf = min(lcf) if isinstance(lcf, (list, tuple)) else lcf
     for nb in (2, 1):
-        if (fixed + nb * 16 * kt) * MG.tile_bytes(ttnn.bfloat16) <= 0.7 * _l1_bank_bytes():
+        if _cb_bytes(kt, nw, nb) <= lcf:
             return nb
     return 0
 
@@ -178,10 +188,9 @@ def ln_qkvgb_heads(x, ln_w, ln_b, w, ckc, n_heads, head_dim, bias_channels, grid
     if transposed:
         if not TR or shp[0] != shp[1] or shp[0] % TILE:
             return _reject("tr_shape", x)
-        tr = _tr_buffers(K // TILE, int(w.padded_shape[-1]) // TILE)
+        tr = _tr_buffers(K // TILE, int(w.padded_shape[-1]) // TILE, x.device())
         if not tr:
-            from .tenstorrent import _l1_bank_bytes
-            return _reject(f"tr_l1:kt{K // TILE}:nw{int(w.padded_shape[-1]) // TILE}:l1{_l1_bank_bytes()}", x)
+            return _reject(f"tr_l1:kt{K // TILE}:nw{int(w.padded_shape[-1]) // TILE}", x)
     dev = x.device()
     outs = [ttnn.allocate_tensor_on_device(ttnn.Shape([shp[0], n_heads, shp[1], head_dim]), ttnn.bfloat16,
                                            ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG) for _ in range(4)]
