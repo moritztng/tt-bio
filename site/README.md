@@ -15,10 +15,10 @@ them into the JSON `title` and `subtitle` and into the page's `<title>` and meta
 hand-written fifth copy would only go stale.
 
 `index.html` is the landing page. Its bar chart reads the same JSON and derives the same three
-metrics. The hero makes one claim in words and carries no multiplier: a Galaxy Blackhole returns more
-predictions per dollar than a DGX H200, B200 or A100 on every published row. `render_check.js` fails
-if a row ever breaks that sentence, on purchase price or on ownership, or if a number with an `x`
-reappears in the hero. Its model count is read from the data.
+metrics. The hero is static text: "4×" is the median, over every published row, of a Galaxy
+Blackhole's throughput per dollar of purchase price against a DGX B200's, rounded to a whole number,
+and the h1 fraction is its reciprocal. `render_check.js` recomputes both from the JSON and fails when
+the rounding moves, so update the hero in the same commit as the data.
 
 Keep both pages short. Long notes, per-run detail and campaign history belong in the JSON, the board
 or docs/, not in page text: the benchmarks page shows one line on what the GPUs ran, the charts, the
