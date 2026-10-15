@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-// pair_linear prototype compute (perf/spd/pair_linear_gate.py): x @ w (+ bias) for one 32-row tile at a time, the
+// pair_linear compute (tt_bio/pair_linear.py): x @ w (+ bias) for one 32-row tile at a time, the
 // weight resident in L1. pair_swiglu_ws's fc3 loop alone: per row tile, OG output tiles (one fp32 dest half) at a
 // time, each the sum over the KT K tiles in dest, packed bf16 to c_16. PL_BIAS seeds dest with the row-replicated
 // bias tiles (c_2) first, as pair_relu does, so the bias is summed in fp32 with the products.
