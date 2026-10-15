@@ -4,7 +4,7 @@
 The page fixture's shape: pair bias [1, 4, 6051, 128] bf16, neighbour index [1, 1, 6051, 128] uint32 sorted per row,
 mask out [1, 4, 6080, 6080] bf16 (296 MB). Modes (rfd3_bias.DIAG):
   0  shipped
-  1  every tile from the fill tile, scan kept (no pokes, no slot repair)
+  1  every tile from the fill tile, scan kept (no pokes, no slot refill)
   2  shipped work, no DRAM writes
   3  every tile from the fill tile, no scan: the write alone
 Mode 0 is checked element for element against a torch scatter of the same inputs. The index is synthetic (each row
