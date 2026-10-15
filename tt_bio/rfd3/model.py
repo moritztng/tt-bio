@@ -180,6 +180,10 @@ _PROCESS_Z_COLLAPSE = env_flag("RFD3_PROCESS_Z_COLLAPSE", False)
 # OpenMP team, which fights the main thread's for the cores: on qb1 (16 physical cores) the
 # build went from 72-88 to 115-140 ms and the page fold from 107.1 to 124.0 s/design.
 _ATTN_OVERLAP = env_flag("RFD3_ATTN_OVERLAP", True)
+# The k-d tree index (_ATTN_KDTREE) is scipy's own threads plus numpy, so it no longer has the
+# OpenMP conflict above, and on a worker thread it can start as soon as the step's coordinates
+# exist instead of after the token encoder's dispatch. Same function on the same inputs: exact.
+_ATTN_THREAD = env_flag("RFD3_ATTN_THREAD", False)
 # A denoise step crossed to the host ~15 times: process_a/r/c and both time embeddings came back
 # for host adds, the encoder, downcast_q, the DiT and every recycle's s were read back only to be
 # uploaded again by the next module. Each crossing drains the card, and Tracy on p150a put the
@@ -3376,12 +3380,14 @@ def _neighbours_row_blocked(mask, seq_idx, x, k, block=None):
     return out
 
 
-def _neighbours_kdtree(mask, seq_idx, x, k):
+def _neighbours_kdtree(mask, seq_idx, x, k, workers=None):
     """`_extend_with_neighbours` over a k-d tree query, already sorted (see _ATTN_KDTREE).
 
     Row r keeps its sequence entries (seq_idx < L) and adds the first k - n_seq atoms of its
     k-nearest list that lie outside mask[r]; the union has exactly k members, so sorting the
     two lists side by side and keeping k gives the row _create_attention_indices returns.
+    Everything after the query is numpy, which starts no OpenMP team, so the build can run
+    on a worker thread (_ATTN_THREAD).
     """
     import numpy as np
     from scipy.spatial import cKDTree
@@ -3389,13 +3395,13 @@ def _neighbours_kdtree(mask, seq_idx, x, k):
     length = x.shape[1]
     k = min(k, length)
     xd = x[0].detach().double().cpu().numpy()
-    _, nn = cKDTree(xd).query(xd, k=k, workers=torch.get_num_threads())
-    nn = torch.from_numpy(nn.reshape(length, k))
-    outside = ~mask[torch.arange(length).unsqueeze(1), nn]
-    n_fill = k - (seq_idx < length).sum(1, keepdim=True)
-    keep = outside & (torch.cumsum(outside, 1) <= n_fill)
-    vals = np.concatenate([seq_idx.numpy().astype(np.int32),
-                           np.where(keep.numpy(), nn.numpy().astype(np.int32), length)], 1)
+    _, nn = cKDTree(xd).query(xd, k=k, workers=workers or torch.get_num_threads())
+    nn = nn.reshape(length, k)
+    seq = seq_idx.numpy()
+    outside = ~mask.numpy()[np.arange(length)[:, None], nn]
+    n_fill = k - (seq < length).sum(1, keepdims=True)
+    keep = outside & (np.cumsum(outside, 1) <= n_fill)
+    vals = np.concatenate([seq.astype(np.int32), np.where(keep, nn.astype(np.int32), length)], 1)
     vals.sort(1)
     return torch.from_numpy(vals[:, :k].astype(np.int64)).unsqueeze(0)
 
@@ -3453,7 +3459,28 @@ def _attention_index_prefix(f, tok_idx, n_keys, n_seq_neighbours):
     return parts
 
 
-def _create_attention_indices(f, X_L, tok_idx, n_keys, n_seq_neighbours):
+def _attention_indices_future(f, X_L, tok_idx, n_keys, n_seq_neighbours):
+    """Start the atom index build on a worker thread (see _ATTN_THREAD), or None to build inline.
+
+    The coordinate-independent prefix is built (or hit) here on the calling thread, so the
+    worker only runs the k-d tree path, which is scipy's threads plus numpy.
+    """
+    global _INDEX_POOL
+    if not (_ATTN_THREAD and _ATTN_KDTREE):
+        return None
+    if "single" not in _attention_index_prefix(f, tok_idx, n_keys, n_seq_neighbours):
+        return None
+    if _INDEX_POOL is None:
+        from concurrent.futures import ThreadPoolExecutor
+        _INDEX_POOL = ThreadPoolExecutor(1, thread_name_prefix="rfd3-attn-index")
+    return _INDEX_POOL.submit(_create_attention_indices, f, X_L, tok_idx, n_keys, n_seq_neighbours,
+                              workers=torch.get_num_threads())
+
+
+_INDEX_POOL = None
+
+
+def _create_attention_indices(f, X_L, tok_idx, n_keys, n_seq_neighbours, workers=None):
     device = X_L.device; L = len(tok_idx)
     parts = _attention_index_prefix(f, tok_idx, n_keys, n_seq_neighbours)
     if X_L.ndim == 2:
@@ -3466,7 +3493,7 @@ def _create_attention_indices(f, X_L, tok_idx, n_keys, n_seq_neighbours):
         # Measured bit-identical indices and 220.7 -> 152.5 ms at 3359 atoms D=8,
         # 142.5 -> 68.9 ms at 2702 (scripts/rfd3_port/p24_attn_indices_variants.py).
         if _ATTN_KDTREE:
-            return torch.cat([_neighbours_kdtree(mask, seq_idx, x, parts["k"])
+            return torch.cat([_neighbours_kdtree(mask, seq_idx, x, parts["k"], workers)
                               for x in X_L.unsqueeze(1)], dim=0)
         idx = torch.cat([
             _neighbours_row_blocked(mask, seq_idx, x, parts["k"]) if _ATTN_ROW_BLOCK else
@@ -3773,7 +3800,10 @@ class RFD3DiffusionModule(Module):
         if Z_II.ndim == 3: Z_II = Z_II.unsqueeze(0)
         if P_LL.ndim == 3: P_LL = P_LL.unsqueeze(0)
         f = dict(f)
-        if not _ATTN_OVERLAP:
+        if _ATTN_OVERLAP:
+            f["attn_future"] = _attention_indices_future(f, X_noisy_L, tok_idx, self.N_ATTN_KEYS,
+                                                         self.N_ATTN_SEQ)
+        else:
             f["attn_indices"] = _create_attention_indices(f, X_noisy_L, tok_idx, self.N_ATTN_KEYS,
                                                           self.N_ATTN_SEQ)
         is_motif = f["is_motif_atom_with_fixed_coord"]
@@ -3819,8 +3849,9 @@ class RFD3DiffusionModule(Module):
         if _ATTN_OVERLAP:
             first_tok = self.diffusion_token_encoder.run_device(
                 R_L_uniform[..., f["is_ca"], :], S_I, Z_II, D_II_self=None)
-            f["attn_indices"] = _create_attention_indices(f, X_noisy_L, tok_idx, self.N_ATTN_KEYS,
-                                                          self.N_ATTN_SEQ)
+            fut = f.pop("attn_future", None)
+            f["attn_indices"] = fut.result() if fut is not None else _create_attention_indices(
+                f, X_noisy_L, tok_idx, self.N_ATTN_KEYS, self.N_ATTN_SEQ)
         Q_L = self.encoder(Q_L, C_L, P_LL, indices=f["attn_indices"], resident=_RESIDENT_STEP)
         A_I = self._downcast_q(Q_L, A_I, S_I, tok_idx)
         recycled = self._forward_with_recycle(
