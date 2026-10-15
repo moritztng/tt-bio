@@ -23,6 +23,8 @@ from .envflags import env_flag
 
 #: The lever. Default OFF and release-gated; armed by `bindcraft2.fast_round()`.
 PAIR_MM_FUSED = env_flag("TT_BIO_PAIR_MM", False)
+#: On Wormhole, serve the bias-free, activation-free calls from `pair_linear` (weight resident in L1) first.
+PAIR_LINEAR_WH = env_flag("TT_BIO_PAIR_LINEAR", True)
 
 def armed() -> bool:
     """The process flag (a BindCraft 2 round), or the `pair_mm` lever of the model folding now."""
@@ -102,6 +104,13 @@ def config(x, w, transpose_b: bool = False):
         compute_with_storage_grid_size=_mm_core_coord(*COMPUTE_GRID_MAIN))
 
 
+def _wormhole() -> bool:
+    if not PAIR_LINEAR_WH:
+        return False
+    from .tenstorrent import is_wormhole
+    return is_wormhole()
+
+
 def _decline(x, w, transpose_b, why):
     STATS[1] += 1
     try:
@@ -151,6 +160,12 @@ def matmul(x, w, bias=None, compute_kernel_config=None, dtype=None, transpose_b:
     if cfg is None:
         _decline(x, w, transpose_b, "class")
         return None
+    if bias is None and activation is None and dtype in (None, ttnn.bfloat16) and _wormhole():
+        from . import pair_linear
+        out = pair_linear.matmul(x, _transposed(w) if transpose_b else w, compute_kernel_config)
+        if out is not None:
+            STATS[0] += 1
+            return out
     try:
         out = ttnn.experimental.minimal_matmul(
             input_tensor=x, weight_tensor=_transposed(w) if transpose_b else w,

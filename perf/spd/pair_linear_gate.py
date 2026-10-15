@@ -5,7 +5,7 @@ Scope: state/spd-gap-bind-jobs/pairlin_scope.md. On a Wormhole chip minimal_matm
 pair projection at ~0.22 ms (perf/spd/af2_pair_linear_sweep.py, .114 out/plin_d07ffb063/s224.json, best of 50 blocks),
 because with M > N it puts N on the 9-core grid axis and pads N's 4 tiles to 9: 5 of 9 core rows compute padding,
 and the 32 useful cores each do 196 x 4 HiFi4 tile products (~0.2 ms). The prototype here (kernels in
-perf/spd/pair_linear_kernels, writer shared with tt_bio/kernels/pair_swiglu_ws) is pair_swiglu_ws's machinery with
+tt_bio/kernels/pair_linear, writer shared with tt_bio/kernels/pair_swiglu_ws) is pair_swiglu_ws's machinery with
 one matmul: every core holds the whole weight in L1 and takes whole 32-row tiles of x, so all cores do useful work
 and x is read from DRAM exactly once with no core-to-core forwarding.
 
@@ -42,7 +42,7 @@ import tt_bio.af2 as A  # noqa: E402
 import tt_bio.tenstorrent as T  # noqa: E402
 from tt_bio import core_split, pair_mm  # noqa: E402
 
-KDIR = Path(__file__).resolve().parent / "pair_linear_kernels"
+KDIR = REPO / "tt_bio" / "kernels" / "pair_linear"
 WRITER = REPO / "tt_bio" / "kernels" / "pair_swiglu_ws" / "writer.cpp"
 X_CB, W_CB, B_CB, OUT_CB = 0, 1, 2, 16
 X_DEPTH = 3            # row tiles of x in flight per core

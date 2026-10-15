@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-// pair_linear prototype reader (perf/spd/pair_linear_gate.py), pair_swiglu_ws's reader with one weight matrix.
+// pair_linear reader (tt_bio/pair_linear.py), pair_swiglu_ws's reader with one weight matrix.
 // The weight [KT, CT] tiles is read ONCE into c_1 and stays there for the whole call (PL_BIAS: the row-replicated
 // bias, CT tiles, into c_2); then this core's row tiles of x stream through c_0, KT pages each. Row tile r is pages
 // [r*KT, (r+1)*KT) of x, so nothing crosses cores and no core forwards anything to another.
