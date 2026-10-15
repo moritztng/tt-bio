@@ -45,3 +45,11 @@ def test_lm_sdpa_falls_back_once(monkeypatch):
     assert esmc.lm_sdpa(q, q, q, None, scale=0.125) == "o"
     assert esmc.lm_sdpa(q, q, q, None, scale=0.125) == "o"
     assert calls == [(544, 192), (544, 64), (544, 64)]
+
+
+@pytest.mark.parametrize("wormhole", [True, False])
+def test_k_few_default_is_wormhole_only(wormhole, monkeypatch):
+    from tt_bio import tenstorrent
+    monkeypatch.setattr(esmc, "_ESMC_SDPA_K_FEW", None)
+    monkeypatch.setattr(tenstorrent, "is_wormhole", lambda: wormhole)
+    assert esmc._sdpa_k_few() is wormhole

@@ -241,8 +241,12 @@ ESMC_SDPA_Q_WHOLE = 544
 # 0.777 -> 0.600, SaProt 650M (b7 x 20 heads) 0.811 -> 0.722, 6B (b1 x 40) 0.413 -> 0.328; k128/k160 pad to 640 and are
 # slower than k64. Error against float64 within the k64 spread (max abs 0.0467 -> 0.0467 / 0.0323 -> 0.0343 / 0.0349 ->
 # 0.0356). Its circular buffers are larger, so where q, k and v sit in L1 (600M, SaProt) the device can refuse the
-# program; lm_sdpa then runs that shape at the k64 config. Off until the page cell says.
-_ESMC_SDPA_K_FEW = env_flag("TT_BIO_ESMC_SDPA_K_FEW", False)
+# program; lm_sdpa then runs that shape at the k64 config. Page cell on a Galaxy chip at 1000 MHz, 3 rounds, k64 -> few:
+# 300M 149.7 -> 143.8 ms, --fast 144.2 -> 137.0, 6B 302.5 -> 297.2, --fast 293.9 -> 287.1; 600M and SaProt flat (several
+# shapes fall back); pcc vs fp32 moves <= 0.00008. On by default on Wormhole; Blackhole keeps k64 until its own A/B says.
+# None = by arch, the switch overrides.
+_ESMC_SDPA_K_FEW = (env_flag("TT_BIO_ESMC_SDPA_K_FEW", False) if os.environ.get("TT_BIO_ESMC_SDPA_K_FEW", "").strip()
+                    else None)
 ESMC_SDPA_K_FEW_MAX = 192
 _SDPA_K_FEW_REFUSED: set = set()
 
@@ -260,13 +264,20 @@ def _lm_sdpa_chunks(q_len: int, k_len: int, k_few: bool) -> tuple[int, int]:
             min(ESMC_SDPA_K_CHUNK, _capped_sdpa_chunk_size(k_len)))
 
 
+def _sdpa_k_few() -> bool:
+    if _ESMC_SDPA_K_FEW is not None:
+        return _ESMC_SDPA_K_FEW
+    from tt_bio import tenstorrent
+    return tenstorrent.is_wormhole()
+
+
 def lm_sdpa(q, k, v, attn_mask, scale: float):
     """The language models' fused SDPA at the _lm_sdpa_chunks config. A shape whose few-k-chunk program the device
     refuses (its circular buffers clash with L1 tensors) runs at the k64 config from then on."""
     q_len, k_len = int(q.shape[2]), int(k.shape[2])
     key = (tuple(q.padded_shape), k_len, q.memory_config().buffer_type == ttnn.BufferType.L1)
     base = _lm_sdpa_chunks(q_len, k_len, False)
-    if _ESMC_SDPA_K_FEW and key not in _SDPA_K_FEW_REFUSED:
+    if _sdpa_k_few() and key not in _SDPA_K_FEW_REFUSED:
         few = _lm_sdpa_chunks(q_len, k_len, True)
         if few != base:
             try:
