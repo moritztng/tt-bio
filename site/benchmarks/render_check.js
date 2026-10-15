@@ -272,8 +272,8 @@ const W = "Zero One Two Three Four Five Six Seven Eight Nine Ten Eleven Twelve T
 /* The hero is static, in the original's words (Moritz, 2026-10-15: "maybe just 4x instead of
  * 3.8x"), so the data must keep it true. The multiplier is the median over every published row of
  * a Galaxy Blackhole's throughput per dollar of purchase price against a DGX B200's, rounded to a
- * whole number; the h1 fraction is its reciprocal. The lede's "matches on throughput" is the median
- * per-server ratio within 25 %, and "under a third of the price" the price ratio. */
+ * whole number; the h1 fraction is its reciprocal. The lede's "higher throughput" is checked per named
+ * model below, and "under a third of the price" is the price ratio. */
 {
   const P = Object.fromEntries(D.platforms.map((p) => [p.id, p])), gx = P.galaxy_bh, nv = P.dgx_b200;
   const sec = (c) => c.s_per_fold === undefined ? c.s_per_design : c.s_per_fold;
@@ -287,13 +287,12 @@ const W = "Zero One Two Three Four Five Six Seven Eight Nine Ten Eleven Twelve T
   const em = (land.html.match(/<h1>[\s\S]*?<em>([^<]*)<\/em> of the cost<\/h1>/) || [])[1];
   if (hx !== x + "&times;") failures.push("the landing hero says " + hx + " throughput per dollar; the data rounds to " + x + "x (" + (thr / price).toFixed(2) + ")");
   if ((em || "").replace(/&nbsp;/g, " ") !== FRAC[x]) failures.push("the landing h1 says " + em + " of the cost; the data rounds to " + FRAC[x]);
-  if (Math.abs(thr - 1) > 0.25) failures.push("the lede says a Galaxy matches a DGX B200 on throughput; the median ratio is " + thr.toFixed(2));
   if (price >= 1 / 3) failures.push("the lede says under a third of the price; a Galaxy costs " + (100 * price).toFixed(0) + " % of a DGX B200");
   const prov = land.html.match(/<span id="prov">([^<]*)<\/span>/)[1];
   if (prov !== D.scope.nvidia_code) failures.push("the landing page's static NVIDIA line differs from scope.nvidia_code");
 }
-/* The lede names its examples, and each must hold on its own: a Galaxy's throughput is at least a
- * DGX B200's on every model the sentence names, not only on the median row. */
+/* The lede names its examples, and each must hold on its own: a Galaxy's throughput is higher than a
+ * DGX B200's on every model the sentence names. */
 {
   const P = Object.fromEntries(D.platforms.map((p) => [p.id, p])), gx = P.galaxy_bh, nv = P.dgx_b200;
   const sec = (c) => c.s_per_fold === undefined ? c.s_per_design : c.s_per_fold;
@@ -304,7 +303,7 @@ const W = "Zero One Two Three Four Five Six Seven Eight Nine Ten Eleven Twelve T
     const m = predModels.concat(catModels).find((x) => x.name === n);
     if (!m) { failures.push("the landing lede names " + n + ", which is not a published row"); continue; }
     const r = gx.accelerators / sec(m.cells.p150a) / (nv.accelerators / sec(m.cells.b200));
-    if (r < 1) failures.push("the lede says a Galaxy matches a DGX B200 on " + n + "; it reaches " + r.toFixed(2) + "x");
+    if (r <= 1) failures.push("the lede says a Galaxy has higher throughput than a DGX B200 on " + n + "; it reaches " + r.toFixed(2) + "x");
   }
 }
 /* Accuracy. The home page says 1:1 accuracy parity, so every published row must carry a release-gate
