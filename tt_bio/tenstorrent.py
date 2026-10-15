@@ -11498,15 +11498,17 @@ class TriangleAttention(Module):
             return o
 
         def gate_and_project(o_in: ttnn.Tensor, g_in: ttnn.Tensor,
-                             l1_dest: bool = False, resid: ttnn.Tensor | None = None) -> ttnn.Tensor:
+                             l1_dest: bool = False, resid: ttnn.Tensor | None = None,
+                             resid_t: ttnn.Tensor | None = None) -> ttnn.Tensor:
             """The tail's update, or with `resid` (the pair it belongs to) `resid + update` written
-            into `resid` when the one-program tail takes it; the caller tells by identity."""
+            into `resid` when the one-program tail takes it; the caller tells by identity. `resid_t`
+            is the ending variant's pair, which takes the update transposed."""
             head_major = len(g_in.shape) == 4
             o_major = len(o_in.shape) == 4 and not head_major   # kept for the tail, g as projected
             if (head_major or o_major) and not gate_fused and (o_major or self.o_bias is None):
                 fused = _triatt_qkv.gated_out_proj(o_in, g_in, self.o_weight, self.compute_kernel_config,
-                                                   resid=resid, bias=self.o_bias)
-                if fused is None and resid is not None:
+                                                   resid=resid, bias=self.o_bias, resid_t=resid_t)
+                if fused is None and (resid is not None or resid_t is not None):
                     fused = _triatt_qkv.gated_out_proj(o_in, g_in, self.o_weight,
                                                        self.compute_kernel_config, bias=self.o_bias)
                 if fused is not None:
@@ -11802,7 +11804,8 @@ class TriangleAttention(Module):
                 ttnn.deallocate(qkv)
             ttnn.deallocate(triangle_bias)
             x = gate_and_project(o, g, l1_dest=_RESIDUAL_L1 and not self.ending,
-                                 resid=x_in if add_to_input and not self.ending else None)
+                                 resid=x_in if add_to_input and not self.ending else None,
+                                 resid_t=x_in if add_to_input and self.ending else None)
             if x is x_in:
                 return x_in
         if self.ending and add_to_input and _pair_tr_add.eligible(x, x_in):

@@ -13,6 +13,8 @@ Groups (--groups):
         block updates + add_, against a slice per block + pair_add.add_rows into z; torch.equal checked
   tadd  the ending triangle attention's way back: pair_transpose(u) + add_ into z, against
         pair_transpose_add.transpose_add(u, z); torch.equal checked
+  tailtr the ending triangle attention's tail and way back: gated_out_proj (update to DRAM) + transpose_add,
+        against gated_out_proj(resid_t=z) (one program, the update stays in L1); torch.equal checked
 
 usage: ops.py OUT [--n 736] [--cz 256] [--groups ln,tail,add] [--reps 5] [--calls 8] [--chip C]
 """
@@ -363,6 +365,41 @@ if "tadd" in groups:
                       "transpose_add_": (lambda: (tbase(), None)[1], None),
                       "fused": (lambda: (PTA.transpose_add(ud, zt), None)[1], None)}, A.calls)
     ttnn.deallocate(ud); ttnn.deallocate(zt)
+
+if "tailtr" in groups:
+    from tt_bio import pair_transpose_add as PTA
+    H, D = C // 32, 32
+    o_host = (torch.randn(N, H, N, D) * 0.5).bfloat16()
+    g_host = (torch.randn(N, H, N, D) * 1.5).bfloat16()
+    w_host = (torch.randn(C, C) / C ** 0.5).bfloat16()
+    k = ckc("HiFi3", True)
+    TQ.set_tail("1")
+    od, gd, wd = (ttnn.from_torch(t, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
+                  for t in (o_host, g_host, w_host))
+    za, zb, zt = (ttnn.from_torch(z_host, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
+                  for _ in range(3))
+
+    def tr_base(z):
+        u = TQ.gated_out_proj(od, gd, wd, k)
+        assert u is not None and PTA.eligible(u, z), "base path declined"
+        PTA.transpose_add(u, z); ttnn.deallocate(u)
+
+    def tr_fused(z):
+        assert TQ.gated_out_proj(od, gd, wd, k, resid_t=z) is z, "gated_out_proj declined resid_t"
+
+    tr_base(za); tr_fused(zb)
+    ta, tb = ttnn.to_torch(za), ttnn.to_torch(zb)
+    upd = ((o_host.double() * torch.sigmoid(g_host.double())).permute(0, 2, 1, 3).reshape(N, N, C)
+           @ w_host.double())
+    ref = z_host.double() + upd.permute(1, 0, 2).unsqueeze(0)
+    log(ev="tailtr_equal", equal=bool(torch.equal(ta, tb)), ndiff=int((ta != tb).sum()),
+        rel_fused=rel(tb.float(), ref.float())["rel_rms"], rel_base=rel(ta.float(), ref.float())["rel_rms"],
+        finite=bool(torch.isfinite(tb.float()).all()))
+    ttnn.deallocate(za); ttnn.deallocate(zb)
+    run_arms("tailtr", {"tail_transpose_add": (lambda: tr_base(zt), None),
+                        "tail_tr": (lambda: tr_fused(zt), None)}, A.calls)
+    for t in (od, gd, wd, zt):
+        ttnn.deallocate(t)
 
 log(ev="done")
 _SAMPLER.terminate()

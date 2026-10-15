@@ -14,6 +14,10 @@
 // OBIAS (KB1 only) seeds that fp32 sum with the out projection's bias: c_7 holds Nt bias tiles with
 // every row equal to b, packed into c_6 before the first K pass, so the bias is added exactly in fp32
 // and rounded once with the sum.
+// TR (the ending variant, RESID off): every 32 units the writer hands back the group's Nt update
+// tiles per channel tile, shuffled into z's orientation (c_18, 32 tiles), with the 32 z tiles they
+// land on (c_3); they are added into a 32-bit DST and packed to bf16 (c_17), pair_transpose_add's
+// arithmetic, so the result is the bytes tail + transpose_add wrote.
 #include "api/compute/compute_kernel_api.h"
 #include "api/compute/matmul.h"
 #include "api/compute/eltwise_binary.h"
@@ -35,6 +39,7 @@ void kernel_main() {
     constexpr uint32_t DW = get_compile_time_arg_val(5);
     constexpr uint32_t KB1 = get_compile_time_arg_val(6);
     constexpr uint32_t OBIAS = get_compile_time_arg_val(7);
+    constexpr uint32_t TR = get_compile_time_arg_val(8);
     const uint32_t nunits = get_arg_val<uint32_t>(0);
 
     constexpr uint32_t w_cb = tt::CBIndex::c_0;
@@ -171,6 +176,36 @@ void kernel_main() {
             cb_push_back(out_cb, Nt);
             cb_pop_front(sum_cb, Nt);
             cb_pop_front(z_cb, Nt);
+        }
+
+        if constexpr (TR) {
+            if (u % 32 == 31) {
+                constexpr uint32_t slot_cb = tt::CBIndex::c_18;
+                constexpr uint32_t tsum_cb = tt::CBIndex::c_17;
+                reconfig_data_format(z_cb, slot_cb);
+                pack_reconfig_data_format(tsum_cb);
+                add_tiles_init(z_cb, slot_cb);
+                for (uint32_t n = 0; n < Nt; ++n) {
+                    cb_wait_front(slot_cb, 32);
+                    cb_wait_front(z_cb, 32);
+                    for (uint32_t q = 0; q < 32; q += 4) {
+                        cb_reserve_back(tsum_cb, 4);
+                        tile_regs_acquire();
+                        for (uint32_t i = 0; i < 4; ++i) add_tiles(z_cb, slot_cb, q + i, q + i, i);
+                        tile_regs_commit();
+                        tile_regs_wait();
+                        for (uint32_t i = 0; i < 4; ++i) pack_tile(i, tsum_cb);
+                        tile_regs_release();
+                        if (q + 4 == 32) {
+                            cb_pop_front(slot_cb, 32);
+                            cb_pop_front(z_cb, 32);
+                        }
+                        cb_push_back(tsum_cb, 4);
+                    }
+                }
+                pack_reconfig_data_format(x_cb);
+                sigmoid_tile_init();
+            }
         }
     }
 }
