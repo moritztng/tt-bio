@@ -332,6 +332,17 @@ _ESMC_MM_CFG = env_flag("TT_BIO_ESMC_MM_CFG", True)
 _ESMC_MM_BFP8 = env_flag("TT_BIO_ESMC_MM_BFP8", True)
 
 
+# q, k and v from ONE projection over the packed weight, split by the matmul as it writes them
+# (ttnn.experimental.minimal_matmul_split), instead of three projections over the host-cut weights. Holds the packed
+# weight beside the cut ones (300M 166 MB, 600M 287 MB). Off until the page cell says.
+_ESMC_QKV_MM_SPLIT = env_flag("TT_BIO_ESMC_QKV_MM_SPLIT", False)
+# The attention's residual add inside out_proj's matmul (dit_minimal_matmul_addcmul_fused: x + 1 * (o W) * ones), so
+# the add never re-reads the projection from DRAM. Off until the page cell says.
+_ESMC_MM_RESID = env_flag("TT_BIO_ESMC_MM_RESID", False)
+#: [qkv split matmuls, residual-fused projections] served, read by the A/B harness.
+MM_FUSE_STATS = [0, 0]
+
+
 def _mm_config(x, w):
     if not _ESMC_MM_CFG:
         return {}
@@ -353,12 +364,47 @@ class _MMLin:
     """`Module._lin`, served by `minimal_matmul` for a plain bf16 projection over ESMC_MM_MIN_ROWS rows. A SiLU
     (the SwiGLU's fc1a) rides along as the matmul's fused activation, applied per tile at pack as the linear does."""
 
+    @staticmethod
+    def _mm_ok(x, w) -> bool:
+        return ((w.dtype == ttnn.bfloat16 or (_ESMC_MM_BFP8 and w.dtype == ttnn.bfloat8_b)) and x.dtype == ttnn.bfloat16
+                and x.volume() // int(x.shape[-1]) >= ESMC_MM_MIN_ROWS and _esmc_mm())
+
+    def _lin_split(self, x, w, chunks: int):
+        """x @ w split into `chunks` outputs along the last dim by the matmul itself, or None where it does not serve."""
+        if not (_ESMC_QKV_MM_SPLIT and self._mm_ok(x, w)):
+            return None
+        try:
+            out = ttnn.experimental.minimal_matmul_split(
+                x, w, chunks=chunks, compute_kernel_config=self.compute_kernel_config, dtype=_dtype(ttnn.bfloat16),
+                memory_config=ttnn.DRAM_MEMORY_CONFIG, **_mm_config(x, w))
+        except RuntimeError:
+            return None
+        MM_FUSE_STATS[0] += 1
+        return tuple(out)
+
+    def _lin_resid(self, x, w, resid):
+        """resid + x @ w in one matmul, or None where it does not serve (the caller adds)."""
+        if not (_ESMC_MM_RESID and self._mm_ok(x, w)):
+            return None
+        n = int(w.shape[-1])
+        ones = getattr(self, "_ones_row", None)
+        if ones is None or int(ones.shape[-1]) != n:
+            ones = self._ones_row = ttnn.from_torch(torch.ones(1, n), dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT,
+                                                   device=x.device())
+        try:
+            out = ttnn.experimental.dit_minimal_matmul_addcmul_fused(
+                x, w, 1.0, resid, ones, compute_kernel_config=self.compute_kernel_config,
+                dtype=_dtype(ttnn.bfloat16), memory_config=ttnn.DRAM_MEMORY_CONFIG, **_mm_config(x, w))
+        except RuntimeError:
+            return None
+        MM_FUSE_STATS[1] += 1
+        return out
+
     def _lin(self, x, w, bias=None, dtype=None, **kw):
         mm = _esmc_mm()
         act = kw.get("activation")
         if (mm and bias is None and not set(kw) - {"memory_config", "activation"} and act in (None, "silu")
-                and (w.dtype == ttnn.bfloat16 or (_ESMC_MM_BFP8 and w.dtype == ttnn.bfloat8_b)) and x.dtype == ttnn.bfloat16
-                and x.volume() // int(x.shape[-1]) >= ESMC_MM_MIN_ROWS):
+                and self._mm_ok(x, w)):
             try:
                 out = ttnn.experimental.minimal_matmul(
                     x, w, compute_kernel_config=self.compute_kernel_config,
@@ -400,6 +446,8 @@ class Attention(_MMLin, Module):
             self.qkv_weight = None
             self._qkv_w = tuple(self.torch_to_tt("layernorm_qkv.1.weight", transform=lambda w, i=i: w[i * d:(i + 1) * d].t(),
                                                  dtype=_dtype()) for i in range(3))
+            if _ESMC_QKV_MM_SPLIT:
+                self.qkv_weight = self.torch_to_tt("layernorm_qkv.1.weight", dtype=_dtype())
         else:
             self.qkv_weight = self.torch_to_tt("layernorm_qkv.1.weight", dtype=_dtype())
         self.q_ln_weight = self.torch_to_tt("q_ln.weight")
@@ -411,7 +459,11 @@ class Attention(_MMLin, Module):
         x_norm = ttnn.layer_norm(x, weight=self.in_norm_weight, bias=self.in_norm_bias, epsilon=1e-5,
                                  compute_kernel_config=self.compute_kernel_config, memory_config=ln_mc)
         try:
-            if self.qkv_weight is None:
+            if self.qkv_weight is not None:
+                split = self._lin_split(x_norm, self.qkv_weight, 3)
+                if split is not None:
+                    return split
+            if getattr(self, "_qkv_w", None) is not None:
                 return tuple(self._lin(x_norm, w) for w in self._qkv_w)
             qkv = self._lin(x_norm, self.qkv_weight)
             q, k, v = ttnn.chunk(qkv, 3, dim=-1)
@@ -459,7 +511,8 @@ class Attention(_MMLin, Module):
 
     def __call__(self, x: ttnn.Tensor, cos: ttnn.Tensor, sin: ttnn.Tensor,
                  attn_mask: ttnn.Tensor | None = None,
-                 key_valid: ttnn.Tensor | None = None) -> ttnn.Tensor:
+                 key_valid: ttnn.Tensor | None = None, resid: bool = False):
+        """out_proj(attention(x)); with `resid`, (x + that, True) when the matmul fused the add, else (that, False)."""
         ck = self.compute_kernel_config
         d_model = x.shape[-1]
         head_dim = d_model // self.n_heads
@@ -490,9 +543,12 @@ class Attention(_MMLin, Module):
         o = lm_sdpa(q, k, v, attn_mask, scale=head_dim**-0.5)
         ttnn.deallocate(q); ttnn.deallocate(k); ttnn.deallocate(v)
         o = self._merge_heads(o)  # [B, L, d_model]
-        out = self._lin(o, self.out_weight)
+        out = self._lin_resid(o, self.out_weight, x) if resid else None
+        added = out is not None
+        if not added:
+            out = self._lin(o, self.out_weight)
         ttnn.deallocate(o)
-        return out
+        return (out, added) if resid else out
 
 
 # ESMFold2 asks its pair transition for a fused SwiGLU kernel that no shipped ttnn wheel has:
@@ -1294,9 +1350,12 @@ class Block(Module):
     def __call__(self, x: ttnn.Tensor, cos: ttnn.Tensor, sin: ttnn.Tensor,
                  attn_mask: ttnn.Tensor | None = None,
                  key_valid: ttnn.Tensor | None = None) -> ttnn.Tensor:
-        r1 = self.attn(x, cos, sin, attn_mask, key_valid)
-        x = ttnn.add(x, r1)
-        ttnn.deallocate(r1)
+        r1, added = self.attn(x, cos, sin, attn_mask, key_valid, resid=True)
+        if added:
+            x = r1
+        else:
+            x = ttnn.add(x, r1)
+            ttnn.deallocate(r1)
         r3 = self.ffn(x)
         x = ttnn.add(x, r3)
         ttnn.deallocate(r3)
