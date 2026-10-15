@@ -51,7 +51,10 @@ S = 224
 # (case, K, N, bias): the forward projections, the dX of the qkv projection ([.., 384] x [384, 128], the weight's
 # cached transpose), and N=512 with bias for a like-for-like check of the bias seed.
 CASES = [("n128", 128, 128, False), ("n384", 128, 384, False), ("n512", 128, 512, False),
-         ("dx_k384_n128", 384, 128, False), ("n512_bias", 128, 512, True)]
+         ("dx_k384_n128", 384, 128, False), ("n512_bias", 128, 512, True),
+         ("n4", 128, 4, False), ("dx_k4_n128", 4, 128, False)]
+# n4 / dx_k4_n128: the pair-bias projection [.., 128] x [128, 4] and its dX [.., 4] x [4, 128]. Tile padding makes
+# them one-tile N / K; the padded K rows of the weight are zero, so dx_k4 is exact while x's padding is finite.
 WARM, REPS, INNER = 2, 5, 10
 _PROGRAMS: dict = {}
 
@@ -64,7 +67,7 @@ def _program(x, w, b, out, fidelity):
     for d in xs[:-1]:
         mt *= d
     mt //= 32
-    kt, ct = xs[-1] // 32, int(w.shape[-1]) // 32
+    kt, ct = xs[-1] // 32, int(w.padded_shape[-1]) // 32
     key = (tuple(xs), ct, fidelity, b is not None)
     if key in _PROGRAMS:
         return _PROGRAMS[key]
@@ -200,6 +203,8 @@ def main():
             rl["proto_vs_mm"] = rel_l2(outs["proto"], outs["mm"].double())
         if "proto" in ms and "mm" in ms:
             ms["mm_over_proto"] = round(ms["mm"] / ms["proto"], 3)
+        if "proto" in ms and "linear" in ms:
+            ms["linear_over_proto"] = round(ms["linear"] / ms["proto"], 3)
         res["n"].append(N)
         res["ms"][name], res["rel_l2"][name] = ms, rl
         if err:
