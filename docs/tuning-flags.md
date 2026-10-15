@@ -140,6 +140,11 @@ linears on Wormhole, through its own lever set rather than the round. On one Wor
 AF2-IG goes from 4.51 to 4.27 s per complex (three complexes, with a trailing control arm). Across three PD-L1 complexes ipTM moves by at most 0.0004 and the
 structures by 0.02 to 0.06 A, and 0.45 A on the complex that does not bind (ipTM 0.10).
 
+`TT_BIO_PAIR_LINEAR` saves 0.07 to 0.10 s per BindCraft 2 iteration on a Wormhole chip at 1000 MHz (about
+5.41 to 5.34 s). It is not bit-exact in the round. Six PD-L1 campaigns at binder length 80 accepted designs at
+the same rate with it as without (8 of 25 trajectories against 9 of 30), with mean ipTM 0.808 against 0.807
+and pLDDT 0.897 against 0.901. AF2-IG structures are bit-identical with it on.
+
 | flag | what it replaces |
 |---|---|
 | `TT_BIO_GATED_BW_FUSED` | The triangle multiplication's move back plus its two sigmoid-gate gradients, about 16 calls, become one kernel. |
