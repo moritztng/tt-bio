@@ -9,7 +9,7 @@
 //   2. The 32 P_i packed untilized as ONE row of 32 tiles into c_3, so c_3's row h is
 //      [P_0 row h | P_1 row h | ...] = head h's [i x j] block in row-major order, 2 KB contiguous.
 //   3. Each 2 KB page of c_3 tilized alone (block width 1: rows of 64 B) -> the output tile of head h.
-//   4. * SCALE (SFPU on the fp32 dest), + the mask tile (dest reused as srcA), packed bf16 for the writer.
+//   4. * SCALE and + the mask tile, both on the SFPU in the fp32 dest, packed bf16 for the writer.
 // The packer does the re-tiling that a tile-crossing permute or a face-row NOC gather would otherwise do.
 #include <cstdint>
 #define REDUCE_OP PoolType::SUM          // tilize.h guards tilize_block on these
@@ -19,7 +19,7 @@
 #include "api/compute/pack_untilize.h"
 #include "api/compute/tilize.h"
 #include "api/compute/tile_move_copy.h"
-#include "api/compute/eltwise_binary.h"
+#include "api/compute/eltwise_binary_sfpu.h"
 #include "api/compute/eltwise_unary/binop_with_scalar.h"
 
 constexpr uint32_t KT = get_compile_time_arg_val(0);
@@ -72,31 +72,31 @@ void kernel_main() {
             }
             tilize_uninit(cb_rm, cb_t);
 
-            for (uint32_t h0 = 0; h0 < 32; h0 += SW) {
-                cb_wait_front(cb_t, SW);
-                cb_reserve_back(cb_out, SW);
+            // dest t = head tile, dest t + 2 = the mask tile, both fp32 on the SFPU: no srcA round trip, and no
+            // dest-reuse binary (on Wormhole its tail raced the next phase in trimul_in_t1).
+            for (uint32_t h0 = 0; h0 < 32; h0 += 2) {
+                cb_wait_front(cb_t, 2);
+                cb_reserve_back(cb_out, 2);
                 tile_regs_acquire();
                 copy_tile_to_dst_init_short(cb_t);
-                for (uint32_t t = 0; t < SW; ++t) {
-                    copy_tile(cb_t, t, t);
-                }
+                copy_tile(cb_t, 0, 0);
+                copy_tile(cb_t, 1, 1);
+                copy_tile_to_dst_init_short(cb_m);
+                copy_tile(cb_m, 0, 2);
+                copy_tile(cb_m, 0, 3);
                 binop_with_scalar_tile_init();
-                for (uint32_t t = 0; t < SW; ++t) {
-                    mul_unary_tile(t, SCALE);
-                }
-                binary_dest_reuse_tiles_init<EltwiseBinaryType::ELWADD, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(cb_m);
-                for (uint32_t t = 0; t < SW; ++t) {
-                    binary_dest_reuse_tiles<EltwiseBinaryType::ELWADD, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(
-                        cb_m, 0, t);
-                }
+                mul_unary_tile(0, SCALE);
+                mul_unary_tile(1, SCALE);
+                add_binary_tile_init();
+                add_binary_tile(0, 2, 0);
+                add_binary_tile(1, 3, 1);
                 tile_regs_commit();
                 tile_regs_wait();
-                for (uint32_t t = 0; t < SW; ++t) {
-                    pack_tile(t, cb_out);
-                }
+                pack_tile(0, cb_out);
+                pack_tile(1, cb_out);
                 tile_regs_release();
-                cb_push_back(cb_out, SW);
-                cb_pop_front(cb_t, SW);
+                cb_push_back(cb_out, 2);
+                cb_pop_front(cb_t, 2);
             }
         }
         cb_pop_front(cb_z, 32 * KT);

@@ -73,6 +73,18 @@ def case(dev, ckc, I):
                  "rel_err_f64": float(e.norm() / ref[:, :, :I, :I][v].norm()), "max_abs_f64": float(e.abs().max()),
                  "pad_exact": bool((d[:, :, I:] == ref[:, :, I:]).all() and (d[..., I:] == ref[..., I:]).all()),
                  "masked_max_abs": float((d - ref)[:, :, :I, :I][~v].abs().max())}
+            bad = ((d - ref).abs() > 1.0)
+            bad[:, :, :I, :I] &= v
+            bad[:, :, I:] = False
+            bad[..., I:] = False
+            idx = bad.nonzero()
+            r["n_bad"] = int(idx.shape[0])
+            if idx.shape[0]:
+                r["bad_first"] = [[int(x) for x in row] + [float(d[tuple(row)]), float(ref[tuple(row)])]
+                                  for row in idx[:12]]
+                for k, nm in ((1, "h"), (2, "i"), (3, "j")):
+                    r[f"bad_{nm}_mod32"] = sorted(set(int(x) for x in (idx[:, k] % 32).tolist()))[:40]
+                    r[f"bad_{nm}_tile"] = sorted(set(int(x) for x in (idx[:, k] // 32).tolist()))[:40]
             outs[name] = d
         except Exception as ex:                                          # noqa: BLE001
             r = {"error": repr(ex)[:400]}
