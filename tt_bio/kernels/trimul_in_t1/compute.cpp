@@ -31,8 +31,16 @@
 // ABL (bench-only define, trimul_tail.T1_ABL; 0 in every model path): bits that skip one stage's
 // work while keeping its circular-buffer traffic, to time each stage by difference (perf/spd_trimul/in_t1.py --abl).
 //   1 layer_norm, 2 g_out matmul, 4 [a | b] matmuls, 8 gate multiply, 16 z reads, 32 writer gather, 64 writer writes.
+//   Inside bit 4's stage: 128 skips only the matmul_block calls (sigmoid and pack kept), 256 only the sigmoid.
 #ifndef ABL
 #define ABL 0
+#endif
+// NOTR (bench-only, trimul_tail.T1_NOTR, WRONG output): the [a | b] matmuls read xn untransposed, which
+// bounds what removing the per-call in-unpack transpose could save.
+#ifdef NOTR
+constexpr bool XN_T = false;
+#else
+constexpr bool XN_T = true;
 #endif
 
 constexpr uint32_t Kt = get_compile_time_arg_val(0);
@@ -138,7 +146,7 @@ void kernel_main() {
         for (uint32_t q = 0; q < QN; ++q) {
             for (uint32_t pass = 0; pass < 2; ++pass) {
                 const uint32_t pass_cb = pass == 0 ? p_cb : g_cb;
-                mm_block_init_short(w_cb, xn_cb, true, SBW, 1, Kt);
+                mm_block_init_short(w_cb, xn_cb, XN_T, SBW, 1, Kt);
                 reconfig_data_format(xn_cb, w_cb);
                 pack_reconfig_data_format(pass_cb);
                 cb_reserve_back(pass_cb, IL);
@@ -146,9 +154,9 @@ void kernel_main() {
                     tile_regs_acquire();
                     uint32_t i0 = (pass * QN + q) * Kt;
                     uint32_t i1 = il0;
-                    for (uint32_t k = 0; k < Kt; ++k, ++i0, i1 += IL)
-                        matmul_block(w_cb, xn_cb, i0, i1, 0, true, SBW, 1, Kt);
-                    if (pass == 1) {
+                    for (uint32_t k = 0; k < Kt && !(ABL & 128); ++k, ++i0, i1 += IL)
+                        matmul_block(w_cb, xn_cb, i0, i1, 0, XN_T, SBW, 1, Kt);
+                    if (pass == 1 && !(ABL & 256)) {
                         for (uint32_t i = 0; i < SBW; ++i) {
                             if constexpr (SIGPOLY) sigmoid_poly_tile<SIGPOLY>(i);
                             else sigmoid_bf16_tile(i);
