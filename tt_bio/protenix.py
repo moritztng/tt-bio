@@ -101,7 +101,11 @@ TRIATT_LN = frozenset({"triatt_ln", "apb_ln"})
 # Protenix-v2 Wormhole fast set vs + trimul_sig6, 44 paired folds (spd-gap-small gsig6, 2026-10-15), PASS: same-seed
 # top pose median 0.333 A vs the 1.414 A A/A floor, CA-lDDT +0.0001 [-0.0013, +0.0016], docking 34 -> 35. Galaxy chip
 # (1000 MHz, s6x): -0.40 s, 4 of 4 pairs faster. Blackhole not measured.
-WS_FAST = frozenset({"ws_ln", "ws_lofi", "trimul_sig6"})
+# dit_shoist (the token DiT's conditioning as three wide linears a step, each block reading its columns in place)
+# too: Wormhole 11-set fast grade, 44 paired folds (spd-gap-small gshx, 2026-10-15), PASS: same-seed top pose median
+# 0.256 A vs the 1.414 A floor, CA-lDDT +0.0014 [+0.0008, +0.0022], ipTM -0.0004, docking 34 -> 34. Galaxy chip 512 x 1
+# (1000 MHz, shx2): 55.92 -> 54.70 s, 5 of 5 warm pairs faster. p150a -0.28 s (shxbh), Blackhole grade not run.
+WS_FAST = frozenset({"ws_ln", "ws_lofi", "trimul_sig6", "dit_shoist"})
 from .eltwise_fusion import scale_add, norm_residual, gated_add
 
 
