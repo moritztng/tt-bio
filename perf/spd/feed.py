@@ -57,8 +57,11 @@ MAX_FAILS = 3
 STEAL_S = 900   # a BH job still waiting this long moves to a free card on another BH box its cell allows
 # BH boxes: SPD cards and their flocks (state/spd/CHIPS.md). A chip kept off the feed has ~/spd/locks/chip<N>.BAD on its
 # host (qb2 chip 0 since the 2026-10-14 slot swap: marginal at 1350 MHz, and feed trees predate the AICLK cap).
+# `reset` resets a card after a capped job (see run_cmd). qb1 only: each p150a is its own board, while a qb2 p300c
+# board carries two chips and a reset there would kill the other chip's job.
 BH_POOLS = {
-    "qb1": {"ssh": "qb1", "cards": [0, 1, 2, 3], "lock": "/home/ttuser/spd_qb1_card{c}.lock"},
+    "qb1": {"ssh": "qb1", "cards": [0, 1, 2, 3], "lock": "/home/ttuser/spd_qb1_card{c}.lock",
+            "reset": "/home/ttuser/.local/bin/tt-smi -r"},
     "qb2": {"ssh": "qb2", "cards": [0, 1, 2, 3], "lock": "/home/ttuser/spd_qb2_chip{c}.lock"},
 }
 
@@ -99,6 +102,7 @@ if A["kind"] == "galaxy":
     out["healthy"] = len([n for n in os.listdir("/dev/tenstorrent") if n.isdigit()]) - bad
     q = [os.path.basename(f) for f in glob.glob(P + "/queue/*.sh")]
     out["queued"] = sum(1 for n in q if n[0] in "012345678")
+    out["qprio"] = [sum(1 for n in q if n[0] == str(d)) for d in range(9)]
     out["paused"] = os.path.exists(P + "/PAUSE") or os.path.exists(P + "/RETURNED")
     out["live"] = q + [os.path.basename(r).split("-", 2)[2] for r in glob.glob(P + "/running/*.sh")
                        if not os.path.exists(r + ".end")]
@@ -121,6 +125,22 @@ if A["kind"] == "galaxy":
 else:
     J = H + "/spd/feed/jobs"; os.makedirs(J, exist_ok=True)
     cards = [c for c in A["cards"] if not os.path.exists(H + "/spd/locks/chip%d.BAD" % c)]
+    # dead ARC: the class node reads 0xFFFFFFFF (10-15 qb1 card 2 for 70+ min while jobs kept dying there in init).
+    # Logical card c is the c-th class node in PCI order, the order TT_VISIBLE_DEVICES and tt-smi use.
+    sy = os.environ.get("TT_SYSFS", "/sys/class/tenstorrent")
+    nodes = [d for _, d in sorted((os.path.basename(os.path.realpath(d + "/device")), d) for d in glob.glob(sy + "/*"))]
+    def dead(c):
+        return c < len(nodes) and any(open(f).read().strip() == "4294967295" for f in
+                                      (nodes[c] + "/tt_aiclk", nodes[c] + "/tt_heartbeat") if os.path.exists(f))
+    out["dead"] = {str(c): int(nodes[c].rsplit("!", 1)[1]) for c in cards if dead(c)}
+    cards = [c for c in cards if str(c) not in out["dead"]]
+    AD = H + "/spd/feed/arc"; out["arc"] = []; out["arc_busy"] = []
+    for f in glob.glob(AD + "/card*.pid"):
+        b = f[:-4]; c = int(os.path.basename(b)[4:].split(".")[0])
+        if os.path.exists(b + ".result"):
+            out["arc"].append({"card": c, "at": int(b.rsplit(".", 1)[1]), "result": open(b + ".result").read().strip()})
+        elif os.path.exists("/proc/" + open(f).read().strip()):
+            out["arc_busy"].append(c)
     out["healthy"] = len(cards); out["cards"] = cards; queued = 0; held = set()
     for sh in glob.glob(J + "/*.sh"):
         n = os.path.basename(sh); card = int(open(sh + ".card").read()) if os.path.exists(sh + ".card") else -1
@@ -152,12 +172,27 @@ print(json.dumps(out))
 # SIGINT alone cannot interrupt a native wait: on 10-15 a device-init hang outlived its bash wrapper as an orphan and
 # kept the card's flock (inherited fd 9) for 2 h. The group is the inner timeout's pid, kept in $1.pg. The .end says
 # what ended a capped job: "124 INT" or "124 INT+TERM". Never SIGKILL a device job.
+# A capped job leaves its card dirty: on 10-15 qb1 three PV2 fast seed cells hung, and every later job on those three
+# cards failed device init ("failed to initialize FW", "ARC core failed to start") until reset. So once the group is
+# gone, and while the card's flock is still held, $6 (the box's reset command, empty = none) resets the card; the .end
+# then ends in "reset" or "reset-failed", or "noreset" if the group outlived SIGTERM too.
+# The reset names the card's /dev node (`node`, from NODE, which the caller defines first): a bare logical id needs
+# tt-smi to enumerate every card, which a dead ARC can hang. `dead` is true while the card's class node reads 0xFFFFFFFF.
+NODE = ('node() { for s in "${TT_SYSFS:-/sys/class/tenstorrent}"/*; do echo "$(basename "$(readlink -f "$s/device")") '
+        '${s##*!}"; done | sort | sed -n "$(($1 + 1))s/.* //p"; }; '
+        'dead() { local n=$(node $1); [ -n "$n" ] && cat "${TT_SYSFS:-/sys/class/tenstorrent}/tenstorrent!$n/tt_aiclk" '
+        '"${TT_SYSFS:-/sys/class/tenstorrent}/tenstorrent!$n/tt_heartbeat" 2>/dev/null | grep -qx 4294967295; }; ')
+
+
 def run_cmd(grace=120):
     return ('S=$(date +%s); CHIP=$2 TT_VISIBLE_DEVICES=$2 LOCK="$4" WAIT=60 timeout -s TERM $(($5 + G)) '
             'sh -c \'echo $$ > "$1.pg"; exec timeout -s INT "$2" bash "$1"\' _ "$1" "$5" > "$1.log" 2>&1; rc=$?; '
             'if [ $rc = 124 ]; then g=$(cat "$1.pg" 2>/dev/null); s=INT; [ $(($(date +%s) - S)) -lt $(($5 + G)) ] || s=INT+TERM; '
             'for i in $(seq G); do kill -0 -- -$g 2>/dev/null || break; sleep 1; done; '
-            '[ -n "$g" ] && kill -0 -- -$g 2>/dev/null && { kill -TERM -- -$g; s=INT+TERM; }; rc="$rc $s"; fi; '
+            '[ -n "$g" ] && kill -0 -- -$g 2>/dev/null && { kill -TERM -- -$g; s=INT+TERM; }; '
+            'if [ -n "$6" ]; then for i in $(seq G); do kill -0 -- -$g 2>/dev/null || break; sleep 1; done; '
+            'if kill -0 -- -$g 2>/dev/null; then s="$s noreset"; elif timeout 180 $6 "${TT_DEV:-/dev/tenstorrent}/$(node $2)" >> "$1.log" 2>&1; then s="$s reset"; '
+            'else s="$s reset-failed"; fi; fi; rc="$rc $s"; fi; '
             'echo "$rc" > "$1.end"').replace(" G)", f" {grace})").replace("seq G", f"seq {grace}")
 
 
@@ -178,11 +213,11 @@ for j in A["jobs"]:
         for x in (".end", ".start", ".pid", ".log", ".pg"):
             if os.path.exists(sh + x): os.remove(sh + x)
         open(sh, "w").write(j["body"]); open(sh + ".card", "w").write("-1")
-        # Take the box's dispatch flock in turn, then the first card that is not BAD, runs no release-gate leg and no
+        # Take the box's dispatch flock in turn, then the first card that is not BAD or dead-ARC, runs no release-gate leg and no
         # gapboard sentinel (the scoreboard measuring main; checked again once its flock is held) and whose flock is
         # free. 10-15: waiters bound to one card queued on busy cards 2 and 3 while qb1 card 0 sat free 15+ min.
-        w = ('exec 8>"$(dirname "$1")/.dispatch"; flock -w 86400 8 || { echo flockbusy > "$1.end"; exit 3; }; '
-             'D=$((SECONDS + 86400)); while :; do for c in $2; do [ -e ~/spd/locks/chip$c.BAD ] && continue; '
+        w = (NODE + 'exec 8>"$(dirname "$1")/.dispatch"; flock -w 86400 8 || { echo flockbusy > "$1.end"; exit 3; }; '
+             'D=$((SECONDS + 86400)); while :; do for c in $2; do [ -e ~/spd/locks/chip$c.BAD ] && continue; dead $c && continue; '
              'G="(spd_qb1_card|spd_qb2_chip|TT_VISIBLE_DEVICES=)$c[. ].*(release_gate|gate_fanout|perf_ab)"; '
              'pgrep -f "$G" >/dev/null && continue; exec 9>"${3//@/$c}"; '
              'flock -n 9 && ! pgrep -f "$G" >/dev/null && break 2; exec 9>&-; done; '
@@ -190,7 +225,7 @@ for j in A["jobs"]:
              'exec 8>&-; echo $c > "$1.card"; touch "$1.start"; set -- "$1" $c "$3" "$(dirname "$1")/nolock.$c" "$5"; '
              'cd "$(dirname "$1")"; ' + RUN)
         p = subprocess.Popen(["setsid", "nohup", "bash", "-c", w, "_", sh, " ".join(map(str, j["cards"])),
-                              j["lock"].replace("{c}", "@"), "", str(j["cap"] + 300)],
+                              j["lock"].replace("{c}", "@"), "", str(j["cap"] + 300), A.get("reset", "")],
                              stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, cwd=J)
         open(sh + ".pid", "w").write(str(p.pid))
 for n in A.get("unqueue", []):
@@ -198,7 +233,7 @@ for n in A.get("unqueue", []):
     if os.path.exists(p): os.makedirs(H + "/spd/pool/quarantine", exist_ok=True); os.rename(p, H + "/spd/pool/quarantine/" + n)
 print(len(A["jobs"]))
 '''
-PLACE = f"RUN = {RUN!r}\n" + PLACE   # the waiter string above runs on the BH host, where only what PLACE defines exists
+PLACE = f"NODE = {NODE!r}\nRUN = {RUN!r}\n" + PLACE   # the waiter string above runs on the BH host, where only what PLACE defines exists
 
 
 # Withdraws BH waiters that have not started: kill the waiter's session (feed started it under setsid), then set the
@@ -219,6 +254,74 @@ for n in A["names"]:
     got.append(n)
 print(json.dumps(got))
 '''
+
+
+# One bounded reset of a dead-ARC qb1 card, detached on the host: hold the card's flock (no job lands meanwhile), wait
+# until no process has the node open, reset by node path, then verify the class node no longer reads 0xFFFFFFFF.
+# card<c>.<at>.result says ok / still-dead / reset-failed / busy (node never closed) / nolock.
+ARC_SH = ('exec 9>"$2"; flock -w 7200 9 || { echo nolock > "$1.result"; exit; }; N="${TT_DEV:-/dev/tenstorrent}/$3"; '
+          'C="${TT_SYSFS:-/sys/class/tenstorrent}/tenstorrent!$3"; '
+          'for i in $(seq ${ARC_WAIT:-360}); do fuser "$N" >/dev/null 2>&1 || break; sleep 10; done; '
+          'fuser "$N" >/dev/null 2>&1 && { echo busy > "$1.result"; exit; }; '
+          'echo "$(date -u +%FT%TZ) before aiclk=$(cat "$C/tt_aiclk") hb=$(cat "$C/tt_heartbeat")" >> "$1.log"; '
+          'timeout 180 $4 "$N" >> "$1.log" 2>&1 || { echo reset-failed > "$1.result"; exit; }; sleep ${ARC_SETTLE:-10}; '
+          'echo "$(date -u +%FT%TZ) after aiclk=$(cat "$C/tt_aiclk") hb=$(cat "$C/tt_heartbeat")" >> "$1.log"; '
+          'cat "$C/tt_aiclk" "$C/tt_heartbeat" | grep -qx 4294967295 && r=still-dead || r=ok; echo $r > "$1.result"')
+ARCFIX = r'''
+import json, os, subprocess, sys
+A = json.loads(sys.stdin.readline()); D = os.path.expanduser("~/spd/feed/arc"); os.makedirs(D, exist_ok=True)
+b = "%s/card%d.%d" % (D, A["card"], A["at"])
+p = subprocess.Popen(["setsid", "nohup", "bash", "-c", A["sh"], "_", b, A["lock"].format(c=A["card"]), str(A["node"]),
+                      A["reset"]], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, cwd=D)
+open(b + ".pid", "w").write(str(p.pid)); print(p.pid)
+'''
+BAD = r'''
+import json, os, sys
+A = json.loads(sys.stdin.readline()); D = os.path.expanduser("~/spd/locks"); os.makedirs(D, exist_ok=True)
+open("%s/chip%d.BAD" % (D, A["card"]), "w").write(A["why"] + "\n"); print(1)
+'''
+
+
+def arc(R, st, P, log, now=None):
+    """Dead-ARC cards (class node reads 0xFFFFFFFF). qb1: one bounded reset; a second death within 24 h cardblocks the
+    card and wakes the orchestrator. qb2: chipN.BAD, never a reset (a p300c board carries two chips). Every step is a
+    fleet.log line. History: state/spd/feed/arc.json."""
+    now = int(now or time.time()); f = R / "state/spd/feed/arc.json"
+    H = json.loads(f.read_text()) if f.exists() else {}
+
+    def fleet(m):
+        log(m)
+        with open(R / "fleet.log", "a") as fl:
+            fl.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} spd feed: {m}\n")
+    for n, s in st.items():
+        for r in s.get("arc", []):
+            h = H.setdefault(f"{n}:{r['card']}", {"resets": [], "seen": []})
+            if r["at"] not in h["seen"]:
+                h["seen"].append(r["at"]); fleet(f"{n} card {r['card']} dead-ARC reset: {r['result']}")
+        for c, node in s.get("dead", {}).items():
+            c = int(c); h = H.setdefault(f"{n}:{c}", {"resets": [], "seen": []})
+            if c in s.get("arc_busy", []):
+                continue
+            why = f"dead ARC (class node {node} reads 0xFFFFFFFF)"
+            try:
+                if not P[n].get("reset"):
+                    remote(P[n]["ssh"], BAD, {"card": c, "why": f"{time.strftime('%FT%TZ', time.gmtime(now))} {why}, feed"})
+                    fleet(f"{n} chip {c} {why}: marked chip{c}.BAD, no reset (p300c board pair)")
+                elif [t for t in h["resets"] if now - t < 86400]:
+                    remote(P[n]["ssh"], BAD, {"card": c, "why": f"{time.strftime('%FT%TZ', time.gmtime(now))} {why} again "
+                                                              f"within 24 h of a reset, feed"})
+                    (R / f"state/cardblock-{n}-{c}").write_text(f"{why} again within 24 h of a reset "
+                                                                f"({time.strftime('%FT%TZ', time.gmtime(now))}); "
+                                                                "set by perf/spd/feed.py; needs RMA triage\n")
+                    fleet(f"{n} card {c} {why} again within 24 h of a reset: cardblocked, chip{c}.BAD")
+                    wake(R, "spd-orchestrator", f"{n} card {c} dead ARC twice in 24 h, cardblocked", log)
+                else:
+                    remote(P[n]["ssh"], ARCFIX, {"card": c, "node": node, "at": now, "lock": P[n]["lock"],
+                                                  "reset": P[n]["reset"], "sh": ARC_SH})
+                    h["resets"].append(now); fleet(f"{n} card {c} {why}: one bounded reset under its card flock")
+            except Exception as e:
+                log(f"{n}: dead-ARC handling of card {c} failed: {e}")
+    f.write_text(json.dumps(H, indent=1))
 
 
 def remote(ssh, script, payload, timeout=120):
@@ -383,7 +486,7 @@ def steal(cs, ledger, st, P, stamp, dry, log):
             try:
                 if name not in remote(P[n]["ssh"], WITHDRAW, {"names": [name]}):
                     continue
-                remote(P[b]["ssh"], PLACE, {"kind": "bh", "jobs": [{"name": name, "body": c["body"], "cap": c["cap"],
+                remote(P[b]["ssh"], PLACE, {"kind": "bh", "reset": P[b].get("reset", ""), "jobs": [{"name": name, "body": c["body"], "cap": c["cap"],
                                                                    "cards": [card], "lock": P[b]["lock"]}]})
             except Exception as e:   # withdrawn but not placed: the next pass finds the cell lost and places it again
                 log(f"steal {c['key']} failed: {e}")
@@ -462,24 +565,30 @@ def main(argv=None):
             for m in gone:
                 s["jobs"].pop(m); s["queued"] -= 1
             log(f"{n}: withdrew {len(gone)} twin(s) placed elsewhere while it was dark")
+    if not a.dry_run:
+        arc(R, st, P, log)
     live = {n for s in st.values() for n in s.get("live", [])}
     steal(cs, ledger, st, P, stamp, a.dry_run, log)
-    # 2. fill each pool up to depth x healthy, cells in priority order, the pool with most room first
-    room = {n: (0 if s.get("paused") else int(a.depth * s["healthy"]) - s["queued"]) for n, s in st.items()}
+    # 2. fill each pool up to depth x healthy, cells in priority order, the pool with most room first. A cell's room
+    # counts only queued work it does not jump: pool.sh starts the lowest prio digit first, so prio-6 jobs hand-queued
+    # past the depth must not lock prio-3 cells out (10-15: 211 queued on .107, every grid cell refused for hours).
+    qp = {n: list(s.get("qprio") or [s["queued"]] + [0] * 8) for n, s in st.items()}
+    room = lambda n, p: 0 if st[n].get("paused") else int(a.depth * st[n]["healthy"]) - sum(qp[n][:p + 1])
     place = {n: [] for n in st}
     for c in cs:
         L = ledger.get(c["key"], {})
         if c["is_done"] or L.get("quarantined") or L.get("state") in ("queued", "running") or live & set(c["also"]):
             continue
-        ok = [n for n in st if P[n]["arch"] == c["arch"] and room[n] > 0 and (not c["hosts"] or n in c["hosts"])
+        p = int(c["name"][0])
+        ok = [n for n in st if P[n]["arch"] == c["arch"] and room(n, p) > 0 and (not c["hosts"] or n in c["hosts"])
               and all(st[n]["exists"].get(x) for x in c["requires"])]
         if not ok:
             continue
-        n = max(ok, key=lambda n: room[n])
+        n = max(ok, key=lambda n: room(n, p))
         job = {"name": c["name"], "body": c["body"], "cap": c["cap"]}
         if P[n]["kind"] == "bh":
             job.update(cards=st[n]["cards"], lock=P[n]["lock"])
-        place[n].append(job); room[n] -= 1
+        place[n].append(job); qp[n][p] += 1
         ledger[c["key"]] = dict(L, host=n, name=c["name"], hash=c["hash"], state="queued", placed=stamp,
                                 fails=L.get("fails", []), quarantined=False, row=c["row"])
     # 3. trees and small files a pending cell needs and a pool of its arch lacks: ship them so a later pass places there
@@ -512,7 +621,8 @@ def main(argv=None):
         unq = [q for q in qnames if s["jobs"].get(q, {}).get("state") == "queued"] if P[n]["kind"] == "galaxy" else []
         if jobs or unq:
             try:
-                remote(P[n]["ssh"], PLACE, {"kind": P[n]["kind"], "jobs": jobs, "unqueue": unq})
+                remote(P[n]["ssh"], PLACE, {"kind": P[n]["kind"], "jobs": jobs, "unqueue": unq,
+                                            "reset": P[n].get("reset", "")})
             except Exception as e:  # the next pass finds these cells lost and places them again
                 log(f"{n}: place failed: {e}")
     if a.dry_run:

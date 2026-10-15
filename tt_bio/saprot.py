@@ -32,6 +32,8 @@ import numpy as np
 import torch
 import ttnn
 
+from tt_bio.envflags import env_flag
+
 from tt_bio.tenstorrent import (
     Module,
     TorchWrapper,
@@ -237,6 +239,12 @@ def fold_rope_tables(seq_len: int, n_heads: int, d: int, device):
     return to_tt(cos), to_tt(sin)
 
 
+# fc1's GELU applied by the matmul at pack instead of as its own op over the [rows, 4*d] activation. Page cell, batch of
+# 7, Galaxy chip at 1000 MHz: 650M 250.0 -> 234.2 ms (--fast 244.8 -> 228.5), 1.3B 482.4 -> 450.1 (472.7 -> 441.3),
+# 35M 55.4 -> 52.5 (54.8 -> 53.0); error against float32 HF unchanged (1.3B pcc 0.99916 -> 0.99929, 650M 0.99976 both).
+_GELU_FUSED = env_flag("TT_BIO_SAPROT_GELU_FUSED", True)
+
+
 class ESM2FFN(Module):
     """ESM-2 feed-forward: pre-LN, Linear(intermediate)+GELU, Linear(hidden), residual."""
 
@@ -254,9 +262,10 @@ class ESM2FFN(Module):
         x_norm = ttnn.layer_norm(
             x, weight=self.norm_weight, bias=self.norm_bias, epsilon=1e-5, compute_kernel_config=ck,
         )
-        h = self._lin(x_norm, self.fc1_weight, bias=self.fc1_bias)
+        h = self._lin(x_norm, self.fc1_weight, bias=self.fc1_bias, **({"activation": "gelu"} if _GELU_FUSED else {}))
         ttnn.deallocate(x_norm)
-        h = ttnn.gelu(h)
+        if not _GELU_FUSED:
+            h = ttnn.gelu(h)
         out = self._lin(h, self.fc2_weight, bias=self.fc2_bias)
         ttnn.deallocate(h)
         return out

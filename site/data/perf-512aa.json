@@ -24,7 +24,8 @@
     "protocol": "Warm runs, one prediction at a time on one accelerator, the same input on every platform, each model at its shipped settings. Tenstorrent runs tt-bio main in its default mode.",
     "nvidia_code": "The GPUs run Anthropic's open kit for these models in exact mode where it has the model, and the authors' own release where it does not.",
     "nvidia_impl": "Exact mode keeps the upstream arithmetic: checked on every GPU, it matched the unpatched package bit for bit where determinism can be switched on, and within 0.6 Å elsewhere.",
-    "timed_region": "Tenstorrent times the whole call, featurisation and file writing included. Most kit cells time the model call alone, which favours the NVIDIA column; RoseTTAFold3 is timed whole on both sides."
+    "timed_region": "Tenstorrent times the whole call, featurisation and file writing included. Most kit cells time the model call alone, which favours the NVIDIA column; RoseTTAFold3 is timed whole on both sides.",
+    "accuracy": "Every release scores each model against its official reference implementation on Blackhole, run the way people use it: with an MSA wherever the model takes one. Per-target results, thresholds and reproduction commands are in the repository's docs/implementation-parity.md."
   },
   "platforms": [
     {
@@ -163,6 +164,102 @@
   },
   "models": [
     {
+      "id": "openfold3",
+      "name": "OpenFold3",
+      "recycles": 3,
+      "sampling_steps": 200,
+      "nvidia_impl": "The kit's exact mode over openfold3 0.4.1 on every GPU.",
+      "cells": {
+        "p150a": {
+          "status": "measured",
+          "s_per_fold": 11.921,
+          "n": 4,
+          "spread_pct": 1.1,
+          "aiclk_mhz": 1350,
+          "versions": "tt-bio main d6aca5ede, ttnn 0.68.0, qb1 p150a card 2",
+          "when": "2026-10-15T00:11:07Z",
+          "parity": "Passes all 6 release-gate accuracy checks against the reference implementation on Blackhole, with an MSA (tt-bio 469ed1356)",
+          "fast": {
+            "s_per_fold": 8.918,
+            "n": 4,
+            "spread_pct": 0.72,
+            "aiclk_mhz": 1350,
+            "versions": "tt-bio main d6aca5ede, ttnn 0.68.0, qb1 p150a card 2",
+            "when": "2026-10-15T00:12:16Z"
+          }
+        },
+        "h200": {
+          "status": "measured",
+          "s_per_fold": 2.999,
+          "n": 4,
+          "clock_mhz": 1980,
+          "versions": "kit f4f62fa65, torch 2.10.0, openfold3 0.4.1, driver 595.71.05",
+          "when": "2026-10-14",
+          "ref": "kit",
+          "fast": {
+            "s_per_fold": 1.501,
+            "n": 4,
+            "clock_mhz": 1980,
+            "versions": "kit f4f62fa65, torch 2.10.0, openfold3 0.4.1, driver 595.71.05",
+            "when": "2026-10-14"
+          },
+          "stock": {
+            "s_per_fold": 10.15,
+            "n": 4,
+            "clock_mhz": 1980,
+            "versions": "kit f4f62fa65, torch 2.10.0, openfold3 0.4.1, driver 595.71.05",
+            "when": "2026-10-14"
+          }
+        },
+        "b200": {
+          "status": "measured",
+          "s_per_fold": 3.053,
+          "n": 4,
+          "clock_mhz": 1965,
+          "versions": "kit f4f62fa65, torch 2.10.0, openfold3 0.4.1, driver 580.126.09",
+          "when": "2026-10-14",
+          "ref": "kit",
+          "fast": {
+            "s_per_fold": 1.716,
+            "n": 4,
+            "clock_mhz": 1965,
+            "versions": "kit f4f62fa65, levers pair_transition off (refused on this GPU), torch 2.10.0, openfold3 0.4.1, driver 580.126.09",
+            "when": "2026-10-15"
+          },
+          "stock": {
+            "s_per_fold": 11.66,
+            "n": 4,
+            "clock_mhz": 1965,
+            "versions": "kit f4f62fa65, torch 2.10.0, openfold3 0.4.1, driver 580.126.09",
+            "when": "2026-10-15"
+          }
+        },
+        "a100": {
+          "status": "measured",
+          "s_per_fold": 5.03,
+          "n": 4,
+          "clock_mhz": 1410,
+          "versions": "kit f4f62fa65, torch 2.10.0, openfold3 0.4.1, driver 580.159.03",
+          "when": "2026-10-14",
+          "ref": "kit",
+          "fast": {
+            "s_per_fold": 2.349,
+            "n": 4,
+            "clock_mhz": 1410,
+            "versions": "kit f4f62fa65, torch 2.10.0, openfold3 0.4.1, driver 580.159.03",
+            "when": "2026-10-14"
+          },
+          "stock": {
+            "s_per_fold": 14.39,
+            "n": 4,
+            "clock_mhz": 1410,
+            "versions": "kit f4f62fa65, torch 2.10.0, openfold3 0.4.1, driver 580.159.03",
+            "when": "2026-10-14"
+          }
+        }
+      }
+    },
+    {
       "id": "boltz2",
       "name": "Boltz-2",
       "recycles": 3,
@@ -177,7 +274,7 @@
           "aiclk_mhz": 1350,
           "versions": "tt-bio main 388e725b6, ttnn 0.68.0, qb1 p150a card 1",
           "when": "2026-10-15T10:22:25Z",
-          "parity": "2 of 4 release-gate accuracy checks inside the reference envelope on Blackhole (tt-bio 469ed1356); the 9NCY antibody-antigen complex without MSA and a 117-residue protein without MSA sit outside it on a documented bf16 floor",
+          "parity": "Passes both release-gate accuracy checks against the reference implementation on Blackhole, with an MSA (tt-bio acbce1322)",
           "fast": {
             "s_per_fold": 12.39,
             "n": 4,
@@ -259,6 +356,296 @@
       }
     },
     {
+      "id": "opendde",
+      "name": "OpenDDE",
+      "recycles": 10,
+      "sampling_steps": 200,
+      "nvidia_impl": "The kit's exact mode over opendde 1.1.1 (aurekaresearch) on every GPU.",
+      "cells": {
+        "p150a": {
+          "status": "measured",
+          "s_per_fold": 56.919,
+          "n": 4,
+          "spread_pct": 0.4,
+          "aiclk_mhz": 1350,
+          "versions": "tt-bio main d6aca5ede, ttnn 0.68.0, qb1 p150a card 2",
+          "when": "2026-10-15T00:04:57Z",
+          "parity": "Passes its release-gate accuracy check against the reference implementation on Blackhole, with an MSA (tt-bio 469ed1356)",
+          "fast": {
+            "s_per_fold": 50.626,
+            "n": 4,
+            "spread_pct": 1.4,
+            "aiclk_mhz": 1350,
+            "versions": "tt-bio main d6aca5ede, ttnn 0.68.0, qb1 p150a card 2",
+            "when": "2026-10-15T00:09:43Z"
+          }
+        },
+        "h200": {
+          "status": "measured",
+          "s_per_fold": 10.39,
+          "n": 4,
+          "clock_mhz": 1980,
+          "versions": "kit f4f62fa65, torch 2.7.1+cu126, opendde 1.1.1, driver 595.71.05",
+          "when": "2026-10-14",
+          "ref": "kit",
+          "fast": {
+            "s_per_fold": 7.897,
+            "n": 4,
+            "clock_mhz": 1980,
+            "versions": "kit f4f62fa65, torch 2.7.1+cu126, opendde 1.1.1, driver 595.71.05",
+            "when": "2026-10-14"
+          },
+          "stock": {
+            "s_per_fold": 19.76,
+            "n": 4,
+            "clock_mhz": 1965,
+            "versions": "kit f4f62fa65, torch 2.7.1+cu126, opendde 1.1.1, driver 595.71.05",
+            "when": "2026-10-14"
+          }
+        },
+        "b200": {
+          "status": "measured",
+          "s_per_fold": 12.66,
+          "n": 4,
+          "clock_mhz": 1965,
+          "versions": "kit f4f62fa65, torch 2.7.1+cu128, opendde 1.1.1, driver 580.126.09",
+          "when": "2026-10-15",
+          "ref": "kit",
+          "fast": {
+            "s_per_fold": 10.53,
+            "n": 4,
+            "clock_mhz": 1965,
+            "versions": "kit f4f62fa65, torch 2.7.1+cu128, opendde 1.1.1, driver 580.126.09",
+            "when": "2026-10-15"
+          },
+          "stock": {
+            "s_per_fold": 17.54,
+            "n": 4,
+            "clock_mhz": 1965,
+            "versions": "kit f4f62fa65, torch 2.7.1+cu128, opendde 1.1.1, driver 580.126.09",
+            "when": "2026-10-15"
+          }
+        },
+        "a100": {
+          "status": "measured",
+          "s_per_fold": 23.65,
+          "n": 4,
+          "clock_mhz": 1395,
+          "versions": "kit f4f62fa65, torch 2.7.1+cu126, opendde 1.1.1, driver 580.159.03",
+          "when": "2026-10-14",
+          "ref": "kit",
+          "fast": {
+            "s_per_fold": 18.85,
+            "n": 4,
+            "clock_mhz": 1365,
+            "versions": "kit f4f62fa65, torch 2.7.1+cu126, opendde 1.1.1, driver 580.159.03",
+            "when": "2026-10-14"
+          },
+          "stock": {
+            "s_per_fold": 39.02,
+            "n": 4,
+            "clock_mhz": 1395,
+            "versions": "kit f4f62fa65, torch 2.7.1+cu126, opendde 1.1.1, driver 580.159.03",
+            "when": "2026-10-14"
+          }
+        }
+      },
+      "note": "Featurisation is rebuilt for every target; it sits inside the Tenstorrent timer and outside the NVIDIA one."
+    },
+    {
+      "id": "protenix-v2",
+      "name": "Protenix-v2",
+      "recycles": 10,
+      "sampling_steps": 200,
+      "nvidia_impl": "The kit's exact mode over protenix 2.0.0 (bytedance/Protenix) on every GPU.",
+      "cells": {
+        "p150a": {
+          "status": "measured",
+          "s_per_fold": 32.084,
+          "n": 4,
+          "spread_pct": 0.36,
+          "aiclk_mhz": 1350,
+          "versions": "tt-bio main 388e725b6, ttnn 0.68.0, qb1 p150a card 1",
+          "when": "2026-10-15T10:27:18Z",
+          "parity": "Passes all 4 release-gate accuracy checks against the reference implementation on Blackhole, with an MSA (tt-bio 469ed1356)",
+          "fast": {
+            "s_per_fold": 28.868,
+            "n": 4,
+            "spread_pct": 0.51,
+            "aiclk_mhz": 1350,
+            "versions": "tt-bio main 388e725b6, ttnn 0.68.0, qb1 p150a card 1",
+            "when": "2026-10-15T10:39:09Z"
+          }
+        },
+        "h200": {
+          "status": "measured",
+          "s_per_fold": 4.41,
+          "n": 4,
+          "clock_mhz": 1980,
+          "versions": "kit f4f62fa65, torch 2.13.0+cu130, protenix 2.0.0, driver 595.71.05",
+          "when": "2026-10-14",
+          "ref": "kit",
+          "fast": {
+            "s_per_fold": 3.013,
+            "n": 4,
+            "clock_mhz": 1980,
+            "versions": "kit f4f62fa65, torch 2.13.0+cu130, protenix 2.0.0, driver 595.71.05",
+            "when": "2026-10-14"
+          },
+          "stock": {
+            "s_per_fold": 13.46,
+            "n": 4,
+            "clock_mhz": 1980,
+            "versions": "kit f4f62fa65, torch 2.13.0+cu130, protenix 2.0.0, driver 595.71.05",
+            "when": "2026-10-14"
+          }
+        },
+        "b200": {
+          "status": "measured",
+          "s_per_fold": 5.376,
+          "n": 4,
+          "clock_mhz": 1965,
+          "versions": "kit f4f62fa65, torch 2.13.0+cu130, protenix 2.0.0, driver 580.126.09",
+          "when": "2026-10-14",
+          "ref": "kit",
+          "fast": {
+            "s_per_fold": 4.323,
+            "n": 4,
+            "clock_mhz": 1965,
+            "versions": "kit f4f62fa65, torch 2.13.0+cu130, protenix 2.0.0, driver 580.126.09",
+            "when": "2026-10-14"
+          },
+          "stock": {
+            "s_per_fold": 12.45,
+            "n": 4,
+            "clock_mhz": 1965,
+            "versions": "kit f4f62fa65, torch 2.13.0+cu130, protenix 2.0.0, driver 580.126.09",
+            "when": "2026-10-14"
+          }
+        },
+        "a100": {
+          "status": "measured",
+          "s_per_fold": 11.26,
+          "n": 4,
+          "clock_mhz": 1410,
+          "versions": "kit f4f62fa65, torch 2.13.0+cu130, protenix 2.0.0, driver 580.159.03",
+          "when": "2026-10-14",
+          "ref": "kit",
+          "fast": {
+            "s_per_fold": 9.207,
+            "n": 4,
+            "clock_mhz": 1410,
+            "versions": "kit f4f62fa65, torch 2.13.0+cu130, protenix 2.0.0, driver 580.159.03",
+            "when": "2026-10-14"
+          },
+          "stock": {
+            "s_per_fold": 22.75,
+            "n": 4,
+            "clock_mhz": 1410,
+            "versions": "kit f4f62fa65, torch 2.13.0+cu130, protenix 2.0.0, driver 580.159.03",
+            "when": "2026-10-14"
+          }
+        }
+      }
+    },
+    {
+      "id": "rf3",
+      "name": "RoseTTAFold3",
+      "recycles": 10,
+      "sampling_steps": "50 requested, 49 executed",
+      "note": "Host featurisation is a large share of every fold and is timed on both sides.",
+      "nvidia_impl": "The kit's exact mode over rc-foundry at commit 4010e3e2e on every GPU. On the B200 three of the kit's kernels are off because they do not run there.",
+      "cells": {
+        "p150a": {
+          "status": "measured",
+          "s_per_fold": 27.82,
+          "n": 4,
+          "spread_pct": 2.49,
+          "aiclk_mhz": 1350,
+          "versions": "tt-bio main d6aca5ede, ttnn 0.68.0, qb1 p150a card 2",
+          "when": "2026-10-15T00:29:44Z",
+          "parity": "Passes its release-gate accuracy check against the reference implementation on Blackhole, with an MSA (tt-bio 469ed1356)",
+          "fast": {
+            "s_per_fold": 26.384,
+            "n": 4,
+            "spread_pct": 0.69,
+            "aiclk_mhz": 1350,
+            "versions": "tt-bio main d6aca5ede, ttnn 0.68.0, qb1 p150a card 2",
+            "when": "2026-10-15T00:32:22Z"
+          }
+        },
+        "h200": {
+          "status": "measured",
+          "s_per_fold": 13.09,
+          "n": 9,
+          "clock_mhz": 1980,
+          "versions": "kit f4f62fa65, torch 2.13.0, rc-foundry 4010e3e2e, driver 595.71.05",
+          "when": "2026-10-14",
+          "ref": "kit",
+          "fast": {
+            "s_per_fold": 11.99,
+            "n": 9,
+            "clock_mhz": 1980,
+            "versions": "kit f4f62fa65, torch 2.13.0, rc-foundry 4010e3e2e, driver 595.71.05",
+            "when": "2026-10-14"
+          },
+          "stock": {
+            "s_per_fold": 16.83,
+            "n": 9,
+            "clock_mhz": 1980,
+            "versions": "kit f4f62fa65, torch 2.13.0, rc-foundry 4010e3e2e, driver 595.71.05",
+            "when": "2026-10-14"
+          }
+        },
+        "b200": {
+          "status": "measured",
+          "s_per_fold": 11.08,
+          "n": 9,
+          "clock_mhz": 1965,
+          "versions": "kit f4f62fa65, levers prefetch,awrite,fpf_xln off (refused on this GPU), torch 2.13.0, rc-foundry 4010e3e2e, driver 580.126.09",
+          "when": "2026-10-15",
+          "ref": "kit",
+          "fast": {
+            "s_per_fold": 10.58,
+            "n": 9,
+            "clock_mhz": 1965,
+            "versions": "kit f4f62fa65, levers prefetch,awrite,fpf_xln off (refused on this GPU), torch 2.13.0, rc-foundry 4010e3e2e, driver 580.126.09",
+            "when": "2026-10-15"
+          },
+          "stock": {
+            "s_per_fold": 14.53,
+            "n": 9,
+            "clock_mhz": 1965,
+            "versions": "kit f4f62fa65, torch 2.13.0, rc-foundry 4010e3e2e, driver 580.126.09",
+            "when": "2026-10-15"
+          }
+        },
+        "a100": {
+          "status": "measured",
+          "s_per_fold": 16.46,
+          "n": 9,
+          "clock_mhz": 1410,
+          "versions": "kit f4f62fa65, torch 2.13.0, rc-foundry 4010e3e2e, driver 580.159.03",
+          "when": "2026-10-14",
+          "ref": "kit",
+          "fast": {
+            "s_per_fold": 13.74,
+            "n": 9,
+            "clock_mhz": 1395,
+            "versions": "kit f4f62fa65, torch 2.13.0, rc-foundry 4010e3e2e, driver 580.159.03",
+            "when": "2026-10-14"
+          },
+          "stock": {
+            "s_per_fold": 24.3,
+            "n": 9,
+            "clock_mhz": 1410,
+            "versions": "kit f4f62fa65, torch 2.13.0, rc-foundry 4010e3e2e, driver 580.159.03",
+            "when": "2026-10-14"
+          }
+        }
+      }
+    },
+    {
       "id": "esmfold2",
       "name": "ESMFold2",
       "recycles": 10,
@@ -273,7 +660,7 @@
           "aiclk_mhz": 1350,
           "versions": "tt-bio main d6aca5ede, ttnn 0.68.0, qb1 p150a card 2",
           "when": "2026-10-15T00:17:47Z",
-          "parity": "2 of 2 release-gate accuracy checks inside the reference envelope on Blackhole (tt-bio 469ed1356)",
+          "parity": "Passes both release-gate accuracy checks against the reference implementation on Blackhole (tt-bio 469ed1356)",
           "fast": {
             "s_per_fold": 16.957,
             "n": 4,
@@ -357,7 +744,6 @@
     {
       "id": "esmfold2-fast",
       "name": "ESMFold2-Fast",
-      "parity_pending": true,
       "recycles": 10,
       "sampling_steps": "100 requested, 68 executed",
       "note": "ESMFold2 with a 24-block trunk instead of 48.",
@@ -371,7 +757,7 @@
           "aiclk_mhz": 1350,
           "versions": "tt-bio main d6aca5ede, ttnn 0.68.0, qb1 p150a card 2",
           "when": "2026-10-15T00:23:44Z",
-          "parity": "1 of 1 release-gate accuracy check inside the reference envelope on Blackhole (tt-bio 469ed1356). Its plDDT read 0.021 below the fp32 reference on an earlier build and has not been re-measured since.",
+          "parity": "Passes its release-gate accuracy check against the reference implementation on Blackhole (tt-bio 469ed1356)",
           "fast": {
             "s_per_fold": 10.461,
             "n": 4,
@@ -450,393 +836,6 @@
             "when": "2026-10-14"
           }
         }
-      },
-      "parity_caveat": "Its plDDT read 0.021 below the fp32 reference on an earlier build and has not been re-measured since."
-    },
-    {
-      "id": "protenix-v2",
-      "name": "Protenix-v2",
-      "recycles": 10,
-      "sampling_steps": 200,
-      "nvidia_impl": "The kit's exact mode over protenix 2.0.0 (bytedance/Protenix) on every GPU.",
-      "cells": {
-        "p150a": {
-          "status": "measured",
-          "s_per_fold": 32.084,
-          "n": 4,
-          "spread_pct": 0.36,
-          "aiclk_mhz": 1350,
-          "versions": "tt-bio main 388e725b6, ttnn 0.68.0, qb1 p150a card 1",
-          "when": "2026-10-15T10:27:18Z",
-          "parity": "4 of 4 release-gate accuracy checks inside the reference envelope on Blackhole (tt-bio 469ed1356)",
-          "fast": {
-            "s_per_fold": 28.868,
-            "n": 4,
-            "spread_pct": 0.51,
-            "aiclk_mhz": 1350,
-            "versions": "tt-bio main 388e725b6, ttnn 0.68.0, qb1 p150a card 1",
-            "when": "2026-10-15T10:39:09Z"
-          }
-        },
-        "h200": {
-          "status": "measured",
-          "s_per_fold": 4.41,
-          "n": 4,
-          "clock_mhz": 1980,
-          "versions": "kit f4f62fa65, torch 2.13.0+cu130, protenix 2.0.0, driver 595.71.05",
-          "when": "2026-10-14",
-          "ref": "kit",
-          "fast": {
-            "s_per_fold": 3.013,
-            "n": 4,
-            "clock_mhz": 1980,
-            "versions": "kit f4f62fa65, torch 2.13.0+cu130, protenix 2.0.0, driver 595.71.05",
-            "when": "2026-10-14"
-          },
-          "stock": {
-            "s_per_fold": 13.46,
-            "n": 4,
-            "clock_mhz": 1980,
-            "versions": "kit f4f62fa65, torch 2.13.0+cu130, protenix 2.0.0, driver 595.71.05",
-            "when": "2026-10-14"
-          }
-        },
-        "b200": {
-          "status": "measured",
-          "s_per_fold": 5.376,
-          "n": 4,
-          "clock_mhz": 1965,
-          "versions": "kit f4f62fa65, torch 2.13.0+cu130, protenix 2.0.0, driver 580.126.09",
-          "when": "2026-10-14",
-          "ref": "kit",
-          "fast": {
-            "s_per_fold": 4.323,
-            "n": 4,
-            "clock_mhz": 1965,
-            "versions": "kit f4f62fa65, torch 2.13.0+cu130, protenix 2.0.0, driver 580.126.09",
-            "when": "2026-10-14"
-          },
-          "stock": {
-            "s_per_fold": 12.45,
-            "n": 4,
-            "clock_mhz": 1965,
-            "versions": "kit f4f62fa65, torch 2.13.0+cu130, protenix 2.0.0, driver 580.126.09",
-            "when": "2026-10-14"
-          }
-        },
-        "a100": {
-          "status": "measured",
-          "s_per_fold": 11.26,
-          "n": 4,
-          "clock_mhz": 1410,
-          "versions": "kit f4f62fa65, torch 2.13.0+cu130, protenix 2.0.0, driver 580.159.03",
-          "when": "2026-10-14",
-          "ref": "kit",
-          "fast": {
-            "s_per_fold": 9.207,
-            "n": 4,
-            "clock_mhz": 1410,
-            "versions": "kit f4f62fa65, torch 2.13.0+cu130, protenix 2.0.0, driver 580.159.03",
-            "when": "2026-10-14"
-          },
-          "stock": {
-            "s_per_fold": 22.75,
-            "n": 4,
-            "clock_mhz": 1410,
-            "versions": "kit f4f62fa65, torch 2.13.0+cu130, protenix 2.0.0, driver 580.159.03",
-            "when": "2026-10-14"
-          }
-        }
-      }
-    },
-    {
-      "id": "opendde",
-      "name": "OpenDDE",
-      "recycles": 10,
-      "sampling_steps": 200,
-      "nvidia_impl": "The kit's exact mode over opendde 1.1.1 (aurekaresearch) on every GPU.",
-      "cells": {
-        "p150a": {
-          "status": "measured",
-          "s_per_fold": 56.919,
-          "n": 4,
-          "spread_pct": 0.4,
-          "aiclk_mhz": 1350,
-          "versions": "tt-bio main d6aca5ede, ttnn 0.68.0, qb1 p150a card 2",
-          "when": "2026-10-15T00:04:57Z",
-          "parity": "2 of 2 release-gate accuracy checks inside the reference envelope on Blackhole (tt-bio 469ed1356)",
-          "fast": {
-            "s_per_fold": 50.626,
-            "n": 4,
-            "spread_pct": 1.4,
-            "aiclk_mhz": 1350,
-            "versions": "tt-bio main d6aca5ede, ttnn 0.68.0, qb1 p150a card 2",
-            "when": "2026-10-15T00:09:43Z"
-          }
-        },
-        "h200": {
-          "status": "measured",
-          "s_per_fold": 10.39,
-          "n": 4,
-          "clock_mhz": 1980,
-          "versions": "kit f4f62fa65, torch 2.7.1+cu126, opendde 1.1.1, driver 595.71.05",
-          "when": "2026-10-14",
-          "ref": "kit",
-          "fast": {
-            "s_per_fold": 7.897,
-            "n": 4,
-            "clock_mhz": 1980,
-            "versions": "kit f4f62fa65, torch 2.7.1+cu126, opendde 1.1.1, driver 595.71.05",
-            "when": "2026-10-14"
-          },
-          "stock": {
-            "s_per_fold": 19.76,
-            "n": 4,
-            "clock_mhz": 1965,
-            "versions": "kit f4f62fa65, torch 2.7.1+cu126, opendde 1.1.1, driver 595.71.05",
-            "when": "2026-10-14"
-          }
-        },
-        "b200": {
-          "status": "measured",
-          "s_per_fold": 12.66,
-          "n": 4,
-          "clock_mhz": 1965,
-          "versions": "kit f4f62fa65, torch 2.7.1+cu128, opendde 1.1.1, driver 580.126.09",
-          "when": "2026-10-15",
-          "ref": "kit",
-          "fast": {
-            "s_per_fold": 10.53,
-            "n": 4,
-            "clock_mhz": 1965,
-            "versions": "kit f4f62fa65, torch 2.7.1+cu128, opendde 1.1.1, driver 580.126.09",
-            "when": "2026-10-15"
-          },
-          "stock": {
-            "s_per_fold": 17.54,
-            "n": 4,
-            "clock_mhz": 1965,
-            "versions": "kit f4f62fa65, torch 2.7.1+cu128, opendde 1.1.1, driver 580.126.09",
-            "when": "2026-10-15"
-          }
-        },
-        "a100": {
-          "status": "measured",
-          "s_per_fold": 23.65,
-          "n": 4,
-          "clock_mhz": 1395,
-          "versions": "kit f4f62fa65, torch 2.7.1+cu126, opendde 1.1.1, driver 580.159.03",
-          "when": "2026-10-14",
-          "ref": "kit",
-          "fast": {
-            "s_per_fold": 18.85,
-            "n": 4,
-            "clock_mhz": 1365,
-            "versions": "kit f4f62fa65, torch 2.7.1+cu126, opendde 1.1.1, driver 580.159.03",
-            "when": "2026-10-14"
-          },
-          "stock": {
-            "s_per_fold": 39.02,
-            "n": 4,
-            "clock_mhz": 1395,
-            "versions": "kit f4f62fa65, torch 2.7.1+cu126, opendde 1.1.1, driver 580.159.03",
-            "when": "2026-10-14"
-          }
-        }
-      },
-      "note": "Featurisation is rebuilt for every target; it sits inside the Tenstorrent timer and outside the NVIDIA one."
-    },
-    {
-      "id": "openfold3",
-      "name": "OpenFold3",
-      "recycles": 3,
-      "sampling_steps": 200,
-      "nvidia_impl": "The kit's exact mode over openfold3 0.4.1 on every GPU.",
-      "cells": {
-        "p150a": {
-          "status": "measured",
-          "s_per_fold": 11.921,
-          "n": 4,
-          "spread_pct": 1.1,
-          "aiclk_mhz": 1350,
-          "versions": "tt-bio main d6aca5ede, ttnn 0.68.0, qb1 p150a card 2",
-          "when": "2026-10-15T00:11:07Z",
-          "parity": "6 of 7 release-gate accuracy checks inside the reference envelope on Blackhole (tt-bio 469ed1356); 7XI5 without templates sits outside it on a documented bf16 floor",
-          "fast": {
-            "s_per_fold": 8.918,
-            "n": 4,
-            "spread_pct": 0.72,
-            "aiclk_mhz": 1350,
-            "versions": "tt-bio main d6aca5ede, ttnn 0.68.0, qb1 p150a card 2",
-            "when": "2026-10-15T00:12:16Z"
-          }
-        },
-        "h200": {
-          "status": "measured",
-          "s_per_fold": 2.999,
-          "n": 4,
-          "clock_mhz": 1980,
-          "versions": "kit f4f62fa65, torch 2.10.0, openfold3 0.4.1, driver 595.71.05",
-          "when": "2026-10-14",
-          "ref": "kit",
-          "fast": {
-            "s_per_fold": 1.501,
-            "n": 4,
-            "clock_mhz": 1980,
-            "versions": "kit f4f62fa65, torch 2.10.0, openfold3 0.4.1, driver 595.71.05",
-            "when": "2026-10-14"
-          },
-          "stock": {
-            "s_per_fold": 10.15,
-            "n": 4,
-            "clock_mhz": 1980,
-            "versions": "kit f4f62fa65, torch 2.10.0, openfold3 0.4.1, driver 595.71.05",
-            "when": "2026-10-14"
-          }
-        },
-        "b200": {
-          "status": "measured",
-          "s_per_fold": 3.053,
-          "n": 4,
-          "clock_mhz": 1965,
-          "versions": "kit f4f62fa65, torch 2.10.0, openfold3 0.4.1, driver 580.126.09",
-          "when": "2026-10-14",
-          "ref": "kit",
-          "fast": {
-            "s_per_fold": 1.716,
-            "n": 4,
-            "clock_mhz": 1965,
-            "versions": "kit f4f62fa65, levers pair_transition off (refused on this GPU), torch 2.10.0, openfold3 0.4.1, driver 580.126.09",
-            "when": "2026-10-15"
-          },
-          "stock": {
-            "s_per_fold": 11.66,
-            "n": 4,
-            "clock_mhz": 1965,
-            "versions": "kit f4f62fa65, torch 2.10.0, openfold3 0.4.1, driver 580.126.09",
-            "when": "2026-10-15"
-          }
-        },
-        "a100": {
-          "status": "measured",
-          "s_per_fold": 5.03,
-          "n": 4,
-          "clock_mhz": 1410,
-          "versions": "kit f4f62fa65, torch 2.10.0, openfold3 0.4.1, driver 580.159.03",
-          "when": "2026-10-14",
-          "ref": "kit",
-          "fast": {
-            "s_per_fold": 2.349,
-            "n": 4,
-            "clock_mhz": 1410,
-            "versions": "kit f4f62fa65, torch 2.10.0, openfold3 0.4.1, driver 580.159.03",
-            "when": "2026-10-14"
-          },
-          "stock": {
-            "s_per_fold": 14.39,
-            "n": 4,
-            "clock_mhz": 1410,
-            "versions": "kit f4f62fa65, torch 2.10.0, openfold3 0.4.1, driver 580.159.03",
-            "when": "2026-10-14"
-          }
-        }
-      }
-    },
-    {
-      "id": "rf3",
-      "name": "RoseTTAFold3",
-      "recycles": 10,
-      "sampling_steps": "50 requested, 49 executed",
-      "note": "Host featurisation is a large share of every fold and is timed on both sides.",
-      "nvidia_impl": "The kit's exact mode over rc-foundry at commit 4010e3e2e on every GPU. On the B200 three of the kit's kernels are off because they do not run there.",
-      "cells": {
-        "p150a": {
-          "status": "measured",
-          "s_per_fold": 27.82,
-          "n": 4,
-          "spread_pct": 2.49,
-          "aiclk_mhz": 1350,
-          "versions": "tt-bio main d6aca5ede, ttnn 0.68.0, qb1 p150a card 2",
-          "when": "2026-10-15T00:29:44Z",
-          "parity": "1 of 1 release-gate accuracy check inside the reference envelope on Blackhole (tt-bio 469ed1356)",
-          "fast": {
-            "s_per_fold": 26.384,
-            "n": 4,
-            "spread_pct": 0.69,
-            "aiclk_mhz": 1350,
-            "versions": "tt-bio main d6aca5ede, ttnn 0.68.0, qb1 p150a card 2",
-            "when": "2026-10-15T00:32:22Z"
-          }
-        },
-        "h200": {
-          "status": "measured",
-          "s_per_fold": 13.09,
-          "n": 9,
-          "clock_mhz": 1980,
-          "versions": "kit f4f62fa65, torch 2.13.0, rc-foundry 4010e3e2e, driver 595.71.05",
-          "when": "2026-10-14",
-          "ref": "kit",
-          "fast": {
-            "s_per_fold": 11.99,
-            "n": 9,
-            "clock_mhz": 1980,
-            "versions": "kit f4f62fa65, torch 2.13.0, rc-foundry 4010e3e2e, driver 595.71.05",
-            "when": "2026-10-14"
-          },
-          "stock": {
-            "s_per_fold": 16.83,
-            "n": 9,
-            "clock_mhz": 1980,
-            "versions": "kit f4f62fa65, torch 2.13.0, rc-foundry 4010e3e2e, driver 595.71.05",
-            "when": "2026-10-14"
-          }
-        },
-        "b200": {
-          "status": "measured",
-          "s_per_fold": 11.08,
-          "n": 9,
-          "clock_mhz": 1965,
-          "versions": "kit f4f62fa65, levers prefetch,awrite,fpf_xln off (refused on this GPU), torch 2.13.0, rc-foundry 4010e3e2e, driver 580.126.09",
-          "when": "2026-10-15",
-          "ref": "kit",
-          "fast": {
-            "s_per_fold": 10.58,
-            "n": 9,
-            "clock_mhz": 1965,
-            "versions": "kit f4f62fa65, levers prefetch,awrite,fpf_xln off (refused on this GPU), torch 2.13.0, rc-foundry 4010e3e2e, driver 580.126.09",
-            "when": "2026-10-15"
-          },
-          "stock": {
-            "s_per_fold": 14.53,
-            "n": 9,
-            "clock_mhz": 1965,
-            "versions": "kit f4f62fa65, torch 2.13.0, rc-foundry 4010e3e2e, driver 580.126.09",
-            "when": "2026-10-15"
-          }
-        },
-        "a100": {
-          "status": "measured",
-          "s_per_fold": 16.46,
-          "n": 9,
-          "clock_mhz": 1410,
-          "versions": "kit f4f62fa65, torch 2.13.0, rc-foundry 4010e3e2e, driver 580.159.03",
-          "when": "2026-10-14",
-          "ref": "kit",
-          "fast": {
-            "s_per_fold": 13.74,
-            "n": 9,
-            "clock_mhz": 1395,
-            "versions": "kit f4f62fa65, torch 2.13.0, rc-foundry 4010e3e2e, driver 580.159.03",
-            "when": "2026-10-14"
-          },
-          "stock": {
-            "s_per_fold": 24.3,
-            "n": 9,
-            "clock_mhz": 1410,
-            "versions": "kit f4f62fa65, torch 2.13.0, rc-foundry 4010e3e2e, driver 580.159.03",
-            "when": "2026-10-14"
-          }
-        }
       }
     },
     {
@@ -855,7 +854,7 @@
           "aiclk_mhz": 1350,
           "versions": "tt-bio main d6aca5ede, ttnn 0.68.0, qb1 p150a card 2",
           "when": "2026-10-15T00:13:35Z",
-          "parity": "2 of 2 release-gate accuracy checks inside the reference envelope on Blackhole (tt-bio 469ed1356)",
+          "parity": "Passes both release-gate accuracy checks against the reference implementation on Blackhole, with an MSA (tt-bio 469ed1356)",
           "fast": {
             "s_per_fold": 8.981,
             "n": 4,
@@ -942,61 +941,6 @@
     "note": "The two rows use different targets, BoltzGen at 514 tokens and PXDesign at 592, so compare each model only with itself.",
     "methods": "One fixed target per row at shipped defaults, one design at a time: BoltzGen at 500 sampling steps, PXDesign at 400. Tenstorrent figures are warm medians of four designs; GPU figures use the same protocol on rented single-GPU nodes.",
     "models": [
-      {
-        "id": "boltzgen",
-        "name": "BoltzGen",
-        "target": "EBV gp350 D123 (9ma0 chain A), 414 target residues, 100-residue binder, 514 tokens",
-        "sampling_steps": 500,
-        "batch": 1,
-        "nvidia_impl": "boltzgen 0.3.2 as released, on every GPU, with the cuEquivariance kernels it turns on by default.",
-        "cells": {
-          "p150a": {
-            "status": "measured",
-            "s_per_design": 33.435,
-            "n": 4,
-            "spread_pct": 5.48,
-            "aiclk_mhz": 1350,
-            "versions": "tt-bio main d6aca5ede + harness perf/bmk/design_cell.py (wk/bmk-tt), ttnn 0.68.0, qb1 p150a card 2",
-            "when": "2026-10-15T00:36:17Z",
-            "parity": "1 of 1 release-gate accuracy check inside the reference envelope on Blackhole (tt-bio 469ed1356)",
-            "fast": {
-              "s_per_design": 33.81,
-              "n": 4,
-              "spread_pct": 20.3,
-              "aiclk_mhz": 1350,
-              "versions": "tt-bio main d6aca5ede + harness perf/bmk/design_cell.py (wk/bmk-tt), ttnn 0.68.0, qb1 p150a card 2",
-              "when": "2026-10-15T00:40:10Z"
-            }
-          },
-          "h200": {
-            "status": "measured",
-            "s_per_design": 13.95,
-            "n": 4,
-            "clock_mhz": 1980,
-            "versions": "torch 2.14.1, boltzgen 0.3.2, driver 595.71.05",
-            "when": "2026-10-14",
-            "ref": "stock"
-          },
-          "b200": {
-            "status": "measured",
-            "s_per_design": 15.09,
-            "n": 4,
-            "clock_mhz": 1965,
-            "versions": "torch 2.14.1, boltzgen 0.3.2, driver 580.126.09",
-            "when": "2026-10-14",
-            "ref": "stock"
-          },
-          "a100": {
-            "status": "measured",
-            "s_per_design": 21.17,
-            "n": 4,
-            "clock_mhz": 1410,
-            "versions": "torch 2.14.1, boltzgen 0.3.2, driver 580.159.03",
-            "when": "2026-10-14",
-            "ref": "stock"
-          }
-        }
-      },
       {
         "id": "rfd3",
         "name": "RFdiffusion3",
@@ -1097,6 +1041,61 @@
         "hidden": true
       },
       {
+        "id": "boltzgen",
+        "name": "BoltzGen",
+        "target": "EBV gp350 D123 (9ma0 chain A), 414 target residues, 100-residue binder, 514 tokens",
+        "sampling_steps": 500,
+        "batch": 1,
+        "nvidia_impl": "boltzgen 0.3.2 as released, on every GPU, with the cuEquivariance kernels it turns on by default.",
+        "cells": {
+          "p150a": {
+            "status": "measured",
+            "s_per_design": 33.435,
+            "n": 4,
+            "spread_pct": 5.48,
+            "aiclk_mhz": 1350,
+            "versions": "tt-bio main d6aca5ede + harness perf/bmk/design_cell.py (wk/bmk-tt), ttnn 0.68.0, qb1 p150a card 2",
+            "when": "2026-10-15T00:36:17Z",
+            "parity": "Passes its release-gate accuracy check against the reference implementation on Blackhole (tt-bio 469ed1356)",
+            "fast": {
+              "s_per_design": 33.81,
+              "n": 4,
+              "spread_pct": 20.3,
+              "aiclk_mhz": 1350,
+              "versions": "tt-bio main d6aca5ede + harness perf/bmk/design_cell.py (wk/bmk-tt), ttnn 0.68.0, qb1 p150a card 2",
+              "when": "2026-10-15T00:40:10Z"
+            }
+          },
+          "h200": {
+            "status": "measured",
+            "s_per_design": 13.95,
+            "n": 4,
+            "clock_mhz": 1980,
+            "versions": "torch 2.14.1, boltzgen 0.3.2, driver 595.71.05",
+            "when": "2026-10-14",
+            "ref": "stock"
+          },
+          "b200": {
+            "status": "measured",
+            "s_per_design": 15.09,
+            "n": 4,
+            "clock_mhz": 1965,
+            "versions": "torch 2.14.1, boltzgen 0.3.2, driver 580.126.09",
+            "when": "2026-10-14",
+            "ref": "stock"
+          },
+          "a100": {
+            "status": "measured",
+            "s_per_design": 21.17,
+            "n": 4,
+            "clock_mhz": 1410,
+            "versions": "torch 2.14.1, boltzgen 0.3.2, driver 580.159.03",
+            "when": "2026-10-14",
+            "ref": "stock"
+          }
+        }
+      },
+      {
         "id": "pxdesign",
         "name": "PXDesign",
         "target": "beta-galactosidase (1DP0 chain A) cropped to 512 residues around one fixed epitope, 80-residue binder, 592 tokens",
@@ -1112,7 +1111,8 @@
             "spread_pct": 8.48,
             "aiclk_mhz": 1350,
             "versions": "tt-bio main d6aca5ede + harness perf/bmk/design_cell.py (wk/bmk-tt), ttnn 0.68.0, qb1 p150a card 2",
-            "when": "2026-10-15T08:54:56Z"
+            "when": "2026-10-15T08:54:56Z",
+            "parity": "Passes its release-gate accuracy check against the reference implementation on Blackhole (tt-bio 469ed1356)"
           },
           "h200": {
             "status": "measured",
@@ -1208,7 +1208,7 @@
             "aiclk_mhz": 1350,
             "versions": "tt-bio main d6aca5ede + harness perf/bmk/design_cell.py (wk/bmk-tt), ttnn 0.68.0, qb1 p150a card 2",
             "when": "2026-10-15T08:55:52Z",
-            "parity": "1 of 1 release-gate accuracy check inside the reference envelope on Blackhole (tt-bio 469ed1356)"
+            "parity": "Passes its release-gate accuracy check against the reference implementation on Blackhole (tt-bio 469ed1356)"
           },
           "h200": {
             "status": "measured",
@@ -1264,7 +1264,7 @@
             "aiclk_mhz": 1350,
             "versions": "tt-bio main 388e725b6, ttnn None, qb1 p150a card 1",
             "when": "2026-10-15T10:00:01Z",
-            "parity": "1 of 1 release-gate accuracy check inside the reference envelope on Blackhole (tt-bio 469ed1356)",
+            "parity": "Passes its release-gate accuracy check against the reference implementation on Blackhole (tt-bio 469ed1356)",
             "fast": {
               "s_per_batch": 0.07633,
               "n": 7,
@@ -1351,7 +1351,7 @@
             "aiclk_mhz": 1350,
             "versions": "tt-bio main 388e725b6, ttnn None, qb1 p150a card 1",
             "when": "2026-10-15T10:11:36Z",
-            "parity": "1 of 1 release-gate accuracy check inside the reference envelope on Blackhole (tt-bio 469ed1356)",
+            "parity": "Passes its release-gate accuracy check against the reference implementation on Blackhole (tt-bio 469ed1356)",
             "fast": {
               "s_per_batch": 0.10789,
               "n": 7,
@@ -1526,7 +1526,7 @@
             "aiclk_mhz": 1350,
             "versions": "tt-bio main 388e725b6, ttnn None, qb1 p150a card 1",
             "when": "2026-10-15T10:16:27Z",
-            "parity": "1 of 1 release-gate accuracy check inside the reference envelope on Blackhole (tt-bio 469ed1356)",
+            "parity": "Passes its release-gate accuracy check against the reference implementation on Blackhole (tt-bio 469ed1356)",
             "fast": {
               "s_per_batch": 0.02999,
               "n": 7,
@@ -1589,7 +1589,7 @@
             "aiclk_mhz": 1350,
             "versions": "tt-bio main 388e725b6, ttnn None, qb1 p150a card 1",
             "when": "2026-10-15T10:17:45Z",
-            "parity": "1 of 1 release-gate accuracy check inside the reference envelope on Blackhole (tt-bio 469ed1356)",
+            "parity": "Passes its release-gate accuracy check against the reference implementation on Blackhole (tt-bio 469ed1356)",
             "fast": {
               "s_per_batch": 0.11495,
               "n": 7,

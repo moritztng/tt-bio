@@ -1,6 +1,8 @@
 """ESMC's minimal_matmul projections default by arch: on for Wormhole, off for Blackhole; the switch overrides both."""
 from __future__ import annotations
 
+import types
+
 import pytest
 
 from tt_bio import esmc, tenstorrent
@@ -21,6 +23,9 @@ class _T:
     def volume(self):
         return self._v
 
+    def device(self):
+        return types.SimpleNamespace(compute_with_storage_grid_size=lambda: types.SimpleNamespace(x=8, y=8))
+
 
 @pytest.mark.parametrize("act", [None, "silu"])
 def test_mm_carries_fc1_silu(act, monkeypatch):
@@ -35,3 +40,13 @@ def test_mm_carries_fc1_silu(act, monkeypatch):
     kw = {"activation": act} if act else {}
     assert lin._lin(_T(esmc.ESMC_MM_MIN_ROWS, 960, bf16), _T(960, 2560, bf16), **kw) == "mm"
     assert ("fused_activation" in calls[0]) is bool(act)
+
+
+def test_mm_takes_fast_block_fp8_weights(monkeypatch):
+    """--fast's block-fp8 projection weights take minimal_matmul by default, like the bf16 ones."""
+    monkeypatch.setattr(esmc, "_ESMC_MM", True)
+    monkeypatch.setattr(esmc.ttnn.experimental, "minimal_matmul", lambda x, w, **kw: "mm", raising=False)
+    lin = esmc._MMLin()
+    lin.compute_kernel_config = None
+    t = esmc.ttnn
+    assert lin._lin(_T(esmc.ESMC_MM_MIN_ROWS, 960, t.bfloat16), _T(960, 960, t.bfloat8_b)) == "mm"
