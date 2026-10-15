@@ -706,6 +706,9 @@ _FAST_MODE = False
 #   apb_cat         the token attention's head re-assembly as one nlp_concat_heads, gate and output projection on
 #                   the padded head lanes (what TT_BIO_APB_CONCAT_HEADS does at load, exact), with the wide
 #                   weights re-laned from the bf16 device copies on the first call that takes it.
+#   dit_qkvf        the bf16 token DiT's attention as OpenFold3's dit_fuse runs it: one `_sdpa32_fused` program reads
+#                   the fused qkv projection and writes the heads concatenated on their padded lanes, so neither
+#                   nlp_create_qkv_heads nor the head re-assembly runs; gate and output projection as apb_cat
 #   relp_gather     the Protenix family's trunk input projects relative position by one row gather from a per-fold
 #                   table (each distinct one-hot row summed once on the host lane) instead of uploading the
 #                   [N, N, 139] one-hot and multiplying it.
@@ -722,7 +725,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine", "ef2_opm_kq", "ef2_relpos_lookup",
           "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit", "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384",
           "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
-          "dit_cond_jit", "relp_gather", "apb_cat")
+          "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -738,7 +741,7 @@ UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "di
                              "ef2_relpos_lookup", "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit",
                              "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384",
                              "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
-                             "dit_cond_jit", "relp_gather", "apb_cat"})
+                             "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -2508,6 +2511,12 @@ B2_TOKEN_DIT_SDPA_STATS = [0, 0]     # [served, declined] at the token-DiT site
 # projection, which is why this is priced per shape and not asserted.
 _APB_CONCAT_HEADS = env_flag("TT_BIO_APB_CONCAT_HEADS", False)
 APB_CONCAT_HEADS_STATS = [0, 0]      # [served, declined] at the token head re-assembly (either switch)
+# dit_qkvf: the bf16 token DiT's attention as OpenFold3's dit_fuse runs it (`_sdpa32_fused`): read out of the
+# fused qkv projection and written [B, S, n_heads * padded_head_dim], so neither nlp_create_qkv_heads nor the
+# head re-assembly runs; the gate and output projection take apb_cat's padded-lane weights. HiFi2 like the
+# stock op's default, with the fp32 dest the stock op leaves off.
+_DIT_QKVF_CKC = (ttnn.MathFidelity.HiFi2, False, True, False)
+DIT_QKVF_STATS = [0, 0]              # [served, declined] at the token-DiT site under the lever
 
 
 def _pad_head_lanes(t: torch.Tensor, n_heads: int, head_dim: int, padded_head_dim: int,
@@ -2945,7 +2954,7 @@ def _sdpa32(q, k, v, mask, scale: float) -> ttnn.Tensor:
     return out
 
 
-def _sdpa32_fused(qkv, mask, scale: float, heads: int, out_dtype=ttnn.float32) -> ttnn.Tensor:
+def _sdpa32_fused(qkv, mask, scale: float, heads: int, out_dtype=ttnn.float32, ckc=None) -> ttnn.Tensor:
     """`_sdpa32` read straight out of a fused `[S, 1, N, 3 * heads * DH]` qkv projection, written
     `[S, 1, N, heads * DH]`: what nlp_create_qkv_heads, `_sdpa32` and nlp_concat_heads give, as one
     program and the same arithmetic (`sdpa_generic.qkv_fused_kernel_dir`)."""
@@ -2957,7 +2966,7 @@ def _sdpa32_fused(qkv, mask, scale: float, heads: int, out_dtype=ttnn.float32) -
     # `out_dtype` bf16 (dit_fuse): the packer writes the result bf16, no typecast program after it.
     out = ttnn.allocate_tensor_on_device(ttnn.Shape([S, 1, n, w // 3]), out_dtype,
                                          ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG)
-    SG.sdpa(dev, qkv, qkv, qkv, mask, out, chunk, k_chunk, grid, _SDPA32_CKC, scale,
+    SG.sdpa(dev, qkv, qkv, qkv, mask, out, chunk, k_chunk, grid, ckc or _SDPA32_CKC, scale,
             qkv_fused=heads)
     return out
 
@@ -12028,7 +12037,7 @@ class AttentionPairBias(Module):
         apply. Re-laned once from the device copies: exact for bf16, so a bfp8 copy declines, as does a
         first call inside a trace capture (it would upload)."""
         if self._cat_w is None:
-            if (self.atom_level or self._concat_heads or not lever("apb_cat")
+            if (self.atom_level or self._concat_heads or not (lever("apb_cat") or lever("dit_qkvf"))
                     or getattr(self, "padded_head_dim", self.head_dim) == self.head_dim
                     or {self.g_weight.dtype, self.o_weight.dtype} != {ttnn.bfloat16} or CAPTURING[0]):
                 return None
@@ -12036,7 +12045,7 @@ class AttentionPairBias(Module):
                 _pad_head_lanes(ttnn.to_torch(w), self.n_heads, self.head_dim, self.padded_head_dim, ax),
                 dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=self.device)
             self._cat_w = (wide(self.g_weight, -1), wide(self.o_weight, 0))
-        return self._cat_w if lever("apb_cat") else None
+        return self._cat_w if lever("apb_cat") or lever("dit_qkvf") else None
 
     def enable_lowp(self, lp: DitLowp):
         """`dit_mm16` / `dit_b8` on this token-level instance: its three linears read an `lp.act`
@@ -12340,6 +12349,10 @@ class AttentionPairBias(Module):
                                   + [(0, int(z.shape[-1]) - seq), (0, 0)], value=0.0)
                 ttnn.deallocate(qkv)
                 qkv = padded
+            if cat_w is not None and lever("dit_qkvf") and self.token_dit:
+                o = self._qkvf(qkv, z, seq, bias_precomputed, seq_mask)
+                if o is not None:
+                    return self._gate_out(s, o, cat_w)
             qkv = ttnn.unsqueeze(qkv, 1)
             q, k, v = ttnn.experimental.nlp_create_qkv_heads(
                 qkv,
@@ -12573,6 +12586,30 @@ class AttentionPairBias(Module):
             x = lp.linear(o, lw["o_weight"], dtype=lp.out)
             ttnn.deallocate(o)
             return x
+        return self._gate_out(s, o, cat_w)
+
+    def _qkvf(self, qkv, z, seq, bias_precomputed, seq_mask):
+        """dit_qkvf's attention, `[B, seq, n_heads * padded_head_dim]` bf16, or None where it does not apply."""
+        n = int(qkv.shape[-2])
+        ok = (bias_precomputed and _B2_TOKEN_DIT_SDPA and z is not None and seq_mask is None
+              and not self._raw_fp32() and not self.kq_norm and len(qkv.shape) == 3 and n % 128 == 0
+              and int(qkv.shape[-1]) == 3 * self.n_heads * self.padded_head_dim
+              and len(z.shape) == 4 and int(z.shape[-1]) == n and int(z.shape[1]) == self.n_heads)
+        DIT_QKVF_STATS[0 if ok else 1] += 1
+        if not ok:
+            return None
+        o = _sdpa32_fused(ttnn.unsqueeze(qkv, 1), z, self.head_dim ** -0.5, self.n_heads,
+                          out_dtype=ttnn.bfloat16, ckc=_DIT_QKVF_CKC)
+        ttnn.deallocate(qkv)
+        o = ttnn.reshape(o, (int(o.shape[0]), n, int(o.shape[3])))
+        if n > seq:
+            sl = o[:, :seq, :]
+            ttnn.deallocate(o)
+            o = sl
+        return o
+
+    def _gate_out(self, s, o, cat_w):
+        """sigmoid(s W_g) * o, then the output projection (on the padded head lanes when `cat_w`)."""
         g_weight, o_weight = cat_w or (self.g_weight, self.o_weight)
         g = ttnn.linear(
             s,
