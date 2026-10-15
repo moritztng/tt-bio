@@ -226,6 +226,31 @@ def test_a_failed_gate_is_fixed_forward_from_its_fixes_not_regated_at_head(tmp_p
     assert d["do"] == "CUT" and d["sha"] == c
 
 
+def test_a_test_only_fix_forward_is_gated_not_judged_by_the_verdict_it_fixes(tmp_path):
+    git = _repo(tmp_path)
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "tests" / "test_a.py").write_text("assert 0\n")
+    (tmp_path / "a.py").write_text("x = 2\n")
+    git("add", "."), git("commit", "-qm", "staging1")
+    x = git("rev-parse", "HEAD")
+    (tmp_path / "tests" / "test_a.py").write_text("assert 1\n")
+    git("commit", "-qam", "fix the test")
+    fix = git("rev-parse", "HEAD")
+    gates = tmp_path / "gates"
+    g = _plan(gates, "gx", x, tmp_path)
+    (g / "verdict.json").write_text(json.dumps({"pass": False, "results": [{"leg": "pytest_cpu", "verdict": "FAIL"}]}))
+    (g / "FIXES").write_text(fix + "\n")
+    d = rn.decide(tmp_path, gates, "main")
+    c = d["sha"]
+    assert rn.content_hash(c, tmp_path) == rn.content_hash(x, tmp_path)   # the case: same content key
+    assert d["do"] == "GATE" and d["fixes"]["base"] == x and c != x
+    gc = _plan(gates, "gc", c, tmp_path)
+    assert rn.decide(tmp_path, gates, "main")["do"] == "WAIT"
+    (gc / "verdict.json").write_text(json.dumps({"pass": True}))
+    d = rn.decide(tmp_path, gates, "main")
+    assert d["do"] == "CUT" and d["sha"] == c
+
+
 def test_a_fix_that_does_not_apply_on_the_frozen_commit_is_a_fix(tmp_path):
     git = _repo(tmp_path)
     (tmp_path / "a.py").write_text("x = 2\n")
