@@ -31,9 +31,10 @@ state/spd/QUARANTINE.md with its log tail, and its row is woken. The job name ca
 so the cell comes back by itself once the row changes its grid entry.
 
 Galaxies: jobs go to ~/spd/pool/queue/ and pool.sh starts them. qb1/qb2 have no pool: feed starts each job detached as
-a waiter on its card's CHIPS.md flock; the job itself gets a private LOCK so run_chip.sh does not wait on its own card.
-A waiter is bound to the card it was placed on, so a BH job still waiting after STEAL_S moves to a card that is free
-now (flock free, no waiter, no release leg) on any BH box its cell allows, its own box included.
+a waiter that takes the first usable card of its box to come free (its CHIPS.md flock free, no release leg on it);
+the job itself gets a private LOCK so run_chip.sh does not wait on its own card. Waiters queue for cards through one
+dispatch flock per box, so they start in about the order they were placed. A BH job still waiting after STEAL_S moves
+to a free card on another BH box its cell allows.
 """
 import argparse
 import hashlib
@@ -53,7 +54,7 @@ D = Path("/home/moritz/.coworker")
 TIERS = {"red": 0, "amber": 1, "fast": 2, "fill": 3}
 FAST_S = 60
 MAX_FAILS = 3
-STEAL_S = 900   # a BH job still waiting this long moves to a free card (any BH box its cell allows, same box too)
+STEAL_S = 900   # a BH job still waiting this long moves to a free card on another BH box its cell allows
 # BH boxes: SPD cards and their flocks (state/spd/CHIPS.md). A chip kept off the feed has ~/spd/locks/chip<N>.BAD on its
 # host (qb2 chip 0 since the 2026-10-14 slot swap: marginal at 1350 MHz, and feed trees predate the AICLK cap).
 BH_POOLS = {
@@ -120,7 +121,7 @@ if A["kind"] == "galaxy":
 else:
     J = H + "/spd/feed/jobs"; os.makedirs(J, exist_ok=True)
     cards = [c for c in A["cards"] if not os.path.exists(H + "/spd/locks/chip%d.BAD" % c)]
-    out["healthy"] = len(cards); wait = {c: 0 for c in cards}; held = set()
+    out["healthy"] = len(cards); out["cards"] = cards; queued = 0; held = set()
     for sh in glob.glob(J + "/*.sh"):
         n = os.path.basename(sh); card = int(open(sh + ".card").read()) if os.path.exists(sh + ".card") else -1
         if os.path.exists(sh + ".end"):
@@ -130,8 +131,7 @@ else:
         elif os.path.exists(sh + ".start"):
             out["jobs"][n] = {"state": "running"}; held.add(card)
         else:
-            out["jobs"][n] = {"state": "queued", "card": card, "age": int(now - os.path.getmtime(sh))}
-            if card in wait: wait[card] += 1
+            out["jobs"][n] = {"state": "queued", "age": int(now - os.path.getmtime(sh))}; queued += 1
     import fcntl, subprocess
     def lock_free(c):
         try:
@@ -141,9 +141,10 @@ else:
             return False
     rel = lambda c: subprocess.run(["pgrep", "-f", "(spd_qb1_card|spd_qb2_chip|TT_VISIBLE_DEVICES=)%d[. ].*"
                                     "(release_gate|gate_fanout|perf_ab)" % c], capture_output=True).returncode == 0
-    out["free"] = [c for c in cards if not wait[c] and c not in held and lock_free(c) and not rel(c)]
+    # a box's own waiters take its free cards within a poll, so only a box with none waiting offers cards to steal
+    out["free"] = [] if queued else [c for c in cards if c not in held and lock_free(c) and not rel(c)]
     out["live"] = []
-    out["queued"] = sum(wait.values()); out["wait"] = wait; out["paused"] = os.path.exists(J + "/PAUSE")
+    out["queued"] = queued; out["paused"] = os.path.exists(J + "/PAUSE")
 print(json.dumps(out))
 '''
 
@@ -176,15 +177,20 @@ for j in A["jobs"]:
         J = H + "/spd/feed/jobs"; sh = J + "/" + j["name"]
         for x in (".end", ".start", ".pid", ".log", ".pg"):
             if os.path.exists(sh + x): os.remove(sh + x)
-        open(sh, "w").write(j["body"]); open(sh + ".card", "w").write(str(j["card"]))
-        # yield like every row runner: to a release-gate leg on this card and to the gapboard chain's sentinel (the
-        # scoreboard measuring main), before and right after the flock
-        w = ('exec 9>"$3"; G="(spd_qb1_card|spd_qb2_chip|TT_VISIBLE_DEVICES=)$2[. ].*(release_gate|gate_fanout|perf_ab)"; '
-             'while :; do while pgrep -f "$G" >/dev/null; do sleep 60; done; '
-             'flock -w 86400 9 || { echo flockbusy > "$1.end"; exit 3; }; pgrep -f "$G" >/dev/null || break; flock -u 9; sleep 60; done; '
-             'touch "$1.start"; cd "$(dirname "$1")"; ' + RUN)
-        p = subprocess.Popen(["setsid", "nohup", "bash", "-c", w, "_", sh, str(j["card"]), j["lock"],
-                              J + "/nolock.%d" % j["card"], str(j["cap"] + 300)],
+        open(sh, "w").write(j["body"]); open(sh + ".card", "w").write("-1")
+        # Take the box's dispatch flock in turn, then the first card that is not BAD, runs no release-gate leg and no
+        # gapboard sentinel (the scoreboard measuring main; checked again once its flock is held) and whose flock is
+        # free. 10-15: waiters bound to one card queued on busy cards 2 and 3 while qb1 card 0 sat free 15+ min.
+        w = ('exec 8>"$(dirname "$1")/.dispatch"; flock -w 86400 8 || { echo flockbusy > "$1.end"; exit 3; }; '
+             'D=$((SECONDS + 86400)); while :; do for c in $2; do [ -e ~/spd/locks/chip$c.BAD ] && continue; '
+             'G="(spd_qb1_card|spd_qb2_chip|TT_VISIBLE_DEVICES=)$c[. ].*(release_gate|gate_fanout|perf_ab)"; '
+             'pgrep -f "$G" >/dev/null && continue; exec 9>"${3//@/$c}"; '
+             'flock -n 9 && ! pgrep -f "$G" >/dev/null && break 2; exec 9>&-; done; '
+             '[ $SECONDS -lt $D ] || { echo flockbusy > "$1.end"; exit 3; }; sleep "${POLL:-20}"; done; '
+             'exec 8>&-; echo $c > "$1.card"; touch "$1.start"; set -- "$1" $c "$3" "$(dirname "$1")/nolock.$c" "$5"; '
+             'cd "$(dirname "$1")"; ' + RUN)
+        p = subprocess.Popen(["setsid", "nohup", "bash", "-c", w, "_", sh, " ".join(map(str, j["cards"])),
+                              j["lock"].replace("{c}", "@"), "", str(j["cap"] + 300)],
                              stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, cwd=J)
         open(sh + ".pid", "w").write(str(p.pid))
 for n in A.get("unqueue", []):
@@ -363,7 +369,7 @@ def steal(cs, ledger, st, P, stamp, dry, log):
     for b in [n for n in st if P[n]["kind"] == "bh"]:
         for card in list(st[b].get("free", [])):
             cand = [(j["age"], n, name) for n in st if P[n]["kind"] == "bh"
-                    for name, j in st[n]["jobs"].items()
+                    if n != b for name, j in st[n]["jobs"].items()
                     if j["state"] == "queued" and j.get("age", 0) >= STEAL_S and name in by
                     and (not by[name]["hosts"] or b in by[name]["hosts"])
                     and all(st[b]["exists"].get(x) for x in by[name]["requires"])]
@@ -371,19 +377,18 @@ def steal(cs, ledger, st, P, stamp, dry, log):
                 break
             _, n, name = max(cand); c = by[name]
             st[n]["jobs"][name]["state"] = "moving"
-            log(f"steal {c['key']}: waited {max(cand)[0] // 60} min on {n} card {st[n]['jobs'][name]['card']} -> {b} card {card}")
+            log(f"steal {c['key']}: waited {max(cand)[0] // 60} min on {n} -> {b} card {card}")
             if dry:
                 continue
             try:
                 if name not in remote(P[n]["ssh"], WITHDRAW, {"names": [name]}):
                     continue
                 remote(P[b]["ssh"], PLACE, {"kind": "bh", "jobs": [{"name": name, "body": c["body"], "cap": c["cap"],
-                                                                   "card": card, "lock": P[b]["lock"].format(c=card)}]})
+                                                                   "cards": [card], "lock": P[b]["lock"]}]})
             except Exception as e:   # withdrawn but not placed: the next pass finds the cell lost and places it again
                 log(f"steal {c['key']} failed: {e}")
                 continue
             st[n]["queued"] -= 1; st[b]["queued"] += 1
-            st[n]["wait"][str(st[n]["jobs"][name]["card"])] -= 1; st[b]["wait"][str(card)] += 1   # JSON keys
             ledger[c["key"]] = dict(ledger.get(c["key"], {}), host=b, state="queued", placed=stamp)
 
 
@@ -455,16 +460,13 @@ def main(argv=None):
             except Exception as e:
                 log(f"{n}: twin withdraw failed: {e}"); continue
             for m in gone:
-                j = s["jobs"].pop(m); s["queued"] -= 1
-                if "card" in j:
-                    s["wait"][str(j["card"])] -= 1
+                s["jobs"].pop(m); s["queued"] -= 1
             log(f"{n}: withdrew {len(gone)} twin(s) placed elsewhere while it was dark")
     live = {n for s in st.values() for n in s.get("live", [])}
     steal(cs, ledger, st, P, stamp, a.dry_run, log)
     # 2. fill each pool up to depth x healthy, cells in priority order, the pool with most room first
     room = {n: (0 if s.get("paused") else int(a.depth * s["healthy"]) - s["queued"]) for n, s in st.items()}
     place = {n: [] for n in st}
-    waits = {n: {int(c): w for c, w in st[n].get("wait", {}).items()} for n in st}
     for c in cs:
         L = ledger.get(c["key"], {})
         if c["is_done"] or L.get("quarantined") or L.get("state") in ("queued", "running") or live & set(c["also"]):
@@ -476,8 +478,7 @@ def main(argv=None):
         n = max(ok, key=lambda n: room[n])
         job = {"name": c["name"], "body": c["body"], "cap": c["cap"]}
         if P[n]["kind"] == "bh":
-            card = min(waits[n], key=waits[n].get); waits[n][card] += 1
-            job.update(card=card, lock=P[n]["lock"].format(c=card))
+            job.update(cards=st[n]["cards"], lock=P[n]["lock"])
         place[n].append(job); room[n] -= 1
         ledger[c["key"]] = dict(L, host=n, name=c["name"], hash=c["hash"], state="queued", placed=stamp,
                                 fails=L.get("fails", []), quarantined=False, row=c["row"])
