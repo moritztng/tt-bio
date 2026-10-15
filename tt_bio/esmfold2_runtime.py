@@ -530,6 +530,12 @@ class _ShimAdapter(_Adapter):
 # distogram). Block counts and MSA head width follow the checkpoint config, so
 # the same code loads both ESMFold2 (48 trunk blocks, msa_head_width 16) and
 # ESMFold2-Fast (24 trunk blocks, msa_head_width 32) — see _spec().
+def _trunk_pair_dtype(n_layers):
+    """EXPERIMENT (esmfold2-fast-512-plddt): TT_BIO_EF2_TRUNK_FP32=1 carries the 24-block trunk's pair state in fp32."""
+    import ttnn
+    return ttnn.float32 if n_layers == 24 and env_flag("TT_BIO_EF2_TRUNK_FP32", False) else None
+
+
 def _spec(config):
     """Build the component spec for this checkpoint's config (variant-aware)."""
     ft, lm, pc, msa = (config.folding_trunk, config.lm_encoder,
@@ -542,7 +548,8 @@ def _spec(config):
             ("residue_index", "asym_id", "sym_id", "entity_id", "token_index")),
         "language_model": (lambda: E.LanguageModelShim(), "language_model.", ()),
         "lm_encoder": (lambda: E.FoldingTrunk(lm.n_layers), "lm_encoder.", ()),
-        "folding_trunk": (lambda: E.FoldingTrunk(ft.n_layers), "folding_trunk.", ()),
+        "folding_trunk": (lambda: E.FoldingTrunk(ft.n_layers, pair_dtype=_trunk_pair_dtype(ft.n_layers)),
+                          "folding_trunk.", ()),
         "parcae_coda": (lambda: E.FoldingTrunk(pc.coda_n_layers), "parcae_coda.", ()),
         "distogram_head": (lambda: E.DistogramHeadModel(), "distogram_head.", ()),
         "structure_head": (lambda: E.StructureHead(sigma_data=16.0), "structure_head.", None),
@@ -975,8 +982,10 @@ def _install_resident_trunk_loop(model):
 
         from tt_bio import tenstorrent as T
 
+        pair_dt = ftw.pair_dtype or ttnn.bfloat16
+
         def up(t):
-            return T.upload(t, device=ftw.tt_device) if DEVICE_UPLOAD else ftw._from_torch(t)
+            return T.upload(t, pair_dt, ftw.tt_device) if DEVICE_UPLOAD else ftw._from_torch(t, pair_dt)
 
         # --- resident-z recurrence on device ---
         Lp = z.shape[1]
@@ -996,7 +1005,7 @@ def _install_resident_trunk_loop(model):
         zt = up(padz(z).float())
         ipt = None if per_loop else up(
             padz(inject_proj(msa_loops[0] if msa_loops else None)).float())
-        at = ftw._from_torch(a.reshape(1, 1, 1, -1).float())  # parcae a, broadcasts over L,L
+        at = ftw._from_torch(a.reshape(1, 1, 1, -1).float(), pair_dt)  # parcae a, broadcasts over L,L
         if on_dev:
             # What no loop redraws, uploaded once: the MSA pair (or z_init), LN and b_mat.
             base = msa_fixed if msa_fixed is not None else z_init
@@ -1034,6 +1043,10 @@ def _install_resident_trunk_loop(model):
                 ttnn.deallocate(out)
                 out = ttnn.pad(real, [(0, 0), (0, pad), (0, pad), (0, 0)], value=0.0)
                 ttnn.deallocate(real)
+            if out.dtype != pair_dt:
+                cast = ttnn.typecast(out, pair_dt)
+                ttnn.deallocate(out)
+                out = cast
             return out
 
         for _step in range(total_steps):
@@ -1054,6 +1067,10 @@ def _install_resident_trunk_loop(model):
                 ipt = None
             zt = ftw.module(znew, mask)  # folding trunk consumes znew, returns new z
         dram_peak("esmfold2/trunk-done")
+        if zt.dtype != ttnn.bfloat16:  # everything past the trunk reads a bf16 pair
+            cast = ttnn.typecast(zt, ttnn.bfloat16)
+            ttnn.deallocate(zt)
+            zt = cast
         tail = _device_tail()
         DEVICE_TAIL_STATS[not tail] += 1
         if tail:
