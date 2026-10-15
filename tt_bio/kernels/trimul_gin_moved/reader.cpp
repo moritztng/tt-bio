@@ -9,7 +9,12 @@
 // Both transposed weights [Wp^T | Wg^T] (each 2*CT row tiles x Kt) are loaded into c_0 once.
 // With MASK each unit also gets 32 row-broadcast mask tiles in c_6: tile il carries
 // m[b, xt*32 + il, yt*32 + 0..31] in its row 0, cut out of the one mask tile (b, xt, yt).
+// With SPLIT the reader also gathers and writes channels 16..31 of every channel tile the compute
+// hands the writer (../trimul_in_t1/gather.hpp), and counts the tiles it is done reading in semaphore 0: the
+// writer pops out_cb only behind it. It loads the next unit before gathering the last channel tile
+// of this one, since compute frees x_cb exactly when it pushes that tile.
 #include "api/dataflow/dataflow_api.h"
+#include "../trimul_in_t1/gather.hpp"
 
 void kernel_main() {
     constexpr uint32_t Kt = get_compile_time_arg_val(0);
@@ -26,6 +31,14 @@ void kernel_main() {
     const auto wp = TensorAccessor(wp_args, get_common_arg_val<uint32_t>(1));
     const auto wg = TensorAccessor(wg_args, get_common_arg_val<uint32_t>(2));
     const auto mk = TensorAccessor(m_args, get_common_arg_val<uint32_t>(3));
+    constexpr uint32_t o_ = m_args.next_compile_time_args_offset();
+    constexpr uint32_t SPLIT = get_compile_time_arg_val(o_);
+    constexpr uint32_t NB = get_compile_time_arg_val(o_ + 1);
+    constexpr uint32_t CTO = get_compile_time_arg_val(o_ + 2);
+    constexpr uint32_t CTT = get_compile_time_arg_val(o_ + 3);
+    constexpr uint32_t OUT_TILES = get_compile_time_arg_val(o_ + 4);
+    constexpr auto a_args = TensorAccessorArgs<o_ + 5>();
+    constexpr auto b_args = TensorAccessorArgs<a_args.next_compile_time_args_offset()>();
     const uint32_t u0 = get_arg_val<uint32_t>(0);
     const uint32_t nunits = get_arg_val<uint32_t>(1);
 
@@ -43,7 +56,7 @@ void kernel_main() {
     noc_async_read_barrier();
     cb_push_back(w_cb, 2 * CT2 * Kt);
 
-    for (uint32_t u = u0; u < u0 + nunits; ++u) {
+    auto load = [&](uint32_t u) {
         const uint32_t b = u / (St * St);
         const uint32_t xt = (u / St) % St;
         const uint32_t yt = u % St;
@@ -76,5 +89,42 @@ void kernel_main() {
             }
             cb_push_back(m_cb, 32);
         }
+    };
+
+    if constexpr (!SPLIT) {
+        for (uint32_t u = u0; u < u0 + nunits; ++u) load(u);
+        return;
     }
+    constexpr uint32_t out_cb = tt::CBIndex::c_2;
+    constexpr uint32_t stage_cb = tt::CBIndex::c_25;
+    constexpr uint32_t CT = CT2 / 2;
+    constexpr uint32_t SS = St * St;
+    const auto oa = TensorAccessor(a_args, get_common_arg_val<uint32_t>(4));
+    const auto ob = TensorAccessor(b_args, get_common_arg_val<uint32_t>(5));
+    volatile tt_l1_ptr uint32_t* read_done = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(get_semaphore(0));
+    // out_cb is the writer's to pop: the reader follows its pages by count, never acks them.
+    const uintptr_t received = (uintptr_t)get_cb_tiles_received_ptr(out_cb);
+    const uint32_t out0 = get_read_ptr(out_cb);
+    uint16_t seen = 0;
+    uint32_t slot = 0, nq = 0;
+    cb_reserve_back(stage_cb, 2 * NB);
+    const uint32_t stage0 = get_write_ptr(stage_cb);
+    bool dirty[2] = {false, false};
+
+    if (nunits) load(u0);
+    for (uint32_t u = u0; u < u0 + nunits; ++u) {
+        const uint32_t b = u / SS;
+        const uint32_t cube = u % SS;
+        for (uint32_t q = 0; q < CT2; ++q) {
+            if (q == CT2 - 1 && u + 1 < u0 + nunits) load(u + 1);
+            const bool is_a = q < CT;
+            const uint32_t page = ((b * CTT + CTO + (is_a ? q : q - CT)) * 32 + 16) * SS + cube;
+            while ((uint16_t)((uint16_t)reg_read(received) - seen) < 32) {}
+            const uint32_t src = out0 + slot * 32 * 2048;
+            t1_gather_q<32, NB, 16, 32, SS, 0>(src, stage0, page, is_a, oa, ob, 0, dirty, read_done, ++nq);
+            seen += 32;
+            slot = slot + 1 == OUT_TILES / 32 ? 0 : slot + 1;
+        }
+    }
+    noc_async_write_barrier();
 }

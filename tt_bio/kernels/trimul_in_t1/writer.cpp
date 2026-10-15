@@ -20,7 +20,13 @@
 #ifndef T1B8
 #define T1B8 0
 #endif
+// SPLIT (trimul_tail.T1_SPLIT): the reader gathers and writes channels 16..31 of every channel tile (gather.hpp)
+// and counts the tiles it is done reading in semaphore 0; the writer pops out_cb behind that count.
+#ifndef SPLIT
+#define SPLIT 0
+#endif
 #include "api/dataflow/dataflow_api.h"
+#include "gather.hpp"
 
 void kernel_main() {
     constexpr uint32_t CT2 = get_compile_time_arg_val(0);
@@ -34,6 +40,7 @@ void kernel_main() {
     constexpr uint32_t IL = get_compile_time_arg_val(8);    // row tiles per unit, 32, 16 or 8
     constexpr uint32_t H = 32 / IL;
     static_assert(!T1B8 || IL == 32, "the bfp8 gather moves whole tiles");
+    static_assert(!(T1B8 && SPLIT), "the bfp8 gather runs on the writer alone");
     constexpr auto a_args = TensorAccessorArgs<9>();
     constexpr auto b_args = TensorAccessorArgs<a_args.next_compile_time_args_offset()>();
     constexpr auto g_args = TensorAccessorArgs<b_args.next_compile_time_args_offset()>();
@@ -55,8 +62,9 @@ void kernel_main() {
 
     cb_reserve_back(stage_cb, 2 * NB);
     const uint32_t stage0 = get_write_ptr(stage_cb);
-    noc_async_read_one_packet_set_state(get_noc_addr(stage0), T1B8 ? RB8 : RB);
     bool dirty[2] = {false, false};
+    volatile tt_l1_ptr uint32_t* read_done = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(get_semaphore(0));
+    uint32_t nq = 0;
 
     for (uint32_t u = u0; u < u0 + nunits; ++u) {
         const uint32_t b = u / (SS * H);
@@ -64,11 +72,7 @@ void kernel_main() {
         const uint32_t h = (u / St) % H;
         const uint32_t yt = u % St;
         const uint32_t cube = xt * St + yt;
-        // The unit's rows r0 .. r0 + IL - 1 of each output tile: the staged tile keeps them where the output
-        // has them, so one write (IL >= 16) or one per face pair column (IL = 8) moves them.
         const uint32_t r0 = h * IL;
-        const uint32_t off0 = IL == 32 ? 0 : (r0 >> 4) * 2 * FB + (r0 & 15) * RB;
-        const uint32_t wlen = IL == 32 ? TB : (IL == 16 ? 2 * FB : IL * RB);
         if constexpr (NG) {
             // trimul_tail.t1_g_page: row tile (b, xt*32 + il, yt), channel tile n.
             uint32_t page = ((b * S + xt * 32 + h * IL) * St + yt) * NTGT + N0;
@@ -86,11 +90,12 @@ void kernel_main() {
             uint32_t page = (b * CT + (is_a ? q : q - CT)) * 32 * SS + cube;
             cb_wait_front(out_cb, IL);
             const uint32_t src = get_read_ptr(out_cb);
+#if T1B8
+            noc_async_read_one_packet_set_state(get_noc_addr(stage0), RB8);
             for (uint32_t c0 = 0; c0 < 32; c0 += NB) {
                 const uint32_t grp = (c0 / NB) & 1u;
                 const uint32_t gbase = stage0 + grp * NB * TB;
                 if (dirty[grp]) noc_async_writes_flushed();
-#if T1B8
                 for (uint32_t j = 0; j < NB && !(ABL & 32); ++j) {
                     const uint32_t c = c0 + j;
                     const uint32_t st = gbase + j * TB;
@@ -108,37 +113,21 @@ void kernel_main() {
                         de[(df + 1) * 16 + dr] = se[il * TB8 + (sf + 1) * 16 + sr];
                     }
                 }
-#else
-                for (uint32_t j = 0; j < NB && !(ABL & 32); ++j) {
-                    const uint32_t c = c0 + j;
-                    const uint32_t st = gbase + j * TB;
-                    // source row c of tile il: face (c >> 4) * 2 (+1 for the right half), face row c & 15;
-                    // destination row r0 + il, the same face arithmetic
-                    uint32_t s0 = src + (c >> 4) * 2 * FB + (c & 15) * RB;
-                    for (uint32_t il = 0; il < IL; ++il, s0 += TB) {
-                        const uint32_t r = r0 + il;
-                        const uint32_t d0 = st + (r >> 4) * 2 * FB + (r & 15) * RB;
-                        noc_async_read_one_packet_with_state(s0, d0);
-                        noc_async_read_one_packet_with_state(s0 + FB, d0 + FB);
-                    }
-                }
-#endif
                 noc_async_read_barrier();
-                for (uint32_t j = 0; j < NB; ++j, page += SS) {
-                    if constexpr (ABL & 64) continue;
-                    const uint32_t st = gbase + j * TB;
-                    if constexpr (T1B8) {
-                        noc_async_write(st, is_a ? oa.get_noc_addr(page) : ob.get_noc_addr(page), TB8);
-                    } else {
-                        const uint64_t dst = is_a ? oa.get_noc_addr(page, off0) : ob.get_noc_addr(page, off0);
-                        noc_async_write(st + off0, dst, wlen);
-                        if constexpr (IL == 8) noc_async_write(st + off0 + FB, dst + FB, wlen);
-                    }
-                }
+                for (uint32_t j = 0; j < NB; ++j, page += SS)
+                    if constexpr (!(ABL & 64))
+                        noc_async_write(gbase + j * TB, is_a ? oa.get_noc_addr(page) : ob.get_noc_addr(page), TB8);
                 dirty[grp] = true;
             }
-            noc_async_write_barrier();
-            dirty[0] = dirty[1] = false;
+#else
+            t1_gather_q<IL, NB, 0, SPLIT ? 16 : 32, SS, ABL>(src, stage0, page, is_a, oa, ob, r0, dirty);
+#endif
+            if constexpr (SPLIT) {
+                noc_semaphore_wait_min(read_done, ++nq);
+            } else {
+                noc_async_write_barrier();
+                dirty[0] = dirty[1] = false;
+            }
             cb_pop_front(out_cb, IL);
         }
     }

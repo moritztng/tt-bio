@@ -563,6 +563,8 @@ GIN_MOVE = env_flag("TT_BIO_TRIMUL_GIN_MOVE", True)
 GIN_MOVE_STATS = [0, 0]   # served, declined
 GIN_MOVE_ABL = 0          # the three kernels' stage ablation bits (see each .cpp). Diagnostic only.
 GIN_MOVE_NB = int(os.environ.get("TT_BIO_TRIMUL_GIN_MOVE_NB", "2"))   # writer tiles per read barrier
+# The reader gathers and writes half of every channel tile, on its own NOC (see writer.cpp).
+GIN_SPLIT = int(os.environ.get("TT_BIO_TRIMUL_GIN_SPLIT", "0"))
 
 
 def _gin_fuse(masked):
@@ -583,8 +585,8 @@ def _gin_out_tiles(kt, ct2, masked):
 
 def _gin_move_tiles(kt, ct2, mask):
     if _gin_fuse(mask):
-        return 2 * ct2 * kt + 32 * kt + _gin_out_tiles(kt, ct2, False) + 2 * GIN_MOVE_NB
-    return 2 * ct2 * kt + 32 * kt + 64 + 2 * 32 + 2 * GIN_MOVE_NB + (33 if mask else 0)
+        return 2 * ct2 * kt + 32 * kt + _gin_out_tiles(kt, ct2, False) + 2 * GIN_MOVE_NB * (1 + GIN_SPLIT)
+    return 2 * ct2 * kt + 32 * kt + 64 + 2 * 32 + 2 * GIN_MOVE_NB * (1 + GIN_SPLIT) + (33 if mask else 0)
 
 
 def gin_move_split(x, c, mask=None):
@@ -655,16 +657,18 @@ def _build_gin_move(x, wpT, wgT, outs, grid, ckc, mask, cto=0, ctt=None):
     reader = ttnn.KernelDescriptor(
         kernel_source=str(d / "reader.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[kt, ct2, St, int(mask is not None), GIN_MOVE_ABL] + acc(x) + acc(wpT) + acc(wgT)
-        + acc(mask if mask is not None else x),
-        runtime_args=rd, common_runtime_args=[0] * 4, config=ttnn.ReaderConfigDescriptor())
+        + acc(mask if mask is not None else x)
+        + [GIN_SPLIT, GIN_MOVE_NB, cto, ct2 // 2 if ctt is None else ctt, out_tiles] + acc(outs[0]) + acc(outs[1]),
+        runtime_args=rd, common_runtime_args=[0] * 6, config=ttnn.ReaderConfigDescriptor())
     writer = ttnn.KernelDescriptor(
         kernel_source=str(d / "writer.cpp"), source_type=src, core_ranges=core_grid,
-        compile_time_args=[ct2, St, GIN_MOVE_ABL, GIN_MOVE_NB, cto, ct2 // 2 if ctt is None else ctt]
+        compile_time_args=[ct2, St, GIN_MOVE_ABL, GIN_MOVE_NB, cto, ct2 // 2 if ctt is None else ctt, GIN_SPLIT]
         + acc(outs[0]) + acc(outs[1]),
         runtime_args=wr, common_runtime_args=[0, 0], config=ttnn.WriterConfigDescriptor())
+    fuse = _gin_fuse(mask is not None)
+    out_tiles = _gin_out_tiles(kt, ct2, False) if fuse else 64
     fid, approx, fp32, full = ckc
     # The fused gate holds a subblock's p and g in DST at once: half of DST each.
-    fuse = _gin_fuse(mask is not None)
     sbw = min(4, (4 if fp32 else 8) * (2 if full else 1) // 2) if fuse else 4
     compute = ttnn.KernelDescriptor(
         kernel_source=str(d / "compute.cpp"), source_type=src, core_ranges=core_grid,
@@ -675,13 +679,17 @@ def _build_gin_move(x, wpT, wgT, outs, grid, ckc, mask, cto=0, ctt=None):
             dst_full_sync_en=full))
     if fuse:
         cbs = [_cb(0, core_grid, 2 * ct2 * kt), _cb(1, core_grid, 32 * kt),
-               _cb(2, core_grid, _gin_out_tiles(kt, ct2, False)), _cb(24, core_grid, 2 * GIN_MOVE_NB)]
-        return {"kernels": [reader, writer, compute], "cbs": cbs}
-    cbs = [_cb(0, core_grid, 2 * ct2 * kt), _cb(1, core_grid, 32 * kt), _cb(2, core_grid, 64),
-           _cb(4, core_grid, 32), _cb(5, core_grid, 32), _cb(24, core_grid, 2 * GIN_MOVE_NB)]
-    if mask is not None:
-        cbs += [_cb(3, core_grid, 1), _cb(6, core_grid, 32)]
-    return {"kernels": [reader, writer, compute], "cbs": cbs}
+               _cb(2, core_grid, out_tiles), _cb(24, core_grid, 2 * GIN_MOVE_NB)]
+    else:
+        cbs = [_cb(0, core_grid, 2 * ct2 * kt), _cb(1, core_grid, 32 * kt), _cb(2, core_grid, out_tiles),
+               _cb(4, core_grid, 32), _cb(5, core_grid, 32), _cb(24, core_grid, 2 * GIN_MOVE_NB)]
+        if mask is not None:
+            cbs += [_cb(3, core_grid, 1), _cb(6, core_grid, 32)]
+    sems = []
+    if GIN_SPLIT:
+        cbs.append(_cb(25, core_grid, 2 * GIN_MOVE_NB))
+        sems = [ttnn.SemaphoreDescriptor(id=0, core_ranges=core_grid, initial_value=0)]
+    return {"kernels": [reader, writer, compute], "cbs": cbs, "sems": sems}
 
 
 def gin_moved(x, wpT, wgT, ckc, grid, mask=None):
@@ -708,7 +716,7 @@ def gin_moved(x, wpT, wgT, ckc, grid, mask=None):
             for _ in range(2)]
     for s_, (wp, wg) in enumerate(zip(wps, wgs)):
         key = ("gin_move", str(x.padded_shape), str(wp.padded_shape), tuple(grid),
-               tuple(str(c) for c in ckc), mask is not None, GIN_MOVE_ABL, GIN_MOVE_NB, _sigpoly(), RNE,
+               tuple(str(c) for c in ckc), mask is not None, GIN_MOVE_ABL, GIN_MOVE_NB, GIN_SPLIT, _sigpoly(), RNE,
                s_, n, _gin_fuse(mask is not None))
         entry = _CACHE.get(key)
         if entry is None:
@@ -716,9 +724,10 @@ def gin_moved(x, wpT, wgT, ckc, grid, mask=None):
                                                   cto=s_ * Cs // TILE, ctt=n * Cs // TILE)
         reader, writer, _ = entry["kernels"]
         reader.common_runtime_args = [x.buffer_address(), wp.buffer_address(), wg.buffer_address(),
-                                      (mask if mask is not None else x).buffer_address()]
+                                      (mask if mask is not None else x).buffer_address(),
+                                      outs[0].buffer_address(), outs[1].buffer_address()]
         writer.common_runtime_args = [outs[0].buffer_address(), outs[1].buffer_address()]
-        pd = ttnn.ProgramDescriptor(kernels=entry["kernels"], semaphores=[], cbs=entry["cbs"])
+        pd = ttnn.ProgramDescriptor(kernels=entry["kernels"], semaphores=entry["sems"], cbs=entry["cbs"])
         ttnn.generic_op([x, wp, wg, *outs] + ([mask] if mask is not None else []), pd)
     GIN_MOVE_STATS[0] += 1
     MASK_STATS[0] += mask is not None
@@ -1341,6 +1350,7 @@ T1_RB = 8                         # z row tiles per reader barrier
 T1_SBW = 4                        # DST tiles per matmul block (half-sync fp32 DST holds 4)
 T1_ABL = 0                        # bench-only stage-skip bits (kernels/trimul_in_t1 ABL); 0 = the real T1
 T1_B8 = 0                         # bench knob: a and b as bfp8 (lever trimul_t1b8 in a model)
+T1_SPLIT = 0                      # the reader moves channels 16..31 of each channel tile (kernels/trimul_in_t1/gather.hpp)
 T1_C256 = 0                       # bench knob: the c_z 256 / 384 plans without their levers
 T1_WIDE = {(8, 16, 8): "trimul_t1_c256", (12, 24, 12): "trimul_t1_c384"}   # plan key -> the lever that turns T1 on for it
 # Row tiles per work item: 32 = one unit (b, xt, yt) per item; 16 = each unit as two items, rows 0-15 and
@@ -1379,6 +1389,8 @@ def t1_cb_plan(kt, ct2, ntg, mask, rb=None, nb=None, il=None):
           (8, kt), (9, kt),      # gamma, beta
           (10, 1),               # 1/K reduce scaler
           (24, 2 * nb)]          # the writer's gather staging
+    if T1_SPLIT:
+        bf += [(25, 2 * nb)]     # the reader's
     if ng:
         bf += [(18, kt * ng),    # Wg_out [K, N] of the group, resident
                (19, 2 * ng)]     # g_out of one row tile, double buffered
@@ -1517,16 +1529,18 @@ def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps, il, b8=F
     d = KERNEL_DIR.parent / "trimul_in_t1"
     m = mask if mask is not None else x
     abl = [("ABL", str(T1_ABL))] if T1_ABL else []
+    split = [("SPLIT", "1")] if T1_SPLIT and not b8 else []
     reader = ttnn.KernelDescriptor(
         kernel_source=str(d / "reader.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[kt, qn, St, int(mask is not None), ng, rb, (inv << 16) | inv,
                            eps_bits, group * qn, group * ng, ntg, il]
-        + acc(x) + acc(wpT) + acc(wgT) + acc(wgo) + acc(ln_w) + acc(ln_b) + acc(m),
-        defines=abl, runtime_args=rd, common_runtime_args=[0] * 7, config=ttnn.ReaderConfigDescriptor())
+        + acc(x) + acc(wpT) + acc(wgT) + acc(wgo) + acc(ln_w) + acc(ln_b) + acc(m)
+        + [ct2, GIN_MOVE_NB] + acc(outs[0]) + acc(outs[1]),
+        defines=abl + split, runtime_args=rd, common_runtime_args=[0] * 9, config=ttnn.ReaderConfigDescriptor())
     writer = ttnn.KernelDescriptor(
         kernel_source=str(d / "writer.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[ct2, St, GIN_MOVE_NB, ng, group * qn, qn, group * ng, ntg, il] + acc(outs[0]) + acc(outs[1]) + acc(outs[2]),
-        defines=abl + ([("T1B8", "1")] if b8 else []), runtime_args=wr, common_runtime_args=[0] * 3, config=ttnn.WriterConfigDescriptor())
+        defines=abl + split + ([("T1B8", "1")] if b8 else []), runtime_args=wr, common_runtime_args=[0] * 3, config=ttnn.WriterConfigDescriptor())
     fid, approx, _, full = ckc
     compute = ttnn.KernelDescriptor(
         kernel_source=str(d / "compute.cpp"), source_type=src, core_ranges=core_grid,
@@ -1540,7 +1554,9 @@ def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps, il, b8=F
     bf, f32 = t1_cb_plan(kt, ct2, ntg, mask is not None, il=il)
     cbs = ([_cb_fmt(i, core_grid, t, ttnn.bfloat8_b) if b8 and i == 2 else _cb(i, core_grid, t) for i, t in bf]
            + [_cb_fmt(i, core_grid, t, ttnn.float32) for i, t in f32])
-    return {"kernels": [reader, writer, compute], "cbs": cbs}
+    # SPLIT: how many channel tiles the reader is done reading out of c_2, so the writer pops behind it.
+    sems = [ttnn.SemaphoreDescriptor(id=0, core_ranges=core_grid, initial_value=0)] if split else []
+    return {"kernels": [reader, writer, compute], "cbs": cbs, "sems": sems}
 
 
 def fused_in_ln(x, ln_w, ln_b, wpT, wgT, wgo, ckc, grid, mask=None, eps=1e-5, b8=False):
@@ -1574,7 +1590,7 @@ def fused_in_ln(x, ln_w, ln_b, wpT, wgT, wgo, ckc, grid, mask=None, eps=1e-5, b8
     outs = [alloc([B, C, S, S], ab), alloc([B, C, S, S], ab), alloc(shp[:-1] + [int(wgo.shape[-1])])]
     key = ("t1", str(x.padded_shape), str(wpT.padded_shape), str(wgo.padded_shape), tuple(grid),
            tuple(str(c) for c in ckc), mask is not None, float(eps), _sigpoly(), RNE, GIN_MOVE_NB,
-           T1_RB, T1_SBW, T1_ABL, b8, il)
+           T1_RB, T1_SBW, T1_ABL, b8, il, T1_SPLIT)
     for g in range(groups):
         entry = _CACHE.get(key + (g,))
         if entry is None:
@@ -1584,9 +1600,10 @@ def fused_in_ln(x, ln_w, ln_b, wpT, wgT, wgo, ckc, grid, mask=None, eps=1e-5, b8
         reader.common_runtime_args = [x.buffer_address(), wpT.buffer_address(), wgT.buffer_address(),
                                       wgo.buffer_address(), ln_w.buffer_address(),
                                       ln_b.buffer_address(),
-                                      (mask if mask is not None else x).buffer_address()]
+                                      (mask if mask is not None else x).buffer_address(),
+                                      outs[0].buffer_address(), outs[1].buffer_address()]
         writer.common_runtime_args = [o.buffer_address() for o in outs]
-        pd = ttnn.ProgramDescriptor(kernels=entry["kernels"], semaphores=[], cbs=entry["cbs"])
+        pd = ttnn.ProgramDescriptor(kernels=entry["kernels"], semaphores=entry["sems"], cbs=entry["cbs"])
         ttnn.generic_op([x, wpT, wgT, wgo, ln_w, ln_b] + ([mask] if mask is not None else []) + outs,
                         pd)
     T1_STATS[0] += 1

@@ -18,8 +18,12 @@
 #ifndef ABL
 #define ABL 0
 #endif
+#ifndef SPLIT
+#define SPLIT 0
+#endif
 #include "api/dataflow/dataflow_api.h"
 #include "ttnn/kernel/dataflow/generate_reduce_scaler.hpp"
+#include "gather.hpp"
 
 void kernel_main() {
     constexpr uint32_t Kt = get_compile_time_arg_val(0);
@@ -42,6 +46,12 @@ void kernel_main() {
     constexpr auto gm_args = TensorAccessorArgs<wo_args.next_compile_time_args_offset()>();
     constexpr auto bt_args = TensorAccessorArgs<gm_args.next_compile_time_args_offset()>();
     constexpr auto m_args = TensorAccessorArgs<bt_args.next_compile_time_args_offset()>();
+    // SPLIT only: the writer's half of the move needs where a and b go.
+    constexpr uint32_t o_ = m_args.next_compile_time_args_offset();
+    constexpr uint32_t CT2 = get_compile_time_arg_val(o_);
+    constexpr uint32_t NB = get_compile_time_arg_val(o_ + 1);
+    constexpr auto a_args = TensorAccessorArgs<o_ + 2>();
+    constexpr auto b_args = TensorAccessorArgs<a_args.next_compile_time_args_offset()>();
     static_assert(IL % RB == 0 && (IL == 32 || IL == 16 || IL == 8), "RB must divide the IL row tiles of a unit");
 
     const auto x = TensorAccessor(x_args, get_common_arg_val<uint32_t>(0));
@@ -95,14 +105,15 @@ void kernel_main() {
     cb_push_back(beta_cb, Kt);
     if constexpr (NG) cb_push_back(wo_cb, Kt * NG);
 
-    for (uint32_t u = u0; u < u0 + nunits; ++u) {
+    // Row groups g0 .. g1 - 1 (RB row tiles each) of unit u's z rows, then (from the last group) its mask cuts.
+    auto load = [&](uint32_t u, uint32_t g0, uint32_t g1) {
         const uint32_t b = u / (St * St * H);
         const uint32_t xt = (u / (St * H)) % St;
         const uint32_t h = (u / St) % H;
         const uint32_t yt = u % St;
         // Row tile (b, x, yt) of z is page ((b * S + x) * St + yt) * Kt + dt (trimul_tail.t1_x_page).
-        uint32_t page = ((b * S + xt * 32 + h * IL) * St + yt) * Kt;
-        for (uint32_t il0 = 0; il0 < IL; il0 += RB) {
+        uint32_t page = ((b * S + xt * 32 + h * IL + g0 * RB) * St + yt) * Kt;
+        for (uint32_t g = g0; g < g1; ++g) {
             cb_reserve_back(x_cb, RB * Kt);
             uint32_t dst = get_write_ptr(x_cb);
             for (uint32_t r = 0; r < RB; ++r, page += St * Kt)
@@ -111,6 +122,7 @@ void kernel_main() {
             noc_async_read_barrier();
             cb_push_back(x_cb, RB * Kt);
         }
+        if (g1 < IL / RB) return;
         if constexpr (MASK) {
             const uint32_t scratch = get_write_ptr(mscratch_cb);
             noc_async_read_page((b * St + xt) * St + yt, mk, scratch);
@@ -130,5 +142,49 @@ void kernel_main() {
             }
             cb_push_back(m_cb, IL);
         }
+    };
+    constexpr uint32_t NGRP = IL / RB;
+
+    if constexpr (!SPLIT) {
+        for (uint32_t u = u0; u < u0 + nunits; ++u) load(u, 0, NGRP);
+        return;
     }
+    // The other half of the writer's move (gather.hpp). out_cb is the writer's to pop: the reader follows
+    // its pages by count and never acks them. The next unit's first z rows go out before this unit's last
+    // channel tile is gathered: compute wants them right after pushing that tile, and x_cb holds two groups.
+    constexpr uint32_t out_cb = tt::CBIndex::c_2;
+    constexpr uint32_t stage_cb = tt::CBIndex::c_25;
+    constexpr uint32_t CT = CT2 / 2;
+    constexpr uint32_t SS = St * St;
+    constexpr uint32_t PRE = NGRP < 2 ? NGRP : 2;
+    const auto oa = TensorAccessor(a_args, get_common_arg_val<uint32_t>(7));
+    const auto ob = TensorAccessor(b_args, get_common_arg_val<uint32_t>(8));
+    volatile tt_l1_ptr uint32_t* read_done = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(get_semaphore(0));
+    const uintptr_t received = (uintptr_t)get_cb_tiles_received_ptr(out_cb);
+    const uint32_t out0 = get_read_ptr(out_cb);
+    uint16_t seen = 0;
+    uint32_t slot = 0, nq = 0;
+    cb_reserve_back(stage_cb, 2 * NB);
+    const uint32_t stage0 = get_write_ptr(stage_cb);
+    bool dirty[2] = {false, false};
+
+    if (nunits) load(u0, 0, NGRP);
+    for (uint32_t u = u0; u < u0 + nunits; ++u) {
+        const bool next = u + 1 < u0 + nunits;
+        const uint32_t b = u / (SS * H);
+        const uint32_t h = (u / St) % H;
+        const uint32_t cube = ((u / (St * H)) % St) * St + u % St;
+        for (uint32_t q = Q0; q < Q0 + QN; ++q) {
+            if (next && q + 1 == Q0 + QN) load(u + 1, 0, PRE);
+            const bool is_a = q < CT;
+            const uint32_t page = ((b * CT + (is_a ? q : q - CT)) * 32 + 16) * SS + cube;
+            while ((uint16_t)((uint16_t)reg_read(received) - seen) < IL) {}
+            t1_gather_q<IL, NB, 16, 32, SS, ABL>(out0 + slot * IL * 2048, stage0, page, is_a, oa, ob, h * IL,
+                                                 dirty, read_done, ++nq);
+            seen += IL;
+            slot ^= 1;
+        }
+        if (next && PRE < NGRP) load(u + 1, PRE, NGRP);
+    }
+    noc_async_write_barrier();
 }
