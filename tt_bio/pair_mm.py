@@ -23,6 +23,8 @@ from .envflags import env_flag
 
 #: The lever. Default OFF and release-gated; armed by `bindcraft2.fast_round()`.
 PAIR_MM_FUSED = env_flag("TT_BIO_PAIR_MM", False)
+#: On Wormhole, serve the bias-free, activation-free calls from `pair_linear` (weight resident in L1) first.
+PAIR_LINEAR_WH = env_flag("TT_BIO_PAIR_LINEAR", True)
 
 def armed() -> bool:
     """The process flag (a BindCraft 2 round), or the `pair_mm` lever of the model folding now."""
@@ -102,6 +104,28 @@ def config(x, w, transpose_b: bool = False):
         compute_with_storage_grid_size=_mm_core_coord(*COMPUTE_GRID_MAIN))
 
 
+def _narrow(x, w, transpose_b: bool = False) -> bool:
+    """A pair-sized call whose K or N is below one tile (AF2's pair-bias projection [.., 128] x [128, 4] and
+    its dX [.., 4] x [4, 128]): outside minimal_matmul's class, served by `pair_linear` on Wormhole,
+    2.9x and 3.2x over ttnn.linear at [1,224,224,128] on .107."""
+    if (x.dtype != ttnn.bfloat16 or w.dtype != ttnn.bfloat16 or len(w.shape) != 2
+            or x.layout != ttnn.TILE_LAYOUT or w.layout != ttnn.TILE_LAYOUT):
+        return False
+    shape = [int(d) for d in x.shape]
+    K, N = (int(w.shape[1]), int(w.shape[0])) if transpose_b else (int(w.shape[0]), int(w.shape[1]))
+    rows = 1
+    for d in shape[:-1]:
+        rows *= d
+    return shape[-1] == K and rows >= MIN_ROWS and min(K, N) < 32 and max(K, N) % 32 == 0
+
+
+def _wormhole() -> bool:
+    if not PAIR_LINEAR_WH:
+        return False
+    from .tenstorrent import is_wormhole
+    return is_wormhole()
+
+
 def _decline(x, w, transpose_b, why):
     STATS[1] += 1
     try:
@@ -141,6 +165,11 @@ def matmul(x, w, bias=None, compute_kernel_config=None, dtype=None, transpose_b:
     """``act(x @ op(w) (+ bias))`` on minimal_matmul, DRAM out, or None to leave the call alone."""
     if not armed():
         return None
+    from .autograd import Tensor as Taped
+    if isinstance(x, Taped) or isinstance(w, Taped):
+        # AF2's pair-bias projection under BindCraft 2's tape: the shim's `ttnn.linear` unwraps it
+        # and comes back here with the values.
+        return None
     if activation is not None and activation not in _ACTIVATIONS:
         _decline(x, w, transpose_b, "activation")
         return None
@@ -148,6 +177,13 @@ def matmul(x, w, bias=None, compute_kernel_config=None, dtype=None, transpose_b:
         _decline(x, w, transpose_b, "l1_out")
         return None
     cfg = config(x, w, transpose_b)
+    if (bias is None and activation is None and dtype in (None, ttnn.bfloat16)
+            and (cfg is not None or _narrow(x, w, transpose_b)) and _wormhole()):
+        from . import pair_linear
+        out = pair_linear.matmul(x, _transposed(w) if transpose_b else w, compute_kernel_config)
+        if out is not None:
+            STATS[0] += 1
+            return out
     if cfg is None:
         _decline(x, w, transpose_b, "class")
         return None
