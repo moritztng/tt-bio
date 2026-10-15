@@ -5,19 +5,9 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-10-15
+
 ### Changed
-- **Nesso-1's normal mode runs the fused triangle kernels** (triangle multiplication, including the
-  256-token crops, the triangle attention tail and the fused pair transition). A 532-token forward on a
-  Wormhole chip at 1000 MHz takes 7.1-7.2 s instead of 9.8-10.3 s. Graded on four DAVIS targets (30
-  ligands each): the 90th-percentile prediction change stays under the reseeded floor on every target.
-  `TT_BIO_LEVERS=none` restores the previous path.
-- **`--fast` runs the pair transition as one weight-stationary kernel on Boltz-2,
-  RFdiffusion3, OpenDDE and Protenix.** The kernel keeps its weights on chip and never writes the hidden
-  activations out; the c_z 128 transition takes 2.2 ms instead of 4.1 ms on Blackhole. A 685-residue
-  RFdiffusion3 fast design drops from 61.3 to 56.3 s on a p150a at 1350 MHz and from 114.7 to 100.1 s on
-  a Wormhole chip at 1000 MHz. Boltz-2, OpenDDE and Protenix-v2 pass the fast accuracy bar on both architectures; a
-  512-token Protenix-v2 fast fold on a Wormhole chip saves 2.8 s. OpenFold3 and ESMFold2 keep their
-  previous fast path until their own grades read.
 - **OpenFold3 and OpenBind-0 `--fast` run the diffusion transformer's linears at a lower math fidelity on
   Wormhole.** A 512-residue fast fold on a Galaxy chip at 1000 MHz takes 0.16 s (OpenFold3) and 0.28 s
   (OpenBind-0) less; CA-lDDT and docking success are unchanged on 11 complexes. Blackhole is unchanged.

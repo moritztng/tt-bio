@@ -15,26 +15,26 @@
   ],
   "cards": {
     "tt-galaxy-wh-l": {
-      "recorded": "2026-10-11",
-      "host": "UF-EV-A8-GWH02",
-      "commit": "8bd13c72c",
+      "recorded": "2026-10-15",
+      "host": "UF-EV-A4-GWH01",
+      "commit": "4ba29781f",
       "host_threads": 2,
       "models": {
         "protenix-v2": {
           "grid": "8x9",
-          "recorded": "2026-10-11",
-          "host": "UF-EV-A8-GWH02",
-          "commit": "8bd13c72c",
+          "recorded": "2026-10-15",
+          "host": "UF-EV-A4-GWH01",
+          "commit": "4ba29781f",
           "host_threads": 2,
           "runtime_s": {
-            "256": 28.3,
-            "512": 73.4,
-            "640": 121.2,
-            "768": 180.5,
-            "896": 239.5,
-            "1024": 311.1,
-            "1280": 718.9,
-            "1536": 1212.4
+            "256": 24.7,
+            "512": 64.9,
+            "640": 106.9,
+            "768": 165.9,
+            "896": 217.9,
+            "1024": 289.9,
+            "1280": 672.8,
+            "1536": 1137.4
           },
           "levers": {
             "256": {
@@ -175,39 +175,31 @@
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 34816,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "gated_window_BufferType.L1": 8704,
-                  "window_BufferType.L1": 17408,
-                  "back_l1_src_narrow": 8704
-                },
-                "reason": "declines all 34816 calls on window_BufferType.L1 x17408, gated_window_BufferType.L1 x8704, back_l1_src_narrow x8704: the gate's L1 leg admits 288 <= N <= 352 only, and its own docstring records N=256 on an L1 output measuring 0.952x, a real loss [carried from p300c]"
+                "reason": "declines all 0 calls: the gate's L1 leg admits 288 <= N <= 352 only, and its own docstring records N=256 on an L1 output measuring 0.952x, a real loss [carried from p300c]"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 0,
+                "served": 8704,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: the move back only runs when a forward move fired, and at this rung neither the gated nor the ungated move did [carried from p300c]"
+                "frac": 1.0,
+                "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 0,
+                "served": 17408,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: not offered at this rung; it serves every call from 512 upward [carried from p300c]"
+                "frac": 1.0,
+                "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 0,
+                "served": 17408,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats-shared",
-                "reason": "nothing to fuse into at this rung: the counter is `reblock_permute.STATS_GATED`, which counts serves of the fused gated move, and the gated window admits none of this model's 256 aa channel moves. At 256 aa the pair track is N=256 on an L1 destination, below `L1_N_MIN` = 288 (tt_bio/reblock_permute.py:338, the same band enforced for the fused path in `eligible_gated` at :877-878); the band opens at 288 because N=256 on an L1 output is a measured 0.952x loss on 110 cores. The same rung shows the ungated `REBLOCK_PERMUTE` declining 8704 calls on exactly that clause. It serves 2416 per fold from 512 aa up. [carried from p300c] [carried from p150a]"
+                "frac": 1.0,
+                "how": "stats-shared"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -344,7 +336,7 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 636,
+                "served": 606,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -416,7 +408,7 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 1208,
+                "served": 160,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -456,22 +448,25 @@
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "wrap",
-                "reason": "declines all 0 calls: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded [carried from p300c]"
-              },
-              "TRIMUL_TAIL_F1": {
-                "resolved": "True",
                 "served": 1048,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "wrap"
+              },
+              "TRIMUL_TAIL_F1": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "rejects": {
+                  "t1:key=2x4x2": 160
+                },
+                "reason": "TODO: say why this is legitimate at this size (declines on t1:key=2x4x2 x160)"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 1208,
+                "served": 2256,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -500,14 +495,14 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 2416,
+                "served": 320,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 2416,
+                "served": 320,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -648,14 +643,14 @@
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
                 "served": 0,
-                "declined": 636,
+                "declined": 82,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "base-unraised": 110,
-                  "ratio-shrunk": 526
+                  "base-unraised": 80,
+                  "ratio-shrunk": 2
                 },
-                "reason": "declines all 636 calls on ratio-shrunk x526, base-unraised x110: the height RAISE is the Blackhole branch and there is no Wormhole one. tt_bio/tenstorrent.py scores this counter as served only when the derived height comes out ABOVE the shipped base, and on a small grid it cannot: the small-grid raise is scoped to 256 < c <= 384, and Protenix-v2's pair channel is c=256, outside it on purpose (the L1 cap is its crash fix, tenstorrent.py:231), so the height stays at the base (base-unraised), the L1 cap pulls it under (ratio-shrunk), or H is shorter than the height (h-clamped-to-H). The Blackhole elif reads the same budget the other way round and raises. The lever has no Wormhole raise to decline"
+                "reason": "declines all 82 calls on base-unraised x80, ratio-shrunk x2: the height RAISE is the Blackhole branch and there is no Wormhole one. tt_bio/tenstorrent.py scores this counter as served only when the derived height comes out ABOVE the shipped base, and on a small grid it cannot: the small-grid raise is scoped to 256 < c <= 384, and Protenix-v2's pair channel is c=256, outside it on purpose (the L1 cap is its crash fix, tenstorrent.py:231), so the height stays at the base (base-unraised), the L1 cap pulls it under (ratio-shrunk), or H is shorter than the height (h-clamped-to-H). The Blackhole elif reads the same budget the other way round and raises. The lever has no Wormhole raise to decline"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -724,7 +719,7 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 1208,
+                "served": 161,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -764,22 +759,29 @@
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
+                "served": 1048,
+                "declined": 1,
+                "frac": 0.9990467111534795,
                 "how": "wrap",
-                "reason": "declines all 0 calls: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded [carried from p300c]"
+                "rejects": {
+                  "k_tiles=2:(2,2)": 1
+                }
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
-                "served": 1048,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "served": 0,
+                "declined": 1,
+                "frac": 0.0,
+                "how": "stats",
+                "rejects": {
+                  "t1:key=2x4x2": 160,
+                  "k_tiles=2": 1
+                },
+                "reason": "TODO: say why this is legitimate at this size (declines on t1:key=2x4x2 x160, k_tiles=2 x1)"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 1208,
+                "served": 2256,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -808,14 +810,14 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 2416,
+                "served": 322,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 2416,
+                "served": 322,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -960,14 +962,14 @@
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
                 "served": 0,
-                "declined": 636,
+                "declined": 82,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "base-unraised": 110,
-                  "ratio-shrunk": 526
+                  "base-unraised": 80,
+                  "ratio-shrunk": 2
                 },
-                "reason": "declines all 636 calls on ratio-shrunk x526, base-unraised x110: the height RAISE is the Blackhole branch and there is no Wormhole one. tt_bio/tenstorrent.py scores this counter as served only when the derived height comes out ABOVE the shipped base, and on a small grid it cannot: the small-grid raise is scoped to 256 < c <= 384, and Protenix-v2's pair channel is c=256, outside it on purpose (the L1 cap is its crash fix, tenstorrent.py:231), so the height stays at the base (base-unraised), the L1 cap pulls it under (ratio-shrunk), or H is shorter than the height (h-clamped-to-H). The Blackhole elif reads the same budget the other way round and raises. The lever has no Wormhole raise to decline"
+                "reason": "declines all 82 calls on base-unraised x80, ratio-shrunk x2: the height RAISE is the Blackhole branch and there is no Wormhole one. tt_bio/tenstorrent.py scores this counter as served only when the derived height comes out ABOVE the shipped base, and on a small grid it cannot: the small-grid raise is scoped to 256 < c <= 384, and Protenix-v2's pair channel is c=256, outside it on purpose (the L1 cap is its crash fix, tenstorrent.py:231), so the height stays at the base (base-unraised), the L1 cap pulls it under (ratio-shrunk), or H is shorter than the height (h-clamped-to-H). The Blackhole elif reads the same budget the other way round and raises. The lever has no Wormhole raise to decline"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -1087,7 +1089,10 @@
                 "served": 1048,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "rejects": {
+                  "t1:key=2x4x2": 160
+                }
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -1272,14 +1277,13 @@
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
                 "served": 0,
-                "declined": 636,
+                "declined": 2,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "base-unraised": 110,
-                  "ratio-shrunk": 526
+                  "ratio-shrunk": 2
                 },
-                "reason": "declines all 636 calls on ratio-shrunk x526, base-unraised x110: the height RAISE is the Blackhole branch and there is no Wormhole one. tt_bio/tenstorrent.py scores this counter as served only when the derived height comes out ABOVE the shipped base, and on a small grid it cannot: the small-grid raise is scoped to 256 < c <= 384, and Protenix-v2's pair channel is c=256, outside it on purpose (the L1 cap is its crash fix, tenstorrent.py:231), so the height stays at the base (base-unraised), the L1 cap pulls it under (ratio-shrunk), or H is shorter than the height (h-clamped-to-H). The Blackhole elif reads the same budget the other way round and raises. The lever has no Wormhole raise to decline"
+                "reason": "declines all 2 calls on ratio-shrunk x2: the height RAISE is the Blackhole branch and there is no Wormhole one. tt_bio/tenstorrent.py scores this counter as served only when the derived height comes out ABOVE the shipped base, and on a small grid it cannot: the small-grid raise is scoped to 256 < c <= 384, and Protenix-v2's pair channel is c=256, outside it on purpose (the L1 cap is its crash fix, tenstorrent.py:231), so the height stays at the base (base-unraised), the L1 cap pulls it under (ratio-shrunk), or H is shorter than the height (h-clamped-to-H). The Blackhole elif reads the same budget the other way round and raises. The lever has no Wormhole raise to decline"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -1399,7 +1403,10 @@
                 "served": 1048,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "rejects": {
+                  "t1:key=2x4x2": 160
+                }
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -1585,14 +1592,13 @@
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
                 "served": 0,
-                "declined": 636,
+                "declined": 2,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "base-unraised": 80,
-                  "ratio-shrunk": 556
+                  "ratio-shrunk": 2
                 },
-                "reason": "declines all 636 calls on ratio-shrunk x556, base-unraised x80: the height RAISE is the Blackhole branch and there is no Wormhole one. tt_bio/tenstorrent.py scores this counter as served only when the derived height comes out ABOVE the shipped base, and on a small grid it cannot: the small-grid raise is scoped to 256 < c <= 384, and Protenix-v2's pair channel is c=256, outside it on purpose (the L1 cap is its crash fix, tenstorrent.py:231), so the height stays at the base (base-unraised), the L1 cap pulls it under (ratio-shrunk), or H is shorter than the height (h-clamped-to-H). The Blackhole elif reads the same budget the other way round and raises. The lever has no Wormhole raise to decline"
+                "reason": "declines all 2 calls on ratio-shrunk x2: the height RAISE is the Blackhole branch and there is no Wormhole one. tt_bio/tenstorrent.py scores this counter as served only when the derived height comes out ABOVE the shipped base, and on a small grid it cannot: the small-grid raise is scoped to 256 < c <= 384, and Protenix-v2's pair channel is c=256, outside it on purpose (the L1 cap is its crash fix, tenstorrent.py:231), so the height stays at the base (base-unraised), the L1 cap pulls it under (ratio-shrunk), or H is shorter than the height (h-clamped-to-H). The Blackhole elif reads the same budget the other way round and raises. The lever has no Wormhole raise to decline"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -1712,7 +1718,10 @@
                 "served": 1048,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "rejects": {
+                  "t1:key=2x4x2": 160
+                }
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -1898,14 +1907,13 @@
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
                 "served": 0,
-                "declined": 636,
+                "declined": 2,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "base-unraised": 80,
-                  "ratio-shrunk": 556
+                  "ratio-shrunk": 2
                 },
-                "reason": "declines all 636 calls on ratio-shrunk x556, base-unraised x80: the height RAISE is the Blackhole branch and there is no Wormhole one. tt_bio/tenstorrent.py scores this counter as served only when the derived height comes out ABOVE the shipped base, and on a small grid it cannot: the small-grid raise is scoped to 256 < c <= 384, and Protenix-v2's pair channel is c=256, outside it on purpose (the L1 cap is its crash fix, tenstorrent.py:231), so the height stays at the base (base-unraised), the L1 cap pulls it under (ratio-shrunk), or H is shorter than the height (h-clamped-to-H). The Blackhole elif reads the same budget the other way round and raises. The lever has no Wormhole raise to decline"
+                "reason": "declines all 2 calls on ratio-shrunk x2: the height RAISE is the Blackhole branch and there is no Wormhole one. tt_bio/tenstorrent.py scores this counter as served only when the derived height comes out ABOVE the shipped base, and on a small grid it cannot: the small-grid raise is scoped to 256 < c <= 384, and Protenix-v2's pair channel is c=256, outside it on purpose (the L1 cap is its crash fix, tenstorrent.py:231), so the height stays at the base (base-unraised), the L1 cap pulls it under (ratio-shrunk), or H is shorter than the height (h-clamped-to-H). The Blackhole elif reads the same budget the other way round and raises. The lever has no Wormhole raise to decline"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -2215,14 +2223,13 @@
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
                 "served": 0,
-                "declined": 642,
+                "declined": 8,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "base-unraised": 80,
-                  "ratio-shrunk": 562
+                  "ratio-shrunk": 8
                 },
-                "reason": "declines all 642 calls on ratio-shrunk x562, base-unraised x80: the height RAISE is the Blackhole branch and there is no Wormhole one. tt_bio/tenstorrent.py scores this counter as served only when the derived height comes out ABOVE the shipped base, and on a small grid it cannot: the small-grid raise is scoped to 256 < c <= 384, and Protenix-v2's pair channel is c=256, outside it on purpose (the L1 cap is its crash fix, tenstorrent.py:231), so the height stays at the base (base-unraised), the L1 cap pulls it under (ratio-shrunk), or H is shorter than the height (h-clamped-to-H). The Blackhole elif reads the same budget the other way round and raises. The lever has no Wormhole raise to decline [carried from rung 1024]"
+                "reason": "declines all 8 calls on ratio-shrunk x8: the height RAISE is the Blackhole branch and there is no Wormhole one. tt_bio/tenstorrent.py scores this counter as served only when the derived height comes out ABOVE the shipped base, and on a small grid it cannot: the small-grid raise is scoped to 256 < c <= 384, and Protenix-v2's pair channel is c=256, outside it on purpose (the L1 cap is its crash fix, tenstorrent.py:231), so the height stays at the base (base-unraised), the L1 cap pulls it under (ratio-shrunk), or H is shorter than the height (h-clamped-to-H). The Blackhole elif reads the same budget the other way round and raises. The lever has no Wormhole raise to decline [carried from rung 1024]"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -2530,14 +2537,13 @@
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
                 "served": 0,
-                "declined": 644,
+                "declined": 10,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "base-unraised": 80,
-                  "ratio-shrunk": 564
+                  "ratio-shrunk": 10
                 },
-                "reason": "declines all 644 calls on ratio-shrunk x564, base-unraised x80: the height RAISE is the Blackhole branch and there is no Wormhole one. tt_bio/tenstorrent.py scores this counter as served only when the derived height comes out ABOVE the shipped base, and on a small grid it cannot: the small-grid raise is scoped to 256 < c <= 384, and Protenix-v2's pair channel is c=256, outside it on purpose (the L1 cap is its crash fix, tenstorrent.py:231), so the height stays at the base (base-unraised), the L1 cap pulls it under (ratio-shrunk), or H is shorter than the height (h-clamped-to-H). The Blackhole elif reads the same budget the other way round and raises. The lever has no Wormhole raise to decline [carried from rung 1024]"
+                "reason": "declines all 10 calls on ratio-shrunk x10: the height RAISE is the Blackhole branch and there is no Wormhole one. tt_bio/tenstorrent.py scores this counter as served only when the derived height comes out ABOVE the shipped base, and on a small grid it cannot: the small-grid raise is scoped to 256 < c <= 384, and Protenix-v2's pair channel is c=256, outside it on purpose (the L1 cap is its crash fix, tenstorrent.py:231), so the height stays at the base (base-unraised), the L1 cap pulls it under (ratio-shrunk), or H is shorter than the height (h-clamped-to-H). The Blackhole elif reads the same budget the other way round and raises. The lever has no Wormhole raise to decline [carried from rung 1024]"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -2550,41 +2556,41 @@
           },
           "runtime_reps_s": {
             "256": [
-              28.3,
-              28.5,
-              28.3,
-              28.3,
-              28.2
+              24.7,
+              24.8,
+              24.7,
+              24.6,
+              24.6
             ],
             "512": [
-              72.9,
-              73.4,
-              74.1,
-              73.2,
-              73.9
+              65.3,
+              64.8,
+              64.6,
+              65.0,
+              64.9
             ],
             "640": [
-              121.2
+              106.9
             ],
             "768": [
-              180.5
+              165.9
             ],
             "896": [
-              239.5
+              217.9
             ],
             "1024": [
-              311.1
+              289.9
             ],
             "1280": [
-              718.9
+              672.8
             ],
             "1536": [
-              1212.4
+              1137.4
             ]
           },
           "aiclk": {
             "256": {
-              "card": "1",
+              "card": "23",
               "min": 500,
               "max": 1000,
               "rep_median": [
@@ -2597,7 +2603,7 @@
               "n": 40
             },
             "512": {
-              "card": "1",
+              "card": "23",
               "min": 500,
               "max": 1000,
               "rep_median": [
@@ -2607,118 +2613,118 @@
                 1000,
                 1000
               ],
-              "n": 82
+              "n": 75
             },
             "640": {
-              "card": "1",
+              "card": "23",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 25
+              "n": 23
             },
             "768": {
-              "card": "1",
+              "card": "23",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 36
+              "n": 34
             },
             "896": {
-              "card": "1",
+              "card": "23",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 47
+              "n": 43
             },
             "1024": {
-              "card": "1",
+              "card": "23",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 61
+              "n": 56
             },
             "1280": {
-              "card": "1",
+              "card": "23",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 136
+              "n": 125
             },
             "1536": {
-              "card": "1",
+              "card": "23",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 228
+              "n": 210
             }
           },
           "load": {
             "256": {
-              "max": 0.47,
+              "max": 0.53,
               "rep_median": [
-                0.41,
-                0.44,
-                0.44,
-                0.46,
-                0.44
+                0.5,
+                0.5,
+                0.51,
+                0.52,
+                0.52
               ]
             },
             "512": {
-              "max": 0.38,
+              "max": 0.57,
               "rep_median": [
-                0.37,
-                0.33,
-                0.25,
-                0.24,
-                0.25
+                0.51,
+                0.51,
+                0.51,
+                0.55,
+                0.53
               ]
             },
             "640": {
-              "max": 0.3,
+              "max": 0.55,
               "rep_median": [
-                0.23
+                0.53
               ]
             },
             "768": {
-              "max": 0.46,
+              "max": 0.55,
               "rep_median": [
-                0.41
+                0.53
               ]
             },
             "896": {
-              "max": 0.43,
+              "max": 0.74,
               "rep_median": [
-                0.4
+                0.58
               ]
             },
             "1024": {
-              "max": 0.43,
+              "max": 0.85,
               "rep_median": [
-                0.4
+                0.68
               ]
             },
             "1280": {
-              "max": 0.45,
+              "max": 1.39,
               "rep_median": [
-                0.39
+                1.19
               ]
             },
             "1536": {
-              "max": 0.6,
+              "max": 1.23,
               "rep_median": [
-                0.51
+                0.86
               ]
             }
           },
@@ -2727,183 +2733,186 @@
               "file": "cdk2x2_256.cif",
               "steps": 6,
               "n_ca": 256,
-              "clash_frac": 0.0078,
+              "clash_frac": 0.0,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 131.9856,
-              "radius_of_gyration_A": 110.055,
-              "plddt_mean": 0.874981,
+              "ca_ca_median_A": 131.1251,
+              "radius_of_gyration_A": 110.018,
+              "plddt_mean": 0.876307,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 131.986 A outside [3.6, 4.0]",
+                "median CA-CA 131.125 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 110.1 A outside [9.0, 45.2]"
+                "radius of gyration 110.0 A outside [9.0, 45.2]"
               ]
             },
             "512": {
               "file": "cdk2x2_512.cif",
               "steps": 6,
               "n_ca": 512,
-              "clash_frac": 0.0117,
+              "clash_frac": 0.0078,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 133.6094,
-              "radius_of_gyration_A": 113.07,
-              "plddt_mean": 0.824555,
+              "ca_ca_median_A": 133.4073,
+              "radius_of_gyration_A": 112.8,
+              "plddt_mean": 0.830995,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 133.609 A outside [3.6, 4.0]",
+                "median CA-CA 133.407 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 113.1 A outside [11.8, 58.9]"
+                "radius of gyration 112.8 A outside [11.8, 58.9]"
               ]
             },
             "640": {
               "file": "cdk2x2_640.cif",
               "steps": 6,
               "n_ca": 640,
-              "clash_frac": 0.0094,
+              "clash_frac": 0.0063,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 141.0712,
-              "radius_of_gyration_A": 116.075,
-              "plddt_mean": 0.785604,
+              "ca_ca_median_A": 143.2514,
+              "radius_of_gyration_A": 116.374,
+              "plddt_mean": 0.795861,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 141.071 A outside [3.6, 4.0]",
+                "median CA-CA 143.251 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 116.1 A outside [12.8, 64.1]"
+                "radius of gyration 116.4 A outside [12.8, 64.1]"
               ]
             },
             "768": {
               "file": "cdk2x2_768.cif",
               "steps": 6,
               "n_ca": 768,
-              "clash_frac": 0.0156,
+              "clash_frac": 0.0234,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 140.3355,
-              "radius_of_gyration_A": 112.01,
-              "plddt_mean": 0.794001,
+              "ca_ca_median_A": 140.2614,
+              "radius_of_gyration_A": 113.273,
+              "plddt_mean": 0.801853,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 140.336 A outside [3.6, 4.0]",
+                "median CA-CA 140.261 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 112.0 A outside [13.7, 68.7]"
+                "2.3% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 113.3 A outside [13.7, 68.7]"
               ]
             },
             "896": {
               "file": "cdk2x2_896.cif",
               "steps": 6,
               "n_ca": 896,
-              "clash_frac": 0.0179,
+              "clash_frac": 0.0212,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 133.6981,
-              "radius_of_gyration_A": 111.839,
-              "plddt_mean": 0.76026,
+              "ca_ca_median_A": 132.5443,
+              "radius_of_gyration_A": 111.729,
+              "plddt_mean": 0.762136,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 133.698 A outside [3.6, 4.0]",
+                "median CA-CA 132.544 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 111.8 A outside [14.6, 72.8]"
+                "2.1% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 111.7 A outside [14.6, 72.8]"
               ]
             },
             "1024": {
               "file": "cdk2x2_1024.cif",
               "steps": 6,
               "n_ca": 1024,
-              "clash_frac": 0.0117,
+              "clash_frac": 0.0098,
               "chain_break_frac": 0.999,
-              "ca_ca_median_A": 135.7508,
-              "radius_of_gyration_A": 116.816,
-              "plddt_mean": 0.738585,
+              "ca_ca_median_A": 135.608,
+              "radius_of_gyration_A": 116.951,
+              "plddt_mean": 0.73663,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 135.751 A outside [3.6, 4.0]",
+                "median CA-CA 135.608 A outside [3.6, 4.0]",
                 "99.9% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 116.8 A outside [15.3, 76.6]"
+                "radius of gyration 117.0 A outside [15.3, 76.6]"
               ]
             },
             "1280": {
               "file": "cdk2x2_1280.cif",
               "steps": 6,
               "n_ca": 1280,
-              "clash_frac": 0.0227,
+              "clash_frac": 0.0203,
               "chain_break_frac": 0.9992,
-              "ca_ca_median_A": 131.7291,
-              "radius_of_gyration_A": 113.704,
-              "plddt_mean": 0.71197,
+              "ca_ca_median_A": 131.9598,
+              "radius_of_gyration_A": 113.252,
+              "plddt_mean": 0.70973,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 131.729 A outside [3.6, 4.0]",
+                "median CA-CA 131.960 A outside [3.6, 4.0]",
                 "99.9% of consecutive CA pairs exceed 5.0 A",
-                "2.3% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 113.7 A outside [16.7, 83.4]"
+                "2.0% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 113.3 A outside [16.7, 83.4]"
               ]
             },
             "1536": {
               "file": "cdk2x2_1536.cif",
               "steps": 6,
               "n_ca": 1536,
-              "clash_frac": 0.0273,
+              "clash_frac": 0.0332,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 135.1189,
-              "radius_of_gyration_A": 111.91,
-              "plddt_mean": 0.695017,
+              "ca_ca_median_A": 135.965,
+              "radius_of_gyration_A": 111.668,
+              "plddt_mean": 0.697875,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 135.119 A outside [3.6, 4.0]",
+                "median CA-CA 135.965 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "2.7% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 111.9 A outside [17.9, 89.4]"
+                "3.3% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 111.7 A outside [17.9, 89.4]"
               ]
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.0067,
+          "sigma_runtime_512": 0.004,
           "exponents": {
             "256->512": {
-              "k": 1.375,
+              "k": 1.394,
               "tol": 0.5
             },
             "512->768": {
-              "k": 2.219,
+              "k": 2.315,
               "tol": 0.5
             }
           },
           "sigma_runtime": {
-            "256": 0.0039,
-            "512": 0.0067
+            "256": 0.0034,
+            "512": 0.004
           },
           "exponents_measured": {
-            "256->512": 1.375,
-            "512->640": 2.248,
-            "640->768": 2.185,
-            "768->896": 1.835,
-            "896->1024": 1.959,
-            "1024->1280": 3.754,
-            "1280->1536": 2.867
+            "256->512": 1.394,
+            "512->640": 2.236,
+            "640->768": 2.411,
+            "768->896": 1.769,
+            "896->1024": 2.138,
+            "1024->1280": 3.773,
+            "1280->1536": 2.88
           }
         }
       }
     },
     "p150a": {
-      "recorded": "2026-09-28",
+      "recorded": "2026-10-15",
       "host": "tt-quietbox",
-      "commit": "3af7e8be7",
+      "commit": "4ba29781f",
+      "host_threads": 8,
       "models": {
         "protenix-v2": {
           "grid": "11x10",
-          "recorded": "2026-10-10",
+          "recorded": "2026-10-15",
           "host": "tt-quietbox",
-          "commit": "6105e740d",
-          "host_threads": null,
+          "commit": "4ba29781f",
+          "host_threads": 8,
           "runtime_s": {
-            "256": 21.2,
-            "512": 47.5,
-            "640": 69.9,
-            "768": 97.5,
-            "896": 133.2,
-            "1024": 174.1,
-            "1152": 236.9,
-            "1280": 291.7,
-            "1408": 388.0,
-            "1536": 461.7
+            "256": 16.8,
+            "512": 36.3,
+            "640": 53.0,
+            "768": 77.7,
+            "896": 105.5,
+            "1024": 138.6,
+            "1152": 185.9,
+            "1280": 232.2,
+            "1408": 310.2,
+            "1536": 379.5
           },
           "levers": {
             "256": {
@@ -2976,7 +2985,7 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 315,
+                "served": 171,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -3000,14 +3009,14 @@
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1208,
+                "declined": 604,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "l1_dest_is_faster:256x256x64": 160,
-                  "l1_dest_is_faster:256x256x256": 1048
+                  "l1_dest_is_faster:256x256x64": 80,
+                  "l1_dest_is_faster:256x256x256": 524
                 },
-                "reason": "declines all 1208 calls on l1_dest_is_faster:256x256x256 x1048, l1_dest_is_faster:256x256x64 x160: the row-major route needs a DRAM destination for a 3-D bf16 tiled pair tensor, and it serves at 640 and 768, so the pair buffer is L1-resident here; wrap-counted, so the clause is not recorded"
+                "reason": "declines all 604 calls on l1_dest_is_faster:256x256x256 x524, l1_dest_is_faster:256x256x64 x80: the row-major route needs a DRAM destination for a 3-D bf16 tiled pair tensor, and it serves at 640 and 768, so the pair buffer is L1-resident here; wrap-counted, so the clause is not recorded"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -3171,7 +3180,7 @@
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
                 "served": 0,
-                "declined": 628,
+                "declined": 556,
                 "frac": 0.0,
                 "how": "stats"
               },
@@ -3185,7 +3194,7 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 1208,
+                "served": 604,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -3213,7 +3222,7 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 636,
+                "served": 606,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -3285,14 +3294,14 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 1208,
+                "served": 160,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 315,
+                "served": 171,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -3315,33 +3324,36 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 1048,
-                "declined": 161,
-                "frac": 0.8668320926385442,
+                "served": 524,
+                "declined": 81,
+                "frac": 0.8661157024793389,
                 "how": "wrap",
                 "rejects": {
-                  "l1_dest_is_faster:512x512x64": 160,
+                  "l1_dest_is_faster:512x512x64": 80,
                   "l1_dest_is_faster:512x512x256": 1
                 }
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "wrap",
-                "reason": "declines all 0 calls: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded"
-              },
-              "TRIMUL_TAIL_F1": {
-                "resolved": "True",
                 "served": 1048,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "wrap"
+              },
+              "TRIMUL_TAIL_F1": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "rejects": {
+                  "t1:key=2x4x2": 160
+                },
+                "reason": "TODO: say why this is legitimate at this size (declines on t1:key=2x4x2 x160)"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 1208,
+                "served": 2256,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -3370,14 +3382,14 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 2416,
+                "served": 320,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 2416,
+                "served": 320,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -3475,7 +3487,7 @@
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
                 "served": 0,
-                "declined": 628,
+                "declined": 556,
                 "frac": 0.0,
                 "how": "stats"
               },
@@ -3489,7 +3501,7 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 1208,
+                "served": 604,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -3517,12 +3529,12 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 110,
-                "declined": 526,
-                "frac": 0.17295597484276728,
+                "served": 80,
+                "declined": 2,
+                "frac": 0.975609756097561,
                 "how": "stats",
                 "rejects": {
-                  "base-unraised": 526
+                  "base-unraised": 2
                 }
               },
               "TRIATT_SDPA_HIFI": {
@@ -3592,14 +3604,14 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 1208,
+                "served": 160,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 315,
+                "served": 171,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -3622,32 +3634,35 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 1048,
-                "declined": 160,
+                "served": 524,
+                "declined": 80,
                 "frac": 0.8675496688741722,
                 "how": "wrap",
                 "rejects": {
-                  "l1_dest_is_faster:640x640x64": 160
+                  "l1_dest_is_faster:640x640x64": 80
                 }
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "wrap",
-                "reason": "declines all 0 calls: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded"
-              },
-              "TRIMUL_TAIL_F1": {
-                "resolved": "True",
                 "served": 1048,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "wrap"
+              },
+              "TRIMUL_TAIL_F1": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "rejects": {
+                  "t1:key=2x4x2": 160
+                },
+                "reason": "TODO: say why this is legitimate at this size (declines on t1:key=2x4x2 x160)"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 1208,
+                "served": 2256,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -3676,14 +3691,14 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 2416,
+                "served": 320,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 2416,
+                "served": 320,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -3781,7 +3796,7 @@
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
                 "served": 0,
-                "declined": 628,
+                "declined": 556,
                 "frac": 0.0,
                 "how": "stats"
               },
@@ -3795,8 +3810,8 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 160,
-                "declined": 1048,
+                "served": 80,
+                "declined": 524,
                 "frac": 0.13245033112582782,
                 "how": "wrap"
               },
@@ -3823,12 +3838,12 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 110,
-                "declined": 526,
-                "frac": 0.17295597484276728,
+                "served": 80,
+                "declined": 2,
+                "frac": 0.975609756097561,
                 "how": "stats",
                 "rejects": {
-                  "ratio-shrunk": 526
+                  "ratio-shrunk": 2
                 }
               },
               "TRIATT_SDPA_HIFI": {
@@ -3898,14 +3913,14 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 2256,
+                "served": 2257,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 315,
+                "served": 171,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -3928,28 +3943,35 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 1048,
-                "declined": 160,
+                "served": 524,
+                "declined": 80,
                 "frac": 0.8675496688741722,
                 "how": "wrap",
                 "rejects": {
-                  "l1_dest_is_faster:768x768x64": 160
+                  "l1_dest_is_faster:768x768x64": 80
                 }
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 0,
+                "declined": 1,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "declines all 0 calls: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded"
+                "rejects": {
+                  "k_tiles=2:(2,2)": 1
+                },
+                "reason": "declines all 1 calls on k_tiles=2:(2,2) x1: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 1048,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "declined": 1,
+                "frac": 0.9990467111534795,
+                "how": "stats",
+                "rejects": {
+                  "t1:key=2x4x2": 160,
+                  "k_tiles=2": 1
+                }
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -3982,14 +4004,14 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 4512,
+                "served": 4514,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 4512,
+                "served": 4514,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -4091,7 +4113,7 @@
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
                 "served": 0,
-                "declined": 628,
+                "declined": 556,
                 "frac": 0.0,
                 "how": "stats"
               },
@@ -4105,8 +4127,8 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 160,
-                "declined": 1048,
+                "served": 80,
+                "declined": 524,
                 "frac": 0.13245033112582782,
                 "how": "wrap"
               },
@@ -4133,12 +4155,12 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 110,
-                "declined": 526,
-                "frac": 0.17295597484276728,
+                "served": 80,
+                "declined": 2,
+                "frac": 0.975609756097561,
                 "how": "stats",
                 "rejects": {
-                  "ratio-shrunk": 526
+                  "ratio-shrunk": 2
                 }
               },
               "TRIATT_SDPA_HIFI": {
@@ -4215,7 +4237,7 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 315,
+                "served": 171,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -4238,12 +4260,12 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 1048,
-                "declined": 160,
+                "served": 524,
+                "declined": 80,
                 "frac": 0.8675496688741722,
                 "how": "wrap",
                 "rejects": {
-                  "l1_dest_is_faster:896x896x64": 160
+                  "l1_dest_is_faster:896x896x64": 80
                 }
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
@@ -4259,7 +4281,10 @@
                 "served": 1048,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "rejects": {
+                  "t1:key=2x4x2": 160
+                }
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -4401,7 +4426,7 @@
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
                 "served": 0,
-                "declined": 628,
+                "declined": 556,
                 "frac": 0.0,
                 "how": "stats"
               },
@@ -4415,8 +4440,8 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 160,
-                "declined": 1048,
+                "served": 80,
+                "declined": 524,
                 "frac": 0.13245033112582782,
                 "how": "wrap"
               },
@@ -4443,13 +4468,14 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 110,
-                "declined": 526,
-                "frac": 0.17295597484276728,
+                "served": 0,
+                "declined": 2,
+                "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "ratio-shrunk": 526
-                }
+                  "ratio-shrunk": 2
+                },
+                "reason": "declines all 2 calls on ratio-shrunk x2: the height RAISE is the Blackhole branch and there is no Wormhole one. tt_bio/tenstorrent.py scores this counter as served only when the derived height comes out ABOVE the shipped base, and on a small grid it cannot: the small-grid raise is scoped to 256 < c <= 384, and Protenix-v2's pair channel is c=256, outside it on purpose (the L1 cap is its crash fix, tenstorrent.py:231), so the height stays at the base (base-unraised), the L1 cap pulls it under (ratio-shrunk), or H is shorter than the height (h-clamped-to-H). The Blackhole elif reads the same budget the other way round and raises. The lever has no Wormhole raise to decline [carried from tt-galaxy-wh-l]"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -4525,7 +4551,7 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 315,
+                "served": 171,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -4548,9 +4574,9 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 1208,
+                "served": 604,
                 "declined": 1,
-                "frac": 0.9991728701406121,
+                "frac": 0.9983471074380166,
                 "how": "wrap",
                 "rejects": {
                   "l1_dest_is_faster:1024x1024x64": 1
@@ -4572,7 +4598,10 @@
                 "served": 1048,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "rejects": {
+                  "t1:key=2x4x2": 160
+                }
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -4714,7 +4743,7 @@
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
                 "served": 0,
-                "declined": 628,
+                "declined": 556,
                 "frac": 0.0,
                 "how": "stats"
               },
@@ -4728,8 +4757,8 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 160,
-                "declined": 1048,
+                "served": 80,
+                "declined": 524,
                 "frac": 0.13245033112582782,
                 "how": "wrap"
               },
@@ -4756,13 +4785,14 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 110,
-                "declined": 526,
-                "frac": 0.17295597484276728,
+                "served": 0,
+                "declined": 2,
+                "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "ratio-shrunk": 526
-                }
+                  "ratio-shrunk": 2
+                },
+                "reason": "declines all 2 calls on ratio-shrunk x2: the height RAISE is the Blackhole branch and there is no Wormhole one. tt_bio/tenstorrent.py scores this counter as served only when the derived height comes out ABOVE the shipped base, and on a small grid it cannot: the small-grid raise is scoped to 256 < c <= 384, and Protenix-v2's pair channel is c=256, outside it on purpose (the L1 cap is its crash fix, tenstorrent.py:231), so the height stays at the base (base-unraised), the L1 cap pulls it under (ratio-shrunk), or H is shorter than the height (h-clamped-to-H). The Blackhole elif reads the same budget the other way round and raises. The lever has no Wormhole raise to decline [carried from tt-galaxy-wh-l]"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -4838,7 +4868,7 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 315,
+                "served": 171,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -4861,7 +4891,7 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 1208,
+                "served": 604,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -4882,7 +4912,10 @@
                 "served": 1048,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "rejects": {
+                  "t1:key=2x4x2": 160
+                }
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -5018,7 +5051,7 @@
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
                 "served": 0,
-                "declined": 628,
+                "declined": 556,
                 "frac": 0.0,
                 "how": "stats"
               },
@@ -5033,10 +5066,10 @@
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
                 "served": 0,
-                "declined": 1208,
+                "declined": 604,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "declines all 1208 calls: a fit test, not a tuned constant. The pair tensor outgrows the 1.25 L1 headroom at this size and PAIR_TRANSPOSE_VIA_ROW_MAJOR serves all 1208 of the same calls on this card, so no transpose is unoptimised; the DRAM permute it falls back to is bit-identical"
+                "reason": "declines all 604 calls: a fit test, not a tuned constant. The pair tensor outgrows the 1.25 L1 headroom at this size and PAIR_TRANSPOSE_VIA_ROW_MAJOR serves all 1208 of the same calls on this card, so no transpose is unoptimised; the DRAM permute it falls back to is bit-identical"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -5061,13 +5094,14 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 110,
-                "declined": 526,
-                "frac": 0.17295597484276728,
+                "served": 0,
+                "declined": 2,
+                "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "ratio-shrunk": 526
-                }
+                  "ratio-shrunk": 2
+                },
+                "reason": "declines all 2 calls on ratio-shrunk x2: the height RAISE is the Blackhole branch and there is no Wormhole one. tt_bio/tenstorrent.py scores this counter as served only when the derived height comes out ABOVE the shipped base, and on a small grid it cannot: the small-grid raise is scoped to 256 < c <= 384, and Protenix-v2's pair channel is c=256, outside it on purpose (the L1 cap is its crash fix, tenstorrent.py:231), so the height stays at the base (base-unraised), the L1 cap pulls it under (ratio-shrunk), or H is shorter than the height (h-clamped-to-H). The Blackhole elif reads the same budget the other way round and raises. The lever has no Wormhole raise to decline [carried from tt-galaxy-wh-l] [carried from rung 1024]"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -5143,7 +5177,7 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 315,
+                "served": 171,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -5166,7 +5200,7 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 1208,
+                "served": 604,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -5187,7 +5221,10 @@
                 "served": 1048,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "rejects": {
+                  "t1:key=2x4x2": 160
+                }
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -5323,7 +5360,7 @@
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
                 "served": 0,
-                "declined": 628,
+                "declined": 556,
                 "frac": 0.0,
                 "how": "stats"
               },
@@ -5338,10 +5375,10 @@
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
                 "served": 0,
-                "declined": 1208,
+                "declined": 604,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "declines all 1208 calls: a fit test, not a tuned constant. The pair tensor outgrows the 1.25 L1 headroom at this size and PAIR_TRANSPOSE_VIA_ROW_MAJOR serves all 1208 of the same calls on this card, so no transpose is unoptimised; the DRAM permute it falls back to is bit-identical"
+                "reason": "declines all 604 calls: a fit test, not a tuned constant. The pair tensor outgrows the 1.25 L1 headroom at this size and PAIR_TRANSPOSE_VIA_ROW_MAJOR serves all 1208 of the same calls on this card, so no transpose is unoptimised; the DRAM permute it falls back to is bit-identical"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -5366,13 +5403,14 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 110,
-                "declined": 526,
-                "frac": 0.17295597484276728,
+                "served": 0,
+                "declined": 2,
+                "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "ratio-shrunk": 526
-                }
+                  "ratio-shrunk": 2
+                },
+                "reason": "declines all 2 calls on ratio-shrunk x2: the height RAISE is the Blackhole branch and there is no Wormhole one. tt_bio/tenstorrent.py scores this counter as served only when the derived height comes out ABOVE the shipped base, and on a small grid it cannot: the small-grid raise is scoped to 256 < c <= 384, and Protenix-v2's pair channel is c=256, outside it on purpose (the L1 cap is its crash fix, tenstorrent.py:231), so the height stays at the base (base-unraised), the L1 cap pulls it under (ratio-shrunk), or H is shorter than the height (h-clamped-to-H). The Blackhole elif reads the same budget the other way round and raises. The lever has no Wormhole raise to decline [carried from rung 1024] [carried from tt-galaxy-wh-l]"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -5448,7 +5486,7 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 315,
+                "served": 171,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -5471,7 +5509,7 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 1208,
+                "served": 604,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -5492,7 +5530,10 @@
                 "served": 1048,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "rejects": {
+                  "t1:key=2x4x2": 160
+                }
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -5628,7 +5669,7 @@
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
                 "served": 0,
-                "declined": 628,
+                "declined": 556,
                 "frac": 0.0,
                 "how": "stats"
               },
@@ -5643,10 +5684,10 @@
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
                 "served": 0,
-                "declined": 1208,
+                "declined": 604,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "declines all 1208 calls: a fit test, not a tuned constant. The pair tensor outgrows the 1.25 L1 headroom at this size and PAIR_TRANSPOSE_VIA_ROW_MAJOR serves all 1208 of the same calls on this card, so no transpose is unoptimised; the DRAM permute it falls back to is bit-identical"
+                "reason": "declines all 604 calls: a fit test, not a tuned constant. The pair tensor outgrows the 1.25 L1 headroom at this size and PAIR_TRANSPOSE_VIA_ROW_MAJOR serves all 1208 of the same calls on this card, so no transpose is unoptimised; the DRAM permute it falls back to is bit-identical"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -5671,13 +5712,14 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 110,
-                "declined": 526,
-                "frac": 0.17295597484276728,
+                "served": 0,
+                "declined": 2,
+                "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "ratio-shrunk": 526
-                }
+                  "ratio-shrunk": 2
+                },
+                "reason": "declines all 2 calls on ratio-shrunk x2: the height RAISE is the Blackhole branch and there is no Wormhole one. tt_bio/tenstorrent.py scores this counter as served only when the derived height comes out ABOVE the shipped base, and on a small grid it cannot: the small-grid raise is scoped to 256 < c <= 384, and Protenix-v2's pair channel is c=256, outside it on purpose (the L1 cap is its crash fix, tenstorrent.py:231), so the height stays at the base (base-unraised), the L1 cap pulls it under (ratio-shrunk), or H is shorter than the height (h-clamped-to-H). The Blackhole elif reads the same budget the other way round and raises. The lever has no Wormhole raise to decline [carried from tt-galaxy-wh-l] [carried from rung 1024]"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -5753,7 +5795,7 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 315,
+                "served": 171,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -5776,7 +5818,7 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 1208,
+                "served": 604,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -5936,7 +5978,7 @@
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
                 "served": 0,
-                "declined": 628,
+                "declined": 556,
                 "frac": 0.0,
                 "how": "stats"
               },
@@ -5951,10 +5993,10 @@
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
                 "served": 0,
-                "declined": 1208,
+                "declined": 604,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "declines all 1208 calls: a fit test, not a tuned constant. The pair tensor outgrows the 1.25 L1 headroom at this size and PAIR_TRANSPOSE_VIA_ROW_MAJOR serves all 1208 of the same calls on this card, so no transpose is unoptimised; the DRAM permute it falls back to is bit-identical"
+                "reason": "declines all 604 calls: a fit test, not a tuned constant. The pair tensor outgrows the 1.25 L1 headroom at this size and PAIR_TRANSPOSE_VIA_ROW_MAJOR serves all 1208 of the same calls on this card, so no transpose is unoptimised; the DRAM permute it falls back to is bit-identical"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -5979,13 +6021,14 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 110,
-                "declined": 526,
-                "frac": 0.17295597484276728,
+                "served": 0,
+                "declined": 2,
+                "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "ratio-shrunk": 526
-                }
+                  "ratio-shrunk": 2
+                },
+                "reason": "declines all 2 calls on ratio-shrunk x2: the height RAISE is the Blackhole branch and there is no Wormhole one. tt_bio/tenstorrent.py scores this counter as served only when the derived height comes out ABOVE the shipped base, and on a small grid it cannot: the small-grid raise is scoped to 256 < c <= 384, and Protenix-v2's pair channel is c=256, outside it on purpose (the L1 cap is its crash fix, tenstorrent.py:231), so the height stays at the base (base-unraised), the L1 cap pulls it under (ratio-shrunk), or H is shorter than the height (h-clamped-to-H). The Blackhole elif reads the same budget the other way round and raises. The lever has no Wormhole raise to decline [carried from rung 1024] [carried from tt-galaxy-wh-l]"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -5998,47 +6041,47 @@
           },
           "runtime_reps_s": {
             "256": [
-              20.3,
-              21.0,
-              21.2,
-              24.1,
-              24.7
+              16.5,
+              16.8,
+              16.8,
+              16.0,
+              17.1
             ],
             "512": [
-              46.3,
-              50.2,
-              53.8,
-              47.5,
-              47.4
+              36.3,
+              36.6,
+              36.1,
+              36.5,
+              36.2
             ],
             "640": [
-              69.9
+              53.0
             ],
             "768": [
-              97.5
+              77.7
             ],
             "896": [
-              133.2
+              105.5
             ],
             "1024": [
-              174.1
+              138.6
             ],
             "1152": [
-              236.9
+              185.9
             ],
             "1280": [
-              291.7
+              232.2
             ],
             "1408": [
-              388.0
+              310.2
             ],
             "1536": [
-              461.7
+              379.5
             ]
           },
           "aiclk": {
             "256": {
-              "card": "2",
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
@@ -6048,10 +6091,10 @@
                 1350,
                 1350
               ],
-              "n": 47
+              "n": 29
             },
             "512": {
-              "card": "2",
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
@@ -6061,55 +6104,64 @@
                 1350,
                 1350
               ],
-              "n": 68
+              "n": 45
             },
             "640": {
-              "card": "2",
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
                 1350
               ],
-              "n": 17
+              "n": 12
             },
             "768": {
-              "card": "2",
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
                 1350
               ],
-              "n": 21
+              "n": 16
             },
             "896": {
-              "card": "2",
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
                 1350
               ],
-              "n": 28
+              "n": 20
             },
             "1024": {
-              "card": "2",
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
                 1350
               ],
-              "n": 32
+              "n": 26
             },
             "1152": {
-              "card": "2",
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
                 1350
               ],
-              "n": 44
+              "n": 34
             },
             "1280": {
-              "card": "2",
+              "card": "1",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1350
+              ],
+              "n": 41
+            },
+            "1408": {
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
@@ -6117,92 +6169,83 @@
               ],
               "n": 54
             },
-            "1408": {
-              "card": "2",
-              "min": 800,
-              "max": 1350,
-              "rep_median": [
-                1350
-              ],
-              "n": 69
-            },
             "1536": {
-              "card": "2",
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
                 1350
               ],
-              "n": 80
+              "n": 66
             }
           },
           "load": {
             "256": {
-              "max": 1.56,
+              "max": 0.28,
               "rep_median": [
-                1.12,
-                1.07,
-                1.01,
-                1.32,
-                1.43
+                0.27,
+                0.25,
+                0.21,
+                0.21,
+                0.23
               ]
             },
             "512": {
-              "max": 1.39,
+              "max": 0.3,
               "rep_median": [
-                0.97,
-                0.72,
-                1.14,
-                1.27,
-                0.98
+                0.29,
+                0.24,
+                0.22,
+                0.19,
+                0.2
               ]
             },
             "640": {
-              "max": 1.3,
+              "max": 0.38,
               "rep_median": [
-                1.01
+                0.33
               ]
             },
             "768": {
-              "max": 1.01,
+              "max": 0.33,
               "rep_median": [
-                0.84
+                0.3
               ]
             },
             "896": {
-              "max": 1.47,
+              "max": 0.29,
               "rep_median": [
-                1.2
+                0.27
               ]
             },
             "1024": {
-              "max": 1.7,
+              "max": 0.38,
               "rep_median": [
-                1.24
+                0.33
               ]
             },
             "1152": {
-              "max": 0.84,
+              "max": 0.34,
               "rep_median": [
-                0.56
+                0.26
               ]
             },
             "1280": {
-              "max": 1.27,
+              "max": 0.25,
               "rep_median": [
-                0.6
+                0.17
               ]
             },
             "1408": {
-              "max": 1.18,
+              "max": 0.3,
               "rep_median": [
-                0.72
+                0.27
               ]
             },
             "1536": {
-              "max": 1.0,
+              "max": 0.31,
               "rep_median": [
-                0.59
+                0.25
               ]
             }
           },
@@ -6213,14 +6256,14 @@
               "n_ca": 256,
               "clash_frac": 0.0,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 132.555,
-              "radius_of_gyration_A": 109.688,
-              "plddt_mean": 0.875247,
+              "ca_ca_median_A": 131.7572,
+              "radius_of_gyration_A": 109.845,
+              "plddt_mean": 0.874193,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 132.555 A outside [3.6, 4.0]",
+                "median CA-CA 131.757 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 109.7 A outside [9.0, 45.2]"
+                "radius of gyration 109.8 A outside [9.0, 45.2]"
               ]
             },
             "512": {
@@ -6229,46 +6272,46 @@
               "n_ca": 512,
               "clash_frac": 0.0039,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 132.0801,
-              "radius_of_gyration_A": 112.352,
-              "plddt_mean": 0.820832,
+              "ca_ca_median_A": 132.7917,
+              "radius_of_gyration_A": 112.721,
+              "plddt_mean": 0.82879,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 132.080 A outside [3.6, 4.0]",
+                "median CA-CA 132.792 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 112.4 A outside [11.8, 58.9]"
+                "radius of gyration 112.7 A outside [11.8, 58.9]"
               ]
             },
             "640": {
               "file": "cdk2x2_640.cif",
               "steps": 6,
               "n_ca": 640,
-              "clash_frac": 0.0125,
+              "clash_frac": 0.0031,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 142.0557,
-              "radius_of_gyration_A": 115.751,
-              "plddt_mean": 0.788454,
+              "ca_ca_median_A": 143.8481,
+              "radius_of_gyration_A": 116.157,
+              "plddt_mean": 0.795012,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 142.056 A outside [3.6, 4.0]",
+                "median CA-CA 143.848 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 115.8 A outside [12.8, 64.1]"
+                "radius of gyration 116.2 A outside [12.8, 64.1]"
               ]
             },
             "768": {
               "file": "cdk2x2_768.cif",
               "steps": 6,
               "n_ca": 768,
-              "clash_frac": 0.0104,
+              "clash_frac": 0.0182,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 138.2797,
-              "radius_of_gyration_A": 111.224,
-              "plddt_mean": 0.792264,
+              "ca_ca_median_A": 139.1286,
+              "radius_of_gyration_A": 111.66,
+              "plddt_mean": 0.795521,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 138.280 A outside [3.6, 4.0]",
+                "median CA-CA 139.129 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 111.2 A outside [13.7, 68.7]"
+                "radius of gyration 111.7 A outside [13.7, 68.7]"
               ]
             },
             "896": {
@@ -6277,29 +6320,29 @@
               "n_ca": 896,
               "clash_frac": 0.0201,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 133.0592,
-              "radius_of_gyration_A": 111.588,
-              "plddt_mean": 0.761036,
+              "ca_ca_median_A": 133.4226,
+              "radius_of_gyration_A": 111.521,
+              "plddt_mean": 0.761741,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 133.059 A outside [3.6, 4.0]",
+                "median CA-CA 133.423 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
                 "2.0% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 111.6 A outside [14.6, 72.8]"
+                "radius of gyration 111.5 A outside [14.6, 72.8]"
               ]
             },
             "1024": {
               "file": "cdk2x2_1024.cif",
               "steps": 6,
               "n_ca": 1024,
-              "clash_frac": 0.0078,
+              "clash_frac": 0.0098,
               "chain_break_frac": 0.999,
-              "ca_ca_median_A": 136.4023,
-              "radius_of_gyration_A": 116.388,
-              "plddt_mean": 0.73037,
+              "ca_ca_median_A": 136.4001,
+              "radius_of_gyration_A": 116.381,
+              "plddt_mean": 0.740081,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 136.402 A outside [3.6, 4.0]",
+                "median CA-CA 136.400 A outside [3.6, 4.0]",
                 "99.9% of consecutive CA pairs exceed 5.0 A",
                 "radius of gyration 116.4 A outside [15.3, 76.6]"
               ]
@@ -6308,105 +6351,119 @@
               "file": "cdk2x2_1152.cif",
               "steps": 6,
               "n_ca": 1152,
-              "clash_frac": 0.0191,
-              "chain_break_frac": 1.0,
-              "ca_ca_median_A": 130.9154,
-              "radius_of_gyration_A": 112.395,
-              "plddt_mean": 0.720872,
+              "clash_frac": 0.0156,
+              "chain_break_frac": 0.9991,
+              "ca_ca_median_A": 131.3392,
+              "radius_of_gyration_A": 112.188,
+              "plddt_mean": 0.728204,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 130.915 A outside [3.6, 4.0]",
-                "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 112.4 A outside [16.0, 80.1]"
+                "median CA-CA 131.339 A outside [3.6, 4.0]",
+                "99.9% of consecutive CA pairs exceed 5.0 A",
+                "radius of gyration 112.2 A outside [16.0, 80.1]"
               ]
             },
             "1280": {
               "file": "cdk2x2_1280.cif",
               "steps": 6,
               "n_ca": 1280,
-              "clash_frac": 0.0242,
+              "clash_frac": 0.0234,
               "chain_break_frac": 0.9992,
-              "ca_ca_median_A": 132.296,
-              "radius_of_gyration_A": 113.269,
-              "plddt_mean": 0.714753,
+              "ca_ca_median_A": 132.2342,
+              "radius_of_gyration_A": 113.511,
+              "plddt_mean": 0.71462,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 132.296 A outside [3.6, 4.0]",
+                "median CA-CA 132.234 A outside [3.6, 4.0]",
                 "99.9% of consecutive CA pairs exceed 5.0 A",
-                "2.4% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 113.3 A outside [16.7, 83.4]"
+                "2.3% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 113.5 A outside [16.7, 83.4]"
               ]
             },
             "1408": {
               "file": "cdk2x2_1408.cif",
               "steps": 6,
               "n_ca": 1408,
-              "clash_frac": 0.0249,
+              "clash_frac": 0.0234,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 132.7637,
-              "radius_of_gyration_A": 112.824,
-              "plddt_mean": 0.709267,
+              "ca_ca_median_A": 133.2342,
+              "radius_of_gyration_A": 113.114,
+              "plddt_mean": 0.710753,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 132.764 A outside [3.6, 4.0]",
+                "median CA-CA 133.234 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "2.5% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 112.8 A outside [17.3, 86.5]"
+                "2.3% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 113.1 A outside [17.3, 86.5]"
               ]
             },
             "1536": {
               "file": "cdk2x2_1536.cif",
               "steps": 6,
               "n_ca": 1536,
-              "clash_frac": 0.0293,
+              "clash_frac": 0.0208,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 134.2168,
-              "radius_of_gyration_A": 111.295,
-              "plddt_mean": 0.696014,
+              "ca_ca_median_A": 135.1391,
+              "radius_of_gyration_A": 111.554,
+              "plddt_mean": 0.698552,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 134.217 A outside [3.6, 4.0]",
+                "median CA-CA 135.139 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "2.9% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 111.3 A outside [17.9, 89.4]"
+                "2.1% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 111.6 A outside [17.9, 89.4]"
               ]
             }
           },
-          "exponents_skipped": "256 aa was timed at 1.6x nproc, above the 1.5x load ceiling: the runtimes are the host's, re-time on a quiet box",
+          "reps": 1,
+          "sigma_runtime_512": 0.0057,
+          "exponents": {
+            "256->512": {
+              "k": 1.112,
+              "tol": 0.5
+            },
+            "512->768": {
+              "k": 1.877,
+              "tol": 0.5
+            }
+          },
+          "sigma_runtime": {
+            "256": 0.025,
+            "512": 0.0057
+          },
           "exponents_measured": {
-            "256->512": 1.164,
-            "512->640": 1.731,
-            "640->768": 1.825,
-            "768->896": 2.024,
-            "896->1024": 2.005,
-            "1024->1152": 2.615,
-            "1152->1280": 1.975,
-            "1280->1408": 2.993,
-            "1408->1536": 1.999
+            "256->512": 1.112,
+            "512->640": 1.696,
+            "640->768": 2.098,
+            "768->896": 1.984,
+            "896->1024": 2.044,
+            "1024->1152": 2.493,
+            "1152->1280": 2.111,
+            "1280->1408": 3.039,
+            "1408->1536": 2.317
           }
         }
-      },
-      "host_threads": null
+      }
     },
     "p300c": {
-      "recorded": "2026-10-10",
+      "recorded": "2026-10-15",
       "host": "tt-quietbox2",
-      "commit": "92d5924f5",
+      "commit": "4ba29781f",
       "host_threads": 5,
       "models": {
         "protenix-v2": {
           "grid": "11x10",
-          "recorded": "2026-10-10",
+          "recorded": "2026-10-15",
           "host": "tt-quietbox2",
-          "commit": "92d5924f5",
+          "commit": "4ba29781f",
           "host_threads": 5,
           "runtime_s": {
-            "256": 11.7,
-            "512": 33.4,
-            "640": 52.1,
-            "768": 76.9,
-            "896": 106.9,
-            "1024": 140.4
+            "256": 14.1,
+            "512": 33.6,
+            "640": 50.9,
+            "768": 75.9,
+            "896": 104.7,
+            "1024": 136.6
           },
           "levers": {
             "256": {
@@ -6479,7 +6536,7 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 315,
+                "served": 171,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -6674,7 +6731,7 @@
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
                 "served": 0,
-                "declined": 628,
+                "declined": 556,
                 "frac": 0.0,
                 "how": "stats"
               },
@@ -6716,7 +6773,7 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 636,
+                "served": 606,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -6788,14 +6845,14 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 1208,
+                "served": 160,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 315,
+                "served": 171,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -6829,22 +6886,25 @@
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "wrap",
-                "reason": "declines all 0 calls: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded"
-              },
-              "TRIMUL_TAIL_F1": {
-                "resolved": "True",
                 "served": 1048,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "wrap"
+              },
+              "TRIMUL_TAIL_F1": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "rejects": {
+                  "t1:key=2x4x2": 160
+                },
+                "reason": "TODO: say why this is legitimate at this size (declines on t1:key=2x4x2 x160)"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 1208,
+                "served": 2256,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -6873,14 +6933,14 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 2416,
+                "served": 320,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 2416,
+                "served": 320,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -6978,7 +7038,7 @@
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
                 "served": 0,
-                "declined": 628,
+                "declined": 556,
                 "frac": 0.0,
                 "how": "stats"
               },
@@ -7020,12 +7080,12 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 110,
-                "declined": 526,
-                "frac": 0.17295597484276728,
+                "served": 80,
+                "declined": 2,
+                "frac": 0.975609756097561,
                 "how": "stats",
                 "rejects": {
-                  "base-unraised": 526
+                  "base-unraised": 2
                 }
               },
               "TRIATT_SDPA_HIFI": {
@@ -7095,14 +7155,14 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 1208,
+                "served": 160,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 315,
+                "served": 171,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -7135,22 +7195,25 @@
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "wrap",
-                "reason": "declines all 0 calls: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded"
-              },
-              "TRIMUL_TAIL_F1": {
-                "resolved": "True",
                 "served": 1048,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "wrap"
+              },
+              "TRIMUL_TAIL_F1": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "rejects": {
+                  "t1:key=2x4x2": 160
+                },
+                "reason": "TODO: say why this is legitimate at this size (declines on t1:key=2x4x2 x160)"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 1208,
+                "served": 2256,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -7179,14 +7242,14 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 2416,
+                "served": 320,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 2416,
+                "served": 320,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -7284,7 +7347,7 @@
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
                 "served": 0,
-                "declined": 628,
+                "declined": 556,
                 "frac": 0.0,
                 "how": "stats"
               },
@@ -7326,12 +7389,12 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 110,
-                "declined": 526,
-                "frac": 0.17295597484276728,
+                "served": 80,
+                "declined": 2,
+                "frac": 0.975609756097561,
                 "how": "stats",
                 "rejects": {
-                  "ratio-shrunk": 526
+                  "ratio-shrunk": 2
                 }
               },
               "TRIATT_SDPA_HIFI": {
@@ -7401,14 +7464,14 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 2256,
+                "served": 2257,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 315,
+                "served": 171,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -7442,17 +7505,24 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 0,
+                "declined": 1,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "declines all 0 calls: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded The call count rises to this level at 640 and above, which is the pair track taking its row-blocked path"
+                "rejects": {
+                  "k_tiles=2:(2,2)": 1
+                },
+                "reason": "declines all 1 calls on k_tiles=2:(2,2) x1: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded The call count rises to this level at 640 and above, which is the pair track taking its row-blocked path"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 1048,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "declined": 1,
+                "frac": 0.9990467111534795,
+                "how": "stats",
+                "rejects": {
+                  "t1:key=2x4x2": 160,
+                  "k_tiles=2": 1
+                }
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -7485,14 +7555,14 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 4512,
+                "served": 4514,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 4512,
+                "served": 4514,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -7594,7 +7664,7 @@
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
                 "served": 0,
-                "declined": 628,
+                "declined": 556,
                 "frac": 0.0,
                 "how": "stats"
               },
@@ -7636,12 +7706,12 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 110,
-                "declined": 526,
-                "frac": 0.17295597484276728,
+                "served": 80,
+                "declined": 2,
+                "frac": 0.975609756097561,
                 "how": "stats",
                 "rejects": {
-                  "ratio-shrunk": 526
+                  "ratio-shrunk": 2
                 }
               },
               "TRIATT_SDPA_HIFI": {
@@ -7718,7 +7788,7 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 315,
+                "served": 171,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -7762,7 +7832,10 @@
                 "served": 1048,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "rejects": {
+                  "t1:key=2x4x2": 160
+                }
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -7904,7 +7977,7 @@
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
                 "served": 0,
-                "declined": 628,
+                "declined": 556,
                 "frac": 0.0,
                 "how": "stats"
               },
@@ -7946,13 +8019,14 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 110,
-                "declined": 526,
-                "frac": 0.17295597484276728,
+                "served": 0,
+                "declined": 2,
+                "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "ratio-shrunk": 526
-                }
+                  "ratio-shrunk": 2
+                },
+                "reason": "declines all 2 calls on ratio-shrunk x2: the height RAISE is the Blackhole branch and there is no Wormhole one. tt_bio/tenstorrent.py scores this counter as served only when the derived height comes out ABOVE the shipped base, and on a small grid it cannot: the small-grid raise is scoped to 256 < c <= 384, and Protenix-v2's pair channel is c=256, outside it on purpose (the L1 cap is its crash fix, tenstorrent.py:231), so the height stays at the base (base-unraised), the L1 cap pulls it under (ratio-shrunk), or H is shorter than the height (h-clamped-to-H). The Blackhole elif reads the same budget the other way round and raises. The lever has no Wormhole raise to decline [carried from tt-galaxy-wh-l]"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -8028,7 +8102,7 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 315,
+                "served": 171,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -8075,7 +8149,10 @@
                 "served": 1048,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "rejects": {
+                  "t1:key=2x4x2": 160
+                }
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -8217,7 +8294,7 @@
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
                 "served": 0,
-                "declined": 628,
+                "declined": 556,
                 "frac": 0.0,
                 "how": "stats"
               },
@@ -8259,13 +8336,14 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 110,
-                "declined": 526,
-                "frac": 0.17295597484276728,
+                "served": 0,
+                "declined": 2,
+                "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "ratio-shrunk": 526
-                }
+                  "ratio-shrunk": 2
+                },
+                "reason": "declines all 2 calls on ratio-shrunk x2: the height RAISE is the Blackhole branch and there is no Wormhole one. tt_bio/tenstorrent.py scores this counter as served only when the derived height comes out ABOVE the shipped base, and on a small grid it cannot: the small-grid raise is scoped to 256 < c <= 384, and Protenix-v2's pair channel is c=256, outside it on purpose (the L1 cap is its crash fix, tenstorrent.py:231), so the height stays at the base (base-unraised), the L1 cap pulls it under (ratio-shrunk), or H is shorter than the height (h-clamped-to-H). The Blackhole elif reads the same budget the other way round and raises. The lever has no Wormhole raise to decline [carried from tt-galaxy-wh-l]"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -8278,139 +8356,139 @@
           },
           "runtime_reps_s": {
             "256": [
-              12.1,
-              11.5,
-              11.5,
-              11.7,
-              11.7
+              12.8,
+              14.1,
+              14.5,
+              14.2,
+              13.5
             ],
             "512": [
-              33.5,
-              33.5,
-              33.4,
+              33.6,
+              34.4,
               33.1,
-              33.3
+              33.4,
+              33.8
             ],
             "640": [
-              52.1
+              50.9
             ],
             "768": [
-              76.9
+              75.9
             ],
             "896": [
-              106.9
+              104.7
             ],
             "1024": [
-              140.4
+              136.6
             ]
           },
           "aiclk": {
             "256": {
-              "card": "1",
+              "card": "2",
               "min": 800,
               "max": 1350,
               "rep_median": [
                 1337,
                 1350,
-                1343,
+                1312,
                 1350,
                 1350
               ],
-              "n": 20
+              "n": 30
             },
             "512": {
-              "card": "1",
+              "card": "2",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1337,
-                1350,
+                1312,
+                1331,
                 1325,
-                1343,
-                1337
+                1318,
+                1331
               ],
-              "n": 40
+              "n": 46
             },
             "640": {
-              "card": "1",
+              "card": "2",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1325
+                1331
               ],
-              "n": 12
+              "n": 13
             },
             "768": {
-              "card": "1",
+              "card": "2",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1312
+                1331
               ],
               "n": 17
             },
             "896": {
-              "card": "1",
+              "card": "2",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1318
+                1331
               ],
-              "n": 23
+              "n": 22
             },
             "1024": {
-              "card": "1",
+              "card": "2",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1337
+                1343
               ],
-              "n": 29
+              "n": 27
             }
           },
           "load": {
             "256": {
-              "max": 0.38,
+              "max": 0.81,
               "rep_median": [
-                0.38,
-                0.35,
-                0.31,
-                0.32,
-                0.3
+                0.74,
+                0.74,
+                0.79,
+                0.78,
+                0.78
               ]
             },
             "512": {
-              "max": 0.35,
+              "max": 0.87,
               "rep_median": [
-                0.31,
-                0.29,
-                0.33,
-                0.3,
-                0.27
+                0.77,
+                0.85,
+                0.76,
+                0.65,
+                0.65
               ]
             },
             "640": {
-              "max": 0.35,
+              "max": 0.75,
               "rep_median": [
-                0.32
+                0.68
               ]
             },
             "768": {
-              "max": 0.3,
+              "max": 0.82,
               "rep_median": [
-                0.28
+                0.75
               ]
             },
             "896": {
-              "max": 0.39,
+              "max": 0.84,
               "rep_median": [
-                0.29
+                0.79
               ]
             },
             "1024": {
-              "max": 0.34,
+              "max": 0.78,
               "rep_median": [
-                0.29
+                0.71
               ]
             }
           },
@@ -8421,12 +8499,12 @@
               "n_ca": 256,
               "clash_frac": 0.0,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 130.9963,
-              "radius_of_gyration_A": 109.785,
-              "plddt_mean": 0.874875,
+              "ca_ca_median_A": 131.7572,
+              "radius_of_gyration_A": 109.845,
+              "plddt_mean": 0.874193,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 130.996 A outside [3.6, 4.0]",
+                "median CA-CA 131.757 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
                 "radius of gyration 109.8 A outside [9.0, 45.2]"
               ]
@@ -8435,107 +8513,106 @@
               "file": "cdk2x2_512.cif",
               "steps": 6,
               "n_ca": 512,
-              "clash_frac": 0.0078,
+              "clash_frac": 0.0039,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 133.2269,
-              "radius_of_gyration_A": 112.787,
-              "plddt_mean": 0.822629,
+              "ca_ca_median_A": 132.7917,
+              "radius_of_gyration_A": 112.721,
+              "plddt_mean": 0.82879,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 133.227 A outside [3.6, 4.0]",
+                "median CA-CA 132.792 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 112.8 A outside [11.8, 58.9]"
+                "radius of gyration 112.7 A outside [11.8, 58.9]"
               ]
             },
             "640": {
               "file": "cdk2x2_640.cif",
               "steps": 6,
               "n_ca": 640,
-              "clash_frac": 0.0094,
+              "clash_frac": 0.0031,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 141.9557,
-              "radius_of_gyration_A": 115.702,
-              "plddt_mean": 0.788039,
+              "ca_ca_median_A": 143.8481,
+              "radius_of_gyration_A": 116.157,
+              "plddt_mean": 0.795012,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 141.956 A outside [3.6, 4.0]",
+                "median CA-CA 143.848 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 115.7 A outside [12.8, 64.1]"
+                "radius of gyration 116.2 A outside [12.8, 64.1]"
               ]
             },
             "768": {
               "file": "cdk2x2_768.cif",
               "steps": 6,
               "n_ca": 768,
-              "clash_frac": 0.013,
+              "clash_frac": 0.0182,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 139.7246,
-              "radius_of_gyration_A": 112.552,
-              "plddt_mean": 0.797272,
+              "ca_ca_median_A": 139.1286,
+              "radius_of_gyration_A": 111.66,
+              "plddt_mean": 0.795521,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 139.725 A outside [3.6, 4.0]",
+                "median CA-CA 139.129 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 112.6 A outside [13.7, 68.7]"
+                "radius of gyration 111.7 A outside [13.7, 68.7]"
               ]
             },
             "896": {
               "file": "cdk2x2_896.cif",
               "steps": 6,
               "n_ca": 896,
-              "clash_frac": 0.0268,
+              "clash_frac": 0.0201,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 132.5024,
-              "radius_of_gyration_A": 111.92,
-              "plddt_mean": 0.761796,
+              "ca_ca_median_A": 133.4226,
+              "radius_of_gyration_A": 111.521,
+              "plddt_mean": 0.761741,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 132.502 A outside [3.6, 4.0]",
+                "median CA-CA 133.423 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "2.7% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 111.9 A outside [14.6, 72.8]"
+                "2.0% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 111.5 A outside [14.6, 72.8]"
               ]
             },
             "1024": {
               "file": "cdk2x2_1024.cif",
               "steps": 6,
               "n_ca": 1024,
-              "clash_frac": 0.0215,
-              "chain_break_frac": 1.0,
-              "ca_ca_median_A": 136.4361,
-              "radius_of_gyration_A": 116.068,
-              "plddt_mean": 0.736593,
+              "clash_frac": 0.0098,
+              "chain_break_frac": 0.999,
+              "ca_ca_median_A": 136.4001,
+              "radius_of_gyration_A": 116.381,
+              "plddt_mean": 0.740081,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 136.436 A outside [3.6, 4.0]",
-                "100.0% of consecutive CA pairs exceed 5.0 A",
-                "2.1% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 116.1 A outside [15.3, 76.6]"
+                "median CA-CA 136.400 A outside [3.6, 4.0]",
+                "99.9% of consecutive CA pairs exceed 5.0 A",
+                "radius of gyration 116.4 A outside [15.3, 76.6]"
               ]
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.005,
+          "sigma_runtime_512": 0.0145,
           "exponents": {
             "256->512": {
-              "k": 1.513,
+              "k": 1.253,
               "tol": 0.5
             },
             "512->768": {
-              "k": 2.057,
+              "k": 2.01,
               "tol": 0.5
             }
           },
           "sigma_runtime": {
-            "256": 0.0209,
-            "512": 0.005
+            "256": 0.0489,
+            "512": 0.0145
           },
           "exponents_measured": {
-            "256->512": 1.513,
-            "512->640": 1.992,
-            "640->768": 2.135,
-            "768->896": 2.137,
-            "896->1024": 2.041
+            "256->512": 1.253,
+            "512->640": 1.861,
+            "640->768": 2.191,
+            "768->896": 2.087,
+            "896->1024": 1.992
           }
         }
       }
