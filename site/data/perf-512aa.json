@@ -322,8 +322,15 @@
           "versions": "kit f4f62fa65, torch 2.13.0, esm 26b0bc2b7, driver 580.126.09",
           "when": "2026-10-14",
           "ref": "kit",
+          "fast": {
+            "s_per_fold": 2.22,
+            "n": 4,
+            "clock_mhz": 1965,
+            "versions": "kit f4f62fa65, levers t10,t15,t15msa off (refused on this GPU), torch 2.13.0, esm 26b0bc2b7, driver 580.126.09",
+            "when": "2026-10-15"
+          },
           "stock": {
-            "s_per_fold": 3.964,
+            "s_per_fold": 3.958,
             "n": 4,
             "clock_mhz": 1965,
             "versions": "kit f4f62fa65, torch 2.13.0, esm 26b0bc2b7, driver 580.126.09",
@@ -413,8 +420,15 @@
           "versions": "kit f4f62fa65, torch 2.13.0, esm 26b0bc2b7, driver 580.126.09",
           "when": "2026-10-14",
           "ref": "kit",
+          "fast": {
+            "s_per_fold": 1.226,
+            "n": 4,
+            "clock_mhz": 1965,
+            "versions": "kit f4f62fa65, levers t10,t15,t15msa off (refused on this GPU), torch 2.13.0, esm 26b0bc2b7, driver 580.126.09",
+            "when": "2026-10-15"
+          },
           "stock": {
-            "s_per_fold": 2.486,
+            "s_per_fold": 2.473,
             "n": 4,
             "clock_mhz": 1965,
             "versions": "kit f4f62fa65, torch 2.13.0, esm 26b0bc2b7, driver 580.126.09",
