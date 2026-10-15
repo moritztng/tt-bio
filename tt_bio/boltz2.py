@@ -5827,14 +5827,12 @@ class Boltz2(nn.Module):
     ) -> dict[str, Tensor]:
         if self.use_tenstorrent:
             try:
-                dev = tenstorrent.get_device()
                 # 8859d7e1 clears here to avoid stale program-cache state across
-                # variable-shape sweeps. TT_BIO_BOLTZ2_KEEP_PROGRAM_CACHE=1 suppresses
-                # the clear so the screen in perf/boltz2-affinity-fixedcost can price
-                # what it costs; unset in production, so the shipped path is unchanged.
+                # variable-shape sweeps (`tenstorrent.program_cache_for`).
+                # TT_BIO_BOLTZ2_KEEP_PROGRAM_CACHE=1 suppresses the clear so the screen in
+                # perf/boltz2-affinity-fixedcost can price what it costs; unset in production.
                 if not env_flag("TT_BIO_BOLTZ2_KEEP_PROGRAM_CACHE", False):
-                    dev.disable_and_clear_program_cache()
-                    dev.enable_program_cache()
+                    tenstorrent.program_cache_for(None)
             except Exception:
                 pass
 
