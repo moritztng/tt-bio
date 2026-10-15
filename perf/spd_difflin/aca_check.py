@@ -48,7 +48,9 @@ def main():
                 xs, zs = xd[:, off:off + W], zd[:, off:off + W]
                 inc = ttnn.addcmul(xs, yd, zs, value=1.0)
                 e0 = err(ttnn.to_torch(inc), ref)
-                ok = e[0] <= max(2 * e0[0], 1e-2 if out_dt == ttnn.bfloat8_b else 1e-6)
+                # the incumbent writes the input dtype, so a narrower output is held to its own rounding floor
+                floor = {ttnn.bfloat8_b: 1e-2, ttnn.bfloat16: 4e-3}.get(out_dt, 1e-6)
+                ok = e[0] <= max(2 * e0[0], floor)
                 bad += not ok
                 print(f"in {in_dt} out {out_dt} win {j}: rel_rms {e[0]:.3e} max {e[1]:.3e} | "
                       f"ttnn.addcmul {e0[0]:.3e} {e0[1]:.3e} {'ok' if ok else 'BAD'}", flush=True)

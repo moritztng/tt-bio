@@ -1847,7 +1847,7 @@ class DiffusionModule(_KeyedWeights):
                 for pre in (A + "linear_a_last.", Cc + "linear_s."):
                     gw.append(self._w[pre + "weight"].t()); gb.append(self._w[pre + "bias"])
             up = lambda t: ttnn.from_torch(t.float().contiguous(), dtype=dt, layout=ttnn.TILE_LAYOUT,  # noqa: E731
-                                           device=self.device)
+                                           device=self.dev)
             ws[dt] = (up(torch.cat(sw, 1)), up(torch.cat(sb, 0).reshape(1, -1)), up(torch.cat(bw, 1)),
                       up(torch.cat(gw, 1)), up(torch.cat(gb, 0).reshape(1, -1)))
         w_sc, b_sc, w_sb, w_g, b_g = ws[dt]
