@@ -2186,3 +2186,42 @@ def test_an_allocator_refusal_is_still_read_as_a_size_and_not_as_an_l1_clash():
     """The two wrappers must not catch each other's refusal: the remedies are opposites."""
     assert bindcraft2._l1_refusal_names_the_size(RuntimeError(REFUSAL_WORMHOLE),
                                                  phase="backward", n=520, padded=544) is None
+
+
+def test_untaped_recycles_keep_the_gradient_and_skip_the_forward_rule():
+    """The stop-gradient recycles take the primal; the gradient is the one BindCraft 2 computes."""
+    jax = pytest.importorskip("jax")
+    af2 = pytest.importorskip("bindcraft.af2")
+    jnp = jax.numpy
+    rules = []
+
+    @jax.custom_vjp
+    def seam(x):
+        rules.append("primal")
+        return jnp.sin(x)
+
+    def fwd(x):
+        rules.append("forward rule")
+        return jnp.sin(x), x
+
+    seam.defvjp(fwd, lambda x, g: (g * jnp.cos(x),))
+
+    class Runner:
+        def apply(self, params, key, inputs):
+            out = seam(inputs["x"] * params + inputs["prev"]["s"])
+            return {"prev": {"s": out}, "y": out}
+
+    def loss(x):
+        out = af2.recycled_alphafold_outputs(Runner(), 2.0, jax.random.PRNGKey(0),
+                                             {"x": x, "prev": {"s": jnp.zeros(3)}}, 2)
+        return (out["y"] ** 2).sum()
+
+    x = jnp.array([0.3, -1.1, 2.0])
+    with bindcraft2.untaped_recycles(False):
+        want = jax.grad(loss)(x)
+    assert rules == ["forward rule"] * 3
+    rules.clear()
+    with bindcraft2.untaped_recycles():
+        got = jax.grad(loss)(x)
+    assert rules == ["primal", "primal", "forward rule"]
+    np.testing.assert_array_equal(np.asarray(got), np.asarray(want))
