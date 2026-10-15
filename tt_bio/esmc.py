@@ -269,6 +269,8 @@ MM_STATS = [0, 0]
 # op's default: 300M proj 0.233 -> 0.197, fc1 half 0.495 -> 0.461, fc2 0.392 -> 0.382; 600M proj 0.268 -> 0.226, fc1
 # half 0.645 -> 0.587, fc2 0.470 -> 0.452; error against float64 equal to the default's. Off = the op's default.
 _ESMC_MM_CFG = env_flag("TT_BIO_ESMC_MM_CFG", True)
+# --fast's block-fp8 projection weights on the same minimal_matmul instead of ttnn.linear. Off until the page-cell A/B.
+_ESMC_MM_BFP8 = env_flag("TT_BIO_ESMC_MM_BFP8", False)
 
 
 def _mm_config(x, w):
@@ -296,7 +298,7 @@ class _MMLin:
         mm = _esmc_mm()
         act = kw.get("activation")
         if (mm and bias is None and not set(kw) - {"memory_config", "activation"} and act in (None, "silu")
-                and w.dtype == ttnn.bfloat16 and x.dtype == ttnn.bfloat16
+                and (w.dtype == ttnn.bfloat16 or (_ESMC_MM_BFP8 and w.dtype == ttnn.bfloat8_b)) and x.dtype == ttnn.bfloat16
                 and x.volume() // int(x.shape[-1]) >= ESMC_MM_MIN_ROWS):
             try:
                 out = ttnn.experimental.minimal_matmul(

@@ -7,7 +7,7 @@ ttnn.linear programs; this sweeps the op's own blocks (M, K, N block in tiles, t
 Per arm: device ms (median of --repeat, --inner calls per synchronize), TF/s, rel_l2 and max error / peak against
 float64 of the same bf16 operands, and whether the output equals the default config's byte for byte.
 
-    python3 perf/spd_gap_whlm/mm_cfg_sweep.py --model esmc-300m --out mm.jsonl
+    python3 perf/spd_gap_whlm/mm_cfg_sweep.py --model esmc-300m [--wdtype bfloat8_b] --out mm.jsonl
 """
 import argparse
 import itertools
@@ -27,6 +27,8 @@ def main() -> int:
     ap.add_argument("--model", default="esmc-300m", choices=sorted(MODELS))
     ap.add_argument("--repeat", type=int, default=5)
     ap.add_argument("--inner", type=int, default=5)
+    ap.add_argument("--wdtype", default="bfloat16", choices=["bfloat16", "bfloat8_b"],
+                    help="weight dtype on device; --fast loads the projections as bfloat8_b")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
 
@@ -42,9 +44,11 @@ def main() -> int:
     for name, (M, K, N) in shapes.items():
         x = torch.randn(M, K, generator=gen).to(torch.bfloat16)
         w = (torch.randn(K, N, generator=gen) / math.sqrt(K)).to(torch.bfloat16)
+        if args.wdtype == "bfloat8_b":  # the reference multiplies the weights the device holds
+            w = ttnn.to_torch(ttnn.from_torch(w, layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat8_b)).to(torch.bfloat16)
         ref = x.double() @ w.double()
         xd = ttnn.from_torch(x.reshape(1, 1, M, K), layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
-        wd = ttnn.from_torch(w, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
+        wd = ttnn.from_torch(w, layout=ttnn.TILE_LAYOUT, device=dev, dtype=getattr(ttnn, args.wdtype))
         kt = K // 32
         arms = {"default": None}
         for mb, kb, nb in itertools.product((2, 4, 8, 16), (1, 2, 4, 8), (2, 4, 8, 16)):
@@ -62,7 +66,7 @@ def main() -> int:
             fn = (lambda: ttnn.linear(xd, wd, compute_kernel_config=ck, dtype=ttnn.bfloat16, core_grid=T.CORE_GRID_MAIN)) \
                 if cfg == "linear" else (lambda cfg=cfg: ttnn.experimental.minimal_matmul(
                     xd, wd, compute_kernel_config=ck, dtype=ttnn.bfloat16, **({"config": cfg} if cfg else {})))
-            rec = {"model": args.model, "shape": name, "mkn": [M, K, N], "arm": arm, "grid": [g.x, g.y]}
+            rec = {"model": args.model, "wdtype": args.wdtype, "shape": name, "mkn": [M, K, N], "arm": arm, "grid": [g.x, g.y]}
             try:
                 o = fn()
                 got = ttnn.to_torch(o).reshape(M, N).double()
