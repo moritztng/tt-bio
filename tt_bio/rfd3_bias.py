@@ -117,7 +117,7 @@ def _build(bias, idx, out, device, ct_head, acc_args):
         return [
             cb(base + IDX_CB, ttnn.uint32, K * 4, TILE_H),
             cb(base + BIAS_CB, ttnn.bfloat16, TILE_H * TILE_W * 2, Kt),
-            cb(base + OUT_CB, out.dtype, TILE_H * TILE_W * (2 if out16 else 4), OUT_SLOTS),
+            cb(base + OUT_CB, out.dtype, TILE_H * TILE_W * (2 if out16 else 4), OUT_SLOTS + 1),   # + the fill tile
             cb(base + SLOT_CB, ttnn.uint32, TILE_H * 4, OUT_SLOTS),
         ]
 
