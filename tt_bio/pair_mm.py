@@ -17,6 +17,8 @@ on card after the model that owned it is gone, and whoever drops a model calls `
 
 from __future__ import annotations
 
+import sys
+
 import ttnn
 
 from .envflags import env_flag
@@ -165,10 +167,11 @@ def matmul(x, w, bias=None, compute_kernel_config=None, dtype=None, transpose_b:
     """``act(x @ op(w) (+ bias))`` on minimal_matmul, DRAM out, or None to leave the call alone."""
     if not armed():
         return None
-    from .autograd import Tensor as Taped
-    if isinstance(x, Taped) or isinstance(w, Taped):
-        # AF2's pair-bias projection under BindCraft 2's tape: the shim's `ttnn.linear` unwraps it
-        # and comes back here with the values.
+    # AF2's pair-bias projection under BindCraft 2's tape: the shim's `ttnn.linear` unwraps it and
+    # comes back here with the values. A taped tensor exists only once the training stack is loaded,
+    # so look it up rather than import it (inference never reaches tt_bio.autograd).
+    ag = sys.modules.get(f"{__package__}.autograd")
+    if ag is not None and (isinstance(x, ag.Tensor) or isinstance(w, ag.Tensor)):
         return None
     if activation is not None and activation not in _ACTIVATIONS:
         _decline(x, w, transpose_b, "activation")
