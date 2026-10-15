@@ -82,7 +82,12 @@ FAST_LEVERS = NORMAL_LEVERS | {"dit_s16", "diffusion_bf16", "trimul_t1", "trimul
 # OpenFold3 top pose median 0.543 A (floor 1.238 A), CA-lDDT -0.0010 [-0.0036, +0.0007], docking 22 -> 22/44;
 # OpenBind-0 0.573 A (floor 0.672 A), CA-lDDT +0.0014 [-0.0000, +0.0036], docking 27 -> 27/44
 # (state/spd/grade-apbln-*-wh-fast.md). Not graded on Blackhole, so it stays off there.
-WH_FAST_LEVERS = FAST_LEVERS | {"apb_ln"}
+# And trimul_sig6 (the trimul gate sigmoid as a degree-6 polynomial). Wormhole 11-set fast grade of --fast +
+# trimul_sig6 against --fast, 44 paired folds per model (whs6g, 2026-10-15), PASS: OpenFold3 top pose median 0.565 A
+# (floor 1.090 A), CA-lDDT -0.0007 [-0.0027, +0.0007], docking 22 -> 21/44; OpenBind-0 0.743 A (floor 0.812 A),
+# CA-lDDT -0.0009 [-0.0021, +0.0001], docking 27 -> 27/44 (state/spd/grade-sig6-*-wh-fast.md). 512-token page fold
+# on a Galaxy chip at 1000 MHz, paired median of 4: -0.18 s on both. No saving on p150a, so Wormhole only.
+WH_FAST_LEVERS = FAST_LEVERS | {"apb_ln", "trimul_sig6"}
 
 def kabsch_rmsd(pred_ca, gt_ca):
     """Optimal-superposition Cα-RMSD (Kabsch). pred_ca, gt_ca: [N, 3].
