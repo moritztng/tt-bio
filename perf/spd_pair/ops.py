@@ -390,7 +390,7 @@ if "tailtr" in groups:
 
     tr_base(za); tr_fused(zb)
     ta, tb = ttnn.to_torch(za), ttnn.to_torch(zb)
-    upd = ((o_host.double() * torch.sigmoid(g_host.double())).permute(0, 2, 1, 3).reshape(N, N, C)
+    upd = ((o_host.double() * torch.sigmoid(g_host.double())).permute(0, 2, 1, 3).reshape(N, N, H * D)
            @ w_host.double())
     ref = z_host.double() + upd.permute(1, 0, 2).unsqueeze(0)
     log(ev="tailtr_equal", equal=bool(torch.equal(ta, tb)), ndiff=int((ta != tb).sum()),
