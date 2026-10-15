@@ -306,3 +306,20 @@ def test_a_child_that_outlives_its_wrapper_on_sigint_gets_sigterm(tmp_path):
         time.sleep(0.1)
     else:
         raise AssertionError("the orphan survived SIGTERM")
+
+
+def test_place_starts_a_bh_waiter_that_runs_its_job(tmp_path):
+    # 10-15 05:54Z: PLACE runs on the BH host and referenced feed.py's RUN, which only exists here; every qb1/qb2
+    # placement died with NameError while the unit tests, which never execute PLACE, stayed green
+    (tmp_path / "spd/feed/jobs").mkdir(parents=True)
+    job = {"name": "4-x.sh", "body": "echo card $CHIP\n", "card": 7, "lock": str(tmp_path / "l7"), "cap": 5}
+    r = subprocess.run([sys.executable, "-c", feed.PLACE], input=json.dumps({"kind": "bh", "jobs": [job]}) + "\n",
+                       capture_output=True, text=True, env={"HOME": str(tmp_path), "PATH": os.environ["PATH"]}, check=True)
+    assert r.stdout.strip() == "1"
+    sh = tmp_path / "spd/feed/jobs/4-x.sh"
+    for _ in range(100):
+        if (tmp_path / "spd/feed/jobs/4-x.sh.end").exists():
+            break
+        time.sleep(0.1)
+    assert (tmp_path / "spd/feed/jobs/4-x.sh.end").read_text().strip() == "0"
+    assert Path(f"{sh}.log").read_text() == "card 7\n"
