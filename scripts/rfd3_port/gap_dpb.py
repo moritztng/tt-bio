@@ -38,16 +38,16 @@ def timeit(fn, dev):
 def case(dev, ckc, I):
     n = (I + 31) // 32 * 32
     g = torch.Generator().manual_seed(I)
-    z_t = torch.randn(1, I, n, C, generator=g).bfloat16()
+    z_t = torch.randn(1, I, I, C, generator=g).bfloat16()   # logical I x I, tile-padded to n like the DiT's z
     w_t = (torch.randn(C, H, generator=g) / C ** 0.5).bfloat16()
-    m_t = torch.where(torch.rand(1, 1, I, n, generator=g) < 0.3, -1e4, 0.0).bfloat16()
+    m_t = torch.where(torch.rand(1, 1, I, I, generator=g) < 0.3, -1e4, 0.0).bfloat16()
     up = lambda t: ttnn.from_torch(t, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev)  # noqa: E731
     z, w, m = up(z_t), up(w_t), up(m_t)
     wt = up(w_t.t().contiguous().reshape(1, 1, H, C))
     mp = pad_axis(pad_axis(m, n, 3, -1e4), n, 2, -1e4)
     pad = float(ttnn.to_torch(mp)[0, 0, -1, 0])
     ref = torch.full((1, H, n, n), pad, dtype=torch.float64)
-    ref[:, :, :I] = torch.einsum("bijc,ch->bhij", z_t.double(), w_t.double()) * HD ** 0.5 + m_t.double()
+    ref[:, :, :I, :I] = torch.einsum("bijc,ch->bhij", z_t.double(), w_t.double()) * HD ** 0.5 + m_t.double()
 
     def shipped():
         pb = M._tuned_linear(z, w, ckc=ckc, dtype=ttnn.bfloat16, core_grid=M.CORE_GRID_MAIN)
@@ -67,12 +67,12 @@ def case(dev, ckc, I):
             d = ttnn.to_torch(o).double()
             ttnn.deallocate(o)
             assert tuple(d.shape) == tuple(ref.shape), (tuple(d.shape), tuple(ref.shape))
-            v = ref[:, :, :I] > -5e3
-            e = (d - ref)[:, :, :I][v]
+            v = ref[:, :, :I, :I] > -5e3
+            e = (d - ref)[:, :, :I, :I][v]
             r = {"ms_median": med, "ms_min": lo, "ms_max": hi,
-                 "rel_err_f64": float(e.norm() / ref[:, :, :I][v].norm()), "max_abs_f64": float(e.abs().max()),
-                 "pad_rows_exact": bool((d[:, :, I:] == ref[:, :, I:]).all()),
-                 "masked_max_abs": float((d - ref)[:, :, :I][~v].abs().max())}
+                 "rel_err_f64": float(e.norm() / ref[:, :, :I, :I][v].norm()), "max_abs_f64": float(e.abs().max()),
+                 "pad_exact": bool((d[:, :, I:] == ref[:, :, I:]).all() and (d[..., I:] == ref[..., I:]).all()),
+                 "masked_max_abs": float((d - ref)[:, :, :I, :I][~v].abs().max())}
             outs[name] = d
         except Exception as ex:                                          # noqa: BLE001
             r = {"error": repr(ex)[:400]}

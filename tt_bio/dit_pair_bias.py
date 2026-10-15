@@ -48,7 +48,7 @@ def eligible(z, wt, mask) -> bool:
             and zs[1] <= n and _l1_bytes(c // 32, h // 32) <= _L1_BUDGET)
 
 
-def _build(z, wt, mask, out, device, units, kt, ht, nt, rows, mb, scale, fidelity):
+def _build(z, wt, mask, out, device, units, kt, ht, nt, rows, cols, mb, scale, fidelity):
     g = device.compute_with_storage_grid_size()
     _, grid, cg1, cg2, work1, work2 = core_split.split_work_to_cores(g, units, 0)
 
@@ -66,7 +66,7 @@ def _build(z, wt, mask, out, device, units, kt, ht, nt, rows, mb, scale, fidelit
                     rd[cx][cy] = cp[cx][cy] = wr[cx][cy] = [first, per]
                     first += per
     assert first == units, (first, units)
-    rct = [kt, ht, nt, rows, mb]
+    rct = [kt, ht, nt, rows, mb, cols]
     for t in (z, wt, mask):
         rct.extend(ttnn.TensorAccessorArgs(t).get_compile_time_args())
     wct = [ht, nt, _SW] + list(ttnn.TensorAccessorArgs(out).get_compile_time_args())
@@ -94,12 +94,14 @@ def dit_pair_bias(z, wt, mask, scale, fidelity=ttnn.MathFidelity.HiFi4):
     B, rows, n, c = zs
     h = int(wt.padded_shape[2])
     kt, ht, nt = c // 32, h // 32, n // 32
+    cols = int(z.shape[2])
     mb = int(int(mask.padded_shape[0]) == B and B > 1)
     out = ttnn.allocate_tensor_on_device(ttnn.Shape([B, h, n, n]), ttnn.bfloat16, ttnn.TILE_LAYOUT, device,
                                          ttnn.DRAM_MEMORY_CONFIG)
-    key = (device.id(), tuple(zs), h, mb, float(scale), fidelity)
+    key = (device.id(), tuple(zs), cols, h, mb, float(scale), fidelity)
     if key not in _CACHE:
-        _CACHE[key] = _build(z, wt, mask, out, device, B * nt * nt, kt, ht, nt, rows, mb, float(scale), fidelity)
+        _CACHE[key] = _build(z, wt, mask, out, device, B * nt * nt, kt, ht, nt, rows, cols, mb, float(scale),
+                                fidelity)
     kernels, cbs = _CACHE[key]
     kernels[0].common_runtime_args = [z.buffer_address(), wt.buffer_address(), mask.buffer_address()]
     kernels[1].common_runtime_args = [out.buffer_address()]
