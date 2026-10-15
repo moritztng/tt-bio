@@ -147,11 +147,18 @@ def pypi_has(version: str) -> bool:
         return False
 
 
-def install_check(version: str) -> str:
+def install_check(version: str, tries: int = 10) -> str:
+    """The installed version, or "" if it never installs. PyPI's JSON lists a release minutes before
+    the simple index serves it; on 2026-10-15 v0.17.0 crashed the train here and lost its record."""
     with tempfile.TemporaryDirectory() as d:
         subprocess.run(["uv", "venv", "-q", d], check=True)
-        subprocess.run(["uv", "pip", "install", "-q", "-p", f"{d}/bin/python", "--no-deps", "--no-cache",
-                        f"tt-bio=={version}"], check=True)
+        for i in range(tries):
+            if subprocess.run(["uv", "pip", "install", "-q", "-p", f"{d}/bin/python", "--no-deps", "--no-cache",
+                               f"tt-bio=={version}"]).returncode == 0:
+                break
+            time.sleep(60)
+        else:
+            return ""
         return subprocess.run([f"{d}/bin/python", "-c", "import importlib.metadata as m; print(m.version('tt-bio'))"],
                               check=True, capture_output=True, text=True).stdout.strip()
 

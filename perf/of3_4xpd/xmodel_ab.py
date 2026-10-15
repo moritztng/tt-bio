@@ -241,13 +241,14 @@ def main():
                 def arm_set(v):
                     os.environ["TT_BIO_LEVERS"] = ",".join(sorted(base_set | ab if v else base_set)) or "none"
         else:
-            # MODULE:NAME toggles a bool; MODULE:NAME=ON/OFF sets two integer values instead
-            # (tt_bio.trimul_tail:T1_ROWS=16/32): the "on" arm takes ON.
+            # MODULE:NAME toggles a bool; MODULE:NAME=ON/OFF sets two values instead, integers where they
+            # parse (tt_bio.trimul_tail:T1_ROWS=16/32), else strings (tt_bio.tenstorrent:_TRIMUL_EINSUM_FID=hifi2/):
+            # the "on" arm takes ON.
             attrs = []
             for x in a.ab_attr.split(","):
                 mod, name = x.split(":")
                 name, _, vals = name.partition("=")
-                attrs.append((mod, name, tuple(int(t) for t in vals.split("/")) if vals else (True, False)))
+                attrs.append((mod, name, tuple(int(t) if t.lstrip("-").isdigit() else t for t in vals.split("/")) if vals else (True, False)))
             on, off, key = "on", "off", "ab_attr_s"
 
             def arm_set(v):
@@ -316,10 +317,13 @@ def main():
     # Which trimul in-projection route fed the einsum (gin-ragged, gated-inproj-moved, gated-inproj,
     # rowblock, ...), and the trimul_tail sub-counters STATS above lumps together.
     res["trimul_routes"] = {"|".join(k): int(v) for k, v in getattr(T, "TRIMUL_MM_TRANSPOSE_STATS", {}).items()}
+    # g_out riding the in-projection is what lets T2 serve the tail without T1: its served/declined count and why.
+    res["trimul_gout"] = {"stats": list(getattr(T, "TRIMUL_GOUT_STATS", [])),
+                          "rejects": dict(getattr(T, "TRIMUL_GOUT_REJECTS", {}))}
     try:
         TT_ = importlib.import_module("tt_bio.trimul_tail")
         res["trimul_tail_sub"] = {k: list(getattr(TT_, k)) for k in
-                                  ("GIN_MOVE_STATS", "RES_STATS", "T1_STATS", "T2_STATS", "MASK_STATS")
+                                  ("GIN_MOVE_STATS", "RES_STATS", "T1_STATS", "T2_STATS", "T2CM_STATS", "MASK_STATS")
                                   if hasattr(TT_, k)}
     except Exception as e:
         res["trimul_tail_sub"] = {"absent": repr(e)}
