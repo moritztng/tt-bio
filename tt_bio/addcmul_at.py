@@ -110,7 +110,7 @@ def _build(x, y, z, out, device, ht, wt):
 
 def _ok(t, y, ht, dtype=ttnn.bfloat16):
     """`t` has y's row tiles, or is one sample of them (leading dims 1, y's row count) when `t` is not y."""
-    rows = _grid(t)[0] == ht or (t is not y and all(int(d) == 1 for d in t.shape[:-2])
+    rows = _grid(t)[0] == ht or (t is not y and all(int(d) == 1 for d in list(t.shape)[:-2])
                                  and int(t.shape[-2]) == int(y.shape[-2]))
     return (t.dtype == dtype and t.layout == ttnn.TILE_LAYOUT and rows
             and t.memory_config().memory_layout == ttnn.TensorMemoryLayout.INTERLEAVED)
