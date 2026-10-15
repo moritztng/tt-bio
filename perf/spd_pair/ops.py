@@ -34,6 +34,7 @@ ap.add_argument("--ln-arms", default="fast_today,normal_today,hifi4_f32,hifi2_f3
 ap.add_argument("--tail-arms", default="base,fused")
 ap.add_argument("--tail-variants", default="",
                 help="extra fused arms, name=SIGPOLY/RNE/fidelity/f32 separated by commas, e.g. poly=1/3/HiFi3/1")
+ap.add_argument("--tr-heads", type=int, default=4, help="tailtr: triangle attention heads of 32 (Protenix-v2: 4)")
 ap.add_argument("--reps", type=int, default=5)
 ap.add_argument("--calls", type=int, default=8)
 ap.add_argument("--chip", type=int, default=None)
@@ -368,10 +369,10 @@ if "tadd" in groups:
 
 if "tailtr" in groups:
     from tt_bio import pair_transpose_add as PTA
-    H, D = C // 32, 32
+    H, D = A.tr_heads, 32
     o_host = (torch.randn(N, H, N, D) * 0.5).bfloat16()
     g_host = (torch.randn(N, H, N, D) * 1.5).bfloat16()
-    w_host = (torch.randn(C, C) / C ** 0.5).bfloat16()
+    w_host = (torch.randn(H * D, C) / (H * D) ** 0.5).bfloat16()
     k = ckc("HiFi3", True)
     TQ.set_tail("1")
     od, gd, wd = (ttnn.from_torch(t, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)

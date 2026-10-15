@@ -441,7 +441,8 @@ def _tail_tr_ok(o, w, z, bias):
         return False
     from .tenstorrent import _l1_bank_bytes
     kt, nt = po[1], N // TILE
-    tiles = (kt * nt + 5 * kt + 32 * nt + (3 * nt if TAIL_KB1 else 0) + 2 * nt + 72
+    # W, o/g/gated, the group's 32 x Nt update, the fp32 sum (KB1), z + shuffled slot (32 each), the sums (8)
+    tiles = (kt * nt + 5 * kt + 32 * nt + (2 * nt if TAIL_KB1 else 0) + 72
              + (nt if bias is not None else 0))
     return tiles * G.tile_bytes(ttnn.bfloat16) <= 0.7 * _l1_bank_bytes()
 
