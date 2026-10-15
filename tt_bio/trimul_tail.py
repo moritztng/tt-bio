@@ -1346,6 +1346,11 @@ T1_ROWS = 0
 BF16_TILE, FP32_TILE = 2048, 4096
 
 
+def _t1_split():
+    """T1_SPLIT, or the lever trimul_t1_split: the reader gathers half of every channel tile (gather.hpp)."""
+    return bool(T1_SPLIT or _lever("trimul_t1_split"))
+
+
 def set_t1(on: bool) -> bool:
     """A/B switch for the paired harness. Returns the previous state."""
     global T1
@@ -1371,7 +1376,7 @@ def t1_cb_plan(kt, ct2, ntg, mask, rb=None, nb=None, il=None):
           (8, kt), (9, kt),      # gamma, beta
           (10, 1),               # 1/K reduce scaler
           (24, 2 * nb)]          # the writer's gather staging
-    if T1_SPLIT:
+    if _t1_split():
         bf += [(25, 2 * nb)]     # the reader's
     if ng:
         bf += [(18, kt * ng),    # Wg_out [K, N] of the group, resident
@@ -1511,7 +1516,7 @@ def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps, il, b8=F
     d = KERNEL_DIR.parent / "trimul_in_t1"
     m = mask if mask is not None else x
     abl = [("ABL", str(T1_ABL))] if T1_ABL else []
-    split = [("SPLIT", "1")] if T1_SPLIT and not b8 else []
+    split = [("SPLIT", "1")] if _t1_split() and not b8 else []
     reader = ttnn.KernelDescriptor(
         kernel_source=str(d / "reader.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[kt, qn, St, int(mask is not None), ng, rb, (inv << 16) | inv,
@@ -1572,7 +1577,7 @@ def fused_in_ln(x, ln_w, ln_b, wpT, wgT, wgo, ckc, grid, mask=None, eps=1e-5, b8
     outs = [alloc([B, C, S, S], ab), alloc([B, C, S, S], ab), alloc(shp[:-1] + [int(wgo.shape[-1])])]
     key = ("t1", str(x.padded_shape), str(wpT.padded_shape), str(wgo.padded_shape), tuple(grid),
            tuple(str(c) for c in ckc), mask is not None, float(eps), _sigpoly(), RNE, GIN_MOVE_NB,
-           T1_RB, T1_SBW, T1_ABL, b8, il, T1_NOTR, T1_SPLIT)
+           T1_RB, T1_SBW, T1_ABL, b8, il, T1_NOTR, _t1_split())
     for g in range(groups):
         entry = _CACHE.get(key + (g,))
         if entry is None:
