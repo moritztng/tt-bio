@@ -701,6 +701,9 @@ _FAST_MODE = False
 #   dit_cond_jit    under adaln_mod, Boltz-2's token DiT projects each layer's six conditioning terms just before
 #                   the layer, one [768, 768] linear each off the shared normed s, instead of three [768, 36864]
 #                   linears for all 24 layers and 144 slices a step to cut them back out.
+#   apb_cat         the token attention's head re-assembly as one nlp_concat_heads, gate and output projection on
+#                   the padded head lanes (what TT_BIO_APB_CONCAT_HEADS does at load, exact), with the wide
+#                   weights re-laned from the bf16 device copies on the first call that takes it.
 #   relp_gather     the Protenix family's trunk input projects relative position by one row gather from a per-fold
 #                   table (each distinct one-hot row summed once on the host lane) instead of uploading the
 #                   [N, N, 139] one-hot and multiplying it.
@@ -717,7 +720,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine", "ef2_opm_kq", "ef2_relpos_lookup",
           "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit", "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384",
           "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
-          "dit_cond_jit", "relp_gather")
+          "dit_cond_jit", "relp_gather", "apb_cat")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -733,7 +736,7 @@ UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "di
                              "ef2_relpos_lookup", "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit",
                              "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384",
                              "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
-                             "dit_cond_jit", "relp_gather"})
+                             "dit_cond_jit", "relp_gather", "apb_cat"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -2502,7 +2505,7 @@ B2_TOKEN_DIT_SDPA_STATS = [0, 0]     # [served, declined] at the token-DiT site
 # zeroing the matching rows of proj_o drops them from the projection. The cost is the wider gate and
 # projection, which is why this is priced per shape and not asserted.
 _APB_CONCAT_HEADS = env_flag("TT_BIO_APB_CONCAT_HEADS", False)
-APB_CONCAT_HEADS_STATS = [0, 0]      # [served, declined] at the token head re-assembly
+APB_CONCAT_HEADS_STATS = [0, 0]      # [served, declined] at the token head re-assembly (either switch)
 
 
 def _pad_head_lanes(t: torch.Tensor, n_heads: int, head_dim: int, padded_head_dim: int,
@@ -7754,6 +7757,9 @@ def _close_device_locked(dev):
         _release_ownership_fn()()
 
 
+CAPTURING = [0]   # open trace captures: nothing may upload to the device inside one
+
+
 def capture_trace(dev, run):
     """Record ``run()`` into a trace and return ``(tid, run's result)``.
 
@@ -7764,14 +7770,17 @@ def capture_trace(dev, run):
     30 min until the process was killed).
     """
     tid = ttnn.begin_trace_capture(dev, cq_id=0)
+    CAPTURING[0] += 1
     try:
         out = run()
     except BaseException:
+        CAPTURING[0] -= 1
         try:
             ttnn.end_trace_capture(dev, tid, cq_id=0)
         finally:
             ttnn.release_trace(dev, tid)
         raise
+    CAPTURING[0] -= 1
     ttnn.end_trace_capture(dev, tid, cq_id=0)
     return tid, out
 
@@ -12007,6 +12016,22 @@ class AttentionPairBias(Module):
             )
         self.o_weight = self.torch_to_tt("proj_o.weight", transform=_relane(0),
                                           dtype=self.dtype)
+        self._cat_w = None
+
+    def _cat_weights(self):
+        """`(g_weight, o_weight)` on the padded head lanes for the `apb_cat` lever, None when it does not
+        apply. Re-laned once from the device copies: exact for bf16, so a bfp8 copy declines, as does a
+        first call inside a trace capture (it would upload)."""
+        if self._cat_w is None:
+            if (self.atom_level or self._concat_heads or not lever("apb_cat")
+                    or getattr(self, "padded_head_dim", self.head_dim) == self.head_dim
+                    or {self.g_weight.dtype, self.o_weight.dtype} != {ttnn.bfloat16} or CAPTURING[0]):
+                return None
+            wide = lambda w, ax: ttnn.from_torch(  # noqa: E731
+                _pad_head_lanes(ttnn.to_torch(w), self.n_heads, self.head_dim, self.padded_head_dim, ax),
+                dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=self.device)
+            self._cat_w = (wide(self.g_weight, -1), wide(self.o_weight, 0))
+        return self._cat_w if lever("apb_cat") else None
 
     def enable_lowp(self, lp: DitLowp):
         """`dit_mm16` / `dit_b8` on this token-level instance: its three linears read an `lp.act`
@@ -12284,6 +12309,7 @@ class AttentionPairBias(Module):
     ) -> ttnn.Tensor:
         self._load_kq_norm()
         lp, lw = self._lp or (None, None)
+        cat_w = self._cat_weights() if lp is None else None
         if lp is not None and s.dtype != lp.act:
             s = ttnn.typecast(s, lp.act)
         if not self.atom_level:
@@ -12462,7 +12488,7 @@ class AttentionPairBias(Module):
             ttnn.deallocate(q)
             ttnn.deallocate(k)
             ttnn.deallocate(v)
-            if self._concat_heads:
+            if self._concat_heads or cat_w is not None:
                 APB_CONCAT_HEADS_STATS[0] += 1
                 b, seq = o.shape[0], o.shape[2]
                 o = ttnn.experimental.nlp_concat_heads(o)
@@ -12542,9 +12568,10 @@ class AttentionPairBias(Module):
             x = lp.linear(o, lw["o_weight"], dtype=lp.out)
             ttnn.deallocate(o)
             return x
+        g_weight, o_weight = cat_w or (self.g_weight, self.o_weight)
         g = ttnn.linear(
             s,
-            self.g_weight,
+            g_weight,
             compute_kernel_config=self.compute_kernel_config,
             core_grid=CORE_GRID_MAIN,
         )
@@ -12553,7 +12580,7 @@ class AttentionPairBias(Module):
         o = ttnn.multiply(o, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID], dtype=self.dtype)
         ttnn.deallocate(g)
         x = ttnn.linear(
-            o, self.o_weight, compute_kernel_config=self.compute_kernel_config,
+            o, o_weight, compute_kernel_config=self.compute_kernel_config,
             core_grid=CORE_GRID_MAIN,
         )
         ttnn.deallocate(o)
