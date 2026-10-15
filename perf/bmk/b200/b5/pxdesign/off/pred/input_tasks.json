@@ -1,0 +1,29 @@
+[
+    {
+        "name": "laczc_512_nomsa",
+        "condition": {
+            "structure_file": "/root/kc/results/pxdesign/off/pred/laczc_512.pkl.gz",
+            "filter": {
+                "chain_id": [
+                    "A"
+                ],
+                "crop": {}
+            },
+            "msa": {}
+        },
+        "hotspot": {
+            "A": [
+                256,
+                257,
+                258
+            ]
+        },
+        "generation": [
+            {
+                "type": "protein",
+                "length": 80,
+                "count": 1
+            }
+        ]
+    }
+]

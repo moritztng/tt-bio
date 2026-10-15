@@ -1,0 +1,1 @@
+[{"name": "laczc_512_nomsa", "condition": {"structure_file": "/work/targets2/laczc_512.cif", "filter": {"chain_id": ["A"], "crop": {}}, "msa": {}}, "hotspot": {"A": [256, 257, 258]}, "generation": [{"type": "protein", "length": 80, "count": 1}]}]

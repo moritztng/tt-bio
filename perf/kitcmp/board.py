@@ -66,7 +66,10 @@ def main():
             fz, drv = freeze(d / "pip-freeze.txt"), driver(d / "gpu.csv")
             ver, mode = f"kit {kit}, ", MODE[r["mode"]]
             key = k
-            cmd = (f"MODELS={k}:{r['mode']} perf/kitcmp/session.sh --gpu {a.gpu} <label> <cap> "
+            lo = re.search(r"-no-(.+)$", arm).group(1).replace("-", ",") if "-no-" in arm and not r["mode"].startswith("off") else ""
+            if lo:  # the kit's own ablation switch, for levers it refuses on this GPU (box_arms.sh LEVERS_OFF)
+                ver += f"levers {lo} off (refused on this GPU), "
+            cmd = (f"{'LEVERS_OFF=' + lo + ' ' if lo else ''}MODELS={k}:{r['mode']} perf/kitcmp/session.sh --gpu {a.gpu} <label> <cap> "
                    f"(box_arms.sh {k}: run.sh --config <gpu> --mode {r['mode'].replace('-det', ' --det 1')})")
         pkg = PKG.get(key, "")
         ver += f"torch {fz.get('torch', '?')}, {pkg} {fz.get(pkg, '?')}, driver {drv}"

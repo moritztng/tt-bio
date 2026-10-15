@@ -1,0 +1,309 @@
+{
+ "activation_report": {
+  "active": false,
+  "applications": [],
+  "core_pin": {
+   "ok": true,
+   "package_dir": "/root/kit/common/opt_core/opt_core",
+   "pinned": {
+    "path": "../../common/opt_core",
+    "pyproject": "/root/kit/pxdesign/opt/pyproject.toml",
+    "version": "0.5.18.20"
+   },
+   "root": "/root/kit/common/opt_core",
+   "version": "0.5.228.0"
+  },
+  "env": {},
+  "gpu": {
+   "cc": "10.0",
+   "count": 1,
+   "cuda": "12.8",
+   "mem_gib": 178.4,
+   "memory_mib": 182631,
+   "name": "NVIDIA B200",
+   "probe": "torch",
+   "sm": "sm100",
+   "torch": "2.7.1+cu128"
+  },
+  "kit": {
+   "carry": {
+    "counts": {
+     "hoist": 12
+    },
+    "ok": true,
+    "reason": null
+   },
+   "kit_home": "/root/kit/pxdesign/opt/forward/hoist",
+   "present": true
+  },
+  "kit_home": "/root/kit/pxdesign/opt/forward/hoist",
+  "levers_applied": [],
+  "levers_planned": [],
+  "mode": "off",
+  "notes": [
+   "GPU NVIDIA B200 (sm100) is outside the measured classes (sm80, sm90): the levers engage, numerics and speed are unmeasured on it",
+   "torch 2.7.1+cu128 differs from the pinned 2.3.1+cu121 (stock/PINS.json)",
+   "MODEL_OPT_TARGET_GPU=H200 but the visible GPU is NVIDIA B200"
+  ],
+  "package_levers": [],
+  "package_version": "0.7.2",
+  "pinned_stack": {
+   "cuda": "12.1",
+   "cuda_base": "nvidia/cuda:12.1.1-devel-ubuntu22.04",
+   "cudnn": "8902",
+   "deepspeed": "0.15.4",
+   "id": "pxd-cu121",
+   "numpy": "1.26.3",
+   "nvcc": "12.1",
+   "python": "3.11.5",
+   "torch": "2.3.1+cu121",
+   "triton": "2.3.1"
+  },
+  "reason": "mode off: stock, nothing applied",
+  "target_gpu": "H200",
+  "tier": "stock",
+  "tree_home": "/root/kit/pxdesign",
+  "trigger": null,
+  "upstream": {
+   "protenix": "0.5.0+pxd",
+   "pxdbench": "0.1.2",
+   "pxdesign": "0.1.0"
+  }
+ },
+ "active": false,
+ "applications": [],
+ "argv": [
+  "design",
+  "--mode",
+  "off",
+  "-i",
+  "/root/kc/in/pxdesign/laczc_512_nomsa.yaml",
+  "-o",
+  "/root/kc/results/pxdesign/off/pred",
+  "--seeds",
+  "0,1,2,3,4",
+  "--N_sample",
+  "1",
+  "--N_step",
+  "400",
+  "--dtype",
+  "bf16",
+  "--use_fast_ln",
+  "false",
+  "--use_deepspeed_evo_attention",
+  "true",
+  "--eta_type",
+  "const",
+  "--eta_min",
+  "2.5",
+  "--eta_max",
+  "2.5"
+ ],
+ "command": "design",
+ "env_exported": {},
+ "exit_code": 0,
+ "gpu": {
+  "cc": "10.0",
+  "count": 1,
+  "cuda": "12.8",
+  "mem_gib": 178.4,
+  "memory_mib": 182631,
+  "name": "NVIDIA B200",
+  "probe": "torch",
+  "sm": "sm100",
+  "torch": "2.7.1+cu128"
+ },
+ "incomplete": null,
+ "levers_applied": [],
+ "levers_fallback": [],
+ "levers_planned": [],
+ "levers_skipped": [],
+ "mode": "off",
+ "options": {
+  "argv": [
+   "--N_step",
+   "400",
+   "--N_sample",
+   "1",
+   "--dtype",
+   "bf16",
+   "--eta_type",
+   "const",
+   "--eta_min",
+   "2.5",
+   "--eta_max",
+   "2.5",
+   "--num_workers",
+   "16",
+   "--use_msa",
+   "true",
+   "--use_fast_ln",
+   "false"
+  ],
+  "defaults": {
+   "N_sample": "5",
+   "N_step": "400",
+   "dtype": "bf16",
+   "eta_max": "2.5",
+   "eta_min": "2.5",
+   "eta_type": "const",
+   "num_workers": "16",
+   "use_fast_ln": "true",
+   "use_msa": "true"
+  },
+  "given": {
+   "N_sample": "1",
+   "N_step": "400",
+   "dtype": "bf16",
+   "eta_max": "2.5",
+   "eta_min": "2.5",
+   "eta_type": "const",
+   "seeds": "0,1,2,3,4",
+   "use_fast_ln": "false"
+  },
+  "seeds": [
+   0,
+   1,
+   2,
+   3,
+   4
+  ],
+  "values": {
+   "N_sample": "1",
+   "N_step": "400",
+   "dtype": "bf16",
+   "eta_max": "2.5",
+   "eta_min": "2.5",
+   "eta_type": "const",
+   "num_workers": "16",
+   "use_fast_ln": "false",
+   "use_msa": "true"
+  }
+ },
+ "outputs": {
+  "N_sample": 1,
+  "cifs": [
+   "laczc_512_nomsa/seed_0/predictions/laczc_512_nomsa_sample_0.cif",
+   "laczc_512_nomsa/seed_1/predictions/laczc_512_nomsa_sample_0.cif",
+   "laczc_512_nomsa/seed_2/predictions/laczc_512_nomsa_sample_0.cif",
+   "laczc_512_nomsa/seed_3/predictions/laczc_512_nomsa_sample_0.cif",
+   "laczc_512_nomsa/seed_4/predictions/laczc_512_nomsa_sample_0.cif"
+  ],
+  "complete": true,
+  "expected": 5,
+  "n_designs": 5,
+  "n_pairs": 5,
+  "n_seeds": 5,
+  "n_success_files": 5,
+  "n_tasks": 1,
+  "nothing_ran": false,
+  "produced": 5,
+  "scope": "job",
+  "seeds": [
+   0,
+   1,
+   2,
+   3,
+   4
+  ],
+  "skipped_existing": 0,
+  "skipped_pairs": [],
+  "tasks": [
+   "laczc_512_nomsa"
+  ]
+ },
+ "package": "pxdesign_opt",
+ "package_version": "0.7.2",
+ "pxdesign_opt_env": null,
+ "python": "3.11.5",
+ "reason": "mode off: stock, nothing applied",
+ "schema": "pxdesign_opt.opt_manifest.v3",
+ "stack": {
+  "core": {
+   "package_dir": "/root/kit/common/opt_core/opt_core",
+   "version": "0.5.228.0"
+  },
+  "cuda": "12.8",
+  "gpu": {
+   "cc": "10.0",
+   "count": 1,
+   "cuda": "12.8",
+   "mem_gib": 178.4,
+   "memory_mib": 182631,
+   "name": "NVIDIA B200",
+   "probe": "torch",
+   "sm": "sm100",
+   "torch": "2.7.1+cu128"
+  },
+  "python": "3.11.5",
+  "stack_key": "torch2.7.1-cu128-sm100",
+  "torch": "2.7.1+cu128",
+  "triton": "3.4.0"
+ },
+ "stamps": {
+  "batch": {
+   "batch": 1,
+   "chunk": 10,
+   "expected_designs": 5,
+   "n_sample": 1,
+   "seeds": 5,
+   "tasks": 1
+  },
+  "kernels": {
+   "alloc_conf": "unset",
+   "compile": "off",
+   "cuda": "12.8",
+   "cuequivariance": "no",
+   "deepspeed": "0.15.4",
+   "ds4sci_evo_attention": "on",
+   "flash_attn": "no",
+   "layernorm": "plain",
+   "source": "caller_process",
+   "tf32_cudnn": true,
+   "tf32_matmul": false,
+   "torch": "2.7.1+cu128",
+   "xformers": "no"
+  },
+  "layernorm": {
+   "class": "protenix.openfold_local.model.primitives.OpenFoldLayerNorm",
+   "env": null,
+   "kind": "plain",
+   "source": "env"
+  }
+ },
+ "stock_env_proof": {
+  "det": 0,
+  "deviations": null,
+  "layernorm_class": "protenix.openfold_local.model.primitives.OpenFoldLayerNorm",
+  "layernorm_env": "absent",
+  "layernorm_kind": "plain",
+  "layernorm_source": "env",
+  "path": "/root/kc/results/pxdesign/off/pred/stock_env_proof.json",
+  "route": "cli",
+  "violations": {
+   "autoload_finder": false,
+   "det_exception": [],
+   "env": [],
+   "kit_sitecustomize": null,
+   "modules": [],
+   "sys_path": [],
+   "torch_loaded": false
+  }
+ },
+ "tier": "stock",
+ "timings": {
+  "load_s": null,
+  "note": "s/design and s/task are the amortised per-design cost of the sampling phase alone: wall_s minus load_s, the one-time cost (imports, CCD, checkpoint, fast-LN JIT when the cache is cold: run warm first), stated beside them; a route whose load time is not separable (the console script in a child process) states no per-design figure",
+  "s_per_design": null,
+  "s_per_task": null,
+  "sampling_s": null,
+  "wall_s": 131.22
+ },
+ "torch": "2.7.1+cu128",
+ "upstream": {
+  "protenix": "0.5.0+pxd",
+  "pxdbench": "0.1.2",
+  "pxdesign": "0.1.0"
+ },
+ "written_at": "2026-10-15T03:32:31Z"
+}

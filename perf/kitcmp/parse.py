@@ -90,7 +90,7 @@ def kit_arms(m, samples):
         # warm fold i ends at its record's t and lasts s[i] (rfdiffusion3's log lines carry no time: the arm window)
         folds = [(r["t"] - x, r["t"]) for r, x in zip(rows[1:], s[1:])] if rows and m.name != "rfdiffusion3" else ()
         clk = clocks(samples, d, folds)
-        cell = "rf3" if m.name.startswith("rosettafold3") else CELL.get(m.name, m.name)
+        cell = "rf3" if m.name.startswith("rosettafold3") else CELL.get(re.sub(r"-no-.*$", "", m.name), m.name)
         yield row(cell, mode, s[1:], s[0] if s else None, rc, fn, clk, act, arm=m.name, busy_over="folds" if folds else "arm")
 
 

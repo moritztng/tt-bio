@@ -49,3 +49,33 @@ rfdiffusion3: pair | folds | CA RMSD A median (max) | per-copy CA RMSD A median 
 ESMC x3: pooled-embedding digest of exact == off on all three sizes (300m cd1a40ffbe2b8ccb, 600m ffd90b14692daa11, 6b f3f64477ba69cdfb).
 openbind exact-det vs off-det is not bitwise (11.7 A, inside the 14.4 A off fold-to-fold floor): the kit's exact runs a bf16 base, off fp32 (A100 and H200 read the same).
 boltz2 has no det recipe on the kit's exact route (exact-det rc 2, as on A100).
+
+## Session b5 (box 56030188, 2026-10-15): the arms b1 could not run on sm_100
+
+Kit levers withheld with the kit's own switch (MODEL_OPT_LEVERS_OFF) because they do not run on sm_100: rf3 prefetch,awrite,fpf_xln (exact and fast); openfold3 and openbind pair_transition (fast). opendde's kit modes run with --allow-partial (the cu12 cuEquivariance sm_100 triangle kernel serves some of fpf_trimul_exact's calls). pxdesign runs upstream's --use_fast_ln false on torch 2.7.1+cu128 (Protenix 0.5.0's fused LayerNorm has no sm_100 code).
+
+opendde: pair | folds | CA RMSD A median (max) | per-copy CA RMSD A median (max) | max |dx| A
+| exact vs off | 5 | 0.007 (0.011) | 0.006 (0.009) | 0.0236 |
+| fast vs off | 5 | 0.167 (0.183) | 0.121 (0.132) | 1.4113 |
+| exact-det vs off-det | 5 | 0.000 (0.000) | 0.000 (0.000) | 0.0000 |
+| off-det vs off (stock floor) | 5 | 0.036 (0.037) | 0.030 (0.032) | 0.3393 |
+| off fold i vs fold 0 (floor) | 4 | 0.008 (0.008) | 0.006 (0.007) | 0.0248 |
+
+pxdesign: pair | folds | CA RMSD A median (max) | per-copy CA RMSD A median (max) | max |dx| A
+| exact vs off | 5 | 0.001 (0.005) | 0.002 (0.007) | 0.0348 |
+| fast vs off | 5 | 0.057 (0.600) | 0.079 (0.823) | 3.6742 |
+
+rosettafold3-no-prefetch-awrite-fpf_xln: pair | folds | CA RMSD A median (max) | per-copy CA RMSD A median (max) | max |dx| A
+| exact vs off | 10 | 0.186 (6.328) | 0.169 (6.306) | 15.2296 |
+| fast vs off | 10 | 11.997 (23.245) | 11.108 (20.896) | 56.9412 |
+| off fold i vs fold 0 (floor) | 9 | 22.288 (25.146) | 16.296 (18.582) | 60.7833 |
+
+openfold3-no-pair_transition: pair | folds | CA RMSD A median (max) | per-copy CA RMSD A median (max) | max |dx| A
+| fast vs off | 5 | 5.838 (8.260) | 5.312 (7.574) | 28.1139 |
+| off fold i vs fold 0 (floor) | 4 | 6.801 (7.503) | 6.580 (7.109) | 49.8066 |
+
+openfold3_ob0-no-pair_transition: pair | folds | CA RMSD A median (max) | per-copy CA RMSD A median (max) | max |dx| A
+| fast vs off | 5 | 12.071 (19.732) | 11.861 (17.979) | 50.2584 |
+| off fold i vs fold 0 (floor) | 4 | 14.408 (19.642) | 13.608 (18.081) | 42.8035 |
+
+opendde exact-det vs off-det is bitwise. openfold3 and openbind exact were measured in b2 (above); their b5 fast arms compare against the b5 off arm on the same box. esmfold2 fast refused again in b5: t15 (same fused transition kernel family as t10) requests 528 of 512 tensor-memory columns; rerun as b6 with t10,t15,t15msa withheld.
