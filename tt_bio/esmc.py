@@ -562,10 +562,14 @@ def _swiglu_gate_legacy() -> bool:
 # one large block; that cut a 544-row page cell into three blocks plus a chunk and a concat, and each block re-streamed
 # the layer's FFN weights. One pass, Galaxy chip at 1000 MHz, 6B page cell: 445 -> 315 ms, --fast 426 -> 304 ms, same
 # error against float32 (pcc 0.99904 / 0.99894 either way; earlier the same for 300M/600M, 213 -> 190 / 337 -> 276 ms).
-# The row tiling now runs only for a shape the allocator refused in one piece, which is what the 6B in bf16 meets near
-# its 1968 aa ceiling, where ~31 MB of DRAM is left beside the weights.
-# A model past this many bytes of resident weights (the 6B) keeps the attention's DRAM path (Attention.qk_l1).
+# A model past _LM_LARGE_MODEL_BYTES of resident weights (the 6B) still tiles above _LM_FFN_WHOLE_ROWS rows: in bf16
+# it leaves ~30 MB a DRAM bank beside the weights, and at its 1968 aa ceiling the one-pass FFN fit but left DRAM too
+# fragmented for a later layer's attention re-pack (2.5 MB asked a bank, 3.5 MB free, 1.8 MB the largest block).
+# 1056 rows is the 1024 aa bucket, measured to embed through the CLI in one pass; --fast embeds 8192 aa either way.
+# A shape the allocator refuses in one piece below the bound is tiled from then on.
+# A model past _LM_LARGE_MODEL_BYTES also keeps the attention's DRAM path (Attention.qk_l1).
 _LM_LARGE_MODEL_BYTES = env_int("TT_BIO_LM_LARGE_MODEL_BYTES", 4 << 30)
+_LM_FFN_WHOLE_ROWS = env_int("TT_BIO_LM_FFN_WHOLE_ROWS", 1056)
 # The per-token LM FFN's SwiGLU gate silu(x fc1_a) * (x fc1_b) written to L1, where fc2 reads it back. Same op, same
 # values (a memory placement); a refusal falls back to DRAM for that shape for good. Off until the page-cell A/B says.
 _ESMC_GATE_L1 = env_flag("TT_BIO_ESMC_GATE_L1", False)
@@ -1136,7 +1140,8 @@ class SwiGLUFFN(_MMLin, Module):
             chunk = tenstorrent.pair_row_tile(L)
         else:
             t = tenstorrent.SMALL_GRID_SEQ_TILE
-            lm_whole = self.model_bytes != float("inf") and tuple(x.padded_shape) not in _UNBLOCKED_REFUSED
+            fits = self.model_bytes <= _LM_LARGE_MODEL_BYTES or (self.model_bytes != float("inf") and L <= _LM_FFN_WHOLE_ROWS)
+            lm_whole = fits and tuple(x.padded_shape) not in _UNBLOCKED_REFUSED
             chunk = t if (t and L > t and not lm_whole) else 0
         try:
             if chunk:

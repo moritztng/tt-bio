@@ -239,9 +239,10 @@ def fold_rope_tables(seq_len: int, n_heads: int, d: int, device):
     return to_tt(cos), to_tt(sin)
 
 
-# fc1's GELU applied by the matmul at pack instead of as its own op over the [rows, 4*d] activation. The WH census put the
-# separate gelu at 23.2 of 250.4 ms (SaProt 650M, batch of 7, Galaxy chip at 1000 MHz). Off until the page-cell A/B says.
-_GELU_FUSED = env_flag("TT_BIO_SAPROT_GELU_FUSED", False)
+# fc1's GELU applied by the matmul at pack instead of as its own op over the [rows, 4*d] activation. Page cell, batch of
+# 7, Galaxy chip at 1000 MHz: 650M 250.0 -> 234.2 ms (--fast 244.8 -> 228.5), 1.3B 482.4 -> 450.1 (472.7 -> 441.3),
+# 35M 55.4 -> 52.5 (54.8 -> 53.0); error against float32 HF unchanged (1.3B pcc 0.99916 -> 0.99929, 650M 0.99976 both).
+_GELU_FUSED = env_flag("TT_BIO_SAPROT_GELU_FUSED", True)
 
 
 class ESM2FFN(Module):
