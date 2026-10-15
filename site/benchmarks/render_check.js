@@ -268,9 +268,33 @@ for (const m of embedModels) {
                   "chart is per server");
   }
 }
-/* The hero's figures are derived from the data; the static markup carries none. */
-if (!/^\d+\.\d\u00d7$/.test(land.store.get("h-x")?.textContent || "")) {
-  failures.push("the landing hero's throughput-per-dollar figure was not derived from the data");
+/* The hero counts the published rows from the data. */
+if (land.store.get("h-n")?.textContent !== String(predModels.length + catModels.length)) {
+  failures.push("the landing hero's model count is not the published row count");
+}
+/* The hero states one claim in words and no multiplier (Moritz, 2026-10-15: no "3.8x" in the
+ * headline). The words are static, so the data must keep them true: the Galaxy returns more per
+ * dollar than every DGX on every published row, on purchase price and on ownership. */
+{
+  const hero = land.html.match(/<div class="hero">([\s\S]*?)<div class="facts">/)[1];
+  if (/\d\s*(x|\u00d7|&times;)/i.test(hero)) failures.push("the landing hero carries a multiplier");
+  const P = Object.fromEntries(D.platforms.map((p) => [p.id, p])), cm = D.cost_model;
+  const sec = (c) => c.s_per_fold === undefined ? c.s_per_design : c.s_per_fold;
+  const per = (c, p, capex) => 3600 / sec(c) * p.accelerators /
+    (capex ? p.price_usd : p.price_usd / (cm.amortisation_years * cm.hours_per_year) + p.power_kw * cm.electricity_usd_per_kwh);
+  const SRV = { h200: "dgx_h200", b200: "dgx_b200", a100: "dgx_a100" };
+  for (const m of predModels.concat(catModels)) {
+    for (const [k, id] of Object.entries(SRV)) {
+      for (const capex of [true, false]) {
+        if (per(m.cells.p150a, P.galaxy_bh, capex) <= per(m.cells[k], P[id], capex)) {
+          failures.push("the landing hero says the Galaxy returns more per dollar on every model, and " +
+                        m.name + " against the " + P[id].name + (capex ? " on price" : " on ownership") + " does not");
+        }
+      }
+    }
+  }
+  const prov = land.html.match(/<span id="prov">([^<]*)<\/span>/)[1];
+  if (prov !== D.scope.nvidia_code) failures.push("the landing page's static NVIDIA line differs from scope.nvidia_code");
 }
 if (failures.length) {
   console.error(failures.length + " row(s) did not reach the page:");

@@ -179,17 +179,10 @@ details.disclose > div{ padding-top:var(--s-4); }
         <tr><td>nesso1</td><td>nothing, it returns scalars</td><td>yes</td><td>not needed</td></tr>
       </tbody>
     </table></div>
-    <p class="mnote">Protenix-v1, Protenix-v2 and OpenFold3 are AlphaFold3-family. Protenix-v1 is
-    upstream's own v0.5.0 base checkpoint: half the pair width and 4 trunk recycles against
-    Protenix-v2's 10. OpenDDE runs the Protenix-v2 stack
-    plus a structural-token expander. OpenBind-0 is the same OpenFold3 stack on upstream's v0.5.0
-    checkpoint, tuned for protein-ligand co-folding. AF2-IG takes a target plus a binder backbone
-    and the binder's sequence, and reports ipTM and interface pAE for the design; it is the
-    selection filter in a binder pipeline, not a folder you hand a sequence to.
-    Nesso-1 runs under <code>tt-bio affinity</code>
-    rather than <code>predict</code>: no coordinates, no PAE, just an affinity value and ten other
-    scalars. <code>esmfold2-fast</code> is lighter, <code>opendde-abag</code> is the antibody-antigen
-    checkpoint.</p>
+    <p class="mnote">Protenix-v1, Protenix-v2 and OpenFold3 are AlphaFold3-family. AF2-IG scores a
+    designed complex rather than folding a sequence. Nesso-1 runs under <code>tt-bio affinity</code> and
+    returns scalars, not coordinates. <code>esmfold2-fast</code> is lighter, <code>opendde-abag</code> is
+    the antibody-antigen checkpoint.</p>
   </div>
 
   <div class="mgroup">
@@ -202,8 +195,6 @@ details.disclose > div{ padding-top:var(--s-4); }
         <tr><td>pxdesign</td><td>PXDesign</td><td>binder backbones, no sequence</td><td>target structure in a design YAML</td></tr>
       </tbody>
     </table></div>
-    <p class="mnote">PXDesign conditions on a distogram of the target only and writes the binder as
-    GLY, because it generates a backbone with no sequence.</p>
   </div>
 
   <div class="mgroup">
@@ -234,7 +225,6 @@ details.disclose > div{ padding-top:var(--s-4); }
   </div>
   <div class="keys" id="c1-keys"></div>
   <figure><div id="c1-svg"></div></figure>
-  <p class="cond" id="c1-note"></p>
 </section>
 
 <section class="chart" id="c1b">
@@ -244,7 +234,6 @@ details.disclose > div{ padding-top:var(--s-4); }
   </div>
   <div class="keys" id="c1b-keys"></div>
   <figure><div id="c1b-svg"></div></figure>
-  <p class="cond" id="c1b-note"></p>
 </section>
 
 <section class="chart" id="c2">
@@ -265,7 +254,7 @@ details.disclose > div{ padding-top:var(--s-4); }
 </section>
 
 <details class="disclose" id="single">
-  <summary>One AI Processor <span class="sum-note">the measured seconds per prediction and per design that every server figure above is built from</span></summary>
+  <summary>One AI Processor <span class="sum-note">the measured seconds behind every server figure</span></summary>
   <div>
     <section class="chart" id="c3">
       <div class="chart-head">
@@ -291,7 +280,7 @@ details.disclose > div{ padding-top:var(--s-4); }
 </section>
 
 <details class="disclose" id="exact">
-  <summary>The exact figures <span class="sum-note">the measured seconds behind every bar, and the derived tables</span></summary>
+  <summary>The exact figures <span class="sum-note">every bar as a table</span></summary>
   <div>
     <h4>Measured, seconds per prediction on one AI Processor</h4>
     <div class="tablewrap"><table id="t-measured"></table></div>
@@ -308,7 +297,7 @@ details.disclose > div{ padding-top:var(--s-4); }
 </details>
 
 <details class="disclose methods" id="methods">
-  <summary>Methods and sources <span class="sum-note">what was run, how cost is computed, where every price and power figure comes from</span></summary>
+  <summary>Methods and sources <span class="sum-note">what ran, how cost is computed, prices and power</span></summary>
   <div>
     <dl id="methods-dl"></dl>
     <h4>Sources</h4>
@@ -319,11 +308,8 @@ details.disclose > div{ padding-top:var(--s-4); }
 </details>
 
 <div class="endnote">
-  <p>Every seconds-per-prediction and seconds-per-design figure is measured on the hardware named. Everything else is derived
-  from those measurements and from the published prices and power ratings listed above. Nothing is
-  estimated. Updated <span class="num" id="foot-date"></span>.</p>
-  <p>Every model here reproduces its reference implementation within that reference's own run-to-run
-  noise.</p>
+  <p>Every seconds figure is measured on the hardware named. Everything else is derived from those
+  measurements and the published prices and power ratings. Updated <span class="num" id="foot-date"></span>.</p>
 </div>
 
 <footer>
@@ -366,14 +352,12 @@ details.disclose > div{ padding-top:var(--s-4); }
    * one-off dollar amount: spreading it over a window would cancel from every ratio on that chart,
    * so no window is applied. Ownership is dollars per hour, where the window and the electricity
    * price do change the answer. */
-  /* `alt` overrides the window or the rate for the sensitivity sentence; the charts pass nothing. */
-  function usdPerHour(p, alt) {
-    var m = D.cost_model, a = alt || {};
-    return p.price_usd / ((a.years || m.amortisation_years) * m.hours_per_year) +
-      p.power_kw * (a.usd_per_kwh || m.electricity_usd_per_kwh);
+  function usdPerHour(p) {
+    var m = D.cost_model;
+    return p.price_usd / (m.amortisation_years * m.hours_per_year) + p.power_kw * m.electricity_usd_per_kwh;
   }
-  function perDollar(sPerFold, p, basis, alt) {
-    return perHour(sPerFold, p) / (basis === "capex" ? p.price_usd : usdPerHour(p, alt));
+  function perDollar(sPerFold, p, basis) {
+    return perHour(sPerFold, p) / (basis === "capex" ? p.price_usd : usdPerHour(p));
   }
   /* One measured value per cell. A prediction cell holds seconds per fold, a design cell seconds
    * per design, and everything downstream derives from whichever one is there. */
@@ -383,31 +367,13 @@ details.disclose > div{ padding-top:var(--s-4); }
    * is no denominator. Return null instead of dividing by nothing; the callers draw it as
    * blocked. Without this, such a row rendered "NaNx" in the measured column of both cost
    * charts and both cost tables. */
-  function perDollarIndex(m, key, basis, alt) {
+  function perDollarIndex(m, key, basis) {
     var p = plat(SERVER_OF[key]), ref = plat(D.cost_model.index_platform);
     var refCell = null;
     for (var k in SERVER_OF) if (SERVER_OF[k] === ref.id) refCell = m.cells[k];
     var cell = m.cells[key];
     if (!cell || cell.status !== "measured" || !refCell || refCell.status !== "measured") return null;
-    return perDollar(secs(cell), p, basis, alt) / perDollar(secs(refCell), ref, basis, alt);
-  }
-  /* The total-cost-of-ownership index of the Tenstorrent server under every window and rate in
-   * cost_model.sensitivity, over every published row, so the sentence cannot go stale. */
-  function sensitivityText() {
-    var m = D.cost_model, s = m.sensitivity, lo = Infinity, hi = -Infinity;
-    var alts = s.years.map(function (y) { return { years: y }; })
-      .concat([{ usd_per_kwh: s.usd_per_kwh }]);
-    serverRows().forEach(function (row) {
-      alts.forEach(function (a) {
-        var v = perDollarIndex(row.m, "p150a", "tco", a);
-        if (v !== null && isFinite(v)) { lo = Math.min(lo, v); hi = Math.max(hi, v); }
-      });
-    });
-    return "Shift the window to " + s.years.join(" or ") + " years, or the rate to the " +
-      fmtCents(s.usd_per_kwh) + " " + s.rate_label + ", and the " + plat(SERVER_OF.p150a).name +
-      " stays between " + fmtX(lo) + " and " + fmtX(hi) + " across the rows" +
-      (lo > 1 ? ". It does not invert." : "; below 1.00x it costs more per prediction than the " +
-       plat(m.index_platform).name + ".");
+    return perDollar(secs(cell), p, basis) / perDollar(secs(refCell), ref, basis);
   }
   /* What a cell says when its own measurement exists but the index platform's does not. */
   function noIndexLabel() { return "no " + plat(D.cost_model.index_platform).short + " baseline"; }
@@ -480,52 +446,20 @@ details.disclose > div{ padding-top:var(--s-4); }
     return out;
   }
 
-  /* Everything a bar can tell you on hover, built from that cell's own provenance.
-   *
-   * measured_on is the board the number came off, which is not always the board the column
-   * is priced as: every Tenstorrent cell here was measured on a p300c, in a column named and
-   * priced for a p150a. A cell inherits it from its platform and overrides it only if it ran
-   * somewhere else, so one string covers the cells that share a box. */
+  /* Everything a bar can tell you on hover, built from that cell's own run: the code it ran, the
+   * sample count, the clock it ran at and the date. */
   function tip(m, key, headline) {
     var c = m.cells[key], p = plat(key), bits = [m.name + " on " + p.name, headline];
-    if (c.parity) bits.push("parity: " + c.parity);
-    if (c.note) bits.push(c.note);
-    if (c.ref) bits.push(c.ref === "kit" ? "Anthropic kit, exact mode" : "stock upstream code");
-    var run = runLine(c);
-    if (run) bits.push(run);
-    if (c.fast) bits.push((p.vendor === "nvidia" ? "kit fast mode " : "--fast ") + runLine(c.fast));
-    if (c.stock) bits.push("stock upstream " + runLine(c.stock));
-    var board = c.measured_on || p.measured_on;
-    if (board) bits.push(board);
+    if (c.ref) bits.push(c.ref === "kit" ? "Anthropic kit, exact mode" : "authors' release");
+    var run = [];
+    if (c.n) run.push("median of " + c.n);
+    if (c.clock_mhz || c.aiclk_mhz) run.push((c.clock_mhz || c.aiclk_mhz) + " MHz");
+    if (c.when) run.push(String(c.when).slice(0, 10));
+    if (run.length) bits.push(run.join(", "));
+    if (c.versions) bits.push(c.versions);
+    if (c.parity) bits.push("Accuracy: " + c.parity);
     if (c.provenance) bits.push(c.provenance);
     return bits.join("\n");
-  }
-  /* Which NVIDIA cells are the kit and which are stock, per GPU, read from each cell's `ref`, so the
-   * label cannot drift from the numbers while one column has been re-measured and another not. */
-  function nvidiaRefs() {
-    var all = D.models.concat(catRows().map(function (r) { return r.m; }));
-    return CELLS.filter(function (k) { return plat(k).vendor === "nvidia"; }).map(function (k) {
-      function named(ref) {
-        return all.filter(function (m) { return m.cells[k] && m.cells[k].ref === ref; })
-          .map(function (m) { return m.name; });
-      }
-      var kit = named("kit"), stock = named("stock"), out = [];
-      if (kit.length) out.push("kit exact for " + (stock.length ? kit.join(", ") : "every row"));
-      if (stock.length) out.push("stock upstream for " + (kit.length ? stock.join(", ") : "every row"));
-      return plat(k).short + ": " + out.join("; ") + ".";
-    }).join(" ");
-  }
-  /* One measured run in a line: value, sample count, spread, clock and the software it ran. */
-  function runLine(r) {
-    var v = secs(r), out = [];
-    if (v !== undefined && r !== undefined && r.n) out.push(fmtSec(v) + " s, median of n=" + r.n);
-    if (r.spread_pct !== undefined) out.push("spread " + r.spread_pct + " %");
-    if (r.clock_mhz) out.push("SM clock " + r.clock_mhz + " MHz");
-    if (r.aiclk_mhz) out.push("AI clock " + r.aiclk_mhz + " MHz");
-    if (r.sha) out.push("tt-bio " + r.sha);
-    if (r.versions) out.push(r.versions);
-    if (r.when) out.push(r.when);
-    return out.join(", ");
   }
 
   /* A cell can be absent for two different reasons and they are not the same claim: the model
@@ -547,7 +481,7 @@ details.disclose > div{ padding-top:var(--s-4); }
   function drawBars(host, spec) {
     var W = Math.max(300, host.clientWidth || 900);
     var narrow = W < 620;
-    var labelW = narrow ? 90 : 264;   /* fits the longest series label, "Galaxy Blackhole, 32 AI Processors" */
+    var labelW = narrow ? 90 : 170;   /* fits the longest series label, "DGX A100 640GB" */
     var gutter = narrow ? 70 : 116;
     var rowH = narrow ? 26 : 31;
     var barH = narrow ? 17 : 21;
@@ -676,17 +610,17 @@ details.disclose > div{ padding-top:var(--s-4); }
       var bars = CELLS.map(function (k) {
         var c = m.cells[k], p = plat(SERVER_OF[k]);
         if (c.status !== "measured") {
-          return { series: serverLabel(p), seriesShort: serverShort(p), blocked: true,
+          return { series: p.name, seriesShort: serverShort(p), blocked: true,
                    blockedLabel: blockedLabel(c), reason: blockedWhy(c) };
         }
         var v = valueOf(m, k, p);
         if (v === null || !isFinite(v)) {
-          return { series: serverLabel(p), seriesShort: serverShort(p), blocked: true,
+          return { series: p.name, seriesShort: serverShort(p), blocked: true,
                    blockedLabel: noIndexLabel(), reason: noIndexWhy() };
         }
         max = Math.max(max, v);
         return {
-          series: serverLabel(p), seriesShort: serverShort(p), color: SER[p.id], value: v,
+          series: p.name, seriesShort: serverShort(p), color: SER[p.id], value: v,
           label: fmt(v), tip: tip(m, k, fmt(v) + " " + spec.tipUnit(row) + ", from " + fmtSec(secs(c)) +
             " s per " + row.one + " on one accelerator")
         };
@@ -717,27 +651,11 @@ details.disclose > div{ padding-top:var(--s-4); }
       title: "Throughput per dollar of " + (capex ? "purchase price" : "total cost of ownership") +
         ", the " + ref.name + " set to 1.00x, derived"
     });
-    document.getElementById(host + "-cond").innerHTML = capex
-      ? "Hardware only: <span class=\"num\">predictions or designs per hour &divide; purchase price</span>, with the " +
-        ref.name + " set to <span class=\"num\">1.00x</span>. No amortisation window, because it " +
-        "cancels from this ratio. Electricity is not counted here."
-      : "Total cost of ownership: <span class=\"num\">predictions or designs per hour &divide; cost per hour</span>, " +
-        "with the " + ref.name + " set to <span class=\"num\">1.00x</span>. Cost per hour is the purchase " +
-        "price spread over " + m.amortisation_years + " years plus electricity at " +
-        fmtCents(m.electricity_usd_per_kwh) + ", with the machine predicting around the clock.";
-    var adv = [];
-    serverRows().forEach(function (row) {
-      var v = perDollarIndex(row.m, "p150a", basis);
-      if (v !== null && isFinite(v)) adv.push(v);
-    });
-    adv.sort(function (x, y) { return x - y; });
-    document.getElementById(host + "-note").textContent =
-      "The Galaxy Blackhole returns " + fmtX(adv[0]) + " to " +
-      fmtX(adv[adv.length - 1]) + " the throughput per dollar of the " + ref.name +
-      (capex ? " on purchase price alone. Electricity is a larger share of the Galaxy's hourly cost " +
-               "than of the " + ref.name + "'s, because the Galaxy is so much cheaper to buy, so the " +
-               "total cost of ownership chart below is the narrower of the two."
-             : " once electricity is included. " + sensitivityText()) + excludedNote();
+    document.getElementById(host + "-cond").innerHTML = (capex
+      ? "<span class=\"num\">Predictions or designs per hour &divide; purchase price</span>"
+      : "<span class=\"num\">Predictions or designs per hour &divide; cost per hour</span>, where cost per hour is " +
+        "the price over " + m.amortisation_years + " years plus electricity at " + fmtCents(m.electricity_usd_per_kwh)) +
+      ". " + ref.name + " = <span class=\"num\">1.00x</span>." + excludedNote();
   }
 
   function chartThroughput() {
@@ -748,10 +666,8 @@ details.disclose > div{ padding-top:var(--s-4); }
       title: "Predictions and designs per hour per server, derived"
     });
     document.getElementById("c2-cond").innerHTML =
-      "One measured accelerator times the accelerators in the box, on both sides: " +
-      "<span class=\"num\">3600 / seconds per prediction or design &times; accelerators</span>. " +
-      "32 Blackhole AI Processors against 8 GPUs, each assumed to scale linearly with the "
-      + "count: no box's fan-out efficiency is measured here, on either side." + excludedNote();
+      "<span class=\"num\">3600 / seconds per prediction or design &times; accelerators</span>: " +
+      "32 AI Processors against 8 GPUs, assuming linear scaling." + excludedNote();
   }
 
   function chartTime() {
@@ -785,8 +701,7 @@ details.disclose > div{ padding-top:var(--s-4); }
       }).join(" ")
     });
     document.getElementById("c3-cond").textContent =
-      "Wall-clock seconds to return one 512-residue prediction on a single AI Processor. Shorter is " +
-      "better. One prediction at a time, warm, each model at its own shipped precision and recycle count.";
+      "Seconds per 512-residue prediction on one AI Processor, warm, one at a time. Shorter is better.";
   }
 
   function chartDesign() {
@@ -850,9 +765,9 @@ details.disclose > div{ padding-top:var(--s-4); }
       desc: groups.map(function (g) { return g.label + " " + g.bars[0].label + ", " + g.sub; }).join(". ") + "."
     });
     document.getElementById("c4-cond").textContent =
-    "Hardware only. With electricity and " + D.cost_model.amortisation_years
-    + "-year amortisation: " + rows.map(function (p) { return p.short + " $" + usdPerHour(p).toFixed(2); }).join(", ")
-    + " per hour of ownership. The DGX A100 price is an assumed street price, not a list price.";
+    "With electricity over " + D.cost_model.amortisation_years + " years: " +
+    rows.map(function (p) { return p.short + " $" + usdPerHour(p).toFixed(2); }).join(", ") +
+    " per hour. The DGX A100 price is assumed.";
   }
 
   /* ---------- tables ---------- */
@@ -957,8 +872,7 @@ details.disclose > div{ padding-top:var(--s-4); }
     /* The scope list carries the run conditions and nothing else. How the two NVIDIA generations
      * split across the rows, and what each side's timer covers, are methodology: they read as
      * "H200 against B200" and "Timed region" in Methods below. */
-    scopeRows.push(["Run", s.protocol], ["NVIDIA code", s.nvidia_code + " " + s.nvidia_impl + " " + nvidiaRefs()],
-      ["Updated", D.updated]);
+    scopeRows.push(["Run", s.protocol], ["NVIDIA", s.nvidia_code], ["Updated", D.updated]);
     scopeRows.forEach(function (kv) {
       dl.appendChild(Object.assign(document.createElement("dt"), { textContent: kv[0] }));
       dl.appendChild(Object.assign(document.createElement("dd"), { textContent: kv[1] }));
@@ -1003,27 +917,20 @@ details.disclose > div{ padding-top:var(--s-4); }
       ", " + s.diffusion_samples + " diffusion sample. Both sides ran these same two files.");
     mrow("Measured", "Wall-clock seconds for one prediction or one design on one accelerator, warm. " +
       "Hover any bar for the run behind it.");
-    mrow("NVIDIA implementation", D.models.concat(catRows().map(function (r) { return r.m; }))
-      .map(function (x) {
-        return x.name + ": " + x.nvidia_impl;
-      }).join(" "));
+    mrow("NVIDIA", s.nvidia_code + " " + s.nvidia_impl);
     if (s.timed_region) mrow("Timed region", s.timed_region);
-    mrow("Parity", "Each Tenstorrent figure carries the accuracy its code holds in tt-bio's release " +
-      "gate, which scores every model against its own reference on a fixed set of targets, each " +
-      "inside an envelope fixed before the run. The gate's build is named beside the timed one: " + D.models.map(function (x) {
+    mrow("Accuracy", "From tt-bio's release gate, which scores each model against its reference: " + D.models.map(function (x) {
         var c = x.cells.p150a;
         return x.name + " " + (c && c.parity ? c.parity : "not measured");
       }).join("; ") + ".");
     CATEGORIES.forEach(function (c) {
       if (D[c.key] && D[c.key].methods) mrow(c.methodsLabel, D[c.key].methods);
     });
-    mrow("Servers", "A server bar is one measured accelerator times the accelerators in the box, on " +
-      "both sides: 32 Blackhole AI Processors against 8 GPUs. Both sides are assumed to scale " +
-      "linearly with accelerator count, so every server bar is an upper bound on its own box.");
-    mrow("Cost", m.formula + " Only the second basis uses the window. " + m.amortisation_basis + " " +
-      fmtCents(m.electricity_usd_per_kwh) + " is the US industrial average price of electricity. " +
-      m.utilisation + " " + sensitivityText());
-    mrow("Power", "Each server carries its vendor's published maximum system power: " +
+    mrow("Servers", "One measured accelerator times the accelerators in the box, assuming linear " +
+      "scaling, so every server bar is an upper bound.");
+    mrow("Cost", m.formula + " " + m.amortisation_basis + " " +
+      fmtCents(m.electricity_usd_per_kwh) + " is the US industrial average price of electricity. " + m.utilisation);
+    mrow("Power", "Vendor maximum system power: " +
       SERVERS.map(function (id) {
         var p = plat(id);
         return fmtKw(p.power_kw) + " for the " + p.name;

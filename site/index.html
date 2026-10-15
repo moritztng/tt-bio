@@ -139,9 +139,10 @@ h2{font-size:clamp(1.85rem,3.5vw,2.5rem);margin:0 0 18px;max-width:22ch}
 
   <div class="hero">
     <p class="kicker">Open source</p>
-    <h1 id="h-title">Biomolecular AI on<br class="lb"> <em>Tenstorrent</em> hardware</h1>
+    <h1>More biomolecular AI<br class="lb"> <em>per dollar</em></h1>
     <p class="lede">TT-Bio runs folding, binder design and protein embeddings on Tenstorrent
-      hardware.<span id="h-lede"></span></p>
+      hardware. A Blackhole Galaxy returns more predictions per dollar than an NVIDIA DGX H200,
+      B200 or A100, on every model we measure.</p>
     <div class="cta">
       <a class="btn solid" href="https://japanfold.com">Try it free</a>
       <a class="btn line" href="https://github.com/moritztng/tt-bio">Read the code</a>
@@ -149,8 +150,8 @@ h2{font-size:clamp(1.85rem,3.5vw,2.5rem);margin:0 0 18px;max-width:22ch}
   </div>
 
   <div class="facts">
-    <div><div class="n" id="h-x">&nbsp;</div><div class="k">throughput per dollar</div>
-      <div class="s">of purchase price, a Galaxy Blackhole against a DGX B200, median over every row.</div></div>
+    <div><div class="n" id="h-n">&nbsp;</div><div class="k">models measured</div>
+      <div class="s">against NVIDIA H200, B200 and A100</div></div>
     <div><div class="n">One</div><div class="k">codebase</div>
       <div class="s">optimized from silicon to serving</div></div>
     <div><div class="n">1:1</div><div class="k">accuracy parity</div>
@@ -163,9 +164,9 @@ h2{font-size:clamp(1.85rem,3.5vw,2.5rem);margin:0 0 18px;max-width:22ch}
     <p class="say measure">Predictions per hour, measured on the same 512-residue protein, with each
       stack on its own shipped settings. Then divided by what the hardware costs.</p>
     <!-- The sentence is scope.nvidia_code, written here so it reads without JS and replaced from
-         the data on load. check_numbers.py fails if the two differ. -->
-    <p class="prov"><span id="prov">Every NVIDIA figure runs the model's own upstream code, not NVIDIA BioNeMo, a BioNeMo NIM, Anthropic's life-sciences kit or any other vendor-optimised stack, and cuEquivariance is the one NVIDIA library in the path. An optimised serving stack might run faster, and it is not measured here.</span>
-      <a href="benchmarks/#methods">What each GPU row runs</a></p>
+         the data on load. render_check.js fails if the two differ. -->
+    <p class="prov"><span id="prov">NVIDIA runs Anthropic's open kit for these models in exact mode where it has the model, and the authors' own release where it does not.</span>
+      <a href="benchmarks/#methods">Methods</a></p>
     <div class="metricline">
       <div class="seg" id="metric">
         <button data-m="perk" aria-pressed="true">Throughput per $ to buy</button>
@@ -338,28 +339,10 @@ function groupHTML(model){
   }).join("");
   return `<div class="mgroup"><div class="mname">${model}</div><div class="bars">${bars}</div></div>`;
 }
-/* The hero's figures, from the same data as the chart: what a Galaxy Blackhole costs against a DGX
- * B200, and the median and range of its throughput per dollar of purchase price over every row
- * measured on both. The static markup says nothing numeric, so a failed fetch shows no stale claim. */
+/* The hero counts the rows the chart draws, so the figure cannot drift from the data. */
 function hero(D){
-  const P = Object.fromEntries(D.platforms.map(p => [p.id, p]));
-  const gx = P.galaxy_bh, nv = P.dgx_b200, secs = c => c.s_per_fold ?? c.s_per_design;
-  const per$ = (c, p) => 3600 / secs(c) * p.accelerators / p.price_usd;
-  const r = [...D.models, ...(D.design?.models ?? []), ...(D.affinity?.models ?? [])]
-    .filter(m => !m.hidden && m.cells.p150a?.status === "measured" && m.cells.b200?.status === "measured")
-    .map(m => ({m, v: per$(m.cells.p150a, gx) / per$(m.cells.b200, nv)})).sort((a, b) => a.v - b.v);
-  if (!r.length) return;
-  const top = r[r.length - 1].m, v = r.map(o => o.v);
-  const med = v.length % 2 ? v[(v.length - 1) / 2] : (v[v.length / 2 - 1] + v[v.length / 2]) / 2;
-  const x = v => v.toFixed(1) + "\u00d7";
-  document.getElementById("h-title").innerHTML =
-    'Biomolecular AI at<br class="lb"> <em>' + x(med) + '</em> the throughput per dollar';
-  document.getElementById("h-lede").textContent = " A Galaxy Blackhole costs " +
-    Math.round(100 * gx.price_usd / nv.price_usd) + " % of an NVIDIA DGX B200 and returns " +
-    x(v[0]) + " to " + x(v[v.length - 1]) + " its throughput per dollar, depending on the model." +
-    (top.parity_pending ? " The top of that range is " + top.name +
-      ", which does not yet match its reference on every accuracy check." : "");
-  document.getElementById("h-x").textContent = x(med);
+  document.getElementById("h-n").textContent = [...D.models, ...(D.design?.models ?? []),
+    ...(D.affinity?.models ?? [])].filter(m => !m.hidden).length;
 }
 function drawChart(){
   const AXIS = {perk:["Predictions per hour, per $1,000 of purchase price.", "per $1k"],
