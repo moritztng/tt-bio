@@ -4,8 +4,10 @@
 
 Compiles the source (which includes the header named by -DHDR) with the SFPI compiler for WH and BH, against
 stub LLK wrappers that call the face function four times, and prints instructions / SFPU instructions / SFPNOPs
-per call of each function (loops followed). --rev also builds the header as of that git revision, for a before/after. The loop body is what
-costs: read it with `riscv-tt-elf-objdump -d`. Needs -fno-exceptions -fno-rtti (plain -O3 ICEs in sfpi 7.35).
+per call of each function (loops followed, a ttreplay counted as the instructions it replays). --rev also builds the header as of that git revision, for a before/after. The loop body is what
+costs: read it with `riscv-tt-elf-objdump -d`. Builds at -Os like metal's JIT, and the source instantiates each face
+function out of line too: under LTO a kernel with several call sites gets them out of line, and that is where an
+SFPI register-pressure ICE shows (sfpi 7.35, "maximum number of generated reload insns"). Needs -fno-exceptions -fno-rtti.
 """
 import argparse, os, re, subprocess, tempfile
 
@@ -39,6 +41,9 @@ def count(obj):
             nop += op == "sfpnop"
             if op == "ret":
                 break
+            if op == "ttreplay" and args[-1] == "0":  # replay (not record) of len SFPU instructions
+                n += int(args[1]) - 1
+                sfp += int(args[1])
             if op == "li":
                 regs[args[0]] = int(args[1], 0)
             elif op == "addi" and args[0] in regs:
@@ -51,10 +56,10 @@ def count(obj):
     return res
 
 
-def build(hdr, src, cpu, obj):
-    subprocess.run([f"{SFPI}/compiler/bin/riscv-tt-elf-g++", f"-mcpu={cpu}", "-O3", "-fno-exceptions", "-fno-rtti",
+def build(hdr, src, cpu, obj, extra=()):
+    subprocess.run([f"{SFPI}/compiler/bin/riscv-tt-elf-g++", f"-mcpu={cpu}", "-Os", "-fno-exceptions", "-fno-rtti",
                     "-ffast-math", "-std=c++17", f"-I{SFPI}/include", f"-I{HERE}/stub", f'-DHDR="{hdr}"', "-c", src,
-                    "-o", obj], check=True)
+                    "-o", obj, *extra], check=True)
 
 
 ap = argparse.ArgumentParser()
@@ -73,6 +78,6 @@ with tempfile.TemporaryDirectory() as tmp:
     for cpu in ("tt-wh-tensix", "tt-bh-tensix"):
         for name, h in hdrs:
             obj = os.path.join(tmp, f"{name}_{cpu}.o")
-            build(h, a.src, cpu, obj)
+            build(h, a.src, cpu, obj, () if name == a.rev else ("-DSIG_ROWS",))
             for fn, (n, s, nop) in count(obj).items():
                 print(f"{cpu} {name:>10} {fn:24} instr {n:3d}  sfpu {s:3d}  nop {nop}")
