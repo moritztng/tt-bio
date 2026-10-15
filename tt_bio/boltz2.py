@@ -88,7 +88,9 @@ LEVERS_FAST = frozenset({"acc_off", "diffusion_bf16", "dit_sdpa", "transition_b8
 # fast+dit_cond_jit, 44 paired folds (spd-gap-small gb2cj, 2026-10-15), PASS: same-seed top pose median 0.744 A
 # (A/A floor 1.731 A), CA-lDDT -0.0004 [-0.0011, +0.0003], docking 24 -> 24. Galaxy chip 512 x 1 (1000 MHz) 23.26 ->
 # 22.83 s median, every warm pair faster. On p150a it is 0.35 s slower (5/5 pairs), so Blackhole leaves it off.
-WH_LEVERS_FAST = LEVERS_FAST | {"triatt_ln", "apb_ln", "dit_cond_jit"}
+# And trimul_sig6: Wormhole 11-set fast grade, 44 paired folds (gsig6, 2026-10-15), PASS: top pose median 1.083 A
+# (floor 1.731 A), CA-lDDT -0.0006 [-0.0021, +0.0005], docking 24 -> 24; Galaxy chip -0.12 s (3 of 4 pairs).
+WH_LEVERS_FAST = LEVERS_FAST | {"triatt_ln", "apb_ln", "dit_cond_jit", "trimul_sig6"}
 
 
 def _under_levers(method):
