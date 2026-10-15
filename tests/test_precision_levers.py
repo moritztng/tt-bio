@@ -91,6 +91,7 @@ def test_checkpoint_entry_takes_the_modes_set(monkeypatch, tmp_path, fast):
 
     monkeypatch.setattr(P.Protenix, "__init__", fake_init)
     monkeypatch.setattr(T, "_FAST_MODE", fast)
+    monkeypatch.setattr(T, "is_wormhole", lambda: False)  # the Wormhole sets have their own tests
     ckpt = tmp_path / "w.pt"
     torch.save({"model": {}}, ckpt)
     P.Protenix.load_from_checkpoint(str(ckpt), compute_kernel_config=object(), device=object())
