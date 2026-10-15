@@ -84,7 +84,11 @@ LEVERS_FAST = frozenset({"acc_off", "diffusion_bf16", "dit_sdpa", "transition_b8
 # Wormhole --fast adds the pair LayerNorm fused into triangle attention's projections (protenix.TRIATT_LN). Wormhole
 # 11-set fast grade, LEVERS_FAST vs + these, 44 paired folds (spd-gap-small gtalb2, 2026-10-15), PASS: CA-lDDT
 # -0.0005 [-0.0013, +0.0001], pLDDT within 0.004 per complex, docking 24 -> 24. Galaxy chip 512 x 1 -0.64 s (5/5 pairs).
-WH_LEVERS_FAST = LEVERS_FAST | {"triatt_ln", "apb_ln"}
+# It also takes dit_cond_jit (the token DiT's conditioning projected per layer). Wormhole 11-set fast grade, fast vs
+# fast+dit_cond_jit, 44 paired folds (spd-gap-small gb2cj, 2026-10-15), PASS: same-seed top pose median 0.744 A
+# (A/A floor 1.731 A), CA-lDDT -0.0004 [-0.0011, +0.0003], docking 24 -> 24. Galaxy chip 512 x 1 (1000 MHz) 23.26 ->
+# 22.83 s median, every warm pair faster. On p150a it is 0.35 s slower (5/5 pairs), so Blackhole leaves it off.
+WH_LEVERS_FAST = LEVERS_FAST | {"triatt_ln", "apb_ln", "dit_cond_jit"}
 
 
 def _under_levers(method):
