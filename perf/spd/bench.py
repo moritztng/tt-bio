@@ -65,6 +65,9 @@ ap.add_argument("--warm", type=int, default=3)
 ap.add_argument("--between", choices=("cache", "latches", "both"), default=None,
                 help="before each input after the first: clear the device program cache and/or reset tt-bio's "
                      "process-global refusal latches (*_REFUSED sets, *_RUNG ladders), to test process-history effects")
+ap.add_argument("--trace-fillpad", type=Path, default=None,
+                help="log every call that runs ttnn's in-place fill_pad (a TILE input whose last two dims are not tile "
+                     "multiples, into pad/reductions/slice-with-pad/gather/topk/sort), one JSONL line per new (fold, op, shape)")
 ap.add_argument("--seed", type=int, default=101, help="cold rep seed; warm reps use seed+1..seed+warm")
 ap.add_argument("--data", type=Path, default=Path("~/spd-data").expanduser())
 ap.add_argument("--share", type=int, default=None,
@@ -383,6 +386,35 @@ import tt_bio  # noqa: E402
 import tt_bio.tenstorrent as T  # noqa: E402
 import tt_bio.protenix as P  # noqa: E402
 
+FOLD = ["-"]
+if a.trace_fillpad:
+    def _fillpad_tracer(path):
+        seen, f = set(), open(path, "a", buffering=1)
+
+        def site():
+            fr = sys._getframe(2)
+            while fr and "/tt_bio/" not in fr.f_code.co_filename:
+                fr = fr.f_back
+            return f"{Path(fr.f_code.co_filename).name}:{fr.f_lineno}" if fr else "?"
+
+        def wrap(name, fn):
+            def traced(x, *args, **kw):
+                if isinstance(x, ttnn.Tensor) and x.layout == ttnn.TILE_LAYOUT and len(x.shape) >= 2 \
+                        and (x.shape[-1] % 32 or x.shape[-2] % 32):
+                    key = (FOLD[0], name, tuple(x.shape), str(x.dtype), str(x.memory_config()), site())
+                    if key not in seen:
+                        seen.add(key)
+                        f.write(json.dumps(dict(fold=key[0], op=name, shape=list(key[2]), padded=list(x.padded_shape),
+                                                dtype=key[3], mem=key[4], site=key[5], t=time.time())) + "\n")
+                return fn(x, *args, **kw)
+            return traced
+
+        for name in ("pad", "sum", "mean", "max", "min", "var", "std", "slice", "fill_implicit_tile_padding",
+                     "gather", "topk", "sort"):
+            if hasattr(ttnn, name):
+                setattr(ttnn, name, wrap(name, getattr(ttnn, name)))
+    _fillpad_tracer(a.trace_fillpad)
+
 HEAD = dict(sha=SHA, dirty=DIRTY, engine=str(Path(tt_bio.__file__).parent), arm=ARM, arm_env=ARM_ENV,
             fast=FAST, host=socket.gethostname(), ncpu=os.cpu_count(), share=a.share, chip=a.chip, env=ENV, samples=a.samples, recycles=a.recycles)
 if not PV2:  # a Protenix-v2 record stays byte for byte what it was
@@ -500,6 +532,7 @@ for i_in, (name, y) in enumerate(INPUTS):
     seeds = [(a.seed, "cold")] + [(a.seed + i, "warm") for i in range(1, a.warm + 1)]
     for sd, kind in seeds:
         rcfg = dict(cfg0, seed=sd, fast=FAST)
+        FOLD[0] = f"{i_in}:{name}:{sd}"
         sdir = a.out / f"struct_{name}_s{sd}"; sdir.mkdir(exist_ok=True); rcfg["struct_dir"] = str(sdir)
         LAST.clear(); gc.collect()
         la0 = os.getloadavg(); t0 = time.monotonic()
