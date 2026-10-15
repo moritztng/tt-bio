@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """RFD3 device census on the page workload: device kernel time per step, per region and per op, against the wall.
 
-    gap_tracy.py OUT.json [STEPS] [PROFILED_STEPS] [--fixture=perf/dsfix/fixtures/rfd3_R4.json]
+    gap_tracy.py OUT.json [STEPS] [PROFILED_STEPS] [--fixture=perf/dsfix/fixtures/rfd3_R4.json] [--fast]
 
 Needs the Tracy-enabled tt-metal (the pip wheel compiles the device profiler out); run it through
 perf/spd_census/run.sh's environment (TT_METAL_DEVICE_PROFILER=1, MID_RUN_DUMP, no push to Tracy).
@@ -11,6 +11,10 @@ first PROFILED_STEPS steps record every ttnn op: its name, the region it ran in 
 and its device-operation id range. The profiler buffer is read every ~1000 programs. Each program's DEVICE KERNEL
 DURATION is joined back to its op by runtime id. Device kernel ms/step against the plain fold's wall ms/step is the
 share of the step the device is busy; the rest is the host (torch, dispatch, transfers) with the device idle.
+
+Each op is also keyed by its tensor signature (shape and dtype of every tensor in and out), with the bytes those
+tensors occupy and, for matmul-like ops, 2*M*K*N. That puts every op on a roofline (perf/spd/rfd3_roof.py) without
+re-deriving shapes from the model code.
 """
 import collections
 import json
@@ -30,6 +34,7 @@ from tt_bio.rfd3.sampler import RFD3Sampler                               # noqa
 
 WEIGHTS = pathlib.Path(os.environ.get("BOLTZ_CACHE", pathlib.Path.home() / ".boltz")) / "rfd3" / "weights"
 args = [a for a in sys.argv[1:] if not a.startswith("--")]
+FAST = "--fast" in sys.argv
 opts = dict(a[2:].split("=", 1) for a in sys.argv[1:] if a.startswith("--") and "=" in a)
 OUT = pathlib.Path(args[0])
 STEPS = int(args[1]) if len(args) > 1 else 200
@@ -47,7 +52,10 @@ REGIONS = [
 REG = []
 ST = {"arm": False, "on": False, "step": 0, "flushed": 0, "depth": 0}
 OPID = ttnn._ttnn.get_device_operation_id
-OPS = []          # (id0, id1, name, region, step)
+OPS = []          # (id0, id1, name, region, step, sig)
+SIGS = {}         # sig -> (bytes, flops)
+ESZ = {"BFLOAT16": 2, "FLOAT32": 4, "UINT32": 4, "INT32": 4, "UINT16": 2, "UINT8": 1, "BFLOAT8_B": 1088 / 1024,
+       "BFLOAT4_B": 576 / 1024}
 KERN = {}         # runtime id >> 10 -> summed kernel ns
 STEP_WALL = []
 
@@ -87,6 +95,41 @@ def drain():
     ST["flushed"] = OPID()
 
 
+def tensors(x):
+    if isinstance(x, ttnn.Tensor):
+        yield x
+    elif isinstance(x, (list, tuple)):
+        for y in x:
+            yield from tensors(y)
+
+
+def signature(name, a, k, out):
+    ins = [t for v in list(a) + list(k.values()) for t in tensors(v)]
+    outs = list(tensors(out))
+    desc, nbytes = [], 0.0
+    for t in ins + outs:
+        try:
+            shp, dt = tuple(t.padded_shape), str(t.dtype).split(".")[-1]
+        except Exception:
+            continue
+        n = 1
+        for d in shp:
+            n *= d
+        nbytes += n * ESZ.get(dt, 2)
+        desc.append("x".join(map(str, shp)) + ":" + dt.lower().replace("bfloat", "bf"))
+    flops = 0.0
+    short = name.rsplit(".", 1)[-1]
+    if short in ("matmul", "linear") and len(ins) >= 2:
+        sa, sb = tuple(ins[0].padded_shape), tuple(ins[1].padded_shape)
+        m = 1
+        for d in sa[:-1]:
+            m *= d
+        flops = 2.0 * m * sa[-1] * sb[-1]
+    sig = "%s | %s -> %s" % (short, ",".join(desc[:len(ins)]), ",".join(desc[len(ins):]))
+    SIGS[sig] = (nbytes, flops)
+    return sig
+
+
 def hook(orig):
     def call(self, *a, **k):
         if not ST["on"] or ST["depth"]:
@@ -97,7 +140,8 @@ def hook(orig):
             out = orig(self, *a, **k)
             id1 = OPID()
             if id1 > id0:
-                OPS.append((id0, id1, self.python_fully_qualified_name, REG[-1] if REG else "glue", ST["step"]))
+                name = self.python_fully_qualified_name
+                OPS.append((id0, id1, name, REG[-1] if REG else "glue", ST["step"], signature(name, a, k, out)))
             if id1 - ST["flushed"] >= 1000:
                 drain()
             return out
@@ -151,7 +195,7 @@ def fold(tag):
     shutil.rmtree(out_dir, ignore_errors=True)
     WALL.clear()
     rfd3_design.run_design(specs, out_dir, checkpoint_dir=str(WEIGHTS), from_pdb=True,
-                           num_timesteps=STEPS, seed=42, num_designs=1, batch_size=1, verbose=False)
+                           num_timesteps=STEPS, seed=42, num_designs=1, batch_size=1, fast=FAST, verbose=False)
     return WALL[0]
 
 
@@ -166,13 +210,16 @@ if ST["on"]:
 
 n = max(ST["step"], 1)
 by_op = collections.defaultdict(lambda: [0.0, 0])
+by_sig = collections.defaultdict(lambda: [0.0, 0])
 by_reg = collections.defaultdict(float)
 missing = 0
-for id0, id1, name, reg, _s in OPS:
+for id0, id1, name, reg, _s, sig in OPS:
     ns = sum(KERN.get(i, 0) for i in range(id0, id1))
     missing += all(i not in KERN for i in range(id0, id1))
     by_op[(reg, name)][0] += ns / 1e6 / n
     by_op[(reg, name)][1] += 1
+    by_sig[(reg, sig)][0] += ns / 1e6 / n
+    by_sig[(reg, sig)][1] += 1
     by_reg[reg] += ns / 1e6 / n
 dev_ms = sum(by_reg.values())
 wall_ms = 1e3 * plain_s / STEPS
@@ -183,11 +230,14 @@ for reg, ms in sorted(by_reg.items(), key=lambda kv: -kv[1]):
 top = sorted(by_op.items(), key=lambda kv: -kv[1][0])[:40]
 for (reg, name), (ms, c) in top:
     print("  %-14s %-48s %7.2f ms/step  %6.1f calls/step" % (reg, name[-48:], ms, c / n))
-rec = {"fixture": FIXTURE, "steps": STEPS, "profiled_steps": n, "warm_s": warm_s, "plain_s": plain_s,
+sigs = [{"region": r, "sig": g, "ms_per_step": ms, "calls_per_step": c / n, "bytes_per_call": SIGS[g][0],
+         "flops_per_call": SIGS[g][1]} for (r, g), (ms, c) in sorted(by_sig.items(), key=lambda kv: -kv[1][0])]
+rec = {"fixture": FIXTURE, "fast": FAST, "steps": STEPS, "profiled_steps": n, "warm_s": warm_s, "plain_s": plain_s,
        "profiled_fold_s": prof_s, "step_wall_ms_profiled": [1e3 * x for x in STEP_WALL],
        "device_ms_per_step": dev_ms, "plain_wall_ms_per_step": wall_ms, "ops": len(OPS), "ops_missing": missing,
        "regions_ms_per_step": dict(by_reg),
        "top_ops": [{"region": r, "op": o, "ms_per_step": ms, "calls_per_step": c / n} for (r, o), (ms, c) in top],
+       "sigs": sigs, "arch": T.arch_name(),
        "card": os.environ.get("TT_VISIBLE_DEVICES"), "host": os.uname().nodename}
 OUT.parent.mkdir(parents=True, exist_ok=True)
 OUT.write_text(json.dumps(rec, indent=1))
