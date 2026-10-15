@@ -1,8 +1,8 @@
-"""ESMFold2 is fast-only on Wormhole for every loader caller, not just the CLI.
+"""ESMFold2's ESMC-6B is block-fp8 on Wormhole for every loader caller, in both modes.
 
-The bf16 ESMC-6B (~12.8 GB) does not fit a Wormhole chip's 12 GiB. main.py turned --fast on for
-a CLI user, but the worker path (perf_regression, a server) loaded normal precision and died in
-the allocator with TT_FATAL on the 0.15.0 gate's Wormhole perf leg.
+The bf16 ESMC-6B (~12.8 GB) does not fit a Wormhole chip's 12 GiB: a worker path (perf_regression, a
+server) that loaded it in normal precision died in the allocator with TT_FATAL on the 0.15.0 gate's
+Wormhole perf leg. The fold's lever set still follows the mode (fold_levers).
 """
 import sys
 import types
@@ -12,9 +12,9 @@ import pytest
 pytest.importorskip("ttnn")
 
 
-@pytest.mark.parametrize("wormhole,fast,want", [(True, False, True), (False, False, False),
-                                                 (False, True, True)])
-def test_load_runs_fast_on_wormhole(monkeypatch, wormhole, fast, want):
+@pytest.mark.parametrize("wormhole,fast,lm_b8", [(True, False, True), (False, False, False),
+                                                  (False, True, True), (True, True, True)])
+def test_wormhole_lm_is_bfp8_in_both_modes(monkeypatch, wormhole, fast, lm_b8):
     from tt_bio import esmfold2_runtime as rt
     from tt_bio import tenstorrent
 
@@ -34,23 +34,26 @@ def test_load_runs_fast_on_wormhole(monkeypatch, wormhole, fast, want):
     monkeypatch.setattr(rt, "patch_esmfold2", lambda model, **k: built.update(k) or model)
     monkeypatch.setattr(tenstorrent, "_FAST_MODE", False)
     rt.load_ttnn_esmfold2(fast=fast)
-    # The model is built fast, on both archs under LEVERS_FAST with the older `_FAST_MODE` off
+    # The LM's weight format follows the arch, the mode follows the caller; `_FAST_MODE` stays off
     # (esmfold2_runtime.fold_scope).
-    assert built["fast"] is want
+    assert built["lm_b8"] is lm_b8 and built["fast"] is fast
     assert tenstorrent._FAST_MODE is False
 
 
 @pytest.mark.parametrize("wormhole", [True, False])
-def test_normal_set_takes_hifi2_only_where_graded(monkeypatch, wormhole):
-    # trimul_gin_hifi2 passed ESMFold2's normal bar on Blackhole; Wormhole was never graded on it.
+def test_mode_sets_per_arch(monkeypatch, wormhole):
     from tt_bio import esmfold2_runtime as rt
     monkeypatch.delenv("TT_BIO_LEVERS", raising=False)
     monkeypatch.setattr(rt, "is_wormhole", lambda: wormhole)
-    assert ("trimul_gin_hifi2" in rt.fold_levers(False).split("+")) is not wormhole
-    # ws_resid and trimul_gin_hifi2 passed ESMFold2's fast bar on both archs; ws_lofi only on Blackhole.
+    normal_set = rt.fold_levers(False).split("+")
+    assert "trimul_gin_hifi2" in normal_set
+    # Wormhole's normal mode keeps the pair SwiGLU kernel and the LM levers; Blackhole's does not.
+    assert all((n in normal_set) is wormhole for n in ("transition_ws", "ws_resid", "ef2_lm_combine", "ef2_opm_kq"))
+    # Fast-only on both archs: trimul_b8in and ws_lofi, so a Wormhole --fast fold is not the normal one.
     fast_set = rt.fold_levers(True).split("+")
     assert "ws_resid" in fast_set and fast_set.count("trimul_gin_hifi2") == 1
-    assert ("ws_lofi" in fast_set) is not wormhole
+    assert "ws_lofi" in fast_set and "ws_lofi" not in normal_set
+    assert "trimul_b8in" in fast_set and "trimul_b8in" not in normal_set
     # The T1/T2 trimul stack passed the fast bar on Blackhole and loses time on Wormhole.
     assert all((n in fast_set) is not wormhole for n in ("trimul_t1", "trimul_t1_c256", "trimul_t2", "trimul_t2cm"))
     assert "trimul_t1" not in rt.fold_levers(False).split("+")
@@ -59,6 +62,6 @@ def test_normal_set_takes_hifi2_only_where_graded(monkeypatch, wormhole):
         names = rt.fold_levers(fast).split("+")
         assert "ef2_relpos_lookup" in names and "ef2_bit_draw" in names
         assert ("ef2_pair_init" in names) is not wormhole
-    assert "ef2_opm_kq" not in rt.fold_levers(False).split("+")
+    assert ("ef2_opm_kq" in rt.fold_levers(False).split("+")) is wormhole
     # trimul_t2m is bit-exact and measured on Wormhole only.
     assert all(("trimul_t2m" in rt.fold_levers(f).split("+")) is wormhole for f in (False, True))
