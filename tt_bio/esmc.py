@@ -213,7 +213,7 @@ _ESMC_QKV_SPLIT = env_flag("TT_BIO_ESMC_QKV_SPLIT", True)
 # warm passes before a trace capture. p150a page cell (esmc_ab.py, 2 rounds each, output identical to the DRAM path):
 # 600M 136.0/122.4 -> 113.9/115.4 ms, 300M --fast 85.4/88.1 -> 79.8/80.4 ms per batch of 7. Inside ESMFold2 the
 # ESMC-6B gains nothing (p300c page cell, identical digests: ESMFold2 +0.76 s on a 0.89 s spread, ESMFold2-Fast
-# 16.48 -> 16.55 s), so the Block of a model past _LM_FFN_TILE_MODEL_BYTES keeps the DRAM path (Attention.qk_l1).
+# 16.48 -> 16.55 s), so the Block of a model past _LM_LARGE_MODEL_BYTES keeps the DRAM path (Attention.qk_l1).
 _ESMC_QK_L1 = env_flag("TT_BIO_ESMC_QK_L1", True)
 
 # Replay batched forwards from the trace too (ESMC.trace gated on B == 1). A 7 x 544 Blackhole batch spreads 110-127 ms
@@ -557,13 +557,15 @@ def _swiglu_gate_legacy() -> bool:
     from tt_bio import tenstorrent
     return tenstorrent.arch_name() == "blackhole"
 
-# Wormhole tiles the per-token (3-D) FFN at SMALL_GRID_SEQ_TILE rows so the ESMC-6B's fc1 activation never asks a
-# 12 GB chip that already holds the 6B for one large block. ESMC 300M/600M (~0.6 / 1.2 GB of weights) never needed it,
-# and on them the row count cut the whole page batch ([7, 544, 2*d_ff]) into three blocks plus a chunk and a concat:
-# off, a Galaxy chip runs a batch of 7 in 190 vs 213 ms (300M) and 276 vs 337 ms (600M), at the same error against
-# float32 (rel_l2 0.025 either way; not bit-identical, the matmul blocks differently at the larger M). So only a
-# model whose resident weights exceed this many bytes tiles; the 6B (12.7 GB in bf16) keeps its path exactly.
-_LM_FFN_TILE_MODEL_BYTES = env_int("TT_BIO_LM_FFN_TILE_MODEL_BYTES", 4 << 30)
+# ESMC's language-model FFN runs over all rows in one pass on every arch. Wormhole used to tile it at
+# SMALL_GRID_SEQ_TILE rows up front so the 6B's fc1 activation never asked a 12 GB chip that already holds the 6B for
+# one large block; that cut a 544-row page cell into three blocks plus a chunk and a concat, and each block re-streamed
+# the layer's FFN weights. One pass, Galaxy chip at 1000 MHz, 6B page cell: 445 -> 315 ms, --fast 426 -> 304 ms, same
+# error against float32 (pcc 0.99904 / 0.99894 either way; earlier the same for 300M/600M, 213 -> 190 / 337 -> 276 ms).
+# The row tiling now runs only for a shape the allocator refused in one piece, which is what the 6B in bf16 meets near
+# its 1968 aa ceiling, where ~31 MB of DRAM is left beside the weights.
+# A model past this many bytes of resident weights (the 6B) keeps the attention's DRAM path (Attention.qk_l1).
+_LM_LARGE_MODEL_BYTES = env_int("TT_BIO_LM_LARGE_MODEL_BYTES", 4 << 30)
 # The per-token LM FFN's SwiGLU gate silu(x fc1_a) * (x fc1_b) written to L1, where fc2 reads it back. Same op, same
 # values (a memory placement); a refusal falls back to DRAM for that shape for good. Off until the page-cell A/B says.
 _ESMC_GATE_L1 = env_flag("TT_BIO_ESMC_GATE_L1", False)
@@ -1134,7 +1136,8 @@ class SwiGLUFFN(_MMLin, Module):
             chunk = tenstorrent.pair_row_tile(L)
         else:
             t = tenstorrent.SMALL_GRID_SEQ_TILE
-            chunk = t if (t and L > t and self.model_bytes > _LM_FFN_TILE_MODEL_BYTES) else 0
+            lm_whole = self.model_bytes != float("inf") and tuple(x.padded_shape) not in _UNBLOCKED_REFUSED
+            chunk = t if (t and L > t and not lm_whole) else 0
         try:
             if chunk:
                 parts = ttnn.chunk(x, -(-L // chunk), dim=1)
@@ -1153,6 +1156,13 @@ class SwiGLUFFN(_MMLin, Module):
             # leaves every size inside the window running exactly the path its parity was
             # measured on and turns a dead fold above the window into a live one.
             # Same shape as OpenFold3's refusal-narrowed OuterProductMean route.
+            if len(x.shape) == 3 and not chunk and tenstorrent.SMALL_GRID_SEQ_TILE and L > tenstorrent.SMALL_GRID_SEQ_TILE \
+                    and _is_alloc_refusal(exc):  # the LM FFN in one pass did not fit: tile this shape from now on
+                _UNBLOCKED_REFUSED.add(tuple(x.padded_shape))
+                WINDOW_FALLBACK_STATS[1] -= 1
+                print(f"[lm-ffn] DRAM refused the one-pass LM FFN at {tuple(x.shape)}; re-running it in "
+                      f"{tenstorrent.SMALL_GRID_SEQ_TILE}-row blocks", flush=True)
+                return self(x)
             if len(x.shape) != 4 or not _PAIR_FFN_ROW_BLOCK or not _is_alloc_refusal(exc):
                 raise
             _UNBLOCKED_REFUSED.add(tuple(x.padded_shape))
@@ -1188,7 +1198,7 @@ class Block(Module):
         shape = self.ffn.fc2_weight.shape  # ttnn.Shape takes no slice
         d_ff, d = int(shape[-2]), int(shape[-1])
         self.ffn.model_bytes = n_layers * (4 * d * d + 3 * d * d_ff) * 2
-        self.attn.qk_l1 = self.ffn.model_bytes <= _LM_FFN_TILE_MODEL_BYTES
+        self.attn.qk_l1 = self.ffn.model_bytes <= _LM_LARGE_MODEL_BYTES
 
     def __call__(self, x: ttnn.Tensor, cos: ttnn.Tensor, sin: ttnn.Tensor,
                  attn_mask: ttnn.Tensor | None = None,
