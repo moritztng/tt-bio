@@ -570,7 +570,9 @@ _FAST_MODE = False
 #                   the exponentiated scores and row statistics bf16 (`_sdpa32`). Inert in bf16.
 #   trimul_gin      the trimul in-projection, both gates, the pair mask and both channel moves in one
 #                   weights-resident kernel (`_TRIMUL_GATED_INPROJ`, `trimul_tail.gin_moved`)
-#   trimul_gin_hifi2 trimul_gin's kernel at HiFi2 whatever the trunk's fidelity. ESMFold2's call at 512 on p150a
+#   trimul_gin_hifi2 the trimul in-projection kernel (trimul_gin's, and T1's where trimul_t1 takes the call) at
+#                   HiFi2 whatever the trunk's fidelity. T1 is compute-bound on Wormhole (t1abl2: compute alone 3.68
+#                   of 3.82 ms; ESMFold2's c_z 256 call does not reach T1). ESMFold2's call at 512 on p150a
 #                   (1350 MHz): normal set 9.37 -> 8.71 ms, rel_rms vs float64 0.0088 -> 0.0106; fast set 8.62 -> 8.33
 #                   ms, 0.0088 -> 0.0107 (HiFi3 in the normal set: 9.02 ms at the same error as HiFi4)
 #   trimul_sig6     the trimul kernels' gate sigmoid (gin, T1, tails) as a degree-6 polynomial instead of degree 8:
@@ -9451,9 +9453,12 @@ class TriangleMultiplication(Module):
                 t, layout=ttnn.TILE_LAYOUT, device=self.device, dtype=ttnn.bfloat16)
             self._t1_w = (up(wpT), up(wgT))
         fold = mask is not None and TT1.t1_mask_ok(mask, x)
+        ckc = _mm_generic.ckc_args(self.compute_kernel_config)
+        if lever("trimul_gin_hifi2"):
+            ckc = (ttnn.MathFidelity.HiFi2,) + ckc[1:]
         outs = TT1.fused_in_ln(
             x, self.in_norm_weight, self.in_norm_bias, *self._t1_w, self.g_out_weight,
-            _mm_generic.ckc_args(self.compute_kernel_config), tuple(COMPUTE_GRID_MAIN),
+            ckc, tuple(COMPUTE_GRID_MAIN),
             mask=mask if fold else None, b8=lever("trimul_t1b8") and (mask is None or fold))
         return None if outs is None else (outs[0], outs[1], outs[2], fold)
 
