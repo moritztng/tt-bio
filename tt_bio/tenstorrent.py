@@ -11339,7 +11339,16 @@ class TriangleAttention(Module):
                 triangle_bias = ttnn.permute(triangle_bias, (0, 1, 3, 2))
             dram_peak(f"tri_att({'end' if self.ending else 'start'}) bias built [z={'x'.join(str(d) for d in x.shape)}]")
         else:
-            if self.ending:
+            fusable = not (self.biased or self.qkvgb_weight is None or _triatt_dtype() != ttnn.bfloat16
+                           or _qkv_l1_config(x, self.qkv_weight, _dtype()) is not None)
+            # triatt_ln TR: the ending variant norms x^T straight out of x, no transpose pass (x is square,
+            # so x^T has x's shape and the L1-qkv test above reads the same).
+            fused = (_triatt_ln.ln_qkvgb_heads(
+                x, self.layer_norm_weight, self.layer_norm_bias, self.qkvgb_weight,
+                _mm_generic.ckc_args(self.compute_kernel_config), self.n_heads, self.head_dim,
+                int(self.bias_weight.shape[-1]), tuple(COMPUTE_GRID_MAIN), transposed=True)
+                     if self.ending and fusable else None)
+            if self.ending and fused is None:
                 # The DESTINATION stays DRAM here: this transpose's consumer is the layer_norm
                 # below, whose static circular buffers are 274 944 B per core at 768 aa and do not
                 # fit under a pair tensor that size. Norming first instead was tried and is worse
@@ -11351,14 +11360,13 @@ class TriangleAttention(Module):
                                     l1_stage_reserve=self.transpose_l1_reserve)
             # triatt_ln: the norm and the qkvgb projection as one kernel, the normed copy never
             # leaves L1. x stays the raw (or transposed) pair then, owned only in the ending variant.
-            fused = (None if self.biased or self.qkvgb_weight is None
-                     or _triatt_dtype() != ttnn.bfloat16
-                     or _qkv_l1_config(x, self.qkv_weight, _dtype()) is not None
-                     else _triatt_ln.ln_qkvgb_heads(
-                         x, self.layer_norm_weight, self.layer_norm_bias, self.qkvgb_weight,
-                         _mm_generic.ckc_args(self.compute_kernel_config), self.n_heads,
-                         self.head_dim, int(self.bias_weight.shape[-1]), tuple(COMPUTE_GRID_MAIN)))
-            x_owned = fused is None or self.ending
+            transposed = self.ending and fused is None
+            if fused is None and fusable:
+                fused = _triatt_ln.ln_qkvgb_heads(
+                    x, self.layer_norm_weight, self.layer_norm_bias, self.qkvgb_weight,
+                    _mm_generic.ckc_args(self.compute_kernel_config), self.n_heads,
+                    self.head_dim, int(self.bias_weight.shape[-1]), tuple(COMPUTE_GRID_MAIN))
+            x_owned = fused is None or transposed
             if fused is not None:
                 pre_qkv, pre_g, triangle_bias = fused
             else:

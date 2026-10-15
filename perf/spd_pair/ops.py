@@ -402,5 +402,54 @@ if "tailtr" in groups:
     for t in (od, gd, wd, zt):
         ttnn.deallocate(t)
 
+if "lntr" in groups:
+    # triatt_ln TR (reader gathers z^T) against today's ending path: pair_transpose to DRAM, then triatt_ln.
+    # PASS = all five outputs torch.equal; q against a float64 LN + projection of z^T.
+    from tt_bio import pair_transpose as PT, triatt_ln as TL, mm_generic as MGn
+    H = A.tr_heads; c = 32 * H
+    gamma = (1 + 0.3 * torch.randn(C)).bfloat16(); beta = (0.2 * torch.randn(C)).bfloat16()
+    w_host = (torch.randn(C, 4 * c + 32) / C ** 0.5).bfloat16()
+    k = MGn.ckc_args(ckc("HiFi3", True)); grid = tuple(T.COMPUTE_GRID_MAIN)
+    zd = ttnn.from_torch(z_host[0], layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
+    wd, gd, bd = (ttnn.from_torch(x.reshape(1, -1) if x.dim() == 1 else x, layout=ttnn.TILE_LAYOUT, device=dev,
+                                  dtype=ttnn.bfloat16) for x in (w_host, gamma, beta))
+
+    def flat(r):
+        (q, kk, v), g, b = r
+        return [q, kk, v, g, b]
+
+    def ln_base():
+        xt = PT.pair_transpose(zd)
+        r = TL.ln_qkvgb_heads(xt, gd, bd, wd, k, H, 32, H, grid)
+        ttnn.deallocate(xt)
+        assert r is not None, f"base declined {TL.REJECTS}"
+        return flat(r)
+
+    def ln_tr():
+        r = TL.ln_qkvgb_heads(zd, gd, bd, wd, k, H, 32, H, grid, transposed=True)
+        assert r is not None, f"tr declined {TL.REJECTS}"
+        return flat(r)
+
+    def drop(outs):
+        for o in outs:
+            ttnn.deallocate(o)
+
+    with T.levers("triatt_ln"):
+        ra, rb = ln_base(), ln_tr()
+        ha, hb = [ttnn.to_torch(o) for o in ra], [ttnn.to_torch(o) for o in rb]
+        xt = z_host[0].double().permute(1, 0, 2)
+        xn = (xt - xt.mean(-1, keepdim=True)) / (xt.var(-1, unbiased=False, keepdim=True) + 1e-5).sqrt()
+        xn = xn * gamma.double() + beta.double()
+        q_ref = (xn @ w_host.double()[:, :c]).reshape(N, N, H, 32).permute(0, 2, 1, 3)
+        log(ev="lntr_equal", equal=all(torch.equal(a, b) for a, b in zip(ha, hb)),
+            ndiff=[int((a != b).sum()) for a, b in zip(ha, hb)],
+            rel_tr=rel(hb[0].float(), q_ref.float())["rel_rms"], rel_base=rel(ha[0].float(), q_ref.float())["rel_rms"],
+            finite=all(bool(torch.isfinite(b.float()).all()) for b in hb), served=TL.STATS[:])
+        drop(ra); drop(rb)
+        run_arms("lntr", {"transpose_ln": (lambda: (drop(ln_base()), None)[1], None),
+                          "ln_tr": (lambda: (drop(ln_tr()), None)[1], None)}, A.calls)
+    for x in (zd, wd, gd, bd):
+        ttnn.deallocate(x)
+
 log(ev="done")
 _SAMPLER.terminate()
