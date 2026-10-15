@@ -16,7 +16,7 @@ v = dict(rc=rc, wall_s=round(t1 - t0, 1), refused=open(f"{o}/cli.log").read().co
 f = sorted(glob.glob(f"{o}/npz/**/*.npz", recursive=True))
 if f:
     z = np.load(f[0]); a = max((z[k] for k in z.files), key=lambda a: a.size)
-    v.update(npz=f[0], shape=list(a.shape), finite=bool(np.isfinite(a).all()), rows_ok=n in a.shape)
+    v.update(npz=f[0], shape=list(a.shape), finite=bool(np.isfinite(a).all()), rows_ok=bool({n, n + 2} & set(a.shape)))  # per-residue, with or without BOS/EOS
 v["pass"] = rc == 0 and v.get("finite", False) and v.get("rows_ok", False)
 json.dump(v, open(f"{o}/verdict.json", "w")); print(v)
 PY
