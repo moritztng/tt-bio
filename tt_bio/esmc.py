@@ -227,9 +227,18 @@ QK_L1_STATS = [0, 0]
 ESMC_SDPA_K_CHUNK = 64
 
 
+# q in one chunk up to ESMC_SDPA_Q_WHOLE rows. The page bucket, 544 rows, is 17 tiles, a prime, so a 128-row chunk pads
+# q to 640. Galaxy chip at 1000 MHz, batch 7 x 15 heads x 544 x d 64 (sdpa_sweep.py), ms per call: q128/k64 1.167 ->
+# q544/k64 0.792, error against float64 unchanged (max abs 0.0467, pcc 0.99970 both). Off until the page cell says.
+_ESMC_SDPA_Q_WHOLE = env_flag("TT_BIO_ESMC_SDPA_Q_WHOLE", False)
+ESMC_SDPA_Q_WHOLE = 544
+
+
 def lm_sdpa_config(q_len: int, k_len: int):
-    return _sdpa_program_config(min(ESMC_SDPA_Q_CHUNK, _capped_sdpa_chunk_size(q_len)),
-                                min(ESMC_SDPA_K_CHUNK, _capped_sdpa_chunk_size(k_len)))
+    q_pad = -(-q_len // 32) * 32
+    q_chunk = (q_pad if _ESMC_SDPA_Q_WHOLE and q_pad <= ESMC_SDPA_Q_WHOLE
+               else min(ESMC_SDPA_Q_CHUNK, _capped_sdpa_chunk_size(q_len)))
+    return _sdpa_program_config(q_chunk, min(ESMC_SDPA_K_CHUNK, _capped_sdpa_chunk_size(k_len)))
 
 
 class Embedding(Module):
