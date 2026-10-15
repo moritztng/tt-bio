@@ -238,6 +238,11 @@ _ATTN_KDTREE = env_flag("RFD3_ATTN_KDTREE", True)
 # RFD3_PAIRBIAS_FUSED=0 restores the per-block projection so the fold A/B has an arm.
 _PAIRBIAS_FUSED = env_flag("RFD3_PAIRBIAS_FUSED", True)
 _PAIRBIAS_SLOT = 32
+# The same fusion for the atom encoder's and decoder's three blocks: each projected the shared
+# neighbour pair features [1, L, 128, 16] to its 4 heads with its own matmul, 1.41 ms a call on
+# Wormhole for a tile-padded 4-wide output. One matmul to all 12 heads and one permute, each block
+# slices its 4 heads back out (_prime_atom_pair_bias). RFD3_ATOM_PB_FUSED=0 restores the per-block form.
+_ATOM_PB_FUSED = env_flag("RFD3_ATOM_PB_FUSED", True)
 
 # The pair `Transition` is 37 % of every step's DRAM traffic (23.70 of 63.43 GB,
 # perf/p63/traffic_census.json) against an irreducible 1.98 GB, because all of its intermediates
@@ -2217,6 +2222,7 @@ class RFD3AtomBlock(Module):
         self.a_out_b = self.torch_to_tt(a + "linear_output_project.0.bias", dtype=dt)
         # The DiT's 48-wide heads, padded to a tile in the weights for the dense SDPA arm.
         self.pad_w = self._padded_head_weights(a) if _DIT_SDPA and self.head_dim % TILE else None
+        self._pb_primed = None          # (p, [1, H, L, K] pair bias), set by _prime_atom_pair_bias
 
         t = "transition_block."
         self.t_ln_s = self.torch_to_tt(t + "ada_ln.ln_s.weight", dtype=dt)
@@ -2254,11 +2260,15 @@ class RFD3AtomBlock(Module):
             hit = cache.get((id(self), "pb"))
             if hit is not None and hit[0] == key and hit[1] is p:
                 return hit[2]
-        pair_bias = _tuned_linear(
-            p, self.b_w, ckc=self.compute_kernel_config, dtype=self.dtype,
-            core_grid=CORE_GRID_MAIN,
-        )
-        pair_bias = ttnn.permute(pair_bias, (0, 3, 1, 2))
+        primed = self._pb_primed
+        if primed is not None and primed[0] is p:
+            pair_bias = primed[1]
+        else:
+            pair_bias = _tuned_linear(
+                p, self.b_w, ckc=self.compute_kernel_config, dtype=self.dtype,
+                core_grid=CORE_GRID_MAIN,
+            )
+            pair_bias = ttnn.permute(pair_bias, (0, 3, 1, 2))
         if cache is not None:
             cache[(id(self), "pb")] = (key, p, pair_bias)
         return pair_bias
@@ -2649,6 +2659,40 @@ class RFD3AtomBlock(Module):
 
 
 
+def _prime_atom_pair_bias(owner, blocks, p, cache=None):
+    """Hand every atom block its [1, H, L, K] neighbour pair bias from ONE projection of the shared
+    pair features `p` (see _ATOM_PB_FUSED). Skipped when off, or when `cache` already holds this
+    stream's masks (the decoder's second recycle builds nothing). Returns the blocks it primed, for
+    _unprime_atom_pair_bias."""
+    if not _ATOM_PB_FUSED:
+        return ()
+    if cache is not None:
+        hit = cache.get((id(blocks[0]), "sdpa")) or cache.get((id(blocks[0]), "pb"))
+        if hit is not None and hit[1] is p:
+            return ()
+    w = getattr(owner, "_atom_b_w", None)
+    if w is None:
+        cols = torch.cat([b.weights["attention_pair_bias.to_b.weight"].t().float() for b in blocks], dim=1)
+        # Straight from the torch weights, not torch_to_tt: see the DiT's b_w_fused.
+        w = owner._atom_b_w = ttnn.from_torch(cols, layout=ttnn.TILE_LAYOUT, device=owner.device,
+                                              dtype=owner.dtype)
+    pb = _tuned_linear(p, w, ckc=owner.compute_kernel_config, dtype=owner.dtype, core_grid=CORE_GRID_MAIN)
+    pb_t = ttnn.permute(pb, (0, 3, 1, 2))
+    ttnn.deallocate(pb)
+    B, _, L, K = (int(d) for d in pb_t.shape)
+    lo = 0
+    for b in blocks:
+        b._pb_primed = (p, ttnn.slice(pb_t, [0, lo, 0, 0], [B, lo + b.n_head, L, K]))
+        lo += b.n_head
+    ttnn.deallocate(pb_t)
+    return blocks
+
+
+def _unprime_atom_pair_bias(blocks):
+    for b in blocks:
+        b._pb_primed = None
+
+
 class LocalAtomTransformer(Module):
     """Three-block RFD3 atom encoder with parity-preserving sparse QK."""
 
@@ -2677,8 +2721,10 @@ class LocalAtomTransformer(Module):
             )
             q, c = _dev(q_host, dev, dt), _dev(c_host, dev, dt)
             sparse_qk = (n_keys, attn_idx_dev, dense_bias, gathered, block)
+            primed = _prime_atom_pair_bias(self, self.blocks, p)
             for block in self.blocks:
                 q = block(q, c, p, sparse_qk=sparse_qk)
+            _unprime_atom_pair_bias(primed)
             out = q
         else:
             q = _dev(q_host, dev, dt)
@@ -2792,6 +2838,7 @@ class CompactStreamingDecoder(Module):
         """Pure-device core loop (pack -> upcast -> unpack -> atom_block, x3).
         `a` is the FLAT (not pre-split) atom-pair stream."""
         a_split = ttnn.reshape(a, (a.shape[0], a.shape[1], 3, 256))
+        primed = _prime_atom_pair_bias(self, self.atom_blocks, p, bias_cache) if sparse_qk is not None else ()
         for upcast, atom_block in zip(self.upcast, self.atom_blocks):
             q_grouped = self._pack_atoms_device(q, pack_idx_dev, valid)
             q_grouped = ttnn.add(
@@ -2799,6 +2846,7 @@ class CompactStreamingDecoder(Module):
             )
             q = self._unpack_atoms_device(q_grouped, unpack_idx_dev, length)
             q = atom_block(q, c, p, mask, sparse_qk=sparse_qk, bias_cache=bias_cache)
+        _unprime_atom_pair_bias(primed)
         return q
 
     def _design_buffers(self, tok_idx, batch):
