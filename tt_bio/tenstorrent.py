@@ -11359,7 +11359,7 @@ class TriangleAttention(Module):
                 x = _pair_transpose(x, _transpose_memory_config(x),
                                     l1_stage_reserve=self.transpose_l1_reserve)
             # triatt_ln: the norm and the qkvgb projection as one kernel, the normed copy never
-            # leaves L1. x stays the raw (or transposed) pair then, owned only in the ending variant.
+            # leaves L1. x stays the raw (or transposed) pair then, owned only when transposed here.
             transposed = self.ending and fused is None
             if fused is None and fusable:
                 fused = _triatt_ln.ln_qkvgb_heads(
