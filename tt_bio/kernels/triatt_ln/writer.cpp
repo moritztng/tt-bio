@@ -8,6 +8,14 @@
 // H = 0 (apb_ln, triatt_ln.ln_proj): the NW tiles go row-major to one [B, S, NW * 32] tensor.
 #include "api/dataflow/dataflow_api.h"
 
+// Row tile of the i-th row this core writes. Plain: r0 + i. TR (runtime arg 2, reader.cpp): r0 is the first
+// unit, 16 rows a unit, row k of unit (bt, jt, half) is row tile (bt * 32 + half * 16 + k) * MT + jt of z^T.
+inline uint32_t row_of(uint32_t r0, uint32_t i) {
+    if (!get_arg_val<uint32_t>(2)) return r0 + i;
+    const uint32_t MT = get_arg_val<uint32_t>(3), u = r0 + i / 16;
+    return ((u >> 1) / MT * 32 + (u & 1) * 16 + i % 16) * MT + (u >> 1) % MT;
+}
+
 // The H = 0 build has one output accessor and must never instantiate the five-accessor body. Outside a
 // template `if constexpr` checks its untaken branch, and inside one a body whose accessor offsets do not
 // depend on a template parameter is checked at definition, so write() picks the layout and write_heads
@@ -17,7 +25,8 @@ void write_rows(uint32_t r0, uint32_t nrows, uint32_t out_cb, uint32_t tb) {
     // apb_ln: row tile r's NW tiles are pages r * NW .. of the row-major [B, S, n] result.
     constexpr auto o_args = TensorAccessorArgs<3>();
     const auto oo = TensorAccessor(o_args, get_common_arg_val<uint32_t>(0));
-    for (uint32_t r = r0; r < r0 + nrows; ++r) {
+    for (uint32_t i = 0; i < nrows; ++i) {
+        const uint32_t r = row_of(r0, i);
         cb_wait_front(out_cb, NW);
         uint32_t src = get_read_ptr(out_cb);
         for (uint32_t j = 0; j < NW; ++j, src += tb) noc_async_write_page(r * NW + j, oo, src);
@@ -39,7 +48,8 @@ void write_heads(uint32_t r0, uint32_t nrows, uint32_t out_cb, uint32_t tb) {
     const auto ov = TensorAccessor(v_args, get_common_arg_val<uint32_t>(2));
     const auto og = TensorAccessor(g_args, get_common_arg_val<uint32_t>(3));
     const auto ob = TensorAccessor(b_args, get_common_arg_val<uint32_t>(4));
-    for (uint32_t r = r0; r < r0 + nrows; ++r) {
+    for (uint32_t i = 0; i < nrows; ++i) {
+        const uint32_t r = row_of(r0, i);
         cb_wait_front(out_cb, NW);
         uint32_t src = get_read_ptr(out_cb);
         const uint32_t base = (r / MT) * H * MT + r % MT;
