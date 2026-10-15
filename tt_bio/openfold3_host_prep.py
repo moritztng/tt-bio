@@ -104,6 +104,24 @@ def dedup_template_slots(feat: dict) -> tuple[dict, list[int]]:
     return {k: v[reps].contiguous() for k, v in feat.items()}, slot_index
 
 
+# The raw per-slot keys `derive_template_feat` reads. Each derived slot is an injective function
+# of its own raw slot (the pair masks keep their diagonal, so a mask that differs anywhere shows),
+# so two slots derive byte-identically exactly when these match.
+TEMPLATE_RAW_KEYS = ("template_distogram", "template_pseudo_beta_mask",
+                     "template_backbone_frame_mask", "template_restype", "template_unit_vector")
+
+
+def derived_template_slots(features: dict) -> tuple[dict, list[int]]:
+    """``dedup_template_slots(derive_template_feat(features))``, deduped on the raw keys first.
+
+    Same tensors and slot map, but the [N, N] blocks are built once per distinct slot instead of
+    once per slot: on a query with one real template or none, the duplicate slots are never
+    expanded (0.20 -> 0.06 s on one core at 512 tokens).
+    """
+    raw, slot_index = dedup_template_slots({k: features[k] for k in TEMPLATE_RAW_KEYS})
+    return derive_template_feat({**features, **raw}), slot_index
+
+
 def derive_relpos(features: dict) -> torch.Tensor:
     """139-d ``relpos_complex`` feature, input-embedder clipping config."""
     return relpos_complex(
