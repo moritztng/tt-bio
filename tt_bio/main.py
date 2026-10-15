@@ -3384,16 +3384,8 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
                                          "--use_tfg_guidance": use_tfg_guidance,
                                          "--trunk_cache": trunk_cache is not None}):
             click.secho(note, fg="yellow")
-        # ESMFold2's ESMC-6B language model is ~12.8 GB resident in normal precision
-        # and does not fit a Wormhole chip's ~12 GB DRAM (OOM at every length). The
-        # --fast block-fp8 path halves it to ~6.4 GB and, with the grid-aware FFN
-        # tiling, folds the full L<=1024 range. So on Wormhole ESMFold2 runs fast-only.
-        if use_tt and model in ("esmfold2", "esmfold2-fast") and not fast:
-            from tt_bio.tenstorrent import is_wormhole
-            if is_wormhole():
-                fast = True
-                click.secho("Note: --model {} runs in --fast mode on Wormhole (normal "
-                            "precision needs >12 GB DRAM/chip); enabling --fast.".format(model), fg="yellow")
+        # On Wormhole ESMFold2's ESMC-6B is block-fp8 in both modes (esmfold2_runtime.load_ttnn_esmfold2):
+        # in bf16 it alone needs ~12.8 GB of a chip's 12 GiB. --fast still picks the fold's lever set.
         # AF2-IG is single-sequence on both chains by construction (ColabDesign's binder
         # protocol builds `msa_feat` from the one sequence, and the extra-MSA mask is all
         # zeros), and it samples nothing: no diffusion, no seed, the same input gives the
