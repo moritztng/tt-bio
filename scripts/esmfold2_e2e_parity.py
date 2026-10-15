@@ -47,6 +47,13 @@ committed reference-fixture tree (opendde schema): ``meta.json`` +
 ``ref_fp32/seed<N>.npz`` reference outputs + ``seed<N>/{meta.json,results.json,
 structures/<target>.cif,device_seed<N>.npz}`` device outputs, and asserts the executed
 sampler step count (requested 100 -> 68 after the sigma_max=256 schedule clip).
+``--ref_fixture <dir>`` reads the reference folds back from such a tree instead of running
+them, so a release only pays for the device side (a CPU fp32 fold of cdk2x2_512 takes ~47 min
+per seed). The fixture's settings and checkpoint must match the run's, or the harness refuses.
+
+The device model is built and folds under the lever set ``tt-bio predict`` uses for the same
+checkpoint and mode (``esmfold2_runtime.fold_scope``), so the number is the one users get.
+``TT_BIO_LEVERS`` overrides it, as it does for the serving path.
 """
 
 from __future__ import annotations
@@ -272,6 +279,32 @@ def run_forward(model, feats, lm_hs, *, loops, steps, samples, seed=0):
                      num_sampling_steps=steps, num_diffusion_samples=samples)
 
 
+def load_ref_fixture(root, name, seeds, args, ckpt):
+    """The reference folds a fixture tree recorded (see dump_fixture), as run_forward returns them."""
+    from pathlib import Path
+
+    import numpy as np
+    root = Path(root)
+    meta = json.loads((root / "meta.json").read_text())
+    st = meta["settings"]
+    want = {"recycling_cycles": args.loops, "requested_steps": args.steps,
+            "checkpoint": ckpt["version"]}
+    have = {k: st.get(k) for k in want}
+    if have != want or meta["envelope"]["settings"]["target_id"] != name:
+        raise SystemExit(f"{root}: fixture was folded with {have} on "
+                         f"{meta['envelope']['settings']['target_id']!r}, this run asks for "
+                         f"{want} on {name!r}; regenerate it with --fixture_dir")
+    missing = sorted(set(seeds) - set(meta["seeds"]))
+    if missing:
+        raise SystemExit(f"{root}: no reference fold for seeds {missing} (has {meta['seeds']})")
+    runs = {}
+    for s in seeds:
+        with np.load(root / "ref_fp32" / f"seed{s}.npz") as z:
+            runs[s] = {k: torch.from_numpy(z[k]) for k in
+                       ("sample_atom_coords", "plddt", "distogram_logits", "ptm")}
+    return runs
+
+
 def kabsch_rmsd(a_coords, b_coords, atom_mask):
     """RMSD (Angstrom) of a_coords onto b_coords after weighted rigid alignment.
 
@@ -419,7 +452,7 @@ def dump_fixture(fixture_dir, name, chains, feats, chain_infos, builder, ref_run
            f"--fixture_dir {fixture_dir} --out <summary.json>")
     meta = {
         "command": cmd,
-        "date": "2026-07-29",
+        "date": __import__("datetime").date.today().isoformat(),
         "model": args.checkpoint,
         "msa": "none (single-sequence; ESMFold2 is single-sequence by design, its MSA is optional)",
         "envelope": {
@@ -936,18 +969,23 @@ def main():
                          "the reference fold, so no parity verdict is produced")
     ap.add_argument("--fixture_dir", default=None,
                     help="dump a committed fixture tree here (requires exactly one protein)")
+    ap.add_argument("--ref_fixture", default=None,
+                    help="read the reference folds from this fixture tree instead of running "
+                         "them (requires exactly one protein)")
     args = ap.parse_args()
 
     torch.set_grad_enabled(False)
     from tt_bio import tenstorrent
     from tt_bio._vendor.esmfold2_hf.modeling_esmfold2 import ESMFold2Model
     from tt_bio._vendor.esmfold2_hf.modeling_esmfold2_common import compute_lm_hidden_states
-    from tt_bio.esmfold2_runtime import _ESMCAdapter, patch_esmfold2
+    from tt_bio.esmfold2_runtime import _ESMCAdapter, fold_levers, fold_scope, patch_esmfold2
 
     names = [n.strip() for n in args.proteins.split(",") if n.strip()]
     seeds = [int(s.strip()) for s in args.seeds.split(",") if s.strip()]
-    if args.fixture_dir and len(names) != 1:
-        raise SystemExit("--fixture_dir requires exactly one --proteins entry")
+    if (args.fixture_dir or args.ref_fixture) and len(names) != 1:
+        raise SystemExit("--fixture_dir and --ref_fixture require exactly one --proteins entry")
+    if args.fixture_dir and args.ref_fixture:
+        raise SystemExit("--fixture_dir records reference folds that --ref_fixture would skip")
 
     # Empirical device-side executed-step counter: capture the sampler's own n_steps via
     # its progress hook on the first device forward.
@@ -983,9 +1021,12 @@ def main():
           flush=True)
 
     # ttnn model: same weights, every submodule swapped to ttnn.
-    print(f"loading ttnn model (fast={args.fast}) ...", flush=True)
+    levers = fold_levers(args.fast)
+    print(f"loading ttnn model (fast={args.fast}, levers={levers}) ...", flush=True)
     tt_model = ESMFold2Model.from_pretrained(repo, load_esmc=False, revision=revision).eval()
-    patch_esmfold2(tt_model, esmc_repo=args.esmc_repo, fast=args.fast)
+    # Built and folded under the set `predict` uses: some levers are read at build, the rest at run.
+    with fold_scope(args.fast):
+        patch_esmfold2(tt_model, esmc_repo=args.esmc_repo, fast=args.fast)
     tt_model._esmc = esmc  # reuse the already-loaded ESMC (LM states are passed in anyway)
 
     results = []
@@ -1005,12 +1046,13 @@ def main():
             atom_mask = atom_mask.unsqueeze(0)
 
         if args.conf_ab:
-            ab = conf_trunk_ab(tt_model, ref_model, feats, lm_hs, loops=args.loops,
-                               steps=args.steps, seed=seeds[0],
-                               trunk_probe=args.trunk_probe, z_sens=args.z_sens,
-                               x_swap_pdb=args.x_swap_pdb,
-                               inputs_swap=args.inputs_swap, ref_z=args.ref_z,
-                               z_ref_out=args.z_ref_out)
+            with fold_scope(args.fast):
+                ab = conf_trunk_ab(tt_model, ref_model, feats, lm_hs, loops=args.loops,
+                                   steps=args.steps, seed=seeds[0],
+                                   trunk_probe=args.trunk_probe, z_sens=args.z_sens,
+                                   x_swap_pdb=args.x_swap_pdb,
+                                   inputs_swap=args.inputs_swap, ref_z=args.ref_z,
+                                   z_ref_out=args.z_ref_out)
             ab = dict(protein=name, target=label, L=seq_len, seed=seeds[0],
                       checkpoint=args.checkpoint,
                       trunk_blocks=ckpt["trunk_blocks"], **ab)
@@ -1018,12 +1060,16 @@ def main():
             print(json.dumps(ab, indent=2), flush=True)
             continue
 
-        ref_runs, tt_runs = {}, {}
+        ref_runs = (load_ref_fixture(args.ref_fixture, name, seeds, args, ckpt)
+                    if args.ref_fixture else {})
+        tt_runs = {}
         for s in seeds:
-            print(f"  ref seed={s} ...", flush=True)
-            ref_runs[s] = run_forward(ref_model, feats, lm_hs, loops=args.loops, steps=args.steps, samples=1, seed=s)
+            if s not in ref_runs:
+                print(f"  ref seed={s} ...", flush=True)
+                ref_runs[s] = run_forward(ref_model, feats, lm_hs, loops=args.loops, steps=args.steps, samples=1, seed=s)
             print(f"  device seed={s} ...", flush=True)
-            tt_runs[s] = run_forward(tt_model, feats, lm_hs, loops=args.loops, steps=args.steps, samples=1, seed=s)
+            with fold_scope(args.fast):
+                tt_runs[s] = run_forward(tt_model, feats, lm_hs, loops=args.loops, steps=args.steps, samples=1, seed=s)
 
         base_ref, base_tt = ref_runs[seeds[0]], tt_runs[seeds[0]]
         verdicts = compare_multiseed(ref_runs, tt_runs, atom_mask, seeds)
@@ -1036,7 +1082,8 @@ def main():
             # What the input asked for, next to what the fold produced: a reader that has
             # both can tell a target with no ligand from a ligand that went missing.
             n_ligand_chains=sum(1 for c in chains if c[3] == "ligand"),
-            checkpoint=args.checkpoint, trunk_blocks=ckpt["trunk_blocks"],
+            checkpoint=args.checkpoint, trunk_blocks=ckpt["trunk_blocks"], levers=levers,
+            ref_source=args.ref_fixture or "folded in this run",
             plddt_mean=plddt_means,
             plddt_pcc=pcc(base_tt["plddt"], base_ref["plddt"]),
             plddt_mae=(base_tt["plddt"].float() - base_ref["plddt"].float()).abs().mean().item(),
