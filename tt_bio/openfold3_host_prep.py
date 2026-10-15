@@ -69,8 +69,9 @@ def derive_template_feat(features: dict) -> dict:
     return {
         "distogram": features["template_distogram"].float(),
         "pseudo_beta_pair_mask": (pbm[..., None] * pbm[..., None, :])[..., None] * mcm[..., None],
-        "restype_ti": restype[..., None, :].expand(*restype.shape[:-2], -1, n_tok, -1).contiguous(),
-        "restype_tj": restype[..., None, :, :].expand(*restype.shape[:-2], n_tok, -1, -1).contiguous(),
+        # Stride-0 views: the template embedder projects the row they broadcast (_unbroadcast).
+        "restype_ti": restype[..., None, :].expand(*restype.shape[:-2], -1, n_tok, -1),
+        "restype_tj": restype[..., None, :, :].expand(*restype.shape[:-2], n_tok, -1, -1),
         "unit_vec_x": ux[..., None],
         "unit_vec_y": uy[..., None],
         "unit_vec_z": uz[..., None],
