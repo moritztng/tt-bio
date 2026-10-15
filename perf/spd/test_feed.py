@@ -1,5 +1,6 @@
 """perf/spd/feed.py without a box: fake pools, check fill order, done-skip, twin-skip and the fast-fail quarantine."""
 import json
+import shutil
 import os
 import subprocess
 import sys
@@ -215,10 +216,12 @@ def test_a_long_waiting_bh_job_moves_to_a_free_card_on_the_other_box(tmp_path, m
     assert json.loads((tmp_path / "state/spd/feed/ledger.json").read_text())[key]["host"] == "qb2"
 
 
-def _place_bh(tmp_path, cards, body, cap=5, poll="0.2"):
+def _place_bh(tmp_path, cards, body, cap=5, poll="0.2", leg_sid=None):
     (tmp_path / "spd/feed/jobs").mkdir(parents=True, exist_ok=True)
-    # no release-gate leg: the test host's own legs (pc runs some) would otherwise hold a card in the waiter's pgrep
-    (tmp_path / "bin").mkdir(exist_ok=True); (tmp_path / "bin/pgrep").write_text("#!/bin/sh\nexit 1\n")
+    # no release-gate leg but the test's own (session leg_sid): the test host's legs (pc runs some) would otherwise
+    # hold a card in the waiter's pgrep
+    stub = f"exec {shutil.which('pgrep')} -s {leg_sid} \"$@\"" if leg_sid else "exit 1"
+    (tmp_path / "bin").mkdir(exist_ok=True); (tmp_path / "bin/pgrep").write_text(f"#!/bin/sh\n{stub}\n")
     (tmp_path / "bin/pgrep").chmod(0o755)
     job = {"name": "4-x.sh", "body": body, "cards": cards, "lock": str(tmp_path / "l{c}"), "cap": cap}
     r = subprocess.run([sys.executable, "-c", feed.PLACE], input=json.dumps({"kind": "bh", "jobs": [job]}) + "\n",
@@ -379,6 +382,19 @@ def test_probe_drops_a_dead_arc_card_and_names_its_node(tmp_path):
                        env=dict(os.environ, HOME=str(tmp_path), TT_SYSFS=str(tmp_path / "sys")))
     out = json.loads(r.stdout)
     assert out["dead"] == {"2": 3} and out["cards"] == [0, 1, 3] and out["healthy"] == 3
+
+
+def test_a_bh_waiter_leaves_a_card_to_a_waiting_runpy_gate_leg(tmp_path):
+    # 10-16 qb2: rel-fix legs bc2_boundary / parity_af2ig-trunk-device waited on chips 1 and 3 with only
+    # RELEASE_GATE_RUN_DIR naming the gate, the guard missed them and a feed waiter could take the chip first
+    leg = subprocess.Popen(["bash", "-c", 'exec -a "flock /h/spd_qb2_chip5.lock env TT_VISIBLE_DEVICES=5 '
+                            'RELEASE_GATE_RUN_DIR=/o/run python3 -c runpy" sleep 30'], start_new_session=True)
+    try:
+        time.sleep(0.2)
+        sh = _place_bh(tmp_path, [5, 6], "echo card $CHIP\n", leg_sid=leg.pid)
+        assert Path(f"{sh}.log").read_text() == "card 6\n"
+    finally:
+        leg.kill()
 
 
 def test_a_bh_waiter_skips_a_dead_arc_card(tmp_path):

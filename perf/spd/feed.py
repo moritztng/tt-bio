@@ -65,6 +65,10 @@ BH_POOLS = {
     "qb2": {"ssh": "qb2", "cards": [0, 1, 2, 3], "lock": "/home/ttuser/spd_qb2_chip{c}.lock"},
 }
 
+# pgrep pattern for a release-gate leg on card %s, running or waiting for its flock. A leg that runs a perf script through
+# runpy (bc2_boundary, parity_*) names the gate only in its RELEASE_GATE_RUN_DIR env, so the pattern keys on that too.
+GATE_LEG = "(spd_qb1_card|spd_qb2_chip|TT_VISIBLE_DEVICES=)%s[. ].*(RELEASE_GATE_RUN_DIR|release_gate|gate_fanout|perf_ab)"
+
 # Runs on the pool host: report state, existence of paths, and sweep dead entries. Payload is appended as JSON.
 PROBE = r'''
 import glob, json, os, shutil, sys, time
@@ -159,14 +163,14 @@ else:
                 fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB); fcntl.flock(f, fcntl.LOCK_UN); return True
         except (OSError, KeyError):
             return False
-    rel = lambda c: subprocess.run(["pgrep", "-f", "(spd_qb1_card|spd_qb2_chip|TT_VISIBLE_DEVICES=)%d[. ].*"
-                                    "(release_gate|gate_fanout|perf_ab)" % c], capture_output=True).returncode == 0
+    rel = lambda c: subprocess.run(["pgrep", "-f", GATE_LEG % c], capture_output=True).returncode == 0
     # a box's own waiters take its free cards within a poll, so only a box with none waiting offers cards to steal
     out["free"] = [] if queued else [c for c in cards if c not in held and lock_free(c) and not rel(c)]
     out["live"] = []
     out["queued"] = queued; out["paused"] = os.path.exists(J + "/PAUSE")
 print(json.dumps(out))
 '''
+PROBE = f"GATE_LEG = {GATE_LEG!r}\n" + PROBE
 
 # Runs a BH job under its cap: SIGINT at the cap, then SIGTERM to the job's whole process group after a grace period.
 # SIGINT alone cannot interrupt a native wait: on 10-15 a device-init hang outlived its bash wrapper as an orphan and
@@ -218,7 +222,7 @@ for j in A["jobs"]:
         # free. 10-15: waiters bound to one card queued on busy cards 2 and 3 while qb1 card 0 sat free 15+ min.
         w = (NODE + 'exec 8>"$(dirname "$1")/.dispatch"; flock -w 86400 8 || { echo flockbusy > "$1.end"; exit 3; }; '
              'D=$((SECONDS + 86400)); while :; do for c in $2; do [ -e ~/spd/locks/chip$c.BAD ] && continue; dead $c && continue; '
-             'G="(spd_qb1_card|spd_qb2_chip|TT_VISIBLE_DEVICES=)$c[. ].*(release_gate|gate_fanout|perf_ab)"; '
+             'G="' + GATE_LEG % "$c" + '"; '
              'pgrep -f "$G" >/dev/null && continue; exec 9>"${3//@/$c}"; '
              'flock -n 9 && ! pgrep -f "$G" >/dev/null && break 2; exec 9>&-; done; '
              '[ $SECONDS -lt $D ] || { echo flockbusy > "$1.end"; exit 3; }; sleep "${POLL:-20}"; done; '
@@ -233,7 +237,7 @@ for n in A.get("unqueue", []):
     if os.path.exists(p): os.makedirs(H + "/spd/pool/quarantine", exist_ok=True); os.rename(p, H + "/spd/pool/quarantine/" + n)
 print(len(A["jobs"]))
 '''
-PLACE = f"NODE = {NODE!r}\nRUN = {RUN!r}\n" + PLACE   # the waiter string above runs on the BH host, where only what PLACE defines exists
+PLACE = f"NODE = {NODE!r}\nRUN = {RUN!r}\nGATE_LEG = {GATE_LEG!r}\n" + PLACE   # the waiter string above runs on the BH host, where only what PLACE defines exists
 
 
 # Withdraws BH waiters that have not started: kill the waiter's session (feed started it under setsid), then set the
