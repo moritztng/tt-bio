@@ -1,0 +1,535 @@
+{
+ "activation_report": {
+  "active": true,
+  "applications": [
+   {
+    "applied": true,
+    "fallback_reasons": {},
+    "index": 1,
+    "kit_records": {
+     "apb_forward": true,
+     "ctb_forward": true,
+     "f_forward": true,
+     "installed": true,
+     "local_attention": true,
+     "mask": "1",
+     "mode": "shape",
+     "model_ready": true,
+     "sample_diffusion_wrapped": true
+    },
+    "kit_version_line": "[pxd_hoist v1.2.2]",
+    "levers_applied": [
+     "h1",
+     "h2",
+     "h3",
+     "h4",
+     "h5"
+    ],
+    "levers_fallback": [],
+    "package": {
+     "applied": [],
+     "fallback": [],
+     "fields": {},
+     "planned": [],
+     "reasons": {},
+     "skipped": []
+    },
+    "precision": {
+     "precision_attested": 1,
+     "precision_live": "highest/False/True",
+     "precision_policy": "stock"
+    }
+   }
+  ],
+  "applied": "installed",
+  "core_pin": {
+   "ok": true,
+   "package_dir": "/root/kit/common/opt_core/opt_core",
+   "pinned": {
+    "path": "../../common/opt_core",
+    "pyproject": "/root/kit/pxdesign/opt/pyproject.toml",
+    "version": "0.5.18.20"
+   },
+   "root": "/root/kit/common/opt_core",
+   "version": "0.5.228.0"
+  },
+  "env": {
+   "PXD_HOIST": "1",
+   "PXD_HOIST_MASK": "1",
+   "PXD_HOIST_MODE": "shape"
+  },
+  "fallback_reasons": {},
+  "gpu": {
+   "cc": "9.0",
+   "count": 1,
+   "cuda": "12.1",
+   "mem_gib": 139.8,
+   "memory_mib": 143157,
+   "name": "NVIDIA H200",
+   "probe": "torch",
+   "sm": "sm90",
+   "torch": "2.3.1+cu121"
+  },
+  "hook": "wrap at import",
+  "instance_counter": {
+   "built": 0,
+   "method": "none",
+   "n": 0
+  },
+  "kit": {
+   "carry": {
+    "counts": {
+     "hoist": 12
+    },
+    "ok": true,
+    "reason": null
+   },
+   "kit_home": "/root/kit/pxdesign/opt/forward/hoist",
+   "present": true
+  },
+  "kit_defaults": {
+   "PXD_HOIST": "1",
+   "PXD_HOIST_MASK": "1",
+   "PXD_HOIST_MODE": "shape"
+  },
+  "kit_home": "/root/kit/pxdesign/opt/forward/hoist",
+  "levers_applied": [
+   "h1",
+   "h2",
+   "h3",
+   "h4",
+   "h5"
+  ],
+  "levers_fallback": [],
+  "levers_planned": [
+   "h1",
+   "h2",
+   "h3",
+   "h4",
+   "h5"
+  ],
+  "levers_skipped": [],
+  "mode": "exact",
+  "notes": [],
+  "package_levers": [],
+  "package_levers_applied": [],
+  "package_levers_fallback": [],
+  "package_version": "0.7.2",
+  "partial": false,
+  "pinned_stack": {
+   "cuda": "12.1",
+   "cuda_base": "nvidia/cuda:12.1.1-devel-ubuntu22.04",
+   "cudnn": "8902",
+   "deepspeed": "0.15.4",
+   "id": "pxd-cu121",
+   "numpy": "1.26.3",
+   "nvcc": "12.1",
+   "python": "3.11.5",
+   "torch": "2.3.1+cu121",
+   "triton": "2.3.1"
+  },
+  "precision": {
+   "precision_attested": 1,
+   "precision_live": "highest/False/True",
+   "precision_policy": "stock"
+  },
+  "precision_policy": "stock",
+  "stock_pins": {
+   "bad": [],
+   "pinned": true
+  },
+  "target_gpu": "H200",
+  "tier": "1",
+  "tree_home": "/root/kit/pxdesign",
+  "trigger": null,
+  "unset": [],
+  "upstream": {
+   "protenix": "0.5.0+pxd",
+   "pxdbench": "0.1.2",
+   "pxdesign": "0.1.0"
+  }
+ },
+ "active": true,
+ "applications": [
+  {
+   "applied": true,
+   "fallback_reasons": {},
+   "index": 1,
+   "kit_records": {
+    "apb_forward": true,
+    "ctb_forward": true,
+    "f_forward": true,
+    "installed": true,
+    "local_attention": true,
+    "mask": "1",
+    "mode": "shape",
+    "model_ready": true,
+    "sample_diffusion_wrapped": true
+   },
+   "kit_version_line": "[pxd_hoist v1.2.2]",
+   "levers_applied": [
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "h5"
+   ],
+   "levers_fallback": [],
+   "package": {
+    "applied": [],
+    "fallback": [],
+    "fields": {},
+    "planned": [],
+    "reasons": {},
+    "skipped": []
+   },
+   "precision": {
+    "precision_attested": 1,
+    "precision_live": "highest/False/True",
+    "precision_policy": "stock"
+   }
+  }
+ ],
+ "argv": [
+  "design",
+  "--mode",
+  "exact",
+  "-i",
+  "/root/kc/in/pxdesign/laczc_512_nomsa.yaml",
+  "-o",
+  "/root/kc/results/pxdesign/exact/pred",
+  "--seeds",
+  "0,1,2,3,4",
+  "--N_sample",
+  "1",
+  "--N_step",
+  "400",
+  "--dtype",
+  "bf16",
+  "--use_fast_ln",
+  "true",
+  "--use_deepspeed_evo_attention",
+  "true",
+  "--eta_type",
+  "const",
+  "--eta_min",
+  "2.5",
+  "--eta_max",
+  "2.5"
+ ],
+ "command": "design",
+ "det": 0,
+ "env_exported": {
+  "PXD_HOIST": "1",
+  "PXD_HOIST_MASK": "1",
+  "PXD_HOIST_MODE": "shape"
+ },
+ "exit_code": 0,
+ "gpu": {
+  "cc": "9.0",
+  "count": 1,
+  "cuda": "12.1",
+  "mem_gib": 139.8,
+  "memory_mib": 143157,
+  "name": "NVIDIA H200",
+  "probe": "torch",
+  "sm": "sm90",
+  "torch": "2.3.1+cu121"
+ },
+ "incomplete": null,
+ "levers_applied": [
+  "h1",
+  "h2",
+  "h3",
+  "h4",
+  "h5"
+ ],
+ "levers_fallback": [],
+ "levers_planned": [
+  "h1",
+  "h2",
+  "h3",
+  "h4",
+  "h5"
+ ],
+ "levers_skipped": [],
+ "mode": "exact",
+ "options": {
+  "argv": [
+   "--N_step",
+   "400",
+   "--N_sample",
+   "1",
+   "--dtype",
+   "bf16",
+   "--eta_type",
+   "const",
+   "--eta_min",
+   "2.5",
+   "--eta_max",
+   "2.5",
+   "--num_workers",
+   "16",
+   "--use_msa",
+   "true",
+   "--use_fast_ln",
+   "true"
+  ],
+  "defaults": {
+   "N_sample": "5",
+   "N_step": "400",
+   "dtype": "bf16",
+   "eta_max": "2.5",
+   "eta_min": "2.5",
+   "eta_type": "const",
+   "num_workers": "16",
+   "use_fast_ln": "true",
+   "use_msa": "true"
+  },
+  "given": {
+   "N_sample": "1",
+   "N_step": "400",
+   "dtype": "bf16",
+   "eta_max": "2.5",
+   "eta_min": "2.5",
+   "eta_type": "const",
+   "seeds": "0,1,2,3,4",
+   "use_fast_ln": "true"
+  },
+  "seeds": [
+   0,
+   1,
+   2,
+   3,
+   4
+  ],
+  "values": {
+   "N_sample": "1",
+   "N_step": "400",
+   "dtype": "bf16",
+   "eta_max": "2.5",
+   "eta_min": "2.5",
+   "eta_type": "const",
+   "num_workers": "16",
+   "use_fast_ln": "true",
+   "use_msa": "true"
+  }
+ },
+ "outputs": {
+  "N_sample": 1,
+  "cifs": [
+   "laczc_512_nomsa/seed_0/predictions/laczc_512_nomsa_sample_0.cif",
+   "laczc_512_nomsa/seed_1/predictions/laczc_512_nomsa_sample_0.cif",
+   "laczc_512_nomsa/seed_2/predictions/laczc_512_nomsa_sample_0.cif",
+   "laczc_512_nomsa/seed_3/predictions/laczc_512_nomsa_sample_0.cif",
+   "laczc_512_nomsa/seed_4/predictions/laczc_512_nomsa_sample_0.cif"
+  ],
+  "complete": true,
+  "expected": 5,
+  "n_designs": 5,
+  "n_pairs": 5,
+  "n_seeds": 5,
+  "n_success_files": 5,
+  "n_tasks": 1,
+  "nothing_ran": false,
+  "produced": 5,
+  "scope": "job",
+  "seeds": [
+   0,
+   1,
+   2,
+   3,
+   4
+  ],
+  "skipped_existing": 0,
+  "skipped_pairs": [],
+  "tasks": [
+   "laczc_512_nomsa"
+  ]
+ },
+ "package": "pxdesign_opt",
+ "package_census": {},
+ "package_gate": [],
+ "package_version": "0.7.2",
+ "precision": {
+  "precision_live": "highest/False/True",
+  "precision_ok": 1,
+  "precision_planned": "stock"
+ },
+ "preflight": {
+  "ccd_files": {
+   "clusters-by-entity-40.txt": true,
+   "components.v20240608.cif": true,
+   "components.v20240608.cif.rdkit_mol.pkl": true
+  },
+  "ccd_root": "/weights/pxdesign/ccd_cache",
+  "checkpoint": "/weights/pxdesign/checkpoint/pxdesign_v0.1.0.pt",
+  "required_in_dir": {
+   "protenix_base_default_v0.5.0.pt": true,
+   "protenix_mini_default_v0.5.0.pt": true,
+   "protenix_mini_tmpl_v0.5.0.pt": true
+  }
+ },
+ "pxdesign_opt_env": null,
+ "python": "3.11.5",
+ "reason": null,
+ "run": {
+  "N_sample": 1,
+  "det": 0,
+  "dump_dir": "/root/kc/results/pxdesign/exact/pred",
+  "load_s": 25.655,
+  "n_items": 1,
+  "per_seed_s": {
+   "0": 9.675,
+   "1": 13.743,
+   "2": 15.565,
+   "3": 14.202,
+   "4": 10.23
+  },
+  "seeding": [
+   {
+    "cublas_workspace_config": null,
+    "cudnn_benchmark": false,
+    "deterministic": false,
+    "deterministic_algorithms": false,
+    "seed": 0
+   },
+   {
+    "cublas_workspace_config": null,
+    "cudnn_benchmark": false,
+    "deterministic": false,
+    "deterministic_algorithms": false,
+    "seed": 1
+   },
+   {
+    "cublas_workspace_config": null,
+    "cudnn_benchmark": false,
+    "deterministic": false,
+    "deterministic_algorithms": false,
+    "seed": 2
+   },
+   {
+    "cublas_workspace_config": null,
+    "cudnn_benchmark": false,
+    "deterministic": false,
+    "deterministic_algorithms": false,
+    "seed": 3
+   },
+   {
+    "cublas_workspace_config": null,
+    "cudnn_benchmark": false,
+    "deterministic": false,
+    "deterministic_algorithms": false,
+    "seed": 4
+   }
+  ],
+  "seeds": [
+   0,
+   1,
+   2,
+   3,
+   4
+  ]
+ },
+ "schema": "pxdesign_opt.opt_manifest.v3",
+ "stack": {
+  "core": {
+   "package_dir": "/root/kit/common/opt_core/opt_core",
+   "version": "0.5.228.0"
+  },
+  "cuda": "12.1",
+  "gpu": {
+   "cc": "9.0",
+   "count": 1,
+   "cuda": "12.1",
+   "mem_gib": 139.8,
+   "memory_mib": 143157,
+   "name": "NVIDIA H200",
+   "probe": "torch",
+   "sm": "sm90",
+   "torch": "2.3.1+cu121"
+  },
+  "python": "3.11.5",
+  "stack_key": "torch2.3.1-cu121-sm90",
+  "torch": "2.3.1+cu121",
+  "triton": "2.3.1"
+ },
+ "stamps": {
+  "batch": {
+   "batch": 1,
+   "chunk": 10,
+   "expected_designs": 5,
+   "n_sample": 1,
+   "seeds": 5,
+   "tasks": 1
+  },
+  "kernels": {
+   "alloc_conf": "unset",
+   "compile": "off",
+   "cuda": "12.1",
+   "cuequivariance": "no",
+   "deepspeed": "0.15.4",
+   "ds4sci_evo_attention": "on",
+   "flash_attn": "no",
+   "layernorm": "fused",
+   "source": "process",
+   "tf32_cudnn": true,
+   "tf32_matmul": false,
+   "torch": "2.3.1+cu121",
+   "xformers": "no"
+  },
+  "layernorm": {
+   "class": "protenix.model.layer_norm.layer_norm.FusedLayerNorm",
+   "env": "fast_layernorm",
+   "kind": "fused",
+   "source": "model"
+  }
+ },
+ "stock_env_proof": null,
+ "tier": "1",
+ "timings": {
+  "load_s": 25.66,
+  "note": "s/design and s/task are the amortised per-design cost of the sampling phase alone: wall_s minus load_s, the one-time cost (imports, CCD, checkpoint, fast-LN JIT when the cache is cold: run warm first), stated beside them; a route whose load time is not separable (the console script in a child process) states no per-design figure",
+  "s_per_design": 14.616,
+  "s_per_task": 14.616,
+  "sampling_s": 73.08,
+  "wall_s": 98.73
+ },
+ "torch": "2.3.1+cu121",
+ "upstream": {
+  "protenix": "0.5.0+pxd",
+  "pxdbench": "0.1.2",
+  "pxdesign": "0.1.0"
+ },
+ "upstream_argv": [
+  "-i",
+  "/root/kc/in/pxdesign/laczc_512_nomsa.yaml",
+  "-o",
+  "/root/kc/results/pxdesign/exact/pred",
+  "--N_step",
+  "400",
+  "--N_sample",
+  "1",
+  "--dtype",
+  "bf16",
+  "--eta_type",
+  "const",
+  "--eta_min",
+  "2.5",
+  "--eta_max",
+  "2.5",
+  "--num_workers",
+  "16",
+  "--use_msa",
+  "true",
+  "--use_fast_ln",
+  "true",
+  "--seeds",
+  "0,1,2,3,4",
+  "--load_checkpoint_dir",
+  "/weights/pxdesign/checkpoint",
+  "--use_deepspeed_evo_attention",
+  "true"
+ ],
+ "written_at": "2026-10-15T02:15:16Z"
+}

@@ -1,4 +1,4 @@
-# H200 accuracy (acc_arms.py, CA Kabsch RMSD over 5 folds; boxes 55990865 h1, 56013210 h2)
+# H200 accuracy (acc_arms.py, CA Kabsch RMSD over 5 folds; boxes 55990865 h1, 56013210 h2, 56023274 h3)
 
 boltz2: pair | folds | CA RMSD A median (max) | per-copy CA RMSD A median (max) | max |dx| A
 | exact vs off | 5 | 1.481 (21.230) | 1.438 (10.590) | 67.6478 |
@@ -59,3 +59,7 @@ rfdiffusion3: pair | folds | CA RMSD A median (max) | per-copy CA RMSD A median 
 | exact-det vs off-det | 5 | 0.000 (0.000) | 0.000 (0.000) | 0.0000 |
 | off-det vs off (stock floor) | 5 | 1.739 (5.331) | 2.416 (7.322) | 39.4378 |
 
+
+pxdesign: pair | folds | CA RMSD A median (max) | per-copy CA RMSD A median (max) | max |dx| A
+| exact vs off | 5 | 0.005 (0.056) | 0.007 (0.070) | 0.2162 |
+| fast vs off | 5 | 0.026 (0.089) | 0.034 (0.112) | 0.3947 |

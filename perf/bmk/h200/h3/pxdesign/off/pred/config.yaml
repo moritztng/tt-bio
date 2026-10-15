@@ -1,0 +1,250 @@
+blocks_per_ckpt: 1
+c_atom: 128
+c_atompair: 16
+c_s: 384
+c_s_inputs: 449
+c_token: 384
+c_z: 128
+data:
+  ccd_components_file: /weights/pxdesign/ccd_cache/components.v20240608.cif
+  ccd_components_rdkit_mol_file: /weights/pxdesign/ccd_cache/components.v20240608.cif.rdkit_mol.pkl
+  pdb_cluster_file: /weights/pxdesign/ccd_cache/clusters-by-entity-40.txt
+deterministic: false
+diffusion_batch_size: 48
+diffusion_chunk_size: 4
+dtype: bf16
+dump_dir: /root/kc/results/pxdesign/off/pred
+eval:
+  binder:
+    eval_binder_monomer: true
+    eval_complex: true
+    eval_diversity: false
+    eval_protenix: false
+    eval_protenix_mini: true
+    filters:
+      af2_easy:
+        bound_unbound_RMSD:
+        - <
+        - 3.5
+        i_pAE:
+        - <
+        - 0.35
+        i_pTM:
+        - '>'
+        - 0.5
+        pLDDT: &id001
+        - '>'
+        - 0.8
+      af2_opt:
+        af2_binder_pred_design_rmsd:
+        - <
+        - 1.5
+        pLDDT:
+        - '>'
+        - 0.9
+        unscaled_i_pAE:
+        - <
+        - 7.0
+      ptx:
+        ptx_iptm_binder: &id003
+        - '>'
+        - 0.85
+        ptx_pred_design_rmsd: &id002
+        - <
+        - 2.5
+        ptx_ptm_binder: &id004
+        - '>'
+        - 0.88
+      ptx_basic:
+        ptx_iptm_binder: *id001
+        ptx_pred_design_rmsd: *id002
+        ptx_ptm_binder: *id001
+      ptx_mini:
+        ptx_mini_iptm_binder: *id003
+        ptx_mini_pred_design_rmsd: *id002
+        ptx_mini_ptm_binder: *id004
+    is_cyclic: false
+    num_seqs: 1
+    tools:
+      af2:
+        is_cyclic: false
+        model_ids:
+        - 0
+        use_binder_template: true
+        use_initial_atom_pos: false
+        use_initial_guess: true
+        use_multimer: false
+      mpnn:
+        fix_interface: false
+        rm_aa: C
+        temperature: '0.0001'
+        weights: original
+      ptx:
+        N_cycle: 4
+        N_sample: 1
+        N_step: 2
+        dtype: bf16
+        gamma0: 0
+        load_checkpoint_dir: /weights/pxdesign/checkpoint
+        model_name: protenix_base_default_v0.5.0
+        step_scale_eta: 1.0
+        use_deepspeed_evo_attention: true
+        use_msa: true
+        use_template: false
+      ptx_mini:
+        N_cycle: 4
+        N_sample: 1
+        N_step: 2
+        dtype: bf16
+        gamma0: 0
+        load_checkpoint_dir: /weights/pxdesign/checkpoint
+        model_name: protenix_mini_default_v0.5.0
+        step_scale_eta: 1.0
+        use_deepspeed_evo_attention: true
+        use_msa: true
+        use_template: false
+    use_binder_seq_list: false
+    use_gt_seq: false
+  monomer:
+    eval_diversity: false
+    num_seqs: 8
+    tools:
+      mpnn:
+        model_name: v_48_020
+        model_type: ca
+        temperature: '0.1'
+  save_dir: ''
+find_unused_parameters: false
+infer_setting:
+  chunk_size: 64
+  lddt_metrics_chunk_size: 1
+  lddt_metrics_sparse_enable: true
+  sample_diffusion_chunk_size: 10
+inference_noise_scheduler:
+  rho: 7
+  s_max: 160.0
+  s_min: 0.0004
+  sigma_data: 16.0
+input_json_path: /root/kc/results/pxdesign/off/pred/laczc_512_nomsa.json
+load_checkpoint_dir: /weights/pxdesign/checkpoint
+load_checkpoint_path: ''
+load_strict: true
+loss_metrics_sparse_enable: true
+max_atoms_per_token: 24
+model:
+  N_cycle: 4
+  N_model_seed: 1
+  condition_embedder:
+    input_embedder:
+      c_atom: 128
+      c_atompair: 16
+      c_s_inputs: 449
+      c_token: 384
+    template_embedder:
+      c_templ_in: 65
+      c_z: 128
+  condition_embedding_drop_rate: 0.0
+  confidence_embedding_drop_rate: 0.0
+  design_diffusion_distogram:
+    c_z: 768
+    no_bins: 64
+  design_distogram_head:
+    c_z: 128
+    no_bins: 64
+  diffusion_module:
+    atom_decoder:
+      n_blocks: 4
+      n_heads: 4
+    atom_encoder:
+      n_blocks: 4
+      n_heads: 4
+    blocks_per_ckpt: 1
+    c_atom: 128
+    c_atompair: 16
+    c_s: 384
+    c_s_inputs: 449
+    c_token: 768
+    c_z: 128
+    sigma_data: 16.0
+    transformer:
+      n_blocks: 16
+      n_heads: 16
+    use_fine_grained_checkpoint: true
+  fuse_condition:
+    c_s: 384
+    c_s_inputs: 449
+    c_z: 128
+    fuse_s: false
+    fuse_s_inputs: false
+    fuse_z: true
+    s_clamp: 30000.0
+  input_embedder:
+    c_atom: 128
+    c_atompair: 16
+    c_token: 384
+  relative_position_encoding:
+    c_z: 128
+    r_max: 32
+    s_max: 2
+  sequence_head:
+    pairformer:
+      blocks_per_ckpt: 1
+      c_s: 384
+      c_z: 128
+      dropout: 0.2
+      n_blocks: 4
+      n_heads: 8
+    relative_position_encoding:
+      c_z: 128
+      r_max: 32
+      s_max: 2
+    seq_encoder:
+      c_s: 384
+      c_z: 128
+      eps: 1.0e-06
+      max_bin: 12.0
+      min_bin: 2.0
+      no_bins: 20
+      restype_num: 36
+    seq_pair_decoder:
+      c_z: 128
+      c_z_out: 441
+      dropout_rate: 0.2
+      num_token: 21
+    seq_single_decoder:
+      c_s: 384
+      c_s_out: 21
+      dropout_rate: 0.2
+model_name: pxdesign_v0.1.0
+n_blocks: 48
+no_bins: 64
+num_workers: 16
+sample_diffusion:
+  N_sample: 1
+  N_step: 400
+  eta_schedule:
+    max: 2.5
+    min: 2.5
+    type: const
+  gamma0: 1.0
+  gamma_min: 0.01
+  noise_scale_lambda: 1.003
+seeds:
+- 0
+- 1
+- 2
+- 3
+- 4
+sigma_data: 16.0
+skip_amp:
+  confidence_head: true
+  loss: true
+  sample_diffusion: true
+  sample_diffusion_training: true
+use_deepspeed_evo_attention: true
+use_fast_ln: true
+use_flash: false
+use_lma: false
+use_memory_efficient_kernel: false
+use_msa: true
+use_xformer: false
