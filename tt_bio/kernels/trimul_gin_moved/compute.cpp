@@ -30,7 +30,7 @@ void kernel_main() {
     constexpr uint32_t MASK = get_compile_time_arg_val(3);
     // Stage ablation, diagnostic only: bit 0 no sigmoid, bit 1 no gate multiply, bit 4 no matmul.
     constexpr uint32_t ABL = get_compile_time_arg_val(4);
-    constexpr uint32_t SIGPOLY = get_compile_time_arg_val(5);   // 1: sigmoid_poly.hpp's polynomial
+    constexpr uint32_t SIGPOLY = get_compile_time_arg_val(5);   // 1/2: sigmoid_poly.hpp's degree-8/6 polynomial
     // Round to nearest even before a pack (the pack truncates): bit 0 the output, bit 1 p and g.
     constexpr uint32_t RNE = get_compile_time_arg_val(6);
     const uint32_t nunits = get_arg_val<uint32_t>(0);
@@ -65,7 +65,7 @@ void kernel_main() {
                     }
                     if (pass == 1 && !(ABL & 1)) {
                         for (uint32_t i = 0; i < SBW; ++i) {
-                            if constexpr (SIGPOLY) sigmoid_poly_tile(i);
+                            if constexpr (SIGPOLY) sigmoid_poly_tile<SIGPOLY>(i);
                             else sigmoid_bf16_tile(i);
                         }
                     }

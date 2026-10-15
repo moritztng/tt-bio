@@ -300,6 +300,12 @@ def set_mask_fold(on: bool) -> bool:
 # Resident tail at 736 on WH (1000 MHz): 6.53 -> 5.51 ms, rel_rms to float64 0.00307 -> 0.00304.
 # triatt_tail ships the same polynomial (TT_BIO_TRIATT_TAIL_SIGPOLY).
 SIGPOLY = env_flag("TT_BIO_TRIMUL_SIGPOLY", True)
+
+
+def _sigpoly():
+    """The kernels' SIGPOLY arg: 0 metal's sigmoid, 1 the degree-8 polynomial, 2 the degree-6 one (lever
+    trimul_sig6, max |error| 7.4e-4 vs 3.0e-4, ~1/3 fewer SFPU instructions per gate)."""
+    return 0 if not SIGPOLY else 2 if _lever("trimul_sig6") else 1
 # Round DST to bf16 nearest-even in those two kernels: bit 0 before the output pack, bit 1 before the p/g
 # packs, bit 2 (resident tail, EPI 2) the product before the residual add, whose move into srcA truncates.
 # Bits 0 and 1 measured null on the outputs (gm8): the packs round already. Bit 2 brings EPI 2 to one rounding
@@ -379,7 +385,7 @@ def _build_res(xa, xb, wa, wb, outs, grid, ckc, block, epi, shared, mask=None):
     compute = ttnn.KernelDescriptor(
         kernel_source=str(d / "compute.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[kt, nt, Mb, sbw, int(shared), resid, RES_ABL, int(mask is not None),
-                           int(SIGPOLY), RNE],
+                           _sigpoly(), RNE],
         runtime_args=cp,
         config=ttnn.ComputeConfigDescriptor(
             math_fidelity=fid, math_approx_mode=approx, fp32_dest_acc_en=fp32,
@@ -510,7 +516,7 @@ def fused_tail(xa, xb, wa, wb, ckc, grid, out_memory_config=None, resid=None, sp
             ttnn.deallocate(o)
         return _reject("mask", "x".join(str(int(d)) for d in mask.padded_shape))
     if _res_ok(xa, wa, epi, split, mem) and not ABL:
-        key = ("res", RES_ABL, SIGPOLY, RNE, None if mask is None else str(mask.padded_shape)) + key
+        key = ("res", RES_ABL, _sigpoly(), RNE, None if mask is None else str(mask.padded_shape)) + key
         entry = _CACHE.get(key)
         if entry is None:
             entry = _CACHE[key] = _build_res(xa, xb, wa, wb, outs, grid, ckc, _block(wa), epi,
@@ -641,7 +647,7 @@ def _build_gin_move(x, wpT, wgT, outs, grid, ckc, mask, cto=0, ctt=None):
     fid, approx, fp32, full = ckc
     compute = ttnn.KernelDescriptor(
         kernel_source=str(d / "compute.cpp"), source_type=src, core_ranges=core_grid,
-        compile_time_args=[kt, ct2, 4, int(mask is not None), GIN_MOVE_ABL, int(SIGPOLY), RNE],
+        compile_time_args=[kt, ct2, 4, int(mask is not None), GIN_MOVE_ABL, _sigpoly(), RNE],
         runtime_args=cp,
         config=ttnn.ComputeConfigDescriptor(
             math_fidelity=fid, math_approx_mode=approx, fp32_dest_acc_en=fp32,
@@ -677,7 +683,7 @@ def gin_moved(x, wpT, wgT, ckc, grid, mask=None):
             for _ in range(2)]
     for s_, (wp, wg) in enumerate(zip(wps, wgs)):
         key = ("gin_move", str(x.padded_shape), str(wp.padded_shape), tuple(grid),
-               tuple(str(c) for c in ckc), mask is not None, GIN_MOVE_ABL, GIN_MOVE_NB, SIGPOLY, RNE,
+               tuple(str(c) for c in ckc), mask is not None, GIN_MOVE_ABL, GIN_MOVE_NB, _sigpoly(), RNE,
                s_, n)
         entry = _CACHE.get(key)
         if entry is None:
@@ -778,7 +784,7 @@ def _build_gin_ragged(x, wpT, wgT, bias, outs, grid, ckc, mask, S, qs):
     fid, approx, fp32, full = ckc
     compute = ttnn.KernelDescriptor(
         kernel_source=str(d / "compute.cpp"), source_type=src, core_ranges=core_grid,
-        compile_time_args=[kt, ct2, 4, int(mask is not None), GIN_MOVE_ABL, int(SIGPOLY), RNE, qs, St],
+        compile_time_args=[kt, ct2, 4, int(mask is not None), GIN_MOVE_ABL, _sigpoly(), RNE, qs, St],
         runtime_args=cp,
         config=ttnn.ComputeConfigDescriptor(
             math_fidelity=fid, math_approx_mode=approx, fp32_dest_acc_en=fp32,
@@ -811,7 +817,7 @@ def gin_ragged(x, wpT, wgT, bias, ckc, grid, S, mask=None, memory_config=None):
                                            ttnn.TILE_LAYOUT, device, mc)
             for _ in range(2)]
     key = ("gin_ragged", str(x.padded_shape), str(x.memory_config().buffer_type), str(wpT.padded_shape),
-           tuple(grid), tuple(str(c) for c in ckc), mask is not None, GIN_MOVE_NB, SIGPOLY, RNE, S, qs, GIN_MOVE_ABL,
+           tuple(grid), tuple(str(c) for c in ckc), mask is not None, GIN_MOVE_NB, _sigpoly(), RNE, S, qs, GIN_MOVE_ABL,
            str(mc.buffer_type))
     entry = _CACHE.get(key)
     if entry is None:
@@ -1031,7 +1037,7 @@ def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, wg=None, moved
     fid, approx, _, full = ckc
     compute = ttnn.KernelDescriptor(
         kernel_source=str(d / "compute_ln.cpp"), source_type=src, core_ranges=core_grid,
-        compile_time_args=[kt, nt, Mb, sbw, int(SIGPOLY), RNE, int(gate), int(moved is not None),
+        compile_time_args=[kt, nt, Mb, sbw, _sigpoly(), RNE, int(gate), int(moved is not None),
                            0 if moved is None else Cp],
         runtime_args=cp,
         # fp32 DEST always: the LayerNorm statistics are packed to fp32 CBs and the 4-tile
@@ -1135,7 +1141,7 @@ def fused_tail_ln(x, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5, wg=None, mov
         return None
     spec = lambda t: (str(t.padded_shape), str(t.dtype), str(t.memory_config()))
     key = ("t2", spec(x), spec(wp), str(g.dtype), spec(ln_w), spec(ln_b), wg is not None, tuple(grid),
-           tuple(str(c) for c in ckc), float(eps), SIGPOLY, RNE,
+           tuple(str(c) for c in ckc), float(eps), _sigpoly(), RNE,
            None if moved is None else (spec(moved[0]), moved[1], P))
     entry = _CACHE.get(key)
     if entry is None:
@@ -1250,7 +1256,7 @@ def fused_tail_ln_cm(xcm, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5):
     P = _t2cm_parts(wp, T2CM_MIN_P or balance_split(_tiles(xcm.shape[2]) ** 2, grid[0] * grid[1])) or _t2cm_parts(wp)
     spec = lambda t: (str(t.padded_shape), str(t.dtype), str(t.memory_config()))
     key = ("t2cm", spec(xcm), spec(wp), spec(ln_w), spec(ln_b), tuple(grid),
-           tuple(str(c) for c in ckc), float(eps), SIGPOLY, RNE, P)
+           tuple(str(c) for c in ckc), float(eps), _sigpoly(), RNE, P)
     entry = _CACHE.get(key)
     if entry is None:
         # x is only read for the channels before c_off, so with c_off 0 xcm stands in for it.
@@ -1480,7 +1486,7 @@ def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps, il, b8=F
     fid, approx, _, full = ckc
     compute = ttnn.KernelDescriptor(
         kernel_source=str(d / "compute.cpp"), source_type=src, core_ranges=core_grid,
-        compile_time_args=[kt, qn, T1_SBW, int(mask is not None), int(SIGPOLY), RNE, ng, group * qn, ct2, il],
+        compile_time_args=[kt, qn, T1_SBW, int(mask is not None), _sigpoly(), RNE, ng, group * qn, ct2, il],
         defines=abl, runtime_args=cp,
         # fp32 DEST always, as T2: the LayerNorm statistics live in fp32 CBs. The fidelity stays
         # the caller's, so the projections run as the incumbent in-projection runs them.
@@ -1523,7 +1529,7 @@ def fused_in_ln(x, ln_w, ln_b, wpT, wgT, wgo, ckc, grid, mask=None, eps=1e-5, b8
     ab = ttnn.bfloat8_b if b8 else ttnn.bfloat16
     outs = [alloc([B, C, S, S], ab), alloc([B, C, S, S], ab), alloc(shp[:-1] + [int(wgo.shape[-1])])]
     key = ("t1", str(x.padded_shape), str(wpT.padded_shape), str(wgo.padded_shape), tuple(grid),
-           tuple(str(c) for c in ckc), mask is not None, float(eps), SIGPOLY, RNE, GIN_MOVE_NB,
+           tuple(str(c) for c in ckc), mask is not None, float(eps), _sigpoly(), RNE, GIN_MOVE_NB,
            T1_RB, T1_SBW, T1_ABL, b8, il)
     for g in range(groups):
         entry = _CACHE.get(key + (g,))

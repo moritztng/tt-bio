@@ -35,7 +35,7 @@ void kernel_main() {
     // bit 2 no matmul, bit 4 no gate math (the out block is still packed).
     constexpr uint32_t ABL = get_compile_time_arg_val(6);
     constexpr uint32_t MASK = get_compile_time_arg_val(7);
-    constexpr uint32_t SIGPOLY = get_compile_time_arg_val(8);   // 1: sigmoid_poly.hpp's polynomial
+    constexpr uint32_t SIGPOLY = get_compile_time_arg_val(8);   // 1/2: sigmoid_poly.hpp's degree-8/6 polynomial
     // Round DST to bf16 nearest-even: bit 0 before the output pack, bit 1 before the p/g packs,
     // bit 2 the product before the residual add.
     constexpr uint32_t RNE = get_compile_time_arg_val(9);
@@ -74,7 +74,7 @@ void kernel_main() {
                     }
                     if (pass == 1 && !(ABL & 1)) {
                         for (uint32_t i = 0; i < SBW; ++i) {
-                            if constexpr (SIGPOLY) sigmoid_poly_tile(i);
+                            if constexpr (SIGPOLY) sigmoid_poly_tile<SIGPOLY>(i);
                             else sigmoid_bf16_tile(i);
                         }
                     }

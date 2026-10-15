@@ -39,7 +39,7 @@ constexpr uint32_t Kt = get_compile_time_arg_val(0);
 constexpr uint32_t QN = get_compile_time_arg_val(1);        // [a | b] channel tiles of this launch
 constexpr uint32_t SBW = get_compile_time_arg_val(2);
 constexpr uint32_t MASK = get_compile_time_arg_val(3);
-constexpr uint32_t SIGPOLY = get_compile_time_arg_val(4);   // 1: sigmoid_poly.hpp's polynomial
+constexpr uint32_t SIGPOLY = get_compile_time_arg_val(4);   // 1/2: sigmoid_poly.hpp's degree-8/6 polynomial
 // Round to nearest even before a pack (the pack truncates): bit 0 the output, bit 1 p and g.
 constexpr uint32_t RNE = get_compile_time_arg_val(5);
 constexpr uint32_t NG = get_compile_time_arg_val(6);        // g_out channel tiles of this launch, 0: none
@@ -150,7 +150,7 @@ void kernel_main() {
                         matmul_block(w_cb, xn_cb, i0, i1, 0, true, SBW, 1, Kt);
                     if (pass == 1) {
                         for (uint32_t i = 0; i < SBW; ++i) {
-                            if constexpr (SIGPOLY) sigmoid_poly_tile(i);
+                            if constexpr (SIGPOLY) sigmoid_poly_tile<SIGPOLY>(i);
                             else sigmoid_bf16_tile(i);
                         }
                     }

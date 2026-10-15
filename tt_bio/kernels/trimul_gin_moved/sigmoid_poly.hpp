@@ -39,6 +39,27 @@ inline void _sigmoid_poly_() {
     }
 }
 
+// sigmoid on _silu_poly6_'s degree-6 fit (lever trimul_sig6): max |error| 7.4e-4 against float64, output inside
+// (0, 1), ~2/3 of _sigmoid_poly_'s SFPU instructions (every coefficient one SFPLOADI, no 1/9 scale).
+template <int ITERATIONS = 8>
+inline void _sigmoid_poly6_() {
+#pragma GCC unroll 0
+    for (int d = 0; d < ITERATIONS; d++) {
+        sfpi::vFloat x = sfpi::dst_reg[0];
+        sfpi::vFloat a = sfpi::abs(x);
+        v_if(a > 7.0f) { a = 7.0f; }
+        v_endif;
+        sfpi::vFloat h = a * 3.552436828613281e-05f - 0.0008435249328613281f;
+        h = h * a + 0.007404327392578125f;
+        h = h * a - 0.0260009765625f;
+        h = h * a - 0.0027103424072265625f;
+        h = h * a + 0.2529296875f;
+        h = h * a;
+        sfpi::dst_reg[0] = sfpi::setsgn(h, x) + 0.5f;
+        sfpi::dst_reg++;
+    }
+}
+
 // silu(x) = x * sigmoid(x) on the polynomial above (pair_swiglu_ws). Same error bound on the sigmoid factor; the
 // metal silu_tile under fp32 dest runs the accurate exp and a two-step reciprocal instead, and was ~85 % of that
 // kernel on WH (perf/spd_fastmode/ws_attr.py).
@@ -103,9 +124,16 @@ inline void _round_bf16_rne_() {
 }  // namespace ckernel
 #endif  // TRISC_MATH
 
+// V is the kernels' SIGPOLY compile-time arg: 1 the degree-8 polynomial, 2 the degree-6 one.
+template <uint32_t V = 1>
 ALWI void sigmoid_poly_tile(uint32_t idst) {
-    MATH((_llk_math_eltwise_unary_sfpu_params_<false>(
-        ckernel::sfpu::_sigmoid_poly_<8>, idst, (int)VectorMode::RC)));
+    if constexpr (V == 2) {
+        MATH((_llk_math_eltwise_unary_sfpu_params_<false>(
+            ckernel::sfpu::_sigmoid_poly6_<8>, idst, (int)VectorMode::RC)));
+    } else {
+        MATH((_llk_math_eltwise_unary_sfpu_params_<false>(
+            ckernel::sfpu::_sigmoid_poly_<8>, idst, (int)VectorMode::RC)));
+    }
 }
 
 ALWI void silu_poly_tile(uint32_t idst) {
