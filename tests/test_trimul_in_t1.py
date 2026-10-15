@@ -52,28 +52,31 @@ def test_cb_budget_fits_l1_c384(mask):
     assert TTL.t1_cb_bytes(12, 24, 12, mask) <= 0.85 * L1_ALLOCATOR_BANK
 
 
-def test_cb_plan_covers_every_cb_the_kernels_use():
+def test_cb_plan_covers_every_cb_the_kernels_use(monkeypatch):
     used = set()
     for f in ("reader.cpp", "compute.cpp", "writer.cpp"):
         used |= {int(i) for i in re.findall(r"CBIndex::c_(\d+)", (KDIR / f).read_text())}
+    monkeypatch.setattr(TTL, "T1_SPLIT", 1)
     bf, f32 = TTL.t1_cb_plan(KT, CT2, NTG, True)
     planned = [i for i, _ in bf] + [i for i, _ in f32]
     assert len(planned) == len(set(planned)), "a CB index is planned twice"
     assert used == set(planned)
+    monkeypatch.setattr(TTL, "T1_SPLIT", 0)
     bf0, _ = TTL.t1_cb_plan(KT, CT2, NTG, False)
-    assert {3, 6, 15}.isdisjoint(i for i, _ in bf0)
+    assert {3, 6, 15, 25}.isdisjoint(i for i, _ in bf0)   # 25 is the split reader's gather staging
 
 
 def test_kernel_page_expressions_match_the_python_mirror():
     reader = (KDIR / "reader.cpp").read_text()
     writer = (KDIR / "writer.cpp").read_text()
-    assert "uint32_t page = ((b * S + xt * 32 + h * IL) * St + yt) * Kt;" in reader
+    gather = (KDIR / "gather.hpp").read_text()   # the a / b gather, shared by the writer and the split reader
+    assert "uint32_t page = ((b * S + xt * 32 + h * IL + g0 * RB) * St + yt) * Kt;" in reader
     assert "page += St * Kt" in reader
     assert "noc_async_read_page(k * NTGT + n, wo, w)" in reader
     assert "uint32_t page = ((b * S + xt * 32 + h * IL) * St + yt) * NTGT + N0;" in writer
     assert "page += St * NTGT" in writer
-    assert "const uint32_t off0 = IL == 32 ? 0 : (r0 >> 4) * 2 * FB + (r0 & 15) * RB;" in writer
-    assert "get_noc_addr(page, off0)" in writer
+    assert "const uint32_t off0 = IL == 32 ? 0 : (r0 >> 4) * 2 * FB + (r0 & 15) * RB;" in gather
+    assert "get_noc_addr(page, off0)" in gather
     assert "uint32_t page = (b * CT + (is_a ? q : q - CT)) * 32 * SS + cube;" in writer
     assert "page += SS" in writer
 
