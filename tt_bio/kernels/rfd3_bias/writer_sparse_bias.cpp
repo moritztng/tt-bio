@@ -53,6 +53,17 @@
 // device-wedge cause in this codebase).
 #include "api/dataflow/dataflow_api.h"
 
+// Bench-only diagnostics (rfd3_bias.DIAG): 1 every tile from the fill tile, 2 no DRAM writes, 3 = 1 without the scan.
+#ifndef MASKW_DIAG
+#define MASKW_DIAG 0
+#endif
+template <typename A>
+inline void out_write(uint32_t l1, const A& s, uint32_t page, uint32_t bytes) {
+    if constexpr (MASKW_DIAG != 2) {
+        noc_async_write(l1, s.get_noc_addr(page), bytes);
+    }
+}
+
 // Element offset of (r, c) inside a 32x32 tile laid out as four 16x16 faces.
 inline uint32_t face_off(uint32_t r, uint32_t c) {
     return ((((r >> 4) << 1) | (c >> 4)) << 8) + ((r & 15) << 4) + (c & 15);
@@ -169,7 +180,7 @@ void kernel_main() {
         for (uint32_t w = 0; w < OCC_WORDS; ++w) {
             occ[w] = 0;
         }
-        for (uint32_t r = 0; r < rows; ++r) {
+        for (uint32_t r = 0; r < (MASKW_DIAG == 3 ? 0 : rows); ++r) {
             volatile tt_l1_ptr uint32_t* irow = idx_l1 + r * IDX_ROW_WORDS;
             for (uint32_t sidx = 0; sidx < K; ++sidx) {
                 const uint32_t jt = irow[sidx] >> 5;
@@ -207,8 +218,8 @@ void kernel_main() {
 
         uint32_t out_page = group * Jt;
         for (uint32_t jt = 0; jt < Jt; ++jt) {
-            if (!(occ[jt >> 5] & (1u << (jt & 31)))) {
-                noc_async_write(out_base + OUT_SLOTS * OUT_TILE_BYTES, s_out.get_noc_addr(out_page), OUT_TILE_BYTES);
+            if (MASKW_DIAG == 1 || MASKW_DIAG == 3 || !(occ[jt >> 5] & (1u << (jt & 31)))) {
+                out_write(out_base + OUT_SLOTS * OUT_TILE_BYTES, s_out, out_page, OUT_TILE_BYTES);
                 ++out_page;
                 continue;
             }
@@ -238,7 +249,7 @@ void kernel_main() {
             slot_jt[slot] = jt;
             slot_rows[slot] = rows;
 
-            noc_async_write(out_addr_l1, s_out.get_noc_addr(out_page), OUT_TILE_BYTES);
+            out_write(out_addr_l1, s_out, out_page, OUT_TILE_BYTES);
             ++out_page;
             // Every slot is free again after this, so the reuse at jt + 1 can repair in place.
             if (slot == OUT_SLOTS - 1) {
