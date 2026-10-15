@@ -81,6 +81,10 @@ LEVERS_NORMAL = frozenset({"trimul_ibw", "trimul_tail", "trunk_hifi3", "dit_sdpa
 LEVERS_FAST = frozenset({"acc_off", "diffusion_bf16", "dit_sdpa", "transition_b8", "opm_b8", "atom_sdpa",
                          "trimul_ibw", "trimul_tail", "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32",
                          "triatt_tail", "adaln_mod", "transition_ws", "trimul_t1", "trimul_t2", "ws_resid"})
+# Wormhole --fast adds the pair LayerNorm fused into triangle attention's projections (protenix.TRIATT_LN). Wormhole
+# 11-set fast grade, LEVERS_FAST vs + these, 44 paired folds (spd-gap-small gtalb2, 2026-10-15), PASS: CA-lDDT
+# -0.0005 [-0.0013, +0.0001], pLDDT within 0.004 per complex, docking 24 -> 24. Galaxy chip 512 x 1 -0.64 s (5/5 pairs).
+WH_LEVERS_FAST = LEVERS_FAST | {"triatt_ln", "apb_ln"}
 
 
 def _under_levers(method):
@@ -5383,7 +5387,8 @@ class Boltz2(nn.Module):
         diffusion_trace: bool = False,
     ) -> None:
         super().__init__()
-        self._levers = (tenstorrent.model_levers(LEVERS_NORMAL, LEVERS_FAST)
+        self._levers = (tenstorrent.model_levers(
+            LEVERS_NORMAL, WH_LEVERS_FAST if tenstorrent.is_wormhole() else LEVERS_FAST)
                         if use_tenstorrent else frozenset())
         # Reserve the DiT trace region BEFORE any module opens the device: the first
         # get_device() opens, so this must precede module construction.

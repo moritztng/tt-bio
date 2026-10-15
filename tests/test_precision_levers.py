@@ -179,6 +179,7 @@ def test_boltz2_mode_sets_name_only_known_levers():
 
     for s in (B.LEVERS_NORMAL, B.LEVERS_FAST):
         assert s <= set(T.LEVERS) and not s & T.UNGRADED_LEVERS
+    assert B.WH_LEVERS_FAST <= set(T.LEVERS) and B.WH_LEVERS_FAST - B.LEVERS_FAST == {"triatt_ln", "apb_ln"}
 
 
 def test_boltzgen_mode_sets_name_only_known_levers():
@@ -207,7 +208,12 @@ def test_protenix_v2_normal_takes_t2_tail(monkeypatch):
     assert T2_TAIL <= set(T.LEVERS) and not T2_TAIL <= NORMAL_LEVERS
     monkeypatch.setattr(T, "_FAST_MODE", False)
     monkeypatch.delenv("TT_BIO_LEVERS", raising=False)
+    assert WS_CHAIN == {"ws_chain"}
+    monkeypatch.setattr(T, "is_wormhole", lambda: False)
     assert mode_levers(ck(256)) == NORMAL_LEVERS | T2_TAIL | WS_CHAIN
+    assert mode_levers(ck(128)) == NORMAL_LEVERS
+    monkeypatch.setattr(T, "is_wormhole", lambda: True)
+    assert mode_levers(ck(256)) == NORMAL_LEVERS | T2_TAIL | WS_CHAIN | TRIATT_LN
     assert mode_levers(ck(128)) == NORMAL_LEVERS
     monkeypatch.setattr(T, "_FAST_MODE", True)
     monkeypatch.setattr(T, "is_wormhole", lambda: False)
