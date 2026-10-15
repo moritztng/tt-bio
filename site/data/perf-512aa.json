@@ -81,7 +81,7 @@
       "spec": "Blackwell, 180 GB HBM3e, up to 1000 W",
       "price_usd": null,
       "price_kind": "no public per-GPU list price",
-      "note": "Measured on single-GPU nodes with Intel Xeon Platinum 8559C hosts."
+      "note": "Measured on single-GPU nodes with Intel Xeon Platinum 8559C hosts; each August cell's hover text names its own host."
     },
     {
       "id": "a100",
@@ -366,20 +366,20 @@
       "cells": {
         "p150a": {
           "status": "measured",
-          "s_per_fold": 12.818,
+          "s_per_fold": 12.559,
           "n": 4,
-          "spread_pct": 1.31,
+          "spread_pct": 1.15,
           "aiclk_mhz": 1350,
-          "versions": "tt-bio main 148605b31, ttnn 0.68.0, qb1 p150a card 0",
-          "when": "2026-10-14T15:50:38Z",
+          "versions": "tt-bio main fad47c749, ttnn 0.68.0, qb1 p150a card 1",
+          "when": "2026-10-14T17:23:27Z",
           "parity": "1 of 1 release-gate accuracy check inside the reference envelope on Blackhole (tt-bio 469ed1356). On an earlier build its printed plDDT read 0.021 below this repo's fp32 reference on the 512-residue fixture while the structure agreed (docs/esmfold2-e2e-parity.md); that has not been re-measured on this build.",
           "fast": {
-            "s_per_fold": 10.464,
+            "s_per_fold": 10.426,
             "n": 4,
-            "spread_pct": 3.98,
+            "spread_pct": 25.13,
             "aiclk_mhz": 1350,
-            "versions": "tt-bio main 148605b31, ttnn 0.68.0, qb1 p150a card 0",
-            "when": "2026-10-14T15:53:51Z"
+            "versions": "tt-bio main fad47c749, ttnn 0.68.0, qb1 p150a card 1",
+            "when": "2026-10-14T17:26:44Z"
           }
         },
         "h200": {
@@ -456,12 +456,12 @@
       "cells": {
         "p150a": {
           "status": "measured",
-          "s_per_fold": 35.001,
+          "s_per_fold": 36.392,
           "n": 4,
-          "spread_pct": 0.71,
+          "spread_pct": 4.18,
           "aiclk_mhz": 1350,
-          "versions": "tt-bio main 148605b31, ttnn 0.68.0, qb1 p150a card 0",
-          "when": "2026-10-14T15:22:59Z",
+          "versions": "tt-bio main fad47c749, ttnn 0.68.0, qb1 p150a card 1",
+          "when": "2026-10-14T16:38:33Z",
           "parity": "4 of 4 release-gate accuracy checks inside the reference envelope on Blackhole (tt-bio 469ed1356)",
           "fast": {
             "s_per_fold": 32.375,
@@ -594,7 +594,7 @@
         "b200": {
           "status": "measured",
           "s_per_fold": 17.691,
-          "provenance": "Median of n=4 warm, 17.456 / 17.475 / 17.691 / 18.623 s, spread 6.6 %, cold 31.172 s discarded. opendde 1.0.3, torch 2.7.1+cu128, cuEquivariance 0.10.0 in its cu12 build, triton 3.4.0, plDDT 0.823984, n_token 512, n_msa 35. cueqops_triangle_attention 1216 and cueqops_triangle_multiplicative_update 1216 per fold, equal to the A100 cell's counts, and the run's own kernel selectors resolved to cuequivariance from auto rather than falling back. Peak 894 W on a 1000 W part. Image pytorch/pytorch:2.7.1-cuda12.8-cudnn9-devel. The one deviation from the shipped pin is triton 3.4.0 in place of 3.3.1; torch and cuEquivariance are both left exactly where the model pins them. Shipped triton 3.3.1 hangs on sm_100 inside its own CUDA launcher when it launches cuEquivariance's fused_sigmoid_gated_dual_gemm, which is a triton kernel and not a cubin, and that hang is the whole reason this cell was blank. Neither the cu13 cuEquivariance build nor cuEquivariance 0.11.1 is used: both were tested, the cu13 build still hangs, and 0.11.1 needs torch>=2.11 against this model's torch==2.7.1. Same-session H200 control on a freshly rented box, both arms in one session: shipped triton 3.3.1 reads 20.617 s against this page's 20.64, and triton 3.4.0 reads 20.609 s, inside the shipped arm's own 20.542-20.678 s spread, so the H200 cell stands unchanged and the row is a like-for-like ratio.",
+          "provenance": "Median of n=4 warm, 17.456 / 17.475 / 17.691 / 18.623 s, spread 6.6 %, cold 31.172 s discarded. opendde 1.0.3, torch 2.7.1+cu128, cuEquivariance 0.10.0 in its cu12 build, triton 3.4.0, plDDT 0.823984, n_token 512, n_msa 35. cueqops_triangle_attention 1216 and cueqops_triangle_multiplicative_update 1216 per fold, equal to the August A100 stock run's counts, and the run's own kernel selectors resolved to cuequivariance from auto rather than falling back. Peak 894 W on a 1000 W part. Image pytorch/pytorch:2.7.1-cuda12.8-cudnn9-devel. The one deviation from the shipped pin is triton 3.4.0 in place of 3.3.1; torch and cuEquivariance are both left exactly where the model pins them. Shipped triton 3.3.1 hangs on sm_100 inside its own CUDA launcher when it launches cuEquivariance's fused_sigmoid_gated_dual_gemm, which is a triton kernel and not a cubin, and that hang is the whole reason this cell was blank. Neither the cu13 cuEquivariance build nor cuEquivariance 0.11.1 is used: both were tested, the cu13 build still hangs, and 0.11.1 needs torch>=2.11 against this model's torch==2.7.1.",
           "ref": "stock",
           "when": "2026-08-18"
         },
@@ -641,12 +641,12 @@
           "when": "2026-10-14T15:39:48Z",
           "parity": "6 of 7 release-gate accuracy checks inside the reference envelope on Blackhole (tt-bio 469ed1356); 7XI5 without templates sits outside it on a documented bf16 floor",
           "fast": {
-            "s_per_fold": 9.459,
+            "s_per_fold": 9.037,
             "n": 4,
-            "spread_pct": 1.9,
+            "spread_pct": 1.81,
             "aiclk_mhz": 1350,
-            "versions": "tt-bio main 148605b31, ttnn 0.68.0, qb1 p150a card 0",
-            "when": "2026-10-14T14:18:21Z"
+            "versions": "tt-bio main fad47c749, ttnn 0.68.0, qb1 p150a card 1",
+            "when": "2026-10-14T16:20:48Z"
           }
         },
         "h200": {
@@ -723,20 +723,20 @@
       "cells": {
         "p150a": {
           "status": "measured",
-          "s_per_fold": 27.492,
+          "s_per_fold": 27.615,
           "n": 4,
-          "spread_pct": 0.52,
+          "spread_pct": 1.34,
           "aiclk_mhz": 1350,
-          "versions": "tt-bio main 324cd5910, ttnn 0.68.0, qb1 p150a card 3",
-          "when": "2026-10-14T11:37:30Z",
+          "versions": "tt-bio main fad47c749, ttnn 0.68.0, qb1 p150a card 1",
+          "when": "2026-10-14T17:29:31Z",
           "parity": "1 of 1 release-gate accuracy check inside the reference envelope on Blackhole (tt-bio 469ed1356)",
           "fast": {
-            "s_per_fold": 26.316,
+            "s_per_fold": 26.51,
             "n": 4,
-            "spread_pct": 1.14,
+            "spread_pct": 4.53,
             "aiclk_mhz": 1350,
-            "versions": "tt-bio main 324cd5910, ttnn 0.68.0, qb1 p150a card 3",
-            "when": "2026-10-14T11:40:07Z"
+            "versions": "tt-bio main fad47c749, ttnn 0.68.0, qb1 p150a card 1",
+            "when": "2026-10-14T17:32:10Z"
           }
         },
         "h200": {
@@ -906,7 +906,7 @@
             "aiclk_mhz": 1350,
             "versions": "tt-bio main de336d9ab + harness perf/bmk/design_cell.py (wk/bmk-tt), ttnn 0.68.0, qb1 p150a card 3",
             "when": "2026-10-14T16:06:09Z",
-            "parity": "1 of 1 release-gate accuracy check inside the reference envelope on Blackhole (tt-bio c2b4b898e)",
+            "parity": "1 of 1 release-gate accuracy check inside the reference envelope on Blackhole (tt-bio 469ed1356)",
             "fast": {
               "s_per_design": 31.677,
               "n": 4,
@@ -1088,7 +1088,7 @@
           "b200": {
             "status": "measured",
             "s_per_design": 24.4062,
-            "provenance": "The generator stage's own wall clock (gen_feat + gen_device + gen_write), the same quantity every cell in this row publishes: 23.8344, 23.9108, 23.9674, 24.3176, 24.4948, 24.5916, 24.6128, 25.1704 s, pooled median 24.4062, spread 5.47 %. The two processes median 23.9391 and 24.5432. Inside it, 22.1142 s is the diffusion call and 1.9448 s plus 0.0825 s are the host featurise and CIF write. Eight warm designs across two independent processes, four each, cold design dropped in both. n_step 400, N_sample 1, bf16, one design per call. Target laczc_512_nomsa.yaml sha256 48a6b5c0c5d9ca9b, target CIF sha256 206d95b5f73d08bd, the same fixture the previous h200 and a100 cells byte-matched. Seeds 0,1,2,3 with round 4 repeating seed 0, and every seed reproduced its coordinate digest in both processes. The card was exclusive before and after every rung: nvidia-smi --query-compute-apps empty each time. Rented single-B200 node, sm_100, 183 GB, Xeon Platinum 8592+ at a 24.96 vCPU cgroup quota, driver 595.71.05. This cell is why the stack moved: CUDA 12.1 emits no sm_100 device code, so the reference stack the earlier cells used could not run here at all. triton is 3.4.0 rather than the 3.3.1 torch 2.7.1 declares, because 3.3.1's CUDA launcher hangs on sm_100. The B200 does not beat the H200 on this workload: 24.4062 against 24.2246, 0.7 % apart on arms whose own spreads are 5.5 % and 5.1 %, which is a tie. Stack: torch 2.7.1+cu128 (CUDA 12.8, cuDNN 90701), triton 3.4.0, deepspeed 0.15.4, numpy 1.26.3, transformers 4.51.3, protenix 0.5.0+pxd, pxdesign 0.1.0, pxdbench 0.1.2, jax 0.4.29 CPU-only. Checkpoint load outside the cell.",
+            "provenance": "The generator stage's own wall clock (gen_feat + gen_device + gen_write), the same quantity every cell in this row publishes: 23.8344, 23.9108, 23.9674, 24.3176, 24.4948, 24.5916, 24.6128, 25.1704 s, pooled median 24.4062, spread 5.47 %. The two processes median 23.9391 and 24.5432. Inside it, 22.1142 s is the diffusion call and 1.9448 s plus 0.0825 s are the host featurise and CIF write. Eight warm designs across two independent processes, four each, cold design dropped in both. n_step 400, N_sample 1, bf16, one design per call. Target laczc_512_nomsa.yaml sha256 48a6b5c0c5d9ca9b, target CIF sha256 206d95b5f73d08bd, the same fixture the August H200 and A100 stock runs byte-matched. Seeds 0,1,2,3 with round 4 repeating seed 0, and every seed reproduced its coordinate digest in both processes. The card was exclusive before and after every rung: nvidia-smi --query-compute-apps empty each time. Rented single-B200 node, sm_100, 183 GB, Xeon Platinum 8592+ at a 24.96 vCPU cgroup quota, driver 595.71.05. CUDA 12.1 emits no sm_100 device code, so pxdesign's reference CUDA 12.1 stack cannot run on this GPU. triton is 3.4.0 rather than the 3.3.1 torch 2.7.1 declares, because 3.3.1's CUDA launcher hangs on sm_100. Stack: torch 2.7.1+cu128 (CUDA 12.8, cuDNN 90701), triton 3.4.0, deepspeed 0.15.4, numpy 1.26.3, transformers 4.51.3, protenix 0.5.0+pxd, pxdesign 0.1.0, pxdbench 0.1.2, jax 0.4.29 CPU-only. Checkpoint load outside the cell.",
             "ref": "stock",
             "when": "2026-08-26"
           },
@@ -1189,22 +1189,22 @@
         "cells": {
           "p150a": {
             "status": "measured",
-            "s_per_batch": 0.07674,
+            "s_per_batch": 0.07666,
             "n": 7,
-            "spread_pct": 20.22,
+            "spread_pct": 5.83,
             "batch": 7,
             "aiclk_mhz": 1350,
-            "versions": "tt-bio main 148605b31, ttnn None, qb1 p150a card 0",
-            "when": "2026-10-14T15:03:20Z",
+            "versions": "tt-bio main fad47c749, ttnn None, qb1 p150a card 1",
+            "when": "2026-10-14T17:32:46Z",
             "parity": "1 of 1 release-gate accuracy check inside the reference envelope on Blackhole (tt-bio 469ed1356)",
             "fast": {
-              "s_per_batch": 0.07484,
+              "s_per_batch": 0.07595,
               "n": 7,
-              "spread_pct": 5.55,
+              "spread_pct": 45.46,
               "batch": 7,
               "aiclk_mhz": 1350,
-              "versions": "tt-bio main 148605b31, ttnn None, qb1 p150a card 0",
-              "when": "2026-10-14T15:04:02Z"
+              "versions": "tt-bio main fad47c749, ttnn None, qb1 p150a card 1",
+              "when": "2026-10-14T16:22:05Z"
             }
           },
           "h200": {
@@ -1276,21 +1276,22 @@
         "cells": {
           "p150a": {
             "status": "measured",
-            "s_per_batch": 0.11997,
+            "s_per_batch": 0.11105,
             "n": 7,
-            "spread_pct": 13.93,
+            "spread_pct": 14.22,
             "batch": 7,
             "aiclk_mhz": 1350,
-            "versions": "tt-bio main 148605b31, ttnn None, qb1 p150a card 0",
-            "when": "2026-10-14T15:04:59Z",
+            "versions": "tt-bio main fad47c749, ttnn None, qb1 p150a card 1",
+            "when": "2026-10-14T17:34:10Z",
+            "parity": "1 of 1 release-gate accuracy check inside the reference envelope on Blackhole (tt-bio 469ed1356)",
             "fast": {
-              "s_per_batch": 0.11223,
+              "s_per_batch": 0.11458,
               "n": 7,
-              "spread_pct": 11.98,
+              "spread_pct": 17.35,
               "batch": 7,
               "aiclk_mhz": 1350,
-              "versions": "tt-bio main 148605b31, ttnn None, qb1 p150a card 0",
-              "when": "2026-10-14T15:05:52Z"
+              "versions": "tt-bio main fad47c749, ttnn None, qb1 p150a card 1",
+              "when": "2026-10-14T16:23:40Z"
             }
           },
           "h200": {
@@ -1363,21 +1364,21 @@
         "cells": {
           "p150a": {
             "status": "measured",
-            "s_per_batch": 0.16004,
+            "s_per_batch": 0.1582,
             "n": 7,
-            "spread_pct": 5.89,
+            "spread_pct": 1.41,
             "batch": 1,
             "aiclk_mhz": 1350,
-            "versions": "tt-bio main 148605b31, ttnn None, qb1 p150a card 0",
-            "when": "2026-10-14T15:06:51Z",
+            "versions": "tt-bio main fad47c749, ttnn None, qb1 p150a card 1",
+            "when": "2026-10-14T16:24:41Z",
             "fast": {
-              "s_per_batch": 0.15804,
+              "s_per_batch": 0.15805,
               "n": 7,
-              "spread_pct": 8.1,
+              "spread_pct": 8.45,
               "batch": 1,
               "aiclk_mhz": 1350,
-              "versions": "tt-bio main 148605b31, ttnn None, qb1 p150a card 0",
-              "when": "2026-10-14T15:09:21Z"
+              "versions": "tt-bio main fad47c749, ttnn None, qb1 p150a card 1",
+              "when": "2026-10-14T16:27:12Z"
             }
           },
           "h200": {
@@ -1450,22 +1451,22 @@
         "cells": {
           "p150a": {
             "status": "measured",
-            "s_per_batch": 0.02867,
+            "s_per_batch": 0.02864,
             "n": 7,
-            "spread_pct": 7.39,
+            "spread_pct": 73.6,
             "batch": 7,
             "aiclk_mhz": 1350,
-            "versions": "tt-bio main 148605b31, ttnn None, qb1 p150a card 0",
-            "when": "2026-10-14T15:09:48Z",
+            "versions": "tt-bio main fad47c749, ttnn None, qb1 p150a card 1",
+            "when": "2026-10-14T16:27:32Z",
             "parity": "1 of 1 release-gate accuracy check inside the reference envelope on Blackhole (tt-bio 469ed1356)",
             "fast": {
-              "s_per_batch": 0.03228,
+              "s_per_batch": 0.02871,
               "n": 7,
-              "spread_pct": 35.13,
+              "spread_pct": 55.49,
               "batch": 7,
               "aiclk_mhz": 1350,
-              "versions": "tt-bio main 148605b31, ttnn None, qb1 p150a card 0",
-              "when": "2026-10-14T15:10:11Z"
+              "versions": "tt-bio main fad47c749, ttnn None, qb1 p150a card 1",
+              "when": "2026-10-14T17:39:14Z"
             }
           },
           "h200": {
@@ -1513,21 +1514,22 @@
         "cells": {
           "p150a": {
             "status": "measured",
-            "s_per_batch": 0.11542,
+            "s_per_batch": 0.11506,
             "n": 7,
-            "spread_pct": 10.74,
+            "spread_pct": 17.5,
             "batch": 7,
             "aiclk_mhz": 1350,
-            "versions": "tt-bio main 148605b31, ttnn None, qb1 p150a card 0",
-            "when": "2026-10-14T15:11:10Z",
+            "versions": "tt-bio main fad47c749, ttnn None, qb1 p150a card 1",
+            "when": "2026-10-14T17:40:04Z",
+            "parity": "1 of 1 release-gate accuracy check inside the reference envelope on Blackhole (tt-bio 469ed1356)",
             "fast": {
-              "s_per_batch": 0.11487,
+              "s_per_batch": 0.1155,
               "n": 7,
-              "spread_pct": 17.71,
+              "spread_pct": 11.84,
               "batch": 7,
               "aiclk_mhz": 1350,
-              "versions": "tt-bio main 148605b31, ttnn None, qb1 p150a card 0",
-              "when": "2026-10-14T15:12:09Z"
+              "versions": "tt-bio main fad47c749, ttnn None, qb1 p150a card 1",
+              "when": "2026-10-14T17:41:01Z"
             }
           },
           "h200": {
@@ -1575,21 +1577,21 @@
         "cells": {
           "p150a": {
             "status": "measured",
-            "s_per_batch": 0.21814,
+            "s_per_batch": 0.22525,
             "n": 7,
-            "spread_pct": 6.25,
+            "spread_pct": 6.17,
             "batch": 7,
             "aiclk_mhz": 1350,
-            "versions": "tt-bio main 148605b31, ttnn None, qb1 p150a card 0",
-            "when": "2026-10-14T15:13:05Z",
+            "versions": "tt-bio main fad47c749, ttnn None, qb1 p150a card 1",
+            "when": "2026-10-14T16:30:33Z",
             "fast": {
-              "s_per_batch": 0.22476,
+              "s_per_batch": 0.22769,
               "n": 7,
-              "spread_pct": 10.28,
+              "spread_pct": 9.96,
               "batch": 7,
               "aiclk_mhz": 1350,
-              "versions": "tt-bio main 148605b31, ttnn None, qb1 p150a card 0",
-              "when": "2026-10-14T15:14:14Z"
+              "versions": "tt-bio main fad47c749, ttnn None, qb1 p150a card 1",
+              "when": "2026-10-14T17:43:05Z"
             }
           },
           "h200": {
