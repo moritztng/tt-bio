@@ -22,6 +22,7 @@ from . import triatt_sdpa as _triatt_sdpa
 from . import dest_guard as _dest_guard
 from . import trimul_tail as _trimul_tail
 from . import mm_generic as _mm_generic
+from .addcmul_at import addcmul_at as _addcmul_at
 from . import page_copy as _page_copy
 from . import pair_add as _pair_add
 from . import pair_swiglu_ws as _pair_ws
@@ -703,6 +704,9 @@ _FAST_MODE = False
 #   dit_cond_jit    under adaln_mod, Boltz-2's token DiT projects each layer's six conditioning terms just before
 #                   the layer, one [768, 768] linear each off the shared normed s, instead of three [768, 36864]
 #                   linears for all 24 layers and 144 slices a step to cut them back out.
+#   dit_shoist      the DiT's conditioning as three wide linears a step whose columns each layer reads in place
+#                   (`addcmul_at`): OpenFold3's DiT, and Boltz-2's token DiT, where it takes precedence over
+#                   dit_cond_jit (adaLN modulation, the attention gate and the transition gate + residual each one op).
 #   apb_cat         the token attention's head re-assembly as one nlp_concat_heads, gate and output projection on
 #                   the padded head lanes (what TT_BIO_APB_CONCAT_HEADS does at load, exact), with the wide
 #                   weights re-laned from the bf16 device copies on the first call that takes it.
@@ -2472,6 +2476,25 @@ _B2_ADALN_ADDCMUL = env_flag("TT_BIO_ADALN_ADDCMUL", False)
 
 class _SigTerms(tuple):
     """An AdaLN `(scale, shift)` pair whose scale already went through its sigmoid."""
+
+
+class _ColWin(tuple):
+    """`dit_shoist`: columns `[off, off + width)` of a wide conditioning tensor, which `addcmul_at` reads in
+    place; `cut()` slices them out where the kernel declines."""
+    __slots__ = ()
+
+    def __new__(cls, t, off, width):
+        return super().__new__(cls, (t, off, width))
+
+    def cut(self):
+        t, off, width = self
+        return t[..., off:off + width]
+
+
+def _win_addcmul(x, y, win):
+    """`x + y * win` with `win` read in place, or None where `addcmul_at` declines."""
+    t, off, width = win
+    return _addcmul_at(x, y, t, width, z_off=off)
 # Every diffusion sample of a fold sees the same noise level and the same trunk output, so the
 # token conditioning `s` and everything the DiT derives from it (the hoisted AdaLN and gate
 # projections, the conditioner transitions, s_to_a) are the same row for each sample. With the
@@ -14691,6 +14714,14 @@ class AdaLN(Module):
             s_terms = self.s_terms(s, large_seq_len)
             # A memoised pair belongs to the memo and must survive this call.
             own = self._s_memo is not s_terms
+        if isinstance(s_terms, _SigTerms) and isinstance(s_terms[0], _ColWin):
+            (sc_t, sc_off, width), (sh_t, sh_off, _) = s_terms
+            out = (_addcmul_at(sh_t, a, sc_t, width, x_off=sh_off, z_off=sc_off)
+                   if dtype in (None, ttnn.bfloat16) else None)
+            if out is not None:
+                ttnn.deallocate(a)
+                return out
+            s_terms, own = _SigTerms((s_terms[0].cut(), s_terms[1].cut())), True
         s_scale, s_bias = s_terms
         if isinstance(s_terms, _SigTerms):
             kw = {} if dtype in (None, a.dtype) else {"output_tensor": ttnn.allocate_tensor_on_device(
@@ -14753,11 +14784,12 @@ class ConditionedTransitionBlock(Module):
         self.output_projection_bias = self.torch_to_tt("output_projection.0.bias")
 
     def __call__(
-        self, a: ttnn.Tensor, s: ttnn.Tensor, large_seq_len: bool = False, cond=None
+        self, a: ttnn.Tensor, s: ttnn.Tensor, large_seq_len: bool = False, cond=None, residual=None
     ) -> ttnn.Tensor:
         """`cond`, when given, is `(s_terms, s_out)` already computed by the caller, with `s_out`
         ALREADY through its sigmoid -- the concatenated projection applies it in the matmul's own
-        activation epilogue, where it is free, instead of at the multiply below."""
+        activation epilogue, where it is free, instead of at the multiply below. `residual`, when
+        given, is added to the gated output here (`residual + s_out * b_a`, one op under dit_shoist)."""
         s_terms, s_out = cond if cond is not None else (None, None)
         a = self.adaln(a, s, large_seq_len=large_seq_len, s_terms=s_terms)
         a_swish = ttnn.linear(
@@ -14801,9 +14833,21 @@ class ConditionedTransitionBlock(Module):
             core_grid=CORE_GRID_MAIN,
         )
         ttnn.deallocate(b)
+        cut = None
+        if isinstance(s_out, _ColWin):
+            if residual is not None:
+                out = _win_addcmul(residual, b_a, s_out)
+                if out is not None:
+                    ttnn.deallocate(b_a)
+                    return out
+            s_out = cut = s_out.cut()
         a = (ttnn.multiply(s_out, b_a) if s_out is not None else
              ttnn.multiply_(s, b_a, input_tensor_a_activations=[ttnn.UnaryOpType.SIGMOID]))
         ttnn.deallocate(b_a)
+        if cut is not None:
+            ttnn.deallocate(cut)
+        if residual is not None:
+            a = ttnn.add(residual, a)
         return a
 
 
@@ -14893,17 +14937,30 @@ class DiffusionTransformerLayer(Module):
         else:
             s_o = self.s_o
         def gate(a):
+            so = s_o
+            if isinstance(so, _ColWin):
+                out = _win_addcmul(a, b, so)
+                if out is not None:
+                    return out
+                so = so.cut()
             # adaln_mod: the gated residual a + s_o * b as one addcmul (the product is not rounded
             # first). Same shapes only: a sample-batched b against a shared s_o keeps the broadcast.
-            if lever("adaln_mod") and tuple(s_o.shape) == tuple(b.shape):
-                return ttnn.addcmul(a, s_o, b, value=1.0)
-            return ttnn.add(a, ttnn.multiply(s_o, b))
+            if lever("adaln_mod") and tuple(so.shape) == tuple(b.shape):
+                out = ttnn.addcmul(a, so, b, value=1.0)
+            else:
+                out = ttnn.add(a, ttnn.multiply(so, b))
+            if so is not s_o:
+                ttnn.deallocate(so)
+            return out
         if self.no_residual:
             # transition reads the block input, so it must be evaluated BEFORE a
             # absorbs the attention output
             a_t = self.transition(a, s, large_seq_len=large_seq_len,
                                   cond=None if cond is None else (t_trans, s_o2_pre))
             a = ttnn.add(gate(a), a_t)
+        elif isinstance(s_o2_pre, _ColWin):
+            a = gate(a)
+            a = self.transition(a, s, large_seq_len=large_seq_len, cond=(t_trans, s_o2_pre), residual=a)
         else:
             a = gate(a)
             a_t = self.transition(a, s, large_seq_len=large_seq_len,
@@ -15032,7 +15089,8 @@ class DiffusionTransformer(Module):
         # L8. One layer_norm and two concatenated matmuls in place of the 24 layers' own 144
         # projections and 48 layer_norms. Read at call time so an interleaved A/B can flip it.
         cond_all = jit = None
-        if (_B2_DIT_COND_HOIST and not self.atom_level and lever("dit_cond_jit")
+        shoist = lever("dit_shoist") and (_B2_ADALN_ADDCMUL or lever("adaln_mod"))
+        if (_B2_DIT_COND_HOIST and not self.atom_level and lever("dit_cond_jit") and not shoist
                 and (_B2_ADALN_ADDCMUL or lever("adaln_mod"))):
             # dit_cond_jit: the same terms as the hoisted block below, each projected right before
             # its layer. On a Wormhole chip the three wide linears run at a quarter of the roof and
@@ -15091,6 +15149,12 @@ class DiffusionTransformer(Module):
                          lin(s_hat, sw1, sb1, "sigmoid"), lin(s_hat, bw1),
                          lin(s, ow0, ob0, "sigmoid"), lin(s, ow1, ob1, "sigmoid")]
                 return (_SigTerms(parts[:2]), parts[4], _SigTerms(parts[2:4]), parts[5]), parts
+            if shoist and cond_all is not None and isinstance(cond_all[0], tuple):
+                # dit_shoist: this layer's columns of the three wide outputs, read in place.
+                (sc, sh), so = cond_all
+                w = lambda t, j: _ColWin(t, (2 * i + j) * d, d)  # noqa: E731
+                return (_SigTerms((w(sc, 0), w(sh, 0))), w(so, 0),
+                        _SigTerms((w(sc, 1), w(sh, 1))), w(so, 1)), ()
             terms, parts = cut(i)
             if terms is None:
                 return None, ()
