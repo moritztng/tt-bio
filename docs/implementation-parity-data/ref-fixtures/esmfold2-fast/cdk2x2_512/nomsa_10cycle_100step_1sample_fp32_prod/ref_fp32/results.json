@@ -1,0 +1,26 @@
+[
+  {
+    "id": "cdk2x2_512",
+    "status": "ok",
+    "plddt": 0.923121988773346,
+    "complex_plddt": 0.923121988773346,
+    "ptm": 0.7995896935462952,
+    "iptm": 0.0,
+    "confidence_score": 0.15991793870925905,
+    "n_residues": 512,
+    "n_atoms": 4116,
+    "samples": 1
+  },
+  {
+    "id": "cdk2x2_512",
+    "status": "ok",
+    "plddt": 0.9189026355743408,
+    "complex_plddt": 0.9189026355743408,
+    "ptm": 0.8143483400344849,
+    "iptm": 0.0,
+    "confidence_score": 0.16286966800689698,
+    "n_residues": 512,
+    "n_atoms": 4116,
+    "samples": 1
+  }
+]

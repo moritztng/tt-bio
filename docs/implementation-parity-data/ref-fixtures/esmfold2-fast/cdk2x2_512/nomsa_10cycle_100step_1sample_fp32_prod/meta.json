@@ -1,0 +1,171 @@
+{
+  "command": "PYTHONPATH=$PWD python3 scripts/esmfold2_e2e_parity.py --checkpoint esmfold2-fast --proteins cdk2x2_512 --loops 10 --steps 100 --seeds 0,1 --fixture_dir <fixture_dir> --out <summary.json>",
+  "date": "2026-10-15",
+  "model": "esmfold2-fast",
+  "msa": "none (single-sequence; ESMFold2 is single-sequence by design, its MSA is optional)",
+  "envelope": {
+    "reference_commit": "Biohub/transformers fork f9a5a37 (vendored tt_bio/_vendor/esmfold2_hf)",
+    "reference_impl": "tt-bio vendored torch reference (CPU fp32)",
+    "reference_version": "biohub/ESMFold2-Fast sha256:None (24-block release trunk), dtype fp32",
+    "seeds": [
+      0,
+      1
+    ],
+    "settings": {
+      "device_args": [
+        "--single_sequence",
+        "--recycling_steps",
+        "10",
+        "--sampling_steps",
+        "100",
+        "--diffusion_samples",
+        "1"
+      ],
+      "model": "esmfold2-fast",
+      "msa": "none",
+      "target_id": "cdk2x2_512"
+    }
+  },
+  "reference_commit": "Biohub/transformers fork f9a5a37 (vendored tt_bio/_vendor/esmfold2_hf)",
+  "reference_impl": "tt-bio vendored torch reference (Biohub/transformers fork f9a5a37, CPU fp32)",
+  "reference_version": "biohub/ESMFold2-Fast sha256:None (24-block release trunk)",
+  "seeds": [
+    0,
+    1
+  ],
+  "settings": {
+    "recycling_cycles": 10,
+    "requested_steps": 100,
+    "executed_steps": 68,
+    "executed_steps_device_empirical": 68,
+    "diffusion_samples": 1,
+    "seeds": [
+      0,
+      1
+    ],
+    "single_sequence": true,
+    "dtype": "fp32",
+    "checkpoint": "biohub/ESMFold2-Fast sha256:None (24-block release trunk)",
+    "target": "cdk2x2_512 (512aa)",
+    "shared_rng": "off: the device sampler draws from its own generator, so a seed pairs the settings, not the noise",
+    "lm_hidden_states": "shared: one ttnn ESMC-6B (biohub/ESMC-6B rev 45b0fa5d) forward injected into both paths",
+    "rationale": "sample=1 isolates convergence (loops/steps) from best-of-N selection"
+  },
+  "parity": {
+    "protein": "cdk2x2_512",
+    "target": "512aa",
+    "L": 512,
+    "n_seeds": 2,
+    "n_ligand_chains": 0,
+    "checkpoint": "esmfold2-fast",
+    "trunk_blocks": 24,
+    "levers": "normal-trunk_hifi3+trimul_gin+trimul_t2g+trimul_gin_hifi2+ef2_bit_draw+ef2_pair_init+ef2_relpos_lookup+ef2_atom_ffn_split",
+    "ref_source": "this fixture",
+    "plddt_mean": {
+      "seeds": [
+        0,
+        1
+      ],
+      "ref": [
+        0.923121988773346,
+        0.9189026355743408
+      ],
+      "tt": [
+        0.9224958419799805,
+        0.9210827350616455
+      ],
+      "ref_seed_spread": 0.004219353199005127,
+      "tt_seed_spread": 0.001413106918334961,
+      "same_seed_abs_delta": [
+        0.0006261467933654785,
+        0.0021800994873046875
+      ],
+      "mean_abs_delta": 0.001403123140335083
+    },
+    "plddt_pcc": 0.9912968277931213,
+    "plddt_mae": 0.0046277036890387535,
+    "distogram_pcc": 0.9992365837097168,
+    "distogram_rel_l2": 0.04808025807142258,
+    "ptm_tt": 0.8019479513168335,
+    "ptm_ref": 0.7995896935462952,
+    "kabsch_rmsd": {
+      "metric": "kabsch_rmsd",
+      "cross": {
+        "n": 4,
+        "mean": 0.8539043217897415,
+        "std": 0.28829314148904767,
+        "min": 0.5989314317703247,
+        "max": 1.3436214923858643
+      },
+      "ref_floor": {
+        "n": 1,
+        "mean": 1.0500659942626953,
+        "std": 0.0,
+        "min": 1.0500659942626953,
+        "max": 1.0500659942626953
+      },
+      "dev_floor": {
+        "n": 1,
+        "mean": 0.9227944016456604,
+        "std": 0.0,
+        "min": 0.9227944016456604,
+        "max": 0.9227944016456604
+      },
+      "floor_mean": 1.0500659942626953,
+      "cross_over_floor": 0.8131911008024892,
+      "dev_over_ref_floor": 0.8787965772509386,
+      "dev_floor_instability_check_applied": true,
+      "floor_inflated_by_dev": false,
+      "within_noise_floor": true,
+      "same_seed_cross": {
+        "n": 2,
+        "mean": 1.0372215509414673,
+        "std": 0.306399941444397,
+        "min": 0.7308216094970703,
+        "max": 1.3436214923858643
+      },
+      "same_seed_over_all_cross": 1.214681228884639
+    },
+    "coord_dm_1mpcc": {
+      "metric": "1-coord_dm_pcc",
+      "cross": {
+        "n": 4,
+        "mean": 0.0006879419088363647,
+        "std": 0.0004399813970985889,
+        "min": 0.00034505128860473633,
+        "max": 0.0014435648918151855
+      },
+      "ref_floor": {
+        "n": 1,
+        "mean": 0.0009531378746032715,
+        "std": 0.0,
+        "min": 0.0009531378746032715,
+        "max": 0.0009531378746032715
+      },
+      "dev_floor": {
+        "n": 1,
+        "mean": 0.0007108449935913086,
+        "std": 0.0,
+        "min": 0.0007108449935913086,
+        "max": 0.0007108449935913086
+      },
+      "floor_mean": 0.0009531378746032715,
+      "cross_over_floor": 0.721765368019511,
+      "dev_over_ref_floor": 0.745794509411544,
+      "dev_floor_instability_check_applied": true,
+      "floor_inflated_by_dev": false,
+      "within_noise_floor": true,
+      "same_seed_cross": {
+        "n": 2,
+        "mean": 0.0009537637233734131,
+        "std": 0.0004898011684417725,
+        "min": 0.0004639625549316406,
+        "max": 0.0014435648918151855
+      },
+      "same_seed_over_all_cross": 1.3864015422271319
+    }
+  },
+  "settings_tag": "nomsa_10cycle_100step_1sample_fp32_prod",
+  "invalidation_rule": "Regenerate this fixture ONLY when the pinned reference commit/checkpoint or the settings above change. For any other change (device seeds, device code, release tag) the fixture is reused as-is and only the device side re-runs.",
+  "provenance": "Reference folded on qb2 (CPU fp32) at tt-bio acbce1322, 2026-10-15. The parity field is the production lever set on qb2 card 0 read against it. distogram_logits are left out of ref_fp32/seed*.npz (67 MB a seed); a run reading this fixture reports no distogram metrics, which the esmfold2-fast-trpcage leg grades every release."
+}
