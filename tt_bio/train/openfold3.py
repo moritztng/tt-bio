@@ -599,8 +599,8 @@ class OpenFold3Forward:
     def __call__(self, batch) -> dict:
         from .. import autograd as ag
         from ..openfold3_fold import build_dm_device_aux, create_noise_schedule
-        from ..openfold3_host_prep import (dedup_template_slots, derive_block_aux,
-                                           derive_relpos, derive_template_feat,
+        from ..openfold3_host_prep import (derive_block_aux, derive_relpos,
+                                           derived_template_slots,
                                            ref_atom_device_inputs, ref_atom_embed,
                                            run_input_atom_encoder)
         from ..openfold3_data import make_openfold3_msa_features
@@ -615,7 +615,7 @@ class OpenFold3Forward:
 
         # ---- host prep. The SHIPPED functions, in the order `worker.py` calls them.
         aux = derive_block_aux(f)
-        template_feat, template_slots = dedup_template_slots(derive_template_feat(f))
+        template_feat, template_slots = derived_template_slots(f)
         relpos = derive_relpos(f)
         msa_feat = make_openfold3_msa_features(f)
         token_feats = torch.cat([f["restype"], f["profile"],
