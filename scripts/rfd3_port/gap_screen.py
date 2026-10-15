@@ -108,7 +108,7 @@ RFD3Sampler.sample = _timed
 
 def fold(tag, seed):
     specs = json.loads(pathlib.Path(FIXTURE).read_text())
-    out_dir = "/tmp/gap_screen_%s_%s" % (ARM, tag)
+    out_dir = "/tmp/gap_screen_%s_%s_%d" % (ARM, tag, os.getpid())   # parallel jobs of one arm share a box
     shutil.rmtree(out_dir, ignore_errors=True)
     WALL.clear()
     rfd3_design.run_design(specs, out_dir, checkpoint_dir=str(WEIGHTS), from_pdb=True,
