@@ -334,11 +334,14 @@ _ESMC_MM_BFP8 = env_flag("TT_BIO_ESMC_MM_BFP8", True)
 
 # q, k and v from ONE projection over the packed weight, split by the matmul as it writes them
 # (ttnn.experimental.minimal_matmul_split), instead of three projections over the host-cut weights. Holds the packed
-# weight beside the cut ones (300M 166 MB, 600M 287 MB). Off until the page cell says.
-_ESMC_QKV_MM_SPLIT = env_flag("TT_BIO_ESMC_QKV_MM_SPLIT", False)
+# weight beside the cut ones (300M 166 MB, 600M 287 MB), which still serve batches under ESMC_MM_MIN_ROWS. Page cell on
+# a Galaxy chip at 1000 MHz, 3 rounds, median ms: 300M 143.3 -> 138.9, --fast 142.6 -> 139.7, 600M 228.6 -> 224.5,
+# --fast flat; embeddings identical (pcc 1.0 against the three projections). Rides on minimal_matmul, so Wormhole only.
+_ESMC_QKV_MM_SPLIT = env_flag("TT_BIO_ESMC_QKV_MM_SPLIT", True)
 # The block's two residual adds inside out_proj's and fc2's matmuls (dit_minimal_matmul_addcmul_fused: x + 1 * (o W) *
-# ones), so neither add re-reads a projection from DRAM. Off until the page cell says.
-_ESMC_MM_RESID = env_flag("TT_BIO_ESMC_MM_RESID", False)
+# ones), so neither add re-reads a projection from DRAM. bf16 weights only: the op refuses --fast's block-fp8 ones.
+# Same page cell: 300M 143.6 -> 141.3, 600M 229.9 -> 223.4, embeddings identical (pcc 1.0). Wormhole only, as above.
+_ESMC_MM_RESID = env_flag("TT_BIO_ESMC_MM_RESID", True)
 #: [qkv split matmuls, residual-fused projections] served, read by the A/B harness.
 MM_FUSE_STATS = [0, 0]
 
@@ -388,7 +391,7 @@ class _MMLin:
 
     def _lin_resid(self, x, w, resid):
         """resid + x @ w in one matmul, or None where it does not serve (the caller adds)."""
-        if not (_ESMC_MM_RESID and self._mm_ok(x, w)):
+        if not (_ESMC_MM_RESID and w.dtype == ttnn.bfloat16 and self._mm_ok(x, w)):
             return None
         n = int(w.shape[-1])
         ones = getattr(self, "_ones_row", None)
@@ -450,7 +453,7 @@ class Attention(_MMLin, Module):
             self.qkv_weight = None
             self._qkv_w = tuple(self.torch_to_tt("layernorm_qkv.1.weight", transform=lambda w, i=i: w[i * d:(i + 1) * d].t(),
                                                  dtype=_dtype()) for i in range(3))
-            if _ESMC_QKV_MM_SPLIT:
+            if _ESMC_QKV_MM_SPLIT and _esmc_mm():
                 self.qkv_weight = self.torch_to_tt("layernorm_qkv.1.weight", dtype=_dtype())
         else:
             self.qkv_weight = self.torch_to_tt("layernorm_qkv.1.weight", dtype=_dtype())
