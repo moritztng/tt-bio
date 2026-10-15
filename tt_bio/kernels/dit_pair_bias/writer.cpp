@@ -3,15 +3,16 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // dit_pair_bias writer. Per unit (b, ib, jb) and head tile hb, compute hands over the 32 tiles of heads
-// hb * 32 .. + 31 in head order; head h goes to page ((b * H + h) * NT + ib) * NT + jb of [B, H, n, n].
+// hb * 32 .. + 31 in head order. The heads are split over consecutive outputs of HO heads each ([B, HO, n, n], one
+// address per output in the common args): head h goes to page ((b * HO + h % HO) * NT + ib) * NT + jb of output h / HO.
 #include "api/dataflow/dataflow_api.h"
 
 void kernel_main() {
     constexpr uint32_t HT = get_compile_time_arg_val(0);
     constexpr uint32_t NT = get_compile_time_arg_val(1);
     constexpr uint32_t SW = get_compile_time_arg_val(2);
-    constexpr auto o_args = TensorAccessorArgs<3>();
-    const auto so = TensorAccessor(o_args, get_common_arg_val<uint32_t>(0));
+    constexpr uint32_t HO = get_compile_time_arg_val(3);
+    constexpr auto o_args = TensorAccessorArgs<4>();
     const uint32_t u0 = get_arg_val<uint32_t>(0);
     const uint32_t nunits = get_arg_val<uint32_t>(1);
     constexpr uint32_t cb_out = 16;
@@ -24,7 +25,9 @@ void kernel_main() {
             cb_wait_front(cb_out, SW);
             uint32_t rd = get_read_ptr(cb_out);
             for (uint32_t t = 0; t < SW; ++t, rd += ts) {
-                noc_async_write_page(((b * HT * 32 + h0 + t) * NT + ib) * NT + jb, so, rd);
+                const uint32_t h = h0 + t;
+                const auto so = TensorAccessor(o_args, get_common_arg_val<uint32_t>(h / HO));
+                noc_async_write_page(((b * HO + h % HO) * NT + ib) * NT + jb, so, rd);
             }
             noc_async_writes_flushed();
             cb_pop_front(cb_out, SW);

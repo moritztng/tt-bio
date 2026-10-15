@@ -3222,10 +3222,11 @@ class LocalTokenTransformer(Module):
                                              dtype=self.dtype)
 
     def _dit_sdpa_masks(self, z, additive_mask, n_key):
-        """Every block's SDPA mask from one projection: [1, n_block * N_HEAD, n_key, n_key], block i
-        in heads [N_HEAD * i, N_HEAD * (i + 1)). The same elementwise ops as the per-block path,
-        run once over the stack, so the DiT pays one permute, scale, add and pad pair per call
-        instead of 18 (each block's permute alone was 0.39 ms)."""
+        """Every block's SDPA mask from one projection, yielded as [B, N_HEAD, n_key, n_key] per
+        block. The ttnn path runs the per-block elementwise ops once over the stack [B, n_block *
+        N_HEAD, n_key, n_key] and slices it, so the DiT pays one permute, scale, add and pad pair per
+        call instead of 18 (each block's permute alone was 0.39 ms); dit_pair_bias writes each
+        block's mask directly."""
         if self._b_w_packed is None:
             cols = torch.cat([self.weights[f"blocks.{i}.attention_pair_bias.to_b.weight"].t().float()
                               for i in range(len(self.blocks))], dim=1)
@@ -3240,34 +3241,34 @@ class LocalTokenTransformer(Module):
             mask = pad_axis(pad_axis(additive_mask, n_key, 3, -1e4), n_key, 2, -1e4)
             if _DPB.eligible(z, self._b_wt_packed, mask):
                 out = _DPB.dit_pair_bias(z, self._b_wt_packed, mask, self.blocks[0].head_dim ** 0.5,
-                                         self.compute_kernel_config.math_fidelity)
+                                         self.compute_kernel_config.math_fidelity, n_out=len(self.blocks))
             else:
                 out = None
             if mask is not additive_mask:
                 ttnn.deallocate(mask)
             if out is not None:
-                return out
+                yield from out
+                return
         pb = _tuned_linear(z, self._b_w_packed, ckc=self.compute_kernel_config, dtype=self.dtype,
                            core_grid=CORE_GRID_MAIN)
         pb_t = ttnn.permute(pb, (0, 3, 1, 2))
         ttnn.deallocate(pb)
         masks = _sdpa_dense_mask(pb_t, additive_mask, self.blocks[0].head_dim, n_key)
         ttnn.deallocate(pb_t)
-        return masks
+        # Every design in the batch keeps its own pair bias: slicing batch [0, 1) here gave all of
+        # them design 0's, and 7 of 8 --fast designs at batch 8 came out clashing.
+        B, H = int(z.shape[0]), self.N_HEAD
+        for i in range(len(self.blocks)):   # one slice live at a time, as before
+            yield ttnn.slice(masks, [0, H * i, 0, 0], [B, H * (i + 1), n_key, n_key])
+        ttnn.deallocate(masks)
 
     def run_device(self, a, s, z, additive_mask):
         n_key = align_tile(int(a.shape[1]))
         B = int(z.shape[0])
         if (_DIT_SDPA and self.dtype == ttnn.bfloat16
                 and 2 * B * self.N_HEAD * len(self.blocks) * n_key * n_key <= _DIT_SDPA_STACK_BYTES):
-            masks = self._dit_sdpa_masks(z, additive_mask, n_key)
-            H = self.N_HEAD
-            for i, block in enumerate(self.blocks):
-                # Every design in the batch keeps its own pair bias: slicing batch [0, 1) here gave
-                # all of them design 0's, and 7 of 8 --fast designs at batch 8 came out clashing.
-                m = ttnn.slice(masks, [0, H * i, 0, 0], [B, H * (i + 1), n_key, n_key])
+            for m, block in zip(self._dit_sdpa_masks(z, additive_mask, n_key), self.blocks):
                 a = block(a, s, z, additive_mask, sdpa_mask=m)
-            ttnn.deallocate(masks)
             return a
         fused, end = None, None
         if self.b_w_fused is not None:

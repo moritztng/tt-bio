@@ -2,6 +2,7 @@
 """gap_dpb: the DiT's stacked SDPA masks, shipped ttnn chain against the one-program `tt_bio.dit_pair_bias`.
   shipped  _tuned_linear(z, W) -> permute (0, 3, 1, 2) -> _sdpa_dense_mask (multiply, add, pad rows to n)
   dpb      dit_pair_bias(z, W^T, mask padded once, sqrt(head_dim))
+  dpb_split  the same with n_out=18 (one [1, 16, n, n] tensor per block); must equal dpb bit for bit
 Both against a float64 reference of the same bf16 inputs (pad rows must be the pad value exactly), and against
 each other (bit-equal fraction, max abs). Sizes: the 685-token page and a 418-token one (partial last row tile).
     python scripts/rfd3_port/gap_dpb.py OUT.json [reps]
@@ -114,6 +115,26 @@ def case(dev, ckc, I):
             r = {"error": repr(ex)[:400]}
         rec[name] = r
         print(I, name, r, flush=True)
+    try:   # dpb_split: the same program writing each block's 16 heads to its own tensor; must equal dpb exactly
+        split = lambda: D.dit_pair_bias(z, wt, mp, HD ** 0.5, ckc.math_fidelity, n_out=H // 16)  # noqa: E731
+        os_ = split()
+        ttnn.synchronize_device(dev)
+        ts = []
+        for _ in range(N):
+            for o in os_:
+                ttnn.deallocate(o)
+            t0 = time.perf_counter()
+            os_ = split()
+            ttnn.synchronize_device(dev)
+            ts.append((time.perf_counter() - t0) * 1e3)
+        d = torch.cat([ttnn.to_torch(o).double() for o in os_], dim=1)
+        r = {"ms_median": statistics.median(ts), "ms_min": min(ts), "ms_max": max(ts)}
+        if "dpb" in outs:
+            r["equal_dpb"] = bool(torch.equal(d, outs["dpb"]))
+    except Exception as ex:                                              # noqa: BLE001
+        r = {"error": repr(ex)[:400]}
+    rec["dpb_split"] = r
+    print(I, "dpb_split", r, flush=True)
     if "shipped" in outs and "dpb" in outs:
         a, b = outs["shipped"], outs["dpb"]
         rec["dpb_vs_shipped"] = {"bit_equal_frac": float((a == b).double().mean()), "max_abs": float((a - b).abs().max())}

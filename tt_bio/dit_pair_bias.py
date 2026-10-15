@@ -48,7 +48,8 @@ def eligible(z, wt, mask) -> bool:
             and zs[1] <= n and _l1_bytes(c // 32, h // 32) <= _L1_BUDGET)
 
 
-def _build(z, wt, mask, out, device, units, kt, ht, nt, rows, cols, mb, scale, fidelity, raw=False, k1=True):
+def _build(z, wt, mask, out, device, units, kt, ht, nt, rows, cols, mb, scale, fidelity, raw=False, k1=True,
+           n_out=1):
     g = device.compute_with_storage_grid_size()
     _, grid, cg1, cg2, work1, work2 = core_split.split_work_to_cores(g, units, 0)
 
@@ -69,7 +70,7 @@ def _build(z, wt, mask, out, device, units, kt, ht, nt, rows, cols, mb, scale, f
     rct = [kt, ht, nt, rows, mb, cols]
     for t in (z, wt, mask):
         rct.extend(ttnn.TensorAccessorArgs(t).get_compile_time_args())
-    wct = [ht, nt, _SW] + list(ttnn.TensorAccessorArgs(out).get_compile_time_args())
+    wct = [ht, nt, _SW, ht * 32 // n_out] + list(ttnn.TensorAccessorArgs(out).get_compile_time_args())
     sbits = struct.unpack("<I", struct.pack("<f", scale))[0]
     # Wormhole's fp32 dest writes -2/-4/-8 where a second K tile nearly cancels the first (tt_bio/dest_guard.py):
     # sum the K tiles on the SFPU there. Blackhole does not have the fault.
@@ -82,7 +83,7 @@ def _build(z, wt, mask, out, device, units, kt, ht, nt, rows, cols, mb, scale, f
                                    compile_time_args=rct, runtime_args=rd, common_runtime_args=[0] * 3,
                                    config=ttnn.ReaderConfigDescriptor())
     writer = ttnn.KernelDescriptor(kernel_source=src("writer.cpp"), source_type=path, core_ranges=grid,
-                                   compile_time_args=wct, runtime_args=wr, common_runtime_args=[0],
+                                   compile_time_args=wct, runtime_args=wr, common_runtime_args=[0] * n_out,
                                    config=ttnn.WriterConfigDescriptor())
     compute = ttnn.KernelDescriptor(
         kernel_source=src("compute.cpp"), source_type=path, core_ranges=grid,
@@ -91,11 +92,12 @@ def _build(z, wt, mask, out, device, units, kt, ht, nt, rows, cols, mb, scale, f
     return [reader, writer, compute], cbs
 
 
-def dit_pair_bias(z, wt, mask, scale, fidelity=ttnn.MathFidelity.HiFi4, raw=False, k1=True):
+def dit_pair_bias(z, wt, mask, scale, fidelity=ttnn.MathFidelity.HiFi4, raw=False, k1=True, n_out=1):
     """[B, H, n, n] bf16 = (z @ W) * scale + mask, head-first, for z [B, I, n, C], wt = W^T as [1, 1, H, C] and
-    mask [1 or B, 1, n, n] already padded (rows i >= I take the mask alone). `raw` (bench only) skips the scale
-    and the mask: the head-first projection with zero padding. `k1=False` (bench only) keeps the K sum in the FPU
-    on Wormhole too."""
+    mask [1 or B, 1, n, n] already padded (rows i >= I take the mask alone). With `n_out` > 1 the heads come back
+    as a list of n_out tensors [B, H / n_out, n, n], one per consumer, written in place of slicing the stack.
+    `raw` (bench only) skips the scale and the mask: the head-first projection with zero padding. `k1=False`
+    (bench only) keeps the K sum in the FPU on Wormhole too."""
     device = z.device()
     zs = [int(d) for d in z.padded_shape]
     B, rows, n, c = zs
@@ -103,14 +105,16 @@ def dit_pair_bias(z, wt, mask, scale, fidelity=ttnn.MathFidelity.HiFi4, raw=Fals
     kt, ht, nt = c // 32, h // 32, n // 32
     cols = int(z.shape[2])
     mb = int(int(mask.padded_shape[0]) == B and B > 1)
-    out = ttnn.allocate_tensor_on_device(ttnn.Shape([B, h, n, n]), ttnn.bfloat16, ttnn.TILE_LAYOUT, device,
-                                         ttnn.DRAM_MEMORY_CONFIG)
-    key = (device.id(), tuple(zs), cols, h, mb, float(scale), fidelity, raw, k1)
+    assert h % n_out == 0, (h, n_out)
+    outs = [ttnn.allocate_tensor_on_device(ttnn.Shape([B, h // n_out, n, n]), ttnn.bfloat16, ttnn.TILE_LAYOUT,
+                                           device, ttnn.DRAM_MEMORY_CONFIG) for _ in range(n_out)]
+    key = (device.id(), tuple(zs), cols, h, mb, float(scale), fidelity, raw, k1, n_out)
     if key not in _CACHE:
-        _CACHE[key] = _build(z, wt, mask, out, device, B * nt * nt, kt, ht, nt, rows, cols, mb, float(scale),
-                                fidelity, raw, k1)
+        _CACHE[key] = _build(z, wt, mask, outs[0], device, B * nt * nt, kt, ht, nt, rows, cols, mb, float(scale),
+                             fidelity, raw, k1, n_out)
     kernels, cbs = _CACHE[key]
     kernels[0].common_runtime_args = [z.buffer_address(), wt.buffer_address(), mask.buffer_address()]
-    kernels[1].common_runtime_args = [out.buffer_address()]
+    kernels[1].common_runtime_args = [o.buffer_address() for o in outs]
     pd = ttnn.ProgramDescriptor(kernels=kernels, semaphores=[], cbs=cbs)
-    return ttnn.generic_op([z, wt, mask, out], pd)
+    ttnn.generic_op([z, wt, mask, *outs], pd)
+    return outs if n_out > 1 else outs[0]
