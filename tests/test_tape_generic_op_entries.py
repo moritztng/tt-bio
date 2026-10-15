@@ -345,3 +345,24 @@ def test_nograd_inference_does_not_lift_l1_placement(monkeypatch):
     finally:
         ops.set_grad_hook(prev)
     assert tenstorrent._l1_fits(1, 1.0)
+
+
+def test_the_triatt_tail_runs_in_an_unrecorded_forward_and_declines_in_a_recorded_one(monkeypatch, taping):
+    """No entry: a recorded forward takes the composed ops, BindCraft 2's no-grad forwards the kernel."""
+    Q = pytest.importorskip("tt_bio.triatt_qkv")
+    assert Q.gated_out_proj.tape_entry_name == "triatt_tail"
+    seen = []
+    monkeypatch.setattr(Q, "tail_on", lambda *a: seen.append(ops.declines_under_tape("triatt_tail")) or False)
+
+    class _Hook:
+        def __init__(self, rec):
+            self.recording = lambda: rec
+
+        def raw(self, args, kwargs):
+            return args, kwargs
+
+    monkeypatch.setattr(ops, "NOGRAD_IS_INFERENCE", True)
+    for rec in (False, True):
+        ops.set_grad_hook(_Hook(rec))
+        assert Q.gated_out_proj("o", "g", "w", None) is None
+    assert seen == [False], "the unrecorded call reached the kernel gate, the recorded one declined first"
