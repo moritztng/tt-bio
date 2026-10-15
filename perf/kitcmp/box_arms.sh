@@ -9,8 +9,8 @@
 KC_CFG=a100 KC_ARCH=8.0 KC_N=5; [ -f /root/kc/gpu.env ] && . /root/kc/gpu.env
 M=$1; K=/root/kit/$M; I=/root/kc/in; R=/root/kc/results/$M${LEVERS_OFF:+-no-${LEVERS_OFF//,/-}}; mkdir -p $R
 # LEVERS_OFF=prefetch,awrite: the kit's own ablation switch (MODEL_OPT_LEVERS_OFF) on the kit modes. RF3's prefetch featurizes the
-# NEXT input while the current one folds, so dump gaps over several inputs read pipelined throughput, not one prediction at a time
-[ -n "${LEVERS_OFF:-}" ] && export MODEL_OPT_LEVERS_OFF=$LEVERS_OFF
+# NEXT input while the current one folds, so dump gaps over several inputs read pipelined throughput, not one prediction at a time.
+# Set per arm in run(): the kit refuses --mode off with the switch set (off has no lever to withhold), rc 3 and no off arm.
 [ -f $K/configs/${KC_GPU:-none}.env ] && KC_CFG=$KC_GPU  # the kit's own config for this GPU where it ships one (box_setup.sh)
 echo $KC_CFG > $R/kc-cfg
 cd $K && . venv/bin/activate
@@ -39,6 +39,7 @@ nohup nvidia-smi --query-gpu=timestamp,clocks.sm,clocks.mem,power.draw,power.lim
 SMI=$!
 run(){ # <mode>: off | exact | fast, or <mode>-det = the kit's deterministic recipe (--det 1), where exact claims bitwise = off
   local d=$R/$1 mo=${1%-det} dt=; [ $mo = $1 ] || dt="--det 1"; mkdir -p $d; date -u +%FT%T.%3NZ > $d/t_start; export KC_TIMES=$d/times.jsonl
+  unset MODEL_OPT_LEVERS_OFF; [ $mo != off ] && [ -n "${LEVERS_OFF:-}" ] && export MODEL_OPT_LEVERS_OFF=$LEVERS_OFF
   case $M in
     boltz2)    [ $mo = off ] && S="--seed 0" || S="--seeds 0"   # off is stock boltz predict (--seed), exact/fast the worker route
                bash run.sh pred --config $KC_CFG --mode $mo $dt --input $I/boltz2 --out_dir $d/pred $S \
@@ -55,7 +56,10 @@ run(){ # <mode>: off | exact | fast, or <mode>-det = the kit's deterministic rec
                for v in 300m 600m 6b; do [ $v = 6b ] && b=1 || b=7
                  HF_HOME=/weights/esmc/hf HF_HUB_OFFLINE=1 ESMC_OPT=$([ $mo = off ] || echo $mo) \
                    python /root/kc/esmc_gpu.py --variant $v --batch $b --warm 15 --seq $I/prot512.seq --out $d/esmc-$v.jsonl; done;;
-    opendde)   bash run.sh pred --config $KC_CFG --mode $mo $dt -i $I/protenix.json -o $d/pred --seeds 0 \
+    opendde)   # B200: the cu12 cuEquivariance sm100 trimul serves the calls fpf_trimul_exact would; the kit calls that PARTIAL (exit 3)
+               # and keeps the row only with its own --allow-partial, which the manifest records
+               P=; [ "${KC_GPU:-}" = b200 ] && [ $mo != off ] && P=--allow-partial
+               bash run.sh pred --config $KC_CFG --mode $mo $dt $P -i $I/protenix.json -o $d/pred --seeds 0 \
                  --cycle 10 --step 200 --sample 1 --use_msa true --use_template false;;
     openfold3|openfold3_ob0)  # ob0's kit off base config is bf16-mixed: off overlays the shipped fp32 predict config first
                Y=""; [ $M = openfold3_ob0 ] && [ $mo = off ] && Y="--runner-yaml opt/openfold3_ob0_opt/shipped_predict.yml"
@@ -69,9 +73,10 @@ run(){ # <mode>: off | exact | fast, or <mode>-det = the kit's deterministic rec
                ( cd $I/rfd3 && bash $K/run.sh design --config $KC_CFG --mode $mo $dt inputs=rfd3_R4_gpu.json out_dir=$d/pred \
                  inference_sampler.num_timesteps=200 diffusion_batch_size=1 n_batches=$KC_N seed=7 skip_existing=False );;
     pxdesign)  # the published cell: LacZ crop (yaml names /work/targets2/laczc_512.cif), 80-res binder, N_sample 1, 400 steps, bf16,
-               # DS4Sci evo attention, eta const 2.5, seeds 0..KC_N-1 in one process (cold = seed 0)
+               # DS4Sci evo attention, eta const 2.5, seeds 0..KC_N-1 in one process (cold = seed 0). B200: upstream's own
+               # --use_fast_ln false on every mode, Protenix 0.5.0 builds its fused LayerNorm for sm_70-90 only (no kernel image on sm_100)
                bash run.sh design --config $KC_CFG --mode $mo $dt -i $I/pxdesign/laczc_512_nomsa.yaml -o $d/pred --seeds $(seq -s, 0 $((KC_N - 1))) \
-                 --N_sample 1 --N_step 400 --dtype bf16 --use_fast_ln true --use_deepspeed_evo_attention true \
+                 --N_sample 1 --N_step 400 --dtype bf16 --use_fast_ln $([ "${KC_GPU:-}" = b200 ] && echo false || echo true) --use_deepspeed_evo_attention true \
                  --eta_type const --eta_min 2.5 --eta_max 2.5;;
     esmfold2)  # single sequence, as the published cells (the MSA is dropped by design); off on the fused backend exact reproduces
                [ $mo = off ] && B="--backend fused" || B=""

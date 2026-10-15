@@ -27,8 +27,9 @@ def freeze(path):
                 v[e.group(2).lower().replace("_", "-")] = e.group(1)[:9]
                 continue
             m = re.match(r"([A-Za-z0-9_.\-]+)\s*(?:==|@)\s*(\S+)", l)
-            if m:  # a wheel installed from a file or URL names its version in the filename (boltz-2.2.1-py3-none-any.whl)
-                w = re.search(r"/[A-Za-z0-9_.]+-(\d[^-/]*)-[^/]*\.whl$", unquote(m.group(2).split("#")[0]))
+            if m:  # a wheel or sdist installed from a file or URL names its version in the filename
+                f = unquote(m.group(2).split("#")[0])  # (boltz-2.2.1-py3-none-any.whl, foundry-4010e3e.tar.gz)
+                w = re.search(r"/[A-Za-z0-9_.]+-(\d[^-/]*)-[^/]*\.whl$", f) or re.search(r"/[A-Za-z0-9_.]+-([^-/]+)\.(?:tar\.gz|zip)$", f)
                 g = re.search(r"^git\+\S+@([0-9a-f]{40})", m.group(2))  # a pinned VCS install is its commit
                 v[m.group(1).lower().replace("_", "-")] = w.group(1) if w else g.group(1)[:9] if g else m.group(2)
     return v
@@ -71,8 +72,14 @@ def main():
         ver += f"torch {fz.get('torch', '?')}, {pkg} {fz.get(pkg, '?')}, driver {drv}"
         if r["median"] is None or r["rc"] != "0":  # a failed arm's records are not a time (openfold3 fast on sm_100: 0.04 s)
             continue
+        logs = [res / (arm or "esmc") / r["mode"] / f for f in ("stdout.log", "stderr.log")]
+        if not r["mode"].startswith(("off", "stock")) and any("NOT ACTIVE" in f.read_text(errors="replace") for f in logs if f.exists()):
+            print(f"skip {r['cell']} {r['mode']}: the kit says NOT ACTIVE, the arm ran stock", file=sys.stderr)  # ESMC has no fast
+            continue
         rng = f"n={r['n']} {min(r['warm']):.4g}-{max(r['warm']):.4g}"
         clk = f"SM {r['sm_mhz']:.0f} MHz med (min {r['sm_min']:.0f}), {r['watts']:.0f} W" if r["sm_mhz"] else "SM not sampled under load"
+        if r["sm_mhz"] and r.get("busy_over") == "folds" and r["util_pct"] < 80:  # the GPU is not what bounds this cell
+            clk += f", GPU util {r['util_pct']} % mean over the folds"
         print(f"| {r['cell']} | {a.gpu} | {mode} | {r['median']:.4g} | {rng} | {clk} | {ver} | {a.when} | {cmd} | {a.row} |")
 
 
