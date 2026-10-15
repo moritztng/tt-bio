@@ -20,6 +20,13 @@
 :root{ --tt:var(--accent); --h200:var(--gpu); --b200:var(--gpu); --a100:var(--gpu); }
 
 main{ display:block; padding-bottom:var(--s-5); }
+.phead{ display:grid; grid-template-columns:minmax(0,1fr) 260px; gap:30px; align-items:center;
+        background:var(--wash); border-radius:28px; padding:44px 48px; margin-top:34px; }
+.phead h1{ font-size:clamp(2.1rem,4.4vw,3.3rem); margin:0 0 16px; }
+.phead .art{ aspect-ratio:1; }
+.phead .art img{ width:100%; height:auto; display:block; }
+@media (max-width:760px){ .phead{ grid-template-columns:1fr; padding:30px 22px; gap:6px; }
+  .phead .art{ order:-1; width:150px; margin-left:auto; margin-bottom:-24px; } }
 
 /* Sections, on the shared spacing scale */
 section.band{ padding:var(--s-6) 0 0; }
@@ -143,7 +150,7 @@ details.disclose > div{ padding-top:var(--s-4); }
 <body>
 <div class="wrap">
   <nav>
-    <a class="brand" href="../" aria-label="TT-Bio, home"><span class="tt">TT-</span>Bio</a>
+    <a class="brand" href="../" aria-label="TT-Bio, home"><span class="dot" aria-hidden="true"></span><span><span class="tt">TT-</span>Bio</span></a>
     <span class="sp"></span>
     <a class="lnk" href="../">Overview</a>
     <a class="lnk" aria-current="page" href="./">Benchmarks</a>
@@ -152,7 +159,15 @@ details.disclose > div{ padding-top:var(--s-4); }
   </nav>
 <main>
 
-<h1 class="vh">TT-Bio benchmarks: biomolecular models on Tenstorrent</h1>
+<header class="phead">
+  <div>
+    <p class="eyebrow">Benchmarks</p>
+    <h1>Every model, measured on both sides</h1>
+    <p class="band-deck">What TT-Bio runs, how fast each model is on Tenstorrent and on NVIDIA, what that
+      costs per prediction, and how every number was taken.</p>
+  </div>
+  <div class="art"><img src="../assets/art/pdl1-binder.svg" width="900" height="900" alt="" fetchpriority="high"></div>
+</header>
 
 <section class="band" id="models">
   <div class="band-head">

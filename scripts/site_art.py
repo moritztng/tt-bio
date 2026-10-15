@@ -1,7 +1,13 @@
 #!/usr/bin/env python3
 """Protein line art for tt-bio.com: a structure's C-alpha trace as fine vector lines, in the deck's style.
 
-    python3 scripts/site_art.py <structure.cif> <out.svg> [--back A] [--spin RAD] [--size W H] [--pca]
+    python3 scripts/site_art.py <structure.cif> <out.svg> [--back A] [--spin RAD] [--size W H] [--no-pca] [--on wash]
+
+The two drawings on tt-bio.com, from the deck's structures (PDB 1BRS chains A+D; a BindCraft 2 binder on
+PD-L1 designed on Tenstorrent):
+
+    site_art.py 1brs_AD.cif site/assets/art/barnase-barstar.svg --back A --spin -1.5708 --size 900 1000
+    site_art.py pdl1_binder_l73.cif site/assets/art/pdl1-binder.svg --back A --size 900 900 --no-pca --on wash
 
 A smoothed spline per chain, drawn back to front one residue at a time. Each piece carries a halo in the
 page's own ground colour, so crossings read as over and under, and its tint fades toward the ground with
@@ -19,6 +25,8 @@ PALETTE = {
     "light": ("#faf8f4", "#2a2824", "#cfc8bc", "#1f9ccc", "#a59e92", "#e3ddd2"),
     "dark": ("#101318", "#ece8df", "#3b3f46", "#3cb8e0", "#6c6d70", "#262a30"),
 }
+# --on wash: the halo matches the tinted panels (--wash in site.css) instead of the page
+WASH = {"light": "#f2eee6", "dark": "#1a1e25"}
 DEPTHS, ACCENTS = 6, 3
 
 
@@ -55,7 +63,7 @@ def hexc(c):
     return "#%02x%02x%02x" % tuple(int(round(v)) for v in c)
 
 
-def art(path, w, h, back=None, spin=0.0, pca=True, lw=2.3, halo=3.2, n=6, contact=7.0, fill=0.96):
+def art(path, w, h, back=None, spin=0.0, pca=True, ground=None, lw=2.3, halo=3.2, n=6, contact=7.0, fill=0.96):
     C = ca(path)
     allp = np.vstack(list(C.values()))
     mu = allp.mean(0)
@@ -99,6 +107,8 @@ def art(path, w, h, back=None, spin=0.0, pca=True, lw=2.3, halo=3.2, n=6, contac
 
     def rules(theme):
         g, near, far, ac, bn, bf = (rgb(c) for c in PALETTE[theme])
+        if ground:
+            g = rgb(WASH[theme])
         out = [f".h{i}{{stroke:{hexc(g)};stroke-width:{lw * (0.8 + 0.4 * i / (DEPTHS - 1)) * halo:.2f}}}"
                for i in range(DEPTHS)]
         for i in range(DEPTHS):
@@ -122,8 +132,9 @@ def main():
     ap.add_argument("--back"); ap.add_argument("--spin", type=float, default=0.0)
     ap.add_argument("--size", type=int, nargs=2, default=(900, 900))
     ap.add_argument("--no-pca", action="store_true")
+    ap.add_argument("--on", choices=["page", "wash"], default="page")
     a = ap.parse_args()
-    svg = art(a.cif, *a.size, back=a.back, spin=a.spin, pca=not a.no_pca)
+    svg = art(a.cif, *a.size, back=a.back, spin=a.spin, pca=not a.no_pca, ground=a.on == "wash")
     open(a.out, "w").write(svg)
     print(a.out, len(svg), "bytes")
 
