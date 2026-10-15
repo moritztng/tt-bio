@@ -274,6 +274,7 @@
           "aiclk_mhz": 1350,
           "versions": "tt-bio main 388e725b6, ttnn 0.68.0, qb1 p150a card 1",
           "when": "2026-10-15T10:22:25Z",
+          "parity": "Passes both release-gate accuracy checks against the reference implementation on Blackhole, with an MSA (tt-bio acbce1322)",
           "fast": {
             "s_per_fold": 12.39,
             "n": 4,

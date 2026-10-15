@@ -66,7 +66,7 @@ def passed(gate: Path, extra: Path | None = None) -> dict:
         out[n] = r["verdict"] == "PASS" and log.is_file() and scorer_verdict(log, n) is not None
     if extra:
         for n, r in json.loads(extra.read_text()).get("legs", {}).items():
-            out[n] = r.get("verdict") == "PASS" and r.get("scorer") in VERDICTS
+            out[n] = r.get("verdict") == "PASS" and bool(VERDICTS & set(str(r.get("scorer", "")).split()))
     return {n: v for n, v in out.items() if not n.endswith("-nomsa")}
 
 
@@ -77,6 +77,7 @@ def claims(gate: Path, extra: Path | None = None) -> dict:
         raise SystemExit(f"{gate}: no verdict.json, the gate has not finished; pass a finished gate")
     sha = gate.name.removeprefix("rel-")[:9]
     have = passed(gate, extra)
+    side = json.loads(extra.read_text()) if extra else {}
     out = {}
     for row, prefixes in LEGS.items():
         mine = sorted(n for n in have if any(n.startswith(p) for p in prefixes)
@@ -87,8 +88,9 @@ def claims(gate: Path, extra: Path | None = None) -> dict:
         what = "release-gate accuracy check" + ("s" if len(mine) > 1 else "")
         every = {1: "its", 2: "both"}.get(len(mine), f"all {len(mine)}")
         lead = f"Passes {every} {what}" if ok == len(mine) else f"{ok} of {len(mine)} {what} pass"
+        at = side["sha"][:9] if any(n in side.get("legs", {}) for n in mine) else sha
         out[row] = (lead + " against the reference implementation on Blackhole" +
-                    (", with an MSA" if row in MSA_ROWS else "") + f" (tt-bio {sha})")
+                    (", with an MSA" if row in MSA_ROWS else "") + f" (tt-bio {at})")
     return out
 
 
