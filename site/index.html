@@ -3,133 +3,125 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#faf8f4" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#101318" media="(prefers-color-scheme: dark)">
 <link rel="icon" href="assets/mark.svg?v=549aac16" type="image/svg+xml">
 <link rel="icon" href="assets/favicon.ico?v=efa39745" sizes="32x32" type="image/x-icon">
 <link rel="icon" href="assets/icon-500.png?v=c70df9a5" sizes="500x500" type="image/png">
 <link rel="apple-touch-icon" href="assets/apple-touch-icon.png?v=b63e0473" sizes="180x180">
 <title>TT-Bio</title>
 <meta name="description" content="Open-source biomolecular AI: folding, binder design and protein embeddings on Tenstorrent hardware, with throughput per dollar measured against NVIDIA DGX systems and accuracy checked against reference implementations.">
-<link rel="preload" href="assets/manrope-latin.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="assets/site.css?v=80720702">
+<link rel="preload" href="assets/geist-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="assets/site.css?v=48659a9a?v=rf1">
 <style>
-
-
-/* hero: one statement across the full measure, then what backs it. The two
-   lines are set to near-equal length on purpose, so the break reads as a
-   decision rather than as wrapping. No image: the argument this page makes
-   is the measurements, and they begin one row down. */
-.hero{padding:76px 0 6px}
-@media (max-width:900px){.hero{padding:48px 0 4px}}
-.kicker{font-size:.78rem;letter-spacing:.15em;text-transform:uppercase;
-  color:var(--ink-3);font-weight:600;margin:0 0 26px}
-h1{font-size:clamp(2.35rem,5.1vw,4.2rem);margin:0;max-width:none;
-  line-height:1.03;letter-spacing:-.025em;text-wrap:initial}
-
-h1 em{font-style:normal;font-weight:600;color:var(--ink)}
-/* the break is only right once there is room for it */
+.hero{display:grid;grid-template-columns:minmax(0,1.32fr) minmax(0,.68fr);gap:24px;align-items:center;padding:56px 0 8px}
+.hero .art{position:relative;aspect-ratio:9/10;margin-right:-28px}
+.hero .art img{width:100%;height:auto;display:block}
+.kicker{display:inline-flex;align-items:center;gap:10px;font-size:.78rem;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--accent-ink);font-weight:600;margin:0 0 26px;padding:6px 14px;border-radius:99px;background:var(--accent-wash)}
+h1{font-size:clamp(2.5rem,5.6vw,4.6rem);margin:0}
+h1 em{font-style:normal;color:var(--accent-ink)}
 h1 .lb{display:none}
 @media (min-width:820px){h1 .lb{display:inline}}
-.lede{font-size:1.18rem;color:var(--ink-2);margin:36px 0 34px;max-width:58ch;line-height:1.55}
-
+.lede{font-size:1.2rem;color:var(--ink-2);margin:30px 0 34px;max-width:52ch;line-height:1.55}
 .cta{display:flex;gap:14px;flex-wrap:wrap}
+@media (max-width:860px){.hero{grid-template-columns:1fr;padding-top:30px;gap:0}
+  .hero .art{order:-1;width:min(44%,190px);margin:0 0 -34px auto;aspect-ratio:9/10}}
 
-/* the three facts, as type not boxes */
-.facts{display:grid;grid-template-columns:repeat(3,1fr);gap:0;
-  padding:52px 0 56px;margin-top:8px;border-bottom:1px solid var(--rule)}
-.facts>div{padding-left:26px;border-left:1px solid var(--rule)}
-.facts>div:first-child{padding-left:0;border-left:0}
-@media (max-width:800px){.facts{grid-template-columns:1fr;gap:24px;padding:40px 0 44px}
-  .facts>div{padding-left:0;border-left:0}
-  .facts>div+div{border-top:1px solid var(--rule);padding-top:24px}
-  .facts .n{font-size:2.6rem}
-  .facts .s{max-width:34ch}}
-.facts .n{font-family:var(--display);font-weight:300;font-size:clamp(2.4rem,5vw,3.2rem);
-  line-height:1;letter-spacing:-.035em;color:var(--ink);font-variant-numeric:tabular-nums}
-.facts .k{font-size:1.02rem;color:var(--ink);margin-top:12px;font-weight:500}
-.facts .s{font-size:.88rem;color:var(--ink-3);margin-top:4px;max-width:30ch}
+.facts{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin:40px 0 0}
+.facts>div{background:var(--wash);border-radius:var(--radius);padding:28px 28px 26px}
+.facts .n{font-family:var(--display);font-weight:600;font-size:clamp(2.4rem,4.6vw,3.3rem);
+  line-height:1;letter-spacing:-.05em;color:var(--ink)}
+.facts>div:first-child .n{color:var(--accent-ink)}
+.facts .k{font-size:1.04rem;color:var(--ink);margin-top:14px;font-weight:600}
+.facts .s{font-size:.9rem;color:var(--ink-3);margin-top:3px;max-width:30ch}
+@media (max-width:800px){.facts{grid-template-columns:1fr;gap:12px}.facts>div{padding:22px 22px 20px}}
 
-section{padding:76px 0}
-section+section{border-top:1px solid var(--rule)}
-h2{font-size:clamp(1.85rem,3.5vw,2.5rem);margin:0 0 18px;max-width:22ch}
-.say{font-size:1.08rem;color:var(--ink-2);margin:0 0 8px}
+section{padding:var(--s-6) 0 0}
+h2{font-size:clamp(1.9rem,3.6vw,2.7rem);margin:0 0 18px;max-width:24ch}
+.say{font-size:1.1rem;color:var(--ink-2);margin:0 0 8px}
 
-/* charts, open, no cards */
-.metricline{margin:30px 0 30px}
-.seg{display:inline-flex;border-bottom:1px solid var(--rule-2);gap:24px}
-.seg button{font:inherit;font-size:.95rem;padding:0 0 10px;border:0;background:0;cursor:pointer;
-  color:var(--ink-3);border-bottom:2px solid transparent;margin-bottom:-1px}
-.seg button:hover{color:var(--ink-2)}
-.seg button[aria-pressed="true"]{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
-.mgroup{padding:22px 0}
+.panel{background:var(--white);border:1px solid var(--rule);border-radius:calc(var(--radius) + 6px);padding:30px 32px 26px;margin-top:30px}
+@media (max-width:640px){.panel{padding:20px 16px 18px;margin-left:-6px;margin-right:-6px}}
+.ptop{display:flex;justify-content:space-between;align-items:flex-end;gap:18px 30px;flex-wrap:wrap;margin-bottom:8px}
+.seg{display:inline-flex;gap:4px;background:var(--wash);border-radius:99px;padding:4px}
+.seg button{font:inherit;font-size:.9rem;padding:7px 15px;border:0;background:0;cursor:pointer;color:var(--ink-2);border-radius:99px}
+.seg button:hover{color:var(--ink)}
+.seg button[aria-pressed="true"]{background:var(--white);color:var(--ink);font-weight:600;box-shadow:0 1px 3px rgba(40,30,10,.12)}
+.mgroup{padding:18px 0}
 .mgroup+.mgroup{border-top:1px solid var(--rule)}
-.mname{font-family:var(--display);font-size:1.05rem;font-weight:600;letter-spacing:-.012em;margin-bottom:14px}
-.bars{display:grid;gap:9px}
-.brow{display:grid;grid-template-columns:158px 1fr 76px;gap:18px;align-items:center}
-@media (max-width:640px){.brow{grid-template-columns:118px 1fr 62px;gap:11px}}
-.blabel{font-size:.92rem;color:var(--ink-3)}
+.mname{font-family:var(--display);font-size:1.04rem;font-weight:600;letter-spacing:-.015em;margin-bottom:12px}
+.bars{display:grid;gap:8px}
+.brow{display:grid;grid-template-columns:150px 1fr 70px;gap:16px;align-items:center}
+@media (max-width:640px){.brow{grid-template-columns:104px 1fr 50px;gap:10px}}
+.blabel{font-size:.9rem;color:var(--ink-3)}
 .brow.us .blabel{color:var(--ink);font-weight:600}
-.btrack{height:9px;background:var(--wash);border-radius:99px;overflow:hidden}
-.bfill{height:100%;background:var(--ink-4);border-radius:99px;transition:width .6s cubic-bezier(.2,.7,.3,1)}
-.brow.us .bfill{background:var(--accent)}
-.bval{font-size:.92rem;font-variant-numeric:tabular-nums;text-align:right;color:var(--ink-2)}
+.btrack{height:12px;background:var(--wash);border-radius:99px;overflow:hidden}
+.bfill{height:100%;background-color:var(--gpu);border-radius:99px;transition:width .6s cubic-bezier(.2,.7,.3,1)}
+.brow.us .bfill{background-color:var(--accent)}
+.bval{font-size:.9rem;text-align:right;color:var(--ink-2)}
 .brow.us .bval{color:var(--ink);font-weight:600}
 .bna{font-size:.85rem;color:var(--ink-4)}
-/* the axis: what a bar value is, beside the values, once above all the groups */
-.bhead{font-size:.86rem;color:var(--ink-3);padding-bottom:4px}
+.bhead{font-size:.86rem;color:var(--ink-3);padding:14px 0 2px}
 .bhead b{color:var(--ink-2);font-weight:600}
-.bhead .bval{font-size:.8rem;color:var(--ink-3);align-self:end}
-.caption{font-size:.85rem;color:var(--ink-4);margin-top:22px;max-width:66ch}
-.prov{font-size:.92rem;color:var(--ink-3);margin:0;max-width:70ch}
-.prov a{color:var(--ink-2)}
+.caption{font-size:.85rem;color:var(--ink-3);margin:16px 0 0;max-width:70ch}
+.prov{font-size:.94rem;color:var(--ink-3);margin:0;max-width:70ch}
+.prov a{color:var(--accent-ink)}
 
-/* models as a typographic index, not boxes */
-.cats{display:grid;grid-template-columns:1fr 1fr;gap:0 64px;margin-top:28px}
-@media (max-width:760px){.cats{grid-template-columns:1fr;gap:38px 0}}
-.ctitle{font-size:.76rem;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);font-weight:600;margin:0 0 4px}
-.ientry{display:flex;gap:16px;align-items:baseline;padding:14px 0;border-top:1px solid var(--rule)}
-.ientry .nm{font-family:var(--display);font-size:1.02rem;font-weight:600;letter-spacing:-.012em;min-width:6.6em}
+.why{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:34px}
+@media (max-width:860px){.why{grid-template-columns:1fr}}
+.card{background:var(--wash);border-radius:calc(var(--radius) + 6px);padding:30px 30px 28px}
+.card h3{font-size:1.24rem;margin:0 0 8px}
+.card p{margin:0;color:var(--ink-2);max-width:48ch}
+.card .dia{margin:0 0 24px;width:100%;height:auto;display:block}
+.dia .frame{fill:none;stroke:var(--rule-2);stroke-width:1.5}
+.dia .gpu{fill:var(--paper);stroke:var(--ink-4);stroke-width:1.5}
+.dia .model{fill:var(--accent)}
+.dia .hbm{fill:var(--gpu)}
+.dia text{font-family:var(--sans);fill:var(--ink)}
+.dia .t1{font-size:15px;font-weight:600}
+.dia .t2{font-size:13.5px;fill:var(--ink-3)}
+.dia .hl{font-size:11px;font-weight:600;text-anchor:middle;fill:var(--ink-2)}
+.dia .cl{font-size:15px;font-weight:600;text-anchor:middle;fill:#08202a}
+.minor{display:grid;grid-template-columns:1fr 1fr;gap:20px 56px;margin-top:30px}
+@media (max-width:860px){.minor{grid-template-columns:1fr}}
+.pt h3{font-size:1.06rem;margin:0 0 6px}
+.pt p{margin:0;color:var(--ink-2);font-size:1rem;max-width:46ch}
+
+.cats{display:grid;grid-template-columns:1fr 1fr;gap:0 64px;margin-top:26px}
+@media (max-width:760px){.cats{grid-template-columns:1fr;gap:30px 0}}
+.ctitle{font-size:.76rem;letter-spacing:.15em;text-transform:uppercase;color:var(--accent-ink);font-weight:600;margin:0 0 4px}
+.ientry{display:flex;gap:16px;align-items:baseline;padding:13px 0;border-top:1px solid var(--rule)}
+.ientry .nm{font-family:var(--display);font-size:1.03rem;font-weight:600;letter-spacing:-.015em;min-width:7.4em}
 .ientry .ds{font-size:.95rem;color:var(--ink-3)}
+.cat+.cat .ctitle,.ctitle.more{margin-top:26px}
+.cat .ctitle:first-child{margin-top:0}
 
-.two{display:grid;grid-template-columns:1fr 1fr;gap:34px 56px;margin-top:30px}
-@media (max-width:800px){.two{grid-template-columns:1fr}}
-.pt h3{font-family:var(--display);font-size:1.06rem;font-weight:600;letter-spacing:-.012em;margin:0 0 7px}
-.pt p{margin:0;color:var(--ink-2);font-size:1rem;max-width:44ch}
+.acc{display:grid;grid-template-columns:repeat(3,1fr);gap:20px 40px;margin-top:28px}
+@media (max-width:860px){.acc{grid-template-columns:1fr}}
 
-.finale{padding:86px 0 96px}
-.finale h2{margin:0 0 18px}
-.finale .say{margin:0 0 30px;max-width:52ch;text-wrap:pretty}
+.finale{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,.62fr);gap:30px;align-items:center;
+  margin:var(--s-6) 0 56px;background:var(--wash);border-radius:28px;padding:56px 56px}
+.finale h2{margin:0 0 14px}
+.finale .say{margin:0 0 28px;max-width:46ch}
+.finale img{width:100%;height:auto;display:block}
+@media (max-width:760px){.finale{grid-template-columns:1fr;padding:34px 24px 26px}
+  .finale .art{width:min(70%,260px);margin:0 auto}}
+.finale .art{aspect-ratio:1}
+
 .reveal{opacity:0;transform:translateY(12px);transition:opacity .7s ease,transform .7s ease}
 .reveal.in{opacity:1;transform:none}
-@media (prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none}
-  .bfill{transition:none}html{scroll-behavior:auto}}
-
-.deeper{display:flex;align-items:center;justify-content:space-between;gap:40px;
-  margin-top:40px;padding:28px 0 0;border-top:1px solid var(--rule-2)}
-.deeper .dtext{max-width:56ch}
-.deeper .dl{font-size:1.12rem;color:var(--ink);font-weight:600;margin:0 0 6px;letter-spacing:-.014em}
-.deeper .ds{font-size:.96rem;color:var(--ink-3);margin:0}
-.deeper .dbtn{white-space:nowrap;flex:none}
-@media(max-width:700px){.deeper{flex-direction:column;align-items:flex-start;gap:20px}}
-
+@media (prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none}.bfill{transition:none}}
 @media (max-width:640px){
-  /* each tab keeps its label on one line and wraps as a group, rather than
-     breaking every label across two lines in a rail too narrow to hold them */
-  .seg{flex-wrap:wrap;gap:10px 20px;border-bottom:0}
-  .seg button{white-space:nowrap;padding-bottom:7px;font-size:.92rem}
-  .metricline{margin:24px 0 22px}
-  .hero{padding-top:36px;gap:30px}
-  section{padding:56px 0}
-  .finale{padding:64px 0 72px}
-  .deeper{margin-top:32px;padding-top:24px}
-  .deeper .dbtn{width:100%;text-align:center}
   .cta .btn{flex:1 1 auto;text-align:center}
+  section{padding-top:60px}
 }
 </style>
 </head>
 <body>
 <div class="wrap">
   <nav>
-    <a class="brand" href="index.html" aria-label="TT-Bio, home"><span class="tt">TT-</span>Bio</a>
+    <a class="brand" href="index.html" aria-label="TT-Bio, home"><span class="dot" aria-hidden="true"></span><span><span class="tt">TT-</span>Bio</span></a>
     <span class="sp"></span>
     <a class="lnk" aria-current="page" href="index.html">Overview</a>
     <a class="lnk" href="benchmarks/">Benchmarks</a>
@@ -138,145 +130,154 @@ h2{font-size:clamp(1.85rem,3.5vw,2.5rem);margin:0 0 18px;max-width:22ch}
   </nav>
 
   <div class="hero">
-    <p class="kicker">Open source</p>
-    <h1>Biomolecular AI at<br class="lb"> <em>a&nbsp;quarter</em> of the cost</h1>
-    <p class="lede">TT-Bio runs folding, binder design and protein embeddings on Tenstorrent
-      hardware. One Blackhole Galaxy matches an NVIDIA DGX B200 on throughput, for under a third
-      of the price.</p>
-    <div class="cta">
-      <a class="btn solid" href="https://japanfold.com">Try it free</a>
-      <a class="btn line" href="https://github.com/moritztng/tt-bio">Read the code</a>
+    <div>
+      <p class="kicker">Open source</p>
+      <h1>Biomolecular AI at<br class="lb"> <em>a&nbsp;quarter</em> of the cost</h1>
+      <!-- render_check.js reads the two models named here and checks each against the data. -->
+      <p class="lede" id="lede">TT-Bio runs the leading structure prediction, design and affinity models on
+        Tenstorrent hardware. On <b>OpenFold3</b> and <b>Boltz-2</b>, one Blackhole Galaxy has higher
+        throughput than an NVIDIA DGX B200, for under a third of the price.</p>
+      <div class="cta">
+        <a class="btn solid" href="https://japanfold.com">Try it free</a>
+        <a class="btn line" href="https://github.com/moritztng/tt-bio">Read the code</a>
+      </div>
     </div>
+    <div class="art"><img src="assets/art/barnase-barstar.svg" width="900" height="1000" alt="" fetchpriority="high"></div>
   </div>
 
   <div class="facts">
     <div><div class="n" id="h-x">4&times;</div><div class="k">throughput per dollar</div>
-      <div class="s">of purchase price, against a DGX B200.</div></div>
+      <div class="s">of purchase price, against a DGX B200</div></div>
     <div><div class="n">One</div><div class="k">codebase</div>
       <div class="s">optimized from silicon to serving</div></div>
-    <div><div class="n">Every</div><div class="k">accuracy check published</div>
-      <div class="s">per model, against its reference</div></div>
+    <div><div class="n">1:1</div><div class="k">accuracy parity</div>
+      <div class="s">measured against every reference</div></div>
   </div>
 
   <section class="reveal" id="numbers">
     <p class="eyebrow">Benchmarks</p>
     <h2>Throughput, every model, every system</h2>
-    <p class="say measure">Predictions per hour, measured on the same 512-residue protein, with each
-      stack on its own shipped settings. Then divided by what the hardware costs.</p>
+    <p class="say measure">Predictions per hour on the same 512-residue protein, each stack on its own
+      shipped settings, then divided by what the hardware costs.</p>
     <!-- The sentence is scope.nvidia_code, written here so it reads without JS and replaced from
          the data on load. render_check.js fails if the two differ. -->
     <p class="prov"><span id="prov">The GPUs run Anthropic's open kit for these models in exact mode where it has the model, and the authors' own release where it does not.</span>
       <a href="benchmarks/#methods">Methods</a></p>
-    <div class="metricline">
-      <div class="seg" id="metric">
-        <button data-m="perk" aria-pressed="true">Throughput per $ to buy</button>
-        <button data-m="tco" aria-pressed="false">Throughput per $ to own</button>
-        <button data-m="tph" aria-pressed="false">Throughput per server</button>
+    <div class="panel">
+      <div class="ptop">
+        <div class="seg" id="metric">
+          <button data-m="perk" aria-pressed="true">Per $ to buy</button>
+          <button data-m="tco" aria-pressed="false">Per $ to own</button>
+          <button data-m="tph" aria-pressed="false">Per server</button>
+        </div>
+        <p class="legend"><span><i class="tt"></i>Galaxy Blackhole</span><span><i class="kit-hatch"></i>NVIDIA, Anthropic kit</span><span><i></i>NVIDIA, upstream</span></p>
       </div>
+      <div id="bars"></div>
+      <p class="caption" id="cap"></p>
     </div>
-    <div id="bars"></div>
-    <p class="caption" id="cap"></p>
-    <div class="deeper">
-      <div class="dtext">
-        <p class="dl">Every number here, and how it was measured</p>
-        <p class="ds">Per-model tables, the exact seconds behind every bar, run conditions,
-          the cost model and every price and power source.</p>
-      </div>
-      <a class="btn solid dbtn" href="benchmarks/">See the full benchmarks &rarr;</a>
+    <p style="margin:26px 0 0"><a class="btn line" href="benchmarks/">Every number, and how it was measured &rarr;</a></p>
+  </section>
+
+  <section class="reveal" id="why">
+    <p class="eyebrow">Why it costs less</p>
+    <h2>These models want many small processors, not a few huge GPUs</h2>
+    <div class="why">
+      <div class="card"><svg class="dia" viewBox="0 0 560 210" role="img" aria-label="A DGX B200 holds 8 large GPUs, each running one small model in a corner of its memory. A Galaxy holds 32 smaller processors, each filled by one model."><rect class="frame" x="1" y="1" width="262" height="160" rx="14"/><rect class="gpu" x="17" y="17" width="53" height="58" rx="6"/><rect class="model" x="17" y="50" width="25" height="25" rx="4"/><rect class="gpu" x="78" y="17" width="53" height="58" rx="6"/><rect class="model" x="78" y="50" width="25" height="25" rx="4"/><rect class="gpu" x="139" y="17" width="53" height="58" rx="6"/><rect class="model" x="139" y="50" width="25" height="25" rx="4"/><rect class="gpu" x="200" y="17" width="53" height="58" rx="6"/><rect class="model" x="200" y="50" width="25" height="25" rx="4"/><rect class="gpu" x="17" y="83" width="53" height="58" rx="6"/><rect class="model" x="17" y="116" width="25" height="25" rx="4"/><rect class="gpu" x="78" y="83" width="53" height="58" rx="6"/><rect class="model" x="78" y="116" width="25" height="25" rx="4"/><rect class="gpu" x="139" y="83" width="53" height="58" rx="6"/><rect class="model" x="139" y="116" width="25" height="25" rx="4"/><rect class="gpu" x="200" y="83" width="53" height="58" rx="6"/><rect class="model" x="200" y="116" width="25" height="25" rx="4"/><rect class="frame" x="296" y="1" width="262" height="160" rx="14"/><rect class="model" x="311.0" y="15" width="25" height="28" rx="4"/><rect class="model" x="340.5" y="15" width="25" height="28" rx="4"/><rect class="model" x="370.0" y="15" width="25" height="28" rx="4"/><rect class="model" x="399.5" y="15" width="25" height="28" rx="4"/><rect class="model" x="429.0" y="15" width="25" height="28" rx="4"/><rect class="model" x="458.5" y="15" width="25" height="28" rx="4"/><rect class="model" x="488.0" y="15" width="25" height="28" rx="4"/><rect class="model" x="517.5" y="15" width="25" height="28" rx="4"/><rect class="model" x="311.0" y="49" width="25" height="28" rx="4"/><rect class="model" x="340.5" y="49" width="25" height="28" rx="4"/><rect class="model" x="370.0" y="49" width="25" height="28" rx="4"/><rect class="model" x="399.5" y="49" width="25" height="28" rx="4"/><rect class="model" x="429.0" y="49" width="25" height="28" rx="4"/><rect class="model" x="458.5" y="49" width="25" height="28" rx="4"/><rect class="model" x="488.0" y="49" width="25" height="28" rx="4"/><rect class="model" x="517.5" y="49" width="25" height="28" rx="4"/><rect class="model" x="311.0" y="83" width="25" height="28" rx="4"/><rect class="model" x="340.5" y="83" width="25" height="28" rx="4"/><rect class="model" x="370.0" y="83" width="25" height="28" rx="4"/><rect class="model" x="399.5" y="83" width="25" height="28" rx="4"/><rect class="model" x="429.0" y="83" width="25" height="28" rx="4"/><rect class="model" x="458.5" y="83" width="25" height="28" rx="4"/><rect class="model" x="488.0" y="83" width="25" height="28" rx="4"/><rect class="model" x="517.5" y="83" width="25" height="28" rx="4"/><rect class="model" x="311.0" y="117" width="25" height="28" rx="4"/><rect class="model" x="340.5" y="117" width="25" height="28" rx="4"/><rect class="model" x="370.0" y="117" width="25" height="28" rx="4"/><rect class="model" x="399.5" y="117" width="25" height="28" rx="4"/><rect class="model" x="429.0" y="117" width="25" height="28" rx="4"/><rect class="model" x="458.5" y="117" width="25" height="28" rx="4"/><rect class="model" x="488.0" y="117" width="25" height="28" rx="4"/><rect class="model" x="517.5" y="117" width="25" height="28" rx="4"/><text x="2" y="190" class="t1">DGX B200</text><text x="2" y="207" class="t2">8 large GPUs</text><text x="297" y="190" class="t1">Galaxy</text><text x="297" y="207" class="t2">32 smaller processors</text></svg>
+        <h3>Small models, many small processors</h3>
+        <p>A biomolecular model is 2 to 3 GB of weights, about 1&nbsp;% of a B200's memory, so one
+          prediction leaves most of a big GPU idle. A Galaxy gives every prediction its own processor:
+          32 run at once.</p></div>
+      <div class="card"><svg class="dia" viewBox="0 0 560 210" role="img" aria-label="A GPU surrounds its compute with stacks of HBM, the memory that buys bandwidth. Biomolecular models are limited by compute instead."><rect class="frame" x="1" y="1" width="262" height="206" rx="14"/><rect class="hbm" x="16" y="14" width="52" height="40" rx="6"/><text class="hl" x="42" y="38">HBM</text><rect class="hbm" x="16" y="62" width="52" height="40" rx="6"/><text class="hl" x="42" y="86">HBM</text><rect class="hbm" x="16" y="110" width="52" height="40" rx="6"/><text class="hl" x="42" y="134">HBM</text><rect class="hbm" x="16" y="158" width="52" height="40" rx="6"/><text class="hl" x="42" y="182">HBM</text><rect class="hbm" x="196" y="14" width="52" height="40" rx="6"/><text class="hl" x="222" y="38">HBM</text><rect class="hbm" x="196" y="62" width="52" height="40" rx="6"/><text class="hl" x="222" y="86">HBM</text><rect class="hbm" x="196" y="110" width="52" height="40" rx="6"/><text class="hl" x="222" y="134">HBM</text><rect class="hbm" x="196" y="158" width="52" height="40" rx="6"/><text class="hl" x="222" y="182">HBM</text><rect class="model" x="82" y="56" width="100" height="96" rx="10"/><text class="cl" x="132" y="109">Compute</text><rect class="hbm" x="300" y="40" width="18" height="18" rx="4"/><text x="330" y="54" class="t1">HBM buys memory speed</text><text x="330" y="74" class="t2">Expensive, and sold out</text><rect class="model" x="300" y="118" width="18" height="18" rx="4"/><text x="330" y="132" class="t1">Bio models are limited</text><text x="330" y="152" class="t1">by compute</text></svg>
+        <h3>Compute-bound, so no HBM</h3>
+        <p>The pairformer does N&sup3; work on N&sup2; data: about 676 calculations per byte at 512
+          residues, past the point where any GPU waits on memory. Blackhole pairs GDDR6 with large
+          on-chip SRAM instead of HBM.</p></div>
+    </div>
+    <div class="minor">
+      <div class="pt"><h3>Off the HBM allocation</h3>
+        <p>The memory makers report their 2026 HBM output sold out. Blackhole does not use it, so you
+          can actually buy it.</p></div>
+      <div class="pt"><h3>Inference and training</h3>
+        <p>The same stack trains OpenFold3-family models, on the same hardware.</p></div>
     </div>
   </section>
 
   <section class="reveal" id="models">
     <p class="eyebrow">Coverage</p>
     <h2>Every model, one codebase</h2>
-    <p class="say measure">Every model runs on the same stack, from the kernels on the chip up to the
+    <p class="say measure">Every model runs on the same stack, from the kernels on the chip to the
       serving layer. Speed up one part and every model gains.</p>
     <div class="cats">
       <div class="cat">
         <p class="ctitle">Structure prediction</p>
-        <div class="ientry"><span class="nm">Boltz-2</span><span class="ds">Structure and binding affinity</span></div>
         <div class="ientry"><span class="nm">OpenFold3</span><span class="ds">AlphaFold3-family all-atom</span></div>
-        <div class="ientry"><span class="nm">Protenix-v1</span><span class="ds">Lighter all-atom complex prediction</span></div>
+        <div class="ientry"><span class="nm">Boltz-2</span><span class="ds">Structure and binding affinity</span></div>
+        <div class="ientry"><span class="nm">OpenDDE</span><span class="ds">Antibody-antigen and multi-chain complexes</span></div>
         <div class="ientry"><span class="nm">Protenix-v2</span><span class="ds">All-atom complex prediction</span></div>
-        <div class="ientry"><span class="nm">ESMFold2</span><span class="ds">Rapid single-sequence folding</span></div>
-        <div class="ientry"><span class="nm">OpenDDE</span><span class="ds">Multi-chain protein complexes</span></div>
         <div class="ientry"><span class="nm">RoseTTAFold3</span><span class="ds">All-atom biomolecular assemblies</span></div>
+        <div class="ientry"><span class="nm">ESMFold2</span><span class="ds">Rapid single-sequence folding</span></div>
         <div class="ientry"><span class="nm">OpenBind-0</span><span class="ds">Protein-ligand co-folding</span></div>
+        <div class="ientry"><span class="nm">Protenix-v1</span><span class="ds">Lighter all-atom complex prediction</span></div>
+        <p class="ctitle more">Training</p>
+        <div class="ientry"><span class="nm">OpenFold3</span><span class="ds">Fine-tune or train on your own data</span></div>
       </div>
       <div class="cat">
         <p class="ctitle">Binder design</p>
-        <div class="ientry"><span class="nm">BoltzGen</span><span class="ds">Binders against any target</span></div>
+        <div class="ientry"><span class="nm">BindCraft 2</span><span class="ds">Design loop with AlphaFold2 on the card</span></div>
         <div class="ientry"><span class="nm">RFdiffusion3</span><span class="ds">All-atom design and scaffolds</span></div>
+        <div class="ientry"><span class="nm">BoltzGen</span><span class="ds">Binders against any target</span></div>
         <div class="ientry"><span class="nm">PXDesign</span><span class="ds">Binder backbones from a target</span></div>
         <div class="ientry"><span class="nm">AF2-IG</span><span class="ds">Scores the binders you designed</span></div>
-        <p class="ctitle" style="margin-top:26px">Binding affinity</p>
+        <p class="ctitle more">Binding affinity</p>
         <div class="ientry"><span class="nm">Nesso-1</span><span class="ds">Affinity scalars, no structure</span></div>
-        <p class="ctitle" style="margin-top:26px">Embeddings</p>
+        <p class="ctitle more">Embeddings</p>
         <div class="ientry"><span class="nm">ESM-C</span><span class="ds">Sequence embeddings, to 6B</span></div>
         <div class="ientry"><span class="nm">SaProt</span><span class="ds">Structure-aware embeddings</span></div>
       </div>
     </div>
   </section>
 
-  <section class="reveal">
+  <section class="reveal" id="accuracy">
     <p class="eyebrow">Accuracy</p>
-    <h2>Checked against the reference</h2>
-    <!-- render_check.js reads this paragraph against each row's release-gate result. -->
-    <p class="say measure" id="acc-say">Each release scores every model against its official reference,
-      and a check passes inside that reference's own run-to-run spread. Seven of the eleven models
-      pass every check. Boltz-2 and OpenFold3 miss on some inputs run without an MSA or templates,
-      ESMFold2-Fast's confidence score at 512 residues is being re-checked, and PXDesign is not in
-      the gate yet. <a href="benchmarks/#methods">Results per model</a></p>
-    <div class="two" style="margin-top:26px">
+    <h2>The same answer as the reference</h2>
+    <p class="say measure" id="acc-say">Every release checks each model against its official reference
+      implementation, run the way people use it: with an MSA wherever the model takes one.</p>
+    <div class="acc">
       <div class="pt"><h3>The bar moves, so we measure it</h3>
         <p>A single reference run is not a target. The reference itself varies between seeds, so we
           measure that spread and land inside it.</p></div>
       <div class="pt"><h3>Checked three ways</h3>
         <p>Submodule activations by correlation, end-to-end outputs on identical noise, and published
           benchmarks reproduced.</p></div>
-      <div class="pt"><h3>Published, including the misses</h3>
-        <p>Per-target results, thresholds and reproduction commands are in the repository, along with
-          the legs that do not yet pass.</p></div>
-    </div>
-  </section>
-
-  <section class="reveal">
-    <p class="eyebrow">Why it works</p>
-    <h2>Free your GPUs for the work they are still best at</h2>
-    <div class="two">
-      <div class="pt"><h3>Inference is the half worth moving</h3>
-        <p>Serving is steady, predictable and large. Move it to Tenstorrent and your GPU fleet is left
-          for training and model development, where it earns the most.</p></div>
-      <div class="pt"><h3>Every model fits on one card</h3>
-        <p>No sharding and no interconnect ceiling. A prediction runs on a single AI Processor, so
-          throughput scales linearly with the number of them.</p></div>
-      <div class="pt"><h3>Bring your own models</h3>
-        <p>Agents port a model to the card in a day or two, on your machine. Your weights never leave
-          you.</p></div>
-      <div class="pt"><h3>No HBM, so you can actually buy it</h3>
-        <p>Blackhole pairs GDDR6 with large on-chip SRAM, so the HBM shortage does not gate delivery.</p></div>
+      <div class="pt"><h3>Every release, every model</h3>
+        <p>A release ships when every model's checks pass. Per-target results, thresholds and
+          reproduction commands are in the repository.</p></div>
     </div>
   </section>
 
   <div class="finale reveal">
-    <h2>Try it on real targets, free</h2>
-    <p class="say">JapanFold runs TT-Bio on Tenstorrent Galaxy hardware as a public service. Fold
-      something today, with no account and no card.</p>
-    <div class="cta">
-      <a class="btn solid" href="https://japanfold.com">Open JapanFold</a>
-      <a class="btn line" href="benchmarks/">See the full benchmarks</a>
+    <div>
+      <h2>Try it on real targets, free</h2>
+      <p class="say">JapanFold runs TT-Bio on Tenstorrent Galaxy servers as a public service. Fold,
+        design or score from the browser, the API or your AI agent.</p>
+      <div class="cta">
+        <a class="btn solid" href="https://japanfold.com">Open JapanFold</a>
+        <a class="btn line" href="benchmarks/">See the benchmarks</a>
+      </div>
     </div>
+    <div class="art"><img src="assets/art/pdl1-binder.svg" width="900" height="900" alt="" loading="lazy"></div>
   </div>
 
   <footer>
-    <span>TT-Bio &mdash; open source</span>
+    <span>TT-Bio, open source</span>
     <a href="https://github.com/moritztng/tt-bio">GitHub</a>
     <a href="benchmarks/">Benchmarks</a>
     <a href="https://japanfold.com">JapanFold</a>
   </footer>
   <p class="disclaim">Tenstorrent, Blackhole and Galaxy are trademarks of Tenstorrent Inc. NVIDIA, DGX, H200, B200
     and A100 are trademarks of NVIDIA Corporation. Hardware names are used to identify the systems
-    measured.</p>
+    measured. Line drawings: barstar bound to barnase (PDB 1BRS) and a BindCraft 2 binder on PD-L1
+    designed on Tenstorrent, drawn from their C-alpha traces.</p>
 </div>
 <script>
 /* Every figure below is derived from data/perf-512aa.json at load time. This page used to carry
@@ -310,7 +311,7 @@ function build(D){
       const c = mod.cells[k], p = P[SERVER_OF[k]];
       if (!c || c.status !== "measured") { row[p.name] = null; continue; }
       const ph = perHour(secs(c), p);
-      row[p.name] = [ph, ph / p.price_usd * 1000, ph / ownUsd(p) * 1000];
+      row[p.name] = [ph, ph / p.price_usd * 1000, ph / ownUsd(p) * 1000, c.ref === "kit"];
     }
     CH[mod.name] = row;
   }
@@ -337,8 +338,9 @@ function groupHTML(model){
     if (v == null) return `<div class="brow ${us?"us":""}"><div class="blabel">${s}</div>
       <div class="bna">not yet measured</div><div class="bval"></div></div>`;
     const txt = metric==="perk" ? v.toFixed(1) : Math.round(v).toLocaleString("en-US");
+    const kit = row[s][3] ? " kit-hatch" : "";
     return `<div class="brow ${us?"us":""}"><div class="blabel">${s}</div>
-      <div class="btrack"><div class="bfill" style="width:${Math.round(100*v/max)}%"></div></div>
+      <div class="btrack"><div class="bfill${kit}" style="width:${Math.round(100*v/max)}%"></div></div>
       <div class="bval">${txt}</div></div>`;
   }).join("");
   return `<div class="mgroup"><div class="mname">${model}</div><div class="bars">${bars}</div></div>`;

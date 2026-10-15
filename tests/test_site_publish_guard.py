@@ -104,7 +104,7 @@ def test_a_complete_held_row_is_published_and_both_counts_follow(sandbox: Path):
     f.write_text(json.dumps(pending, indent=2) + "\n")
 
     assert "restored design/pxdesign" in guard(sandbox, "--restore").stdout
-    assert ids(sandbox, "design") == ["boltzgen", "rfd3", "pxdesign"]
+    assert ids(sandbox, "design") == ["rfd3", "boltzgen", "pxdesign"]
     assert held(sandbox) == []
     # The counts follow the rows the page DRAWS, not the rows in the file. rfd3 is hidden,
     # so restoring pxdesign takes the visible design count from one to two. The literal

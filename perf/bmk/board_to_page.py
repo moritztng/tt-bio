@@ -114,7 +114,7 @@ def fill(doc: dict, runs: dict, parity: dict) -> list[str]:
                 if "batch" in old and "batch" not in cell:
                     raise SystemExit(f"{cat}/{m['id']}/{k}: the board command names no batch size")
                 if v == "tenstorrent" and parity.get(m["id"]):
-                    cell["parity"] = parity[m["id"]] + (". " + m["parity_caveat"] if m.get("parity_caveat") else "")
+                    cell["parity"] = parity[m["id"]]
                 for name, r in extra.items():
                     if r:
                         cell[name] = as_run(r, unit, v)
@@ -128,10 +128,11 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--board", type=Path, default=BOARD)
     ap.add_argument("--gate", type=Path, required=True, help="release gate dir, ~/gates/rel-<sha>")
+    ap.add_argument("--extra", type=Path, help="parity legs run outside the gate, state/site/msa-parity.json")
     ap.add_argument("--write", action="store_true")
     a = ap.parse_args()
     doc = json.loads(DATA.read_text(), object_pairs_hook=OrderedDict)
-    changes = fill(doc, board_runs(a.board), gate_parity.claims(a.gate.expanduser()))
+    changes = fill(doc, board_runs(a.board), gate_parity.claims(a.gate.expanduser(), a.extra))
     print("\n".join(changes) or "no board row matches a page cell")
     stale = [f"{cat}/{m['id']}/{k}" for cat in UNIT
              for m in (doc[cat] if isinstance(doc[cat], list) else doc[cat]["models"])
