@@ -77,6 +77,12 @@ NORMAL_LEVERS = _T.NORMAL_LEVERS - {"transition_bw", "transition_shard"} | {"dit
 # Galaxy chip at 1000 MHz, paired median: OpenFold3 -0.37 s, OpenBind-0 -0.20 s; flat on p150a.
 FAST_LEVERS = NORMAL_LEVERS | {"dit_s16", "diffusion_bf16", "trimul_t1", "trimul_t2", "trimul_t2cm", "transition_ws",
                                "dit_fuse", "edm_device", "ws_l1dest", "dit_hifi2", "dit_kc", "dit_mask16", "triatt_ln"}
+# Wormhole --fast adds apb_ln (the attention pair-bias projection reads the pair through the same fused LayerNorm).
+# Wormhole 11-set fast grade of --fast + apb_ln against --fast, 44 paired folds per model (whlg, 2026-10-15), PASS:
+# OpenFold3 top pose median 0.543 A (floor 1.238 A), CA-lDDT -0.0010 [-0.0036, +0.0007], docking 22 -> 22/44;
+# OpenBind-0 0.573 A (floor 0.672 A), CA-lDDT +0.0014 [-0.0000, +0.0036], docking 27 -> 27/44
+# (state/spd/grade-apbln-*-wh-fast.md). Not graded on Blackhole, so it stays off there.
+WH_FAST_LEVERS = FAST_LEVERS | {"apb_ln"}
 
 def kabsch_rmsd(pred_ca, gt_ca):
     """Optimal-superposition Cα-RMSD (Kabsch). pred_ca, gt_ca: [N, 3].
@@ -301,9 +307,10 @@ class OpenFold3(Module):
     def __init__(self, sd, compute_kernel_config, num_cycles: int = 4, levers=None):
         """``levers``: the precision levers (``tenstorrent.LEVERS``) this model builds and folds
         under, active only inside its own build and fold, as for Protenix-v2. None takes the
-        mode's set (``tenstorrent.model_levers``): ``--fast`` means ``FAST_LEVERS`` below and
+        mode's set (``tenstorrent.model_levers``): ``--fast`` means ``FAST_LEVERS`` below (``WH_FAST_LEVERS`` on Wormhole) and
         nothing else, the older bfp8 trunk is off inside the scope."""
-        self._levers = _T.model_levers(NORMAL_LEVERS, FAST_LEVERS, spec=levers)
+        self._levers = _T.model_levers(
+            NORMAL_LEVERS, WH_FAST_LEVERS if _T.is_wormhole() else FAST_LEVERS, spec=levers)
         with _T.lever_scope(self._levers):
             self._build(sd, compute_kernel_config, num_cycles)
 
