@@ -1798,26 +1798,66 @@ class DiffusionModule(_KeyedWeights):
 
         def linlp(x, wk, dtype, act=None):
             return lp.linear(x, self._w_tt_lp(wk), dtype=dtype, activation=act)
+        # dit_shoist: every block's s-terms as three wide linears a step, read in place (`addcmul_at`).
+        wide = self._dit_shoist(s_t) if _T.lever("dit_shoist") else None
+        W = lambda t, j: _T._ColWin(t, j * 768, 768)  # noqa: E731
+
+        def gated(x, y, j, wk, bk):
+            out = _T._win_addcmul(x, y, W(wide[2], j)) if wide else None
+            if out is None:
+                out = gated_add(x, y, ttnn.sigmoid(linb(s_t, wk, bk)))
+            return out
         for _bi, ((adaln_a, apb, ctb_adaln, A, Cc), bias) in enumerate(zip(self._dit, biases)):
-            b = adaln_a(a_t, s_t, dtype=ln_dt)
+            terms = (lambda j: _T._SigTerms((W(wide[0], j), W(wide[1], j)))) if wide else (lambda j: None)
+            b = adaln_a(a_t, s_t, dtype=ln_dt, s_terms=terms(2 * _bi))
             bias_dev = _T.host_unpark(bias)
             attn = apb(b, bias_dev, bias_precomputed=True)
             if bias_dev is not bias:
                 ttnn.deallocate(bias_dev)
             dram_peak(f"dit[M={a_t.shape[0]}] block {_bi}")
-            sg = ttnn.sigmoid(linb(s_t, A + "linear_a_last.weight", A + "linear_a_last.bias"))
-            ao = gated_add(a_t, attn, sg)
-            an2 = ctb_adaln(ao, s_t, dtype=ln_dt)
+            ao = gated(a_t, attn, 2 * _bi, A + "linear_a_last.weight", A + "linear_a_last.bias")
+            an2 = ctb_adaln(ao, s_t, dtype=ln_dt, s_terms=terms(2 * _bi + 1))
             if lp:
                 bb = ttnn.multiply(linlp(an2, Cc + "linear_nobias_a1.weight", ttnn.bfloat16, "silu"),
                                    linlp(an2, Cc + "linear_nobias_a2.weight", ttnn.bfloat16), dtype=lp.mid)
             else:
                 bb = ttnn.multiply(linb(an2, Cc + "linear_nobias_a1.weight", act="silu"),
                                    linb(an2, Cc + "linear_nobias_a2.weight"))
-            cs = ttnn.sigmoid(linb(s_t, Cc + "linear_s.weight", Cc + "linear_s.bias"))
-            a_t = gated_add(ao, linlp(bb, Cc + "linear_nobias_b.weight", lp.out) if lp
-                            else linb(bb, Cc + "linear_nobias_b.weight"), cs)
+            a_t = gated(ao, linlp(bb, Cc + "linear_nobias_b.weight", lp.out) if lp
+                        else linb(bb, Cc + "linear_nobias_b.weight"), 2 * _bi + 1,
+                        Cc + "linear_s.weight", Cc + "linear_s.bias")
+        if wide:
+            for t in wide:
+                ttnn.deallocate(t)
         return a_t[:, :NT, :] if NP != NT else a_t
+
+    def _dit_shoist(self, s_t):
+        """`dit_shoist`: `(sigmoid scales, shifts, sigmoid gates)` of all 24 blocks as three wide
+        linears off this step's `s_t`, two 768-column windows a block in order (attention, transition).
+        The adaLN terms take the s-norm's gamma folded into their weights (`AdaLN.folded_weights`),
+        as Boltz-2's hoisted conditioning does."""
+        dt = s_t.dtype
+        ws = self.__dict__.setdefault("_dit_shoist_w", {})
+        if dt not in ws:
+            sw, sb, bw, gw, gb = [], [], [], [], []
+            for adaln_a, _apb, ctb_adaln, A, Cc in self._dit:
+                for ad in (adaln_a, ctb_adaln):
+                    w_sc, b_sc, w_sb = ad.folded_weights()
+                    sw.append(w_sc); sb.append(b_sc); bw.append(w_sb)
+                for pre in (A + "linear_a_last.", Cc + "linear_s."):
+                    gw.append(self._w[pre + "weight"].t()); gb.append(self._w[pre + "bias"])
+            up = lambda t: ttnn.from_torch(t.float().contiguous(), dtype=dt, layout=ttnn.TILE_LAYOUT,  # noqa: E731
+                                           device=self.device)
+            ws[dt] = (up(torch.cat(sw, 1)), up(torch.cat(sb, 0).reshape(1, -1)), up(torch.cat(bw, 1)),
+                      up(torch.cat(gw, 1)), up(torch.cat(gb, 0).reshape(1, -1)))
+        w_sc, b_sc, w_sb, w_g, b_g = ws[dt]
+        ckc = self._dit_ckc
+        s_hat = ttnn.layer_norm(s_t, epsilon=1e-5, compute_kernel_config=ckc)
+        lin = lambda x, w, b=None, act=None: ttnn.linear(  # noqa: E731
+            x, w, bias=b, activation=act, compute_kernel_config=ckc, core_grid=CORE_GRID_MAIN)
+        out = (lin(s_hat, w_sc, b_sc, "sigmoid"), lin(s_hat, w_sb), lin(s_t, w_g, b_g, "sigmoid"))
+        ttnn.deallocate(s_hat)
+        return out
 
 
     def _denoise_multiplicity(self, x_noisy, t_hat, cond):

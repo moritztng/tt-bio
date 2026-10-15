@@ -14716,8 +14716,7 @@ class AdaLN(Module):
             own = self._s_memo is not s_terms
         if isinstance(s_terms, _SigTerms) and isinstance(s_terms[0], _ColWin):
             (sc_t, sc_off, width), (sh_t, sh_off, _) = s_terms
-            out = (_addcmul_at(sh_t, a, sc_t, width, x_off=sh_off, z_off=sc_off)
-                   if dtype in (None, ttnn.bfloat16) else None)
+            out = _addcmul_at(sh_t, a, sc_t, width, x_off=sh_off, z_off=sc_off, out_dtype=dtype)
             if out is not None:
                 ttnn.deallocate(a)
                 return out
