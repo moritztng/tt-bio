@@ -48,7 +48,7 @@ def eligible(z, wt, mask) -> bool:
             and zs[1] <= n and _l1_bytes(c // 32, h // 32) <= _L1_BUDGET)
 
 
-def _build(z, wt, mask, out, device, units, kt, ht, nt, rows, cols, mb, scale, fidelity, raw=False):
+def _build(z, wt, mask, out, device, units, kt, ht, nt, rows, cols, mb, scale, fidelity, raw=False, k1=True):
     g = device.compute_with_storage_grid_size()
     _, grid, cg1, cg2, work1, work2 = core_split.split_work_to_cores(g, units, 0)
 
@@ -71,6 +71,11 @@ def _build(z, wt, mask, out, device, units, kt, ht, nt, rows, cols, mb, scale, f
         rct.extend(ttnn.TensorAccessorArgs(t).get_compile_time_args())
     wct = [ht, nt, _SW] + list(ttnn.TensorAccessorArgs(out).get_compile_time_args())
     sbits = struct.unpack("<I", struct.pack("<f", scale))[0]
+    # Wormhole's fp32 dest writes -2/-4/-8 where a second K tile nearly cancels the first (tt_bio/dest_guard.py):
+    # sum the K tiles on the SFPU there. Blackhole does not have the fault.
+    defines = [("DPB_K1", "1")] if device.arch() == ttnn.Arch.WORMHOLE_B0 and kt <= 4 and k1 else []
+    if raw:
+        defines.append(("DPB_RAW", "1"))
     src = lambda n: str(KERNEL_DIR / n)  # noqa: E731
     path = ttnn.KernelDescriptor.SourceType.FILE_PATH
     reader = ttnn.KernelDescriptor(kernel_source=src("reader.cpp"), source_type=path, core_ranges=grid,
@@ -81,15 +86,16 @@ def _build(z, wt, mask, out, device, units, kt, ht, nt, rows, cols, mb, scale, f
                                    config=ttnn.WriterConfigDescriptor())
     compute = ttnn.KernelDescriptor(
         kernel_source=src("compute.cpp"), source_type=path, core_ranges=grid,
-        compile_time_args=[kt, ht, nt, rows, sbits], runtime_args=cp, defines=[("DPB_RAW", "1")] if raw else [],
+        compile_time_args=[kt, ht, nt, rows, sbits], runtime_args=cp, defines=defines,
         config=ttnn.ComputeConfigDescriptor(math_fidelity=fidelity, fp32_dest_acc_en=True))
     return [reader, writer, compute], cbs
 
 
-def dit_pair_bias(z, wt, mask, scale, fidelity=ttnn.MathFidelity.HiFi4, raw=False):
+def dit_pair_bias(z, wt, mask, scale, fidelity=ttnn.MathFidelity.HiFi4, raw=False, k1=True):
     """[B, H, n, n] bf16 = (z @ W) * scale + mask, head-first, for z [B, I, n, C], wt = W^T as [1, 1, H, C] and
     mask [1 or B, 1, n, n] already padded (rows i >= I take the mask alone). `raw` (bench only) skips the scale
-    and the mask: the head-first projection with zero padding."""
+    and the mask: the head-first projection with zero padding. `k1=False` (bench only) keeps the K sum in the FPU
+    on Wormhole too."""
     device = z.device()
     zs = [int(d) for d in z.padded_shape]
     B, rows, n, c = zs
@@ -99,10 +105,10 @@ def dit_pair_bias(z, wt, mask, scale, fidelity=ttnn.MathFidelity.HiFi4, raw=Fals
     mb = int(int(mask.padded_shape[0]) == B and B > 1)
     out = ttnn.allocate_tensor_on_device(ttnn.Shape([B, h, n, n]), ttnn.bfloat16, ttnn.TILE_LAYOUT, device,
                                          ttnn.DRAM_MEMORY_CONFIG)
-    key = (device.id(), tuple(zs), cols, h, mb, float(scale), fidelity, raw)
+    key = (device.id(), tuple(zs), cols, h, mb, float(scale), fidelity, raw, k1)
     if key not in _CACHE:
         _CACHE[key] = _build(z, wt, mask, out, device, B * nt * nt, kt, ht, nt, rows, cols, mb, float(scale),
-                                fidelity, raw)
+                                fidelity, raw, k1)
     kernels, cbs = _CACHE[key]
     kernels[0].common_runtime_args = [z.buffer_address(), wt.buffer_address(), mask.buffer_address()]
     kernels[1].common_runtime_args = [out.buffer_address()]

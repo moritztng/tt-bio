@@ -67,7 +67,7 @@ def case(dev, ckc, I):
     raw_ref[:, :, :I, :I] = torch.einsum("bijc,ch->bhij", z_t.double(), w_t.double())
     rec, outs = {"I": I, "n": n, "eligible": D.eligible(z, wt, mp)}, {}
     try:
-        o = dpb_raw()
+        o = D.dit_pair_bias(z, wt, mp, HD ** 0.5, ckc.math_fidelity, raw=True, k1=False)
         d = ttnn.to_torch(o).double()
         ttnn.deallocate(o)
         e = (d - raw_ref).abs()
@@ -82,7 +82,10 @@ def case(dev, ckc, I):
         r = {"error": repr(ex)[:400]}
     rec["dpb_raw"] = r
     print(I, "dpb_raw", r, flush=True)
-    for name, fn in (("shipped", shipped), ("dpb", dpb)):
+    def dpb_fpu():
+        return D.dit_pair_bias(z, wt, mp, HD ** 0.5, ckc.math_fidelity, k1=False)
+
+    for name, fn in (("shipped", shipped), ("dpb", dpb), ("dpb_fpu", dpb_fpu)):
         try:
             o, med, lo, hi = timeit(fn, dev)
             d = ttnn.to_torch(o).double()
@@ -111,7 +114,7 @@ def case(dev, ckc, I):
             r = {"error": repr(ex)[:400]}
         rec[name] = r
         print(I, name, r, flush=True)
-    if len(outs) == 2:
+    if "shipped" in outs and "dpb" in outs:
         a, b = outs["shipped"], outs["dpb"]
         rec["dpb_vs_shipped"] = {"bit_equal_frac": float((a == b).double().mean()), "max_abs": float((a - b).abs().max())}
         print(I, "dpb_vs_shipped", rec["dpb_vs_shipped"], flush=True)

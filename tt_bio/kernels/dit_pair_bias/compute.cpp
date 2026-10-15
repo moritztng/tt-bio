@@ -41,6 +41,31 @@ void kernel_main() {
         cb_wait_front(cb_z, 32 * KT);
         cb_wait_front(cb_m, 1);
         for (uint32_t hb = 0; hb < HT; ++hb) {
+#ifdef DPB_K1
+            // Wormhole: an fp32 dest that accumulates a second K tile onto a partial it nearly cancels writes
+            // about -2 / -4 / -8 (tt_bio/dest_guard.py; seen here at ~3 elements a call). Each K tile's product
+            // gets its own dest tile and the SFPU sums them, so the FPU never accumulates in dest.
+            static_assert(KT <= 4, "one fp32 half-sync dest holds the KT partials of one tile");
+            pack_untilize_dest_init<1, 32>(cb_rm);
+            cb_reserve_back(cb_rm, 32);
+            for (uint32_t il = 0; il < 32; ++il) {
+                tile_regs_acquire();
+                if (il < nv) {
+                    mm_init_short(cb_w, cb_z, 1);
+                    for (uint32_t c = 0; c < KT; ++c) {
+                        matmul_tiles(cb_w, cb_z, hb * KT + c, il * KT + c, c);
+                    }
+                    add_binary_tile_init();
+                    for (uint32_t c = 1; c < KT; ++c) {
+                        add_binary_tile(0, c, 0);
+                    }
+                }
+                tile_regs_commit();
+                tile_regs_wait();
+                pack_untilize_dest<1, 32>(cb_rm, 1, il);
+                tile_regs_release();
+            }
+#else
             mm_init_short(cb_w, cb_z, 1);
             pack_untilize_dest_init<SW, 32>(cb_rm);
             cb_reserve_back(cb_rm, 32);
@@ -59,6 +84,7 @@ void kernel_main() {
                 pack_untilize_dest<SW, 32>(cb_rm, 1, g);
                 tile_regs_release();
             }
+#endif
             pack_untilize_uninit(cb_rm);
             cb_push_back(cb_rm, 32);
 
