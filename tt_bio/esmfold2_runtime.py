@@ -1506,8 +1506,16 @@ LEVERS_NORMAL = ("normal-trunk_hifi3+trimul_gin+trimul_t2g+trimul_gin_hifi2"
 # Wormhole adds trimul_t2m (T2 reads the einsum's last chunk channel-major, so the permute-back pass never writes):
 # same digests on 3 seeds x 2 models, 512 aa --fast warm at 1000 MHz, A B A B on one Galaxy chip: ESMFold2 37.50 ->
 # 35.97 s, ESMFold2-Fast 23.55 -> 22.55 s. Blackhole is not measured on it yet.
+# Blackhole --fast also runs the trimul as T1 (in-projection, c_z 256 plan included) and T2 with the channel-major
+# einsum read (trimul_t1 + t1_c256 + t2 + t2cm), graded on the fast bar against the set without them, 11 complexes x
+# 4 seeds per model (p300c, 1350 MHz): ESMFold2 CA-lDDT +0.0006 [-0.0001, +0.0014], ipTM +0.0051, top-pose median
+# 0.14 A vs 1.17 A seed floor, docking 33 -> 33 of 44; ESMFold2-Fast CA-lDDT -0.0009 [-0.0021, +0.0000], top-pose
+# median 0.17 A vs 1.36 A, docking 24 -> 24. 512 aa --fast warm at 1350 MHz, A C A C: ESMFold2 15.75 -> 15.49 s,
+# ESMFold2-Fast 9.56 -> 9.31 s. Wormhole loses 2.4 s with them, so it drops them (_BH_ONLY_FAST).
 LEVERS_FAST = ("normal+trimul_b8in+transition_ws+trimul_gin+trimul_t2g+trimul_gin_hifi2+ws_resid+ws_lofi"
-               "+ef2_bit_draw+ef2_pair_init+ef2_lm_combine+ef2_opm_kq+ef2_relpos_lookup+ef2_atom_ffn_split")
+               "+ef2_bit_draw+ef2_pair_init+ef2_lm_combine+ef2_opm_kq+ef2_relpos_lookup+ef2_atom_ffn_split"
+               "+trimul_t1+trimul_t1_c256+trimul_t2+trimul_t2cm")
+_BH_ONLY_FAST = ("ef2_pair_init", "ws_lofi", "trimul_t1", "trimul_t1_c256", "trimul_t2", "trimul_t2cm")
 
 
 def fold_levers(fast: bool) -> str:
@@ -1517,7 +1525,7 @@ def fold_levers(fast: bool) -> str:
         return os.environ["TT_BIO_LEVERS"]
     levers = LEVERS_FAST if fast else LEVERS_NORMAL
     if is_wormhole():  # pair init runs out of DRAM at 1024 tokens; trimul_gin_hifi2 is graded on the fast bar only
-        levers = levers.replace("+ef2_pair_init", "").replace("+ws_lofi", "")
+        levers = "+".join(n for n in levers.split("+") if n not in _BH_ONLY_FAST)
         if not fast:
             levers = levers.replace("+trimul_gin_hifi2", "")
         levers += "+trimul_t2m"

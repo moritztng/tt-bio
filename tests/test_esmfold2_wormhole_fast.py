@@ -51,6 +51,9 @@ def test_normal_set_takes_hifi2_only_where_graded(monkeypatch, wormhole):
     fast_set = rt.fold_levers(True).split("+")
     assert "ws_resid" in fast_set and fast_set.count("trimul_gin_hifi2") == 1
     assert ("ws_lofi" in fast_set) is not wormhole
+    # The T1/T2 trimul stack passed the fast bar on Blackhole and loses time on Wormhole.
+    assert all((n in fast_set) is not wormhole for n in ("trimul_t1", "trimul_t1_c256", "trimul_t2", "trimul_t2cm"))
+    assert "trimul_t1" not in rt.fold_levers(False).split("+")
     # The ef2_* levers ride both sets on both archs, except device pair init on Wormhole (out of DRAM at 1024 tokens).
     for fast in (False, True):
         names = rt.fold_levers(fast).split("+")
