@@ -11,6 +11,7 @@ Each row declares what it wants measured in state/spd/grids/<row>.yaml:
         prio: 4          # pool prio 3-8
         mem: 24
         cap: 3600
+        cpu: 5           # optional: host cores the job really uses beyond its thread share; pool.sh limits such jobs
         hosts: [113]     # optional: only these pools, while SPD holds one of them (else any pool of the arch)
         active: true     # false parks the experiment without deleting it
         axes: {seed: [103, 104], cpx: [9W8A, 28VJ]}     # product, first axis outermost
@@ -254,7 +255,7 @@ def cells(grid_dir):
                 assert 3 <= prio <= 8, f"{f.name}:{e['name']}: prio {prio} outside 3-8"
                 body = (f"# spd-feed: {row} {e['name']} {' '.join(f'{k}={v}' for k, v in zip(axes, vals))} "
                         f"(grid state/spd/grids/{f.name})\n# mem: {e.get('mem', 24)}\n# cap: {e.get('cap', 7200)}\n"
-                        f"export TT_BIO_LEASE_HOLDER={row}\n{cmd.rstrip()}\n")
+                        + (f"# cpu: {int(e['cpu'])}\n" if e.get("cpu") else "") + f"export TT_BIO_LEASE_HOLDER={row}\n{cmd.rstrip()}\n")
                 h = hashlib.sha1(body.encode()).hexdigest()[:6]
                 cid = re.sub(r"[^A-Za-z0-9_.]+", "_", "-".join(map(str, vals))) or "x"
                 key = f"{row}/{e['name']}/{cid}"

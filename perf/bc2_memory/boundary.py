@@ -301,7 +301,9 @@ def main() -> int:
               f"pair_mm.forget then freed {(after_gc - after_forget) / GB:.3f} GB, clearing "
               f"{n_programs} cached programs freed {(after_forget - after_programs) / GB:.3f} GB; "
               f"{out['ended']}; {out['clock_line']}", flush=True)
-    return 0
+    # a refusal is the expected result only in the unfixed arm; in the fixed arm (the release gate's leg) it is a
+    # failure: 10-14 the gate read PASS on qb1 for a run that never loaded AlphaFold params
+    return 0 if out["ended"] == "completed" or args.arm == "unfixed" else 1
 
 
 if __name__ == "__main__":

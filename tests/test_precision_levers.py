@@ -18,7 +18,7 @@ def test_a_model_names_its_own_sets_and_the_harness_switch_still_wins(monkeypatc
     monkeypatch.delenv("TT_BIO_LEVERS", raising=False)
     monkeypatch.setattr(T, "_FAST_MODE", True)
     assert T.model_levers() == T.FAST_LEVERS
-    assert T.model_levers(of3.NORMAL_LEVERS, of3.FAST_LEVERS) == of3.FAST_LEVERS == of3.NORMAL_LEVERS | {"dit_s16", "diffusion_bf16", "trimul_t1", "trimul_t2", "trimul_t2cm", "transition_ws", "dit_fuse", "edm_device", "ws_l1dest", "dit_hifi2"}
+    assert T.model_levers(of3.NORMAL_LEVERS, of3.FAST_LEVERS) == of3.FAST_LEVERS == of3.NORMAL_LEVERS | {"dit_s16", "diffusion_bf16", "trimul_t1", "trimul_t2", "trimul_t2cm", "transition_ws", "dit_fuse", "edm_device", "ws_l1dest", "dit_hifi2", "dit_kc", "dit_mask16"}
     monkeypatch.setenv("TT_BIO_LEVERS", "fast")
     assert T.model_levers(of3.NORMAL_LEVERS, of3.FAST_LEVERS) == T.FAST_LEVERS
     monkeypatch.setattr(T, "_FAST_MODE", False)
@@ -203,6 +203,12 @@ def test_protenix_fast_set_takes_t1_c256(monkeypatch):
     monkeypatch.setattr(T, "_FAST_MODE", True)
     monkeypatch.delenv("TT_BIO_LEVERS", raising=False)
     assert T.model_levers(NORMAL_LEVERS, FAST_LEVERS) == FAST_LEVERS
+
+
+def test_protenix_wormhole_fast_set_drops_t1_c256():
+    from tt_bio.protenix import FAST_LEVERS, WH_FAST_LEVERS
+
+    assert FAST_LEVERS - WH_FAST_LEVERS == {"trimul_t1_c256"}
 
 
 def test_opendde_fast_set_names_only_known_levers():

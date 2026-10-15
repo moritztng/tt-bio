@@ -62,6 +62,33 @@ def missing(row: dict) -> list[str]:
     return [k for k, c in (row.get("cells") or {}).items() if c.get("status") != "measured"]
 
 
+def unlabelled(doc: dict) -> list[str]:
+    """Cells that do not say what they are.
+
+    An NVIDIA cell is either the Anthropic kit's exact mode or the authors' own release, and
+    the page labels every bar from `ref`, so a cell without one would draw an unattributed
+    number. A campaign cell (one without the free-text `provenance` the older cells carry)
+    states its run in fields: sample count, clock, versions and date. A number without the
+    clock it ran at is not a measurement.
+    """
+    vendor = {p["id"]: p["vendor"] for p in doc["platforms"]}
+    bad = []
+    for cat in CATEGORIES:
+        for row in rows(doc, cat):
+            for k, c in (row.get("cells") or {}).items():
+                if c.get("status") != "measured":
+                    continue
+                where = f"{cat}/{row['id']}/{k}"
+                if vendor.get(k) == "nvidia" and c.get("ref") not in ("kit", "stock"):
+                    bad.append(f"{where} has no ref (kit or stock)")
+                if not c.get("provenance"):
+                    clock = "aiclk_mhz" if vendor.get(k) == "tenstorrent" else "clock_mhz"
+                    gone = [f for f in ("n", clock, "versions", "when") if not c.get(f)]
+                    if gone:
+                        bad.append(f"{where} lacks {', '.join(gone)}")
+    return bad
+
+
 def counts(doc: dict) -> list[tuple[str, int]]:
     """Rows the page actually draws, which is not the same as rows in the file.
 
@@ -215,13 +242,16 @@ def main() -> int:
     if bad:
         print("A published row needs every processor column measured. "
               "Run scripts/site_publish_guard.py --strip.", file=sys.stderr)
+    unnamed = unlabelled(doc)
+    for line in unnamed:
+        print(line, file=sys.stderr)
     drift = stale(doc)
     for line in drift:
         print(line, file=sys.stderr)
     if drift:
         print("Run scripts/site_publish_guard.py --strip to regenerate the counts.",
               file=sys.stderr)
-    return 1 if bad or drift else 0
+    return 1 if bad or unnamed or drift else 0
 
 
 if __name__ == "__main__":

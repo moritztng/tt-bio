@@ -44,8 +44,10 @@ off a vendor document's link.
 One cell per model per platform. A Tenstorrent cell's headline is the default mode, with the
 `--fast` run beside it under `fast`. An NVIDIA cell says in `ref` which code ran: `"kit"` is the
 exact mode of Anthropic's biomolecular kit (github.com/anthropics/uplifting-biomolecular-modeling),
-with the kit's fast mode under `fast` and the stock upstream run under `stock`; `"stock"` is the
-model's own upstream release, used where the kit does not cover the model. Only the headline is
+with the kit's fast mode under `fast` and the stock upstream run under `stock`, which is the kit's
+own `off` arm on the same machine (every kit change switched off); `"stock"` is the model's own
+upstream release, used where the kit does not cover the model. The kit's ESMC has no fast mode, so
+those cells carry no `fast`. Only the headline is
 drawn, so every bar compares a default against an exact run. Each run carries `n`, `spread_pct`,
 the clock it ran at (`aiclk_mhz` or `clock_mhz`, sampled during the run), `versions` and `when`.
 
@@ -53,8 +55,7 @@ The numbers come from the campaign board, `~/.coworker/state/bmk/BOARD.md`, wher
 the command line that produced it. `python3 perf/bmk/board_to_page.py` shows what it would change
 and `--write` applies it; it also lists any cell still carrying a number from before the board.
 
-Every Tenstorrent cell states which
-parity it holds in `parity`. Every Tenstorrent cell states which parity it holds in `parity`, and Methods lists them:
+Every Tenstorrent cell states which parity it holds in `parity`, and Methods lists them:
 bit-exact, byte-identical, or a measured structural delta inside a bar that was fixed before the
 number existed. A cell with no measurement gets a `status` other than `measured` plus a reason, and the two
 available are not the same claim: `"blocked"` with a `reason` renders as "does not run" and means the
@@ -65,7 +66,9 @@ nobody has paid for the run. Do not fill either with an estimate.
 indexed to. The window is 4 years and the rate is the US industrial average, and they move the total
 cost of ownership chart only. The purchase-price chart is predictions per hour divided by the price
 itself, with no window: spreading the price over a window multiplies both sides of that ratio by the
-same number, so it cancels. Only a price change moves it.
+same number, so it cancels. Only a price change moves it. `cost_model.sensitivity` names the other windows and the other rate;
+the page computes the total-cost-of-ownership range under them from the cells, so that sentence
+holds no number of its own.
 
 ## Holding a row back
 
@@ -74,7 +77,8 @@ still draws: the chart plots the platforms it has, so a half-measured model read
 claim while the missing column is simply absent.
 
 `scripts/site_publish_guard.py` enforces that. With no flag it exits 1 naming any published row with
-a cell that is not `measured`, and it runs in three places, `tests/test_perf_page_renders.py`, the
+a cell that is not `measured`, any NVIDIA cell without a `ref`, and any board-filled cell missing
+`n`, its clock, `versions` or `when`. It runs in three places, `tests/test_perf_page_renders.py`, the
 `deploy_site.sh` preflight and `pages.yml`, so neither publish path can put a partial row on
 tt-bio.com. Two flags move rows:
 

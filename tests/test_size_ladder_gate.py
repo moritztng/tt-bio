@@ -681,6 +681,30 @@ def test_the_rep_count_comes_from_the_noisiest_rung_not_from_512(rg_fresh, monke
     assert old_block["reps"] == 1
 
 
+def test_a_re_measure_keeps_the_warm_folds_it_already_has(rg_fresh, monkeypatch, tmp_path):
+    """The record pass re-measures a noisy model at 3 reps. Its rungs are warm from the first pass
+    and each holds one rep, so it folds two more and no warm-up: rf3 on a Wormhole chip spent ~85 min
+    re-folding them and ran out of leg budget (rec-c2b4b898e)."""
+    tags = []
+
+    def fake(model, rung, workdir, tag, need_runtime=True):
+        tags.append((rung, tag))
+        v = {640: 120.0, 768: 180.0}[rung] + len(tags)
+        return {"levers": {"FLAG": FIRING}, "runtime_s": v, "wall": v + 20.0,
+                "census_json": tmp_path / f"{rung}-{tag}.json", "grid": "13x10"}
+
+    monkeypatch.setattr(rg_fresh, "_run_census_fold", fake)
+    first = rg_fresh._size_ladder_measure_model("rf3", (640, 768), tmp_path, 1, 1)
+    assert tags == [(640, "warmup"), (640, "rep0"), (768, "warmup"), (768, "rep0")]
+    tags.clear()
+    again = rg_fresh._size_ladder_measure_model("rf3", (640, 768), tmp_path, 3, 3,
+                                                prior=first["runs"])
+    assert tags == [(640, "rep1"), (640, "rep2"), (768, "rep1"), (768, "rep2")]
+    assert again["runtime_reps_s"]["640"][0] == first["runtime_s"]["640"]
+    assert len(again["runtime_reps_s"]["768"]) == 3
+    assert again["census_jsons"]["640"] == first["census_jsons"]["640"]
+
+
 def test_check_model_propagates_the_partial_rungs_to_the_printer(rg_fresh, monkeypatch, tmp_path):
     """The summary row reads runtime_s off the leg dict, so the error path has to carry it."""
     def fake(model, rungs, workdir, reps_512, reps_other):
