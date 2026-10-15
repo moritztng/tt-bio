@@ -37,6 +37,10 @@ TILE = 32
 RB = 4          # row tiles per reader barrier
 #: the ending variant norms z^T straight out of z (reader.cpp TR) instead of transposing first
 TR = os.environ.get("TT_BIO_TRIATT_LN_TR", "1") == "1"
+#: diagnostic only (spd-pairchain ptab2): at every ln_qkvgb_heads call, 1 reads the L1 allocator view
+#: (what the TR fit test does), 2 synchronizes the device. TR=0 vs TR=1 moved the --fast digest while
+#: every call took the same path, and the fit test's allocator read was the only difference.
+DRAIN_PROBE = 0
 _CACHE: dict = {}
 #: (served, declined)
 STATS = [0, 0]
@@ -156,6 +160,9 @@ def ln_qkvgb_heads(x, ln_w, ln_b, w, ckc, n_heads, head_dim, bias_channels, grid
     `x` is the raw [B, S, K] pair (square and whole tiles with `transposed`), `w` the [K, 4c + 32] qkvgb weight of `qkvgb_heads`, `ckc` a
     (fidelity, approx, fp32_acc, full_sync) tuple as `trimul_tail` takes it."""
     from .tenstorrent import lever
+    if DRAIN_PROBE:
+        from .tenstorrent import _l1_bank_bytes
+        _l1_bank_bytes() if DRAIN_PROBE == 1 else ttnn.synchronize_device(x.device())
     if not lever("triatt_ln"):
         return None
     why = _check(x, w, ln_w, ln_b, ckc)
@@ -173,7 +180,8 @@ def ln_qkvgb_heads(x, ln_w, ln_b, w, ckc, n_heads, head_dim, bias_channels, grid
             return _reject("tr_shape", x)
         tr = _tr_buffers(K // TILE, int(w.padded_shape[-1]) // TILE)
         if not tr:
-            return _reject("tr_l1", x)
+            from .tenstorrent import _l1_bank_bytes
+            return _reject(f"tr_l1:kt{K // TILE}:nw{int(w.padded_shape[-1]) // TILE}:l1{_l1_bank_bytes()}", x)
     dev = x.device()
     outs = [ttnn.allocate_tensor_on_device(ttnn.Shape([shp[0], n_heads, shp[1], head_dim]), ttnn.bfloat16,
                                            ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG) for _ in range(4)]
