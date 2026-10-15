@@ -7,6 +7,8 @@
 // [channel c, y] of row x = xt*32 + il. The output tile of channel c at (xt, yt) has row il = row c
 // of tile il: 64 local face-row reads assemble it in a staging slot, then one 2 KB DRAM write. The
 // same gather as reblock_permute's writer, whose comment carries the alignment argument.
+// With SPLIT the reader gathers and writes channels 16..31 of each channel tile on the other NOC: the
+// gather is one 32 B NOC read per tile row, so one RISC issuing all of them was the kernel's floor.
 #include "api/dataflow/dataflow_api.h"
 
 void kernel_main() {
@@ -18,7 +20,9 @@ void kernel_main() {
     // L1 runs as several launches over channel slices that write into the same two tensors.
     constexpr uint32_t CTO = get_compile_time_arg_val(4);
     constexpr uint32_t CTT = get_compile_time_arg_val(5);
-    constexpr auto a_args = TensorAccessorArgs<6>();
+    constexpr uint32_t SPLIT = get_compile_time_arg_val(6);
+    constexpr uint32_t CW = SPLIT ? 16 : 32;               // channels of each q this kernel moves
+    constexpr auto a_args = TensorAccessorArgs<7>();
     constexpr auto b_args = TensorAccessorArgs<a_args.next_compile_time_args_offset()>();
     const auto oa = TensorAccessor(a_args, get_common_arg_val<uint32_t>(0));
     const auto ob = TensorAccessor(b_args, get_common_arg_val<uint32_t>(1));
@@ -36,6 +40,9 @@ void kernel_main() {
     const uint32_t stage0 = get_write_ptr(stage_cb);
     noc_async_read_one_packet_set_state(get_noc_addr(stage0), RB);
     bool dirty[2] = {false, false};
+    // The reader's count of q tiles it has finished reading out of out_cb.
+    volatile tt_l1_ptr uint32_t* read_done = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(get_semaphore(0));
+    uint32_t nq = 0;
 
     for (uint32_t u = u0; u < u0 + nunits; ++u) {
         const uint32_t b = u / SS;
@@ -45,7 +52,7 @@ void kernel_main() {
             uint32_t page = (b * CTT + CTO + (is_a ? q : q - CT)) * 32 * SS + cube;
             cb_wait_front(out_cb, 32);
             const uint32_t src = get_read_ptr(out_cb);
-            for (uint32_t c0 = 0; c0 < 32 && !(ABL & 4); c0 += NB) {
+            for (uint32_t c0 = 0; c0 < CW && !(ABL & 4); c0 += NB) {
                 const uint32_t grp = (c0 / NB) & 1u;
                 const uint32_t gbase = stage0 + grp * NB * TB;
                 if (dirty[grp]) noc_async_writes_flushed();
@@ -70,9 +77,14 @@ void kernel_main() {
                     noc_async_write(gbase + j * TB, is_a ? oa.get_noc_addr(page) : ob.get_noc_addr(page), TB);
                 dirty[grp] = true;
             }
-            noc_async_write_barrier();
-            dirty[0] = dirty[1] = false;
+            if constexpr (SPLIT) {
+                noc_semaphore_wait_min(read_done, ++nq);
+            } else {
+                noc_async_write_barrier();
+                dirty[0] = dirty[1] = false;
+            }
             cb_pop_front(out_cb, 32);
         }
     }
+    noc_async_write_barrier();
 }
