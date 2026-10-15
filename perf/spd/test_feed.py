@@ -223,7 +223,8 @@ def _place_bh(tmp_path, cards, body, cap=5, poll="0.2"):
     job = {"name": "4-x.sh", "body": body, "cards": cards, "lock": str(tmp_path / "l{c}"), "cap": cap}
     r = subprocess.run([sys.executable, "-c", feed.PLACE], input=json.dumps({"kind": "bh", "jobs": [job]}) + "\n",
                        capture_output=True, text=True, check=True,
-                       env={"HOME": str(tmp_path), "PATH": f"{tmp_path}/bin:" + os.environ["PATH"], "POLL": poll})
+                       env={"HOME": str(tmp_path), "PATH": f"{tmp_path}/bin:" + os.environ["PATH"], "POLL": poll,
+                            "TT_SYSFS": str(tmp_path / "sys")})
     assert r.stdout.strip() == "1"
     sh = tmp_path / "spd/feed/jobs/4-x.sh"
     for _ in range(100):
@@ -303,10 +304,22 @@ def test_a_cell_on_a_dark_box_is_placed_again_and_its_twin_withdrawn_on_return(t
     assert [(x[0], x[2]["names"]) for x in calls if x[1] is feed.WITHDRAW] == [("qb2", [c["name"]])]
 
 
+def sysfs(tmp_path, cards):
+    """Fake /sys/class/tenstorrent: {bdf: (node, aiclk)}; logical id = PCI order."""
+    for bdf, (node, clk) in cards.items():
+        d = tmp_path / "sys" / f"tenstorrent!{node}"; dev = tmp_path / "pci" / bdf
+        d.mkdir(parents=True, exist_ok=True); dev.mkdir(parents=True, exist_ok=True)
+        if not (d / "device").exists():
+            (d / "device").symlink_to(dev)
+        (d / "tt_aiclk").write_text(clk + "\n"); (d / "tt_heartbeat").write_text(("4294967295" if clk == "4294967295" else "77") + "\n")
+
+
 def _run_capped(tmp_path, body, cap, reset=""):
     sh = tmp_path / "4-x.sh"; sh.write_text(body)
-    subprocess.run(["bash", "-c", feed.run_cmd(grace=2), "_", str(sh), "0", "", str(tmp_path / "nolock"), str(cap), reset],
-                   cwd=tmp_path, timeout=60, check=True)
+    sysfs(tmp_path, {"0000:42:00.0": (3, "1350")})
+    subprocess.run(["bash", "-c", feed.NODE + feed.run_cmd(grace=2), "_", str(sh), "0", "", str(tmp_path / "nolock"),
+                    str(cap), reset], cwd=tmp_path, timeout=60, check=True,
+                   env=dict(os.environ, TT_SYSFS=str(tmp_path / "sys"), TT_DEV="/dev/tt"))
     return (tmp_path / "4-x.sh.end").read_text().strip()
 
 
@@ -345,10 +358,74 @@ def test_a_capped_job_resets_its_card_and_a_clean_one_does_not(tmp_path):
     assert _run_capped(tmp_path, "exit 3\n", 30, str(r)) == "3"
     assert not (tmp_path / "resets").exists()
     assert _run_capped(tmp_path, "(trap '' INT; exec sleep 300) & wait\n", 1, str(r)) == "124 INT+TERM reset"
-    assert (tmp_path / "resets").read_text() == "0\n"
+    assert (tmp_path / "resets").read_text() == "/dev/tt/3\n"     # by node path, not logical id
     assert _run_capped(tmp_path, "sleep 30\n", 1, "false") == "124 INT reset-failed"
 
 
 def test_qb2_boards_are_never_reset_by_the_feed():
     # a p300c board carries two chips: resetting one kills the other chip's job
     assert feed.BH_POOLS["qb1"]["reset"] and not feed.BH_POOLS["qb2"].get("reset")
+
+
+DEAD = "4294967295"
+
+
+def test_probe_drops_a_dead_arc_card_and_names_its_node(tmp_path):
+    # 10-15 qb1: /dev/tenstorrent/3 (logical 2) read 0xFFFFFFFF for 70+ min while the feed kept landing jobs on it
+    sysfs(tmp_path, {"0000:c1:00.0": (0, "1350"), "0000:01:00.0": (1, "1350"), "0000:41:00.0": (2, "1350"),
+                     "0000:42:00.0": (3, DEAD)})
+    r = subprocess.run([sys.executable, "-c", feed.PROBE], capture_output=True, text=True, check=True,
+                       input=json.dumps({"kind": "bh", "paths": [], "cards": [0, 1, 2, 3], "lock": str(tmp_path / "l{c}")}) + "\n",
+                       env=dict(os.environ, HOME=str(tmp_path), TT_SYSFS=str(tmp_path / "sys")))
+    out = json.loads(r.stdout)
+    assert out["dead"] == {"2": 3} and out["cards"] == [0, 1, 3] and out["healthy"] == 3
+
+
+def test_a_bh_waiter_skips_a_dead_arc_card(tmp_path):
+    sysfs(tmp_path, {"0000:01:00.0": (1, DEAD), "0000:02:00.0": (0, "1350")})
+    sh = _place_bh(tmp_path, [0, 1], "echo card $CHIP\n")
+    assert Path(f"{sh}.log").read_text() == "card 1\n"
+
+
+def _arc_pool(tmp_path, monkeypatch):
+    (tmp_path / "state/spd/feed").mkdir(parents=True); (tmp_path / "state/notbefore").mkdir(parents=True)
+    calls = []
+    monkeypatch.setattr(feed, "remote", lambda ssh, script, payload, timeout=120: calls.append((ssh, script, payload)) or 1)
+    P = {n: dict(b, kind="bh", arch="bh") for n, b in feed.BH_POOLS.items()}
+    return calls, P
+
+
+def test_dead_arc_resets_qb1_once_then_cardblocks_and_marks_qb2_bad(tmp_path, monkeypatch):
+    calls, P = _arc_pool(tmp_path, monkeypatch)
+    (tmp_path / "state/notbefore/spd-orchestrator").write_text("x")
+    st = {"qb1": {"dead": {"2": 3}, "arc_busy": [], "arc": []}, "qb2": {"dead": {"1": 1}}}
+    feed.arc(tmp_path, st, P, print, now=1000)
+    assert [(c[0], c[1] is feed.ARCFIX, c[2]["card"]) for c in calls] == [("qb1", True, 2), ("qb2", False, 1)]
+    assert calls[0][2]["node"] == 3 and calls[1][1] is feed.BAD
+    calls.clear()
+    st["qb1"]["arc_busy"] = [2]; feed.arc(tmp_path, {"qb1": st["qb1"]}, P, print, now=1100)
+    assert calls == []                                     # its reset is in flight
+    st["qb1"].update(arc_busy=[], arc=[{"card": 2, "at": 1000, "result": "ok"}], dead={})
+    feed.arc(tmp_path, {"qb1": st["qb1"]}, P, print, now=1500)
+    feed.arc(tmp_path, {"qb1": st["qb1"]}, P, print, now=1600)
+    log = (tmp_path / "fleet.log").read_text()
+    assert log.count("dead-ARC reset: ok") == 1           # each result is one fleet.log line
+    st["qb1"]["dead"] = {"2": 3}
+    feed.arc(tmp_path, {"qb1": st["qb1"]}, P, print, now=1000 + 3600)
+    assert [(c[0], c[1] is feed.BAD) for c in calls] == [("qb1", True)]
+    assert (tmp_path / "state/cardblock-qb1-2").exists() and not (tmp_path / "state/notbefore/spd-orchestrator").exists()
+
+
+def test_a_dead_arc_reset_waits_for_the_flock_and_verifies_sysfs(tmp_path):
+    sysfs(tmp_path, {"0000:42:00.0": (3, DEAD)})
+    fix = tmp_path / "fix.sh"
+    fix.write_text(f'echo "$1" > {tmp_path}/reset_arg; echo 1350 > {tmp_path}/sys/tenstorrent!3/tt_aiclk; '
+                   f'echo 9 > {tmp_path}/sys/tenstorrent!3/tt_heartbeat\n')
+    fix.chmod(0o755); (tmp_path / "dev").mkdir(); (tmp_path / "dev/3").touch()
+    env = dict(os.environ, TT_SYSFS=str(tmp_path / "sys"), TT_DEV=str(tmp_path / "dev"), ARC_SETTLE="0", ARC_WAIT="1")
+    b = tmp_path / "card2.1"
+    subprocess.run(["bash", "-c", feed.ARC_SH, "_", str(b), str(tmp_path / "l2"), "3", str(fix)], env=env, check=True, timeout=60)
+    assert Path(f"{b}.result").read_text().strip() == "ok" and (tmp_path / "reset_arg").read_text().strip() == f"{tmp_path}/dev/3"
+    fix.write_text("true\n"); (tmp_path / "sys/tenstorrent!3/tt_aiclk").write_text(DEAD + "\n")
+    subprocess.run(["bash", "-c", feed.ARC_SH, "_", str(b), str(tmp_path / "l2"), "3", str(fix)], env=env, check=True, timeout=60)
+    assert Path(f"{b}.result").read_text().strip() == "still-dead"

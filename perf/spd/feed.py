@@ -124,6 +124,22 @@ if A["kind"] == "galaxy":
 else:
     J = H + "/spd/feed/jobs"; os.makedirs(J, exist_ok=True)
     cards = [c for c in A["cards"] if not os.path.exists(H + "/spd/locks/chip%d.BAD" % c)]
+    # dead ARC: the class node reads 0xFFFFFFFF (10-15 qb1 card 2 for 70+ min while jobs kept dying there in init).
+    # Logical card c is the c-th class node in PCI order, the order TT_VISIBLE_DEVICES and tt-smi use.
+    sy = os.environ.get("TT_SYSFS", "/sys/class/tenstorrent")
+    nodes = [d for _, d in sorted((os.path.basename(os.path.realpath(d + "/device")), d) for d in glob.glob(sy + "/*"))]
+    def dead(c):
+        return c < len(nodes) and any(open(f).read().strip() == "4294967295" for f in
+                                      (nodes[c] + "/tt_aiclk", nodes[c] + "/tt_heartbeat") if os.path.exists(f))
+    out["dead"] = {str(c): int(nodes[c].rsplit("!", 1)[1]) for c in cards if dead(c)}
+    cards = [c for c in cards if str(c) not in out["dead"]]
+    AD = H + "/spd/feed/arc"; out["arc"] = []; out["arc_busy"] = []
+    for f in glob.glob(AD + "/card*.pid"):
+        b = f[:-4]; c = int(os.path.basename(b)[4:].split(".")[0])
+        if os.path.exists(b + ".result"):
+            out["arc"].append({"card": c, "at": int(b.rsplit(".", 1)[1]), "result": open(b + ".result").read().strip()})
+        elif os.path.exists("/proc/" + open(f).read().strip()):
+            out["arc_busy"].append(c)
     out["healthy"] = len(cards); out["cards"] = cards; queued = 0; held = set()
     for sh in glob.glob(J + "/*.sh"):
         n = os.path.basename(sh); card = int(open(sh + ".card").read()) if os.path.exists(sh + ".card") else -1
@@ -159,6 +175,14 @@ print(json.dumps(out))
 # cards failed device init ("failed to initialize FW", "ARC core failed to start") until reset. So once the group is
 # gone, and while the card's flock is still held, $6 (the box's reset command, empty = none) resets the card; the .end
 # then ends in "reset" or "reset-failed", or "noreset" if the group outlived SIGTERM too.
+# The reset names the card's /dev node (`node`, from NODE, which the caller defines first): a bare logical id needs
+# tt-smi to enumerate every card, which a dead ARC can hang. `dead` is true while the card's class node reads 0xFFFFFFFF.
+NODE = ('node() { for s in "${TT_SYSFS:-/sys/class/tenstorrent}"/*; do echo "$(basename "$(readlink -f "$s/device")") '
+        '${s##*!}"; done | sort | sed -n "$(($1 + 1))s/.* //p"; }; '
+        'dead() { local n=$(node $1); [ -n "$n" ] && cat "${TT_SYSFS:-/sys/class/tenstorrent}/tenstorrent!$n/tt_aiclk" '
+        '"${TT_SYSFS:-/sys/class/tenstorrent}/tenstorrent!$n/tt_heartbeat" 2>/dev/null | grep -qx 4294967295; }; ')
+
+
 def run_cmd(grace=120):
     return ('S=$(date +%s); CHIP=$2 TT_VISIBLE_DEVICES=$2 LOCK="$4" WAIT=60 timeout -s TERM $(($5 + G)) '
             'sh -c \'echo $$ > "$1.pg"; exec timeout -s INT "$2" bash "$1"\' _ "$1" "$5" > "$1.log" 2>&1; rc=$?; '
@@ -166,7 +190,7 @@ def run_cmd(grace=120):
             'for i in $(seq G); do kill -0 -- -$g 2>/dev/null || break; sleep 1; done; '
             '[ -n "$g" ] && kill -0 -- -$g 2>/dev/null && { kill -TERM -- -$g; s=INT+TERM; }; '
             'if [ -n "$6" ]; then for i in $(seq G); do kill -0 -- -$g 2>/dev/null || break; sleep 1; done; '
-            'if kill -0 -- -$g 2>/dev/null; then s="$s noreset"; elif $6 $2 >> "$1.log" 2>&1; then s="$s reset"; '
+            'if kill -0 -- -$g 2>/dev/null; then s="$s noreset"; elif timeout 180 $6 "${TT_DEV:-/dev/tenstorrent}/$(node $2)" >> "$1.log" 2>&1; then s="$s reset"; '
             'else s="$s reset-failed"; fi; fi; rc="$rc $s"; fi; '
             'echo "$rc" > "$1.end"').replace(" G)", f" {grace})").replace("seq G", f"seq {grace}")
 
@@ -188,11 +212,11 @@ for j in A["jobs"]:
         for x in (".end", ".start", ".pid", ".log", ".pg"):
             if os.path.exists(sh + x): os.remove(sh + x)
         open(sh, "w").write(j["body"]); open(sh + ".card", "w").write("-1")
-        # Take the box's dispatch flock in turn, then the first card that is not BAD, runs no release-gate leg and no
+        # Take the box's dispatch flock in turn, then the first card that is not BAD or dead-ARC, runs no release-gate leg and no
         # gapboard sentinel (the scoreboard measuring main; checked again once its flock is held) and whose flock is
         # free. 10-15: waiters bound to one card queued on busy cards 2 and 3 while qb1 card 0 sat free 15+ min.
-        w = ('exec 8>"$(dirname "$1")/.dispatch"; flock -w 86400 8 || { echo flockbusy > "$1.end"; exit 3; }; '
-             'D=$((SECONDS + 86400)); while :; do for c in $2; do [ -e ~/spd/locks/chip$c.BAD ] && continue; '
+        w = (NODE + 'exec 8>"$(dirname "$1")/.dispatch"; flock -w 86400 8 || { echo flockbusy > "$1.end"; exit 3; }; '
+             'D=$((SECONDS + 86400)); while :; do for c in $2; do [ -e ~/spd/locks/chip$c.BAD ] && continue; dead $c && continue; '
              'G="(spd_qb1_card|spd_qb2_chip|TT_VISIBLE_DEVICES=)$c[. ].*(release_gate|gate_fanout|perf_ab)"; '
              'pgrep -f "$G" >/dev/null && continue; exec 9>"${3//@/$c}"; '
              'flock -n 9 && ! pgrep -f "$G" >/dev/null && break 2; exec 9>&-; done; '
@@ -208,7 +232,7 @@ for n in A.get("unqueue", []):
     if os.path.exists(p): os.makedirs(H + "/spd/pool/quarantine", exist_ok=True); os.rename(p, H + "/spd/pool/quarantine/" + n)
 print(len(A["jobs"]))
 '''
-PLACE = f"RUN = {RUN!r}\n" + PLACE   # the waiter string above runs on the BH host, where only what PLACE defines exists
+PLACE = f"NODE = {NODE!r}\nRUN = {RUN!r}\n" + PLACE   # the waiter string above runs on the BH host, where only what PLACE defines exists
 
 
 # Withdraws BH waiters that have not started: kill the waiter's session (feed started it under setsid), then set the
@@ -229,6 +253,74 @@ for n in A["names"]:
     got.append(n)
 print(json.dumps(got))
 '''
+
+
+# One bounded reset of a dead-ARC qb1 card, detached on the host: hold the card's flock (no job lands meanwhile), wait
+# until no process has the node open, reset by node path, then verify the class node no longer reads 0xFFFFFFFF.
+# card<c>.<at>.result says ok / still-dead / reset-failed / busy (node never closed) / nolock.
+ARC_SH = ('exec 9>"$2"; flock -w 7200 9 || { echo nolock > "$1.result"; exit; }; N="${TT_DEV:-/dev/tenstorrent}/$3"; '
+          'C="${TT_SYSFS:-/sys/class/tenstorrent}/tenstorrent!$3"; '
+          'for i in $(seq ${ARC_WAIT:-360}); do fuser "$N" >/dev/null 2>&1 || break; sleep 10; done; '
+          'fuser "$N" >/dev/null 2>&1 && { echo busy > "$1.result"; exit; }; '
+          'echo "$(date -u +%FT%TZ) before aiclk=$(cat "$C/tt_aiclk") hb=$(cat "$C/tt_heartbeat")" >> "$1.log"; '
+          'timeout 180 $4 "$N" >> "$1.log" 2>&1 || { echo reset-failed > "$1.result"; exit; }; sleep ${ARC_SETTLE:-10}; '
+          'echo "$(date -u +%FT%TZ) after aiclk=$(cat "$C/tt_aiclk") hb=$(cat "$C/tt_heartbeat")" >> "$1.log"; '
+          'cat "$C/tt_aiclk" "$C/tt_heartbeat" | grep -qx 4294967295 && r=still-dead || r=ok; echo $r > "$1.result"')
+ARCFIX = r'''
+import json, os, subprocess, sys
+A = json.loads(sys.stdin.readline()); D = os.path.expanduser("~/spd/feed/arc"); os.makedirs(D, exist_ok=True)
+b = "%s/card%d.%d" % (D, A["card"], A["at"])
+p = subprocess.Popen(["setsid", "nohup", "bash", "-c", A["sh"], "_", b, A["lock"].format(c=A["card"]), str(A["node"]),
+                      A["reset"]], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, cwd=D)
+open(b + ".pid", "w").write(str(p.pid)); print(p.pid)
+'''
+BAD = r'''
+import json, os, sys
+A = json.loads(sys.stdin.readline()); D = os.path.expanduser("~/spd/locks"); os.makedirs(D, exist_ok=True)
+open("%s/chip%d.BAD" % (D, A["card"]), "w").write(A["why"] + "\n"); print(1)
+'''
+
+
+def arc(R, st, P, log, now=None):
+    """Dead-ARC cards (class node reads 0xFFFFFFFF). qb1: one bounded reset; a second death within 24 h cardblocks the
+    card and wakes the orchestrator. qb2: chipN.BAD, never a reset (a p300c board carries two chips). Every step is a
+    fleet.log line. History: state/spd/feed/arc.json."""
+    now = int(now or time.time()); f = R / "state/spd/feed/arc.json"
+    H = json.loads(f.read_text()) if f.exists() else {}
+
+    def fleet(m):
+        log(m)
+        with open(R / "fleet.log", "a") as fl:
+            fl.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} spd feed: {m}\n")
+    for n, s in st.items():
+        for r in s.get("arc", []):
+            h = H.setdefault(f"{n}:{r['card']}", {"resets": [], "seen": []})
+            if r["at"] not in h["seen"]:
+                h["seen"].append(r["at"]); fleet(f"{n} card {r['card']} dead-ARC reset: {r['result']}")
+        for c, node in s.get("dead", {}).items():
+            c = int(c); h = H.setdefault(f"{n}:{c}", {"resets": [], "seen": []})
+            if c in s.get("arc_busy", []):
+                continue
+            why = f"dead ARC (class node {node} reads 0xFFFFFFFF)"
+            try:
+                if not P[n].get("reset"):
+                    remote(P[n]["ssh"], BAD, {"card": c, "why": f"{time.strftime('%FT%TZ', time.gmtime(now))} {why}, feed"})
+                    fleet(f"{n} chip {c} {why}: marked chip{c}.BAD, no reset (p300c board pair)")
+                elif [t for t in h["resets"] if now - t < 86400]:
+                    remote(P[n]["ssh"], BAD, {"card": c, "why": f"{time.strftime('%FT%TZ', time.gmtime(now))} {why} again "
+                                                              f"within 24 h of a reset, feed"})
+                    (R / f"state/cardblock-{n}-{c}").write_text(f"{why} again within 24 h of a reset "
+                                                                f"({time.strftime('%FT%TZ', time.gmtime(now))}); "
+                                                                "set by perf/spd/feed.py; needs RMA triage\n")
+                    fleet(f"{n} card {c} {why} again within 24 h of a reset: cardblocked, chip{c}.BAD")
+                    wake(R, "spd-orchestrator", f"{n} card {c} dead ARC twice in 24 h, cardblocked", log)
+                else:
+                    remote(P[n]["ssh"], ARCFIX, {"card": c, "node": node, "at": now, "lock": P[n]["lock"],
+                                                  "reset": P[n]["reset"], "sh": ARC_SH})
+                    h["resets"].append(now); fleet(f"{n} card {c} {why}: one bounded reset under its card flock")
+            except Exception as e:
+                log(f"{n}: dead-ARC handling of card {c} failed: {e}")
+    f.write_text(json.dumps(H, indent=1))
 
 
 def remote(ssh, script, payload, timeout=120):
@@ -472,6 +564,8 @@ def main(argv=None):
             for m in gone:
                 s["jobs"].pop(m); s["queued"] -= 1
             log(f"{n}: withdrew {len(gone)} twin(s) placed elsewhere while it was dark")
+    if not a.dry_run:
+        arc(R, st, P, log)
     live = {n for s in st.values() for n in s.get("live", [])}
     steal(cs, ledger, st, P, stamp, a.dry_run, log)
     # 2. fill each pool up to depth x healthy, cells in priority order, the pool with most room first
