@@ -397,8 +397,10 @@ _DIT_SDPA = env_flag("RFD3_DIT_SDPA", True)
 DIT_SDPA_CALLS = [0]
 # The DiT's stacked SDPA masks as one program (`tt_bio.dit_pair_bias`): projection, head-first layout, scale, mask
 # add and padding in a single pass over z, the packer doing the re-tiling the permute did. WH @1000, 685 tokens:
-# 23.4 -> 3.0 ms a call. Off while graded.
-_DPB_ON = env_flag("RFD3_DPB", False)
+# 24.6 -> 4.0 ms a call, closer to a float64 reference than the ttnn chain (rel err 0.0024 vs 0.0042, no element
+# off by more than 0.25). Normal mode, 4 paired WH seeds: 100.1 -> 91.4 s/design, drift 3.8-10.1 A against a
+# 14.2-18.0 A seed floor, breaks 2 -> 2, clashes 61.5 -> 52.8. On in both modes; RFD3_DPB=0 restores the chain.
+_DPB_ON = env_flag("RFD3_DPB", True)
 # The DiT builds all 18 blocks' masks in one pass while the stack fits under this many bytes
 # (bf16, 18 x 16 heads x n_key^2: 1317 tokens); above it each block builds its own.
 _DIT_SDPA_STACK_BYTES = int(float(os.environ.get("RFD3_DIT_SDPA_STACK_BYTES", "1e9")))

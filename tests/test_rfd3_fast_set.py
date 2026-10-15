@@ -46,3 +46,10 @@ def test_pair_ws_ships_in_both_modes(monkeypatch):
     assert M.env_flag("RFD3_PAIR_WS", True) is True
     M.set_fast(False)
     assert M._PAIR_WS is True
+
+
+def test_dit_pair_bias_ships_in_both_modes():
+    """The DiT mask program is graded on the normal bar and is closer to float64 than the chain."""
+    assert "_DPB_ON" not in M._FAST_SET
+    M.set_fast(False)
+    assert M._DPB_ON is True
