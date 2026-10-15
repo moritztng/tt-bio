@@ -35,6 +35,7 @@ ap.add_argument("--tail-arms", default="base,fused")
 ap.add_argument("--tail-variants", default="",
                 help="extra fused arms, name=SIGPOLY/RNE/fidelity/f32 separated by commas, e.g. poly=1/3/HiFi3/1")
 ap.add_argument("--tr-heads", type=int, default=4, help="tailtr / lntr: triangle attention heads of 32 (Protenix-v2 at c_z 256: 8)")
+ap.add_argument("--lntr-fid", default="HiFi3", help="lntr: math fidelity of the triatt_ln call (fast mode runs LoFi)")
 ap.add_argument("--reps", type=int, default=5)
 ap.add_argument("--calls", type=int, default=8)
 ap.add_argument("--chip", type=int, default=None)
@@ -409,7 +410,7 @@ if "lntr" in groups:
     H = A.tr_heads; c = 32 * H
     gamma = (1 + 0.3 * torch.randn(C)).bfloat16(); beta = (0.2 * torch.randn(C)).bfloat16()
     w_host = (torch.randn(C, 4 * c + 32) / C ** 0.5).bfloat16()
-    k = MGn.ckc_args(ckc("HiFi3", True)); grid = tuple(T.COMPUTE_GRID_MAIN)
+    k = MGn.ckc_args(ckc(A.lntr_fid, True)); grid = tuple(T.COMPUTE_GRID_MAIN)
     zd = ttnn.from_torch(z_host[0], layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
     wd, gd, bd = (ttnn.from_torch(x.reshape(1, -1) if x.dim() == 1 else x, layout=ttnn.TILE_LAYOUT, device=dev,
                                   dtype=ttnn.bfloat16) for x in (w_host, gamma, beta))
