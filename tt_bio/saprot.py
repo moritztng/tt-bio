@@ -42,6 +42,7 @@ from tt_bio.tenstorrent import (
     _dtype,
 )
 from tt_bio.esmc import (
+    _MMLin,
     lm_sdpa,
     rope_tables,
     _rope,
@@ -119,7 +120,17 @@ class SaprotEmbeddingLayer(Module):
         return x
 
 
-class ESM2Attention(Module):
+# SaProt's projections (bias, fc1's GELU as the fused activation) on ESMC's minimal_matmul path instead of
+# ttnn.linear, for projections over esmc.ESMC_MM_MIN_ROWS rows. Off until the page cell says.
+_SAPROT_MM = env_flag("TT_BIO_SAPROT_MM", False)
+
+
+class _SaprotLin(_MMLin):
+    def _mm_on(self) -> bool:
+        return _SAPROT_MM
+
+
+class ESM2Attention(_SaprotLin, Module):
     """ESM-2 self-attention: pre-LN, fused q/k/v (with bias), per-head RoPE, SDPA,
     output projection (with bias). No QK-LayerNorm (that is ESMC-specific).
 
@@ -243,7 +254,7 @@ def fold_rope_tables(seq_len: int, n_heads: int, d: int, device):
 _GELU_FUSED = env_flag("TT_BIO_SAPROT_GELU_FUSED", True)
 
 
-class ESM2FFN(Module):
+class ESM2FFN(_SaprotLin, Module):
     """ESM-2 feed-forward: pre-LN, Linear(intermediate)+GELU, Linear(hidden), residual."""
 
     def __init__(self, state_dict: Weights, compute_kernel_config):

@@ -364,10 +364,14 @@ class _MMLin:
     """`Module._lin`, served by `minimal_matmul` for a plain bf16 projection over ESMC_MM_MIN_ROWS rows. A SiLU
     (the SwiGLU's fc1a) rides along as the matmul's fused activation, applied per tile at pack as the linear does."""
 
-    @staticmethod
-    def _mm_ok(x, w) -> bool:
+    _ACT = {"silu": ttnn.UnaryOpType.SILU, "gelu": ttnn.UnaryOpType.GELU}
+
+    def _mm_on(self) -> bool:
+        return _esmc_mm()
+
+    def _mm_ok(self, x, w) -> bool:
         return ((w.dtype == ttnn.bfloat16 or (_ESMC_MM_BFP8 and w.dtype == ttnn.bfloat8_b)) and x.dtype == ttnn.bfloat16
-                and x.volume() // int(x.shape[-1]) >= ESMC_MM_MIN_ROWS and _esmc_mm())
+                and x.volume() // int(x.shape[-1]) >= ESMC_MM_MIN_ROWS and self._mm_on())
 
     def _lin_split(self, x, w, chunks: int):
         """x @ w split into `chunks` outputs along the last dim by the matmul itself, or None where it does not serve."""
@@ -401,16 +405,16 @@ class _MMLin:
         return out
 
     def _lin(self, x, w, bias=None, dtype=None, **kw):
-        mm = _esmc_mm()
+        mm = self._mm_on()
         act = kw.get("activation")
-        if (mm and bias is None and not set(kw) - {"memory_config", "activation"} and act in (None, "silu")
+        if (mm and not set(kw) - {"memory_config", "activation"} and (act is None or act in self._ACT)
                 and self._mm_ok(x, w)):
             try:
                 out = ttnn.experimental.minimal_matmul(
-                    x, w, compute_kernel_config=self.compute_kernel_config,
+                    x, w, bias, compute_kernel_config=self.compute_kernel_config,
                     dtype=_dtype(ttnn.bfloat16) if dtype is None else dtype,
                     memory_config=kw.get("memory_config") or ttnn.DRAM_MEMORY_CONFIG, **_mm_config(x, w),
-                    **({"fused_activation": (ttnn.UnaryOpType.SILU, False)} if act else {}))
+                    **({"fused_activation": (self._ACT[act], False)} if act else {}))
                 MM_STATS[0] += 1
                 return out
             except RuntimeError:  # an L1 destination it cannot place: the linear serves it
