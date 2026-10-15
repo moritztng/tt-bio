@@ -258,14 +258,19 @@ print(json.dumps(got))
 
 # One bounded reset of a dead-ARC qb1 card, detached on the host: hold the card's flock (no job lands meanwhile), wait
 # until no process has the node open, reset by node path, then verify the class node no longer reads 0xFFFFFFFF.
-# card<c>.<at>.result says ok / still-dead / reset-failed / busy (node never closed) / nolock.
-ARC_SH = ('exec 9>"$2"; flock -w 7200 9 || { echo nolock > "$1.result"; exit; }; N="${TT_DEV:-/dev/tenstorrent}/$3"; '
-          'C="${TT_SYSFS:-/sys/class/tenstorrent}/tenstorrent!$3"; '
+# card<c>.<at>.result says ok / still-dead / reset-failed / busy (node never closed) / nolock, or "died" if a signal ended
+# the script first. Every exit (a signal included) appends one "end" line with the reset's rc and the sysfs reading;
+# a signal during tt-smi is handled once tt-smi returns, so a reset is never cut off half way.
+ARC_SH = ('N="${TT_DEV:-/dev/tenstorrent}/$3"; C="${TT_SYSFS:-/sys/class/tenstorrent}/tenstorrent!$3"; '
+          'trap \'[ -s "$1.result" ] || echo died > "$1.result"; echo "$(date -u +%FT%TZ) end rc=${rc:-none} '
+          'aiclk=$(cat "$C/tt_aiclk") hb=$(cat "$C/tt_heartbeat") result=$(cat "$1.result")" >> "$1.log"\' EXIT; '
+          'trap "exit 143" TERM INT HUP; rm -f "$1.result"; '
+          'exec 9>"$2"; flock -w 7200 9 || { echo nolock > "$1.result"; exit; }; '
           'for i in $(seq ${ARC_WAIT:-360}); do fuser "$N" >/dev/null 2>&1 || break; sleep 10; done; '
           'fuser "$N" >/dev/null 2>&1 && { echo busy > "$1.result"; exit; }; '
           'echo "$(date -u +%FT%TZ) before aiclk=$(cat "$C/tt_aiclk") hb=$(cat "$C/tt_heartbeat")" >> "$1.log"; '
-          'timeout 180 $4 "$N" >> "$1.log" 2>&1 || { echo reset-failed > "$1.result"; exit; }; sleep ${ARC_SETTLE:-10}; '
-          'echo "$(date -u +%FT%TZ) after aiclk=$(cat "$C/tt_aiclk") hb=$(cat "$C/tt_heartbeat")" >> "$1.log"; '
+          'timeout 180 $4 "$N" >> "$1.log" 2>&1; rc=$?; [ $rc = 0 ] || { echo reset-failed > "$1.result"; exit; }; '
+          'sleep ${ARC_SETTLE:-10}; '
           'cat "$C/tt_aiclk" "$C/tt_heartbeat" | grep -qx 4294967295 && r=still-dead || r=ok; echo $r > "$1.result"')
 ARCFIX = r'''
 import json, os, subprocess, sys

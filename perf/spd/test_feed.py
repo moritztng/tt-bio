@@ -429,3 +429,21 @@ def test_a_dead_arc_reset_waits_for_the_flock_and_verifies_sysfs(tmp_path):
     fix.write_text("true\n"); (tmp_path / "sys/tenstorrent!3/tt_aiclk").write_text(DEAD + "\n")
     subprocess.run(["bash", "-c", feed.ARC_SH, "_", str(b), str(tmp_path / "l2"), "3", str(fix)], env=env, check=True, timeout=60)
     assert Path(f"{b}.result").read_text().strip() == "still-dead"
+    end = [l for l in Path(f"{b}.log").read_text().splitlines() if " end " in l]
+    assert [l.split(" ", 1)[1] for l in end] == ["end rc=0 aiclk=1350 hb=9 result=ok",
+                                                 f"end rc=0 aiclk={DEAD} hb=9 result=still-dead"]
+
+
+def test_a_dead_arc_reset_killed_mid_reset_still_logs_its_end(tmp_path):
+    sysfs(tmp_path, {"0000:42:00.0": (3, DEAD)})
+    fix = tmp_path / "fix.sh"; fix.write_text("sleep 2\n"); fix.chmod(0o755)
+    (tmp_path / "dev").mkdir(); (tmp_path / "dev/3").touch()
+    env = dict(os.environ, TT_SYSFS=str(tmp_path / "sys"), TT_DEV=str(tmp_path / "dev"), ARC_SETTLE="0", ARC_WAIT="1")
+    b = tmp_path / "card2.1"
+    p = subprocess.Popen(["bash", "-c", feed.ARC_SH, "_", str(b), str(tmp_path / "l2"), "3", str(fix)], env=env)
+    for _ in range(100):
+        if " before " in (Path(f"{b}.log").read_text() if Path(f"{b}.log").exists() else ""): break
+        time.sleep(0.1)
+    p.terminate(); p.wait(timeout=60)
+    assert Path(f"{b}.result").read_text().strip() == "died"
+    assert Path(f"{b}.log").read_text().splitlines()[-1].split(" ", 1)[1] == f"end rc=none aiclk={DEAD} hb={DEAD} result=died"
