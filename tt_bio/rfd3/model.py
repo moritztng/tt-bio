@@ -29,6 +29,7 @@ from ..envflags import env_flag
 from . import block_sparse as _BS
 from .tiles import TILE, align_tile, pad_axis
 from .. import pair_swiglu_ws as _WS
+from .. import dit_pair_bias as _DPB
 from ..tenstorrent import (Module, get_device, CORE_GRID_MAIN, attn_value_matmul, silu_ckc,
                            atom_pair_budget_bytes, l1_resident_budget_bytes, row_block,
                            _dram_oom, fused_sdpa, _sdpa_program_config)
@@ -389,6 +390,10 @@ _HIFI2 = env_flag("RFD3_HIFI2", False)
 # mask-size cap is the atom SDPA's.
 _DIT_SDPA = env_flag("RFD3_DIT_SDPA", True)
 DIT_SDPA_CALLS = [0]
+# The DiT's stacked SDPA masks as one program (`tt_bio.dit_pair_bias`): projection, head-first layout, scale, mask
+# add and padding in a single pass over z, the packer doing the re-tiling the permute did. WH @1000, 685 tokens:
+# 23.4 -> 3.0 ms a call. Off while graded.
+_DPB_ON = env_flag("RFD3_DPB", False)
 # The DiT builds all 18 blocks' masks in one pass while the stack fits under this many bytes
 # (bf16, 18 x 16 heads x n_key^2: 1317 tokens); above it each block builds its own.
 _DIT_SDPA_STACK_BYTES = int(float(os.environ.get("RFD3_DIT_SDPA_STACK_BYTES", "1e9")))
@@ -3226,6 +3231,22 @@ class LocalTokenTransformer(Module):
                               for i in range(len(self.blocks))], dim=1)
             self._b_w_packed = ttnn.from_torch(cols, layout=ttnn.TILE_LAYOUT, device=self.device,
                                                dtype=self.dtype)
+        if _DPB_ON:
+            if getattr(self, "_b_wt_packed", None) is None:
+                wt = torch.cat([self.weights[f"blocks.{i}.attention_pair_bias.to_b.weight"].float()
+                                for i in range(len(self.blocks))], dim=0)
+                self._b_wt_packed = ttnn.from_torch(wt.reshape(1, 1, *wt.shape), layout=ttnn.TILE_LAYOUT,
+                                                    device=self.device, dtype=self.dtype)
+            mask = pad_axis(pad_axis(additive_mask, n_key, 3, -1e4), n_key, 2, -1e4)
+            if _DPB.eligible(z, self._b_wt_packed, mask):
+                out = _DPB.dit_pair_bias(z, self._b_wt_packed, mask, self.blocks[0].head_dim ** 0.5,
+                                         self.compute_kernel_config.math_fidelity)
+            else:
+                out = None
+            if mask is not additive_mask:
+                ttnn.deallocate(mask)
+            if out is not None:
+                return out
         pb = _tuned_linear(z, self._b_w_packed, ckc=self.compute_kernel_config, dtype=self.dtype,
                            core_grid=CORE_GRID_MAIN)
         pb_t = ttnn.permute(pb, (0, 3, 1, 2))
