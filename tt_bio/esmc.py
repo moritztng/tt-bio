@@ -236,11 +236,26 @@ _ESMC_SDPA_Q_WHOLE = env_flag("TT_BIO_ESMC_SDPA_Q_WHOLE", True)
 ESMC_SDPA_Q_WHOLE = 544
 
 
+# With q whole, keys in the fewest chunks that keep the padded key length minimal, up to 192 rows (q544 x k544 does not
+# fit L1). At 544 keys that is 3 x 192 (576 padded, as 9 x 64): same chip and clock, ms per call, k64 -> k192: 300M shape
+# 0.777 -> 0.600, SaProt 650M (b7 x 20 heads) 0.811 -> 0.722, 6B (b1 x 40) 0.413 -> 0.328; k128/k160 pad to 640 and are
+# slower than k64. Error against float64 within the k64 spread (max abs 0.0467 -> 0.0467 / 0.0323 -> 0.0343 / 0.0349 ->
+# 0.0356). Off until the page cell says.
+_ESMC_SDPA_K_FEW = env_flag("TT_BIO_ESMC_SDPA_K_FEW", False)
+ESMC_SDPA_K_FEW_MAX = 192
+
+
 def lm_sdpa_config(q_len: int, k_len: int):
     q_pad = -(-q_len // 32) * 32
-    q_chunk = (q_pad if _ESMC_SDPA_Q_WHOLE and q_pad <= ESMC_SDPA_Q_WHOLE
-               else min(ESMC_SDPA_Q_CHUNK, _capped_sdpa_chunk_size(q_len)))
-    return _sdpa_program_config(q_chunk, min(ESMC_SDPA_K_CHUNK, _capped_sdpa_chunk_size(k_len)))
+    if _ESMC_SDPA_Q_WHOLE and q_pad <= ESMC_SDPA_Q_WHOLE:
+        k_chunk = min(ESMC_SDPA_K_CHUNK, _capped_sdpa_chunk_size(k_len))
+        k_pad = -(-k_len // 32) * 32
+        if _ESMC_SDPA_K_FEW and k_pad > ESMC_SDPA_K_CHUNK:
+            k_chunk = min(range(ESMC_SDPA_K_CHUNK, min(ESMC_SDPA_K_FEW_MAX, k_pad) + 1, 32),
+                          key=lambda c: (-(-k_pad // c) * c, -c))
+        return _sdpa_program_config(q_pad, k_chunk)
+    return _sdpa_program_config(min(ESMC_SDPA_Q_CHUNK, _capped_sdpa_chunk_size(q_len)),
+                                min(ESMC_SDPA_K_CHUNK, _capped_sdpa_chunk_size(k_len)))
 
 
 class Embedding(Module):
