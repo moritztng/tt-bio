@@ -684,7 +684,12 @@ residues, graded inside the fast bar on 11 complexes x 4 seeds. Wormhole `--fast
 with `trimul_gin_hifi2` (the gated trimul in-projection at HiFi2): graded as a pair on the fast bar on a
 Galaxy chip, 11 complexes x 4 seeds per model, ESMFold2 CA-lDDT -0.0004 [-0.0032, +0.0025] and
 ESMFold2-Fast -0.0002 [-0.0015, +0.0008], docking unchanged. On ESMFold2 at 512 residues they take
-1.1 s and 0.8 s off a Wormhole fold.
+1.1 s and 0.8 s off a Wormhole fold. Blackhole `--fast` takes `trimul_gin_hifi2` as well, plus
+`ws_lofi` (the pair SwiGLU at LoFi), graded as a pair on the fast bar, 11 complexes x 4 seeds per model:
+ESMFold2 CA-lDDT +0.0003 [-0.0012, +0.0023], ESMFold2-Fast +0.0016 [+0.0001, +0.0034], docking
+unchanged. At 512 residues on p150a (1350 MHz) `ws_lofi` takes 1.0 s off ESMFold2 and 0.24 s off
+ESMFold2-Fast, `trimul_gin_hifi2` another 0.28 s and 0.20 s. Wormhole leaves `ws_lofi` off (not graded
+there).
 
 **Accuracy: moves, inside the fast bar.** On 11 complexes x 4 seeds on Blackhole, ESMFold2-Fast
 `--fast` against the same mode without the stack: CA-lDDT -0.0000 [-0.0003, +0.0002], TM-score
