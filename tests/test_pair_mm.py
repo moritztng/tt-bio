@@ -201,3 +201,12 @@ def test_narrow_calls_decline_off_wormhole(monkeypatch):
     monkeypatch.setattr(tenstorrent, "is_wormhole", lambda: False)
     assert pair_mm.matmul(_t((1, 224, 224, 128)), _t((128, 4))) is None
     assert not pair_mm._narrow(_t((1, 24, 24, 128)), _t((128, 4)))   # too few rows
+
+
+def test_a_taped_tensor_is_left_to_the_tape_shim(monkeypatch):
+    """The tape's `autograd.Tensor` reached `pair_linear`'s kernel builder raw (whpl2, rc=1 on .107)."""
+    from tt_bio import autograd
+    served = []
+    _armed_wh(monkeypatch, served)
+    x = autograd.Tensor.__new__(autograd.Tensor)
+    assert pair_mm.matmul(x, _t((128, 4))) is None and served == []
