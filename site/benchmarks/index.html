@@ -1008,7 +1008,6 @@ details.disclose > div{ padding-top:var(--s-4); }
         return x.name + ": " + x.nvidia_impl;
       }).join(" "));
     if (s.timed_region) mrow("Timed region", s.timed_region);
-    if (s.gpu_generations) mrow("H200 against B200", s.gpu_generations);
     mrow("Parity", "Each Tenstorrent figure carries the accuracy its code holds in tt-bio's release " +
       "gate, which scores every model against its own reference on a fixed set of targets, each " +
       "inside an envelope fixed before the run. The gate's build is named beside the timed one: " + D.models.map(function (x) {
