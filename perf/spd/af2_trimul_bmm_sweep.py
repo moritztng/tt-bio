@@ -74,6 +74,7 @@ def main():
                     help="the deferred transpose production hands the matmul (ending: a, starting: b)")
     ap.add_argument("--no-reuse2", action="store_true", help="skip reuse_c2 (hung on .114 chip 12, 10-12)")
     ap.add_argument("--kws", default="", help="in0_block_w values for the reuse arms (default: 1 and St)")
+    ap.add_argument("--rows", default="", help="per_core_M values (tiles, dividing St) for row-block reuse arms")
     ap.add_argument("--fid", default="HiFi4", help="math fidelity of every arm")
     a = ap.parse_args()
     dev = tt.get_device()
@@ -114,6 +115,13 @@ def main():
                     arms.append((f"reuse_c{chans}_k{kw}", mm(program_config=ttnn.MatmulMultiCoreReuseProgramConfig(
                         compute_with_storage_grid_size=(gx, gy), in0_block_w=kw, out_subblock_h=1,
                         out_subblock_w=1, per_core_M=chans * St, per_core_N=St))))
+            # 1D reuse with a row block of each channel per core: the whole output width, `m` tile rows.
+            for m in (tuple(map(int, a.rows.split(","))) if a.rows else ()):
+                for kw in (1, 2):
+                    if St % m == 0:
+                        arms.append((f"reuse_m{m}_k{kw}", mm(program_config=ttnn.MatmulMultiCoreReuseProgramConfig(
+                            compute_with_storage_grid_size=(gx, gy), in0_block_w=kw, out_subblock_h=1,
+                            out_subblock_w=1, per_core_M=m, per_core_N=St))))
             cell = {"S": S, "C": C, "St": St, "arms": []}
             ref = None
             for name, fn in arms:
