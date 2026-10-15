@@ -55,6 +55,9 @@ KITS=$(for e in $MODELS; do case $e in stock-*) ;; *) printf "%s " ${e%%:*};; es
 tar -czf $OUT/kit.tgz -C "$KIT" common $KITS
 # the stock rows run tt-bio's own GPU harnesses (box_stock.sh), from this checkout, under /work on the box
 tar -czf $OUT/work.tgz -C $P/../.. scripts/gpu_vs_tt perf/nesso1 perf/dsfix examples/ground_truth_structures
+# some hosts start the image with /root or /root/.ssh not owned by root, and sshd (StrictModes) then refuses the key:
+# "Authentication refused: bad ownership or modes for file /root/.ssh/authorized_keys" (B200 host 379418, five boxes, 10-15)
+SSHFIX='(for i in $(seq 120); do chown root:root / /root /root/.ssh /root/.ssh/authorized_keys; chmod go-w / /root; chmod 700 /root/.ssh; chmod 600 /root/.ssh/authorized_keys; sleep 5; done) >/dev/null 2>&1 &'
 for _ in $(seq $NMAX); do
   if [ -z "${ADOPT:-}" ]; then
     # WAIT_H: no matching offer yet (the driver >= 580 boxes are often all rented) -> look again every 10 min, bounded
@@ -64,7 +67,7 @@ for _ in $(seq $NMAX); do
     C=$(credit); python3 -c "import sys; sys.exit(0 if $C - $CAP_H * ${MAXDPH:-1.5} >= $FLOOR else 1)" ||
       { log "REFUSED at offer $O: credit \$$C - $CAP_H h x \$${MAXDPH:-1.5}/h would cross the \$$FLOOR floor"; exit 4; }
     echo "-  $CAP_H  $SLUG  # $L creating on offer $O" >> $B
-    I=$($V create instance $O --image nvidia/cuda:13.0.1-cudnn-devel-ubuntu24.04 --disk ${DISK:-250} --ssh --direct --label $SLUG-$L --raw 2>&1 | grep -oP "new_contract['\"]:\s*\K[0-9]+")
+    I=$($V create instance $O --image nvidia/cuda:13.0.1-cudnn-devel-ubuntu24.04 --disk ${DISK:-250} --ssh --direct --onstart-cmd "$SSHFIX" --label $SLUG-$L --raw 2>&1 | grep -oP "new_contract['\"]:\s*\K[0-9]+")
     if [ -z "$I" ]; then sed -i '$d' $B; log "offer $O: create failed"; continue; fi
     mkdir -p $HOLD; echo $$ > $HOLD/$I; sed -i "\$s|.*|$I  $CAP_H  $SLUG|" $B; echo "# ^ $SLUG $L offer $O created $(date -u +%FT%TZ) by perf/kitcmp/session.sh" >> $B
     T0=$(date +%s); log "created $I on offer $O"; S=""
