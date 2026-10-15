@@ -72,8 +72,11 @@ NORMAL_LEVERS = _T.NORMAL_LEVERS - {"transition_bw", "transition_shard"} | {"dit
 # 0.748 A), CA-lDDT +0.0001 [-0.0001, +0.0004], docking 27 -> 27/44, PASS (state/spd/grade-kcm-*-wh-fast.md).
 # sdpa_probe found 0 wrong pixels at every k chunk. 512-token page fold on a Galaxy chip at 1000 MHz, paired median
 # of 4: OpenFold3 -0.37 s, OpenBind-0 -0.46 s.
+# triatt_ln (triangle attention's layer_norm and qkvgb projection as one kernel) moves bytes, not arithmetic: CIFs
+# identical with and without it on both models, Wormhole and Blackhole (512-token --fast fold A/B, xmodel_ab, 5 pairs).
+# Galaxy chip at 1000 MHz, paired median: OpenFold3 -0.37 s, OpenBind-0 -0.20 s; flat on p150a.
 FAST_LEVERS = NORMAL_LEVERS | {"dit_s16", "diffusion_bf16", "trimul_t1", "trimul_t2", "trimul_t2cm", "transition_ws",
-                               "dit_fuse", "edm_device", "ws_l1dest", "dit_hifi2", "dit_kc", "dit_mask16"}
+                               "dit_fuse", "edm_device", "ws_l1dest", "dit_hifi2", "dit_kc", "dit_mask16", "triatt_ln"}
 
 def kabsch_rmsd(pred_ca, gt_ca):
     """Optimal-superposition Cα-RMSD (Kabsch). pred_ca, gt_ca: [N, 3].
