@@ -1498,10 +1498,15 @@ LEVERS_NORMAL = ("normal-trunk_hifi3+trimul_gin+trimul_t2g+trimul_gin_hifi2"
 # ESMFold2 CA-lDDT -0.0004 [-0.0032, +0.0025], top-pose median 0.94 A vs 1.84 A seed floor, docking 31 -> 31 of 44;
 # ESMFold2-Fast CA-lDDT -0.0002 [-0.0015, +0.0008], docking 24 -> 24. Same-chip A/B, ESMFold2 512 aa --fast: ws_resid
 # -1.1 s, trimul_gin_hifi2 -0.8 s.
+# ws_lofi (the pair SwiGLU at LoFi) and trimul_gin_hifi2 pass the fast bar as a stack on Blackhole against the set
+# without both, 11 complexes x 4 seeds, 44 paired folds per model (p150a/p300c, 1350 MHz): ESMFold2 CA-lDDT +0.0003
+# [-0.0012, +0.0023], DockQ +0.015, top-pose median 0.67 A vs 1.39 A seed floor, docking 33 -> 33 of 44; ESMFold2-Fast
+# CA-lDDT +0.0016 [+0.0001, +0.0034], docking 24 -> 24. p150a 512 aa --fast warm at 1350 MHz: ws_lofi ESMFold2 16.80 ->
+# 15.80 s, ESMFold2-Fast 10.41 -> 10.17 s; trimul_gin_hifi2 -0.28 / -0.20 s. Wormhole drops ws_lofi (not graded there).
 # Wormhole adds trimul_t2m (T2 reads the einsum's last chunk channel-major, so the permute-back pass never writes):
 # same digests on 3 seeds x 2 models, 512 aa --fast warm at 1000 MHz, A B A B on one Galaxy chip: ESMFold2 37.50 ->
 # 35.97 s, ESMFold2-Fast 23.55 -> 22.55 s. Blackhole is not measured on it yet.
-LEVERS_FAST = ("normal+trimul_b8in+transition_ws+trimul_gin+trimul_t2g+ws_resid"
+LEVERS_FAST = ("normal+trimul_b8in+transition_ws+trimul_gin+trimul_t2g+trimul_gin_hifi2+ws_resid+ws_lofi"
                "+ef2_bit_draw+ef2_pair_init+ef2_lm_combine+ef2_opm_kq+ef2_relpos_lookup+ef2_atom_ffn_split")
 
 
@@ -1512,8 +1517,9 @@ def fold_levers(fast: bool) -> str:
         return os.environ["TT_BIO_LEVERS"]
     levers = LEVERS_FAST if fast else LEVERS_NORMAL
     if is_wormhole():  # pair init runs out of DRAM at 1024 tokens; trimul_gin_hifi2 is graded on the fast bar only
-        levers = levers.replace("+ef2_pair_init", "")
-        levers = levers + "+trimul_gin_hifi2" if fast else levers.replace("+trimul_gin_hifi2", "")
+        levers = levers.replace("+ef2_pair_init", "").replace("+ws_lofi", "")
+        if not fast:
+            levers = levers.replace("+trimul_gin_hifi2", "")
         levers += "+trimul_t2m"
     return levers
 
