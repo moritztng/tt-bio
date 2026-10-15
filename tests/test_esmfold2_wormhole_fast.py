@@ -57,11 +57,11 @@ def test_mode_sets_per_arch(monkeypatch, wormhole):
     # The T1/T2 trimul stack passed the fast bar on Blackhole and loses time on Wormhole.
     assert all((n in fast_set) is not wormhole for n in ("trimul_t1", "trimul_t1_c256", "trimul_t2", "trimul_t2cm"))
     assert "trimul_t1" not in rt.fold_levers(False).split("+")
-    # The ef2_* levers ride both sets on both archs, except device pair init on Wormhole (out of DRAM at 1024 tokens).
+    # The ef2_* levers ride both sets on both archs; device pair init is graded on Wormhole's fast bar only.
     for fast in (False, True):
         names = rt.fold_levers(fast).split("+")
         assert "ef2_relpos_lookup" in names and "ef2_bit_draw" in names
-        assert ("ef2_pair_init" in names) is not wormhole
+        assert ("ef2_pair_init" in names) is (fast or not wormhole)
     assert ("ef2_opm_kq" in rt.fold_levers(False).split("+")) is wormhole
     # trimul_t2m is bit-exact and measured on Wormhole only.
     assert all(("trimul_t2m" in rt.fold_levers(f).split("+")) is wormhole for f in (False, True))

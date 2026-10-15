@@ -1491,8 +1491,8 @@ LEVERS_NORMAL = ("normal-trunk_hifi3+trimul_gin+trimul_t2g+trimul_gin_hifi2"
 # ESMFold2 normal-mode folds of the stack also clear the fast bar (CA-lDDT -0.0019). 512 aa --fast on the stack:
 # ESMFold2 16.92 s, ESMFold2-Fast 10.14 s (p300c, 1350 MHz). On Wormhole the stack without ef2_pair_init passes the
 # same fast bar (ESMFold2-Fast, 44 paired folds, 1000 MHz): CA-lDDT -0.0000 [-0.0025, +0.0019], docking 24 -> 24 of
-# 44, and folds 772, 778 and 1024 tokens in both modes on both models. ef2_pair_init stays off there: with it a
-# Wormhole chip runs out of DRAM in the confidence head at 1024 tokens.
+# 44, and folds 772, 778 and 1024 tokens in both modes on both models. ef2_pair_init joined Wormhole's fast set later
+# (see _BH_ONLY_FAST).
 # ws_resid (the pair SwiGLU adds into z in fc3's fp32 dest) passes the fast bar on ESMFold2-Fast against the shipped
 # --fast set, 11 complexes x 4 seeds, 44 paired folds (Blackhole, 1350 MHz): CA-lDDT +0.0008 [-0.0006, +0.0032],
 # TM +0.0073, top-pose median 0.55 A vs 1.65 A seed floor, docking 23 -> 24 of 44. p150a 512 aa: ESMFold2 -0.44 s,
@@ -1522,11 +1522,20 @@ LEVERS_FAST = ("normal+trimul_b8in+transition_ws+trimul_gin+trimul_t2g+trimul_gi
 # MHz, spd-gap-esmf wlg): ESMFold2 CA-lDDT -0.0004 [-0.0024, +0.0015], DockQ +0.017, docking 31 -> 32 of 44;
 # ESMFold2-Fast CA-lDDT -0.0001 [-0.0021, +0.0023], docking 24 -> 24. Same chip, 512 aa, 1000 MHz: ESMFold2 33.60 ->
 # 33.10 s, ESMFold2-Fast 20.76 -> 20.38 s (spd-gap-whesmf wm, two runs per arm).
-_BH_ONLY_FAST = ("ef2_pair_init", "trimul_t1", "trimul_t1_c256", "trimul_t2", "trimul_t2cm")
+# ef2_pair_init passes the fast bar on Wormhole as well, against the WH fast set without it, 11 complexes x 4 seeds, 44
+# paired folds per model (Galaxy chip, 1000 MHz, spd-gap-whesmf wpg): ESMFold2 CA-lDDT +0.0015 [-0.0004, +0.0043],
+# top-pose median 0.55 A vs 1.73 A seed floor, docking 32 -> 31 of 44; ESMFold2-Fast CA-lDDT +0.0002 [-0.0005, +0.0009],
+# 1.00 A vs 1.03 A, docking 24 -> 24. The 1024-token confidence-head DRAM overflow that kept it off no longer reproduces:
+# both models fold 1024 and ESMFold2 1536 with it. Same chip, 512 aa, 1000 MHz: ESMFold2 34.0 -> 32.5 s, ESMFold2-Fast
+# 21.8 -> 20.1 s (wpi). Wormhole's normal set was graded without it (wng), so it stays fast-only there.
+_BH_ONLY_FAST = ("trimul_t1", "trimul_t1_c256", "trimul_t2", "trimul_t2cm")
 # Wormhole's normal mode folds with the LM in bfp8 (load_ttnn_esmfold2) and adds the pair SwiGLU kernel (transition_ws
 # + ws_resid) and ef2_lm_combine + ef2_opm_kq to LEVERS_NORMAL: the set it folded for both modes before they split.
 # Without transition_ws ESMFold2's pair FFN runs row-blocked, 65 ms a call against 10 ms, and a 512 aa fold takes
-# 50.9 s instead of 34.7 (Galaxy chip, 1000 MHz, spd-gap-whesmf wl). Normal-bar grade on Wormhole: wng, pending.
+# 50.9 s instead of 34.7 (Galaxy chip, 1000 MHz, spd-gap-whesmf wl). Normal bar on Wormhole, against LEVERS_NORMAL with the LM
+# in bfp8: ESMFold2 CA-lDDT +0.0013 [-0.0006, +0.0039], top-pose median 0.73 A vs 1.73 A floor (44 paired folds, wng);
+# ESMFold2-Fast CA-lDDT -0.0004 [-0.0015, +0.0009], 1.24 A vs 1.33 A, docking 48 -> 48 of 88 (88 paired folds over
+# two seed sets, wng + wng3). Galaxy chip, 1000 MHz.
 _WH_NORMAL_EXTRA = "+transition_ws+ws_resid+ef2_lm_combine+ef2_opm_kq"
 
 
@@ -1536,8 +1545,9 @@ def fold_levers(fast: bool) -> str:
     if os.environ.get("TT_BIO_LEVERS"):
         return os.environ["TT_BIO_LEVERS"]
     levers = LEVERS_FAST if fast else LEVERS_NORMAL
-    if is_wormhole():  # pair init runs out of DRAM at 1024 tokens
-        levers = "+".join(n for n in levers.split("+") if n not in _BH_ONLY_FAST)
+    if is_wormhole():
+        drop = _BH_ONLY_FAST if fast else _BH_ONLY_FAST + ("ef2_pair_init",)
+        levers = "+".join(n for n in levers.split("+") if n not in drop)
         if not fast:
             levers += _WH_NORMAL_EXTRA
         levers += "+trimul_t2m"
