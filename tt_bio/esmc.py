@@ -258,7 +258,7 @@ class Embedding(Module):
 # 600M fc2 0.719 -> 0.466 ms, out 0.350 -> 0.263, qkv 0.851 -> 0.710; 300M qkv 0.651 -> 0.537, fc2 0.485 -> 0.416.
 # At the 6B's 544 rows it gains nothing (out 0.200 -> 0.242), so only a projection over ESMC_MM_MIN_ROWS takes it.
 # Page cell on a Galaxy chip (esmc_ab.py, 2 rounds, batch of 7): 300M 177.8 -> 171.8 ms, 600M 272.0 -> 253.3 ms, with
-# embeddings equal to the linear's. --fast loads block-fp8 weights, which it never takes. On by default on Wormhole;
+# embeddings equal to the linear's. On by default on Wormhole;
 # Blackhole keeps the linear until its own A/B says. None = by arch, the switch overrides.
 _ESMC_MM = (env_flag("TT_BIO_ESMC_MM", False) if os.environ.get("TT_BIO_ESMC_MM", "").strip() else None)
 ESMC_MM_MIN_ROWS = 2048
@@ -269,8 +269,10 @@ MM_STATS = [0, 0]
 # op's default: 300M proj 0.233 -> 0.197, fc1 half 0.495 -> 0.461, fc2 0.392 -> 0.382; 600M proj 0.268 -> 0.226, fc1
 # half 0.645 -> 0.587, fc2 0.470 -> 0.452; error against float64 equal to the default's. Off = the op's default.
 _ESMC_MM_CFG = env_flag("TT_BIO_ESMC_MM_CFG", True)
-# --fast's block-fp8 projection weights on the same minimal_matmul instead of ttnn.linear. Off until the page-cell A/B.
-_ESMC_MM_BFP8 = env_flag("TT_BIO_ESMC_MM_BFP8", False)
+# --fast's block-fp8 projection weights on the same minimal_matmul instead of ttnn.linear. Page cell on a Galaxy chip at
+# 1000 MHz, 2 rounds: 300M --fast 173.2/166.5 -> 162.8/157.0 ms, 600M 264.6/244.6 -> 237.5/237.0, embeddings equal to the
+# linear's (pcc 1.0). The same 16 x 4 block config is within 3 % of the best per-shape one with these weights.
+_ESMC_MM_BFP8 = env_flag("TT_BIO_ESMC_MM_BFP8", True)
 
 
 def _mm_config(x, w):
