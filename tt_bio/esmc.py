@@ -336,8 +336,8 @@ _ESMC_MM_BFP8 = env_flag("TT_BIO_ESMC_MM_BFP8", True)
 # (ttnn.experimental.minimal_matmul_split), instead of three projections over the host-cut weights. Holds the packed
 # weight beside the cut ones (300M 166 MB, 600M 287 MB). Off until the page cell says.
 _ESMC_QKV_MM_SPLIT = env_flag("TT_BIO_ESMC_QKV_MM_SPLIT", False)
-# The attention's residual add inside out_proj's matmul (dit_minimal_matmul_addcmul_fused: x + 1 * (o W) * ones), so
-# the add never re-reads the projection from DRAM. Off until the page cell says.
+# The block's two residual adds inside out_proj's and fc2's matmuls (dit_minimal_matmul_addcmul_fused: x + 1 * (o W) *
+# ones), so neither add re-reads a projection from DRAM. Off until the page cell says.
 _ESMC_MM_RESID = env_flag("TT_BIO_ESMC_MM_RESID", False)
 #: [qkv split matmuls, residual-fused projections] served, read by the A/B harness.
 MM_FUSE_STATS = [0, 0]
@@ -952,7 +952,7 @@ class SwiGLUFFN(_MMLin, Module):
         return self.fc1_weight
 
     def _ffn(self, x: ttnn.Tensor, split: bool = False, l1_gated: bool = False,
-             out_mc=None) -> ttnn.Tensor:
+             out_mc=None, resid: bool = False) -> ttnn.Tensor:
         """`out_mc` is fc2's output memory config; `None` -- every caller but lever F -- leaves
         the op byte-identical to the call that had no such keyword.
 
@@ -1055,8 +1055,10 @@ class SwiGLUFFN(_MMLin, Module):
             ttnn.deallocate(x_norm)
             gated = ttnn.multiply(ttnn.silu(x1), x2)
             ttnn.deallocate(x1); ttnn.deallocate(x2)
-        out = self._lin(gated, self.fc2_weight,
-                        **({"memory_config": out_mc} if out_mc is not None else {}))
+        out = self._lin_resid(gated, self.fc2_weight, x) if resid and out_mc is None else None
+        if out is None:
+            out = self._lin(gated, self.fc2_weight,
+                            **({"memory_config": out_mc} if out_mc is not None else {}))
         ttnn.deallocate(gated)
         return out
 
@@ -1265,7 +1267,15 @@ class SwiGLUFFN(_MMLin, Module):
         fits = self.model_bytes <= _LM_LARGE_MODEL_BYTES or (self.model_bytes != float("inf") and L <= _LM_FFN_WHOLE_ROWS)
         return fits and tuple(x.padded_shape) not in _UNBLOCKED_REFUSED
 
-    def __call__(self, x: ttnn.Tensor) -> ttnn.Tensor:
+    def __call__(self, x: ttnn.Tensor, resid: bool = False):
+        """The FFN of x; with `resid`, (x + FFN(x), True) when fc2's matmul fused the add, else (FFN(x), False)."""
+        if resid:
+            served = MM_FUSE_STATS[1]
+            out = self._call(x, resid=True)
+            return out, MM_FUSE_STATS[1] != served
+        return self._call(x)
+
+    def _call(self, x: ttnn.Tensor, resid: bool = False) -> ttnn.Tensor:
         # The fc1 activation (2*d_ff wide) is several GB at long L and, on top of
         # the resident 6B weights, OOMs the 12 GB/chip Wormhole DRAM. The FFN is
         # row-independent over dim=1, so tiling it is bit-exact. 4D pair input
@@ -1290,7 +1300,7 @@ class SwiGLUFFN(_MMLin, Module):
                 parts = ttnn.chunk(x, -(-L // chunk), dim=1)
                 return ttnn.concat([self._ffn(p, split=split) for p in parts], dim=1)
             WINDOW_FALLBACK_STATS[1] += 1
-            return self._ffn(x, split=split)
+            return self._ffn(x, split=split, resid=resid)
         except Exception as exc:
             # Above PAIR_FFN_ROW_BLOCK_SEQ neither lever applies -- the row block is outside its
             # measured byte-identical window and pair_row_tile returns 0 on a big grid -- so fc1
@@ -1356,7 +1366,10 @@ class Block(Module):
         else:
             x = ttnn.add(x, r1)
             ttnn.deallocate(r1)
-        r3 = self.ffn(x)
+        r3, added = self.ffn(x, resid=True)
+        if added:
+            ttnn.deallocate(x)
+            return r3
         x = ttnn.add(x, r3)
         ttnn.deallocate(r3)
         return x
