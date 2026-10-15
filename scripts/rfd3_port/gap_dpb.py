@@ -60,7 +60,28 @@ def case(dev, ckc, I):
     def dpb():
         return D.dit_pair_bias(z, wt, mp, HD ** 0.5, ckc.math_fidelity)
 
+    def dpb_raw():
+        return D.dit_pair_bias(z, wt, mp, HD ** 0.5, ckc.math_fidelity, raw=True)
+
+    raw_ref = torch.zeros(1, H, n, n, dtype=torch.float64)
+    raw_ref[:, :, :I, :I] = torch.einsum("bijc,ch->bhij", z_t.double(), w_t.double())
     rec, outs = {"I": I, "n": n, "eligible": D.eligible(z, wt, mp)}, {}
+    try:
+        o = dpb_raw()
+        d = ttnn.to_torch(o).double()
+        ttnn.deallocate(o)
+        e = (d - raw_ref).abs()
+        idx = (e > 0.25).nonzero()
+        r = {"rel_err_f64": float((d - raw_ref).norm() / raw_ref.norm()), "max_abs_f64": float(e.max()),
+             "n_bad": int(idx.shape[0]), "bad_first": [[int(x) for x in row] + [float(d[tuple(row)]),
+                                                         float(raw_ref[tuple(row)])] for row in idx[:12]]}
+        for k, nm in ((1, "h"), (2, "i"), (3, "j")):
+            r[f"bad_{nm}_mod32"] = sorted(set(int(x) for x in (idx[:, k] % 32).tolist()))[:40]
+            r[f"bad_{nm}_tile"] = sorted(set(int(x) for x in (idx[:, k] // 32).tolist()))[:40]
+    except Exception as ex:                                              # noqa: BLE001
+        r = {"error": repr(ex)[:400]}
+    rec["dpb_raw"] = r
+    print(I, "dpb_raw", r, flush=True)
     for name, fn in (("shipped", shipped), ("dpb", dpb)):
         try:
             o, med, lo, hi = timeit(fn, dev)

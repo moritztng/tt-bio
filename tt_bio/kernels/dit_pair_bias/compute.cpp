@@ -62,6 +62,18 @@ void kernel_main() {
             pack_untilize_uninit(cb_rm);
             cb_push_back(cb_rm, 32);
 
+#ifdef DPB_RAW  // bench only (gap_dpb.py): the head-first projection alone, no scale, no mask
+            tilize_init(cb_rm, 1, cb_out);
+            for (uint32_t h = 0; h < 32; ++h) {
+                cb_wait_front(cb_rm, 1);
+                cb_reserve_back(cb_out, 1);
+                tilize_block(cb_rm, 1, cb_out);
+                cb_push_back(cb_out, 1);
+                cb_pop_front(cb_rm, 1);
+            }
+            tilize_uninit(cb_rm, cb_out);
+            continue;
+#endif
             tilize_init(cb_rm, 1, cb_t);
             for (uint32_t h = 0; h < 32; ++h) {
                 cb_wait_front(cb_rm, 1);
