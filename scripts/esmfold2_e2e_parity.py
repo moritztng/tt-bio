@@ -297,11 +297,13 @@ def load_ref_fixture(root, name, seeds, args, ckpt):
     missing = sorted(set(seeds) - set(meta["seeds"]))
     if missing:
         raise SystemExit(f"{root}: no reference fold for seeds {missing} (has {meta['seeds']})")
+    # A committed fixture may leave out distogram_logits (67 MB a seed at L=512); the run
+    # then reports no distogram metrics rather than refusing.
     runs = {}
     for s in seeds:
         with np.load(root / "ref_fp32" / f"seed{s}.npz") as z:
             runs[s] = {k: torch.from_numpy(z[k]) for k in
-                       ("sample_atom_coords", "plddt", "distogram_logits", "ptm")}
+                       ("sample_atom_coords", "plddt", "distogram_logits", "ptm") if k in z}
     return runs
 
 
@@ -391,6 +393,13 @@ def dump_fixture(fixture_dir, name, chains, feats, chain_infos, builder, ref_run
     """Dump the opendde-schema fixture tree: meta.json + ref_fp32/ + seed<N>/ device legs."""
     from pathlib import Path
     import numpy as np
+    import socket
+    import subprocess
+    git_head = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True,
+                              text=True).stdout.strip() or "unknown commit"
+    shared_rng = os.environ.get("TT_BIO_ESMFOLD2_DIFFUSION_SHARED_RNG") == "1"
+    no_shared_rng = "off: the device sampler draws from its own generator, so a seed pairs " \
+                    "the settings, not the noise"
     # Polymer residues only: a ligand chain's "sequence" is a CCD/SMILES spec.
     n_res = sum(len("".join(str(c[1]).split())) for c in chains if c[3] != "ligand")
     # A target named by file path cannot be a filename. Use its stem.
@@ -440,12 +449,13 @@ def dump_fixture(fixture_dir, name, chains, feats, chain_infos, builder, ref_run
             [_seed_result(name, n_res, tt_runs[s], atom_mask)], indent=2))
         (d / "meta.json").write_text(json.dumps({
             "seed": s, "backend": "ttnn (Tenstorrent Blackhole), production sampler path",
-            "shared_rng": "TT_BIO_ESMFOLD2_DIFFUSION_SHARED_RNG=1 — device sampler draws "
-                          "from the global CPU torch stream, seeded per seed before each "
-                          "forward on both paths (paired shared-draw comparison)",
+            "shared_rng": ("TT_BIO_ESMFOLD2_DIFFUSION_SHARED_RNG=1 — device sampler draws "
+                           "from the global CPU torch stream, seeded per seed before each "
+                           "forward on both paths (paired shared-draw comparison)"
+                           if shared_rng else no_shared_rng),
         }, indent=2))
 
-    cmd = ("TT_VISIBLE_DEVICES=1 TT_BIO_ESMFOLD2_DIFFUSION_SHARED_RNG=1 PYTHONPATH=$PWD "
+    cmd = (("TT_BIO_ESMFOLD2_DIFFUSION_SHARED_RNG=1 " if shared_rng else "") + "PYTHONPATH=$PWD "
            f"python3 scripts/esmfold2_e2e_parity.py --checkpoint {args.checkpoint} "
            f"--proteins {name} --loops {args.loops} "
            f"--steps {args.steps} --seeds {','.join(map(str, seeds))} "
@@ -481,20 +491,20 @@ def dump_fixture(fixture_dir, name, chains, feats, chain_infos, builder, ref_run
             "dtype": "fp32",
             "checkpoint": ckpt["version"],
             "target": f"{name} ({target_label(chains)})",
-            "shared_rng": "TT_BIO_ESMFOLD2_DIFFUSION_SHARED_RNG=1 (global CPU torch stream seeded per seed on both paths)",
+            "shared_rng": ("TT_BIO_ESMFOLD2_DIFFUSION_SHARED_RNG=1 (global CPU torch stream "
+                           "seeded per seed on both paths)" if shared_rng else no_shared_rng),
             "lm_hidden_states": "shared: one ttnn ESMC-6B (biohub/ESMC-6B rev 45b0fa5d) forward injected into both paths",
             "rationale": "sample=1 isolates convergence (loops/steps) from best-of-N selection",
         },
         "parity": parity,
+        "settings_tag": root.name,
         "invalidation_rule": "Regenerate this fixture ONLY when the pinned reference "
                              "commit/checkpoint or the settings above change. For any other "
                              "change (device seeds, device code, release tag) the fixture is "
                              "reused as-is and only the device side re-runs.",
-        "provenance": "Built 2026-07-29 on qb1 (Blackhole p150 card 1) at the ESMFold2 paper "
-                      "benchmark protocol (10 loops, 100 requested = 68 executed steps, 1 "
-                      "sample, seeds 0-2, single-sequence) — the D4a reference leg esmfold2 "
-                      "never got. Parity numbers in the parity field are the output of this "
-                      "harness's noise-floor verdict (X within max(R,D)).",
+        "provenance": f"Built on {socket.gethostname()} at tt-bio {git_head}. Parity numbers "
+                      "in the parity field are the output of this harness's noise-floor "
+                      "verdict (X within max(R,D)).",
     }
     (root / "meta.json").write_text(json.dumps(meta, indent=2))
     print(f"wrote fixture tree to {root}", flush=True)
@@ -1073,7 +1083,8 @@ def main():
 
         base_ref, base_tt = ref_runs[seeds[0]], tt_runs[seeds[0]]
         verdicts = compare_multiseed(ref_runs, tt_runs, atom_mask, seeds)
-        dg_rel = rel_l2(base_tt["distogram_logits"], base_ref["distogram_logits"])
+        has_dg = "distogram_logits" in base_ref
+        dg_rel = rel_l2(base_tt["distogram_logits"], base_ref["distogram_logits"]) if has_dg else None
         plddt_means = plddt_seed_block(
             [float(ref_runs[s]["plddt"].float().mean()) for s in seeds],
             [float(tt_runs[s]["plddt"].float().mean()) for s in seeds], seeds)
@@ -1087,7 +1098,8 @@ def main():
             plddt_mean=plddt_means,
             plddt_pcc=pcc(base_tt["plddt"], base_ref["plddt"]),
             plddt_mae=(base_tt["plddt"].float() - base_ref["plddt"].float()).abs().mean().item(),
-            distogram_pcc=pcc(base_tt["distogram_logits"], base_ref["distogram_logits"]),
+            distogram_pcc=(pcc(base_tt["distogram_logits"], base_ref["distogram_logits"])
+                           if has_dg else None),
             distogram_rel_l2=dg_rel,
             ptm_tt=float(base_tt["ptm"].mean()), ptm_ref=float(base_ref["ptm"].mean()),
             **verdicts,
@@ -1097,7 +1109,7 @@ def main():
             m["ligand"] = placement
         results.append(m)
         print(json.dumps(m, indent=2), flush=True)
-        assert dg_rel < DISTOGRAM_REL_L2_MAX, (
+        assert dg_rel is None or dg_rel < DISTOGRAM_REL_L2_MAX, (
             f"{name}: distogram_rel_l2 {dg_rel:.4f} >= {DISTOGRAM_REL_L2_MAX}: "
             "distogram_logits is scale-wrong, not just noisy (a PCC-only anchor "
             "shipped the double-symmetrize bug at distogram_pcc 0.9996)")
