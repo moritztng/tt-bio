@@ -64,18 +64,23 @@ def main() -> int:
 
     aa = acc.pdb_sequence(a.pdb)[: a.length]
     key = Path(a.ref_cache, f"{a.model}_{a.length}_seq.npy")
+    saprot = a.model.startswith("saprot")
     if key.is_file():
         ref = np.load(key)
     else:
-        ref = acc.esmc_reference(a.model)(aa, "#" * len(aa))
+        ref = (acc.saprot_reference if saprot else acc.esmc_reference)(a.model)(aa, "#" * len(aa))
         key.parent.mkdir(parents=True, exist_ok=True)
         np.save(key, ref)
 
     page = Path(a.seq_file).read_text().strip()
-    model = E.load_esmc(a.model, fast=a.fast, trace=a.trace)
-    one = lambda: E.embed_sequences(model, {"q": aa})[0].per_residue
+    if saprot:   # same page cell and grading for SaProt (ESM-2 encoder, sequence-only 3Di), no trace
+        from tt_bio import saprot as S
+        model, embed = S.load_saprot(a.model, fast=a.fast), S.embed_sequences
+    else:
+        model, embed = E.load_esmc(a.model, fast=a.fast, trace=a.trace), E.embed_sequences
+    one = lambda: embed(model, {"q": aa})[0].per_residue
     batch = {f"s{i}": page for i in range(1 if a.model == "esmc-6b" else 7)}   # the GAP cell's batch
-    embed7 = lambda: E.embed_sequences(model, batch, batch_size=8)
+    embed7 = lambda: embed(model, batch, batch_size=8)
     dev = model.tt_device
     ckc = model.compute_kernel_config
     fid_off = ckc.math_fidelity
