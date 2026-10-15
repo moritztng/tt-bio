@@ -1,0 +1,96 @@
+"""ESMC's minimal_matmul projections at the WH page shape, swept over MinimalMatmulConfig blocks, against float64.
+
+The WH census (spd-gap-whlm cen, main fe61d408f) runs ESMC-300M's projections on minimal_matmul's DEFAULT config at
+27-36 TF/s against a ~72 TF/s HiFi2 / ~56 HiFi4 roof on a Galaxy chip at 1000 MHz: the fc1 half [3808, 960] x [960, 2560]
+0.52 ms a call, the 960 x 960 projections 0.26 ms. perf/spd_gap_esmf/lin_bench.py only timed that default against
+ttnn.linear programs; this sweeps the op's own blocks (M, K, N block in tiles, the 2x2 / 1x4 / 4x1 subblock that fits).
+Per arm: device ms (median of --repeat, --inner calls per synchronize), TF/s, rel_l2 and max error / peak against
+float64 of the same bf16 operands, and whether the output equals the default config's byte for byte.
+
+    python3 perf/spd_gap_whlm/mm_cfg_sweep.py --model esmc-300m --out mm.jsonl
+"""
+import argparse
+import itertools
+import json
+import math
+import time
+
+import torch
+import ttnn
+
+# (d_model, d_ff, rows of the page batch); fc1 runs as two halves of d_ff each (split SwiGLU).
+MODELS = {"esmc-300m": (960, 2560, 7 * 544), "esmc-600m": (1152, 3072, 7 * 544), "esmc-6b": (2560, 6912, 544)}
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--model", default="esmc-300m", choices=sorted(MODELS))
+    ap.add_argument("--repeat", type=int, default=5)
+    ap.add_argument("--inner", type=int, default=5)
+    ap.add_argument("--out", required=True)
+    args = ap.parse_args()
+
+    from tt_bio import tenstorrent as T
+    dev = T.get_device()
+    g = dev.compute_with_storage_grid_size()
+    ck = ttnn.init_device_compute_kernel_config(dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi3,
+                                                math_approx_mode=False, fp32_dest_acc_en=True, packer_l1_acc=True)
+    d, ff, m = MODELS[args.model]
+    shapes = {"proj": (m, d, d), "fc1h": (m, d, ff), "fc2": (m, ff, d)}
+    out = open(args.out, "w")
+    gen = torch.Generator().manual_seed(0)
+    for name, (M, K, N) in shapes.items():
+        x = torch.randn(M, K, generator=gen).to(torch.bfloat16)
+        w = (torch.randn(K, N, generator=gen) / math.sqrt(K)).to(torch.bfloat16)
+        ref = x.double() @ w.double()
+        xd = ttnn.from_torch(x.reshape(1, 1, M, K), layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
+        wd = ttnn.from_torch(w, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
+        kt = K // 32
+        arms = {"default": None}
+        for mb, kb, nb in itertools.product((2, 4, 8, 16), (1, 2, 4, 8), (2, 4, 8, 16)):
+            if kt % kb:
+                continue
+            for sh, sw in ((2, 2), (1, 4), (4, 1)):
+                if mb % sh == 0 and nb % sw == 0:
+                    arms[f"m{mb}k{kb}n{nb}s{sh}x{sw}"] = ttnn.MinimalMatmulConfig(
+                        M_block_size=mb, K_block_size=kb, N_block_size=nb, subblock_h=sh, subblock_w=sw,
+                        compute_with_storage_grid_size=ttnn.CoreCoord(g.x, g.y))
+                    break
+        arms["linear"] = "linear"  # what a projection under ESMC_MM_MIN_ROWS (the 6B's 544) runs today
+        base = None
+        for arm, cfg in arms.items():
+            fn = (lambda: ttnn.linear(xd, wd, compute_kernel_config=ck, dtype=ttnn.bfloat16, core_grid=T.CORE_GRID_MAIN)) \
+                if cfg == "linear" else (lambda cfg=cfg: ttnn.experimental.minimal_matmul(
+                    xd, wd, compute_kernel_config=ck, dtype=ttnn.bfloat16, **({"config": cfg} if cfg else {})))
+            rec = {"model": args.model, "shape": name, "mkn": [M, K, N], "arm": arm, "grid": [g.x, g.y]}
+            try:
+                o = fn()
+                got = ttnn.to_torch(o).reshape(M, N).double()
+                ttnn.deallocate(o)
+                ts = []
+                for _ in range(args.repeat):
+                    ttnn.synchronize_device(dev)
+                    t0 = time.perf_counter()
+                    for _ in range(args.inner):
+                        ttnn.deallocate(fn())
+                    ttnn.synchronize_device(dev)
+                    ts.append((time.perf_counter() - t0) / args.inner * 1e3)
+                ms = sorted(ts)[len(ts) // 2]
+                err = got - ref
+                rec.update(ms=round(ms, 4), tflops=round(2 * M * K * N / ms / 1e9, 2),
+                           finite=bool(torch.isfinite(got).all()),
+                           rel_l2=float(err.norm() / ref.norm()), max_err_peak=float(err.abs().max() / ref.abs().max()))
+                if base is None:
+                    base = got
+                rec["equal_default"] = bool(torch.equal(got, base))
+            except Exception as e:  # an L1 refusal or an illegal config is a result, not a crash
+                rec["error"] = str(e).splitlines()[0][:200]
+            print(json.dumps(rec), flush=True)
+            out.write(json.dumps(rec) + "\n")
+            out.flush()
+        ttnn.deallocate(xd); ttnn.deallocate(wd)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
