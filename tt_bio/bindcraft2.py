@@ -2142,6 +2142,57 @@ def ipa_rewrites(einsum: bool = False, dist_remat: bool = False):
         fm.InvariantPointAttention = original
 
 
+class _FrozenRecycles:
+    """An `alphafold_runner` whose first `frozen` applies see no gradient.
+
+    BindCraft 2 stops the gradient on the output of every recycle but the last
+    (`bindcraft/af2.py`, `recycled_alphafold_outputs`), so nothing that happens inside them can
+    reach the sequence gradient. JAX still differentiates INTO them: their inputs carry the
+    sequence's tangent, so each device seam takes its forward rule and records a tape that is
+    swept unread on the next recycle. Stopping the gradient on the inputs instead sends those
+    recycles through the primal, which records nothing, and leaves the gradient unchanged.
+    """
+
+    def __init__(self, real, frozen: int):
+        self._real, self._frozen = real, frozen
+
+    def apply(self, params, key, inputs):
+        if self._frozen:
+            import jax
+            self._frozen -= 1
+            params, inputs = jax.lax.stop_gradient((params, inputs))
+        return self._real.apply(params, key, inputs)
+
+
+@contextlib.contextmanager
+def untaped_recycles(enabled: bool = True):
+    """Run BindCraft 2's stop-gradient recycles through the primal for the duration.
+
+    Same loop, same keys, same values: `recycled_alphafold_outputs` is BindCraft 2's own and only
+    its runner is wrapped (`_FrozenRecycles`). Yields whether it was installed.
+    """
+    if not enabled:
+        yield False
+        return
+    from bindcraft import af2
+
+    original = af2.recycled_alphafold_outputs
+
+    def recycled(runner, model_parameters, key, model_inputs, num_recycle):
+        return original(_FrozenRecycles(runner, num_recycle), model_parameters, key,
+                        model_inputs, num_recycle)
+
+    af2.recycled_alphafold_outputs = recycled
+    try:
+        yield True
+    finally:
+        af2.recycled_alphafold_outputs = original
+
+
+#: `untaped_recycles` on by default: the recycles it reroutes have no gradient to give.
+UNTAPED_RECYCLES = env_flag("TT_BIO_BC2_UNTAPED_RECYCLES", True)
+
+
 def ipa_point_einsum(enabled: bool = True):
     """`ipa_rewrites` with only the point einsum."""
     return ipa_rewrites(einsum=enabled)
@@ -2730,6 +2781,7 @@ def predictor(*, trunk: str = "device", card: int | str | None = None, checkpoin
     with refusals_unwrapped(), \
             autograd.exact_training(exact), evoformer_on_device(evo, extra), \
             template_on_device(tmpl, evo), ipa_rewrites(IPA_POINT_EINSUM, IPA_DIST_REMAT), \
+            untaped_recycles(UNTAPED_RECYCLES), \
             (fast_round() if fast else contextlib.nullcontext()) as armed:
         build = _factory(trunk="device", pool=pool, evoformer=evo, extra_msa=extra,
                          template=tmpl, exact=exact)
