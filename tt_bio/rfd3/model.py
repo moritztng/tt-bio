@@ -182,8 +182,9 @@ _PROCESS_Z_COLLAPSE = env_flag("RFD3_PROCESS_Z_COLLAPSE", False)
 _ATTN_OVERLAP = env_flag("RFD3_ATTN_OVERLAP", True)
 # The k-d tree index (_ATTN_KDTREE) is scipy's own threads plus numpy, so it no longer has the
 # OpenMP conflict above, and on a worker thread it can start as soon as the step's coordinates
-# exist instead of after the token encoder's dispatch. Same function on the same inputs: exact.
-_ATTN_THREAD = env_flag("RFD3_ATTN_THREAD", False)
+# exist instead of after the token encoder's dispatch. Same function on the same inputs: exact
+# (digests equal, WH seeds 60-63 fast, 60-61 normal). WH --fast @1000 on one chip: 103.6 -> 100.3 s/design.
+_ATTN_THREAD = env_flag("RFD3_ATTN_THREAD", True)
 # A denoise step crossed to the host ~15 times: process_a/r/c and both time embeddings came back
 # for host adds, the encoder, downcast_q, the DiT and every recycle's s were read back only to be
 # uploaded again by the next module. Each crossing drains the card, and Tracy on p150a put the
@@ -366,8 +367,10 @@ _TRANSITION_B8 = env_flag("RFD3_TRANSITION_B8", False)
 # than either shipped path on WH). In --fast: p150a @1350 61.30 -> 56.25 s/design
 # (seeds 44-47), Wormhole @1000 114.7 -> 100.1 (seeds 50-53). Graded over 10 paired seeds on both
 # arches: clash delta -1.4 (se 5.4), chain breaks identical seed for seed, same-seed drift
-# 3.9-12.7 A against a 13.5-20.0 A seed floor.
-_PAIR_WS = env_flag("RFD3_PAIR_WS", False)
+# 3.9-12.7 A against a 13.5-20.0 A seed floor. In normal mode, Wormhole @1000 124.0-127.4 ->
+# 89.0-93.0 s/design; 20 paired WH seeds: clash delta +4.9 (se 4.3), breaks 11 -> 12, in-band equal,
+# drift 2.9-14.1 A against a 13.8-21.7 A seed floor. On in both modes.
+_PAIR_WS = env_flag("RFD3_PAIR_WS", True)
 # RFD3_PAIR_WS with its weights in bfp8, run at HiFi2 (covers every bfp8 weight bit), the form the shared
 # `tenstorrent.ws_swiglu` takes in fast mode for the other models. x and the RMSNorm prologue stay bf16. Graded off.
 _PAIR_WS_B8 = env_flag("RFD3_PAIR_WS_B8", False)
@@ -429,8 +432,7 @@ PZSTATS = [0, 0]
 # `--fast` for RFD3: the levers that pass the fast accuracy bar but not (yet) the normal one. Same
 # steps, recycles and designs; only kernels change. Each flag keeps its own env switch for A/B work,
 # and set_fast(False) restores exactly what the environment asked for.
-_FAST_SET = {"_TRANSITION_B8": "RFD3_TRANSITION_B8", "_PROCESS_Z_COLLAPSE": "RFD3_PROCESS_Z_COLLAPSE",
-             "_PAIR_WS": "RFD3_PAIR_WS"}
+_FAST_SET = {"_TRANSITION_B8": "RFD3_TRANSITION_B8", "_PROCESS_Z_COLLAPSE": "RFD3_PROCESS_Z_COLLAPSE"}
 
 
 def set_fast(on):
