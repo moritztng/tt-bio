@@ -79,3 +79,15 @@ openfold3_ob0-no-pair_transition: pair | folds | CA RMSD A median (max) | per-co
 | off fold i vs fold 0 (floor) | 4 | 14.408 (19.642) | 13.608 (18.081) | 42.8035 |
 
 opendde exact-det vs off-det is bitwise. openfold3 and openbind exact were measured in b2 (above); their b5 fast arms compare against the b5 off arm on the same box. esmfold2 fast refused again in b5: t15 (same fused transition kernel family as t10) requests 528 of 512 tensor-memory columns; rerun as b6 with t10,t15,t15msa withheld.
+
+## Session b6 (box 56049687, 2026-10-15): esmfold2 fast with t10,t15,t15msa withheld
+
+The kit's fused transition kernels t10, t15 and t15msa ask for 528 of the 512 tensor-memory columns sm_100 has, so the fast arms ran with MODEL_OPT_LEVERS_OFF=t10,t15,t15msa. Off and fast ran on the same box.
+
+esmfold2-fast: pair | folds | CA RMSD A median (max) | per-copy CA RMSD A median (max) | max |dx| A
+| fast vs off | 5 | 0.070 (0.078) | 0.070 (0.072) | 0.9200 |
+| off fold i vs fold 0 (floor) | 4 | 0.011 (0.013) | 0.009 (0.010) | 0.3220 |
+
+esmfold2-full_nomsa: pair | folds | CA RMSD A median (max) | per-copy CA RMSD A median (max) | max |dx| A
+| fast vs off | 5 | 0.053 (0.067) | 0.039 (0.060) | 1.8350 |
+| off fold i vs fold 0 (floor) | 4 | 0.016 (0.027) | 0.015 (0.026) | 0.3260 |
