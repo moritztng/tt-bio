@@ -73,6 +73,8 @@ def main():
     ap.add_argument("--transpose", default="none", choices=("none", "a", "b"),
                     help="the deferred transpose production hands the matmul (ending: a, starting: b)")
     ap.add_argument("--no-reuse2", action="store_true", help="skip reuse_c2 (hung on .114 chip 12, 10-12)")
+    ap.add_argument("--kws", default="", help="reuse arms' in0_block_w values (default 1 and St)")
+    ap.add_argument("--subs", default="1x1", help="reuse arms' out subblocks, e.g. 1x1,2x2,1x4")
     a = ap.parse_args()
     dev = tt.get_device()
     gx, gy = tt.COMPUTE_GRID_MAIN
@@ -105,13 +107,19 @@ def main():
                     (f"grid{gx}x{gy}", mm(core_grid=ttnn.CoreGrid(y=gy, x=gx))),
                     ("grid8x8", mm(core_grid=ttnn.CoreGrid(y=8, x=8)))]
             # 1D reuse: batch folded into M, whole channels per core (per_core_M a multiple of St).
+            kws = [int(k) for k in a.kws.split(",")] if a.kws else [1, St]
             for chans in ((1,) if a.no_reuse2 else (1, 2)):
-                for kw in (1, St):
+                for kw in kws:
                     if St % kw:
                         continue
-                    arms.append((f"reuse_c{chans}_k{kw}", mm(program_config=ttnn.MatmulMultiCoreReuseProgramConfig(
-                        compute_with_storage_grid_size=(gx, gy), in0_block_w=kw, out_subblock_h=1,
-                        out_subblock_w=1, per_core_M=chans * St, per_core_N=St))))
+                    for sub in a.subs.split(","):
+                        sh, sw = map(int, sub.split("x"))
+                        if St % sh or St % sw:
+                            continue
+                        tag = f"reuse_c{chans}_k{kw}" + ("" if sub == "1x1" else f"_s{sub}")
+                        arms.append((tag, mm(program_config=ttnn.MatmulMultiCoreReuseProgramConfig(
+                            compute_with_storage_grid_size=(gx, gy), in0_block_w=kw, out_subblock_h=sh,
+                            out_subblock_w=sw, per_core_M=chans * St, per_core_N=St))))
             cell = {"S": S, "C": C, "St": St, "arms": []}
             ref = None
             for name, fn in arms:
