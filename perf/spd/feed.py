@@ -102,6 +102,7 @@ if A["kind"] == "galaxy":
     out["healthy"] = len([n for n in os.listdir("/dev/tenstorrent") if n.isdigit()]) - bad
     q = [os.path.basename(f) for f in glob.glob(P + "/queue/*.sh")]
     out["queued"] = sum(1 for n in q if n[0] in "012345678")
+    out["qprio"] = [sum(1 for n in q if n[0] == str(d)) for d in range(9)]
     out["paused"] = os.path.exists(P + "/PAUSE") or os.path.exists(P + "/RETURNED")
     out["live"] = q + [os.path.basename(r).split("-", 2)[2] for r in glob.glob(P + "/running/*.sh")
                        if not os.path.exists(r + ".end")]
@@ -568,22 +569,26 @@ def main(argv=None):
         arc(R, st, P, log)
     live = {n for s in st.values() for n in s.get("live", [])}
     steal(cs, ledger, st, P, stamp, a.dry_run, log)
-    # 2. fill each pool up to depth x healthy, cells in priority order, the pool with most room first
-    room = {n: (0 if s.get("paused") else int(a.depth * s["healthy"]) - s["queued"]) for n, s in st.items()}
+    # 2. fill each pool up to depth x healthy, cells in priority order, the pool with most room first. A cell's room
+    # counts only queued work it does not jump: pool.sh starts the lowest prio digit first, so prio-6 jobs hand-queued
+    # past the depth must not lock prio-3 cells out (10-15: 211 queued on .107, every grid cell refused for hours).
+    qp = {n: list(s.get("qprio") or [s["queued"]] + [0] * 8) for n, s in st.items()}
+    room = lambda n, p: 0 if st[n].get("paused") else int(a.depth * st[n]["healthy"]) - sum(qp[n][:p + 1])
     place = {n: [] for n in st}
     for c in cs:
         L = ledger.get(c["key"], {})
         if c["is_done"] or L.get("quarantined") or L.get("state") in ("queued", "running") or live & set(c["also"]):
             continue
-        ok = [n for n in st if P[n]["arch"] == c["arch"] and room[n] > 0 and (not c["hosts"] or n in c["hosts"])
+        p = int(c["name"][0])
+        ok = [n for n in st if P[n]["arch"] == c["arch"] and room(n, p) > 0 and (not c["hosts"] or n in c["hosts"])
               and all(st[n]["exists"].get(x) for x in c["requires"])]
         if not ok:
             continue
-        n = max(ok, key=lambda n: room[n])
+        n = max(ok, key=lambda n: room(n, p))
         job = {"name": c["name"], "body": c["body"], "cap": c["cap"]}
         if P[n]["kind"] == "bh":
             job.update(cards=st[n]["cards"], lock=P[n]["lock"])
-        place[n].append(job); room[n] -= 1
+        place[n].append(job); qp[n][p] += 1
         ledger[c["key"]] = dict(L, host=n, name=c["name"], hash=c["hash"], state="queued", placed=stamp,
                                 fails=L.get("fails", []), quarantined=False, row=c["row"])
     # 3. trees and small files a pending cell needs and a pool of its arch lacks: ship them so a later pass places there
