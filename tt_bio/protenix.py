@@ -61,15 +61,49 @@ from . import tenstorrent as _T   # for the module-level A/B toggles, which must
 # each (spd-gap-small gst1, 2026-10-14), PASS: same-seed top pose median Protenix-v2 0.093 A vs the 1.134 A A/A
 # floor, OpenDDE 0.184 vs 1.335 A; CA-lDDT -0.0001 [-0.0006, +0.0003] / +0.0000 [-0.0001, +0.0002].
 NORMAL_LEVERS = _T.NORMAL_LEVERS | {"transition_ws", "ws_l1acc", "trimul_t1_c256", "trimul_t1_c384"}
+# The trimul output tail as one kernel (T2, its channel-major hand-off T2CM, and T2 at c_z 384), Protenix-v2 only:
+# under T1 the normal tail otherwise runs LN + out-proj + gated multiply as three ops. Wormhole 11-set normal grade,
+# normal set vs normal set + these, 44 paired folds (spd-gap-small gt2nwh, 2026-10-14): Protenix-v2 PASS, same-seed
+# top pose median 0.041 A vs the 1.132 A A/A floor, CA-lDDT -0.0001 [-0.0004, +0.0001], docking 35 -> 35;
+# OpenDDE FAIL (DockQ -0.0077 [-0.0225, -0.0000]), so OpenDDE keeps NORMAL_LEVERS. Not graded at c_z 128, so
+# Protenix-v1 keeps NORMAL_LEVERS too (`load_from_checkpoint`). Galaxy chip (1000 MHz) Protenix-v2 normal -2.3 s.
+T2_TAIL = frozenset({"trimul_t2", "trimul_t2cm", "trimul_t2w"})
+# ws_chain: the transition's later hidden chunks add into the first in their fp32 dest instead of separate add
+# passes over the pair. Wormhole 11-set grades, shipped set vs + ws_chain (spd-gap-small gwch, 2026-10-14), PASS:
+# Protenix-v2 normal top pose median 0.080 A vs the 1.050 A A/A floor (37 paired folds), OpenDDE normal 0.241 vs
+# 1.257 A (39), OpenDDE fast 0.625 vs 1.374 A (44); docking within one fold everywhere. Galaxy chip (1000 MHz)
+# OpenDDE normal -3.7 s, fast -2.3 s, Protenix-v2 normal -0.7 s. Not graded at c_z 128, so Protenix-v1 stays off.
+# Blackhole twin (gwchbh, 2026-10-15): Protenix-v2 normal PASS 0.080 A vs 1.177 A (44), OpenDDE fast PASS 0.369 vs
+# 1.277 A (39); OpenDDE normal FAIL, so OpenDDE drops it on Blackhole normal (`opendde.BH_NORMAL_LEVERS`).
+WS_CHAIN = frozenset({"ws_chain"})
 # --fast takes trimul_t1_c256 too (Protenix-v2; c_z 128 Protenix-v1 is untouched, OpenDDE has its own set).
 # Blackhole 11-set fast grade, fast vs fast+trimul_t1_c256, 43 paired folds (spd-gap-small g256bh, 2026-10-14), PASS:
 # same-seed top pose median 0.125 A vs the 1.342 A A/A floor, CA-lDDT -0.0004 [-0.0010, +0.0001], docking 33 -> 33.
 # Warm 512-token fast fold, paired: p150a (1350 MHz) Protenix-v2 -1.67 s. Blackhole only: on a Galaxy chip
 # (1000 MHz, same chip, 3 paired folds, spd-gap-small pv2fr 2026-10-14) it costs +1.5 s (61.2 vs 59.7 s), so
-# Wormhole --fast takes `WH_FAST_LEVERS`. Wormhole normal keeps it (-1.3 s there).
+# `mode_levers` leaves it out of the Wormhole fast set. Wormhole normal keeps it (-1.3 s there).
 FAST_LEVERS = _T.FAST_LEVERS | {"trimul_t1_c256"}
 WH_FAST_LEVERS = FAST_LEVERS - {"trimul_t1_c256"}
+# triatt_ln + apb_ln: the pair LayerNorm fused into the projection that reads it (triangle attention's qkvgb, and the
+# attention pair-bias), so the normed pair is never written to DRAM. Wormhole 11-set fast grade, Protenix-v2 fast vs
+# fast + these, 44 paired folds (spd-gap-small gtaln, 2026-10-15), PASS: same-seed top pose median 0.335 A vs the
+# 1.414 A A/A floor, CA-lDDT +0.0006 [-0.0003, +0.0022], docking 34 -> 35. Galaxy chip (1000 MHz, 5 paired folds,
+# talnab): Protenix-v2 fast -2.90 s; OpenDDE null (+0.23 s), so it stays Protenix-v2 only. Wormhole normal takes it
+# too: 11-set normal grade, shipped Protenix-v2 normal set vs + these, 44 paired folds (gtalnn, 2026-10-15), PASS:
+# top pose median 0.091 A vs the 0.946 A floor, CA-lDDT +0.0001 [-0.0001, +0.0003], docking 35 -> 35; -2.98 s.
+TRIATT_LN = frozenset({"triatt_ln", "apb_ln"})
 from .eltwise_fusion import scale_add, norm_residual, gated_add
+
+
+def mode_levers(state_dict):
+    """The mode's lever set for a Protenix checkpoint: `FAST_LEVERS` under --fast, else `NORMAL_LEVERS`,
+    plus `T2_TAIL` and `WS_CHAIN` for Protenix-v2 (c_z 256), the one width their normal grades cover; Wormhole --fast takes
+    `WH_FAST_LEVERS`, and Wormhole adds `TRIATT_LN` to both Protenix-v2 modes."""
+    v2 = Trunk._derive_c_z(state_dict) == 256
+    wh = _T.is_wormhole()
+    pair_ln = TRIATT_LN if v2 and wh else frozenset()
+    return _T.model_levers((NORMAL_LEVERS | T2_TAIL | WS_CHAIN if v2 else NORMAL_LEVERS) | pair_ln,
+                           (WH_FAST_LEVERS if wh else FAST_LEVERS) | pair_ln)
 
 
 # How many diffusion samples a single batched denoise carries by default. The batched
@@ -2560,8 +2594,7 @@ class Protenix:
         """Load a v2 checkpoint (.pt) and build the model. Untrusted weights are read
         with weights_only=True. diffusion_fp32 is the per-run precision (`--diffusion_precision`);
         None keeps the mode's default (fp32 unless PROTENIX_DIFFUSION_FP32_DEVICE=0, bf16 under
-        the `diffusion_bf16` lever). levers: None takes the mode's set, this module's `FAST_LEVERS`
-        under `--fast` and its `NORMAL_LEVERS` otherwise. A harness grading a lever set through the serving
+        the `diffusion_bf16` lever). levers: None takes the mode's set for this checkpoint (`mode_levers`). A harness grading a lever set through the serving
         path sets TT_BIO_LEVERS (`parse_levers` grammar, e.g. `fast-lofi`); no user does."""
         import tt_bio.tenstorrent as _TT
         import torch
@@ -2578,7 +2611,7 @@ class Protenix:
         # the shipped path. Scoped to this entry point -- OpenDDE builds Protenix directly
         # and passes its own flag.
         if levers is None:
-            levers = _TT.model_levers(NORMAL_LEVERS, WH_FAST_LEVERS if _TT.is_wormhole() else FAST_LEVERS)
+            levers = mode_levers(sd)
         return cls(sd, ckc, dev, gated_move=True, diffusion_fp32=diffusion_fp32, levers=levers)
 
     def _tt(self, x):

@@ -1,7 +1,9 @@
 """perf/spd/feed.py without a box: fake pools, check fill order, done-skip, twin-skip and the fast-fail quarantine."""
 import json
+import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -148,8 +150,10 @@ def test_probe_reports_free_cards_and_waiter_age(tmp_path):
             (jobs / f"{n}.start").touch()
     held = open(tmp_path / "lock2", "a"); fcntl.flock(held, fcntl.LOCK_EX)     # another row's run on card 2
     a = {"kind": "bh", "cards": [0, 1, 2, 3], "lock": str(tmp_path / "lock{c}"), "sweep": False, "paths": [], "outdirs": {}}
+    # no release-gate leg runs here: a live one on the test host would otherwise hold a card in the probe's pgrep
+    (tmp_path / "bin").mkdir(); (tmp_path / "bin/pgrep").write_text("#!/bin/sh\nexit 1\n"); (tmp_path / "bin/pgrep").chmod(0o755)
     r = subprocess.run([sys.executable, "-c", feed.PROBE], input=json.dumps(a) + "\n", capture_output=True, text=True,
-                       env={"HOME": str(tmp_path), "PATH": "/usr/bin:/bin"}, check=True)
+                       env={"HOME": str(tmp_path), "PATH": f"{tmp_path}/bin:/usr/bin:/bin"}, check=True)
     out = json.loads(r.stdout)
     assert out["free"] == [3]
     assert out["jobs"]["4-a.sh"]["state"] == "queued" and out["jobs"]["4-a.sh"]["card"] == 0
@@ -274,3 +278,31 @@ def test_a_cell_on_a_dark_box_is_placed_again_and_its_twin_withdrawn_on_return(t
     dark[0] = False; (tmp_path / "state/qb2-offline").unlink(); calls.clear()
     run(tmp_path)
     assert [(x[0], x[2]["names"]) for x in calls if x[1] is feed.WITHDRAW] == [("qb2", [c["name"]])]
+
+
+def _run_capped(tmp_path, body, cap):
+    sh = tmp_path / "4-x.sh"; sh.write_text(body)
+    subprocess.run(["bash", "-c", feed.run_cmd(grace=2), "_", str(sh), "0", "", str(tmp_path / "nolock"), str(cap)],
+                   cwd=tmp_path, timeout=60, check=True)
+    return (tmp_path / "4-x.sh.end").read_text().strip()
+
+
+def test_a_job_under_its_cap_ends_with_its_own_rc(tmp_path):
+    assert _run_capped(tmp_path, "exit 3\n", 30) == "3"
+
+
+def test_a_job_that_honours_sigint_ends_on_int(tmp_path):
+    assert _run_capped(tmp_path, "sleep 30\n", 1) == "124 INT"
+
+
+def test_a_child_that_outlives_its_wrapper_on_sigint_gets_sigterm(tmp_path):
+    # 10-15 qb1: the wrapper exited on SIGINT, the python stuck in a native wait did not and held the card's flock 2 h
+    end = _run_capped(tmp_path, "(trap '' INT; exec sleep 300) & echo $! > child; wait\n", 1)
+    assert end == "124 INT+TERM"
+    pid = int((tmp_path / "child").read_text())
+    for _ in range(50):
+        if not os.path.exists(f"/proc/{pid}") or open(f"/proc/{pid}/stat").read().split()[2] == "Z":
+            break
+        time.sleep(0.1)
+    else:
+        raise AssertionError("the orphan survived SIGTERM")

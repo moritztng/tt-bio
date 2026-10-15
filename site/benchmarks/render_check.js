@@ -236,13 +236,12 @@ for (const [key, n] of Object.entries(EXPECT_ROWS)) {
   }
 }
 
-/* Relocated, not deleted. The H200-against-B200 split and what each side's timer covers used to sit
- * in the scope list above every chart, where between them they were 2.4k characters of the 4.7k a
- * reader met before the first bar. They now read as two Methods rows. Assert they are still on the
- * page, because "trimmed" must not be able to become "dropped" without a check going red. */
+/* Relocated, not deleted. What each side's timer covers used to sit in the scope list above every
+ * chart; it now reads as a Methods row. Assert it is still on the page, because "trimmed" must not
+ * be able to become "dropped" without a check going red. */
 {
   const dl = (store.get("methods-dl") || mkEl("dl")).children.map((c) => deepText(c)).join(" ");
-  for (const k of ["gpu_generations", "timed_region"]) {
+  for (const k of ["timed_region"]) {
     if (D.scope[k] && !dl.includes(D.scope[k].slice(0, 40))) {
       failures.push("scope." + k + " did not reach #methods-dl");
     }

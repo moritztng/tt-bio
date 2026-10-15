@@ -37,6 +37,7 @@ move against the accuracy bar and the seed-to-seed spread.
 | [`TT_BIO_DIT_COND_HOIST`](#tt_bio_dit_cond_hoist) | on | Boltz-2, RF3 token DiT | moves, inside the 298-residue bar |
 | [`TT_BIO_DIT_SHARED_COND`](#tt_bio_dit_shared_cond) | on | Boltz-2, BoltzGen | identical |
 | [`TT_BIO_ESMC_MM`](#tt_bio_esmc_mm) | on for Wormhole | ESMC 300M / 600M | identical at the page batch |
+| [`TT_BIO_ESMC_QKV_SPLIT`](#tt_bio_esmc_qkv_split) | on | ESMC 300M / 600M | identical |
 | [`TT_BIO_ESMFOLD2_DEVICE_CONF`](#tt_bio_esmfold2_device_conf) | on | ESMFold2 | moves, inside the bar |
 | [`TT_BIO_ESMFOLD2_DEVICE_TAIL`](#tt_bio_esmfold2_device_tail) | on | ESMFold2 | moves, inside the bar |
 | [`TT_BIO_ESMFOLD2_BIT_DRAW`, `TT_BIO_ESMFOLD2_PAIR_INIT`, `TT_BIO_ESMFOLD2_LM_COMBINE`, `TT_BIO_ESMFOLD2_OPM`, `TT_BIO_ESMFOLD2_ATOM_FFN_SPLIT`, `TT_BIO_ESMFOLD2_RELPOS_LOOKUP`](#esmfold2---fast-stack) | on with `--fast` on Blackhole | ESMFold2 | moves, inside the fast bar |
@@ -623,7 +624,18 @@ ESMC's bf16 projections over 2048 rows (a batch of 7 at 544 tokens) run on `mini
 instead of the core-grid linear. On a Galaxy chip a batch of 7 drops from 177.8 to 171.8 ms (300M)
 and from 272.0 to 253.3 ms (600M), with embeddings equal to the linear's. `--fast` loads block-fp8
 weights and keeps the linear; so does the ESMC-6B inside ESMFold2, whose projections stay under 2048 rows.
-A projection whose L1 destination `minimal_matmul` cannot place falls back to the linear.
+A projection whose L1 destination `minimal_matmul` cannot place falls back to the linear. The SwiGLU's first
+half carries its SiLU as the matmul's fused activation, as the linear did, so it takes `minimal_matmul` too.
+
+## `TT_BIO_ESMC_QKV_SPLIT`
+
+Default: on. ESMC 300M and 600M embeddings.
+
+Attention computes q, k and v as three projections instead of one projection whose output is then
+copied three ways. Embeddings are identical. A batch of 7 at 544 tokens on a Galaxy chip: 300M
+176.9 -> 172.4 ms (--fast 168.2 -> 161.2), 600M 254.5 -> 252.0 ms; on a p150a 300M 74.5 -> 70.9 ms.
+The ESMC-6B inside ESMFold2 keeps the single projection: the three slices are a second copy of its
+weights. `TT_BIO_ESMC_QKV_SPLIT=0` restores the single projection.
 
 ## `TT_BIO_ESMFOLD2_DEVICE_TAIL`
 
@@ -672,7 +684,12 @@ residues, graded inside the fast bar on 11 complexes x 4 seeds. Wormhole `--fast
 with `trimul_gin_hifi2` (the gated trimul in-projection at HiFi2): graded as a pair on the fast bar on a
 Galaxy chip, 11 complexes x 4 seeds per model, ESMFold2 CA-lDDT -0.0004 [-0.0032, +0.0025] and
 ESMFold2-Fast -0.0002 [-0.0015, +0.0008], docking unchanged. On ESMFold2 at 512 residues they take
-1.1 s and 0.8 s off a Wormhole fold.
+1.1 s and 0.8 s off a Wormhole fold. Blackhole `--fast` takes `trimul_gin_hifi2` as well, plus
+`ws_lofi` (the pair SwiGLU at LoFi), graded as a pair on the fast bar, 11 complexes x 4 seeds per model:
+ESMFold2 CA-lDDT +0.0003 [-0.0012, +0.0023], ESMFold2-Fast +0.0016 [+0.0001, +0.0034], docking
+unchanged. At 512 residues on p150a (1350 MHz) `ws_lofi` takes 1.0 s off ESMFold2 and 0.24 s off
+ESMFold2-Fast, `trimul_gin_hifi2` another 0.28 s and 0.20 s. Wormhole leaves `ws_lofi` off (not graded
+there).
 
 **Accuracy: moves, inside the fast bar.** On 11 complexes x 4 seeds on Blackhole, ESMFold2-Fast
 `--fast` against the same mode without the stack: CA-lDDT -0.0000 [-0.0003, +0.0002], TM-score
