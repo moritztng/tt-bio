@@ -46,8 +46,7 @@ One cell per model per platform. A Tenstorrent cell's headline is the default mo
 exact mode of Anthropic's biomolecular kit (github.com/anthropics/uplifting-biomolecular-modeling),
 with the kit's fast mode under `fast` and the stock upstream run under `stock`, which is the kit's
 own `off` arm on the same machine (every kit change switched off); `"stock"` is the model's own
-upstream release, used where the kit does not cover the model or has no run on that GPU yet (the
-B200 RoseTTAFold3, OpenDDE and PXDesign cells, measured in August 2026 and dated in `when`). The
+upstream release, used where the kit does not cover the model. The
 kit's ESMC has no fast mode, so those cells carry no `fast`. Only the headline is
 drawn, so every bar compares a default against an exact run. Each run carries `n`, `spread_pct`,
 the clock it ran at (`aiclk_mhz` or `clock_mhz`, sampled during the run), `versions` and `when`.
