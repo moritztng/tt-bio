@@ -180,3 +180,24 @@ def test_pair_linear_declines_a_bf16_dest():
     from tt_bio import pair_linear
     ckc = types.SimpleNamespace(fp32_dest_acc_en=False, math_fidelity=ttnn.MathFidelity.HiFi4)
     assert pair_linear.matmul(_t((1, 288, 288, 128)), _t((128, 128)), ckc) is None
+
+
+@pytest.mark.parametrize("x,w,tb", [
+    ((1, 224, 224, 128), (128, 4), False),   # pair-bias projection
+    ((1, 224, 224, 4), (4, 128), False),     # its dX
+    ((1, 224, 224, 4), (128, 4), True),      # its dX as the tape asks it
+])
+def test_wormhole_narrow_pair_bias_calls_take_pair_linear(monkeypatch, x, w, tb):
+    served = []
+    _armed_wh(monkeypatch, served)
+    monkeypatch.setattr(pair_mm, "_transposed", lambda w: w)
+    assert pair_mm.config(_t(x), _t(w), tb) is None
+    assert pair_mm.matmul(_t(x), _t(w), transpose_b=tb) == "pl" and len(served) == 1
+
+
+def test_narrow_calls_decline_off_wormhole(monkeypatch):
+    from tt_bio import tenstorrent
+    monkeypatch.setattr(pair_mm, "PAIR_MM_FUSED", True)
+    monkeypatch.setattr(tenstorrent, "is_wormhole", lambda: False)
+    assert pair_mm.matmul(_t((1, 224, 224, 128)), _t((128, 4))) is None
+    assert not pair_mm._narrow(_t((1, 24, 24, 128)), _t((128, 4)))   # too few rows
