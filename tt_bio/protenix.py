@@ -73,7 +73,8 @@ T2_TAIL = frozenset({"trimul_t2", "trimul_t2cm", "trimul_t2w"})
 # Protenix-v2 normal top pose median 0.080 A vs the 1.050 A A/A floor (37 paired folds), OpenDDE normal 0.241 vs
 # 1.257 A (39), OpenDDE fast 0.625 vs 1.374 A (44); docking within one fold everywhere. Galaxy chip (1000 MHz)
 # OpenDDE normal -3.7 s, fast -2.3 s, Protenix-v2 normal -0.7 s. Not graded at c_z 128, so Protenix-v1 stays off.
-WS_CHAIN = frozenset({"ws_chain"})
+# Empty until its Blackhole twin (gwchbh) reads; then this is frozenset({"ws_chain"}).
+WS_CHAIN = frozenset()
 # --fast takes trimul_t1_c256 too (Protenix-v2; c_z 128 Protenix-v1 is untouched, OpenDDE has its own set).
 # Blackhole 11-set fast grade, fast vs fast+trimul_t1_c256, 43 paired folds (spd-gap-small g256bh, 2026-10-14), PASS:
 # same-seed top pose median 0.125 A vs the 1.342 A A/A floor, CA-lDDT -0.0004 [-0.0010, +0.0001], docking 33 -> 33.

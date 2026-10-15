@@ -190,9 +190,9 @@ def test_boltzgen_mode_sets_name_only_known_levers():
 
 def test_protenix_family_normal_set():
     from tt_bio.opendde import NORMAL_LEVERS as DDE
-    from tt_bio.protenix import NORMAL_LEVERS
+    from tt_bio.protenix import NORMAL_LEVERS, WS_CHAIN
 
-    assert DDE == NORMAL_LEVERS | {"ws_chain"} and DDE <= set(T.LEVERS)
+    assert DDE == NORMAL_LEVERS | WS_CHAIN and DDE <= set(T.LEVERS)
     assert NORMAL_LEVERS - T.NORMAL_LEVERS == {"transition_ws", "ws_l1acc", "trimul_t1_c256", "trimul_t1_c384"}
 
 
@@ -232,5 +232,6 @@ def test_protenix_wormhole_fast_set_drops_t1_c256():
 
 def test_opendde_fast_set_names_only_known_levers():
     from tt_bio.opendde import FAST_LEVERS
+    from tt_bio.protenix import WS_CHAIN
 
-    assert FAST_LEVERS <= set(T.LEVERS) and {"trimul_b8in", "trimul_t2w", "ws_chain"} <= FAST_LEVERS and "dit_b8" not in FAST_LEVERS
+    assert FAST_LEVERS <= set(T.LEVERS) and {"trimul_b8in", "trimul_t2w"} | WS_CHAIN <= FAST_LEVERS and "dit_b8" not in FAST_LEVERS
