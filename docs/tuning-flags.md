@@ -67,6 +67,7 @@ move against the accuracy bar and the seed-to-seed spread.
 | [`TT_BIO_PAIR_FFN_L1_FC1`](#tt_bio_pair_ffn_l1_fc1) | on | ESMFold2 | identical |
 | [`TT_BIO_PAIR_INPLACE`, `TT_BIO_TRIMUL_INPROJ_ROWBLOCK_NORM`](#tt_bio_pair_inplace-tt_bio_trimul_inproj_rowblock_norm) | on | large pair tensors | identical |
 | [`TT_BIO_PAIR_MM`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round; on for AF2 on Wormhole | BindCraft 2, AF2 and AF2-IG | moves, far inside the bar |
+| [`TT_BIO_PAIR_LINEAR`](#bindcraft-2-round-kernels) | on, acts on Wormhole only | where `TT_BIO_PAIR_MM` acts | moves BindCraft 2, identical for AF2-IG |
 | [`TT_BIO_PAIR_TRANSPOSE_FUSED`](#tt_bio_pair_transpose_fused) | on | pair tensors, forward and backward | identical |
 | [`TT_BIO_PWA_FUSED_HEADS`, `TT_BIO_PWA_UNPADDED`](#msa-module-flags) | on | MSA models; graded on Protenix-v2 | moves, inside the bar |
 | [`TT_BIO_PWA_BATCH_HEAD_WEIGHTS`](#tt_bio_pwa_batch_head_weights) | on | | identical |
@@ -152,6 +153,7 @@ structures by 0.02 to 0.06 A, and 0.45 A on the complex that does not bind (ipTM
 | `TT_BIO_FANIN_CAST_FUSED` | A gradient with several consumers is summed and cast in one pass instead of two. |
 | `TT_BIO_PAIR_TRANSPOSE_FUSED` | The pair tensor's i/j swap as one move kernel, forward and backward. |
 | `TT_BIO_PAIR_MM` | Pair-track linears and their input gradients on `minimal_matmul` with a per-shape block table, ReLU fused at pack. |
+| `TT_BIO_PAIR_LINEAR` | On Wormhole, the bias-free pair linears and their input gradients, including the pair-bias projection to the head count, run on a kernel that keeps the whole weight in L1 on every core, so all cores work instead of the 32 of 72 `minimal_matmul` uses at 128 output channels. |
 | `TT_BIO_AF2_OPM_ROWS_IN_K` | The outer product mean sums its MSA rows inside one contraction instead of one product per row. Acts only with more than one MSA row, which a BindCraft 2 round has. Both boards. |
 | `TT_BIO_RNE_MASK` | The dropout keep-mask multiply and the residual add after it as one kernel, so the masked update is never written. On by default, not only in the round: only a round draws dropout masks. |
 | `TT_BIO_AF2_TRANSITION_WS` | AF2's pair Transition (LayerNorm, fc1, ReLU, fc2) as one program with both weights in L1, so the normed input and the 4x-wide hidden never reach DRAM. In a round its backward is two programs (`pair_relu` in `TT_BIO_TAPED_KERNELS`). On for every AF2 fold, not only in the round. |
