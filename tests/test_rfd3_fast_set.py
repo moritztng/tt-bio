@@ -32,14 +32,24 @@ def test_fast_on_turns_every_member_on():
 
 def test_fast_off_restores_the_environment(monkeypatch):
     for name, env in M._FAST_SET.items():
-        monkeypatch.setenv(env, "1" if name == "_PAIR_WS" else "0")
+        monkeypatch.setenv(env, "0")
     M.set_fast(True)
     M.set_fast(False)
     for name in M._FAST_SET:
-        assert getattr(M, name) is (name == "_PAIR_WS"), name
+        assert getattr(M, name) is False, name
 
 
-def test_pair_ws_is_fast_only():
-    """It ships in fast mode and nowhere else: normal mode keeps the shipped Transition."""
-    assert "_PAIR_WS" in M._FAST_SET
-    assert M.env_flag("RFD3_PAIR_WS", False) is False
+def test_pair_ws_ships_in_both_modes(monkeypatch):
+    """Graded on the normal bar too, so it is a default rather than a fast-set member."""
+    monkeypatch.delenv("RFD3_PAIR_WS", raising=False)
+    assert "_PAIR_WS" not in M._FAST_SET
+    assert M.env_flag("RFD3_PAIR_WS", True) is True
+    M.set_fast(False)
+    assert M._PAIR_WS is True
+
+
+def test_dit_pair_bias_ships_in_both_modes():
+    """The DiT mask program is graded on the normal bar and is closer to float64 than the chain."""
+    assert "_DPB_ON" not in M._FAST_SET
+    M.set_fast(False)
+    assert M._DPB_ON is True

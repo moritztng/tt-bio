@@ -29,6 +29,7 @@ from ..envflags import env_flag
 from . import block_sparse as _BS
 from .tiles import TILE, align_tile, pad_axis
 from .. import pair_swiglu_ws as _WS
+from .. import dit_pair_bias as _DPB
 from ..tenstorrent import (Module, get_device, CORE_GRID_MAIN, attn_value_matmul, silu_ckc,
                            atom_pair_budget_bytes, l1_resident_budget_bytes, row_block,
                            _dram_oom, fused_sdpa, _sdpa_program_config)
@@ -180,6 +181,11 @@ _PROCESS_Z_COLLAPSE = env_flag("RFD3_PROCESS_Z_COLLAPSE", False)
 # OpenMP team, which fights the main thread's for the cores: on qb1 (16 physical cores) the
 # build went from 72-88 to 115-140 ms and the page fold from 107.1 to 124.0 s/design.
 _ATTN_OVERLAP = env_flag("RFD3_ATTN_OVERLAP", True)
+# The k-d tree index (_ATTN_KDTREE) is scipy's own threads plus numpy, so it no longer has the
+# OpenMP conflict above, and on a worker thread it can start as soon as the step's coordinates
+# exist instead of after the token encoder's dispatch. Same function on the same inputs: exact
+# (digests equal, WH seeds 60-63 fast, 60-61 normal). WH --fast @1000 on one chip: 103.6 -> 100.3 s/design.
+_ATTN_THREAD = env_flag("RFD3_ATTN_THREAD", True)
 # A denoise step crossed to the host ~15 times: process_a/r/c and both time embeddings came back
 # for host adds, the encoder, downcast_q, the DiT and every recycle's s were read back only to be
 # uploaded again by the next module. Each crossing drains the card, and Tracy on p150a put the
@@ -232,6 +238,11 @@ _ATTN_KDTREE = env_flag("RFD3_ATTN_KDTREE", True)
 # RFD3_PAIRBIAS_FUSED=0 restores the per-block projection so the fold A/B has an arm.
 _PAIRBIAS_FUSED = env_flag("RFD3_PAIRBIAS_FUSED", True)
 _PAIRBIAS_SLOT = 32
+# The same fusion for the atom encoder's and decoder's three blocks: each projected the shared
+# neighbour pair features [1, L, 128, 16] to its 4 heads with its own matmul, 1.41 ms a call on
+# Wormhole for a tile-padded 4-wide output. One matmul to all 12 heads and one permute, each block
+# slices its 4 heads back out (_prime_atom_pair_bias). RFD3_ATOM_PB_FUSED=0 restores the per-block form.
+_ATOM_PB_FUSED = env_flag("RFD3_ATOM_PB_FUSED", True)
 
 # The pair `Transition` is 37 % of every step's DRAM traffic (23.70 of 63.43 GB,
 # perf/p63/traffic_census.json) against an irreducible 1.98 GB, because all of its intermediates
@@ -362,8 +373,13 @@ _TRANSITION_B8 = env_flag("RFD3_TRANSITION_B8", False)
 # than either shipped path on WH). In --fast: p150a @1350 61.30 -> 56.25 s/design
 # (seeds 44-47), Wormhole @1000 114.7 -> 100.1 (seeds 50-53). Graded over 10 paired seeds on both
 # arches: clash delta -1.4 (se 5.4), chain breaks identical seed for seed, same-seed drift
-# 3.9-12.7 A against a 13.5-20.0 A seed floor.
-_PAIR_WS = env_flag("RFD3_PAIR_WS", False)
+# 3.9-12.7 A against a 13.5-20.0 A seed floor. In normal mode, Wormhole @1000 124.0-127.4 ->
+# 89.0-93.0 s/design; 20 paired WH seeds: clash delta +4.9 (se 4.3), breaks 11 -> 12, in-band equal,
+# drift 2.9-14.1 A against a 13.8-21.7 A seed floor. On in both modes.
+_PAIR_WS = env_flag("RFD3_PAIR_WS", True)
+# RFD3_PAIR_WS with its weights in bfp8, run at HiFi2 (covers every bfp8 weight bit), the form the shared
+# `tenstorrent.ws_swiglu` takes in fast mode for the other models. x and the RMSNorm prologue stay bf16. Graded off.
+_PAIR_WS_B8 = env_flag("RFD3_PAIR_WS_B8", False)
 # Every RFD3 matmul at HiFi2 instead of HiFi4: two multiplier passes per bf16 product instead of
 # four. Off, and not in --fast: on top of the fast set it saved nothing on a p300c (4 seeds, 685
 # tokens) and doubled the clashes of one 418-token design.
@@ -379,6 +395,12 @@ _HIFI2 = env_flag("RFD3_HIFI2", False)
 # mask-size cap is the atom SDPA's.
 _DIT_SDPA = env_flag("RFD3_DIT_SDPA", True)
 DIT_SDPA_CALLS = [0]
+# The DiT's stacked SDPA masks as one program (`tt_bio.dit_pair_bias`): projection, head-first layout, scale, mask
+# add and padding in a single pass over z, the packer doing the re-tiling the permute did. WH @1000, 685 tokens:
+# 24.6 -> 4.0 ms a call, closer to a float64 reference than the ttnn chain (rel err 0.0024 vs 0.0042, no element
+# off by more than 0.25). Normal mode, 4 paired WH seeds: 100.1 -> 91.4 s/design, drift 3.8-10.1 A against a
+# 14.2-18.0 A seed floor, breaks 2 -> 2, clashes 61.5 -> 52.8. On in both modes; RFD3_DPB=0 restores the chain.
+_DPB_ON = env_flag("RFD3_DPB", True)
 # The DiT builds all 18 blocks' masks in one pass while the stack fits under this many bytes
 # (bf16, 18 x 16 heads x n_key^2: 1317 tokens); above it each block builds its own.
 _DIT_SDPA_STACK_BYTES = int(float(os.environ.get("RFD3_DIT_SDPA_STACK_BYTES", "1e9")))
@@ -422,8 +444,7 @@ PZSTATS = [0, 0]
 # `--fast` for RFD3: the levers that pass the fast accuracy bar but not (yet) the normal one. Same
 # steps, recycles and designs; only kernels change. Each flag keeps its own env switch for A/B work,
 # and set_fast(False) restores exactly what the environment asked for.
-_FAST_SET = {"_TRANSITION_B8": "RFD3_TRANSITION_B8", "_PROCESS_Z_COLLAPSE": "RFD3_PROCESS_Z_COLLAPSE",
-             "_PAIR_WS": "RFD3_PAIR_WS"}
+_FAST_SET = {"_TRANSITION_B8": "RFD3_TRANSITION_B8", "_PROCESS_Z_COLLAPSE": "RFD3_PROCESS_Z_COLLAPSE"}
 
 
 def set_fast(on):
@@ -1120,15 +1141,19 @@ class Transition(Module):
         element, so the flattened tensor splits into whole row tiles); None where it declines."""
         if getattr(self, "_ws12", None) is None:
             self._ws12 = ttnn.concat([self.fc1_w, self.fc2_w], dim=1)
-        if not _WS.eligible(x, self._ws12, self.fc3_w):
+            self._ws3 = self.fc3_w
+            if _PAIR_WS_B8:
+                self._ws12 = ttnn.typecast(self._ws12, ttnn.bfloat8_b)
+                self._ws3 = ttnn.typecast(self.fc3_w, ttnn.bfloat8_b)
+        if not _WS.eligible(x, self._ws12, self._ws3):
             return None
-        fid = self.compute_kernel_config.math_fidelity
+        fid = ttnn.MathFidelity.HiFi2 if _PAIR_WS_B8 else self.compute_kernel_config.math_fidelity
         # The input RMSNorm as the program's prologue: bit-identical to ttnn.rms_norm first, and the normalised
         # tensor never goes to DRAM. p150a @1350 2.65 -> 2.39 ms (hidden 256), 4.38 -> 4.09 (512); flat on WH.
-        if _WS.eligible(x, self._ws12, self.fc3_w, ln=(self.norm_w, None)):
-            return _WS.pair_swiglu(x, self._ws12, self.fc3_w, fid, ln=(self.norm_w, None, 1e-6))
+        if _WS.eligible(x, self._ws12, self._ws3, ln=(self.norm_w, None)):
+            return _WS.pair_swiglu(x, self._ws12, self._ws3, fid, ln=(self.norm_w, None, 1e-6))
         xn = ttnn.rms_norm(x, weight=self.norm_w, epsilon=1e-6, compute_kernel_config=self.compute_kernel_config)
-        out = _WS.pair_swiglu(xn, self._ws12, self.fc3_w, fid)
+        out = _WS.pair_swiglu(xn, self._ws12, self._ws3, fid)
         ttnn.deallocate(xn)
         return out
 
@@ -2199,6 +2224,7 @@ class RFD3AtomBlock(Module):
         self.a_out_b = self.torch_to_tt(a + "linear_output_project.0.bias", dtype=dt)
         # The DiT's 48-wide heads, padded to a tile in the weights for the dense SDPA arm.
         self.pad_w = self._padded_head_weights(a) if _DIT_SDPA and self.head_dim % TILE else None
+        self._pb_primed = None          # (p, [1, H, L, K] pair bias), set by _prime_atom_pair_bias
 
         t = "transition_block."
         self.t_ln_s = self.torch_to_tt(t + "ada_ln.ln_s.weight", dtype=dt)
@@ -2236,11 +2262,15 @@ class RFD3AtomBlock(Module):
             hit = cache.get((id(self), "pb"))
             if hit is not None and hit[0] == key and hit[1] is p:
                 return hit[2]
-        pair_bias = _tuned_linear(
-            p, self.b_w, ckc=self.compute_kernel_config, dtype=self.dtype,
-            core_grid=CORE_GRID_MAIN,
-        )
-        pair_bias = ttnn.permute(pair_bias, (0, 3, 1, 2))
+        primed = self._pb_primed
+        if primed is not None and primed[0] is p:
+            pair_bias = primed[1]
+        else:
+            pair_bias = _tuned_linear(
+                p, self.b_w, ckc=self.compute_kernel_config, dtype=self.dtype,
+                core_grid=CORE_GRID_MAIN,
+            )
+            pair_bias = ttnn.permute(pair_bias, (0, 3, 1, 2))
         if cache is not None:
             cache[(id(self), "pb")] = (key, p, pair_bias)
         return pair_bias
@@ -2631,6 +2661,40 @@ class RFD3AtomBlock(Module):
 
 
 
+def _prime_atom_pair_bias(owner, blocks, p, cache=None):
+    """Hand every atom block its [1, H, L, K] neighbour pair bias from ONE projection of the shared
+    pair features `p` (see _ATOM_PB_FUSED). Skipped when off, or when `cache` already holds this
+    stream's masks (the decoder's second recycle builds nothing). Returns the blocks it primed, for
+    _unprime_atom_pair_bias."""
+    if not _ATOM_PB_FUSED:
+        return ()
+    if cache is not None:
+        hit = cache.get((id(blocks[0]), "sdpa")) or cache.get((id(blocks[0]), "pb"))
+        if hit is not None and hit[1] is p:
+            return ()
+    w = getattr(owner, "_atom_b_w", None)
+    if w is None:
+        cols = torch.cat([b.weights["attention_pair_bias.to_b.weight"].t().float() for b in blocks], dim=1)
+        # Straight from the torch weights, not torch_to_tt: see the DiT's b_w_fused.
+        w = owner._atom_b_w = ttnn.from_torch(cols, layout=ttnn.TILE_LAYOUT, device=owner.device,
+                                              dtype=owner.dtype)
+    pb = _tuned_linear(p, w, ckc=owner.compute_kernel_config, dtype=owner.dtype, core_grid=CORE_GRID_MAIN)
+    pb_t = ttnn.permute(pb, (0, 3, 1, 2))
+    ttnn.deallocate(pb)
+    B, _, L, K = (int(d) for d in pb_t.shape)
+    lo = 0
+    for b in blocks:
+        b._pb_primed = (p, ttnn.slice(pb_t, [0, lo, 0, 0], [B, lo + b.n_head, L, K]))
+        lo += b.n_head
+    ttnn.deallocate(pb_t)
+    return blocks
+
+
+def _unprime_atom_pair_bias(blocks):
+    for b in blocks:
+        b._pb_primed = None
+
+
 class LocalAtomTransformer(Module):
     """Three-block RFD3 atom encoder with parity-preserving sparse QK."""
 
@@ -2659,8 +2723,10 @@ class LocalAtomTransformer(Module):
             )
             q, c = _dev(q_host, dev, dt), _dev(c_host, dev, dt)
             sparse_qk = (n_keys, attn_idx_dev, dense_bias, gathered, block)
+            primed = _prime_atom_pair_bias(self, self.blocks, p)
             for block in self.blocks:
                 q = block(q, c, p, sparse_qk=sparse_qk)
+            _unprime_atom_pair_bias(primed)
             out = q
         else:
             q = _dev(q_host, dev, dt)
@@ -2774,6 +2840,7 @@ class CompactStreamingDecoder(Module):
         """Pure-device core loop (pack -> upcast -> unpack -> atom_block, x3).
         `a` is the FLAT (not pre-split) atom-pair stream."""
         a_split = ttnn.reshape(a, (a.shape[0], a.shape[1], 3, 256))
+        primed = _prime_atom_pair_bias(self, self.atom_blocks, p, bias_cache) if sparse_qk is not None else ()
         for upcast, atom_block in zip(self.upcast, self.atom_blocks):
             q_grouped = self._pack_atoms_device(q, pack_idx_dev, valid)
             q_grouped = ttnn.add(
@@ -2781,6 +2848,7 @@ class CompactStreamingDecoder(Module):
             )
             q = self._unpack_atoms_device(q_grouped, unpack_idx_dev, length)
             q = atom_block(q, c, p, mask, sparse_qk=sparse_qk, bias_cache=bias_cache)
+        _unprime_atom_pair_bias(primed)
         return q
 
     def _design_buffers(self, tok_idx, batch):
@@ -3204,36 +3272,53 @@ class LocalTokenTransformer(Module):
                                              dtype=self.dtype)
 
     def _dit_sdpa_masks(self, z, additive_mask, n_key):
-        """Every block's SDPA mask from one projection: [1, n_block * N_HEAD, n_key, n_key], block i
-        in heads [N_HEAD * i, N_HEAD * (i + 1)). The same elementwise ops as the per-block path,
-        run once over the stack, so the DiT pays one permute, scale, add and pad pair per call
-        instead of 18 (each block's permute alone was 0.39 ms)."""
+        """Every block's SDPA mask from one projection, yielded as [B, N_HEAD, n_key, n_key] per
+        block. The ttnn path runs the per-block elementwise ops once over the stack [B, n_block *
+        N_HEAD, n_key, n_key] and slices it, so the DiT pays one permute, scale, add and pad pair per
+        call instead of 18 (each block's permute alone was 0.39 ms); dit_pair_bias writes each
+        block's mask directly."""
         if self._b_w_packed is None:
             cols = torch.cat([self.weights[f"blocks.{i}.attention_pair_bias.to_b.weight"].t().float()
                               for i in range(len(self.blocks))], dim=1)
             self._b_w_packed = ttnn.from_torch(cols, layout=ttnn.TILE_LAYOUT, device=self.device,
                                                dtype=self.dtype)
+        if _DPB_ON:
+            if getattr(self, "_b_wt_packed", None) is None:
+                wt = torch.cat([self.weights[f"blocks.{i}.attention_pair_bias.to_b.weight"].float()
+                                for i in range(len(self.blocks))], dim=0)
+                self._b_wt_packed = ttnn.from_torch(wt.reshape(1, 1, *wt.shape), layout=ttnn.TILE_LAYOUT,
+                                                    device=self.device, dtype=self.dtype)
+            mask = pad_axis(pad_axis(additive_mask, n_key, 3, -1e4), n_key, 2, -1e4)
+            if _DPB.eligible(z, self._b_wt_packed, mask):
+                out = _DPB.dit_pair_bias(z, self._b_wt_packed, mask, self.blocks[0].head_dim ** 0.5,
+                                         self.compute_kernel_config.math_fidelity, n_out=len(self.blocks))
+            else:
+                out = None
+            if mask is not additive_mask:
+                ttnn.deallocate(mask)
+            if out is not None:
+                yield from out
+                return
         pb = _tuned_linear(z, self._b_w_packed, ckc=self.compute_kernel_config, dtype=self.dtype,
                            core_grid=CORE_GRID_MAIN)
         pb_t = ttnn.permute(pb, (0, 3, 1, 2))
         ttnn.deallocate(pb)
         masks = _sdpa_dense_mask(pb_t, additive_mask, self.blocks[0].head_dim, n_key)
         ttnn.deallocate(pb_t)
-        return masks
+        # Every design in the batch keeps its own pair bias: slicing batch [0, 1) here gave all of
+        # them design 0's, and 7 of 8 --fast designs at batch 8 came out clashing.
+        B, H = int(z.shape[0]), self.N_HEAD
+        for i in range(len(self.blocks)):   # one slice live at a time, as before
+            yield ttnn.slice(masks, [0, H * i, 0, 0], [B, H * (i + 1), n_key, n_key])
+        ttnn.deallocate(masks)
 
     def run_device(self, a, s, z, additive_mask):
         n_key = align_tile(int(a.shape[1]))
         B = int(z.shape[0])
         if (_DIT_SDPA and self.dtype == ttnn.bfloat16
                 and 2 * B * self.N_HEAD * len(self.blocks) * n_key * n_key <= _DIT_SDPA_STACK_BYTES):
-            masks = self._dit_sdpa_masks(z, additive_mask, n_key)
-            H = self.N_HEAD
-            for i, block in enumerate(self.blocks):
-                # Every design in the batch keeps its own pair bias: slicing batch [0, 1) here gave
-                # all of them design 0's, and 7 of 8 --fast designs at batch 8 came out clashing.
-                m = ttnn.slice(masks, [0, H * i, 0, 0], [B, H * (i + 1), n_key, n_key])
+            for m, block in zip(self._dit_sdpa_masks(z, additive_mask, n_key), self.blocks):
                 a = block(a, s, z, additive_mask, sdpa_mask=m)
-            ttnn.deallocate(masks)
             return a
         fused, end = None, None
         if self.b_w_fused is not None:
@@ -3369,12 +3454,14 @@ def _neighbours_row_blocked(mask, seq_idx, x, k, block=None):
     return out
 
 
-def _neighbours_kdtree(mask, seq_idx, x, k):
+def _neighbours_kdtree(mask, seq_idx, x, k, workers=None):
     """`_extend_with_neighbours` over a k-d tree query, already sorted (see _ATTN_KDTREE).
 
     Row r keeps its sequence entries (seq_idx < L) and adds the first k - n_seq atoms of its
     k-nearest list that lie outside mask[r]; the union has exactly k members, so sorting the
     two lists side by side and keeping k gives the row _create_attention_indices returns.
+    Everything after the query is numpy, which starts no OpenMP team, so the build can run
+    on a worker thread (_ATTN_THREAD).
     """
     import numpy as np
     from scipy.spatial import cKDTree
@@ -3382,13 +3469,13 @@ def _neighbours_kdtree(mask, seq_idx, x, k):
     length = x.shape[1]
     k = min(k, length)
     xd = x[0].detach().double().cpu().numpy()
-    _, nn = cKDTree(xd).query(xd, k=k, workers=torch.get_num_threads())
-    nn = torch.from_numpy(nn.reshape(length, k))
-    outside = ~mask[torch.arange(length).unsqueeze(1), nn]
-    n_fill = k - (seq_idx < length).sum(1, keepdim=True)
-    keep = outside & (torch.cumsum(outside, 1) <= n_fill)
-    vals = np.concatenate([seq_idx.numpy().astype(np.int32),
-                           np.where(keep.numpy(), nn.numpy().astype(np.int32), length)], 1)
+    _, nn = cKDTree(xd).query(xd, k=k, workers=workers or torch.get_num_threads())
+    nn = nn.reshape(length, k)
+    seq = seq_idx.numpy()
+    outside = ~mask.numpy()[np.arange(length)[:, None], nn]
+    n_fill = k - (seq < length).sum(1, keepdims=True)
+    keep = outside & (np.cumsum(outside, 1) <= n_fill)
+    vals = np.concatenate([seq.astype(np.int32), np.where(keep, nn.astype(np.int32), length)], 1)
     vals.sort(1)
     return torch.from_numpy(vals[:, :k].astype(np.int64)).unsqueeze(0)
 
@@ -3446,7 +3533,28 @@ def _attention_index_prefix(f, tok_idx, n_keys, n_seq_neighbours):
     return parts
 
 
-def _create_attention_indices(f, X_L, tok_idx, n_keys, n_seq_neighbours):
+def _attention_indices_future(f, X_L, tok_idx, n_keys, n_seq_neighbours):
+    """Start the atom index build on a worker thread (see _ATTN_THREAD), or None to build inline.
+
+    The coordinate-independent prefix is built (or hit) here on the calling thread, so the
+    worker only runs the k-d tree path, which is scipy's threads plus numpy.
+    """
+    global _INDEX_POOL
+    if not (_ATTN_THREAD and _ATTN_KDTREE):
+        return None
+    if "single" not in _attention_index_prefix(f, tok_idx, n_keys, n_seq_neighbours):
+        return None
+    if _INDEX_POOL is None:
+        from concurrent.futures import ThreadPoolExecutor
+        _INDEX_POOL = ThreadPoolExecutor(1, thread_name_prefix="rfd3-attn-index")
+    return _INDEX_POOL.submit(_create_attention_indices, f, X_L, tok_idx, n_keys, n_seq_neighbours,
+                              workers=torch.get_num_threads())
+
+
+_INDEX_POOL = None
+
+
+def _create_attention_indices(f, X_L, tok_idx, n_keys, n_seq_neighbours, workers=None):
     device = X_L.device; L = len(tok_idx)
     parts = _attention_index_prefix(f, tok_idx, n_keys, n_seq_neighbours)
     if X_L.ndim == 2:
@@ -3459,7 +3567,7 @@ def _create_attention_indices(f, X_L, tok_idx, n_keys, n_seq_neighbours):
         # Measured bit-identical indices and 220.7 -> 152.5 ms at 3359 atoms D=8,
         # 142.5 -> 68.9 ms at 2702 (scripts/rfd3_port/p24_attn_indices_variants.py).
         if _ATTN_KDTREE:
-            return torch.cat([_neighbours_kdtree(mask, seq_idx, x, parts["k"])
+            return torch.cat([_neighbours_kdtree(mask, seq_idx, x, parts["k"], workers)
                               for x in X_L.unsqueeze(1)], dim=0)
         idx = torch.cat([
             _neighbours_row_blocked(mask, seq_idx, x, parts["k"]) if _ATTN_ROW_BLOCK else
@@ -3766,7 +3874,13 @@ class RFD3DiffusionModule(Module):
         if Z_II.ndim == 3: Z_II = Z_II.unsqueeze(0)
         if P_LL.ndim == 3: P_LL = P_LL.unsqueeze(0)
         f = dict(f)
-        if not _ATTN_OVERLAP:
+        if _ATTN_OVERLAP:
+            f["attn_future"] = _attention_indices_future(f, X_noisy_L, tok_idx, self.N_ATTN_KEYS,
+                                                         self.N_ATTN_SEQ)
+            # Recycle 0's DiT index reads the same step-start coordinates, so it queues behind it.
+            f["dit_future"] = _attention_indices_future(f, X_noisy_L[..., f["is_ca"], :], torch.arange(I),
+                                                        self.DIT_KEYS, self.DIT_SEQ)
+        else:
             f["attn_indices"] = _create_attention_indices(f, X_noisy_L, tok_idx, self.N_ATTN_KEYS,
                                                           self.N_ATTN_SEQ)
         is_motif = f["is_motif_atom_with_fixed_coord"]
@@ -3812,8 +3926,9 @@ class RFD3DiffusionModule(Module):
         if _ATTN_OVERLAP:
             first_tok = self.diffusion_token_encoder.run_device(
                 R_L_uniform[..., f["is_ca"], :], S_I, Z_II, D_II_self=None)
-            f["attn_indices"] = _create_attention_indices(f, X_noisy_L, tok_idx, self.N_ATTN_KEYS,
-                                                          self.N_ATTN_SEQ)
+            fut = f.pop("attn_future", None)
+            f["attn_indices"] = fut.result() if fut is not None else _create_attention_indices(
+                f, X_noisy_L, tok_idx, self.N_ATTN_KEYS, self.N_ATTN_SEQ)
         Q_L = self.encoder(Q_L, C_L, P_LL, indices=f["attn_indices"], resident=_RESIDENT_STEP)
         A_I = self._downcast_q(Q_L, A_I, S_I, tok_idx)
         recycled = self._forward_with_recycle(
@@ -3842,8 +3957,9 @@ class RFD3DiffusionModule(Module):
         s_dev, z_dev = tok or self.diffusion_token_encoder.run_device(R_L_ca, S_I, Z_II, D_II_self=D_II_self)
         # Built before the s readback so the host works while the encoder is still on the card.
         X_L_ca = X_noisy_L[..., is_ca, :] if X_L_self is None else X_L_self[..., is_ca, :]
-        dit_idx = _create_attention_indices(f, X_L_ca, torch.arange(S_I.shape[-2], device=X_L_ca.device),
-                                            self.DIT_KEYS, self.DIT_SEQ)
+        fut = f.pop("dit_future", None) if X_L_self is None else None
+        dit_idx = fut.result() if fut is not None else _create_attention_indices(
+            f, X_L_ca, torch.arange(S_I.shape[-2], device=X_L_ca.device), self.DIT_KEYS, self.DIT_SEQ)
         S_I = s_dev if _RESIDENT_STEP else ttnn.to_torch(s_dev).float()
         A_I = self.diffusion_transformer(A_I, S_I, z_dev, dit_idx, resident=_RESIDENT_STEP)
         ttnn.deallocate(z_dev)
