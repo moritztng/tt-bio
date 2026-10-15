@@ -46,6 +46,9 @@ docs/implementation-parity-data/ref-fixtures/**/*.cif
 docs/implementation-parity-data/ref-fixtures/**/*.a3m
 docs/implementation-parity-data/ref-fixtures/**/*.npz
 docs/implementation-parity-data/ref-fixtures/.fetch-stamp.json
+# The ESMFold2-Fast L=512 reference is 96 KB of npz with its distogram left out, small
+# enough to keep in git so the release gate's confidence leg runs from a clean checkout.
+!docs/implementation-parity-data/ref-fixtures/esmfold2-fast/cdk2x2_512/**/*.npz
 
 # Same rationale: the AbAg-XM seeds-vs-samples-oracle-frontier research merge (07-31)
 # added ~25MB of ground-truth CIFs here in a second, previously-unguarded location.

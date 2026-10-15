@@ -12,6 +12,7 @@ fp32 CPU reference (perf/mgx_embed/accuracy.py) and against the off arm of the s
 arms. If the flip did not reach the ops, the on arm's vs_off error is exactly 0.
 """
 import argparse
+import functools
 import importlib
 import json
 import sys
@@ -28,6 +29,17 @@ import accuracy as acc  # noqa: E402
 from tt_bio import esmc as E  # noqa: E402
 
 
+def _blocks(obj, depth=3):
+    """The transformer Block list of a loaded ESMC / ESMC-6B model, wherever it hangs."""
+    if isinstance(getattr(obj, "blocks", None), list):
+        return obj.blocks
+    for v in (vars(obj).values() if depth and hasattr(obj, "__dict__") else ()):
+        r = _blocks(v, depth - 1) if hasattr(v, "__dict__") and not isinstance(v, type) else None
+        if r:
+            return r
+    return None
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--alt", default="tt_bio.esmc._ESMC_QKV_SPLIT", help="module.ATTR flipped between arms (off first)")
@@ -42,6 +54,8 @@ def main() -> int:
     ap.add_argument("--repeat", type=int, default=7)
     ap.add_argument("--rounds", type=int, default=2)
     ap.add_argument("--on-value", type=int, default=None, help="value the on arm sets (default True), for an int switch")
+    ap.add_argument("--block-attr", default=None,
+                    help="dotted attribute on every transformer Block (e.g. attn.qk_l1): off arm = as loaded, on = True")
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
     torch.set_grad_enabled(False)
@@ -50,29 +64,43 @@ def main() -> int:
 
     aa = acc.pdb_sequence(a.pdb)[: a.length]
     key = Path(a.ref_cache, f"{a.model}_{a.length}_seq.npy")
+    saprot = a.model.startswith("saprot")
     if key.is_file():
         ref = np.load(key)
     else:
-        ref = acc.esmc_reference(a.model)(aa, "#" * len(aa))
+        ref = (acc.saprot_reference if saprot else acc.esmc_reference)(a.model)(aa, "#" * len(aa))
         key.parent.mkdir(parents=True, exist_ok=True)
         np.save(key, ref)
 
     page = Path(a.seq_file).read_text().strip()
-    model = E.load_esmc(a.model, fast=a.fast, trace=a.trace)
-    one = lambda: E.embed_sequences(model, {"q": aa})[0].per_residue
+    if saprot:   # same page cell and grading for SaProt (ESM-2 encoder, sequence-only 3Di), no trace
+        from tt_bio import saprot as S
+        model, embed = S.load_saprot(a.model, fast=a.fast), S.embed_sequences
+    else:
+        model, embed = E.load_esmc(a.model, fast=a.fast, trace=a.trace), E.embed_sequences
+    one = lambda: embed(model, {"q": aa})[0].per_residue
     batch = {f"s{i}": page for i in range(1 if a.model == "esmc-6b" else 7)}   # the GAP cell's batch
-    embed7 = lambda: E.embed_sequences(model, batch, batch_size=8)
+    embed7 = lambda: embed(model, batch, batch_size=8)
     dev = model.tt_device
     ckc = model.compute_kernel_config
     fid_off = ckc.math_fidelity
 
-    cur = getattr(alt_mod, attr) if not a.fidelity else None
+    battr = []
+    if a.block_attr:   # set per Block instance: a value Block.__init__ derives is never re-read from the module
+        *path, name = a.block_attr.split(".")
+        battr = [(functools.reduce(getattr, path, b), name) for b in _blocks(model)]
+        assert battr, "no transformer blocks found"
+    boff = [getattr(o, n) for o, n in battr]
+    cur = getattr(alt_mod, attr) if not (a.fidelity or a.block_attr) else None
     off_value = False if cur is None else type(cur)(0)   # tri-state switches (None = per-arch default) read off as False
     base = None
     for r in range(a.rounds):
         for on in (False, True):
             if a.fidelity:
                 ckc.math_fidelity = getattr(ttnn.MathFidelity, a.fidelity) if on else fid_off
+            elif a.block_attr:
+                for (o, name), v in zip(battr, boff):
+                    setattr(o, name, True if on else v)
             else:
                 setattr(alt_mod, attr, (a.on_value if a.on_value is not None else True) if on else off_value)
             # a captured trace replays the program of the arm it was captured under: drop it so this arm recaptures
@@ -91,7 +119,7 @@ def main() -> int:
             out = one()
             if base is None:
                 base = out
-            row = {"model": a.model, "fast": a.fast, "round": r, "alt": f"fidelity:{a.fidelity}" if a.fidelity else a.alt, "on": on,
+            row = {"model": a.model, "fast": a.fast, "round": r, "alt": f"fidelity:{a.fidelity}" if a.fidelity else f"block:{a.block_attr}" if a.block_attr else a.alt, "on": on,
                    "batch7_ms": round(sorted(ts)[len(ts) // 2] * 1000, 2),
                    "batch7_all_ms": [round(t * 1000, 2) for t in ts],
                    "vs_fp32": acc.metrics(out, ref), "vs_off": acc.metrics(out, base),

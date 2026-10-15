@@ -139,12 +139,11 @@ def test_probe_counts_an_empty_marker_and_tails_the_jobs_own_log(tmp_path):
     assert "Traceback: boom" in out["jobs"]["4-x.sh"]["tail"]
 
 
-def test_probe_reports_free_cards_and_waiter_age(tmp_path):
-    """A BH card is free when nothing waits on it, no feed job runs on it and its CHIPS flock is free."""
+def _probe_bh(tmp_path, queued):
     import fcntl
     jobs = tmp_path / "spd/feed/jobs"; jobs.mkdir(parents=True)
     me = str(subprocess.os.getpid())
-    for n, card, started in (("4-a.sh", 0, False), ("4-b.sh", 1, True)):
+    for n, card, started in (("4-a.sh", -1, False), ("4-b.sh", 1, True))[0 if queued else 1:]:
         (jobs / n).write_text(""); (jobs / f"{n}.card").write_text(str(card)); (jobs / f"{n}.pid").write_text(me)
         if started:
             (jobs / f"{n}.start").touch()
@@ -154,10 +153,19 @@ def test_probe_reports_free_cards_and_waiter_age(tmp_path):
     (tmp_path / "bin").mkdir(); (tmp_path / "bin/pgrep").write_text("#!/bin/sh\nexit 1\n"); (tmp_path / "bin/pgrep").chmod(0o755)
     r = subprocess.run([sys.executable, "-c", feed.PROBE], input=json.dumps(a) + "\n", capture_output=True, text=True,
                        env={"HOME": str(tmp_path), "PATH": f"{tmp_path}/bin:/usr/bin:/bin"}, check=True)
-    out = json.loads(r.stdout)
-    assert out["free"] == [3]
-    assert out["jobs"]["4-a.sh"]["state"] == "queued" and out["jobs"]["4-a.sh"]["card"] == 0
-    assert out["jobs"]["4-a.sh"]["age"] >= 0
+    return json.loads(r.stdout)
+
+
+def test_probe_offers_free_cards_only_when_no_waiter_of_its_own_box_will_take_them(tmp_path):
+    """A BH card is free when no feed job runs on it and its CHIPS flock is free; a box with a waiter offers none."""
+    out = _probe_bh(tmp_path, queued=False)
+    assert out["free"] == [0, 3] and out["queued"] == 0 and out["cards"] == [0, 1, 2, 3]
+
+
+def test_probe_reports_waiter_age(tmp_path):
+    out = _probe_bh(tmp_path, queued=True)
+    assert out["free"] == [] and out["queued"] == 1
+    assert out["jobs"]["4-a.sh"]["state"] == "queued" and out["jobs"]["4-a.sh"]["age"] >= 0
 
 
 BH_GRID = """
@@ -187,9 +195,9 @@ def test_a_long_waiting_bh_job_moves_to_a_free_card_on_the_other_box(tmp_path, m
         calls.append((ssh, script, payload))
         if script is feed.PROBE:
             if ssh == "qb1":
-                return {"healthy": 1, "queued": 1, "wait": {"0": 1}, "free": [], "paused": False, "swept": 0, "live": [],
-                        "jobs": {name: {"state": "queued", "card": 0, "age": feed.STEAL_S + 5}}, "exists": {}}
-            return {"healthy": 1, "queued": 0, "wait": {"3": 0}, "free": [3], "paused": False, "swept": 0, "live": [],
+                return {"healthy": 1, "cards": [0], "queued": 1, "free": [], "paused": False, "swept": 0, "live": [],
+                        "jobs": {name: {"state": "queued", "age": feed.STEAL_S + 5}}, "exists": {}}
+            return {"healthy": 1, "cards": [3], "queued": 0, "free": [3], "paused": False, "swept": 0, "live": [],
                     "jobs": {}, "exists": {}}
         if script is feed.WITHDRAW:
             return payload["names"]
@@ -203,33 +211,49 @@ def test_a_long_waiting_bh_job_moves_to_a_free_card_on_the_other_box(tmp_path, m
     assert [c[0] for c in calls if c[1] is feed.WITHDRAW] == ["qb1"]
     placed = [c[2]["jobs"] for c in calls if c[1] is feed.PLACE and c[2]["jobs"]]
     assert placed == [[{"name": name, "body": feed.cells(tmp_path / "state/spd/grids")[0]["body"], "cap": 7200,
-                        "card": 3, "lock": "/l2_3"}]]
+                        "cards": [3], "lock": "/l2_{c}"}]]
     assert json.loads((tmp_path / "state/spd/feed/ledger.json").read_text())[key]["host"] == "qb2"
 
 
-def test_a_long_waiting_bh_job_moves_to_a_free_card_on_its_own_box(tmp_path, monkeypatch):
-    (tmp_path / "state/spd/grids").mkdir(parents=True); (tmp_path / "state/glx").mkdir(parents=True)
-    (tmp_path / "state/spd/grids/spd-x.yaml").write_text(BH_GRID)
-    (tmp_path / "state/glx/ALLOC.json").write_text(json.dumps({"galaxies": {}}))
-    monkeypatch.setattr(feed, "BH_POOLS", {"qb1": {"ssh": "qb1", "cards": [0, 1], "lock": "/l1_{c}"}})
-    c0 = feed.cells(tmp_path / "state/spd/grids")[0]
-    calls = []
+def _place_bh(tmp_path, cards, body, cap=5, poll="0.2"):
+    (tmp_path / "spd/feed/jobs").mkdir(parents=True, exist_ok=True)
+    # no release-gate leg: the test host's own legs (pc runs some) would otherwise hold a card in the waiter's pgrep
+    (tmp_path / "bin").mkdir(exist_ok=True); (tmp_path / "bin/pgrep").write_text("#!/bin/sh\nexit 1\n")
+    (tmp_path / "bin/pgrep").chmod(0o755)
+    job = {"name": "4-x.sh", "body": body, "cards": cards, "lock": str(tmp_path / "l{c}"), "cap": cap}
+    r = subprocess.run([sys.executable, "-c", feed.PLACE], input=json.dumps({"kind": "bh", "jobs": [job]}) + "\n",
+                       capture_output=True, text=True, check=True,
+                       env={"HOME": str(tmp_path), "PATH": f"{tmp_path}/bin:" + os.environ["PATH"], "POLL": poll,
+                            "TT_SYSFS": str(tmp_path / "sys")})
+    assert r.stdout.strip() == "1"
+    sh = tmp_path / "spd/feed/jobs/4-x.sh"
+    for _ in range(100):
+        if Path(f"{sh}.end").exists():
+            break
+        time.sleep(0.1)
+    return sh
 
-    def remote(ssh, script, payload, timeout=120):
-        calls.append((ssh, script, payload))
-        if script is feed.PROBE:
-            return {"healthy": 2, "queued": 1, "wait": {"0": 0, "1": 1}, "free": [0], "paused": False, "swept": 0,
-                    "live": [], "jobs": {c0["name"]: {"state": "queued", "card": 1, "age": feed.STEAL_S + 5}}, "exists": {}}
-        if script is feed.WITHDRAW:
-            return payload["names"]
-        return len(payload["jobs"])
-    monkeypatch.setattr(feed, "remote", remote)
-    (tmp_path / "state/spd/feed").mkdir(parents=True)
-    (tmp_path / "state/spd/feed/ledger.json").write_text(json.dumps({c0["key"]: {
-        "host": "qb1", "name": c0["name"], "state": "queued", "hash": c0["name"].split("-")[-1][:-3], "fails": []}}))
-    run(tmp_path)
-    moved = [c[2]["jobs"] for c in calls if c[1] is feed.PLACE and c[2]["jobs"]]
-    assert moved[0] == [{"name": c0["name"], "body": c0["body"], "cap": 7200, "card": 0, "lock": "/l1_0"}]
+
+def test_a_bh_waiter_takes_whichever_card_of_its_box_is_free(tmp_path):
+    # 10-15 qb1: waiters bound to busy cards 2 and 3 queued while card 0 sat free until a 15-min steal moved one
+    import fcntl
+    busy = open(tmp_path / "l5", "a"); fcntl.flock(busy, fcntl.LOCK_EX)
+    (tmp_path / "spd/locks").mkdir(parents=True); (tmp_path / "spd/locks/chip6.BAD").touch()
+    sh = _place_bh(tmp_path, [5, 6, 7], "echo card $CHIP\n")
+    assert Path(f"{sh}.end").read_text().strip() == "0"
+    assert Path(f"{sh}.log").read_text() == "card 7\n" and Path(f"{sh}.card").read_text().strip() == "7"
+
+
+def test_a_bh_waiter_starts_on_the_first_card_to_come_free(tmp_path):
+    import fcntl
+    locks = [open(tmp_path / f"l{c}", "a") for c in (0, 1)]
+    for f in locks:
+        fcntl.flock(f, fcntl.LOCK_EX)
+    (tmp_path / "spd/feed/jobs").mkdir(parents=True)
+    t = __import__("threading").Timer(0.5, lambda: fcntl.flock(locks[1], fcntl.LOCK_UN)); t.start()
+    sh = _place_bh(tmp_path, [0, 1], "echo card $CHIP\n")
+    t.join()
+    assert Path(f"{sh}.log").read_text() == "card 1\n"
 
 
 def test_withdraw_kills_an_unstarted_waiter_and_sets_it_aside(tmp_path):
@@ -260,9 +284,9 @@ def test_a_cell_on_a_dark_box_is_placed_again_and_its_twin_withdrawn_on_return(t
             if ssh == "qb2":
                 if dark[0]:
                     raise RuntimeError("No route to host")
-                return {"healthy": 1, "queued": 1, "wait": {"3": 1}, "free": [], "paused": False, "swept": 0, "live": [],
+                return {"healthy": 1, "cards": [3], "queued": 1, "free": [], "paused": False, "swept": 0, "live": [],
                         "jobs": {c["name"]: {"state": "queued", "card": 3, "age": 60}}, "exists": {}}
-            return {"healthy": 1, "queued": 0, "wait": {"0": 0}, "free": [], "paused": False, "swept": 0, "live": [],
+            return {"healthy": 1, "cards": [0], "queued": 0, "free": [], "paused": False, "swept": 0, "live": [],
                     "jobs": {}, "exists": {}}
         if script is feed.WITHDRAW:
             return payload["names"]
@@ -280,10 +304,22 @@ def test_a_cell_on_a_dark_box_is_placed_again_and_its_twin_withdrawn_on_return(t
     assert [(x[0], x[2]["names"]) for x in calls if x[1] is feed.WITHDRAW] == [("qb2", [c["name"]])]
 
 
-def _run_capped(tmp_path, body, cap):
+def sysfs(tmp_path, cards):
+    """Fake /sys/class/tenstorrent: {bdf: (node, aiclk)}; logical id = PCI order."""
+    for bdf, (node, clk) in cards.items():
+        d = tmp_path / "sys" / f"tenstorrent!{node}"; dev = tmp_path / "pci" / bdf
+        d.mkdir(parents=True, exist_ok=True); dev.mkdir(parents=True, exist_ok=True)
+        if not (d / "device").exists():
+            (d / "device").symlink_to(dev)
+        (d / "tt_aiclk").write_text(clk + "\n"); (d / "tt_heartbeat").write_text(("4294967295" if clk == "4294967295" else "77") + "\n")
+
+
+def _run_capped(tmp_path, body, cap, reset=""):
     sh = tmp_path / "4-x.sh"; sh.write_text(body)
-    subprocess.run(["bash", "-c", feed.run_cmd(grace=2), "_", str(sh), "0", "", str(tmp_path / "nolock"), str(cap)],
-                   cwd=tmp_path, timeout=60, check=True)
+    sysfs(tmp_path, {"0000:42:00.0": (3, "1350")})
+    subprocess.run(["bash", "-c", feed.NODE + feed.run_cmd(grace=2), "_", str(sh), "0", "", str(tmp_path / "nolock"),
+                    str(cap), reset], cwd=tmp_path, timeout=60, check=True,
+                   env=dict(os.environ, TT_SYSFS=str(tmp_path / "sys"), TT_DEV="/dev/tt"))
     return (tmp_path / "4-x.sh.end").read_text().strip()
 
 
@@ -311,15 +347,85 @@ def test_a_child_that_outlives_its_wrapper_on_sigint_gets_sigterm(tmp_path):
 def test_place_starts_a_bh_waiter_that_runs_its_job(tmp_path):
     # 10-15 05:54Z: PLACE runs on the BH host and referenced feed.py's RUN, which only exists here; every qb1/qb2
     # placement died with NameError while the unit tests, which never execute PLACE, stayed green
-    (tmp_path / "spd/feed/jobs").mkdir(parents=True)
-    job = {"name": "4-x.sh", "body": "echo card $CHIP\n", "card": 7, "lock": str(tmp_path / "l7"), "cap": 5}
-    r = subprocess.run([sys.executable, "-c", feed.PLACE], input=json.dumps({"kind": "bh", "jobs": [job]}) + "\n",
-                       capture_output=True, text=True, env={"HOME": str(tmp_path), "PATH": os.environ["PATH"]}, check=True)
-    assert r.stdout.strip() == "1"
-    sh = tmp_path / "spd/feed/jobs/4-x.sh"
-    for _ in range(100):
-        if (tmp_path / "spd/feed/jobs/4-x.sh.end").exists():
-            break
-        time.sleep(0.1)
-    assert (tmp_path / "spd/feed/jobs/4-x.sh.end").read_text().strip() == "0"
+    sh = _place_bh(tmp_path, [7], "echo card $CHIP\n")
+    assert Path(f"{sh}.end").read_text().strip() == "0"
     assert Path(f"{sh}.log").read_text() == "card 7\n"
+
+
+def test_a_capped_job_resets_its_card_and_a_clean_one_does_not(tmp_path):
+    # 10-15 qb1: after three hung PV2 seed cells were killed, every later job on those cards failed device init
+    r = tmp_path / "reset.sh"; r.write_text('echo "$1" >> "$(dirname "$0")/resets"\n'); r.chmod(0o755)
+    assert _run_capped(tmp_path, "exit 3\n", 30, str(r)) == "3"
+    assert not (tmp_path / "resets").exists()
+    assert _run_capped(tmp_path, "(trap '' INT; exec sleep 300) & wait\n", 1, str(r)) == "124 INT+TERM reset"
+    assert (tmp_path / "resets").read_text() == "/dev/tt/3\n"     # by node path, not logical id
+    assert _run_capped(tmp_path, "sleep 30\n", 1, "false") == "124 INT reset-failed"
+
+
+def test_qb2_boards_are_never_reset_by_the_feed():
+    # a p300c board carries two chips: resetting one kills the other chip's job
+    assert feed.BH_POOLS["qb1"]["reset"] and not feed.BH_POOLS["qb2"].get("reset")
+
+
+DEAD = "4294967295"
+
+
+def test_probe_drops_a_dead_arc_card_and_names_its_node(tmp_path):
+    # 10-15 qb1: /dev/tenstorrent/3 (logical 2) read 0xFFFFFFFF for 70+ min while the feed kept landing jobs on it
+    sysfs(tmp_path, {"0000:c1:00.0": (0, "1350"), "0000:01:00.0": (1, "1350"), "0000:41:00.0": (2, "1350"),
+                     "0000:42:00.0": (3, DEAD)})
+    r = subprocess.run([sys.executable, "-c", feed.PROBE], capture_output=True, text=True, check=True,
+                       input=json.dumps({"kind": "bh", "paths": [], "cards": [0, 1, 2, 3], "lock": str(tmp_path / "l{c}")}) + "\n",
+                       env=dict(os.environ, HOME=str(tmp_path), TT_SYSFS=str(tmp_path / "sys")))
+    out = json.loads(r.stdout)
+    assert out["dead"] == {"2": 3} and out["cards"] == [0, 1, 3] and out["healthy"] == 3
+
+
+def test_a_bh_waiter_skips_a_dead_arc_card(tmp_path):
+    sysfs(tmp_path, {"0000:01:00.0": (1, DEAD), "0000:02:00.0": (0, "1350")})
+    sh = _place_bh(tmp_path, [0, 1], "echo card $CHIP\n")
+    assert Path(f"{sh}.log").read_text() == "card 1\n"
+
+
+def _arc_pool(tmp_path, monkeypatch):
+    (tmp_path / "state/spd/feed").mkdir(parents=True); (tmp_path / "state/notbefore").mkdir(parents=True)
+    calls = []
+    monkeypatch.setattr(feed, "remote", lambda ssh, script, payload, timeout=120: calls.append((ssh, script, payload)) or 1)
+    P = {n: dict(b, kind="bh", arch="bh") for n, b in feed.BH_POOLS.items()}
+    return calls, P
+
+
+def test_dead_arc_resets_qb1_once_then_cardblocks_and_marks_qb2_bad(tmp_path, monkeypatch):
+    calls, P = _arc_pool(tmp_path, monkeypatch)
+    (tmp_path / "state/notbefore/spd-orchestrator").write_text("x")
+    st = {"qb1": {"dead": {"2": 3}, "arc_busy": [], "arc": []}, "qb2": {"dead": {"1": 1}}}
+    feed.arc(tmp_path, st, P, print, now=1000)
+    assert [(c[0], c[1] is feed.ARCFIX, c[2]["card"]) for c in calls] == [("qb1", True, 2), ("qb2", False, 1)]
+    assert calls[0][2]["node"] == 3 and calls[1][1] is feed.BAD
+    calls.clear()
+    st["qb1"]["arc_busy"] = [2]; feed.arc(tmp_path, {"qb1": st["qb1"]}, P, print, now=1100)
+    assert calls == []                                     # its reset is in flight
+    st["qb1"].update(arc_busy=[], arc=[{"card": 2, "at": 1000, "result": "ok"}], dead={})
+    feed.arc(tmp_path, {"qb1": st["qb1"]}, P, print, now=1500)
+    feed.arc(tmp_path, {"qb1": st["qb1"]}, P, print, now=1600)
+    log = (tmp_path / "fleet.log").read_text()
+    assert log.count("dead-ARC reset: ok") == 1           # each result is one fleet.log line
+    st["qb1"]["dead"] = {"2": 3}
+    feed.arc(tmp_path, {"qb1": st["qb1"]}, P, print, now=1000 + 3600)
+    assert [(c[0], c[1] is feed.BAD) for c in calls] == [("qb1", True)]
+    assert (tmp_path / "state/cardblock-qb1-2").exists() and not (tmp_path / "state/notbefore/spd-orchestrator").exists()
+
+
+def test_a_dead_arc_reset_waits_for_the_flock_and_verifies_sysfs(tmp_path):
+    sysfs(tmp_path, {"0000:42:00.0": (3, DEAD)})
+    fix = tmp_path / "fix.sh"
+    fix.write_text(f'echo "$1" > {tmp_path}/reset_arg; echo 1350 > {tmp_path}/sys/tenstorrent!3/tt_aiclk; '
+                   f'echo 9 > {tmp_path}/sys/tenstorrent!3/tt_heartbeat\n')
+    fix.chmod(0o755); (tmp_path / "dev").mkdir(); (tmp_path / "dev/3").touch()
+    env = dict(os.environ, TT_SYSFS=str(tmp_path / "sys"), TT_DEV=str(tmp_path / "dev"), ARC_SETTLE="0", ARC_WAIT="1")
+    b = tmp_path / "card2.1"
+    subprocess.run(["bash", "-c", feed.ARC_SH, "_", str(b), str(tmp_path / "l2"), "3", str(fix)], env=env, check=True, timeout=60)
+    assert Path(f"{b}.result").read_text().strip() == "ok" and (tmp_path / "reset_arg").read_text().strip() == f"{tmp_path}/dev/3"
+    fix.write_text("true\n"); (tmp_path / "sys/tenstorrent!3/tt_aiclk").write_text(DEAD + "\n")
+    subprocess.run(["bash", "-c", feed.ARC_SH, "_", str(b), str(tmp_path / "l2"), "3", str(fix)], env=env, check=True, timeout=60)
+    assert Path(f"{b}.result").read_text().strip() == "still-dead"

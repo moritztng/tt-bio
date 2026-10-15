@@ -181,7 +181,7 @@ def test_boltz2_mode_sets_name_only_known_levers():
 
     for s in (B.LEVERS_NORMAL, B.LEVERS_FAST):
         assert s <= set(T.LEVERS) and not s & T.UNGRADED_LEVERS
-    assert B.WH_LEVERS_FAST <= set(T.LEVERS) and B.WH_LEVERS_FAST - B.LEVERS_FAST == {"triatt_ln", "apb_ln"}
+    assert B.WH_LEVERS_FAST <= set(T.LEVERS) and B.WH_LEVERS_FAST - B.LEVERS_FAST == {"triatt_ln", "apb_ln", "dit_cond_jit", "trimul_sig6"}
 
 
 def test_boltzgen_mode_sets_name_only_known_levers():
@@ -202,7 +202,7 @@ def test_protenix_family_normal_set():
 
 def test_protenix_v2_normal_takes_t2_tail(monkeypatch):
     import torch
-    from tt_bio.protenix import FAST_LEVERS, NORMAL_LEVERS, T2_TAIL, TRIATT_LN, WS_CHAIN, mode_levers
+    from tt_bio.protenix import FAST_LEVERS, NORMAL_LEVERS, T2_TAIL, TRIATT_LN, WS_CHAIN, WS_FAST, mode_levers
 
     def ck(c_z):
         return {"layernorm_z_cycle.weight": torch.zeros(c_z)}
@@ -221,9 +221,9 @@ def test_protenix_v2_normal_takes_t2_tail(monkeypatch):
     monkeypatch.setattr(T, "is_wormhole", lambda: False)
     assert mode_levers(ck(256)) == mode_levers(ck(128)) == FAST_LEVERS
     monkeypatch.setattr(T, "is_wormhole", lambda: True)
-    assert mode_levers(ck(256)) == FAST_LEVERS - {"trimul_t1_c256"} | TRIATT_LN
+    assert mode_levers(ck(256)) == FAST_LEVERS - {"trimul_t1_c256"} | TRIATT_LN | WS_FAST
     assert mode_levers(ck(128)) == FAST_LEVERS - {"trimul_t1_c256"}
-    assert TRIATT_LN <= set(T.LEVERS)
+    assert TRIATT_LN | WS_FAST <= set(T.LEVERS)
 
 
 def test_protenix_fast_set_takes_t1_c256(monkeypatch):

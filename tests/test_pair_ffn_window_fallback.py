@@ -53,6 +53,7 @@ class _Probe:
 
     _rows_after_refusal = E.SwiGLUFFN._rows_after_refusal
     __call__ = E.SwiGLUFFN.__call__
+    _call = E.SwiGLUFFN._call
     residual = E.SwiGLUFFN.residual
 
     def _weight_stationary(self, x):

@@ -268,9 +268,64 @@ for (const m of embedModels) {
                   "chart is per server");
   }
 }
-/* The hero's figures are derived from the data; the static markup carries none. */
-if (!/^\d+\.\d\u00d7$/.test(land.store.get("h-x")?.textContent || "")) {
-  failures.push("the landing hero's throughput-per-dollar figure was not derived from the data");
+const W = "Zero One Two Three Four Five Six Seven Eight Nine Ten Eleven Twelve Thirteen Fourteen Fifteen".split(" ");
+/* The hero is static, in the original's words (Moritz, 2026-10-15: "maybe just 4x instead of
+ * 3.8x"), so the data must keep it true. The multiplier is the median over every published row of
+ * a Galaxy Blackhole's throughput per dollar of purchase price against a DGX B200's, rounded to a
+ * whole number; the h1 fraction is its reciprocal. The lede's "higher throughput" is checked per named
+ * model below, and "under a third of the price" is the price ratio. */
+{
+  const P = Object.fromEntries(D.platforms.map((p) => [p.id, p])), gx = P.galaxy_bh, nv = P.dgx_b200;
+  const sec = (c) => c.s_per_fold === undefined ? c.s_per_design : c.s_per_fold;
+  const med = (v) => { v = v.slice().sort((x, y) => x - y); const h = v.length >> 1;
+    return v.length % 2 ? v[h] : (v[h - 1] + v[h]) / 2; };
+  const rows = predModels.concat(catModels);
+  const thr = med(rows.map((m) => gx.accelerators / sec(m.cells.p150a) / (nv.accelerators / sec(m.cells.b200))));
+  const price = gx.price_usd / nv.price_usd, x = Math.round(thr / price);
+  const FRAC = { 2: "half", 3: "a third", 4: "a quarter", 5: "a fifth", 6: "a sixth", 7: "a seventh", 8: "an eighth" };
+  const hx = (land.html.match(/<div class="n" id="h-x">([^<]*)</) || [])[1];
+  const em = (land.html.match(/<h1>[\s\S]*?<em>([^<]*)<\/em> of the cost<\/h1>/) || [])[1];
+  if (hx !== x + "&times;") failures.push("the landing hero says " + hx + " throughput per dollar; the data rounds to " + x + "x (" + (thr / price).toFixed(2) + ")");
+  if ((em || "").replace(/&nbsp;/g, " ") !== FRAC[x]) failures.push("the landing h1 says " + em + " of the cost; the data rounds to " + FRAC[x]);
+  if (price >= 1 / 3) failures.push("the lede says under a third of the price; a Galaxy costs " + (100 * price).toFixed(0) + " % of a DGX B200");
+  const prov = land.html.match(/<span id="prov">([^<]*)<\/span>/)[1];
+  if (prov !== D.scope.nvidia_code) failures.push("the landing page's static NVIDIA line differs from scope.nvidia_code");
+}
+/* The lede names its examples, and each must hold on its own: a Galaxy's throughput is higher than a
+ * DGX B200's on every model the sentence names. */
+{
+  const P = Object.fromEntries(D.platforms.map((p) => [p.id, p])), gx = P.galaxy_bh, nv = P.dgx_b200;
+  const sec = (c) => c.s_per_fold === undefined ? c.s_per_design : c.s_per_fold;
+  const lede = (land.html.match(/<p class="lede" id="lede">([\s\S]*?)<\/p>/) || [])[1] || "";
+  const named = [...lede.matchAll(/<b>([^<]+)<\/b>/g)].map((m) => m[1]);
+  if (named.length < 2) failures.push("the landing lede should name its example models in <b>, found " + named.length);
+  for (const n of named) {
+    const m = predModels.concat(catModels).find((x) => x.name === n);
+    if (!m) { failures.push("the landing lede names " + n + ", which is not a published row"); continue; }
+    const r = gx.accelerators / sec(m.cells.p150a) / (nv.accelerators / sec(m.cells.b200));
+    if (r <= 1) failures.push("the lede says a Galaxy has higher throughput than a DGX B200 on " + n + "; it reaches " + r.toFixed(2) + "x");
+  }
+}
+/* Accuracy. The home page says 1:1 accuracy parity, so every published row must carry a release-gate
+ * claim that passes in full (perf/bmk/gate_parity.py grades the way people run each model, with an
+ * MSA where it takes one). A row with no claim or a partial one turns this red rather than the page
+ * quietly overclaiming. And no published text talks about checks that miss: that detail lives in
+ * docs/implementation-parity.md, not on the site. */
+{
+  const rows = predModels.concat(catModels);
+  const full = (m) => /^Passes (its|both|all \d+) /.test((m.cells.p150a || {}).parity || "");
+  if (/1:1/.test(land.html)) {
+    for (const m of rows.filter((x) => !full(x))) {
+      failures.push("the landing page claims 1:1 accuracy parity and " + m.name + "'s Tenstorrent cell does not pass every release-gate check: " + ((m.cells.p150a || {}).parity || "no claim"));
+    }
+  }
+  const published = JSON.stringify([D.subtitle, D.scope, D.caveats, rows.map((m) => [m.note, m.cells]),
+    catKeys.map((k) => D[k] && [D[k].cond, D[k].note, D[k].methods])]);
+  const banned = /outside (it|the reference|the envelope)|bf16 floor|without (an )?MSA|no-MSA|re-?checked|not (yet )?pass|do not pass|fall short|failed|misses|parity_pending|parity_caveat/i;
+  for (const [f, txt] of [["site/index.html", land.html], ["site/benchmarks/index.html", page.html], ["site/data/perf-512aa.json", published]]) {
+    const hit = txt.match(banned);
+    if (hit) failures.push(f + " publishes \"" + hit[0] + "\": the site does not discuss accuracy checks that miss");
+  }
 }
 if (failures.length) {
   console.error(failures.length + " row(s) did not reach the page:");

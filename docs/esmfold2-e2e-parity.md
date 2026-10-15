@@ -170,6 +170,20 @@ reads the Kabsch floor and reports the distance-matrix count rather than gating 
 
 ## Result — ESMFold2-Fast at L=512, the size the perf page publishes
 
+**Re-measured 2026-10-15 on acbce1322: the confidence gap below is closed.** Same command and
+fixture, qb2, with the lever set `predict` folds under. The device reads mean plDDT 0.9225 and
+0.9211 on seeds 0 and 1 where the reference reads 0.9231 and 0.9189, a same-seed gap of 0.0014
+against the reference's own 0.0042 seed spread. `ptm` is 0.802 against 0.800, Kabsch 0.85 Å
+inside a 1.05 Å floor, `distogram_rel_l2` 0.048. With no levers the gap is 0.0025, also inside
+the spread. It closed somewhere in the ESMFold2 commits between 05327d6ce and acbce1322; that
+range was not bisected. Running the 24-block trunk's pair state in fp32 now reads 0.0017, no
+better than bf16, so the precision fix proposed below is not needed. The release gate grades
+this every release: leg `esmfold2-fast-512-confidence` folds against a committed reference
+(`ref-fixtures/esmfold2-fast/cdk2x2_512/`) and fails above a 0.005 gap. Record:
+`docs/implementation-parity-data/esmfold2-fast-512aa.json`.
+
+The rest of this section is the 2026-09-02 measurement (05327d6ce) and its investigation.
+
 The L20-L129 leg above passes, so the leg was re-run at the fixture the public perf page
 measures its ESMFold2-Fast cell on. Same harness, same checkpoint, same protocol the page's
 own cell uses: 10 recycles, 100 requested sampler steps (68 executed after the sigma_max=256
@@ -181,7 +195,8 @@ clip), qb2 card 1, non-fast path.
 ```
 
 The length ladder below is the same line with `--proteins cdk2x2_128` and `cdk2x2_256`.
-Records: `docs/implementation-parity-data/esmfold2-fast-{512aa,cdk2x2_256,cdk2x2_128}.json`.
+Records: `docs/implementation-parity-data/esmfold2-fast-{cdk2x2_256,cdk2x2_128}.json` (the
+512aa record now holds the 2026-10-15 re-measure).
 
 | metric | value | floor / band | verdict |
 |---|---|---|---|
@@ -247,9 +262,9 @@ sampler), it reads 0.9285 against NVIDIA's 0.929, agreeing to 0.0005. So the sha
 infrastructure is not what loses 0.021, and depth-wise error accumulation is not the mechanism
 either: the checkpoint that diverges is the one with half as many trunk blocks.
 
-`site/data/perf-512aa.json` therefore keeps `parity_pending: true` on the ESMFold2-Fast row.
+`site/data/perf-512aa.json` therefore carried `parity_pending: true` on the ESMFold2-Fast row.
 The structural claim the row makes is sound and now measured; the confidence number it prints
-is 0.021 low against this repo's own reference, and that is a real open defect, not a
+was 0.021 low against this repo's own reference, and that was a real defect, not a
 measurement artefact.
 
 ### Where the 0.021 comes from
@@ -300,8 +315,8 @@ coordinate sensitivities differ the same way: 0.5 Å of displacement costs the 2
 
 So there is no wrong formula here to correct. Closing the gap means running the 24-block trunk's
 pair state at higher precision than bf16, which is a performance and memory change, not a bug
-fix, and the 48-block checkpoint does not need it. `site/data/perf-512aa.json` keeps
-`parity_pending: true` on the ESMFold2-Fast row.
+fix, and the 48-block checkpoint does not need it. (Superseded: see the 2026-10-15 re-measure
+at the top of this section.)
 
 Two measurement notes for anyone repeating this. ESMFold2's representative atom is CB, with CA
 only as the glycine fallback (`compute_representative_atoms`); substituting CA for every residue

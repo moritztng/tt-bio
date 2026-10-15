@@ -570,7 +570,9 @@ _FAST_MODE = False
 #                   the exponentiated scores and row statistics bf16 (`_sdpa32`). Inert in bf16.
 #   trimul_gin      the trimul in-projection, both gates, the pair mask and both channel moves in one
 #                   weights-resident kernel (`_TRIMUL_GATED_INPROJ`, `trimul_tail.gin_moved`)
-#   trimul_gin_hifi2 trimul_gin's kernel at HiFi2 whatever the trunk's fidelity. ESMFold2's call at 512 on p150a
+#   trimul_gin_hifi2 the trimul in-projection kernel (trimul_gin's, and T1's where trimul_t1 takes the call) at
+#                   HiFi2 whatever the trunk's fidelity. T1 is compute-bound on Wormhole (t1abl2: compute alone 3.68
+#                   of 3.82 ms; ESMFold2's c_z 256 call does not reach T1). ESMFold2's call at 512 on p150a
 #                   (1350 MHz): normal set 9.37 -> 8.71 ms, rel_rms vs float64 0.0088 -> 0.0106; fast set 8.62 -> 8.33
 #                   ms, 0.0088 -> 0.0107 (HiFi3 in the normal set: 9.02 ms at the same error as HiFi4)
 #   trimul_sig6     the trimul kernels' gate sigmoid (gin, T1, tails) as a degree-6 polynomial instead of degree 8:
@@ -698,6 +700,18 @@ _FAST_MODE = False
 #                   too, so this arms the same exposure for ~30 % of the call (perf/spd_wherr/sdpa_probe.py).
 #   dit_mask16      under dit_fuse on Wormhole, OpenFold3's token-DiT attention reads its cached pair-bias mask bf16,
 #                   not fp32 (Blackhole ignores it).
+#   dit_cond_jit    under adaln_mod, Boltz-2's token DiT projects each layer's six conditioning terms just before
+#                   the layer, one [768, 768] linear each off the shared normed s, instead of three [768, 36864]
+#                   linears for all 24 layers and 144 slices a step to cut them back out.
+#   apb_cat         the token attention's head re-assembly as one nlp_concat_heads, gate and output projection on
+#                   the padded head lanes (what TT_BIO_APB_CONCAT_HEADS does at load, exact), with the wide
+#                   weights re-laned from the bf16 device copies on the first call that takes it.
+#   dit_qkvf        the bf16 token DiT's attention as OpenFold3's dit_fuse runs it: one `_sdpa32_fused` program reads
+#                   the fused qkv projection and writes the heads concatenated on their padded lanes, so neither
+#                   nlp_create_qkv_heads nor the head re-assembly runs; gate and output projection as apb_cat
+#   relp_gather     the Protenix family's trunk input projects relative position by one row gather from a per-fold
+#                   table (each distinct one-hot row summed once on the host lane) instead of uploading the
+#                   [N, N, 139] one-hot and multiplying it.
 #   pib_where       OpenDDE's pair-init bias by the old 16-op where-chain instead of one gather from the joint
 #                   (128, c_z) table: the A/B arm for a change that must keep the fold digest (no mode sets it).
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
@@ -710,7 +724,8 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "trimul_t2w", "narrow_bw16", "ws_l1dest", "opm_jd", "trimul_gin_hifi2", "trimul_gin_b8",
           "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine", "ef2_opm_kq", "ef2_relpos_lookup",
           "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit", "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384",
-          "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse")
+          "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
+          "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -725,7 +740,8 @@ UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "di
                              "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine", "ef2_opm_kq",
                              "ef2_relpos_lookup", "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit",
                              "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384",
-                             "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse"})
+                             "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
+                             "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -2494,7 +2510,13 @@ B2_TOKEN_DIT_SDPA_STATS = [0, 0]     # [served, declined] at the token-DiT site
 # zeroing the matching rows of proj_o drops them from the projection. The cost is the wider gate and
 # projection, which is why this is priced per shape and not asserted.
 _APB_CONCAT_HEADS = env_flag("TT_BIO_APB_CONCAT_HEADS", False)
-APB_CONCAT_HEADS_STATS = [0, 0]      # [served, declined] at the token head re-assembly
+APB_CONCAT_HEADS_STATS = [0, 0]      # [served, declined] at the token head re-assembly (either switch)
+# dit_qkvf: the bf16 token DiT's attention as OpenFold3's dit_fuse runs it (`_sdpa32_fused`): read out of the
+# fused qkv projection and written [B, S, n_heads * padded_head_dim], so neither nlp_create_qkv_heads nor the
+# head re-assembly runs; the gate and output projection take apb_cat's padded-lane weights. HiFi2 like the
+# stock op's default, with the fp32 dest the stock op leaves off.
+_DIT_QKVF_CKC = (ttnn.MathFidelity.HiFi2, False, True, False)
+DIT_QKVF_STATS = [0, 0]              # [served, declined] at the token-DiT site under the lever
 
 
 def _pad_head_lanes(t: torch.Tensor, n_heads: int, head_dim: int, padded_head_dim: int,
@@ -2932,7 +2954,7 @@ def _sdpa32(q, k, v, mask, scale: float) -> ttnn.Tensor:
     return out
 
 
-def _sdpa32_fused(qkv, mask, scale: float, heads: int, out_dtype=ttnn.float32) -> ttnn.Tensor:
+def _sdpa32_fused(qkv, mask, scale: float, heads: int, out_dtype=ttnn.float32, ckc=None) -> ttnn.Tensor:
     """`_sdpa32` read straight out of a fused `[S, 1, N, 3 * heads * DH]` qkv projection, written
     `[S, 1, N, heads * DH]`: what nlp_create_qkv_heads, `_sdpa32` and nlp_concat_heads give, as one
     program and the same arithmetic (`sdpa_generic.qkv_fused_kernel_dir`)."""
@@ -2944,7 +2966,7 @@ def _sdpa32_fused(qkv, mask, scale: float, heads: int, out_dtype=ttnn.float32) -
     # `out_dtype` bf16 (dit_fuse): the packer writes the result bf16, no typecast program after it.
     out = ttnn.allocate_tensor_on_device(ttnn.Shape([S, 1, n, w // 3]), out_dtype,
                                          ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG)
-    SG.sdpa(dev, qkv, qkv, qkv, mask, out, chunk, k_chunk, grid, _SDPA32_CKC, scale,
+    SG.sdpa(dev, qkv, qkv, qkv, mask, out, chunk, k_chunk, grid, ckc or _SDPA32_CKC, scale,
             qkv_fused=heads)
     return out
 
@@ -7746,6 +7768,9 @@ def _close_device_locked(dev):
         _release_ownership_fn()()
 
 
+CAPTURING = [0]   # open trace captures: nothing may upload to the device inside one
+
+
 def capture_trace(dev, run):
     """Record ``run()`` into a trace and return ``(tid, run's result)``.
 
@@ -7756,14 +7781,17 @@ def capture_trace(dev, run):
     30 min until the process was killed).
     """
     tid = ttnn.begin_trace_capture(dev, cq_id=0)
+    CAPTURING[0] += 1
     try:
         out = run()
     except BaseException:
+        CAPTURING[0] -= 1
         try:
             ttnn.end_trace_capture(dev, tid, cq_id=0)
         finally:
             ttnn.release_trace(dev, tid)
         raise
+    CAPTURING[0] -= 1
     ttnn.end_trace_capture(dev, tid, cq_id=0)
     return tid, out
 
@@ -9434,9 +9462,12 @@ class TriangleMultiplication(Module):
                 t, layout=ttnn.TILE_LAYOUT, device=self.device, dtype=ttnn.bfloat16)
             self._t1_w = (up(wpT), up(wgT))
         fold = mask is not None and TT1.t1_mask_ok(mask, x)
+        ckc = _mm_generic.ckc_args(self.compute_kernel_config)
+        if lever("trimul_gin_hifi2"):
+            ckc = (ttnn.MathFidelity.HiFi2,) + ckc[1:]
         outs = TT1.fused_in_ln(
             x, self.in_norm_weight, self.in_norm_bias, *self._t1_w, self.g_out_weight,
-            _mm_generic.ckc_args(self.compute_kernel_config), tuple(COMPUTE_GRID_MAIN),
+            ckc, tuple(COMPUTE_GRID_MAIN),
             mask=mask if fold else None, b8=lever("trimul_t1b8") and (mask is None or fold))
         return None if outs is None else (outs[0], outs[1], outs[2], fold)
 
@@ -11347,7 +11378,16 @@ class TriangleAttention(Module):
                 triangle_bias = ttnn.permute(triangle_bias, (0, 1, 3, 2))
             dram_peak(f"tri_att({'end' if self.ending else 'start'}) bias built [z={'x'.join(str(d) for d in x.shape)}]")
         else:
-            if self.ending:
+            fusable = not (self.biased or self.qkvgb_weight is None or _triatt_dtype() != ttnn.bfloat16
+                           or _qkv_l1_config(x, self.qkv_weight, _dtype()) is not None)
+            # triatt_ln TR: the ending variant norms x^T straight out of x, no transpose pass (x is square,
+            # so x^T has x's shape and the L1-qkv test above reads the same).
+            fused = (_triatt_ln.ln_qkvgb_heads(
+                x, self.layer_norm_weight, self.layer_norm_bias, self.qkvgb_weight,
+                _mm_generic.ckc_args(self.compute_kernel_config), self.n_heads, self.head_dim,
+                int(self.bias_weight.shape[-1]), tuple(COMPUTE_GRID_MAIN), transposed=True)
+                     if self.ending and fusable else None)
+            if self.ending and fused is None:
                 # The DESTINATION stays DRAM here: this transpose's consumer is the layer_norm
                 # below, whose static circular buffers are 274 944 B per core at 768 aa and do not
                 # fit under a pair tensor that size. Norming first instead was tried and is worse
@@ -11358,15 +11398,14 @@ class TriangleAttention(Module):
                 x = _pair_transpose(x, _transpose_memory_config(x),
                                     l1_stage_reserve=self.transpose_l1_reserve)
             # triatt_ln: the norm and the qkvgb projection as one kernel, the normed copy never
-            # leaves L1. x stays the raw (or transposed) pair then, owned only in the ending variant.
-            fused = (None if self.biased or self.qkvgb_weight is None
-                     or _triatt_dtype() != ttnn.bfloat16
-                     or _qkv_l1_config(x, self.qkv_weight, _dtype()) is not None
-                     else _triatt_ln.ln_qkvgb_heads(
-                         x, self.layer_norm_weight, self.layer_norm_bias, self.qkvgb_weight,
-                         _mm_generic.ckc_args(self.compute_kernel_config), self.n_heads,
-                         self.head_dim, int(self.bias_weight.shape[-1]), tuple(COMPUTE_GRID_MAIN)))
-            x_owned = fused is None or self.ending
+            # leaves L1. x stays the raw (or transposed) pair then, owned only when transposed here.
+            transposed = self.ending and fused is None
+            if fused is None and fusable:
+                fused = _triatt_ln.ln_qkvgb_heads(
+                    x, self.layer_norm_weight, self.layer_norm_bias, self.qkvgb_weight,
+                    _mm_generic.ckc_args(self.compute_kernel_config), self.n_heads,
+                    self.head_dim, int(self.bias_weight.shape[-1]), tuple(COMPUTE_GRID_MAIN))
+            x_owned = fused is None or transposed
             if fused is not None:
                 pre_qkv, pre_g, triangle_bias = fused
             else:
@@ -11999,6 +12038,22 @@ class AttentionPairBias(Module):
             )
         self.o_weight = self.torch_to_tt("proj_o.weight", transform=_relane(0),
                                           dtype=self.dtype)
+        self._cat_w = None
+
+    def _cat_weights(self):
+        """`(g_weight, o_weight)` on the padded head lanes for the `apb_cat` lever, None when it does not
+        apply. Re-laned once from the device copies: exact for bf16, so a bfp8 copy declines, as does a
+        first call inside a trace capture (it would upload)."""
+        if self._cat_w is None:
+            if (self.atom_level or self._concat_heads or not (lever("apb_cat") or lever("dit_qkvf"))
+                    or getattr(self, "padded_head_dim", self.head_dim) == self.head_dim
+                    or {self.g_weight.dtype, self.o_weight.dtype} != {ttnn.bfloat16} or CAPTURING[0]):
+                return None
+            wide = lambda w, ax: ttnn.from_torch(  # noqa: E731
+                _pad_head_lanes(ttnn.to_torch(w), self.n_heads, self.head_dim, self.padded_head_dim, ax),
+                dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=self.device)
+            self._cat_w = (wide(self.g_weight, -1), wide(self.o_weight, 0))
+        return self._cat_w if lever("apb_cat") or lever("dit_qkvf") else None
 
     def enable_lowp(self, lp: DitLowp):
         """`dit_mm16` / `dit_b8` on this token-level instance: its three linears read an `lp.act`
@@ -12276,6 +12331,7 @@ class AttentionPairBias(Module):
     ) -> ttnn.Tensor:
         self._load_kq_norm()
         lp, lw = self._lp or (None, None)
+        cat_w = self._cat_weights() if lp is None else None
         if lp is not None and s.dtype != lp.act:
             s = ttnn.typecast(s, lp.act)
         if not self.atom_level:
@@ -12301,6 +12357,10 @@ class AttentionPairBias(Module):
                                   + [(0, int(z.shape[-1]) - seq), (0, 0)], value=0.0)
                 ttnn.deallocate(qkv)
                 qkv = padded
+            if cat_w is not None and lever("dit_qkvf") and self.token_dit:
+                o = self._qkvf(qkv, z, seq, bias_precomputed, seq_mask)
+                if o is not None:
+                    return self._gate_out(s, o, cat_w)
             qkv = ttnn.unsqueeze(qkv, 1)
             q, k, v = ttnn.experimental.nlp_create_qkv_heads(
                 qkv,
@@ -12454,7 +12514,7 @@ class AttentionPairBias(Module):
             ttnn.deallocate(q)
             ttnn.deallocate(k)
             ttnn.deallocate(v)
-            if self._concat_heads:
+            if self._concat_heads or cat_w is not None:
                 APB_CONCAT_HEADS_STATS[0] += 1
                 b, seq = o.shape[0], o.shape[2]
                 o = ttnn.experimental.nlp_concat_heads(o)
@@ -12534,9 +12594,34 @@ class AttentionPairBias(Module):
             x = lp.linear(o, lw["o_weight"], dtype=lp.out)
             ttnn.deallocate(o)
             return x
+        return self._gate_out(s, o, cat_w)
+
+    def _qkvf(self, qkv, z, seq, bias_precomputed, seq_mask):
+        """dit_qkvf's attention, `[B, seq, n_heads * padded_head_dim]` bf16, or None where it does not apply."""
+        n = int(qkv.shape[-2])
+        ok = (bias_precomputed and _B2_TOKEN_DIT_SDPA and z is not None and seq_mask is None
+              and not self._raw_fp32() and not self.kq_norm and len(qkv.shape) == 3 and n % 128 == 0
+              and int(qkv.shape[-1]) == 3 * self.n_heads * self.padded_head_dim
+              and len(z.shape) == 4 and int(z.shape[-1]) == n and int(z.shape[1]) == self.n_heads)
+        DIT_QKVF_STATS[0 if ok else 1] += 1
+        if not ok:
+            return None
+        o = _sdpa32_fused(ttnn.unsqueeze(qkv, 1), z, self.head_dim ** -0.5, self.n_heads,
+                          out_dtype=ttnn.bfloat16, ckc=_DIT_QKVF_CKC)
+        ttnn.deallocate(qkv)
+        o = ttnn.reshape(o, (int(o.shape[0]), n, int(o.shape[3])))
+        if n > seq:
+            sl = o[:, :seq, :]
+            ttnn.deallocate(o)
+            o = sl
+        return o
+
+    def _gate_out(self, s, o, cat_w):
+        """sigmoid(s W_g) * o, then the output projection (on the padded head lanes when `cat_w`)."""
+        g_weight, o_weight = cat_w or (self.g_weight, self.o_weight)
         g = ttnn.linear(
             s,
-            self.g_weight,
+            g_weight,
             compute_kernel_config=self.compute_kernel_config,
             core_grid=CORE_GRID_MAIN,
         )
@@ -12545,7 +12630,7 @@ class AttentionPairBias(Module):
         o = ttnn.multiply(o, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID], dtype=self.dtype)
         ttnn.deallocate(g)
         x = ttnn.linear(
-            o, self.o_weight, compute_kernel_config=self.compute_kernel_config,
+            o, o_weight, compute_kernel_config=self.compute_kernel_config,
             core_grid=CORE_GRID_MAIN,
         )
         ttnn.deallocate(o)
@@ -14919,6 +15004,26 @@ class DiffusionTransformer(Module):
             self._cond_ws = (up(torch.cat(sw, 1)), up(torch.cat(sb, 0)), up(torch.cat(bw, 1)))
         return self._cond_ws
 
+    def _cond_weights_parts(self):
+        """`_cond_weights_split` and the output projections per layer, for `dit_cond_jit`: one
+        `(attn scale w, b, attn shift w, transition scale w, b, transition shift w, attn gate w, b,
+        transition gate w, b)` tuple a layer, so each term is its own [768, 768] projection."""
+        if getattr(self, "_cond_wp", None) is None:
+            dt = _dtype(ttnn.bfloat16)
+            up = lambda t: ttnn.from_torch(t, layout=ttnn.TILE_LAYOUT, device=self.device, dtype=dt)
+            parts = []
+            for layer in self.layers:
+                w = []
+                for ad in (layer.adaln, layer.transition.adaln):
+                    scale_w, scale_b, bias_w = ad.folded_weights()
+                    w += [up(scale_w), up(scale_b), up(bias_w)]
+                for ws in (layer.weights, layer.transition.weights):
+                    key = ("output_projection_linear" if ws is layer.weights else "output_projection.0")
+                    w += [up(ws[f"{key}.weight"].t()), up(ws[f"{key}.bias"])]
+                parts.append(tuple(w))
+            self._cond_wp = parts
+        return self._cond_wp
+
     def _peak_tag(self, a):
         # The DRAM census tag for one layer. The leading dim is the diffusion sample chunk,
         # which is what makes the sample axis visible to TT_BIO_DRAM_PEAK at all.
@@ -14934,8 +15039,15 @@ class DiffusionTransformer(Module):
     ) -> ttnn.Tensor:
         # L8. One layer_norm and two concatenated matmuls in place of the 24 layers' own 144
         # projections and 48 layer_norms. Read at call time so an interleaved A/B can flip it.
-        cond_all = None
-        if _B2_DIT_COND_HOIST and not self.atom_level:
+        cond_all = jit = None
+        if (_B2_DIT_COND_HOIST and not self.atom_level and lever("dit_cond_jit")
+                and (_B2_ADALN_ADDCMUL or lever("adaln_mod"))):
+            # dit_cond_jit: the same terms as the hoisted block below, each projected right before
+            # its layer. On a Wormhole chip the three wide linears run at a quarter of the roof and
+            # the 144 slices that cut them up cost as much again in dispatch.
+            jit = (ttnn.layer_norm(s, epsilon=1e-5, compute_kernel_config=self.compute_kernel_config),
+                   self._cond_weights_parts())
+        elif _B2_DIT_COND_HOIST and not self.atom_level:
             adw, adb, opw, opb = self._cond_weights()
             s_hat = ttnn.layer_norm(s, epsilon=1e-5,
                                     compute_kernel_config=self.compute_kernel_config)
@@ -14977,6 +15089,16 @@ class DiffusionTransformer(Module):
             return pair((parts[0], parts[1])), parts
 
         def bundle(i):
+            if jit is not None:
+                s_hat, wp = jit
+                sw0, sb0, bw0, sw1, sb1, bw1, ow0, ob0, ow1, ob1 = wp[i]
+                ckc = self.compute_kernel_config
+                lin = lambda x, w, b=None, act=None: ttnn.linear(  # noqa: E731
+                    x, w, bias=b, compute_kernel_config=ckc, activation=act)
+                parts = [lin(s_hat, sw0, sb0, "sigmoid"), lin(s_hat, bw0),
+                         lin(s_hat, sw1, sb1, "sigmoid"), lin(s_hat, bw1),
+                         lin(s, ow0, ob0, "sigmoid"), lin(s, ow1, ob1, "sigmoid")]
+                return (_SigTerms(parts[:2]), parts[4], _SigTerms(parts[2:4]), parts[5]), parts
             terms, parts = cut(i)
             if terms is None:
                 return None, ()
@@ -15010,6 +15132,8 @@ class DiffusionTransformer(Module):
                 dram_peak(self._peak_tag(a))
             return a
         finally:
+            if jit is not None:
+                ttnn.deallocate(jit[0])
             if cond_all is not None:
                 for x in cond_all:
                     for t in (x if isinstance(x, tuple) else (x,)):
