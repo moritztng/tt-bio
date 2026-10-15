@@ -61,6 +61,10 @@ def legs(gate: Path) -> dict:
 
 
 def claims(gate: Path) -> dict:
+    # A gate still running has only the legs it has reached so far, and every leg it has not
+    # reached reads "failed or left no score". gate_fanout writes verdict.json last.
+    if not (gate / "verdict.json").is_file():
+        raise SystemExit(f"{gate}: no verdict.json, the gate has not finished; pass a finished gate")
     sha = gate.name.removeprefix("rel-")[:9]
     have = legs(gate)
     out = {}
