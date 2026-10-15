@@ -12,6 +12,8 @@ M=$1; K=/root/kit/$M; [ -f /root/kc/SETUP-OK-$M ] && exit 0
 # python-build-standalone's sysconfig names clang as CC, which the CUDA image lacks: every native build (DeepSpeed's
 # evoformer op, apex, the LayerNorm extension) goes through the image's gcc instead
 export CC=gcc CXX=g++
+# pip's 15 s read timeout lost h1's pxdesign setup to one slow files.pythonhosted.org read; vast hosts' links stall
+export PIP_DEFAULT_TIMEOUT=120 PIP_RETRIES=10
 py(){ # <dir> <url> <sha256>: python-build-standalone, the interpreter each kit's Dockerfile pins
   [ -x $1/bin/python3 ] && return; curl -fsSL -o /tmp/py.tgz "$2"; echo "$3  /tmp/py.tgz" | sha256sum -c -
   mkdir -p $1 && tar -xzf /tmp/py.tgz -C /tmp && cp -rL /tmp/python/. $1/ && rm -rf /tmp/python /tmp/py.tgz; }

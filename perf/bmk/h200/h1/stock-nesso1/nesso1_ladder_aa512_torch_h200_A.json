@@ -1,0 +1,221 @@
+{
+  "label": "ladder_aa512_torch",
+  "inputs": "perf/nesso1/inputs/ladder/aa512",
+  "reps": 4,
+  "recycling_steps": 5,
+  "precision": "bf16-mixed",
+  "no_kernels": true,
+  "refine": "on",
+  "seed": 42,
+  "num_workers": 2,
+  "env": {
+    "torch": "2.11.0+cu128",
+    "torch_cuda": "12.8",
+    "cudnn": 91900,
+    "cuda_device": "NVIDIA H200",
+    "compute_cap": [
+      9,
+      0
+    ],
+    "matmul_tf32": false,
+    "float32_matmul_precision": "highest",
+    "python": "3.12.3",
+    "effective_cpus": 23.04,
+    "gpu_static": {
+      "name": "NVIDIA H200",
+      "driver_version": "595.71.05",
+      "memory.total": "143771",
+      "power.limit": "700.00",
+      "clocks.max.sm": "1980",
+      "compute_cap": "9.0",
+      "pcie.link.gen.max": "5"
+    },
+    "compute_apps_before": [],
+    "nesso": "1.0.0",
+    "triton": "3.6.0",
+    "cuequivariance-torch": "0.12.0",
+    "cuequivariance-ops-torch-cu12": "0.12.0",
+    "lightning": "2.6.6",
+    "transformers": "5.19.0",
+    "rdkit": "2026.9.1",
+    "numpy": "2.5.4",
+    "safetensors": "0.8.0"
+  },
+  "n_records": 1,
+  "n_unique_seqs": 1,
+  "preprocess_s": 6.2645,
+  "esm_s": 1.5423,
+  "model_load_s": 3.5087,
+  "rep_s": [
+    10.6314,
+    10.8988,
+    10.7266,
+    10.7488
+  ],
+  "rep_windows": [
+    [
+      1792021444.0837,
+      1792021454.7151
+    ],
+    [
+      1792021454.7506,
+      1792021465.6493
+    ],
+    [
+      1792021465.6837,
+      1792021476.4103
+    ],
+    [
+      1792021476.4446,
+      1792021487.1933
+    ]
+  ],
+  "phases": {
+    "0": {
+      "embed": 0.20057,
+      "embed_n": 1,
+      "esm_module": 0.01521,
+      "esm_module_n": 6,
+      "pairformer": 2.55155,
+      "pairformer_n": 8,
+      "crop": 0.03841,
+      "crop_n": 1,
+      "affinity": 0.03162,
+      "affinity_n": 2,
+      "forward": 2.82977,
+      "forward_n": 1,
+      "predict_step": 2.85047,
+      "predict_step_n": 1,
+      "write": 0.00068,
+      "write_n": 1
+    },
+    "1": {
+      "embed": 0.00753,
+      "embed_n": 1,
+      "esm_module": 0.00246,
+      "esm_module_n": 6,
+      "pairformer": 2.53748,
+      "pairformer_n": 8,
+      "crop": 0.00368,
+      "crop_n": 1,
+      "affinity": 0.02657,
+      "affinity_n": 2,
+      "forward": 2.55894,
+      "forward_n": 1,
+      "predict_step": 2.56024,
+      "predict_step_n": 1,
+      "write": 0.00063,
+      "write_n": 1
+    },
+    "2": {
+      "embed": 0.00714,
+      "embed_n": 1,
+      "esm_module": 0.0024,
+      "esm_module_n": 6,
+      "pairformer": 2.53734,
+      "pairformer_n": 8,
+      "crop": 0.00372,
+      "crop_n": 1,
+      "affinity": 0.02643,
+      "affinity_n": 2,
+      "forward": 2.55814,
+      "forward_n": 1,
+      "predict_step": 2.55942,
+      "predict_step_n": 1,
+      "write": 0.00052,
+      "write_n": 1
+    },
+    "3": {
+      "embed": 0.00735,
+      "embed_n": 1,
+      "esm_module": 0.00244,
+      "esm_module_n": 6,
+      "pairformer": 2.53731,
+      "pairformer_n": 8,
+      "crop": 0.00401,
+      "crop_n": 1,
+      "affinity": 0.02635,
+      "affinity_n": 2,
+      "forward": 2.55865,
+      "forward_n": 1,
+      "predict_step": 2.56,
+      "predict_step_n": 1,
+      "write": 0.00063,
+      "write_n": 1
+    }
+  },
+  "counts": {
+    "cueq.triangle_attention": 0,
+    "cueq.triangle_multiplicative_update": 0,
+    "cuequivariance_available": 1,
+    "callsite.triangle_attention": 3968,
+    "callsite.tri_mul_out": 1216,
+    "callsite.tri_mul_in": 1216,
+    "callsite.tri_att_start": 2432,
+    "callsite.tri_att_end": 1216,
+    "scaled_dot_product_attention": 33,
+    "calls:embed": 4,
+    "calls:esm_module": 24,
+    "calls:pairformer": 32,
+    "calls:crop": 4,
+    "calls:affinity": 8,
+    "calls:forward": 4,
+    "calls:predict_step": 4,
+    "calls:write": 4
+  },
+  "gpu_dynamic": [
+    {
+      "power.draw": "370.07",
+      "utilization.gpu": "6",
+      "clocks.sm": "1980",
+      "temperature.gpu": "36"
+    },
+    {
+      "power.draw": "392.79",
+      "utilization.gpu": "0",
+      "clocks.sm": "1980",
+      "temperature.gpu": "37"
+    },
+    {
+      "power.draw": "383.92",
+      "utilization.gpu": "0",
+      "clocks.sm": "1980",
+      "temperature.gpu": "37"
+    },
+    {
+      "power.draw": "400.79",
+      "utilization.gpu": "7",
+      "clocks.sm": "1980",
+      "temperature.gpu": "37"
+    }
+  ],
+  "peak_vram_alloc_B": 1904980992,
+  "peak_vram_reserved_B": 2940207104,
+  "affinity": {
+    "n": 1,
+    "mean": 1.2410187721252441,
+    "min": 1.2410187721252441,
+    "max": 1.2410187721252441,
+    "spread": 0.0,
+    "entropy_crop_pl_zero": 0,
+    "sha256_of_values": "f073b8dca1b39aad"
+  },
+  "ok": true,
+  "why": "1 predictions, 0 with entropy_crop_pl == 0",
+  "compute_apps_after": [
+    {
+      "pid": 368638,
+      "used_MiB": 680
+    }
+  ],
+  "gpu_exclusive": true,
+  "model_revision": "v1.0.0",
+  "ckpt_dir": "/work/cache/huggingface/models--recursionpharma--nesso/snapshots/1896c84c7186c506c7efd79051480809d51098bf/v1.0.0",
+  "seq_lens": [
+    512
+  ],
+  "ckpt_use_kernels": true,
+  "affinity_head_present": true,
+  "effective_use_kernels": false,
+  "dataloader_batch_size": 1
+}
