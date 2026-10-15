@@ -32,7 +32,7 @@ def test_mm_carries_fc1_silu(act, monkeypatch):
     """The SwiGLU's fc1a (activation="silu") takes minimal_matmul with the SiLU fused, not the linear."""
     calls = []
     monkeypatch.setattr(esmc, "_ESMC_MM", True)
-    monkeypatch.setattr(esmc.ttnn.experimental, "minimal_matmul", lambda x, w, *a, **kw: calls.append(kw) or "mm",
+    monkeypatch.setattr(esmc.ttnn.experimental, "minimal_matmul", lambda x, w, **kw: calls.append(kw) or "mm",
                         raising=False)
     lin = esmc._MMLin()
     lin.compute_kernel_config = None
@@ -45,7 +45,7 @@ def test_mm_carries_fc1_silu(act, monkeypatch):
 def test_mm_takes_fast_block_fp8_weights(monkeypatch):
     """--fast's block-fp8 projection weights take minimal_matmul by default, like the bf16 ones."""
     monkeypatch.setattr(esmc, "_ESMC_MM", True)
-    monkeypatch.setattr(esmc.ttnn.experimental, "minimal_matmul", lambda x, w, *a, **kw: "mm", raising=False)
+    monkeypatch.setattr(esmc.ttnn.experimental, "minimal_matmul", lambda x, w, **kw: "mm", raising=False)
     lin = esmc._MMLin()
     lin.compute_kernel_config = None
     t = esmc.ttnn

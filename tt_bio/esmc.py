@@ -411,7 +411,7 @@ class _MMLin:
                 and self._mm_ok(x, w)):
             try:
                 out = ttnn.experimental.minimal_matmul(
-                    x, w, bias, compute_kernel_config=self.compute_kernel_config,
+                    x, w, bias_tensor=bias, compute_kernel_config=self.compute_kernel_config,
                     dtype=_dtype(ttnn.bfloat16) if dtype is None else dtype,
                     memory_config=kw.get("memory_config") or ttnn.DRAM_MEMORY_CONFIG, **_mm_config(x, w),
                     **({"fused_activation": (self._ACT[act], False)} if act else {}))
