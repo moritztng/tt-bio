@@ -239,19 +239,15 @@ class FoldingTrunkModel(Module):
 class FoldingTrunk(TorchWrapper):
     """Top-level folding trunk (torch z [B,L,L,256] in/out)."""
 
-    def __init__(self, n_layers: int = 48, d_pair: int = C_Z, pair_dtype=None):
+    def __init__(self, n_layers: int = 48, d_pair: int = C_Z):
         super().__init__()
         self.n_layers = n_layers
         self.d_pair = d_pair
-        # The dtype the pair state z is carried in through this trunk; None is the activation default (bf16).
-        self.pair_dtype = pair_dtype
 
     def _create_module(self, weights: WeightScope) -> FoldingTrunkModel:
-        from tt_bio.tenstorrent import device_dtype_override
         # The trunk's matmul fidelity, as every Pairformer-family trunk takes it (`trunk_hifi3`).
-        with device_dtype_override(self.pair_dtype):
-            return FoldingTrunkModel(self.n_layers, weights,
-                                     trunk_compute_kernel_config(self.compute_kernel_config))
+        return FoldingTrunkModel(self.n_layers, weights,
+                                 trunk_compute_kernel_config(self.compute_kernel_config))
 
     def forward(self, z):
         # Pad both sequence axes to a tile multiple and mask padding out of the
@@ -264,7 +260,7 @@ class FoldingTrunk(TorchWrapper):
             real = torch.zeros(1, z.shape[1], z.shape[1])
             real[:, :seq_len, :seq_len] = 1.0
             mask = self._from_torch(real)
-        out = self.module(self._from_torch(z, self.pair_dtype or ttnn.bfloat16), mask)
+        out = self.module(self._from_torch(z), mask)
         return self._to_torch(out)[:, :seq_len, :seq_len, :]
 
 
