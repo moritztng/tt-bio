@@ -110,8 +110,8 @@ footer:has(+ .disclaim){padding-bottom:20px}
 .kit-hatch{background-image:repeating-linear-gradient(135deg,var(--gpu-ink) 0 2.5px,transparent 2.5px 6.5px)}
 .legend{display:flex;flex-wrap:wrap;gap:8px 22px;font-size:.86rem;color:var(--ink-2);margin:0}
 .legend span{display:inline-flex;align-items:center;gap:8px}
-.legend i{display:inline-block;width:22px;height:10px;border-radius:99px;flex:none;background:var(--gpu)}
-.legend i.tt{background:var(--accent)}
+.legend i{display:inline-block;width:22px;height:10px;border-radius:99px;flex:none;background-color:var(--gpu)}
+.legend i.tt{background-color:var(--accent)}
 
 @media (max-width:640px){
   :root{--gutter:20px}
