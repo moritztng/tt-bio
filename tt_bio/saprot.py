@@ -32,16 +32,18 @@ import numpy as np
 import torch
 import ttnn
 
+from tt_bio.envflags import env_flag
+
 from tt_bio.tenstorrent import (
     Module,
     TorchWrapper,
     Weights,
     WeightScope,
     _dtype,
-    fused_sdpa,
 )
 from tt_bio.esmc import (
-    lm_sdpa_config,
+    _MMLin,
+    lm_sdpa,
     rope_tables,
     _rope,
     BUCKET,
@@ -118,7 +120,17 @@ class SaprotEmbeddingLayer(Module):
         return x
 
 
-class ESM2Attention(Module):
+# SaProt's projections (bias, fc1's GELU as the fused activation) on ESMC's minimal_matmul path instead of
+# ttnn.linear, for projections over esmc.ESMC_MM_MIN_ROWS rows. Off until the page cell says.
+_SAPROT_MM = env_flag("TT_BIO_SAPROT_MM", False)
+
+
+class _SaprotLin(_MMLin):
+    def _mm_on(self) -> bool:
+        return _SAPROT_MM
+
+
+class ESM2Attention(_SaprotLin, Module):
     """ESM-2 self-attention: pre-LN, fused q/k/v (with bias), per-head RoPE, SDPA,
     output projection (with bias). No QK-LayerNorm (that is ESMC-specific).
 
@@ -178,8 +190,7 @@ class ESM2Attention(Module):
         if key_valid is not None and attn_mask is None:  # the -inf mask already zeroes them, see esmc.Attention
             k = ttnn.multiply(k, key_valid)
             v = ttnn.multiply(v, key_valid)
-        o = fused_sdpa(q, k, v, attn_mask=attn_mask, scale=self.head_dim ** -0.5,
-                       program_config=lm_sdpa_config(int(q.shape[2]), int(k.shape[2])))
+        o = lm_sdpa(q, k, v, attn_mask, scale=self.head_dim ** -0.5)
         ttnn.deallocate(q); ttnn.deallocate(k); ttnn.deallocate(v)
         o = self._merge_heads(o)  # [B, L, H*32] when fold_rope; out_weight has the zero rows
         out = self._lin(o, self.out_weight, bias=self.out_bias)
@@ -237,7 +248,13 @@ def fold_rope_tables(seq_len: int, n_heads: int, d: int, device):
     return to_tt(cos), to_tt(sin)
 
 
-class ESM2FFN(Module):
+# fc1's GELU applied by the matmul at pack instead of as its own op over the [rows, 4*d] activation. Page cell, batch of
+# 7, Galaxy chip at 1000 MHz: 650M 250.0 -> 234.2 ms (--fast 244.8 -> 228.5), 1.3B 482.4 -> 450.1 (472.7 -> 441.3),
+# 35M 55.4 -> 52.5 (54.8 -> 53.0); error against float32 HF unchanged (1.3B pcc 0.99916 -> 0.99929, 650M 0.99976 both).
+_GELU_FUSED = env_flag("TT_BIO_SAPROT_GELU_FUSED", True)
+
+
+class ESM2FFN(_SaprotLin, Module):
     """ESM-2 feed-forward: pre-LN, Linear(intermediate)+GELU, Linear(hidden), residual."""
 
     def __init__(self, state_dict: Weights, compute_kernel_config):
@@ -254,9 +271,10 @@ class ESM2FFN(Module):
         x_norm = ttnn.layer_norm(
             x, weight=self.norm_weight, bias=self.norm_bias, epsilon=1e-5, compute_kernel_config=ck,
         )
-        h = self._lin(x_norm, self.fc1_weight, bias=self.fc1_bias)
+        h = self._lin(x_norm, self.fc1_weight, bias=self.fc1_bias, **({"activation": "gelu"} if _GELU_FUSED else {}))
         ttnn.deallocate(x_norm)
-        h = ttnn.gelu(h)
+        if not _GELU_FUSED:
+            h = ttnn.gelu(h)
         out = self._lin(h, self.fc2_weight, bias=self.fc2_bias)
         ttnn.deallocate(h)
         return out

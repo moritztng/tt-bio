@@ -704,8 +704,6 @@ _FAST_MODE = False
 #   dit_cond_jit    under adaln_mod, Boltz-2's token DiT projects each layer's six conditioning terms just before
 #                   the layer, one [768, 768] linear each off the shared normed s, instead of three [768, 36864]
 #                   linears for all 24 layers and 144 slices a step to cut them back out.
-#   triatt_ln_l1    triatt_ln also takes the ending variant's L1-resident transposed pair (it declined it as
-#                   `memcfg` and that half paid a separate layer_norm and qkvgb matmul); a CB refusal declines.
 #   dit_shoist      the DiT's conditioning as three wide linears a step whose columns each layer reads in place
 #                   (`addcmul_at`): OpenFold3's DiT, and Boltz-2's token DiT, where it takes precedence over
 #                   dit_cond_jit (adaLN modulation, the attention gate and the transition gate + residual each one op).
@@ -730,7 +728,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "trimul_t2w", "narrow_bw16", "ws_l1dest", "opm_jd", "trimul_gin_hifi2", "trimul_gin_b8",
           "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine", "ef2_opm_kq", "ef2_relpos_lookup",
           "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit", "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384",
-          "dit_shoist", "triatt_ln", "triatt_ln_l1", "apb_ln", "ws_lofi", "ws_chain", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
+          "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
           "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
@@ -746,7 +744,7 @@ UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "di
                              "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine", "ef2_opm_kq",
                              "ef2_relpos_lookup", "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit",
                              "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384",
-                             "dit_shoist", "triatt_ln", "triatt_ln_l1", "apb_ln", "ws_lofi", "ws_chain", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
+                             "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
                              "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
@@ -11403,7 +11401,16 @@ class TriangleAttention(Module):
                 triangle_bias = ttnn.permute(triangle_bias, (0, 1, 3, 2))
             dram_peak(f"tri_att({'end' if self.ending else 'start'}) bias built [z={'x'.join(str(d) for d in x.shape)}]")
         else:
-            if self.ending:
+            fusable = not (self.biased or self.qkvgb_weight is None or _triatt_dtype() != ttnn.bfloat16
+                           or _qkv_l1_config(x, self.qkv_weight, _dtype()) is not None)
+            # triatt_ln TR: the ending variant norms x^T straight out of x, no transpose pass (x is square,
+            # so x^T has x's shape and the L1-qkv test above reads the same).
+            fused = (_triatt_ln.ln_qkvgb_heads(
+                x, self.layer_norm_weight, self.layer_norm_bias, self.qkvgb_weight,
+                _mm_generic.ckc_args(self.compute_kernel_config), self.n_heads, self.head_dim,
+                int(self.bias_weight.shape[-1]), tuple(COMPUTE_GRID_MAIN), transposed=True)
+                     if self.ending and fusable else None)
+            if self.ending and fused is None:
                 # The DESTINATION stays DRAM here: this transpose's consumer is the layer_norm
                 # below, whose static circular buffers are 274 944 B per core at 768 aa and do not
                 # fit under a pair tensor that size. Norming first instead was tried and is worse
@@ -11414,15 +11421,14 @@ class TriangleAttention(Module):
                 x = _pair_transpose(x, _transpose_memory_config(x),
                                     l1_stage_reserve=self.transpose_l1_reserve)
             # triatt_ln: the norm and the qkvgb projection as one kernel, the normed copy never
-            # leaves L1. x stays the raw (or transposed) pair then, owned only in the ending variant.
-            fused = (None if self.biased or self.qkvgb_weight is None
-                     or _triatt_dtype() != ttnn.bfloat16
-                     or _qkv_l1_config(x, self.qkv_weight, _dtype()) is not None
-                     else _triatt_ln.ln_qkvgb_heads(
-                         x, self.layer_norm_weight, self.layer_norm_bias, self.qkvgb_weight,
-                         _mm_generic.ckc_args(self.compute_kernel_config), self.n_heads,
-                         self.head_dim, int(self.bias_weight.shape[-1]), tuple(COMPUTE_GRID_MAIN)))
-            x_owned = fused is None or self.ending
+            # leaves L1. x stays the raw (or transposed) pair then, owned only when transposed here.
+            transposed = self.ending and fused is None
+            if fused is None and fusable:
+                fused = _triatt_ln.ln_qkvgb_heads(
+                    x, self.layer_norm_weight, self.layer_norm_bias, self.qkvgb_weight,
+                    _mm_generic.ckc_args(self.compute_kernel_config), self.n_heads,
+                    self.head_dim, int(self.bias_weight.shape[-1]), tuple(COMPUTE_GRID_MAIN))
+            x_owned = fused is None or transposed
             if fused is not None:
                 pre_qkv, pre_g, triangle_bias = fused
             else:

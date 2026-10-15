@@ -66,7 +66,7 @@ void kernel_main() {
                             matmul_block(w_cb, x_cb, i0, i1, pass * SBW, true, SBW, 1, Kt);
                         }
                     }
-                    for (uint32_t i = 0; i < SBW; ++i) gate_poly_tile<SIGPOLY>(i, SBW + i);
+                    for (uint32_t i = 0; i < SBW; ++i) gate_poly_tile<SIGPOLY, SBW>(i);
                     if constexpr (RNE & 1) {
                         for (uint32_t i = 0; i < SBW; ++i) round_bf16_rne_tile(i);
                     }
