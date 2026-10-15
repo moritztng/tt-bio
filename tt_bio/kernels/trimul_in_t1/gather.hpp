@@ -10,7 +10,7 @@
 #pragma once
 #include "api/dataflow/dataflow_api.h"
 
-template <uint32_t IL, uint32_t NB, uint32_t C0, uint32_t C1, uint32_t SS, uint32_t ABL, class A, class B>
+template <uint32_t IL, uint32_t NB, uint32_t C0, uint32_t C1, uint32_t SS, uint32_t ABLM, class A, class B>
 inline void t1_gather_q(uint32_t src, uint32_t stage0, uint32_t page, bool is_a, const A& oa, const B& ob,
                         uint32_t r0, bool (&dirty)[2], volatile tt_l1_ptr uint32_t* done = nullptr,
                         uint32_t done_val = 0) {
@@ -24,7 +24,7 @@ inline void t1_gather_q(uint32_t src, uint32_t stage0, uint32_t page, bool is_a,
         const uint32_t grp = ((c0 - C0) / NB) & 1u;
         const uint32_t gbase = stage0 + grp * NB * TB;
         if (dirty[grp]) noc_async_writes_flushed();
-        for (uint32_t j = 0; j < NB && !(ABL & 32); ++j) {
+        for (uint32_t j = 0; j < NB && !(ABLM & 32); ++j) {
             const uint32_t c = c0 + j;
             const uint32_t st = gbase + j * TB;
             // source row c of tile il: face (c >> 4) * 2 (+1 for the right half), face row c & 15;
@@ -41,7 +41,7 @@ inline void t1_gather_q(uint32_t src, uint32_t stage0, uint32_t page, bool is_a,
         // The last read out of `src` has landed: whoever pops it may.
         if (done != nullptr && c0 + NB >= C1) noc_semaphore_set(done, done_val);
         for (uint32_t j = 0; j < NB; ++j, page += SS) {
-            if constexpr (ABL & 64) continue;
+            if constexpr (ABLM & 64) continue;
             const uint32_t st = gbase + j * TB;
             const uint64_t dst = is_a ? oa.get_noc_addr(page, off0) : ob.get_noc_addr(page, off0);
             noc_async_write(st + off0, dst, wlen);
