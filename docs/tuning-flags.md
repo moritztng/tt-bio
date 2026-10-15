@@ -183,6 +183,9 @@ round's 195 tokens.
 moves 0.030 A all-atom and ipTM 0.8077 to 0.8096. Against float64 the fused Transition reads 4.34e-3
 rel RMS where the composed one reads 4.35e-3. In a BindCraft 2 round on Wormhole one iteration goes
 from 5.40 to 5.20 s (two arms each, alternated on one chip at 1055 MHz, PD-L1 at binder length 80).
+It does not change what BindCraft 2 designs: over six full PD-L1 campaigns per arm on Wormhole it
+accepted 9 binders against 8 without it, completed 11 of 30 trajectories against 14 (Fisher p = 0.60),
+and the last-iteration i_pTM per trajectory averaged 0.52 against 0.56 (permutation p = 0.57).
 
 **Sizes.** With all of them on, a p300c chip runs 192, 352, 576 and 864 tokens to a completed
 gradient round; 864 peaks at 27.04 GB resident with 7.19 GB free.
