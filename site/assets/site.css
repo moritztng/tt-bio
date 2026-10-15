@@ -107,10 +107,7 @@ footer:has(+ .disclaim){padding-bottom:20px}
 
 /* Bar keys shared by both pages: Tenstorrent in the accent, GPUs in warm grey, and a GPU bar that
    ran Anthropic's kit carries diagonal hatching, so which code ran is visible at a glance. */
-.kit-hatch{background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.55) 0 2px,transparent 2px 6px)}
-@media (prefers-color-scheme:dark){
-  .kit-hatch{background-image:repeating-linear-gradient(135deg,rgba(0,0,0,.42) 0 2px,transparent 2px 6px)}
-}
+.kit-hatch{background-image:repeating-linear-gradient(135deg,var(--gpu-ink) 0 2.5px,transparent 2.5px 6.5px)}
 .legend{display:flex;flex-wrap:wrap;gap:8px 22px;font-size:.86rem;color:var(--ink-2);margin:0}
 .legend span{display:inline-flex;align-items:center;gap:8px}
 .legend i{display:inline-block;width:22px;height:10px;border-radius:99px;flex:none;background:var(--gpu)}
