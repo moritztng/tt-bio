@@ -1140,6 +1140,11 @@ class SwiGLUFFN(_MMLin, Module):
             return None
         return T.ws_swiglu(x, self.norm_weight, self.norm_bias, self.compute_kernel_config, self._ws, resid=resid)
 
+    def _lm_whole(self, x, L: int) -> bool:
+        """Whether the per-token LM FFN runs over all L rows in one pass (see _LM_FFN_WHOLE_ROWS)."""
+        fits = self.model_bytes <= _LM_LARGE_MODEL_BYTES or (self.model_bytes != float("inf") and L <= _LM_FFN_WHOLE_ROWS)
+        return fits and tuple(x.padded_shape) not in _UNBLOCKED_REFUSED
+
     def __call__(self, x: ttnn.Tensor) -> ttnn.Tensor:
         # The fc1 activation (2*d_ff wide) is several GB at long L and, on top of
         # the resident 6B weights, OOMs the 12 GB/chip Wormhole DRAM. The FFN is
@@ -1159,9 +1164,7 @@ class SwiGLUFFN(_MMLin, Module):
             chunk = tenstorrent.pair_row_tile(L)
         else:
             t = tenstorrent.SMALL_GRID_SEQ_TILE
-            fits = self.model_bytes <= _LM_LARGE_MODEL_BYTES or (self.model_bytes != float("inf") and L <= _LM_FFN_WHOLE_ROWS)
-            lm_whole = fits and tuple(x.padded_shape) not in _UNBLOCKED_REFUSED
-            chunk = t if (t and L > t and not lm_whole) else 0
+            chunk = t if (t and L > t and not self._lm_whole(x, L)) else 0
         try:
             if chunk:
                 parts = ttnn.chunk(x, -(-L // chunk), dim=1)
