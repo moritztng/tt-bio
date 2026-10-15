@@ -92,18 +92,24 @@ WH_FAST_LEVERS = FAST_LEVERS - {"trimul_t1_c256"}
 # too: 11-set normal grade, shipped Protenix-v2 normal set vs + these, 44 paired folds (gtalnn, 2026-10-15), PASS:
 # top pose median 0.091 A vs the 0.946 A floor, CA-lDDT +0.0001 [-0.0001, +0.0003], docking 35 -> 35; -2.98 s.
 TRIATT_LN = frozenset({"triatt_ln", "apb_ln"})
+# ws_ln + ws_lofi: the transition's LayerNorm fused into the one-chunk SwiGLU kernel, which then runs at LoFi.
+# Wormhole 11-set fast grade, shipped Protenix-v2 Wormhole fast set vs + these, 44 paired folds (spd-gap-small
+# gwsfx, 2026-10-15), PASS: same-seed top pose median 0.471 A vs the 1.414 A A/A floor, CA-lDDT +0.0001
+# [-0.0013, +0.0021], pLDDT -0.0056, docking 34 -> 34. Galaxy chip (1000 MHz, wsfx): -0.46 s, 4 of 4 pairs faster.
+# Boltz-2 fast null there, so Protenix-v2 Wormhole --fast only.
+WS_FAST = frozenset({"ws_ln", "ws_lofi"})
 from .eltwise_fusion import scale_add, norm_residual, gated_add
 
 
 def mode_levers(state_dict):
     """The mode's lever set for a Protenix checkpoint: `FAST_LEVERS` under --fast, else `NORMAL_LEVERS`,
     plus `T2_TAIL` and `WS_CHAIN` for Protenix-v2 (c_z 256), the one width their normal grades cover; Wormhole --fast takes
-    `WH_FAST_LEVERS`, and Wormhole adds `TRIATT_LN` to both Protenix-v2 modes."""
+    `WH_FAST_LEVERS`, and Wormhole adds `TRIATT_LN` to both Protenix-v2 modes and `WS_FAST` to its --fast."""
     v2 = Trunk._derive_c_z(state_dict) == 256
     wh = _T.is_wormhole()
     pair_ln = TRIATT_LN if v2 and wh else frozenset()
     return _T.model_levers((NORMAL_LEVERS | T2_TAIL | WS_CHAIN if v2 else NORMAL_LEVERS) | pair_ln,
-                           (WH_FAST_LEVERS if wh else FAST_LEVERS) | pair_ln)
+                           WH_FAST_LEVERS | pair_ln | (WS_FAST if v2 else frozenset()) if wh else FAST_LEVERS)
 
 
 # How many diffusion samples a single batched denoise carries by default. The batched
