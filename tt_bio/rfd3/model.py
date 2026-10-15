@@ -3803,6 +3803,9 @@ class RFD3DiffusionModule(Module):
         if _ATTN_OVERLAP:
             f["attn_future"] = _attention_indices_future(f, X_noisy_L, tok_idx, self.N_ATTN_KEYS,
                                                          self.N_ATTN_SEQ)
+            # Recycle 0's DiT index reads the same step-start coordinates, so it queues behind it.
+            f["dit_future"] = _attention_indices_future(f, X_noisy_L[..., f["is_ca"], :], torch.arange(I),
+                                                        self.DIT_KEYS, self.DIT_SEQ)
         else:
             f["attn_indices"] = _create_attention_indices(f, X_noisy_L, tok_idx, self.N_ATTN_KEYS,
                                                           self.N_ATTN_SEQ)
@@ -3880,8 +3883,9 @@ class RFD3DiffusionModule(Module):
         s_dev, z_dev = tok or self.diffusion_token_encoder.run_device(R_L_ca, S_I, Z_II, D_II_self=D_II_self)
         # Built before the s readback so the host works while the encoder is still on the card.
         X_L_ca = X_noisy_L[..., is_ca, :] if X_L_self is None else X_L_self[..., is_ca, :]
-        dit_idx = _create_attention_indices(f, X_L_ca, torch.arange(S_I.shape[-2], device=X_L_ca.device),
-                                            self.DIT_KEYS, self.DIT_SEQ)
+        fut = f.pop("dit_future", None) if X_L_self is None else None
+        dit_idx = fut.result() if fut is not None else _create_attention_indices(
+            f, X_L_ca, torch.arange(S_I.shape[-2], device=X_L_ca.device), self.DIT_KEYS, self.DIT_SEQ)
         S_I = s_dev if _RESIDENT_STEP else ttnn.to_torch(s_dev).float()
         A_I = self.diffusion_transformer(A_I, S_I, z_dev, dit_idx, resident=_RESIDENT_STEP)
         ttnn.deallocate(z_dev)
