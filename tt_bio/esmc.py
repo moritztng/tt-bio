@@ -229,8 +229,10 @@ ESMC_SDPA_K_CHUNK = 64
 
 # q in one chunk up to ESMC_SDPA_Q_WHOLE rows. The page bucket, 544 rows, is 17 tiles, a prime, so a 128-row chunk pads
 # q to 640. Galaxy chip at 1000 MHz, batch 7 x 15 heads x 544 x d 64 (sdpa_sweep.py), ms per call: q128/k64 1.167 ->
-# q544/k64 0.792, error against float64 unchanged (max abs 0.0467, pcc 0.99970 both). Off until the page cell says.
-_ESMC_SDPA_Q_WHOLE = env_flag("TT_BIO_ESMC_SDPA_Q_WHOLE", False)
+# q544/k64 0.792, error against float64 unchanged (max abs 0.0467, pcc 0.99970 both); 6B shape (1 x 40 heads) 0.572 ->
+# 0.413. Page cell (esmc_ab.py, 2 rounds, 1000 MHz), embeddings bit-identical to the 128-row chunks: 300M 161.7 -> 151.6 ms,
+# --fast 160.1 -> 150.1.
+_ESMC_SDPA_Q_WHOLE = env_flag("TT_BIO_ESMC_SDPA_Q_WHOLE", True)
 ESMC_SDPA_Q_WHOLE = 544
 
 
