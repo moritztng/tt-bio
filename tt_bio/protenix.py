@@ -3543,7 +3543,10 @@ class Trunk(_KeyedWeights):
         msa = F.one_hot(feat["msa"].long(), 32).to(bf)
         ms = torch.cat([msa, feat["has_deletion"].to(bf).unsqueeze(-1),
                         feat["deletion_value"].float().to(bf).unsqueeze(-1)], -1).unsqueeze(0)
-        return dict(N=N, pad=pad, feat=feat, relp=self._host_cast(relp),
+        relp_g = (self.trunk_input.relp_index(relp)
+                  if _T.lever("relp_gather") and getattr(self.trunk_input, "dtype", ttnn.bfloat16) == ttnn.bfloat16
+                  else None)
+        return dict(N=N, pad=pad, feat=feat, relp=self._host_cast(relp), relp_g=relp_g,
                     token_bonds=self._host_cast(token_bonds.unsqueeze(-1)),
                     pm_pad=pm_pad, at_pad=at_pad, nt=nt,
                     te_at=[self._host_cast(t.unsqueeze(0)) for t in te_at], ms=ms)
@@ -3571,7 +3574,10 @@ class Trunk(_KeyedWeights):
         if pad:
             s_inputs = F.pad(s_inputs, (0, 0, 0, pad), value=_pad_poison())
             pmask_tt, attn_tt = self._up(host["pm_pad"]), self._up(host["at_pad"])
-        s_init, z_init = self.trunk_input(self._up(s_inputs), self._up(host["relp"]), self._up(host["token_bonds"]))
+        relp_g = host.get("relp_g")
+        s_init, z_init = self.trunk_input(self._up(s_inputs),
+                                          relp_g if relp_g is not None else self._up(host["relp"]),
+                                          self._up(host["token_bonds"]))
         # te_at is cycle-invariant: upload + project it once here instead of re-uploading
         # ~57 MB x nt on every recycle cycle inside _template. Per-fold local on purpose:
         # N varies between targets, so never cache this on self.
@@ -4037,6 +4043,45 @@ class TrunkInput(_KeyedWeights, Module):
         z1 = ttnn.reshape(self._lin(s_init, "linear_no_bias_zinit1.weight"), (N, 1, cz))
         z2 = ttnn.reshape(self._lin(s_init, "linear_no_bias_zinit2.weight"), (1, N, cz))
         z = ttnn.add(z1, z2)
-        z = ttnn.add(z, self._lin(relp, "relative_position_encoding.linear_no_bias.weight"))
+        rel = (self.relp_gather(*relp, N) if isinstance(relp, tuple)
+               else self._lin(relp, "relative_position_encoding.linear_no_bias.weight"))
+        z = ttnn.add(z, rel)
         z = ttnn.add(z, self._lin(token_bonds, "linear_no_bias_token_bond.weight"))
         return s_init, z
+
+    # relp_gather: column k of the 139-wide one-hot -> its digit in one joint id per pair,
+    # ((d_res * 66 + d_tok) * 2 + same_entity) * 6 + d_chain. Exact in fp32 (max 52271).
+    _RELP_CODE = torch.cat([torch.arange(66) * 792, torch.arange(66) * 12, torch.tensor([6]),
+                            torch.arange(6)]).float()
+
+    def relp_index(self, relp):
+        """Host half of `relp_gather`, run on the host lane: `(index [N, N] int32, table [U, c_z])`.
+
+        Each pair's relp row is a one-hot of four offsets (or all zero in a token-bucket pad), so
+        the projection is the sum of at most four weight rows. The table holds that sum once per
+        distinct row of this fold, in fp32 from the bf16 weights the device multiplies, rounded
+        once to bf16; the device then gathers rows instead of reading a 139-wide tensor.
+        None when relp is not a 0/1 one-hot (a poisoned pad), which takes the matmul path."""
+        flat = relp.reshape(-1, relp.shape[-1]).float()
+        if flat.shape[-1] != self._RELP_CODE.numel() or _pad_poison() != 0.0:
+            return None
+        ids = flat @ self._RELP_CODE + (flat.sum(-1) == 0).float() * 52272
+        uniq, first = torch.unique(ids, return_inverse=True)
+        rep = torch.zeros(uniq.numel(), dtype=torch.long).scatter_(
+            0, first, torch.arange(first.numel()))
+        w = self._w["relative_position_encoding.linear_no_bias.weight"].to(torch.bfloat16).float()
+        table = (flat[rep] @ w.t()).to(torch.bfloat16)
+        return first.reshape(relp.shape[:-1]).to(torch.int32), table
+
+    def relp_gather(self, index, table, N):
+        """Device half of `relp_gather`: the relative-position projection, [N, N, c_z] bf16."""
+        dev = get_device()
+        tab = ttnn.from_torch(table, layout=ttnn.ROW_MAJOR_LAYOUT, device=dev, dtype=ttnn.bfloat16)
+        idx = ttnn.from_torch(index.reshape(1, -1), layout=ttnn.ROW_MAJOR_LAYOUT, device=dev,
+                              dtype=ttnn.uint32)
+        g = ttnn.embedding(idx, tab, layout=ttnn.ROW_MAJOR_LAYOUT, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+        ttnn.deallocate(idx)
+        ttnn.deallocate(tab)
+        out = ttnn.to_layout(ttnn.reshape(g, (N, N, table.shape[-1])), ttnn.TILE_LAYOUT)
+        ttnn.deallocate(g)
+        return out
