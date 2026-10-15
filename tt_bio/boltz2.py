@@ -59,7 +59,10 @@ tenstorrent = _LazyTenstorrent()
 # triatt_tail is not in the normal set: its 11-set normal grade passed on Wormhole (88 paired folds) but failed on
 # Blackhole p150a (88 paired, seeds 101-108): ipTM -0.0225 [-0.0409, -0.0059], CA-lDDT -0.0003 [-0.0006, -0.0001]
 # (spd-integrate gttbh, 2026-10-12). It was worth ~0.8 s of a 16 s fold at 512 x 1.
-LEVERS_NORMAL = frozenset({"trimul_ibw", "trimul_tail", "trunk_hifi3", "dit_sdpa32", "silu_f32"})
+# opm_jd (the OPM contracts b in (j d) row order, so its output needs no relayout) moves bytes, not arithmetic, and
+# rides in both modes on its digest: CIFs identical on and off, Galaxy chip 512 x 1 (1000 MHz, 5 pairs each), normal
+# 31.20 -> 30.68 s (5/5 pairs faster), fast -0.29 s median (spd-gap-small opmj, 2026-10-15).
+LEVERS_NORMAL = frozenset({"trimul_ibw", "trimul_tail", "trunk_hifi3", "dit_sdpa32", "silu_f32", "opm_jd"})
 # Fast: tenstorrent.FAST_LEVERS on the normal path. The process-wide `--fast` switch
 # (tenstorrent._FAST_MODE: bfp8 activations, narrower chunks) is off inside Boltz-2, because on
 # Wormhole c730 it folds in 159.7 s against 135.5 s for normal mode, while this set folds in 123.4 s
@@ -80,7 +83,8 @@ LEVERS_NORMAL = frozenset({"trimul_ibw", "trimul_tail", "trunk_hifi3", "dit_sdpa
 # 0.6 A kill bar on both (top pose 0.876 / 0.845 A), so normal keeps the incumbent.
 LEVERS_FAST = frozenset({"acc_off", "diffusion_bf16", "dit_sdpa", "transition_b8", "opm_b8", "atom_sdpa",
                          "trimul_ibw", "trimul_tail", "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32",
-                         "triatt_tail", "adaln_mod", "transition_ws", "trimul_t1", "trimul_t2", "ws_resid"})
+                         "triatt_tail", "adaln_mod", "transition_ws", "trimul_t1", "trimul_t2", "ws_resid",
+                         "opm_jd"})
 # Wormhole --fast adds the pair LayerNorm fused into triangle attention's projections (protenix.TRIATT_LN). Wormhole
 # 11-set fast grade, LEVERS_FAST vs + these, 44 paired folds (spd-gap-small gtalb2, 2026-10-15), PASS: CA-lDDT
 # -0.0005 [-0.0013, +0.0001], pLDDT within 0.004 per complex, docking 24 -> 24. Galaxy chip 512 x 1 -0.64 s (5/5 pairs).
