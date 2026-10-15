@@ -73,8 +73,9 @@ T2_TAIL = frozenset({"trimul_t2", "trimul_t2cm", "trimul_t2w"})
 # Protenix-v2 normal top pose median 0.080 A vs the 1.050 A A/A floor (37 paired folds), OpenDDE normal 0.241 vs
 # 1.257 A (39), OpenDDE fast 0.625 vs 1.374 A (44); docking within one fold everywhere. Galaxy chip (1000 MHz)
 # OpenDDE normal -3.7 s, fast -2.3 s, Protenix-v2 normal -0.7 s. Not graded at c_z 128, so Protenix-v1 stays off.
-# Empty until its Blackhole twin (gwchbh) reads; then this is frozenset({"ws_chain"}).
-WS_CHAIN = frozenset()
+# Blackhole twin (gwchbh, 2026-10-15): Protenix-v2 normal PASS 0.080 A vs 1.177 A, OpenDDE fast PASS; OpenDDE normal
+# FAIL, so OpenDDE's Blackhole normal set leaves it out (`opendde.BH_NORMAL_LEVERS`).
+WS_CHAIN = frozenset({"ws_chain"})
 # --fast takes trimul_t1_c256 too (Protenix-v2; c_z 128 Protenix-v1 is untouched, OpenDDE has its own set).
 # Blackhole 11-set fast grade, fast vs fast+trimul_t1_c256, 43 paired folds (spd-gap-small g256bh, 2026-10-14), PASS:
 # same-seed top pose median 0.125 A vs the 1.342 A A/A floor, CA-lDDT -0.0004 [-0.0010, +0.0001], docking 33 -> 33.
@@ -87,7 +88,9 @@ WH_FAST_LEVERS = FAST_LEVERS - {"trimul_t1_c256"}
 # attention pair-bias), so the normed pair is never written to DRAM. Wormhole 11-set fast grade, Protenix-v2 fast vs
 # fast + these, 44 paired folds (spd-gap-small gtaln, 2026-10-15), PASS: same-seed top pose median 0.335 A vs the
 # 1.414 A A/A floor, CA-lDDT +0.0006 [-0.0003, +0.0022], docking 34 -> 35. Galaxy chip (1000 MHz, 5 paired folds,
-# talnab): Protenix-v2 fast -2.90 s; OpenDDE null (+0.23 s), so it stays Protenix-v2 only.
+# talnab): Protenix-v2 fast -2.90 s; OpenDDE null (+0.23 s), so it stays Protenix-v2 only. Wormhole normal takes it
+# too: 11-set normal grade, shipped Protenix-v2 normal set vs + these, 44 paired folds (gtalnn, 2026-10-15), PASS:
+# top pose median 0.091 A vs the 0.946 A floor, CA-lDDT +0.0001 [-0.0001, +0.0003], docking 35 -> 35; -2.98 s.
 TRIATT_LN = frozenset({"triatt_ln", "apb_ln"})
 from .eltwise_fusion import scale_add, norm_residual, gated_add
 
@@ -95,11 +98,12 @@ from .eltwise_fusion import scale_add, norm_residual, gated_add
 def mode_levers(state_dict):
     """The mode's lever set for a Protenix checkpoint: `FAST_LEVERS` under --fast, else `NORMAL_LEVERS`,
     plus `T2_TAIL` and `WS_CHAIN` for Protenix-v2 (c_z 256), the one width their normal grades cover; Wormhole --fast takes
-    `WH_FAST_LEVERS`, plus `TRIATT_LN` for Protenix-v2."""
+    `WH_FAST_LEVERS`, and Wormhole adds `TRIATT_LN` to both Protenix-v2 modes."""
     v2 = Trunk._derive_c_z(state_dict) == 256
-    wh_fast = WH_FAST_LEVERS | TRIATT_LN if v2 else WH_FAST_LEVERS
-    return _T.model_levers(NORMAL_LEVERS | T2_TAIL | WS_CHAIN if v2 else NORMAL_LEVERS,
-                           wh_fast if _T.is_wormhole() else FAST_LEVERS)
+    wh = _T.is_wormhole()
+    pair_ln = TRIATT_LN if v2 and wh else frozenset()
+    return _T.model_levers((NORMAL_LEVERS | T2_TAIL | WS_CHAIN if v2 else NORMAL_LEVERS) | pair_ln,
+                           (WH_FAST_LEVERS if wh else FAST_LEVERS) | pair_ln)
 
 
 # How many diffusion samples a single batched denoise carries by default. The batched
