@@ -3186,8 +3186,13 @@ class DiffusionTokenEncoder(Module):
         s, z = self.run_device(R_L_ca, S_init_I, Z_init_II, D_II_self=D_II_self)
         return ttnn.to_torch(s).float(), ttnn.to_torch(z).float()
 
-    def run_device(self, R_L_ca, S_init_I, Z_init_II, D_II_self=None):
+    def bins(self, R_L_ca):
+        return _scaled_distogram_bins(R_L_ca, sigma_data=self.sigma_data, n_bins=self.N_BINS)
+
+    def run_device(self, R_L_ca, S_init_I, Z_init_II, D_II_self=None, bins=None):
         """Same computation as __call__, returning the ttnn tensors instead of host copies.
+        `bins` is self.bins(R_L_ca) when the caller already has it: every recycle of a step
+        sees the same coordinates, and the host distogram is ~12 ms a call on one thread.
 
         z is [B,I,I,c_z]: O(I^2) and by far the largest tensor the step moves. Handing it
         to the DiT as a device tensor removes one D->H untilize plus one H->D upload per
@@ -3205,7 +3210,8 @@ class DiffusionTokenEncoder(Module):
             upd = tr(sc)
             s = ttnn.add(s, ttnn.typecast(upd, ttnn.float32, memory_config=upd.memory_config())) if f32 \
                 else ttnn.add(s, upd)
-        bins = _scaled_distogram_bins(R_L_ca, sigma_data=self.sigma_data, n_bins=self.N_BINS)
+        if bins is None:
+            bins = self.bins(R_L_ca)
         if Z_init_II.ndim == 3:
             Z_init_II = Z_init_II.unsqueeze(0)
         if _PROCESS_Z_COLLAPSE:
@@ -3923,9 +3929,10 @@ class RFD3DiffusionModule(Module):
 
     def _denoise(self, n_recycle, X_noisy_L, R_L_uniform, t_L, f, tok_idx, Q_L, C_L, P_LL, A_I, S_I, Z_II):
         first_tok = None
+        tok_bins = self.diffusion_token_encoder.bins(R_L_uniform[..., f["is_ca"], :])
         if _ATTN_OVERLAP:
             first_tok = self.diffusion_token_encoder.run_device(
-                R_L_uniform[..., f["is_ca"], :], S_I, Z_II, D_II_self=None)
+                R_L_uniform[..., f["is_ca"], :], S_I, Z_II, D_II_self=None, bins=tok_bins)
             fut = f.pop("attn_future", None)
             f["attn_indices"] = fut.result() if fut is not None else _create_attention_indices(
                 f, X_noisy_L, tok_idx, self.N_ATTN_KEYS, self.N_ATTN_SEQ)
@@ -3933,7 +3940,7 @@ class RFD3DiffusionModule(Module):
         A_I = self._downcast_q(Q_L, A_I, S_I, tok_idx)
         recycled = self._forward_with_recycle(
             n_recycle, X_noisy_L=X_noisy_L, R_L_uniform=R_L_uniform, t_L=t_L, f=f, Q_L=Q_L,
-            C_L=C_L, P_LL=P_LL, A_I=A_I, S_I=S_I, Z_II=Z_II, first_tok=first_tok)
+            C_L=C_L, P_LL=P_LL, A_I=A_I, S_I=S_I, Z_II=Z_II, first_tok=first_tok, tok_bins=tok_bins)
         return {"X_L": recycled["X_L"], "sequence_logits_I": recycled["sequence_logits_I"],
                 "sequence_restype_I": recycled["sequence_restype_I"]}
 
@@ -3946,7 +3953,7 @@ class RFD3DiffusionModule(Module):
         return rec
 
     def _process_(self, D_II_self, X_L_self, *, R_L_uniform, X_noisy_L, t_L, f, Q_L, C_L, P_LL, A_I, S_I, Z_II,
-                  tok=None, last=True):
+                  tok=None, last=True, tok_bins=None):
         is_ca = f["is_ca"]
         R_L_ca = R_L_uniform[..., is_ca, :]
         # z stays on the card between these two: it is [B,I,I,128], the only O(I^2)
@@ -3954,7 +3961,8 @@ class RFD3DiffusionModule(Module):
         # at 3359 atoms against 13.9% at 419 (p19 step 0) -- the size-dependent cost the
         # GPU does not pay. s is O(I*c_s) and still crosses, because the decoder wants it
         # on host anyway.
-        s_dev, z_dev = tok or self.diffusion_token_encoder.run_device(R_L_ca, S_I, Z_II, D_II_self=D_II_self)
+        s_dev, z_dev = tok or self.diffusion_token_encoder.run_device(R_L_ca, S_I, Z_II, D_II_self=D_II_self,
+                                                                      bins=tok_bins)
         # Built before the s readback so the host works while the encoder is still on the card.
         X_L_ca = X_noisy_L[..., is_ca, :] if X_L_self is None else X_L_self[..., is_ca, :]
         fut = f.pop("dit_future", None) if X_L_self is None else None
