@@ -352,6 +352,7 @@ def test_the_triatt_tail_runs_in_an_unrecorded_forward_and_declines_in_a_recorde
     Q = pytest.importorskip("tt_bio.triatt_qkv")
     assert Q.gated_out_proj.tape_entry_name == "triatt_tail"
     seen = []
+    monkeypatch.setattr(Q, "_g3d", lambda o, g: True)
     monkeypatch.setattr(Q, "tail_on", lambda *a: seen.append(ops.declines_under_tape("triatt_tail")) or False)
 
     class _Hook:
