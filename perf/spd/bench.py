@@ -62,6 +62,9 @@ ap.add_argument("--model", default="protenix-v2",
 ap.add_argument("--arm", default="exact")
 ap.add_argument("--inputs", default="c730")
 ap.add_argument("--warm", type=int, default=3)
+ap.add_argument("--between", choices=("cache", "latches", "both"), default=None,
+                help="before each input after the first: clear the device program cache and/or reset tt-bio's "
+                     "process-global refusal latches (*_REFUSED sets, *_RUNG ladders), to test process-history effects")
 ap.add_argument("--seed", type=int, default=101, help="cold rep seed; warm reps use seed+1..seed+warm")
 ap.add_argument("--data", type=Path, default=Path("~/spd-data").expanduser())
 ap.add_argument("--share", type=int, default=None,
@@ -87,6 +90,35 @@ def _latches():
     tt = sys.modules.get("tt_bio.tenstorrent")
     return {k: {f: v for f, v in r.items() if f != "why" and v} for k, r in getattr(tt, "LATCH_STATS", {}).items()
             if any(v for f, v in r.items() if f != "why")}
+
+
+_LATCH_MODS = ("tt_bio.tenstorrent", "tt_bio.protenix", "tt_bio.triatt_qkv")
+
+
+def _latch_sets():
+    """Every process-global refusal latch (*_REFUSED*, *_RUNG) of the tt-bio modules, by name."""
+    out = {}
+    for mn in _LATCH_MODS:
+        mod = sys.modules.get(mn)
+        for k, v in vars(mod or object).items():
+            if ("REFUSED" in k or k.endswith("_RUNG")) and isinstance(v, (set, dict)):
+                out[f"{mn.split('.')[-1]}.{k}"] = v
+    return out
+
+
+def _refused():
+    """The latches' contents, so a fold records which refusal state it started from."""
+    return {k: sorted((f"{x}={v[x]}" if isinstance(v, dict) else str(x)) for x in v)
+            for k, v in _latch_sets().items() if v}
+
+
+def _between(what):
+    if what in ("cache", "both"):
+        dev = sys.modules["tt_bio.tenstorrent"].get_device()
+        dev.disable_and_clear_program_cache(); dev.enable_program_cache()
+    if what in ("latches", "both"):
+        for v in _latch_sets().values():
+            v.clear()
 
 
 def parse_arm(spec):
@@ -462,7 +494,9 @@ else:
     setattr(m, FOLD_CALL, fold)
 
 
-for name, y in INPUTS:
+for i_in, (name, y) in enumerate(INPUTS):
+    if a.between and i_in:
+        _between(a.between); log(ev="between", what=a.between, refused=_refused())
     seeds = [(a.seed, "cold")] + [(a.seed + i, "warm") for i in range(1, a.warm + 1)]
     for sd, kind in seeds:
         rcfg = dict(cfg0, seed=sd, fast=FAST)
@@ -490,6 +524,6 @@ for name, y in INPUTS:
             metrics={k: metrics.get(k) for k in ("plddt", "ptm", "iptm", "msa_depth", "n_tokens", "confidence_score")
                      if k in metrics},
             samples_conf=[{k: v for k, v in r.items() if not isinstance(v, dict)} for r in metrics.get("all_runs", [])],
-            struct_dir=str(sdir), latches=_latches(), **HEAD)
+            struct_dir=str(sdir), latches=_latches(), refused=_refused(), **HEAD)
 log(ev="end")
 os._exit(0)
