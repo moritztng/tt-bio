@@ -674,7 +674,10 @@ _FAST_MODE = False
 #                   can take the kernel: summing all of K in dest wrote exact 1 / 2 / 4 errors there (wd1).
 #   ws_resid        with transition_ws, fc3 adds the residual in its fp32 dest and writes over it: the transition's
 #                   `z + t` and the hidden-chunk sum stop being separate add passes over the pair (OpenDDE WH
-#                   fast census: 4.3 s of add_ per fold).
+#                   fast census: 4.3 s of add_ per fold). Only where the weights take one hidden chunk (`ws_swiglu`).
+#   ws_chain        with transition_ws, where the weights take n > 1 hidden chunks: chunk 1 writes t, each later
+#                   chunk adds into it in its fp32 dest (`pair_swiglu` resid), so the n - 1 chunk-sum add passes go;
+#                   the sum rounds at t's magnitude as before, once per chunk instead of once per add.
 #   opm_jd          the OPM contracts against b in (j d) row order, so z's tile (i, j) is pair (i, j)'s [c, d]
 #                   block and one data-movement kernel (opm_relayout) lays it out for the projection in place of
 #                   the 4-op chain. Moves bytes only: bit-exact. C = D = 32 and J a whole number of tiles.
@@ -702,7 +705,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "trimul_t2w", "narrow_bw16", "ws_l1dest", "opm_jd", "trimul_gin_hifi2", "trimul_gin_b8",
           "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine", "ef2_opm_kq", "ef2_relpos_lookup",
           "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit", "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384",
-          "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "dit_kc", "dit_mask16")
+          "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "dit_kc", "dit_mask16")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -717,7 +720,7 @@ UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "di
                              "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine", "ef2_opm_kq",
                              "ef2_relpos_lookup", "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit",
                              "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384",
-                             "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "dit_kc", "dit_mask16"})
+                             "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "dit_kc", "dit_mask16"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -12803,6 +12806,10 @@ def _ws_applies(x, ckc) -> bool:
             and not _dest_guard.tail_exposed(ckc))
 
 
+# How many hidden chunks `ws_swiglu` may add into `resid` (see its docstring); a bench knob, never raised in production.
+_WS_RESID_CHUNKS = 1
+
+
 def ws_swiglu(x, norm_weight, norm_bias, ckc, parts, resid=None):
     """`fc3(silu(LN(x) w1) * (LN(x) w2))` as `pair_swiglu_ws` programs over the hidden chunks `parts`
     (`pair_swiglu_ws.weights`), their outputs summed; or None where the kernel does not take the shape (a chunk
@@ -12811,9 +12818,15 @@ def ws_swiglu(x, norm_weight, norm_bias, ckc, parts, resid=None):
     Shared by the pair `Transition` and ESMFold2's `esmc.SwiGLUFFN`. With bfp8 weights (fast mode) the matmuls
     run at HiFi2, which covers every bfp8 weight bit (`bfp8_fidelity`); x stays the layer norm's bf16, since the
     kernel takes it at the same speed as bfp8 x and a separate cast cost 0.46 ms at c_z 128 (ws_attr, WH).
-    `resid`: every chunk adds into `resid` in place (`pair_swiglu`'s resid) and `resid + out` is returned, so the
-    chunk sum and the caller's residual add cost no pass of their own; None where any chunk declines it.
+    `resid`: the one chunk adds into `resid` in place (`pair_swiglu`'s resid) and `resid + out` is returned, so the
+    caller's residual add costs no pass of its own; None where the chunk declines it, or where the weights take more
+    than one chunk: each chunk would round z + t_i to bf16 at z's magnitude, n roundings where the add takes one.
+    Measured on Wormhole against float64 (perf/spd_gap_small/wsr_parity.py, |z| ~ 40): rel_rms 0.113 at one chunk
+    (the one-rounding floor 0.112), 0.158 at two (c_z 256 bf16), 0.221 at four (c_z 384 bf16); the Protenix-v2 normal
+    grade with two-chunk resid lost 0.33 CA-lDDT on the 680-790 token complexes (spd-gap-small gwr, 2026-10-14).
     """
+    if resid is not None and len(parts) > _WS_RESID_CHUNKS:
+        return None
     if not all(_pair_ws.eligible(x, w12, w3, l1acc=lever("ws_l1acc"), resid=resid) for w12, w3 in parts):
         return None
     fid = ttnn.MathFidelity.HiFi2 if parts[0][0].dtype == ttnn.bfloat8_b else ckc.math_fidelity
@@ -12831,6 +12844,14 @@ def ws_swiglu(x, norm_weight, norm_bias, ckc, parts, resid=None):
             _pair_ws.pair_swiglu(x_norm, w12, w3, fid, l1acc=acc, resid=resid)
         ttnn.deallocate(x_norm)
         return resid
+    if (len(parts) > 1 and lever("ws_chain")
+            and all(_pair_ws.eligible(x_norm, w12, w3, l1acc=acc, resid=x_norm) for w12, w3 in parts[1:])):
+        # x_norm stands in for t's layout: same padded shape (the transition is c -> c), bf16, TILE, DRAM.
+        out = _pair_ws.pair_swiglu(x_norm, *parts[0], fid, l1acc=acc)
+        for w12, w3 in parts[1:]:
+            _pair_ws.pair_swiglu(x_norm, w12, w3, fid, l1acc=acc, resid=out)
+        ttnn.deallocate(x_norm)
+        return out
     for w12, w3 in parts:
         o = _pair_ws.pair_swiglu(x_norm, w12, w3, fid, l1acc=acc)
         if out is None:

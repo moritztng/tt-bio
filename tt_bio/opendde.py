@@ -17,7 +17,7 @@ device.
 import torch
 import ttnn
 
-from .protenix import NORMAL_LEVERS, _KeyedWeights
+from .protenix import NORMAL_LEVERS as _FAMILY_NORMAL, WS_CHAIN, _KeyedWeights
 from . import hostlane
 from .envflags import env_flag
 from .opendde_data import STRUCTURAL_TOKEN_ROLES
@@ -440,7 +440,9 @@ def route_opendde_weights(state_dict):
 # 2026-10-13): PASS, same-seed top pose median 0.327 A against the 0.60 A bar (A/A floor 1.316 A), CA-lDDT
 # +0.0016 [+0.0001, +0.0039]. OpenDDE WH fast 512 x 1 121.4 -> 106.1 s with ws_resid. Protenix-v2 and Boltz-2 fast
 # read null (their c256 / c128 pair shapes miss both routes), so they stay off the shared set.
-FAST_LEVERS = (_T.FAST_LEVERS - {"dit_b8"}) | {"trimul_b8in", "trimul_t2w"}
+# Both modes take ws_chain (graded on Wormhole, see protenix.WS_CHAIN).
+NORMAL_LEVERS = _FAMILY_NORMAL | WS_CHAIN
+FAST_LEVERS = (_T.FAST_LEVERS - {"dit_b8"}) | {"trimul_b8in", "trimul_t2w"} | WS_CHAIN
 
 
 class OpenDDE:
@@ -454,7 +456,7 @@ class OpenDDE:
         (OPENDDE_DIFFUSION_FP32=1 lifts it). Guided runs pass True (host_controller.diffusion_precision).
         levers: the precision levers this model builds and folds under, the same switches
         Protenix-v2 runs (`tenstorrent.LEVERS`); None takes the mode's set
-        (`tenstorrent.model_levers`): the Protenix family's `NORMAL_LEVERS`, or `FAST_LEVERS` below under `--fast`."""
+        (`tenstorrent.model_levers`): `NORMAL_LEVERS` (the Protenix family set + ws_chain), or `FAST_LEVERS` below under `--fast`."""
         import tt_bio.tenstorrent as _TT
         self._levers = _TT.model_levers(NORMAL_LEVERS, FAST_LEVERS, spec=levers)
         with _TT.levers(self._levers):
