@@ -573,6 +573,11 @@ _FAST_MODE = False
 #   trimul_gin_hifi2 trimul_gin's kernel at HiFi2 whatever the trunk's fidelity. ESMFold2's call at 512 on p150a
 #                   (1350 MHz): normal set 9.37 -> 8.71 ms, rel_rms vs float64 0.0088 -> 0.0106; fast set 8.62 -> 8.33
 #                   ms, 0.0088 -> 0.0107 (HiFi3 in the normal set: 9.02 ms at the same error as HiFi4)
+#   trimul_sig6     the trimul kernels' gate sigmoid (gin, T1, tails) as a degree-6 polynomial instead of degree 8:
+#                   max |error| 7.4e-4 vs 3.0e-4 against float64, ~1/3 fewer SFPU instructions per gate tile
+#   trimul_gin_fuse gin_moved multiplies value and gate in DST (both side by side, half of DST each) instead of
+#                   packing both to L1 as bf16 and multiplying them back: two 32-tile buffers fewer, so ESMFold2's
+#                   c_z 256 in-projection fits one launch and reads the pair tensor once instead of twice
 #   trimul_gin_b8   trimul_gin, and the einsum's deferred transpose, also under the bfp8 `_FAST_MODE` (how Wormhole
 #                   ESMFold2 folds). gin writes a and b in bf16, so the deferral's bfp8 re-quantisation does not arise
 #                   where gin serves. ESMFold2's call on Wormhole (1000 MHz, fast set): 512 32.3 -> 18.5 ms, 1024
@@ -711,14 +716,14 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "trimul_t2w", "narrow_bw16", "ws_l1dest", "opm_jd", "trimul_gin_hifi2", "trimul_gin_b8",
           "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine", "ef2_opm_kq", "ef2_relpos_lookup",
           "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit", "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384",
-          "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "dit_kc", "dit_mask16", "dit_cond_jit",
-          "relp_gather")
+          "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
+          "dit_cond_jit", "relp_gather")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
 # model's matching op. BoltzGen's own --fast set names dit_cond_hifi2, graded on BoltzGen's designs.
 # OpenFold3's own --fast set names dit_fuse, edm_device, ws_l1dest, and dit_hifi2, dit_kc and dit_mask16 (Wormhole),
-# graded on OpenFold3 / OpenBind-0 (openfold3_fold.FAST_LEVERS).
+# graded on OpenFold3 / OpenBind-0, and the bit-exact triatt_ln (openfold3_fold.FAST_LEVERS).
 # ref_memo is host featurisation, OpenFold3 / OpenBind-0 only: one reference conformer per residue type
 # (vendored query.REF_MOL_MEMO), read by worker._predict_openfold3_one off the model's lever set.
 UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "dit_cond_hifi2", "ws_ln", "dit_fuse",
@@ -727,7 +732,7 @@ UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "di
                              "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine", "ef2_opm_kq",
                              "ef2_relpos_lookup", "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit",
                              "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384",
-                             "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "dit_kc", "dit_mask16",
+                             "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
                              "dit_cond_jit", "relp_gather"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6

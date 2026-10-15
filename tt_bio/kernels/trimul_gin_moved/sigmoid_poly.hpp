@@ -39,6 +39,27 @@ inline void _sigmoid_poly_() {
     }
 }
 
+// sigmoid on _silu_poly6_'s degree-6 fit (lever trimul_sig6): max |error| 7.4e-4 against float64, output inside
+// (0, 1), ~2/3 of _sigmoid_poly_'s SFPU instructions (every coefficient one SFPLOADI, no 1/9 scale).
+template <int ITERATIONS = 8>
+inline void _sigmoid_poly6_() {
+#pragma GCC unroll 0
+    for (int d = 0; d < ITERATIONS; d++) {
+        sfpi::vFloat x = sfpi::dst_reg[0];
+        sfpi::vFloat a = sfpi::abs(x);
+        v_if(a > 7.0f) { a = 7.0f; }
+        v_endif;
+        sfpi::vFloat h = a * 3.552436828613281e-05f - 0.0008435249328613281f;
+        h = h * a + 0.007404327392578125f;
+        h = h * a - 0.0260009765625f;
+        h = h * a - 0.0027103424072265625f;
+        h = h * a + 0.2529296875f;
+        h = h * a;
+        sfpi::dst_reg[0] = sfpi::setsgn(h, x) + 0.5f;
+        sfpi::dst_reg++;
+    }
+}
+
 // silu(x) = x * sigmoid(x) on the polynomial above (pair_swiglu_ws). Same error bound on the sigmoid factor; the
 // metal silu_tile under fp32 dest runs the accurate exp and a two-step reciprocal instead, and was ~85 % of that
 // kernel on WH (perf/spd_fastmode/ws_attr.py).
@@ -99,13 +120,55 @@ inline void _round_bf16_rne_() {
         sfpi::dst_reg++;
     }
 }
+// p * sigmoid(g) in place of p, g `goff` SFPI rows further on in DST (32 per tile): the gate's multiply done in
+// DST, so neither product is packed and read back (trimul_gin_moved's FUSE path). V as sigmoid_poly_tile's.
+template <uint32_t V, int ITERATIONS = 8>
+inline void _gate_poly_(uint32_t goff) {
+#pragma GCC unroll 0
+    for (int d = 0; d < ITERATIONS; d++) {
+        sfpi::vFloat x = sfpi::dst_reg[goff];
+        sfpi::vFloat h;
+        if constexpr (V == 2) {
+            sfpi::vFloat a = sfpi::abs(x);
+            v_if(a > 7.0f) { a = 7.0f; }
+            v_endif;
+            h = a * 3.552436828613281e-05f - 0.0008435249328613281f;
+            h = h * a + 0.007404327392578125f;
+            h = h * a - 0.0260009765625f;
+            h = h * a - 0.0027103424072265625f;
+            h = h * a + 0.2529296875f;
+            h = h * a;
+        } else {
+            sfpi::vFloat t = sfpi::abs(x) * 0.1111111119389534f;
+            v_if(t > 1.0f) { t = 1.0f; }
+            v_endif;
+            h = t * 9.57322883605957f - 51.5362548828125f;
+            h = h * t + 114.75630187988281f;
+            h = h * t - 135.66062927246094f;
+            h = h * t + 89.25188446044922f;
+            h = h * t - 29.09324073791504f;
+            h = h * t + 0.9815341234207153f;
+            h = h * t + 2.2268805503845215f;
+            h = h * t;
+        }
+        sfpi::dst_reg[0] = sfpi::dst_reg[0] * (sfpi::setsgn(h, x) + 0.5f);
+        sfpi::dst_reg++;
+    }
+}
 }  // namespace sfpu
 }  // namespace ckernel
 #endif  // TRISC_MATH
 
+// V is the kernels' SIGPOLY compile-time arg: 1 the degree-8 polynomial, 2 the degree-6 one.
+template <uint32_t V = 1>
 ALWI void sigmoid_poly_tile(uint32_t idst) {
-    MATH((_llk_math_eltwise_unary_sfpu_params_<false>(
-        ckernel::sfpu::_sigmoid_poly_<8>, idst, (int)VectorMode::RC)));
+    if constexpr (V == 2) {
+        MATH((_llk_math_eltwise_unary_sfpu_params_<false>(
+            ckernel::sfpu::_sigmoid_poly6_<8>, idst, (int)VectorMode::RC)));
+    } else {
+        MATH((_llk_math_eltwise_unary_sfpu_params_<false>(
+            ckernel::sfpu::_sigmoid_poly_<8>, idst, (int)VectorMode::RC)));
+    }
 }
 
 ALWI void silu_poly_tile(uint32_t idst) {
@@ -121,4 +184,11 @@ ALWI void silu_poly6_tile(uint32_t idst) {
 ALWI void round_bf16_rne_tile(uint32_t idst) {
     MATH((_llk_math_eltwise_unary_sfpu_params_<false>(
         ckernel::sfpu::_round_bf16_rne_<8>, idst, (int)VectorMode::RC)));
+}
+
+// DST tile ip <- tile ip * sigmoid(tile ig), ig > ip, sigmoid as sigmoid_poly_tile<V> (V 1 or 2).
+template <uint32_t V = 1>
+ALWI void gate_poly_tile(uint32_t ip, uint32_t ig) {
+    MATH((_llk_math_eltwise_unary_sfpu_params_<false>(
+        ckernel::sfpu::_gate_poly_<V == 2 ? 2u : 1u, 8>, ip, (int)VectorMode::RC, (ig - ip) * 32)));
 }

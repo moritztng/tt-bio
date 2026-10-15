@@ -14,7 +14,7 @@ AICLK is sampled from a separate process (ttnn holds the GIL through a sync), fr
 process opened.
 
 usage: bench.py OUT [--n 736] [--valid 730] [--arms base,ibw,into,...] [--reps 5] [--calls 4] [--chip C]
-       [--weights layer.pt] [--fast]
+       [--weights layer.pt] [--fast | --levers SET]
 """
 import argparse, json, os, statistics, subprocess, sys, time
 from pathlib import Path
@@ -47,6 +47,8 @@ ap.add_argument("--gated-move", action="store_true",
                 help="build the module as ESMFold2 does (gated_move=True), which the gated in-proj routes need")
 ap.add_argument("--fast", action="store_true",
                 help="build and run the module as Protenix's --fast trunk does: FAST_LEVERS active, fast mode off")
+ap.add_argument("--levers", default=None,
+                help="build and run under lever_scope(LEVERS), e.g. ESMFold2's Wormhole --fast set from fold_levers")
 ap.add_argument("--legacy-fast", action="store_true",
                 help="the older bfp8-trunk --fast (fast mode on, no levers), which OpenDDE still runs")
 A = ap.parse_args()
@@ -249,6 +251,8 @@ else:
 # with fast mode off (`Protenix._build`, legacy_fast=False), so --fast is the levers alone.
 if A.fast:
     T.levers("fast").__enter__()
+if A.levers:
+    T.lever_scope(A.levers).__enter__()
 if A.legacy_fast:
     T.set_fast_mode(True)
 from tt_bio.af2 import compute_kernel_config
@@ -362,7 +366,7 @@ for var in A.variants.split(","):
         e["vs_base_max_abs"] = (yt - outs["base"]).abs().max().item() if "base" in outs else None
         e["equal_base"] = bool(torch.equal(yt, outs["base"])) if "base" in outs else None
         log(ev="accuracy", variant=var, arm=arm, **e)
-        if arm == "base" and not (e["finite"] and e["rel_rms"] < (0.15 if A.fast or A.legacy_fast else 0.05)):  # bfp8 + LoFi
+        if arm == "base" and not (e["finite"] and e["rel_rms"] < (0.15 if A.fast or A.legacy_fast or A.levers else 0.05)):  # bfp8 + LoFi
             log(ev="abort", why="baseline misses the float64 reference: reference convention wrong", **e)
             raise SystemExit(2)
     if A.opsplit:                                      # one synced call per arm, per-op wall

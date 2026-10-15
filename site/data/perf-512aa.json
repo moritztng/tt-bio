@@ -22,8 +22,8 @@
     "seed": 0,
     "templates": "off",
     "protocol": "Warm runs, one prediction at a time on one accelerator, the same two input files on every platform, each model at its own shipped recycle and sampling-step settings. Each Tenstorrent cell is tt-bio main in its default mode.",
-    "nvidia_code": "An NVIDIA cell is one of two things, and the per-GPU list at the end of this entry says which. A kit cell is Anthropic's open kit for these models (github.com/anthropics/uplifting-biomolecular-modeling, commit f4f62fa65) in its exact mode: the authors' upstream package, patched in memory with fused kernels and CUDA graphs that keep its arithmetic. A stock cell is the authors' own release with nothing added. Neither is NVIDIA BioNeMo or a NIM. Each kit cell's machine also timed the kit's fast mode, which gives up bit-for-bit agreement for speed, and the unpatched upstream package; both are in the hover text and the data file, not on the bars. The kit does not carry BoltzGen or Nesso-1, so those are stock on every GPU. The B200 RoseTTAFold3, OpenDDE and PXDesign cells are stock runs from August 2026 until the kit's B200 run of those models is in.",
-    "nvidia_impl": "Exact mode was checked rather than assumed. With determinism switched on, OpenFold3, Protenix-v2 and both ESMFold2 rows returned the same coordinates as the unpatched package bit for bit on the A100, the H200 and the B200, and OpenDDE did on the A100 and the H200. The kit has no deterministic switch for RoseTTAFold3; it still matched bit for bit on 8 of 10 A100 folds, and on the H200 it sat a median 0.57 Å from the unpatched package. Boltz-2 has no deterministic recipe in exact mode, and the kit runs OpenBind-0 from a bf16 configuration where upstream ships fp32. For both, on every GPU, the median distance between the kit's structure and the unpatched package's is smaller than the median distance between two runs of the unpatched package. PXDesign's designs sit a median 0.014 Å from the unpatched package's on the A100 and 0.005 Å on the H200.",
+    "nvidia_code": "An NVIDIA cell is one of two things, and the per-GPU list at the end of this entry says which. A kit cell is Anthropic's open kit for these models (github.com/anthropics/uplifting-biomolecular-modeling, commit f4f62fa65) in its exact mode: the authors' upstream package, patched in memory with fused kernels and CUDA graphs that keep its arithmetic. A stock cell is the authors' own release with nothing added. Neither is NVIDIA BioNeMo or a NIM. Each kit cell's machine also timed the kit's fast mode, which gives up bit-for-bit agreement for speed, and the unpatched upstream package; both are in the hover text and the data file, not on the bars. The kit does not carry BoltzGen or Nesso-1, so those are stock on every GPU. On the B200, three of the kit's RoseTTAFold3 kernels do not run and are switched off with the kit's own setting, and PXDesign runs without its fused LayerNorm, which has no B200 build.",
+    "nvidia_impl": "Exact mode was checked rather than assumed. With determinism switched on, OpenFold3, Protenix-v2 and both ESMFold2 rows returned the same coordinates as the unpatched package bit for bit on the A100, the H200 and the B200, and so did OpenDDE. The kit has no deterministic switch for RoseTTAFold3; it still matched bit for bit on 8 of 10 A100 folds, and on the H200 and the B200 it sat a median 0.57 Å and 0.19 Å from the unpatched package. Boltz-2 has no deterministic recipe in exact mode, and the kit runs OpenBind-0 from a bf16 configuration where upstream ships fp32. For both, on every GPU, the median distance between the kit's structure and the unpatched package's is smaller than the median distance between two runs of the unpatched package. PXDesign's designs sit a median 0.014 Å from the unpatched package's on the A100, 0.005 Å on the H200 and 0.001 Å on the B200.",
     "timed_region": "Each cell times what that platform's own harness times, and the regions are not identical. Every Tenstorrent number is a whole prediction or design call, with featurisation and file writing inside it. A kit cell for Boltz-2, OpenFold3, OpenBind-0, Protenix-v2, OpenDDE or PXDesign times the model call alone and leaves host featurisation outside the timer, which makes those ratios larger than a like-for-like comparison would. An ESMFold2 kit cell times the fold call, sequence in and structure out. A RoseTTAFold3 cell times a whole fold on both sides. A cell measured before this campaign describes its own timer in its hover text."
   },
   "platforms": [
@@ -81,7 +81,7 @@
       "spec": "Blackwell, 180 GB HBM3e, up to 1000 W",
       "price_usd": null,
       "price_kind": "no public per-GPU list price",
-      "note": "Measured on single-GPU nodes with Intel Xeon Platinum 8559C hosts; each August cell's hover text names its own host."
+      "note": "Measured on single-GPU nodes with Intel Xeon Platinum 8559C hosts."
     },
     {
       "id": "a100",
@@ -322,12 +322,19 @@
           "versions": "kit f4f62fa65, torch 2.13.0, esm 26b0bc2b7, driver 580.126.09",
           "when": "2026-10-14",
           "ref": "kit",
+          "fast": {
+            "s_per_fold": 2.22,
+            "n": 4,
+            "clock_mhz": 1965,
+            "versions": "kit f4f62fa65, levers t10,t15,t15msa off (refused on this GPU), torch 2.13.0, esm 26b0bc2b7, driver 580.126.09",
+            "when": "2026-10-15"
+          },
           "stock": {
-            "s_per_fold": 3.968,
+            "s_per_fold": 3.958,
             "n": 4,
             "clock_mhz": 1965,
             "versions": "kit f4f62fa65, torch 2.13.0, esm 26b0bc2b7, driver 580.126.09",
-            "when": "2026-10-14"
+            "when": "2026-10-15"
           }
         },
         "a100": {
@@ -413,12 +420,19 @@
           "versions": "kit f4f62fa65, torch 2.13.0, esm 26b0bc2b7, driver 580.126.09",
           "when": "2026-10-14",
           "ref": "kit",
+          "fast": {
+            "s_per_fold": 1.226,
+            "n": 4,
+            "clock_mhz": 1965,
+            "versions": "kit f4f62fa65, levers t10,t15,t15msa off (refused on this GPU), torch 2.13.0, esm 26b0bc2b7, driver 580.126.09",
+            "when": "2026-10-15"
+          },
           "stock": {
-            "s_per_fold": 2.482,
+            "s_per_fold": 2.473,
             "n": 4,
             "clock_mhz": 1965,
             "versions": "kit f4f62fa65, torch 2.13.0, esm 26b0bc2b7, driver 580.126.09",
-            "when": "2026-10-14"
+            "when": "2026-10-15"
           }
         },
         "a100": {
@@ -548,7 +562,7 @@
       "name": "OpenDDE",
       "recycles": 10,
       "sampling_steps": 200,
-      "nvidia_impl": "The kit's exact mode over opendde 1.1.1 (aurekaresearch) on the A100 and the H200. The B200 cell is stock opendde 1.0.3 from August 2026, kernel selectors on auto, which resolve to cuEquivariance, with triton 3.4.0 in place of the pinned 3.3.1, which hangs on that GPU.",
+      "nvidia_impl": "The kit's exact mode over opendde 1.1.1 (aurekaresearch) on every GPU.",
       "cells": {
         "p150a": {
           "status": "measured",
@@ -593,10 +607,26 @@
         },
         "b200": {
           "status": "measured",
-          "s_per_fold": 17.691,
-          "provenance": "Median of n=4 warm, 17.456 / 17.475 / 17.691 / 18.623 s, spread 6.6 %, cold 31.172 s discarded. opendde 1.0.3, torch 2.7.1+cu128, cuEquivariance 0.10.0 in its cu12 build, triton 3.4.0, plDDT 0.823984, n_token 512, n_msa 35. cueqops_triangle_attention 1216 and cueqops_triangle_multiplicative_update 1216 per fold, equal to the August A100 stock run's counts, and the run's own kernel selectors resolved to cuequivariance from auto rather than falling back. Peak 894 W on a 1000 W part. Image pytorch/pytorch:2.7.1-cuda12.8-cudnn9-devel. The one deviation from the shipped pin is triton 3.4.0 in place of 3.3.1; torch and cuEquivariance are both left exactly where the model pins them. Shipped triton 3.3.1 hangs on sm_100 inside its own CUDA launcher when it launches cuEquivariance's fused_sigmoid_gated_dual_gemm, which is a triton kernel and not a cubin, and that hang is the whole reason this cell was blank. Neither the cu13 cuEquivariance build nor cuEquivariance 0.11.1 is used: both were tested, the cu13 build still hangs, and 0.11.1 needs torch>=2.11 against this model's torch==2.7.1.",
-          "ref": "stock",
-          "when": "2026-08-18"
+          "s_per_fold": 12.66,
+          "n": 4,
+          "clock_mhz": 1965,
+          "versions": "kit f4f62fa65, torch 2.7.1+cu128, opendde 1.1.1, driver 580.126.09",
+          "when": "2026-10-15",
+          "ref": "kit",
+          "fast": {
+            "s_per_fold": 10.53,
+            "n": 4,
+            "clock_mhz": 1965,
+            "versions": "kit f4f62fa65, torch 2.7.1+cu128, opendde 1.1.1, driver 580.126.09",
+            "when": "2026-10-15"
+          },
+          "stock": {
+            "s_per_fold": 17.54,
+            "n": 4,
+            "clock_mhz": 1965,
+            "versions": "kit f4f62fa65, torch 2.7.1+cu128, opendde 1.1.1, driver 580.126.09",
+            "when": "2026-10-15"
+          }
         },
         "a100": {
           "status": "measured",
@@ -680,12 +710,19 @@
           "versions": "kit f4f62fa65, torch 2.10.0, openfold3 0.4.1, driver 580.126.09",
           "when": "2026-10-14",
           "ref": "kit",
+          "fast": {
+            "s_per_fold": 1.716,
+            "n": 4,
+            "clock_mhz": 1965,
+            "versions": "kit f4f62fa65, levers pair_transition off (refused on this GPU), torch 2.10.0, openfold3 0.4.1, driver 580.126.09",
+            "when": "2026-10-15"
+          },
           "stock": {
-            "s_per_fold": 11.74,
+            "s_per_fold": 11.66,
             "n": 4,
             "clock_mhz": 1965,
             "versions": "kit f4f62fa65, torch 2.10.0, openfold3 0.4.1, driver 580.126.09",
-            "when": "2026-10-14"
+            "when": "2026-10-15"
           }
         },
         "a100": {
@@ -719,7 +756,7 @@
       "recycles": 10,
       "sampling_steps": "50 requested, 49 executed",
       "note": "AtomWorks host featurisation, not accelerator work, is a large share of an RF3 fold. It runs inside the timer on both sides, so a host cost that size compresses the ratio between them.",
-      "nvidia_impl": "The kit's exact mode over rc-foundry at commit 4010e3e2e on the A100 and the H200. The B200 cell is stock rc-foundry 0.2.0 and atomworks 2.2.1 from August 2026, which use cuEquivariance whenever it is installed.",
+      "nvidia_impl": "The kit's exact mode over rc-foundry at commit 4010e3e2e on every GPU. On the B200 three of the kit's kernels are off because they do not run there.",
       "cells": {
         "p150a": {
           "status": "measured",
@@ -764,10 +801,26 @@
         },
         "b200": {
           "status": "measured",
-          "s_per_fold": 16.351,
-          "provenance": "Median of n=8 warm, 15.857 to 18.041 s, median 16.351, spread 2.184 s (13.35 %), cold 27.066 s discarded. rc-foundry 0.2.0, atomworks 2.2.1, cuequivariance-torch 0.11.1 with the cu13 ops wheels, torch 2.13.0+cu130, triton 3.7.1, plDDT 0.783, 4116 atoms. cuEquivariance carried every triangle op, counted not assumed: triangle_attention_cueq 9792 and triangle_multiply_cueq 9792, both vanilla counters 0, scaled_dot_product_attention 0. RF3's triangle ops run in bf16, not fp32: precision bf16-mixed reaches inference and RF3 casts its pair tensor down itself before the kernel, measured on a separate B200 with every module forward hooked. The Blackwell SM100f kernel is BF16 and FP16 only, so RF3's dtype does not keep it out; an earlier version of this note said the opposite. Which cuDNN kernel this run dispatched to is not settled: the counters above name cuEquivariance's path, not the CUDA kernel, and no kernel-name readout was taken on this stack. The cu13 ops build, where the SM100f kernel ships, is installed precisely so nothing available is left off. Measured at RF3's own call shape on this card, triangle attention is 0.243 ms per call in bf16 against 2.827 ms in fp32; the census run, reading kernel names on its own stack, saw 0.246 ms on cudnn_sm100_fprop_sdpa with the cu13 wheels present against 0.905 ms on cudnn_sm80_fprop_sdpa without them. Those agree to 1.2 %, which points at the same kernel without naming it. Host featurisation is 8.275 s of the fold on a Xeon Platinum 8559C at a 23.04 vCPU cgroup quota. Card exclusive, peak 5.45 GiB of 183 GB.",
-          "ref": "stock",
-          "when": "2026-08-21"
+          "s_per_fold": 11.08,
+          "n": 9,
+          "clock_mhz": 1965,
+          "versions": "kit f4f62fa65, levers prefetch,awrite,fpf_xln off (refused on this GPU), torch 2.13.0, rc-foundry 4010e3e2e, driver 580.126.09",
+          "when": "2026-10-15",
+          "ref": "kit",
+          "fast": {
+            "s_per_fold": 10.58,
+            "n": 9,
+            "clock_mhz": 1965,
+            "versions": "kit f4f62fa65, levers prefetch,awrite,fpf_xln off (refused on this GPU), torch 2.13.0, rc-foundry 4010e3e2e, driver 580.126.09",
+            "when": "2026-10-15"
+          },
+          "stock": {
+            "s_per_fold": 14.53,
+            "n": 9,
+            "clock_mhz": 1965,
+            "versions": "kit f4f62fa65, torch 2.13.0, rc-foundry 4010e3e2e, driver 580.126.09",
+            "when": "2026-10-15"
+          }
         },
         "a100": {
           "status": "measured",
@@ -851,12 +904,19 @@
           "versions": "kit f4f62fa65, torch 2.10.0, openfold3 0.5.0, driver 580.126.09",
           "when": "2026-10-14",
           "ref": "kit",
+          "fast": {
+            "s_per_fold": 1.801,
+            "n": 4,
+            "clock_mhz": 1965,
+            "versions": "kit f4f62fa65, levers pair_transition off (refused on this GPU), torch 2.10.0, openfold3 0.5.0, driver 580.126.09",
+            "when": "2026-10-15"
+          },
           "stock": {
-            "s_per_fold": 10.59,
+            "s_per_fold": 10.42,
             "n": 4,
             "clock_mhz": 1965,
             "versions": "kit f4f62fa65, torch 2.10.0, openfold3 0.5.0, driver 580.126.09",
-            "when": "2026-10-14"
+            "when": "2026-10-15"
           }
         },
         "a100": {
@@ -1051,7 +1111,7 @@
         "sampling_steps": 400,
         "batch": 1,
         "note": "This row is what `tt-bio design --model pxdesign` returns: the PXDesign-d generator, which writes a binder backbone with no sequence. The filtering pipeline upstream runs after it (ProteinMPNN, AF2-IG and a Protenix filter) is not on the CLI and not in the cell. The Tenstorrent cell times featurisation, generation and the CIF write; a kit cell times generation alone, which favours the NVIDIA column. The LacZ crop is a cost fixture, right for seconds and wrong for design quality, because its epitope is an arbitrary exposed loop. Batching is the lever this protocol leaves out, and it helps the GPUs more than the Blackhole AI Processor. Upstream recommends thousands of designs per target, so for a real campaign the batched rate matters more than the one-design latency shown here.",
-        "nvidia_impl": "The kit's exact mode over pxdesign at commit f78844131 on the A100 and the H200. The B200 cell is stock pxdesign 0.1.0 on protenix 0.5.0+pxd from August 2026. Each cell names the torch it ran.",
+        "nvidia_impl": "The kit's exact mode over pxdesign at commit f78844131 on every GPU. On the B200 upstream's own switch turns the fused LayerNorm off, which has no build for that GPU. Each cell names the torch it ran.",
         "cells": {
           "p150a": {
             "status": "measured",
@@ -1087,10 +1147,26 @@
           },
           "b200": {
             "status": "measured",
-            "s_per_design": 24.4062,
-            "provenance": "The generator stage's own wall clock (gen_feat + gen_device + gen_write), the same quantity every cell in this row publishes: 23.8344, 23.9108, 23.9674, 24.3176, 24.4948, 24.5916, 24.6128, 25.1704 s, pooled median 24.4062, spread 5.47 %. The two processes median 23.9391 and 24.5432. Inside it, 22.1142 s is the diffusion call and 1.9448 s plus 0.0825 s are the host featurise and CIF write. Eight warm designs across two independent processes, four each, cold design dropped in both. n_step 400, N_sample 1, bf16, one design per call. Target laczc_512_nomsa.yaml sha256 48a6b5c0c5d9ca9b, target CIF sha256 206d95b5f73d08bd, the same fixture the August H200 and A100 stock runs byte-matched. Seeds 0,1,2,3 with round 4 repeating seed 0, and every seed reproduced its coordinate digest in both processes. The card was exclusive before and after every rung: nvidia-smi --query-compute-apps empty each time. Rented single-B200 node, sm_100, 183 GB, Xeon Platinum 8592+ at a 24.96 vCPU cgroup quota, driver 595.71.05. CUDA 12.1 emits no sm_100 device code, so pxdesign's reference CUDA 12.1 stack cannot run on this GPU. triton is 3.4.0 rather than the 3.3.1 torch 2.7.1 declares, because 3.3.1's CUDA launcher hangs on sm_100. Stack: torch 2.7.1+cu128 (CUDA 12.8, cuDNN 90701), triton 3.4.0, deepspeed 0.15.4, numpy 1.26.3, transformers 4.51.3, protenix 0.5.0+pxd, pxdesign 0.1.0, pxdbench 0.1.2, jax 0.4.29 CPU-only. Checkpoint load outside the cell.",
-            "ref": "stock",
-            "when": "2026-08-26"
+            "s_per_design": 12.22,
+            "n": 4,
+            "clock_mhz": 1965,
+            "versions": "kit f4f62fa65, torch 2.7.1+cu128, pxdesign f78844131, driver 580.126.09",
+            "when": "2026-10-15",
+            "ref": "kit",
+            "fast": {
+              "s_per_design": 12.42,
+              "n": 4,
+              "clock_mhz": 1965,
+              "versions": "kit f4f62fa65, torch 2.7.1+cu128, pxdesign f78844131, driver 580.126.09",
+              "when": "2026-10-15"
+            },
+            "stock": {
+              "s_per_design": 18.81,
+              "n": 4,
+              "clock_mhz": 1965,
+              "versions": "kit f4f62fa65, torch 2.7.1+cu128, pxdesign f78844131, driver 580.126.09",
+              "when": "2026-10-15"
+            }
           },
           "a100": {
             "status": "measured",
@@ -1694,7 +1770,7 @@
   },
   "caveats": [
     "Rows are not a cross-model ranking. Boltz-2 and OpenFold3 do 3 recycles where ESMFold2, Protenix-v2 and OpenDDE do 10, because that is what each ships. Compare a model to itself across hardware. BoltzGen returns a binder design, not a prediction; its bars share an axis with the prediction models but not a unit.",
-    "The NVIDIA cells were measured on 14 and 15 October 2026 on rented single-GPU nodes, the A100s with AMD EPYC 7513 hosts, the H200 with an Intel Xeon Platinum 8568Y+ and the B200 with an Intel Xeon Platinum 8559C; the three B200 cells named in the NVIDIA code entry are from August 2026. The host matters for the dispatch-bound trunks and is not corrected for.",
+    "The NVIDIA cells were measured on 14 and 15 October 2026 on rented single-GPU nodes, the A100s with AMD EPYC 7513 hosts, the H200 with an Intel Xeon Platinum 8568Y+ and the B200 with an Intel Xeon Platinum 8559C. The host matters for the dispatch-bound trunks and is not corrected for.",
     "RoseTTAFold3's NVIDIA cells carry the widest spreads on this page, and host featurisation is why: host prep varies far more run to run than device work does. Its nine H200 folds span 11.81 to 14.16 s, where Boltz-2's four span 4.105 to 4.118 s.",
     "The NVIDIA cells do not share one software stack. Each kit pins its own torch and CUDA per model, and a stock cell runs what its authors pin; every cell's hover text names its versions and driver. That is one more reason to compare a model to itself across hardware rather than rows against each other."
   ]

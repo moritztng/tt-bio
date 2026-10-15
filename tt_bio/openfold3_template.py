@@ -43,12 +43,13 @@ _TRI_DIMS = (16, 4)
 
 def _unbroadcast(key, v):
     """``restype_ti`` / ``restype_tj`` reduced to the row they broadcast, when they are one
-    (checked, so a caller that builds them otherwise keeps the full tensor)."""
+    (a stride-0 view is one by construction; anything else is checked, so a caller that
+    builds them otherwise keeps the full tensor)."""
     axis = {"restype_ti": -2, "restype_tj": -3}.get(key)
     if axis is None:
         return v
     r = v.narrow(axis, 0, 1)
-    return r.contiguous() if torch.equal(r.expand_as(v), v) else v
+    return r.contiguous() if v.stride(axis) == 0 or torch.equal(r.expand_as(v), v) else v
 
 
 class TemplatePairFeatureEmbedder(Module):
@@ -103,10 +104,10 @@ class TemplatePairFeatureEmbedder(Module):
                        ("unit_vec_z", self.w_z), ("backbone_frame_pair_mask", self.w_bb)):
             v = feat[key]
             if torch.is_tensor(v):
-                if not v.any():
-                    continue
                 full = list(v.shape[:-1])
                 v = _unbroadcast(key, v)
+                if not v.any():
+                    continue
             x = ttnn.from_torch(v.float(), layout=ttnn.TILE_LAYOUT, device=self.device,
                                 dtype=ttnn.bfloat16) if torch.is_tensor(v) else v
             y = self._lin(x, w)

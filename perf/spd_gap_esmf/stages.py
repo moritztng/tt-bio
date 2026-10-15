@@ -10,6 +10,9 @@ Builds the fold through tt_baseline.build_fold (as ab.py), runs one cold fold, t
   profile  one fold under cProfile, no syncs, top functions by tottime / cumtime into --out.prof.txt.
   xfer     one fold with ttnn.from_torch / to_torch timed per call site (first tt_bio frame), no syncs: which
            uploads and downloads the host blocks on (cProfile only sees ttnn's decorator as their caller).
+  --ops    instead of stages/profile/xfer: one fold with every top-level ttnn op synchronized on both sides,
+           summed by (module region, op) and (region, op, first-input shape) into --out. Needs no Tracy build,
+           so it is the census on a Galaxy chip; each op carries one sync round trip (sync_us, reported).
 The census (census.sh) gives device kernel seconds per region; stage wall minus that is dispatch.
 
     python perf/spd_gap_esmf/stages.py --model esmfold2 --out r.json
@@ -24,6 +27,7 @@ ap.add_argument("--model", default="esmfold2", choices=("esmfold2", "esmfold2-fa
 ap.add_argument("--fast", action="store_true")
 ap.add_argument("--size", type=int, default=512)
 ap.add_argument("--out", type=Path, required=True)
+ap.add_argument("--ops", action="store_true", help="per-op synchronized census instead of stages/profile/xfer")
 ap.add_argument("--cold-stages", action="store_true", help="split the cold fold by stage too (WH: warm reads slower than cold)")
 a = ap.parse_args()
 
@@ -104,6 +108,90 @@ else:
 t0 = time.perf_counter(); s, m = one_fold(); res["plain_s"] = round(time.perf_counter() - t0, 3)
 res["plain_fold_s"] = round(s, 3); res["plddt"] = m.get("plddt")
 print("plain", res["plain_s"], flush=True)
+
+
+def op_census():
+    import ttnn.decorators as D
+    from tt_bio import esmc as C
+    reg, st = [], {"depth": 0, "capture": 0}
+    by_op = collections.defaultdict(lambda: [0, 0.0]); by_shape = collections.defaultdict(lambda: [0, 0.0])
+    undo = []
+
+    def region(owner, attr, label):
+        fn = getattr(owner, attr)
+
+        def w(self, *x, **kw):
+            reg.append(f"trunk[{len(getattr(self, 'blocks', []) or [])}]" if owner is E.FoldingTrunkModel else label)
+            try:
+                return fn(self, *x, **kw)
+            finally:
+                reg.pop()
+        setattr(owner, attr, w); undo.append((owner, attr, fn))
+
+    for o, at, lab in STAGES + [(T.TriangleMultiplication, "__call__", "trimul"), (C.SwiGLUFFN, "__call__", "swiglu"),
+                                (C.SwiGLUFFN, "residual", "swiglu"), (E.TransitionLayer, "__call__", "transition"),
+                                (E.PairUpdateBlock, "__call__", "pub")]:
+        region(o, at, lab)
+
+    def record(name, x, fn, *a, **k):
+        if st["depth"] or st["capture"]:  # nested op, or recording a trace (nothing runs, sync is illegal)
+            return fn(*a, **k)
+        st["depth"] += 1
+        try:
+            ttnn.synchronize_device(dev); t0 = time.perf_counter()
+            out = fn(*a, **k)
+            ttnn.synchronize_device(dev); dt = time.perf_counter() - t0
+        finally:
+            st["depth"] -= 1
+        r = "/".join(reg) or "-"
+        if name.endswith("generic_op"):   # one name for every custom kernel: key it by the tt_bio function that launched it
+            f = sys._getframe(1)
+            while f and "/tt_bio/" not in f.f_code.co_filename:
+                f = f.f_back
+            name = f"{name}@{f.f_code.co_name if f else '?'}"
+        shp = tuple(x.shape) if hasattr(x, "shape") else None
+        for d, key in ((by_op, (r, name)), (by_shape, (r, name, str(shp)))):
+            d[key][0] += 1; d[key][1] += dt
+        return out
+
+    def hook(cls):
+        fn = cls.__call__
+        cls.__call__ = lambda self, *a, **k: record(self.python_fully_qualified_name, a[0] if a else None,
+                                                    fn, self, *a, **k)
+        undo.append((cls, "__call__", fn))
+    hook(D.FastOperation); hook(D.Operation)
+    ex = ttnn.execute_trace
+    ttnn.execute_trace = lambda *a, **k: record("execute_trace", None, ex, *a, **k)
+    undo.append((ttnn, "execute_trace", ex))
+    for m in (T, E):
+        cap = m.capture_trace
+
+        def captured(*a, _cap=cap, **k):
+            st["capture"] += 1
+            try:
+                return _cap(*a, **k)
+            finally:
+                st["capture"] -= 1
+        m.capture_trace = captured; undo.append((m, "capture_trace", cap))
+
+    n, t0 = 200, time.perf_counter()
+    for _ in range(n):
+        ttnn.synchronize_device(dev)
+    res["sync_us"] = round((time.perf_counter() - t0) / n * 1e6, 1)
+    t0 = time.perf_counter(); one_fold(); res["ops_fold_s"] = round(time.perf_counter() - t0, 3)
+    for o, at, fn in reversed(undo):
+        setattr(o, at, fn)
+    rows = lambda d: [{"key": " | ".join(k), "n": v[0], "s": round(v[1], 4)} for k, v in sorted(d.items(), key=lambda kv: -kv[1][1])]
+    res["ops_n"] = sum(v[0] for v in by_op.values()); res["ops_sum_s"] = round(sum(v[1] for v in by_op.values()), 3)
+    res["by_op"] = rows(by_op); res["by_shape"] = rows(by_shape)[:400]
+    a.out.write_text(json.dumps(res, indent=1))
+    print(json.dumps({k: res[k] for k in ("plain_s", "ops_fold_s", "ops_n", "ops_sum_s", "sync_us")}), flush=True)
+    for r in res["by_op"][:40]:
+        print(r, flush=True)
+
+
+if a.ops:
+    op_census(); T.cleanup(); sys.exit(0)
 staged("stages")
 
 pr = cProfile.Profile()

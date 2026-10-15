@@ -18,7 +18,7 @@ def test_a_model_names_its_own_sets_and_the_harness_switch_still_wins(monkeypatc
     monkeypatch.delenv("TT_BIO_LEVERS", raising=False)
     monkeypatch.setattr(T, "_FAST_MODE", True)
     assert T.model_levers() == T.FAST_LEVERS
-    assert T.model_levers(of3.NORMAL_LEVERS, of3.FAST_LEVERS) == of3.FAST_LEVERS == of3.NORMAL_LEVERS | {"dit_s16", "diffusion_bf16", "trimul_t1", "trimul_t2", "trimul_t2cm", "transition_ws", "dit_fuse", "edm_device", "ws_l1dest", "dit_hifi2", "dit_kc", "dit_mask16"}
+    assert T.model_levers(of3.NORMAL_LEVERS, of3.FAST_LEVERS) == of3.FAST_LEVERS == of3.NORMAL_LEVERS | {"dit_s16", "diffusion_bf16", "trimul_t1", "trimul_t2", "trimul_t2cm", "transition_ws", "dit_fuse", "edm_device", "ws_l1dest", "dit_hifi2", "dit_kc", "dit_mask16", "triatt_ln"}
     monkeypatch.setenv("TT_BIO_LEVERS", "fast")
     assert T.model_levers(of3.NORMAL_LEVERS, of3.FAST_LEVERS) == T.FAST_LEVERS
     monkeypatch.setattr(T, "_FAST_MODE", False)
@@ -91,6 +91,7 @@ def test_checkpoint_entry_takes_the_modes_set(monkeypatch, tmp_path, fast):
 
     monkeypatch.setattr(P.Protenix, "__init__", fake_init)
     monkeypatch.setattr(T, "_FAST_MODE", fast)
+    monkeypatch.setattr(T, "is_wormhole", lambda: False)  # the Wormhole sets have their own tests
     ckpt = tmp_path / "w.pt"
     torch.save({"model": {}}, ckpt)
     P.Protenix.load_from_checkpoint(str(ckpt), compute_kernel_config=object(), device=object())

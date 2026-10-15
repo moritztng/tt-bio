@@ -112,3 +112,43 @@ def test_gin_moved_channel_slices_equal_one_launch(masked, monkeypatch):
         assert torch.isfinite(s_).all()
         assert torch.equal(s_, w_)
         assert _rel_rms(s_, r.permute(0, 3, 1, 2)) < 1e-2
+
+
+@pytest.mark.parametrize("n,cz,c", [(160, 256, 128), (96, 256, 256)])
+def test_gin_fused_gate_matches_float64(n, cz, c, monkeypatch):
+    # trimul_gin_fuse: p * sigmoid(g) in DST. Against float64 it must be no worse than the unfused kernel;
+    # (96, 256, 256) is ESMFold2's in-projection shape, which the fused gate runs in one launch.
+    dev = T.get_device()
+    monkeypatch.setattr(T, "_TRUNK_MATH_FIDELITY", "hifi3")
+    monkeypatch.setattr(TTL, "GIN_MOVE", True)
+    g = torch.Generator().manual_seed(n)
+    x = torch.randn(1, n, n, cz, generator=g).to(torch.bfloat16)
+    wp = (torch.randn(cz, 2 * c, generator=g) / 16).to(torch.bfloat16)
+    wg = (torch.randn(cz, 2 * c, generator=g) / 16).to(torch.bfloat16)
+    d = torch.float64
+    x64 = x.to(d).reshape(n * n, cz)
+    ab = ((x64 @ wp.to(d)) * torch.sigmoid(x64 @ wg.to(d))).reshape(1, n, n, 2 * c)
+    ref = [ab[..., :c].permute(0, 3, 1, 2), ab[..., c:].permute(0, 3, 1, 2)]
+    dx, dwpT, dwgT = (_dev(t, dev) for t in (x, wp.t(), wg.t()))
+    ckc = MG.ckc_args(T.trunk_compute_kernel_config(compute_kernel_config()))
+    grid = tuple(T.COMPUTE_GRID_MAIN)
+    outs = {}
+    for fuse in (False, True):
+        monkeypatch.setattr(TTL, "_lever", lambda name, fuse=fuse: fuse and name == "trimul_gin_fuse")
+        ns = TTL.gin_move_split(dx, c)
+        assert ns is not None
+        if fuse:
+            assert ns == 1
+        wpT = dwpT if ns == 1 else [_dev(t, dev) for t in _slices(wp.t(), c, ns)]
+        wgT = dwgT if ns == 1 else [_dev(t, dev) for t in _slices(wg.t(), c, ns)]
+        outs[fuse] = [ttnn.to_torch(o).to(d) for o in TTL.gin_moved(dx, wpT, wgT, ckc, grid)]
+    for base, fused, r in zip(outs[False], outs[True], ref):
+        e0, e1 = _rel_rms(base, r), _rel_rms(fused, r)
+        assert e1 <= 1.05 * e0 + 1e-4, (e1, e0)
+        assert (fused - r).abs().max().item() < 0.1
+
+
+def _slices(wT, c, n):
+    # gin_move_split's layout: slice s = rows s of a's n parts, then rows s of b's n parts.
+    h = c // n
+    return [torch.cat([wT[s * h:(s + 1) * h], wT[c + s * h:c + (s + 1) * h]]) for s in range(n)]

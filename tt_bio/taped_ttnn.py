@@ -1444,6 +1444,50 @@ def _k_rne_add_masked(shipped, args, kwargs):
     return ag._tape(out_v, [a, b], make, reads=())
 
 
+@_kernel("pair_relu")
+def _k_pair_relu(shipped, args, kwargs):
+    """`pair_swiglu_ws.pair_relu`'s entry: AF2's whole Transition, LayerNorm through fc2 + b2, as one node.
+
+    The composed path tapes four nodes and holds the normed x and the 4x-wide hidden for the backward; this one holds
+    x alone. The backward is two programs: `pair_relu_bw` recomputes `xn @ w1 + b1` in L1 for the ReLU mask and writes
+    the cotangent of xn, then `lnbw.layer_norm_bw` takes it back through the norm. The weights and the norm's affine
+    take no gradient (BindCraft 2 differentiates the sequence, not the model), so the entry declines a call where any
+    of them is a tracked parameter, and one with no `bw_weights`, `ln` or a shape the LayerNorm kernel does not serve.
+
+    Not bit-identical to the composed backward: the cotangent enters as bf16 where the composed matmul VJPs read it as
+    it comes, and the norm's backward is the bf16 kernel. So this is graded on BindCraft 2's own design metrics.
+    """
+    from . import lnbw
+    from . import pair_swiglu_ws as W
+    ra, rk = _raw(args, kwargs)
+    ln, bww = rk.get("ln"), rk.get("bw_weights")
+    tracked = list(args[1:5]) + [kwargs.get(k) for k in ("w1", "b1", "w2", "b2")] + list((kwargs.get("ln") or ())[:2])
+    if ln is None or bww is None or any(isinstance(t, Tensor) and t.requires_grad for t in tracked):
+        return None
+    x = _wrap(args[0])
+    if not lnbw.eligible(ra[0], ra[0], ln[0]):
+        return None
+    out_v = shipped(*ra, **rk)
+    if out_v is None:
+        return None
+    b1 = ra[2] if len(ra) > 2 else rk["b1"]
+    fid = rk.get("fidelity", ra[5] if len(ra) > 5 else ttnn.MathFidelity.HiFi4)
+    gamma, eps = ln[0], ln[2]
+
+    def make():
+        def bw(g):
+            xv = x.value
+            dy = g if g.dtype == ttnn.bfloat16 else ttnn.typecast(g, ttnn.bfloat16)
+            dxn = W.pair_relu_bw(xv, dy, bww[0], b1, bww[1], fidelity=fid, ln=ln)
+            x.add_grad(lnbw.layer_norm_bw(xv, dxn, gamma, eps))
+            ttnn.deallocate(dxn)
+            if dy is not g:
+                ttnn.deallocate(dy)
+        return bw
+
+    return _tape(out_v, [x], make, reads=(0,))
+
+
 # --- attention head packing ------------------------------------------------------------
 # Both layouts below are DERIVED FROM THE DEVICE with an index-valued tensor
 # (`perf/ptx_fastpath/heads.py`), not read off a docstring. A head-split backward written

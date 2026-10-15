@@ -30,9 +30,14 @@ void kernel_main() {
     constexpr uint32_t MASK = get_compile_time_arg_val(3);
     // Stage ablation, diagnostic only: bit 0 no sigmoid, bit 1 no gate multiply, bit 4 no matmul.
     constexpr uint32_t ABL = get_compile_time_arg_val(4);
-    constexpr uint32_t SIGPOLY = get_compile_time_arg_val(5);   // 1: sigmoid_poly.hpp's polynomial
+    constexpr uint32_t SIGPOLY = get_compile_time_arg_val(5);   // 1/2: sigmoid_poly.hpp's degree-8/6 polynomial
     // Round to nearest even before a pack (the pack truncates): bit 0 the output, bit 1 p and g.
     constexpr uint32_t RNE = get_compile_time_arg_val(6);
+    // 1: value and gate of one subblock side by side in DST (value at 0..SBW-1, gate at SBW..2SBW-1), the gate's
+    // sigmoid and multiply done there and only a = p * sigmoid(g) packed (lever trimul_gin_fuse; unmasked calls).
+    // p and g never round-trip through L1 as bf16, which also frees their two 32-tile buffers.
+    constexpr uint32_t FUSE = get_compile_time_arg_val(7);
+    static_assert(!(FUSE && MASK), "the fused gate has no mask path");
     const uint32_t nunits = get_arg_val<uint32_t>(0);
 
     constexpr uint32_t w_cb = tt::CBIndex::c_0;
@@ -43,8 +48,39 @@ void kernel_main() {
     constexpr uint32_t m_cb = tt::CBIndex::c_6;
 
     sigmoid_tile_init();
-    mm_init(w_cb, x_cb, p_cb, 1);
+    mm_init(w_cb, x_cb, FUSE ? out_cb : p_cb, 1);
     cb_wait_front(w_cb, 2 * CT2 * Kt);
+
+    if constexpr (FUSE) {
+        mm_block_init_short(w_cb, x_cb, true, SBW, 1, Kt);
+        for (uint32_t u = 0; u < nunits; ++u) {
+            cb_wait_front(x_cb, 32 * Kt);
+            for (uint32_t q = 0; q < CT2; ++q) {
+                cb_reserve_back(out_cb, 32);
+                for (uint32_t il0 = 0; il0 < 32; il0 += SBW) {
+                    tile_regs_acquire();
+                    for (uint32_t pass = 0; pass < 2; ++pass) {
+                        uint32_t i0 = (pass * CT2 + q) * Kt;
+                        uint32_t i1 = il0;
+                        for (uint32_t k = 0; k < Kt; ++k, ++i0, i1 += 32) {
+                            matmul_block(w_cb, x_cb, i0, i1, pass * SBW, true, SBW, 1, Kt);
+                        }
+                    }
+                    for (uint32_t i = 0; i < SBW; ++i) gate_poly_tile<SIGPOLY>(i, SBW + i);
+                    if constexpr (RNE & 1) {
+                        for (uint32_t i = 0; i < SBW; ++i) round_bf16_rne_tile(i);
+                    }
+                    tile_regs_commit();
+                    tile_regs_wait();
+                    for (uint32_t i = 0; i < SBW; ++i) pack_tile<true>(i, out_cb, il0 + i);
+                    tile_regs_release();
+                }
+                cb_push_back(out_cb, 32);
+            }
+            cb_pop_front(x_cb, 32 * Kt);
+        }
+        return;
+    }
 
     for (uint32_t u = 0; u < nunits; ++u) {
         cb_wait_front(x_cb, 32 * Kt);
@@ -65,7 +101,7 @@ void kernel_main() {
                     }
                     if (pass == 1 && !(ABL & 1)) {
                         for (uint32_t i = 0; i < SBW; ++i) {
-                            if constexpr (SIGPOLY) sigmoid_poly_tile(i);
+                            if constexpr (SIGPOLY) sigmoid_poly_tile<SIGPOLY>(i);
                             else sigmoid_bf16_tile(i);
                         }
                     }

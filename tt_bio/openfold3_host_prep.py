@@ -69,8 +69,9 @@ def derive_template_feat(features: dict) -> dict:
     return {
         "distogram": features["template_distogram"].float(),
         "pseudo_beta_pair_mask": (pbm[..., None] * pbm[..., None, :])[..., None] * mcm[..., None],
-        "restype_ti": restype[..., None, :].expand(*restype.shape[:-2], -1, n_tok, -1).contiguous(),
-        "restype_tj": restype[..., None, :, :].expand(*restype.shape[:-2], n_tok, -1, -1).contiguous(),
+        # Stride-0 views: the template embedder projects the row they broadcast (_unbroadcast).
+        "restype_ti": restype[..., None, :].expand(*restype.shape[:-2], -1, n_tok, -1),
+        "restype_tj": restype[..., None, :, :].expand(*restype.shape[:-2], n_tok, -1, -1),
         "unit_vec_x": ux[..., None],
         "unit_vec_y": uy[..., None],
         "unit_vec_z": uz[..., None],
@@ -102,6 +103,24 @@ def dedup_template_slots(feat: dict) -> tuple[dict, list[int]]:
     if len(reps) == nt:
         return feat, slot_index
     return {k: v[reps].contiguous() for k, v in feat.items()}, slot_index
+
+
+# The raw per-slot keys `derive_template_feat` reads. Each derived slot is an injective function
+# of its own raw slot (the pair masks keep their diagonal, so a mask that differs anywhere shows),
+# so two slots derive byte-identically exactly when these match.
+TEMPLATE_RAW_KEYS = ("template_distogram", "template_pseudo_beta_mask",
+                     "template_backbone_frame_mask", "template_restype", "template_unit_vector")
+
+
+def derived_template_slots(features: dict) -> tuple[dict, list[int]]:
+    """``dedup_template_slots(derive_template_feat(features))``, deduped on the raw keys first.
+
+    Same tensors and slot map, but the [N, N] blocks are built once per distinct slot instead of
+    once per slot: on a query with one real template or none, the duplicate slots are never
+    expanded (0.20 -> 0.06 s on one core at 512 tokens).
+    """
+    raw, slot_index = dedup_template_slots({k: features[k] for k in TEMPLATE_RAW_KEYS})
+    return derive_template_feat({**features, **raw}), slot_index
 
 
 def derive_relpos(features: dict) -> torch.Tensor:
