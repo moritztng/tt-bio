@@ -3,24 +3,21 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#faf8f4" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#101318" media="(prefers-color-scheme: dark)">
 <link rel="icon" href="../assets/mark.svg?v=549aac16" type="image/svg+xml">
 <link rel="icon" href="../assets/favicon.ico?v=efa39745" sizes="32x32" type="image/x-icon">
 <link rel="icon" href="../assets/icon-500.png?v=c70df9a5" sizes="500x500" type="image/png">
 <link rel="apple-touch-icon" href="../assets/apple-touch-icon.png?v=b63e0473" sizes="180x180">
 <title>TT-Bio benchmarks: biomolecular structure prediction, design and binding affinity on Tenstorrent hardware</title>
 <meta name="description" content="Eleven open biomolecular models measured on Tenstorrent hardware: eight folding, two binder design and one binding affinity. Seconds per prediction and throughput per dollar against NVIDIA H200, B200 and A100 at 512 residues, with every number's provenance on the page.">
-<link rel="preload" href="../assets/manrope-latin.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="../assets/site.css?v=80720702">
+<link rel="preload" href="../assets/geist-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="../assets/site.css?v=rf1">
 <style>
-/* Platform ramp. Ours in near-black, the three GPUs stepping lighter, so the
-   Tenstorrent bar reads first in every chart without introducing a hue.
-   The chart JS writes these as var(--tt) etc. into SVG fill attributes, so
-   the @supports block below must always be changed together with this one. */
-:root{ --tt:#15171a; --h200:#6b727a; --b200:#9aa1a9; --a100:#c2c7cd; }
-@supports (color: oklch(0.5 0.1 200)){
-  :root{ --tt:oklch(0.20 0.008 260); --h200:oklch(0.53 0.008 260);
-         --b200:oklch(0.70 0.007 260); --a100:oklch(0.83 0.005 260); }
-}
+/* Platform colours: Tenstorrent in the accent, every GPU in warm grey. Which GPU is which reads from the
+   row label; which code a GPU ran reads from the hatching, drawn by the chart JS as an SVG pattern on
+   every bar whose cell says ref "kit". */
+:root{ --tt:var(--accent); --h200:var(--gpu); --b200:var(--gpu); --a100:var(--gpu); }
 
 main{ display:block; padding-bottom:var(--s-5); }
 
@@ -53,7 +50,7 @@ section.chart:last-child{ margin-bottom:0; }
 .keys{ display:flex; flex-wrap:wrap; gap:7px 20px; margin:var(--s-2) 0 0;
        font-size:.82rem; color:var(--ink-2); }
 .key{ display:inline-flex; align-items:center; gap:7px; }
-.swatch{ width:11px; height:11px; border-radius:2px; display:inline-block; flex:none; }
+.swatch{ width:22px; height:10px; border-radius:99px; display:inline-block; flex:none; }
 .swatch.dash{ background:transparent; border:1px dashed var(--rule-2); }
 figure{ margin:0; }
 svg{ display:block; width:100%; height:auto; }
@@ -64,7 +61,7 @@ svg{ display:block; width:100%; height:auto; }
       font-variant-numeric:tabular-nums; }
 
 .pill{ display:inline-block; padding:3px 9px; border-radius:999px;
-       background:var(--wash); color:var(--ink-2); font-size:.66rem; font-weight:700;
+       background:var(--accent-wash); color:var(--accent-ink); font-size:.66rem; font-weight:700;
        letter-spacing:.09em; text-transform:uppercase; white-space:nowrap; }
 
 /* Tables */
@@ -73,10 +70,10 @@ svg{ display:block; width:100%; height:auto; }
 .tablewrap{
   overflow-x:auto; margin:0; -webkit-overflow-scrolling:touch;
   background:
-    linear-gradient(to right, var(--paper) 40%, rgba(251,251,252,0)) left center/34px 100% no-repeat,
-    linear-gradient(to left,  var(--paper) 40%, rgba(251,251,252,0)) right center/34px 100% no-repeat,
-    radial-gradient(farthest-side at 0 50%, rgba(21,23,26,.13), rgba(21,23,26,0)) left center/13px 100% no-repeat,
-    radial-gradient(farthest-side at 100% 50%, rgba(21,23,26,.13), rgba(21,23,26,0)) right center/13px 100% no-repeat;
+    linear-gradient(to right, var(--paper) 40%, transparent) left center/34px 100% no-repeat,
+    linear-gradient(to left,  var(--paper) 40%, transparent) right center/34px 100% no-repeat,
+    radial-gradient(farthest-side at 0 50%, rgba(60,50,30,.16), transparent) left center/13px 100% no-repeat,
+    radial-gradient(farthest-side at 100% 50%, rgba(60,50,30,.16), transparent) right center/13px 100% no-repeat;
   background-attachment: local, local, scroll, scroll;
 }
 table{ border-collapse:collapse; width:auto; font-size:.89rem;
@@ -167,19 +164,19 @@ details.disclose > div{ padding-top:var(--s-4); }
     <div class="tablewrap"><table class="mtable">
       <thead><tr><th>--model</th><th>Folds</th><th>Affinity</th><th>MSA</th></tr></thead>
       <tbody>
-        <tr><td>boltz2</td><td>protein, DNA, RNA, ligand</td><td>yes</td><td>on by default</td></tr>
-        <tr><td>protenix-v1</td><td>protein, DNA, RNA, ligand</td><td>no</td><td>on by default</td></tr>
-        <tr><td>protenix-v2</td><td>protein, DNA, RNA, ligand</td><td>no</td><td>on by default</td></tr>
         <tr><td>openfold3</td><td>protein, RNA, DNA</td><td>no</td><td>on by default</td></tr>
-        <tr><td>openbind</td><td>protein, RNA, DNA, ligand by SMILES or CCD</td><td>no</td><td>on by default</td></tr>
-        <tr><td>esmfold2</td><td>single protein chain</td><td>no</td><td>not needed</td></tr>
+        <tr><td>boltz2</td><td>protein, DNA, RNA, ligand</td><td>yes</td><td>on by default</td></tr>
         <tr><td>opendde</td><td>multi-chain protein complexes</td><td>no</td><td>on by default</td></tr>
+        <tr><td>protenix-v2</td><td>protein, DNA, RNA, ligand</td><td>no</td><td>on by default</td></tr>
         <tr><td>rf3</td><td>protein, nucleic acid, ligand</td><td>no</td><td>on by default</td></tr>
+        <tr><td>esmfold2</td><td>single protein chain</td><td>no</td><td>not needed</td></tr>
+        <tr><td>openbind</td><td>protein, RNA, DNA, ligand by SMILES or CCD</td><td>no</td><td>on by default</td></tr>
+        <tr><td>protenix-v1</td><td>protein, DNA, RNA, ligand</td><td>no</td><td>on by default</td></tr>
         <tr><td>af2ig</td><td>a designed complex, from its own coordinates</td><td>no</td><td>not needed</td></tr>
         <tr><td>nesso1</td><td>nothing, it returns scalars</td><td>yes</td><td>not needed</td></tr>
       </tbody>
     </table></div>
-    <p class="mnote">Protenix-v1, Protenix-v2 and OpenFold3 are AlphaFold3-family. AF2-IG scores a
+    <p class="mnote">OpenFold3, Protenix-v2 and Protenix-v1 are AlphaFold3-family. AF2-IG scores a
     designed complex rather than folding a sequence. Nesso-1 runs under <code>tt-bio affinity</code> and
     returns scalars, not coordinates. <code>esmfold2-fast</code> is lighter, <code>opendde-abag</code> is
     the antibody-antigen checkpoint.</p>
@@ -190,8 +187,8 @@ details.disclose > div{ padding-top:var(--s-4); }
     <div class="tablewrap"><table class="mtable">
       <thead><tr><th>--model</th><th>Model</th><th>Designs</th><th>Input</th></tr></thead>
       <tbody>
-        <tr><td>boltzgen</td><td>BoltzGen</td><td>protein, peptide, nanobody, antibody binders</td><td>target structure in a design YAML</td></tr>
         <tr><td>rfd3</td><td>RFdiffusion3</td><td>all-atom binders, motif scaffolds, nucleic-acid binders</td><td>JSON spec with contig strings</td></tr>
+        <tr><td>boltzgen</td><td>BoltzGen</td><td>protein, peptide, nanobody, antibody binders</td><td>target structure in a design YAML</td></tr>
         <tr><td>pxdesign</td><td>PXDesign</td><td>binder backbones, no sequence</td><td>target structure in a design YAML</td></tr>
       </tbody>
     </table></div>
@@ -513,6 +510,11 @@ details.disclose > div{ padding-top:var(--s-4); }
     });
     svg.appendChild(el("title", { id: spec.id + "-t" }, spec.title));
     svg.appendChild(el("desc", { id: spec.id + "-d" }, spec.desc));
+    /* Diagonal hatching over every GPU bar that ran Anthropic's kit, in the GPU ink colour. */
+    var defs = el("defs", null), pat = el("pattern", { id: spec.id + "-kit", width: 6.5, height: 6.5,
+      patternUnits: "userSpaceOnUse", patternTransform: "rotate(45)" });
+    pat.appendChild(el("rect", { x: 0, y: 0, width: 2.5, height: 6.5, fill: "var(--gpu-ink)" }));
+    defs.appendChild(pat); svg.appendChild(defs);
 
     var scale = function (v) { return Math.max(0, v) / spec.max * plotW; };
 
@@ -560,7 +562,10 @@ details.disclose > div{ padding-top:var(--s-4); }
       }
 
       grp.appendChild(el("rect", {
-        x: plotX, y: by, width: Math.max(1, scale(b.value)), height: barH, rx: 2, fill: b.color
+        x: plotX, y: by, width: Math.max(1, scale(b.value)), height: barH, rx: barH / 2, fill: b.color
+      }));
+      if (b.kit) grp.appendChild(el("rect", {
+        x: plotX, y: by, width: Math.max(1, scale(b.value)), height: barH, rx: barH / 2, fill: "url(#" + spec.id + "-kit)"
       }));
       grp.appendChild(el("text", {
         x: plotX + scale(b.value) + 7, y: by + barH - 5, "font-size": fsVal, fill: "var(--fg)",
@@ -620,7 +625,7 @@ details.disclose > div{ padding-top:var(--s-4); }
         }
         max = Math.max(max, v);
         return {
-          series: p.name, seriesShort: serverShort(p), color: SER[p.id], value: v,
+          series: p.name, seriesShort: serverShort(p), color: SER[p.id], value: v, kit: c.ref === "kit",
           label: fmt(v), tip: tip(m, k, fmt(v) + " " + spec.tipUnit(row) + ", from " + fmtSec(secs(c)) +
             " s per " + row.one + " on one accelerator")
         };
@@ -681,7 +686,7 @@ details.disclose > div{ padding-top:var(--s-4); }
         }
         max = Math.max(max, c.s_per_fold);
         return {
-          series: p.name, seriesShort: p.short, color: SER[k], value: c.s_per_fold,
+          series: p.name, seriesShort: p.short, color: SER[k], value: c.s_per_fold, kit: c.ref === "kit",
           label: fmtSec(c.s_per_fold, 1) + " s",
           tip: tip(m, k, fmtSec(c.s_per_fold) + " s per prediction")
         };
@@ -716,7 +721,7 @@ details.disclose > div{ padding-top:var(--s-4); }
         }
         max = Math.max(max, secs(c));
         return {
-          series: p.name, seriesShort: p.short, color: SER[k], value: secs(c),
+          series: p.name, seriesShort: p.short, color: SER[k], value: secs(c), kit: c.ref === "kit",
           label: fmtSec(secs(c), 1) + " s",
           tip: tip(m, k, fmtSec(secs(c)) + " s per " + r.c.one + "\n" + m.target)
         };
@@ -878,21 +883,20 @@ details.disclose > div{ padding-top:var(--s-4); }
       dl.appendChild(Object.assign(document.createElement("dd"), { textContent: kv[1] }));
     });
 
+    /* The key names what a reader cannot get from the row labels: Tenstorrent against NVIDIA, and on
+     * the NVIDIA side which code ran. Hatched means Anthropic's kit, solid means the upstream release. */
     function keyRow(host, ids) {
-      var el2 = document.getElementById(host);
+      var el2 = document.getElementById(host), tt = plat(ids[0]);
       el2.textContent = "";
-      ids.forEach(function (id) {
-        var p = plat(id), k = document.createElement("span");
+      [["", "background-color:var(--tt)", tt.kind === "server" ? serverLabel(tt) : tt.name],
+       ["kit-hatch", "background-color:var(--gpu)", "NVIDIA, Anthropic kit"],
+       ["", "background-color:var(--gpu)", "NVIDIA, upstream release"]].forEach(function (x) {
+        var k = document.createElement("span");
         k.className = "key";
-        k.innerHTML = "<span class=\"swatch\" style=\"background:" + SER[id] + "\"></span>";
-        k.appendChild(document.createTextNode(p.kind === "server" ? serverLabel(p) : p.name));
+        k.innerHTML = "<span class=\"swatch " + x[0] + "\" style=\"" + x[1] + "\"></span>";
+        k.appendChild(document.createTextNode(x[2]));
         el2.appendChild(k);
       });
-      var d2 = document.createElement("span");
-      d2.className = "key";
-      d2.innerHTML = "<span class=\"swatch dash\"></span>";
-      d2.appendChild(document.createTextNode("does not run"));
-      el2.appendChild(d2);
     }
     keyRow("c1-keys", SERVERS);
     keyRow("c1b-keys", SERVERS);
@@ -919,10 +923,7 @@ details.disclose > div{ padding-top:var(--s-4); }
       "Hover any bar for the run behind it.");
     mrow("NVIDIA", s.nvidia_code + " " + s.nvidia_impl);
     if (s.timed_region) mrow("Timed region", s.timed_region);
-    mrow("Accuracy", "From tt-bio's release gate, which scores each model against its reference: " + D.models.map(function (x) {
-        var c = x.cells.p150a;
-        return x.name + " " + (c && c.parity ? c.parity : "not measured");
-      }).join("; ") + ".");
+    mrow("Accuracy", s.accuracy);
     CATEGORIES.forEach(function (c) {
       if (D[c.key] && D[c.key].methods) mrow(c.methodsLabel, D[c.key].methods);
     });

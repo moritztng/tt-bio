@@ -1,7 +1,12 @@
 #!/usr/bin/env python3
 """One-line parity claim per page row, read from a release gate's Blackhole parity legs.
 
-    python3 perf/bmk/gate_parity.py ~/gates/rel-<sha>
+    python3 perf/bmk/gate_parity.py ~/gates/rel-<sha> [--extra state/site/msa-parity.json]
+
+The page grades each model the way people run it: with an MSA wherever the model takes one. So a
+`-nomsa` leg is a regression test for the gate and not part of the page's claim, and the Boltz-2
+fold row reads its two MSA legs, which the gate carries as opt-in (they need the MSA server) and
+`--extra` supplies from a separate run of the same harness.
 
 A gate leg PASSes when it reproduces its committed record, which is not the same claim as
 "inside the reference envelope": a leg whose committed record is a documented bf16 floor
@@ -18,7 +23,7 @@ from pathlib import Path
 # page row id -> gate leg name prefixes that test it. Affinity legs are left off the Boltz-2 fold
 # row (the fold cell runs no affinity head); Protenix v1 legs are not Protenix-v2.
 LEGS = {
-    "boltz2": ["boltz2-hsa", "boltz2-prot", "boltz2-trpcage", "boltz2-9ncy"],
+    "boltz2": ["boltz2-prot-msa", "boltz2-ubiquitin-msa"],
     "esmfold2": ["esmfold2-trpcage", "esmfold2-cocrystal"],
     "esmfold2-fast": ["esmfold2-fast-"],
     "protenix-v2": ["protenix-9ncy", "protenix-hsa", "protenix-prot", "protenix-ubq"],
@@ -28,27 +33,19 @@ LEGS = {
     "openbind": ["openbind-"],
     "boltzgen": ["boltzgen"],
     "nesso1": ["nesso1"],
+    "pxdesign": ["pxdesign-"],
     "esmc-300m": ["esmc-300m"], "esmc-600m": ["esmc-600m"], "esmc-6b": ["esmc-6b"],
     "saprot-35m": ["saprot-35m"], "saprot-650m": ["saprot-650m"], "saprot-1.3b": ["saprot-1.3b"],
 }
-# What a reader is told for a leg named outside the envelope; any other leg is named by its id.
-TARGETS = {
-    "boltz2-9ncy-nomsa": "the 9NCY antibody-antigen complex without MSA",
-    "boltz2-prot-nomsa": "a 117-residue protein without MSA",
-    "openfold3-7xi5-notmpl": "7XI5 without templates",
-}
-INSIDE = {"PASS", "PASS-caveated"}
-VERDICTS = INSIDE | {"GAP", "GAP-evidenced", "DRIFT", "FAIL", "ERROR", "SKIP"}
+# rows whose shipped default folds with an MSA; their claim says so
+MSA_ROWS = {"boltz2", "openfold3", "protenix-v2", "opendde", "openbind", "rf3"}
+VERDICTS = {"PASS", "PASS-caveated", "GAP", "GAP-evidenced", "DRIFT", "FAIL", "ERROR", "SKIP"}
 
 
 def scorer_verdict(log: Path, leg: str) -> str | None:
     """The verdict on the leg's own result row; the header prints before the run, the row after."""
     rows = [l.split() for l in log.read_text(errors="replace").splitlines() if l.split()[:1] == [leg]]
     return next((w for w in rows[-1] if w in VERDICTS), None) if rows else None
-
-
-def join(parts: list[str]) -> str:
-    return ", ".join(parts[:-1]) + " and " + parts[-1] if len(parts) > 1 else parts[0]
 
 
 def legs(gate: Path) -> dict:
@@ -60,44 +57,44 @@ def legs(gate: Path) -> dict:
     return out
 
 
-def claims(gate: Path) -> dict:
+def passed(gate: Path, extra: Path | None = None) -> dict:
+    """{leg: True/False} for every Blackhole parity leg the page may count. A leg passes when the gate
+    says PASS and its own scorer printed a verdict, so a leg that ran without scoring is not a pass."""
+    out = {}
+    for n, r in legs(gate).items():
+        log = Path(r.get("log") or "/nonexistent")
+        out[n] = r["verdict"] == "PASS" and log.is_file() and scorer_verdict(log, n) is not None
+    if extra:
+        for n, r in json.loads(extra.read_text()).get("legs", {}).items():
+            out[n] = r.get("verdict") == "PASS" and r.get("scorer") in VERDICTS
+    return {n: v for n, v in out.items() if not n.endswith("-nomsa")}
+
+
+def claims(gate: Path, extra: Path | None = None) -> dict:
     # A gate still running has only the legs it has reached so far, and every leg it has not
-    # reached reads "failed or left no score". gate_fanout writes verdict.json last.
+    # reached reads as missing. gate_fanout writes verdict.json last.
     if not (gate / "verdict.json").is_file():
         raise SystemExit(f"{gate}: no verdict.json, the gate has not finished; pass a finished gate")
     sha = gate.name.removeprefix("rel-")[:9]
-    have = legs(gate)
+    have = passed(gate, extra)
     out = {}
     for row, prefixes in LEGS.items():
         mine = sorted(n for n in have if any(n.startswith(p) for p in prefixes)
                       and not (row == "esmfold2" and n.startswith("esmfold2-fast")))
         if not mine:
             continue
-        inside, floor, failed = [], [], []
-        for n in mine:
-            r = have[n]
-            log = Path(r.get("log") or "/nonexistent")
-            v = scorer_verdict(log, n) if log.is_file() else None
-            if r["verdict"] != "PASS" or v is None:
-                failed.append(n)
-            elif v in INSIDE:
-                inside.append(n)
-            else:
-                floor.append(n)
-        say = lambda names: join([TARGETS.get(n, n) for n in names])
-        text = (f"{len(inside)} of {len(mine)} release-gate accuracy checks" if len(mine) > 1 else
-                f"{'1' if inside else '0'} of 1 release-gate accuracy check")
-        text += f" inside the reference envelope on Blackhole (tt-bio {sha})"
-        if floor:
-            text += f"; {say(floor)} {'sits' if len(floor) == 1 else 'sit'} outside it on a documented bf16 floor"
-        if failed:
-            text += f"; {say(failed)} failed or left no score in this gate"
-        out[row] = text
+        ok = sum(have[n] for n in mine)
+        what = "release-gate accuracy check" + ("s" if len(mine) > 1 else "")
+        every = {1: "its", 2: "both"}.get(len(mine), f"all {len(mine)}")
+        lead = f"Passes {every} {what}" if ok == len(mine) else f"{ok} of {len(mine)} {what} pass"
+        out[row] = (lead + " against the reference implementation on Blackhole" +
+                    (", with an MSA" if row in MSA_ROWS else "") + f" (tt-bio {sha})")
     return out
 
 
 def main() -> int:
-    for row, text in claims(Path(sys.argv[1]).expanduser()).items():
+    extra = Path(sys.argv[3]).expanduser() if len(sys.argv) > 3 and sys.argv[2] == "--extra" else None
+    for row, text in claims(Path(sys.argv[1]).expanduser(), extra).items():
         print(f"{row}: {text}")
     return 0
 

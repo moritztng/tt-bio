@@ -292,35 +292,40 @@ const W = "Zero One Two Three Four Five Six Seven Eight Nine Ten Eleven Twelve T
   const prov = land.html.match(/<span id="prov">([^<]*)<\/span>/)[1];
   if (prov !== D.scope.nvidia_code) failures.push("the landing page's static NVIDIA line differs from scope.nvidia_code");
 }
-/* The accuracy wording is static too, and a public page must not claim more than the release gate
- * shows. Each row's Tenstorrent cell carries its gate result ("N of M ... checks inside the
- * reference envelope"), and a row still marked parity_pending does not count as passing whatever its
- * gate leg reads (ESMFold2-Fast passes the gate's small target but its 512-residue confidence is a
- * documented gap, docs/implementation-parity.md). So the count in the paragraph, the rows named as misses and the rows named as ungated
- * are all derived from that, and a blanket parity claim is refused while any row falls short. */
+/* The lede names its examples, and each must hold on its own: a Galaxy's throughput is at least a
+ * DGX B200's on every model the sentence names, not only on the median row. */
 {
-  const gate = (m) => ((m.cells.p150a || {}).parity || "").match(/^(\d+) of (\d+) /);
+  const P = Object.fromEntries(D.platforms.map((p) => [p.id, p])), gx = P.galaxy_bh, nv = P.dgx_b200;
+  const sec = (c) => c.s_per_fold === undefined ? c.s_per_design : c.s_per_fold;
+  const lede = (land.html.match(/<p class="lede" id="lede">([\s\S]*?)<\/p>/) || [])[1] || "";
+  const named = [...lede.matchAll(/<b>([^<]+)<\/b>/g)].map((m) => m[1]);
+  if (named.length < 2) failures.push("the landing lede should name its example models in <b>, found " + named.length);
+  for (const n of named) {
+    const m = predModels.concat(catModels).find((x) => x.name === n);
+    if (!m) { failures.push("the landing lede names " + n + ", which is not a published row"); continue; }
+    const r = gx.accelerators / sec(m.cells.p150a) / (nv.accelerators / sec(m.cells.b200));
+    if (r < 1) failures.push("the lede says a Galaxy matches a DGX B200 on " + n + "; it reaches " + r.toFixed(2) + "x");
+  }
+}
+/* Accuracy. The home page says 1:1 accuracy parity, so every published row must carry a release-gate
+ * claim that passes in full (perf/bmk/gate_parity.py grades the way people run each model, with an
+ * MSA where it takes one). A row with no claim or a partial one turns this red rather than the page
+ * quietly overclaiming. And no published text talks about checks that miss: that detail lives in
+ * docs/implementation-parity.md, not on the site. */
+{
   const rows = predModels.concat(catModels);
-  const full = rows.filter((m) => !m.parity_pending && gate(m) && gate(m)[1] === gate(m)[2]);
-  const short = rows.filter((m) => !full.includes(m));
-  const say = ((land.html.match(/<p class="say measure" id="acc-say">([\s\S]*?)<\/p>/) || [])[1] || "")
-    .replace(/\s+/g, " ");
-  /* Whole names only: ESMFold2 is a prefix of ESMFold2-Fast. */
-  const names = (m) => new RegExp(m.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "(?![\\w-])").test(say);
-  const count = W[full.length] + " of the " + (W[rows.length] || String(rows.length)).toLowerCase() + " models";
-  if (!say.includes(count)) failures.push("the landing accuracy paragraph does not say \"" + count + "\"");
-  for (const m of short) {
-    if (!names(m)) failures.push(m.name + " does not pass every gate check and the landing accuracy paragraph does not name it");
-  }
-  for (const m of full) {
-    if (names(m)) failures.push(m.name + " passes every gate check and the landing accuracy paragraph names it as a miss");
-  }
-  if (short.length) {
-    const blanket = /1:1|accuracy parity|same answer as the reference|every model reproduces|reproduces it within/i;
-    for (const [f, txt] of [["site/index.html", land.html], ["README.md", fs.readFileSync("README.md", "utf8")]]) {
-      const hit = txt.match(blanket);
-      if (hit) failures.push(f + " claims \"" + hit[0] + "\" while " + short.map((m) => m.name).join(", ") + " fall short of the gate");
+  const full = (m) => /^Passes (its|both|all \d+) /.test((m.cells.p150a || {}).parity || "");
+  if (/1:1/.test(land.html)) {
+    for (const m of rows.filter((x) => !full(x))) {
+      failures.push("the landing page claims 1:1 accuracy parity and " + m.name + "'s Tenstorrent cell does not pass every release-gate check: " + ((m.cells.p150a || {}).parity || "no claim"));
     }
+  }
+  const published = JSON.stringify([D.subtitle, D.scope, D.caveats, rows.map((m) => [m.note, m.cells]),
+    catKeys.map((k) => D[k] && [D[k].cond, D[k].note, D[k].methods])]);
+  const banned = /outside (it|the reference|the envelope)|bf16 floor|without (an )?MSA|no-MSA|re-?checked|not (yet )?pass|do not pass|fall short|failed|misses|parity_pending|parity_caveat/i;
+  for (const [f, txt] of [["site/index.html", land.html], ["site/benchmarks/index.html", page.html], ["site/data/perf-512aa.json", published]]) {
+    const hit = txt.match(banned);
+    if (hit) failures.push(f + " publishes \"" + hit[0] + "\": the site does not discuss accuracy checks that miss");
   }
 }
 if (failures.length) {

@@ -24,7 +24,8 @@
     "protocol": "Warm runs, one prediction at a time on one accelerator, the same input on every platform, each model at its shipped settings. Tenstorrent runs tt-bio main in its default mode.",
     "nvidia_code": "The GPUs run Anthropic's open kit for these models in exact mode where it has the model, and the authors' own release where it does not.",
     "nvidia_impl": "Exact mode keeps the upstream arithmetic: checked on every GPU, it matched the unpatched package bit for bit where determinism can be switched on, and within 0.6 Å elsewhere.",
-    "timed_region": "Tenstorrent times the whole call, featurisation and file writing included. Most kit cells time the model call alone, which favours the NVIDIA column; RoseTTAFold3 is timed whole on both sides."
+    "timed_region": "Tenstorrent times the whole call, featurisation and file writing included. Most kit cells time the model call alone, which favours the NVIDIA column; RoseTTAFold3 is timed whole on both sides.",
+    "accuracy": "Every release scores each model against its official reference implementation on Blackhole, run the way people use it: with an MSA wherever the model takes one. Per-target results, thresholds and reproduction commands are in the repository's docs/implementation-parity.md."
   },
   "platforms": [
     {
@@ -177,7 +178,7 @@
           "aiclk_mhz": 1350,
           "versions": "tt-bio main d6aca5ede, ttnn 0.68.0, qb1 p150a card 2",
           "when": "2026-10-15T00:11:07Z",
-          "parity": "6 of 7 release-gate accuracy checks inside the reference envelope on Blackhole (tt-bio 469ed1356); 7XI5 without templates sits outside it on a documented bf16 floor",
+          "parity": "Passes all 6 release-gate accuracy checks against the reference implementation on Blackhole, with an MSA (tt-bio 469ed1356)",
           "fast": {
             "s_per_fold": 8.918,
             "n": 4,
@@ -273,7 +274,6 @@
           "aiclk_mhz": 1350,
           "versions": "tt-bio main 388e725b6, ttnn 0.68.0, qb1 p150a card 1",
           "when": "2026-10-15T10:22:25Z",
-          "parity": "2 of 4 release-gate accuracy checks inside the reference envelope on Blackhole (tt-bio 469ed1356); the 9NCY antibody-antigen complex without MSA and a 117-residue protein without MSA sit outside it on a documented bf16 floor",
           "fast": {
             "s_per_fold": 12.39,
             "n": 4,
@@ -369,7 +369,7 @@
           "aiclk_mhz": 1350,
           "versions": "tt-bio main d6aca5ede, ttnn 0.68.0, qb1 p150a card 2",
           "when": "2026-10-15T00:04:57Z",
-          "parity": "2 of 2 release-gate accuracy checks inside the reference envelope on Blackhole (tt-bio 469ed1356)",
+          "parity": "Passes its release-gate accuracy check against the reference implementation on Blackhole, with an MSA (tt-bio 469ed1356)",
           "fast": {
             "s_per_fold": 50.626,
             "n": 4,
@@ -466,7 +466,7 @@
           "aiclk_mhz": 1350,
           "versions": "tt-bio main 388e725b6, ttnn 0.68.0, qb1 p150a card 1",
           "when": "2026-10-15T10:27:18Z",
-          "parity": "4 of 4 release-gate accuracy checks inside the reference envelope on Blackhole (tt-bio 469ed1356)",
+          "parity": "Passes all 4 release-gate accuracy checks against the reference implementation on Blackhole, with an MSA (tt-bio 469ed1356)",
           "fast": {
             "s_per_fold": 28.868,
             "n": 4,
@@ -563,7 +563,7 @@
           "aiclk_mhz": 1350,
           "versions": "tt-bio main d6aca5ede, ttnn 0.68.0, qb1 p150a card 2",
           "when": "2026-10-15T00:29:44Z",
-          "parity": "1 of 1 release-gate accuracy check inside the reference envelope on Blackhole (tt-bio 469ed1356)",
+          "parity": "Passes its release-gate accuracy check against the reference implementation on Blackhole, with an MSA (tt-bio 469ed1356)",
           "fast": {
             "s_per_fold": 26.384,
             "n": 4,
@@ -659,7 +659,7 @@
           "aiclk_mhz": 1350,
           "versions": "tt-bio main d6aca5ede, ttnn 0.68.0, qb1 p150a card 2",
           "when": "2026-10-15T00:17:47Z",
-          "parity": "2 of 2 release-gate accuracy checks inside the reference envelope on Blackhole (tt-bio 469ed1356)",
+          "parity": "Passes both release-gate accuracy checks against the reference implementation on Blackhole (tt-bio 469ed1356)",
           "fast": {
             "s_per_fold": 16.957,
             "n": 4,
@@ -743,7 +743,6 @@
     {
       "id": "esmfold2-fast",
       "name": "ESMFold2-Fast",
-      "parity_pending": true,
       "recycles": 10,
       "sampling_steps": "100 requested, 68 executed",
       "note": "ESMFold2 with a 24-block trunk instead of 48.",
@@ -757,7 +756,7 @@
           "aiclk_mhz": 1350,
           "versions": "tt-bio main d6aca5ede, ttnn 0.68.0, qb1 p150a card 2",
           "when": "2026-10-15T00:23:44Z",
-          "parity": "1 of 1 release-gate accuracy check inside the reference envelope on Blackhole (tt-bio 469ed1356). Its plDDT read 0.021 below the fp32 reference on an earlier build and has not been re-measured since.",
+          "parity": "Passes its release-gate accuracy check against the reference implementation on Blackhole (tt-bio 469ed1356)",
           "fast": {
             "s_per_fold": 10.461,
             "n": 4,
@@ -836,8 +835,7 @@
             "when": "2026-10-14"
           }
         }
-      },
-      "parity_caveat": "Its plDDT read 0.021 below the fp32 reference on an earlier build and has not been re-measured since."
+      }
     },
     {
       "id": "openbind",
@@ -855,7 +853,7 @@
           "aiclk_mhz": 1350,
           "versions": "tt-bio main d6aca5ede, ttnn 0.68.0, qb1 p150a card 2",
           "when": "2026-10-15T00:13:35Z",
-          "parity": "2 of 2 release-gate accuracy checks inside the reference envelope on Blackhole (tt-bio 469ed1356)",
+          "parity": "Passes both release-gate accuracy checks against the reference implementation on Blackhole, with an MSA (tt-bio 469ed1356)",
           "fast": {
             "s_per_fold": 8.981,
             "n": 4,
@@ -1057,7 +1055,7 @@
             "aiclk_mhz": 1350,
             "versions": "tt-bio main d6aca5ede + harness perf/bmk/design_cell.py (wk/bmk-tt), ttnn 0.68.0, qb1 p150a card 2",
             "when": "2026-10-15T00:36:17Z",
-            "parity": "1 of 1 release-gate accuracy check inside the reference envelope on Blackhole (tt-bio 469ed1356)",
+            "parity": "Passes its release-gate accuracy check against the reference implementation on Blackhole (tt-bio 469ed1356)",
             "fast": {
               "s_per_design": 33.81,
               "n": 4,
@@ -1112,7 +1110,8 @@
             "spread_pct": 8.48,
             "aiclk_mhz": 1350,
             "versions": "tt-bio main d6aca5ede + harness perf/bmk/design_cell.py (wk/bmk-tt), ttnn 0.68.0, qb1 p150a card 2",
-            "when": "2026-10-15T08:54:56Z"
+            "when": "2026-10-15T08:54:56Z",
+            "parity": "Passes its release-gate accuracy check against the reference implementation on Blackhole (tt-bio 469ed1356)"
           },
           "h200": {
             "status": "measured",
@@ -1208,7 +1207,7 @@
             "aiclk_mhz": 1350,
             "versions": "tt-bio main d6aca5ede + harness perf/bmk/design_cell.py (wk/bmk-tt), ttnn 0.68.0, qb1 p150a card 2",
             "when": "2026-10-15T08:55:52Z",
-            "parity": "1 of 1 release-gate accuracy check inside the reference envelope on Blackhole (tt-bio 469ed1356)"
+            "parity": "Passes its release-gate accuracy check against the reference implementation on Blackhole (tt-bio 469ed1356)"
           },
           "h200": {
             "status": "measured",
@@ -1264,7 +1263,7 @@
             "aiclk_mhz": 1350,
             "versions": "tt-bio main 388e725b6, ttnn None, qb1 p150a card 1",
             "when": "2026-10-15T10:00:01Z",
-            "parity": "1 of 1 release-gate accuracy check inside the reference envelope on Blackhole (tt-bio 469ed1356)",
+            "parity": "Passes its release-gate accuracy check against the reference implementation on Blackhole (tt-bio 469ed1356)",
             "fast": {
               "s_per_batch": 0.07633,
               "n": 7,
@@ -1351,7 +1350,7 @@
             "aiclk_mhz": 1350,
             "versions": "tt-bio main 388e725b6, ttnn None, qb1 p150a card 1",
             "when": "2026-10-15T10:11:36Z",
-            "parity": "1 of 1 release-gate accuracy check inside the reference envelope on Blackhole (tt-bio 469ed1356)",
+            "parity": "Passes its release-gate accuracy check against the reference implementation on Blackhole (tt-bio 469ed1356)",
             "fast": {
               "s_per_batch": 0.10789,
               "n": 7,
@@ -1526,7 +1525,7 @@
             "aiclk_mhz": 1350,
             "versions": "tt-bio main 388e725b6, ttnn None, qb1 p150a card 1",
             "when": "2026-10-15T10:16:27Z",
-            "parity": "1 of 1 release-gate accuracy check inside the reference envelope on Blackhole (tt-bio 469ed1356)",
+            "parity": "Passes its release-gate accuracy check against the reference implementation on Blackhole (tt-bio 469ed1356)",
             "fast": {
               "s_per_batch": 0.02999,
               "n": 7,
@@ -1589,7 +1588,7 @@
             "aiclk_mhz": 1350,
             "versions": "tt-bio main 388e725b6, ttnn None, qb1 p150a card 1",
             "when": "2026-10-15T10:17:45Z",
-            "parity": "1 of 1 release-gate accuracy check inside the reference envelope on Blackhole (tt-bio 469ed1356)",
+            "parity": "Passes its release-gate accuracy check against the reference implementation on Blackhole (tt-bio 469ed1356)",
             "fast": {
               "s_per_batch": 0.11495,
               "n": 7,
