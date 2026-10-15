@@ -227,9 +227,20 @@ QK_L1_STATS = [0, 0]
 ESMC_SDPA_K_CHUNK = 64
 
 
+# q in one chunk up to ESMC_SDPA_Q_WHOLE rows. The page bucket, 544 rows, is 17 tiles, a prime, so a 128-row chunk pads
+# q to 640. Galaxy chip at 1000 MHz, batch 7 x 15 heads x 544 x d 64 (sdpa_sweep.py), ms per call: q128/k64 1.167 ->
+# q544/k64 0.792, error against float64 unchanged (max abs 0.0467, pcc 0.99970 both); 6B shape (1 x 40 heads) 0.572 ->
+# 0.413. Page cell (esmc_ab.py, 2 rounds, 1000 MHz), embeddings bit-identical to the 128-row chunks: 300M 161.7 -> 151.6 ms,
+# --fast 160.1 -> 150.1.
+_ESMC_SDPA_Q_WHOLE = env_flag("TT_BIO_ESMC_SDPA_Q_WHOLE", True)
+ESMC_SDPA_Q_WHOLE = 544
+
+
 def lm_sdpa_config(q_len: int, k_len: int):
-    return _sdpa_program_config(min(ESMC_SDPA_Q_CHUNK, _capped_sdpa_chunk_size(q_len)),
-                                min(ESMC_SDPA_K_CHUNK, _capped_sdpa_chunk_size(k_len)))
+    q_pad = -(-q_len // 32) * 32
+    q_chunk = (q_pad if _ESMC_SDPA_Q_WHOLE and q_pad <= ESMC_SDPA_Q_WHOLE
+               else min(ESMC_SDPA_Q_CHUNK, _capped_sdpa_chunk_size(q_len)))
+    return _sdpa_program_config(q_chunk, min(ESMC_SDPA_K_CHUNK, _capped_sdpa_chunk_size(k_len)))
 
 
 class Embedding(Module):
@@ -325,37 +336,37 @@ class Attention(_MMLin, Module):
       o = SDPA(rope(q), rope(k), v, scale=d_head**-0.5); out_proj(o)
     """
 
-    def __init__(self, n_heads: int, state_dict: Weights, compute_kernel_config, out_scale: float = 1.0):
+    def __init__(self, n_heads: int, state_dict: Weights, compute_kernel_config, out_scale: float = 1.0,
+                 qk_l1: bool = True, d_model: int = 0):
         super().__init__(state_dict, compute_kernel_config)
         self.n_heads = n_heads
-        self.qk_l1 = True  # this model may take the L1 path; Block clears it for the 6B
+        self.qk_l1 = qk_l1  # this model may take the L1 path; Block clears it for the 6B
         self.in_norm_weight = self.torch_to_tt("layernorm_qkv.0.weight")
         self.in_norm_bias = self.torch_to_tt("layernorm_qkv.0.bias")
         # The two big projection weights (qkv, out_proj) carry the bulk of the
         # ESMC-6B's parameters; in fast mode they load as block-fp8 (bfloat8_b),
         # halving their weight-read bandwidth and resident size. _dtype() is bf16
         # otherwise (full precision, the default).
-        self.qkv_weight = self.torch_to_tt("layernorm_qkv.1.weight", dtype=_dtype())
+        # q, k and v as three weights cut from the packed one on the host, so the device never holds both layouts
+        # (a device-side slice of the 6B's bf16 qkv OOMs: the weights leave a Wormhole chip ~7 MB of DRAM a bank).
+        if _ESMC_QKV_SPLIT and qk_l1 and d_model:
+            d = d_model  # from the caller: a weight-cache load carries no state dict to read it from
+            self.qkv_weight = None
+            self._qkv_w = tuple(self.torch_to_tt("layernorm_qkv.1.weight", transform=lambda w, i=i: w[i * d:(i + 1) * d].t(),
+                                                 dtype=_dtype()) for i in range(3))
+        else:
+            self.qkv_weight = self.torch_to_tt("layernorm_qkv.1.weight", dtype=_dtype())
         self.q_ln_weight = self.torch_to_tt("q_ln.weight")
         self.k_ln_weight = self.torch_to_tt("k_ln.weight")
         self.out_weight = self.torch_to_tt("out_proj.weight", transform=_scaled_t(out_scale), dtype=_dtype())
-
-    def _qkv_split(self):
-        """The q, k and v column blocks of the packed qkv weight, sliced on device once and cached."""
-        if getattr(self, "_qkv_w", None) is None:
-            w = self.qkv_weight
-            d_in, d3 = int(w.shape[0]), int(w.shape[1])
-            d = d3 // 3
-            self._qkv_w = tuple(ttnn.slice(w, [0, i * d], [d_in, (i + 1) * d]) for i in range(3))
-        return self._qkv_w
 
     def _qkv(self, x, ln_mc=None):
         """q, k, v projections of LayerNorm(x), the layer norm written to `ln_mc` (DRAM if None)."""
         x_norm = ttnn.layer_norm(x, weight=self.in_norm_weight, bias=self.in_norm_bias, epsilon=1e-5,
                                  compute_kernel_config=self.compute_kernel_config, memory_config=ln_mc)
         try:
-            if _ESMC_QKV_SPLIT and self.qk_l1:
-                return tuple(self._lin(x_norm, w) for w in self._qkv_split())
+            if self.qkv_weight is None:
+                return tuple(self._lin(x_norm, w) for w in self._qkv_w)
             qkv = self._lin(x_norm, self.qkv_weight)
             q, k, v = ttnn.chunk(qkv, 3, dim=-1)
             ttnn.deallocate(qkv)
@@ -389,10 +400,14 @@ class Attention(_MMLin, Module):
             for t in live:
                 ttnn.deallocate(t)
         QK_L1_STATS[1] += _ESMC_QK_L1 and self.qk_l1
+        # q and k go as soon as their norms exist: with the 6B's bf16 weights resident, the 1968 aa re-pack on a
+        # Wormhole chip only fits without them (30 MB asked, 42 MB free in 1.8 MB blocks per bank with them alive).
         qn = ttnn.layer_norm(q, weight=self.q_ln_weight, epsilon=1e-5, compute_kernel_config=ck)
+        ttnn.deallocate(q)
         kn = ttnn.layer_norm(k, weight=self.k_ln_weight, epsilon=1e-5, compute_kernel_config=ck)
+        ttnn.deallocate(k)
         qkv = ttnn.concat([qn, kn, v], dim=-1)
-        for t in (q, k, v, qn, kn):
+        for t in (v, qn, kn):
             ttnn.deallocate(t)
         return self._split_heads(qkv, self.n_heads)
 
@@ -588,6 +603,10 @@ def _swiglu_gate_legacy() -> bool:
 # A shape the allocator refuses in one piece below the bound is tiled from then on.
 # A model past _LM_LARGE_MODEL_BYTES also keeps the attention's DRAM path (Attention.qk_l1).
 _LM_LARGE_MODEL_BYTES = env_int("TT_BIO_LM_LARGE_MODEL_BYTES", 4 << 30)
+# The 6B on the same attention path as the small models: q, k and v from the split weight (cut on the host, no second
+# copy) and the norms, re-pack and rope in L1, each refusal falling back to DRAM. Its first try
+# kept both weights: --fast 304.8 -> 286.2 ms at 544 aa on a Galaxy chip, normal out of DRAM. Off until measured.
+_ESMC_QK_L1_LARGE = env_flag("TT_BIO_ESMC_QK_L1_LARGE", False)
 _LM_FFN_WHOLE_ROWS = env_int("TT_BIO_LM_FFN_WHOLE_ROWS", 1056)
 # The per-token LM FFN's SwiGLU gate silu(x fc1_a) * (x fc1_b) written to L1, where fc2 reads it back. Same op, same
 # values (a memory placement); a refusal falls back to DRAM for that shape for good. Off until the page-cell A/B says.
@@ -1219,13 +1238,13 @@ class Block(Module):
     def __init__(self, n_heads: int, n_layers: int, state_dict: Weights, compute_kernel_config):
         super().__init__(state_dict, compute_kernel_config)
         inv_scale = 1.0 / (n_layers / 36) ** 0.5
-        self.attn = Attention(n_heads, self.scope("attn"), compute_kernel_config, out_scale=inv_scale)
         self.ffn = SwiGLUFFN(self.scope("ffn"), compute_kernel_config, fuse_swiglu=True,
                              out_scale=inv_scale)
         shape = self.ffn.fc2_weight.shape  # ttnn.Shape takes no slice
         d_ff, d = int(shape[-2]), int(shape[-1])
         self.ffn.model_bytes = n_layers * (4 * d * d + 3 * d * d_ff) * 2
-        self.attn.qk_l1 = self.ffn.model_bytes <= _LM_LARGE_MODEL_BYTES
+        self.attn = Attention(n_heads, self.scope("attn"), compute_kernel_config, out_scale=inv_scale,
+                              qk_l1=self.ffn.model_bytes <= _LM_LARGE_MODEL_BYTES or _ESMC_QK_L1_LARGE, d_model=d)
 
     def __call__(self, x: ttnn.Tensor, cos: ttnn.Tensor, sin: ttnn.Tensor,
                  attn_mask: ttnn.Tensor | None = None,

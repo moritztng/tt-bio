@@ -5,6 +5,7 @@
 # OUT gets aiclk.tsv (epoch, node, MHz, load1), log, rc. The node is the chip's sysfs node from
 # ~/spd/galaxy/umd2node.json on a Galaxy, else the chip number.
 CHIP=$1 O=$2; shift 3
+[[ $CHIP =~ ^[0-9]+$ ]] || { echo "run.sh: chip '$CHIP' is not a chip number, refusing (an empty pin opens every chip)" >&2; exit 2; }
 mkdir -p "$O"
 exec 9> "${LOCK:-$HOME/spd/locks/chip$CHIP.lock}"; flock -w 600 9 || { echo flockbusy > "$O/rc"; exit 3; }
 N=$(python3 -c "import json,os,sys; print(json.load(open(os.path.expanduser('~/spd/galaxy/umd2node.json'))).get(sys.argv[1], sys.argv[1]))" "$CHIP" 2>/dev/null || echo "$CHIP")
