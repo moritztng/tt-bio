@@ -32,7 +32,7 @@ constexpr uint32_t Kt = get_compile_time_arg_val(0);
 constexpr uint32_t Nt = get_compile_time_arg_val(1);
 constexpr uint32_t Mb = get_compile_time_arg_val(2);
 constexpr uint32_t SBW = get_compile_time_arg_val(3);
-constexpr uint32_t SIGPOLY = get_compile_time_arg_val(4);   // 1: sigmoid_poly.hpp's polynomial
+constexpr uint32_t SIGPOLY = get_compile_time_arg_val(4);   // 1/2: sigmoid_poly.hpp's degree-8/6 polynomial
 // Round DST to bf16 nearest-even: bit 0 before the output pack, bit 2 the product before the
 // residual add (as the res compute's bits 0 / 2).
 constexpr uint32_t RNE = get_compile_time_arg_val(5);
@@ -174,7 +174,7 @@ void kernel_main() {
                         i1 += Nt;
                     }
                     for (uint32_t i = 0; i < SBW; ++i) {
-                        if constexpr (SIGPOLY) sigmoid_poly_tile(i);
+                        if constexpr (SIGPOLY) sigmoid_poly_tile<SIGPOLY>(i);
                         else sigmoid_bf16_tile(i);
                     }
                     if constexpr (RNE & 2) {
@@ -205,7 +205,7 @@ void kernel_main() {
             for (uint32_t i = 0; i < 4; ++i) copy_tile(cb_g, t0 + i, i);
             if constexpr (!GATE) {
                 for (uint32_t i = 0; i < 4; ++i) {
-                    if constexpr (SIGPOLY) sigmoid_poly_tile(i);
+                    if constexpr (SIGPOLY) sigmoid_poly_tile<SIGPOLY>(i);
                     else sigmoid_bf16_tile(i);
                 }
             }

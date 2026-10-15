@@ -700,7 +700,10 @@ ESMFold2-Fast -0.0002 [-0.0015, +0.0008], docking unchanged. On ESMFold2 at 512 
 ESMFold2 CA-lDDT +0.0003 [-0.0012, +0.0023], ESMFold2-Fast +0.0016 [+0.0001, +0.0034], docking
 unchanged. At 512 residues on p150a (1350 MHz) `ws_lofi` takes 1.0 s off ESMFold2 and 0.24 s off
 ESMFold2-Fast, `trimul_gin_hifi2` another 0.28 s and 0.20 s. Wormhole leaves `ws_lofi` off (not graded
-there).
+there). Blackhole `--fast` also runs the triangle multiplication as T1 + T2 (`trimul_t1`, `trimul_t1_c256`,
+`trimul_t2`, `trimul_t2cm`), graded on the fast bar on 11 complexes x 4 seeds per model: ESMFold2 CA-lDDT
++0.0006 [-0.0001, +0.0014], ESMFold2-Fast -0.0009 [-0.0021, +0.0000], docking unchanged. It takes 0.26 s off
+ESMFold2 and 0.25 s off ESMFold2-Fast at 512 residues on p150a. Wormhole leaves it off, where it is 2.4 s slower.
 
 **Accuracy: moves, inside the fast bar.** On 11 complexes x 4 seeds on Blackhole, ESMFold2-Fast
 `--fast` against the same mode without the stack: CA-lDDT -0.0000 [-0.0003, +0.0002], TM-score
