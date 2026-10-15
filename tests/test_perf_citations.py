@@ -348,10 +348,11 @@ if __name__ == "__main__":
 def test_the_census_reads_provenance_out_of_a_curated_json():
     """Negative control for the `PROVENANCE` exception, added 2026-09-20.
 
-    `docs/perf_baselines.json` and `site/data/perf-512aa.json` are the only
-    files naming two directories a tidy would otherwise delete. Putting the
-    suffix skip back has to break this.
+    `docs/perf_baselines.json` and `site/data/perf-512aa.json` are curated
+    JSON files that name evidence directories. Putting the suffix skip back
+    has to break this. The page JSON cites perf/bmk, the evidence for every
+    cell it publishes since 2026-10-14.
     """
     named = named_directories()
     assert "docs/perf_baselines.json" in named.get("qb2cardlayer", set())
-    assert "site/data/perf-512aa.json" in named.get("p132", set())
+    assert "site/data/perf-512aa.json" in named.get("bmk", set())
