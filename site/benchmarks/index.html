@@ -645,7 +645,7 @@ details.disclose > div{ padding-top:var(--s-4); }
   function chartPerDollar(host, basis) {
     var m = D.cost_model, ref = plat(m.index_platform), capex = basis === "capex";
     serverChart(host + "-svg", function (mo, k) { return perDollarIndex(mo, k, basis); }, fmtX, {
-      id: host, unit: "predictions or designs per dollar", unitShort: "per $",
+      id: host, unit: "per dollar", unitShort: "per $",
       tipUnit: function (row) { return "the reference server's " + row.many + " per dollar"; },
       tickFmt: function (v) { return v.toFixed(1) + "x"; },
       title: "Throughput per dollar of " + (capex ? "purchase price" : "total cost of ownership") +
@@ -660,7 +660,7 @@ details.disclose > div{ padding-top:var(--s-4); }
 
   function chartThroughput() {
     serverChart("c2-svg", function (mo, k, p) { return perHour(secs(mo.cells[k]), p); }, fmtInt, {
-      id: "c2", unit: "predictions or designs per hour", unitShort: "per hour",
+      id: "c2", unit: "per hour", unitShort: "per hour",
       tipUnit: function (row) { return row.many + " per hour"; },
       tickFmt: function (v) { return v >= 1000 ? fmtInt(v) : v.toFixed(0); },
       title: "Predictions and designs per hour per server, derived"
@@ -689,7 +689,7 @@ details.disclose > div{ padding-top:var(--s-4); }
       groups.push({ label: m.name + ", " + m.recycles + " recycles", bars: bars });
     });
     drawBars(document.getElementById("c3-svg"), {
-      id: "c3", groups: groups, max: niceMax(max), unit: "seconds per prediction", unitShort: "s",
+      id: "c3", groups: groups, max: niceMax(max), unit: "seconds", unitShort: "s",
       tickFmt: function (v) { return v.toFixed(0); },
       title: "Seconds to return one 512-residue prediction on one AI Processor, measured",
       desc: D.models.map(function (m) {
@@ -872,7 +872,7 @@ details.disclose > div{ padding-top:var(--s-4); }
     /* The scope list carries the run conditions and nothing else. How the two NVIDIA generations
      * split across the rows, and what each side's timer covers, are methodology: they read as
      * "H200 against B200" and "Timed region" in Methods below. */
-    scopeRows.push(["Run", s.protocol], ["NVIDIA", s.nvidia_code], ["Updated", D.updated]);
+    scopeRows.push(["Run", s.protocol], ["NVIDIA code", s.nvidia_code], ["Updated", D.updated]);
     scopeRows.forEach(function (kv) {
       dl.appendChild(Object.assign(document.createElement("dt"), { textContent: kv[0] }));
       dl.appendChild(Object.assign(document.createElement("dd"), { textContent: kv[1] }));

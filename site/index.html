@@ -165,7 +165,7 @@ h2{font-size:clamp(1.85rem,3.5vw,2.5rem);margin:0 0 18px;max-width:22ch}
       stack on its own shipped settings. Then divided by what the hardware costs.</p>
     <!-- The sentence is scope.nvidia_code, written here so it reads without JS and replaced from
          the data on load. render_check.js fails if the two differ. -->
-    <p class="prov"><span id="prov">NVIDIA runs Anthropic's open kit for these models in exact mode where it has the model, and the authors' own release where it does not.</span>
+    <p class="prov"><span id="prov">The GPUs run Anthropic's open kit for these models in exact mode where it has the model, and the authors' own release where it does not.</span>
       <a href="benchmarks/#methods">Methods</a></p>
     <div class="metricline">
       <div class="seg" id="metric">
@@ -341,8 +341,9 @@ function groupHTML(model){
 }
 /* The hero counts the rows the chart draws, so the figure cannot drift from the data. */
 function hero(D){
-  document.getElementById("h-n").textContent = [...D.models, ...(D.design?.models ?? []),
-    ...(D.affinity?.models ?? [])].filter(m => !m.hidden).length;
+  const n = [...D.models, ...(D.design?.models ?? []), ...(D.affinity?.models ?? [])].filter(m => !m.hidden).length;
+  const W = "Zero One Two Three Four Five Six Seven Eight Nine Ten Eleven Twelve Thirteen Fourteen Fifteen".split(" ");
+  document.getElementById("h-n").textContent = W[n] || String(n);
 }
 function drawChart(){
   const AXIS = {perk:["Predictions per hour, per $1,000 of purchase price.", "per $1k"],

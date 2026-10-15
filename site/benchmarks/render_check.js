@@ -269,7 +269,9 @@ for (const m of embedModels) {
   }
 }
 /* The hero counts the published rows from the data. */
-if (land.store.get("h-n")?.textContent !== String(predModels.length + catModels.length)) {
+const W = "Zero One Two Three Four Five Six Seven Eight Nine Ten Eleven Twelve Thirteen Fourteen Fifteen".split(" ");
+const nRows = predModels.length + catModels.length;
+if (land.store.get("h-n")?.textContent !== (W[nRows] || String(nRows))) {
   failures.push("the landing hero's model count is not the published row count");
 }
 /* The hero states one claim in words and no multiplier (Moritz, 2026-10-15: no "3.8x" in the

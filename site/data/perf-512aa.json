@@ -22,7 +22,7 @@
     "seed": 0,
     "templates": "off",
     "protocol": "Warm runs, one prediction at a time on one accelerator, the same input on every platform, each model at its shipped settings. Tenstorrent runs tt-bio main in its default mode.",
-    "nvidia_code": "NVIDIA runs Anthropic's open kit for these models in exact mode where it has the model, and the authors' own release where it does not.",
+    "nvidia_code": "The GPUs run Anthropic's open kit for these models in exact mode where it has the model, and the authors' own release where it does not.",
     "nvidia_impl": "Exact mode keeps the upstream arithmetic: checked on every GPU, it matched the unpatched package bit for bit where determinism can be switched on, and within 0.6 Å elsewhere.",
     "timed_region": "Tenstorrent times the whole call, featurisation and file writing included. Most kit cells time the model call alone, which favours the NVIDIA column; RoseTTAFold3 is timed whole on both sides."
   },

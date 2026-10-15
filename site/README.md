@@ -15,12 +15,14 @@ them into the JSON `title` and `subtitle` and into the page's `<title>` and meta
 hand-written fifth copy would only go stale.
 
 `index.html` is the landing page. Its bar chart reads the same JSON and derives the same three
-metrics. The hero derives its price share and throughput-per-dollar figures from the same data, a
-Galaxy Blackhole against a DGX B200 over every row measured on both, so it has no numbers of its own.
-Set `"parity_pending": true` on a row that does not yet match its reference on every accuracy check and the hero names
-it when it sets the top of that range: the hero is prose and carries none of
-the per-cell provenance the benchmark page does, so the one row a reader would have to take on trust
-says so where the claim is. Drop the flag when the run lands and the clause goes with it.
+metrics. The hero makes one claim in words and carries no multiplier: a Galaxy Blackhole returns more
+predictions per dollar than a DGX H200, B200 or A100 on every published row. `render_check.js` fails
+if a row ever breaks that sentence, on purchase price or on ownership, or if a number with an `x`
+reappears in the hero. Its model count is read from the data.
+
+Keep both pages short. Long notes, per-run detail and campaign history belong in the JSON, the board
+or docs/, not in page text: the benchmarks page shows one line on what the GPUs ran, the charts, the
+tables and a short methods block.
 
 Preview it:
 
@@ -48,8 +50,9 @@ with the kit's fast mode under `fast` and the stock upstream run under `stock`, 
 own `off` arm on the same machine (every kit change switched off); `"stock"` is the model's own
 upstream release, used where the kit does not cover the model. The
 kit's ESMC has no fast mode, so those cells carry no `fast`. Only the headline is
-drawn, so every bar compares a default against an exact run. Each run carries `n`, `spread_pct`,
-the clock it ran at (`aiclk_mhz` or `clock_mhz`, sampled during the run), `versions` and `when`.
+drawn, so every bar compares a default against an exact run; `fast` and `stock` stay in the data and
+are not page text. Each run carries `n`, `spread_pct`, the clock it ran at (`aiclk_mhz` or
+`clock_mhz`, sampled during the run), `versions` and `when`, and a bar's hover shows them.
 
 The numbers come from the campaign board, `~/.coworker/state/bmk/BOARD.md`, where every row has
 the command line that produced it. `python3 perf/bmk/board_to_page.py` shows what it would change
@@ -66,9 +69,7 @@ nobody has paid for the run. Do not fill either with an estimate.
 indexed to. The window is 4 years and the rate is the US industrial average, and they move the total
 cost of ownership chart only. The purchase-price chart is predictions per hour divided by the price
 itself, with no window: spreading the price over a window multiplies both sides of that ratio by the
-same number, so it cancels. Only a price change moves it. `cost_model.sensitivity` names the other windows and the other rate;
-the page computes the total-cost-of-ownership range under them from the cells, so that sentence
-holds no number of its own.
+same number, so it cancels. Only a price change moves it.
 
 ## Holding a row back
 
