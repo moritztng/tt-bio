@@ -1,0 +1,2 @@
+name, driver_version, power.limit [W], clocks.max.sm [MHz]
+NVIDIA B200, 580.126.09, 1000.00 W, 1965 MHz

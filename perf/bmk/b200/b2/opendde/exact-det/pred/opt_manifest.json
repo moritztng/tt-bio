@@ -1,0 +1,1435 @@
+{
+ "schema": "opendde_opt.manifest/1",
+ "model": "opendde",
+ "command": "pred",
+ "mode": "exact",
+ "line": "S1",
+ "activation": {
+  "active": true,
+  "mode": "exact",
+  "line_name": null,
+  "route": "cli",
+  "opendde_version": "1.1.1",
+  "package_version": "0.2.72",
+  "gpu": {
+   "name": "NVIDIA B200",
+   "sm": "100",
+   "memory_mib": 183359,
+   "cuda_visible": null
+  },
+  "levers_applied": [
+   "alloc_auto",
+   "arm_z",
+   "cueq_tuned_cache",
+   "dit_align",
+   "dit_hoist",
+   "drop_bond_mask",
+   "fpf_trimul_exact",
+   "json_oneshot",
+   "keep_pool",
+   "lnstream",
+   "prefetch",
+   "served_levers_hook",
+   "stepgraph",
+   "tmpl_dedup",
+   "transition_exact"
+  ],
+  "levers_planned": [
+   "served_levers_hook",
+   "cueq_tuned_cache",
+   "dit_hoist",
+   "dit_align",
+   "arm_z",
+   "drop_bond_mask",
+   "lnstream",
+   "tmpl_dedup",
+   "keep_pool",
+   "sched_host",
+   "structok_sync",
+   "json_oneshot",
+   "prefetch",
+   "zprep_hoist",
+   "fpf_trimul_exact",
+   "alloc_auto",
+   "stepgraph",
+   "triattn_exact",
+   "triattn_conf",
+   "dit_attn_exact",
+   "trimul_exact",
+   "transition_exact"
+  ],
+  "levers_fallback": [
+   "fpf_trimul_exact"
+  ],
+  "partial": true,
+  "notes": [
+   "hook armed on sys.meta_path (v0.2.0); wraps runner.batch_inference at its import; fpf_engines exact ops ['trimul_in', 'trimul_out']"
+  ],
+  "levers_refused_on_pin": {},
+  "tree": "/root/kit/opendde",
+  "n_gpu": 1,
+  "line": "S1(hook=ACCEL; ODDE_SERVED_LEVERS=1 CUEQ_TRITON_CACHE_DIR=$MODEL_OPT/opt/forward/fast_inference/levers/KIT/cueq_cache_shipped ODDE_ADDON_LEVERS=dit_hoist,dit_align ODDE_ARM_Z=1 ODDE_SERVED_LEVERS_STRICT=1 FPF_ENGINE=opendde FPF_OPS=trimul_out,trimul_in FPF_IMPL=trimul_out=odde_trimul_bind:trimul_out,trimul_in=odde_trimul_bind:trimul_in ODDE_TRIATTN=exact ODDE_ARM_T_SCOPE=all ODDE_DIT_ATTN=exact ODDE_TRIMUL=exact ODDE_TRANSITION=exact)",
+  "small_input_floor": {
+   "gate": 300,
+   "max_tokens": 512,
+   "n_items": 5,
+   "below": false,
+   "case": "above",
+   "reason": "every item at or above the floor (largest 512 residue tokens >= 300): every lever bound",
+   "tokens": {
+    "fold0": {
+     "residue_tokens": 512,
+     "ligands_uncounted": 0
+    },
+    "fold1": {
+     "residue_tokens": 512,
+     "ligands_uncounted": 0
+    },
+    "fold2": {
+     "residue_tokens": 512,
+     "ligands_uncounted": 0
+    },
+    "fold3": {
+     "residue_tokens": 512,
+     "ligands_uncounted": 0
+    },
+    "fold4": {
+     "residue_tokens": 512,
+     "ligands_uncounted": 0
+    }
+   }
+  },
+  "levers_gated_off": {},
+  "stock_knobs": null,
+  "chunk_lift_ceiling": {
+   "gate": 1024,
+   "max_tokens": 512,
+   "n_items": 5,
+   "within": true,
+   "case": "within",
+   "reason": "every item within the ceiling (largest 512 residue tokens <= 1024): chunk_lift composed in",
+   "tokens": {
+    "fold0": {
+     "residue_tokens": 512,
+     "ligands_uncounted": 0
+    },
+    "fold1": {
+     "residue_tokens": 512,
+     "ligands_uncounted": 0
+    },
+    "fold2": {
+     "residue_tokens": 512,
+     "ligands_uncounted": 0
+    },
+    "fold3": {
+     "residue_tokens": 512,
+     "ligands_uncounted": 0
+    },
+    "fold4": {
+     "residue_tokens": 512,
+     "ligands_uncounted": 0
+    }
+   }
+  },
+  "stepgraph_gate": {
+   "gate": [
+    0,
+    99999
+   ],
+   "card": null,
+   "word_row": null,
+   "max_tokens": 512,
+   "min_tokens": 512,
+   "n_items": 5,
+   "within": true,
+   "case": "within",
+   "reason": "every item within the gate (512..512 residue tokens in [0, 99999]): stepgraph composed in",
+   "tokens": {
+    "fold0": {
+     "residue_tokens": 512,
+     "ligands_uncounted": 0
+    },
+    "fold1": {
+     "residue_tokens": 512,
+     "ligands_uncounted": 0
+    },
+    "fold2": {
+     "residue_tokens": 512,
+     "ligands_uncounted": 0
+    },
+    "fold3": {
+     "residue_tokens": 512,
+     "ligands_uncounted": 0
+    },
+    "fold4": {
+     "residue_tokens": 512,
+     "ligands_uncounted": 0
+    }
+   }
+  },
+  "ablated": [],
+  "stock_env": {
+   "LAYERNORM_TYPE": "fast_layernorm"
+  },
+  "exports": {
+   "ODDE_SERVED_LEVERS": "1",
+   "CUEQ_TRITON_CACHE_DIR": "/root/kit/opendde/opt/forward/fast_inference/levers/KIT/cueq_cache_shipped",
+   "ODDE_ADDON_LEVERS": "dit_hoist,dit_align",
+   "ODDE_ARM_Z": "1",
+   "ODDE_SERVED_LEVERS_STRICT": "1",
+   "FPF_ENGINE": "opendde",
+   "FPF_OPS": "trimul_out,trimul_in",
+   "FPF_IMPL": "trimul_out=odde_trimul_bind:trimul_out,trimul_in=odde_trimul_bind:trimul_in",
+   "ODDE_TRIATTN": "exact",
+   "ODDE_ARM_T_SCOPE": "all",
+   "ODDE_DIT_ATTN": "exact",
+   "ODDE_TRIMUL": "exact",
+   "ODDE_TRANSITION": "exact",
+   "CUBLAS_WORKSPACE_CONFIG": ":4096:8"
+  },
+  "unset": [
+   "OPENDDE_FORCE_SAMPLE_DIFFUSION_AMP",
+   "OPENDDE_FORCE_CONFIDENCE_AMP",
+   "ODDE_ARM_U",
+   "ODDE_ARM_U2_TRIMUL",
+   "ODDE_ARM_U3",
+   "ODDE_ARM_T_TRIMUL",
+   "ODDE_TRIATTN_CONF",
+   "ODDE_QUEUE",
+   "ODDE_SUBPROCESS",
+   "ODDE_SHARD",
+   "ODDE_LN",
+   "FPF_CROSSCHECK",
+   "FPF_CROSSCHECK_REF",
+   "FPF_STRICT",
+   "FPF_DIMS",
+   "ODDE_XL",
+   "ODDE_XL_STRICT",
+   "ODDE_XL_CROSSCHECK",
+   "ODDE_XL_PROBE",
+   "ODDE_OFFLOAD",
+   "ODDE_OFFLOAD_STRICT",
+   "ODDE_OFFLOAD_ROWS",
+   "ODDE_OFFLOAD_CC",
+   "ODDE_OFFLOAD_MEMFRAC",
+   "ODDE_OFFLOAD_XBUF",
+   "ODDE_OFFLOAD_PIN",
+   "ODDE_OFFLOAD_PITCHED",
+   "ODDE_OFFLOAD_DIFFZ",
+   "ODDE_OFFLOAD_DIFFZ_PERM",
+   "ODDE_OFFLOAD_DIFFZ_RELEASE",
+   "ODDE_OFFLOAD_DIFFZ_ROWS",
+   "ODDE_OFFLOAD_DCHUNK",
+   "ODDE_OFFLOAD_FORCE_CHUNK",
+   "ODDE_OFFLOAD_FREE_TEMPL",
+   "ODDE_OFFLOAD_BIGLN_LIMIT",
+   "ODDE_OFFLOAD_ZINIT",
+   "ODDE_OFFLOAD_PWA_W",
+   "ODDE_OFFLOAD_OPM_ROWS",
+   "ODDE_OFFLOAD_DISTO",
+   "ODDE_OFFLOAD_LAZY_RELP",
+   "ODDE_OFFLOAD_CYCLE_CKPT",
+   "ODDE_OFFLOAD_CKPT_DIR",
+   "ODDE_OFFLOAD_RESUME",
+   "ODDE_OFFLOAD_CKPT_MAX_GB",
+   "ODDE_OFFLOAD_LOG",
+   "ODDE_TRAJ_EVERY",
+   "ODDE_SERVED_DETERMINISTIC",
+   "ODDE_SERVED_KEEP_RAW",
+   "DIT_HOIST_CROSSCHECK",
+   "ODDE_HOST_CROSSCHECK",
+   "ODDE_D59_TRUNK_HASH",
+   "ODDE_D59_OBS_OUT",
+   "ODDE_SAMPLER_PROBE",
+   "PYTORCH_CUDA_ALLOC_CONF",
+   "CUEQ_TRITON_TUNING",
+   "ODDE_ATOM_ATTN",
+   "ODDE_COND_DEDUPE",
+   "ODDE_DIT_FUSED",
+   "ODDE_DIT_LOWP",
+   "ODDE_ATOM_FUSED",
+   "ODDE_DIT_ATTN_EXACT",
+   "ODDE_DIT_ATTN_FP16"
+  ],
+  "pythonpath": "/root/kit/opendde/opt/forward/fast_inference/levers/ACCEL:/root/kit/opendde/opt/forward/fast_inference/levers/ARMT:/root/kit/opendde/opt/forward/fast_inference/levers/DITFAST/tools:/root/kit/opendde/opt/forward/fast_inference/levers/KIT:/root/kit/opendde/opt/forward/fast_inference/src",
+  "overrides": {
+   "CUBLAS_WORKSPACE_CONFIG": ":4096:8"
+  },
+  "tier": "exact",
+  "hook": "fast_inference/levers/ACCEL",
+  "applied": {
+   "exports": {
+    "ODDE_SERVED_LEVERS": "1",
+    "CUEQ_TRITON_CACHE_DIR": "/root/kit/opendde/opt/forward/fast_inference/levers/KIT/cueq_cache_shipped",
+    "ODDE_ADDON_LEVERS": "dit_hoist,dit_align",
+    "ODDE_ARM_Z": "1",
+    "ODDE_SERVED_LEVERS_STRICT": "1",
+    "FPF_ENGINE": "opendde",
+    "FPF_OPS": "trimul_out,trimul_in",
+    "FPF_IMPL": "trimul_out=odde_trimul_bind:trimul_out,trimul_in=odde_trimul_bind:trimul_in",
+    "ODDE_TRIATTN": "exact",
+    "ODDE_ARM_T_SCOPE": "all",
+    "ODDE_DIT_ATTN": "exact",
+    "ODDE_TRIMUL": "exact",
+    "ODDE_TRANSITION": "exact",
+    "PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:True",
+    "CUBLAS_WORKSPACE_CONFIG": ":4096:8"
+   },
+   "unset": [],
+   "sys_path": [
+    "/root/kit/opendde/opt/forward/fast_inference/levers/ACCEL",
+    "/root/kit/opendde/opt/forward/fast_inference/levers/ARMT",
+    "/root/kit/opendde/opt/forward/fast_inference/levers/DITFAST/tools",
+    "/root/kit/opendde/opt/forward/fast_inference/levers/KIT",
+    "/root/kit/opendde/opt/forward/fast_inference/src"
+   ],
+   "shim": "/root/kit/opendde/opt/forward/fast_inference/levers/ACCEL/sitecustomize.py",
+   "alloc": {
+    "lever": "alloc_auto",
+    "policy": "expandable",
+    "n_items": 5,
+    "decision": "export",
+    "reason": "the pred call's query is read (5 items): expandable segments",
+    "alloc": "expandable",
+    "alloc_conf": "expandable_segments:True",
+    "alloc_export": "exported"
+   },
+   "fpf": {
+    "version": "0.1.2",
+    "engine": "opendde",
+    "enabled": [
+     "trimul_in",
+     "trimul_out"
+    ],
+    "cfg": {
+     "engine": "opendde",
+     "ops": [
+      "trimul_in",
+      "trimul_out"
+     ],
+     "impl": {},
+     "cross-check": 0,
+     "crosscheck_ref": "kernel",
+     "strict": false,
+     "crosscheck": 0
+    },
+    "stats": {}
+   },
+   "overrides": {
+    "CUBLAS_WORKSPACE_CONFIG": ":4096:8"
+   }
+  },
+  "logged": true,
+  "kit_state": {
+   "version": "0.2.0",
+   "active": true,
+   "wrapped": true,
+   "errors": {},
+   "deterministic_forced": false
+  },
+  "kit_installs": [
+   {
+    "event": "install",
+    "requested": {
+     "addon_levers": [
+      "dit_hoist",
+      "dit_align"
+     ],
+     "arm": "Z",
+     "deterministic": false
+    },
+    "levers": {
+     "kit.cueq_cache": "/root/kit/opendde/opt/forward/fast_inference/levers/KIT/cueq_cache_shipped",
+     "ditfast": {
+      "dit_hoist": "installed",
+      "dit_align": true
+     },
+     "odde_arm_t": {
+      "arm": "Z",
+      "version": "0.3",
+      "composition": null,
+      "min_tokens": 300
+     }
+    }
+   }
+  ],
+  "levers_inert": [
+   "dit_attn_exact",
+   "sched_host",
+   "structok_sync",
+   "triattn_conf",
+   "triattn_exact",
+   "trimul_exact",
+   "zprep_hoist"
+  ],
+  "levers_inert_reasons": {
+   "dit_attn_exact": "aside:provider_exact_names_stock:sdpa@sm100",
+   "structok_sync": "the structural_tokens module was not imported in this process: no expander call could reach the sites",
+   "zprep_hoist": "the diffusion module was not imported in this process: no denoiser call could reach the pair preparation",
+   "sched_host": "the generator module was not imported in this process: no sampler call could reach the sites",
+   "trimul_exact": "lever_inert_by_design:trimul_exact(aside:cell_stock:5680 (levers/ARMT/odde_trimul_bind.py serve(): the provider cell's winner for every call of this pass is the stock op, or the tier's rows refuse on this stack by name -- the route's own construction served, counted))",
+   "triattn_conf": "lever_inert_by_design:triattn_conf(aside:cell_stock:5840 (levers/ARMT/odde_arm_t make_attn + levers/ARMT/odde_arm_t/odde_conf_chunk: every triangle-attention call of the confidence head's stack -- its own forward's and the offload unit's row blocks' (levers/OFFLOAD odde_offload_trunk.off_confidence_head -> odde_offload.off_pairformer_stack, marked per module) -- went to the stock op by the provider cell's rule, the binding stepped aside for the pass, or the row-block path ran with the per-module mark unbound (odde_offload.STATS['calls_conf']) -- inert by design, the run complete))",
+   "triattn_exact": "lever_inert_by_design:triattn_exact(aside:cell_stock:5840 (levers/ARMT/odde_triattn_bind.py serve(): the provider cell's winner for every call of this pass is the stock op, or the tier's rows are unavailable on this stack by name -- the stock op served, counted))"
+  },
+  "numerics": {
+   "matmul": "highest",
+   "matmul_tf32": false,
+   "cudnn_tf32": true,
+   "cudnn_deterministic": false,
+   "cudnn_benchmark": false,
+   "deterministic_algorithms": false,
+   "warn_only": false,
+   "autocast_gpu": false,
+   "autocast_gpu_dtype": "none",
+   "autocast_cpu": false
+  },
+  "core_kernels": {
+   "fpf_trimul": {
+    "ok": true,
+    "resolved": "/root/kit/common/opt_core/opt_core/kernels/fpf_trimul",
+    "routed": true
+   }
+  },
+  "facts": {
+   "det": true,
+   "n_gpu": 1,
+   "rank": 0,
+   "token_floors": {
+    "fold0": 512,
+    "fold1": 512,
+    "fold2": 512,
+    "fold3": 512,
+    "fold4": 512
+   },
+   "stock_knobs": {},
+   "levers": [
+    "served_levers_hook",
+    "cueq_tuned_cache",
+    "dit_hoist",
+    "dit_align",
+    "arm_z",
+    "drop_bond_mask",
+    "lnstream",
+    "tmpl_dedup",
+    "keep_pool",
+    "sched_host",
+    "structok_sync",
+    "json_oneshot",
+    "prefetch",
+    "zprep_hoist",
+    "fpf_trimul_exact",
+    "alloc_auto",
+    "stepgraph",
+    "triattn_exact",
+    "triattn_conf",
+    "dit_attn_exact",
+    "trimul_exact",
+    "transition_exact"
+   ]
+  },
+  "lever_counts": {
+   "alloc_auto": null,
+   "arm_z": 2840,
+   "cueq_tuned_cache": null,
+   "dit_align": null,
+   "dit_attn_exact": 0,
+   "dit_hoist": 3275,
+   "drop_bond_mask": 5,
+   "fpf_trimul_exact": 5680,
+   "json_oneshot": 10,
+   "keep_pool": 34,
+   "lnstream": 64,
+   "prefetch": 1,
+   "sched_host": 2000,
+   "served_levers_hook": null,
+   "stepgraph": 991,
+   "structok_sync": 40,
+   "tmpl_dedup": 50,
+   "transition_exact": 2600,
+   "triattn_conf": 0,
+   "triattn_exact": 0,
+   "trimul_exact": 0,
+   "zprep_hoist": 30
+  },
+  "levers_uncounted": {
+   "alloc_auto": "the allocator setting of the kit process, proven by the allocator read-back (alloc.fallbacks), not by calls",
+   "cueq_tuned_cache": "not an opendde bind: a cuEquivariance tuning-cache location (a miss runs the default tiles, bitwise-equal)",
+   "dit_align": "the hoist's slot alignment, counted with dit_hoist (aligned_slots is legitimately zero when N never changes)",
+   "served_levers_hook": "proven by its install record, which the activation already requires (stack.levers_from_hook_records): no record, no applied lever"
+  },
+  "kit_stats": {
+   "served_levers": {
+    "version": "0.2.0",
+    "active": true,
+    "wrapped": true,
+    "installs": [
+     {
+      "event": "install",
+      "requested": {
+       "addon_levers": [
+        "dit_hoist",
+        "dit_align"
+       ],
+       "arm": "Z",
+       "deterministic": false
+      },
+      "levers": {
+       "kit.cueq_cache": "/root/kit/opendde/opt/forward/fast_inference/levers/KIT/cueq_cache_shipped",
+       "ditfast": {
+        "dit_hoist": "installed",
+        "dit_align": true
+       },
+       "odde_arm_t": {
+        "arm": "Z",
+        "version": "0.3",
+        "composition": null,
+        "min_tokens": 300
+       }
+      }
+     }
+    ],
+    "errors": {},
+    "deterministic_forced": false,
+    "n_installs": 1
+   },
+   "arm_t": {
+    "version": "0.3",
+    "installed": true,
+    "arm": "Z",
+    "u2_trimul": false,
+    "trimul_fast_calls": 0,
+    "trimul_bf16_calls": 0,
+    "trimul_stock_calls": 0,
+    "trimul_stock_reasons": {},
+    "trimul_admission": {
+     "checked": 0,
+     "refused": 0,
+     "first_refusal": null,
+     "max_needed_gib": 0.0
+    },
+    "zt_block_calls": 2840,
+    "castonce_calls": 0,
+    "att_mode": "core_exact",
+    "att_prov_calls": 0,
+    "att_conf_calls": 80,
+    "att_conf_prov_calls": 0,
+    "trimul_prov_calls": 0,
+    "triattn": {
+     "word": "exact",
+     "word_served": "exact",
+     "conf": null,
+     "calls": 0,
+     "rows": {},
+     "stock_calls": 5840,
+     "asides": {
+      "cell_stock": 5840
+     },
+     "refusals": {},
+     "excluded": [],
+     "unavailable": {},
+     "errors": {},
+     "cells": {},
+     "cuda_prebuilt": null,
+     "stack_key": null,
+     "exact_stack": "10.0|torch2.7.1+cu128|cueq0.10.0|B200",
+     "shapes": {
+      "bf16|H2|D32": 400,
+      "bf16|H12|D32": 5360,
+      "fp32|H12|D32": 80
+     },
+     "bias_forms": {},
+     "passed": {},
+     "forms": {
+      "mask_bias": 5840
+     }
+    },
+    "trimul_degraded": {}
+   },
+   "trimul_prov": {
+    "word": "exact",
+    "calls": 0,
+    "rows": {},
+    "stock_calls": 5680,
+    "asides": {
+     "cell_stock": 5680
+    },
+    "refusals": {},
+    "excluded": [],
+    "cells": {},
+    "precisions": {},
+    "buckets": {},
+    "channels": {
+     "C64": 400,
+     "C384": 5280
+    },
+    "sites": {
+     "fpf_exact": 5680
+    },
+    "resolved_from": null,
+    "errors": {},
+    "memo_pops": 0,
+    "memo_api": null
+   },
+   "transition_prov": {
+    "word": "exact",
+    "calls": 2600,
+    "prov_calls": 0,
+    "rows": {},
+    "singleton": {
+     "sep16": 2600
+    },
+    "cells": {
+     "10.0|bf16|pair_c384_n4|N<=800|eager|fwd->torch_swiglu": 1
+    },
+    "asides": {
+     "cell_stock:torch_swiglu": 2600
+    },
+    "refusals": {},
+    "excluded": [],
+    "errors": {},
+    "stack": "cc100:torch2.7.1+cu128/3.4.0",
+    "decisions": 1
+   },
+   "arm_u_transition": {
+    "transition_calls": 2840,
+    "transition_cells_kernel": 2600,
+    "transition_cells_stock": 240,
+    "transition_stock_reasons": {
+     "cell-64-128": 200,
+     "cell-384-768": 20,
+     "fp32-input-without-bf16-autocast": 20
+    }
+   },
+   "cuda_peak": {
+    "max_reserved_gib": 12.939,
+    "max_allocated_gib": 10.98,
+    "device": 0
+   },
+   "alloc": {
+    "lever": "alloc_auto",
+    "policy": "expandable",
+    "n_items": 5,
+    "decision": "export",
+    "reason": "the pred call's query is read (5 items): expandable segments",
+    "alloc": "expandable",
+    "alloc_conf": "expandable_segments:True",
+    "alloc_export": "exported",
+    "effective": true,
+    "effective_source": "snapshot"
+   },
+   "drop_bond_mask": {
+    "installed": true,
+    "armed": false,
+    "dropped": 5,
+    "bytes_dropped": 677987560,
+    "missing": 0
+   },
+   "stepgraph": {
+    "installed": true,
+    "armed": false,
+    "routed": true,
+    "disabled": null,
+    "ln_canary": {
+     "ok": true,
+     "impl": "opendde.model.layer_norm.layer_norm.FusedLayerNorm",
+     "why": null,
+     "max_abs_diff": 0.0,
+     "lnstream": "serving"
+    },
+    "why_last": null,
+    "sampler_calls": 5,
+    "engaged_calls": 5,
+    "planned_calls": 5,
+    "denoiser_calls": 1000,
+    "eager_head": 5,
+    "eager_other": 0,
+    "captures": 5,
+    "recaptures": 4,
+    "replays": 991,
+    "held": 5,
+    "tol_checks": 5,
+    "tol_max_rel": 0.0,
+    "eager_spread_max": 0.0,
+    "poison_probe": "pass",
+    "time": {
+     "eager_calls": 5,
+     "eager_host_s": 0.5038925865665078,
+     "replay_calls": 985,
+     "replay_host_s": 0.10037032142281532,
+     "replay_gpu_s": 10.721256967544555,
+     "sampler_s": 14.52209105528891,
+     "sampler_calls_timed": 5,
+     "steps_timed": 985
+    },
+    "refused": {},
+    "failures": 0,
+    "verify_aside": null,
+    "capture_s": 1.9153,
+    "pool_mib_max": 0,
+    "nonfinite_reruns": 0,
+    "det": true,
+    "segsum_calls": 50,
+    "segsum_passthrough": 0,
+    "keys": [
+     {
+      "replays": 199,
+      "capture_s": 0.2289,
+      "pool_bytes": 0,
+      "eager_s": 0.06664468115195632,
+      "replay_s": 0.012580571696162224
+     },
+     {
+      "replays": 198,
+      "capture_s": 0.3063,
+      "pool_bytes": 0,
+      "eager_s": 0.06317789992317557,
+      "replay_s": 0.012158607132732868
+     },
+     {
+      "replays": 198,
+      "capture_s": 0.3376,
+      "pool_bytes": 0,
+      "eager_s": 0.13629309693351388,
+      "replay_s": 0.012149360030889511
+     },
+     {
+      "replays": 198,
+      "capture_s": 0.303,
+      "pool_bytes": 0,
+      "eager_s": 0.06301824701949954,
+      "replay_s": 0.012135541066527367
+     },
+     {
+      "replays": 198,
+      "capture_s": 0.2831,
+      "pool_bytes": 0,
+      "eager_s": 0.06316415499895811,
+      "replay_s": 0.012176527176052332
+     }
+    ],
+    "core": {},
+    "eager_ms": 100.78,
+    "replay_host_ms": 0.1,
+    "replay_gpu_ms": 10.88,
+    "step_ms": 14.51,
+    "gate": [
+     0,
+     99999
+    ],
+    "plan": {
+     "gate": [
+      0,
+      99999
+     ],
+     "card": null,
+     "word_row": null,
+     "max_tokens": 512,
+     "min_tokens": 512,
+     "n_items": 5,
+     "within": true,
+     "case": "within",
+     "reason": "every item within the gate (512..512 residue tokens in [0, 99999]): stepgraph composed in",
+     "tokens": {
+      "fold0": {
+       "residue_tokens": 512,
+       "ligands_uncounted": 0
+      },
+      "fold1": {
+       "residue_tokens": 512,
+       "ligands_uncounted": 0
+      },
+      "fold2": {
+       "residue_tokens": 512,
+       "ligands_uncounted": 0
+      },
+      "fold3": {
+       "residue_tokens": 512,
+       "ligands_uncounted": 0
+      },
+      "fold4": {
+       "residue_tokens": 512,
+       "ligands_uncounted": 0
+      }
+     }
+    },
+    "aside": {}
+   },
+   "structok_sync": {
+    "installed": true,
+    "patches": 3,
+    "calls": 40,
+    "pairs": 160,
+    "empty": 1800,
+    "host_reads": 40,
+    "by_method": {
+     "_pair_project_by_role_full_chunk": 40
+    },
+    "failures": 0,
+    "failure": null
+   },
+   "zprep_hoist": {
+    "installed": true,
+    "patches": 1,
+    "calls": 30,
+    "hits": 25,
+    "records": 5,
+    "passthrough": 0,
+    "entries": 1,
+    "failures": 0,
+    "failure": null
+   },
+   "sched_host": {
+    "installed": true,
+    "patches": 2,
+    "sched_calls": 5,
+    "host_cmp": 1000,
+    "rot_copies": 1000,
+    "aug_calls": 1000,
+    "aside": {},
+    "failures": 0,
+    "failure": null,
+    "wrap_cpu": false
+   },
+   "lnstream": {
+    "installed": true,
+    "armed": false,
+    "state": "serving",
+    "reason": null,
+    "calls": 64,
+    "loader": "upstream(after 64 counted calls)",
+    "jit_s": 0.03,
+    "module": "/root/.cache/opendde_opt/jit/torch2.7.1-cu128-sm100/torch_ext/fast_layer_norm_cuda_v2_cs/fast_layer_norm_cuda_v2_cs.so",
+    "build": "jit",
+    "prebuilt": "prebuilt_missing:torch2.7.1-cu128-cp311-cxx11abi1",
+    "source": "/root/kit/opendde/venv/lib/python3.11/site-packages/opendde/model/layer_norm/kernel",
+    "sites_patched": 25,
+    "fingerprint_equal": true,
+    "bound": true
+   },
+   "tmpl_dedup": {
+    "installed": true,
+    "armed": false,
+    "calls": 50,
+    "slots": 200,
+    "distinct": 100,
+    "saved": 100,
+    "decisions": 5,
+    "memo_hits": 45,
+    "bypass": 0,
+    "bypass_reasons": {}
+   },
+   "keep_pool": {
+    "installed": true,
+    "skipped": 15,
+    "passed": 19,
+    "errors": 0,
+    "skipped_sites": {
+     "opendde/model/opendde.py:404": 5,
+     "opendde/model/modules/confidence.py:298": 5,
+     "opendde/model/opendde.py:1598": 5
+    },
+    "passed_sites": {
+     "opendde/opt/opendde_opt/prefetch.py:109": 8,
+     "opendde/venv/lib/python3.11/site-packages/torch/cuda/graphs.py:175": 6,
+     "graphs.py:731": 5
+    }
+   },
+   "json_oneshot": {
+    "installed": true,
+    "armed": true,
+    "files": 10,
+    "encode_s": 1.242,
+    "write_s": 0.029,
+    "indent_files": 5,
+    "missing": [],
+    "errors": 0,
+    "mib": 54.9
+   },
+   "prefetch": {
+    "installed": true,
+    "armed": true,
+    "calls": 1,
+    "engaged": 1,
+    "workers": 1,
+    "aside": {},
+    "missing": [],
+    "errors": 0,
+    "reseeds": 0,
+    "relayed": 677987565
+   },
+   "item_census": {
+    "installed": true,
+    "items": 5,
+    "lines": 5,
+    "missing": [],
+    "totals": {
+     "seed": 0.004,
+     "feat": 9.275,
+     "prep": 0.001,
+     "cleanup": 0.382,
+     "dump": 5.86,
+     "predict": 73.324,
+     "loop": 89.059,
+     "outside": 15.735
+    }
+   },
+   "ditfast": {
+    "records": 545,
+    "hits": 2725,
+    "crosschecks": 0,
+    "crosscheck_checks": 0,
+    "crosscheck_fail": 0,
+    "bypass": 0,
+    "sampler_calls": 5,
+    "denoiser_calls": 30,
+    "entries_created": 5,
+    "evictions": 0,
+    "released": 5,
+    "aligned_slots": 120,
+    "static_bytes": 0,
+    "n_entries": 0
+   },
+   "accel_v2": {
+    "dit_attn": {
+     "installed": false,
+     "mode": null,
+     "n_modules": 0,
+     "bf16_calls": 0,
+     "fp32_calls": 0,
+     "mask_aligned_copies": 0,
+     "errors": 0
+    },
+    "apb_launch": {
+     "n_apb": 0,
+     "n_atom": 0
+    },
+    "apb_state_dit": {
+     "site": "dit",
+     "word": null,
+     "raw_word": null,
+     "calls": 0,
+     "kernel_calls": 0,
+     "stock_calls": 0,
+     "plan_calls": 0,
+     "asides": 0,
+     "installed_on": 0,
+     "installed": false,
+     "selection": null,
+     "row": null,
+     "error": null,
+     "aside": null
+    },
+    "apb_state_atom": {
+     "site": "atom",
+     "word": null,
+     "raw_word": null,
+     "calls": 0,
+     "kernel_calls": 0,
+     "stock_calls": 0,
+     "plan_calls": 0,
+     "asides": 0,
+     "installed_on": 0,
+     "installed": false,
+     "selection": null,
+     "row": null,
+     "error": null,
+     "aside": null
+    },
+    "dit_attn_exact": {
+     "site": "exact",
+     "word": "exact",
+     "raw_word": null,
+     "calls": 0,
+     "kernel_calls": 0,
+     "stock_calls": 0,
+     "plan_calls": 0,
+     "asides": 0,
+     "installed_on": 0,
+     "installed": false,
+     "selection": "apb row=sdpa word=exact cell=10.0|fp32|dit_h16d48|S5|N<=800|eager|fwd stack=B200:torch2.13.0+cu130/3.7.1/cueq0.11.1(ref) class=stock x_stock=1.0 reason=exact winner on B200:torch2.13.0+cu130/3.7.1/cueq0.11.1 (stack not measured: reference stack); exact vouch not recorded on B200:torch2.7.1+cu128/3.4.0/cueq0.10.0: sdpa:auto,sdpa:efficient,sdpa_upcast,naive,sdpa:math -> floor sdpa",
+     "row": "sdpa",
+     "error": null,
+     "aside": "provider_exact_names_stock:sdpa@sm100",
+     "marker": "DITATTN:aside(provider_exact_names_stock:sdpa@sm100; the stock fp32 SDPA statement serves -- provider: apb row=sdpa word=exact cell=10.0|fp32|dit_h16d48|S5|N<=800|eager|fwd stack=B200:torch2.13.0+cu130/3.7.1/cueq0.11.1(ref) class=stock x_stock=1.0 reason=exact winner on B200:torch2.13.0+cu130/3.7.1/cueq0.11.1 (stack not measured: reference stack); exact vouch not recorded on B200:torch2.7.1+cu128/3.4.0/cueq0.10.0: sdpa:auto,sdpa:efficient,sdpa_upcast,naive,sdpa:math -> floor sdpa)"
+    },
+    "sampler": {
+     "routed": true,
+     "version": "0.2.0"
+    }
+   },
+   "fpf_engines": {
+    "version": "0.1.2",
+    "ops": [
+     "trimul_in",
+     "trimul_out"
+    ],
+    "stats": {
+     "trimul_out": {
+      "calls": 2840,
+      "kernel": 0,
+      "stock": 2840,
+      "fallbacks": {
+       "provider:cell_stock": 2840
+      },
+      "ms_kernel_sum": 0.0,
+      "ms_stock_sum": 0.0
+     },
+     "trimul_in": {
+      "calls": 2840,
+      "kernel": 0,
+      "stock": 2840,
+      "fallbacks": {
+       "provider:cell_stock": 2840
+      },
+      "ms_kernel_sum": 0.0,
+      "ms_stock_sum": 0.0
+     }
+    }
+   }
+  },
+  "fpf_fallbacks": {
+   "trimul_out": {
+    "provider:cell_stock": 2840
+   },
+   "trimul_in": {
+    "provider:cell_stock": 2840
+   }
+  },
+  "lever_buckets": {
+   "served_levers_hook": [
+    "uncounted"
+   ],
+   "cueq_tuned_cache": [
+    "uncounted"
+   ],
+   "dit_hoist": [
+    "ran"
+   ],
+   "dit_align": [
+    "uncounted"
+   ],
+   "arm_z": [
+    "ran"
+   ],
+   "drop_bond_mask": [
+    "ran"
+   ],
+   "lnstream": [
+    "ran"
+   ],
+   "tmpl_dedup": [
+    "ran"
+   ],
+   "keep_pool": [
+    "ran"
+   ],
+   "sched_host": [
+    "inert"
+   ],
+   "structok_sync": [
+    "inert"
+   ],
+   "json_oneshot": [
+    "ran"
+   ],
+   "prefetch": [
+    "ran"
+   ],
+   "zprep_hoist": [
+    "inert"
+   ],
+   "fpf_trimul_exact": [
+    "ran",
+    "fallback"
+   ],
+   "alloc_auto": [
+    "uncounted"
+   ],
+   "stepgraph": [
+    "ran"
+   ],
+   "triattn_exact": [
+    "inert"
+   ],
+   "triattn_conf": [
+    "inert"
+   ],
+   "dit_attn_exact": [
+    "inert"
+   ],
+   "trimul_exact": [
+    "inert"
+   ],
+   "transition_exact": [
+    "ran"
+   ]
+  },
+  "det": 1,
+  "kernels": {
+   "route": "exact",
+   "expected": {
+    "fast_layernorm": {
+     "kind": "engaged",
+     "reason": null
+    },
+    "cueq_triatt": {
+     "kind": "engaged",
+     "reason": null,
+     "resolved": "cuequivariance",
+     "need_stack": true
+    },
+    "cueq_trimul": {
+     "kind": "off-by-route",
+     "reason": "fpf_trimul_exact+trimul_exact",
+     "resolved": "cuequivariance",
+     "need_stack": true
+    }
+   },
+   "presence": {
+    "sites": {
+     "cueq_triatt": {
+      "ok": true,
+      "func": "cuequivariance_torch.primitives.triangle.triangle_attention",
+      "file": "/root/kit/opendde/venv/lib/python3.11/site-packages/cuequivariance_torch/primitives/triangle.py",
+      "error": null,
+      "threshold": 100
+     },
+     "cueq_trimul": {
+      "ok": true,
+      "func": "cuequivariance_torch.primitives.triangle.triangle_multiplicative_update",
+      "file": "/root/kit/opendde/venv/lib/python3.11/site-packages/cuequivariance_torch/primitives/triangle.py",
+      "error": null,
+      "threshold": 100
+     }
+    },
+    "front_version": "0.10.0",
+    "opendde_version": "1.1.1",
+    "ops_dist": "cuequivariance-ops-torch-cu12",
+    "ops_dist_version": "0.10.0",
+    "ops_build": "cu12",
+    "ops_version": "0.10.0",
+    "ops_commit": "release",
+    "sm100f": false,
+    "ops_error": null,
+    "device_cc": [
+     10,
+     0
+    ],
+    "torch": "2.7.1+cu128"
+   },
+   "probe": {
+    "cueq_triatt": {
+     "ok": true,
+     "served": true,
+     "s": 0.363,
+     "error": null
+    },
+    "cueq_trimul": {
+     "ok": true,
+     "served": true,
+     "s": 0.499,
+     "error": null
+    }
+   },
+   "resolved": {
+    "cueq_triatt": "cuequivariance",
+    "cueq_trimul": "cuequivariance",
+    "dtype": "bf16"
+   },
+   "counts": {
+    "cueq_triatt": {
+     "front": 5840,
+     "reference": 0,
+     "byrule": {},
+     "violations": 0,
+     "violation_examples": [],
+     "errors": 0
+    },
+    "cueq_trimul": {
+     "front": 5680,
+     "reference": 0,
+     "byrule": {},
+     "violations": 0,
+     "violation_examples": [],
+     "errors": 0
+    }
+   },
+   "words": {
+    "fast_layernorm": "engaged:fast_layer_norm_cuda_v2@opendde-1.1.1",
+    "cueq_triatt": "engaged:sm100@0.10.0-cu12[served=5840,byrule=0]",
+    "cueq_trimul": "engaged:sm100@0.10.0-cu12[served=5680,byrule=0;replaced=fpf_trimul_exact+trimul_exact]"
+   },
+   "line": "[opendde-opt] KERNELS route=exact fast_layernorm=engaged:fast_layer_norm_cuda_v2@opendde-1.1.1 cueq_triatt=engaged:sm100@0.10.0-cu12[served=5840,byrule=0] cueq_trimul=engaged:sm100@0.10.0-cu12[served=5680,byrule=0;replaced=fpf_trimul_exact+trimul_exact] others=n/a-upstream:deepspeed_ds4sci,cutlass,flash_attn,xformers,trifast,transformer_engine,apex,tokamax(0_references_in_opendde_1.1.1) cueq_dist=cuequivariance-torch@0.10.0,cuequivariance-ops-torch-cu12@0.10.0(grelease) resolved=cuequivariance,cuequivariance thresholds=triatt:100,trimul:100 probe_s=triatt:0.363,trimul:0.499 torch=2.7.1+cu128",
+   "problems": []
+  },
+  "structures": {
+   "owed": {
+    "per_item": {
+     "fold0": 1,
+     "fold1": 1,
+     "fold2": 1,
+     "fold3": 1,
+     "fold4": 1
+    },
+    "total": 5,
+    "n_sample": 1
+   },
+   "found": {
+    "per_item": {
+     "fold0": 1,
+     "fold1": 1,
+     "fold2": 1,
+     "fold3": 1,
+     "fold4": 1
+    },
+    "total": 5
+   }
+  }
+ },
+ "stock_flags": {
+  "stated": {
+   "cycle": "10",
+   "step": "200",
+   "sample": "1",
+   "use_msa": "true",
+   "use_template": "false",
+   "seeds": "0"
+  },
+  "effective": {
+   "cycle": "10",
+   "step": "200",
+   "sample": "1",
+   "dtype": "bf16",
+   "model_name": "opendde_v1",
+   "use_msa": "true",
+   "use_template": "false",
+   "use_rna_msa": "false",
+   "need_atom_confidence": "true",
+   "trimul_kernel": "auto",
+   "triatt_kernel": "auto",
+   "seeds": "0"
+  },
+  "defaults_source": "runner/batch_inference.py:692-913 (click options of `pred` = `predict`, :914; dtype choices bf16|fp32 and device choices auto|cuda|mps|cpu: opendde/config/schema.py:20-27; the search-binary/database path options :842-913 default to None)",
+  "base": "bf16_fastln",
+  "stock_env": {
+   "LAYERNORM_TYPE": "fast_layernorm"
+  }
+ },
+ "det": {
+  "level": 1,
+  "cli_args": [
+   "--deterministic",
+   "true"
+  ],
+  "env": {
+   "CUBLAS_WORKSPACE_CONFIG": ":4096:8"
+  },
+  "recipe": "det=1 env=CUBLAS_WORKSPACE_CONFIG unset=none pythonpath=0 (upstream --deterministic true (torch deterministic algorithms, cuDNN deterministic) + cuBLAS workspace)",
+  "note": "stock-side switches applied to every arm under the recipe"
+ },
+ "inputs": {
+  "path": "/root/kc/in/protenix.json",
+  "sha256": "1759fcb71d95b8a7a5d2058fe620cc90e4cb97ce37727ce0f13b9fa3b33aa578",
+  "n_items": 5,
+  "items": [
+   "fold0",
+   "fold1",
+   "fold2",
+   "fold3",
+   "fold4"
+  ],
+  "seeds": {
+   "fold0": [
+    0
+   ],
+   "fold1": [
+    0
+   ],
+   "fold2": [
+    0
+   ],
+   "fold3": [
+    0
+   ],
+   "fold4": [
+    0
+   ]
+  }
+ },
+ "outputs": {
+  "n_files": 15
+ },
+ "versions": {
+  "python": "3.11.5",
+  "executable": "/root/kit/opendde/venv/bin/python",
+  "opendde": "1.1.1",
+  "torch": "2.7.1+cu128",
+  "triton": "3.4.0",
+  "numpy": "2.4.1",
+  "scipy": "1.17.1",
+  "gemmi": null,
+  "cuequivariance": "0.10.0",
+  "cuequivariance-torch": "0.10.0",
+  "cuequivariance-ops-torch-cu12": "0.10.0",
+  "cuequivariance-ops-cu12": "0.10.0",
+  "rdkit": "2025.9.3",
+  "biotite": "1.4.0",
+  "biopython": "1.85",
+  "pandas": "2.3.1",
+  "torch_full": "2.7.1+cu128",
+  "cuda": "12.8",
+  "cudnn": 90701
+ },
+ "gpu": {
+  "name": "NVIDIA B200",
+  "sm": "100",
+  "memory_mib": 183359,
+  "cuda_visible": null
+ },
+ "stack_key": "torch2.7.1-cu128-sm100",
+ "core": {
+  "version": "0.5.228.0",
+  "package_dir": "/root/kit/common/opt_core/opt_core"
+ },
+ "weights": {
+  "root": "/weights/opendde",
+  "checkpoint": "/weights/opendde/checkpoint/opendde.pt",
+  "checkpoint_present": true,
+  "checkpoint_bytes": 2625249069,
+  "checkpoint_sha256": "7b826620390afad877ee2babc6a4d0df81b94d3a0be030959853d6a7da0807cc",
+  "files_hashed": [
+   "checkpoint/opendde.pt"
+  ],
+  "digest_memo": "/root/.cache/opendde_opt/jit/weights/weights_digests.json",
+  "digest_cached_utc": "2026-10-14T22:23:57Z",
+  "digest_source": "memo",
+  "digest_memo_error": null,
+  "digest_memo_readonly": false,
+  "common_present": true,
+  "pinned": {
+   "bytes": 2625249069,
+   "sha256": "7b826620390afad877ee2babc6a4d0df81b94d3a0be030959853d6a7da0807cc"
+  },
+  "checkpoint_match": "pinned"
+ },
+ "tree": "/root/kit/opendde",
+ "started_utc": "2026-10-14T22:33:11Z",
+ "finished_utc": "2026-10-14T22:34:51Z",
+ "wall_s": 100.867,
+ "exit_code": 0,
+ "pid": 49802,
+ "argv": [
+  "/root/kit/opendde/opt/opendde_opt/__main__.py",
+  "pred",
+  "--mode",
+  "exact",
+  "--det",
+  "1",
+  "-i",
+  "/root/kc/in/protenix.json",
+  "-o",
+  "/root/kc/results/opendde/exact-det/pred",
+  "--seeds",
+  "0",
+  "--cycle",
+  "10",
+  "--step",
+  "200",
+  "--sample",
+  "1",
+  "--use_msa",
+  "true",
+  "--use_template",
+  "false"
+ ],
+ "stock_args": [
+  "pred",
+  "-i",
+  "/root/kc/in/protenix.json",
+  "-o",
+  "/root/kc/results/opendde/exact-det/pred",
+  "--cycle",
+  "10",
+  "--step",
+  "200",
+  "--sample",
+  "1",
+  "--use_msa",
+  "true",
+  "--use_template",
+  "false",
+  "--seeds",
+  "0",
+  "--dtype",
+  "bf16",
+  "--load_checkpoint_path",
+  "/weights/opendde/checkpoint/opendde.pt",
+  "--deterministic",
+  "true"
+ ],
+ "applied": {
+  "exports": {
+   "ODDE_SERVED_LEVERS": "1",
+   "CUEQ_TRITON_CACHE_DIR": "/root/kit/opendde/opt/forward/fast_inference/levers/KIT/cueq_cache_shipped",
+   "ODDE_ADDON_LEVERS": "dit_hoist,dit_align",
+   "ODDE_ARM_Z": "1",
+   "ODDE_SERVED_LEVERS_STRICT": "1",
+   "FPF_ENGINE": "opendde",
+   "FPF_OPS": "trimul_out,trimul_in",
+   "FPF_IMPL": "trimul_out=odde_trimul_bind:trimul_out,trimul_in=odde_trimul_bind:trimul_in",
+   "ODDE_TRIATTN": "exact",
+   "ODDE_ARM_T_SCOPE": "all",
+   "ODDE_DIT_ATTN": "exact",
+   "ODDE_TRIMUL": "exact",
+   "ODDE_TRANSITION": "exact",
+   "PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:True",
+   "CUBLAS_WORKSPACE_CONFIG": ":4096:8"
+  },
+  "unset": [],
+  "sys_path": [
+   "/root/kit/opendde/opt/forward/fast_inference/levers/ACCEL",
+   "/root/kit/opendde/opt/forward/fast_inference/levers/ARMT",
+   "/root/kit/opendde/opt/forward/fast_inference/levers/DITFAST/tools",
+   "/root/kit/opendde/opt/forward/fast_inference/levers/KIT",
+   "/root/kit/opendde/opt/forward/fast_inference/src"
+  ],
+  "shim": "/root/kit/opendde/opt/forward/fast_inference/levers/ACCEL/sitecustomize.py",
+  "alloc": {
+   "lever": "alloc_auto",
+   "policy": "expandable",
+   "n_items": 5,
+   "decision": "export",
+   "reason": "the pred call's query is read (5 items): expandable segments",
+   "alloc": "expandable",
+   "alloc_conf": "expandable_segments:True",
+   "alloc_export": "exported"
+  },
+  "fpf": {
+   "version": "0.1.2",
+   "engine": "opendde",
+   "enabled": [
+    "trimul_in",
+    "trimul_out"
+   ],
+   "cfg": {
+    "engine": "opendde",
+    "ops": [
+     "trimul_in",
+     "trimul_out"
+    ],
+    "impl": {},
+    "cross-check": 0,
+    "crosscheck_ref": "kernel",
+    "strict": false,
+    "crosscheck": 0
+   },
+   "stats": {}
+  },
+  "overrides": {
+   "CUBLAS_WORKSPACE_CONFIG": ":4096:8"
+  }
+ },
+ "allow_partial": false,
+ "nonfinite_outputs": [],
+ "templates": null
+}

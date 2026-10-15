@@ -1,0 +1,82 @@
+{
+  "model": "saprot-35m",
+  "side": "gpu",
+  "unit": "s per batch (batch stated per row)",
+  "gpu": "NVIDIA B200",
+  "gpu_capability": [
+    10,
+    0
+  ],
+  "host_cpu": "Intel(R) Xeon(R) Platinum 8559C",
+  "cpu_count": 192,
+  "torch_version": "2.11.0+cu130",
+  "cuda_version": "13.0",
+  "dtype": "bfloat16",
+  "packages": {
+    "torch": "2.11.0+cu130",
+    "transformers": "4.57.6",
+    "esm": "3.4.0",
+    "tokenizers": "0.22.2"
+  },
+  "session_wall_s": 15.2,
+  "error": null,
+  "result": {
+    "cold_s": 0.611,
+    "warm_times_s": [
+      0.0094,
+      0.0079,
+      0.0085,
+      0.0077,
+      0.0078,
+      0.0075,
+      0.0077,
+      0.0076,
+      0.0073,
+      0.0072,
+      0.0072,
+      0.0072,
+      0.0082,
+      0.0072,
+      0.0077
+    ],
+    "warm_n": 15,
+    "warm_min_s": 0.0072,
+    "warm_median_s": 0.0077,
+    "warm_max_s": 0.0094,
+    "warm_spread_pct": 29.47,
+    "load_s": 1.39,
+    "repo": "westlake-repl/SaProt_35M_AF2",
+    "family": "saprot",
+    "loader": "esm",
+    "batch_requested": 7,
+    "batch_executed": 7,
+    "n_residues": 512,
+    "n_tokens": 514,
+    "d_model": 480,
+    "seq_per_s": 909.091,
+    "s_per_seq": 0.0011,
+    "kernel_counts_total": {
+      "torch_sdpa": 204,
+      "cudnn_plan_failure": 0
+    },
+    "attn_implementation_requested": "sdpa",
+    "cudnn_sdpa_disabled": true,
+    "cudnn_sdpa_disabled_eagerly": true,
+    "cudnn_plan_failures": 0,
+    "attn_engaged": true,
+    "accuracy": {
+      "cosine_bf16_vs_fp32": 0.999994,
+      "bar": 0.999,
+      "pass_": true,
+      "all_finite": true,
+      "pooled_norm": 3.1628
+    },
+    "peak_mem_bf16_mib": 228.3,
+    "peak_mem_fp32_mib": 403.2,
+    "fixture": {
+      "path": "/work/scripts/gpu_vs_tt/fixtures/prot512.seq",
+      "sha256": "141f7d4730ccf17e116016edc4aceee502d8c9769301ece4d1b64beb496ebf8d"
+    }
+  },
+  "date": "2026-10-14T23:53:53Z"
+}

@@ -1,0 +1,13 @@
+/root/kc/in/msa/uniref90_hits.a3m: OK
+/root/kc/in/cdk2x2_512.yaml: OK
+/root/kc/in/rfd3/rfd3_R4_gpu.json: OK
+/root/kc/in/rfd3/perf/dsfix/targets/R4_9q6y_A.pdb: OK
+/root/kc/in/pxdesign/laczc_512_nomsa.yaml: OK
+/root/kc/in/pxdesign/laczc_512.cif: OK
+/root/kc/in/af2ig/pdl1_l80_s0a.pdb: OK
+/root/kc/in/af2ig/pdl1_l80_s0b.pdb: OK
+/root/kc/in/af2ig/pdl1_l80_s1a.pdb: OK
+/root/kc/in/af2ig/pdl1_l80_s1b.pdb: OK
+/root/kc/in/af2ig/pdl1_l80_s2a.pdb: OK
+/root/kc/in/af2ig/pdl1_l80_s2b.pdb: OK
+/root/kc/in/prot512.seq: OK

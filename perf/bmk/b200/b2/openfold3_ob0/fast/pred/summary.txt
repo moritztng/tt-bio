@@ -1,0 +1,10 @@
+
+==================================================
+    PREDICTION SUMMARY (COMPLETE)    
+==================================================
+Total Queries Processed: 5
+  - Successful Queries:  0
+  - Failed Queries:      5
+
+Failed Queries: fold0, fold1, fold2, fold3, fold4
+==================================================

@@ -1,0 +1,5 @@
+{"s": 2.5788, "pid": 52177, "fn": "pxdesign.runner.inference.InferenceRunner._inference", "t": 1792017918.864867}
+{"s": 2.0547, "pid": 52177, "fn": "pxdesign.runner.inference.InferenceRunner._inference", "t": 1792017920.9201744}
+{"s": 2.0512, "pid": 52177, "fn": "pxdesign.runner.inference.InferenceRunner._inference", "t": 1792017922.972034}
+{"s": 2.0422, "pid": 52177, "fn": "pxdesign.runner.inference.InferenceRunner._inference", "t": 1792017925.0148304}
+{"s": 2.0473, "pid": 52177, "fn": "pxdesign.runner.inference.InferenceRunner._inference", "t": 1792017927.0627625}

@@ -1,0 +1,5 @@
+{"s": 20.3131, "pid": 21839, "fn": "openfold3.projects.of3_all_atom.runner.OpenFold3AllAtom.predict_step", "t": 1792015762.468504}
+{"s": 17.4236, "pid": 21839, "fn": "openfold3.projects.of3_all_atom.runner.OpenFold3AllAtom.predict_step", "t": 1792015780.533762}
+{"s": 17.6367, "pid": 21839, "fn": "openfold3.projects.of3_all_atom.runner.OpenFold3AllAtom.predict_step", "t": 1792015798.7624896}
+{"s": 17.321, "pid": 21839, "fn": "openfold3.projects.of3_all_atom.runner.OpenFold3AllAtom.predict_step", "t": 1792015816.6787999}
+{"s": 17.25, "pid": 21839, "fn": "openfold3.projects.of3_all_atom.runner.OpenFold3AllAtom.predict_step", "t": 1792015834.5234692}
