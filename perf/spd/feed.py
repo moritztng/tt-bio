@@ -57,8 +57,11 @@ MAX_FAILS = 3
 STEAL_S = 900   # a BH job still waiting this long moves to a free card on another BH box its cell allows
 # BH boxes: SPD cards and their flocks (state/spd/CHIPS.md). A chip kept off the feed has ~/spd/locks/chip<N>.BAD on its
 # host (qb2 chip 0 since the 2026-10-14 slot swap: marginal at 1350 MHz, and feed trees predate the AICLK cap).
+# `reset` resets a card after a capped job (see run_cmd). qb1 only: each p150a is its own board, while a qb2 p300c
+# board carries two chips and a reset there would kill the other chip's job.
 BH_POOLS = {
-    "qb1": {"ssh": "qb1", "cards": [0, 1, 2, 3], "lock": "/home/ttuser/spd_qb1_card{c}.lock"},
+    "qb1": {"ssh": "qb1", "cards": [0, 1, 2, 3], "lock": "/home/ttuser/spd_qb1_card{c}.lock",
+            "reset": "/home/ttuser/.local/bin/tt-smi -r"},
     "qb2": {"ssh": "qb2", "cards": [0, 1, 2, 3], "lock": "/home/ttuser/spd_qb2_chip{c}.lock"},
 }
 
@@ -152,12 +155,19 @@ print(json.dumps(out))
 # SIGINT alone cannot interrupt a native wait: on 10-15 a device-init hang outlived its bash wrapper as an orphan and
 # kept the card's flock (inherited fd 9) for 2 h. The group is the inner timeout's pid, kept in $1.pg. The .end says
 # what ended a capped job: "124 INT" or "124 INT+TERM". Never SIGKILL a device job.
+# A capped job leaves its card dirty: on 10-15 qb1 three PV2 fast seed cells hung, and every later job on those three
+# cards failed device init ("failed to initialize FW", "ARC core failed to start") until reset. So once the group is
+# gone, and while the card's flock is still held, $6 (the box's reset command, empty = none) resets the card; the .end
+# then ends in "reset" or "reset-failed", or "noreset" if the group outlived SIGTERM too.
 def run_cmd(grace=120):
     return ('S=$(date +%s); CHIP=$2 TT_VISIBLE_DEVICES=$2 LOCK="$4" WAIT=60 timeout -s TERM $(($5 + G)) '
             'sh -c \'echo $$ > "$1.pg"; exec timeout -s INT "$2" bash "$1"\' _ "$1" "$5" > "$1.log" 2>&1; rc=$?; '
             'if [ $rc = 124 ]; then g=$(cat "$1.pg" 2>/dev/null); s=INT; [ $(($(date +%s) - S)) -lt $(($5 + G)) ] || s=INT+TERM; '
             'for i in $(seq G); do kill -0 -- -$g 2>/dev/null || break; sleep 1; done; '
-            '[ -n "$g" ] && kill -0 -- -$g 2>/dev/null && { kill -TERM -- -$g; s=INT+TERM; }; rc="$rc $s"; fi; '
+            '[ -n "$g" ] && kill -0 -- -$g 2>/dev/null && { kill -TERM -- -$g; s=INT+TERM; }; '
+            'if [ -n "$6" ]; then for i in $(seq G); do kill -0 -- -$g 2>/dev/null || break; sleep 1; done; '
+            'if kill -0 -- -$g 2>/dev/null; then s="$s noreset"; elif $6 $2 >> "$1.log" 2>&1; then s="$s reset"; '
+            'else s="$s reset-failed"; fi; fi; rc="$rc $s"; fi; '
             'echo "$rc" > "$1.end"').replace(" G)", f" {grace})").replace("seq G", f"seq {grace}")
 
 
@@ -190,7 +200,7 @@ for j in A["jobs"]:
              'exec 8>&-; echo $c > "$1.card"; touch "$1.start"; set -- "$1" $c "$3" "$(dirname "$1")/nolock.$c" "$5"; '
              'cd "$(dirname "$1")"; ' + RUN)
         p = subprocess.Popen(["setsid", "nohup", "bash", "-c", w, "_", sh, " ".join(map(str, j["cards"])),
-                              j["lock"].replace("{c}", "@"), "", str(j["cap"] + 300)],
+                              j["lock"].replace("{c}", "@"), "", str(j["cap"] + 300), A.get("reset", "")],
                              stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, cwd=J)
         open(sh + ".pid", "w").write(str(p.pid))
 for n in A.get("unqueue", []):
@@ -383,7 +393,7 @@ def steal(cs, ledger, st, P, stamp, dry, log):
             try:
                 if name not in remote(P[n]["ssh"], WITHDRAW, {"names": [name]}):
                     continue
-                remote(P[b]["ssh"], PLACE, {"kind": "bh", "jobs": [{"name": name, "body": c["body"], "cap": c["cap"],
+                remote(P[b]["ssh"], PLACE, {"kind": "bh", "reset": P[b].get("reset", ""), "jobs": [{"name": name, "body": c["body"], "cap": c["cap"],
                                                                    "cards": [card], "lock": P[b]["lock"]}]})
             except Exception as e:   # withdrawn but not placed: the next pass finds the cell lost and places it again
                 log(f"steal {c['key']} failed: {e}")
@@ -512,7 +522,8 @@ def main(argv=None):
         unq = [q for q in qnames if s["jobs"].get(q, {}).get("state") == "queued"] if P[n]["kind"] == "galaxy" else []
         if jobs or unq:
             try:
-                remote(P[n]["ssh"], PLACE, {"kind": P[n]["kind"], "jobs": jobs, "unqueue": unq})
+                remote(P[n]["ssh"], PLACE, {"kind": P[n]["kind"], "jobs": jobs, "unqueue": unq,
+                                            "reset": P[n].get("reset", "")})
             except Exception as e:  # the next pass finds these cells lost and places them again
                 log(f"{n}: place failed: {e}")
     if a.dry_run:

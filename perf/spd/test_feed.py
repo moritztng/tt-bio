@@ -303,9 +303,9 @@ def test_a_cell_on_a_dark_box_is_placed_again_and_its_twin_withdrawn_on_return(t
     assert [(x[0], x[2]["names"]) for x in calls if x[1] is feed.WITHDRAW] == [("qb2", [c["name"]])]
 
 
-def _run_capped(tmp_path, body, cap):
+def _run_capped(tmp_path, body, cap, reset=""):
     sh = tmp_path / "4-x.sh"; sh.write_text(body)
-    subprocess.run(["bash", "-c", feed.run_cmd(grace=2), "_", str(sh), "0", "", str(tmp_path / "nolock"), str(cap)],
+    subprocess.run(["bash", "-c", feed.run_cmd(grace=2), "_", str(sh), "0", "", str(tmp_path / "nolock"), str(cap), reset],
                    cwd=tmp_path, timeout=60, check=True)
     return (tmp_path / "4-x.sh.end").read_text().strip()
 
@@ -337,3 +337,18 @@ def test_place_starts_a_bh_waiter_that_runs_its_job(tmp_path):
     sh = _place_bh(tmp_path, [7], "echo card $CHIP\n")
     assert Path(f"{sh}.end").read_text().strip() == "0"
     assert Path(f"{sh}.log").read_text() == "card 7\n"
+
+
+def test_a_capped_job_resets_its_card_and_a_clean_one_does_not(tmp_path):
+    # 10-15 qb1: after three hung PV2 seed cells were killed, every later job on those cards failed device init
+    r = tmp_path / "reset.sh"; r.write_text('echo "$1" >> "$(dirname "$0")/resets"\n'); r.chmod(0o755)
+    assert _run_capped(tmp_path, "exit 3\n", 30, str(r)) == "3"
+    assert not (tmp_path / "resets").exists()
+    assert _run_capped(tmp_path, "(trap '' INT; exec sleep 300) & wait\n", 1, str(r)) == "124 INT+TERM reset"
+    assert (tmp_path / "resets").read_text() == "0\n"
+    assert _run_capped(tmp_path, "sleep 30\n", 1, "false") == "124 INT reset-failed"
+
+
+def test_qb2_boards_are_never_reset_by_the_feed():
+    # a p300c board carries two chips: resetting one kills the other chip's job
+    assert feed.BH_POOLS["qb1"]["reset"] and not feed.BH_POOLS["qb2"].get("reset")
