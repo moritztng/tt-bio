@@ -364,6 +364,9 @@ _TRANSITION_B8 = env_flag("RFD3_TRANSITION_B8", False)
 # arches: clash delta -1.4 (se 5.4), chain breaks identical seed for seed, same-seed drift
 # 3.9-12.7 A against a 13.5-20.0 A seed floor.
 _PAIR_WS = env_flag("RFD3_PAIR_WS", False)
+# RFD3_PAIR_WS with its weights in bfp8, run at HiFi2 (covers every bfp8 weight bit), the form the shared
+# `tenstorrent.ws_swiglu` takes in fast mode for the other models. x and the RMSNorm prologue stay bf16. Graded off.
+_PAIR_WS_B8 = env_flag("RFD3_PAIR_WS_B8", False)
 # Every RFD3 matmul at HiFi2 instead of HiFi4: two multiplier passes per bf16 product instead of
 # four. Off, and not in --fast: on top of the fast set it saved nothing on a p300c (4 seeds, 685
 # tokens) and doubled the clashes of one 418-token design.
@@ -1120,15 +1123,19 @@ class Transition(Module):
         element, so the flattened tensor splits into whole row tiles); None where it declines."""
         if getattr(self, "_ws12", None) is None:
             self._ws12 = ttnn.concat([self.fc1_w, self.fc2_w], dim=1)
-        if not _WS.eligible(x, self._ws12, self.fc3_w):
+            self._ws3 = self.fc3_w
+            if _PAIR_WS_B8:
+                self._ws12 = ttnn.typecast(self._ws12, ttnn.bfloat8_b)
+                self._ws3 = ttnn.typecast(self.fc3_w, ttnn.bfloat8_b)
+        if not _WS.eligible(x, self._ws12, self._ws3):
             return None
-        fid = self.compute_kernel_config.math_fidelity
+        fid = ttnn.MathFidelity.HiFi2 if _PAIR_WS_B8 else self.compute_kernel_config.math_fidelity
         # The input RMSNorm as the program's prologue: bit-identical to ttnn.rms_norm first, and the normalised
         # tensor never goes to DRAM. p150a @1350 2.65 -> 2.39 ms (hidden 256), 4.38 -> 4.09 (512); flat on WH.
-        if _WS.eligible(x, self._ws12, self.fc3_w, ln=(self.norm_w, None)):
-            return _WS.pair_swiglu(x, self._ws12, self.fc3_w, fid, ln=(self.norm_w, None, 1e-6))
+        if _WS.eligible(x, self._ws12, self._ws3, ln=(self.norm_w, None)):
+            return _WS.pair_swiglu(x, self._ws12, self._ws3, fid, ln=(self.norm_w, None, 1e-6))
         xn = ttnn.rms_norm(x, weight=self.norm_w, epsilon=1e-6, compute_kernel_config=self.compute_kernel_config)
-        out = _WS.pair_swiglu(xn, self._ws12, self.fc3_w, fid)
+        out = _WS.pair_swiglu(xn, self._ws12, self._ws3, fid)
         ttnn.deallocate(xn)
         return out
 
