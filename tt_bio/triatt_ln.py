@@ -34,6 +34,8 @@ _CACHE: dict = {}
 #: (served, declined)
 STATS = [0, 0]
 REJECTS: dict = {}
+#: padded shapes of L1 operands whose CBs the allocator refused beside them (triatt_ln_l1)
+_L1_REFUSED: dict = {}
 
 
 def _reject(why, x):
@@ -43,8 +45,8 @@ def _reject(why, x):
     return None
 
 
-def _check(x, w, ln_w, ln_b, ckc):
-    """Why the operands cannot take the kernel, or None."""
+def _check(x, w, ln_w, ln_b, ckc, l1_ok=False):
+    """Why the operands cannot take the kernel, or None. `l1_ok`: the caller declines an L1 `x` on a CB refusal."""
     if ops.taping():
         return "taping"
     if dest_guard.exposed_args((ckc[0], ckc[1], True, ckc[3]), "tri"):
@@ -55,9 +57,14 @@ def _check(x, w, ln_w, ln_b, ckc):
         if t.memory_config().memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED:
             return "memcfg"
     if x.memory_config() != ttnn.DRAM_MEMORY_CONFIG:
-        # The ending variant's transposed pair is L1-resident: its ~0.6 MB a core beside these CBs
-        # is unmeasured, so it keeps the two-call path until a device run says it fits.
-        return "memcfg"
+        # The ending variant's transposed pair is L1-resident. Under triatt_ln_l1 the reader takes it
+        # where it lies (TensorAccessor reads either bank type) and `_launch` declines the shape class
+        # the allocator refuses the CBs for; without it the two-call path stays.
+        from .tenstorrent import lever
+        if not l1_ok or x.memory_config().buffer_type != ttnn.BufferType.L1 or not lever("triatt_ln_l1"):
+            return "memcfg"
+        if _L1_REFUSED.get(tuple(int(d) for d in x.padded_shape)):
+            return "l1_refused"
     shp, pad = [int(d) for d in x.shape], [int(d) for d in x.padded_shape]
     K = shp[-1]
     if len(shp) != 3 or shp != pad or K % TILE or K > 8 * TILE:
@@ -136,7 +143,7 @@ def ln_qkvgb_heads(x, ln_w, ln_b, w, ckc, n_heads, head_dim, bias_channels, grid
     from .tenstorrent import lever
     if not lever("triatt_ln"):
         return None
-    why = _check(x, w, ln_w, ln_b, ckc)
+    why = _check(x, w, ln_w, ln_b, ckc, l1_ok=True)
     if why:
         return _reject(why, x)
     shp, pad = [int(d) for d in x.shape], [int(d) for d in x.padded_shape]
@@ -150,7 +157,16 @@ def ln_qkvgb_heads(x, ln_w, ln_b, w, ckc, n_heads, head_dim, bias_channels, grid
                                            ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG) for _ in range(4)]
     outs.append(ttnn.allocate_tensor_on_device(ttnn.Shape([shp[0], shp[1], bias_channels]), ttnn.bfloat16,
                                                ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG))
-    return _launch(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, bias_channels)
+    if x.memory_config().buffer_type != ttnn.BufferType.L1:
+        return _launch(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, bias_channels)
+    try:
+        return _launch(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, bias_channels)
+    except RuntimeError:
+        # CBs that clash with the L1 operand are refused host-side, before anything is enqueued.
+        for o in outs:
+            ttnn.deallocate(o)
+        _L1_REFUSED[tuple(int(d) for d in x.padded_shape)] = True
+        return _reject("l1_refused", x)
 
 
 def _launch(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tag):
