@@ -40,10 +40,9 @@ from tt_bio.tenstorrent import (
     Weights,
     WeightScope,
     _dtype,
-    fused_sdpa,
 )
 from tt_bio.esmc import (
-    lm_sdpa_config,
+    lm_sdpa,
     rope_tables,
     _rope,
     BUCKET,
@@ -180,8 +179,7 @@ class ESM2Attention(Module):
         if key_valid is not None and attn_mask is None:  # the -inf mask already zeroes them, see esmc.Attention
             k = ttnn.multiply(k, key_valid)
             v = ttnn.multiply(v, key_valid)
-        o = fused_sdpa(q, k, v, attn_mask=attn_mask, scale=self.head_dim ** -0.5,
-                       program_config=lm_sdpa_config(int(q.shape[2]), int(k.shape[2])))
+        o = lm_sdpa(q, k, v, attn_mask, scale=self.head_dim ** -0.5)
         ttnn.deallocate(q); ttnn.deallocate(k); ttnn.deallocate(v)
         o = self._merge_heads(o)  # [B, L, H*32] when fold_rope; out_weight has the zero rows
         out = self._lin(o, self.out_weight, bias=self.out_bias)
