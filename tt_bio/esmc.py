@@ -264,6 +264,21 @@ _ESMC_MM = (env_flag("TT_BIO_ESMC_MM", False) if os.environ.get("TT_BIO_ESMC_MM"
 ESMC_MM_MIN_ROWS = 2048
 #: [projections served by minimal_matmul, declined], read by the A/B harness.
 MM_STATS = [0, 0]
+# minimal_matmul's block config for those projections: 16 x 4 output tiles a block, K in blocks of 4 tiles (2 where K
+# does not divide). perf/spd_gap_whlm/mm_cfg_sweep.py on a Galaxy chip at 1000 MHz, 3808 rows, ms per call against the
+# op's default: 300M proj 0.233 -> 0.197, fc1 half 0.495 -> 0.461, fc2 0.392 -> 0.382; 600M proj 0.268 -> 0.226, fc1
+# half 0.645 -> 0.587, fc2 0.470 -> 0.452; error against float64 equal to the default's. Off = the op's default.
+_ESMC_MM_CFG = env_flag("TT_BIO_ESMC_MM_CFG", True)
+
+
+def _mm_config(x, w):
+    if not _ESMC_MM_CFG:
+        return {}
+    g = x.device().compute_with_storage_grid_size()
+    kt = int(w.shape[-2]) // 32
+    return {"config": ttnn.MinimalMatmulConfig(
+        M_block_size=16, K_block_size=4 if kt % 4 == 0 else 2, N_block_size=4, subblock_h=2, subblock_w=2,
+        compute_with_storage_grid_size=ttnn.CoreCoord(g.x, g.y))}
 
 
 def _esmc_mm() -> bool:
@@ -287,7 +302,7 @@ class _MMLin:
                 out = ttnn.experimental.minimal_matmul(
                     x, w, compute_kernel_config=self.compute_kernel_config,
                     dtype=_dtype(ttnn.bfloat16) if dtype is None else dtype,
-                    memory_config=kw.get("memory_config") or ttnn.DRAM_MEMORY_CONFIG,
+                    memory_config=kw.get("memory_config") or ttnn.DRAM_MEMORY_CONFIG, **_mm_config(x, w),
                     **({"fused_activation": (ttnn.UnaryOpType.SILU, False)} if act else {}))
                 MM_STATS[0] += 1
                 return out
