@@ -14,9 +14,12 @@ TT-Bio runs biomolecular structure prediction, protein design and protein langua
 Tenstorrent Blackhole and Wormhole hardware, on one card or many (a QuietBox has 4 cards, a Galaxy
 server 32).
 
-Every model is validated against its official reference implementation on the same input and
-reproduces it within that reference's own run-to-run noise. The methodology, per-target results and
-reproduction commands are in [`docs/implementation-parity.md`](docs/implementation-parity.md).
+Each release scores every model against its official reference implementation on the same input,
+and a check passes inside that reference's own run-to-run noise. Boltz-2 and OpenFold3 miss on some
+inputs run without an MSA or templates, ESMFold2-Fast's confidence score at 512 residues is being
+re-checked, and the other gated models pass every check. The methodology,
+per-target results and reproduction commands are in
+[`docs/implementation-parity.md`](docs/implementation-parity.md).
 Predictions and designs per hour per server, and throughput per dollar of purchase price and of
 total cost of ownership against NVIDIA DGX H200, B200 and A100, are on
 [tt-bio.com](https://tt-bio.com). The NVIDIA figures run each model's own upstream code, not

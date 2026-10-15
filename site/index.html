@@ -8,7 +8,7 @@
 <link rel="icon" href="assets/icon-500.png?v=c70df9a5" sizes="500x500" type="image/png">
 <link rel="apple-touch-icon" href="assets/apple-touch-icon.png?v=b63e0473" sizes="180x180">
 <title>TT-Bio</title>
-<meta name="description" content="Open-source biomolecular AI: folding, binder design and protein embeddings on Tenstorrent hardware, with throughput per dollar measured against NVIDIA DGX systems and accuracy matched to reference implementations.">
+<meta name="description" content="Open-source biomolecular AI: folding, binder design and protein embeddings on Tenstorrent hardware, with throughput per dollar measured against NVIDIA DGX systems and accuracy checked against reference implementations.">
 <link rel="preload" href="assets/manrope-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="assets/site.css?v=80720702">
 <style>
@@ -154,8 +154,8 @@ h2{font-size:clamp(1.85rem,3.5vw,2.5rem);margin:0 0 18px;max-width:22ch}
       <div class="s">against NVIDIA H200, B200 and A100</div></div>
     <div><div class="n">One</div><div class="k">codebase</div>
       <div class="s">optimized from silicon to serving</div></div>
-    <div><div class="n">1:1</div><div class="k">accuracy parity</div>
-      <div class="s">measured against every reference</div></div>
+    <div><div class="n" id="acc-fact">Seven</div><div class="k">models pass every accuracy check</div>
+      <div class="s">of eleven, against each reference</div></div>
   </div>
 
   <section class="reveal" id="numbers">
@@ -220,9 +220,13 @@ h2{font-size:clamp(1.85rem,3.5vw,2.5rem);margin:0 0 18px;max-width:22ch}
 
   <section class="reveal">
     <p class="eyebrow">Accuracy</p>
-    <h2>The same answer as the reference</h2>
-    <p class="say measure">Every model reproduces its official reference implementation, within that
-      reference's own run-to-run spread.</p>
+    <h2>Checked against the reference</h2>
+    <!-- render_check.js reads this paragraph against each row's release-gate result. -->
+    <p class="say measure" id="acc-say">Each release scores every model against its official reference,
+      and a check passes inside that reference's own run-to-run spread. Seven of the eleven models
+      pass every check. Boltz-2 and OpenFold3 miss on some inputs run without an MSA or templates,
+      ESMFold2-Fast's confidence score at 512 residues is being re-checked, and PXDesign is not in
+      the gate yet. <a href="benchmarks/#methods">Results per model</a></p>
     <div class="two" style="margin-top:26px">
       <div class="pt"><h3>The bar moves, so we measure it</h3>
         <p>A single reference run is not a target. The reference itself varies between seeds, so we
