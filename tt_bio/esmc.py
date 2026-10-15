@@ -389,10 +389,14 @@ class Attention(_MMLin, Module):
             for t in live:
                 ttnn.deallocate(t)
         QK_L1_STATS[1] += _ESMC_QK_L1 and self.qk_l1
+        # q and k go as soon as their norms exist: with the 6B's bf16 weights resident, the 1968 aa re-pack on a
+        # Wormhole chip only fits without them (30 MB asked, 42 MB free in 1.8 MB blocks per bank with them alive).
         qn = ttnn.layer_norm(q, weight=self.q_ln_weight, epsilon=1e-5, compute_kernel_config=ck)
+        ttnn.deallocate(q)
         kn = ttnn.layer_norm(k, weight=self.k_ln_weight, epsilon=1e-5, compute_kernel_config=ck)
+        ttnn.deallocate(k)
         qkv = ttnn.concat([qn, kn, v], dim=-1)
-        for t in (q, k, v, qn, kn):
+        for t in (v, qn, kn):
             ttnn.deallocate(t)
         return self._split_heads(qkv, self.n_heads)
 
