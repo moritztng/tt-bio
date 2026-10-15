@@ -32,3 +32,12 @@ def test_other_features_and_non_broadcast_tensors_are_kept_whole():
     v = f["restype_ti"].clone()
     v[0, 0, 1, 0] += 1.0                    # no longer one row broadcast
     assert _unbroadcast("restype_ti", v) is v
+
+
+def test_a_stride0_view_unbroadcasts_without_a_copy_and_matches_the_full_tensor():
+    f = _feat()
+    for key, axis in (("restype_ti", -2), ("restype_tj", -3)):
+        assert f[key].stride(axis) == 0
+        r = _unbroadcast(key, f[key])
+        assert r.shape[axis] == 1 and r.is_contiguous()
+        assert torch.equal(r.expand_as(f[key]), f[key].contiguous())

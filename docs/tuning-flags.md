@@ -20,6 +20,7 @@ move against the accuracy bar and the seed-to-seed spread.
 | [`OF3_DIFFUSION_TRACE`](#of3_diffusion_trace) | on | OpenFold3, OpenBind-0 | identical |
 | [`TT_BIO_AF2_G_BIAS_IN_MATMUL`](#bindcraft-2-round-kernels) | on; off in a BindCraft 2 round on Wormhole | AF2-IG, BindCraft 2 on Blackhole | within 0.12 A |
 | [`TT_BIO_AF2_OPM_ROWS_IN_K`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2 | moves the forward, closer to float64 |
+| [`TT_BIO_AF2_TRANSITION_WS`](#bindcraft-2-round-kernels) | on | AF2-IG, BindCraft 2 | within 0.03 A for AF2-IG |
 | [`TT_BIO_ATOM_AXIS_BUCKET`](#tt_bio_atom_axis_bucket) | on | | identical at 298 residues, not guaranteed at 512 |
 | [`TT_BIO_ATOM_SHIFT_GATHER`](#tt_bio_atom_shift_gather) | on | | identical |
 | [`TT_BIO_ATOM_KV_WINDOW`](#tt_bio_atom_tile_heads-tt_bio_atom_kv_window) | on | Protenix-v2, OpenDDE, PXDesign | identical |
@@ -153,6 +154,7 @@ structures by 0.02 to 0.06 A, and 0.45 A on the complex that does not bind (ipTM
 | `TT_BIO_PAIR_MM` | Pair-track linears and their input gradients on `minimal_matmul` with a per-shape block table, ReLU fused at pack. |
 | `TT_BIO_AF2_OPM_ROWS_IN_K` | The outer product mean sums its MSA rows inside one contraction instead of one product per row. Acts only with more than one MSA row, which a BindCraft 2 round has. Both boards. |
 | `TT_BIO_RNE_MASK` | The dropout keep-mask multiply and the residual add after it as one kernel, so the masked update is never written. On by default, not only in the round: only a round draws dropout masks. |
+| `TT_BIO_AF2_TRANSITION_WS` | AF2's pair Transition (LayerNorm, fc1, ReLU, fc2) as one program with both weights in L1, so the normed input and the 4x-wide hidden never reach DRAM. In a round its backward is two programs (`pair_relu` in `TT_BIO_TAPED_KERNELS`). On for every AF2 fold, not only in the round. |
 
 **Accuracy.** Each was graded on its own against a float64 reference of an Evoformer block's VJP
 at 288 tokens, blocks 0, 3 and 7. The largest move any of them makes is 6e-4 rel L2 (pair_mm on
@@ -177,6 +179,15 @@ Wormhole chip at 1000 MHz a BindCraft 2 round writes the same gradient digest wi
 in 648 fewer calls, and one iteration goes from 5.70 to 5.64 s (two arms each, alternated on one
 chip, PD-L1 at binder length 80). On a p150a the kernel alone is 0.18 against 0.21 ms at the
 round's 195 tokens.
+
+`TT_BIO_AF2_TRANSITION_WS` is on for AF2-IG too. At 195 tokens it takes the Evoformer from 2.88 to
+2.75 s on a Wormhole chip at 1000 MHz and from 1.76 to 1.66 s on a p150a at 1350 MHz; the structure
+moves 0.030 A all-atom and ipTM 0.8077 to 0.8096. Against float64 the fused Transition reads 4.34e-3
+rel RMS where the composed one reads 4.35e-3. In a BindCraft 2 round on Wormhole one iteration goes
+from 5.40 to 5.20 s (two arms each, alternated on one chip at 1055 MHz, PD-L1 at binder length 80).
+It does not change what BindCraft 2 designs: over six full PD-L1 campaigns per arm on Wormhole it
+accepted 9 binders against 8 without it, completed 11 of 30 trajectories against 14 (Fisher p = 0.60),
+and the last-iteration i_pTM per trajectory averaged 0.52 against 0.56 (permutation p = 0.57).
 
 **Sizes.** With all of them on, a p300c chip runs 192, 352, 576 and 864 tokens to a completed
 gradient round; 864 peaks at 27.04 GB resident with 7.19 GB free.

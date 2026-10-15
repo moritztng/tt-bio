@@ -147,6 +147,21 @@ else:
 print(json.dumps(out))
 '''
 
+# Runs a BH job under its cap: SIGINT at the cap, then SIGTERM to the job's whole process group after a grace period.
+# SIGINT alone cannot interrupt a native wait: on 10-15 a device-init hang outlived its bash wrapper as an orphan and
+# kept the card's flock (inherited fd 9) for 2 h. The group is the inner timeout's pid, kept in $1.pg. The .end says
+# what ended a capped job: "124 INT" or "124 INT+TERM". Never SIGKILL a device job.
+def run_cmd(grace=120):
+    return ('S=$(date +%s); CHIP=$2 TT_VISIBLE_DEVICES=$2 LOCK="$4" WAIT=60 timeout -s TERM $(($5 + G)) '
+            'sh -c \'echo $$ > "$1.pg"; exec timeout -s INT "$2" bash "$1"\' _ "$1" "$5" > "$1.log" 2>&1; rc=$?; '
+            'if [ $rc = 124 ]; then g=$(cat "$1.pg" 2>/dev/null); s=INT; [ $(($(date +%s) - S)) -lt $(($5 + G)) ] || s=INT+TERM; '
+            'for i in $(seq G); do kill -0 -- -$g 2>/dev/null || break; sleep 1; done; '
+            '[ -n "$g" ] && kill -0 -- -$g 2>/dev/null && { kill -TERM -- -$g; s=INT+TERM; }; rc="$rc $s"; fi; '
+            'echo "$rc" > "$1.end"').replace(" G)", f" {grace})").replace("seq G", f"seq {grace}")
+
+
+RUN = run_cmd()
+
 # Writes the jobs feed placed. Galaxy: into the pool queue. BH: detached flock waiter per job.
 PLACE = r'''
 import json, os, subprocess, sys
@@ -159,7 +174,7 @@ for j in A["jobs"]:
         os.rename(t, q + "/" + j["name"])
     else:
         J = H + "/spd/feed/jobs"; sh = J + "/" + j["name"]
-        for x in (".end", ".start", ".pid", ".log"):
+        for x in (".end", ".start", ".pid", ".log", ".pg"):
             if os.path.exists(sh + x): os.remove(sh + x)
         open(sh, "w").write(j["body"]); open(sh + ".card", "w").write(str(j["card"]))
         # yield like every row runner: to a release-gate leg on this card and to the gapboard chain's sentinel (the
@@ -167,8 +182,7 @@ for j in A["jobs"]:
         w = ('exec 9>"$3"; G="(spd_qb1_card|spd_qb2_chip|TT_VISIBLE_DEVICES=)$2[. ].*(release_gate|gate_fanout|perf_ab)"; '
              'while :; do while pgrep -f "$G" >/dev/null; do sleep 60; done; '
              'flock -w 86400 9 || { echo flockbusy > "$1.end"; exit 3; }; pgrep -f "$G" >/dev/null || break; flock -u 9; sleep 60; done; '
-             'touch "$1.start"; cd "$(dirname "$1")"; '
-             'CHIP=$2 TT_VISIBLE_DEVICES=$2 LOCK="$4" WAIT=60 timeout -s INT "$5" bash "$1" > "$1.log" 2>&1; echo $? > "$1.end"')
+             'touch "$1.start"; cd "$(dirname "$1")"; ' + RUN)
         p = subprocess.Popen(["setsid", "nohup", "bash", "-c", w, "_", sh, str(j["card"]), j["lock"],
                               J + "/nolock.%d" % j["card"], str(j["cap"] + 300)],
                              stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, cwd=J)
@@ -178,6 +192,7 @@ for n in A.get("unqueue", []):
     if os.path.exists(p): os.makedirs(H + "/spd/pool/quarantine", exist_ok=True); os.rename(p, H + "/spd/pool/quarantine/" + n)
 print(len(A["jobs"]))
 '''
+PLACE = f"RUN = {RUN!r}\n" + PLACE   # the waiter string above runs on the BH host, where only what PLACE defines exists
 
 
 # Withdraws BH waiters that have not started: kill the waiter's session (feed started it under setsid), then set the
