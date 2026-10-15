@@ -250,7 +250,47 @@ class Embedding(Module):
         )
 
 
-class Attention(Module):
+# ESMC's projections on `minimal_matmul` instead of `ttnn.linear(core_grid=...)`. WH Galaxy chip, page shape (batch
+# 7 x 544 rows), perf/spd_gap_esmf/lin_bench.py against float64 of the same operands, equal or lower error:
+# 600M fc2 0.719 -> 0.466 ms, out 0.350 -> 0.263, qkv 0.851 -> 0.710; 300M qkv 0.651 -> 0.537, fc2 0.485 -> 0.416.
+# At the 6B's 544 rows it gains nothing (out 0.200 -> 0.242), so only a projection over ESMC_MM_MIN_ROWS takes it.
+# Page cell on a Galaxy chip (esmc_ab.py, 2 rounds, batch of 7): 300M 177.8 -> 171.8 ms, 600M 272.0 -> 253.3 ms, with
+# embeddings equal to the linear's. --fast loads block-fp8 weights, which it never takes. On by default on Wormhole;
+# Blackhole keeps the linear until its own A/B says. None = by arch, the switch overrides.
+_ESMC_MM = (env_flag("TT_BIO_ESMC_MM", False) if os.environ.get("TT_BIO_ESMC_MM", "").strip() else None)
+ESMC_MM_MIN_ROWS = 2048
+#: [projections served by minimal_matmul, declined], read by the A/B harness.
+MM_STATS = [0, 0]
+
+
+def _esmc_mm() -> bool:
+    if _ESMC_MM is not None:
+        return _ESMC_MM
+    from tt_bio import tenstorrent
+    return tenstorrent.is_wormhole()
+
+
+class _MMLin:
+    """`Module._lin`, served by `minimal_matmul` for a plain bf16 projection over ESMC_MM_MIN_ROWS rows."""
+
+    def _lin(self, x, w, bias=None, dtype=None, **kw):
+        mm = _esmc_mm()
+        if (mm and bias is None and not set(kw) - {"memory_config"} and w.dtype == ttnn.bfloat16
+                and x.dtype == ttnn.bfloat16 and x.volume() // int(x.shape[-1]) >= ESMC_MM_MIN_ROWS):
+            try:
+                out = ttnn.experimental.minimal_matmul(
+                    x, w, compute_kernel_config=self.compute_kernel_config,
+                    dtype=_dtype(ttnn.bfloat16) if dtype is None else dtype,
+                    memory_config=kw.get("memory_config") or ttnn.DRAM_MEMORY_CONFIG)
+                MM_STATS[0] += 1
+                return out
+            except RuntimeError:  # an L1 destination it cannot place: the linear serves it
+                pass
+        MM_STATS[1] += mm
+        return super()._lin(x, w, bias=bias, dtype=dtype, **kw)
+
+
+class Attention(_MMLin, Module):
     """Multi-head self-attention with QK-LayerNorm + RoPE (no biases on projections).
 
     Mirrors esm.layers.attention.MultiHeadAttention (qk_layernorm=True, bias=False):
@@ -710,7 +750,7 @@ def _pack_swiglu_weight(weight: torch.Tensor) -> torch.Tensor:
     return packed.reshape(rows, 2, -1, 32).permute(0, 2, 1, 3).reshape(rows, two_n)
 
 
-class SwiGLUFFN(Module):
+class SwiGLUFFN(_MMLin, Module):
     """SwiGLU feed-forward (mirrors esm.layers.blocks.swiglu_ln_ffn, bias=False):
       h = Linear(LayerNorm(x)); x1,x2 = chunk(h,2); Linear(silu(x1) * x2).
     """

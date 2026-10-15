@@ -8,10 +8,12 @@ The board is state/bmk/BOARD.md, a markdown table appended to by the measuring r
     | cell | platform | mode | value | n / spread | clock | versions | when | command | row |
 
 `cell` is the page row id (boltz2, nesso1, esmc-6b, ...), `platform` a page platform id (p150a,
-a100, h200, b200). Modes: Tenstorrent `normal` (headline) and `fast`; NVIDIA `exact` (the Anthropic
-kit's exact mode, headline when present), `fast` (kit fast), `stock` (upstream code, headline when
-the kit has no exact run for the row) and `off` (kit control, not published). The newest board row
-for a (cell, platform, mode) wins.
+a100, h200, b200). Modes: Tenstorrent `normal` (headline) and `fast`; NVIDIA `kit-exact` (the
+Anthropic kit's exact mode, headline when present), `kit-fast`, and `stock`: the upstream package as
+installed, either the kit's own `kit-off` arm (every kit change switched off) or a plain upstream run
+for a row the kit does not carry. Stock is the headline when the kit has no exact run for the row.
+The `-det` arms are accuracy controls and are not published. The newest board row for a
+(cell, platform, mode) wins.
 
 A cell that receives a headline run is rebuilt from the board alone: the provenance prose, notes and
 host/device split it carried described the old measurement and are dropped. A Tenstorrent cell's
@@ -36,7 +38,11 @@ DATA = REPO / "site" / "data" / "perf-512aa.json"
 BOARD = Path.home() / ".coworker" / "state" / "bmk" / "BOARD.md"
 UNIT = {"models": "s_per_fold", "design": "s_per_design", "affinity": "s_per_fold", "embed": "s_per_batch"}
 ALIAS = {"kit exact": "exact", "kit-exact": "exact", "kit fast": "fast", "kit-fast": "fast",
-         "kit off": "off", "kit-off": "off", "--fast": "fast"}
+         "kit off": "stock", "kit-off": "stock", "--fast": "fast"}
+
+# The kit's ESMC has exact and off only: its `fast` arm runs the off path, so a board row for it is
+# a second stock reading, not a fast mode (bmk-a100, 2026-10-14).
+NO_KIT_FAST = {"esmc-300m", "esmc-600m", "esmc-6b"}
 
 
 def num(text: str) -> float | None:
@@ -64,7 +70,7 @@ def board_runs(path: Path) -> dict:
         run["clock_mhz"] = num(c[5])
         run["versions"] = c[6]
         run["when"] = c[7]
-        b = re.search(r"--(?:assert-batch|n-seqs|batch)\s+(\d+)", c[8])
+        b = re.search(r"(?:--assert-batch|--n-seqs|--batch|\bbatch)[\s=]+(\d+)", c[8])
         if b:
             run["batch"] = int(b.group(1))
         runs[(c[0].lower(), c[1].lower(), mode)] = run   # newest last wins
@@ -95,7 +101,8 @@ def fill(doc: dict, runs: dict, parity: dict) -> list[str]:
                 if v == "tenstorrent":
                     head, ref, extra = get("normal"), None, {"fast": get("fast")}
                 elif get("exact"):
-                    head, ref, extra = get("exact"), "kit", {"fast": get("fast"), "stock": get("stock")}
+                    head, ref = get("exact"), "kit"
+                    extra = {"fast": None if m["id"] in NO_KIT_FAST else get("fast"), "stock": get("stock")}
                 else:
                     head, ref, extra = get("stock"), "stock", {}
                 if not head:

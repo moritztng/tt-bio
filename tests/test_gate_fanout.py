@@ -24,6 +24,14 @@ ROSTER = {"parity": ["esmc-300m", "boltzgen", "capacity"],
           "ladder": ["boltz2", "rf3"], "capacity": ["boltz2"], "ux": ["boltz2"]}
 
 
+@pytest.fixture(autouse=True)
+def _no_real_bad_marks(tmp_path, monkeypatch):
+    """Keep the bad-chip check off this machine's real ~/spd/locks and ~/.coworker/state."""
+    monkeypatch.setattr(gf, "LOCAL_BLOCKS", tmp_path / "pc-state")
+    monkeypatch.setattr(gf, "BAD_MARKS", (f"{tmp_path}/locks/chip{{card}}.BAD",
+                                          f"{tmp_path}/host-state/cardblock-{{host}}-{{card}}"))
+
+
 def _legs():
     return gf.build_legs(ROSTER, ["tests/test_a.py", "tests/test_b.py", "tests/test_c.py"], 2)
 
@@ -495,6 +503,17 @@ def test_an_ssh_timeout_is_retried_and_never_raises(monkeypatch):
 def test_every_family_has_a_budget_and_an_expectation():
     for lg in _legs():
         assert lg.budget > 0 and lg.family in gf.EXPECT
+
+
+def test_a_leg_known_to_need_longer_than_its_budget_gets_more_and_a_resume_after_a_timeout_does_too():
+    hist = {"record:rf3@tt-galaxy-wh-l": 3000, "ladder:opendde": 15087}
+    prior = [{"leg": "record:rf3@tt-galaxy-wh-l", "rc": gf.TIMED_OUT, "wall_s": 14442},
+             {"leg": "record:boltz2@p150a", "rc": 1, "wall_s": 20000}]   # a failure, not a timeout
+    known = gf.known_walls(hist, prior)
+    assert known == {"record:rf3@tt-galaxy-wh-l": 14442, "ladder:opendde": 15087}
+    leg = gf.Leg("record:rf3@tt-galaxy-wh-l", [], "record", known_s=known["record:rf3@tt-galaxy-wh-l"])
+    assert leg.budget == round(gf.BUDGET_X * 14442) > gf.BUDGET["record"]
+    assert gf.Leg("record:nesso1@p300c", [], "record", known_s=249).budget == gf.BUDGET["record"]
 
 
 def test_command_pins_card_under_its_flock_and_substitutes_placeholders(tmp_path):
@@ -1267,3 +1286,33 @@ def test_a_record_runs_once_per_card_type_the_gate_holds():
     assert gf.ladder_model("record:rf3@p300c") == "rf3"
     qb1 = gf.Host("qb1", {"arch": "bh", "card_type": "p150a", "lock": "/l{card}", "root": "/r"}, "a" * 40)
     assert gf.type_fits(qb1, legs["record:rf3@p150a"]) and not gf.type_fits(qb1, legs["record:rf3@p300c"])
+
+
+def test_a_chip_marked_bad_by_any_of_the_three_marks_is_reported(tmp_path):
+    h = _host("qb2", "bh", tmp_path)
+    assert h.marked_bad(0) is None
+    for mark in (tmp_path / "locks" / "chip0.BAD", tmp_path / "host-state" / "cardblock-qb2-0",
+                 tmp_path / "pc-state" / "cardblock-qb2-0"):
+        mark.parent.mkdir(parents=True, exist_ok=True)
+        mark.touch()
+        assert h.marked_bad(0) == str(mark) and h.marked_bad(1) is None
+        mark.unlink()
+    (tmp_path / "host-state" / "cardblock-qb2-0.cleared-2026-10-14").touch()
+    assert h.marked_bad(0) is None
+
+
+def test_a_worker_on_a_chip_marked_bad_runs_no_leg_and_its_legs_run_elsewhere(tmp_path):
+    """rec-c2b4b898e, 10-14: qb2:0 carried chip0.BAD and a cardblock, gate.json still listed it,
+    and protenix-v2 ran (and deadlocked) there."""
+    (tmp_path / "locks").mkdir()
+    (tmp_path / "locks" / "chip0.BAD").touch()
+    h = _host("qb2", "bh", tmp_path)
+    legs = [lg for lg in _legs() if lg.card]
+    ran = []
+
+    def execute(host, card, leg):
+        ran.append(card)
+        return {"leg": leg.name, "arch": "bh", "verdict": "PASS", "worker": f"qb2:{card}"}
+
+    res = gf.Gate({"bh": list(legs)}, [(h, 0), (h, 1)], {("qb2", 1)}, execute, tmp_path).run()
+    assert set(ran) == {1} and len(res) == len(legs)

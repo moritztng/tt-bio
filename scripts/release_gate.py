@@ -3418,8 +3418,13 @@ def _size_ladder_model_rungs(model: str, want=None, card: str | None = None) -> 
 
 
 def _size_ladder_measure_model(model: str, rungs, workdir: Path,
-                               reps_sigma: int, reps_other: int) -> dict:
+                               reps_sigma: int, reps_other: int, prior: dict | None = None) -> dict:
     """Census-fold every rung, discarding the first fold AT EACH RUNG, then report.
+
+    `prior` is {rung: [fold, ...]}, the "runs" an earlier call on this card returned. A rung in it
+    is warm and its folds count as reps, so a re-measure at more reps folds only the missing ones.
+    Re-folding them cost rf3 on a Wormhole chip four folds a rung where two would do, about 85 min,
+    and the record leg ran out of budget (rec-c2b4b898e, 10-14).
 
     Returns {"levers": {rung: ...}, "runtime_s": {rung: median}, "sigma": relative
     runtime noise at the sigma rung | None, "census_jsons": {rung: path}} or
@@ -3448,12 +3453,12 @@ def _size_ladder_measure_model(model: str, rungs, workdir: Path,
     sigmas = {}
     sigma_rung = _size_ladder_sigma_rung(model)
     sigma_rungs = _size_ladder_sigma_rungs(model)
-    sigmas = {}
+    sigmas, folds = {}, {}
     for rung in rungs:
         reps = reps_sigma if rung in sigma_rungs else reps_other
-        runs = []
+        runs = list((prior or {}).get(str(rung), ()))[:reps]
         guard = None
-        for rep in range(reps + 1):
+        for rep in range(len(runs) + 1 if runs else 0, reps + 1):
             r = _run_census_fold(model, rung, workdir,
                                  "warmup" if rep == 0 else f"rep{rep - 1}")
             if r.get("refused"):
@@ -3496,6 +3501,7 @@ def _size_ladder_measure_model(model: str, rungs, workdir: Path,
                                                  f"{model}/{rung} rep0 vs rep{i}"):
                 if f not in drift:
                     drift.append(f)
+        folds[str(rung)] = runs
         levers[str(rung)] = runs[0]["levers"]
         census_jsons[str(rung)] = runs[0]["census_json"]
         if runs[0].get("structure"):
@@ -3529,7 +3535,7 @@ def _size_ladder_measure_model(model: str, rungs, workdir: Path,
             "runtime_src": runtime_src, "runtime_reps_s": reps_s, "aiclk": aiclk,
             "load": load, "structure": structure,
             "census_jsons": census_jsons, "grid": grid, "drift": drift,
-            "refused": refused}
+            "refused": refused, "runs": folds}
 
 
 def _size_ladder_record_refusal(meas: dict) -> str | None:
@@ -4762,7 +4768,8 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
                              if r not in _size_ladder_sigma_rungs(m)]
                     print(f"  [size-ladder] {m}: sigma needs a median of {reps}, re-measuring "
                           f"{','.join(map(str, again))} at {reps} reps", flush=True)
-                    m2 = _size_ladder_measure_model(m, again, workdir, reps, reps)
+                    m2 = _size_ladder_measure_model(m, again, workdir, reps, reps,
+                                                    prior=meas.get("runs"))
                     err = _size_ladder_record_refusal(m2)
                     if err is None:
                         for k in ("levers", "runtime_s", "census_jsons",

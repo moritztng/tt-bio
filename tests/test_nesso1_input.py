@@ -81,15 +81,10 @@ def test_num_workers_zero_parses_inline(tmp_path):
     assert (paths.mol_dir / "tyr48__B.pkl").exists()
 
 
-def test_inline_and_pooled_agree_on_everything_but_the_conformer(tmp_path):
-    """The inline path is the same code as the pooled one, and the record it writes is
-    byte-identical. The ligand conformer is NOT: ETKDG draws its embedding seed from the
-    process RNG state, so a worker process and the parent produce coordinates that differ
-    (first atoms agree, later ones do not). Protein coordinates come from the CCD and are
-    stable. So num_workers changes the model input for any SMILES ligand -- one more face
-    of the featurization-samples trap, alongside center_random_augmentation. Anything
-    comparing numbers across runs has to commit the conformer, which is why the parity
-    fixtures ship rdkit_conformers/ rather than regenerating it."""
+def test_inline_and_pooled_agree_conformer_included(tmp_path):
+    """The inline path is the same code as the pooled one, and what it writes is byte-identical, the ligand conformer
+    included. ETKDG's default seed (-1) draws a fresh one per call, so a worker process and the parent used to embed
+    different coordinates for the same SMILES and a seeded screen() was not repeatable; get_conformer now fixes it."""
     inline, _, _ = _preprocess(tmp_path / "inline", 0)
     pooled, _, _ = _preprocess(tmp_path / "pooled", 2)
     for rel in ("records/tyr48.json", "manifest.json"):
@@ -97,15 +92,8 @@ def test_inline_and_pooled_agree_on_everything_but_the_conformer(tmp_path):
     a = np.load(inline.structures_dir / "tyr48.npz")
     b = np.load(pooled.structures_dir / "tyr48.npz")
     assert sorted(a.files) == sorted(b.files)
-    moved = []
     for k in a.files:
-        if a[k].dtype.names and "coords" in a[k].dtype.names:
-            assert a[k].shape == b[k].shape, k  # same atoms in the same order
-            if not np.array_equal(a[k], b[k]):
-                moved.append(k)
-            continue
         assert np.array_equal(a[k], b[k]), k
-    assert moved, "expected the conformer coordinates to move across the process boundary"
 
 
 def test_ccd_atom_names_survive_unpickling():

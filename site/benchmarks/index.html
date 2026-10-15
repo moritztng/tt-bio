@@ -366,12 +366,14 @@ details.disclose > div{ padding-top:var(--s-4); }
    * one-off dollar amount: spreading it over a window would cancel from every ratio on that chart,
    * so no window is applied. Ownership is dollars per hour, where the window and the electricity
    * price do change the answer. */
-  function usdPerHour(p) {
-    var m = D.cost_model;
-    return p.price_usd / (m.amortisation_years * m.hours_per_year) + p.power_kw * m.electricity_usd_per_kwh;
+  /* `alt` overrides the window or the rate for the sensitivity sentence; the charts pass nothing. */
+  function usdPerHour(p, alt) {
+    var m = D.cost_model, a = alt || {};
+    return p.price_usd / ((a.years || m.amortisation_years) * m.hours_per_year) +
+      p.power_kw * (a.usd_per_kwh || m.electricity_usd_per_kwh);
   }
-  function perDollar(sPerFold, p, basis) {
-    return perHour(sPerFold, p) / (basis === "capex" ? p.price_usd : usdPerHour(p));
+  function perDollar(sPerFold, p, basis, alt) {
+    return perHour(sPerFold, p) / (basis === "capex" ? p.price_usd : usdPerHour(p, alt));
   }
   /* One measured value per cell. A prediction cell holds seconds per fold, a design cell seconds
    * per design, and everything downstream derives from whichever one is there. */
@@ -381,13 +383,31 @@ details.disclose > div{ padding-top:var(--s-4); }
    * is no denominator. Return null instead of dividing by nothing; the callers draw it as
    * blocked. Without this, such a row rendered "NaNx" in the measured column of both cost
    * charts and both cost tables. */
-  function perDollarIndex(m, key, basis) {
+  function perDollarIndex(m, key, basis, alt) {
     var p = plat(SERVER_OF[key]), ref = plat(D.cost_model.index_platform);
     var refCell = null;
     for (var k in SERVER_OF) if (SERVER_OF[k] === ref.id) refCell = m.cells[k];
     var cell = m.cells[key];
     if (!cell || cell.status !== "measured" || !refCell || refCell.status !== "measured") return null;
-    return perDollar(secs(cell), p, basis) / perDollar(secs(refCell), ref, basis);
+    return perDollar(secs(cell), p, basis, alt) / perDollar(secs(refCell), ref, basis, alt);
+  }
+  /* The total-cost-of-ownership index of the Tenstorrent server under every window and rate in
+   * cost_model.sensitivity, over every published row, so the sentence cannot go stale. */
+  function sensitivityText() {
+    var m = D.cost_model, s = m.sensitivity, lo = Infinity, hi = -Infinity;
+    var alts = s.years.map(function (y) { return { years: y }; })
+      .concat([{ usd_per_kwh: s.usd_per_kwh }]);
+    serverRows().forEach(function (row) {
+      alts.forEach(function (a) {
+        var v = perDollarIndex(row.m, "p150a", "tco", a);
+        if (v !== null && isFinite(v)) { lo = Math.min(lo, v); hi = Math.max(hi, v); }
+      });
+    });
+    return "Shift the window to " + s.years.join(" or ") + " years, or the rate to the " +
+      fmtCents(s.usd_per_kwh) + " " + s.rate_label + ", and the " + plat(SERVER_OF.p150a).name +
+      " stays between " + fmtX(lo) + " and " + fmtX(hi) + " across the rows" +
+      (lo > 1 ? ". It does not invert." : "; below 1.00x it costs more per prediction than the " +
+       plat(m.index_platform).name + ".");
   }
   /* What a cell says when its own measurement exists but the index platform's does not. */
   function noIndexLabel() { return "no " + plat(D.cost_model.index_platform).short + " baseline"; }
@@ -479,6 +499,21 @@ details.disclose > div{ padding-top:var(--s-4); }
     if (board) bits.push(board);
     if (c.provenance) bits.push(c.provenance);
     return bits.join("\n");
+  }
+  /* Which NVIDIA cells are the kit and which are stock, per GPU, read from each cell's `ref`, so the
+   * label cannot drift from the numbers while one column has been re-measured and another not. */
+  function nvidiaRefs() {
+    var all = D.models.concat(catRows().map(function (r) { return r.m; }));
+    return CELLS.filter(function (k) { return plat(k).vendor === "nvidia"; }).map(function (k) {
+      function named(ref) {
+        return all.filter(function (m) { return m.cells[k] && m.cells[k].ref === ref; })
+          .map(function (m) { return m.name; });
+      }
+      var kit = named("kit"), stock = named("stock"), out = [];
+      if (kit.length) out.push("kit exact for " + (stock.length ? kit.join(", ") : "every row"));
+      if (stock.length) out.push("stock upstream for " + (kit.length ? stock.join(", ") : "every row"));
+      return plat(k).short + ": " + out.join("; ") + ".";
+    }).join(" ");
   }
   /* One measured run in a line: value, sample count, spread, clock and the software it ran. */
   function runLine(r) {
@@ -702,7 +737,7 @@ details.disclose > div{ padding-top:var(--s-4); }
       (capex ? " on purchase price alone. Electricity is a larger share of the Galaxy's hourly cost " +
                "than of the " + ref.name + "'s, because the Galaxy is so much cheaper to buy, so the " +
                "total cost of ownership chart below is the narrower of the two."
-             : " once electricity is included. " + m.sensitivity) + excludedNote();
+             : " once electricity is included. " + sensitivityText()) + excludedNote();
   }
 
   function chartThroughput() {
@@ -922,7 +957,8 @@ details.disclose > div{ padding-top:var(--s-4); }
     /* The scope list carries the run conditions and nothing else. How the two NVIDIA generations
      * split across the rows, and what each side's timer covers, are methodology: they read as
      * "H200 against B200" and "Timed region" in Methods below. */
-    scopeRows.push(["Run", s.protocol], ["NVIDIA code", s.nvidia_code + " " + s.nvidia_impl], ["Updated", D.updated]);
+    scopeRows.push(["Run", s.protocol], ["NVIDIA code", s.nvidia_code + " " + s.nvidia_impl + " " + nvidiaRefs()],
+      ["Updated", D.updated]);
     scopeRows.forEach(function (kv) {
       dl.appendChild(Object.assign(document.createElement("dt"), { textContent: kv[0] }));
       dl.appendChild(Object.assign(document.createElement("dd"), { textContent: kv[1] }));
@@ -987,7 +1023,7 @@ details.disclose > div{ padding-top:var(--s-4); }
       "linearly with accelerator count, so every server bar is an upper bound on its own box.");
     mrow("Cost", m.formula + " Only the second basis uses the window. " + m.amortisation_basis + " " +
       fmtCents(m.electricity_usd_per_kwh) + " is the US industrial average price of electricity. " +
-      m.utilisation + " " + m.sensitivity);
+      m.utilisation + " " + sensitivityText());
     mrow("Power", "Each server carries its vendor's published maximum system power: " +
       SERVERS.map(function (id) {
         var p = plat(id);

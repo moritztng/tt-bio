@@ -36,6 +36,7 @@ move against the accuracy bar and the seed-to-seed spread.
 | [`TT_BIO_DEVICE_ZINIT`](#tt_bio_device_zinit) | on | Boltz-2 | moves, flat against the experimental structure |
 | [`TT_BIO_DIT_COND_HOIST`](#tt_bio_dit_cond_hoist) | on | Boltz-2, RF3 token DiT | moves, inside the 298-residue bar |
 | [`TT_BIO_DIT_SHARED_COND`](#tt_bio_dit_shared_cond) | on | Boltz-2, BoltzGen | identical |
+| [`TT_BIO_ESMC_MM`](#tt_bio_esmc_mm) | on for Wormhole | ESMC 300M / 600M | identical at the page batch |
 | [`TT_BIO_ESMFOLD2_DEVICE_CONF`](#tt_bio_esmfold2_device_conf) | on | ESMFold2 | moves, inside the bar |
 | [`TT_BIO_ESMFOLD2_DEVICE_TAIL`](#tt_bio_esmfold2_device_tail) | on | ESMFold2 | moves, inside the bar |
 | [`TT_BIO_ESMFOLD2_BIT_DRAW`, `TT_BIO_ESMFOLD2_PAIR_INIT`, `TT_BIO_ESMFOLD2_LM_COMBINE`, `TT_BIO_ESMFOLD2_OPM`, `TT_BIO_ESMFOLD2_ATOM_FFN_SPLIT`, `TT_BIO_ESMFOLD2_RELPOS_LOOKUP`](#esmfold2---fast-stack) | on with `--fast` on Blackhole | ESMFold2 | moves, inside the fast bar |
@@ -613,6 +614,16 @@ same-seed top-pose deviation median 0.48 A against a seed spread of 1.12 A, CA-l
 0.62 A against 1.40 A, docking success 24/44 in both arms. On Wormhole, 11 complexes x 4 seeds,
 both models pass the fast and the normal bar (ESMFold2 CA-lDDT +0.0034, docking 33/44 with and
 without it). `TT_BIO_ESMFOLD2_DEVICE_CONF=0` restores the host head.
+
+## `TT_BIO_ESMC_MM`
+
+Default: on for Wormhole, off for Blackhole. ESMC 300M and 600M embeddings.
+
+ESMC's bf16 projections over 2048 rows (a batch of 7 at 544 tokens) run on `minimal_matmul`
+instead of the core-grid linear. On a Galaxy chip a batch of 7 drops from 177.8 to 171.8 ms (300M)
+and from 272.0 to 253.3 ms (600M), with embeddings equal to the linear's. `--fast` loads block-fp8
+weights and keeps the linear; so does the ESMC-6B inside ESMFold2, whose projections stay under 2048 rows.
+A projection whose L1 destination `minimal_matmul` cannot place falls back to the linear.
 
 ## `TT_BIO_ESMFOLD2_DEVICE_TAIL`
 

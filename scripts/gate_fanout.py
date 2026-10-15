@@ -120,7 +120,9 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 
-# Per-leg budgets (s). A budget is a hang guard, not an expected time.
+# Per-leg budgets (s). A budget is a hang guard, not an expected time, so a leg known to need longer
+# gets BUDGET_X times that instead (Leg.known_s): rf3's Wormhole record took 4.6 h of folds that each
+# ran at its baseline's speed and was stopped at the flat 4 h (rec-c2b4b898e, 10-14).
 BUDGET = {"parity": 14400, "rg": 7200, "ladder": 14400, "capacity": 14400, "ux": 3600,
           "pytest_device": 7200, "perf": 7200, "check": 900, "packaging_smoke": 1800,
           "pytest_cpu": 5400, "bc2": 3600, "record": 14400}
@@ -129,6 +131,9 @@ BUDGET = {"parity": 14400, "rg": 7200, "ladder": 14400, "capacity": 14400, "ux":
 EXPECT = {"parity": 900, "rg": 900, "ladder": 5400, "capacity": 1800, "ux": 300,
           "pytest_device": 3000, "perf": 3600, "check": 60, "packaging_smoke": 600,
           "pytest_cpu": 1800, "bc2": 1200, "record": 2700}
+BUDGET_X = 1.5
+#: timeout(1)'s exit status when it stopped a leg at its budget.
+TIMED_OUT = 124
 TIMED = {"perf"}
 #: Results that do not fail the gate. REUSED is a ledger hit of one of the others.
 OK = ("PASS", "REUSED", "BLOCKED", "SEEDED")
@@ -137,6 +142,12 @@ LOG_CAP = 20 << 20
 POOL = "pool"            # --workers host:pool, a slot in the host's chip pool
 POOL_CARD = "@@CARD@@"   # stands for $CHIP in a pool job, filled in when the pool starts it
 POOL_POLL_S = 30
+#: A chip marked bad by hand. feed.py skips a chip with ~/spd/locks/chipN.BAD; fleet.sh skips a card
+#: with state/cardblock-<host>-<N>, on pc or on the host itself. A worker reads all three before
+#: each leg: rec-c2b4b898e (10-14) ran protenix-v2 on qb2:0, the chip it deadlocks on, because
+#: gate.json listed it as a worker though both marks were set.
+BAD_MARKS = ("~/spd/locks/chip{card}.BAD", "~/.coworker/state/cardblock-{host}-{card}")
+LOCAL_BLOCKS = Path(os.environ.get("COWORKER_DIR", Path.home() / ".coworker")) / "state"
 LOAD_REFUSAL = "refusing to run the gate. host load:"
 #: The scripts that refuse to start above gate_guard's load ceiling. On a pool host the ceiling is
 #: the wrong guard: the pool's per-chip queue bounds the fan-out, and a busy pool keeps a Galaxy's
@@ -668,10 +679,11 @@ class Leg:
     setup: str = ""        # shell run in the tree before argv, with the same {OUT} substitution
     rungs: tuple = ()      # a ladder group leg's rungs (any card type's), () for a whole ladder
     card_types: tuple = ()  # the card types that may run it, () for any
+    known_s: int = 0       # the longest this leg is known to need: its last pass, or a run stopped at its budget
 
     @property
     def budget(self) -> int:
-        return BUDGET[self.family]
+        return max(BUDGET[self.family], round(BUDGET_X * self.known_s))
 
 
 #: The staleness check of the abb3 records. A gate with --record-abb3 answers it on a card instead
@@ -776,6 +788,16 @@ def last_tag(repo: Path = REPO) -> str:
     if not tags:
         raise SystemExit('perf_against "last": this clone has no v* tag')
     return tags[0]
+
+
+def known_walls(hist: dict, prior: list) -> dict:
+    """{leg name: wall s} from the ledger's passes (`hist`), raised by any row of this --out's earlier
+    run (`prior`) that was stopped at its budget: it needed at least that long, so its resume gets more."""
+    out = dict(hist)
+    for r in prior:
+        if r.get("rc") == TIMED_OUT and r.get("wall_s"):
+            out[r["leg"]] = max(out.get(r["leg"], 0), r["wall_s"])
+    return out
 
 
 def select(legs: list, patterns: list) -> list:
@@ -993,6 +1015,18 @@ class Host:
         return (f"mkdir -p {shlex.quote(out)} && {self.end_attempt(out)} && cd {self.tree} && {setup}"
                 f"env {mark} setsid -w bash -c {attempt}")   # no exec: a pool job writes rc after it
 
+    def marked_bad(self, card) -> str | None:
+        """The mark that takes `card` out of service (BAD_MARKS), or None. A host that does not
+        answer reads as unmarked: the leg then meets the same lost connection and is retried."""
+        local = LOCAL_BLOCKS / f"cardblock-{self.name}-{card}"
+        if local.exists():
+            return str(local)
+        marks = " ".join(m.format(card=card, host=self.name) for m in BAD_MARKS)
+        r = self.ssh(f"for f in {marks}; do [ -e \"$f\" ] && echo \"$f\"; done; true",
+                     capture_output=True, timeout=120)
+        found = (r.stdout or "").split()
+        return found[0] if r.returncode == 0 and found else None
+
     def card_dead(self, card) -> str | None:
         """Why `card` failed CARD_PROBE_TRIES probes in a row, or None once one passes."""
         why = None
@@ -1101,7 +1135,7 @@ class Ledger:
         (d / "spec").write_text(spec + "\n")
 
     def history(self) -> dict:
-        """leg name -> the latest wall clock any run of it took, for ordering only."""
+        """leg name -> the latest wall clock any passing run of it took, for ordering and budgets."""
         seen = {}
         for p in self.path.glob("*.json"):
             try:
@@ -1366,6 +1400,9 @@ class Gate:
     def worker(self, host: Host, card) -> None:
         queue = self._queue(host, card)
         while True:
+            if card not in (None, POOL) and (mark := host.marked_bad(card)):
+                print(f"skipped {host.name}:{card} for this run, its chip is marked bad: {mark}", flush=True)
+                return
             with host.lock:
                 while host.timed_running:
                     host.lock.wait()
@@ -1835,10 +1872,11 @@ def main() -> int:
     # A record run whose runner died (pc rebooted 2026-10-13 18:13Z with 10 of 27 legs recorded)
     # resumes in the same --out: a record leg that passed there at this commit, with its fragment
     # still on disk, keeps that row. The ledger never reuses record legs, so nothing else would.
-    prior = args.out / "results.jsonl"
-    kept = {(r["leg"], r["arch"]): r for r in map(json.loads, prior.read_text().splitlines())
+    prior = [json.loads(ln) for ln in (args.out / "results.jsonl").read_text().splitlines()] \
+        if (args.out / "results.jsonl").exists() else []
+    kept = {(r["leg"], r["arch"]): r for r in prior
             if r.get("sha") == sha and r["verdict"] == "PASS" and r["leg"].startswith("record:")
-            and r.get("seeded") and Path(r["seeded"]).is_file()} if prior.exists() else {}
+            and r.get("seeded") and Path(r["seeded"]).is_file()}
     # A fixture JSON changed in a fix-forward put every leg in a new scope (rel-c2b4b898e, 10-14:
     # 240 legs planned, 0 reused, though 125 read nothing the fix touched). Rows filed in the scope
     # that still keyed data files (until 2026-10-14) stay good where those files did not change.
@@ -1898,8 +1936,10 @@ def main() -> int:
                 todo[a].append(lg)
             else:
                 todo.setdefault("any", []).append(lg)
-    hist = ledger.history()
+    hist = known_walls(ledger.history(), prior)
     for q in todo.values():
+        for lg in q:
+            lg.known_s = hist.get(lg.name, 0)
         # Record legs first: the ladder legs of the release commit wait on their fragments.
         q.sort(key=lambda lg: (lg.family != "record", -hist.get(lg.name, EXPECT[lg.family])))
     plan = {"sha": sha, "content": content, "envs": envs, "card_types": ctype, "archs": archs,

@@ -687,6 +687,12 @@ _FAST_MODE = False
 #   dit_qsplit      `_sdpa32` / `_sdpa32_fused` (the token DiT's attention) take the q chunk that puts the fewest
 #                   rows on the busiest core: 128 at 512 tokens and one sample, 64 busy cores where 256 left 32.
 #                   The k chunk stays, so each row's arithmetic is unchanged: expected bit-exact (fold A/B digest).
+#   dit_kc          `_sdpa32` / `_sdpa32_fused` on Wormhole take the full k chunk (256 at 512 tokens) instead of one
+#                   key tile. The PV product then accumulates k_chunk / 32 tiles in the fp32 dest, which is the
+#                   erratum dest_guard.py describes (rare -2/-4/-8 pixels); the rest of the fold runs unguarded
+#                   too, so this arms the same exposure for ~30 % of the call (perf/spd_wherr/sdpa_probe.py).
+#   dit_mask16      under dit_fuse on Wormhole, OpenFold3's token-DiT attention reads its cached pair-bias mask bf16,
+#                   not fp32 (Blackhole ignores it).
 #   pib_where       OpenDDE's pair-init bias by the old 16-op where-chain instead of one gather from the joint
 #                   (128, c_z) table: the A/B arm for a change that must keep the fold digest (no mode sets it).
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
@@ -699,13 +705,13 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "trimul_t2w", "narrow_bw16", "ws_l1dest", "opm_jd", "trimul_gin_hifi2", "trimul_gin_b8",
           "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine", "ef2_opm_kq", "ef2_relpos_lookup",
           "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit", "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384",
-          "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain")
+          "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "dit_kc", "dit_mask16")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
 # model's matching op. BoltzGen's own --fast set names dit_cond_hifi2, graded on BoltzGen's designs.
-# OpenFold3's own --fast set names dit_fuse, edm_device, ws_l1dest and dit_hifi2 (Wormhole), graded on OpenFold3 / OpenBind-0
-# (openfold3_fold.FAST_LEVERS).
+# OpenFold3's own --fast set names dit_fuse, edm_device, ws_l1dest, and dit_hifi2, dit_kc and dit_mask16 (Wormhole),
+# graded on OpenFold3 / OpenBind-0 (openfold3_fold.FAST_LEVERS).
 # ref_memo is host featurisation, OpenFold3 / OpenBind-0 only: one reference conformer per residue type
 # (vendored query.REF_MOL_MEMO), read by worker._predict_openfold3_one off the model's lever set.
 UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "dit_cond_hifi2", "ws_ln", "dit_fuse",
@@ -714,7 +720,7 @@ UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "di
                              "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine", "ef2_opm_kq",
                              "ef2_relpos_lookup", "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit",
                              "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384",
-                             "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain"})
+                             "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "dit_kc", "dit_mask16"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -2887,7 +2893,7 @@ def _sdpa32_chunks(dev, B: int, heads: int, n: int):
     """
     g = dev.compute_with_storage_grid_size()
     big = 256 if n % 256 == 0 else 128
-    k_chunk = 32 if dev.arch() == ttnn.Arch.WORMHOLE_B0 else big
+    k_chunk = 32 if dev.arch() == ttnn.Arch.WORMHOLE_B0 and not lever("dit_kc") else big
     cores = g.x * g.y
 
     def rows(chunk):
@@ -7984,16 +7990,13 @@ def get_device(trace=None):
         # a backtrace blaming TT_VISIBLE_DEVICES for a chip that is simply not there.
         # And a chip the operators quarantined (DRAM bit flips, folds off the majority) is refused
         # by name: the box agent keeps it out of its pool, but a direct pin went straight to it.
-        # And a chip listed as unable to hold its top clock is capped before the open (runtime.apply_aiclk_caps).
-        from tt_bio.runtime import (apply_aiclk_caps, refuse_missing_device_nodes, refuse_quarantined_chips,
-                                    umd_index_to_dev_node, visible_device_indices)
+        from tt_bio.runtime import (refuse_missing_device_nodes, refuse_quarantined_chips,
+                                    visible_device_indices)
         visible = os.environ.get("TT_VISIBLE_DEVICES")
         if visible is not None:
             pinned = visible_device_indices(visible)
             refuse_missing_device_nodes(pinned)
             refuse_quarantined_chips(pinned)
-        else:
-            pinned = sorted(umd_index_to_dev_node())
         from tt_bio.device_lease import CardSetLease, arm_orphan_guard
         arm_orphan_guard()
         # Normally None here. A cleanup() that failed to hand the chip back keeps its lease
@@ -8002,7 +8005,6 @@ def get_device(trace=None):
         if _device_lease is None:
             _device_lease = CardSetLease().acquire()
         try:
-            apply_aiclk_caps(pinned)
             _device = _open_and_init_device(trace_region_bytes(trace) if trace else 0)
         except Exception:
             _device_lease.release()
