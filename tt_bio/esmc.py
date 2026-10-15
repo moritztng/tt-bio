@@ -346,14 +346,21 @@ _ESMC_MM_RESID = env_flag("TT_BIO_ESMC_MM_RESID", True)
 MM_FUSE_STATS = [0, 0]
 
 
+# minimal_matmul accumulating in bf16 dest registers instead of fp32, which frees room for 2 x 4 output subblocks.
+# mm_cfg_sweep (grid ma) on a Galaxy chip at 1000 MHz, best config each: 300M q/k/v/out 0.195 -> 0.178 ms, fc1 half
+# 0.461 -> 0.425, fc2 0.382 -> 0.350; 600M 0.226 -> 0.208, 0.587 -> 0.544, 0.452 -> 0.417. Error against float64 per
+# matmul rel_l2 0.0017 -> 0.007-0.009, so it is a --fast candidate, graded on the page cell before it is on.
+_ESMC_MM_BF16_ACC = env_flag("TT_BIO_ESMC_MM_BF16_ACC", False)
+
+
 def _mm_config(x, w):
     if not _ESMC_MM_CFG:
         return {}
     g = x.device().compute_with_storage_grid_size()
     kt = int(w.shape[-2]) // 32
     return {"config": ttnn.MinimalMatmulConfig(
-        M_block_size=16, K_block_size=4 if kt % 4 == 0 else 2, N_block_size=4, subblock_h=2, subblock_w=2,
-        compute_with_storage_grid_size=ttnn.CoreCoord(g.x, g.y))}
+        M_block_size=16, K_block_size=4 if kt % 4 == 0 else 2, N_block_size=4, subblock_h=2,
+        subblock_w=4 if _ESMC_MM_BF16_ACC else 2, compute_with_storage_grid_size=ttnn.CoreCoord(g.x, g.y))}
 
 
 def _esmc_mm() -> bool:
@@ -372,6 +379,15 @@ class _MMLin:
     def _mm_on(self) -> bool:
         return _esmc_mm()
 
+    def _mm_ck(self):
+        ck = self.compute_kernel_config
+        if not _ESMC_MM_BF16_ACC:
+            return ck
+        if getattr(self, "_mm_ck_bf16", None) is None:
+            self._mm_ck_bf16 = type(ck)(math_fidelity=ck.math_fidelity, math_approx_mode=ck.math_approx_mode,
+                                        fp32_dest_acc_en=False, packer_l1_acc=ck.packer_l1_acc)
+        return self._mm_ck_bf16
+
     def _mm_ok(self, x, w) -> bool:
         return ((w.dtype == ttnn.bfloat16 or (_ESMC_MM_BFP8 and w.dtype == ttnn.bfloat8_b)) and x.dtype == ttnn.bfloat16
                 and x.volume() // int(x.shape[-1]) >= ESMC_MM_MIN_ROWS and self._mm_on())
@@ -382,7 +398,7 @@ class _MMLin:
             return None
         try:
             out = ttnn.experimental.minimal_matmul_split(
-                x, w, chunks=chunks, compute_kernel_config=self.compute_kernel_config, dtype=_dtype(ttnn.bfloat16),
+                x, w, chunks=chunks, compute_kernel_config=self._mm_ck(), dtype=_dtype(ttnn.bfloat16),
                 memory_config=ttnn.DRAM_MEMORY_CONFIG, **_mm_config(x, w))
         except RuntimeError:
             return None
@@ -400,7 +416,7 @@ class _MMLin:
                                                    device=x.device())
         try:
             out = ttnn.experimental.dit_minimal_matmul_addcmul_fused(
-                x, w, 1.0, resid, ones, compute_kernel_config=self.compute_kernel_config,
+                x, w, 1.0, resid, ones, compute_kernel_config=self._mm_ck(),
                 dtype=_dtype(ttnn.bfloat16), memory_config=ttnn.DRAM_MEMORY_CONFIG, **_mm_config(x, w))
         except RuntimeError:
             return None
@@ -414,7 +430,7 @@ class _MMLin:
                 and self._mm_ok(x, w)):
             try:
                 out = ttnn.experimental.minimal_matmul(
-                    x, w, bias_tensor=bias, compute_kernel_config=self.compute_kernel_config,
+                    x, w, bias_tensor=bias, compute_kernel_config=self._mm_ck(),
                     dtype=_dtype(ttnn.bfloat16) if dtype is None else dtype,
                     memory_config=kw.get("memory_config") or ttnn.DRAM_MEMORY_CONFIG, **_mm_config(x, w),
                     **({"fused_activation": (self._ACT[act], False)} if act else {}))
