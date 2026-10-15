@@ -80,7 +80,7 @@ print(x.get("public_ipaddr","").strip(), p[0]["HostPort"] if p else "") if x.get
       sleep 30
     done
     [ -z "$S" ] && { destroy $I "no ssh: intended_status=$(state $I)"; continue; }
-    W=$(timeout 30 $S 'nvidia-smi --query-gpu=power.limit --format=csv,noheader,nounits' 2>/dev/null | tail -1 | cut -d. -f1)
+    W=$(timeout 30 $S 'nvidia-smi -i 0 --query-gpu=power.limit --format=csv,noheader,nounits' 2>/dev/null | tail -1 | cut -d. -f1)
     log "$I up at $IP:$PORT, power limit ${W:-?} W"
     [ "${W:-0}" -ge "$MINW" ] || { destroy $I "power limit ${W:-?} W < $MINW"; continue; }
     # MAXW: one operating point per GPU (A100: the 400 W SXM4 80 GB, not the 500 W HGX variant)

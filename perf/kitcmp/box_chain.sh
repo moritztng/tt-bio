@@ -2,6 +2,8 @@
 # Runs ON the box: every model in turn, setup then arms, never two arms at once (session.sh pushed the weights vast cannot fetch).
 #   bash box_chain.sh "openfold3 opendde protenix_v2 boltz2:off stock-saprot"   (model[:mode,mode]; default off,exact,fast)   markers CHAIN-PROGRESS, CHAIN-DONE, THERMAL-FAIL
 cd /root/kc
+# one GPU per session: on a multi-GPU box every arm, the burn gate and every nvidia-smi read take GPU 0 (PCI order)
+export CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES=0
 for e in $1; do
   m=${e%%:*}; md=off,exact,fast; [ $m = $e ] || md=${e#*:}
   # stock-<row>: a page row on its stock upstream stack (box_stock.sh), after the kits so the burn gate has run

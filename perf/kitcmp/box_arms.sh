@@ -31,8 +31,8 @@ case $M in
   pxdesign)    export KC_WRAP=pxdesign.runner.inference:InferenceRunner._inference;;  # the generator stage the published cell timed
   esmfold2)    export KC_WRAP=esm.models.esmfold2.processor:ESMFold2InputBuilder.fold;;  # kit off times it unsynced; kctime syncs
 esac
-nvidia-smi -q -d POWER,CLOCK,PERFORMANCE > $R/power-clock.txt 2>&1
-nohup nvidia-smi --query-gpu=timestamp,clocks.sm,clocks.mem,power.draw,power.limit,temperature.gpu,utilization.gpu,clocks_event_reasons.active,memory.used --format=csv,noheader -lms 500 > $R/smi.csv 2>&1 &
+nvidia-smi -i 0 -q -d POWER,CLOCK,PERFORMANCE > $R/power-clock.txt 2>&1
+nohup nvidia-smi -i 0 --query-gpu=timestamp,clocks.sm,clocks.mem,power.draw,power.limit,temperature.gpu,utilization.gpu,clocks_event_reasons.active,memory.used --format=csv,noheader -lms 500 > $R/smi.csv 2>&1 &
 SMI=$!
 run(){ # <mode>: off | exact | fast, or <mode>-det = the kit's deterministic recipe (--det 1), where exact claims bitwise = off
   local d=$R/$1 mo=${1%-det} dt=; [ $mo = $1 ] || dt="--det 1"; mkdir -p $d; date -u +%FT%T.%3NZ > $d/t_start; export KC_TIMES=$d/times.jsonl

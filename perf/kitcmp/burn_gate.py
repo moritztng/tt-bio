@@ -11,7 +11,7 @@ rows, stop = [], threading.Event()
 def sample():
     q = "clocks.sm,temperature.gpu,power.draw,clocks_event_reasons.active"
     while not stop.is_set():
-        out = subprocess.run(["nvidia-smi", f"--query-gpu={q}", "--format=csv,noheader,nounits"],
+        out = subprocess.run(["nvidia-smi", "-i", "0", f"--query-gpu={q}", "--format=csv,noheader,nounits"],
                              capture_output=True, text=True).stdout.strip().split(", ")
         rows.append((time.time(), int(out[0]), int(out[1]), float(out[2]), int(out[3], 16)))
         time.sleep(1)

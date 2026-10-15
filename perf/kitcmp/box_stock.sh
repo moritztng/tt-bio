@@ -30,9 +30,9 @@ esac; }
 setup > $R/setup.log 2>&1 || { echo setup-failed > $R/rc; exit 3; }
 case $M in boltzgen) P=/work/venv-bgg;; saprot) P=/work/v_embed;; nesso1) P=/work/v_nesso;; esac
 $UV pip freeze --python $P/bin/python > $R/pip-freeze.txt 2>&1
-nvidia-smi --query-gpu=name,driver_version,power.limit,clocks.max.sm --format=csv > $R/gpu.csv
-nvidia-smi -q -d POWER,CLOCK,PERFORMANCE > $R/power-clock.txt 2>&1
-nohup nvidia-smi --query-gpu=timestamp,clocks.sm,clocks.mem,power.draw,power.limit,temperature.gpu,utilization.gpu,clocks_event_reasons.active,memory.used --format=csv,noheader -lms 500 > $R/smi.csv 2>&1 &
+nvidia-smi -i 0 --query-gpu=name,driver_version,power.limit,clocks.max.sm --format=csv > $R/gpu.csv
+nvidia-smi -i 0 -q -d POWER,CLOCK,PERFORMANCE > $R/power-clock.txt 2>&1
+nohup nvidia-smi -i 0 --query-gpu=timestamp,clocks.sm,clocks.mem,power.draw,power.limit,temperature.gpu,utilization.gpu,clocks_event_reasons.active,memory.used --format=csv,noheader -lms 500 > $R/smi.csv 2>&1 &
 SMI=$!; date -u +%FT%T.%3NZ > $R/t_start
 case $M in
   boltzgen) /work/venv-bgg/bin/python scripts/gpu_vs_tt/bgg_bench.py "${KC_GPU^^}" headline && cp /work/results/bgg_*.jsonl $R/;;
