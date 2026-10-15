@@ -298,6 +298,42 @@ if (land.store.get("h-n")?.textContent !== (W[nRows] || String(nRows))) {
   const prov = land.html.match(/<span id="prov">([^<]*)<\/span>/)[1];
   if (prov !== D.scope.nvidia_code) failures.push("the landing page's static NVIDIA line differs from scope.nvidia_code");
 }
+/* The accuracy wording is static too, and a public page must not claim more than the release gate
+ * shows. Each row's Tenstorrent cell carries its gate result ("N of M ... checks inside the
+ * reference envelope"), and a row still marked parity_pending does not count as passing whatever its
+ * gate leg reads (ESMFold2-Fast passes the gate's small target but its 512-residue confidence is a
+ * documented gap, docs/implementation-parity.md). So the count word, the rows named as misses and the rows named as ungated
+ * are all derived from that, and a blanket parity claim is refused while any row falls short. */
+{
+  const gate = (m) => ((m.cells.p150a || {}).parity || "").match(/^(\d+) of (\d+) /);
+  const rows = predModels.concat(catModels);
+  const full = rows.filter((m) => !m.parity_pending && gate(m) && gate(m)[1] === gate(m)[2]);
+  const short = rows.filter((m) => !full.includes(m));
+  const fact = (land.html.match(/<div class="n" id="acc-fact">([^<]*)</) || [])[1];
+  const say = ((land.html.match(/<p class="say measure" id="acc-say">([\s\S]*?)<\/p>/) || [])[1] || "")
+    .replace(/\s+/g, " ");
+  if (fact !== W[full.length]) {
+    failures.push("the landing accuracy fact says " + fact + " models pass every check; the gate data says " +
+                  full.length + " (" + full.map((m) => m.name).join(", ") + ")");
+  }
+  /* Whole names only: ESMFold2 is a prefix of ESMFold2-Fast. */
+  const names = (m) => new RegExp(m.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "(?![\\w-])").test(say);
+  const count = W[full.length] + " of the " + (W[rows.length] || String(rows.length)).toLowerCase() + " models";
+  if (!say.includes(count)) failures.push("the landing accuracy paragraph does not say \"" + count + "\"");
+  for (const m of short) {
+    if (!names(m)) failures.push(m.name + " does not pass every gate check and the landing accuracy paragraph does not name it");
+  }
+  for (const m of full) {
+    if (names(m)) failures.push(m.name + " passes every gate check and the landing accuracy paragraph names it as a miss");
+  }
+  if (short.length) {
+    const blanket = /1:1|accuracy parity|same answer as the reference|every model reproduces|reproduces it within/i;
+    for (const [f, txt] of [["site/index.html", land.html], ["README.md", fs.readFileSync("README.md", "utf8")]]) {
+      const hit = txt.match(blanket);
+      if (hit) failures.push(f + " claims \"" + hit[0] + "\" while " + short.map((m) => m.name).join(", ") + " fall short of the gate");
+    }
+  }
+}
 if (failures.length) {
   console.error(failures.length + " row(s) did not reach the page:");
   for (const f of failures) console.error("  " + f);
