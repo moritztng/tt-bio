@@ -50,3 +50,17 @@ def test_mm_takes_fast_block_fp8_weights(monkeypatch):
     lin.compute_kernel_config = None
     t = esmc.ttnn
     assert lin._lin(_T(esmc.ESMC_MM_MIN_ROWS, 960, t.bfloat16), _T(960, 960, t.bfloat8_b)) == "mm"
+
+
+@pytest.mark.parametrize("wdtype", ["bfloat16", "bfloat8_b"])
+def test_mm_resid_takes_bf16_weights_only(wdtype, monkeypatch):
+    """The residual-fused projection serves bf16 weights; --fast's block-fp8 ones go to matmul + add."""
+    monkeypatch.setattr(esmc, "_ESMC_MM", True)
+    monkeypatch.setattr(esmc.ttnn.experimental, "dit_minimal_matmul_addcmul_fused", lambda *a, **kw: "fused",
+                        raising=False)
+    monkeypatch.setattr(esmc.ttnn, "from_torch", lambda *a, **kw: _T(1, 960, esmc.ttnn.bfloat16))
+    lin = esmc._MMLin()
+    lin.compute_kernel_config = None
+    t = esmc.ttnn
+    out = lin._lin_resid(_T(esmc.ESMC_MM_MIN_ROWS, 960, t.bfloat16), _T(960, 960, getattr(t, wdtype)), "x")
+    assert out == ("fused" if wdtype == "bfloat16" else None)
