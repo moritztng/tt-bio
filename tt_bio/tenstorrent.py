@@ -668,7 +668,8 @@ _FAST_MODE = False
 #                   dtype (bfp8 under transition_b8), fp32 dest, a degree-6 polynomial silu, the trunk's matmul
 #                   fidelity. Weights over L1 (c_z 256 in bf16, c_z 384) run in hidden chunks, outputs summed.
 #   ws_ln           with transition_ws, its layer norm as the kernel's prologue (ln_prologue.hpp, as trimul
-#                   T1/T2): the normalised x never goes to DRAM. One-chunk weights only. WH c_z 128 fast: slower
+#                   T1/T2): the normalised x never goes to DRAM; with ws_resid the residual add rides the same
+#                   pass, so the transition reads z once and writes it once. One-chunk weights only. WH c_z 128 fast: slower
 #                   (4.31 -> 4.48 ms) and less accurate (rel_rms 0.020 -> 0.028) than the separate norm.
 #   ws_l1dest       transition_ws also takes a call whose caller asked for an L1 result (the pair residual update
 #                   where it fits L1) and writes it to DRAM instead of declining to the row-blocked path
@@ -12838,9 +12839,10 @@ def ws_swiglu(x, norm_weight, norm_bias, ckc, parts, resid=None):
     if lever("ws_lofi"):   # ungraded: LoFi drops the low bits of every operand (cen3: 4.1 s at ~48 TFLOP/s, WH PV2 fast)
         fid = ttnn.MathFidelity.LoFi
     acc = lever("ws_l1acc")
-    if (resid is None and lever("ws_ln") and len(parts) == 1
-            and _pair_ws.eligible(x, *parts[0], ln=(norm_weight, norm_bias), l1acc=acc)):
-        return _pair_ws.pair_swiglu(x, *parts[0], fid, ln=(norm_weight, norm_bias, 1e-5), l1acc=acc)
+    if (lever("ws_ln") and len(parts) == 1
+            and _pair_ws.eligible(x, *parts[0], ln=(norm_weight, norm_bias), l1acc=acc, resid=resid)):
+        # with `resid` (ws_resid) the norm, the transition and the residual add are one pass over the pair
+        return _pair_ws.pair_swiglu(x, *parts[0], fid, ln=(norm_weight, norm_bias, 1e-5), l1acc=acc, resid=resid)
     x_norm = ttnn.layer_norm(x, weight=norm_weight, bias=norm_bias, epsilon=1e-5, compute_kernel_config=ckc,
                              memory_config=ttnn.DRAM_MEMORY_CONFIG)
     out = None

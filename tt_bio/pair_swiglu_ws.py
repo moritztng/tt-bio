@@ -184,10 +184,9 @@ def pair_swiglu(x, w12, w3, fidelity=ttnn.MathFidelity.HiFi4, defines=(), silu_p
     `l1acc`: every matmul sums at most 2 K tiles in dest and the packer adds the chunks in an fp32 CB. On Wormhole an
     fp32 dest summing all of K writes exact +-1 / 2 / 4 into ~1e-8 of the outputs (tt_bio/dest_guard.py).
     `resid`: fc3's result is added to `resid` in the fp32 dest and written back over it, one bf16 rounding, and
-    `resid` is returned; no new tensor. The kernel reads `resid` row by row before writing the same rows, so it may
-    not be `x` (the caller normalises x first; `ln` reads the raw x and is refused with it)."""
+    `resid` is returned; no new tensor. `resid` may be `x` itself (the transition's `z + t(LN(z))` with `ln`): each
+    core owns whole row tiles and reads row r of x and of `resid` before the writer can write row r."""
     if resid is not None:
-        assert ln is None, "resid with the LayerNorm prologue would overwrite the x it still reads"
         defines = tuple(defines) + (("WS_RESID", "1"),)
     silu_poly = SILU_POLY if silu_poly is None else silu_poly
     if l1acc:
