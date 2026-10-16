@@ -140,5 +140,6 @@ for seed in SEEDS:
     print("[screen %s] seed %d %.3f s %s" % (ARM, seed, s, d), flush=True)
 rec["w8_counts"] = W8
 rec["sdpa_calls"] = {"atom": M.ATOM_SDPA_CALLS[0], "dense": M.DIT_SDPA_CALLS[0]}
+rec["pf_dpb_calls"] = {"served": M.PF_DPB_CALLS[0], "declined": M.PF_DPB_CALLS[1]}
 (OUT / ("%s.json" % ARM)).write_text(json.dumps(rec, indent=1))
 print("wrote", OUT / ("%s.json" % ARM))

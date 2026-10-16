@@ -405,6 +405,7 @@ _DPB_ON = env_flag("RFD3_DPB", True)
 # the second half written to a scratch output), scale 1, the key pad at -1e4 from the mask. Replaces the linear
 # [I*I, 128] @ [128, 16] (2.03 ms a call on WH @1000 against a 0.62 ms roof), its permute and the fp32 pad.
 _PF_DPB = env_flag("RFD3_PF_DPB", False)
+PF_DPB_CALLS = [0, 0]   # served, declined
 # The DiT builds all 18 blocks' masks in one pass while the stack fits under this many bytes
 # (bf16, 18 x 16 heads x n_key^2: 1317 tokens); above it each block builds its own.
 _DIT_SDPA_STACK_BYTES = int(float(os.environ.get("RFD3_DIT_SDPA_STACK_BYTES", "1e9")))
@@ -1402,7 +1403,9 @@ class PairformerAttention(Module):
             mask = self._pf_masks[(I, n_key)] = ttnn.from_torch(m, layout=ttnn.TILE_LAYOUT, device=self.device,
                                                                 dtype=self.dtype)
         if int(z.padded_shape[2]) != n_key or not _DPB.eligible(z, self._b_wt32, mask):
+            PF_DPB_CALLS[1] += 1
             return None
+        PF_DPB_CALLS[0] += 1
         bias, scratch = _DPB.dit_pair_bias(z, self._b_wt32, mask, 1.0,
                                            self.compute_kernel_config.math_fidelity, n_out=2)
         ttnn.deallocate(scratch)
