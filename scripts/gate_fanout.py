@@ -1520,7 +1520,10 @@ def run_in_pool(host: Host, card, leg: Leg, rdir: str, f) -> int:
     run, _, tag = Path(rdir).parts[-3:]     # <root>/out-<sha12>/<run>/<arch>/<leg>
     name = f"{pool.get('prio', 5)}-{pool.get('row', 'gate')}-{run}-{tag}"
     job, q = f"{pool['queue']}/{name}.sh", shlex.quote
-    r = host.ssh(f"mkdir -p {q(rdir)} && rm -f {q(rdir)}/rc && cat > {q(job)}.tmp && mv {q(job)}.tmp {q(job)}",
+    # The boot id goes too: a leg re-queued after a reboot reuses rdir, and the last run's boot
+    # file read as "started under another boot" at once (rel-5e250928a, 10-16 11:01Z: nine WH legs
+    # FAILed in seconds and left their jobs queued for the pool to run with nobody waiting).
+    r = host.ssh(f"mkdir -p {q(rdir)} && rm -f {q(rdir)}/rc {q(rdir)}/boot && cat > {q(job)}.tmp && mv {q(job)}.tmp {q(job)}",
                  input=pool_job(host, leg, rdir, name), capture_output=True, timeout=120)
     if r.returncode:
         # ssh's own message on its own line, so a lost connection reads as one and is retried.
