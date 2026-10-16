@@ -171,30 +171,3 @@ def test_config_defaults_are_the_measured_optimum():
     assert q_block == 1216
     assert buckets == (3264, 3488, 4224)
     assert q_block % 32 == 0 and N_KEY % q_block == 0
-
-
-def test_morton_order_is_a_permutation_and_narrows_noisy_unions():
-    g = torch.Generator().manual_seed(1)
-    x = torch.randn(4000, 3, generator=g) * 30.0
-    idx = torch.cdist(x, x).topk(K, largest=False).indices.unsqueeze(0)
-    order = BS.morton_order(x)
-    assert torch.equal(torch.sort(order).values, torch.arange(4000))
-    buckets = tuple(range(128, 4000 + 128, 128))
-    seq = BS.plan(idx, 4000, 32, buckets)
-    mor = BS.plan(idx[:, order], 4000, 32, buckets)
-    assert mor is not None
-    assert seq is None or mor[2] * 2 <= seq[2]
-
-
-def test_order_index_round_trips_rows():
-    """fwd puts head h's query order[r] at blocked row r; inv takes every query back."""
-    n_head, length, nb_rows, d = 4, 70, 96, 3
-    order = torch.randperm(length, generator=torch.Generator().manual_seed(2))
-    fwd, inv = BS.order_index(order, n_head, length, nb_rows)
-    rows = torch.arange(n_head * length * d, dtype=torch.float32).view(n_head * length, d)
-    blocked = rows[fwd[0].long()]
-    for h in range(n_head):
-        assert torch.equal(blocked[h * nb_rows:h * nb_rows + length], rows[h * length + order])
-        assert torch.equal(blocked[h * nb_rows + length:(h + 1) * nb_rows],
-                           rows[h * length + order[-1]].expand(nb_rows - length, d))
-    assert torch.equal(blocked[inv[0].long()], rows)

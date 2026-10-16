@@ -168,47 +168,6 @@ def plan(indices, n_key, q_block=None, buckets=None):
     return nb, q_block, u_width, gather, pos
 
 
-def morton_order(coords, bits=10):
-    """Query order along a Morton curve of ``coords`` (``[L, 3]``), the coordinates the step's
-    neighbour index was built from.
-
-    In sequence order a block of 32 atoms has its 128-neighbour sets scattered over the fold, so
-    its key union is wide once the coordinates carry noise. Sorted spatially, a block's atoms are
-    neighbours of each other and their sets mostly coincide. Measured on R4's 4652 target atoms
-    (k-NN 128, coordinates plus Gaussian noise of 0 to 80 A): at Q = 32 the widest union is 426 /
-    1074 / 2771 / 2962 keys in sequence order and 682 / 751 / 782 / 750 in this order, so Q = 32
-    fits any atom count and U stays narrow at every noise level.
-    """
-    x = coords.reshape(-1, 3).float()
-    lo = x.min(0).values
-    span = (x.max(0).values - lo).clamp_min(1e-6)
-    top = (1 << bits) - 1
-    q = ((x - lo) / span * top).round().long().clamp(0, top)
-    code = torch.zeros(x.shape[0], dtype=torch.int64)
-    for b in range(bits):
-        for a in range(3):
-            code |= ((q[:, a] >> b) & 1) << (3 * b + a)
-    return torch.argsort(code)
-
-
-def order_index(order, n_head, length, nb_rows):
-    """Row indices that put queries in ``order`` and take the output back, both head-offset.
-
-    Returns ``(fwd, inv)``: ``fwd`` is ``[1, n_head * nb_rows]`` and gathers ``[H*length, D]`` query
-    (or compact-bias) rows into block order, the pad rows repeating the last ordered query so they
-    stay valid; ``inv`` is ``[1, n_head * length]`` and gathers the ``[H*nb_rows, D]`` blocked output
-    back to sequence order. The plan for this order is ``plan(indices[:, order], ...)``.
-    """
-    order = order.long()
-    pad = torch.cat([order, order[-1:].expand(nb_rows - length)])
-    inv = torch.empty_like(order)
-    inv[order] = torch.arange(length)
-    h = torch.arange(n_head, dtype=torch.int64).view(n_head, 1)
-    fwd = (pad.view(1, -1) + h * length).reshape(1, -1).to(torch.int32)
-    back = (inv.view(1, -1) + h * nb_rows).reshape(1, -1).to(torch.int32)
-    return fwd.contiguous(), back.contiguous()
-
-
 def gather_index(gather, n_head, n_key, device):
     """Flat head-offset gather index for ``ttnn.embedding`` over head-major key rows.
 
