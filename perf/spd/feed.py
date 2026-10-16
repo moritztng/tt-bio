@@ -24,7 +24,8 @@ Each row declares what it wants measured in state/spd/grids/<row>.yaml:
 
 A cell is done once every `done` path exists and is non-empty on any pool of its arch, so cells already measured on
 the current tree (its paths name the tree) are skipped. Every pass (tick.d, ~10 min) feed tops each pool up to
-2 x healthy chips of queued prio 0-8 work, cells in tier order, rows round-robin inside a tier.
+2 x healthy chips of queued prio 0-8 work (a cell whose runs take under a pass counts as that fraction of a job),
+cells in tier order, rows round-robin inside a tier.
 
 A cell whose job ended twice within 60 s without its done files, or three times in all, is quarantined in
 state/spd/QUARANTINE.md with its log tail, and its row is woken. The job name carries a hash of the rendered command,
@@ -53,6 +54,8 @@ import yaml
 D = Path("/home/moritz/.coworker")
 TIERS = {"red": 0, "amber": 1, "fast": 2, "fill": 3}
 FAST_S = 60
+TICK_S = 600   # feed's own cadence (tick.d). A queued job expected to run shorter fills that fraction of a depth slot:
+               # 10-16 qb1 ran 8 one-to-five-minute cells dry in 5 min and idled 2 cards until the next pass.
 INIT_FAIL = ("failed to initialize FW|ARC core .* failed to start|Failed to set initial power state"
              "|waiting for active ethernet core")   # 10-16 qb2 board (0,1) after a TERMed mesh run
 MAX_FAILS = 3
@@ -589,6 +592,8 @@ def main(argv=None):
             L.update(hash=c["hash"], fails=[], quarantined=False)
         j = st.get(L.get("host"), {}).get("jobs", {}).get(L.get("name"))
         if c["is_done"]:
+            if j and j["state"] == "ended" and str(j["rc"]).split()[:1] == ["0"]:
+                L["dur"] = j["dur"]
             L.update(state="done", quarantined=False)
         elif j and j["state"] in ("queued", "running"):
             L["state"] = j["state"]
@@ -630,7 +635,23 @@ def main(argv=None):
     # 2. fill each pool up to depth x healthy, cells in priority order, the pool with most room first. A cell's room
     # counts only queued work it does not jump: pool.sh starts the lowest prio digit first, so prio-6 jobs hand-queued
     # past the depth must not lock prio-3 cells out (10-15: 211 queued on .107, every grid cell refused for hours).
+    # Depth counts expected chip time: a job whose experiment's median done run is under TICK_S weighs that fraction
+    # (at least 0.1), so the queue covers two passes of short cells too. BH waiters start in placement order whatever
+    # their prio, so a BH box counts all its queued work at prio 0.
+    exp = lambda k: k.rsplit("/", 1)[0]
+    durs = {}
+    for k, L in ledger.items():
+        if L.get("dur") is not None:
+            durs.setdefault(exp(k), []).append(L["dur"])
+    est = {e: sorted(v)[len(v) // 2] for e, v in durs.items()}
+    weight = lambda k: min(1.0, max(0.1, est[exp(k)] / TICK_S)) if exp(k) in est else 1.0
+    key_of = {L["name"]: k for k, L in ledger.items() if L.get("name")}
+    slot = lambda n, p: p if st[n].get("qprio") else 0
     qp = {n: list(s.get("qprio") or [s["queued"]] + [0] * 8) for n, s in st.items()}
+    for n, s in st.items():
+        for m, j in s.get("jobs", {}).items():
+            if j["state"] == "queued" and m in key_of and m[0].isdigit():
+                qp[n][slot(n, int(m[0]))] -= 1 - weight(key_of[m])
     room = lambda n, p: 0 if st[n].get("paused") else int(a.depth * st[n]["healthy"]) - sum(qp[n][:p + 1])
     place = {n: [] for n in st}
     for c in cs:
@@ -646,7 +667,7 @@ def main(argv=None):
         job = {"name": c["name"], "body": c["body"], "cap": c["cap"]}
         if P[n]["kind"] == "bh":
             job.update(cards=st[n]["cards"], lock=P[n]["lock"], outs=outs(c))
-        place[n].append(job); qp[n][p] += 1
+        place[n].append(job); qp[n][slot(n, p)] += weight(c["key"])
         ledger[c["key"]] = dict(L, host=n, name=c["name"], hash=c["hash"], state="queued", placed=stamp,
                                 fails=L.get("fails", []), quarantined=False, row=c["row"])
     # 3. trees and small files a pending cell needs and a pool of its arch lacks: ship them so a later pass places there

@@ -613,3 +613,46 @@ def test_a_dead_arc_reset_killed_mid_reset_still_logs_its_end(tmp_path):
     p.terminate(); p.wait(timeout=60)
     assert Path(f"{b}.result").read_text().strip() == "died"
     assert Path(f"{b}.log").read_text().splitlines()[-1].split(" ", 1)[1] == f"end rc=none aiclk={DEAD} hb={DEAD} result=died"
+
+
+SHORT = """
+row: spd-x
+tier: red
+experiments:
+  - name: s
+    arch: wh
+    prio: 4
+    axes: {seed: [1, 2, 3, 4, 5, 6]}
+    vars: {out: "~/o/{seed}"}
+    done: ["{out}/r.json"]
+    command: |
+      run.sh {out}
+"""
+
+
+def finish(box, dur):
+    for n in box.queue:
+        box.exists.add(f"~/o/{n.split('-')[5]}/r.json")
+        box.ended[n] = {"state": "ended", "dur": dur, "rc": "0", "at": 1, "tail": ""}
+    box.queue = []
+
+
+def test_cells_that_run_shorter_than_a_pass_queue_deeper(tmp_path, monkeypatch):
+    box = make_pool(tmp_path, monkeypatch, healthy=1)
+    (tmp_path / "state/spd/grids/spd-x.yaml").write_text(SHORT)
+    run(tmp_path)
+    assert len(box.queue) == 2                         # no run time known yet: depth 2 x 1 chip
+    finish(box, 60)
+    run(tmp_path)
+    assert len(box.queue) == 4                         # one-minute cells weigh 0.1: the rest of the grid fits
+    ledger = json.loads((tmp_path / "state/spd/feed/ledger.json").read_text())
+    assert ledger["spd-x/s/1"]["dur"] == 60
+
+
+def test_cells_that_run_a_full_pass_keep_the_plain_depth(tmp_path, monkeypatch):
+    box = make_pool(tmp_path, monkeypatch, healthy=1)
+    (tmp_path / "state/spd/grids/spd-x.yaml").write_text(SHORT)
+    run(tmp_path)
+    finish(box, 900)
+    run(tmp_path)
+    assert len(box.queue) == 2
