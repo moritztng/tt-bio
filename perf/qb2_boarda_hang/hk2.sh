@@ -1,13 +1,14 @@
 #!/bin/bash
 # hk2.sh A|B TAG [ITS]: rerun cfd3-qb2's D3A leg (Small k2 1x2, D2A state in, 1100 its, same image and runtime flags)
 # on one qb2 board, to tell a chip hang from a state-dependent software stall. Card take, reset and smoke are
-# run_k2.sh's (bounded drain, nothing killed). Adds: inspector on, and a stall watch. Every 10 s it samples both chips'
-# power; once the last 30 samples of BOTH chips have sd < SD W (the D3A stall read 1.7-2.6 W vs 3.6-5.5 W running) it
-# takes a tt-triage dump, waits 120 s, takes a second one, and only if the per-core callstacks are identical (nothing
-# moved) does it TERM the run. Otherwise the run ends on its own or at the TERM cap (CAP s, D2A took 3,836 s).
-# Writes ~/qb2-boarda-hang/hk2_<TAG>.status (+ .log, aiclk, dumps). STOP: touch ~/qb2-boarda-hang/STOP.
+# run_k2.sh's (bounded drain, nothing killed). Adds a stall watch: prog.py reads each chip's global-reduction counter
+# over the NoC every 30 s without halting anything; if neither chip's counter moves for 300 s the run is stalled, prog.py
+# samples every core's RISC PCs off the debug bus (no halt) and the run is TERMed. Otherwise it ends on its own or at
+# the TERM cap (CAP s, D2A took 3,836 s). Never tt-triage dump_callstacks a live run: it halts BRISC to unwind and on
+# 2026-10-16 left r1B's BRISCs halted, which froze a healthy run and raised ABORT on both chips.
+# Writes ~/qb2-boarda-hang/hk2_<TAG>.status (+ .log, aiclk, .prog). STOP: touch ~/qb2-boarda-hang/STOP.
 W=$HOME/qb2-boarda-hang; D=$HOME/cfd3/qb2; M=$D/code_bhf/resident/mesh; PY=$HOME/scratch/shipflow/venv-4e80089afdf7/bin/python
-B=$1; T=$2; ITS=${3:-1100}; CAP=${CAP:-6000}; SD=${SD:-2.8}
+B=$1; T=$2; ITS=${3:-1100}; CAP=${CAP:-9000}
 case $B in A) C="0 1"; port=50090;; B) C="2 3"; port=50092;; *) echo "usage: $0 A|B TAG [ITS]"; exit 2;; esac
 CC=${C/ /,}; c1=${C% *}; c2=${C#* }; L=$W; O=$W/hk2_$T.status; IV=$D/img_small_k2_d0c8f_gw1
 SIN=$D/logs/qb2k2_D2A_case_1x2_state.npz; FJ=$HOME/spd/feed/jobs; until=$(date -d ${UNTIL:-2026-10-17T06:00:00Z} +%s)
@@ -50,24 +51,21 @@ st "reset rc $? $(tail -n1 $W/reset_$T.log | cut -c1-120)"; nap 10
 st "smoke rc $r"; [ $r = 0 ] || exit 1
 AL=$W/hk2_aiclk_$T.log
 ( while :; do echo "$(date -u +%T) aiclk $(for n in $C; do cat /sys/class/tenstorrent/tenstorrent!$n/tt_aiclk; done | tr '\n' ' ') power_uW $(for n in $C; do cat /sys/class/tenstorrent/tenstorrent!$n/device/hwmon/*/power1_input; done | tr '\n' ' ')"; sleep 10; done ) 6>&- 7>&- >> $AL 2>&1 & SAMP=$!
-TS=/home/ttuser/of3t_train_api/stranger/venv/lib/python3.12/site-packages/triage
-dump() { local o=$W/dump_${T}_$1 r; for r in dump_callstacks dump_aggregated_callstacks check_noc_status dump_risc_debug_signals; do
-    env TT_VISIBLE_DEVICES=$CC TT_METAL_HOME=/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/tt_metal PYTHONPATH=$TS:/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages \
-      timeout -s TERM 600 ~/triage_venv/bin/python $TS/triage.py --run=$r -vv --disable-colors --disable-progress --skip-version-check \
-      --inspector-rpc-port=$port --inspector-log-path=$LP/generated/inspector > $o.$r.txt 2>&1 6>&- 7>&-; done; echo $o; }
-flat() { tail -n 30 $AL | awk -v s=$SD 'NF>=7 {n++; for(i=0;i<2;i++){x=$(6+i)/1e6; a[i]+=x; q[i]+=x*x}} END {if (n<30) exit 1;
-  for(i=0;i<2;i++){m=a[i]/n; if (sqrt(q[i]/n-m*m) >= s) exit 1}; exit 0}'; }
-st "launch: case $ITS $XV $R, state-in $(basename $SIN), cap $CAP s, stall sd < $SD W"
+PG=$W/hk2_$T.prog
+st "launch: case $ITS $XV $R, state-in $(basename $SIN), cap $CAP s, stall = reduction counter frozen 300 s"
 ( cd $M && env $BENV $IENV /usr/bin/time -f 'process wall %e s maxrss %M KB' nice -n 10 timeout -s TERM $CAP $PY -u run_mesh.py case $ITS \
     $FL --runs 1 --noemu --nwin 1024 --links 0 --rlink 1 --os 1 $XV --from-images $IV $R --state-in $SIN --out $W/hk2_$T.jsonl > $W/hk2_$T.log 2>&1 6>&- 7>&- ) & RP=$!
 t0=$(date +%s); stalled=""
+sleep 60 6>&- 7>&-
+( env TT_VISIBLE_DEVICES=$CC ~/triage_venv/bin/python -I $W/prog.py $PG 30 300 ) > $PG.err 2>&1 6>&- 7>&- & PM=$!
+trap 'kill $S $SAMP $PM 2>/dev/null' EXIT
 while kill -0 $RP 2>/dev/null; do nap 30
-  [ -z "$stalled" ] && [ $(( $(date +%s) - t0 )) -ge 600 ] && flat || continue
-  stalled=1; st "power flat at +$(( $(date +%s) - t0 )) s: $(tail -n1 $AL); dump 1"; d1=$(dump 1); nap 120; st "dump 2"; d2=$(dump 2)
-  if grep -q -i "pc\|0x" $d1.dump_callstacks.txt && cmp -s <(grep -v -i "time\|elapsed" $d1.dump_callstacks.txt) <(grep -v -i "time\|elapsed" $d2.dump_callstacks.txt); then
-    st "STALL CONFIRMED: callstacks identical 120 s apart ($d1, $d2), TERM"; for p in $(pgrep -f "hk2_$T.jsonl"); do kill -TERM $p 2>/dev/null; done
-  else st "callstacks differ or unreadable ($d1 vs $d2), letting it run"; fi
+  [ -z "$stalled" ] && grep -q STALL $PG 2>/dev/null || continue
+  stalled=1; st "STALL: reduction counters frozen 300 s at +$(( $(date +%s) - t0 )) s: $(grep -m1 STALL $PG); PCs in $PG.pcs"
+  for i in $(seq 60); do [ $(cat $PG.pcs 2>/dev/null | wc -l) -ge 1100 ] && break; nap 5; done
+  st "TERM"; for p in $(pgrep -f "hk2_$T.jsonl"); do kill -TERM $p 2>/dev/null; done
 done
+kill $PM 2>/dev/null
 wait $RP; r=$?; st "rc $r $(grep 'process wall' $W/hk2_$T.log) $(grep -h '^run .*wall' $W/hk2_$T.log | cut -c1-200)"
 for n in $C; do st "after: $(tel $n)"; done
 [ -n "$stalled" ] && { timeout -s INT 300 $HOME/.local/bin/tt-smi -r /dev/tenstorrent/$c1 /dev/tenstorrent/$c2 > $W/reset2_$T.log 2>&1; st "post-stall reset rc $? $(tel $C)"; }
