@@ -6631,6 +6631,7 @@ def _wide_n_program_config(m_tiles: int, k_tiles: int, n_tiles: int, elem_bytes:
     row of cores pulls it. Here every core holds all M rows of the activation (multicast, 0.8 MB once) and reads its
     own `per_core_N` weight columns, so the weight streams on every core's DRAM port. Cores: the largest count that
     divides the N tiles and fits the grid as a rectangle. The drain block shrinks until the circular buffers fit.
+    On a p150a ttnn's own program is faster (460 us vs 545 us for the best 1D block at 1350 MHz), so this is for Wormhole.
     """
     gx, gy = COMPUTE_GRID_MAIN
     if m_tiles > 32 or n_tiles < 8 * m_tiles:
@@ -6660,7 +6661,7 @@ def _wide_n_program_config(m_tiles: int, k_tiles: int, n_tiles: int, elem_bytes:
 def _wide_linear(x: ttnn.Tensor, w: ttnn.Tensor, *, bias=None, compute_kernel_config=None,
                  activation: str | None = None) -> ttnn.Tensor:
     """`ttnn.linear` under `_wide_n_program_config` where it applies, else ttnn's own program."""
-    m = prod(x.shape[:-1])
+    m = prod(list(x.shape)[:-1])
     pc = _wide_n_program_config(-(-m // 32), -(-x.shape[-1] // 32), -(-w.shape[-1] // 32),
                                 2 if x.dtype == ttnn.bfloat16 else 4, activation == "sigmoid")
     if pc is None:
