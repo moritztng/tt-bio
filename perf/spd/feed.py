@@ -53,6 +53,7 @@ import yaml
 D = Path("/home/moritz/.coworker")
 TIERS = {"red": 0, "amber": 1, "fast": 2, "fill": 3}
 FAST_S = 60
+INIT_FAIL = "failed to initialize FW|ARC core .* failed to start|Failed to set initial power state"
 MAX_FAILS = 3
 STEAL_S = 900   # a BH job still waiting this long moves to a free card on another BH box its cell allows
 # BH boxes: SPD cards and their flocks (state/spd/CHIPS.md). A chip kept off the feed has ~/spd/locks/chip<N>.BAD on its
@@ -67,6 +68,15 @@ BH_POOLS = {
 
 # pgrep pattern for a release-gate leg on card %s, running or waiting for its flock. A leg that runs a perf script through
 # runpy (bc2_boundary, parity_*) names the gate only in its RELEASE_GATE_RUN_DIR env, so the pattern keys on that too.
+# A multi-card take (cfd2/cfd3 window scripts) raises a `release_gate` sentinel per card and waits until every card is
+# free, so the cards that free first idle behind it (10-16 qb2: chips 0, 2 and 3 for up to 6,000 s). A sentinel is a
+# placeholder process named `<who> spd_qb<N>_<chip|card><c>.lock <kind> <tag> ...`; its take is every card whose sentinel
+# carries the same who/kind/tag. The take cannot start before the feed jobs on its other cards end, so a waiter backfills
+# a sentinel's card with a job whose worst-case end (start + cap + 600 s of grace and reset, written to <job>.until) comes
+# before the latest .until on those cards; the take never starts later for it. A sentinel may name its own bound with
+# `until=<epoch>`, which then wins. A one-card sentinel (gapboard) and any real gate leg (not named like a sentinel) block.
+# A waiter that is only too long for such a window hands the dispatch flock on each poll, so a shorter job behind it
+# can take the card. Takers can size their wait from ~/spd/feed/jobs/*.until (card in the matching .card).
 GATE_LEG = "(spd_qb1_card|spd_qb2_chip|TT_VISIBLE_DEVICES=)%s[. ].*(RELEASE_GATE_RUN_DIR|release_gate|gate_fanout|perf_ab)"
 
 # Runs on the pool host: report state, existence of paths, and sweep dead entries. Payload is appended as JSON.
@@ -186,19 +196,29 @@ PROBE = f"GATE_LEG = {GATE_LEG!r}\n" + PROBE
 # init in 15 s each, "failed to initialize FW! Try resetting the board", sysfs healthy). Two DIFFERENT jobs failing fast
 # back to back on one card is the card, not the cells: the second resets it and its .end says "fastfail2 reset", which
 # the ledger does not count against the cell. The first leaves its name in fastfail.<card>; a clean exit clears it.
+# Only a device-init failure (INIT_FAIL in the job's log) counts, so two broken cells never reset a healthy card. qb2 has no
+# reset (p300c board pair): the second marks ~/spd/locks/chip<N>.BAD instead and its .end says "fastfail2 bad".
 NODE = ('node() { for s in "${TT_SYSFS:-/sys/class/tenstorrent}"/*; do echo "$(basename "$(readlink -f "$s/device")") '
         '${s##*!}"; done | sort | sed -n "$(($1 + 1))s/.* //p"; }; '
         'dead() { local n=$(node $1); [ -n "$n" ] && cat "${TT_SYSFS:-/sys/class/tenstorrent}/tenstorrent!$n/tt_aiclk" '
-        '"${TT_SYSFS:-/sys/class/tenstorrent}/tenstorrent!$n/tt_heartbeat" 2>/dev/null | grep -qx 4294967295; }; ')
+        '"${TT_SYSFS:-/sys/class/tenstorrent}/tenstorrent!$n/tt_heartbeat" 2>/dev/null | grep -qx 4294967295; }; '
+        'take() { pgrep -af "[.]lock (release_gate|perf_ab) " | awk -v a="$1" -v r="$2" -v c="$c" -v J="$J" \'function rd(p, v) { if ((getline v < p) <= 0) v = ""; close(p); return v } $2 == a && $3 ~ /^spd_qb[0-9]_(chip|card)[0-9]+[.]lock$/ { l = $3; $1 = $2 = $3 = ""; sub(/^ +/, ""); if ($0 != r) next; sub(/[.]lock$/, "", l); sub(/.*[a-z]/, "", l); if (l != c) k[l] } END { m = 0; while (("ls " J " 2>/dev/null") | getline f) { j = J "/" f; if (f ~ /[.]sh$/ && (rd(j ".card") in k) && system("[ -e \\"" j ".start\\" ] && [ ! -e \\"" j ".end\\" ]") == 0 && rd(j ".until") + 0 > m) m = rd(j ".until") + 0 } print m }\'; }; '
+        'gate() { local m p a l r e x=1 n=$(($(date +%s) + $1 + 600)); m=$(pgrep -af "$G") || return 1; '
+        'while read -r p a l r; do [[ $l =~ ^spd_qb[0-9]_(chip|card)[0-9]+[.]lock$ ]] || return 0; '
+        'e=$(grep -o "until=[0-9]*" <<<"$r" | cut -d= -f2); [ -n "$e" ] || e=$(take "$a" "$r"); [ $n -gt "${e:-0}" ] && x=0; '
+        'done <<<"$m"; [ $x = 1 ] || W=1; return $x; }; ')
 
 
 def run_cmd(grace=120):
     return ('S=$(date +%s); CHIP=$2 TT_VISIBLE_DEVICES=$2 LOCK="$4" WAIT=60 timeout -s TERM $(($5 + G)) '
             'sh -c \'echo $$ > "$1.pg"; exec timeout -s INT "$2" bash "$1"\' _ "$1" "$5" > "$1.log" 2>&1; rc=$?; '
             'M="$(dirname "$1")/fastfail.$2"; if [ $rc = 0 ]; then rm -f "$M"; '
-            'elif [ -n "$6" ] && [ $rc != 124 ] && [ $rc != 127 ] && [ $(($(date +%s) - S)) -lt FAST ]; then '
+            'elif [ $rc != 124 ] && [ $rc != 127 ] && [ $(($(date +%s) - S)) -lt FAST ] && grep -qE "INIT" "$1.log"; then '
             'if [ -s "$M" ] && [ "$(cat "$M")" != "$1" ]; then rm -f "$M"; '
-            'if timeout 180 $6 "${TT_DEV:-/dev/tenstorrent}/$(node $2)" >> "$1.log" 2>&1; then rc="$rc fastfail2 reset"; '
+            'if [ -z "$6" ]; then L="${SPD_LOCKS:-$HOME/spd/locks}"; mkdir -p "$L"; '
+            'echo "$(date -u +%FT%TZ) two jobs failed device init back to back ($(basename "$1")), feed" > "$L/chip$2.BAD"; '
+            'rc="$rc fastfail2 bad"; '
+            'elif timeout 180 $6 "${TT_DEV:-/dev/tenstorrent}/$(node $2)" >> "$1.log" 2>&1; then rc="$rc fastfail2 reset"; '
             'else rc="$rc fastfail2 reset-failed"; fi; else echo "$1" > "$M"; fi; fi; '
             'if [ "$rc" = 124 ]; then g=$(cat "$1.pg" 2>/dev/null); s=INT; [ $(($(date +%s) - S)) -lt $(($5 + G)) ] || s=INT+TERM; '
             'for i in $(seq G); do kill -0 -- -$g 2>/dev/null || break; sleep 1; done; '
@@ -206,7 +226,7 @@ def run_cmd(grace=120):
             'if [ -n "$6" ]; then for i in $(seq G); do kill -0 -- -$g 2>/dev/null || break; sleep 1; done; '
             'if kill -0 -- -$g 2>/dev/null; then s="$s noreset"; elif timeout 180 $6 "${TT_DEV:-/dev/tenstorrent}/$(node $2)" >> "$1.log" 2>&1; then s="$s reset"; '
             'else s="$s reset-failed"; fi; fi; rc="$rc $s"; fi; '
-            'echo "$rc" > "$1.end"').replace(" G)", f" {grace})").replace("seq G", f"seq {grace}").replace("-lt FAST ]", f"-lt {FAST_S} ]")
+            'echo "$rc" > "$1.end"').replace(" G)", f" {grace})").replace("seq G", f"seq {grace}").replace("-lt FAST ]", f"-lt {FAST_S} ]").replace('"INIT"', f"'{INIT_FAIL}'")
 
 
 RUN = run_cmd()
@@ -223,19 +243,21 @@ for j in A["jobs"]:
         os.rename(t, q + "/" + j["name"])
     else:
         J = H + "/spd/feed/jobs"; sh = J + "/" + j["name"]
-        for x in (".end", ".start", ".pid", ".log", ".pg"):
+        for x in (".end", ".start", ".pid", ".log", ".pg", ".until"):
             if os.path.exists(sh + x): os.remove(sh + x)
         open(sh, "w").write(j["body"]); open(sh + ".card", "w").write("-1")
         # Take the box's dispatch flock in turn, then the first card that is not BAD or dead-ARC, runs no release-gate leg and no
         # gapboard sentinel (the scoreboard measuring main; checked again once its flock is held) and whose flock is
         # free. 10-15: waiters bound to one card queued on busy cards 2 and 3 while qb1 card 0 sat free 15+ min.
         w = (NODE + 'exec 8>"$(dirname "$1")/.dispatch"; flock -w 86400 8 || { echo flockbusy > "$1.end"; exit 3; }; '
-             'D=$((SECONDS + 86400)); while :; do for c in $2; do [ -e ~/spd/locks/chip$c.BAD ] && continue; dead $c && continue; '
+             'J="$(dirname "$1")"; D=$((SECONDS + 86400)); while :; do W=; for c in $2; do [ -e ~/spd/locks/chip$c.BAD ] && continue; dead $c && continue; '
              'G="' + GATE_LEG % "$c" + '"; '
-             'pgrep -f "$G" >/dev/null && continue; exec 9>"${3//@/$c}"; '
-             'flock -n 9 && ! pgrep -f "$G" >/dev/null && break 2; exec 9>&-; done; '
-             '[ $SECONDS -lt $D ] || { echo flockbusy > "$1.end"; exit 3; }; sleep "${POLL:-20}"; done; '
-             'exec 8>&-; echo $c > "$1.card"; touch "$1.start"; set -- "$1" $c "$3" "$(dirname "$1")/nolock.$c" "$5"; '
+             'gate "$5" && continue; exec 9>"${3//@/$c}"; '
+             'flock -n 9 && ! gate "$5" && break 2; exec 9>&-; done; '
+             '[ $SECONDS -lt $D ] || { echo flockbusy > "$1.end"; exit 3; }; '
+             'if [ -n "$W" ]; then exec 8>&-; sleep "${POLL:-20}"; flock -w 86400 8 || { echo flockbusy > "$1.end"; exit 3; }; '
+             'else sleep "${POLL:-20}"; fi; done; '
+             'exec 8>&-; echo $c > "$1.card"; touch "$1.start"; echo $(($(date +%s) + $5 + 600)) > "$1.until"; set -- "$1" $c "$3" "$(dirname "$1")/nolock.$c" "$5" "$6"; '
              'cd "$(dirname "$1")"; ' + RUN)
         p = subprocess.Popen(["setsid", "nohup", "bash", "-c", w, "_", sh, " ".join(map(str, j["cards"])),
                               j["lock"].replace("{c}", "@"), "", str(j["cap"] + 300), A.get("reset", "")],
@@ -377,7 +399,7 @@ def inputs(cmd):
             if p not in optional and "$" not in p.replace("$HOME/", "", 1)}
 
 
-def cells(grid_dir):
+def cells(grid_dir, log=print):
     """All cells of all active experiments, ordered by tier, rows round-robin within a tier."""
     by_tier = {}
     for f in sorted(Path(grid_dir).glob("*.yaml")):
@@ -386,6 +408,10 @@ def cells(grid_dir):
         for e in g.get("experiments", []):
             if not e.get("active", True):
                 continue
+            prio = int(e.get("prio", 5))
+            if not 3 <= prio <= 8:  # one bad experiment must not stop every row's feed (10-15 19:02-19:20Z)
+                log(f"skip {f.name}:{e['name']}: prio {prio} outside 3-8")
+                continue
             axes = e.get("axes", {})
             out = []
             for vals in itertools.product(*axes.values()):
@@ -393,8 +419,6 @@ def cells(grid_dir):
                 for k, v in (e.get("vars") or {}).items():
                     ctx[k] = render(str(v), ctx)
                 cmd = render(e["command"], ctx)
-                prio = int(e.get("prio", 5))
-                assert 3 <= prio <= 8, f"{f.name}:{e['name']}: prio {prio} outside 3-8"
                 body = (f"# spd-feed: {row} {e['name']} {' '.join(f'{k}={v}' for k, v in zip(axes, vals))} "
                         f"(grid state/spd/grids/{f.name})\n# mem: {e.get('mem', 24)}\n# cap: {e.get('cap', 7200)}\n"
                         + (f"# cpu: {int(e['cpu'])}\n" if e.get("cpu") else "") + f"export TT_BIO_LEASE_HOLDER={row}\n{cmd.rstrip()}\n")
@@ -529,7 +553,7 @@ def main(argv=None):
     def log(m):
         logf.write(f"{stamp} {m}\n"); print(m)
 
-    cs = cells(R / "state/spd/grids")
+    cs = cells(R / "state/spd/grids", log)
     P = pools(R)
     for c in cs:  # Galaxies rotate: a pin to one SPD no longer holds lets the cell run on any held pool of its arch
         if c["hosts"] and not set(c["hosts"]) & set(P):
@@ -561,6 +585,10 @@ def main(argv=None):
         elif j and j["state"] == "ended" and j["at"] not in [f["at"] for f in L["fails"]]:
             L["fails"].append({"at": j["at"], "dur": j["dur"], "rc": j["rc"], "host": L["host"], "tail": j["tail"][-1200:]})
             L["state"] = "failed"
+            if "fastfail2" in str(j["rc"]) and not a.dry_run:
+                with open(R / "fleet.log", "a") as fl:
+                    fl.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} spd feed: {L['host']} {L['name']} was the "
+                             f"second device-init failure in a row on its card: {j['rc']}\n")
             own = [f for f in L["fails"] if "fastfail2" not in str(f["rc"])]    # a dirty card's failure is not the cell's
             fast = sum(1 for f in own if f["dur"] < FAST_S)
             if fast >= 2 or len(own) >= MAX_FAILS:
