@@ -509,6 +509,9 @@ def test_a_waiter_too_long_for_a_take_window_lets_a_shorter_one_through(tmp_path
         assert not Path(f"{long}.start").exists()
         sh = _place_bh(tmp_path, [5], "echo card $CHIP\n", leg_sid=leg.pid, name="4-s.sh")
         assert Path(f"{sh}.log").read_text() == "card 5\n"
+        # and the long one still waits: 10-16 05:14Z it reopened nothing after handing the flock on, flock got a closed
+        # fd, and every qb1 waiter behind a sentinel ended "flockbusy" within one poll
+        assert not Path(f"{long}.end").exists()
     finally:
         os.killpg(leg.pid, 9)
         subprocess.run(["pkill", "-s", Path(f"{long}.pid").read_text()])   # the long waiter may already have run once the sentinels died
