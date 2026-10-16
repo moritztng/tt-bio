@@ -10,8 +10,8 @@ per channel. One fp32 dest pass over all of K.
 
 `transpose_a` / `transpose_b` take ttnn.matmul's meaning (the operand is stored [.., K, M] / [.., N, K]), which is
 how the trimul's gin_moved chunks arrive: the reader fetches tiles in the transposed order, the matmul unpacker
-transposes each b tile, and compute transposes each a tile into a staging CB before it multiplies (ttnn's in0
-transpose). A tile transpose moves values only, so neither changes a number.
+transposes each b tile, and compute transposes each a tile into a bf16 staging CB before it multiplies (ttnn's in0
+transpose). A tile transpose moves values only and bf16 holds every bfp8 value, so neither changes a number.
 
 The trimul einsum calls it under the `trimul_bres` lever (tenstorrent.py); perf/spd/af2_trimul_bmm_sweep.py --res times it.
 `matmul` returns the product or None, and None means the caller keeps its own path.
@@ -30,14 +30,15 @@ KERNEL_DIR = Path(__file__).resolve().parent / "kernels" / "bmm_res"
 WRITER = Path(__file__).resolve().parent / "kernels" / "pair_swiglu_ws" / "writer.cpp"
 A_CB, B_CB, A_RAW_CB, OUT_CB = 0, 1, 2, 16
 A_DEPTH = 2            # row tiles of a in flight per core
-#: L1 a core may spend on CBs: b depth * kt * nt + a A_DEPTH * kt (+ kt staged for transpose_a) + out 2 * nt tiles.
+#: L1 a core may spend on CBs: b depth * kt * nt + a A_DEPTH * kt (+ kt bf16 staged for transpose_a) + out 2 * nt tiles.
 L1_BUDGET = 1200 * 1024
 _CACHE: dict = {}
 
 
 def _b_depth(kt, nt, a_bytes, b_bytes, budget=L1_BUDGET, transpose_a=False):
     """Channels of b in flight (2, 1), or 0 if one does not fit."""
-    rest = (A_DEPTH + transpose_a) * kt * a_bytes + 2 * nt * MG.tile_bytes(ttnn.bfloat16)
+    bf16 = MG.tile_bytes(ttnn.bfloat16)
+    rest = A_DEPTH * kt * a_bytes + transpose_a * kt * bf16 + 2 * nt * bf16
     for depth in (2, 1):
         if depth * kt * nt * b_bytes + rest <= budget:
             return depth
@@ -78,8 +79,8 @@ def _build(a, b, out, C, mt, kt, nt, ta, tb, depth, fidelity, max_cores):
         kernel_source=str(KERNEL_DIR / "compute.cpp"), source_type=path, core_ranges=grid,
         compile_time_args=[mt, kt, nt, int(ta), int(tb)], runtime_args=cp, defines=[],
         config=ttnn.ComputeConfigDescriptor(math_fidelity=fidelity, fp32_dest_acc_en=True))
-    cbs = [cb(A_CB, (1 if ta else A_DEPTH) * kt, a.dtype), cb(B_CB, depth * kt * nt, b.dtype),
-           cb(OUT_CB, 2 * nt, ttnn.bfloat16)]
+    a_cb = cb(A_CB, kt, ttnn.bfloat16) if ta else cb(A_CB, A_DEPTH * kt, a.dtype)
+    cbs = [a_cb, cb(B_CB, depth * kt * nt, b.dtype), cb(OUT_CB, 2 * nt, ttnn.bfloat16)]
     if ta:
         cbs.append(cb(A_RAW_CB, A_DEPTH * kt, a.dtype))
     return [reader, writer, compute], cbs
@@ -89,8 +90,7 @@ def matmul(a, b, compute_kernel_config=None, transpose_a=False, transpose_b=Fals
            depth=None):
     """``a @ b`` over the channel axis as a new bf16 DRAM tensor, or None if the call is outside what the kernel does.
 
-    It sums K in an fp32 dest at the caller's fidelity (HiFi4 without a config); a bf16-dest config declines, and so
-    does transpose_a on a bfp8 `a` (repacking a transposed tile regroups its shared exponents).
+    It sums K in an fp32 dest at the caller's fidelity (HiFi4 without a config); a bf16-dest config declines.
     `max_cores` caps the channel split (0 = the whole grid) and `depth` forces b's channel depth; both are bench
     knobs that move scheduling, never a number.
     """
@@ -103,8 +103,6 @@ def matmul(a, b, compute_kernel_config=None, transpose_a=False, transpose_b=Fals
                 or mc.memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED or len(t.shape) != 4
                 or int(t.shape[0]) != 1):
             return None
-    if transpose_a and a.dtype != ttnn.bfloat16:
-        return None
     sa, sb = [int(d) for d in a.padded_shape], [int(d) for d in b.padded_shape]
     if (transpose_a or transpose_b) and (sa != [int(d) for d in a.shape] or sb != [int(d) for d in b.shape]):
         return None

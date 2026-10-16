@@ -6,13 +6,15 @@
 // b[c] (c_1), pair_linear's loop: OG output tiles (one fp32 dest half) at a time, each the sum over the KT K tiles
 // in dest, packed to c_16. The whole of K in one dest pass, so the accumulation order is the one in0_block_w = KT
 // gives ttnn.matmul.
-// TA: each row tile of a arrives untransposed in c_2 and is transposed into c_0 (ttnn's in0 transpose, a tile at a
-// time through dest) before its matmuls. TB: the matmul unpacker transposes each b tile.
+// TA: each row tile of a arrives untransposed in c_2 (a's format) and is transposed into c_0 (bf16, which holds a
+// bf16 or bfp8 value exactly) through dest before its matmuls, ttnn's in0 transpose. srcA carries b for the matmul and
+// a for the transpose, so its format is switched both ways. TB: the matmul unpacker transposes each b tile.
 #include <cstdint>
 
 #include "api/compute/matmul.h"
 #include "api/compute/transpose_wh.h"
 #include "api/compute/pack.h"
+#include "api/compute/reconfig_data_format.h"
 #include "api/compute/compute_kernel_api.h"
 
 void kernel_main() {
@@ -32,6 +34,7 @@ void kernel_main() {
         cb_wait_front(cb_b, KT * NT);
         for (uint32_t r = 0; r < MT; ++r) {
             if constexpr (TA) {
+                reconfig_data_format_srca(cb_b, cb_a_raw);
                 transpose_wh_init_short(cb_a_raw);
                 PACK((pack_reconfig_data_format(cb_a)));
                 for (uint32_t k = 0; k < KT; k += 4) {
@@ -51,6 +54,7 @@ void kernel_main() {
                     tile_regs_release();
                     cb_push_back(cb_a, nb);
                 }
+                reconfig_data_format_srca(cb_a_raw, cb_b);
                 mm_block_init_short(cb_a, cb_b, TB, OG, 1, KT);
                 PACK((pack_reconfig_data_format(cb_out)));
             }
