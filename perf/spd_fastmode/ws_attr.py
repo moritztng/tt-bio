@@ -1,10 +1,11 @@
 """Where pair_swiglu_ws spends its time: the kernel with one phase dropped at a time, plus LN and the bfp8 cast alone.
 
-    TT_VISIBLE_DEVICES=<card> python perf/spd_fastmode/ws_attr.py [--n 512] [--c 256] [--hidden 1024] [--reps 20]
+    TT_VISIBLE_DEVICES=<card> python perf/spd_fastmode/ws_attr.py [--n 512] [--c 256] [--hidden 1024] [--reps 20] [--rms]
 
 Arms: `fast` (bfp8 x and weights, HiFi2) and `normal` (bf16, HiFi4), each once with metal's silu_tile, then with the
 default polynomial silu plain and with one of the kernels' WS_NO_* defines (FC12, SILU, GATE, FC3 in compute; XREAD in the reader; WRITE in the writer). A dropped phase makes the
 output wrong by design, so this prints time only: ms/call, median of --reps after 3 warm calls. One JSON line per arm.
+--rms runs every pair_swiglu call with the RMSNorm prologue (WS_RMS), as RFdiffusion3's pair Transition calls it.
 """
 import argparse, json, os, statistics, time
 
@@ -15,6 +16,7 @@ ap.add_argument("--n", type=int, default=512)
 ap.add_argument("--c", type=int, default=256)
 ap.add_argument("--hidden", type=int, default=1024)
 ap.add_argument("--reps", type=int, default=20)
+ap.add_argument("--rms", action="store_true")
 a = ap.parse_args()
 
 from tt_bio.main import ensure_p300_mesh_descriptor  # noqa: E402
@@ -33,6 +35,11 @@ xt = ttnn.from_torch(torch.randn(1, a.n, a.n, c, generator=g), dtype=ttnn.bfloat
 nw = ttnn.from_torch(torch.ones(c), dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev)
 
 
+if a.rms:
+    _ps = W.pair_swiglu
+    W.pair_swiglu = lambda *args, **kw: _ps(*args, ln=(nw, None, 1e-6), **kw)
+
+
 def timed(fn):
     for _ in range(3):
         ttnn.deallocate(fn())
@@ -48,14 +55,16 @@ def timed(fn):
 
 
 def emit(**kw):
-    print(json.dumps(dict(n=a.n, c=c, hidden=h, card=os.environ.get("TT_VISIBLE_DEVICES"), **kw)), flush=True)
+    print(json.dumps(dict(n=a.n, c=c, hidden=h, rms=a.rms, card=os.environ.get("TT_VISIBLE_DEVICES"), **kw)), flush=True)
 
 
 emit(arm="layer_norm", ms=timed(lambda: ttnn.layer_norm(xt, weight=nw, epsilon=1e-5,
                                                          memory_config=ttnn.DRAM_MEMORY_CONFIG)))
 emit(arm="typecast_bfp8", ms=timed(lambda: ttnn.typecast(xt, ttnn.bfloat8_b)))
-for mode, dt, fid in (("fast", ttnn.bfloat8_b, ttnn.MathFidelity.HiFi2),
-                      ("normal", ttnn.bfloat16, ttnn.MathFidelity.HiFi4)):
+MODES = (("fast", ttnn.bfloat8_b, ttnn.MathFidelity.HiFi2), ("normal", ttnn.bfloat16, ttnn.MathFidelity.HiFi4))
+if a.rms:  # the prologue reads a bf16 x; RFdiffusion3 runs bf16 at its own fidelity in both modes
+    MODES = (("normal", ttnn.bfloat16, ttnn.MathFidelity.HiFi4), ("hifi2", ttnn.bfloat16, ttnn.MathFidelity.HiFi2))
+for mode, dt, fid in MODES:
     parts = W.weights(w1, w2, w3, dev, dt)
     if len(parts) > 1:  # attribution is per program; a chunked call is several
         emit(arm=mode, ms=None, note=f"{len(parts)} hidden chunks (L1)")
@@ -67,6 +76,10 @@ for mode, dt, fid in (("fast", ttnn.bfloat8_b, ttnn.MathFidelity.HiFi2),
         continue
     emit(arm=mode + "-metal_silu", fidelity=str(fid), ms=timed(lambda: W.pair_swiglu(x, w12, w3t, fid, (), 0)))
     emit(arm=mode + "-poly6_silu", fidelity=str(fid), ms=timed(lambda: W.pair_swiglu(x, w12, w3t, fid, (), 2)))
+    o2, o3 = W.pair_swiglu(x, w12, w3t, fid, (), 2), W.pair_swiglu(x, w12, w3t, fid, (), 3)
+    emit(arm=mode + "-poly6x2_silu", fidelity=str(fid), ms=timed(lambda: W.pair_swiglu(x, w12, w3t, fid, (), 3)),
+         equal_poly6=bool(torch.equal(ttnn.to_torch(o2), ttnn.to_torch(o3))))
+    ttnn.deallocate(o2), ttnn.deallocate(o3)
     if dt != ttnn.bfloat16 and W.eligible(xt, w12, w3t):  # is the bfp8 cast of x (typecast_bfp8 above) worth it?
         emit(arm=mode + "-bf16x", fidelity=str(fid), ms=timed(lambda: W.pair_swiglu(xt, w12, w3t, fid)))
         emit(arm=mode + "-bf16x-poly6_silu", fidelity=str(fid), ms=timed(lambda: W.pair_swiglu(xt, w12, w3t, fid, (), 2)))

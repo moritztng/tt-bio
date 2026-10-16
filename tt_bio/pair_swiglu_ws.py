@@ -178,7 +178,8 @@ def pair_swiglu(x, w12, w3, fidelity=ttnn.MathFidelity.HiFi4, defines=(), silu_p
     the kernels' WS_NO_* time-attribution switches (perf/spd_fastmode/ws_attr.py), empty in production.
     `silu_poly` picks the silu: 0 metal's silu_tile, whose fp32-dest exp + reciprocal was ~85 % of the kernel on WH
     (c_z 128: 8.97 ms with it, 1.37 ms without), 1 sigmoid_poly.hpp's degree-8 polynomial (sigmoid within 3e-4),
-    2 its degree-6 one with fp16 coefficients (7.4e-4, a third fewer SFPU instructions). None takes `SILU_POLY`.
+    2 its degree-6 one with fp16 coefficients (7.4e-4, a third fewer SFPU instructions), 3 the same degree-6 silu
+    on two DST rows per loop iteration (bit-identical to 2; the coefficient loads are shared). None takes `SILU_POLY`.
     `ln` = (gamma, beta, eps) runs the LayerNorm over the raw bf16 `x` in the kernel first; gamma / beta bf16 TILE
     [1, C] as `torch_to_tt` leaves a norm parameter. beta None makes it an RMSNorm, as ttnn.rms_norm.
     `l1acc`: every matmul sums at most 2 K tiles in dest and the packer adds the chunks in an fp32 CB. On Wormhole an

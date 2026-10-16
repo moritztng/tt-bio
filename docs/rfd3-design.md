@@ -207,8 +207,9 @@ The token transformer's attention masks (pair-bias projection, head-first layout
 by one kernel instead of a linear, a permute and three elementwise passes. It is closer to a float64
 reference than the chain it replaces, and a 685-residue default design on Wormhole drops from 100.1 to
 91.4 s. Over four seeds the design moves 3.8 to 10.1 A at the same seed against 14 to 18 A for a seed
-change, with chain breaks, clashes and CA-CA geometry unchanged. It is on by default on Wormhole; Blackhole
-keeps the chain until its own check reads (`RFD3_DPB=1` opts in). `RFD3_DPB=0` restores the chain.
+change, with chain breaks, clashes and CA-CA geometry unchanged. On a p150a the default design drops by
+about 4 to 6 s, and twelve paired seeds read the same geometry. It is on by default on both;
+`RFD3_DPB=0` restores the chain.
 
 ## Checkpoint
 
