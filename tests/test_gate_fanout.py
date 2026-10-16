@@ -674,6 +674,37 @@ def test_a_pool_leg_notes_a_give_back_that_stopped_it(tmp_path, monkeypatch):
     assert rc == 130 and gf.GIVEN_BACK in (tmp_path / "leg.log").read_text()
 
 
+def test_a_pool_leg_notes_a_recall_of_its_chip(tmp_path, monkeypatch):
+    """A JapanFold agent that lent the leg's chip to the pool takes it back for its users and touches
+    lend/<chip>.recalled (jf-shared-chips). The leg says it was given back, so it reruns, and its job
+    tells the pool not to requeue it too."""
+    monkeypatch.setattr(gf, "POOL_POLL_S", 0.05)
+    queue = tmp_path / "pool" / "queue"
+    queue.mkdir(parents=True)
+    lend = tmp_path / "japanfold" / "state" / "agent" / "lend"
+    lend.mkdir(parents=True)
+    sha = "b" * 40
+    (tmp_path / "trees" / sha[:12]).mkdir(parents=True)
+    h = gf.Host("g", {"arch": "wh", "card_type": "w", "root": str(tmp_path), "ssh": "localhost",
+                      "lock": str(tmp_path / "chip{card}.lock"), "python": sys.executable,
+                      "pool": {"queue": str(queue), "prio": 0}}, sha)
+    leg = gf.Leg("ux:x", ["PY", "-c", f"import pathlib, sys, time; time.sleep(1.1); "
+                          f"pathlib.Path({str(lend / '7.recalled')!r}).touch(); sys.exit(130)"], "ux")
+
+    def pool():
+        while not (jobs := list(queue.glob("*.sh"))):
+            time.sleep(0.02)
+        assert "\n# requeue: no\n" in jobs[0].read_text()
+        subprocess.run(["bash", str(jobs[0])], env={"CHIP": "7", "HOME": str(tmp_path),
+                                                    "PATH": "/usr/bin:/bin"}, check=True)
+    t = threading.Thread(target=pool)
+    t.start()
+    with open(tmp_path / "leg.log", "w") as f:
+        rc = gf.run_in_pool(h, gf.POOL, leg, str(tmp_path / "o" / "run1" / "wh" / "ux_x"), f)
+    t.join()
+    assert rc == 130 and gf.GIVEN_BACK in (tmp_path / "leg.log").read_text()
+
+
 def test_a_pool_leg_stopped_by_a_give_back_runs_again(tmp_path, monkeypatch):
     calls, backs = [], gf.GIVEN_BACK_TRIES
 
