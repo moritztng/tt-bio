@@ -96,17 +96,25 @@ ALWI void rstd() {
 // ROW: row 0). DST moves to srcA, b unpacks to srcB. The tt-metal API only ships the NONE broadcast.
 template <EltwiseBinaryType OP, BroadcastType B>
 ALWI void reuse_init(uint32_t cb) {
+    constexpr auto R = EltwiseBinaryReuseDestType::DEST_TO_SRCA;
     reconfig_data_format_srcb(cb);
-    UNPACK((llk_unpack_A_init<B, true, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(false, false, cb)));
-    MATH((llk_math_eltwise_binary_init<OP, B, OP == ELWMUL ? MATH_FIDELITY : MathFidelity::LoFi,
-                                       EltwiseBinaryReuseDestType::DEST_TO_SRCA>(false)));
+    UNPACK((llk_unpack_A_init<B, true, R>(false, false, cb)));
+    if constexpr (OP == ELWMUL) {
+        MATH((llk_math_eltwise_binary_init<OP, B, MATH_FIDELITY, R>(false)));
+    } else {
+        MATH((llk_math_eltwise_binary_init<OP, B, MathFidelity::LoFi, R>(false)));
+    }
 }
 
 template <EltwiseBinaryType OP, BroadcastType B>
 ALWI void reuse(uint32_t cb, uint32_t itile, uint32_t idst) {
-    UNPACK((llk_unpack_A<B, true, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(cb, itile)));
-    MATH((llk_math_eltwise_binary<OP, B, DST_ACCUM_MODE, OP == ELWMUL ? MATH_FIDELITY : MathFidelity::LoFi,
-                                  EltwiseBinaryReuseDestType::DEST_TO_SRCA>(cb, cb, idst, true)));
+    constexpr auto R = EltwiseBinaryReuseDestType::DEST_TO_SRCA;
+    UNPACK((llk_unpack_A<B, true, R>(cb, itile)));
+    if constexpr (OP == ELWMUL) {
+        MATH((llk_math_eltwise_binary<OP, B, DST_ACCUM_MODE, MATH_FIDELITY, R>(cb, cb, idst, true)));
+    } else {
+        MATH((llk_math_eltwise_binary<OP, B, DST_ACCUM_MODE, MathFidelity::LoFi, R>(cb, cb, idst, true)));
+    }
 }
 
 // Channel tiles per DST round: fp32 half-sync DEST holds 4.
