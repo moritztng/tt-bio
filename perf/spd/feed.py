@@ -72,15 +72,12 @@ BH_POOLS = {
 
 # pgrep pattern for a release-gate leg on card %s, running or waiting for its flock. A leg that runs a perf script through
 # runpy (bc2_boundary, parity_*) names the gate only in its RELEASE_GATE_RUN_DIR env, so the pattern keys on that too.
-# A multi-card take (cfd2/cfd3 window scripts) raises a `release_gate` sentinel per card and waits until every card is
-# free, so the cards that free first idle behind it (10-16 qb2: chips 0, 2 and 3 for up to 6,000 s). A sentinel is a
-# placeholder process named `<who> spd_qb<N>_<chip|card><c>.lock <kind> <tag> ...`; its take is every card whose sentinel
-# carries the same who/kind/tag. The take cannot start before the feed jobs on its other cards end, so a waiter backfills
-# a sentinel's card with a job whose worst-case end (start + cap + 600 s of grace and reset, written to <job>.until) comes
-# before the latest .until on those cards; the take never starts later for it. A sentinel may name its own bound with
-# `until=<epoch>`, which then wins. A one-card sentinel (gapboard) and any real gate leg (not named like a sentinel) block.
-# A waiter that is only too long for such a window hands the dispatch flock on each poll, so a shorter job behind it
-# can take the card. Takers can size their wait from ~/spd/feed/jobs/*.until (card in the matching .card).
+# Everything else that wants a card books it in the box's booking file (book.py: CFD windows, the gapboard column). A
+# waiter takes a card only if its job's worst-case end (start + cap + 600 s of grace and reset, written to <job>.until)
+# comes before the card's next booking; a waiter too long for the gap hands the dispatch flock on each poll, so a shorter
+# job behind it can take the card. A renamed `sleep` that matches GATE_LEG is an old-style sentinel: it blocks for
+# SENT_S (600 s) after it started and is ignored after that (10-16 qb1: cfd3 rt4 sentinels re-raised every 5 min kept
+# three cards idle for hours with 21 jobs queued). Takers read worst-case ends from ~/spd/feed/jobs/*.until.
 GATE_LEG = "(spd_qb1_card|spd_qb2_chip|TT_VISIBLE_DEVICES=)%s[. ].*(RELEASE_GATE_RUN_DIR|release_gate|gate_fanout|perf_ab)"
 
 # Runs on the pool host: report state, existence of paths, and sweep dead entries. Payload is appended as JSON.
@@ -142,6 +139,9 @@ if A["kind"] == "galaxy":
     out["swept"] = moved
 else:
     J = H + "/spd/feed/jobs"; os.makedirs(J, exist_ok=True)
+    bk = H + "/spd/feed/book.py"   # the box's card arbiter (book.py), shipped by the feed so every runner reads one version
+    if A.get("book") and (not os.path.exists(bk) or open(bk).read() != A["book"]):
+        open(bk + ".tmp", "w").write(A["book"]); os.replace(bk + ".tmp", bk)
     cards = [c for c in A["cards"] if not os.path.exists(H + "/spd/locks/chip%d.BAD" % c)]
     # dead ARC: the class node reads 0xFFFFFFFF (10-15 qb1 card 2 for 70+ min while jobs kept dying there in init).
     # Logical card c is the c-th class node in PCI order, the order TT_VISIBLE_DEVICES and tt-smi use.
@@ -209,11 +209,10 @@ NODE = ('node() { for s in "${TT_SYSFS:-/sys/class/tenstorrent}"/*; do echo "$(b
         '${s##*!}"; done | sort | sed -n "$(($1 + 1))s/.* //p"; }; '
         'dead() { local n=$(node $1); [ -n "$n" ] && cat "${TT_SYSFS:-/sys/class/tenstorrent}/tenstorrent!$n/tt_aiclk" '
         '"${TT_SYSFS:-/sys/class/tenstorrent}/tenstorrent!$n/tt_heartbeat" 2>/dev/null | grep -qx 4294967295; }; '
-        'take() { pgrep -af "[.]lock (release_gate|perf_ab) " | awk -v a="$1" -v r="$2" -v c="$c" -v J="$J" \'function rd(p, v) { if ((getline v < p) <= 0) v = ""; close(p); return v } $2 == a && $3 ~ /^spd_qb[0-9]_(chip|card)[0-9]+[.]lock$/ { l = $3; $1 = $2 = $3 = ""; sub(/^ +/, ""); if ($0 != r) next; sub(/[.]lock$/, "", l); sub(/.*[a-z]/, "", l); if (l != c) k[l] } END { m = 0; while (("ls " J " 2>/dev/null") | getline f) { j = J "/" f; if (f ~ /[.]sh$/ && (rd(j ".card") in k) && system("[ -e \\"" j ".start\\" ] && [ ! -e \\"" j ".end\\" ]") == 0 && rd(j ".until") + 0 > m) m = rd(j ".until") + 0 } print m }\'; }; '
-        'gate() { local m p a l r e x=1 n=$(($(date +%s) + $1 + 600)); m=$(pgrep -af "$G") || return 1; '
-        'while read -r p a l r; do [[ $l =~ ^spd_qb[0-9]_(chip|card)[0-9]+[.]lock$ ]] || return 0; '
-        'e=$(grep -o "until=[0-9]*" <<<"$r" | cut -d= -f2); [ -n "$e" ] || e=$(take "$a" "$r"); [ $n -gt "${e:-0}" ] && x=0; '
-        'done <<<"$m"; [ $x = 1 ] || W=1; return $x; }; ')
+        'gate() { local p n=$(($(date +%s) + $1 + 600)) b; for p in $(pgrep -f "$G"); do '
+        '[ "$(cat /proc/$p/comm 2>/dev/null)" = sleep ] && [ "$(ps -o etimes= -p $p | tr -d " ")" -ge "${SENT_S:-600}" ] 2>/dev/null && continue; '
+        'return 0; done; b=$(python3 "${SPD_BOOK:-$HOME/spd/feed/book.py}" next $c 2>/dev/null) || b=; '
+        '[ $n -le "${b:-9999999999}" ] && return 1; W=1; return 0; }; ')
 
 
 def run_cmd(grace=120):
@@ -237,6 +236,7 @@ def run_cmd(grace=120):
 
 
 RUN = run_cmd()
+BOOK = (Path(__file__).parent / "book.py").read_text() if (Path(__file__).parent / "book.py").exists() else ""
 
 
 def outs(c):
@@ -259,9 +259,9 @@ for j in A["jobs"]:
             if os.path.exists(sh + x): os.remove(sh + x)
         open(sh, "w").write(j["body"]); open(sh + ".card", "w").write("-1")
         open(sh + ".outs", "w").write("".join(os.path.expanduser(d) + "\n" for d in j.get("outs", [])))
-        # Take the box's dispatch flock in turn, then the first card that is not BAD or dead-ARC, runs no release-gate leg and no
-        # gapboard sentinel (the scoreboard measuring main; checked again once its flock is held) and whose flock is
-        # free. 10-15: waiters bound to one card queued on busy cards 2 and 3 while qb1 card 0 sat free 15+ min.
+        # Take the box's dispatch flock in turn, then the first card that is not BAD or dead-ARC, runs no release-gate leg, has
+        # no booking before the job's worst-case end (checked again once its flock is held) and whose flock is free.
+        # 10-15: waiters bound to one card queued on busy cards 2 and 3 while qb1 card 0 sat free 15+ min.
         w = (NODE + 'exec 8>"$(dirname "$1")/.dispatch"; flock -w 86400 8 || { echo flockbusy > "$1.end"; exit 3; }; '
              'J="$(dirname "$1")"; D=$((SECONDS + 86400)); while :; do W=; for c in $2; do [ -e ~/spd/locks/chip$c.BAD ] && continue; dead $c && continue; '
              'G="' + GATE_LEG % "$c" + '"; '
@@ -577,7 +577,7 @@ def main(argv=None):
     st = {}
     for name, p in P.items():
         try:
-            st[name] = remote(p["ssh"], PROBE, {"kind": p["kind"], "paths": [x for x in paths], "cards": p.get("cards", []),
+            st[name] = remote(p["ssh"], PROBE, {"kind": p["kind"], "paths": [x for x in paths], "cards": p.get("cards", []), "book": BOOK,
                                              "lock": p.get("lock", ""), "sweep": not a.dry_run, "outdirs": outdirs})
         except Exception as e:  # an unreachable box is skipped, never fatal
             log(f"{name}: probe failed: {e}")
