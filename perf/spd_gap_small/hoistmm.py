@@ -27,14 +27,16 @@ M, K, N = 512, 768, 36864
 
 
 def programs(grid, acc, act):
-    """1D in0-multicast programs: all M rows on every core, N split over the cores."""
+    """1D in0-multicast programs: all M rows on every core, N split over the cores (the four largest core counts
+    that divide the N tiles and fit the grid, any rectangle)."""
     gx, gy = grid
     mt, kt, nt = M // 32, K // 32, N // 32
     cap = 4 if acc else 8
     out = []
-    for ncores in sorted({gx * gy, gx * (gy - 1), 64, 48, 32} - {0}):
-        if ncores > gx * gy or nt % ncores:
-            continue
+    shapes = sorted({(cx, n // cx) for n in range(32, gx * gy + 1) if nt % n == 0
+                     for cx in range(1, gx + 1) if n % cx == 0 and n // cx <= gy}, key=lambda c: -c[0] * c[1])
+    for cg in [c for i, c in enumerate(shapes) if all(c[0] * c[1] != d[0] * d[1] for d in shapes[:i])][:4]:
+        ncores = cg[0] * cg[1]
         pn = nt // ncores
         for ibw in (1, 2, 3, 4, 6):
             if kt % ibw:
@@ -42,9 +44,6 @@ def programs(grid, acc, act):
             subs = sorted(((h, w) for h in (1, 2, 4) for w in range(1, pn + 1)
                            if mt % h == 0 and pn % w == 0 and h * w <= cap), key=lambda s: -s[0] * s[1])[:2]
             for h, w in subs:
-                cg = (gx, ncores // gx) if ncores % gx == 0 else None
-                if cg is None:
-                    continue
                 out.append((f"1d_c{ncores}_k{ibw}_pn{pn}_sb{h}x{w}", ttnn.MatmulMultiCoreReuseMultiCast1DProgramConfig(
                     compute_with_storage_grid_size=cg, in0_block_w=ibw, out_subblock_h=h, out_subblock_w=w,
                     out_block_h=mt, out_block_w=pn, per_core_M=mt, per_core_N=pn, fuse_batch=True,
