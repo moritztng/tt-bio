@@ -711,8 +711,9 @@ _FAST_MODE = False
 #   dit_shoist      the DiT's conditioning as three wide linears a step whose columns each layer reads in place
 #                   (`addcmul_at`): OpenFold3's DiT, and Boltz-2's token DiT, where it takes precedence over
 #                   dit_cond_jit (adaLN modulation, the attention gate and the transition gate + residual each one op).
-#   dit_cond_kfold  under dit_cond_jit, the four biased conditioning linears carry their bias as one more K row of
-#                   the weight against a ones column appended to s, so the matmul runs without a bias epilogue.
+#   dit_cond_kfold  Boltz-2's token-DiT conditioning linears (dit_cond_jit's per-layer ones, and the hoist's under
+#                   dit_shoist) carry their bias as one more K row of the weight against a ones column appended to
+#                   s, so the matmul runs without a bias epilogue.
 #   apb_cat         the token attention's head re-assembly as one nlp_concat_heads, gate and output projection on
 #                   the padded head lanes (what TT_BIO_APB_CONCAT_HEADS does at load, exact), with the wide
 #                   weights re-laned from the bf16 device copies on the first call that takes it.
@@ -15108,6 +15109,24 @@ class DiffusionTransformer(Module):
             self._cond_ws = (up(torch.cat(sw, 1)), up(torch.cat(sb, 0)), up(torch.cat(bw, 1)))
         return self._cond_ws
 
+    def _cond_weights_kfold(self):
+        """`_cond_weights_split`'s scales and `_cond_weights`' output projections for `dit_cond_kfold`:
+        `(scale w with the bias row, shift w, output w with the bias row)`, each bias one more K row."""
+        if getattr(self, "_cond_wk", None) is None:
+            sw, sb, bw, ow, ob = [], [], [], [], []
+            for layer in self.layers:
+                for ad in (layer.adaln, layer.transition.adaln):
+                    scale_w, scale_b, bias_w = ad.folded_weights()
+                    sw.append(scale_w); sb.append(scale_b); bw.append(bias_w)
+                for ws, k in ((layer.weights, "output_projection_linear"),
+                              (layer.transition.weights, "output_projection.0")):
+                    ow.append(ws[f"{k}.weight"].t()); ob.append(ws[f"{k}.bias"])
+            dt = _dtype(ttnn.bfloat16)
+            up = lambda t: ttnn.from_torch(t, layout=ttnn.TILE_LAYOUT, device=self.device, dtype=dt)
+            self._cond_wk = (up(_bias_row(torch.cat(sw, 1), torch.cat(sb, 0))), up(torch.cat(bw, 1)),
+                             up(_bias_row(torch.cat(ow, 1), torch.cat(ob, 0))))
+        return self._cond_wk
+
     def _cond_weights_parts(self, kfold=False):
         """`_cond_weights_split` and the output projections per layer, for `dit_cond_jit`: one
         `(attn scale w, b, attn shift w, transition scale w, b, transition shift w, attn gate w, b,
@@ -15118,8 +15137,7 @@ class DiffusionTransformer(Module):
         if getattr(self, key, None) is None:
             dt = _dtype(ttnn.bfloat16)
             up = lambda t: ttnn.from_torch(t, layout=ttnn.TILE_LAYOUT, device=self.device, dtype=dt)
-            wb = lambda w, b: ((up(torch.cat([w, b.reshape(1, -1), w.new_zeros(31, w.shape[1])])), None)  # noqa: E731
-                               if kfold else (up(w), up(b)))
+            wb = lambda w, b: (up(_bias_row(w, b)), None) if kfold else (up(w), up(b))  # noqa: E731
             parts = []
             for layer in self.layers:
                 w = []
@@ -15174,7 +15192,6 @@ class DiffusionTransformer(Module):
             jit = (s_hat, self._cond_weights_parts(kf),
                    (self._ones_tile(s_hat), self._ones_tile(s)) if kf else (s_hat, s))
         elif _B2_DIT_COND_HOIST and not self.atom_level:
-            adw, adb, opw, opb = self._cond_weights()
             s_hat = ttnn.layer_norm(s, epsilon=1e-5,
                                     compute_kernel_config=self.compute_kernel_config)
             ckc = self.compute_kernel_config
@@ -15183,17 +15200,28 @@ class DiffusionTransformer(Module):
                                 math_approx_mode=ckc.math_approx_mode,
                                 fp32_dest_acc_en=ckc.fp32_dest_acc_en,
                                 packer_l1_acc=ckc.packer_l1_acc)
-            if _B2_ADALN_ADDCMUL or lever("adaln_mod"):
-                sw, sb, bw = self._cond_weights_split()
-                o_ad = (ttnn.linear(s_hat, sw, bias=sb, compute_kernel_config=ckc, activation="sigmoid"),
-                        ttnn.linear(s_hat, bw, compute_kernel_config=ckc))
-            else:
-                o_ad = ttnn.linear(s_hat, adw, bias=adb, compute_kernel_config=ckc)
-            ttnn.deallocate(s_hat)
-            # `activation="sigmoid"` here is where both output projections' sigmoids go: the
+            split = _B2_ADALN_ADDCMUL or lever("adaln_mod")
+            # `activation="sigmoid"` on the output projections is where both their sigmoids go: the
             # attention one already carried it in its own linear, and the transition one moves
             # off its multiply, which is told not to re-apply it.
-            o_op = ttnn.linear(s, opw, bias=opb, compute_kernel_config=ckc, activation="sigmoid")
+            if split and lever("dit_cond_kfold"):
+                swk, bw, owk = self._cond_weights_kfold()
+                s_hk, s_k = self._ones_tile(s_hat), self._ones_tile(s)
+                o_ad = (ttnn.linear(s_hk, swk, compute_kernel_config=ckc, activation="sigmoid"),
+                        ttnn.linear(s_hat, bw, compute_kernel_config=ckc))
+                o_op = ttnn.linear(s_k, owk, compute_kernel_config=ckc, activation="sigmoid")
+                for t in (s_hk, s_k):
+                    ttnn.deallocate(t)
+            else:
+                adw, adb, opw, opb = self._cond_weights()
+                if split:
+                    sw, sb, bw = self._cond_weights_split()
+                    o_ad = (ttnn.linear(s_hat, sw, bias=sb, compute_kernel_config=ckc, activation="sigmoid"),
+                            ttnn.linear(s_hat, bw, compute_kernel_config=ckc))
+                else:
+                    o_ad = ttnn.linear(s_hat, adw, bias=adb, compute_kernel_config=ckc)
+                o_op = ttnn.linear(s, opw, bias=opb, compute_kernel_config=ckc, activation="sigmoid")
+            ttnn.deallocate(s_hat)
             cond_all = (o_ad, o_op)
 
         d = self.dim
@@ -15271,6 +15299,11 @@ class DiffusionTransformer(Module):
                 for x in cond_all:
                     for t in (x if isinstance(x, tuple) else (x,)):
                         ttnn.deallocate(t)
+
+
+def _bias_row(w, b):
+    """[K, N] weight `w` with bias `b` as row K and 31 zero rows (one more K tile), for `dit_cond_kfold`."""
+    return torch.cat([w, b.reshape(1, -1), w.new_zeros(31, w.shape[1])])
 
 
 _PWA_WEIGHT_ROWS_REFUSED = {}  # pair shape -> row block PWA's token weights settled at
