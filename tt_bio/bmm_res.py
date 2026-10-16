@@ -64,7 +64,7 @@ def _build(a, b, out, C, mt, kt, nt, ta, tb, depth, fidelity, max_cores, abl=0):
                     wr[cx][cy] = [first * mt, per * mt]
                     first += per
     assert first == C, (first, C)
-    rct = [mt, kt, nt, int(ta), int(tb)]
+    rct = [mt, kt, nt, int(ta), int(tb), int(depth == 2)]
     for t in (a, b):
         rct.extend(ttnn.TensorAccessorArgs(t).get_compile_time_args())
     wct = [nt] + list(ttnn.TensorAccessorArgs(out).get_compile_time_args())
