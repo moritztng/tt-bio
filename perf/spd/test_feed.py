@@ -229,20 +229,20 @@ def test_a_long_waiting_bh_job_moves_to_a_free_card_on_the_other_box(tmp_path, m
     assert json.loads((tmp_path / "state/spd/feed/ledger.json").read_text())[key]["host"] == "qb2"
 
 
-def _place_bh(tmp_path, cards, body, cap=5, poll="0.2", leg_sid=None):
+def _place_bh(tmp_path, cards, body, cap=5, poll="0.2", leg_sid=None, reset="", name="4-x.sh"):
     (tmp_path / "spd/feed/jobs").mkdir(parents=True, exist_ok=True)
     # no release-gate leg but the test's own (session leg_sid): the test host's legs (pc runs some) would otherwise
     # hold a card in the waiter's pgrep
     stub = f"exec {shutil.which('pgrep')} -s {leg_sid} \"$@\"" if leg_sid else "exit 1"
     (tmp_path / "bin").mkdir(exist_ok=True); (tmp_path / "bin/pgrep").write_text(f"#!/bin/sh\n{stub}\n")
     (tmp_path / "bin/pgrep").chmod(0o755)
-    job = {"name": "4-x.sh", "body": body, "cards": cards, "lock": str(tmp_path / "l{c}"), "cap": cap}
-    r = subprocess.run([sys.executable, "-c", feed.PLACE], input=json.dumps({"kind": "bh", "jobs": [job]}) + "\n",
+    job = {"name": name, "body": body, "cards": cards, "lock": str(tmp_path / "l{c}"), "cap": cap}
+    r = subprocess.run([sys.executable, "-c", feed.PLACE], input=json.dumps({"kind": "bh", "jobs": [job], "reset": reset}) + "\n",
                        capture_output=True, text=True, check=True,
                        env={"HOME": str(tmp_path), "PATH": f"{tmp_path}/bin:" + os.environ["PATH"], "POLL": poll,
-                            "TT_SYSFS": str(tmp_path / "sys")})
+                            "TT_SYSFS": str(tmp_path / "sys"), "TT_DEV": "/dev/tt"})
     assert r.stdout.strip() == "1"
-    sh = tmp_path / "spd/feed/jobs/4-x.sh"
+    sh = tmp_path / "spd/feed/jobs" / name
     for _ in range(100):
         if Path(f"{sh}.end").exists():
             break
@@ -330,12 +330,12 @@ def sysfs(tmp_path, cards):
         (d / "tt_aiclk").write_text(clk + "\n"); (d / "tt_heartbeat").write_text(("4294967295" if clk == "4294967295" else "77") + "\n")
 
 
-def _run_capped(tmp_path, body, cap, reset="", name="4-x.sh"):
-    sh = tmp_path / name; sh.write_text(body)
+def _run_capped(tmp_path, body, cap, reset="", name="4-x.sh", init=True):
+    sh = tmp_path / name; sh.write_text(("echo 'TT_THROW: failed to initialize FW! Try resetting the board'\n" if init else "") + body)
     sysfs(tmp_path, {"0000:42:00.0": (3, "1350")})
     subprocess.run(["bash", "-c", feed.NODE + feed.run_cmd(grace=2), "_", str(sh), "0", "", str(tmp_path / "nolock"),
                     str(cap), reset], cwd=tmp_path, timeout=60, check=True,
-                   env=dict(os.environ, TT_SYSFS=str(tmp_path / "sys"), TT_DEV="/dev/tt"))
+                   env=dict(os.environ, TT_SYSFS=str(tmp_path / "sys"), TT_DEV="/dev/tt", SPD_LOCKS=str(tmp_path / "locks")))
     return (tmp_path / f"{name}.end").read_text().strip()
 
 
@@ -381,6 +381,9 @@ def test_a_capped_job_resets_its_card_and_a_clean_one_does_not(tmp_path):
 def test_two_different_jobs_failing_fast_on_one_card_reset_it(tmp_path):
     # 10-16 00:12Z qb1 card 0: six jobs of four rows failed init in 15 s each until the card was reset by hand
     r = tmp_path / "reset.sh"; r.write_text('echo "$1" >> "$(dirname "$0")/resets"\n'); r.chmod(0o755)
+    assert _run_capped(tmp_path, "exit 1\n", 30, str(r), "4-p.sh", init=False) == "1"
+    assert _run_capped(tmp_path, "exit 1\n", 30, str(r), "4-q.sh", init=False) == "1"   # two broken cells: not the card
+    assert _run_capped(tmp_path, "exit 0\n", 30, str(r), "4-r.sh") == "0"
     assert _run_capped(tmp_path, "exit 1\n", 30, str(r), "4-a.sh") == "1"
     assert _run_capped(tmp_path, "exit 1\n", 30, str(r), "4-a.sh") == "1"        # the same job again: the job's fault
     assert _run_capped(tmp_path, "exit 1\n", 30, str(r), "4-b.sh") == "1 fastfail2 reset"
@@ -389,7 +392,19 @@ def test_two_different_jobs_failing_fast_on_one_card_reset_it(tmp_path):
     assert _run_capped(tmp_path, "exit 0\n", 30, str(r), "4-d.sh") == "0"        # a clean exit clears it too
     assert _run_capped(tmp_path, "exit 1\n", 30, str(r), "4-e.sh") == "1"
     assert _run_capped(tmp_path, "exit 127\n", 30, str(r), "4-f.sh") == "127"    # a missing command is not the card
-    assert _run_capped(tmp_path, "exit 1\n", 30, "", "4-g.sh") == "1"           # qb2: no reset command, no reset
+    assert _run_capped(tmp_path, "exit 1\n", 30, "", "4-g.sh") == "1 fastfail2 bad"  # qb2: no reset, chip off the feed
+    assert "device init" in (tmp_path / "locks/chip0.BAD").read_text()           # qb2: off the feed instead
+    assert (tmp_path / "resets").read_text() == "/dev/tt/3\n"
+
+
+def test_a_placed_qb1_job_carries_the_reset_command(tmp_path):
+    # 10-16: the waiter's `set --` dropped the reset argument, so no capped or fastfail2 reset ever ran on qb1
+    # (six "124 INT+TERM" ends, none followed by a reset); the run_cmd tests passed it directly and stayed green
+    sysfs(tmp_path, {"0000:42:00.0": (3, "1350")})
+    r = tmp_path / "reset.sh"; r.write_text('echo "$1" >> "$(dirname "$0")/resets"\n'); r.chmod(0o755)
+    fail = "echo 'failed to initialize FW! Try resetting the board'; exit 1\n"
+    assert Path(f"{_place_bh(tmp_path, [0], fail, reset=str(r), name='4-a.sh')}.end").read_text().strip() == "1"
+    assert Path(f"{_place_bh(tmp_path, [0], fail, reset=str(r), name='4-b.sh')}.end").read_text().strip() == "1 fastfail2 reset"
     assert (tmp_path / "resets").read_text() == "/dev/tt/3\n"
 
 
