@@ -45,7 +45,7 @@ def _b_depth(kt, nt, a_bytes, b_bytes, budget=L1_BUDGET, transpose_a=False):
     return 0
 
 
-def _build(a, b, out, C, mt, kt, nt, ta, tb, depth, fidelity, max_cores):
+def _build(a, b, out, C, mt, kt, nt, ta, tb, depth, fidelity, max_cores, abl=0):
     g = a.device().compute_with_storage_grid_size()
     _, grid, cg1, cg2, work1, work2 = core_split.split_work_to_cores(g, C, max_cores)
 
@@ -71,13 +71,14 @@ def _build(a, b, out, C, mt, kt, nt, ta, tb, depth, fidelity, max_cores):
     path = ttnn.KernelDescriptor.SourceType.FILE_PATH
     reader = ttnn.KernelDescriptor(kernel_source=str(KERNEL_DIR / "reader.cpp"), source_type=path, core_ranges=grid,
                                    compile_time_args=rct, runtime_args=rd, common_runtime_args=[0] * 2,
-                                   defines=[], config=ttnn.ReaderConfigDescriptor())
+                                   defines=[("BRES_NO_A", "1")] if abl & 4 else [], config=ttnn.ReaderConfigDescriptor())
     writer = ttnn.KernelDescriptor(kernel_source=str(WRITER), source_type=path, core_ranges=grid,
                                    compile_time_args=wct, runtime_args=wr, common_runtime_args=[0],
-                                   defines=[], config=ttnn.WriterConfigDescriptor())
+                                   defines=[("WS_NO_WRITE", "1")] if abl & 2 else [], config=ttnn.WriterConfigDescriptor())
     compute = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "compute.cpp"), source_type=path, core_ranges=grid,
-        compile_time_args=[mt, kt, nt, int(ta), int(tb)], runtime_args=cp, defines=[],
+        compile_time_args=[mt, kt, nt, int(ta), int(tb)], runtime_args=cp,
+        defines=[("BRES_NO_MM", "1")] if abl & 1 else [],
         config=ttnn.ComputeConfigDescriptor(math_fidelity=fidelity, fp32_dest_acc_en=True))
     a_cb = cb(A_CB, kt, ttnn.bfloat16) if ta else cb(A_CB, A_DEPTH * kt, a.dtype)
     cbs = [a_cb, cb(B_CB, depth * kt * nt, b.dtype), cb(OUT_CB, 2 * nt, ttnn.bfloat16)]
@@ -87,12 +88,13 @@ def _build(a, b, out, C, mt, kt, nt, ta, tb, depth, fidelity, max_cores):
 
 
 def matmul(a, b, compute_kernel_config=None, transpose_a=False, transpose_b=False, budget=L1_BUDGET, max_cores=0,
-           depth=None):
+           depth=None, abl=0):
     """``a @ b`` over the channel axis as a new bf16 DRAM tensor, or None if the call is outside what the kernel does.
 
     It sums K in an fp32 dest at the caller's fidelity (HiFi4 without a config); a bf16-dest config declines.
     `max_cores` caps the channel split (0 = the whole grid) and `depth` forces b's channel depth; both are bench
-    knobs that move scheduling, never a number.
+    knobs that move scheduling, never a number. `abl` is a bench-only stage mask that does change the result:
+    1 skips the matmuls, 2 the output writes, 4 the reads of a (time attribution, af2_trimul_bmm_sweep --abl).
     """
     if compute_kernel_config is not None and not compute_kernel_config.fp32_dest_acc_en:
         return None
@@ -121,9 +123,9 @@ def matmul(a, b, compute_kernel_config=None, transpose_a=False, transpose_b=Fals
     out = ttnn.allocate_tensor_on_device(ttnn.Shape(shape),
                                          ttnn.bfloat16, ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG)
     key = (dev.id(), tuple(sa), tuple(sb), a.dtype, b.dtype, a.memory_config().buffer_type,
-           b.memory_config().buffer_type, transpose_a, transpose_b, depth, fidelity, max_cores)
+           b.memory_config().buffer_type, transpose_a, transpose_b, depth, fidelity, max_cores, abl)
     if key not in _CACHE:
-        _CACHE[key] = _build(a, b, out, C, mt, kt, nt, transpose_a, transpose_b, depth, fidelity, max_cores)
+        _CACHE[key] = _build(a, b, out, C, mt, kt, nt, transpose_a, transpose_b, depth, fidelity, max_cores, abl)
     kernels, cbs = _CACHE[key]
     kernels[0].common_runtime_args = [a.buffer_address(), b.buffer_address()]
     kernels[1].common_runtime_args = [out.buffer_address()]

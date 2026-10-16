@@ -61,9 +61,11 @@ void kernel_main() {
             cb_wait_front(cb_a, KT);
             for (uint32_t n = 0; n < NT; n += OG) {
                 tile_regs_acquire();
+#ifndef BRES_NO_MM  // time attribution only (af2_trimul_bmm_sweep --abl)
                 for (uint32_t k = 0; k < KT; ++k) {
                     matmul_block(cb_a, cb_b, k, k * NT + n, 0, TB, OG, 1, KT);
                 }
+#endif
                 tile_regs_commit();
                 cb_reserve_back(cb_out, OG);
                 tile_regs_wait();

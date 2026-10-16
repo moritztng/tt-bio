@@ -80,6 +80,8 @@ def main():
                     help="operand format (bfp8: production's trimul_b8in einsum inputs)")
     ap.add_argument("--res", action="store_true",
                     help="add tt_bio/bmm_res arms (b[c] resident in L1, whole channels per core)")
+    ap.add_argument("--abl", default="",
+                    help="with --res: bmm_res stage masks to time (1 no matmul, 2 no write, 4 no a read; e.g. 1,2,3,6,7)")
     a = ap.parse_args()
     dev = tt.get_device()
     gx, gy = tt.COMPUTE_GRID_MAIN
@@ -127,7 +129,8 @@ def main():
                             out_subblock_w=1, per_core_M=m, per_core_N=St))))
             if a.res:
                 from tt_bio import bmm_res
-                for name, kw in (("res", {}), ("res_d1", {"depth": 1}), ("res_c64", {"max_cores": 64})):
+                ablk = tuple((f"res_abl{m}", {"abl": m}) for m in map(int, filter(None, a.abl.split(","))))
+                for name, kw in (("res", {}), ("res_d1", {"depth": 1}), ("res_c64", {"max_cores": 64})) + ablk:
                     arms.append((name, (lambda kw: lambda: bmm_res.matmul(x, y, ckc, **tkw, **kw))(kw)))
             cell = {"S": S, "C": C, "St": St, "arms": []}
             ref = None

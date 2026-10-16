@@ -44,9 +44,11 @@ void kernel_main() {
         for (uint32_t r = 0; r < MT; ++r) {
             cb_reserve_back(cb_a, KT);
             w = get_write_ptr(cb_a);
+#ifndef BRES_NO_A  // time attribution only (af2_trimul_bmm_sweep --abl)
             for (uint32_t k = 0; k < KT; ++k, w += ta) {
                 noc_async_read_page(c * MT * KT + (TA ? k * MT + r : r * KT + k), sa, w);
             }
+#endif
             noc_async_read_barrier();
             cb_push_back(cb_a, KT);
         }
