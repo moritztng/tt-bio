@@ -655,8 +655,8 @@ _FAST_MODE = False
 #   trimul_t1_dram  every trimul T1 / T2 can take (N >= 160) runs on the DRAM path, so they also serve the sizes
 #                   that would otherwise stay in L1 (Nesso-1's 256-token crop passes: 0.70 -> 0.36 s each on WH)
 #   trimul_bres     the trimul einsum by `bmm_res` (b[c] resident in L1, whole channels per core) where it fits:
-#                   a, b and out cross DRAM once. One fp32 dest pass over all of K, so not bit-exact with ttnn.matmul
-#                   (rel L2 vs float64 0.0044 vs 0.0045 at 512 c256)
+#                   a, b and out cross DRAM once. Bit-exact with ttnn.matmul in ESMFold2 folds (byte-identical coords
+#                   on both archs); declines to ttnn.matmul where b[c] does not fit L1 (above 704 tokens bf16, 960 bfp8)
 #   trimul_t2cm     with trimul_t2, T2 reads the einsum's channel-major [1, C, S, S] output itself (T2m's program with
 #                   the whole hidden as its one chunk), so `reblock_permute_back`
 #                   (0.58 ms a call at 512 on p150a) never runs. A pure data move: bit-exact against trimul_t2
