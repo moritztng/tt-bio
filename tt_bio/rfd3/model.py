@@ -401,6 +401,10 @@ DIT_SDPA_CALLS = [0]
 # off by more than 0.25). Normal mode, 4 paired WH seeds: 100.1 -> 91.4 s/design, drift 3.8-10.1 A against a
 # 14.2-18.0 A seed floor, breaks 2 -> 2, clashes 61.5 -> 52.8. On in both modes; RFD3_DPB=0 restores the chain.
 _DPB_ON = env_flag("RFD3_DPB", True)
+# The token encoder's pairformer pair bias through the same program: 16 heads (W^T zero-padded to one 32-head tile,
+# the second half written to a scratch output), scale 1, the key pad at -1e4 from the mask. Replaces the linear
+# [I*I, 128] @ [128, 16] (2.03 ms a call on WH @1000 against a 0.62 ms roof), its permute and the fp32 pad.
+_PF_DPB = env_flag("RFD3_PF_DPB", False)
 # The DiT builds all 18 blocks' masks in one pass while the stack fits under this many bytes
 # (bf16, 18 x 16 heads x n_key^2: 1317 tokens); above it each block builds its own.
 _DIT_SDPA_STACK_BYTES = int(float(os.environ.get("RFD3_DIT_SDPA_STACK_BYTES", "1e9")))
@@ -1340,9 +1344,14 @@ class PairformerAttention(Module):
         # pair bias: [1,I,I,128] -> rms_norm -> linear -> [1,I,I,16] -> [1,16,I,I]
         z = ttnn.rms_norm(z, weight=self.ln_0_w, epsilon=1e-6,
                            compute_kernel_config=self.compute_kernel_config)
-        bias = _tuned_linear(z, self.to_b_w, ckc=self.compute_kernel_config,
-                             dtype=self.dtype, core_grid=CORE_GRID_MAIN)
-        bias = ttnn.permute(bias, (0, 3, 1, 2))  # [1,16,I,I]
+        n_key = align_tile(I)
+        bias_f = self._pair_bias_dpb(z, I, n_key) if _PF_DPB else None
+        if bias_f is None:
+            bias = _tuned_linear(z, self.to_b_w, ckc=self.compute_kernel_config,
+                                 dtype=self.dtype, core_grid=CORE_GRID_MAIN)
+            bias = ttnn.permute(bias, (0, 3, 1, 2))  # [1,16,I,I]
+            bias_f = ttnn.typecast(bias, ttnn.float32, memory_config=bias.memory_config())
+            bias_f = pad_axis(bias_f, n_key, 3, -1e4)
         # Manual attention (SDPA forbids head_dim=24 padding); bf16 softmax matches the
         # reference (autocast bf16). softmax over keys (dim=-1).
         #
@@ -1352,7 +1361,6 @@ class PairformerAttention(Module):
         # ttnn.softmax masks its own tail) but it is the fused softmax going dark on every call
         # at every design length that is not a multiple of 32: censused 6 of 6. See
         # tt_bio/token_axis.py and PLAYBOOKS.md §MODEL 2b.
-        n_key = align_tile(I)
         k = pad_axis(k, n_key, 2, 0.0)
         v = pad_axis(v, n_key, 2, 0.0)
         kt = ttnn.permute(k, (0, 1, 3, 2))                 # [1,16,24,n_key]
@@ -1360,8 +1368,6 @@ class PairformerAttention(Module):
         ttnn.deallocate(kt)
         sc = ttnn.typecast(sc, ttnn.float32, memory_config=sc.memory_config())
         sc = ttnn.multiply(sc, self.head_dim ** -0.5)
-        bias_f = ttnn.typecast(bias, ttnn.float32, memory_config=bias.memory_config())
-        bias_f = pad_axis(bias_f, n_key, 3, -1e4)
         sc = ttnn.add(sc, bias_f)
         ttnn.deallocate(bias_f)
         # fp32 softmax reduction, packing bf16 straight out of DST -- one kernel, and the
@@ -1377,6 +1383,34 @@ class PairformerAttention(Module):
         o = ttnn.multiply(o, ttnn.sigmoid(g))
         out = ttnn.linear(o, self.to_a_w, compute_kernel_config=self.compute_kernel_config,
                             dtype=self.dtype, core_grid=CORE_GRID_MAIN)
+        return out
+
+
+    def _pair_bias_dpb(self, z, I, n_key):
+        """[B, 16, I, n_key] fp32 pair bias, keys >= I at -1e4, from one dit_pair_bias program; None when z
+        does not fit it. The bias is bf16 out of the program as out of the linear, so the fp32 cast is exact."""
+        B = int(z.shape[0])
+        if getattr(self, "_b_wt32", None) is None:
+            w = torch.zeros(1, 1, 32, int(z.shape[3]))
+            w[0, 0, :self.n_head] = self.weights["to_b.weight"].float()
+            self._b_wt32 = ttnn.from_torch(w, layout=ttnn.TILE_LAYOUT, device=self.device, dtype=self.dtype)
+            self._pf_masks = {}
+        mask = self._pf_masks.get((I, n_key))
+        if mask is None:
+            m = torch.full((1, 1, n_key, n_key), -1e4)
+            m[..., :I, :I] = 0.0
+            mask = self._pf_masks[(I, n_key)] = ttnn.from_torch(m, layout=ttnn.TILE_LAYOUT, device=self.device,
+                                                                dtype=self.dtype)
+        if int(z.padded_shape[2]) != n_key or not _DPB.eligible(z, self._b_wt32, mask):
+            return None
+        bias, scratch = _DPB.dit_pair_bias(z, self._b_wt32, mask, 1.0,
+                                           self.compute_kernel_config.math_fidelity, n_out=2)
+        ttnn.deallocate(scratch)
+        if I != n_key:
+            bias = ttnn.reshape(bias, ttnn.Shape([B, self.n_head, I, n_key]),
+                                ttnn.Shape([B, self.n_head, n_key, n_key]))
+        out = ttnn.typecast(bias, ttnn.float32)
+        ttnn.deallocate(bias)
         return out
 
 
