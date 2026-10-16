@@ -7,6 +7,8 @@ mask out [1, 4, 6080, 6080] bf16 (296 MB). Modes (rfd3_bias.DIAG):
   1  every tile from the fill tile, scan kept (no pokes, no slot refill)
   2  shipped work, no DRAM writes
   3  every tile from the fill tile, no scan: the write alone
+and two write roofs at the mask's shape: `full` (ttnn.full, a write-only op) and `clone` (reads + writes it), with
+GB/s counting written bytes only, so mode 3 can be put against what this chip's DRAM takes in writes.
 Mode 0 is checked element for element against a torch scatter of the same inputs. The index is synthetic (each row
 draws 128 distinct keys around its own position, spread like a folded chain's neighbours); `occ` reports the
 fraction of key tiles that hold any index, the number that sets how much of the op is pokes.
@@ -73,6 +75,22 @@ def main():
         rec[f"mode{mode}"] = r
         print(mode, r, flush=True)
     RB.DIAG = 0
+    shape, wbytes = [1, H, n, n], H * n * n * 2
+    src = ttnn.full(shape, -1e4, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev)
+    for name, fn in (("full", lambda: ttnn.full(shape, -1e4, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev)),
+                     ("clone", lambda: ttnn.clone(src))):
+        ttnn.deallocate(fn())
+        ttnn.synchronize_device(dev)
+        ts = []
+        for _ in range(N_REP):
+            t0 = time.perf_counter()
+            o = fn()
+            ttnn.synchronize_device(dev)
+            ts.append((time.perf_counter() - t0) * 1e3)
+            ttnn.deallocate(o)
+        rec[name] = {"ms_median": statistics.median(ts), "write_GBs": wbytes / statistics.median(ts) / 1e6}
+        print(name, rec[name], flush=True)
+    ttnn.deallocate(src)
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps(rec, indent=1))
     print("wrote", OUT)
