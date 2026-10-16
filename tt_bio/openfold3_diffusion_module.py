@@ -518,6 +518,8 @@ class OF3DiffusionModule(Module):
                                 compute_kernel_config=self.compute_kernel_config)
         si_proj = self._lin(si_ln, self.w_ls)                  # [1, n_tok_pad, 768]
         ttnn.deallocate(si_ln)
+        if int(si_proj.shape[1]) == n_token:                  # tile-aligned tokens: nothing to cut
+            return si_proj
         si_proj = ttnn.to_layout(si_proj, ttnn.ROW_MAJOR_LAYOUT)
         si_proj = ttnn.slice(si_proj, [0, 0, 0], [1, n_token, 768])
         return ttnn.to_layout(si_proj, ttnn.TILE_LAYOUT)
