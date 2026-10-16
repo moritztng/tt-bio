@@ -8,6 +8,11 @@ b[c] into L1 once (512 KB bf16 at 512 tokens, two channels deep when L1 allows),
 it and writes out[c], so a, b and out each cross DRAM once. The reader, compute and writer are pair_linear's, keyed
 per channel. One fp32 dest pass over all of K.
 
+`transpose_a` / `transpose_b` take ttnn.matmul's meaning (the operand is stored [.., K, M] / [.., N, K]), which is
+how the trimul's gin_moved chunks arrive: the reader fetches tiles in the transposed order, the matmul unpacker
+transposes each b tile, and compute transposes each a tile into a staging CB before it multiplies (ttnn's in0
+transpose). A tile transpose moves values only, so neither changes a number.
+
 The trimul einsum calls it under the `trimul_bres` lever (tenstorrent.py); perf/spd/af2_trimul_bmm_sweep.py --res times it.
 `matmul` returns the product or None, and None means the caller keeps its own path.
 """
@@ -23,23 +28,23 @@ from . import mm_generic as MG
 
 KERNEL_DIR = Path(__file__).resolve().parent / "kernels" / "bmm_res"
 WRITER = Path(__file__).resolve().parent / "kernels" / "pair_swiglu_ws" / "writer.cpp"
-A_CB, B_CB, OUT_CB = 0, 1, 16
+A_CB, B_CB, A_RAW_CB, OUT_CB = 0, 1, 2, 16
 A_DEPTH = 2            # row tiles of a in flight per core
-#: L1 a core may spend on CBs: b B_DEPTH * kt * nt + a A_DEPTH * kt + out 2 * nt tiles.
+#: L1 a core may spend on CBs: b depth * kt * nt + a A_DEPTH * kt (+ kt staged for transpose_a) + out 2 * nt tiles.
 L1_BUDGET = 1200 * 1024
 _CACHE: dict = {}
 
 
-def _b_depth(kt, nt, a_bytes, b_bytes, budget=L1_BUDGET):
+def _b_depth(kt, nt, a_bytes, b_bytes, budget=L1_BUDGET, transpose_a=False):
     """Channels of b in flight (2, 1), or 0 if one does not fit."""
-    rest = A_DEPTH * kt * a_bytes + 2 * nt * MG.tile_bytes(ttnn.bfloat16)
+    rest = (A_DEPTH + transpose_a) * kt * a_bytes + 2 * nt * MG.tile_bytes(ttnn.bfloat16)
     for depth in (2, 1):
         if depth * kt * nt * b_bytes + rest <= budget:
             return depth
     return 0
 
 
-def _build(a, b, out, C, mt, kt, nt, depth, fidelity, max_cores):
+def _build(a, b, out, C, mt, kt, nt, ta, tb, depth, fidelity, max_cores):
     g = a.device().compute_with_storage_grid_size()
     _, grid, cg1, cg2, work1, work2 = core_split.split_work_to_cores(g, C, max_cores)
 
@@ -58,7 +63,7 @@ def _build(a, b, out, C, mt, kt, nt, depth, fidelity, max_cores):
                     wr[cx][cy] = [first * mt, per * mt]
                     first += per
     assert first == C, (first, C)
-    rct = [mt, kt, nt]
+    rct = [mt, kt, nt, int(ta), int(tb)]
     for t in (a, b):
         rct.extend(ttnn.TensorAccessorArgs(t).get_compile_time_args())
     wct = [nt] + list(ttnn.TensorAccessorArgs(out).get_compile_time_args())
@@ -71,16 +76,21 @@ def _build(a, b, out, C, mt, kt, nt, depth, fidelity, max_cores):
                                    defines=[], config=ttnn.WriterConfigDescriptor())
     compute = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "compute.cpp"), source_type=path, core_ranges=grid,
-        compile_time_args=[mt, kt, nt], runtime_args=cp, defines=[],
+        compile_time_args=[mt, kt, nt, int(ta), int(tb)], runtime_args=cp, defines=[],
         config=ttnn.ComputeConfigDescriptor(math_fidelity=fidelity, fp32_dest_acc_en=True))
-    cbs = [cb(A_CB, A_DEPTH * kt, a.dtype), cb(B_CB, depth * kt * nt, b.dtype), cb(OUT_CB, 2 * nt, ttnn.bfloat16)]
+    cbs = [cb(A_CB, (1 if ta else A_DEPTH) * kt, a.dtype), cb(B_CB, depth * kt * nt, b.dtype),
+           cb(OUT_CB, 2 * nt, ttnn.bfloat16)]
+    if ta:
+        cbs.append(cb(A_RAW_CB, A_DEPTH * kt, a.dtype))
     return [reader, writer, compute], cbs
 
 
-def matmul(a, b, compute_kernel_config=None, budget=L1_BUDGET, max_cores=0, depth=None):
+def matmul(a, b, compute_kernel_config=None, transpose_a=False, transpose_b=False, budget=L1_BUDGET, max_cores=0,
+           depth=None):
     """``a @ b`` over the channel axis as a new bf16 DRAM tensor, or None if the call is outside what the kernel does.
 
-    It sums K in an fp32 dest at the caller's fidelity (HiFi4 without a config); a bf16-dest config declines.
+    It sums K in an fp32 dest at the caller's fidelity (HiFi4 without a config); a bf16-dest config declines, and so
+    does transpose_a on a bfp8 `a` (repacking a transposed tile regroups its shared exponents).
     `max_cores` caps the channel split (0 = the whole grid) and `depth` forces b's channel depth; both are bench
     knobs that move scheduling, never a number.
     """
@@ -93,21 +103,29 @@ def matmul(a, b, compute_kernel_config=None, budget=L1_BUDGET, max_cores=0, dept
                 or mc.memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED or len(t.shape) != 4
                 or int(t.shape[0]) != 1):
             return None
-    sa, sb = [int(d) for d in a.padded_shape], [int(d) for d in b.padded_shape]
-    if sa[1] != sb[1] or sa[3] != sb[2]:
+    if transpose_a and a.dtype != ttnn.bfloat16:
         return None
-    C, mt, kt, nt = sa[1], sa[2] // 32, sa[3] // 32, sb[3] // 32
-    fit = _b_depth(kt, nt, MG.tile_bytes(a.dtype), MG.tile_bytes(b.dtype), budget)
+    sa, sb = [int(d) for d in a.padded_shape], [int(d) for d in b.padded_shape]
+    if (transpose_a or transpose_b) and (sa != [int(d) for d in a.shape] or sb != [int(d) for d in b.shape]):
+        return None
+    M, K = (sa[3], sa[2]) if transpose_a else (sa[2], sa[3])
+    K2, N = (sb[3], sb[2]) if transpose_b else (sb[2], sb[3])
+    if sa[1] != sb[1] or K != K2:
+        return None
+    C, mt, kt, nt = sa[1], M // 32, K // 32, N // 32
+    fit = _b_depth(kt, nt, MG.tile_bytes(a.dtype), MG.tile_bytes(b.dtype), budget, transpose_a)
     depth = min(depth or fit, fit)
     if not depth:
         return None
     dev = a.device()
-    out = ttnn.allocate_tensor_on_device(ttnn.Shape([int(d) for d in a.shape][:-1] + [int(b.shape[-1])]),
+    am, bn = (-1 if transpose_a else -2), (-2 if transpose_b else -1)
+    shape = [int(d) for d in a.shape][:-2] + [int(a.shape[am]), int(b.shape[bn])]
+    out = ttnn.allocate_tensor_on_device(ttnn.Shape(shape),
                                          ttnn.bfloat16, ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG)
     key = (dev.id(), tuple(sa), tuple(sb), a.dtype, b.dtype, a.memory_config().buffer_type,
-           b.memory_config().buffer_type, depth, fidelity, max_cores)
+           b.memory_config().buffer_type, transpose_a, transpose_b, depth, fidelity, max_cores)
     if key not in _CACHE:
-        _CACHE[key] = _build(a, b, out, C, mt, kt, nt, depth, fidelity, max_cores)
+        _CACHE[key] = _build(a, b, out, C, mt, kt, nt, transpose_a, transpose_b, depth, fidelity, max_cores)
     kernels, cbs = _CACHE[key]
     kernels[0].common_runtime_args = [a.buffer_address(), b.buffer_address()]
     kernels[1].common_runtime_args = [out.buffer_address()]

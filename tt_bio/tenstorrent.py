@@ -10265,15 +10265,16 @@ class TriangleMultiplication(Module):
                             a_chunk, mask_moved(perm_a == (0, 3, 2, 1) and not defer_a))
                     _st = (branch, "defer" if (defer_a or defer_b) else "keep")
                     TRIMUL_MM_TRANSPOSE_STATS[_st] = TRIMUL_MM_TRANSPOSE_STATS.get(_st, 0) + 1
-                    # `trimul_bres`: b[c] resident in L1, every operand read from DRAM once (bmm_res);
-                    # it declines (None) where b[c] does not fit or a layout is not its own.
+                    # `trimul_bres`: b[c] resident in L1, every operand read from DRAM once (bmm_res),
+                    # taking the deferred transpose as ttnn.matmul would; it declines (None) where b[c]
+                    # does not fit or a layout is not its own.
                     x_chunk = None
-                    if (lever("trimul_bres") and not (defer_a or defer_b)
-                            and out_mc.buffer_type == ttnn.BufferType.DRAM
+                    if (lever("trimul_bres") and out_mc.buffer_type == ttnn.BufferType.DRAM
                             and out_mc.memory_layout == ttnn.TensorMemoryLayout.INTERLEAVED):
                         x_chunk = _bmm_res.matmul(
                             a_chunk, b_chunk,
-                            compute_kernel_config=_trimul_einsum_ckc(self.compute_kernel_config))
+                            compute_kernel_config=_trimul_einsum_ckc(self.compute_kernel_config),
+                            transpose_a=defer_a, transpose_b=defer_b)
                     if x_chunk is None:
                         x_chunk = ttnn.matmul(
                             a_chunk,

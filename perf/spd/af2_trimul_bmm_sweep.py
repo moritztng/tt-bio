@@ -77,7 +77,7 @@ def main():
     ap.add_argument("--rows", default="", help="per_core_M values (tiles, dividing St) for row-block reuse arms")
     ap.add_argument("--fid", default="HiFi4", help="math fidelity of every arm")
     ap.add_argument("--res", action="store_true",
-                    help="add tt_bio/bmm_res arms (b[c] resident in L1, whole channels per core; --transpose none only)")
+                    help="add tt_bio/bmm_res arms (b[c] resident in L1, whole channels per core)")
     a = ap.parse_args()
     dev = tt.get_device()
     gx, gy = tt.COMPUTE_GRID_MAIN
@@ -124,10 +124,10 @@ def main():
                         arms.append((f"reuse_m{m}_k{kw}", mm(program_config=ttnn.MatmulMultiCoreReuseProgramConfig(
                             compute_with_storage_grid_size=(gx, gy), in0_block_w=kw, out_subblock_h=1,
                             out_subblock_w=1, per_core_M=m, per_core_N=St))))
-            if a.res and a.transpose == "none":
+            if a.res:
                 from tt_bio import bmm_res
                 for name, kw in (("res", {}), ("res_d1", {"depth": 1}), ("res_c64", {"max_cores": 64})):
-                    arms.append((name, (lambda kw: lambda: bmm_res.matmul(x, y, ckc, **kw))(kw)))
+                    arms.append((name, (lambda kw: lambda: bmm_res.matmul(x, y, ckc, **tkw, **kw))(kw)))
             cell = {"S": S, "C": C, "St": St, "arms": []}
             ref = None
             for name, fn in arms:
