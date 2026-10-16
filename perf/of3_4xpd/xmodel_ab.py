@@ -336,6 +336,8 @@ def main():
         "SMALL_GRID_SEQ_TILE", "SMALL_GRID_PAIR_TILE_AREA", "SDPA_CHUNK_MAX",
         "PAIRFORMER_PAD_MULTIPLE", "TRIANGLE_MULT_CHUNK_SIZE")}
     res["fp32_softmax_stats"] = dict(T.FP32_SOFTMAX_STATS)
+    from tt_bio import addcmul_at as _aca
+    res["addcmul_at_stats"] = list(_aca.STATS)   # (served, declined): dit_shoist windows
     res["fp32_softmax_l1_row_caps"] = {str(k): v for k, v in T._FP32_SOFTMAX_L1_ROW_CAP.items()}
     res["transpose_l1_refused_keys"] = sorted(
         str(k) for k in getattr(T, "_TRANSPOSE_L1_REFUSED", ()))

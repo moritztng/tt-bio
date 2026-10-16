@@ -6,7 +6,7 @@
   "envelope": {
     "reference_commit": "Biohub/transformers fork f9a5a37 (vendored tt_bio/_vendor/esmfold2_hf)",
     "reference_impl": "tt-bio vendored torch reference (CPU fp32)",
-    "reference_version": "biohub/ESMFold2-Fast sha256:None (24-block release trunk), dtype fp32",
+    "reference_version": "biohub/ESMFold2-Fast sha256:60ca19f2898188beba92944365f7b909efd9c99212f5018af75cc47cd9a6184a (24-block release trunk), dtype fp32",
     "seeds": [
       0,
       1
@@ -28,7 +28,7 @@
   },
   "reference_commit": "Biohub/transformers fork f9a5a37 (vendored tt_bio/_vendor/esmfold2_hf)",
   "reference_impl": "tt-bio vendored torch reference (Biohub/transformers fork f9a5a37, CPU fp32)",
-  "reference_version": "biohub/ESMFold2-Fast sha256:None (24-block release trunk)",
+  "reference_version": "biohub/ESMFold2-Fast sha256:60ca19f2898188beba92944365f7b909efd9c99212f5018af75cc47cd9a6184a (24-block release trunk)",
   "seeds": [
     0,
     1
@@ -45,7 +45,7 @@
     ],
     "single_sequence": true,
     "dtype": "fp32",
-    "checkpoint": "biohub/ESMFold2-Fast sha256:None (24-block release trunk)",
+    "checkpoint": "biohub/ESMFold2-Fast sha256:60ca19f2898188beba92944365f7b909efd9c99212f5018af75cc47cd9a6184a (24-block release trunk)",
     "target": "cdk2x2_512 (512aa)",
     "shared_rng": "off: the device sampler draws from its own generator, so a seed pairs the settings, not the noise",
     "lm_hidden_states": "shared: one ttnn ESMC-6B (biohub/ESMC-6B rev 45b0fa5d) forward injected into both paths",

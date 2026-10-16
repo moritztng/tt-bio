@@ -32,14 +32,11 @@
 // enter the tile column window in order and each is visited exactly once per band.
 // Total pokes are H*L*K = 1.72 M at the production shape, not H*L*N = 45 M.
 //
-// THE TEMPLATE IS NOT RE-COPIED PER TILE. Each of the OUT_SLOTS L1 pages is filled with
-// `fill` once at kernel entry and then kept: before a slot is reused, the positions the
-// previous tile poked are restored by REPLAYING that tile's cursor walk -- the same merge,
-// writing `fill` instead of the bias. So the repair needs no record of what was written,
-// only the 32 cursor values the tile started from (128 bytes per slot), and it is exact by
-// duality rather than by a bound on how many pokes a tile can hold. That is what lets
-// OUT_SLOTS be large: a per-tile 4 KB L1 refill, or an undo list of offsets, would both
-// cost L1 or time per slot.
+// SLOTS ARE REFILLED BY THE NOC, NOT BY THE RISC. Every output slot starts as `fill`; once a
+// band of slots has been written out, each used slot is restored with one local L1 -> L1 NOC copy
+// of the all-fill tile, issued for every used slot at once behind a single barrier. The RISC used to
+// replay each tile's cursor walk writing `fill` back (exact by duality), which doubled its L1 work:
+// on Wormhole that work, not the DRAM write, was the op's cost (rfd3_bias.DIAG, gap_maskw.py).
 //
 //
 // BATCH. A group is a (design, head, tile-row) band and the group index is that triple flattened,
@@ -94,19 +91,18 @@ void kernel_main() {
     constexpr uint32_t cb_idx = get_compile_time_arg_val(0);
     constexpr uint32_t cb_bias = get_compile_time_arg_val(1);
     constexpr uint32_t cb_out = get_compile_time_arg_val(2);
-    constexpr uint32_t cb_slot = get_compile_time_arg_val(3);
-    constexpr uint32_t It = get_compile_time_arg_val(4);        // tile rows of the output
-    constexpr uint32_t Jt = get_compile_time_arg_val(5);        // tile cols of the output
-    constexpr uint32_t Kt = get_compile_time_arg_val(6);        // tile cols of the bias
-    constexpr uint32_t K = get_compile_time_arg_val(7);         // logical keys per row
-    constexpr uint32_t L = get_compile_time_arg_val(8);         // logical rows
-    constexpr uint32_t fill = get_compile_time_arg_val(9);      // fp32 bit pattern
-    constexpr uint32_t OUT_SLOTS = get_compile_time_arg_val(10);
-    constexpr uint32_t HIt = get_compile_time_arg_val(11);   // heads * tile rows, one design's bands
+    constexpr uint32_t It = get_compile_time_arg_val(3);        // tile rows of the output
+    constexpr uint32_t Jt = get_compile_time_arg_val(4);        // tile cols of the output
+    constexpr uint32_t Kt = get_compile_time_arg_val(5);        // tile cols of the bias
+    constexpr uint32_t K = get_compile_time_arg_val(6);         // logical keys per row
+    constexpr uint32_t L = get_compile_time_arg_val(7);         // logical rows
+    constexpr uint32_t fill = get_compile_time_arg_val(8);      // fp32 bit pattern
+    constexpr uint32_t OUT_SLOTS = get_compile_time_arg_val(9);
+    constexpr uint32_t HIt = get_compile_time_arg_val(10);   // heads * tile rows, one design's bands
     // 1: write bf16 tiles (the fused-SDPA mask, sparse_mask_bf16), the bias as read and the
     // fill's top half; 0: the fp32 widen above.
-    constexpr uint32_t OUT16 = get_compile_time_arg_val(12);
-    constexpr auto bias_args = TensorAccessorArgs<13>();
+    constexpr uint32_t OUT16 = get_compile_time_arg_val(11);
+    constexpr auto bias_args = TensorAccessorArgs<12>();
     constexpr auto idx_args = TensorAccessorArgs<bias_args.next_compile_time_args_offset()>();
     constexpr auto out_args = TensorAccessorArgs<idx_args.next_compile_time_args_offset()>();
 
@@ -125,13 +121,9 @@ void kernel_main() {
     const uint32_t bias_base = get_write_ptr(cb_bias);
     volatile tt_l1_ptr uint16_t* bias_l1 = reinterpret_cast<volatile tt_l1_ptr uint16_t*>(bias_base);
     const uint32_t out_base = get_write_ptr(cb_out);
-    // Per-slot entry cursors: 32 words per slot, the state the repair replay needs.
-    volatile tt_l1_ptr uint32_t* slot_l1 =
-        reinterpret_cast<volatile tt_l1_ptr uint32_t*>(get_write_ptr(cb_slot));
 
-    // Prime every output slot with the fill value once. From here on a slot is only ever
-    // repaired, never refilled.
-    // Slot OUT_SLOTS is never written after this: the all-fill tile every empty key tile is sent from.
+    // Prime every output slot with the fill value once. Slot OUT_SLOTS is never written after this: the all-fill
+    // tile every empty key tile is sent from, and the source every used slot is refilled from.
     for (uint32_t slot = 0; slot <= OUT_SLOTS; ++slot) {
         for (uint32_t w = 0; w < OUT_TILE_WORDS; ++w) {
             put<OUT16>(out_base + slot * OUT_TILE_BYTES, w, fill);
@@ -139,11 +131,10 @@ void kernel_main() {
     }
 
     constexpr uint32_t NO_TILE = 0xFFFFFFFFu;
+    const uint64_t fill_noc = get_noc_addr(out_base + OUT_SLOTS * OUT_TILE_BYTES);
     uint32_t slot_jt[OUT_SLOTS];
-    uint32_t slot_rows[OUT_SLOTS];
     for (uint32_t slot = 0; slot < OUT_SLOTS; ++slot) {
         slot_jt[slot] = NO_TILE;
-        slot_rows[slot] = 0;
     }
     uint32_t cur[TILE_H];
 
@@ -174,7 +165,7 @@ void kernel_main() {
         }
         // Which key tiles of this band hold any index: one pass over rows x K instead of a cursor probe per row
         // per tile. Most tiles hold none (128 keys of ~6000), and those go out from the fill tile untouched,
-        // with no scan, no slot and no repair. On Wormhole the probes, not the write, were the op's cost.
+        // with no scan, no slot and no refill. On Wormhole the probes, not the write, were the op's cost.
         constexpr uint32_t OCC_WORDS = (Jt + 31) / 32;
         uint32_t occ[OCC_WORDS];
         for (uint32_t w = 0; w < OCC_WORDS; ++w) {
@@ -191,29 +182,15 @@ void kernel_main() {
         }
         uint32_t used = 0;
 
-        // Restore slot `slot` to all-fill by replaying the walk of the tile that last used
-        // it. Only ever called with the slot's write already flushed and with idx_l1 still
-        // holding the band that tile belonged to.
-        auto repair = [&](uint32_t slot) {
-            if (slot_jt[slot] == NO_TILE) {
-                return;
-            }
-            const uint32_t tile_l1 = out_base + slot * OUT_TILE_BYTES;
-            volatile tt_l1_ptr uint32_t* sc = slot_l1 + slot * TILE_H;
-            const uint32_t lo = slot_jt[slot] * 32;
-            const uint32_t hi = lo + 32;
-            const uint32_t nr = slot_rows[slot];
-            for (uint32_t r = 0; r < nr; ++r) {
-                volatile tt_l1_ptr uint32_t* irow = idx_l1 + r * IDX_ROW_WORDS;
-                for (uint32_t sidx = sc[r]; sidx < K; ++sidx) {
-                    const uint32_t j = irow[sidx];
-                    if (j >= hi) {
-                        break;
-                    }
-                    put<OUT16>(tile_l1, face_off(r, j - lo), fill);
+        // Restore every used slot to all-fill from the fill tile. Called only with their writes flushed.
+        auto refill = [&]() {
+            for (uint32_t slot = 0; slot < OUT_SLOTS; ++slot) {
+                if (slot_jt[slot] != NO_TILE) {
+                    noc_async_read(fill_noc, out_base + slot * OUT_TILE_BYTES, OUT_TILE_BYTES);
+                    slot_jt[slot] = NO_TILE;
                 }
             }
-            slot_jt[slot] = NO_TILE;
+            noc_async_read_barrier();
         };
 
         uint32_t out_page = group * Jt;
@@ -225,15 +202,12 @@ void kernel_main() {
             }
             const uint32_t slot = used++ & (OUT_SLOTS - 1);
             const uint32_t out_addr_l1 = out_base + slot * OUT_TILE_BYTES;
-            repair(slot);
 
-            volatile tt_l1_ptr uint32_t* sc = slot_l1 + slot * TILE_H;
             const uint32_t col_lo = jt * 32;
             const uint32_t col_hi = col_lo + 32;
             for (uint32_t r = 0; r < rows; ++r) {
                 volatile tt_l1_ptr uint32_t* irow = idx_l1 + r * IDX_ROW_WORDS;
                 uint32_t sidx = cur[r];
-                sc[r] = sidx;
                 while (sidx < K) {
                     const uint32_t j = irow[sidx];
                     if (j >= col_hi) {
@@ -247,21 +221,17 @@ void kernel_main() {
                 cur[r] = sidx;
             }
             slot_jt[slot] = jt;
-            slot_rows[slot] = rows;
 
             out_write(out_addr_l1, s_out, out_page, OUT_TILE_BYTES);
             ++out_page;
-            // Every slot is free again after this, so the reuse at jt + 1 can repair in place.
+            // Every slot is written out after this, so all of them can be refilled for jt + 1.
             if (slot == OUT_SLOTS - 1) {
                 noc_async_write_barrier();
+                refill();
             }
         }
-        // Jt is not in general a multiple of OUT_SLOTS. Drain, then hand the next band a set
-        // of clean slots -- the replay has to happen while THIS band's index rows are still
-        // the ones in L1.
+        // Jt is not in general a multiple of OUT_SLOTS. Drain, then hand the next band a set of clean slots.
         noc_async_write_barrier();
-        for (uint32_t slot = 0; slot < OUT_SLOTS; ++slot) {
-            repair(slot);
-        }
+        refill();
     }
 }

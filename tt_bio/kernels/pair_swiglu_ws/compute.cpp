@@ -221,7 +221,9 @@ void kernel_main() {
 #elif !defined(WS_NO_SILU)
             silu_tile_init();  // the dest-reuse multiply's init does not keep the SFPU's
             for (uint32_t i = 0; i < SW; ++i) {
-                if constexpr (SILU_POLY == 2) {
+                if constexpr (SILU_POLY == 3) {
+                    silu_poly6_x2_tile(i);
+                } else if constexpr (SILU_POLY == 2) {
                     silu_poly6_tile(i);
                 } else if constexpr (SILU_POLY == 1) {
                     silu_poly_tile(i);

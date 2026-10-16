@@ -646,6 +646,54 @@ def test_a_pool_leg_whose_host_rebooted_under_it_is_reported_not_waited_for(tmp_
     assert rc == 1 and gf.REBOOTED in (tmp_path / "leg.log").read_text()
 
 
+def test_a_pool_leg_notes_a_give_back_that_stopped_it(tmp_path, monkeypatch):
+    """glx_elastic SIGINTs a lent box's pool jobs and touches the pool's RETURNED (.107, 10-16 07:34Z,
+    14 WH legs recorded FAIL). A job whose leg ended after that touch says so in its log."""
+    monkeypatch.setattr(gf, "POOL_POLL_S", 0.05)
+    pool_dir = tmp_path / "pool"
+    queue = pool_dir / "queue"
+    queue.mkdir(parents=True)
+    sha = "b" * 40
+    (tmp_path / "trees" / sha[:12]).mkdir(parents=True)
+    h = gf.Host("g", {"arch": "wh", "card_type": "w", "root": str(tmp_path), "ssh": "localhost",
+                      "lock": str(tmp_path / "chip{card}.lock"), "python": sys.executable,
+                      "pool": {"queue": str(queue), "prio": 0}}, sha)
+    # the leg itself stands in for the give-back: RETURNED is touched while it runs, then it dies on SIGINT
+    leg = gf.Leg("ux:x", ["PY", "-c", f"import pathlib, sys, time; time.sleep(1.1); "
+                          f"pathlib.Path({str(pool_dir / 'RETURNED')!r}).touch(); sys.exit(130)"], "ux")
+
+    def pool():
+        while not (jobs := list(queue.glob("*.sh"))):
+            time.sleep(0.02)
+        subprocess.run(["bash", str(jobs[0])], env={"CHIP": "7", "PATH": "/usr/bin:/bin"}, check=True)
+    t = threading.Thread(target=pool)
+    t.start()
+    with open(tmp_path / "leg.log", "w") as f:
+        rc = gf.run_in_pool(h, gf.POOL, leg, str(tmp_path / "o" / "run1" / "wh" / "ux_x"), f)
+    t.join()
+    assert rc == 130 and gf.GIVEN_BACK in (tmp_path / "leg.log").read_text()
+
+
+def test_a_pool_leg_stopped_by_a_give_back_runs_again(tmp_path, monkeypatch):
+    calls, backs = [], gf.GIVEN_BACK_TRIES
+
+    def fake_run(host, card, leg, rdir, f):
+        calls.append(card)
+        if len(calls) <= backs:
+            f.write(f"##LEG-START 5\ncensus fold exited -2\n##{gf.GIVEN_BACK}\n")
+            return 1
+        f.write("##LEG-START 5\nok\n")
+        return 0
+    monkeypatch.setattr(gf, "run_in_pool", fake_run)
+    h = gf.Host("g", {"arch": "wh", "card_type": "w", "root": "/r"}, "c" * 40)
+    ex = gf.make_executor("c" * 40, tmp_path, gf.Ledger(tmp_path / "l"), {("ux:x", "wh"): "k"}, "o")
+    assert ex(h, gf.POOL, gf.Leg("ux:x", ["PY"], "ux"))["verdict"] == "PASS"
+    assert len(calls) == gf.GIVEN_BACK_TRIES + 1
+    calls.clear()
+    monkeypatch.setattr(gf, "GIVEN_BACK_TRIES", 1)   # the next give-back after the last try is the leg's result
+    assert ex(h, gf.POOL, gf.Leg("ux:x", ["PY"], "ux"))["verdict"] == "FAIL"
+
+
 def test_a_leg_refused_for_host_load_starts_again_instead_of_failing(tmp_path, monkeypatch):
     monkeypatch.setattr(gf, "LOAD_RETRY_S", 0)
     calls = []
