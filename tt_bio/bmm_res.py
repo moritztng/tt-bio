@@ -87,6 +87,9 @@ def _build(a, b, out, C, mt, kt, nt, ta, tb, depth, fidelity, max_cores, abl=0):
     return [reader, writer, compute], cbs
 
 
+STATS = [0, 0]   # calls served, calls declined (None returned)
+
+
 def matmul(a, b, compute_kernel_config=None, transpose_a=False, transpose_b=False, budget=L1_BUDGET, max_cores=0,
            depth=None, abl=0):
     """``a @ b`` over the channel axis as a new bf16 DRAM tensor, or None if the call is outside what the kernel does.
@@ -96,6 +99,12 @@ def matmul(a, b, compute_kernel_config=None, transpose_a=False, transpose_b=Fals
     knobs that move scheduling, never a number. `abl` is a bench-only stage mask that does change the result:
     1 skips the matmuls, 2 the output writes, 4 the reads of a (time attribution, af2_trimul_bmm_sweep --abl).
     """
+    out = _matmul(a, b, compute_kernel_config, transpose_a, transpose_b, budget, max_cores, depth, abl)
+    STATS[out is None] += 1
+    return out
+
+
+def _matmul(a, b, compute_kernel_config, transpose_a, transpose_b, budget, max_cores, depth, abl):
     if compute_kernel_config is not None and not compute_kernel_config.fp32_dest_acc_en:
         return None
     fidelity = ttnn.MathFidelity.HiFi4 if compute_kernel_config is None else compute_kernel_config.math_fidelity
