@@ -98,10 +98,9 @@ LEVERS_FAST = frozenset({"acc_off", "diffusion_bf16", "dit_sdpa", "transition_b8
 # graded on p150a: 11-set fast grade, 44 paired folds (spd-gap-small gshxbh, 2026-10-16), PASS: top pose median
 # 0.486 A vs the 1.828 A floor, CA-lDDT +0.0010 [+0.0003, +0.0018], docking 24 -> 24; 5 samples 12.65 -> 12.28 s
 # (shxb). On Wormhole it is no faster than dit_cond_jit (shjw: -0.06 s over 3 pairs), so Wormhole keeps dit_cond_jit.
-# Wormhole also takes trimul_bres (the trimul einsum with b[c] resident in L1, as ESMFold2 does there): coords
-# byte-identical on and off in 26 warm folds, Galaxy chip 512 x 1 at 1000 MHz -0.29 s median over 5 pairs (bresab) and
-# -0.09 s over 8 (bresab2, off 20.13 s): small, but free.
-WH_LEVERS_FAST = LEVERS_FAST | {"triatt_ln", "apb_ln", "dit_cond_jit", "trimul_sig6", "trimul_bres"}
+# trimul_bres is not here: bmm_res needs an fp32 dest and acc_off turns it off in the fast trunk, so it never fires
+# (bresab / bresab2 read -0.29 / -0.09 s on byte-identical CIFs: noise around an inert lever).
+WH_LEVERS_FAST = LEVERS_FAST | {"triatt_ln", "apb_ln", "dit_cond_jit", "trimul_sig6"}
 BH_LEVERS_FAST = LEVERS_FAST | {"dit_shoist"}
 
 
