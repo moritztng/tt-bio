@@ -213,6 +213,10 @@ WITHDRAWN = -1           # run_in_pool's code for "taken back from the queue bef
 #: them were recorded FAIL (folds "exited -2"). The job notes a give-back that came after it started; such
 #: a leg measured nothing about the tree, so it goes back on the queue and waits for the next lend.
 GIVEN_BACK = "the Galaxy was given back under the leg"
+#: The same for one chip: a JapanFold agent that lent the leg's chip to the pool takes it back the moment
+#: its users need it, and touches lend/<chip>.recalled (jf-shared-chips). The leg reruns like a give-back,
+#: so its job tells the pool not to requeue it as well.
+RECALLED = "$HOME/japanfold/state/agent/lend/$CHIP.recalled"
 GIVEN_BACK_TRIES = 3
 #: A leg failed on a named card and the card is what failed: qb2 chip 1 stopped initialising its
 #: firmware at 06:07Z on 2026-10-12 and the runner handed it 40 more legs of gate 026b5c71c, each
@@ -1584,10 +1588,11 @@ def pool_job(host: Host, leg: Leg, rdir: str, name: str) -> str:
     cmd = host.command(leg, POOL_CARD, rdir)
     q = shlex.quote
     returned = q(str(Path(host.cfg["pool"]["queue"]).parent / "RETURNED"))
-    return (f"#!/bin/bash\n# {name}: gate leg {leg.name} at {host.sha[:12]} (gate_fanout.py)\n"
+    return (f"#!/bin/bash\n# {name}: gate leg {leg.name} at {host.sha[:12]} (gate_fanout.py)\n# requeue: no\n"
             f"mkdir -p {q(rdir)}; rm -f {q(rdir)}/rc; cat {BOOT_ID} > {q(rdir)}/boot\ncmd={q(cmd)}\n"
             f"{{ echo \"##CHIP $CHIP\"; eval \"${{cmd//{POOL_CARD}/$CHIP}}\"; }} > {q(rdir)}/leg.log 2>&1\n"
-            f"rc=$?; [ {returned} -nt {q(rdir)}/boot ] && echo \"##{GIVEN_BACK}\" >> {q(rdir)}/leg.log\n"
+            f"rc=$?; {{ [ {returned} -nt {q(rdir)}/boot ] || [ \"{RECALLED}\" -nt {q(rdir)}/boot ]; }} && "
+            f"echo \"##{GIVEN_BACK}\" >> {q(rdir)}/leg.log\n"
             f"echo $rc > {q(rdir)}/rc.tmp && mv {q(rdir)}/rc.tmp {q(rdir)}/rc\n")
 
 
