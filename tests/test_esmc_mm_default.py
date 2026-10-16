@@ -16,6 +16,12 @@ def test_esmc_mm_default_by_arch(wormhole, switch, monkeypatch):
     assert esmc._esmc_mm() is (wormhole if switch is None else switch)
 
 
+class _Ck:
+    def __init__(self, math_fidelity=None, math_approx_mode=False, fp32_dest_acc_en=True, packer_l1_acc=False):
+        self.math_fidelity, self.math_approx_mode = math_fidelity, math_approx_mode
+        self.fp32_dest_acc_en, self.packer_l1_acc = fp32_dest_acc_en, packer_l1_acc
+
+
 class _T:
     def __init__(self, rows, cols, dtype):
         self.shape, self.dtype, self._v = (rows, cols), dtype, rows * cols
@@ -47,7 +53,7 @@ def test_mm_takes_fast_block_fp8_weights(monkeypatch):
     monkeypatch.setattr(esmc, "_ESMC_MM", True)
     monkeypatch.setattr(esmc.ttnn.experimental, "minimal_matmul", lambda x, w, **kw: "mm", raising=False)
     lin = esmc._MMLin()
-    lin.compute_kernel_config = None
+    lin.compute_kernel_config = _Ck()
     t = esmc.ttnn
     assert lin._lin(_T(esmc.ESMC_MM_MIN_ROWS, 960, t.bfloat16), _T(960, 960, t.bfloat8_b)) == "mm"
 
@@ -64,3 +70,15 @@ def test_mm_resid_takes_bf16_weights_only(wdtype, monkeypatch):
     t = esmc.ttnn
     out = lin._lin_resid(_T(esmc.ESMC_MM_MIN_ROWS, 960, t.bfloat16), _T(960, 960, getattr(t, wdtype)), "x")
     assert out == ("fused" if wdtype == "bfloat16" else None)
+
+
+@pytest.mark.parametrize("switch", [None, True, False])
+@pytest.mark.parametrize("wdtype", ["bfloat16", "bfloat8_b"])
+def test_mm_bf16_acc_follows_fast_weights(wdtype, switch, monkeypatch):
+    """bf16 dest accumulation is on by default only for --fast's block-fp8 weights; the switch overrides both."""
+    monkeypatch.setattr(esmc, "_ESMC_MM_BF16_ACC", switch)
+    lin = esmc._MMLin()
+    lin.compute_kernel_config = _Ck()
+    w = _T(960, 960, getattr(esmc.ttnn, wdtype))
+    on = wdtype == "bfloat8_b" if switch is None else switch
+    assert lin._mm_ck(w).fp32_dest_acc_en is not on
