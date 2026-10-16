@@ -402,7 +402,7 @@ DIT_SDPA_CALLS = [0]
 # 14.2-18.0 A seed floor, breaks 2 -> 2, clashes 61.5 -> 52.8. p150a @1350 (FPU K-sum, n_bad 0): 15.9 -> 1.9 ms a
 # call; 12 paired normal seeds read clashes 59.3 -> 57.2, breaks 6 -> 7, drift 2.9-13.0 A against a 14.8-19.6 A floor.
 # On in both modes on both archs; RFD3_DPB=0 restores the chain.
-_DPB = env_flag("RFD3_DPB", True)
+_DIT_DPB = env_flag("RFD3_DPB", True)
 
 
 # The token encoder's pairformer pair bias through the same program: 16 heads (W^T zero-padded to one 32-head tile,
@@ -3331,7 +3331,7 @@ class LocalTokenTransformer(Module):
                               for i in range(len(self.blocks))], dim=1)
             self._b_w_packed = ttnn.from_torch(cols, layout=ttnn.TILE_LAYOUT, device=self.device,
                                                dtype=self.dtype)
-        if _DPB:
+        if _DIT_DPB:
             if getattr(self, "_b_wt_packed", None) is None:
                 wt = torch.cat([self.weights[f"blocks.{i}.attention_pair_bias.to_b.weight"].float()
                                 for i in range(len(self.blocks))], dim=0)

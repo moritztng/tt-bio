@@ -51,7 +51,8 @@ def test_pair_ws_ships_in_both_modes(monkeypatch):
 def test_dit_pair_bias_ships_in_both_modes(monkeypatch):
     """The DiT mask program is graded on the normal bar on Wormhole and p150a, so it is a default on both."""
     monkeypatch.delenv("RFD3_DPB", raising=False)
-    assert "_DPB" not in M._FAST_SET
+    assert "_DIT_DPB" not in M._FAST_SET
     assert M.env_flag("RFD3_DPB", True) is True
     M.set_fast(False)
-    assert M._DPB is True
+    assert M._DIT_DPB is True
+    assert callable(M._DPB.eligible)   # the flag once shadowed the dit_pair_bias module and every default design crashed
