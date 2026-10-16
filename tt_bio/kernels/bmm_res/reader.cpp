@@ -10,8 +10,6 @@
 // TA: a is stored [K, M], so row tile r is the column of pages c*MT*KT + k*MT + r, read into c_2 for compute to
 // transpose. TB: b is stored [N, K], so its tile (k, n) is page n*KT + k; c_1 still holds b in (k, n) order and the
 // matmul unpacker transposes each tile.
-// PF (b two channels deep): b[c+1] is read in MT slices, one after each row tile of a[c], so its load runs under
-// channel c's matmuls instead of between channels.
 //
 // Common runtime args: a, b addresses. Per-core runtime args: first channel, channel count.
 #include "api/dataflow/dataflow_api.h"
@@ -26,55 +24,33 @@ void kernel_main() {
     constexpr uint32_t NT = get_compile_time_arg_val(2);
     constexpr bool TA = get_compile_time_arg_val(3);
     constexpr bool TB = get_compile_time_arg_val(4);
-    constexpr bool PF = get_compile_time_arg_val(5);
-    constexpr uint32_t cb_a = TA ? 2 : 0, cb_b = 1, BT = KT * NT;
-    constexpr auto a_args = TensorAccessorArgs<6>();
+    constexpr uint32_t cb_a = TA ? 2 : 0, cb_b = 1;
+    constexpr auto a_args = TensorAccessorArgs<5>();
     constexpr auto b_args = TensorAccessorArgs<a_args.next_compile_time_args_offset()>();
     const auto sa = TensorAccessor(a_args, a_addr);
     const auto sb = TensorAccessor(b_args, b_addr);
     const uint32_t ta = get_tile_size(cb_a), tb = get_tile_size(cb_b);
 
-    // b tile i = k * NT + n of channel c, written at w.
-    auto read_b = [&](uint32_t c, uint32_t i, uint32_t w) {
-        const uint32_t k = i / NT, n = i % NT;
-        noc_async_read_page(c * BT + (TB ? n * KT + k : i), sb, w);
-    };
-    const uint32_t end = first + count;
-    for (uint32_t c = first; c < end; ++c) {
-        if (!PF || c == first) {
-            cb_reserve_back(cb_b, BT);
-            const uint32_t w = get_write_ptr(cb_b);
-            for (uint32_t i = 0; i < BT; ++i) {
-                read_b(c, i, w + i * tb);
+    for (uint32_t c = first; c < first + count; ++c) {
+        cb_reserve_back(cb_b, KT * NT);
+        uint32_t w = get_write_ptr(cb_b);
+        for (uint32_t k = 0; k < KT; ++k) {
+            for (uint32_t n = 0; n < NT; ++n, w += tb) {
+                noc_async_read_page(c * KT * NT + (TB ? n * KT + k : k * NT + n), sb, w);
             }
-            noc_async_read_barrier();
-            cb_push_back(cb_b, BT);
         }
-        const bool next = PF && c + 1 < end;
-        uint32_t wb = 0;
+        noc_async_read_barrier();
+        cb_push_back(cb_b, KT * NT);
         for (uint32_t r = 0; r < MT; ++r) {
             cb_reserve_back(cb_a, KT);
-            uint32_t w = get_write_ptr(cb_a);
+            w = get_write_ptr(cb_a);
 #ifndef BRES_NO_A  // time attribution only (af2_trimul_bmm_sweep --abl)
             for (uint32_t k = 0; k < KT; ++k, w += ta) {
                 noc_async_read_page(c * MT * KT + (TA ? k * MT + r : r * KT + k), sa, w);
             }
 #endif
-            noc_async_read_barrier();  // also lands the previous row's slice of b[c + 1]
-            cb_push_back(cb_a, KT);
-            if (next) {
-                if (r == 0) {
-                    cb_reserve_back(cb_b, BT);  // free once compute is done with b[c - 1]
-                    wb = get_write_ptr(cb_b);
-                }
-                for (uint32_t i = r * BT / MT; i < (r + 1) * BT / MT; ++i) {
-                    read_b(c + 1, i, wb + i * tb);
-                }
-            }
-        }
-        if (next) {
             noc_async_read_barrier();
-            cb_push_back(cb_b, BT);
+            cb_push_back(cb_a, KT);
         }
     }
 }
