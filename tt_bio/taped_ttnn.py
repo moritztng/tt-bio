@@ -1513,7 +1513,7 @@ def _k_triatt_tail(shipped, args, kwargs):
     if out_v is None:
         return None
     w, cfg = full["w"], full.get("ckc") or precise_config()
-    B, H, S = (int(d) for d in full["o"].shape[:3])
+    B, H, S = (int(full["o"].shape[i]) for i in range(3))
 
     def make():
         def bw(dy):
@@ -2024,6 +2024,31 @@ def _v_sum(shipped, args, kwargs):
         return bw
 
     return _tape(out_v, [x], make)
+
+
+@_verb("repeat")
+def _v_repeat(shipped, args, kwargs):
+    """Tile along axes the input holds once. The backward sums the gradient back over each
+    repeated axis. A repeat of an axis longer than 1 interleaves copies and needs a reshape
+    before the sum; no tt-bio caller makes one, so it is refused rather than guessed."""
+    x = _wrap(args[0])
+    reps = [int(r) for r in kwargs.get("repetition_vector", args[1] if len(args) > 1 else None)]
+    shape = [int(d) for d in x.value.shape]
+    if len(reps) != len(shape) or any(r > 1 and n != 1 for r, n in zip(reps, shape)):
+        raise NotImplementedError(
+            f"tt_bio.autograd tapes ttnn.repeat only along axes of length 1, got {reps} on {shape}.")
+    ra, rk = _raw(args, kwargs)
+    out_v = shipped(*ra, **rk)
+
+    def make():
+        def bw(g):
+            for ax, r in enumerate(reps):
+                if r > 1:
+                    g = ttnn.sum(g, dim=ax, keepdim=True)
+            x.add_grad(g)
+        return bw
+
+    return _tape(out_v, [x], make, reads=())
 
 
 @_verb("max")
