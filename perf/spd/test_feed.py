@@ -6,6 +6,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+import pytest
 
 sys.path.insert(0, str(Path(__file__).parent))
 import feed  # noqa: E402
@@ -95,13 +96,14 @@ def test_two_fast_fails_quarantine_and_wake(tmp_path, monkeypatch):
     assert box.queue == []
 
 
-def test_a_dirty_cards_fast_fails_do_not_quarantine_the_cell(tmp_path, monkeypatch):
+@pytest.mark.parametrize("rc", ["1 fastfail2 reset", "flockbusy"])
+def test_a_dirty_card_or_a_waiter_that_never_got_one_does_not_quarantine_the_cell(tmp_path, monkeypatch, rc):
     box = make_pool(tmp_path, monkeypatch, healthy=1)
     box.exists |= {"~/o/1/A/b/bench.jsonl", "~/o/1/B/b/bench.jsonl", "~/o/2/B/b/bench.jsonl"}
     run(tmp_path)
     name = box.queue.pop()
     for at in (100, 200, 300):
-        box.ended[name] = {"state": "ended", "dur": 15, "rc": "1 fastfail2 reset", "at": at, "tail": "failed to initialize FW"}
+        box.ended[name] = {"state": "ended", "dur": 15, "rc": rc, "at": at, "tail": "failed to initialize FW"}
         run(tmp_path)
         assert box.queue == [name]                     # placed again every time
         box.queue.clear()

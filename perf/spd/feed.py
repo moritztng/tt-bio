@@ -589,7 +589,9 @@ def main(argv=None):
                 with open(R / "fleet.log", "a") as fl:
                     fl.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} spd feed: {L['host']} {L['name']} was the "
                              f"second device-init failure in a row on its card: {j['rc']}\n")
-            own = [f for f in L["fails"] if "fastfail2" not in str(f["rc"])]    # a dirty card's failure is not the cell's
+            # a dirty card's failure is not the cell's, nor is a waiter's that never got a card (10-16: two flockbusy
+            # endings within a minute quarantined cells that had not run)
+            own = [f for f in L["fails"] if "fastfail2" not in str(f["rc"]) and str(f["rc"]) != "flockbusy"]
             fast = sum(1 for f in own if f["dur"] < FAST_S)
             if fast >= 2 or len(own) >= MAX_FAILS:
                 L["quarantined"] = True
