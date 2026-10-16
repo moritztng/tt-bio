@@ -8,7 +8,7 @@ b[c] into L1 once (512 KB bf16 at 512 tokens, two channels deep when L1 allows),
 it and writes out[c], so a, b and out each cross DRAM once. The reader, compute and writer are pair_linear's, keyed
 per channel. One fp32 dest pass over all of K.
 
-PROTOTYPE: perf/spd_trimul/bmm_res.py is its first timing and accuracy check; no model path calls it yet.
+The trimul einsum calls it under the `trimul_bres` lever (tenstorrent.py); perf/spd/af2_trimul_bmm_sweep.py --res times it.
 `matmul` returns the product or None, and None means the caller keeps its own path.
 """
 
