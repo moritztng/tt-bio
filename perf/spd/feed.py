@@ -255,7 +255,7 @@ for j in A["jobs"]:
              'gate "$5" && continue; exec 9>"${3//@/$c}"; '
              'flock -n 9 && ! gate "$5" && break 2; exec 9>&-; done; '
              '[ $SECONDS -lt $D ] || { echo flockbusy > "$1.end"; exit 3; }; '
-             'if [ -n "$W" ]; then exec 8>&-; sleep "${POLL:-20}"; flock -w 86400 8 || { echo flockbusy > "$1.end"; exit 3; }; '
+             'if [ -n "$W" ]; then flock -u 8; sleep "${POLL:-20}"; flock -w 86400 8 || { echo flockbusy > "$1.end"; exit 3; }; '
              'else sleep "${POLL:-20}"; fi; done; '
              'exec 8>&-; echo $c > "$1.card"; touch "$1.start"; echo $(($(date +%s) + $5 + 600)) > "$1.until"; set -- "$1" $c "$3" "$(dirname "$1")/nolock.$c" "$5" "$6"; '
              'cd "$(dirname "$1")"; ' + RUN)
@@ -589,7 +589,8 @@ def main(argv=None):
                 with open(R / "fleet.log", "a") as fl:
                     fl.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} spd feed: {L['host']} {L['name']} was the "
                              f"second device-init failure in a row on its card: {j['rc']}\n")
-            own = [f for f in L["fails"] if "fastfail2" not in str(f["rc"])]    # a dirty card's failure is not the cell's
+            # a dirty card's failure is not the cell's, nor is a waiter's that never took a card (flockbusy)
+            own = [f for f in L["fails"] if "fastfail2" not in str(f["rc"]) and f["rc"] != "flockbusy"]
             fast = sum(1 for f in own if f["dur"] < FAST_S)
             if fast >= 2 or len(own) >= MAX_FAILS:
                 L["quarantined"] = True
