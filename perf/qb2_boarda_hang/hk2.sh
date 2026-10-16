@@ -20,7 +20,8 @@ until [ -e $IV.ready ]; do quit "image"; sleep 60; done
 st "image $(md5sum < $IV/digests.json | cut -c1-8) ready $(stat -c %y $IV.ready | cut -c1-19)"
 exec 6>/home/ttuser/spd_qb2_chip$c1.lock 7>/home/ttuser/spd_qb2_chip$c2.lock
 S=""; SAMP=""; trap 'kill $S $SAMP 2>/dev/null' EXIT
-REL="scripts/release_gate.py|gate_fanout -c"
+# Yield only to release legs on this board's chips: each leg waits or runs under `flock spd_qb2_chipN.lock env ... RELEASE_GATE_*`.
+REL="flock /home/ttuser/spd_qb2_chip($c1|$c2)\.lock env .*RELEASE_GATE"
 nap() { sleep $1 6>&- 7>&-; }
 drop() { flock -u 6; flock -u 7; kill $S 2>/dev/null; S=""; }
 busy() { local j; for j in $FJ/*.card; do [ -e ${j%.card}.end ] && continue; grep -qx "$1" $j || continue
