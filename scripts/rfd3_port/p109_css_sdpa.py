@@ -124,6 +124,10 @@ def ship():
                       program_config=_sdpa_program_config(160, 320), compute_kernel_config=ckc)
 
 
+# Dirty the allocator so unwritten mask tiles hold garbage rather than a previous mask's zeros.
+_junk = [ttnn.from_torch(torch.full((1, H, N, N), float("nan")).bfloat16(), dtype=dt,
+                         layout=ttnn.TILE_LAYOUT, device=dev) for _ in range(1)]
+del _junk
 res = {"L": L, "N": N, "arch": str(dev.arch()), "grid": grid, "ship_160_320": {"ms": timed(ship), **grade(ship())}}
 print(json.dumps(res), flush=True)
 for c in CHUNKS:
@@ -154,6 +158,21 @@ for c in CHUNKS:
         oc = host(sparse())
         r["css_vs_dense_bit_equal"] = bool(torch.equal(od, oc))
         r["css_vs_dense_maxabs"] = (od.float() - oc.float()).abs().max().item()
+        # The mask writer with the same lists leaves every tile outside them unwritten: css on that
+        # mask must equal css on the full one. Fill the buffer with garbage first so a tile the
+        # SDPA should not read but does shows up.
+        pbs = ttnn.multiply(pbd, D ** 0.5)
+
+        def mask_css():
+            return rfd3_bias.sparse_mask_bf16(pbs, idx_rm, css=(css[0], c))
+
+        def mask_full():
+            return rfd3_bias.sparse_mask_bf16(pbs, idx_rm)
+
+        r["mask_full_ms"], r["mask_css_ms"] = timed(mask_full), timed(mask_css)
+        mc = mask_css()
+        oc2 = host(SG.sdpa(dev, qd, kd, vd, mc, o, c, c, grid, ckc_t, scale, css=css))
+        r["css_mask_vs_full_mask_bit_equal"] = bool(torch.equal(oc, oc2))
         t0 = time.perf_counter()
         for _ in range(5):
             css_up()
