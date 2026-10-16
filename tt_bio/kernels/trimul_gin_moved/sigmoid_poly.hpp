@@ -116,8 +116,11 @@ inline void _silu_poly6_x2_() {
     static_assert(ITERATIONS % 2 == 0);
 #pragma GCC unroll 0
     for (int d = 0; d < ITERATIONS; d += 2) {
-        sfpi::vFloat a0 = sfpi::abs(sfpi::dst_reg[0]);
-        sfpi::vFloat a1 = sfpi::abs(sfpi::dst_reg[1]);
+        // abs() takes a vFloat; a DST row passed directly is ambiguous between its overloads
+        sfpi::vFloat a0 = sfpi::dst_reg[0];
+        sfpi::vFloat a1 = sfpi::dst_reg[1];
+        a0 = sfpi::abs(a0);
+        a1 = sfpi::abs(a1);
         v_if(a0 > 7.0f) { a0 = 7.0f; }
         v_endif;
         v_if(a1 > 7.0f) { a1 = 7.0f; }
