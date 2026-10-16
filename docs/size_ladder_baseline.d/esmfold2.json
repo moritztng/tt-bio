@@ -2,41 +2,41 @@
   "assembled_by": "scripts/release_gate.py --model size-ladder",
   "cards": {
     "tt-galaxy-wh-l": {
-      "recorded": "2026-10-11",
-      "host": "UF-EV-A8-GWH02",
-      "commit": "8bd13c72c",
+      "recorded": "2026-10-15",
+      "host": "UF-EV-A4-GWH01",
+      "commit": "4ba29781f",
       "host_threads": 2,
       "models": {
         "esmfold2": {
           "grid": "8x9",
-          "recorded": "2026-10-11",
-          "host": "UF-EV-A8-GWH02",
-          "commit": "8bd13c72c",
+          "recorded": "2026-10-15",
+          "host": "UF-EV-A4-GWH01",
+          "commit": "4ba29781f",
           "host_threads": 2,
           "runtime_s": {
-            "256": 38.5,
-            "512": 102.1,
-            "640": 145.5,
-            "768": 211.9,
-            "896": 280.0,
-            "1024": 355.6,
-            "1280": 669.7,
-            "1536": 1109.8
+            "256": 21.0,
+            "512": 36.3,
+            "640": 53.5,
+            "768": 81.8,
+            "896": 112.3,
+            "1024": 144.7,
+            "1280": 330.4,
+            "1536": 584.7
           },
           "levers": {
             "256": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
-                "served": 578,
-                "declined": 90,
-                "frac": 0.8652694610778443,
+                "served": 80,
+                "declined": 10,
+                "frac": 0.8888888888888888,
                 "how": "stats"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
-                "served": 578,
-                "declined": 90,
-                "frac": 0.8652694610778443,
+                "served": 80,
+                "declined": 10,
+                "frac": 0.8888888888888888,
                 "how": "stats-shared"
               },
               "PAIR_FFN_L1_FC1": {
@@ -66,7 +66,7 @@
               "PAIR_FFN_FUSED_RESIDUAL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 578,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
                 "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. Here `residual()` falls to `ttnn.add(x, self(x))` and counts declined (tt_bio/esmc.py:750-755)."
@@ -135,7 +135,10 @@
                 "served": 1164,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "rejects": {
+                  "t2:g_not_f1": 1156
+                }
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -155,38 +158,31 @@
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 18624,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "window_BufferType.L1": 9312,
-                  "back_l1_src_narrow": 9312
-                },
                 "reason": "dark at this rung only, and screened rather than assumed. ESMFold2's call sites here ask for an L1 output, because at 256 aa the trimul is below its own L1 threshold of 288, and the L1 clause of the gate admits only 288 <= N <= 352 (tt_bio/reblock_permute.py:259,306) \u2014 hence `window_BufferType.L1`. At 512 aa and above the caller asks for a DRAM output and the DRAM clause (N >= 256) admits it, so the lever serves every call at every other rung. Lowering L1_N_MIN to 256 was A/B screened on this card (three alternating pairs at 256 aa, TT_BIO_REBLOCK_L1_N_MIN): it does admit all calls and is bit-exact (identical CIF sha256), and it buys nothing \u2014 median 38.5 s against 38.1 s shipped. Evidenced NO-GO, left as shipped."
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 0,
+                "served": 9312,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "no call site at this rung: 0 served AND 0 declined. The back-permute serves the return leg of a channel move ESMFold2's trimul does not make at 256 aa; it serves every call from 512 up."
+                "frac": 1.0,
+                "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 0,
+                "served": 18624,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "no call site at any rung: 0 served and 0 declined at all six. The gated variant is not on ESMFold2's path (the same reading boltz-2's baseline records for this lever)."
+                "frac": 1.0,
+                "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 0,
+                "served": 18624,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats-shared",
-                "reason": "declines all 0 calls: it unlocks the gated channel move, which is only offered once the trimul's pair tensors are in DRAM. At 256 aa they are L1-resident -- REBLOCK_PERMUTE refuses every call here on window_BufferType.L1 -- so nothing is offered at this rung; it serves every call from 512 up. Default on since 7bfa4ad19 [carried from p300c] [carried from p150a]"
+                "frac": 1.0,
+                "how": "stats-shared"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -345,58 +341,63 @@
             "512": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
-                "served": 578,
-                "declined": 102,
-                "frac": 0.85,
+                "served": 80,
+                "declined": 22,
+                "frac": 0.7843137254901961,
                 "how": "stats"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
-                "served": 578,
-                "declined": 102,
-                "frac": 0.85,
+                "served": 80,
+                "declined": 22,
+                "frac": 0.7843137254901961,
                 "how": "stats-shared"
               },
               "PAIR_FFN_L1_FC1": {
                 "resolved": "True",
-                "served": 18496,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. Inside `_row_blocked`, unreachable below 320 aa. [carried from rung 256]"
               },
               "PAIR_FFN_L1_LN": {
                 "resolved": "True",
-                "served": 9248,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. Inside `_row_blocked`, unreachable below 320 aa. [carried from rung 256]"
               },
               "PAIR_FFN_L1_SLICE": {
                 "resolved": "True",
-                "served": 578,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. It lives inside `_row_blocked` (esmc.py:678), so at 256 aa it is never asked rather than refusing. [carried from rung 256]"
               },
               "PAIR_FFN_FUSED_RESIDUAL": {
                 "resolved": "True",
-                "served": 578,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. Here `residual()` falls to `ttnn.add(x, self(x))` and counts declined (tt_bio/esmc.py:750-755). [carried from rung 256]"
               },
               "PAIR_FFN_FILL_ASSEMBLY": {
                 "resolved": "True",
-                "served": 578,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. It additionally rides on the fused residual (`filled = fused and ...`, esmc.py:680), so below 320 aa it cannot be reached. [carried from rung 256]"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
-                "resolved": "True",
-                "served": 1164,
-                "declined": 0,
-                "frac": 1.0,
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
                 "how": "stats"
               },
               "ADALN_S_HOIST": {
@@ -434,17 +435,14 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 18496,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "rejects": {
-                  "dtype:(8,32)": 18496
-                },
                 "reason": "right shape, wrong dtype \u2014 the same forced --fast as TRIMUL_IN_PROJ_DUAL_NOC. The clause is `dtype:(8,32)`, and that 8 is `k_tiles`, which is exactly what this lever requires (it is scoped to a single K block; boltz-2 is permanently excluded because c_z=128 gives 4). So ESMFold2 is the one model whose pair projection fits this lever and it is refused only because Wormhole forces bf8 weights. Widening the guard is a PARITY decision, not an engineering one \u2014 the tuned config and the fallback accumulate K in different block orders, so it will not be torch.equal. Predicted from the code in wh-perf-esmfold2.md 4.2 on 2026-08-16 and left unmeasured; this clause count is the measurement it was missing."
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
-                "served": 1164,
+                "served": 8,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -466,14 +464,15 @@
               },
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
-                "served": 2328,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: the traffic moved to the gated channel, it did not stop. TRIMUL_MASK_AFTER_MOVE (d86a1eb5f, default on since 7bfa4ad19) moves the pair mask past the channel move, so the fused chunk+gate route is eligible and REBLOCK_PERMUTE_GATED serves the calls this counter served when the baseline was recorded. The handoff is visible across the three cards in commit order: the galaxy entry at f11e5009 reads ungated 2168 / gated 0 at 512, p150a at 9ceae36d reads 16 / 2152, this card reads 0 / 2168. The wrapper is not offered, not refused [carried from p300c] [carried from p150a]"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 1164,
+                "served": 8,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -651,58 +650,63 @@
             "640": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
-                "served": 578,
-                "declined": 105,
-                "frac": 0.8462664714494875,
+                "served": 80,
+                "declined": 25,
+                "frac": 0.7619047619047619,
                 "how": "stats"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
-                "served": 578,
-                "declined": 105,
-                "frac": 0.8462664714494875,
+                "served": 80,
+                "declined": 25,
+                "frac": 0.7619047619047619,
                 "how": "stats-shared"
               },
               "PAIR_FFN_L1_FC1": {
                 "resolved": "True",
-                "served": 23120,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. Inside `_row_blocked`, unreachable below 320 aa. [carried from rung 256]"
               },
               "PAIR_FFN_L1_LN": {
                 "resolved": "True",
-                "served": 11560,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. Inside `_row_blocked`, unreachable below 320 aa. [carried from rung 256]"
               },
               "PAIR_FFN_L1_SLICE": {
                 "resolved": "True",
-                "served": 578,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. It lives inside `_row_blocked` (esmc.py:678), so at 256 aa it is never asked rather than refusing. [carried from rung 256]"
               },
               "PAIR_FFN_FUSED_RESIDUAL": {
                 "resolved": "True",
-                "served": 578,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. Here `residual()` falls to `ttnn.add(x, self(x))` and counts declined (tt_bio/esmc.py:750-755). [carried from rung 256]"
               },
               "PAIR_FFN_FILL_ASSEMBLY": {
                 "resolved": "True",
-                "served": 578,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. It additionally rides on the fused residual (`filled = fused and ...`, esmc.py:680), so below 320 aa it cannot be reached. [carried from rung 256]"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
-                "resolved": "True",
-                "served": 1164,
-                "declined": 0,
-                "frac": 1.0,
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
                 "how": "stats"
               },
               "ADALN_S_HOIST": {
@@ -740,17 +744,14 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 23120,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "rejects": {
-                  "dtype:(8,32)": 23120
-                },
                 "reason": "right shape, wrong dtype \u2014 the same forced --fast as TRIMUL_IN_PROJ_DUAL_NOC. The clause is `dtype:(8,32)`, and that 8 is `k_tiles`, which is exactly what this lever requires (it is scoped to a single K block; boltz-2 is permanently excluded because c_z=128 gives 4). So ESMFold2 is the one model whose pair projection fits this lever and it is refused only because Wormhole forces bf8 weights. Widening the guard is a PARITY decision, not an engineering one \u2014 the tuned config and the fallback accumulate K in different block orders, so it will not be torch.equal. Predicted from the code in wh-perf-esmfold2.md 4.2 on 2026-08-16 and left unmeasured; this clause count is the measurement it was missing."
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
-                "served": 1164,
+                "served": 8,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -772,14 +773,15 @@
               },
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
-                "served": 2328,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: the traffic moved to the gated channel, it did not stop. TRIMUL_MASK_AFTER_MOVE (d86a1eb5f, default on since 7bfa4ad19) moves the pair mask past the channel move, so the fused chunk+gate route is eligible and REBLOCK_PERMUTE_GATED serves the calls this counter served when the baseline was recorded. The handoff is visible across the three cards in commit order: the galaxy entry at f11e5009 reads ungated 2168 / gated 0 at 512, p150a at 9ceae36d reads 16 / 2152, this card reads 0 / 2168. The wrapper is not offered, not refused [carried from p300c] [carried from p150a]"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 1164,
+                "served": 8,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -957,58 +959,63 @@
             "768": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
-                "served": 578,
-                "declined": 120,
-                "frac": 0.828080229226361,
+                "served": 80,
+                "declined": 40,
+                "frac": 0.6666666666666666,
                 "how": "stats"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
-                "served": 578,
-                "declined": 120,
-                "frac": 0.828080229226361,
+                "served": 80,
+                "declined": 40,
+                "frac": 0.6666666666666666,
                 "how": "stats-shared"
               },
               "PAIR_FFN_L1_FC1": {
                 "resolved": "True",
-                "served": 27744,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. Inside `_row_blocked`, unreachable below 320 aa. [carried from rung 256]"
               },
               "PAIR_FFN_L1_LN": {
                 "resolved": "True",
-                "served": 13872,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. Inside `_row_blocked`, unreachable below 320 aa. [carried from rung 256]"
               },
               "PAIR_FFN_L1_SLICE": {
                 "resolved": "True",
-                "served": 578,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. It lives inside `_row_blocked` (esmc.py:678), so at 256 aa it is never asked rather than refusing. [carried from rung 256]"
               },
               "PAIR_FFN_FUSED_RESIDUAL": {
                 "resolved": "True",
-                "served": 578,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. Here `residual()` falls to `ttnn.add(x, self(x))` and counts declined (tt_bio/esmc.py:750-755). [carried from rung 256]"
               },
               "PAIR_FFN_FILL_ASSEMBLY": {
                 "resolved": "True",
-                "served": 578,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. It additionally rides on the fused residual (`filled = fused and ...`, esmc.py:680), so below 320 aa it cannot be reached. [carried from rung 256]"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
-                "resolved": "True",
-                "served": 2328,
-                "declined": 0,
-                "frac": 1.0,
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
                 "how": "stats"
               },
               "ADALN_S_HOIST": {
@@ -1046,17 +1053,14 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 27744,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "rejects": {
-                  "dtype:(8,32)": 27744
-                },
                 "reason": "right shape, wrong dtype \u2014 the same forced --fast as TRIMUL_IN_PROJ_DUAL_NOC. The clause is `dtype:(8,32)`, and that 8 is `k_tiles`, which is exactly what this lever requires (it is scoped to a single K block; boltz-2 is permanently excluded because c_z=128 gives 4). So ESMFold2 is the one model whose pair projection fits this lever and it is refused only because Wormhole forces bf8 weights. Widening the guard is a PARITY decision, not an engineering one \u2014 the tuned config and the fallback accumulate K in different block orders, so it will not be torch.equal. Predicted from the code in wh-perf-esmfold2.md 4.2 on 2026-08-16 and left unmeasured; this clause count is the measurement it was missing."
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
-                "served": 1164,
+                "served": 8,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -1078,14 +1082,15 @@
               },
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
-                "served": 4656,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: the traffic moved to the gated channel, it did not stop. TRIMUL_MASK_AFTER_MOVE (d86a1eb5f, default on since 7bfa4ad19) moves the pair mask past the channel move, so the fused chunk+gate route is eligible and REBLOCK_PERMUTE_GATED serves the calls this counter served when the baseline was recorded. The handoff is visible across the three cards in commit order: the galaxy entry at f11e5009 reads ungated 2168 / gated 0 at 512, p150a at 9ceae36d reads 16 / 2152, this card reads 0 / 2168. The wrapper is not offered, not refused [carried from p300c] [carried from p150a]"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 2328,
+                "served": 1172,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -1263,58 +1268,63 @@
             "896": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
-                "served": 578,
-                "declined": 126,
-                "frac": 0.8210227272727273,
+                "served": 80,
+                "declined": 46,
+                "frac": 0.6349206349206349,
                 "how": "stats"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
-                "served": 578,
-                "declined": 126,
-                "frac": 0.8210227272727273,
+                "served": 80,
+                "declined": 46,
+                "frac": 0.6349206349206349,
                 "how": "stats-shared"
               },
               "PAIR_FFN_L1_FC1": {
                 "resolved": "True",
-                "served": 64738,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. Inside `_row_blocked`, unreachable below 320 aa. [carried from rung 256]"
               },
               "PAIR_FFN_L1_LN": {
                 "resolved": "True",
-                "served": 32369,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. Inside `_row_blocked`, unreachable below 320 aa. [carried from rung 256]"
               },
               "PAIR_FFN_L1_SLICE": {
                 "resolved": "True",
-                "served": 578,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. It lives inside `_row_blocked` (esmc.py:678), so at 256 aa it is never asked rather than refusing. [carried from rung 256]"
               },
               "PAIR_FFN_FUSED_RESIDUAL": {
                 "resolved": "True",
-                "served": 578,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. Here `residual()` falls to `ttnn.add(x, self(x))` and counts declined (tt_bio/esmc.py:750-755). [carried from rung 256]"
               },
               "PAIR_FFN_FILL_ASSEMBLY": {
                 "resolved": "True",
-                "served": 578,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. It additionally rides on the fused residual (`filled = fused and ...`, esmc.py:680), so below 320 aa it cannot be reached. [carried from rung 256]"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
-                "resolved": "True",
-                "served": 2328,
-                "declined": 0,
-                "frac": 1.0,
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
                 "how": "stats"
               },
               "ADALN_S_HOIST": {
@@ -1352,17 +1362,14 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 64738,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "rejects": {
-                  "dtype:(8,32)": 64738
-                },
                 "reason": "right shape, wrong dtype \u2014 the same forced --fast as TRIMUL_IN_PROJ_DUAL_NOC. The clause is `dtype:(8,32)`, and that 8 is `k_tiles`, which is exactly what this lever requires (it is scoped to a single K block; boltz-2 is permanently excluded because c_z=128 gives 4). So ESMFold2 is the one model whose pair projection fits this lever and it is refused only because Wormhole forces bf8 weights. Widening the guard is a PARITY decision, not an engineering one \u2014 the tuned config and the fallback accumulate K in different block orders, so it will not be torch.equal. Predicted from the code in wh-perf-esmfold2.md 4.2 on 2026-08-16 and left unmeasured; this clause count is the measurement it was missing."
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
-                "served": 1164,
+                "served": 8,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -1384,14 +1391,15 @@
               },
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
-                "served": 4656,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: the traffic moved to the gated channel, it did not stop. TRIMUL_MASK_AFTER_MOVE (d86a1eb5f, default on since 7bfa4ad19) moves the pair mask past the channel move, so the fused chunk+gate route is eligible and REBLOCK_PERMUTE_GATED serves the calls this counter served when the baseline was recorded. The handoff is visible across the three cards in commit order: the galaxy entry at f11e5009 reads ungated 2168 / gated 0 at 512, p150a at 9ceae36d reads 16 / 2152, this card reads 0 / 2168. The wrapper is not offered, not refused [carried from p300c] [carried from p150a]"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 2328,
+                "served": 1172,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -1569,58 +1577,63 @@
             "1024": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
-                "served": 578,
-                "declined": 180,
-                "frac": 0.762532981530343,
+                "served": 80,
+                "declined": 100,
+                "frac": 0.4444444444444444,
                 "how": "stats"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
-                "served": 578,
-                "declined": 180,
-                "frac": 0.762532981530343,
+                "served": 80,
+                "declined": 100,
+                "frac": 0.4444444444444444,
                 "how": "stats-shared"
               },
               "PAIR_FFN_L1_FC1": {
                 "resolved": "True",
-                "served": 73986,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. Inside `_row_blocked`, unreachable below 320 aa. [carried from rung 256]"
               },
               "PAIR_FFN_L1_LN": {
                 "resolved": "True",
-                "served": 36993,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. Inside `_row_blocked`, unreachable below 320 aa. [carried from rung 256]"
               },
               "PAIR_FFN_L1_SLICE": {
                 "resolved": "True",
-                "served": 578,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. It lives inside `_row_blocked` (esmc.py:678), so at 256 aa it is never asked rather than refusing. [carried from rung 256]"
               },
               "PAIR_FFN_FUSED_RESIDUAL": {
                 "resolved": "True",
-                "served": 578,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. Here `residual()` falls to `ttnn.add(x, self(x))` and counts declined (tt_bio/esmc.py:750-755). [carried from rung 256]"
               },
               "PAIR_FFN_FILL_ASSEMBLY": {
                 "resolved": "True",
-                "served": 578,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. It additionally rides on the fused residual (`filled = fused and ...`, esmc.py:680), so below 320 aa it cannot be reached. [carried from rung 256]"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
-                "resolved": "True",
-                "served": 2328,
-                "declined": 0,
-                "frac": 1.0,
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
                 "how": "stats"
               },
               "ADALN_S_HOIST": {
@@ -1658,17 +1671,14 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 73986,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "rejects": {
-                  "dtype:(8,32)": 73986
-                },
                 "reason": "right shape, wrong dtype \u2014 the same forced --fast as TRIMUL_IN_PROJ_DUAL_NOC. The clause is `dtype:(8,32)`, and that 8 is `k_tiles`, which is exactly what this lever requires (it is scoped to a single K block; boltz-2 is permanently excluded because c_z=128 gives 4). So ESMFold2 is the one model whose pair projection fits this lever and it is refused only because Wormhole forces bf8 weights. Widening the guard is a PARITY decision, not an engineering one \u2014 the tuned config and the fallback accumulate K in different block orders, so it will not be torch.equal. Predicted from the code in wh-perf-esmfold2.md 4.2 on 2026-08-16 and left unmeasured; this clause count is the measurement it was missing."
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
-                "served": 1164,
+                "served": 8,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -1690,14 +1700,15 @@
               },
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
-                "served": 4656,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: the traffic moved to the gated channel, it did not stop. TRIMUL_MASK_AFTER_MOVE (d86a1eb5f, default on since 7bfa4ad19) moves the pair mask past the channel move, so the fused chunk+gate route is eligible and REBLOCK_PERMUTE_GATED serves the calls this counter served when the baseline was recorded. The handoff is visible across the three cards in commit order: the galaxy entry at f11e5009 reads ungated 2168 / gated 0 at 512, p150a at 9ceae36d reads 16 / 2152, this card reads 0 / 2168. The wrapper is not offered, not refused [carried from p300c] [carried from p150a]"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 2328,
+                "served": 1172,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -1875,16 +1886,16 @@
             "1280": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
-                "served": 578,
-                "declined": 204,
-                "frac": 0.7391304347826086,
+                "served": 80,
+                "declined": 124,
+                "frac": 0.39215686274509803,
                 "how": "stats"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
-                "served": 578,
-                "declined": 204,
-                "frac": 0.7391304347826086,
+                "served": 80,
+                "declined": 124,
+                "frac": 0.39215686274509803,
                 "how": "stats-shared"
               },
               "PAIR_FFN_L1_FC1": {
@@ -1914,10 +1925,10 @@
               "PAIR_FFN_FUSED_RESIDUAL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 578,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "declines all 578 calls: the same cause counted on the other side of the branch: `residual()` increments this decline (`FUSED_RESID_STATS[1]`, esmc.py:816) for every call the window sends down the plain `x + ffn(x)`, and that is every pair transition in the fold. `PAIR_FFN_ROW_BLOCK_SEQ = (320, 1024)` (esmc.py:320) closes above 1024, so there is no row-blocked output here to fuse the residual into; 256 aa reads the same way one rung below the window's lower edge. Above the window the block is re-entered only after a real DRAM refusal of the unblocked FFN (`_UNBLOCKED_REFUSED`, esmc.py:860-870), which did not fire in the run that recorded this cell; a later run where it does fire reads served > 0 here, and that is the fallback working rather than drift [carried from p150a]"
+                "reason": "declines all 0 calls: the same cause counted on the other side of the branch: `residual()` increments this decline (`FUSED_RESID_STATS[1]`, esmc.py:816) for every call the window sends down the plain `x + ffn(x)`, and that is every pair transition in the fold. `PAIR_FFN_ROW_BLOCK_SEQ = (320, 1024)` (esmc.py:320) closes above 1024, so there is no row-blocked output here to fuse the residual into; 256 aa reads the same way one rung below the window's lower edge. Above the window the block is re-entered only after a real DRAM refusal of the unblocked FFN (`_UNBLOCKED_REFUSED`, esmc.py:860-870), which did not fire in the run that recorded this cell; a later run where it does fire reads served > 0 here, and that is the fallback working rather than drift [carried from p150a]"
               },
               "PAIR_FFN_FILL_ASSEMBLY": {
                 "resolved": "True",
@@ -1928,10 +1939,10 @@
                 "reason": "declines all 0 calls: the pair-FFN row block is bounded by an explicit sequence window, `PAIR_FFN_ROW_BLOCK_SEQ = (320, 1024)` (tt_bio/esmc.py:320), read on the PADDED token axis in `_split_plan` (esmc.py:686). Above 1024 `rows` comes back 0, the FFN runs unblocked, and `_row_blocked` -- the only place this lever exists -- is never entered, so it is not offered rather than declining. The window is a parity bound, not a tuning choice: 32 rows is pinned by `torch.equal` and 16 and 8 are faster and NOT bit-exact, so widening it is a release-gate decision. Above the window the block is re-entered only after a real DRAM refusal of the unblocked FFN (`_UNBLOCKED_REFUSED`, esmc.py:860-870), which did not fire in the run that recorded this cell; a later run where it does fire reads served > 0 here, and that is the fallback working rather than drift [carried from p150a]"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
-                "resolved": "True",
-                "served": 4656,
-                "declined": 0,
-                "frac": 1.0,
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
                 "how": "stats"
               },
               "ADALN_S_HOIST": {
@@ -1999,10 +2010,11 @@
               },
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
-                "served": 9312,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: the traffic moved to the gated channel, it did not stop. TRIMUL_MASK_AFTER_MOVE (d86a1eb5f, default on since 7bfa4ad19) moves the pair mask past the channel move, so the fused chunk+gate route is eligible and REBLOCK_PERMUTE_GATED serves the calls this counter served when the baseline was recorded. The handoff is visible across the three cards in commit order: the galaxy entry at f11e5009 reads ungated 2168 / gated 0 at 512, p150a at 9ceae36d reads 16 / 2152, this card reads 0 / 2168. The wrapper is not offered, not refused [carried from p300c] [carried from rung 1024] [carried from p150a]"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
@@ -2184,16 +2196,16 @@
             "1536": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
-                "served": 578,
-                "declined": 228,
-                "frac": 0.71712158808933,
+                "served": 80,
+                "declined": 148,
+                "frac": 0.3508771929824561,
                 "how": "stats"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
-                "served": 578,
-                "declined": 228,
-                "frac": 0.71712158808933,
+                "served": 80,
+                "declined": 148,
+                "frac": 0.3508771929824561,
                 "how": "stats-shared"
               },
               "PAIR_FFN_L1_FC1": {
@@ -2223,10 +2235,10 @@
               "PAIR_FFN_FUSED_RESIDUAL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 578,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "declines all 578 calls: the same cause counted on the other side of the branch: `residual()` increments this decline (`FUSED_RESID_STATS[1]`, esmc.py:816) for every call the window sends down the plain `x + ffn(x)`, and that is every pair transition in the fold. `PAIR_FFN_ROW_BLOCK_SEQ = (320, 1024)` (esmc.py:320) closes above 1024, so there is no row-blocked output here to fuse the residual into; 256 aa reads the same way one rung below the window's lower edge. Above the window the block is re-entered only after a real DRAM refusal of the unblocked FFN (`_UNBLOCKED_REFUSED`, esmc.py:860-870), which did not fire in the run that recorded this cell; a later run where it does fire reads served > 0 here, and that is the fallback working rather than drift [carried from p150a]"
+                "reason": "declines all 0 calls: the same cause counted on the other side of the branch: `residual()` increments this decline (`FUSED_RESID_STATS[1]`, esmc.py:816) for every call the window sends down the plain `x + ffn(x)`, and that is every pair transition in the fold. `PAIR_FFN_ROW_BLOCK_SEQ = (320, 1024)` (esmc.py:320) closes above 1024, so there is no row-blocked output here to fuse the residual into; 256 aa reads the same way one rung below the window's lower edge. Above the window the block is re-entered only after a real DRAM refusal of the unblocked FFN (`_UNBLOCKED_REFUSED`, esmc.py:860-870), which did not fire in the run that recorded this cell; a later run where it does fire reads served > 0 here, and that is the fallback working rather than drift [carried from p150a]"
               },
               "PAIR_FFN_FILL_ASSEMBLY": {
                 "resolved": "True",
@@ -2237,10 +2249,10 @@
                 "reason": "declines all 0 calls: the pair-FFN row block is bounded by an explicit sequence window, `PAIR_FFN_ROW_BLOCK_SEQ = (320, 1024)` (tt_bio/esmc.py:320), read on the PADDED token axis in `_split_plan` (esmc.py:686). Above 1024 `rows` comes back 0, the FFN runs unblocked, and `_row_blocked` -- the only place this lever exists -- is never entered, so it is not offered rather than declining. The window is a parity bound, not a tuning choice: 32 rows is pinned by `torch.equal` and 16 and 8 are faster and NOT bit-exact, so widening it is a release-gate decision. Above the window the block is re-entered only after a real DRAM refusal of the unblocked FFN (`_UNBLOCKED_REFUSED`, esmc.py:860-870), which did not fire in the run that recorded this cell; a later run where it does fire reads served > 0 here, and that is the fallback working rather than drift [carried from p150a]"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
-                "resolved": "True",
-                "served": 9312,
-                "declined": 0,
-                "frac": 1.0,
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
                 "how": "stats"
               },
               "ADALN_S_HOIST": {
@@ -2308,10 +2320,11 @@
               },
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
-                "served": 18624,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: the traffic moved to the gated channel, it did not stop. TRIMUL_MASK_AFTER_MOVE (d86a1eb5f, default on since 7bfa4ad19) moves the pair mask past the channel move, so the fused chunk+gate route is eligible and REBLOCK_PERMUTE_GATED serves the calls this counter served when the baseline was recorded. The handoff is visible across the three cards in commit order: the galaxy entry at f11e5009 reads ungated 2168 / gated 0 at 512, p150a at 9ceae36d reads 16 / 2152, this card reads 0 / 2168. The wrapper is not offered, not refused [carried from p300c] [carried from rung 1024] [carried from p150a]"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
@@ -2493,41 +2506,54 @@
           },
           "runtime_reps_s": {
             "256": [
-              37.7,
-              37.9,
-              39.5,
-              38.6,
-              38.5
+              21.0,
+              21.0,
+              21.0,
+              21.0,
+              20.7
             ],
             "512": [
-              98.8,
-              101.5,
-              102.1,
-              102.5,
-              103.3
+              36.1,
+              35.9,
+              37.5,
+              37.4,
+              36.3
             ],
             "640": [
-              145.5
+              53.5
             ],
             "768": [
-              211.9
+              81.8
             ],
             "896": [
-              280.0
+              112.3
             ],
             "1024": [
-              355.6
+              144.7
             ],
             "1280": [
-              669.7
+              330.4
             ],
             "1536": [
-              1109.8
+              584.7
             ]
           },
           "aiclk": {
             "256": {
-              "card": "10",
+              "card": "4",
+              "min": 500,
+              "max": 1000,
+              "rep_median": [
+                1000,
+                1000,
+                1000,
+                1000,
+                1000
+              ],
+              "n": 135
+            },
+            "512": {
+              "card": "4",
               "min": 500,
               "max": 1000,
               "rep_median": [
@@ -2539,129 +2565,116 @@
               ],
               "n": 148
             },
-            "512": {
-              "card": "10",
-              "min": 500,
-              "max": 1000,
-              "rep_median": [
-                1000,
-                1000,
-                1000,
-                1000,
-                1000
-              ],
-              "n": 217
-            },
             "640": {
-              "card": "10",
+              "card": "4",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 50
+              "n": 34
             },
             "768": {
-              "card": "10",
+              "card": "4",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 61
+              "n": 40
             },
             "896": {
-              "card": "10",
+              "card": "4",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 74
+              "n": 51
             },
             "1024": {
-              "card": "10",
+              "card": "4",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 86
+              "n": 55
             },
             "1280": {
-              "card": "10",
+              "card": "4",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 147
+              "n": 87
             },
             "1536": {
-              "card": "10",
+              "card": "4",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 225
+              "n": 132
             }
           },
           "load": {
             "256": {
-              "max": 0.53,
+              "max": 0.57,
               "rep_median": [
-                0.46,
-                0.45,
-                0.49,
-                0.45,
-                0.46
+                0.5,
+                0.5,
+                0.5,
+                0.51,
+                0.52
               ]
             },
             "512": {
-              "max": 0.81,
+              "max": 0.58,
               "rep_median": [
+                0.53,
                 0.5,
-                0.57,
-                0.65,
-                0.65,
-                0.68
+                0.51,
+                0.53,
+                0.55
               ]
             },
             "640": {
-              "max": 0.62,
+              "max": 0.72,
               "rep_median": [
-                0.51
+                0.64
               ]
             },
             "768": {
-              "max": 0.39,
+              "max": 0.85,
               "rep_median": [
-                0.32
+                0.67
               ]
             },
             "896": {
-              "max": 0.49,
+              "max": 1.35,
               "rep_median": [
-                0.47
+                1.07
               ]
             },
             "1024": {
-              "max": 0.46,
+              "max": 1.27,
               "rep_median": [
-                0.38
+                1.16
               ]
             },
             "1280": {
-              "max": 0.44,
+              "max": 1.21,
               "rep_median": [
-                0.32
+                0.73
               ]
             },
             "1536": {
-              "max": 0.47,
+              "max": 1.08,
               "rep_median": [
-                0.34
+                0.76
               ]
             }
           },
@@ -2672,14 +2685,14 @@
               "n_ca": 256,
               "clash_frac": 0.0156,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 81.3374,
-              "radius_of_gyration_A": 68.171,
-              "plddt_mean": 0.277477,
+              "ca_ca_median_A": 81.1885,
+              "radius_of_gyration_A": 68.035,
+              "plddt_mean": 0.280812,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 81.337 A outside [3.6, 4.0]",
+                "median CA-CA 81.189 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 68.2 A outside [9.0, 45.2]"
+                "radius of gyration 68.0 A outside [9.0, 45.2]"
               ]
             },
             "512": {
@@ -2688,32 +2701,32 @@
               "n_ca": 512,
               "clash_frac": 0.0273,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 77.9216,
-              "radius_of_gyration_A": 75.631,
-              "plddt_mean": 0.263654,
+              "ca_ca_median_A": 78.4587,
+              "radius_of_gyration_A": 75.805,
+              "plddt_mean": 0.268335,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 77.922 A outside [3.6, 4.0]",
+                "median CA-CA 78.459 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
                 "2.7% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 75.6 A outside [11.8, 58.9]"
+                "radius of gyration 75.8 A outside [11.8, 58.9]"
               ]
             },
             "640": {
               "file": "cdk2x2_640.cif",
               "steps": 6,
               "n_ca": 640,
-              "clash_frac": 0.0359,
+              "clash_frac": 0.0266,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 79.563,
-              "radius_of_gyration_A": 78.24,
-              "plddt_mean": 0.273745,
+              "ca_ca_median_A": 79.7942,
+              "radius_of_gyration_A": 78.396,
+              "plddt_mean": 0.277119,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 79.563 A outside [3.6, 4.0]",
+                "median CA-CA 79.794 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "3.6% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 78.2 A outside [12.8, 64.1]"
+                "2.7% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 78.4 A outside [12.8, 64.1]"
               ]
             },
             "768": {
@@ -2722,150 +2735,150 @@
               "n_ca": 768,
               "clash_frac": 0.0482,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 80.835,
-              "radius_of_gyration_A": 73.954,
-              "plddt_mean": 0.256727,
+              "ca_ca_median_A": 81.054,
+              "radius_of_gyration_A": 73.651,
+              "plddt_mean": 0.259927,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 80.835 A outside [3.6, 4.0]",
+                "median CA-CA 81.054 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
                 "4.8% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 74.0 A outside [13.7, 68.7]"
+                "radius of gyration 73.7 A outside [13.7, 68.7]"
               ]
             },
             "896": {
               "file": "cdk2x2_896.cif",
               "steps": 6,
               "n_ca": 896,
-              "clash_frac": 0.0469,
+              "clash_frac": 0.0379,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 79.5153,
-              "radius_of_gyration_A": 79.861,
-              "plddt_mean": 0.26375,
+              "ca_ca_median_A": 79.9686,
+              "radius_of_gyration_A": 80.073,
+              "plddt_mean": 0.26755,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 79.515 A outside [3.6, 4.0]",
+                "median CA-CA 79.969 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "4.7% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 79.9 A outside [14.6, 72.8]"
+                "3.8% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 80.1 A outside [14.6, 72.8]"
               ]
             },
             "1024": {
               "file": "cdk2x2_1024.cif",
               "steps": 6,
               "n_ca": 1024,
-              "clash_frac": 0.0449,
+              "clash_frac": 0.041,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 80.181,
-              "radius_of_gyration_A": 77.287,
-              "plddt_mean": 0.257997,
+              "ca_ca_median_A": 80.294,
+              "radius_of_gyration_A": 77.422,
+              "plddt_mean": 0.260724,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 80.181 A outside [3.6, 4.0]",
+                "median CA-CA 80.294 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "4.5% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 77.3 A outside [15.3, 76.6]"
+                "4.1% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 77.4 A outside [15.3, 76.6]"
               ]
             },
             "1280": {
               "file": "cdk2x2_1280.cif",
               "steps": 6,
               "n_ca": 1280,
-              "clash_frac": 0.0516,
+              "clash_frac": 0.0594,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 78.1638,
-              "radius_of_gyration_A": 78.921,
-              "plddt_mean": 0.258342,
+              "ca_ca_median_A": 78.1847,
+              "radius_of_gyration_A": 79.241,
+              "plddt_mean": 0.261652,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 78.164 A outside [3.6, 4.0]",
+                "median CA-CA 78.185 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "5.2% of CA atoms sit under 3.5 A from a non-bonded CA"
+                "5.9% of CA atoms sit under 3.5 A from a non-bonded CA"
               ]
             },
             "1536": {
               "file": "cdk2x2_1536.cif",
               "steps": 6,
               "n_ca": 1536,
-              "clash_frac": 0.0534,
+              "clash_frac": 0.0436,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 78.5458,
-              "radius_of_gyration_A": 81.161,
-              "plddt_mean": 0.26012,
+              "ca_ca_median_A": 78.7299,
+              "radius_of_gyration_A": 81.671,
+              "plddt_mean": 0.267459,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 78.546 A outside [3.6, 4.0]",
+                "median CA-CA 78.730 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "5.3% of CA atoms sit under 3.5 A from a non-bonded CA"
+                "4.4% of CA atoms sit under 3.5 A from a non-bonded CA"
               ]
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.0169,
+          "sigma_runtime_512": 0.0206,
           "exponents": {
             "256->512": {
-              "k": 1.407,
+              "k": 0.79,
               "tol": 0.5
             },
             "512->768": {
-              "k": 1.801,
+              "k": 2.004,
               "tol": 0.5
             }
           },
           "sigma_runtime": {
-            "256": 0.0184,
-            "512": 0.0169
+            "256": 0.0064,
+            "512": 0.0206
           },
           "exponents_measured": {
-            "256->512": 1.407,
-            "512->640": 1.587,
-            "640->768": 2.062,
-            "768->896": 1.808,
-            "896->1024": 1.79,
-            "1024->1280": 2.837,
-            "1280->1536": 2.77
+            "256->512": 0.79,
+            "512->640": 1.738,
+            "640->768": 2.329,
+            "768->896": 2.056,
+            "896->1024": 1.898,
+            "1024->1280": 3.7,
+            "1280->1536": 3.131
           }
         }
       }
     },
     "p150a": {
-      "recorded": "2026-10-11",
+      "recorded": "2026-10-15",
       "host": "tt-quietbox",
-      "commit": "1064f95a1",
+      "commit": "4ba29781f",
       "host_threads": 8,
       "models": {
         "esmfold2": {
           "grid": "11x10",
-          "recorded": "2026-10-11",
+          "recorded": "2026-10-15",
           "host": "tt-quietbox",
-          "commit": "1064f95a1",
+          "commit": "4ba29781f",
           "host_threads": 8,
           "runtime_s": {
-            "256": 27.0,
-            "512": 63.3,
-            "640": 94.8,
-            "768": 131.5,
-            "896": 178.8,
-            "1024": 228.9,
-            "1152": 286.9,
-            "1280": 343.5,
-            "1408": 461.2,
-            "1536": 582.5
+            "256": 22.4,
+            "512": 46.1,
+            "640": 67.7,
+            "768": 93.2,
+            "896": 127.6,
+            "1024": 153.9,
+            "1152": 190.6,
+            "1280": 224.9,
+            "1408": 313.7,
+            "1536": 416.3
           },
           "levers": {
             "256": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
-                "served": 578,
-                "declined": 87,
-                "frac": 0.869172932330827,
+                "served": 658,
+                "declined": 7,
+                "frac": 0.9894736842105263,
                 "how": "stats"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
-                "served": 578,
-                "declined": 87,
-                "frac": 0.869172932330827,
+                "served": 658,
+                "declined": 7,
+                "frac": 0.9894736842105263,
                 "how": "stats-shared"
               },
               "PAIR_FFN_L1_FC1": {
@@ -2964,7 +2977,10 @@
                 "served": 1164,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "rejects": {
+                  "t2:g_not_f1": 1156
+                }
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -3175,16 +3191,16 @@
             "512": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
-                "served": 578,
-                "declined": 87,
-                "frac": 0.869172932330827,
+                "served": 658,
+                "declined": 7,
+                "frac": 0.9894736842105263,
                 "how": "stats"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
-                "served": 578,
-                "declined": 87,
-                "frac": 0.869172932330827,
+                "served": 658,
+                "declined": 7,
+                "frac": 0.9894736842105263,
                 "how": "stats-shared"
               },
               "PAIR_FFN_L1_FC1": {
@@ -3223,10 +3239,10 @@
                 "how": "stats"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
-                "resolved": "True",
-                "served": 1164,
-                "declined": 0,
-                "frac": 1.0,
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
                 "how": "stats"
               },
               "ADALN_S_HOIST": {
@@ -3271,7 +3287,7 @@
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
-                "served": 1164,
+                "served": 8,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -3308,17 +3324,19 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 2328,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site at any rung: 0 served and 0 declined at all six. The gated variant is not on ESMFold2's path (the same reading boltz-2's baseline records for this lever). [carried from tt-galaxy-wh-l]"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 2328,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats-shared"
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "declines all 0 calls: it unlocks the gated channel move, which is only offered once the trimul's pair tensors are in DRAM. At 256 aa they are L1-resident -- REBLOCK_PERMUTE refuses every call here on window_BufferType.L1 -- so nothing is offered at this rung; it serves every call from 512 up. Default on since 7bfa4ad19 [carried from p300c] [carried from p150a] [carried from rung 256] [carried from tt-galaxy-wh-l]"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -3477,16 +3495,16 @@
             "640": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
-                "served": 578,
-                "declined": 87,
-                "frac": 0.869172932330827,
+                "served": 658,
+                "declined": 7,
+                "frac": 0.9894736842105263,
                 "how": "stats"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
-                "served": 578,
-                "declined": 87,
-                "frac": 0.869172932330827,
+                "served": 658,
+                "declined": 7,
+                "frac": 0.9894736842105263,
                 "how": "stats-shared"
               },
               "PAIR_FFN_L1_FC1": {
@@ -3525,10 +3543,10 @@
                 "how": "stats"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
-                "resolved": "True",
-                "served": 1164,
-                "declined": 0,
-                "frac": 1.0,
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
                 "how": "stats"
               },
               "ADALN_S_HOIST": {
@@ -3572,7 +3590,7 @@
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
-                "served": 1164,
+                "served": 8,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -3608,17 +3626,19 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 2328,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site at any rung: 0 served and 0 declined at all six. The gated variant is not on ESMFold2's path (the same reading boltz-2's baseline records for this lever). [carried from tt-galaxy-wh-l]"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 2328,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats-shared"
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "declines all 0 calls: it unlocks the gated channel move, which is only offered once the trimul's pair tensors are in DRAM. At 256 aa they are L1-resident -- REBLOCK_PERMUTE refuses every call here on window_BufferType.L1 -- so nothing is offered at this rung; it serves every call from 512 up. Default on since 7bfa4ad19 [carried from p300c] [carried from p150a] [carried from rung 256] [carried from tt-galaxy-wh-l]"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -3777,16 +3797,16 @@
             "768": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
-                "served": 578,
-                "declined": 87,
-                "frac": 0.869172932330827,
+                "served": 658,
+                "declined": 7,
+                "frac": 0.9894736842105263,
                 "how": "stats"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
-                "served": 578,
-                "declined": 87,
-                "frac": 0.869172932330827,
+                "served": 658,
+                "declined": 7,
+                "frac": 0.9894736842105263,
                 "how": "stats-shared"
               },
               "PAIR_FFN_L1_FC1": {
@@ -3825,10 +3845,10 @@
                 "how": "stats"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
-                "resolved": "True",
-                "served": 2328,
-                "declined": 0,
-                "frac": 1.0,
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
                 "how": "stats"
               },
               "ADALN_S_HOIST": {
@@ -3872,7 +3892,7 @@
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
-                "served": 1164,
+                "served": 8,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -3908,17 +3928,19 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 4656,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site at any rung: 0 served and 0 declined at all six. The gated variant is not on ESMFold2's path (the same reading boltz-2's baseline records for this lever). [carried from tt-galaxy-wh-l]"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 4656,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats-shared"
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "declines all 0 calls: it unlocks the gated channel move, which is only offered once the trimul's pair tensors are in DRAM. At 256 aa they are L1-resident -- REBLOCK_PERMUTE refuses every call here on window_BufferType.L1 -- so nothing is offered at this rung; it serves every call from 512 up. Default on since 7bfa4ad19 [carried from p300c] [carried from p150a] [carried from rung 256] [carried from tt-galaxy-wh-l]"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -4077,16 +4099,16 @@
             "896": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
-                "served": 578,
-                "declined": 87,
-                "frac": 0.869172932330827,
+                "served": 658,
+                "declined": 7,
+                "frac": 0.9894736842105263,
                 "how": "stats"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
-                "served": 578,
-                "declined": 87,
-                "frac": 0.869172932330827,
+                "served": 658,
+                "declined": 7,
+                "frac": 0.9894736842105263,
                 "how": "stats-shared"
               },
               "PAIR_FFN_L1_FC1": {
@@ -4125,10 +4147,10 @@
                 "how": "stats"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
-                "resolved": "True",
-                "served": 2328,
-                "declined": 0,
-                "frac": 1.0,
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
                 "how": "stats"
               },
               "ADALN_S_HOIST": {
@@ -4175,7 +4197,7 @@
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
-                "served": 1164,
+                "served": 8,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -4211,17 +4233,19 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 4656,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site at any rung: 0 served and 0 declined at all six. The gated variant is not on ESMFold2's path (the same reading boltz-2's baseline records for this lever). [carried from tt-galaxy-wh-l]"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 4656,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats-shared"
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "declines all 0 calls: it unlocks the gated channel move, which is only offered once the trimul's pair tensors are in DRAM. At 256 aa they are L1-resident -- REBLOCK_PERMUTE refuses every call here on window_BufferType.L1 -- so nothing is offered at this rung; it serves every call from 512 up. Default on since 7bfa4ad19 [carried from p300c] [carried from p150a] [carried from rung 256] [carried from tt-galaxy-wh-l]"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -4380,16 +4404,16 @@
             "1024": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
-                "served": 578,
-                "declined": 87,
-                "frac": 0.869172932330827,
+                "served": 658,
+                "declined": 7,
+                "frac": 0.9894736842105263,
                 "how": "stats"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
-                "served": 578,
-                "declined": 87,
-                "frac": 0.869172932330827,
+                "served": 658,
+                "declined": 7,
+                "frac": 0.9894736842105263,
                 "how": "stats-shared"
               },
               "PAIR_FFN_L1_FC1": {
@@ -4428,10 +4452,10 @@
                 "how": "stats"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
-                "resolved": "True",
-                "served": 2328,
-                "declined": 0,
-                "frac": 1.0,
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
                 "how": "stats"
               },
               "ADALN_S_HOIST": {
@@ -4478,7 +4502,7 @@
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
-                "served": 1164,
+                "served": 8,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -4514,17 +4538,19 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 4656,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site at any rung: 0 served and 0 declined at all six. The gated variant is not on ESMFold2's path (the same reading boltz-2's baseline records for this lever). [carried from tt-galaxy-wh-l]"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 4656,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats-shared"
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "declines all 0 calls: it unlocks the gated channel move, which is only offered once the trimul's pair tensors are in DRAM. At 256 aa they are L1-resident -- REBLOCK_PERMUTE refuses every call here on window_BufferType.L1 -- so nothing is offered at this rung; it serves every call from 512 up. Default on since 7bfa4ad19 [carried from p300c] [carried from p150a] [carried from rung 256] [carried from tt-galaxy-wh-l]"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -4683,16 +4709,16 @@
             "1152": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
-                "served": 578,
-                "declined": 93,
-                "frac": 0.8614008941877794,
+                "served": 658,
+                "declined": 13,
+                "frac": 0.9806259314456036,
                 "how": "stats"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
-                "served": 578,
-                "declined": 93,
-                "frac": 0.8614008941877794,
+                "served": 658,
+                "declined": 13,
+                "frac": 0.9806259314456036,
                 "how": "stats-shared"
               },
               "PAIR_FFN_L1_FC1": {
@@ -4736,10 +4762,10 @@
                 "reason": "declines all 0 calls: the pair-FFN row block is bounded by an explicit sequence window, `PAIR_FFN_ROW_BLOCK_SEQ = (320, 1024)` (tt_bio/esmc.py:320), read on the PADDED token axis in `_split_plan` (esmc.py:686). Above 1024 `rows` comes back 0, the FFN runs unblocked, and `_row_blocked` -- the only place this lever exists -- is never entered, so it is not offered rather than declining. The window is a parity bound, not a tuning choice: 32 rows is pinned by `torch.equal` and 16 and 8 are faster and NOT bit-exact, so widening it is a release-gate decision. Above the window the block is re-entered only after a real DRAM refusal of the unblocked FFN (`_UNBLOCKED_REFUSED`, esmc.py:860-870), which did not fire in the run that recorded this cell; a later run where it does fire reads served > 0 here, and that is the fallback working rather than drift"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
-                "resolved": "True",
-                "served": 4656,
-                "declined": 0,
-                "frac": 1.0,
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
                 "how": "stats"
               },
               "ADALN_S_HOIST": {
@@ -4784,7 +4810,7 @@
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
-                "served": 1164,
+                "served": 8,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -4821,17 +4847,19 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 9312,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site at any rung: 0 served and 0 declined at all six. The gated variant is not on ESMFold2's path (the same reading boltz-2's baseline records for this lever). [carried from tt-galaxy-wh-l] [carried from rung 1024]"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 9312,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats-shared"
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "declines all 0 calls: it unlocks the gated channel move, which is only offered once the trimul's pair tensors are in DRAM. At 256 aa they are L1-resident -- REBLOCK_PERMUTE refuses every call here on window_BufferType.L1 -- so nothing is offered at this rung; it serves every call from 512 up. Default on since 7bfa4ad19 [carried from p300c] [carried from p150a] [carried from tt-galaxy-wh-l] [carried from rung 256]"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -4990,16 +5018,16 @@
             "1280": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
-                "served": 578,
-                "declined": 96,
-                "frac": 0.857566765578635,
+                "served": 658,
+                "declined": 16,
+                "frac": 0.9762611275964391,
                 "how": "stats"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
-                "served": 578,
-                "declined": 96,
-                "frac": 0.857566765578635,
+                "served": 658,
+                "declined": 16,
+                "frac": 0.9762611275964391,
                 "how": "stats-shared"
               },
               "PAIR_FFN_L1_FC1": {
@@ -5043,10 +5071,10 @@
                 "reason": "declines all 0 calls: the pair-FFN row block is bounded by an explicit sequence window, `PAIR_FFN_ROW_BLOCK_SEQ = (320, 1024)` (tt_bio/esmc.py:320), read on the PADDED token axis in `_split_plan` (esmc.py:686). Above 1024 `rows` comes back 0, the FFN runs unblocked, and `_row_blocked` -- the only place this lever exists -- is never entered, so it is not offered rather than declining. The window is a parity bound, not a tuning choice: 32 rows is pinned by `torch.equal` and 16 and 8 are faster and NOT bit-exact, so widening it is a release-gate decision. Above the window the block is re-entered only after a real DRAM refusal of the unblocked FFN (`_UNBLOCKED_REFUSED`, esmc.py:860-870), which did not fire in the run that recorded this cell; a later run where it does fire reads served > 0 here, and that is the fallback working rather than drift"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
-                "resolved": "True",
-                "served": 4656,
-                "declined": 0,
-                "frac": 1.0,
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
                 "how": "stats"
               },
               "ADALN_S_HOIST": {
@@ -5091,7 +5119,7 @@
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
-                "served": 1164,
+                "served": 8,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -5128,17 +5156,19 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 9312,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site at any rung: 0 served and 0 declined at all six. The gated variant is not on ESMFold2's path (the same reading boltz-2's baseline records for this lever). [carried from rung 1024] [carried from tt-galaxy-wh-l]"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 9312,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats-shared"
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "declines all 0 calls: it unlocks the gated channel move, which is only offered once the trimul's pair tensors are in DRAM. At 256 aa they are L1-resident -- REBLOCK_PERMUTE refuses every call here on window_BufferType.L1 -- so nothing is offered at this rung; it serves every call from 512 up. Default on since 7bfa4ad19 [carried from p300c] [carried from p150a] [carried from rung 256] [carried from tt-galaxy-wh-l]"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -5297,16 +5327,16 @@
             "1408": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
-                "served": 578,
-                "declined": 96,
-                "frac": 0.857566765578635,
+                "served": 658,
+                "declined": 16,
+                "frac": 0.9762611275964391,
                 "how": "stats"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
-                "served": 578,
-                "declined": 96,
-                "frac": 0.857566765578635,
+                "served": 658,
+                "declined": 16,
+                "frac": 0.9762611275964391,
                 "how": "stats-shared"
               },
               "PAIR_FFN_L1_FC1": {
@@ -5350,10 +5380,10 @@
                 "reason": "declines all 0 calls: the pair-FFN row block is bounded by an explicit sequence window, `PAIR_FFN_ROW_BLOCK_SEQ = (320, 1024)` (tt_bio/esmc.py:320), read on the PADDED token axis in `_split_plan` (esmc.py:686). Above 1024 `rows` comes back 0, the FFN runs unblocked, and `_row_blocked` -- the only place this lever exists -- is never entered, so it is not offered rather than declining. The window is a parity bound, not a tuning choice: 32 rows is pinned by `torch.equal` and 16 and 8 are faster and NOT bit-exact, so widening it is a release-gate decision. Above the window the block is re-entered only after a real DRAM refusal of the unblocked FFN (`_UNBLOCKED_REFUSED`, esmc.py:860-870), which did not fire in the run that recorded this cell; a later run where it does fire reads served > 0 here, and that is the fallback working rather than drift"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
-                "resolved": "True",
-                "served": 4656,
-                "declined": 0,
-                "frac": 1.0,
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
                 "how": "stats"
               },
               "ADALN_S_HOIST": {
@@ -5398,7 +5428,7 @@
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
-                "served": 1164,
+                "served": 8,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -5435,17 +5465,19 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 9312,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site at any rung: 0 served and 0 declined at all six. The gated variant is not on ESMFold2's path (the same reading boltz-2's baseline records for this lever). [carried from tt-galaxy-wh-l] [carried from rung 1024]"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 9312,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats-shared"
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "declines all 0 calls: it unlocks the gated channel move, which is only offered once the trimul's pair tensors are in DRAM. At 256 aa they are L1-resident -- REBLOCK_PERMUTE refuses every call here on window_BufferType.L1 -- so nothing is offered at this rung; it serves every call from 512 up. Default on since 7bfa4ad19 [carried from p300c] [carried from p150a] [carried from tt-galaxy-wh-l] [carried from rung 256]"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -5604,16 +5636,16 @@
             "1536": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
-                "served": 578,
-                "declined": 99,
-                "frac": 0.8537666174298375,
+                "served": 658,
+                "declined": 19,
+                "frac": 0.9719350073855244,
                 "how": "stats"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
-                "served": 578,
-                "declined": 99,
-                "frac": 0.8537666174298375,
+                "served": 658,
+                "declined": 19,
+                "frac": 0.9719350073855244,
                 "how": "stats-shared"
               },
               "PAIR_FFN_L1_FC1": {
@@ -5657,10 +5689,10 @@
                 "reason": "declines all 0 calls: the pair-FFN row block is bounded by an explicit sequence window, `PAIR_FFN_ROW_BLOCK_SEQ = (320, 1024)` (tt_bio/esmc.py:320), read on the PADDED token axis in `_split_plan` (esmc.py:686). Above 1024 `rows` comes back 0, the FFN runs unblocked, and `_row_blocked` -- the only place this lever exists -- is never entered, so it is not offered rather than declining. The window is a parity bound, not a tuning choice: 32 rows is pinned by `torch.equal` and 16 and 8 are faster and NOT bit-exact, so widening it is a release-gate decision. Above the window the block is re-entered only after a real DRAM refusal of the unblocked FFN (`_UNBLOCKED_REFUSED`, esmc.py:860-870), which did not fire in the run that recorded this cell; a later run where it does fire reads served > 0 here, and that is the fallback working rather than drift"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
-                "resolved": "True",
-                "served": 9312,
-                "declined": 0,
-                "frac": 1.0,
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
                 "how": "stats"
               },
               "ADALN_S_HOIST": {
@@ -5705,7 +5737,7 @@
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
-                "served": 1164,
+                "served": 8,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -5742,17 +5774,19 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 18624,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site at any rung: 0 served and 0 declined at all six. The gated variant is not on ESMFold2's path (the same reading boltz-2's baseline records for this lever). [carried from rung 1024] [carried from tt-galaxy-wh-l]"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 18624,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats-shared"
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "declines all 0 calls: it unlocks the gated channel move, which is only offered once the trimul's pair tensors are in DRAM. At 256 aa they are L1-resident -- REBLOCK_PERMUTE refuses every call here on window_BufferType.L1 -- so nothing is offered at this rung; it serves every call from 512 up. Default on since 7bfa4ad19 [carried from p300c] [carried from p150a] [carried from rung 256] [carried from tt-galaxy-wh-l]"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -5911,47 +5945,47 @@
           },
           "runtime_reps_s": {
             "256": [
-              27.0,
-              27.3,
-              26.6,
-              27.5,
-              26.7
+              23.9,
+              24.3,
+              22.3,
+              22.4,
+              22.2
             ],
             "512": [
-              64.7,
-              63.8,
-              62.2,
-              63.0,
-              63.3
+              46.1,
+              46.5,
+              45.5,
+              45.4,
+              46.1
             ],
             "640": [
-              94.8
+              67.7
             ],
             "768": [
-              131.5
+              93.2
             ],
             "896": [
-              178.8
+              127.6
             ],
             "1024": [
-              228.9
+              153.9
             ],
             "1152": [
-              286.9
+              190.6
             ],
             "1280": [
-              343.5
+              224.9
             ],
             "1408": [
-              461.2
+              313.7
             ],
             "1536": [
-              582.5
+              416.3
             ]
           },
           "aiclk": {
             "256": {
-              "card": "0",
+              "card": "2",
               "min": 800,
               "max": 1350,
               "rep_median": [
@@ -5961,10 +5995,10 @@
                 1350,
                 1350
               ],
-              "n": 60
+              "n": 68
             },
             "512": {
-              "card": "0",
+              "card": "2",
               "min": 800,
               "max": 1350,
               "rep_median": [
@@ -5974,148 +6008,148 @@
                 1350,
                 1350
               ],
-              "n": 92
+              "n": 90
             },
             "640": {
-              "card": "0",
+              "card": "2",
               "min": 800,
               "max": 1350,
               "rep_median": [
                 1350
               ],
-              "n": 24
+              "n": 21
             },
             "768": {
-              "card": "0",
+              "card": "2",
               "min": 800,
               "max": 1350,
               "rep_median": [
                 1350
               ],
-              "n": 29
+              "n": 26
             },
             "896": {
-              "card": "0",
+              "card": "2",
               "min": 800,
               "max": 1350,
               "rep_median": [
                 1350
               ],
-              "n": 37
+              "n": 31
             },
             "1024": {
-              "card": "0",
+              "card": "2",
               "min": 800,
               "max": 1350,
               "rep_median": [
                 1350
               ],
-              "n": 46
+              "n": 36
             },
             "1152": {
-              "card": "0",
+              "card": "2",
               "min": 800,
               "max": 1350,
               "rep_median": [
                 1350
               ],
-              "n": 55
+              "n": 41
             },
             "1280": {
-              "card": "0",
+              "card": "2",
               "min": 800,
               "max": 1350,
               "rep_median": [
                 1350
               ],
-              "n": 65
+              "n": 47
             },
             "1408": {
-              "card": "0",
+              "card": "2",
               "min": 800,
               "max": 1350,
               "rep_median": [
                 1350
               ],
-              "n": 84
+              "n": 62
             },
             "1536": {
-              "card": "0",
+              "card": "2",
               "min": 800,
               "max": 1350,
               "rep_median": [
                 1350
               ],
-              "n": 104
+              "n": 79
             }
           },
           "load": {
             "256": {
               "max": 0.3,
               "rep_median": [
-                0.28,
-                0.2,
-                0.2,
-                0.18,
-                0.17
+                0.25,
+                0.22,
+                0.24,
+                0.26,
+                0.21
               ]
             },
             "512": {
               "max": 0.38,
               "rep_median": [
-                0.3,
+                0.29,
                 0.34,
-                0.25,
-                0.21,
-                0.21
+                0.3,
+                0.26,
+                0.3
               ]
             },
             "640": {
-              "max": 0.4,
+              "max": 0.29,
               "rep_median": [
-                0.34
+                0.27
               ]
             },
             "768": {
-              "max": 0.35,
+              "max": 0.38,
               "rep_median": [
-                0.28
+                0.32
               ]
             },
             "896": {
-              "max": 0.27,
+              "max": 0.34,
               "rep_median": [
-                0.24
+                0.27
               ]
             },
             "1024": {
-              "max": 0.43,
+              "max": 0.27,
               "rep_median": [
-                0.38
+                0.2
               ]
             },
             "1152": {
-              "max": 0.3,
+              "max": 0.27,
               "rep_median": [
-                0.24
+                0.17
               ]
             },
             "1280": {
-              "max": 0.26,
+              "max": 0.29,
               "rep_median": [
-                0.19
+                0.21
               ]
             },
             "1408": {
-              "max": 0.36,
+              "max": 0.34,
               "rep_median": [
-                0.28
+                0.27
               ]
             },
             "1536": {
-              "max": 0.65,
+              "max": 0.31,
               "rep_median": [
-                0.14
+                0.22
               ]
             }
           },
@@ -6124,66 +6158,67 @@
               "file": "cdk2x2_256.cif",
               "steps": 6,
               "n_ca": 256,
-              "clash_frac": 0.0156,
+              "clash_frac": 0.0234,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 81.3219,
-              "radius_of_gyration_A": 68.45,
-              "plddt_mean": 0.275982,
+              "ca_ca_median_A": 81.3793,
+              "radius_of_gyration_A": 68.209,
+              "plddt_mean": 0.277244,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 81.322 A outside [3.6, 4.0]",
+                "median CA-CA 81.379 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 68.4 A outside [9.0, 45.2]"
+                "2.3% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 68.2 A outside [9.0, 45.2]"
               ]
             },
             "512": {
               "file": "cdk2x2_512.cif",
               "steps": 6,
               "n_ca": 512,
-              "clash_frac": 0.0312,
+              "clash_frac": 0.0273,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 78.3608,
-              "radius_of_gyration_A": 75.733,
-              "plddt_mean": 0.262338,
+              "ca_ca_median_A": 78.4323,
+              "radius_of_gyration_A": 75.833,
+              "plddt_mean": 0.264394,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 78.361 A outside [3.6, 4.0]",
+                "median CA-CA 78.432 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "3.1% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 75.7 A outside [11.8, 58.9]"
+                "2.7% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 75.8 A outside [11.8, 58.9]"
               ]
             },
             "640": {
               "file": "cdk2x2_640.cif",
               "steps": 6,
               "n_ca": 640,
-              "clash_frac": 0.0328,
+              "clash_frac": 0.0297,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 79.6624,
-              "radius_of_gyration_A": 78.318,
-              "plddt_mean": 0.274185,
+              "ca_ca_median_A": 79.8156,
+              "radius_of_gyration_A": 78.224,
+              "plddt_mean": 0.27557,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 79.662 A outside [3.6, 4.0]",
+                "median CA-CA 79.816 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "3.3% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 78.3 A outside [12.8, 64.1]"
+                "3.0% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 78.2 A outside [12.8, 64.1]"
               ]
             },
             "768": {
               "file": "cdk2x2_768.cif",
               "steps": 6,
               "n_ca": 768,
-              "clash_frac": 0.0286,
+              "clash_frac": 0.0391,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 81.1053,
-              "radius_of_gyration_A": 73.935,
-              "plddt_mean": 0.257475,
+              "ca_ca_median_A": 81.2366,
+              "radius_of_gyration_A": 73.854,
+              "plddt_mean": 0.259108,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 81.105 A outside [3.6, 4.0]",
+                "median CA-CA 81.237 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "2.9% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "3.9% of CA atoms sit under 3.5 A from a non-bonded CA",
                 "radius of gyration 73.9 A outside [13.7, 68.7]"
               ]
             },
@@ -6191,33 +6226,33 @@
               "file": "cdk2x2_896.cif",
               "steps": 6,
               "n_ca": 896,
-              "clash_frac": 0.0491,
+              "clash_frac": 0.0513,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 79.3283,
-              "radius_of_gyration_A": 79.845,
-              "plddt_mean": 0.264069,
+              "ca_ca_median_A": 79.4957,
+              "radius_of_gyration_A": 79.97,
+              "plddt_mean": 0.265937,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 79.328 A outside [3.6, 4.0]",
+                "median CA-CA 79.496 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "4.9% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 79.8 A outside [14.6, 72.8]"
+                "5.1% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 80.0 A outside [14.6, 72.8]"
               ]
             },
             "1024": {
               "file": "cdk2x2_1024.cif",
               "steps": 6,
               "n_ca": 1024,
-              "clash_frac": 0.0596,
-              "chain_break_frac": 0.999,
-              "ca_ca_median_A": 80.3642,
-              "radius_of_gyration_A": 77.42,
-              "plddt_mean": 0.257053,
+              "clash_frac": 0.0508,
+              "chain_break_frac": 1.0,
+              "ca_ca_median_A": 80.1531,
+              "radius_of_gyration_A": 77.397,
+              "plddt_mean": 0.258659,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 80.364 A outside [3.6, 4.0]",
-                "99.9% of consecutive CA pairs exceed 5.0 A",
-                "6.0% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "median CA-CA 80.153 A outside [3.6, 4.0]",
+                "100.0% of consecutive CA pairs exceed 5.0 A",
+                "5.1% of CA atoms sit under 3.5 A from a non-bonded CA",
                 "radius of gyration 77.4 A outside [15.3, 76.6]"
               ]
             },
@@ -6225,132 +6260,132 @@
               "file": "cdk2x2_1152.cif",
               "steps": 6,
               "n_ca": 1152,
-              "clash_frac": 0.0399,
+              "clash_frac": 0.0356,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 79.9399,
-              "radius_of_gyration_A": 82.346,
-              "plddt_mean": 0.259608,
+              "ca_ca_median_A": 79.8832,
+              "radius_of_gyration_A": 82.6,
+              "plddt_mean": 0.262923,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 79.940 A outside [3.6, 4.0]",
+                "median CA-CA 79.883 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "4.0% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 82.3 A outside [16.0, 80.1]"
+                "3.6% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 82.6 A outside [16.0, 80.1]"
               ]
             },
             "1280": {
               "file": "cdk2x2_1280.cif",
               "steps": 6,
               "n_ca": 1280,
-              "clash_frac": 0.0453,
+              "clash_frac": 0.0477,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 78.3319,
-              "radius_of_gyration_A": 79.165,
-              "plddt_mean": 0.259392,
+              "ca_ca_median_A": 78.0493,
+              "radius_of_gyration_A": 79.182,
+              "plddt_mean": 0.260973,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 78.332 A outside [3.6, 4.0]",
+                "median CA-CA 78.049 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "4.5% of CA atoms sit under 3.5 A from a non-bonded CA"
+                "4.8% of CA atoms sit under 3.5 A from a non-bonded CA"
               ]
             },
             "1408": {
               "file": "cdk2x2_1408.cif",
               "steps": 6,
               "n_ca": 1408,
-              "clash_frac": 0.0419,
+              "clash_frac": 0.0533,
               "chain_break_frac": 0.9993,
-              "ca_ca_median_A": 80.0706,
-              "radius_of_gyration_A": 78.871,
-              "plddt_mean": 0.255839,
+              "ca_ca_median_A": 80.3056,
+              "radius_of_gyration_A": 78.856,
+              "plddt_mean": 0.25757,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 80.071 A outside [3.6, 4.0]",
+                "median CA-CA 80.306 A outside [3.6, 4.0]",
                 "99.9% of consecutive CA pairs exceed 5.0 A",
-                "4.2% of CA atoms sit under 3.5 A from a non-bonded CA"
+                "5.3% of CA atoms sit under 3.5 A from a non-bonded CA"
               ]
             },
             "1536": {
               "file": "cdk2x2_1536.cif",
               "steps": 6,
               "n_ca": 1536,
-              "clash_frac": 0.0521,
+              "clash_frac": 0.0534,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 78.7313,
-              "radius_of_gyration_A": 81.361,
-              "plddt_mean": 0.263982,
+              "ca_ca_median_A": 78.8288,
+              "radius_of_gyration_A": 81.488,
+              "plddt_mean": 0.265715,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 78.731 A outside [3.6, 4.0]",
+                "median CA-CA 78.829 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "5.2% of CA atoms sit under 3.5 A from a non-bonded CA"
+                "5.3% of CA atoms sit under 3.5 A from a non-bonded CA"
               ]
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.0147,
+          "sigma_runtime_512": 0.01,
           "exponents": {
             "256->512": {
-              "k": 1.229,
+              "k": 1.041,
               "tol": 0.5
             },
             "512->768": {
-              "k": 1.803,
+              "k": 1.736,
               "tol": 0.5
             }
           },
           "sigma_runtime": {
-            "256": 0.0142,
-            "512": 0.0147
+            "256": 0.0434,
+            "512": 0.01
           },
           "exponents_measured": {
-            "256->512": 1.229,
-            "512->640": 1.81,
-            "640->768": 1.795,
-            "768->896": 1.993,
-            "896->1024": 1.85,
-            "1024->1152": 1.917,
-            "1152->1280": 1.709,
-            "1280->1408": 3.091,
-            "1408->1536": 2.684
+            "256->512": 1.041,
+            "512->640": 1.722,
+            "640->768": 1.753,
+            "768->896": 2.038,
+            "896->1024": 1.403,
+            "1024->1152": 1.816,
+            "1152->1280": 1.571,
+            "1280->1408": 3.492,
+            "1408->1536": 3.252
           }
         }
       }
     },
     "p300c": {
-      "recorded": "2026-10-11",
+      "recorded": "2026-10-15",
       "host": "tt-quietbox2",
-      "commit": "1064f95a1",
+      "commit": "4ba29781f",
       "host_threads": 5,
       "models": {
         "esmfold2": {
           "grid": "11x10",
-          "recorded": "2026-10-11",
+          "recorded": "2026-10-15",
           "host": "tt-quietbox2",
-          "commit": "1064f95a1",
+          "commit": "4ba29781f",
           "host_threads": 5,
           "runtime_s": {
-            "256": 19.5,
-            "512": 43.7,
-            "640": 67.8,
-            "768": 97.1,
-            "896": 133.1,
-            "1024": 160.1
+            "256": 21.2,
+            "512": 40.8,
+            "640": 60.0,
+            "768": 79.8,
+            "896": 107.8,
+            "1024": 132.0
           },
           "levers": {
             "256": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
-                "served": 578,
-                "declined": 87,
-                "frac": 0.869172932330827,
+                "served": 658,
+                "declined": 7,
+                "frac": 0.9894736842105263,
                 "how": "stats"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
-                "served": 578,
-                "declined": 87,
-                "frac": 0.869172932330827,
+                "served": 658,
+                "declined": 7,
+                "frac": 0.9894736842105263,
                 "how": "stats-shared"
               },
               "PAIR_FFN_L1_FC1": {
@@ -6449,7 +6484,10 @@
                 "served": 1164,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "rejects": {
+                  "t2:g_not_f1": 1156
+                }
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -6660,16 +6698,16 @@
             "512": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
-                "served": 578,
-                "declined": 87,
-                "frac": 0.869172932330827,
+                "served": 658,
+                "declined": 7,
+                "frac": 0.9894736842105263,
                 "how": "stats"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
-                "served": 578,
-                "declined": 87,
-                "frac": 0.869172932330827,
+                "served": 658,
+                "declined": 7,
+                "frac": 0.9894736842105263,
                 "how": "stats-shared"
               },
               "PAIR_FFN_L1_FC1": {
@@ -6708,10 +6746,10 @@
                 "how": "stats"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
-                "resolved": "True",
-                "served": 1164,
-                "declined": 0,
-                "frac": 1.0,
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
                 "how": "stats"
               },
               "ADALN_S_HOIST": {
@@ -6756,7 +6794,7 @@
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
-                "served": 1164,
+                "served": 8,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -6793,17 +6831,19 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 2328,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site at any rung: 0 served and 0 declined at all six. The gated variant is not on ESMFold2's path (the same reading boltz-2's baseline records for this lever). [carried from tt-galaxy-wh-l]"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 2328,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats-shared"
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "declines all 0 calls: it unlocks the gated channel move, which is only offered once the trimul's pair tensors are in DRAM. At 256 aa they are L1-resident -- REBLOCK_PERMUTE refuses every call here on window_BufferType.L1 -- so nothing is offered at this rung; it serves every call from 512 up. Default on since 7bfa4ad19 [carried from p300c] [carried from p150a] [carried from rung 256] [carried from tt-galaxy-wh-l]"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -6962,16 +7002,16 @@
             "640": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
-                "served": 578,
-                "declined": 87,
-                "frac": 0.869172932330827,
+                "served": 658,
+                "declined": 7,
+                "frac": 0.9894736842105263,
                 "how": "stats"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
-                "served": 578,
-                "declined": 87,
-                "frac": 0.869172932330827,
+                "served": 658,
+                "declined": 7,
+                "frac": 0.9894736842105263,
                 "how": "stats-shared"
               },
               "PAIR_FFN_L1_FC1": {
@@ -7010,10 +7050,10 @@
                 "how": "stats"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
-                "resolved": "True",
-                "served": 1164,
-                "declined": 0,
-                "frac": 1.0,
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
                 "how": "stats"
               },
               "ADALN_S_HOIST": {
@@ -7057,7 +7097,7 @@
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
-                "served": 1164,
+                "served": 8,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -7093,17 +7133,19 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 2328,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site at any rung: 0 served and 0 declined at all six. The gated variant is not on ESMFold2's path (the same reading boltz-2's baseline records for this lever). [carried from tt-galaxy-wh-l]"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 2328,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats-shared"
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "declines all 0 calls: it unlocks the gated channel move, which is only offered once the trimul's pair tensors are in DRAM. At 256 aa they are L1-resident -- REBLOCK_PERMUTE refuses every call here on window_BufferType.L1 -- so nothing is offered at this rung; it serves every call from 512 up. Default on since 7bfa4ad19 [carried from p300c] [carried from p150a] [carried from rung 256] [carried from tt-galaxy-wh-l]"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -7262,16 +7304,16 @@
             "768": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
-                "served": 578,
-                "declined": 87,
-                "frac": 0.869172932330827,
+                "served": 658,
+                "declined": 7,
+                "frac": 0.9894736842105263,
                 "how": "stats"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
-                "served": 578,
-                "declined": 87,
-                "frac": 0.869172932330827,
+                "served": 658,
+                "declined": 7,
+                "frac": 0.9894736842105263,
                 "how": "stats-shared"
               },
               "PAIR_FFN_L1_FC1": {
@@ -7310,10 +7352,10 @@
                 "how": "stats"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
-                "resolved": "True",
-                "served": 2328,
-                "declined": 0,
-                "frac": 1.0,
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
                 "how": "stats"
               },
               "ADALN_S_HOIST": {
@@ -7357,7 +7399,7 @@
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
-                "served": 1164,
+                "served": 8,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -7393,17 +7435,19 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 4656,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site at any rung: 0 served and 0 declined at all six. The gated variant is not on ESMFold2's path (the same reading boltz-2's baseline records for this lever). [carried from tt-galaxy-wh-l]"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 4656,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats-shared"
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "declines all 0 calls: it unlocks the gated channel move, which is only offered once the trimul's pair tensors are in DRAM. At 256 aa they are L1-resident -- REBLOCK_PERMUTE refuses every call here on window_BufferType.L1 -- so nothing is offered at this rung; it serves every call from 512 up. Default on since 7bfa4ad19 [carried from p300c] [carried from p150a] [carried from rung 256] [carried from tt-galaxy-wh-l]"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -7562,16 +7606,16 @@
             "896": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
-                "served": 578,
-                "declined": 87,
-                "frac": 0.869172932330827,
+                "served": 658,
+                "declined": 7,
+                "frac": 0.9894736842105263,
                 "how": "stats"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
-                "served": 578,
-                "declined": 87,
-                "frac": 0.869172932330827,
+                "served": 658,
+                "declined": 7,
+                "frac": 0.9894736842105263,
                 "how": "stats-shared"
               },
               "PAIR_FFN_L1_FC1": {
@@ -7610,10 +7654,10 @@
                 "how": "stats"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
-                "resolved": "True",
-                "served": 2328,
-                "declined": 0,
-                "frac": 1.0,
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
                 "how": "stats"
               },
               "ADALN_S_HOIST": {
@@ -7660,7 +7704,7 @@
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
-                "served": 1164,
+                "served": 8,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -7696,17 +7740,19 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 4656,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site at any rung: 0 served and 0 declined at all six. The gated variant is not on ESMFold2's path (the same reading boltz-2's baseline records for this lever). [carried from tt-galaxy-wh-l]"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 4656,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats-shared"
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "declines all 0 calls: it unlocks the gated channel move, which is only offered once the trimul's pair tensors are in DRAM. At 256 aa they are L1-resident -- REBLOCK_PERMUTE refuses every call here on window_BufferType.L1 -- so nothing is offered at this rung; it serves every call from 512 up. Default on since 7bfa4ad19 [carried from p300c] [carried from p150a] [carried from rung 256] [carried from tt-galaxy-wh-l]"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -7865,16 +7911,16 @@
             "1024": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
-                "served": 578,
-                "declined": 87,
-                "frac": 0.869172932330827,
+                "served": 658,
+                "declined": 7,
+                "frac": 0.9894736842105263,
                 "how": "stats"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
-                "served": 578,
-                "declined": 87,
-                "frac": 0.869172932330827,
+                "served": 658,
+                "declined": 7,
+                "frac": 0.9894736842105263,
                 "how": "stats-shared"
               },
               "PAIR_FFN_L1_FC1": {
@@ -7913,10 +7959,10 @@
                 "how": "stats"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
-                "resolved": "True",
-                "served": 2328,
-                "declined": 0,
-                "frac": 1.0,
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
                 "how": "stats"
               },
               "ADALN_S_HOIST": {
@@ -7963,7 +8009,7 @@
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
-                "served": 1164,
+                "served": 8,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -7999,17 +8045,19 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 4656,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site at any rung: 0 served and 0 declined at all six. The gated variant is not on ESMFold2's path (the same reading boltz-2's baseline records for this lever). [carried from tt-galaxy-wh-l]"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 4656,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats-shared"
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "declines all 0 calls: it unlocks the gated channel move, which is only offered once the trimul's pair tensors are in DRAM. At 256 aa they are L1-resident -- REBLOCK_PERMUTE refuses every call here on window_BufferType.L1 -- so nothing is offered at this rung; it serves every call from 512 up. Default on since 7bfa4ad19 [carried from p300c] [carried from p150a] [carried from rung 256] [carried from tt-galaxy-wh-l]"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -8168,70 +8216,70 @@
           },
           "runtime_reps_s": {
             "256": [
-              19.5,
-              19.2,
-              19.6,
-              20.2,
-              18.7
+              22.2,
+              20.7,
+              20.3,
+              22.0,
+              21.2
             ],
             "512": [
-              43.8,
-              42.7,
-              44.2,
-              43.7,
-              43.1
+              37.3,
+              40.8,
+              41.0,
+              42.4,
+              40.6
             ],
             "640": [
-              67.8
+              60.0
             ],
             "768": [
-              97.1
+              79.8
             ],
             "896": [
-              133.1
+              107.8
             ],
             "1024": [
-              160.1
+              132.0
             ]
           },
           "aiclk": {
             "256": {
-              "card": "0",
+              "card": "3",
               "min": 800,
               "max": 1350,
               "rep_median": [
                 1350,
                 1350,
+                1337,
                 1350,
-                1350,
-                1343
-              ],
-              "n": 45
-            },
-            "512": {
-              "card": "0",
-              "min": 800,
-              "max": 1350,
-              "rep_median": [
-                1350,
-                1343,
-                1350,
-                1350,
-                1343
+                1350
               ],
               "n": 65
             },
+            "512": {
+              "card": "3",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1343,
+                1343,
+                1350,
+                1350,
+                1350
+              ],
+              "n": 83
+            },
             "640": {
-              "card": "0",
+              "card": "3",
               "min": 800,
               "max": 1350,
               "rep_median": [
                 1350
               ],
-              "n": 18
+              "n": 19
             },
             "768": {
-              "card": "0",
+              "card": "3",
               "min": 800,
               "max": 1350,
               "rep_median": [
@@ -8240,67 +8288,67 @@
               "n": 23
             },
             "896": {
-              "card": "0",
-              "min": 800,
-              "max": 1350,
-              "rep_median": [
-                1337
-              ],
-              "n": 30
-            },
-            "1024": {
-              "card": "0",
+              "card": "3",
               "min": 800,
               "max": 1350,
               "rep_median": [
                 1350
               ],
-              "n": 35
+              "n": 28
+            },
+            "1024": {
+              "card": "3",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1350
+              ],
+              "n": 33
             }
           },
           "load": {
             "256": {
-              "max": 0.65,
+              "max": 0.86,
               "rep_median": [
-                0.63,
-                0.52,
-                0.46,
-                0.55,
-                0.49
+                0.79,
+                0.78,
+                0.81,
+                0.72,
+                0.73
               ]
             },
             "512": {
-              "max": 0.33,
+              "max": 0.84,
               "rep_median": [
-                0.29,
-                0.2,
-                0.24,
-                0.22,
-                0.21
+                0.81,
+                0.77,
+                0.79,
+                0.74,
+                0.71
               ]
             },
             "640": {
-              "max": 0.46,
+              "max": 0.75,
               "rep_median": [
-                0.42
+                0.74
               ]
             },
             "768": {
-              "max": 0.28,
+              "max": 0.81,
               "rep_median": [
-                0.25
+                0.78
               ]
             },
             "896": {
-              "max": 0.32,
+              "max": 0.8,
               "rep_median": [
-                0.26
+                0.68
               ]
             },
             "1024": {
-              "max": 0.28,
+              "max": 0.81,
               "rep_median": [
-                0.22
+                0.78
               ]
             }
           },
@@ -8309,66 +8357,67 @@
               "file": "cdk2x2_256.cif",
               "steps": 6,
               "n_ca": 256,
-              "clash_frac": 0.0156,
+              "clash_frac": 0.0234,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 81.3219,
-              "radius_of_gyration_A": 68.45,
-              "plddt_mean": 0.275982,
+              "ca_ca_median_A": 81.3793,
+              "radius_of_gyration_A": 68.209,
+              "plddt_mean": 0.277244,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 81.322 A outside [3.6, 4.0]",
+                "median CA-CA 81.379 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 68.4 A outside [9.0, 45.2]"
+                "2.3% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 68.2 A outside [9.0, 45.2]"
               ]
             },
             "512": {
               "file": "cdk2x2_512.cif",
               "steps": 6,
               "n_ca": 512,
-              "clash_frac": 0.0312,
+              "clash_frac": 0.0273,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 78.3608,
-              "radius_of_gyration_A": 75.733,
-              "plddt_mean": 0.262338,
+              "ca_ca_median_A": 78.4323,
+              "radius_of_gyration_A": 75.833,
+              "plddt_mean": 0.264394,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 78.361 A outside [3.6, 4.0]",
+                "median CA-CA 78.432 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "3.1% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 75.7 A outside [11.8, 58.9]"
+                "2.7% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 75.8 A outside [11.8, 58.9]"
               ]
             },
             "640": {
               "file": "cdk2x2_640.cif",
               "steps": 6,
               "n_ca": 640,
-              "clash_frac": 0.0328,
+              "clash_frac": 0.0297,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 79.6624,
-              "radius_of_gyration_A": 78.318,
-              "plddt_mean": 0.274185,
+              "ca_ca_median_A": 79.8156,
+              "radius_of_gyration_A": 78.224,
+              "plddt_mean": 0.27557,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 79.662 A outside [3.6, 4.0]",
+                "median CA-CA 79.816 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "3.3% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 78.3 A outside [12.8, 64.1]"
+                "3.0% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 78.2 A outside [12.8, 64.1]"
               ]
             },
             "768": {
               "file": "cdk2x2_768.cif",
               "steps": 6,
               "n_ca": 768,
-              "clash_frac": 0.0286,
+              "clash_frac": 0.0391,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 81.1053,
-              "radius_of_gyration_A": 73.935,
-              "plddt_mean": 0.257475,
+              "ca_ca_median_A": 81.2366,
+              "radius_of_gyration_A": 73.854,
+              "plddt_mean": 0.259108,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 81.105 A outside [3.6, 4.0]",
+                "median CA-CA 81.237 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "2.9% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "3.9% of CA atoms sit under 3.5 A from a non-bonded CA",
                 "radius of gyration 73.9 A outside [13.7, 68.7]"
               ]
             },
@@ -8376,59 +8425,59 @@
               "file": "cdk2x2_896.cif",
               "steps": 6,
               "n_ca": 896,
-              "clash_frac": 0.0491,
+              "clash_frac": 0.0513,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 79.3283,
-              "radius_of_gyration_A": 79.845,
-              "plddt_mean": 0.264069,
+              "ca_ca_median_A": 79.4957,
+              "radius_of_gyration_A": 79.97,
+              "plddt_mean": 0.265937,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 79.328 A outside [3.6, 4.0]",
+                "median CA-CA 79.496 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "4.9% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 79.8 A outside [14.6, 72.8]"
+                "5.1% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 80.0 A outside [14.6, 72.8]"
               ]
             },
             "1024": {
               "file": "cdk2x2_1024.cif",
               "steps": 6,
               "n_ca": 1024,
-              "clash_frac": 0.0596,
-              "chain_break_frac": 0.999,
-              "ca_ca_median_A": 80.3642,
-              "radius_of_gyration_A": 77.42,
-              "plddt_mean": 0.257053,
+              "clash_frac": 0.0508,
+              "chain_break_frac": 1.0,
+              "ca_ca_median_A": 80.1531,
+              "radius_of_gyration_A": 77.397,
+              "plddt_mean": 0.258659,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 80.364 A outside [3.6, 4.0]",
-                "99.9% of consecutive CA pairs exceed 5.0 A",
-                "6.0% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "median CA-CA 80.153 A outside [3.6, 4.0]",
+                "100.0% of consecutive CA pairs exceed 5.0 A",
+                "5.1% of CA atoms sit under 3.5 A from a non-bonded CA",
                 "radius of gyration 77.4 A outside [15.3, 76.6]"
               ]
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.0137,
+          "sigma_runtime_512": 0.0466,
           "exponents": {
             "256->512": {
-              "k": 1.164,
+              "k": 0.945,
               "tol": 0.5
             },
             "512->768": {
-              "k": 1.969,
+              "k": 1.654,
               "tol": 0.5
             }
           },
           "sigma_runtime": {
-            "256": 0.0283,
-            "512": 0.0137
+            "256": 0.0384,
+            "512": 0.0466
           },
           "exponents_measured": {
-            "256->512": 1.164,
-            "512->640": 1.968,
-            "640->768": 1.97,
-            "768->896": 2.046,
-            "896->1024": 1.383
+            "256->512": 0.945,
+            "512->640": 1.728,
+            "640->768": 1.564,
+            "768->896": 1.951,
+            "896->1024": 1.517
           }
         }
       }
