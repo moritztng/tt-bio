@@ -225,6 +225,10 @@ class _DiTBlock(Module):
                 w_sc, b_sc, w_sb = ln.folded_weights()
                 ada.append((bf(w_sc), bf(b_sc.reshape(1, -1)), bf(w_sb)))
             self.fuse = ada
+        # dit_l1 (on dit_fuse): where every per-step tensor of the block is written; the stack puts the
+        # stream and the conditioning there once a call (`OF3DiffusionTransformer.__call__`), and the
+        # elementwise ops write where their first input lives. Weights and cached pair biases stay DRAM.
+        self.l1 = {"memory_config": ttnn.L1_MEMORY_CONFIG} if self.fuse and _T.lever("dit_l1") else {}
 
         # dit_hifi2: the bf16 DiT's linears at HiFi2, everything else as the model's config (read per call).
         # Wormhole only: graded there (fast, both models), where HiFi4 leaves the linears math-bound; flat on p150a.
@@ -246,8 +250,8 @@ class _DiTBlock(Module):
                 return out
             ttnn.deallocate(an)
         w_sc, b_sc, w_sb = self.fuse[i]
-        sc = self._lin(s_hat, w_sc, bias=b_sc, activation="sigmoid")
-        sb = self._lin(s_hat, w_sb)
+        sc = self._lin(s_hat, w_sc, bias=b_sc, activation="sigmoid", **self.l1)
+        sb = self._lin(s_hat, w_sb, **self.l1)
         an = ttnn.layer_norm(a, epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
         out = ttnn.addcmul(sb, an, sc, value=1.0)
         for t in (sc, sb, an):
@@ -267,12 +271,13 @@ class _DiTBlock(Module):
 
     def _call_fused(self, a, s, z, mask_bias, tok_mask_col, cache, s_hat, tok_ones, hoist=()):
         """`__call__` under dit_fuse (bf16, `_sdpa32`): the same block in 23 ttnn calls, 17 with `hoist`."""
-        lin = self._lin
+        lin = lambda *a, **k: self._lin(*a, **self.l1, **k)  # noqa: E731
         a_ln = self._fuse_adaln(a, s_hat, 0, hoist)
         bias = _cached(cache, (id(self), "pair_bias32"), lambda: self._fused_mask(z, mask_bias))
         qkv = lin(a_ln, self.qkv_w, bias=self.qkv_b)
         qkv = ttnn.unsqueeze(qkv, 1)
-        o = _T._sdpa32_fused(qkv, bias, HEAD_DIM ** -0.5, N_HEADS, out_dtype=ttnn.bfloat16)
+        o = _T._sdpa32_fused(qkv, bias, HEAD_DIM ** -0.5, N_HEADS, out_dtype=ttnn.bfloat16,
+                             memory_config=self.l1.get("memory_config"))
         ttnn.deallocate(qkv)
         if cache is None:
             ttnn.deallocate(bias)
@@ -346,11 +351,11 @@ class _DiTBlock(Module):
         return ttnn.from_torch(ttnn.to_torch(t).float().to(torch.bfloat16), dtype=dtype,
                                layout=ttnn.TILE_LAYOUT, device=self.device)
 
-    def _lin(self, x, w, bias=None, activation=None):
+    def _lin(self, x, w, bias=None, activation=None, **kw):
         hifi2 = self._wormhole and self._act_dtype == ttnn.bfloat16 and _T.lever("dit_hifi2")
         return ops.linear(x, w, bias=bias, activation=activation,
                           compute_kernel_config=self.ckc_hifi2 if hifi2 else self.compute_kernel_config,
-                          core_grid=CORE_GRID_MAIN)
+                          core_grid=CORE_GRID_MAIN, **kw)
 
     def _lin_lp(self, x, w, dtype, bias=None, activation=None):
         """A linear off an adaLN output: written at `dtype` under `self.lp`, else the shared path."""
@@ -652,6 +657,10 @@ class OF3DiffusionTransformer(Module):
         if rows != padded_N:
             a_d, s_d = (ttnn.pad(x, [(0, 0), (0, rows - padded_N), (0, 0)], value=0.0)
                         for x in (a_d, s_d))
+        l1 = self.blocks[0].l1
+        if l1:
+            # dit_l1: copies, so the caller's tensors are untouched; ours are freed below.
+            a_d, s_d = (ttnn.to_memory_config(x, l1["memory_config"]) for x in (a_d, s_d))
         x = a_d
         s16 = self.shared_s(s_d)
         for blk in self.blocks:
@@ -659,6 +668,12 @@ class OF3DiffusionTransformer(Module):
                     tok_ones=self._tok_ones.get(rows, False))
         for t in s16 or ():
             ttnn.deallocate(t)
+        if l1:
+            ttnn.deallocate(s_d)
+            if x is not a_d:
+                ttnn.deallocate(a_d)
+            x, x_l1 = ttnn.to_memory_config(x, ttnn.DRAM_MEMORY_CONFIG), x
+            ttnn.deallocate(x_l1)
         if rows == N:
             return x
         x = ttnn.to_layout(x, ttnn.ROW_MAJOR_LAYOUT)
