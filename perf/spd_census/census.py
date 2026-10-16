@@ -27,6 +27,8 @@ reads them unchanged.
 import argparse, glob, json, os, resource, subprocess, sys, threading, time
 from pathlib import Path
 
+os.environ["OF3_DIFFUSION_TRACE"] = "0"   # untraced diffusion, see the argv block below; read at import
+
 ap = argparse.ArgumentParser()
 ap.add_argument("--out", required=True, type=Path)
 ap.add_argument("--chip", required=True, type=int, help="UMD index handed to TT_VISIBLE_DEVICES")
@@ -103,6 +105,12 @@ argv = ["predict", str(YAML), "--model", a.model, "--diffusion_samples", str(a.s
         "--msa_dir", str(a.data / "msa"), "--msa_cache_only", "--out_dir", str(OUT / "cli")]
 if FAST:
     argv.append("--fast")
+# A traced fold replays its diffusion steps with no Python op calls, so the per-op hook cannot attribute
+# them (kernel times are the same untraced). Untraced also keeps load_model from closing and reopening the
+# chip to reserve the trace region under the census's device handle (Boltz-2 and OF3 on Blackhole, segfault
+# in the first ReadDeviceProfiler).
+if a.model == "boltz2":
+    argv.append("--no_diffusion_trace")
 try:
     M.cli.main(argv, standalone_mode=False)
 except _Stop:
@@ -312,6 +320,7 @@ if PV2:
 else:  # JapanFold's own load, as bench.py
     state.load_model(dict(cfg0, fast=FAST))
 state.bind_run("spd-census", dict(cfg0, fast=FAST))
+DEV["d"] = T.get_device()  # a load that reopens the chip leaves the handle above freed
 m = state.model
 log(ev="build", model=a.model, fast=T._FAST_MODE if PV2 else getattr(m, "_fast", T._FAST_MODE), levers=sorted(getattr(m, "_levers", ())),
     torch_threads=torch.get_num_threads(), affinity=len(os.sched_getaffinity(0)))
