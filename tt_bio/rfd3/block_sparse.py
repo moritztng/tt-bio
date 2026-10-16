@@ -70,11 +70,6 @@ from ..envflags import env_flag
 from .tiles import TILE, align_tile, pad_axis
 
 _ENABLED = env_flag("RFD3_BLOCK_SPARSE", False)
-#: Morton-ordered blocks (``RFD3_BSM``): every step's queries sorted along a space-filling curve of
-#: the coordinates its index was built from, in blocks of 32, so the plan fits any atom count and
-#: needs no per-target buckets. See :func:`morton_order`.
-_MORTON = env_flag("RFD3_BSM", False)
-MORTON_Q = 32
 #: Query rows per block. Must be a multiple of 32 and must divide the padded query axis, or the
 #: step falls back to dense. 1216 is the measured optimum at 6051 atoms (6080 padded): it beats
 #: 608 and 3040 once U is sized by the schedule rather than by one sampled step, because the
@@ -94,24 +89,6 @@ STATS = [0, 0, 0]
 
 def enabled() -> bool:
     return _ENABLED
-
-
-def morton() -> bool:
-    return _MORTON
-
-
-def set_morton(on):
-    """Toggle the Morton-ordered arm from a screen. Returns the previous value."""
-    global _MORTON
-    was = _MORTON
-    _MORTON = bool(on)
-    return was
-
-
-def morton_buckets(n_key):
-    """Key widths for Morton blocks: multiples of 128 up to half the key axis. A step whose union
-    is wider than that runs the dense chain, which is cheaper there."""
-    return tuple(range(128, n_key // 2 + 1, 128))
 
 
 def set_enabled(on):
@@ -244,15 +221,11 @@ def gather_index(gather, n_head, n_key, device):
     return ttnn.from_torch(flat, layout=ttnn.ROW_MAJOR_LAYOUT, device=device, dtype=ttnn.uint32)
 
 
-def attention(qq, kk, vv, pair_bias, pos_rm, gather_dev, nb, q_block, u_width, scale, dt, ckc,
-              fwd=None, inv=None):
+def attention(qq, kk, vv, pair_bias, pos_rm, gather_dev, nb, q_block, u_width, scale, dt, ckc):
     """The blocked chain, replacing dense scores + bias + softmax + value matmul.
 
     Returns ``[1, H, length, head_dim]`` -- the same thing the dense chain hands
-    ``_merge_heads`` -- so the caller's tail is untouched. With ``fwd``/``inv`` (device copies of
-    :func:`order_index`) the blocks hold queries in that order: the query rows and the compact
-    ``[1, H, length, K]`` bias rows are gathered into it and the output gathered back, so the
-    caller passes the bias unpadded.
+    ``_merge_heads`` -- so the caller's tail is untouched.
     """
     n_head, n_key, head_dim = kk.shape[1], kk.shape[2], kk.shape[3]
     length = qq.shape[2]
@@ -265,18 +238,8 @@ def attention(qq, kk, vv, pair_bias, pos_rm, gather_dev, nb, q_block, u_width, s
         ttnn.deallocate(rows)
         return ttnn.reshape(g, (n_head, nb, u_width, head_dim))
 
-    def rows_by(idx, x):
-        rows = ttnn.reshape(ttnn.to_layout(x, ttnn.ROW_MAJOR_LAYOUT), (x.shape[1] * x.shape[2], x.shape[3]))
-        g = ttnn.embedding(idx, rows, layout=ttnn.TILE_LAYOUT, memory_config=ttnn.DRAM_MEMORY_CONFIG)
-        ttnn.deallocate(rows)
-        return g
-
     kg, vg = gath(kk), gath(vv)
-    if fwd is not None:
-        qb = ttnn.reshape(rows_by(fwd, qq), (n_head, nb, q_block, head_dim))
-        pair_bias = ttnn.reshape(rows_by(fwd, pair_bias), (1, n_head, nb_rows, pair_bias.shape[3]))
-    else:
-        qb = ttnn.reshape(pad_axis(qq, nb_rows, 2, 0.0), (n_head, nb, q_block, head_dim))
+    qb = ttnn.reshape(pad_axis(qq, nb_rows, 2, 0.0), (n_head, nb, q_block, head_dim))
     kgt = ttnn.permute(kg, (0, 1, 3, 2))
     ttnn.deallocate(kg)
     scores = ttnn.matmul(qb, kgt, compute_kernel_config=ckc)
@@ -294,8 +257,6 @@ def attention(qq, kk, vv, pair_bias, pos_rm, gather_dev, nb, q_block, u_width, s
     ttnn.deallocate(weights)
     ttnn.deallocate(vg)
     out = ttnn.reshape(out, (1, n_head, nb_rows, head_dim))
-    if inv is not None:
-        return ttnn.reshape(rows_by(inv, out), (1, n_head, length, head_dim))
     if nb_rows != length:
         out = ttnn.slice(out, [0, 0, 0, 0], [1, n_head, length, head_dim])
     return out
