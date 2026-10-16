@@ -65,6 +65,10 @@ BH_POOLS = {
     "qb2": {"ssh": "qb2", "cards": [0, 1, 2, 3], "lock": "/home/ttuser/spd_qb2_chip{c}.lock"},
 }
 
+# pgrep pattern for a release-gate leg on card %s, running or waiting for its flock. A leg that runs a perf script through
+# runpy (bc2_boundary, parity_*) names the gate only in its RELEASE_GATE_RUN_DIR env, so the pattern keys on that too.
+GATE_LEG = "(spd_qb1_card|spd_qb2_chip|TT_VISIBLE_DEVICES=)%s[. ].*(RELEASE_GATE_RUN_DIR|release_gate|gate_fanout|perf_ab)"
+
 # Runs on the pool host: report state, existence of paths, and sweep dead entries. Payload is appended as JSON.
 PROBE = r'''
 import glob, json, os, shutil, sys, time
@@ -159,14 +163,14 @@ else:
                 fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB); fcntl.flock(f, fcntl.LOCK_UN); return True
         except (OSError, KeyError):
             return False
-    rel = lambda c: subprocess.run(["pgrep", "-f", "(spd_qb1_card|spd_qb2_chip|TT_VISIBLE_DEVICES=)%d[. ].*"
-                                    "(release_gate|gate_fanout|perf_ab)" % c], capture_output=True).returncode == 0
+    rel = lambda c: subprocess.run(["pgrep", "-f", GATE_LEG % c], capture_output=True).returncode == 0
     # a box's own waiters take its free cards within a poll, so only a box with none waiting offers cards to steal
     out["free"] = [] if queued else [c for c in cards if c not in held and lock_free(c) and not rel(c)]
     out["live"] = []
     out["queued"] = queued; out["paused"] = os.path.exists(J + "/PAUSE")
 print(json.dumps(out))
 '''
+PROBE = f"GATE_LEG = {GATE_LEG!r}\n" + PROBE
 
 # Runs a BH job under its cap: SIGINT at the cap, then SIGTERM to the job's whole process group after a grace period.
 # SIGINT alone cannot interrupt a native wait: on 10-15 a device-init hang outlived its bash wrapper as an orphan and
@@ -178,6 +182,10 @@ print(json.dumps(out))
 # then ends in "reset" or "reset-failed", or "noreset" if the group outlived SIGTERM too.
 # The reset names the card's /dev node (`node`, from NODE, which the caller defines first): a bare logical id needs
 # tt-smi to enumerate every card, which a dead ARC can hang. `dead` is true while the card's class node reads 0xFFFFFFFF.
+# A card can also come out dirty from something that was not capped (10-16 00:12Z qb1 card 0: six jobs of four rows failed
+# init in 15 s each, "failed to initialize FW! Try resetting the board", sysfs healthy). Two DIFFERENT jobs failing fast
+# back to back on one card is the card, not the cells: the second resets it and its .end says "fastfail2 reset", which
+# the ledger does not count against the cell. The first leaves its name in fastfail.<card>; a clean exit clears it.
 NODE = ('node() { for s in "${TT_SYSFS:-/sys/class/tenstorrent}"/*; do echo "$(basename "$(readlink -f "$s/device")") '
         '${s##*!}"; done | sort | sed -n "$(($1 + 1))s/.* //p"; }; '
         'dead() { local n=$(node $1); [ -n "$n" ] && cat "${TT_SYSFS:-/sys/class/tenstorrent}/tenstorrent!$n/tt_aiclk" '
@@ -187,13 +195,18 @@ NODE = ('node() { for s in "${TT_SYSFS:-/sys/class/tenstorrent}"/*; do echo "$(b
 def run_cmd(grace=120):
     return ('S=$(date +%s); CHIP=$2 TT_VISIBLE_DEVICES=$2 LOCK="$4" WAIT=60 timeout -s TERM $(($5 + G)) '
             'sh -c \'echo $$ > "$1.pg"; exec timeout -s INT "$2" bash "$1"\' _ "$1" "$5" > "$1.log" 2>&1; rc=$?; '
-            'if [ $rc = 124 ]; then g=$(cat "$1.pg" 2>/dev/null); s=INT; [ $(($(date +%s) - S)) -lt $(($5 + G)) ] || s=INT+TERM; '
+            'M="$(dirname "$1")/fastfail.$2"; if [ $rc = 0 ]; then rm -f "$M"; '
+            'elif [ -n "$6" ] && [ $rc != 124 ] && [ $rc != 127 ] && [ $(($(date +%s) - S)) -lt FAST ]; then '
+            'if [ -s "$M" ] && [ "$(cat "$M")" != "$1" ]; then rm -f "$M"; '
+            'if timeout 180 $6 "${TT_DEV:-/dev/tenstorrent}/$(node $2)" >> "$1.log" 2>&1; then rc="$rc fastfail2 reset"; '
+            'else rc="$rc fastfail2 reset-failed"; fi; else echo "$1" > "$M"; fi; fi; '
+            'if [ "$rc" = 124 ]; then g=$(cat "$1.pg" 2>/dev/null); s=INT; [ $(($(date +%s) - S)) -lt $(($5 + G)) ] || s=INT+TERM; '
             'for i in $(seq G); do kill -0 -- -$g 2>/dev/null || break; sleep 1; done; '
             '[ -n "$g" ] && kill -0 -- -$g 2>/dev/null && { kill -TERM -- -$g; s=INT+TERM; }; '
             'if [ -n "$6" ]; then for i in $(seq G); do kill -0 -- -$g 2>/dev/null || break; sleep 1; done; '
             'if kill -0 -- -$g 2>/dev/null; then s="$s noreset"; elif timeout 180 $6 "${TT_DEV:-/dev/tenstorrent}/$(node $2)" >> "$1.log" 2>&1; then s="$s reset"; '
             'else s="$s reset-failed"; fi; fi; rc="$rc $s"; fi; '
-            'echo "$rc" > "$1.end"').replace(" G)", f" {grace})").replace("seq G", f"seq {grace}")
+            'echo "$rc" > "$1.end"').replace(" G)", f" {grace})").replace("seq G", f"seq {grace}").replace("-lt FAST ]", f"-lt {FAST_S} ]")
 
 
 RUN = run_cmd()
@@ -218,7 +231,7 @@ for j in A["jobs"]:
         # free. 10-15: waiters bound to one card queued on busy cards 2 and 3 while qb1 card 0 sat free 15+ min.
         w = (NODE + 'exec 8>"$(dirname "$1")/.dispatch"; flock -w 86400 8 || { echo flockbusy > "$1.end"; exit 3; }; '
              'D=$((SECONDS + 86400)); while :; do for c in $2; do [ -e ~/spd/locks/chip$c.BAD ] && continue; dead $c && continue; '
-             'G="(spd_qb1_card|spd_qb2_chip|TT_VISIBLE_DEVICES=)$c[. ].*(release_gate|gate_fanout|perf_ab)"; '
+             'G="' + GATE_LEG % "$c" + '"; '
              'pgrep -f "$G" >/dev/null && continue; exec 9>"${3//@/$c}"; '
              'flock -n 9 && ! pgrep -f "$G" >/dev/null && break 2; exec 9>&-; done; '
              '[ $SECONDS -lt $D ] || { echo flockbusy > "$1.end"; exit 3; }; sleep "${POLL:-20}"; done; '
@@ -233,7 +246,7 @@ for n in A.get("unqueue", []):
     if os.path.exists(p): os.makedirs(H + "/spd/pool/quarantine", exist_ok=True); os.rename(p, H + "/spd/pool/quarantine/" + n)
 print(len(A["jobs"]))
 '''
-PLACE = f"NODE = {NODE!r}\nRUN = {RUN!r}\n" + PLACE   # the waiter string above runs on the BH host, where only what PLACE defines exists
+PLACE = f"NODE = {NODE!r}\nRUN = {RUN!r}\nGATE_LEG = {GATE_LEG!r}\n" + PLACE   # the waiter string above runs on the BH host, where only what PLACE defines exists
 
 
 # Withdraws BH waiters that have not started: kill the waiter's session (feed started it under setsid), then set the
@@ -258,14 +271,19 @@ print(json.dumps(got))
 
 # One bounded reset of a dead-ARC qb1 card, detached on the host: hold the card's flock (no job lands meanwhile), wait
 # until no process has the node open, reset by node path, then verify the class node no longer reads 0xFFFFFFFF.
-# card<c>.<at>.result says ok / still-dead / reset-failed / busy (node never closed) / nolock.
-ARC_SH = ('exec 9>"$2"; flock -w 7200 9 || { echo nolock > "$1.result"; exit; }; N="${TT_DEV:-/dev/tenstorrent}/$3"; '
-          'C="${TT_SYSFS:-/sys/class/tenstorrent}/tenstorrent!$3"; '
+# card<c>.<at>.result says ok / still-dead / reset-failed / busy (node never closed) / nolock, or "died" if a signal ended
+# the script first. Every exit (a signal included) appends one "end" line with the reset's rc and the sysfs reading;
+# a signal during tt-smi is handled once tt-smi returns, so a reset is never cut off half way.
+ARC_SH = ('N="${TT_DEV:-/dev/tenstorrent}/$3"; C="${TT_SYSFS:-/sys/class/tenstorrent}/tenstorrent!$3"; '
+          'trap \'[ -s "$1.result" ] || echo died > "$1.result"; echo "$(date -u +%FT%TZ) end rc=${rc:-none} '
+          'aiclk=$(cat "$C/tt_aiclk") hb=$(cat "$C/tt_heartbeat") result=$(cat "$1.result")" >> "$1.log"\' EXIT; '
+          'trap "exit 143" TERM INT HUP; rm -f "$1.result"; '
+          'exec 9>"$2"; flock -w 7200 9 || { echo nolock > "$1.result"; exit; }; '
           'for i in $(seq ${ARC_WAIT:-360}); do fuser "$N" >/dev/null 2>&1 || break; sleep 10; done; '
           'fuser "$N" >/dev/null 2>&1 && { echo busy > "$1.result"; exit; }; '
           'echo "$(date -u +%FT%TZ) before aiclk=$(cat "$C/tt_aiclk") hb=$(cat "$C/tt_heartbeat")" >> "$1.log"; '
-          'timeout 180 $4 "$N" >> "$1.log" 2>&1 || { echo reset-failed > "$1.result"; exit; }; sleep ${ARC_SETTLE:-10}; '
-          'echo "$(date -u +%FT%TZ) after aiclk=$(cat "$C/tt_aiclk") hb=$(cat "$C/tt_heartbeat")" >> "$1.log"; '
+          'timeout 180 $4 "$N" >> "$1.log" 2>&1; rc=$?; [ $rc = 0 ] || { echo reset-failed > "$1.result"; exit; }; '
+          'sleep ${ARC_SETTLE:-10}; '
           'cat "$C/tt_aiclk" "$C/tt_heartbeat" | grep -qx 4294967295 && r=still-dead || r=ok; echo $r > "$1.result"')
 ARCFIX = r'''
 import json, os, subprocess, sys
@@ -543,8 +561,9 @@ def main(argv=None):
         elif j and j["state"] == "ended" and j["at"] not in [f["at"] for f in L["fails"]]:
             L["fails"].append({"at": j["at"], "dur": j["dur"], "rc": j["rc"], "host": L["host"], "tail": j["tail"][-1200:]})
             L["state"] = "failed"
-            fast = sum(1 for f in L["fails"] if f["dur"] < FAST_S)
-            if fast >= 2 or len(L["fails"]) >= MAX_FAILS:
+            own = [f for f in L["fails"] if "fastfail2" not in str(f["rc"])]    # a dirty card's failure is not the cell's
+            fast = sum(1 for f in own if f["dur"] < FAST_S)
+            if fast >= 2 or len(own) >= MAX_FAILS:
                 L["quarantined"] = True
                 log(f"QUARANTINE {c['key']} ({fast} fast of {len(L['fails'])} fails), last {L['name']} on {L['host']}")
                 if not a.dry_run:

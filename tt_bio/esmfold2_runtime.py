@@ -1072,7 +1072,7 @@ def _install_resident_trunk_loop(model):
 
 
 def patch_esmfold2(model, esmc_repo: str = "biohub/ESMC-6B", persistent_lm: bool = True,
-                   fast: bool = False):
+                   fast: bool = False, lm_b8: bool | None = None):
     """Replace every neural submodule of `model` with its ttnn implementation.
 
     After this, a normal `model.forward(...)` / input-builder fold runs the whole
@@ -1087,6 +1087,7 @@ def patch_esmfold2(model, esmc_repo: str = "biohub/ESMC-6B", persistent_lm: bool
     to spare (validated: L=1024 folds in persistent mode without OOM).
     ``persistent_lm=False`` releases+reloads the 6B per fold as extra headroom
     for unusually large inputs, at the cost of an ESMC reload each fold.
+    ``lm_b8`` (default: ``fast``) builds the ESMC-6B weights in block-fp8, independent of the fold's mode.
     """
     sd = {k: v.float() for k, v in model.state_dict().items()}
     comps = _components(sd, model.config)
@@ -1168,7 +1169,8 @@ def patch_esmfold2(model, esmc_repo: str = "biohub/ESMC-6B", persistent_lm: bool
 
     # ttnn ESMC-6B language model. Loaded lazily on the first fold; with
     # persistent_lm it then stays resident for all subsequent folds.
-    model._esmc = _ESMCAdapter(esmc_repo, persistent=persistent_lm, fast=fast, shim=model.language_model.m)
+    model._esmc = _ESMCAdapter(esmc_repo, persistent=persistent_lm, fast=fast if lm_b8 is None else lm_b8,
+                               shim=model.language_model.m)
     model._tt_fast = fast
     model._esmc_fp8 = False
 
@@ -1195,11 +1197,11 @@ def load_ttnn_esmfold2(esmfold2_repo: str = "biohub/ESMFold2",
     Everything else is built and folded with the older bfp8 `_FAST_MODE` off, like
     Boltz-2 and OpenFold3: under it the trunk's triangle multiplications lost their
     fused in-projection and ran 8.4 s slower per 512-aa fold than in normal mode.
+
+    On Wormhole the ESMC-6B is block-fp8 in both modes: in bf16 it alone (~12.8 GB) does not fit
+    a chip's 12 GiB. The fold's lever set still follows `fast` (fold_levers).
     """
     from tt_bio import tenstorrent
-    # Normal precision does not fit a Wormhole chip's 12 GiB (the bf16 ESMC-6B alone is ~12.8 GB),
-    # so ESMFold2 is fast-only there, for every caller and not just the CLI that says so.
-    fast = fast or is_wormhole()
     # Reserve the diffusion step's trace region (esmfold2.StructureHead._step). A device some
     # caller already opened without one stays as it is, and the sampler runs eager.
     if E.DIFFUSION_TRACE:
@@ -1216,7 +1218,8 @@ def load_ttnn_esmfold2(esmfold2_repo: str = "biohub/ESMFold2",
     # Built under the set it folds under: some levers are read when a module is built (kernel configs,
     # weight formats), the rest when it runs.
     with fold_scope(fast):
-        return patch_esmfold2(model, esmc_repo=esmc_repo, persistent_lm=persistent_lm, fast=fast)
+        return patch_esmfold2(model, esmc_repo=esmc_repo, persistent_lm=persistent_lm, fast=fast,
+                              lm_b8=fast or is_wormhole())
 
 
 def _msa_from_csv(path, max_sequences):
@@ -1472,7 +1475,7 @@ LM_COMBINE = env_flag("TT_BIO_ESMFOLD2_LM_COMBINE", None)
 # trimul_gin_hifi2 (gin's kernel at HiFi2) passes the normal bar on ESMFold2 against the same set without it,
 # 11 complexes x 4 seeds, 44 paired folds, base and test from one tree (p150a, 1350 MHz): CA-lDDT -0.0025
 # [-0.0070, +0.0002], pLDDT -0.0008, top-pose median 0.67 A vs 1.16 A floor, docking 32 -> 30 of 44. Warm fold at
-# 1350 MHz: 544 aa 26.8 -> 25.8 s, 1024 aa 89.7 -> 87.2 s. Wormhole keeps HiFi3: not graded there, fold_levers drops it.
+# 1350 MHz: 544 aa 26.8 -> 25.8 s, 1024 aa 89.7 -> 87.2 s.
 # Four ef2_* levers (bit draw, device pair init, relpos lookup, atom FFN split) pass ESMFold2's normal bar as a stack
 # against the set without them, 11 complexes x 4 seeds, 44 paired folds (p300c, 1350 MHz): CA-lDDT -0.0001
 # [-0.0011, +0.0008], TM +0.0092, top-pose median 0.33 A vs 1.15 A seed floor, docking 31 -> 31 of 44. The other
@@ -1488,8 +1491,8 @@ LEVERS_NORMAL = ("normal-trunk_hifi3+trimul_gin+trimul_t2g+trimul_gin_hifi2"
 # ESMFold2 normal-mode folds of the stack also clear the fast bar (CA-lDDT -0.0019). 512 aa --fast on the stack:
 # ESMFold2 16.92 s, ESMFold2-Fast 10.14 s (p300c, 1350 MHz). On Wormhole the stack without ef2_pair_init passes the
 # same fast bar (ESMFold2-Fast, 44 paired folds, 1000 MHz): CA-lDDT -0.0000 [-0.0025, +0.0019], docking 24 -> 24 of
-# 44, and folds 772, 778 and 1024 tokens in both modes on both models. ef2_pair_init stays off there: with it a
-# Wormhole chip runs out of DRAM in the confidence head at 1024 tokens.
+# 44, and folds 772, 778 and 1024 tokens in both modes on both models. ef2_pair_init joined Wormhole's fast set later
+# (see _BH_ONLY_FAST).
 # ws_resid (the pair SwiGLU adds into z in fc3's fp32 dest) passes the fast bar on ESMFold2-Fast against the shipped
 # --fast set, 11 complexes x 4 seeds, 44 paired folds (Blackhole, 1350 MHz): CA-lDDT +0.0008 [-0.0006, +0.0032],
 # TM +0.0073, top-pose median 0.55 A vs 1.65 A seed floor, docking 23 -> 24 of 44. p150a 512 aa: ESMFold2 -0.44 s,
@@ -1515,7 +1518,25 @@ LEVERS_NORMAL = ("normal-trunk_hifi3+trimul_gin+trimul_t2g+trimul_gin_hifi2"
 LEVERS_FAST = ("normal+trimul_b8in+transition_ws+trimul_gin+trimul_t2g+trimul_gin_hifi2+ws_resid+ws_lofi"
                "+ef2_bit_draw+ef2_pair_init+ef2_lm_combine+ef2_opm_kq+ef2_relpos_lookup+ef2_atom_ffn_split"
                "+trimul_t1+trimul_t1_c256+trimul_t2+trimul_t2cm")
-_BH_ONLY_FAST = ("ef2_pair_init", "ws_lofi", "trimul_t1", "trimul_t1_c256", "trimul_t2", "trimul_t2cm")
+# ws_lofi passes the fast bar on Wormhole too, 11 complexes x 4 seeds, 44 paired folds per model (Galaxy chip, 1000
+# MHz, spd-gap-esmf wlg): ESMFold2 CA-lDDT -0.0004 [-0.0024, +0.0015], DockQ +0.017, docking 31 -> 32 of 44;
+# ESMFold2-Fast CA-lDDT -0.0001 [-0.0021, +0.0023], docking 24 -> 24. Same chip, 512 aa, 1000 MHz: ESMFold2 33.60 ->
+# 33.10 s, ESMFold2-Fast 20.76 -> 20.38 s (spd-gap-whesmf wm, two runs per arm).
+# ef2_pair_init passes the fast bar on Wormhole as well, against the WH fast set without it, 11 complexes x 4 seeds, 44
+# paired folds per model (Galaxy chip, 1000 MHz, spd-gap-whesmf wpg): ESMFold2 CA-lDDT +0.0015 [-0.0004, +0.0043],
+# top-pose median 0.55 A vs 1.73 A seed floor, docking 32 -> 31 of 44; ESMFold2-Fast CA-lDDT +0.0002 [-0.0005, +0.0009],
+# 1.00 A vs 1.03 A, docking 24 -> 24. The 1024-token confidence-head DRAM overflow that kept it off no longer reproduces:
+# both models fold 1024 and ESMFold2 1536 with it. Same chip, 512 aa, 1000 MHz: ESMFold2 34.0 -> 32.5 s, ESMFold2-Fast
+# 21.8 -> 20.1 s (wpi). Wormhole's normal set was graded without it (wng), so it stays fast-only there.
+_BH_ONLY_FAST = ("trimul_t1", "trimul_t1_c256", "trimul_t2", "trimul_t2cm")
+# Wormhole's normal mode folds with the LM in bfp8 (load_ttnn_esmfold2) and adds the pair SwiGLU kernel (transition_ws
+# + ws_resid) and ef2_lm_combine + ef2_opm_kq to LEVERS_NORMAL: the set it folded for both modes before they split.
+# Without transition_ws ESMFold2's pair FFN runs row-blocked, 65 ms a call against 10 ms, and a 512 aa fold takes
+# 50.9 s instead of 34.7 (Galaxy chip, 1000 MHz, spd-gap-whesmf wl). Normal bar on Wormhole, against LEVERS_NORMAL with the LM
+# in bfp8: ESMFold2 CA-lDDT +0.0013 [-0.0006, +0.0039], top-pose median 0.73 A vs 1.73 A floor (44 paired folds, wng);
+# ESMFold2-Fast CA-lDDT -0.0004 [-0.0015, +0.0009], 1.24 A vs 1.33 A, docking 48 -> 48 of 88 (88 paired folds over
+# two seed sets, wng + wng3). Galaxy chip, 1000 MHz.
+_WH_NORMAL_EXTRA = "+transition_ws+ws_resid+ef2_lm_combine+ef2_opm_kq"
 
 
 def fold_levers(fast: bool) -> str:
@@ -1524,10 +1545,11 @@ def fold_levers(fast: bool) -> str:
     if os.environ.get("TT_BIO_LEVERS"):
         return os.environ["TT_BIO_LEVERS"]
     levers = LEVERS_FAST if fast else LEVERS_NORMAL
-    if is_wormhole():  # pair init runs out of DRAM at 1024 tokens; trimul_gin_hifi2 is graded on the fast bar only
-        levers = "+".join(n for n in levers.split("+") if n not in _BH_ONLY_FAST)
+    if is_wormhole():
+        drop = _BH_ONLY_FAST if fast else _BH_ONLY_FAST + ("ef2_pair_init",)
+        levers = "+".join(n for n in levers.split("+") if n not in drop)
         if not fast:
-            levers = levers.replace("+trimul_gin_hifi2", "")
+            levers += _WH_NORMAL_EXTRA
         levers += "+trimul_t2m"
     return levers
 

@@ -48,8 +48,18 @@ def test_pair_ws_ships_in_both_modes(monkeypatch):
     assert M._PAIR_WS is True
 
 
-def test_dit_pair_bias_ships_in_both_modes():
-    """The DiT mask program is graded on the normal bar and is closer to float64 than the chain."""
-    assert "_DPB_ON" not in M._FAST_SET
+def test_dit_pair_bias_ships_in_both_modes_on_wormhole(monkeypatch):
+    """The DiT mask program is graded on the normal bar on Wormhole; Blackhole waits for its own grade."""
+    class Dev:
+        def __init__(self, arch):
+            self._arch = arch
+
+        def arch(self):
+            return self._arch
+
+    monkeypatch.delenv("RFD3_DPB", raising=False)
     M.set_fast(False)
-    assert M._DPB_ON is True
+    assert M._dpb_on(Dev(M.ttnn.Arch.WORMHOLE_B0)) is True
+    assert M._dpb_on(Dev(M.ttnn.Arch.BLACKHOLE)) is False
+    monkeypatch.setenv("RFD3_DPB", "1")
+    assert M._dpb_on(Dev(M.ttnn.Arch.BLACKHOLE)) is True

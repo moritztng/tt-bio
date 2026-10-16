@@ -1,5 +1,6 @@
 """perf/spd/feed.py without a box: fake pools, check fill order, done-skip, twin-skip and the fast-fail quarantine."""
 import json
+import shutil
 import os
 import subprocess
 import sys
@@ -92,6 +93,19 @@ def test_two_fast_fails_quarantine_and_wake(tmp_path, monkeypatch):
     assert not (nb / "spd-x").exists()                 # row woken
     run(tmp_path)
     assert box.queue == []
+
+
+def test_a_dirty_cards_fast_fails_do_not_quarantine_the_cell(tmp_path, monkeypatch):
+    box = make_pool(tmp_path, monkeypatch, healthy=1)
+    box.exists |= {"~/o/1/A/b/bench.jsonl", "~/o/1/B/b/bench.jsonl", "~/o/2/B/b/bench.jsonl"}
+    run(tmp_path)
+    name = box.queue.pop()
+    for at in (100, 200, 300):
+        box.ended[name] = {"state": "ended", "dur": 15, "rc": "1 fastfail2 reset", "at": at, "tail": "failed to initialize FW"}
+        run(tmp_path)
+        assert box.queue == [name]                     # placed again every time
+        box.queue.clear()
+    assert not (tmp_path / "state/spd/QUARANTINE.md").exists() or "2_A" not in (tmp_path / "state/spd/QUARANTINE.md").read_text()
 
 
 def test_changed_grid_entry_releases_quarantine(tmp_path, monkeypatch):
@@ -215,10 +229,12 @@ def test_a_long_waiting_bh_job_moves_to_a_free_card_on_the_other_box(tmp_path, m
     assert json.loads((tmp_path / "state/spd/feed/ledger.json").read_text())[key]["host"] == "qb2"
 
 
-def _place_bh(tmp_path, cards, body, cap=5, poll="0.2"):
+def _place_bh(tmp_path, cards, body, cap=5, poll="0.2", leg_sid=None):
     (tmp_path / "spd/feed/jobs").mkdir(parents=True, exist_ok=True)
-    # no release-gate leg: the test host's own legs (pc runs some) would otherwise hold a card in the waiter's pgrep
-    (tmp_path / "bin").mkdir(exist_ok=True); (tmp_path / "bin/pgrep").write_text("#!/bin/sh\nexit 1\n")
+    # no release-gate leg but the test's own (session leg_sid): the test host's legs (pc runs some) would otherwise
+    # hold a card in the waiter's pgrep
+    stub = f"exec {shutil.which('pgrep')} -s {leg_sid} \"$@\"" if leg_sid else "exit 1"
+    (tmp_path / "bin").mkdir(exist_ok=True); (tmp_path / "bin/pgrep").write_text(f"#!/bin/sh\n{stub}\n")
     (tmp_path / "bin/pgrep").chmod(0o755)
     job = {"name": "4-x.sh", "body": body, "cards": cards, "lock": str(tmp_path / "l{c}"), "cap": cap}
     r = subprocess.run([sys.executable, "-c", feed.PLACE], input=json.dumps({"kind": "bh", "jobs": [job]}) + "\n",
@@ -314,13 +330,13 @@ def sysfs(tmp_path, cards):
         (d / "tt_aiclk").write_text(clk + "\n"); (d / "tt_heartbeat").write_text(("4294967295" if clk == "4294967295" else "77") + "\n")
 
 
-def _run_capped(tmp_path, body, cap, reset=""):
-    sh = tmp_path / "4-x.sh"; sh.write_text(body)
+def _run_capped(tmp_path, body, cap, reset="", name="4-x.sh"):
+    sh = tmp_path / name; sh.write_text(body)
     sysfs(tmp_path, {"0000:42:00.0": (3, "1350")})
     subprocess.run(["bash", "-c", feed.NODE + feed.run_cmd(grace=2), "_", str(sh), "0", "", str(tmp_path / "nolock"),
                     str(cap), reset], cwd=tmp_path, timeout=60, check=True,
                    env=dict(os.environ, TT_SYSFS=str(tmp_path / "sys"), TT_DEV="/dev/tt"))
-    return (tmp_path / "4-x.sh.end").read_text().strip()
+    return (tmp_path / f"{name}.end").read_text().strip()
 
 
 def test_a_job_under_its_cap_ends_with_its_own_rc(tmp_path):
@@ -362,6 +378,21 @@ def test_a_capped_job_resets_its_card_and_a_clean_one_does_not(tmp_path):
     assert _run_capped(tmp_path, "sleep 30\n", 1, "false") == "124 INT reset-failed"
 
 
+def test_two_different_jobs_failing_fast_on_one_card_reset_it(tmp_path):
+    # 10-16 00:12Z qb1 card 0: six jobs of four rows failed init in 15 s each until the card was reset by hand
+    r = tmp_path / "reset.sh"; r.write_text('echo "$1" >> "$(dirname "$0")/resets"\n'); r.chmod(0o755)
+    assert _run_capped(tmp_path, "exit 1\n", 30, str(r), "4-a.sh") == "1"
+    assert _run_capped(tmp_path, "exit 1\n", 30, str(r), "4-a.sh") == "1"        # the same job again: the job's fault
+    assert _run_capped(tmp_path, "exit 1\n", 30, str(r), "4-b.sh") == "1 fastfail2 reset"
+    assert (tmp_path / "resets").read_text() == "/dev/tt/3\n"
+    assert _run_capped(tmp_path, "exit 1\n", 30, str(r), "4-c.sh") == "1"        # the reset cleared the streak
+    assert _run_capped(tmp_path, "exit 0\n", 30, str(r), "4-d.sh") == "0"        # a clean exit clears it too
+    assert _run_capped(tmp_path, "exit 1\n", 30, str(r), "4-e.sh") == "1"
+    assert _run_capped(tmp_path, "exit 127\n", 30, str(r), "4-f.sh") == "127"    # a missing command is not the card
+    assert _run_capped(tmp_path, "exit 1\n", 30, "", "4-g.sh") == "1"           # qb2: no reset command, no reset
+    assert (tmp_path / "resets").read_text() == "/dev/tt/3\n"
+
+
 def test_qb2_boards_are_never_reset_by_the_feed():
     # a p300c board carries two chips: resetting one kills the other chip's job
     assert feed.BH_POOLS["qb1"]["reset"] and not feed.BH_POOLS["qb2"].get("reset")
@@ -379,6 +410,19 @@ def test_probe_drops_a_dead_arc_card_and_names_its_node(tmp_path):
                        env=dict(os.environ, HOME=str(tmp_path), TT_SYSFS=str(tmp_path / "sys")))
     out = json.loads(r.stdout)
     assert out["dead"] == {"2": 3} and out["cards"] == [0, 1, 3] and out["healthy"] == 3
+
+
+def test_a_bh_waiter_leaves_a_card_to_a_waiting_runpy_gate_leg(tmp_path):
+    # 10-16 qb2: rel-fix legs bc2_boundary / parity_af2ig-trunk-device waited on chips 1 and 3 with only
+    # RELEASE_GATE_RUN_DIR naming the gate, the guard missed them and a feed waiter could take the chip first
+    leg = subprocess.Popen(["bash", "-c", 'exec -a "flock /h/spd_qb2_chip5.lock env TT_VISIBLE_DEVICES=5 '
+                            'RELEASE_GATE_RUN_DIR=/o/run python3 -c runpy" sleep 30'], start_new_session=True)
+    try:
+        time.sleep(0.2)
+        sh = _place_bh(tmp_path, [5, 6], "echo card $CHIP\n", leg_sid=leg.pid)
+        assert Path(f"{sh}.log").read_text() == "card 6\n"
+    finally:
+        leg.kill()
 
 
 def test_a_bh_waiter_skips_a_dead_arc_card(tmp_path):
@@ -429,3 +473,21 @@ def test_a_dead_arc_reset_waits_for_the_flock_and_verifies_sysfs(tmp_path):
     fix.write_text("true\n"); (tmp_path / "sys/tenstorrent!3/tt_aiclk").write_text(DEAD + "\n")
     subprocess.run(["bash", "-c", feed.ARC_SH, "_", str(b), str(tmp_path / "l2"), "3", str(fix)], env=env, check=True, timeout=60)
     assert Path(f"{b}.result").read_text().strip() == "still-dead"
+    end = [l for l in Path(f"{b}.log").read_text().splitlines() if " end " in l]
+    assert [l.split(" ", 1)[1] for l in end] == ["end rc=0 aiclk=1350 hb=9 result=ok",
+                                                 f"end rc=0 aiclk={DEAD} hb=9 result=still-dead"]
+
+
+def test_a_dead_arc_reset_killed_mid_reset_still_logs_its_end(tmp_path):
+    sysfs(tmp_path, {"0000:42:00.0": (3, DEAD)})
+    fix = tmp_path / "fix.sh"; fix.write_text("sleep 2\n"); fix.chmod(0o755)
+    (tmp_path / "dev").mkdir(); (tmp_path / "dev/3").touch()
+    env = dict(os.environ, TT_SYSFS=str(tmp_path / "sys"), TT_DEV=str(tmp_path / "dev"), ARC_SETTLE="0", ARC_WAIT="1")
+    b = tmp_path / "card2.1"
+    p = subprocess.Popen(["bash", "-c", feed.ARC_SH, "_", str(b), str(tmp_path / "l2"), "3", str(fix)], env=env)
+    for _ in range(100):
+        if " before " in (Path(f"{b}.log").read_text() if Path(f"{b}.log").exists() else ""): break
+        time.sleep(0.1)
+    p.terminate(); p.wait(timeout=60)
+    assert Path(f"{b}.result").read_text().strip() == "died"
+    assert Path(f"{b}.log").read_text().splitlines()[-1].split(" ", 1)[1] == f"end rc=none aiclk={DEAD} hb={DEAD} result=died"

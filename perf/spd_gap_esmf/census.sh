@@ -18,7 +18,7 @@ export TT_METAL_PROFILER_DIR=$RUN/profiler TT_METAL_CACHE=$RUN/cache
 mkdir -p "$RUN"
 say(){ echo "$(date -u +%FT%TZ) $*" >> "$RUN/run.log"; }
 # Only a gate leg on THIS card holds it; legs on other cards do not (spd-orchestrator 10-11).
-G="(spd_qb1_card|spd_qb2_chip|TT_VISIBLE_DEVICES=)${CHIP}[. ].*(release_gate|gate_fanout|perf_ab)"
+G="(spd_qb1_card|spd_qb2_chip|TT_VISIBLE_DEVICES=)${CHIP}[. ].*(RELEASE_GATE_RUN_DIR|release_gate|gate_fanout|perf_ab)"
 while pgrep -f "$G" | grep -vx "$$" >/dev/null; do sleep 60; done
 exec 9> "$LOCK"; say "waiting for flock $LOCK"; flock -w ${WAIT:-43200} 9 || { say "flock busy"; exit 3; }
 cd "$TREE"; say "start card $CHIP tree $(cat TREE_SHA 2>/dev/null) arms $ARMS"

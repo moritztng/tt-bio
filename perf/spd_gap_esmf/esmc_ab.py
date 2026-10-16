@@ -2,8 +2,8 @@
 or (--fidelity NAME) the model's math fidelity at its default vs NAME.
 
 One process, one model load; arms alternate off/on for --rounds so drift lands on both. Per arm: the page workload
-(prot512.seq x7, one forward of 7, warm median of --repeat) and the first --length residues of --pdb scored against the
-fp32 CPU reference (perf/mgx_embed/accuracy.py) and against the off arm of the same process.
+(prot512.seq x7, one forward of 7, warm median of --repeat) and the first --length residues of --pdb, batched as
+many times as the page cell, scored against the fp32 CPU reference (perf/mgx_embed/accuracy.py) and against the off arm of the same process.
 
     python3 perf/spd_gap_esmf/esmc_ab.py --alt tt_bio.esmc._ESMC_QKV_SPLIT --model esmc-600m --pdb perf/bgx_size/targets/hHSA.pdb \
         --ref-cache ../refcache --out ab.jsonl [--fast]
@@ -78,8 +78,10 @@ def main() -> int:
         model, embed = S.load_saprot(a.model, fast=a.fast), S.embed_sequences
     else:
         model, embed = E.load_esmc(a.model, fast=a.fast, trace=a.trace), E.embed_sequences
-    one = lambda: embed(model, {"q": aa})[0].per_residue
     batch = {f"s{i}": page for i in range(1 if a.model == "esmc-6b" else 7)}   # the GAP cell's batch
+    # graded in a batch as large as the page cell's, so the forward takes the same programs: one 544-row sequence
+    # stays under ESMC_MM_MIN_ROWS and never reaches minimal_matmul, which made every minimal_matmul lever read vs_off 0
+    one = lambda: embed(model, {f"q{i}": aa for i in range(len(batch))}, batch_size=8)[0].per_residue
     embed7 = lambda: embed(model, batch, batch_size=8)
     dev = model.tt_device
     ckc = model.compute_kernel_config

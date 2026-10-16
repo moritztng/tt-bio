@@ -399,13 +399,19 @@ DIT_SDPA_CALLS = [0]
 # add and padding in a single pass over z, the packer doing the re-tiling the permute did. WH @1000, 685 tokens:
 # 24.6 -> 4.0 ms a call, closer to a float64 reference than the ttnn chain (rel err 0.0024 vs 0.0042, no element
 # off by more than 0.25). Normal mode, 4 paired WH seeds: 100.1 -> 91.4 s/design, drift 3.8-10.1 A against a
-# 14.2-18.0 A seed floor, breaks 2 -> 2, clashes 61.5 -> 52.8. On in both modes; RFD3_DPB=0 restores the chain.
-_DPB_ON = env_flag("RFD3_DPB", True)
+# 14.2-18.0 A seed floor, breaks 2 -> 2, clashes 61.5 -> 52.8. On in both modes on Wormhole; Blackhole sums K
+# on the FPU and is not graded yet, so it stays on the chain unless RFD3_DPB=1. RFD3_DPB=0 restores the chain.
+def _dpb_on(device):
+    return env_flag("RFD3_DPB", device.arch() == ttnn.Arch.WORMHOLE_B0)
+
+
 # The token encoder's pairformer pair bias through the same program: 16 heads (W^T zero-padded to one 32-head tile,
 # the second half written to a scratch output), scale 1, the key pad at -1e4 from the mask. Replaces the linear
 # [I*I, 128] @ [128, 16] (2.03 ms a call on WH @1000 against a 0.62 ms roof), its permute and the fp32 pad.
 _PF_DPB = env_flag("RFD3_PF_DPB", False)
 PF_DPB_CALLS = [0, 0]   # served, declined
+
+
 # The DiT builds all 18 blocks' masks in one pass while the stack fits under this many bytes
 # (bf16, 18 x 16 heads x n_key^2: 1317 tokens); above it each block builds its own.
 _DIT_SDPA_STACK_BYTES = int(float(os.environ.get("RFD3_DIT_SDPA_STACK_BYTES", "1e9")))
@@ -3325,7 +3331,7 @@ class LocalTokenTransformer(Module):
                               for i in range(len(self.blocks))], dim=1)
             self._b_w_packed = ttnn.from_torch(cols, layout=ttnn.TILE_LAYOUT, device=self.device,
                                                dtype=self.dtype)
-        if _DPB_ON:
+        if _dpb_on(self.device):
             if getattr(self, "_b_wt_packed", None) is None:
                 wt = torch.cat([self.weights[f"blocks.{i}.attention_pair_bias.to_b.weight"].float()
                                 for i in range(len(self.blocks))], dim=0)

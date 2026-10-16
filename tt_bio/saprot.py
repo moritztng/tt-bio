@@ -40,10 +40,10 @@ from tt_bio.tenstorrent import (
     Weights,
     WeightScope,
     _dtype,
-    fused_sdpa,
 )
 from tt_bio.esmc import (
-    lm_sdpa_config,
+    _MMLin,
+    lm_sdpa,
     rope_tables,
     _rope,
     BUCKET,
@@ -120,7 +120,17 @@ class SaprotEmbeddingLayer(Module):
         return x
 
 
-class ESM2Attention(Module):
+# SaProt's projections (bias, fc1's GELU as the fused activation) on ESMC's minimal_matmul path instead of
+# ttnn.linear, for projections over esmc.ESMC_MM_MIN_ROWS rows. Off until the page cell says.
+_SAPROT_MM = env_flag("TT_BIO_SAPROT_MM", False)
+
+
+class _SaprotLin(_MMLin):
+    def _mm_on(self) -> bool:
+        return _SAPROT_MM
+
+
+class ESM2Attention(_SaprotLin, Module):
     """ESM-2 self-attention: pre-LN, fused q/k/v (with bias), per-head RoPE, SDPA,
     output projection (with bias). No QK-LayerNorm (that is ESMC-specific).
 
@@ -180,8 +190,7 @@ class ESM2Attention(Module):
         if key_valid is not None and attn_mask is None:  # the -inf mask already zeroes them, see esmc.Attention
             k = ttnn.multiply(k, key_valid)
             v = ttnn.multiply(v, key_valid)
-        o = fused_sdpa(q, k, v, attn_mask=attn_mask, scale=self.head_dim ** -0.5,
-                       program_config=lm_sdpa_config(int(q.shape[2]), int(k.shape[2])))
+        o = lm_sdpa(q, k, v, attn_mask, scale=self.head_dim ** -0.5)
         ttnn.deallocate(q); ttnn.deallocate(k); ttnn.deallocate(v)
         o = self._merge_heads(o)  # [B, L, H*32] when fold_rope; out_weight has the zero rows
         out = self._lin(o, self.out_weight, bias=self.out_bias)
@@ -245,7 +254,7 @@ def fold_rope_tables(seq_len: int, n_heads: int, d: int, device):
 _GELU_FUSED = env_flag("TT_BIO_SAPROT_GELU_FUSED", True)
 
 
-class ESM2FFN(Module):
+class ESM2FFN(_SaprotLin, Module):
     """ESM-2 feed-forward: pre-LN, Linear(intermediate)+GELU, Linear(hidden), residual."""
 
     def __init__(self, state_dict: Weights, compute_kernel_config):

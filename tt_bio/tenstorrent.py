@@ -7771,6 +7771,37 @@ def _close_device_locked(dev):
 CAPTURING = [0]   # open trace captures: nothing may upload to the device inside one
 
 
+#: The input shape signature the device program cache was last filled under (`program_cache_for`).
+_PROGRAM_CACHE_SHAPES = [None]
+
+
+def input_shapes(feats) -> tuple:
+    """The shape signature of a model-ready feature dict: equal signatures mean equal device shapes."""
+    return tuple(sorted((k, tuple(v.shape)) for k, v in feats.items() if hasattr(v, "shape")))
+
+
+def program_cache_for(shapes, dev=None) -> None:
+    """Start a fold on a program cache filled only by inputs with this shape signature.
+
+    ttnn 0.68.0 keys its program cache on a 64-bit hash whose combiner (boost hash_combine
+    over identity-hashed ints) collides on ordinary tensor shapes, with no equality check
+    behind it (tt-metal #45821, fixed in ttnn 0.74.0). A hit hands a program compiled for one
+    shape to another, with only its buffer addresses refreshed. Protenix-v2 --fast on p150a
+    showed it: the fill_pad under ttnn.pad of 9W89's bf16 diffusion (5, 5941, 384) and of 9DBP's
+    input embedder (1, 6202, 384) got one program hash, so 9DBP after 9W89 folded to garbage and
+    the next fold hung the chip.
+    Clearing when the signature changes keeps warm repeats of one input warm; shapes is None
+    clears every time. The device is synchronized first: queued work may still need the
+    programs."""
+    if shapes is not None and shapes == _PROGRAM_CACHE_SHAPES[0]:
+        return
+    dev = dev or get_device()
+    ttnn.synchronize_device(dev)
+    dev.disable_and_clear_program_cache()
+    dev.enable_program_cache()
+    _PROGRAM_CACHE_SHAPES[0] = shapes
+
+
 def capture_trace(dev, run):
     """Record ``run()`` into a trace and return ``(tid, run's result)``.
 
