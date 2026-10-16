@@ -169,16 +169,19 @@ def checkpoint_repo(checkpoint: str) -> str:
     return ARTIFACTS[checkpoint].repo
 
 
-def checkpoint_identity(repo: str, config) -> dict:
+def checkpoint_identity(repo: str, config, revision: str | None = None) -> dict:
     """What was actually loaded: repo, weight sha256, trunk depth, MSA encoder.
 
     The sha256 is the hub's own blob name for model.safetensors, read off the resolved cache
     entry, so it names the bytes this run folded instead of a literal that goes stale when the
-    repo is re-uploaded. Depth and MSA-encoder presence come from the checkpoint config."""
+    repo is re-uploaded. It is looked up at the pinned revision the model was loaded from: a
+    cache whose refs/main points at a snapshot without weights reads no sha at main, which
+    made the identity depend on the host. Depth and MSA-encoder presence come from the
+    checkpoint config."""
     sha = None
     try:
         from huggingface_hub import try_to_load_from_cache
-        hit = try_to_load_from_cache(repo, "model.safetensors")
+        hit = try_to_load_from_cache(repo, "model.safetensors", revision=revision)
         if isinstance(hit, str):
             sha = os.path.basename(os.path.realpath(hit))
     except Exception:
@@ -1023,7 +1026,7 @@ def main():
     print(f"loading torch reference model ({args.checkpoint} -> {repo}"
           f"{f' @ {revision}' if revision else ''}) ...", flush=True)
     ref_model = ESMFold2Model.from_pretrained(repo, load_esmc=False, revision=revision).eval()
-    ckpt = checkpoint_identity(repo, ref_model.config)
+    ckpt = checkpoint_identity(repo, ref_model.config, revision)
     print(f"checkpoint: {ckpt['version']}, msa_encoder={ckpt['msa_encoder']}", flush=True)
 
     n_steps_code = executed_step_count(ref_model, args.steps)
