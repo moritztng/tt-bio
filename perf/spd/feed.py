@@ -53,7 +53,8 @@ import yaml
 D = Path("/home/moritz/.coworker")
 TIERS = {"red": 0, "amber": 1, "fast": 2, "fill": 3}
 FAST_S = 60
-INIT_FAIL = "failed to initialize FW|ARC core .* failed to start|Failed to set initial power state"
+INIT_FAIL = ("failed to initialize FW|ARC core .* failed to start|Failed to set initial power state"
+             "|waiting for active ethernet core")   # 10-16 qb2 board (0,1) after a TERMed mesh run
 MAX_FAILS = 3
 STEAL_S = 900   # a BH job still waiting this long moves to a free card on another BH box its cell allows
 # BH boxes: SPD cards and their flocks (state/spd/CHIPS.md). A chip kept off the feed has ~/spd/locks/chip<N>.BAD on its
@@ -198,6 +199,9 @@ PROBE = f"GATE_LEG = {GATE_LEG!r}\n" + PROBE
 # the ledger does not count against the cell. The first leaves its name in fastfail.<card>; a clean exit clears it.
 # Only a device-init failure (INIT_FAIL in the job's log) counts, so two broken cells never reset a healthy card. qb2 has no
 # reset (p300c board pair): the second marks ~/spd/locks/chip<N>.BAD instead and its .end says "fastfail2 bad".
+# Most cells send the model's output to their own log, not stdout (10-16 qb2: 12 init failures on board (0,1) in 7 min, none
+# seen, four cells quarantined for the board's fault), so the check also reads the files the job wrote since its .start in
+# the cell's output dirs, which PLACE lists in $1.outs.
 NODE = ('node() { for s in "${TT_SYSFS:-/sys/class/tenstorrent}"/*; do echo "$(basename "$(readlink -f "$s/device")") '
         '${s##*!}"; done | sort | sed -n "$(($1 + 1))s/.* //p"; }; '
         'dead() { local n=$(node $1); [ -n "$n" ] && cat "${TT_SYSFS:-/sys/class/tenstorrent}/tenstorrent!$n/tt_aiclk" '
@@ -213,7 +217,7 @@ def run_cmd(grace=120):
     return ('S=$(date +%s); CHIP=$2 TT_VISIBLE_DEVICES=$2 LOCK="$4" WAIT=60 timeout -s TERM $(($5 + G)) '
             'sh -c \'echo $$ > "$1.pg"; exec timeout -s INT "$2" bash "$1"\' _ "$1" "$5" > "$1.log" 2>&1; rc=$?; '
             'M="$(dirname "$1")/fastfail.$2"; if [ $rc = 0 ]; then rm -f "$M"; '
-            'elif [ $rc != 124 ] && [ $rc != 127 ] && [ $(($(date +%s) - S)) -lt FAST ] && grep -qE "INIT" "$1.log"; then '
+            'elif [ $rc != 124 ] && [ $rc != 127 ] && [ $(($(date +%s) - S)) -lt FAST ] && { grep -qE "INIT" "$1.log" || { [ -s "$1.outs" ] && while read -r d; do find "$d" -maxdepth 1 -type f -newer "$1.start" 2>/dev/null; done < "$1.outs" | xargs -r -d "\\n" grep -lsE "INIT" | grep -q .; }; }; then '
             'if [ -s "$M" ] && [ "$(cat "$M")" != "$1" ]; then rm -f "$M"; '
             'if [ -z "$6" ]; then L="${SPD_LOCKS:-$HOME/spd/locks}"; mkdir -p "$L"; '
             'echo "$(date -u +%FT%TZ) two jobs failed device init back to back ($(basename "$1")), feed" > "$L/chip$2.BAD"; '
@@ -231,6 +235,11 @@ def run_cmd(grace=120):
 
 RUN = run_cmd()
 
+
+def outs(c):
+    """The dirs a cell writes its done files to: its own logs live there (PLACE writes them to <job>.outs)."""
+    return sorted({os.path.dirname(x) for x in c["done"]})
+
 # Writes the jobs feed placed. Galaxy: into the pool queue. BH: detached flock waiter per job.
 PLACE = r'''
 import json, os, subprocess, sys
@@ -246,6 +255,7 @@ for j in A["jobs"]:
         for x in (".end", ".start", ".pid", ".log", ".pg", ".until"):
             if os.path.exists(sh + x): os.remove(sh + x)
         open(sh, "w").write(j["body"]); open(sh + ".card", "w").write("-1")
+        open(sh + ".outs", "w").write("".join(os.path.expanduser(d) + "\n" for d in j.get("outs", [])))
         # Take the box's dispatch flock in turn, then the first card that is not BAD or dead-ARC, runs no release-gate leg and no
         # gapboard sentinel (the scoreboard measuring main; checked again once its flock is held) and whose flock is
         # free. 10-15: waiters bound to one card queued on busy cards 2 and 3 while qb1 card 0 sat free 15+ min.
@@ -529,7 +539,7 @@ def steal(cs, ledger, st, P, stamp, dry, log):
                 if name not in remote(P[n]["ssh"], WITHDRAW, {"names": [name]}):
                     continue
                 remote(P[b]["ssh"], PLACE, {"kind": "bh", "reset": P[b].get("reset", ""), "jobs": [{"name": name, "body": c["body"], "cap": c["cap"],
-                                                                   "cards": [card], "lock": P[b]["lock"]}]})
+                                                                   "cards": [card], "lock": P[b]["lock"], "outs": outs(c)}]})
             except Exception as e:   # withdrawn but not placed: the next pass finds the cell lost and places it again
                 log(f"steal {c['key']} failed: {e}")
                 continue
@@ -560,7 +570,7 @@ def main(argv=None):
             c["hosts"] = []
     roots = {p: tree_root(p, a.repo) for c in cs for p in c["requires"]}
     paths = sorted({p for c in cs for p in c["done"] + c["requires"]} | {r[0] for r in roots.values() if r})
-    outdirs = {c["name"]: sorted({os.path.dirname(x) for x in c["done"]}) for c in cs}
+    outdirs = {c["name"]: outs(c) for c in cs}
     st = {}
     for name, p in P.items():
         try:
@@ -635,7 +645,7 @@ def main(argv=None):
         n = max(ok, key=lambda n: room(n, p))
         job = {"name": c["name"], "body": c["body"], "cap": c["cap"]}
         if P[n]["kind"] == "bh":
-            job.update(cards=st[n]["cards"], lock=P[n]["lock"])
+            job.update(cards=st[n]["cards"], lock=P[n]["lock"], outs=outs(c))
         place[n].append(job); qp[n][p] += 1
         ledger[c["key"]] = dict(L, host=n, name=c["name"], hash=c["hash"], state="queued", placed=stamp,
                                 fails=L.get("fails", []), quarantined=False, row=c["row"])

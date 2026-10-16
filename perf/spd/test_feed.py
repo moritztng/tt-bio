@@ -238,7 +238,7 @@ def test_a_long_waiting_bh_job_moves_to_a_free_card_on_the_other_box(tmp_path, m
     assert [c[0] for c in calls if c[1] is feed.WITHDRAW] == ["qb1"]
     placed = [c[2]["jobs"] for c in calls if c[1] is feed.PLACE and c[2]["jobs"]]
     assert placed == [[{"name": name, "body": feed.cells(tmp_path / "state/spd/grids")[0]["body"], "cap": 7200,
-                        "cards": [3], "lock": "/l2_{c}"}]]
+                        "cards": [3], "lock": "/l2_{c}", "outs": ["~/o/A"]}]]
     assert json.loads((tmp_path / "state/spd/feed/ledger.json").read_text())[key]["host"] == "qb2"
 
 
@@ -408,6 +408,23 @@ def test_two_different_jobs_failing_fast_on_one_card_reset_it(tmp_path):
     assert _run_capped(tmp_path, "exit 1\n", 30, "", "4-g.sh") == "1 fastfail2 bad"  # qb2: no reset, chip off the feed
     assert "device init" in (tmp_path / "locks/chip0.BAD").read_text()           # qb2: off the feed instead
     assert (tmp_path / "resets").read_text() == "/dev/tt/3\n"
+
+
+def test_an_init_failure_written_to_the_cells_own_log_counts(tmp_path):
+    # 10-16 qb2 board (0,1): every cell sent the model's output to $O/log, so 12 init failures in 7 min left the chips on
+    # the feed and quarantined four cells for the board's fault
+    o = tmp_path / "out"; o.mkdir()
+    (o / "log").write_text("TT_THROW: Device 0: Timed out while waiting for active ethernet core (x=29,y=25)\n")
+    (tmp_path / "stale").mkdir(); (tmp_path / "stale/log").write_text("failed to initialize FW\n")
+    def run(name, d, body):
+        (tmp_path / f"{name}.outs").write_text(f"{d}\n"); time.sleep(0.02); (tmp_path / f"{name}.start").touch()
+        return _run_capped(tmp_path, body, 30, "", name, init=False)
+    fail = f"echo 'TT_THROW: Device 0: Timed out while waiting for active ethernet core' > {o}/log; exit 1\n"
+    assert run("4-s.sh", tmp_path / "stale", "exit 1\n") == "1"     # a log from before the job started is not its own
+    assert run("4-t.sh", tmp_path / "stale", "exit 1\n") == "1"
+    assert not (tmp_path / "locks/chip0.BAD").exists()
+    assert run("4-a.sh", o, fail) == "1"
+    assert run("4-b.sh", o, fail) == "1 fastfail2 bad"
 
 
 def test_a_placed_qb1_job_carries_the_reset_command(tmp_path):
