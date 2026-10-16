@@ -104,20 +104,25 @@ TRIATT_LN = frozenset({"triatt_ln", "apb_ln"})
 # dit_shoist (the token DiT's conditioning as three wide linears a step, each block reading its columns in place)
 # too: Wormhole 11-set fast grade, 44 paired folds (spd-gap-small gshx, 2026-10-15), PASS: same-seed top pose median
 # 0.256 A vs the 1.414 A floor, CA-lDDT +0.0014 [+0.0008, +0.0022], ipTM -0.0004, docking 34 -> 34. Galaxy chip 512 x 1
-# (1000 MHz, shx2): 55.92 -> 54.70 s, 5 of 5 warm pairs faster. p150a -0.28 s (shxbh), Blackhole grade not run.
-WS_FAST = frozenset({"ws_ln", "ws_lofi", "trimul_sig6", "dit_shoist"})
+# (1000 MHz, shx2): 55.92 -> 54.70 s, 5 of 5 warm pairs faster. p150a 11-set fast grade, 44 paired folds (gshxbh,
+# 2026-10-16), PASS: top pose median 0.623 A vs the 1.371 A floor, CA-lDDT +0.0071 [+0.0035, +0.0115], docking
+# 34 -> 34; p150a 5 samples 37.46 -> 36.77 s (shxb). So it is Protenix-v2 --fast on both chips: SHOIST_FAST.
+WS_FAST = frozenset({"ws_ln", "ws_lofi", "trimul_sig6"})
+SHOIST_FAST = frozenset({"dit_shoist"})
 from .eltwise_fusion import scale_add, norm_residual, gated_add
 
 
 def mode_levers(state_dict):
     """The mode's lever set for a Protenix checkpoint: `FAST_LEVERS` under --fast, else `NORMAL_LEVERS`,
     plus `T2_TAIL` and `WS_CHAIN` for Protenix-v2 (c_z 256), the one width their normal grades cover; Wormhole --fast takes
-    `WH_FAST_LEVERS`, and Wormhole adds `TRIATT_LN` to both Protenix-v2 modes and `WS_FAST` to its --fast."""
+    `WH_FAST_LEVERS`, and Wormhole adds `TRIATT_LN` to both Protenix-v2 modes and `WS_FAST` to its --fast. Protenix-v2
+    --fast takes `SHOIST_FAST` on both chips."""
     v2 = Trunk._derive_c_z(state_dict) == 256
     wh = _T.is_wormhole()
     pair_ln = TRIATT_LN if v2 and wh else frozenset()
+    fast = WH_FAST_LEVERS | pair_ln | (WS_FAST if v2 else frozenset()) if wh else FAST_LEVERS
     return _T.model_levers((NORMAL_LEVERS | T2_TAIL | WS_CHAIN if v2 else NORMAL_LEVERS) | pair_ln,
-                           WH_FAST_LEVERS | pair_ln | (WS_FAST if v2 else frozenset()) if wh else FAST_LEVERS)
+                           fast | SHOIST_FAST if v2 else fast)
 
 
 # How many diffusion samples a single batched denoise carries by default. The batched
