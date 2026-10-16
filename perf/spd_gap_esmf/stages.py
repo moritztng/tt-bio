@@ -28,6 +28,7 @@ ap.add_argument("--fast", action="store_true")
 ap.add_argument("--size", type=int, default=512)
 ap.add_argument("--out", type=Path, required=True)
 ap.add_argument("--ops", action="store_true", help="per-op synchronized census instead of stages/profile/xfer")
+ap.add_argument("--plain", action="store_true", help="cold + plain fold only; also counts the einsums bmm_res served")
 ap.add_argument("--cold-stages", action="store_true", help="split the cold fold by stage too (WH: warm reads slower than cold)")
 a = ap.parse_args()
 
@@ -105,9 +106,20 @@ if a.cold_stages:
     staged("cold_stages")
 else:
     one_fold()  # cold
+if a.plain:
+    from tt_bio import bmm_res
+    bres, bres_mm = collections.Counter(), bmm_res.matmul
+
+    def counted(*x, **k):
+        r = bres_mm(*x, **k); bres["served" if r is not None else "declined"] += 1
+        return r
+    bmm_res.matmul = counted
 t0 = time.perf_counter(); s, m = one_fold(); res["plain_s"] = round(time.perf_counter() - t0, 3)
 res["plain_fold_s"] = round(s, 3); res["plddt"] = m.get("plddt")
 print("plain", res["plain_s"], flush=True)
+if a.plain:
+    res["bmm_res"] = dict(bres); a.out.write_text(json.dumps(res, indent=1)); print(res["bmm_res"], flush=True)
+    T.cleanup(); sys.exit(0)
 
 
 def op_census():
