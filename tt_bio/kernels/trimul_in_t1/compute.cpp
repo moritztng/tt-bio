@@ -96,7 +96,7 @@ ALWI void layer_norm_row(uint32_t il) {
         cb_pop_front(cb_x, Kt);
         return;
     }
-    ln_prologue::layer_norm_row<LnCbs>(xn_cb, [il](uint32_t i) { pack_tile<true>(0, xn_cb, i * IL + il); });
+    ln_prologue::layer_norm_row<LnCbs>(xn_cb, [il](uint32_t d, uint32_t i) { pack_tile<true>(d, xn_cb, i * IL + il); });
 }
 
 void kernel_main() {
