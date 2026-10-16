@@ -308,6 +308,29 @@ def _since(gates: Path | None, tsha: str, repo: Path = REPO, ref: str = "origin/
     return out
 
 
+def lost_record(gates: Path | None, tsha: str, repo: Path = REPO, ref: str = "origin/main"
+                ) -> tuple[str, Path, list] | None:
+    """(sha, gate dir, models) of a candidate after the last release whose gate failed only on
+    ladder drift and whose record run lost its runner before writing a verdict. Nothing else
+    restarts it once main has moved on: decide() records only the commit it targets (pc's
+    maintenance reboot stopped rec-5e250928a 10-16 17:25Z with 23 of 27 legs recorded, and the
+    train gated main's head instead). gate_fanout resumes it in place, keeping its PASSes."""
+    for p, plan in _since(gates, tsha, repo, ref):
+        sha, d = plan["sha"], p.parent
+        try:
+            if not (d / "verdict.json").exists() or json.loads((d / "verdict.json").read_text()).get("pass"):
+                continue
+            state, rd = record_run(gates, sha)
+            if state != "none" or rd is None:
+                continue
+            drift, other = failures(d, waivers(d, gates, repo, ref))
+        except ValueError:
+            continue
+        if drift and not other:
+            return sha, d, drift
+    return None
+
+
 #: How long a failed gate stays the candidate with no FIXES before the train gates main's head
 #: instead: long enough for a fix row to land a fix, short enough that an abandoned failure does
 #: not hold the train past its 48 h bar.
@@ -364,6 +387,10 @@ def decide(repo: Path = REPO, gates: Path | None = None, ref: str = "origin/main
                 "waived": waivers(d, gates, repo, ref),
                 "why": f"gate passed on every arch: {d}/VERDICT.md{nxt}"
                        + (f"; size ladders re-recorded in {rec}" if rec != d else "")}
+    if lost := lost_record(gates, tsha, repo, ref):
+        sha, d, models = lost
+        return {**out, "do": "RECORD", "sha": sha, "gate": str(d), "models": models,
+                "why": f"the record run {gates}/rec-{sha[:9]} lost its runner; resume it"}
     target, what = head, "main's head"
     if fz := frozen(gates, tsha, repo, ref):
         base, fd, fl = fz
