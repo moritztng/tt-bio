@@ -383,7 +383,7 @@ def inputs(cmd):
             if p not in optional and "$" not in p.replace("$HOME/", "", 1)}
 
 
-def cells(grid_dir):
+def cells(grid_dir, log=print):
     """All cells of all active experiments, ordered by tier, rows round-robin within a tier."""
     by_tier = {}
     for f in sorted(Path(grid_dir).glob("*.yaml")):
@@ -392,6 +392,10 @@ def cells(grid_dir):
         for e in g.get("experiments", []):
             if not e.get("active", True):
                 continue
+            prio = int(e.get("prio", 5))
+            if not 3 <= prio <= 8:  # one bad experiment must not stop every row's feed (10-15 19:02-19:20Z)
+                log(f"skip {f.name}:{e['name']}: prio {prio} outside 3-8")
+                continue
             axes = e.get("axes", {})
             out = []
             for vals in itertools.product(*axes.values()):
@@ -399,8 +403,6 @@ def cells(grid_dir):
                 for k, v in (e.get("vars") or {}).items():
                     ctx[k] = render(str(v), ctx)
                 cmd = render(e["command"], ctx)
-                prio = int(e.get("prio", 5))
-                assert 3 <= prio <= 8, f"{f.name}:{e['name']}: prio {prio} outside 3-8"
                 body = (f"# spd-feed: {row} {e['name']} {' '.join(f'{k}={v}' for k, v in zip(axes, vals))} "
                         f"(grid state/spd/grids/{f.name})\n# mem: {e.get('mem', 24)}\n# cap: {e.get('cap', 7200)}\n"
                         + (f"# cpu: {int(e['cpu'])}\n" if e.get("cpu") else "") + f"export TT_BIO_LEASE_HOLDER={row}\n{cmd.rstrip()}\n")
@@ -535,7 +537,7 @@ def main(argv=None):
     def log(m):
         logf.write(f"{stamp} {m}\n"); print(m)
 
-    cs = cells(R / "state/spd/grids")
+    cs = cells(R / "state/spd/grids", log)
     P = pools(R)
     for c in cs:  # Galaxies rotate: a pin to one SPD no longer holds lets the cell run on any held pool of its arch
         if c["hosts"] and not set(c["hosts"]) & set(P):
