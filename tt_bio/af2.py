@@ -132,6 +132,11 @@ TRANSITION_WS = env_flag("TT_BIO_AF2_TRANSITION_WS", True)
 # .114 WH 2026-10-12 (off / on / off2 x 3 inputs, AICLK 1000): coords_sha16 identical on every
 # input, extra-MSA stage 0.41-0.44 -> 0.36 s and Evoformer 4.136 -> 4.09 s per fold.
 PAIR_ON_CARD = env_flag("TT_BIO_AF2_PAIR_ON_CARD", True)
+# The MSA column attention at depth 2 in closed form (`AF2Attention._column_depth2`). With two keys
+# the softmax is a sigmoid of the logit gap, so the attention is elementwise in the MSA's own
+# [rows, n, c] layout: no permutes, and no 2-row axis padded to a 32-row tile. Depth 2 is every
+# BindCraft 2 round and every AF2-IG fold (the query row plus one template torsion row).
+COL_DEPTH2 = env_flag("TT_BIO_AF2_COL_DEPTH2", True)
 
 
 #: The op classes `scripts/af2_port/tap_gate.py --substitute` moves to host torch, one class per
@@ -693,6 +698,14 @@ class AF2Attention(Module):
         self.g_bias = self.torch_to_tt("linear_g.bias")
         self.o_weight = self.torch_to_tt("linear_o.weight")
         self.o_bias = self.torch_to_tt("linear_o.bias")
+        if column:
+            # Sums each head's channels and spreads the sum back over them, times the q scale:
+            # x @ head_sum is every channel's own head logit. A constant, not a weight.
+            width = n_heads * head_dim
+            self.head_sum = ttnn.from_torch(
+                torch.block_diag(*[torch.full((head_dim, head_dim), self.scale_inv)] * n_heads)
+                .reshape(width, width), layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16,
+                device=self.device)
         if pair_bias:
             self.pair_norm_weight = self.torch_to_tt("pair_norm.weight")
             self.pair_norm_bias = self.torch_to_tt("pair_norm.bias")
@@ -742,6 +755,56 @@ class AF2Attention(Module):
             ttnn.deallocate(t)
         return out
 
+    def _column_depth2(self, msa: ttnn.Tensor, mask_bias: ttnn.Tensor | None) -> ttnn.Tensor:
+        """The column attention over exactly two MSA rows, in the MSA's own [2, n, c] layout.
+
+        Each query row s sees two keys, so its softmax is `p = sigmoid(l_s0 - l_s1)` and
+        `1 - p`, and the attended value is `v1 + p * (v0 - v1)`. The logit gap is
+        `scale * q_s . (k0 - k1)` per head, plus the gap of the two keys' mask biases, which
+        `_mask_biases` builds as one [1, n, 1] column. The general path permutes to [n, 2, c],
+        where every tile carries 2 real rows of 32, and runs a [2, 2] softmax per column and
+        head. This one never leaves the row layout. The arithmetic is the same function: the
+        gap is taken before the dot product rather than after two rounded logits.
+        """
+        rows, n, c = (int(d) for d in msa.shape)
+        x = ttnn.layer_norm(
+            msa, weight=self.norm_weight, bias=self.norm_bias, epsilon=1e-5,
+            compute_kernel_config=self.compute_kernel_config,
+            memory_config=ttnn.DRAM_MEMORY_CONFIG,
+        )
+        qkv = self._lin(x, self.qkv_weight, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+        w = self.n_heads * self.head_dim
+        part = lambda r0, r1, j: ttnn.slice(qkv, (r0, 0, j * w), (r1, n, (j + 1) * w))
+        q = part(0, rows, 0)
+        k0, k1 = part(0, 1, 1), part(1, 2, 1)
+        v0, v1 = part(0, 1, 2), part(1, 2, 2)
+        ttnn.deallocate(qkv)
+        kd = ttnn.subtract(k0, k1)
+        vd = ttnn.subtract(v0, v1)
+        for t in (k0, k1, v0):
+            ttnn.deallocate(t)
+        qk = ttnn.multiply(q, kd)
+        ttnn.deallocate(q)
+        ttnn.deallocate(kd)
+        gap = self._lin(qk, self.head_sum, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+        ttnn.deallocate(qk)
+        if mask_bias is not None:
+            gap = ttnn.add(gap, mask_bias)
+        mixed = ttnn.multiply(gap, vd, input_tensor_a_activations=[ttnn.UnaryOpType.SIGMOID])
+        ttnn.deallocate(vd)
+        ttnn.deallocate(gap)
+        out = ttnn.add(mixed, v1)
+        ttnn.deallocate(mixed)
+        ttnn.deallocate(v1)
+        gate = self._lin(x, self.g_weight, bias=self.g_bias,
+                         memory_config=ttnn.DRAM_MEMORY_CONFIG)
+        ttnn.deallocate(x)
+        out = sigmoid_gate(out, gate, self.rne_sigmoid)
+        projected = self._lin(out, self.o_weight, bias=self.o_bias,
+                              memory_config=ttnn.DRAM_MEMORY_CONFIG)
+        ttnn.deallocate(out)
+        return projected
+
     def __call__(self, msa: ttnn.Tensor, pair: ttnn.Tensor | None = None,
                  mask_bias: ttnn.Tensor | None = None) -> ttnn.Tensor:
         """`mask_bias` is AF2's `1e9 * (msa_mask - 1)` already shaped for the softmax axis.
@@ -754,6 +817,8 @@ class AF2Attention(Module):
         assert (pair is not None) == self.pair_bias, "pair_bias and the pair argument disagree"
         if len(msa.shape) == 4:
             msa = ttnn.reshape(msa, tuple(msa.shape)[1:])
+        if self.column and COL_DEPTH2 and int(msa.shape[0]) == 2:
+            return self._column_depth2(msa, mask_bias)
         if self.column:
             msa = ttnn.permute(msa, (1, 0, 2))
         x = ttnn.layer_norm(
@@ -1012,8 +1077,14 @@ class AF2EvoformerBlock(AF2PairBlock):
         rows, n = (int(d) for d in msa_mask.shape)
         flat = ttnn.multiply(ttnn.subtract(msa_mask, 1.0), MASK_LOGIT_BIAS)
         row_bias = ttnn.fill_implicit_tile_padding(ttnn.reshape(flat, (rows, 1, 1, n)), 0.0)
-        transposed = ttnn.permute(flat, (1, 0))
-        col_bias = ttnn.fill_implicit_tile_padding(ttnn.reshape(transposed, (n, 1, 1, rows)), 0.0)
+        if rows == 2 and COL_DEPTH2:
+            # `_column_depth2` adds the gap between the two keys' biases, per column.
+            gap = ttnn.subtract(ttnn.slice(flat, (0, 0), (1, n)), ttnn.slice(flat, (1, 0), (2, n)))
+            col_bias = ttnn.reshape(ttnn.permute(gap, (1, 0)), (1, n, 1))
+        else:
+            transposed = ttnn.permute(flat, (1, 0))
+            col_bias = ttnn.fill_implicit_tile_padding(
+                ttnn.reshape(transposed, (n, 1, 1, rows)), 0.0)
         if cached is not None:
             cache.check((row_bias, col_bias), cached)
             return cached
