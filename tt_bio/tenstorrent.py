@@ -711,6 +711,8 @@ _FAST_MODE = False
 #   dit_shoist      the DiT's conditioning as three wide linears a step whose columns each layer reads in place
 #                   (`addcmul_at`): OpenFold3's DiT, and Boltz-2's token DiT, where it takes precedence over
 #                   dit_cond_jit (adaLN modulation, the attention gate and the transition gate + residual each one op).
+#   dit_cond_kfold  under dit_cond_jit, the four biased conditioning linears carry their bias as one more K row of
+#                   the weight against a ones column appended to s, so the matmul runs without a bias epilogue.
 #   apb_cat         the token attention's head re-assembly as one nlp_concat_heads, gate and output projection on
 #                   the padded head lanes (what TT_BIO_APB_CONCAT_HEADS does at load, exact), with the wide
 #                   weights re-laned from the bf16 device copies on the first call that takes it.
@@ -733,7 +735,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine", "ef2_opm_kq", "ef2_relpos_lookup",
           "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit", "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384",
           "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
-          "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "trimul_bres")
+          "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "trimul_bres", "dit_cond_kfold")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -749,7 +751,7 @@ UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "di
                              "ef2_relpos_lookup", "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit",
                              "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384",
                              "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
-                             "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf"})
+                             "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "dit_cond_kfold"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -15106,25 +15108,42 @@ class DiffusionTransformer(Module):
             self._cond_ws = (up(torch.cat(sw, 1)), up(torch.cat(sb, 0)), up(torch.cat(bw, 1)))
         return self._cond_ws
 
-    def _cond_weights_parts(self):
+    def _cond_weights_parts(self, kfold=False):
         """`_cond_weights_split` and the output projections per layer, for `dit_cond_jit`: one
         `(attn scale w, b, attn shift w, transition scale w, b, transition shift w, attn gate w, b,
-        transition gate w, b)` tuple a layer, so each term is its own [768, 768] projection."""
-        if getattr(self, "_cond_wp", None) is None:
+        transition gate w, b)` tuple a layer, so each term is its own [768, 768] projection.
+        `kfold` (dit_cond_kfold): each bias rides as one more K row of its weight, padded to a
+        tile with zero rows, and its slot is None; the caller appends `_ones_tile` to the input."""
+        key = "_cond_wpk" if kfold else "_cond_wp"
+        if getattr(self, key, None) is None:
             dt = _dtype(ttnn.bfloat16)
             up = lambda t: ttnn.from_torch(t, layout=ttnn.TILE_LAYOUT, device=self.device, dtype=dt)
+            wb = lambda w, b: ((up(torch.cat([w, b.reshape(1, -1), w.new_zeros(31, w.shape[1])])), None)  # noqa: E731
+                               if kfold else (up(w), up(b)))
             parts = []
             for layer in self.layers:
                 w = []
                 for ad in (layer.adaln, layer.transition.adaln):
                     scale_w, scale_b, bias_w = ad.folded_weights()
-                    w += [up(scale_w), up(scale_b), up(bias_w)]
+                    w += [*wb(scale_w, scale_b), up(bias_w)]
                 for ws in (layer.weights, layer.transition.weights):
-                    key = ("output_projection_linear" if ws is layer.weights else "output_projection.0")
-                    w += [up(ws[f"{key}.weight"].t()), up(ws[f"{key}.bias"])]
+                    k = ("output_projection_linear" if ws is layer.weights else "output_projection.0")
+                    w += wb(ws[f"{k}.weight"].t(), ws[f"{k}.bias"])
                 parts.append(tuple(w))
-            self._cond_wp = parts
-        return self._cond_wp
+            setattr(self, key, parts)
+        return getattr(self, key)
+
+    def _ones_tile(self, x):
+        """`x` with one more K tile appended: a column of ones, then zeros (dit_cond_kfold's bias row)."""
+        shape = tuple(x.shape[:-1]) + (32,)
+        memo = getattr(self, "_ones_memo", None)
+        if memo is None or memo[0] != (shape, x.dtype):
+            t = torch.zeros(shape)
+            t[..., 0] = 1.0
+            memo = ((shape, x.dtype), ttnn.from_torch(t, layout=ttnn.TILE_LAYOUT, device=self.device,
+                                                      dtype=x.dtype))
+            self._ones_memo = memo
+        return ttnn.concat([x, memo[1]], dim=-1)
 
     def _peak_tag(self, a):
         # The DRAM census tag for one layer. The leading dim is the diffusion sample chunk,
@@ -15148,8 +15167,12 @@ class DiffusionTransformer(Module):
             # dit_cond_jit: the same terms as the hoisted block below, each projected right before
             # its layer. On a Wormhole chip the three wide linears run at a quarter of the roof and
             # the 144 slices that cut them up cost as much again in dispatch.
-            jit = (ttnn.layer_norm(s, epsilon=1e-5, compute_kernel_config=self.compute_kernel_config),
-                   self._cond_weights_parts())
+            # dit_cond_kfold: the four biased terms take their bias as a K row (the epilogue costs
+            # a third of the call on a Wormhole chip), off the normed and raw s with a ones tile appended.
+            s_hat = ttnn.layer_norm(s, epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
+            kf = lever("dit_cond_kfold")
+            jit = (s_hat, self._cond_weights_parts(kf),
+                   (self._ones_tile(s_hat), self._ones_tile(s)) if kf else (s_hat, s))
         elif _B2_DIT_COND_HOIST and not self.atom_level:
             adw, adb, opw, opb = self._cond_weights()
             s_hat = ttnn.layer_norm(s, epsilon=1e-5,
@@ -15191,14 +15214,14 @@ class DiffusionTransformer(Module):
 
         def bundle(i):
             if jit is not None:
-                s_hat, wp = jit
+                s_hat, wp, (s_hb, s_b) = jit
                 sw0, sb0, bw0, sw1, sb1, bw1, ow0, ob0, ow1, ob1 = wp[i]
                 ckc = self.compute_kernel_config
                 lin = lambda x, w, b=None, act=None: ttnn.linear(  # noqa: E731
                     x, w, bias=b, compute_kernel_config=ckc, activation=act)
-                parts = [lin(s_hat, sw0, sb0, "sigmoid"), lin(s_hat, bw0),
-                         lin(s_hat, sw1, sb1, "sigmoid"), lin(s_hat, bw1),
-                         lin(s, ow0, ob0, "sigmoid"), lin(s, ow1, ob1, "sigmoid")]
+                parts = [lin(s_hb, sw0, sb0, "sigmoid"), lin(s_hat, bw0),
+                         lin(s_hb, sw1, sb1, "sigmoid"), lin(s_hat, bw1),
+                         lin(s_b, ow0, ob0, "sigmoid"), lin(s_b, ow1, ob1, "sigmoid")]
                 return (_SigTerms(parts[:2]), parts[4], _SigTerms(parts[2:4]), parts[5]), parts
             if shoist and cond_all is not None and isinstance(cond_all[0], tuple):
                 # dit_shoist: this layer's columns of the three wide outputs, read in place.
@@ -15241,6 +15264,9 @@ class DiffusionTransformer(Module):
         finally:
             if jit is not None:
                 ttnn.deallocate(jit[0])
+                if jit[2][0] is not jit[0]:
+                    ttnn.deallocate(jit[2][0])
+                    ttnn.deallocate(jit[2][1])
             if cond_all is not None:
                 for x in cond_all:
                     for t in (x if isinstance(x, tuple) else (x,)):
