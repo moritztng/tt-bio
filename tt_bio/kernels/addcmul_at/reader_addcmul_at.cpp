@@ -9,6 +9,8 @@
 // STRIDE_k is compile-time (it is the operand's own tile width), off_k is a common runtime arg, so
 // one cached program serves every window of the same wide tensor (the DiT reads 24 blocks' s-terms
 // out of one linear's output this way, `openfold3_diffusion_transformer.py`).
+// x and z may hold one sample's rows (XH / ZH row tiles) where y holds several (YH): their row is
+// r % XH, so every diffusion sample reads the one conditioning row block.
 //
 // IMPORTANT: use the api/-prefixed include path (bare dataflow_api.h is a known device-wedge
 // cause in this codebase).
@@ -29,7 +31,10 @@ void kernel_main() {
     constexpr uint32_t XS = get_compile_time_arg_val(2);
     constexpr uint32_t YS = get_compile_time_arg_val(3);
     constexpr uint32_t ZS = get_compile_time_arg_val(4);
-    constexpr auto x_args = TensorAccessorArgs<5>();
+    constexpr uint32_t XH = get_compile_time_arg_val(5);
+    constexpr uint32_t YH = get_compile_time_arg_val(6);
+    constexpr uint32_t ZH = get_compile_time_arg_val(7);
+    constexpr auto x_args = TensorAccessorArgs<8>();
     constexpr auto y_args = TensorAccessorArgs<x_args.next_compile_time_args_offset()>();
     constexpr auto z_args = TensorAccessorArgs<y_args.next_compile_time_args_offset()>();
     const auto sx = TensorAccessor(x_args, x_addr);
@@ -47,9 +52,11 @@ void kernel_main() {
         cb_reserve_back(cb_z, n);
         uint32_t wx = get_write_ptr(cb_x), wy = get_write_ptr(cb_y), wz = get_write_ptr(cb_z);
         for (uint32_t j = 0; j < n; ++j) {
-            noc_async_read_page(r * XS + x_off + c, sx, wx);
+            const uint32_t rx = (XH == YH) ? r : r % XH;
+            const uint32_t rz = (ZH == YH) ? r : r % ZH;
+            noc_async_read_page(rx * XS + x_off + c, sx, wx);
             noc_async_read_page(r * YS + y_off + c, sy, wy);
-            noc_async_read_page(r * ZS + z_off + c, sz, wz);
+            noc_async_read_page(rz * ZS + z_off + c, sz, wz);
             wx += tile;
             wy += tile;
             wz += tile;

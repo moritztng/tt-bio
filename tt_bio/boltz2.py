@@ -94,7 +94,12 @@ LEVERS_FAST = frozenset({"acc_off", "diffusion_bf16", "dit_sdpa", "transition_b8
 # 22.83 s median, every warm pair faster. On p150a it is 0.35 s slower (5/5 pairs), so Blackhole leaves it off.
 # And trimul_sig6: Wormhole 11-set fast grade, 44 paired folds (gsig6, 2026-10-15), PASS: top pose median 1.083 A
 # (floor 1.731 A), CA-lDDT -0.0006 [-0.0021, +0.0005], docking 24 -> 24; Galaxy chip -0.12 s (3 of 4 pairs).
+# dit_shoist (the token DiT's conditioning as three wide linears a step, blocks reading their columns in place) is
+# graded on p150a: 11-set fast grade, 44 paired folds (spd-gap-small gshxbh, 2026-10-16), PASS: top pose median
+# 0.486 A vs the 1.828 A floor, CA-lDDT +0.0010 [+0.0003, +0.0018], docking 24 -> 24; 5 samples 12.65 -> 12.28 s
+# (shxb). Its Wormhole grade (gshx2) has not read yet, so Wormhole keeps dit_cond_jit in its place.
 WH_LEVERS_FAST = LEVERS_FAST | {"triatt_ln", "apb_ln", "dit_cond_jit", "trimul_sig6"}
+BH_LEVERS_FAST = LEVERS_FAST | {"dit_shoist"}
 
 
 def _under_levers(method):
@@ -5398,7 +5403,7 @@ class Boltz2(nn.Module):
     ) -> None:
         super().__init__()
         self._levers = (tenstorrent.model_levers(
-            LEVERS_NORMAL, WH_LEVERS_FAST if tenstorrent.is_wormhole() else LEVERS_FAST)
+            LEVERS_NORMAL, WH_LEVERS_FAST if tenstorrent.is_wormhole() else BH_LEVERS_FAST)
                         if use_tenstorrent else frozenset())
         # Reserve the DiT trace region BEFORE any module opens the device: the first
         # get_device() opens, so this must precede module construction.
