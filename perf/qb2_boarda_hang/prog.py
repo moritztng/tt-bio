@@ -33,8 +33,8 @@ with open(out, "a") as f:
         now = time.time()
         row = []
         for d in devs:
-            seq = max(read_word_from_device(CORE, a, device_id=d, context=ctx) for a in SEQ)
-            ab = read_word_from_device(CORE, ABORT, device_id=d, context=ctx)
+            seq = max(read_word_from_device(CORE, a, device_id=d, context=ctx, safe_mode=False) for a in SEQ)
+            ab = read_word_from_device(CORE, ABORT, device_id=d, context=ctx, safe_mode=False)
             if seq != last[d][0]:
                 last[d] = (seq, now)
             row.append(f"d{d} seq {seq} abort {ab} still {now - last[d][1]:.0f}")

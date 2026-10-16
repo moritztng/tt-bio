@@ -1,14 +1,13 @@
 #!/bin/bash
 # hk2.sh A|B TAG [ITS]: rerun cfd3-qb2's D3A leg (Small k2 1x2, D2A state in, 1100 its, same image and runtime flags)
 # on one qb2 board, to tell a chip hang from a state-dependent software stall. Card take, reset and smoke are
-# run_k2.sh's (bounded drain, nothing killed). Adds a stall watch: prog.py reads each chip's global-reduction counter
-# over the NoC every 30 s without halting anything; if neither chip's counter moves for 300 s the run is stalled, prog.py
-# samples every core's RISC PCs off the debug bus (no halt) and the run is TERMed. Otherwise it ends on its own or at
-# the TERM cap (CAP s, D2A took 3,836 s). Never tt-triage dump_callstacks a live run: it halts BRISC to unwind and on
+# run_k2.sh's (bounded drain, nothing killed). The run ends on its own or at the TERM cap (CAP s, D2A took 3,836 s).
+# PROG=1 adds prog.py's NoC progress watch. Off by default: on r1A (2026-10-16 15:30Z) its first read of a stalled
+# chip 0 timed out, the card dropped off PCIe 10 s later and booth-card-sentinel rebooted qb2. Never tt-triage dump_callstacks a live run: it halts BRISC to unwind and on
 # 2026-10-16 left r1B's BRISCs halted, which froze a healthy run and raised ABORT on both chips.
 # Writes ~/qb2-boarda-hang/hk2_<TAG>.status (+ .log, aiclk, .prog). STOP: touch ~/qb2-boarda-hang/STOP.
 W=$HOME/qb2-boarda-hang; D=$HOME/cfd3/qb2; M=$D/code_bhf/resident/mesh; PY=$HOME/scratch/shipflow/venv-4e80089afdf7/bin/python
-B=$1; T=$2; ITS=${3:-1100}; CAP=${CAP:-9000}
+B=$1; T=$2; ITS=${3:-1100}; CAP=${CAP:-6500}
 case $B in A) C="0 1"; port=50090;; B) C="2 3"; port=50092;; *) echo "usage: $0 A|B TAG [ITS]"; exit 2;; esac
 CC=${C/ /,}; c1=${C% *}; c2=${C#* }; L=$W; O=$W/hk2_$T.status; IV=$D/img_small_k2_d0c8f_gw1
 SIN=$D/logs/qb2k2_D2A_case_1x2_state.npz; FJ=$HOME/spd/feed/jobs; until=$(date -d ${UNTIL:-2026-10-17T06:00:00Z} +%s)
@@ -52,12 +51,12 @@ st "smoke rc $r"; [ $r = 0 ] || exit 1
 AL=$W/hk2_aiclk_$T.log
 ( while :; do echo "$(date -u +%T) aiclk $(for n in $C; do cat /sys/class/tenstorrent/tenstorrent!$n/tt_aiclk; done | tr '\n' ' ') power_uW $(for n in $C; do cat /sys/class/tenstorrent/tenstorrent!$n/device/hwmon/*/power1_input; done | tr '\n' ' ')"; sleep 10; done ) 6>&- 7>&- >> $AL 2>&1 & SAMP=$!
 PG=$W/hk2_$T.prog
-st "launch: case $ITS $XV $R, state-in $(basename $SIN), cap $CAP s, stall = reduction counter frozen 300 s"
+st "launch: case $ITS $XV $R, state-in $(basename $SIN), cap $CAP s, prog watch ${PROG:-0}"
 ( cd $M && env $BENV $IENV /usr/bin/time -f 'process wall %e s maxrss %M KB' nice -n 10 timeout -s TERM $CAP $PY -u run_mesh.py case $ITS \
     $FL --runs 1 --noemu --nwin 1024 --links 0 --rlink 1 --os 1 $XV --from-images $IV $R --state-in $SIN --out $W/hk2_$T.jsonl > $W/hk2_$T.log 2>&1 6>&- 7>&- ) & RP=$!
 t0=$(date +%s); stalled=""
-sleep 60 6>&- 7>&-
-( env TT_VISIBLE_DEVICES=$CC ~/triage_venv/bin/python -I $W/prog.py $PG 30 300 ) > $PG.err 2>&1 6>&- 7>&- & PM=$!
+PM=""; [ "${PROG:-0}" = 1 ] && { sleep 60 6>&- 7>&-
+  ( env TT_VISIBLE_DEVICES=$CC ~/triage_venv/bin/python -I $W/prog.py $PG 30 300 ) > $PG.err 2>&1 6>&- 7>&- & PM=$!; }
 trap 'kill $S $SAMP $PM 2>/dev/null' EXIT
 while kill -0 $RP 2>/dev/null; do nap 30
   [ -z "$stalled" ] && grep -q STALL $PG 2>/dev/null || continue
@@ -65,7 +64,7 @@ while kill -0 $RP 2>/dev/null; do nap 30
   for i in $(seq 60); do [ $(cat $PG.pcs 2>/dev/null | wc -l) -ge 1100 ] && break; nap 5; done
   st "TERM"; for p in $(pgrep -f "hk2_$T.jsonl"); do kill -TERM $p 2>/dev/null; done
 done
-kill $PM 2>/dev/null
+[ -n "$PM" ] && kill $PM 2>/dev/null
 wait $RP; r=$?; st "rc $r $(grep 'process wall' $W/hk2_$T.log) $(grep -h '^run .*wall' $W/hk2_$T.log | cut -c1-200)"
 for n in $C; do st "after: $(tel $n)"; done
 [ -n "$stalled" ] && { timeout -s INT 300 $HOME/.local/bin/tt-smi -r /dev/tenstorrent/$c1 /dev/tenstorrent/$c2 > $W/reset2_$T.log 2>&1; st "post-stall reset rc $? $(tel $C)"; }
