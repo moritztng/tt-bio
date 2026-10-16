@@ -7,7 +7,7 @@ mask out [1, 4, 6080, 6080] bf16 (296 MB). Modes (rfd3_bias.DIAG):
   1  every tile from the fill tile, scan kept (no pokes, no slot refill)
   2  shipped work, no DRAM writes
   3  every tile from the fill tile, no scan: the write alone
-and two write roofs at the mask's shape: `full` (ttnn.full, a write-only op) and `clone` (reads + writes it), with
+and two write roofs at the mask's shape: `full` (ttnn.full_like, a write-only device op) and `clone` (reads + writes it), with
 GB/s counting written bytes only, so mode 3 can be put against what this chip's DRAM takes in writes.
 Mode 0 is checked element for element against a torch scatter of the same inputs. The index is synthetic (each row
 draws 128 distinct keys around its own position, spread like a folded chain's neighbours); `occ` reports the
@@ -77,7 +77,8 @@ def main():
     RB.DIAG = 0
     shape, wbytes = [1, H, n, n], H * n * n * 2
     src = ttnn.full(shape, -1e4, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev)
-    for name, fn in (("full", lambda: ttnn.full(shape, -1e4, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev)),
+    # ttnn.full with a device fills on the host and uploads (0.87 GB/s on p150a, maskw2bh); full_like is the device op
+    for name, fn in (("full", lambda: ttnn.full_like(src, -1e4)),
                      ("clone", lambda: ttnn.clone(src))):
         ttnn.deallocate(fn())
         ttnn.synchronize_device(dev)
