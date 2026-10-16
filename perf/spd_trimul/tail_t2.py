@@ -24,6 +24,8 @@ ap.add_argument("--block", default=None,
                 help="M,K,N,subblock_h,subblock_w: measurement-only T2 block for (c/32, c/32)")
 ap.add_argument("--gb8", action="store_true",
                 help="g uploaded as bfp8, as trimul_b8in writes g_out (both arms read it; the reference keeps bf16 g)")
+ap.add_argument("--abl", default="",
+                help="comma list of T2_ABL stage-ablation masks also timed after the full T2 (bench only)")
 ap.add_argument("--out", help="also append each JSON line here (the qb runner passes it)")
 A = ap.parse_args()
 
@@ -126,6 +128,11 @@ for n in [int(s) for s in A.ns.split(",") if s]:
             rec["t2_GBps"] = round(4 * P / rec["t2_ms"] / 1e6, 1)
             if "inc_ms" in rec:
                 rec["speedup"] = round(rec["inc_ms"] / rec["t2_ms"], 3)
+            for m in [int(v) for v in A.abl.split(",") if v]:
+                TT.T2_ABL = m
+                rec[f"t2_ms_abl{m}"] = timed(lambda: TT.fused_tail_ln(
+                    d["x"], d["gamma"], d["beta"], d["w"], d["g"], z, ckc, grid, wg=wg), A.reps)
+            TT.T2_ABL = 0
         ttnn.deallocate(z)
     except Exception as e:                                                    # noqa: BLE001
         rec["t2_err"] = str(e).splitlines()[0][:300]
