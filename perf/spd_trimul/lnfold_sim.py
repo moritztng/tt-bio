@@ -13,7 +13,7 @@ def trunc(a, bits):  # keep `bits` explicit mantissa bits (bf16 = 7)
 R, C, H = 4096, 256, 1024
 W = rng.standard_normal((C, H)) / np.sqrt(C); g = 1 + 0.2 * rng.standard_normal(C); b = 0.1 * rng.standard_normal(C)
 print("mu/sigma  fid   rel_rms_incumbent  rel_rms_fold")
-for ratio in (0, 0.5, 2, 5, 20):
+for ratio in tuple(map(float, sys.argv[1].split(","))) if len(sys.argv) > 1 else (0, 0.5, 2, 5, 20):
     x = bf16(ratio + rng.standard_normal((R, C)) * (1 + 0.3 * rng.standard_normal((R, 1)))).astype(np.float64)
     mu = x.mean(1, keepdims=True); rstd = 1 / np.sqrt(x.var(1, keepdims=True) + 1e-5)
     ref = (((x - mu) * rstd) * g + b) @ W
