@@ -5,7 +5,8 @@
 Boltz-2 --fast on Wormhole projects six [512, 768] x [768, 768] terms a layer a denoise step. cen7 (WH, 1000 MHz):
 the four with bias + sigmoid read 42 us a call, the two without either read 28.6 us, so the epilogue costs ~13 us on
 19200 calls a fold (~0.26 s). The arms split bias from sigmoid and try `kfold`: the bias as one more K row of the
-weight, the activation carrying a ones column, so the matmul has no bias epilogue at all (K 768 -> 800).
+weight, the activation carrying a ones column, so the matmul has no bias epilogue at all (K 768 -> 800). N 3072 is
+the token attention's qkv projection (bias on q), 107 us a call on WH in cen7, same question.
 
 Device time is a captured trace replayed back to back (op_probe.dev_time), median of 7 batches, AICLK of the opened
 node. Error is against float64 with op_probe's wrong-pixel rule.
@@ -22,22 +23,10 @@ import ttnn  # noqa: E402
 import tt_bio.tenstorrent as T  # noqa: E402
 from perf.spd_difflin.op_probe import aiclk, dev_time, opened_nodes, wrong  # noqa: E402
 
-M, K, N = 512, 768, 768
+M, K = 512, 768
 
 
-def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--out", type=Path, required=True)
-    a = ap.parse_args()
-    torch.set_num_threads(8)
-    dev = T.get_device(trace="protenix")
-    nodes = opened_nodes()
-    log = a.out.open("a")
-
-    def emit(**kw):
-        kw.setdefault("aiclk", aiclk(nodes)); kw.update(arch=T.arch_name(), t=time.time())
-        log.write(json.dumps(kw) + "\n"); log.flush(); print(json.dumps(kw), flush=True)
-
+def bench(dev, nodes, emit, N):
     emit(ev="start", m=M, k=K, n=N)
     torch.manual_seed(7)
     A = torch.randn(1, M, K); W = torch.randn(K, N) / K ** 0.5; Bv = torch.randn(N) * 0.5
@@ -67,13 +56,30 @@ def main():
             try:
                 y = fn()
             except Exception as e:
-                emit(ev="arm", acc=acc, arm=lab, error=str(e).splitlines()[0][:240])
+                emit(ev="arm", n=N, acc=acc, arm=lab, error=str(e).splitlines()[0][:240])
                 continue
             Y = ttnn.to_torch(y).double().reshape(R.shape); ttnn.deallocate(y)
             nb, mx, rel = wrong(refs[ref], Y)
             us, sp, ck = dev_time(dev, fn, nodes=nodes)
-            emit(ev="arm", acc=acc, arm=lab, us=round(us, 1), spread=round(sp, 3), wrong=nb,
+            emit(ev="arm", n=N, acc=acc, arm=lab, us=round(us, 1), spread=round(sp, 3), wrong=nb,
                  max_err=round(mx, 5), rel_rms=float(f"{rel:.3e}"), aiclk=ck)
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--out", type=Path, required=True)
+    a = ap.parse_args()
+    torch.set_num_threads(8)
+    dev = T.get_device(trace="protenix")
+    nodes = opened_nodes()
+    log = a.out.open("a")
+
+    def emit(**kw):
+        kw.setdefault("aiclk", aiclk(nodes)); kw.update(arch=T.arch_name(), t=time.time())
+        log.write(json.dumps(kw) + "\n"); log.flush(); print(json.dumps(kw), flush=True)
+
+    for N in (768, 3072):
+        bench(dev, nodes, emit, N)
     emit(ev="end")
 
 
