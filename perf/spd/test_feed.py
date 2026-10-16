@@ -474,6 +474,46 @@ def test_a_take_sentinel_without_until_or_beside_a_real_leg_still_blocks(tmp_pat
         os.killpg(leg.pid, 9)
 
 
+def _running(tmp_path, name, card, until):
+    j = tmp_path / "spd/feed/jobs"; j.mkdir(parents=True, exist_ok=True)
+    (j / name).write_text(""); (j / f"{name}.card").write_text(f"{card}\n"); (j / f"{name}.start").touch()
+    (j / f"{name}.until").write_text(f"{until}\n")
+
+
+def test_a_bh_waiter_backfills_a_take_sentinel_card_when_it_ends_before_the_takes_other_jobs(tmp_path):
+    # 10-16 qb2: cfd3's k2 take (plain sentinels, no until=) held chips 0, 2 and 3 idle behind one bc2 grade on chip 1.
+    # The take cannot start before that job ends, so a job that ends first takes a sentinel's card; a longer one does
+    # not, and neither does a job behind a one-card sentinel, whose taker waits on that card alone.
+    now = int(time.time())
+    _running(tmp_path, "4-g.sh", 6, now + 3600); _running(tmp_path, "4-h.sh", 9, now + 99999)
+    leg = _sentinels(["cfd3 spd_qb2_chip5.lock release_gate t 86400", "cfd3 spd_qb2_chip6.lock release_gate t 86400",
+                      "gapboard spd_qb1_card7.lock perf_ab x 86400", "other spd_qb2_chip9.lock release_gate u 86400"])
+    try:
+        time.sleep(0.3)
+        sh = _place_bh(tmp_path, [7, 5, 8], "echo card $CHIP\n", leg_sid=leg.pid, name="4-a.sh")
+        assert Path(f"{sh}.log").read_text() == "card 5\n"
+        sh = _place_bh(tmp_path, [5, 8], "echo card $CHIP\n", cap=3000, leg_sid=leg.pid, name="4-b.sh")
+        assert Path(f"{sh}.log").read_text() == "card 8\n"
+    finally:
+        os.killpg(leg.pid, 9)
+
+
+def test_a_waiter_too_long_for_a_take_window_lets_a_shorter_one_through(tmp_path):
+    # the waiter holding the dispatch flock is too long for chip 5's window: it hands the flock on each poll
+    now = int(time.time())
+    _running(tmp_path, "4-g.sh", 6, now + 3600)
+    leg = _sentinels(["cfd3 spd_qb2_chip5.lock release_gate t 86400", "cfd3 spd_qb2_chip6.lock release_gate t 86400"])
+    try:
+        time.sleep(0.3)
+        long = _place_bh(tmp_path, [5], "echo card $CHIP\n", cap=5000, leg_sid=leg.pid, name="4-l.sh")
+        assert not Path(f"{long}.start").exists()
+        sh = _place_bh(tmp_path, [5], "echo card $CHIP\n", leg_sid=leg.pid, name="4-s.sh")
+        assert Path(f"{sh}.log").read_text() == "card 5\n"
+    finally:
+        os.killpg(leg.pid, 9)
+        subprocess.run(["pkill", "-s", Path(f"{long}.pid").read_text()])   # the long waiter may already have run once the sentinels died
+
+
 def test_a_bh_waiter_skips_a_dead_arc_card(tmp_path):
     sysfs(tmp_path, {"0000:01:00.0": (1, DEAD), "0000:02:00.0": (0, "1350")})
     sh = _place_bh(tmp_path, [0, 1], "echo card $CHIP\n")

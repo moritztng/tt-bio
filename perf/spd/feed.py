@@ -69,11 +69,14 @@ BH_POOLS = {
 # pgrep pattern for a release-gate leg on card %s, running or waiting for its flock. A leg that runs a perf script through
 # runpy (bc2_boundary, parity_*) names the gate only in its RELEASE_GATE_RUN_DIR env, so the pattern keys on that too.
 # A multi-card take (cfd2/cfd3 window scripts) raises a `release_gate` sentinel per card and waits until every card is
-# free, so the cards that free first idle behind it (10-16 qb2: chips 0 and 3 for up to 6,000 s). A sentinel whose argv
-# carries `until=<epoch>` lets a waiter backfill its card with a job whose worst-case end (start + cap + 600 s of grace
-# and reset, written to <job>.until) comes before that epoch, so the take never starts later than its own bound. A take
-# sets until= to the newest .until among the box's feed jobs (those are what it waits for), capped at its own give-up
-# time: E=$(cat ~/spd/feed/jobs/*.until 2>/dev/null | sort -n | tail -1). A real gate leg (no until=) always blocks.
+# free, so the cards that free first idle behind it (10-16 qb2: chips 0, 2 and 3 for up to 6,000 s). A sentinel is a
+# placeholder process named `<who> spd_qb<N>_<chip|card><c>.lock <kind> <tag> ...`; its take is every card whose sentinel
+# carries the same who/kind/tag. The take cannot start before the feed jobs on its other cards end, so a waiter backfills
+# a sentinel's card with a job whose worst-case end (start + cap + 600 s of grace and reset, written to <job>.until) comes
+# before the latest .until on those cards; the take never starts later for it. A sentinel may name its own bound with
+# `until=<epoch>`, which then wins. A one-card sentinel (gapboard) and any real gate leg (not named like a sentinel) block.
+# A waiter that is only too long for such a window hands the dispatch flock on each poll, so a shorter job behind it
+# can take the card. Takers can size their wait from ~/spd/feed/jobs/*.until (card in the matching .card).
 GATE_LEG = "(spd_qb1_card|spd_qb2_chip|TT_VISIBLE_DEVICES=)%s[. ].*(RELEASE_GATE_RUN_DIR|release_gate|gate_fanout|perf_ab)"
 
 # Runs on the pool host: report state, existence of paths, and sweep dead entries. Payload is appended as JSON.
@@ -199,8 +202,11 @@ NODE = ('node() { for s in "${TT_SYSFS:-/sys/class/tenstorrent}"/*; do echo "$(b
         '${s##*!}"; done | sort | sed -n "$(($1 + 1))s/.* //p"; }; '
         'dead() { local n=$(node $1); [ -n "$n" ] && cat "${TT_SYSFS:-/sys/class/tenstorrent}/tenstorrent!$n/tt_aiclk" '
         '"${TT_SYSFS:-/sys/class/tenstorrent}/tenstorrent!$n/tt_heartbeat" 2>/dev/null | grep -qx 4294967295; }; '
-        'gate() { local m e; m=$(pgrep -af "$G") || return 1; grep -qv "until=[0-9]" <<<"$m" && return 0; '
-        'e=$(grep -o "until=[0-9]*" <<<"$m" | cut -d= -f2 | sort -n | head -1); [ $(($(date +%s) + $1 + 600)) -gt "$e" ]; }; ')
+        'take() { pgrep -af "[.]lock (release_gate|perf_ab) " | awk -v a="$1" -v r="$2" -v c="$c" -v J="$J" \'function rd(p, v) { if ((getline v < p) <= 0) v = ""; close(p); return v } $2 == a && $3 ~ /^spd_qb[0-9]_(chip|card)[0-9]+[.]lock$/ { l = $3; $1 = $2 = $3 = ""; sub(/^ +/, ""); if ($0 != r) next; sub(/[.]lock$/, "", l); sub(/.*[a-z]/, "", l); if (l != c) k[l] } END { m = 0; while (("ls " J " 2>/dev/null") | getline f) { j = J "/" f; if (f ~ /[.]sh$/ && (rd(j ".card") in k) && system("[ -e \\"" j ".start\\" ] && [ ! -e \\"" j ".end\\" ]") == 0 && rd(j ".until") + 0 > m) m = rd(j ".until") + 0 } print m }\'; }; '
+        'gate() { local m p a l r e x=1 n=$(($(date +%s) + $1 + 600)); m=$(pgrep -af "$G") || return 1; '
+        'while read -r p a l r; do [[ $l =~ ^spd_qb[0-9]_(chip|card)[0-9]+[.]lock$ ]] || return 0; '
+        'e=$(grep -o "until=[0-9]*" <<<"$r" | cut -d= -f2); [ -n "$e" ] || e=$(take "$a" "$r"); [ $n -gt "${e:-0}" ] && x=0; '
+        'done <<<"$m"; [ $x = 1 ] || W=1; return $x; }; ')
 
 
 def run_cmd(grace=120):
@@ -244,11 +250,13 @@ for j in A["jobs"]:
         # gapboard sentinel (the scoreboard measuring main; checked again once its flock is held) and whose flock is
         # free. 10-15: waiters bound to one card queued on busy cards 2 and 3 while qb1 card 0 sat free 15+ min.
         w = (NODE + 'exec 8>"$(dirname "$1")/.dispatch"; flock -w 86400 8 || { echo flockbusy > "$1.end"; exit 3; }; '
-             'D=$((SECONDS + 86400)); while :; do for c in $2; do [ -e ~/spd/locks/chip$c.BAD ] && continue; dead $c && continue; '
+             'J="$(dirname "$1")"; D=$((SECONDS + 86400)); while :; do W=; for c in $2; do [ -e ~/spd/locks/chip$c.BAD ] && continue; dead $c && continue; '
              'G="' + GATE_LEG % "$c" + '"; '
              'gate "$5" && continue; exec 9>"${3//@/$c}"; '
              'flock -n 9 && ! gate "$5" && break 2; exec 9>&-; done; '
-             '[ $SECONDS -lt $D ] || { echo flockbusy > "$1.end"; exit 3; }; sleep "${POLL:-20}"; done; '
+             '[ $SECONDS -lt $D ] || { echo flockbusy > "$1.end"; exit 3; }; '
+             'if [ -n "$W" ]; then exec 8>&-; sleep "${POLL:-20}"; flock -w 86400 8 || { echo flockbusy > "$1.end"; exit 3; }; '
+             'else sleep "${POLL:-20}"; fi; done; '
              'exec 8>&-; echo $c > "$1.card"; touch "$1.start"; echo $(($(date +%s) + $5 + 600)) > "$1.until"; set -- "$1" $c "$3" "$(dirname "$1")/nolock.$c" "$5" "$6"; '
              'cd "$(dirname "$1")"; ' + RUN)
         p = subprocess.Popen(["setsid", "nohup", "bash", "-c", w, "_", sh, " ".join(map(str, j["cards"])),
