@@ -709,6 +709,8 @@ _FAST_MODE = False
 #                   dit_cond_jit (adaLN modulation, the attention gate and the transition gate + residual each one op).
 #   dit_cond_1d     Boltz-2's hoisted token-DiT conditioning linears ([N, 768] x [768, 36864]) under a 1D in0-multicast
 #                   program that splits the weight columns over every core (`_wide_n_program_config`), not ttnn's 2D one.
+#   dit_cond_noacc  the same hoisted linears with bf16 dest accumulation (fp32_dest_acc_en off): on a Wormhole chip
+#                   fp32 accumulation costs 1514 vs 1201 us a call at K=768 (hoistmm), and frees L1 for 1D programs.
 #   apb_cat         the token attention's head re-assembly as one nlp_concat_heads, gate and output projection on
 #                   the padded head lanes (what TT_BIO_APB_CONCAT_HEADS does at load, exact), with the wide
 #                   weights re-laned from the bf16 device copies on the first call that takes it.
@@ -731,7 +733,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine", "ef2_opm_kq", "ef2_relpos_lookup",
           "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit", "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384",
           "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
-          "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "dit_cond_1d")
+          "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "dit_cond_1d", "dit_cond_noacc")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -747,7 +749,7 @@ UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "di
                              "ef2_relpos_lookup", "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit",
                              "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384",
                              "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
-                             "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "dit_cond_1d"})
+                             "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "dit_cond_1d", "dit_cond_noacc"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -15190,10 +15192,11 @@ class DiffusionTransformer(Module):
             s_hat = ttnn.layer_norm(s, epsilon=1e-5,
                                     compute_kernel_config=self.compute_kernel_config)
             ckc = self.compute_kernel_config
-            if (_B2_DIT_COND_HIFI2 or lever("dit_cond_hifi2")) and ckc is not None:
-                ckc = type(ckc)(math_fidelity=ttnn.MathFidelity.HiFi2,
+            hifi2, noacc = _B2_DIT_COND_HIFI2 or lever("dit_cond_hifi2"), lever("dit_cond_noacc")
+            if (hifi2 or noacc) and ckc is not None:
+                ckc = type(ckc)(math_fidelity=ttnn.MathFidelity.HiFi2 if hifi2 else ckc.math_fidelity,
                                 math_approx_mode=ckc.math_approx_mode,
-                                fp32_dest_acc_en=ckc.fp32_dest_acc_en,
+                                fp32_dest_acc_en=ckc.fp32_dest_acc_en and not noacc,
                                 packer_l1_acc=ckc.packer_l1_acc)
             lin = _wide_linear if lever("dit_cond_1d") else ttnn.linear
             if _B2_ADALN_ADDCMUL or lever("adaln_mod"):
