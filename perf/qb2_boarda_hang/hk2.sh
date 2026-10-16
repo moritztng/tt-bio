@@ -16,6 +16,8 @@ quit() { { [ -e $W/STOP ] || [ $(date +%s) -ge $until ]; } && { st "gave up ($1)
 FL="--arch bh --mesh 1,2 --layout rcb --l1 0 --wplace 2 --gw 1 --nsh 1 --page 16 --nwin 8192 --tabstream --amg --amg-stack --amg-vec --amg-smoothed 0 --amg-min-core 10 --lsched --phase --sliced --fuse --cse 1 --hlate 1 --vpre 1 --vpost 1 --strips --forces $HOME/cfd2/acc/small_fc_controlDict:forceCoeffsAll --case $D/small_tt"
 XV="--amg-depth 0 --vcoarse 8"; R="--gcache 6 --bgts 5 --tgts 2"
 st "armed pid $$ board $B chips $CC tag $T its $ITS code $(cat $D/code_bhf/COMMIT)"
+until [ -e $IV.ready ]; do quit "image"; sleep 60; done
+st "image $(md5sum < $IV/digests.json | cut -c1-8) ready $(stat -c %y $IV.ready | cut -c1-19)"
 exec 6>/home/ttuser/spd_qb2_chip$c1.lock 7>/home/ttuser/spd_qb2_chip$c2.lock
 S=""; SAMP=""; trap 'kill $S $SAMP 2>/dev/null' EXIT
 REL="scripts/release_gate.py|gate_fanout -c"
