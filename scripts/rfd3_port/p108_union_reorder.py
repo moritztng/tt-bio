@@ -35,6 +35,7 @@ FIXTURE = pathlib.Path(sys.argv[4] if len(sys.argv) > 4 else "perf/dsfix/fixture
 CKPT = sys.argv[5] if len(sys.argv) > 5 else os.path.expanduser("~/.boltz/rfd3/weights")
 QBLOCKS = (32, 64, 128, 320, 608, 1216)
 K = 128
+CHUNKS = ((32, 32), (64, 64), (128, 128), (256, 256), (128, 512))   # (query chunk, key chunk) an SDPA could skip at
 
 _orig = M._create_attention_indices
 SEEN = {"n": 0}
@@ -70,6 +71,21 @@ def unions(idx, n_key):
     return out
 
 
+def density(idx, n_key):
+    """{"Qc/Kc": mean fraction of key chunks a query chunk touches} for an [L, K] index whose rows and
+    key ids are both in the same order: the share of score tiles a block-skipping SDPA still computes."""
+    L = idx.shape[0]
+    out = {}
+    for qc, kc in CHUNKS:
+        rows = (L + qc - 1) // qc * qc
+        pad = torch.cat([idx, idx[-1:].expand(rows - L, idx.shape[1])], 0)
+        nk = (n_key + kc - 1) // kc
+        hit = torch.zeros(rows // qc, nk, dtype=torch.bool)
+        hit.scatter_(1, (pad // kc).reshape(rows // qc, qc * idx.shape[1]), True)
+        out["%d/%d" % (qc, kc)] = round(float(hit.float().mean()), 4)
+    return out
+
+
 def _spy(f, X_L, tok_idx, n_keys, n_seq_neighbours, **kw):
     idx = _orig(f, X_L, tok_idx, n_keys, n_seq_neighbours, **kw)
     SEEN["n"] += 1
@@ -80,7 +96,8 @@ def _spy(f, X_L, tok_idx, n_keys, n_seq_neighbours, **kw):
         p = morton(x)
         inv = torch.empty_like(p)
         inv[p] = torch.arange(p.numel())
-        ROWS.append(dict(call_no=SEEN["n"], seq=unions(i, n_key), morton=unions(inv[i[p]], n_key)))
+        ROWS.append(dict(call_no=SEEN["n"], seq=unions(i, n_key), morton=unions(inv[i[p]], n_key),
+                         dens_seq=density(i, n_key), dens_morton=density(inv[i[p]], n_key)))
     return idx
 
 
@@ -108,6 +125,13 @@ def main():
             print("[p108] %-6s Q %4d  u_max p50 %5d p90 %5d max %5d  u_mean p50 %7.1f"
                   % (order, Q, s[len(s) // 2], s[int(0.9 * (len(s) - 1))], s[-1], statistics.median(mn)),
                   flush=True)
+    for order in ("seq", "morton"):
+        for c in ROWS[0]["dens_" + order]:
+            d = sorted(r["dens_" + order][c] for r in ROWS)
+            rep["dens_%s/%s" % (order, c)] = dict(mean=round(statistics.mean(d), 4), p50=d[len(d) // 2],
+                                                  p90=d[int(0.9 * (len(d) - 1))], max=d[-1])
+            print("[p108] tile density %-6s q/k %-7s mean %.3f p50 %.3f p90 %.3f max %.3f"
+                  % (order, c, statistics.mean(d), d[len(d) // 2], d[int(0.9 * (len(d) - 1))], d[-1]), flush=True)
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps(dict(steps=STEPS, seed=SEED, fixture=str(FIXTURE), rows=ROWS, report=rep), indent=1))
     print("[p108] wrote", OUT, flush=True)
