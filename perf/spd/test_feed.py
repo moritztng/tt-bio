@@ -6,7 +6,6 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-import pytest
 
 sys.path.insert(0, str(Path(__file__).parent))
 import feed  # noqa: E402
@@ -96,18 +95,30 @@ def test_two_fast_fails_quarantine_and_wake(tmp_path, monkeypatch):
     assert box.queue == []
 
 
-@pytest.mark.parametrize("rc", ["1 fastfail2 reset", "flockbusy"])
-def test_a_dirty_card_or_a_waiter_that_never_got_one_does_not_quarantine_the_cell(tmp_path, monkeypatch, rc):
+def test_a_dirty_cards_fast_fails_do_not_quarantine_the_cell(tmp_path, monkeypatch):
     box = make_pool(tmp_path, monkeypatch, healthy=1)
     box.exists |= {"~/o/1/A/b/bench.jsonl", "~/o/1/B/b/bench.jsonl", "~/o/2/B/b/bench.jsonl"}
     run(tmp_path)
     name = box.queue.pop()
     for at in (100, 200, 300):
-        box.ended[name] = {"state": "ended", "dur": 15, "rc": rc, "at": at, "tail": "failed to initialize FW"}
+        box.ended[name] = {"state": "ended", "dur": 15, "rc": "1 fastfail2 reset", "at": at, "tail": "failed to initialize FW"}
         run(tmp_path)
         assert box.queue == [name]                     # placed again every time
         box.queue.clear()
     assert not (tmp_path / "state/spd/QUARANTINE.md").exists() or "2_A" not in (tmp_path / "state/spd/QUARANTINE.md").read_text()
+
+
+def test_a_waiter_that_never_took_a_card_does_not_quarantine_the_cell(tmp_path, monkeypatch):
+    # 10-16 05:24Z qb1: waiters that died "flockbusy" before taking a card quarantined two cells that had not run
+    box = make_pool(tmp_path, monkeypatch, healthy=1)
+    box.exists |= {"~/o/1/A/b/bench.jsonl", "~/o/1/B/b/bench.jsonl", "~/o/2/B/b/bench.jsonl"}
+    run(tmp_path)
+    name = box.queue.pop()
+    for at in (100, 200, 300):
+        box.ended[name] = {"state": "ended", "dur": 20, "rc": "flockbusy", "at": at, "tail": ""}
+        run(tmp_path)
+        assert box.queue == [name]
+        box.queue.clear()
 
 
 def test_changed_grid_entry_releases_quarantine(tmp_path, monkeypatch):
@@ -511,9 +522,9 @@ def test_a_waiter_too_long_for_a_take_window_lets_a_shorter_one_through(tmp_path
         assert not Path(f"{long}.start").exists()
         sh = _place_bh(tmp_path, [5], "echo card $CHIP\n", leg_sid=leg.pid, name="4-s.sh")
         assert Path(f"{sh}.log").read_text() == "card 5\n"
-        # and the long one still waits: 10-16 05:14Z it reopened nothing after handing the flock on, flock got a closed
-        # fd, and every qb1 waiter behind a sentinel ended "flockbusy" within one poll
-        assert not Path(f"{long}.end").exists()
+        # and it keeps waiting: 10-16 05:24Z qb1 eight such waiters closed the flock's fd and died "flockbusy" one poll later
+        time.sleep(1)
+        assert not Path(f"{long}.end").exists() and not Path(f"{long}.start").exists()
     finally:
         os.killpg(leg.pid, 9)
         subprocess.run(["pkill", "-s", Path(f"{long}.pid").read_text()])   # the long waiter may already have run once the sentinels died
