@@ -1504,7 +1504,7 @@ def _k_triatt_tail(shipped, args, kwargs):
     from . import triatt_qkv as Q
     ra, rk = _raw(args, kwargs)
     full = dict(zip(("o", "g", "w", "ckc", "resid", "bias"), ra), **rk)
-    tracked = [full.get("w"), full.get("bias")]
+    tracked = list(args[2:3]) + list(args[5:6]) + [kwargs.get("w"), kwargs.get("bias")]
     if (full.get("resid") is not None or any(isinstance(t, Tensor) and t.requires_grad for t in tracked)
             or not Q._g3d(full["o"], full["g"])):
         return None
