@@ -399,10 +399,17 @@ DIT_SDPA_CALLS = [0]
 # add and padding in a single pass over z, the packer doing the re-tiling the permute did. WH @1000, 685 tokens:
 # 24.6 -> 4.0 ms a call, closer to a float64 reference than the ttnn chain (rel err 0.0024 vs 0.0042, no element
 # off by more than 0.25). Normal mode, 4 paired WH seeds: 100.1 -> 91.4 s/design, drift 3.8-10.1 A against a
-# 14.2-18.0 A seed floor, breaks 2 -> 2, clashes 61.5 -> 52.8. On in both modes on Wormhole; Blackhole sums K
-# on the FPU and is not graded yet, so it stays on the chain unless RFD3_DPB=1. RFD3_DPB=0 restores the chain.
-def _dpb_on(device):
-    return env_flag("RFD3_DPB", device.arch() == ttnn.Arch.WORMHOLE_B0)
+# 14.2-18.0 A seed floor, breaks 2 -> 2, clashes 61.5 -> 52.8. p150a @1350 (FPU K-sum, n_bad 0): 15.9 -> 1.9 ms a
+# call; 12 paired normal seeds read clashes 59.3 -> 57.2, breaks 6 -> 7, drift 2.9-13.0 A against a 14.8-19.6 A floor.
+# On in both modes on both archs; RFD3_DPB=0 restores the chain.
+_DIT_DPB = env_flag("RFD3_DPB", True)
+
+
+# The token encoder's pairformer pair bias through the same program: 16 heads (W^T zero-padded to one 32-head tile,
+# the second half written to a scratch output), scale 1, the key pad at -1e4 from the mask. Replaces the linear
+# [I*I, 128] @ [128, 16] (2.03 ms a call on WH @1000 against a 0.62 ms roof), its permute and the fp32 pad.
+_PF_DPB = env_flag("RFD3_PF_DPB", False)
+PF_DPB_CALLS = [0, 0]   # served, declined
 
 
 # The DiT builds all 18 blocks' masks in one pass while the stack fits under this many bytes
@@ -1344,9 +1351,14 @@ class PairformerAttention(Module):
         # pair bias: [1,I,I,128] -> rms_norm -> linear -> [1,I,I,16] -> [1,16,I,I]
         z = ttnn.rms_norm(z, weight=self.ln_0_w, epsilon=1e-6,
                            compute_kernel_config=self.compute_kernel_config)
-        bias = _tuned_linear(z, self.to_b_w, ckc=self.compute_kernel_config,
-                             dtype=self.dtype, core_grid=CORE_GRID_MAIN)
-        bias = ttnn.permute(bias, (0, 3, 1, 2))  # [1,16,I,I]
+        n_key = align_tile(I)
+        bias_f = self._pair_bias_dpb(z, I, n_key) if _PF_DPB else None
+        if bias_f is None:
+            bias = _tuned_linear(z, self.to_b_w, ckc=self.compute_kernel_config,
+                                 dtype=self.dtype, core_grid=CORE_GRID_MAIN)
+            bias = ttnn.permute(bias, (0, 3, 1, 2))  # [1,16,I,I]
+            bias_f = ttnn.typecast(bias, ttnn.float32, memory_config=bias.memory_config())
+            bias_f = pad_axis(bias_f, n_key, 3, -1e4)
         # Manual attention (SDPA forbids head_dim=24 padding); bf16 softmax matches the
         # reference (autocast bf16). softmax over keys (dim=-1).
         #
@@ -1356,7 +1368,6 @@ class PairformerAttention(Module):
         # ttnn.softmax masks its own tail) but it is the fused softmax going dark on every call
         # at every design length that is not a multiple of 32: censused 6 of 6. See
         # tt_bio/token_axis.py and PLAYBOOKS.md §MODEL 2b.
-        n_key = align_tile(I)
         k = pad_axis(k, n_key, 2, 0.0)
         v = pad_axis(v, n_key, 2, 0.0)
         kt = ttnn.permute(k, (0, 1, 3, 2))                 # [1,16,24,n_key]
@@ -1364,8 +1375,6 @@ class PairformerAttention(Module):
         ttnn.deallocate(kt)
         sc = ttnn.typecast(sc, ttnn.float32, memory_config=sc.memory_config())
         sc = ttnn.multiply(sc, self.head_dim ** -0.5)
-        bias_f = ttnn.typecast(bias, ttnn.float32, memory_config=bias.memory_config())
-        bias_f = pad_axis(bias_f, n_key, 3, -1e4)
         sc = ttnn.add(sc, bias_f)
         ttnn.deallocate(bias_f)
         # fp32 softmax reduction, packing bf16 straight out of DST -- one kernel, and the
@@ -1381,6 +1390,36 @@ class PairformerAttention(Module):
         o = ttnn.multiply(o, ttnn.sigmoid(g))
         out = ttnn.linear(o, self.to_a_w, compute_kernel_config=self.compute_kernel_config,
                             dtype=self.dtype, core_grid=CORE_GRID_MAIN)
+        return out
+
+
+    def _pair_bias_dpb(self, z, I, n_key):
+        """[B, 16, I, n_key] fp32 pair bias, keys >= I at -1e4, from one dit_pair_bias program; None when z
+        does not fit it. The bias is bf16 out of the program as out of the linear, so the fp32 cast is exact."""
+        B = int(z.shape[0])
+        if getattr(self, "_b_wt32", None) is None:
+            w = torch.zeros(1, 1, 32, int(z.shape[3]))
+            w[0, 0, :self.n_head] = self.weights["to_b.weight"].float()
+            self._b_wt32 = ttnn.from_torch(w, layout=ttnn.TILE_LAYOUT, device=self.device, dtype=self.dtype)
+            self._pf_masks = {}
+        mask = self._pf_masks.get((I, n_key))
+        if mask is None:
+            m = torch.full((1, 1, n_key, n_key), -1e4)
+            m[..., :I, :I] = 0.0
+            mask = self._pf_masks[(I, n_key)] = ttnn.from_torch(m, layout=ttnn.TILE_LAYOUT, device=self.device,
+                                                                dtype=self.dtype)
+        if int(z.padded_shape[2]) != n_key or not _DPB.eligible(z, self._b_wt32, mask):
+            PF_DPB_CALLS[1] += 1
+            return None
+        PF_DPB_CALLS[0] += 1
+        bias, scratch = _DPB.dit_pair_bias(z, self._b_wt32, mask, 1.0,
+                                           self.compute_kernel_config.math_fidelity, n_out=2)
+        ttnn.deallocate(scratch)
+        if I != n_key:
+            bias = ttnn.reshape(bias, ttnn.Shape([B, self.n_head, I, n_key]),
+                                ttnn.Shape([B, self.n_head, n_key, n_key]))
+        out = ttnn.typecast(bias, ttnn.float32)
+        ttnn.deallocate(bias)
         return out
 
 
@@ -3190,8 +3229,13 @@ class DiffusionTokenEncoder(Module):
         s, z = self.run_device(R_L_ca, S_init_I, Z_init_II, D_II_self=D_II_self)
         return ttnn.to_torch(s).float(), ttnn.to_torch(z).float()
 
-    def run_device(self, R_L_ca, S_init_I, Z_init_II, D_II_self=None):
+    def bins(self, R_L_ca):
+        return _scaled_distogram_bins(R_L_ca, sigma_data=self.sigma_data, n_bins=self.N_BINS)
+
+    def run_device(self, R_L_ca, S_init_I, Z_init_II, D_II_self=None, bins=None):
         """Same computation as __call__, returning the ttnn tensors instead of host copies.
+        `bins` is self.bins(R_L_ca) when the caller already has it: every recycle of a step
+        sees the same coordinates, and the host distogram is ~12 ms a call on one thread.
 
         z is [B,I,I,c_z]: O(I^2) and by far the largest tensor the step moves. Handing it
         to the DiT as a device tensor removes one D->H untilize plus one H->D upload per
@@ -3209,7 +3253,8 @@ class DiffusionTokenEncoder(Module):
             upd = tr(sc)
             s = ttnn.add(s, ttnn.typecast(upd, ttnn.float32, memory_config=upd.memory_config())) if f32 \
                 else ttnn.add(s, upd)
-        bins = _scaled_distogram_bins(R_L_ca, sigma_data=self.sigma_data, n_bins=self.N_BINS)
+        if bins is None:
+            bins = self.bins(R_L_ca)
         if Z_init_II.ndim == 3:
             Z_init_II = Z_init_II.unsqueeze(0)
         if _PROCESS_Z_COLLAPSE:
@@ -3286,7 +3331,7 @@ class LocalTokenTransformer(Module):
                               for i in range(len(self.blocks))], dim=1)
             self._b_w_packed = ttnn.from_torch(cols, layout=ttnn.TILE_LAYOUT, device=self.device,
                                                dtype=self.dtype)
-        if _dpb_on(self.device):
+        if _DIT_DPB:
             if getattr(self, "_b_wt_packed", None) is None:
                 wt = torch.cat([self.weights[f"blocks.{i}.attention_pair_bias.to_b.weight"].float()
                                 for i in range(len(self.blocks))], dim=0)
@@ -3927,9 +3972,10 @@ class RFD3DiffusionModule(Module):
 
     def _denoise(self, n_recycle, X_noisy_L, R_L_uniform, t_L, f, tok_idx, Q_L, C_L, P_LL, A_I, S_I, Z_II):
         first_tok = None
+        tok_bins = self.diffusion_token_encoder.bins(R_L_uniform[..., f["is_ca"], :])
         if _ATTN_OVERLAP:
             first_tok = self.diffusion_token_encoder.run_device(
-                R_L_uniform[..., f["is_ca"], :], S_I, Z_II, D_II_self=None)
+                R_L_uniform[..., f["is_ca"], :], S_I, Z_II, D_II_self=None, bins=tok_bins)
             fut = f.pop("attn_future", None)
             f["attn_indices"] = fut.result() if fut is not None else _create_attention_indices(
                 f, X_noisy_L, tok_idx, self.N_ATTN_KEYS, self.N_ATTN_SEQ)
@@ -3937,7 +3983,7 @@ class RFD3DiffusionModule(Module):
         A_I = self._downcast_q(Q_L, A_I, S_I, tok_idx)
         recycled = self._forward_with_recycle(
             n_recycle, X_noisy_L=X_noisy_L, R_L_uniform=R_L_uniform, t_L=t_L, f=f, Q_L=Q_L,
-            C_L=C_L, P_LL=P_LL, A_I=A_I, S_I=S_I, Z_II=Z_II, first_tok=first_tok)
+            C_L=C_L, P_LL=P_LL, A_I=A_I, S_I=S_I, Z_II=Z_II, first_tok=first_tok, tok_bins=tok_bins)
         return {"X_L": recycled["X_L"], "sequence_logits_I": recycled["sequence_logits_I"],
                 "sequence_restype_I": recycled["sequence_restype_I"]}
 
@@ -3950,7 +3996,7 @@ class RFD3DiffusionModule(Module):
         return rec
 
     def _process_(self, D_II_self, X_L_self, *, R_L_uniform, X_noisy_L, t_L, f, Q_L, C_L, P_LL, A_I, S_I, Z_II,
-                  tok=None, last=True):
+                  tok=None, last=True, tok_bins=None):
         is_ca = f["is_ca"]
         R_L_ca = R_L_uniform[..., is_ca, :]
         # z stays on the card between these two: it is [B,I,I,128], the only O(I^2)
@@ -3958,7 +4004,8 @@ class RFD3DiffusionModule(Module):
         # at 3359 atoms against 13.9% at 419 (p19 step 0) -- the size-dependent cost the
         # GPU does not pay. s is O(I*c_s) and still crosses, because the decoder wants it
         # on host anyway.
-        s_dev, z_dev = tok or self.diffusion_token_encoder.run_device(R_L_ca, S_I, Z_II, D_II_self=D_II_self)
+        s_dev, z_dev = tok or self.diffusion_token_encoder.run_device(R_L_ca, S_I, Z_II, D_II_self=D_II_self,
+                                                                      bins=tok_bins)
         # Built before the s readback so the host works while the encoder is still on the card.
         X_L_ca = X_noisy_L[..., is_ca, :] if X_L_self is None else X_L_self[..., is_ca, :]
         fut = f.pop("dit_future", None) if X_L_self is None else None

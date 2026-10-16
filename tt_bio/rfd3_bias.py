@@ -42,8 +42,8 @@ from .envflags import env_flag
 KERNEL_DIR = Path(__file__).resolve().parent / "kernels" / "rfd3_bias"
 
 TILE_H = TILE_W = 32
-IDX_CB, BIAS_CB, OUT_CB, SLOT_CB = 0, 1, 2, 3
-# The second data-movement RISC's four CBs sit CB_STRIDE above the first's.
+IDX_CB, BIAS_CB, OUT_CB = 0, 1, 2
+# The second data-movement RISC's CBs sit CB_STRIDE above the first's.
 CB_STRIDE = 4
 # Output tiles in flight per core. Must be a power of two (the kernel masks with it). This is
 # the op's only real tuning knob: the write is 180.6 MB at the production shape and the card's
@@ -114,14 +114,13 @@ def _build(bias, idx, out, device, ct_head, acc_args):
             ],
         )
 
-    # One set of four per data-movement RISC: the two run disjoint bands, so they need
-    # disjoint index/bias/output/cursor windows and never synchronise.
+    # One set per data-movement RISC: the two run disjoint bands, so they need
+    # disjoint index/bias/output windows and never synchronise.
     def cb_set(base):
         return [
             cb(base + IDX_CB, ttnn.uint32, K * 4, TILE_H),
             cb(base + BIAS_CB, ttnn.bfloat16, TILE_H * TILE_W * 2, Kt),
             cb(base + OUT_CB, out.dtype, TILE_H * TILE_W * (2 if out16 else 4), OUT_SLOTS + 1),   # + the fill tile
-            cb(base + SLOT_CB, ttnn.uint32, TILE_H * 4, OUT_SLOTS),
         ]
 
     cbs = cb_set(0) + cb_set(CB_STRIDE)
@@ -129,7 +128,7 @@ def _build(bias, idx, out, device, ct_head, acc_args):
     # Both data-movement RISCs run the same kernel over DISJOINT bands. The op is not DRAM
     # bound -- at 4 slots one RISC reaches 91 GB/s of a measured 385 GB/s roof and adding
     # slots stops helping at 8, because the cost is the kernel's own volatile L1 traffic
-    # (the index scan, the pokes and the repair) and not the write. A second RISC is the
+    # (the index scan, the pokes and the slot repair, now a NOC refill) and not the write. A second RISC is the
     # cheapest way to buy that back: the bands are independent, so the two kernels never
     # interact, need no semaphore, and even issue on different NOCs.
     rt_a, rt_b = ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
@@ -190,7 +189,7 @@ def sparse_bias_fp32(pair_bias, idx_rm, out=None, memory_config=None, device=Non
             ttnn.Shape([B, H, L, N]), ttnn.float32, ttnn.TILE_LAYOUT, device, mc
         )
 
-    ct_head = [IDX_CB, BIAS_CB, OUT_CB, SLOT_CB]
+    ct_head = [IDX_CB, BIAS_CB, OUT_CB]
     acc_args = (
         list(ttnn.TensorAccessorArgs(pair_bias).get_compile_time_args())
         + list(ttnn.TensorAccessorArgs(idx_rm).get_compile_time_args())

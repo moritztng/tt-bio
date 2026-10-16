@@ -133,7 +133,13 @@ class OF3AtomTransformer(Module):
     def _w_tt(self, key, transpose=True):
         v = self._wc.get((key, transpose))
         if v is None:
-            w = self._w[key]
+            if key.endswith(".linear_kv.weight"):
+                # The superset path's fused K|V projection, built on first use. Inference only:
+                # its SDPA has no backward, so no training walk ever meets this weight.
+                m = key[:-len("kv.weight")]
+                w = torch.cat([self._w[m + "k.weight"], self._w[m + "v.weight"]], 0)
+            else:
+                w = self._w[key]
             v = ttnn.from_torch(w.t().contiguous() if transpose else w,
                                 layout=ttnn.TILE_LAYOUT, device=self.device, dtype=self._act_dtype)
             self._wc[(key, transpose)] = v
@@ -344,10 +350,9 @@ class OF3AtomTransformer(Module):
         W = int(sup_b.shape[-1]); L = W - self.N_KEY
         S = a_qn.shape[0]
         Q = self._lin(a_qn, apb + "mha.linear_q.weight", apb + "mha.linear_q.bias")
-        K = self._lin(a_kn, apb + "mha.linear_k.weight")
-        V = self._lin(a_kn, apb + "mha.linear_v.weight")
-        x = ttnn.concat([Q, K, V], dim=-1)
-        ttnn.deallocate(Q); ttnn.deallocate(K); ttnn.deallocate(V)
+        KV = self._lin(a_kn, apb + "mha.linear_kv.weight")
+        x = ttnn.concat([Q, KV], dim=-1)
+        ttnn.deallocate(Q); ttnn.deallocate(KV)
         # Zero rows on both ends (ttnn.pad cannot pad the front of a tiled tensor): L in front,
         # W - L - nq behind, so block i's window [32 i, 32 i + W) stays inside the frame.
         def zero(rows):
