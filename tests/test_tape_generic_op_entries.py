@@ -98,7 +98,7 @@ def test_the_registry_holds_exactly_the_kernels_that_declare_an_entry():
     and reads in an A/B as a lever that measured nothing."""
     assert set(TT.KERNELS) == {"reblock_permute", "reblock_permute_back", "tri_att_sdpa_hifi",
                                "rne_add", "rne_add_masked", "reblock_permute_gated", "pair_transpose",
-                               "triatt_qkv_heads", "pair_relu"}
+                               "triatt_qkv_heads", "pair_relu", "triatt_tail"}
 
 
 def test_the_wide_adds_vjp_is_the_cotangent_to_both_operands(monkeypatch, taping):
@@ -345,3 +345,87 @@ def test_nograd_inference_does_not_lift_l1_placement(monkeypatch):
     finally:
         ops.set_grad_hook(prev)
     assert tenstorrent._l1_fits(1, 1.0)
+
+
+def test_the_triatt_tail_runs_in_an_unrecorded_forward_and_declines_in_a_recorded_one(monkeypatch, taping):
+    """No entry: a recorded forward takes the composed ops, BindCraft 2's no-grad forwards the kernel."""
+    Q = pytest.importorskip("tt_bio.triatt_qkv")
+    assert Q.gated_out_proj.tape_entry_name == "triatt_tail"
+    seen = []
+    monkeypatch.setattr(Q, "tail_on", lambda *a: seen.append(ops.declines_under_tape("triatt_tail")) or False)
+    monkeypatch.setattr(Q, "_g3d", lambda o, g: False)
+
+    class _Hook:
+        def __init__(self, rec):
+            self.recording = lambda: rec
+
+        def raw(self, args, kwargs):
+            return args, kwargs
+
+    monkeypatch.setattr(ops, "NOGRAD_IS_INFERENCE", True)
+    for rec in (False, True):
+        ops.set_grad_hook(_Hook(rec))
+        assert Q.gated_out_proj("o", "g", "w", None) is None
+    assert seen == [False], "the unrecorded call reached the kernel gate, the recorded one declined first"
+
+
+def test_the_triatt_tail_bias_flag_arms_the_biased_tail_on_wormhole_only(monkeypatch):
+    """BindCraft 2 has no model lever scope, so `fast_round` arms the AF2 tail through TAIL_BIAS."""
+    Q = pytest.importorskip("tt_bio.triatt_qkv")
+    T = pytest.importorskip("tt_bio.tenstorrent")
+    monkeypatch.setattr(Q, "TAIL_FORCE", None)
+    monkeypatch.setattr(T, "_LEVERS", frozenset())
+    for wh in (True, False):
+        monkeypatch.setattr(T, "is_wormhole", lambda wh=wh: wh)
+        monkeypatch.setattr(Q, "TAIL_BIAS", False)
+        assert not Q.tail_on(biased=True)
+        monkeypatch.setattr(Q, "TAIL_BIAS", True)
+        assert Q.tail_on(biased=True) is wh
+        assert not Q.tail_on(biased=False), "the unbiased tail keeps its own lever"
+
+
+@pytest.mark.parametrize("eligible", [True, False])
+def test_the_triatt_tails_vjp_is_the_composed_paths_pieces(monkeypatch, taping, eligible):
+    """dh = dy @ W^T, then gate_bw on the head-concatenated o (or the sigmoid rule), o's share split
+    back into heads; no gradient for the weight or bias. A residual, a tracked weight or a
+    head-major g declines."""
+    Q = pytest.importorskip("tt_bio.triatt_qkv")
+    GB = pytest.importorskip("tt_bio.gate_bw")
+    ag = TT.ag
+    calls = []
+    monkeypatch.setattr(TT, "_tape", lambda out, parents, make, **kw: (out, make(), kw["reads"]))
+    monkeypatch.setattr(TT, "_wrap", lambda t: t)
+    monkeypatch.setattr(TT, "Tensor", _Leaf)
+    monkeypatch.setattr(TT, "_raw", lambda a, k: (tuple(x.value if isinstance(x, _Leaf) else x for x in a), k))
+    monkeypatch.setattr(TT, "_via2d", lambda x, fn: fn(x))
+    monkeypatch.setattr(ag, "_pair_mm_or", lambda v, w, tb, fb, cfg: calls.append(("dh", v, w, tb)) or "dh")
+    monkeypatch.setattr(ag, "split_heads_value", lambda x, h: calls.append(("split", x, h)) or "do_heads")
+    monkeypatch.setattr(Q, "_g3d", lambda o, g: g.shape == (1, 64, 128))
+    monkeypatch.setattr(TT.ttnn.experimental, "nlp_concat_heads",
+                        lambda x, **k: calls.append(("concat", x)) or "o_cat", raising=False)
+    monkeypatch.setattr(TT.ttnn, "reshape", lambda x, s: f"{x}@{list(s)}")
+    monkeypatch.setattr(TT.ttnn, "deallocate", lambda x: None)
+    monkeypatch.setattr(TT.ttnn, "sigmoid", lambda x: f"sig({x})")
+    monkeypatch.setattr(TT.ttnn, "multiply", lambda a, b: f"({a}*{b})")
+    monkeypatch.setattr(TT.ttnn, "sigmoid_bw", lambda d, x: [f"sigbw({d},{x})"])
+    monkeypatch.setattr(GB, "eligible", lambda d, o, g: eligible)
+    monkeypatch.setattr(GB, "gate_bw", lambda d, o, g: calls.append(("gate_bw", d, o, g)) or ("do", "dg"))
+    ov, gv = _V((1, 4, 64, 32)), _V((1, 64, 128))
+    o, g = _Leaf(ov), _Leaf(gv)
+    entry = TT._KERNELS["triatt_tail"]
+    shipped = lambda *a, **k: "y"
+    out, bw, reads = entry(shipped, (o, g, "W", "ckc"), {"bias": "b"})
+    assert (out, reads) == ("y", (0, 1))
+    bw("dy")
+    assert calls[0] == ("dh", "dy", "W", True) and calls[1] == ("concat", ov)
+    if eligible:
+        assert calls[2] == ("gate_bw", "dh@[1, 64, 128]", "o_cat@[1, 64, 128]", gv)
+        assert g.got == ["dg"] and calls[3] == ("split", "do@[1, 64, 128]", 4)
+    else:
+        assert g.got == ["sigbw((dh@[1, 64, 128]*o_cat@[1, 64, 128]),<gv>)".replace("<gv>", str(gv))]
+        assert calls[2][0] == "split" and calls[2][1].startswith("(dh@[1, 64, 128]*sig(")
+    assert o.got == ["do_heads"]
+    w_tracked = _Leaf(_V((128, 128)))
+    assert entry(shipped, (o, g, w_tracked, "ckc"), {}) is None
+    assert entry(shipped, (o, g, "W", "ckc"), {"resid": "z"}) is None
+    assert entry(shipped, (o, _Leaf(_V((1, 4, 64, 32))), "W", "ckc"), {}) is None

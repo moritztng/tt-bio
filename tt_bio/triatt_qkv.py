@@ -32,6 +32,7 @@ import ttnn
 
 from . import mm_generic as G
 from . import ops
+from .envflags import env_flag
 
 KERNEL_DIR = Path(__file__).resolve().parent / "kernels" / "triatt"
 TILE = 32
@@ -374,6 +375,9 @@ TAIL_RNE = int(os.environ.get("TT_BIO_TRIATT_TAIL_RNE", "0"))
 # 512 and 736 (2.85 vs 3.74 ms, 5.61 vs 6.45 ms).
 TAIL_KB1 = int(os.environ.get("TT_BIO_TRIATT_TAIL_KB1", "1"))
 TAIL_FORCE = os.environ.get("TT_BIO_TRIATT_TAIL")   # "1" / "0" overrides the `triatt_tail` lever
+#: `triatt_tail_bias` for a process with no model lever scope: BindCraft 2 calls AF2's blocks
+#: outside `under_levers`, so `fast_round` arms this the way it arms `pair_mm.PAIR_MM_FUSED`.
+TAIL_BIAS = env_flag("TT_BIO_TRIATT_TAIL_BIAS", False)
 GOP_STATS = [0, 0]   # gated_out_proj served, declined (TAIL_STATS above is the head-major tail's)
 _TAIL_DIR = Path(__file__).resolve().parent / "kernels" / "triatt_tail"
 _TAIL_CACHE: dict = {}
@@ -385,7 +389,7 @@ def tail_on(biased: bool = False) -> bool:
         return TAIL_FORCE == "1"
     from .tenstorrent import is_wormhole, lever
     if biased:   # graded on Wormhole only (AF2-IG); Blackhole keeps today's fold until its own grade
-        return lever("triatt_tail_bias") and is_wormhole()
+        return (TAIL_BIAS or lever("triatt_tail_bias")) and is_wormhole()
     return lever("triatt_tail")
 
 
@@ -506,12 +510,15 @@ def _build_tail(o, g, w, out, z, ckc, grid, resid, brows=None):
     return {"kernels": [reader, writer, compute], "cbs": cbs}
 
 
+@ops.fused_kernel("triatt_tail")
 def gated_out_proj(o, g, w, ckc, resid=None, bias=None):
     """`(o * sigmoid(g)) @ w [+ bias]` from head-major o `[B, H, S, 32]` and g either head-major
     too or as its projection wrote it (`[.., B, S, H*32]`, a biased block's gate), as `[B, S, N]`;
     with `resid` (the pair `[1?, B, S, N]` the update belongs to) the sum is written into `resid`
-    in place and `resid` is returned. None where it declines; the caller then runs the three ops."""
-    if _taping() or not tail_on(bias is not None or _g3d(o, g)) or not _tail_ok(o, g, w, resid, bias):
+    in place and `resid` is returned. None where it declines; the caller then runs the three ops.
+    Under a tape it runs through its entry (`taped_ttnn._k_triatt_tail`) when one is installed,
+    and in a forward the tape does not record (`ops.recording`) when none is."""
+    if ops.declines_under_tape("triatt_tail") or not tail_on(bias is not None or _g3d(o, g)) or not _tail_ok(o, g, w, resid, bias):
         GOP_STATS[1] += 1
         return None
     from .tenstorrent import COMPUTE_GRID_MAIN

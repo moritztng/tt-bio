@@ -1488,6 +1488,53 @@ def _k_pair_relu(shipped, args, kwargs):
     return _tape(out_v, [x], make, reads=(0,))
 
 
+@_kernel("triatt_tail")
+def _k_triatt_tail(shipped, args, kwargs):
+    """`triatt_qkv.gated_out_proj`'s entry: the gate, the head concat and the output projection of
+    AF2's biased triangle attention as one node, o head-major and g as its projection wrote it.
+
+    The backward is the composed path's own pieces: dh = dy @ W^T, then `gate_bw` (or the sigmoid
+    rule) on the head-concatenated o, then `split_heads_value` for o, as `nlp_concat_heads` takes
+    it back. The weight and bias take no gradient (BindCraft 2 differentiates the sequence), so a
+    tracked one declines, and so does a call with a residual or a head-major g, which AF2 never
+    makes. Forward bits differ from the three composed ops (graded on AF2-IG), so this is graded
+    on BindCraft 2's own design metrics.
+    """
+    from . import gate_bw as _gb
+    from . import triatt_qkv as Q
+    ra, rk = _raw(args, kwargs)
+    full = dict(zip(("o", "g", "w", "ckc", "resid", "bias"), ra), **rk)
+    tracked = [full.get("w"), full.get("bias")]
+    if (full.get("resid") is not None or any(isinstance(t, Tensor) and t.requires_grad for t in tracked)
+            or not Q._g3d(full["o"], full["g"])):
+        return None
+    o, g = _wrap(args[0]), _wrap(args[1])
+    out_v = shipped(*ra, **rk)
+    if out_v is None:
+        return None
+    w, cfg = full["w"], full.get("ckc") or precise_config()
+    B, H, S = (int(d) for d in full["o"].shape[:3])
+
+    def make():
+        def bw(dy):
+            ov, gv = o.value, g.value
+            dh = _via2d(dy, lambda v: ag._pair_mm_or(
+                v, w, True, lambda: ag.bmm(v, w, False, True, compute_kernel_config=cfg), cfg))
+            o_cat = ttnn.experimental.nlp_concat_heads(ov, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+            dh, o_cat = ttnn.reshape(dh, gv.shape), ttnn.reshape(o_cat, gv.shape)
+            if _gb.eligible(dh, o_cat, gv):
+                do, dg = _gb.gate_bw(dh, o_cat, gv)
+            else:
+                do = ttnn.multiply(dh, ttnn.sigmoid(gv))
+                dg = ttnn.sigmoid_bw(ttnn.multiply(dh, o_cat), gv)[0]
+            ttnn.deallocate(o_cat)
+            o.add_grad(ag.split_heads_value(ttnn.reshape(do, [B, S, H * Q.TILE]), H))
+            g.add_grad(dg)
+        return bw
+
+    return _tape(out_v, [o, g], make, reads=(0, 1))
+
+
 # --- attention head packing ------------------------------------------------------------
 # Both layouts below are DERIVED FROM THE DEVICE with an index-valued tensor
 # (`perf/ptx_fastpath/heads.py`), not read off a docstring. A head-split backward written

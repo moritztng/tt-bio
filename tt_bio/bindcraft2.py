@@ -2569,13 +2569,14 @@ _FAST_ROUND = (
     ("gate_bw", None, "GATE_BW_FUSED", "TT_BIO_GATE_BW_FUSED", True),
     ("lead_sum", None, "LEAD_SUM_FUSED", "TT_BIO_LEAD_SUM_FUSED", True),
     ("pair_mm", None, "PAIR_MM_FUSED", "TT_BIO_PAIR_MM", True),
+    ("triatt_qkv", None, "TAIL_BIAS", "TT_BIO_TRIATT_TAIL_BIAS", True),
     ("ops", None, "NOGRAD_IS_INFERENCE", "TT_BIO_NOGRAD_INFERENCE", True),
     ("tenstorrent", None, "_TRIATT_FUSED_HIFI", "TT_BIO_TRIATT_FUSED_HIFI", True),
     ("af2", "AF2PairBlock", "rne_kernel", None, True),
     ("af2", "AF2PairBlock", "tri_att_g_in_matmul", "TT_BIO_AF2_G_BIAS_IN_MATMUL", True),
     ("af2", "AF2MaskedOuterProductMean", "rows_in_k", "TT_BIO_AF2_OPM_ROWS_IN_K", True),
     ("taped_ttnn", None, "TAPED_KERNELS_DEFAULT", None,
-     "tri_att_sdpa_hifi,rne_add,rne_add_masked,reblock_permute_gated,pair_transpose,triatt_qkv_heads,pair_relu"),
+     "tri_att_sdpa_hifi,rne_add,rne_add_masked,reblock_permute_gated,pair_transpose,triatt_qkv_heads,pair_relu,triatt_tail"),
     # OpenFold3 training turned the fp32 softmax backward on by default; the round above was
     # measured and graded (1.051x of the bf16 control) with it off, so it stays off here.
     ("autograd", None, "SOFTMAX_BW_FP32", "TT_BIO_SOFTMAX_BW_FP32", False),
