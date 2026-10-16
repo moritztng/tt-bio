@@ -707,10 +707,6 @@ _FAST_MODE = False
 #   dit_shoist      the DiT's conditioning as three wide linears a step whose columns each layer reads in place
 #                   (`addcmul_at`): OpenFold3's DiT, and Boltz-2's token DiT, where it takes precedence over
 #                   dit_cond_jit (adaLN modulation, the attention gate and the transition gate + residual each one op).
-#   dit_cond_1d     Boltz-2's hoisted token-DiT conditioning linears ([N, 768] x [768, 36864]) under a 1D in0-multicast
-#                   program that splits the weight columns over every core (`_wide_n_program_config`), not ttnn's 2D one.
-#   dit_cond_noacc  the same hoisted linears with bf16 dest accumulation (fp32_dest_acc_en off): on a Wormhole chip
-#                   fp32 accumulation costs 1514 vs 1201 us a call at K=768 (hoistmm), and frees L1 for 1D programs.
 #   apb_cat         the token attention's head re-assembly as one nlp_concat_heads, gate and output projection on
 #                   the padded head lanes (what TT_BIO_APB_CONCAT_HEADS does at load, exact), with the wide
 #                   weights re-laned from the bf16 device copies on the first call that takes it.
@@ -733,7 +729,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine", "ef2_opm_kq", "ef2_relpos_lookup",
           "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit", "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384",
           "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
-          "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "dit_cond_1d", "dit_cond_noacc")
+          "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -749,7 +745,7 @@ UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "di
                              "ef2_relpos_lookup", "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit",
                              "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384",
                              "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
-                             "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "dit_cond_1d", "dit_cond_noacc"})
+                             "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -6621,54 +6617,6 @@ def _pair_proj_program_config(
         fused_activation=ttnn.UnaryWithParam(ttnn.UnaryOpType.SILU) if silu else None,
         mcast_in0=False,
     )
-
-
-@lru_cache(maxsize=None)
-def _wide_n_program_config(m_tiles: int, k_tiles: int, n_tiles: int, elem_bytes: int,
-                           sigmoid: bool = False) -> ttnn.MatmulMultiCoreReuseMultiCast1DProgramConfig | None:
-    """1D in0-multicast program for a short, very wide linear, or None if the shape is outside it.
-
-    Boltz-2's token-DiT conditioning is [512, 768] x [768, 36864] three times a step (`dit_cond_1d`). ttnn's own 2D
-    program for it reads ~28 GB/s of weight on a Wormhole chip, a ninth of DRAM: the weight is the whole op and one
-    row of cores pulls it. Here every core holds all M rows of the activation (multicast, 0.8 MB once) and reads its
-    own `per_core_N` weight columns, so the weight streams on every core's DRAM port. Cores: the largest count that
-    divides the N tiles and fits the grid as a rectangle. The drain block shrinks until the circular buffers fit.
-    On a p150a ttnn's own program is faster (460 us vs 545 us for the best 1D block at 1350 MHz), so this is for Wormhole.
-    """
-    gx, gy = COMPUTE_GRID_MAIN
-    if m_tiles > 32 or n_tiles < 8 * m_tiles:
-        return None
-    grids = [(cx, n // cx) for n in range(gx * gy, 0, -1) if n_tiles % n == 0
-             for cx in range(gx, 0, -1) if n % cx == 0 and n // cx <= gy]
-    if not grids:
-        return None
-    cx, cy = grids[0]
-    pn = n_tiles // (cx * cy)
-    budget = _matmul_cb_budget()
-    for ibw in [w for w in (4, 3, 2, 1) if k_tiles % w == 0]:
-        for obh in [h for h in range(m_tiles, 0, -1) if m_tiles % h == 0]:
-            # in0 arrives as whole-M blocks, so its buffer is per_core_M rows whatever the drain block is
-            if _matmul_cb_bytes(ibw, obh, pn, elem_bytes, extra_tiles=2 * ibw * (m_tiles - obh)) > budget:
-                continue
-            sh = max(h for h in (4, 2, 1) if obh % h == 0)
-            sw = max(w for w in range(min(4 // sh, pn), 0, -1) if pn % w == 0)
-            return ttnn.MatmulMultiCoreReuseMultiCast1DProgramConfig(
-                compute_with_storage_grid_size=(cx, cy), in0_block_w=ibw, out_subblock_h=sh, out_subblock_w=sw,
-                out_block_h=obh, out_block_w=pn, per_core_M=m_tiles, per_core_N=pn, fuse_batch=True,
-                fused_activation=ttnn.UnaryWithParam(ttnn.UnaryOpType.SIGMOID) if sigmoid else None,
-                mcast_in0=True)
-    return None
-
-
-def _wide_linear(x: ttnn.Tensor, w: ttnn.Tensor, *, bias=None, compute_kernel_config=None,
-                 activation: str | None = None) -> ttnn.Tensor:
-    """`ttnn.linear` under `_wide_n_program_config` where it applies, else ttnn's own program."""
-    m = prod(list(x.shape)[:-1])
-    pc = _wide_n_program_config(-(-m // 32), -(-x.shape[-1] // 32), -(-w.shape[-1] // 32),
-                                2 if x.dtype == ttnn.bfloat16 else 4, activation == "sigmoid")
-    if pc is None:
-        return ttnn.linear(x, w, bias=bias, compute_kernel_config=compute_kernel_config, activation=activation)
-    return ttnn.linear(x, w, bias=bias, compute_kernel_config=compute_kernel_config, program_config=pc)
 
 
 def _pair_proj_config(x: ttnn.Tensor, w: ttnn.Tensor, bw_cap: int | None = -1,
@@ -15192,24 +15140,22 @@ class DiffusionTransformer(Module):
             s_hat = ttnn.layer_norm(s, epsilon=1e-5,
                                     compute_kernel_config=self.compute_kernel_config)
             ckc = self.compute_kernel_config
-            hifi2, noacc = _B2_DIT_COND_HIFI2 or lever("dit_cond_hifi2"), lever("dit_cond_noacc")
-            if (hifi2 or noacc) and ckc is not None:
-                ckc = type(ckc)(math_fidelity=ttnn.MathFidelity.HiFi2 if hifi2 else ckc.math_fidelity,
+            if (_B2_DIT_COND_HIFI2 or lever("dit_cond_hifi2")) and ckc is not None:
+                ckc = type(ckc)(math_fidelity=ttnn.MathFidelity.HiFi2,
                                 math_approx_mode=ckc.math_approx_mode,
-                                fp32_dest_acc_en=ckc.fp32_dest_acc_en and not noacc,
+                                fp32_dest_acc_en=ckc.fp32_dest_acc_en,
                                 packer_l1_acc=ckc.packer_l1_acc)
-            lin = _wide_linear if lever("dit_cond_1d") else ttnn.linear
             if _B2_ADALN_ADDCMUL or lever("adaln_mod"):
                 sw, sb, bw = self._cond_weights_split()
-                o_ad = (lin(s_hat, sw, bias=sb, compute_kernel_config=ckc, activation="sigmoid"),
-                        lin(s_hat, bw, compute_kernel_config=ckc))
+                o_ad = (ttnn.linear(s_hat, sw, bias=sb, compute_kernel_config=ckc, activation="sigmoid"),
+                        ttnn.linear(s_hat, bw, compute_kernel_config=ckc))
             else:
-                o_ad = lin(s_hat, adw, bias=adb, compute_kernel_config=ckc)
+                o_ad = ttnn.linear(s_hat, adw, bias=adb, compute_kernel_config=ckc)
             ttnn.deallocate(s_hat)
             # `activation="sigmoid"` here is where both output projections' sigmoids go: the
             # attention one already carried it in its own linear, and the transition one moves
             # off its multiply, which is told not to re-apply it.
-            o_op = lin(s, opw, bias=opb, compute_kernel_config=ckc, activation="sigmoid")
+            o_op = ttnn.linear(s, opw, bias=opb, compute_kernel_config=ckc, activation="sigmoid")
             cond_all = (o_ad, o_op)
 
         d = self.dim
