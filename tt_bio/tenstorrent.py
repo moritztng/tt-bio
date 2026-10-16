@@ -22,6 +22,7 @@ from . import triatt_sdpa as _triatt_sdpa
 from . import dest_guard as _dest_guard
 from . import trimul_tail as _trimul_tail
 from . import mm_generic as _mm_generic
+from . import bmm_res as _bmm_res
 from .addcmul_at import addcmul_at as _addcmul_at
 from . import page_copy as _page_copy
 from . import pair_add as _pair_add
@@ -653,6 +654,9 @@ _FAST_MODE = False
 #                   reblock_permute_back never writes the moved x (kernels/trimul_tail_res/reader_moved.cpp)
 #   trimul_t1_dram  every trimul T1 / T2 can take (N >= 160) runs on the DRAM path, so they also serve the sizes
 #                   that would otherwise stay in L1 (Nesso-1's 256-token crop passes: 0.70 -> 0.36 s each on WH)
+#   trimul_bres     the trimul einsum by `bmm_res` (b[c] resident in L1, whole channels per core) where it fits:
+#                   a, b and out cross DRAM once. Bit-exact with ttnn.matmul in ESMFold2 folds (byte-identical coords
+#                   on both archs); declines to ttnn.matmul where b[c] does not fit L1 (above 704 tokens bf16, 960 bfp8)
 #   trimul_t2cm     with trimul_t2, T2 reads the einsum's channel-major [1, C, S, S] output itself (T2m's program with
 #                   the whole hidden as its one chunk), so `reblock_permute_back`
 #                   (0.58 ms a call at 512 on p150a) never runs. A pure data move: bit-exact against trimul_t2
@@ -729,7 +733,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine", "ef2_opm_kq", "ef2_relpos_lookup",
           "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit", "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384",
           "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
-          "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf")
+          "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "trimul_bres")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -10315,16 +10319,27 @@ class TriangleMultiplication(Module):
                             a_chunk, mask_moved(perm_a == (0, 3, 2, 1) and not defer_a))
                     _st = (branch, "defer" if (defer_a or defer_b) else "keep")
                     TRIMUL_MM_TRANSPOSE_STATS[_st] = TRIMUL_MM_TRANSPOSE_STATS.get(_st, 0) + 1
-                    x_chunk = ttnn.matmul(
-                        a_chunk,
-                        b_chunk,
-                        compute_kernel_config=_trimul_einsum_ckc(self.compute_kernel_config),
-                        memory_config=out_mc,
-                        program_config=program_config,
-                        dtype=ttnn.bfloat16,
-                        transpose_a=defer_a,
-                        transpose_b=defer_b,
-                    )
+                    # `trimul_bres`: b[c] resident in L1, every operand read from DRAM once (bmm_res),
+                    # taking the deferred transpose as ttnn.matmul would; it declines (None) where b[c]
+                    # does not fit or a layout is not its own.
+                    x_chunk = None
+                    if (lever("trimul_bres") and out_mc.buffer_type == ttnn.BufferType.DRAM
+                            and out_mc.memory_layout == ttnn.TensorMemoryLayout.INTERLEAVED):
+                        x_chunk = _bmm_res.matmul(
+                            a_chunk, b_chunk,
+                            compute_kernel_config=_trimul_einsum_ckc(self.compute_kernel_config),
+                            transpose_a=defer_a, transpose_b=defer_b)
+                    if x_chunk is None:
+                        x_chunk = ttnn.matmul(
+                            a_chunk,
+                            b_chunk,
+                            compute_kernel_config=_trimul_einsum_ckc(self.compute_kernel_config),
+                            memory_config=out_mc,
+                            program_config=program_config,
+                            dtype=ttnn.bfloat16,
+                            transpose_a=defer_a,
+                            transpose_b=defer_b,
+                        )
                     ttnn.deallocate(a_chunk)
                     ttnn.deallocate(b_chunk)
                     # Move the channel chunk from the batch axis back to the last axis:

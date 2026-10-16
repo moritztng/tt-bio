@@ -1537,6 +1537,11 @@ _BH_ONLY_FAST = ("trimul_t1", "trimul_t1_c256", "trimul_t2", "trimul_t2cm")
 # ESMFold2-Fast CA-lDDT -0.0004 [-0.0015, +0.0009], 1.24 A vs 1.33 A, docking 48 -> 48 of 88 (88 paired folds over
 # two seed sets, wng + wng3). Galaxy chip, 1000 MHz.
 _WH_NORMAL_EXTRA = "+transition_ws+ws_resid+ef2_lm_combine+ef2_opm_kq"
+# Both Wormhole modes take trimul_bres (the trimul einsum with b[c] resident in L1, bmm_res). It is a pure speed lever:
+# coords are byte-identical with and without it in ESMFold2 folds under the WH normal set (9DBP, 9LLG x 2 seeds, Galaxy
+# chip, spd-gap-whesmf wbxe) and the WH fast set (11 complexes x 4 seeds x 2 models, p150a, wbgbh). Same chip, 512 aa
+# --fast, 1000 MHz, D B D B: ESMFold2 30.36 -> 29.24 s, ESMFold2-Fast 18.25 -> 17.65 s (wbx).
+_WH_EXTRA = "+trimul_t2m+trimul_bres"
 
 
 def fold_levers(fast: bool) -> str:
@@ -1550,7 +1555,7 @@ def fold_levers(fast: bool) -> str:
         levers = "+".join(n for n in levers.split("+") if n not in drop)
         if not fast:
             levers += _WH_NORMAL_EXTRA
-        levers += "+trimul_t2m"
+        levers += _WH_EXTRA
     return levers
 
 

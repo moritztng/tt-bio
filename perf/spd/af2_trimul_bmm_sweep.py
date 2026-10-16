@@ -76,6 +76,12 @@ def main():
     ap.add_argument("--kws", default="", help="in0_block_w values for the reuse arms (default: 1 and St)")
     ap.add_argument("--rows", default="", help="per_core_M values (tiles, dividing St) for row-block reuse arms")
     ap.add_argument("--fid", default="HiFi4", help="math fidelity of every arm")
+    ap.add_argument("--dtype", default="bf16", choices=("bf16", "bfp8"),
+                    help="operand format (bfp8: production's trimul_b8in einsum inputs)")
+    ap.add_argument("--res", action="store_true",
+                    help="add tt_bio/bmm_res arms (b[c] resident in L1, whole channels per core)")
+    ap.add_argument("--abl", default="",
+                    help="with --res: bmm_res stage masks to time (1 no matmul, 2 no write, 4 no a read; e.g. 1,2,3,6,7)")
     a = ap.parse_args()
     dev = tt.get_device()
     gx, gy = tt.COMPUTE_GRID_MAIN
@@ -86,18 +92,17 @@ def main():
     res = {"arch": str(dev.arch()), "grid": [gx, gy], "loadavg": open("/proc/loadavg").read().split()[:3],
            "inner": a.inner, "cells": []}
     mc = ttnn.L1_MEMORY_CONFIG if a.mem == "l1" else ttnn.DRAM_MEMORY_CONFIG
-    res.update(mem=a.mem, transpose=a.transpose, fid=a.fid)
+    res.update(mem=a.mem, transpose=a.transpose, fid=a.fid, dtype=a.dtype)
     tkw = {"transpose_a": a.transpose == "a", "transpose_b": a.transpose == "b"}
-    up = lambda t: ttnn.from_torch(t, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16,  # noqa: E731
-                                   memory_config=mc)
+    up = lambda t: ttnn.from_torch(t, layout=ttnn.TILE_LAYOUT, device=dev, memory_config=mc,  # noqa: E731
+                                   dtype=ttnn.bfloat8_b if a.dtype == "bfp8" else ttnn.bfloat16)
     torch.manual_seed(0)
     for S in map(int, a.sizes.split(",")):
         for C in map(int, a.channels.split(",")):
-            at = torch.randn(1, C, S, S, dtype=torch.bfloat16)
-            bt = torch.randn(1, C, S, S, dtype=torch.bfloat16)
+            x, y = (up(torch.randn(1, C, S, S, dtype=torch.bfloat16)) for _ in range(2))
+            at, bt = ttnn.to_torch(x), ttnn.to_torch(y)   # the values the device holds (bfp8-rounded under --dtype bfp8)
             ref64 = ((at.double().transpose(-1, -2) if tkw["transpose_a"] else at.double())
                      @ (bt.double().transpose(-1, -2) if tkw["transpose_b"] else bt.double()))
-            x, y = up(at), up(bt)
             St = (S + 31) // 32
             mm = lambda **kw: (lambda: ttnn.matmul(x, y, memory_config=mc,  # noqa: E731
                                                    dtype=ttnn.bfloat16, compute_kernel_config=ckc,
@@ -122,6 +127,11 @@ def main():
                         arms.append((f"reuse_m{m}_k{kw}", mm(program_config=ttnn.MatmulMultiCoreReuseProgramConfig(
                             compute_with_storage_grid_size=(gx, gy), in0_block_w=kw, out_subblock_h=1,
                             out_subblock_w=1, per_core_M=m, per_core_N=St))))
+            if a.res:
+                from tt_bio import bmm_res
+                ablk = tuple((f"res_abl{m}", {"abl": m}) for m in map(int, filter(None, a.abl.split(","))))
+                for name, kw in (("res", {}), ("res_d1", {"depth": 1}), ("res_c64", {"max_cores": 64})) + ablk:
+                    arms.append((name, (lambda kw: lambda: bmm_res.matmul(x, y, ckc, **tkw, **kw))(kw)))
             cell = {"S": S, "C": C, "St": St, "arms": []}
             ref = None
             for name, fn in arms:
