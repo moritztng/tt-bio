@@ -25,6 +25,7 @@ import torch.nn.functional as F
 import ttnn
 
 from .. import rfd3_bias, softmax_generic
+from .. import sdpa_generic as _SG
 from ..envflags import env_flag
 from . import block_sparse as _BS
 from .tiles import TILE, align_tile, pad_axis
@@ -358,6 +359,7 @@ _GATHERED_SOFTMAX = env_flag("RFD3_GATHERED_SOFTMAX", False)
 # (docs/rfd3-design.md). RFD3_ATOM_SDPA=0 restores the chain.
 _ATOM_SDPA = env_flag("RFD3_ATOM_SDPA", True)
 ATOM_SDPA_CALLS = [0]
+CSS_CALLS = [0]
 # The SDPA mask is cached per atom block for the step, so three to six [1, H, N, N] bf16 masks live
 # at once. Above this size per mask the shipped chain runs instead: 6080 atoms (the 685-token page
 # fixture) is 296 MB, while the 12085-atom top of the size ladder would hold ~1.2 GB per block on a
@@ -425,6 +427,13 @@ def _dense_sdpa_config(n):
     q = min(div, key=lambda c: abs(c - _DIT_SDPA_CHUNKS[0]))
     k = max(c for c in div if c <= max(_DIT_SDPA_CHUNKS[1], 32))
     return _sdpa_program_config(q, k)
+# The atom SDPA visiting only the key chunks each query chunk's neighbours fall in (`sdpa_generic`
+# css), with the mask writer skipping the rest. On the real index in sequence order 24 % of the
+# 64 x 64 score tiles hold a neighbour (p108, mean over a 200-step design); every other tile is the
+# -1e4 fill, whose weight in the online softmax is exactly 0, so skipping it changes only the work.
+# One design per call (the per-q-chunk counts are runtime args). Off while measured.
+_CSS = env_flag("RFD3_CSS", False)
+_CSS_STEP = {}
 _ATOM_SDPA_CHUNKS = tuple(int(x) for x in os.environ.get("RFD3_ATOM_SDPA_CHUNKS", "160,320").split(","))
 # ttnn.gather (0.68.0) on dim 3 silently returns wrong data for every tile-row after the first
 # once the indexed axis exceeds this many elements: 99.87 % of elements wrong at the production
@@ -1998,6 +2007,27 @@ def _sparse_attn_index_rm(indices, device):
         layout=ttnn.ROW_MAJOR_LAYOUT, device=device, dtype=ttnn.uint32)
 
 
+def _css_plan(indices, attn_idx_dev, device):
+    """Chunk lists of one step's [1, L, K] neighbour index for the css atom SDPA, kept until the
+    next step's index replaces it. Chunk 64 where it divides the padded axis, else 32."""
+    L = int(indices.shape[-2])
+    n = align_tile(L)
+    c = 64 if n % 64 == 0 else 32
+    nq = n // c
+    occ = torch.zeros(nq, nq, dtype=torch.bool)
+    ki = indices[0].long() // c
+    occ[(torch.arange(L) // c).unsqueeze(1).expand_as(ki), ki] = True
+    rows, counts = _SG.css_lists([torch.nonzero(r).flatten().tolist() for r in occ], nq)
+    lists = ttnn.from_torch(rows, dtype=ttnn.uint32, layout=ttnn.ROW_MAJOR_LAYOUT, device=device)
+    _CSS_STEP.clear()
+    _CSS_STEP["step"] = (attn_idx_dev, (lists, counts), c)
+
+
+def _css_for(attn_idx_dev):
+    hit = _CSS_STEP.get("step")
+    return hit if hit is not None and hit[0] is attn_idx_dev else None
+
+
 def _sparse_qk_inputs(p_host, indices, device, dtype, n_heads=4, mask_cache=None):
     """Gather local pair features and build the scatter index for one step.
 
@@ -2088,6 +2118,8 @@ def _sparse_qk_inputs(p_host, indices, device, dtype, n_heads=4, mask_cache=None
             block = (nb, q_block, u_width,
                      _BS.gather_index(gather, n_heads, align_tile(length), device),
                      _sparse_attn_index_rm(pos.unsqueeze(0), device))
+    if _CSS and _ATOM_SDPA and fused_bias and batch == 1 and block is None and gathered is None:
+        _css_plan(indices, attn_idx_dev, device)
     out = (p_dev, n_keys, attn_idx_dev, dense_bias, gathered, block)
     if mask_cache is not None:
         mask_cache["step"] = (key, p_host, indices, out)
@@ -2318,7 +2350,7 @@ class RFD3AtomBlock(Module):
             cache[(id(self), "pb")] = (key, p, pair_bias)
         return pair_bias
 
-    def _sdpa_bias(self, p, attn_idx_dev, cache):
+    def _sdpa_bias(self, p, attn_idx_dev, cache, css=None):
         """The atom-SDPA mask: the neighbour bias times sqrt(head_dim), bf16, [1, H, N, N].
 
         The kernel adds the mask before it applies `scale`, so the compact [1, H, L, 128] bias is
@@ -2332,7 +2364,8 @@ class RFD3AtomBlock(Module):
             if hit is not None and hit[0] == key and hit[1] is p:
                 return hit[2]
         pb = ttnn.multiply(self._sparse_pair_bias(p, cache), self.head_dim**0.5)
-        bias = rfd3_bias.sparse_mask_bf16(pb, attn_idx_dev)
+        bias = rfd3_bias.sparse_mask_bf16(pb, attn_idx_dev,
+                                          css=None if css is None else (css[1][0], css[2]))
         ttnn.deallocate(pb)
         if cache is not None:
             cache[(id(self), "sdpa")] = (key, p, bias)
@@ -2492,11 +2525,22 @@ class RFD3AtomBlock(Module):
         if (bs_out is None and _ATOM_SDPA and sparse_qk is not None and sparse_qk[2] is None
                 and rfd3_bias.fused_enabled() and dt == ttnn.bfloat16
                 and 2 * self.n_head * n_key * n_key <= _ATOM_SDPA_MAX_MASK_BYTES):
-            mask = self._sdpa_bias(p, sparse_qk[1], bias_cache)
-            o = fused_sdpa(pad_axis(qq, n_key, 2, 0.0), kk, vv, attn_mask=mask,
-                           scale=self.head_dim**-0.5,
-                           program_config=_sdpa_program_config(*_ATOM_SDPA_CHUNKS),
-                           compute_kernel_config=ckc)
+            css = _css_for(sparse_qk[1]) if batch == 1 else None
+            mask = self._sdpa_bias(p, sparse_qk[1], bias_cache, css)
+            if css is None:
+                o = fused_sdpa(pad_axis(qq, n_key, 2, 0.0), kk, vv, attn_mask=mask,
+                               scale=self.head_dim**-0.5,
+                               program_config=_sdpa_program_config(*_ATOM_SDPA_CHUNKS),
+                               compute_kernel_config=ckc)
+            else:
+                dev = qq.device()
+                g = dev.compute_with_storage_grid_size()
+                o = ttnn.allocate_tensor_on_device(ttnn.Shape([1, self.n_head, n_key, self.head_dim]), dt,
+                                                   ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG)
+                _SG.sdpa(dev, pad_axis(qq, n_key, 2, 0.0), kk, vv, mask, o, css[2], css[2], (g.x, g.y),
+                         (ckc.math_fidelity, ckc.math_approx_mode, ckc.fp32_dest_acc_en, False),
+                         self.head_dim**-0.5, css=css[1])
+                CSS_CALLS[0] += 1
             bs_out = ttnn.slice(o, [0, 0, 0, 0], [batch, self.n_head, length, self.head_dim])
             ATOM_SDPA_CALLS[0] += 1
         elif bs_out is not None:
