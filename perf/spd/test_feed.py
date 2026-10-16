@@ -440,6 +440,40 @@ def test_a_bh_waiter_leaves_a_card_to_a_waiting_runpy_gate_leg(tmp_path):
         leg.kill()
 
 
+def _sentinels(names):
+    # one session of processes named `names`; the names travel in env so the wrapper's own argv matches nothing
+    env = dict(os.environ, **{f"N{i}": n for i, n in enumerate(names)})
+    sh = " ".join(f'(exec -a "$N{i}" sleep 30) &' for i in range(len(names))) + " wait"
+    return subprocess.Popen(["bash", "-c", sh], env=env, start_new_session=True)
+
+
+def test_a_bh_waiter_backfills_a_card_held_by_a_take_sentinel_only_when_it_ends_before_until(tmp_path):
+    # 10-16 qb2: cfd3's four-chip take held chips 0 and 3 idle behind release_gate sentinels for up to 6,000 s while
+    # it waited for two feed jobs. A job that ends before the sentinel's until= takes the card; a longer one does not.
+    now = int(time.time())
+    leg = _sentinels([f"cfd3 spd_qb2_chip5.lock release_gate t until={now + 3600}",
+                      f"cfd3 spd_qb2_chip6.lock release_gate t until={now + 300}"])
+    try:
+        time.sleep(0.3)
+        sh = _place_bh(tmp_path, [6, 5], "echo card $CHIP\n", leg_sid=leg.pid, name="4-a.sh")
+        assert Path(f"{sh}.log").read_text() == "card 5\n"
+        assert 0 <= int(Path(f"{sh}.until").read_text()) - now - (5 + 300 + 600) < 30
+    finally:
+        os.killpg(leg.pid, 9)
+
+
+def test_a_take_sentinel_without_until_or_beside_a_real_leg_still_blocks(tmp_path):
+    now = int(time.time())
+    leg = _sentinels([f"cfd3 spd_qb2_chip5.lock release_gate t until={now + 3600}",
+                      "flock /h/spd_qb2_chip5.lock env TT_VISIBLE_DEVICES=5 release_gate x", "cfd3 spd_qb2_chip6.lock release_gate t"])
+    try:
+        time.sleep(0.3)
+        sh = _place_bh(tmp_path, [5, 6, 7], "echo card $CHIP\n", leg_sid=leg.pid, name="4-b.sh")
+        assert Path(f"{sh}.log").read_text() == "card 7\n"
+    finally:
+        os.killpg(leg.pid, 9)
+
+
 def test_a_bh_waiter_skips_a_dead_arc_card(tmp_path):
     sysfs(tmp_path, {"0000:01:00.0": (1, DEAD), "0000:02:00.0": (0, "1350")})
     sh = _place_bh(tmp_path, [0, 1], "echo card $CHIP\n")

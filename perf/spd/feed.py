@@ -68,6 +68,12 @@ BH_POOLS = {
 
 # pgrep pattern for a release-gate leg on card %s, running or waiting for its flock. A leg that runs a perf script through
 # runpy (bc2_boundary, parity_*) names the gate only in its RELEASE_GATE_RUN_DIR env, so the pattern keys on that too.
+# A multi-card take (cfd2/cfd3 window scripts) raises a `release_gate` sentinel per card and waits until every card is
+# free, so the cards that free first idle behind it (10-16 qb2: chips 0 and 3 for up to 6,000 s). A sentinel whose argv
+# carries `until=<epoch>` lets a waiter backfill its card with a job whose worst-case end (start + cap + 600 s of grace
+# and reset, written to <job>.until) comes before that epoch, so the take never starts later than its own bound. A take
+# sets until= to the newest .until among the box's feed jobs (those are what it waits for), capped at its own give-up
+# time: E=$(cat ~/spd/feed/jobs/*.until 2>/dev/null | sort -n | tail -1). A real gate leg (no until=) always blocks.
 GATE_LEG = "(spd_qb1_card|spd_qb2_chip|TT_VISIBLE_DEVICES=)%s[. ].*(RELEASE_GATE_RUN_DIR|release_gate|gate_fanout|perf_ab)"
 
 # Runs on the pool host: report state, existence of paths, and sweep dead entries. Payload is appended as JSON.
@@ -192,7 +198,9 @@ PROBE = f"GATE_LEG = {GATE_LEG!r}\n" + PROBE
 NODE = ('node() { for s in "${TT_SYSFS:-/sys/class/tenstorrent}"/*; do echo "$(basename "$(readlink -f "$s/device")") '
         '${s##*!}"; done | sort | sed -n "$(($1 + 1))s/.* //p"; }; '
         'dead() { local n=$(node $1); [ -n "$n" ] && cat "${TT_SYSFS:-/sys/class/tenstorrent}/tenstorrent!$n/tt_aiclk" '
-        '"${TT_SYSFS:-/sys/class/tenstorrent}/tenstorrent!$n/tt_heartbeat" 2>/dev/null | grep -qx 4294967295; }; ')
+        '"${TT_SYSFS:-/sys/class/tenstorrent}/tenstorrent!$n/tt_heartbeat" 2>/dev/null | grep -qx 4294967295; }; '
+        'gate() { local m e; m=$(pgrep -af "$G") || return 1; grep -qv "until=[0-9]" <<<"$m" && return 0; '
+        'e=$(grep -o "until=[0-9]*" <<<"$m" | cut -d= -f2 | sort -n | head -1); [ $(($(date +%s) + $1 + 600)) -gt "$e" ]; }; ')
 
 
 def run_cmd(grace=120):
@@ -229,7 +237,7 @@ for j in A["jobs"]:
         os.rename(t, q + "/" + j["name"])
     else:
         J = H + "/spd/feed/jobs"; sh = J + "/" + j["name"]
-        for x in (".end", ".start", ".pid", ".log", ".pg"):
+        for x in (".end", ".start", ".pid", ".log", ".pg", ".until"):
             if os.path.exists(sh + x): os.remove(sh + x)
         open(sh, "w").write(j["body"]); open(sh + ".card", "w").write("-1")
         # Take the box's dispatch flock in turn, then the first card that is not BAD or dead-ARC, runs no release-gate leg and no
@@ -238,10 +246,10 @@ for j in A["jobs"]:
         w = (NODE + 'exec 8>"$(dirname "$1")/.dispatch"; flock -w 86400 8 || { echo flockbusy > "$1.end"; exit 3; }; '
              'D=$((SECONDS + 86400)); while :; do for c in $2; do [ -e ~/spd/locks/chip$c.BAD ] && continue; dead $c && continue; '
              'G="' + GATE_LEG % "$c" + '"; '
-             'pgrep -f "$G" >/dev/null && continue; exec 9>"${3//@/$c}"; '
-             'flock -n 9 && ! pgrep -f "$G" >/dev/null && break 2; exec 9>&-; done; '
+             'gate "$5" && continue; exec 9>"${3//@/$c}"; '
+             'flock -n 9 && ! gate "$5" && break 2; exec 9>&-; done; '
              '[ $SECONDS -lt $D ] || { echo flockbusy > "$1.end"; exit 3; }; sleep "${POLL:-20}"; done; '
-             'exec 8>&-; echo $c > "$1.card"; touch "$1.start"; set -- "$1" $c "$3" "$(dirname "$1")/nolock.$c" "$5" "$6"; '
+             'exec 8>&-; echo $c > "$1.card"; touch "$1.start"; echo $(($(date +%s) + $5 + 600)) > "$1.until"; set -- "$1" $c "$3" "$(dirname "$1")/nolock.$c" "$5" "$6"; '
              'cd "$(dirname "$1")"; ' + RUN)
         p = subprocess.Popen(["setsid", "nohup", "bash", "-c", w, "_", sh, " ".join(map(str, j["cards"])),
                               j["lock"].replace("{c}", "@"), "", str(j["cap"] + 300), A.get("reset", "")],
