@@ -95,6 +95,19 @@ def test_two_fast_fails_quarantine_and_wake(tmp_path, monkeypatch):
     assert box.queue == []
 
 
+def test_a_dirty_cards_fast_fails_do_not_quarantine_the_cell(tmp_path, monkeypatch):
+    box = make_pool(tmp_path, monkeypatch, healthy=1)
+    box.exists |= {"~/o/1/A/b/bench.jsonl", "~/o/1/B/b/bench.jsonl", "~/o/2/B/b/bench.jsonl"}
+    run(tmp_path)
+    name = box.queue.pop()
+    for at in (100, 200, 300):
+        box.ended[name] = {"state": "ended", "dur": 15, "rc": "1 fastfail2 reset", "at": at, "tail": "failed to initialize FW"}
+        run(tmp_path)
+        assert box.queue == [name]                     # placed again every time
+        box.queue.clear()
+    assert not (tmp_path / "state/spd/QUARANTINE.md").exists() or "2_A" not in (tmp_path / "state/spd/QUARANTINE.md").read_text()
+
+
 def test_changed_grid_entry_releases_quarantine(tmp_path, monkeypatch):
     box = make_pool(tmp_path, monkeypatch, healthy=1)
     box.exists |= {"~/o/1/A/b/bench.jsonl", "~/o/1/B/b/bench.jsonl", "~/o/2/B/b/bench.jsonl"}
@@ -317,13 +330,13 @@ def sysfs(tmp_path, cards):
         (d / "tt_aiclk").write_text(clk + "\n"); (d / "tt_heartbeat").write_text(("4294967295" if clk == "4294967295" else "77") + "\n")
 
 
-def _run_capped(tmp_path, body, cap, reset=""):
-    sh = tmp_path / "4-x.sh"; sh.write_text(body)
+def _run_capped(tmp_path, body, cap, reset="", name="4-x.sh"):
+    sh = tmp_path / name; sh.write_text(body)
     sysfs(tmp_path, {"0000:42:00.0": (3, "1350")})
     subprocess.run(["bash", "-c", feed.NODE + feed.run_cmd(grace=2), "_", str(sh), "0", "", str(tmp_path / "nolock"),
                     str(cap), reset], cwd=tmp_path, timeout=60, check=True,
                    env=dict(os.environ, TT_SYSFS=str(tmp_path / "sys"), TT_DEV="/dev/tt"))
-    return (tmp_path / "4-x.sh.end").read_text().strip()
+    return (tmp_path / f"{name}.end").read_text().strip()
 
 
 def test_a_job_under_its_cap_ends_with_its_own_rc(tmp_path):
@@ -363,6 +376,21 @@ def test_a_capped_job_resets_its_card_and_a_clean_one_does_not(tmp_path):
     assert _run_capped(tmp_path, "(trap '' INT; exec sleep 300) & wait\n", 1, str(r)) == "124 INT+TERM reset"
     assert (tmp_path / "resets").read_text() == "/dev/tt/3\n"     # by node path, not logical id
     assert _run_capped(tmp_path, "sleep 30\n", 1, "false") == "124 INT reset-failed"
+
+
+def test_two_different_jobs_failing_fast_on_one_card_reset_it(tmp_path):
+    # 10-16 00:12Z qb1 card 0: six jobs of four rows failed init in 15 s each until the card was reset by hand
+    r = tmp_path / "reset.sh"; r.write_text('echo "$1" >> "$(dirname "$0")/resets"\n'); r.chmod(0o755)
+    assert _run_capped(tmp_path, "exit 1\n", 30, str(r), "4-a.sh") == "1"
+    assert _run_capped(tmp_path, "exit 1\n", 30, str(r), "4-a.sh") == "1"        # the same job again: the job's fault
+    assert _run_capped(tmp_path, "exit 1\n", 30, str(r), "4-b.sh") == "1 fastfail2 reset"
+    assert (tmp_path / "resets").read_text() == "/dev/tt/3\n"
+    assert _run_capped(tmp_path, "exit 1\n", 30, str(r), "4-c.sh") == "1"        # the reset cleared the streak
+    assert _run_capped(tmp_path, "exit 0\n", 30, str(r), "4-d.sh") == "0"        # a clean exit clears it too
+    assert _run_capped(tmp_path, "exit 1\n", 30, str(r), "4-e.sh") == "1"
+    assert _run_capped(tmp_path, "exit 127\n", 30, str(r), "4-f.sh") == "127"    # a missing command is not the card
+    assert _run_capped(tmp_path, "exit 1\n", 30, "", "4-g.sh") == "1"           # qb2: no reset command, no reset
+    assert (tmp_path / "resets").read_text() == "/dev/tt/3\n"
 
 
 def test_qb2_boards_are_never_reset_by_the_feed():

@@ -182,6 +182,10 @@ PROBE = f"GATE_LEG = {GATE_LEG!r}\n" + PROBE
 # then ends in "reset" or "reset-failed", or "noreset" if the group outlived SIGTERM too.
 # The reset names the card's /dev node (`node`, from NODE, which the caller defines first): a bare logical id needs
 # tt-smi to enumerate every card, which a dead ARC can hang. `dead` is true while the card's class node reads 0xFFFFFFFF.
+# A card can also come out dirty from something that was not capped (10-16 00:12Z qb1 card 0: six jobs of four rows failed
+# init in 15 s each, "failed to initialize FW! Try resetting the board", sysfs healthy). Two DIFFERENT jobs failing fast
+# back to back on one card is the card, not the cells: the second resets it and its .end says "fastfail2 reset", which
+# the ledger does not count against the cell. The first leaves its name in fastfail.<card>; a clean exit clears it.
 NODE = ('node() { for s in "${TT_SYSFS:-/sys/class/tenstorrent}"/*; do echo "$(basename "$(readlink -f "$s/device")") '
         '${s##*!}"; done | sort | sed -n "$(($1 + 1))s/.* //p"; }; '
         'dead() { local n=$(node $1); [ -n "$n" ] && cat "${TT_SYSFS:-/sys/class/tenstorrent}/tenstorrent!$n/tt_aiclk" '
@@ -191,13 +195,18 @@ NODE = ('node() { for s in "${TT_SYSFS:-/sys/class/tenstorrent}"/*; do echo "$(b
 def run_cmd(grace=120):
     return ('S=$(date +%s); CHIP=$2 TT_VISIBLE_DEVICES=$2 LOCK="$4" WAIT=60 timeout -s TERM $(($5 + G)) '
             'sh -c \'echo $$ > "$1.pg"; exec timeout -s INT "$2" bash "$1"\' _ "$1" "$5" > "$1.log" 2>&1; rc=$?; '
-            'if [ $rc = 124 ]; then g=$(cat "$1.pg" 2>/dev/null); s=INT; [ $(($(date +%s) - S)) -lt $(($5 + G)) ] || s=INT+TERM; '
+            'M="$(dirname "$1")/fastfail.$2"; if [ $rc = 0 ]; then rm -f "$M"; '
+            'elif [ -n "$6" ] && [ $rc != 124 ] && [ $rc != 127 ] && [ $(($(date +%s) - S)) -lt FAST ]; then '
+            'if [ -s "$M" ] && [ "$(cat "$M")" != "$1" ]; then rm -f "$M"; '
+            'if timeout 180 $6 "${TT_DEV:-/dev/tenstorrent}/$(node $2)" >> "$1.log" 2>&1; then rc="$rc fastfail2 reset"; '
+            'else rc="$rc fastfail2 reset-failed"; fi; else echo "$1" > "$M"; fi; fi; '
+            'if [ "$rc" = 124 ]; then g=$(cat "$1.pg" 2>/dev/null); s=INT; [ $(($(date +%s) - S)) -lt $(($5 + G)) ] || s=INT+TERM; '
             'for i in $(seq G); do kill -0 -- -$g 2>/dev/null || break; sleep 1; done; '
             '[ -n "$g" ] && kill -0 -- -$g 2>/dev/null && { kill -TERM -- -$g; s=INT+TERM; }; '
             'if [ -n "$6" ]; then for i in $(seq G); do kill -0 -- -$g 2>/dev/null || break; sleep 1; done; '
             'if kill -0 -- -$g 2>/dev/null; then s="$s noreset"; elif timeout 180 $6 "${TT_DEV:-/dev/tenstorrent}/$(node $2)" >> "$1.log" 2>&1; then s="$s reset"; '
             'else s="$s reset-failed"; fi; fi; rc="$rc $s"; fi; '
-            'echo "$rc" > "$1.end"').replace(" G)", f" {grace})").replace("seq G", f"seq {grace}")
+            'echo "$rc" > "$1.end"').replace(" G)", f" {grace})").replace("seq G", f"seq {grace}").replace("-lt FAST ]", f"-lt {FAST_S} ]")
 
 
 RUN = run_cmd()
@@ -552,8 +561,9 @@ def main(argv=None):
         elif j and j["state"] == "ended" and j["at"] not in [f["at"] for f in L["fails"]]:
             L["fails"].append({"at": j["at"], "dur": j["dur"], "rc": j["rc"], "host": L["host"], "tail": j["tail"][-1200:]})
             L["state"] = "failed"
-            fast = sum(1 for f in L["fails"] if f["dur"] < FAST_S)
-            if fast >= 2 or len(L["fails"]) >= MAX_FAILS:
+            own = [f for f in L["fails"] if "fastfail2" not in str(f["rc"])]    # a dirty card's failure is not the cell's
+            fast = sum(1 for f in own if f["dur"] < FAST_S)
+            if fast >= 2 or len(own) >= MAX_FAILS:
                 L["quarantined"] = True
                 log(f"QUARANTINE {c['key']} ({fast} fast of {len(L['fails'])} fails), last {L['name']} on {L['host']}")
                 if not a.dry_run:
