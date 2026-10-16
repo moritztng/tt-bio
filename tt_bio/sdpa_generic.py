@@ -305,21 +305,23 @@ def css_width(k_num_chunks):
     return _div_up(k_num_chunks + 1, 16) * 16
 
 
-def css_lists(chunk_lists, k_num_chunks):
-    """`[[key chunk ids] per q chunk]` -> (host int32 [1, 1, nq, W] list rows, counts).
+def css_lists(occ):
+    """Bool `[nq, nk]` chunk occupancy (q chunk i reads key chunk j) -> (host int32 [1, 1, nq, W] list
+    rows, counts).
 
-    W fits every chunk plus the count word, rounded to 16 words so a row is a 64-byte page (the DRAM
-    read alignment on Blackhole, twice Wormhole's), and depends only on the key axis, so one
-    compiled program serves every step. Every list must be non-empty: a q chunk with no keys would
-    leave its output rows unnormalised."""
+    A row is its count, then its key chunk ids ascending. W fits every chunk plus the count word,
+    rounded to 16 words so a row is a 64-byte page (the DRAM read alignment on Blackhole, twice
+    Wormhole's), and depends only on the key axis, so one compiled program serves every step. Every
+    row must be non-empty: a q chunk with no keys would leave its output rows unnormalised."""
     import torch
-    width = css_width(k_num_chunks)
-    rows = torch.zeros(len(chunk_lists), width, dtype=torch.int32)
-    for i, c in enumerate(chunk_lists):
-        assert 0 < len(c) and all(0 <= x < k_num_chunks for x in c), (i, c)
-        rows[i, 0] = len(c)
-        rows[i, 1:1 + len(c)] = torch.as_tensor(c, dtype=torch.int32)
-    return rows.reshape(1, 1, len(chunk_lists), width), tuple(len(c) for c in chunk_lists)
+    nq, nk = occ.shape
+    counts = occ.sum(1, dtype=torch.int32)
+    assert bool((counts > 0).all()), "css: a q chunk with no key chunk"
+    ids = torch.where(occ, torch.arange(nk, dtype=torch.int32), nk).sort(1).values
+    rows = torch.zeros(nq, css_width(nk), dtype=torch.int32)
+    rows[:, 0] = counts
+    rows[:, 1:1 + nk] = torch.where(ids < nk, ids, 0)
+    return rows.reshape(1, 1, nq, -1), tuple(counts.tolist())
 
 
 _QKV_ROW_SKIPS = (

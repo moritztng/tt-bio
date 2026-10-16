@@ -139,7 +139,10 @@ for c in CHUNKS:
     lists = chunk_lists(c)
 
     def css_up():
-        rows, counts = SG.css_lists(chunk_lists(c), N // c)
+        occ = torch.zeros(N // c, N // c, dtype=torch.bool)
+        for i, ks in enumerate(chunk_lists(c)):
+            occ[i, ks] = True
+        rows, counts = SG.css_lists(occ)
         return ttnn.from_torch(rows, dtype=ttnn.uint32, layout=ttnn.ROW_MAJOR_LAYOUT, device=dev), counts
 
     css = css_up()

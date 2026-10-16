@@ -2021,7 +2021,7 @@ def _css_plan(indices, attn_idx_dev, device):
     occ = torch.zeros(nq, nq, dtype=torch.bool)
     ki = indices[0].long() // c
     occ[(torch.arange(L) // c).unsqueeze(1).expand_as(ki), ki] = True
-    rows, counts = _SG.css_lists([torch.nonzero(r).flatten().tolist() for r in occ], nq)
+    rows, counts = _SG.css_lists(occ)
     lists = ttnn.from_torch(rows, dtype=ttnn.uint32, layout=ttnn.ROW_MAJOR_LAYOUT, device=device)
     _CSS_STEP["step"] = (attn_idx_dev, (lists, counts), c)
 
