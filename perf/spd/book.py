@@ -49,7 +49,7 @@ def write(rows):
     t = F + ".tmp"
     with open(t, "w") as f:
         for s, e, o, cs, n in sorted(rows):
-            f.write("%d\t%d\t%s\t%s\t%s\n" % (s, e, o, ",".join(map(str, sorted(cs))), n))
+            f.write("\t".join(["%d" % s, "%d" % e, o, ",".join(map(str, sorted(cs)))] + ([n] if n else [])) + "\n")
     os.replace(t, F)
 
 
