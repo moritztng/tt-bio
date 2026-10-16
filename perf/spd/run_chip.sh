@@ -6,6 +6,8 @@
 # ~/japanfold/env.sh and uses a private lease dir, so it never waits on (or is taken by) the agent's leases.
 # Stop: SIGINT, then SIGTERM. The flock is ~/spd/locks/chip<CHIP>.lock (state/spd/CHIPS.md); LOCK=path overrides it
 # (the BH boxes name theirs), WAIT=seconds how long to queue on it (default 600), PY=interpreter (default python).
+# Exit status: 0 only when every arm exited 0, else the first failing arm's rc, so `run_chip.sh ... && touch DONE`
+# never marks a run whose arms died (a dirty card fails every arm's device init in seconds).
 set -u
 CHIP=$1 OUT=$2 ARMS=$3 INPUTS=$4 TMO=$5; shift 5
 ROW=${TT_BIO_LEASE_HOLDER:-spd-bench}
@@ -17,12 +19,14 @@ say() { echo "$(date -u +%FT%TZ) $*" >> "$OUT/run.log"; }
 exec 9> "${LOCK:-$HOME/spd/locks/chip$CHIP.lock}"
 say "chip $CHIP waiting for flock"
 flock -w "${WAIT:-600}" 9 || { say "flock busy, stopping"; exit 3; }
+fail=0
 say "start chip $CHIP head $(git rev-parse --short HEAD) arms [$ARMS] inputs $INPUTS"
 for arm in $ARMS; do
   name=${arm%%:*}
   timeout -s TERM $((TMO + 120)) timeout -s INT "$TMO" \
     "${PY:-python}" perf/spd/bench.py --out "$OUT/$name" --chip "$CHIP" --arm "$arm" --inputs "$INPUTS" "$@" \
     > "$OUT/$name.log" 2>&1
-  say "arm $arm rc=$?"
+  rc=$?; say "arm $arm rc=$rc"; [ $fail = 0 ] && fail=$rc
 done
-say "end"
+say "end rc=$fail"
+exit $fail

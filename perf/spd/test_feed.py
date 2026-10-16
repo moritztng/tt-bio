@@ -1,5 +1,6 @@
 """perf/spd/feed.py without a box: fake pools, check fill order, done-skip, twin-skip and the fast-fail quarantine."""
 import json
+import shutil
 import os
 import subprocess
 import sys
@@ -92,6 +93,32 @@ def test_two_fast_fails_quarantine_and_wake(tmp_path, monkeypatch):
     assert not (nb / "spd-x").exists()                 # row woken
     run(tmp_path)
     assert box.queue == []
+
+
+def test_a_dirty_cards_fast_fails_do_not_quarantine_the_cell(tmp_path, monkeypatch):
+    box = make_pool(tmp_path, monkeypatch, healthy=1)
+    box.exists |= {"~/o/1/A/b/bench.jsonl", "~/o/1/B/b/bench.jsonl", "~/o/2/B/b/bench.jsonl"}
+    run(tmp_path)
+    name = box.queue.pop()
+    for at in (100, 200, 300):
+        box.ended[name] = {"state": "ended", "dur": 15, "rc": "1 fastfail2 reset", "at": at, "tail": "failed to initialize FW"}
+        run(tmp_path)
+        assert box.queue == [name]                     # placed again every time
+        box.queue.clear()
+    assert not (tmp_path / "state/spd/QUARANTINE.md").exists() or "2_A" not in (tmp_path / "state/spd/QUARANTINE.md").read_text()
+
+
+def test_a_waiter_that_never_took_a_card_does_not_quarantine_the_cell(tmp_path, monkeypatch):
+    # 10-16 05:24Z qb1: waiters that died "flockbusy" before taking a card quarantined two cells that had not run
+    box = make_pool(tmp_path, monkeypatch, healthy=1)
+    box.exists |= {"~/o/1/A/b/bench.jsonl", "~/o/1/B/b/bench.jsonl", "~/o/2/B/b/bench.jsonl"}
+    run(tmp_path)
+    name = box.queue.pop()
+    for at in (100, 200, 300):
+        box.ended[name] = {"state": "ended", "dur": 20, "rc": "flockbusy", "at": at, "tail": ""}
+        run(tmp_path)
+        assert box.queue == [name]
+        box.queue.clear()
 
 
 def test_changed_grid_entry_releases_quarantine(tmp_path, monkeypatch):
@@ -211,22 +238,24 @@ def test_a_long_waiting_bh_job_moves_to_a_free_card_on_the_other_box(tmp_path, m
     assert [c[0] for c in calls if c[1] is feed.WITHDRAW] == ["qb1"]
     placed = [c[2]["jobs"] for c in calls if c[1] is feed.PLACE and c[2]["jobs"]]
     assert placed == [[{"name": name, "body": feed.cells(tmp_path / "state/spd/grids")[0]["body"], "cap": 7200,
-                        "cards": [3], "lock": "/l2_{c}"}]]
+                        "cards": [3], "lock": "/l2_{c}", "outs": ["~/o/A"]}]]
     assert json.loads((tmp_path / "state/spd/feed/ledger.json").read_text())[key]["host"] == "qb2"
 
 
-def _place_bh(tmp_path, cards, body, cap=5, poll="0.2"):
+def _place_bh(tmp_path, cards, body, cap=5, poll="0.2", leg_sid=None, reset="", name="4-x.sh"):
     (tmp_path / "spd/feed/jobs").mkdir(parents=True, exist_ok=True)
-    # no release-gate leg: the test host's own legs (pc runs some) would otherwise hold a card in the waiter's pgrep
-    (tmp_path / "bin").mkdir(exist_ok=True); (tmp_path / "bin/pgrep").write_text("#!/bin/sh\nexit 1\n")
+    # no release-gate leg but the test's own (session leg_sid): the test host's legs (pc runs some) would otherwise
+    # hold a card in the waiter's pgrep
+    stub = f"exec {shutil.which('pgrep')} -s {leg_sid} \"$@\"" if leg_sid else "exit 1"
+    (tmp_path / "bin").mkdir(exist_ok=True); (tmp_path / "bin/pgrep").write_text(f"#!/bin/sh\n{stub}\n")
     (tmp_path / "bin/pgrep").chmod(0o755)
-    job = {"name": "4-x.sh", "body": body, "cards": cards, "lock": str(tmp_path / "l{c}"), "cap": cap}
-    r = subprocess.run([sys.executable, "-c", feed.PLACE], input=json.dumps({"kind": "bh", "jobs": [job]}) + "\n",
+    job = {"name": name, "body": body, "cards": cards, "lock": str(tmp_path / "l{c}"), "cap": cap}
+    r = subprocess.run([sys.executable, "-c", feed.PLACE], input=json.dumps({"kind": "bh", "jobs": [job], "reset": reset}) + "\n",
                        capture_output=True, text=True, check=True,
                        env={"HOME": str(tmp_path), "PATH": f"{tmp_path}/bin:" + os.environ["PATH"], "POLL": poll,
-                            "TT_SYSFS": str(tmp_path / "sys")})
+                            "TT_SYSFS": str(tmp_path / "sys"), "TT_DEV": "/dev/tt"})
     assert r.stdout.strip() == "1"
-    sh = tmp_path / "spd/feed/jobs/4-x.sh"
+    sh = tmp_path / "spd/feed/jobs" / name
     for _ in range(100):
         if Path(f"{sh}.end").exists():
             break
@@ -314,13 +343,13 @@ def sysfs(tmp_path, cards):
         (d / "tt_aiclk").write_text(clk + "\n"); (d / "tt_heartbeat").write_text(("4294967295" if clk == "4294967295" else "77") + "\n")
 
 
-def _run_capped(tmp_path, body, cap, reset=""):
-    sh = tmp_path / "4-x.sh"; sh.write_text(body)
+def _run_capped(tmp_path, body, cap, reset="", name="4-x.sh", init=True):
+    sh = tmp_path / name; sh.write_text(("echo 'TT_THROW: failed to initialize FW! Try resetting the board'\n" if init else "") + body)
     sysfs(tmp_path, {"0000:42:00.0": (3, "1350")})
     subprocess.run(["bash", "-c", feed.NODE + feed.run_cmd(grace=2), "_", str(sh), "0", "", str(tmp_path / "nolock"),
                     str(cap), reset], cwd=tmp_path, timeout=60, check=True,
-                   env=dict(os.environ, TT_SYSFS=str(tmp_path / "sys"), TT_DEV="/dev/tt"))
-    return (tmp_path / "4-x.sh.end").read_text().strip()
+                   env=dict(os.environ, TT_SYSFS=str(tmp_path / "sys"), TT_DEV="/dev/tt", SPD_LOCKS=str(tmp_path / "locks")))
+    return (tmp_path / f"{name}.end").read_text().strip()
 
 
 def test_a_job_under_its_cap_ends_with_its_own_rc(tmp_path):
@@ -362,6 +391,53 @@ def test_a_capped_job_resets_its_card_and_a_clean_one_does_not(tmp_path):
     assert _run_capped(tmp_path, "sleep 30\n", 1, "false") == "124 INT reset-failed"
 
 
+def test_two_different_jobs_failing_fast_on_one_card_reset_it(tmp_path):
+    # 10-16 00:12Z qb1 card 0: six jobs of four rows failed init in 15 s each until the card was reset by hand
+    r = tmp_path / "reset.sh"; r.write_text('echo "$1" >> "$(dirname "$0")/resets"\n'); r.chmod(0o755)
+    assert _run_capped(tmp_path, "exit 1\n", 30, str(r), "4-p.sh", init=False) == "1"
+    assert _run_capped(tmp_path, "exit 1\n", 30, str(r), "4-q.sh", init=False) == "1"   # two broken cells: not the card
+    assert _run_capped(tmp_path, "exit 0\n", 30, str(r), "4-r.sh") == "0"
+    assert _run_capped(tmp_path, "exit 1\n", 30, str(r), "4-a.sh") == "1"
+    assert _run_capped(tmp_path, "exit 1\n", 30, str(r), "4-a.sh") == "1"        # the same job again: the job's fault
+    assert _run_capped(tmp_path, "exit 1\n", 30, str(r), "4-b.sh") == "1 fastfail2 reset"
+    assert (tmp_path / "resets").read_text() == "/dev/tt/3\n"
+    assert _run_capped(tmp_path, "exit 1\n", 30, str(r), "4-c.sh") == "1"        # the reset cleared the streak
+    assert _run_capped(tmp_path, "exit 0\n", 30, str(r), "4-d.sh") == "0"        # a clean exit clears it too
+    assert _run_capped(tmp_path, "exit 1\n", 30, str(r), "4-e.sh") == "1"
+    assert _run_capped(tmp_path, "exit 127\n", 30, str(r), "4-f.sh") == "127"    # a missing command is not the card
+    assert _run_capped(tmp_path, "exit 1\n", 30, "", "4-g.sh") == "1 fastfail2 bad"  # qb2: no reset, chip off the feed
+    assert "device init" in (tmp_path / "locks/chip0.BAD").read_text()           # qb2: off the feed instead
+    assert (tmp_path / "resets").read_text() == "/dev/tt/3\n"
+
+
+def test_an_init_failure_written_to_the_cells_own_log_counts(tmp_path):
+    # 10-16 qb2 board (0,1): every cell sent the model's output to $O/log, so 12 init failures in 7 min left the chips on
+    # the feed and quarantined four cells for the board's fault
+    o = tmp_path / "out"; o.mkdir()
+    (o / "log").write_text("TT_THROW: Device 0: Timed out while waiting for active ethernet core (x=29,y=25)\n")
+    (tmp_path / "stale").mkdir(); (tmp_path / "stale/log").write_text("failed to initialize FW\n")
+    def run(name, d, body):
+        (tmp_path / f"{name}.outs").write_text(f"{d}\n"); time.sleep(0.02); (tmp_path / f"{name}.start").touch()
+        return _run_capped(tmp_path, body, 30, "", name, init=False)
+    fail = f"echo 'TT_THROW: Device 0: Timed out while waiting for active ethernet core' > {o}/log; exit 1\n"
+    assert run("4-s.sh", tmp_path / "stale", "exit 1\n") == "1"     # a log from before the job started is not its own
+    assert run("4-t.sh", tmp_path / "stale", "exit 1\n") == "1"
+    assert not (tmp_path / "locks/chip0.BAD").exists()
+    assert run("4-a.sh", o, fail) == "1"
+    assert run("4-b.sh", o, fail) == "1 fastfail2 bad"
+
+
+def test_a_placed_qb1_job_carries_the_reset_command(tmp_path):
+    # 10-16: the waiter's `set --` dropped the reset argument, so no capped or fastfail2 reset ever ran on qb1
+    # (six "124 INT+TERM" ends, none followed by a reset); the run_cmd tests passed it directly and stayed green
+    sysfs(tmp_path, {"0000:42:00.0": (3, "1350")})
+    r = tmp_path / "reset.sh"; r.write_text('echo "$1" >> "$(dirname "$0")/resets"\n'); r.chmod(0o755)
+    fail = "echo 'failed to initialize FW! Try resetting the board'; exit 1\n"
+    assert Path(f"{_place_bh(tmp_path, [0], fail, reset=str(r), name='4-a.sh')}.end").read_text().strip() == "1"
+    assert Path(f"{_place_bh(tmp_path, [0], fail, reset=str(r), name='4-b.sh')}.end").read_text().strip() == "1 fastfail2 reset"
+    assert (tmp_path / "resets").read_text() == "/dev/tt/3\n"
+
+
 def test_qb2_boards_are_never_reset_by_the_feed():
     # a p300c board carries two chips: resetting one kills the other chip's job
     assert feed.BH_POOLS["qb1"]["reset"] and not feed.BH_POOLS["qb2"].get("reset")
@@ -379,6 +455,96 @@ def test_probe_drops_a_dead_arc_card_and_names_its_node(tmp_path):
                        env=dict(os.environ, HOME=str(tmp_path), TT_SYSFS=str(tmp_path / "sys")))
     out = json.loads(r.stdout)
     assert out["dead"] == {"2": 3} and out["cards"] == [0, 1, 3] and out["healthy"] == 3
+
+
+def test_a_bh_waiter_leaves_a_card_to_a_waiting_runpy_gate_leg(tmp_path):
+    # 10-16 qb2: rel-fix legs bc2_boundary / parity_af2ig-trunk-device waited on chips 1 and 3 with only
+    # RELEASE_GATE_RUN_DIR naming the gate, the guard missed them and a feed waiter could take the chip first
+    leg = subprocess.Popen(["bash", "-c", 'exec -a "flock /h/spd_qb2_chip5.lock env TT_VISIBLE_DEVICES=5 '
+                            'RELEASE_GATE_RUN_DIR=/o/run python3 -c runpy" sleep 30'], start_new_session=True)
+    try:
+        time.sleep(0.2)
+        sh = _place_bh(tmp_path, [5, 6], "echo card $CHIP\n", leg_sid=leg.pid)
+        assert Path(f"{sh}.log").read_text() == "card 6\n"
+    finally:
+        leg.kill()
+
+
+def _sentinels(names):
+    # one session of processes named `names`; the names travel in env so the wrapper's own argv matches nothing
+    env = dict(os.environ, **{f"N{i}": n for i, n in enumerate(names)})
+    sh = " ".join(f'(exec -a "$N{i}" sleep 30) &' for i in range(len(names))) + " wait"
+    return subprocess.Popen(["bash", "-c", sh], env=env, start_new_session=True)
+
+
+def test_a_bh_waiter_backfills_a_card_held_by_a_take_sentinel_only_when_it_ends_before_until(tmp_path):
+    # 10-16 qb2: cfd3's four-chip take held chips 0 and 3 idle behind release_gate sentinels for up to 6,000 s while
+    # it waited for two feed jobs. A job that ends before the sentinel's until= takes the card; a longer one does not.
+    now = int(time.time())
+    leg = _sentinels([f"cfd3 spd_qb2_chip5.lock release_gate t until={now + 3600}",
+                      f"cfd3 spd_qb2_chip6.lock release_gate t until={now + 300}"])
+    try:
+        time.sleep(0.3)
+        sh = _place_bh(tmp_path, [6, 5], "echo card $CHIP\n", leg_sid=leg.pid, name="4-a.sh")
+        assert Path(f"{sh}.log").read_text() == "card 5\n"
+        assert 0 <= int(Path(f"{sh}.until").read_text()) - now - (5 + 300 + 600) < 30
+    finally:
+        os.killpg(leg.pid, 9)
+
+
+def test_a_take_sentinel_without_until_or_beside_a_real_leg_still_blocks(tmp_path):
+    now = int(time.time())
+    leg = _sentinels([f"cfd3 spd_qb2_chip5.lock release_gate t until={now + 3600}",
+                      "flock /h/spd_qb2_chip5.lock env TT_VISIBLE_DEVICES=5 release_gate x", "cfd3 spd_qb2_chip6.lock release_gate t"])
+    try:
+        time.sleep(0.3)
+        sh = _place_bh(tmp_path, [5, 6, 7], "echo card $CHIP\n", leg_sid=leg.pid, name="4-b.sh")
+        assert Path(f"{sh}.log").read_text() == "card 7\n"
+    finally:
+        os.killpg(leg.pid, 9)
+
+
+def _running(tmp_path, name, card, until):
+    j = tmp_path / "spd/feed/jobs"; j.mkdir(parents=True, exist_ok=True)
+    (j / name).write_text(""); (j / f"{name}.card").write_text(f"{card}\n"); (j / f"{name}.start").touch()
+    (j / f"{name}.until").write_text(f"{until}\n")
+
+
+def test_a_bh_waiter_backfills_a_take_sentinel_card_when_it_ends_before_the_takes_other_jobs(tmp_path):
+    # 10-16 qb2: cfd3's k2 take (plain sentinels, no until=) held chips 0, 2 and 3 idle behind one bc2 grade on chip 1.
+    # The take cannot start before that job ends, so a job that ends first takes a sentinel's card; a longer one does
+    # not, and neither does a job behind a one-card sentinel, whose taker waits on that card alone.
+    now = int(time.time())
+    _running(tmp_path, "4-g.sh", 6, now + 3600); _running(tmp_path, "4-h.sh", 9, now + 99999)
+    leg = _sentinels(["cfd3 spd_qb2_chip5.lock release_gate t 86400", "cfd3 spd_qb2_chip6.lock release_gate t 86400",
+                      "gapboard spd_qb1_card7.lock perf_ab x 86400", "other spd_qb2_chip9.lock release_gate u 86400"])
+    try:
+        time.sleep(0.3)
+        sh = _place_bh(tmp_path, [7, 5, 8], "echo card $CHIP\n", leg_sid=leg.pid, name="4-a.sh")
+        assert Path(f"{sh}.log").read_text() == "card 5\n"
+        sh = _place_bh(tmp_path, [5, 8], "echo card $CHIP\n", cap=3000, leg_sid=leg.pid, name="4-b.sh")
+        assert Path(f"{sh}.log").read_text() == "card 8\n"
+    finally:
+        os.killpg(leg.pid, 9)
+
+
+def test_a_waiter_too_long_for_a_take_window_lets_a_shorter_one_through(tmp_path):
+    # the waiter holding the dispatch flock is too long for chip 5's window: it hands the flock on each poll
+    now = int(time.time())
+    _running(tmp_path, "4-g.sh", 6, now + 3600)
+    leg = _sentinels(["cfd3 spd_qb2_chip5.lock release_gate t 86400", "cfd3 spd_qb2_chip6.lock release_gate t 86400"])
+    try:
+        time.sleep(0.3)
+        long = _place_bh(tmp_path, [5], "echo card $CHIP\n", cap=5000, leg_sid=leg.pid, name="4-l.sh")
+        assert not Path(f"{long}.start").exists()
+        sh = _place_bh(tmp_path, [5], "echo card $CHIP\n", leg_sid=leg.pid, name="4-s.sh")
+        assert Path(f"{sh}.log").read_text() == "card 5\n"
+        # and it keeps waiting: 10-16 05:24Z qb1 eight such waiters closed the flock's fd and died "flockbusy" one poll later
+        time.sleep(1)
+        assert not Path(f"{long}.end").exists() and not Path(f"{long}.start").exists()
+    finally:
+        os.killpg(leg.pid, 9)
+        subprocess.run(["pkill", "-s", Path(f"{long}.pid").read_text()])   # the long waiter may already have run once the sentinels died
 
 
 def test_a_bh_waiter_skips_a_dead_arc_card(tmp_path):
@@ -429,3 +595,64 @@ def test_a_dead_arc_reset_waits_for_the_flock_and_verifies_sysfs(tmp_path):
     fix.write_text("true\n"); (tmp_path / "sys/tenstorrent!3/tt_aiclk").write_text(DEAD + "\n")
     subprocess.run(["bash", "-c", feed.ARC_SH, "_", str(b), str(tmp_path / "l2"), "3", str(fix)], env=env, check=True, timeout=60)
     assert Path(f"{b}.result").read_text().strip() == "still-dead"
+    end = [l for l in Path(f"{b}.log").read_text().splitlines() if " end " in l]
+    assert [l.split(" ", 1)[1] for l in end] == ["end rc=0 aiclk=1350 hb=9 result=ok",
+                                                 f"end rc=0 aiclk={DEAD} hb=9 result=still-dead"]
+
+
+def test_a_dead_arc_reset_killed_mid_reset_still_logs_its_end(tmp_path):
+    sysfs(tmp_path, {"0000:42:00.0": (3, DEAD)})
+    fix = tmp_path / "fix.sh"; fix.write_text("sleep 2\n"); fix.chmod(0o755)
+    (tmp_path / "dev").mkdir(); (tmp_path / "dev/3").touch()
+    env = dict(os.environ, TT_SYSFS=str(tmp_path / "sys"), TT_DEV=str(tmp_path / "dev"), ARC_SETTLE="0", ARC_WAIT="1")
+    b = tmp_path / "card2.1"
+    p = subprocess.Popen(["bash", "-c", feed.ARC_SH, "_", str(b), str(tmp_path / "l2"), "3", str(fix)], env=env)
+    for _ in range(100):
+        if " before " in (Path(f"{b}.log").read_text() if Path(f"{b}.log").exists() else ""): break
+        time.sleep(0.1)
+    p.terminate(); p.wait(timeout=60)
+    assert Path(f"{b}.result").read_text().strip() == "died"
+    assert Path(f"{b}.log").read_text().splitlines()[-1].split(" ", 1)[1] == f"end rc=none aiclk={DEAD} hb={DEAD} result=died"
+
+
+SHORT = """
+row: spd-x
+tier: red
+experiments:
+  - name: s
+    arch: wh
+    prio: 4
+    axes: {seed: [1, 2, 3, 4, 5, 6]}
+    vars: {out: "~/o/{seed}"}
+    done: ["{out}/r.json"]
+    command: |
+      run.sh {out}
+"""
+
+
+def finish(box, dur):
+    for n in box.queue:
+        box.exists.add(f"~/o/{n.split('-')[5]}/r.json")
+        box.ended[n] = {"state": "ended", "dur": dur, "rc": "0", "at": 1, "tail": ""}
+    box.queue = []
+
+
+def test_cells_that_run_shorter_than_a_pass_queue_deeper(tmp_path, monkeypatch):
+    box = make_pool(tmp_path, monkeypatch, healthy=1)
+    (tmp_path / "state/spd/grids/spd-x.yaml").write_text(SHORT)
+    run(tmp_path)
+    assert len(box.queue) == 2                         # no run time known yet: depth 2 x 1 chip
+    finish(box, 60)
+    run(tmp_path)
+    assert len(box.queue) == 4                         # one-minute cells weigh 0.1: the rest of the grid fits
+    ledger = json.loads((tmp_path / "state/spd/feed/ledger.json").read_text())
+    assert ledger["spd-x/s/1"]["dur"] == 60
+
+
+def test_cells_that_run_a_full_pass_keep_the_plain_depth(tmp_path, monkeypatch):
+    box = make_pool(tmp_path, monkeypatch, healthy=1)
+    (tmp_path / "state/spd/grids/spd-x.yaml").write_text(SHORT)
+    run(tmp_path)
+    finish(box, 900)
+    run(tmp_path)
+    assert len(box.queue) == 2

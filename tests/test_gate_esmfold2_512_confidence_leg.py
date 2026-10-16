@@ -70,3 +70,39 @@ def test_the_leg_is_registered_against_its_committed_fixture():
     assert meta["envelope"]["settings"]["target_id"] == "cdk2x2_512"
     for s in (0, 1):
         assert (FIXTURE / "ref_fp32" / f"seed{s}.npz").exists(), f"seed{s} reference not committed"
+
+
+def _checkpoint_identity():
+    src = REPO / "scripts" / "esmfold2_e2e_parity.py"
+    body = [n for n in ast.parse(src.read_text()).body
+            if isinstance(n, ast.FunctionDef) and n.name == "checkpoint_identity"]
+    ns = {"os": __import__("os")}
+    exec(compile(ast.Module(body=body, type_ignores=[]), str(src), "exec"), ns)
+    return ns["checkpoint_identity"]
+
+
+def test_checkpoint_sha_is_read_at_the_pinned_revision(monkeypatch, tmp_path):
+    """qb2's cache had refs/main on a snapshot without weights: a lookup at main read no sha
+    there and a real one on qb1, so the fixture recorded on qb2 failed the gate on qb1."""
+    import sys
+    import types
+    blob = tmp_path / "60ca19f2"
+    blob.write_bytes(b"")
+    seen = {}
+
+    def lookup(repo, filename, revision=None):
+        seen["revision"] = revision
+        return str(blob) if revision == "c6c7958d" else None
+
+    monkeypatch.setitem(sys.modules, "huggingface_hub",
+                        types.SimpleNamespace(try_to_load_from_cache=lookup))
+    config = types.SimpleNamespace(folding_trunk=types.SimpleNamespace(n_layers=24),
+                                   msa_encoder=types.SimpleNamespace(enabled=False))
+    ident = _checkpoint_identity()("biohub/ESMFold2-Fast", config, "c6c7958d")
+    assert seen["revision"] == "c6c7958d"
+    assert ident["sha256"] == "60ca19f2"
+
+
+def test_fixture_records_the_weight_sha():
+    meta = json.loads((FIXTURE / "meta.json").read_text())
+    assert "sha256:None" not in meta["settings"]["checkpoint"]

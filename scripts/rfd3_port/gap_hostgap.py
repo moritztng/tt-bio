@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """RFD3 drained-device gaps: where the card sits idle because the host is working after a blocking read.
 
-    gap_hostgap.py ARM OUT.json [STEPS] [--fixture=perf/dsfix/fixtures/rfd3_R4.json]
+    gap_hostgap.py ARM OUT.json [STEPS] [--fixture=perf/dsfix/fixtures/rfd3_R4.json] [--fast=1]
 
 ARM is gap_screen.py's '+'-joined knob set (absolute: every knob not named is off). One warm design, then one timed
 design of STEPS steps. Every ttnn.to_torch drains the queue, so from its return until the next ttnn op is enqueued
@@ -21,7 +21,8 @@ import traceback
 
 ENV_KNOBS = {"gsm": "RFD3_GATHERED_SOFTMAX", "bs": "RFD3_BLOCK_SPARSE", "pzc": "RFD3_PROCESS_Z_COLLAPSE",
              "fgrid": "RFD3_FAST_GRID", "asdpa": "RFD3_ATOM_SDPA", "tb8": "RFD3_TRANSITION_B8",
-             "dsdpa": "RFD3_DIT_SDPA", "hifi2": "RFD3_HIFI2", "sf": "RFD3_SIGMOID_FOLD", "rs": "RFD3_RESIDENT_STEP"}
+             "dsdpa": "RFD3_DIT_SDPA", "hifi2": "RFD3_HIFI2", "sf": "RFD3_SIGMOID_FOLD", "rs": "RFD3_RESIDENT_STEP",
+             "pws": "RFD3_PAIR_WS", "kd": "RFD3_ATTN_KDTREE", "pwb8": "RFD3_PAIR_WS_B8", "at": "RFD3_ATTN_THREAD"}
 _arm = set(sys.argv[1].split("+"))
 for _k, _env in ENV_KNOBS.items():
     os.environ[_env] = "1" if _k in _arm else "0"
@@ -39,6 +40,7 @@ opts = dict(a[2:].split("=", 1) for a in sys.argv[1:] if a.startswith("--") and 
 ARM, OUT = args[0], pathlib.Path(args[1])
 STEPS = int(args[2]) if len(args) > 2 else 60
 FIXTURE = opts.get("fixture", "perf/dsfix/fixtures/rfd3_R4.json")
+FAST = opts.get("fast", "0") == "1"
 
 ST = {"on": False, "open": None, "depth": 0}
 GAPS = collections.defaultdict(lambda: [0.0, 0])     # (read site, next op site) -> [s, n]
@@ -111,7 +113,8 @@ def timed(owner, name):
     setattr(owner, name, w)
 
 
-for _n in ("_create_attention_indices", "_scaled_distogram_bins", "_scatter_mean", "_dense_attention_mask"):
+for _n in ("_create_attention_indices", "_neighbours_kdtree", "_scaled_distogram_bins", "_scatter_mean",
+           "_dense_attention_mask"):
     if hasattr(M, _n):
         timed(M, _n)
 
@@ -135,7 +138,7 @@ def fold(tag):
     shutil.rmtree(out_dir, ignore_errors=True)
     WALL.clear()
     rfd3_design.run_design(specs, out_dir, checkpoint_dir=str(WEIGHTS), from_pdb=True,
-                           num_timesteps=STEPS, seed=42, num_designs=1, batch_size=1, verbose=False)
+                           num_timesteps=STEPS, seed=42, num_designs=1, batch_size=1, fast=FAST, verbose=False)
     return WALL[0]
 
 
@@ -154,7 +157,7 @@ for k, (s, c) in sorted(HOST.items(), key=lambda kv: -kv[1][0]):
     print("  host %-28s %7.2f ms/step %5.1f calls/step" % (k, ms(s), c / n))
 for k, (s, c) in sorted(READS.items(), key=lambda kv: -kv[1][0]):
     print("  read %-34s %7.2f ms/step blocked %5.1f/step" % (k, ms(s), c / n))
-rec = {"arm": ARM, "fixture": FIXTURE, "steps": STEPS, "warm_s": warm_s, "wall_s": wall_s,
+rec = {"arm": ARM, "fast": FAST, "fixture": FIXTURE, "steps": STEPS, "warm_s": warm_s, "wall_s": wall_s,
        "wall_ms_per_step": ms(wall_s), "drained_idle_ms_per_step": ms(idle),
        "gaps": [{"read": r, "next": nx, "ms_per_step": ms(s), "per_step": c / n} for (r, nx), (s, c) in gaps],
        "host_calls": {k: {"ms_per_step": ms(s), "per_step": c / n} for k, (s, c) in HOST.items()},

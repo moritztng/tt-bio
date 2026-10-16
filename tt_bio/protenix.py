@@ -2946,6 +2946,8 @@ class Protenix:
         fold(feats_list[b], seed=seed) would have drawn alone.
         """
         B = len(feats_list)
+        if B > 1:
+            _T.program_cache_for(tuple(_T.input_shapes(f) for f in feats_list), self.dev)
         if B == 1:
             out = self.fold(feats_list[0], n_step=n_step, n_sample=1, seed=seed,
                             progress_fn=progress_fn, return_confidence=return_confidence,
@@ -3114,6 +3116,7 @@ class Protenix:
         if trace:
             import tt_bio.tenstorrent as _TTd
             _TTd.require_trace_region("fold(trace=True)")
+        _T.program_cache_for(_T.input_shapes(feats), self.dev)
         cond, _aux = self._trunk_cond(feats, progress_fn=progress_fn, n_cycles=n_cycles, seed=seed)
         N, NT = _aux["N"], _aux["NT"]
         s_inputs, s_trunk, z_trunk = _aux["s_inputs"], _aux["s_trunk"], _aux["z_trunk"]

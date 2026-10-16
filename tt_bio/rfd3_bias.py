@@ -55,6 +55,9 @@ CB_STRIDE = 4
 OUT_SLOTS = int(os.environ.get("RFD3_SPARSE_BIAS_SLOTS", "8"))
 
 ADDR_WRITE_MODE = None
+# Bench only (scripts/rfd3_port/gap_maskw.py): 1 sends every tile from the fill tile (no pokes), 2 issues no DRAM
+# writes, 3 is 1 without the occupancy scan. Splits the op's time into write and L1 work.
+DIAG = 0
 _CACHE: dict = {}
 # (calls served, calls declined) for the A/B harness.
 STATS = [0, 0]
@@ -117,7 +120,7 @@ def _build(bias, idx, out, device, ct_head, acc_args):
         return [
             cb(base + IDX_CB, ttnn.uint32, K * 4, TILE_H),
             cb(base + BIAS_CB, ttnn.bfloat16, TILE_H * TILE_W * 2, Kt),
-            cb(base + OUT_CB, out.dtype, TILE_H * TILE_W * (2 if out16 else 4), OUT_SLOTS),
+            cb(base + OUT_CB, out.dtype, TILE_H * TILE_W * (2 if out16 else 4), OUT_SLOTS + 1),   # + the fill tile
             cb(base + SLOT_CB, ttnn.uint32, TILE_H * 4, OUT_SLOTS),
         ]
 
@@ -144,7 +147,7 @@ def _build(bias, idx, out, device, ct_head, acc_args):
             kernel_source=str(KERNEL_DIR / "writer_sparse_bias.cpp"),
             source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
             core_ranges=core_grid, compile_time_args=list(head) + tail, runtime_args=rt,
-            common_runtime_args=[0, 0, 0], config=cfg,
+            common_runtime_args=[0, 0, 0], config=cfg, defines=[("MASKW_DIAG", str(DIAG))] if DIAG else [],
         )
         for head, rt, cfg in (
             (ct_head, rt_a, ttnn.WriterConfigDescriptor()),
@@ -193,7 +196,7 @@ def sparse_bias_fp32(pair_bias, idx_rm, out=None, memory_config=None, device=Non
         + list(ttnn.TensorAccessorArgs(idx_rm).get_compile_time_args())
         + list(ttnn.TensorAccessorArgs(out).get_compile_time_args())
     )
-    key = _cache_key(pair_bias, idx_rm, out, device, tuple(ct_head) + tuple(acc_args))
+    key = _cache_key(pair_bias, idx_rm, out, device, tuple(ct_head) + tuple(acc_args) + (DIAG,))
     entry = _CACHE.get(key)
     if entry is None:
         entry = _CACHE[key] = _build(pair_bias, idx_rm, out, device, ct_head, acc_args)

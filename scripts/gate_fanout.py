@@ -189,6 +189,12 @@ REBOOTED = "rebooted under the leg"
 LEND_AT = "~/spd/galaxy/LEND-AT"
 LEND_READ_S = 300
 WITHDRAWN = -1           # run_in_pool's code for "taken back from the queue before it started"
+#: glx_elastic gives a lent Galaxy back to JapanFold by SIGINTing every pool job and touching the pool's
+#: RETURNED. .107 went back at 07:34Z on 2026-10-16, 35 min into the WH legs of gate 5e250928a, and 14 of
+#: them were recorded FAIL (folds "exited -2"). The job notes a give-back that came after it started; such
+#: a leg measured nothing about the tree, so it goes back on the queue and waits for the next lend.
+GIVEN_BACK = "the Galaxy was given back under the leg"
+GIVEN_BACK_TRIES = 3
 #: A leg failed on a named card and the card is what failed: qb2 chip 1 stopped initialising its
 #: firmware at 06:07Z on 2026-10-12 and the runner handed it 40 more legs of gate 026b5c71c, each
 #: recorded FAIL in 15-90 s. After a failed leg on a named card the runner probes the card
@@ -1500,10 +1506,12 @@ def pool_job(host: Host, leg: Leg, rdir: str, name: str) -> str:
     `CHIP=<umd> bash <job>` on an idle healthy chip, and it leaves its log and exit code in rdir."""
     cmd = host.command(leg, POOL_CARD, rdir)
     q = shlex.quote
+    returned = q(str(Path(host.cfg["pool"]["queue"]).parent / "RETURNED"))
     return (f"#!/bin/bash\n# {name}: gate leg {leg.name} at {host.sha[:12]} (gate_fanout.py)\n"
             f"mkdir -p {q(rdir)}; rm -f {q(rdir)}/rc; cat {BOOT_ID} > {q(rdir)}/boot\ncmd={q(cmd)}\n"
             f"{{ echo \"##CHIP $CHIP\"; eval \"${{cmd//{POOL_CARD}/$CHIP}}\"; }} > {q(rdir)}/leg.log 2>&1\n"
-            f"echo $? > {q(rdir)}/rc.tmp && mv {q(rdir)}/rc.tmp {q(rdir)}/rc\n")
+            f"rc=$?; [ {returned} -nt {q(rdir)}/boot ] && echo \"##{GIVEN_BACK}\" >> {q(rdir)}/leg.log\n"
+            f"echo $rc > {q(rdir)}/rc.tmp && mv {q(rdir)}/rc.tmp {q(rdir)}/rc\n")
 
 
 def run_in_pool(host: Host, card, leg: Leg, rdir: str, f) -> int:
@@ -1615,7 +1623,7 @@ def make_executor(sha: str, out: Path, ledger: Ledger, keys: dict, remote_out: s
         rdir = f"{host.root}/{remote_out}/{host.arch}/{tag}"
         t0 = time.time()
         run = run_in_pool if card == POOL else run_over_ssh
-        lost = full = stuck = contended = rebooted = 0
+        lost = full = stuck = contended = rebooted = given_back = 0
         while True:
             with open(log, "w") as f:
                 f.write(f"# {leg.name} on {host.name}:{card} ({host.cfg['card_type']}) tree {sha}\n")
@@ -1641,6 +1649,9 @@ def make_executor(sha: str, out: Path, ledger: Ledger, keys: dict, remote_out: s
                 continue
             if rc and card == POOL and REBOOTED in text and not rebooted:
                 rebooted += 1
+                continue
+            if rc and card == POOL and GIVEN_BACK in text and given_back < GIVEN_BACK_TRIES:
+                given_back += 1
                 continue
             if rc and card == POOL and CARD_STUCK.search(text) and not stuck:
                 stuck += 1
