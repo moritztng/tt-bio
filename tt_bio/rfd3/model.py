@@ -2009,17 +2009,20 @@ def _sparse_attn_index_rm(indices, device):
 
 def _css_plan(indices, attn_idx_dev, device):
     """Chunk lists of one step's [1, L, K] neighbour index for the css atom SDPA, kept until the
-    next step's index replaces it. Chunk 64 where it divides the padded axis, else 32."""
+    next step's index replaces it. Chunk 64 only: at 32 the generic SDPA is off by ~1.0 against
+    float64 dense or not (p109), so an axis 64 does not divide keeps the shipped SDPA."""
     L = int(indices.shape[-2])
     n = align_tile(L)
-    c = 64 if n % 64 == 0 else 32
+    c = 64
+    _CSS_STEP.clear()
+    if n % c:
+        return
     nq = n // c
     occ = torch.zeros(nq, nq, dtype=torch.bool)
     ki = indices[0].long() // c
     occ[(torch.arange(L) // c).unsqueeze(1).expand_as(ki), ki] = True
     rows, counts = _SG.css_lists([torch.nonzero(r).flatten().tolist() for r in occ], nq)
     lists = ttnn.from_torch(rows, dtype=ttnn.uint32, layout=ttnn.ROW_MAJOR_LAYOUT, device=device)
-    _CSS_STEP.clear()
     _CSS_STEP["step"] = (attn_idx_dev, (lists, counts), c)
 
 

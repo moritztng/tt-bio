@@ -230,7 +230,9 @@ def sparse_bias_fp32(pair_bias, idx_rm, out=None, memory_config=None, device=Non
             kernels=entry["kernels"], semaphores=[], cbs=entry["cbs"]
         )
     STATS[0] += 1
-    return ttnn.generic_op([pair_bias, idx_rm, out] + ([] if css is None else [css[0]]), pd)
+    # generic_op hands back its LAST operand, and with css that is the lists tensor, not `out`.
+    ttnn.generic_op([pair_bias, idx_rm, out] + ([] if css is None else [css[0]]), pd)
+    return out
 
 
 def sparse_mask_bf16(pair_bias, idx_rm, css=None):
