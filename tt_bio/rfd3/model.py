@@ -1998,7 +1998,7 @@ def _sparse_attn_index_rm(indices, device):
         layout=ttnn.ROW_MAJOR_LAYOUT, device=device, dtype=ttnn.uint32)
 
 
-def _sparse_qk_inputs(p_host, indices, device, dtype, n_heads=4, mask_cache=None):
+def _sparse_qk_inputs(p_host, indices, device, dtype, n_heads=4, mask_cache=None, order=None):
     """Gather local pair features and build the scatter index for one step.
 
     A diffusion step calls this three times -- once from the encoder and once per
@@ -2080,14 +2080,25 @@ def _sparse_qk_inputs(p_host, indices, device, dtype, n_heads=4, mask_cache=None
     # entry, so the host work happens once a step -- which is what makes its 2.0 ms affordable.
     # Requires the fused-bias route: the blocked chain reuses that kernel with a block-local
     # index, and the non-fused route's dense -1e4 template is the thing this arm exists to avoid.
+    # `order` (RFD3_BSM) plans Morton-ordered blocks of 32 queries instead; the block then also
+    # carries the two row indices that move queries into that order and the output back.
     block = None
-    if _BS.enabled() and fused_bias and not _GATHERED_SOFTMAX:
-        bplan = _BS.plan(indices, align_tile(length))
+    if (_BS.enabled() or order is not None) and fused_bias and not _GATHERED_SOFTMAX:
+        n_key = align_tile(length)
+        if order is None:
+            bplan = _BS.plan(indices, n_key)
+        else:
+            bplan = _BS.plan(indices[:, order.to(indices.device)], n_key, _BS.MORTON_Q,
+                             _BS.morton_buckets(n_key))
         if bplan is not None:
             nb, q_block, u_width, gather, pos = bplan
             block = (nb, q_block, u_width,
-                     _BS.gather_index(gather, n_heads, align_tile(length), device),
+                     _BS.gather_index(gather, n_heads, n_key, device),
                      _sparse_attn_index_rm(pos.unsqueeze(0), device))
+            if order is not None:
+                block += tuple(ttnn.from_torch(t, layout=ttnn.ROW_MAJOR_LAYOUT, device=device,
+                                               dtype=ttnn.uint32)
+                               for t in _BS.order_index(order, n_heads, length, nb * q_block))
     out = (p_dev, n_keys, attn_idx_dev, dense_bias, gathered, block)
     if mask_cache is not None:
         mask_cache["step"] = (key, p_host, indices, out)
@@ -2481,14 +2492,16 @@ class RFD3AtomBlock(Module):
         block = sparse_qk[4] if sparse_qk is not None and len(sparse_qk) > 4 else None
         if (block is not None and sparse_qk[2] is None
                 and rfd3_bias.fused_enabled() and dt == ttnn.bfloat16):
-            nb, q_block, u_width, gather_dev, pos_rm = block
+            nb, q_block, u_width, gather_dev, pos_rm, *order_dev = block
             pb = self._sparse_pair_bias(p, bias_cache)
             # The blocked scores have nb*q_block rows and the compact bias has `length`, so the
             # pad rows need a bias too. -1e4 makes them fully masked; they are sliced off the
-            # output either way.
-            pb = pad_axis(pb, nb * q_block, 2, -1e4)
+            # output either way. Morton blocks gather the bias rows instead (pad rows repeat a
+            # real query), so their bias goes in unpadded.
+            if not order_dev:
+                pb = pad_axis(pb, nb * q_block, 2, -1e4)
             bs_out = _BS.attention(qq, kk, vv, pb, pos_rm, gather_dev, nb, q_block, u_width,
-                                   self.head_dim**-0.5, dt, ckc)
+                                   self.head_dim**-0.5, dt, ckc, *order_dev)
         if (bs_out is None and _ATOM_SDPA and sparse_qk is not None and sparse_qk[2] is None
                 and rfd3_bias.fused_enabled() and dt == ttnn.bfloat16
                 and 2 * self.n_head * n_key * n_key <= _ATOM_SDPA_MAX_MASK_BYTES):
@@ -2756,13 +2769,13 @@ class LocalAtomTransformer(Module):
             q = block(q, c, p, additive_mask)
         return q
 
-    def __call__(self, q_host, c_host, p_host, indices, resident=False):
+    def __call__(self, q_host, c_host, p_host, indices, resident=False, order=None):
         """q/c may already be on the card; `resident` returns the device tensor."""
         dt, dev = self.dtype, self.device
         p_host = p_host.unsqueeze(0) if p_host.ndim == 3 else p_host
         if env_flag("RFD3_SPARSE_QK", True):
             p, n_keys, attn_idx_dev, dense_bias, gathered, block = _sparse_qk_inputs(
-                p_host, indices, dev, dt, mask_cache=self._mask_cache
+                p_host, indices, dev, dt, mask_cache=self._mask_cache, order=order
             )
             q, c = _dev(q_host, dev, dt), _dev(c_host, dev, dt)
             sparse_qk = (n_keys, attn_idx_dev, dense_bias, gathered, block)
@@ -2916,7 +2929,7 @@ class CompactStreamingDecoder(Module):
         a_out, q = self.run_full_device(a_host, s_host, q_host, c_host, p_host, tok_idx, indices)
         return ttnn.to_torch(a_out).float(), ttnn.to_torch(q).float()
 
-    def run_full_device(self, a_host, s_host, q_host, c_host, p_host, tok_idx, indices):
+    def run_full_device(self, a_host, s_host, q_host, c_host, p_host, tok_idx, indices, order=None):
         dev, ckc, dt = self.device, self.compute_kernel_config, self.dtype
         batch, length, _ = q_host.shape
         valid, pack_idx_dev, unpack_idx_dev, upcast_mask_dev = self._design_buffers(tok_idx, batch)
@@ -2924,7 +2937,7 @@ class CompactStreamingDecoder(Module):
 
         if env_flag("RFD3_SPARSE_QK", True):
             p, n_keys, attn_idx_dev, dense_bias, gathered, block = _sparse_qk_inputs(
-                p_host, indices, dev, dt, mask_cache=self._mask_cache
+                p_host, indices, dev, dt, mask_cache=self._mask_cache, order=order
             )
             sparse_qk = (n_keys, attn_idx_dev, dense_bias, gathered, block)
             a, q, c = (_dev(x, dev, dt) for x in (a_host, q_host, c_host))
@@ -3979,7 +3992,12 @@ class RFD3DiffusionModule(Module):
             fut = f.pop("attn_future", None)
             f["attn_indices"] = fut.result() if fut is not None else _create_attention_indices(
                 f, X_noisy_L, tok_idx, self.N_ATTN_KEYS, self.N_ATTN_SEQ)
-        Q_L = self.encoder(Q_L, C_L, P_LL, indices=f["attn_indices"], resident=_RESIDENT_STEP)
+        # RFD3_BSM: the query order of this step's Morton blocks, off the coordinates the index
+        # was built from. One design at a time only; a batched index runs the dense chain anyway.
+        xl = X_noisy_L.reshape(-1, X_noisy_L.shape[-2], 3)
+        f["attn_order"] = _BS.morton_order(xl[0].cpu()) if _BS.morton() and xl.shape[0] == 1 else None
+        Q_L = self.encoder(Q_L, C_L, P_LL, indices=f["attn_indices"], resident=_RESIDENT_STEP,
+                           order=f["attn_order"])
         A_I = self._downcast_q(Q_L, A_I, S_I, tok_idx)
         recycled = self._forward_with_recycle(
             n_recycle, X_noisy_L=X_noisy_L, R_L_uniform=R_L_uniform, t_L=t_L, f=f, Q_L=Q_L,
@@ -4019,7 +4037,8 @@ class RFD3DiffusionModule(Module):
         # and at 3359 atoms the fifteen of them in a step cost 129 ms for 9.8 MB (p20 s2):
         # the sync count is what this removes, not the bytes.
         A_I, Q_L = self.decoder.run_full_device(A_I, S_I, Q_L, C_L, P_LL,
-                                                tok_idx=f["atom_to_token_map"], indices=f["attn_indices"])
+                                                tok_idx=f["atom_to_token_map"], indices=f["attn_indices"],
+                                                order=f.get("attn_order"))
         R_upd = ttnn.to_torch(ttnn.linear(ttnn.rms_norm(Q_L,
                                                         weight=self.to_r_n, epsilon=1e-6, compute_kernel_config=self.compute_kernel_config),
                                           self.to_r_w, compute_kernel_config=self.compute_kernel_config,
