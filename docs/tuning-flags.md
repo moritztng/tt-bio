@@ -21,6 +21,7 @@ move against the accuracy bar and the seed-to-seed spread.
 | [`TT_BIO_AF2_G_BIAS_IN_MATMUL`](#bindcraft-2-round-kernels) | on; off in a BindCraft 2 round on Wormhole | AF2-IG, BindCraft 2 on Blackhole | within 0.12 A |
 | [`TT_BIO_AF2_OPM_ROWS_IN_K`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2 | moves the forward, closer to float64 |
 | [`TT_BIO_AF2_TRANSITION_WS`](#bindcraft-2-round-kernels) | on | AF2-IG, BindCraft 2 | within 0.03 A for AF2-IG |
+| [`TT_BIO_AF2_COL_DEPTH2`](#bindcraft-2-round-kernels) | on | AF2-IG, BindCraft 2 | within 0.30 A for AF2-IG; BindCraft 2 design metrics not worse |
 | [`TT_BIO_ATOM_AXIS_BUCKET`](#tt_bio_atom_axis_bucket) | on | | identical at 298 residues, not guaranteed at 512 |
 | [`TT_BIO_ATOM_SHIFT_GATHER`](#tt_bio_atom_shift_gather) | on | | identical |
 | [`TT_BIO_ATOM_KV_WINDOW`](#tt_bio_atom_tile_heads-tt_bio_atom_kv_window) | on | Protenix-v2, OpenDDE, PXDesign | identical |
@@ -162,6 +163,7 @@ and pLDDT 0.897 against 0.901. AF2-IG structures are bit-identical with it on.
 | `TT_BIO_AF2_OPM_ROWS_IN_K` | The outer product mean sums its MSA rows inside one contraction instead of one product per row. Acts only with more than one MSA row, which a BindCraft 2 round has. Both boards. |
 | `TT_BIO_RNE_MASK` | The dropout keep-mask multiply and the residual add after it as one kernel, so the masked update is never written. On by default, not only in the round: only a round draws dropout masks. |
 | `TT_BIO_AF2_TRANSITION_WS` | AF2's pair Transition (LayerNorm, fc1, ReLU, fc2) as one program with both weights in L1, so the normed input and the 4x-wide hidden never reach DRAM. In a round its backward is two programs (`pair_relu` in `TT_BIO_TAPED_KERNELS`). On for every AF2 fold, not only in the round. |
+| `TT_BIO_AF2_COL_DEPTH2` | The MSA column attention over two MSA rows in closed form: with two keys the softmax is a sigmoid of the logit gap, so it runs in the MSA's own layout instead of a transposed one where each 32-row tile holds 2 real rows. On for every AF2 fold, not only in the round. |
 
 **Accuracy.** Each was graded on its own against a float64 reference of an Evoformer block's VJP
 at 288 tokens, blocks 0, 3 and 7. The largest move any of them makes is 6e-4 rel L2 (pair_mm on
