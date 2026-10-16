@@ -8,8 +8,8 @@
 // variance of x - mean, as ttnn.layer_norm), times gamma plus beta broadcast from row 0.
 //
 // C names the circular buffers and Kt as static constexpr members (x, gamma, beta, scaler, eps,
-// mean, var, rstd, xc, tmp). The last stage, + beta, leaves channel tile i in DST 0 and calls
-// pack(i), so each kernel packs where its consumer reads: T1 into a reserved slot of its unit,
+// mean, var, rstd, xc, tmp). The last stage, + beta, leaves channel tile i in DST d and calls
+// pack(d, i), so each kernel packs where its consumer reads: T1 into a reserved slot of its unit,
 // T2 appended to its GEMM input. The pack hook does no CB bookkeeping; the caller reserves and
 // pushes its output. Needs REDUCE_OP / REDUCE_DIM from the host (SUM, REDUCE_ROW) and the scaler
 // tile holding 1/K.
@@ -22,6 +22,7 @@
 #include "api/compute/eltwise_binary.h"
 #include "api/compute/reduce.h"
 #include "api/compute/eltwise_unary/rsqrt.h"
+#include "api/compute/reconfig_data_format.h"
 
 namespace ln_prologue {
 
@@ -91,38 +92,75 @@ ALWI void rstd() {
     cb_wait_front(C::rstd, 1);
 }
 
-// Kt tiles at the front of C::x (popped) -> pack(i) for every channel tile i, `out` the CB pack
-// writes to (its data format is configured here).
+// Dest-reuse binary op: DST[idst] = DST[idst] (op) b, b tile itile of cb broadcast as B (COL: column 0,
+// ROW: row 0). DST moves to srcA, b unpacks to srcB. The tt-metal API only ships the NONE broadcast.
+template <EltwiseBinaryType OP, BroadcastType B>
+ALWI void reuse_init(uint32_t cb) {
+    reconfig_data_format_srcb(cb);
+    UNPACK((llk_unpack_A_init<B, true, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(false, false, cb)));
+    MATH((llk_math_eltwise_binary_init<OP, B, OP == ELWMUL ? MATH_FIDELITY : MathFidelity::LoFi,
+                                       EltwiseBinaryReuseDestType::DEST_TO_SRCA>(false)));
+}
+
+template <EltwiseBinaryType OP, BroadcastType B>
+ALWI void reuse(uint32_t cb, uint32_t itile, uint32_t idst) {
+    UNPACK((llk_unpack_A<B, true, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(cb, itile)));
+    MATH((llk_math_eltwise_binary<OP, B, DST_ACCUM_MODE, OP == ELWMUL ? MATH_FIDELITY : MathFidelity::LoFi,
+                                  EltwiseBinaryReuseDestType::DEST_TO_SRCA>(cb, cb, idst, true)));
+}
+
+// Channel tiles per DST round: fp32 half-sync DEST holds 4.
+constexpr uint32_t DB = 4;
+
+// Kt tiles at the front of C::x (popped) -> pack(d, i) for every channel tile i, held in DST d, `out`
+// the CB pack writes to (its data format is configured here). Two DST rounds per DB channel tiles:
+// (x - mean)^2 (squared on the SFPU in fp32) for the variance, then ((x - mean) * rstd) * gamma + beta
+// with the centring recomputed from x, so no centred or normalised tile goes through a CB. C::xc is
+// not touched.
 template <class C, class Pack>
 ALWI void layer_norm_row(uint32_t out, Pack pack) {
     row_mean<C>(C::x, C::mean, false);                    // mean
     cb_wait_front(C::mean, 1);
-    stage<C, SUB_COL>(C::x, C::mean, C::xc);              // xc = x - mean
-    cb_pop_front(C::x, C::Kt);
-    cb_pop_front(C::mean, 1);
-    cb_wait_front(C::xc, C::Kt);
-    stage<C, MUL>(C::xc, C::xc, C::tmp);                  // xc^2
-    row_mean<C>(C::tmp, C::var, true);                    // var (biased, as layer_norm)
-    rstd<C>();                                            // rstd = rsqrt(var + eps)
-    stage<C, MUL_COL>(C::xc, C::rstd, C::tmp);            // norm = xc * rstd
-    cb_pop_front(C::xc, C::Kt);
-    cb_pop_front(C::rstd, 1);
-    cb_wait_front(C::tmp, C::Kt);
-    stage<C, MUL_ROW>(C::tmp, C::gamma, C::xc);           // * gamma
-    cb_pop_front(C::tmp, C::Kt);
-    cb_wait_front(C::xc, C::Kt);
-    reconfig_data_format(C::xc, C::beta);                 // + beta, packed by the caller's hook
-    pack_reconfig_data_format(out);
-    add_bcast_rows_init_short(C::xc, C::beta);
-    for (uint32_t i = 0; i < C::Kt; ++i) {
+    pack_reconfig_data_format(C::tmp);                    // (x - mean)^2 -> C::tmp
+    cb_reserve_back(C::tmp, C::Kt);
+    for (uint32_t i0 = 0; i0 < C::Kt; i0 += DB) {
+        const uint32_t n = C::Kt - i0 < DB ? C::Kt - i0 : DB;
         tile_regs_acquire();
-        add_tiles_bcast_rows(C::xc, C::beta, i, i, 0);
+        reconfig_data_format(C::x, C::mean);
+        sub_bcast_cols_init_short(C::x, C::mean);
+        for (uint32_t j = 0; j < n; ++j) sub_tiles_bcast_cols(C::x, C::mean, i0 + j, 0, j);
+        square_tile_init();
+        for (uint32_t j = 0; j < n; ++j) square_tile(j);
         tile_regs_commit();
         tile_regs_wait();
-        pack(i);
+        for (uint32_t j = 0; j < n; ++j) pack_tile(j, C::tmp);
         tile_regs_release();
     }
-    cb_pop_front(C::xc, C::Kt);
+    cb_push_back(C::tmp, C::Kt);
+    row_mean<C>(C::tmp, C::var, true);                    // var (biased, as layer_norm)
+    rstd<C>();                                            // rstd = rsqrt(var + eps)
+    pack_reconfig_data_format(out);
+    for (uint32_t i0 = 0; i0 < C::Kt; i0 += DB) {
+        const uint32_t n = C::Kt - i0 < DB ? C::Kt - i0 : DB;
+        tile_regs_acquire();
+        reconfig_data_format(C::x, C::mean);
+        sub_bcast_cols_init_short(C::x, C::mean);
+        for (uint32_t j = 0; j < n; ++j) sub_tiles_bcast_cols(C::x, C::mean, i0 + j, 0, j);
+        reconfig_data_format_srca(C::tmp);                // DST (fp32) is srcA from here on
+        reuse_init<ELWMUL, BroadcastType::COL>(C::rstd);
+        for (uint32_t j = 0; j < n; ++j) reuse<ELWMUL, BroadcastType::COL>(C::rstd, 0, j);
+        reuse_init<ELWMUL, BroadcastType::ROW>(C::gamma);
+        for (uint32_t j = 0; j < n; ++j) reuse<ELWMUL, BroadcastType::ROW>(C::gamma, i0 + j, j);
+        reuse_init<ELWADD, BroadcastType::ROW>(C::beta);
+        for (uint32_t j = 0; j < n; ++j) reuse<ELWADD, BroadcastType::ROW>(C::beta, i0 + j, j);
+        tile_regs_commit();
+        tile_regs_wait();
+        for (uint32_t j = 0; j < n; ++j) pack(j, i0 + j);
+        tile_regs_release();
+    }
+    cb_pop_front(C::x, C::Kt);
+    cb_pop_front(C::mean, 1);
+    cb_pop_front(C::rstd, 1);
 }
 
 // RMSNorm, as ttnn.rms_norm: x * rsqrt(mean(x^2) + eps) * gamma, no centring and no beta. Same CBs
@@ -145,7 +183,7 @@ ALWI void rms_norm_row(uint32_t out, Pack pack) {
         mul_tiles_bcast_rows(C::tmp, C::gamma, i, i, 0);
         tile_regs_commit();
         tile_regs_wait();
-        pack(i);
+        pack(0, i);
         tile_regs_release();
     }
     cb_pop_front(C::tmp, C::Kt);

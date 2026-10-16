@@ -118,7 +118,7 @@ ALWI void layer_norm_row() {
         cb_wait_front(cb_x, Kt);
         cb_pop_front(cb_x, Kt);
     } else {
-        ln_prologue::layer_norm_row<LnCbs>(cb_ln, [](uint32_t) { pack_tile(0, cb_ln); });
+        ln_prologue::layer_norm_row<LnCbs>(cb_ln, [](uint32_t d, uint32_t) { pack_tile(d, cb_ln); });
     }
     cb_push_back(cb_ln, Kt);
 }
