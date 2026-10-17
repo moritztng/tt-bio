@@ -75,3 +75,10 @@ def test_pair_ws_resid_ships_in_both_modes(monkeypatch):
     M.set_fast(False)
     assert M._PAIR_WS_RESID is True
     assert callable(M.Transition.add_into)
+
+
+def test_head_split_kernels_are_off_until_measured():
+    """qkh / gch move data only (digests must match the reshape + permute path); off until the device A/B reads."""
+    for name, env in (("_QKV_HEADS", "RFD3_QKV_HEADS"), ("_GCA_HEADS", "RFD3_GCA_HEADS")):
+        assert name not in M._FAST_SET
+        assert M.env_flag(env, False) is False
