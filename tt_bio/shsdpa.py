@@ -62,11 +62,12 @@ def key_pad(lens, S: int, device=None, k_chunk: int = K_CHUNK):
 UNIT_COST_TILES = 2
 
 
-def plan(B, H, S, cores, k_chunk=K_CHUNK):
-    """(q_chunk, (batch_pf, head_pf, q_pf)) minimising the busiest core's cost, padding included."""
+def plan(B, H, S, cores, k_chunk=K_CHUNK, max_qt=None):
+    """(q_chunk, (batch_pf, head_pf, q_pf)) minimising the busiest core's cost, padding included, q chunks of at most
+    `max_qt` tiles."""
     St = -(-S // 32)
     best = None
-    for qt in range(1, St + 2):
+    for qt in range(1, min(St + 1, max_qt or St + 1) + 1):
         nq = -(-St // qt)
         if nq * qt - St > 1:        # at most one padded q tile
             continue
@@ -89,11 +90,26 @@ def sdpa(q, k, v, scale, pad, q_chunk=None, k_chunk=K_CHUNK, split=None, ckc=HIF
     B, H, S, D = (int(d) for d in q.shape)
     dev = q.device()
     grid = grid or tuple(T.COMPUTE_GRID_MAIN)
-    if q_chunk is None and split is None:
-        q_chunk, split = plan(B, H, S, grid[0] * grid[1], k_chunk)
-    q_chunk = q_chunk or -(-S // 32) * 32
+    auto = q_chunk is None and split is None
+    key = (B, H, S, D, grid, tuple(t.memory_config().buffer_type == ttnn.BufferType.L1 for t in (q, k, v)))
     table, row = pad
     out = ttnn.allocate_tensor_on_device(ttnn.Shape([B, H, S, D]), q.dtype, ttnn.TILE_LAYOUT, dev,
                                          ttnn.DRAM_MEMORY_CONFIG)
-    return SG.sdpa(dev, q, k, v, row, out, q_chunk, k_chunk, grid, ckc, scale, split=split,
-                   kernel_dir=KERNEL_DIR, keypad=table, defines_extra=defines)
+    while True:
+        if auto:
+            q_chunk, split = plan(B, H, S, grid[0] * grid[1], k_chunk, _Q_TILES_CAP.get(key))
+        q_chunk = q_chunk or -(-S // 32) * 32
+        try:
+            return SG.sdpa(dev, q, k, v, row, out, q_chunk, k_chunk, grid, ckc, scale, split=split,
+                           kernel_dir=KERNEL_DIR, keypad=table, defines_extra=defines)
+        except Exception as exc:
+            if not auto or q_chunk == 32:
+                raise
+            T.absorb_l1_refusal("shsdpa q chunk", exc)
+            _Q_TILES_CAP[key] = q_chunk // 32 - 1
+
+
+# Largest q chunk (tiles) per shape and operand placement that the device accepted. L1 operands (SaProt's RoPE leaves
+# q, k there) sit at the top of L1, below which the circular buffers must fit: the 544-row chunk the plan picks for
+# 7 x 20 heads fell 61 KB short, so a refused plan steps down to the next smaller q chunk for that shape from then on.
+_Q_TILES_CAP: dict = {}
