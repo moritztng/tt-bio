@@ -709,9 +709,8 @@ _FAST_MODE = False
 #                   the layer, one [768, 768] linear each off the shared normed s, instead of three [768, 36864]
 #                   linears for all 24 layers and 144 slices a step to cut them back out.
 #   dit_shoist      the DiT's conditioning as three wide linears a step whose columns each layer reads in place
-#                   (`addcmul_at`): OpenFold3's DiT, ESMFold2's token DiT, and Boltz-2's token DiT, where it takes
-#                   precedence over dit_cond_jit (adaLN modulation, the attention gate and the transition gate +
-#                   residual each one op).
+#                   (`addcmul_at`): OpenFold3's DiT, and Boltz-2's token DiT, where it takes precedence over
+#                   dit_cond_jit (adaLN modulation, the attention gate and the transition gate + residual each one op).
 #   dit_cond_kfold  Boltz-2's token-DiT conditioning linears (dit_cond_jit's per-layer ones, and the hoist's under
 #                   dit_shoist) carry their bias as one more K row of the weight against a ones column appended to
 #                   s, so the matmul runs without a bias epilogue.
