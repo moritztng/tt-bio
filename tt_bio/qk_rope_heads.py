@@ -8,8 +8,9 @@ so rotate_half is a swap of a head's two tiles with a sign and the head split is
 this program reads q, k and v once and writes the per-head [B, H, L, 64] tensors once (kernels/qk_rope_heads).
 
 Units are row tiles of q, k and v (3 * B * L / 32 of them), spread over the whole grid. The LayerNorm is
-kernels/common/ln_prologue.hpp's two-pass fp32 statistics without the beta; RoPE's cos products go through an
-fp32 CB and the sin products are added in dest.
+kernels/common/ln_prologue.hpp's two-pass fp32 statistics without the beta, its output kept in fp32 for the RoPE;
+the cos products go through an fp32 CB and the sin products are added in dest. Where both gammas do not fit L1
+beside a row's fp32 statistics (the 6B, D = 2560), each q / k row re-reads its gamma (QKRH_RELOAD).
 """
 
 from __future__ import annotations
@@ -29,9 +30,22 @@ _CACHE: dict = {}
 STATS = [0, 0]
 
 
-def _l1_bytes(kt: int) -> int:
-    bf16 = (2 * kt + 2 + 2 + kt + kt + 1 + kt + 4 + 2 * kt) * _TILE      # x, cos, sin, gammas, scaler, n, out, v
-    fp32 = (4 + 2 * kt + 2) * 2 * _TILE                                 # eps, mean, var, rstd, xc, tmp, p
+def _vc(kt: int) -> int:
+    """v tiles a reader / writer hand-off: the largest even divisor of KT up to 10 (whole heads)."""
+    return max(c for c in range(2, 11, 2) if kt % c == 0)
+
+
+def _plan(kt: int):
+    """(reload, x buffers): both gammas resident and x double-buffered where that fits, else less."""
+    for reload, xb in ((False, 2), (False, 1), (True, 1)):
+        if _l1_bytes(kt, reload, xb) <= _L1_BUDGET:
+            return reload, xb
+    return None
+
+
+def _l1_bytes(kt: int, reload: bool = False, xb: int = 2) -> int:
+    bf16 = (xb * kt + 2 + 2 + (1 if reload else 2) * kt + 1 + 4 + 2 * _vc(kt)) * _TILE   # x, cos, sin, gammas, scaler, out, v
+    fp32 = (4 + 2 * kt + 2) * 2 * _TILE                                                  # eps, mean, var, rstd, xc, tmp, p
     return bf16 + fp32
 
 
@@ -46,7 +60,7 @@ def eligible(q, k, v, cos) -> bool:
             return False
     if int(cos.padded_shape[-1]) != 64 or int(cos.padded_shape[-2]) < shape[1]:
         return False
-    return _l1_bytes(shape[-1] // 32) <= _L1_BUDGET
+    return _plan(shape[-1] // 32) is not None
 
 
 def _build(device, kt, lt, r, eps, tensors):
@@ -59,9 +73,12 @@ def _build(device, kt, lt, r, eps, tensors):
         return ttnn.CBDescriptor(total_size=tiles * size, core_ranges=grid, format_descriptors=[fmt])
 
     f32 = ttnn.float32
-    cbs = [cb(5, 2 * kt), cb(6, 2), cb(7, 2), cb(8, kt), cb(15, kt), cb(10, 1), cb(19, kt), cb(16, 4), cb(21, 2 * kt),
+    reload, xb = _plan(kt)
+    vc = _vc(kt)
+    cbs = [cb(5, xb * kt), cb(6, 2), cb(7, 2), cb(8, kt), cb(10, 1), cb(16, 4), cb(21, 2 * vc),
            cb(11, 1, f32), cb(12, 1, f32), cb(13, 1, f32), cb(14, 1, f32), cb(17, kt, f32), cb(18, kt, f32),
-           cb(20, 2, f32)]
+           cb(20, 2, f32)] + ([] if reload else [cb(15, kt)])
+    defines = [("QKRH_RELOAD", "1")] if reload else []
     inv = struct.unpack("<I", struct.pack("<f", 1.0 / (32 * kt)))[0] >> 16
     scaler = (inv << 16) | inv
     eps_bits = struct.unpack("<I", struct.pack("<f", float(eps)))[0]
@@ -75,22 +92,22 @@ def _build(device, kt, lt, r, eps, tensors):
                     first += per
     assert first == 3 * r, (first, r)
     ins, outs = tensors[:7], tensors[7:]
-    rct = [kt, lt, r, scaler, eps_bits]
+    rct = [kt, lt, r, scaler, eps_bits, vc]
     for t in ins:
         rct.extend(ttnn.TensorAccessorArgs(t).get_compile_time_args())
-    wct = [kt, lt, r]
+    wct = [kt, lt, r, vc]
     for t in outs:
         wct.extend(ttnn.TensorAccessorArgs(t).get_compile_time_args())
     src = lambda n: str(KERNEL_DIR / n)  # noqa: E731
     path = ttnn.KernelDescriptor.SourceType.FILE_PATH
     reader = ttnn.KernelDescriptor(kernel_source=src("reader.cpp"), source_type=path, core_ranges=grid,
-                                   compile_time_args=rct, runtime_args=rd, common_runtime_args=[0] * 7,
+                                   compile_time_args=rct, runtime_args=rd, common_runtime_args=[0] * 7, defines=defines,
                                    config=ttnn.ReaderConfigDescriptor())
     writer = ttnn.KernelDescriptor(kernel_source=src("writer.cpp"), source_type=path, core_ranges=grid,
                                    compile_time_args=wct, runtime_args=wr, common_runtime_args=[0] * 3,
                                    config=ttnn.WriterConfigDescriptor())
     compute = ttnn.KernelDescriptor(kernel_source=src("compute.cpp"), source_type=path, core_ranges=grid,
-                                    compile_time_args=[kt, r], runtime_args=cp,
+                                    compile_time_args=[kt, r], runtime_args=cp, defines=defines,
                                     config=ttnn.ComputeConfigDescriptor(math_fidelity=ttnn.MathFidelity.HiFi4,
                                                                         fp32_dest_acc_en=True))
     return [reader, writer, compute], cbs

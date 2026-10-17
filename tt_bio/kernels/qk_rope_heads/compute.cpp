@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // qk_rope_heads compute: for a q or k row tile (KT tiles in c_5), LayerNorm over D with gamma and no beta (ESMC's
-// q_ln / k_ln) into c_19, then NeoX RoPE per head on the normalised tiles: head h is tiles a = 2h, b = 2h + 1 and
+// q_ln / k_ln), left in fp32 in c_17 (the centred-x CB, free by then), then NeoX RoPE per head on those tiles: head h is tiles a = 2h, b = 2h + 1 and
 // rotate_half swaps them with a sign, so
 //     out_a = x_a * cos - x_b * sin        out_b = x_b * cos + x_a * sin
 // with one cos / sin tile for the row (c_6 / c_7). The cos products go through an fp32 CB (c_20); the sin products
@@ -26,9 +26,9 @@ struct Ln {
                               rstd = 14, xc = 17, tmp = 18;
 };
 
-// LayerNorm(x) * gamma, no beta, Kt tiles of C::x (popped) into `out` (pushed).
+// LayerNorm(x) * gamma, no beta, Kt tiles of C::x (popped) into C::xc (pushed), fp32.
 template <class C>
-ALWI void ln_no_beta(uint32_t out) {
+ALWI void ln_no_beta() {
     using namespace ln_prologue;
     row_mean<C>(C::x, C::mean, false);
     cb_wait_front(C::mean, 1);
@@ -43,7 +43,7 @@ ALWI void ln_no_beta(uint32_t out) {
     cb_pop_front(C::xc, C::Kt);
     cb_pop_front(C::rstd, 1);
     cb_wait_front(C::tmp, C::Kt);
-    stage<C, MUL_ROW>(C::tmp, C::gamma, out);
+    stage<C, MUL_ROW>(C::tmp, C::gamma, C::xc);
     cb_pop_front(C::tmp, C::Kt);
 }
 
@@ -51,14 +51,17 @@ void kernel_main() {
     constexpr uint32_t R = get_compile_time_arg_val(1);
     const uint32_t first = get_arg_val<uint32_t>(0);
     const uint32_t count = get_arg_val<uint32_t>(1);
-    constexpr uint32_t cb_x = 5, cb_cos = 6, cb_sin = 7, cb_gq = 8, cb_scaler = 10, cb_eps = 11, cb_gk = 15,
-                       cb_out = 16, cb_n = 19, cb_p = 20;
+    constexpr uint32_t cb_x = 5, cb_cos = 6, cb_sin = 7, cb_gq = 8, cb_scaler = 10, cb_eps = 11, cb_out = 16,
+                       cb_n = 17, cb_p = 20;
+    [[maybe_unused]] constexpr uint32_t cb_gk = 15;
     if (count == 0) {
         return;
     }
     binary_op_init_common(cb_x, cb_gq, cb_n);
+#ifndef QKRH_RELOAD
     cb_wait_front(cb_gq, KT);
     cb_wait_front(cb_gk, KT);
+#endif
     cb_wait_front(cb_scaler, 1);
     cb_wait_front(cb_eps, 1);
     for (uint32_t u = first; u < first + count; ++u) {
@@ -66,11 +69,17 @@ void kernel_main() {
         if (t == 2) {
             continue;
         }
+#ifdef QKRH_RELOAD
+        cb_wait_front(cb_gq, KT);
+        ln_no_beta<Ln<cb_gq>>();
+        cb_pop_front(cb_gq, KT);
+#else
         if (t == 0) {
-            ln_no_beta<Ln<cb_gq>>(cb_n);
+            ln_no_beta<Ln<cb_gq>>();
         } else {
-            ln_no_beta<Ln<cb_gk>>(cb_n);
+            ln_no_beta<Ln<cb_gk>>();
         }
+#endif
         cb_wait_front(cb_n, KT);
         cb_wait_front(cb_cos, 1);
         cb_wait_front(cb_sin, 1);

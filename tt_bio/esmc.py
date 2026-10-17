@@ -217,7 +217,7 @@ _ESMC_QKV_SPLIT = env_flag("TT_BIO_ESMC_QKV_SPLIT", True)
 # 16.48 -> 16.55 s), so the Block of a model past _LM_LARGE_MODEL_BYTES keeps the DRAM path (Attention.qk_l1).
 _ESMC_QK_L1 = env_flag("TT_BIO_ESMC_QK_L1", True)
 # q/k LayerNorm + RoPE + head split of q, k, v as one program (tt_bio/qk_rope_heads.py) in place of the six-op chain
-# of _qk_heads + _rope; declines (None) where its CBs do not fit, so the 6B keeps the chain. Off until graded.
+# of _qk_heads + _rope, on every ESMC size (the 6B re-reads its gammas per row to fit L1). Off until graded.
 _ESMC_QKRH = env_flag("TT_BIO_ESMC_QKRH", False)
 
 # Replay batched forwards from the trace too (ESMC.trace gated on B == 1). A 7 x 544 Blackhole batch spreads 110-127 ms
