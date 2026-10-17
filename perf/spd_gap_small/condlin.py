@@ -28,9 +28,9 @@ from perf.spd_difflin.op_probe import aiclk, dev_time, opened_nodes, wrong  # no
 M, K = 512, 768
 
 
-def bench(dev, nodes, emit, N):
-    emit(ev="start", m=M, k=K, n=N)
-    torch.manual_seed(7)
+def bench(dev, nodes, emit, N, seed=7, pl1=True):
+    emit(ev="start", m=M, k=K, n=N, seed=seed, packer_l1_acc=pl1)
+    torch.manual_seed(seed)
     A = torch.randn(1, M, K); W = torch.randn(K, N) / K ** 0.5; Bv = torch.randn(N) * 0.5
     R = A.double() @ W.double()
     refs = {"plain": R, "bias": R + Bv.double()}
@@ -43,7 +43,7 @@ def bench(dev, nodes, emit, N):
     tak, twk = up(Ak), up(Wk)
     for acc in (False, True):
         ckc = ttnn.init_device_compute_kernel_config(dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi4,
-                                                     math_approx_mode=False, fp32_dest_acc_en=acc, packer_l1_acc=True)
+                                                     math_approx_mode=False, fp32_dest_acc_en=acc, packer_l1_acc=pl1)
         arms = [
             ("plain", "plain", lambda: ttnn.linear(ta, tw, compute_kernel_config=ckc)),
             ("bias", "bias", lambda: ttnn.linear(ta, tw, bias=tb, compute_kernel_config=ckc)),
@@ -82,6 +82,10 @@ def main():
     ap.add_argument("--out", type=Path, required=True)
     # 36864 = Boltz-2's hoisted DiT cond projection under dit_shoist (BH: 755 us with bias + sigmoid, 436 us without)
     ap.add_argument("--n", type=int, nargs="+", default=[768, 3072, 36864])
+    # condwp (WH): one wrong pixel at (289, 2183) on four chips under fp32 acc at N 3072. A different seed tells an
+    # input-dependent rounding event from a fixed position the program gets wrong; packer_l1_acc off isolates the packer
+    ap.add_argument("--seed", type=int, default=7)
+    ap.add_argument("--packer-l1-acc", type=int, choices=(0, 1), default=1)
     a = ap.parse_args()
     torch.set_num_threads(8)
     dev = T.get_device(trace="protenix")
@@ -93,7 +97,7 @@ def main():
         log.write(json.dumps(kw) + "\n"); log.flush(); print(json.dumps(kw), flush=True)
 
     for N in a.n:
-        bench(dev, nodes, emit, N)
+        bench(dev, nodes, emit, N, a.seed, bool(a.packer_l1_acc))
     emit(ev="end")
 
 
