@@ -275,11 +275,16 @@ def main():
                     x = ta if ind == "f32" else cast[ind]
                     kw = dict(bias=tb[wd] if has_bias else None, compute_kernel_config=ckc(fid, acc_arm[0] if acc_arm else acc),
                               dtype=DT[od])
-                    if pc is None:
-                        kw["core_grid"] = ttnn.CoreGrid(y=grid[1], x=grid[0])
+                    if isinstance(pc, ttnn.MinimalMatmulConfig):
+                        fn = lambda x=x, wd=wd, kw=kw, pc=pc: ttnn.experimental.minimal_matmul(
+                            input_tensor=x, weight_tensor=tw[wd], bias_tensor=kw["bias"],
+                            compute_kernel_config=kw["compute_kernel_config"], dtype=kw["dtype"], config=pc)
                     else:
-                        kw["program_config"] = pc
-                    fn = lambda x=x, wd=wd, kw=kw: ttnn.linear(x, tw[wd], **kw)
+                        if pc is None:
+                            kw["core_grid"] = ttnn.CoreGrid(y=grid[1], x=grid[0])
+                        else:
+                            kw["program_config"] = pc
+                        fn = lambda x=x, wd=wd, kw=kw: ttnn.linear(x, tw[wd], **kw)
                     try:
                         y = fn()
                     except Exception as e:
