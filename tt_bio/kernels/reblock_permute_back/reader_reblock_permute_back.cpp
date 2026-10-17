@@ -144,6 +144,9 @@ void kernel_main() {
             uint32_t page = (ct * TILE_HEIGHT) * NtNt + it * Nt + jt;
             uint32_t dst = group_l1_base;
             for (uint32_t cl = 0; cl < TILE_HEIGHT; ++cl) {
+#ifdef RPB_NO_DRAM
+                break;  // bench ablation (reblock_permute.BACK_ABL & 1): no DRAM read
+#endif
                 noc_async_read_page(page, s, dst);
                 page += NtNt;
                 dst += tile_bytes;
@@ -164,6 +167,7 @@ void kernel_main() {
             const uint32_t src_il = group_l1_base
                                   + (il / FACE_HEIGHT) * NUM_FACES_W * FACE_BYTES
                                   + (il % FACE_HEIGHT) * FACE_ROW_BYTES;
+#ifndef RPB_NO_GATHER  // bench ablation (BACK_ABL & 2): tiles go to compute ungathered
             uint32_t s0 = src_il;                 // face_w = 0
             uint32_t s1 = src_il + FACE_BYTES;    // face_w = 1
             uint32_t d0 = dst_tile_base;
@@ -186,6 +190,7 @@ void kernel_main() {
                 d0 += FACE_ROW_BYTES;
                 d1 += FACE_ROW_BYTES;
             }
+#endif
             noc_async_read_barrier();  // drain the L1 -> L1 gather before handing the tile to compute
             cb_push_back(in_cb_id, 1);
         }

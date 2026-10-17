@@ -94,7 +94,9 @@ void kernel_main() {
         uint32_t l1_read_addr = get_read_ptr(cb_id_out);
         uint32_t out_page = (it * TILE_HEIGHT) * NtCt_out + jt * Ct_out + ct + ct_off;
         for (uint32_t il = 0; il < TILE_HEIGHT; ++il) {
+#ifndef RPB_NO_WRITE  // bench ablation (reblock_permute.BACK_ABL & 4)
             noc_async_write(l1_read_addr, s.get_noc_addr(out_page), tile_bytes);
+#endif
             l1_read_addr += tile_bytes;
             out_page += NtCt_out;
         }

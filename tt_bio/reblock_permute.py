@@ -67,6 +67,9 @@ def _elem():
 
 _CACHE: dict = {}
 _CACHE_BACK: dict = {}
+# Bench only (perf/spd_trimul/back_bench.py): 1 skips the DRAM read, 2 the L1 gather, 4 the DRAM write. Output is garbage
+# under any of them; the model path never sets it.
+BACK_ABL = 0
 # Counters for the A/B harness: (eligible calls served, calls that fell through to ttnn.permute).
 STATS = [0, 0]
 # The same pair for the back direction, counted separately so one A/B can read both legs.
@@ -565,7 +568,7 @@ def _cache_key_back(x, out, device, reader_ct, writer_ct):
         str(x.dtype), str(x.layout),
         str(x.memory_config()), str(out.memory_config()),
         g.x, g.y, WALK, genq.compact(),
-        tuple(reader_ct), tuple(writer_ct),
+        tuple(reader_ct), tuple(writer_ct), BACK_ABL,
     )
 
 
@@ -628,12 +631,14 @@ def _build_back(x, out, device, reader_ct, writer_ct):
         source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
         core_ranges=core_grid, compile_time_args=genq_ct + reader_ct, runtime_args=reader_rt,
         common_runtime_args=[0], config=ttnn.ReaderConfigDescriptor(),
+        defines=[(d, "1") for b, d in ((1, "RPB_NO_DRAM"), (2, "RPB_NO_GATHER")) if BACK_ABL & b],
     )
     writer = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR_BACK / "writer_reblock_permute_back.cpp"),
         source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
         core_ranges=core_grid, compile_time_args=genq_ct + writer_ct, runtime_args=writer_rt,
         common_runtime_args=[0, Ct, 0], config=ttnn.WriterConfigDescriptor(),
+        defines=[("RPB_NO_WRITE", "1")] if BACK_ABL & 4 else [],
     )
     # The compute kernel is the forward direction's, unchanged: both moves end in one `transpose_wh`
     # per tile, and the CB indices are the same.
