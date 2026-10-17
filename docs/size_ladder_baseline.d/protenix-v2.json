@@ -15,26 +15,26 @@
   ],
   "cards": {
     "tt-galaxy-wh-l": {
-      "recorded": "2026-10-15",
-      "host": "UF-EV-A4-GWH01",
-      "commit": "4ba29781f",
+      "recorded": "2026-10-17",
+      "host": "UF-EV-A4-GWH02",
+      "commit": "8fb57d73a",
       "host_threads": 2,
       "models": {
         "protenix-v2": {
           "grid": "8x9",
-          "recorded": "2026-10-15",
-          "host": "UF-EV-A4-GWH01",
-          "commit": "4ba29781f",
+          "recorded": "2026-10-17",
+          "host": "UF-EV-A4-GWH02",
+          "commit": "8fb57d73a",
           "host_threads": 2,
           "runtime_s": {
-            "256": 24.7,
-            "512": 64.9,
-            "640": 106.9,
-            "768": 165.9,
-            "896": 217.9,
-            "1024": 289.9,
-            "1280": 672.8,
-            "1536": 1137.4
+            "256": 23.9,
+            "512": 55.6,
+            "640": 91.2,
+            "768": 153.4,
+            "896": 200.8,
+            "1024": 265.5,
+            "1280": 646.4,
+            "1536": 1109.4
           },
           "levers": {
             "256": {
@@ -131,14 +131,10 @@
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 604,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "rejects": {
-                  "l1_dest_is_faster:256x256x64": 80,
-                  "l1_dest_is_faster:256x256x256": 524
-                },
-                "reason": "declines all 604 calls on l1_dest_is_faster:256x256x256 x524, l1_dest_is_faster:256x256x64 x80: the row-major route needs a DRAM destination for a 3-D bf16 tiled pair tensor, and it serves at 640 and 768, so the pair buffer is L1-resident here; wrap-counted, so the clause is not recorded [carried from p300c]"
+                "reason": "declines all 0 calls: triatt_ln's TR mode (Wormhole Protenix-v2, 7533354b6) norms x^T straight from x, so the ending triangle attention's pair transpose (604 calls, half of 1208) no longer runs at 256-1024. Falsifier: calls here on Wormhole mean triatt_ln declined the ending variant"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -160,10 +156,11 @@
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 1208,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "wrap"
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "declines all 0 calls: triatt_ln (Wormhole Protenix-v2, 7533354b6) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024. Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Falsifier: calls here on Wormhole mean triatt_ln declined"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "not-imported",
@@ -248,24 +245,27 @@
               },
               "TRIATT_HEAD_MAJOR_QKV": {
                 "resolved": "True",
-                "served": 1208,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: triatt_ln (Wormhole Protenix-v2, 7533354b6) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024. Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Falsifier: calls here on Wormhole mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
-                "served": 1208,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: triatt_ln (Wormhole Protenix-v2, 7533354b6) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024. Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Falsifier: calls here on Wormhole mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
-                "served": 1208,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats-shared"
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "declines all 0 calls: triatt_ln (Wormhole Protenix-v2, 7533354b6) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024. Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Falsifier: calls here on Wormhole mean triatt_ln declined"
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
@@ -308,10 +308,11 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 604,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "wrap"
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "declines all 0 calls: triatt_ln's TR mode (Wormhole Protenix-v2, 7533354b6) norms x^T straight from x, so the ending triangle attention's pair transpose (604 calls, half of 1208) no longer runs at 256-1024. Falsifier: calls here on Wormhole mean triatt_ln declined the ending variant"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -438,20 +439,19 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 524,
-                "declined": 80,
-                "frac": 0.8675496688741722,
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
                 "how": "wrap",
-                "rejects": {
-                  "l1_dest_is_faster:512x512x64": 80
-                }
+                "reason": "declines all 0 calls: triatt_ln's TR mode (Wormhole Protenix-v2, 7533354b6) norms x^T straight from x, so the ending triangle attention's pair transpose (604 calls, half of 1208) no longer runs at 256-1024. Falsifier: calls here on Wormhole mean triatt_ln declined the ending variant"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
-                "served": 1048,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "wrap"
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "declines all 0 calls: T2 tail (trimul_t2, 8a0d1d074) takes the output tail wherever g_out arrives fused, which at 512/640 is T1's route, and does the p projection inside its own kernel, so the 1048 calls that reached `_pair_proj_minimal_matmul` here before T2 are gone. From 768 F1 owns the tail with the projection fused. Falsifier: calls here at 512/640 mean T2 stopped taking T1's tails"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -460,16 +460,18 @@
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "t1:key=2x4x2": 160
+                  "t1:key=2x4x2": 160,
+                  "t2:key=2x2": 160
                 },
-                "reason": "declines all 0 calls on t1:key=2x4x2 x160: F1's one call site (`fused_tail`) is guarded by `g_out_fused is None`, and at 512/640 trimul_t1_c256 takes the in-projection (DRAM route, one channel chunk) and returns g_out with it; the 160 narrow-key tails T1 declines (t1:key=2x4x2) get a fused g_out from the incumbent in-projection. So F1 is never offered. At 256 (L1 channel loop) and 768+ (several channel chunks) T1 is off the route and F1 serves 1048; TRIMUL_IN_PROJ_DUAL_NOC marks the same boundary, 160 served here vs 2256 at 768. Falsifier: F1 serving at 512/640 with T1 on means g_out stopped riding T1"
+                "reason": "declines all 0 calls on t1:key=2x4x2 x160, t2:key=2x2 x160: F1's one call site (`fused_tail`) is guarded by `g_out_fused is None`, and at 512/640 trimul_t1_c256 takes the in-projection (DRAM route, one channel chunk) and returns g_out with it; the 160 narrow-key tails T1 declines (t1:key=2x4x2) get a fused g_out from the incumbent in-projection. So F1 is never offered. At 256 (L1 channel loop) and 768+ (several channel chunks) T1 is off the route and F1 serves 1048; TRIMUL_IN_PROJ_DUAL_NOC marks the same boundary, 160 served here vs 2256 at 768. Falsifier: F1 serving at 512/640 with T1 on means g_out stopped riding T1"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 2256,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "wrap"
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "declines all 0 calls: triatt_ln (Wormhole Protenix-v2, 7533354b6) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024. Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Falsifier: calls here on Wormhole mean triatt_ln declined"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "not-imported",
@@ -488,7 +490,7 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 1208,
+                "served": 160,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -554,24 +556,27 @@
               },
               "TRIATT_HEAD_MAJOR_QKV": {
                 "resolved": "True",
-                "served": 1208,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: triatt_ln (Wormhole Protenix-v2, 7533354b6) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024. Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Falsifier: calls here on Wormhole mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
-                "served": 1208,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: triatt_ln (Wormhole Protenix-v2, 7533354b6) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024. Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Falsifier: calls here on Wormhole mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
-                "served": 1208,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats-shared"
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "declines all 0 calls: triatt_ln (Wormhole Protenix-v2, 7533354b6) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024. Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Falsifier: calls here on Wormhole mean triatt_ln declined"
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
@@ -614,10 +619,11 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 80,
-                "declined": 524,
-                "frac": 0.13245033112582782,
-                "how": "wrap"
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "declines all 0 calls: triatt_ln's TR mode (Wormhole Protenix-v2, 7533354b6) norms x^T straight from x, so the ending triangle attention's pair transpose (604 calls, half of 1208) no longer runs at 256-1024. Falsifier: calls here on Wormhole mean triatt_ln declined the ending variant"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -749,23 +755,22 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 524,
-                "declined": 80,
-                "frac": 0.8675496688741722,
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
                 "how": "wrap",
-                "rejects": {
-                  "l1_dest_is_faster:640x640x64": 80
-                }
+                "reason": "declines all 0 calls: triatt_ln's TR mode (Wormhole Protenix-v2, 7533354b6) norms x^T straight from x, so the ending triangle attention's pair transpose (604 calls, half of 1208) no longer runs at 256-1024. Falsifier: calls here on Wormhole mean triatt_ln declined the ending variant"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
-                "served": 1048,
+                "served": 0,
                 "declined": 1,
-                "frac": 0.9990467111534795,
+                "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
                   "k_tiles=2:(2,2)": 1
-                }
+                },
+                "reason": "declines all 1 calls on k_tiles=2:(2,2) x1: T2 tail (trimul_t2, 8a0d1d074) takes the output tail wherever g_out arrives fused, which at 512/640 is T1's route, and does the p projection inside its own kernel, so the 1048 calls that reached `_pair_proj_minimal_matmul` here before T2 are gone. From 768 F1 owns the tail with the projection fused. Falsifier: calls here at 512/640 mean T2 stopped taking T1's tails"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -775,16 +780,18 @@
                 "how": "stats",
                 "rejects": {
                   "t1:key=2x4x2": 160,
+                  "t2:key=2x2": 159,
                   "k_tiles=2": 1
                 },
-                "reason": "declines all 1 calls on t1:key=2x4x2 x160, k_tiles=2 x1: F1's one call site (`fused_tail`) is guarded by `g_out_fused is None`, and at 512/640 trimul_t1_c256 takes the in-projection (DRAM route, one channel chunk) and returns g_out with it; the 160 narrow-key tails T1 declines (t1:key=2x4x2) get a fused g_out from the incumbent in-projection. So F1 is never offered. At 256 (L1 channel loop) and 768+ (several channel chunks) T1 is off the route and F1 serves 1048; TRIMUL_IN_PROJ_DUAL_NOC marks the same boundary, 160 served here vs 2256 at 768. Falsifier: F1 serving at 512/640 with T1 on means g_out stopped riding T1"
+                "reason": "declines all 1 calls on t1:key=2x4x2 x160, t2:key=2x2 x159, k_tiles=2 x1: F1's one call site (`fused_tail`) is guarded by `g_out_fused is None`, and at 512/640 trimul_t1_c256 takes the in-projection (DRAM route, one channel chunk) and returns g_out with it; the 160 narrow-key tails T1 declines (t1:key=2x4x2) get a fused g_out from the incumbent in-projection. So F1 is never offered. At 256 (L1 channel loop) and 768+ (several channel chunks) T1 is off the route and F1 serves 1048; TRIMUL_IN_PROJ_DUAL_NOC marks the same boundary, 160 served here vs 2256 at 768. Falsifier: F1 serving at 512/640 with T1 on means g_out stopped riding T1"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 2256,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "wrap"
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "declines all 0 calls: triatt_ln (Wormhole Protenix-v2, 7533354b6) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024. Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Falsifier: calls here on Wormhole mean triatt_ln declined"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "not-imported",
@@ -803,7 +810,7 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 1208,
+                "served": 160,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -873,24 +880,27 @@
               },
               "TRIATT_HEAD_MAJOR_QKV": {
                 "resolved": "True",
-                "served": 1208,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: triatt_ln (Wormhole Protenix-v2, 7533354b6) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024. Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Falsifier: calls here on Wormhole mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
-                "served": 1208,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: triatt_ln (Wormhole Protenix-v2, 7533354b6) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024. Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Falsifier: calls here on Wormhole mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
-                "served": 1208,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats-shared"
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "declines all 0 calls: triatt_ln (Wormhole Protenix-v2, 7533354b6) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024. Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Falsifier: calls here on Wormhole mean triatt_ln declined"
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
@@ -933,10 +943,11 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 80,
-                "declined": 524,
-                "frac": 0.13245033112582782,
-                "how": "wrap"
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "declines all 0 calls: triatt_ln's TR mode (Wormhole Protenix-v2, 7533354b6) norms x^T straight from x, so the ending triangle attention's pair transpose (604 calls, half of 1208) no longer runs at 256-1024. Falsifier: calls here on Wormhole mean triatt_ln declined the ending variant"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -1068,13 +1079,11 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 524,
-                "declined": 80,
-                "frac": 0.8675496688741722,
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
                 "how": "wrap",
-                "rejects": {
-                  "l1_dest_is_faster:768x768x64": 80
-                }
+                "reason": "declines all 0 calls: triatt_ln's TR mode (Wormhole Protenix-v2, 7533354b6) norms x^T straight from x, so the ending triangle attention's pair transpose (604 calls, half of 1208) no longer runs at 256-1024. Falsifier: calls here on Wormhole mean triatt_ln declined the ending variant"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -1091,15 +1100,17 @@
                 "frac": 1.0,
                 "how": "stats",
                 "rejects": {
-                  "t1:key=2x4x2": 160
+                  "t1:key=2x4x2": 160,
+                  "t2:key=2x2": 160
                 }
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 1208,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "wrap"
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "declines all 0 calls: triatt_ln (Wormhole Protenix-v2, 7533354b6) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024. Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Falsifier: calls here on Wormhole mean triatt_ln declined"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "not-imported",
@@ -1188,24 +1199,27 @@
               },
               "TRIATT_HEAD_MAJOR_QKV": {
                 "resolved": "True",
-                "served": 1208,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: triatt_ln (Wormhole Protenix-v2, 7533354b6) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024. Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Falsifier: calls here on Wormhole mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
-                "served": 1208,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: triatt_ln (Wormhole Protenix-v2, 7533354b6) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024. Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Falsifier: calls here on Wormhole mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
-                "served": 1208,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats-shared"
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "declines all 0 calls: triatt_ln (Wormhole Protenix-v2, 7533354b6) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024. Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Falsifier: calls here on Wormhole mean triatt_ln declined"
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
@@ -1248,10 +1262,11 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 80,
-                "declined": 524,
-                "frac": 0.13245033112582782,
-                "how": "wrap"
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "declines all 0 calls: triatt_ln's TR mode (Wormhole Protenix-v2, 7533354b6) norms x^T straight from x, so the ending triangle attention's pair transpose (604 calls, half of 1208) no longer runs at 256-1024. Falsifier: calls here on Wormhole mean triatt_ln declined the ending variant"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -1382,10 +1397,11 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 604,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "wrap"
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "declines all 0 calls: triatt_ln's TR mode (Wormhole Protenix-v2, 7533354b6) norms x^T straight from x, so the ending triangle attention's pair transpose (604 calls, half of 1208) no longer runs at 256-1024. Falsifier: calls here on Wormhole mean triatt_ln declined the ending variant"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -1405,15 +1421,17 @@
                 "frac": 1.0,
                 "how": "stats",
                 "rejects": {
-                  "t1:key=2x4x2": 160
+                  "t1:key=2x4x2": 160,
+                  "t2:key=2x2": 160
                 }
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 1208,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "wrap"
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "declines all 0 calls: triatt_ln (Wormhole Protenix-v2, 7533354b6) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024. Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Falsifier: calls here on Wormhole mean triatt_ln declined"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "not-imported",
@@ -1502,24 +1520,27 @@
               },
               "TRIATT_HEAD_MAJOR_QKV": {
                 "resolved": "True",
-                "served": 1208,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: triatt_ln (Wormhole Protenix-v2, 7533354b6) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024. Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Falsifier: calls here on Wormhole mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
-                "served": 1208,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: triatt_ln (Wormhole Protenix-v2, 7533354b6) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024. Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Falsifier: calls here on Wormhole mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
-                "served": 1208,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats-shared"
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "declines all 0 calls: triatt_ln (Wormhole Protenix-v2, 7533354b6) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024. Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Falsifier: calls here on Wormhole mean triatt_ln declined"
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
@@ -1563,10 +1584,10 @@
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
                 "served": 0,
-                "declined": 604,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "declines all 604 calls: the pair tensor outgrows aggregate L1 at this size, so `_l1_memory_config_if_it_fits(t, _TRANSPOSE_L1_HEADROOM)` (tt_bio/tenstorrent.py:2827) answers DRAM for every one of the 1208 pair transposes. The L1 route served 1208/1208 at 256 aa and 160/1208 at 512-768, so this is the 1.25 headroom closing with size, not a guard change; the fallback is the DRAM permute, which is bit-identical"
+                "reason": "declines all 0 calls: triatt_ln's TR mode (Wormhole Protenix-v2, 7533354b6) norms x^T straight from x, so the ending triangle attention's pair transpose (604 calls, half of 1208) no longer runs at 256-1024. Falsifier: calls here on Wormhole mean triatt_ln declined the ending variant"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -1697,10 +1718,11 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 604,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "wrap"
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "declines all 0 calls: triatt_ln's TR mode (Wormhole Protenix-v2, 7533354b6) norms x^T straight from x, so the ending triangle attention's pair transpose (604 calls, half of 1208) no longer runs at 256-1024. Falsifier: calls here on Wormhole mean triatt_ln declined the ending variant"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -1720,15 +1742,17 @@
                 "frac": 1.0,
                 "how": "stats",
                 "rejects": {
-                  "t1:key=2x4x2": 160
+                  "t1:key=2x4x2": 160,
+                  "t2:key=2x2": 160
                 }
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 1208,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "wrap"
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "declines all 0 calls: triatt_ln (Wormhole Protenix-v2, 7533354b6) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024. Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Falsifier: calls here on Wormhole mean triatt_ln declined"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "not-imported",
@@ -1817,24 +1841,27 @@
               },
               "TRIATT_HEAD_MAJOR_QKV": {
                 "resolved": "True",
-                "served": 1208,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: triatt_ln (Wormhole Protenix-v2, 7533354b6) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024. Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Falsifier: calls here on Wormhole mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
-                "served": 1208,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: triatt_ln (Wormhole Protenix-v2, 7533354b6) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024. Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Falsifier: calls here on Wormhole mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
-                "served": 1208,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats-shared"
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "declines all 0 calls: triatt_ln (Wormhole Protenix-v2, 7533354b6) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024. Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Falsifier: calls here on Wormhole mean triatt_ln declined"
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
@@ -1878,10 +1905,10 @@
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
                 "served": 0,
-                "declined": 604,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "declines all 604 calls: the pair tensor outgrows aggregate L1 at this size, so `_l1_memory_config_if_it_fits(t, _TRANSPOSE_L1_HEADROOM)` (tt_bio/tenstorrent.py:2827) answers DRAM for every one of the 1208 pair transposes. The L1 route served 1208/1208 at 256 aa and 160/1208 at 512-768, so this is the 1.25 headroom closing with size, not a guard change; the fallback is the DRAM permute, which is bit-identical"
+                "reason": "declines all 0 calls: triatt_ln's TR mode (Wormhole Protenix-v2, 7533354b6) norms x^T straight from x, so the ending triangle attention's pair transpose (604 calls, half of 1208) no longer runs at 256-1024. Falsifier: calls here on Wormhole mean triatt_ln declined the ending variant"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -2556,41 +2583,41 @@
           },
           "runtime_reps_s": {
             "256": [
-              24.7,
-              24.8,
-              24.7,
-              24.6,
-              24.6
+              23.9,
+              23.9,
+              23.8,
+              24.0,
+              23.9
             ],
             "512": [
-              65.3,
-              64.8,
-              64.6,
-              65.0,
-              64.9
+              55.4,
+              55.3,
+              55.7,
+              55.6,
+              56.0
             ],
             "640": [
-              106.9
+              91.2
             ],
             "768": [
-              165.9
+              153.4
             ],
             "896": [
-              217.9
+              200.8
             ],
             "1024": [
-              289.9
+              265.5
             ],
             "1280": [
-              672.8
+              646.4
             ],
             "1536": [
-              1137.4
+              1109.4
             ]
           },
           "aiclk": {
             "256": {
-              "card": "23",
+              "card": "4",
               "min": 500,
               "max": 1000,
               "rep_median": [
@@ -2598,133 +2625,133 @@
                 1000,
                 1000,
                 1000,
+                1000
+              ],
+              "n": 35
+            },
+            "512": {
+              "card": "4",
+              "min": 500,
+              "max": 1000,
+              "rep_median": [
+                1000,
+                1000,
+                1000,
+                1000,
+                1000
+              ],
+              "n": 67
+            },
+            "640": {
+              "card": "4",
+              "min": 500,
+              "max": 1000,
+              "rep_median": [
+                1000
+              ],
+              "n": 19
+            },
+            "768": {
+              "card": "4",
+              "min": 500,
+              "max": 1000,
+              "rep_median": [
+                1000
+              ],
+              "n": 31
+            },
+            "896": {
+              "card": "4",
+              "min": 500,
+              "max": 1000,
+              "rep_median": [
                 1000
               ],
               "n": 40
             },
-            "512": {
-              "card": "23",
-              "min": 500,
-              "max": 1000,
-              "rep_median": [
-                1000,
-                1000,
-                1000,
-                1000,
-                1000
-              ],
-              "n": 75
-            },
-            "640": {
-              "card": "23",
-              "min": 500,
-              "max": 1000,
-              "rep_median": [
-                1000
-              ],
-              "n": 23
-            },
-            "768": {
-              "card": "23",
-              "min": 500,
-              "max": 1000,
-              "rep_median": [
-                1000
-              ],
-              "n": 34
-            },
-            "896": {
-              "card": "23",
-              "min": 500,
-              "max": 1000,
-              "rep_median": [
-                1000
-              ],
-              "n": 43
-            },
             "1024": {
-              "card": "23",
+              "card": "4",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 56
+              "n": 52
             },
             "1280": {
-              "card": "23",
+              "card": "4",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 125
+              "n": 122
             },
             "1536": {
-              "card": "23",
+              "card": "4",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 210
+              "n": 208
             }
           },
           "load": {
             "256": {
-              "max": 0.53,
+              "max": 0.54,
               "rep_median": [
-                0.5,
-                0.5,
-                0.51,
                 0.52,
-                0.52
+                0.5,
+                0.5,
+                0.48,
+                0.46
               ]
             },
             "512": {
-              "max": 0.57,
+              "max": 0.51,
               "rep_median": [
-                0.51,
-                0.51,
-                0.51,
-                0.55,
-                0.53
+                0.5,
+                0.48,
+                0.47,
+                0.47,
+                0.46
               ]
             },
             "640": {
-              "max": 0.55,
+              "max": 0.49,
               "rep_median": [
-                0.53
+                0.46
               ]
             },
             "768": {
-              "max": 0.55,
+              "max": 0.51,
               "rep_median": [
-                0.53
+                0.48
               ]
             },
             "896": {
-              "max": 0.74,
+              "max": 0.52,
               "rep_median": [
-                0.58
+                0.49
               ]
             },
             "1024": {
-              "max": 0.85,
+              "max": 0.49,
               "rep_median": [
-                0.68
+                0.46
               ]
             },
             "1280": {
-              "max": 1.39,
+              "max": 0.89,
               "rep_median": [
-                1.19
+                0.61
               ]
             },
             "1536": {
-              "max": 1.23,
+              "max": 0.52,
               "rep_median": [
-                0.86
+                0.48
               ]
             }
           },
@@ -2735,28 +2762,28 @@
               "n_ca": 256,
               "clash_frac": 0.0,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 131.1251,
-              "radius_of_gyration_A": 110.018,
-              "plddt_mean": 0.876307,
+              "ca_ca_median_A": 134.326,
+              "radius_of_gyration_A": 109.738,
+              "plddt_mean": 0.87464,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 131.125 A outside [3.6, 4.0]",
+                "median CA-CA 134.326 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 110.0 A outside [9.0, 45.2]"
+                "radius of gyration 109.7 A outside [9.0, 45.2]"
               ]
             },
             "512": {
               "file": "cdk2x2_512.cif",
               "steps": 6,
               "n_ca": 512,
-              "clash_frac": 0.0078,
+              "clash_frac": 0.0117,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 133.4073,
-              "radius_of_gyration_A": 112.8,
-              "plddt_mean": 0.830995,
+              "ca_ca_median_A": 133.0742,
+              "radius_of_gyration_A": 112.788,
+              "plddt_mean": 0.828968,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 133.407 A outside [3.6, 4.0]",
+                "median CA-CA 133.074 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
                 "radius of gyration 112.8 A outside [11.8, 58.9]"
               ]
@@ -2765,127 +2792,125 @@
               "file": "cdk2x2_640.cif",
               "steps": 6,
               "n_ca": 640,
-              "clash_frac": 0.0063,
+              "clash_frac": 0.0125,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 143.2514,
-              "radius_of_gyration_A": 116.374,
-              "plddt_mean": 0.795861,
+              "ca_ca_median_A": 142.9374,
+              "radius_of_gyration_A": 116.067,
+              "plddt_mean": 0.795267,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 143.251 A outside [3.6, 4.0]",
+                "median CA-CA 142.937 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 116.4 A outside [12.8, 64.1]"
+                "radius of gyration 116.1 A outside [12.8, 64.1]"
               ]
             },
             "768": {
               "file": "cdk2x2_768.cif",
               "steps": 6,
               "n_ca": 768,
-              "clash_frac": 0.0234,
+              "clash_frac": 0.0156,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 140.2614,
-              "radius_of_gyration_A": 113.273,
-              "plddt_mean": 0.801853,
+              "ca_ca_median_A": 141.0361,
+              "radius_of_gyration_A": 113.489,
+              "plddt_mean": 0.801051,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 140.261 A outside [3.6, 4.0]",
+                "median CA-CA 141.036 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "2.3% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 113.3 A outside [13.7, 68.7]"
+                "radius of gyration 113.5 A outside [13.7, 68.7]"
               ]
             },
             "896": {
               "file": "cdk2x2_896.cif",
               "steps": 6,
               "n_ca": 896,
-              "clash_frac": 0.0212,
+              "clash_frac": 0.0223,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 132.5443,
-              "radius_of_gyration_A": 111.729,
-              "plddt_mean": 0.762136,
+              "ca_ca_median_A": 133.6154,
+              "radius_of_gyration_A": 111.834,
+              "plddt_mean": 0.763055,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 132.544 A outside [3.6, 4.0]",
+                "median CA-CA 133.615 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "2.1% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 111.7 A outside [14.6, 72.8]"
+                "2.2% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 111.8 A outside [14.6, 72.8]"
               ]
             },
             "1024": {
               "file": "cdk2x2_1024.cif",
               "steps": 6,
               "n_ca": 1024,
-              "clash_frac": 0.0098,
+              "clash_frac": 0.0205,
               "chain_break_frac": 0.999,
-              "ca_ca_median_A": 135.608,
-              "radius_of_gyration_A": 116.951,
-              "plddt_mean": 0.73663,
+              "ca_ca_median_A": 135.1882,
+              "radius_of_gyration_A": 116.812,
+              "plddt_mean": 0.742543,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 135.608 A outside [3.6, 4.0]",
+                "median CA-CA 135.188 A outside [3.6, 4.0]",
                 "99.9% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 117.0 A outside [15.3, 76.6]"
+                "2.1% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 116.8 A outside [15.3, 76.6]"
               ]
             },
             "1280": {
               "file": "cdk2x2_1280.cif",
               "steps": 6,
               "n_ca": 1280,
-              "clash_frac": 0.0203,
+              "clash_frac": 0.0172,
               "chain_break_frac": 0.9992,
-              "ca_ca_median_A": 131.9598,
-              "radius_of_gyration_A": 113.252,
-              "plddt_mean": 0.70973,
+              "ca_ca_median_A": 131.9379,
+              "radius_of_gyration_A": 113.726,
+              "plddt_mean": 0.714028,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 131.960 A outside [3.6, 4.0]",
+                "median CA-CA 131.938 A outside [3.6, 4.0]",
                 "99.9% of consecutive CA pairs exceed 5.0 A",
-                "2.0% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 113.3 A outside [16.7, 83.4]"
+                "radius of gyration 113.7 A outside [16.7, 83.4]"
               ]
             },
             "1536": {
               "file": "cdk2x2_1536.cif",
               "steps": 6,
               "n_ca": 1536,
-              "clash_frac": 0.0332,
+              "clash_frac": 0.0182,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 135.965,
-              "radius_of_gyration_A": 111.668,
-              "plddt_mean": 0.697875,
+              "ca_ca_median_A": 136.6104,
+              "radius_of_gyration_A": 112.198,
+              "plddt_mean": 0.696353,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 135.965 A outside [3.6, 4.0]",
+                "median CA-CA 136.610 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "3.3% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 111.7 A outside [17.9, 89.4]"
+                "radius of gyration 112.2 A outside [17.9, 89.4]"
               ]
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.004,
+          "sigma_runtime_512": 0.0049,
           "exponents": {
             "256->512": {
-              "k": 1.394,
+              "k": 1.218,
               "tol": 0.5
             },
             "512->768": {
-              "k": 2.315,
+              "k": 2.503,
               "tol": 0.5
             }
           },
           "sigma_runtime": {
-            "256": 0.0034,
-            "512": 0.004
+            "256": 0.003,
+            "512": 0.0049
           },
           "exponents_measured": {
-            "256->512": 1.394,
-            "512->640": 2.236,
-            "640->768": 2.411,
-            "768->896": 1.769,
-            "896->1024": 2.138,
-            "1024->1280": 3.773,
-            "1280->1536": 2.88
+            "256->512": 1.218,
+            "512->640": 2.218,
+            "640->768": 2.852,
+            "768->896": 1.747,
+            "896->1024": 2.092,
+            "1024->1280": 3.988,
+            "1280->1536": 2.963
           }
         }
       }
@@ -6446,24 +6471,24 @@
       }
     },
     "p300c": {
-      "recorded": "2026-10-15",
+      "recorded": "2026-10-17",
       "host": "tt-quietbox2",
-      "commit": "4ba29781f",
+      "commit": "8fb57d73a",
       "host_threads": 5,
       "models": {
         "protenix-v2": {
           "grid": "11x10",
-          "recorded": "2026-10-15",
+          "recorded": "2026-10-17",
           "host": "tt-quietbox2",
-          "commit": "4ba29781f",
+          "commit": "8fb57d73a",
           "host_threads": 5,
           "runtime_s": {
-            "256": 14.1,
-            "512": 33.6,
-            "640": 50.9,
-            "768": 75.9,
-            "896": 104.7,
-            "1024": 136.6
+            "256": 12.3,
+            "512": 28.2,
+            "640": 44.1,
+            "768": 71.2,
+            "896": 100.0,
+            "1024": 131.8
           },
           "levers": {
             "256": {
@@ -6886,10 +6911,11 @@
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
-                "served": 1048,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "wrap"
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "declines all 0 calls: T2 tail (trimul_t2, 8a0d1d074) takes the output tail wherever g_out arrives fused, which at 512/640 is T1's route, and does the p projection inside its own kernel, so the 1048 calls that reached `_pair_proj_minimal_matmul` here before T2 are gone. From 768 F1 owns the tail with the projection fused. Falsifier: calls here at 512/640 mean T2 stopped taking T1's tails"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -6898,13 +6924,14 @@
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "t1:key=2x4x2": 160
+                  "t1:key=2x4x2": 160,
+                  "t2:key=2x2": 160
                 },
-                "reason": "declines all 0 calls on t1:key=2x4x2 x160: F1's one call site (`fused_tail`) is guarded by `g_out_fused is None`, and at 512/640 trimul_t1_c256 takes the in-projection (DRAM route, one channel chunk) and returns g_out with it; the 160 narrow-key tails T1 declines (t1:key=2x4x2) get a fused g_out from the incumbent in-projection. So F1 is never offered. At 256 (L1 channel loop) and 768+ (several channel chunks) T1 is off the route and F1 serves 1048; TRIMUL_IN_PROJ_DUAL_NOC marks the same boundary, 160 served here vs 2256 at 768. Falsifier: F1 serving at 512/640 with T1 on means g_out stopped riding T1"
+                "reason": "declines all 0 calls on t1:key=2x4x2 x160, t2:key=2x2 x160: F1's one call site (`fused_tail`) is guarded by `g_out_fused is None`, and at 512/640 trimul_t1_c256 takes the in-projection (DRAM route, one channel chunk) and returns g_out with it; the 160 narrow-key tails T1 declines (t1:key=2x4x2) get a fused g_out from the incumbent in-projection. So F1 is never offered. At 256 (L1 channel loop) and 768+ (several channel chunks) T1 is off the route and F1 serves 1048; TRIMUL_IN_PROJ_DUAL_NOC marks the same boundary, 160 served here vs 2256 at 768. Falsifier: F1 serving at 512/640 with T1 on means g_out stopped riding T1"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 2256,
+                "served": 1208,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -6926,7 +6953,7 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 1208,
+                "served": 160,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -7195,10 +7222,11 @@
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
-                "served": 1048,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "wrap"
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "declines all 0 calls: T2 tail (trimul_t2, 8a0d1d074) takes the output tail wherever g_out arrives fused, which at 512/640 is T1's route, and does the p projection inside its own kernel, so the 1048 calls that reached `_pair_proj_minimal_matmul` here before T2 are gone. From 768 F1 owns the tail with the projection fused. Falsifier: calls here at 512/640 mean T2 stopped taking T1's tails"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -7207,13 +7235,14 @@
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "t1:key=2x4x2": 160
+                  "t1:key=2x4x2": 160,
+                  "t2:key=2x2": 160
                 },
-                "reason": "declines all 0 calls on t1:key=2x4x2 x160: F1's one call site (`fused_tail`) is guarded by `g_out_fused is None`, and at 512/640 trimul_t1_c256 takes the in-projection (DRAM route, one channel chunk) and returns g_out with it; the 160 narrow-key tails T1 declines (t1:key=2x4x2) get a fused g_out from the incumbent in-projection. So F1 is never offered. At 256 (L1 channel loop) and 768+ (several channel chunks) T1 is off the route and F1 serves 1048; TRIMUL_IN_PROJ_DUAL_NOC marks the same boundary, 160 served here vs 2256 at 768. Falsifier: F1 serving at 512/640 with T1 on means g_out stopped riding T1"
+                "reason": "declines all 0 calls on t1:key=2x4x2 x160, t2:key=2x2 x160: F1's one call site (`fused_tail`) is guarded by `g_out_fused is None`, and at 512/640 trimul_t1_c256 takes the in-projection (DRAM route, one channel chunk) and returns g_out with it; the 160 narrow-key tails T1 declines (t1:key=2x4x2) get a fused g_out from the incumbent in-projection. So F1 is never offered. At 256 (L1 channel loop) and 768+ (several channel chunks) T1 is off the route and F1 serves 1048; TRIMUL_IN_PROJ_DUAL_NOC marks the same boundary, 160 served here vs 2256 at 768. Falsifier: F1 serving at 512/640 with T1 on means g_out stopped riding T1"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 2256,
+                "served": 1208,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -7235,7 +7264,7 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 1208,
+                "served": 160,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -7521,6 +7550,7 @@
                 "how": "stats",
                 "rejects": {
                   "t1:key=2x4x2": 160,
+                  "t2:key=2x2": 159,
                   "k_tiles=2": 1
                 }
               },
@@ -7834,7 +7864,8 @@
                 "frac": 1.0,
                 "how": "stats",
                 "rejects": {
-                  "t1:key=2x4x2": 160
+                  "t1:key=2x4x2": 160,
+                  "t2:key=2x2": 160
                 }
               },
               "QKV_MM_CONFIG": {
@@ -8151,7 +8182,8 @@
                 "frac": 1.0,
                 "how": "stats",
                 "rejects": {
-                  "t1:key=2x4x2": 160
+                  "t1:key=2x4x2": 160,
+                  "t2:key=2x2": 160
                 }
               },
               "QKV_MM_CONFIG": {
@@ -8356,139 +8388,139 @@
           },
           "runtime_reps_s": {
             "256": [
-              12.8,
-              14.1,
-              14.5,
-              14.2,
-              13.5
+              12.1,
+              12.4,
+              12.4,
+              12.3,
+              12.2
             ],
             "512": [
-              33.6,
-              34.4,
-              33.1,
-              33.4,
-              33.8
+              28.0,
+              28.2,
+              28.2,
+              28.0,
+              28.2
             ],
             "640": [
-              50.9
+              44.1
             ],
             "768": [
-              75.9
+              71.2
             ],
             "896": [
-              104.7
+              100.0
             ],
             "1024": [
-              136.6
+              131.8
             ]
           },
           "aiclk": {
             "256": {
-              "card": "2",
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1337,
-                1350,
-                1312,
-                1350,
-                1350
+                800,
+                1325,
+                1331,
+                1306,
+                1331
               ],
-              "n": 30
+              "n": 25
             },
             "512": {
-              "card": "2",
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1312,
-                1331,
-                1325,
-                1318,
-                1331
+                1293,
+                1300,
+                1281,
+                1300,
+                1312
               ],
-              "n": 46
+              "n": 40
             },
             "640": {
-              "card": "2",
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1331
+                1293
               ],
-              "n": 13
+              "n": 11
             },
             "768": {
-              "card": "2",
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1331
+                1325
               ],
-              "n": 17
+              "n": 16
             },
             "896": {
-              "card": "2",
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1331
+                1287
               ],
-              "n": 22
+              "n": 21
             },
             "1024": {
-              "card": "2",
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1343
+                1281
               ],
               "n": 27
             }
           },
           "load": {
             "256": {
-              "max": 0.81,
+              "max": 0.67,
               "rep_median": [
-                0.74,
-                0.74,
-                0.79,
-                0.78,
-                0.78
+                0.64,
+                0.59,
+                0.55,
+                0.55,
+                0.54
               ]
             },
             "512": {
-              "max": 0.87,
+              "max": 0.74,
               "rep_median": [
-                0.77,
-                0.85,
-                0.76,
-                0.65,
-                0.65
+                0.7,
+                0.62,
+                0.57,
+                0.53,
+                0.51
               ]
             },
             "640": {
-              "max": 0.75,
+              "max": 0.71,
               "rep_median": [
-                0.68
+                0.67
               ]
             },
             "768": {
-              "max": 0.82,
+              "max": 0.68,
               "rep_median": [
-                0.75
+                0.64
               ]
             },
             "896": {
-              "max": 0.84,
+              "max": 0.49,
               "rep_median": [
-                0.79
+                0.45
               ]
             },
             "1024": {
-              "max": 0.78,
+              "max": 0.45,
               "rep_median": [
-                0.71
+                0.37
               ]
             }
           },
@@ -8513,14 +8545,14 @@
               "file": "cdk2x2_512.cif",
               "steps": 6,
               "n_ca": 512,
-              "clash_frac": 0.0039,
+              "clash_frac": 0.0078,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 132.7917,
-              "radius_of_gyration_A": 112.721,
-              "plddt_mean": 0.82879,
+              "ca_ca_median_A": 131.0714,
+              "radius_of_gyration_A": 112.694,
+              "plddt_mean": 0.829532,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 132.792 A outside [3.6, 4.0]",
+                "median CA-CA 131.071 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
                 "radius of gyration 112.7 A outside [11.8, 58.9]"
               ]
@@ -8529,90 +8561,89 @@
               "file": "cdk2x2_640.cif",
               "steps": 6,
               "n_ca": 640,
-              "clash_frac": 0.0031,
+              "clash_frac": 0.0125,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 143.8481,
-              "radius_of_gyration_A": 116.157,
-              "plddt_mean": 0.795012,
+              "ca_ca_median_A": 142.2612,
+              "radius_of_gyration_A": 115.84,
+              "plddt_mean": 0.795312,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 143.848 A outside [3.6, 4.0]",
+                "median CA-CA 142.261 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 116.2 A outside [12.8, 64.1]"
+                "radius of gyration 115.8 A outside [12.8, 64.1]"
               ]
             },
             "768": {
               "file": "cdk2x2_768.cif",
               "steps": 6,
               "n_ca": 768,
-              "clash_frac": 0.0182,
+              "clash_frac": 0.0078,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 139.1286,
-              "radius_of_gyration_A": 111.66,
-              "plddt_mean": 0.795521,
+              "ca_ca_median_A": 141.0996,
+              "radius_of_gyration_A": 113.554,
+              "plddt_mean": 0.800154,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 139.129 A outside [3.6, 4.0]",
+                "median CA-CA 141.100 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 111.7 A outside [13.7, 68.7]"
+                "radius of gyration 113.6 A outside [13.7, 68.7]"
               ]
             },
             "896": {
               "file": "cdk2x2_896.cif",
               "steps": 6,
               "n_ca": 896,
-              "clash_frac": 0.0201,
+              "clash_frac": 0.0156,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 133.4226,
-              "radius_of_gyration_A": 111.521,
-              "plddt_mean": 0.761741,
+              "ca_ca_median_A": 133.0885,
+              "radius_of_gyration_A": 111.678,
+              "plddt_mean": 0.76249,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 133.423 A outside [3.6, 4.0]",
+                "median CA-CA 133.089 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "2.0% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 111.5 A outside [14.6, 72.8]"
+                "radius of gyration 111.7 A outside [14.6, 72.8]"
               ]
             },
             "1024": {
               "file": "cdk2x2_1024.cif",
               "steps": 6,
               "n_ca": 1024,
-              "clash_frac": 0.0098,
+              "clash_frac": 0.0156,
               "chain_break_frac": 0.999,
-              "ca_ca_median_A": 136.4001,
-              "radius_of_gyration_A": 116.381,
-              "plddt_mean": 0.740081,
+              "ca_ca_median_A": 136.5679,
+              "radius_of_gyration_A": 116.342,
+              "plddt_mean": 0.739506,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 136.400 A outside [3.6, 4.0]",
+                "median CA-CA 136.568 A outside [3.6, 4.0]",
                 "99.9% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 116.4 A outside [15.3, 76.6]"
+                "radius of gyration 116.3 A outside [15.3, 76.6]"
               ]
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.0145,
+          "sigma_runtime_512": 0.0039,
           "exponents": {
             "256->512": {
-              "k": 1.253,
+              "k": 1.197,
               "tol": 0.5
             },
             "512->768": {
-              "k": 2.01,
+              "k": 2.284,
               "tol": 0.5
             }
           },
           "sigma_runtime": {
-            "256": 0.0489,
-            "512": 0.0145
+            "256": 0.0106,
+            "512": 0.0039
           },
           "exponents_measured": {
-            "256->512": 1.253,
-            "512->640": 1.861,
-            "640->768": 2.191,
-            "768->896": 2.087,
-            "896->1024": 1.992
+            "256->512": 1.197,
+            "512->640": 2.004,
+            "640->768": 2.627,
+            "768->896": 2.204,
+            "896->1024": 2.068
           }
         }
       }
