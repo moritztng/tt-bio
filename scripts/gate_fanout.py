@@ -891,6 +891,17 @@ class Host:
             raise subprocess.CalledProcessError(r.returncode, r.args, r.stdout, r.stderr)
         return r
 
+    def answers(self) -> bool:
+        """One quick connection, not ssh()'s minutes of retries: a host that does not answer now
+        sits out this gate run."""
+        if self.cfg.get("ssh") in (None, "", "localhost"):
+            return True
+        try:
+            return subprocess.run(["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=20", self.cfg["ssh"], "true"],
+                                  capture_output=True, timeout=60).returncode == 0
+        except subprocess.TimeoutExpired:
+            return False
+
     def pins(self) -> dict:
         """This host's resolved packages per venv, minus tt-bio and BindCraft 2 (installed from
         the wheel and a checkout), as constraints for the other hosts."""
@@ -1820,6 +1831,19 @@ def main() -> int:
         hosts.setdefault(h.name, h)
     workers = [(hosts[h.name], c) for h, c in workers]
     timed = {(h.name, c) for h, c in parse_workers(args.timed, hosts)}
+    # A dark host would fail its prepare below and take the whole gate with it: qb1 fell off the
+    # LAN on 2026-10-16 22:3xZ and the train restarted, and lost, the next release's gate every
+    # 20 minutes. Run on the hosts that answer; a leg only a dark host could run is UNRUN.
+    # An arch whose every host is dark fails the gate (UNRUN) rather than drop out of it.
+    asked = sorted({h.arch for h in hosts.values()})
+    with ThreadPoolExecutor() as ex:
+        up = dict(zip(hosts, ex.map(Host.answers, hosts.values())))
+    for n in [n for n, ok in up.items() if not ok]:
+        print(f"note: {n} does not answer ssh; running without its cards", file=sys.stderr)
+        del hosts[n]
+    if not hosts:
+        raise SystemExit("no host in --workers answers ssh")
+    workers = [(h, c) for h, c in workers if h.name in hosts]
     archs = sorted({h.arch for h in hosts.values()})
     if args.arch:
         archs = [a for a in archs if a in args.arch.split(",")]
@@ -1883,6 +1907,8 @@ def main() -> int:
     tests_in = {s: content_hash(s, tests=True, runner=RUNNER_FILES_0) for s in same}
     runner_in = {s: content_hash(s, runner=RUNNER_FILES_0) for s in same}
     keys, scopes, results, todo = {}, {}, [], {a: [] for a in archs}
+    results += [{"leg": "every leg", "arch": a, "verdict": "UNRUN", "rc": None, "why": "no host of this arch answers ssh"}
+                for a in asked if a not in archs and (not args.arch or a in args.arch.split(","))]
     # A record run whose runner died (pc rebooted 2026-10-13 18:13Z with 10 of 27 legs recorded)
     # resumes in the same --out: a record leg that passed there at this commit, with its fragment
     # still on disk, keeps that row. The ledger never reuses record legs, so nothing else would.
