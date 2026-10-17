@@ -2,7 +2,9 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-// triatt_ln reader (tt_bio/triatt_ln.py). Once: the [K, NW] qkvgb weight into c_0 (resident),
+// triatt_ln reader (tt_bio/triatt_ln.py). Once: this core's column group of the [K, NWF] qkvgb weight,
+// columns n0 .. n0 + NW - 1 (runtime arg 4; the tail past NWF is left unread, compute's result there is
+// never written), into c_0 (resident),
 // gamma / beta (Kt tiles, row 0 carries the [K] vector) into c_8 / c_9, the 1/K reduce scaler into
 // c_10 and an fp32 eps tile into c_11, as trimul T1. Then this core's row tiles r0 .. r0 + n - 1 of
 // the raw pair x, Kt tiles each (row tile r is pages r * Kt ..), RB row tiles per barrier, into c_7.
@@ -20,7 +22,8 @@ void kernel_main() {
     constexpr uint32_t RB = get_compile_time_arg_val(2);
     constexpr uint32_t SCALER = get_compile_time_arg_val(3);   // packed bf16 pair, 1/K
     constexpr uint32_t EPS = get_compile_time_arg_val(4);      // fp32 bits
-    constexpr auto x_args = TensorAccessorArgs<5>();
+    constexpr uint32_t NWF = get_compile_time_arg_val(5);      // weight tiles a row, all groups
+    constexpr auto x_args = TensorAccessorArgs<6>();
     constexpr auto w_args = TensorAccessorArgs<x_args.next_compile_time_args_offset()>();
     constexpr auto gm_args = TensorAccessorArgs<w_args.next_compile_time_args_offset()>();
     constexpr auto bt_args = TensorAccessorArgs<gm_args.next_compile_time_args_offset()>();
@@ -50,8 +53,12 @@ void kernel_main() {
     cb_reserve_back(w_cb, Kt * NW);
     cb_reserve_back(gamma_cb, Kt);
     cb_reserve_back(beta_cb, Kt);
+    const uint32_t n0 = get_arg_val<uint32_t>(4);
+    const uint32_t nw = (NWF - n0 < NW) ? NWF - n0 : NW;
     uint32_t w = get_write_ptr(w_cb);
-    for (uint32_t t = 0; t < Kt * NW; ++t, w += tb) noc_async_read_page(t, wt, w);
+    for (uint32_t k = 0; k < Kt; ++k)
+        for (uint32_t j = 0; j < NW; ++j, w += tb)
+            if (j < nw) noc_async_read_page(k * NWF + n0 + j, wt, w);
     w = get_write_ptr(gamma_cb);
     for (uint32_t t = 0; t < Kt; ++t, w += tb) noc_async_read_page(t, gm, w);
     w = get_write_ptr(beta_cb);
