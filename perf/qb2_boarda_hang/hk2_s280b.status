@@ -1,0 +1,13 @@
+2026-10-17T00:55:20Z armed pid 225042 board B chips 2,3 tag s280b its 30 code c12381e
+2026-10-17T00:55:20Z image 8d73b86e ready 2026-10-16 10:57:13
+2026-10-17T00:55:20Z stage 1: sentinel chip 2 (225085), feed job elapsed 2:free 3:free
+2026-10-17T00:55:20Z stage 2: holds chip 2, sentinel chip 3 (feed job elapsed )
+2026-10-17T00:55:20Z holds chips 2,3, sentinels down
+2026-10-17T00:55:20Z held 2,3: node2 aiclk=800 hb=10721 node3 aiclk=800 hb=10720  fw 19.15.0.0 19.15.0.0 
+2026-10-17T00:56:02Z reset rc 0 [95m Re-initializing boards after reset.... [0m
+2026-10-17T00:56:14Z smoke rc 0
+2026-10-17T00:56:14Z launch: case 30 --amg-depth 0 --vcoarse 8 --gcache 6 --bgts 5 --tgts 2, state-in hk2_s280_case_1x2_state.npz, cap 6000 s, prog watch 0
+2026-10-17T01:31:44Z rc 0 process wall 2110.02 s maxrss 34833036 KB run 0 wall 2085.676 s core0 ticks [2815452052069, 2815462115166] aiclk {'min': 1350, 'max': 1350, 'n': 2}
+2026-10-17T01:31:44Z after: node2 aiclk=800 hb=21819 
+2026-10-17T01:31:44Z after: node3 aiclk=800 hb=21819 
+2026-10-17T01:31:44Z done, releasing chips 2,3
