@@ -144,42 +144,6 @@ inline void _sigmoid_poly_row_() {
     }
 }
 
-// _silu_poly6_ on two DST rows per iteration: every element runs the same instructions in the same order, so the
-// result is bit-identical, but each coefficient's SFPLOADI and the loop step are shared by the two rows. x is read
-// back from DST at the end rather than held, which keeps the live LREGs to a, h per row plus one coefficient.
-template <int ITERATIONS = 8>
-inline void _silu_poly6_x2_() {
-    static_assert(ITERATIONS % 2 == 0);
-#pragma GCC unroll 0
-    for (int d = 0; d < ITERATIONS; d += 2) {
-        // abs() takes a vFloat; a DST row passed directly is ambiguous between its overloads
-        sfpi::vFloat a0 = sfpi::dst_reg[0];
-        sfpi::vFloat a1 = sfpi::dst_reg[1];
-        a0 = sfpi::abs(a0);
-        a1 = sfpi::abs(a1);
-        v_if(a0 > 7.0f) { a0 = 7.0f; }
-        v_endif;
-        v_if(a1 > 7.0f) { a1 = 7.0f; }
-        v_endif;
-        sfpi::vFloat h0 = a0 * 3.552436828613281e-05f - 0.0008435249328613281f;
-        sfpi::vFloat h1 = a1 * 3.552436828613281e-05f - 0.0008435249328613281f;
-        h0 = h0 * a0 + 0.007404327392578125f;
-        h1 = h1 * a1 + 0.007404327392578125f;
-        h0 = h0 * a0 - 0.0260009765625f;
-        h1 = h1 * a1 - 0.0260009765625f;
-        h0 = h0 * a0 - 0.0027103424072265625f;
-        h1 = h1 * a1 - 0.0027103424072265625f;
-        h0 = h0 * a0 + 0.2529296875f;
-        h1 = h1 * a1 + 0.2529296875f;
-        h0 = h0 * a0;
-        h1 = h1 * a1;
-        sfpi::vFloat x0 = sfpi::dst_reg[0];
-        sfpi::dst_reg[0] = x0 * (sfpi::setsgn(h0, x0) + 0.5f);
-        sfpi::vFloat x1 = sfpi::dst_reg[1];
-        sfpi::dst_reg[1] = x1 * (sfpi::setsgn(h1, x1) + 0.5f);
-        sfpi::dst_reg += 2;
-    }
-}
 // Round DST to bf16, nearest-even, so the pack that follows is exact. The fp32 -> bf16 pack from DST
 // truncates: the resident tail's z + p * sigmoid(g) came out a full bf16 ULP short toward zero on
 // 0.18 % of elements, rel_rms 0.0024 to float64 where one rounding gives 0.0014 (epi2_diag.py).
@@ -218,11 +182,6 @@ ALWI void silu_poly_v_tile(uint32_t idst) {
 }
 ALWI void silu_poly_tile(uint32_t idst) { silu_poly_v_tile<1>(idst); }
 ALWI void silu_poly6_tile(uint32_t idst) { silu_poly_v_tile<2>(idst); }
-
-ALWI void silu_poly6_x2_tile(uint32_t idst) {
-    MATH((_llk_math_eltwise_unary_sfpu_params_<false>(
-        ckernel::sfpu::_silu_poly6_x2_<8>, idst, (int)VectorMode::RC)));
-}
 
 ALWI void round_bf16_rne_tile(uint32_t idst) {
     MATH((_llk_math_eltwise_unary_sfpu_params_<false>(
