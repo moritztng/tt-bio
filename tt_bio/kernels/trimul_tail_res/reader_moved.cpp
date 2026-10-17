@@ -13,6 +13,7 @@
 // does nothing but the gather, which is the critical path.
 #include "api/dataflow/dataflow_api.h"
 #include "ttnn/kernel/dataflow/generate_reduce_scaler.hpp"
+#include "../common/ln_rows.hpp"
 
 void kernel_main() {
     constexpr uint32_t Kt = get_compile_time_arg_val(0);
@@ -69,6 +70,8 @@ void kernel_main() {
     for (uint32_t t = 0; t < Kt; ++t, w += TILE_BYTES) noc_async_read_page(t, bt, w);
     noc_async_read_barrier();
     cb_push_back(cb_w, (1 + GATE) * Kt * Nt);
+    replicate_row0(get_write_ptr(cb_gamma), Kt, get_tile_size(cb_gamma));
+    replicate_row0(get_write_ptr(cb_beta), Kt, get_tile_size(cb_beta));
     cb_push_back(cb_gamma, Kt);
     cb_push_back(cb_beta, Kt);
 

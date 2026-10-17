@@ -5,7 +5,8 @@
 // The channel LayerNorm prologue of the resident pair kernels (trimul T1 and T2, pair_swiglu_ws; the
 // RMSNorm form for pair_swiglu_ws under WS_RMS): one 32-row tile of
 // x, Kt channel tiles, normalised with two-pass statistics in fp32 CBs (mean, then the biased
-// variance of x - mean, as ttnn.layer_norm), times gamma plus beta broadcast from row 0.
+// variance of x - mean, as ttnn.layer_norm), times gamma plus beta, row-replicated by the reader
+// (kernels/common/ln_rows.hpp).
 //
 // C names the circular buffers and Kt as static constexpr members (x, gamma, beta, scaler, eps,
 // mean, var, rstd, xc, tmp). The last stage, + beta, leaves channel tile i in DST d and calls
@@ -71,16 +72,17 @@ ALWI void stage(uint32_t a, uint32_t b, uint32_t out) {
     cb_push_back(out, C::Kt);
 }
 
-// rstd = rsqrt(var + eps) from the one tile at the front of C::var (popped) into C::rstd (waited on).
+// rstd = rsqrt(var + eps) from the one tile at the front of C::var (popped) into C::rstd (waited on), every
+// column of the tile holding its row's rstd.
 template <class C>
 ALWI void rstd() {
     cb_wait_front(C::var, 1);
     reconfig_data_format(C::var, C::eps);
     pack_reconfig_data_format(C::rstd);
-    add_tiles_init(C::var, C::eps);
+    add_bcast_cols_init_short(C::eps, C::var);
     cb_reserve_back(C::rstd, 1);
     tile_regs_acquire();
-    add_tiles(C::var, C::eps, 0, 0, 0);
+    add_tiles_bcast_cols(C::eps, C::var, 0, 0, 0);     // var is column 0; eps fills the tile, so rstd does too
     rsqrt_tile_init();
     rsqrt_tile(0);
     tile_regs_commit();
@@ -92,28 +94,26 @@ ALWI void rstd() {
     cb_wait_front(C::rstd, 1);
 }
 
-// Dest-reuse binary op: DST[idst] = DST[idst] (op) b, b tile itile of cb broadcast as B (COL: column 0,
-// ROW: row 0). DST moves to srcA, b unpacks to srcB. The tt-metal API only ships the NONE broadcast.
-template <EltwiseBinaryType OP, BroadcastType B>
-ALWI void reuse_init(uint32_t cb) {
+// Dest-reuse binary op: DST[j] = DST[j] (op) tile i0 + j * step of cb, j < n. DST moves to srcA, the tile
+// unpacks to srcB. Unbroadcast only: Wormhole's unpacker gives srcA one dvalid per tile under a COL / ROW broadcast while
+// the dest-reuse math waits for one per face, so gamma / beta come row-replicated (ln_rows.hpp) and rstd full.
+template <EltwiseBinaryType OP>
+ALWI void reuse(uint32_t cb, uint32_t n, uint32_t i0, uint32_t step) {
     constexpr auto R = EltwiseBinaryReuseDestType::DEST_TO_SRCA;
     reconfig_data_format_srcb(cb);
-    UNPACK((llk_unpack_A_init<B, true, R>(false, false, cb)));
+    UNPACK((llk_unpack_A_init<BroadcastType::NONE, true, R>(false, false, cb)));
     if constexpr (OP == ELWMUL) {
-        MATH((llk_math_eltwise_binary_init<OP, B, MATH_FIDELITY, R>(false)));
+        MATH((llk_math_eltwise_binary_init<OP, NONE, MATH_FIDELITY, R>(false)));
     } else {
-        MATH((llk_math_eltwise_binary_init<OP, B, MathFidelity::LoFi, R>(false)));
+        MATH((llk_math_eltwise_binary_init<OP, NONE, MathFidelity::LoFi, R>(false)));
     }
-}
-
-template <EltwiseBinaryType OP, BroadcastType B>
-ALWI void reuse(uint32_t cb, uint32_t itile, uint32_t idst) {
-    constexpr auto R = EltwiseBinaryReuseDestType::DEST_TO_SRCA;
-    UNPACK((llk_unpack_A<B, true, R>(cb, itile)));
-    if constexpr (OP == ELWMUL) {
-        MATH((llk_math_eltwise_binary<OP, B, DST_ACCUM_MODE, MATH_FIDELITY, R>(cb, cb, idst, true)));
-    } else {
-        MATH((llk_math_eltwise_binary<OP, B, DST_ACCUM_MODE, MathFidelity::LoFi, R>(cb, cb, idst, true)));
+    for (uint32_t j = 0; j < n; ++j) {
+        UNPACK((llk_unpack_A<BroadcastType::NONE, true, R>(cb, i0 + j * step)));
+        if constexpr (OP == ELWMUL) {
+            MATH((llk_math_eltwise_binary<OP, NONE, DST_ACCUM_MODE, MATH_FIDELITY, R>(cb, cb, j, true)));
+        } else {
+            MATH((llk_math_eltwise_binary<OP, NONE, DST_ACCUM_MODE, MathFidelity::LoFi, R>(cb, cb, j, true)));
+        }
     }
 }
 
@@ -155,12 +155,9 @@ ALWI void layer_norm_row(uint32_t out, Pack pack) {
         sub_bcast_cols_init_short(C::x, C::mean);
         for (uint32_t j = 0; j < n; ++j) sub_tiles_bcast_cols(C::x, C::mean, i0 + j, 0, j);
         reconfig_data_format_srca(C::tmp);                // DST (fp32) is srcA from here on
-        reuse_init<ELWMUL, BroadcastType::COL>(C::rstd);
-        for (uint32_t j = 0; j < n; ++j) reuse<ELWMUL, BroadcastType::COL>(C::rstd, 0, j);
-        reuse_init<ELWMUL, BroadcastType::ROW>(C::gamma);
-        for (uint32_t j = 0; j < n; ++j) reuse<ELWMUL, BroadcastType::ROW>(C::gamma, i0 + j, j);
-        reuse_init<ELWADD, BroadcastType::ROW>(C::beta);
-        for (uint32_t j = 0; j < n; ++j) reuse<ELWADD, BroadcastType::ROW>(C::beta, i0 + j, j);
+        reuse<ELWMUL>(C::rstd, n, 0, 0);
+        reuse<ELWMUL>(C::gamma, n, i0, 1);
+        reuse<ELWADD>(C::beta, n, i0, 1);
         tile_regs_commit();
         tile_regs_wait();
         for (uint32_t j = 0; j < n; ++j) pack(j, i0 + j);

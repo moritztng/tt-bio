@@ -19,6 +19,7 @@
 #include "api/dataflow/dataflow_api.h"
 #ifdef WS_LN
 #include "ttnn/kernel/dataflow/generate_reduce_scaler.hpp"
+#include "../common/ln_rows.hpp"
 #endif
 
 void kernel_main() {
@@ -131,6 +132,8 @@ void kernel_main() {
     cb_push_back(cb_b3, CT);
 #endif
 #ifdef WS_LN
+    replicate_row0(get_write_ptr(cb_gamma), KT, get_tile_size(cb_gamma));
+    replicate_row0(get_write_ptr(cb_beta), KT, get_tile_size(cb_beta));
     cb_push_back(cb_gamma, KT);
     cb_push_back(cb_beta, KT);
 #endif
