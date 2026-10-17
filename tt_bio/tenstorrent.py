@@ -729,7 +729,7 @@ _FAST_MODE = False
 #   lm_qk_chain     the ESMC language model's attention keeps the six-op q/k LayerNorm, RoPE and head-split chain
 #                   where Wormhole would run qk_rope_heads (esmc._qkrh): ESMFold2's normal set on Wormhole.
 #   lm_gate_ng      the ESMC language model's SwiGLU gate stays on the binary_ng multiply where Wormhole would take the
-#                   legacy one (esmc._lm_gate_legacy): ESMFold2's normal set on Wormhole until its fold grade.
+#                   legacy one (esmc._lm_gate_legacy): both ESMFold2 sets on Wormhole until a fold grades it.
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in",
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",

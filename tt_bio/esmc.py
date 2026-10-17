@@ -817,7 +817,7 @@ _SWIGLU_GATE_LEGACY = (env_flag("TT_BIO_SWIGLU_GATE_LEGACY", False)
 # call: [7, 544, 2560] 0.405 -> 0.308, [7, 544, 3072] 0.450 -> 0.328, [1, 544, 6912] 0.149 -> 0.111; rel_rms against
 # float64 0.0024 -> 0.0031. Page cell, same chip and clock, best of 3, normal / --fast: 300M 121.6 -> 118.4 / 121.1 ->
 # 117.8 ms, 600M 172.6 -> 167.8 / 170.8 -> 165.7, 6B 258.5 -> 255.4 / 238.4 -> 234.8; pcc vs fp32 moves -0.00002..+0.00005.
-# None = on for Wormhole; the lm_gate_ng lever keeps binary_ng (ESMFold2's Wormhole normal set, not fold-graded yet).
+# None = on for Wormhole; the lm_gate_ng lever keeps binary_ng (ESMFold2 on Wormhole, both modes: not fold-graded yet).
 _ESMC_LM_GATE_LEGACY = (env_flag("TT_BIO_ESMC_LM_GATE_LEGACY", False)
                         if os.environ.get("TT_BIO_ESMC_LM_GATE_LEGACY", "").strip() else None)
 
