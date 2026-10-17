@@ -1448,6 +1448,28 @@ class RelativePositionEncoder(Module):
         return (w[:, 0:n_pos].t(), w[:, o_tok:o_ent].t(), entity,
                 w[:, o_chain:o_chain + n_chain].t())
 
+    def joint_table(self, feats):
+        """``forward(feats)`` as ``(index [b, n, n] int32, table [U + 1, token_z])``.
+
+        Each pair's encoding depends only on its four indices, and a fold has a few hundred
+        distinct tuples of them, so the table holds each distinct sum once, added in the order
+        ``forward`` adds it, and ``table[index]`` equals ``forward(feats)`` bit for bit. Row 0 is
+        zero and no pair reads it, so a zero-padded index reads the zero pad.
+        """
+        d_residue, d_token, d_chain, same_entity = self.index_features(feats)
+        n_pos, n_chain = 2 * self.r_max + 2, 2 * self.s_max + 2
+        ids = ((d_residue * n_pos + d_token) * 2 + same_entity.long()) * n_chain + d_chain
+        uniq, index = torch.unique(ids, return_inverse=True)
+        t_res, t_tok, t_ent, t_chain = self.tables()
+        rest, d_chain = uniq.div(n_chain, rounding_mode="floor"), uniq % n_chain
+        rest, same_entity = rest.div(2, rounding_mode="floor"), rest % 2
+        d_residue, d_token = rest.div(n_pos, rounding_mode="floor"), rest % n_pos
+        rows = t_res[d_residue]
+        rows = rows + t_tok[d_token]
+        rows = rows + same_entity.unsqueeze(-1).float() * t_ent[1]
+        rows = rows + t_chain[d_chain]
+        return (index + 1).to(torch.int32), torch.cat([rows.new_zeros(1, rows.shape[-1]), rows])
+
     def forward(self, feats):
         d_residue, d_token, d_chain, b_same_entity = self.index_features(feats)
         if not _host_levers():
@@ -1696,17 +1718,25 @@ def single_to_keys(single, indexing_matrix, W, H):
     )  # j = 2K, i = W//2, k = h * K
 
 
+def atom_window_tokens(atom_to_token, to_keys, K, W, H):
+    """``(tok_q [B, K, W], tok_k [B, K, H], keep [B, K, W, H])``: each window's query and key token
+    index, and 1 where both atoms are real (0 for padding or a key slot past the sequence)."""
+    B = atom_to_token.shape[0]
+    valid = atom_to_token.amax(-1)                          # 1 for a real atom, 0 for padding
+    tok = atom_to_token.argmax(-1).to(atom_to_token.dtype)  # token index, exact in fp32
+    tok_q = tok.view(B, K, W).long()
+    tok_k = to_keys(tok.unsqueeze(-1)).view(B, K, H).long()
+    keep = valid.view(B, K, W, 1) * to_keys(valid.unsqueeze(-1)).view(B, K, 1, H)
+    return tok_q, tok_k, keep
+
+
 def pair_to_atom_windows(z, atom_to_token, to_keys, K, W, H):
     """``einsum("bijd,bwki,bwlj->bwkld", z, queries, keys)`` over the one-hot ``atom_to_token``,
     done as the gather it is: entry (w, k, l) is ``z[token(query k), token(key l)]``, or 0 where
     either atom is padding. Same values (each einsum sum has one nonzero term), without the
     dense contraction over both token axes that cost ~0.2 s per fold on the host."""
     B = z.shape[0]
-    valid = atom_to_token.amax(-1)                          # 1 for a real atom, 0 for padding
-    tok = atom_to_token.argmax(-1).to(atom_to_token.dtype)  # token index, exact in fp32
-    tok_q = tok.view(B, K, W).long()
-    tok_k = to_keys(tok.unsqueeze(-1)).view(B, K, H).long()
-    keep = valid.view(B, K, W, 1) * to_keys(valid.unsqueeze(-1)).view(B, K, 1, H)
+    tok_q, tok_k, keep = atom_window_tokens(atom_to_token, to_keys, K, W, H)
     b = torch.arange(B, device=z.device).view(B, 1, 1, 1)
     out = z[b, tok_q.unsqueeze(-1), tok_k.unsqueeze(-2)]    # [B, K, W, H, D]
     return out * keep.unsqueeze(-1).to(out.dtype)
@@ -1775,21 +1805,56 @@ class AtomEncoder(Module):
         )
         init.final_init_(self.p_mlp[5].weight)
 
-    def forward(
-        self,
-        feats,
-        s_trunk=None,  # Float['bm n ts'],
-        z=None,  # Float['bm n n tz'],
-        z_to_p=None,  # Float['bm n n az'], `z_to_p_trans(z)` already applied
-    ):
-        # `z` reaches this module through `z_to_p_trans` and nowhere else, so a caller that
-        # already has the projection can hand it over and keep the pair tensor where it is.
+    def windows(self, feats):
+        """``(to_keys, K, W, H, d, d_norm, v)``: the atom-pair window geometry ``forward`` embeds.
+
+        ``d`` is the key-minus-query reference offset, ``d_norm`` AF3's ``1 / (1 + |d|^2)`` and ``v``
+        the 0/1 same-conformer mask, all ``[B, K, W, H, *]``. They depend on the input alone.
+        """
+        W, H = self.atoms_per_window_queries, self.atoms_per_window_keys
+        atom_mask = feats["atom_pad_mask"].bool()  # Bool['b m'],
+        atom_ref_pos = feats["ref_pos"]  # Float['b m 3'],
+        atom_uid = feats["ref_space_uid"]  # Long['b m'],
+        B, N = atom_mask.shape
+        K = N // W
+        keys_indexing_matrix = get_indexing_matrix(K, W, H, atom_ref_pos.device)
+        to_keys = partial(
+            single_to_keys, indexing_matrix=keys_indexing_matrix, W=W, H=H
+        )
+
+        atom_ref_pos_queries = atom_ref_pos.view(B, K, W, 1, 3)
+        atom_ref_pos_keys = to_keys(atom_ref_pos).view(B, K, 1, H, 3)
+
+        d = atom_ref_pos_keys - atom_ref_pos_queries  # Float['b k w h 3']
+        d_norm = torch.sum(d * d, dim=-1, keepdim=True)  # Float['b k w h 1']
+        d_norm = 1 / (
+            1 + d_norm
+        )  # AF3 feeds in the reciprocal of the distance norm
+
+        atom_mask_queries = atom_mask.view(B, K, W, 1)
+        atom_mask_keys = (
+            to_keys(atom_mask.unsqueeze(-1).float()).view(B, K, 1, H).bool()
+        )
+        atom_uid_queries = atom_uid.view(B, K, W, 1)
+        atom_uid_keys = (
+            to_keys(atom_uid.unsqueeze(-1).float()).view(B, K, 1, H).long()
+        )
+        v = (
+            (
+                atom_mask_queries
+                & atom_mask_keys
+                & (atom_uid_queries == atom_uid_keys)
+            )
+            .float()
+            .unsqueeze(-1)
+        )  # Bool['b k w h 1']
+        return to_keys, K, W, H, d, d_norm, v
+
+    def single(self, feats, s_trunk=None):
+        """``(q, c)``: the atom single features, ``c`` conditioned on the trunk in the structure model."""
         with torch.autocast("cuda", enabled=False):
             B, N, _ = feats["ref_pos"].shape
-            atom_mask = feats["atom_pad_mask"].bool()  # Bool['b m'],
-
             atom_ref_pos = feats["ref_pos"]  # Float['b m 3'],
-            atom_uid = feats["ref_space_uid"]  # Long['b m'],
 
             atom_feats = [atom_ref_pos]
             if not self.add_additional_atom_features:
@@ -1821,57 +1886,35 @@ class AtomEncoder(Module):
             atom_feats = torch.cat(atom_feats, dim=-1)
 
             c = self.embed_atom_features(atom_feats)
+            q = c
+            if self.structure_prediction:
+                # run only in structure model not in initial encoding
+                atom_to_token = feats["atom_to_token"].float()  # Long['b m n'],
+                s_to_c = self.s_to_c_trans(s_trunk.float())
+                s_to_c = torch.bmm(atom_to_token, s_to_c)
+                c = c + s_to_c.to(c)
+        return q, c
 
-            # note we are already creating the windows to make it more efficient
-            W, H = self.atoms_per_window_queries, self.atoms_per_window_keys
-            B, N = c.shape[:2]
-            K = N // W
-            keys_indexing_matrix = get_indexing_matrix(K, W, H, c.device)
-            to_keys = partial(
-                single_to_keys, indexing_matrix=keys_indexing_matrix, W=W, H=H
-            )
-
-            atom_ref_pos_queries = atom_ref_pos.view(B, K, W, 1, 3)
-            atom_ref_pos_keys = to_keys(atom_ref_pos).view(B, K, 1, H, 3)
-
-            d = atom_ref_pos_keys - atom_ref_pos_queries  # Float['b k w h 3']
-            d_norm = torch.sum(d * d, dim=-1, keepdim=True)  # Float['b k w h 1']
-            d_norm = 1 / (
-                1 + d_norm
-            )  # AF3 feeds in the reciprocal of the distance norm
-
-            atom_mask_queries = atom_mask.view(B, K, W, 1)
-            atom_mask_keys = (
-                to_keys(atom_mask.unsqueeze(-1).float()).view(B, K, 1, H).bool()
-            )
-            atom_uid_queries = atom_uid.view(B, K, W, 1)
-            atom_uid_keys = (
-                to_keys(atom_uid.unsqueeze(-1).float()).view(B, K, 1, H).long()
-            )
-            v = (
-                (
-                    atom_mask_queries
-                    & atom_mask_keys
-                    & (atom_uid_queries == atom_uid_keys)
-                )
-                .float()
-                .unsqueeze(-1)
-            )  # Bool['b k w h 1']
+    def forward(
+        self,
+        feats,
+        s_trunk=None,  # Float['bm n ts'],
+        z=None,  # Float['bm n n tz'],
+        z_to_p=None,  # Float['bm n n az'], `z_to_p_trans(z)` already applied
+    ):
+        # `z` reaches this module through `z_to_p_trans` and nowhere else, so a caller that
+        # already has the projection can hand it over and keep the pair tensor where it is.
+        with torch.autocast("cuda", enabled=False):
+            q, c = self.single(feats, s_trunk)
+            to_keys, K, W, H, d, d_norm, v = self.windows(feats)
+            B = c.shape[0]
 
             p = self.embed_atompair_ref_pos(d) * v
             p = p + self.embed_atompair_ref_dist(d_norm) * v
             p = p + self.embed_atompair_mask(v) * v
 
-            q = c
-
             if self.structure_prediction:
-                # run only in structure model not in initial encoding
                 atom_to_token = feats["atom_to_token"].float()  # Long['b m n'],
-
-                s_to_c = self.s_to_c_trans(s_trunk.float())
-                s_to_c = torch.bmm(atom_to_token, s_to_c)
-                c = c + s_to_c.to(c)
-
                 if z_to_p is None:
                     z_to_p = self.z_to_p_trans(z.float())
                 z_to_p = pair_to_atom_windows(z_to_p, atom_to_token, to_keys, K, W, H)
@@ -2806,13 +2849,18 @@ class DiffusionConditioning(Module):
 
         return q, c, to_keys, atom_enc_bias, atom_dec_bias, token_trans_bias
 
-    def forward_atoms(self, s_trunk, z_to_p, feats):
+    def forward_atoms(self, s_trunk, z_to_p, feats, pair_dev=None):
         """The atom track of ``forward``, with the pair track already done on the device.
 
         ``tenstorrent.PairConditioningDevice`` produces ``z_to_p`` and the token bias; this is
         the rest, and it is the only part of the conditioning that is not a channel map over the
-        pair tensor.
+        pair tensor. With ``pair_dev`` (``tenstorrent.AtomPairDevice``) ``z_to_p`` is still on the
+        card and the atom-pair tensor and both bias stacks are built there too.
         """
+        if pair_dev is not None:
+            q, c = self.atom_encoder.single(feats, s_trunk)
+            enc, dec, to_keys = pair_dev(self.atom_encoder, feats, c, z_to_p)
+            return q, c, to_keys, enc, dec
         q, c, p, to_keys = self.atom_encoder(
             feats=feats, s_trunk=s_trunk, z_to_p=z_to_p,
         )
@@ -5817,6 +5865,18 @@ class Boltz2(nn.Module):
             self._tt_cond = cond
         return cond
 
+    def _tt_atom_pair_module(self):
+        """Lazily build the device atom-pair module (``atomp_dev``, TT path only). Cached."""
+        mod = getattr(self, "_tt_atom_pair", None)
+        if mod is None:
+            dc = self.diffusion_conditioning
+            mod = tenstorrent.AtomPairDevice(
+                dc.atom_encoder, _fuse_bias_stack(dc.atom_enc_proj_z),
+                _fuse_bias_stack(dc.atom_dec_proj_z), self.msa_module.compute_kernel_config,
+            )
+            self._tt_atom_pair = mod
+        return mod
+
     @_under_levers
     def load_state_dict(self, *a, **kw):
         # The device modules are built here (TorchWrapper._load_from_state_dict).
@@ -6019,17 +6079,17 @@ class Boltz2(nn.Module):
             if self.trace:
                 print("[boltz2] diffusion_conditioning")
             if device_conditioning:
-                if relative_position_encoding is None:
-                    # `device_zinit` built its own on the card and skipped this one. The
-                    # conditioning still wants the host tensor: it is summed in fp32 and rounded
-                    # once, and that is the rounding the shipped default was measured with.
-                    relative_position_encoding = self.rel_pos(feats)
+                # `device_zinit` built its own on the card and skipped this one; the
+                # conditioning gathers it from the encoder's joint table instead.
+                pair_dev = self._tt_atom_pair_module() if tenstorrent.lever("atomp_dev") else None
                 z_to_p, token_trans_bias = self._tt_cond_module()(
-                    device_z[0], relative_position_encoding, z.shape[1], device_z[1],
+                    device_z[0], relative_position_encoding
+                    if relative_position_encoding is not None else (self.rel_pos, feats),
+                    z.shape[1], device_z[1], keep_z_to_p=pair_dev is not None,
                 )
                 q, c, to_keys, atom_enc_bias, atom_dec_bias = (
                     self.diffusion_conditioning.forward_atoms(
-                        s_trunk=s, z_to_p=z_to_p, feats=feats,
+                        s_trunk=s, z_to_p=z_to_p, feats=feats, pair_dev=pair_dev,
                     )
                 )
             else:
