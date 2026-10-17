@@ -53,6 +53,9 @@ def bench(dev, nodes, emit, N, seed=7, pl1=True):
             ("kfold", "bias", lambda: ttnn.linear(tak, twk, compute_kernel_config=ckc)),
             ("kfold_sig", "bias_sig", lambda: ttnn.linear(tak, twk, compute_kernel_config=ckc,
                                                            activation="sigmoid")),
+            # as the token DiT calls it (DitLinear.linear): the model's core grid, bias on, fp32 output
+            ("bias_cg", "bias", lambda: ttnn.linear(ta, tw, bias=tb, compute_kernel_config=ckc,
+                                                    core_grid=T.CORE_GRID_MAIN, dtype=ttnn.float32)),
             # the sigmoid as its own eltwise op over all cores instead of the matmul's epilogue
             ("sig_sep", "sig", lambda: ttnn.sigmoid(ttnn.linear(ta, tw, compute_kernel_config=ckc))),
             ("bias_sig_sep", "bias_sig", lambda: ttnn.sigmoid(ttnn.linear(ta, tw, bias=tb,
