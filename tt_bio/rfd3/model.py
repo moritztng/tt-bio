@@ -444,6 +444,11 @@ def _dense_sdpa_config(n):
 # drift 5.3-9.6 A against a 14.4-19.9 A seed floor; WH @1000 -4 s/design in both modes. RFD3_CSS=0 restores it.
 _CSS = env_flag("RFD3_CSS", True)
 _CSS_STEP = {}
+# Split the atom attention's q, k and v into heads with one `nlp_create_qkv_heads` over their concat instead
+# of a reshape + permute each: the 4D reshape tile-pads the 4-head axis to 32 rows, 8x the bytes (WH census:
+# 0.40 + 0.10 ms per tensor at 6051 atoms, 27 tensors a step). Data movement only, same values. Only where
+# head_dim is a tile multiple (the DiT's 48 has its own padded path). Off while measured.
+_QKV_HEADS = env_flag("RFD3_QKV_HEADS", False)
 _ATOM_SDPA_CHUNKS = tuple(int(x) for x in os.environ.get("RFD3_ATOM_SDPA_CHUNKS", "160,320").split(","))
 # ttnn.gather (0.68.0) on dim 3 silently returns wrong data for every tile-row after the first
 # once the indexed axis exceeds this many elements: 99.87 % of elements wrong at the production
@@ -2521,7 +2526,17 @@ class RFD3AtomBlock(Module):
         # merge touches the same pairs of values in the same order. Gating after the merge
         # deletes one head split per block -- 36 of the DiT's 144 per step -- and is
         # bit-exact by construction rather than by measurement.
-        qq, kk, vv = map(heads, (qq, kk, vv))
+        if _QKV_HEADS and self.head_dim % TILE == 0:
+            hp = self.n_head * self.head_dim
+            qkv = ttnn.reshape(ttnn.concat([qq, kk, vv], dim=-1), (batch, 1, length, 3 * hp))
+            for x in (qq, kk, vv):
+                ttnn.deallocate(x)
+            qq, kk, vv = ttnn.experimental.nlp_create_qkv_heads(
+                qkv, num_heads=self.n_head, num_kv_heads=self.n_head, transpose_k_heads=False,
+                memory_config=ttnn.DRAM_MEMORY_CONFIG)
+            ttnn.deallocate(qkv)
+        else:
+            qq, kk, vv = map(heads, (qq, kk, vv))
         # Attention reduces over the key axis, and a ttnn softmax over a last dim that is
         # not a tile multiple reads that axis' tile padding -- which no op guarantees to
         # have written. So extend the key axis logically: zero keys (contributing a score
