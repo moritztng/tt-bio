@@ -358,6 +358,9 @@ for var in A.variants.split(","):
             fired["tail_res"] = list(TTL.RES_STATS)
             fired["mask_fold"] = TTL.MASK_STATS[0] - mf0
             fired["gin_move"] = list(TTL.GIN_MOVE_STATS)
+            fired["t1"] = list(TTL.T1_STATS)        # cumulative: served, declined
+            fired["t1_why"] = dict(TTL.T1_WHY)
+            fired["t2"] = list(TTL.T2_STATS)
         finally:
             restore(prev)
         outs[arm] = yt
