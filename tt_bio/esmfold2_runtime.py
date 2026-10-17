@@ -1480,8 +1480,14 @@ LM_COMBINE = env_flag("TT_BIO_ESMFOLD2_LM_COMBINE", None)
 # against the set without them, 11 complexes x 4 seeds, 44 paired folds (p300c, 1350 MHz): CA-lDDT -0.0001
 # [-0.0011, +0.0008], TM +0.0092, top-pose median 0.33 A vs 1.15 A seed floor, docking 31 -> 31 of 44. The other
 # two (ef2_lm_combine, ef2_opm_kq) fail it alone (DockQ, L-RMSD and I-RMSD CIs exclude 0) and stay fast-only.
+# trimul_bres (the trimul einsum with b[c] resident in L1, bmm_res) is a pure speed lever in both modes on both archs:
+# coords are byte-identical with and without it in ESMFold2 folds under LEVERS_NORMAL and LEVERS_FAST (9DBP, 9LLG x 2
+# seeds, p300c, spd-gap-whesmf wbxbh), the Wormhole fast set (11 complexes x 4 seeds x 2 models, p150a, wbgbh) and the
+# Wormhole normal set (Galaxy chip, wbxe). It declines above 704 tokens (bf16 b) and the stock matmul runs. 512 aa
+# --fast, same chip: p150a ESMFold2 14.47 -> 14.12 s, ESMFold2-Fast 9.06 -> 8.72 s (1350 MHz, wbe3bh); Wormhole
+# ESMFold2 30.36 -> 29.24 s, ESMFold2-Fast 18.25 -> 17.65 s (1000 MHz, wbx).
 LEVERS_NORMAL = ("normal-trunk_hifi3+trimul_gin+trimul_t2g+trimul_gin_hifi2"
-                 "+ef2_bit_draw+ef2_pair_init+ef2_relpos_lookup+ef2_atom_ffn_split")
+                 "+ef2_bit_draw+ef2_pair_init+ef2_relpos_lookup+ef2_atom_ffn_split+trimul_bres")
 # FAST also takes transition_ws (fast grade PASS on both ESMFold2 models, both archs; tenstorrent.FAST_LEVERS)
 # and trimul_gin: ESMFold2 fast bar against the set without it, 11 complexes x 4 seeds, 44 paired folds (p300c,
 # 1350 MHz): CA-lDDT +0.0026 [-0.0022, +0.0086], pLDDT +0.0005, top-pose median 0.35 A vs 1.30 A floor, docking
@@ -1517,7 +1523,7 @@ LEVERS_NORMAL = ("normal-trunk_hifi3+trimul_gin+trimul_t2g+trimul_gin_hifi2"
 # ESMFold2-Fast 9.56 -> 9.31 s. Wormhole loses 2.4 s with them, so it drops them (_BH_ONLY_FAST).
 LEVERS_FAST = ("normal+trimul_b8in+transition_ws+trimul_gin+trimul_t2g+trimul_gin_hifi2+ws_resid+ws_lofi"
                "+ef2_bit_draw+ef2_pair_init+ef2_lm_combine+ef2_opm_kq+ef2_relpos_lookup+ef2_atom_ffn_split"
-               "+trimul_t1+trimul_t1_c256+trimul_t2+trimul_t2cm")
+               "+trimul_t1+trimul_t1_c256+trimul_t2+trimul_t2cm+trimul_bres")
 # ws_lofi passes the fast bar on Wormhole too, 11 complexes x 4 seeds, 44 paired folds per model (Galaxy chip, 1000
 # MHz, spd-gap-esmf wlg): ESMFold2 CA-lDDT -0.0004 [-0.0024, +0.0015], DockQ +0.017, docking 31 -> 32 of 44;
 # ESMFold2-Fast CA-lDDT -0.0001 [-0.0021, +0.0023], docking 24 -> 24. Same chip, 512 aa, 1000 MHz: ESMFold2 33.60 ->
@@ -1537,11 +1543,7 @@ _BH_ONLY_FAST = ("trimul_t1", "trimul_t1_c256", "trimul_t2", "trimul_t2cm")
 # ESMFold2-Fast CA-lDDT -0.0004 [-0.0015, +0.0009], 1.24 A vs 1.33 A, docking 48 -> 48 of 88 (88 paired folds over
 # two seed sets, wng + wng3). Galaxy chip, 1000 MHz.
 _WH_NORMAL_EXTRA = "+transition_ws+ws_resid+ef2_lm_combine+ef2_opm_kq"
-# Both Wormhole modes take trimul_bres (the trimul einsum with b[c] resident in L1, bmm_res). It is a pure speed lever:
-# coords are byte-identical with and without it in ESMFold2 folds under the WH normal set (9DBP, 9LLG x 2 seeds, Galaxy
-# chip, spd-gap-whesmf wbxe) and the WH fast set (11 complexes x 4 seeds x 2 models, p150a, wbgbh). Same chip, 512 aa
-# --fast, 1000 MHz, D B D B: ESMFold2 30.36 -> 29.24 s, ESMFold2-Fast 18.25 -> 17.65 s (wbx).
-_WH_EXTRA = "+trimul_t2m+trimul_bres"
+_WH_EXTRA = "+trimul_t2m"
 
 
 def fold_levers(fast: bool) -> str:
