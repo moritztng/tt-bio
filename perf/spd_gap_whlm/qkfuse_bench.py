@@ -156,6 +156,22 @@ def main() -> int:
                 rec[f"fused_{layout}"] = {"error": str(exc).splitlines()[0][:300]}
             if B == 1:
                 break
+        # v alone to [B, H, S, hd]: what the fused arm needs beside q and k (above it pays a 3x concat as an upper bound)
+        vsplits = {
+            "concat3_nlp": lambda: ttnn.experimental.nlp_create_qkv_heads(
+                ttnn.unsqueeze(ttnn.concat([v, v, v], dim=-1), 1), num_heads=H, num_kv_heads=H, transpose_k_heads=False,
+                memory_config=ttnn.DRAM_MEMORY_CONFIG)[2],
+            "reshape_permute": lambda: ttnn.permute(ttnn.reshape(v, (B, S, H, hd)), (0, 2, 1, 3)),
+            "sep_tensors": lambda: ttnn.experimental.create_qkv_heads_from_separate_tensors(
+                v, ttnn.concat([v, v], dim=-1), num_heads=H, num_kv_heads=H, transpose_k_heads=False)[1],
+        }
+        vref = ttnn.to_torch(v).reshape(B, S, H, hd).transpose(1, 2)
+        for vn, fn in vsplits.items():
+            try:
+                ok = bool(torch.equal(ttnn.to_torch(fn()).reshape(B, H, S, hd), vref))
+                rec[f"v_{vn}"] = {"exact": ok, "ms": timed(lambda fn=fn: ttnn.deallocate(fn()), dev, args.repeat, args.inner)}
+            except Exception as exc:
+                rec[f"v_{vn}"] = {"error": str(exc).splitlines()[0][:200]}
         print(json.dumps(rec), flush=True)
         out.write(json.dumps(rec) + "\n")
         out.flush()
