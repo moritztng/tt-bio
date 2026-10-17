@@ -28,7 +28,7 @@ def test_batched_window_is_per_sample_and_the_dense_band(N, tail):
         mask[-tail:] = 0
     dense = band_mask(mask, 64)[0, 0]
     up = lambda t: ttnn.from_torch(t, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev)
-    w = SWAWindow(_window_bias(dense, 64), N, H, dh, up, dev)
+    w = SWAWindow(_window_bias(mask, 64), N, H, dh, up, dev)
     g = torch.Generator().manual_seed(0)
     q, k, v = (torch.randn(B, H, N, dh, generator=g) for _ in range(3))
     try:

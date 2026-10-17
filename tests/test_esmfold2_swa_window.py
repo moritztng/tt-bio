@@ -30,7 +30,7 @@ def test_window_equals_dense_band(N, tail):
     if tail:
         mask[-tail:] = 0
     dense = band_mask(mask, 64)[0, 0]
-    win = _window_bias(dense, 64)
+    win = _window_bias(mask, 64)
     assert win is not None and win.shape[1:] == (32, 160)
     g = torch.Generator().manual_seed(0)
     q, k, v = (torch.randn(4, N, 32, generator=g, dtype=torch.float64) for _ in range(3))
@@ -43,4 +43,33 @@ def test_window_equals_dense_band(N, tail):
 def test_padding_inside_the_atom_list_falls_back():
     mask = torch.ones(500)
     mask[100:300] = 0
-    assert _window_bias(band_mask(mask, 64)[0, 0], 64) is None
+    assert _window_bias(mask, 64) is None
+
+
+def _window_from_dense(dense, half_window, nq=32):
+    """The window as it used to be built: cut from the dense band, None when a row's keys spill."""
+    N = dense.shape[-1]
+    lead = -(-half_window // nq) * nq
+    W, NP = 2 * lead + nq, -(-N // nq) * nq
+    nb = NP // nq
+    full = torch.full((NP, lead + NP + lead), float("-inf"))
+    full[:N, lead:lead + N] = dense
+    cols = torch.arange(nb)[:, None] * nq + torch.arange(W)[None, :]
+    win = full.view(nb, nq, -1).gather(2, cols[:, None, :].expand(nb, nq, W))
+    if not torch.equal((win.reshape(NP, W)[:N] == 0).sum(1), (dense == 0).sum(1)):
+        return None
+    return win
+
+
+@pytest.mark.parametrize("N,holes", [(4160, []), (4100, [(4063, 4100)]), (96, []), (1000, [(995, 1000)]),
+                                     (500, [(100, 300)]), (777, [(0, 20), (700, 777)]), (640, [(300, 330)]),
+                                     (33, [(5, 6)]), (300, [(0, 300)])])
+def test_window_is_bit_identical_to_the_cut_from_the_dense_band(N, holes):
+    mask = torch.ones(N)
+    for a, b in holes:
+        mask[a:b] = 0
+    ref = _window_from_dense(band_mask(mask, 64)[0, 0], 64)
+    got = _window_bias(mask, 64)
+    assert (ref is None) == (got is None)
+    if ref is not None:
+        assert got.dtype == ref.dtype and torch.equal(got, ref)

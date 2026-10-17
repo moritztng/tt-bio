@@ -717,6 +717,21 @@ def build_3d_rope_tables(ref_pos, ref_space_uid, head_dim, n_spatial_per_axis,
     return cos, sin
 
 
+def _valid_rank(n_or_mask):
+    """Atom validity [N] (bool) and each atom's rank among the valid ones, cumsum(valid) - 1."""
+    if isinstance(n_or_mask, int):
+        valid = torch.ones(n_or_mask, dtype=torch.bool)
+    else:
+        valid = (n_or_mask.reshape(-1) > 0.5)
+    return valid, torch.cumsum(valid.long(), 0) - 1
+
+
+def _allowed(valid, rank, i, j, half_window):
+    """Whether query atom i may attend key atom j (index tensors that broadcast, all in range)."""
+    within = (rank[i] - rank[j]).abs() <= half_window
+    return (within & valid[i] & valid[j]) | (i == j)
+
+
 def band_mask(n_or_mask, half_window: int):
     """Sliding-window additive attention bias [1,1,N,N], validity-aware.
 
@@ -725,16 +740,10 @@ def band_mask(n_or_mask, half_window: int):
     (rank=cumsum(valid)-1), padded atoms are excluded, and the diagonal is always
     allowed (so a fully-masked/invalid row doesn't produce NaN under softmax).
     """
-    if isinstance(n_or_mask, int):
-        valid = torch.ones(n_or_mask, dtype=torch.bool)
-    else:
-        valid = (n_or_mask.reshape(-1) > 0.5)
-    n = valid.shape[0]
-    rank = torch.cumsum(valid.long(), 0) - 1
-    within = (rank[:, None] - rank[None, :]).abs() <= half_window
-    allowed = within & valid[:, None] & valid[None, :]
-    allowed = allowed | torch.eye(n, dtype=torch.bool)
-    return torch.where(allowed, 0.0, float("-inf")).view(1, 1, n, n)
+    valid, rank = _valid_rank(n_or_mask)
+    idx = torch.arange(valid.shape[0])
+    allowed = _allowed(valid, rank, idx[:, None], idx[None, :], half_window)
+    return torch.where(allowed, 0.0, float("-inf")).view(1, 1, *allowed.shape)
 
 
 # The atom transformer's sliding window as ONE windowed SDPA: block i of 32 queries reads the 160 keys
@@ -749,20 +758,27 @@ _SWA_WINDOW = env_flag("TT_BIO_ESMFOLD2_SWA_WINDOW", True)
 SWA_STATS = [0, 0]  # atom transformer masks built (windowed, dense)
 
 
-def _window_bias(dense, half_window, nq=32):
-    """Dense [N, N] 0/-inf band -> per-block bias [nb, nq, W] over keys [nq*i - lead, nq*i - lead + W),
-    or None when some valid query row has an allowed key outside its window."""
-    N = dense.shape[-1]
+def _window_bias(n_or_mask, half_window, nq=32):
+    """`band_mask`'s 0/-inf band cut to per-block bias [nb, nq, W] over keys [nq*i - lead, nq*i - lead + W),
+    or None when some valid query row has an allowed key outside its window. Built from the ranks over
+    the W keys a row can see, never the dense [N, N] (at 512 aa ~4k atoms, that cost ~0.5 s of host
+    time per build)."""
+    valid, rank = _valid_rank(n_or_mask)
+    N = valid.shape[0]
     lead = -(-half_window // nq) * nq
     W, NP = 2 * lead + nq, -(-N // nq) * nq
-    nb = NP // nq
-    full = torch.full((NP, lead + NP + lead), float("-inf"))
-    full[:N, lead:lead + N] = dense
-    cols = (torch.arange(nb)[:, None] * nq + torch.arange(W)[None, :])  # [nb, W]
-    win = full.view(nb, nq, -1).gather(2, cols[:, None, :].expand(nb, nq, W))
-    if not torch.equal((win.reshape(NP, W)[:N] == 0).sum(1), (dense == 0).sum(1)):
+    i = torch.arange(NP)[:, None]
+    j = (i // nq) * nq - lead + torch.arange(W)[None, :]                     # [NP, W] key atom per slot
+    inside = (i < N) & (j >= 0) & (j < N)
+    allowed = inside & _allowed(valid, rank, i.clamp(max=N - 1), j.clamp(0, N - 1), half_window)
+    # A dense row allows every valid atom within half_window ranks of a valid query (a contiguous rank
+    # range clipped to [0, V)), or only the diagonal for a padding query.
+    V = int(valid.sum())
+    r = rank[:N]
+    need = torch.where(valid, (r + half_window).clamp(max=V - 1) - (r - half_window).clamp(min=0) + 1, 1)
+    if not torch.equal(allowed[:N].sum(1), need):
         return None
-    return win
+    return torch.where(allowed, 0.0, float("-inf")).view(NP // nq, nq, W)
 
 
 class SWAWindow:
@@ -828,12 +844,11 @@ class SWAWindow:
 def swa_band(n_or_mask, half_window, upload, device, heads=4, head_dim=32):
     """The atom transformer's attention mask on the device: a SWAWindow when the windowed path holds,
     else the dense [1, 1, N, N] band."""
-    dense = band_mask(n_or_mask, half_window)
-    win = _window_bias(dense[0, 0], half_window) if _SWA_WINDOW else None
+    win = _window_bias(n_or_mask, half_window) if _SWA_WINDOW else None
     SWA_STATS[win is None] += 1
     if win is None:
-        return upload(dense.float())
-    return SWAWindow(win, dense.shape[-1], heads, head_dim, upload, device)
+        return upload(band_mask(n_or_mask, half_window).float())
+    return SWAWindow(win, _valid_rank(n_or_mask)[0].shape[0], heads, head_dim, upload, device)
 
 
 def _rms_norm(x, ck, eps=1e-6):
