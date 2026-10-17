@@ -65,3 +65,10 @@ def test_css_ships_in_both_modes(monkeypatch):
     assert M.env_flag("RFD3_CSS", True) is True
     M.set_fast(False)
     assert M._CSS is True
+
+
+def test_pair_ws_resid_is_off_until_graded():
+    """The in-place z + transition(z) moves the digest (one rounding instead of two): off in both modes until graded."""
+    assert "_PAIR_WS_RESID" not in M._FAST_SET
+    assert M.env_flag("RFD3_PAIR_WS_RESID", False) is False
+    assert callable(M.Transition.add_into)

@@ -382,6 +382,11 @@ _PAIR_WS = env_flag("RFD3_PAIR_WS", True)
 # RFD3_PAIR_WS with its weights in bfp8, run at HiFi2 (covers every bfp8 weight bit), the form the shared
 # `tenstorrent.ws_swiglu` takes in fast mode for the other models. x and the RMSNorm prologue stay bf16. Graded off.
 _PAIR_WS_B8 = env_flag("RFD3_PAIR_WS_B8", False)
+# The token encoder's `z = z + transition(z)` (transition_2 and the two pairformer blocks, 8 calls a step) as one
+# RFD3_PAIR_WS program that seeds fc3's fp32 dest with z and writes z + t back over z (`pair_swiglu_ws` resid):
+# no 1x685x704x128 add pass (WH 1.56 ms each, at its DRAM roof) and one bf16 rounding of z + t instead of two.
+# Off while graded.
+_PAIR_WS_RESID = env_flag("RFD3_PAIR_WS_RESID", False)
 # Every RFD3 matmul at HiFi2 instead of HiFi4: two multiplier passes per bf16 product instead of
 # four. Off, and not in --fast: on top of the fast set it saved nothing on a p300c (4 seeds, 685
 # tokens) and doubled the clashes of one 418-token design.
@@ -1159,7 +1164,16 @@ class Transition(Module):
             ttnn.deallocate(c)
         return _pair_transition_join(parts, int(x.shape[0]))
 
-    def _weight_stationary(self, x):
+    def add_into(self, x):
+        """`x + self(x)`. Under RFD3_PAIR_WS_RESID the weight-stationary program adds into `x` in place and
+        returns it, so the caller must hold no other reference to `x` it still needs."""
+        if _PAIR_WS and _PAIR_WS_RESID and len(x.shape) == 4:
+            out = self._weight_stationary(x, resid=True)
+            if out is not None:
+                return out
+        return ttnn.add(x, self(x))
+
+    def _weight_stationary(self, x, resid=False):
         """`_swiglu` through `pair_swiglu_ws`, every batch element in one program (rows are tile-aligned per
         element, so the flattened tensor splits into whole row tiles); None where it declines."""
         if getattr(self, "_ws12", None) is None:
@@ -1168,15 +1182,16 @@ class Transition(Module):
             if _PAIR_WS_B8:
                 self._ws12 = ttnn.typecast(self._ws12, ttnn.bfloat8_b)
                 self._ws3 = ttnn.typecast(self.fc3_w, ttnn.bfloat8_b)
-        if not _WS.eligible(x, self._ws12, self._ws3):
+        r = x if resid else None
+        if not _WS.eligible(x, self._ws12, self._ws3, resid=r):
             return None
         fid = ttnn.MathFidelity.HiFi2 if _PAIR_WS_B8 else self.compute_kernel_config.math_fidelity
         # The input RMSNorm as the program's prologue: bit-identical to ttnn.rms_norm first, and the normalised
         # tensor never goes to DRAM. p150a @1350 2.65 -> 2.39 ms (hidden 256), 4.38 -> 4.09 (512); flat on WH.
-        if _WS.eligible(x, self._ws12, self._ws3, ln=(self.norm_w, None)):
-            return _WS.pair_swiglu(x, self._ws12, self._ws3, fid, ln=(self.norm_w, None, 1e-6))
+        if _WS.eligible(x, self._ws12, self._ws3, ln=(self.norm_w, None), resid=r):
+            return _WS.pair_swiglu(x, self._ws12, self._ws3, fid, ln=(self.norm_w, None, 1e-6), resid=r)
         xn = ttnn.rms_norm(x, weight=self.norm_w, epsilon=1e-6, compute_kernel_config=self.compute_kernel_config)
-        out = _WS.pair_swiglu(xn, self._ws12, self._ws3, fid)
+        out = _WS.pair_swiglu(xn, self._ws12, self._ws3, fid, resid=r)
         ttnn.deallocate(xn)
         return out
 
@@ -1447,7 +1462,7 @@ class PairformerBlock(Module):
 
     def __call__(self, s, z):
         if not self.fp32_residual:
-            z = ttnn.add(z, self.z_transition(z))
+            z = self.z_transition.add_into(z)
             s = ttnn.add(s, self.attn(s, z))
             s = ttnn.add(s, self.s_transition(s))
             return s, z
@@ -3332,10 +3347,11 @@ class DiffusionTokenEncoder(Module):
         if f32:
             z = ttnn.typecast(z, ttnn.float32, memory_config=z.memory_config())
         for tr in self.transition_2:
-            zc = ttnn.typecast(z, dt, memory_config=z.memory_config()) if f32 else z
-            upd = tr(zc)
-            z = ttnn.add(z, ttnn.typecast(upd, ttnn.float32, memory_config=upd.memory_config())) if f32 \
-                else ttnn.add(z, upd)
+            if not f32:
+                z = tr.add_into(z)
+                continue
+            upd = tr(ttnn.typecast(z, dt, memory_config=z.memory_config()))
+            z = ttnn.add(z, ttnn.typecast(upd, ttnn.float32, memory_config=upd.memory_config()))
         for blk in self.pairformer_stack:
             s, z = blk(s, z)
         return s, z
