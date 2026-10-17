@@ -601,6 +601,28 @@ class OF3DiffusionTransformer(Module):
         return mask_bias, ttnn.from_torch(tmc_p, layout=ttnn.TILE_LAYOUT, device=self.device,
                                           dtype=self._act_dtype)
 
+    def _wide_lin(self, x, w, bias=None, activation=None):
+        """One of dit_shoist's three wide linears. Under dit_spin on Wormhole they take a 2D multicast program
+        with K in blocks of 4 tiles and each core's N split into 18-tile output blocks: 922 us against ttnn's
+        auto 1146 at 512 tokens ([512,384]x[384,36864], op_probe sw on a Galaxy chip), rel_rms vs float64 unchanged.
+        Blackhole's auto program is already the fastest there, so it keeps it."""
+        blk = self.blocks[0]
+        mt, kt, nt = -(-int(x.shape[-2]) // 32), int(x.shape[-1]) // 32, int(w.shape[-1]) // 32
+        gx, gy = CORE_GRID_MAIN.x, CORE_GRID_MAIN.y
+        pm, pn = -(-mt // gy), nt // gx
+        if not (_T.lever("dit_spin") and blk._wormhole and kt % 4 == 0 and nt % gx == 0 and pn % 18 == 0
+                and pm <= 4):
+            return blk._lin(x, w, bias=bias, activation=activation)
+        sw = max(v for v in range(1, 4 // pm + 1) if 18 % v == 0)
+        pc = ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(
+            compute_with_storage_grid_size=(gx, gy), in0_block_w=4, out_subblock_h=pm, out_subblock_w=sw,
+            out_block_h=pm, out_block_w=18, per_core_M=pm, per_core_N=pn, transpose_mcast=False,
+            fused_activation=ttnn.UnaryWithParam(ttnn.UnaryOpType.SIGMOID) if activation == "sigmoid" else None,
+            fuse_batch=True)
+        hifi2 = blk._act_dtype == ttnn.bfloat16 and _T.lever("dit_hifi2")
+        return ttnn.linear(x, w, bias=bias, program_config=pc,
+                           compute_kernel_config=blk.ckc_hifi2 if hifi2 else blk.compute_kernel_config)
+
     def shared_s(self, s_d):
         """What every block of one call reads off ``s`` and the stack computes once (``s16`` in
         ``_DiTBlock.__call__``), or None. The caller frees the tensors after the last block."""
@@ -609,7 +631,7 @@ class OF3DiffusionTransformer(Module):
             if self.hoist is None:
                 return (s_hat,)
             sc_w, sc_b, sb_w, g_w, g_b = self.hoist
-            lin = self.blocks[0]._lin
+            lin = self._wide_lin
             return (s_hat, lin(s_hat, sc_w, bias=sc_b, activation="sigmoid"), lin(s_hat, sb_w),
                     lin(s_d, g_w, bias=g_b, activation="sigmoid"))
         if self.blocks[0].s16:

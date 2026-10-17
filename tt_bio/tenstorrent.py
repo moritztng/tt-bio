@@ -721,6 +721,8 @@ _FAST_MODE = False
 #   relp_gather     the Protenix family's trunk input projects relative position by one row gather from a per-fold
 #                   table (each distinct one-hot row summed once on the host lane) instead of uploading the
 #                   [N, N, 139] one-hot and multiplying it.
+#   dit_spin        under dit_shoist on Wormhole, the three wide conditioning linears take a pinned 2D program (K blocks
+#                   of 4 tiles, 18-tile output blocks): -20 % on the op against ttnn's auto program, same rel_rms.
 #   triatt_hifi2    the fused triangle-attention SDPA's QK and PV products at HiFi2 instead of HiFi4, math_approx
 #                   off and fp32 accumulation kept. A Galaxy chip runs the 512-token call at 45 % of its DRAM roof,
 #                   so there the fidelity passes may be the cost (on Blackhole the op is bandwidth-bound).
@@ -737,7 +739,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine", "ef2_opm_kq", "ef2_relpos_lookup",
           "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit", "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384",
           "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
-          "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "trimul_bres", "triatt_hifi2")
+          "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "trimul_bres", "triatt_hifi2", "dit_spin")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -753,7 +755,7 @@ UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "di
                              "ef2_relpos_lookup", "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit",
                              "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384",
                              "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
-                             "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "triatt_hifi2"})
+                             "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "triatt_hifi2", "dit_spin"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
