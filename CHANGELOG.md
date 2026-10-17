@@ -5,6 +5,8 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-10-17
+
 ### Changed
 - **Nesso-1's normal mode runs the fused triangle kernels** (triangle multiplication, including the
   256-token crops, the triangle attention tail and the fused pair transition). A 532-token forward on a
@@ -18,9 +20,6 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   a Wormhole chip at 1000 MHz. Boltz-2, OpenDDE and Protenix-v2 pass the fast accuracy bar on both architectures; a
   512-token Protenix-v2 fast fold on a Wormhole chip saves 2.8 s. OpenFold3 and ESMFold2 keep their
   previous fast path until their own grades read.
-- **OpenFold3 and OpenBind-0 `--fast` run the diffusion transformer's linears at a lower math fidelity on
-  Wormhole.** A 512-residue fast fold on a Galaxy chip at 1000 MHz takes 0.16 s (OpenFold3) and 0.28 s
-  (OpenBind-0) less; CA-lDDT and docking success are unchanged on 11 complexes. Blackhole is unchanged.
 
 ## [0.16.1] - 2026-10-14
 

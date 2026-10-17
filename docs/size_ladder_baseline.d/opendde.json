@@ -15,23 +15,24 @@
   ],
   "cards": {
     "p150a": {
-      "recorded": "2026-09-28",
+      "recorded": "2026-10-16",
       "host": "tt-quietbox",
-      "commit": "3af7e8be7",
+      "commit": "5e250928a",
+      "host_threads": 8,
       "models": {
         "opendde": {
           "grid": "11x10",
-          "recorded": "2026-10-09",
+          "recorded": "2026-10-16",
           "host": "tt-quietbox",
-          "commit": "6105e740d",
-          "host_threads": null,
+          "commit": "5e250928a",
+          "host_threads": 8,
           "runtime_s": {
-            "256": 30.7,
-            "512": 81.5,
-            "640": 128.5,
-            "768": 176.2,
-            "896": 235.0,
-            "1024": 310.0
+            "256": 23.6,
+            "512": 55.5,
+            "640": 90.4,
+            "768": 129.4,
+            "896": 172.8,
+            "1024": 230.0
           },
           "levers": {
             "256": {
@@ -93,13 +94,14 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 8,
+                "served": 0,
                 "declined": 6448,
-                "frac": 0.0012391573729863693,
+                "frac": 0.0,
                 "how": "stats",
                 "rejects": {
                   "memory": 6448
-                }
+                },
+                "reason": "TODO: say why this is legitimate at this size (declines on memory x6448)"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
@@ -126,25 +128,21 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 8,
-                "declined": 1208,
+                "served": 4,
+                "declined": 604,
                 "frac": 0.006578947368421052,
                 "how": "wrap",
                 "rejects": {
-                  "l1_dest_is_faster:256x256x64": 160,
-                  "l1_dest_is_faster:256x256x384": 1048
+                  "l1_dest_is_faster:256x256x64": 80,
+                  "l1_dest_is_faster:256x256x384": 524
                 }
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
-                "served": 0,
-                "declined": 2104,
-                "frac": 0.0,
-                "how": "wrap",
-                "rejects": {
-                  "k_tiles=12:(12,12)": 2104
-                },
-                "reason": "declines all 2104 calls on k_tiles=12:(12,12) x2104: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded"
+                "served": 2104,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -160,7 +158,7 @@
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 1216,
+                "served": 3320,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -194,17 +192,19 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 16,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 16,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats-shared"
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "TODO: say why this is legitimate at this size"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -290,11 +290,10 @@
               },
               "B2_TOKEN_DIT_SDPA": {
                 "resolved": "True",
-                "served": 0,
+                "served": 144,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter advances only where `AttentionPairBias.token_dit` is True (tt_bio/tenstorrent.py:8026), which only `DiffusionTransformerLayer` sets (`token_dit = not atom_level`, tt_bio/tenstorrent.py:9577) and only Boltz-2 builds (tt_bio/boltz2.py:2031); opendde never constructs it. Control in this same baseline: boltz2 serves 144 per fold at every rung. It is unreachable on this path twice over: the Protenix-family token DiT builds `AttentionPairBias` directly (tt_bio/protenix.py:937-939) with `fp32_raw_matmul_attention=True`, and ttnn SDPA rejects fp32 inputs outright (tt_bio/tenstorrent.py:8023-8030), so the branch is excluded by dtype as well as by the flag. [carried from p300c]"
+                "frac": 1.0,
+                "how": "stats"
               },
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
@@ -313,8 +312,8 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 1208,
-                "declined": 8,
+                "served": 604,
+                "declined": 4,
                 "frac": 0.993421052631579,
                 "how": "wrap"
               },
@@ -341,13 +340,12 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 122,
-                "declined": 528,
-                "frac": 0.18769230769230769,
+                "served": 80,
+                "declined": 524,
+                "frac": 0.13245033112582782,
                 "how": "stats",
                 "rejects": {
-                  "base-unraised": 524,
-                  "ratio-shrunk": 4
+                  "base-unraised": 524
                 }
               },
               "TRIATT_SDPA_HIFI": {
@@ -417,7 +415,7 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 1232,
+                "served": 184,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -447,24 +445,20 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 1056,
-                "declined": 160,
+                "served": 528,
+                "declined": 80,
                 "frac": 0.868421052631579,
                 "how": "wrap",
                 "rejects": {
-                  "l1_dest_is_faster:512x512x64": 160
+                  "l1_dest_is_faster:512x512x64": 80
                 }
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
-                "served": 0,
-                "declined": 1064,
-                "frac": 0.0,
-                "how": "wrap",
-                "rejects": {
-                  "k_tiles=12:(12,12)": 1064
-                },
-                "reason": "declines all 1064 calls on k_tiles=12:(12,12) x1064: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded"
+                "served": 1064,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -473,13 +467,14 @@
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
+                  "t1:key=2x4x2": 160,
                   "k_tiles=12": 8
                 },
-                "reason": "declines all 8 calls on k_tiles=12 x8: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
+                "reason": "declines all 8 calls on t1:key=2x4x2 x160, k_tiles=12 x8: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 1216,
+                "served": 2280,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -508,14 +503,14 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 2464,
+                "served": 368,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 2464,
+                "served": 368,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -608,11 +603,10 @@
               },
               "B2_TOKEN_DIT_SDPA": {
                 "resolved": "True",
-                "served": 0,
+                "served": 144,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter advances only where `AttentionPairBias.token_dit` is True (tt_bio/tenstorrent.py:8026), which only `DiffusionTransformerLayer` sets (`token_dit = not atom_level`, tt_bio/tenstorrent.py:9577) and only Boltz-2 builds (tt_bio/boltz2.py:2031); opendde never constructs it. Control in this same baseline: boltz2 serves 144 per fold at every rung. It is unreachable on this path twice over: the Protenix-family token DiT builds `AttentionPairBias` directly (tt_bio/protenix.py:937-939) with `fp32_raw_matmul_attention=True`, and ttnn SDPA rejects fp32 inputs outright (tt_bio/tenstorrent.py:8023-8030), so the branch is excluded by dtype as well as by the flag. [carried from p300c]"
+                "frac": 1.0,
+                "how": "stats"
               },
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
@@ -631,8 +625,8 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 160,
-                "declined": 1056,
+                "served": 80,
+                "declined": 528,
                 "frac": 0.13157894736842105,
                 "how": "wrap"
               },
@@ -659,13 +653,10 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 122,
-                "declined": 528,
-                "frac": 0.18769230769230769,
-                "how": "stats",
-                "rejects": {
-                  "ratio-shrunk": 528
-                }
+                "served": 80,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -764,24 +755,20 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 1056,
-                "declined": 160,
+                "served": 528,
+                "declined": 80,
                 "frac": 0.868421052631579,
                 "how": "wrap",
                 "rejects": {
-                  "l1_dest_is_faster:640x640x64": 160
+                  "l1_dest_is_faster:640x640x64": 80
                 }
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
-                "served": 0,
-                "declined": 2112,
-                "frac": 0.0,
-                "how": "wrap",
-                "rejects": {
-                  "k_tiles=12:(12,12)": 2112
-                },
-                "reason": "declines all 2112 calls on k_tiles=12:(12,12) x2112: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded"
+                "served": 2112,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -790,13 +777,14 @@
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
+                  "t1:key=2x4x2": 160,
                   "k_tiles=12": 1056
                 },
-                "reason": "declines all 1056 calls on k_tiles=12 x1056: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
+                "reason": "declines all 1056 calls on k_tiles=12 x1056, t1:key=2x4x2 x160: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 1216,
+                "served": 3328,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -919,11 +907,10 @@
               },
               "B2_TOKEN_DIT_SDPA": {
                 "resolved": "True",
-                "served": 0,
+                "served": 144,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter advances only where `AttentionPairBias.token_dit` is True (tt_bio/tenstorrent.py:8026), which only `DiffusionTransformerLayer` sets (`token_dit = not atom_level`, tt_bio/tenstorrent.py:9577) and only Boltz-2 builds (tt_bio/boltz2.py:2031); opendde never constructs it. Control in this same baseline: boltz2 serves 144 per fold at every rung. It is unreachable on this path twice over: the Protenix-family token DiT builds `AttentionPairBias` directly (tt_bio/protenix.py:937-939) with `fp32_raw_matmul_attention=True`, and ttnn SDPA rejects fp32 inputs outright (tt_bio/tenstorrent.py:8023-8030), so the branch is excluded by dtype as well as by the flag. [carried from p300c]"
+                "frac": 1.0,
+                "how": "stats"
               },
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
@@ -942,8 +929,8 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 160,
-                "declined": 1056,
+                "served": 80,
+                "declined": 528,
                 "frac": 0.13157894736842105,
                 "how": "wrap"
               },
@@ -970,13 +957,10 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 122,
-                "declined": 528,
-                "frac": 0.18769230769230769,
-                "how": "stats",
-                "rejects": {
-                  "ratio-shrunk": 528
-                }
+                "served": 80,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -1045,7 +1029,7 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 2352,
+                "served": 2353,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -1075,39 +1059,40 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 1056,
-                "declined": 160,
+                "served": 528,
+                "declined": 80,
                 "frac": 0.868421052631579,
                 "how": "wrap",
                 "rejects": {
-                  "l1_dest_is_faster:768x768x64": 160
+                  "l1_dest_is_faster:768x768x64": 80
                 }
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
-                "served": 0,
-                "declined": 2112,
-                "frac": 0.0,
+                "served": 2112,
+                "declined": 1,
+                "frac": 0.9995267392333176,
                 "how": "wrap",
                 "rejects": {
-                  "k_tiles=12:(12,12)": 2112
-                },
-                "reason": "declines all 2112 calls on k_tiles=12:(12,12) x2112: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded"
+                  "k_tiles=2:(2,2)": 1
+                }
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1056,
+                "declined": 1057,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
+                  "t1:key=2x4x2": 160,
+                  "k_tiles=2": 1,
                   "k_tiles=12": 1056
                 },
-                "reason": "declines all 1056 calls on k_tiles=12 x1056: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
+                "reason": "declines all 1057 calls on k_tiles=12 x1056, t1:key=2x4x2 x160, k_tiles=2 x1: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 1216,
+                "served": 3328,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -1136,14 +1121,14 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 4704,
+                "served": 4706,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 4704,
+                "served": 4706,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -1235,11 +1220,10 @@
               },
               "B2_TOKEN_DIT_SDPA": {
                 "resolved": "True",
-                "served": 0,
+                "served": 144,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter advances only where `AttentionPairBias.token_dit` is True (tt_bio/tenstorrent.py:8026), which only `DiffusionTransformerLayer` sets (`token_dit = not atom_level`, tt_bio/tenstorrent.py:9577) and only Boltz-2 builds (tt_bio/boltz2.py:2031); opendde never constructs it. Control in this same baseline: boltz2 serves 144 per fold at every rung. It is unreachable on this path twice over: the Protenix-family token DiT builds `AttentionPairBias` directly (tt_bio/protenix.py:937-939) with `fp32_raw_matmul_attention=True`, and ttnn SDPA rejects fp32 inputs outright (tt_bio/tenstorrent.py:8023-8030), so the branch is excluded by dtype as well as by the flag. [carried from p300c]"
+                "frac": 1.0,
+                "how": "stats"
               },
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
@@ -1258,8 +1242,8 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 160,
-                "declined": 1056,
+                "served": 80,
+                "declined": 528,
                 "frac": 0.13157894736842105,
                 "how": "wrap"
               },
@@ -1286,13 +1270,10 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 134,
-                "declined": 528,
-                "frac": 0.20241691842900303,
-                "how": "stats",
-                "rejects": {
-                  "ratio-shrunk": 528
-                }
+                "served": 80,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -1391,25 +1372,23 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 1108,
-                "declined": 160,
-                "frac": 0.8738170347003155,
+                "served": 584,
+                "declined": 80,
+                "frac": 0.8795180722891566,
                 "how": "wrap",
                 "rejects": {
-                  "l1_dest_is_faster:896x896x64": 160
+                  "l1_dest_is_faster:896x896x64": 80
                 }
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
-                "served": 0,
-                "declined": 2136,
-                "frac": 0.0,
+                "served": 2096,
+                "declined": 40,
+                "frac": 0.9812734082397003,
                 "how": "wrap",
                 "rejects": {
-                  "k_tiles=12:(12,12)": 2096,
                   "k_tiles=12:(12,1)": 40
-                },
-                "reason": "declines all 2136 calls on k_tiles=12:(12,12) x2096, k_tiles=12:(12,1) x40: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one [carried from rung 768] [carried from p300c]"
+                }
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -1418,16 +1397,20 @@
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
+                  "t1:key=2x4x2": 160,
                   "k_tiles=12": 1048
                 },
-                "reason": "declines all 1048 calls on k_tiles=12 x1048: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from rung 768] [carried from p300c]"
+                "reason": "declines all 1048 calls on k_tiles=12 x1048, t1:key=2x4x2 x160: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from rung 768] [carried from p300c]"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 1328,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "wrap"
+                "served": 3424,
+                "declined": 40,
+                "frac": 0.9884526558891455,
+                "how": "wrap",
+                "rejects": {
+                  "no_mm_block:(12,1)": 40
+                }
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "not-imported",
@@ -1553,11 +1536,10 @@
               },
               "B2_TOKEN_DIT_SDPA": {
                 "resolved": "True",
-                "served": 0,
+                "served": 144,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter advances only where `AttentionPairBias.token_dit` is True (tt_bio/tenstorrent.py:8026), which only `DiffusionTransformerLayer` sets (`token_dit = not atom_level`, tt_bio/tenstorrent.py:9577) and only Boltz-2 builds (tt_bio/boltz2.py:2031); opendde never constructs it. Control in this same baseline: boltz2 serves 144 per fold at every rung. It is unreachable on this path twice over: the Protenix-family token DiT builds `AttentionPairBias` directly (tt_bio/protenix.py:937-939) with `fp32_raw_matmul_attention=True`, and ttnn SDPA rejects fp32 inputs outright (tt_bio/tenstorrent.py:8023-8030), so the branch is excluded by dtype as well as by the flag. [carried from p300c]"
+                "frac": 1.0,
+                "how": "stats"
               },
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
@@ -1576,9 +1558,9 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 160,
-                "declined": 1088,
-                "frac": 0.1282051282051282,
+                "served": 80,
+                "declined": 564,
+                "frac": 0.12422360248447205,
                 "how": "wrap"
               },
               "SDPA_Q_CHUNK_FITS": {
@@ -1604,13 +1586,11 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 140,
-                "declined": 528,
-                "frac": 0.20958083832335328,
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "ratio-shrunk": 528
-                }
+                "reason": "declines all 0 calls: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tenstorrent.TRANSITION_H_CHUNK_BIG_MAX_W). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 above 384 tokens on every model and the lever has no Wormhole raise to decline [carried from tt-galaxy-wh-l]"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -1709,9 +1689,9 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 1292,
+                "served": 688,
                 "declined": 1,
-                "frac": 0.9992266047950503,
+                "frac": 0.9985486211901307,
                 "how": "wrap",
                 "rejects": {
                   "l1_dest_is_faster:1024x1024x64": 1
@@ -1719,16 +1699,14 @@
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
-                "served": 0,
-                "declined": 2312,
-                "frac": 0.0,
+                "served": 2096,
+                "declined": 216,
+                "frac": 0.9065743944636678,
                 "how": "wrap",
                 "rejects": {
                   "k_tiles=2:(2,2)": 160,
-                  "k_tiles=12:(12,12)": 2096,
                   "k_tiles=12:(12,1)": 56
-                },
-                "reason": "declines all 2312 calls on k_tiles=12:(12,12) x2096, k_tiles=2:(2,2) x160, k_tiles=12:(12,1) x56: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one [carried from rung 768] [carried from p300c]"
+                }
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -1737,16 +1715,20 @@
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
+                  "t1:key=2x4x2": 160,
                   "k_tiles=12": 1048
                 },
-                "reason": "declines all 1048 calls on k_tiles=12 x1048: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from rung 768] [carried from p300c]"
+                "reason": "declines all 1048 calls on k_tiles=12 x1048, t1:key=2x4x2 x160: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from rung 768] [carried from p300c]"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 1376,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "wrap"
+                "served": 3472,
+                "declined": 56,
+                "frac": 0.9841269841269841,
+                "how": "wrap",
+                "rejects": {
+                  "no_mm_block:(12,1)": 56
+                }
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "not-imported",
@@ -1870,11 +1852,10 @@
               },
               "B2_TOKEN_DIT_SDPA": {
                 "resolved": "True",
-                "served": 0,
+                "served": 144,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter advances only where `AttentionPairBias.token_dit` is True (tt_bio/tenstorrent.py:8026), which only `DiffusionTransformerLayer` sets (`token_dit = not atom_level`, tt_bio/tenstorrent.py:9577) and only Boltz-2 builds (tt_bio/boltz2.py:2031); opendde never constructs it. Control in this same baseline: boltz2 serves 144 per fold at every rung. It is unreachable on this path twice over: the Protenix-family token DiT builds `AttentionPairBias` directly (tt_bio/protenix.py:937-939) with `fp32_raw_matmul_attention=True`, and ttnn SDPA rejects fp32 inputs outright (tt_bio/tenstorrent.py:8023-8030), so the branch is excluded by dtype as well as by the flag. [carried from p300c]"
+                "frac": 1.0,
+                "how": "stats"
               },
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
@@ -1893,9 +1874,9 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 160,
-                "declined": 1104,
-                "frac": 0.12658227848101267,
+                "served": 80,
+                "declined": 580,
+                "frac": 0.12121212121212122,
                 "how": "wrap"
               },
               "SDPA_Q_CHUNK_FITS": {
@@ -1921,13 +1902,11 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 146,
-                "declined": 528,
-                "frac": 0.2166172106824926,
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "ratio-shrunk": 528
-                }
+                "reason": "declines all 0 calls: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tenstorrent.TRANSITION_H_CHUNK_BIG_MAX_W). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 above 384 tokens on every model and the lever has no Wormhole raise to decline [carried from tt-galaxy-wh-l]"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -1940,35 +1919,35 @@
           },
           "runtime_reps_s": {
             "256": [
-              30.4,
-              30.0,
-              30.7,
-              30.9,
-              34.0
+              23.9,
+              22.9,
+              23.6,
+              23.5,
+              23.6
             ],
             "512": [
-              83.2,
-              85.2,
-              79.5,
-              81.5,
-              80.8
+              55.2,
+              56.1,
+              55.5,
+              55.9,
+              55.4
             ],
             "640": [
-              128.5
+              90.4
             ],
             "768": [
-              176.2
+              129.4
             ],
             "896": [
-              235.0
+              172.8
             ],
             "1024": [
-              310.0
+              230.0
             ]
           },
           "aiclk": {
             "256": {
-              "card": "1",
+              "card": "2",
               "min": 800,
               "max": 1350,
               "rep_median": [
@@ -1978,10 +1957,10 @@
                 1350,
                 1350
               ],
-              "n": 51
+              "n": 35
             },
             "512": {
-              "card": "1",
+              "card": "2",
               "min": 800,
               "max": 1350,
               "rep_median": [
@@ -1991,88 +1970,88 @@
                 1350,
                 1350
               ],
-              "n": 91
+              "n": 62
             },
             "640": {
-              "card": "1",
+              "card": "2",
               "min": 800,
               "max": 1350,
               "rep_median": [
                 1350
               ],
-              "n": 26
+              "n": 18
             },
             "768": {
-              "card": "1",
+              "card": "2",
               "min": 800,
               "max": 1350,
               "rep_median": [
                 1350
               ],
-              "n": 36
+              "n": 25
             },
             "896": {
-              "card": "1",
+              "card": "2",
               "min": 800,
               "max": 1350,
               "rep_median": [
                 1350
               ],
-              "n": 43
+              "n": 32
             },
             "1024": {
-              "card": "1",
+              "card": "2",
               "min": 800,
               "max": 1350,
               "rep_median": [
                 1350
               ],
-              "n": 57
+              "n": 41
             }
           },
           "load": {
             "256": {
-              "max": 1.01,
+              "max": 0.35,
               "rep_median": [
-                0.67,
-                0.86,
-                0.73,
-                0.65,
-                0.78
+                0.32,
+                0.31,
+                0.3,
+                0.26,
+                0.24
               ]
             },
             "512": {
-              "max": 0.87,
+              "max": 0.32,
               "rep_median": [
-                0.56,
-                0.68,
-                0.66,
-                0.57,
-                0.7
+                0.28,
+                0.24,
+                0.26,
+                0.3,
+                0.27
               ]
             },
             "640": {
-              "max": 0.63,
+              "max": 0.32,
               "rep_median": [
-                0.5
+                0.29
               ]
             },
             "768": {
-              "max": 1.74,
+              "max": 0.36,
               "rep_median": [
-                0.73
+                0.3
               ]
             },
             "896": {
-              "max": 0.78,
+              "max": 0.32,
               "rep_median": [
-                0.54
+                0.22
               ]
             },
             "1024": {
-              "max": 0.85,
+              "max": 0.26,
               "rep_median": [
-                0.55
+                0.22
               ]
             }
           },
@@ -2083,44 +2062,44 @@
               "n_ca": 256,
               "clash_frac": 0.0078,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 134.3829,
-              "radius_of_gyration_A": 114.087,
-              "plddt_mean": 0.585576,
+              "ca_ca_median_A": 135.0324,
+              "radius_of_gyration_A": 114.015,
+              "plddt_mean": 0.58558,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 134.383 A outside [3.6, 4.0]",
+                "median CA-CA 135.032 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 114.1 A outside [9.0, 45.2]"
+                "radius of gyration 114.0 A outside [9.0, 45.2]"
               ]
             },
             "512": {
               "file": "cdk2x2_512.cif",
               "steps": 6,
               "n_ca": 512,
-              "clash_frac": 0.0,
+              "clash_frac": 0.0078,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 138.1332,
-              "radius_of_gyration_A": 113.318,
-              "plddt_mean": 0.568545,
+              "ca_ca_median_A": 137.8669,
+              "radius_of_gyration_A": 113.408,
+              "plddt_mean": 0.574559,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 138.133 A outside [3.6, 4.0]",
+                "median CA-CA 137.867 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 113.3 A outside [11.8, 58.9]"
+                "radius of gyration 113.4 A outside [11.8, 58.9]"
               ]
             },
             "640": {
               "file": "cdk2x2_640.cif",
               "steps": 6,
               "n_ca": 640,
-              "clash_frac": 0.0031,
+              "clash_frac": 0.0125,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 150.034,
-              "radius_of_gyration_A": 117.017,
-              "plddt_mean": 0.565172,
+              "ca_ca_median_A": 150.3675,
+              "radius_of_gyration_A": 116.968,
+              "plddt_mean": 0.564754,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 150.034 A outside [3.6, 4.0]",
+                "median CA-CA 150.368 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
                 "radius of gyration 117.0 A outside [12.8, 64.1]"
               ]
@@ -2130,31 +2109,32 @@
               "steps": 6,
               "n_ca": 768,
               "clash_frac": 0.0078,
-              "chain_break_frac": 1.0,
-              "ca_ca_median_A": 145.197,
-              "radius_of_gyration_A": 114.031,
-              "plddt_mean": 0.555114,
+              "chain_break_frac": 0.9987,
+              "ca_ca_median_A": 144.6341,
+              "radius_of_gyration_A": 114.157,
+              "plddt_mean": 0.555847,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 145.197 A outside [3.6, 4.0]",
-                "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 114.0 A outside [13.7, 68.7]"
+                "median CA-CA 144.634 A outside [3.6, 4.0]",
+                "99.9% of consecutive CA pairs exceed 5.0 A",
+                "radius of gyration 114.2 A outside [13.7, 68.7]"
               ]
             },
             "896": {
               "file": "cdk2x2_896.cif",
               "steps": 6,
               "n_ca": 896,
-              "clash_frac": 0.0134,
+              "clash_frac": 0.0246,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 138.8345,
-              "radius_of_gyration_A": 112.726,
-              "plddt_mean": 0.560576,
+              "ca_ca_median_A": 138.9689,
+              "radius_of_gyration_A": 112.924,
+              "plddt_mean": 0.561658,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 138.834 A outside [3.6, 4.0]",
+                "median CA-CA 138.969 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 112.7 A outside [14.6, 72.8]"
+                "2.5% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 112.9 A outside [14.6, 72.8]"
               ]
             },
             "1024": {
@@ -2163,14 +2143,14 @@
               "n_ca": 1024,
               "clash_frac": 0.0156,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 135.664,
-              "radius_of_gyration_A": 115.182,
-              "plddt_mean": 0.559586,
+              "ca_ca_median_A": 136.221,
+              "radius_of_gyration_A": 115.382,
+              "plddt_mean": 0.559946,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 135.664 A outside [3.6, 4.0]",
+                "median CA-CA 136.221 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 115.2 A outside [15.3, 76.6]"
+                "radius of gyration 115.4 A outside [15.3, 76.6]"
               ]
             }
           },
@@ -2180,37 +2160,51 @@
             "1408": "'cdk2x2_1408.yaml' has 1408 residues, and opendde is measured to handle at most 1024 residues on blackhole -- the largest size below the first measured failure. Models with a measured ceiling above 1408 on this hardware: esmc-300m, esmc-600m, pxdesign, saprot-1.3b, saprot-35m, saprot-650m. If you have reason to think this input is roomier than the ladder that set the limit (a single-sequence run o",
             "1536": "'cdk2x2_1536.yaml' has 1536 residues, and opendde is measured to handle at most 1024 residues on blackhole -- the largest size below the first measured failure. Models with a measured ceiling above 1536 on this hardware: esmc-300m, esmc-600m, pxdesign, saprot-1.3b, saprot-35m, saprot-650m. If you have reason to think this input is roomier than the ladder that set the limit (a single-sequence run o"
           },
-          "exponents_skipped": "768 aa was timed at 1.7x nproc, above the 1.5x load ceiling: the runtimes are the host's, re-time on a quiet box",
+          "reps": 1,
+          "sigma_runtime_512": 0.0067,
+          "exponents": {
+            "256->512": {
+              "k": 1.234,
+              "tol": 0.5
+            },
+            "512->768": {
+              "k": 2.088,
+              "tol": 0.5
+            }
+          },
+          "sigma_runtime": {
+            "256": 0.0156,
+            "512": 0.0067
+          },
           "exponents_measured": {
-            "256->512": 1.409,
-            "512->640": 2.041,
-            "640->768": 1.732,
-            "768->896": 1.868,
-            "896->1024": 2.074
+            "256->512": 1.234,
+            "512->640": 2.186,
+            "640->768": 1.967,
+            "768->896": 1.876,
+            "896->1024": 2.141
           }
         }
-      },
-      "host_threads": null
+      }
     },
     "p300c": {
-      "recorded": "2026-10-10",
+      "recorded": "2026-10-16",
       "host": "tt-quietbox2",
-      "commit": "92d5924f5",
+      "commit": "5e250928a",
       "host_threads": 5,
       "models": {
         "opendde": {
           "grid": "11x10",
-          "recorded": "2026-10-10",
+          "recorded": "2026-10-16",
           "host": "tt-quietbox2",
-          "commit": "92d5924f5",
+          "commit": "5e250928a",
           "host_threads": 5,
           "runtime_s": {
-            "256": 20.3,
-            "512": 64.8,
-            "640": 105.2,
-            "768": 152.2,
-            "896": 207.6,
-            "1024": 275.0
+            "256": 18.3,
+            "512": 49.5,
+            "640": 85.2,
+            "768": 123.1,
+            "896": 167.4,
+            "1024": 223.1
           },
           "levers": {
             "256": {
@@ -2272,13 +2266,14 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 8,
+                "served": 0,
                 "declined": 6448,
-                "frac": 0.0012391573729863693,
+                "frac": 0.0,
                 "how": "stats",
                 "rejects": {
                   "memory": 6448
-                }
+                },
+                "reason": "TODO: say why this is legitimate at this size (declines on memory x6448)"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
@@ -2316,14 +2311,10 @@
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
-                "served": 0,
-                "declined": 2104,
-                "frac": 0.0,
-                "how": "wrap",
-                "rejects": {
-                  "k_tiles=12:(12,12)": 2104
-                },
-                "reason": "declines all 2104 calls on k_tiles=12:(12,12) x2104: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded"
+                "served": 2104,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -2339,7 +2330,7 @@
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 1216,
+                "served": 3320,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -2373,17 +2364,19 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 16,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 16,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats-shared"
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "TODO: say why this is legitimate at this size"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -2469,11 +2462,10 @@
               },
               "B2_TOKEN_DIT_SDPA": {
                 "resolved": "True",
-                "served": 0,
+                "served": 144,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter advances only where `AttentionPairBias.token_dit` is True (tt_bio/tenstorrent.py:8026), which only `DiffusionTransformerLayer` sets (`token_dit = not atom_level`, tt_bio/tenstorrent.py:9577) and only Boltz-2 builds (tt_bio/boltz2.py:2031); opendde never constructs it. Control in this same baseline: boltz2 serves 144 per fold at every rung. It is unreachable on this path twice over: the Protenix-family token DiT builds `AttentionPairBias` directly (tt_bio/protenix.py:937-939) with `fp32_raw_matmul_attention=True`, and ttnn SDPA rejects fp32 inputs outright (tt_bio/tenstorrent.py:8023-8030), so the branch is excluded by dtype as well as by the flag."
+                "frac": 1.0,
+                "how": "stats"
               },
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
@@ -2520,13 +2512,12 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 122,
-                "declined": 528,
-                "frac": 0.18769230769230769,
+                "served": 80,
+                "declined": 524,
+                "frac": 0.13245033112582782,
                 "how": "stats",
                 "rejects": {
-                  "base-unraised": 524,
-                  "ratio-shrunk": 4
+                  "base-unraised": 524
                 }
               },
               "TRIATT_SDPA_HIFI": {
@@ -2596,7 +2587,7 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 1232,
+                "served": 184,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -2636,14 +2627,10 @@
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
-                "served": 0,
-                "declined": 1064,
-                "frac": 0.0,
-                "how": "wrap",
-                "rejects": {
-                  "k_tiles=12:(12,12)": 1064
-                },
-                "reason": "declines all 1064 calls on k_tiles=12:(12,12) x1064: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one"
+                "served": 1064,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -2652,13 +2639,14 @@
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
+                  "t1:key=2x4x2": 160,
                   "k_tiles=12": 8
                 },
-                "reason": "declines all 8 calls on k_tiles=12 x8: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
+                "reason": "declines all 8 calls on t1:key=2x4x2 x160, k_tiles=12 x8: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 1216,
+                "served": 2280,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -2687,14 +2675,14 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 2464,
+                "served": 368,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 2464,
+                "served": 368,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -2787,11 +2775,10 @@
               },
               "B2_TOKEN_DIT_SDPA": {
                 "resolved": "True",
-                "served": 0,
+                "served": 144,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter advances only where `AttentionPairBias.token_dit` is True (tt_bio/tenstorrent.py:8026), which only `DiffusionTransformerLayer` sets (`token_dit = not atom_level`, tt_bio/tenstorrent.py:9577) and only Boltz-2 builds (tt_bio/boltz2.py:2031); opendde never constructs it. Control in this same baseline: boltz2 serves 144 per fold at every rung. It is unreachable on this path twice over: the Protenix-family token DiT builds `AttentionPairBias` directly (tt_bio/protenix.py:937-939) with `fp32_raw_matmul_attention=True`, and ttnn SDPA rejects fp32 inputs outright (tt_bio/tenstorrent.py:8023-8030), so the branch is excluded by dtype as well as by the flag."
+                "frac": 1.0,
+                "how": "stats"
               },
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
@@ -2838,13 +2825,10 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 122,
-                "declined": 528,
-                "frac": 0.18769230769230769,
-                "how": "stats",
-                "rejects": {
-                  "ratio-shrunk": 528
-                }
+                "served": 80,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -2953,14 +2937,10 @@
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
-                "served": 0,
-                "declined": 2112,
-                "frac": 0.0,
-                "how": "wrap",
-                "rejects": {
-                  "k_tiles=12:(12,12)": 2112
-                },
-                "reason": "declines all 2112 calls on k_tiles=12:(12,12) x2112: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one"
+                "served": 2112,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -2969,13 +2949,14 @@
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
+                  "t1:key=2x4x2": 160,
                   "k_tiles=12": 1056
                 },
-                "reason": "declines all 1056 calls on k_tiles=12 x1056: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
+                "reason": "declines all 1056 calls on k_tiles=12 x1056, t1:key=2x4x2 x160: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 1216,
+                "served": 3328,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -3098,11 +3079,10 @@
               },
               "B2_TOKEN_DIT_SDPA": {
                 "resolved": "True",
-                "served": 0,
+                "served": 144,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter advances only where `AttentionPairBias.token_dit` is True (tt_bio/tenstorrent.py:8026), which only `DiffusionTransformerLayer` sets (`token_dit = not atom_level`, tt_bio/tenstorrent.py:9577) and only Boltz-2 builds (tt_bio/boltz2.py:2031); opendde never constructs it. Control in this same baseline: boltz2 serves 144 per fold at every rung. It is unreachable on this path twice over: the Protenix-family token DiT builds `AttentionPairBias` directly (tt_bio/protenix.py:937-939) with `fp32_raw_matmul_attention=True`, and ttnn SDPA rejects fp32 inputs outright (tt_bio/tenstorrent.py:8023-8030), so the branch is excluded by dtype as well as by the flag."
+                "frac": 1.0,
+                "how": "stats"
               },
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
@@ -3149,13 +3129,10 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 122,
-                "declined": 528,
-                "frac": 0.18769230769230769,
-                "how": "stats",
-                "rejects": {
-                  "ratio-shrunk": 528
-                }
+                "served": 80,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -3224,7 +3201,7 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 2352,
+                "served": 2353,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -3264,29 +3241,30 @@
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
-                "served": 0,
-                "declined": 2112,
-                "frac": 0.0,
+                "served": 2112,
+                "declined": 1,
+                "frac": 0.9995267392333176,
                 "how": "wrap",
                 "rejects": {
-                  "k_tiles=12:(12,12)": 2112
-                },
-                "reason": "declines all 2112 calls on k_tiles=12:(12,12) x2112: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one"
+                  "k_tiles=2:(2,2)": 1
+                }
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1056,
+                "declined": 1057,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
+                  "t1:key=2x4x2": 160,
+                  "k_tiles=2": 1,
                   "k_tiles=12": 1056
                 },
-                "reason": "declines all 1056 calls on k_tiles=12 x1056: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
+                "reason": "declines all 1057 calls on k_tiles=12 x1056, t1:key=2x4x2 x160, k_tiles=2 x1: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 1216,
+                "served": 3328,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -3315,14 +3293,14 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 4704,
+                "served": 4706,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 4704,
+                "served": 4706,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -3414,11 +3392,10 @@
               },
               "B2_TOKEN_DIT_SDPA": {
                 "resolved": "True",
-                "served": 0,
+                "served": 144,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter advances only where `AttentionPairBias.token_dit` is True (tt_bio/tenstorrent.py:8026), which only `DiffusionTransformerLayer` sets (`token_dit = not atom_level`, tt_bio/tenstorrent.py:9577) and only Boltz-2 builds (tt_bio/boltz2.py:2031); opendde never constructs it. Control in this same baseline: boltz2 serves 144 per fold at every rung. It is unreachable on this path twice over: the Protenix-family token DiT builds `AttentionPairBias` directly (tt_bio/protenix.py:937-939) with `fp32_raw_matmul_attention=True`, and ttnn SDPA rejects fp32 inputs outright (tt_bio/tenstorrent.py:8023-8030), so the branch is excluded by dtype as well as by the flag."
+                "frac": 1.0,
+                "how": "stats"
               },
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
@@ -3465,13 +3442,10 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 134,
-                "declined": 528,
-                "frac": 0.20241691842900303,
-                "how": "stats",
-                "rejects": {
-                  "ratio-shrunk": 528
-                }
+                "served": 80,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -3580,15 +3554,13 @@
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
-                "served": 0,
-                "declined": 2136,
-                "frac": 0.0,
+                "served": 2096,
+                "declined": 40,
+                "frac": 0.9812734082397003,
                 "how": "wrap",
                 "rejects": {
-                  "k_tiles=12:(12,12)": 2096,
                   "k_tiles=12:(12,1)": 40
-                },
-                "reason": "declines all 2136 calls on k_tiles=12:(12,12) x2096, k_tiles=12:(12,1) x40: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one [carried from rung 768]"
+                }
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -3597,16 +3569,20 @@
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
+                  "t1:key=2x4x2": 160,
                   "k_tiles=12": 1048
                 },
-                "reason": "declines all 1048 calls on k_tiles=12 x1048: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from rung 768]"
+                "reason": "declines all 1048 calls on k_tiles=12 x1048, t1:key=2x4x2 x160: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from rung 768]"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 1328,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "wrap"
+                "served": 3424,
+                "declined": 40,
+                "frac": 0.9884526558891455,
+                "how": "wrap",
+                "rejects": {
+                  "no_mm_block:(12,1)": 40
+                }
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "not-imported",
@@ -3732,11 +3708,10 @@
               },
               "B2_TOKEN_DIT_SDPA": {
                 "resolved": "True",
-                "served": 0,
+                "served": 144,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter advances only where `AttentionPairBias.token_dit` is True (tt_bio/tenstorrent.py:8026), which only `DiffusionTransformerLayer` sets (`token_dit = not atom_level`, tt_bio/tenstorrent.py:9577) and only Boltz-2 builds (tt_bio/boltz2.py:2031); opendde never constructs it. Control in this same baseline: boltz2 serves 144 per fold at every rung. It is unreachable on this path twice over: the Protenix-family token DiT builds `AttentionPairBias` directly (tt_bio/protenix.py:937-939) with `fp32_raw_matmul_attention=True`, and ttnn SDPA rejects fp32 inputs outright (tt_bio/tenstorrent.py:8023-8030), so the branch is excluded by dtype as well as by the flag."
+                "frac": 1.0,
+                "how": "stats"
               },
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
@@ -3783,13 +3758,11 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 140,
-                "declined": 528,
-                "frac": 0.20958083832335328,
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "ratio-shrunk": 528
-                }
+                "reason": "declines all 0 calls: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tenstorrent.TRANSITION_H_CHUNK_BIG_MAX_W). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 above 384 tokens on every model and the lever has no Wormhole raise to decline [carried from tt-galaxy-wh-l]"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -3898,16 +3871,14 @@
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
-                "served": 0,
-                "declined": 2312,
-                "frac": 0.0,
+                "served": 2096,
+                "declined": 216,
+                "frac": 0.9065743944636678,
                 "how": "wrap",
                 "rejects": {
                   "k_tiles=2:(2,2)": 160,
-                  "k_tiles=12:(12,12)": 2096,
                   "k_tiles=12:(12,1)": 56
-                },
-                "reason": "declines all 2312 calls on k_tiles=12:(12,12) x2096, k_tiles=2:(2,2) x160, k_tiles=12:(12,1) x56: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one [carried from rung 768]"
+                }
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -3916,16 +3887,20 @@
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
+                  "t1:key=2x4x2": 160,
                   "k_tiles=12": 1048
                 },
-                "reason": "declines all 1048 calls on k_tiles=12 x1048: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from rung 768]"
+                "reason": "declines all 1048 calls on k_tiles=12 x1048, t1:key=2x4x2 x160: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from rung 768]"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 1376,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "wrap"
+                "served": 3472,
+                "declined": 56,
+                "frac": 0.9841269841269841,
+                "how": "wrap",
+                "rejects": {
+                  "no_mm_block:(12,1)": 56
+                }
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "not-imported",
@@ -4049,11 +4024,10 @@
               },
               "B2_TOKEN_DIT_SDPA": {
                 "resolved": "True",
-                "served": 0,
+                "served": 144,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter advances only where `AttentionPairBias.token_dit` is True (tt_bio/tenstorrent.py:8026), which only `DiffusionTransformerLayer` sets (`token_dit = not atom_level`, tt_bio/tenstorrent.py:9577) and only Boltz-2 builds (tt_bio/boltz2.py:2031); opendde never constructs it. Control in this same baseline: boltz2 serves 144 per fold at every rung. It is unreachable on this path twice over: the Protenix-family token DiT builds `AttentionPairBias` directly (tt_bio/protenix.py:937-939) with `fp32_raw_matmul_attention=True`, and ttnn SDPA rejects fp32 inputs outright (tt_bio/tenstorrent.py:8023-8030), so the branch is excluded by dtype as well as by the flag."
+                "frac": 1.0,
+                "how": "stats"
               },
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
@@ -4100,13 +4074,11 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 146,
-                "declined": 528,
-                "frac": 0.2166172106824926,
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "ratio-shrunk": 528
-                }
+                "reason": "declines all 0 calls: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tenstorrent.TRANSITION_H_CHUNK_BIG_MAX_W). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 above 384 tokens on every model and the lever has no Wormhole raise to decline [carried from tt-galaxy-wh-l]"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -4119,139 +4091,139 @@
           },
           "runtime_reps_s": {
             "256": [
-              20.3,
-              20.5,
-              20.2,
-              20.3,
-              20.3
+              18.2,
+              18.3,
+              18.4,
+              18.3,
+              18.2
             ],
             "512": [
-              64.8,
-              64.6,
-              64.9,
-              64.8,
-              64.6
+              49.4,
+              49.5,
+              49.5,
+              49.6,
+              49.6
             ],
             "640": [
-              105.2
+              85.2
             ],
             "768": [
-              152.2
+              123.1
             ],
             "896": [
-              207.6
+              167.4
             ],
             "1024": [
-              275.0
+              223.1
             ]
           },
           "aiclk": {
             "256": {
-              "card": "0",
+              "card": "2",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1325,
-                1350,
                 1343,
-                1350,
-                1343
+                1331,
+                1325,
+                1343,
+                1312
               ],
               "n": 30
             },
             "512": {
-              "card": "0",
+              "card": "2",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1331,
+                1325,
+                1343,
                 1312,
-                1331,
-                1312,
-                1312
+                1325,
+                1337
               ],
-              "n": 73
+              "n": 58
             },
             "640": {
-              "card": "0",
+              "card": "2",
               "min": 800,
               "max": 1350,
               "rep_median": [
                 1331
               ],
-              "n": 22
+              "n": 18
             },
             "768": {
-              "card": "0",
+              "card": "2",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1331
+                1306
               ],
-              "n": 31
+              "n": 25
             },
             "896": {
-              "card": "0",
+              "card": "2",
               "min": 800,
               "max": 1350,
               "rep_median": [
                 1325
               ],
-              "n": 41
+              "n": 34
             },
             "1024": {
-              "card": "0",
+              "card": "2",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1331
+                1318
               ],
-              "n": 54
+              "n": 45
             }
           },
           "load": {
             "256": {
-              "max": 0.39,
+              "max": 0.32,
               "rep_median": [
-                0.37,
                 0.3,
-                0.26,
-                0.27,
+                0.28,
+                0.25,
+                0.28,
                 0.26
               ]
             },
             "512": {
-              "max": 0.43,
+              "max": 0.25,
               "rep_median": [
-                0.33,
-                0.28,
-                0.25,
-                0.25,
-                0.25
+                0.24,
+                0.23,
+                0.23,
+                0.23,
+                0.23
               ]
             },
             "640": {
-              "max": 0.31,
+              "max": 0.23,
               "rep_median": [
-                0.28
+                0.22
               ]
             },
             "768": {
-              "max": 0.45,
+              "max": 0.25,
               "rep_median": [
-                0.38
+                0.22
               ]
             },
             "896": {
-              "max": 0.37,
+              "max": 0.25,
               "rep_median": [
-                0.31
+                0.23
               ]
             },
             "1024": {
-              "max": 0.42,
+              "max": 0.26,
               "rep_median": [
-                0.28
+                0.24
               ]
             }
           },
@@ -4262,12 +4234,12 @@
               "n_ca": 256,
               "clash_frac": 0.0078,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 133.3781,
-              "radius_of_gyration_A": 114.026,
-              "plddt_mean": 0.585107,
+              "ca_ca_median_A": 135.0324,
+              "radius_of_gyration_A": 114.015,
+              "plddt_mean": 0.58558,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 133.378 A outside [3.6, 4.0]",
+                "median CA-CA 135.032 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
                 "radius of gyration 114.0 A outside [9.0, 45.2]"
               ]
@@ -4277,46 +4249,46 @@
               "steps": 6,
               "n_ca": 512,
               "clash_frac": 0.0078,
-              "chain_break_frac": 0.998,
-              "ca_ca_median_A": 138.1117,
-              "radius_of_gyration_A": 113.709,
-              "plddt_mean": 0.573084,
+              "chain_break_frac": 1.0,
+              "ca_ca_median_A": 137.8669,
+              "radius_of_gyration_A": 113.408,
+              "plddt_mean": 0.574559,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 138.112 A outside [3.6, 4.0]",
-                "99.8% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 113.7 A outside [11.8, 58.9]"
+                "median CA-CA 137.867 A outside [3.6, 4.0]",
+                "100.0% of consecutive CA pairs exceed 5.0 A",
+                "radius of gyration 113.4 A outside [11.8, 58.9]"
               ]
             },
             "640": {
               "file": "cdk2x2_640.cif",
               "steps": 6,
               "n_ca": 640,
-              "clash_frac": 0.0031,
+              "clash_frac": 0.0125,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 151.052,
-              "radius_of_gyration_A": 117.105,
-              "plddt_mean": 0.565113,
+              "ca_ca_median_A": 150.3675,
+              "radius_of_gyration_A": 116.968,
+              "plddt_mean": 0.564754,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 151.052 A outside [3.6, 4.0]",
+                "median CA-CA 150.368 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 117.1 A outside [12.8, 64.1]"
+                "radius of gyration 117.0 A outside [12.8, 64.1]"
               ]
             },
             "768": {
               "file": "cdk2x2_768.cif",
               "steps": 6,
               "n_ca": 768,
-              "clash_frac": 0.0052,
-              "chain_break_frac": 1.0,
-              "ca_ca_median_A": 146.1745,
-              "radius_of_gyration_A": 114.185,
-              "plddt_mean": 0.555828,
+              "clash_frac": 0.0078,
+              "chain_break_frac": 0.9987,
+              "ca_ca_median_A": 144.6341,
+              "radius_of_gyration_A": 114.157,
+              "plddt_mean": 0.555847,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 146.175 A outside [3.6, 4.0]",
-                "100.0% of consecutive CA pairs exceed 5.0 A",
+                "median CA-CA 144.634 A outside [3.6, 4.0]",
+                "99.9% of consecutive CA pairs exceed 5.0 A",
                 "radius of gyration 114.2 A outside [13.7, 68.7]"
               ]
             },
@@ -4324,16 +4296,17 @@
               "file": "cdk2x2_896.cif",
               "steps": 6,
               "n_ca": 896,
-              "clash_frac": 0.0134,
+              "clash_frac": 0.0246,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 138.1755,
-              "radius_of_gyration_A": 112.832,
-              "plddt_mean": 0.561691,
+              "ca_ca_median_A": 138.9689,
+              "radius_of_gyration_A": 112.924,
+              "plddt_mean": 0.561658,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 138.176 A outside [3.6, 4.0]",
+                "median CA-CA 138.969 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 112.8 A outside [14.6, 72.8]"
+                "2.5% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 112.9 A outside [14.6, 72.8]"
               ]
             },
             "1024": {
@@ -4342,64 +4315,64 @@
               "n_ca": 1024,
               "clash_frac": 0.0156,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 136.1149,
-              "radius_of_gyration_A": 115.344,
-              "plddt_mean": 0.560129,
+              "ca_ca_median_A": 136.221,
+              "radius_of_gyration_A": 115.382,
+              "plddt_mean": 0.559946,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 136.115 A outside [3.6, 4.0]",
+                "median CA-CA 136.221 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 115.3 A outside [15.3, 76.6]"
+                "radius of gyration 115.4 A outside [15.3, 76.6]"
               ]
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.0021,
+          "sigma_runtime_512": 0.0017,
           "exponents": {
             "256->512": {
-              "k": 1.675,
+              "k": 1.436,
               "tol": 0.5
             },
             "512->768": {
-              "k": 2.106,
+              "k": 2.247,
               "tol": 0.5
             }
           },
           "sigma_runtime": {
-            "256": 0.0054,
-            "512": 0.0021
+            "256": 0.0046,
+            "512": 0.0017
           },
           "exponents_measured": {
-            "256->512": 1.675,
-            "512->640": 2.172,
-            "640->768": 2.026,
-            "768->896": 2.014,
-            "896->1024": 2.106
+            "256->512": 1.436,
+            "512->640": 2.434,
+            "640->768": 2.018,
+            "768->896": 1.994,
+            "896->1024": 2.151
           }
         }
       }
     },
     "tt-galaxy-wh-l": {
-      "recorded": "2026-10-11",
-      "host": "UF-EV-A8-GWH02",
-      "commit": "8bd13c72c",
+      "recorded": "2026-10-17",
+      "host": "UF-EV-A4-GWH01",
+      "commit": "5e250928a",
       "host_threads": 2,
       "models": {
         "opendde": {
           "grid": "8x9",
-          "recorded": "2026-10-11",
-          "host": "UF-EV-A8-GWH02",
-          "commit": "8bd13c72c",
+          "recorded": "2026-10-17",
+          "host": "UF-EV-A4-GWH01",
+          "commit": "5e250928a",
           "host_threads": 2,
           "runtime_s": {
-            "256": 52.2,
-            "512": 147.6,
-            "640": 254.9,
-            "768": 382.3,
-            "896": 501.8,
-            "1024": 719.4,
-            "1280": 1393.3,
-            "1536": 2701.4
+            "256": 44.2,
+            "512": 105.2,
+            "640": 188.0,
+            "768": 294.9,
+            "896": 386.8,
+            "1024": 546.9,
+            "1280": 1241.8,
+            "1536": 2313.7
           },
           "levers": {
             "256": {
@@ -4461,13 +4434,14 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 8,
+                "served": 0,
                 "declined": 12896,
-                "frac": 0.0006199628022318661,
+                "frac": 0.0,
                 "how": "stats",
                 "rejects": {
                   "memory": 12896
-                }
+                },
+                "reason": "TODO: say why this is legitimate at this size (declines on memory x12896)"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
@@ -4505,14 +4479,10 @@
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
-                "served": 0,
-                "declined": 2104,
-                "frac": 0.0,
-                "how": "wrap",
-                "rejects": {
-                  "k_tiles=12:(12,12)": 2104
-                },
-                "reason": "declines all 2104 calls on k_tiles=12:(12,12) x2104: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded [carried from p150a]"
+                "served": 2104,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -4528,7 +4498,7 @@
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 1216,
+                "served": 3320,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -4543,33 +4513,28 @@
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 51584,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "gated_window_BufferType.L1": 12896,
-                  "window_BufferType.L1": 25792,
-                  "back_l1_src_narrow": 12896
-                },
-                "reason": "declines all 51584 calls on window_BufferType.L1 x25792, gated_window_BufferType.L1 x12896, back_l1_src_narrow x12896: at 256 the gate's L1 leg admits 288 <= N <= 352 only; from 512 up the remaining declines are back_ragged, a ragged channel-move-back shape the permute does not cover, and the count scales with N [carried from p150a]"
+                "reason": "declines all 0 calls: at 256 the gate's L1 leg admits 288 <= N <= 352 only; from 512 up the remaining declines are back_ragged, a ragged channel-move-back shape the permute does not cover, and the count scales with N [carried from p150a]"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 8,
+                "served": 12904,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 16,
+                "served": 25792,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 16,
+                "served": 25792,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -4658,11 +4623,10 @@
               },
               "B2_TOKEN_DIT_SDPA": {
                 "resolved": "True",
-                "served": 0,
+                "served": 144,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter advances only where `AttentionPairBias.token_dit` is True (tt_bio/tenstorrent.py:8026), which only `DiffusionTransformerLayer` sets (`token_dit = not atom_level`, tt_bio/tenstorrent.py:9577) and only Boltz-2 builds (tt_bio/boltz2.py:2031); opendde never constructs it. Control in this same baseline: boltz2 serves 144 per fold at every rung. It is unreachable on this path twice over: the Protenix-family token DiT builds `AttentionPairBias` directly (tt_bio/protenix.py:937-939) with `fp32_raw_matmul_attention=True`, and ttnn SDPA rejects fp32 inputs outright (tt_bio/tenstorrent.py:8023-8030), so the branch is excluded by dtype as well as by the flag. [carried from p300c] [carried from p150a]"
+                "frac": 1.0,
+                "how": "stats"
               },
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
@@ -4709,13 +4673,12 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 120,
-                "declined": 530,
-                "frac": 0.18461538461538463,
+                "served": 80,
+                "declined": 524,
+                "frac": 0.13245033112582782,
                 "how": "stats",
                 "rejects": {
-                  "ratio-shrunk": 528,
-                  "base-unraised": 2
+                  "ratio-shrunk": 524
                 }
               },
               "TRIATT_SDPA_HIFI": {
@@ -4785,7 +4748,7 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 1232,
+                "served": 184,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -4825,14 +4788,10 @@
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
-                "served": 0,
-                "declined": 1064,
-                "frac": 0.0,
-                "how": "wrap",
-                "rejects": {
-                  "k_tiles=12:(12,12)": 1064
-                },
-                "reason": "declines all 1064 calls on k_tiles=12:(12,12) x1064: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded [carried from p150a]"
+                "served": 1064,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -4841,13 +4800,14 @@
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
+                  "t1:key=2x4x2": 160,
                   "k_tiles=12": 8
                 },
-                "reason": "declines all 8 calls on k_tiles=12 x8: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from p150a]"
+                "reason": "declines all 8 calls on t1:key=2x4x2 x160, k_tiles=12 x8: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from p150a]"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 1216,
+                "served": 2280,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -4876,14 +4836,14 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 2464,
+                "served": 368,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 2464,
+                "served": 368,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -4976,11 +4936,10 @@
               },
               "B2_TOKEN_DIT_SDPA": {
                 "resolved": "True",
-                "served": 0,
+                "served": 144,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter advances only where `AttentionPairBias.token_dit` is True (tt_bio/tenstorrent.py:8026), which only `DiffusionTransformerLayer` sets (`token_dit = not atom_level`, tt_bio/tenstorrent.py:9577) and only Boltz-2 builds (tt_bio/boltz2.py:2031); opendde never constructs it. Control in this same baseline: boltz2 serves 144 per fold at every rung. It is unreachable on this path twice over: the Protenix-family token DiT builds `AttentionPairBias` directly (tt_bio/protenix.py:937-939) with `fp32_raw_matmul_attention=True`, and ttnn SDPA rejects fp32 inputs outright (tt_bio/tenstorrent.py:8023-8030), so the branch is excluded by dtype as well as by the flag. [carried from p300c] [carried from p150a]"
+                "frac": 1.0,
+                "how": "stats"
               },
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
@@ -5028,15 +4987,13 @@
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
                 "served": 0,
-                "declined": 650,
+                "declined": 80,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "base-unraised": 82,
-                  "h-clamped-to-H": 40,
-                  "ratio-shrunk": 528
+                  "base-unraised": 80
                 },
-                "reason": "declines all 650 calls on ratio-shrunk x528, base-unraised x82, h-clamped-to-H x40: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tenstorrent.TRANSITION_H_CHUNK_BIG_MAX_W). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 above 384 tokens on every model and the lever has no Wormhole raise to decline"
+                "reason": "declines all 80 calls on base-unraised x80: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tenstorrent.TRANSITION_H_CHUNK_BIG_MAX_W). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 above 384 tokens on every model and the lever has no Wormhole raise to decline"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -5105,7 +5062,7 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 2304,
+                "served": 2305,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -5147,33 +5104,37 @@
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
-                "served": 0,
-                "declined": 2188,
-                "frac": 0.0,
+                "served": 2096,
+                "declined": 93,
+                "frac": 0.9575148469620831,
                 "how": "wrap",
                 "rejects": {
-                  "k_tiles=12:(12,12)": 2096,
+                  "k_tiles=2:(2,2)": 1,
                   "k_tiles=12:(12,1)": 92
-                },
-                "reason": "declines all 2188 calls on k_tiles=12:(12,12) x2096, k_tiles=12:(12,1) x92: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded [carried from p150a]"
+                }
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1048,
+                "declined": 1049,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
+                  "t1:key=2x4x2": 160,
+                  "k_tiles=2": 1,
                   "k_tiles=12": 1048
                 },
-                "reason": "declines all 1048 calls on k_tiles=12 x1048: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from p150a]"
+                "reason": "declines all 1049 calls on k_tiles=12 x1048, t1:key=2x4x2 x160, k_tiles=2 x1: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from p150a]"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 1484,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "wrap"
+                "served": 3580,
+                "declined": 92,
+                "frac": 0.9749455337690632,
+                "how": "wrap",
+                "rejects": {
+                  "no_mm_block:(12,1)": 92
+                }
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "not-imported",
@@ -5199,14 +5160,14 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 4608,
+                "served": 4610,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 4608,
+                "served": 4610,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -5297,11 +5258,10 @@
               },
               "B2_TOKEN_DIT_SDPA": {
                 "resolved": "True",
-                "served": 0,
+                "served": 144,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter advances only where `AttentionPairBias.token_dit` is True (tt_bio/tenstorrent.py:8026), which only `DiffusionTransformerLayer` sets (`token_dit = not atom_level`, tt_bio/tenstorrent.py:9577) and only Boltz-2 builds (tt_bio/boltz2.py:2031); opendde never constructs it. Control in this same baseline: boltz2 serves 144 per fold at every rung. It is unreachable on this path twice over: the Protenix-family token DiT builds `AttentionPairBias` directly (tt_bio/protenix.py:937-939) with `fp32_raw_matmul_attention=True`, and ttnn SDPA rejects fp32 inputs outright (tt_bio/tenstorrent.py:8023-8030), so the branch is excluded by dtype as well as by the flag. [carried from p300c] [carried from p150a]"
+                "frac": 1.0,
+                "how": "stats"
               },
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
@@ -5349,15 +5309,13 @@
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
                 "served": 0,
-                "declined": 650,
+                "declined": 80,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "base-unraised": 80,
-                  "h-clamped-to-H": 40,
-                  "ratio-shrunk": 530
+                  "base-unraised": 80
                 },
-                "reason": "declines all 650 calls on ratio-shrunk x530, base-unraised x80, h-clamped-to-H x40: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tenstorrent.TRANSITION_H_CHUNK_BIG_MAX_W). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 above 384 tokens on every model and the lever has no Wormhole raise to decline"
+                "reason": "declines all 80 calls on base-unraised x80: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tenstorrent.TRANSITION_H_CHUNK_BIG_MAX_W). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 above 384 tokens on every model and the lever has no Wormhole raise to decline"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -5468,15 +5426,13 @@
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
-                "served": 0,
-                "declined": 2208,
-                "frac": 0.0,
+                "served": 2096,
+                "declined": 112,
+                "frac": 0.9492753623188406,
                 "how": "wrap",
                 "rejects": {
-                  "k_tiles=12:(12,12)": 2096,
                   "k_tiles=12:(12,1)": 112
-                },
-                "reason": "declines all 2208 calls on k_tiles=12:(12,12) x2096, k_tiles=12:(12,1) x112: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded [carried from p150a]"
+                }
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -5485,16 +5441,20 @@
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
+                  "t1:key=2x4x2": 160,
                   "k_tiles=12": 1048
                 },
-                "reason": "declines all 1048 calls on k_tiles=12 x1048: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from p150a]"
+                "reason": "declines all 1048 calls on k_tiles=12 x1048, t1:key=2x4x2 x160: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from p150a]"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 1544,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "wrap"
+                "served": 3640,
+                "declined": 112,
+                "frac": 0.9701492537313433,
+                "how": "wrap",
+                "rejects": {
+                  "no_mm_block:(12,1)": 112
+                }
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "not-imported",
@@ -5619,11 +5579,10 @@
               },
               "B2_TOKEN_DIT_SDPA": {
                 "resolved": "True",
-                "served": 0,
+                "served": 144,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter advances only where `AttentionPairBias.token_dit` is True (tt_bio/tenstorrent.py:8026), which only `DiffusionTransformerLayer` sets (`token_dit = not atom_level`, tt_bio/tenstorrent.py:9577) and only Boltz-2 builds (tt_bio/boltz2.py:2031); opendde never constructs it. Control in this same baseline: boltz2 serves 144 per fold at every rung. It is unreachable on this path twice over: the Protenix-family token DiT builds `AttentionPairBias` directly (tt_bio/protenix.py:937-939) with `fp32_raw_matmul_attention=True`, and ttnn SDPA rejects fp32 inputs outright (tt_bio/tenstorrent.py:8023-8030), so the branch is excluded by dtype as well as by the flag. [carried from p300c] [carried from p150a]"
+                "frac": 1.0,
+                "how": "stats"
               },
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
@@ -5671,15 +5630,10 @@
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
                 "served": 0,
-                "declined": 662,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "base-unraised": 80,
-                  "h-clamped-to-H": 40,
-                  "ratio-shrunk": 542
-                },
-                "reason": "declines all 662 calls on ratio-shrunk x542, base-unraised x80, h-clamped-to-H x40: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tenstorrent.TRANSITION_H_CHUNK_BIG_MAX_W). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 above 384 tokens on every model and the lever has no Wormhole raise to decline"
+                "reason": "declines all 0 calls: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tenstorrent.TRANSITION_H_CHUNK_BIG_MAX_W). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 above 384 tokens on every model and the lever has no Wormhole raise to decline"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -5748,7 +5702,7 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 3400,
+                "served": 3304,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -5788,16 +5742,14 @@
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
-                "served": 0,
-                "declined": 2496,
-                "frac": 0.0,
+                "served": 2096,
+                "declined": 400,
+                "frac": 0.8397435897435898,
                 "how": "wrap",
                 "rejects": {
                   "k_tiles=2:(2,2)": 160,
-                  "k_tiles=12:(12,12)": 2096,
                   "k_tiles=12:(12,1)": 240
-                },
-                "reason": "declines all 2496 calls on k_tiles=12:(12,12) x2096, k_tiles=12:(12,1) x240, k_tiles=2:(2,2) x160: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one [carried from rung 768] [carried from p300c] [carried from p150a]"
+                }
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -5806,16 +5758,20 @@
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
+                  "t1:key=2x4x2": 160,
                   "k_tiles=12": 1048
                 },
-                "reason": "declines all 1048 calls on k_tiles=12 x1048: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from rung 768] [carried from p300c] [carried from p150a]"
+                "reason": "declines all 1048 calls on k_tiles=12 x1048, t1:key=2x4x2 x160: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from rung 768] [carried from p300c] [carried from p150a]"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 1928,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "wrap"
+                "served": 4024,
+                "declined": 240,
+                "frac": 0.9437148217636022,
+                "how": "wrap",
+                "rejects": {
+                  "no_mm_block:(12,1)": 240
+                }
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "not-imported",
@@ -5841,14 +5797,14 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 6800,
+                "served": 17168,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 6800,
+                "served": 17168,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -5942,11 +5898,10 @@
               },
               "B2_TOKEN_DIT_SDPA": {
                 "resolved": "True",
-                "served": 0,
+                "served": 144,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter advances only where `AttentionPairBias.token_dit` is True (tt_bio/tenstorrent.py:8026), which only `DiffusionTransformerLayer` sets (`token_dit = not atom_level`, tt_bio/tenstorrent.py:9577) and only Boltz-2 builds (tt_bio/boltz2.py:2031); opendde never constructs it. Control in this same baseline: boltz2 serves 144 per fold at every rung. It is unreachable on this path twice over: the Protenix-family token DiT builds `AttentionPairBias` directly (tt_bio/protenix.py:937-939) with `fp32_raw_matmul_attention=True`, and ttnn SDPA rejects fp32 inputs outright (tt_bio/tenstorrent.py:8023-8030), so the branch is excluded by dtype as well as by the flag. [carried from p300c] [carried from p150a]"
+                "frac": 1.0,
+                "how": "stats"
               },
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
@@ -5995,15 +5950,13 @@
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
                 "served": 0,
-                "declined": 668,
+                "declined": 4,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "base-unraised": 80,
-                  "h-clamped-to-H": 40,
-                  "ratio-shrunk": 548
+                  "ratio-shrunk": 4
                 },
-                "reason": "declines all 668 calls on ratio-shrunk x548, base-unraised x80, h-clamped-to-H x40: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tenstorrent.TRANSITION_H_CHUNK_BIG_MAX_W). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 above 384 tokens on every model and the lever has no Wormhole raise to decline"
+                "reason": "declines all 4 calls on ratio-shrunk x4: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tenstorrent.TRANSITION_H_CHUNK_BIG_MAX_W). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 above 384 tokens on every model and the lever has no Wormhole raise to decline"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -6112,16 +6065,14 @@
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
-                "served": 0,
-                "declined": 2536,
-                "frac": 0.0,
+                "served": 2096,
+                "declined": 504,
+                "frac": 0.8061538461538461,
                 "how": "wrap",
                 "rejects": {
                   "k_tiles=2:(2,2)": 160,
-                  "k_tiles=12:(12,12)": 2096,
-                  "k_tiles=12:(12,1)": 280
-                },
-                "reason": "declines all 2536 calls on k_tiles=12:(12,12) x2096, k_tiles=12:(12,1) x280, k_tiles=2:(2,2) x160: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one [carried from rung 768] [carried from p300c] [carried from p150a]"
+                  "k_tiles=12:(12,1)": 344
+                }
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -6130,16 +6081,20 @@
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
+                  "t1:key=2x4x2": 160,
                   "k_tiles=12": 1048
                 },
-                "reason": "declines all 1048 calls on k_tiles=12 x1048: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from rung 768] [carried from p300c] [carried from p150a]"
+                "reason": "declines all 1048 calls on k_tiles=12 x1048, t1:key=2x4x2 x160: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from rung 768] [carried from p300c] [carried from p150a]"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 2048,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "wrap"
+                "served": 4144,
+                "declined": 344,
+                "frac": 0.9233511586452763,
+                "how": "wrap",
+                "rejects": {
+                  "no_mm_block:(12,1)": 344
+                }
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "not-imported",
@@ -6266,11 +6221,10 @@
               },
               "B2_TOKEN_DIT_SDPA": {
                 "resolved": "True",
-                "served": 0,
+                "served": 144,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter advances only where `AttentionPairBias.token_dit` is True (tt_bio/tenstorrent.py:8026), which only `DiffusionTransformerLayer` sets (`token_dit = not atom_level`, tt_bio/tenstorrent.py:9577) and only Boltz-2 builds (tt_bio/boltz2.py:2031); opendde never constructs it. Control in this same baseline: boltz2 serves 144 per fold at every rung. It is unreachable on this path twice over: the Protenix-family token DiT builds `AttentionPairBias` directly (tt_bio/protenix.py:937-939) with `fp32_raw_matmul_attention=True`, and ttnn SDPA rejects fp32 inputs outright (tt_bio/tenstorrent.py:8023-8030), so the branch is excluded by dtype as well as by the flag. [carried from p300c] [carried from p150a]"
+                "frac": 1.0,
+                "how": "stats"
               },
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
@@ -6319,15 +6273,13 @@
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
                 "served": 0,
-                "declined": 674,
+                "declined": 4,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "base-unraised": 80,
-                  "h-clamped-to-H": 40,
-                  "ratio-shrunk": 554
+                  "ratio-shrunk": 4
                 },
-                "reason": "declines all 674 calls on ratio-shrunk x554, base-unraised x80, h-clamped-to-H x40: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tenstorrent.TRANSITION_H_CHUNK_BIG_MAX_W). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 above 384 tokens on every model and the lever has no Wormhole raise to decline"
+                "reason": "declines all 4 calls on ratio-shrunk x4: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tenstorrent.TRANSITION_H_CHUNK_BIG_MAX_W). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 above 384 tokens on every model and the lever has no Wormhole raise to decline"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -6460,9 +6412,12 @@
               "QKV_MM_CONFIG": {
                 "resolved": "True",
                 "served": 38652,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "wrap"
+                "declined": 12484,
+                "frac": 0.7558667083854819,
+                "how": "wrap",
+                "rejects": {
+                  "no_mm_block:(12,1)": 12484
+                }
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "not-imported",
@@ -6481,21 +6436,21 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 6544,
+                "served": 6568,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 17940,
+                "served": 19188,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 17940,
+                "served": 19188,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -6586,11 +6541,10 @@
               },
               "B2_TOKEN_DIT_SDPA": {
                 "resolved": "True",
-                "served": 0,
+                "served": 144,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter advances only where `AttentionPairBias.token_dit` is True (tt_bio/tenstorrent.py:8026), which only `DiffusionTransformerLayer` sets (`token_dit = not atom_level`, tt_bio/tenstorrent.py:9577) and only Boltz-2 builds (tt_bio/boltz2.py:2031); opendde never constructs it. Control in this same baseline: boltz2 serves 144 per fold at every rung. It is unreachable on this path twice over: the Protenix-family token DiT builds `AttentionPairBias` directly (tt_bio/protenix.py:937-939) with `fp32_raw_matmul_attention=True`, and ttnn SDPA rejects fp32 inputs outright (tt_bio/tenstorrent.py:8023-8030), so the branch is excluded by dtype as well as by the flag. [carried from p300c] [carried from p150a] [carried from rung 1024]"
+                "frac": 1.0,
+                "how": "stats"
               },
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
@@ -6639,15 +6593,13 @@
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
                 "served": 0,
-                "declined": 688,
+                "declined": 4,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "base-unraised": 80,
-                  "h-clamped-to-H": 40,
-                  "ratio-shrunk": 568
+                  "ratio-shrunk": 4
                 },
-                "reason": "declines all 688 calls on ratio-shrunk x568, base-unraised x80, h-clamped-to-H x40: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tenstorrent.TRANSITION_H_CHUNK_BIG_MAX_W). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 above 384 tokens on every model and the lever has no Wormhole raise to decline [carried from rung 1024]"
+                "reason": "declines all 4 calls on ratio-shrunk x4: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tenstorrent.TRANSITION_H_CHUNK_BIG_MAX_W). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 above 384 tokens on every model and the lever has no Wormhole raise to decline [carried from rung 1024]"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -6779,9 +6731,12 @@
               "QKV_MM_CONFIG": {
                 "resolved": "True",
                 "served": 46992,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "wrap"
+                "declined": 15200,
+                "frac": 0.7555955749935683,
+                "how": "wrap",
+                "rejects": {
+                  "no_mm_block:(12,1)": 15200
+                }
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "not-imported",
@@ -6905,11 +6860,10 @@
               },
               "B2_TOKEN_DIT_SDPA": {
                 "resolved": "True",
-                "served": 0,
+                "served": 144,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter advances only where `AttentionPairBias.token_dit` is True (tt_bio/tenstorrent.py:8026), which only `DiffusionTransformerLayer` sets (`token_dit = not atom_level`, tt_bio/tenstorrent.py:9577) and only Boltz-2 builds (tt_bio/boltz2.py:2031); opendde never constructs it. Control in this same baseline: boltz2 serves 144 per fold at every rung. It is unreachable on this path twice over: the Protenix-family token DiT builds `AttentionPairBias` directly (tt_bio/protenix.py:937-939) with `fp32_raw_matmul_attention=True`, and ttnn SDPA rejects fp32 inputs outright (tt_bio/tenstorrent.py:8023-8030), so the branch is excluded by dtype as well as by the flag. [carried from p300c] [carried from p150a] [carried from rung 1024]"
+                "frac": 1.0,
+                "how": "stats"
               },
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
@@ -6958,15 +6912,13 @@
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
                 "served": 0,
-                "declined": 712,
+                "declined": 4,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "base-unraised": 80,
-                  "h-clamped-to-H": 40,
-                  "ratio-shrunk": 592
+                  "ratio-shrunk": 4
                 },
-                "reason": "declines all 712 calls on ratio-shrunk x592, base-unraised x80, h-clamped-to-H x40: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tenstorrent.TRANSITION_H_CHUNK_BIG_MAX_W). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 above 384 tokens on every model and the lever has no Wormhole raise to decline [carried from rung 1024]"
+                "reason": "declines all 4 calls on ratio-shrunk x4: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tenstorrent.TRANSITION_H_CHUNK_BIG_MAX_W). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 above 384 tokens on every model and the lever has no Wormhole raise to decline [carried from rung 1024]"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -6979,41 +6931,41 @@
           },
           "runtime_reps_s": {
             "256": [
-              52.2,
-              53.0,
-              52.1,
-              52.4,
-              52.0
+              44.3,
+              43.7,
+              44.0,
+              44.4,
+              44.2
             ],
             "512": [
-              147.6,
-              145.7,
-              146.5,
-              148.0,
-              147.7
+              105.0,
+              105.3,
+              104.6,
+              105.3,
+              105.2
             ],
             "640": [
-              254.9
+              188.0
             ],
             "768": [
-              382.3
+              294.9
             ],
             "896": [
-              501.8
+              386.8
             ],
             "1024": [
-              719.4
+              546.9
             ],
             "1280": [
-              1393.3
+              1241.8
             ],
             "1536": [
-              2701.4
+              2313.7
             ]
           },
           "aiclk": {
             "256": {
-              "card": "4",
+              "card": "25",
               "min": 500,
               "max": 1000,
               "rep_median": [
@@ -7023,10 +6975,10 @@
                 1000,
                 1000
               ],
-              "n": 65
+              "n": 55
             },
             "512": {
-              "card": "4",
+              "card": "25",
               "min": 500,
               "max": 1000,
               "rep_median": [
@@ -7036,118 +6988,118 @@
                 1000,
                 1000
               ],
-              "n": 155
+              "n": 112
             },
             "640": {
-              "card": "4",
+              "card": "25",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 50
+              "n": 38
             },
             "768": {
-              "card": "4",
+              "card": "25",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 74
+              "n": 58
             },
             "896": {
-              "card": "4",
+              "card": "25",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 96
+              "n": 75
             },
             "1024": {
-              "card": "4",
+              "card": "25",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 129
+              "n": 105
             },
             "1280": {
-              "card": "4",
+              "card": "25",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 262
+              "n": 234
             },
             "1536": {
-              "card": "4",
+              "card": "25",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 504
+              "n": 434
             }
           },
           "load": {
             "256": {
-              "max": 0.51,
+              "max": 0.13,
               "rep_median": [
-                0.49,
-                0.48,
-                0.47,
-                0.44,
-                0.47
+                0.11,
+                0.09,
+                0.08,
+                0.08,
+                0.08
               ]
             },
             "512": {
-              "max": 0.71,
+              "max": 0.09,
               "rep_median": [
-                0.63,
-                0.5,
-                0.53,
-                0.64,
-                0.64
+                0.08,
+                0.07,
+                0.08,
+                0.07,
+                0.08
               ]
             },
             "640": {
-              "max": 0.81,
+              "max": 0.08,
               "rep_median": [
-                0.71
+                0.08
               ]
             },
             "768": {
-              "max": 0.48,
+              "max": 0.08,
               "rep_median": [
-                0.43
+                0.07
               ]
             },
             "896": {
-              "max": 0.49,
+              "max": 0.06,
               "rep_median": [
-                0.47
+                0.05
               ]
             },
             "1024": {
-              "max": 0.51,
+              "max": 0.07,
               "rep_median": [
-                0.42
+                0.06
               ]
             },
             "1280": {
-              "max": 0.48,
+              "max": 0.04,
               "rep_median": [
-                0.36
+                0.02
               ]
             },
             "1536": {
-              "max": 0.6,
+              "max": 0.14,
               "rep_median": [
-                0.43
+                0.09
               ]
             }
           },
@@ -7156,30 +7108,30 @@
               "file": "cdk2x2_256.cif",
               "steps": 6,
               "n_ca": 256,
-              "clash_frac": 0.0,
+              "clash_frac": 0.0078,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 132.8115,
-              "radius_of_gyration_A": 114.09,
-              "plddt_mean": 0.584281,
+              "ca_ca_median_A": 133.2315,
+              "radius_of_gyration_A": 113.892,
+              "plddt_mean": 0.585215,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 132.811 A outside [3.6, 4.0]",
+                "median CA-CA 133.232 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 114.1 A outside [9.0, 45.2]"
+                "radius of gyration 113.9 A outside [9.0, 45.2]"
               ]
             },
             "512": {
               "file": "cdk2x2_512.cif",
               "steps": 6,
               "n_ca": 512,
-              "clash_frac": 0.0039,
+              "clash_frac": 0.0078,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 137.6513,
-              "radius_of_gyration_A": 113.508,
-              "plddt_mean": 0.573293,
+              "ca_ca_median_A": 137.5792,
+              "radius_of_gyration_A": 113.541,
+              "plddt_mean": 0.573931,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 137.651 A outside [3.6, 4.0]",
+                "median CA-CA 137.579 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
                 "radius of gyration 113.5 A outside [11.8, 58.9]"
               ]
@@ -7188,14 +7140,14 @@
               "file": "cdk2x2_640.cif",
               "steps": 6,
               "n_ca": 640,
-              "clash_frac": 0.0,
+              "clash_frac": 0.0094,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 150.6616,
-              "radius_of_gyration_A": 116.92,
-              "plddt_mean": 0.564516,
+              "ca_ca_median_A": 149.9558,
+              "radius_of_gyration_A": 116.91,
+              "plddt_mean": 0.565069,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 150.662 A outside [3.6, 4.0]",
+                "median CA-CA 149.956 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
                 "radius of gyration 116.9 A outside [12.8, 64.1]"
               ]
@@ -7204,15 +7156,15 @@
               "file": "cdk2x2_768.cif",
               "steps": 6,
               "n_ca": 768,
-              "clash_frac": 0.0156,
-              "chain_break_frac": 1.0,
-              "ca_ca_median_A": 145.4845,
-              "radius_of_gyration_A": 114.066,
-              "plddt_mean": 0.55526,
+              "clash_frac": 0.0052,
+              "chain_break_frac": 0.9987,
+              "ca_ca_median_A": 145.6783,
+              "radius_of_gyration_A": 114.075,
+              "plddt_mean": 0.555871,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 145.485 A outside [3.6, 4.0]",
-                "100.0% of consecutive CA pairs exceed 5.0 A",
+                "median CA-CA 145.678 A outside [3.6, 4.0]",
+                "99.9% of consecutive CA pairs exceed 5.0 A",
                 "radius of gyration 114.1 A outside [13.7, 68.7]"
               ]
             },
@@ -7220,14 +7172,14 @@
               "file": "cdk2x2_896.cif",
               "steps": 6,
               "n_ca": 896,
-              "clash_frac": 0.0156,
+              "clash_frac": 0.0089,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 138.8959,
-              "radius_of_gyration_A": 112.773,
-              "plddt_mean": 0.561444,
+              "ca_ca_median_A": 138.3988,
+              "radius_of_gyration_A": 112.777,
+              "plddt_mean": 0.561867,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 138.896 A outside [3.6, 4.0]",
+                "median CA-CA 138.399 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
                 "radius of gyration 112.8 A outside [14.6, 72.8]"
               ]
@@ -7236,31 +7188,32 @@
               "file": "cdk2x2_1024.cif",
               "steps": 6,
               "n_ca": 1024,
-              "clash_frac": 0.0127,
+              "clash_frac": 0.0137,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 135.6689,
-              "radius_of_gyration_A": 115.156,
-              "plddt_mean": 0.560532,
+              "ca_ca_median_A": 135.498,
+              "radius_of_gyration_A": 115.333,
+              "plddt_mean": 0.560135,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 135.669 A outside [3.6, 4.0]",
+                "median CA-CA 135.498 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 115.2 A outside [15.3, 76.6]"
+                "radius of gyration 115.3 A outside [15.3, 76.6]"
               ]
             },
             "1280": {
               "file": "cdk2x2_1280.cif",
               "steps": 6,
               "n_ca": 1280,
-              "clash_frac": 0.0164,
+              "clash_frac": 0.0219,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 137.2796,
-              "radius_of_gyration_A": 113.582,
-              "plddt_mean": 0.582287,
+              "ca_ca_median_A": 137.57,
+              "radius_of_gyration_A": 113.577,
+              "plddt_mean": 0.582625,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 137.280 A outside [3.6, 4.0]",
+                "median CA-CA 137.570 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
+                "2.2% of CA atoms sit under 3.5 A from a non-bonded CA",
                 "radius of gyration 113.6 A outside [16.7, 83.4]"
               ]
             },
@@ -7268,43 +7221,43 @@
               "file": "cdk2x2_1536.cif",
               "steps": 6,
               "n_ca": 1536,
-              "clash_frac": 0.0156,
-              "chain_break_frac": 1.0,
-              "ca_ca_median_A": 143.6871,
-              "radius_of_gyration_A": 114.457,
-              "plddt_mean": 0.5808,
+              "clash_frac": 0.015,
+              "chain_break_frac": 0.9987,
+              "ca_ca_median_A": 143.1134,
+              "radius_of_gyration_A": 114.435,
+              "plddt_mean": 0.58074,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 143.687 A outside [3.6, 4.0]",
-                "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 114.5 A outside [17.9, 89.4]"
+                "median CA-CA 143.113 A outside [3.6, 4.0]",
+                "99.9% of consecutive CA pairs exceed 5.0 A",
+                "radius of gyration 114.4 A outside [17.9, 89.4]"
               ]
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.0066,
+          "sigma_runtime_512": 0.0028,
           "exponents": {
             "256->512": {
-              "k": 1.5,
+              "k": 1.251,
               "tol": 0.5
             },
             "512->768": {
-              "k": 2.347,
+              "k": 2.542,
               "tol": 0.5
             }
           },
           "sigma_runtime": {
-            "256": 0.0076,
-            "512": 0.0066
+            "256": 0.0063,
+            "512": 0.0028
           },
           "exponents_measured": {
-            "256->512": 1.5,
-            "512->640": 2.448,
-            "640->768": 2.223,
-            "768->896": 1.764,
-            "896->1024": 2.698,
-            "1024->1280": 2.962,
-            "1280->1536": 3.631
+            "256->512": 1.251,
+            "512->640": 2.602,
+            "640->768": 2.469,
+            "768->896": 1.76,
+            "896->1024": 2.594,
+            "1024->1280": 3.675,
+            "1280->1536": 3.413
           }
         }
       }

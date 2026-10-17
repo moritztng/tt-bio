@@ -15,27 +15,28 @@
   ],
   "cards": {
     "p150a": {
-      "recorded": "2026-09-28",
+      "recorded": "2026-10-16",
       "host": "tt-quietbox",
-      "commit": "3af7e8be7",
+      "commit": "5e250928a",
+      "host_threads": 8,
       "models": {
         "nesso1": {
           "grid": "11x10",
-          "recorded": "2026-10-09",
+          "recorded": "2026-10-16",
           "host": "tt-quietbox",
-          "commit": "6105e740d",
-          "host_threads": null,
+          "commit": "5e250928a",
+          "host_threads": 8,
           "runtime_s": {
-            "256": 8.9,
-            "512": 11.2,
-            "640": 11.89,
-            "768": 13.67,
-            "896": 16.79,
-            "1024": 23.34,
-            "1152": 26.54,
-            "1280": 27.7,
-            "1408": 29.92,
-            "1536": 41.84
+            "256": 3.45,
+            "512": 4.59,
+            "640": 5.58,
+            "768": 6.64,
+            "896": 8.03,
+            "1024": 12.02,
+            "1152": 14.86,
+            "1280": 17.94,
+            "1408": 19.11,
+            "1536": 29.63
           },
           "levers": {
             "256": {
@@ -89,15 +90,11 @@
                 "how": "stats"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 2114,
-                "frac": 0.0,
-                "how": "stats",
-                "rejects": {
-                  "memory": 2114
-                },
-                "reason": "declines all 2114 calls on memory x2114: the dual-NoC in-projection needs a DRAM-interleaved activation and destination, and at 276 tokens the pair buffer is L1-resident. It serves 96 of 1056 calls from 512 up, where that buffer moves to DRAM"
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
@@ -126,14 +123,14 @@
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 576,
+                "declined": 288,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "l1_dest_is_faster:288x288x128": 96,
-                  "l1_dest_is_faster:256x256x128": 480
+                  "l1_dest_is_faster:288x288x128": 48,
+                  "l1_dest_is_faster:256x256x128": 240
                 },
-                "reason": "declines all 576 calls on l1_dest_is_faster:256x256x128 x480, l1_dest_is_faster:288x288x128 x96: every decline is an L1 destination, and the L1 route is the strictly faster one (2.47-2.74x against this route's 1.60x), so this is inert here rather than degraded. It starts serving 96 of 576 calls at 768, where the pair buffer moves to DRAM"
+                "reason": "declines all 288 calls on l1_dest_is_faster:256x256x128 x240, l1_dest_is_faster:288x288x128 x48: every decline is an L1 destination, and the L1 route is the strictly faster one (2.47-2.74x against this route's 1.60x), so this is inert here rather than degraded. It starts serving 96 of 576 calls at 768, where the pair buffer moves to DRAM"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -146,13 +143,10 @@
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 576,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "k_tiles=4": 576
-                },
-                "reason": "declines all 576 calls on k_tiles=4 x576: F1_BLOCK_KEYS allow-lists only (8, 8) and Nesso-1's trimul tail weight resolves 4 K tiles from c_hidden, not from N \u2014 inert on this model at every size, not dark at this one"
+                "reason": "declines all 0 calls: F1_BLOCK_KEYS allow-lists only (8, 8) and Nesso-1's trimul tail weight resolves 4 K tiles from c_hidden, not from N \u2014 inert on this model at every size, not dark at this one"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -171,36 +165,33 @@
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 7684,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "gated_window_BufferType.L1": 1921,
-                  "window_BufferType.L1": 3842,
-                  "back_l1_src_narrow": 1921
-                },
-                "reason": "declines all 7684 calls on window_BufferType.L1 x3842, gated_window_BufferType.L1 x1921, back_l1_src_narrow x1921: the traffic moved to the gated channel and the handful left over is the measured band doing its job. REBLOCK_PERMUTE_GATED serves 1152 calls at every rung here (1344 at 1024) and this wrapper is reached four times, declining on three clauses that are all one band: window_BufferType.L1 and gated_window_BufferType.L1 are an L1 DESTINATION at an N outside the measured [288, 352] window (L1_N_MIN/L1_N_MAX, tt_bio/reblock_permute.py), and back_l1_src_narrow is the backward kernel with an L1 SOURCE at N < 288, which was measured to LOSE -- 0.9918x and 0.9903x at 256 against 1.0086x at 288 on the 11x10 grid. A lever that refuses the shapes it was measured to be slower on is not dark, it is correct [carried from tt-galaxy-wh-l] [carried from p300c]"
+                "reason": "declines all 0 calls: the traffic moved to the gated channel and the handful left over is the measured band doing its job. REBLOCK_PERMUTE_GATED serves 1152 calls at every rung here (1344 at 1024) and this wrapper is reached four times, declining on three clauses that are all one band: window_BufferType.L1 and gated_window_BufferType.L1 are an L1 DESTINATION at an N outside the measured [288, 352] window (L1_N_MIN/L1_N_MAX, tt_bio/reblock_permute.py), and back_l1_src_narrow is the backward kernel with an L1 SOURCE at N < 288, which was measured to LOSE -- 0.9918x and 0.9903x at 256 against 1.0086x at 288 on the 11x10 grid. A lever that refuses the shapes it was measured to be slower on is not dark, it is correct [carried from tt-galaxy-wh-l] [carried from p300c]"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 192,
+                "served": 576,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 384,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 384,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats-shared"
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "TODO: say why this is legitimate at this size"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -308,7 +299,7 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 576,
+                "served": 288,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -400,14 +391,11 @@
                 "how": "stats"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
-                "resolved": "True",
-                "served": 96,
-                "declined": 1922,
-                "frac": 0.04757185332011893,
-                "how": "stats",
-                "rejects": {
-                  "memory": 1922
-                }
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
@@ -436,14 +424,14 @@
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 576,
+                "declined": 288,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "l1_dest_is_faster:544x544x128": 96,
-                  "l1_dest_is_faster:256x256x128": 480
+                  "l1_dest_is_faster:544x544x128": 48,
+                  "l1_dest_is_faster:256x256x128": 240
                 },
-                "reason": "declines all 576 calls on l1_dest_is_faster:256x256x128 x480, l1_dest_is_faster:544x544x128 x96: every decline is an L1 destination, and the L1 route is the strictly faster one (2.47-2.74x against this route's 1.60x), so this is inert here rather than degraded. It starts serving 96 of 576 calls at 768, where the pair buffer moves to DRAM"
+                "reason": "declines all 288 calls on l1_dest_is_faster:256x256x128 x240, l1_dest_is_faster:544x544x128 x48: every decline is an L1 destination, and the L1 route is the strictly faster one (2.47-2.74x against this route's 1.60x), so this is inert here rather than degraded. It starts serving 96 of 576 calls at 768, where the pair buffer moves to DRAM"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -456,13 +444,10 @@
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 480,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "k_tiles=4": 480
-                },
-                "reason": "declines all 480 calls on k_tiles=4 x480: F1_BLOCK_KEYS allow-lists only (8, 8) and Nesso-1's trimul tail weight resolves 4 K tiles from c_hidden, not from N \u2014 inert on this model at every size, not dark at this one"
+                "reason": "declines all 0 calls: F1_BLOCK_KEYS allow-lists only (8, 8) and Nesso-1's trimul tail weight resolves 4 K tiles from c_hidden, not from N \u2014 inert on this model at every size, not dark at this one"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -481,36 +466,33 @@
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 7684,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "gated_window_BufferType.L1": 1921,
-                  "window_BufferType.L1": 3842,
-                  "back_l1_src_narrow": 1921
-                },
                 "reason": "the window declining is the window working: 3842 calls at this rung ask for an L1 destination at an N outside the measured [288, 352] L1 band (`L1_N_MIN`/`L1_N_MAX`, tt_bio/reblock_permute.py:338-339, rejected at :387 as `window_BufferType.L1`). Below 288 there are fewer work groups than cores and the custom move is a measured LOSS -- N=256 on an L1 output reads 0.952x on 110 cores (`eligible`'s docstring). Serving them would be the defect. The trimul channel moves are taken by the fused gated kernel instead: `REBLOCK_PERMUTE_GATED` serves 192 per fold at this rung. [carried from p300c]"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 96,
+                "served": 576,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 192,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 192,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats-shared"
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "TODO: say why this is legitimate at this size"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -622,7 +604,7 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 576,
+                "served": 288,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -714,14 +696,11 @@
                 "how": "stats"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
-                "resolved": "True",
-                "served": 96,
-                "declined": 1922,
-                "frac": 0.04757185332011893,
-                "how": "stats",
-                "rejects": {
-                  "memory": 1922
-                }
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
@@ -750,36 +729,30 @@
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 576,
+                "declined": 288,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "l1_dest_is_faster:672x672x128": 96,
-                  "l1_dest_is_faster:256x256x128": 480
+                  "l1_dest_is_faster:672x672x128": 48,
+                  "l1_dest_is_faster:256x256x128": 240
                 },
-                "reason": "declines all 576 calls on l1_dest_is_faster:256x256x128 x480, l1_dest_is_faster:672x672x128 x96: every decline is an L1 destination, and the L1 route is the strictly faster one (2.47-2.74x against this route's 1.60x), so this is inert here rather than degraded. It starts serving 96 of 576 calls at 768, where the pair buffer moves to DRAM"
+                "reason": "declines all 288 calls on l1_dest_is_faster:256x256x128 x240, l1_dest_is_faster:672x672x128 x48: every decline is an L1 destination, and the L1 route is the strictly faster one (2.47-2.74x against this route's 1.60x), so this is inert here rather than degraded. It starts serving 96 of 576 calls at 768, where the pair buffer moves to DRAM"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 96,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "rejects": {
-                  "k_tiles=4:(4,4)": 96
-                },
-                "reason": "declines all 96 calls on k_tiles=4:(4,4) x96: it is scoped to an 8-tile weight K dim and Nesso-1's pair channel is 128, so every projection resolves 4 K tiles. That is a property of the checkpoint's c_z, not of N \u2014 inert on this model at every size, not dark at this one"
+                "reason": "declines all 0 calls: it is scoped to an 8-tile weight K dim and Nesso-1's pair channel is 128, so every projection resolves 4 K tiles. That is a property of the checkpoint's c_z, not of N \u2014 inert on this model at every size, not dark at this one"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 480,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "k_tiles=4": 480
-                },
-                "reason": "declines all 480 calls on k_tiles=4 x480: F1_BLOCK_KEYS allow-lists only (8, 8) and Nesso-1's trimul tail weight resolves 4 K tiles from c_hidden, not from N \u2014 inert on this model at every size, not dark at this one"
+                "reason": "declines all 0 calls: F1_BLOCK_KEYS allow-lists only (8, 8) and Nesso-1's trimul tail weight resolves 4 K tiles from c_hidden, not from N \u2014 inert on this model at every size, not dark at this one"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -798,36 +771,33 @@
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 7684,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "gated_window_BufferType.L1": 1921,
-                  "window_BufferType.L1": 3842,
-                  "back_l1_src_narrow": 1921
-                },
                 "reason": "the window declining is the window working: 3842 calls at this rung ask for an L1 destination at an N outside the measured [288, 352] L1 band (`L1_N_MIN`/`L1_N_MAX`, tt_bio/reblock_permute.py:338-339, rejected at :387 as `window_BufferType.L1`). Below 288 there are fewer work groups than cores and the custom move is a measured LOSS -- N=256 on an L1 output reads 0.952x on 110 cores (`eligible`'s docstring). Serving them would be the defect. The trimul channel moves are taken by the fused gated kernel instead: `REBLOCK_PERMUTE_GATED` serves 192 per fold at this rung. [carried from p300c]"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 96,
+                "served": 576,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 192,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 192,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats-shared"
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "TODO: say why this is legitimate at this size"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -940,7 +910,7 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 576,
+                "served": 288,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -1032,14 +1002,11 @@
                 "how": "stats"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
-                "resolved": "True",
-                "served": 96,
-                "declined": 1922,
-                "frac": 0.04757185332011893,
-                "how": "stats",
-                "rejects": {
-                  "memory": 1922
-                }
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
@@ -1067,35 +1034,29 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 96,
-                "declined": 480,
+                "served": 48,
+                "declined": 240,
                 "frac": 0.16666666666666666,
                 "how": "wrap",
                 "rejects": {
-                  "l1_dest_is_faster:256x256x128": 480
+                  "l1_dest_is_faster:256x256x128": 240
                 }
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 96,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "rejects": {
-                  "k_tiles=4:(4,4)": 96
-                },
-                "reason": "declines all 96 calls on k_tiles=4:(4,4) x96: it is scoped to an 8-tile weight K dim and Nesso-1's pair channel is 128, so every projection resolves 4 K tiles. That is a property of the checkpoint's c_z, not of N \u2014 inert on this model at every size, not dark at this one"
+                "reason": "declines all 0 calls: it is scoped to an 8-tile weight K dim and Nesso-1's pair channel is 128, so every projection resolves 4 K tiles. That is a property of the checkpoint's c_z, not of N \u2014 inert on this model at every size, not dark at this one"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 480,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "k_tiles=4": 480
-                },
-                "reason": "declines all 480 calls on k_tiles=4 x480: F1_BLOCK_KEYS allow-lists only (8, 8) and Nesso-1's trimul tail weight resolves 4 K tiles from c_hidden, not from N \u2014 inert on this model at every size, not dark at this one"
+                "reason": "declines all 0 calls: F1_BLOCK_KEYS allow-lists only (8, 8) and Nesso-1's trimul tail weight resolves 4 K tiles from c_hidden, not from N \u2014 inert on this model at every size, not dark at this one"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -1114,36 +1075,33 @@
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 7684,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "gated_window_BufferType.L1": 1921,
-                  "window_BufferType.L1": 3842,
-                  "back_l1_src_narrow": 1921
-                },
                 "reason": "the window declining is the window working: 3842 calls at this rung ask for an L1 destination at an N outside the measured [288, 352] L1 band (`L1_N_MIN`/`L1_N_MAX`, tt_bio/reblock_permute.py:338-339, rejected at :387 as `window_BufferType.L1`). Below 288 there are fewer work groups than cores and the custom move is a measured LOSS -- N=256 on an L1 output reads 0.952x on 110 cores (`eligible`'s docstring). Serving them would be the defect. The trimul channel moves are taken by the fused gated kernel instead: `REBLOCK_PERMUTE_GATED` serves 192 per fold at this rung. [carried from p300c]"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 96,
+                "served": 576,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 192,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 192,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats-shared"
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "TODO: say why this is legitimate at this size"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -1256,8 +1214,8 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 480,
-                "declined": 96,
+                "served": 240,
+                "declined": 48,
                 "frac": 0.8333333333333334,
                 "how": "wrap"
               },
@@ -1348,14 +1306,11 @@
                 "how": "stats"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
-                "resolved": "True",
-                "served": 96,
-                "declined": 1922,
-                "frac": 0.04757185332011893,
-                "how": "stats",
-                "rejects": {
-                  "memory": 1922
-                }
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
@@ -1383,35 +1338,29 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 96,
-                "declined": 480,
+                "served": 48,
+                "declined": 240,
                 "frac": 0.16666666666666666,
                 "how": "wrap",
                 "rejects": {
-                  "l1_dest_is_faster:256x256x128": 480
+                  "l1_dest_is_faster:256x256x128": 240
                 }
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 96,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "rejects": {
-                  "k_tiles=4:(4,4)": 96
-                },
-                "reason": "declines all 96 calls on k_tiles=4:(4,4) x96: it is scoped to an 8-tile weight K dim and Nesso-1's pair channel is 128, so every projection resolves 4 K tiles. That is a property of the checkpoint's c_z, not of N \u2014 inert on this model at every size, not dark at this one [carried from rung 768] [carried from p300c]"
+                "reason": "declines all 0 calls: it is scoped to an 8-tile weight K dim and Nesso-1's pair channel is 128, so every projection resolves 4 K tiles. That is a property of the checkpoint's c_z, not of N \u2014 inert on this model at every size, not dark at this one [carried from rung 768] [carried from p300c]"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 480,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "k_tiles=4": 480
-                },
-                "reason": "declines all 480 calls on k_tiles=4 x480: F1_BLOCK_KEYS allow-lists only (8, 8) and Nesso-1's trimul tail weight resolves 4 K tiles from c_hidden, not from N \u2014 inert on this model at every size, not dark at this one [carried from rung 768] [carried from p300c]"
+                "reason": "declines all 0 calls: F1_BLOCK_KEYS allow-lists only (8, 8) and Nesso-1's trimul tail weight resolves 4 K tiles from c_hidden, not from N \u2014 inert on this model at every size, not dark at this one [carried from rung 768] [carried from p300c]"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -1430,36 +1379,33 @@
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 7684,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "gated_window_BufferType.L1": 1921,
-                  "window_BufferType.L1": 3842,
-                  "back_l1_src_narrow": 1921
-                },
                 "reason": "the window declining is the window working: 3842 calls at this rung ask for an L1 destination at an N outside the measured [288, 352] L1 band (`L1_N_MIN`/`L1_N_MAX`, tt_bio/reblock_permute.py:338-339, rejected at :387 as `window_BufferType.L1`). Below 288 there are fewer work groups than cores and the custom move is a measured LOSS -- N=256 on an L1 output reads 0.952x on 110 cores (`eligible`'s docstring). Serving them would be the defect. The trimul channel moves are taken by the fused gated kernel instead: `REBLOCK_PERMUTE_GATED` serves 192 per fold at this rung. [carried from p300c]"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 96,
+                "served": 576,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 192,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 192,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats-shared"
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "TODO: say why this is legitimate at this size"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -1571,8 +1517,8 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 480,
-                "declined": 96,
+                "served": 240,
+                "declined": 48,
                 "frac": 0.8333333333333334,
                 "how": "wrap"
               },
@@ -1665,12 +1611,9 @@
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
                 "served": 192,
-                "declined": 1922,
-                "frac": 0.09082308420056764,
-                "how": "stats",
-                "rejects": {
-                  "memory": 1922
-                }
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
@@ -1698,12 +1641,12 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 96,
-                "declined": 480,
+                "served": 48,
+                "declined": 240,
                 "frac": 0.16666666666666666,
                 "how": "wrap",
                 "rejects": {
-                  "l1_dest_is_faster:256x256x128": 480
+                  "l1_dest_is_faster:256x256x128": 240
                 }
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
@@ -1720,13 +1663,13 @@
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 576,
+                "declined": 96,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "k_tiles=4": 576
+                  "k_tiles=4": 96
                 },
-                "reason": "declines all 576 calls on k_tiles=4 x576: F1_BLOCK_KEYS allow-lists only (8, 8) and Nesso-1's trimul tail weight resolves 4 K tiles from c_hidden, not from N \u2014 inert on this model at every size, not dark at this one [carried from rung 768] [carried from p300c]"
+                "reason": "declines all 96 calls on k_tiles=4 x96: F1_BLOCK_KEYS allow-lists only (8, 8) and Nesso-1's trimul tail weight resolves 4 K tiles from c_hidden, not from N \u2014 inert on this model at every size, not dark at this one [carried from rung 768] [carried from p300c]"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -1745,19 +1688,14 @@
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 7684,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "gated_window_BufferType.L1": 1921,
-                  "window_BufferType.L1": 3842,
-                  "back_l1_src_narrow": 1921
-                },
                 "reason": "the window declining is the window working: 3842 calls at this rung ask for an L1 destination at an N outside the measured [288, 352] L1 band (`L1_N_MIN`/`L1_N_MAX`, tt_bio/reblock_permute.py:338-339, rejected at :387 as `window_BufferType.L1`). Below 288 there are fewer work groups than cores and the custom move is a measured LOSS -- N=256 on an L1 output reads 0.952x on 110 cores (`eligible`'s docstring). Serving them would be the defect. The trimul channel moves are taken by the fused gated kernel instead: `REBLOCK_PERMUTE_GATED` serves 384 per fold at this rung. [carried from p300c]"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 192,
+                "served": 672,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -1881,8 +1819,8 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 480,
-                "declined": 96,
+                "served": 240,
+                "declined": 48,
                 "frac": 0.8333333333333334,
                 "how": "wrap"
               },
@@ -1975,12 +1913,9 @@
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
                 "served": 192,
-                "declined": 1922,
-                "frac": 0.09082308420056764,
-                "how": "stats",
-                "rejects": {
-                  "memory": 1922
-                }
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
@@ -2008,12 +1943,12 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 96,
-                "declined": 480,
+                "served": 48,
+                "declined": 240,
                 "frac": 0.16666666666666666,
                 "how": "wrap",
                 "rejects": {
-                  "l1_dest_is_faster:256x256x128": 480
+                  "l1_dest_is_faster:256x256x128": 240
                 }
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
@@ -2030,13 +1965,13 @@
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 576,
+                "declined": 96,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "k_tiles=4": 576
+                  "k_tiles=4": 96
                 },
-                "reason": "declines all 576 calls on k_tiles=4 x576: F1_BLOCK_KEYS allow-lists only (8, 8) and Nesso-1's trimul tail weight resolves 4 K tiles from c_hidden, not from N \u2014 inert on this model at every size, not dark at this one [carried from p300c] [carried from rung 768]"
+                "reason": "declines all 96 calls on k_tiles=4 x96: F1_BLOCK_KEYS allow-lists only (8, 8) and Nesso-1's trimul tail weight resolves 4 K tiles from c_hidden, not from N \u2014 inert on this model at every size, not dark at this one [carried from p300c] [carried from rung 768]"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -2055,19 +1990,14 @@
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 7684,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "gated_window_BufferType.L1": 1921,
-                  "window_BufferType.L1": 3842,
-                  "back_l1_src_narrow": 1921
-                },
                 "reason": "the window declining is the window working: 3842 calls at this rung ask for an L1 destination at an N outside the measured [288, 352] L1 band (`L1_N_MIN`/`L1_N_MAX`, tt_bio/reblock_permute.py:338-339, rejected at :387 as `window_BufferType.L1`). Below 288 there are fewer work groups than cores and the custom move is a measured LOSS -- N=256 on an L1 output reads 0.952x on 110 cores (`eligible`'s docstring). Serving them would be the defect. The trimul channel moves are taken by the fused gated kernel instead: `REBLOCK_PERMUTE_GATED` serves 384 per fold at this rung. [carried from p300c] [carried from rung 1024]"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 192,
+                "served": 672,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -2196,8 +2126,8 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 480,
-                "declined": 96,
+                "served": 240,
+                "declined": 48,
                 "frac": 0.8333333333333334,
                 "how": "wrap"
               },
@@ -2290,12 +2220,9 @@
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
                 "served": 192,
-                "declined": 1922,
-                "frac": 0.09082308420056764,
-                "how": "stats",
-                "rejects": {
-                  "memory": 1922
-                }
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
@@ -2323,12 +2250,12 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 96,
-                "declined": 480,
+                "served": 48,
+                "declined": 240,
                 "frac": 0.16666666666666666,
                 "how": "wrap",
                 "rejects": {
-                  "l1_dest_is_faster:256x256x128": 480
+                  "l1_dest_is_faster:256x256x128": 240
                 }
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
@@ -2345,13 +2272,13 @@
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 576,
+                "declined": 96,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "k_tiles=4": 576
+                  "k_tiles=4": 96
                 },
-                "reason": "declines all 576 calls on k_tiles=4 x576: F1_BLOCK_KEYS allow-lists only (8, 8) and Nesso-1's trimul tail weight resolves 4 K tiles from c_hidden, not from N \u2014 inert on this model at every size, not dark at this one [carried from p300c] [carried from rung 768]"
+                "reason": "declines all 96 calls on k_tiles=4 x96: F1_BLOCK_KEYS allow-lists only (8, 8) and Nesso-1's trimul tail weight resolves 4 K tiles from c_hidden, not from N \u2014 inert on this model at every size, not dark at this one [carried from p300c] [carried from rung 768]"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -2370,19 +2297,14 @@
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 7684,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "gated_window_BufferType.L1": 1921,
-                  "window_BufferType.L1": 3842,
-                  "back_l1_src_narrow": 1921
-                },
                 "reason": "the window declining is the window working: 3842 calls at this rung ask for an L1 destination at an N outside the measured [288, 352] L1 band (`L1_N_MIN`/`L1_N_MAX`, tt_bio/reblock_permute.py:338-339, rejected at :387 as `window_BufferType.L1`). Below 288 there are fewer work groups than cores and the custom move is a measured LOSS -- N=256 on an L1 output reads 0.952x on 110 cores (`eligible`'s docstring). Serving them would be the defect. The trimul channel moves are taken by the fused gated kernel instead: `REBLOCK_PERMUTE_GATED` serves 384 per fold at this rung. [carried from p300c] [carried from rung 1024]"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 192,
+                "served": 672,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -2511,8 +2433,8 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 480,
-                "declined": 96,
+                "served": 240,
+                "declined": 48,
                 "frac": 0.8333333333333334,
                 "how": "wrap"
               },
@@ -2605,12 +2527,9 @@
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
                 "served": 192,
-                "declined": 1922,
-                "frac": 0.09082308420056764,
-                "how": "stats",
-                "rejects": {
-                  "memory": 1922
-                }
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
@@ -2638,12 +2557,12 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 96,
-                "declined": 480,
+                "served": 48,
+                "declined": 240,
                 "frac": 0.16666666666666666,
                 "how": "wrap",
                 "rejects": {
-                  "l1_dest_is_faster:256x256x128": 480
+                  "l1_dest_is_faster:256x256x128": 240
                 }
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
@@ -2660,13 +2579,13 @@
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 576,
+                "declined": 96,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "k_tiles=4": 576
+                  "k_tiles=4": 96
                 },
-                "reason": "declines all 576 calls on k_tiles=4 x576: F1_BLOCK_KEYS allow-lists only (8, 8) and Nesso-1's trimul tail weight resolves 4 K tiles from c_hidden, not from N \u2014 inert on this model at every size, not dark at this one [carried from p300c] [carried from rung 768]"
+                "reason": "declines all 96 calls on k_tiles=4 x96: F1_BLOCK_KEYS allow-lists only (8, 8) and Nesso-1's trimul tail weight resolves 4 K tiles from c_hidden, not from N \u2014 inert on this model at every size, not dark at this one [carried from p300c] [carried from rung 768]"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -2685,19 +2604,14 @@
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 7684,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "gated_window_BufferType.L1": 1921,
-                  "window_BufferType.L1": 3842,
-                  "back_l1_src_narrow": 1921
-                },
                 "reason": "the window declining is the window working: 3842 calls at this rung ask for an L1 destination at an N outside the measured [288, 352] L1 band (`L1_N_MIN`/`L1_N_MAX`, tt_bio/reblock_permute.py:338-339, rejected at :387 as `window_BufferType.L1`). Below 288 there are fewer work groups than cores and the custom move is a measured LOSS -- N=256 on an L1 output reads 0.952x on 110 cores (`eligible`'s docstring). Serving them would be the defect. The trimul channel moves are taken by the fused gated kernel instead: `REBLOCK_PERMUTE_GATED` serves 384 per fold at this rung. [carried from p300c] [carried from rung 1024]"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 192,
+                "served": 672,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -2821,8 +2735,8 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 480,
-                "declined": 96,
+                "served": 240,
+                "declined": 48,
                 "frac": 0.8333333333333334,
                 "how": "wrap"
               },
@@ -2915,12 +2829,9 @@
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
                 "served": 384,
-                "declined": 1922,
-                "frac": 0.16652211621856028,
-                "how": "stats",
-                "rejects": {
-                  "memory": 1922
-                }
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
@@ -2949,12 +2860,12 @@
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
                 "served": 480,
-                "declined": 576,
-                "frac": 0.45454545454545453,
+                "declined": 336,
+                "frac": 0.5882352941176471,
                 "how": "wrap",
                 "rejects": {
                   "l1_dest_is_faster:1568x32x128": 96,
-                  "l1_dest_is_faster:256x256x128": 480
+                  "l1_dest_is_faster:256x256x128": 240
                 }
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
@@ -2971,13 +2882,10 @@
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 480,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "k_tiles=4": 480
-                },
-                "reason": "declines all 480 calls on k_tiles=4 x480: F1_BLOCK_KEYS allow-lists only (8, 8) and Nesso-1's trimul tail weight resolves 4 K tiles from c_hidden, not from N \u2014 inert on this model at every size, not dark at this one [carried from p300c] [carried from rung 768]"
+                "reason": "declines all 0 calls: F1_BLOCK_KEYS allow-lists only (8, 8) and Nesso-1's trimul tail weight resolves 4 K tiles from c_hidden, not from N \u2014 inert on this model at every size, not dark at this one [carried from p300c] [carried from rung 768]"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -2996,19 +2904,14 @@
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 7684,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "gated_window_BufferType.L1": 1921,
-                  "window_BufferType.L1": 3842,
-                  "back_l1_src_narrow": 1921
-                },
                 "reason": "the window declining is the window working: 3842 calls at this rung ask for an L1 destination at an N outside the measured [288, 352] L1 band (`L1_N_MIN`/`L1_N_MAX`, tt_bio/reblock_permute.py:338-339, rejected at :387 as `window_BufferType.L1`). Below 288 there are fewer work groups than cores and the custom move is a measured LOSS -- N=256 on an L1 output reads 0.952x on 110 cores (`eligible`'s docstring). Serving them would be the defect. The trimul channel moves are taken by the fused gated kernel instead: `REBLOCK_PERMUTE_GATED` serves 384 per fold at this rung. [carried from p300c] [carried from rung 1024]"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 384,
+                "served": 864,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -3132,9 +3035,9 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 576,
+                "served": 336,
                 "declined": 288,
-                "frac": 0.6666666666666666,
+                "frac": 0.5384615384615384,
                 "how": "wrap"
               },
               "SDPA_Q_CHUNK_FITS": {
@@ -3176,249 +3079,263 @@
           },
           "runtime_reps_s": {
             "256": [
-              8.7,
-              10.05,
-              8.65,
-              10.94,
-              8.9
+              3.45,
+              3.44,
+              3.42,
+              3.55,
+              3.61
             ],
             "512": [
-              11.56,
-              10.5,
-              11.2,
-              15.01,
-              10.32
+              4.57,
+              4.59,
+              4.52,
+              4.63,
+              4.69
             ],
             "640": [
-              11.89
+              5.58
             ],
             "768": [
-              13.67
+              6.64
             ],
             "896": [
-              16.79
+              8.03
             ],
             "1024": [
-              23.34
+              12.02
             ],
             "1152": [
-              26.54
+              14.86
             ],
             "1280": [
-              27.7
+              17.94
             ],
             "1408": [
-              29.92
+              19.11
             ],
             "1536": [
-              41.84
+              29.63
             ]
           },
           "aiclk": {
             "256": {
-              "card": "3",
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                800,
-                800,
-                800,
-                800,
-                800
-              ],
-              "n": 39
-            },
-            "512": {
-              "card": "3",
-              "min": 800,
-              "max": 1350,
-              "rep_median": [
-                800,
-                800,
-                800,
-                800,
-                800
-              ],
-              "n": 44
-            },
-            "640": {
-              "card": "3",
-              "min": 800,
-              "max": 1350,
-              "rep_median": [
-                800
-              ],
-              "n": 8
-            },
-            "768": {
-              "card": "3",
-              "min": 800,
-              "max": 1350,
-              "rep_median": [
-                800
-              ],
-              "n": 9
-            },
-            "896": {
-              "card": "3",
-              "min": 800,
-              "max": 1350,
-              "rep_median": [
-                800
+                1350,
+                1350,
+                1350,
+                1350,
+                1350
               ],
               "n": 10
             },
-            "1024": {
-              "card": "3",
+            "512": {
+              "card": "1",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1350,
+                1350,
+                800,
+                1343,
+                800
+              ],
+              "n": 12
+            },
+            "640": {
+              "card": "1",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                800
+              ],
+              "n": 3
+            },
+            "768": {
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
                 1350
               ],
-              "n": 10
+              "n": 3
+            },
+            "896": {
+              "card": "1",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1350
+              ],
+              "n": 3
+            },
+            "1024": {
+              "card": "1",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1350
+              ],
+              "n": 4
             },
             "1152": {
-              "card": "3",
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                800
+                1350
               ],
-              "n": 11
+              "n": 4
             },
             "1280": {
-              "card": "3",
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                800
+                1350
               ],
-              "n": 11
+              "n": 5
             },
             "1408": {
-              "card": "3",
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                800
+                1350
               ],
-              "n": 12
+              "n": 5
             },
             "1536": {
-              "card": "3",
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                800
+                1350
               ],
-              "n": 15
+              "n": 7
             }
           },
           "load": {
             "256": {
-              "max": 1.52,
+              "max": 0.34,
               "rep_median": [
-                1.27,
-                1.27,
-                1.32,
-                0.96,
-                0.93
+                0.28,
+                0.34,
+                0.32,
+                0.32,
+                0.3
               ]
             },
             "512": {
-              "max": 1.31,
+              "max": 0.28,
               "rep_median": [
-                0.85,
-                0.9,
-                1.14,
-                1.04,
-                1.12
+                0.28,
+                0.27,
+                0.25,
+                0.27,
+                0.25
               ]
             },
             "640": {
-              "max": 1.06,
+              "max": 0.24,
               "rep_median": [
-                0.97
+                0.23
               ]
             },
             "768": {
-              "max": 0.93,
+              "max": 0.23,
               "rep_median": [
-                0.89
+                0.21
               ]
             },
             "896": {
-              "max": 1.23,
+              "max": 0.28,
               "rep_median": [
-                1.06
+                0.28
               ]
             },
             "1024": {
-              "max": 0.81,
+              "max": 0.32,
               "rep_median": [
-                0.65
+                0.31
               ]
             },
             "1152": {
-              "max": 0.73,
+              "max": 0.24,
               "rep_median": [
-                0.67
+                0.23
               ]
             },
             "1280": {
-              "max": 0.99,
+              "max": 0.3,
               "rep_median": [
-                0.9
+                0.29
               ]
             },
             "1408": {
-              "max": 0.92,
+              "max": 0.27,
               "rep_median": [
-                0.84
+                0.26
               ]
             },
             "1536": {
-              "max": 0.82,
+              "max": 0.25,
               "rep_median": [
-                0.67
+                0.23
               ]
             }
           },
-          "exponents_skipped": "256 aa was timed at 1.5x nproc, above the 1.5x load ceiling: the runtimes are the host's, re-time on a quiet box",
+          "reps": 1,
+          "sigma_runtime_512": 0.0146,
+          "exponents": {
+            "256->512": {
+              "k": 0.412,
+              "tol": 0.5
+            },
+            "512->768": {
+              "k": 0.911,
+              "tol": 0.5
+            }
+          },
+          "sigma_runtime": {
+            "256": 0.0236,
+            "512": 0.0146
+          },
           "exponents_measured": {
-            "256->512": 0.332,
-            "512->640": 0.268,
-            "640->768": 0.765,
-            "768->896": 1.334,
-            "896->1024": 2.467,
-            "1024->1152": 1.091,
-            "1152->1280": 0.406,
-            "1280->1408": 0.809,
-            "1408->1536": 3.854
+            "256->512": 0.412,
+            "512->640": 0.875,
+            "640->768": 0.954,
+            "768->896": 1.233,
+            "896->1024": 3.021,
+            "1024->1152": 1.801,
+            "1152->1280": 1.788,
+            "1280->1408": 0.663,
+            "1408->1536": 5.04
           }
         }
-      },
-      "host_threads": null
+      }
     },
     "p300c": {
-      "recorded": "2026-10-10",
+      "recorded": "2026-10-16",
       "host": "tt-quietbox2",
-      "commit": "92d5924f5",
+      "commit": "5e250928a",
       "host_threads": 5,
       "models": {
         "nesso1": {
           "grid": "11x10",
-          "recorded": "2026-10-10",
+          "recorded": "2026-10-16",
           "host": "tt-quietbox2",
-          "commit": "92d5924f5",
+          "commit": "5e250928a",
           "host_threads": 5,
           "runtime_s": {
-            "256": 3.89,
-            "512": 5.56,
-            "640": 6.74,
-            "768": 8.64,
-            "896": 10.28,
-            "1024": 13.46
+            "256": 2.62,
+            "512": 3.91,
+            "640": 4.84,
+            "768": 6.21,
+            "896": 7.41,
+            "1024": 12.24
           },
           "levers": {
             "256": {
@@ -3472,15 +3389,11 @@
                 "how": "stats"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 2114,
-                "frac": 0.0,
-                "how": "stats",
-                "rejects": {
-                  "memory": 2114
-                },
-                "reason": "declines all 2114 calls on memory x2114: the dual-NoC in-projection needs a DRAM-interleaved activation and destination, and at 276 tokens the pair buffer is L1-resident. It serves 96 of 1056 calls from 512 up, where that buffer moves to DRAM"
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
@@ -3529,13 +3442,10 @@
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 576,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "k_tiles=4": 576
-                },
-                "reason": "declines all 576 calls on k_tiles=4 x576: F1_BLOCK_KEYS allow-lists only (8, 8) and Nesso-1's trimul tail weight resolves 4 K tiles from c_hidden, not from N \u2014 inert on this model at every size, not dark at this one"
+                "reason": "declines all 0 calls: F1_BLOCK_KEYS allow-lists only (8, 8) and Nesso-1's trimul tail weight resolves 4 K tiles from c_hidden, not from N \u2014 inert on this model at every size, not dark at this one"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -3554,36 +3464,33 @@
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 7684,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "gated_window_BufferType.L1": 1921,
-                  "window_BufferType.L1": 3842,
-                  "back_l1_src_narrow": 1921
-                },
-                "reason": "declines all 7684 calls on window_BufferType.L1 x3842, gated_window_BufferType.L1 x1921, back_l1_src_narrow x1921: the traffic moved to the gated channel and the handful left over is the measured band doing its job. REBLOCK_PERMUTE_GATED serves 1152 calls at every rung here (1344 at 1024) and this wrapper is reached four times, declining on three clauses that are all one band: window_BufferType.L1 and gated_window_BufferType.L1 are an L1 DESTINATION at an N outside the measured [288, 352] window (L1_N_MIN/L1_N_MAX, tt_bio/reblock_permute.py), and back_l1_src_narrow is the backward kernel with an L1 SOURCE at N < 288, which was measured to LOSE -- 0.9918x and 0.9903x at 256 against 1.0086x at 288 on the 11x10 grid. A lever that refuses the shapes it was measured to be slower on is not dark, it is correct [carried from tt-galaxy-wh-l]"
+                "reason": "declines all 0 calls: the traffic moved to the gated channel and the handful left over is the measured band doing its job. REBLOCK_PERMUTE_GATED serves 1152 calls at every rung here (1344 at 1024) and this wrapper is reached four times, declining on three clauses that are all one band: window_BufferType.L1 and gated_window_BufferType.L1 are an L1 DESTINATION at an N outside the measured [288, 352] window (L1_N_MIN/L1_N_MAX, tt_bio/reblock_permute.py), and back_l1_src_narrow is the backward kernel with an L1 SOURCE at N < 288, which was measured to LOSE -- 0.9918x and 0.9903x at 256 against 1.0086x at 288 on the 11x10 grid. A lever that refuses the shapes it was measured to be slower on is not dark, it is correct [carried from tt-galaxy-wh-l]"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 192,
+                "served": 576,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 384,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 384,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats-shared"
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "TODO: say why this is legitimate at this size"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -3783,14 +3690,11 @@
                 "how": "stats"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
-                "resolved": "True",
-                "served": 96,
-                "declined": 1922,
-                "frac": 0.04757185332011893,
-                "how": "stats",
-                "rejects": {
-                  "memory": 1922
-                }
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
@@ -3839,13 +3743,10 @@
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 480,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "k_tiles=4": 480
-                },
-                "reason": "declines all 480 calls on k_tiles=4 x480: F1_BLOCK_KEYS allow-lists only (8, 8) and Nesso-1's trimul tail weight resolves 4 K tiles from c_hidden, not from N \u2014 inert on this model at every size, not dark at this one"
+                "reason": "declines all 0 calls: F1_BLOCK_KEYS allow-lists only (8, 8) and Nesso-1's trimul tail weight resolves 4 K tiles from c_hidden, not from N \u2014 inert on this model at every size, not dark at this one"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -3864,36 +3765,33 @@
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 7684,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "gated_window_BufferType.L1": 1921,
-                  "window_BufferType.L1": 3842,
-                  "back_l1_src_narrow": 1921
-                },
                 "reason": "the window declining is the window working: 3842 calls at this rung ask for an L1 destination at an N outside the measured [288, 352] L1 band (`L1_N_MIN`/`L1_N_MAX`, tt_bio/reblock_permute.py:338-339, rejected at :387 as `window_BufferType.L1`). Below 288 there are fewer work groups than cores and the custom move is a measured LOSS -- N=256 on an L1 output reads 0.952x on 110 cores (`eligible`'s docstring). Serving them would be the defect. The trimul channel moves are taken by the fused gated kernel instead: `REBLOCK_PERMUTE_GATED` serves 192 per fold at this rung."
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 96,
+                "served": 576,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 192,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 192,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats-shared"
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "TODO: say why this is legitimate at this size"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -4097,14 +3995,11 @@
                 "how": "stats"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
-                "resolved": "True",
-                "served": 96,
-                "declined": 1922,
-                "frac": 0.04757185332011893,
-                "how": "stats",
-                "rejects": {
-                  "memory": 1922
-                }
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
@@ -4145,24 +4040,18 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 96,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "rejects": {
-                  "k_tiles=4:(4,4)": 96
-                },
-                "reason": "declines all 96 calls on k_tiles=4:(4,4) x96: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one"
+                "reason": "declines all 0 calls: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 480,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "k_tiles=4": 480
-                },
-                "reason": "declines all 480 calls on k_tiles=4 x480: F1_BLOCK_KEYS allow-lists only (8, 8) and Nesso-1's trimul tail weight resolves 4 K tiles from c_hidden, not from N \u2014 inert on this model at every size, not dark at this one"
+                "reason": "declines all 0 calls: F1_BLOCK_KEYS allow-lists only (8, 8) and Nesso-1's trimul tail weight resolves 4 K tiles from c_hidden, not from N \u2014 inert on this model at every size, not dark at this one"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -4181,36 +4070,33 @@
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 7684,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "gated_window_BufferType.L1": 1921,
-                  "window_BufferType.L1": 3842,
-                  "back_l1_src_narrow": 1921
-                },
                 "reason": "the window declining is the window working: 3842 calls at this rung ask for an L1 destination at an N outside the measured [288, 352] L1 band (`L1_N_MIN`/`L1_N_MAX`, tt_bio/reblock_permute.py:338-339, rejected at :387 as `window_BufferType.L1`). Below 288 there are fewer work groups than cores and the custom move is a measured LOSS -- N=256 on an L1 output reads 0.952x on 110 cores (`eligible`'s docstring). Serving them would be the defect. The trimul channel moves are taken by the fused gated kernel instead: `REBLOCK_PERMUTE_GATED` serves 192 per fold at this rung."
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 96,
+                "served": 576,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 192,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 192,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats-shared"
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "TODO: say why this is legitimate at this size"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -4415,14 +4301,11 @@
                 "how": "stats"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
-                "resolved": "True",
-                "served": 96,
-                "declined": 1922,
-                "frac": 0.04757185332011893,
-                "how": "stats",
-                "rejects": {
-                  "memory": 1922
-                }
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
@@ -4461,24 +4344,18 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 96,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "rejects": {
-                  "k_tiles=4:(4,4)": 96
-                },
-                "reason": "declines all 96 calls on k_tiles=4:(4,4) x96: it is scoped to an 8-tile weight K dim and Nesso-1's pair channel is 128, so every projection resolves 4 K tiles. That is a property of the checkpoint's c_z, not of N \u2014 inert on this model at every size, not dark at this one"
+                "reason": "declines all 0 calls: it is scoped to an 8-tile weight K dim and Nesso-1's pair channel is 128, so every projection resolves 4 K tiles. That is a property of the checkpoint's c_z, not of N \u2014 inert on this model at every size, not dark at this one"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 480,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "k_tiles=4": 480
-                },
-                "reason": "declines all 480 calls on k_tiles=4 x480: F1_BLOCK_KEYS allow-lists only (8, 8) and Nesso-1's trimul tail weight resolves 4 K tiles from c_hidden, not from N \u2014 inert on this model at every size, not dark at this one"
+                "reason": "declines all 0 calls: F1_BLOCK_KEYS allow-lists only (8, 8) and Nesso-1's trimul tail weight resolves 4 K tiles from c_hidden, not from N \u2014 inert on this model at every size, not dark at this one"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -4497,36 +4374,33 @@
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 7684,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "gated_window_BufferType.L1": 1921,
-                  "window_BufferType.L1": 3842,
-                  "back_l1_src_narrow": 1921
-                },
                 "reason": "the window declining is the window working: 3842 calls at this rung ask for an L1 destination at an N outside the measured [288, 352] L1 band (`L1_N_MIN`/`L1_N_MAX`, tt_bio/reblock_permute.py:338-339, rejected at :387 as `window_BufferType.L1`). Below 288 there are fewer work groups than cores and the custom move is a measured LOSS -- N=256 on an L1 output reads 0.952x on 110 cores (`eligible`'s docstring). Serving them would be the defect. The trimul channel moves are taken by the fused gated kernel instead: `REBLOCK_PERMUTE_GATED` serves 192 per fold at this rung."
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 96,
+                "served": 576,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 192,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 192,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats-shared"
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "TODO: say why this is legitimate at this size"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -4731,14 +4605,11 @@
                 "how": "stats"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
-                "resolved": "True",
-                "served": 96,
-                "declined": 1922,
-                "frac": 0.04757185332011893,
-                "how": "stats",
-                "rejects": {
-                  "memory": 1922
-                }
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
@@ -4777,24 +4648,18 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 96,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "rejects": {
-                  "k_tiles=4:(4,4)": 96
-                },
-                "reason": "declines all 96 calls on k_tiles=4:(4,4) x96: it is scoped to an 8-tile weight K dim and Nesso-1's pair channel is 128, so every projection resolves 4 K tiles. That is a property of the checkpoint's c_z, not of N \u2014 inert on this model at every size, not dark at this one [carried from rung 768]"
+                "reason": "declines all 0 calls: it is scoped to an 8-tile weight K dim and Nesso-1's pair channel is 128, so every projection resolves 4 K tiles. That is a property of the checkpoint's c_z, not of N \u2014 inert on this model at every size, not dark at this one [carried from rung 768]"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 480,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "k_tiles=4": 480
-                },
-                "reason": "declines all 480 calls on k_tiles=4 x480: F1_BLOCK_KEYS allow-lists only (8, 8) and Nesso-1's trimul tail weight resolves 4 K tiles from c_hidden, not from N \u2014 inert on this model at every size, not dark at this one [carried from rung 768]"
+                "reason": "declines all 0 calls: F1_BLOCK_KEYS allow-lists only (8, 8) and Nesso-1's trimul tail weight resolves 4 K tiles from c_hidden, not from N \u2014 inert on this model at every size, not dark at this one [carried from rung 768]"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -4813,36 +4678,33 @@
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 7684,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "gated_window_BufferType.L1": 1921,
-                  "window_BufferType.L1": 3842,
-                  "back_l1_src_narrow": 1921
-                },
                 "reason": "the window declining is the window working: 3842 calls at this rung ask for an L1 destination at an N outside the measured [288, 352] L1 band (`L1_N_MIN`/`L1_N_MAX`, tt_bio/reblock_permute.py:338-339, rejected at :387 as `window_BufferType.L1`). Below 288 there are fewer work groups than cores and the custom move is a measured LOSS -- N=256 on an L1 output reads 0.952x on 110 cores (`eligible`'s docstring). Serving them would be the defect. The trimul channel moves are taken by the fused gated kernel instead: `REBLOCK_PERMUTE_GATED` serves 192 per fold at this rung."
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 96,
+                "served": 576,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 192,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 192,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats-shared"
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "TODO: say why this is legitimate at this size"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -5048,12 +4910,9 @@
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
                 "served": 192,
-                "declined": 1922,
-                "frac": 0.09082308420056764,
-                "how": "stats",
-                "rejects": {
-                  "memory": 1922
-                }
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
@@ -5103,13 +4962,13 @@
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 576,
+                "declined": 96,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "k_tiles=4": 576
+                  "k_tiles=4": 96
                 },
-                "reason": "declines all 576 calls on k_tiles=4 x576: F1_BLOCK_KEYS allow-lists only (8, 8) and Nesso-1's trimul tail weight resolves 4 K tiles from c_hidden, not from N \u2014 inert on this model at every size, not dark at this one [carried from rung 768]"
+                "reason": "declines all 96 calls on k_tiles=4 x96: F1_BLOCK_KEYS allow-lists only (8, 8) and Nesso-1's trimul tail weight resolves 4 K tiles from c_hidden, not from N \u2014 inert on this model at every size, not dark at this one [carried from rung 768]"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -5128,19 +4987,14 @@
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 7684,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "gated_window_BufferType.L1": 1921,
-                  "window_BufferType.L1": 3842,
-                  "back_l1_src_narrow": 1921
-                },
                 "reason": "the window declining is the window working: 3842 calls at this rung ask for an L1 destination at an N outside the measured [288, 352] L1 band (`L1_N_MIN`/`L1_N_MAX`, tt_bio/reblock_permute.py:338-339, rejected at :387 as `window_BufferType.L1`). Below 288 there are fewer work groups than cores and the custom move is a measured LOSS -- N=256 on an L1 output reads 0.952x on 110 cores (`eligible`'s docstring). Serving them would be the defect. The trimul channel moves are taken by the fused gated kernel instead: `REBLOCK_PERMUTE_GATED` serves 384 per fold at this rung."
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 192,
+                "served": 672,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -5308,30 +5162,30 @@
           },
           "runtime_reps_s": {
             "256": [
-              3.89,
-              3.81,
-              3.89,
-              3.95,
-              3.78
+              2.78,
+              2.75,
+              2.59,
+              2.62,
+              2.62
             ],
             "512": [
-              5.55,
-              5.57,
-              5.56,
-              5.79,
-              5.52
+              3.96,
+              3.78,
+              3.82,
+              3.91,
+              4.13
             ],
             "640": [
-              6.74
+              4.84
             ],
             "768": [
-              8.64
+              6.21
             ],
             "896": [
-              10.28
+              7.41
             ],
             "1024": [
-              13.46
+              12.24
             ]
           },
           "aiclk": {
@@ -5340,35 +5194,35 @@
               "min": 800,
               "max": 1350,
               "rep_median": [
-                800,
-                800,
-                800,
-                800,
-                800
+                1331,
+                1350,
+                1300,
+                1331,
+                1325
               ],
-              "n": 26
+              "n": 10
             },
             "512": {
               "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                800,
-                800,
-                800,
-                800,
-                800
+                1293,
+                1350,
+                1343,
+                1325,
+                1331
               ],
-              "n": 29
+              "n": 10
             },
             "640": {
               "card": "1",
               "min": 800,
-              "max": 1350,
+              "max": 1318,
               "rep_median": [
-                800
+                1318
               ],
-              "n": 6
+              "n": 2
             },
             "768": {
               "card": "1",
@@ -5377,120 +5231,120 @@
               "rep_median": [
                 800
               ],
-              "n": 6
+              "n": 3
             },
             "896": {
               "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                800
+                1262
               ],
-              "n": 7
+              "n": 3
             },
             "1024": {
               "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                800
+                1350
               ],
-              "n": 8
+              "n": 4
             }
           },
           "load": {
             "256": {
-              "max": 0.3,
+              "max": 0.41,
               "rep_median": [
-                0.28,
-                0.26,
-                0.25,
-                0.29,
-                0.26
+                0.37,
+                0.36,
+                0.4,
+                0.39,
+                0.41
               ]
             },
             "512": {
-              "max": 0.5,
+              "max": 0.45,
               "rep_median": [
-                0.3,
-                0.3,
-                0.34,
+                0.4,
                 0.39,
-                0.47
+                0.39,
+                0.42,
+                0.45
               ]
             },
             "640": {
-              "max": 0.4,
+              "max": 0.47,
               "rep_median": [
-                0.38
+                0.47
               ]
             },
             "768": {
-              "max": 0.37,
+              "max": 0.54,
               "rep_median": [
-                0.34
+                0.53
               ]
             },
             "896": {
-              "max": 0.39,
+              "max": 0.51,
               "rep_median": [
-                0.37
+                0.49
               ]
             },
             "1024": {
-              "max": 0.32,
+              "max": 0.48,
               "rep_median": [
-                0.31
+                0.47
               ]
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.0197,
+          "sigma_runtime_512": 0.0351,
           "exponents": {
             "256->512": {
-              "k": 0.515,
+              "k": 0.578,
               "tol": 0.5
             },
             "512->768": {
-              "k": 1.087,
+              "k": 1.141,
               "tol": 0.5
             }
           },
           "sigma_runtime": {
-            "256": 0.0176,
-            "512": 0.0197
+            "256": 0.0328,
+            "512": 0.0351
           },
           "exponents_measured": {
-            "256->512": 0.515,
-            "512->640": 0.863,
-            "640->768": 1.362,
-            "768->896": 1.127,
-            "896->1024": 2.018
+            "256->512": 0.578,
+            "512->640": 0.956,
+            "640->768": 1.367,
+            "768->896": 1.146,
+            "896->1024": 3.759
           }
         }
       }
     },
     "tt-galaxy-wh-l": {
-      "recorded": "2026-10-11",
-      "host": "UF-EV-A8-GWH02",
-      "commit": "8bd13c72c",
+      "recorded": "2026-10-16",
+      "host": "UF-EV-A4-GWH01",
+      "commit": "5e250928a",
       "host_threads": 2,
       "models": {
         "nesso1": {
           "grid": "8x9",
-          "recorded": "2026-10-11",
-          "host": "UF-EV-A8-GWH02",
-          "commit": "8bd13c72c",
+          "recorded": "2026-10-16",
+          "host": "UF-EV-A4-GWH01",
+          "commit": "5e250928a",
           "host_threads": 2,
           "runtime_s": {
-            "256": 7.61,
-            "512": 11.49,
-            "640": 15.75,
-            "768": 20.25,
-            "896": 26.44,
-            "1024": 33.99,
-            "1280": 56.46,
-            "1536": 78.84
+            "256": 5.34,
+            "512": 7.84,
+            "640": 9.74,
+            "768": 12.63,
+            "896": 15.98,
+            "1024": 24.09,
+            "1280": 42.98,
+            "1536": 63.49
           },
           "levers": {
             "256": {
@@ -5544,14 +5398,11 @@
                 "how": "stats"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
-                "resolved": "True",
-                "served": 576,
-                "declined": 2,
-                "frac": 0.9965397923875432,
-                "how": "stats",
-                "rejects": {
-                  "memory": 2
-                }
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
@@ -5600,13 +5451,10 @@
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "k_tiles=4": 1
-                },
-                "reason": "declines all 1 calls on k_tiles=4 x1: F1_BLOCK_KEYS allow-lists only (8, 8) and Nesso-1's trimul tail weight resolves 4 K tiles from c_hidden, not from N \u2014 inert on this model at every size, not dark at this one [carried from p150a]"
+                "reason": "declines all 0 calls: F1_BLOCK_KEYS allow-lists only (8, 8) and Nesso-1's trimul tail weight resolves 4 K tiles from c_hidden, not from N \u2014 inert on this model at every size, not dark at this one [carried from p150a]"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -5625,15 +5473,10 @@
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 4,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "gated_window_BufferType.L1": 1,
-                  "window_BufferType.L1": 2,
-                  "back_l1_src_narrow": 1
-                },
-                "reason": "declines all 4 calls on window_BufferType.L1 x2, gated_window_BufferType.L1 x1, back_l1_src_narrow x1: the traffic moved to the gated channel and the handful left over is the measured band doing its job. REBLOCK_PERMUTE_GATED serves 1152 calls at every rung here (1344 at 1024) and this wrapper is reached four times, declining on three clauses that are all one band: window_BufferType.L1 and gated_window_BufferType.L1 are an L1 DESTINATION at an N outside the measured [288, 352] window (L1_N_MIN/L1_N_MAX, tt_bio/reblock_permute.py), and back_l1_src_narrow is the backward kernel with an L1 SOURCE at N < 288, which was measured to LOSE -- 0.9918x and 0.9903x at 256 against 1.0086x at 288 on the 11x10 grid. A lever that refuses the shapes it was measured to be slower on is not dark, it is correct"
+                "reason": "declines all 0 calls: the traffic moved to the gated channel and the handful left over is the measured band doing its job. REBLOCK_PERMUTE_GATED serves 1152 calls at every rung here (1344 at 1024) and this wrapper is reached four times, declining on three clauses that are all one band: window_BufferType.L1 and gated_window_BufferType.L1 are an L1 DESTINATION at an N outside the measured [288, 352] window (L1_N_MIN/L1_N_MAX, tt_bio/reblock_permute.py), and back_l1_src_narrow is the backward kernel with an L1 SOURCE at N < 288, which was measured to LOSE -- 0.9918x and 0.9903x at 256 against 1.0086x at 288 on the 11x10 grid. A lever that refuses the shapes it was measured to be slower on is not dark, it is correct"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
@@ -5644,17 +5487,19 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 1152,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 1152,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats-shared"
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "TODO: say why this is legitimate at this size"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -5854,14 +5699,11 @@
                 "how": "stats"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
-                "resolved": "True",
-                "served": 576,
-                "declined": 2,
-                "frac": 0.9965397923875432,
-                "how": "stats",
-                "rejects": {
-                  "memory": 2
-                }
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
@@ -5902,24 +5744,18 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 96,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "rejects": {
-                  "k_tiles=4:(4,4)": 96
-                },
-                "reason": "declines all 96 calls on k_tiles=4:(4,4) x96: it is scoped to an 8-tile weight K dim and Nesso-1's pair channel is 128, so every projection resolves 4 K tiles. That is a property of the checkpoint's c_z, not of N \u2014 inert on this model at every size, not dark at this one [carried from p150a]"
+                "reason": "declines all 0 calls: it is scoped to an 8-tile weight K dim and Nesso-1's pair channel is 128, so every projection resolves 4 K tiles. That is a property of the checkpoint's c_z, not of N \u2014 inert on this model at every size, not dark at this one [carried from p150a]"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "k_tiles=4": 1
-                },
-                "reason": "declines all 1 calls on k_tiles=4 x1: F1_BLOCK_KEYS allow-lists only (8, 8) and Nesso-1's trimul tail weight resolves 4 K tiles from c_hidden, not from N \u2014 inert on this model at every size, not dark at this one [carried from p150a]"
+                "reason": "declines all 0 calls: F1_BLOCK_KEYS allow-lists only (8, 8) and Nesso-1's trimul tail weight resolves 4 K tiles from c_hidden, not from N \u2014 inert on this model at every size, not dark at this one [carried from p150a]"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -5938,15 +5774,10 @@
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 4,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "gated_window_BufferType.L1": 1,
-                  "window_BufferType.L1": 2,
-                  "back_l1_src_narrow": 1
-                },
-                "reason": "declines all 4 calls on window_BufferType.L1 x2, gated_window_BufferType.L1 x1, back_l1_src_narrow x1: the traffic moved to the gated channel and the handful left over is the measured band doing its job. REBLOCK_PERMUTE_GATED serves 1152 calls at every rung here (1344 at 1024) and this wrapper is reached four times, declining on three clauses that are all one band: window_BufferType.L1 and gated_window_BufferType.L1 are an L1 DESTINATION at an N outside the measured [288, 352] window (L1_N_MIN/L1_N_MAX, tt_bio/reblock_permute.py), and back_l1_src_narrow is the backward kernel with an L1 SOURCE at N < 288, which was measured to LOSE -- 0.9918x and 0.9903x at 256 against 1.0086x at 288 on the 11x10 grid. A lever that refuses the shapes it was measured to be slower on is not dark, it is correct"
+                "reason": "declines all 0 calls: the traffic moved to the gated channel and the handful left over is the measured band doing its job. REBLOCK_PERMUTE_GATED serves 1152 calls at every rung here (1344 at 1024) and this wrapper is reached four times, declining on three clauses that are all one band: window_BufferType.L1 and gated_window_BufferType.L1 are an L1 DESTINATION at an N outside the measured [288, 352] window (L1_N_MIN/L1_N_MAX, tt_bio/reblock_permute.py), and back_l1_src_narrow is the backward kernel with an L1 SOURCE at N < 288, which was measured to LOSE -- 0.9918x and 0.9903x at 256 against 1.0086x at 288 on the 11x10 grid. A lever that refuses the shapes it was measured to be slower on is not dark, it is correct"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
@@ -5957,17 +5788,19 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 1152,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 1152,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats-shared"
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "TODO: say why this is legitimate at this size"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -6174,14 +6007,11 @@
                 "how": "stats"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
-                "resolved": "True",
-                "served": 576,
-                "declined": 2,
-                "frac": 0.9965397923875432,
-                "how": "stats",
-                "rejects": {
-                  "memory": 2
-                }
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
@@ -6220,24 +6050,18 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 96,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "rejects": {
-                  "k_tiles=4:(4,4)": 96
-                },
-                "reason": "declines all 96 calls on k_tiles=4:(4,4) x96: it is scoped to an 8-tile weight K dim and Nesso-1's pair channel is 128, so every projection resolves 4 K tiles. That is a property of the checkpoint's c_z, not of N \u2014 inert on this model at every size, not dark at this one [carried from p150a]"
+                "reason": "declines all 0 calls: it is scoped to an 8-tile weight K dim and Nesso-1's pair channel is 128, so every projection resolves 4 K tiles. That is a property of the checkpoint's c_z, not of N \u2014 inert on this model at every size, not dark at this one [carried from p150a]"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "k_tiles=4": 1
-                },
-                "reason": "declines all 1 calls on k_tiles=4 x1: F1_BLOCK_KEYS allow-lists only (8, 8) and Nesso-1's trimul tail weight resolves 4 K tiles from c_hidden, not from N \u2014 inert on this model at every size, not dark at this one [carried from p150a]"
+                "reason": "declines all 0 calls: F1_BLOCK_KEYS allow-lists only (8, 8) and Nesso-1's trimul tail weight resolves 4 K tiles from c_hidden, not from N \u2014 inert on this model at every size, not dark at this one [carried from p150a]"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -6256,15 +6080,10 @@
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 4,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "gated_window_BufferType.L1": 1,
-                  "window_BufferType.L1": 2,
-                  "back_l1_src_narrow": 1
-                },
-                "reason": "declines all 4 calls on window_BufferType.L1 x2, gated_window_BufferType.L1 x1, back_l1_src_narrow x1: the traffic moved to the gated channel and the handful left over is the measured band doing its job. REBLOCK_PERMUTE_GATED serves 1152 calls at every rung here (1344 at 1024) and this wrapper is reached four times, declining on three clauses that are all one band: window_BufferType.L1 and gated_window_BufferType.L1 are an L1 DESTINATION at an N outside the measured [288, 352] window (L1_N_MIN/L1_N_MAX, tt_bio/reblock_permute.py), and back_l1_src_narrow is the backward kernel with an L1 SOURCE at N < 288, which was measured to LOSE -- 0.9918x and 0.9903x at 256 against 1.0086x at 288 on the 11x10 grid. A lever that refuses the shapes it was measured to be slower on is not dark, it is correct"
+                "reason": "declines all 0 calls: the traffic moved to the gated channel and the handful left over is the measured band doing its job. REBLOCK_PERMUTE_GATED serves 1152 calls at every rung here (1344 at 1024) and this wrapper is reached four times, declining on three clauses that are all one band: window_BufferType.L1 and gated_window_BufferType.L1 are an L1 DESTINATION at an N outside the measured [288, 352] window (L1_N_MIN/L1_N_MAX, tt_bio/reblock_permute.py), and back_l1_src_narrow is the backward kernel with an L1 SOURCE at N < 288, which was measured to LOSE -- 0.9918x and 0.9903x at 256 against 1.0086x at 288 on the 11x10 grid. A lever that refuses the shapes it was measured to be slower on is not dark, it is correct"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
@@ -6275,17 +6094,19 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 1152,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 1152,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats-shared"
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "TODO: say why this is legitimate at this size"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -6493,14 +6314,11 @@
                 "how": "stats"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
-                "resolved": "True",
-                "served": 576,
-                "declined": 2,
-                "frac": 0.9965397923875432,
-                "how": "stats",
-                "rejects": {
-                  "memory": 2
-                }
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
@@ -6539,24 +6357,18 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 96,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "rejects": {
-                  "k_tiles=4:(4,4)": 96
-                },
-                "reason": "declines all 96 calls on k_tiles=4:(4,4) x96: it is scoped to an 8-tile weight K dim and Nesso-1's pair channel is 128, so every projection resolves 4 K tiles. That is a property of the checkpoint's c_z, not of N \u2014 inert on this model at every size, not dark at this one [carried from p150a]"
+                "reason": "declines all 0 calls: it is scoped to an 8-tile weight K dim and Nesso-1's pair channel is 128, so every projection resolves 4 K tiles. That is a property of the checkpoint's c_z, not of N \u2014 inert on this model at every size, not dark at this one [carried from p150a]"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "k_tiles=4": 1
-                },
-                "reason": "declines all 1 calls on k_tiles=4 x1: F1_BLOCK_KEYS allow-lists only (8, 8) and Nesso-1's trimul tail weight resolves 4 K tiles from c_hidden, not from N \u2014 inert on this model at every size, not dark at this one [carried from p150a]"
+                "reason": "declines all 0 calls: F1_BLOCK_KEYS allow-lists only (8, 8) and Nesso-1's trimul tail weight resolves 4 K tiles from c_hidden, not from N \u2014 inert on this model at every size, not dark at this one [carried from p150a]"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -6575,15 +6387,10 @@
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 4,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "gated_window_BufferType.L1": 1,
-                  "window_BufferType.L1": 2,
-                  "back_l1_src_narrow": 1
-                },
-                "reason": "declines all 4 calls on window_BufferType.L1 x2, gated_window_BufferType.L1 x1, back_l1_src_narrow x1: the traffic moved to the gated channel and the handful left over is the measured band doing its job. REBLOCK_PERMUTE_GATED serves 1152 calls at every rung here (1344 at 1024) and this wrapper is reached four times, declining on three clauses that are all one band: window_BufferType.L1 and gated_window_BufferType.L1 are an L1 DESTINATION at an N outside the measured [288, 352] window (L1_N_MIN/L1_N_MAX, tt_bio/reblock_permute.py), and back_l1_src_narrow is the backward kernel with an L1 SOURCE at N < 288, which was measured to LOSE -- 0.9918x and 0.9903x at 256 against 1.0086x at 288 on the 11x10 grid. A lever that refuses the shapes it was measured to be slower on is not dark, it is correct"
+                "reason": "declines all 0 calls: the traffic moved to the gated channel and the handful left over is the measured band doing its job. REBLOCK_PERMUTE_GATED serves 1152 calls at every rung here (1344 at 1024) and this wrapper is reached four times, declining on three clauses that are all one band: window_BufferType.L1 and gated_window_BufferType.L1 are an L1 DESTINATION at an N outside the measured [288, 352] window (L1_N_MIN/L1_N_MAX, tt_bio/reblock_permute.py), and back_l1_src_narrow is the backward kernel with an L1 SOURCE at N < 288, which was measured to LOSE -- 0.9918x and 0.9903x at 256 against 1.0086x at 288 on the 11x10 grid. A lever that refuses the shapes it was measured to be slower on is not dark, it is correct"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
@@ -6594,17 +6401,19 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 1152,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 1152,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats-shared"
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "TODO: say why this is legitimate at this size"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -6812,14 +6621,11 @@
                 "how": "stats"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
-                "resolved": "True",
-                "served": 576,
-                "declined": 2,
-                "frac": 0.9965397923875432,
-                "how": "stats",
-                "rejects": {
-                  "memory": 2
-                }
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
@@ -6858,24 +6664,18 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 96,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "rejects": {
-                  "k_tiles=4:(4,4)": 96
-                },
-                "reason": "declines all 96 calls on k_tiles=4:(4,4) x96: it is scoped to an 8-tile weight K dim and Nesso-1's pair channel is 128, so every projection resolves 4 K tiles. That is a property of the checkpoint's c_z, not of N \u2014 inert on this model at every size, not dark at this one [carried from rung 768] [carried from p300c] [carried from p150a]"
+                "reason": "declines all 0 calls: it is scoped to an 8-tile weight K dim and Nesso-1's pair channel is 128, so every projection resolves 4 K tiles. That is a property of the checkpoint's c_z, not of N \u2014 inert on this model at every size, not dark at this one [carried from rung 768] [carried from p300c] [carried from p150a]"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "k_tiles=4": 1
-                },
-                "reason": "declines all 1 calls on k_tiles=4 x1: F1_BLOCK_KEYS allow-lists only (8, 8) and Nesso-1's trimul tail weight resolves 4 K tiles from c_hidden, not from N \u2014 inert on this model at every size, not dark at this one [carried from rung 768] [carried from p300c] [carried from p150a]"
+                "reason": "declines all 0 calls: F1_BLOCK_KEYS allow-lists only (8, 8) and Nesso-1's trimul tail weight resolves 4 K tiles from c_hidden, not from N \u2014 inert on this model at every size, not dark at this one [carried from rung 768] [carried from p300c] [carried from p150a]"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -6894,15 +6694,10 @@
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 4,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "gated_window_BufferType.L1": 1,
-                  "window_BufferType.L1": 2,
-                  "back_l1_src_narrow": 1
-                },
-                "reason": "declines all 4 calls on window_BufferType.L1 x2, gated_window_BufferType.L1 x1, back_l1_src_narrow x1: the traffic moved to the gated channel and the handful left over is the measured band doing its job. REBLOCK_PERMUTE_GATED serves 1152 calls at every rung here (1344 at 1024) and this wrapper is reached four times, declining on three clauses that are all one band: window_BufferType.L1 and gated_window_BufferType.L1 are an L1 DESTINATION at an N outside the measured [288, 352] window (L1_N_MIN/L1_N_MAX, tt_bio/reblock_permute.py), and back_l1_src_narrow is the backward kernel with an L1 SOURCE at N < 288, which was measured to LOSE -- 0.9918x and 0.9903x at 256 against 1.0086x at 288 on the 11x10 grid. A lever that refuses the shapes it was measured to be slower on is not dark, it is correct"
+                "reason": "declines all 0 calls: the traffic moved to the gated channel and the handful left over is the measured band doing its job. REBLOCK_PERMUTE_GATED serves 1152 calls at every rung here (1344 at 1024) and this wrapper is reached four times, declining on three clauses that are all one band: window_BufferType.L1 and gated_window_BufferType.L1 are an L1 DESTINATION at an N outside the measured [288, 352] window (L1_N_MIN/L1_N_MAX, tt_bio/reblock_permute.py), and back_l1_src_narrow is the backward kernel with an L1 SOURCE at N < 288, which was measured to LOSE -- 0.9918x and 0.9903x at 256 against 1.0086x at 288 on the 11x10 grid. A lever that refuses the shapes it was measured to be slower on is not dark, it is correct"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
@@ -6913,17 +6708,19 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 1152,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 1152,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats-shared"
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "TODO: say why this is legitimate at this size"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -7131,13 +6928,10 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 672,
-                "declined": 2,
-                "frac": 0.9970326409495549,
-                "how": "stats",
-                "rejects": {
-                  "memory": 2
-                }
+                "served": 192,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
@@ -7187,13 +6981,13 @@
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 97,
+                "declined": 96,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "k_tiles=4": 97
+                  "k_tiles=4": 96
                 },
-                "reason": "declines all 97 calls on k_tiles=4 x97: F1_BLOCK_KEYS allow-lists only (8, 8) and Nesso-1's trimul tail weight resolves 4 K tiles from c_hidden, not from N \u2014 inert on this model at every size, not dark at this one [carried from rung 768] [carried from p300c] [carried from p150a]"
+                "reason": "declines all 96 calls on k_tiles=4 x96: F1_BLOCK_KEYS allow-lists only (8, 8) and Nesso-1's trimul tail weight resolves 4 K tiles from c_hidden, not from N \u2014 inert on this model at every size, not dark at this one [carried from rung 768] [carried from p300c] [carried from p150a]"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -7212,15 +7006,10 @@
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 4,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "gated_window_BufferType.L1": 1,
-                  "window_BufferType.L1": 2,
-                  "back_l1_src_narrow": 1
-                },
-                "reason": "declines all 4 calls on window_BufferType.L1 x2, gated_window_BufferType.L1 x1, back_l1_src_narrow x1: the traffic moved to the gated channel and the handful left over is the measured band doing its job. REBLOCK_PERMUTE_GATED serves 1152 calls at every rung here (1344 at 1024) and this wrapper is reached four times, declining on three clauses that are all one band: window_BufferType.L1 and gated_window_BufferType.L1 are an L1 DESTINATION at an N outside the measured [288, 352] window (L1_N_MIN/L1_N_MAX, tt_bio/reblock_permute.py), and back_l1_src_narrow is the backward kernel with an L1 SOURCE at N < 288, which was measured to LOSE -- 0.9918x and 0.9903x at 256 against 1.0086x at 288 on the 11x10 grid. A lever that refuses the shapes it was measured to be slower on is not dark, it is correct"
+                "reason": "declines all 0 calls: the traffic moved to the gated channel and the handful left over is the measured band doing its job. REBLOCK_PERMUTE_GATED serves 1152 calls at every rung here (1344 at 1024) and this wrapper is reached four times, declining on three clauses that are all one band: window_BufferType.L1 and gated_window_BufferType.L1 are an L1 DESTINATION at an N outside the measured [288, 352] window (L1_N_MIN/L1_N_MAX, tt_bio/reblock_permute.py), and back_l1_src_narrow is the backward kernel with an L1 SOURCE at N < 288, which was measured to LOSE -- 0.9918x and 0.9903x at 256 against 1.0086x at 288 on the 11x10 grid. A lever that refuses the shapes it was measured to be slower on is not dark, it is correct"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
@@ -7231,14 +7020,14 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 1344,
+                "served": 384,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 1344,
+                "served": 384,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -7444,13 +7233,10 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 672,
-                "declined": 2,
-                "frac": 0.9970326409495549,
-                "how": "stats",
-                "rejects": {
-                  "memory": 2
-                }
+                "served": 192,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
@@ -7502,13 +7288,10 @@
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "k_tiles=4": 1
-                },
-                "reason": "declines all 1 calls on k_tiles=4 x1: F1_BLOCK_KEYS allow-lists only (8, 8) and Nesso-1's trimul tail weight resolves 4 K tiles from c_hidden, not from N \u2014 inert on this model at every size, not dark at this one [carried from p300c] [carried from rung 768] [carried from p150a]"
+                "reason": "declines all 0 calls: F1_BLOCK_KEYS allow-lists only (8, 8) and Nesso-1's trimul tail weight resolves 4 K tiles from c_hidden, not from N \u2014 inert on this model at every size, not dark at this one [carried from p300c] [carried from rung 768] [carried from p150a]"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -7527,14 +7310,9 @@
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 4,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "gated_window_BufferType.L1": 1,
-                  "window_BufferType.L1": 2,
-                  "back_l1_src_narrow": 1
-                },
                 "reason": "the window declining is the window working: 3842 calls at this rung ask for an L1 destination at an N outside the measured [288, 352] L1 band (`L1_N_MIN`/`L1_N_MAX`, tt_bio/reblock_permute.py:338-339, rejected at :387 as `window_BufferType.L1`). Below 288 there are fewer work groups than cores and the custom move is a measured LOSS -- N=256 on an L1 output reads 0.952x on 110 cores (`eligible`'s docstring). Serving them would be the defect. The trimul channel moves are taken by the fused gated kernel instead: `REBLOCK_PERMUTE_GATED` serves 384 per fold at this rung. [carried from p300c] [carried from rung 1024] [carried from p150a]"
               },
               "REBLOCK_PERMUTE_BACK": {
@@ -7546,14 +7324,14 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 1344,
+                "served": 384,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 1344,
+                "served": 384,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -7764,13 +7542,10 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 864,
-                "declined": 2,
-                "frac": 0.9976905311778291,
-                "how": "stats",
-                "rejects": {
-                  "memory": 2
-                }
+                "served": 384,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
@@ -7822,13 +7597,10 @@
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "k_tiles=4": 1
-                },
-                "reason": "declines all 1 calls on k_tiles=4 x1: F1_BLOCK_KEYS allow-lists only (8, 8) and Nesso-1's trimul tail weight resolves 4 K tiles from c_hidden, not from N \u2014 inert on this model at every size, not dark at this one [carried from p300c] [carried from rung 768] [carried from p150a]"
+                "reason": "declines all 0 calls: F1_BLOCK_KEYS allow-lists only (8, 8) and Nesso-1's trimul tail weight resolves 4 K tiles from c_hidden, not from N \u2014 inert on this model at every size, not dark at this one [carried from p300c] [carried from rung 768] [carried from p150a]"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -7847,14 +7619,9 @@
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 4,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "gated_window_BufferType.L1": 1,
-                  "window_BufferType.L1": 2,
-                  "back_l1_src_narrow": 1
-                },
                 "reason": "the window declining is the window working: 3842 calls at this rung ask for an L1 destination at an N outside the measured [288, 352] L1 band (`L1_N_MIN`/`L1_N_MAX`, tt_bio/reblock_permute.py:338-339, rejected at :387 as `window_BufferType.L1`). Below 288 there are fewer work groups than cores and the custom move is a measured LOSS -- N=256 on an L1 output reads 0.952x on 110 cores (`eligible`'s docstring). Serving them would be the defect. The trimul channel moves are taken by the fused gated kernel instead: `REBLOCK_PERMUTE_GATED` serves 384 per fold at this rung. [carried from p300c] [carried from rung 1024] [carried from p150a]"
               },
               "REBLOCK_PERMUTE_BACK": {
@@ -7866,14 +7633,14 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 1728,
+                "served": 768,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 1728,
+                "served": 768,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -8030,41 +7797,41 @@
           },
           "runtime_reps_s": {
             "256": [
-              7.45,
-              7.43,
-              8.21,
-              7.61,
-              7.75
+              5.4,
+              5.18,
+              5.58,
+              5.21,
+              5.34
             ],
             "512": [
-              11.49,
-              11.27,
-              11.39,
-              11.69,
-              11.66
+              7.75,
+              7.85,
+              7.84,
+              7.71,
+              7.84
             ],
             "640": [
-              15.75
+              9.74
             ],
             "768": [
-              20.25
+              12.63
             ],
             "896": [
-              26.44
+              15.98
             ],
             "1024": [
-              33.99
+              24.09
             ],
             "1280": [
-              56.46
+              42.98
             ],
             "1536": [
-              78.84
+              63.49
             ]
           },
           "aiclk": {
             "256": {
-              "card": "20",
+              "card": "26",
               "min": 500,
               "max": 1000,
               "rep_median": [
@@ -8072,160 +7839,160 @@
                 500,
                 500,
                 500,
-                500
-              ],
-              "n": 42
-            },
-            "512": {
-              "card": "20",
-              "min": 500,
-              "max": 1000,
-              "rep_median": [
-                500,
-                500,
-                500,
-                500,
-                500
-              ],
-              "n": 48
-            },
-            "640": {
-              "card": "20",
-              "min": 500,
-              "max": 1000,
-              "rep_median": [
-                500
-              ],
-              "n": 11
-            },
-            "768": {
-              "card": "20",
-              "min": 500,
-              "max": 1000,
-              "rep_median": [
-                500
-              ],
-              "n": 14
-            },
-            "896": {
-              "card": "20",
-              "min": 500,
-              "max": 1000,
-              "rep_median": [
-                500
-              ],
-              "n": 14
-            },
-            "1024": {
-              "card": "20",
-              "min": 500,
-              "max": 1000,
-              "rep_median": [
                 500
               ],
               "n": 15
             },
-            "1280": {
-              "card": "20",
+            "512": {
+              "card": "26",
+              "min": 500,
+              "max": 1000,
+              "rep_median": [
+                1000,
+                1000,
+                1000,
+                1000,
+                1000
+              ],
+              "n": 15
+            },
+            "640": {
+              "card": "26",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 18
+              "n": 3
+            },
+            "768": {
+              "card": "26",
+              "min": 500,
+              "max": 1000,
+              "rep_median": [
+                1000
+              ],
+              "n": 4
+            },
+            "896": {
+              "card": "26",
+              "min": 500,
+              "max": 1000,
+              "rep_median": [
+                1000
+              ],
+              "n": 5
+            },
+            "1024": {
+              "card": "26",
+              "min": 500,
+              "max": 1000,
+              "rep_median": [
+                1000
+              ],
+              "n": 6
+            },
+            "1280": {
+              "card": "26",
+              "min": 500,
+              "max": 1000,
+              "rep_median": [
+                1000
+              ],
+              "n": 10
             },
             "1536": {
-              "card": "20",
+              "card": "26",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 22
+              "n": 14
             }
           },
           "load": {
             "256": {
-              "max": 0.86,
+              "max": 0.17,
               "rep_median": [
-                0.72,
-                0.66,
-                0.64,
-                0.71,
-                0.77
+                0.15,
+                0.17,
+                0.16,
+                0.15,
+                0.15
               ]
             },
             "512": {
-              "max": 1.02,
+              "max": 0.16,
               "rep_median": [
-                0.88,
-                0.8,
-                0.78,
-                0.8,
-                0.95
+                0.15,
+                0.15,
+                0.14,
+                0.14,
+                0.14
               ]
             },
             "640": {
-              "max": 1.05,
+              "max": 0.13,
               "rep_median": [
-                1.01
+                0.13
               ]
             },
             "768": {
-              "max": 0.91,
+              "max": 0.15,
               "rep_median": [
-                0.91
+                0.14
               ]
             },
             "896": {
-              "max": 0.95,
+              "max": 0.15,
               "rep_median": [
-                0.9
+                0.14
               ]
             },
             "1024": {
-              "max": 0.81,
+              "max": 0.13,
               "rep_median": [
-                0.79
+                0.13
               ]
             },
             "1280": {
-              "max": 0.62,
+              "max": 0.14,
               "rep_median": [
-                0.55
+                0.13
               ]
             },
             "1536": {
-              "max": 0.37,
+              "max": 0.15,
               "rep_median": [
-                0.34
+                0.14
               ]
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.0156,
+          "sigma_runtime_512": 0.0084,
           "exponents": {
             "256->512": {
-              "k": 0.594,
+              "k": 0.554,
               "tol": 0.5
             },
             "512->768": {
-              "k": 1.398,
+              "k": 1.176,
               "tol": 0.5
             }
           },
           "sigma_runtime": {
-            "256": 0.0417,
-            "512": 0.0156
+            "256": 0.0303,
+            "512": 0.0084
           },
           "exponents_measured": {
-            "256->512": 0.594,
-            "512->640": 1.413,
-            "640->768": 1.378,
-            "768->896": 1.73,
-            "896->1024": 1.881,
-            "1024->1280": 2.274,
-            "1280->1536": 1.831
+            "256->512": 0.554,
+            "512->640": 0.972,
+            "640->768": 1.425,
+            "768->896": 1.526,
+            "896->1024": 3.074,
+            "1024->1280": 2.594,
+            "1280->1536": 2.14
           }
         }
       }
