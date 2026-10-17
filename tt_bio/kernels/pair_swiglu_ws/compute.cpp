@@ -151,9 +151,9 @@ void kernel_main() {
 #ifdef WS_LN
         cb_reserve_back(cb_x, KT);
 #ifdef WS_RMS
-        ln_prologue::rms_norm_row<LnCbs>(cb_x, [](uint32_t i) { pack_tile<true>(0, cb_x, i); });
+        ln_prologue::rms_norm_row<LnCbs>(cb_x, [](uint32_t i, uint32_t d) { pack_tile<true>(d, cb_x, i); });
 #else
-        ln_prologue::layer_norm_row<LnCbs>(cb_x, [](uint32_t i) { pack_tile<true>(0, cb_x, i); });
+        ln_prologue::layer_norm_row<LnCbs>(cb_x, [](uint32_t i, uint32_t d) { pack_tile<true>(d, cb_x, i); });
 #endif
         cb_push_back(cb_x, KT);
 #endif
