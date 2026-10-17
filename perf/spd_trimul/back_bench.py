@@ -14,6 +14,8 @@ ap.add_argument("--ns", default="384,512")
 ap.add_argument("--c", type=int, default=256)
 ap.add_argument("--reps", type=int, default=20)
 ap.add_argument("--abl", default="1,2,4,3,6", help="comma list of BACK_ABL masks timed after the full kernel")
+ap.add_argument("--walks", default="", help="comma list of RB.WALK modes (block,stride,rotate) timed with parity")
+ap.add_argument("--ref", action="store_true", help="also time ttnn.clone and ttnn.permute of the same tensor (DRAM yardsticks)")
 ap.add_argument("--out")
 A = ap.parse_args()
 
@@ -59,6 +61,19 @@ for n in (int(v) for v in A.ns.split(",")):
     rec["split_ms"] = timed(run, A.reps)
     RB.BACK_SPLIT = False
     rec["full_ms_again"] = timed(run, A.reps)
+    # The walk decides which DRAM banks are live together (reblock_permute.WALK); bit-identical by construction.
+    for w in (v for v in A.walks.split(",") if v):
+        RB.WALK = w
+        run(); ttnn.synchronize_device(dev)
+        rec[f"walk_{w}_exact"] = bool(torch.equal(ttnn.to_torch(out), xt.permute(0, 2, 3, 1)))
+        rec[f"walk_{w}_ms"] = timed(run, A.reps)
+    RB.WALK = "block"
+    if A.ref:
+        # What a stock read+write of the same 134 MB reaches on this chip: the practical roof for the move.
+        rec["clone_ms"] = timed(lambda: ttnn.deallocate(ttnn.clone(x, memory_config=ttnn.DRAM_MEMORY_CONFIG)), A.reps)
+        rec["permute_ms"] = timed(lambda: ttnn.deallocate(ttnn.permute(x, (0, 2, 3, 1))), A.reps)
+        rec["clone_gbs"] = round(2 * xt.numel() * 2 / rec["clone_ms"] / 1e6, 1)
+        rec["full_gbs"] = round(2 * xt.numel() * 2 / rec["full_ms"] / 1e6, 1)
     print(json.dumps(rec), flush=True)
     if A.out:
         with open(A.out, "a") as f:
