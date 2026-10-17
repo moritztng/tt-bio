@@ -86,8 +86,9 @@ def main():
     # 36864 = Boltz-2's hoisted DiT cond projection under dit_shoist (BH: 755 us with bias + sigmoid, 436 us without)
     ap.add_argument("--n", type=int, nargs="+", default=[768, 3072, 36864])
     # condwp (WH): one wrong pixel at (289, 2183) on four chips under fp32 acc at N 3072. A different seed tells an
-    # input-dependent rounding event from a fixed position the program gets wrong; packer_l1_acc off isolates the packer
-    ap.add_argument("--seed", type=int, default=7)
+    # input-dependent rounding event from a fixed position the program gets wrong; packer_l1_acc off isolates the packer.
+    # condseed: seeds 8, 9 clean and seed 7 clean with the packer off, so it is input-dependent; many seeds give a rate per arm
+    ap.add_argument("--seed", type=int, nargs="+", default=[7])
     ap.add_argument("--packer-l1-acc", type=int, choices=(0, 1), default=1)
     a = ap.parse_args()
     torch.set_num_threads(8)
@@ -99,8 +100,9 @@ def main():
         kw.setdefault("aiclk", aiclk(nodes)); kw.update(arch=T.arch_name(), t=time.time())
         log.write(json.dumps(kw) + "\n"); log.flush(); print(json.dumps(kw), flush=True)
 
-    for N in a.n:
-        bench(dev, nodes, emit, N, a.seed, bool(a.packer_l1_acc))
+    for seed in a.seed:
+        for N in a.n:
+            bench(dev, nodes, emit, N, seed, bool(a.packer_l1_acc))
     emit(ev="end")
 
 
