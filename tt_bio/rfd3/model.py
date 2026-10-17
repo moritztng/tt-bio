@@ -32,6 +32,7 @@ from .tiles import TILE, align_tile, pad_axis
 from .. import pair_swiglu_ws as _WS
 from .. import dit_pair_bias as _DPB
 from .. import gather_tiled as _gather_tiled
+from .. import eltwise_fusion as _EF
 from ..tenstorrent import (Module, get_device, CORE_GRID_MAIN, attn_value_matmul, silu_ckc,
                            atom_pair_budget_bytes, l1_resident_budget_bytes, row_block,
                            _dram_oom, fused_sdpa, _sdpa_program_config)
@@ -463,6 +464,10 @@ _GCA_HEADS = env_flag("RFD3_GCA_HEADS", True)
 # ttnn.embedding + to_layout: WH fast census 5.07 + 4.77 ms/step of embedding against a 0.5 ms roof each, plus
 # 2.7 ms/step of tilize. Same values (data movement only). Off while measured.
 _PZ_GATHER = env_flag("RFD3_PZ_GATHER", False)
+# The collapsed process_z's em * inv + ainv as one ttnn.addcmul (eltwise_fusion.mask_add): WH fast census multiply
+# 2.84 + add 1.52 ms/call, two calls a step, and the [B,I,I,128] product is written and read back between them.
+# One bf16 rounding instead of two, so the digest moves. Off while measured.
+_PZ_ADDCMUL = env_flag("RFD3_PZ_ADDCMUL", False)
 _ATOM_SDPA_CHUNKS = tuple(int(x) for x in os.environ.get("RFD3_ATOM_SDPA_CHUNKS", "160,320").split(","))
 # ttnn.gather (0.68.0) on dim 3 silently returns wrong data for every tile-row after the first
 # once the indexed axis exceeds this many elements: 99.87 % of elements wrong at the production
@@ -3338,6 +3343,10 @@ class DiffusionTokenEncoder(Module):
                                 memory_config=ttnn.DRAM_MEMORY_CONFIG)
             em = ttnn.to_layout(ttnn.reshape(em, (batch, I, I, self.C_Z)), ttnn.TILE_LAYOUT)
         ttnn.deallocate(idx)
+        if _PZ_ADDCMUL:
+            out = _EF.mask_add(ainv, em, inv)
+            ttnn.deallocate(em)
+            return out
         scaled = ttnn.multiply(em, inv)
         ttnn.deallocate(em)
         out = ttnn.add(scaled, ainv)
