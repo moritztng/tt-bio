@@ -19,6 +19,7 @@ ap.add_argument("--arms", default="")
 ap.add_argument("--lens", default="544,544,520,480,430,390,300", help="ESMC per-sequence key lengths")
 ap.add_argument("--ncall", type=int, default=10)
 ap.add_argument("--reps", type=int, default=7)
+ap.add_argument("--bh", default="7,15", help="ESMC batch,heads (300M 7,15; 600M 7,18; SaProt 650M 7,20; 6B 1,40)")
 ap.add_argument("--host", action="store_true", help="time eager host dispatch instead of trace replay")
 ap.add_argument("--proto", default="", help="extra ESMC proto arms qc:kc:b,h,q;... (qc 0 = whole, split - = factory)")
 a = ap.parse_args()
@@ -79,9 +80,9 @@ up = lambda t: ttnn.from_torch(t, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, 
 ARMS, REF = {}, {}
 
 if "esmc" in a.shape:
-    B, H, S, D = 7, 15, 544, 64
-    lens = [int(x) for x in a.lens.split(",")]
-    assert len(lens) == B and max(lens) <= S
+    (B, H), S, D = map(int, a.bh.split(",")), 544, 64
+    lens = ([int(x) for x in a.lens.split(",")] * B)[:B]
+    assert max(lens) <= S
     torch.manual_seed(544)
     hq, hk, hv = (torch.randn(B, H, S, D) for _ in range(3))
     mask = torch.zeros(B, S, S)
@@ -97,9 +98,8 @@ if "esmc" in a.shape:
     ARMS["e_stock"] = ("esmc", lambda: T.fused_sdpa(eq, ek, ev, attn_mask=em, scale=sc))
     try:
         from tt_bio import shsdpa as P
-        PROTO = {"e_p544_192": (None, 192, None), "e_p544_544": (None, 544, None),
-                 "e_p192_192_733": (192, 192, (7, 3, 3)), "e_p288_192_752": (288, 192, (7, 5, 2)),
-                 "e_p96_192_752": (96, 192, (7, 5, 2))}
+        PROTO = {}
+        ARMS["e_auto"] = ("esmc", lambda: P.sdpa(eq, ek, ev, sc, key_lens=lens))
         if a.proto:
             PROTO = {}
             for t in a.proto.split(";"):
@@ -146,7 +146,7 @@ def err(shape, o):
     return float(((g - r).pow(2).mean() / r.pow(2).mean()).sqrt())
 
 
-res = {"arch": str(dev.arch()), "grid": list(T.COMPUTE_GRID_MAIN), "nodes": NODES, "lens": a.lens, "arms": {}}
+res = {"bh": a.bh, "arch": str(dev.arch()), "grid": list(T.COMPUTE_GRID_MAIN), "nodes": NODES, "lens": a.lens, "arms": {}}
 for name, (shape, fn) in list(ARMS.items()):
     try:
         o = fn()

@@ -48,12 +48,39 @@ def _mask_row(dev, lens, S):
     return hit[1]
 
 
+# A unit is one (batch, head, q chunk). Device time on WH (B7 H15 S544 D64, perf/shsdpa a1/t1) tracks
+# units-per-busiest-core x (q tiles per unit + 2): the 2 is the per-unit fixed cost a small q chunk pays.
+UNIT_COST_TILES = 2
+
+
+def plan(B, H, S, cores, k_chunk=192):
+    """(q_chunk, (batch_pf, head_pf, q_pf)) minimising the busiest core's cost, padding included."""
+    St = -(-S // 32)
+    best = None
+    for qt in range(1, St + 2):
+        nq = -(-St // qt)
+        if nq * qt - St > 1:        # at most one padded q tile
+            continue
+        for bpf in range(1, B + 1):
+            for hpf in range(1, H + 1):
+                qpf = min(nq, cores // (bpf * hpf))
+                if qpf < 1:
+                    break
+                units = -(-B // bpf) * -(-H // hpf) * -(-nq // qpf)
+                cost = (units * (qt + UNIT_COST_TILES), bpf * hpf * qpf)
+                if best is None or cost < best[0]:
+                    best = (cost, qt * 32, (bpf, hpf, qpf))
+    return best[1], best[2]
+
+
 def sdpa(q, k, v, scale, key_lens, q_chunk=None, k_chunk=192, split=None, ckc=HIFI2, grid=None, defines=None):
     """softmax(q k^T * scale, keys j >= key_lens[b] masked) v for bf16 [B, H, S, D] DRAM tensors."""
     from . import tenstorrent as T
     B, H, S, D = (int(d) for d in q.shape)
     dev = q.device()
     grid = grid or tuple(T.COMPUTE_GRID_MAIN)
+    if q_chunk is None and split is None:
+        q_chunk, split = plan(B, H, S, grid[0] * grid[1], k_chunk)
     q_chunk = q_chunk or -(-S // 32) * 32
     mask = _mask_row(dev, key_lens, S)
     k_num = -(-S // k_chunk)
