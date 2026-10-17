@@ -447,6 +447,10 @@ def route_opendde_weights(state_dict):
 NORMAL_LEVERS = _FAMILY_NORMAL | WS_CHAIN
 BH_NORMAL_LEVERS = _FAMILY_NORMAL
 FAST_LEVERS = (_T.FAST_LEVERS - {"dit_b8"}) | {"trimul_b8in", "trimul_t2w"} | WS_CHAIN
+# Wormhole fast also runs T1 on OpenDDE's c_z 384 pair (trimul_t1_c384). WH 11-set fast grade, FAST_LEVERS vs +
+# trimul_t1_c384 (spd-integrate gpsf, 2026-10-17, 44 paired folds): PASS, CA-lDDT -0.0005 [-0.0016, +0.0002], pLDDT
+# -0.0002, docking 25 -> 24 of 44. cdk2x2 512 x 1 at 1000 MHz: 104.16 -> 101.52 s (-2.5 %). Blackhole is ungraded.
+WH_FAST_LEVERS = FAST_LEVERS | {"trimul_t1_c384"}
 
 
 class OpenDDE:
@@ -461,10 +465,11 @@ class OpenDDE:
         levers: the precision levers this model builds and folds under, the same switches
         Protenix-v2 runs (`tenstorrent.LEVERS`); None takes the mode's set
         (`tenstorrent.model_levers`): `NORMAL_LEVERS` (the Protenix family set + ws_chain; `BH_NORMAL_LEVERS` on
-        Blackhole), or `FAST_LEVERS` below under `--fast`."""
+        Blackhole), or `FAST_LEVERS` (`WH_FAST_LEVERS` on Wormhole) under `--fast`."""
         import tt_bio.tenstorrent as _TT
-        normal = NORMAL_LEVERS if _TT.is_wormhole() else BH_NORMAL_LEVERS
-        self._levers = _TT.model_levers(normal, FAST_LEVERS, spec=levers)
+        wh = _TT.is_wormhole()
+        self._levers = _TT.model_levers(NORMAL_LEVERS if wh else BH_NORMAL_LEVERS,
+                                        WH_FAST_LEVERS if wh else FAST_LEVERS, spec=levers)
         with _TT.levers(self._levers):
             self._build(state_dict, compute_kernel_config, device, diffusion_fp32)
 

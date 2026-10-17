@@ -728,6 +728,8 @@ _FAST_MODE = False
 #                   (128, c_z) table: the A/B arm for a change that must keep the fold digest (no mode sets it).
 #   lm_qk_chain     the ESMC language model's attention keeps the six-op q/k LayerNorm, RoPE and head-split chain
 #                   where Wormhole would run qk_rope_heads (esmc._qkrh): ESMFold2's normal set on Wormhole.
+#   lm_gate_ng      the ESMC language model's SwiGLU gate stays on the binary_ng multiply where Wormhole would take the
+#                   legacy one (esmc._lm_gate_legacy): both ESMFold2 sets on Wormhole until a fold grades it.
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in",
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
@@ -739,7 +741,8 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine", "ef2_opm_kq", "ef2_relpos_lookup",
           "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit", "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384",
           "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
-          "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "trimul_bres", "atomp_dev", "lm_qk_chain")
+          "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "trimul_bres", "atomp_dev", "lm_qk_chain",
+          "lm_gate_ng")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -18013,10 +18016,13 @@ class AtomPairDevice:
             feats["atom_to_token"].float(), to_keys, K, W, H)
         index = (tok_q.view(K, W, 1) * P + tok_k.view(K, 1, H)).reshape(rows, H)
         index = torch.where(keep.reshape(rows, H) > 0, index, P * P)
-        zp = ttnn.pad(z_to_p, [(0, 0), (0, 0), (0, 0), (0, 32 - self.atom_z)], 0.0)
+        # Pad in row-major: a TILE tensor is already 32 wide, so ttnn.pad returns z_to_p's own
+        # buffer and freeing z_to_p would free the table under the gather (perf/b2_atomp/table_probe.py).
+        rm = ttnn.to_layout(z_to_p, ttnn.ROW_MAJOR_LAYOUT)
         ttnn.deallocate(z_to_p)
-        table = ttnn.reshape(ttnn.to_layout(zp, ttnn.ROW_MAJOR_LAYOUT), (P * P, 32))
-        ttnn.deallocate(zp)
+        zp = ttnn.pad(rm, [(0, 0), (0, 0), (0, 0), (0, 32 - self.atom_z)], 0.0)
+        ttnn.deallocate(rm)
+        table = ttnn.reshape(zp, (P * P, 32))
         zero = ttnn.from_torch(torch.zeros(1, 32), layout=ttnn.ROW_MAJOR_LAYOUT,
                                device=get_device(), dtype=ttnn.bfloat16)
         table = ttnn.concat([table, zero], dim=0)
