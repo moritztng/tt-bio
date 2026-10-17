@@ -871,10 +871,6 @@ T2_STATS = [0, 0]       # served, declined
 # writer still move every byte); 16 the reader skips its per-block DRAM reads, 32 the writer its writes (non-moved
 # T2 only). Diagnostic only, 0 in every model path.
 T2_ABL = 0
-# T2's layer norm ends in one DEST pass (ln_prologue.hpp LN_AFFINE_F32): norm * gamma + beta by DEST reuse on fp32
-# gamma / beta tiles the reader broadcasts down the rows, instead of two more fp32 pack / unpack passes over
-# the row's Kt tiles. Same operands in the same order. Non-moved T2 only; off until a bench and a fold price it.
-T2_LN_FUSE = env_flag("TT_BIO_T2_LN_FUSE", False)
 T2_KEYS = {(4, 4), (8, 8)}   # (kt, nt): c_z 128 and 256 (ESMFold2)
 # c_z 384 (OpenDDE) under the `trimul_t2w` lever, at T2's own block: `_MM_BLOCK`'s (8, 12, 1, 2, 1) does not
 # fit L1 and declines. (2, 12, 1, 2, 1) keeps the single K block, so the contraction order is the projection's.
@@ -997,8 +993,6 @@ def _t2_tiles(kt, nt, Mb, gate=False, moved=None):
         cp, P = moved
         bf16 += kt - 2 * Mb * kt + 2 + 2 * cp + -(-(kt - cp) * 32 // P)
     fp32 = 1 + 3 + 2 * kt
-    if T2_LN_FUSE and moved is None:   # gamma / beta as fp32 tiles
-        bf16, fp32 = bf16 - 2 * kt, fp32 + 2 * kt
     return bf16 + 2 * fp32
 
 
@@ -1050,14 +1044,12 @@ def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, wg=None, moved
     acc = lambda t: list(ttnn.TensorAccessorArgs(t).get_compile_time_args())
     src = ttnn.KernelDescriptor.SourceType.FILE_PATH
     d = KERNEL_DIR.parent / "trimul_tail_res"
-    fuse = T2_LN_FUSE and moved is None
-    defines = [("LN_AFFINE_F32", "1")] if fuse else []
     if moved is None:
         reader = ttnn.KernelDescriptor(
             kernel_source=str(d / "reader_ln.cpp"), source_type=src, core_ranges=core_grid,
             compile_time_args=[kt, nt, Mb, scaler, eps_bits, int(gate), T2_ABL] + acc(x) + acc(wp) + acc(g)
             + acc(resid) + acc(ln_w) + acc(ln_b) + acc(wg if gate else wp),
-            runtime_args=rd, common_runtime_args=[0] * 7, defines=defines, config=ttnn.ReaderConfigDescriptor())
+            runtime_args=rd, common_runtime_args=[0] * 7, config=ttnn.ReaderConfigDescriptor())
         writer = ttnn.KernelDescriptor(
             kernel_source=str(d / "writer.cpp"), source_type=src, core_ranges=core_grid,
             compile_time_args=[nt, Mb, 1, T2_ABL] + acc(resid) + acc(resid),
@@ -1077,7 +1069,7 @@ def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, wg=None, moved
         kernel_source=str(d / "compute_ln.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[kt, nt, Mb, sbw, _sigpoly(), RNE, int(gate), int(moved is not None),
                            0 if moved is None else Cp, T2_ABL],
-        runtime_args=cp, defines=defines,
+        runtime_args=cp,
         # fp32 DEST always: the LayerNorm statistics are packed to fp32 CBs and the 4-tile
         # epilogue fits half-sync fp32 DEST. The fidelity stays the caller's, so the GEMM is
         # computed as the incumbent projection computes it; the LN multiplies share it.
@@ -1091,8 +1083,7 @@ def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, wg=None, moved
            _cb(2, core_grid, 2 * blk), _cb(3, core_grid, Mb * kt), _cb(4, core_grid, blk),
            _cb_fmt(5, core_grid, (2 - gate) * blk, g.dtype if moved is None else ttnn.bfloat16),
            _cb(7, core_grid, 2 * blk),
-           _cb_fmt(8, core_grid, kt, f32 if fuse else ttnn.bfloat16),
-           _cb_fmt(9, core_grid, kt, f32 if fuse else ttnn.bfloat16), _cb(10, core_grid, 1),
+           _cb(8, core_grid, kt), _cb(9, core_grid, kt), _cb(10, core_grid, 1),
            _cb_fmt(11, core_grid, 1, f32), _cb_fmt(12, core_grid, 1, f32),
            _cb_fmt(13, core_grid, 1, f32), _cb_fmt(14, core_grid, 1, f32),
            _cb_fmt(16, core_grid, kt, f32), _cb_fmt(17, core_grid, kt, f32)]
@@ -1180,7 +1171,7 @@ def fused_tail_ln(x, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5, wg=None, mov
         return None
     spec = lambda t: (str(t.padded_shape), str(t.dtype), str(t.memory_config()))
     key = ("t2", spec(x), spec(wp), str(g.dtype), spec(ln_w), spec(ln_b), wg is not None, tuple(grid),
-           tuple(str(c) for c in ckc), float(eps), _sigpoly(), RNE, T2_ABL, T2_LN_FUSE,
+           tuple(str(c) for c in ckc), float(eps), _sigpoly(), RNE, T2_ABL,
            None if moved is None else (spec(moved[0]), moved[1], P))
     entry = _CACHE.get(key)
     if entry is None:
