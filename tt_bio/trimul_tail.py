@@ -379,7 +379,7 @@ def _build_res(xa, xb, wa, wb, outs, grid, ckc, block, epi, shared, mask=None):
         runtime_args=rd, common_runtime_args=[0] * 6, config=ttnn.ReaderConfigDescriptor())
     writer = ttnn.KernelDescriptor(
         kernel_source=str(d / "writer.cpp"), source_type=src, core_ranges=core_grid,
-        compile_time_args=[nt, Mb, len(outs)] + acc(outs[0]) + acc(outs[-1]),
+        compile_time_args=[nt, Mb, len(outs), 0] + acc(outs[0]) + acc(outs[-1]),
         runtime_args=wr, common_runtime_args=[0, 0], config=ttnn.WriterConfigDescriptor())
     fid, approx, fp32, full = ckc
     compute = ttnn.KernelDescriptor(
@@ -867,8 +867,9 @@ def gin_ragged(x, wpT, wgT, bias, ckc, grid, S, mask=None, memory_config=None):
 # The model path takes it under the `trimul_t2` lever; T2 here only forces it on for the benches.
 T2 = False
 T2_STATS = [0, 0]       # served, declined
-# T2's compute-stage ablation (compute_ln.cpp's ABL bits: 1 LN, 2 p GEMM, 4 gate GEMM + sigmoid, 8 epilogue).
-# The reader and writer still move every byte. Diagnostic only, 0 in every model path.
+# T2's stage ablation: compute_ln.cpp's bits 1 LN, 2 p GEMM, 4 gate GEMM + sigmoid, 8 epilogue (the reader and
+# writer still move every byte); 16 the reader skips its per-block DRAM reads, 32 the writer its writes (non-moved
+# T2 only). Diagnostic only, 0 in every model path.
 T2_ABL = 0
 T2_KEYS = {(4, 4), (8, 8)}   # (kt, nt): c_z 128 and 256 (ESMFold2)
 # c_z 384 (OpenDDE) under the `trimul_t2w` lever, at T2's own block: `_MM_BLOCK`'s (8, 12, 1, 2, 1) does not
@@ -1046,12 +1047,12 @@ def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, wg=None, moved
     if moved is None:
         reader = ttnn.KernelDescriptor(
             kernel_source=str(d / "reader_ln.cpp"), source_type=src, core_ranges=core_grid,
-            compile_time_args=[kt, nt, Mb, scaler, eps_bits, int(gate)] + acc(x) + acc(wp) + acc(g)
+            compile_time_args=[kt, nt, Mb, scaler, eps_bits, int(gate), T2_ABL] + acc(x) + acc(wp) + acc(g)
             + acc(resid) + acc(ln_w) + acc(ln_b) + acc(wg if gate else wp),
             runtime_args=rd, common_runtime_args=[0] * 7, config=ttnn.ReaderConfigDescriptor())
         writer = ttnn.KernelDescriptor(
             kernel_source=str(d / "writer.cpp"), source_type=src, core_ranges=core_grid,
-            compile_time_args=[nt, Mb, 1] + acc(resid) + acc(resid),
+            compile_time_args=[nt, Mb, 1, T2_ABL] + acc(resid) + acc(resid),
             runtime_args=wr, common_runtime_args=[0, 0], config=ttnn.WriterConfigDescriptor())
     else:
         reader = ttnn.KernelDescriptor(

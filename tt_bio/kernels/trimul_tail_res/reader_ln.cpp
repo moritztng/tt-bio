@@ -19,7 +19,9 @@ void kernel_main() {
     constexpr uint32_t SCALER = get_compile_time_arg_val(3);   // packed bf16 pair
     constexpr uint32_t EPS = get_compile_time_arg_val(4);      // fp32 bits
     constexpr uint32_t GATE = get_compile_time_arg_val(5);
-    constexpr auto x_args = TensorAccessorArgs<6>();
+    // T2_ABL bit 16 (bench only): the per-block reads are skipped and the CBs pushed as they are.
+    constexpr bool NOREAD = get_compile_time_arg_val(6) & 16;
+    constexpr auto x_args = TensorAccessorArgs<7>();
     constexpr auto w_args = TensorAccessorArgs<x_args.next_compile_time_args_offset()>();
     constexpr auto g_args = TensorAccessorArgs<w_args.next_compile_time_args_offset()>();
     constexpr auto z_args = TensorAccessorArgs<g_args.next_compile_time_args_offset()>();
@@ -77,16 +79,16 @@ void kernel_main() {
         const uint32_t m = m0 + b * Mb;
         cb_reserve_back(in0_cb, Mb * Kt);
         w = get_write_ptr(in0_cb);
-        for (uint32_t t = 0; t < Mb * Kt; ++t, w += tb) noc_async_read_page(m * Kt + t, x, w);
+        for (uint32_t t = 0; t < (NOREAD ? 0 : Mb * Kt); ++t, w += tb) noc_async_read_page(m * Kt + t, x, w);
         noc_async_read_barrier();
         cb_push_back(in0_cb, Mb * Kt);
 
         cb_reserve_back(g_cb, Mb * gt);
         w = get_write_ptr(g_cb);
-        for (uint32_t t = 0; t < Mb * gt; ++t, w += tg) noc_async_read_page(m * gt + t, g, w);
+        for (uint32_t t = 0; t < (NOREAD ? 0 : Mb * gt); ++t, w += tg) noc_async_read_page(m * gt + t, g, w);
         cb_reserve_back(z_cb, Mb * Nt);
         uint32_t wz = get_write_ptr(z_cb);
-        for (uint32_t t = 0; t < Mb * Nt; ++t, wz += tb) noc_async_read_page(m * Nt + t, z, wz);
+        for (uint32_t t = 0; t < (NOREAD ? 0 : Mb * Nt); ++t, wz += tb) noc_async_read_page(m * Nt + t, z, wz);
         noc_async_read_barrier();
         cb_push_back(g_cb, Mb * gt);
         cb_push_back(z_cb, Mb * Nt);
