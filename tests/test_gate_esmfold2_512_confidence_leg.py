@@ -103,6 +103,30 @@ def test_checkpoint_sha_is_read_at_the_pinned_revision(monkeypatch, tmp_path):
     assert ident["sha256"] == "60ca19f2"
 
 
+def test_checkpoint_sha_is_the_hubs_blob_name_in_a_deduplicated_cache(monkeypatch, tmp_path):
+    """.108's cache links the repo blob on into a shared store (hub/blobs/fd/fd86c959...). The
+    bytes hash to 60ca19f2, but following every link read fd86c959 and the scorer refused the
+    fixture."""
+    import sys
+    import types
+    store = tmp_path / "hub" / "blobs" / "fd" / "fd86c959"
+    store.parent.mkdir(parents=True)
+    store.write_bytes(b"")
+    repo = tmp_path / "hub" / "models--biohub--ESMFold2-Fast"
+    (repo / "blobs").mkdir(parents=True)
+    (repo / "blobs" / "60ca19f2").symlink_to("../../blobs/fd/fd86c959")
+    snap = repo / "snapshots" / "c6c7958d"
+    snap.mkdir(parents=True)
+    (snap / "model.safetensors").symlink_to("../../blobs/60ca19f2")
+    monkeypatch.setitem(sys.modules, "huggingface_hub", types.SimpleNamespace(
+        try_to_load_from_cache=lambda repo_id, filename, revision=None:
+            str(snap / "model.safetensors")))
+    config = types.SimpleNamespace(folding_trunk=types.SimpleNamespace(n_layers=24),
+                                   msa_encoder=types.SimpleNamespace(enabled=False))
+    ident = _checkpoint_identity()("biohub/ESMFold2-Fast", config, "c6c7958d")
+    assert ident["sha256"] == "60ca19f2"
+
+
 def test_fixture_records_the_weight_sha():
     meta = json.loads((FIXTURE / "meta.json").read_text())
     assert "sha256:None" not in meta["settings"]["checkpoint"]

@@ -1144,9 +1144,11 @@ RFD3_FUSION_TIMEOUT_S = int(os.environ.get("RELEASE_GATE_RFD3_FUSION_TIMEOUT", "
 # Since RFD3_ATOM_SDPA and RFD3_DIT_SDPA ship on, no R4 attention reaches the softmax + PV pair at
 # all: both sites run fused SDPA, so region 1 censuses 0 served and 0 declined (rel-f477095f6). The
 # guard still decides every fold run with either SDPA lever off, so the arm turns both off for its
-# own folds and keeps gating the predicate where it still runs.
+# own folds and keeps gating the predicate where it still runs. RFD3_PAIR_WS (on since 14db1c230)
+# takes every rank-4 pair Transition ahead of the row-chunked path, so region 4 read 0 served and
+# 0 declined on every gate from 50bcbd42c; the arm turns it off for the same reason.
 RFD3_FUSION_ENV = {"RFD3_SOFTMAX_PV_FUSED": "1", "RFD3_FC1_SPLIT_SILU": "1",
-                   "RFD3_ATOM_SDPA": "0", "RFD3_DIT_SDPA": "0"}
+                   "RFD3_ATOM_SDPA": "0", "RFD3_DIT_SDPA": "0", "RFD3_PAIR_WS": "0"}
 RFD3_FUSION_PV_DECLINE = "softmax kernel does not engage at this shape @ key 704"
 RFD3_FUSION_PV_SERVED_KEY = "@ key 6080"
 RFD3_FUSION_FC1_DECLINE = "tensor_rows=685 w=704 hidden=512 chunk-height-would-move 64->63"
@@ -2353,6 +2355,27 @@ def _fold_log_text(log: Path) -> str:
                 f"the run and the fold's own error is unrecoverable: {log} ({e})")
 
 
+def _exception_after(lines: list[str], start: int) -> str:
+    """The exception a traceback starting at lines[start] ends in, or "".
+
+    The frames are indented; the first unindented "Name: message" after them is the
+    exception. A tt-metal TT_THROW ends that line at "tt::exception" and puts its message
+    between "info:" and "backtrace:", so that message is appended.
+    """
+    for i in range(start + 1, len(lines)):
+        ln = lines[i]
+        if not ln[:1].isspace() and ": " in ln:
+            if ln.endswith("tt::exception") and lines[i + 1:i + 2] == ["info:"]:
+                info = []
+                for nxt in lines[i + 2:]:
+                    if nxt == "backtrace:":
+                        break
+                    info.append(nxt.strip())
+                return f"{ln}: {' '.join(info)}"
+            return ln
+    return ""
+
+
 def _fold_error(text: str) -> str:
     """A failed fold's OWN error line, not whatever happened to print last.
 
@@ -2374,11 +2397,18 @@ def _fold_error(text: str) -> str:
     tb = [i for i, ln in enumerate(lines)
           if ln.startswith("Traceback (most recent call last)")]
     if tb:
-        # The frames are indented; the first unindented "Name: message" after them
-        # is the exception.
-        for ln in lines[tb[-1] + 1:]:
-            if not ln[:1].isspace() and ": " in ln:
-                return ln[:400]
+        last = _exception_after(lines, tb[-1])
+        # The dispatcher's "every local worker exited" names no cause: the worker printed
+        # its own fatal in an earlier traceback. .108 chip 5 died opening the device on
+        # 2026-10-17 ("failed to initialize FW") and the ladder leg reported only the
+        # dispatcher sentence, so gate_fanout's dirty-chip retry, which reads the leg log,
+        # never saw an init death and recorded a FAIL. The worker's fatal goes first.
+        if last and "every local worker exited" in last and len(tb) > 1:
+            first = _exception_after(lines, tb[-2])
+            if first:
+                return f"{first} / {last}"[:400]
+        if last:
+            return last[:400]
     # No explicit failure line. Prefer any line that at least mentions a fault over a
     # blind tail; origin/main solved the same problem that way and it beats the tail
     # whenever the wrapper outlives the fold.

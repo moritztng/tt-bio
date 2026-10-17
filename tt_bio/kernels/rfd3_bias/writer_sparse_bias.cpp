@@ -105,6 +105,17 @@ void kernel_main() {
     constexpr auto bias_args = TensorAccessorArgs<12>();
     constexpr auto idx_args = TensorAccessorArgs<bias_args.next_compile_time_args_offset()>();
     constexpr auto out_args = TensorAccessorArgs<idx_args.next_compile_time_args_offset()>();
+#ifdef CSS_CPT
+    // Chunk-skipping SDPA mask (sdpa_generic css): row q of the list tensor names the key chunks of
+    // CSS_CPT tiles that query chunk q (CSS_QCT tile rows) visits, and the SDPA reads no other tile.
+    // An empty tile outside those chunks is never read, so it is not written.
+    constexpr auto css_args = TensorAccessorArgs<out_args.next_compile_time_args_offset()>();
+    const auto s_css = TensorAccessor(css_args, get_common_arg_val<uint32_t>(3), CSS_W * 4);
+    volatile tt_l1_ptr uint32_t* css_l1 = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(get_write_ptr(CSS_CB));
+    constexpr uint32_t NEED_WORDS = (Jt / CSS_CPT + 31) / 32;
+    uint32_t need[NEED_WORDS];
+    uint32_t css_q = 0xFFFFFFFFu;
+#endif
 
     constexpr uint32_t TILE_H = 32;
     constexpr uint32_t IDX_ROW_WORDS = K;
@@ -158,7 +169,26 @@ void kernel_main() {
             noc_async_read(s_bias.get_noc_addr(bias_page0 + kt),
                            bias_base + kt * BIAS_TILE_BYTES, BIAS_TILE_BYTES);
         }
+#ifdef CSS_CPT
+        const uint32_t q = b * ((It + CSS_QCT - 1) / CSS_QCT) + it / CSS_QCT;
+        const bool css_fresh = q != css_q;
+        if (css_fresh) {
+            noc_async_read(s_css.get_noc_addr(q), reinterpret_cast<uint32_t>(css_l1), CSS_W * 4);
+        }
+#endif
         noc_async_read_barrier();
+#ifdef CSS_CPT
+        if (css_fresh) {
+            css_q = q;
+            for (uint32_t w = 0; w < NEED_WORDS; ++w) {
+                need[w] = 0;
+            }
+            for (uint32_t i = 0; i < css_l1[0]; ++i) {
+                const uint32_t c = css_l1[1 + i];
+                need[c >> 5] |= 1u << (c & 31);
+            }
+        }
+#endif
 
         for (uint32_t r = 0; r < rows; ++r) {
             cur[r] = 0;
@@ -196,6 +226,13 @@ void kernel_main() {
         uint32_t out_page = group * Jt;
         for (uint32_t jt = 0; jt < Jt; ++jt) {
             if (MASKW_DIAG == 1 || MASKW_DIAG == 3 || !(occ[jt >> 5] & (1u << (jt & 31)))) {
+#ifdef CSS_CPT
+                const uint32_t kc = jt / CSS_CPT;
+                if (!(need[kc >> 5] & (1u << (kc & 31)))) {
+                    ++out_page;
+                    continue;
+                }
+#endif
                 out_write(out_base + OUT_SLOTS * OUT_TILE_BYTES, s_out, out_page, OUT_TILE_BYTES);
                 ++out_page;
                 continue;

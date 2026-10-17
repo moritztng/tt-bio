@@ -8,7 +8,8 @@ design of STEPS steps. Every ttnn.to_torch drains the queue, so from its return 
 the card has nothing to run: that window is device idle by construction, a lower bound on the step's idle time
 (the rest is the host enqueueing slower than the card executes, which Tracy's busy share measures). Each window is
 keyed by the read that opened it and the first op that closed it (file:line in tt_bio), summed per step. Also times
-every host-only call the trace plan names (atom and DiT neighbour index, distogram bins, scatter_mean).
+every host-only call the trace plan names (atom and DiT neighbour index, distogram bins, scatter_mean) and the
+step's waits on the worker-thread index (Future.result).
 """
 import collections
 import json
@@ -19,13 +20,8 @@ import sys
 import time
 import traceback
 
-ENV_KNOBS = {"gsm": "RFD3_GATHERED_SOFTMAX", "bs": "RFD3_BLOCK_SPARSE", "pzc": "RFD3_PROCESS_Z_COLLAPSE",
-             "fgrid": "RFD3_FAST_GRID", "asdpa": "RFD3_ATOM_SDPA", "tb8": "RFD3_TRANSITION_B8",
-             "dsdpa": "RFD3_DIT_SDPA", "hifi2": "RFD3_HIFI2", "sf": "RFD3_SIGMOID_FOLD", "rs": "RFD3_RESIDENT_STEP",
-             "pws": "RFD3_PAIR_WS", "kd": "RFD3_ATTN_KDTREE", "pwb8": "RFD3_PAIR_WS_B8", "at": "RFD3_ATTN_THREAD"}
-_arm = set(sys.argv[1].split("+"))
-for _k, _env in ENV_KNOBS.items():
-    os.environ[_env] = "1" if _k in _arm else "0"
+from gap_knobs import apply                                               # noqa: E402
+_arm = apply(sys.argv[1])
 
 sys.path.insert(0, os.getcwd())
 import ttnn                                                               # noqa: E402
@@ -117,6 +113,9 @@ for _n in ("_create_attention_indices", "_neighbours_kdtree", "_scaled_distogram
            "_dense_attention_mask"):
     if hasattr(M, _n):
         timed(M, _n)
+
+import concurrent.futures as _cf                                          # noqa: E402
+timed(_cf.Future, "result")   # the step waiting on the worker-thread index (RFD3_ATTN_THREAD): host-bound if large
 
 WALL = []
 _sample = RFD3Sampler.sample

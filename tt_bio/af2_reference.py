@@ -167,11 +167,13 @@ class LayerNorm(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         dtype = x.dtype
         y = _wide(x)
+        if not self.fast_variance:
+            # One fused pass. The host structure module normalises the [N, N, 128] pair with this, and
+            # five elementwise passes cost 20-60 ms a call on a 2-thread Galaxy share at N=195.
+            return F.layer_norm(y, y.shape[-1:], self.weight.to(y.dtype), self.bias.to(y.dtype),
+                                self.eps).to(dtype)
         mean = y.mean(-1, keepdim=True)
-        if self.fast_variance:
-            var = (y * y).mean(-1, keepdim=True) - mean * mean
-        else:
-            var = (y - mean).square().mean(-1, keepdim=True)
+        var = (y * y).mean(-1, keepdim=True) - mean * mean
         out = ((y - mean) * torch.rsqrt(var + self.eps) * self.weight.to(y.dtype)
                + self.bias.to(y.dtype))
         return out.to(dtype)
@@ -849,18 +851,26 @@ class QuatAffine:
         translation = self.translation + self.rotate(trans_update.unsqueeze(-2))[..., 0, :]
         return QuatAffine(quaternion, translation)
 
-    # A broadcast multiply-sum rather than an einsum: the einsum lowers to a bmm batched over
+    # Three column multiply-adds rather than an einsum: the einsum lowers to a bmm batched over
     # residues with a 3x3 matrix each, and CPU bmm walks that batch one select/clone at a time
-    # (14k tiny ops and ~15 ms of a ~95 ms structure module at 195 residues, 2 threads).
+    # (14k tiny ops and ~15 ms of a ~95 ms structure module at 195 residues, 2 threads). The
+    # broadcast multiply-sum it replaced built a [..., point, 3, 3] temporary and ran 4-5x slower;
+    # this sums in the same order, so the result is bit-identical.
     def rotate(self, points: torch.Tensor) -> torch.Tensor:
-        return (self.rotation.unsqueeze(-3) * points.unsqueeze(-2)).sum(-1)
+        return _rotate(self.rotation, points)
 
     def apply_to_point(self, points: torch.Tensor) -> torch.Tensor:
         return self.rotate(points) + self.translation.unsqueeze(-2)
 
     def invert_point(self, points: torch.Tensor) -> torch.Tensor:
-        centred = points - self.translation.unsqueeze(-2)
-        return (self.rotation.transpose(-1, -2).unsqueeze(-3) * centred.unsqueeze(-2)).sum(-1)
+        return _rotate(self.rotation.transpose(-1, -2), points - self.translation.unsqueeze(-2))
+
+
+def _rotate(rotation: torch.Tensor, points: torch.Tensor) -> torch.Tensor:
+    """`rotation [..., 3, 3]` applied to `points [..., num_point, 3]`."""
+    rotation = rotation.unsqueeze(-3)
+    return (points[..., 0:1] * rotation[..., 0] + points[..., 1:2] * rotation[..., 1]
+            + points[..., 2:3] * rotation[..., 2])
 
 
 def _compose(rot_a: torch.Tensor, trans_a: torch.Tensor,
@@ -897,13 +907,14 @@ class InvariantPointAttention(nn.Module):
         """`split(3, axis=-1)` then stack: x-block, y-block, z-block, not interleaved."""
         return torch.stack(flat.chunk(3, dim=-1), dim=-1)
 
-    def pair_logits(self, act_2d: torch.Tensor) -> torch.Tensor:
-        """The pair term of the logits. It reads only `act_2d`, which every layer shares, so
-        `StructureModule` computes it once per pass and hands it to all eight layers."""
-        return (1.0 / 3) ** 0.5 * self.attention_2d(act_2d).permute(2, 0, 1)
+    def logit_bias(self, act_2d: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+        """The pair term of the logits plus the mask. It reads only `act_2d` and `mask`, which
+        every layer shares, so `StructureModule` computes it once per pass for all eight layers."""
+        pair = (1.0 / 3) ** 0.5 * self.attention_2d(act_2d).permute(2, 0, 1)
+        return pair - 1e5 * (1.0 - mask * mask.transpose(-1, -2))
 
     def forward(self, act: torch.Tensor, act_2d: torch.Tensor, mask: torch.Tensor,
-                affine: QuatAffine, pair_logits: torch.Tensor | None = None) -> torch.Tensor:
+                affine: QuatAffine, logit_bias: torch.Tensor | None = None) -> torch.Tensor:
         num_res = act.shape[0]
         h, sqk, sv = self.num_head, self.num_scalar_qk, self.num_scalar_v
         pqk, pv = self.num_point_qk, self.num_point_v
@@ -926,15 +937,19 @@ class InvariantPointAttention(nn.Module):
         # matmul instead of a [head, query, key, point, xyz] temporary, 23x faster on a CPU at 195
         # residues. A per-head common translation (distances do not see it) keeps the expansion's
         # cancellation at the direct form's float32 error against float64.
+        # Both terms then share one matmul over [scalar, point, |q|^2, 1] . [scalar, point, 1, |k|^2]
+        # added onto the bias in place, rather than six passes over [head, query, key].
         centre = torch.cat([q_point, k_point], dim=1).mean(dim=(1, 2), keepdim=True)
         qf, kf = (q_point - centre).flatten(2), (k_point - centre).flatten(2)
-        dist2 = (qf.square().sum(-1)[:, :, None] + kf.square().sum(-1)[:, None]
-                 - 2 * qf @ kf.transpose(1, 2))
-        logits = torch.einsum("hqc,hkc->hqk", scalar_weights * q_scalar, k_scalar)
-        logits = logits - 0.5 * point_weights[:, None, None] * dist2
-        logits = logits + (self.pair_logits(act_2d) if pair_logits is None else pair_logits)
-        logits = logits - 1e5 * (1.0 - mask * mask.transpose(-1, -2))
-        attn = torch.softmax(logits, dim=-1)
+        w = point_weights[:, None, None]
+        q_aug = torch.cat([scalar_weights * q_scalar, w * qf,
+                           -0.5 * w * qf.square().sum(-1, keepdim=True),
+                           (-0.5 * w).expand(-1, num_res, 1)], dim=-1)
+        k_aug = torch.cat([k_scalar, kf, torch.ones_like(kf[..., :1]),
+                           kf.square().sum(-1, keepdim=True)], dim=-1)
+        if logit_bias is None:
+            logit_bias = self.logit_bias(act_2d, mask)
+        attn = torch.softmax(torch.baddbmm(logit_bias, q_aug, k_aug.transpose(1, 2)), dim=-1)
 
         scalar_out = torch.einsum("hqk,hkc->qhc", attn, v_scalar).reshape(num_res, h * sv)
         point_global = torch.einsum("hqk,hkpc->qhpc", attn, v_point)
@@ -1008,19 +1023,20 @@ class MultiRigidSidechain(nn.Module):
         self.angles = Linear(c_hidden, 14)
 
     def forward(self, affine: QuatAffine, representations: list[torch.Tensor],
-                aatype: torch.Tensor) -> dict[str, torch.Tensor]:
+                aatype: torch.Tensor, positions: bool = True) -> dict[str, torch.Tensor]:
+        """`positions=False` skips the frames and atom14 positions, which only the last layer's
+        output reads; the angles are the per-layer output."""
         act = sum(projection(F.relu(x))
                   for projection, x in zip(self.input_projection, representations))
         for first, second in self.resblock:
             act = act + second(F.relu(first(F.relu(act))))
         unnormalized = self.angles(F.relu(act)).view(-1, 7, 2)
         angles = unnormalized / unnormalized.square().sum(-1, keepdim=True).clamp(min=1e-12).sqrt()
-        rot, trans = torsion_angles_to_frames(aatype, affine.rotation, affine.translation, angles)
-        return {
-            "angles_sin_cos": angles,
-            "unnormalized_angles_sin_cos": unnormalized,
-            "atom_pos": frames_to_atom14_positions(aatype, rot, trans),
-        }
+        out = {"angles_sin_cos": angles, "unnormalized_angles_sin_cos": unnormalized}
+        if positions:
+            rot, trans = torsion_angles_to_frames(aatype, affine.rotation, affine.translation, angles)
+            out["atom_pos"] = frames_to_atom14_positions(aatype, rot, trans)
+        return out
 
 
 class AF2StructureModule(nn.Module):
@@ -1055,11 +1071,11 @@ class AF2StructureModule(nn.Module):
         aatype = feats["aatype"].long()
         affine = QuatAffine.identity(act.shape[0], dtype=act.dtype)
 
-        pair_logits = self.ipa.pair_logits(act_2d)
+        logit_bias = self.ipa.logit_bias(act_2d, mask)
 
         affines, sidechains = [], []
-        for _ in range(self.num_layer):
-            act = act + self.ipa(act, act_2d, mask, affine, pair_logits)
+        for step in range(self.num_layer):
+            act = act + self.ipa(act, act_2d, mask, affine, logit_bias)
             act = self.attention_norm(act)
             residual = act
             for i, layer in enumerate(self.transition):
@@ -1069,7 +1085,8 @@ class AF2StructureModule(nn.Module):
             act = self.transition_norm(act + residual)
             affine = affine.pre_compose(self.affine_update(act))
             sidechains.append(self.sidechain(affine.scale_translation(self.position_scale),
-                                             [act, initial_act], aatype))
+                                             [act, initial_act], aatype,
+                                             positions=step == self.num_layer - 1))
             affines.append(affine.to_tensor())
 
         scale = torch.tensor([1.0] * 4 + [self.position_scale] * 3, dtype=act.dtype)

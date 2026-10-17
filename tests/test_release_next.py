@@ -407,3 +407,32 @@ def test_a_gate_from_before_the_release_merged_back_still_ships(tmp_path):
     (_plan(gates, "gb", b, tmp_path) / "verdict.json").write_text(json.dumps({"pass": True}))
     d = rn.decide(tmp_path, gates, "main")
     assert d["do"] == "CUT" and d["sha"] == b
+
+
+def test_a_newer_gate_carries_an_older_gates_fixes_that_never_reached_main(tmp_path):
+    git = _repo(tmp_path)
+    (tmp_path / "harness.py").write_text("drop = 1\n")
+    (tmp_path / "a.py").write_text("x = 2\n")
+    git("add", "."), git("commit", "-qm", "staging1")
+    x = git("rev-parse", "HEAD")
+    git("checkout", "-qb", "fix")
+    (tmp_path / "harness.py").write_text("drop = 0\n")
+    git("commit", "-qam", "retry a dropped connection")
+    fix = git("rev-parse", "HEAD")
+    (tmp_path / "a.py").write_text("x = 9\n")
+    git("commit", "-qam", "a fix superseded on main")
+    stale = git("rev-parse", "HEAD")
+    git("checkout", "-q", "main")
+    (tmp_path / "a.py").write_text("x = 3\n")
+    git("commit", "-qam", "staging2")
+    y = git("rev-parse", "HEAD")
+    gates = tmp_path / "gates"
+    gx = _plan(gates, "gx", x, tmp_path)
+    (gx / "verdict.json").write_text(json.dumps({"pass": False, "results": []}))
+    (gx / "FIXES").write_text(f"{fix}\n{stale}\n")
+    gy = _plan(gates, "gy", y, tmp_path)                    # main's head was gated without the fix
+    os.utime(gx / "plan.json", (1, 1))
+    (gy / "verdict.json").write_text(json.dumps({"pass": False, "results": []}))
+    d = rn.decide(tmp_path, gates, "main")
+    assert d["do"] == "GATE" and d["fixes"] == {"base": y, "gate": str(gy), "commits": [fix]}
+    assert git("show", f"{d['sha']}:harness.py") == "drop = 0" and git("show", f"{d['sha']}:a.py") == "x = 3"

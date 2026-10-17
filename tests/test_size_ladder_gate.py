@@ -1650,3 +1650,39 @@ def test_a_rung_recorded_slower_than_the_flat_timeout_gets_its_own_budget(rg, mo
     rg._size_ladder_check_model("boltz2", RUNGS, base, pathlib.Path("/tmp"))
     assert rg.SIZE_LADDER_FOLD_TIMEOUTS[("boltz2", 768)] == 3000
     assert rg.SIZE_LADDER_FOLD_TIMEOUTS[("boltz2", 256)] == rg.FOLD_TIMEOUT_S
+
+
+def test_a_worker_device_death_names_the_fatal_not_the_dispatcher(rg_fresh):
+    """.108 chip 5, 2026-10-17: the worker's TT_THROW is an earlier traceback than the
+    dispatcher's summary. The error has to carry the init failure so gate_fanout's
+    dirty-chip retry (INIT_FAILED) recognises the leg."""
+    text = (
+        "tt-bio worker UF-EV-A4-GWH02:tt5: device open failed\n"
+        "Traceback (most recent call last):\n"
+        '  File "x.py", line 1, in open\n'
+        "RuntimeError: TT_THROW @ /project/tt_metal/impl/device/firmware/"
+        "risc_firmware_initializer.cpp:1115: tt::exception\n"
+        "info:\n"
+        "Device 0 init: failed to initialize FW! Try resetting the board.\n"
+        "backtrace:\n"
+        " --- void tt::assert::detail::tt_throw()\n"
+        "Traceback (most recent call last):\n"
+        '  File "main.py", line 2, in run\n'
+        "RuntimeError: every local worker exited before the run finished "
+        "(SpawnProcess-1 exit 1); no job can be served.\n")
+    err = rg_fresh._fold_error(text)
+    assert err.startswith("RuntimeError: TT_THROW")
+    assert "failed to initialize FW" in err
+    assert "every local worker exited" in err
+    import importlib.util, pathlib, sys
+    spec = importlib.util.spec_from_file_location(
+        "gate_fanout_for_ladder_test", pathlib.Path(__file__).parents[1] / "scripts" / "gate_fanout.py")
+    gf = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = gf
+    spec.loader.exec_module(gf)
+    assert gf.INIT_FAILED.search(err)
+
+
+def test_a_single_traceback_still_reports_its_own_exception(rg_fresh):
+    text = "Traceback (most recent call last):\n  File \"a\", line 1\nValueError: bad shape\n"
+    assert rg_fresh._fold_error(text) == "ValueError: bad shape"

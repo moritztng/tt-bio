@@ -157,9 +157,12 @@ LOAD_REFUSAL = "refusing to run the gate. host load:"
 LOAD_GUARDED = ("scripts/release_gate.py", "scripts/full_parity_gate.py")
 LOAD_RETRY_S, LOAD_WAIT_MAX_S = 300, 8 * 3600
 #: ssh's own words when the connection, not the leg, failed (exit 255). qb1 dropped off the LAN for
-#: minutes on 2026-10-09 and five BH legs were recorded FAIL without running.
+#: minutes on 2026-10-09 and five BH legs were recorded FAIL without running. A Galaxy reached
+#: through the japanfold-ssh jump host reports a dropped hop as "Connection closed by UNKNOWN port
+#: 65535": rel-412d01dfe (10-17 08:4xZ) recorded five WH legs FAIL in 7-12 s that way.
 SSH_LOST = re.compile(r"^(ssh: connect to host .*|Timeout, server .* not responding\.|"
                       r"client_loop: send disconnect: .*|Connection to .* closed by remote host\.|"
+                      r"Connection closed by \S+ port \d+|"
                       r"kex_exchange_identification: .*|ssh_dispatch_run_fatal: Connection to .*)$", re.M)
 SSH_LOST_RETRY_S, SSH_LOST_TRIES = 120, 30
 #: A full disk on the leg's host. Another job filled qb1's root on 2026-10-10 and 116 BH legs were
@@ -176,6 +179,13 @@ CONTENDED_RETRY_S, CONTENDED_TRIES = 300, 3
 #: resets, every chip before it hands it out: g108 chip 0 did this on ladder:boltz2 on 2026-10-10 and
 #: probed OK minutes later. Run such a pool leg once more; a second stop is the leg's result.
 CARD_STUCK = re.compile(r"a fold timed out and its card could not be reset")
+#: A pool leg that died opening its chip measured nothing about the tree. .108's pool hands out chips
+#: an earlier job left dirty and resets them after the job that finds out: gate 412d01dfe recorded six
+#: WH legs FAIL on 2026-10-17 09:00-09:30Z this way (chips 3, 9, 10, 13, 19), each the first job on its
+#: chip, each chip "probe: OK after reset" a minute later. Run such a leg again, a bounded number of times.
+INIT_FAILED = re.compile(r"failed to initialize FW|ARC core .* failed to start|"
+                         r"Failed to set initial power state|Read unexpected run_mailbox value")
+INIT_FAILED_TRIES = 2
 #: A pool job notes the host's boot id when it starts. g114 rebooted under five legs of two gates on
 #: 2026-10-11 19:30Z; they never wrote an exit code and their runners waited for one for over an
 #: hour. A different boot id and no exit code means the leg died with the host: run it once more.
@@ -1637,7 +1647,7 @@ def make_executor(sha: str, out: Path, ledger: Ledger, keys: dict, remote_out: s
         rdir = f"{host.root}/{remote_out}/{host.arch}/{tag}"
         t0 = time.time()
         run = run_in_pool if card == POOL else run_over_ssh
-        lost = full = stuck = contended = rebooted = given_back = 0
+        lost = full = stuck = contended = rebooted = given_back = init_failed = 0
         while True:
             with open(log, "w") as f:
                 f.write(f"# {leg.name} on {host.name}:{card} ({host.cfg['card_type']}) tree {sha}\n")
@@ -1666,6 +1676,9 @@ def make_executor(sha: str, out: Path, ledger: Ledger, keys: dict, remote_out: s
                 continue
             if rc and card == POOL and GIVEN_BACK in text and given_back < GIVEN_BACK_TRIES:
                 given_back += 1
+                continue
+            if rc and card == POOL and INIT_FAILED.search(text) and init_failed < INIT_FAILED_TRIES:
+                init_failed += 1
                 continue
             if rc and card == POOL and CARD_STUCK.search(text) and not stuck:
                 stuck += 1

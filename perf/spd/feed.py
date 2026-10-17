@@ -63,7 +63,9 @@ STEAL_S = 900   # a BH job still waiting this long moves to a free card on anoth
 # BH boxes: SPD cards and their flocks (state/spd/CHIPS.md). A chip kept off the feed has ~/spd/locks/chip<N>.BAD on its
 # host (qb2 chip 0 since the 2026-10-14 slot swap: marginal at 1350 MHz, and feed trees predate the AICLK cap).
 # `reset` resets a card after a capped job (see run_cmd). qb1 only: each p150a is its own board, while a qb2 p300c
-# board carries two chips and a reset there would kill the other chip's job.
+# board carries two chips and a reset there would kill the other chip's job. A box with state/<name>-offline is no
+# pool: its pins clear for cells of an experiment that has nothing done there, the rest wait for it (one experiment, one box), and so does an
+# experiment with `pinned: true`, which measures the box it names (spd_backfill's per-box ladders and seeds).
 BH_POOLS = {
     "qb1": {"ssh": "qb1", "cards": [0, 1, 2, 3], "lock": "/home/ttuser/spd_qb1_card{c}.lock",
             "reset": "/home/ttuser/.local/bin/tt-smi -r"},
@@ -438,7 +440,7 @@ def cells(grid_dir, log=print):
                 h = hashlib.sha1(body.encode()).hexdigest()[:6]
                 cid = re.sub(r"[^A-Za-z0-9_.]+", "_", "-".join(map(str, vals))) or "x"
                 key = f"{row}/{e['name']}/{cid}"
-                out.append({"key": key, "row": row, "hash": h, "arch": e.get("arch", "wh"),
+                out.append({"key": key, "row": row, "hash": h, "arch": e.get("arch", "wh"), "pinned": bool(e.get("pinned")),
                             "hosts": [str(x) for x in e.get("hosts", [])], "cap": int(e.get("cap", 7200)),
                             "name": f"{prio}-{row}-f-{e['name']}-{cid}-{h}.sh", "body": body,
                             "done": [render(p, ctx) for p in e["done"]],
@@ -459,11 +461,17 @@ def donors(root):
 
 def pools(root):
     a = json.loads((root / "state/glx/ALLOC.json").read_text())["galaxies"]
-    p = {ip: {"ssh": f"ubuntu@172.16.102.{ip}", "kind": "galaxy", "arch": "wh"}
+    p = {ip: {"name": ip, "ssh": f"ubuntu@172.16.102.{ip}", "kind": "galaxy", "arch": "wh"}
          for ip, g in a.items() if g.get("owner") == "spd" and g.get("phase") == "lent"}
     for name, b in BH_POOLS.items():
-        p[name] = dict(b, kind="bh", arch="bh")
+        if not (root / f"state/{name}-offline").exists():
+            p[name] = dict(b, name=name, kind="bh", arch="bh")
     return p
+
+
+def runs(p, c):
+    """Pool `p` can take cell `c`: its arch and its pins."""
+    return p["arch"] == c["arch"] and (not c["hosts"] or p["name"] in c["hosts"])
 
 
 SHA_DIR = re.compile(r"(?:tree-|t)?([0-9a-f]{7,40})")
@@ -529,7 +537,7 @@ def steal(cs, ledger, st, P, stamp, dry, log):
             cand = [(j["age"], n, name) for n in st if P[n]["kind"] == "bh"
                     if n != b for name, j in st[n]["jobs"].items()
                     if j["state"] == "queued" and j.get("age", 0) >= STEAL_S and name in by
-                    and (not by[name]["hosts"] or b in by[name]["hosts"])
+                    and runs(P[b], by[name])
                     and all(st[b]["exists"].get(x) for x in by[name]["requires"])]
             if not cand:
                 break
@@ -568,8 +576,12 @@ def main(argv=None):
 
     cs = cells(R / "state/spd/grids", log)
     P = pools(R)
-    for c in cs:  # Galaxies rotate: a pin to one SPD no longer holds lets the cell run on any held pool of its arch
-        if c["hosts"] and not set(c["hosts"]) & set(P):
+    # Galaxies rotate: a pin to one SPD no longer holds lets the cell run on any held pool of its arch. A dark BH box
+    # keeps its results: an experiment with a cell done there waits for it, so its A/B arms stay on one box.
+    dark = {n for n in BH_POOLS if n not in P}
+    held = {k.rsplit("/", 1)[0] for k, L in ledger.items() if L.get("state") == "done" and L.get("host") in dark}
+    for c in cs:
+        if c["hosts"] and not set(c["hosts"]) & set(P) and not c["pinned"] and c["key"].rsplit("/", 1)[0] not in held:
             c["hosts"] = []
     roots = {p: tree_root(p, a.repo) for c in cs for p in c["requires"]}
     paths = sorted({p for c in cs for p in c["done"] + c["requires"]} | {r[0] for r in roots.values() if r})
@@ -585,7 +597,8 @@ def main(argv=None):
     for c in cs:
         L = ledger.get(c["key"])
         hosts = [n for n in st if P[n]["arch"] == c["arch"]]
-        c["is_done"] = any(all(st[n]["exists"].get(x) for x in c["done"]) for n in hosts)
+        c["is_done"] = (any(all(st[n]["exists"].get(x) for x in c["done"]) for n in hosts)
+                        or bool(L) and L.get("state") == "done" and L.get("host") in dark and L.get("hash") == c["hash"])
         if not L:
             continue
         if L.get("hash") != c["hash"]:          # the row changed the cell: fresh start
@@ -614,10 +627,14 @@ def main(argv=None):
                     wake(R, c["row"], f"{c['key']} quarantined", log)
         elif L.get("state") in ("queued", "running") and L.get("host") in st:
             L["state"] = "lost"                  # vanished from queue/running without an end: place again
-        elif L.get("state") in ("queued", "running") and (L.get("host") not in P or (R / f"state/{L['host']}-offline").exists()):
+        elif L.get("state") in ("queued", "running") and L.get("host") not in P:
             L["state"] = "lost"                  # its box went dark or back to JapanFold: 10-14 qb2 held 11 cells 1.5 h
-    # a box back from dark still queues the cells placed elsewhere meanwhile: withdraw those twins before they run
-    owner = {L["name"]: L["host"] for L in ledger.values() if L.get("name")}
+    keys = {c["key"] for c in cs}           # a cell its row dropped from the grid while its box was dark: nobody's now
+    for k, L in ledger.items():
+        if k not in keys and L.get("state") in ("queued", "running") and L.get("host") not in P:
+            L["state"] = "lost"
+    # a box back from dark still queues the cells placed elsewhere or dropped meanwhile: withdraw those before they run
+    owner = {L["name"]: L["host"] if L.get("state") in ("queued", "running") else None for L in ledger.values() if L.get("name")}
     for n, s in st.items():
         twins = [m for m, j in s.get("jobs", {}).items() if j["state"] == "queued" and owner.get(m, n) != n]
         if twins and not a.dry_run:
@@ -659,8 +676,7 @@ def main(argv=None):
         if c["is_done"] or L.get("quarantined") or L.get("state") in ("queued", "running") or live & set(c["also"]):
             continue
         p = int(c["name"][0])
-        ok = [n for n in st if P[n]["arch"] == c["arch"] and room(n, p) > 0 and (not c["hosts"] or n in c["hosts"])
-              and all(st[n]["exists"].get(x) for x in c["requires"])]
+        ok = [n for n in st if runs(P[n], c) and room(n, p) > 0 and all(st[n]["exists"].get(x) for x in c["requires"])]
         if not ok:
             continue
         n = max(ok, key=lambda n: room(n, p))
@@ -677,7 +693,7 @@ def main(argv=None):
         if c["is_done"] or L.get("quarantined") or L.get("state") in ("queued", "running"):
             continue
         for n in st:
-            if P[n]["arch"] == c["arch"] and (not c["hosts"] or n in c["hosts"]):
+            if runs(P[n], c):
                 for x in c["requires"]:
                     r = roots[x]
                     if st[n]["exists"].get(x):
@@ -708,7 +724,6 @@ def main(argv=None):
         log(f"dry run: cells {len(cs)}, done {sum(c['is_done'] for c in cs)}, twin queued/running {sum(bool(live & set(c['also'])) for c in cs)}")
         return 0
     ledger_f.write_text(json.dumps(ledger, indent=1))
-    keys = {c["key"] for c in cs}           # a cell its row dropped from the grid is no longer anyone's to fix
     q = [(k, L) for k, L in ledger.items() if L.get("quarantined") and k in keys]
     lines = ["# SPD quarantine (perf/spd/feed.py; a cell returns once its row changes the grid entry)", "",
              f"Updated {stamp}. {len(q)} cell(s).", ""]

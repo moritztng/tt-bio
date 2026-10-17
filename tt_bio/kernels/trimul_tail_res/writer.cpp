@@ -12,7 +12,9 @@ void kernel_main() {
     constexpr uint32_t Mb = get_compile_time_arg_val(1);
     constexpr uint32_t SPLIT = get_compile_time_arg_val(2);
     constexpr uint32_t Ns = Nt / SPLIT;
-    constexpr auto o0_args = TensorAccessorArgs<3>();
+    // T2_ABL bit 32 (bench only): blocks are popped without writing them.
+    constexpr bool NOWRITE = get_compile_time_arg_val(3) & 32;
+    constexpr auto o0_args = TensorAccessorArgs<4>();
     constexpr auto o1_args = TensorAccessorArgs<o0_args.next_compile_time_args_offset()>();
     const auto o0 = TensorAccessor(o0_args, get_common_arg_val<uint32_t>(0));
     const auto o1 = TensorAccessor(o1_args, get_common_arg_val<uint32_t>(1));
@@ -27,6 +29,7 @@ void kernel_main() {
         uint32_t r = get_read_ptr(out_cb);
         for (uint32_t i = 0; i < Mb; ++i) {
             const uint32_t row = (m + i) * Ns;
+            if constexpr (NOWRITE) continue;
             for (uint32_t c = 0; c < Ns; ++c, r += tb) noc_async_write_page(row + c, o0, r);
             if constexpr (SPLIT == 2) {
                 for (uint32_t c = 0; c < Ns; ++c, r += tb) noc_async_write_page(row + c, o1, r);

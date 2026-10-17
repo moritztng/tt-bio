@@ -42,7 +42,7 @@ from .envflags import env_flag
 KERNEL_DIR = Path(__file__).resolve().parent / "kernels" / "rfd3_bias"
 
 TILE_H = TILE_W = 32
-IDX_CB, BIAS_CB, OUT_CB = 0, 1, 2
+IDX_CB, BIAS_CB, OUT_CB, CSS_CB = 0, 1, 2, 3
 # The second data-movement RISC's CBs sit CB_STRIDE above the first's.
 CB_STRIDE = 4
 # Output tiles in flight per core. Must be a power of two (the kernel masks with it). This is
@@ -89,7 +89,7 @@ def _cache_key(bias, idx, out, device, ct_args):
     )
 
 
-def _build(bias, idx, out, device, ct_head, acc_args):
+def _build(bias, idx, out, device, ct_head, acc_args, css=None):
     B, H, L, K = (int(bias.shape[0]), int(bias.shape[1]), int(bias.shape[2]),
                   int(bias.shape[3]))
     N = int(out.shape[3])
@@ -124,6 +124,12 @@ def _build(bias, idx, out, device, ct_head, acc_args):
         ]
 
     cbs = cb_set(0) + cb_set(CB_STRIDE)
+    defines = [("MASKW_DIAG", str(DIAG))] if DIAG else []
+    if css is not None:
+        css_w, chunk = css
+        cbs += [cb(base + CSS_CB, ttnn.uint32, css_w * 4, 1) for base in (0, CB_STRIDE)]
+        defines += [("CSS_W", str(css_w)), ("CSS_CPT", str(chunk // TILE_W)),
+                    ("CSS_QCT", str(chunk // TILE_H))]
 
     # Both data-movement RISCs run the same kernel over DISJOINT bands. The op is not DRAM
     # bound -- at 4 slots one RISC reaches 91 GB/s of a measured 385 GB/s roof and adding
@@ -146,11 +152,12 @@ def _build(bias, idx, out, device, ct_head, acc_args):
             kernel_source=str(KERNEL_DIR / "writer_sparse_bias.cpp"),
             source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
             core_ranges=core_grid, compile_time_args=list(head) + tail, runtime_args=rt,
-            common_runtime_args=[0, 0, 0], config=cfg, defines=[("MASKW_DIAG", str(DIAG))] if DIAG else [],
+            common_runtime_args=[0] * (3 if css is None else 4), config=cfg,
+            defines=defines + ([] if css is None else [("CSS_CB", str(base + CSS_CB))]),
         )
-        for head, rt, cfg in (
-            (ct_head, rt_a, ttnn.WriterConfigDescriptor()),
-            ([c + CB_STRIDE for c in ct_head], rt_b, ttnn.ReaderConfigDescriptor()),
+        for base, head, rt, cfg in (
+            (0, ct_head, rt_a, ttnn.WriterConfigDescriptor()),
+            (CB_STRIDE, [c + CB_STRIDE for c in ct_head], rt_b, ttnn.ReaderConfigDescriptor()),
         )
     ]
     pd = ttnn.ProgramDescriptor(kernels=kernels, semaphores=[], cbs=cbs)
@@ -162,17 +169,21 @@ def _build(bias, idx, out, device, ct_head, acc_args):
         ADDR_WRITE_MODE = (
             "in_place" if list(pd.kernels[0].common_runtime_args) == probe else "rebuild_pd"
         )
-        pd.kernels[0].common_runtime_args = [0, 0, 0]
+        pd.kernels[0].common_runtime_args = [0] * (3 if css is None else 4)
     return {"pd": pd, "kernels": kernels, "cbs": cbs}
 
 
-def sparse_bias_fp32(pair_bias, idx_rm, out=None, memory_config=None, device=None):
+def sparse_bias_fp32(pair_bias, idx_rm, out=None, memory_config=None, device=None, css=None):
     """``typecast(scatter(full(-1e4), 3, idx, pair_bias), fp32)`` in one pass.
 
     ``pair_bias`` is ``[1, H, L, K]`` bf16 TILE, ``idx_rm`` is ``[1, 1, L, K]`` uint32
     ROW_MAJOR (the index is the same for every head, so only one copy is uploaded and the
     shipped path's 4-way ``ttnn.concat`` goes away with it), and the output is
     ``[1, H, L, align_tile(L)]`` fp32 TILE.
+
+    ``css`` is ``(lists, chunk)``, the chunk lists of ``sdpa_generic.css_lists`` on device and their
+    chunk width: empty tiles outside the listed chunks are then left unwritten, since the
+    chunk-skipping SDPA never reads them.
 
     ``idx_rm`` must be sorted ascending along the last axis, which
     ``_create_attention_indices`` guarantees -- it ends in ``torch.sort``. The kernel walks
@@ -195,12 +206,19 @@ def sparse_bias_fp32(pair_bias, idx_rm, out=None, memory_config=None, device=Non
         + list(ttnn.TensorAccessorArgs(idx_rm).get_compile_time_args())
         + list(ttnn.TensorAccessorArgs(out).get_compile_time_args())
     )
-    key = _cache_key(pair_bias, idx_rm, out, device, tuple(ct_head) + tuple(acc_args) + (DIAG,))
+    css_shape = None
+    if css is not None:
+        acc_args += list(ttnn.TensorAccessorArgs(css[0]).get_compile_time_args())
+        css_shape = (int(css[0].padded_shape[-1]), int(css[1]))
+    key = _cache_key(pair_bias, idx_rm, out, device,
+                     tuple(ct_head) + tuple(acc_args) + (DIAG, css_shape))
     entry = _CACHE.get(key)
     if entry is None:
-        entry = _CACHE[key] = _build(pair_bias, idx_rm, out, device, ct_head, acc_args)
+        entry = _CACHE[key] = _build(pair_bias, idx_rm, out, device, ct_head, acc_args, css_shape)
 
     addrs = [pair_bias.buffer_address(), idx_rm.buffer_address(), out.buffer_address()]
+    if css is not None:
+        addrs.append(css[0].buffer_address())
     if ADDR_WRITE_MODE == "in_place":
         pd = entry["pd"]
         for k in pd.kernels:
@@ -212,10 +230,12 @@ def sparse_bias_fp32(pair_bias, idx_rm, out=None, memory_config=None, device=Non
             kernels=entry["kernels"], semaphores=[], cbs=entry["cbs"]
         )
     STATS[0] += 1
-    return ttnn.generic_op([pair_bias, idx_rm, out], pd)
+    # generic_op hands back its LAST operand, and with css that is the lists tensor, not `out`.
+    ttnn.generic_op([pair_bias, idx_rm, out] + ([] if css is None else [css[0]]), pd)
+    return out
 
 
-def sparse_mask_bf16(pair_bias, idx_rm):
+def sparse_mask_bf16(pair_bias, idx_rm, css=None):
     """The same bias as `sparse_bias_fp32`, written as bf16 at ``[B, H, N, N]``.
 
     For a fused SDPA mask: half the bytes of the fp32 form and no separate typecast. Every value
@@ -228,7 +248,7 @@ def sparse_mask_bf16(pair_bias, idx_rm):
     N = ((L + TILE_W - 1) // TILE_W) * TILE_W
     out = ttnn.allocate_tensor_on_device(
         ttnn.Shape([B, H, N, N]), ttnn.bfloat16, ttnn.TILE_LAYOUT, device, ttnn.DRAM_MEMORY_CONFIG)
-    return sparse_bias_fp32(pair_bias, idx_rm, out=out)
+    return sparse_bias_fp32(pair_bias, idx_rm, out=out, css=css)
 
 
 def _reject(reason, shape):
