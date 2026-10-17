@@ -63,7 +63,7 @@ def test_mode_sets_per_arch(monkeypatch, wormhole):
         assert "ef2_relpos_lookup" in names and "ef2_bit_draw" in names
         assert ("ef2_pair_init" in names) is (fast or not wormhole)
     assert ("ef2_opm_kq" in rt.fold_levers(False).split("+")) is wormhole
-    # trimul_t2m is bit-exact and measured on Wormhole only.
-    assert all(("trimul_t2m" in rt.fold_levers(f).split("+")) is wormhole for f in (False, True))
+    # trimul_t2m lost to plain T2 once trimul_bres fed the tail (wtm) and rides no set.
+    assert all("trimul_t2m" not in rt.fold_levers(f).split("+") for f in (False, True))
     # trimul_bres is bit-exact in ESMFold2 folds on both archs and rides every set.
     assert all("trimul_bres" in rt.fold_levers(f).split("+") for f in (False, True))

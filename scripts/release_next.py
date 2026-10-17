@@ -352,7 +352,9 @@ def frozen(gates: Path | None, tsha: str, repo: Path = REPO, ref: str = "origin/
            now: float | None = None) -> tuple[str, Path, list] | None:
     """(sha, dir, fixes) of the newest full gate on main's line after the last release when it
     failed less than FIX_HOLD_S ago, or its FIXES changed less than that ago: the commit the train
-    fixes forward. A gate on a fixed-forward candidate is not on main's line, so it never counts."""
+    fixes forward. A gate on a fixed-forward candidate is not on main's line, so it never counts.
+    The fixes are the gate's own FIXES after any an older gate since the release listed that the
+    commit does not carry yet."""
     runs = []
     for p, plan in _since(gates, tsha, repo, ref):
         try:
@@ -374,7 +376,28 @@ def frozen(gates: Path | None, tsha: str, repo: Path = REPO, ref: str = "origin/
     if not failed or passed(gates, d, sha, repo, ref):
         return None
     last = max(f.stat().st_mtime for f in (v, d / "FIXES") if f.exists())
-    return (sha, d, fixes(d, repo)) if (now or time.time()) - last < FIX_HOLD_S else None
+    if (now or time.time()) - last >= FIX_HOLD_S:
+        return None
+    # An older gate's fixes that never reached main still apply: without them the newer gate fails
+    # the same legs again (rel-803db0fc1, 10-17: 4 WH legs lost to the jump-host drop 35dc89179
+    # fixed, listed only in rel-412d01dfe/FIXES).
+    # One that no longer applies on the newer base was superseded there and is dropped.
+    own, carried = fixes(d, repo), []
+    for _, q in sorted((p.stat().st_mtime, p.parent) for p, _ in _since(gates, tsha, repo, ref)):
+        try:
+            older = fixes(q, repo) if q != d else []
+        except subprocess.CalledProcessError:
+            continue
+        for f in older:
+            if f in own or f in carried or not subprocess.run(
+                    ["git", "-C", str(repo), "merge-base", "--is-ancestor", f, sha], capture_output=True).returncode:
+                continue
+            try:
+                patched(sha, carried + [f], repo)
+                carried.append(f)
+            except subprocess.CalledProcessError:
+                pass
+    return sha, d, carried + own
 
 
 def running_gates(gates: Path | None, partial: bool = False) -> list[str]:

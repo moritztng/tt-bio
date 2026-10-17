@@ -709,12 +709,8 @@ _FAST_MODE = False
 #                   the layer, one [768, 768] linear each off the shared normed s, instead of three [768, 36864]
 #                   linears for all 24 layers and 144 slices a step to cut them back out.
 #   dit_shoist      the DiT's conditioning as three wide linears a step whose columns each layer reads in place
-#                   (`addcmul_at`): OpenFold3's DiT, ESMFold2's token DiT, and Boltz-2's token DiT, where it takes
-#                   precedence over dit_cond_jit (adaLN modulation, the attention gate and the transition gate +
-#                   residual each one op).
-#   dit_cond_kfold  Boltz-2's token-DiT conditioning linears (dit_cond_jit's per-layer ones, and the hoist's under
-#                   dit_shoist) carry their bias as one more K row of the weight against a ones column appended to
-#                   s, so the matmul runs without a bias epilogue.
+#                   (`addcmul_at`): OpenFold3's DiT, and Boltz-2's token DiT, where it takes precedence over
+#                   dit_cond_jit (adaLN modulation, the attention gate and the transition gate + residual each one op).
 #   apb_cat         the token attention's head re-assembly as one nlp_concat_heads, gate and output projection on
 #                   the padded head lanes (what TT_BIO_APB_CONCAT_HEADS does at load, exact), with the wide
 #                   weights re-laned from the bf16 device copies on the first call that takes it.
@@ -724,6 +720,10 @@ _FAST_MODE = False
 #   relp_gather     the Protenix family's trunk input projects relative position by one row gather from a per-fold
 #                   table (each distinct one-hot row summed once on the host lane) instead of uploading the
 #                   [N, N, 139] one-hot and multiplying it.
+#   relp_host       Boltz-2's diffusion conditioning builds the relative-position tensor on the host and uploads it
+#                   instead of gathering it from the encoder's joint table: the bit-exact A/B arm (no mode sets it).
+#   atomp_dev       Boltz-2's diffusion-conditioning atom-pair tensor and its encoder/decoder bias stacks built on the
+#                   card from the z_to_p projection already there (AtomPairDevice), instead of in fp32 torch and uploaded.
 #   pib_where       OpenDDE's pair-init bias by the old 16-op where-chain instead of one gather from the joint
 #                   (128, c_z) table: the A/B arm for a change that must keep the fold digest (no mode sets it).
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
@@ -732,12 +732,12 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "transition_shard", "dit_mm16", "atom_k1", "dit_b8", "dit_qkv16", "atom_mm16", "adaln_mod",
           "swiglu_fc12g", "msa_sample", "dit_sdpa_pm", "dit_s16", "dit_chunk", "conf_bins", "trimul_t1", "trimul_t2",
           "trimul_t2g", "triatt_tail_bias", "dit_cond_hifi2", "transition_ws", "ws_ln", "trimul_t1_dram",
-          "trimul_t2m", "trimul_t2cm", "dit_fuse", "pair_mm", "ref_memo", "edm_device", "ws_l1acc", "ws_resid", "pib_where",
+          "trimul_t2m", "trimul_t2cm", "dit_fuse", "pair_mm", "ref_memo", "edm_device", "ws_l1acc", "ws_resid", "pib_where", "relp_host",
           "trimul_t2w", "narrow_bw16", "ws_l1dest", "opm_jd", "trimul_gin_hifi2", "trimul_gin_b8",
           "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine", "ef2_opm_kq", "ef2_relpos_lookup",
           "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit", "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384",
           "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
-          "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "trimul_bres", "dit_cond_kfold")
+          "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "trimul_bres", "atomp_dev")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -747,13 +747,13 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
 # ref_memo is host featurisation, OpenFold3 / OpenBind-0 only: one reference conformer per residue type
 # (vendored query.REF_MOL_MEMO), read by worker._predict_openfold3_one off the model's lever set.
 UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "dit_cond_hifi2", "ws_ln", "dit_fuse",
-                             "pair_mm", "ref_memo", "trimul_t2m", "edm_device", "ws_l1acc", "pib_where", "trimul_t2w",
+                             "pair_mm", "ref_memo", "trimul_t2m", "edm_device", "ws_l1acc", "pib_where", "relp_host", "trimul_t2w",
                              "narrow_bw16", "ws_l1dest", "trimul_gin_hifi2", "trimul_gin_b8",
                              "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine", "ef2_opm_kq",
                              "ef2_relpos_lookup", "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit",
                              "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384",
                              "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
-                             "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "dit_cond_kfold"})
+                             "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "atomp_dev"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -15110,59 +15110,25 @@ class DiffusionTransformer(Module):
             self._cond_ws = (up(torch.cat(sw, 1)), up(torch.cat(sb, 0)), up(torch.cat(bw, 1)))
         return self._cond_ws
 
-    def _cond_weights_kfold(self):
-        """`_cond_weights_split`'s scales and `_cond_weights`' output projections for `dit_cond_kfold`:
-        `(scale w with the bias row, shift w, output w with the bias row)`, each bias one more K row."""
-        if getattr(self, "_cond_wk", None) is None:
-            sw, sb, bw, ow, ob = [], [], [], [], []
-            for layer in self.layers:
-                for ad in (layer.adaln, layer.transition.adaln):
-                    scale_w, scale_b, bias_w = ad.folded_weights()
-                    sw.append(scale_w); sb.append(scale_b); bw.append(bias_w)
-                for ws, k in ((layer.weights, "output_projection_linear"),
-                              (layer.transition.weights, "output_projection.0")):
-                    ow.append(ws[f"{k}.weight"].t()); ob.append(ws[f"{k}.bias"])
-            dt = _dtype(ttnn.bfloat16)
-            up = lambda t: ttnn.from_torch(t, layout=ttnn.TILE_LAYOUT, device=self.device, dtype=dt)
-            self._cond_wk = (up(_bias_row(torch.cat(sw, 1), torch.cat(sb, 0))), up(torch.cat(bw, 1)),
-                             up(_bias_row(torch.cat(ow, 1), torch.cat(ob, 0))))
-        return self._cond_wk
-
-    def _cond_weights_parts(self, kfold=False):
+    def _cond_weights_parts(self):
         """`_cond_weights_split` and the output projections per layer, for `dit_cond_jit`: one
         `(attn scale w, b, attn shift w, transition scale w, b, transition shift w, attn gate w, b,
-        transition gate w, b)` tuple a layer, so each term is its own [768, 768] projection.
-        `kfold` (dit_cond_kfold): each bias rides as one more K row of its weight, padded to a
-        tile with zero rows, and its slot is None; the caller appends `_ones_tile` to the input."""
-        key = "_cond_wpk" if kfold else "_cond_wp"
-        if getattr(self, key, None) is None:
+        transition gate w, b)` tuple a layer, so each term is its own [768, 768] projection."""
+        if getattr(self, "_cond_wp", None) is None:
             dt = _dtype(ttnn.bfloat16)
             up = lambda t: ttnn.from_torch(t, layout=ttnn.TILE_LAYOUT, device=self.device, dtype=dt)
-            wb = lambda w, b: (up(_bias_row(w, b)), None) if kfold else (up(w), up(b))  # noqa: E731
             parts = []
             for layer in self.layers:
                 w = []
                 for ad in (layer.adaln, layer.transition.adaln):
                     scale_w, scale_b, bias_w = ad.folded_weights()
-                    w += [*wb(scale_w, scale_b), up(bias_w)]
+                    w += [up(scale_w), up(scale_b), up(bias_w)]
                 for ws in (layer.weights, layer.transition.weights):
-                    k = ("output_projection_linear" if ws is layer.weights else "output_projection.0")
-                    w += wb(ws[f"{k}.weight"].t(), ws[f"{k}.bias"])
+                    key = ("output_projection_linear" if ws is layer.weights else "output_projection.0")
+                    w += [up(ws[f"{key}.weight"].t()), up(ws[f"{key}.bias"])]
                 parts.append(tuple(w))
-            setattr(self, key, parts)
-        return getattr(self, key)
-
-    def _ones_tile(self, x):
-        """`x` with one more K tile appended: a column of ones, then zeros (dit_cond_kfold's bias row)."""
-        shape = tuple(x.shape[:-1]) + (32,)
-        memo = getattr(self, "_ones_memo", None)
-        if memo is None or memo[0] != (shape, x.dtype):
-            t = torch.zeros(shape)
-            t[..., 0] = 1.0
-            memo = ((shape, x.dtype), ttnn.from_torch(t, layout=ttnn.TILE_LAYOUT, device=self.device,
-                                                      dtype=x.dtype))
-            self._ones_memo = memo
-        return ttnn.concat([x, memo[1]], dim=-1)
+            self._cond_wp = parts
+        return self._cond_wp
 
     def _peak_tag(self, a):
         # The DRAM census tag for one layer. The leading dim is the diffusion sample chunk,
@@ -15186,13 +15152,10 @@ class DiffusionTransformer(Module):
             # dit_cond_jit: the same terms as the hoisted block below, each projected right before
             # its layer. On a Wormhole chip the three wide linears run at a quarter of the roof and
             # the 144 slices that cut them up cost as much again in dispatch.
-            # dit_cond_kfold: the four biased terms take their bias as a K row (the epilogue costs
-            # a third of the call on a Wormhole chip), off the normed and raw s with a ones tile appended.
-            s_hat = ttnn.layer_norm(s, epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
-            kf = lever("dit_cond_kfold")
-            jit = (s_hat, self._cond_weights_parts(kf),
-                   (self._ones_tile(s_hat), self._ones_tile(s)) if kf else (s_hat, s))
+            jit = (ttnn.layer_norm(s, epsilon=1e-5, compute_kernel_config=self.compute_kernel_config),
+                   self._cond_weights_parts())
         elif _B2_DIT_COND_HOIST and not self.atom_level:
+            adw, adb, opw, opb = self._cond_weights()
             s_hat = ttnn.layer_norm(s, epsilon=1e-5,
                                     compute_kernel_config=self.compute_kernel_config)
             ckc = self.compute_kernel_config
@@ -15201,28 +15164,17 @@ class DiffusionTransformer(Module):
                                 math_approx_mode=ckc.math_approx_mode,
                                 fp32_dest_acc_en=ckc.fp32_dest_acc_en,
                                 packer_l1_acc=ckc.packer_l1_acc)
-            split = _B2_ADALN_ADDCMUL or lever("adaln_mod")
-            # `activation="sigmoid"` on the output projections is where both their sigmoids go: the
+            if _B2_ADALN_ADDCMUL or lever("adaln_mod"):
+                sw, sb, bw = self._cond_weights_split()
+                o_ad = (ttnn.linear(s_hat, sw, bias=sb, compute_kernel_config=ckc, activation="sigmoid"),
+                        ttnn.linear(s_hat, bw, compute_kernel_config=ckc))
+            else:
+                o_ad = ttnn.linear(s_hat, adw, bias=adb, compute_kernel_config=ckc)
+            ttnn.deallocate(s_hat)
+            # `activation="sigmoid"` here is where both output projections' sigmoids go: the
             # attention one already carried it in its own linear, and the transition one moves
             # off its multiply, which is told not to re-apply it.
-            if split and lever("dit_cond_kfold"):
-                swk, bw, owk = self._cond_weights_kfold()
-                s_hk, s_k = self._ones_tile(s_hat), self._ones_tile(s)
-                o_ad = (ttnn.linear(s_hk, swk, compute_kernel_config=ckc, activation="sigmoid"),
-                        ttnn.linear(s_hat, bw, compute_kernel_config=ckc))
-                o_op = ttnn.linear(s_k, owk, compute_kernel_config=ckc, activation="sigmoid")
-                for t in (s_hk, s_k):
-                    ttnn.deallocate(t)
-            else:
-                adw, adb, opw, opb = self._cond_weights()
-                if split:
-                    sw, sb, bw = self._cond_weights_split()
-                    o_ad = (ttnn.linear(s_hat, sw, bias=sb, compute_kernel_config=ckc, activation="sigmoid"),
-                            ttnn.linear(s_hat, bw, compute_kernel_config=ckc))
-                else:
-                    o_ad = ttnn.linear(s_hat, adw, bias=adb, compute_kernel_config=ckc)
-                o_op = ttnn.linear(s, opw, bias=opb, compute_kernel_config=ckc, activation="sigmoid")
-            ttnn.deallocate(s_hat)
+            o_op = ttnn.linear(s, opw, bias=opb, compute_kernel_config=ckc, activation="sigmoid")
             cond_all = (o_ad, o_op)
 
         d = self.dim
@@ -15243,14 +15195,14 @@ class DiffusionTransformer(Module):
 
         def bundle(i):
             if jit is not None:
-                s_hat, wp, (s_hb, s_b) = jit
+                s_hat, wp = jit
                 sw0, sb0, bw0, sw1, sb1, bw1, ow0, ob0, ow1, ob1 = wp[i]
                 ckc = self.compute_kernel_config
                 lin = lambda x, w, b=None, act=None: ttnn.linear(  # noqa: E731
                     x, w, bias=b, compute_kernel_config=ckc, activation=act)
-                parts = [lin(s_hb, sw0, sb0, "sigmoid"), lin(s_hat, bw0),
-                         lin(s_hb, sw1, sb1, "sigmoid"), lin(s_hat, bw1),
-                         lin(s_b, ow0, ob0, "sigmoid"), lin(s_b, ow1, ob1, "sigmoid")]
+                parts = [lin(s_hat, sw0, sb0, "sigmoid"), lin(s_hat, bw0),
+                         lin(s_hat, sw1, sb1, "sigmoid"), lin(s_hat, bw1),
+                         lin(s, ow0, ob0, "sigmoid"), lin(s, ow1, ob1, "sigmoid")]
                 return (_SigTerms(parts[:2]), parts[4], _SigTerms(parts[2:4]), parts[5]), parts
             if shoist and cond_all is not None and isinstance(cond_all[0], tuple):
                 # dit_shoist: this layer's columns of the three wide outputs, read in place.
@@ -15293,18 +15245,10 @@ class DiffusionTransformer(Module):
         finally:
             if jit is not None:
                 ttnn.deallocate(jit[0])
-                if jit[2][0] is not jit[0]:
-                    ttnn.deallocate(jit[2][0])
-                    ttnn.deallocate(jit[2][1])
             if cond_all is not None:
                 for x in cond_all:
                     for t in (x if isinstance(x, tuple) else (x,)):
                         ttnn.deallocate(t)
-
-
-def _bias_row(w, b):
-    """[K, N] weight `w` with bias `b` as row K and 31 zero rows (one more K tile), for `dit_cond_kfold`."""
-    return torch.cat([w, b.reshape(1, -1), w.new_zeros(31, w.shape[1])])
 
 
 _PWA_WEIGHT_ROWS_REFUSED = {}  # pair shape -> row block PWA's token weights settled at
@@ -17255,6 +17199,21 @@ class DiffusionModule(TorchWrapper):
             mask = (-1 * mask + 1) * -1e9
 
             def prepare_atom_bias(bias_pt):
+                if isinstance(bias_pt, ttnn.Tensor):
+                    # `AtomPairDevice` staged it heads-major on the card; it is the fold's
+                    # conditioning, so it is padded and masked into a copy.
+                    bias = bias_pt
+                    if atom_pad:
+                        shape = bias.shape
+                        zero = ttnn.zeros((B * NW_padded - shape[0], shape[1], shape[2], shape[3]),
+                                          dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT,
+                                          device=get_device())
+                        bias = ttnn.concat([bias, zero], dim=0)
+                        ttnn.deallocate(zero)
+                        bias = ttnn.add_(bias, mask)
+                    else:
+                        bias = ttnn.add(bias, mask)
+                    return ttnn.multiply_(bias, ATOM_WINDOW ** 0.5)
                 if atom_pad:
                     bias_pt = torch.nn.functional.pad(bias_pt, (0, 0, 0, 0, 0, 0, 0, NW_padded - NW))
                 # Heads-major on the host, then upload: tilizing [.., 128, heads] pads every
@@ -17848,28 +17807,49 @@ class PairConditioningDevice:
                           compute_kernel_config=self.compute_kernel_config,
                           core_grid=CORE_GRID_MAIN)
 
-    def __call__(self, z, relative_position_encoding, seq_len, seq_pad):
+    @staticmethod
+    def _rel_pos(rel_pos, padded):
+        """The relative-position tensor on the card, ``[1, padded, padded, token_z]`` bf16.
+
+        It must be summed in fp32 and rounded to bf16 once: it drives the pairwise conditioner,
+        all 24 diffusion bias layers and the atom encoder through 200 sampling steps, and
+        `RelPosGather`'s per-term bf16 tables moved the 512 aa structure 1.54 A on the worst
+        pseudo-domain against a 0.60 A bar. ``rel_pos`` is that host tensor, or
+        ``(encoder, feats)``: then the encoder's joint table (each distinct fp32 sum, a few
+        hundred rows) is rounded exactly as `upload` would round the full tensor and gathered
+        here, so the result is the same bits without building and uploading 134 MB of fp32 on
+        the host (0.6 s a fold on a loaded Wormhole host). ``relp_host`` builds the tensor on
+        the host instead, the A/B arm.
+        """
+        if isinstance(rel_pos, tuple):
+            encoder, feats = rel_pos
+            if not lever("relp_host"):
+                index, table = encoder.joint_table(feats)
+                # `upload` rounds in torch above the device-tilize size and in ttnn below it.
+                if _device_tilize(_tile_numel((1, padded, padded, table.shape[-1])) * 2):
+                    table = table.to(torch.bfloat16)
+                table_tt = ttnn.from_torch(table.contiguous(), layout=ttnn.ROW_MAJOR_LAYOUT,
+                                           device=get_device(), dtype=ttnn.bfloat16)
+                out = pair_gather(index, table_tt, padded)
+                ttnn.deallocate(table_tt)
+                return out
+            rel_pos = encoder(feats)
+        pad = padded - rel_pos.shape[-2]
+        if pad:
+            rel_pos = torch.nn.functional.pad(rel_pos, (0, 0, 0, pad, 0, pad))
+        # `upload` tiles it on the card: the host tilize was 0.26 s a fold at 512 aa (py-spy, p150a).
+        return upload(rel_pos, ttnn.bfloat16, get_device())
+
+    def __call__(self, z, relative_position_encoding, seq_len, seq_pad, keep_z_to_p=False):
         """``(z_to_p, token_trans_bias)`` from the trunk's device pair tensor.
 
         ``z`` is NOT consumed -- the caller owns it, so the confidence head can read the same
-        buffer after the sampler. ``z_to_p`` comes back as torch sliced to ``seq_len``,
-        ``token_trans_bias`` stays on the device padded, which is the shape the diffusion cache
-        wants.
+        buffer after the sampler. ``z_to_p`` comes back as torch sliced to ``seq_len``, or with
+        ``keep_z_to_p`` stays on the device padded for `AtomPairDevice`; ``token_trans_bias``
+        stays on the device padded, which is the shape the diffusion cache wants.
         """
         self.wall.start()
-        # The relative-position tensor comes from the host, already summed in fp32 and rounded to
-        # bf16 exactly once on the way up. `RelPosGather` would build it here for free, but
-        # `ttnn.embedding` only takes bf16 tables, so the device form rounds every term before it
-        # adds them, and this tensor drives the pairwise conditioner, all 24 diffusion bias layers
-        # and the atom encoder through 200 sampling steps: measured, it moves the 512 aa structure
-        # 1.54 A on the worst pseudo-domain against a 0.60 A bar. The z_init assembly gathers its
-        # own copy, which is scored on its own control; this one stays where the shipped default
-        # put it.
-        rel_pos = relative_position_encoding
-        if seq_pad:
-            rel_pos = torch.nn.functional.pad(rel_pos, (0, 0, 0, seq_pad, 0, seq_pad))
-        # `upload` tiles it on the card: the host tilize was 0.26 s a fold at 512 aa (py-spy, p150a).
-        rel_pos_tt = upload(rel_pos, ttnn.bfloat16, get_device())
+        rel_pos_tt = self._rel_pos(relative_position_encoding, seq_len + seq_pad)
         self.wall.mark("rel_pos")
         x = ttnn.concat([z, rel_pos_tt], dim=-1)
         ttnn.deallocate(rel_pos_tt)
@@ -17920,10 +17900,148 @@ class PairConditioningDevice:
         ttnn.deallocate(z)
         z_to_p = self._linear(z_norm, self.zp_proj_weight)
         ttnn.deallocate(z_norm)
+        if keep_z_to_p:
+            return z_to_p, bias
         out = torch.Tensor(ttnn.to_torch(z_to_p)).to(torch.float32)[:, :seq_len, :seq_len, :]
         ttnn.deallocate(z_to_p)
         self.wall.mark("z_to_p download")
         return out, bias
+
+
+class AtomPairDevice:
+    """Boltz-2's diffusion-conditioning atom-pair track on the card: ``AtomEncoder``'s pair-window
+    tensor ``p`` and the encoder and decoder bias stacks read from it (``atomp_dev``).
+
+    The host builds ``p`` as a ``[1, K, 32, 128, atom_z]`` fp32 tensor and makes ~17 passes over it
+    (0.31 s on one pc thread at 512 aa, 0.3-0.7 s on a loaded Wormhole host), then uploads both
+    stacks. Every term of ``p`` is either a per-pair scalar map (the reference offset, its inverse
+    norm, the conformer mask) or one row of a small table per pair (``z_to_p`` by token pair, the
+    two ``c`` projections by atom), so what crosses the bus is five masked scalars per pair laid
+    out channel-major (5 MB bf16 at 512 aa) and three index maps. ``z_to_p`` never leaves the card.
+
+    The masks fold into the gathers: ``(x * v) @ W == (x @ W) * v`` for a 0/1 ``v``, so ``p0`` is
+    one projection of ``[d * v, d_norm * v, v]``, and a pair whose atom is padding (or a key slot
+    past the sequence) reads an appended zero row. Both stacks normalise the same ``p``, so they
+    are one LayerNorm and one ``[atom_z, heads_enc + heads_dec]`` Linear (``_fuse_bias_stack``).
+    bf16 device math against fp32 torch: not bit-exact, in no mode set until graded.
+    """
+
+    def __init__(self, atom_encoder, enc_fused, dec_fused, compute_kernel_config):
+        self.compute_kernel_config = compute_kernel_config
+        device = get_device()
+
+        def w(tensor):
+            return ttnn.from_torch(tensor.detach().t().contiguous(), layout=ttnn.TILE_LAYOUT,
+                                   device=device, dtype=ttnn.bfloat16)
+
+        ae = atom_encoder
+        self.w0 = w(torch.cat([ae.embed_atompair_ref_pos.weight, ae.embed_atompair_ref_dist.weight,
+                               ae.embed_atompair_mask.weight], dim=1))
+        self.mlp = [w(ae.p_mlp[i].weight) for i in (1, 3, 5)]
+        (we, be, _, eps), (wd, bd, _, eps_d) = enc_fused, dec_fused
+        assert eps == eps_d
+        self.bias_weight = w(torch.cat([we, wd], dim=0))
+        self.bias_bias = ttnn.from_torch(torch.cat([be, bd]).detach().reshape(1, -1).contiguous(),
+                                         layout=ttnn.TILE_LAYOUT, device=device,
+                                         dtype=ttnn.bfloat16)
+        self.eps = eps
+        self.heads_enc = we.shape[0]
+        self.atom_z = we.shape[1]
+
+    def _linear(self, x, weight, bias=None, activation=None):
+        return ops.linear(x, weight, bias=bias, activation=activation,
+                          compute_kernel_config=self.compute_kernel_config,
+                          core_grid=CORE_GRID_MAIN)
+
+    def _gather(self, index, table):
+        """``table[index]`` for a ``[K*W, H]`` index map, ``[K*W, H, atom_z]`` tile.
+
+        Rows are padded to 32 channels so a row-major table row is 64 B on either architecture.
+        """
+        index_tt = ttnn.from_torch(index.to(torch.int32).contiguous(), layout=ttnn.ROW_MAJOR_LAYOUT,
+                                   device=get_device(), dtype=ttnn.uint32)
+        rows = ttnn.embedding(index_tt, table, layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16)
+        ttnn.deallocate(index_tt)
+        rows = ttnn.reshape(rows, (index.shape[0], index.shape[1], -1))
+        out = ttnn.slice(rows, (0, 0, 0), (index.shape[0], index.shape[1], self.atom_z))
+        ttnn.deallocate(rows)
+        return out
+
+    def _host_table(self, rows):
+        """A ``[R, atom_z]`` host table plus a zero row, as a 32-wide ROW_MAJOR device table."""
+        rows = torch.nn.functional.pad(rows.reshape(-1, self.atom_z).float(),
+                                       (0, 32 - self.atom_z, 0, 1))
+        return ttnn.from_torch(rows.contiguous(), layout=ttnn.ROW_MAJOR_LAYOUT,
+                               device=get_device(), dtype=ttnn.bfloat16)
+
+    def __call__(self, encoder, feats, c, z_to_p):
+        """``(enc_bias, dec_bias, to_keys)``; the biases as ``[K, heads, W, H]`` device tensors,
+        the layout ``DiffusionModule`` stages. ``z_to_p`` (``[1, P, P, atom_z]``, padded) is
+        consumed."""
+        to_keys, K, W, H, d, d_norm, v = encoder.windows(feats)
+        assert c.shape[0] == 1, "AtomPairDevice serves one structure per fold"
+        rows = K * W
+        feat = torch.cat([d * v, d_norm * v, v], dim=-1).reshape(rows, H, 5)
+        feat_tt = upload(feat.permute(2, 0, 1).contiguous(), ttnn.bfloat16, get_device())
+        feat_tt = ttnn.permute(feat_tt, (1, 2, 0))
+        p = self._linear(feat_tt, self.w0)
+        ttnn.deallocate(feat_tt)
+
+        # z_to_p by token pair, the zero row where either atom is padding.
+        P = z_to_p.shape[1]
+        from tt_bio.boltz2 import atom_window_tokens  # boltz2 imports this module
+        tok_q, tok_k, keep = atom_window_tokens(
+            feats["atom_to_token"].float(), to_keys, K, W, H)
+        index = (tok_q.view(K, W, 1) * P + tok_k.view(K, 1, H)).reshape(rows, H)
+        index = torch.where(keep.reshape(rows, H) > 0, index, P * P)
+        zp = ttnn.pad(z_to_p, [(0, 0), (0, 0), (0, 0), (0, 32 - self.atom_z)], 0.0)
+        ttnn.deallocate(z_to_p)
+        table = ttnn.reshape(ttnn.to_layout(zp, ttnn.ROW_MAJOR_LAYOUT), (P * P, 32))
+        ttnn.deallocate(zp)
+        zero = ttnn.from_torch(torch.zeros(1, 32), layout=ttnn.ROW_MAJOR_LAYOUT,
+                               device=get_device(), dtype=ttnn.bfloat16)
+        table = ttnn.concat([table, zero], dim=0)
+        ttnn.deallocate(zero)
+        term = self._gather(index, table)
+        ttnn.deallocate(table)
+        p = ttnn.add_(p, term)
+        ttnn.deallocate(term)
+
+        # c projected per atom, by query atom and by key atom (zero row past the sequence).
+        n_atoms = c.shape[1]
+        cq = encoder.c_to_p_trans_q(c[0])
+        ck = encoder.c_to_p_trans_k(c[0])
+        atom = torch.arange(n_atoms, dtype=torch.float32).view(1, n_atoms, 1)
+        key_atom = to_keys(atom).view(K, 1, H).expand(K, W, H)
+        key_real = to_keys(torch.ones_like(atom)).view(K, 1, H).expand(K, W, H) > 0
+        for index, rows_pt in (
+                (torch.arange(rows).view(rows, 1).expand(rows, H), cq),
+                (torch.where(key_real, key_atom.long(), n_atoms).reshape(rows, H), ck)):
+            table = self._host_table(rows_pt)
+            term = self._gather(index, table)
+            ttnn.deallocate(table)
+            p = ttnn.add_(p, term)
+            ttnn.deallocate(term)
+
+        h = ttnn.relu(p)
+        for i, weight in enumerate(self.mlp):
+            nxt = self._linear(h, weight, activation="relu" if i < 2 else None)
+            ttnn.deallocate(h)
+            h = nxt
+        p = ttnn.add_(p, h)
+        ttnn.deallocate(h)
+
+        p_norm = ttnn.layer_norm(p, epsilon=self.eps,
+                                 compute_kernel_config=self.compute_kernel_config)
+        ttnn.deallocate(p)
+        bias = self._linear(p_norm, self.bias_weight, bias=self.bias_bias)
+        ttnn.deallocate(p_norm)
+        heads = bias.shape[-1]
+        bias = ttnn.permute(ttnn.reshape(bias, (K, W, H, heads)), (0, 3, 1, 2))
+        enc = ttnn.slice(bias, (0, 0, 0, 0), (K, self.heads_enc, W, H))
+        dec = ttnn.slice(bias, (0, self.heads_enc, 0, 0), (K, heads, W, H))
+        ttnn.deallocate(bias)
+        return enc, dec, to_keys
 
 
 class _ZInitModules:

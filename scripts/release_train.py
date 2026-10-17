@@ -21,7 +21,8 @@ dropped, so a main that has not merged the last release commit back does not shi
 On GATE, with --gate-config, it starts gate_fanout.py on that commit, detached, so every push to
 main is gated without anyone asking; the ledger means only the legs the push changed run. The
 config is a JSON object of gate_fanout's own flags, {"hosts": "...", "workers": "...", "timed":
-"...", "args": [...]}, and the run goes to <gates>/rel-<sha9>; while another full gate runs it
+"...", "args": [...]}, where "galaxies" adds pool slots on whichever Galaxies are lent to the
+gate's owners right now (galaxy_pools), and the run goes to <gates>/rel-<sha9>; while another full gate runs it
 waits for it instead. On RECORD (the gate failed only on size-ladder drift, release_next.py) it
 re-records those models' ladders on the same commit into <gates>/rec-<sha9>, and the release
 commit carries the fragments. When a failed gate's dir lists fixes in FIXES (release_next.py, Fix
@@ -296,10 +297,28 @@ def locked(path: Path) -> bool:
     return False
 
 
+def galaxy_pools(cfg: dict) -> dict:
+    """`cfg` with its "galaxies" entry, {"alloc": ALLOC.json, "owners": [...], "slots": N}, turned
+    into worker and timed slots: N `g<id>:pool` workers and one timed slot for every Galaxy that
+    ALLOC.json shows lent to one of `owners` and that the hosts file names. Which Galaxy that is
+    changes by the hour: rel-50bcbd42c listed .107 by hand and queued its WH legs there on
+    2026-10-17 while .107 was back serving JapanFold and the lent .108 had the chips."""
+    g = cfg.get("galaxies")
+    if not g:
+        return cfg
+    hosts = json.loads(Path(cfg["hosts"]).read_text())
+    alloc = json.loads(Path(g["alloc"]).read_text()).get("galaxies", {})
+    lent = [f"g{i}" for i, a in sorted(alloc.items())
+            if a.get("phase") == "lent" and a.get("owner") in g["owners"] and f"g{i}" in hosts]
+    join = lambda *parts: ",".join(x for x in parts if x)
+    return {**cfg, "workers": join(cfg.get("workers", ""), *(f"{h}:pool" for h in lent for _ in range(g["slots"]))),
+            "timed": join(cfg.get("timed", ""), *(f"{h}:pool" for h in lent))}
+
+
 def start_gate(sha: str, gates: Path, config: Path, models: list | None = None) -> None:
     """The full gate on `sha` (<gates>/rel-<sha9>, plus the config's "args"), or with `models` a
     record run of their size ladders (<gates>/rec-<sha9>)."""
-    cfg = json.loads(config.read_text())
+    cfg = galaxy_pools(json.loads(config.read_text()))
     out = gates / f"{'rec' if models else 'rel'}-{sha[:9]}"
     out.mkdir(parents=True, exist_ok=True)
     runner = own_runner(out)

@@ -82,3 +82,14 @@ def test_mm_bf16_acc_follows_fast_weights(wdtype, switch, monkeypatch):
     w = _T(960, 960, getattr(esmc.ttnn, wdtype))
     on = wdtype == "bfloat8_b" if switch is None else switch
     assert lin._mm_ck(w).fp32_dest_acc_en is not on
+
+
+@pytest.mark.parametrize("wormhole", [True, False])
+@pytest.mark.parametrize("switch", [None, True, False])
+@pytest.mark.parametrize("wdtype", ["bfloat16", "bfloat8_b"])
+def test_qk_l1_large_default(wormhole, switch, wdtype, monkeypatch):
+    """The 6B's q/k L1 path defaults on for Wormhole block-fp8 weights only; the switch overrides it."""
+    monkeypatch.setattr(tenstorrent, "is_wormhole", lambda: wormhole)
+    monkeypatch.setattr(esmc, "_ESMC_QK_L1_LARGE", switch)
+    want = (wormhole and wdtype == "bfloat8_b") if switch is None else switch
+    assert esmc._qk_l1_large(getattr(esmc.ttnn, wdtype)) is want

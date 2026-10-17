@@ -108,42 +108,6 @@ __attribute__((always_inline)) inline void _sig_rows_() {
     }
 }
 
-// row <- sigmoid(row) one SFPI row per pass, coefficients as immediates: the form _sig_rows_ replaced, same
-// operations in the same order, so bit-identical to it. trimul_tail_res's gate stage picks it (SIGROWS 1) where
-// the two-row loop timed slower inside that kernel.
-template <uint32_t V, int ITERATIONS = 8>
-inline void _sigmoid_poly_row_() {
-#pragma GCC unroll 0
-    for (int d = 0; d < ITERATIONS; d++) {
-        sfpi::vFloat x = sfpi::dst_reg[0];
-        sfpi::vFloat t = sfpi::abs(x);
-        sfpi::vFloat h;
-        if constexpr (V == 2) {
-            v_if(t > 7.0f) { t = 7.0f; }
-            v_endif;
-            h = t * 3.552436828613281e-05f - 0.0008435249328613281f;
-            h = h * t + 0.007404327392578125f;
-            h = h * t - 0.0260009765625f;
-            h = h * t - 0.0027103424072265625f;
-            h = h * t + 0.2529296875f;
-        } else {
-            t = t * 0.1111111119389534f;
-            v_if(t > 1.0f) { t = 1.0f; }
-            v_endif;
-            h = t * 9.57322883605957f - 51.5362548828125f;
-            h = h * t + 114.75630187988281f;
-            h = h * t - 135.66062927246094f;
-            h = h * t + 89.25188446044922f;
-            h = h * t - 29.09324073791504f;
-            h = h * t + 0.9815341234207153f;
-            h = h * t + 2.2268805503845215f;
-        }
-        h = h * t;
-        sfpi::dst_reg[0] = sfpi::setsgn(h, x) + 0.5f;
-        sfpi::dst_reg++;
-    }
-}
-
 // Round DST to bf16, nearest-even, so the pack that follows is exact. The fp32 -> bf16 pack from DST
 // truncates: the resident tail's z + p * sigmoid(g) came out a full bf16 ULP short toward zero on
 // 0.18 % of elements, rel_rms 0.0024 to float64 where one rounding gives 0.0014 (epi2_diag.py).
@@ -166,12 +130,6 @@ ALWI void sigmoid_poly_tile(uint32_t idst) {
     MATH((ckernel::sfpu::_sig_init_<V>()));
     MATH((_llk_math_eltwise_unary_sfpu_params_<false>(
         []() __attribute__((always_inline)) { ckernel::sfpu::_sig_rows_<V, false>(); }, idst, (int)VectorMode::RC)));
-}
-
-template <uint32_t V = 1>
-ALWI void sigmoid_poly_row_tile(uint32_t idst) {
-    MATH((_llk_math_eltwise_unary_sfpu_params_<false>(
-        ckernel::sfpu::_sigmoid_poly_row_<V == 2 ? 2u : 1u, 8>, idst, (int)VectorMode::RC)));
 }
 
 template <uint32_t V = 1>

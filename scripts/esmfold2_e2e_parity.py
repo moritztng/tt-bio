@@ -176,14 +176,16 @@ def checkpoint_identity(repo: str, config, revision: str | None = None) -> dict:
     entry, so it names the bytes this run folded instead of a literal that goes stale when the
     repo is re-uploaded. It is looked up at the pinned revision the model was loaded from: a
     cache whose refs/main points at a snapshot without weights reads no sha at main, which
-    made the identity depend on the host. Depth and MSA-encoder presence come from the
-    checkpoint config."""
+    made the identity depend on the host. The name is the snapshot link's own target, one
+    hop: a deduplicated cache (.108) points the repo blob on into a shared store whose file
+    name is not the hub's, and following the whole chain read that name instead. Depth and
+    MSA-encoder presence come from the checkpoint config."""
     sha = None
     try:
         from huggingface_hub import try_to_load_from_cache
         hit = try_to_load_from_cache(repo, "model.safetensors", revision=revision)
         if isinstance(hit, str):
-            sha = os.path.basename(os.path.realpath(hit))
+            sha = os.path.basename(os.readlink(hit) if os.path.islink(hit) else hit)
     except Exception:
         pass
     blocks = config.folding_trunk.n_layers
