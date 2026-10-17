@@ -31,6 +31,7 @@ from . import block_sparse as _BS
 from .tiles import TILE, align_tile, pad_axis
 from .. import pair_swiglu_ws as _WS
 from .. import dit_pair_bias as _DPB
+from .. import gather_tiled as _gather_tiled
 from ..tenstorrent import (Module, get_device, CORE_GRID_MAIN, attn_value_matmul, silu_ckc,
                            atom_pair_budget_bytes, l1_resident_budget_bytes, row_block,
                            _dram_oom, fused_sdpa, _sdpa_program_config)
@@ -457,6 +458,10 @@ _QKV_HEADS = env_flag("RFD3_QKV_HEADS", True)
 # 32 rows) + permute + reshape per tensor and a transpose of k. ~15 ms/step on WH fast; digests equal (WH, p150a).
 # RFD3_GCA_HEADS=0 restores it.
 _GCA_HEADS = env_flag("RFD3_GCA_HEADS", True)
+# The collapsed process_z's table lookup as one gather that writes TILE layout (tt_bio/gather_tiled.py) instead of
+# ttnn.embedding + to_layout: WH fast census 5.07 + 4.77 ms/step of embedding against a 0.5 ms roof each, plus
+# 2.7 ms/step of tilize. Same values (data movement only). Off while measured.
+_PZ_GATHER = env_flag("RFD3_PZ_GATHER", False)
 _ATOM_SDPA_CHUNKS = tuple(int(x) for x in os.environ.get("RFD3_ATOM_SDPA_CHUNKS", "160,320").split(","))
 # ttnn.gather (0.68.0) on dim 3 silently returns wrong data for every tile-row after the first
 # once the indexed axis exceeds this many elements: 99.87 % of elements wrong at the production
@@ -3317,10 +3322,21 @@ class DiffusionTokenEncoder(Module):
         dev, n = self.device, self.N_BINS
         inv, ainv = self._process_z_invariant(Z_init_II, 1 if bins_self is None else 2, batch)
         tab = self._process_z_table(bins_self is not None)
-        idx = _tt_idx(bins if bins_self is None else bins * n + bins_self, dev)
-        em = ttnn.embedding(idx, tab, layout=ttnn.ROW_MAJOR_LAYOUT,
-                            memory_config=ttnn.DRAM_MEMORY_CONFIG)
-        em = ttnn.to_layout(ttnn.reshape(em, (batch, I, I, self.C_Z)), ttnn.TILE_LAYOUT)
+        flat = bins if bins_self is None else bins * n + bins_self
+        if _PZ_GATHER:
+            key = ("ztab_rm", bins_self is not None, self.dtype)
+            rm = self._const.get(key)
+            if rm is None:
+                rm = self._const[key] = ttnn.to_layout(tab, ttnn.ROW_MAJOR_LAYOUT)
+            idx = ttnn.from_torch(_gather_tiled.pad_index(flat, batch * I, I), layout=ttnn.ROW_MAJOR_LAYOUT,
+                                  device=dev, dtype=ttnn.uint32)
+            em = _gather_tiled.gather_tiled(idx, rm, batch, I)
+        else:
+            idx = _tt_idx(flat, dev)
+            em = ttnn.embedding(idx, tab, layout=ttnn.ROW_MAJOR_LAYOUT,
+                                memory_config=ttnn.DRAM_MEMORY_CONFIG)
+            em = ttnn.to_layout(ttnn.reshape(em, (batch, I, I, self.C_Z)), ttnn.TILE_LAYOUT)
+        ttnn.deallocate(idx)
         scaled = ttnn.multiply(em, inv)
         ttnn.deallocate(em)
         out = ttnn.add(scaled, ainv)

@@ -7,6 +7,7 @@ A (shipped): idx [1, I*I] -> embedding ROW_MAJOR -> reshape [1,I,I,C] -> to_layo
 B: idx [I, I] -> embedding TILE_LAYOUT -> reshape [1,I,I,C] (leading dim only, no retile).
 A_l1 / B_l1: the same with the table held in L1 instead of DRAM (the gather reads one 256-byte row per pair, so
 it is bound by DRAM read latency, not bytes: WH 5 ms/call against a 0.5 ms roof in cen2).
+G: tt_bio.gather_tiled (row reads in flight per 32-row block, tilized on the unpacker, TILE out in one program).
 All are pure gathers, so every arm must equal A bit for bit (torch.equal); ms/call synchronized.
 """
 import json
@@ -21,6 +22,7 @@ ensure_p300_mesh_descriptor()
 import torch                                                              # noqa: E402
 import ttnn                                                               # noqa: E402
 from tt_bio import tenstorrent as T                                       # noqa: E402
+from tt_bio import gather_tiled as G                                      # noqa: E402
 
 OUT = sys.argv[1]
 I = int(sys.argv[2]) if len(sys.argv) > 2 else 685
@@ -34,6 +36,8 @@ bins = torch.randint(0, N, (I, I), dtype=torch.int32)
 idx_a = ttnn.from_torch(bins.reshape(1, -1), layout=ttnn.ROW_MAJOR_LAYOUT, device=dev, dtype=ttnn.uint32)
 idx_b = ttnn.from_torch(bins, layout=ttnn.ROW_MAJOR_LAYOUT, device=dev, dtype=ttnn.uint32)
 tab_l1 = ttnn.to_memory_config(tab, ttnn.L1_MEMORY_CONFIG)
+tab_rm = ttnn.to_layout(tab, ttnn.ROW_MAJOR_LAYOUT)
+idx_g = ttnn.from_torch(G.pad_index(bins, I, I), layout=ttnn.ROW_MAJOR_LAYOUT, device=dev, dtype=ttnn.uint32)
 
 
 def arm_a(t=tab):
@@ -51,7 +55,8 @@ def arm_b(t=tab):
 res = {"I": I, "N": N, "reps": REPS, "card": os.environ.get("TT_VISIBLE_DEVICES")}
 outs = {}
 for name, fn in (("A_shipped", arm_a), ("B_tiled", arm_b),
-                 ("A_l1", lambda: arm_a(tab_l1)), ("B_l1", lambda: arm_b(tab_l1))):
+                 ("A_l1", lambda: arm_a(tab_l1)), ("B_l1", lambda: arm_b(tab_l1)),
+                 ("G_gather_tiled", lambda: G.gather_tiled(idx_g, tab_rm, 1, I))):
     outs[name] = ttnn.to_torch(fn())
     for _ in range(3):
         ttnn.deallocate(fn())
