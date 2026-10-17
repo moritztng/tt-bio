@@ -1685,7 +1685,7 @@ class ESMC(TorchWrapper):
         ttnn.execute_trace(self.tt_device, tr["tid"], cq_id=0, blocking=False)
         return self._to_torch(tr["logits"]), self._to_torch(tr["emb"])
 
-    def _forward_eager(self, tokens, attn_mask, key_valid):
+    def _forward_eager(self, tokens, attn_mask, key_valid, want_logits=True):
         tokens_tt = ttnn.from_torch(
             tokens.to(torch.int32), device=self.tt_device,
             layout=ttnn.ROW_MAJOR_LAYOUT, dtype=ttnn.uint32,
@@ -1745,7 +1745,7 @@ class ESMC(TorchWrapper):
                         self._release_traces()
                         print(f"ESMC trace capture failed ({exc!r}); falling back "
                               f"to eager for the rest of this process", file=sys.stderr)
-        return self._forward_eager(tokens, attn_mask, key_valid)
+        return self._forward_eager(tokens, attn_mask, key_valid, want_logits)
 
 
 # ===========================================================================
