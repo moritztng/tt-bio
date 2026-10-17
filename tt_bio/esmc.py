@@ -354,6 +354,10 @@ MM_FUSE_STATS = [0, 0]
 # pooled cos >= 0.99996 everywhere. Inside the fast bar, not the normal one, so None = on for block-fp8 weights only,
 # which only --fast loads. Galaxy chip at 1000 MHz, best of 3: 300M --fast 139.5 -> 133.6 ms, 600M 203.6 -> 197.4.
 _ESMC_MM_BF16_ACC = env_flag("TT_BIO_ESMC_MM_BF16_ACC", None)
+# The LM FFN's fc1 halves and SwiGLU product stored as block-fp8 where the weights already are (--fast), so the gate
+# multiply and fc2 read half the bytes: at the 300M page shape that chain moves ~117 MB a layer through DRAM in bf16.
+# Wormhole minimal_matmul path only (fc2 takes the bfp8 operand there). Off: an A/B candidate for --fast.
+_ESMC_ACT_BFP8 = env_flag("TT_BIO_ESMC_ACT_BFP8", False)
 
 
 def _mm_bf16_acc(w) -> bool:
@@ -396,7 +400,8 @@ class _MMLin:
         return self._mm_ck_bf16
 
     def _mm_ok(self, x, w) -> bool:
-        return ((w.dtype == ttnn.bfloat16 or (_ESMC_MM_BFP8 and w.dtype == ttnn.bfloat8_b)) and x.dtype == ttnn.bfloat16
+        return ((w.dtype == ttnn.bfloat16 or (_ESMC_MM_BFP8 and w.dtype == ttnn.bfloat8_b))
+                and (x.dtype == ttnn.bfloat16 or (_ESMC_ACT_BFP8 and x.dtype == ttnn.bfloat8_b == w.dtype))
                 and x.volume() // int(x.shape[-1]) >= ESMC_MM_MIN_ROWS and self._mm_on())
 
     def _lin_split(self, x, w, chunks: int):
@@ -1044,9 +1049,11 @@ class SwiGLUFFN(_MMLin, Module):
                 silu_done = _SWIGLU_SILU_FC1
             else:
                 L1_FC1_STATS[1] += 2 * bool(l1_gated)
-                h1 = self._lin(x_norm, self.fc1_a_weight,
+                dt = (ttnn.bfloat8_b if _ESMC_ACT_BFP8 and len(x_norm.shape) == 3
+                      and self.fc1_a_weight.dtype == ttnn.bfloat8_b and self._mm_ok(x_norm, self.fc1_a_weight) else None)
+                h1 = self._lin(x_norm, self.fc1_a_weight, dtype=dt,
                                activation="silu" if _SWIGLU_SILU_FC1 else None)
-                h2 = self._lin(x_norm, self.fc1_b_weight)
+                h2 = self._lin(x_norm, self.fc1_b_weight, dtype=dt)
                 silu_done = _SWIGLU_SILU_FC1
             ttnn.deallocate(x_norm)
             act = dict(input_tensor_a_activations=[] if silu_done else [ttnn.UnaryOpType.SILU])
