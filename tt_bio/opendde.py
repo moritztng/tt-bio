@@ -17,7 +17,7 @@ device.
 import torch
 import ttnn
 
-from .protenix import NORMAL_LEVERS as _FAMILY_NORMAL, WS_CHAIN, _KeyedWeights
+from .protenix import NORMAL_LEVERS as _FAMILY_NORMAL, T2_TAIL, WS_CHAIN, _KeyedWeights
 from . import hostlane
 from .envflags import env_flag
 from .opendde_data import STRUCTURAL_TOKEN_ROLES
@@ -444,7 +444,11 @@ def route_opendde_weights(state_dict):
 # + ws_chain (spd-gap-small gwchbh, 2026-10-15): fast PASS, top pose median 0.369 A vs the 1.277 A A/A floor (39
 # paired folds); normal FAIL, DockQ worse with the CI excluding 0 ([-0.0286, -0.0012], 44 paired folds, docking 25 -> 24),
 # so Blackhole normal runs the family set without it (`BH_NORMAL_LEVERS`).
-NORMAL_LEVERS = _FAMILY_NORMAL | WS_CHAIN
+# Wormhole normal also takes the T2 tail (protenix.T2_TAIL). WH 11-set normal grade, shipped set vs + T2_TAIL
+# (spd-integrate gpsn, 2026-10-17, 8 seeds, 85 paired folds): PASS, same-seed top pose median 0.000 A (A/A floor
+# 1.201 A), CA-lDDT +0.0001 [-0.0003, +0.0006], DockQ -0.0022 [-0.0110, +0.0046], docking 50 -> 49 of 85. cdk2x2 512 x 1
+# at 1000 MHz: 112.17 -> 108.46 s (-3.3 %); trimul_t2 itself declines c_z 384, t2cm and t2w carry the saving.
+NORMAL_LEVERS = _FAMILY_NORMAL | WS_CHAIN | T2_TAIL
 BH_NORMAL_LEVERS = _FAMILY_NORMAL
 FAST_LEVERS = (_T.FAST_LEVERS - {"dit_b8"}) | {"trimul_b8in", "trimul_t2w"} | WS_CHAIN
 # Wormhole fast also runs T1 on OpenDDE's c_z 384 pair (trimul_t1_c384). WH 11-set fast grade, FAST_LEVERS vs +
@@ -464,7 +468,7 @@ class OpenDDE:
         (OPENDDE_DIFFUSION_FP32=1 lifts it). Guided runs pass True (host_controller.diffusion_precision).
         levers: the precision levers this model builds and folds under, the same switches
         Protenix-v2 runs (`tenstorrent.LEVERS`); None takes the mode's set
-        (`tenstorrent.model_levers`): `NORMAL_LEVERS` (the Protenix family set + ws_chain; `BH_NORMAL_LEVERS` on
+        (`tenstorrent.model_levers`): `NORMAL_LEVERS` (Protenix family set + ws_chain + T2 tail; `BH_NORMAL_LEVERS` on
         Blackhole), or `FAST_LEVERS` (`WH_FAST_LEVERS` on Wormhole) under `--fast`."""
         import tt_bio.tenstorrent as _TT
         wh = _TT.is_wormhole()
