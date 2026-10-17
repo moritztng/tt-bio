@@ -58,6 +58,10 @@ _STEP_CACHE = True
 # ._folded): two matmuls per block instead of six plus a chunk and a concat. Same arithmetic.
 _APB_FOLD = env_flag("TT_BIO_ESMFOLD2_APB_FOLD", False)
 
+# _attn_fp32's q.k^T from the bf16 q and k with an fp32 result, k transposed inside the matmul: the fp32
+# copies held the same values (bf16 -> fp32 is exact), so this drops two typecasts and a permute a call.
+_ATTN_QK_BF16 = env_flag("TT_BIO_ESMFOLD2_ATTN_QK_BF16", False)
+
 
 # Optional progress callback for the CLI display: report_progress(stage, step, total).
 # A no-op unless a worker installs one via set_progress(); never affects compute.
@@ -119,9 +123,13 @@ def _attn_fp32(q, k, v, attn_mask, scale, ck, accurate_softmax: bool = False):
     ESMFold2 has its own AttentionPairBias class. ``accurate_softmax`` swaps the fused
     kernel, whose rows sum to 0.9944 here, for the 5-op chain."""
     f32 = ttnn.float32
-    qf = ttnn.typecast(q, f32); kf = ttnn.typecast(k, f32); vf = ttnn.typecast(v, f32)
-    kt = ttnn.permute(kf, (0, 1, 3, 2))  # [B,H,Dp,L]
-    logits = ttnn.matmul(qf, kt, compute_kernel_config=ck, dtype=f32)
+    vf = ttnn.typecast(v, f32)
+    if _ATTN_QK_BF16:
+        logits = ttnn.matmul(q, k, transpose_b=True, compute_kernel_config=ck, dtype=f32)
+    else:
+        qf = ttnn.typecast(q, f32); kf = ttnn.typecast(k, f32)
+        kt = ttnn.permute(kf, (0, 1, 3, 2))  # [B,H,Dp,L]
+        logits = ttnn.matmul(qf, kt, compute_kernel_config=ck, dtype=f32)
     if attn_mask is None:
         logits = ttnn.multiply(logits, scale)
     else:
