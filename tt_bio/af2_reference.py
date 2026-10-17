@@ -167,11 +167,13 @@ class LayerNorm(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         dtype = x.dtype
         y = _wide(x)
+        if not self.fast_variance:
+            # One fused pass. The host structure module normalises the [N, N, 128] pair with this, and
+            # five elementwise passes cost 20-60 ms a call on a 2-thread Galaxy share at N=195.
+            return F.layer_norm(y, y.shape[-1:], self.weight.to(y.dtype), self.bias.to(y.dtype),
+                                self.eps).to(dtype)
         mean = y.mean(-1, keepdim=True)
-        if self.fast_variance:
-            var = (y * y).mean(-1, keepdim=True) - mean * mean
-        else:
-            var = (y - mean).square().mean(-1, keepdim=True)
+        var = (y * y).mean(-1, keepdim=True) - mean * mean
         out = ((y - mean) * torch.rsqrt(var + self.eps) * self.weight.to(y.dtype)
                + self.bias.to(y.dtype))
         return out.to(dtype)
