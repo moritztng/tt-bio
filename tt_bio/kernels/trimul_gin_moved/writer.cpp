@@ -18,11 +18,7 @@ void kernel_main() {
     // L1 runs as several launches over channel slices that write into the same two tensors.
     constexpr uint32_t CTO = get_compile_time_arg_val(4);
     constexpr uint32_t CTT = get_compile_time_arg_val(5);
-    // 1: the reader gathers rows 16..31 of every output tile (its half of the face-row reads and the
-    // matching 1 KB of each 2 KB tile write). Semaphore 0 hands it each 32-tile group, 2 the group's
-    // address; the group is popped once semaphore 1 says the reader's reads of it have landed.
-    constexpr uint32_t SPLIT = get_compile_time_arg_val(6);
-    constexpr auto a_args = TensorAccessorArgs<7>();
+    constexpr auto a_args = TensorAccessorArgs<6>();
     constexpr auto b_args = TensorAccessorArgs<a_args.next_compile_time_args_offset()>();
     const auto oa = TensorAccessor(a_args, get_common_arg_val<uint32_t>(0));
     const auto ob = TensorAccessor(b_args, get_common_arg_val<uint32_t>(1));
@@ -40,12 +36,6 @@ void kernel_main() {
     const uint32_t stage0 = get_write_ptr(stage_cb);
     noc_async_read_one_packet_set_state(get_noc_addr(stage0), RB);
     bool dirty[2] = {false, false};
-    volatile tt_l1_ptr uint32_t* go = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(get_semaphore(0));
-    volatile tt_l1_ptr uint32_t* done = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(get_semaphore(1));
-    volatile tt_l1_ptr uint32_t* addr = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(get_semaphore(2));
-    uint32_t seq = 0;
-    // Rows of each output tile this RISC gathers: all 32, or the first 16 when SPLIT.
-    constexpr uint32_t HALVES = SPLIT ? 1 : 2;
 
     for (uint32_t u = u0; u < u0 + nunits; ++u) {
         const uint32_t b = u / SS;
@@ -55,10 +45,6 @@ void kernel_main() {
             uint32_t page = (b * CTT + CTO + (is_a ? q : q - CT)) * 32 * SS + cube;
             cb_wait_front(out_cb, 32);
             const uint32_t src = get_read_ptr(out_cb);
-            if constexpr (SPLIT) {
-                *addr = src;
-                *go = ++seq;
-            }
             for (uint32_t c0 = 0; c0 < 32 && !(ABL & 4); c0 += NB) {
                 const uint32_t grp = (c0 / NB) & 1u;
                 const uint32_t gbase = stage0 + grp * NB * TB;
@@ -74,24 +60,18 @@ void kernel_main() {
                     }
                     d0 = st + 2 * FB;
                     d1 = st + 3 * FB;
-                    for (uint32_t il = 0; il < 16 && HALVES == 2; ++il, s0 += TB, s1 += TB, d0 += RB, d1 += RB) {
+                    for (uint32_t il = 0; il < 16; ++il, s0 += TB, s1 += TB, d0 += RB, d1 += RB) {
                         noc_async_read_one_packet_with_state(s0, d0);
                         noc_async_read_one_packet_with_state(s1, d1);
                     }
                 }
                 noc_async_read_barrier();
                 for (uint32_t j = 0; j < NB; ++j, page += SS)
-                    noc_async_write(gbase + j * TB, is_a ? oa.get_noc_addr(page) : ob.get_noc_addr(page),
-                                    HALVES * 2 * FB);
+                    noc_async_write(gbase + j * TB, is_a ? oa.get_noc_addr(page) : ob.get_noc_addr(page), TB);
                 dirty[grp] = true;
             }
             noc_async_write_barrier();
             dirty[0] = dirty[1] = false;
-            if constexpr (SPLIT) {
-                while (*done != seq) {
-                    invalidate_l1_cache();
-                }
-            }
             cb_pop_front(out_cb, 32);
         }
     }

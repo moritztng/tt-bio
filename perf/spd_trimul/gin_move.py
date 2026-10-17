@@ -22,9 +22,6 @@ ap.add_argument("--nb", default="", help="time only, moved route: writer tiles p
 ap.add_argument("--sigpoly", action="store_true", help="add 'moved_poly' and 'today_poly' routes: the polynomial sigmoid")
 ap.add_argument("--var", action="append", default=[],
                 help="NAME:SIGPOLY:RNE, both routes under those kernel options (float64 error, ms); repeatable")
-ap.add_argument("--split", default="",
-                help="moved route with the gather split over both data-movement RISCs (GIN_MOVE_SPLIT), at these NB: "
-                     "bit-equality to the unsplit route, ms of both, then --abl again under the split")
 ap.add_argument("--only-timing", action="store_true", help="skip the two-route check, run only --abl/--nb")
 A = ap.parse_args()
 
@@ -101,19 +98,6 @@ for nb in [int(v) for v in A.nb.split(",") if v]:
     print(json.dumps({"nb": nb, "ms": timed(moved), "rel_rms_f64": [round(rel(h, r), 6) for h, r in zip(host, ref)]}),
           flush=True)
 NB0 = TT.GIN_MOVE_NB = int(__import__("os").environ.get("TT_BIO_TRIMUL_GIN_MOVE_NB", "2"))
-for nb in [int(v) for v in A.split.split(",") if v]:
-    TT.GIN_MOVE_NB, rec = nb, {"split_nb": nb}
-    for sp in (False, True):
-        TT.GIN_MOVE_SPLIT = sp
-        res = moved()
-        rec["host_split" if sp else "host"] = [ttnn.to_torch(t) for t in res]
-        for t in res:
-            ttnn.deallocate(t)
-        rec["split_ms" if sp else "ms"] = timed(moved)
-    rec["exact"] = all(torch.equal(a, b) for a, b in zip(rec.pop("host"), rec.pop("host_split")))
-    print(json.dumps(rec), flush=True)
-TT.GIN_MOVE_NB = NB0
-TT.GIN_MOVE_SPLIT = bool(A.split)
 for abl in [int(v) for v in A.abl.split(",") if v]:
     TT.GIN_MOVE_ABL = abl
     print(json.dumps({"abl": abl, "nb": NB0, "ms": timed(moved)}), flush=True)
