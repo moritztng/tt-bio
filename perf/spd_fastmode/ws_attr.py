@@ -2,8 +2,8 @@
 
     TT_VISIBLE_DEVICES=<card> python perf/spd_fastmode/ws_attr.py [--n 512] [--c 256] [--hidden 1024] [--reps 20] [--rms]
 
-Arms: `fast` (bfp8 x and weights, HiFi2) and `normal` (bf16, HiFi4), each once with metal's silu_tile, then with the
-default polynomial silu plain and with one of the kernels' WS_NO_* defines (FC12, SILU, GATE, FC3 in compute; XREAD in the reader; WRITE in the writer). A dropped phase makes the
+Arms: `fast` (bfp8 x and weights, HiFi2), `normal` (bf16, HiFi4) and `lofi` (bfp8, LoFi), each once with metal's silu_tile, then with the
+default polynomial silu plain and with one of the kernels' WS_NO_* defines (FC12, SILU, GATE, FC3 in compute; XREAD in the reader; WRITE in the writer), or several joined by `+`. A dropped phase makes the
 output wrong by design, so this prints time only: ms/call, median of --reps after 3 warm calls. One JSON line per arm.
 --rms runs every pair_swiglu call with the RMSNorm prologue (WS_RMS), as RFdiffusion3's pair Transition calls it.
 """
@@ -61,7 +61,8 @@ def emit(**kw):
 emit(arm="layer_norm", ms=timed(lambda: ttnn.layer_norm(xt, weight=nw, epsilon=1e-5,
                                                          memory_config=ttnn.DRAM_MEMORY_CONFIG)))
 emit(arm="typecast_bfp8", ms=timed(lambda: ttnn.typecast(xt, ttnn.bfloat8_b)))
-MODES = (("fast", ttnn.bfloat8_b, ttnn.MathFidelity.HiFi2), ("normal", ttnn.bfloat16, ttnn.MathFidelity.HiFi4))
+MODES = (("fast", ttnn.bfloat8_b, ttnn.MathFidelity.HiFi2), ("normal", ttnn.bfloat16, ttnn.MathFidelity.HiFi4),
+         ("lofi", ttnn.bfloat8_b, ttnn.MathFidelity.LoFi))   # ws_lofi, the Wormhole --fast pair SwiGLU
 if a.rms:  # the prologue reads a bf16 x; RFdiffusion3 runs bf16 at its own fidelity in both modes
     MODES = (("normal", ttnn.bfloat16, ttnn.MathFidelity.HiFi4), ("hifi2", ttnn.bfloat16, ttnn.MathFidelity.HiFi2))
 for mode, dt, fid in MODES:
@@ -79,7 +80,7 @@ for mode, dt, fid in MODES:
     if dt != ttnn.bfloat16 and W.eligible(xt, w12, w3t):  # is the bfp8 cast of x (typecast_bfp8 above) worth it?
         emit(arm=mode + "-bf16x", fidelity=str(fid), ms=timed(lambda: W.pair_swiglu(xt, w12, w3t, fid)))
         emit(arm=mode + "-bf16x-poly6_silu", fidelity=str(fid), ms=timed(lambda: W.pair_swiglu(xt, w12, w3t, fid, (), 2)))
-    for drop in ("", "FC12", "SILU", "GATE", "FC3", "XREAD", "WRITE"):
-        defs = [("WS_NO_" + drop, "1")] if drop else []
+    for drop in ("", "FC12", "SILU", "GATE", "FC3", "XREAD", "WRITE", "FC12+FC3", "FC12+FC3+SILU"):
+        defs = [("WS_NO_" + d, "1") for d in drop.split("+") if d]
         emit(arm=mode + ("-" + drop.lower() if drop else ""), fidelity=str(fid),
              ms=timed(lambda: W.pair_swiglu(x, w12, w3t, fid, defs)))
