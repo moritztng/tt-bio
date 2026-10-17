@@ -21,11 +21,22 @@ void kernel_main() {
     constexpr auto wp_args = TensorAccessorArgs<x_args.next_compile_time_args_offset()>();
     constexpr auto wg_args = TensorAccessorArgs<wp_args.next_compile_time_args_offset()>();
     constexpr auto m_args = TensorAccessorArgs<wg_args.next_compile_time_args_offset()>();
+    // SPLIT (writer.cpp): after each unit's activations this RISC gathers rows 16..31 of every output
+    // tile of the unit, NB tiles per read barrier, and writes them as the second 1 KB of each page.
+    constexpr uint32_t SO = m_args.next_compile_time_args_offset();
+    constexpr uint32_t SPLIT = get_compile_time_arg_val(SO);
+    constexpr uint32_t NB = get_compile_time_arg_val(SO + 1);
+    constexpr uint32_t CTO = get_compile_time_arg_val(SO + 2);
+    constexpr uint32_t CTT = get_compile_time_arg_val(SO + 3);
+    constexpr auto a_args = TensorAccessorArgs<SO + 4>();
+    constexpr auto b_args = TensorAccessorArgs<a_args.next_compile_time_args_offset()>();
 
     const auto x = TensorAccessor(x_args, get_common_arg_val<uint32_t>(0));
     const auto wp = TensorAccessor(wp_args, get_common_arg_val<uint32_t>(1));
     const auto wg = TensorAccessor(wg_args, get_common_arg_val<uint32_t>(2));
     const auto mk = TensorAccessor(m_args, get_common_arg_val<uint32_t>(3));
+    const auto oa = TensorAccessor(a_args, get_common_arg_val<uint32_t>(4));
+    const auto ob = TensorAccessor(b_args, get_common_arg_val<uint32_t>(5));
     const uint32_t u0 = get_arg_val<uint32_t>(0);
     const uint32_t nunits = get_arg_val<uint32_t>(1);
 
@@ -35,6 +46,17 @@ void kernel_main() {
     constexpr uint32_t m_cb = tt::CBIndex::c_6;
     constexpr uint32_t S = St * 32;
     const uint32_t tb = get_tile_size(x_cb);
+    constexpr uint32_t stage_cb = tt::CBIndex::c_25;
+    constexpr uint32_t CT = CT2 / 2, SS = St * St, TB = 2048, FB = 512, RB = 32;
+    uint32_t stage0 = 0, seq = 0;
+    bool dirty[2] = {false, false};
+    volatile tt_l1_ptr uint32_t* go = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(get_semaphore(0));
+    volatile tt_l1_ptr uint32_t* done = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(get_semaphore(1));
+    volatile tt_l1_ptr uint32_t* addr = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(get_semaphore(2));
+    if constexpr (SPLIT) {
+        cb_reserve_back(stage_cb, 2 * NB);
+        stage0 = get_write_ptr(stage_cb);
+    }
 
     cb_reserve_back(w_cb, 2 * CT2 * Kt);
     uint32_t w = get_write_ptr(w_cb);
@@ -75,6 +97,43 @@ void kernel_main() {
                 }
             }
             cb_push_back(m_cb, 32);
+        }
+        if constexpr (SPLIT) {
+            const uint32_t cube = u % SS;
+            for (uint32_t q = 0; q < CT2; ++q) {
+                ++seq;
+                while (*go != seq) {
+                    invalidate_l1_cache();
+                }
+                const uint32_t src = *addr;
+                const bool is_a = q < CT;
+                uint32_t page = (b * CTT + CTO + (is_a ? q : q - CT)) * 32 * SS + cube;
+                // The one-packet read state is set per group: the mask copy above may have used the NOC.
+                noc_async_read_one_packet_set_state(get_noc_addr(stage0), RB);
+                for (uint32_t c0 = 0; c0 < 32 && !(ABL & 4); c0 += NB) {
+                    const uint32_t grp = (c0 / NB) & 1u;
+                    const uint32_t gbase = stage0 + grp * NB * TB;
+                    if (dirty[grp]) noc_async_writes_flushed();
+                    for (uint32_t j = 0; j < NB; ++j) {
+                        const uint32_t c = c0 + j;
+                        const uint32_t st = gbase + j * TB;
+                        uint32_t s0 = src + 16 * TB + (c >> 4) * 2 * FB + (c & 15) * RB;
+                        uint32_t s1 = s0 + FB, d0 = st, d1 = st + FB;
+                        for (uint32_t il = 0; il < 16; ++il, s0 += TB, s1 += TB, d0 += RB, d1 += RB) {
+                            noc_async_read_one_packet_with_state(s0, d0);
+                            noc_async_read_one_packet_with_state(s1, d1);
+                        }
+                    }
+                    noc_async_read_barrier();
+                    for (uint32_t j = 0; j < NB; ++j, page += SS)
+                        noc_async_write(gbase + j * TB,
+                                        (is_a ? oa.get_noc_addr(page) : ob.get_noc_addr(page)) + 2 * FB, 2 * FB);
+                    dirty[grp] = true;
+                }
+                *done = seq;
+            }
+            noc_async_write_barrier();
+            dirty[0] = dirty[1] = false;
         }
     }
 }
