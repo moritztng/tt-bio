@@ -1099,6 +1099,7 @@ def main():
             # both can tell a target with no ligand from a ligand that went missing.
             n_ligand_chains=sum(1 for c in chains if c[3] == "ligand"),
             checkpoint=args.checkpoint, trunk_blocks=ckpt["trunk_blocks"], levers=levers,
+            fast=bool(args.fast),
             ref_source=args.ref_fixture or "folded in this run",
             plddt_mean=plddt_means,
             plddt_pcc=pcc(base_tt["plddt"], base_ref["plddt"]),

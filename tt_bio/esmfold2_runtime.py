@@ -1562,7 +1562,10 @@ LEVERS_FAST = ("normal+trimul_b8in+transition_ws+trimul_gin+trimul_t2g+trimul_gi
 # ws_lofi passes the fast bar on Wormhole too, 11 complexes x 4 seeds, 44 paired folds per model (Galaxy chip, 1000
 # MHz, spd-gap-esmf wlg): ESMFold2 CA-lDDT -0.0004 [-0.0024, +0.0015], DockQ +0.017, docking 31 -> 32 of 44;
 # ESMFold2-Fast CA-lDDT -0.0001 [-0.0021, +0.0023], docking 24 -> 24. Same chip, 512 aa, 1000 MHz: ESMFold2 33.60 ->
-# 33.10 s, ESMFold2-Fast 20.76 -> 20.38 s (spd-gap-whesmf wm, two runs per arm).
+# 33.10 s, ESMFold2-Fast 20.76 -> 20.38 s (spd-gap-whesmf wm, two runs per arm). It costs mean plDDT: ESMFold2-Fast
+# cdk2x2_512 at 10 recycles x 100 steps, seeds 0,1 against the fp32 reference, reads a same-seed gap of 0.0167 with it
+# and 0.0018 without (one Galaxy chip, 1000 MHz, spd-gap-whesmf wpl; ef2_pair_init moves it 0.0004). pTM 0.792 vs 0.807,
+# Kabsch inside the seed floor both ways. Within the fast bar (0.03), which is what the release leg grades --fast at.
 # ef2_pair_init passes the fast bar on Wormhole as well, against the WH fast set without it, 11 complexes x 4 seeds, 44
 # paired folds per model (Galaxy chip, 1000 MHz, spd-gap-whesmf wpg): ESMFold2 CA-lDDT +0.0015 [-0.0004, +0.0043],
 # top-pose median 0.55 A vs 1.73 A seed floor, docking 32 -> 31 of 44; ESMFold2-Fast CA-lDDT +0.0002 [-0.0005, +0.0009],
