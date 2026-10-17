@@ -55,8 +55,7 @@ def ref(end):
     return out
 
 
-def fused(end, rne=0):
-    L.RNE = rne
+def fused(end):
     with T.levers(["triatt_ln"]):
         if not end:
             return L.ln_qkvgb_heads(x, g, b, w, G.ckc_args(ckc), H, D, 1, grid)
@@ -101,8 +100,7 @@ def grade(out, end):
 
 res = {"seq": S, "heads": H, "fid": a.fid, "plan": {}, "arms": {}}
 arms = {"ref_start": lambda: ref(False), "fused_start": lambda: fused(False),
-        "fused_start_rne": lambda: fused(False, 1),
-        "ref_end": lambda: ref(True), "fused_end": lambda: fused(True), "fused_end_rne": lambda: fused(True, 1)}
+        "ref_end": lambda: ref(True), "fused_end": lambda: fused(True)}
 for name, fn in arms.items():
     out = fn()
     if out is None:
