@@ -53,6 +53,10 @@ ap.add_argument("--wrap", choices=("census", "all"), default="all",
 ap.add_argument("--dump", type=int, default=0,
                 help="save the first N gradient calls' results to dump_<n>.npz, so two arms can be compared "
                      "by magnitude when their digests differ")
+ap.add_argument("--devprof", type=int, default=0,
+                help="with a Tracy-built tt-metal and TT_METAL_DEVICE_PROFILER=1 (perf/spd_census/run.sh's env): "
+                     "read the device profiler every N outermost calls of iteration --at and attribute each "
+                     "program's DEVICE KERNEL DURATION to its call (dev_s per signature); 0 = off")
 ap.add_argument("--profile", type=int, default=3,
                 help="run this (uninstrumented) gradient call under cProfile; 0 = off")
 a = ap.parse_args()
@@ -135,7 +139,54 @@ HEAD = dict(sha=SHA, dirty=DIRTY, engine=str(Path(tt_bio.__file__).parent), host
             campaign_seed=a.seed, at=a.at, replay=a.replay, wrap=a.wrap, profile=a.profile, argv=sys.argv,
             nodes=NODES)
 
-rec = LazyRecorder(__import__("ttnn"), None, a.replay)
+class DevRecorder(LazyRecorder):
+    """Adds each outermost call's device-op id range, so profiler programs map back to it (`drain`)."""
+
+    def _wrap(self, name, fn):
+        inner = super()._wrap(name, fn)
+        opid = self.ttnn._ttnn.get_device_operation_id
+
+        def w(*args, **kwargs):
+            top = self.active and not self.depth
+            id0 = opid() if top else None
+            n0 = len(self.rec)
+            out = inner(*args, **kwargs)
+            if top and len(self.rec) > n0:
+                self.rec[-1]["ids"] = (id0, opid())
+                if len(self.rec) - DEV["drained"] >= a.devprof:
+                    drain()
+            return out
+        return w
+
+
+DEV = dict(drained=0, programs=0, unmatched=0, kernel_s=0.0)
+
+
+def drain():
+    """Read the device profiler and add every program's kernel time to the call whose id range holds it."""
+    import bisect
+    ttnn = rec.ttnn
+    ttnn.synchronize_device(TT._device)
+    ttnn.ReadDeviceProfiler(TT._device)
+    todo = [r for r in rec.rec[DEV["drained"]:] if "ids" in r]
+    starts = [r["ids"][0] for r in todo]
+    for _chip, progs in ttnn.get_latest_programs_perf_data().items():
+        for p in progs:
+            k = p.program_analyses_results.get("DEVICE KERNEL DURATION [ns]")
+            if k is None:
+                continue
+            oid = p.program_execution_uid.runtime_id >> 10   # mesh workloads carry (op id << 10) | sub-id
+            i = bisect.bisect_right(starts, oid) - 1
+            DEV["programs"] += 1
+            if i >= 0 and oid < todo[i]["ids"][1]:
+                todo[i]["dev_ns"] = todo[i].get("dev_ns", 0) + k.duration
+                DEV["kernel_s"] += k.duration / 1e9
+            else:
+                DEV["unmatched"] += 1
+    DEV["drained"] = len(rec.rec)
+
+
+rec = (DevRecorder if a.devprof else LazyRecorder)(__import__("ttnn"), None, a.replay)
 rec.rec = []
 
 def profiled(fn):
@@ -275,6 +326,11 @@ def sequence_gradients(self, *args, **kwargs):
                                                 profiled=state["n"] == a.profile,
                                                 trunk_loads=state["loads"] - loads0,
                                                 load1=load1, ncpu=os.cpu_count()))
+    if a.devprof:
+        # programs from the warm-up iterations sit in the profiler buffers; read them out unattributed
+        rec.ttnn.synchronize_device(TT._device)
+        rec.ttnn.ReadDeviceProfiler(TT._device)
+        rec.ttnn.get_latest_programs_perf_data()
     if a.wrap == "all":
         rec.install_all()
     else:
@@ -286,6 +342,8 @@ def sequence_gradients(self, *args, **kwargs):
     finally:
         t1 = time.monotonic()
         rec.active = False
+        if a.devprof:
+            drain()
         state["instrumented"] = t1 - t0
         state["instrumented_loads"] = state["loads"] - loads0
         state["instrumented_load1"] = load1
@@ -296,7 +354,7 @@ def sequence_gradients(self, *args, **kwargs):
 
 def write(partial=False):
     agg = collections.defaultdict(lambda: dict(calls=0, synced_s=0.0, replay_s=0.0, replays=0,
-                                               flops=0.0, bytes=0.0))
+                                               flops=0.0, bytes=0.0, dev_s=0.0))
     for r in rec.rec:
         k = (r["name"], r["origin"], r["sig"], r["out"])
         d = agg[k]
@@ -304,17 +362,19 @@ def write(partial=False):
         d["synced_s"] += r["synced_s"]
         d["flops"] += r["flops"]
         d["bytes"] += r["bytes"]
+        d["dev_s"] += r.get("dev_ns", 0) / 1e9
         if r["replay_s"] is not None:
             d["replay_s"] += r["replay_s"]
             d["replays"] += 1
     rows = []
     for (name, origin, sig, out), d in agg.items():
         rows.append(dict(name=name, origin=origin, sig=sig, out=out, cls=CLASS.get(name, "other"), **d))
-    rows.sort(key=lambda r: -r["synced_s"])
+    rows.sort(key=lambda r: -(r["dev_s"] if a.devprof else r["synced_s"]))
     total = sum(r["synced_s"] for r in rows)
     doc = dict(**HEAD, iteration_s=state["instrumented"], uninstrumented=state["uninstrumented"],
                iteration_trunk_loads=state.get("instrumented_loads"), iteration_load1=state.get("instrumented_load1"),
-               aiclk=state["cl"], synced_total_s=total, ops=rows, calls=len(rec.rec), partial=partial)
+               aiclk=state["cl"], synced_total_s=total, ops=rows, calls=len(rec.rec), partial=partial,
+               devprof=dict(DEV) if a.devprof else None)
     ag = sys.modules.get("tt_bio.autograd")
     if ag is not None:
         doc.update(rtrace_stats=dict(ag.RTRACE_STATS), rtrace_checks=list(ag.RTRACE_CHECKS))
@@ -342,6 +402,15 @@ def write(partial=False):
         by[r["cls"]] += r["synced_s"]
     print("\nby class: " + ", ".join(f"{k} {v:.3f}s ({v / total * 100:.1f}%)"
                                      for k, v in sorted(by.items(), key=lambda kv: -kv[1])))
+    if a.devprof:
+        dv = collections.defaultdict(float)
+        for r in rows:
+            dv[r["cls"]] += r["dev_s"]
+        print(f"device kernel time {DEV['kernel_s']:.3f} s over {DEV['programs']} programs "
+              f"({DEV['unmatched']} unmatched); by class: " + ", ".join(
+                  f"{k} {v:.3f}s" for k, v in sorted(dv.items(), key=lambda kv: -kv[1])))
+        for r in rows[:25]:
+            print(f"  dev {r['dev_s']:7.3f}  {r['name'][:30]:30} {r['origin'][:18]:18} {r['calls']:5d}  {r['sig'][:80]}")
     print(f"wrote {a.out / 'census.json'}", flush=True)
 
 
