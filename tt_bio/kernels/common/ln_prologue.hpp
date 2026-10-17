@@ -8,8 +8,8 @@
 // variance of x - mean, as ttnn.layer_norm), times gamma plus beta broadcast from row 0.
 //
 // C names the circular buffers and Kt as static constexpr members (x, gamma, beta, scaler, eps,
-// mean, var, rstd, xc, tmp). The last stage, + beta, leaves channel tile i in DST d and calls
-// pack(i, d), so each kernel packs where its consumer reads: T1 into a reserved slot of its unit,
+// mean, var, rstd, xc, tmp). The last stage, + beta, leaves channel tile i in DST 0 and calls
+// pack(i), so each kernel packs where its consumer reads: T1 into a reserved slot of its unit,
 // T2 appended to its GEMM input. The pack hook does no CB bookkeeping; the caller reserves and
 // pushes its output. Needs REDUCE_OP / REDUCE_DIM from the host (SUM, REDUCE_ROW) and the scaler
 // tile holding 1/K.
@@ -46,9 +46,6 @@ ALWI void row_mean(uint32_t in, uint32_t out, bool pop) {
 
 enum Op { SUB_COL, MUL_COL, MUL_ROW, MUL };
 
-// Channel tiles per DST acquire: 4 fits half-sync fp32 DEST, the smallest any caller runs.
-constexpr uint32_t DB = 4;
-
 // out[i] = a[i] (op) b[i or 0], Kt tiles. Neither input is popped here.
 template <class C, Op OP>
 ALWI void stage(uint32_t a, uint32_t b, uint32_t out) {
@@ -59,19 +56,15 @@ ALWI void stage(uint32_t a, uint32_t b, uint32_t out) {
     if constexpr (OP == MUL_ROW) mul_bcast_rows_init_short(a, b);
     if constexpr (OP == MUL) mul_tiles_init(a, b);
     cb_reserve_back(out, C::Kt);
-    for (uint32_t i0 = 0; i0 < C::Kt; i0 += DB) {
-        const uint32_t n = C::Kt - i0 < DB ? C::Kt - i0 : DB;
+    for (uint32_t i = 0; i < C::Kt; ++i) {
         tile_regs_acquire();
-        for (uint32_t d = 0; d < n; ++d) {
-            const uint32_t i = i0 + d;
-            if constexpr (OP == SUB_COL) sub_tiles_bcast_cols(a, b, i, 0, d);
-            if constexpr (OP == MUL_COL) mul_tiles_bcast_cols(a, b, i, 0, d);
-            if constexpr (OP == MUL_ROW) mul_tiles_bcast_rows(a, b, i, i, d);
-            if constexpr (OP == MUL) mul_tiles(a, b, i, i, d);
-        }
+        if constexpr (OP == SUB_COL) sub_tiles_bcast_cols(a, b, i, 0, 0);
+        if constexpr (OP == MUL_COL) mul_tiles_bcast_cols(a, b, i, 0, 0);
+        if constexpr (OP == MUL_ROW) mul_tiles_bcast_rows(a, b, i, i, 0);
+        if constexpr (OP == MUL) mul_tiles(a, b, i, i, 0);
         tile_regs_commit();
         tile_regs_wait();
-        for (uint32_t d = 0; d < n; ++d) pack_tile(d, out);
+        pack_tile(0, out);
         tile_regs_release();
     }
     cb_push_back(out, C::Kt);
@@ -98,7 +91,7 @@ ALWI void rstd() {
     cb_wait_front(C::rstd, 1);
 }
 
-// Kt tiles at the front of C::x (popped) -> pack(i, d) for every channel tile i, `out` the CB pack
+// Kt tiles at the front of C::x (popped) -> pack(i) for every channel tile i, `out` the CB pack
 // writes to (its data format is configured here).
 template <class C, class Pack>
 ALWI void layer_norm_row(uint32_t out, Pack pack) {
@@ -121,13 +114,12 @@ ALWI void layer_norm_row(uint32_t out, Pack pack) {
     reconfig_data_format(C::xc, C::beta);                 // + beta, packed by the caller's hook
     pack_reconfig_data_format(out);
     add_bcast_rows_init_short(C::xc, C::beta);
-    for (uint32_t i0 = 0; i0 < C::Kt; i0 += DB) {
-        const uint32_t n = C::Kt - i0 < DB ? C::Kt - i0 : DB;
+    for (uint32_t i = 0; i < C::Kt; ++i) {
         tile_regs_acquire();
-        for (uint32_t d = 0; d < n; ++d) add_tiles_bcast_rows(C::xc, C::beta, i0 + d, i0 + d, d);
+        add_tiles_bcast_rows(C::xc, C::beta, i, i, 0);
         tile_regs_commit();
         tile_regs_wait();
-        for (uint32_t d = 0; d < n; ++d) pack(i0 + d, d);
+        pack(i);
         tile_regs_release();
     }
     cb_pop_front(C::xc, C::Kt);
@@ -148,13 +140,12 @@ ALWI void rms_norm_row(uint32_t out, Pack pack) {
     reconfig_data_format(C::tmp, C::gamma);               // * gamma, packed by the caller's hook
     pack_reconfig_data_format(out);
     mul_bcast_rows_init_short(C::tmp, C::gamma);
-    for (uint32_t i0 = 0; i0 < C::Kt; i0 += DB) {
-        const uint32_t n = C::Kt - i0 < DB ? C::Kt - i0 : DB;
+    for (uint32_t i = 0; i < C::Kt; ++i) {
         tile_regs_acquire();
-        for (uint32_t d = 0; d < n; ++d) mul_tiles_bcast_rows(C::tmp, C::gamma, i0 + d, i0 + d, d);
+        mul_tiles_bcast_rows(C::tmp, C::gamma, i, i, 0);
         tile_regs_commit();
         tile_regs_wait();
-        for (uint32_t d = 0; d < n; ++d) pack(i0 + d, d);
+        pack(i);
         tile_regs_release();
     }
     cb_pop_front(C::tmp, C::Kt);

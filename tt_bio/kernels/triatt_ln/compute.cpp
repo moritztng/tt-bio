@@ -73,7 +73,7 @@ void kernel_main() {
 
     for (uint32_t r = 0; r < nrows; ++r) {
         cb_reserve_back(xn_cb, Kt);
-        ln_prologue::layer_norm_row<LnCbs>(xn_cb, [](uint32_t i, uint32_t d) { pack_tile<true>(d, xn_cb, i); });
+        ln_prologue::layer_norm_row<LnCbs>(xn_cb, [](uint32_t i) { pack_tile<true>(0, xn_cb, i); });
         cb_push_back(xn_cb, Kt);
         cb_wait_front(xn_cb, Kt);
 
