@@ -26,8 +26,6 @@ ap.add_argument("--gb8", action="store_true",
                 help="g uploaded as bfp8, as trimul_b8in writes g_out (both arms read it; the reference keeps bf16 g)")
 ap.add_argument("--abl", default="",
                 help="comma list of T2_ABL stage-ablation masks also timed after the full T2 (bench only)")
-ap.add_argument("--sigrows", default="",
-                help="comma list of T2_SIGROWS sigmoid forms also timed (1 one-row, 2 two-row) with the output's max abs diff to the default form")
 ap.add_argument("--out", help="also append each JSON line here (the qb runner passes it)")
 A = ap.parse_args()
 
@@ -135,16 +133,6 @@ for n in [int(s) for s in A.ns.split(",") if s]:
                 rec[f"t2_ms_abl{m}"] = timed(lambda: TT.fused_tail_ln(
                     d["x"], d["gamma"], d["beta"], d["w"], d["g"], z, ckc, grid, wg=wg), A.reps)
             TT.T2_ABL = 0
-            base = TT.T2_SIGROWS
-            for r in [int(v) for v in A.sigrows.split(",") if v]:
-                TT.T2_SIGROWS = r
-                zr = up(h["z"])
-                yr = ttnn.to_torch(TT.fused_tail_ln(d["x"], d["gamma"], d["beta"], d["w"], d["g"], zr, ckc, grid, wg=wg))
-                rec[f"t2_sigrows{r}_maxdiff"] = float((yr.reshape(ref.shape).float() - out.float()).abs().max())
-                rec[f"t2_ms_sigrows{r}"] = timed(lambda: TT.fused_tail_ln(
-                    d["x"], d["gamma"], d["beta"], d["w"], d["g"], zr, ckc, grid, wg=wg), A.reps)
-                ttnn.deallocate(zr)
-            TT.T2_SIGROWS = base
         ttnn.deallocate(z)
     except Exception as e:                                                    # noqa: BLE001
         rec["t2_err"] = str(e).splitlines()[0][:300]
