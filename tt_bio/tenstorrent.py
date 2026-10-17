@@ -709,9 +709,8 @@ _FAST_MODE = False
 #                   the layer, one [768, 768] linear each off the shared normed s, instead of three [768, 36864]
 #                   linears for all 24 layers and 144 slices a step to cut them back out.
 #   dit_shoist      the DiT's conditioning as three wide linears a step whose columns each layer reads in place
-#                   (`addcmul_at`): OpenFold3's DiT, ESMFold2's token DiT, and Boltz-2's token DiT, where it takes
-#                   precedence over dit_cond_jit (adaLN modulation, the attention gate and the transition gate +
-#                   residual each one op).
+#                   (`addcmul_at`): OpenFold3's DiT, and Boltz-2's token DiT, where it takes precedence over
+#                   dit_cond_jit (adaLN modulation, the attention gate and the transition gate + residual each one op).
 #   apb_cat         the token attention's head re-assembly as one nlp_concat_heads, gate and output projection on
 #                   the padded head lanes (what TT_BIO_APB_CONCAT_HEADS does at load, exact), with the wide
 #                   weights re-laned from the bf16 device copies on the first call that takes it.

@@ -870,8 +870,6 @@ T2_STATS = [0, 0]       # served, declined
 # T2's compute-stage ablation (compute_ln.cpp's ABL bits: 1 LN, 2 p GEMM, 4 gate GEMM + sigmoid, 8 epilogue).
 # The reader and writer still move every byte. Diagnostic only, 0 in every model path.
 T2_ABL = 0
-# compute_ln.cpp's sigmoid form, 2 two-row (sigmoid_poly_tile) or 1 one-row; bit-identical, timing only.
-T2_SIGROWS = 2
 T2_KEYS = {(4, 4), (8, 8)}   # (kt, nt): c_z 128 and 256 (ESMFold2)
 # c_z 384 (OpenDDE) under the `trimul_t2w` lever, at T2's own block: `_MM_BLOCK`'s (8, 12, 1, 2, 1) does not
 # fit L1 and declines. (2, 12, 1, 2, 1) keeps the single K block, so the contraction order is the projection's.
@@ -889,7 +887,8 @@ def _t2_block(kt, nt):
 # T2m: T2 reading x where the einsum left it, channel-major, instead of after reblock_permute_back
 # (reader_moved.cpp). The gather that bounds the back move (64 NOC packets per tile) runs on the
 # reader while compute does T2's LayerNorm, two GEMMs and sigmoid, and the moved x is never written.
-# Under the `trimul_t2m` lever (in no mode set yet); T2M forces it for the benches.
+# Under the `trimul_t2m` lever (in no mode set: it lost to plain T2 once trimul_bres fed the tail); T2M forces it
+# for the benches.
 T2M = False
 T2M_STATS = [0, 0]      # served, declined
 T2M_WHY = {}
@@ -1068,7 +1067,7 @@ def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, wg=None, moved
     compute = ttnn.KernelDescriptor(
         kernel_source=str(d / "compute_ln.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[kt, nt, Mb, sbw, _sigpoly(), RNE, int(gate), int(moved is not None),
-                           0 if moved is None else Cp, T2_ABL, T2_SIGROWS],
+                           0 if moved is None else Cp, T2_ABL],
         runtime_args=cp,
         # fp32 DEST always: the LayerNorm statistics are packed to fp32 CBs and the 4-tile
         # epilogue fits half-sync fp32 DEST. The fidelity stays the caller's, so the GEMM is
@@ -1171,7 +1170,7 @@ def fused_tail_ln(x, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5, wg=None, mov
         return None
     spec = lambda t: (str(t.padded_shape), str(t.dtype), str(t.memory_config()))
     key = ("t2", spec(x), spec(wp), str(g.dtype), spec(ln_w), spec(ln_b), wg is not None, tuple(grid),
-           tuple(str(c) for c in ckc), float(eps), _sigpoly(), RNE, T2_ABL, T2_SIGROWS,
+           tuple(str(c) for c in ckc), float(eps), _sigpoly(), RNE, T2_ABL,
            None if moved is None else (spec(moved[0]), moved[1], P))
     entry = _CACHE.get(key)
     if entry is None:

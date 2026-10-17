@@ -1512,9 +1512,10 @@ LEVERS_NORMAL = ("normal-trunk_hifi3+trimul_gin+trimul_t2g+trimul_gin_hifi2"
 # [-0.0012, +0.0023], DockQ +0.015, top-pose median 0.67 A vs 1.39 A seed floor, docking 33 -> 33 of 44; ESMFold2-Fast
 # CA-lDDT +0.0016 [+0.0001, +0.0034], docking 24 -> 24. p150a 512 aa --fast warm at 1350 MHz: ws_lofi ESMFold2 16.80 ->
 # 15.80 s, ESMFold2-Fast 10.41 -> 10.17 s; trimul_gin_hifi2 -0.28 / -0.20 s. Wormhole drops ws_lofi (not graded there).
-# Wormhole adds trimul_t2m (T2 reads the einsum's last chunk channel-major, so the permute-back pass never writes):
-# same digests on 3 seeds x 2 models, 512 aa --fast warm at 1000 MHz, A B A B on one Galaxy chip: ESMFold2 37.50 ->
-# 35.97 s, ESMFold2-Fast 23.55 -> 22.55 s. Blackhole is not measured on it yet.
+# Wormhole used to add trimul_t2m (T2 reads the einsum's last chunk channel-major, so the permute-back pass never
+# writes; same digests). It won 1.0-1.5 s before trimul_bres; with bres feeding the tail it costs time: the T2m tail
+# runs 7.2 ms a call against 3.9 ms for plain T2 plus 2.2 ms for the permute it saves. 512 aa --fast, D M D M on one
+# Galaxy chip at 1000 MHz (spd-gap-whesmf wtm): ESMFold2 31.10 -> 29.49 s, ESMFold2-Fast 18.93 -> 18.15 s, pLDDT equal.
 # Blackhole --fast also runs the trimul as T1 (in-projection, c_z 256 plan included) and T2 with the channel-major
 # einsum read (trimul_t1 + t1_c256 + t2 + t2cm), graded on the fast bar against the set without them, 11 complexes x
 # 4 seeds per model (p300c, 1350 MHz): ESMFold2 CA-lDDT +0.0006 [-0.0001, +0.0014], ipTM +0.0051, top-pose median
@@ -1543,7 +1544,6 @@ _BH_ONLY_FAST = ("trimul_t1", "trimul_t1_c256", "trimul_t2", "trimul_t2cm")
 # ESMFold2-Fast CA-lDDT -0.0004 [-0.0015, +0.0009], 1.24 A vs 1.33 A, docking 48 -> 48 of 88 (88 paired folds over
 # two seed sets, wng + wng3). Galaxy chip, 1000 MHz.
 _WH_NORMAL_EXTRA = "+transition_ws+ws_resid+ef2_lm_combine+ef2_opm_kq"
-_WH_EXTRA = "+trimul_t2m"
 
 
 def fold_levers(fast: bool) -> str:
@@ -1557,7 +1557,6 @@ def fold_levers(fast: bool) -> str:
         levers = "+".join(n for n in levers.split("+") if n not in drop)
         if not fast:
             levers += _WH_NORMAL_EXTRA
-        levers += _WH_EXTRA
     return levers
 
 
