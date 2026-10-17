@@ -9,6 +9,9 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 - **OpenFold3 and OpenBind-0 `--fast` run the diffusion transformer's linears at a lower math fidelity on
   Wormhole.** A 512-residue fast fold on a Galaxy chip at 1000 MHz takes 0.16 s (OpenFold3) and 0.28 s
   (OpenBind-0) less; CA-lDDT and docking success are unchanged on 11 complexes. Blackhole is unchanged.
+- **A local-database MSA search for a complex runs its unpaired and paired searches at the same time.**
+  On a 64-core host a new two-chain OpenDDE input reaches its first fold about 10 s sooner (22.4 s to
+  12.8 s of search), with byte-identical alignments. Applies to OpenDDE, Protenix, ESMFold-2 and OpenBind-0.
 
 ## [0.19.0] - 2026-10-17
 

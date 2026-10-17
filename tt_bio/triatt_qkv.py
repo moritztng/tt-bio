@@ -615,6 +615,13 @@ _QKVGB_ENABLED = os.environ.get(
 QKVGB_STATS = [0, 0]
 QKVGB_REJECTS: dict = {}
 
+# The fused projection's block on Wormhole. The derived entries were swept on Blackhole and run M_block 4
+# on Wormhole's 8x9 grid. M_block 16, N_block 1, subblock 4x1 with K_block kept at the whole contraction
+# is the fastest torch.equal arm at every width the three head_dim-32 models use (perf/spd_m_opendde/
+# qkvgb_sweep.py, .108 chip 12, 2026-10-17; every arm that ran was torch.equal on all five outputs):
+#   OpenDDE (12, 49) 10.911 -> 8.555 ms, Protenix-v2 (8, 33) 6.125 -> 4.789, Boltz-2/OpenFold3 (4, 17) 2.574 -> 2.231.
+QKVGB_WH_BLOCK = True
+
 
 def _qkvgb_reject(reason, shape):
     k = (reason, tuple(shape))
@@ -650,6 +657,10 @@ def qkvgb_heads(x, w, w_o, ckc, n_heads, head_dim, dtype, mm_config, bias_channe
     blk = _mm_block_for(w)
     if blk is None or blk is _MM_DEFAULT:
         return _qkvgb_reject("no_block_entry", shape)
+    if QKVGB_WH_BLOCK:
+        from .tenstorrent import is_wormhole
+        if is_wormhole():
+            blk = (16, blk[1], 1, 4, 1)
     # `gate_proj`'s guard set, because a fused call that served where the gate refused would move
     # the tail off `out_proj` and change what the block computes.
     if not _PAIR_PROJ_MM:

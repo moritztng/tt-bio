@@ -632,12 +632,22 @@ def prefetch_msas(model: str, paths, cfg) -> None:
                         msa_user=cfg.get("msa_server_username"),
                         msa_pass=cfg.get("msa_server_password"), api_key=cfg.get("api_key_value"))
         else:
+            # The unpaired batch and the paired searches read and write disjoint files, so
+            # they run side by side. Neither scales with cores (hb on a 64-core Galaxy:
+            # 10.3 s at 32 or 64 threads each), so this halves the wait: 19.5 -> 10.3 s,
+            # byte-identical a3m files.
+            from concurrent.futures import ThreadPoolExecutor
+
             run = [c for _p, chains in targets for c in chains]
-            if run:
-                search_msas(Path(f"{len(targets)}_targets"), run, cfg)
-            if model in _PAIRS or model in _protenix_family():
-                for p, chains in targets:
-                    _paired_msa(p, chains, msa_dir, cfg)
+            with ThreadPoolExecutor(2) as pool:
+                jobs = []
+                if run:
+                    jobs.append(pool.submit(search_msas, Path(f"{len(targets)}_targets"), run, cfg))
+                if model in _PAIRS or model in _protenix_family():
+                    jobs.append(pool.submit(lambda: [_paired_msa(p, chains, msa_dir, cfg)
+                                                     for p, chains in targets]))
+                for j in jobs:
+                    j.result()
     except Exception as e:  # noqa: BLE001 -- see the docstring: the worker searches instead
         print(f"MSA prefetch failed ({e!r}); each target searches on its chip instead",
               file=sys.stderr)
