@@ -48,6 +48,8 @@ constexpr uint32_t CP = get_compile_time_arg_val(8);
 // push its CB as is, so the stage's time drops out while the reader and writer move the same bytes.
 // 1 LayerNorm, 2 the p GEMM, 4 the gate GEMM + sigmoid (GATE), 8 the epilogue.
 constexpr uint32_t ABL = get_compile_time_arg_val(9);
+// SIGROWS (trimul_tail.T2_SIGROWS): 2 sigmoid_poly_tile's two-row loop, 1 the one-row form. Bit-identical.
+constexpr uint32_t SIGROWS = get_compile_time_arg_val(10);
 
 constexpr uint32_t cb_x = tt::CBIndex::c_0;      // x_out rows, bf16, Mb * Kt double buffered
 constexpr uint32_t cb_w = tt::CBIndex::c_1;      // Wp, Kt * Nt, resident
@@ -183,7 +185,8 @@ void kernel_main() {
                         i1 += Nt;
                     }
                     for (uint32_t i = 0; i < SBW; ++i) {
-                        if constexpr (SIGPOLY) sigmoid_poly_tile<SIGPOLY>(i);
+                        if constexpr (SIGPOLY && SIGROWS == 1) sigmoid_poly_row_tile<SIGPOLY>(i);
+                        else if constexpr (SIGPOLY) sigmoid_poly_tile<SIGPOLY>(i);
                         else sigmoid_bf16_tile(i);
                     }
                     if constexpr (RNE & 2) {
@@ -214,7 +217,8 @@ void kernel_main() {
             for (uint32_t i = 0; i < 4; ++i) copy_tile(cb_g, t0 + i, i);
             if constexpr (!GATE) {
                 for (uint32_t i = 0; i < 4; ++i) {
-                    if constexpr (SIGPOLY) sigmoid_poly_tile<SIGPOLY>(i);
+                    if constexpr (SIGPOLY && SIGROWS == 1) sigmoid_poly_row_tile<SIGPOLY>(i);
+                    else if constexpr (SIGPOLY) sigmoid_poly_tile<SIGPOLY>(i);
                     else sigmoid_bf16_tile(i);
                 }
             }
