@@ -142,8 +142,19 @@ def test_the_generic_op_route_is_only_reached_masked(monkeypatch):
     # OpenFold3's atom transformer runs it in `_attend_superset`, which reads `sup_b.shape` first.
     # ESMFold2's windowed atom attention runs it in `attend` with the bias `_frame` returns: `self.bias`, which
     # `__init__` always uploads, or its B-fold repeat.
+    # RFD3's atom attention runs it with the mask `_sdpa_bias` returns, which always builds one.
     assert _generic_sdpa_runners() == ["tt_bio/esmfold2.py", "tt_bio/openfold3_atom_transformer.py",
-                                       "tt_bio/protenix.py", "tt_bio/tenstorrent.py", "tt_bio/triatt_sdpa.py"]
+                                       "tt_bio/protenix.py", "tt_bio/rfd3/model.py", "tt_bio/tenstorrent.py",
+                                       "tt_bio/triatt_sdpa.py"]
+    rf_src = (PKG / "rfd3" / "model.py").read_text()
+    assert rf_src.count("mask = self._sdpa_bias(") == 1
+    rf = ast.parse(rf_src)
+    rcalls = [n for n in ast.walk(rf) if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
+              and n.func.attr == "sdpa" and isinstance(n.func.value, ast.Name) and n.func.value.id == "_SG"]
+    assert len(rcalls) == 1 and ast.unparse(rcalls[0].args[4]) == "mask"
+    sb = next(n for n in ast.walk(rf) if isinstance(n, ast.FunctionDef) and n.name == "_sdpa_bias")
+    assert all(r.value is not None and ast.unparse(r.value) in ("bias", "hit[2]")
+               for r in ast.walk(sb) if isinstance(r, ast.Return))
     ef2 = ast.parse((PKG / "esmfold2.py").read_text())
     ecalls = [n for n in ast.walk(ef2) if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
               and n.func.attr == "sdpa" and isinstance(n.func.value, ast.Name) and n.func.value.id == "SG"]
