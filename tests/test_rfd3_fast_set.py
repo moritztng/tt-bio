@@ -67,8 +67,11 @@ def test_css_ships_in_both_modes(monkeypatch):
     assert M._CSS is True
 
 
-def test_pair_ws_resid_is_off_until_graded():
-    """The in-place z + transition(z) moves the digest (one rounding instead of two): off in both modes until graded."""
+def test_pair_ws_resid_ships_in_both_modes(monkeypatch):
+    """The in-place z + transition(z) is graded on the normal bar, so it is a default rather than a fast-set member."""
+    monkeypatch.delenv("RFD3_PAIR_WS_RESID", raising=False)
     assert "_PAIR_WS_RESID" not in M._FAST_SET
-    assert M.env_flag("RFD3_PAIR_WS_RESID", False) is False
+    assert M.env_flag("RFD3_PAIR_WS_RESID", True) is True
+    M.set_fast(False)
+    assert M._PAIR_WS_RESID is True
     assert callable(M.Transition.add_into)

@@ -201,7 +201,10 @@ Blackhole and from about 125 to 91 s on Wormhole at 1000 MHz. Over 28 paired def
 clashes rise by about 5 per design with a standard error of about 4, chain breaks go from 14 to 15, and the
 same-seed drift (2.9 to 14.1 A) stays inside the 13.8 to 21.7 A a seed change moves a design; the fast
 grade (ten paired seeds) moves clashes by -1.4 and leaves chain breaks identical seed for seed.
-`RFD3_PAIR_WS=0` restores the chunked transition.
+`RFD3_PAIR_WS=0` restores the chunked transition. The same kernel also adds the transition back into the
+pair tensor in place, which drops a full pass over it and one rounding: about 1 s per Wormhole design, closer to
+a float64 reference, and over eight paired default seeds chain breaks go from 3 to 4 with the same-seed drift
+(5.7 to 14.5 A) inside the 11.5 to 19.8 A seed floor. `RFD3_PAIR_WS_RESID=0` restores the separate add.
 
 The token transformer's attention masks (pair-bias projection, head-first layout, scale and mask) are built
 by one kernel instead of a linear, a permute and three elementwise passes. It is closer to a float64

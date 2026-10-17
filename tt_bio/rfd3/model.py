@@ -384,9 +384,11 @@ _PAIR_WS = env_flag("RFD3_PAIR_WS", True)
 _PAIR_WS_B8 = env_flag("RFD3_PAIR_WS_B8", False)
 # The token encoder's `z = z + transition(z)` (transition_2 and the two pairformer blocks, 8 calls a step) as one
 # RFD3_PAIR_WS program that seeds fc3's fp32 dest with z and writes z + t back over z (`pair_swiglu_ws` resid):
-# no 1x685x704x128 add pass (WH 1.56 ms each, at its DRAM roof) and one bf16 rounding of z + t instead of two.
-# Off while graded.
-_PAIR_WS_RESID = env_flag("RFD3_PAIR_WS_RESID", False)
+# no 1x685x704x128 add pass (WH 1.56 ms each, at its DRAM roof) and one bf16 rounding of z + t instead of two,
+# closer to float64 (hidden 256 max_abs 2.0 vs 8.0). Wormhole @1000 normal 80.8 -> 79.6 s/design; 8 paired WH
+# normal seeds: breaks 3 -> 4, clash delta +11 (se 9.8, median -3), drift 5.7-14.5 A against an 11.5-19.8 A
+# seed floor. On in both modes.
+_PAIR_WS_RESID = env_flag("RFD3_PAIR_WS_RESID", True)
 # Every RFD3 matmul at HiFi2 instead of HiFi4: two multiplier passes per bf16 product instead of
 # four. Off, and not in --fast: on top of the fast set it saved nothing on a p300c (4 seeds, 685
 # tokens) and doubled the clashes of one 418-token design.
