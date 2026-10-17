@@ -90,6 +90,9 @@ FAST_LEVERS = NORMAL_LEVERS | {"dit_s16", "diffusion_bf16", "trimul_t1", "trimul
 # And trimul_bres (the trimul einsum with b[c] resident in L1, bmm_res, as ESMFold2 ships it): CIFs identical with and
 # without it on both models (512-token --fast fold A/B, xmodel_ab, 1760 einsums served, 0 declined). Galaxy chip at
 # 1000 MHz, paired median: OpenFold3 -0.18 s (3 pairs; the first paid a 4.7 s program compile), OpenBind-0 -0.24 s (4).
+# In the normal mode too, CIFs identical, all 8 pairs faster: OpenFold3 -0.23 s, OpenBind-0 -0.27 s (25.8 s folds).
+# Flat on p150a in both modes (paired medians within +-0.07 s), so Wormhole only.
+WH_NORMAL_LEVERS = NORMAL_LEVERS | {"trimul_bres"}
 WH_FAST_LEVERS = FAST_LEVERS | {"apb_ln", "trimul_sig6", "trimul_bres"}
 
 def kabsch_rmsd(pred_ca, gt_ca):
@@ -315,10 +318,10 @@ class OpenFold3(Module):
     def __init__(self, sd, compute_kernel_config, num_cycles: int = 4, levers=None):
         """``levers``: the precision levers (``tenstorrent.LEVERS``) this model builds and folds
         under, active only inside its own build and fold, as for Protenix-v2. None takes the
-        mode's set (``tenstorrent.model_levers``): ``--fast`` means ``FAST_LEVERS`` below (``WH_FAST_LEVERS`` on Wormhole) and
+        mode's set (``tenstorrent.model_levers``): ``NORMAL_LEVERS`` / ``FAST_LEVERS`` below (``WH_*`` on Wormhole) and
         nothing else, the older bfp8 trunk is off inside the scope."""
         self._levers = _T.model_levers(
-            NORMAL_LEVERS, WH_FAST_LEVERS if _T.is_wormhole() else FAST_LEVERS, spec=levers)
+            *((WH_NORMAL_LEVERS, WH_FAST_LEVERS) if _T.is_wormhole() else (NORMAL_LEVERS, FAST_LEVERS)), spec=levers)
         with _T.lever_scope(self._levers):
             self._build(sd, compute_kernel_config, num_cycles)
 
