@@ -41,6 +41,10 @@ def _check(self, Z_init_II, bins, bins_self, batch, I):
     em_g = G.gather_tiled(idx_g, rm, batch, I)
     a, g = ttnn.to_torch(em_a).float(), ttnn.to_torch(em_g).float()
     href = ttnn.to_torch(tab).float()[flat.reshape(-1).long()].reshape(a.shape)
+    inv, ainv = self._process_z_invariant(Z_init_II, 1 if bins_self is None else 2, batch)
+    zz = [ttnn.to_torch(ttnn.add(ttnn.multiply(e, inv), ainv)).float() for e in (em_a, em_g, em_a)]
+    rm_c = self._const.get(("ztab_rm", bins_self is not None, self.dtype))
+    rm_ok = None if rm_c is None else bool(torch.equal(ttnn.to_torch(rm_c), ttnn.to_torch(rm)))
     M._PZ_GATHER = False
     z_a = ttnn.to_torch(_orig(self, Z_init_II, bins, bins_self, batch, I)).float()
     M._PZ_GATHER = True
@@ -50,7 +54,10 @@ def _check(self, Z_init_II, bins, bins_self, batch, I):
          "batch": batch, "I": I, "flat_dtype": str(flat.dtype), "flat_shape": list(flat.shape),
          "flat_max": int(flat.max()), "em_shape": list(a.shape),
          "em_ship_vs_host": float((a - href).abs().max()), "em_gather_vs_host": float((g - href).abs().max()),
-         "em_neq": int((a != g).sum()), "z_maxabs": float((z_a - z_g).abs().max()), "z_neq": int((z_a != z_g).sum())}
+         "em_neq": int((a != g).sum()), "z_maxabs": float((z_a - z_g).abs().max()), "z_neq": int((z_a != z_g).sum()),
+         "zz_ship_vs_gather_neq": int((zz[0] != zz[1]).sum()), "zz_ship_vs_ship_neq": int((zz[0] != zz[2]).sum()),
+         "z_ship_vs_zz_neq": int((z_a != zz[0]).sum()), "z_gather_vs_zz_neq": int((z_g != zz[1]).sum()),
+         "rm_cache_equal": rm_ok, "inv_shape": list(inv.shape), "inv_padded": list(inv.padded_shape)}
     print("[pzg]", r, flush=True)
     REC.append(r)
     OUT.write_text(json.dumps(REC, indent=1))
