@@ -103,12 +103,13 @@ if "esmc" in a.shape:
         if a.proto:
             PROTO = {}
             for t in a.proto.split(";"):
-                qc, kc, spl = t.split(":")
-                PROTO[f"e_p{qc}_{kc}_{spl.replace(',', '')}"] = (int(qc) or None, int(kc),
-                                                                 None if spl == "-" else tuple(map(int, spl.split(","))))
-        for nm, (qc, kc, spl) in PROTO.items():
-            ARMS[nm] = ("esmc", lambda qc=qc, kc=kc, spl=spl: P.sdpa(eq, ek, ev, sc, key_lens=lens, q_chunk=qc,
-                                                                       k_chunk=kc, split=spl))
+                qc, kc, spl, *dfs = t.split(":")
+                dfs = {d: 1 for d in dfs[0].split("+")} if dfs else None
+                PROTO[f"e_p{qc}_{kc}_{spl.replace(',', '')}" + ("_" + "_".join(dfs) if dfs else "")] = (
+                    int(qc) or None, int(kc), None if spl == "-" else tuple(map(int, spl.split(","))), dfs)
+        for nm, (qc, kc, spl, *dfs) in PROTO.items():
+            ARMS[nm] = ("esmc", lambda qc=qc, kc=kc, spl=spl, d=(dfs[0] if dfs else None):
+                        P.sdpa(eq, ek, ev, sc, key_lens=lens, q_chunk=qc, k_chunk=kc, split=spl, defines=d))
     except ImportError:
         pass
 

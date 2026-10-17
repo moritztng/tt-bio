@@ -48,7 +48,7 @@ def _mask_row(dev, lens, S):
     return hit[1]
 
 
-def sdpa(q, k, v, scale, key_lens, q_chunk=None, k_chunk=192, split=None, ckc=HIFI2, grid=None):
+def sdpa(q, k, v, scale, key_lens, q_chunk=None, k_chunk=192, split=None, ckc=HIFI2, grid=None, defines=None):
     """softmax(q k^T * scale, keys j >= key_lens[b] masked) v for bf16 [B, H, S, D] DRAM tensors."""
     from . import tenstorrent as T
     B, H, S, D = (int(d) for d in q.shape)
@@ -60,4 +60,5 @@ def sdpa(q, k, v, scale, key_lens, q_chunk=None, k_chunk=192, split=None, ckc=HI
     out = ttnn.allocate_tensor_on_device(ttnn.Shape([B, H, S, D]), q.dtype, ttnn.TILE_LAYOUT, dev,
                                          ttnn.DRAM_MEMORY_CONFIG)
     return SG.sdpa(dev, q, k, v, mask, out, q_chunk, k_chunk, grid, ckc, scale, split=split,
-                   kernel_dir=KERNEL_DIR, keypad=keypad_args(key_lens, k_chunk, k_num))
+                   kernel_dir=KERNEL_DIR, keypad=keypad_args(key_lens, k_chunk, k_num),
+                   defines_extra=defines)

@@ -95,6 +95,11 @@ public:
     }
 };
 
+#ifdef SH_ABL_KV
+// Instrument (wrong output on purpose): K/V NoC reads skipped after a core's first unit.
+bool g_abl_skip = false;
+#endif
+
 template <uint32_t tile_bytes, typename ReaderType, bool push_num_tiles = true>
 uint32_t read_chunk_with_padding(
     const ReaderType& reader,
@@ -125,6 +130,9 @@ uint32_t read_chunk_with_padding(
     for (uint32_t row = 0; row < src_rows; ++row) {
         uint32_t write_ptr = base_write_ptr + row * outer_ptr_stride;
         for (uint32_t col = 0; col < src_cols; ++col) {
+#ifdef SH_ABL_KV
+            if (!g_abl_skip)
+#endif
             noc_async_read_tile(start_tile_id, reader, write_ptr);
             start_tile_id += 1;
             write_ptr += inner_ptr_stride;

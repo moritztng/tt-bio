@@ -496,6 +496,9 @@ void kernel_main() {
 
                     // Q read is deferred into the K loop (k_chunk==0) for subblock interleaving.
                     // When use_q_subblock_push is false, Q is read in full before the K loop (original behavior).
+#ifdef SH_ABL_KV
+                    g_abl_skip = false;
+#endif
                     if constexpr (!use_q_subblock_push) {
                         read_chunk_with_padding<q_tile_bytes>(
                             q_reader,
@@ -551,6 +554,9 @@ void kernel_main() {
                     for (uint32_t k_chunk = 0; (k_chunk * Sk_chunk_t) < q_high_idx && k_chunk < kp_end; ++k_chunk) {
 #else
                     for (uint32_t k_chunk = 0; (k_chunk * Sk_chunk_t) < q_high_idx; ++k_chunk) {
+#endif
+#ifdef SH_ABL_KV
+                        g_abl_skip = !(nb == local_batch_start && nq == local_nh_start && q_iter == 0);
 #endif
                         const uint32_t kv_row_start_tile = std::min(k_chunk * Sk_chunk_t, valid_Skt_bound);
                         const uint32_t kv_row_end_tile = std::min(kv_row_start_tile + Sk_chunk_t, valid_Skt_bound);
