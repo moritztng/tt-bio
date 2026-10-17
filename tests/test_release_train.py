@@ -185,3 +185,23 @@ def test_merge_back_takes_the_release_files_main_left_alone_and_keeps_mains_note
     assert git("show", f"{m}:README.md") == "new line\npip tt-bio.git@v0.2.0"
     assert git("show", f"{m}:CHANGELOG.md") == "## [Unreleased]\n\n- b\n\n## [0.2.0]\n- a"
     assert rt.merge_back(rel, sha, "origin") == m          # already merged: nothing new
+
+
+def test_galaxy_pools_follow_the_lent_galaxy(tmp_path):
+    """Pool slots go to the Galaxy lent to the gate's owners now, not to a Galaxy named by hand."""
+    hosts = tmp_path / "hosts.json"
+    hosts.write_text(json.dumps({"qb2": {}, "g107": {}, "g108": {}}))
+    alloc = tmp_path / "ALLOC.json"
+    alloc.write_text(json.dumps({"galaxies": {
+        "107": {"owner": "japanfold", "phase": "serving"},
+        "108": {"owner": "spd", "phase": "lent"},
+        "110": {"owner": "spd", "phase": "lent"},       # lent, but no hosts entry to reach it by
+        "111": {"owner": "cfd", "phase": "lent"}}}))
+    cfg = {"hosts": str(hosts), "workers": "qb2:1", "timed": "qb2:1",
+           "galaxies": {"alloc": str(alloc), "owners": ["spd"], "slots": 2}}
+    got = rt.galaxy_pools(cfg)
+    assert got["workers"] == "qb2:1,g108:pool,g108:pool"
+    assert got["timed"] == "qb2:1,g108:pool"
+    alloc.write_text(json.dumps({"galaxies": {"108": {"owner": "japanfold", "phase": "serving"}}}))
+    assert rt.galaxy_pools(cfg)["workers"] == "qb2:1"
+    assert rt.galaxy_pools({"workers": "qb2:1"}) == {"workers": "qb2:1"}
