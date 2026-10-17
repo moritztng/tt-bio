@@ -374,11 +374,12 @@ _ESMC_QKV_MM_SPLIT = env_flag("TT_BIO_ESMC_QKV_MM_SPLIT", True)
 # ones), so neither add re-reads a projection from DRAM. bf16 weights only: the op refuses --fast's block-fp8 ones.
 # Same page cell: 300M 143.6 -> 141.3, 600M 229.9 -> 223.4, embeddings identical (pcc 1.0). Wormhole only, as above.
 _ESMC_MM_RESID = env_flag("TT_BIO_ESMC_MM_RESID", True)
-# --fast: those two matmuls read a bf16 copy of their block-fp8 weight (typecast on the device, so the same values), which
-# lets the residual add fuse there too. Census, 600M --fast page batch: out_proj 8.7 + fc2 16.3 ms of matmul plus 13.1 ms
-# of separate adds, where normal mode runs both fused. Not for a model past _LM_LARGE_MODEL_BYTES (the 6B's copies would
-# not fit a Wormhole chip). Off until measured.
-_ESMC_FAST_RESID_BF16 = env_flag("TT_BIO_ESMC_FAST_RESID_BF16", False)
+# --fast: those two weights are cast from block-fp8 to bf16 once at load (same values), so the residual add fuses there
+# too. Census, 600M --fast page batch: out_proj 8.7 + fc2 16.3 ms of matmul plus 13.1 ms of separate adds, where normal
+# mode fused both. Page cell on a Galaxy chip at 1000 MHz, best of 3: 300M --fast 120.0 -> 117.7 ms, 600M 172.5 ->
+# 167.1; pcc vs fp32 0.99952 -> 0.99955 / 0.99948 -> 0.99958. Not for a model past _LM_LARGE_MODEL_BYTES (the 6B in bf16
+# would not fit a Wormhole chip beside the rest). Where _ESMC_MM_RESID serves (Wormhole) only.
+_ESMC_FAST_RESID_BF16 = env_flag("TT_BIO_ESMC_FAST_RESID_BF16", True)
 #: [qkv split matmuls, residual-fused projections] served, read by the A/B harness.
 MM_FUSE_STATS = [0, 0]
 LIN6B_STATS = [0]  # projections served by _lin6b_program
@@ -498,11 +499,6 @@ class _MMLin:
 
     def _lin_resid(self, x, w, resid):
         """resid + x @ w in one matmul, or None where it does not serve (the caller adds)."""
-        if (_ESMC_FAST_RESID_BF16 and w.dtype == ttnn.bfloat8_b and not getattr(self, "lm_large", False)
-                and self._mm_ok(x, w)):
-            if getattr(self, "_w16", (None,))[0] is not w:
-                self._w16 = (w, ttnn.typecast(w, ttnn.bfloat16))
-            w = self._w16[1]
         if not (_ESMC_MM_RESID and w.dtype == ttnn.bfloat16 and self._mm_ok(x, w)):
             return None
         n = int(w.shape[-1])
@@ -819,8 +815,18 @@ _SWIGLU_GATE_LEGACY = (env_flag("TT_BIO_SWIGLU_GATE_LEGACY", False)
 
 # The ESMC LM blocks' gate (not l1_gated) on the legacy op as well. lm_gate_bench on a Galaxy chip at 1000 MHz, ms a
 # call: [7, 544, 2560] 0.405 -> 0.308, [7, 544, 3072] 0.450 -> 0.328, [1, 544, 6912] 0.149 -> 0.111; rel_rms against
-# float64 0.0024 -> 0.0031. Off until the page cell grades it.
-_ESMC_LM_GATE_LEGACY = env_flag("TT_BIO_ESMC_LM_GATE_LEGACY", False)
+# float64 0.0024 -> 0.0031. Page cell, same chip and clock, best of 3, normal / --fast: 300M 121.6 -> 118.4 / 121.1 ->
+# 117.8 ms, 600M 172.6 -> 167.8 / 170.8 -> 165.7, 6B 258.5 -> 255.4 / 238.4 -> 234.8; pcc vs fp32 moves -0.00002..+0.00005.
+# None = on for Wormhole; the lm_gate_ng lever keeps binary_ng (ESMFold2 on Wormhole, both modes: not fold-graded yet).
+_ESMC_LM_GATE_LEGACY = (env_flag("TT_BIO_ESMC_LM_GATE_LEGACY", False)
+                        if os.environ.get("TT_BIO_ESMC_LM_GATE_LEGACY", "").strip() else None)
+
+
+def _lm_gate_legacy() -> bool:
+    if _ESMC_LM_GATE_LEGACY is not None:
+        return _ESMC_LM_GATE_LEGACY
+    from tt_bio import tenstorrent
+    return tenstorrent.is_wormhole() and not tenstorrent.lever("lm_gate_ng")
 
 
 def _swiglu_gate_legacy() -> bool:
@@ -1187,7 +1193,7 @@ class SwiGLUFFN(_MMLin, Module):
                 GATE_L1_STATS[1] += bool(not l1_gated and _ESMC_GATE_L1 and len(h1.shape) == 3)
                 gated = ttnn.multiply(
                     h1, h2, **act,
-                    **({"use_legacy": True} if (_swiglu_gate_legacy() if l1_gated else _ESMC_LM_GATE_LEGACY) else {}),
+                    **({"use_legacy": True} if (_swiglu_gate_legacy() if l1_gated else _lm_gate_legacy()) else {}),
                     **({"memory_config": ttnn.L1_MEMORY_CONFIG} if l1_gated else {}),
                 )
             ttnn.deallocate(h1)
@@ -1510,6 +1516,12 @@ class Block(Module):
                               qk_l1=(self.ffn.model_bytes <= _LM_LARGE_MODEL_BYTES
                                      or _qk_l1_large(self.ffn.fc2_weight.dtype)), d_model=d)
         self.attn.lm_large = self.ffn.lm_large = self.ffn.model_bytes > _LM_LARGE_MODEL_BYTES
+        if (_ESMC_FAST_RESID_BF16 and _ESMC_MM_RESID and not self.ffn.lm_large and _esmc_mm()
+                and self.ffn.fc2_weight.dtype == ttnn.bfloat8_b):
+            for m, name in ((self.attn, "out_weight"), (self.ffn, "fc2_weight")):
+                w = getattr(m, name)
+                setattr(m, name, ttnn.typecast(w, ttnn.bfloat16))
+                ttnn.deallocate(w)
 
     def __call__(self, x: ttnn.Tensor, cos: ttnn.Tensor, sin: ttnn.Tensor,
                  attn_mask: ttnn.Tensor | None = None,

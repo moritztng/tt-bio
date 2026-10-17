@@ -65,6 +65,8 @@ def test_mode_sets_per_arch(monkeypatch, wormhole):
     assert ("ef2_opm_kq" in rt.fold_levers(False).split("+")) is wormhole
     # qk_rope_heads in the LM failed ESMFold2's normal bar on Wormhole (qrn) and passed the fast one (qrf).
     assert ("lm_qk_chain" in normal_set) is wormhole and "lm_qk_chain" not in fast_set
+    # The legacy LM gate multiply is graded on ESMC's embeddings only; ESMFold2 on Wormhole keeps binary_ng.
+    assert ("lm_gate_ng" in normal_set) is wormhole and ("lm_gate_ng" in fast_set) is wormhole
     # trimul_t2m lost to plain T2 once trimul_bres fed the tail (wtm) and rides no set.
     assert all("trimul_t2m" not in rt.fold_levers(f).split("+") for f in (False, True))
     # trimul_bres is bit-exact in ESMFold2 folds on both archs and rides every set.
