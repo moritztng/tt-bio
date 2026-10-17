@@ -19,6 +19,7 @@ ap.add_argument("--arms", default="")
 ap.add_argument("--lens", default="544,544,520,480,430,390,300", help="ESMC per-sequence key lengths")
 ap.add_argument("--ncall", type=int, default=10)
 ap.add_argument("--reps", type=int, default=7)
+ap.add_argument("--host", action="store_true", help="time eager host dispatch instead of trace replay")
 ap.add_argument("--proto", default="", help="extra ESMC proto arms qc:kc:b,h,q;... (qc 0 = whole, split - = factory)")
 a = ap.parse_args()
 
@@ -50,7 +51,7 @@ import torch, ttnn
 import tt_bio.tenstorrent as T
 from tt_bio import esmc as E, triatt_sdpa as TS
 
-dev = T.get_device()
+dev = T.get_device(trace="protenix")
 
 
 def opened_nodes():
@@ -156,15 +157,33 @@ for name, (shape, fn) in list(ARMS.items()):
                          "repeat_equal": bool(torch.equal(ttnn.to_torch(o), ttnn.to_torch(o2)))}
     o.deallocate(); o2.deallocate()
     print(name, res["arms"][name], flush=True)
+# Device time: each arm is one captured call, replayed NCALL times back to back, so the host's per-call Python
+# (generic_op descriptor binding) cannot starve the device. --host times eager dispatch instead.
+TRACES = {}
+if not a.host:
+    for name, (shape, fn) in ARMS.items():
+        fn().deallocate()   # programs compiled and cached outside the capture
+        tid = ttnn.begin_trace_capture(dev, cq_id=0)
+        o = fn()
+        ttnn.end_trace_capture(dev, tid, cq_id=0)
+        TRACES[name] = (tid, o)
 times = {n: [] for n in ARMS}
 t_all0 = time.monotonic()
 for _ in range(a.reps):
     for name, (shape, fn) in ARMS.items():
         ttnn.synchronize_device(dev); t0 = time.perf_counter()
         for _ in range(a.ncall):
-            fn().deallocate()
+            if a.host:
+                fn().deallocate()
+            else:
+                ttnn.execute_trace(dev, TRACES[name][0], cq_id=0, blocking=False)
         ttnn.synchronize_device(dev)
         times[name].append((time.perf_counter() - t0) / a.ncall * 1e3)
+for name, (tid, o) in TRACES.items():
+    res["arms"][name]["trace_rel_rms"] = err(ARMS[name][0], o)
+    ttnn.release_trace(dev, tid)
+res["timing"] = "host" if a.host else "trace"
+
 res["aiclk"] = clock(t_all0, time.monotonic())
 for name, t in times.items():
     res["arms"][name].update(ms_median=statistics.median(t), ms_min=min(t), ms=t)
