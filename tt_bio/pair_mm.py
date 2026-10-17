@@ -25,8 +25,10 @@ from .envflags import env_flag
 
 #: The lever. Default OFF and release-gated; armed by `bindcraft2.fast_round()`.
 PAIR_MM_FUSED = env_flag("TT_BIO_PAIR_MM", False)
-#: On Wormhole, serve the bias-free, activation-free calls from `pair_linear` (weight resident in L1) first.
+#: On Wormhole, serve the activation-free calls from `pair_linear` (weight resident in L1) first.
 PAIR_LINEAR_WH = env_flag("TT_BIO_PAIR_LINEAR", True)
+#: ...and the calls with a bias, which otherwise run minimal_matmul or, below one tile of N, ttnn.linear.
+PAIR_LINEAR_BIAS = env_flag("TT_BIO_PAIR_LINEAR_BIAS", True)
 
 def armed() -> bool:
     """The process flag (a BindCraft 2 round), or the `pair_mm` lever of the model folding now."""
@@ -75,6 +77,8 @@ def forget() -> None:
     their next dX, one transpose per weight.
     """
     _WT.clear()
+    from . import pair_linear
+    pair_linear.forget()
 
 
 def config(x, w, transpose_b: bool = False):
@@ -180,10 +184,10 @@ def matmul(x, w, bias=None, compute_kernel_config=None, dtype=None, transpose_b:
         _decline(x, w, transpose_b, "l1_out")
         return None
     cfg = config(x, w, transpose_b)
-    if (bias is None and activation is None and dtype in (None, ttnn.bfloat16)
+    if (activation is None and dtype in (None, ttnn.bfloat16) and (bias is None or PAIR_LINEAR_BIAS)
             and (cfg is not None or _narrow(x, w, transpose_b)) and _wormhole()):
         from . import pair_linear
-        out = pair_linear.matmul(x, _transposed(w) if transpose_b else w, compute_kernel_config)
+        out = pair_linear.matmul(x, _transposed(w) if transpose_b else w, compute_kernel_config, bias)
         if out is not None:
             STATS[0] += 1
             return out

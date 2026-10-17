@@ -157,7 +157,7 @@ def _armed_wh(monkeypatch, served):
     monkeypatch.setattr(pair_mm, "PAIR_MM_FUSED", True)
     monkeypatch.setattr(pair_mm, "PAIR_LINEAR_WH", True)
     monkeypatch.setattr(tenstorrent, "is_wormhole", lambda: True)
-    monkeypatch.setattr(pair_linear, "matmul", lambda x, w, ckc: served.append((x, w)) or "pl")
+    monkeypatch.setattr(pair_linear, "matmul", lambda x, w, ckc, bias=None: served.append((x, w, bias)[:2 if bias is None else 3]) or "pl")
     monkeypatch.setattr(ttnn.experimental, "minimal_matmul", lambda **kw: "mm")
 
 
@@ -168,13 +168,14 @@ def test_wormhole_bias_free_calls_take_pair_linear(monkeypatch):
     assert pair_mm.matmul(x, w) == "pl" and served == [(x, w)]
 
 
-def test_wormhole_bias_and_activation_keep_minimal_matmul(monkeypatch):
+def test_wormhole_bias_calls_take_pair_linear_and_activations_keep_minimal_matmul(monkeypatch):
     served = []
     _armed_wh(monkeypatch, served)
-    x, w = _t((1, 288, 288, 128)), _t((128, 512))
-    assert pair_mm.matmul(x, w, bias=object()) == "mm"
-    assert pair_mm.matmul(x, w, activation="relu") == "mm"
-    assert served == []
+    x, w, b = _t((1, 288, 288, 128)), _t((128, 512)), object()
+    assert pair_mm.matmul(x, w, bias=b) == "pl" and served == [(x, w, b)]
+    assert pair_mm.matmul(x, w, activation="relu") == "mm" and len(served) == 1
+    monkeypatch.setattr(pair_mm, "PAIR_LINEAR_BIAS", False)
+    assert pair_mm.matmul(x, w, bias=b) == "mm" and len(served) == 1
 
 
 def test_pair_linear_declines_a_bf16_dest():

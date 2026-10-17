@@ -41,6 +41,7 @@ import ttnn  # noqa: E402
 import tt_bio.af2 as A  # noqa: E402
 import tt_bio.tenstorrent as T  # noqa: E402
 from tt_bio import core_split, pair_mm  # noqa: E402
+from tt_bio import pair_linear as PL  # noqa: E402
 
 KDIR = REPO / "tt_bio" / "kernels" / "pair_linear"
 WRITER = REPO / "tt_bio" / "kernels" / "pair_swiglu_ws" / "writer.cpp"
@@ -52,7 +53,10 @@ S = 224
 # cached transpose), and N=512 with bias for a like-for-like check of the bias seed.
 CASES = [("n128", 128, 128, False), ("n384", 128, 384, False), ("n512", 128, 512, False),
          ("dx_k384_n128", 384, 128, False), ("n512_bias", 128, 512, True),
-         ("n4", 128, 4, False), ("dx_k4_n128", 4, 128, False)]
+         ("n4", 128, 4, False), ("dx_k4_n128", 4, 128, False),
+         ("n128_bias", 128, 128, True), ("n4_bias", 128, 4, True), ("n8_bias", 128, 8, True)]
+# *_bias: AF2's biased pair projections (BindCraft 2's 936 [.., 128] x [128, 128] calls a round and the pair-bias
+# projections). Arm `ship` is the shipped tt_bio.pair_linear.matmul with the caller's [1, N] bias.
 # n4 / dx_k4_n128: the pair-bias projection [.., 128] x [128, 4] and its dX [.., 4] x [4, 128]. Tile padding makes
 # them one-tile N / K; the padded K rows of the weight are zero, so dx_k4 is exact while x's padding is finite.
 WARM, REPS, INNER = 2, 5, 10
@@ -181,6 +185,7 @@ def main():
             "linear": lambda: ttnn.linear(x, w, bias=b_mm, compute_kernel_config=ckc, dtype=ttnn.bfloat16,
                                           memory_config=DRAM, core_grid=T.CORE_GRID_MAIN),
             "proto": lambda: pair_linear(x, w, b_pl),
+            "ship": lambda: PL.matmul(x, w, None, bias=b_mm),
         }
         if name == "n128":
             arms["proto_hifi2"] = lambda: pair_linear(x, w, b_pl, ttnn.MathFidelity.HiFi2)
@@ -203,6 +208,10 @@ def main():
             rl["proto_vs_mm"] = rel_l2(outs["proto"], outs["mm"].double())
         if "proto" in ms and "mm" in ms:
             ms["mm_over_proto"] = round(ms["mm"] / ms["proto"], 3)
+        if "ship" in outs and "proto" in outs:
+            rl["ship_vs_proto"] = rel_l2(outs["ship"], outs["proto"].double())
+        if "ship" in ms and "linear" in ms:
+            ms["linear_over_ship"] = round(ms["linear"] / ms["ship"], 3)
         if "proto" in ms and "linear" in ms:
             ms["linear_over_proto"] = round(ms["linear"] / ms["proto"], 3)
         res["n"].append(N)
