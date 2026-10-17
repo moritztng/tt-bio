@@ -186,8 +186,7 @@ on a Blackhole p300c). Graded over four seeds at 685 and 418 residues on Blackho
 moves 2.9 to 15.2 A at the same seed against 13 to 20 A for a seed change, and CA-CA geometry, chain breaks,
 clashes and amino-acid diversity match the exact chain. `RFD3_DIT_SDPA=0` restores the older attention.
 
-`--fast` additionally keeps the pair transitions' hidden activations in 8-bit block floating point and
-collapses the pair-feature projection that does not change between steps into a table lookup. It runs the
+`--fast` additionally keeps the pair transitions' hidden activations in 8-bit block floating point. It runs the
 same diffusion steps and recycles; only the kernels change. A 685-residue design takes about 13 % less time
 than the default (60.6 to 52.5 s on a Blackhole p300c). Graded over four seeds at 685 and 418 residues on
 Blackhole and Wormhole against the exact chain: a design moves 3.8 to 15.4 A at the same seed, inside what
@@ -224,6 +223,12 @@ design. `RFD3_CSS=0` restores the dense kernel.
 Attention heads are split by one kernel over the concatenated q, k and v (atom attention and the gated
 cross attention between atoms and tokens) instead of a reshape and permute per tensor. Same values, bit for
 bit; `RFD3_QKV_HEADS=0` and `RFD3_GCA_HEADS=0` restore the old path.
+
+The pair-feature projection that does not change between steps is computed once per design and the
+distance-bin half becomes a table lookup, three device ops instead of six. It started in `--fast` and now
+ships in both modes: over eight paired default seeds on Wormhole chain breaks go from 4 to 3, clashes drop
+by about 6 (standard error 10) and the same-seed drift (6.1 to 14.1 A) stays inside the 13.3 to 20.7 A a
+seed change moves a design, about 2 s faster per design. `RFD3_PROCESS_Z_COLLAPSE=0` restores the old path.
 
 ## Checkpoint
 

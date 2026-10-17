@@ -68,18 +68,15 @@ def _collapsed(z, bd, bs, wn, ww, eps=1e-6):
     return inv * (a + row)
 
 
-def test_flag_is_off_by_default():
-    """Not bit-exact, so it may not become the shipped default without an accuracy read."""
-    assert M._PROCESS_Z_COLLAPSE is False
-
-
 def test_setter_toggles_and_restores():
+    before = M._PROCESS_Z_COLLAPSE
     try:
+        M.set_process_z_collapse(False)
+        assert M._PROCESS_Z_COLLAPSE is False
         M.set_process_z_collapse(True)
         assert M._PROCESS_Z_COLLAPSE is True
     finally:
-        M.set_process_z_collapse(False)
-    assert M._PROCESS_Z_COLLAPSE is False
+        M.set_process_z_collapse(before)
 
 
 def test_one_hot_half_contributes_exactly_n_ones_to_the_sum_of_squares():

@@ -171,8 +171,9 @@ _CONCAT_ALIGNED = env_flag("RFD3_CONCAT_ALIGNED", True)
 # are both loop invariants, and the one-hot half is a table lookup. Three device ops per call
 # instead of six, 5.03 ms against 15.14 at [1,685,685,*] (perf/p89/process_z.json). Splitting one
 # fp32 accumulation into two bf16-rounded halves is not bit-exact (~1 bf16 ulp, rel median
-# 4.8e-3), so it is off by default and release-gated.
-_PROCESS_Z_COLLAPSE = env_flag("RFD3_PROCESS_Z_COLLAPSE", False)
+# 4.8e-3). Graded on the normal bar (WH, 8 paired seeds 62-69: breaks 4 -> 3, clashes -5.6 se 10,
+# drift 6.1-14.1 A vs a 13.3-20.7 A seed floor, 65.7 -> 63.9 s/design), so on in both modes.
+_PROCESS_Z_COLLAPSE = env_flag("RFD3_PROCESS_Z_COLLAPSE", True)
 # The atom neighbour index (_create_attention_indices: cdist + top-128 over every atom) is pure
 # host torch and used to run first in every step, with the device idle: 91.5 ms/step of the
 # page fold's 547 (p150a census, scripts/rfd3_port/gap_census.py). The recycle-1 token encoder
@@ -492,7 +493,7 @@ PZSTATS = [0, 0]
 # `--fast` for RFD3: the levers that pass the fast accuracy bar but not (yet) the normal one. Same
 # steps, recycles and designs; only kernels change. Each flag keeps its own env switch for A/B work,
 # and set_fast(False) restores exactly what the environment asked for.
-_FAST_SET = {"_TRANSITION_B8": "RFD3_TRANSITION_B8", "_PROCESS_Z_COLLAPSE": "RFD3_PROCESS_Z_COLLAPSE"}
+_FAST_SET = {"_TRANSITION_B8": "RFD3_TRANSITION_B8"}
 
 
 def set_fast(on):
@@ -3316,8 +3317,8 @@ class DiffusionTokenEncoder(Module):
         can average over 258 columns, 130 of which are a one-hot: 15.14 ms/call at the page
         fixture's [1,685,685,*], 29.93 ms/step over the two recycles. This is 5.03
         (perf/p89/process_z.json). Not bit-exact -- one fp32 accumulation becomes two
-        bf16-rounded halves, ~1 bf16 ulp -- so it is release-gated behind
-        RFD3_PROCESS_Z_COLLAPSE and the shipped default is unchanged.
+        bf16-rounded halves, ~1 bf16 ulp -- and graded on the normal bar; RFD3_PROCESS_Z_COLLAPSE=0
+        restores the six-op route.
         """
         dev, n = self.device, self.N_BINS
         inv, ainv = self._process_z_invariant(Z_init_II, 1 if bins_self is None else 2, batch)

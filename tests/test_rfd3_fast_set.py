@@ -87,6 +87,13 @@ def test_head_split_kernels_ship_in_both_modes(monkeypatch):
     assert M._QKV_HEADS is True and M._GCA_HEADS is True
 
 
+def test_process_z_collapse_ships_in_both_modes(monkeypatch):
+    """The collapsed process_z is graded on the normal bar (8 paired WH seeds), so it left the fast set."""
+    monkeypatch.delenv("RFD3_PROCESS_Z_COLLAPSE", raising=False)
+    assert "_PROCESS_Z_COLLAPSE" not in M._FAST_SET
+    assert M.env_flag("RFD3_PROCESS_Z_COLLAPSE", True) is True
+
+
 def test_pair_ws_lofi_is_off_until_graded():
     """pws in bfp8 at LoFi is a fast-mode candidate only: off by default and outside the fast set until measured."""
     assert "_PAIR_WS_LOFI" not in M._FAST_SET
