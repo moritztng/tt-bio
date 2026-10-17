@@ -1,24 +1,26 @@
 {
   "cards": {
     "tt-galaxy-wh-l": {
-      "commit": "7fc8ce5a",
-      "host": "j10glx02",
+      "recorded": "2026-10-15",
+      "host": "UF-EV-A4-GWH01",
+      "commit": "4ba29781f",
+      "host_threads": 2,
       "models": {
         "boltz2": {
           "grid": "8x9",
-          "recorded": "2026-09-23",
-          "host": "j10glx02",
-          "commit": "7fc8ce5a",
+          "recorded": "2026-10-15",
+          "host": "UF-EV-A4-GWH01",
+          "commit": "4ba29781f",
           "host_threads": 2,
           "runtime_s": {
-            "256": 10.4,
-            "512": 31.2,
-            "640": 51.8,
-            "768": 70.8,
-            "896": 95.3,
-            "1024": 123.7,
-            "1280": 232.1,
-            "1536": 372.3
+            "256": 8.6,
+            "512": 23.6,
+            "640": 37.4,
+            "768": 54.7,
+            "896": 72.0,
+            "1024": 95.4,
+            "1280": 194.6,
+            "1536": 314.5
           },
           "levers": {
             "256": {
@@ -73,13 +75,14 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 552,
-                "declined": 34,
-                "frac": 0.9419795221843004,
+                "served": 0,
+                "declined": 2240,
+                "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "memory": 34
-                }
+                  "memory": 2240
+                },
+                "reason": "declines all 2240 calls on memory x2240: the dual-NoC in-projection needs a DRAM-interleaved activation and destination, and the pair buffer is L1-resident at this size [carried from p300c]"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
@@ -107,11 +110,11 @@
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 560,
+                "declined": 280,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "l1_dest_is_faster:256x256x128": 560
+                  "l1_dest_is_faster:256x256x128": 280
                 },
                 "reason": "declined deliberately, reason `l1_dest_is_faster:NxNx128`: at 256 and 512 the L1 destination is the faster route, so the row-major path is correctly refused. Serves 560/560 from 640 up, where the pair tensor no longer fits L1."
               },
@@ -126,11 +129,11 @@
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 9,
+                "declined": 560,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "k_tiles=4": 9
+                  "k_tiles=4": 560
                 },
                 "reason": "same structural k_tiles=4 refusal as PAIR_PROJ_MINIMAL_MATMUL: boltz-2's c_z=128 gives 4 K tiles where the lever needs 8. Identical at all six rungs, so size-independent."
               },
@@ -151,33 +154,28 @@
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 132,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "gated_window_BufferType.L1": 33,
-                  "window_BufferType.L1": 66,
-                  "back_l1_src_narrow": 33
-                },
                 "reason": "dark at 256 only, reason `window_BufferType.L1`: the window is already L1-resident at 256, so the permute has nothing to move. Serves 1120/1120 from 512 up."
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 552,
+                "served": 2240,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 1104,
+                "served": 4480,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 1104,
+                "served": 4480,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -204,6 +202,14 @@
                 "frac": 0.0,
                 "how": "stats",
                 "reason": "dark by the cap, not by a guard: the above-cap route is gated on `q_len > _triatt_sdpa._Q_SPLIT_MAX_S` (tt_bio/tenstorrent.py:1844) with the cap at 1024, so no rung at or below 1024 tokens can reach it and the stock chunk ladder serves every call. `resolved: True` is the control: the flag is default-on and the census can see it, so served 0 is the cap holding and not an instrument that never fired. The first rung is 4x below the cap. [carried from p300c] [carried from p150a]"
+              },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: never offered: the padded pair is tried only ahead of the first stock rung, and every triangle-attention call at this length is served by a dividing fused pair first. It exists for lengths with no dividing chunk (736 = 23 tiles), which no ladder rung is"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -277,7 +283,7 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 560,
+                "served": 280,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -316,14 +322,6 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict"
-              },
-              "SDPA_FUSED_PADDED": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: never offered: the padded pair is tried only ahead of the first stock rung, and every triangle-attention call at this length is served by a dividing fused pair first. It exists for lengths with no dividing chunk (736 = 23 tiles), which no ladder rung is"
               }
             },
             "512": {
@@ -409,11 +407,11 @@
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 560,
+                "declined": 280,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "l1_dest_is_faster:512x512x128": 560
+                  "l1_dest_is_faster:512x512x128": 280
                 },
                 "reason": "declined deliberately, reason `l1_dest_is_faster:NxNx128`: at 256 and 512 the L1 destination is the faster route, so the row-major path is correctly refused. Serves 560/560 from 640 up, where the pair tensor no longer fits L1."
               },
@@ -499,6 +497,14 @@
                 "how": "stats",
                 "reason": "dark by the cap, not by a guard: the above-cap route is gated on `q_len > _triatt_sdpa._Q_SPLIT_MAX_S` (tt_bio/tenstorrent.py:1844) with the cap at 1024, so no rung at or below 1024 tokens can reach it and the stock chunk ladder serves every call. `resolved: True` is the control: the flag is default-on and the census can see it, so served 0 is the cap holding and not an instrument that never fired. [carried from p300c] [carried from p150a]"
               },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: never offered: the padded pair is tried only ahead of the first stock rung, and every triangle-attention call at this length is served by a dividing fused pair first. It exists for lengths with no dividing chunk (736 = 23 tiles), which no ladder rung is"
+              },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
                 "served": null,
@@ -571,7 +577,7 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 560,
+                "served": 280,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -614,14 +620,6 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict"
-              },
-              "SDPA_FUSED_PADDED": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: never offered: the padded pair is tried only ahead of the first stock rung, and every triangle-attention call at this length is served by a dividing fused pair first. It exists for lengths with no dividing chunk (736 = 23 tiles), which no ladder rung is"
               }
             },
             "640": {
@@ -706,7 +704,7 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 560,
+                "served": 280,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -800,6 +798,14 @@
                 "how": "stats",
                 "reason": "dark by the cap, not by a guard: the above-cap route is gated on `q_len > _triatt_sdpa._Q_SPLIT_MAX_S` (tt_bio/tenstorrent.py:1844) with the cap at 1024, so no rung at or below 1024 tokens can reach it and the stock chunk ladder serves every call. `resolved: True` is the control: the flag is default-on and the census can see it, so served 0 is the cap holding and not an instrument that never fired. [carried from p300c] [carried from p150a]"
               },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: never offered: the padded pair is tried only ahead of the first stock rung, and every triangle-attention call at this length is served by a dividing fused pair first. It exists for lengths with no dividing chunk (736 = 23 tiles), which no ladder rung is"
+              },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
                 "served": null,
@@ -873,7 +879,7 @@
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
                 "served": 0,
-                "declined": 560,
+                "declined": 280,
                 "frac": 0.0,
                 "how": "wrap",
                 "reason": "L1 capacity, not tuning. The lever routes the Pairformer output transpose to L1 when the tensor plus 1.25x headroom fits. boltz-2's pair tensor is N^2*128*2 bytes: 67.1 MB at 512, 104.9 MB at 640. The 8x9 Wormhole grid has 72 cores x 1.5 MB = ~108 MB of L1, so 104.9*1.25 = 131 MB cannot fit while 67.1*1.25 = 83.9 MB can. `_pair_transpose` falls back to DRAM, which is the designed refusal path. Dark at 640 and above on every card whose L1 is this size."
@@ -916,14 +922,6 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict"
-              },
-              "SDPA_FUSED_PADDED": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: never offered: the padded pair is tried only ahead of the first stock rung, and every triangle-attention call at this length is served by a dividing fused pair first. It exists for lengths with no dividing chunk (736 = 23 tiles), which no ladder rung is"
               }
             },
             "768": {
@@ -1008,7 +1006,7 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 560,
+                "served": 280,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -1102,6 +1100,14 @@
                 "how": "stats",
                 "reason": "dark by the cap, not by a guard: the above-cap route is gated on `q_len > _triatt_sdpa._Q_SPLIT_MAX_S` (tt_bio/tenstorrent.py:1844) with the cap at 1024, so no rung at or below 1024 tokens can reach it and the stock chunk ladder serves every call. `resolved: True` is the control: the flag is default-on and the census can see it, so served 0 is the cap holding and not an instrument that never fired. [carried from p300c] [carried from p150a]"
               },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: never offered: the padded pair is tried only ahead of the first stock rung, and every triangle-attention call at this length is served by a dividing fused pair first. It exists for lengths with no dividing chunk (736 = 23 tiles), which no ladder rung is"
+              },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
                 "served": null,
@@ -1175,7 +1181,7 @@
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
                 "served": 0,
-                "declined": 560,
+                "declined": 280,
                 "frac": 0.0,
                 "how": "wrap",
                 "reason": "L1 capacity, not tuning. The lever routes the Pairformer output transpose to L1 when the tensor plus 1.25x headroom fits. boltz-2's pair tensor is N^2*128*2 bytes: 67.1 MB at 512, 104.9 MB at 640. The 8x9 Wormhole grid has 72 cores x 1.5 MB = ~108 MB of L1, so 104.9*1.25 = 131 MB cannot fit while 67.1*1.25 = 83.9 MB can. `_pair_transpose` falls back to DRAM, which is the designed refusal path. Dark at 640 and above on every card whose L1 is this size."
@@ -1218,14 +1224,6 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict"
-              },
-              "SDPA_FUSED_PADDED": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: never offered: the padded pair is tried only ahead of the first stock rung, and every triangle-attention call at this length is served by a dividing fused pair first. It exists for lengths with no dividing chunk (736 = 23 tiles), which no ladder rung is"
               }
             },
             "896": {
@@ -1310,7 +1308,7 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 560,
+                "served": 280,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -1404,6 +1402,14 @@
                 "how": "stats",
                 "reason": "dark by the cap, not by a guard: the above-cap route is gated on `q_len > _triatt_sdpa._Q_SPLIT_MAX_S` (tt_bio/tenstorrent.py:1844) with the cap at 1024, so no rung at or below 1024 tokens can reach it and the stock chunk ladder serves every call. `resolved: True` is the control: the flag is default-on and the census can see it, so served 0 is the cap holding and not an instrument that never fired. [carried from p300c] [carried from p150a]"
               },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: never offered: the padded pair is tried only ahead of the first stock rung, and every triangle-attention call at this length is served by a dividing fused pair first. It exists for lengths with no dividing chunk (736 = 23 tiles), which no ladder rung is"
+              },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
                 "served": null,
@@ -1477,7 +1483,7 @@
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
                 "served": 0,
-                "declined": 560,
+                "declined": 280,
                 "frac": 0.0,
                 "how": "wrap",
                 "reason": "L1 capacity, not tuning. The lever routes the Pairformer output transpose to L1 when the tensor plus 1.25x headroom fits. boltz-2's pair tensor is N^2*128*2 bytes: 67.1 MB at 512, 104.9 MB at 640. The 8x9 Wormhole grid has 72 cores x 1.5 MB = ~108 MB of L1, so 104.9*1.25 = 131 MB cannot fit while 67.1*1.25 = 83.9 MB can. `_pair_transpose` falls back to DRAM, which is the designed refusal path. Dark at 640 and above on every card whose L1 is this size."
@@ -1521,14 +1527,6 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict"
-              },
-              "SDPA_FUSED_PADDED": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: never offered: the padded pair is tried only ahead of the first stock rung, and every triangle-attention call at this length is served by a dividing fused pair first. It exists for lengths with no dividing chunk (736 = 23 tiles), which no ladder rung is"
               }
             },
             "1024": {
@@ -1613,7 +1611,7 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 560,
+                "served": 280,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -1707,6 +1705,14 @@
                 "how": "stats",
                 "reason": "dark by the cap, not by a guard: the above-cap route is gated on `q_len > _triatt_sdpa._Q_SPLIT_MAX_S` (tt_bio/tenstorrent.py:1844) with the cap at 1024, so no rung at or below 1024 tokens can reach it and the stock chunk ladder serves every call. `resolved: True` is the control: the flag is default-on and the census can see it, so served 0 is the cap holding and not an instrument that never fired. 1024 is excluded by the strict `>`, so the cap's own rung is the last one the stock ladder keeps. [carried from p300c] [carried from p150a]"
               },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: never offered: the padded pair is tried only ahead of the first stock rung, and every triangle-attention call at this length is served by a dividing fused pair first. It exists for lengths with no dividing chunk (736 = 23 tiles), which no ladder rung is"
+              },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
                 "served": null,
@@ -1780,7 +1786,7 @@
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
                 "served": 0,
-                "declined": 560,
+                "declined": 280,
                 "frac": 0.0,
                 "how": "wrap",
                 "reason": "L1 capacity, not tuning. The lever routes the Pairformer output transpose to L1 when the tensor plus 1.25x headroom fits. boltz-2's pair tensor is N^2*128*2 bytes: 67.1 MB at 512, 104.9 MB at 640. The 8x9 Wormhole grid has 72 cores x 1.5 MB = ~108 MB of L1, so 104.9*1.25 = 131 MB cannot fit while 67.1*1.25 = 83.9 MB can. `_pair_transpose` falls back to DRAM, which is the designed refusal path. Dark at 640 and above on every card whose L1 is this size."
@@ -1824,14 +1830,6 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict"
-              },
-              "SDPA_FUSED_PADDED": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: never offered: the padded pair is tried only ahead of the first stock rung, and every triangle-attention call at this length is served by a dividing fused pair first. It exists for lengths with no dividing chunk (736 = 23 tiles), which no ladder rung is"
               }
             },
             "1280": {
@@ -2008,6 +2006,14 @@
                 "frac": 1.0,
                 "how": "stats"
               },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: never offered: the padded pair is tried only ahead of the first stock rung, and every triangle-attention call at this length is served by a dividing fused pair first. It exists for lengths with no dividing chunk (736 = 23 tiles), which no ladder rung is"
+              },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
                 "served": null,
@@ -2124,14 +2130,6 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict"
-              },
-              "SDPA_FUSED_PADDED": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: never offered: the padded pair is tried only ahead of the first stock rung, and every triangle-attention call at this length is served by a dividing fused pair first. It exists for lengths with no dividing chunk (736 = 23 tiles), which no ladder rung is"
               }
             },
             "1536": {
@@ -2307,6 +2305,14 @@
                 "frac": 1.0,
                 "how": "stats"
               },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: never offered: the padded pair is tried only ahead of the first stock rung, and every triangle-attention call at this length is served by a dividing fused pair first. It exists for lengths with no dividing chunk (736 = 23 tiles), which no ladder rung is"
+              },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
                 "served": null,
@@ -2423,67 +2429,59 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict"
-              },
-              "SDPA_FUSED_PADDED": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: never offered: the padded pair is tried only ahead of the first stock rung, and every triangle-attention call at this length is served by a dividing fused pair first. It exists for lengths with no dividing chunk (736 = 23 tiles), which no ladder rung is"
               }
             }
           },
           "runtime_reps_s": {
             "256": [
-              10.9,
-              10.5,
-              10.2,
-              10.4,
-              10.0
+              8.7,
+              8.5,
+              8.7,
+              8.6,
+              8.6
             ],
             "512": [
-              30.7,
-              33.3,
-              31.9,
-              30.8,
-              31.2
+              23.6,
+              23.6,
+              23.6,
+              23.4,
+              23.6
             ],
             "640": [
-              51.8
+              37.4
             ],
             "768": [
-              70.8
+              54.7
             ],
             "896": [
-              95.3
+              72.0
             ],
             "1024": [
-              123.7
+              95.4
             ],
             "1280": [
-              232.1
+              194.6
             ],
             "1536": [
-              372.3
+              314.5
             ]
           },
           "aiclk": {
             "256": {
-              "card": "22",
+              "card": "9",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000,
-                500,
-                500,
-                500,
+                1000,
+                1000,
+                1000,
                 1000
               ],
-              "n": 35
+              "n": 25
             },
             "512": {
-              "card": "22",
+              "card": "9",
               "min": 500,
               "max": 1000,
               "rep_median": [
@@ -2493,118 +2491,118 @@
                 1000,
                 1000
               ],
-              "n": 55
+              "n": 40
             },
             "640": {
-              "card": "22",
+              "card": "9",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 15
+              "n": 11
             },
             "768": {
-              "card": "22",
+              "card": "9",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 18
+              "n": 14
             },
             "896": {
-              "card": "22",
+              "card": "9",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 22
+              "n": 17
             },
             "1024": {
-              "card": "22",
+              "card": "9",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 27
+              "n": 21
             },
             "1280": {
-              "card": "28",
+              "card": "9",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 47
+              "n": 39
             },
             "1536": {
-              "card": "28",
+              "card": "9",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 72
+              "n": 62
             }
           },
           "load": {
             "256": {
-              "max": 1.08,
+              "max": 0.64,
               "rep_median": [
-                1.06,
-                1.05,
-                1.03,
-                0.99,
-                1.0
+                0.62,
+                0.6,
+                0.55,
+                0.53,
+                0.51
               ]
             },
             "512": {
-              "max": 1.27,
+              "max": 0.52,
               "rep_median": [
-                0.97,
-                1.0,
-                0.96,
-                1.17,
-                1.19
+                0.5,
+                0.51,
+                0.5,
+                0.5,
+                0.52
               ]
             },
             "640": {
-              "max": 1.4,
+              "max": 0.53,
               "rep_median": [
-                1.34
+                0.51
               ]
             },
             "768": {
-              "max": 1.13,
+              "max": 0.53,
               "rep_median": [
-                1.05
+                0.51
               ]
             },
             "896": {
-              "max": 0.94,
+              "max": 0.55,
               "rep_median": [
-                0.91
+                0.52
               ]
             },
             "1024": {
-              "max": 1.12,
+              "max": 0.53,
               "rep_median": [
-                1.01
+                0.52
               ]
             },
             "1280": {
-              "max": 1.07,
+              "max": 0.54,
               "rep_median": [
-                0.99
+                0.5
               ]
             },
             "1536": {
-              "max": 1.15,
+              "max": 0.74,
               "rep_median": [
-                0.98
+                0.6
               ]
             }
           },
@@ -2615,30 +2613,30 @@
               "n_ca": 256,
               "clash_frac": 0.0,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 133.5537,
-              "radius_of_gyration_A": 111.001,
-              "plddt_mean": 0.531189,
+              "ca_ca_median_A": 137.0982,
+              "radius_of_gyration_A": 112.159,
+              "plddt_mean": 0.533934,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 133.554 A outside [3.6, 4.0]",
+                "median CA-CA 137.098 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 111.0 A outside [9.0, 45.2]"
+                "radius of gyration 112.2 A outside [9.0, 45.2]"
               ]
             },
             "512": {
               "file": "cdk2x2_512.cif",
               "steps": 6,
               "n_ca": 512,
-              "clash_frac": 0.0117,
+              "clash_frac": 0.0078,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 136.9988,
-              "radius_of_gyration_A": 107.956,
-              "plddt_mean": 0.509049,
+              "ca_ca_median_A": 134.8295,
+              "radius_of_gyration_A": 106.083,
+              "plddt_mean": 0.510404,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 136.999 A outside [3.6, 4.0]",
+                "median CA-CA 134.830 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 108.0 A outside [11.8, 58.9]"
+                "radius of gyration 106.1 A outside [11.8, 58.9]"
               ]
             },
             "640": {
@@ -2647,158 +2645,148 @@
               "n_ca": 640,
               "clash_frac": 0.0187,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 130.9929,
-              "radius_of_gyration_A": 107.467,
-              "plddt_mean": 0.500752,
+              "ca_ca_median_A": 129.7623,
+              "radius_of_gyration_A": 107.07,
+              "plddt_mean": 0.49748,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 130.993 A outside [3.6, 4.0]",
+                "median CA-CA 129.762 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 107.5 A outside [12.8, 64.1]"
+                "radius of gyration 107.1 A outside [12.8, 64.1]"
               ]
             },
             "768": {
               "file": "cdk2x2_768.cif",
               "steps": 6,
               "n_ca": 768,
-              "clash_frac": 0.0078,
+              "clash_frac": 0.013,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 130.5646,
-              "radius_of_gyration_A": 104.276,
-              "plddt_mean": 0.494127,
+              "ca_ca_median_A": 129.2827,
+              "radius_of_gyration_A": 103.603,
+              "plddt_mean": 0.493005,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 130.565 A outside [3.6, 4.0]",
+                "median CA-CA 129.283 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 104.3 A outside [13.7, 68.7]"
+                "radius of gyration 103.6 A outside [13.7, 68.7]"
               ]
             },
             "896": {
               "file": "cdk2x2_896.cif",
               "steps": 6,
               "n_ca": 896,
-              "clash_frac": 0.0045,
+              "clash_frac": 0.0134,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 136.6311,
-              "radius_of_gyration_A": 107.014,
-              "plddt_mean": 0.501522,
+              "ca_ca_median_A": 132.3394,
+              "radius_of_gyration_A": 105.981,
+              "plddt_mean": 0.499671,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 136.631 A outside [3.6, 4.0]",
+                "median CA-CA 132.339 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 107.0 A outside [14.6, 72.8]"
+                "radius of gyration 106.0 A outside [14.6, 72.8]"
               ]
             },
             "1024": {
               "file": "cdk2x2_1024.cif",
               "steps": 6,
               "n_ca": 1024,
-              "clash_frac": 0.0117,
+              "clash_frac": 0.0156,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 131.7009,
-              "radius_of_gyration_A": 104.648,
-              "plddt_mean": 0.501847,
+              "ca_ca_median_A": 133.6173,
+              "radius_of_gyration_A": 104.367,
+              "plddt_mean": 0.501457,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 131.701 A outside [3.6, 4.0]",
+                "median CA-CA 133.617 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 104.6 A outside [15.3, 76.6]"
+                "radius of gyration 104.4 A outside [15.3, 76.6]"
               ]
             },
             "1280": {
               "file": "cdk2x2_1280.cif",
               "steps": 6,
               "n_ca": 1280,
-              "clash_frac": 0.0312,
+              "clash_frac": 0.0141,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 130.4717,
-              "radius_of_gyration_A": 105.778,
-              "plddt_mean": 0.491707,
+              "ca_ca_median_A": 131.3666,
+              "radius_of_gyration_A": 106.702,
+              "plddt_mean": 0.49119,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 130.472 A outside [3.6, 4.0]",
+                "median CA-CA 131.367 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "3.1% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 105.8 A outside [16.7, 83.4]"
+                "radius of gyration 106.7 A outside [16.7, 83.4]"
               ]
             },
             "1536": {
               "file": "cdk2x2_1536.cif",
               "steps": 6,
               "n_ca": 1536,
-              "clash_frac": 0.0345,
+              "clash_frac": 0.0182,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 127.3712,
-              "radius_of_gyration_A": 105.075,
-              "plddt_mean": 0.499975,
+              "ca_ca_median_A": 127.9546,
+              "radius_of_gyration_A": 105.431,
+              "plddt_mean": 0.502876,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 127.371 A outside [3.6, 4.0]",
+                "median CA-CA 127.955 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "3.5% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 105.1 A outside [17.9, 89.4]"
+                "radius of gyration 105.4 A outside [17.9, 89.4]"
               ]
             }
           },
-          "rungs_carried": [
-            "1280",
-            "1536"
-          ],
           "reps": 1,
-          "sigma_runtime_512": 0.0339,
+          "sigma_runtime_512": 0.0038,
           "exponents": {
             "256->512": {
-              "k": 1.585,
+              "k": 1.456,
               "tol": 0.5
             },
             "512->768": {
-              "k": 2.021,
+              "k": 2.073,
               "tol": 0.5
             }
           },
           "sigma_runtime": {
-            "256": 0.0326,
-            "512": 0.0339
+            "256": 0.0097,
+            "512": 0.0038
           },
           "exponents_measured": {
-            "256->512": 1.585,
-            "512->640": 2.272,
-            "640->768": 1.714,
-            "768->896": 1.928,
-            "896->1024": 1.953,
-            "1024->1280": 2.82,
-            "1280->1536": 2.592
-          },
-          "levers_added": {
-            "SDPA_FUSED_PADDED": "2026-10-09 UF-EV-A8-GWH02 1dd0e40b6"
+            "256->512": 1.456,
+            "512->640": 2.063,
+            "640->768": 2.085,
+            "768->896": 1.783,
+            "896->1024": 2.107,
+            "1024->1280": 3.195,
+            "1280->1536": 2.633
           }
         }
-      },
-      "recorded": "2026-09-23",
-      "host_threads": 2
+      }
     },
     "p150a": {
-      "recorded": "2026-09-28",
+      "recorded": "2026-10-15",
       "host": "tt-quietbox",
-      "commit": "3af7e8be7",
+      "commit": "4ba29781f",
+      "host_threads": 8,
       "models": {
         "boltz2": {
           "grid": "11x10",
-          "recorded": "2026-09-28",
+          "recorded": "2026-10-15",
           "host": "tt-quietbox",
-          "commit": "3af7e8be7",
-          "host_threads": null,
+          "commit": "4ba29781f",
+          "host_threads": 8,
           "runtime_s": {
-            "256": 7.1,
-            "512": 14.5,
-            "640": 21.2,
-            "768": 30.1,
-            "896": 42.5,
-            "1024": 54.7,
-            "1152": 71.6,
-            "1280": 86.6,
-            "1408": 117.1,
-            "1536": 137.7
+            "256": 7.2,
+            "512": 13.3,
+            "640": 19.3,
+            "768": 26.3,
+            "896": 35.9,
+            "1024": 46.4,
+            "1152": 63.7,
+            "1280": 77.1,
+            "1408": 101.8,
+            "1536": 120.8
           },
           "levers": {
             "256": {
@@ -2864,7 +2852,7 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 72,
+                "served": 36,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -2888,11 +2876,11 @@
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 560,
+                "declined": 280,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "l1_dest_is_faster:256x256x128": 560
+                  "l1_dest_is_faster:256x256x128": 280
                 },
                 "reason": "declines every call: the row-major route needs a DRAM destination for a 3-D bf16 tiled pair tensor. Wrap-counted, so which clause fails is not yet recorded"
               },
@@ -2989,6 +2977,14 @@
                 "how": "stats",
                 "reason": "dark by the cap, not by a guard: the above-cap route is gated on `q_len > _triatt_sdpa._Q_SPLIT_MAX_S` (tt_bio/tenstorrent.py:1844) with the cap at 1024, so no rung at or below 1024 tokens can reach it and the stock chunk ladder serves every call. `resolved: True` is the control: the flag is default-on and the census can see it, so served 0 is the cap holding and not an instrument that never fired. The first rung is 4x below the cap. [carried from p300c]"
               },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged"
+              },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
                 "served": null,
@@ -3033,14 +3029,14 @@
               },
               "B2_ADALN_S_MEMO": {
                 "resolved": "True",
-                "served": 72,
+                "served": 36,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
               },
               "B2_TOKEN_DIT_SDPA": {
                 "resolved": "True",
-                "served": 144,
+                "served": 72,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -3048,7 +3044,7 @@
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
                 "served": 0,
-                "declined": 408,
+                "declined": 336,
                 "frac": 0.0,
                 "how": "stats"
               },
@@ -3061,7 +3057,7 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 560,
+                "served": 280,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -3100,14 +3096,6 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict"
-              },
-              "SDPA_FUSED_PADDED": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged"
               }
             },
             "512": {
@@ -3169,7 +3157,7 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 72,
+                "served": 36,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -3193,11 +3181,11 @@
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 560,
+                "declined": 280,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "l1_dest_is_faster:512x512x128": 560
+                  "l1_dest_is_faster:512x512x128": 280
                 },
                 "reason": "declines every call: the row-major route needs a DRAM destination for a 3-D bf16 tiled pair tensor. Wrap-counted, so which clause fails is not yet recorded"
               },
@@ -3283,6 +3271,14 @@
                 "how": "stats",
                 "reason": "dark by the cap, not by a guard: the above-cap route is gated on `q_len > _triatt_sdpa._Q_SPLIT_MAX_S` (tt_bio/tenstorrent.py:1844) with the cap at 1024, so no rung at or below 1024 tokens can reach it and the stock chunk ladder serves every call. `resolved: True` is the control: the flag is default-on and the census can see it, so served 0 is the cap holding and not an instrument that never fired. [carried from p300c]"
               },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged"
+              },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
                 "served": null,
@@ -3327,14 +3323,14 @@
               },
               "B2_ADALN_S_MEMO": {
                 "resolved": "True",
-                "served": 72,
+                "served": 36,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
               },
               "B2_TOKEN_DIT_SDPA": {
                 "resolved": "True",
-                "served": 144,
+                "served": 72,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -3342,7 +3338,7 @@
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
                 "served": 0,
-                "declined": 408,
+                "declined": 336,
                 "frac": 0.0,
                 "how": "stats"
               },
@@ -3355,7 +3351,7 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 560,
+                "served": 280,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -3394,14 +3390,6 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict"
-              },
-              "SDPA_FUSED_PADDED": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged"
               }
             },
             "640": {
@@ -3463,7 +3451,7 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 72,
+                "served": 36,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -3487,11 +3475,11 @@
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 560,
+                "declined": 280,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "l1_dest_is_faster:640x640x128": 560
+                  "l1_dest_is_faster:640x640x128": 280
                 },
                 "reason": "declines every call: the row-major route needs a DRAM destination for a 3-D bf16 tiled pair tensor. Wrap-counted, so which clause fails is not yet recorded"
               },
@@ -3577,6 +3565,14 @@
                 "how": "stats",
                 "reason": "dark by the cap, not by a guard: the above-cap route is gated on `q_len > _triatt_sdpa._Q_SPLIT_MAX_S` (tt_bio/tenstorrent.py:1844) with the cap at 1024, so no rung at or below 1024 tokens can reach it and the stock chunk ladder serves every call. `resolved: True` is the control: the flag is default-on and the census can see it, so served 0 is the cap holding and not an instrument that never fired. [carried from p300c]"
               },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged"
+              },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
                 "served": null,
@@ -3621,14 +3617,14 @@
               },
               "B2_ADALN_S_MEMO": {
                 "resolved": "True",
-                "served": 72,
+                "served": 36,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
               },
               "B2_TOKEN_DIT_SDPA": {
                 "resolved": "True",
-                "served": 144,
+                "served": 72,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -3636,7 +3632,7 @@
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
                 "served": 0,
-                "declined": 408,
+                "declined": 336,
                 "frac": 0.0,
                 "how": "stats"
               },
@@ -3649,7 +3645,7 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 560,
+                "served": 280,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -3688,14 +3684,6 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict"
-              },
-              "SDPA_FUSED_PADDED": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged"
               }
             },
             "768": {
@@ -3757,7 +3745,7 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 72,
+                "served": 36,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -3780,7 +3768,7 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 560,
+                "served": 280,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -3874,6 +3862,14 @@
                 "how": "stats",
                 "reason": "dark by the cap, not by a guard: the above-cap route is gated on `q_len > _triatt_sdpa._Q_SPLIT_MAX_S` (tt_bio/tenstorrent.py:1844) with the cap at 1024, so no rung at or below 1024 tokens can reach it and the stock chunk ladder serves every call. `resolved: True` is the control: the flag is default-on and the census can see it, so served 0 is the cap holding and not an instrument that never fired. [carried from p300c]"
               },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged"
+              },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
                 "served": null,
@@ -3918,14 +3914,14 @@
               },
               "B2_ADALN_S_MEMO": {
                 "resolved": "True",
-                "served": 72,
+                "served": 36,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
               },
               "B2_TOKEN_DIT_SDPA": {
                 "resolved": "True",
-                "served": 144,
+                "served": 72,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -3933,7 +3929,7 @@
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
                 "served": 0,
-                "declined": 408,
+                "declined": 336,
                 "frac": 0.0,
                 "how": "stats"
               },
@@ -3947,10 +3943,10 @@
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
                 "served": 0,
-                "declined": 560,
+                "declined": 280,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "declines all 560 calls: `_transpose_memory_config` is a static L1 budget with 1.25x headroom (tt_bio/tenstorrent.py TRANSPOSE_L1_HEADROOM), and this card's 11x10 grid has 110 cores of L1 against the 13x10 grid's 130, so boltz-2's 768x768x128 pair tensor no longer fits and the destination goes to DRAM. PAIR_TRANSPOSE_VIA_ROW_MAJOR then serves all 560. Exactly one of the two serves at every rung; the residency boundary sits between 640 and 768 here, where on 13x10 boltz-2 stays L1-resident through 768 [carried from p300c]"
+                "reason": "declines all 280 calls: `_transpose_memory_config` is a static L1 budget with 1.25x headroom (tt_bio/tenstorrent.py TRANSPOSE_L1_HEADROOM), and this card's 11x10 grid has 110 cores of L1 against the 13x10 grid's 130, so boltz-2's 768x768x128 pair tensor no longer fits and the destination goes to DRAM. PAIR_TRANSPOSE_VIA_ROW_MAJOR then serves all 560. Exactly one of the two serves at every rung; the residency boundary sits between 640 and 768 here, where on 13x10 boltz-2 stays L1-resident through 768 [carried from p300c]"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -3986,14 +3982,6 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict"
-              },
-              "SDPA_FUSED_PADDED": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged"
               }
             },
             "896": {
@@ -4055,7 +4043,7 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 72,
+                "served": 36,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -4078,7 +4066,7 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 560,
+                "served": 280,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -4172,6 +4160,14 @@
                 "how": "stats",
                 "reason": "dark by the cap, not by a guard: the above-cap route is gated on `q_len > _triatt_sdpa._Q_SPLIT_MAX_S` (tt_bio/tenstorrent.py:1844) with the cap at 1024, so no rung at or below 1024 tokens can reach it and the stock chunk ladder serves every call. `resolved: True` is the control: the flag is default-on and the census can see it, so served 0 is the cap holding and not an instrument that never fired. [carried from p300c]"
               },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged"
+              },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
                 "served": null,
@@ -4216,14 +4212,14 @@
               },
               "B2_ADALN_S_MEMO": {
                 "resolved": "True",
-                "served": 72,
+                "served": 36,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
               },
               "B2_TOKEN_DIT_SDPA": {
                 "resolved": "True",
-                "served": 144,
+                "served": 72,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -4231,7 +4227,7 @@
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
                 "served": 0,
-                "declined": 408,
+                "declined": 336,
                 "frac": 0.0,
                 "how": "stats"
               },
@@ -4245,10 +4241,10 @@
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
                 "served": 0,
-                "declined": 560,
+                "declined": 280,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "declines all 560 calls: L1 capacity, not tuning: `_transpose_memory_config` is a static budget with 1.25x headroom and this card's 11x10 grid has 110 cores of L1, so boltz-2's pair tensor stops fitting from 768 up and the destination goes to DRAM. PAIR_TRANSPOSE_VIA_ROW_MAJOR then serves all 560; exactly one of the two serves at every rung [carried from p300c]"
+                "reason": "declines all 280 calls: L1 capacity, not tuning: `_transpose_memory_config` is a static budget with 1.25x headroom and this card's 11x10 grid has 110 cores of L1, so boltz-2's pair tensor stops fitting from 768 up and the destination goes to DRAM. PAIR_TRANSPOSE_VIA_ROW_MAJOR then serves all 560; exactly one of the two serves at every rung [carried from p300c]"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -4284,14 +4280,6 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict"
-              },
-              "SDPA_FUSED_PADDED": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged"
               }
             },
             "1024": {
@@ -4353,7 +4341,7 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 72,
+                "served": 36,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -4376,7 +4364,7 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 560,
+                "served": 280,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -4470,6 +4458,14 @@
                 "how": "stats",
                 "reason": "dark by the cap, not by a guard: the above-cap route is gated on `q_len > _triatt_sdpa._Q_SPLIT_MAX_S` (tt_bio/tenstorrent.py:1844) with the cap at 1024, so no rung at or below 1024 tokens can reach it and the stock chunk ladder serves every call. `resolved: True` is the control: the flag is default-on and the census can see it, so served 0 is the cap holding and not an instrument that never fired. 1024 is excluded by the strict `>`, so the cap's own rung is the last one the stock ladder keeps. [carried from p300c]"
               },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged"
+              },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
                 "served": null,
@@ -4514,14 +4510,14 @@
               },
               "B2_ADALN_S_MEMO": {
                 "resolved": "True",
-                "served": 72,
+                "served": 36,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
               },
               "B2_TOKEN_DIT_SDPA": {
                 "resolved": "True",
-                "served": 144,
+                "served": 72,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -4529,7 +4525,7 @@
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
                 "served": 0,
-                "declined": 408,
+                "declined": 336,
                 "frac": 0.0,
                 "how": "stats"
               },
@@ -4543,10 +4539,10 @@
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
                 "served": 0,
-                "declined": 560,
+                "declined": 280,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "declines all 560 calls: L1 capacity, not tuning: `_transpose_memory_config` is a static budget with 1.25x headroom and this card's 11x10 grid has 110 cores of L1, so boltz-2's pair tensor stops fitting from 768 up and the destination goes to DRAM. PAIR_TRANSPOSE_VIA_ROW_MAJOR then serves all 560; exactly one of the two serves at every rung [carried from p300c]"
+                "reason": "declines all 280 calls: L1 capacity, not tuning: `_transpose_memory_config` is a static budget with 1.25x headroom and this card's 11x10 grid has 110 cores of L1, so boltz-2's pair tensor stops fitting from 768 up and the destination goes to DRAM. PAIR_TRANSPOSE_VIA_ROW_MAJOR then serves all 560; exactly one of the two serves at every rung [carried from p300c]"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -4582,14 +4578,6 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict"
-              },
-              "SDPA_FUSED_PADDED": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged"
               }
             },
             "1152": {
@@ -4651,7 +4639,7 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 72,
+                "served": 36,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -4674,7 +4662,7 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 560,
+                "served": 280,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -4765,6 +4753,14 @@
                 "frac": 1.0,
                 "how": "stats"
               },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged"
+              },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
                 "served": null,
@@ -4809,14 +4805,14 @@
               },
               "B2_ADALN_S_MEMO": {
                 "resolved": "True",
-                "served": 72,
+                "served": 36,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
               },
               "B2_TOKEN_DIT_SDPA": {
                 "resolved": "True",
-                "served": 144,
+                "served": 72,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -4824,7 +4820,7 @@
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
                 "served": 0,
-                "declined": 408,
+                "declined": 336,
                 "frac": 0.0,
                 "how": "stats"
               },
@@ -4838,10 +4834,10 @@
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
                 "served": 0,
-                "declined": 560,
+                "declined": 280,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "declines all 560 calls: L1 capacity, not tuning: `_transpose_memory_config` is a static budget with 1.25x headroom and this card's 11x10 grid has 110 cores of L1, so boltz-2's pair tensor stops fitting from 768 up and the destination goes to DRAM. PAIR_TRANSPOSE_VIA_ROW_MAJOR then serves all 560; exactly one of the two serves at every rung [carried from p300c] [carried from rung 1024]"
+                "reason": "declines all 280 calls: L1 capacity, not tuning: `_transpose_memory_config` is a static budget with 1.25x headroom and this card's 11x10 grid has 110 cores of L1, so boltz-2's pair tensor stops fitting from 768 up and the destination goes to DRAM. PAIR_TRANSPOSE_VIA_ROW_MAJOR then serves all 560; exactly one of the two serves at every rung [carried from p300c] [carried from rung 1024]"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -4877,14 +4873,6 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict"
-              },
-              "SDPA_FUSED_PADDED": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged"
               }
             },
             "1280": {
@@ -4946,7 +4934,7 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 72,
+                "served": 36,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -4969,7 +4957,7 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 560,
+                "served": 280,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -5060,6 +5048,14 @@
                 "frac": 1.0,
                 "how": "stats"
               },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged"
+              },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
                 "served": null,
@@ -5104,14 +5100,14 @@
               },
               "B2_ADALN_S_MEMO": {
                 "resolved": "True",
-                "served": 72,
+                "served": 36,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
               },
               "B2_TOKEN_DIT_SDPA": {
                 "resolved": "True",
-                "served": 144,
+                "served": 72,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -5119,7 +5115,7 @@
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
                 "served": 0,
-                "declined": 408,
+                "declined": 336,
                 "frac": 0.0,
                 "how": "stats"
               },
@@ -5133,10 +5129,10 @@
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
                 "served": 0,
-                "declined": 560,
+                "declined": 280,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "declines all 560 calls: L1 capacity, not tuning: `_transpose_memory_config` is a static budget with 1.25x headroom and this card's 11x10 grid has 110 cores of L1, so boltz-2's pair tensor stops fitting from 768 up and the destination goes to DRAM. PAIR_TRANSPOSE_VIA_ROW_MAJOR then serves all 560; exactly one of the two serves at every rung [carried from p300c] [carried from rung 1024]"
+                "reason": "declines all 280 calls: L1 capacity, not tuning: `_transpose_memory_config` is a static budget with 1.25x headroom and this card's 11x10 grid has 110 cores of L1, so boltz-2's pair tensor stops fitting from 768 up and the destination goes to DRAM. PAIR_TRANSPOSE_VIA_ROW_MAJOR then serves all 560; exactly one of the two serves at every rung [carried from p300c] [carried from rung 1024]"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -5172,14 +5168,6 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict"
-              },
-              "SDPA_FUSED_PADDED": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged"
               }
             },
             "1408": {
@@ -5241,7 +5229,7 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 72,
+                "served": 36,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -5264,7 +5252,7 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 560,
+                "served": 280,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -5355,6 +5343,14 @@
                 "frac": 1.0,
                 "how": "stats"
               },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged"
+              },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
                 "served": null,
@@ -5399,14 +5395,14 @@
               },
               "B2_ADALN_S_MEMO": {
                 "resolved": "True",
-                "served": 72,
+                "served": 36,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
               },
               "B2_TOKEN_DIT_SDPA": {
                 "resolved": "True",
-                "served": 144,
+                "served": 72,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -5414,7 +5410,7 @@
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
                 "served": 0,
-                "declined": 408,
+                "declined": 336,
                 "frac": 0.0,
                 "how": "stats"
               },
@@ -5428,10 +5424,10 @@
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
                 "served": 0,
-                "declined": 560,
+                "declined": 280,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "declines all 560 calls: L1 capacity, not tuning: `_transpose_memory_config` is a static budget with 1.25x headroom and this card's 11x10 grid has 110 cores of L1, so boltz-2's pair tensor stops fitting from 768 up and the destination goes to DRAM. PAIR_TRANSPOSE_VIA_ROW_MAJOR then serves all 560; exactly one of the two serves at every rung [carried from p300c] [carried from rung 1024]"
+                "reason": "declines all 280 calls: L1 capacity, not tuning: `_transpose_memory_config` is a static budget with 1.25x headroom and this card's 11x10 grid has 110 cores of L1, so boltz-2's pair tensor stops fitting from 768 up and the destination goes to DRAM. PAIR_TRANSPOSE_VIA_ROW_MAJOR then serves all 560; exactly one of the two serves at every rung [carried from p300c] [carried from rung 1024]"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -5467,14 +5463,6 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict"
-              },
-              "SDPA_FUSED_PADDED": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged"
               }
             },
             "1536": {
@@ -5536,7 +5524,7 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 72,
+                "served": 36,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -5559,7 +5547,7 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 560,
+                "served": 280,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -5650,6 +5638,14 @@
                 "frac": 1.0,
                 "how": "stats"
               },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged"
+              },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
                 "served": null,
@@ -5694,14 +5690,14 @@
               },
               "B2_ADALN_S_MEMO": {
                 "resolved": "True",
-                "served": 72,
+                "served": 36,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
               },
               "B2_TOKEN_DIT_SDPA": {
                 "resolved": "True",
-                "served": 144,
+                "served": 72,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -5709,7 +5705,7 @@
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
                 "served": 0,
-                "declined": 408,
+                "declined": 336,
                 "frac": 0.0,
                 "how": "stats"
               },
@@ -5723,10 +5719,10 @@
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
                 "served": 0,
-                "declined": 560,
+                "declined": 280,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "declines all 560 calls: L1 capacity, not tuning: `_transpose_memory_config` is a static budget with 1.25x headroom and this card's 11x10 grid has 110 cores of L1, so boltz-2's pair tensor stops fitting from 768 up and the destination goes to DRAM. PAIR_TRANSPOSE_VIA_ROW_MAJOR then serves all 560; exactly one of the two serves at every rung [carried from p300c] [carried from rung 1024]"
+                "reason": "declines all 280 calls: L1 capacity, not tuning: `_transpose_memory_config` is a static budget with 1.25x headroom and this card's 11x10 grid has 110 cores of L1, so boltz-2's pair tensor stops fitting from 768 up and the destination goes to DRAM. PAIR_TRANSPOSE_VIA_ROW_MAJOR then serves all 560; exactly one of the two serves at every rung [carried from p300c] [carried from rung 1024]"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -5762,76 +5758,52 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict"
-              },
-              "SDPA_FUSED_PADDED": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged"
               }
             }
           },
           "runtime_reps_s": {
             "256": [
-              7.1,
               7.2,
-              7.0,
-              7.1,
+              7.2,
+              7.4,
+              6.9,
               7.0
             ],
             "512": [
-              14.4,
-              14.6,
-              14.5,
-              14.3,
-              14.7
+              13.3,
+              13.1,
+              13.3,
+              13.6,
+              13.5
             ],
             "640": [
-              21.4,
-              21.2,
-              21.2
+              19.3
             ],
             "768": [
-              30.4,
-              30.1,
-              30.1
+              26.3
             ],
             "896": [
-              42.5,
-              42.5,
-              42.5
+              35.9
             ],
             "1024": [
-              54.8,
-              54.3,
-              54.7
+              46.4
             ],
             "1152": [
-              71.8,
-              71.6,
-              71.6
+              63.7
             ],
             "1280": [
-              86.6,
-              86.6,
-              86.7
+              77.1
             ],
             "1408": [
-              117.1,
-              117.1,
-              116.8
+              101.8
             ],
             "1536": [
-              138.0,
-              137.6,
-              137.7
+              120.8
             ]
           },
           "aiclk": {
             "256": {
-              "card": "0",
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
@@ -5844,190 +5816,158 @@
               "n": 25
             },
             "512": {
-              "card": "0",
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1350,
-                1350,
-                1350,
                 1343,
+                1350,
+                1350,
+                1350,
                 1350
               ],
               "n": 30
             },
             "640": {
-              "card": "0",
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1350,
-                1350,
                 1350
               ],
-              "n": 21
+              "n": 7
             },
             "768": {
-              "card": "0",
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1350,
-                1350,
                 1350
               ],
-              "n": 25
+              "n": 8
             },
             "896": {
-              "card": "0",
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1350,
-                1350,
                 1350
               ],
-              "n": 32
+              "n": 9
             },
             "1024": {
-              "card": "0",
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1350,
-                1350,
                 1350
               ],
-              "n": 39
+              "n": 11
             },
             "1152": {
-              "card": "0",
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1350,
-                1350,
                 1350
               ],
-              "n": 45
+              "n": 14
             },
             "1280": {
-              "card": "0",
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1350,
-                1350,
                 1350
               ],
-              "n": 54
+              "n": 16
             },
             "1408": {
-              "card": "0",
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1350,
-                1350,
                 1350
               ],
-              "n": 69
+              "n": 20
             },
             "1536": {
-              "card": "0",
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1350,
-                1350,
                 1350
               ],
-              "n": 78
+              "n": 24
             }
           },
           "load": {
             "256": {
-              "max": 0.2,
+              "max": 0.28,
               "rep_median": [
-                0.07,
-                0.13,
-                0.12,
-                0.16,
-                0.17
+                0.26,
+                0.24,
+                0.23,
+                0.25,
+                0.24
               ]
             },
             "512": {
-              "max": 0.31,
+              "max": 0.29,
               "rep_median": [
-                0.13,
-                0.13,
                 0.25,
+                0.28,
+                0.27,
                 0.23,
-                0.17
+                0.19
               ]
             },
             "640": {
-              "max": 0.2,
+              "max": 0.25,
               "rep_median": [
-                0.08,
-                0.18,
-                0.13
+                0.25
               ]
             },
             "768": {
-              "max": 0.16,
+              "max": 0.23,
               "rep_median": [
-                0.11,
-                0.12,
-                0.12
+                0.22
               ]
             },
             "896": {
-              "max": 0.18,
+              "max": 0.28,
               "rep_median": [
-                0.14,
-                0.09,
-                0.07
+                0.25
               ]
             },
             "1024": {
-              "max": 0.18,
+              "max": 0.22,
               "rep_median": [
-                0.04,
-                0.11,
-                0.11
+                0.2
               ]
             },
             "1152": {
-              "max": 0.16,
+              "max": 0.25,
               "rep_median": [
-                0.09,
-                0.05,
-                0.08
+                0.24
               ]
             },
             "1280": {
-              "max": 0.14,
+              "max": 0.28,
               "rep_median": [
-                0.06,
-                0.08,
-                0.08
+                0.24
               ]
             },
             "1408": {
-              "max": 0.23,
+              "max": 0.24,
               "rep_median": [
-                0.13,
-                0.13,
-                0.07
+                0.22
               ]
             },
             "1536": {
-              "max": 0.25,
+              "max": 0.26,
               "rep_median": [
-                0.06,
-                0.12,
-                0.12
+                0.19
               ]
             }
           },
@@ -6036,30 +5976,30 @@
               "file": "cdk2x2_256.cif",
               "steps": 6,
               "n_ca": 256,
-              "clash_frac": 0.0078,
+              "clash_frac": 0.0,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 135.1478,
-              "radius_of_gyration_A": 110.35,
-              "plddt_mean": 0.535582,
+              "ca_ca_median_A": 134.6119,
+              "radius_of_gyration_A": 111.465,
+              "plddt_mean": 0.531182,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 135.148 A outside [3.6, 4.0]",
+                "median CA-CA 134.612 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 110.3 A outside [9.0, 45.2]"
+                "radius of gyration 111.5 A outside [9.0, 45.2]"
               ]
             },
             "512": {
               "file": "cdk2x2_512.cif",
               "steps": 6,
               "n_ca": 512,
-              "clash_frac": 0.0039,
+              "clash_frac": 0.0117,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 136.4595,
-              "radius_of_gyration_A": 107.159,
-              "plddt_mean": 0.507997,
+              "ca_ca_median_A": 134.4231,
+              "radius_of_gyration_A": 107.173,
+              "plddt_mean": 0.505752,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 136.459 A outside [3.6, 4.0]",
+                "median CA-CA 134.423 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
                 "radius of gyration 107.2 A outside [11.8, 58.9]"
               ]
@@ -6070,63 +6010,63 @@
               "n_ca": 640,
               "clash_frac": 0.0125,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 127.0135,
-              "radius_of_gyration_A": 106.131,
-              "plddt_mean": 0.499365,
+              "ca_ca_median_A": 128.8778,
+              "radius_of_gyration_A": 106.732,
+              "plddt_mean": 0.500626,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 127.013 A outside [3.6, 4.0]",
+                "median CA-CA 128.878 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 106.1 A outside [12.8, 64.1]"
+                "radius of gyration 106.7 A outside [12.8, 64.1]"
               ]
             },
             "768": {
               "file": "cdk2x2_768.cif",
               "steps": 6,
               "n_ca": 768,
-              "clash_frac": 0.0326,
+              "clash_frac": 0.0156,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 128.8245,
-              "radius_of_gyration_A": 104.384,
-              "plddt_mean": 0.495317,
+              "ca_ca_median_A": 128.3989,
+              "radius_of_gyration_A": 103.788,
+              "plddt_mean": 0.490817,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 128.825 A outside [3.6, 4.0]",
+                "median CA-CA 128.399 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "3.3% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 104.4 A outside [13.7, 68.7]"
+                "radius of gyration 103.8 A outside [13.7, 68.7]"
               ]
             },
             "896": {
               "file": "cdk2x2_896.cif",
               "steps": 6,
               "n_ca": 896,
-              "clash_frac": 0.0112,
-              "chain_break_frac": 1.0,
-              "ca_ca_median_A": 136.1965,
-              "radius_of_gyration_A": 107.644,
-              "plddt_mean": 0.503098,
+              "clash_frac": 0.0156,
+              "chain_break_frac": 0.9966,
+              "ca_ca_median_A": 134.5982,
+              "radius_of_gyration_A": 107.082,
+              "plddt_mean": 0.502742,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 136.196 A outside [3.6, 4.0]",
-                "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 107.6 A outside [14.6, 72.8]"
+                "median CA-CA 134.598 A outside [3.6, 4.0]",
+                "99.7% of consecutive CA pairs exceed 5.0 A",
+                "radius of gyration 107.1 A outside [14.6, 72.8]"
               ]
             },
             "1024": {
               "file": "cdk2x2_1024.cif",
               "steps": 6,
               "n_ca": 1024,
-              "clash_frac": 0.0176,
+              "clash_frac": 0.0293,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 132.3956,
-              "radius_of_gyration_A": 104.013,
-              "plddt_mean": 0.498665,
+              "ca_ca_median_A": 130.5115,
+              "radius_of_gyration_A": 104.347,
+              "plddt_mean": 0.503253,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 132.396 A outside [3.6, 4.0]",
+                "median CA-CA 130.512 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 104.0 A outside [15.3, 76.6]"
+                "2.9% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 104.3 A outside [15.3, 76.6]"
               ]
             },
             "1152": {
@@ -6134,123 +6074,119 @@
               "steps": 6,
               "n_ca": 1152,
               "clash_frac": 0.026,
-              "chain_break_frac": 0.9991,
-              "ca_ca_median_A": 132.2096,
-              "radius_of_gyration_A": 108.334,
-              "plddt_mean": 0.495657,
+              "chain_break_frac": 1.0,
+              "ca_ca_median_A": 130.0625,
+              "radius_of_gyration_A": 107.305,
+              "plddt_mean": 0.495296,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 132.210 A outside [3.6, 4.0]",
-                "99.9% of consecutive CA pairs exceed 5.0 A",
+                "median CA-CA 130.063 A outside [3.6, 4.0]",
+                "100.0% of consecutive CA pairs exceed 5.0 A",
                 "2.6% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 108.3 A outside [16.0, 80.1]"
+                "radius of gyration 107.3 A outside [16.0, 80.1]"
               ]
             },
             "1280": {
               "file": "cdk2x2_1280.cif",
               "steps": 6,
               "n_ca": 1280,
-              "clash_frac": 0.0234,
+              "clash_frac": 0.0258,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 132.2142,
-              "radius_of_gyration_A": 106.788,
-              "plddt_mean": 0.489735,
+              "ca_ca_median_A": 134.4806,
+              "radius_of_gyration_A": 107.648,
+              "plddt_mean": 0.492245,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 132.214 A outside [3.6, 4.0]",
+                "median CA-CA 134.481 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "2.3% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 106.8 A outside [16.7, 83.4]"
+                "2.6% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 107.6 A outside [16.7, 83.4]"
               ]
             },
             "1408": {
               "file": "cdk2x2_1408.cif",
               "steps": 6,
               "n_ca": 1408,
-              "clash_frac": 0.0291,
-              "chain_break_frac": 1.0,
-              "ca_ca_median_A": 133.1451,
-              "radius_of_gyration_A": 107.041,
-              "plddt_mean": 0.495448,
+              "clash_frac": 0.027,
+              "chain_break_frac": 0.9993,
+              "ca_ca_median_A": 134.2463,
+              "radius_of_gyration_A": 106.771,
+              "plddt_mean": 0.494216,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 133.145 A outside [3.6, 4.0]",
-                "100.0% of consecutive CA pairs exceed 5.0 A",
-                "2.9% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 107.0 A outside [17.3, 86.5]"
+                "median CA-CA 134.246 A outside [3.6, 4.0]",
+                "99.9% of consecutive CA pairs exceed 5.0 A",
+                "2.7% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 106.8 A outside [17.3, 86.5]"
               ]
             },
             "1536": {
               "file": "cdk2x2_1536.cif",
               "steps": 6,
               "n_ca": 1536,
-              "clash_frac": 0.0234,
+              "clash_frac": 0.0215,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 127.8881,
-              "radius_of_gyration_A": 105.101,
-              "plddt_mean": 0.506187,
+              "ca_ca_median_A": 127.9831,
+              "radius_of_gyration_A": 105.888,
+              "plddt_mean": 0.505155,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 127.888 A outside [3.6, 4.0]",
+                "median CA-CA 127.983 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "2.3% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 105.1 A outside [17.9, 89.4]"
+                "2.1% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 105.9 A outside [17.9, 89.4]"
               ]
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.0109,
+          "sigma_runtime_512": 0.0146,
           "exponents": {
             "256->512": {
-              "k": 1.03,
+              "k": 0.885,
               "tol": 0.5
             },
             "512->768": {
-              "k": 1.801,
+              "k": 1.682,
               "tol": 0.5
             }
           },
           "sigma_runtime": {
-            "256": 0.0118,
-            "512": 0.0109
+            "256": 0.0273,
+            "512": 0.0146
           },
           "exponents_measured": {
-            "256->512": 1.03,
-            "512->640": 1.702,
-            "640->768": 1.923,
-            "768->896": 2.238,
-            "896->1024": 1.89,
-            "1024->1152": 2.286,
-            "1152->1280": 1.805,
-            "1280->1408": 3.166,
-            "1408->1536": 1.862
-          },
-          "levers_added": {
-            "SDPA_FUSED_PADDED": "2026-10-09 tt-quietbox 6105e740d"
+            "256->512": 0.885,
+            "512->640": 1.669,
+            "640->768": 1.697,
+            "768->896": 2.019,
+            "896->1024": 1.921,
+            "1024->1152": 2.69,
+            "1152->1280": 1.812,
+            "1280->1408": 2.916,
+            "1408->1536": 1.967
           }
         }
-      },
-      "host_threads": null
+      }
     },
     "p300c": {
-      "recorded": "2026-10-10",
+      "recorded": "2026-10-15",
       "host": "tt-quietbox2",
-      "commit": "92d5924f5",
+      "commit": "4ba29781f",
       "host_threads": 5,
       "models": {
         "boltz2": {
           "grid": "11x10",
-          "recorded": "2026-10-10",
+          "recorded": "2026-10-15",
           "host": "tt-quietbox2",
-          "commit": "92d5924f5",
+          "commit": "4ba29781f",
           "host_threads": 5,
           "runtime_s": {
-            "256": 3.9,
-            "512": 10.4,
-            "640": 16.4,
-            "768": 23.4,
-            "896": 33.3,
-            "1024": 43.6
+            "256": 5.8,
+            "512": 11.4,
+            "640": 18.7,
+            "768": 24.1,
+            "896": 34.1,
+            "1024": 45.1
           },
           "levers": {
             "256": {
@@ -6316,7 +6252,7 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 72,
+                "served": 36,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -6493,14 +6429,14 @@
               },
               "B2_ADALN_S_MEMO": {
                 "resolved": "True",
-                "served": 72,
+                "served": 36,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
               },
               "B2_TOKEN_DIT_SDPA": {
                 "resolved": "True",
-                "served": 144,
+                "served": 72,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -6508,7 +6444,7 @@
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
                 "served": 0,
-                "declined": 408,
+                "declined": 336,
                 "frac": 0.0,
                 "how": "stats"
               },
@@ -6621,7 +6557,7 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 72,
+                "served": 36,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -6787,14 +6723,14 @@
               },
               "B2_ADALN_S_MEMO": {
                 "resolved": "True",
-                "served": 72,
+                "served": 36,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
               },
               "B2_TOKEN_DIT_SDPA": {
                 "resolved": "True",
-                "served": 144,
+                "served": 72,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -6802,7 +6738,7 @@
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
                 "served": 0,
-                "declined": 408,
+                "declined": 336,
                 "frac": 0.0,
                 "how": "stats"
               },
@@ -6915,7 +6851,7 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 72,
+                "served": 36,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -7081,14 +7017,14 @@
               },
               "B2_ADALN_S_MEMO": {
                 "resolved": "True",
-                "served": 72,
+                "served": 36,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
               },
               "B2_TOKEN_DIT_SDPA": {
                 "resolved": "True",
-                "served": 144,
+                "served": 72,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -7096,7 +7032,7 @@
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
                 "served": 0,
-                "declined": 408,
+                "declined": 336,
                 "frac": 0.0,
                 "how": "stats"
               },
@@ -7209,7 +7145,7 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 72,
+                "served": 36,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -7378,14 +7314,14 @@
               },
               "B2_ADALN_S_MEMO": {
                 "resolved": "True",
-                "served": 72,
+                "served": 36,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
               },
               "B2_TOKEN_DIT_SDPA": {
                 "resolved": "True",
-                "served": 144,
+                "served": 72,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -7393,7 +7329,7 @@
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
                 "served": 0,
-                "declined": 408,
+                "declined": 336,
                 "frac": 0.0,
                 "how": "stats"
               },
@@ -7507,7 +7443,7 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 72,
+                "served": 36,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -7676,14 +7612,14 @@
               },
               "B2_ADALN_S_MEMO": {
                 "resolved": "True",
-                "served": 72,
+                "served": 36,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
               },
               "B2_TOKEN_DIT_SDPA": {
                 "resolved": "True",
-                "served": 144,
+                "served": 72,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -7691,7 +7627,7 @@
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
                 "served": 0,
-                "declined": 408,
+                "declined": 336,
                 "frac": 0.0,
                 "how": "stats"
               },
@@ -7805,7 +7741,7 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 72,
+                "served": 36,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -7974,14 +7910,14 @@
               },
               "B2_ADALN_S_MEMO": {
                 "resolved": "True",
-                "served": 72,
+                "served": 36,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
               },
               "B2_TOKEN_DIT_SDPA": {
                 "resolved": "True",
-                "served": 144,
+                "served": 72,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -7989,7 +7925,7 @@
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
                 "served": 0,
-                "declined": 408,
+                "declined": 336,
                 "frac": 0.0,
                 "how": "stats"
               },
@@ -8047,139 +7983,139 @@
           },
           "runtime_reps_s": {
             "256": [
-              3.9,
-              4.5,
-              3.8,
-              4.2,
-              3.9
+              6.2,
+              6.4,
+              5.6,
+              5.4,
+              5.8
             ],
             "512": [
-              10.2,
-              10.4,
-              10.9,
-              10.4,
-              10.4
+              11.0,
+              11.9,
+              11.4,
+              11.5,
+              11.0
             ],
             "640": [
-              16.4
+              18.7
             ],
             "768": [
-              23.4
+              24.1
             ],
             "896": [
-              33.3
+              34.1
             ],
             "1024": [
-              43.6
+              45.1
             ]
           },
           "aiclk": {
             "256": {
-              "card": "1",
+              "card": "2",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1350,
                 800,
                 800,
                 800,
-                1350
+                1343,
+                800
               ],
-              "n": 16
+              "n": 25
             },
             "512": {
-              "card": "1",
+              "card": "2",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1350,
-                800,
-                1350,
-                1350,
-                1325
+                1337,
+                1325,
+                1343,
+                1331,
+                1312
               ],
-              "n": 21
+              "n": 30
             },
             "640": {
-              "card": "1",
+              "card": "2",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1350
+              ],
+              "n": 7
+            },
+            "768": {
+              "card": "2",
               "min": 800,
               "max": 1350,
               "rep_median": [
                 1337
               ],
-              "n": 6
-            },
-            "768": {
-              "card": "1",
-              "min": 800,
-              "max": 1350,
-              "rep_median": [
-                1343
-              ],
-              "n": 7
+              "n": 9
             },
             "896": {
-              "card": "1",
+              "card": "2",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1343
+                1337
               ],
-              "n": 8
+              "n": 10
             },
             "1024": {
-              "card": "1",
+              "card": "2",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1325
+                1350
               ],
-              "n": 11
+              "n": 12
             }
           },
           "load": {
             "256": {
-              "max": 0.4,
+              "max": 0.79,
               "rep_median": [
-                0.38,
-                0.37,
-                0.34,
-                0.31,
-                0.3
+                0.78,
+                0.72,
+                0.67,
+                0.75,
+                0.71
               ]
             },
             "512": {
-              "max": 0.4,
+              "max": 0.84,
               "rep_median": [
-                0.38,
-                0.39,
-                0.34,
-                0.32,
-                0.3
+                0.75,
+                0.76,
+                0.81,
+                0.8,
+                0.82
               ]
             },
             "640": {
-              "max": 0.35,
+              "max": 0.92,
               "rep_median": [
-                0.34
+                0.88
               ]
             },
             "768": {
-              "max": 0.33,
+              "max": 0.89,
               "rep_median": [
-                0.31
+                0.86
               ]
             },
             "896": {
-              "max": 0.38,
+              "max": 0.88,
               "rep_median": [
-                0.35
+                0.86
               ]
             },
             "1024": {
-              "max": 0.33,
+              "max": 0.73,
               "rep_median": [
-                0.32
+                0.7
               ]
             }
           },
@@ -8284,27 +8220,27 @@
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.0249,
+          "sigma_runtime_512": 0.0333,
           "exponents": {
             "256->512": {
-              "k": 1.415,
+              "k": 0.975,
               "tol": 0.5
             },
             "512->768": {
-              "k": 2.0,
+              "k": 1.846,
               "tol": 0.5
             }
           },
           "sigma_runtime": {
-            "256": 0.071,
-            "512": 0.0249
+            "256": 0.0705,
+            "512": 0.0333
           },
           "exponents_measured": {
-            "256->512": 1.415,
-            "512->640": 2.041,
-            "640->768": 1.95,
-            "768->896": 2.289,
-            "896->1024": 2.018
+            "256->512": 0.975,
+            "512->640": 2.218,
+            "640->768": 1.391,
+            "768->896": 2.252,
+            "896->1024": 2.094
           }
         }
       }

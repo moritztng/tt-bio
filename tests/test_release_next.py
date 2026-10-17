@@ -159,6 +159,11 @@ def test_a_gate_failing_only_on_ladder_drift_is_re_recorded_then_cut(tmp_path):
     git("commit", "-qam", "next staging")
     d = rn.decide(tmp_path, gates, "main")
     assert (d["do"], d["sha"], d["records"]) == ("CUT", head, str(r))
+    (r / "verdict.json").unlink()                                     # its runner died mid-run
+    plan = json.loads((r / "plan.json").read_text())
+    (r / "plan.json").write_text(json.dumps({**plan, "pid": 2 ** 22 + 1}))
+    d = rn.decide(tmp_path, gates, "main")
+    assert (d["do"], d["sha"], d["models"]) == ("RECORD", head, ["m"]) and "lost its runner" in d["why"]
 
 
 def test_a_card_failed_ladder_leg_of_a_drifted_model_records_alongside_its_rerun(tmp_path, monkeypatch):

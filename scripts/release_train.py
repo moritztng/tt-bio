@@ -8,11 +8,12 @@ On CUT <sha> it makes one release commit on top of <sha> that changes only CHANG
 [Unreleased] notes become the version's section), README.md's pinned install tag and pyproject's
 version line, plus the abb3 records the gate's record:abb3 leg re-ran and re-stamped at the gated
 commit (<gate>/abb3/, so the train's gate config carries --record-abb3). Those are exactly the files
-the gate's content key leaves out, and the train refuses to tag if the key moved, so the tag is the gated code. It pushes the commit as rel/v<version> (for
-main to merge back) and the tag; the tag's workflow (.github/workflows/release.yaml) builds,
-publishes to PyPI and creates the GitHub release. The train then waits for PyPI to serve the
-version and installs it into a fresh venv (without dependencies: pc's disk has no room for torch
-per release) to prove the wheel is the one tagged.
+the gate's content key leaves out, and the train refuses to tag if the key moved, so the tag is the gated code. It pushes the commit as rel/v<version>
+and the tag; the tag's workflow (.github/workflows/release.yaml) builds, publishes to PyPI and
+creates the GitHub release. The train then waits for PyPI to serve the version and installs it
+into a fresh venv (without dependencies: pc's disk has no room for torch per release) to prove the
+wheel is the one tagged. Last it merges rel/v<version> into main (merge_back), so the next gate
+grades against the ladder baselines this release was cut with.
 
 The version is the next minor when the notes carry an Added, Changed or Removed section, else the
 next patch, skipping any tag that already exists. Notes already released under an earlier tag are
@@ -140,6 +141,38 @@ def release_commit(sha: str, version: str, body: str, day: str, records: dict | 
                      "-m", f"Release {version}\n\nGated at {sha}.")
 
 
+def merge_back(rel: str, sha: str, remote: str) -> str:
+    """Merge release commit `rel` (on gated `sha`) into <remote>/main and push it; the merge's sha.
+
+    Nothing merged rel/v0.17.0 or rel/v0.18.0 back, so main kept the pre-0.18.0 ladder baselines and
+    the gates on b30aa6d7a and 5e250928a failed four Blackhole ladders on census lines 0.18.0 had
+    already accepted. Each file the release changed is taken where main has not touched it since
+    `sha`; CHANGELOG.md stays main's, whose [Unreleased] already holds notes newer than the release."""
+    with tempfile.TemporaryDirectory() as d:
+        env = {**os.environ, "GIT_INDEX_FILE": str(Path(d) / "index")}
+
+        def plumb(*a):
+            return subprocess.run(["git", "-C", str(REPO), *a], check=True, capture_output=True, text=True,
+                                  env=env).stdout.strip()
+        for _ in range(3):
+            plumb("fetch", "-q", remote, "main")
+            main = plumb("rev-parse", f"{remote}/main")
+            if subprocess.run(["git", "-C", str(REPO), "merge-base", "--is-ancestor", rel, main]).returncode == 0:
+                return main
+            plumb("read-tree", main)
+            for f in plumb("diff", "--name-only", sha, rel).splitlines():
+                if f != "CHANGELOG.md" and plumb("ls-tree", sha, "--", f) == plumb("ls-tree", main, "--", f):
+                    if entry := plumb("ls-tree", rel, "--", f).split():
+                        plumb("update-index", "--cacheinfo", f"{entry[0]},{entry[2]},{f}")
+                    else:
+                        plumb("update-index", "--force-remove", f)
+            m = plumb("commit-tree", plumb("write-tree"), "-p", main, "-p", rel,
+                      "-m", f"Merge {rel[:9]} (release): main grades against the baselines it was cut with")
+            if subprocess.run(["git", "-C", str(REPO), "push", "-q", remote, f"{m}:refs/heads/main"]).returncode == 0:
+                return m
+        return ""
+
+
 def pypi_has(version: str) -> bool:
     try:
         return version in json.load(urllib.request.urlopen(PYPI, timeout=30))["releases"]
@@ -193,6 +226,7 @@ def cut(sha: str, gate_dir: str, remote: str, dry: bool, wait_s: int, record: Pa
     rec["pypi"] = pypi_has(version)
     rec["installed"] = install_check(version) if rec["pypi"] else ""
     rec["ok"] = rec["installed"] == version
+    rec["merged_back"] = merge_back(rel, sha, remote)
     print(json.dumps(rec))
     if record:
         with open(record, "a") as f:
