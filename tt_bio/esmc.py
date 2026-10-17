@@ -285,6 +285,23 @@ def _sdpa_k_few() -> bool:
     return tenstorrent.is_wormhole()
 
 
+# The SDPA key-padding mask in block-fp8: [B, 1, L, L] is re-read for every (batch, head), ~62 MB a layer at the 300M
+# page batch against ~29 MB for q, k, v and the output. Its values are 0 and a large negative, which a shared exponent
+# holds exactly (0 has a zero mantissa at any exponent; -inf becomes -1e4, still exp() = 0 after any real score).
+# Off until the page cell says.
+_ESMC_MASK_BFP8 = env_flag("TT_BIO_ESMC_MASK_BFP8", False)
+
+
+def _sdpa_mask(attn_mask, device=None, dtype=None):
+    """[B, L, L] additive mask -> [B, 1, L, L] TILE tensor in `dtype` (default by _ESMC_MASK_BFP8), on `device` if given."""
+    dtype = dtype or (ttnn.bfloat8_b if _ESMC_MASK_BFP8 else ttnn.bfloat16)
+    m = attn_mask.unsqueeze(1)
+    if dtype != ttnn.bfloat16:
+        m = m.clamp(min=-1e4)
+    return ttnn.from_torch(m.to(torch.bfloat16), layout=ttnn.TILE_LAYOUT, dtype=dtype,
+                           **({"device": device} if device is not None else {}))
+
+
 def lm_sdpa(q, k, v, attn_mask, scale: float):
     """The language models' fused SDPA at the _lm_sdpa_chunks config. A shape whose few-k-chunk program the device
     refuses (its circular buffers clash with L1 tensors) runs at the k64 config from then on."""
@@ -1666,9 +1683,7 @@ class ESMC(TorchWrapper):
                 self._deallocate_tensor_like(old.get(k))
         tok_d = ttnn.from_torch(tokens.to(torch.int32), device=dev,
                                 layout=ttnn.ROW_MAJOR_LAYOUT, dtype=ttnn.uint32)
-        mask_d = None if attn_mask is None else ttnn.from_torch(
-            attn_mask.unsqueeze(1).to(torch.bfloat16), device=dev,
-            layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16)
+        mask_d = None if attn_mask is None else _sdpa_mask(attn_mask, dev)
         kv_d = None if key_valid is None else ttnn.from_torch(
             key_valid.to(torch.bfloat16), device=dev,
             layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16)
@@ -1709,10 +1724,7 @@ class ESMC(TorchWrapper):
             self._trace_cache.move_to_end(key)
         ttnn.copy_host_to_device_tensor(self._host_tokens(tokens), tr["tokens"])
         if attn_mask is not None:
-            ttnn.copy_host_to_device_tensor(
-                ttnn.from_torch(attn_mask.unsqueeze(1).to(torch.bfloat16),
-                                layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16),
-                tr["mask"])
+            ttnn.copy_host_to_device_tensor(_sdpa_mask(attn_mask, dtype=tr["mask"].dtype), tr["mask"])
         if key_valid is not None:
             ttnn.copy_host_to_device_tensor(
                 ttnn.from_torch(key_valid.to(torch.bfloat16),
@@ -1726,10 +1738,7 @@ class ESMC(TorchWrapper):
             tokens.to(torch.int32), device=self.tt_device,
             layout=ttnn.ROW_MAJOR_LAYOUT, dtype=ttnn.uint32,
         )
-        mask_tt = None if attn_mask is None else ttnn.from_torch(
-            attn_mask.unsqueeze(1).to(torch.bfloat16), device=self.tt_device,
-            layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16,
-        )
+        mask_tt = None if attn_mask is None else _sdpa_mask(attn_mask, self.tt_device)
         kv_tt = None if key_valid is None else ttnn.from_torch(
             key_valid.to(torch.bfloat16), device=self.tt_device,
             layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16,
@@ -2032,10 +2041,7 @@ class ESMCLanguageModel(TorchWrapper):
         mask_tt = key_valid_tt = None
         if attn_mask is not None:
             # [B,L,L] additive mask -> [B,1,L,L] bf16 for SDPA
-            mask_tt = ttnn.from_torch(
-                attn_mask.unsqueeze(1).to(torch.bfloat16), device=self.tt_device,
-                layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16,
-            )
+            mask_tt = _sdpa_mask(attn_mask, self.tt_device)
         if Lb != Lm:
             kv = torch.ones(1, 1, Lb, 1); kv[:, :, Lm:, :] = 0.0  # zero padded keys/values
             key_valid_tt = ttnn.from_torch(
