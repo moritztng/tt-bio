@@ -211,6 +211,13 @@ change, with chain breaks, clashes and CA-CA geometry unchanged. On a p150a the 
 about 4 to 6 s, and twelve paired seeds read the same geometry. It is on by default on both;
 `RFD3_DPB=0` restores the chain.
 
+Atom attention scores only the 64 x 64 tiles that hold a neighbour, about a quarter of them, and reads keys,
+values and mask in place; the skipped tiles carry zero softmax weight. It matches a float64 reference as
+closely as the dense kernel (largest error 0.048 against 0.050) and saves about 4 s per design on Wormhole
+in both modes. Over ten paired default seeds on a p150a chain breaks go from 5 to 4, clashes are unchanged
+(53.0 to 53.4) and the same-seed drift (5.3 to 9.6 A) stays well inside the 14 to 20 A a seed change moves a
+design. `RFD3_CSS=0` restores the dense kernel.
+
 ## Checkpoint
 
 The RFD3 checkpoint downloads automatically on first use, straight from the

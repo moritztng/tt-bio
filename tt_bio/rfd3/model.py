@@ -431,8 +431,11 @@ def _dense_sdpa_config(n):
 # css), with the mask writer skipping the rest. On the real index in sequence order 24 % of the
 # 64 x 64 score tiles hold a neighbour (p108, mean over a 200-step design); every other tile is the
 # -1e4 fill, whose weight in the online softmax is exactly 0, so skipping it changes only the work.
-# One design per call (the per-q-chunk counts are runtime args). Off while measured.
-_CSS = env_flag("RFD3_CSS", False)
+# One design per call (the per-q-chunk counts are runtime args); an axis 64 does not divide keeps the
+# chunked SDPA. Bit-equal to the dense chunk-64 program, float64 maxabs 0.048 vs 0.050 for the shipped
+# q160/k320 one. p150a @1350, 10 paired normal seeds: breaks 5 -> 4, clashes 53.0 -> 53.4 (se 5.7),
+# drift 5.3-9.6 A against a 14.4-19.9 A seed floor; WH @1000 -4 s/design in both modes. RFD3_CSS=0 restores it.
+_CSS = env_flag("RFD3_CSS", True)
 _CSS_STEP = {}
 _ATOM_SDPA_CHUNKS = tuple(int(x) for x in os.environ.get("RFD3_ATOM_SDPA_CHUNKS", "160,320").split(","))
 # ttnn.gather (0.68.0) on dim 3 silently returns wrong data for every tile-row after the first

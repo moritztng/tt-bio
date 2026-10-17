@@ -56,3 +56,12 @@ def test_dit_pair_bias_ships_in_both_modes(monkeypatch):
     M.set_fast(False)
     assert M._DIT_DPB is True
     assert callable(M._DPB.eligible)   # the flag once shadowed the dit_pair_bias module and every default design crashed
+
+
+def test_css_ships_in_both_modes(monkeypatch):
+    """The chunk-skipping atom SDPA is graded on the normal bar, so it is a default rather than a fast-set member."""
+    monkeypatch.delenv("RFD3_CSS", raising=False)
+    assert "_CSS" not in M._FAST_SET
+    assert M.env_flag("RFD3_CSS", True) is True
+    M.set_fast(False)
+    assert M._CSS is True
