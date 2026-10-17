@@ -52,6 +52,7 @@ OF3_SHAPES = {
     "b": (512, 1536, 768, False),      # transition lout
     "s": (512, 384, 768, True),        # adaLN scale / shift and the two s gates off LN(s)
     "sw": (512, 384, 36864, True),     # dit_shoist: one of the stack's three wide s linears (48 x 768 columns)
+    "s6": (512, 384, 4608, True),      # one block's six s linears side by side (24 calls a step instead of 144)
 }
 SAMPLES = 5
 
