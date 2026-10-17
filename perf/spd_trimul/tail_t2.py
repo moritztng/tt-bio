@@ -26,6 +26,8 @@ ap.add_argument("--gb8", action="store_true",
                 help="g uploaded as bfp8, as trimul_b8in writes g_out (both arms read it; the reference keeps bf16 g)")
 ap.add_argument("--abl", default="",
                 help="comma list of T2_ABL stage-ablation masks also timed after the full T2 (bench only)")
+ap.add_argument("--lnfuse", action="store_true",
+                help="also run T2_LN_FUSE (LN affine in one DEST pass) on a fresh z: bit_identical vs T2, ms, abl")
 ap.add_argument("--out", help="also append each JSON line here (the qb runner passes it)")
 A = ap.parse_args()
 
@@ -133,6 +135,22 @@ for n in [int(s) for s in A.ns.split(",") if s]:
                 rec[f"t2_ms_abl{m}"] = timed(lambda: TT.fused_tail_ln(
                     d["x"], d["gamma"], d["beta"], d["w"], d["g"], z, ckc, grid, wg=wg), A.reps)
             TT.T2_ABL = 0
+            if A.lnfuse:
+                z2 = up(h["z"])
+                TT.T2_LN_FUSE = True
+                run = lambda: TT.fused_tail_ln(d["x"], d["gamma"], d["beta"], d["w"], d["g"], z2, ckc, grid, wg=wg)
+                y2 = run()
+                ttnn.synchronize_device(dev)
+                o2 = ttnn.to_torch(y2).reshape(ref.shape)
+                rec["fuse_bit_identical"] = bool(torch.equal(o2, out))
+                rec["fuse_max_diff"] = float((o2.float() - out.float()).abs().max())
+                rec["fuse_rel_rms_f64"], rec["fuse_max_abs"] = rel(o2, ref)
+                rec["fuse_ms"] = timed(run, A.reps)
+                for m in [int(v) for v in A.abl.split(",") if v]:
+                    TT.T2_ABL = m
+                    rec[f"fuse_ms_abl{m}"] = timed(run, A.reps)
+                TT.T2_ABL, TT.T2_LN_FUSE = 0, False
+                ttnn.deallocate(z2)
         ttnn.deallocate(z)
     except Exception as e:                                                    # noqa: BLE001
         rec["t2_err"] = str(e).splitlines()[0][:300]

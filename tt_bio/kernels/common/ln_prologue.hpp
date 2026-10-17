@@ -104,6 +104,28 @@ ALWI void layer_norm_row(uint32_t out, Pack pack) {
     stage<C, MUL>(C::xc, C::xc, C::tmp);                  // xc^2
     row_mean<C>(C::tmp, C::var, true);                    // var (biased, as layer_norm)
     rstd<C>();                                            // rstd = rsqrt(var + eps)
+#ifdef LN_AFFINE_F32
+    // norm * gamma + beta in one DEST pass. The reader gives gamma / beta as fp32 tiles with row 0 copied
+    // down every row, so both are plain DEST-reuse ops on the norm, which reaches srcA from DST in fp32 as
+    // it did unpacked from C::tmp / C::xc: the two fp32 pack + unpack round trips per channel tile go.
+    reconfig_data_format(C::xc, C::rstd);
+    pack_reconfig_data_format(out);
+    for (uint32_t i = 0; i < C::Kt; ++i) {
+        tile_regs_acquire();
+        mul_bcast_cols_init_short(C::xc, C::rstd);
+        mul_tiles_bcast_cols(C::xc, C::rstd, i, 0, 0);
+        binary_dest_reuse_tiles_init<EltwiseBinaryType::ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(C::gamma);
+        binary_dest_reuse_tiles<EltwiseBinaryType::ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(C::gamma, i, 0);
+        binary_dest_reuse_tiles_init<EltwiseBinaryType::ELWADD, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(C::beta);
+        binary_dest_reuse_tiles<EltwiseBinaryType::ELWADD, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(C::beta, i, 0);
+        tile_regs_commit();
+        tile_regs_wait();
+        pack(i);
+        tile_regs_release();
+    }
+    cb_pop_front(C::xc, C::Kt);
+    cb_pop_front(C::rstd, 1);
+#else
     stage<C, MUL_COL>(C::xc, C::rstd, C::tmp);            // norm = xc * rstd
     cb_pop_front(C::xc, C::Kt);
     cb_pop_front(C::rstd, 1);
@@ -123,6 +145,7 @@ ALWI void layer_norm_row(uint32_t out, Pack pack) {
         tile_regs_release();
     }
     cb_pop_front(C::xc, C::Kt);
+#endif
 }
 
 // RMSNorm, as ttnn.rms_norm: x * rsqrt(mean(x^2) + eps) * gamma, no centring and no beta. Same CBs

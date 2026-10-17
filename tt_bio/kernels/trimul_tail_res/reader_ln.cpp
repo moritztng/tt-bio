@@ -66,11 +66,34 @@ void kernel_main() {
     if constexpr (GATE) {
         for (uint32_t t = 0; t < Kt * Nt; ++t, w += tb) noc_async_read_page(t, wg, w);
     }
+#ifdef LN_AFFINE_F32
+    const uint32_t tv = get_tile_size(gamma_cb);                // fp32: the bf16 page lands in the first half
+#else
+    const uint32_t tv = tb;
+#endif
     w = get_write_ptr(gamma_cb);
-    for (uint32_t t = 0; t < Kt; ++t, w += tb) noc_async_read_page(t, gm, w);
+    for (uint32_t t = 0; t < Kt; ++t, w += tv) noc_async_read_page(t, gm, w);
     w = get_write_ptr(beta_cb);
-    for (uint32_t t = 0; t < Kt; ++t, w += tb) noc_async_read_page(t, bt, w);
+    for (uint32_t t = 0; t < Kt; ++t, w += tv) noc_async_read_page(t, bt, w);
     noc_async_read_barrier();
+#ifdef LN_AFFINE_F32
+    // Row 0 of each bf16 tile (faces 0 and 1) to fp32, copied down all 32 rows of all four faces.
+    for (uint32_t v = 0; v < 2; ++v) {
+        uint32_t base = get_write_ptr(v ? beta_cb : gamma_cb);
+        for (uint32_t t = 0; t < Kt; ++t, base += tv) {
+            volatile tt_l1_ptr uint16_t* s = reinterpret_cast<volatile tt_l1_ptr uint16_t*>(base);
+            uint32_t row[32];
+            for (uint32_t c = 0; c < 16; ++c) {
+                row[c] = uint32_t(s[c]) << 16;
+                row[16 + c] = uint32_t(s[256 + c]) << 16;
+            }
+            volatile tt_l1_ptr uint32_t* d = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(base);
+            for (uint32_t f = 0; f < 4; ++f)
+                for (uint32_t r = 0; r < 16; ++r)
+                    for (uint32_t c = 0; c < 16; ++c) d[f * 256 + r * 16 + c] = row[(f & 1) * 16 + c];
+        }
+    }
+#endif
     cb_push_back(in1_cb, (1 + GATE) * Kt * Nt);
     cb_push_back(gamma_cb, Kt);
     cb_push_back(beta_cb, Kt);
