@@ -382,6 +382,8 @@ _PAIR_WS = env_flag("RFD3_PAIR_WS", True)
 # RFD3_PAIR_WS with its weights in bfp8, run at HiFi2 (covers every bfp8 weight bit), the form the shared
 # `tenstorrent.ws_swiglu` takes in fast mode for the other models. x and the RMSNorm prologue stay bf16. Graded off.
 _PAIR_WS_B8 = env_flag("RFD3_PAIR_WS_B8", False)
+# The same bfp8 weights at LoFi (WH matmul 56 TF bf16 HiFi4 vs 120 TF bfp8 LoFi). A fast-mode candidate, off.
+_PAIR_WS_LOFI = env_flag("RFD3_PAIR_WS_LOFI", False)
 # The token encoder's `z = z + transition(z)` (transition_2 and the two pairformer blocks, 8 calls a step) as one
 # RFD3_PAIR_WS program that seeds fc3's fp32 dest with z and writes z + t back over z (`pair_swiglu_ws` resid):
 # no 1x685x704x128 add pass (WH 1.56 ms each, at its DRAM roof) and one bf16 rounding of z + t instead of two,
@@ -1190,13 +1192,14 @@ class Transition(Module):
         if getattr(self, "_ws12", None) is None:
             self._ws12 = ttnn.concat([self.fc1_w, self.fc2_w], dim=1)
             self._ws3 = self.fc3_w
-            if _PAIR_WS_B8:
+            if _PAIR_WS_B8 or _PAIR_WS_LOFI:
                 self._ws12 = ttnn.typecast(self._ws12, ttnn.bfloat8_b)
                 self._ws3 = ttnn.typecast(self.fc3_w, ttnn.bfloat8_b)
         r = x if resid else None
         if not _WS.eligible(x, self._ws12, self._ws3, resid=r):
             return None
-        fid = ttnn.MathFidelity.HiFi2 if _PAIR_WS_B8 else self.compute_kernel_config.math_fidelity
+        fid = (ttnn.MathFidelity.LoFi if _PAIR_WS_LOFI else ttnn.MathFidelity.HiFi2 if _PAIR_WS_B8
+               else self.compute_kernel_config.math_fidelity)
         # The input RMSNorm as the program's prologue: bit-identical to ttnn.rms_norm first, and the normalised
         # tensor never goes to DRAM. p150a @1350 2.65 -> 2.39 ms (hidden 256), 4.38 -> 4.09 (512); flat on WH.
         if _WS.eligible(x, self._ws12, self._ws3, ln=(self.norm_w, None), resid=r):

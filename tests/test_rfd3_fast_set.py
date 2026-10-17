@@ -82,3 +82,9 @@ def test_head_split_kernels_are_off_until_measured():
     for name, env in (("_QKV_HEADS", "RFD3_QKV_HEADS"), ("_GCA_HEADS", "RFD3_GCA_HEADS")):
         assert name not in M._FAST_SET
         assert M.env_flag(env, False) is False
+
+
+def test_pair_ws_lofi_is_off_until_graded():
+    """pws in bfp8 at LoFi is a fast-mode candidate only: off by default and outside the fast set until measured."""
+    assert "_PAIR_WS_LOFI" not in M._FAST_SET
+    assert M.env_flag("RFD3_PAIR_WS_LOFI", False) is False
