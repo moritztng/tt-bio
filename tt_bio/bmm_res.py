@@ -2,7 +2,7 @@
 
 The production plan (`tenstorrent._triangle_mul_program_config`, a 2D multicast with a 2x2-tile block per core at
 512 tokens) runs the [1, 256, 512, 512] einsum at 3.39 ms on a Wormhole chip at 1000 MHz, 2.5x its ~1.4 ms DRAM floor
-(402 MB at 288 GB/s), and neither fidelity nor any ttnn program config moves it (perf/af2_trimul_bmm_sweep.py at 512:
+(402 MB at 288 GB/s), and neither fidelity nor any ttnn program config moves it (perf/spd/af2_trimul_bmm_sweep.py at 512:
 whole-channel plans overflow L1, row-block reuse re-reads b per block). Here each core owns whole channels: it loads
 b[c] into L1 once (512 KB bf16 at 512 tokens, two channels deep when L1 allows), streams a[c]'s 32-row tiles through
 it and writes out[c], so a, b and out each cross DRAM once. The reader, compute and writer are pair_linear's, keyed
