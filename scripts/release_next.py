@@ -289,12 +289,23 @@ def passed_since(gates: Path | None, tsha: str, repo: Path = REPO, ref: str = "o
     return max(done)[2:] if done else None
 
 
+def fork_point(tsha: str, ref: str, repo: Path = REPO) -> str:
+    """The commit on main the release branched from. Once main merges the release branch back
+    (release_train does), merge-base(tag, main) is the tag itself, and every gate on a commit
+    between the branch-off and the merge-back stopped being a candidate (rec-5e250928a passed
+    10-17 03:50Z and the train gated main's head instead), so take it from the main parent of the first commit on main's line that holds the tag (the
+    merge-back may come in through a work branch)."""
+    after = set(git("rev-list", "--ancestry-path", f"{tsha}..{ref}", repo=repo).split())
+    back = [c for c in git("rev-list", "--first-parent", f"{tsha}..{ref}", repo=repo).split() if c in after]
+    return git("merge-base", tsha, f"{back[-1]}^1" if back else ref, repo=repo)
+
+
 def _since(gates: Path | None, tsha: str, repo: Path = REPO, ref: str = "origin/main") -> list:
     """(plan path, plan + "base") of the full runs on commits after the last release (passed_since)."""
     def ancestor(a, b):
         return subprocess.run(["git", "-C", str(repo), "merge-base", "--is-ancestor", a, b],
                               capture_output=True).returncode == 0
-    base = git("merge-base", tsha, ref, repo=repo) if tsha else ""
+    base = fork_point(tsha, ref, repo) if tsha else ""
     released = content_hash(tsha, repo) if tsha else ""
     out = []
     for p, plan in _plans(gates):
