@@ -1797,21 +1797,56 @@ class AtomEncoder(Module):
         )
         init.final_init_(self.p_mlp[5].weight)
 
-    def forward(
-        self,
-        feats,
-        s_trunk=None,  # Float['bm n ts'],
-        z=None,  # Float['bm n n tz'],
-        z_to_p=None,  # Float['bm n n az'], `z_to_p_trans(z)` already applied
-    ):
-        # `z` reaches this module through `z_to_p_trans` and nowhere else, so a caller that
-        # already has the projection can hand it over and keep the pair tensor where it is.
+    def windows(self, feats):
+        """``(to_keys, K, W, H, d, d_norm, v)``: the atom-pair window geometry ``forward`` embeds.
+
+        ``d`` is the key-minus-query reference offset, ``d_norm`` AF3's ``1 / (1 + |d|^2)`` and ``v``
+        the 0/1 same-conformer mask, all ``[B, K, W, H, *]``. They depend on the input alone.
+        """
+        W, H = self.atoms_per_window_queries, self.atoms_per_window_keys
+        atom_mask = feats["atom_pad_mask"].bool()  # Bool['b m'],
+        atom_ref_pos = feats["ref_pos"]  # Float['b m 3'],
+        atom_uid = feats["ref_space_uid"]  # Long['b m'],
+        B, N = atom_mask.shape
+        K = N // W
+        keys_indexing_matrix = get_indexing_matrix(K, W, H, atom_ref_pos.device)
+        to_keys = partial(
+            single_to_keys, indexing_matrix=keys_indexing_matrix, W=W, H=H
+        )
+
+        atom_ref_pos_queries = atom_ref_pos.view(B, K, W, 1, 3)
+        atom_ref_pos_keys = to_keys(atom_ref_pos).view(B, K, 1, H, 3)
+
+        d = atom_ref_pos_keys - atom_ref_pos_queries  # Float['b k w h 3']
+        d_norm = torch.sum(d * d, dim=-1, keepdim=True)  # Float['b k w h 1']
+        d_norm = 1 / (
+            1 + d_norm
+        )  # AF3 feeds in the reciprocal of the distance norm
+
+        atom_mask_queries = atom_mask.view(B, K, W, 1)
+        atom_mask_keys = (
+            to_keys(atom_mask.unsqueeze(-1).float()).view(B, K, 1, H).bool()
+        )
+        atom_uid_queries = atom_uid.view(B, K, W, 1)
+        atom_uid_keys = (
+            to_keys(atom_uid.unsqueeze(-1).float()).view(B, K, 1, H).long()
+        )
+        v = (
+            (
+                atom_mask_queries
+                & atom_mask_keys
+                & (atom_uid_queries == atom_uid_keys)
+            )
+            .float()
+            .unsqueeze(-1)
+        )  # Bool['b k w h 1']
+        return to_keys, K, W, H, d, d_norm, v
+
+    def single(self, feats, s_trunk=None):
+        """``(q, c)``: the atom single features, ``c`` conditioned on the trunk in the structure model."""
         with torch.autocast("cuda", enabled=False):
             B, N, _ = feats["ref_pos"].shape
-            atom_mask = feats["atom_pad_mask"].bool()  # Bool['b m'],
-
             atom_ref_pos = feats["ref_pos"]  # Float['b m 3'],
-            atom_uid = feats["ref_space_uid"]  # Long['b m'],
 
             atom_feats = [atom_ref_pos]
             if not self.add_additional_atom_features:
@@ -1843,57 +1878,35 @@ class AtomEncoder(Module):
             atom_feats = torch.cat(atom_feats, dim=-1)
 
             c = self.embed_atom_features(atom_feats)
+            q = c
+            if self.structure_prediction:
+                # run only in structure model not in initial encoding
+                atom_to_token = feats["atom_to_token"].float()  # Long['b m n'],
+                s_to_c = self.s_to_c_trans(s_trunk.float())
+                s_to_c = torch.bmm(atom_to_token, s_to_c)
+                c = c + s_to_c.to(c)
+        return q, c
 
-            # note we are already creating the windows to make it more efficient
-            W, H = self.atoms_per_window_queries, self.atoms_per_window_keys
-            B, N = c.shape[:2]
-            K = N // W
-            keys_indexing_matrix = get_indexing_matrix(K, W, H, c.device)
-            to_keys = partial(
-                single_to_keys, indexing_matrix=keys_indexing_matrix, W=W, H=H
-            )
-
-            atom_ref_pos_queries = atom_ref_pos.view(B, K, W, 1, 3)
-            atom_ref_pos_keys = to_keys(atom_ref_pos).view(B, K, 1, H, 3)
-
-            d = atom_ref_pos_keys - atom_ref_pos_queries  # Float['b k w h 3']
-            d_norm = torch.sum(d * d, dim=-1, keepdim=True)  # Float['b k w h 1']
-            d_norm = 1 / (
-                1 + d_norm
-            )  # AF3 feeds in the reciprocal of the distance norm
-
-            atom_mask_queries = atom_mask.view(B, K, W, 1)
-            atom_mask_keys = (
-                to_keys(atom_mask.unsqueeze(-1).float()).view(B, K, 1, H).bool()
-            )
-            atom_uid_queries = atom_uid.view(B, K, W, 1)
-            atom_uid_keys = (
-                to_keys(atom_uid.unsqueeze(-1).float()).view(B, K, 1, H).long()
-            )
-            v = (
-                (
-                    atom_mask_queries
-                    & atom_mask_keys
-                    & (atom_uid_queries == atom_uid_keys)
-                )
-                .float()
-                .unsqueeze(-1)
-            )  # Bool['b k w h 1']
+    def forward(
+        self,
+        feats,
+        s_trunk=None,  # Float['bm n ts'],
+        z=None,  # Float['bm n n tz'],
+        z_to_p=None,  # Float['bm n n az'], `z_to_p_trans(z)` already applied
+    ):
+        # `z` reaches this module through `z_to_p_trans` and nowhere else, so a caller that
+        # already has the projection can hand it over and keep the pair tensor where it is.
+        with torch.autocast("cuda", enabled=False):
+            q, c = self.single(feats, s_trunk)
+            to_keys, K, W, H, d, d_norm, v = self.windows(feats)
+            B = c.shape[0]
 
             p = self.embed_atompair_ref_pos(d) * v
             p = p + self.embed_atompair_ref_dist(d_norm) * v
             p = p + self.embed_atompair_mask(v) * v
 
-            q = c
-
             if self.structure_prediction:
-                # run only in structure model not in initial encoding
                 atom_to_token = feats["atom_to_token"].float()  # Long['b m n'],
-
-                s_to_c = self.s_to_c_trans(s_trunk.float())
-                s_to_c = torch.bmm(atom_to_token, s_to_c)
-                c = c + s_to_c.to(c)
-
                 if z_to_p is None:
                     z_to_p = self.z_to_p_trans(z.float())
                 z_to_p = pair_to_atom_windows(z_to_p, atom_to_token, to_keys, K, W, H)
