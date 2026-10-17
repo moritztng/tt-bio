@@ -344,6 +344,7 @@ _ESMC_QKV_MM_SPLIT = env_flag("TT_BIO_ESMC_QKV_MM_SPLIT", True)
 _ESMC_MM_RESID = env_flag("TT_BIO_ESMC_MM_RESID", True)
 #: [qkv split matmuls, residual-fused projections] served, read by the A/B harness.
 MM_FUSE_STATS = [0, 0]
+LIN6B_STATS = [0]  # projections served by _lin6b_program
 
 
 # minimal_matmul accumulating in bf16 dest registers instead of fp32, which frees room for 2 x 4 output subblocks.
@@ -354,6 +355,49 @@ MM_FUSE_STATS = [0, 0]
 # pooled cos >= 0.99996 everywhere. Inside the fast bar, not the normal one, so None = on for block-fp8 weights only,
 # which only --fast loads. Galaxy chip at 1000 MHz, best of 3: 300M --fast 139.5 -> 133.6 ms, 600M 203.6 -> 197.4.
 _ESMC_MM_BF16_ACC = env_flag("TT_BIO_ESMC_MM_BF16_ACC", None)
+# The LM FFN's fc1 halves and SwiGLU product stored as block-fp8 where the weights already are (--fast), so the gate
+# multiply and fc2 read half the bytes: at the 300M page shape that chain moves ~117 MB a layer through DRAM in bf16.
+# Wormhole minimal_matmul path only (fc2 takes the bfp8 operand there). Off: an A/B candidate for --fast.
+_ESMC_ACT_BFP8 = env_flag("TT_BIO_ESMC_ACT_BFP8", False)
+
+
+# ESMC-6B's projections at up to 544 rows on Wormhole (the page shape is one 544-row sequence) on explicit multicast
+# programs instead of ttnn.linear's own pick for the grid. lin6b_sweep on a Galaxy chip at 1000 MHz, ms a call at 544 rows
+# (grid -> program): bf16 qkv 0.585 -> 0.556 and fc1 half 0.508 -> 0.455 (1D, N across every core), fc2 0.452 -> 0.431
+# (2D); block-fp8 qkv 0.590 -> 0.474 and fc1 half 0.482 -> 0.415 (2D), fc2 and out_proj stay on the linear's program.
+_ESMC_LIN6B_PROG = env_flag("TT_BIO_ESMC_LIN6B_PROG", False)
+_LIN6B_PROG_MAX_ROWS = 544
+
+
+def _subblock(h_tiles: int, w_tiles: int, cap: int = 4) -> tuple[int, int]:
+    """Largest out subblock (h, w) with h | h_tiles, w | w_tiles and h * w <= cap, wide first."""
+    return max(((h, w) for h in range(1, h_tiles + 1) for w in range(1, w_tiles + 1)
+                if h_tiles % h == 0 and w_tiles % w == 0 and h * w <= cap), key=lambda hw: (hw[0] * hw[1], hw[1]))
+
+
+def _lin6b_program(x, w):
+    """The measured multicast program for this large-LM projection, or None where ttnn.linear's own pick serves."""
+    k, n = int(w.shape[-2]), int(w.shape[-1])
+    rows = x.volume() // k
+    if rows > _LIN6B_PROG_MAX_ROWS or n == k:
+        return None
+    bfp8 = w.dtype == ttnn.bfloat8_b
+    if bfp8 and n < k:
+        return None
+    g = x.device().compute_with_storage_grid_size()
+    mt, kt, nt = -(-rows // 32), k // 32, n // 32
+    kb = next(b for b in (8, 4, 2, 1) if kt % b == 0)
+    if n > k and not bfp8:
+        pn = -(-nt // (g.x * g.y))
+        sh, sw = _subblock(mt, pn)
+        return ttnn.MatmulMultiCoreReuseMultiCast1DProgramConfig(
+            compute_with_storage_grid_size=ttnn.CoreCoord(g.x, g.y), in0_block_w=kb, out_subblock_h=sh,
+            out_subblock_w=sw, per_core_M=mt, per_core_N=pn, fuse_batch=True, fused_activation=None, mcast_in0=True)
+    pm, pn = -(-mt // g.y), -(-nt // g.x)
+    sh, sw = _subblock(pm, pn)
+    return ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(
+        compute_with_storage_grid_size=ttnn.CoreCoord(g.x, g.y), in0_block_w=kb, out_subblock_h=sh, out_subblock_w=sw,
+        per_core_M=pm, per_core_N=pn, transpose_mcast=False, fused_activation=None, fuse_batch=True)
 
 
 def _mm_bf16_acc(w) -> bool:
@@ -396,7 +440,8 @@ class _MMLin:
         return self._mm_ck_bf16
 
     def _mm_ok(self, x, w) -> bool:
-        return ((w.dtype == ttnn.bfloat16 or (_ESMC_MM_BFP8 and w.dtype == ttnn.bfloat8_b)) and x.dtype == ttnn.bfloat16
+        return ((w.dtype == ttnn.bfloat16 or (_ESMC_MM_BFP8 and w.dtype == ttnn.bfloat8_b))
+                and (x.dtype == ttnn.bfloat16 or (_ESMC_ACT_BFP8 and x.dtype == ttnn.bfloat8_b == w.dtype))
                 and x.volume() // int(x.shape[-1]) >= ESMC_MM_MIN_ROWS and self._mm_on())
 
     def _lin_split(self, x, w, chunks: int):
@@ -446,6 +491,13 @@ class _MMLin:
             except RuntimeError:  # an L1 destination it cannot place: the linear serves it
                 pass
         MM_STATS[1] += mm
+        if _ESMC_LIN6B_PROG and getattr(self, "lm_large", False) and not kw and bias is None:
+            from tt_bio import tenstorrent
+            cfg = _lin6b_program(x, w) if tenstorrent.is_wormhole() else None
+            if cfg is not None:
+                LIN6B_STATS[0] += 1
+                return ttnn.linear(x, w, program_config=cfg, compute_kernel_config=self.compute_kernel_config,
+                                   dtype=_dtype(ttnn.bfloat16) if dtype is None else dtype)
         return super()._lin(x, w, bias=bias, dtype=dtype, **kw)
 
 
@@ -1044,9 +1096,11 @@ class SwiGLUFFN(_MMLin, Module):
                 silu_done = _SWIGLU_SILU_FC1
             else:
                 L1_FC1_STATS[1] += 2 * bool(l1_gated)
-                h1 = self._lin(x_norm, self.fc1_a_weight,
+                dt = (ttnn.bfloat8_b if _ESMC_ACT_BFP8 and len(x_norm.shape) == 3
+                      and self.fc1_a_weight.dtype == ttnn.bfloat8_b and self._mm_ok(x_norm, self.fc1_a_weight) else None)
+                h1 = self._lin(x_norm, self.fc1_a_weight, dtype=dt,
                                activation="silu" if _SWIGLU_SILU_FC1 else None)
-                h2 = self._lin(x_norm, self.fc1_b_weight)
+                h2 = self._lin(x_norm, self.fc1_b_weight, dtype=dt)
                 silu_done = _SWIGLU_SILU_FC1
             ttnn.deallocate(x_norm)
             act = dict(input_tensor_a_activations=[] if silu_done else [ttnn.UnaryOpType.SILU])
@@ -1386,6 +1440,7 @@ class Block(Module):
         self.ffn.model_bytes = n_layers * (4 * d * d + 3 * d * d_ff) * 2
         self.attn = Attention(n_heads, self.scope("attn"), compute_kernel_config, out_scale=inv_scale,
                               qk_l1=self.ffn.model_bytes <= _LM_LARGE_MODEL_BYTES or _ESMC_QK_L1_LARGE, d_model=d)
+        self.attn.lm_large = self.ffn.lm_large = self.ffn.model_bytes > _LM_LARGE_MODEL_BYTES
 
     def __call__(self, x: ttnn.Tensor, cos: ttnn.Tensor, sin: ttnn.Tensor,
                  attn_mask: ttnn.Tensor | None = None,
@@ -1452,7 +1507,8 @@ class ESMCModel(Module):
         self.head = RegressionHead(self.scope("sequence_head"), compute_kernel_config)
 
     def __call__(self, tokens: ttnn.Tensor, attn_mask: ttnn.Tensor | None = None,
-                 key_valid: ttnn.Tensor | None = None, _rope=None):
+                 key_valid: ttnn.Tensor | None = None, _rope=None, want_logits: bool = True):
+        """With ``want_logits=False`` the sequence head is not run and ``logits`` is None."""
         seq_len = tokens.shape[-1]
         head_dim = self.norm_weight.shape[-1] // self.n_heads
         # _rope: precomputed (cos, sin) device tensors. Trace capture passes these
@@ -1468,7 +1524,7 @@ class ESMCModel(Module):
             compute_kernel_config=self.compute_kernel_config,
         )
         ttnn.deallocate(x)
-        logits = self.head(emb)
+        logits = self.head(emb) if want_logits else None
         return logits, emb
 
 
@@ -1629,7 +1685,7 @@ class ESMC(TorchWrapper):
         ttnn.execute_trace(self.tt_device, tr["tid"], cq_id=0, blocking=False)
         return self._to_torch(tr["logits"]), self._to_torch(tr["emb"])
 
-    def _forward_eager(self, tokens, attn_mask, key_valid):
+    def _forward_eager(self, tokens, attn_mask, key_valid, want_logits=True):
         tokens_tt = ttnn.from_torch(
             tokens.to(torch.int32), device=self.tt_device,
             layout=ttnn.ROW_MAJOR_LAYOUT, dtype=ttnn.uint32,
@@ -1642,12 +1698,12 @@ class ESMC(TorchWrapper):
             key_valid.to(torch.bfloat16), device=self.tt_device,
             layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16,
         )
-        logits, emb = self.module(tokens_tt, mask_tt, kv_tt)
-        return self._to_torch(logits), self._to_torch(emb)
+        logits, emb = self.module(tokens_tt, mask_tt, kv_tt, want_logits=want_logits)
+        return (None if logits is None else self._to_torch(logits)), self._to_torch(emb)
 
     def forward(self, tokens: torch.Tensor, attn_mask: torch.Tensor | None = None,
-                key_valid: torch.Tensor | None = None):
-        """tokens[B,L] -> (logits[B,L,64], emb[B,L,d]). Optional padding masks
+                key_valid: torch.Tensor | None = None, want_logits: bool = True):
+        """tokens[B,L] -> (logits[B,L,64] or None without ``want_logits``, emb[B,L,d]). Optional padding masks
         (built by ``_batch_tokens``) let a batch of unequal-length sequences share
         one padded, bucketed forward: ``attn_mask`` [B,L,L] additive removes padded
         keys from the softmax denominator; ``key_valid`` [B,1,L,1] zeros padded
@@ -1657,12 +1713,12 @@ class ESMC(TorchWrapper):
         ``_batch_tokens``, so a direct API call at a ragged L cannot reach the SDPA ragged.
         ``_batch_tokens`` has already bucketed on every CLI path, so there it is a no-op."""
         tokens, attn_mask, key_valid, _, L = bucket_token_axis(tokens, attn_mask, key_valid)
-        logits, emb = self._dispatch(tokens, attn_mask, key_valid)
+        logits, emb = self._dispatch(tokens, attn_mask, key_valid, want_logits)
         if int(tokens.shape[1]) == L:
             return logits, emb
-        return logits[:, :L], emb[:, :L]
+        return (None if logits is None else logits[:, :L]), emb[:, :L]
 
-    def _dispatch(self, tokens, attn_mask, key_valid):
+    def _dispatch(self, tokens, attn_mask, key_valid, want_logits=True):
         if self.trace and not self._trace_broken and (tokens.shape[0] == 1 or _TRACE_BATCH):
             key = (tuple(tokens.shape), attn_mask is not None, key_valid is not None)
             if key in self._trace_cache:
@@ -1689,7 +1745,7 @@ class ESMC(TorchWrapper):
                         self._release_traces()
                         print(f"ESMC trace capture failed ({exc!r}); falling back "
                               f"to eager for the rest of this process", file=sys.stderr)
-        return self._forward_eager(tokens, attn_mask, key_valid)
+        return self._forward_eager(tokens, attn_mask, key_valid, want_logits)
 
 
 # ===========================================================================
@@ -2305,7 +2361,7 @@ def embed_sequences(model, sequences: dict[str, str], *, return_logits: bool = F
     for idx in batches:
         batch = [items[i] for i in idx]
         input_ids, lens, attn_mask, key_valid = _batch_tokens([s for _, s in batch])
-        logits_b, emb_b = model(input_ids, attn_mask, key_valid)  # [B,Lb,64], [B,Lb,d]
+        logits_b, emb_b = model(input_ids, attn_mask, key_valid, want_logits=return_logits)  # [B,Lb,64] | None, [B,Lb,d]
         for row, (sid, seq) in enumerate(batch):
             li = lens[row]
             emb = emb_b[row, :li].numpy().astype(np.float32)
