@@ -382,7 +382,31 @@ def _conf_weights(head, ftw):
     return w
 
 
-def _conf_pair_dev(head, ftw, z, s_n, relpos, bonds, bins, mask, n):
+# PAE, PDE and pTM read only the expectations of their [L,L,64] logits, so the device reduces them: exp(logits - max)
+# projected on [bin centres, TM term, ones] and divided by the ones column on the host. The division keeps the
+# denominator exact (ttnn.softmax rows sum to ~0.977, see tenstorrent._accurate_softmax). Two [L,L,3] downloads
+# replace two fp32 [L,L,64] ones and the host softmaxes over them.
+_CONF_PROJ = env_flag("TT_BIO_ESMFOLD2_CONF_PROJ", False)
+
+
+def _expectations_dev(lg, vecs, ck):
+    """[1,L,L,64] logits on the device -> [1,L,L,K] host: E[vecs[:, k]] under softmax(logits) per pair."""
+    import ttnn
+    x = ttnn.typecast(lg, ttnn.float32)
+    m = ttnn.max(x, dim=-1, keepdim=True)
+    d = ttnn.subtract(x, m)
+    for t in (x, m):
+        ttnn.deallocate(t)
+    e = ttnn.exp(d)
+    ttnn.deallocate(d)
+    pj = ttnn.matmul(e, vecs, compute_kernel_config=ck)
+    ttnn.deallocate(e)
+    out = torch.Tensor(ttnn.to_torch(pj)).float()
+    ttnn.deallocate(pj)
+    return out[..., :-1] / out[..., -1:]
+
+
+def _conf_pair_dev(head, ftw, z, s_n, relpos, bonds, bins, mask, n, tm_per_bin):
     """ConfidenceHead._pair_outputs with the pair on the device; `z` is a device tensor (not freed here) or a host one.
 
     The sample-independent part (z_norm, the [L,c] broadcasts, relpos, bonds, the outer product) is built once; each
@@ -394,7 +418,7 @@ def _conf_pair_dev(head, ftw, z, s_n, relpos, bonds, bins, mask, n):
         DEVICE_CONF_STATS[1] += 1
         if isinstance(z, ttnn.Tensor):
             z = ftw._to_torch(z).float()
-        return type(head)._pair_outputs(head, z, s_n, _host(relpos), _host(bonds), bins, mask, n)
+        return type(head)._pair_outputs(head, z, s_n, _host(relpos), _host(bonds), bins, mask, n, tm_per_bin)
     DEVICE_CONF_STATS[0] += 1
     w, ck, L = _conf_weights(head, ftw), ftw.compute_kernel_config, int(bins.shape[-1])
     lin = lambda x, wt: ttnn.linear(x, wt, compute_kernel_config=ck)
@@ -429,6 +453,13 @@ def _conf_pair_dev(head, ftw, z, s_n, relpos, bonds, bins, mask, n):
     p0 = swap(p0, ttnn.add(p0, prod))
     ttnn.deallocate(prod)
     singles, pae, pde = [], [], []
+    if _CONF_PROJ:
+        centres = torch.linspace(0.0, 32.0, tm_per_bin.shape[-1] + 1)
+        centres = (centres[:-1] + centres[1:]) / 2  # _categorical_mean's bins
+        up = lambda *cols: ttnn.from_torch(torch.stack(cols, -1).float().reshape(1, 1, -1, len(cols)),
+                                           layout=ttnn.TILE_LAYOUT, device=ftw.tt_device, dtype=ttnn.float32)
+        one = torch.ones_like(centres)
+        v_pde = up(centres, one)
     for k in range(int(bins.shape[0])):
         et = ftw._from_torch(head.dist_bin_pairwise_embed(bins[k:k + 1]).float())
         p = ttnn.add(p0, et)
@@ -449,14 +480,23 @@ def _conf_pair_dev(head, ftw, z, s_n, relpos, bonds, bins, mask, n):
         ttnn.deallocate(wt)
         singles.append(head.row_attention_pooling.out_proj(ftw._to_torch(pooled)[:, :L, 0, :].float()))
         ttnn.deallocate(pooled)
-        for norm, key, out in ((head.pae_ln, "pae", pae), (head.pde_ln, "pde", pde)):
+        v_pae = up(centres, tm_per_bin[k].float().cpu(), one) if _CONF_PROJ else None
+        for norm, key, out, v in ((head.pae_ln, "pae", pae, v_pae), (head.pde_ln, "pde", pde, v_pde if _CONF_PROJ else None)):
             xn = ln(pair, w[key + "_ln"], norm)
             lg = swap(xn, lin(xn, w[key]))
-            out.append(ftw._to_torch(lg)[:, :L, :L, :].float())
+            out.append(_expectations_dev(lg, v, ck)[:, :L, :L, :] if v is not None
+                       else ftw._to_torch(lg)[:, :L, :L, :].float())
             ttnn.deallocate(lg)
+        if v_pae is not None:
+            ttnn.deallocate(v_pae)
         ttnn.deallocate(pair)
     ttnn.deallocate(p0)
-    return torch.cat(singles), torch.cat(pae), torch.cat(pde)
+    pae, pde = torch.cat(pae), torch.cat(pde)
+    if _CONF_PROJ:
+        ttnn.deallocate(v_pde)
+        return torch.cat(singles), (None, None), (pae[..., 0], pde[..., 0], pae[..., 1])
+    from tt_bio._vendor.esmfold2_hf.modeling_esmfold2 import _pair_expectations
+    return torch.cat(singles), (pae, pde), _pair_expectations(pae, pde, tm_per_bin)
 
 
 class _ReadoutAdapter(torch.nn.Module):
