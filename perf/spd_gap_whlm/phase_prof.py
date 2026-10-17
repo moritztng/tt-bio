@@ -1,8 +1,8 @@
 """Where a warm embed batch spends its wall time: host enqueue of the forward, device tail, readback, the rest.
 
 One embed_sequences call on the perf-page protocol (prot512.seq x N), split by wrapping the model's device module
-(time to return = host enqueue; then synchronize = device work still queued) and its _to_torch (readback). "rest" is
-tokenising, batching, uploads and pooling. If enqueue ~ total device time the forward is host-bound and a trace pays.
+(time to return = host enqueue; then synchronize = device work still queued) and its _to_torch (readback: device
+untilize, host copy, fp32 cast). "rest" is tokenising, batching, uploads and pooling. If enqueue ~ total device time the forward is host-bound and a trace pays.
 
     python3 perf/spd_gap_whlm/phase_prof.py --model saprot-35m --n-seqs 7 --out phase.json
 """
@@ -12,7 +12,10 @@ import statistics
 import time
 from pathlib import Path
 
+import torch
 import ttnn
+
+from tt_bio.tenstorrent import _device_tilize
 
 
 def main() -> int:
@@ -52,10 +55,22 @@ def main() -> int:
         t["device_tail"] = t.get("device_tail", 0.0) + time.perf_counter() - t1
         return r
 
-    def timed_to_torch(x):
+    def lap(key, t0):
+        t1 = time.perf_counter()
+        t[key] = t.get(key, 0.0) + t1 - t0
+        return t1
+
+    def timed_to_torch(x):   # tenstorrent.download + the wrapper's float cast, one lap per step
         t0 = time.perf_counter()
-        r = to_torch(x)
-        t["readback"] = t.get("readback", 0.0) + time.perf_counter() - t0
+        t["readback_mb"] = t.get("readback_mb", 0.0) + x.volume() * (4 if x.dtype == ttnn.float32 else 2) / 1e9   # MB once the row scales by 1000
+        if x.layout == ttnn.TILE_LAYOUT and _device_tilize(x.volume() * 2):
+            x = ttnn.to_layout(x, ttnn.ROW_MAJOR_LAYOUT)
+            ttnn.synchronize_device(dev)
+            t0 = lap("rb_untilize", t0)
+        h = ttnn.to_torch(x)
+        t0 = lap("rb_to_torch", t0)
+        r = torch.Tensor(h).to(torch.float32)
+        lap("rb_cast", t0)
         return r
 
     plain, split = [], []
@@ -73,7 +88,7 @@ def main() -> int:
         total = time.perf_counter() - t0
         row = {k: v * 1000 for k, v in t.items()}
         row["total"] = total * 1000
-        row["rest"] = row["total"] - sum(v for k, v in row.items() if k != "total")
+        row["rest"] = row["total"] - sum(v for k, v in row.items() if k not in ("total", "readback_mb"))
         split.append(row)
     model.module, model._to_torch = module, to_torch
 
