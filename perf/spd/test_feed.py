@@ -334,6 +334,77 @@ def test_a_cell_on_a_dark_box_is_placed_again_and_its_twin_withdrawn_on_return(t
     assert [(x[0], x[2]["names"]) for x in calls if x[1] is feed.WITHDRAW] == [("qb2", [c["name"]])]
 
 
+DARK_GRID = """row: spd-x
+tier: red
+experiments:
+  - name: {name}
+    arch: bh
+    prio: 4
+    hosts: [qb1]
+    axes: {{model: [boltz2]}}
+    vars: {{out: "~/o/{name}/{{model}}"}}
+    done: ["{{out}}/r.json"]
+    command: |
+      bench --model {{model}}
+"""
+
+
+def test_a_dark_box_pins_clear_except_for_experiments_begun_there(tmp_path, monkeypatch):
+    (tmp_path / "state/spd/grids").mkdir(parents=True); (tmp_path / "state/glx").mkdir(parents=True)
+    (tmp_path / "state/spd/grids/spd-x.yaml").write_text(DARK_GRID.format(name="new") + DARK_GRID.format(name="begun")
+                                                         .split("experiments:\n", 1)[1])
+    (tmp_path / "state/glx/ALLOC.json").write_text(json.dumps({"galaxies": {}}))
+    monkeypatch.setattr(feed, "BH_POOLS", {"qb1": {"ssh": "qb1", "cards": [0], "lock": "/l1_{c}"},
+                                           "qb2": {"ssh": "qb2", "cards": [3], "lock": "/l2_{c}"}})
+    cs = {c["key"]: c for c in feed.cells(tmp_path / "state/spd/grids")}
+    calls, dark = [], [True]
+
+    def remote(ssh, script, payload, timeout=120):
+        calls.append((ssh, script, payload))
+        assert ssh == "qb2" or not dark[0], "a dark box is never probed"
+        if script is feed.PROBE:
+            jobs = {"4-gone.sh": {"state": "queued", "card": 0, "age": 60}} if ssh == "qb1" else {}
+            return {"healthy": 4, "cards": [3], "queued": len(jobs), "free": [], "paused": False, "swept": 0, "live": [],
+                    "jobs": jobs, "exists": {}}
+        if script is feed.WITHDRAW:
+            return payload["names"]
+        return len(payload["jobs"])
+    monkeypatch.setattr(feed, "remote", remote)
+    (tmp_path / "state/spd/feed").mkdir(parents=True)
+    (tmp_path / "state/qb1-offline").write_text("")
+    led = tmp_path / "state/spd/feed/ledger.json"
+    b = cs["spd-x/begun/boltz2"]
+    led.write_text(json.dumps({b["key"]: {"host": "qb1", "name": b["name"], "state": "done", "hash": b["hash"], "fails": []},
+                               "spd-x/gone/x": {"host": "qb1", "name": "4-gone.sh", "state": "queued", "fails": []}}))
+    run(tmp_path)
+    placed = [j["name"] for x in calls if x[1] is feed.PLACE for j in x[2]["jobs"]]
+    assert placed == [cs["spd-x/new/boltz2"]["name"]]
+    assert json.loads(led.read_text())[b["key"]]["state"] == "done"
+    assert json.loads(led.read_text())["spd-x/gone/x"]["state"] == "lost"
+    dark[0] = False; (tmp_path / "state/qb1-offline").unlink(); calls.clear()
+    run(tmp_path)   # back from dark: the job of the cell its row dropped meanwhile is withdrawn before it runs
+    assert [(x[0], x[2]["names"]) for x in calls if x[1] is feed.WITHDRAW] == [("qb1", ["4-gone.sh"])]
+
+
+def test_a_pinned_experiment_waits_for_its_dark_box(tmp_path, monkeypatch):
+    (tmp_path / "state/spd/grids").mkdir(parents=True); (tmp_path / "state/glx").mkdir(parents=True)
+    (tmp_path / "state/spd/grids/spd-x.yaml").write_text(DARK_GRID.format(name="lad").replace("prio: 4", "prio: 4\n    pinned: true"))
+    (tmp_path / "state/glx/ALLOC.json").write_text(json.dumps({"galaxies": {}}))
+    monkeypatch.setattr(feed, "BH_POOLS", {"qb1": {"ssh": "qb1", "cards": [0], "lock": "/l1_{c}"},
+                                           "qb2": {"ssh": "qb2", "cards": [3], "lock": "/l2_{c}"}})
+    placed = []
+
+    def remote(ssh, script, payload, timeout=120):
+        if script is feed.PROBE:
+            return {"healthy": 4, "cards": [3], "queued": 0, "free": [], "paused": False, "swept": 0, "live": [],
+                    "jobs": {}, "exists": {}}
+        placed.extend(payload["jobs"]); return len(payload["jobs"])
+    monkeypatch.setattr(feed, "remote", remote)
+    (tmp_path / "state/qb1-offline").write_text("")
+    run(tmp_path)
+    assert placed == []
+
+
 def sysfs(tmp_path, cards):
     """Fake /sys/class/tenstorrent: {bdf: (node, aiclk)}; logical id = PCI order."""
     for bdf, (node, clk) in cards.items():
