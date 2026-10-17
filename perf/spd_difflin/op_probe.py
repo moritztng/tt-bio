@@ -51,6 +51,7 @@ OF3_SHAPES = {
     "a1": (512, 768, 1536, False),     # transition la (silu) / lb
     "b": (512, 1536, 768, False),      # transition lout
     "s": (512, 384, 768, True),        # adaLN scale / shift and the two s gates off LN(s)
+    "sw": (512, 384, 36864, True),     # dit_shoist: one of the stack's three wide s linears (48 x 768 columns)
 }
 SAMPLES = 5
 
@@ -139,6 +140,37 @@ def programs(mt, kt, nt, grid, acc, ibws):
     return out
 
 
+def programs_wide(mt, kt, nt, grid, acc):
+    """Wide N (dit_shoist): output blocks that fit L1. 2D with the per-core N split into out_block_w pieces, and
+    1D in0-multicast with N spread over every core (the whole [M, K] activation is a few hundred KB)."""
+    gx, gy = grid
+    pm, pn = -(-mt // gy), -(-nt // gx)
+    cap = 4 if acc else 8
+    out = []
+    for ibw in (kt, 4):
+        if kt % ibw:
+            continue
+        for obw in (w for w in (36, 24, 18, 12, 8, 6, 4) if pn % w == 0 and w < pn):
+            sw = max(x for x in range(1, cap // pm + 1 or 2) if obw % x == 0) if cap >= pm else 1
+            sh = pm if pm * sw <= cap else 1
+            out.append((f"2d_k{ibw}_pm{pm}_pn{pn}_ob{obw}_sb{sh}x{sw}", ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(
+                compute_with_storage_grid_size=grid, in0_block_w=ibw, out_subblock_h=sh, out_subblock_w=sw,
+                out_block_h=pm, out_block_w=obw, per_core_M=pm, per_core_N=pn, transpose_mcast=False,
+                fused_activation=None, fuse_batch=True)))
+        n1 = -(-nt // (gx * gy))
+        for obh in (mt, 8, 4, 2):
+            if mt % obh:
+                continue
+            for obw in (w for w in (n1, 8, 4, 2) if n1 % w == 0):
+                sw = max(x for x in range(1, min(cap, obw) + 1) if obw % x == 0)
+                sh = max(x for x in range(1, obh + 1) if obh % x == 0 and x * sw <= cap)
+                out.append((f"1d_k{ibw}_pn{n1}_ob{obh}x{obw}_sb{sh}x{sw}", ttnn.MatmulMultiCoreReuseMultiCast1DProgramConfig(
+                    compute_with_storage_grid_size=grid, in0_block_w=ibw, out_subblock_h=sh, out_subblock_w=sw,
+                    out_block_h=obh, out_block_w=obw, per_core_M=mt, per_core_N=n1, fuse_batch=True,
+                    fused_activation=None, mcast_in0=True)))
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--shapes", default=None)
@@ -182,6 +214,12 @@ def main():
                     arms.append((f"wb8_{fid}_auto", "bf16", "b8", "bf16", fid, None))
                 for fid in ("HiFi4", "HiFi2"):
                     arms.append((f"bf16_{fid}_noacc_auto", "bf16", "bf16", "bf16", fid, None, False))
+                    if nt > 256:
+                        for pl, pc in programs_wide(mt, kt, nt, grid, True):
+                            arms.append((f"bf16_{fid}_{pl}", "bf16", "bf16", "bf16", fid, pc))
+                        for pl, pc in programs_wide(mt, kt, nt, grid, False):
+                            arms.append((f"bf16_{fid}_noacc_{pl}", "bf16", "bf16", "bf16", fid, pc, False))
+                        continue
                     for pl, pc in programs(mt, kt, nt, grid, True, (1, 2, 4, 8)):
                         arms.append((f"bf16_{fid}_{pl}", "bf16", "bf16", "bf16", fid, pc))
                     for pl, pc in programs(mt, kt, nt, grid, False, (2, 4, 8))[:6]:
