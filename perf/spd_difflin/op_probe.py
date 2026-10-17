@@ -53,6 +53,10 @@ OF3_SHAPES = {
     "s": (512, 384, 768, True),        # adaLN scale / shift and the two s gates off LN(s)
     "sw": (512, 384, 36864, True),     # dit_shoist: one of the stack's three wide s linears (48 x 768 columns)
     "s6": (512, 384, 4608, True),      # one block's six s linears side by side (24 calls a step instead of 144)
+    # The s path depends on the noise level only, never on the coordinates, so K steps' s linears can run as
+    # one matmul with K x 512 rows before the steps that read them. Per-step cost = us / K vs "sw".
+    "sw4": (2048, 384, 36864, True),
+    "sw8": (4096, 384, 36864, True),
 }
 SAMPLES = 5
 
