@@ -22,9 +22,6 @@ ap.add_argument("--nb", default="", help="time only, moved route: writer tiles p
 ap.add_argument("--sigpoly", action="store_true", help="add 'moved_poly' and 'today_poly' routes: the polynomial sigmoid")
 ap.add_argument("--var", action="append", default=[],
                 help="NAME:SIGPOLY:RNE, both routes under those kernel options (float64 error, ms); repeatable")
-ap.add_argument("--cpy", default="",
-                help="writer copies one of every N face-row pairs itself (GIN_MOVE_CPY), at these N: bit-equality to "
-                     "the all-NOC gather and ms of both")
 ap.add_argument("--only-timing", action="store_true", help="skip the two-route check, run only --abl/--nb")
 A = ap.parse_args()
 
@@ -101,19 +98,6 @@ for nb in [int(v) for v in A.nb.split(",") if v]:
     print(json.dumps({"nb": nb, "ms": timed(moved), "rel_rms_f64": [round(rel(h, r), 6) for h, r in zip(host, ref)]}),
           flush=True)
 NB0 = TT.GIN_MOVE_NB = int(__import__("os").environ.get("TT_BIO_TRIMUL_GIN_MOVE_NB", "2"))
-CPY0 = TT.GIN_MOVE_CPY
-for per in [int(v) for v in A.cpy.split(",") if v]:
-    rec = {"cpy": per, "nb": NB0}
-    for p_ in (0, per):
-        TT.GIN_MOVE_CPY = p_
-        res = moved()
-        rec["host_cpy" if p_ else "host"] = [ttnn.to_torch(t) for t in res]
-        for t in res:
-            ttnn.deallocate(t)
-        rec["cpy_ms" if p_ else "ms"] = timed(moved)
-    rec["exact"] = all(torch.equal(a, b) for a, b in zip(rec.pop("host"), rec.pop("host_cpy")))
-    print(json.dumps(rec), flush=True)
-TT.GIN_MOVE_CPY = CPY0
 for abl in [int(v) for v in A.abl.split(",") if v]:
     TT.GIN_MOVE_ABL = abl
     print(json.dumps({"abl": abl, "nb": NB0, "ms": timed(moved)}), flush=True)
