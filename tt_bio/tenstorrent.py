@@ -18013,10 +18013,13 @@ class AtomPairDevice:
             feats["atom_to_token"].float(), to_keys, K, W, H)
         index = (tok_q.view(K, W, 1) * P + tok_k.view(K, 1, H)).reshape(rows, H)
         index = torch.where(keep.reshape(rows, H) > 0, index, P * P)
-        zp = ttnn.pad(z_to_p, [(0, 0), (0, 0), (0, 0), (0, 32 - self.atom_z)], 0.0)
+        # Pad in row-major: a TILE tensor is already 32 wide, so ttnn.pad returns z_to_p's own
+        # buffer and freeing z_to_p would free the table under the gather (perf/b2_atomp/table_probe.py).
+        rm = ttnn.to_layout(z_to_p, ttnn.ROW_MAJOR_LAYOUT)
         ttnn.deallocate(z_to_p)
-        table = ttnn.reshape(ttnn.to_layout(zp, ttnn.ROW_MAJOR_LAYOUT), (P * P, 32))
-        ttnn.deallocate(zp)
+        zp = ttnn.pad(rm, [(0, 0), (0, 0), (0, 0), (0, 32 - self.atom_z)], 0.0)
+        ttnn.deallocate(rm)
+        table = ttnn.reshape(zp, (P * P, 32))
         zero = ttnn.from_torch(torch.zeros(1, 32), layout=ttnn.ROW_MAJOR_LAYOUT,
                                device=get_device(), dtype=ttnn.bfloat16)
         table = ttnn.concat([table, zero], dim=0)
