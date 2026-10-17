@@ -19,6 +19,7 @@ ap.add_argument("--arms", default="")
 ap.add_argument("--lens", default="544,544,520,480,430,390,300", help="ESMC per-sequence key lengths")
 ap.add_argument("--ncall", type=int, default=10)
 ap.add_argument("--reps", type=int, default=7)
+ap.add_argument("--proto", default="", help="extra ESMC proto arms qc:kc:b,h,q;... (qc 0 = whole, split - = factory)")
 a = ap.parse_args()
 
 samples = []
@@ -98,6 +99,12 @@ if "esmc" in a.shape:
         PROTO = {"e_p544_192": (None, 192, None), "e_p544_544": (None, 544, None),
                  "e_p192_192_733": (192, 192, (7, 3, 3)), "e_p288_192_752": (288, 192, (7, 5, 2)),
                  "e_p96_192_752": (96, 192, (7, 5, 2))}
+        if a.proto:
+            PROTO = {}
+            for t in a.proto.split(";"):
+                qc, kc, spl = t.split(":")
+                PROTO[f"e_p{qc}_{kc}_{spl.replace(',', '')}"] = (int(qc) or None, int(kc),
+                                                                 None if spl == "-" else tuple(map(int, spl.split(","))))
         for nm, (qc, kc, spl) in PROTO.items():
             ARMS[nm] = ("esmc", lambda qc=qc, kc=kc, spl=spl: P.sdpa(eq, ek, ev, sc, key_lens=lens, q_chunk=qc,
                                                                        k_chunk=kc, split=spl))
