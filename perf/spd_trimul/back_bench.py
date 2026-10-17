@@ -3,7 +3,8 @@
 
 The fold census puts the move at 2.2 ms a call on Wormhole at 512 c256 (wtm Mops), ~2.4x its DRAM floor
 (read + write 268 MB at 288 GB/s). `--abl` times the kernel with the DRAM read (1), the L1 gather (2) or
-the DRAM write (4) skipped, so the remaining time says which stage bounds it. Bench only: ablated outputs are garbage.
+the DRAM write (4) skipped, so the remaining time says which stage bounds it, then BACK_SPLIT
+(the writer reads one group ahead on its own NOC) with its own parity check. Bench only: ablated outputs are garbage.
 Run under `timeout`; the runner passes --out.
 """
 import argparse, json, statistics, time
@@ -51,6 +52,13 @@ for n in (int(v) for v in A.ns.split(",")):
         RB.BACK_ABL = m
         rec[f"abl{m}_ms"] = timed(run, A.reps)
     RB.BACK_ABL = 0
+    # BACK_SPLIT: the writer stages the DRAM read one group ahead (RPB_SPLIT). Parity first, then time.
+    RB.BACK_SPLIT = True
+    run(); ttnn.synchronize_device(dev)      # `out` holds the last ablation's garbage, so a skipped page shows
+    rec["split_exact"] = bool(torch.equal(ttnn.to_torch(out), xt.permute(0, 2, 3, 1)))
+    rec["split_ms"] = timed(run, A.reps)
+    RB.BACK_SPLIT = False
+    rec["full_ms_again"] = timed(run, A.reps)
     print(json.dumps(rec), flush=True)
     if A.out:
         with open(A.out, "a") as f:

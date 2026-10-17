@@ -70,6 +70,9 @@ _CACHE_BACK: dict = {}
 # Bench only (perf/spd_trimul/back_bench.py): 1 skips the DRAM read, 2 the L1 gather, 4 the DRAM write. Output is garbage
 # under any of them; the model path never sets it.
 BACK_ABL = 0
+# Bench flag: the writer RISC reads each group's source tiles one group ahead on its own NOC, so the DRAM read overlaps
+# the reader's L1 gather (RPB_SPLIT). Same bytes in the same order; off until it is timed.
+BACK_SPLIT = False
 # Counters for the A/B harness: (eligible calls served, calls that fell through to ttnn.permute).
 STATS = [0, 0]
 # The same pair for the back direction, counted separately so one A/B can read both legs.
@@ -568,7 +571,7 @@ def _cache_key_back(x, out, device, reader_ct, writer_ct):
         str(x.dtype), str(x.layout),
         str(x.memory_config()), str(out.memory_config()),
         g.x, g.y, WALK, genq.compact(),
-        tuple(reader_ct), tuple(writer_ct), BACK_ABL,
+        tuple(reader_ct), tuple(writer_ct), BACK_ABL, BACK_SPLIT,
     )
 
 
@@ -631,14 +634,15 @@ def _build_back(x, out, device, reader_ct, writer_ct):
         source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
         core_ranges=core_grid, compile_time_args=genq_ct + reader_ct, runtime_args=reader_rt,
         common_runtime_args=[0], config=ttnn.ReaderConfigDescriptor(),
-        defines=[(d, "1") for b, d in ((1, "RPB_NO_DRAM"), (2, "RPB_NO_GATHER")) if BACK_ABL & b],
+        defines=[(d, "1") for b, d in ((1, "RPB_NO_DRAM"), (2, "RPB_NO_GATHER"), (8, "RPB_SPLIT"))
+                 if (BACK_ABL | 8 * BACK_SPLIT) & b],
     )
     writer = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR_BACK / "writer_reblock_permute_back.cpp"),
         source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
         core_ranges=core_grid, compile_time_args=genq_ct + writer_ct, runtime_args=writer_rt,
-        common_runtime_args=[0, Ct, 0], config=ttnn.WriterConfigDescriptor(),
-        defines=[("RPB_NO_WRITE", "1")] if BACK_ABL & 4 else [],
+        common_runtime_args=[0, Ct, 0, 0], config=ttnn.WriterConfigDescriptor(),
+        defines=[(d, "1") for b, d in ((4, "RPB_NO_WRITE"), (8, "RPB_SPLIT")) if (BACK_ABL | 8 * BACK_SPLIT) & b],
     )
     # The compute kernel is the forward direction's, unchanged: both moves end in one `transpose_wh`
     # per tile, and the CB indices are the same.
@@ -670,6 +674,9 @@ def _prepare_back(x, out, device):
     reader_ct.extend(ttnn.TensorAccessorArgs(x).get_compile_time_args())
     writer_ct = [_elem(), OUT_CB, TILE_H, TILE_W]
     writer_ct.extend(ttnn.TensorAccessorArgs(out).get_compile_time_args())
+    if BACK_SPLIT:
+        writer_ct.append(STAGE_CB)
+        writer_ct.extend(ttnn.TensorAccessorArgs(x).get_compile_time_args())
     key = _cache_key_back(x, out, device, reader_ct, writer_ct)
     entry = _CACHE_BACK.get(key)
     if entry is None:
@@ -698,7 +705,7 @@ def reblock_permute_back(x, memory_config=None, device=None, out=None, c_off=0):
         C, c_off, [int(d) for d in out.shape])
     entry = _prepare_back(x, out, device)
     src, dst = x.buffer_address(), out.buffer_address()
-    wargs = [dst, c_out // TILE_W, c_off // TILE_W]
+    wargs = [dst, c_out // TILE_W, c_off // TILE_W, src]
     if ADDR_WRITE_MODE == "in_place":
         pd = entry["pd"]
         pd.kernels[0].common_runtime_args = [src]

@@ -109,8 +109,10 @@ void kernel_main() {
     // The scratch window is this RISC's private staging area, not a producer/consumer queue: the
     // same kernel writes it and reads it, so it is reserved ONCE and addressed directly, the way the
     // forward direction's writer holds its own staging CB.
+#ifndef RPB_SPLIT
     cb_reserve_back(scratch_cb_id, TILE_HEIGHT);
     const uint32_t group_l1_base = get_write_ptr(scratch_cb_id);
+#endif
 
     // Every gather read is local L1 -> L1 at exactly FACE_ROW_BYTES, so the coordinates and the
     // length are the same for all of them and go into the read command buffer once per GROUP rather
@@ -130,7 +132,9 @@ void kernel_main() {
     //     measured TRUE at exactly the shapes where no core owns two groups (N <= 320 at C = 32) and
     //     false beyond, which is the shape-dependent failure that makes this trap dangerous. The
     //     forward writer gets to set it once because a writer issues no reads but its own gather.
+#ifndef RPB_SPLIT
     const uint64_t gather_state_addr = get_noc_addr(group_l1_base);
+#endif
 
     uint32_t group = first_group;
     for (uint32_t gi = 0; gi < num_groups; ++gi) {
@@ -139,6 +143,14 @@ void kernel_main() {
         const uint32_t jt = rem / Ct;
         const uint32_t ct = rem - jt * Ct;
 
+#ifdef RPB_SPLIT
+        // RPB_SPLIT: the writer staged this group from DRAM into the stage ring (one group ahead).
+        (void)jt;
+        (void)ct;
+        cb_wait_front(scratch_cb_id, TILE_HEIGHT);
+        const uint32_t group_l1_base = get_read_ptr(scratch_cb_id);
+        const uint64_t gather_state_addr = get_noc_addr(group_l1_base);
+#else
         // 1) the group's 32 input tiles, as 32 aligned 2 KB DRAM reads into contiguous L1
         {
             uint32_t page = (ct * TILE_HEIGHT) * NtNt + it * Nt + jt;
@@ -153,6 +165,7 @@ void kernel_main() {
             }
         }
         noc_async_read_barrier();
+#endif
         noc_async_read_one_packet_set_state(gather_state_addr, FACE_ROW_BYTES);
 
         // 2) T_il[cl, jl] = in_tile_cl[il, jl]: row `il` of every source tile becomes row `cl` of
@@ -196,6 +209,9 @@ void kernel_main() {
         }
 
 
+#ifdef RPB_SPLIT
+        cb_pop_front(scratch_cb_id, TILE_HEIGHT);
+#endif
         group += group_stride;
         if (group == group_wrap_hi) {
             group = group_wrap_lo;
