@@ -221,6 +221,7 @@ _ESMC_QK_L1 = env_flag("TT_BIO_ESMC_QK_L1", True)
 # page cell on a Galaxy chip at 1000 MHz (best of 3 rounds), 300M 133.5 -> 121.2 ms (--fast 132.6 -> 120.3), 600M 196.4 ->
 # 172.9 (212.1 -> 190.5), 6B 287.2 -> 259.0 (259.5 -> 236.7); pcc vs fp32 moves -0.00006..+0.00003. The chain alone
 # against float64: q/k rel_l2 0.0042 -> 0.0034..0.0050, v exact, 0.24-0.46 ms a layer against 0.60-1.27.
+# The lm_qk_chain lever keeps the chain (ESMFold2's Wormhole normal set, esmfold2_runtime._WH_NORMAL_EXTRA).
 _ESMC_QKRH = (env_flag("TT_BIO_ESMC_QKRH", False) if os.environ.get("TT_BIO_ESMC_QKRH", "").strip() else None)
 
 # Replay batched forwards from the trace too (ESMC.trace gated on B == 1). A 7 x 544 Blackhole batch spreads 110-127 ms
@@ -275,7 +276,7 @@ def _qkrh() -> bool:
     if _ESMC_QKRH is not None:
         return _ESMC_QKRH
     from tt_bio import tenstorrent
-    return tenstorrent.is_wormhole()
+    return tenstorrent.is_wormhole() and not tenstorrent.lever("lm_qk_chain")
 
 
 def _sdpa_k_few() -> bool:

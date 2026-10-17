@@ -98,7 +98,9 @@ def test_qk_l1_large_default(wormhole, switch, wdtype, monkeypatch):
 @pytest.mark.parametrize("wormhole", [True, False])
 @pytest.mark.parametrize("switch", [None, True, False])
 def test_qkrh_default(wormhole, switch, monkeypatch):
-    """qk_rope_heads defaults on for Wormhole; the switch overrides it."""
+    """qk_rope_heads defaults on for Wormhole unless lm_qk_chain is active; the switch overrides both."""
     monkeypatch.setattr(tenstorrent, "is_wormhole", lambda: wormhole)
     monkeypatch.setattr(esmc, "_ESMC_QKRH", switch)
     assert esmc._qkrh() is (wormhole if switch is None else switch)
+    with tenstorrent.levers("lm_qk_chain"):
+        assert esmc._qkrh() is (False if switch is None else switch)

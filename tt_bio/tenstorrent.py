@@ -722,6 +722,8 @@ _FAST_MODE = False
 #                   [N, N, 139] one-hot and multiplying it.
 #   pib_where       OpenDDE's pair-init bias by the old 16-op where-chain instead of one gather from the joint
 #                   (128, c_z) table: the A/B arm for a change that must keep the fold digest (no mode sets it).
+#   lm_qk_chain     the ESMC language model's attention keeps the six-op q/k LayerNorm, RoPE and head-split chain
+#                   where Wormhole would run qk_rope_heads (esmc._qkrh): ESMFold2's normal set on Wormhole.
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in",
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
@@ -733,7 +735,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine", "ef2_opm_kq", "ef2_relpos_lookup",
           "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit", "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384",
           "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
-          "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "trimul_bres")
+          "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "trimul_bres", "lm_qk_chain")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
