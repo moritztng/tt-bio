@@ -449,12 +449,14 @@ _CSS_STEP = {}
 # Split the atom attention's q, k and v into heads with one `nlp_create_qkv_heads` over their concat instead
 # of a reshape + permute each: the 4D reshape tile-pads the 4-head axis to 32 rows, 8x the bytes (WH census:
 # 0.40 + 0.10 ms per tensor at 6051 atoms, 27 tensors a step). Data movement only, same values. Only where
-# head_dim is a tile multiple (the DiT's 48 has its own padded path). Off while measured.
-_QKV_HEADS = env_flag("RFD3_QKV_HEADS", False)
+# head_dim is a tile multiple (the DiT's 48 has its own padded path). WH @1000, seeds 60,61 x2 in both modes:
+# digests equal to the reshape path. RFD3_QKV_HEADS=0 restores it.
+_QKV_HEADS = env_flag("RFD3_QKV_HEADS", True)
 # The same for the gated cross attention (downcast/upcast, ~13 calls a step): q and the k|v concat go through
 # one `nlp_create_qkv_heads` that also hands back k transposed, instead of a 5D reshape (heads tile-padded to
-# 32 rows) + permute + reshape per tensor and a transpose of k. ~15 ms/step on WH fast. Off while measured.
-_GCA_HEADS = env_flag("RFD3_GCA_HEADS", False)
+# 32 rows) + permute + reshape per tensor and a transpose of k. ~15 ms/step on WH fast; digests equal (WH, p150a).
+# RFD3_GCA_HEADS=0 restores it.
+_GCA_HEADS = env_flag("RFD3_GCA_HEADS", True)
 _ATOM_SDPA_CHUNKS = tuple(int(x) for x in os.environ.get("RFD3_ATOM_SDPA_CHUNKS", "160,320").split(","))
 # ttnn.gather (0.68.0) on dim 3 silently returns wrong data for every tile-row after the first
 # once the indexed axis exceeds this many elements: 99.87 % of elements wrong at the production

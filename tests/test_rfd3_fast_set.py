@@ -77,11 +77,14 @@ def test_pair_ws_resid_ships_in_both_modes(monkeypatch):
     assert callable(M.Transition.add_into)
 
 
-def test_head_split_kernels_are_off_until_measured():
-    """qkh / gch move data only (digests must match the reshape + permute path); off until the device A/B reads."""
+def test_head_split_kernels_ship_in_both_modes(monkeypatch):
+    """qkh / gch move data only (digests equal the reshape + permute path on WH and p150a), so they are defaults."""
     for name, env in (("_QKV_HEADS", "RFD3_QKV_HEADS"), ("_GCA_HEADS", "RFD3_GCA_HEADS")):
+        monkeypatch.delenv(env, raising=False)
         assert name not in M._FAST_SET
-        assert M.env_flag(env, False) is False
+        assert M.env_flag(env, True) is True
+    M.set_fast(False)
+    assert M._QKV_HEADS is True and M._GCA_HEADS is True
 
 
 def test_pair_ws_lofi_is_off_until_graded():

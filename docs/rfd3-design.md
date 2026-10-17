@@ -221,6 +221,10 @@ in both modes. Over ten paired default seeds on a p150a chain breaks go from 5 t
 (53.0 to 53.4) and the same-seed drift (5.3 to 9.6 A) stays well inside the 14 to 20 A a seed change moves a
 design. `RFD3_CSS=0` restores the dense kernel.
 
+Attention heads are split by one kernel over the concatenated q, k and v (atom attention and the gated
+cross attention between atoms and tokens) instead of a reshape and permute per tensor. Same values, bit for
+bit; `RFD3_QKV_HEADS=0` and `RFD3_GCA_HEADS=0` restore the old path.
+
 ## Checkpoint
 
 The RFD3 checkpoint downloads automatically on first use, straight from the
