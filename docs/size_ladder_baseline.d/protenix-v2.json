@@ -462,7 +462,7 @@
                 "rejects": {
                   "t1:key=2x4x2": 160
                 },
-                "reason": "TODO: say why this is legitimate at this size (declines on t1:key=2x4x2 x160)"
+                "reason": "declines all 0 calls on t1:key=2x4x2 x160: F1's one call site (`fused_tail`) is guarded by `g_out_fused is None`, and at 512/640 trimul_t1_c256 takes the in-projection (DRAM route, one channel chunk) and returns g_out with it; the 160 narrow-key tails T1 declines (t1:key=2x4x2) get a fused g_out from the incumbent in-projection. So F1 is never offered. At 256 (L1 channel loop) and 768+ (several channel chunks) T1 is off the route and F1 serves 1048; TRIMUL_IN_PROJ_DUAL_NOC marks the same boundary, 160 served here vs 2256 at 768. Falsifier: F1 serving at 512/640 with T1 on means g_out stopped riding T1"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -777,7 +777,7 @@
                   "t1:key=2x4x2": 160,
                   "k_tiles=2": 1
                 },
-                "reason": "TODO: say why this is legitimate at this size (declines on t1:key=2x4x2 x160, k_tiles=2 x1)"
+                "reason": "declines all 1 calls on t1:key=2x4x2 x160, k_tiles=2 x1: F1's one call site (`fused_tail`) is guarded by `g_out_fused is None`, and at 512/640 trimul_t1_c256 takes the in-projection (DRAM route, one channel chunk) and returns g_out with it; the 160 narrow-key tails T1 declines (t1:key=2x4x2) get a fused g_out from the incumbent in-projection. So F1 is never offered. At 256 (L1 channel loop) and 768+ (several channel chunks) T1 is off the route and F1 serves 1048; TRIMUL_IN_PROJ_DUAL_NOC marks the same boundary, 160 served here vs 2256 at 768. Falsifier: F1 serving at 512/640 with T1 on means g_out stopped riding T1"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -3349,7 +3349,7 @@
                 "rejects": {
                   "t1:key=2x4x2": 160
                 },
-                "reason": "TODO: say why this is legitimate at this size (declines on t1:key=2x4x2 x160)"
+                "reason": "declines all 0 calls on t1:key=2x4x2 x160: F1's one call site (`fused_tail`) is guarded by `g_out_fused is None`, and at 512/640 trimul_t1_c256 takes the in-projection (DRAM route, one channel chunk) and returns g_out with it; the 160 narrow-key tails T1 declines (t1:key=2x4x2) get a fused g_out from the incumbent in-projection. So F1 is never offered. At 256 (L1 channel loop) and 768+ (several channel chunks) T1 is off the route and F1 serves 1048; TRIMUL_IN_PROJ_DUAL_NOC marks the same boundary, 160 served here vs 2256 at 768. Falsifier: F1 serving at 512/640 with T1 on means g_out stopped riding T1"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -3658,7 +3658,7 @@
                 "rejects": {
                   "t1:key=2x4x2": 160
                 },
-                "reason": "TODO: say why this is legitimate at this size (declines on t1:key=2x4x2 x160)"
+                "reason": "declines all 0 calls on t1:key=2x4x2 x160: F1's one call site (`fused_tail`) is guarded by `g_out_fused is None`, and at 512/640 trimul_t1_c256 takes the in-projection (DRAM route, one channel chunk) and returns g_out with it; the 160 narrow-key tails T1 declines (t1:key=2x4x2) get a fused g_out from the incumbent in-projection. So F1 is never offered. At 256 (L1 channel loop) and 768+ (several channel chunks) T1 is off the route and F1 serves 1048; TRIMUL_IN_PROJ_DUAL_NOC marks the same boundary, 160 served here vs 2256 at 768. Falsifier: F1 serving at 512/640 with T1 on means g_out stopped riding T1"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -6900,7 +6900,7 @@
                 "rejects": {
                   "t1:key=2x4x2": 160
                 },
-                "reason": "TODO: say why this is legitimate at this size (declines on t1:key=2x4x2 x160)"
+                "reason": "declines all 0 calls on t1:key=2x4x2 x160: F1's one call site (`fused_tail`) is guarded by `g_out_fused is None`, and at 512/640 trimul_t1_c256 takes the in-projection (DRAM route, one channel chunk) and returns g_out with it; the 160 narrow-key tails T1 declines (t1:key=2x4x2) get a fused g_out from the incumbent in-projection. So F1 is never offered. At 256 (L1 channel loop) and 768+ (several channel chunks) T1 is off the route and F1 serves 1048; TRIMUL_IN_PROJ_DUAL_NOC marks the same boundary, 160 served here vs 2256 at 768. Falsifier: F1 serving at 512/640 with T1 on means g_out stopped riding T1"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -7209,7 +7209,7 @@
                 "rejects": {
                   "t1:key=2x4x2": 160
                 },
-                "reason": "TODO: say why this is legitimate at this size (declines on t1:key=2x4x2 x160)"
+                "reason": "declines all 0 calls on t1:key=2x4x2 x160: F1's one call site (`fused_tail`) is guarded by `g_out_fused is None`, and at 512/640 trimul_t1_c256 takes the in-projection (DRAM route, one channel chunk) and returns g_out with it; the 160 narrow-key tails T1 declines (t1:key=2x4x2) get a fused g_out from the incumbent in-projection. So F1 is never offered. At 256 (L1 channel loop) and 768+ (several channel chunks) T1 is off the route and F1 serves 1048; TRIMUL_IN_PROJ_DUAL_NOC marks the same boundary, 160 served here vs 2256 at 768. Falsifier: F1 serving at 512/640 with T1 on means g_out stopped riding T1"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
