@@ -26,6 +26,7 @@ def test_a_model_names_its_own_sets_and_the_harness_switch_still_wins(monkeypatc
     assert T.model_levers(of3.NORMAL_LEVERS, of3.FAST_LEVERS) == of3.NORMAL_LEVERS
     assert of3.NORMAL_LEVERS == T.NORMAL_LEVERS - {"transition_bw", "transition_shard"} | {"opm_jd", "dit_qsplit"}
     assert of3.WH_FAST_LEVERS <= set(T.LEVERS) and of3.WH_FAST_LEVERS - of3.FAST_LEVERS == {"apb_ln", "trimul_sig6", "trimul_bres"}
+    assert of3.WH_NORMAL_LEVERS - of3.NORMAL_LEVERS == {"trimul_bres"} and of3.WH_NORMAL_LEVERS <= of3.WH_FAST_LEVERS
 
 
 def test_parse_expands_modes_and_rejects_unknown_names():

@@ -1543,7 +1543,12 @@ _BH_ONLY_FAST = ("trimul_t1", "trimul_t1_c256", "trimul_t2", "trimul_t2cm")
 # in bfp8: ESMFold2 CA-lDDT +0.0013 [-0.0006, +0.0039], top-pose median 0.73 A vs 1.73 A floor (44 paired folds, wng);
 # ESMFold2-Fast CA-lDDT -0.0004 [-0.0015, +0.0009], 1.24 A vs 1.33 A, docking 48 -> 48 of 88 (88 paired folds over
 # two seed sets, wng + wng3). Galaxy chip, 1000 MHz.
-_WH_NORMAL_EXTRA = "+transition_ws+ws_resid+ef2_lm_combine+ef2_opm_kq"
+# lm_qk_chain keeps the 6B's attention off qk_rope_heads (esmc._qkrh, on for Wormhole elsewhere): ESMFold2 normal with
+# it against without, 11 complexes x 4 seeds, 44 paired folds (Galaxy chip, 1000 MHz, spd-gap-whlm qrn) fails the normal
+# bar, L-RMSD +1.77 A [+0.10, +3.92] and I-RMSD +0.30 A [+0.02, +0.74], though the top-pose median is 0.56 A against a
+# 1.20 A seed floor and docking 31 -> 31 of 44. ESMFold2-Fast --fast passes the fast bar with it (qrf, 44 paired folds:
+# CA-lDDT -0.0007 [-0.0031, +0.0011], top-pose median 0.79 A vs 1.26 A floor, docking 24 -> 24), so --fast keeps it.
+_WH_NORMAL_EXTRA = "+transition_ws+ws_resid+ef2_lm_combine+ef2_opm_kq+lm_qk_chain"
 
 
 def fold_levers(fast: bool) -> str:

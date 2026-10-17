@@ -78,6 +78,7 @@ SEQUENCE_VOCAB = [
 BOS_TOKEN, EOS_TOKEN, UNK_TOKEN, MASK_TOKEN = 0, 2, 3, 32
 PAD_TOKEN = 1  # SEQUENCE_VOCAB index of <pad>
 from .token_axis import bucket_multiple as _bucket_multiple
+from .qk_rope_heads import STATS as QKRH_STATS, qk_rope_heads  # noqa: F401 (QKRH_STATS: read by esmc_ab)
 
 # pad the LM length to a multiple of this to avoid per-length recompilation; fleet value.
 BUCKET = _bucket_multiple("esmc-300m")
@@ -215,6 +216,13 @@ _ESMC_QKV_SPLIT = env_flag("TT_BIO_ESMC_QKV_SPLIT", True)
 # ESMC-6B gains nothing (p300c page cell, identical digests: ESMFold2 +0.76 s on a 0.89 s spread, ESMFold2-Fast
 # 16.48 -> 16.55 s), so the Block of a model past _LM_LARGE_MODEL_BYTES keeps the DRAM path (Attention.qk_l1).
 _ESMC_QK_L1 = env_flag("TT_BIO_ESMC_QK_L1", True)
+# q/k LayerNorm + RoPE + head split of q, k, v as one program (tt_bio/qk_rope_heads.py) in place of the six-op chain
+# of _qk_heads + _rope, on every ESMC size (the 6B re-reads its gammas per row to fit L1). None = on for Wormhole:
+# page cell on a Galaxy chip at 1000 MHz (best of 3 rounds), 300M 133.5 -> 121.2 ms (--fast 132.6 -> 120.3), 600M 196.4 ->
+# 172.9 (212.1 -> 190.5), 6B 287.2 -> 259.0 (259.5 -> 236.7); pcc vs fp32 moves -0.00006..+0.00003. The chain alone
+# against float64: q/k rel_l2 0.0042 -> 0.0034..0.0050, v exact, 0.24-0.46 ms a layer against 0.60-1.27.
+# The lm_qk_chain lever keeps the chain (ESMFold2's Wormhole normal set, esmfold2_runtime._WH_NORMAL_EXTRA).
+_ESMC_QKRH = (env_flag("TT_BIO_ESMC_QKRH", False) if os.environ.get("TT_BIO_ESMC_QKRH", "").strip() else None)
 
 # Replay batched forwards from the trace too (ESMC.trace gated on B == 1). A 7 x 544 Blackhole batch spreads 110-127 ms
 # within one process, the signature of a host-dispatch-bound forward. Same captured program, so output is bit-identical
@@ -264,11 +272,35 @@ def _lm_sdpa_chunks(q_len: int, k_len: int, k_few: bool) -> tuple[int, int]:
             min(ESMC_SDPA_K_CHUNK, _capped_sdpa_chunk_size(k_len)))
 
 
+def _qkrh() -> bool:
+    if _ESMC_QKRH is not None:
+        return _ESMC_QKRH
+    from tt_bio import tenstorrent
+    return tenstorrent.is_wormhole() and not tenstorrent.lever("lm_qk_chain")
+
+
 def _sdpa_k_few() -> bool:
     if _ESMC_SDPA_K_FEW is not None:
         return _ESMC_SDPA_K_FEW
     from tt_bio import tenstorrent
     return tenstorrent.is_wormhole()
+
+
+# The SDPA key-padding mask in block-fp8: [B, 1, L, L] is re-read for every (batch, head), ~62 MB a layer at the 300M
+# page batch against ~29 MB for q, k, v and the output. Its values are 0 and a large negative, which a shared exponent
+# holds exactly (0 has a zero mantissa at any exponent; -inf becomes -1e4, still exp() = 0 after any real score).
+# Off until the page cell says.
+_ESMC_MASK_BFP8 = env_flag("TT_BIO_ESMC_MASK_BFP8", False)
+
+
+def _sdpa_mask(attn_mask, device=None, dtype=None):
+    """[B, L, L] additive mask -> [B, 1, L, L] TILE tensor in `dtype` (default by _ESMC_MASK_BFP8), on `device` if given."""
+    dtype = dtype or (ttnn.bfloat8_b if _ESMC_MASK_BFP8 else ttnn.bfloat16)
+    m = attn_mask.unsqueeze(1)
+    if dtype != ttnn.bfloat16:
+        m = m.clamp(min=-1e4)
+    return ttnn.from_torch(m.to(torch.bfloat16), layout=ttnn.TILE_LAYOUT, dtype=dtype,
+                           **({"device": device} if device is not None else {}))
 
 
 def lm_sdpa(q, k, v, attn_mask, scale: float):
@@ -342,6 +374,11 @@ _ESMC_QKV_MM_SPLIT = env_flag("TT_BIO_ESMC_QKV_MM_SPLIT", True)
 # ones), so neither add re-reads a projection from DRAM. bf16 weights only: the op refuses --fast's block-fp8 ones.
 # Same page cell: 300M 143.6 -> 141.3, 600M 229.9 -> 223.4, embeddings identical (pcc 1.0). Wormhole only, as above.
 _ESMC_MM_RESID = env_flag("TT_BIO_ESMC_MM_RESID", True)
+# --fast: those two matmuls read a bf16 copy of their block-fp8 weight (typecast on the device, so the same values), which
+# lets the residual add fuse there too. Census, 600M --fast page batch: out_proj 8.7 + fc2 16.3 ms of matmul plus 13.1 ms
+# of separate adds, where normal mode runs both fused. Not for a model past _LM_LARGE_MODEL_BYTES (the 6B's copies would
+# not fit a Wormhole chip). Off until measured.
+_ESMC_FAST_RESID_BF16 = env_flag("TT_BIO_ESMC_FAST_RESID_BF16", False)
 #: [qkv split matmuls, residual-fused projections] served, read by the A/B harness.
 MM_FUSE_STATS = [0, 0]
 LIN6B_STATS = [0]  # projections served by _lin6b_program
@@ -461,6 +498,11 @@ class _MMLin:
 
     def _lin_resid(self, x, w, resid):
         """resid + x @ w in one matmul, or None where it does not serve (the caller adds)."""
+        if (_ESMC_FAST_RESID_BF16 and w.dtype == ttnn.bfloat8_b and not getattr(self, "lm_large", False)
+                and self._mm_ok(x, w)):
+            if getattr(self, "_w16", (None,))[0] is not w:
+                self._w16 = (w, ttnn.typecast(w, ttnn.bfloat16))
+            w = self._w16[1]
         if not (_ESMC_MM_RESID and w.dtype == ttnn.bfloat16 and self._mm_ok(x, w)):
             return None
         n = int(w.shape[-1])
@@ -613,9 +655,15 @@ class Attention(_MMLin, Module):
                 q, k, v = self._qkv(x)
         else:
             q, k, v = self._qkv(x)
-        # Re-pack and use the tile-aware head split, then apply per-head RoPE.
-        q, k, v = self._qk_heads(q, k, v)
-        q, k = _rope(q, k, cos, sin, l1=self.qk_l1)
+        heads = qk_rope_heads(q, k, v, self.q_ln_weight, self.k_ln_weight, cos, sin) if _qkrh() else None
+        if heads is not None:
+            for t in (q, k, v):
+                ttnn.deallocate(t)
+            q, k, v = heads
+        else:
+            # Re-pack and use the tile-aware head split, then apply per-head RoPE.
+            q, k, v = self._qk_heads(q, k, v)
+            q, k = _rope(q, k, cos, sin, l1=self.qk_l1)
         if key_valid is not None and attn_mask is None:
             # Zero padded keys/values so their attention contribution is exactly 0. With the -inf
             # additive mask present this is redundant: the masked softmax weight is already exactly
@@ -768,6 +816,11 @@ _SWIGLU_SILU_FC1 = env_flag("TT_BIO_SWIGLU_SILU_FC1", False)
 # default there. Wormhole is not graded and keeps its multiply (and its digests) unless the switch is set: None = by arch.
 _SWIGLU_GATE_LEGACY = (env_flag("TT_BIO_SWIGLU_GATE_LEGACY", False)
                        if os.environ.get("TT_BIO_SWIGLU_GATE_LEGACY", "").strip() else None)
+
+# The ESMC LM blocks' gate (not l1_gated) on the legacy op as well. lm_gate_bench on a Galaxy chip at 1000 MHz, ms a
+# call: [7, 544, 2560] 0.405 -> 0.308, [7, 544, 3072] 0.450 -> 0.328, [1, 544, 6912] 0.149 -> 0.111; rel_rms against
+# float64 0.0024 -> 0.0031. Off until the page cell grades it.
+_ESMC_LM_GATE_LEGACY = env_flag("TT_BIO_ESMC_LM_GATE_LEGACY", False)
 
 
 def _swiglu_gate_legacy() -> bool:
@@ -1134,7 +1187,7 @@ class SwiGLUFFN(_MMLin, Module):
                 GATE_L1_STATS[1] += bool(not l1_gated and _ESMC_GATE_L1 and len(h1.shape) == 3)
                 gated = ttnn.multiply(
                     h1, h2, **act,
-                    **({"use_legacy": True} if l1_gated and _swiglu_gate_legacy() else {}),
+                    **({"use_legacy": True} if (_swiglu_gate_legacy() if l1_gated else _ESMC_LM_GATE_LEGACY) else {}),
                     **({"memory_config": ttnn.L1_MEMORY_CONFIG} if l1_gated else {}),
                 )
             ttnn.deallocate(h1)
@@ -1646,9 +1699,7 @@ class ESMC(TorchWrapper):
                 self._deallocate_tensor_like(old.get(k))
         tok_d = ttnn.from_torch(tokens.to(torch.int32), device=dev,
                                 layout=ttnn.ROW_MAJOR_LAYOUT, dtype=ttnn.uint32)
-        mask_d = None if attn_mask is None else ttnn.from_torch(
-            attn_mask.unsqueeze(1).to(torch.bfloat16), device=dev,
-            layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16)
+        mask_d = None if attn_mask is None else _sdpa_mask(attn_mask, dev)
         kv_d = None if key_valid is None else ttnn.from_torch(
             key_valid.to(torch.bfloat16), device=dev,
             layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16)
@@ -1689,10 +1740,7 @@ class ESMC(TorchWrapper):
             self._trace_cache.move_to_end(key)
         ttnn.copy_host_to_device_tensor(self._host_tokens(tokens), tr["tokens"])
         if attn_mask is not None:
-            ttnn.copy_host_to_device_tensor(
-                ttnn.from_torch(attn_mask.unsqueeze(1).to(torch.bfloat16),
-                                layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16),
-                tr["mask"])
+            ttnn.copy_host_to_device_tensor(_sdpa_mask(attn_mask, dtype=tr["mask"].dtype), tr["mask"])
         if key_valid is not None:
             ttnn.copy_host_to_device_tensor(
                 ttnn.from_torch(key_valid.to(torch.bfloat16),
@@ -1706,10 +1754,7 @@ class ESMC(TorchWrapper):
             tokens.to(torch.int32), device=self.tt_device,
             layout=ttnn.ROW_MAJOR_LAYOUT, dtype=ttnn.uint32,
         )
-        mask_tt = None if attn_mask is None else ttnn.from_torch(
-            attn_mask.unsqueeze(1).to(torch.bfloat16), device=self.tt_device,
-            layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16,
-        )
+        mask_tt = None if attn_mask is None else _sdpa_mask(attn_mask, self.tt_device)
         kv_tt = None if key_valid is None else ttnn.from_torch(
             key_valid.to(torch.bfloat16), device=self.tt_device,
             layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16,
@@ -2012,10 +2057,7 @@ class ESMCLanguageModel(TorchWrapper):
         mask_tt = key_valid_tt = None
         if attn_mask is not None:
             # [B,L,L] additive mask -> [B,1,L,L] bf16 for SDPA
-            mask_tt = ttnn.from_torch(
-                attn_mask.unsqueeze(1).to(torch.bfloat16), device=self.tt_device,
-                layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16,
-            )
+            mask_tt = _sdpa_mask(attn_mask, self.tt_device)
         if Lb != Lm:
             kv = torch.ones(1, 1, Lb, 1); kv[:, :, Lm:, :] = 0.0  # zero padded keys/values
             key_valid_tt = ttnn.from_torch(
