@@ -2776,6 +2776,20 @@ SDPA_RAGGED_SITES: dict = {}
 # Large enough that exp((qk + m) * scale) underflows to zero for any score this op sees, small
 # enough to stay finite in bf16 and to survive being multiplied by a bias scale.
 _SDPA_PAD_MASK = -1.0e9
+# Relabel the tile tail instead of filling it where nothing reads the tail's values: the bias' query
+# rows and the output's query rows are both sliced off. The tail is stale data, not zeros (finite in
+# every one of 40 AF2-IG triangle-attention calls probed on WH), so k and v keep their fill: a NaN in
+# a key or value tail would reach every real row through q.k and p.v. `TT_BIO_SDPA_TILE_VIEW=0` fills.
+_SDPA_TILE_VIEW = env_flag("TT_BIO_SDPA_TILE_VIEW", True)
+
+
+def _tile_relabel(t, dim: int, length: int):
+    """`t` with axis `dim` (one of the two tile axes) relabelled to `length` inside its tile padding.
+
+    No program runs and no tail is written, so a widened axis exposes whatever the buffer held."""
+    shape = [int(x) for x in t.shape]
+    shape[dim] = length
+    return ttnn.reshape(t, ttnn.Shape(shape), t.padded_shape)
 
 
 def _sdpa_pad_ragged(q, k, v, bias, to: int = 0):
@@ -2802,7 +2816,8 @@ def _sdpa_pad_ragged(q, k, v, bias, to: int = 0):
     # The query rows pad with 0, not with the mask: those rows are sliced off, and a row masked in
     # every column would divide by zero in the softmax.
     if q_pad and int(bias.shape[-2]) == Sq:
-        bp = ttnn.pad(bp, [(0, 0)] * (nb - 2) + [(0, q_pad), (0, 0)], value=0.0)
+        bp = _tile_relabel(bp, -2, Sq + q_pad) if _SDPA_TILE_VIEW and not to else \
+            ttnn.pad(bp, [(0, 0)] * (nb - 2) + [(0, q_pad), (0, 0)], value=0.0)
     if k_pad:
         bp = ttnn.pad(bp, [(0, 0)] * (nb - 1) + [(0, k_pad)], value=_SDPA_PAD_MASK)
     # ttnn.pad ALIASES here rather than copying: in TILE layout the buffer is already 32-aligned on
@@ -3058,6 +3073,8 @@ def _sdpa_masked(fn, q, k, v, bias, *args, site: str, pad: bool = False, **kw):
     o = fn(qp, kp, vp, bp, *args, **kw)
     if o is None or int(o.shape[2]) == Sq:
         return o
+    if _SDPA_TILE_VIEW:
+        return _tile_relabel(o, 2, Sq)
     sl = o[:, :, :Sq, :]
     ttnn.deallocate(o)
     return sl
