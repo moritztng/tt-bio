@@ -1,6 +1,7 @@
 """Device time and float64 error of Protenix's diffusion linears under operand formats and K blockings.
 
     TT_VISIBLE_DEVICES=<chip> python perf/spd_difflin/op_probe.py --out probe.jsonl [--shapes qkv,a1] [--fam normal,fast]
+    TT_VISIBLE_DEVICES=<chip> python perf/spd_difflin/op_probe.py --out probe.jsonl --fam of3
 
 Each shape is a ttnn.linear the fold runs every denoise step (census r10 rows, c730, 5 samples). The input is
 fp32 N(0, 1) (a layer-norm output), the weight fp32 N(0, 1/k), so the output is ~N(0, 1); the reference is float64.
@@ -12,6 +13,9 @@ Families:
   in0_block_w 1: one K tile per dest pass, the only blocking that is clean of Wormhole's fp32-accumulation erratum
   (state/spd-wherr.md). Subblocks are swept and every one is reported.
 * fast: fp32 dest acc off, bf16 output, bf16 activation, as fast mode runs the diffusion (`w16 HiFi4 auto` is today's).
+* of3: OpenFold3's `--fast` token DiT under dit_fuse at the page cell (512 tokens, 1 sample, `OF3_SHAPES`): bf16
+  activation and weight, fp32 dest acc, bf16 output on the model's core grid. `bf16_HiFi4_auto` is today's p150a call,
+  `bf16_HiFi2_auto` today's Wormhole one (dit_hifi2). Arms: fidelity, fp32 acc off, bfp8 weights, 2D programs by K block.
 
 Device time is a captured trace replayed back to back (host dispatch excluded), median of 7 batches. A pixel is
 wrong under spd-wherr's rule: error above 8 bf16 ulps of the float64 value and above 16x the call's rms error.
@@ -38,6 +42,15 @@ SHAPES = {
     "at128": (5919, 128, 128, False),  # atom transformer
     "at256": (5919, 128, 256, False),
     "at256b": (5919, 256, 128, False),
+}
+# OpenFold3's token DiT (c_token 768, 16 heads of 48 on 64 padded lanes, c_s 384), fam of3: 512 tokens, 1 sample.
+OF3_SHAPES = {
+    "qkv": (512, 768, 3072, True),     # openfold3_diffusion_transformer _call_fused qkv (padded lanes)
+    "g": (512, 768, 1024, False),      # query gate on the padded lanes
+    "o": (512, 1024, 768, False),      # output projection off the padded lanes
+    "a1": (512, 768, 1536, False),     # transition la (silu) / lb
+    "b": (512, 1536, 768, False),      # transition lout
+    "s": (512, 384, 768, True),        # adaLN scale / shift and the two s gates off LN(s)
 }
 SAMPLES = 5
 
@@ -128,7 +141,7 @@ def programs(mt, kt, nt, grid, acc, ibws):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--shapes", default=",".join(SHAPES))
+    ap.add_argument("--shapes", default=None)
     ap.add_argument("--fam", default="normal,fast")
     ap.add_argument("--draws", type=int, default=2)
     ap.add_argument("--outs", action="store_true", help="normal family: output format x K block (1, 2, 4) instead")
@@ -149,16 +162,31 @@ def main():
         return ttnn.init_device_compute_kernel_config(dev.arch(), math_fidelity=getattr(ttnn.MathFidelity, fid),
                                                       math_approx_mode=False, fp32_dest_acc_en=acc, packer_l1_acc=True)
 
-    emit(ev="start", shapes=a.shapes, fam=a.fam)
-    for name in a.shapes.split(","):
-        rows, k, n, has_bias = SHAPES[name]
+    of3 = a.fam == "of3"
+    table = OF3_SHAPES if of3 else SHAPES
+    ns = 1 if of3 else SAMPLES
+    if of3:   # the model's grid, not the chip's: what the fold's linears run on
+        grid = (T.CORE_GRID_MAIN.x, T.CORE_GRID_MAIN.y)
+    emit(ev="start", shapes=a.shapes or ",".join(table), fam=a.fam)
+    for name in (a.shapes or ",".join(table)).split(","):
+        rows, k, n, has_bias = table[name]
         for fam in a.fam.split(","):
-            tok = rows if fam == "normal" else min(rows, 730) if rows == 768 else rows
-            m = SAMPLES * tok
+            tok = rows if fam in ("normal", "of3") else min(rows, 730) if rows == 768 else rows
+            m = ns * tok
             mt, kt, nt = -(-m // 32), k // 32, n // 32
-            acc = fam == "normal"
-            arms = []   # (label, in dtype, w dtype, out dtype, fid, program or None)
-            if fam == "normal" and a.outs:
+            acc = fam in ("normal", "of3")
+            arms = []   # (label, in dtype, w dtype, out dtype, fid, program or None[, acc])
+            if fam == "of3":
+                for fid in ("HiFi4", "HiFi2", "LoFi"):
+                    arms.append((f"bf16_{fid}_auto", "bf16", "bf16", "bf16", fid, None))
+                    arms.append((f"wb8_{fid}_auto", "bf16", "b8", "bf16", fid, None))
+                for fid in ("HiFi4", "HiFi2"):
+                    arms.append((f"bf16_{fid}_noacc_auto", "bf16", "bf16", "bf16", fid, None, False))
+                    for pl, pc in programs(mt, kt, nt, grid, True, (1, 2, 4, 8)):
+                        arms.append((f"bf16_{fid}_{pl}", "bf16", "bf16", "bf16", fid, pc))
+                    for pl, pc in programs(mt, kt, nt, grid, False, (2, 4, 8))[:6]:
+                        arms.append((f"bf16_{fid}_noacc_{pl}", "bf16", "bf16", "bf16", fid, pc, False))
+            elif fam == "normal" and a.outs:
                 # fp32 dest acc throughout; what the output format and K blocking cost on their own
                 for ind, wd in (("f32", "f32"), ("bf16", "bf16")):
                     lab = "f32" if ind == "f32" else "a16w16"
@@ -188,7 +216,7 @@ def main():
             res = {}
             for d in range(a.draws):
                 torch.manual_seed(1000 + d)
-                A = torch.randn(SAMPLES, tok, k); W = torch.randn(k, n) / k ** 0.5
+                A = torch.randn(ns, tok, k); W = torch.randn(k, n) / k ** 0.5
                 Bv = torch.randn(n) * 0.1 if has_bias else None
                 R = A.double() @ W.double() + (Bv.double() if has_bias else 0)
                 ta = ttnn.from_torch(A, dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=dev)
@@ -204,9 +232,10 @@ def main():
                     for ind in ("bf16", "b8"):
                         us, sp, ck = dev_time(dev, lambda ind=ind: ttnn.typecast(ta, DT[ind]), nodes=nodes)
                         emit(ev="cast", shape=name, fam=fam, to=ind, us=round(us, 1), spread=round(sp, 3), aiclk=ck)
-                for lab, ind, wd, od, fid, pc in arms:
+                for lab, ind, wd, od, fid, pc, *acc_arm in arms:
                     x = ta if ind == "f32" else cast[ind]
-                    kw = dict(bias=tb[wd] if has_bias else None, compute_kernel_config=ckc(fid, acc), dtype=DT[od])
+                    kw = dict(bias=tb[wd] if has_bias else None, compute_kernel_config=ckc(fid, acc_arm[0] if acc_arm else acc),
+                              dtype=DT[od])
                     if pc is None:
                         kw["core_grid"] = ttnn.CoreGrid(y=grid[1], x=grid[0])
                     else:
