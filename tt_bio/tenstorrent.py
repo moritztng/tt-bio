@@ -22,6 +22,7 @@ from . import triatt_sdpa as _triatt_sdpa
 from . import dest_guard as _dest_guard
 from . import trimul_tail as _trimul_tail
 from . import mm_generic as _mm_generic
+from . import bmm_res as _bmm_res
 from .addcmul_at import addcmul_at as _addcmul_at
 from . import page_copy as _page_copy
 from . import pair_add as _pair_add
@@ -653,6 +654,9 @@ _FAST_MODE = False
 #                   reblock_permute_back never writes the moved x (kernels/trimul_tail_res/reader_moved.cpp)
 #   trimul_t1_dram  every trimul T1 / T2 can take (N >= 160) runs on the DRAM path, so they also serve the sizes
 #                   that would otherwise stay in L1 (Nesso-1's 256-token crop passes: 0.70 -> 0.36 s each on WH)
+#   trimul_bres     the trimul einsum by `bmm_res` (b[c] resident in L1, whole channels per core) where it fits:
+#                   a, b and out cross DRAM once. Bit-exact with ttnn.matmul in ESMFold2 folds (byte-identical coords
+#                   on both archs); declines to ttnn.matmul where b[c] does not fit L1 (above 704 tokens bf16, 960 bfp8)
 #   trimul_t2cm     with trimul_t2, T2 reads the einsum's channel-major [1, C, S, S] output itself (T2m's program with
 #                   the whole hidden as its one chunk), so `reblock_permute_back`
 #                   (0.58 ms a call at 512 on p150a) never runs. A pure data move: bit-exact against trimul_t2
@@ -707,8 +711,9 @@ _FAST_MODE = False
 #   dit_shoist      the DiT's conditioning as three wide linears a step whose columns each layer reads in place
 #                   (`addcmul_at`): OpenFold3's DiT, and Boltz-2's token DiT, where it takes precedence over
 #                   dit_cond_jit (adaLN modulation, the attention gate and the transition gate + residual each one op).
-#   dit_cond_1d     Boltz-2's hoisted token-DiT conditioning linears ([N, 768] x [768, 36864]) under a 1D in0-multicast
-#                   program that splits the weight columns over every core (`_wide_n_program_config`), not ttnn's 2D one.
+#   dit_cond_kfold  Boltz-2's token-DiT conditioning linears (dit_cond_jit's per-layer ones, and the hoist's under
+#                   dit_shoist) carry their bias as one more K row of the weight against a ones column appended to
+#                   s, so the matmul runs without a bias epilogue.
 #   apb_cat         the token attention's head re-assembly as one nlp_concat_heads, gate and output projection on
 #                   the padded head lanes (what TT_BIO_APB_CONCAT_HEADS does at load, exact), with the wide
 #                   weights re-laned from the bf16 device copies on the first call that takes it.
@@ -731,7 +736,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine", "ef2_opm_kq", "ef2_relpos_lookup",
           "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit", "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384",
           "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
-          "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "dit_cond_1d")
+          "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "trimul_bres", "dit_cond_kfold")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -747,7 +752,7 @@ UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "di
                              "ef2_relpos_lookup", "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit",
                              "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384",
                              "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
-                             "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "dit_cond_1d"})
+                             "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "dit_cond_kfold"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -6621,54 +6626,6 @@ def _pair_proj_program_config(
     )
 
 
-@lru_cache(maxsize=None)
-def _wide_n_program_config(m_tiles: int, k_tiles: int, n_tiles: int, elem_bytes: int,
-                           sigmoid: bool = False) -> ttnn.MatmulMultiCoreReuseMultiCast1DProgramConfig | None:
-    """1D in0-multicast program for a short, very wide linear, or None if the shape is outside it.
-
-    Boltz-2's token-DiT conditioning is [512, 768] x [768, 36864] three times a step (`dit_cond_1d`). ttnn's own 2D
-    program for it reads ~28 GB/s of weight on a Wormhole chip, a ninth of DRAM: the weight is the whole op and one
-    row of cores pulls it. Here every core holds all M rows of the activation (multicast, 0.8 MB once) and reads its
-    own `per_core_N` weight columns, so the weight streams on every core's DRAM port. Cores: the largest count that
-    divides the N tiles and fits the grid as a rectangle. The drain block shrinks until the circular buffers fit.
-    On a p150a ttnn's own program is faster (460 us vs 545 us for the best 1D block at 1350 MHz), so this is for Wormhole.
-    """
-    gx, gy = COMPUTE_GRID_MAIN
-    if m_tiles > 32 or n_tiles < 8 * m_tiles:
-        return None
-    grids = [(cx, n // cx) for n in range(gx * gy, 0, -1) if n_tiles % n == 0
-             for cx in range(gx, 0, -1) if n % cx == 0 and n // cx <= gy]
-    if not grids:
-        return None
-    cx, cy = grids[0]
-    pn = n_tiles // (cx * cy)
-    budget = _matmul_cb_budget()
-    for ibw in [w for w in (4, 3, 2, 1) if k_tiles % w == 0]:
-        for obh in [h for h in range(m_tiles, 0, -1) if m_tiles % h == 0]:
-            # in0 arrives as whole-M blocks, so its buffer is per_core_M rows whatever the drain block is
-            if _matmul_cb_bytes(ibw, obh, pn, elem_bytes, extra_tiles=2 * ibw * (m_tiles - obh)) > budget:
-                continue
-            sh = max(h for h in (4, 2, 1) if obh % h == 0)
-            sw = max(w for w in range(min(4 // sh, pn), 0, -1) if pn % w == 0)
-            return ttnn.MatmulMultiCoreReuseMultiCast1DProgramConfig(
-                compute_with_storage_grid_size=(cx, cy), in0_block_w=ibw, out_subblock_h=sh, out_subblock_w=sw,
-                out_block_h=obh, out_block_w=pn, per_core_M=m_tiles, per_core_N=pn, fuse_batch=True,
-                fused_activation=ttnn.UnaryWithParam(ttnn.UnaryOpType.SIGMOID) if sigmoid else None,
-                mcast_in0=True)
-    return None
-
-
-def _wide_linear(x: ttnn.Tensor, w: ttnn.Tensor, *, bias=None, compute_kernel_config=None,
-                 activation: str | None = None) -> ttnn.Tensor:
-    """`ttnn.linear` under `_wide_n_program_config` where it applies, else ttnn's own program."""
-    m = prod(list(x.shape)[:-1])
-    pc = _wide_n_program_config(-(-m // 32), -(-x.shape[-1] // 32), -(-w.shape[-1] // 32),
-                                2 if x.dtype == ttnn.bfloat16 else 4, activation == "sigmoid")
-    if pc is None:
-        return ttnn.linear(x, w, bias=bias, compute_kernel_config=compute_kernel_config, activation=activation)
-    return ttnn.linear(x, w, bias=bias, compute_kernel_config=compute_kernel_config, program_config=pc)
-
-
 def _pair_proj_config(x: ttnn.Tensor, w: ttnn.Tensor, bw_cap: int | None = -1,
                       out_l1: bool = False, block_w: int | None = None,
                       rung: int = 0, silu: bool = False) -> object | None:
@@ -10365,16 +10322,27 @@ class TriangleMultiplication(Module):
                             a_chunk, mask_moved(perm_a == (0, 3, 2, 1) and not defer_a))
                     _st = (branch, "defer" if (defer_a or defer_b) else "keep")
                     TRIMUL_MM_TRANSPOSE_STATS[_st] = TRIMUL_MM_TRANSPOSE_STATS.get(_st, 0) + 1
-                    x_chunk = ttnn.matmul(
-                        a_chunk,
-                        b_chunk,
-                        compute_kernel_config=_trimul_einsum_ckc(self.compute_kernel_config),
-                        memory_config=out_mc,
-                        program_config=program_config,
-                        dtype=ttnn.bfloat16,
-                        transpose_a=defer_a,
-                        transpose_b=defer_b,
-                    )
+                    # `trimul_bres`: b[c] resident in L1, every operand read from DRAM once (bmm_res),
+                    # taking the deferred transpose as ttnn.matmul would; it declines (None) where b[c]
+                    # does not fit or a layout is not its own.
+                    x_chunk = None
+                    if (lever("trimul_bres") and out_mc.buffer_type == ttnn.BufferType.DRAM
+                            and out_mc.memory_layout == ttnn.TensorMemoryLayout.INTERLEAVED):
+                        x_chunk = _bmm_res.matmul(
+                            a_chunk, b_chunk,
+                            compute_kernel_config=_trimul_einsum_ckc(self.compute_kernel_config),
+                            transpose_a=defer_a, transpose_b=defer_b)
+                    if x_chunk is None:
+                        x_chunk = ttnn.matmul(
+                            a_chunk,
+                            b_chunk,
+                            compute_kernel_config=_trimul_einsum_ckc(self.compute_kernel_config),
+                            memory_config=out_mc,
+                            program_config=program_config,
+                            dtype=ttnn.bfloat16,
+                            transpose_a=defer_a,
+                            transpose_b=defer_b,
+                        )
                     ttnn.deallocate(a_chunk)
                     ttnn.deallocate(b_chunk)
                     # Move the channel chunk from the batch axis back to the last axis:
@@ -15141,25 +15109,59 @@ class DiffusionTransformer(Module):
             self._cond_ws = (up(torch.cat(sw, 1)), up(torch.cat(sb, 0)), up(torch.cat(bw, 1)))
         return self._cond_ws
 
-    def _cond_weights_parts(self):
-        """`_cond_weights_split` and the output projections per layer, for `dit_cond_jit`: one
-        `(attn scale w, b, attn shift w, transition scale w, b, transition shift w, attn gate w, b,
-        transition gate w, b)` tuple a layer, so each term is its own [768, 768] projection."""
-        if getattr(self, "_cond_wp", None) is None:
+    def _cond_weights_kfold(self):
+        """`_cond_weights_split`'s scales and `_cond_weights`' output projections for `dit_cond_kfold`:
+        `(scale w with the bias row, shift w, output w with the bias row)`, each bias one more K row."""
+        if getattr(self, "_cond_wk", None) is None:
+            sw, sb, bw, ow, ob = [], [], [], [], []
+            for layer in self.layers:
+                for ad in (layer.adaln, layer.transition.adaln):
+                    scale_w, scale_b, bias_w = ad.folded_weights()
+                    sw.append(scale_w); sb.append(scale_b); bw.append(bias_w)
+                for ws, k in ((layer.weights, "output_projection_linear"),
+                              (layer.transition.weights, "output_projection.0")):
+                    ow.append(ws[f"{k}.weight"].t()); ob.append(ws[f"{k}.bias"])
             dt = _dtype(ttnn.bfloat16)
             up = lambda t: ttnn.from_torch(t, layout=ttnn.TILE_LAYOUT, device=self.device, dtype=dt)
+            self._cond_wk = (up(_bias_row(torch.cat(sw, 1), torch.cat(sb, 0))), up(torch.cat(bw, 1)),
+                             up(_bias_row(torch.cat(ow, 1), torch.cat(ob, 0))))
+        return self._cond_wk
+
+    def _cond_weights_parts(self, kfold=False):
+        """`_cond_weights_split` and the output projections per layer, for `dit_cond_jit`: one
+        `(attn scale w, b, attn shift w, transition scale w, b, transition shift w, attn gate w, b,
+        transition gate w, b)` tuple a layer, so each term is its own [768, 768] projection.
+        `kfold` (dit_cond_kfold): each bias rides as one more K row of its weight, padded to a
+        tile with zero rows, and its slot is None; the caller appends `_ones_tile` to the input."""
+        key = "_cond_wpk" if kfold else "_cond_wp"
+        if getattr(self, key, None) is None:
+            dt = _dtype(ttnn.bfloat16)
+            up = lambda t: ttnn.from_torch(t, layout=ttnn.TILE_LAYOUT, device=self.device, dtype=dt)
+            wb = lambda w, b: (up(_bias_row(w, b)), None) if kfold else (up(w), up(b))  # noqa: E731
             parts = []
             for layer in self.layers:
                 w = []
                 for ad in (layer.adaln, layer.transition.adaln):
                     scale_w, scale_b, bias_w = ad.folded_weights()
-                    w += [up(scale_w), up(scale_b), up(bias_w)]
+                    w += [*wb(scale_w, scale_b), up(bias_w)]
                 for ws in (layer.weights, layer.transition.weights):
-                    key = ("output_projection_linear" if ws is layer.weights else "output_projection.0")
-                    w += [up(ws[f"{key}.weight"].t()), up(ws[f"{key}.bias"])]
+                    k = ("output_projection_linear" if ws is layer.weights else "output_projection.0")
+                    w += wb(ws[f"{k}.weight"].t(), ws[f"{k}.bias"])
                 parts.append(tuple(w))
-            self._cond_wp = parts
-        return self._cond_wp
+            setattr(self, key, parts)
+        return getattr(self, key)
+
+    def _ones_tile(self, x):
+        """`x` with one more K tile appended: a column of ones, then zeros (dit_cond_kfold's bias row)."""
+        shape = tuple(x.shape[:-1]) + (32,)
+        memo = getattr(self, "_ones_memo", None)
+        if memo is None or memo[0] != (shape, x.dtype):
+            t = torch.zeros(shape)
+            t[..., 0] = 1.0
+            memo = ((shape, x.dtype), ttnn.from_torch(t, layout=ttnn.TILE_LAYOUT, device=self.device,
+                                                      dtype=x.dtype))
+            self._ones_memo = memo
+        return ttnn.concat([x, memo[1]], dim=-1)
 
     def _peak_tag(self, a):
         # The DRAM census tag for one layer. The leading dim is the diffusion sample chunk,
@@ -15183,10 +15185,13 @@ class DiffusionTransformer(Module):
             # dit_cond_jit: the same terms as the hoisted block below, each projected right before
             # its layer. On a Wormhole chip the three wide linears run at a quarter of the roof and
             # the 144 slices that cut them up cost as much again in dispatch.
-            jit = (ttnn.layer_norm(s, epsilon=1e-5, compute_kernel_config=self.compute_kernel_config),
-                   self._cond_weights_parts())
+            # dit_cond_kfold: the four biased terms take their bias as a K row (the epilogue costs
+            # a third of the call on a Wormhole chip), off the normed and raw s with a ones tile appended.
+            s_hat = ttnn.layer_norm(s, epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
+            kf = lever("dit_cond_kfold")
+            jit = (s_hat, self._cond_weights_parts(kf),
+                   (self._ones_tile(s_hat), self._ones_tile(s)) if kf else (s_hat, s))
         elif _B2_DIT_COND_HOIST and not self.atom_level:
-            adw, adb, opw, opb = self._cond_weights()
             s_hat = ttnn.layer_norm(s, epsilon=1e-5,
                                     compute_kernel_config=self.compute_kernel_config)
             ckc = self.compute_kernel_config
@@ -15195,18 +15200,28 @@ class DiffusionTransformer(Module):
                                 math_approx_mode=ckc.math_approx_mode,
                                 fp32_dest_acc_en=ckc.fp32_dest_acc_en,
                                 packer_l1_acc=ckc.packer_l1_acc)
-            lin = _wide_linear if lever("dit_cond_1d") else ttnn.linear
-            if _B2_ADALN_ADDCMUL or lever("adaln_mod"):
-                sw, sb, bw = self._cond_weights_split()
-                o_ad = (lin(s_hat, sw, bias=sb, compute_kernel_config=ckc, activation="sigmoid"),
-                        lin(s_hat, bw, compute_kernel_config=ckc))
-            else:
-                o_ad = lin(s_hat, adw, bias=adb, compute_kernel_config=ckc)
-            ttnn.deallocate(s_hat)
-            # `activation="sigmoid"` here is where both output projections' sigmoids go: the
+            split = _B2_ADALN_ADDCMUL or lever("adaln_mod")
+            # `activation="sigmoid"` on the output projections is where both their sigmoids go: the
             # attention one already carried it in its own linear, and the transition one moves
             # off its multiply, which is told not to re-apply it.
-            o_op = lin(s, opw, bias=opb, compute_kernel_config=ckc, activation="sigmoid")
+            if split and lever("dit_cond_kfold"):
+                swk, bw, owk = self._cond_weights_kfold()
+                s_hk, s_k = self._ones_tile(s_hat), self._ones_tile(s)
+                o_ad = (ttnn.linear(s_hk, swk, compute_kernel_config=ckc, activation="sigmoid"),
+                        ttnn.linear(s_hat, bw, compute_kernel_config=ckc))
+                o_op = ttnn.linear(s_k, owk, compute_kernel_config=ckc, activation="sigmoid")
+                for t in (s_hk, s_k):
+                    ttnn.deallocate(t)
+            else:
+                adw, adb, opw, opb = self._cond_weights()
+                if split:
+                    sw, sb, bw = self._cond_weights_split()
+                    o_ad = (ttnn.linear(s_hat, sw, bias=sb, compute_kernel_config=ckc, activation="sigmoid"),
+                            ttnn.linear(s_hat, bw, compute_kernel_config=ckc))
+                else:
+                    o_ad = ttnn.linear(s_hat, adw, bias=adb, compute_kernel_config=ckc)
+                o_op = ttnn.linear(s, opw, bias=opb, compute_kernel_config=ckc, activation="sigmoid")
+            ttnn.deallocate(s_hat)
             cond_all = (o_ad, o_op)
 
         d = self.dim
@@ -15227,14 +15242,14 @@ class DiffusionTransformer(Module):
 
         def bundle(i):
             if jit is not None:
-                s_hat, wp = jit
+                s_hat, wp, (s_hb, s_b) = jit
                 sw0, sb0, bw0, sw1, sb1, bw1, ow0, ob0, ow1, ob1 = wp[i]
                 ckc = self.compute_kernel_config
                 lin = lambda x, w, b=None, act=None: ttnn.linear(  # noqa: E731
                     x, w, bias=b, compute_kernel_config=ckc, activation=act)
-                parts = [lin(s_hat, sw0, sb0, "sigmoid"), lin(s_hat, bw0),
-                         lin(s_hat, sw1, sb1, "sigmoid"), lin(s_hat, bw1),
-                         lin(s, ow0, ob0, "sigmoid"), lin(s, ow1, ob1, "sigmoid")]
+                parts = [lin(s_hb, sw0, sb0, "sigmoid"), lin(s_hat, bw0),
+                         lin(s_hb, sw1, sb1, "sigmoid"), lin(s_hat, bw1),
+                         lin(s_b, ow0, ob0, "sigmoid"), lin(s_b, ow1, ob1, "sigmoid")]
                 return (_SigTerms(parts[:2]), parts[4], _SigTerms(parts[2:4]), parts[5]), parts
             if shoist and cond_all is not None and isinstance(cond_all[0], tuple):
                 # dit_shoist: this layer's columns of the three wide outputs, read in place.
@@ -15277,10 +15292,18 @@ class DiffusionTransformer(Module):
         finally:
             if jit is not None:
                 ttnn.deallocate(jit[0])
+                if jit[2][0] is not jit[0]:
+                    ttnn.deallocate(jit[2][0])
+                    ttnn.deallocate(jit[2][1])
             if cond_all is not None:
                 for x in cond_all:
                     for t in (x if isinstance(x, tuple) else (x,)):
                         ttnn.deallocate(t)
+
+
+def _bias_row(w, b):
+    """[K, N] weight `w` with bias `b` as row K and 31 zero rows (one more K tile), for `dit_cond_kfold`."""
+    return torch.cat([w, b.reshape(1, -1), w.new_zeros(31, w.shape[1])])
 
 
 _PWA_WEIGHT_ROWS_REFUSED = {}  # pair shape -> row block PWA's token weights settled at
