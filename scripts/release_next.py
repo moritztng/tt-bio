@@ -289,12 +289,23 @@ def passed_since(gates: Path | None, tsha: str, repo: Path = REPO, ref: str = "o
     return max(done)[2:] if done else None
 
 
+def fork_point(tsha: str, ref: str, repo: Path = REPO) -> str:
+    """The commit on main the release branched from. Once main merges the release branch back
+    (release_train does), merge-base(tag, main) is the tag itself, and every gate on a commit
+    between the branch-off and the merge-back stopped being a candidate (rec-5e250928a passed
+    10-17 03:50Z and the train gated main's head instead), so take it from the main parent of the first commit on main's line that holds the tag (the
+    merge-back may come in through a work branch)."""
+    after = set(git("rev-list", "--ancestry-path", f"{tsha}..{ref}", repo=repo).split())
+    back = [c for c in git("rev-list", "--first-parent", f"{tsha}..{ref}", repo=repo).split() if c in after]
+    return git("merge-base", tsha, f"{back[-1]}^1" if back else ref, repo=repo)
+
+
 def _since(gates: Path | None, tsha: str, repo: Path = REPO, ref: str = "origin/main") -> list:
     """(plan path, plan + "base") of the full runs on commits after the last release (passed_since)."""
     def ancestor(a, b):
         return subprocess.run(["git", "-C", str(repo), "merge-base", "--is-ancestor", a, b],
                               capture_output=True).returncode == 0
-    base = git("merge-base", tsha, ref, repo=repo) if tsha else ""
+    base = fork_point(tsha, ref, repo) if tsha else ""
     released = content_hash(tsha, repo) if tsha else ""
     out = []
     for p, plan in _plans(gates):
@@ -306,6 +317,29 @@ def _since(gates: Path | None, tsha: str, repo: Path = REPO, ref: str = "origin/
             continue
         out.append((p, {**plan, "base": base}))
     return out
+
+
+def lost_record(gates: Path | None, tsha: str, repo: Path = REPO, ref: str = "origin/main"
+                ) -> tuple[str, Path, list] | None:
+    """(sha, gate dir, models) of a candidate after the last release whose gate failed only on
+    ladder drift and whose record run lost its runner before writing a verdict. Nothing else
+    restarts it once main has moved on: decide() records only the commit it targets (pc's
+    maintenance reboot stopped rec-5e250928a 10-16 17:25Z with 23 of 27 legs recorded, and the
+    train gated main's head instead). gate_fanout resumes it in place, keeping its PASSes."""
+    for p, plan in _since(gates, tsha, repo, ref):
+        sha, d = plan["sha"], p.parent
+        try:
+            if not (d / "verdict.json").exists() or json.loads((d / "verdict.json").read_text()).get("pass"):
+                continue
+            state, rd = record_run(gates, sha)
+            if state != "none" or rd is None:
+                continue
+            drift, other = failures(d, waivers(d, gates, repo, ref))
+        except ValueError:
+            continue
+        if drift and not other:
+            return sha, d, drift
+    return None
 
 
 #: How long a failed gate stays the candidate with no FIXES before the train gates main's head
@@ -364,6 +398,10 @@ def decide(repo: Path = REPO, gates: Path | None = None, ref: str = "origin/main
                 "waived": waivers(d, gates, repo, ref),
                 "why": f"gate passed on every arch: {d}/VERDICT.md{nxt}"
                        + (f"; size ladders re-recorded in {rec}" if rec != d else "")}
+    if lost := lost_record(gates, tsha, repo, ref):
+        sha, d, models = lost
+        return {**out, "do": "RECORD", "sha": sha, "gate": str(d), "models": models,
+                "why": f"the record run {gates}/rec-{sha[:9]} lost its runner; resume it"}
     target, what = head, "main's head"
     if fz := frozen(gates, tsha, repo, ref):
         base, fd, fl = fz

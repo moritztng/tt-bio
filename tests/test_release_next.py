@@ -159,6 +159,11 @@ def test_a_gate_failing_only_on_ladder_drift_is_re_recorded_then_cut(tmp_path):
     git("commit", "-qam", "next staging")
     d = rn.decide(tmp_path, gates, "main")
     assert (d["do"], d["sha"], d["records"]) == ("CUT", head, str(r))
+    (r / "verdict.json").unlink()                                     # its runner died mid-run
+    plan = json.loads((r / "plan.json").read_text())
+    (r / "plan.json").write_text(json.dumps({**plan, "pid": 2 ** 22 + 1}))
+    d = rn.decide(tmp_path, gates, "main")
+    assert (d["do"], d["sha"], d["models"]) == ("RECORD", head, ["m"]) and "lost its runner" in d["why"]
 
 
 def test_a_card_failed_ladder_leg_of_a_drifted_model_records_alongside_its_rerun(tmp_path, monkeypatch):
@@ -378,3 +383,27 @@ def test_a_failed_leg_is_judged_by_its_latest_run_on_the_same_commit(tmp_path, m
     assert rn.failures(g) == ([], ["rg:b bh"])
     (rerun / "results.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows[::-1]))
     assert rn.failures(g) == ([], [])
+
+
+def test_a_gate_from_before_the_release_merged_back_still_ships(tmp_path):
+    git = _repo(tmp_path)
+    (tmp_path / "a.py").write_text("x = 2\n")
+    git("commit", "-qam", "staging A")
+    git("checkout", "-qb", "rel")                                 # release branch: a fix, then the tag
+    (tmp_path / "b.py").write_text("y = 1\n")
+    git("add", "."), git("commit", "-qm", "gate fix")
+    git("tag", "v0.2.0")
+    git("checkout", "-q", "main")
+    (tmp_path / "a.py").write_text("x = 3\n")
+    git("commit", "-qam", "staging B")
+    b = git("rev-parse", "main")
+    git("checkout", "-qb", "wk")                                  # merged back through a work branch
+    git("merge", "-q", "--no-ff", "rel", "-m", "Merge rel/v0.2.0")
+    git("checkout", "-q", "main")
+    git("merge", "-q", "--no-ff", "wk", "-m", "Merge wk")
+    (tmp_path / "a.py").write_text("x = 4\n")
+    git("commit", "-qam", "staging C")
+    gates = tmp_path / "gates"
+    (_plan(gates, "gb", b, tmp_path) / "verdict.json").write_text(json.dumps({"pass": True}))
+    d = rn.decide(tmp_path, gates, "main")
+    assert d["do"] == "CUT" and d["sha"] == b

@@ -29,6 +29,8 @@ def main() -> int:
     ap.add_argument("--inner", type=int, default=5)
     ap.add_argument("--wdtype", default="bfloat16", choices=["bfloat16", "bfloat8_b"],
                     help="weight dtype on device; --fast loads the projections as bfloat8_b")
+    ap.add_argument("--acc", default="fp32", choices=["fp32", "bf16"],
+                    help="dest accumulation; bf16 doubles the dest registers, so 8-tile subblocks become legal")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
 
@@ -36,7 +38,7 @@ def main() -> int:
     dev = T.get_device()
     g = dev.compute_with_storage_grid_size()
     ck = ttnn.init_device_compute_kernel_config(dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi3,
-                                                math_approx_mode=False, fp32_dest_acc_en=True, packer_l1_acc=True)
+                                                math_approx_mode=False, fp32_dest_acc_en=args.acc == "fp32", packer_l1_acc=True)
     d, ff, m = MODELS[args.model]
     shapes = {"proj": (m, d, d), "fc1h": (m, d, ff), "fc2": (m, ff, d)}
     out = open(args.out, "w")
@@ -54,7 +56,7 @@ def main() -> int:
         for mb, kb, nb in itertools.product((2, 4, 8, 16), (1, 2, 4, 8), (2, 4, 8, 16)):
             if kt % kb:
                 continue
-            for sh, sw in ((2, 2), (1, 4), (4, 1)):
+            for sh, sw in ((2, 2), (1, 4), (4, 1)) if args.acc == "fp32" else ((2, 4), (4, 2), (1, 8), (8, 1), (2, 2)):
                 if mb % sh == 0 and nb % sw == 0:
                     arms[f"m{mb}k{kb}n{nb}s{sh}x{sw}"] = ttnn.MinimalMatmulConfig(
                         M_block_size=mb, K_block_size=kb, N_block_size=nb, subblock_h=sh, subblock_w=sw,
@@ -66,7 +68,7 @@ def main() -> int:
             fn = (lambda: ttnn.linear(xd, wd, compute_kernel_config=ck, dtype=ttnn.bfloat16, core_grid=T.CORE_GRID_MAIN)) \
                 if cfg == "linear" else (lambda cfg=cfg: ttnn.experimental.minimal_matmul(
                     xd, wd, compute_kernel_config=ck, dtype=ttnn.bfloat16, **({"config": cfg} if cfg else {})))
-            rec = {"model": args.model, "wdtype": args.wdtype, "shape": name, "mkn": [M, K, N], "arm": arm, "grid": [g.x, g.y]}
+            rec = {"model": args.model, "wdtype": args.wdtype, "acc": args.acc, "shape": name, "mkn": [M, K, N], "arm": arm, "grid": [g.x, g.y]}
             try:
                 o = fn()
                 got = ttnn.to_torch(o).reshape(M, N).double()

@@ -24,7 +24,8 @@ Each row declares what it wants measured in state/spd/grids/<row>.yaml:
 
 A cell is done once every `done` path exists and is non-empty on any pool of its arch, so cells already measured on
 the current tree (its paths name the tree) are skipped. Every pass (tick.d, ~10 min) feed tops each pool up to
-2 x healthy chips of queued prio 0-8 work, cells in tier order, rows round-robin inside a tier.
+2 x healthy chips of queued prio 0-8 work (a cell whose runs take under a pass counts as that fraction of a job),
+cells in tier order, rows round-robin inside a tier.
 
 A cell whose job ended twice within 60 s without its done files, or three times in all, is quarantined in
 state/spd/QUARANTINE.md with its log tail, and its row is woken. The job name carries a hash of the rendered command,
@@ -53,7 +54,10 @@ import yaml
 D = Path("/home/moritz/.coworker")
 TIERS = {"red": 0, "amber": 1, "fast": 2, "fill": 3}
 FAST_S = 60
-INIT_FAIL = "failed to initialize FW|ARC core .* failed to start|Failed to set initial power state"
+TICK_S = 600   # feed's own cadence (tick.d). A queued job expected to run shorter fills that fraction of a depth slot:
+               # 10-16 qb1 ran 8 one-to-five-minute cells dry in 5 min and idled 2 cards until the next pass.
+INIT_FAIL = ("failed to initialize FW|ARC core .* failed to start|Failed to set initial power state"
+             "|waiting for active ethernet core")   # 10-16 qb2 board (0,1) after a TERMed mesh run
 MAX_FAILS = 3
 STEAL_S = 900   # a BH job still waiting this long moves to a free card on another BH box its cell allows
 # BH boxes: SPD cards and their flocks (state/spd/CHIPS.md). A chip kept off the feed has ~/spd/locks/chip<N>.BAD on its
@@ -68,15 +72,12 @@ BH_POOLS = {
 
 # pgrep pattern for a release-gate leg on card %s, running or waiting for its flock. A leg that runs a perf script through
 # runpy (bc2_boundary, parity_*) names the gate only in its RELEASE_GATE_RUN_DIR env, so the pattern keys on that too.
-# A multi-card take (cfd2/cfd3 window scripts) raises a `release_gate` sentinel per card and waits until every card is
-# free, so the cards that free first idle behind it (10-16 qb2: chips 0, 2 and 3 for up to 6,000 s). A sentinel is a
-# placeholder process named `<who> spd_qb<N>_<chip|card><c>.lock <kind> <tag> ...`; its take is every card whose sentinel
-# carries the same who/kind/tag. The take cannot start before the feed jobs on its other cards end, so a waiter backfills
-# a sentinel's card with a job whose worst-case end (start + cap + 600 s of grace and reset, written to <job>.until) comes
-# before the latest .until on those cards; the take never starts later for it. A sentinel may name its own bound with
-# `until=<epoch>`, which then wins. A one-card sentinel (gapboard) and any real gate leg (not named like a sentinel) block.
-# A waiter that is only too long for such a window hands the dispatch flock on each poll, so a shorter job behind it
-# can take the card. Takers can size their wait from ~/spd/feed/jobs/*.until (card in the matching .card).
+# Everything else that wants a card books it in the box's booking file (book.py: CFD windows, the gapboard column). A
+# waiter takes a card only if its job's worst-case end (start + cap + 600 s of grace and reset, written to <job>.until)
+# comes before the card's next booking; a waiter too long for the gap hands the dispatch flock on each poll, so a shorter
+# job behind it can take the card. A renamed `sleep` that matches GATE_LEG is an old-style sentinel: it blocks for
+# SENT_S (600 s) after it started and is ignored after that (10-16 qb1: cfd3 rt4 sentinels re-raised every 5 min kept
+# three cards idle for hours with 21 jobs queued). Takers read worst-case ends from ~/spd/feed/jobs/*.until.
 GATE_LEG = "(spd_qb1_card|spd_qb2_chip|TT_VISIBLE_DEVICES=)%s[. ].*(RELEASE_GATE_RUN_DIR|release_gate|gate_fanout|perf_ab)"
 
 # Runs on the pool host: report state, existence of paths, and sweep dead entries. Payload is appended as JSON.
@@ -138,6 +139,9 @@ if A["kind"] == "galaxy":
     out["swept"] = moved
 else:
     J = H + "/spd/feed/jobs"; os.makedirs(J, exist_ok=True)
+    bk = H + "/spd/feed/book.py"   # the box's card arbiter (book.py), shipped by the feed so every runner reads one version
+    if A.get("book") and (not os.path.exists(bk) or open(bk).read() != A["book"]):
+        open(bk + ".tmp", "w").write(A["book"]); os.replace(bk + ".tmp", bk)
     cards = [c for c in A["cards"] if not os.path.exists(H + "/spd/locks/chip%d.BAD" % c)]
     # dead ARC: the class node reads 0xFFFFFFFF (10-15 qb1 card 2 for 70+ min while jobs kept dying there in init).
     # Logical card c is the c-th class node in PCI order, the order TT_VISIBLE_DEVICES and tt-smi use.
@@ -198,22 +202,24 @@ PROBE = f"GATE_LEG = {GATE_LEG!r}\n" + PROBE
 # the ledger does not count against the cell. The first leaves its name in fastfail.<card>; a clean exit clears it.
 # Only a device-init failure (INIT_FAIL in the job's log) counts, so two broken cells never reset a healthy card. qb2 has no
 # reset (p300c board pair): the second marks ~/spd/locks/chip<N>.BAD instead and its .end says "fastfail2 bad".
+# Most cells send the model's output to their own log, not stdout (10-16 qb2: 12 init failures on board (0,1) in 7 min, none
+# seen, four cells quarantined for the board's fault), so the check also reads the files the job wrote since its .start in
+# the cell's output dirs, which PLACE lists in $1.outs.
 NODE = ('node() { for s in "${TT_SYSFS:-/sys/class/tenstorrent}"/*; do echo "$(basename "$(readlink -f "$s/device")") '
         '${s##*!}"; done | sort | sed -n "$(($1 + 1))s/.* //p"; }; '
         'dead() { local n=$(node $1); [ -n "$n" ] && cat "${TT_SYSFS:-/sys/class/tenstorrent}/tenstorrent!$n/tt_aiclk" '
         '"${TT_SYSFS:-/sys/class/tenstorrent}/tenstorrent!$n/tt_heartbeat" 2>/dev/null | grep -qx 4294967295; }; '
-        'take() { pgrep -af "[.]lock (release_gate|perf_ab) " | awk -v a="$1" -v r="$2" -v c="$c" -v J="$J" \'function rd(p, v) { if ((getline v < p) <= 0) v = ""; close(p); return v } $2 == a && $3 ~ /^spd_qb[0-9]_(chip|card)[0-9]+[.]lock$/ { l = $3; $1 = $2 = $3 = ""; sub(/^ +/, ""); if ($0 != r) next; sub(/[.]lock$/, "", l); sub(/.*[a-z]/, "", l); if (l != c) k[l] } END { m = 0; while (("ls " J " 2>/dev/null") | getline f) { j = J "/" f; if (f ~ /[.]sh$/ && (rd(j ".card") in k) && system("[ -e \\"" j ".start\\" ] && [ ! -e \\"" j ".end\\" ]") == 0 && rd(j ".until") + 0 > m) m = rd(j ".until") + 0 } print m }\'; }; '
-        'gate() { local m p a l r e x=1 n=$(($(date +%s) + $1 + 600)); m=$(pgrep -af "$G") || return 1; '
-        'while read -r p a l r; do [[ $l =~ ^spd_qb[0-9]_(chip|card)[0-9]+[.]lock$ ]] || return 0; '
-        'e=$(grep -o "until=[0-9]*" <<<"$r" | cut -d= -f2); [ -n "$e" ] || e=$(take "$a" "$r"); [ $n -gt "${e:-0}" ] && x=0; '
-        'done <<<"$m"; [ $x = 1 ] || W=1; return $x; }; ')
+        'gate() { local p n=$(($(date +%s) + $1 + 600)) b; for p in $(pgrep -f "$G"); do '
+        '[ "$(cat /proc/$p/comm 2>/dev/null)" = sleep ] && [ "$(ps -o etimes= -p $p | tr -d " ")" -ge "${SENT_S:-600}" ] 2>/dev/null && continue; '
+        'return 0; done; b=$(python3 "${SPD_BOOK:-$HOME/spd/feed/book.py}" next $c 2>/dev/null) || b=; '
+        '[ $n -le "${b:-9999999999}" ] && return 1; W=1; return 0; }; ')
 
 
 def run_cmd(grace=120):
     return ('S=$(date +%s); CHIP=$2 TT_VISIBLE_DEVICES=$2 LOCK="$4" WAIT=60 timeout -s TERM $(($5 + G)) '
             'sh -c \'echo $$ > "$1.pg"; exec timeout -s INT "$2" bash "$1"\' _ "$1" "$5" > "$1.log" 2>&1; rc=$?; '
             'M="$(dirname "$1")/fastfail.$2"; if [ $rc = 0 ]; then rm -f "$M"; '
-            'elif [ $rc != 124 ] && [ $rc != 127 ] && [ $(($(date +%s) - S)) -lt FAST ] && grep -qE "INIT" "$1.log"; then '
+            'elif [ $rc != 124 ] && [ $rc != 127 ] && [ $(($(date +%s) - S)) -lt FAST ] && { grep -qE "INIT" "$1.log" || { [ -s "$1.outs" ] && while read -r d; do find "$d" -maxdepth 1 -type f -newer "$1.start" 2>/dev/null; done < "$1.outs" | xargs -r -d "\\n" grep -lsE "INIT" | grep -q .; }; }; then '
             'if [ -s "$M" ] && [ "$(cat "$M")" != "$1" ]; then rm -f "$M"; '
             'if [ -z "$6" ]; then L="${SPD_LOCKS:-$HOME/spd/locks}"; mkdir -p "$L"; '
             'echo "$(date -u +%FT%TZ) two jobs failed device init back to back ($(basename "$1")), feed" > "$L/chip$2.BAD"; '
@@ -230,6 +236,12 @@ def run_cmd(grace=120):
 
 
 RUN = run_cmd()
+BOOK = (Path(__file__).parent / "book.py").read_text() if (Path(__file__).parent / "book.py").exists() else ""
+
+
+def outs(c):
+    """The dirs a cell writes its done files to: its own logs live there (PLACE writes them to <job>.outs)."""
+    return sorted({os.path.dirname(x) for x in c["done"]})
 
 # Writes the jobs feed placed. Galaxy: into the pool queue. BH: detached flock waiter per job.
 PLACE = r'''
@@ -246,9 +258,10 @@ for j in A["jobs"]:
         for x in (".end", ".start", ".pid", ".log", ".pg", ".until"):
             if os.path.exists(sh + x): os.remove(sh + x)
         open(sh, "w").write(j["body"]); open(sh + ".card", "w").write("-1")
-        # Take the box's dispatch flock in turn, then the first card that is not BAD or dead-ARC, runs no release-gate leg and no
-        # gapboard sentinel (the scoreboard measuring main; checked again once its flock is held) and whose flock is
-        # free. 10-15: waiters bound to one card queued on busy cards 2 and 3 while qb1 card 0 sat free 15+ min.
+        open(sh + ".outs", "w").write("".join(os.path.expanduser(d) + "\n" for d in j.get("outs", [])))
+        # Take the box's dispatch flock in turn, then the first card that is not BAD or dead-ARC, runs no release-gate leg, has
+        # no booking before the job's worst-case end (checked again once its flock is held) and whose flock is free.
+        # 10-15: waiters bound to one card queued on busy cards 2 and 3 while qb1 card 0 sat free 15+ min.
         w = (NODE + 'exec 8>"$(dirname "$1")/.dispatch"; flock -w 86400 8 || { echo flockbusy > "$1.end"; exit 3; }; '
              'J="$(dirname "$1")"; D=$((SECONDS + 86400)); while :; do W=; for c in $2; do [ -e ~/spd/locks/chip$c.BAD ] && continue; dead $c && continue; '
              'G="' + GATE_LEG % "$c" + '"; '
@@ -529,7 +542,7 @@ def steal(cs, ledger, st, P, stamp, dry, log):
                 if name not in remote(P[n]["ssh"], WITHDRAW, {"names": [name]}):
                     continue
                 remote(P[b]["ssh"], PLACE, {"kind": "bh", "reset": P[b].get("reset", ""), "jobs": [{"name": name, "body": c["body"], "cap": c["cap"],
-                                                                   "cards": [card], "lock": P[b]["lock"]}]})
+                                                                   "cards": [card], "lock": P[b]["lock"], "outs": outs(c)}]})
             except Exception as e:   # withdrawn but not placed: the next pass finds the cell lost and places it again
                 log(f"steal {c['key']} failed: {e}")
                 continue
@@ -560,11 +573,11 @@ def main(argv=None):
             c["hosts"] = []
     roots = {p: tree_root(p, a.repo) for c in cs for p in c["requires"]}
     paths = sorted({p for c in cs for p in c["done"] + c["requires"]} | {r[0] for r in roots.values() if r})
-    outdirs = {c["name"]: sorted({os.path.dirname(x) for x in c["done"]}) for c in cs}
+    outdirs = {c["name"]: outs(c) for c in cs}
     st = {}
     for name, p in P.items():
         try:
-            st[name] = remote(p["ssh"], PROBE, {"kind": p["kind"], "paths": [x for x in paths], "cards": p.get("cards", []),
+            st[name] = remote(p["ssh"], PROBE, {"kind": p["kind"], "paths": [x for x in paths], "cards": p.get("cards", []), "book": BOOK,
                                              "lock": p.get("lock", ""), "sweep": not a.dry_run, "outdirs": outdirs})
         except Exception as e:  # an unreachable box is skipped, never fatal
             log(f"{name}: probe failed: {e}")
@@ -579,6 +592,8 @@ def main(argv=None):
             L.update(hash=c["hash"], fails=[], quarantined=False)
         j = st.get(L.get("host"), {}).get("jobs", {}).get(L.get("name"))
         if c["is_done"]:
+            if j and j["state"] == "ended" and str(j["rc"]).split()[:1] == ["0"]:
+                L["dur"] = j["dur"]
             L.update(state="done", quarantined=False)
         elif j and j["state"] in ("queued", "running"):
             L["state"] = j["state"]
@@ -620,7 +635,23 @@ def main(argv=None):
     # 2. fill each pool up to depth x healthy, cells in priority order, the pool with most room first. A cell's room
     # counts only queued work it does not jump: pool.sh starts the lowest prio digit first, so prio-6 jobs hand-queued
     # past the depth must not lock prio-3 cells out (10-15: 211 queued on .107, every grid cell refused for hours).
+    # Depth counts expected chip time: a job whose experiment's median done run is under TICK_S weighs that fraction
+    # (at least 0.1), so the queue covers two passes of short cells too. BH waiters start in placement order whatever
+    # their prio, so a BH box counts all its queued work at prio 0.
+    exp = lambda k: k.rsplit("/", 1)[0]
+    durs = {}
+    for k, L in ledger.items():
+        if L.get("dur") is not None:
+            durs.setdefault(exp(k), []).append(L["dur"])
+    est = {e: sorted(v)[len(v) // 2] for e, v in durs.items()}
+    weight = lambda k: min(1.0, max(0.1, est[exp(k)] / TICK_S)) if exp(k) in est else 1.0
+    key_of = {L["name"]: k for k, L in ledger.items() if L.get("name")}
+    slot = lambda n, p: p if st[n].get("qprio") else 0
     qp = {n: list(s.get("qprio") or [s["queued"]] + [0] * 8) for n, s in st.items()}
+    for n, s in st.items():
+        for m, j in s.get("jobs", {}).items():
+            if j["state"] == "queued" and m in key_of and m[0].isdigit():
+                qp[n][slot(n, int(m[0]))] -= 1 - weight(key_of[m])
     room = lambda n, p: 0 if st[n].get("paused") else int(a.depth * st[n]["healthy"]) - sum(qp[n][:p + 1])
     place = {n: [] for n in st}
     for c in cs:
@@ -635,8 +666,8 @@ def main(argv=None):
         n = max(ok, key=lambda n: room(n, p))
         job = {"name": c["name"], "body": c["body"], "cap": c["cap"]}
         if P[n]["kind"] == "bh":
-            job.update(cards=st[n]["cards"], lock=P[n]["lock"])
-        place[n].append(job); qp[n][p] += 1
+            job.update(cards=st[n]["cards"], lock=P[n]["lock"], outs=outs(c))
+        place[n].append(job); qp[n][slot(n, p)] += weight(c["key"])
         ledger[c["key"]] = dict(L, host=n, name=c["name"], hash=c["hash"], state="queued", placed=stamp,
                                 fails=L.get("fails", []), quarantined=False, row=c["row"])
     # 3. trees and small files a pending cell needs and a pool of its arch lacks: ship them so a later pass places there

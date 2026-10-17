@@ -44,6 +44,12 @@ constexpr uint32_t GATE = get_compile_time_arg_val(6);
 // and Kt - CP gathered tiles M = x^T (c_15); this kernel assembles the row in cb_x, transposing M.
 constexpr uint32_t MOVED = get_compile_time_arg_val(7);
 constexpr uint32_t CP = get_compile_time_arg_val(8);
+// ABL (bench-only, trimul_tail.T2_ABL; 0 in every model path): bits that skip one stage's compute and
+// push its CB as is, so the stage's time drops out while the reader and writer move the same bytes.
+// 1 LayerNorm, 2 the p GEMM, 4 the gate GEMM + sigmoid (GATE), 8 the epilogue.
+constexpr uint32_t ABL = get_compile_time_arg_val(9);
+// SIGROWS (trimul_tail.T2_SIGROWS): 2 sigmoid_poly_tile's two-row loop, 1 the one-row form. Bit-identical.
+constexpr uint32_t SIGROWS = get_compile_time_arg_val(10);
 
 constexpr uint32_t cb_x = tt::CBIndex::c_0;      // x_out rows, bf16, Mb * Kt double buffered
 constexpr uint32_t cb_w = tt::CBIndex::c_1;      // Wp, Kt * Nt, resident
@@ -108,7 +114,12 @@ ALWI void layer_norm_row() {
         cb_push_back(cb_x, Kt);
     }
     cb_reserve_back(cb_ln, Kt);
-    ln_prologue::layer_norm_row<LnCbs>(cb_ln, [](uint32_t) { pack_tile(0, cb_ln); });
+    if constexpr (ABL & 1) {
+        cb_wait_front(cb_x, Kt);
+        cb_pop_front(cb_x, Kt);
+    } else {
+        ln_prologue::layer_norm_row<LnCbs>(cb_ln, [](uint32_t) { pack_tile(0, cb_ln); });
+    }
     cb_push_back(cb_ln, Kt);
 }
 
@@ -135,7 +146,7 @@ void kernel_main() {
         pack_reconfig_data_format(cb_p);
         cb_wait_front(cb_ln, Mb * Kt);
         cb_reserve_back(cb_p, blk);
-        for (uint32_t mi = 0; mi < Mb; ++mi) {
+        for (uint32_t mi = 0; mi < ((ABL & 2) ? 0 : Mb); ++mi) {
             for (uint32_t n0 = 0; n0 < Nt; n0 += SBW) {
                 tile_regs_acquire();
                 uint32_t i0 = mi * Kt;
@@ -163,7 +174,7 @@ void kernel_main() {
             sigmoid_tile_init();
             cb_wait_front(cb_xb, Mb * Kt);
             cb_reserve_back(cb_g, blk);
-            for (uint32_t mi = 0; mi < Mb; ++mi) {
+            for (uint32_t mi = 0; mi < ((ABL & 4) ? 0 : Mb); ++mi) {
                 for (uint32_t n0 = 0; n0 < Nt; n0 += SBW) {
                     tile_regs_acquire();
                     uint32_t i0 = mi * Kt;
@@ -174,7 +185,8 @@ void kernel_main() {
                         i1 += Nt;
                     }
                     for (uint32_t i = 0; i < SBW; ++i) {
-                        if constexpr (SIGPOLY) sigmoid_poly_tile<SIGPOLY>(i);
+                        if constexpr (SIGPOLY && SIGROWS == 1) sigmoid_poly_row_tile<SIGPOLY>(i);
+                        else if constexpr (SIGPOLY) sigmoid_poly_tile<SIGPOLY>(i);
                         else sigmoid_bf16_tile(i);
                     }
                     if constexpr (RNE & 2) {
@@ -198,14 +210,15 @@ void kernel_main() {
         cb_reserve_back(cb_out, blk);
         sigmoid_tile_init();
         pack_reconfig_data_format(cb_out);
-        for (uint32_t t0 = 0; t0 < blk; t0 += 4) {
+        for (uint32_t t0 = 0; t0 < ((ABL & 8) ? 0 : blk); t0 += 4) {
             tile_regs_acquire();
             reconfig_data_format_srca(cb_g);
             copy_tile_to_dst_init_short(cb_g);
             for (uint32_t i = 0; i < 4; ++i) copy_tile(cb_g, t0 + i, i);
             if constexpr (!GATE) {
                 for (uint32_t i = 0; i < 4; ++i) {
-                    if constexpr (SIGPOLY) sigmoid_poly_tile<SIGPOLY>(i);
+                    if constexpr (SIGPOLY && SIGROWS == 1) sigmoid_poly_row_tile<SIGPOLY>(i);
+                    else if constexpr (SIGPOLY) sigmoid_poly_tile<SIGPOLY>(i);
                     else sigmoid_bf16_tile(i);
                 }
             }

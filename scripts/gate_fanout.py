@@ -189,6 +189,12 @@ REBOOTED = "rebooted under the leg"
 LEND_AT = "~/spd/galaxy/LEND-AT"
 LEND_READ_S = 300
 WITHDRAWN = -1           # run_in_pool's code for "taken back from the queue before it started"
+#: glx_elastic gives a lent Galaxy back to JapanFold by SIGINTing every pool job and touching the pool's
+#: RETURNED. .107 went back at 07:34Z on 2026-10-16, 35 min into the WH legs of gate 5e250928a, and 14 of
+#: them were recorded FAIL (folds "exited -2"). The job notes a give-back that came after it started; such
+#: a leg measured nothing about the tree, so it goes back on the queue and waits for the next lend.
+GIVEN_BACK = "the Galaxy was given back under the leg"
+GIVEN_BACK_TRIES = 3
 #: A leg failed on a named card and the card is what failed: qb2 chip 1 stopped initialising its
 #: firmware at 06:07Z on 2026-10-12 and the runner handed it 40 more legs of gate 026b5c71c, each
 #: recorded FAIL in 15-90 s. After a failed leg on a named card the runner probes the card
@@ -885,6 +891,17 @@ class Host:
             raise subprocess.CalledProcessError(r.returncode, r.args, r.stdout, r.stderr)
         return r
 
+    def answers(self) -> bool:
+        """One quick connection, not ssh()'s minutes of retries: a host that does not answer now
+        sits out this gate run."""
+        if self.cfg.get("ssh") in (None, "", "localhost"):
+            return True
+        try:
+            return subprocess.run(["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=20", self.cfg["ssh"], "true"],
+                                  capture_output=True, timeout=60).returncode == 0
+        except subprocess.TimeoutExpired:
+            return False
+
     def pins(self) -> dict:
         """This host's resolved packages per venv, minus tt-bio and BindCraft 2 (installed from
         the wheel and a checkout), as constraints for the other hosts."""
@@ -1500,10 +1517,12 @@ def pool_job(host: Host, leg: Leg, rdir: str, name: str) -> str:
     `CHIP=<umd> bash <job>` on an idle healthy chip, and it leaves its log and exit code in rdir."""
     cmd = host.command(leg, POOL_CARD, rdir)
     q = shlex.quote
+    returned = q(str(Path(host.cfg["pool"]["queue"]).parent / "RETURNED"))
     return (f"#!/bin/bash\n# {name}: gate leg {leg.name} at {host.sha[:12]} (gate_fanout.py)\n"
             f"mkdir -p {q(rdir)}; rm -f {q(rdir)}/rc; cat {BOOT_ID} > {q(rdir)}/boot\ncmd={q(cmd)}\n"
             f"{{ echo \"##CHIP $CHIP\"; eval \"${{cmd//{POOL_CARD}/$CHIP}}\"; }} > {q(rdir)}/leg.log 2>&1\n"
-            f"echo $? > {q(rdir)}/rc.tmp && mv {q(rdir)}/rc.tmp {q(rdir)}/rc\n")
+            f"rc=$?; [ {returned} -nt {q(rdir)}/boot ] && echo \"##{GIVEN_BACK}\" >> {q(rdir)}/leg.log\n"
+            f"echo $rc > {q(rdir)}/rc.tmp && mv {q(rdir)}/rc.tmp {q(rdir)}/rc\n")
 
 
 def run_in_pool(host: Host, card, leg: Leg, rdir: str, f) -> int:
@@ -1512,7 +1531,10 @@ def run_in_pool(host: Host, card, leg: Leg, rdir: str, f) -> int:
     run, _, tag = Path(rdir).parts[-3:]     # <root>/out-<sha12>/<run>/<arch>/<leg>
     name = f"{pool.get('prio', 5)}-{pool.get('row', 'gate')}-{run}-{tag}"
     job, q = f"{pool['queue']}/{name}.sh", shlex.quote
-    r = host.ssh(f"mkdir -p {q(rdir)} && rm -f {q(rdir)}/rc && cat > {q(job)}.tmp && mv {q(job)}.tmp {q(job)}",
+    # The boot id goes too: a leg re-queued after a reboot reuses rdir, and the last run's boot
+    # file read as "started under another boot" at once (rel-5e250928a, 10-16 11:01Z: nine WH legs
+    # FAILed in seconds and left their jobs queued for the pool to run with nobody waiting).
+    r = host.ssh(f"mkdir -p {q(rdir)} && rm -f {q(rdir)}/rc {q(rdir)}/boot && cat > {q(job)}.tmp && mv {q(job)}.tmp {q(job)}",
                  input=pool_job(host, leg, rdir, name), capture_output=True, timeout=120)
     if r.returncode:
         # ssh's own message on its own line, so a lost connection reads as one and is retried.
@@ -1615,7 +1637,7 @@ def make_executor(sha: str, out: Path, ledger: Ledger, keys: dict, remote_out: s
         rdir = f"{host.root}/{remote_out}/{host.arch}/{tag}"
         t0 = time.time()
         run = run_in_pool if card == POOL else run_over_ssh
-        lost = full = stuck = contended = rebooted = 0
+        lost = full = stuck = contended = rebooted = given_back = 0
         while True:
             with open(log, "w") as f:
                 f.write(f"# {leg.name} on {host.name}:{card} ({host.cfg['card_type']}) tree {sha}\n")
@@ -1641,6 +1663,9 @@ def make_executor(sha: str, out: Path, ledger: Ledger, keys: dict, remote_out: s
                 continue
             if rc and card == POOL and REBOOTED in text and not rebooted:
                 rebooted += 1
+                continue
+            if rc and card == POOL and GIVEN_BACK in text and given_back < GIVEN_BACK_TRIES:
+                given_back += 1
                 continue
             if rc and card == POOL and CARD_STUCK.search(text) and not stuck:
                 stuck += 1
@@ -1806,6 +1831,19 @@ def main() -> int:
         hosts.setdefault(h.name, h)
     workers = [(hosts[h.name], c) for h, c in workers]
     timed = {(h.name, c) for h, c in parse_workers(args.timed, hosts)}
+    # A dark host would fail its prepare below and take the whole gate with it: qb1 fell off the
+    # LAN on 2026-10-16 22:3xZ and the train restarted, and lost, the next release's gate every
+    # 20 minutes. Run on the hosts that answer; a leg only a dark host could run is UNRUN.
+    # An arch whose every host is dark fails the gate (UNRUN) rather than drop out of it.
+    asked = sorted({h.arch for h in hosts.values()})
+    with ThreadPoolExecutor() as ex:
+        up = dict(zip(hosts, ex.map(Host.answers, hosts.values())))
+    for n in [n for n, ok in up.items() if not ok]:
+        print(f"note: {n} does not answer ssh; running without its cards", file=sys.stderr)
+        del hosts[n]
+    if not hosts:
+        raise SystemExit("no host in --workers answers ssh")
+    workers = [(h, c) for h, c in workers if h.name in hosts]
     archs = sorted({h.arch for h in hosts.values()})
     if args.arch:
         archs = [a for a in archs if a in args.arch.split(",")]
@@ -1869,6 +1907,8 @@ def main() -> int:
     tests_in = {s: content_hash(s, tests=True, runner=RUNNER_FILES_0) for s in same}
     runner_in = {s: content_hash(s, runner=RUNNER_FILES_0) for s in same}
     keys, scopes, results, todo = {}, {}, [], {a: [] for a in archs}
+    results += [{"leg": "every leg", "arch": a, "verdict": "UNRUN", "rc": None, "why": "no host of this arch answers ssh"}
+                for a in asked if a not in archs and (not args.arch or a in args.arch.split(","))]
     # A record run whose runner died (pc rebooted 2026-10-13 18:13Z with 10 of 27 legs recorded)
     # resumes in the same --out: a record leg that passed there at this commit, with its fragment
     # still on disk, keeps that row. The ledger never reuses record legs, so nothing else would.

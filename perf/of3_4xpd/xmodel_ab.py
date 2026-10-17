@@ -317,6 +317,11 @@ def main():
     # Which trimul in-projection route fed the einsum (gin-ragged, gated-inproj-moved, gated-inproj,
     # rowblock, ...), and the trimul_tail sub-counters STATS above lumps together.
     res["trimul_routes"] = {"|".join(k): int(v) for k, v in getattr(T, "TRIMUL_MM_TRANSPOSE_STATS", {}).items()}
+    try:
+        from tt_bio import bmm_res as _BR
+        res["bmm_res"] = list(_BR.STATS)
+    except ImportError:
+        res["bmm_res"] = None
     # g_out riding the in-projection is what lets T2 serve the tail without T1: its served/declined count and why.
     res["trimul_gout"] = {"stats": list(getattr(T, "TRIMUL_GOUT_STATS", [])),
                           "rejects": dict(getattr(T, "TRIMUL_GOUT_REJECTS", {}))}
@@ -344,7 +349,7 @@ def main():
     flush()
     print(f"[{a.label}] reach {res['reach']}", flush=True)
     print(f"[{a.label}] FP32_SOFTMAX_STATS {res['fp32_softmax_stats']}", flush=True)
-    print(f"[{a.label}] TRIMUL_ROUTES {res['trimul_routes']} {res['trimul_tail_sub']}", flush=True)
+    print(f"[{a.label}] TRIMUL_ROUTES {res['trimul_routes']} {res['trimul_tail_sub']} BMM_RES served/declined {res['bmm_res']}", flush=True)
     print("wrote", a.out, flush=True)
     T.cleanup()
 

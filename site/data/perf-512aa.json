@@ -1,6 +1,6 @@
 {
   "schema": 3,
-  "updated": "2026-10-15",
+  "updated": "2026-10-16",
   "title": "TT-Bio benchmarks: biomolecular structure prediction, design and binding affinity on Tenstorrent hardware",
   "subtitle": "Eight structure-prediction models, two binder-design models and one binding-affinity model at 512 residues, measured on Tenstorrent Blackhole and on NVIDIA H200, B200 and A100.",
   "notes": [
@@ -172,12 +172,12 @@
       "cells": {
         "p150a": {
           "status": "measured",
-          "s_per_fold": 12.069,
+          "s_per_fold": 11.774,
           "n": 4,
-          "spread_pct": 0.79,
+          "spread_pct": 1.65,
           "aiclk_mhz": 1350,
-          "versions": "tt-bio main b0ff4ef64, ttnn 0.68.0, qb1 p150a card 0",
-          "when": "2026-10-15T21:28:22Z",
+          "versions": "tt-bio main 8f1e91f98, ttnn 0.68.0, qb1 p150a card 2",
+          "when": "2026-10-16T12:44:31Z",
           "parity": "Passes all 6 release-gate accuracy checks against the reference implementation on Blackhole, with an MSA (tt-bio 469ed1356)",
           "fast": {
             "s_per_fold": 8.777,
@@ -276,12 +276,12 @@
           "when": "2026-10-15T21:09:13Z",
           "parity": "Passes both release-gate accuracy checks against the reference implementation on Blackhole, with an MSA (tt-bio acbce1322)",
           "fast": {
-            "s_per_fold": 12.53,
+            "s_per_fold": 11.965,
             "n": 4,
-            "spread_pct": 5.22,
+            "spread_pct": 2.54,
             "aiclk_mhz": 1350,
-            "versions": "tt-bio main b0ff4ef64, ttnn 0.68.0, qb1 p150a card 0",
-            "when": "2026-10-15T21:10:45Z"
+            "versions": "tt-bio main 8f1e91f98, ttnn 0.68.0, qb1 p150a card 2",
+            "when": "2026-10-16T12:26:50Z"
           }
         },
         "h200": {
@@ -469,12 +469,12 @@
           "when": "2026-10-15T21:14:01Z",
           "parity": "Passes all 4 release-gate accuracy checks against the reference implementation on Blackhole, with an MSA (tt-bio 469ed1356)",
           "fast": {
-            "s_per_fold": 27.773,
+            "s_per_fold": 27.148,
             "n": 4,
-            "spread_pct": 0.91,
+            "spread_pct": 1.56,
             "aiclk_mhz": 1350,
-            "versions": "tt-bio main b0ff4ef64, ttnn 0.68.0, qb1 p150a card 0",
-            "when": "2026-10-15T21:16:47Z"
+            "versions": "tt-bio main ec0633e88, ttnn 0.68.0, qb1 p150a card 3",
+            "when": "2026-10-16T07:57:42Z"
           }
         },
         "h200": {
@@ -566,12 +566,12 @@
           "when": "2026-10-15T21:46:29Z",
           "parity": "Passes its release-gate accuracy check against the reference implementation on Blackhole, with an MSA (tt-bio 469ed1356)",
           "fast": {
-            "s_per_fold": 26.509,
+            "s_per_fold": 27.081,
             "n": 4,
-            "spread_pct": 0.89,
+            "spread_pct": 2.68,
             "aiclk_mhz": 1350,
-            "versions": "tt-bio main b0ff4ef64, ttnn 0.68.0, qb1 p150a card 0",
-            "when": "2026-10-15T21:49:07Z"
+            "versions": "tt-bio main 46808d8af, ttnn 0.68.0, qb1 p150a card 3",
+            "when": "2026-10-16T14:37:21Z"
           }
         },
         "h200": {
@@ -951,19 +951,19 @@
         "cells": {
           "p150a": {
             "status": "measured",
-            "s_per_design": 62.401,
+            "s_per_design": 52.571,
             "n": 4,
-            "spread_pct": 0.6,
+            "spread_pct": 0.63,
             "aiclk_mhz": 1350,
-            "versions": "tt-bio main b0ff4ef64 + harness perf/bmk/design_cell.py (wk/bmk-tt), ttnn 0.68.0, qb1 p150a card 0",
-            "when": "2026-10-15T22:04:32Z",
+            "versions": "tt-bio main ec0633e88 + harness perf/bmk/design_cell.py (wk/bmk-tt), ttnn 0.68.0, qb1 p150a card 3",
+            "when": "2026-10-16T08:44:34Z",
             "fast": {
-              "s_per_design": 48.474,
+              "s_per_design": 50.761,
               "n": 4,
-              "spread_pct": 1.68,
+              "spread_pct": 1.15,
               "aiclk_mhz": 1350,
-              "versions": "tt-bio main b0ff4ef64 + harness perf/bmk/design_cell.py (wk/bmk-tt), ttnn 0.68.0, qb1 p150a card 0",
-              "when": "2026-10-15T22:11:17Z"
+              "versions": "tt-bio main ec0633e88 + harness perf/bmk/design_cell.py (wk/bmk-tt), ttnn 0.68.0, qb1 p150a card 3",
+              "when": "2026-10-16T08:51:28Z"
             }
           },
           "h200": {
@@ -1202,12 +1202,12 @@
         "cells": {
           "p150a": {
             "status": "measured",
-            "s_per_fold": 5.159,
+            "s_per_fold": 4.861,
             "n": 4,
-            "spread_pct": 0.64,
+            "spread_pct": 11.97,
             "aiclk_mhz": 1350,
-            "versions": "tt-bio main b0ff4ef64 + harness perf/bmk/design_cell.py (wk/bmk-tt), ttnn 0.68.0, qb1 p150a card 0",
-            "when": "2026-10-15T22:13:26Z",
+            "versions": "tt-bio main ec0633e88 + harness perf/bmk/design_cell.py (wk/bmk-tt), ttnn 0.68.0, qb1 p150a card 3",
+            "when": "2026-10-16T08:53:36Z",
             "parity": "Passes its release-gate accuracy check against the reference implementation on Blackhole (tt-bio 469ed1356)"
           },
           "h200": {
@@ -1266,13 +1266,13 @@
             "when": "2026-10-15T22:14:02Z",
             "parity": "Passes its release-gate accuracy check against the reference implementation on Blackhole (tt-bio 469ed1356)",
             "fast": {
-              "s_per_batch": 0.07337,
+              "s_per_batch": 0.07045,
               "n": 7,
-              "spread_pct": 23.59,
+              "spread_pct": 7.48,
               "batch": 7,
               "aiclk_mhz": 1350,
-              "versions": "tt-bio main b0ff4ef64, ttnn None, qb1 p150a card 0",
-              "when": "2026-10-15T20:58:05Z"
+              "versions": "tt-bio main ec0633e88, ttnn None, qb1 p150a card 3",
+              "when": "2026-10-16T08:54:51Z"
             }
           },
           "h200": {
@@ -1353,13 +1353,13 @@
             "when": "2026-10-15T20:58:49Z",
             "parity": "Passes its release-gate accuracy check against the reference implementation on Blackhole (tt-bio 469ed1356)",
             "fast": {
-              "s_per_batch": 0.11194,
+              "s_per_batch": 0.10894,
               "n": 7,
-              "spread_pct": 34.38,
+              "spread_pct": 31.32,
               "batch": 7,
               "aiclk_mhz": 1350,
-              "versions": "tt-bio main b0ff4ef64, ttnn None, qb1 p150a card 0",
-              "when": "2026-10-15T20:59:37Z"
+              "versions": "tt-bio main 46808d8af, ttnn None, qb1 p150a card 3",
+              "when": "2026-10-16T13:48:08Z"
             }
           },
           "h200": {
@@ -1432,13 +1432,13 @@
         "cells": {
           "p150a": {
             "status": "measured",
-            "s_per_batch": 0.15459,
+            "s_per_batch": 0.15496,
             "n": 7,
-            "spread_pct": 14.32,
+            "spread_pct": 36.53,
             "batch": 1,
             "aiclk_mhz": 1350,
-            "versions": "tt-bio main b0ff4ef64, ttnn None, qb1 p150a card 0",
-            "when": "2026-10-15T21:00:39Z",
+            "versions": "tt-bio main 8f1e91f98, ttnn None, qb1 p150a card 2",
+            "when": "2026-10-16T13:34:34Z",
             "fast": {
               "s_per_batch": 0.1548,
               "n": 7,
@@ -1528,13 +1528,13 @@
             "when": "2026-10-15T21:03:25Z",
             "parity": "Passes its release-gate accuracy check against the reference implementation on Blackhole (tt-bio 469ed1356)",
             "fast": {
-              "s_per_batch": 0.02507,
+              "s_per_batch": 0.0259,
               "n": 7,
-              "spread_pct": 29.24,
+              "spread_pct": 14.09,
               "batch": 7,
               "aiclk_mhz": 1350,
-              "versions": "tt-bio main b0ff4ef64, ttnn None, qb1 p150a card 0",
-              "when": "2026-10-15T21:03:45Z"
+              "versions": "tt-bio main 46808d8af, ttnn None, qb1 p150a card 3",
+              "when": "2026-10-16T13:52:09Z"
             }
           },
           "h200": {
@@ -1653,13 +1653,13 @@
             "versions": "tt-bio main b0ff4ef64, ttnn None, qb1 p150a card 0",
             "when": "2026-10-15T21:06:24Z",
             "fast": {
-              "s_per_batch": 0.20408,
+              "s_per_batch": 0.19778,
               "n": 7,
-              "spread_pct": 9.41,
+              "spread_pct": 26.53,
               "batch": 7,
               "aiclk_mhz": 1350,
-              "versions": "tt-bio main b0ff4ef64, ttnn None, qb1 p150a card 0",
-              "when": "2026-10-15T21:07:32Z"
+              "versions": "tt-bio main 46808d8af, ttnn None, qb1 p150a card 3",
+              "when": "2026-10-16T13:55:57Z"
             }
           },
           "h200": {

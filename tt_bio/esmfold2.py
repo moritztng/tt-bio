@@ -40,10 +40,13 @@ from tt_bio.tenstorrent import (
     attn_value_matmul,
     fused_sdpa,
     lever,
+    _ColWin,
+    _win_addcmul,
     trunk_compute_kernel_config,
     trace_region_size,
 )
 from tt_bio.eltwise_fusion import scale_add
+from tt_bio.addcmul_at import addcmul_at
 
 _ROW = lambda x: x.reshape(1, -1)
 
@@ -279,9 +282,23 @@ class AdaLN(Module):
         self.s_gate_b = self.torch_to_tt("s_gate.bias", transform=_ROW)
         self.s_shift_w = self.torch_to_tt("s_shift.weight")
 
-    def __call__(self, a: ttnn.Tensor, s: ttnn.Tensor) -> ttnn.Tensor:
+    def folded(self):
+        """(scale weight, scale bias, shift weight) on the un-weighted LN(s): the s-norm's gamma folded in."""
+        g = self.weights["s_scale"].float()[:, None]
+        return (g * self.weights["s_gate.weight"].float().t(), self.weights["s_gate.bias"].float(),
+                g * self.weights["s_shift.weight"].float().t())
+
+    def __call__(self, a: ttnn.Tensor, s: ttnn.Tensor, terms=None) -> ttnn.Tensor:
+        """`terms`: this block's (sigmoid scale, shift) windows of the step's wide conditioning (dit_shoist)."""
         ck = self.compute_kernel_config
         a_norm = ttnn.layer_norm(a, epsilon=1e-5, compute_kernel_config=ck)
+        if terms is not None:
+            (sc_t, sc_off, w), (sh_t, sh_off, _) = terms
+            out = addcmul_at(sh_t, a_norm, sc_t, w, x_off=sh_off, z_off=sc_off)
+            if out is None:
+                out = ttnn.addcmul(terms[1].cut(), a_norm, terms[0].cut(), value=1.0)
+            ttnn.deallocate(a_norm)
+            return out
         s_norm = ttnn.layer_norm(s, weight=self.s_scale, epsilon=1e-5, compute_kernel_config=ck)
         gate = ttnn.sigmoid(self._lin(s_norm, self.s_gate_w, bias=self.s_gate_b))
         shift = self._lin(s_norm, self.s_shift_w)
@@ -346,19 +363,22 @@ class AttentionPairBias(Module):
             self._fold = (to_tt(qkv), to_tt(b), to_tt(W("g_proj.weight").t() @ Sg))
         return self._fold
 
-    def __call__(self, a: ttnn.Tensor, s: ttnn.Tensor, z: ttnn.Tensor) -> ttnn.Tensor:
+    def __call__(self, a: ttnn.Tensor, s: ttnn.Tensor, z: ttnn.Tensor, terms=None) -> ttnn.Tensor:
+        """`terms` (dit_shoist): the adaLN windows; the output then comes back without its s-gate, which
+        the caller applies with the residual add."""
         ck = self.compute_kernel_config
         d_model = a.shape[-1]
         head_dim = d_model // self.num_heads
 
-        x = self.adaln(a, s)
+        x = self.adaln(a, s, terms)
+        gate = terms is None
         lin = self._lin
         if _APB_FOLD:
             qkv_w, qkv_b, g_w = self._folded()
             qh, kh, vh = self._split_heads(lin(x, qkv_w, qkv_b), self.num_heads)
             g_pad = ttnn.sigmoid(lin(x, g_w))  # pad lanes read 0.5, against ctx pad lanes that are 0
             ttnn.deallocate(x)
-            return self._attend(qh, kh, vh, g_pad, s, z, head_dim, ck)
+            return self._attend(qh, kh, vh, g_pad, s, z, head_dim, ck, gate)
         q = lin(x, self.q_w, self.q_b)
         kv = lin(x, self.kv_w)
         k, v = ttnn.chunk(kv, 2, dim=-1)
@@ -380,9 +400,9 @@ class AttentionPairBias(Module):
         qh, kh, vh = self._split_heads(qkv, self.num_heads)
         g_pad = lin(g, self.scatter_g)  # [B, L, Dpad]
         ttnn.deallocate(g)
-        return self._attend(qh, kh, vh, g_pad, s, z, head_dim, ck)
+        return self._attend(qh, kh, vh, g_pad, s, z, head_dim, ck, gate)
 
-    def _attend(self, qh, kh, vh, g_pad, s, z, head_dim, ck):
+    def _attend(self, qh, kh, vh, g_pad, s, z, head_dim, ck, gate=True):
         lin = self._lin
         # pair_bias = pair_bias_proj(layer_norm(z)) is a pure function of the
         # pair conditioning z, which is constant across the diffusion sampling
@@ -414,6 +434,8 @@ class AttentionPairBias(Module):
         ttnn.deallocate(g_pad)
         out = lin(ctx, self.out_w_padded)  # [B, L, d_model]
         ttnn.deallocate(ctx)
+        if not gate:
+            return out
         out_gate = ttnn.sigmoid(lin(s, self.out_gate_w, self.out_gate_b))
         return ttnn.multiply(out_gate, out)
 
@@ -429,10 +451,11 @@ class ConditionedTransitionBlock(Module):
         self.gate_w = self.torch_to_tt("output_gate.weight")
         self.gate_b = self.torch_to_tt("output_gate.bias", transform=_ROW)
 
-    def __call__(self, a: ttnn.Tensor, s: ttnn.Tensor) -> ttnn.Tensor:
+    def __call__(self, a: ttnn.Tensor, s: ttnn.Tensor, terms=None) -> ttnn.Tensor:
+        """`terms` as AttentionPairBias's: the output then comes back without its s-gate."""
         ck = self.compute_kernel_config
         lin = self._lin
-        x = self.adaln(a, s)
+        x = self.adaln(a, s, terms)
         sw = lin(x, self.swish_w)
         ttnn.deallocate(x)
         a1, a2 = ttnn.chunk(sw, 2, dim=-1)
@@ -441,6 +464,8 @@ class ConditionedTransitionBlock(Module):
         ttnn.deallocate(a1); ttnn.deallocate(a2)
         out = lin(b, self.out_w)
         ttnn.deallocate(b)
+        if terms is not None:
+            return out
         gate = ttnn.sigmoid(lin(s, self.gate_w, self.gate_b))
         return ttnn.multiply(gate, out)
 
@@ -460,12 +485,62 @@ class DiffusionTransformerModel(Module):
             ConditionedTransitionBlock(self.scope(f"transition_blocks.{i}"), compute_kernel_config)
             for i in range(num_blocks)
         ]
+        self._shoist_w = None
+
+    def _shoist(self, s):
+        """`dit_shoist`: every block's s-terms as three wide linears off this step's `s`: (sigmoid adaLN
+        scales, adaLN shifts, sigmoid output gates), one 768-column window per sub-block in order (attention
+        0, transition 0, attention 1, ...). The adaLN pair reads the un-weighted LN(s), its gamma folded in."""
+        if self._shoist_w is None:
+            sw, sb, hw, gw, gb = [], [], [], [], []
+            for attn, trans in zip(self.attn, self.trans):
+                for blk, g in ((attn, "out_gate."), (trans, "output_gate.")):
+                    w_sc, b_sc, w_sh = blk.adaln.folded()
+                    sw.append(w_sc); sb.append(b_sc); hw.append(w_sh)
+                    gw.append(blk.weights[g + "weight"].float().t()); gb.append(blk.weights[g + "bias"].float())
+            up = lambda t: ttnn.from_torch(t.contiguous(), dtype=_DTYPE, layout=ttnn.TILE_LAYOUT,  # noqa: E731
+                                           device=self.device)
+            self._shoist_w = (up(torch.cat(sw, 1)), up(torch.cat(sb).reshape(1, -1)), up(torch.cat(hw, 1)),
+                              up(torch.cat(gw, 1)), up(torch.cat(gb).reshape(1, -1)))
+        w_sc, b_sc, w_sh, w_g, b_g = self._shoist_w
+        ck = self.compute_kernel_config
+        lin = lambda x, w, **kw: ttnn.linear(x, w, core_grid=CORE_GRID_MAIN, **kw)  # noqa: E731
+        s_hat = ttnn.layer_norm(s, epsilon=1e-5, compute_kernel_config=ck)
+        out = (lin(s_hat, w_sc, bias=b_sc, compute_kernel_config=ck, activation="sigmoid"),
+               lin(s_hat, w_sh, compute_kernel_config=ck),
+               lin(s, w_g, bias=b_g, compute_kernel_config=ck, activation="sigmoid"))
+        ttnn.deallocate(s_hat)
+        return out
 
     def __call__(self, a: ttnn.Tensor, s: ttnn.Tensor, z: ttnn.Tensor) -> ttnn.Tensor:
+        if not lever("dit_shoist"):
+            x = a
+            for attn, trans in zip(self.attn, self.trans):
+                x = ttnn.add(x, attn(x, s, z))
+                x = ttnn.add(x, trans(x, s))
+            return x
+        sc, sh, g = self._shoist(s)
+        W = lambda t, j: _ColWin(t, j * 768, 768)  # noqa: E731
+
+        def gated(x, y, j):
+            out = _win_addcmul(x, y, W(g, j))
+            if out is None:
+                gj = W(g, j).cut()
+                out = ttnn.addcmul(x, y, gj, value=1.0)
+                ttnn.deallocate(gj)
+            ttnn.deallocate(y)
+            return out
         x = a
-        for attn, trans in zip(self.attn, self.trans):
-            x = ttnn.add(x, attn(x, s, z))
-            x = ttnn.add(x, trans(x, s))
+        for i, (attn, trans) in enumerate(zip(self.attn, self.trans)):
+            for j, blk in ((2 * i, attn), (2 * i + 1, trans)):
+                terms = (W(sc, j), W(sh, j))
+                y = blk(x, s, z, terms) if blk is attn else blk(x, s, terms)
+                x_new = gated(x, y, j)
+                if x is not a:
+                    ttnn.deallocate(x)
+                x = x_new
+        for t in (sc, sh, g):
+            ttnn.deallocate(t)
         return x
 
 
