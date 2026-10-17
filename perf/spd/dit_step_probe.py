@@ -11,7 +11,8 @@ built as stages.py builds it; inside the first draw(), on the tensors prepare() 
 and its ttnn op count (deallocate excluded). Items: the whole denoiser step, the token DiT (12 blocks), one
 AttentionPairBias and one ConditionedTransitionBlock, the atom encoder, and chains of 20 single ops at the
 token shape ([1, L, 768] bf16: add, multiply, sigmoid, layer_norm, 768x768 linear, 768x3072 linear), whose
-traced per-op time is the floor a fused program does not pay between ops. Then the draw runs normally.
+traced per-op time is the floor a fused program does not pay between ops, and the same chains with the
+activation in L1 (`x20_l1_*`). Then the draw runs normally.
 
     python perf/spd/dit_step_probe.py --model esmfold2-fast --fast --size 512 --out r.json
 """
@@ -154,6 +155,18 @@ def probe(head):
     for k, op in ops.items():
         bench(dev, f"x20_{k}", chain(op, x), 2 * n)
     bench(dev, "x20_linear768x3072", chain(lambda y: lin(x, tr.swish_w), x), 2 * n)
+    # the same chains with the activation in L1 (interleaved): what an op costs once it stops round-tripping DRAM
+    L1 = ttnn.L1_MEMORY_CONFIG
+    xl = ttnn.to_memory_config(x, L1)
+    ops_l1 = {
+        "add": lambda y: ttnn.add(y, xl, memory_config=L1),
+        "sigmoid": lambda y: ttnn.sigmoid(y, memory_config=L1),
+        "layer_norm": lambda y: ttnn.layer_norm(y, epsilon=1e-5, compute_kernel_config=ck, memory_config=L1),
+        "linear768": lambda y: lin(y, at.q_w, at.q_b, memory_config=L1),
+    }
+    for k, op in ops_l1.items():
+        bench(dev, f"x20_l1_{k}", chain(op, xl), 2 * n)
+    free(xl)
     res["t1"] = time.time()
     free([s, x, nt, rt])
     a.out.write_text(json.dumps(res, indent=1))
