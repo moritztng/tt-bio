@@ -10,7 +10,7 @@ W=$HOME/qb2-boarda-hang; D=$HOME/cfd3/qb2; M=$D/code_bhf/resident/mesh; PY=$HOME
 B=$1; T=$2; ITS=${3:-1100}; CAP=${CAP:-6500}
 case $B in A) C="0 1"; port=50090;; B) C="2 3"; port=50092;; *) echo "usage: $0 A|B TAG [ITS]"; exit 2;; esac
 CC=${C/ /,}; c1=${C% *}; c2=${C#* }; L=$W; O=$W/hk2_$T.status; IV=$D/img_small_k2_d0c8f_gw1
-SIN=$D/logs/qb2k2_D2A_case_1x2_state.npz; FJ=$HOME/spd/feed/jobs; until=$(date -d ${UNTIL:-2026-10-17T06:00:00Z} +%s)
+SIN=${SIN:-$D/logs/qb2k2_D2A_case_1x2_state.npz}; FJ=$HOME/spd/feed/jobs; until=$(date -d ${UNTIL:-2026-10-17T06:00:00Z} +%s)
 st() { echo "$(date -u +%FT%TZ) $*" >> $O; }
 quit() { { [ -e $W/STOP ] || [ $(date +%s) -ge $until ]; } && { st "gave up ($1)"; exit 0; }; }
 FL="--arch bh --mesh 1,2 --layout rcb --l1 0 --wplace 2 --gw 1 --nsh 1 --page 16 --nwin 8192 --tabstream --amg --amg-stack --amg-vec --amg-smoothed 0 --amg-min-core 10 --lsched --phase --sliced --fuse --cse 1 --hlate 1 --vpre 1 --vpost 1 --strips --forces $HOME/cfd2/acc/small_fc_controlDict:forceCoeffsAll --case $D/small_tt"
