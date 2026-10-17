@@ -1,4 +1,5 @@
-"""ESMFold2 token attention (_attn_fp32) with and without TT_BIO_ESMFOLD2_ATTN_QK_BF16, on one chip.
+"""ESMFold2 token attention (_attn_fp32): O as shipped, N with TT_BIO_ESMFOLD2_ATTN_QK_BF16, NB with that plus the
+bias already fp32 (TT_BIO_ESMFOLD2_ATTN_BIAS_F32 casts the cached bias once), on one chip.
 
 Shape of the token DiT at 512 aa: q/k/v [1,16,512,64] bf16 (head 48 padded to 64), bias [1,16,512,512] bf16,
 logits up to ~100. Reports per-arm ms/call, the max |diff| between the arms and each arm's rel-RMS against a
@@ -30,6 +31,7 @@ bias = torch.randn(1, H, N, N, generator=g) * 4.0
 q, k, v, bias = (x.bfloat16() for x in (q, k, v, bias))
 up = lambda x: ttnn.from_torch(x, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
 tq, tk, tv, tb = (up(x) for x in (q, k, v, bias))
+tb32 = ttnn.typecast(tb, ttnn.float32)
 scale = Dr ** -0.5
 
 lg = (q.double() @ k.double().transpose(-1, -2)) * scale + bias.double()
@@ -45,9 +47,9 @@ def ck(fid):
 rows = []
 for fname, fid in (("HiFi4", ttnn.MathFidelity.HiFi4), ("HiFi2", ttnn.MathFidelity.HiFi2)):
     outs = {}
-    for arm, on in (("O", False), ("N", True)):
+    for arm, on, b in (("O", False, tb), ("N", True, tb), ("NB", True, tb32)):
         E._ATTN_QK_BF16 = on
-        run = lambda: E._attn_fp32(tq, tk, tv, tb, scale, ck(fid))
+        run = lambda: E._attn_fp32(tq, tk, tv, b, scale, ck(fid))
         try:
             y = run(); ttnn.synchronize_device(dev)
             outs[arm] = ttnn.to_torch(y).double()
@@ -61,10 +63,11 @@ for fname, fid in (("HiFi4", ttnn.MathFidelity.HiFi4), ("HiFi2", ttnn.MathFideli
         except Exception as e:  # noqa: BLE001 -- report which arm the op set refuses
             rows.append({"n": N, "ck": fname, "arm": arm, "error": repr(e)[:300]})
         print(rows[-1], flush=True)
-    if len(outs) == 2:
-        rows.append({"n": N, "ck": fname, "max_diff_O_N": (outs["O"] - outs["N"]).abs().max().item(),
-                     "bit_identical": bool(torch.equal(outs["O"], outs["N"]))})
-        print(rows[-1], flush=True)
+    for arm in ("N", "NB"):
+        if "O" in outs and arm in outs:
+            rows.append({"n": N, "ck": fname, "vs": f"O-{arm}", "max_diff": (outs["O"] - outs[arm]).abs().max().item(),
+                         "bit_identical": bool(torch.equal(outs["O"], outs[arm]))})
+            print(rows[-1], flush=True)
 
 with open(a.out, "w") as f:
     for r in rows:
