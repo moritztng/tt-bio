@@ -38,6 +38,12 @@ SHAPES = {
     "at128": (5919, 128, 128, False),  # atom transformer
     "at256": (5919, 128, 256, False),
     "at256b": (5919, 256, 128, False),
+    # ESMFold2's token DiT (768 wide, 12 blocks) at 512 tokens and ONE sample: its draw runs 11.6k
+    # [512,768]-output linears a fold at ~70 us device each on Wormhole (census wtm Mops).
+    "ef2_d": (512, 768, 768, False, 1),
+    "ef2_a": (512, 768, 1536, False, 1),
+    "ef2_b": (512, 1536, 768, False, 1),
+    "ef2_qkv": (512, 768, 3072, True, 1),
 }
 SAMPLES = 5
 
@@ -151,10 +157,11 @@ def main():
 
     emit(ev="start", shapes=a.shapes, fam=a.fam)
     for name in a.shapes.split(","):
-        rows, k, n, has_bias = SHAPES[name]
+        rows, k, n, has_bias, *ns = SHAPES[name]
+        ns = ns[0] if ns else SAMPLES
         for fam in a.fam.split(","):
             tok = rows if fam == "normal" else min(rows, 730) if rows == 768 else rows
-            m = SAMPLES * tok
+            m = ns * tok
             mt, kt, nt = -(-m // 32), k // 32, n // 32
             acc = fam == "normal"
             arms = []   # (label, in dtype, w dtype, out dtype, fid, program or None)
@@ -188,7 +195,7 @@ def main():
             res = {}
             for d in range(a.draws):
                 torch.manual_seed(1000 + d)
-                A = torch.randn(SAMPLES, tok, k); W = torch.randn(k, n) / k ** 0.5
+                A = torch.randn(ns, tok, k); W = torch.randn(k, n) / k ** 0.5
                 Bv = torch.randn(n) * 0.1 if has_bias else None
                 R = A.double() @ W.double() + (Bv.double() if has_bias else 0)
                 ta = ttnn.from_torch(A, dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=dev)
