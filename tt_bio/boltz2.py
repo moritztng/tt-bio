@@ -1448,6 +1448,28 @@ class RelativePositionEncoder(Module):
         return (w[:, 0:n_pos].t(), w[:, o_tok:o_ent].t(), entity,
                 w[:, o_chain:o_chain + n_chain].t())
 
+    def joint_table(self, feats):
+        """``forward(feats)`` as ``(index [b, n, n] int32, table [U + 1, token_z])``.
+
+        Each pair's encoding depends only on its four indices, and a fold has a few hundred
+        distinct tuples of them, so the table holds each distinct sum once, added in the order
+        ``forward`` adds it, and ``table[index]`` equals ``forward(feats)`` bit for bit. Row 0 is
+        zero and no pair reads it, so a zero-padded index reads the zero pad.
+        """
+        d_residue, d_token, d_chain, same_entity = self.index_features(feats)
+        n_pos, n_chain = 2 * self.r_max + 2, 2 * self.s_max + 2
+        ids = ((d_residue * n_pos + d_token) * 2 + same_entity.long()) * n_chain + d_chain
+        uniq, index = torch.unique(ids, return_inverse=True)
+        t_res, t_tok, t_ent, t_chain = self.tables()
+        rest, d_chain = uniq.div(n_chain, rounding_mode="floor"), uniq % n_chain
+        rest, same_entity = rest.div(2, rounding_mode="floor"), rest % 2
+        d_residue, d_token = rest.div(n_pos, rounding_mode="floor"), rest % n_pos
+        rows = t_res[d_residue]
+        rows = rows + t_tok[d_token]
+        rows = rows + same_entity.unsqueeze(-1).float() * t_ent[1]
+        rows = rows + t_chain[d_chain]
+        return (index + 1).to(torch.int32), torch.cat([rows.new_zeros(1, rows.shape[-1]), rows])
+
     def forward(self, feats):
         d_residue, d_token, d_chain, b_same_entity = self.index_features(feats)
         if not _host_levers():
@@ -6019,13 +6041,12 @@ class Boltz2(nn.Module):
             if self.trace:
                 print("[boltz2] diffusion_conditioning")
             if device_conditioning:
-                if relative_position_encoding is None:
-                    # `device_zinit` built its own on the card and skipped this one. The
-                    # conditioning still wants the host tensor: it is summed in fp32 and rounded
-                    # once, and that is the rounding the shipped default was measured with.
-                    relative_position_encoding = self.rel_pos(feats)
+                # `device_zinit` built its own on the card and skipped this one; the
+                # conditioning gathers it from the encoder's joint table instead.
                 z_to_p, token_trans_bias = self._tt_cond_module()(
-                    device_z[0], relative_position_encoding, z.shape[1], device_z[1],
+                    device_z[0], relative_position_encoding
+                    if relative_position_encoding is not None else (self.rel_pos, feats),
+                    z.shape[1], device_z[1],
                 )
                 q, c, to_keys, atom_enc_bias, atom_dec_bias = (
                     self.diffusion_conditioning.forward_atoms(

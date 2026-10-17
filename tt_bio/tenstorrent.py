@@ -721,6 +721,8 @@ _FAST_MODE = False
 #   relp_gather     the Protenix family's trunk input projects relative position by one row gather from a per-fold
 #                   table (each distinct one-hot row summed once on the host lane) instead of uploading the
 #                   [N, N, 139] one-hot and multiplying it.
+#   relp_host       Boltz-2's diffusion conditioning builds the relative-position tensor on the host and uploads it
+#                   instead of gathering it from the encoder's joint table: the bit-exact A/B arm (no mode sets it).
 #   pib_where       OpenDDE's pair-init bias by the old 16-op where-chain instead of one gather from the joint
 #                   (128, c_z) table: the A/B arm for a change that must keep the fold digest (no mode sets it).
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
@@ -729,7 +731,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "transition_shard", "dit_mm16", "atom_k1", "dit_b8", "dit_qkv16", "atom_mm16", "adaln_mod",
           "swiglu_fc12g", "msa_sample", "dit_sdpa_pm", "dit_s16", "dit_chunk", "conf_bins", "trimul_t1", "trimul_t2",
           "trimul_t2g", "triatt_tail_bias", "dit_cond_hifi2", "transition_ws", "ws_ln", "trimul_t1_dram",
-          "trimul_t2m", "trimul_t2cm", "dit_fuse", "pair_mm", "ref_memo", "edm_device", "ws_l1acc", "ws_resid", "pib_where",
+          "trimul_t2m", "trimul_t2cm", "dit_fuse", "pair_mm", "ref_memo", "edm_device", "ws_l1acc", "ws_resid", "pib_where", "relp_host",
           "trimul_t2w", "narrow_bw16", "ws_l1dest", "opm_jd", "trimul_gin_hifi2", "trimul_gin_b8",
           "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine", "ef2_opm_kq", "ef2_relpos_lookup",
           "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit", "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384",
@@ -744,7 +746,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
 # ref_memo is host featurisation, OpenFold3 / OpenBind-0 only: one reference conformer per residue type
 # (vendored query.REF_MOL_MEMO), read by worker._predict_openfold3_one off the model's lever set.
 UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "dit_cond_hifi2", "ws_ln", "dit_fuse",
-                             "pair_mm", "ref_memo", "trimul_t2m", "edm_device", "ws_l1acc", "pib_where", "trimul_t2w",
+                             "pair_mm", "ref_memo", "trimul_t2m", "edm_device", "ws_l1acc", "pib_where", "relp_host", "trimul_t2w",
                              "narrow_bw16", "ws_l1dest", "trimul_gin_hifi2", "trimul_gin_b8",
                              "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine", "ef2_opm_kq",
                              "ef2_relpos_lookup", "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit",
@@ -17789,6 +17791,39 @@ class PairConditioningDevice:
                           compute_kernel_config=self.compute_kernel_config,
                           core_grid=CORE_GRID_MAIN)
 
+    @staticmethod
+    def _rel_pos(rel_pos, padded):
+        """The relative-position tensor on the card, ``[1, padded, padded, token_z]`` bf16.
+
+        It must be summed in fp32 and rounded to bf16 once: it drives the pairwise conditioner,
+        all 24 diffusion bias layers and the atom encoder through 200 sampling steps, and
+        `RelPosGather`'s per-term bf16 tables moved the 512 aa structure 1.54 A on the worst
+        pseudo-domain against a 0.60 A bar. ``rel_pos`` is that host tensor, or
+        ``(encoder, feats)``: then the encoder's joint table (each distinct fp32 sum, a few
+        hundred rows) is rounded exactly as `upload` would round the full tensor and gathered
+        here, so the result is the same bits without building and uploading 134 MB of fp32 on
+        the host (0.6 s a fold on a loaded Wormhole host). ``relp_host`` builds the tensor on
+        the host instead, the A/B arm.
+        """
+        if isinstance(rel_pos, tuple):
+            encoder, feats = rel_pos
+            if not lever("relp_host"):
+                index, table = encoder.joint_table(feats)
+                # `upload` rounds in torch above the device-tilize size and in ttnn below it.
+                if _device_tilize(_tile_numel((1, padded, padded, table.shape[-1])) * 2):
+                    table = table.to(torch.bfloat16)
+                table_tt = ttnn.from_torch(table.contiguous(), layout=ttnn.ROW_MAJOR_LAYOUT,
+                                           device=get_device(), dtype=ttnn.bfloat16)
+                out = pair_gather(index, table_tt, padded)
+                ttnn.deallocate(table_tt)
+                return out
+            rel_pos = encoder(feats)
+        pad = padded - rel_pos.shape[-2]
+        if pad:
+            rel_pos = torch.nn.functional.pad(rel_pos, (0, 0, 0, pad, 0, pad))
+        # `upload` tiles it on the card: the host tilize was 0.26 s a fold at 512 aa (py-spy, p150a).
+        return upload(rel_pos, ttnn.bfloat16, get_device())
+
     def __call__(self, z, relative_position_encoding, seq_len, seq_pad):
         """``(z_to_p, token_trans_bias)`` from the trunk's device pair tensor.
 
@@ -17798,19 +17833,7 @@ class PairConditioningDevice:
         wants.
         """
         self.wall.start()
-        # The relative-position tensor comes from the host, already summed in fp32 and rounded to
-        # bf16 exactly once on the way up. `RelPosGather` would build it here for free, but
-        # `ttnn.embedding` only takes bf16 tables, so the device form rounds every term before it
-        # adds them, and this tensor drives the pairwise conditioner, all 24 diffusion bias layers
-        # and the atom encoder through 200 sampling steps: measured, it moves the 512 aa structure
-        # 1.54 A on the worst pseudo-domain against a 0.60 A bar. The z_init assembly gathers its
-        # own copy, which is scored on its own control; this one stays where the shipped default
-        # put it.
-        rel_pos = relative_position_encoding
-        if seq_pad:
-            rel_pos = torch.nn.functional.pad(rel_pos, (0, 0, 0, seq_pad, 0, seq_pad))
-        # `upload` tiles it on the card: the host tilize was 0.26 s a fold at 512 aa (py-spy, p150a).
-        rel_pos_tt = upload(rel_pos, ttnn.bfloat16, get_device())
+        rel_pos_tt = self._rel_pos(relative_position_encoding, seq_len + seq_pad)
         self.wall.mark("rel_pos")
         x = ttnn.concat([z, rel_pos_tt], dim=-1)
         ttnn.deallocate(rel_pos_tt)
