@@ -42,17 +42,8 @@ import shutil
 import sys
 import time
 
-ENV_KNOBS = {"gsm": "RFD3_GATHERED_SOFTMAX", "bs": "RFD3_BLOCK_SPARSE",
-             "pzc": "RFD3_PROCESS_Z_COLLAPSE", "fgrid": "RFD3_FAST_GRID",
-             "asdpa": "RFD3_ATOM_SDPA", "tb8": "RFD3_TRANSITION_B8",
-             "dsdpa": "RFD3_DIT_SDPA", "hifi2": "RFD3_HIFI2", "sf": "RFD3_SIGMOID_FOLD",
-             "rs": "RFD3_RESIDENT_STEP", "pws": "RFD3_PAIR_WS", "kd": "RFD3_ATTN_KDTREE",
-             "pwb8": "RFD3_PAIR_WS_B8", "at": "RFD3_ATTN_THREAD", "dpb": "RFD3_DPB",
-             "apb": "RFD3_ATOM_PB_FUSED", "pdpb": "RFD3_PF_DPB", "css": "RFD3_CSS",
-             "pwr": "RFD3_PAIR_WS_RESID"}
-_arm = set(sys.argv[1].split("+")) if len(sys.argv) > 1 else set()
-for _k, _env in ENV_KNOBS.items():
-    os.environ[_env] = "1" if _k in _arm else "0"   # read at import, so before tt_bio.rfd3 loads
+from gap_knobs import ENV_KNOBS, apply                                   # noqa: E402
+_arm = apply(sys.argv[1] if len(sys.argv) > 1 else "")   # read at import, so before tt_bio.rfd3 loads
 
 sys.path.insert(0, os.getcwd())
 import ttnn                                                               # noqa: E402

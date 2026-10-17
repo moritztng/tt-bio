@@ -16,18 +16,13 @@ is measured on the warmup steps of the same run.
 """
 import collections, json, os, pathlib, shutil, statistics, sys, time
 
-ENV_KNOBS = {"gsm": "RFD3_GATHERED_SOFTMAX", "bs": "RFD3_BLOCK_SPARSE",
-             "pzc": "RFD3_PROCESS_Z_COLLAPSE", "fgrid": "RFD3_FAST_GRID",
-             "asdpa": "RFD3_ATOM_SDPA", "tb8": "RFD3_TRANSITION_B8",
-             "dsdpa": "RFD3_DIT_SDPA", "hifi2": "RFD3_HIFI2", "sf": "RFD3_SIGMOID_FOLD",
-             "rs": "RFD3_RESIDENT_STEP", "pws": "RFD3_PAIR_WS", "kd": "RFD3_ATTN_KDTREE"}
+from gap_knobs import apply                                               # noqa: E402
 args = [a for a in sys.argv[1:] if not a.startswith("--")]
 opts = dict(a[2:].split("=", 1) for a in sys.argv[1:] if a.startswith("--") and "=" in a)
 ARM, OUT = args[0], pathlib.Path(args[1])
 STEPS = int(args[2]) if len(args) > 2 else 8
 WARM = 3
-for _k, _env in ENV_KNOBS.items():
-    os.environ[_env] = "1" if _k in set(ARM.split("+")) else "0"   # read at import
+apply(ARM)   # read at import
 
 sys.path.insert(0, os.getcwd())
 from tt_bio.main import ensure_p300_mesh_descriptor                      # noqa: E402
