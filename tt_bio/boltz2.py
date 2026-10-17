@@ -1718,17 +1718,25 @@ def single_to_keys(single, indexing_matrix, W, H):
     )  # j = 2K, i = W//2, k = h * K
 
 
+def atom_window_tokens(atom_to_token, to_keys, K, W, H):
+    """``(tok_q [B, K, W], tok_k [B, K, H], keep [B, K, W, H])``: each window's query and key token
+    index, and 1 where both atoms are real (0 for padding or a key slot past the sequence)."""
+    B = atom_to_token.shape[0]
+    valid = atom_to_token.amax(-1)                          # 1 for a real atom, 0 for padding
+    tok = atom_to_token.argmax(-1).to(atom_to_token.dtype)  # token index, exact in fp32
+    tok_q = tok.view(B, K, W).long()
+    tok_k = to_keys(tok.unsqueeze(-1)).view(B, K, H).long()
+    keep = valid.view(B, K, W, 1) * to_keys(valid.unsqueeze(-1)).view(B, K, 1, H)
+    return tok_q, tok_k, keep
+
+
 def pair_to_atom_windows(z, atom_to_token, to_keys, K, W, H):
     """``einsum("bijd,bwki,bwlj->bwkld", z, queries, keys)`` over the one-hot ``atom_to_token``,
     done as the gather it is: entry (w, k, l) is ``z[token(query k), token(key l)]``, or 0 where
     either atom is padding. Same values (each einsum sum has one nonzero term), without the
     dense contraction over both token axes that cost ~0.2 s per fold on the host."""
     B = z.shape[0]
-    valid = atom_to_token.amax(-1)                          # 1 for a real atom, 0 for padding
-    tok = atom_to_token.argmax(-1).to(atom_to_token.dtype)  # token index, exact in fp32
-    tok_q = tok.view(B, K, W).long()
-    tok_k = to_keys(tok.unsqueeze(-1)).view(B, K, H).long()
-    keep = valid.view(B, K, W, 1) * to_keys(valid.unsqueeze(-1)).view(B, K, 1, H)
+    tok_q, tok_k, keep = atom_window_tokens(atom_to_token, to_keys, K, W, H)
     b = torch.arange(B, device=z.device).view(B, 1, 1, 1)
     out = z[b, tok_q.unsqueeze(-1), tok_k.unsqueeze(-2)]    # [B, K, W, H, D]
     return out * keep.unsqueeze(-1).to(out.dtype)
@@ -2841,13 +2849,18 @@ class DiffusionConditioning(Module):
 
         return q, c, to_keys, atom_enc_bias, atom_dec_bias, token_trans_bias
 
-    def forward_atoms(self, s_trunk, z_to_p, feats):
+    def forward_atoms(self, s_trunk, z_to_p, feats, pair_dev=None):
         """The atom track of ``forward``, with the pair track already done on the device.
 
         ``tenstorrent.PairConditioningDevice`` produces ``z_to_p`` and the token bias; this is
         the rest, and it is the only part of the conditioning that is not a channel map over the
-        pair tensor.
+        pair tensor. With ``pair_dev`` (``tenstorrent.AtomPairDevice``) ``z_to_p`` is still on the
+        card and the atom-pair tensor and both bias stacks are built there too.
         """
+        if pair_dev is not None:
+            q, c = self.atom_encoder.single(feats, s_trunk)
+            enc, dec, to_keys = pair_dev(self.atom_encoder, feats, c, z_to_p)
+            return q, c, to_keys, enc, dec
         q, c, p, to_keys = self.atom_encoder(
             feats=feats, s_trunk=s_trunk, z_to_p=z_to_p,
         )
@@ -5852,6 +5865,18 @@ class Boltz2(nn.Module):
             self._tt_cond = cond
         return cond
 
+    def _tt_atom_pair_module(self):
+        """Lazily build the device atom-pair module (``atomp_dev``, TT path only). Cached."""
+        mod = getattr(self, "_tt_atom_pair", None)
+        if mod is None:
+            dc = self.diffusion_conditioning
+            mod = tenstorrent.AtomPairDevice(
+                dc.atom_encoder, _fuse_bias_stack(dc.atom_enc_proj_z),
+                _fuse_bias_stack(dc.atom_dec_proj_z), self.msa_module.compute_kernel_config,
+            )
+            self._tt_atom_pair = mod
+        return mod
+
     @_under_levers
     def load_state_dict(self, *a, **kw):
         # The device modules are built here (TorchWrapper._load_from_state_dict).
@@ -6056,14 +6081,15 @@ class Boltz2(nn.Module):
             if device_conditioning:
                 # `device_zinit` built its own on the card and skipped this one; the
                 # conditioning gathers it from the encoder's joint table instead.
+                pair_dev = self._tt_atom_pair_module() if tenstorrent.lever("atomp_dev") else None
                 z_to_p, token_trans_bias = self._tt_cond_module()(
                     device_z[0], relative_position_encoding
                     if relative_position_encoding is not None else (self.rel_pos, feats),
-                    z.shape[1], device_z[1],
+                    z.shape[1], device_z[1], keep_z_to_p=pair_dev is not None,
                 )
                 q, c, to_keys, atom_enc_bias, atom_dec_bias = (
                     self.diffusion_conditioning.forward_atoms(
-                        s_trunk=s, z_to_p=z_to_p, feats=feats,
+                        s_trunk=s, z_to_p=z_to_p, feats=feats, pair_dev=pair_dev,
                     )
                 )
             else:
