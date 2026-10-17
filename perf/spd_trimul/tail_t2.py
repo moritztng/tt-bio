@@ -26,8 +26,6 @@ ap.add_argument("--gb8", action="store_true",
                 help="g uploaded as bfp8, as trimul_b8in writes g_out (both arms read it; the reference keeps bf16 g)")
 ap.add_argument("--abl", default="",
                 help="comma list of T2_ABL stage-ablation masks also timed after the full T2 (bench only)")
-ap.add_argument("--pipe", action="store_true",
-                help="also run T2 with the pipelined reader (T2_PIPE): bit-equality to the default reader and its ms")
 ap.add_argument("--out", help="also append each JSON line here (the qb runner passes it)")
 A = ap.parse_args()
 
@@ -135,16 +133,6 @@ for n in [int(s) for s in A.ns.split(",") if s]:
                 rec[f"t2_ms_abl{m}"] = timed(lambda: TT.fused_tail_ln(
                     d["x"], d["gamma"], d["beta"], d["w"], d["g"], z, ckc, grid, wg=wg), A.reps)
             TT.T2_ABL = 0
-            if A.pipe:
-                pipe0, TT.T2_PIPE = TT.T2_PIPE, not TT.T2_PIPE
-                zp = up(h["z"])
-                yp = TT.fused_tail_ln(d["x"], d["gamma"], d["beta"], d["w"], d["g"], zp, ckc, grid, wg=wg)
-                rec["pipe_exact"] = bool(torch.equal(ttnn.to_torch(yp).reshape(ref.shape), out))
-                rec["pipe_ms"] = timed(lambda: TT.fused_tail_ln(d["x"], d["gamma"], d["beta"], d["w"],
-                                                                d["g"], zp, ckc, grid, wg=wg), A.reps)
-                rec["pipe_on"] = TT.T2_PIPE
-                ttnn.deallocate(zp)
-                TT.T2_PIPE = pipe0
         ttnn.deallocate(z)
     except Exception as e:                                                    # noqa: BLE001
         rec["t2_err"] = str(e).splitlines()[0][:300]

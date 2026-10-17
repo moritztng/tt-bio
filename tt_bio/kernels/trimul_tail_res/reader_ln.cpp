@@ -19,10 +19,7 @@ void kernel_main() {
     constexpr uint32_t SCALER = get_compile_time_arg_val(3);   // packed bf16 pair
     constexpr uint32_t EPS = get_compile_time_arg_val(4);      // fp32 bits
     constexpr uint32_t GATE = get_compile_time_arg_val(5);
-    // 1: x of block b + 1 is read together with g and z of block b under one barrier, so the read queue
-    // does not drain twice a block. Same pages to the same slots; compute already holds x of block b.
-    constexpr uint32_t PIPE = get_compile_time_arg_val(6);
-    constexpr auto x_args = TensorAccessorArgs<7>();
+    constexpr auto x_args = TensorAccessorArgs<6>();
     constexpr auto w_args = TensorAccessorArgs<x_args.next_compile_time_args_offset()>();
     constexpr auto g_args = TensorAccessorArgs<w_args.next_compile_time_args_offset()>();
     constexpr auto z_args = TensorAccessorArgs<g_args.next_compile_time_args_offset()>();
@@ -76,25 +73,13 @@ void kernel_main() {
     cb_push_back(gamma_cb, Kt);
     cb_push_back(beta_cb, Kt);
 
-    auto read_x = [&](uint32_t m) {
-        cb_reserve_back(in0_cb, Mb * Kt);
-        uint32_t wx = get_write_ptr(in0_cb);
-        for (uint32_t t = 0; t < Mb * Kt; ++t, wx += tb) noc_async_read_page(m * Kt + t, x, wx);
-    };
-    if constexpr (PIPE) {
-        if (nblocks) {
-            read_x(m0);
-            noc_async_read_barrier();
-            cb_push_back(in0_cb, Mb * Kt);
-        }
-    }
     for (uint32_t b = 0; b < nblocks; ++b) {
         const uint32_t m = m0 + b * Mb;
-        if constexpr (!PIPE) {
-            read_x(m);
-            noc_async_read_barrier();
-            cb_push_back(in0_cb, Mb * Kt);
-        }
+        cb_reserve_back(in0_cb, Mb * Kt);
+        w = get_write_ptr(in0_cb);
+        for (uint32_t t = 0; t < Mb * Kt; ++t, w += tb) noc_async_read_page(m * Kt + t, x, w);
+        noc_async_read_barrier();
+        cb_push_back(in0_cb, Mb * Kt);
 
         cb_reserve_back(g_cb, Mb * gt);
         w = get_write_ptr(g_cb);
@@ -102,11 +87,8 @@ void kernel_main() {
         cb_reserve_back(z_cb, Mb * Nt);
         uint32_t wz = get_write_ptr(z_cb);
         for (uint32_t t = 0; t < Mb * Nt; ++t, wz += tb) noc_async_read_page(m * Nt + t, z, wz);
-        const bool next = PIPE && b + 1 < nblocks;
-        if (next) read_x(m + Mb);
         noc_async_read_barrier();
         cb_push_back(g_cb, Mb * gt);
         cb_push_back(z_cb, Mb * Nt);
-        if (next) cb_push_back(in0_cb, Mb * Kt);
     }
 }
