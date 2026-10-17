@@ -6,7 +6,9 @@ Boltz-2 --fast on Wormhole projects six [512, 768] x [768, 768] terms a layer a 
 the four with bias + sigmoid read 42 us a call, the two without either read 28.6 us, so the epilogue costs ~13 us on
 19200 calls a fold (~0.26 s). The arms split bias from sigmoid and try `kfold`: the bias as one more K row of the
 weight, the activation carrying a ones column, so the matmul has no bias epilogue at all (K 768 -> 800). N 3072 is
-the token attention's qkv projection (bias on q), 107 us a call on WH in cen7, same question.
+the token attention's qkv projection (bias on q), 107 us a call on WH in cen7, same question. N 36864 is the cond
+hoist under dit_shoist. `*_sep` arms run the sigmoid as a separate ttnn.sigmoid: on Blackhole (condbh, p300c 1350 MHz)
+the bias costs ~1 us and the fused sigmoid 7-21 us, so the question there is the epilogue, not the bias.
 
 Device time is a captured trace replayed back to back (op_probe.dev_time), median of 7 batches, AICLK of the opened
 node. Error is against float64 with op_probe's wrong-pixel rule.
@@ -51,6 +53,10 @@ def bench(dev, nodes, emit, N):
             ("kfold", "bias", lambda: ttnn.linear(tak, twk, compute_kernel_config=ckc)),
             ("kfold_sig", "bias_sig", lambda: ttnn.linear(tak, twk, compute_kernel_config=ckc,
                                                            activation="sigmoid")),
+            # the sigmoid as its own eltwise op over all cores instead of the matmul's epilogue
+            ("sig_sep", "sig", lambda: ttnn.sigmoid(ttnn.linear(ta, tw, compute_kernel_config=ckc))),
+            ("bias_sig_sep", "bias_sig", lambda: ttnn.sigmoid(ttnn.linear(ta, tw, bias=tb,
+                                                                          compute_kernel_config=ckc))),
         ]
         for lab, ref, fn in arms:
             try:
@@ -68,6 +74,8 @@ def bench(dev, nodes, emit, N):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", type=Path, required=True)
+    # 36864 = Boltz-2's hoisted DiT cond projection under dit_shoist (BH: 755 us with bias + sigmoid, 436 us without)
+    ap.add_argument("--n", type=int, nargs="+", default=[768, 3072, 36864])
     a = ap.parse_args()
     torch.set_num_threads(8)
     dev = T.get_device(trace="protenix")
@@ -78,7 +86,7 @@ def main():
         kw.setdefault("aiclk", aiclk(nodes)); kw.update(arch=T.arch_name(), t=time.time())
         log.write(json.dumps(kw) + "\n"); log.flush(); print(json.dumps(kw), flush=True)
 
-    for N in (768, 3072):
+    for N in a.n:
         bench(dev, nodes, emit, N)
     emit(ev="end")
 
