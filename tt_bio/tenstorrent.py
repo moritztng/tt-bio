@@ -714,8 +714,6 @@ _FAST_MODE = False
 #   dit_cond_kfold  Boltz-2's token-DiT conditioning linears (dit_cond_jit's per-layer ones, and the hoist's under
 #                   dit_shoist) carry their bias as one more K row of the weight against a ones column appended to
 #                   s, so the matmul runs without a bias epilogue.
-#   dit_sig_sep     the same linears' sigmoid as its own ttnn.sigmoid over the whole grid instead of the matmul's
-#                   epilogue (Blackhole: the fused sigmoid costs 7-21 us a [512, 768] x [768, N] call, the bias ~1 us).
 #   apb_cat         the token attention's head re-assembly as one nlp_concat_heads, gate and output projection on
 #                   the padded head lanes (what TT_BIO_APB_CONCAT_HEADS does at load, exact), with the wide
 #                   weights re-laned from the bf16 device copies on the first call that takes it.
@@ -738,7 +736,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine", "ef2_opm_kq", "ef2_relpos_lookup",
           "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit", "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384",
           "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
-          "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "trimul_bres", "dit_cond_kfold", "dit_sig_sep")
+          "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "trimul_bres", "dit_cond_kfold")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -754,7 +752,7 @@ UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "di
                              "ef2_relpos_lookup", "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit",
                              "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384",
                              "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
-                             "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "dit_cond_kfold", "dit_sig_sep"})
+                             "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "dit_cond_kfold"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -15209,20 +15207,20 @@ class DiffusionTransformer(Module):
             if split and lever("dit_cond_kfold"):
                 swk, bw, owk = self._cond_weights_kfold()
                 s_hk, s_k = self._ones_tile(s_hat), self._ones_tile(s)
-                o_ad = (_linear_sigmoid(s_hk, swk, None, ckc),
+                o_ad = (ttnn.linear(s_hk, swk, compute_kernel_config=ckc, activation="sigmoid"),
                         ttnn.linear(s_hat, bw, compute_kernel_config=ckc))
-                o_op = _linear_sigmoid(s_k, owk, None, ckc)
+                o_op = ttnn.linear(s_k, owk, compute_kernel_config=ckc, activation="sigmoid")
                 for t in (s_hk, s_k):
                     ttnn.deallocate(t)
             else:
                 adw, adb, opw, opb = self._cond_weights()
                 if split:
                     sw, sb, bw = self._cond_weights_split()
-                    o_ad = (_linear_sigmoid(s_hat, sw, sb, ckc),
+                    o_ad = (ttnn.linear(s_hat, sw, bias=sb, compute_kernel_config=ckc, activation="sigmoid"),
                             ttnn.linear(s_hat, bw, compute_kernel_config=ckc))
                 else:
                     o_ad = ttnn.linear(s_hat, adw, bias=adb, compute_kernel_config=ckc)
-                o_op = _linear_sigmoid(s, opw, opb, ckc)
+                o_op = ttnn.linear(s, opw, bias=opb, compute_kernel_config=ckc, activation="sigmoid")
             ttnn.deallocate(s_hat)
             cond_all = (o_ad, o_op)
 
@@ -15247,8 +15245,8 @@ class DiffusionTransformer(Module):
                 s_hat, wp, (s_hb, s_b) = jit
                 sw0, sb0, bw0, sw1, sb1, bw1, ow0, ob0, ow1, ob1 = wp[i]
                 ckc = self.compute_kernel_config
-                lin = lambda x, w, b=None, act=None: (  # noqa: E731
-                    _linear_sigmoid(x, w, b, ckc) if act else ttnn.linear(x, w, bias=b, compute_kernel_config=ckc))
+                lin = lambda x, w, b=None, act=None: ttnn.linear(  # noqa: E731
+                    x, w, bias=b, compute_kernel_config=ckc, activation=act)
                 parts = [lin(s_hb, sw0, sb0, "sigmoid"), lin(s_hat, bw0),
                          lin(s_hb, sw1, sb1, "sigmoid"), lin(s_hat, bw1),
                          lin(s_b, ow0, ob0, "sigmoid"), lin(s_b, ow1, ob1, "sigmoid")]
@@ -15301,16 +15299,6 @@ class DiffusionTransformer(Module):
                 for x in cond_all:
                     for t in (x if isinstance(x, tuple) else (x,)):
                         ttnn.deallocate(t)
-
-
-def _linear_sigmoid(x, w, b, ckc):
-    """sigmoid(x @ w + b): the matmul's sigmoid epilogue, or under `dit_sig_sep` a separate ttnn.sigmoid."""
-    if not lever("dit_sig_sep"):
-        return ttnn.linear(x, w, bias=b, compute_kernel_config=ckc, activation="sigmoid")
-    y = ttnn.linear(x, w, bias=b, compute_kernel_config=ckc)
-    out = ttnn.sigmoid(y)
-    ttnn.deallocate(y)
-    return out
 
 
 def _bias_row(w, b):
