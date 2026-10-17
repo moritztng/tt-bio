@@ -146,7 +146,8 @@ def test_a_gate_runs_from_its_own_worktree_removed_once_the_gate_ended(tmp_path,
 
 def test_merge_back_takes_the_release_files_main_left_alone_and_keeps_mains_notes(tmp_path, monkeypatch):
     """rel/v0.17.0 and rel/v0.18.0 were never merged back, so main graded every later gate against
-    the pre-0.18.0 ladder baselines and failed census lines 0.18.0 had accepted."""
+    the pre-0.18.0 ladder baselines and failed census lines 0.18.0 had accepted. And 0.19.0's merge
+    kept main's whole README and pyproject, which main had touched, so main still pinned v0.18.0."""
     origin, repo = tmp_path / "origin.git", tmp_path / "repo"
     subprocess.run(["git", "init", "-q", "--bare", "-b", "main", str(origin)], check=True)
     subprocess.run(["git", "clone", "-q", str(origin), str(repo)], check=True, capture_output=True)
@@ -164,12 +165,14 @@ def test_merge_back_takes_the_release_files_main_left_alone_and_keeps_mains_note
         return git("rev-parse", "HEAD")
 
     sha = commit({"CHANGELOG.md": "## [Unreleased]\n- a\n", "base.json": "old\n", "touched.json": "old\n",
-                  "pyproject.toml": 'version = "0.1.0"\n'}, "gated")
+                  "pyproject.toml": 'version = "0.1.0"\n', "README.md": "pip tt-bio.git@v0.1.0\n"}, "gated")
     git("push", "-q", "origin", "HEAD:main")
     rel = commit({"CHANGELOG.md": "## [Unreleased]\n\n## [0.2.0]\n- a\n", "base.json": "recorded\n",
-                  "touched.json": "recorded\n", "pyproject.toml": 'version = "0.2.0"\n'}, "Release 0.2.0")
+                  "touched.json": "recorded\n", "pyproject.toml": 'version = "0.2.0"\n',
+                  "README.md": "pip tt-bio.git@v0.2.0\n"}, "Release 0.2.0")
     git("checkout", "-q", "--detach", sha)
-    commit({"CHANGELOG.md": "## [Unreleased]\n- b\n- a\n", "touched.json": "main's\n"}, "later on main")
+    commit({"CHANGELOG.md": "## [Unreleased]\n- b\n- a\n", "touched.json": "main's\n",
+            "README.md": "new line\npip tt-bio.git@v0.1.0\n"}, "later on main")
     git("push", "-q", "origin", "HEAD:main")
     monkeypatch.setattr(rt, "REPO", repo)
 
@@ -179,5 +182,6 @@ def test_merge_back_takes_the_release_files_main_left_alone_and_keeps_mains_note
     assert git("show", f"{m}:base.json") == "recorded"
     assert git("show", f"{m}:pyproject.toml") == 'version = "0.2.0"'
     assert git("show", f"{m}:touched.json") == "main's"
-    assert git("show", f"{m}:CHANGELOG.md") == "## [Unreleased]\n- b\n- a"
+    assert git("show", f"{m}:README.md") == "new line\npip tt-bio.git@v0.2.0"
+    assert git("show", f"{m}:CHANGELOG.md") == "## [Unreleased]\n\n- b\n\n## [0.2.0]\n- a"
     assert rt.merge_back(rel, sha, "origin") == m          # already merged: nothing new

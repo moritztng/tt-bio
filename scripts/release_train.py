@@ -87,10 +87,30 @@ def release_files(tree: Path, version: str, body: str, day: str) -> None:
     m = SECTION.search(text)
     assert m and m["name"] == "Unreleased", "CHANGELOG.md has no [Unreleased] section first"
     cl.write_text(text[:m.start()] + f"## [Unreleased]\n\n## [{version}] - {day}\n\n{body}\n\n" + text[m.end():])
-    pp = tree / "pyproject.toml"
-    pp.write_text(re.sub(r'^version = "[^"]*"', f'version = "{version}"', pp.read_text(), count=1, flags=re.M))
-    rd = tree / "README.md"
-    rd.write_text(re.sub(r"(tt-bio\.git@)v\d+\.\d+\.\d+", rf"\g<1>v{version}", rd.read_text()))
+    for f in ("pyproject.toml", "README.md"):
+        (tree / f).write_text(stamp(f, (tree / f).read_text(), version))
+
+
+def stamp(f: str, text: str, version: str) -> str:
+    """Release file `f` (pyproject.toml or README.md) with its version line or pinned install tag at `version`."""
+    if f == "pyproject.toml":
+        return re.sub(r'^version = "[^"]*"', f'version = "{version}"', text, count=1, flags=re.M)
+    return re.sub(r"(tt-bio\.git@)v\d+\.\d+\.\d+", rf"\g<1>v{version}", text)
+
+
+def carry(f: str, main: str, rel: str, version: str) -> str:
+    """Release file `f` as main's text with the release commit's own change on top (`rel` is f at the release):
+    `version` for pyproject.toml and README.md; for CHANGELOG.md the release's section below an [Unreleased]
+    that keeps only main's notes the release did not ship."""
+    if f != "CHANGELOG.md":
+        return stamp(f, main, version)
+    sec = next(m for m in SECTION.finditer(rel) if m["name"] != "Unreleased")
+    if f"## [{sec['name']}]" in main:
+        return main
+    m = SECTION.search(main)
+    newer = notes(main, rel)
+    return (main[:m.start()] + "## [Unreleased]\n\n" + (newer + "\n\n" if newer else "")
+            + sec[0].rstrip("\n") + "\n\n" + main[m.end():]).rstrip("\n") + "\n"
 
 
 RELEASE_FILES = ("CHANGELOG.md", "README.md", "pyproject.toml")
@@ -147,13 +167,20 @@ def merge_back(rel: str, sha: str, remote: str) -> str:
     Nothing merged rel/v0.17.0 or rel/v0.18.0 back, so main kept the pre-0.18.0 ladder baselines and
     the gates on b30aa6d7a and 5e250928a failed four Blackhole ladders on census lines 0.18.0 had
     already accepted. Each file the release changed is taken where main has not touched it since
-    `sha`; CHANGELOG.md stays main's, whose [Unreleased] already holds notes newer than the release."""
+    `sha`. The release's own files are main's with the release on top (carry): main had moved README.md
+    and pyproject.toml since 0.19.0's gated commit, and taking main's whole file left main pinning
+    v0.18.0 after 0.19.0 shipped."""
     with tempfile.TemporaryDirectory() as d:
         env = {**os.environ, "GIT_INDEX_FILE": str(Path(d) / "index")}
 
         def plumb(*a):
             return subprocess.run(["git", "-C", str(REPO), *a], check=True, capture_output=True, text=True,
                                   env=env).stdout.strip()
+
+        def show(c, f):
+            return subprocess.run(["git", "-C", str(REPO), "show", f"{c}:{f}"], check=True, capture_output=True,
+                                  text=True).stdout
+        version = re.search(r'^version = "([^"]*)"', show(rel, "pyproject.toml"), re.M)[1]
         for _ in range(3):
             plumb("fetch", "-q", remote, "main")
             main = plumb("rev-parse", f"{remote}/main")
@@ -161,7 +188,12 @@ def merge_back(rel: str, sha: str, remote: str) -> str:
                 return main
             plumb("read-tree", main)
             for f in plumb("diff", "--name-only", sha, rel).splitlines():
-                if f != "CHANGELOG.md" and plumb("ls-tree", sha, "--", f) == plumb("ls-tree", main, "--", f):
+                if f in RELEASE_FILES:
+                    text = carry(f, show(main, f), show(rel, f), version)
+                    blob = subprocess.run(["git", "-C", str(REPO), "hash-object", "-w", "--stdin"], input=text,
+                                          check=True, capture_output=True, text=True).stdout.strip()
+                    plumb("update-index", "--cacheinfo", f"{plumb('ls-tree', main, '--', f).split()[0]},{blob},{f}")
+                elif plumb("ls-tree", sha, "--", f) == plumb("ls-tree", main, "--", f):
                     if entry := plumb("ls-tree", rel, "--", f).split():
                         plumb("update-index", "--cacheinfo", f"{entry[0]},{entry[2]},{f}")
                     else:
