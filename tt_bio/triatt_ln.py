@@ -40,6 +40,8 @@ TILE = 32
 RB = 4          # row tiles per reader barrier
 #: the ending variant norms z^T straight out of z (reader.cpp TR) instead of transposing first
 TR = True
+#: round the output pack to nearest even (compute.cpp RNE); off, the pack truncates as trimul T1 ships
+RNE = 0
 _CACHE: dict = {}
 #: (served, declined)
 STATS = [0, 0]
@@ -158,7 +160,7 @@ def _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw):
     fid, approx, _, full = ckc
     compute = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "compute.cpp"), source_type=src, core_ranges=core_grid,
-        compile_time_args=[kt, nw, 0], runtime_args=cp,   # RNE off: pack truncates, as T1 ships
+        compile_time_args=[kt, nw, RNE], runtime_args=cp,
         config=ttnn.ComputeConfigDescriptor(math_fidelity=fid, math_approx_mode=approx,
                                             fp32_dest_acc_en=True, dst_full_sync_en=full))
     cbs = [_cb(0, core_grid, kt * nw), _cb(1, core_grid, 2 * kt), _cb(2, core_grid, 2 * nw),
@@ -192,6 +194,11 @@ def ln_qkvgb_heads(x, ln_w, ln_b, w, ckc, n_heads, head_dim, bias_channels, grid
     if transposed and (not TR or shp[0] != shp[1] or shp[0] % TILE):
         return _reject("tr_shape", x)
     plan = _plan(K // TILE, int(w.padded_shape[-1]) // TILE, transposed, x.device(), grid[0] * grid[1])
+    if plan is not None and transposed and plan[0] > 1:
+        # Each group would gather x^T in 1 KB pieces on its own: 13.99 ms against 13.62 for transpose,
+        # norm and project (OpenDDE S512, Wormhole HiFi4, 1000 MHz). The caller transposes and comes
+        # back without `transposed`, which beats both.
+        return _reject("tr_groups", x)
     if plan is None:
         return _reject(f"l1:kt{K // TILE}:nw{int(w.padded_shape[-1]) // TILE}:tr{int(transposed)}", x)
     dev = x.device()
@@ -205,7 +212,7 @@ def ln_qkvgb_heads(x, ln_w, ln_b, w, ckc, n_heads, head_dim, bias_channels, grid
 def _launch(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tag, plan):
     g, nw, tr = plan
     key = (x.device().id(), tuple(int(d) for d in x.padded_shape), tuple(int(d) for d in w.padded_shape), H, tag,
-           tuple(grid), tuple(str(a) for a in ckc), float(eps), plan)
+           tuple(grid), tuple(str(a) for a in ckc), float(eps), plan, RNE)
     entry = _CACHE.get(key)
     if entry is None:
         entry = _CACHE[key] = _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw)
