@@ -449,6 +449,10 @@ _CSS_STEP = {}
 # 0.40 + 0.10 ms per tensor at 6051 atoms, 27 tensors a step). Data movement only, same values. Only where
 # head_dim is a tile multiple (the DiT's 48 has its own padded path). Off while measured.
 _QKV_HEADS = env_flag("RFD3_QKV_HEADS", False)
+# The same for the gated cross attention (downcast/upcast, ~13 calls a step): q and the k|v concat go through
+# one `nlp_create_qkv_heads` that also hands back k transposed, instead of a 5D reshape (heads tile-padded to
+# 32 rows) + permute + reshape per tensor and a transpose of k. ~15 ms/step on WH fast. Off while measured.
+_GCA_HEADS = env_flag("RFD3_GCA_HEADS", False)
 _ATOM_SDPA_CHUNKS = tuple(int(x) for x in os.environ.get("RFD3_ATOM_SDPA_CHUNKS", "160,320").split(","))
 # ttnn.gather (0.68.0) on dim 3 silently returns wrong data for every tile-row after the first
 # once the indexed axis exceeds this many elements: 99.87 % of elements wrong at the production
@@ -2237,11 +2241,29 @@ class GatedCrossAttention(Module):
 
         # `gg` stays unsplit -- see _merge_heads / AttentionPairBias: an elementwise gate
         # commutes with the head merge exactly, so one split per call disappears.
-        qq = split(qq, n_query)
-        kk = split(kk, n_key)
-        vv = split(vv, n_key)
+        if _GCA_HEADS and self.head_dim % TILE == 0 and align_tile(n_query) == align_tile(n_key):
+            # Both row counts pad to one tile, which is all the kernel checks; it labels every output with
+            # q's row count, so k and v get theirs back by a view (same padded shape).
+            bt, hp = batch * tokens, self.n_head * self.head_dim
+            kvh = ttnn.concat([kk, vv], dim=-1)
+            ttnn.deallocate(kk)
+            ttnn.deallocate(vv)
+            qq, kt, vv = ttnn.experimental.nlp_create_qkv_heads(
+                ttnn.reshape(qq, (bt, 1, n_query, hp)), ttnn.reshape(kvh, (bt, 1, n_key, 2 * hp)),
+                num_heads=self.n_head, num_kv_heads=self.n_head, transpose_k_heads=True,
+                memory_config=ttnn.DRAM_MEMORY_CONFIG)
+            ttnn.deallocate(kvh)
+            pad = align_tile(n_key)
+            kt = ttnn.reshape(kt, ttnn.Shape([bt, self.n_head, self.head_dim, n_key]),
+                              ttnn.Shape([bt, self.n_head, self.head_dim, pad]))
+            vv = ttnn.reshape(vv, ttnn.Shape([bt, self.n_head, n_key, self.head_dim]),
+                              ttnn.Shape([bt, self.n_head, pad, self.head_dim]))
+        else:
+            qq = split(qq, n_query)
+            kt = ttnn.permute(split(kk, n_key), (0, 1, 3, 2))
+            vv = split(vv, n_key)
         scores = ttnn.matmul(
-            qq, ttnn.permute(kk, (0, 1, 3, 2)), compute_kernel_config=ckc,
+            qq, kt, compute_kernel_config=ckc,
             core_grid=_grid_if_single_k_tile(qq),
         )
         scores = ttnn.multiply(scores, self.head_dim**-0.5)
