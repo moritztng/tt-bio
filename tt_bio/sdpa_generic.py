@@ -849,6 +849,9 @@ def sdpa(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scal
            # this key correctly issues a second program for it -- that extra compile is the point,
            # since it is what stops the narrowed destination from colliding with the bf16 one.
            str(q.dtype), str(k.dtype), str(v.dtype), str(mask.dtype), str(out.dtype),
+           # Each operand's accessor compiles in whether it is DRAM or L1, so a program built for DRAM q/k
+           # reads the wrong memory when handed L1 ones (SaProt's RoPE leaves q, k in L1).
+           tuple(str(t.memory_config().buffer_type) for t in (q, k, v, mask, out)),
            q_chunk_size, k_chunk_size, grid, tuple(str(c) for c in ckc),
            # `build` compiles the softmax scale into the writer and compute kernels. Without it
            # here two sites with equal padded shapes and different head dims share a program:

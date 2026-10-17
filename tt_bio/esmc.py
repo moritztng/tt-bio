@@ -310,6 +310,8 @@ def _sdpa_mask(attn_mask, device=None, dtype=None):
 # error equal to the stock op's. None = on for Wormhole (untested on Blackhole); ESMFold2 keeps the stock op
 # (lm_sdpa_stock) until a fold grades it.
 _ESMC_SHSDPA = (env_flag("TT_BIO_ESMC_SHSDPA", False) if os.environ.get("TT_BIO_ESMC_SHSDPA", "").strip() else None)
+#: [KeyPad calls served by shsdpa, sent to the stock op], read by the A/B harness.
+SHSDPA_STATS = [0, 0]
 
 
 class KeyPad(NamedTuple):
@@ -358,11 +360,13 @@ def lm_sdpa(q, k, v, attn_mask, scale: float):
     few-k-chunk program the device refuses (its circular buffers clash with L1 tensors) runs at the k64 config from
     then on."""
     if isinstance(attn_mask, KeyPad):
-        if int(q.shape[-1]) % 32 == 0 and all(t.dtype == ttnn.bfloat16 and t.memory_config() == ttnn.DRAM_MEMORY_CONFIG
-                                              for t in (q, k, v)):
+        # Interleaved DRAM or L1 (SaProt's RoPE leaves q, k in L1): the reader addresses each through its own accessor.
+        if int(q.shape[-1]) % 32 == 0 and all(t.dtype == ttnn.bfloat16 and not t.is_sharded() for t in (q, k, v)):
             from tt_bio import shsdpa
+            SHSDPA_STATS[0] += 1
             return shsdpa.sdpa(q, k, v, scale, attn_mask)
-        # A head dim off the tile or q/k/v outside bf16 DRAM: the stock op over the full mask, its rows the same.
+        SHSDPA_STATS[1] += 1
+        # A head dim off the tile, or q/k/v not bf16 interleaved: the stock op over the full mask, its rows the same.
         attn_mask = ttnn.repeat(attn_mask.row, (1, 1, int(q.padded_shape[2]) // 32, 1))
     q_len, k_len = int(q.shape[2]), int(k.shape[2])
     key = (tuple(q.padded_shape), k_len, q.memory_config().buffer_type == ttnn.BufferType.L1)

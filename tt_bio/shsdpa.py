@@ -83,7 +83,7 @@ def plan(B, H, S, cores, k_chunk=K_CHUNK):
 
 
 def sdpa(q, k, v, scale, pad, q_chunk=None, k_chunk=K_CHUNK, split=None, ckc=HIFI2, grid=None, defines=None):
-    """softmax(q k^T * scale, padded keys masked) v for bf16 [B, H, S, D] DRAM tensors; `pad` is the device
+    """softmax(q k^T * scale, padded keys masked) v for bf16 [B, H, S, D] interleaved tensors (DRAM or L1); `pad` is the device
     `key_pad` pair built at the same k_chunk."""
     from . import tenstorrent as T
     B, H, S, D = (int(d) for d in q.shape)
