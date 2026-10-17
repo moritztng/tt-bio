@@ -728,6 +728,27 @@ def test_a_pool_leg_stopped_by_a_give_back_runs_again(tmp_path, monkeypatch):
     assert ex(h, gf.POOL, gf.Leg("ux:x", ["PY"], "ux"))["verdict"] == "FAIL"
 
 
+def test_a_pool_leg_that_died_opening_its_chip_runs_again(tmp_path, monkeypatch):
+    calls, deaths = [], gf.INIT_FAILED_TRIES
+
+    def fake_run(host, card, leg, rdir, f):
+        calls.append(card)
+        if len(calls) <= deaths:
+            f.write("##LEG-START 5\nDevice 0 init: failed to initialize FW! Try resetting the board.\n")
+            return 1
+        f.write("##LEG-START 5\nok\n")
+        return 0
+    monkeypatch.setattr(gf, "run_in_pool", fake_run)
+    h = gf.Host("g", {"arch": "wh", "card_type": "w", "root": "/r"}, "c" * 40)
+    ex = gf.make_executor("c" * 40, tmp_path, gf.Ledger(tmp_path / "l"), {("ux:x", "wh"): "k"}, "o")
+    assert ex(h, gf.POOL, gf.Leg("ux:x", ["PY"], "ux"))["verdict"] == "PASS"
+    assert len(calls) == gf.INIT_FAILED_TRIES + 1
+    calls.clear()
+    monkeypatch.setattr(gf, "INIT_FAILED_TRIES", 0)   # out of tries: the init failure is the leg's result
+    assert ex(h, gf.POOL, gf.Leg("ux:x", ["PY"], "ux"))["verdict"] == "FAIL"
+    assert gf.INIT_FAILED.search("TT_FATAL: Read unexpected run_mailbox value from core (x=25,y=17)")
+
+
 def test_a_leg_refused_for_host_load_starts_again_instead_of_failing(tmp_path, monkeypatch):
     monkeypatch.setattr(gf, "LOAD_RETRY_S", 0)
     calls = []
