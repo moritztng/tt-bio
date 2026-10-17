@@ -63,6 +63,13 @@ tenstorrent = _LazyTenstorrent()
 # rides in both modes on its digest: CIFs identical on and off, Galaxy chip 512 x 1 (1000 MHz, 5 pairs each), normal
 # 31.20 -> 30.68 s (5/5 pairs faster), fast -0.29 s median (spd-gap-small opmj, 2026-10-15).
 LEVERS_NORMAL = frozenset({"trimul_ibw", "trimul_tail", "trunk_hifi3", "dit_sdpa32", "silu_f32", "opm_jd"})
+# Wormhole adds atomp_dev (the diffusion conditioning's atom-pair tensor and its bias stacks built on the card instead
+# of the host), in both modes. Run-to-run deterministic (every stage bit-identical over 4 reps), encoder / decoder rel
+# error vs float64 0.0045 / 0.0043. Wormhole 11-set grade, each mode's set vs the same set + atomp_dev, 44 paired folds
+# (spd-gap-small gapd, 2026-10-17), PASS both: same-seed top pose median 0.689 A normal / 0.631 A fast against A/A floors
+# of 1.697 / 2.008 A, docking 24 -> 24 both, lRMSD normal -0.57 [-1.17, -0.05] A. Galaxy chip 512 x 1 (1000 MHz, 6
+# pairs each): normal -0.71 s, fast -0.55 s median (apab2). Blackhole leaves it off until its p150a A/B.
+WH_LEVERS_NORMAL = LEVERS_NORMAL | {"atomp_dev"}
 # Fast: tenstorrent.FAST_LEVERS on the normal path. The process-wide `--fast` switch
 # (tenstorrent._FAST_MODE: bfp8 activations, narrower chunks) is off inside Boltz-2, because on
 # Wormhole c730 it folds in 159.7 s against 135.5 s for normal mode, while this set folds in 123.4 s
@@ -100,7 +107,7 @@ LEVERS_FAST = frozenset({"acc_off", "diffusion_bf16", "dit_sdpa", "transition_b8
 # (shxb). On Wormhole it is no faster than dit_cond_jit (shjw: -0.06 s over 3 pairs), so Wormhole keeps dit_cond_jit.
 # trimul_bres is not here: bmm_res needs an fp32 dest and acc_off turns it off in the fast trunk, so it never fires
 # (bresab / bresab2 read -0.29 / -0.09 s on byte-identical CIFs: noise around an inert lever).
-WH_LEVERS_FAST = LEVERS_FAST | {"triatt_ln", "apb_ln", "dit_cond_jit", "trimul_sig6"}
+WH_LEVERS_FAST = LEVERS_FAST | {"triatt_ln", "apb_ln", "dit_cond_jit", "trimul_sig6", "atomp_dev"}
 BH_LEVERS_FAST = LEVERS_FAST | {"dit_shoist"}
 
 
@@ -5453,7 +5460,7 @@ class Boltz2(nn.Module):
     ) -> None:
         super().__init__()
         self._levers = (tenstorrent.model_levers(
-            LEVERS_NORMAL, WH_LEVERS_FAST if tenstorrent.is_wormhole() else BH_LEVERS_FAST)
+            *((WH_LEVERS_NORMAL, WH_LEVERS_FAST) if tenstorrent.is_wormhole() else (LEVERS_NORMAL, BH_LEVERS_FAST)))
                         if use_tenstorrent else frozenset())
         # Reserve the DiT trace region BEFORE any module opens the device: the first
         # get_device() opens, so this must precede module construction.
