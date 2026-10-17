@@ -2353,6 +2353,27 @@ def _fold_log_text(log: Path) -> str:
                 f"the run and the fold's own error is unrecoverable: {log} ({e})")
 
 
+def _exception_after(lines: list[str], start: int) -> str:
+    """The exception a traceback starting at lines[start] ends in, or "".
+
+    The frames are indented; the first unindented "Name: message" after them is the
+    exception. A tt-metal TT_THROW ends that line at "tt::exception" and puts its message
+    between "info:" and "backtrace:", so that message is appended.
+    """
+    for i in range(start + 1, len(lines)):
+        ln = lines[i]
+        if not ln[:1].isspace() and ": " in ln:
+            if ln.endswith("tt::exception") and lines[i + 1:i + 2] == ["info:"]:
+                info = []
+                for nxt in lines[i + 2:]:
+                    if nxt == "backtrace:":
+                        break
+                    info.append(nxt.strip())
+                return f"{ln}: {' '.join(info)}"
+            return ln
+    return ""
+
+
 def _fold_error(text: str) -> str:
     """A failed fold's OWN error line, not whatever happened to print last.
 
@@ -2374,11 +2395,18 @@ def _fold_error(text: str) -> str:
     tb = [i for i, ln in enumerate(lines)
           if ln.startswith("Traceback (most recent call last)")]
     if tb:
-        # The frames are indented; the first unindented "Name: message" after them
-        # is the exception.
-        for ln in lines[tb[-1] + 1:]:
-            if not ln[:1].isspace() and ": " in ln:
-                return ln[:400]
+        last = _exception_after(lines, tb[-1])
+        # The dispatcher's "every local worker exited" names no cause: the worker printed
+        # its own fatal in an earlier traceback. .108 chip 5 died opening the device on
+        # 2026-10-17 ("failed to initialize FW") and the ladder leg reported only the
+        # dispatcher sentence, so gate_fanout's dirty-chip retry, which reads the leg log,
+        # never saw an init death and recorded a FAIL. The worker's fatal goes first.
+        if last and "every local worker exited" in last and len(tb) > 1:
+            first = _exception_after(lines, tb[-2])
+            if first:
+                return f"{first} / {last}"[:400]
+        if last:
+            return last[:400]
     # No explicit failure line. Prefer any line that at least mentions a fault over a
     # blind tail; origin/main solved the same problem that way and it beats the tail
     # whenever the wrapper outlives the fold.
