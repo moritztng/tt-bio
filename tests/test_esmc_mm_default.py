@@ -16,6 +16,17 @@ def test_esmc_mm_default_by_arch(wormhole, switch, monkeypatch):
     assert esmc._esmc_mm() is (wormhole if switch is None else switch)
 
 
+
+@pytest.mark.parametrize("wormhole", [True, False])
+@pytest.mark.parametrize("switch", [None, True, False])
+@pytest.mark.parametrize("width", [480, 1152, 1280])
+def test_saprot_mm_default_by_width(wormhole, switch, width, monkeypatch):
+    from tt_bio import saprot
+    monkeypatch.setattr(tenstorrent, "is_wormhole", lambda: wormhole)
+    monkeypatch.setattr(saprot, "_SAPROT_MM", switch)
+    want = (wormhole and width <= saprot._MM_MAX_WIDTH) if switch is None else switch
+    assert saprot._saprot_mm(width) is want
+
 class _Ck:
     def __init__(self, math_fidelity=None, math_approx_mode=False, fp32_dest_acc_en=True, packer_l1_acc=False):
         self.math_fidelity, self.math_approx_mode = math_fidelity, math_approx_mode

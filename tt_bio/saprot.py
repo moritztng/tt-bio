@@ -123,13 +123,23 @@ class SaprotEmbeddingLayer(Module):
 
 
 # SaProt's projections (bias, fc1's GELU as the fused activation) on ESMC's minimal_matmul path instead of
-# ttnn.linear, for projections over esmc.ESMC_MM_MIN_ROWS rows. Off until the page cell says.
-_SAPROT_MM = env_flag("TT_BIO_SAPROT_MM", False)
+# ttnn.linear, for projections over esmc.ESMC_MM_MIN_ROWS rows. None = Wormhole and a model no wider than
+# _MM_MAX_WIDTH: minimal_matmul wins on the narrow LMs (ESMC 300M/600M, SaProt 35M: 44.7 -> 42.8 ms a page batch)
+# and loses on SaProt 650M/1.3B (d 1280: +7/+8 %).
+_SAPROT_MM = (env_flag("TT_BIO_SAPROT_MM", False) if os.environ.get("TT_BIO_SAPROT_MM", "").strip() else None)
+_MM_MAX_WIDTH = 1152
+
+
+def _saprot_mm(width: int) -> bool:
+    if _SAPROT_MM is not None:
+        return _SAPROT_MM
+    from tt_bio import tenstorrent
+    return tenstorrent.is_wormhole() and width <= _MM_MAX_WIDTH
 
 
 class _SaprotLin(_MMLin):
     def _mm_on(self) -> bool:
-        return _SAPROT_MM
+        return _saprot_mm(int(self.norm_weight.shape[-1]))
 
 
 class ESM2Attention(_SaprotLin, Module):
