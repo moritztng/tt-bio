@@ -1507,7 +1507,8 @@ class ESMCModel(Module):
         self.head = RegressionHead(self.scope("sequence_head"), compute_kernel_config)
 
     def __call__(self, tokens: ttnn.Tensor, attn_mask: ttnn.Tensor | None = None,
-                 key_valid: ttnn.Tensor | None = None, _rope=None):
+                 key_valid: ttnn.Tensor | None = None, _rope=None, want_logits: bool = True):
+        """With ``want_logits=False`` the sequence head is not run and ``logits`` is None."""
         seq_len = tokens.shape[-1]
         head_dim = self.norm_weight.shape[-1] // self.n_heads
         # _rope: precomputed (cos, sin) device tensors. Trace capture passes these
@@ -1523,7 +1524,7 @@ class ESMCModel(Module):
             compute_kernel_config=self.compute_kernel_config,
         )
         ttnn.deallocate(x)
-        logits = self.head(emb)
+        logits = self.head(emb) if want_logits else None
         return logits, emb
 
 
@@ -1697,12 +1698,12 @@ class ESMC(TorchWrapper):
             key_valid.to(torch.bfloat16), device=self.tt_device,
             layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16,
         )
-        logits, emb = self.module(tokens_tt, mask_tt, kv_tt)
-        return self._to_torch(logits), self._to_torch(emb)
+        logits, emb = self.module(tokens_tt, mask_tt, kv_tt, want_logits=want_logits)
+        return (None if logits is None else self._to_torch(logits)), self._to_torch(emb)
 
     def forward(self, tokens: torch.Tensor, attn_mask: torch.Tensor | None = None,
-                key_valid: torch.Tensor | None = None):
-        """tokens[B,L] -> (logits[B,L,64], emb[B,L,d]). Optional padding masks
+                key_valid: torch.Tensor | None = None, want_logits: bool = True):
+        """tokens[B,L] -> (logits[B,L,64] or None without ``want_logits``, emb[B,L,d]). Optional padding masks
         (built by ``_batch_tokens``) let a batch of unequal-length sequences share
         one padded, bucketed forward: ``attn_mask`` [B,L,L] additive removes padded
         keys from the softmax denominator; ``key_valid`` [B,1,L,1] zeros padded
@@ -1712,12 +1713,12 @@ class ESMC(TorchWrapper):
         ``_batch_tokens``, so a direct API call at a ragged L cannot reach the SDPA ragged.
         ``_batch_tokens`` has already bucketed on every CLI path, so there it is a no-op."""
         tokens, attn_mask, key_valid, _, L = bucket_token_axis(tokens, attn_mask, key_valid)
-        logits, emb = self._dispatch(tokens, attn_mask, key_valid)
+        logits, emb = self._dispatch(tokens, attn_mask, key_valid, want_logits)
         if int(tokens.shape[1]) == L:
             return logits, emb
-        return logits[:, :L], emb[:, :L]
+        return (None if logits is None else logits[:, :L]), emb[:, :L]
 
-    def _dispatch(self, tokens, attn_mask, key_valid):
+    def _dispatch(self, tokens, attn_mask, key_valid, want_logits=True):
         if self.trace and not self._trace_broken and (tokens.shape[0] == 1 or _TRACE_BATCH):
             key = (tuple(tokens.shape), attn_mask is not None, key_valid is not None)
             if key in self._trace_cache:
@@ -2360,7 +2361,7 @@ def embed_sequences(model, sequences: dict[str, str], *, return_logits: bool = F
     for idx in batches:
         batch = [items[i] for i in idx]
         input_ids, lens, attn_mask, key_valid = _batch_tokens([s for _, s in batch])
-        logits_b, emb_b = model(input_ids, attn_mask, key_valid)  # [B,Lb,64], [B,Lb,d]
+        logits_b, emb_b = model(input_ids, attn_mask, key_valid, want_logits=return_logits)  # [B,Lb,64] | None, [B,Lb,d]
         for row, (sid, seq) in enumerate(batch):
             li = lens[row]
             emb = emb_b[row, :li].numpy().astype(np.float32)
