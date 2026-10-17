@@ -15650,6 +15650,11 @@ class PairWeightedAveraging(Module):
 # AF2-IG at 195 tokens kept CA RMSD 0.0000 A and ran 4.15 -> 4.04 s on Wormhole (1000 MHz),
 # 2.63 -> 2.59 s on p150a (1350 MHz).
 _OPM_SMALL_DEPTH_BMM = env_flag("TT_BIO_OPM_SMALL_DEPTH_BMM", True)
+# The depth rows of `_small_depth` joined on the contraction axis: one [J, S*D] x [S*D, c_z] product
+# per i sums over (s, d) in the matmul's fp32 accumulator, where the per-row loop rounded each row's
+# partial to bf16 and added them in a separate pass over the [I, J, c_z] output. Not bit-exact
+# (fewer roundings, not more). Depth 2 is every AF2-IG fold and BindCraft 2 round.
+_OPM_DEPTH_JOIN = env_flag("TT_BIO_OPM_DEPTH_JOIN", True)
 
 class OuterProductMean(Module):
     def __init__(
@@ -15696,6 +15701,30 @@ class OuterProductMean(Module):
             self._o_folded[(C, D)] = w
         return w
 
+    def _small_depth_joined(self, a, b, w, scale, S, I, C, J, D, c_z):
+        """`_small_depth`'s per-row sum as one contraction over (s, d): A_cat[i, s*D + d, k] =
+        sum_c a_sic W_cdk and b_cat[j, s*D + d] = b_sjd, so out[i] = b_cat @ A_cat[i]."""
+        a2 = ttnn.multiply(ttnn.reshape(a, (S * I, C)), scale)
+        A = ttnn.matmul(a2, w, compute_kernel_config=self.compute_kernel_config,
+                        core_grid=CORE_GRID_MAIN)
+        ttnn.deallocate(a2)
+        A = ttnn.to_layout(A, ttnn.ROW_MAJOR_LAYOUT)
+        # [S, I, D, c_z] -> [I, S, D, c_z]: row s*I + i of A holds a_s's row i.
+        A = ttnn.permute(ttnn.reshape(A, (S, I, D * c_z)), (1, 0, 2))
+        A = ttnn.to_layout(ttnn.reshape(A, (I, S * D, c_z)), ttnn.TILE_LAYOUT)
+        b_cat = ttnn.reshape(ttnn.permute(b, (1, 0, 2)), (1, J, S * D))
+        b_exp = ttnn.repeat(b_cat, (I, 1, 1))
+        ttnn.deallocate(b_cat)
+        if _OPM_SMALL_DEPTH_BMM:
+            out = ttnn.reshape(batched_matmul(
+                ttnn.reshape(b_exp, (1, I, J, S * D)), ttnn.reshape(A, (1, I, S * D, c_z)),
+                self.compute_kernel_config), (I, J, c_z))
+        else:
+            out = ttnn.matmul(b_exp, A, compute_kernel_config=self.compute_kernel_config)
+        ttnn.deallocate(b_exp)
+        ttnn.deallocate(A)
+        return out
+
     def _small_depth(self, a: ttnn.Tensor, b: ttnn.Tensor, n_msa: int | None) -> ttnn.Tensor:
         """The outer product mean without the outer product, one pass per MSA row.
 
@@ -15711,8 +15740,11 @@ class OuterProductMean(Module):
         scale = 1.0 / (n_msa if n_msa is not None else S)
         w = self._proj_o_folded(C, D)
         c_z = w.shape[1] // D
-        out = None
-        for s in range(S):
+        if S > 1 and _OPM_DEPTH_JOIN:
+            out = self._small_depth_joined(a, b, w, scale, S, I, C, J, D, c_z)
+        else:
+            out = None
+        for s in range(S if out is None else 0):
             a_s = ttnn.reshape(a if S == 1 else a[s:s + 1], (I, C))
             # The scale is linear and folds into the smallest tensor in the chain.
             a_s = ttnn.multiply(a_s, scale)
