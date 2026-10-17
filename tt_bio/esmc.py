@@ -27,7 +27,7 @@ import sys
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import NamedTuple, Optional
 
 from tt_bio.envflags import env_flag, env_int
 
@@ -303,9 +303,66 @@ def _sdpa_mask(attn_mask, device=None, dtype=None):
                            **({"device": device} if device is not None else {}))
 
 
+# The language models' mask is pure key padding (`_batch_tokens`: mask[b, :, j] = -inf for j >= len_b). On Wormhole
+# `tt_bio.shsdpa` takes it as per-batch key lengths: no [B, 1, L, L] re-read per (batch, head), the mask add only on
+# the key chunk holding the boundary, chunks past len_b skipped. Op device time at the page batch (B7, S544, D64,
+# 1000 MHz): 300M 0.556 -> 0.393 ms, 600M 0.629 -> 0.448, SaProt 650M 0.676 -> 0.456, 6B (B1) 0.291 -> 0.230; float64
+# error equal to the stock op's. None = on for Wormhole (untested on Blackhole).
+_ESMC_SHSDPA = (env_flag("TT_BIO_ESMC_SHSDPA", False) if os.environ.get("TT_BIO_ESMC_SHSDPA", "").strip() else None)
+
+
+class KeyPad(NamedTuple):
+    """A key-padding mask as `shsdpa.key_pad` builds it, passed down the blocks in place of the [B, 1, L, L] tensor."""
+    table: ttnn.Tensor
+    row: ttnn.Tensor
+
+
+def _key_lens(attn_mask) -> list | None:
+    """Per-batch key lengths when `attn_mask` [B, L, L] is pure key padding and shsdpa is on, else None."""
+    if attn_mask is None:
+        return None
+    on = _ESMC_SHSDPA
+    if on is None:
+        from tt_bio import tenstorrent
+        on = tenstorrent.is_wormhole()
+    if not on:
+        return None
+    lens = (attn_mask[:, 0, :] == 0).sum(1)
+    keep = torch.arange(attn_mask.shape[-1]) < lens[:, None]
+    want = torch.where(keep, 0.0, float("-inf")).to(attn_mask.dtype)
+    if not (bool((lens > 0).all()) and torch.equal(attn_mask, want[:, None, :].expand_as(attn_mask))):
+        return None
+    return lens.tolist()
+
+
+def _lm_mask(attn_mask, lens, device=None):
+    """The mask lm_sdpa reads: a KeyPad for key lengths `lens`, else the [B, 1, L, L] tensor (or None)."""
+    if lens is not None:
+        from tt_bio import shsdpa
+        return KeyPad(*shsdpa.key_pad(lens, attn_mask.shape[-1], device))
+    return None if attn_mask is None else _sdpa_mask(attn_mask, device)
+
+
+def _lm_mask_into(attn_mask, lens, dst):
+    """Rewrite a traced forward's mask `dst` (from _lm_mask on the device) in place for this call."""
+    if isinstance(dst, KeyPad):
+        for src, d in zip(_lm_mask(attn_mask, lens), dst):
+            ttnn.copy_host_to_device_tensor(src, d)
+    elif dst is not None:
+        ttnn.copy_host_to_device_tensor(_sdpa_mask(attn_mask, dtype=dst.dtype), dst)
+
+
 def lm_sdpa(q, k, v, attn_mask, scale: float):
-    """The language models' fused SDPA at the _lm_sdpa_chunks config. A shape whose few-k-chunk program the device
-    refuses (its circular buffers clash with L1 tensors) runs at the k64 config from then on."""
+    """The language models' fused SDPA at the _lm_sdpa_chunks config, or `shsdpa` for a KeyPad mask. A shape whose
+    few-k-chunk program the device refuses (its circular buffers clash with L1 tensors) runs at the k64 config from
+    then on."""
+    if isinstance(attn_mask, KeyPad):
+        if int(q.shape[-1]) % 32 == 0 and all(t.dtype == ttnn.bfloat16 and t.memory_config() == ttnn.DRAM_MEMORY_CONFIG
+                                              for t in (q, k, v)):
+            from tt_bio import shsdpa
+            return shsdpa.sdpa(q, k, v, scale, attn_mask)
+        # A head dim off the tile or q/k/v outside bf16 DRAM: the stock op over the full mask, its rows the same.
+        attn_mask = ttnn.repeat(attn_mask.row, (1, 1, int(q.padded_shape[2]) // 32, 1))
     q_len, k_len = int(q.shape[2]), int(k.shape[2])
     key = (tuple(q.padded_shape), k_len, q.memory_config().buffer_type == ttnn.BufferType.L1)
     base = _lm_sdpa_chunks(q_len, k_len, False)
@@ -1697,7 +1754,7 @@ class ESMC(TorchWrapper):
         self._release_traces()
         self._trace_seen.clear()
 
-    def _capture_esmc_trace(self, tokens, attn_mask, key_valid, key):
+    def _capture_esmc_trace(self, tokens, attn_mask, key_valid, key, lens):
         dev = self.tt_device
         # Evict BEFORE capturing: the new trace needs free space in the trace
         # region while the live ones still occupy it.
@@ -1711,7 +1768,7 @@ class ESMC(TorchWrapper):
                 self._deallocate_tensor_like(old.get(k))
         tok_d = ttnn.from_torch(tokens.to(torch.int32), device=dev,
                                 layout=ttnn.ROW_MAJOR_LAYOUT, dtype=ttnn.uint32)
-        mask_d = None if attn_mask is None else _sdpa_mask(attn_mask, dev)
+        mask_d = _lm_mask(attn_mask, lens, dev)
         kv_d = None if key_valid is None else ttnn.from_torch(
             key_valid.to(torch.bfloat16), device=dev,
             layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16)
@@ -1735,7 +1792,7 @@ class ESMC(TorchWrapper):
         return ttnn.from_torch(tokens.to(torch.int32),
                                layout=ttnn.ROW_MAJOR_LAYOUT, dtype=ttnn.uint32)
 
-    def _forward_traced(self, tokens, attn_mask, key_valid):
+    def _forward_traced(self, tokens, attn_mask, key_valid, lens=None):
         """Replay the captured device graph for this exact input shape.
 
         Caller (``forward``) gates on B==1 and shape repetition; this captures
@@ -1744,15 +1801,14 @@ class ESMC(TorchWrapper):
         contents, and ``_to_torch`` copies out of the replay-owned output
         buffers before returning (never hands back a live trace buffer).
         """
-        key = (tuple(tokens.shape), attn_mask is not None, key_valid is not None)
+        key = (tuple(tokens.shape), attn_mask is not None, key_valid is not None, lens is not None)
         tr = self._trace_cache.get(key)
         if tr is None:
-            tr = self._capture_esmc_trace(tokens, attn_mask, key_valid, key)
+            tr = self._capture_esmc_trace(tokens, attn_mask, key_valid, key, lens)
         else:
             self._trace_cache.move_to_end(key)
         ttnn.copy_host_to_device_tensor(self._host_tokens(tokens), tr["tokens"])
-        if attn_mask is not None:
-            ttnn.copy_host_to_device_tensor(_sdpa_mask(attn_mask, dtype=tr["mask"].dtype), tr["mask"])
+        _lm_mask_into(attn_mask, lens, tr["mask"])
         if key_valid is not None:
             ttnn.copy_host_to_device_tensor(
                 ttnn.from_torch(key_valid.to(torch.bfloat16),
@@ -1761,12 +1817,12 @@ class ESMC(TorchWrapper):
         ttnn.execute_trace(self.tt_device, tr["tid"], cq_id=0, blocking=False)
         return self._to_torch(tr["logits"]), self._to_torch(tr["emb"])
 
-    def _forward_eager(self, tokens, attn_mask, key_valid, want_logits=True):
+    def _forward_eager(self, tokens, attn_mask, key_valid, want_logits=True, lens=None):
         tokens_tt = ttnn.from_torch(
             tokens.to(torch.int32), device=self.tt_device,
             layout=ttnn.ROW_MAJOR_LAYOUT, dtype=ttnn.uint32,
         )
-        mask_tt = None if attn_mask is None else _sdpa_mask(attn_mask, self.tt_device)
+        mask_tt = _lm_mask(attn_mask, lens, self.tt_device)
         kv_tt = None if key_valid is None else ttnn.from_torch(
             key_valid.to(torch.bfloat16), device=self.tt_device,
             layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16,
@@ -1792,10 +1848,11 @@ class ESMC(TorchWrapper):
         return (None if logits is None else logits[:, :L]), emb[:, :L]
 
     def _dispatch(self, tokens, attn_mask, key_valid, want_logits=True):
+        lens = _key_lens(attn_mask)
         if self.trace and not self._trace_broken and (tokens.shape[0] == 1 or _TRACE_BATCH):
-            key = (tuple(tokens.shape), attn_mask is not None, key_valid is not None)
+            key = (tuple(tokens.shape), attn_mask is not None, key_valid is not None, lens is not None)
             if key in self._trace_cache:
-                return self._forward_traced(tokens, attn_mask, key_valid)
+                return self._forward_traced(tokens, attn_mask, key_valid, lens)
             if trace_region_size() <= 0:
                 if not getattr(self, "_trace_note_shown", False):
                     self._trace_note_shown = True
@@ -1812,13 +1869,13 @@ class ESMC(TorchWrapper):
                     self._trace_seen.clear()  # bound memory on huge varied inputs
                 if self._trace_seen[key] >= 2:
                     try:
-                        return self._forward_traced(tokens, attn_mask, key_valid)
+                        return self._forward_traced(tokens, attn_mask, key_valid, lens)
                     except Exception as exc:
                         self._trace_broken = True
                         self._release_traces()
                         print(f"ESMC trace capture failed ({exc!r}); falling back "
                               f"to eager for the rest of this process", file=sys.stderr)
-        return self._forward_eager(tokens, attn_mask, key_valid, want_logits)
+        return self._forward_eager(tokens, attn_mask, key_valid, want_logits, lens)
 
 
 # ===========================================================================

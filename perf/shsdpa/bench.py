@@ -99,7 +99,8 @@ if "esmc" in a.shape:
     try:
         from tt_bio import shsdpa as P
         PROTO = {}
-        ARMS["e_auto"] = ("esmc", lambda: P.sdpa(eq, ek, ev, sc, key_lens=lens))
+        EPAD = P.key_pad(lens, S, dev)      # built outside any capture: an upload is a host write
+        ARMS["e_auto"] = ("esmc", lambda: P.sdpa(eq, ek, ev, sc, EPAD))
         if a.proto:
             PROTO = {}
             for t in a.proto.split(";"):
@@ -111,8 +112,8 @@ if "esmc" in a.shape:
             d = dict(dfs[0]) if dfs and dfs[0] else {}
             ckc = (ttnn.MathFidelity.LoFi if d.pop("LOFI", 0) else ttnn.MathFidelity.HiFi2, True, False,
                    bool(d.pop("FULLSYNC", 0)))
-            ARMS[nm] = ("esmc", lambda qc=qc, kc=kc, spl=spl, d=(d or None), ckc=ckc:
-                        P.sdpa(eq, ek, ev, sc, key_lens=lens, q_chunk=qc, k_chunk=kc, split=spl, defines=d, ckc=ckc))
+            ARMS[nm] = ("esmc", lambda qc=qc, kc=kc, spl=spl, d=(d or None), ckc=ckc, pad=P.key_pad(lens, S, dev, kc):
+                        P.sdpa(eq, ek, ev, sc, pad, q_chunk=qc, k_chunk=kc, split=spl, defines=d, ckc=ckc))
     except ImportError:
         pass
 
@@ -194,16 +195,8 @@ if "e_auto" in TRACES and "esmc" in a.shape:
     for i, li in enumerate(lens2):
         mask2[i, :, li:] = float("-inf")
     ref2 = torch.softmax(qd @ kd.transpose(-1, -2) * sc + mask2.unsqueeze(1).double(), -1) @ vd
-    kc = 192
-    tab_d = P._table(dev, lens, kc, -(-S // kc))
-    row_d = P._mask_row(dev, lens, S)
-    m2 = torch.zeros(B, 1, 32, S)
-    for i, li in enumerate(lens2):
-        m2[i, :, :, li:] = float("-inf")
-    ttnn.copy_host_to_device_tensor(ttnn.from_torch(P.keypad_table(lens2, kc, -(-S // kc)), dtype=ttnn.uint32,
-                                                    layout=ttnn.ROW_MAJOR_LAYOUT), tab_d)
-    ttnn.copy_host_to_device_tensor(ttnn.from_torch(m2.to(torch.bfloat16), dtype=ttnn.bfloat16,
-                                                    layout=ttnn.TILE_LAYOUT), row_d)
+    for src, dst in zip(P.key_pad(lens2, S), EPAD):
+        ttnn.copy_host_to_device_tensor(src, dst)
     tid, o = TRACES["e_auto"]
     ttnn.execute_trace(dev, tid, cq_id=0, blocking=True)
     got = ttnn.to_torch(o).double()

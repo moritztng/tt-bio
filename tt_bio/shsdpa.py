@@ -1,4 +1,4 @@
-"""Small-head SDPA for Wormhole (spd-bet-shsdpa). Prototype, not wired into any model yet.
+"""Key-padding SDPA for the language models on Wormhole (`esmc.lm_sdpa` with a `KeyPad` mask).
 
 ESMC's language-model attention masks padded keys with an additive [B, 1, S, S] mask whose rows
 are all the same: mask[b, :, j] = -inf for j >= len_b (`esmc._batch_tokens`). The stock op re-reads
@@ -25,7 +25,7 @@ from . import sdpa_generic as SG
 
 KERNEL_DIR = Path(__file__).parent / "kernels" / "shsdpa"
 HIFI2 = (ttnn.MathFidelity.HiFi2, True, False, False)
-_MASKS: dict = {}
+K_CHUNK = 192
 
 
 def keypad_args(lens, k_chunk: int, k_num_chunks: int):
@@ -44,27 +44,17 @@ def keypad_table(lens, k_chunk: int, k_num_chunks: int) -> torch.Tensor:
     return torch.tensor(flat + [0] * (w - len(flat)), dtype=torch.int32).reshape(1, 1, 1, w)
 
 
-def _table(dev, lens, k_chunk, k_num):
-    key = (id(dev), tuple(lens), k_chunk, k_num)
-    hit = _MASKS.get(key)
-    if hit is None:
-        hit = _MASKS[key] = (dev, ttnn.from_torch(keypad_table(lens, k_chunk, k_num), dtype=ttnn.uint32,
-                                                   layout=ttnn.ROW_MAJOR_LAYOUT, device=dev,
-                                                   memory_config=ttnn.DRAM_MEMORY_CONFIG))
-    return hit[1]
-
-
-def _mask_row(dev, lens, S):
-    key = (id(dev), tuple(lens), S)
-    hit = _MASKS.get(key)
-    if hit is None:
-        m = torch.zeros(len(lens), 1, 32, S)
-        for b, n in enumerate(lens):
-            m[b, :, :, n:] = float("-inf")
-        hit = _MASKS[key] = (dev, ttnn.from_torch(m.to(torch.bfloat16), dtype=ttnn.bfloat16,
-                                                   layout=ttnn.TILE_LAYOUT, device=dev,
-                                                   memory_config=ttnn.DRAM_MEMORY_CONFIG))
-    return hit[1]
+def key_pad(lens, S: int, device=None, k_chunk: int = K_CHUNK):
+    """(table, row) for key lengths `lens` at padded length S: the [1, 1, 1, W] uint32 chunk table and the
+    [B, 1, 32, S] bf16 mask row. Host tensors without `device`; a traced forward keeps one device pair and
+    rewrites it per call with `copy_host_to_device_tensor`."""
+    m = torch.zeros(len(lens), 1, 32, S)
+    for b, n in enumerate(lens):
+        m[b, :, :, n:] = float("-inf")
+    on = {"device": device, "memory_config": ttnn.DRAM_MEMORY_CONFIG} if device is not None else {}
+    return (ttnn.from_torch(keypad_table(lens, k_chunk, -(-S // k_chunk)), dtype=ttnn.uint32,
+                            layout=ttnn.ROW_MAJOR_LAYOUT, **on),
+            ttnn.from_torch(m.to(torch.bfloat16), dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, **on))
 
 
 # A unit is one (batch, head, q chunk). Device time on WH (B7 H15 S544 D64, perf/shsdpa a1/t1) tracks
@@ -72,7 +62,7 @@ def _mask_row(dev, lens, S):
 UNIT_COST_TILES = 2
 
 
-def plan(B, H, S, cores, k_chunk=192):
+def plan(B, H, S, cores, k_chunk=K_CHUNK):
     """(q_chunk, (batch_pf, head_pf, q_pf)) minimising the busiest core's cost, padding included."""
     St = -(-S // 32)
     best = None
@@ -92,8 +82,9 @@ def plan(B, H, S, cores, k_chunk=192):
     return best[1], best[2]
 
 
-def sdpa(q, k, v, scale, key_lens, q_chunk=None, k_chunk=192, split=None, ckc=HIFI2, grid=None, defines=None):
-    """softmax(q k^T * scale, keys j >= key_lens[b] masked) v for bf16 [B, H, S, D] DRAM tensors."""
+def sdpa(q, k, v, scale, pad, q_chunk=None, k_chunk=K_CHUNK, split=None, ckc=HIFI2, grid=None, defines=None):
+    """softmax(q k^T * scale, padded keys masked) v for bf16 [B, H, S, D] DRAM tensors; `pad` is the device
+    `key_pad` pair built at the same k_chunk."""
     from . import tenstorrent as T
     B, H, S, D = (int(d) for d in q.shape)
     dev = q.device()
@@ -101,10 +92,8 @@ def sdpa(q, k, v, scale, key_lens, q_chunk=None, k_chunk=192, split=None, ckc=HI
     if q_chunk is None and split is None:
         q_chunk, split = plan(B, H, S, grid[0] * grid[1], k_chunk)
     q_chunk = q_chunk or -(-S // 32) * 32
-    mask = _mask_row(dev, key_lens, S)
-    k_num = -(-S // k_chunk)
+    table, row = pad
     out = ttnn.allocate_tensor_on_device(ttnn.Shape([B, H, S, D]), q.dtype, ttnn.TILE_LAYOUT, dev,
                                          ttnn.DRAM_MEMORY_CONFIG)
-    return SG.sdpa(dev, q, k, v, mask, out, q_chunk, k_chunk, grid, ckc, scale, split=split,
-                   kernel_dir=KERNEL_DIR, keypad=_table(dev, key_lens, k_chunk, k_num),
-                   defines_extra=defines)
+    return SG.sdpa(dev, q, k, v, row, out, q_chunk, k_chunk, grid, ckc, scale, split=split,
+                   kernel_dir=KERNEL_DIR, keypad=table, defines_extra=defines)

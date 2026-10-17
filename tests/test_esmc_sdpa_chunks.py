@@ -4,6 +4,7 @@ from __future__ import annotations
 import types
 
 import pytest
+import torch
 
 from tt_bio import esmc
 
@@ -53,3 +54,58 @@ def test_k_few_default_is_wormhole_only(wormhole, monkeypatch):
     monkeypatch.setattr(esmc, "_ESMC_SDPA_K_FEW", None)
     monkeypatch.setattr(tenstorrent, "is_wormhole", lambda: wormhole)
     assert esmc._sdpa_k_few() is wormhole
+
+
+def _pad_mask(lens, L):
+    m = torch.zeros(len(lens), L, L)
+    for b, n in enumerate(lens):
+        m[b, :, n:] = float("-inf")
+    return m
+
+
+def test_key_lens_reads_pure_key_padding_only(monkeypatch):
+    monkeypatch.setattr(esmc, "_ESMC_SHSDPA", True)
+    assert esmc._key_lens(None) is None
+    assert esmc._key_lens(_pad_mask([544, 300, 37], 544)) == [544, 300, 37]
+    m = _pad_mask([544, 300], 544)
+    m[1, 5, 10] = float("-inf")                  # one query row differs: not key padding
+    assert esmc._key_lens(m) is None
+    m = _pad_mask([544, 300], 544)
+    m[0, :, 100] = float("-inf")                 # a hole, not a suffix
+    assert esmc._key_lens(m) is None
+    monkeypatch.setattr(esmc, "_ESMC_SHSDPA", False)
+    assert esmc._key_lens(_pad_mask([544, 300], 544)) is None
+
+
+@pytest.mark.parametrize("wormhole", [True, False])
+def test_shsdpa_default_is_wormhole_only(wormhole, monkeypatch):
+    from tt_bio import tenstorrent
+    monkeypatch.setattr(esmc, "_ESMC_SHSDPA", None)
+    monkeypatch.setattr(tenstorrent, "is_wormhole", lambda: wormhole)
+    assert (esmc._key_lens(_pad_mask([544, 300], 544)) is not None) is wormhole
+
+
+class _T(_Q):
+    def __init__(self, dram=True, d=64):
+        self.shape = self.padded_shape = (7, 15, 544, d)
+        self.dtype = esmc.ttnn.bfloat16
+        self._mc = esmc.ttnn.DRAM_MEMORY_CONFIG if dram else esmc.ttnn.L1_MEMORY_CONFIG
+
+    def memory_config(self):
+        return self._mc
+
+
+@pytest.mark.parametrize("dram, d, route", [(True, 64, "shsdpa"), (False, 64, "stock"), (True, 24, "stock")])
+def test_lm_sdpa_keypad_route(dram, d, route, monkeypatch):
+    """A KeyPad goes to shsdpa for bf16 DRAM q/k/v on whole tiles; anything else runs the stock op over the row
+    repeated to the full [B, 1, S, S] mask."""
+    from tt_bio import shsdpa
+    monkeypatch.setattr(shsdpa, "sdpa", lambda q, k, v, scale, pad: ("shsdpa", pad))
+    monkeypatch.setattr(esmc.ttnn, "repeat", lambda t, reps: ("rep", t, tuple(reps)))
+    monkeypatch.setattr(esmc, "_sdpa_k_few", lambda: False)
+    monkeypatch.setattr(esmc, "_sdpa_program_config", lambda q, k: (q, k))
+    monkeypatch.setattr(esmc, "fused_sdpa", lambda q, k, v, attn_mask=None, *, scale, program_config: ("stock", attn_mask))
+    pad = esmc.KeyPad("table", "row")
+    q = _T(dram, d)
+    got = esmc.lm_sdpa(q, q, q, pad, scale=0.125)
+    assert got == (("shsdpa", pad) if route == "shsdpa" else ("stock", ("rep", "row", (1, 1, 17, 1))))

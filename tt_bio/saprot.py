@@ -43,6 +43,8 @@ from tt_bio.tenstorrent import (
 )
 from tt_bio.esmc import (
     _MMLin,
+    _key_lens,
+    _lm_mask,
     lm_sdpa,
     rope_tables,
     _rope,
@@ -474,10 +476,7 @@ class Saprot(TorchWrapper):
             tokens.to(torch.int32), device=self.tt_device,
             layout=ttnn.ROW_MAJOR_LAYOUT, dtype=ttnn.uint32,
         )
-        mask_tt = None if attn_mask is None else ttnn.from_torch(
-            attn_mask.unsqueeze(1).to(torch.bfloat16), device=self.tt_device,
-            layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16,
-        )
+        mask_tt = _lm_mask(attn_mask, _key_lens(attn_mask), self.tt_device)
         kv_tt = None if key_valid is None else ttnn.from_torch(
             key_valid.to(torch.bfloat16), device=self.tt_device,
             layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16,
