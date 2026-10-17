@@ -183,7 +183,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: trimul_t1 + trimul_t1_dram serve every trimul in-projection at 256-896, and T1 replaces the gated channel move and the mask-after-move, so neither is called. From 1024 the channel loop splits, T1 declines and both serve 384. Same on BH and WH (gate rel-803db0fc1 reads these cells 0/0 on WH). Falsifier: a call here means T1 stopped taking the in-projection"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
@@ -191,7 +191,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-shared",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: trimul_t1 + trimul_t1_dram serve every trimul in-projection at 256-896, and T1 replaces the gated channel move and the mask-after-move, so neither is called. From 1024 the channel loop splits, T1 declines and both serve 384. Same on BH and WH (gate rel-803db0fc1 reads these cells 0/0 on WH). Falsifier: a call here means T1 stopped taking the in-projection"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -484,7 +484,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: trimul_t1 + trimul_t1_dram serve every trimul in-projection at 256-896, and T1 replaces the gated channel move and the mask-after-move, so neither is called. From 1024 the channel loop splits, T1 declines and both serve 384. Same on BH and WH (gate rel-803db0fc1 reads these cells 0/0 on WH). Falsifier: a call here means T1 stopped taking the in-projection"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
@@ -492,7 +492,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-shared",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: trimul_t1 + trimul_t1_dram serve every trimul in-projection at 256-896, and T1 replaces the gated channel move and the mask-after-move, so neither is called. From 1024 the channel loop splits, T1 declines and both serve 384. Same on BH and WH (gate rel-803db0fc1 reads these cells 0/0 on WH). Falsifier: a call here means T1 stopped taking the in-projection"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -789,7 +789,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: trimul_t1 + trimul_t1_dram serve every trimul in-projection at 256-896, and T1 replaces the gated channel move and the mask-after-move, so neither is called. From 1024 the channel loop splits, T1 declines and both serve 384. Same on BH and WH (gate rel-803db0fc1 reads these cells 0/0 on WH). Falsifier: a call here means T1 stopped taking the in-projection"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
@@ -797,7 +797,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-shared",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: trimul_t1 + trimul_t1_dram serve every trimul in-projection at 256-896, and T1 replaces the gated channel move and the mask-after-move, so neither is called. From 1024 the channel loop splits, T1 declines and both serve 384. Same on BH and WH (gate rel-803db0fc1 reads these cells 0/0 on WH). Falsifier: a call here means T1 stopped taking the in-projection"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -1093,7 +1093,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: trimul_t1 + trimul_t1_dram serve every trimul in-projection at 256-896, and T1 replaces the gated channel move and the mask-after-move, so neither is called. From 1024 the channel loop splits, T1 declines and both serve 384. Same on BH and WH (gate rel-803db0fc1 reads these cells 0/0 on WH). Falsifier: a call here means T1 stopped taking the in-projection"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
@@ -1101,7 +1101,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-shared",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: trimul_t1 + trimul_t1_dram serve every trimul in-projection at 256-896, and T1 replaces the gated channel move and the mask-after-move, so neither is called. From 1024 the channel loop splits, T1 declines and both serve 384. Same on BH and WH (gate rel-803db0fc1 reads these cells 0/0 on WH). Falsifier: a call here means T1 stopped taking the in-projection"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -1397,7 +1397,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: trimul_t1 + trimul_t1_dram serve every trimul in-projection at 256-896, and T1 replaces the gated channel move and the mask-after-move, so neither is called. From 1024 the channel loop splits, T1 declines and both serve 384. Same on BH and WH (gate rel-803db0fc1 reads these cells 0/0 on WH). Falsifier: a call here means T1 stopped taking the in-projection"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
@@ -1405,7 +1405,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-shared",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: trimul_t1 + trimul_t1_dram serve every trimul in-projection at 256-896, and T1 replaces the gated channel move and the mask-after-move, so neither is called. From 1024 the channel loop splits, T1 declines and both serve 384. Same on BH and WH (gate rel-803db0fc1 reads these cells 0/0 on WH). Falsifier: a call here means T1 stopped taking the in-projection"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -3482,7 +3482,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: trimul_t1 + trimul_t1_dram serve every trimul in-projection at 256-896, and T1 replaces the gated channel move and the mask-after-move, so neither is called. From 1024 the channel loop splits, T1 declines and both serve 384. Same on BH and WH (gate rel-803db0fc1 reads these cells 0/0 on WH). Falsifier: a call here means T1 stopped taking the in-projection"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
@@ -3490,7 +3490,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-shared",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: trimul_t1 + trimul_t1_dram serve every trimul in-projection at 256-896, and T1 replaces the gated channel move and the mask-after-move, so neither is called. From 1024 the channel loop splits, T1 declines and both serve 384. Same on BH and WH (gate rel-803db0fc1 reads these cells 0/0 on WH). Falsifier: a call here means T1 stopped taking the in-projection"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -3783,7 +3783,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: trimul_t1 + trimul_t1_dram serve every trimul in-projection at 256-896, and T1 replaces the gated channel move and the mask-after-move, so neither is called. From 1024 the channel loop splits, T1 declines and both serve 384. Same on BH and WH (gate rel-803db0fc1 reads these cells 0/0 on WH). Falsifier: a call here means T1 stopped taking the in-projection"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
@@ -3791,7 +3791,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-shared",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: trimul_t1 + trimul_t1_dram serve every trimul in-projection at 256-896, and T1 replaces the gated channel move and the mask-after-move, so neither is called. From 1024 the channel loop splits, T1 declines and both serve 384. Same on BH and WH (gate rel-803db0fc1 reads these cells 0/0 on WH). Falsifier: a call here means T1 stopped taking the in-projection"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -4088,7 +4088,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: trimul_t1 + trimul_t1_dram serve every trimul in-projection at 256-896, and T1 replaces the gated channel move and the mask-after-move, so neither is called. From 1024 the channel loop splits, T1 declines and both serve 384. Same on BH and WH (gate rel-803db0fc1 reads these cells 0/0 on WH). Falsifier: a call here means T1 stopped taking the in-projection"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
@@ -4096,7 +4096,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-shared",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: trimul_t1 + trimul_t1_dram serve every trimul in-projection at 256-896, and T1 replaces the gated channel move and the mask-after-move, so neither is called. From 1024 the channel loop splits, T1 declines and both serve 384. Same on BH and WH (gate rel-803db0fc1 reads these cells 0/0 on WH). Falsifier: a call here means T1 stopped taking the in-projection"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -4392,7 +4392,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: trimul_t1 + trimul_t1_dram serve every trimul in-projection at 256-896, and T1 replaces the gated channel move and the mask-after-move, so neither is called. From 1024 the channel loop splits, T1 declines and both serve 384. Same on BH and WH (gate rel-803db0fc1 reads these cells 0/0 on WH). Falsifier: a call here means T1 stopped taking the in-projection"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
@@ -4400,7 +4400,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-shared",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: trimul_t1 + trimul_t1_dram serve every trimul in-projection at 256-896, and T1 replaces the gated channel move and the mask-after-move, so neither is called. From 1024 the channel loop splits, T1 declines and both serve 384. Same on BH and WH (gate rel-803db0fc1 reads these cells 0/0 on WH). Falsifier: a call here means T1 stopped taking the in-projection"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -4696,7 +4696,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: trimul_t1 + trimul_t1_dram serve every trimul in-projection at 256-896, and T1 replaces the gated channel move and the mask-after-move, so neither is called. From 1024 the channel loop splits, T1 declines and both serve 384. Same on BH and WH (gate rel-803db0fc1 reads these cells 0/0 on WH). Falsifier: a call here means T1 stopped taking the in-projection"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
@@ -4704,7 +4704,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-shared",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: trimul_t1 + trimul_t1_dram serve every trimul in-projection at 256-896, and T1 replaces the gated channel move and the mask-after-move, so neither is called. From 1024 the channel loop splits, T1 declines and both serve 384. Same on BH and WH (gate rel-803db0fc1 reads these cells 0/0 on WH). Falsifier: a call here means T1 stopped taking the in-projection"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -5491,7 +5491,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: trimul_t1 + trimul_t1_dram serve every trimul in-projection at 256-896, and T1 replaces the gated channel move and the mask-after-move, so neither is called. From 1024 the channel loop splits, T1 declines and both serve 384. Same on BH and WH (gate rel-803db0fc1 reads these cells 0/0 on WH). Falsifier: a call here means T1 stopped taking the in-projection"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
@@ -5499,7 +5499,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-shared",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: trimul_t1 + trimul_t1_dram serve every trimul in-projection at 256-896, and T1 replaces the gated channel move and the mask-after-move, so neither is called. From 1024 the channel loop splits, T1 declines and both serve 384. Same on BH and WH (gate rel-803db0fc1 reads these cells 0/0 on WH). Falsifier: a call here means T1 stopped taking the in-projection"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -5792,7 +5792,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: trimul_t1 + trimul_t1_dram serve every trimul in-projection at 256-896, and T1 replaces the gated channel move and the mask-after-move, so neither is called. From 1024 the channel loop splits, T1 declines and both serve 384. Same on BH and WH (gate rel-803db0fc1 reads these cells 0/0 on WH). Falsifier: a call here means T1 stopped taking the in-projection"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
@@ -5800,7 +5800,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-shared",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: trimul_t1 + trimul_t1_dram serve every trimul in-projection at 256-896, and T1 replaces the gated channel move and the mask-after-move, so neither is called. From 1024 the channel loop splits, T1 declines and both serve 384. Same on BH and WH (gate rel-803db0fc1 reads these cells 0/0 on WH). Falsifier: a call here means T1 stopped taking the in-projection"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -6098,7 +6098,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: trimul_t1 + trimul_t1_dram serve every trimul in-projection at 256-896, and T1 replaces the gated channel move and the mask-after-move, so neither is called. From 1024 the channel loop splits, T1 declines and both serve 384. Same on BH and WH (gate rel-803db0fc1 reads these cells 0/0 on WH). Falsifier: a call here means T1 stopped taking the in-projection"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
@@ -6106,7 +6106,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-shared",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: trimul_t1 + trimul_t1_dram serve every trimul in-projection at 256-896, and T1 replaces the gated channel move and the mask-after-move, so neither is called. From 1024 the channel loop splits, T1 declines and both serve 384. Same on BH and WH (gate rel-803db0fc1 reads these cells 0/0 on WH). Falsifier: a call here means T1 stopped taking the in-projection"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -6405,7 +6405,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: trimul_t1 + trimul_t1_dram serve every trimul in-projection at 256-896, and T1 replaces the gated channel move and the mask-after-move, so neither is called. From 1024 the channel loop splits, T1 declines and both serve 384. Same on BH and WH (gate rel-803db0fc1 reads these cells 0/0 on WH). Falsifier: a call here means T1 stopped taking the in-projection"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
@@ -6413,7 +6413,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-shared",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: trimul_t1 + trimul_t1_dram serve every trimul in-projection at 256-896, and T1 replaces the gated channel move and the mask-after-move, so neither is called. From 1024 the channel loop splits, T1 declines and both serve 384. Same on BH and WH (gate rel-803db0fc1 reads these cells 0/0 on WH). Falsifier: a call here means T1 stopped taking the in-projection"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -6712,7 +6712,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: trimul_t1 + trimul_t1_dram serve every trimul in-projection at 256-896, and T1 replaces the gated channel move and the mask-after-move, so neither is called. From 1024 the channel loop splits, T1 declines and both serve 384. Same on BH and WH (gate rel-803db0fc1 reads these cells 0/0 on WH). Falsifier: a call here means T1 stopped taking the in-projection"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
@@ -6720,7 +6720,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-shared",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: trimul_t1 + trimul_t1_dram serve every trimul in-projection at 256-896, and T1 replaces the gated channel move and the mask-after-move, so neither is called. From 1024 the channel loop splits, T1 declines and both serve 384. Same on BH and WH (gate rel-803db0fc1 reads these cells 0/0 on WH). Falsifier: a call here means T1 stopped taking the in-projection"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
