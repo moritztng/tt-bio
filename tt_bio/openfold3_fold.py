@@ -87,7 +87,10 @@ FAST_LEVERS = NORMAL_LEVERS | {"dit_s16", "diffusion_bf16", "trimul_t1", "trimul
 # (floor 1.090 A), CA-lDDT -0.0007 [-0.0027, +0.0007], docking 22 -> 21/44; OpenBind-0 0.743 A (floor 0.812 A),
 # CA-lDDT -0.0009 [-0.0021, +0.0001], docking 27 -> 27/44 (state/spd/grade-sig6-*-wh-fast.md). 512-token page fold
 # on a Galaxy chip at 1000 MHz, paired median of 4: -0.18 s on both. No saving on p150a, so Wormhole only.
-WH_FAST_LEVERS = FAST_LEVERS | {"apb_ln", "trimul_sig6"}
+# And trimul_bres (the trimul einsum with b[c] resident in L1, bmm_res, as ESMFold2 ships it): CIFs identical with and
+# without it on both models (512-token --fast fold A/B, xmodel_ab, 1760 einsums served, 0 declined). Galaxy chip at
+# 1000 MHz, paired median: OpenFold3 -0.18 s (3 pairs; the first paid a 4.7 s program compile), OpenBind-0 -0.24 s (4).
+WH_FAST_LEVERS = FAST_LEVERS | {"apb_ln", "trimul_sig6", "trimul_bres"}
 
 def kabsch_rmsd(pred_ca, gt_ca):
     """Optimal-superposition Cα-RMSD (Kabsch). pred_ca, gt_ca: [N, 3].
