@@ -1551,7 +1551,8 @@ _BH_ONLY_FAST = ("trimul_t1", "trimul_t1_c256", "trimul_t2", "trimul_t2cm")
 _WH_NORMAL_EXTRA = "+transition_ws+ws_resid+ef2_lm_combine+ef2_opm_kq+lm_qk_chain"
 # lm_gate_ng keeps the 6B's SwiGLU gate on binary_ng in both modes (esmc._lm_gate_legacy, on for Wormhole elsewhere):
 # the legacy multiply is graded on ESMC's embeddings (6B pcc vs fp32 -0.00002 / +0.00001), not yet on a fold.
-_WH_EXTRA = "+lm_gate_ng"
+# lm_sdpa_stock likewise keeps the LM's stock SDPA over the full mask (esmc._key_lens, shsdpa elsewhere on Wormhole).
+_WH_EXTRA = "+lm_gate_ng+lm_sdpa_stock"
 
 
 def fold_levers(fast: bool) -> str:

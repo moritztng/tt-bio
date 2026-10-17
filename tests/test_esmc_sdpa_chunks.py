@@ -83,6 +83,8 @@ def test_shsdpa_default_is_wormhole_only(wormhole, monkeypatch):
     monkeypatch.setattr(esmc, "_ESMC_SHSDPA", None)
     monkeypatch.setattr(tenstorrent, "is_wormhole", lambda: wormhole)
     assert (esmc._key_lens(_pad_mask([544, 300], 544)) is not None) is wormhole
+    with tenstorrent.levers("lm_sdpa_stock"):     # ESMFold2's Wormhole sets keep the stock op
+        assert esmc._key_lens(_pad_mask([544, 300], 544)) is None
 
 
 class _T(_Q):
