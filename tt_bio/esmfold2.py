@@ -58,13 +58,6 @@ _STEP_CACHE = True
 # ._folded): two matmuls per block instead of six plus a chunk and a concat. Same arithmetic.
 _APB_FOLD = env_flag("TT_BIO_ESMFOLD2_APB_FOLD", False)
 
-# _attn_fp32's q.k^T from the bf16 q and k with an fp32 result, k transposed inside the matmul: the fp32
-# copies held the same values (bf16 -> fp32 is exact), so this drops two typecasts and a permute a call.
-_ATTN_QK_BF16 = env_flag("TT_BIO_ESMFOLD2_ATTN_QK_BF16", False)
-# The cached pair bias kept in fp32 (cast once per protein) instead of cast at every one of the ~68 steps.
-# Same cast of the same tensor; costs one extra bias copy's bytes per block (+8 MiB a block at 512 tokens).
-_ATTN_BIAS_F32 = env_flag("TT_BIO_ESMFOLD2_ATTN_BIAS_F32", False)
-
 
 # Optional progress callback for the CLI display: report_progress(stage, step, total).
 # A no-op unless a worker installs one via set_progress(); never affects compute.
@@ -126,17 +119,13 @@ def _attn_fp32(q, k, v, attn_mask, scale, ck, accurate_softmax: bool = False):
     ESMFold2 has its own AttentionPairBias class. ``accurate_softmax`` swaps the fused
     kernel, whose rows sum to 0.9944 here, for the 5-op chain."""
     f32 = ttnn.float32
-    vf = ttnn.typecast(v, f32)
-    if _ATTN_QK_BF16:
-        logits = ttnn.matmul(q, k, transpose_b=True, compute_kernel_config=ck, dtype=f32)
-    else:
-        qf = ttnn.typecast(q, f32); kf = ttnn.typecast(k, f32)
-        kt = ttnn.permute(kf, (0, 1, 3, 2))  # [B,H,Dp,L]
-        logits = ttnn.matmul(qf, kt, compute_kernel_config=ck, dtype=f32)
+    qf = ttnn.typecast(q, f32); kf = ttnn.typecast(k, f32); vf = ttnn.typecast(v, f32)
+    kt = ttnn.permute(kf, (0, 1, 3, 2))  # [B,H,Dp,L]
+    logits = ttnn.matmul(qf, kt, compute_kernel_config=ck, dtype=f32)
     if attn_mask is None:
         logits = ttnn.multiply(logits, scale)
     else:
-        logits = scale_add(logits, scale, attn_mask if attn_mask.dtype == f32 else ttnn.typecast(attn_mask, f32))
+        logits = scale_add(logits, scale, ttnn.typecast(attn_mask, f32))
     attn = (_accurate_softmax(logits, ck) if accurate_softmax
             else ttnn.softmax(logits, dim=-1))  # over keys
     ctx = attn_value_matmul(attn, vf, ck, f32)  # [B,H,L,Dp]
@@ -414,10 +403,6 @@ class AttentionPairBias(Module):
             ttnn.deallocate(z_norm)
             pair_bias = ttnn.permute(pb, (0, 3, 1, 2))  # [B, H, L, L]
             ttnn.deallocate(pb)
-            if _ATTN_BIAS_F32:
-                pb = pair_bias
-                pair_bias = ttnn.typecast(pb, ttnn.float32)
-                ttnn.deallocate(pb)
             self._pb = pair_bias
             self._pb_src = z
 
