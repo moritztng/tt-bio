@@ -9,12 +9,13 @@ K_block stays 12, the whole contraction, so every arm folds K in the same order 
 torch.equal to it; an arm that is not is reported and never ranked. Arms time NCALL calls between
 two syncs, REPS rounds, interleaved.
 
-usage: TT_VISIBLE_DEVICES=N python perf/spd_m_opendde/qkvgb_sweep.py OUT.json [--seq 512] [--fid HiFi4]
+usage: TT_VISIBLE_DEVICES=N python perf/spd_m_opendde/qkvgb_sweep.py OUT.json [--seq 512] [--heads 12] [--fid HiFi4]
 """
 import argparse, itertools, json, os, statistics, time
 
 ap = argparse.ArgumentParser()
 ap.add_argument("out"); ap.add_argument("--seq", type=int, default=512)
+ap.add_argument("--heads", type=int, default=12, help="12 OpenDDE, 8 Protenix-v2, 4 Boltz-2 (head_dim 32)")
 ap.add_argument("--fid", default="HiFi4"); ap.add_argument("--ncall", type=int, default=6)
 ap.add_argument("--reps", type=int, default=4)
 a = ap.parse_args()
@@ -30,7 +31,9 @@ import tt_bio.tenstorrent as T
 from tt_bio import mm_generic as G, triatt_qkv as Q
 
 dev = T.get_device()
-S, H, D, C = a.seq, 12, 32, 384
+S, H, D = a.seq, a.heads, 32
+C = H * D
+KT = C // 32
 NW = 4 * C + 32
 torch.manual_seed(0)
 up = lambda t: ttnn.from_torch(t, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev,
@@ -53,15 +56,15 @@ def run(blk):
     return outs
 
 
-SHIP = T._mm_block_at(12, 49)
+SHIP = T._mm_block_at(KT, 4 * KT + 1)
 ref = [ttnn.to_torch(o) for o in run(SHIP)]
 arms = [SHIP]
 for M, N, (sh, sw) in itertools.product((2, 4, 8, 16), (1, 2, 3, 6), ((2, 1), (4, 1), (1, 2), (2, 2), (1, 3), (1, 1))):
-    blk = (M, 12, N, sh, sw)
+    blk = (M, KT, N, sh, sw)
     if M % sh or N % sw or blk == SHIP or sh * sw > 4:
         continue
     arms.append(blk)
-res = {"seq": S, "fid": a.fid, "grid": list(grid), "ship": list(SHIP), "arch": str(dev.arch()), "arms": {}}
+res = {"seq": S, "heads": H, "fid": a.fid, "grid": list(grid), "ship": list(SHIP), "arch": str(dev.arch()), "arms": {}}
 ok = []
 for blk in arms:
     r = res["arms"][str(blk)] = {}
