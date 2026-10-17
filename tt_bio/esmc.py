@@ -217,8 +217,11 @@ _ESMC_QKV_SPLIT = env_flag("TT_BIO_ESMC_QKV_SPLIT", True)
 # 16.48 -> 16.55 s), so the Block of a model past _LM_LARGE_MODEL_BYTES keeps the DRAM path (Attention.qk_l1).
 _ESMC_QK_L1 = env_flag("TT_BIO_ESMC_QK_L1", True)
 # q/k LayerNorm + RoPE + head split of q, k, v as one program (tt_bio/qk_rope_heads.py) in place of the six-op chain
-# of _qk_heads + _rope, on every ESMC size (the 6B re-reads its gammas per row to fit L1). Off until graded.
-_ESMC_QKRH = env_flag("TT_BIO_ESMC_QKRH", False)
+# of _qk_heads + _rope, on every ESMC size (the 6B re-reads its gammas per row to fit L1). None = on for Wormhole:
+# page cell on a Galaxy chip at 1000 MHz (best of 3 rounds), 300M 133.5 -> 121.2 ms (--fast 132.6 -> 120.3), 600M 196.4 ->
+# 172.9 (212.1 -> 190.5), 6B 287.2 -> 259.0 (259.5 -> 236.7); pcc vs fp32 moves -0.00006..+0.00003. The chain alone
+# against float64: q/k rel_l2 0.0042 -> 0.0034..0.0050, v exact, 0.24-0.46 ms a layer against 0.60-1.27.
+_ESMC_QKRH = (env_flag("TT_BIO_ESMC_QKRH", False) if os.environ.get("TT_BIO_ESMC_QKRH", "").strip() else None)
 
 # Replay batched forwards from the trace too (ESMC.trace gated on B == 1). A 7 x 544 Blackhole batch spreads 110-127 ms
 # within one process, the signature of a host-dispatch-bound forward. Same captured program, so output is bit-identical
@@ -266,6 +269,13 @@ def _lm_sdpa_chunks(q_len: int, k_len: int, k_few: bool) -> tuple[int, int]:
         return q_pad, k_chunk
     return (min(ESMC_SDPA_Q_CHUNK, _capped_sdpa_chunk_size(q_len)),
             min(ESMC_SDPA_K_CHUNK, _capped_sdpa_chunk_size(k_len)))
+
+
+def _qkrh() -> bool:
+    if _ESMC_QKRH is not None:
+        return _ESMC_QKRH
+    from tt_bio import tenstorrent
+    return tenstorrent.is_wormhole()
 
 
 def _sdpa_k_few() -> bool:
@@ -617,7 +627,7 @@ class Attention(_MMLin, Module):
                 q, k, v = self._qkv(x)
         else:
             q, k, v = self._qkv(x)
-        heads = qk_rope_heads(q, k, v, self.q_ln_weight, self.k_ln_weight, cos, sin) if _ESMC_QKRH else None
+        heads = qk_rope_heads(q, k, v, self.q_ln_weight, self.k_ln_weight, cos, sin) if _qkrh() else None
         if heads is not None:
             for t in (q, k, v):
                 ttnn.deallocate(t)
