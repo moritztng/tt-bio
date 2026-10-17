@@ -108,8 +108,11 @@ if "esmc" in a.shape:
                 PROTO[f"e_p{qc}_{kc}_{spl.replace(',', '')}" + ("_" + "_".join(dfs) if dfs else "")] = (
                     int(qc) or None, int(kc), None if spl == "-" else tuple(map(int, spl.split(","))), dfs)
         for nm, (qc, kc, spl, *dfs) in PROTO.items():
-            ARMS[nm] = ("esmc", lambda qc=qc, kc=kc, spl=spl, d=(dfs[0] if dfs else None):
-                        P.sdpa(eq, ek, ev, sc, key_lens=lens, q_chunk=qc, k_chunk=kc, split=spl, defines=d))
+            d = dict(dfs[0]) if dfs and dfs[0] else {}
+            ckc = (ttnn.MathFidelity.LoFi if d.pop("LOFI", 0) else ttnn.MathFidelity.HiFi2, True, False,
+                   bool(d.pop("FULLSYNC", 0)))
+            ARMS[nm] = ("esmc", lambda qc=qc, kc=kc, spl=spl, d=(d or None), ckc=ckc:
+                        P.sdpa(eq, ek, ev, sc, key_lens=lens, q_chunk=qc, k_chunk=kc, split=spl, defines=d, ckc=ckc))
     except ImportError:
         pass
 
