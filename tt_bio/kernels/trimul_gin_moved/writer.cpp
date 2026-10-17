@@ -9,6 +9,14 @@
 // same gather as reblock_permute's writer, whose comment carries the alignment argument.
 #include "api/dataflow/dataflow_api.h"
 
+// One 32 B face row, L1 to L1, by the RISC.
+FORCE_INLINE void copy_row(uint32_t src, uint32_t dst) {
+    volatile tt_l1_ptr uint32_t* s = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(src);
+    volatile tt_l1_ptr uint32_t* d = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(dst);
+#pragma GCC unroll 8
+    for (uint32_t w = 0; w < 8; ++w) d[w] = s[w];
+}
+
 void kernel_main() {
     constexpr uint32_t CT2 = get_compile_time_arg_val(0);
     constexpr uint32_t St = get_compile_time_arg_val(1);
@@ -18,7 +26,11 @@ void kernel_main() {
     // L1 runs as several launches over channel slices that write into the same two tensors.
     constexpr uint32_t CTO = get_compile_time_arg_val(4);
     constexpr uint32_t CTT = get_compile_time_arg_val(5);
-    constexpr auto a_args = TensorAccessorArgs<6>();
+    // Of every PER face-row pairs of an output tile, the RISC copies one itself with L1 loads and stores
+    // (0: none). The NOC read engine is issue-bound here, so the copy runs while queued packets land.
+    constexpr uint32_t PER = get_compile_time_arg_val(6);
+    constexpr uint32_t PM = PER ? PER : 1;
+    constexpr auto a_args = TensorAccessorArgs<7>();
     constexpr auto b_args = TensorAccessorArgs<a_args.next_compile_time_args_offset()>();
     const auto oa = TensorAccessor(a_args, get_common_arg_val<uint32_t>(0));
     const auto ob = TensorAccessor(b_args, get_common_arg_val<uint32_t>(1));
@@ -53,16 +65,16 @@ void kernel_main() {
                     const uint32_t c = c0 + j;
                     const uint32_t st = gbase + j * TB;
                     const uint32_t sc = src + (c >> 4) * 2 * FB + (c & 15) * RB;
-                    uint32_t s0 = sc, s1 = sc + FB, d0 = st, d1 = st + FB;
-                    for (uint32_t il = 0; il < 16; ++il, s0 += TB, s1 += TB, d0 += RB, d1 += RB) {
-                        noc_async_read_one_packet_with_state(s0, d0);
-                        noc_async_read_one_packet_with_state(s1, d1);
-                    }
-                    d0 = st + 2 * FB;
-                    d1 = st + 3 * FB;
-                    for (uint32_t il = 0; il < 16; ++il, s0 += TB, s1 += TB, d0 += RB, d1 += RB) {
-                        noc_async_read_one_packet_with_state(s0, d0);
-                        noc_async_read_one_packet_with_state(s1, d1);
+                    uint32_t s0 = sc, s1 = sc + FB;
+                    for (uint32_t il = 0; il < 32; ++il, s0 += TB, s1 += TB) {
+                        const uint32_t d0 = st + (il >> 4) * 2 * FB + (il & 15) * RB, d1 = d0 + FB;
+                        if (PER && il % PM == PM - 1) {
+                            copy_row(s0, d0);
+                            copy_row(s1, d1);
+                        } else {
+                            noc_async_read_one_packet_with_state(s0, d0);
+                            noc_async_read_one_packet_with_state(s1, d1);
+                        }
                     }
                 }
                 noc_async_read_barrier();

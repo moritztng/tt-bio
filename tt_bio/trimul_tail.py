@@ -563,6 +563,9 @@ GIN_MOVE = env_flag("TT_BIO_TRIMUL_GIN_MOVE", True)
 GIN_MOVE_STATS = [0, 0]   # served, declined
 GIN_MOVE_ABL = 0          # the three kernels' stage ablation bits (see each .cpp). Diagnostic only.
 GIN_MOVE_NB = int(os.environ.get("TT_BIO_TRIMUL_GIN_MOVE_NB", "2"))   # writer tiles per read barrier
+# Of every N face-row pairs the writer gathers, it copies one with its own loads and stores instead of a
+# NOC read (0: all NOC). Same bytes to the same addresses, so the output is bit-identical.
+GIN_MOVE_CPY = int(os.environ.get("TT_BIO_TRIMUL_GIN_MOVE_CPY", "0"))
 
 
 def _gin_fuse(masked):
@@ -659,7 +662,7 @@ def _build_gin_move(x, wpT, wgT, outs, grid, ckc, mask, cto=0, ctt=None):
         runtime_args=rd, common_runtime_args=[0] * 4, config=ttnn.ReaderConfigDescriptor())
     writer = ttnn.KernelDescriptor(
         kernel_source=str(d / "writer.cpp"), source_type=src, core_ranges=core_grid,
-        compile_time_args=[ct2, St, GIN_MOVE_ABL, GIN_MOVE_NB, cto, ct2 // 2 if ctt is None else ctt]
+        compile_time_args=[ct2, St, GIN_MOVE_ABL, GIN_MOVE_NB, cto, ct2 // 2 if ctt is None else ctt, GIN_MOVE_CPY]
         + acc(outs[0]) + acc(outs[1]),
         runtime_args=wr, common_runtime_args=[0, 0], config=ttnn.WriterConfigDescriptor())
     fid, approx, fp32, full = ckc
@@ -709,7 +712,7 @@ def gin_moved(x, wpT, wgT, ckc, grid, mask=None):
     for s_, (wp, wg) in enumerate(zip(wps, wgs)):
         key = ("gin_move", str(x.padded_shape), str(wp.padded_shape), tuple(grid),
                tuple(str(c) for c in ckc), mask is not None, GIN_MOVE_ABL, GIN_MOVE_NB, _sigpoly(), RNE,
-               s_, n, _gin_fuse(mask is not None))
+               s_, n, _gin_fuse(mask is not None), GIN_MOVE_CPY)
         entry = _CACHE.get(key)
         if entry is None:
             entry = _CACHE[key] = _build_gin_move(x, wp, wg, outs, grid, ckc, mask,
