@@ -12,7 +12,7 @@ import os
 import pathlib
 import sys
 
-sys.argv = [sys.argv[0], "pws+at+apb+dpb+css+pwr+qkh+gch+asdpa+dsdpa+sf+rs+kd+pzg", "/tmp/gap_pzg_check",
+sys.argv = [sys.argv[0], "pws+at+apb+dpb+css+pwr+qkh+gch+pzc+asdpa+dsdpa+sf+rs+kd+pzg", "/tmp/gap_pzg_check",
             sys.argv[2] if len(sys.argv) > 2 else "4", "60", "--fast=1", "OUT=" + sys.argv[1]]
 OUT = pathlib.Path(sys.argv.pop()[4:])
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
