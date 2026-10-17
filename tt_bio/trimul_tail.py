@@ -870,6 +870,9 @@ T2_STATS = [0, 0]       # served, declined
 # T2's compute-stage ablation (compute_ln.cpp's ABL bits: 1 LN, 2 p GEMM, 4 gate GEMM + sigmoid, 8 epilogue).
 # The reader and writer still move every byte. Diagnostic only, 0 in every model path.
 T2_ABL = 0
+# T2's reader keeps x one block ahead (reader_ln.cpp PIPE): one read barrier a block instead of two. Same
+# pages to the same slots, so bit-identical. Off until measured on both archs.
+T2_PIPE = env_flag("TT_BIO_T2_PIPE", False)
 T2_KEYS = {(4, 4), (8, 8)}   # (kt, nt): c_z 128 and 256 (ESMFold2)
 # c_z 384 (OpenDDE) under the `trimul_t2w` lever, at T2's own block: `_MM_BLOCK`'s (8, 12, 1, 2, 1) does not
 # fit L1 and declines. (2, 12, 1, 2, 1) keeps the single K block, so the contraction order is the projection's.
@@ -1046,7 +1049,7 @@ def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, wg=None, moved
     if moved is None:
         reader = ttnn.KernelDescriptor(
             kernel_source=str(d / "reader_ln.cpp"), source_type=src, core_ranges=core_grid,
-            compile_time_args=[kt, nt, Mb, scaler, eps_bits, int(gate)] + acc(x) + acc(wp) + acc(g)
+            compile_time_args=[kt, nt, Mb, scaler, eps_bits, int(gate), int(T2_PIPE)] + acc(x) + acc(wp) + acc(g)
             + acc(resid) + acc(ln_w) + acc(ln_b) + acc(wg if gate else wp),
             runtime_args=rd, common_runtime_args=[0] * 7, config=ttnn.ReaderConfigDescriptor())
         writer = ttnn.KernelDescriptor(
@@ -1170,7 +1173,7 @@ def fused_tail_ln(x, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5, wg=None, mov
         return None
     spec = lambda t: (str(t.padded_shape), str(t.dtype), str(t.memory_config()))
     key = ("t2", spec(x), spec(wp), str(g.dtype), spec(ln_w), spec(ln_b), wg is not None, tuple(grid),
-           tuple(str(c) for c in ckc), float(eps), _sigpoly(), RNE, T2_ABL,
+           tuple(str(c) for c in ckc), float(eps), _sigpoly(), RNE, T2_ABL, T2_PIPE,
            None if moved is None else (spec(moved[0]), moved[1], P))
     entry = _CACHE.get(key)
     if entry is None:
