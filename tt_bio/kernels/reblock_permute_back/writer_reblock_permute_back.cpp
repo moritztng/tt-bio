@@ -49,6 +49,13 @@ void kernel_main() {
     // never concatenates them. Ct_out == Ct and ct_off == 0 is the plain move.
     const uint32_t Ct_out = get_common_arg_val<uint32_t>(1);
     const uint32_t ct_off = get_common_arg_val<uint32_t>(2);
+    // Logical N. When it is not a multiple of 32 the last row group (it = Nt-1) owns only
+    // N - it*32 real output rows i: the rest would land past the end of the outer axis, so they
+    // are dropped here (the reader and compute still run the fixed 32 tiles a group). And the
+    // last column group (jt = Nt-1) carries rows jl >= N - jt*32 of every output tile, which are
+    // tile padding on the j axis: zeroed, as the forward writer does, because a consumer that
+    // contracts over j reads them.
+    const uint32_t N = get_common_arg_val<uint32_t>(4);
     const uint32_t first_group = (GQ_ON ? (gq.first) : get_arg_val<uint32_t>(0));
     const uint32_t num_groups = (GQ_ON ? (gq.num) : get_arg_val<uint32_t>(1));
     const uint32_t Nt = (GQ_ON ? (get_compile_time_arg_val(GQ + 8)) : get_arg_val<uint32_t>(2));
@@ -130,7 +137,27 @@ void kernel_main() {
         cb_wait_front(cb_id_out, TILE_HEIGHT);
         uint32_t l1_read_addr = get_read_ptr(cb_id_out);
         uint32_t out_page = (it * TILE_HEIGHT) * NtCt_out + jt * Ct_out + ct + ct_off;
-        for (uint32_t il = 0; il < TILE_HEIGHT; ++il) {
+        const uint32_t rows_i = (it * TILE_HEIGHT + TILE_HEIGHT <= N) ? TILE_HEIGHT : (N - it * TILE_HEIGHT);
+        const uint32_t rows_j = (jt * TILE_HEIGHT + TILE_HEIGHT <= N) ? TILE_HEIGHT : (N - jt * TILE_HEIGHT);
+        if (rows_j < TILE_HEIGHT) {
+            // Output tile row jl sits in face pair jl/16, row jl%16 of each; one face row is 16 elements.
+            constexpr uint32_t FACE = 16, FACE_ROW_WORDS = FACE * element_size / 4;
+            constexpr uint32_t FACE_ELEMS = FACE * FACE;
+            for (uint32_t il = 0; il < rows_i; ++il) {
+                const uint32_t tb = l1_read_addr + il * tile_bytes;
+                for (uint32_t jl = rows_j; jl < TILE_HEIGHT; ++jl) {
+                    for (uint32_t fw = 0; fw < 2; ++fw) {
+                        const uint32_t e = ((jl / FACE) * 2 + fw) * FACE_ELEMS + (jl % FACE) * FACE;
+                        volatile tt_l1_ptr uint32_t* z =
+                            reinterpret_cast<volatile tt_l1_ptr uint32_t*>(tb + e * element_size);
+                        for (uint32_t k = 0; k < FACE_ROW_WORDS; ++k) {
+                            z[k] = 0;
+                        }
+                    }
+                }
+            }
+        }
+        for (uint32_t il = 0; il < rows_i; ++il) {
 #ifndef RPB_NO_WRITE  // bench ablation (reblock_permute.BACK_ABL & 4)
             noc_async_write(l1_read_addr, s.get_noc_addr(out_page), tile_bytes);
 #endif

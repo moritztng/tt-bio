@@ -4,8 +4,8 @@
 
 // reblock_permute_back reader (multi-core). The INVERSE channel move:
 // permute(x, (0,2,3,1)) for x [1, C, N, N] -> [1, N, N, C], C a multiple of 32,
-// Ct = C/32 channel tiles, N a multiple of 32 (the ragged case is refused by the
-// host gate, so nothing here is padded).
+// Ct = C/32 channel tiles, Nt = ceil(N/32). A ragged N needs nothing here: every input
+// tile exists (padded), and the writer drops the output rows past N and zeroes the j padding.
 //
 // A group is (it, jt, ct), flattened as g = (it*Nt + jt)*Ct + ct, and owns the 32
 // output tiles of the 32 rows i = it*32 + il. It reads the 32 input tiles

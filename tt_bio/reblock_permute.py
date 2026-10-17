@@ -577,7 +577,7 @@ def _cache_key_back(x, out, device, reader_ct, writer_ct):
 
 def _build_back(x, out, device, reader_ct, writer_ct):
     C, N = int(x.shape[1]), int(x.shape[2])
-    Nt, Ct = N // TILE_H, C // TILE_W
+    Nt, Ct = (N + TILE_H - 1) // TILE_H, C // TILE_W
     # A group is (it, jt, ct) and owns 32 output tiles. Keeping `ct` INSIDE the group index rather
     # than looping over it per group is what makes the work split even: at 512 aa with C=256 that is
     # 2048 groups over 110 cores (19 and 18 per core, 5 % imbalance) where Nt*Nt groups would be 256
@@ -641,7 +641,7 @@ def _build_back(x, out, device, reader_ct, writer_ct):
         kernel_source=str(KERNEL_DIR_BACK / "writer_reblock_permute_back.cpp"),
         source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
         core_ranges=core_grid, compile_time_args=genq_ct + writer_ct, runtime_args=writer_rt,
-        common_runtime_args=[0, Ct, 0, 0], config=ttnn.WriterConfigDescriptor(),
+        common_runtime_args=[0, Ct, 0, 0, N], config=ttnn.WriterConfigDescriptor(),
         defines=[(d, "1") for b, d in ((4, "RPB_NO_WRITE"), (8, "RPB_SPLIT")) if (BACK_ABL | 8 * BACK_SPLIT) & b],
     )
     # The compute kernel is the forward direction's, unchanged: both moves end in one `transpose_wh`
@@ -705,7 +705,7 @@ def reblock_permute_back(x, memory_config=None, device=None, out=None, c_off=0):
         C, c_off, [int(d) for d in out.shape])
     entry = _prepare_back(x, out, device)
     src, dst = x.buffer_address(), out.buffer_address()
-    wargs = [dst, c_out // TILE_W, c_off // TILE_W, src]
+    wargs = [dst, c_out // TILE_W, c_off // TILE_W, src, N]
     if ADDR_WRITE_MODE == "in_place":
         pd = entry["pd"]
         pd.kernels[0].common_runtime_args = [src]
@@ -731,6 +731,19 @@ def set_enabled_back(on: bool) -> bool:
     """A/B switch for the paired harness. Returns the previous state."""
     global _ENABLED_BACK
     prev, _ENABLED_BACK = _ENABLED_BACK, bool(on)
+    return prev
+
+
+# A ragged N (not a multiple of 32: AF2-IG and BindCraft 2 run their pair track at 195) through the
+# back kernel. Off until its A/B reads; a pure index move, so bit-exact against the stock path's
+# logical content either way.
+BACK_RAGGED = env_flag("TT_BIO_REBLOCK_BACK_RAGGED", False)
+
+
+def set_back_ragged(on: bool) -> bool:
+    """A/B switch for the paired harness. Returns the previous state."""
+    global BACK_RAGGED
+    prev, BACK_RAGGED = BACK_RAGGED, bool(on)
     return prev
 
 
@@ -761,7 +774,16 @@ def eligible_back(x, memory_config, taped_ok: bool = False) -> bool:
         return _reject("back_shape", shape)
     C, N = shape[1], shape[2]
     if N % TILE_H:
-        return _reject("back_ragged", shape)
+        # The kernel serves a ragged N (the writer drops the rows past N and zeroes the j padding),
+        # but where it pays is unmeasured, so it opens only behind BACK_RAGGED, at any window.
+        if not BACK_RAGGED:
+            return _reject("back_ragged", shape)
+        if x.dtype != _DTYPE or x.layout != ttnn.TILE_LAYOUT:
+            return _reject("back_dtype_layout", shape)
+        if (memory_config.memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED
+                or x.memory_config().memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED):
+            return _reject("back_sharded", shape)
+        return True
     if x.dtype != _DTYPE or x.layout != ttnn.TILE_LAYOUT:
         return _reject("back_dtype_layout", shape)
     if memory_config.memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED:
