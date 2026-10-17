@@ -78,6 +78,7 @@ SEQUENCE_VOCAB = [
 BOS_TOKEN, EOS_TOKEN, UNK_TOKEN, MASK_TOKEN = 0, 2, 3, 32
 PAD_TOKEN = 1  # SEQUENCE_VOCAB index of <pad>
 from .token_axis import bucket_multiple as _bucket_multiple
+from .qk_rope_heads import STATS as QKRH_STATS, qk_rope_heads  # noqa: F401 (QKRH_STATS: read by esmc_ab)
 
 # pad the LM length to a multiple of this to avoid per-length recompilation; fleet value.
 BUCKET = _bucket_multiple("esmc-300m")
@@ -215,6 +216,9 @@ _ESMC_QKV_SPLIT = env_flag("TT_BIO_ESMC_QKV_SPLIT", True)
 # ESMC-6B gains nothing (p300c page cell, identical digests: ESMFold2 +0.76 s on a 0.89 s spread, ESMFold2-Fast
 # 16.48 -> 16.55 s), so the Block of a model past _LM_LARGE_MODEL_BYTES keeps the DRAM path (Attention.qk_l1).
 _ESMC_QK_L1 = env_flag("TT_BIO_ESMC_QK_L1", True)
+# q/k LayerNorm + RoPE + head split of q, k, v as one program (tt_bio/qk_rope_heads.py) in place of the six-op chain
+# of _qk_heads + _rope; declines (None) where its CBs do not fit, so the 6B keeps the chain. Off until graded.
+_ESMC_QKRH = env_flag("TT_BIO_ESMC_QKRH", False)
 
 # Replay batched forwards from the trace too (ESMC.trace gated on B == 1). A 7 x 544 Blackhole batch spreads 110-127 ms
 # within one process, the signature of a host-dispatch-bound forward. Same captured program, so output is bit-identical
@@ -613,9 +617,15 @@ class Attention(_MMLin, Module):
                 q, k, v = self._qkv(x)
         else:
             q, k, v = self._qkv(x)
-        # Re-pack and use the tile-aware head split, then apply per-head RoPE.
-        q, k, v = self._qk_heads(q, k, v)
-        q, k = _rope(q, k, cos, sin, l1=self.qk_l1)
+        heads = qk_rope_heads(q, k, v, self.q_ln_weight, self.k_ln_weight, cos, sin) if _ESMC_QKRH else None
+        if heads is not None:
+            for t in (q, k, v):
+                ttnn.deallocate(t)
+            q, k, v = heads
+        else:
+            # Re-pack and use the tile-aware head split, then apply per-head RoPE.
+            q, k, v = self._qk_heads(q, k, v)
+            q, k = _rope(q, k, cos, sin, l1=self.qk_l1)
         if key_valid is not None and attn_mask is None:
             # Zero padded keys/values so their attention contribution is exactly 0. With the -inf
             # additive mask present this is redundant: the masked softmax weight is already exactly
