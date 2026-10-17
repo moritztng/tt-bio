@@ -66,8 +66,14 @@ def bench(dev, nodes, emit, N):
                 continue
             Y = ttnn.to_torch(y).double().reshape(R.shape); ttnn.deallocate(y)
             nb, mx, rel = wrong(refs[ref], Y)
+            at = []
+            if nb:  # where the wrong pixels sit: (row, col, f64, device), to tell a bad core from a bad program
+                err = (Y - refs[ref]).abs().reshape(M, N)
+                for i in err.flatten().topk(min(nb, 4)).indices.tolist():
+                    r, c = divmod(i, N)
+                    at.append([r, c, round(refs[ref].reshape(M, N)[r, c].item(), 4), round(Y.reshape(M, N)[r, c].item(), 4)])
             us, sp, ck = dev_time(dev, fn, nodes=nodes)
-            emit(ev="arm", n=N, acc=acc, arm=lab, us=round(us, 1), spread=round(sp, 3), wrong=nb,
+            emit(ev="arm", n=N, acc=acc, arm=lab, us=round(us, 1), spread=round(sp, 3), wrong=nb, at=at,
                  max_err=round(mx, 5), rel_rms=float(f"{rel:.3e}"), aiclk=ck)
 
 
