@@ -42,6 +42,7 @@ from __future__ import annotations
 import collections
 import functools
 import hashlib
+import math
 import os
 
 import torch
@@ -156,14 +157,35 @@ SUBSTITUTION_CLASSES["all"] = tuple(
     name for names in list(SUBSTITUTION_CLASSES.values()) for name in names)
 
 
+# A pair or MSA crosses the boundary every recycle. Host tilize / untilize of its unaligned token axis cost more
+# than the copy, so these tensors cross row-major and the card changes the layout, same bits (.108 WH chip 23 at
+# 1000 MHz, [195, 195, 128]: up 11.4 -> 7.1 ms, down 10.3 -> 7.9 ms). Small tensors keep the one-call path.
+_ROW_MAJOR_MIN = 1 << 20
+
+
+def _row_major_crossing(shape) -> bool:
+    return math.prod(shape) >= _ROW_MAJOR_MIN and shape[-1] % 32 == 0
+
+
 def _to_card(t: torch.Tensor, device) -> ttnn.Tensor:
+    if _row_major_crossing(t.shape):
+        rm = ttnn.from_torch(t.unsqueeze(0).to(torch.bfloat16), layout=ttnn.ROW_MAJOR_LAYOUT,
+                             device=device, dtype=ttnn.bfloat16)
+        out = ttnn.to_layout(rm, ttnn.TILE_LAYOUT)
+        ttnn.deallocate(rm)
+        return out
     return ttnn.from_torch(t.unsqueeze(0).to(torch.bfloat16), layout=ttnn.TILE_LAYOUT,
                            device=device, dtype=ttnn.bfloat16)
 
 
 def _to_host(t: ttnn.Tensor, dtype: torch.dtype, shape: tuple | None = None) -> torch.Tensor:
     """Back to host torch, leading ones squeezed down to `shape`'s rank (to rank 3 without one)."""
-    x = torch.Tensor(ttnn.to_torch(t))
+    if t.layout == ttnn.TILE_LAYOUT and _row_major_crossing(tuple(t.shape)):
+        rm = ttnn.to_layout(t, ttnn.ROW_MAJOR_LAYOUT)
+        x = torch.Tensor(ttnn.to_torch(rm))
+        ttnn.deallocate(rm)
+    else:
+        x = torch.Tensor(ttnn.to_torch(t))
     while x.dim() > (3 if shape is None else len(shape)) and x.shape[0] == 1:
         x = x.squeeze(0)
     assert shape is None or tuple(x.shape) == tuple(shape), f"device gave {tuple(x.shape)}, want {shape}"
