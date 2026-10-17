@@ -159,7 +159,7 @@ def programs_wide(mt, kt, nt, grid, acc):
                 out_block_h=pm, out_block_w=obw, per_core_M=pm, per_core_N=pn, transpose_mcast=False,
                 fused_activation=None, fuse_batch=True)))
         n1 = -(-nt // (gx * gy))
-        for obh in (mt, 8, 4, 2):
+        for obh in (mt, 4):
             if mt % obh:
                 continue
             for obw in (w for w in (n1, 8, 4, 2) if n1 % w == 0):
