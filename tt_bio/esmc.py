@@ -788,8 +788,19 @@ def _swiglu_gate_legacy() -> bool:
 _LM_LARGE_MODEL_BYTES = env_int("TT_BIO_LM_LARGE_MODEL_BYTES", 4 << 30)
 # The 6B on the same attention path as the small models: q, k and v from the split weight (cut on the host, no second
 # copy) and the norms, re-pack and rope in L1, each refusal falling back to DRAM. Its first try
-# kept both weights: --fast 304.8 -> 286.2 ms at 544 aa on a Galaxy chip, normal out of DRAM. Off until measured.
-_ESMC_QK_L1_LARGE = env_flag("TT_BIO_ESMC_QK_L1_LARGE", False)
+# kept both weights: --fast 304.8 -> 286.2 ms at 544 aa on a Galaxy chip, normal out of DRAM at load. None = on for
+# Wormhole with block-fp8 weights (--fast): 6B page cell 284.1 -> 266.0 ms at 1000 MHz, pcc vs fp32 0.99888 -> 0.99890,
+# and ESMFold2-Fast on Wormhole grades PASS against the fast bar (11-set x 4 seeds, 0 failed folds, 24/44 docked
+# both arms, median same-seed pose deviation 0.97 A against a 0.85 A seed floor).
+_ESMC_QK_L1_LARGE = (env_flag("TT_BIO_ESMC_QK_L1_LARGE", False)
+                     if os.environ.get("TT_BIO_ESMC_QK_L1_LARGE", "").strip() else None)
+
+
+def _qk_l1_large(wdtype) -> bool:
+    if _ESMC_QK_L1_LARGE is not None:
+        return _ESMC_QK_L1_LARGE
+    from tt_bio import tenstorrent
+    return wdtype == ttnn.bfloat8_b and tenstorrent.is_wormhole()
 _LM_FFN_WHOLE_ROWS = env_int("TT_BIO_LM_FFN_WHOLE_ROWS", 1056)
 # The per-token LM FFN's SwiGLU gate silu(x fc1_a) * (x fc1_b) written to L1, where fc2 reads it back. Same op, same
 # values (a memory placement); a refusal falls back to DRAM for that shape for good. Off until the page-cell A/B says.
@@ -1439,7 +1450,8 @@ class Block(Module):
         d_ff, d = int(shape[-2]), int(shape[-1])
         self.ffn.model_bytes = n_layers * (4 * d * d + 3 * d * d_ff) * 2
         self.attn = Attention(n_heads, self.scope("attn"), compute_kernel_config, out_scale=inv_scale,
-                              qk_l1=self.ffn.model_bytes <= _LM_LARGE_MODEL_BYTES or _ESMC_QK_L1_LARGE, d_model=d)
+                              qk_l1=(self.ffn.model_bytes <= _LM_LARGE_MODEL_BYTES
+                                     or _qk_l1_large(self.ffn.fc2_weight.dtype)), d_model=d)
         self.attn.lm_large = self.ffn.lm_large = self.ffn.model_bytes > _LM_LARGE_MODEL_BYTES
 
     def __call__(self, x: ttnn.Tensor, cos: ttnn.Tensor, sin: ttnn.Tensor,
