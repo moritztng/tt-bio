@@ -887,7 +887,8 @@ def _t2_block(kt, nt):
 # T2m: T2 reading x where the einsum left it, channel-major, instead of after reblock_permute_back
 # (reader_moved.cpp). The gather that bounds the back move (64 NOC packets per tile) runs on the
 # reader while compute does T2's LayerNorm, two GEMMs and sigmoid, and the moved x is never written.
-# Under the `trimul_t2m` lever (in no mode set yet); T2M forces it for the benches.
+# Under the `trimul_t2m` lever (in no mode set: it lost to plain T2 once trimul_bres fed the tail); T2M forces it
+# for the benches.
 T2M = False
 T2M_STATS = [0, 0]      # served, declined
 T2M_WHY = {}
