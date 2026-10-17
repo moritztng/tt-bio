@@ -80,6 +80,34 @@ void kernel_main() {
     constexpr uint32_t tile_bytes = TILE_HEIGHT * TILE_WIDTH * element_size;  // 2048
 
     const auto s = TensorAccessor(dst_args, dst_addr);
+#ifdef RPB_SPLIT
+    // RPB_SPLIT (reblock_permute.BACK_SPLIT): this RISC also reads each group's 32 channel-major source tiles from
+    // DRAM into the stage ring, one group ahead, on its own NOC, so the read overlaps the reader's L1 gather of the
+    // group before. The reader only gathers.
+    constexpr uint32_t stage_cb = get_compile_time_arg_val(dst_args.next_compile_time_args_offset());
+    constexpr auto src_args = TensorAccessorArgs<dst_args.next_compile_time_args_offset() + 1>();
+    const auto src = TensorAccessor(src_args, get_common_arg_val<uint32_t>(3));
+    auto stage = [&](uint32_t g) {
+        const uint32_t it = g / (Nt * Ct), rem = g - it * (Nt * Ct), jt = rem / Ct, ct = rem - jt * Ct;
+        cb_reserve_back(stage_cb, TILE_HEIGHT);
+        uint32_t page = (ct * TILE_HEIGHT) * (Nt * Nt) + it * Nt + jt, dst = get_write_ptr(stage_cb);
+        for (uint32_t cl = 0; cl < TILE_HEIGHT; ++cl) {
+            noc_async_read_page(page, src, dst);
+            page += Nt * Nt;
+            dst += tile_bytes;
+        }
+    };
+    auto next_group = [&](uint32_t g) {
+        g += group_stride;
+        return g == group_wrap_hi ? group_wrap_lo : g;
+    };
+    uint32_t ahead = first_group;
+    if (num_groups) {
+        stage(ahead);
+        noc_async_read_barrier();
+        cb_push_back(stage_cb, TILE_HEIGHT);
+    }
+#endif
 
     const uint32_t NtCt = Nt * Ct;
     const uint32_t NtCt_out = Nt * Ct_out;
@@ -90,11 +118,22 @@ void kernel_main() {
         const uint32_t jt = rem / Ct;
         const uint32_t ct = rem - jt * Ct;
 
+#ifdef RPB_SPLIT
+        // Stage the next group before waiting on this one's output, so the reader can gather it as soon as it is done.
+        if (gi + 1 < num_groups) {
+            ahead = next_group(ahead);
+            stage(ahead);
+            noc_async_read_barrier();
+            cb_push_back(stage_cb, TILE_HEIGHT);
+        }
+#endif
         cb_wait_front(cb_id_out, TILE_HEIGHT);
         uint32_t l1_read_addr = get_read_ptr(cb_id_out);
         uint32_t out_page = (it * TILE_HEIGHT) * NtCt_out + jt * Ct_out + ct + ct_off;
         for (uint32_t il = 0; il < TILE_HEIGHT; ++il) {
+#ifndef RPB_NO_WRITE  // bench ablation (reblock_permute.BACK_ABL & 4)
             noc_async_write(l1_read_addr, s.get_noc_addr(out_page), tile_bytes);
+#endif
             l1_read_addr += tile_bytes;
             out_page += NtCt_out;
         }
