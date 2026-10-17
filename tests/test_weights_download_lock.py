@@ -37,10 +37,10 @@ def _contend(first, second, root):
     # more than this test is measuring.
     ctx = mp.get_context("fork")
     q = ctx.Queue()
-    a = ctx.Process(target=_hold, args=(first, root, q))
+    a = ctx.Process(target=_hold, args=(first, root, q), daemon=True)
     a.start()
     assert q.get(timeout=30) == "held"
-    b = ctx.Process(target=_grab, args=(second, root, q))
+    b = ctx.Process(target=_grab, args=(second, root, q), daemon=True)
     b.start()
     waited = q.get(timeout=60)
     a.join(30)
@@ -61,15 +61,18 @@ def test_one_lock_per_artifact_key(tmp_path, second, serialised):
 def test_lock_is_released_when_the_holder_dies(tmp_path):
     """A killed downloader must not wedge every other process out of the cache."""
     ctx = mp.get_context("fork")
-    q = ctx.Queue()
-    a = ctx.Process(target=_hold, args=("rf3", tmp_path, q))
+    # One queue per child. A queue's feeder releases its cross-process write lock only
+    # after the bytes are sent, so killing `a` the moment "held" arrives can leave that
+    # lock taken; a shared queue then wedged `b`'s put, and pytest's exit joined `b` forever.
+    qa, qb = ctx.Queue(), ctx.Queue()
+    a = ctx.Process(target=_hold, args=("rf3", tmp_path, qa), daemon=True)
     a.start()
-    assert q.get(timeout=30) == "held"
+    assert qa.get(timeout=30) == "held"
     a.kill()
     a.join(30)
-    b = ctx.Process(target=_grab, args=("rf3", tmp_path, q))
+    b = ctx.Process(target=_grab, args=("rf3", tmp_path, qb), daemon=True)
     b.start()
-    waited = q.get(timeout=60)
+    waited = qb.get(timeout=60)
     b.join(30)
     assert waited < HOLD_S / 2, f"lock survived its holder ({waited:.2f}s)"
 
