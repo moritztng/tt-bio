@@ -344,6 +344,7 @@ _ESMC_QKV_MM_SPLIT = env_flag("TT_BIO_ESMC_QKV_MM_SPLIT", True)
 _ESMC_MM_RESID = env_flag("TT_BIO_ESMC_MM_RESID", True)
 #: [qkv split matmuls, residual-fused projections] served, read by the A/B harness.
 MM_FUSE_STATS = [0, 0]
+LIN6B_STATS = [0]  # projections served by _lin6b_program
 
 
 # minimal_matmul accumulating in bf16 dest registers instead of fp32, which frees room for 2 x 4 output subblocks.
@@ -358,6 +359,45 @@ _ESMC_MM_BF16_ACC = env_flag("TT_BIO_ESMC_MM_BF16_ACC", None)
 # multiply and fc2 read half the bytes: at the 300M page shape that chain moves ~117 MB a layer through DRAM in bf16.
 # Wormhole minimal_matmul path only (fc2 takes the bfp8 operand there). Off: an A/B candidate for --fast.
 _ESMC_ACT_BFP8 = env_flag("TT_BIO_ESMC_ACT_BFP8", False)
+
+
+# ESMC-6B's projections at up to 544 rows on Wormhole (the page shape is one 544-row sequence) on explicit multicast
+# programs instead of ttnn.linear's own pick for the grid. lin6b_sweep on a Galaxy chip at 1000 MHz, ms a call at 544 rows
+# (grid -> program): bf16 qkv 0.585 -> 0.556 and fc1 half 0.508 -> 0.455 (1D, N across every core), fc2 0.452 -> 0.431
+# (2D); block-fp8 qkv 0.590 -> 0.474 and fc1 half 0.482 -> 0.415 (2D), fc2 and out_proj stay on the linear's program.
+_ESMC_LIN6B_PROG = env_flag("TT_BIO_ESMC_LIN6B_PROG", False)
+_LIN6B_PROG_MAX_ROWS = 544
+
+
+def _subblock(h_tiles: int, w_tiles: int, cap: int = 4) -> tuple[int, int]:
+    """Largest out subblock (h, w) with h | h_tiles, w | w_tiles and h * w <= cap, wide first."""
+    return max(((h, w) for h in range(1, h_tiles + 1) for w in range(1, w_tiles + 1)
+                if h_tiles % h == 0 and w_tiles % w == 0 and h * w <= cap), key=lambda hw: (hw[0] * hw[1], hw[1]))
+
+
+def _lin6b_program(x, w):
+    """The measured multicast program for this large-LM projection, or None where ttnn.linear's own pick serves."""
+    k, n = int(w.shape[-2]), int(w.shape[-1])
+    rows = x.volume() // k
+    if rows > _LIN6B_PROG_MAX_ROWS or n == k:
+        return None
+    bfp8 = w.dtype == ttnn.bfloat8_b
+    if bfp8 and n < k:
+        return None
+    g = x.device().compute_with_storage_grid_size()
+    mt, kt, nt = -(-rows // 32), k // 32, n // 32
+    kb = next(b for b in (8, 4, 2, 1) if kt % b == 0)
+    if n > k and not bfp8:
+        pn = -(-nt // (g.x * g.y))
+        sh, sw = _subblock(mt, pn)
+        return ttnn.MatmulMultiCoreReuseMultiCast1DProgramConfig(
+            compute_with_storage_grid_size=ttnn.CoreCoord(g.x, g.y), in0_block_w=kb, out_subblock_h=sh,
+            out_subblock_w=sw, per_core_M=mt, per_core_N=pn, fuse_batch=True, fused_activation=None, mcast_in0=True)
+    pm, pn = -(-mt // g.y), -(-nt // g.x)
+    sh, sw = _subblock(pm, pn)
+    return ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(
+        compute_with_storage_grid_size=ttnn.CoreCoord(g.x, g.y), in0_block_w=kb, out_subblock_h=sh, out_subblock_w=sw,
+        per_core_M=pm, per_core_N=pn, transpose_mcast=False, fused_activation=None, fuse_batch=True)
 
 
 def _mm_bf16_acc(w) -> bool:
@@ -451,6 +491,13 @@ class _MMLin:
             except RuntimeError:  # an L1 destination it cannot place: the linear serves it
                 pass
         MM_STATS[1] += mm
+        if _ESMC_LIN6B_PROG and getattr(self, "lm_large", False) and not kw and bias is None:
+            from tt_bio import tenstorrent
+            cfg = _lin6b_program(x, w) if tenstorrent.is_wormhole() else None
+            if cfg is not None:
+                LIN6B_STATS[0] += 1
+                return ttnn.linear(x, w, program_config=cfg, compute_kernel_config=self.compute_kernel_config,
+                                   dtype=_dtype(ttnn.bfloat16) if dtype is None else dtype)
         return super()._lin(x, w, bias=bias, dtype=dtype, **kw)
 
 
@@ -1393,6 +1440,7 @@ class Block(Module):
         self.ffn.model_bytes = n_layers * (4 * d * d + 3 * d * d_ff) * 2
         self.attn = Attention(n_heads, self.scope("attn"), compute_kernel_config, out_scale=inv_scale,
                               qk_l1=self.ffn.model_bytes <= _LM_LARGE_MODEL_BYTES or _ESMC_QK_L1_LARGE, d_model=d)
+        self.attn.lm_large = self.ffn.lm_large = self.ffn.model_bytes > _LM_LARGE_MODEL_BYTES
 
     def __call__(self, x: ttnn.Tensor, cos: ttnn.Tensor, sin: ttnn.Tensor,
                  attn_mask: ttnn.Tensor | None = None,
