@@ -511,7 +511,8 @@ def note_l1_refusal(message: str) -> None:
 def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scale,
           exp_approx_mode=False, mask_cb_tiles=None, defines_extra=None, kernel_dir=None,
           split=None, kv_buffer_factor=2, fuse_qkv=None, gate=None, im_dtype=None,
-          out_im_dtype=None, stats_dtype=None, kv_window=None, qkv_fused=None, css=None):
+          out_im_dtype=None, stats_dtype=None, kv_window=None, qkv_fused=None, css=None,
+          keypad=None):
     """The ProgramDescriptor for the fold's SDPA call.
 
     `mask_cb_tiles` overrides the size of `cb_mask_in` (K2 makes it the whole head's grid instead of
@@ -736,6 +737,10 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
         # Reader args: 17 base + 14 chain, then the list address; compute args: 10, then the counts.
         defines.update(CSS_W=str(css_w), CSS_CB=str(CB_CSS), CSS_ACC=str(css_acc),
                        CSS_ADDR_ARG="31", CSS_COUNT_ARG="10")
+    if keypad is not None:
+        # `shsdpa`: per batch (key chunk count, boundary chunk) after the base args (31 reader, 10 compute).
+        assert fuse_qkv is None and gate is None and css is None and len(keypad) == p["B"]
+        defines.update(KEYPAD="1", KEYPAD_RARG="31", KEYPAD_CARG="10")
     if defines_extra:
         defines.update({str(a): str(b) for a, b in dict(defines_extra).items()})
     dlist = sorted(defines.items())
@@ -761,6 +766,7 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
         g_a = gate[0].buffer_address()
     css_tail = ([], []) if css is None else ([css[0].buffer_address()], list(css[1]))
 
+    kp_tail = [] if keypad is None else [x for pair in keypad for x in pair]
     rr, wr, cr = [], [], []
     for i in range(num_cores):
         core = ttnn.CoreCoord(i % gx, i // gx)
@@ -774,9 +780,9 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
         rr.append((core, [q_a, k_a, v_a, m_a, 0, 0, 0, i, lb, lbe, ln, lne, lq, lqe, 1, 0, 0]
                    + [0] * 14                          # chain metadata, all no-chain (0/0 chains)
                    + ([] if fuse_qkv is None else [x_a, w_a])
-                   + ([] if gate is None else [g_a]) + css_tail[0]))
+                   + ([] if gate is None else [g_a]) + css_tail[0] + kp_tail))
         wr.append((core, [o_a, i, lb, lbe, ln, lne, lq, lqe, 1, 0, 0, 0]))
-        cr.append((core, [i, lb, lbe, ln, lne, lq, lqe, 1, 0, 0] + css_tail[1]))
+        cr.append((core, [i, lb, lbe, ln, lne, lq, lqe, 1, 0, 0] + css_tail[1] + kp_tail))
 
     kernels = [
         ttnn.KernelDescriptor(
@@ -853,7 +859,8 @@ def sdpa(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scal
            # compiled program back for both legs and reads a 1.000x that means nothing.
            os.environ.get("TT_BIO_SDPA_ADD_GRANULARITY"),
            str(kw.get("im_dtype")), str(kw.get("out_im_dtype")), str(kw.get("stats_dtype")),
-           kw.get("kv_window"), kw.get("qkv_fused"), kw.get("css") is not None)
+           kw.get("kv_window"), kw.get("qkv_fused"), kw.get("css") is not None,
+           None if kw.get("keypad") is None else tuple(map(tuple, kw["keypad"])))
     e = _CACHE.get(key)
     if e is None:
         e = _CACHE[key] = build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid,

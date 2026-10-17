@@ -95,7 +95,12 @@ if "esmc" in a.shape:
     ARMS["e_stock"] = ("esmc", lambda: T.fused_sdpa(eq, ek, ev, attn_mask=em, scale=sc))
     try:
         from tt_bio import shsdpa as P
-        ARMS["e_proto"] = ("esmc", lambda: P.sdpa(eq, ek, ev, sc, key_lens=lens))
+        PROTO = {"e_p544_192": (None, 192, None), "e_p544_544": (None, 544, None),
+                 "e_p192_192_733": (192, 192, (7, 3, 3)), "e_p288_192_752": (288, 192, (7, 5, 2)),
+                 "e_p96_192_752": (96, 192, (7, 5, 2))}
+        for nm, (qc, kc, spl) in PROTO.items():
+            ARMS[nm] = ("esmc", lambda qc=qc, kc=kc, spl=spl: P.sdpa(eq, ek, ev, sc, key_lens=lens, q_chunk=qc,
+                                                                       k_chunk=kc, split=spl))
     except ImportError:
         pass
 
@@ -113,11 +118,6 @@ if "ta" in a.shape:
     HIFI2 = (ttnn.MathFidelity.HiFi2, True, False, False)
     ARMS["t_ship"] = ("ta", lambda: TS.sdpa(q, k, v, bb, sc2, 512, 256, ckc_default=HIFI2, q_split_cap=0, padded_mask=True))
     ARMS["t_k1"] = ("ta", lambda: TS.sdpa(q, k, v, bb, sc2, 256, 512, ckc_default=HIFI2, q_split_cap=0, padded_mask=True))
-    try:
-        from tt_bio import shsdpa as P
-        ARMS["t_proto"] = ("ta", lambda: P.sdpa(q, k, v, sc2, bias=bb))
-    except ImportError:
-        pass
 
 if a.arms:
     ARMS = {k_: v_ for k_, v_ in ARMS.items() if k_ in a.arms.split(",")}
@@ -135,8 +135,14 @@ def err(shape, o):
 
 
 res = {"arch": str(dev.arch()), "grid": list(T.COMPUTE_GRID_MAIN), "nodes": NODES, "lens": a.lens, "arms": {}}
-for name, (shape, fn) in ARMS.items():
-    o = fn()
+for name, (shape, fn) in list(ARMS.items()):
+    try:
+        o = fn()
+    except Exception as exc:  # an L1 refusal or a compile error on one arm
+        print(name, "FAILED", str(exc)[:600], flush=True)
+        res["arms"][name] = {"error": str(exc)[:2000]}
+        del ARMS[name]
+        continue
     assert o is not None, (name, getattr(TS, "REJECTS", None))
     o2 = fn()
     res["arms"][name] = {"shape": shape, "rel_rms": err(shape, o),
