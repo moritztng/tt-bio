@@ -56,3 +56,45 @@ def test_dit_pair_bias_ships_in_both_modes(monkeypatch):
     M.set_fast(False)
     assert M._DIT_DPB is True
     assert callable(M._DPB.eligible)   # the flag once shadowed the dit_pair_bias module and every default design crashed
+
+
+def test_css_ships_in_both_modes(monkeypatch):
+    """The chunk-skipping atom SDPA is graded on the normal bar, so it is a default rather than a fast-set member."""
+    monkeypatch.delenv("RFD3_CSS", raising=False)
+    assert "_CSS" not in M._FAST_SET
+    assert M.env_flag("RFD3_CSS", True) is True
+    M.set_fast(False)
+    assert M._CSS is True
+
+
+def test_pair_ws_resid_ships_in_both_modes(monkeypatch):
+    """The in-place z + transition(z) is graded on the normal bar, so it is a default rather than a fast-set member."""
+    monkeypatch.delenv("RFD3_PAIR_WS_RESID", raising=False)
+    assert "_PAIR_WS_RESID" not in M._FAST_SET
+    assert M.env_flag("RFD3_PAIR_WS_RESID", True) is True
+    M.set_fast(False)
+    assert M._PAIR_WS_RESID is True
+    assert callable(M.Transition.add_into)
+
+
+def test_head_split_kernels_ship_in_both_modes(monkeypatch):
+    """qkh / gch move data only (digests equal the reshape + permute path on WH and p150a), so they are defaults."""
+    for name, env in (("_QKV_HEADS", "RFD3_QKV_HEADS"), ("_GCA_HEADS", "RFD3_GCA_HEADS")):
+        monkeypatch.delenv(env, raising=False)
+        assert name not in M._FAST_SET
+        assert M.env_flag(env, True) is True
+    M.set_fast(False)
+    assert M._QKV_HEADS is True and M._GCA_HEADS is True
+
+
+def test_process_z_collapse_ships_in_both_modes(monkeypatch):
+    """The collapsed process_z is graded on the normal bar (8 paired WH seeds), so it left the fast set."""
+    monkeypatch.delenv("RFD3_PROCESS_Z_COLLAPSE", raising=False)
+    assert "_PROCESS_Z_COLLAPSE" not in M._FAST_SET
+    assert M.env_flag("RFD3_PROCESS_Z_COLLAPSE", True) is True
+
+
+def test_pair_ws_lofi_is_off_until_graded():
+    """pws in bfp8 at LoFi is a fast-mode candidate only: off by default and outside the fast set until measured."""
+    assert "_PAIR_WS_LOFI" not in M._FAST_SET
+    assert M.env_flag("RFD3_PAIR_WS_LOFI", False) is False

@@ -178,17 +178,17 @@ def pair_swiglu(x, w12, w3, fidelity=ttnn.MathFidelity.HiFi4, defines=(), silu_p
     the kernels' WS_NO_* time-attribution switches (perf/spd_fastmode/ws_attr.py), empty in production.
     `silu_poly` picks the silu: 0 metal's silu_tile, whose fp32-dest exp + reciprocal was ~85 % of the kernel on WH
     (c_z 128: 8.97 ms with it, 1.37 ms without), 1 sigmoid_poly.hpp's degree-8 polynomial (sigmoid within 3e-4),
-    2 its degree-6 one with fp16 coefficients (7.4e-4, a third fewer SFPU instructions), 3 the same degree-6 silu
-    on two DST rows per loop iteration (bit-identical to 2; the coefficient loads are shared). None takes `SILU_POLY`.
+    2 its degree-6 one with fp16 coefficients (7.4e-4, a third fewer SFPU instructions). None takes `SILU_POLY`.
     `ln` = (gamma, beta, eps) runs the LayerNorm over the raw bf16 `x` in the kernel first; gamma / beta bf16 TILE
     [1, C] as `torch_to_tt` leaves a norm parameter. beta None makes it an RMSNorm, as ttnn.rms_norm.
     `l1acc`: every matmul sums at most 2 K tiles in dest and the packer adds the chunks in an fp32 CB. On Wormhole an
     fp32 dest summing all of K writes exact +-1 / 2 / 4 into ~1e-8 of the outputs (tt_bio/dest_guard.py).
     `resid`: fc3's result is added to `resid` in the fp32 dest and written back over it, one bf16 rounding, and
-    `resid` is returned; no new tensor. The kernel reads `resid` row by row before writing the same rows, so it may
-    not be `x` (the caller normalises x first; `ln` reads the raw x and is refused with it)."""
+    `resid` is returned; no new tensor. `resid` may be `x` itself (`x + f(x)`, with `ln` reading the raw x): each
+    core's reader takes a row tile's x and residual pages before the writer can put that row tile back, and no row
+    tile is read by two cores. With hidden chunks (`weights` returning more than one pair) only the last call may
+    take `resid is x`, the others would read the updated rows."""
     if resid is not None:
-        assert ln is None, "resid with the LayerNorm prologue would overwrite the x it still reads"
         defines = tuple(defines) + (("WS_RESID", "1"),)
     silu_poly = SILU_POLY if silu_poly is None else silu_poly
     if l1acc:
