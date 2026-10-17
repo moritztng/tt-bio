@@ -8,7 +8,7 @@ Each row declares what it wants measured in state/spd/grids/<row>.yaml:
     experiments:
       - name: wsd
         arch: wh         # wh = held Galaxies, bh = qb1/qb2
-        prio: 4          # pool prio 3-8
+        prio: 4          # pool prio 3-8 (outside it is clamped)
         mem: 24
         cap: 3600
         cpu: 5           # optional: host cores the job really uses beyond its thread share; pool.sh limits such jobs
@@ -423,10 +423,14 @@ def cells(grid_dir, log=print):
         for e in g.get("experiments", []):
             if not e.get("active", True):
                 continue
-            prio = int(e.get("prio", 5))
-            if not 3 <= prio <= 8:  # one bad experiment must not stop every row's feed (10-15 19:02-19:20Z)
-                log(f"skip {f.name}:{e['name']}: prio {prio} outside 3-8")
+            try:  # one bad experiment must not stop every row's feed (10-15 19:02-19:20Z)
+                prio = int(e.get("prio", 5))
+            except (TypeError, ValueError):
+                log(f"skip {f.name}:{e['name']}: prio {e.get('prio')!r} is not a number")
                 continue
+            if not 3 <= prio <= 8:  # 0-2 is hand-queued release/integrate work; a skip left wsv unqueued (10-17)
+                log(f"clamp {f.name}:{e['name']}: prio {prio} -> {min(max(prio, 3), 8)} (pool prio 3-8)")
+                prio = min(max(prio, 3), 8)
             axes = e.get("axes", {})
             out = []
             for vals in itertools.product(*axes.values()):
