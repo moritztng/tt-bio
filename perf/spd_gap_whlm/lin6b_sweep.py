@@ -6,7 +6,10 @@ HiFi2 (fd, -1.3..-2.5 %) nor any minimal_matmul block (mc) moves them. At 544 ro
 of 8 or 9 rows leaves cores with 2 tiles and one with 1, while a 1D program keeps all 17 rows on every core and splits
 only N. This times both families per shape (qkv, out, fc1 half, fc2) with the 6B's fidelity and weight dtype.
 
-    python3 perf/spd_gap_whlm/lin6b_sweep.py [--wdtype bfloat8_b] --out lin6b.jsonl
+--model esmc-300m / esmc-600m times the same families at the batch-of-7 page shape (3808 rows = 119 tiles = 7 x 17), where
+the shipped path is minimal_matmul (arm "mm", HiFi3 like the model), to see whether a 1D/2D program beats it there too.
+
+    python3 perf/spd_gap_whlm/lin6b_sweep.py [--model esmc-300m] [--wdtype bfloat8_b] --out lin6b.jsonl
 """
 import argparse
 import json
@@ -16,6 +19,9 @@ import time
 import torch
 import ttnn
 
+# (rows, d_model, d_ff, fidelity the model runs)
+MODELS = {"esmc-6b": (544, 2560, 6912, "HiFi4"), "esmc-300m": (7 * 544, 960, 2560, "HiFi3"),
+          "esmc-600m": (7 * 544, 1152, 3072, "HiFi3")}
 M, D, FF = 544, 2560, 6912
 SHAPES = {"qkv": (D, 3 * D), "out": (D, D), "fc1h": (D, FF), "fc2": (FF, D)}
 
@@ -42,7 +48,7 @@ def arms(gx, gy, K, N, cap):
         out[f"1d_k{kb}_n{pn}"] = ttnn.MatmulMultiCoreReuseMultiCast1DProgramConfig(
             compute_with_storage_grid_size=ttnn.CoreCoord(gx, gy), in0_block_w=kb, out_subblock_h=sh, out_subblock_w=sw,
             per_core_M=mt, per_core_N=pn, fuse_batch=True, fused_activation=None, mcast_in0=True)
-        for y in sorted({gy, 6, 3, 2}):
+        for y in sorted({gy, 7, 6, 3, 2}):
             if y > gy:
                 continue
             pm, pn2 = math.ceil(mt / y), math.ceil(nt / gx)
@@ -58,12 +64,17 @@ def main() -> int:
     ap.add_argument("--repeat", type=int, default=5)
     ap.add_argument("--inner", type=int, default=5)
     ap.add_argument("--wdtype", default="bfloat16", choices=["bfloat16", "bfloat8_b"])
-    ap.add_argument("--fidelity", default="HiFi4", help="the 6B (ESMCLanguageModel) runs HiFi4 in both modes")
-    ap.add_argument("--shapes", default=",".join(SHAPES))
+    ap.add_argument("--model", default="esmc-6b", choices=sorted(MODELS))
+    ap.add_argument("--fidelity", default=None, help="default: the model's (6B HiFi4, 300M/600M HiFi3)")
+    ap.add_argument("--shapes", default="qkv,out,fc1h,fc2")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
+    global M, D, FF, SHAPES
+    M, D, FF, fid = MODELS[args.model]
+    args.fidelity = args.fidelity or fid
+    SHAPES = {"qkv": (D, 3 * D), "out": (D, D), "fc1h": (D, FF), "fc2": (FF, D)}
 
-    from tt_bio import tenstorrent as T
+    from tt_bio import esmc, tenstorrent as T
     dev = T.get_device()
     g = dev.compute_with_storage_grid_size()
     ck = ttnn.init_device_compute_kernel_config(dev.arch(), math_fidelity=getattr(ttnn.MathFidelity, args.fidelity),
@@ -80,9 +91,14 @@ def main() -> int:
         xd = ttnn.from_torch(x.reshape(1, 1, M, K), layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
         wd = ttnn.from_torch(w, layout=ttnn.TILE_LAYOUT, device=dev, dtype=getattr(ttnn, args.wdtype))
         base = None
-        for arm, cfg in arms(g.x, g.y, K, N, cap=4).items():
+        cand = arms(g.x, g.y, K, N, cap=4)
+        if M >= esmc.ESMC_MM_MIN_ROWS:  # the shipped path at this shape first, so it is the equal_default base
+            cand = {"mm": "mm", **cand}
+        for arm, cfg in cand.items():
             kw = {"core_grid": T.CORE_GRID_MAIN} if cfg == "grid" else {} if cfg == "auto" else {"program_config": cfg}
-            fn = lambda kw=kw: ttnn.linear(xd, wd, compute_kernel_config=ck, dtype=ttnn.bfloat16, **kw)
+            fn = (lambda: ttnn.experimental.minimal_matmul(xd, wd, compute_kernel_config=ck, dtype=ttnn.bfloat16,
+                                                           **esmc._mm_config(xd, wd))) if cfg == "mm" else \
+                (lambda kw=kw: ttnn.linear(xd, wd, compute_kernel_config=ck, dtype=ttnn.bfloat16, **kw))
             rec = {"wdtype": args.wdtype, "fidelity": args.fidelity, "shape": name, "mkn": [M, K, N], "arm": arm,
                    "grid": [g.x, g.y]}
             try:

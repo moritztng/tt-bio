@@ -31,7 +31,8 @@ with torch.no_grad():
         torch.set_num_threads(th)
         m, lo, hi = timeit(lambda: sm(single, pair, feats))
         act_2d = sm.pair_norm(pair)
-        pl, _, _ = timeit(lambda: sm.ipa.pair_logits(act_2d))
+        mask = feats["seq_mask"][:, None]
+        pl, _, _ = timeit(lambda: sm.ipa.logit_bias(act_2d, mask))
         pn, _, _ = timeit(lambda: sm.pair_norm(pair))
         print(f"threads {th:2d}: structure module {m*1e3:7.1f} ms (min {lo*1e3:.1f} max {hi*1e3:.1f}) | "
-              f"pair_norm {pn*1e3:6.1f} ms | ipa.pair_logits {pl*1e3:6.1f} ms", flush=True)
+              f"pair_norm {pn*1e3:6.1f} ms | ipa.logit_bias {pl*1e3:6.1f} ms", flush=True)
