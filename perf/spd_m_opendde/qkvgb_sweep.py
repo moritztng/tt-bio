@@ -18,6 +18,7 @@ ap.add_argument("out"); ap.add_argument("--seq", type=int, default=512)
 ap.add_argument("--heads", type=int, default=12, help="12 OpenDDE, 8 Protenix-v2, 4 Boltz-2 (head_dim 32)")
 ap.add_argument("--fid", default="HiFi4"); ap.add_argument("--ncall", type=int, default=6)
 ap.add_argument("--reps", type=int, default=4)
+ap.add_argument("--rule", action="store_true", help="only ship vs the shipped Wormhole rule (16, KT, 1, 4, 1)")
 a = ap.parse_args()
 
 from tt_bio.main import ensure_p300_mesh_descriptor
@@ -59,9 +60,10 @@ def run(blk):
 SHIP = T._mm_block_at(KT, 4 * KT + 1)
 ref = [ttnn.to_torch(o) for o in run(SHIP)]
 arms = [SHIP]
+RULE = (16, KT, 1, 4, 1)
 for M, N, (sh, sw) in itertools.product((2, 4, 8, 16), (1, 2, 3, 6), ((2, 1), (4, 1), (1, 2), (2, 2), (1, 3), (1, 1))):
     blk = (M, KT, N, sh, sw)
-    if M % sh or N % sw or blk == SHIP or sh * sw > 4:
+    if M % sh or N % sw or blk == SHIP or sh * sw > 4 or (a.rule and blk != RULE):
         continue
     arms.append(blk)
 res = {"seq": S, "heads": H, "fid": a.fid, "grid": list(grid), "ship": list(SHIP), "arch": str(dev.arch()), "arms": {}}
