@@ -92,6 +92,7 @@ def test_armed_by_fast_round():
 
 def test_relu_rides_the_pack_and_other_activations_decline(monkeypatch):
     monkeypatch.setattr(pair_mm, "PAIR_MM_FUSED", True)
+    monkeypatch.setattr(pair_mm, "PAIR_LINEAR_WH", False)   # on a Wormhole host the plain call takes pair_linear
     seen = {}
     monkeypatch.setattr(ttnn.experimental, "minimal_matmul",
                         lambda **kw: seen.update(kw) or "out")
