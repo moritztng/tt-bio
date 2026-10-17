@@ -41,7 +41,6 @@ from tt_bio.tenstorrent import (
     fused_sdpa,
     lever,
     _ColWin,
-    _wide_linear,
     _win_addcmul,
     trunk_compute_kernel_config,
     trace_region_size,
@@ -505,8 +504,7 @@ class DiffusionTransformerModel(Module):
                               up(torch.cat(gw, 1)), up(torch.cat(gb).reshape(1, -1)))
         w_sc, b_sc, w_sh, w_g, b_g = self._shoist_w
         ck = self.compute_kernel_config
-        lin = _wide_linear if lever("dit_cond_1d") else (
-            lambda x, w, **kw: ttnn.linear(x, w, core_grid=CORE_GRID_MAIN, **kw))
+        lin = lambda x, w, **kw: ttnn.linear(x, w, core_grid=CORE_GRID_MAIN, **kw)  # noqa: E731
         s_hat = ttnn.layer_norm(s, epsilon=1e-5, compute_kernel_config=ck)
         out = (lin(s_hat, w_sc, bias=b_sc, compute_kernel_config=ck, activation="sigmoid"),
                lin(s_hat, w_sh, compute_kernel_config=ck),

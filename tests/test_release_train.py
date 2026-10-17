@@ -1,6 +1,7 @@
 """release_train.py: notes, version and the release commit, on strings and a throwaway tree."""
 import importlib.util
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -141,3 +142,42 @@ def test_a_gate_runs_from_its_own_worktree_removed_once_the_gate_ended(tmp_path,
         rt.own_runner(gates / "rel-c")
     assert (live / "runner").exists() and not (done / "runner").exists()
     assert git("rev-parse", "HEAD") == git("-C", str(gates / "rel-c" / "runner"), "rev-parse", "HEAD")
+
+
+def test_merge_back_takes_the_release_files_main_left_alone_and_keeps_mains_notes(tmp_path, monkeypatch):
+    """rel/v0.17.0 and rel/v0.18.0 were never merged back, so main graded every later gate against
+    the pre-0.18.0 ladder baselines and failed census lines 0.18.0 had accepted."""
+    origin, repo = tmp_path / "origin.git", tmp_path / "repo"
+    subprocess.run(["git", "init", "-q", "--bare", "-b", "main", str(origin)], check=True)
+    subprocess.run(["git", "clone", "-q", str(origin), str(repo)], check=True, capture_output=True)
+
+    def git(*a):
+        return subprocess.run(["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t", *a],
+                              check=True, capture_output=True, text=True).stdout.strip()
+
+    def commit(files, msg):
+        for f, text in files.items():
+            (repo / f).parent.mkdir(parents=True, exist_ok=True)
+            (repo / f).write_text(text)
+        git("add", *files)
+        git("commit", "-q", "-m", msg)
+        return git("rev-parse", "HEAD")
+
+    sha = commit({"CHANGELOG.md": "## [Unreleased]\n- a\n", "base.json": "old\n", "touched.json": "old\n",
+                  "pyproject.toml": 'version = "0.1.0"\n'}, "gated")
+    git("push", "-q", "origin", "HEAD:main")
+    rel = commit({"CHANGELOG.md": "## [Unreleased]\n\n## [0.2.0]\n- a\n", "base.json": "recorded\n",
+                  "touched.json": "recorded\n", "pyproject.toml": 'version = "0.2.0"\n'}, "Release 0.2.0")
+    git("checkout", "-q", "--detach", sha)
+    commit({"CHANGELOG.md": "## [Unreleased]\n- b\n- a\n", "touched.json": "main's\n"}, "later on main")
+    git("push", "-q", "origin", "HEAD:main")
+    monkeypatch.setattr(rt, "REPO", repo)
+
+    m = rt.merge_back(rel, sha, "origin")
+    assert m and git("rev-parse", "origin/main") == m
+    assert git("merge-base", "--is-ancestor", rel, m) == ""
+    assert git("show", f"{m}:base.json") == "recorded"
+    assert git("show", f"{m}:pyproject.toml") == 'version = "0.2.0"'
+    assert git("show", f"{m}:touched.json") == "main's"
+    assert git("show", f"{m}:CHANGELOG.md") == "## [Unreleased]\n- b\n- a"
+    assert rt.merge_back(rel, sha, "origin") == m          # already merged: nothing new

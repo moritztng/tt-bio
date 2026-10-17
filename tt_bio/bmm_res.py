@@ -2,7 +2,7 @@
 
 The production plan (`tenstorrent._triangle_mul_program_config`, a 2D multicast with a 2x2-tile block per core at
 512 tokens) runs the [1, 256, 512, 512] einsum at 3.39 ms on a Wormhole chip at 1000 MHz, 2.5x its ~1.4 ms DRAM floor
-(402 MB at 288 GB/s), and neither fidelity nor any ttnn program config moves it (perf/af2_trimul_bmm_sweep.py at 512:
+(402 MB at 288 GB/s), and neither fidelity nor any ttnn program config moves it (perf/spd/af2_trimul_bmm_sweep.py at 512:
 whole-channel plans overflow L1, row-block reuse re-reads b per block). Here each core owns whole channels: it loads
 b[c] into L1 once (512 KB bf16 at 512 tokens, two channels deep when L1 allows), streams a[c]'s 32-row tiles through
 it and writes out[c], so a, b and out each cross DRAM once. The reader, compute and writer are pair_linear's, keyed
@@ -87,6 +87,9 @@ def _build(a, b, out, C, mt, kt, nt, ta, tb, depth, fidelity, max_cores, abl=0):
     return [reader, writer, compute], cbs
 
 
+STATS = [0, 0]   # calls served, calls declined (None returned)
+
+
 def matmul(a, b, compute_kernel_config=None, transpose_a=False, transpose_b=False, budget=L1_BUDGET, max_cores=0,
            depth=None, abl=0):
     """``a @ b`` over the channel axis as a new bf16 DRAM tensor, or None if the call is outside what the kernel does.
@@ -96,6 +99,12 @@ def matmul(a, b, compute_kernel_config=None, transpose_a=False, transpose_b=Fals
     knobs that move scheduling, never a number. `abl` is a bench-only stage mask that does change the result:
     1 skips the matmuls, 2 the output writes, 4 the reads of a (time attribution, af2_trimul_bmm_sweep --abl).
     """
+    out = _matmul(a, b, compute_kernel_config, transpose_a, transpose_b, budget, max_cores, depth, abl)
+    STATS[out is None] += 1
+    return out
+
+
+def _matmul(a, b, compute_kernel_config, transpose_a, transpose_b, budget, max_cores, depth, abl):
     if compute_kernel_config is not None and not compute_kernel_config.fp32_dest_acc_en:
         return None
     fidelity = ttnn.MathFidelity.HiFi4 if compute_kernel_config is None else compute_kernel_config.math_fidelity
