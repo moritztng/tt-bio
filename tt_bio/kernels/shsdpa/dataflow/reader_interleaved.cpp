@@ -414,6 +414,17 @@ void kernel_main() {
             }
         }
 #else
+#ifdef KEYPAD
+        // The per-batch (key chunk count, boundary chunk) table lives in a device tensor the caller
+        // rewrites per call, so a captured trace follows the batch's lengths. Compute reads the same page.
+        constexpr auto kp_args = TensorAccessorArgs<KEYPAD_ACC>();
+        const auto kp_reader = TensorAccessor(kp_args, get_arg_val<uint32_t>(KEYPAD_ADDR_ARG), KEYPAD_W * 4);
+        cb_reserve_back(KEYPAD_CB, 1);
+        volatile tt_l1_ptr uint32_t* kp_tab = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(get_write_ptr(KEYPAD_CB));
+        noc_async_read(kp_reader.get_noc_addr(0), get_write_ptr(KEYPAD_CB), KEYPAD_W * 4);
+        noc_async_read_barrier();
+        cb_push_back(KEYPAD_CB, 1);
+#endif
         for (uint32_t nb = local_batch_start; nb < local_batch_end; ++nb) {
             if constexpr (is_chunked) {
                 // Chunked means that we have paged attention
@@ -430,8 +441,8 @@ void kernel_main() {
 #ifdef KEYPAD
             // Key padding as a per-batch key length: the mask is one [32, Sk] tile row per batch,
             // read only for the chunk holding the boundary; chunks past the last key are skipped.
-            const uint32_t kp_end = get_arg_val<uint32_t>(KEYPAD_RARG + 2 * nb);
-            const uint32_t kp_mask = get_arg_val<uint32_t>(KEYPAD_RARG + 2 * nb + 1);
+            const uint32_t kp_end = kp_tab[2 * nb];
+            const uint32_t kp_mask = kp_tab[2 * nb + 1];
             mask_batch_offset = nb * valid_Skt;
             if constexpr (false) {
 #else

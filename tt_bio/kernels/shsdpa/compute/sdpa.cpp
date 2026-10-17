@@ -167,6 +167,9 @@ void kernel_main() {
         }
     } else {
         // Standard SDPA path (causal, masked, chunked, etc.)
+#ifdef KEYPAD
+        cb_wait_front(KEYPAD_CB, 1);
+#endif
         for (uint32_t phase = 0; phase < num_phases; ++phase) {
             if (phase == 0) {
                 chunked_q_chunk_offset = chunked_q_chunk_offset_phase_1;
@@ -176,8 +179,8 @@ void kernel_main() {
 
             for (uint32_t nb = local_batch_start; nb < local_batch_end; ++nb) {
 #ifdef KEYPAD
-                g_kp_end = get_arg_val<uint32_t>(KEYPAD_CARG + 2 * nb);
-                g_kp_mask = get_arg_val<uint32_t>(KEYPAD_CARG + 2 * nb + 1);
+                g_kp_end = ckernel::read_tile_value(KEYPAD_CB, 0, 2 * nb);
+                g_kp_mask = ckernel::read_tile_value(KEYPAD_CB, 0, 2 * nb + 1);
 #endif
                 for (uint32_t nq = local_nh_start; nq < local_nh_end; ++nq) {
 #ifdef FUSE_QKV

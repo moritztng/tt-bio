@@ -185,8 +185,32 @@ for _ in range(a.reps):
         times[name].append((time.perf_counter() - t0) / a.ncall * 1e3)
 for name, (tid, o) in TRACES.items():
     res["arms"][name]["trace_rel_rms"] = err(ARMS[name][0], o)
-    ttnn.release_trace(dev, tid)
 res["timing"] = "host" if a.host else "trace"
+
+# Trace safety: replay e_auto's trace after rewriting its length table and mask row in place with other lengths.
+if "e_auto" in TRACES and "esmc" in a.shape:
+    lens2 = list(reversed(lens)) if len(set(lens)) > 1 else [max(1, S - 37 * i) for i in range(B)]
+    mask2 = torch.zeros(B, S, S)
+    for i, li in enumerate(lens2):
+        mask2[i, :, li:] = float("-inf")
+    ref2 = torch.softmax(qd @ kd.transpose(-1, -2) * sc + mask2.unsqueeze(1).double(), -1) @ vd
+    kc = 192
+    tab_d = P._table(dev, lens, kc, -(-S // kc))
+    row_d = P._mask_row(dev, lens, S)
+    m2 = torch.zeros(B, 1, 32, S)
+    for i, li in enumerate(lens2):
+        m2[i, :, :, li:] = float("-inf")
+    ttnn.copy_host_to_device_tensor(ttnn.from_torch(P.keypad_table(lens2, kc, -(-S // kc)), dtype=ttnn.uint32,
+                                                    layout=ttnn.ROW_MAJOR_LAYOUT), tab_d)
+    ttnn.copy_host_to_device_tensor(ttnn.from_torch(m2.to(torch.bfloat16), dtype=ttnn.bfloat16,
+                                                    layout=ttnn.TILE_LAYOUT), row_d)
+    tid, o = TRACES["e_auto"]
+    ttnn.execute_trace(dev, tid, cq_id=0, blocking=True)
+    got = ttnn.to_torch(o).double()
+    sel2 = torch.tensor([(b, i) for b in range(B) for i in range(lens2[b])])
+    g2, r2 = got[sel2[:, 0], :, sel2[:, 1]], ref2[sel2[:, 0], :, sel2[:, 1]]
+    res["trace_relens"] = {"lens2": lens2, "rel_rms": float(((g2 - r2).pow(2).mean() / r2.pow(2).mean()).sqrt())}
+    print("trace_relens", res["trace_relens"], flush=True)
 
 res["aiclk"] = clock(t_all0, time.monotonic())
 for name, t in times.items():

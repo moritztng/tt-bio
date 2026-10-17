@@ -9,7 +9,9 @@ tile. Here the mask is a per-batch key length instead:
   * every other key chunk skips the mask add;
   * key chunks wholly past len_b are not read or computed (exp(-inf) adds exactly 0 to the sum).
 
-Driven through `sdpa_generic` with the `KEYPAD` edits in `tt_bio/kernels/shsdpa/`.
+The per-batch (key chunk count, boundary chunk) table is a small device tensor, not runtime args, so a
+captured trace follows the lengths the caller writes into it. Driven through `sdpa_generic` with the
+`KEYPAD` edits in `tt_bio/kernels/shsdpa/`.
 """
 
 from __future__ import annotations
@@ -33,6 +35,23 @@ def keypad_args(lens, k_chunk: int, k_num_chunks: int):
         end = -(-n // k_chunk)
         out.append((end, end - 1 if end * k_chunk > n else k_num_chunks))
     return out
+
+
+def keypad_table(lens, k_chunk: int, k_num_chunks: int) -> torch.Tensor:
+    """keypad_args as the [1, 1, 1, W] int32 page the kernel reads (W a multiple of 8: 32-byte DRAM reads)."""
+    flat = [x for pair in keypad_args(lens, k_chunk, k_num_chunks) for x in pair]
+    w = -(-len(flat) // 8) * 8
+    return torch.tensor(flat + [0] * (w - len(flat)), dtype=torch.int32).reshape(1, 1, 1, w)
+
+
+def _table(dev, lens, k_chunk, k_num):
+    key = (id(dev), tuple(lens), k_chunk, k_num)
+    hit = _MASKS.get(key)
+    if hit is None:
+        hit = _MASKS[key] = (dev, ttnn.from_torch(keypad_table(lens, k_chunk, k_num), dtype=ttnn.uint32,
+                                                   layout=ttnn.ROW_MAJOR_LAYOUT, device=dev,
+                                                   memory_config=ttnn.DRAM_MEMORY_CONFIG))
+    return hit[1]
 
 
 def _mask_row(dev, lens, S):
@@ -87,5 +106,5 @@ def sdpa(q, k, v, scale, key_lens, q_chunk=None, k_chunk=192, split=None, ckc=HI
     out = ttnn.allocate_tensor_on_device(ttnn.Shape([B, H, S, D]), q.dtype, ttnn.TILE_LAYOUT, dev,
                                          ttnn.DRAM_MEMORY_CONFIG)
     return SG.sdpa(dev, q, k, v, mask, out, q_chunk, k_chunk, grid, ckc, scale, split=split,
-                   kernel_dir=KERNEL_DIR, keypad=keypad_args(key_lens, k_chunk, k_num),
+                   kernel_dir=KERNEL_DIR, keypad=_table(dev, key_lens, k_chunk, k_num),
                    defines_extra=defines)
