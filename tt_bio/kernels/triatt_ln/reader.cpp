@@ -13,6 +13,7 @@
 // row q of row tile k. Writer and compute see the same rows in the same order (writer.cpp row_of).
 #include "api/dataflow/dataflow_api.h"
 #include "ttnn/kernel/dataflow/generate_reduce_scaler.hpp"
+#include "../common/ln_rows.hpp"
 
 void kernel_main() {
     constexpr uint32_t Kt = get_compile_time_arg_val(0);
@@ -58,6 +59,8 @@ void kernel_main() {
     for (uint32_t t = 0; t < Kt; ++t, w += tb) noc_async_read_page(t, bt, w);
     noc_async_read_barrier();
     cb_push_back(w_cb, Kt * NW);
+    replicate_row0(get_write_ptr(gamma_cb), Kt, get_tile_size(gamma_cb));
+    replicate_row0(get_write_ptr(beta_cb), Kt, get_tile_size(beta_cb));
     cb_push_back(gamma_cb, Kt);
     cb_push_back(beta_cb, Kt);
 

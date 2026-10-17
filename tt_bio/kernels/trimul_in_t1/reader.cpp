@@ -20,6 +20,7 @@
 #endif
 #include "api/dataflow/dataflow_api.h"
 #include "ttnn/kernel/dataflow/generate_reduce_scaler.hpp"
+#include "../common/ln_rows.hpp"
 
 void kernel_main() {
     constexpr uint32_t Kt = get_compile_time_arg_val(0);
@@ -91,6 +92,8 @@ void kernel_main() {
     }
     noc_async_read_barrier();
     cb_push_back(w_cb, 2 * QN * Kt);
+    replicate_row0(get_write_ptr(gamma_cb), Kt, get_tile_size(gamma_cb));
+    replicate_row0(get_write_ptr(beta_cb), Kt, get_tile_size(beta_cb));
     cb_push_back(gamma_cb, Kt);
     cb_push_back(beta_cb, Kt);
     if constexpr (NG) cb_push_back(wo_cb, Kt * NG);
