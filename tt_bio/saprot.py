@@ -155,6 +155,8 @@ def _saprot_qkrh(w) -> bool:
 
 
 class _SaprotLin(_MMLin):
+    MM_BFP8_HIFI2 = False   # SaProt 35M --fast at HiFi2: pooled cos vs fp32 0.999915 -> 0.999879, under the 0.9999 bar
+
     def _mm_on(self) -> bool:
         return _saprot_mm(int(self.norm_weight.shape[-1]))
 

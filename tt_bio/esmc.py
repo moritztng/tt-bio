@@ -471,6 +471,13 @@ LIN6B_STATS = [0]  # projections served by _lin6b_program
 # pooled cos >= 0.99996 everywhere. Inside the fast bar, not the normal one, so None = on for block-fp8 weights only,
 # which only --fast loads. Galaxy chip at 1000 MHz, best of 3: 300M --fast 139.5 -> 133.6 ms, 600M 203.6 -> 197.4.
 _ESMC_MM_BF16_ACC = env_flag("TT_BIO_ESMC_MM_BF16_ACC", None)
+# The same block-fp8 minimal_matmuls at HiFi2 instead of the model's HiFi3: a block-fp8 weight's 7-bit mantissa is
+# consumed whole in two fidelity phases. gate_cfg_sweep (Galaxy chip, 1000 MHz, 300M page shape, best config each):
+# gated fc1 0.820 -> 0.740 ms, rel_l2 against float64 0.0111 -> 0.0108. Page cell --fast, best of 3, 1000 MHz: 300M
+# 95.1 -> 92.0 ms (pcc vs fp32 0.999532 -> 0.999580), 600M 137.8 -> 131.8 (0.999562 -> 0.999558), pooled cos up on
+# both. SaProt 35M's pooled cos fell to 0.999879 (from 0.999915), so None = ESMC only (_MMLin.MM_BFP8_HIFI2); the
+# 6B (lm_large) keeps its HiFi4 either way.
+_ESMC_MM_BFP8_HIFI2 = env_flag("TT_BIO_ESMC_MM_BFP8_HIFI2", None)
 # The LM FFN's fc1 halves and SwiGLU product stored as block-fp8 where the weights already are (--fast), so the gate
 # multiply and fc2 read half the bytes: at the 300M page shape that chain moves ~117 MB a layer through DRAM in bf16.
 # Wormhole minimal_matmul path only (fc2 takes the bfp8 operand there). Off: an A/B candidate for --fast.
@@ -544,6 +551,7 @@ class _MMLin:
     (the SwiGLU's fc1a) rides along as the matmul's fused activation, applied per tile at pack as the linear does."""
 
     _ACT = {"silu": ttnn.UnaryOpType.SILU, "gelu": ttnn.UnaryOpType.GELU}
+    MM_BFP8_HIFI2 = True   # _ESMC_MM_BFP8_HIFI2's default for this model family
 
     def _mm_on(self) -> bool:
         return _esmc_mm()
@@ -552,8 +560,13 @@ class _MMLin:
         ck = self.compute_kernel_config
         if not _mm_bf16_acc(w):
             return ck
-        if getattr(self, "_mm_ck_bf16", None) is None:
-            self._mm_ck_bf16 = type(ck)(math_fidelity=ck.math_fidelity, math_approx_mode=ck.math_approx_mode,
+        fid = ck.math_fidelity
+        hifi2 = self.MM_BFP8_HIFI2 if _ESMC_MM_BFP8_HIFI2 is None else _ESMC_MM_BFP8_HIFI2
+        if (hifi2 and w.dtype == ttnn.bfloat8_b and not getattr(self, "lm_large", False)
+                and fid in (ttnn.MathFidelity.HiFi3, ttnn.MathFidelity.HiFi4)):
+            fid = ttnn.MathFidelity.HiFi2
+        if getattr(self, "_mm_ck_bf16", None) is None or self._mm_ck_bf16.math_fidelity != fid:
+            self._mm_ck_bf16 = type(ck)(math_fidelity=fid, math_approx_mode=ck.math_approx_mode,
                                         fp32_dest_acc_en=False, packer_l1_acc=ck.packer_l1_acc)
         return self._mm_ck_bf16
 
@@ -1207,13 +1220,22 @@ class SwiGLUFFN(_MMLin, Module):
         serve. The interleaved weight is built on the first call from the two device halves (an exact round trip,
         block-fp8 included: every interleave group is whole tiles), so a model that never reaches it holds none."""
         w = self.fc1_a_weight
+        # The ESMC-6B's 544 rows are below minimal_matmul's floor, but under --fast (block-fp8 weights) the gated op
+        # still beats its two LIN6B linears and gate: 0.910 -> 0.706 ms a layer (gate_cfg_sweep --shapes 6b, Galaxy
+        # chip, 1000 MHz). Under bf16 weights it does not (1.019 -> 1.053). It keeps the 6B's HiFi4 fp32 accumulation,
+        # and only the measured regime (512-1023 rows, M block 2): the 256-row FFN chunks above 1024 aa are untested.
+        rows = x_norm.volume() // int(x_norm.shape[-1])
+        large = (getattr(self, "lm_large", False) and w.dtype == ttnn.bfloat8_b and x_norm.dtype == ttnn.bfloat16
+                 and 512 <= rows < 1024)
         if not (_mm_gate_on() and not l1_gated and len(x_norm.shape) == 3 and not _SWIGLU_SILU_FC1
-                and not _ESMC_ACT_BFP8 and self._mm_ok(x_norm, w)):
+                and not _ESMC_ACT_BFP8 and (large or self._mm_ok(x_norm, w))):
             return None
         from tt_bio import mm_gate
         g = x_norm.device().compute_with_storage_grid_size()
         grid = (int(g.x), int(g.y))
-        cfg = mm_gate.config(x_norm, 2 * int(w.shape[-1]), int(w.shape[-2]) // 32, grid, _mm_bf16_acc(w))
+        ck = self.compute_kernel_config if large else self._mm_ck(w)
+        cfg = mm_gate.config(x_norm, 2 * int(w.shape[-1]), int(w.shape[-2]) // 32, grid,
+                             not large and _mm_bf16_acc(w))
         if cfg is None or not mm_gate.overlay_ok():
             MM_GATE_STATS[1] += 1
             return None
@@ -1222,7 +1244,7 @@ class SwiGLUFFN(_MMLin, Module):
             w12 = mm_gate.interleave(ttnn.to_torch(w), ttnn.to_torch(self.fc1_b_weight), group)
             self._w12 = ttnn.from_torch(w12, dtype=w.dtype, layout=ttnn.TILE_LAYOUT, device=x_norm.device())
             self._w12_group = group
-        out = mm_gate.gated(x_norm, self._w12, cfg, self._mm_ck(w), grid, pack_sfpu=True)
+        out = mm_gate.gated(x_norm, self._w12, cfg, ck, grid, pack_sfpu=True)
         MM_GATE_STATS[0 if out is not None else 1] += 1
         return out
 

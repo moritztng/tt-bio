@@ -17,7 +17,7 @@ import ttnn
 OPS = ["layer_norm", "chunk", "concat", "multiply", "add", "silu", "linear", "matmul", "typecast", "reshape",
        "to_layout", "permute", "softmax", "slice", "unsqueeze", "squeeze", "rms_norm", "gelu", "pad", "where", "generic_op", "repeat"]
 EXP = ["nlp_create_qkv_heads", "nlp_concat_heads", "rotary_embedding", "minimal_matmul", "view",
-       "dit_minimal_matmul_addcmul_fused"]
+       "dit_minimal_matmul_addcmul_fused", "minimal_matmul_split"]
 
 
 def main() -> int:
@@ -75,7 +75,8 @@ def main() -> int:
             shp = tuple(x.shape) if hasattr(x, "shape") else None
             w2 = a[1] if len(a) > 1 and hasattr(a[1], "shape") else k.get("weight_tensor")
             key = f"{name_k} {shp}" + (f" x {tuple(w2.shape)}" if hasattr(w2, "shape") and name in
-                                     ("linear", "matmul", "minimal_matmul", "dit_minimal_matmul_addcmul_fused") else "")
+                                     ("linear", "matmul", "minimal_matmul", "dit_minimal_matmul_addcmul_fused",
+                                      "minimal_matmul_split") else "")
             n, s = acc.get(key, (0, 0.0))
             acc[key] = (n + 1, s + dt)
             return r

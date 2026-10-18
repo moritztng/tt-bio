@@ -19,6 +19,7 @@ def main() -> int:
     ap.add_argument("--model", required=True)
     ap.add_argument("--fast", action="store_true")
     ap.add_argument("--alt", default="_ESMC_MM_GATE")
+    ap.add_argument("--batch", type=int, default=7, help="7 for the 300M/600M page cell, 1 for the 6B's")
     ap.add_argument("--repeat", type=int, default=9)
     ap.add_argument("--inner", type=int, default=3)
     ap.add_argument("--out", required=True)
@@ -32,7 +33,7 @@ def main() -> int:
     dev = model.tt_device
     ffns = [b.ffn for b in _blocks(model)]
     d = int(ffns[0].norm_weight.shape[-1])
-    x = ttnn.from_torch(torch.randn(7, 544, d, generator=torch.Generator().manual_seed(0)).to(torch.bfloat16),
+    x = ttnn.from_torch(torch.randn(args.batch, 544, d, generator=torch.Generator().manual_seed(0)).to(torch.bfloat16),
                         layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
 
     def stack():
