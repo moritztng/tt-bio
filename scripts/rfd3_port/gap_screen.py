@@ -62,7 +62,7 @@ FIXTURE = opts.get("fixture", "perf/dsfix/fixtures/rfd3_R4.json")
 BATCH = int(opts.get("batch", 1))
 FAST = opts.get("fast", "0") == "1"
 knobs = set(ARM.split("+")) - {"exact"}
-assert knobs <= {"lofi", "w8", "acco", "idxfree"} | set(ENV_KNOBS), knobs
+assert knobs <= {"lofi", "w8", "acco", "idxfree", "binsfree"} | set(ENV_KNOBS), knobs
 
 pick = [ttnn.MathFidelity.LoFi] if "lofi" in knobs else []
 if pick or "acco" in knobs:
@@ -91,26 +91,39 @@ if "w8" in knobs:
         return _t2t(self, key, transform, dtype=dtype)
     T.Module.torch_to_tt = _t2t_w8
 
-# idxfree (instrument, not a lever): the warmup fold records every attention index keyed by its inputs, later folds
-# replay a hit instead of building it. Run the warm seed again and its index costs the host nothing; the digest must
-# equal the plain arm's, and the time saved is the most any faster index (on device or not) can buy.
-IDX = [0, 0]   # replayed, built
-if "idxfree" in knobs:
-    import torch
-    _cai, _book, _rec = M._create_attention_indices, {}, [True]
+# idxfree / binsfree (instruments, not levers): the warmup fold records every attention index (idxfree) or token
+# distogram (binsfree) keyed by its inputs, later folds replay a hit instead of building it. Run the warm seed again and
+# that host work costs nothing; the digest must equal the plain arm's, and the time saved is the most any faster build
+# (on device or not) can buy.
+import torch                                                              # noqa: E402
 
-    def _cai_replay(f, X_L, tok_idx, n_keys, n_seq_neighbours, workers=None):
-        key = (hashlib.sha256(X_L.detach().float().contiguous().numpy().tobytes()).hexdigest(), n_keys, len(tok_idx))
-        hit = _book.get(key)
+IDX = [0, 0]   # replayed, built
+_rec = [True]
+
+
+def _replayed(fn, coords, extra):
+    book = {}
+
+    def run(*a, **kw):
+        x = coords(*a)
+        key = (hashlib.sha256(x.detach().float().contiguous().numpy().tobytes()).hexdigest(), tuple(x.shape)) + extra(*a)
+        hit = book.get(key)
         if hit is not None and not _rec[0]:
             IDX[0] += 1
-            return hit.long()
+            return hit[0].to(hit[1], copy=True)
         IDX[1] += 1
-        out = _cai(f, X_L, tok_idx, n_keys, n_seq_neighbours, workers=workers)
-        if _rec[0]:
-            _book[key] = out.to(torch.int32)
+        out = fn(*a, **kw)
+        if _rec[0]:   # held as int32 (indices < 2^31, bins < 65): 200 steps of atom indices are ~1.9 GB that way
+            book[key] = (out.to(torch.int32, copy=True), out.dtype)
         return out
-    M._create_attention_indices = _cai_replay
+    return run
+
+
+if "idxfree" in knobs:
+    M._create_attention_indices = _replayed(M._create_attention_indices, lambda f, X_L, tok_idx, n_keys, *r: X_L,
+                                            lambda f, X_L, tok_idx, n_keys, *r: (n_keys, len(tok_idx)))
+if "binsfree" in knobs:
+    M._scaled_distogram_bins = _replayed(M._scaled_distogram_bins, lambda R_L, *r: R_L, lambda *a: ())
 
 WALL = []
 _sample = RFD3Sampler.sample
@@ -145,7 +158,7 @@ rec = {"arm": ARM, "steps": STEPS, "fixture": FIXTURE, "batch": BATCH, "fast": F
 s, d, _ = fold("warm", SEEDS[0])
 rec["warm_s"] = s
 print("[screen %s] warmup %.3f s %s  w8 %s" % (ARM, s, d, W8), flush=True)
-if "idxfree" in knobs:
+if knobs & {"idxfree", "binsfree"}:
     _rec[0] = False
     rec["idx_warm_built"] = IDX[1]
     IDX[:] = [0, 0]
