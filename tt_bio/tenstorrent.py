@@ -13038,6 +13038,10 @@ def _ws_applies(x, ckc) -> bool:
 
 # How many hidden chunks `ws_swiglu` may add into `resid` (see its docstring); a bench knob, never raised in production.
 _WS_RESID_CHUNKS = 1
+# A/B (spd-m-opendde): with more than one hidden chunk under `ws_chain`, the last chunk adds z and the chain's partial
+# sum into its fp32 dest (`pair_swiglu(resid=z, resid2=partial)`), so z + t is rounded once and the residual add_
+# (2.55 ms a call at OpenDDE c_z 384, 512 tokens) is gone. One rounding fewer than the chain + add_ it replaces.
+WS_RESID2 = False
 
 
 def ws_swiglu(x, norm_weight, norm_bias, ckc, parts, resid=None):
@@ -13055,9 +13059,13 @@ def ws_swiglu(x, norm_weight, norm_bias, ckc, parts, resid=None):
     (the one-rounding floor 0.112), 0.158 at two (c_z 256 bf16), 0.221 at four (c_z 384 bf16); the Protenix-v2 normal
     grade with two-chunk resid lost 0.33 CA-lDDT on the 680-790 token complexes (spd-gap-small gwr, 2026-10-14).
     """
-    if resid is not None and len(parts) > _WS_RESID_CHUNKS:
+    resid2 = (resid is not None and len(parts) > _WS_RESID_CHUNKS and WS_RESID2 and lever("ws_chain")
+              and all(_pair_ws.eligible(x, w12, w3, l1acc=lever("ws_l1acc"), resid=x) for w12, w3 in parts[1:-1])
+              and _pair_ws.eligible(x, *parts[-1], l1acc=lever("ws_l1acc"), resid=resid, resid2=x))
+    if resid is not None and len(parts) > _WS_RESID_CHUNKS and not resid2:
         return None
-    if not all(_pair_ws.eligible(x, w12, w3, l1acc=lever("ws_l1acc"), resid=resid) for w12, w3 in parts):
+    if not all(_pair_ws.eligible(x, w12, w3, l1acc=lever("ws_l1acc"), resid=None if resid2 else resid)
+               for w12, w3 in parts):
         return None
     fid = ttnn.MathFidelity.HiFi2 if parts[0][0].dtype == ttnn.bfloat8_b else ckc.math_fidelity
     if lever("ws_lofi"):   # ungraded: LoFi drops the low bits of every operand (cen3: 4.1 s at ~48 TFLOP/s, WH PV2 fast)
@@ -13069,6 +13077,15 @@ def ws_swiglu(x, norm_weight, norm_bias, ckc, parts, resid=None):
     x_norm = ttnn.layer_norm(x, weight=norm_weight, bias=norm_bias, epsilon=1e-5, compute_kernel_config=ckc,
                              memory_config=ttnn.DRAM_MEMORY_CONFIG)
     out = None
+    if resid2:
+        # x_norm stands in for the partial's layout, as under ws_chain below.
+        out = _pair_ws.pair_swiglu(x_norm, *parts[0], fid, l1acc=acc)
+        for w12, w3 in parts[1:-1]:
+            _pair_ws.pair_swiglu(x_norm, w12, w3, fid, l1acc=acc, resid=out)
+        _pair_ws.pair_swiglu(x_norm, *parts[-1], fid, l1acc=acc, resid=resid, resid2=out)
+        ttnn.deallocate(out)
+        ttnn.deallocate(x_norm)
+        return resid
     if resid is not None:
         for w12, w3 in parts:
             _pair_ws.pair_swiglu(x_norm, w12, w3, fid, l1acc=acc, resid=resid)
