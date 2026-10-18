@@ -4,7 +4,8 @@
 
 // gather_tiled reader: for each unit (row r of the index, 32-wide column block jt) fetch the 32 table rows the
 // index names into one row-major block of CT tiles, every read in flight behind one barrier. Columns past the
-// index's width take a zero row, the value ttnn's own tilize pads with.
+// index's width take a zero row, the value ttnn's own tilize pads with. With GT_FUSE it also reads the unit's
+// scale tile (a [.., W, 1] TILE tensor: one tile per unit) and its CT shift tiles (same pages as the output).
 #include "api/dataflow/dataflow_api.h"
 
 void kernel_main() {
@@ -14,6 +15,14 @@ void kernel_main() {
     constexpr uint32_t IDX_BYTES = get_compile_time_arg_val(3);   // one index row, W padded to 8 entries
     constexpr auto idx_args = TensorAccessorArgs<4>();
     constexpr auto tab_args = TensorAccessorArgs<idx_args.next_compile_time_args_offset()>();
+#ifdef GT_FUSE
+    constexpr auto sc_args = TensorAccessorArgs<tab_args.next_compile_time_args_offset()>();
+    constexpr auto sh_args = TensorAccessorArgs<sc_args.next_compile_time_args_offset()>();
+    constexpr uint32_t cb_sc = 3, cb_sh = 4;
+    const uint32_t ts = get_tile_size(cb_sh);
+    const auto s_sc = TensorAccessor(sc_args, get_common_arg_val<uint32_t>(2), ts);
+    const auto s_sh = TensorAccessor(sh_args, get_common_arg_val<uint32_t>(3), ts);
+#endif
     constexpr uint32_t cb_rm = 0, cb_idx = 1, cb_zero = 2;
     constexpr uint32_t ROW = CT * 32 * 2;
 
@@ -47,7 +56,20 @@ void kernel_main() {
         for (uint32_t k = 0; k < 32; ++k, wp += ROW) {
             noc_async_read(k < n ? s_tab.get_noc_addr(idx[c0 + k]) : zero_noc, wp, ROW);
         }
+#ifdef GT_FUSE
+        cb_reserve_back(cb_sc, 1);
+        cb_reserve_back(cb_sh, CT);
+        noc_async_read_page(u, s_sc, get_write_ptr(cb_sc));
+        uint32_t sp = get_write_ptr(cb_sh);
+        for (uint32_t t = 0; t < CT; ++t, sp += ts) {
+            noc_async_read_page(u * CT + t, s_sh, sp);
+        }
+#endif
         noc_async_read_barrier();
         cb_push_back(cb_rm, CT);
+#ifdef GT_FUSE
+        cb_push_back(cb_sc, 1);
+        cb_push_back(cb_sh, CT);
+#endif
     }
 }

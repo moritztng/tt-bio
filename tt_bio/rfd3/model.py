@@ -495,6 +495,10 @@ _BINS_NB = env_flag("RFD3_BINS_NB", True)
 # 2.84 + add 1.52 ms/call, two calls a step, and the [B,I,I,128] product is written and read back between them.
 # One bf16 rounding instead of two, so the digest moves. Off while measured.
 _PZ_ADDCMUL = env_flag("RFD3_PZ_ADDCMUL", False)
+# The same tail inside the gather_tiled program (scale/shift operands): the embedding is never written to DRAM and
+# the multiply + add (WH fast census 2.84 + 1.52 ms/call, two calls a step) go away. The product is rounded to bf16
+# before the add like the two-op chain; whether that is bit-equal is what gap_pzf.py measures. Off while measured.
+_PZ_FUSE = env_flag("RFD3_PZ_FUSE", False)
 _ATOM_SDPA_CHUNKS = tuple(int(x) for x in os.environ.get("RFD3_ATOM_SDPA_CHUNKS", "160,320").split(","))
 # ttnn.gather (0.68.0) on dim 3 silently returns wrong data for every tile-row after the first
 # once the indexed axis exceeds this many elements: 99.87 % of elements wrong at the production
@@ -3405,6 +3409,10 @@ class DiffusionTokenEncoder(Module):
                 rm = self._const[key] = ttnn.to_layout(tab, ttnn.ROW_MAJOR_LAYOUT)
             idx = ttnn.from_torch(_gather_tiled.pad_index(flat, batch * I, I), layout=ttnn.ROW_MAJOR_LAYOUT,
                                   device=dev, dtype=ttnn.uint32)
+            if _PZ_FUSE:
+                out = _gather_tiled.gather_tiled(idx, rm, batch, I, scale=inv, shift=ainv)
+                ttnn.deallocate(idx)
+                return out
             em = _gather_tiled.gather_tiled(idx, rm, batch, I)
         else:
             idx = _tt_idx(flat, dev)
