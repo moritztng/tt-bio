@@ -23,8 +23,7 @@ def main() -> int:
     ap.add_argument("--repeat", type=int, default=5)
     ap.add_argument("--inner", type=int, default=10)
     ap.add_argument("--fidelity", default="HiFi4", help="qk_rope_heads.FIDELITY arms")
-    ap.add_argument("--block", default="1,4", help="qk_rope_heads.BLOCK arms (tiles a dest acquire); a 'sq' suffix "
-                    "also sets SQUARE, e.g. 1,4,4sq")
+    ap.add_argument("--block", default="1,4", help="qk_rope_heads.BLOCK arms (tiles a dest acquire)")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
 
@@ -81,10 +80,10 @@ def main() -> int:
         blocks, first = args.block.split(","), {}
         arms = [("chain", chain, None, "1")]
         arms += [(f"qkrh_{f}_b{b}", fused, f, b) for f in args.fidelity.split(",") for b in blocks]
-        arms += [(f"rope_only_b{b}", rope_only, None, b) for b in blocks if not b.endswith("sq")] + [("copy", copy, None, "1")]
+        arms += [(f"rope_only_b{b}", rope_only, None, b) for b in blocks] + [("copy", copy, None, "1")]
         for arm, fn, fid, blk in arms:
             QR.FIDELITY = getattr(ttnn.MathFidelity, fid or "HiFi4")
-            QR.BLOCK, QR.SQUARE = int(blk.removesuffix("sq")), blk.endswith("sq")
+            QR.BLOCK = int(blk)
             try:
                 if arm.startswith(("rope_only", "copy")):
                     o = fn()
@@ -110,7 +109,7 @@ def main() -> int:
                 rec[arm]["ms"] = timed(lambda fn=fn: [ttnn.deallocate(t) for t in fn()], dev, args.repeat, args.inner)
             except Exception as exc:   # a kernel that fails to build or run is a result here, not a crash
                 rec[arm] = {"error": str(exc).splitlines()[0][:300]}
-        QR.FIDELITY, QR.BLOCK, QR.SQUARE = ttnn.MathFidelity.HiFi4, 1, False
+        QR.FIDELITY, QR.BLOCK = ttnn.MathFidelity.HiFi4, 1
         ttnn.deallocate(qkv_packed)
         print(json.dumps(rec), flush=True)
         out.write(json.dumps(rec) + "\n")

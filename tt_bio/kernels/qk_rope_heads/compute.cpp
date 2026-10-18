@@ -38,55 +38,17 @@ struct Ln {
 constexpr uint32_t BLK = QKRH_BLK;
 constexpr uint32_t HG = QKRH_HG;
 
-// Under QKRH_SQ: xc = x - mean to C::xc, then the same subtraction again squared in dest (SFPU, fp32) to C::tmp. The
-// bf16 x is unpacked twice instead of the fp32 xc twice (the MUL stage), and the square is fp32 rather than tf32.
-template <class C>
-ALWI void centre_square() {
-    using namespace ln_prologue;
-    reconfig_data_format(C::x, C::mean);
-    pack_reconfig_data_format(C::xc);
-    cb_reserve_back(C::xc, C::Kt);
-    cb_reserve_back(C::tmp, C::Kt);
-    for (uint32_t i0 = 0; i0 < C::Kt; i0 += BLK) {
-        const uint32_t n = C::Kt - i0 < BLK ? C::Kt - i0 : BLK;
-        sub_bcast_cols_init_short(C::x, C::mean);
-        tile_regs_acquire();
-        for (uint32_t j = 0; j < n; ++j) sub_tiles_bcast_cols(C::x, C::mean, i0 + j, 0, j);
-        tile_regs_commit();
-        tile_regs_wait();
-        for (uint32_t j = 0; j < n; ++j) pack_tile(j, C::xc);
-        tile_regs_release();
-        sub_bcast_cols_init_short(C::x, C::mean);
-        tile_regs_acquire();
-        for (uint32_t j = 0; j < n; ++j) sub_tiles_bcast_cols(C::x, C::mean, i0 + j, 0, j);
-        square_tile_init();
-        for (uint32_t j = 0; j < n; ++j) square_tile(j);
-        tile_regs_commit();
-        tile_regs_wait();
-        for (uint32_t j = 0; j < n; ++j) pack_tile(j, C::tmp);
-        tile_regs_release();
-    }
-    cb_push_back(C::xc, C::Kt);
-    cb_push_back(C::tmp, C::Kt);
-}
-
 // LayerNorm(x) * gamma, no beta (skipped under QKRH_NO_LN, where the RoPE reads c_5 directly), Kt tiles of C::x (popped) into C::xc (pushed), fp32.
 template <class C>
 ALWI void ln_no_beta() {
     using namespace ln_prologue;
     row_mean<C>(C::x, C::mean, false);
     cb_wait_front(C::mean, 1);
-#if defined(QKRH_SQ)
-    centre_square<C>();
-    cb_pop_front(C::x, C::Kt);
-    cb_pop_front(C::mean, 1);
-#else
     stage<C, SUB_COL, BLK>(C::x, C::mean, C::xc);
     cb_pop_front(C::x, C::Kt);
     cb_pop_front(C::mean, 1);
     cb_wait_front(C::xc, C::Kt);
     stage<C, MUL, BLK>(C::xc, C::xc, C::tmp);
-#endif
     row_mean<C>(C::tmp, C::var, true);
     rstd<C>();
     cb_wait_front(C::xc, C::Kt);
