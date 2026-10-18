@@ -457,7 +457,7 @@ def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None, kv_buffer_fac
     # The op's own default compute kernel config, not the trunk's -- see perf/triatt_fused/s4_gate.py
     ckc = _ckc(ckc_default)
 
-    p = SG.plan(q, k, v, bias, out, q_chunk, k_chunk, grid, ckc, scale, split)
+    p = SG.plan(q, k, v, bias, out, q_chunk, k_chunk, grid, ckc, scale, split, kv_buffer_factor)
     # everything the hoisted fill assumes
     if not (p["nh_per_core"] == 1 and p["q_per_core"] == 1 and p["bcast_batch"]
             and (padded_mask or not p["use_padded_mask"]) and p["NKH"] == H and p["NVH"] == H):
@@ -465,6 +465,14 @@ def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None, kv_buffer_fac
         return _reject("fill_preconditions", shape)
 
     persistent = p["k_num_chunks"] * p["Sq_chunk_t"] * p["Sk_chunk_t"]
+    # Priced here, not caught from the device: a caught refusal is a hang risk, and `cb_bytes` is
+    # exact against the device's own figures on both parts (see `sdpa_generic.cb_budget`).
+    if gate is None and not SG.cb_fits_l1(p, q_dtype=q.dtype, k_dtype=k.dtype, v_dtype=v.dtype,
+                                          mask_dtype=bias.dtype, out_dtype=out.dtype,
+                                          mask_cb_tiles=persistent):
+        ttnn.deallocate(out)
+        _PM_OVER_L1.add(pm_key)
+        return _reject("l1_budget", shape)
 
     gate_arg = None
     if gate is not None:

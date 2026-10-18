@@ -89,19 +89,12 @@ TILE = 32
 # against Blackhole's figure, a Wormhole plan at 480 tokens takes a chunk of 5 query tiles that
 # tt-metal refuses at program creation, inside a backward, with no fallback; against its own it
 # takes 3.
-L1_PER_CORE = getattr(SG, "L1_PER_CORE", 1572864)
-PROGRAM_RESERVE = getattr(SG, "PROGRAM_RESERVE", 109056)
-WH_CB_BUDGET = 1395424
+cb_budget = SG.cb_budget
 
 
 def _wormhole() -> bool:
     from . import tenstorrent
     return tenstorrent.is_wormhole()
-
-
-def cb_budget(wormhole=None) -> int:
-    wormhole = _wormhole() if wormhole is None else wormhole
-    return WH_CB_BUDGET if wormhole else L1_PER_CORE - PROGRAM_RESERVE
 
 FUSED = env_flag("TT_BIO_TRIATT_BW_FUSED", False)
 
