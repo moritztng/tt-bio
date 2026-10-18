@@ -318,6 +318,9 @@ def write(partial=False):
     ag = sys.modules.get("tt_bio.autograd")
     if ag is not None:
         doc.update(rtrace_stats=dict(ag.RTRACE_STATS), rtrace_checks=list(ag.RTRACE_CHECKS))
+    tl = sys.modules.get("tt_bio.trimul_tail")
+    if tl is not None:              # did T1 serve, and why not where it declined
+        doc.update(t1=list(tl.T1_STATS), t1_why=dict(tl.T1_WHY))
     (a.out / "census.json").write_text(json.dumps(doc, indent=1))
 
     warm = [u["s"] for u in state["uninstrumented"]]
