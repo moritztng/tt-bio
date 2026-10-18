@@ -4788,6 +4788,7 @@ if os.environ.get("TT_BIO_CAPACITY_CENSUS"):
             _json.dump({"opm_row": OPM_ROW_STATS, "pwa_depth": PWA_DEPTH_STATS,
                         "fp32_softmax": FP32_SOFTMAX_STATS,
                         "opm_small_depth": OPM_SMALL_DEPTH_STATS,
+                        "opm_depth_join": OPM_DEPTH_JOIN_STATS,
                         # The host float64 softmax's reach, taken in the process that FOLDED.
                         # Every INFERENCE_AB artifact this campaign has written reads 0 calls,
                         # on every row and both arms, because that census is an atexit hook in
@@ -15687,6 +15688,19 @@ def _opm_depth_join_fits(I: int, J: int, S: int, D: int) -> bool:
     """Whether the depth join's repeated b, [I, J, S*D] bf16, stays under OPM_DEPTH_JOIN_MAX_BYTES."""
     return I * J * S * D * 2 <= OPM_DEPTH_JOIN_MAX_BYTES
 
+
+#: [joined, per-row], so a census can tell a dark join from a correctly declining one. A join that never
+#: fires makes both A/B arms run the same code and return bit-identical coords, which reads as an
+#: accuracy-neutral PASS when the cell in fact graded nothing (opmjb cdk256m4, 2026-10-18).
+OPM_DEPTH_JOIN_STATS = [0, 0]
+
+
+def _opm_depth_join_takes(I: int, J: int, S: int, D: int) -> bool:
+    """Whether `_small_depth` joins these shapes, counting the answer. One row has nothing to join."""
+    taken = S > 1 and _OPM_DEPTH_JOIN and _opm_depth_join_fits(I, J, S, D)
+    OPM_DEPTH_JOIN_STATS[0 if taken else 1] += 1
+    return taken
+
 class OuterProductMean(Module):
     def __init__(
         self,
@@ -15771,7 +15785,7 @@ class OuterProductMean(Module):
         scale = 1.0 / (n_msa if n_msa is not None else S)
         w = self._proj_o_folded(C, D)
         c_z = w.shape[1] // D
-        if S > 1 and _OPM_DEPTH_JOIN and _opm_depth_join_fits(I, J, S, D):
+        if _opm_depth_join_takes(I, J, S, D):
             out = self._small_depth_joined(a, b, w, scale, S, I, C, J, D, c_z)
         else:
             out = None
