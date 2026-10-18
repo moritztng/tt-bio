@@ -82,17 +82,20 @@ struct LnCbs {
 #endif
 
 #ifdef WS_L1ACC
-constexpr uint32_t KC = 2, cb_acc = 19;
+// cb_acc holds SLOT tiles (one fp32 dest half) and every result takes all of them, N <= SLOT used. The packer and
+// copy_tile index past the CB's pointer without wrapping, so a 2-tile fc3 result (c_z 64, OG 2) pushed as 2 would leave
+// the next 4-tile result straddling the CB's end and writing into c_20, the residual.
+constexpr uint32_t KC = 2, cb_acc = 19, SLOT = 4;
 
 // sum over k of in0[k] x in1[k * s + b], N output tiles, into cb_acc: KC K tiles per dest pass, the packer adds the passes
 // With `seed` (a CB holding N tiles at its front) the first pass starts from them instead of zero.
 template <uint32_t K, uint32_t N>
 void mm_acc(uint32_t in0, uint32_t in1, uint32_t s, uint32_t b, int32_t seed = -1) {
-    static_assert(K % KC == 0);
+    static_assert(K % KC == 0 && N <= SLOT);
     mm_block_init_short(in0, in1, false, N, 1, K);
     reconfig_data_format(in1, in0);
     pack_reconfig_data_format(cb_acc);
-    cb_reserve_back(cb_acc, N);
+    cb_reserve_back(cb_acc, SLOT);
     for (uint32_t k0 = 0; k0 < K; k0 += KC) {
         tile_regs_acquire();
         if (seed >= 0 && k0 == 0) {
@@ -110,19 +113,19 @@ void mm_acc(uint32_t in0, uint32_t in1, uint32_t s, uint32_t b, int32_t seed = -
         tile_regs_release();
     }
     pack_reconfig_l1_acc(0);
-    cb_push_back(cb_acc, N);
+    cb_push_back(cb_acc, SLOT);
 }
 
 // cb_acc's N summed tiles into dest 0..N-1; the caller holds the dest
 template <uint32_t N>
 void acc_to_dest() {
-    cb_wait_front(cb_acc, N);
+    cb_wait_front(cb_acc, SLOT);
     copy_tile_to_dst_init_short(cb_acc);
     reconfig_data_format_srca(cb_acc);
     for (uint32_t i = 0; i < N; ++i) {
         copy_tile(cb_acc, i, i);
     }
-    cb_pop_front(cb_acc, N);
+    cb_pop_front(cb_acc, SLOT);
 }
 #endif
 
