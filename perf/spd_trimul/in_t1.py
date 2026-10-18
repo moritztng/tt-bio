@@ -22,6 +22,7 @@ ap.add_argument("--reps", type=int, default=10)
 ap.add_argument("--c", type=int, default=128, help="c_z")
 ap.add_argument("--hidden", type=int, default=128)
 ap.add_argument("--no-mask", action="store_true")
+ap.add_argument("--ln1-ab", action="store_true", help="also run T1 with T1_LN1 off: bit-equality of a, b, g_out and its time")
 ap.add_argument("--abl", default="", help="comma list of T1_ABL stage-skip masks to time after the real T1"
                 " (kernels/trimul_in_t1: 1 LN, 2 g_out mm, 4 [a|b] mm, 8 gate, 16 z reads, 32 gather, 64 writes)")
 ap.add_argument("--set", default="", help="comma list NAME=INT of trimul_tail knobs for T1 (T1_RB, T1_SBW, GIN_MOVE_NB, T1_ROWS)")
@@ -194,6 +195,14 @@ for n in [int(s) for s in A.ns.split(",") if s]:
                 TT.T1_ABL = m_
                 rec[f"abl{m_}_ms"] = timed(lambda: free(t1()), A.reps)
             TT.T1_ABL = 0
+            if A.ln1_ab:
+                prev, TT.T1_LN1 = TT.T1_LN1, not TT.T1_LN1
+                outs = t1()
+                ttnn.synchronize_device(dev)
+                rec["ln1_flip_equal"] = [bool(torch.equal(ttnn.to_torch(o), t)) for o, t in zip(outs, host)]
+                free(outs)
+                rec["ln1_flip_ms"] = timed(lambda: free(t1()), A.reps)
+                TT.T1_LN1 = prev
     except Exception as e:                                                    # noqa: BLE001
         rec["t1_err"] = str(e).splitlines()[0][:300]
         traceback.print_exc()
