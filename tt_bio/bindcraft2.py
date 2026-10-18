@@ -2703,7 +2703,7 @@ def predictor(*, trunk: str = "device", card: int | str | None = None, checkpoin
         pin_card(card)
     # After `pin_card`: importing autograd imports ttnn, and a pin after that raises.
     from tt_bio import autograd
-    from tt_bio.tenstorrent import get_device
+    from tt_bio.tenstorrent import get_device, levers, model_levers
 
     # Open the chip on this thread, not on whichever thread first reaches the card. UMD's
     # CHIP_IN_USE lock is a robust pthread mutex owned by the thread that opens the chip, and the
@@ -2725,11 +2725,16 @@ def predictor(*, trunk: str = "device", card: int | str | None = None, checkpoin
     # opened for the duration -- both `_taped` calls and the backward's recompute -- without
     # either swap having to know about it.
     fast = not exact if fast is None else fast
+    # The seams call the AF2 blocks directly, not through AF2DeviceModel's `under_levers` entry
+    # points, so without this scope every call-time lever reads an empty set here. BindCraft 2 arms
+    # its own levers as module flags (`fast_round`); this lets a harness's TT_BIO_LEVERS reach the
+    # blocks too, and is empty otherwise. Process-wide like `fast_round`: the seams run on XLA's threads.
     # Outermost, so a refusal from any seam under it reaches the caller as the `MemoryError`
     # it was raised as even when JAX stringified it into a `JaxRuntimeError` on the way out.
     with refusals_unwrapped(), \
             autograd.exact_training(exact), evoformer_on_device(evo, extra), \
             template_on_device(tmpl, evo), ipa_rewrites(IPA_POINT_EINSUM, IPA_DIST_REMAT), \
+            levers(model_levers(normal=(), fast=())), \
             (fast_round() if fast else contextlib.nullcontext()) as armed:
         build = _factory(trunk="device", pool=pool, evoformer=evo, extra_msa=extra,
                          template=tmpl, exact=exact)
