@@ -21,6 +21,9 @@ def main() -> int:
     ap.add_argument("--repeat", type=int, default=5)
     ap.add_argument("--inner", type=int, default=10)
     ap.add_argument("--shapes", default="300m,600m")
+    ap.add_argument("--fidelity", default=None, help="one MathFidelity for every arm (the 300M/600M model runs HiFi3); "
+                    "default HiFi2 --fast, HiFi4 normal and for the 6B")
+    ap.add_argument("--modes", default="normal,fast")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
 
@@ -38,11 +41,12 @@ def main() -> int:
         x = torch.randn(B, S, d, generator=gen).to(torch.bfloat16)
         w1 = (torch.randn(d, ff, generator=gen) * d ** -0.5).to(torch.bfloat16)
         w2 = (torch.randn(d, ff, generator=gen) * d ** -0.5).to(torch.bfloat16)
-        for mode in ("normal", "fast"):
+        for mode in args.modes.split(","):
             fast = mode == "fast"
             wdt = ttnn.bfloat8_b if fast else ttnn.bfloat16
             ck = ttnn.init_device_compute_kernel_config(
-                dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi2 if fast and name != "6b" else ttnn.MathFidelity.HiFi4,
+                dev.arch(), math_fidelity=getattr(ttnn.MathFidelity, args.fidelity) if args.fidelity else
+                ttnn.MathFidelity.HiFi2 if fast and name != "6b" else ttnn.MathFidelity.HiFi4,
                 math_approx_mode=False, fp32_dest_acc_en=not fast or name == "6b", packer_l1_acc=True)   # the 6B keeps HiFi4
             xd = ttnn.from_torch(x, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
             wd1, wd2 = (ttnn.from_torch(w, layout=ttnn.TILE_LAYOUT, device=dev, dtype=wdt) for w in (w1, w2))
@@ -73,7 +77,7 @@ def main() -> int:
                 return o
 
             ts = sorted(timed(lambda: ttnn.deallocate(today()), dev, 1, args.inner) for _ in range(args.repeat))
-            rec = {"shape": name, "mode": mode, "today_ms": ts[len(ts) // 2], "configs": []}
+            rec = {"shape": name, "mode": mode, "fidelity": str(ck.math_fidelity), "today_ms": ts[len(ts) // 2], "configs": []}
             w1h, w2h = (ttnn.to_torch(w).double() for w in (wd1, wd2))
             ref = torch.nn.functional.silu(x.double() @ w1h) * (x.double() @ w2h)
             dmax = 4 if not fast or name == "6b" else 8             # dest tiles per half under fp32 / bf16 acc
