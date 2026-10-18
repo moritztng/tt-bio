@@ -22,10 +22,16 @@ import torch
 import ttnn
 
 from . import sdpa_generic as SG
+from .envflags import env_flag
 
 KERNEL_DIR = Path(__file__).parent / "kernels" / "shsdpa"
 HIFI2 = (ttnn.MathFidelity.HiFi2, True, False, False)
 K_CHUNK = 192
+# The key-padding mask is the same row for every query, so the reader fetches one row of tiles a k chunk and the compute
+# adds it to each q row (KEYPAD_ROW), instead of fetching Sq_chunk copies. Same adds of the same values. perf/shsdpa
+# bench, Galaxy chip at 1000 MHz, page length 514, ms a call: 300M B7H15 0.454 -> 0.361, 600M B7H18 0.550 -> 0.431,
+# 6B B1H40 0.230 -> 0.166, rel_rms vs float64 unchanged to 4 digits.
+_KEYPAD_ROW = env_flag("TT_BIO_SHSDPA_KEYPAD_ROW", True)
 
 
 def keypad_args(lens, k_chunk: int, k_num_chunks: int):
@@ -93,6 +99,8 @@ def sdpa(q, k, v, scale, pad, q_chunk=None, k_chunk=K_CHUNK, split=None, ckc=HIF
     dev = q.device()
     grid = grid or tuple(T.COMPUTE_GRID_MAIN)
     auto = q_chunk is None and split is None
+    if _KEYPAD_ROW:
+        defines = {"KEYPAD_ROW": 1, **(defines or {})}
     key = (B, H, S, D, grid, tuple(t.memory_config().buffer_type == ttnn.BufferType.L1 for t in (q, k, v)))
     table, row = pad
     out = ttnn.allocate_tensor_on_device(ttnn.Shape([B, 1, S, H * D] if merged else [B, H, S, D]), q.dtype,
