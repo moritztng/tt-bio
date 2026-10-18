@@ -35,7 +35,8 @@ nvidia-smi -q -d POWER,CLOCK,PERFORMANCE > $R/power-clock.txt 2>&1
 nohup nvidia-smi --query-gpu=timestamp,clocks.sm,clocks.mem,power.draw,power.limit,temperature.gpu,utilization.gpu,clocks_event_reasons.active,memory.used --format=csv,noheader -lms 500 > $R/smi.csv 2>&1 &
 SMI=$!
 run(){ # <mode>: off | exact | fast, or <mode>-det = the kit's deterministic recipe (--det 1), where exact claims bitwise = off
-  local d=$R/$1 mo=${1%-det} dt=; [ $mo = $1 ] || dt="--det 1"; mkdir -p $d; date -u +%FT%T.%3NZ > $d/t_start; export KC_TIMES=$d/times.jsonl
+  # RB = rfdiffusion3's diffusion_batch_size; a batch other than 1 gets its own arm dir <mode>-b<RB>
+  local d=$R/$1${RB:+-b$RB} mo=${1%-det} dt=; [ $mo = $1 ] || dt="--det 1"; [ "${RB:-1}" = 1 ] && d=$R/$1; mkdir -p $d; date -u +%FT%T.%3NZ > $d/t_start; export KC_TIMES=$d/times.jsonl
   unset MODEL_OPT_LEVERS_OFF; [ $mo != off ] && [ -n "${LEVERS_OFF:-}" ] && export MODEL_OPT_LEVERS_OFF=$LEVERS_OFF
   case $M in
     boltz2)    [ $mo = off ] && S="--seed 0" || S="--seeds 0"   # off is stock boltz predict (--seed), exact/fast the worker route
@@ -62,10 +63,10 @@ run(){ # <mode>: off | exact | fast, or <mode>-det = the kit's deterministic rec
     rosettafold3)  # no MSA and no early stop, as the published cell (perf/rf3/gpu_rf3_run.py)
                bash run.sh pred --config $KC_CFG --mode $mo $dt --input $I/rf3.json --out_dir $d/pred --seeds 0 \
                  n_recycles=10 num_steps=50 diffusion_batch_size=1 early_stopping_plddt_threshold=0;;
-    rfdiffusion3)  # the published cell: 585-residue target + 100 designed, seed 7, batch 1, 200 timesteps, KC_N batches in
+    rfdiffusion3)  # the published cell: 585-residue target + 100 designed, seed 7, batch $RB (1), 200 timesteps, KC_N batches in
                    # one process; timed by the engine's own "Finished inference batch in X s" (every mode prints it)
                ( cd $I/rfd3 && bash $K/run.sh design --config $KC_CFG --mode $mo $dt inputs=rfd3_R4_gpu.json out_dir=$d/pred \
-                 inference_sampler.num_timesteps=200 diffusion_batch_size=1 n_batches=$KC_N seed=7 skip_existing=False );;
+                 inference_sampler.num_timesteps=200 diffusion_batch_size=$RB n_batches=$KC_N seed=7 skip_existing=False );;
     pxdesign)  # the published cell: LacZ crop (yaml names /work/targets2/laczc_512.cif), 80-res binder, N_sample 1, 400 steps, bf16,
                # DS4Sci evo attention, eta const 2.5, seeds 0..KC_N-1 in one process (cold = seed 0)
                bash run.sh design --config $KC_CFG --mode $mo $dt -i $I/pxdesign/laczc_512_nomsa.yaml -o $d/pred --seeds $(seq -s, 0 $((KC_N - 1))) \
@@ -81,5 +82,7 @@ run(){ # <mode>: off | exact | fast, or <mode>-det = the kit's deterministic rec
 }
 if [ $M = esmfold2 ]; then  # ESMFold2 (full_nomsa) and ESMFold2-Fast (fast): two page rows, one venv
   for VAR in full_nomsa fast; do R=/root/kc/results/esmfold2-$VAR; mkdir -p $R; for m in ${MODES:-off exact fast}; do run $m; done; done
+elif [ $M = rfdiffusion3 ]; then  RFD3_BATCHES=${RFD3_BATCHES:-1}  # RFD3_BATCHES=8,1: every mode at each diffusion_batch_size, in that order
+  for RB in ${RFD3_BATCHES//,/ }; do for m in ${MODES:-off exact fast}; do run $m; done; done
 else for m in ${MODES:-off exact fast}; do run $m; done; fi
 kill $SMI; echo ARMS-DONE > $R/ARMS-DONE

@@ -28,7 +28,8 @@ K=/root/kit/colabdesign; E=/opt/mamba/envs/cdkit
 export PATH=$E/bin:$PATH LD_LIBRARY_PATH=$E/lib
 T=$K/stock/src/bindcraft/example/PDL1.pdb
 A="--starting-pdb $T --chains A --binder-len ${BLEN:-80} --target-hotspot-residues ${HOTSPOTS:-54,56,66,115}"
-for m in ${MODES:-off exact fast}; do
+[ -n "${BC_STOCK_ONLY:-}" ] && MODES=none
+for m in ${MODES:-off exact fast}; do [ $m = none ] && break
   d=$R/kit-$m; mkdir -p $d; date -u +%FT%T.%3NZ > $d/t_start
   # seed 99 first: it pays the per-token-count XLA compile, and is discarded (run.sh warm takes no hotspots, so the
   # cold design goes through the same line as the timed ones)

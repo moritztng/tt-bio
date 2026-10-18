@@ -33,6 +33,8 @@ git -C /root/bc2 checkout -q $BC2_PIN
   /opt/burn-venv/bin/pip install -q torch --index-url https://download.pytorch.org/whl/cu130; }
 
 # --- 2. the kit's colabdesign (BindCraft 1 / ColabDesign) -----------------------------------------------------------
+# BC_STOCK_ONLY=1: stock BindCraft 2 alone (box_bc_arms.sh then skips the kit arms)
+[ -n "${BC_STOCK_ONLY:-}" ] && { touch /root/kc/SETUP-OK-$M; exit 0; }
 K=/root/kit/colabdesign
 if [ ! -x /opt/micromamba ]; then
   wget -qO /tmp/mm https://github.com/mamba-org/micromamba-releases/releases/download/2.1.1-0/micromamba-linux-64
