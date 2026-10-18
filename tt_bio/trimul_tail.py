@@ -1364,7 +1364,7 @@ def set_t1(on: bool) -> bool:
     return prev
 
 
-def t1_cb_plan(kt, ct2, ntg, mask, rb=None, nb=None, il=None):
+def t1_cb_plan(kt, ct2, ntg, mask, rb=None, nb=None, il=None, bias=False):
     """T1's circular buffers per core for one launch of the (kt, ct2, ntg) plan,
     ([(index, bf16 tiles)], [(index, fp32 tiles)]). Independent of N: N only sets how many units
     each core runs."""
@@ -1388,12 +1388,14 @@ def t1_cb_plan(kt, ct2, ntg, mask, rb=None, nb=None, il=None):
     if mask:
         bf += [(3, 1), (6, il),  # the mask tile and its row-broadcast cuts
                (15, 4)]          # g * m of one block
+    if bias:
+        bf += [(20, 2 * qn + ng)]  # AF2's p | g column tiles and g_out row tiles, resident
     f32 = [(11, 1), (12, 1), (13, 1), (14, 1), (16, kt), (17, kt)]   # eps, mean, var, rstd, xc, tmp
     return bf, f32
 
 
-def t1_cb_bytes(kt, ct2, ntg, mask, rb=None, nb=None):
-    bf, f32 = t1_cb_plan(kt, ct2, ntg, mask, rb, nb)
+def t1_cb_bytes(kt, ct2, ntg, mask, rb=None, nb=None, bias=False):
+    bf, f32 = t1_cb_plan(kt, ct2, ntg, mask, rb, nb, bias=bias)
     return sum(t for _, t in bf) * BF16_TILE + sum(t for _, t in f32) * FP32_TILE
 
 
@@ -1463,7 +1465,7 @@ def t1_any() -> bool:
     return T1 or lever("trimul_t1") or any(lever(v) for v in T1_WIDE.values())
 
 
-def t1_eligible(x, ln_w, ln_b, wpT, wgT, wgo, mask=None):
+def t1_eligible(x, ln_w, ln_b, wpT, wgT, wgo, mask=None, bias=None):
     """None when T1 serves this call, else the reason it does not."""
     from .tenstorrent import lever
     on = T1 or lever("trimul_t1")
@@ -1498,7 +1500,7 @@ def t1_eligible(x, ln_w, ln_b, wpT, wgT, wgo, mask=None):
     if mask is not None and not t1_mask_ok(mask, x):
         return "mask"
     from .tenstorrent import _l1_bank_bytes
-    if t1_cb_bytes(*key, mask is not None) > 0.85 * _l1_bank_bytes():
+    if t1_cb_bytes(*key, mask is not None, bias=bias is not None) > 0.85 * _l1_bank_bytes():
         return "l1"
     return None
 
@@ -1553,10 +1555,9 @@ def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps, il, b8=F
         config=ttnn.ComputeConfigDescriptor(
             math_fidelity=fid, math_approx_mode=approx, fp32_dest_acc_en=True,
             dst_full_sync_en=full))
-    bf, f32 = t1_cb_plan(kt, ct2, ntg, mask is not None, il=il)
+    bf, f32 = t1_cb_plan(kt, ct2, ntg, mask is not None, il=il, bias=bias is not None)
     cbs = ([_cb_fmt(i, core_grid, t, ttnn.bfloat8_b) if b8 and i == 2 else _cb(i, core_grid, t) for i, t in bf]
-           + [_cb_fmt(i, core_grid, t, ttnn.float32) for i, t in f32]
-           + ([_cb(20, core_grid, 2 * qn + ng)] if bias is not None else []))
+           + [_cb_fmt(i, core_grid, t, ttnn.float32) for i, t in f32])
     return {"kernels": [reader, writer, compute], "cbs": cbs}
 
 
@@ -1573,7 +1574,7 @@ def fused_in_ln(x, ln_w, ln_b, wpT, wgT, wgo, ckc, grid, mask=None, eps=1e-5, b8
     if ops.taping() or dest_guard.exposed_args((fid, approx, True, full)):
         T1_STATS[1] += 1
         return None
-    why = t1_eligible(x, ln_w, ln_b, wpT, wgT, wgo, mask)
+    why = t1_eligible(x, ln_w, ln_b, wpT, wgT, wgo, mask, bias)
     if why is not None:
         T1_STATS[1] += 1
         if why != "off":

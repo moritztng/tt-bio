@@ -33,6 +33,9 @@ def test_cb_budget_fits_l1(mask):
     assert total == (911_360 if not mask else 987_136)
     assert total < L1_PER_CORE
     assert total <= 0.85 * L1_ALLOCATOR_BANK      # t1_eligible's own gate
+    # AF2's biases: one resident CB of 2 * 8 + 4 tiles, counted by the same gate.
+    assert TTL.t1_cb_bytes(KT, CT2, NTG, mask, bias=True) == total + 20 * 2048
+    assert TTL.t1_cb_bytes(KT, CT2, NTG, mask, bias=True) <= 0.85 * L1_ALLOCATOR_BANK
     # N only sets units per core: at 512 tokens, 256 units of 32 row tiles over the 11 x 10 grid.
     split = TTL.t1_split((512 // 32) ** 2, 110)
     assert sum(n for _, n in split) == 256 and max(n for _, n in split) == 3
@@ -56,7 +59,7 @@ def test_cb_plan_covers_every_cb_the_kernels_use():
     used = set()
     for f in ("reader.cpp", "compute.cpp", "writer.cpp"):
         used |= {int(i) for i in re.findall(r"CBIndex::c_(\d+)", (KDIR / f).read_text())}
-    bf, f32 = TTL.t1_cb_plan(KT, CT2, NTG, True)
+    bf, f32 = TTL.t1_cb_plan(KT, CT2, NTG, True, bias=True)
     planned = [i for i, _ in bf] + [i for i, _ in f32]
     assert len(planned) == len(set(planned)), "a CB index is planned twice"
     assert used == set(planned)
@@ -318,6 +321,21 @@ def test_call_site_is_inert_when_off(monkeypatch):
     before = list(TTL.T1_STATS)
     assert tm._t1_in(None, None, 512, [1, 512, 512, 128]) is None
     assert TTL.T1_STATS == before
+
+
+
+def test_tape_declines_only_a_recording_forward(monkeypatch):
+    """BindCraft 2's checkpointed trunk runs its forward under the tape's `no_grad`: T1 serves that
+    one (on raw operands, via `fused_kernel`) and only a recording forward declines on `tape`."""
+    assert TTL.fused_in_ln.tape_entry_name == "trimul_t1_in"
+    monkeypatch.setattr(TTL, "T1", True)
+    monkeypatch.setattr(T, "_FAST_MODE", True)       # the next reason after `tape`, read off no weight
+    tm = object.__new__(T.TriangleMultiplication)
+    for recording, why in ((True, "tape"), (False, "fast_mode")):
+        monkeypatch.setattr(T.ops, "recording", lambda r=recording: r)
+        TTL.T1_WHY.clear()
+        assert tm._t1_in(None, None, 512, [1, 512, 512, 128]) is None
+        assert TTL.T1_WHY == {why: 1}
 
 
 # ---------------------------------------------------------------- work split
