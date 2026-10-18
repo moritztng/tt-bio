@@ -147,11 +147,10 @@ def _build(x, w12, w3, out, device, mt, kt, nh, ct, fidelity, defines, silu_poly
     if ("WS_L1ACC", "1") in defines:
         cbs.append(cb(ACC_CB, _SW, ttnn.float32))
     if ("WS_RESID", "1") in defines:
-        resid2 = ("WS_RESID2", "1") in defines
         base = (_l1_bytes(kt, nh, ct, w12.dtype, x.dtype) + (ln_bytes(kt) if ln is not None else 0)
                 + (_SW * 2 * _TILE if ("WS_L1ACC", "1") in defines else 0))
-        depth = _res_depth(base, ct, 1 + resid2) * ct
-        cbs += [cb(RES_CB, depth)] + ([cb(RES2_CB, depth)] if resid2 else [])
+        depth = _res_depth(base, ct, 1 + (resid2 is not None)) * ct
+        cbs += [cb(RES_CB, depth)] + ([] if resid2 is None else [cb(RES2_CB, depth)])
     scaler = eps_bits = 0
     if ln is not None:
         import struct
