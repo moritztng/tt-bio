@@ -231,8 +231,16 @@ _ATTN_ROW_BLOCK = int(os.environ.get("RFD3_ATTN_ROWBLOCK", "256"))
 # RFD3_ATTN_KDTREE=0 restores the cdist chain.
 _ATTN_KDTREE = env_flag("RFD3_ATTN_KDTREE", True)
 # The atom neighbour index on the card (tt_bio.dknn): exact uint64 keys, launched ahead of the token encoder instead
-# of a host k-d tree the step waits on (hostfreewh: 12-15 s/design of WH fast). Off until its device read lands.
-_DKNN = env_flag("RFD3_DKNN", False)
+# of a host k-d tree the step waits on (hostfreewh: 12-15 s/design of WH fast). Same rows as the tree (0 of 6051
+# differ at six noise levels). p150a, fast seeds 60,61 x2 @1312-1350 MHz: 31.3-31.8 -> 29.7-30.0 s/design, digests
+# equal. On by default except on Wormhole, where it has not run on a card yet; RFD3_DKNN=0/1 forces it.
+_DKNN = env_flag("RFD3_DKNN", False) if os.environ.get("RFD3_DKNN") else None
+
+
+def _dknn_on():
+    return _DKNN if _DKNN is not None else not is_wormhole()
+
+
 # The 18 DiT blocks project the SAME pair tensor with their own [c_pair, n_head] weight, and that
 # projection is the largest single op in the model: 36 calls/step (18 blocks x 2 recycles),
 # 26.742 ms/step, 42.6 % of this card's measured 390.0 GB/s read roof (perf/p56/linear_census.json).
@@ -3742,17 +3750,19 @@ def _attention_indices_future(f, X_L, tok_idx, n_keys, n_seq_neighbours, device=
     """Start the atom index build on a worker thread (see _ATTN_THREAD), or None to build inline.
 
     The coordinate-independent prefix is built (or hit) here on the calling thread, so the
-    worker only runs the k-d tree path, which is scipy's threads plus numpy. With _DKNN and a
-    device the build is a card program instead (tt_bio.dknn), with the same .result().
+    worker only runs the k-d tree path, which is scipy's threads plus numpy. With dknn on and a
+    device the build is a card program instead (tt_bio.dknn), with the same .result(), as long as
+    its per-core buffers fit L1 (about 18k atoms); larger designs keep the tree.
     """
     global _INDEX_POOL
     parts = _attention_index_prefix(f, tok_idx, n_keys, n_seq_neighbours)
     if "single" not in parts:
         return None
-    if _DKNN and device is not None:
+    if device is not None and _dknn_on():
         from .. import dknn
         mask, seq_idx = parts["single"]
-        return dknn.Pending(device, X_L if X_L.ndim == 3 else X_L.unsqueeze(0), mask, seq_idx, parts["k"])
+        if dknn.fits(len(tok_idx), parts["k"]):
+            return dknn.Pending(device, X_L if X_L.ndim == 3 else X_L.unsqueeze(0), mask, seq_idx, parts["k"])
     if not (_ATTN_THREAD and _ATTN_KDTREE):
         return None
     if _INDEX_POOL is None:

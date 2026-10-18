@@ -16,6 +16,7 @@ import torch
 import ttnn
 
 from . import core_split
+from .sdpa_generic import L1_PER_CORE, PROGRAM_RESERVE
 
 KERNEL = str(Path(__file__).resolve().parent / "kernels" / "dknn" / "dknn.cpp")
 _CB = (0, 8)   # first CB of BRISC's and NCRISC's five
@@ -47,10 +48,20 @@ def mask_words(mask, n_fill):
     return out.view(np.int32)
 
 
+def _cb_sizes(L, MW, WO):
+    return (L * 16, L * 8, L * 16, MW * 4, WO * 4)   # coords, keys, scratch, mask row, out row
+
+
+def fits(L, k):
+    """True when both RISC-Vs' buffers fit one core's L1 (about 18k atoms at k 128)."""
+    MW, WO = _align(1 + (L + 31) // 32), _align(k)
+    return len(_CB) * sum(_cb_sizes(L, MW, WO)) + PROGRAM_RESERVE <= L1_PER_CORE
+
+
 def _build(device, L, K, MW, WO, xt, mt, ot):
     g = device.compute_with_storage_grid_size()
     _, grid, cg1, cg2, work1, work2 = core_split.split_work_to_cores(g, L, 0)
-    sizes = (L * 16, L * 8, L * 16, MW * 4, WO * 4)
+    sizes = _cb_sizes(L, MW, WO)
     cbs = []
     for base in _CB:
         for i, size in enumerate(sizes):

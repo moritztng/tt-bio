@@ -48,3 +48,13 @@ def test_dknn_rule_equals_kdtree(sigma):
     ref = M._neighbours_kdtree(mask, seq, x.unsqueeze(0), K)
     assert torch.equal(got, ref)
 
+
+
+def test_fits_l1_bound():
+    """The card index only takes designs whose two RISC-Vs' buffers fit one core; bigger ones keep the k-d tree."""
+    assert dknn.fits(6051, 128)
+    assert dknn.fits(16000, 128)
+    assert not dknn.fits(20000, 128)
+    big = max(L for L in range(1000, 30000, 8) if dknn.fits(L, 128))
+    MW, WO = dknn._align(1 + (big + 31) // 32), dknn._align(128)
+    assert 2 * sum(dknn._cb_sizes(big, MW, WO)) + dknn.PROGRAM_RESERVE <= dknn.L1_PER_CORE
