@@ -31,9 +31,13 @@ def main() -> int:
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
 
+    import os
+    from tt_bio import metal_overlay
+    metal_overlay.enable(("silu_f32",))    # before the device opens: approx-mode silu = calculate_silu_f32
     from tt_bio import tenstorrent as T
     from tt_bio import esmc, mm_gate
     dev = T.get_device()
+    overlay = os.environ.get("TT_BIO_METAL_OVERLAY", "")
     g = dev.compute_with_storage_grid_size()
     grid = (int(g.x), int(g.y))
     out = open(args.out, "w")
@@ -76,9 +80,10 @@ def main() -> int:
             def fused():
                 return mm_gate.gated(xd, wd12, cfg, ck, grid)
 
-            ck_f32 = T.silu_ckc(ttnn.init_device_compute_kernel_config(
+            # not T.silu_ckc: that sets math_approx_mode from the silu_f32 lever, which is off outside Protenix
+            ck_f32 = ttnn.init_device_compute_kernel_config(
                 dev.arch(), math_fidelity=ck.math_fidelity, math_approx_mode=True,
-                fp32_dest_acc_en=ck.fp32_dest_acc_en, packer_l1_acc=True))
+                fp32_dest_acc_en=ck.fp32_dest_acc_en, packer_l1_acc=True)
 
             def fused_f32():   # the epilogue's silu on the silu_f32 overlay (math_approx_mode selects it)
                 return mm_gate.gated(xd, wd12, cfg, ck_f32, grid)
@@ -93,16 +98,20 @@ def main() -> int:
                 return ttnn.experimental.minimal_matmul(xd, wd12, compute_kernel_config=ck, config=mmc,
                                                         memory_config=ttnn.DRAM_MEMORY_CONFIG, dtype=ttnn.bfloat16)
 
-            rec = {"shape": name, "mode": mode, "cfg": list(cfg), "grid": list(grid),
+            rec = {"shape": name, "mode": mode, "overlay": overlay, "cfg": list(cfg), "grid": list(grid),
                    "plan": mm_gate.plan(xd, 2 * ff, cfg, grid)}
+            outs = {}
             for arm, fn in (("today", today), ("fused", fused), ("fused_f32", fused_f32)):
                 try:
                     o = fn()
+                    outs[arm] = ttnn.to_torch(o)
                     rec[arm] = err(ttnn.to_torch(o).double().reshape(ref.shape), ref)
                     ttnn.deallocate(o)
                 except Exception as exc:  # noqa: BLE001
                     rec[arm] = {"error": str(exc)[:400]}
             rec["plain2n"] = {}
+            if "fused" in outs and "fused_f32" in outs:
+                rec["f32_bit_identical_to_fused"] = bool(torch.equal(outs["fused"], outs["fused_f32"]))
             rec["probe1"] = rec["probe2"] = {}
             arms = (("today", today), ("fused", fused), ("fused_f32", fused_f32), ("probe1", probe1),
                     ("probe2", probe2), ("plain2n", plain2n))
