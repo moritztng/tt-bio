@@ -14,9 +14,7 @@ TA_CORR (online-softmax rescale, k chunks after the first).
 `--batch` below 512 keeps every core's marker buffer from overflowing (a unit's stage times do not
 depend on how many units a core runs, only DRAM contention does; compare the two).
 """
-import argparse, collections, csv, glob, json, os, pathlib, statistics, sys, time
-
-import torch
+import argparse, collections, csv, json, os, pathlib, statistics, sys, time
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
@@ -28,8 +26,9 @@ STAGES = ("TA_QK", "TA_MAX", "TA_SUBEXP", "TA_PV", "TA_CORR")
 def find_csv():
     roots = [os.environ.get("TT_METAL_PROFILER_DIR"), os.path.join(os.environ.get("TT_METAL_HOME", ""),
                                                                     "generated", "profiler")]
-    hits = [p for r in roots if r for p in glob.glob(os.path.join(r, "**", "profile_log_device.csv"),
-                                                     recursive=True)]
+    # os.walk, not glob: the profiler writes under a hidden `.logs`, which a recursive glob skips
+    hits = [os.path.join(d, "profile_log_device.csv") for r in roots if r and os.path.isdir(r)
+            for d, _, fs in os.walk(r) if "profile_log_device.csv" in fs]
     if not hits:
         raise SystemExit(f"no profile_log_device.csv under {roots}")
     return max(hits, key=os.path.getmtime)
@@ -71,6 +70,7 @@ def main():
     ap.add_argument("--out", default="perf/b2z_sdpa_floor/zones_512.json")
     args = ap.parse_args()
     assert os.environ.get("TT_BIO_TRIATT_ZONES"), "set TT_BIO_TRIATT_ZONES=1 (and run under a profiler build)"
+    import torch
     import ttnn
     from tt_bio import tenstorrent as T
 
