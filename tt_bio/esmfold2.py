@@ -40,6 +40,9 @@ from tt_bio.tenstorrent import (
     attn_value_matmul,
     fused_sdpa,
     lever,
+    sdpa32_mask,
+    sdpa32_rows,
+    _sdpa32,
     trunk_compute_kernel_config,
     trace_region_size,
 )
@@ -130,6 +133,44 @@ def _attn_fp32(q, k, v, attn_mask, scale, ck, accurate_softmax: bool = False):
             else ttnn.softmax(logits, dim=-1))  # over keys
     ctx = attn_value_matmul(attn, vf, ck, f32)  # [B,H,L,Dp]
     return ttnn.typecast(ctx, _DTYPE)
+
+
+def _sdpa32_mask(bias, scale):
+    """The cached pair bias as `_sdpa32_attn`'s mask: fp32, divided by `scale` (the program scales its mask with
+    the scores), padded to `sdpa32_rows`. Built once per block per fold, like the bias it replaces."""
+    f32 = ttnn.float32
+    b = ttnn.typecast(bias, f32)
+    m = ttnn.multiply(b, 1.0 / scale)
+    ttnn.deallocate(b)
+    if sdpa32_rows(int(m.shape[-1])) == int(m.shape[-1]):
+        return m
+    mp = sdpa32_mask(m)
+    ttnn.deallocate(m)
+    return mp
+
+
+def _sdpa32_attn(q, k, v, mask, scale):
+    """`_attn_fp32` under ef2_sdpa32: the same fp32 attention as the shared `_sdpa32` program, one launch and
+    the scores never in DRAM. The token axis is padded to `sdpa32_rows` around the call."""
+    f32 = ttnn.float32
+    n = int(q.shape[2]); npad = sdpa32_rows(n)
+    qkv = [ttnn.typecast(t, f32) for t in (q, k, v)]
+    if npad != n:
+        p = [(0, 0), (0, 0), (0, npad - n), (0, 0)]
+        padded = [ttnn.pad(t, p, value=0.0) for t in qkv]
+        for t in qkv:
+            ttnn.deallocate(t)
+        qkv = padded
+    o = _sdpa32(*qkv, mask, scale)
+    for t in qkv:
+        ttnn.deallocate(t)
+    if npad != n:
+        o2 = ttnn.slice(o, [0, 0, 0, 0], [int(o.shape[0]), int(o.shape[1]), n, int(o.shape[3])])
+        ttnn.deallocate(o)
+        o = o2
+    out = ttnn.typecast(o, _DTYPE)
+    ttnn.deallocate(o)
+    return out
 
 
 def _sdpa_bf16(q, k, v, attn_mask, scale):
@@ -403,10 +444,17 @@ class AttentionPairBias(Module):
             ttnn.deallocate(z_norm)
             pair_bias = ttnn.permute(pb, (0, 3, 1, 2))  # [B, H, L, L]
             ttnn.deallocate(pb)
+            if lever("ef2_sdpa32"):  # cache the fp32 mask in place of the bf16 bias
+                m = _sdpa32_mask(pair_bias, head_dim**-0.5)
+                ttnn.deallocate(pair_bias)
+                pair_bias = m
             self._pb = pair_bias
             self._pb_src = z
 
-        ctx = _attn_fp32(qh, kh, vh, pair_bias, head_dim**-0.5, ck, self.accurate_softmax)
+        if lever("ef2_sdpa32"):
+            ctx = _sdpa32_attn(qh, kh, vh, pair_bias, head_dim**-0.5)
+        else:
+            ctx = _attn_fp32(qh, kh, vh, pair_bias, head_dim**-0.5, ck, self.accurate_softmax)
         ttnn.deallocate(qh); ttnn.deallocate(kh); ttnn.deallocate(vh)
         ctx = self._merge_heads(ctx)  # [B, L, H*head_dim_pad]  (pad value dims are 0)
         # Gate + out_proj in the padded head layout, then project back to d_model.
