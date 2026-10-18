@@ -1,0 +1,6 @@
+trajectory,design,length,bindcraft_version,Timing,hash,terminated,autotuned
+1,pdl1_denovo_l80_1ed2b387113e50ea,80,BindCraft 2 (unreleased),worker=0;start=1792344146.64;design=655.54;compiled=1,1ed2b387113e50ea,harden,
+2,pdl1_denovo_l80_ce1ca7306f7b6be3,80,BindCraft 2 (unreleased),worker=0;start=1792344802.22;design=379.07;compiled=0,ce1ca7306f7b6be3,refine,
+3,pdl1_denovo_l80_715b709550d53e63,80,BindCraft 2 (unreleased),worker=0;start=1792345181.31;design=688.59;compiled=0,715b709550d53e63,final,
+4,pdl1_denovo_l80_ac5bf85dbf30612f,80,BindCraft 2 (unreleased),worker=0;start=1792345869.94;design=620.1;compiled=0,ac5bf85dbf30612f,anneal,
+5,pdl1_denovo_l80_171b4eb650f27830,80,BindCraft 2 (unreleased),worker=0;start=1792346490.07;design=253.0;compiled=0,171b4eb650f27830,screen,
