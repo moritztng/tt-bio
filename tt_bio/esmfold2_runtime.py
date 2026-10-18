@@ -741,11 +741,11 @@ def _lm_dropout(lm_z, p, keep=None):
         rm = ttnn.from_torch(keep, device=t.device(), layout=ttnn.ROW_MAJOR_LAYOUT, dtype=ttnn.bfloat16)
         m = ttnn.to_layout(rm, ttnn.TILE_LAYOUT)
         ttnn.deallocate(rm)
-    kept = ttnn.multiply(t, m)
-    ttnn.deallocate(m)
-    out = ttnn.multiply(kept, 1.0 / (1.0 - p))
-    ttnn.deallocate(kept)
-    return _DevPair(out, lm_z.seq_len)
+    # In place on the mask: the dropout allocates no pair-sized buffer of its own. A fresh one did not fit the
+    # fragmented DRAM of a warm 1536 aa ESMFold2 fold on Wormhole (largest free block 100.2 of 100.7 MB a bank).
+    m = ttnn.multiply_(m, t)
+    m = ttnn.multiply_(m, 1.0 / (1.0 - p))
+    return _DevPair(m, lm_z.seq_len)
 
 
 class _KeepDraws:
