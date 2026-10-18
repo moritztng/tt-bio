@@ -2038,9 +2038,11 @@ def load_esmc6b_state_dict(snapshot_dir: str, dtype: torch.dtype | None = None) 
 # Galaxy chip, 1000 MHz, page cell (1 x 544): 241.5 -> 199.2 ms, pcc vs fp32 0.998936 -> 0.998849, pooled cos
 # 0.999851 -> 0.999850. A normal-mode forward keeps fp32 accumulation where a batch reaches minimal_matmul.
 _ESMC_6B_B8 = env_flag("TT_BIO_ESMC_6B_B8", True)
-# --fast ESMC-6B embeddings on Wormhole at HiFi3 instead of HiFi4: 197.0 -> 182.1 ms, pcc vs fp32 0.998849 ->
-# 0.998829, pooled 0.999850 -> 0.999839 (same cell). HiFi2 reads 178.2 ms but pcc 0.998539, past the fast bar.
-_ESMC_6B_FAST_FIDELITY = os.environ.get("TT_BIO_ESMC_6B_FAST_FIDELITY", "HiFi3")
+# ESMC-6B embeddings on Wormhole at HiFi3 instead of HiFi4, --fast and normal with block-fp8 weights (same cell):
+# fast 197.3 -> 182.2 ms, pcc vs fp32 0.998849 -> 0.998859; normal 240.7 (bf16) -> 182.3 ms, pcc 0.998936 -> 0.998859,
+# pooled 0.999851 -> 0.999815. At one sequence the two modes now run the same forward. HiFi2 reads 178.2 ms but pcc
+# 0.998539, past the fast bar.
+_ESMC_6B_FIDELITY = os.environ.get("TT_BIO_ESMC_6B_FIDELITY", "HiFi3")
 
 
 def _6b_weights_b8(fast: bool) -> bool:
@@ -2050,13 +2052,12 @@ def _6b_weights_b8(fast: bool) -> bool:
 
 def _embed_6b_mode(model, fast: bool):
     """The ESMC-6B embed model's per-mode compute on Wormhole: block-fp8 weights under a normal forward keep fp32
-    accumulation, and --fast runs at _ESMC_6B_FAST_FIDELITY. ESMFold2 builds its own 6B and is untouched."""
+    accumulation, and both run at _ESMC_6B_FIDELITY. ESMFold2 builds its own 6B and is untouched."""
     from tt_bio import tenstorrent
-    if not tenstorrent.is_wormhole():
+    if not (tenstorrent.is_wormhole() and _6b_weights_b8(fast)):
         return model
-    if fast:
-        model.compute_kernel_config.math_fidelity = getattr(ttnn.MathFidelity, _ESMC_6B_FAST_FIDELITY)
-    elif _6b_weights_b8(fast):
+    model.compute_kernel_config.math_fidelity = getattr(ttnn.MathFidelity, _ESMC_6B_FIDELITY)
+    if not fast:
         for b in model.module.blocks:
             b.attn.mm_exact_acc = b.ffn.mm_exact_acc = True
     return model
