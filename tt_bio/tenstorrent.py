@@ -10307,11 +10307,23 @@ class TriangleMultiplication(Module):
                             # channel loop with `a` back in DRAM WITHOUT narrowing anything.
                             a_mc = memory_config
                             if _OF3L1_TMA:
+                                # `trimul_bres` plans a fixed ~1.2 MB of CBs per core for b[c], so
+                                # where it will take the matmul, `a` has to fit beside THAT, not
+                                # beside the generic reserve. Pricing it here decides statically
+                                # what used to be a TT_THROW + DRAM retry once per trimul shape and
+                                # process on every Wormhole fold at 512 aa.
+                                tma_reserve = _PAIR_L1_CONSUMER_RESERVE
+                                if (lever("trimul_bres") and out_mc.buffer_type == ttnn.BufferType.DRAM
+                                        and out_mc.memory_layout == ttnn.TensorMemoryLayout.INTERLEAVED):
+                                    ht = -(-H // 32)
+                                    tma_reserve = max(tma_reserve, _bmm_res.cb_bytes(
+                                        ht, ht, _dtype(), _dtype(), defer and perm_a == (0, 3, 2, 1),
+                                        _trimul_einsum_ckc(self.compute_kernel_config)))
                                 if (not ops.taping() and tma_key not in _OF3L1_REFUSED
                                         and n_pairs // group == 1
                                         and (perm_a != (0, 3, 2, 1) or defer)
                                         and _l1_fits(_padded_bytes([1, slice_c, H, H], 2), 1.0,
-                                                     _PAIR_L1_CONSUMER_RESERVE)):
+                                                     tma_reserve)):
                                     a_mc = ttnn.L1_MEMORY_CONFIG
                                     tma_live = True
                                     OF3L1_STATS["tma"][0] += 1
