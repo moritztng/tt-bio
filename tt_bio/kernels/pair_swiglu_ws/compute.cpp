@@ -10,7 +10,8 @@
 // The gate, the hidden and the output are bf16; x and the weights are bf16 or bfp8, each CB in its own format, and
 // srcA / srcB are reconfigured at every phase change. SW = 4 hidden tiles per fc1/fc2 pass, fc3 in groups of 4 output tiles
 // (one fp32 dest half each), so c_z = 256 (CT = 8) runs two fc3 groups per row tile.
-// WS_NO_{FC12,SILU,GATE,FC3} drop one phase for time attribution only (perf/spd_fastmode/ws_attr.py); the output
+// WS_NO_{FC12,SILU,GATE,FC3} drop one phase, WS_NO_{GATE,HID,OUT}PACK one pack, for time attribution only
+// (perf/spd_fastmode/ws_attr.py); the output
 // is then wrong by design. No production call sets them.
 // WS_LN (the `ws_ln` lever): the caller's LayerNorm runs here instead, per row tile, from the raw x in c_5 into
 // c_0 (kernels/common/ln_prologue.hpp, shared with trimul T1/T2), so the normalised x never goes to DRAM.
@@ -182,7 +183,9 @@ void kernel_main() {
             tile_regs_commit();
             cb_reserve_back(cb_hid, SW);
             tile_regs_wait();
+#ifndef WS_NO_HIDPACK
             pack_tile_block(0, cb_hid, SW);
+#endif
             tile_regs_release();
             cb_push_back(cb_hid, SW);
 #else
@@ -233,7 +236,9 @@ void kernel_main() {
             tile_regs_commit();
             cb_reserve_back(cb_gate, SW);
             tile_regs_wait();
+#ifndef WS_NO_GATEPACK
             pack_tile_block(0, cb_gate, SW);
+#endif
             tile_regs_release();
             cb_push_back(cb_gate, SW);
             // fc2 group, times the gate in dest -> hidden
@@ -273,7 +278,9 @@ void kernel_main() {
             tile_regs_commit();
             cb_reserve_back(cb_hid, SW);
             tile_regs_wait();
+#ifndef WS_NO_HIDPACK
             pack_tile_block(0, cb_hid, SW);
+#endif
             tile_regs_release();
             cb_push_back(cb_hid, SW);
 #endif
@@ -333,7 +340,9 @@ void kernel_main() {
             tile_regs_commit();
             cb_reserve_back(cb_out, OG);
             tile_regs_wait();
+#ifndef WS_NO_OUTPACK
             pack_tile_block(0, cb_out, OG);
+#endif
             tile_regs_release();
             cb_push_back(cb_out, OG);
         }
