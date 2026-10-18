@@ -47,6 +47,7 @@ void gate_block(uint32_t in_cb, uint32_t out_cb, uint32_t M_block_tiles, uint32_
 #ifndef MM_GATE_GROUP
 #define MM_GATE_GROUP 2
 #endif
+    // MM_GATE_PROBE (benchmarks only, wrong output): 1 skips the silu, 2 also the multiply (copy and pack only).
     constexpr uint32_t g = MM_GATE_GROUP;
     const uint32_t half = N_block_tiles / 2;
     reconfig_data_format_srca(in_cb);
@@ -61,14 +62,18 @@ void gate_block(uint32_t in_cb, uint32_t out_cb, uint32_t M_block_tiles, uint32_
                 copy_tile(in_cb, row + n0 + i, i);
                 copy_tile(in_cb, row + half + n0 + i, g + i);
             }
+#if !defined(MM_GATE_PROBE) || MM_GATE_PROBE < 1
             silu_tile_init();
             for (uint32_t i = 0; i < c; i++) {
                 silu_tile(i);
             }
+#endif
+#if !defined(MM_GATE_PROBE) || MM_GATE_PROBE < 2
             mul_binary_tile_init();
             for (uint32_t i = 0; i < c; i++) {
                 mul_binary_tile(i, g + i, i);
             }
+#endif
             tile_regs_commit();
             tile_regs_wait();
             for (uint32_t i = 0; i < c; i++) {

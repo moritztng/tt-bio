@@ -1,5 +1,6 @@
 """ESMC's LM FFN gate on Wormhole: today's fc1_a + fc1_b minimal_matmuls and the legacy silu-multiply against
-mm_gate.gated (one minimal_matmul over the interleaved weight, the gate in its epilogue). Per shape and mode: error of
+mm_gate.gated (one minimal_matmul over the interleaved weight, the gate in its epilogue), and the stock
+minimal_matmul over that same weight without the gate (plain2n, a control for the wider matmul's own cost). Per shape and mode: error of
 each against float64 silu(x W1) * (x W2), and median device ms.
 
     python3 perf/spd_gap_whlm/gate_mm_bench.py --out gate_mm.jsonl
@@ -75,18 +76,39 @@ def main() -> int:
             def fused():
                 return mm_gate.gated(xd, wd12, cfg, ck, grid)
 
+            ck_f32 = T.silu_ckc(ttnn.init_device_compute_kernel_config(
+                dev.arch(), math_fidelity=ck.math_fidelity, math_approx_mode=True,
+                fp32_dest_acc_en=ck.fp32_dest_acc_en, packer_l1_acc=True))
+
+            def fused_f32():   # the epilogue's silu on the silu_f32 overlay (math_approx_mode selects it)
+                return mm_gate.gated(xd, wd12, cfg, ck_f32, grid)
+
+            def probe1():   # epilogue without the silu (wrong output, timing only)
+                return mm_gate.gated(xd, wd12, cfg, ck, grid, probe=1)
+
+            def probe2():   # epilogue as copy + pack only
+                return mm_gate.gated(xd, wd12, cfg, ck, grid, probe=2)
+
+            def plain2n():   # control: the same [W1|W2] matmul, no epilogue, full-width output
+                return ttnn.experimental.minimal_matmul(xd, wd12, compute_kernel_config=ck, config=mmc,
+                                                        memory_config=ttnn.DRAM_MEMORY_CONFIG, dtype=ttnn.bfloat16)
+
             rec = {"shape": name, "mode": mode, "cfg": list(cfg), "grid": list(grid),
                    "plan": mm_gate.plan(xd, 2 * ff, cfg, grid)}
-            for arm, fn in (("today", today), ("fused", fused)):
+            for arm, fn in (("today", today), ("fused", fused), ("fused_f32", fused_f32)):
                 try:
                     o = fn()
                     rec[arm] = err(ttnn.to_torch(o).double().reshape(ref.shape), ref)
                     ttnn.deallocate(o)
                 except Exception as exc:  # noqa: BLE001
                     rec[arm] = {"error": str(exc)[:400]}
-            ms = {"today": [], "fused": []}
+            rec["plain2n"] = {}
+            rec["probe1"] = rec["probe2"] = {}
+            arms = (("today", today), ("fused", fused), ("fused_f32", fused_f32), ("probe1", probe1),
+                    ("probe2", probe2), ("plain2n", plain2n))
+            ms = {a: [] for a, _ in arms}
             for _ in range(args.repeat):
-                for arm, fn in (("today", today), ("fused", fused)):
+                for arm, fn in arms:
                     if "error" not in rec[arm]:
                         ms[arm].append(timed(lambda fn=fn: ttnn.deallocate(fn()), dev, 1, args.inner))
             for arm, ts in ms.items():
