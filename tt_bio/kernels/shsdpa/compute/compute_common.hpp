@@ -684,6 +684,21 @@ void mul_block_bcast_scalar_inplace(uint32_t in0_cb) {
 #define ADD_BLOCK_GRANULARITY 1
 #endif
 
+// in0 (num_tiles, row-major rows of row_w tiles) += in1's one row of row_w tiles, added to every row; pops that row.
+void add_row_bcast_inplace(uint32_t in0_cb, uint32_t in1_cb, uint32_t num_tiles, uint32_t row_w) {
+    add_tiles_init(in0_cb, in1_cb);
+    cb_wait_front(in0_cb, num_tiles);
+    cb_wait_front(in1_cb, row_w);
+    for (uint32_t i = 0; i < num_tiles; i++) {
+        acquire_dst();
+        add_tiles(in0_cb, in1_cb, i, i % row_w, 0);
+        pack_tile(0, in0_cb);
+        release_dst();
+    }
+    cb_pop_front(in0_cb, num_tiles);
+    cb_pop_front(in1_cb, row_w);
+}
+
 template <bool pop_in1 = true>
 void add_block_inplace(uint32_t in0_cb, uint32_t in1_cb, uint32_t num_tiles,
                        uint32_t in1_base = 0) {
@@ -2102,6 +2117,8 @@ void sdpa_inner_loop(
                     add_block_inplace<false>(
                         cb_qk_im, cb_mask_in, qk_chunk_tiles, k_chunk * qk_chunk_tiles);
 #endif
+#elif defined(KEYPAD_ROW)
+                    add_row_bcast_inplace(cb_qk_im, cb_mask_in, qk_chunk_tiles, Sk_chunk_t);
 #else
                     add_block_inplace(cb_qk_im, cb_mask_in, qk_chunk_tiles);
 #endif
