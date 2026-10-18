@@ -1981,16 +1981,16 @@ void sdpa_inner_loop(
              *
              * matmul_blocks internally waits on both inputs
              */
-            {
-            TZONE("TA_QK");
-            reconfig_data_format(cb_k_in, cb_q_in);
-            pack_reconfig_data_format(cb_qk_im);
 #if defined(PERSISTENT_MASK) && defined(QK_MASK_PRELOAD)
             // Only where the add below would run on every k chunk: a provided mask, nothing causal,
             // windowed, ring or lightweight.
             const bool qk_mask_preload = use_provided_mask && !is_causal && sliding_window_size == 0 &&
                                          sdpa_type != RING && !lw_mask.enabled;
 #endif
+            {
+            TZONE("TA_QK");
+            reconfig_data_format(cb_k_in, cb_q_in);
+            pack_reconfig_data_format(cb_qk_im);
             matmul_blocks(
                 cb_q_in,
                 cb_k_in,
