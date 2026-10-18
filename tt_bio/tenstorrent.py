@@ -690,6 +690,8 @@ _FAST_MODE = False
 #   ws_chain        with transition_ws, where the weights take n > 1 hidden chunks: chunk 1 writes t, each later
 #                   chunk adds into it in its fp32 dest (`pair_swiglu` resid), so the n - 1 chunk-sum add passes go;
 #                   the sum rounds at t's magnitude as before, once per chunk instead of once per add.
+#   ws_resid2       with ws_resid and ws_chain, where the weights take n > 1 hidden chunks: the last chunk adds z and
+#                   the chain's partial sum into its fp32 dest, so z + t rounds once and the residual add_ pass goes.
 #   opm_jd          the OPM contracts against b in (j d) row order, so z's tile (i, j) is pair (i, j)'s [c, d]
 #                   block and one data-movement kernel (opm_relayout) lays it out for the projection in place of
 #                   the 4-op chain. Moves bytes only: bit-exact. C = D = 32 and J a whole number of tiles.
@@ -743,7 +745,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "trimul_t2w", "narrow_bw16", "ws_l1dest", "opm_jd", "trimul_gin_hifi2", "trimul_gin_b8",
           "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine", "ef2_opm_kq", "ef2_relpos_lookup",
           "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit", "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384",
-          "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
+          "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "ws_resid2", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
           "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "trimul_bres", "atomp_dev", "lm_qk_chain",
           "lm_gate_ng", "lm_sdpa_stock")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
@@ -760,7 +762,7 @@ UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "di
                              "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine", "ef2_opm_kq",
                              "ef2_relpos_lookup", "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit",
                              "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384",
-                             "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
+                             "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "ws_resid2", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
                              "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
@@ -13004,10 +13006,6 @@ def _ws_applies(x, ckc) -> bool:
 
 # How many hidden chunks `ws_swiglu` may add into `resid` (see its docstring); a bench knob, never raised in production.
 _WS_RESID_CHUNKS = 1
-# A/B (spd-m-opendde): with more than one hidden chunk under `ws_chain`, the last chunk adds z and the chain's partial
-# sum into its fp32 dest (`pair_swiglu(resid=z, resid2=partial)`), so z + t is rounded once and the residual add_
-# (2.55 ms a call at OpenDDE c_z 384, 512 tokens) is gone. One rounding fewer than the chain + add_ it replaces.
-WS_RESID2 = False
 
 
 def ws_swiglu(x, norm_weight, norm_bias, ckc, parts, resid=None):
@@ -13025,7 +13023,7 @@ def ws_swiglu(x, norm_weight, norm_bias, ckc, parts, resid=None):
     (the one-rounding floor 0.112), 0.158 at two (c_z 256 bf16), 0.221 at four (c_z 384 bf16); the Protenix-v2 normal
     grade with two-chunk resid lost 0.33 CA-lDDT on the 680-790 token complexes (spd-gap-small gwr, 2026-10-14).
     """
-    resid2 = (resid is not None and len(parts) > _WS_RESID_CHUNKS and WS_RESID2 and lever("ws_chain")
+    resid2 = (resid is not None and len(parts) > _WS_RESID_CHUNKS and lever("ws_resid2") and lever("ws_chain")
               and all(_pair_ws.eligible(x, w12, w3, l1acc=lever("ws_l1acc"), resid=x) for w12, w3 in parts[1:-1])
               and _pair_ws.eligible(x, *parts[-1], l1acc=lever("ws_l1acc"), resid=resid, resid2=x))
     if resid is not None and len(parts) > _WS_RESID_CHUNKS and not resid2:
