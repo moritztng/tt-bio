@@ -62,7 +62,8 @@ emit(arm="layer_norm", ms=timed(lambda: ttnn.layer_norm(xt, weight=nw, epsilon=1
                                                          memory_config=ttnn.DRAM_MEMORY_CONFIG)))
 emit(arm="typecast_bfp8", ms=timed(lambda: ttnn.typecast(xt, ttnn.bfloat8_b)))
 MODES = (("fast", ttnn.bfloat8_b, ttnn.MathFidelity.HiFi2), ("normal", ttnn.bfloat16, ttnn.MathFidelity.HiFi4),
-         ("lofi", ttnn.bfloat8_b, ttnn.MathFidelity.LoFi))   # ws_lofi, the Wormhole --fast pair SwiGLU
+         ("lofi", ttnn.bfloat8_b, ttnn.MathFidelity.LoFi),   # ws_lofi, the Wormhole --fast pair SwiGLU
+         ("hifi3", ttnn.bfloat16, ttnn.MathFidelity.HiFi3))  # trunk_hifi3: OpenDDE's normal trunk
 if a.rms:  # the prologue reads a bf16 x; RFdiffusion3 runs bf16 at its own fidelity in both modes
     MODES = (("normal", ttnn.bfloat16, ttnn.MathFidelity.HiFi4), ("hifi2", ttnn.bfloat16, ttnn.MathFidelity.HiFi2))
 for mode, dt, fid in MODES:
