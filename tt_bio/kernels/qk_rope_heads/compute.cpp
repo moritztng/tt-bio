@@ -26,24 +26,70 @@ struct Ln {
                               rstd = 14, xc = 17, tmp = 18;
 };
 
+// Tiles per dest acquire (QKRH_BLK, 1 or 4; 4 fits the half-sync fp32 dest) and q / k heads per RoPE group (BLK / 2).
+#ifndef QKRH_BLK
+#define QKRH_BLK 1
+#endif
+constexpr uint32_t BLK = QKRH_BLK;
+constexpr uint32_t HG = BLK < 2 ? 1 : BLK / 2;
+
+// Under QKRH_SQ: xc = x - mean to C::xc, then the same subtraction again squared in dest (SFPU, fp32) to C::tmp. The
+// bf16 x is unpacked twice instead of the fp32 xc twice (the MUL stage), and the square is fp32 rather than tf32.
+template <class C>
+ALWI void centre_square() {
+    using namespace ln_prologue;
+    reconfig_data_format(C::x, C::mean);
+    pack_reconfig_data_format(C::xc);
+    cb_reserve_back(C::xc, C::Kt);
+    cb_reserve_back(C::tmp, C::Kt);
+    for (uint32_t i0 = 0; i0 < C::Kt; i0 += BLK) {
+        const uint32_t n = C::Kt - i0 < BLK ? C::Kt - i0 : BLK;
+        sub_bcast_cols_init_short(C::x, C::mean);
+        tile_regs_acquire();
+        for (uint32_t j = 0; j < n; ++j) sub_tiles_bcast_cols(C::x, C::mean, i0 + j, 0, j);
+        tile_regs_commit();
+        tile_regs_wait();
+        for (uint32_t j = 0; j < n; ++j) pack_tile(j, C::xc);
+        tile_regs_release();
+        sub_bcast_cols_init_short(C::x, C::mean);
+        tile_regs_acquire();
+        for (uint32_t j = 0; j < n; ++j) sub_tiles_bcast_cols(C::x, C::mean, i0 + j, 0, j);
+        square_tile_init();
+        for (uint32_t j = 0; j < n; ++j) square_tile(j);
+        tile_regs_commit();
+        tile_regs_wait();
+        for (uint32_t j = 0; j < n; ++j) pack_tile(j, C::tmp);
+        tile_regs_release();
+    }
+    cb_push_back(C::xc, C::Kt);
+    cb_push_back(C::tmp, C::Kt);
+}
+
 // LayerNorm(x) * gamma, no beta (skipped under QKRH_NO_LN, where the RoPE reads c_5 directly), Kt tiles of C::x (popped) into C::xc (pushed), fp32.
 template <class C>
 ALWI void ln_no_beta() {
     using namespace ln_prologue;
     row_mean<C>(C::x, C::mean, false);
     cb_wait_front(C::mean, 1);
-    stage<C, SUB_COL>(C::x, C::mean, C::xc);
+#if defined(QKRH_SQ)
+    centre_square<C>();
+    cb_pop_front(C::x, C::Kt);
+    cb_pop_front(C::mean, 1);
+#else
+    stage<C, SUB_COL, BLK>(C::x, C::mean, C::xc);
     cb_pop_front(C::x, C::Kt);
     cb_pop_front(C::mean, 1);
     cb_wait_front(C::xc, C::Kt);
-    stage<C, MUL>(C::xc, C::xc, C::tmp);
+    stage<C, MUL, BLK>(C::xc, C::xc, C::tmp);
+#endif
     row_mean<C>(C::tmp, C::var, true);
     rstd<C>();
-    stage<C, MUL_COL>(C::xc, C::rstd, C::tmp);
+    cb_wait_front(C::xc, C::Kt);
+    stage<C, MUL_COL, BLK>(C::xc, C::rstd, C::tmp);
     cb_pop_front(C::xc, C::Kt);
     cb_pop_front(C::rstd, 1);
     cb_wait_front(C::tmp, C::Kt);
-    stage<C, MUL_ROW>(C::tmp, C::gamma, C::xc);
+    stage<C, MUL_ROW, BLK>(C::tmp, C::gamma, C::xc);
     cb_pop_front(C::tmp, C::Kt);
 }
 
@@ -84,42 +130,49 @@ void kernel_main() {
         cb_wait_front(src, KT);
         cb_wait_front(cb_cos, 1);
         cb_wait_front(cb_sin, 1);
-        for (uint32_t h = 0; h < KT / 2; ++h) {
-            const uint32_t a = 2 * h, b = a + 1;
+        for (uint32_t h0 = 0; h0 < KT / 2; h0 += HG) {   // HG heads (2 HG tiles) a dest acquire
+            const uint32_t n = KT / 2 - h0 < HG ? KT / 2 - h0 : HG, a0 = 2 * h0;
             reconfig_data_format(src, cb_cos);
             pack_reconfig_data_format(cb_p);
             mul_tiles_init(src, cb_cos);
-            cb_reserve_back(cb_p, 2);
+            cb_reserve_back(cb_p, 2 * n);
             tile_regs_acquire();
-            mul_tiles(src, cb_cos, a, 0, 0);
-            mul_tiles(src, cb_cos, b, 0, 1);
+            for (uint32_t j = 0; j < 2 * n; ++j) mul_tiles(src, cb_cos, a0 + j, 0, j);   // a cos, b cos per head
             tile_regs_commit();
             tile_regs_wait();
-            pack_tile(0, cb_p);
-            pack_tile(1, cb_p);
+            for (uint32_t j = 0; j < 2 * n; ++j) pack_tile(j, cb_p);
             tile_regs_release();
-            cb_push_back(cb_p, 2);
+            cb_push_back(cb_p, 2 * n);
 
-            cb_wait_front(cb_p, 2);
-            cb_reserve_back(cb_out, 2);
+            // dest j < n: b_j sin (for out a_j), dest n + j: a_j sin (for out b_j); packed a_0, b_0, a_1, b_1, ...
+            cb_wait_front(cb_p, 2 * n);
+            cb_reserve_back(cb_out, 2 * n);
             reconfig_data_format(src, cb_sin);
             pack_reconfig_data_format(cb_out);
             mul_tiles_init(src, cb_sin);
             tile_regs_acquire();
-            mul_tiles(src, cb_sin, b, 0, 0);
-            mul_tiles(src, cb_sin, a, 0, 1);
+            for (uint32_t j = 0; j < n; ++j) {
+                mul_tiles(src, cb_sin, a0 + 2 * j + 1, 0, j);
+                mul_tiles(src, cb_sin, a0 + 2 * j, 0, n + j);
+            }
             reconfig_data_format_srca(cb_p);
             binary_dest_reuse_tiles_init<EltwiseBinaryType::ELWSUB, EltwiseBinaryReuseDestType::DEST_TO_SRCB>(cb_p);
-            binary_dest_reuse_tiles<EltwiseBinaryType::ELWSUB, EltwiseBinaryReuseDestType::DEST_TO_SRCB>(cb_p, 0, 0);
+            for (uint32_t j = 0; j < n; ++j) {
+                binary_dest_reuse_tiles<EltwiseBinaryType::ELWSUB, EltwiseBinaryReuseDestType::DEST_TO_SRCB>(cb_p, 2 * j, j);
+            }
             binary_dest_reuse_tiles_init<EltwiseBinaryType::ELWADD, EltwiseBinaryReuseDestType::DEST_TO_SRCB>(cb_p);
-            binary_dest_reuse_tiles<EltwiseBinaryType::ELWADD, EltwiseBinaryReuseDestType::DEST_TO_SRCB>(cb_p, 1, 1);
+            for (uint32_t j = 0; j < n; ++j) {
+                binary_dest_reuse_tiles<EltwiseBinaryType::ELWADD, EltwiseBinaryReuseDestType::DEST_TO_SRCB>(cb_p, 2 * j + 1, n + j);
+            }
             tile_regs_commit();
             tile_regs_wait();
-            pack_tile(0, cb_out);
-            pack_tile(1, cb_out);
+            for (uint32_t j = 0; j < n; ++j) {
+                pack_tile(j, cb_out);
+                pack_tile(n + j, cb_out);
+            }
             tile_regs_release();
-            cb_push_back(cb_out, 2);
-            cb_pop_front(cb_p, 2);
+            cb_push_back(cb_out, 2 * n);
+            cb_pop_front(cb_p, 2 * n);
         }
         cb_pop_front(src, KT);
         cb_pop_front(cb_cos, 1);
