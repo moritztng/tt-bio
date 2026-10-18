@@ -99,6 +99,15 @@ def test_c128_takes_t2m_whole_tile_staging(monkeypatch, bank):
     assert TTL._t2cm_parts(wp) == 1
 
 
+@pytest.mark.parametrize("bank", [L1_BH_BANK, L1_WH_BANK])
+def test_c384_declines_on_its_part_count(monkeypatch, bank):
+    """OpenDDE's c_z 384 stage needs 4 parts, above T2CM_MAX_P: the trimul keeps the move + T2 instead."""
+    monkeypatch.setattr(T, "_l1_bank_bytes", lambda: bank)
+    assert TTL._t2cm_parts(torch.zeros(384, 384)) > TTL.T2CM_MAX_P
+    assert TTL.t2cm_fit(torch.zeros(384, 384)) == "parts"
+    assert TTL.t2cm_fit(torch.zeros(128, 128)) is None
+
+
 def test_routes_through_the_moved_program():
     src = Path(TTL.__file__).read_text()
     assert "moved=(xcm, 0, P)" in src

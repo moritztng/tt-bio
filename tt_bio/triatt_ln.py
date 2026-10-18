@@ -18,6 +18,10 @@ tile of x^T from the 32 x tiles that hold it and shuffles rows in L1 (reader.cpp
 same values in the same order, so bit-exact with transpose-then-norm.
 `ln_proj` is the same kernel for a narrow [K, n <= 64] weight with a plain [B, S, n] output
 (lever `apb_ln`: the attention-pair-bias projection of the normed pair).
+Where the whole weight does not fit a core's L1 (OpenDDE: K 384, [12 x 49] tiles, 1.2 MB), the cores
+split into G column groups: each holds 1/G of the weight's columns and norms the same rows, so x is read
+G times instead of being normed into DRAM and read back. Each output tile is still one core's full-K
+dot product, so the split changes no value.
 """
 
 from __future__ import annotations
@@ -66,7 +70,7 @@ def _check(x, w, ln_w, ln_b, ckc):
         return "memcfg"
     shp, pad = [int(d) for d in x.shape], [int(d) for d in x.padded_shape]
     K = shp[-1]
-    if len(shp) != 3 or shp != pad or K % TILE or K > 8 * TILE:
+    if len(shp) != 3 or shp != pad or K % TILE or K > 16 * TILE:
         return "act_shape"
     for v in (ln_w, ln_b):
         if int(v.shape[-1]) != K or any(int(d) != 1 for d in list(v.shape)[:-1]):
@@ -101,22 +105,27 @@ def _cb_bytes(kt, nw, tr):
     return bf * MG.tile_bytes(ttnn.bfloat16) + (4 + 2 * kt) * MG.tile_bytes(ttnn.float32)
 
 
-def _tr_buffers(kt, nw, dev):
-    """16-row x^T units the TR reader can hold in c_7 (2 = double-buffered, 1, or 0: does not fit).
+def _plan(kt, nw, tr, dev, ncores):
+    """(G, columns a group, TR units in c_7) for the fewest column groups whose CBs fit, or None.
 
-    Against the L1 actually free now: the CBs sit below every live L1 buffer, so the largest free
-    block is what they may take. At 8 heads x 32 (w 33 tiles wide, Protenix-v2) and K 256 one unit
-    needs 1.12 MB of a 1.40 MB Wormhole bank, which a fixed fraction of the bank refused."""
+    TR units are 16-row x^T units double-buffered (2) or not (1), 0 without TR. Against the L1
+    actually free now: the CBs sit below every live L1 buffer, so the largest free block is what
+    they may take. At 8 heads x 32 (w 33 tiles wide, Protenix-v2) and K 256 one unit needs 1.12 MB
+    of a 1.40 MB Wormhole bank, which a fixed fraction of the bank refused."""
     lcf = ttnn.get_memory_view(dev, ttnn.BufferType.L1).largest_contiguous_bytes_free_per_bank
     lcf = min(lcf) if isinstance(lcf, (list, tuple)) else lcf
-    for nb in (2, 1):
-        if _cb_bytes(kt, nw, nb) <= lcf:
-            return nb
-    return 0
+    for g in (1, 2, 4):
+        if ncores % g:
+            continue
+        nwg = -(-nw // g)
+        for nb in ((2, 1) if tr else (0,)):
+            if _cb_bytes(kt, nwg, nb) <= lcf:
+                return g, nwg, nb
+    return None
 
 
-def _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr):
-    kt, nw = int(x.shape[-1]) // TILE, int(w.padded_shape[-1]) // TILE
+def _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw):
+    kt, nwf = int(x.shape[-1]) // TILE, int(w.padded_shape[-1]) // TILE
     m = 1
     for d in list(x.padded_shape)[:-1]:
         m *= int(d)
@@ -124,12 +133,15 @@ def _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr):
     gx, gy = grid
     core_grid = ttnn.CoreRangeSet([ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(gx - 1, gy - 1))])
     rd, wr, cp = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
-    # TR splits 16-row units (2 per x^T row-tile pair (bt, jt)), the rest splits row tiles
-    for c, (r0, n) in enumerate(split_rows(m // 16 if tr else m, gx * gy)):
+    # TR splits 16-row units (2 per x^T row-tile pair (bt, jt)), the rest splits row tiles. Core c is in
+    # column group c % g, and every group splits the same rows.
+    split = split_rows(m // 16 if tr else m, gx * gy // g)
+    for c in range(gx * gy):
+        r0, n = split[c // g]
         cx, cy = c % gx, c // gx
         rows = 16 * n if tr else n
-        rd[cx][cy] = [r0, n, int(bool(tr)), MT]
-        wr[cx][cy] = [r0, rows, int(bool(tr)), MT]
+        rd[cx][cy] = [r0, n, int(bool(tr)), MT, (c % g) * nw]
+        wr[cx][cy] = [r0, rows, int(bool(tr)), MT, (c % g) * nw]
         cp[cx][cy] = [rows]
     inv = struct.unpack("<I", struct.pack("<f", 1.0 / int(x.shape[-1])))[0] >> 16
     eps_bits = struct.unpack("<I", struct.pack("<f", float(eps)))[0]
@@ -137,11 +149,11 @@ def _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr):
     src = ttnn.KernelDescriptor.SourceType.FILE_PATH
     reader = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "reader.cpp"), source_type=src, core_ranges=core_grid,
-        compile_time_args=[kt, nw, RB, (inv << 16) | inv, eps_bits] + acc(x) + acc(w) + acc(ln_w) + acc(ln_b),
+        compile_time_args=[kt, nw, RB, (inv << 16) | inv, eps_bits, nwf] + acc(x) + acc(w) + acc(ln_w) + acc(ln_b),
         runtime_args=rd, common_runtime_args=[0] * 4, config=ttnn.ReaderConfigDescriptor())
     writer = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "writer.cpp"), source_type=src, core_ranges=core_grid,
-        compile_time_args=[H, MT, nw] + sum((acc(o) for o in outs), []),
+        compile_time_args=[H, MT, nw, nwf] + sum((acc(o) for o in outs), []),
         runtime_args=wr, common_runtime_args=[0] * len(outs), config=ttnn.WriterConfigDescriptor())
     fid, approx, _, full = ckc
     compute = ttnn.KernelDescriptor(
@@ -177,27 +189,31 @@ def ln_qkvgb_heads(x, ln_w, ln_b, w, ckc, n_heads, head_dim, bias_channels, grid
     if head_dim != TILE or list(w.shape) != [K, 4 * c + TILE] or not 0 < bias_channels <= TILE:
         return _reject("weight_shape", x)
     H, MT = c // TILE, pad[-2] // TILE
-    tr = 0
-    if transposed:
-        if not TR or shp[0] != shp[1] or shp[0] % TILE:
-            return _reject("tr_shape", x)
-        tr = _tr_buffers(K // TILE, int(w.padded_shape[-1]) // TILE, x.device())
-        if not tr:
-            return _reject(f"tr_l1:kt{K // TILE}:nw{int(w.padded_shape[-1]) // TILE}", x)
+    if transposed and (not TR or shp[0] != shp[1] or shp[0] % TILE):
+        return _reject("tr_shape", x)
+    plan = _plan(K // TILE, int(w.padded_shape[-1]) // TILE, transposed, x.device(), grid[0] * grid[1])
+    if plan is not None and transposed and plan[0] > 1:
+        # Each group would gather x^T in 1 KB pieces on its own: 13.99 ms against 13.62 for transpose,
+        # norm and project (OpenDDE S512, Wormhole HiFi4, 1000 MHz). The caller transposes and comes
+        # back without `transposed`, which beats both.
+        return _reject("tr_groups", x)
+    if plan is None:
+        return _reject(f"l1:kt{K // TILE}:nw{int(w.padded_shape[-1]) // TILE}:tr{int(transposed)}", x)
     dev = x.device()
     outs = [ttnn.allocate_tensor_on_device(ttnn.Shape([shp[0], n_heads, shp[1], head_dim]), ttnn.bfloat16,
                                            ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG) for _ in range(4)]
     outs.append(ttnn.allocate_tensor_on_device(ttnn.Shape([shp[0], shp[1], bias_channels]), ttnn.bfloat16,
                                                ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG))
-    return _launch(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, bias_channels, tr)
+    return _launch(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, bias_channels, plan)
 
 
-def _launch(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tag, tr=0):
+def _launch(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tag, plan):
+    g, nw, tr = plan
     key = (x.device().id(), tuple(int(d) for d in x.padded_shape), tuple(int(d) for d in w.padded_shape), H, tag,
-           tuple(grid), tuple(str(a) for a in ckc), float(eps), tr)
+           tuple(grid), tuple(str(a) for a in ckc), float(eps), plan)
     entry = _CACHE.get(key)
     if entry is None:
-        entry = _CACHE[key] = _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr)
+        entry = _CACHE[key] = _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw)
     reader, writer, _ = entry["kernels"]
     reader.common_runtime_args = [x.buffer_address(), w.buffer_address(), ln_w.buffer_address(),
                                   ln_b.buffer_address()]
@@ -224,6 +240,9 @@ def ln_proj(x, ln_w, ln_b, w, ckc, grid, eps=1e-5):
     n = int(w.shape[-1])
     if int(w.shape[0]) != shp[-1] or w.padded_shape[-1] > 2 * TILE:
         return _reject("weight_shape", x)
+    plan = _plan(shp[-1] // TILE, int(w.padded_shape[-1]) // TILE, False, x.device(), grid[0] * grid[1])
+    if plan is None:
+        return _reject("l1", x)
     out = ttnn.allocate_tensor_on_device(ttnn.Shape([shp[0], shp[1], n]), ttnn.bfloat16, ttnn.TILE_LAYOUT,
                                          x.device(), ttnn.DRAM_MEMORY_CONFIG)
-    return _launch(x, w, ln_w, ln_b, [out], grid, ckc, eps, 0, int(x.padded_shape[-2]) // TILE, "proj")
+    return _launch(x, w, ln_w, ln_b, [out], grid, ckc, eps, 0, int(x.padded_shape[-2]) // TILE, "proj", plan)

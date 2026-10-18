@@ -88,7 +88,8 @@ WH_FAST_LEVERS = FAST_LEVERS - {"trimul_t1_c256"}
 # attention pair-bias), so the normed pair is never written to DRAM. Wormhole 11-set fast grade, Protenix-v2 fast vs
 # fast + these, 44 paired folds (spd-gap-small gtaln, 2026-10-15), PASS: same-seed top pose median 0.335 A vs the
 # 1.414 A A/A floor, CA-lDDT +0.0006 [-0.0003, +0.0022], docking 34 -> 35. Galaxy chip (1000 MHz, 5 paired folds,
-# talnab): Protenix-v2 fast -2.90 s; OpenDDE null (+0.23 s), so it stays Protenix-v2 only. Wormhole normal takes it
+# talnab): Protenix-v2 fast -2.90 s; OpenDDE then null (+0.23 s: its weight fit no core and the kernel declined; it
+# takes triatt_ln alone since column groups, see opendde.NORMAL_LEVERS). Wormhole normal takes it
 # too: 11-set normal grade, shipped Protenix-v2 normal set vs + these, 44 paired folds (gtalnn, 2026-10-15), PASS:
 # top pose median 0.091 A vs the 0.946 A floor, CA-lDDT +0.0001 [-0.0001, +0.0003], docking 35 -> 35; -2.98 s.
 TRIATT_LN = frozenset({"triatt_ln", "apb_ln"})
