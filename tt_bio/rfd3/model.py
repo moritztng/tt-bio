@@ -487,6 +487,10 @@ _GCA_HEADS = env_flag("RFD3_GCA_HEADS", True)
 # 2.7 ms/step of tilize. Same values (data movement only): gather 4.76 -> 1.28 ms/call on WH, digests equal to
 # the embedding path on WH and p150a (seeds 60,61 x2). RFD3_PZ_GATHER=0 restores it.
 _PZ_GATHER = env_flag("RFD3_PZ_GATHER", True)
+# The gather's table as gather_tiled.spread replicas: the clipped bins name a handful of rows for most pairs, so a
+# single table queues every read on one DRAM bank (WH fast census cen5: 4.1-4.3 ms/call vs 1.28 ms for a random
+# index). Same bits, different bank. Off until the WH read.
+_PZ_SPREAD = env_flag("RFD3_PZ_SPREAD", False)
 # The distogram bins of the token encoder (2 host calls per step while the card waits) as one numba pass with the
 # near-edge pairs recomputed by torch: equal to the torch chain, 4-5.7 -> 0.7-1.7 ms/call at 685 tokens on 2 cores
 # (rfd3/distbins.py). RFD3_BINS_NB=0 restores the torch chain.
@@ -3402,10 +3406,15 @@ class DiffusionTokenEncoder(Module):
             key = ("ztab_rm", bins_self is not None, self.dtype)
             rm = self._const.get(key)
             if rm is None:
-                rm = self._const[key] = ttnn.to_layout(tab, ttnn.ROW_MAJOR_LAYOUT)
+                rm = ttnn.to_layout(tab, ttnn.ROW_MAJOR_LAYOUT)
+                if _PZ_SPREAD:
+                    rm, one = _gather_tiled.spread(rm), rm
+                    ttnn.deallocate(one)
+                self._const[key] = rm
             idx = ttnn.from_torch(_gather_tiled.pad_index(flat, batch * I, I), layout=ttnn.ROW_MAJOR_LAYOUT,
                                   device=dev, dtype=ttnn.uint32)
-            em = _gather_tiled.gather_tiled(idx, rm, batch, I)
+            em = _gather_tiled.gather_tiled(idx, rm, batch, I,
+                                            copies=_gather_tiled.SPREAD_COPIES if _PZ_SPREAD else 1)
         else:
             idx = _tt_idx(flat, dev)
             em = ttnn.embedding(idx, tab, layout=ttnn.ROW_MAJOR_LAYOUT,

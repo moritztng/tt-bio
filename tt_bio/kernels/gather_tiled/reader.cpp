@@ -5,6 +5,9 @@
 // gather_tiled reader: for each unit (row r of the index, 32-wide column block jt) fetch the 32 table rows the
 // index names into one row-major block of CT tiles, every read in flight behind one barrier. Columns past the
 // index's width take a zero row, the value ttnn's own tilize pads with.
+// The table may hold COPIES identical replicas STRIDE pages apart (STRIDE coprime to the DRAM bank count): read k of
+// unit u goes to replica (u + k) % COPIES, so an index that names one row over and over (RFD3's clipped relative-position
+// bins) spreads over every bank instead of queueing on the one holding that row.
 #include "api/dataflow/dataflow_api.h"
 
 void kernel_main() {
@@ -12,7 +15,9 @@ void kernel_main() {
     constexpr uint32_t JT = get_compile_time_arg_val(1);   // tile columns of that width
     constexpr uint32_t CT = get_compile_time_arg_val(2);   // tiles across one table row
     constexpr uint32_t IDX_BYTES = get_compile_time_arg_val(3);   // one index row, W padded to 8 entries
-    constexpr auto idx_args = TensorAccessorArgs<4>();
+    constexpr uint32_t COPIES = get_compile_time_arg_val(4);
+    constexpr uint32_t STRIDE = get_compile_time_arg_val(5);   // table pages between replicas
+    constexpr auto idx_args = TensorAccessorArgs<6>();
     constexpr auto tab_args = TensorAccessorArgs<idx_args.next_compile_time_args_offset()>();
     constexpr uint32_t cb_rm = 0, cb_idx = 1, cb_zero = 2;
     constexpr uint32_t ROW = CT * 32 * 2;
@@ -44,8 +49,10 @@ void kernel_main() {
         const uint32_t n = (c0 + 32 <= W) ? 32 : W - c0;
         cb_reserve_back(cb_rm, CT);
         uint32_t wp = get_write_ptr(cb_rm);
+        uint32_t rep = (u % COPIES) * STRIDE;
         for (uint32_t k = 0; k < 32; ++k, wp += ROW) {
-            noc_async_read(k < n ? s_tab.get_noc_addr(idx[c0 + k]) : zero_noc, wp, ROW);
+            noc_async_read(k < n ? s_tab.get_noc_addr(rep + idx[c0 + k]) : zero_noc, wp, ROW);
+            rep = rep + STRIDE == COPIES * STRIDE ? 0 : rep + STRIDE;
         }
         noc_async_read_barrier();
         cb_push_back(cb_rm, CT);
