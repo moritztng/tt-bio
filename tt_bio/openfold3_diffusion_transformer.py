@@ -215,9 +215,12 @@ class _DiTBlock(Module):
         # (no typecast). 33 -> 23 ttnn calls a block. Not bit-exact: each fused product skips one bf16
         # rounding (which `gated_add` declines in bf16 for exactly that reason), the sigmoid reads the
         # fp32 accumulator instead of its bf16 rounding, and LN(s) * gamma is rounded once inside W.
+        # dit_b8 on dit_fuse: the fused block reads the six weights rounded to bfp8 above through `_lin`, its
+        # activations stay bf16 (the fused ops write them) and the precision is `_lin`'s (dit_hifi2 on Wormhole).
         self.fuse = None
-        if (self._act_dtype == ttnn.bfloat16 and self.sdpa32 and self.lp is None and self.s16 is None
+        if (self._act_dtype == ttnn.bfloat16 and self.sdpa32 and self.s16 is None
                 and _T.lever("dit_fuse")):
+            self.lp = None
             bf = lambda w: ttnn.from_torch(w.float().contiguous(), dtype=ttnn.bfloat16,  # noqa: E731
                                            layout=ttnn.TILE_LAYOUT, device=self.device)
             ada = []

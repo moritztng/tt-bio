@@ -54,6 +54,11 @@ CB_STRIDE = 4
 # the second RISC, not more slots, is what took it from 1.65 to 0.93 ms.
 OUT_SLOTS = int(os.environ.get("RFD3_SPARSE_BIAS_SLOTS", "8"))
 
+# Heads per group (writer_sparse_bias.cpp MASKW_HG): the index scan and cursor walk run once for HG heads.
+# 1 is the per-head kernel. Clamped to a divisor of the call's head count. 4 (gap_maskhg.py, css masks): WH 2.42 ->
+# 1.95 ms/call, p150a 0.85 -> 0.54; masks and design digests equal to HG=1 on both.
+HG = int(os.environ.get("RFD3_MASKW_HG", "4"))
+
 ADDR_WRITE_MODE = None
 # Bench only (scripts/rfd3_port/gap_maskw.py): 1 sends every tile from the fill tile (no pokes), 2 issues no DRAM
 # writes, 3 is 1 without the occupancy scan. Splits the op's time into write and L1 work.
@@ -89,6 +94,13 @@ def _cache_key(bias, idx, out, device, ct_args):
     )
 
 
+def _heads_per_group(n_heads: int) -> int:
+    hg = max(1, min(HG, n_heads))
+    while n_heads % hg:
+        hg -= 1
+    return hg
+
+
 def _build(bias, idx, out, device, ct_head, acc_args, css=None):
     B, H, L, K = (int(bias.shape[0]), int(bias.shape[1]), int(bias.shape[2]),
                   int(bias.shape[3]))
@@ -103,7 +115,9 @@ def _build(bias, idx, out, device, ct_head, acc_args, css=None):
         [ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(g.x - 1, g.y - 1))]
     )
     cores = [(cx, cy) for cx in range(g.x) for cy in range(g.y)]
-    counts = _even_split(B * H * It, cores)
+    hg = _heads_per_group(H)
+    n_groups = B * H // hg * It
+    counts = _even_split(n_groups, cores)
 
     def cb(idx_, fmt, page_size, depth):
         return ttnn.CBDescriptor(
@@ -119,12 +133,12 @@ def _build(bias, idx, out, device, ct_head, acc_args, css=None):
     def cb_set(base):
         return [
             cb(base + IDX_CB, ttnn.uint32, K * 4, TILE_H),
-            cb(base + BIAS_CB, ttnn.bfloat16, TILE_H * TILE_W * 2, Kt),
-            cb(base + OUT_CB, out.dtype, TILE_H * TILE_W * (2 if out16 else 4), OUT_SLOTS + 1),   # + the fill tile
+            cb(base + BIAS_CB, ttnn.bfloat16, TILE_H * TILE_W * 2, Kt * hg),
+            cb(base + OUT_CB, out.dtype, TILE_H * TILE_W * (2 if out16 else 4), OUT_SLOTS * hg + 1),   # + the fill tile
         ]
 
     cbs = cb_set(0) + cb_set(CB_STRIDE)
-    defines = [("MASKW_DIAG", str(DIAG))] if DIAG else []
+    defines = ([("MASKW_DIAG", str(DIAG))] if DIAG else []) + ([("MASKW_HG", str(hg))] if hg > 1 else [])
     if css is not None:
         css_w, chunk = css
         cbs += [cb(base + CSS_CB, ttnn.uint32, css_w * 4, 1) for base in (0, CB_STRIDE)]
@@ -144,7 +158,7 @@ def _build(bias, idx, out, device, ct_head, acc_args, css=None):
         rt_a[cx][cy] = [start, n - half]
         rt_b[cx][cy] = [start + n - half, half]
         start += n
-    assert start == B * H * It, (start, B * H * It)
+    assert start == n_groups, (start, n_groups)
 
     tail = [It, Jt, Kt, K, L, _fill_bits(-1e4), OUT_SLOTS, H * It, int(out16)] + list(acc_args)
     kernels = [
@@ -211,7 +225,7 @@ def sparse_bias_fp32(pair_bias, idx_rm, out=None, memory_config=None, device=Non
         acc_args += list(ttnn.TensorAccessorArgs(css[0]).get_compile_time_args())
         css_shape = (int(css[0].padded_shape[-1]), int(css[1]))
     key = _cache_key(pair_bias, idx_rm, out, device,
-                     tuple(ct_head) + tuple(acc_args) + (DIAG, css_shape))
+                     tuple(ct_head) + tuple(acc_args) + (DIAG, css_shape, _heads_per_group(H)))
     entry = _CACHE.get(key)
     if entry is None:
         entry = _CACHE[key] = _build(pair_bias, idx_rm, out, device, ct_head, acc_args, css_shape)

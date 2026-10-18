@@ -46,6 +46,11 @@
 // back out of the group, which is the only reason HIt is passed in. Multiplicity batching is the
 // default for a multi-design run (`--batch_size 8`), so batch > 1 is the common path, not an edge.
 //
+// HEADS PER GROUP (MASKW_HG). The index is shared by every head, so the index rows, the chunk lists, the
+// occupancy scan and the cursor walk are the same for all of them. With MASKW_HG > 1 a group is a
+// (design, block of HG heads, tile-row) band: that work runs once and each placement pokes HG tiles, one
+// per head, from HG bias tiles at the same offset. MASKW_HG == 1 is the per-head kernel exactly.
+//
 // IMPORTANT: use the api/-prefixed include path (bare dataflow_api.h is a known
 // device-wedge cause in this codebase).
 #include "api/dataflow/dataflow_api.h"
@@ -53,6 +58,9 @@
 // Bench-only diagnostics (rfd3_bias.DIAG): 1 every tile from the fill tile, 2 no DRAM writes, 3 = 1 without the scan.
 #ifndef MASKW_DIAG
 #define MASKW_DIAG 0
+#endif
+#ifndef MASKW_HG
+#define MASKW_HG 1
 #endif
 template <typename A>
 inline void out_write(uint32_t l1, const A& s, uint32_t page, uint32_t bytes) {
@@ -122,6 +130,10 @@ void kernel_main() {
     constexpr uint32_t BIAS_TILE_BYTES = 32 * 32 * 2;
     constexpr uint32_t OUT_TILE_BYTES = 32 * 32 * (OUT16 ? 2 : 4);
     constexpr uint32_t OUT_TILE_WORDS = 32 * 32;
+    constexpr uint32_t HG = MASKW_HG;
+    constexpr uint32_t GPD = HIt / HG;                                  // groups per design
+    constexpr uint32_t SLOT_BYTES = HG * OUT_TILE_BYTES;                // a slot holds one tile per head
+    constexpr uint32_t BIAS_HEAD_ELEMS = Kt * BIAS_TILE_BYTES / 2;
 
     const auto s_bias = TensorAccessor(bias_args, bias_addr);
     const auto s_idx = TensorAccessor(idx_args, idx_addr);
@@ -133,16 +145,17 @@ void kernel_main() {
     volatile tt_l1_ptr uint16_t* bias_l1 = reinterpret_cast<volatile tt_l1_ptr uint16_t*>(bias_base);
     const uint32_t out_base = get_write_ptr(cb_out);
 
-    // Prime every output slot with the fill value once. Slot OUT_SLOTS is never written after this: the all-fill
-    // tile every empty key tile is sent from, and the source every used slot is refilled from.
-    for (uint32_t slot = 0; slot <= OUT_SLOTS; ++slot) {
+    // Prime every output tile with the fill value once. The tile after the last slot is never written after this:
+    // the all-fill tile every empty key tile is sent from, and the source every used slot is refilled from.
+    const uint32_t fill_l1 = out_base + OUT_SLOTS * SLOT_BYTES;
+    for (uint32_t t = 0; t <= OUT_SLOTS * HG; ++t) {
         for (uint32_t w = 0; w < OUT_TILE_WORDS; ++w) {
-            put<OUT16>(out_base + slot * OUT_TILE_BYTES, w, fill);
+            put<OUT16>(out_base + t * OUT_TILE_BYTES, w, fill);
         }
     }
 
     constexpr uint32_t NO_TILE = 0xFFFFFFFFu;
-    const uint64_t fill_noc = get_noc_addr(out_base + OUT_SLOTS * OUT_TILE_BYTES);
+    const uint64_t fill_noc = get_noc_addr(fill_l1);
     uint32_t slot_jt[OUT_SLOTS];
     for (uint32_t slot = 0; slot < OUT_SLOTS; ++slot) {
         slot_jt[slot] = NO_TILE;
@@ -151,8 +164,10 @@ void kernel_main() {
 
     const uint32_t end_group = start_group + num_groups;
     for (uint32_t group = start_group; group < end_group; ++group) {
-        const uint32_t b = group / HIt;
+        const uint32_t b = group / GPD;
         const uint32_t it = group % It;
+        // Band (tile-page row of [B, H, It, *]) of head 0 of this group; head g's is band0 + g * It.
+        const uint32_t band0 = b * HIt + ((group % GPD) / It) * HG * It + it;
         const uint32_t row_base = it * TILE_H;
         const uint32_t rows = (row_base + TILE_H <= L) ? TILE_H : (L - row_base);
 
@@ -163,11 +178,12 @@ void kernel_main() {
                            reinterpret_cast<uint32_t>(idx_l1) + r * IDX_ROW_WORDS * 4,
                            IDX_ROW_WORDS * 4);
         }
-        // The band's bias tiles: [1, H, L, K] bf16 TILE, page (h*It + it)*Kt + kt.
-        const uint32_t bias_page0 = group * Kt;
-        for (uint32_t kt = 0; kt < Kt; ++kt) {
-            noc_async_read(s_bias.get_noc_addr(bias_page0 + kt),
-                           bias_base + kt * BIAS_TILE_BYTES, BIAS_TILE_BYTES);
+        // The band's bias tiles: [1, H, L, K] bf16 TILE, page (h*It + it)*Kt + kt, head g's at g * Kt.
+        for (uint32_t g = 0; g < HG; ++g) {
+            for (uint32_t kt = 0; kt < Kt; ++kt) {
+                noc_async_read(s_bias.get_noc_addr((band0 + g * It) * Kt + kt),
+                               bias_base + (g * Kt + kt) * BIAS_TILE_BYTES, BIAS_TILE_BYTES);
+            }
         }
 #ifdef CSS_CPT
         const uint32_t q = b * ((It + CSS_QCT - 1) / CSS_QCT) + it / CSS_QCT;
@@ -216,14 +232,18 @@ void kernel_main() {
         auto refill = [&]() {
             for (uint32_t slot = 0; slot < OUT_SLOTS; ++slot) {
                 if (slot_jt[slot] != NO_TILE) {
-                    noc_async_read(fill_noc, out_base + slot * OUT_TILE_BYTES, OUT_TILE_BYTES);
+                    for (uint32_t g = 0; g < HG; ++g) {
+                        noc_async_read(fill_noc, out_base + slot * SLOT_BYTES + g * OUT_TILE_BYTES, OUT_TILE_BYTES);
+                    }
                     slot_jt[slot] = NO_TILE;
                 }
             }
             noc_async_read_barrier();
         };
 
-        uint32_t out_page = group * Jt;
+        // Head g's page of key tile jt is out_page + g * It * Jt.
+        constexpr uint32_t HEAD_PAGES = It * Jt;
+        uint32_t out_page = band0 * Jt;
         for (uint32_t jt = 0; jt < Jt; ++jt) {
             if (MASKW_DIAG == 1 || MASKW_DIAG == 3 || !(occ[jt >> 5] & (1u << (jt & 31)))) {
 #ifdef CSS_CPT
@@ -233,12 +253,14 @@ void kernel_main() {
                     continue;
                 }
 #endif
-                out_write(out_base + OUT_SLOTS * OUT_TILE_BYTES, s_out, out_page, OUT_TILE_BYTES);
+                for (uint32_t g = 0; g < HG; ++g) {
+                    out_write(fill_l1, s_out, out_page + g * HEAD_PAGES, OUT_TILE_BYTES);
+                }
                 ++out_page;
                 continue;
             }
             const uint32_t slot = used++ & (OUT_SLOTS - 1);
-            const uint32_t out_addr_l1 = out_base + slot * OUT_TILE_BYTES;
+            const uint32_t out_addr_l1 = out_base + slot * SLOT_BYTES;
 
             const uint32_t col_lo = jt * 32;
             const uint32_t col_hi = col_lo + 32;
@@ -250,16 +272,21 @@ void kernel_main() {
                     if (j >= col_hi) {
                         break;
                     }
-                    const uint32_t bv =
-                        bias_l1[(sidx >> 5) * (BIAS_TILE_BYTES / 2) + face_off(r, sidx & 31)];
-                    put<OUT16>(out_addr_l1, face_off(r, j - col_lo), bv << 16);
+                    const uint32_t boff = (sidx >> 5) * (BIAS_TILE_BYTES / 2) + face_off(r, sidx & 31);
+                    const uint32_t ooff = face_off(r, j - col_lo);
+                    for (uint32_t g = 0; g < HG; ++g) {
+                        const uint32_t bv = bias_l1[g * BIAS_HEAD_ELEMS + boff];
+                        put<OUT16>(out_addr_l1 + g * OUT_TILE_BYTES, ooff, bv << 16);
+                    }
                     ++sidx;
                 }
                 cur[r] = sidx;
             }
             slot_jt[slot] = jt;
 
-            out_write(out_addr_l1, s_out, out_page, OUT_TILE_BYTES);
+            for (uint32_t g = 0; g < HG; ++g) {
+                out_write(out_addr_l1 + g * OUT_TILE_BYTES, s_out, out_page + g * HEAD_PAGES, OUT_TILE_BYTES);
+            }
             ++out_page;
             // Every slot is written out after this, so all of them can be refilled for jt + 1.
             if (slot == OUT_SLOTS - 1) {

@@ -62,7 +62,7 @@ FIXTURE = opts.get("fixture", "perf/dsfix/fixtures/rfd3_R4.json")
 BATCH = int(opts.get("batch", 1))
 FAST = opts.get("fast", "0") == "1"
 knobs = set(ARM.split("+")) - {"exact"}
-assert knobs <= {"lofi", "w8", "acco"} | set(ENV_KNOBS), knobs
+assert knobs <= {"lofi", "w8", "acco", "idxfree", "binsfree"} | set(ENV_KNOBS), knobs
 
 pick = [ttnn.MathFidelity.LoFi] if "lofi" in knobs else []
 if pick or "acco" in knobs:
@@ -90,6 +90,40 @@ if "w8" in knobs:
         W8[1] += 1
         return _t2t(self, key, transform, dtype=dtype)
     T.Module.torch_to_tt = _t2t_w8
+
+# idxfree / binsfree (instruments, not levers): the warmup fold records every attention index (idxfree) or token
+# distogram (binsfree) keyed by its inputs, later folds replay a hit instead of building it. Run the warm seed again and
+# that host work costs nothing; the digest must equal the plain arm's, and the time saved is the most any faster build
+# (on device or not) can buy.
+import torch                                                              # noqa: E402
+
+IDX = [0, 0]   # replayed, built
+_rec = [True]
+
+
+def _replayed(fn, coords, extra):
+    book = {}
+
+    def run(*a, **kw):
+        x = coords(*a)
+        key = (hashlib.sha256(x.detach().float().contiguous().numpy().tobytes()).hexdigest(), tuple(x.shape)) + extra(*a)
+        hit = book.get(key)
+        if hit is not None and not _rec[0]:
+            IDX[0] += 1
+            return hit[0].to(hit[1], copy=True)
+        IDX[1] += 1
+        out = fn(*a, **kw)
+        if _rec[0]:   # held as int32 (indices < 2^31, bins < 65): 200 steps of atom indices are ~1.9 GB that way
+            book[key] = (out.to(torch.int32, copy=True), out.dtype)
+        return out
+    return run
+
+
+if "idxfree" in knobs:
+    M._create_attention_indices = _replayed(M._create_attention_indices, lambda f, X_L, tok_idx, n_keys, *r: X_L,
+                                            lambda f, X_L, tok_idx, n_keys, *r: (n_keys, len(tok_idx)))
+if "binsfree" in knobs:
+    M._scaled_distogram_bins = _replayed(M._scaled_distogram_bins, lambda R_L, *r: R_L, lambda *a: ())
 
 WALL = []
 _sample = RFD3Sampler.sample
@@ -124,6 +158,10 @@ rec = {"arm": ARM, "steps": STEPS, "fixture": FIXTURE, "batch": BATCH, "fast": F
 s, d, _ = fold("warm", SEEDS[0])
 rec["warm_s"] = s
 print("[screen %s] warmup %.3f s %s  w8 %s" % (ARM, s, d, W8), flush=True)
+if knobs & {"idxfree", "binsfree"}:
+    _rec[0] = False
+    rec["idx_warm_built"] = IDX[1]
+    IDX[:] = [0, 0]
 for seed in SEEDS:
     s, d, cifs = fold("s%d" % seed, seed)
     for i, c in enumerate(cifs[:BATCH]):
@@ -131,6 +169,7 @@ for seed in SEEDS:
     rec["folds"].append({"seed": seed, "sampler_s": s, "digest": d})
     print("[screen %s] seed %d %.3f s %s" % (ARM, seed, s, d), flush=True)
 rec["w8_counts"] = W8
+rec["idx_replayed_built"] = IDX
 rec["sdpa_calls"] = {"atom": M.ATOM_SDPA_CALLS[0], "css": M.CSS_CALLS[0], "dense": M.DIT_SDPA_CALLS[0]}
 rec["pf_dpb_calls"] = {"served": M.PF_DPB_CALLS[0], "declined": M.PF_DPB_CALLS[1]}
 (OUT / ("%s.json" % ARM)).write_text(json.dumps(rec, indent=1))

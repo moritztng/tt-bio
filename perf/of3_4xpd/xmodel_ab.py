@@ -273,6 +273,14 @@ def main():
         res["spread_s"] = round(max(arm[True]) - min(arm[True]), 3)
         print(f"[{a.label}] {on} minus {off} {d} s, median {res[key]['median_delta']}",
               flush=True)
+        # A lever read at build (weights rounded in __init__, dit_b8) is not toggled by `_levers` per fold: both arms
+        # fold the same model. Identical CIFs cannot tell that from a bit-exact lever, so say so in the record.
+        cifs = {v: {json.dumps(r["cif_sha256"], sort_keys=True) for r in res["folds"] if r["tag"].endswith(f"-{v}")}
+                for v in (on, off)}
+        res[key]["identical_cifs"] = cifs[on] == cifs[off]
+        if a.ab_lever and cifs[on] == cifs[off]:
+            print(f"[{a.label}] WARNING: CIFs identical on and off: a bit-exact lever, or one read only at build "
+                  "(then this A/B is null; build one model per arm instead)", flush=True)
     elif not a.census:
         for i in range(a.repeat):
             rec = one(f"warm{i}")
