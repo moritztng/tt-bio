@@ -1311,11 +1311,14 @@ def _k_pair_transpose(shipped, args, kwargs):
 
 
 def _weight_vjp(a, b, g, cfg):
-    """The gradient `_v_matmul` gives `a @ b` for a 2-D weight `b` and no transposes: the same
-    calls in the same order, so the two are bit-identical."""
+    """The gradient `_v_matmul` gives `a @ b` for a 2-D weight `b` and no transposes, except that
+    dX asks `pair_mm` first, as `ops.linear`'s VJP does. The triangle-attention qkv sink's dX
+    [N*N, 384] x [128, 384]^T took 812 us a call on ttnn.matmul at 224 tokens on Wormhole against
+    276 us on `pair_linear` (bc2rep, whplgate); where `pair_mm` is not armed nothing changes."""
     if a.requires_grad:
         a.add_grad(_reduce_to(
-            _via2d(g, lambda v: ag.bmm(v, b.value, False, True, compute_kernel_config=cfg)),
+            _via2d(g, lambda v: ag._pair_mm_or(v, b.value, True, lambda: ag.bmm(
+                v, b.value, False, True, compute_kernel_config=cfg), cfg)),
             a.value.shape))
     if b.requires_grad:
         b.add_grad(_reduce_to(_matmul(_flat2d(a.value), _flat2d(g), transpose_a=True,

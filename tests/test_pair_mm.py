@@ -224,3 +224,17 @@ def test_pair_linear_bias_shape_check_takes_a_ttnn_shape(b):
         return types.SimpleNamespace(shape=_Shape(shape), padded_shape=_Shape(shape), dtype=ttnn.bfloat16,
                                      layout=ttnn.TILE_LAYOUT, memory_config=lambda: mc)
     assert pair_linear.matmul(t((1, 288, 288, 128)), t((128, 128)), None, bias=t(b)) is None
+
+
+def test_qkv_sink_dx_asks_pair_mm(monkeypatch):
+    """The triangle-attention qkv sink's dX went straight to ttnn.matmul (812 us a call in bc2rep)."""
+    from tt_bio import autograd as ag, taped_ttnn
+    asked, got = [], []
+    monkeypatch.setattr(taped_ttnn, "_via2d", lambda x, fn, kw=None: fn(x))
+    monkeypatch.setattr(taped_ttnn, "_reduce_to", lambda v, shape: v)
+    monkeypatch.setattr(ag, "_pair_mm_or", lambda v, w, tb, fallback, cfg: asked.append((v, w, tb)) or "pm")
+    a = types.SimpleNamespace(requires_grad=True, value=types.SimpleNamespace(shape=(1, 224, 224, 128)),
+                              add_grad=got.append)
+    b = types.SimpleNamespace(requires_grad=False, value="w")
+    taped_ttnn._weight_vjp(a, b, "g", None)
+    assert asked == [("g", "w", True)] and got == ["pm"]
