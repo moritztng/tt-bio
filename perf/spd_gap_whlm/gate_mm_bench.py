@@ -88,6 +88,12 @@ def main() -> int:
             def fused_f32():   # the epilogue's silu on the silu_f32 overlay (math_approx_mode selects it)
                 return mm_gate.gated(xd, wd12, cfg, ck_f32, grid)
 
+            def fused_pack():   # silu and multiply on the PACK thread
+                return mm_gate.gated(xd, wd12, cfg, ck, grid, pack_sfpu=True)
+
+            def pack_probe1():
+                return mm_gate.gated(xd, wd12, cfg, ck, grid, probe=1, pack_sfpu=True)
+
             def probe1():   # epilogue without the silu (wrong output, timing only)
                 return mm_gate.gated(xd, wd12, cfg, ck, grid, probe=1)
 
@@ -101,7 +107,8 @@ def main() -> int:
             rec = {"shape": name, "mode": mode, "overlay": overlay, "cfg": list(cfg), "grid": list(grid),
                    "plan": mm_gate.plan(xd, 2 * ff, cfg, grid)}
             outs = {}
-            for arm, fn in (("today", today), ("fused", fused), ("fused_f32", fused_f32)):
+            for arm, fn in (("today", today), ("fused", fused), ("fused_f32", fused_f32),
+                            ("fused_pack", fused_pack)):
                 try:
                     o = fn()
                     outs[arm] = ttnn.to_torch(o)
@@ -112,8 +119,9 @@ def main() -> int:
             rec["plain2n"] = {}
             if "fused" in outs and "fused_f32" in outs:
                 rec["f32_bit_identical_to_fused"] = bool(torch.equal(outs["fused"], outs["fused_f32"]))
-            rec["probe1"] = rec["probe2"] = {}
-            arms = (("today", today), ("fused", fused), ("fused_f32", fused_f32), ("probe1", probe1),
+            rec["probe1"] = rec["probe2"] = rec["pack_probe1"] = {}
+            arms = (("today", today), ("fused", fused), ("fused_f32", fused_f32), ("fused_pack", fused_pack),
+                    ("pack_probe1", pack_probe1), ("probe1", probe1),
                     ("probe2", probe2), ("plain2n", plain2n))
             ms = {a: [] for a, _ in arms}
             for _ in range(args.repeat):

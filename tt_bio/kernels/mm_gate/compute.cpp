@@ -14,6 +14,10 @@
 #include "api/compute/eltwise_unary/eltwise_unary.h"
 #include "api/compute/eltwise_unary/binop_with_scalar.h"
 #include "api/compute/eltwise_binary_sfpu.h"
+#if defined(MM_GATE_PACK_SFPU) && defined(TRISC_PACK)
+#include "llk_math_eltwise_unary_sfpu_silu.h"
+#include "llk_math_eltwise_binary_sfpu_binop.h"
+#endif
 
 void copy_block(uint32_t in_cb, uint32_t out_cb, uint32_t M_block_tiles, uint32_t N_block_tiles) {
     copy_tile_to_dst_init_short(in_cb);
@@ -62,6 +66,28 @@ void gate_block(uint32_t in_cb, uint32_t out_cb, uint32_t M_block_tiles, uint32_
                 copy_tile(in_cb, row + n0 + i, i);
                 copy_tile(in_cb, row + half + n0 + i, g + i);
             }
+#ifdef MM_GATE_PACK_SFPU
+            // MATH only copies; PACK runs the silu and multiply on its own dest half (the fc12g / silu_f32 handoff:
+            // a tile_regs_wait() that also points the SFPU at the packer's half), so MATH moves on to the next copy
+            // or block while PACK works. APPROX silu is calculate_silu_f32 under the silu_f32 overlay.
+            tile_regs_commit();
+            PACK(TTI_SEMWAIT(
+                p_stall::STALL_TDMA | p_stall::STALL_CFG, semaphore::t6_sem(semaphore::MATH_PACK), p_stall::STALL_ON_ZERO));
+            PACK(TT_SETC16(DEST_TARGET_REG_CFG_MATH_Offset_ADDR32, ckernel::packer::get_packer_dest_offset()));
+#if !defined(MM_GATE_PROBE) || MM_GATE_PROBE < 1
+            PACK((llk_math_eltwise_unary_sfpu_silu_init<true>()));
+            for (uint32_t i = 0; i < c; i++) {
+                PACK((llk_math_eltwise_unary_sfpu_silu<true, DST_ACCUM_MODE>(i)));
+            }
+#endif
+#if !defined(MM_GATE_PROBE) || MM_GATE_PROBE < 2
+            PACK((llk_math_eltwise_binary_sfpu_binop_init<true, ckernel::BinaryOp::MUL>()));
+            for (uint32_t i = 0; i < c; i++) {
+                PACK((llk_math_eltwise_binary_sfpu_binop_mul<true, ckernel::BinaryOp::MUL, DST_ACCUM_MODE>(i, g + i, i)));
+            }
+#endif
+            PACK(TTI_STALLWAIT(p_stall::STALL_PACK, p_stall::WAIT_SFPU));
+#else
 #if !defined(MM_GATE_PROBE) || MM_GATE_PROBE < 1
             silu_tile_init();
             for (uint32_t i = 0; i < c; i++) {
@@ -76,6 +102,7 @@ void gate_block(uint32_t in_cb, uint32_t out_cb, uint32_t M_block_tiles, uint32_
 #endif
             tile_regs_commit();
             tile_regs_wait();
+#endif
             for (uint32_t i = 0; i < c; i++) {
                 pack_tile(i, out_cb);
             }
