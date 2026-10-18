@@ -223,6 +223,9 @@ _ESMC_QK_L1 = env_flag("TT_BIO_ESMC_QK_L1", True)
 # against float64: q/k rel_l2 0.0042 -> 0.0034..0.0050, v exact, 0.24-0.46 ms a layer against 0.60-1.27.
 # The lm_qk_chain lever keeps the chain (ESMFold2's Wormhole normal set, esmfold2_runtime._WH_NORMAL_EXTRA).
 _ESMC_QKRH = (env_flag("TT_BIO_ESMC_QKRH", False) if os.environ.get("TT_BIO_ESMC_QKRH", "").strip() else None)
+# shsdpa writes its output with the heads already concatenated ([B, L, H * D]) instead of nlp_concat_heads after it:
+# only the writer's tile addresses change (sdpa_generic merged_out), so the output is bit-identical.
+_LM_SDPA_MERGED = env_flag("TT_BIO_LM_SDPA_MERGED", True)
 
 # Replay batched forwards from the trace too (ESMC.trace gated on B == 1). A 7 x 544 Blackhole batch spreads 110-127 ms
 # within one process, the signature of a host-dispatch-bound forward. Same captured program, so output is bit-identical
@@ -355,16 +358,20 @@ def _lm_mask_into(attn_mask, lens, dst):
         ttnn.copy_host_to_device_tensor(_sdpa_mask(attn_mask, dtype=dst.dtype), dst)
 
 
-def lm_sdpa(q, k, v, attn_mask, scale: float):
+def lm_sdpa(q, k, v, attn_mask, scale: float, merge: bool = False):
     """The language models' fused SDPA at the _lm_sdpa_chunks config, or `shsdpa` for a KeyPad mask. A shape whose
     few-k-chunk program the device refuses (its circular buffers clash with L1 tensors) runs at the k64 config from
-    then on."""
+    then on. `merge` returns the heads concatenated, [B, L, H * D]: shsdpa writes that layout itself (_LM_SDPA_MERGED),
+    the stock op is followed by nlp_concat_heads."""
     if isinstance(attn_mask, KeyPad):
         # Interleaved DRAM or L1 (SaProt's RoPE leaves q, k in L1): the reader addresses each through its own accessor.
         if int(q.shape[-1]) % 32 == 0 and all(t.dtype == ttnn.bfloat16 and not t.is_sharded() for t in (q, k, v)):
             from tt_bio import shsdpa
             SHSDPA_STATS[0] += 1
-            return shsdpa.sdpa(q, k, v, scale, attn_mask)
+            if merge and _LM_SDPA_MERGED:
+                return ttnn.squeeze(shsdpa.sdpa(q, k, v, scale, attn_mask, merged=True), 1)
+            o = shsdpa.sdpa(q, k, v, scale, attn_mask)
+            return _concat_heads(o) if merge else o
         SHSDPA_STATS[1] += 1
         # A head dim off the tile, or q/k/v not bf16 interleaved: the stock op over the full mask, its rows the same.
         attn_mask = ttnn.repeat(attn_mask.row, (1, 1, int(q.padded_shape[2]) // 32, 1))
@@ -375,12 +382,21 @@ def lm_sdpa(q, k, v, attn_mask, scale: float):
         few = _lm_sdpa_chunks(q_len, k_len, True)
         if few != base:
             try:
-                return fused_sdpa(q, k, v, attn_mask=attn_mask, scale=scale, program_config=_sdpa_program_config(*few))
+                o = fused_sdpa(q, k, v, attn_mask=attn_mask, scale=scale, program_config=_sdpa_program_config(*few))
+                return _concat_heads(o) if merge else o
             except Exception as exc:
                 from tt_bio import tenstorrent
                 tenstorrent.absorb_l1_refusal("esmc sdpa k chunk", exc)
                 _SDPA_K_FEW_REFUSED.add(key)
-    return fused_sdpa(q, k, v, attn_mask=attn_mask, scale=scale, program_config=_sdpa_program_config(*base))
+    o = fused_sdpa(q, k, v, attn_mask=attn_mask, scale=scale, program_config=_sdpa_program_config(*base))
+    return _concat_heads(o) if merge else o
+
+
+def _concat_heads(o):
+    """[B, H, L, D] -> [B, L, H * D], freeing the per-head tensor."""
+    m = ttnn.squeeze(ttnn.experimental.nlp_concat_heads(o, memory_config=ttnn.DRAM_MEMORY_CONFIG), 1)
+    ttnn.deallocate(o)
+    return m
 
 
 class Embedding(Module):
@@ -734,9 +750,8 @@ class Attention(_MMLin, Module):
             k = ttnn.multiply(k, key_valid)
             v = ttnn.multiply(v, key_valid)
 
-        o = lm_sdpa(q, k, v, attn_mask, scale=head_dim**-0.5)
+        o = lm_sdpa(q, k, v, attn_mask, scale=head_dim**-0.5, merge=True)  # [B, L, d_model]
         ttnn.deallocate(q); ttnn.deallocate(k); ttnn.deallocate(v)
-        o = self._merge_heads(o)  # [B, L, d_model]
         out = self._lin_resid(o, self.out_weight, x) if resid else None
         added = out is not None
         if not added:
@@ -888,6 +903,13 @@ _ESMC_LM_GATE_LEGACY = (env_flag("TT_BIO_ESMC_LM_GATE_LEGACY", False)
                         if os.environ.get("TT_BIO_ESMC_LM_GATE_LEGACY", "").strip() else None)
 
 
+def _mm_gate_on() -> bool:
+    if _ESMC_MM_GATE is not None:
+        return _ESMC_MM_GATE
+    from tt_bio import tenstorrent
+    return tenstorrent.is_wormhole() and not tenstorrent.lever("lm_gate_ng")
+
+
 def _lm_gate_legacy() -> bool:
     if _ESMC_LM_GATE_LEGACY is not None:
         return _ESMC_LM_GATE_LEGACY
@@ -934,6 +956,17 @@ _LM_FFN_WHOLE_ROWS = env_int("TT_BIO_LM_FFN_WHOLE_ROWS", 1056)
 # The per-token LM FFN's SwiGLU gate silu(x fc1_a) * (x fc1_b) written to L1, where fc2 reads it back. Same op, same
 # values (a memory placement); a refusal falls back to DRAM for that shape for good. Off until the page-cell A/B says.
 _ESMC_GATE_L1 = env_flag("TT_BIO_ESMC_GATE_L1", False)
+# The LM FFN's fc1 halves and gate as ONE minimal_matmul with silu(fc1) * fc2 in its epilogue (tt_bio/mm_gate.py):
+# no h1/h2 round trip through DRAM, and the gate from the fp32 accumulator rather than two bf16 roundings.
+# perf/spd_gap_whlm/gate_cfg_sweep.py on a Galaxy chip at 1000 MHz, 3808 rows, ms against today's fc1a + fc1b +
+# gate: 300M 1.268 -> 0.925 (--fast 1.084 -> 0.739), 600M 1.600 -> 1.248 (--fast 1.336 -> 0.991); rel_l2 against
+# float64 0.0041 -> 0.0019 (normal), equal under --fast. Every LM FFN of the loaded model over a page batch
+# (perf/spd_gap_whlm/ffn_stack_bench.py, same chip, 1000 MHz), ms a layer saved: 300M 0.374 / 0.286 (--fast), 600M
+# 0.411 / 0.239. None = on for Wormhole; lm_gate_ng (ESMFold2 on Wormhole) keeps the three ops there too.
+_ESMC_MM_GATE = (env_flag("TT_BIO_ESMC_MM_GATE", False)
+                 if os.environ.get("TT_BIO_ESMC_MM_GATE", "").strip() else None)
+#: [LM FFN gates served by mm_gate, declined where it was asked]
+MM_GATE_STATS = [0, 0]
 _GATE_L1_REFUSED: set = set()
 #: [gates served from L1, declined], read by the A/B harness.
 GATE_L1_STATS = [0, 0]
@@ -1173,6 +1206,30 @@ class SwiGLUFFN(_MMLin, Module):
             self.fc1_weight = ttnn.concat([self.fc1_a_weight, self.fc1_b_weight], dim=-1)
         return self.fc1_weight
 
+    def _mm_gate(self, x_norm, l1_gated: bool):
+        """silu(x_norm @ fc1a) * (x_norm @ fc1b) as one gated minimal_matmul (mm_gate), or None where it does not
+        serve. The interleaved weight is built on the first call from the two device halves (an exact round trip,
+        block-fp8 included: every interleave group is whole tiles), so a model that never reaches it holds none."""
+        w = self.fc1_a_weight
+        if not (_mm_gate_on() and not l1_gated and len(x_norm.shape) == 3 and not _SWIGLU_SILU_FC1
+                and not _ESMC_ACT_BFP8 and self._mm_ok(x_norm, w)):
+            return None
+        from tt_bio import mm_gate
+        g = x_norm.device().compute_with_storage_grid_size()
+        grid = (int(g.x), int(g.y))
+        cfg = mm_gate.config(x_norm, 2 * int(w.shape[-1]), int(w.shape[-2]) // 32, grid, _mm_bf16_acc(w))
+        if cfg is None or not mm_gate.overlay_ok():
+            MM_GATE_STATS[1] += 1
+            return None
+        group = cfg[2] // 2 * 32
+        if getattr(self, "_w12", None) is None or self._w12_group != group:
+            w12 = mm_gate.interleave(ttnn.to_torch(w), ttnn.to_torch(self.fc1_b_weight), group)
+            self._w12 = ttnn.from_torch(w12, dtype=w.dtype, layout=ttnn.TILE_LAYOUT, device=x_norm.device())
+            self._w12_group = group
+        out = mm_gate.gated(x_norm, self._w12, cfg, self._mm_ck(w), grid, pack_sfpu=True)
+        MM_GATE_STATS[0 if out is not None else 1] += 1
+        return out
+
     def _ffn(self, x: ttnn.Tensor, split: bool = False, l1_gated: bool = False,
              out_mc=None, resid: bool = False) -> ttnn.Tensor:
         """`out_mc` is fc2's output memory config; `None` -- every caller but lever F -- leaves
@@ -1209,6 +1266,8 @@ class SwiGLUFFN(_MMLin, Module):
                 dtype=self.fc1_weight.dtype,
                 fuse_swiglu=True,
             )
+            ttnn.deallocate(x_norm)
+        elif split and self.split_swiglu and (gated := self._mm_gate(x_norm, l1_gated)) is not None:
             ttnn.deallocate(x_norm)
         elif split and self.split_swiglu:
             from tt_bio import tenstorrent as _T

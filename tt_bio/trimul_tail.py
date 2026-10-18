@@ -1238,9 +1238,23 @@ def t2cm_eligible(xcm, ln_w, ln_b, wp, g, resid, ckc=None):
                         ln_w, ln_b, wp, g, resid)
     if why is not None:
         return why
-    if _t2cm_parts(wp) is None:
+    return t2cm_fit(wp)
+
+
+# The most row parts T2CM's stage may take. Above it each channel tile is read in 256-byte pieces and the
+# gather loses to reblock_permute_back + T2: OpenDDE (c_z 384, P = 4) on a Wormhole Galaxy chip at 1000 MHz,
+# cdk2x2 512 x 1, trimul_t2cm on vs off (spd-m-opendde cmab, 2026-10-18): normal 102.81 -> 99.88 s, fast
+# 96.93 -> 94.91 s, CIFs byte-identical; in the fold census the tail read 10.53 ms a call against 4.68 + 2.65.
+# At c_z 128 (P <= 2) it wins (OpenFold3 WH 43.76 -> 43.45 s).
+T2CM_MAX_P = 2
+
+
+def t2cm_fit(wp):
+    """None when T2CM's stage fits L1 in at most T2CM_MAX_P parts for the [K, K] weight `wp`, else the reason."""
+    P = _t2cm_parts(wp)
+    if P is None:
         return "l1"
-    return None
+    return "parts" if P > T2CM_MAX_P else None
 
 
 def _t2cm_parts(wp, min_parts=1):

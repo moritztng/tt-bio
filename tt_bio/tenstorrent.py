@@ -729,7 +729,8 @@ _FAST_MODE = False
 #   lm_qk_chain     the ESMC language model's attention keeps the six-op q/k LayerNorm, RoPE and head-split chain
 #                   where Wormhole would run qk_rope_heads (esmc._qkrh): ESMFold2's normal set on Wormhole.
 #   lm_gate_ng      the ESMC language model's SwiGLU gate stays on the binary_ng multiply where Wormhole would take the
-#                   legacy one (esmc._lm_gate_legacy): both ESMFold2 sets on Wormhole until a fold grades it.
+#                   legacy one (esmc._lm_gate_legacy) or the gated minimal_matmul (esmc._mm_gate_on): both ESMFold2
+#                   sets on Wormhole until a fold grades it.
 #   lm_sdpa_stock   the ESMC language model's key-padding mask stays a [B, 1, L, L] tensor for the stock SDPA where
 #                   Wormhole would run shsdpa on key lengths (esmc._key_lens): both ESMFold2 sets until a fold grades it.
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
@@ -10090,11 +10091,12 @@ class TriangleMultiplication(Module):
         back_ln_skip = (H > SEQ_LEN_MORE_CHUNKING or x_norm_in is None
                         or (tuple(shp), x_in.dtype) in _TRIMUL_TAIL_ROWS_SHAPES)
         # `trimul_t2cm`: the whole hidden as ONE channel-major chunk, kept for T2 to read as it is
-        # instead of being moved into x_out. Asked only where the T2 branch below would serve.
+        # instead of being moved into x_out. Asked only where the T2 branch below would serve and the
+        # stage fits in few enough parts to beat the move (`trimul_tail.t2cm_fit`).
         x_cm, cm_mc = None, None
         cm_on = (lever("trimul_t2cm") and (_trimul_tail.T2 or lever("trimul_t2"))
                  and H >= _trimul_tail.MIN_N and add_to_input and not ops.taping()
-                 and self.p_out_bias is None)
+                 and self.p_out_bias is None and _trimul_tail.t2cm_fit(self.out_p_weight) is None)
         tma_key = ("tma", H, batch, self._hidden, bool(self.ending))
         while True:
             tma_live = False         # an L1 `a` (TT_BIO_OF3L1_TMA) is live in this attempt

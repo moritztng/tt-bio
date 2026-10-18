@@ -61,6 +61,9 @@ class _Unsplit:
     _ffn = E.SwiGLUFFN._ffn
     _fc1_full = E.SwiGLUFFN._fc1_full
 
+    def _mm_gate(self, x_norm, l1_gated):   # the gated-matmul FFN declines: these tests read the plain split arm
+        return None
+
     def __init__(self):
         self.split_swiglu = False
         self.fuse_swiglu = False

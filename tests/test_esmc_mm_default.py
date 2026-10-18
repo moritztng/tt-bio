@@ -4,6 +4,7 @@ from __future__ import annotations
 import types
 
 import pytest
+import ttnn
 
 from tt_bio import esmc, tenstorrent
 
@@ -15,6 +16,17 @@ def test_esmc_mm_default_by_arch(wormhole, switch, monkeypatch):
     monkeypatch.setattr(esmc, "_ESMC_MM", switch)
     assert esmc._esmc_mm() is (wormhole if switch is None else switch)
 
+
+
+@pytest.mark.parametrize("wormhole", [True, False])
+@pytest.mark.parametrize("switch", [None, True, False])
+@pytest.mark.parametrize("width", [480, 1152, 1280])
+def test_saprot_mm_default_by_width(wormhole, switch, width, monkeypatch):
+    from tt_bio import saprot
+    monkeypatch.setattr(tenstorrent, "is_wormhole", lambda: wormhole)
+    monkeypatch.setattr(saprot, "_SAPROT_MM", switch)
+    want = (wormhole and width <= saprot._MM_MAX_WIDTH) if switch is None else switch
+    assert saprot._saprot_mm(width) is want
 
 class _Ck:
     def __init__(self, math_fidelity=None, math_approx_mode=False, fp32_dest_acc_en=True, packer_l1_acc=False):
@@ -108,6 +120,20 @@ def test_qkrh_default(wormhole, switch, monkeypatch):
 
 @pytest.mark.parametrize("wormhole", [True, False])
 @pytest.mark.parametrize("switch", [None, True, False])
+def test_saprot_qkrh_default(wormhole, switch, monkeypatch):
+    """SaProt's packed RoPE + head split program defaults on for Wormhole with block-fp8 weights (--fast) only; the
+    switch overrides."""
+    from tt_bio import saprot
+    monkeypatch.setattr(tenstorrent, "is_wormhole", lambda: wormhole)
+    monkeypatch.setattr(saprot, "_SAPROT_QKRH", switch)
+    for dtype in (ttnn.bfloat8_b, ttnn.bfloat16):
+        w = type("W", (), {"dtype": dtype})()
+        want = (wormhole and dtype == ttnn.bfloat8_b) if switch is None else switch
+        assert saprot._saprot_qkrh(w) is want
+
+
+@pytest.mark.parametrize("wormhole", [True, False])
+@pytest.mark.parametrize("switch", [None, True, False])
 def test_lm_gate_legacy_default(wormhole, switch, monkeypatch):
     """The LM SwiGLU gate takes the legacy multiply on Wormhole unless lm_gate_ng is active; the switch overrides both."""
     monkeypatch.setattr(tenstorrent, "is_wormhole", lambda: wormhole)
@@ -115,3 +141,14 @@ def test_lm_gate_legacy_default(wormhole, switch, monkeypatch):
     assert esmc._lm_gate_legacy() is (wormhole if switch is None else switch)
     with tenstorrent.levers("lm_gate_ng"):
         assert esmc._lm_gate_legacy() is (False if switch is None else switch)
+
+
+@pytest.mark.parametrize("wormhole", [True, False])
+@pytest.mark.parametrize("switch", [None, True, False])
+def test_mm_gate_default(wormhole, switch, monkeypatch):
+    """The LM FFN's fc1 and gate run as one gated minimal_matmul on Wormhole unless lm_gate_ng is active."""
+    monkeypatch.setattr(tenstorrent, "is_wormhole", lambda: wormhole)
+    monkeypatch.setattr(esmc, "_ESMC_MM_GATE", switch)
+    assert esmc._mm_gate_on() is (wormhole if switch is None else switch)
+    with tenstorrent.levers("lm_gate_ng"):
+        assert esmc._mm_gate_on() is (False if switch is None else switch)
