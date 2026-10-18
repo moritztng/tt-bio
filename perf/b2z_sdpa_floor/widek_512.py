@@ -37,7 +37,11 @@ def main():
     q, k, v, bias = dram(qh), dram(kh), dram(vh), dram(bh)
     scale = D ** -0.5
     r = args.ref_rows
-    ref = torch.softmax(qh[:r].double() @ kh[:r].double().transpose(-1, -2) * scale + bh.double(), -1) @ vh[:r].double()
+    # Two reference conventions, the op's `scale` applied and not: the grade reports both rather
+    # than assume which one the fused kernel's caller contract is.
+    refs = {sc: torch.softmax(qh[:r].double() @ kh[:r].double().transpose(-1, -2) * sc + bh.double(), -1)
+            @ vh[:r].double() for sc in (scale, 1.0)}
+    outs = {}
 
     arms = {"k256": False, "k512": True}
     res = {"meta": {"card": os.environ.get("TT_VISIBLE_DEVICES"), "shape": [S, H, S, D],
@@ -54,11 +58,13 @@ def main():
         o = run(wide)
         out = ttnn.to_torch(o)[:r].double()
         ttnn.deallocate(o)
-        err = (out - ref)
-        res["arms"][name] = {"pick": list(T.SDPA_CHUNK_PICKS.get((S, S), [])),
-                             "max_abs": err.abs().max().item(),
-                             "rel_rms": (err.pow(2).mean().sqrt() / ref.pow(2).mean().sqrt()).item(),
-                             "ms": []}
+        outs[name] = out
+        res["arms"][name] = {"pick": list(T.SDPA_CHUNK_PICKS.get((S, S), [])), "ms": [], **{
+            f"rel_rms_scale{sc:g}": ((out - ref).pow(2).mean().sqrt() / ref.pow(2).mean().sqrt()).item()
+            for sc, ref in refs.items()}}
+    d = outs["k512"] - outs["k256"]
+    res["k512_vs_k256"] = {"max_abs": d.abs().max().item(),
+                           "rel_rms": (d.pow(2).mean().sqrt() / outs["k256"].pow(2).mean().sqrt()).item()}
     for _ in range(args.reps):
         for name, wide in arms.items():
             run(wide)  # warm the program cache for this arm before its timed call
@@ -75,8 +81,8 @@ def main():
     pathlib.Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     pathlib.Path(args.out).write_text(json.dumps(res, indent=1))
     for n, a in res["arms"].items():
-        print(n, a["pick"], f"{a['med_ms']:.3f} ms", f"max_abs {a['max_abs']:.4g} rel_rms {a['rel_rms']:.4g}")
-    print("speedup", round(res["speedup"], 4))
+        print(n, a["pick"], f"{a['med_ms']:.3f} ms", {k: round(x, 5) for k, x in a.items() if k.startswith("rel")})
+    print("k512 vs k256", res["k512_vs_k256"], "speedup", round(res["speedup"], 4))
 
 
 if __name__ == "__main__":
