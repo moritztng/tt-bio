@@ -25,14 +25,15 @@ def test_counter_separates_a_dark_join_from_a_declining_one():
     """Both arms of an A/B run the per-row loop when the join declines, so their coords come out
     bit-identical and the cell grades nothing. The counter is what tells that apart from a real pass."""
     T.OPM_DEPTH_JOIN_STATS[:] = [0, 0]
-    assert T._opm_depth_join_takes(256, 256, 4, 32)          # fits, several rows: joined
+    assert T._opm_depth_join_takes(224, 224, 2, 32)          # AF2-IG: two rows, fits: joined
     assert not T._opm_depth_join_takes(256, 256, 1, 32)      # one row has nothing to join
-    assert not T._opm_depth_join_takes(1536, 1536, 8, 32)    # over the cap: per-row loop
-    assert T.OPM_DEPTH_JOIN_STATS == [1, 2]
+    assert not T._opm_depth_join_takes(256, 256, 5, 32)      # OF3 4-row MSA: slower joined
+    assert not T._opm_depth_join_takes(1536, 1536, 2, 32)    # over the cap: per-row loop
+    assert T.OPM_DEPTH_JOIN_STATS == [1, 3]
 
 
 def test_counter_is_off_when_the_flag_is_off(monkeypatch):
     monkeypatch.setattr(T, "_OPM_DEPTH_JOIN", False)
     T.OPM_DEPTH_JOIN_STATS[:] = [0, 0]
-    assert not T._opm_depth_join_takes(256, 256, 4, 32)
+    assert not T._opm_depth_join_takes(224, 224, 2, 32)
     assert T.OPM_DEPTH_JOIN_STATS == [0, 1]

@@ -15682,6 +15682,10 @@ _OPM_DEPTH_JOIN = env_flag("TT_BIO_OPM_DEPTH_JOIN", True)
 # [I, J, D]. 6.4 MB at AF2-IG's 224 tokens and depth 2, but 1.2 GB at 1536 tokens and depth 8, where
 # every model with a shallow MSA reaches this path. Above the cap the per-row loop runs unchanged.
 OPM_DEPTH_JOIN_MAX_BYTES = 64 << 20
+# The join pays at two rows (AF2-IG, -0.05 s/fold on Wormhole) and costs at five (OpenFold3 with a
+# 4-row MSA, +0.10..0.50 s/fold on Wormhole at 117-298 tokens, every warm pair slower): the repeat
+# grows with S while the per-row loop's saving does not. Deeper folds keep the per-row loop.
+OPM_DEPTH_JOIN_MAX_ROWS = 2
 
 
 def _opm_depth_join_fits(I: int, J: int, S: int, D: int) -> bool:
@@ -15696,8 +15700,9 @@ OPM_DEPTH_JOIN_STATS = [0, 0]
 
 
 def _opm_depth_join_takes(I: int, J: int, S: int, D: int) -> bool:
-    """Whether `_small_depth` joins these shapes, counting the answer. One row has nothing to join."""
-    taken = S > 1 and _OPM_DEPTH_JOIN and _opm_depth_join_fits(I, J, S, D)
+    """Whether `_small_depth` joins these shapes, counting the answer. One row has nothing to join,
+    more than OPM_DEPTH_JOIN_MAX_ROWS run slower joined."""
+    taken = 1 < S <= OPM_DEPTH_JOIN_MAX_ROWS and _OPM_DEPTH_JOIN and _opm_depth_join_fits(I, J, S, D)
     OPM_DEPTH_JOIN_STATS[0 if taken else 1] += 1
     return taken
 
