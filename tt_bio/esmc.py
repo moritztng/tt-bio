@@ -1207,13 +1207,22 @@ class SwiGLUFFN(_MMLin, Module):
         serve. The interleaved weight is built on the first call from the two device halves (an exact round trip,
         block-fp8 included: every interleave group is whole tiles), so a model that never reaches it holds none."""
         w = self.fc1_a_weight
+        # The ESMC-6B's 544 rows are below minimal_matmul's floor, but under --fast (block-fp8 weights) the gated op
+        # still beats its two LIN6B linears and gate: 0.910 -> 0.706 ms a layer (gate_cfg_sweep --shapes 6b, Galaxy
+        # chip, 1000 MHz). Under bf16 weights it does not (1.019 -> 1.053). It keeps the 6B's HiFi4 fp32 accumulation,
+        # and only the measured regime (512-1023 rows, M block 2): the 256-row FFN chunks above 1024 aa are untested.
+        rows = x_norm.volume() // int(x_norm.shape[-1])
+        large = (getattr(self, "lm_large", False) and w.dtype == ttnn.bfloat8_b and x_norm.dtype == ttnn.bfloat16
+                 and 512 <= rows < 1024)
         if not (_mm_gate_on() and not l1_gated and len(x_norm.shape) == 3 and not _SWIGLU_SILU_FC1
-                and not _ESMC_ACT_BFP8 and self._mm_ok(x_norm, w)):
+                and not _ESMC_ACT_BFP8 and (large or self._mm_ok(x_norm, w))):
             return None
         from tt_bio import mm_gate
         g = x_norm.device().compute_with_storage_grid_size()
         grid = (int(g.x), int(g.y))
-        cfg = mm_gate.config(x_norm, 2 * int(w.shape[-1]), int(w.shape[-2]) // 32, grid, _mm_bf16_acc(w))
+        ck = self.compute_kernel_config if large else self._mm_ck(w)
+        cfg = mm_gate.config(x_norm, 2 * int(w.shape[-1]), int(w.shape[-2]) // 32, grid,
+                             not large and _mm_bf16_acc(w))
         if cfg is None or not mm_gate.overlay_ok():
             MM_GATE_STATS[1] += 1
             return None
@@ -1222,7 +1231,7 @@ class SwiGLUFFN(_MMLin, Module):
             w12 = mm_gate.interleave(ttnn.to_torch(w), ttnn.to_torch(self.fc1_b_weight), group)
             self._w12 = ttnn.from_torch(w12, dtype=w.dtype, layout=ttnn.TILE_LAYOUT, device=x_norm.device())
             self._w12_group = group
-        out = mm_gate.gated(x_norm, self._w12, cfg, self._mm_ck(w), grid, pack_sfpu=True)
+        out = mm_gate.gated(x_norm, self._w12, cfg, ck, grid, pack_sfpu=True)
         MM_GATE_STATS[0 if out is not None else 1] += 1
         return out
 

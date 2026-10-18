@@ -53,14 +53,19 @@ def config(x, n2: int, kt: int, grid, bf16_acc: bool):
     """The block config (M, K, N, subblock_h, subblock_w) for x @ [K, n2], or None where no N block fits `plan`.
     perf/spd_gap_whlm/gate_cfg_sweep.py (Galaxy chip, 1000 MHz, 3808 rows): this rule is the sweep's best or within
     2 % of it on ESMC 300M/600M, normal and --fast. N is the largest plan-valid block up to 12 tiles, the subblock
-    the widest divisor of it that fits a dest half, K 4 tiles under bf16 accumulation where K divides."""
+    the widest divisor of it that fits a dest half, K 4 tiles under bf16 accumulation where K divides.
+    M is 8 tiles unless a core's share of the rows is smaller: the ESMC-6B's 544 rows (17 tiles over 8 grid rows)
+    run best at M 2 and K 4 (--shapes 6b: 0.706 ms against 0.834 at M 4 and 0.956 at M 8)."""
     dmax = 8 if bf16_acc else 4
-    kb = 4 if bf16_acc and kt % 4 == 0 else 2
+    rows = x.volume() // int(x.shape[-1])
+    per_core = -(-(rows // TILE) // (grid[0] if rows > n2 else grid[1]))
+    mb = min(8, 1 << (per_core.bit_length() - 1))
+    kb = 4 if kt % 4 == 0 and (bf16_acc or mb <= 2) else 2
     for nb in (12, 10, 8, 6, 4):
-        cfg = (8, kb, nb, 1, 1)
+        cfg = (mb, kb, nb, 1, 1)
         if plan(x, n2, cfg, grid) is None:
             sw = max(w for w in range(1, dmax + 1) if nb % w == 0)
-            return (8, kb, nb, max(h for h in (1, 2, 4, 8) if h * sw <= dmax and 8 % h == 0), sw)
+            return (mb, kb, nb, max(h for h in (1, 2, 4, 8) if h * sw <= dmax and mb % h == 0), sw)
     return None
 
 
