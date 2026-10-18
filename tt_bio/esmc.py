@@ -436,6 +436,9 @@ MM_STATS = [0, 0]
 # op's default: 300M proj 0.233 -> 0.197, fc1 half 0.495 -> 0.461, fc2 0.392 -> 0.382; 600M proj 0.268 -> 0.226, fc1
 # half 0.645 -> 0.587, fc2 0.470 -> 0.452; error against float64 equal to the default's. Off = the op's default.
 _ESMC_MM_CFG = env_flag("TT_BIO_ESMC_MM_CFG", True)
+# Under bf16 accumulation (--fast's block-fp8 weights) the qkv split runs fastest in 8 x 8 blocks: mm_cfg_sweep on a
+# Galaxy chip at 1000 MHz, 600M 0.540 -> 0.481 ms a call, 300M 0.419 -> 0.406, same rel_l2 vs float64.
+_ESMC_MM_CFG_BF16_ACC_8X8 = env_flag("TT_BIO_ESMC_MM_CFG_8X8", True)
 # --fast's block-fp8 projection weights on the same minimal_matmul instead of ttnn.linear. Page cell on a Galaxy chip at
 # 1000 MHz, 2 rounds: 300M --fast 173.2/166.5 -> 162.8/157.0 ms, 600M 264.6/244.6 -> 237.5/237.0, embeddings equal to the
 # linear's (pcc 1.0). The same 16 x 4 block config is within 3 % of the best per-shape one with these weights.
@@ -536,9 +539,11 @@ def _mm_config(x, w, exact: bool = False):
         return {}
     g = x.device().compute_with_storage_grid_size()
     kt = int(w.shape[-2]) // 32
+    bf16_acc = _mm_bf16_acc(w, exact)
+    mn8 = bf16_acc and _ESMC_MM_CFG_BF16_ACC_8X8
     return {"config": ttnn.MinimalMatmulConfig(
-        M_block_size=16, K_block_size=4 if kt % 4 == 0 else 2, N_block_size=4, subblock_h=2,
-        subblock_w=4 if _mm_bf16_acc(w, exact) else 2, compute_with_storage_grid_size=ttnn.CoreCoord(g.x, g.y))}
+        M_block_size=8 if mn8 else 16, K_block_size=4 if kt % 4 == 0 else 2, N_block_size=8 if mn8 else 4,
+        subblock_h=2, subblock_w=4 if bf16_acc else 2, compute_with_storage_grid_size=ttnn.CoreCoord(g.x, g.y))}
 
 
 def _esmc_mm() -> bool:
