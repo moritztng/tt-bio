@@ -75,7 +75,8 @@ def test_engages_only_on_the_bf16_sdpa32_dit(hostblock):
     assert hostblock(FAST + "-dit_sdpa32+dit_fuse").fuse is None          # needs _sdpa32
     assert hostblock("dit_sdpa32+dit_s16+dit_fuse", ttnn.float32).fuse is None   # fp32 DiT: dit_s16 owns the s path
     assert hostblock("dit_sdpa32+dit_fuse", ttnn.float32).fuse is None        # fp32 DiT without it: still bf16-only
-    assert hostblock(FAST + "+dit_b8+dit_fuse").fuse is None              # lp owns the linears
+    b8 = hostblock(FAST + "+dit_b8+dit_fuse")                             # dit_b8 joins: bfp8 weights through _lin
+    assert b8.fuse is not None and b8.lp is None
 
 
 class _Rec:
