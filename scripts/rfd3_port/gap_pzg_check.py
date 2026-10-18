@@ -47,9 +47,23 @@ def _check(self, Z_init_II, bins, bins_self, batch, I):
     rm_ok = None if rm_c is None else bool(torch.equal(ttnn.to_torch(rm_c), ttnn.to_torch(rm)))
     M._PZ_GATHER = False
     z_a = ttnn.to_torch(_orig(self, Z_init_II, bins, bins_self, batch, I)).float()
+    inv_h, ainv_h = ttnn.to_torch(inv).float(), ttnn.to_torch(ainv).float()
     M._PZ_GATHER = True
-    z_g_t = _orig(self, Z_init_II, bins, bins_self, batch, I)
+    seen = []
+    real = G.gather_tiled
+    def spy(*a, **k):
+        o = real(*a, **k)
+        seen.append(ttnn.to_torch(o).float())       # the model's own em, read before its multiply
+        return o
+    M._gather_tiled.gather_tiled = spy
+    try:
+        z_g_t = _orig(self, Z_init_II, bins, bins_self, batch, I)
+    finally:
+        M._gather_tiled.gather_tiled = real
     z_g = ttnn.to_torch(z_g_t).float()
+    inv2, ainv2 = self._process_z_invariant(Z_init_II, 1 if bins_self is None else 2, batch)
+    inv_moved = int((ttnn.to_torch(inv2).float() != inv_h).sum()) + int((ttnn.to_torch(ainv2).float() != ainv_h).sum())
+    em_model_neq = int((seen[0] != g).sum()) if seen else None
     r = {"call": len(REC), "N": int(tab.shape[0]), "tab_shape": list(tab.shape), "tab_dtype": str(tab.dtype),
          "batch": batch, "I": I, "flat_dtype": str(flat.dtype), "flat_shape": list(flat.shape),
          "flat_max": int(flat.max()), "em_shape": list(a.shape),
@@ -57,7 +71,8 @@ def _check(self, Z_init_II, bins, bins_self, batch, I):
          "em_neq": int((a != g).sum()), "z_maxabs": float((z_a - z_g).abs().max()), "z_neq": int((z_a != z_g).sum()),
          "zz_ship_vs_gather_neq": int((zz[0] != zz[1]).sum()), "zz_ship_vs_ship_neq": int((zz[0] != zz[2]).sum()),
          "z_ship_vs_zz_neq": int((z_a != zz[0]).sum()), "z_gather_vs_zz_neq": int((z_g != zz[1]).sum()),
-         "rm_cache_equal": rm_ok, "inv_shape": list(inv.shape), "inv_padded": list(inv.padded_shape)}
+         "rm_cache_equal": rm_ok, "inv_ainv_moved_by_model_call": inv_moved, "em_model_neq": em_model_neq,
+         "inv_same_object": inv2 is inv, "inv_shape": list(inv.shape), "inv_padded": list(inv.padded_shape)}
     print("[pzg]", r, flush=True)
     REC.append(r)
     OUT.write_text(json.dumps(REC, indent=1))

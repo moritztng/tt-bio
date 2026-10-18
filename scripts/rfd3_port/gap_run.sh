@@ -3,7 +3,8 @@
 # AICLK and the load sampled every 0.5 s DURING the run. OUT/run.log (start/end, rc), OUT/harness.log (CMD's output),
 # OUT/aiclk.tsv (epoch, node, MHz, load), OUT/nodes.txt (the device node CMD opened: its aiclk.tsv column).
 # PY = interpreter with the serving deps (default python, after a Galaxy's env.sh). LOCK = the chip's flock file
-# (default ~/spd/locks/chip<CHIP>.lock), WAIT = seconds to queue on it. CMD may say $PY.
+# (default ~/spd/locks/chip<CHIP>.lock), WAIT = seconds to queue on it, SHARE = cells sharing the host (default: its TT devices).
+# CMD may say $PY.
 set -u
 CHIP=$1 OUT=$2 TMO=$3; shift 3
 [ -f ~/japanfold/env.sh ] && . ~/japanfold/env.sh > /dev/null 2>&1
@@ -11,6 +12,9 @@ cd "$(dirname "$0")/../.."
 mkdir -p "$OUT" ~/spd/locks ~/spd/spd-gap-whrfd3/leases
 export PY=${PY:-python} PYTHONPATH=$PWD${PYTHONPATH:+:$PYTHONPATH}
 export TT_VISIBLE_DEVICES=$CHIP TT_BIO_LEASE_HOLDER=spd-gap-whrfd3 TT_BIO_LEASE_DIR=$HOME/spd/spd-gap-whrfd3/leases
+# The serving share of the host (runtime.host_thread_cap_env, as the gapboard's runner): uncapped, every cell spins
+# cores/2 OpenMP threads and a full box sits at loadavg ~100 on 64 cores, which skews every other cell's numbers.
+eval "$("$PY" -c "from tt_bio import runtime as r; [print(f'export {k}={v}') for k,v in r.host_thread_cap_env(${SHARE:-$(ls /dev/tenstorrent | wc -l)}, None).items()]")"
 say() { echo "$(date -u +%FT%TZ) $*" >> "$OUT/run.log"; }
 exec 9> "${LOCK:-$HOME/spd/locks/chip$CHIP.lock}"
 flock -w "${WAIT:-600}" 9 || { say "flock busy"; exit 3; }

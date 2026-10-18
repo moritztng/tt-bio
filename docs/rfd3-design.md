@@ -224,6 +224,12 @@ Attention heads are split by one kernel over the concatenated q, k and v (atom a
 cross attention between atoms and tokens) instead of a reshape and permute per tensor. Same values, bit for
 bit; `RFD3_QKV_HEADS=0` and `RFD3_GCA_HEADS=0` restore the old path.
 
+Three more data-movement changes are bit-exact and on by default: the pair-feature table lookup writes tile
+layout directly (`RFD3_PZ_GATHER=0` restores embedding plus tilize), the atom mask writer walks each neighbour
+index once for four heads (`RFD3_MASKW_HG=1` restores one head at a time), and on Wormhole the token
+attention splits queries into 352-row chunks instead of 64 (`RFD3_DIT_SDPA_CHUNKS=64,352` restores it).
+Together they save about 1 to 1.5 s per design on Wormhole and about 1 s on a p150a.
+
 The pair-feature projection that does not change between steps is computed once per design and the
 distance-bin half becomes a table lookup, three device ops instead of six. It started in `--fast` and now
 ships in both modes: over eight paired default seeds on Wormhole chain breaks go from 4 to 3, clashes drop
