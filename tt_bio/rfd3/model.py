@@ -3496,6 +3496,24 @@ class DiffusionTokenEncoder(Module):
         return s, z
 
 
+def dit_hoist_weights(weights, n_block):
+    """_DIT_SHOIST's wide weights from the torch state dict: (gain W [c_s, 2 n_block c], gain b [1, ...], shift W,
+    gate W, gate b). Columns (2i + j) x c hold block i's attention (j = 0) or transition (j = 1) term; ln_s is folded
+    into the gain and shift rows in float64, since rms_norm(s, ln_s) @ W = rms_norm(s) @ (ln_s[:, None] * W)."""
+    sc_w, sc_b, sb_w, g_w, g_b = [], [], [], [], []
+    for i in range(n_block):
+        for ada, out in (("attention_pair_bias.ada_ln_1.", "attention_pair_bias."),
+                         ("transition_block.ada_ln.", "transition_block.")):
+            w = lambda k: weights[f"blocks.{i}.{k}"].double()  # noqa: E731
+            ln = w(ada + "ln_s.weight")[:, None]
+            sc_w.append(w(ada + "to_gain.0.weight").t() * ln)
+            sc_b.append(w(ada + "to_gain.0.bias")[None])
+            sb_w.append(w(ada + "to_bias.weight").t() * ln)
+            g_w.append(w(out + "linear_output_project.0.weight").t())
+            g_b.append(w(out + "linear_output_project.0.bias")[None])
+    return tuple(torch.cat(x, -1) for x in (sc_w, sc_b, sb_w, g_w, g_b))
+
+
 class LocalTokenTransformer(Module):
     """RFD3 18-block token DiT. Each block is the dense-additive-mask
     StructureLocalAtomTransformerBlock (conditioned AttentionPairBias + ConditionedTransition)
@@ -3574,20 +3592,9 @@ class LocalTokenTransformer(Module):
         sigmoid adaLN gains, adaLN shifts (both off rms_norm(s), each block's ln_s folded into its weights) and
         sigmoid output gates (off s). Block i's attention terms are columns 2i x 768, its transition's 2i + 1."""
         if self._hoist_w is None:
-            sc_w, sc_b, sb_w, g_w, g_b = [], [], [], [], []
-            for i in range(len(self.blocks)):
-                for ada in ("attention_pair_bias.ada_ln_1.", "transition_block.ada_ln."):
-                    w = lambda k: self.weights[f"blocks.{i}.{ada}{k}"].float()  # noqa: E731
-                    ln = w("ln_s.weight")[:, None]
-                    sc_w.append(w("to_gain.0.weight").t() * ln)
-                    sc_b.append(w("to_gain.0.bias"))
-                    sb_w.append(w("to_bias.weight").t() * ln)
-                for out in ("attention_pair_bias.", "transition_block."):
-                    g_w.append(self.weights[f"blocks.{i}.{out}linear_output_project.0.weight"].float().t())
-                    g_b.append(self.weights[f"blocks.{i}.{out}linear_output_project.0.bias"].float())
-            up = lambda xs, d=-1: ttnn.from_torch(torch.cat(xs, d).contiguous(), layout=ttnn.TILE_LAYOUT,  # noqa
-                                                 device=self.device, dtype=self.dtype)
-            self._hoist_w = (up(sc_w), up([b[None] for b in sc_b]), up(sb_w), up(g_w), up([b[None] for b in g_b]))
+            self._hoist_w = tuple(ttnn.from_torch(t.float().contiguous(), layout=ttnn.TILE_LAYOUT, device=self.device,
+                                                  dtype=self.dtype)
+                                  for t in dit_hoist_weights(self.weights, len(self.blocks)))
         sc_w, sc_b, sb_w, g_w, g_b = self._hoist_w
         ckc = self.compute_kernel_config
         lin = lambda x, w, b=None, act=None: ttnn.linear(x, w, bias=b, activation=act, compute_kernel_config=ckc,  # noqa
