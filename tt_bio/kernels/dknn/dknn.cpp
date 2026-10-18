@@ -4,7 +4,7 @@
 
 // dknn: the outside-mask part of RFD3's atom neighbour index on the data-movement RISC-Vs, in integers.
 // Coordinates arrive as int32 fixed point (|q| <= 2^30), so |dx| < 2^31 and dx^2 + dy^2 + dz^2 < 2^64 is an
-// exact uint64 key. Per row: key of every atom, the k-th smallest key (quickselect on a copy), then the atoms
+// exact uint64 key. Per row: key of every atom, the k-th smallest key (quickselect), then the atoms
 // outside the row's mask whose key is <= it; if more than n_fill, the n_fill smallest (ties to the lower index).
 // That is what _neighbours_kdtree keeps from a k-nearest query. The row is written ascending, padded with L.
 // The same source runs on BRISC and NCRISC; each takes its own row range and its own L1 buffers.
@@ -61,30 +61,57 @@ void kernel_main() {
     volatile tt_l1_ptr uint32_t* m = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(m_l1);
     volatile tt_l1_ptr uint32_t* o = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(o_l1);
 
+    // The k-th key is bounded by a sample: the TS-th smallest key of every SS-th atom. Collect only the atoms at or
+    // under that bound; if fewer than K made it, the bound was too tight and every atom is collected instead. Either
+    // way the k-th key is the k-th of the collected keys, so the row is the same, and quickselect runs on ~2K keys.
+    constexpr uint32_t KK = K < L ? K : L;
+    constexpr uint32_t SS = 8, NS = (L + SS - 1) / SS, TS = 2 * KK / SS - 1;
+    constexpr bool SAMPLED = L >= 4 * KK && TS < NS;
+
     for (uint32_t r = r0; r < r0 + nr; ++r) {
         noc_async_read(sm.get_noc_addr(r), m_l1, MW * 4);
         const int32_t qx = x[4 * r], qy = x[4 * r + 1], qz = x[4 * r + 2];
-        for (uint32_t j = 0; j < L; ++j) {
+        auto key = [&](uint32_t j) {
             const int32_t ax = x[4 * j] - qx, ay = x[4 * j + 1] - qy, az = x[4 * j + 2] - qz;
             const uint32_t ux = ax < 0 ? uint32_t(-ax) : uint32_t(ax);
             const uint32_t uy = ay < 0 ? uint32_t(-ay) : uint32_t(ay);
             const uint32_t uz = az < 0 ? uint32_t(-az) : uint32_t(az);
-            const uint64_t v = uint64_t(ux) * ux + uint64_t(uy) * uy + uint64_t(uz) * uz;
-            d[j] = v;
-            s[j] = v;
+            return uint64_t(ux) * ux + uint64_t(uy) * uy + uint64_t(uz) * uz;
+        };
+        auto collect = [&](uint64_t bound) {   // (key, index) pairs with key <= bound, ascending by index
+            uint32_t c = 0;
+            for (uint32_t j = 0; j < L; ++j) {
+                const uint64_t v = key(j);
+                if (v <= bound) {
+                    s[2 * c] = v;
+                    s[2 * c + 1] = j;
+                    ++c;
+                }
+            }
+            return c;
+        };
+        uint64_t bound = ~uint64_t(0);
+        if constexpr (SAMPLED) {
+            for (uint32_t i = 0; i < NS; ++i) d[i] = key(i * SS);
+            bound = kth(d, int32_t(NS), int32_t(TS));
         }
-        const uint64_t dk = kth(s, int32_t(L), int32_t(K < L ? K : L) - 1);
+        uint32_t c = collect(bound);
+        if (c < KK) c = collect(~uint64_t(0));
+        for (uint32_t t = 0; t < c; ++t) d[t] = s[2 * t];
+        const uint64_t dk = kth(d, int32_t(c), int32_t(KK) - 1);
         noc_async_read_barrier();
         const uint32_t n_fill = m[0];
-        // outside-mask candidates within the k-th key, packed as (key, index) pairs in the scratch buffer
-        uint32_t c = 0;
-        for (uint32_t j = 0; j < L; ++j) {
-            if (d[j] <= dk && !((m[1 + (j >> 5)] >> (j & 31)) & 1u)) {
-                s[2 * c] = d[j];
-                s[2 * c + 1] = j;
-                ++c;
+        // outside-mask candidates within the k-th key, compacted in place (still ascending by index)
+        uint32_t c2 = 0;
+        for (uint32_t t = 0; t < c; ++t) {
+            const uint32_t j = uint32_t(s[2 * t + 1]);
+            if (s[2 * t] <= dk && !((m[1 + (j >> 5)] >> (j & 31)) & 1u)) {
+                s[2 * c2] = s[2 * t];
+                s[2 * c2 + 1] = j;
+                ++c2;
             }
         }
+        c = c2;
         uint32_t w = 0;
         if (c <= n_fill) {
             for (uint32_t t = 0; t < c; ++t) o[w++] = uint32_t(s[2 * t + 1]);
