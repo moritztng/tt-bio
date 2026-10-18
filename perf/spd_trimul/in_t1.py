@@ -77,7 +77,7 @@ def bad_units(a, r, il):
     return out
 
 
-def unit_map(a, r, il, units):
+def unit_map(a, r, il, units, mask=None):
     """For each (xt, h, yt) unit: rel rms of `a` by channel tile and by row of the unit (where in the
     unit the error sits: the last channel tile only would mean the unit's tail races the next unit)."""
     out = []
@@ -88,8 +88,17 @@ def unit_map(a, r, il, units):
         ct = e.shape[0] // 32
         q = (e.reshape(ct, -1).pow(2).sum(1) / rr.reshape(ct, -1).pow(2).sum(1).clamp_min(1e-30)).sqrt()
         rw = (e.pow(2).sum((0, 2)) / rr.pow(2).sum((0, 2)).clamp_min(1e-30)).sqrt()
+        # The worst elements of the unit: [channel, row, col, a, ref, mask] (a wrong mask element shows as
+        # a = 0 with mask 1, or a != 0 with mask 0).
+        top = e.abs().flatten().topk(4).indices.tolist()
+        el = []
+        for f in top:
+            ch, rr_, cc = f // (il * 32), f // 32 % il, f % 32
+            i, j = xt * 32 + hh * il + rr_, yt * 32 + cc
+            el.append([ch, i, j, round(float(a[0, ch, i, j]), 4), round(float(r[0, ch, i, j]), 4),
+                       None if mask is None else float(mask[0, i, j])])
         out.append({"unit": [xt, hh, yt], "by_q": [round(float(v), 4) for v in q],
-                    "by_row": [round(float(v), 4) for v in rw]})
+                    "by_row": [round(float(v), 4) for v in rw], "worst": el})
     return out
 
 
@@ -186,7 +195,7 @@ for n in [int(s) for s in A.ns.split(",") if s]:
                 il = TT.T1_PLANS.get((C // 32, 2 * h // 32, C // 32), (1, 32))[1]
                 bu = bad_units(host[0].reshape(ref["a"].shape), ref["a"], il)
                 rec["a_bad_units"], rec["a_bad_first"] = len(bu), bu[:24]   # [u, xt, h, yt, core, pos, units on core]
-                rec["a_bad_map"] = unit_map(host[0].reshape(ref["a"].shape), ref["a"], il, bu[:3])
+                rec["a_bad_map"] = unit_map(host[0].reshape(ref["a"].shape), ref["a"], il, bu[:4], m)
             free(outs)
             rec["t1_ms"] = timed(lambda: free(t1()), A.reps)
             rec["t1_GBps"] = round(4 * P / rec["t1_ms"] / 1e6, 1)
