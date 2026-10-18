@@ -9,12 +9,18 @@ M = pytest.importorskip("tt_bio.rfd3.model")
 
 
 def _kernel_rows(q, mw, L, K, WO):
-    """dknn.cpp per row: k-th uint64 key, outside-mask atoms within it, the n_fill nearest (ties to the lower index)."""
+    """dknn.cpp per row: k-th uint64 key (quickselect on the atoms under a 1-in-8 sample's bound, or on every atom if
+    fewer than K are under it), outside-mask atoms within it, the n_fill nearest (ties to the lower index)."""
     out = np.full((L, WO), L, np.int32)
     j = np.arange(L)
+    ts, sampled = 2 * K // 8 - 1, L >= 4 * K
     for r in range(L):
         d = ((q[:, :3].astype(np.int64) - q[r, :3]) ** 2).sum(1).astype(np.uint64)
-        dk = np.sort(d)[K - 1]
+        under = d <= np.sort(d[::8])[ts] if sampled else np.ones(L, bool)
+        if under.sum() < K:
+            under[:] = True
+        dk = np.sort(d[under])[K - 1]
+        assert dk == np.sort(d)[K - 1]
         bit = (mw[r, 1 + (j >> 5)] >> (j & 31).astype(np.uint32)) & 1
         c = np.where((d <= dk) & (bit == 0))[0]
         if len(c) > mw[r, 0]:
