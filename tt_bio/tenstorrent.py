@@ -716,7 +716,9 @@ _FAST_MODE = False
 #                   weights re-laned from the bf16 device copies on the first call that takes it.
 #   dit_qkvf        the bf16 token DiT's attention as OpenFold3's dit_fuse runs it: one `_sdpa32_fused` program reads
 #                   the fused qkv projection and writes the heads concatenated on their padded lanes, so neither
-#                   nlp_create_qkv_heads nor the head re-assembly runs; gate and output projection as apb_cat
+#                   nlp_create_qkv_heads nor the head re-assembly runs; gate and output projection as apb_cat.
+#                   ESMFold2's token DiT takes the same program off its folded q|k|v projection, its token stream
+#                   padded to sdpa32_rows once per token transformer call (esmfold2.DiffusionTransformerModel).
 #   relp_gather     the Protenix family's trunk input projects relative position by one row gather from a per-fold
 #                   table (each distinct one-hot row summed once on the host lane) instead of uploading the
 #                   [N, N, 139] one-hot and multiplying it.

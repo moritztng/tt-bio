@@ -43,6 +43,7 @@ from tt_bio.tenstorrent import (
     sdpa32_mask,
     sdpa32_rows,
     _sdpa32,
+    _sdpa32_fused,
     trunk_compute_kernel_config,
     trace_region_size,
 )
@@ -394,6 +395,19 @@ class AttentionPairBias(Module):
 
         x = self.adaln(a, s)
         lin = self._lin
+        if lever("dit_qkvf"):
+            # dit_qkvf: one q|k|v projection (head padding folded in) read straight by the shared `_sdpa32_fused`
+            # program, which writes the heads concatenated on their padded lanes: no head split, no casts, no
+            # re-assembly. The token axis arrives padded to sdpa32_rows (DiffusionTransformerModel).
+            qkv_w, qkv_b, g_w = self._folded()
+            qkv = ttnn.unsqueeze(lin(x, qkv_w, qkv_b), 1)
+            g_pad = ttnn.sigmoid(lin(x, g_w))
+            ttnn.deallocate(x)
+            B, _, n, w = (int(d) for d in qkv.shape)
+            ctx = _sdpa32_fused(qkv, self._pair_bias(z, head_dim, ck), head_dim**-0.5, self.num_heads,
+                                out_dtype=_DTYPE)
+            ttnn.deallocate(qkv)
+            return self._out(ttnn.reshape(ctx, (B, n, w // 3)), g_pad, s)
         if _APB_FOLD:
             qkv_w, qkv_b, g_w = self._folded()
             qh, kh, vh = self._split_heads(lin(x, qkv_w, qkv_b), self.num_heads)
@@ -423,46 +437,50 @@ class AttentionPairBias(Module):
         ttnn.deallocate(g)
         return self._attend(qh, kh, vh, g_pad, s, z, head_dim, ck)
 
-    def _attend(self, qh, kh, vh, g_pad, s, z, head_dim, ck):
-        lin = self._lin
-        # pair_bias = pair_bias_proj(layer_norm(z)) is a pure function of the
-        # pair conditioning z, which is constant across the diffusion sampling
-        # steps (the resident sampler feeds the same cached z object each step).
-        # So compute it once and reuse it while the same z is fed; a new protein
-        # passes a fresh z, which rebuilds it. Bit-identical to recomputing, and
-        # saves an O(L^2 . H) layer_norm + projection per step per layer — the
-        # single largest step-invariant cost in the token DiT.
-        if _STEP_CACHE and self._pb_src is z:
-            pair_bias = self._pb
-        else:
-            if self._pb is not None:
-                ttnn.deallocate(self._pb)
-            z_norm = ttnn.layer_norm(
-                z, weight=self.pair_norm_w, bias=self.pair_norm_b, epsilon=1e-5, compute_kernel_config=ck
-            )
-            pb = lin(z_norm, self.pair_bias_w)  # [B, L, L, H]
-            ttnn.deallocate(z_norm)
-            pair_bias = ttnn.permute(pb, (0, 3, 1, 2))  # [B, H, L, L]
-            ttnn.deallocate(pb)
-            if lever("ef2_sdpa32"):  # cache the fp32 mask in place of the bf16 bias
-                m = _sdpa32_mask(pair_bias, head_dim**-0.5)
-                ttnn.deallocate(pair_bias)
-                pair_bias = m
-            self._pb = pair_bias
-            self._pb_src = z
+    def _pair_bias(self, z, head_dim, ck):
+        """pair_bias = pair_bias_proj(layer_norm(z)) [B, H, L, L], or under ef2_sdpa32 / dit_qkvf `_sdpa32`'s mask
+        made from it (`_sdpa32_mask`).
 
+        A pure function of the pair conditioning z, which is constant across the diffusion sampling steps (the
+        resident sampler feeds the same cached z object each step). So it is built once and reused while the same
+        z is fed; a new protein passes a fresh z, which rebuilds it. Bit-identical to recomputing, and saves an
+        O(L^2 . H) layer_norm + projection per step per layer, the single largest step-invariant cost in the
+        token DiT."""
+        if _STEP_CACHE and self._pb_src is z:
+            return self._pb
+        if self._pb is not None:
+            ttnn.deallocate(self._pb)
+        z_norm = ttnn.layer_norm(
+            z, weight=self.pair_norm_w, bias=self.pair_norm_b, epsilon=1e-5, compute_kernel_config=ck
+        )
+        pb = self._lin(z_norm, self.pair_bias_w)  # [B, L, L, H]
+        ttnn.deallocate(z_norm)
+        pair_bias = ttnn.permute(pb, (0, 3, 1, 2))  # [B, H, L, L]
+        ttnn.deallocate(pb)
+        if lever("ef2_sdpa32") or lever("dit_qkvf"):  # cache the fp32 mask in place of the bf16 bias
+            m = _sdpa32_mask(pair_bias, head_dim**-0.5)
+            ttnn.deallocate(pair_bias)
+            pair_bias = m
+        self._pb = pair_bias
+        self._pb_src = z
+        return pair_bias
+
+    def _attend(self, qh, kh, vh, g_pad, s, z, head_dim, ck):
+        pair_bias = self._pair_bias(z, head_dim, ck)
         if lever("ef2_sdpa32"):
             ctx = _sdpa32_attn(qh, kh, vh, pair_bias, head_dim**-0.5)
         else:
             ctx = _attn_fp32(qh, kh, vh, pair_bias, head_dim**-0.5, ck, self.accurate_softmax)
         ttnn.deallocate(qh); ttnn.deallocate(kh); ttnn.deallocate(vh)
-        ctx = self._merge_heads(ctx)  # [B, L, H*head_dim_pad]  (pad value dims are 0)
-        # Gate + out_proj in the padded head layout, then project back to d_model.
+        return self._out(self._merge_heads(ctx), g_pad, s)  # [B, L, H*head_dim_pad]  (pad value dims are 0)
+
+    def _out(self, ctx, g_pad, s):
+        """Gate + out_proj in the padded head layout, then project back to d_model; times the s gate."""
         ctx = ttnn.multiply(ctx, g_pad)
         ttnn.deallocate(g_pad)
-        out = lin(ctx, self.out_w_padded)  # [B, L, d_model]
+        out = self._lin(ctx, self.out_w_padded)  # [B, L, d_model]
         ttnn.deallocate(ctx)
-        out_gate = ttnn.sigmoid(lin(s, self.out_gate_w, self.out_gate_b))
+        out_gate = ttnn.sigmoid(self._lin(s, self.out_gate_w, self.out_gate_b))
         return ttnn.multiply(out_gate, out)
 
 
@@ -510,10 +528,22 @@ class DiffusionTransformerModel(Module):
         ]
 
     def __call__(self, a: ttnn.Tensor, s: ttnn.Tensor, z: ttnn.Tensor) -> ttnn.Tensor:
+        # dit_qkvf runs the attention at sdpa32_rows. The token stream is padded to it here, once a call, not
+        # q, k and v in every block: rows are independent everywhere but the attention, and its mask
+        # (`_sdpa32_mask`) hides the new keys. The same padding Protenix's and OpenFold3's token DiTs do.
+        n = int(a.shape[-2])
+        npad = sdpa32_rows(n) if lever("dit_qkvf") else n
+        if npad != n:
+            a, s = (ttnn.pad(t, [(0, 0), (0, npad - n), (0, 0)], value=0.0) for t in (a, s))
         x = a
         for attn, trans in zip(self.attn, self.trans):
             x = ttnn.add(x, attn(x, s, z))
             x = ttnn.add(x, trans(x, s))
+        if npad != n:
+            out = ttnn.slice(x, [0, 0, 0], [int(x.shape[0]), n, int(x.shape[2])])
+            for t in (s, x):
+                ttnn.deallocate(t)
+            x = out
         return x
 
 
