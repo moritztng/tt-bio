@@ -26,6 +26,7 @@ import torch
 import ttnn
 
 from . import dest_guard
+from . import ops as _ops
 from . import mm_generic as MG
 from .envflags import env_flag
 
@@ -1559,6 +1560,7 @@ def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps, il, b8=F
     return {"kernels": [reader, writer, compute], "cbs": cbs}
 
 
+@_ops.fused_kernel("trimul_t1_in")
 def fused_in_ln(x, ln_w, ln_b, wpT, wgT, wgo, ckc, grid, mask=None, eps=1e-5, b8=False, bias=None):
     """`[a, b, g_out]` of the trimul input side from the raw pair `x`, one kernel:
     xn = layer_norm(x; ln_w, ln_b, eps), [a | b] = (xn @ wpT^T) * sigmoid(xn @ wgT^T), `a` times

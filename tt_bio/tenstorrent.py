@@ -9513,14 +9513,17 @@ class TriangleMultiplication(Module):
 
         Asks for exactly the route the channel loop would otherwise take at this shape with the
         fused gate: the DRAM path, one channel-loop iteration, the matmul taking the inner swap,
-        the mask past the move, no biases, no tape. Every decline is counted in T1_STATS[1].
+        the mask past the move, no recording tape. A tape's untaped forward (BindCraft 2's checkpointed
+        trunk under `NOGRAD_IS_INFERENCE`) takes it: `fused_in_ln` is a `fused_kernel`, so it runs on the
+        raw operands there, and the recompute that builds the backward still takes the composed path.
+        Every decline is counted in T1_STATS[1].
         """
         TT1 = _trimul_tail
         if not TT1.t1_any() or H < TT1.MIN_N:
             return None
         mask_ok = mask is None or (_TRIMUL_MASK_AFTER_MOVE and len(mask.shape) == 3)
         why = next((k for k, bad in (
-            ("tape", lambda: ops.taping()), ("fast_mode", lambda: _FAST_MODE),
+            ("tape", lambda: ops.recording()), ("fast_mode", lambda: _FAST_MODE),
             ("raw_moves", lambda: _TRIMUL_RAW_CHANNEL_MOVES), ("rowblock", lambda: _TRIMUL_INPROJ_ROWBLOCK),
             ("g_in", lambda: self.g_in_weight is not None),
             ("g_out_bias", lambda: (self.g_out_bias is None) != (self._g_in_b is None)),
