@@ -197,7 +197,7 @@ def test_protenix_family_normal_set():
     from tt_bio.opendde import BH_NORMAL_LEVERS, NORMAL_LEVERS as DDE
     from tt_bio.protenix import NORMAL_LEVERS, T2_TAIL, TRIATT_LN, WS_CHAIN
 
-    assert DDE == NORMAL_LEVERS | WS_CHAIN | T2_TAIL | TRIATT_LN and DDE <= set(T.LEVERS)
+    assert DDE == NORMAL_LEVERS | WS_CHAIN | T2_TAIL | TRIATT_LN | {"ws_resid", "ws_resid2"} and DDE <= set(T.LEVERS)
     assert BH_NORMAL_LEVERS == NORMAL_LEVERS
     assert NORMAL_LEVERS - T.NORMAL_LEVERS == {"transition_ws", "ws_l1acc", "trimul_t1_c256", "trimul_t1_c384"}
 
