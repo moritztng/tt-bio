@@ -17,7 +17,7 @@ device.
 import torch
 import ttnn
 
-from .protenix import NORMAL_LEVERS as _FAMILY_NORMAL, T2_TAIL, TRIATT_LN, WS_CHAIN, _KeyedWeights
+from .protenix import NORMAL_LEVERS as _FAMILY_NORMAL, T2_TAIL, TRIATT_K1, TRIATT_LN, WS_CHAIN, _KeyedWeights
 from . import hostlane
 from .envflags import env_flag
 from .opendde_data import STRUCTURAL_TOKEN_ROLES
@@ -454,7 +454,7 @@ FAST_LEVERS = (_T.FAST_LEVERS - {"dit_b8"}) | {"trimul_b8in", "trimul_t2w"} | WS
 # Wormhole fast also runs T1 on OpenDDE's c_z 384 pair (trimul_t1_c384). WH 11-set fast grade, FAST_LEVERS vs +
 # trimul_t1_c384 (spd-integrate gpsf, 2026-10-17, 44 paired folds): PASS, CA-lDDT -0.0005 [-0.0016, +0.0002], pLDDT
 # -0.0002, docking 25 -> 24 of 44. cdk2x2 512 x 1 at 1000 MHz: 104.16 -> 101.52 s (-2.5 %). Blackhole is ungraded.
-WH_FAST_LEVERS = FAST_LEVERS | {"trimul_t1_c384"} | TRIATT_LN
+WH_FAST_LEVERS = FAST_LEVERS | {"trimul_t1_c384"} | TRIATT_LN | TRIATT_K1
 # Both Wormhole modes fuse triangle attention's LayerNorm into its qkvgb projection (triatt_ln), now that the
 # kernel splits OpenDDE's 1.2 MB weight over column groups instead of declining. WH 11-set grades vs the model set
 # before T2_TAIL / trimul_t1_c384, 4 seeds, 44 paired folds each, 1000 MHz (spd-m-opendde tlng, 2026-10-17): normal PASS, same-seed top pose median
@@ -467,6 +467,10 @@ WH_FAST_LEVERS = FAST_LEVERS | {"trimul_t1_c384"} | TRIATT_LN
 # (spd-m-opendde apbg, 2026-10-18): normal PASS, same-seed top pose median 0.147 A (A/A floor 1.098 A), CA-lDDT
 # +0.0007 [+0.0000, +0.0017], docking 25 -> 26; fast PASS, top pose median 0.247 A (floor 1.476 A), CA-lDDT -0.0001
 # [-0.0005, +0.0003], docking 26 -> 26.
+# Wormhole fast also takes triatt_k1 (protenix.TRIATT_K1). 512-token truth set, WH_FAST_LEVERS vs + triatt_k1, 4 seeds,
+# 44 paired folds, every digest moved (spd-gap-small gk1os, 2026-10-18): PASS, same-seed top pose median 0.450 A vs the
+# 1.902 A A/A floor. cdk2x2 512 x 1 at 1000 MHz, 5 paired warm folds (k1o): fast 93.77 -> 92.44 s. Normal stays off:
+# its grade FAILs on iRMSD, +0.068 A [+0.014, +0.146] (43 paired folds, docking 31 -> 31), though normal reads -1.67 s.
 
 
 class OpenDDE:
