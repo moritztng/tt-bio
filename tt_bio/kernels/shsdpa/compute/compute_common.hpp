@@ -25,6 +25,14 @@
 #include "api/compute/reduce_custom.h"
 #ifdef GATE_EPILOGUE
 #include "api/compute/eltwise_binary_sfpu.h"
+// SHSDPA_ZONES: device-profiler zones around each stage of one k-chunk step in sdpa_inner_loop (needs
+// TT_METAL_DEVICE_PROFILER=1 at run time; compiles to nothing without the define).
+#if defined(SHSDPA_ZONES)
+#include "tools/profiler/kernel_profiler.hpp"
+#define SHSDPA_ZONE(name) DeviceZoneScopedN(name)
+#else
+#define SHSDPA_ZONE(name)
+#endif
 #endif
 
 ALWI void sdpa_reduce_copy_tile_to_dst_init_short(uint32_t cbid, uint32_t transpose = 0) {
@@ -2005,6 +2013,8 @@ void sdpa_inner_loop(
             const bool qk_mask_preload = use_provided_mask && !is_causal && sliding_window_size == 0 &&
                                          sdpa_type != RING && !lw_mask.enabled;
 #endif
+            {
+            SHSDPA_ZONE("QK");
             matmul_blocks(
                 cb_q_in,
                 cb_k_in,
@@ -2028,6 +2038,7 @@ void sdpa_inner_loop(
                 k_chunk * qk_chunk_tiles
 #endif
             );
+            }
 
             /**
              * Note
@@ -2134,6 +2145,8 @@ void sdpa_inner_loop(
              * else:
              *  cur_max = max(qk, dim=-1)
              */
+            {
+            SHSDPA_ZONE("MAX");
             reconfig_data_format(cb_qk_im, cb_identity_scale_in);
             // The packer still holds cb_qk_im's format from the matmul and the mask add. The row
             // statistics are bf16, so a narrower score CB needs the packer moved before the max
@@ -2146,6 +2159,7 @@ void sdpa_inner_loop(
             reduce_c<PoolType::MAX, ReduceDim::REDUCE_ROW, cb_qk_im, cb_identity_scale_in, Sq_chunk_t, Sk_chunk_t>(
                 alias_cur_max, alias_prev_max, processed_k_chunks > 0);
 #endif
+            }
 
             /**
              * sub_exp fuses a few operations.
@@ -2157,14 +2171,19 @@ void sdpa_inner_loop(
              * Partial reduce_sum is used to push the final row_reduction within a tile
              * outside of the loop over K chunks.
              */
+            {
+            SHSDPA_ZONE("EXP");
             sub_exp_block_bcast_cols_inplace<cb_qk_im, Sq_chunk_t, scale_fp32, true>(
                 alias_cur_max, alias_cur_sum, Sk_chunk_t);
+            }
 
             // Reconfigure unpackers: srcA (context 0) = cb_v_in, srcB (context 1) = cb_qk_im (operands are swapped in matmul)
             reconfig_data_format(cb_v_in, cb_qk_im);
             pack_reconfig_data_format(alias_mm2_cur_out);
 
             /* OUT_IM = QK @ V_CHUNK */
+            {
+            SHSDPA_ZONE("PV");
             matmul_blocks(
                 cb_qk_im,
                 cb_v_in,
@@ -2179,12 +2198,14 @@ void sdpa_inner_loop(
                 out_subblock_h,
                 out_subblock_w,
                 false /*transpose*/);
+            }
 
             cb_pop_front(cb_qk_im, qk_chunk_tiles);
             reconfig_data_format(alias_prev_max, alias_cur_max);
 
             /* OUT_ACC += OUT_IM */
             if (processed_k_chunks > 0) {
+                SHSDPA_ZONE("RESCALE");
                 /**
                  * cb_exp_max_diff = torch.exp((cb_prev_max - cb_cur_max) * scale)
                  * Scale is fused into exp again since max is the max of unscaled scores.
