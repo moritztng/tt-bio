@@ -56,15 +56,20 @@ ALWI void stage(uint32_t a, uint32_t b, uint32_t out) {
     if constexpr (OP == MUL_ROW) mul_bcast_rows_init_short(a, b);
     if constexpr (OP == MUL) mul_tiles_init(a, b);
     cb_reserve_back(out, C::Kt);
-    for (uint32_t i = 0; i < C::Kt; ++i) {
+    constexpr uint32_t BLK = 4;   // dest tiles per acquire: what fp32 accumulation leaves in half-sync mode
+    for (uint32_t i0 = 0; i0 < C::Kt; i0 += BLK) {
+        const uint32_t n = C::Kt - i0 < BLK ? C::Kt - i0 : BLK;
         tile_regs_acquire();
-        if constexpr (OP == SUB_COL) sub_tiles_bcast_cols(a, b, i, 0, 0);
-        if constexpr (OP == MUL_COL) mul_tiles_bcast_cols(a, b, i, 0, 0);
-        if constexpr (OP == MUL_ROW) mul_tiles_bcast_rows(a, b, i, i, 0);
-        if constexpr (OP == MUL) mul_tiles(a, b, i, i, 0);
+        for (uint32_t j = 0; j < n; ++j) {
+            const uint32_t i = i0 + j;
+            if constexpr (OP == SUB_COL) sub_tiles_bcast_cols(a, b, i, 0, j);
+            if constexpr (OP == MUL_COL) mul_tiles_bcast_cols(a, b, i, 0, j);
+            if constexpr (OP == MUL_ROW) mul_tiles_bcast_rows(a, b, i, i, j);
+            if constexpr (OP == MUL) mul_tiles(a, b, i, i, j);
+        }
         tile_regs_commit();
         tile_regs_wait();
-        pack_tile(0, out);
+        for (uint32_t j = 0; j < n; ++j) pack_tile(j, out);
         tile_regs_release();
     }
     cb_push_back(out, C::Kt);
