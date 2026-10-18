@@ -471,6 +471,10 @@ LIN6B_STATS = [0]  # projections served by _lin6b_program
 # pooled cos >= 0.99996 everywhere. Inside the fast bar, not the normal one, so None = on for block-fp8 weights only,
 # which only --fast loads. Galaxy chip at 1000 MHz, best of 3: 300M --fast 139.5 -> 133.6 ms, 600M 203.6 -> 197.4.
 _ESMC_MM_BF16_ACC = env_flag("TT_BIO_ESMC_MM_BF16_ACC", None)
+# The same block-fp8 minimal_matmuls at HiFi2 instead of the model's HiFi3: a block-fp8 weight's 7-bit mantissa is
+# consumed whole in two fidelity phases. gate_cfg_sweep (Galaxy chip, 1000 MHz, 300M page shape, best config each):
+# gated fc1 0.820 -> 0.740 ms, rel_l2 against float64 0.0111 -> 0.0108. The 6B (lm_large) keeps its HiFi4.
+_ESMC_MM_BFP8_HIFI2 = env_flag("TT_BIO_ESMC_MM_BFP8_HIFI2", False)
 # The LM FFN's fc1 halves and SwiGLU product stored as block-fp8 where the weights already are (--fast), so the gate
 # multiply and fc2 read half the bytes: at the 300M page shape that chain moves ~117 MB a layer through DRAM in bf16.
 # Wormhole minimal_matmul path only (fc2 takes the bfp8 operand there). Off: an A/B candidate for --fast.
@@ -552,8 +556,12 @@ class _MMLin:
         ck = self.compute_kernel_config
         if not _mm_bf16_acc(w):
             return ck
-        if getattr(self, "_mm_ck_bf16", None) is None:
-            self._mm_ck_bf16 = type(ck)(math_fidelity=ck.math_fidelity, math_approx_mode=ck.math_approx_mode,
+        fid = ck.math_fidelity
+        if (_ESMC_MM_BFP8_HIFI2 and w.dtype == ttnn.bfloat8_b and not getattr(self, "lm_large", False)
+                and fid in (ttnn.MathFidelity.HiFi3, ttnn.MathFidelity.HiFi4)):
+            fid = ttnn.MathFidelity.HiFi2
+        if getattr(self, "_mm_ck_bf16", None) is None or self._mm_ck_bf16.math_fidelity != fid:
+            self._mm_ck_bf16 = type(ck)(math_fidelity=fid, math_approx_mode=ck.math_approx_mode,
                                         fp32_dest_acc_en=False, packer_l1_acc=ck.packer_l1_acc)
         return self._mm_ck_bf16
 
