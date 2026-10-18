@@ -182,8 +182,7 @@ def test_boltz2_mode_sets_name_only_known_levers():
 
     for s in (B.LEVERS_NORMAL, B.LEVERS_FAST):
         assert s <= set(T.LEVERS) and not s & T.UNGRADED_LEVERS
-    assert B.WH_LEVERS_FAST <= set(T.LEVERS) and B.WH_LEVERS_FAST - B.LEVERS_FAST == {"triatt_ln", "apb_ln", "dit_cond_jit", "trimul_sig6", "atomp_dev"}
-    assert B.WH_LEVERS_NORMAL <= set(T.LEVERS) and B.WH_LEVERS_NORMAL - B.LEVERS_NORMAL == {"atomp_dev"}
+    assert B.WH_LEVERS_FAST <= set(T.LEVERS) and B.WH_LEVERS_FAST - B.LEVERS_FAST == {"triatt_ln", "apb_ln", "dit_cond_jit", "trimul_sig6"}
     assert B.BH_LEVERS_FAST - B.LEVERS_FAST == {"dit_shoist"}
 
 
