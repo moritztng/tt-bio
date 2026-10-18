@@ -11,5 +11,9 @@ exec 9> "${LOCK:-$HOME/spd/locks/chip$CHIP.lock}"; flock -w 600 9 || { echo floc
 N=$(python3 -c "import json,os,sys; print(json.load(open(os.path.expanduser('~/spd/galaxy/umd2node.json'))).get(sys.argv[1], sys.argv[1]))" "$CHIP" 2>/dev/null || echo "$CHIP")
 ( while :; do echo -e "$(date +%s)\t$N\t$(cat "/sys/class/tenstorrent/tenstorrent!$N/tt_aiclk" 2>/dev/null)\t$(cut -d' ' -f1 /proc/loadavg)"; sleep 1; done ) > "$O/aiclk.tsv" & S=$!
 export TT_VISIBLE_DEVICES=$CHIP PYTHONPATH=$PWD
+# A tree whose tt_bio is missing (a git archive | tar cut off mid-stream) silently imports the venv's editable
+# install instead, i.e. the serving engine's code: ph6/sw6 graded JapanFold's engine as the branch on 10-18.
+P=$(python3 -c "import importlib.util as u; print(u.find_spec('tt_bio').origin)" 2>/dev/null)
+[[ $P == "$PWD/tt_bio/__init__.py" ]] || { echo "run.sh: tt_bio resolves to '$P', not this tree ($PWD), refusing" | tee "$O/log" >&2; kill $S; echo "badtree" > "$O/rc"; exit 4; }
 "$@" > "$O/log" 2>&1; rc=$?
 kill $S; echo "$rc chip=$CHIP node=$N $(date -u +%FT%TZ)" > "$O/rc"; exit $rc
