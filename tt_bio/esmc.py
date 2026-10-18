@@ -473,8 +473,11 @@ LIN6B_STATS = [0]  # projections served by _lin6b_program
 _ESMC_MM_BF16_ACC = env_flag("TT_BIO_ESMC_MM_BF16_ACC", None)
 # The same block-fp8 minimal_matmuls at HiFi2 instead of the model's HiFi3: a block-fp8 weight's 7-bit mantissa is
 # consumed whole in two fidelity phases. gate_cfg_sweep (Galaxy chip, 1000 MHz, 300M page shape, best config each):
-# gated fc1 0.820 -> 0.740 ms, rel_l2 against float64 0.0111 -> 0.0108. The 6B (lm_large) keeps its HiFi4.
-_ESMC_MM_BFP8_HIFI2 = env_flag("TT_BIO_ESMC_MM_BFP8_HIFI2", False)
+# gated fc1 0.820 -> 0.740 ms, rel_l2 against float64 0.0111 -> 0.0108. Page cell --fast, best of 3, 1000 MHz: 300M
+# 95.1 -> 92.0 ms (pcc vs fp32 0.999532 -> 0.999580), 600M 137.8 -> 131.8 (0.999562 -> 0.999558), pooled cos up on
+# both. SaProt 35M's pooled cos fell to 0.999879 (from 0.999915), so None = ESMC only (_MMLin.MM_BFP8_HIFI2); the
+# 6B (lm_large) keeps its HiFi4 either way.
+_ESMC_MM_BFP8_HIFI2 = env_flag("TT_BIO_ESMC_MM_BFP8_HIFI2", None)
 # The LM FFN's fc1 halves and SwiGLU product stored as block-fp8 where the weights already are (--fast), so the gate
 # multiply and fc2 read half the bytes: at the 300M page shape that chain moves ~117 MB a layer through DRAM in bf16.
 # Wormhole minimal_matmul path only (fc2 takes the bfp8 operand there). Off: an A/B candidate for --fast.
@@ -548,6 +551,7 @@ class _MMLin:
     (the SwiGLU's fc1a) rides along as the matmul's fused activation, applied per tile at pack as the linear does."""
 
     _ACT = {"silu": ttnn.UnaryOpType.SILU, "gelu": ttnn.UnaryOpType.GELU}
+    MM_BFP8_HIFI2 = True   # _ESMC_MM_BFP8_HIFI2's default for this model family
 
     def _mm_on(self) -> bool:
         return _esmc_mm()
@@ -557,7 +561,8 @@ class _MMLin:
         if not _mm_bf16_acc(w):
             return ck
         fid = ck.math_fidelity
-        if (_ESMC_MM_BFP8_HIFI2 and w.dtype == ttnn.bfloat8_b and not getattr(self, "lm_large", False)
+        hifi2 = self.MM_BFP8_HIFI2 if _ESMC_MM_BFP8_HIFI2 is None else _ESMC_MM_BFP8_HIFI2
+        if (hifi2 and w.dtype == ttnn.bfloat8_b and not getattr(self, "lm_large", False)
                 and fid in (ttnn.MathFidelity.HiFi3, ttnn.MathFidelity.HiFi4)):
             fid = ttnn.MathFidelity.HiFi2
         if getattr(self, "_mm_ck_bf16", None) is None or self._mm_ck_bf16.math_fidelity != fid:

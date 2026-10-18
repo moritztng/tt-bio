@@ -96,12 +96,15 @@ def test_mm_bf16_acc_follows_fast_weights(wdtype, switch, monkeypatch):
     assert lin._mm_ck(w).fp32_dest_acc_en is not on
 
 
+@pytest.mark.parametrize("saprot", [False, True])
 @pytest.mark.parametrize("large", [False, True])
 @pytest.mark.parametrize("wdtype", ["bfloat16", "bfloat8_b"])
-def test_mm_bfp8_hifi2_lowers_fast_weights_only(wdtype, large, monkeypatch):
-    """The HiFi2 switch lowers HiFi3 to HiFi2 for block-fp8 weights only; the 6B (lm_large) keeps its fidelity."""
+def test_mm_bfp8_hifi2_lowers_fast_weights_only(wdtype, large, saprot, monkeypatch):
+    """The HiFi2 switch lowers HiFi3 to HiFi2 for block-fp8 weights only; the 6B (lm_large) keeps its fidelity, and
+    by default (None) only ESMC takes it, not SaProt."""
+    from tt_bio import saprot as sp
     monkeypatch.setattr(esmc, "_ESMC_MM_BF16_ACC", None)
-    lin = esmc._MMLin()
+    lin = sp._SaprotLin() if saprot else esmc._MMLin()
     lin.compute_kernel_config = _Ck(math_fidelity=ttnn.MathFidelity.HiFi3)
     lin.lm_large = large
     w = _T(960, 960, getattr(esmc.ttnn, wdtype))
@@ -109,6 +112,9 @@ def test_mm_bfp8_hifi2_lowers_fast_weights_only(wdtype, large, monkeypatch):
     assert lin._mm_ck(w).math_fidelity == ttnn.MathFidelity.HiFi3
     monkeypatch.setattr(esmc, "_ESMC_MM_BFP8_HIFI2", True)
     lowered = wdtype == "bfloat8_b" and not large
+    assert lin._mm_ck(w).math_fidelity == (ttnn.MathFidelity.HiFi2 if lowered else ttnn.MathFidelity.HiFi3)
+    monkeypatch.setattr(esmc, "_ESMC_MM_BFP8_HIFI2", None)
+    lowered = lowered and not saprot
     assert lin._mm_ck(w).math_fidelity == (ttnn.MathFidelity.HiFi2 if lowered else ttnn.MathFidelity.HiFi3)
 
 
