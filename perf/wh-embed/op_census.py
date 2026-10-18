@@ -8,14 +8,16 @@ layers. The sum is >= the traced forward (dispatch is not hidden here); the spli
 """
 import argparse
 import json
+import sys
 import time
 from pathlib import Path
 
 import ttnn
 
 OPS = ["layer_norm", "chunk", "concat", "multiply", "add", "silu", "linear", "matmul", "typecast", "reshape",
-       "to_layout", "permute", "softmax", "slice", "unsqueeze", "squeeze", "rms_norm", "gelu", "pad", "where"]
-EXP = ["nlp_create_qkv_heads", "nlp_concat_heads", "rotary_embedding", "minimal_matmul", "view"]
+       "to_layout", "permute", "softmax", "slice", "unsqueeze", "squeeze", "rms_norm", "gelu", "pad", "where", "generic_op", "repeat"]
+EXP = ["nlp_create_qkv_heads", "nlp_concat_heads", "rotary_embedding", "minimal_matmul", "view",
+       "dit_minimal_matmul_addcmul_fused"]
 
 
 def main() -> int:
@@ -65,10 +67,15 @@ def main() -> int:
             finally:
                 depth[0] -= 1
             x = a[0] if a else next(iter(k.values()), None)
+            if name == "generic_op":  # hand-written programs (qk_rope_heads, shsdpa, ...): key by the launching module
+                x = x[0] if isinstance(x, (list, tuple)) and x else x
+                name_k = "generic_op:" + sys._getframe(1).f_globals.get("__name__", "?").rsplit(".", 1)[-1]
+            else:
+                name_k = name
             shp = tuple(x.shape) if hasattr(x, "shape") else None
             w2 = a[1] if len(a) > 1 and hasattr(a[1], "shape") else k.get("weight_tensor")
-            key = f"{name} {shp}" + (f" x {tuple(w2.shape)}" if hasattr(w2, "shape") and name in
-                                     ("linear", "matmul", "minimal_matmul") else "")
+            key = f"{name_k} {shp}" + (f" x {tuple(w2.shape)}" if hasattr(w2, "shape") and name in
+                                     ("linear", "matmul", "minimal_matmul", "dit_minimal_matmul_addcmul_fused") else "")
             n, s = acc.get(key, (0, 0.0))
             acc[key] = (n + 1, s + dt)
             return r

@@ -33,6 +33,7 @@ import torch
 import ttnn
 
 from tt_bio.envflags import env_flag
+from tt_bio.qk_rope_heads import STATS as QKRH_STATS, rope_heads_packed  # noqa: F401 (QKRH_STATS: read by esmc_ab)
 
 from tt_bio.tenstorrent import (
     Module,
@@ -43,6 +44,8 @@ from tt_bio.tenstorrent import (
 )
 from tt_bio.esmc import (
     _MMLin,
+    _key_lens,
+    _lm_mask,
     lm_sdpa,
     rope_tables,
     _rope,
@@ -121,13 +124,39 @@ class SaprotEmbeddingLayer(Module):
 
 
 # SaProt's projections (bias, fc1's GELU as the fused activation) on ESMC's minimal_matmul path instead of
-# ttnn.linear, for projections over esmc.ESMC_MM_MIN_ROWS rows. Off until the page cell says.
-_SAPROT_MM = env_flag("TT_BIO_SAPROT_MM", False)
+# ttnn.linear, for projections over esmc.ESMC_MM_MIN_ROWS rows. None = Wormhole and a model no wider than
+# _MM_MAX_WIDTH: minimal_matmul wins on the narrow LMs (ESMC 300M/600M, SaProt 35M: 44.7 -> 42.8 ms a page batch)
+# and loses on SaProt 650M/1.3B (d 1280: +7/+8 %).
+_SAPROT_MM = (env_flag("TT_BIO_SAPROT_MM", False) if os.environ.get("TT_BIO_SAPROT_MM", "").strip() else None)
+_MM_MAX_WIDTH = 1152
+
+
+def _saprot_mm(width: int) -> bool:
+    if _SAPROT_MM is not None:
+        return _SAPROT_MM
+    from tt_bio import tenstorrent
+    return tenstorrent.is_wormhole() and width <= _MM_MAX_WIDTH
+
+
+# RoPE + head split of the packed qkv as one program (qk_rope_heads.rope_heads_packed, no LayerNorm) in place of
+# nlp_create_qkv_heads + two rotary_embedding calls, head dim 64 (650M / 1.3B; 35M folds its RoPE into the qkv).
+# Against float64 the program is the more accurate one (q rel_l2 0.0027 vs 0.0036, perf/spd_gap_whlm/rope_packed_bench.py).
+# Page cell on a Galaxy chip at 1000 MHz, best of 3: 650M 217.5 -> 200.1 ms (--fast 205.4 -> 190.4), 1.3B 414.0 -> 381.8
+# (400.2 -> 366.4); pcc vs fp32 moves -0.000126 / -0.000109 (650M) and -0.000096 / -0.000025 (1.3B). That passes the fast
+# bar (0.0002) and misses the normal one (0.0001) on 650M, so None = on for Wormhole with block-fp8 weights (--fast) only.
+_SAPROT_QKRH = (env_flag("TT_BIO_SAPROT_QKRH", False) if os.environ.get("TT_BIO_SAPROT_QKRH", "").strip() else None)
+
+
+def _saprot_qkrh(w) -> bool:
+    if _SAPROT_QKRH is not None:
+        return _SAPROT_QKRH
+    from tt_bio import tenstorrent
+    return tenstorrent.is_wormhole() and w.dtype == ttnn.bfloat8_b
 
 
 class _SaprotLin(_MMLin):
     def _mm_on(self) -> bool:
-        return _SAPROT_MM
+        return _saprot_mm(int(self.norm_weight.shape[-1]))
 
 
 class ESM2Attention(_SaprotLin, Module):
@@ -185,14 +214,18 @@ class ESM2Attention(_SaprotLin, Module):
             q, k, v = self._split_heads(qkv, self.n_heads)
         else:
             ttnn.deallocate(x_norm)
-            q, k, v = self._split_heads(qkv, self.n_heads)
-            q, k = _rope(q, k, cos, sin)
+            heads = rope_heads_packed(qkv, cos, sin) if self.head_dim == 64 and _saprot_qkrh(self.qkv_weight) else None
+            if heads is not None:
+                ttnn.deallocate(qkv)
+                q, k, v = heads
+            else:
+                q, k, v = self._split_heads(qkv, self.n_heads)
+                q, k = _rope(q, k, cos, sin)
         if key_valid is not None and attn_mask is None:  # the -inf mask already zeroes them, see esmc.Attention
             k = ttnn.multiply(k, key_valid)
             v = ttnn.multiply(v, key_valid)
-        o = lm_sdpa(q, k, v, attn_mask, scale=self.head_dim ** -0.5)
+        o = lm_sdpa(q, k, v, attn_mask, scale=self.head_dim ** -0.5, merge=True)  # [B, L, H*32] when fold_rope; out_weight has the zero rows
         ttnn.deallocate(q); ttnn.deallocate(k); ttnn.deallocate(v)
-        o = self._merge_heads(o)  # [B, L, H*32] when fold_rope; out_weight has the zero rows
         out = self._lin(o, self.out_weight, bias=self.out_bias)
         ttnn.deallocate(o)
         return out
@@ -474,10 +507,7 @@ class Saprot(TorchWrapper):
             tokens.to(torch.int32), device=self.tt_device,
             layout=ttnn.ROW_MAJOR_LAYOUT, dtype=ttnn.uint32,
         )
-        mask_tt = None if attn_mask is None else ttnn.from_torch(
-            attn_mask.unsqueeze(1).to(torch.bfloat16), device=self.tt_device,
-            layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16,
-        )
+        mask_tt = _lm_mask(attn_mask, _key_lens(attn_mask), self.tt_device)
         kv_tt = None if key_valid is None else ttnn.from_torch(
             key_valid.to(torch.bfloat16), device=self.tt_device,
             layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16,
