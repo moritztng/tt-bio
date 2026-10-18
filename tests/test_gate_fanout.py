@@ -1021,6 +1021,26 @@ def test_a_lent_pool_takes_no_leg_the_lend_would_hold_and_another_host_runs_it(t
     assert _pool_host("p", tmp_path, paused=True).lent(1) and not free.lent(10 ** 6)
 
 
+def test_a_leg_held_by_a_lend_is_reused_once_another_runner_passes_it(tmp_path, monkeypatch):
+    """rel-9b16e86a7, 10-18: the WH legs passed on .103 under a sibling runner while this runner's
+    only WH host stayed lent, and the gate waited 17 h on legs the ledger already held."""
+    monkeypatch.setattr(gf, "POOL_POLL_S", 0.01)
+    lent = _pool_host("g108", tmp_path, paused=True)
+    leg = gf.Leg("ux:esmfold2-fast", [], "ux", card=True)
+    ledger = gf.Ledger(tmp_path / "ledger")
+    keys = {(leg.name, "wh"): _key(leg.name)}
+    g = gf.Gate({"wh": [leg]}, [(lent, gf.POOL)], set(), lambda *a: pytest.fail("ran"), tmp_path, ledger, keys)
+    t = threading.Thread(target=g.run, daemon=True)
+    t.start()
+    time.sleep(0.2)
+    assert t.is_alive() and not g.results
+    ledger.put(_key(leg.name), {"leg": leg.name, "verdict": "PASS", "worker": "g103:pool", "sha": "f" * 40,
+                                  "ended": "t", "log": "l"})
+    t.join(timeout=10)
+    assert not t.is_alive()
+    assert [(r["leg"], r["verdict"]) for r in g.results] == [(leg.name, "REUSED")]
+
+
 def test_card_free_legs_run_on_a_free_host_when_the_first_one_is_lent(tmp_path):
     lent = _pool_host("g107", tmp_path, paused=True)
     free = _pool_host("g114", tmp_path)
