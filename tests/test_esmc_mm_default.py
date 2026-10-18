@@ -141,3 +141,14 @@ def test_lm_gate_legacy_default(wormhole, switch, monkeypatch):
     assert esmc._lm_gate_legacy() is (wormhole if switch is None else switch)
     with tenstorrent.levers("lm_gate_ng"):
         assert esmc._lm_gate_legacy() is (False if switch is None else switch)
+
+
+@pytest.mark.parametrize("wormhole", [True, False])
+@pytest.mark.parametrize("switch", [None, True, False])
+def test_mm_gate_default(wormhole, switch, monkeypatch):
+    """The LM FFN's fc1 and gate run as one gated minimal_matmul on Wormhole unless lm_gate_ng is active."""
+    monkeypatch.setattr(tenstorrent, "is_wormhole", lambda: wormhole)
+    monkeypatch.setattr(esmc, "_ESMC_MM_GATE", switch)
+    assert esmc._mm_gate_on() is (wormhole if switch is None else switch)
+    with tenstorrent.levers("lm_gate_ng"):
+        assert esmc._mm_gate_on() is (False if switch is None else switch)

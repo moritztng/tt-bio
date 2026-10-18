@@ -899,6 +899,13 @@ _ESMC_LM_GATE_LEGACY = (env_flag("TT_BIO_ESMC_LM_GATE_LEGACY", False)
                         if os.environ.get("TT_BIO_ESMC_LM_GATE_LEGACY", "").strip() else None)
 
 
+def _mm_gate_on() -> bool:
+    if _ESMC_MM_GATE is not None:
+        return _ESMC_MM_GATE
+    from tt_bio import tenstorrent
+    return tenstorrent.is_wormhole() and not tenstorrent.lever("lm_gate_ng")
+
+
 def _lm_gate_legacy() -> bool:
     if _ESMC_LM_GATE_LEGACY is not None:
         return _ESMC_LM_GATE_LEGACY
@@ -949,8 +956,11 @@ _ESMC_GATE_L1 = env_flag("TT_BIO_ESMC_GATE_L1", False)
 # no h1/h2 round trip through DRAM, and the gate from the fp32 accumulator rather than two bf16 roundings.
 # perf/spd_gap_whlm/gate_cfg_sweep.py on a Galaxy chip at 1000 MHz, 3808 rows, ms against today's fc1a + fc1b +
 # gate: 300M 1.268 -> 0.925 (--fast 1.084 -> 0.739), 600M 1.600 -> 1.248 (--fast 1.336 -> 0.991); rel_l2 against
-# float64 0.0041 -> 0.0019 (normal), equal under --fast.
-_ESMC_MM_GATE = env_flag("TT_BIO_ESMC_MM_GATE", False)
+# float64 0.0041 -> 0.0019 (normal), equal under --fast. Every LM FFN of the loaded model over a page batch
+# (perf/spd_gap_whlm/ffn_stack_bench.py, same chip, 1000 MHz), ms a layer saved: 300M 0.374 / 0.286 (--fast), 600M
+# 0.411 / 0.239. None = on for Wormhole; lm_gate_ng (ESMFold2 on Wormhole) keeps the three ops there too.
+_ESMC_MM_GATE = (env_flag("TT_BIO_ESMC_MM_GATE", False)
+                 if os.environ.get("TT_BIO_ESMC_MM_GATE", "").strip() else None)
 #: [LM FFN gates served by mm_gate, declined where it was asked]
 MM_GATE_STATS = [0, 0]
 _GATE_L1_REFUSED: set = set()
@@ -1197,7 +1207,7 @@ class SwiGLUFFN(_MMLin, Module):
         serve. The interleaved weight is built on the first call from the two device halves (an exact round trip,
         block-fp8 included: every interleave group is whole tiles), so a model that never reaches it holds none."""
         w = self.fc1_a_weight
-        if not (_ESMC_MM_GATE and not l1_gated and len(x_norm.shape) == 3 and not _SWIGLU_SILU_FC1
+        if not (_mm_gate_on() and not l1_gated and len(x_norm.shape) == 3 and not _SWIGLU_SILU_FC1
                 and not _ESMC_ACT_BFP8 and self._mm_ok(x_norm, w)):
             return None
         from tt_bio import mm_gate
