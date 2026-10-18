@@ -2784,8 +2784,9 @@ SDPA_RAGGED_SITES: dict = {}
 # Large enough that exp((qk + m) * scale) underflows to zero for any score this op sees, small
 # enough to stay finite in bf16 and to survive being multiplied by a bias scale.
 _SDPA_PAD_MASK = -1.0e9
-# Relabel the tile tail instead of filling it where nothing reads the tail's values: the bias' query
-# rows and the output's query rows are both sliced off. The tail is stale data, not zeros (finite in
+# Relabel the tile tail instead of filling it where nothing reads the tail's values: q's padded rows,
+# the bias' query rows and the output's query rows (a query row reaches only its own output row,
+# and those are sliced off). The tail is stale data, not zeros (finite in
 # every one of 40 AF2-IG triangle-attention calls probed on WH), so k and v keep their fill: a NaN in
 # a key or value tail would reach every real row through q.k and p.v. `TT_BIO_SDPA_TILE_VIEW=0` fills.
 _SDPA_TILE_VIEW = env_flag("TT_BIO_SDPA_TILE_VIEW", True)
@@ -2814,8 +2815,8 @@ def _sdpa_pad_ragged(q, k, v, bias, to: int = 0):
     q_pad, k_pad = (to - Sq, to - Sk) if to else ((-Sq) % 32, (-Sk) % 32)
     if not (q_pad or k_pad):
         return q, k, v, bias, 0
-    qp = ttnn.pad(q, [(0, 0)] * (len(q.shape) - 2) + [(0, q_pad), (0, 0)], value=0.0) \
-        if q_pad else q
+    qp = q if not q_pad else _tile_relabel(q, 2, Sq + q_pad) if _SDPA_TILE_VIEW and not to else \
+        ttnn.pad(q, [(0, 0)] * (len(q.shape) - 2) + [(0, q_pad), (0, 0)], value=0.0)
     kv = [(0, 0)] * (len(k.shape) - 2) + [(0, k_pad), (0, 0)]
     kp = ttnn.pad(k, kv, value=0.0) if k_pad else k
     vp = ttnn.pad(v, kv, value=0.0) if k_pad else v
