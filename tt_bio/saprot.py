@@ -33,6 +33,7 @@ import torch
 import ttnn
 
 from tt_bio.envflags import env_flag
+from tt_bio.qk_rope_heads import STATS as QKRH_STATS, rope_heads_packed  # noqa: F401 (QKRH_STATS: read by esmc_ab)
 
 from tt_bio.tenstorrent import (
     Module,
@@ -137,6 +138,19 @@ def _saprot_mm(width: int) -> bool:
     return tenstorrent.is_wormhole() and width <= _MM_MAX_WIDTH
 
 
+# RoPE + head split of the packed qkv as one program (qk_rope_heads.rope_heads_packed, no LayerNorm) in place of
+# nlp_create_qkv_heads + two rotary_embedding calls, head dim 64 (650M / 1.3B; 35M folds its RoPE into the qkv).
+# None = on for Wormhole.
+_SAPROT_QKRH = (env_flag("TT_BIO_SAPROT_QKRH", False) if os.environ.get("TT_BIO_SAPROT_QKRH", "").strip() else None)
+
+
+def _saprot_qkrh() -> bool:
+    if _SAPROT_QKRH is not None:
+        return _SAPROT_QKRH
+    from tt_bio import tenstorrent
+    return tenstorrent.is_wormhole()
+
+
 class _SaprotLin(_MMLin):
     def _mm_on(self) -> bool:
         return _saprot_mm(int(self.norm_weight.shape[-1]))
@@ -197,8 +211,13 @@ class ESM2Attention(_SaprotLin, Module):
             q, k, v = self._split_heads(qkv, self.n_heads)
         else:
             ttnn.deallocate(x_norm)
-            q, k, v = self._split_heads(qkv, self.n_heads)
-            q, k = _rope(q, k, cos, sin)
+            heads = rope_heads_packed(qkv, cos, sin) if self.head_dim == 64 and _saprot_qkrh() else None
+            if heads is not None:
+                ttnn.deallocate(qkv)
+                q, k, v = heads
+            else:
+                q, k, v = self._split_heads(qkv, self.n_heads)
+                q, k = _rope(q, k, cos, sin)
         if key_valid is not None and attn_mask is None:  # the -inf mask already zeroes them, see esmc.Attention
             k = ttnn.multiply(k, key_valid)
             v = ttnn.multiply(v, key_valid)

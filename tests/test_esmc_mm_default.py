@@ -119,6 +119,16 @@ def test_qkrh_default(wormhole, switch, monkeypatch):
 
 @pytest.mark.parametrize("wormhole", [True, False])
 @pytest.mark.parametrize("switch", [None, True, False])
+def test_saprot_qkrh_default(wormhole, switch, monkeypatch):
+    """SaProt's packed RoPE + head split program defaults on for Wormhole; the switch overrides."""
+    from tt_bio import saprot
+    monkeypatch.setattr(tenstorrent, "is_wormhole", lambda: wormhole)
+    monkeypatch.setattr(saprot, "_SAPROT_QKRH", switch)
+    assert saprot._saprot_qkrh() is (wormhole if switch is None else switch)
+
+
+@pytest.mark.parametrize("wormhole", [True, False])
+@pytest.mark.parametrize("switch", [None, True, False])
 def test_lm_gate_legacy_default(wormhole, switch, monkeypatch):
     """The LM SwiGLU gate takes the legacy multiply on Wormhole unless lm_gate_ng is active; the switch overrides both."""
     monkeypatch.setattr(tenstorrent, "is_wormhole", lambda: wormhole)

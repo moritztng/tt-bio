@@ -26,7 +26,7 @@ struct Ln {
                               rstd = 14, xc = 17, tmp = 18;
 };
 
-// LayerNorm(x) * gamma, no beta, Kt tiles of C::x (popped) into C::xc (pushed), fp32.
+// LayerNorm(x) * gamma, no beta (skipped under QKRH_NO_LN, where the RoPE reads c_5 directly), Kt tiles of C::x (popped) into C::xc (pushed), fp32.
 template <class C>
 ALWI void ln_no_beta() {
     using namespace ln_prologue;
@@ -58,7 +58,7 @@ void kernel_main() {
         return;
     }
     binary_op_init_common(cb_x, cb_gq, cb_n);
-#ifndef QKRH_RELOAD
+#if !defined(QKRH_RELOAD) && !defined(QKRH_NO_LN)
     cb_wait_front(cb_gq, KT);
     cb_wait_front(cb_gk, KT);
 #endif
@@ -66,29 +66,33 @@ void kernel_main() {
     cb_wait_front(cb_eps, 1);
     for (uint32_t u = first; u < first + count; ++u) {   // the q / k units; v is the reader's and the writer's
         [[maybe_unused]] const uint32_t t = u / R;   // 0 q, 1 k
-#ifdef QKRH_RELOAD
+#if defined(QKRH_NO_LN)
+        constexpr uint32_t src = cb_x;   // RoPE straight from the input row
+#elif defined(QKRH_RELOAD)
+        constexpr uint32_t src = cb_n;
         cb_wait_front(cb_gq, KT);
         ln_no_beta<Ln<cb_gq>>();
         cb_pop_front(cb_gq, KT);
 #else
+        constexpr uint32_t src = cb_n;
         if (t == 0) {
             ln_no_beta<Ln<cb_gq>>();
         } else {
             ln_no_beta<Ln<cb_gk>>();
         }
 #endif
-        cb_wait_front(cb_n, KT);
+        cb_wait_front(src, KT);
         cb_wait_front(cb_cos, 1);
         cb_wait_front(cb_sin, 1);
         for (uint32_t h = 0; h < KT / 2; ++h) {
             const uint32_t a = 2 * h, b = a + 1;
-            reconfig_data_format(cb_n, cb_cos);
+            reconfig_data_format(src, cb_cos);
             pack_reconfig_data_format(cb_p);
-            mul_tiles_init(cb_n, cb_cos);
+            mul_tiles_init(src, cb_cos);
             cb_reserve_back(cb_p, 2);
             tile_regs_acquire();
-            mul_tiles(cb_n, cb_cos, a, 0, 0);
-            mul_tiles(cb_n, cb_cos, b, 0, 1);
+            mul_tiles(src, cb_cos, a, 0, 0);
+            mul_tiles(src, cb_cos, b, 0, 1);
             tile_regs_commit();
             tile_regs_wait();
             pack_tile(0, cb_p);
@@ -98,12 +102,12 @@ void kernel_main() {
 
             cb_wait_front(cb_p, 2);
             cb_reserve_back(cb_out, 2);
-            reconfig_data_format(cb_n, cb_sin);
+            reconfig_data_format(src, cb_sin);
             pack_reconfig_data_format(cb_out);
-            mul_tiles_init(cb_n, cb_sin);
+            mul_tiles_init(src, cb_sin);
             tile_regs_acquire();
-            mul_tiles(cb_n, cb_sin, b, 0, 0);
-            mul_tiles(cb_n, cb_sin, a, 0, 1);
+            mul_tiles(src, cb_sin, b, 0, 0);
+            mul_tiles(src, cb_sin, a, 0, 1);
             reconfig_data_format_srca(cb_p);
             binary_dest_reuse_tiles_init<EltwiseBinaryType::ELWSUB, EltwiseBinaryReuseDestType::DEST_TO_SRCB>(cb_p);
             binary_dest_reuse_tiles<EltwiseBinaryType::ELWSUB, EltwiseBinaryReuseDestType::DEST_TO_SRCB>(cb_p, 0, 0);
@@ -117,7 +121,7 @@ void kernel_main() {
             cb_push_back(cb_out, 2);
             cb_pop_front(cb_p, 2);
         }
-        cb_pop_front(cb_n, KT);
+        cb_pop_front(src, KT);
         cb_pop_front(cb_cos, 1);
         cb_pop_front(cb_sin, 1);
     }

@@ -7,7 +7,8 @@
 // column tile of the [1, 1, L, 64] tables: both halves are equal); v rows go to c_21, VC tiles at a time, and on to
 // the writer untouched. Once, first: the 1/D reduce scaler (c_10), an fp32 eps tile (c_11) and both gammas (c_8 q,
 // c_15 k, KT tiles, row 0 carries the vector); under QKRH_RELOAD (both would not fit L1 beside the rest, the 6B)
-// the unit's gamma is read again into c_8 with every q / k row instead.
+// the unit's gamma is read again into c_8 with every q / k row instead; under QKRH_NO_LN (SaProt: RoPE without a q / k
+// LayerNorm) no gamma is read at all. q, k and v may be one packed [B, L, 3D] qkv (RS = 3 * KT, TO = KT).
 // Common runtime args: q, k, v, gamma q, gamma k, cos, sin addresses. Per core: first q / k unit, q / k unit count,
 // first v unit, v unit count.
 #include "api/dataflow/dataflow_api.h"
@@ -24,9 +25,11 @@ void kernel_main() {
     constexpr uint32_t SCALER = get_compile_time_arg_val(3);
     constexpr uint32_t EPS = get_compile_time_arg_val(4);
     constexpr uint32_t VC = get_compile_time_arg_val(5);
+    constexpr uint32_t RS = get_compile_time_arg_val(6);   // tiles a row of the input: KT, or 3 * KT for a packed qkv
+    constexpr uint32_t TO = get_compile_time_arg_val(7);   // column tile offset of k from q, v from k: 0, or KT packed
     constexpr uint32_t cb_x = 5, cb_cos = 6, cb_sin = 7, cb_gq = 8, cb_scaler = 10, cb_eps = 11, cb_gk = 15,
                        cb_v = 21;
-    constexpr auto q_args = TensorAccessorArgs<6>();
+    constexpr auto q_args = TensorAccessorArgs<8>();
     constexpr auto k_args = TensorAccessorArgs<q_args.next_compile_time_args_offset()>();
     constexpr auto v_args = TensorAccessorArgs<k_args.next_compile_time_args_offset()>();
     constexpr auto gq_args = TensorAccessorArgs<v_args.next_compile_time_args_offset()>();
@@ -51,7 +54,7 @@ void kernel_main() {
     for (uint32_t i = 0; i < 1024; ++i) e[i] = EPS;
     cb_push_back(cb_eps, 1);
     uint32_t w;
-#ifndef QKRH_RELOAD
+#if !defined(QKRH_RELOAD) && !defined(QKRH_NO_LN)
     cb_reserve_back(cb_gq, KT);
     cb_reserve_back(cb_gk, KT);
     w = get_write_ptr(cb_gq);
@@ -70,7 +73,7 @@ void kernel_main() {
             for (uint32_t c0 = 0; c0 < KT; c0 += VC) {
                 cb_reserve_back(cb_v, VC);
                 w = get_write_ptr(cb_v);
-                for (uint32_t c = c0; c < c0 + VC; ++c, w += tx) noc_async_read_page(r * KT + c, sv, w);
+                for (uint32_t c = c0; c < c0 + VC; ++c, w += tx) noc_async_read_page(r * RS + 2 * TO + c, sv, w);
                 noc_async_read_barrier();
                 cb_push_back(cb_v, VC);
             }
@@ -82,9 +85,9 @@ void kernel_main() {
         cb_reserve_back(cb_sin, 1);
         w = get_write_ptr(cb_x);
         if (t == 0) {
-            for (uint32_t c = 0; c < KT; ++c, w += tx) noc_async_read_page(r * KT + c, sq, w);
+            for (uint32_t c = 0; c < KT; ++c, w += tx) noc_async_read_page(r * RS + c, sq, w);
         } else {
-            for (uint32_t c = 0; c < KT; ++c, w += tx) noc_async_read_page(r * KT + c, sk, w);
+            for (uint32_t c = 0; c < KT; ++c, w += tx) noc_async_read_page(r * RS + TO + c, sk, w);
         }
 #ifdef QKRH_RELOAD
         cb_reserve_back(cb_gq, KT);
