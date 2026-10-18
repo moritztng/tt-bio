@@ -697,6 +697,8 @@ void add_row_bcast_inplace(uint32_t in0_cb, uint32_t in1_cb, uint32_t num_tiles,
     }
     cb_pop_front(in0_cb, num_tiles);
     cb_pop_front(in1_cb, row_w);
+    cb_reserve_back(in0_cb, num_tiles);
+    cb_push_back(in0_cb, num_tiles);
 }
 
 template <bool pop_in1 = true>
