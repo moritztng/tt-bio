@@ -224,9 +224,8 @@ class ESM2Attention(_SaprotLin, Module):
         if key_valid is not None and attn_mask is None:  # the -inf mask already zeroes them, see esmc.Attention
             k = ttnn.multiply(k, key_valid)
             v = ttnn.multiply(v, key_valid)
-        o = lm_sdpa(q, k, v, attn_mask, scale=self.head_dim ** -0.5)
+        o = lm_sdpa(q, k, v, attn_mask, scale=self.head_dim ** -0.5, merge=True)  # [B, L, H*32] when fold_rope; out_weight has the zero rows
         ttnn.deallocate(q); ttnn.deallocate(k); ttnn.deallocate(v)
-        o = self._merge_heads(o)  # [B, L, H*32] when fold_rope; out_weight has the zero rows
         out = self._lin(o, self.out_weight, bias=self.out_bias)
         ttnn.deallocate(o)
         return out

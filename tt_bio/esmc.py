@@ -223,6 +223,9 @@ _ESMC_QK_L1 = env_flag("TT_BIO_ESMC_QK_L1", True)
 # against float64: q/k rel_l2 0.0042 -> 0.0034..0.0050, v exact, 0.24-0.46 ms a layer against 0.60-1.27.
 # The lm_qk_chain lever keeps the chain (ESMFold2's Wormhole normal set, esmfold2_runtime._WH_NORMAL_EXTRA).
 _ESMC_QKRH = (env_flag("TT_BIO_ESMC_QKRH", False) if os.environ.get("TT_BIO_ESMC_QKRH", "").strip() else None)
+# shsdpa writes its output with the heads already concatenated ([B, L, H * D]) instead of nlp_concat_heads after it:
+# only the writer's tile addresses change (sdpa_generic merged_out), so the output is bit-identical.
+_LM_SDPA_MERGED = env_flag("TT_BIO_LM_SDPA_MERGED", True)
 
 # Replay batched forwards from the trace too (ESMC.trace gated on B == 1). A 7 x 544 Blackhole batch spreads 110-127 ms
 # within one process, the signature of a host-dispatch-bound forward. Same captured program, so output is bit-identical
@@ -355,16 +358,20 @@ def _lm_mask_into(attn_mask, lens, dst):
         ttnn.copy_host_to_device_tensor(_sdpa_mask(attn_mask, dtype=dst.dtype), dst)
 
 
-def lm_sdpa(q, k, v, attn_mask, scale: float):
+def lm_sdpa(q, k, v, attn_mask, scale: float, merge: bool = False):
     """The language models' fused SDPA at the _lm_sdpa_chunks config, or `shsdpa` for a KeyPad mask. A shape whose
     few-k-chunk program the device refuses (its circular buffers clash with L1 tensors) runs at the k64 config from
-    then on."""
+    then on. `merge` returns the heads concatenated, [B, L, H * D]: shsdpa writes that layout itself (_LM_SDPA_MERGED),
+    the stock op is followed by nlp_concat_heads."""
     if isinstance(attn_mask, KeyPad):
         # Interleaved DRAM or L1 (SaProt's RoPE leaves q, k in L1): the reader addresses each through its own accessor.
         if int(q.shape[-1]) % 32 == 0 and all(t.dtype == ttnn.bfloat16 and not t.is_sharded() for t in (q, k, v)):
             from tt_bio import shsdpa
             SHSDPA_STATS[0] += 1
-            return shsdpa.sdpa(q, k, v, scale, attn_mask)
+            if merge and _LM_SDPA_MERGED:
+                return ttnn.squeeze(shsdpa.sdpa(q, k, v, scale, attn_mask, merged=True), 1)
+            o = shsdpa.sdpa(q, k, v, scale, attn_mask)
+            return _concat_heads(o) if merge else o
         SHSDPA_STATS[1] += 1
         # A head dim off the tile, or q/k/v not bf16 interleaved: the stock op over the full mask, its rows the same.
         attn_mask = ttnn.repeat(attn_mask.row, (1, 1, int(q.padded_shape[2]) // 32, 1))
@@ -375,12 +382,21 @@ def lm_sdpa(q, k, v, attn_mask, scale: float):
         few = _lm_sdpa_chunks(q_len, k_len, True)
         if few != base:
             try:
-                return fused_sdpa(q, k, v, attn_mask=attn_mask, scale=scale, program_config=_sdpa_program_config(*few))
+                o = fused_sdpa(q, k, v, attn_mask=attn_mask, scale=scale, program_config=_sdpa_program_config(*few))
+                return _concat_heads(o) if merge else o
             except Exception as exc:
                 from tt_bio import tenstorrent
                 tenstorrent.absorb_l1_refusal("esmc sdpa k chunk", exc)
                 _SDPA_K_FEW_REFUSED.add(key)
-    return fused_sdpa(q, k, v, attn_mask=attn_mask, scale=scale, program_config=_sdpa_program_config(*base))
+    o = fused_sdpa(q, k, v, attn_mask=attn_mask, scale=scale, program_config=_sdpa_program_config(*base))
+    return _concat_heads(o) if merge else o
+
+
+def _concat_heads(o):
+    """[B, H, L, D] -> [B, L, H * D], freeing the per-head tensor."""
+    m = ttnn.squeeze(ttnn.experimental.nlp_concat_heads(o, memory_config=ttnn.DRAM_MEMORY_CONFIG), 1)
+    ttnn.deallocate(o)
+    return m
 
 
 class Embedding(Module):
@@ -730,9 +746,8 @@ class Attention(_MMLin, Module):
             k = ttnn.multiply(k, key_valid)
             v = ttnn.multiply(v, key_valid)
 
-        o = lm_sdpa(q, k, v, attn_mask, scale=head_dim**-0.5)
+        o = lm_sdpa(q, k, v, attn_mask, scale=head_dim**-0.5, merge=True)  # [B, L, d_model]
         ttnn.deallocate(q); ttnn.deallocate(k); ttnn.deallocate(v)
-        o = self._merge_heads(o)  # [B, L, d_model]
         out = self._lin_resid(o, self.out_weight, x) if resid else None
         added = out is not None
         if not added:

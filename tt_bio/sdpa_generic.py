@@ -512,7 +512,7 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
           exp_approx_mode=False, mask_cb_tiles=None, defines_extra=None, kernel_dir=None,
           split=None, kv_buffer_factor=2, fuse_qkv=None, gate=None, im_dtype=None,
           out_im_dtype=None, stats_dtype=None, kv_window=None, qkv_fused=None, css=None,
-          keypad=None):
+          keypad=None, merged_out=False):
     """The ProgramDescriptor for the fold's SDPA call.
 
     `mask_cb_tiles` overrides the size of `cb_mask_in` (K2 makes it the whole head's grid instead of
@@ -537,6 +537,13 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
     """
     kp, vp = k, v
     q_fused = out_fused = None
+    out_merged = None
+    if merged_out:
+        # `out` is `[B, 1, S, NH * DH]`, the layout nlp_concat_heads gives: the writer half of `qkv_fused`
+        # (only its output addresses; q, k and v stay per head). Bit-identical to SDPA then concat-heads.
+        B_, NH_, S_, DH_ = (int(d) for d in q.padded_shape)
+        assert qkv_fused is None and [int(d) for d in out.padded_shape] == [B_, 1, S_, NH_ * DH_], (out.shape, q.shape)
+        out_merged, out = out, _ShapeOnly([B_, NH_, S_, DH_], out.dtype)
     if qkv_fused is not None:
         assert kv_window is None and fuse_qkv is None and gate is None
         B_, one, S_, W_ = (int(d) for d in q.padded_shape)
@@ -578,6 +585,8 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
         q = q_frame
     if qkv_fused is not None:
         q, kp, vp, out = q_fused, q_fused, q_fused, out_fused
+    if out_merged is not None:
+        out = out_merged
     gx, gy, num_cores = p["gx"], p["gy"], p["num_cores"]
     core_grid = ttnn.CoreRangeSet(
         [ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(gx - 1, gy - 1))])
@@ -740,6 +749,11 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
         defines.update(QKV_FUSED_W=str(int(q.padded_shape[-1]) // TILE), DHT_FUSED=str(p["DHt"]),
                        OUT_FUSED_W=str(int(out.padded_shape[-1]) // TILE),
                        QKV_ROWS_T=str(int(q.padded_shape[2]) // TILE))
+    if out_merged is not None:
+        # QKV_FUSED_W = DHT_FUSED leaves every read-side skip of the twin at zero; only the writer moves.
+        defines.update(QKV_FUSED_W=str(p["DHt"]), DHT_FUSED=str(p["DHt"]),
+                       OUT_FUSED_W=str(int(out.padded_shape[-1]) // TILE),
+                       QKV_ROWS_T=str(int(out.padded_shape[2]) // TILE))
     if css is not None:
         # Reader args: 17 base + 14 chain, then the list address; compute args: 10, then the counts.
         defines.update(CSS_W=str(css_w), CSS_CB=str(CB_CSS), CSS_ACC=str(css_acc),
@@ -763,6 +777,8 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
         reader_src = str(stock / "dataflow/reader_interleaved.cpp")
     if not Path(writer_src).exists():
         writer_src = str(stock / "dataflow/writer_interleaved.cpp")
+    if out_merged is not None:
+        writer_src = str(qkv_fused_kernel_dir() / "dataflow/writer_interleaved.cpp")
     if not Path(compute_src).exists():
         compute_src = str(stock / "compute/sdpa.cpp")
 
@@ -872,7 +888,7 @@ def sdpa(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scal
            # compiled program back for both legs and reads a 1.000x that means nothing.
            os.environ.get("TT_BIO_SDPA_ADD_GRANULARITY"),
            str(kw.get("im_dtype")), str(kw.get("out_im_dtype")), str(kw.get("stats_dtype")),
-           kw.get("kv_window"), kw.get("qkv_fused"), kw.get("css") is not None,
+           kw.get("kv_window"), kw.get("qkv_fused"), kw.get("css") is not None, bool(kw.get("merged_out")),
            None if kw.get("keypad") is None else str(kw["keypad"].padded_shape))
     e = _CACHE.get(key)
     if e is None:

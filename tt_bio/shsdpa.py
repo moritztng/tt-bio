@@ -83,9 +83,11 @@ def plan(B, H, S, cores, k_chunk=K_CHUNK, max_qt=None):
     return best[1], best[2]
 
 
-def sdpa(q, k, v, scale, pad, q_chunk=None, k_chunk=K_CHUNK, split=None, ckc=HIFI2, grid=None, defines=None):
+def sdpa(q, k, v, scale, pad, q_chunk=None, k_chunk=K_CHUNK, split=None, ckc=HIFI2, grid=None, defines=None,
+         merged=False):
     """softmax(q k^T * scale, padded keys masked) v for bf16 [B, H, S, D] interleaved tensors (DRAM or L1); `pad` is the device
-    `key_pad` pair built at the same k_chunk."""
+    `key_pad` pair built at the same k_chunk. `merged` writes the heads side by side, [B, 1, S, H * D], as
+    nlp_concat_heads would (bit-identical)."""
     from . import tenstorrent as T
     B, H, S, D = (int(d) for d in q.shape)
     dev = q.device()
@@ -93,15 +95,16 @@ def sdpa(q, k, v, scale, pad, q_chunk=None, k_chunk=K_CHUNK, split=None, ckc=HIF
     auto = q_chunk is None and split is None
     key = (B, H, S, D, grid, tuple(t.memory_config().buffer_type == ttnn.BufferType.L1 for t in (q, k, v)))
     table, row = pad
-    out = ttnn.allocate_tensor_on_device(ttnn.Shape([B, H, S, D]), q.dtype, ttnn.TILE_LAYOUT, dev,
-                                         ttnn.DRAM_MEMORY_CONFIG)
+    out = ttnn.allocate_tensor_on_device(ttnn.Shape([B, 1, S, H * D] if merged else [B, H, S, D]), q.dtype,
+                                         ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG)
     while True:
         if auto:
             q_chunk, split = plan(B, H, S, grid[0] * grid[1], k_chunk, _Q_TILES_CAP.get(key))
         q_chunk = q_chunk or -(-S // 32) * 32
         try:
             return SG.sdpa(dev, q, k, v, row, out, q_chunk, k_chunk, grid, ckc, scale, split=split,
-                           kernel_dir=KERNEL_DIR, keypad=table, defines_extra=defines)
+                           kernel_dir=KERNEL_DIR, keypad=table, defines_extra=defines,
+                           merged_out=merged)
         except Exception as exc:
             if not auto or q_chunk == 32:
                 raise
