@@ -604,6 +604,26 @@ class OF3DiffusionTransformer(Module):
         return mask_bias, ttnn.from_torch(tmc_p, layout=ttnn.TILE_LAYOUT, device=self.device,
                                           dtype=self._act_dtype)
 
+    def _wide_lin(self, x, w, bias=None, activation=None):
+        """One of dit_shoist's wide [rows, 384] x [384, 36864] linears. On Wormhole, up to 512 rows, a 2D multicast
+        program whose output block (2 x 18 tiles) fits L1: ttnn's auto program for this shape takes 1146 us at
+        1000 MHz, this one 922 us at the same fidelity and accumulation, rel. RMS error vs fp32 equal (shw, op_probe
+        sw). Else ttnn's choice."""
+        blk = self.blocks[0]
+        g = x.device().compute_with_storage_grid_size()
+        mt, nt = -(-x.padded_shape[-2] // TILE), w.padded_shape[-1] // TILE
+        pm, pn = -(-mt // g.y), -(-nt // g.x)
+        if not (self._wormhole and pm <= 2 and pn % 18 == 0 and w.padded_shape[-2] % (4 * TILE) == 0):
+            return blk._lin(x, w, bias=bias, activation=activation)
+        hifi2 = blk._act_dtype == ttnn.bfloat16 and _T.lever("dit_hifi2")
+        act = None if activation is None else ttnn.UnaryWithParam(ttnn.UnaryOpType.SIGMOID)
+        pc = ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(
+            compute_with_storage_grid_size=(g.x, g.y), in0_block_w=4, out_subblock_h=pm, out_subblock_w=2,
+            out_block_h=pm, out_block_w=18, per_core_M=pm, per_core_N=pn, transpose_mcast=False,
+            fused_activation=act, fuse_batch=True)
+        return ttnn.linear(x, w, bias=bias, program_config=pc,
+                           compute_kernel_config=blk.ckc_hifi2 if hifi2 else blk.compute_kernel_config)
+
     def shared_s(self, s_d):
         """What every block of one call reads off ``s`` and the stack computes once (``s16`` in
         ``_DiTBlock.__call__``), or None. The caller frees the tensors after the last block."""
@@ -612,9 +632,9 @@ class OF3DiffusionTransformer(Module):
             if self.hoist is None:
                 return (s_hat,)
             sc_w, sc_b, sb_w, g_w, g_b = self.hoist
-            lin = self.blocks[0]._lin
-            return (s_hat, lin(s_hat, sc_w, bias=sc_b, activation="sigmoid"), lin(s_hat, sb_w),
-                    lin(s_d, g_w, bias=g_b, activation="sigmoid"))
+            lin = self._wide_lin
+            return (s_hat, lin(s_hat, sc_w, sc_b, "sigmoid"), lin(s_hat, sb_w),
+                    lin(s_d, g_w, g_b, "sigmoid"))
         if self.blocks[0].s16:
             return (ttnn.typecast(s_d, ttnn.bfloat16),
                     ttnn.typecast(ttnn.layer_norm(s_d, epsilon=1e-5,
