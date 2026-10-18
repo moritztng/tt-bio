@@ -38,7 +38,7 @@ void kernel_main() {
                 for (uint32_t c = c0; c < c0 + VC; ++c, rd += to) {
                     noc_async_write_page(base + (c / 2) * LT * 2 + c % 2, sv, rd);
                 }
-                noc_async_write_barrier();
+                noc_async_writes_flushed();   // the CB slot may be reused once the data left L1
                 cb_pop_front(cb_v, VC);
             }
             continue;
@@ -54,8 +54,9 @@ void kernel_main() {
                 noc_async_write_page(p, sk, rd);
                 noc_async_write_page(p + 1, sk, rd + to);
             }
-            noc_async_write_barrier();
+            noc_async_writes_flushed();   // the CB slot may be reused once the data left L1
             cb_pop_front(cb_out, 2);
         }
     }
+    noc_async_write_barrier();
 }
