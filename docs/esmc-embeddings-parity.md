@@ -34,7 +34,14 @@ taken at HiFi4). Against a float32 reference on a batch of 7 hHSA-length sequenc
 does not move: per-residue relative L2 0.0252 vs 0.0256 (300M) and 0.0250 vs 0.0236 (600M),
 worst per-residue cosine 0.9987 vs 0.9987 and 0.9985 vs 0.9987, pooled cosine 0.99998 in all
 four. A batch of 7 takes 84 ms instead of 88 ms (300M) and 123 ms instead of 135 ms (600M) on
-a Blackhole chip at 1350 MHz. ESMC-6B stays at HiFi4.
+a Blackhole chip at 1350 MHz.
+
+ESMC-6B stays at HiFi4 on Blackhole. On Wormhole it holds its weights in block-fp8 in both modes
+(the bf16 weights stream 6.3 GB a forward through the chip's DRAM) and runs at HiFi3. On one
+544-token hHSA sequence against the float32 reference, per-residue Pearson moves from 0.998936
+(bf16, HiFi4) to 0.998859 and pooled cosine from 0.999851 to 0.999815, and the forward takes 182 ms
+instead of 241 ms on a Galaxy chip at 1000 MHz. `TT_BIO_ESMC_6B_B8=0` restores bf16 weights for
+normal mode and `TT_BIO_ESMC_6B_FIDELITY=HiFi4` the fidelity.
 
 ## Verdict
 
