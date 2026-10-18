@@ -23,7 +23,7 @@ L=$1 CAP_H=$2 Q=${3:-$DQ} NMAX=${4:-8}; MINW=${MINW:-$W0} MAXW=${MAXW:-$W1}; TRI
 KC_N=${KC_N:-5}  # folds per arm: 1 cold + KC_N-1 warm
 MODELS=${MODELS:-protenix_v2 boltz2 openfold3 opendde}
 P=$(cd "$(dirname "$0")" && pwd); V=~/.vast-venv/bin/vastai; B=/home/moritz/.coworker/state/vast-budget
-K=$(cat ~/.config/vastai/vast_api_key); API=https://console.vast.ai/api/v0; FLOOR=20
+K=$(cat ~/.config/vastai/vast_api_key); API=https://console.vast.ai/api/v0; FLOOR=${VAST_FLOOR_USD:-20}
 KIT=${KIT:-/home/moritz/scratch/kitsrc-bmk/uplifting-biomolecular-modeling}
 PKL=/home/moritz/.cache/opendde/common/components.cif.rdkit_mol.pkl PXCKPT=/home/moritz/.boltz/protenix-v2.pt
 HOLD=/home/moritz/.coworker/state/vast-holder  # <id> -> this pid: vast_guard leaves a box alone while its session lives
@@ -96,7 +96,7 @@ print(x.get("public_ipaddr","").strip(), p[0]["HostPort"] if p else "") if x.get
   echo "$S" > $OUT/ssh; echo "$I $O" > $OUT/instance
   R(){ rsync -a -e "${S% root@*}" "$@"; }; H=root@$IP
   $S 'mkdir -p /root/kit /root/kc/in /root/kc/results /work' && R $OUT/kit.tgz $OUT/work.tgz $H:/root/ && $S 'tar -xzf /root/kit.tgz -C /root/kit && tar -xzf /root/work.tgz -C /work' &&
-    R $OUT/in/ $H:/root/kc/in/ && R $OUT/gpu.env $P/box_stock.sh $P/box_setup.sh $P/box_arms.sh $P/box_bc_setup.sh $P/box_bc_arms.sh $P/bc2_gpu.py $P/esmc_gpu.py $P/burn_gate.py $P/kctime.py $H:/root/kc/ || { destroy $I "push failed"; continue; }
+    R $OUT/in/ $H:/root/kc/in/ && $S 'mkdir -p /root/kc/af2ig_fx' && R $P/fixtures/af2ig_pdl1_l80_s0.pdb $P/fixtures/af2ig_pdl1_l80_s1.pdb $P/fixtures/af2ig_pdl1_l80_s2.pdb $H:/root/kc/af2ig_fx/ && R $OUT/gpu.env $P/box_stock.sh $P/box_setup.sh $P/box_arms.sh $P/box_bc_setup.sh $P/box_bc_arms.sh $P/bc2_gpu.py $P/af2ig_gpu.py $P/esmc_gpu.py $P/burn_gate.py $P/kctime.py $H:/root/kc/ || { destroy $I "push failed"; continue; }
   # files whose upstream URL fails from vast, pushed from pc (sha256 checked by the kit's own install)
   for m in protenix_v2 opendde; do case " $KITS " in *" $m "*)
     W=/weights/${m%_v2}; $S "mkdir -p $W/common $W/checkpoint" && R $PKL $H:$W/common/ || { destroy $I "pkl push failed"; continue 2; };; esac; done

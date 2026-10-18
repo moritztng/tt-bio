@@ -40,5 +40,15 @@ for m in ${MODES:-off exact fast}; do [ $m = none ] && break
   done
   date -u +%FT%T.%3NZ > $d/t_end
 done
+# --- stock AF2-IG (AF2IG_STOCK=1): ColabDesign binder protocol on the three PD-L1 complexes tt-bio's af2ig cell uses
+# (perf/kitcmp/fixtures/af2ig_pdl1_l80_s*.pdb, the kit-off BC1 designs), same script as the A100 0.805 s cell
+if [ -n "${AF2IG_STOCK:-}" ]; then
+  d=/root/kc/results/af2ig; mkdir -p $d /root/af2ptm/params
+  ln -sf /root/.cache/bindcraft/alphafold/params_model_1_ptm.npz /root/af2ptm/params/
+  nvidia-smi -q -d POWER,CLOCK > $d/power-clock.txt
+  timeout 1500 $E/bin/python /root/kc/af2ig_gpu.py --params /root/af2ptm --warm 5 /root/kc/af2ig_fx/*.pdb \
+    > $d/runs.jsonl 2> $d/stderr.log
+  echo $? > $d/rc
+fi
 kill $SMI
 echo ARMS-DONE > $R/ARMS-DONE
