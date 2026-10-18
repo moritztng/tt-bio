@@ -140,15 +140,18 @@ def _saprot_mm(width: int) -> bool:
 
 # RoPE + head split of the packed qkv as one program (qk_rope_heads.rope_heads_packed, no LayerNorm) in place of
 # nlp_create_qkv_heads + two rotary_embedding calls, head dim 64 (650M / 1.3B; 35M folds its RoPE into the qkv).
-# None = on for Wormhole.
+# Against float64 the program is the more accurate one (q rel_l2 0.0027 vs 0.0036, perf/spd_gap_whlm/rope_packed_bench.py).
+# Page cell on a Galaxy chip at 1000 MHz, best of 3: 650M 217.5 -> 200.1 ms (--fast 205.4 -> 190.4), 1.3B 414.0 -> 381.8
+# (400.2 -> 366.4); pcc vs fp32 moves -0.000126 / -0.000109 (650M) and -0.000096 / -0.000025 (1.3B). That passes the fast
+# bar (0.0002) and misses the normal one (0.0001) on 650M, so None = on for Wormhole with block-fp8 weights (--fast) only.
 _SAPROT_QKRH = (env_flag("TT_BIO_SAPROT_QKRH", False) if os.environ.get("TT_BIO_SAPROT_QKRH", "").strip() else None)
 
 
-def _saprot_qkrh() -> bool:
+def _saprot_qkrh(w) -> bool:
     if _SAPROT_QKRH is not None:
         return _SAPROT_QKRH
     from tt_bio import tenstorrent
-    return tenstorrent.is_wormhole()
+    return tenstorrent.is_wormhole() and w.dtype == ttnn.bfloat8_b
 
 
 class _SaprotLin(_MMLin):
@@ -211,7 +214,7 @@ class ESM2Attention(_SaprotLin, Module):
             q, k, v = self._split_heads(qkv, self.n_heads)
         else:
             ttnn.deallocate(x_norm)
-            heads = rope_heads_packed(qkv, cos, sin) if self.head_dim == 64 and _saprot_qkrh() else None
+            heads = rope_heads_packed(qkv, cos, sin) if self.head_dim == 64 and _saprot_qkrh(self.qkv_weight) else None
             if heads is not None:
                 ttnn.deallocate(qkv)
                 q, k, v = heads
