@@ -101,7 +101,7 @@
                 "rejects": {
                   "memory": 6448
                 },
-                "reason": "TODO: say why this is legitimate at this size (declines on memory x6448)"
+                "reason": "declines all 6448 calls on memory x6448: at 256 the trimul channel loop runs on L1, and the dual-NOC matmul only takes a DRAM-interleaved activation and output (mm_dualnoc.eligible rejects on `memory`). From 512 the loop is on DRAM and it serves 184. Falsifier: a `memory` decline at 512+ means the DRAM route moved"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
@@ -196,7 +196,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: the gated move's L1 leg (reblock_permute.eligible_gated) opens for 288 <= N <= 352, or below 288 when the Nt*Nt groups reach L1_GROUPS_PER_CORE=0.68 per core. N=256 is 64 groups: the 110-core p300c needs 75 and the 130-core p150a 88, so the gated move declines (counted under REBLOCK_PERMUTE as gated_window_BufferType.L1 x6448) and the mask-after-move that rides it is never reached. A Wormhole chip's 72 cores need 49, and both serve 25792 there. Falsifier: a call here on Blackhole means the L1 floor or the grid changed"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
@@ -204,7 +204,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-shared",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: the gated move's L1 leg (reblock_permute.eligible_gated) opens for 288 <= N <= 352, or below 288 when the Nt*Nt groups reach L1_GROUPS_PER_CORE=0.68 per core. N=256 is 64 groups: the 110-core p300c needs 75 and the 130-core p150a 88, so the gated move declines (counted under REBLOCK_PERMUTE as gated_window_BufferType.L1 x6448) and the mask-after-move that rides it is never reached. A Wormhole chip's 72 cores need 49, and both serve 25792 there. Falsifier: a call here on Blackhole means the L1 floor or the grid changed"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -2273,7 +2273,7 @@
                 "rejects": {
                   "memory": 6448
                 },
-                "reason": "TODO: say why this is legitimate at this size (declines on memory x6448)"
+                "reason": "declines all 6448 calls on memory x6448: at 256 the trimul channel loop runs on L1, and the dual-NOC matmul only takes a DRAM-interleaved activation and output (mm_dualnoc.eligible rejects on `memory`). From 512 the loop is on DRAM and it serves 184. Falsifier: a `memory` decline at 512+ means the DRAM route moved"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
@@ -2368,7 +2368,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: the gated move's L1 leg (reblock_permute.eligible_gated) opens for 288 <= N <= 352, or below 288 when the Nt*Nt groups reach L1_GROUPS_PER_CORE=0.68 per core. N=256 is 64 groups: the 110-core p300c needs 75 and the 130-core p150a 88, so the gated move declines (counted under REBLOCK_PERMUTE as gated_window_BufferType.L1 x6448) and the mask-after-move that rides it is never reached. A Wormhole chip's 72 cores need 49, and both serve 25792 there. Falsifier: a call here on Blackhole means the L1 floor or the grid changed"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
@@ -2376,7 +2376,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-shared",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: the gated move's L1 leg (reblock_permute.eligible_gated) opens for 288 <= N <= 352, or below 288 when the Nt*Nt groups reach L1_GROUPS_PER_CORE=0.68 per core. N=256 is 64 groups: the 110-core p300c needs 75 and the 130-core p150a 88, so the gated move declines (counted under REBLOCK_PERMUTE as gated_window_BufferType.L1 x6448) and the mask-after-move that rides it is never reached. A Wormhole chip's 72 cores need 49, and both serve 25792 there. Falsifier: a call here on Blackhole means the L1 floor or the grid changed"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -4441,7 +4441,7 @@
                 "rejects": {
                   "memory": 12896
                 },
-                "reason": "TODO: say why this is legitimate at this size (declines on memory x12896)"
+                "reason": "declines all 12896 calls on memory x12896: at 256 the trimul channel loop runs on L1, and the dual-NOC matmul only takes a DRAM-interleaved activation and output (mm_dualnoc.eligible rejects on `memory`). From 512 the loop is on DRAM and it serves 184. Falsifier: a `memory` decline at 512+ means the DRAM route moved"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",

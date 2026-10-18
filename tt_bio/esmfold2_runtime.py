@@ -382,7 +382,31 @@ def _conf_weights(head, ftw):
     return w
 
 
-def _conf_pair_dev(head, ftw, z, s_n, relpos, bonds, bins, mask, n):
+# PAE, PDE and pTM read only the expectations of their [L,L,64] logits, so the device reduces them: exp(logits - max)
+# projected on [bin centres, TM term, ones] and divided by the ones column on the host. The division keeps the
+# denominator exact (ttnn.softmax rows sum to ~0.977, see tenstorrent._accurate_softmax). Two [L,L,3] downloads
+# replace two fp32 [L,L,64] ones and the host softmaxes over them: 68 vs 303 ms at 512 tokens on Wormhole, PAE within
+# 0.03 A of float64 (perf/spd_gap_esmf/conf_proj.py).
+
+
+def _expectations_dev(lg, vecs, ck):
+    """[1,L,L,64] logits on the device -> [1,L,L,K] host: E[vecs[:, k]] under softmax(logits) per pair."""
+    import ttnn
+    x = ttnn.typecast(lg, ttnn.float32)
+    m = ttnn.max(x, dim=-1, keepdim=True)
+    d = ttnn.subtract(x, m)
+    for t in (x, m):
+        ttnn.deallocate(t)
+    e = ttnn.exp(d)
+    ttnn.deallocate(d)
+    pj = ttnn.matmul(e, vecs, compute_kernel_config=ck)
+    ttnn.deallocate(e)
+    out = torch.Tensor(ttnn.to_torch(pj)).float()
+    ttnn.deallocate(pj)
+    return out[..., :-1] / out[..., -1:]
+
+
+def _conf_pair_dev(head, ftw, z, s_n, relpos, bonds, bins, mask, n, tm_per_bin):
     """ConfidenceHead._pair_outputs with the pair on the device; `z` is a device tensor (not freed here) or a host one.
 
     The sample-independent part (z_norm, the [L,c] broadcasts, relpos, bonds, the outer product) is built once; each
@@ -394,7 +418,7 @@ def _conf_pair_dev(head, ftw, z, s_n, relpos, bonds, bins, mask, n):
         DEVICE_CONF_STATS[1] += 1
         if isinstance(z, ttnn.Tensor):
             z = ftw._to_torch(z).float()
-        return type(head)._pair_outputs(head, z, s_n, _host(relpos), _host(bonds), bins, mask, n)
+        return type(head)._pair_outputs(head, z, s_n, _host(relpos), _host(bonds), bins, mask, n, tm_per_bin)
     DEVICE_CONF_STATS[0] += 1
     w, ck, L = _conf_weights(head, ftw), ftw.compute_kernel_config, int(bins.shape[-1])
     lin = lambda x, wt: ttnn.linear(x, wt, compute_kernel_config=ck)
@@ -429,6 +453,12 @@ def _conf_pair_dev(head, ftw, z, s_n, relpos, bonds, bins, mask, n):
     p0 = swap(p0, ttnn.add(p0, prod))
     ttnn.deallocate(prod)
     singles, pae, pde = [], [], []
+    centres = torch.linspace(0.0, 32.0, tm_per_bin.shape[-1] + 1)
+    centres = (centres[:-1] + centres[1:]) / 2  # _categorical_mean's bins
+    up = lambda *cols: ttnn.from_torch(torch.stack(cols, -1).float().reshape(1, 1, -1, len(cols)),
+                                       layout=ttnn.TILE_LAYOUT, device=ftw.tt_device, dtype=ttnn.float32)
+    one = torch.ones_like(centres)
+    v_pde = up(centres, one)
     for k in range(int(bins.shape[0])):
         et = ftw._from_torch(head.dist_bin_pairwise_embed(bins[k:k + 1]).float())
         p = ttnn.add(p0, et)
@@ -449,14 +479,18 @@ def _conf_pair_dev(head, ftw, z, s_n, relpos, bonds, bins, mask, n):
         ttnn.deallocate(wt)
         singles.append(head.row_attention_pooling.out_proj(ftw._to_torch(pooled)[:, :L, 0, :].float()))
         ttnn.deallocate(pooled)
-        for norm, key, out in ((head.pae_ln, "pae", pae), (head.pde_ln, "pde", pde)):
+        v_pae = up(centres, tm_per_bin[k].float().cpu(), one)
+        for norm, key, out, v in ((head.pae_ln, "pae", pae, v_pae), (head.pde_ln, "pde", pde, v_pde)):
             xn = ln(pair, w[key + "_ln"], norm)
             lg = swap(xn, lin(xn, w[key]))
-            out.append(ftw._to_torch(lg)[:, :L, :L, :].float())
+            out.append(_expectations_dev(lg, v, ck)[:, :L, :L, :])
             ttnn.deallocate(lg)
-        ttnn.deallocate(pair)
-    ttnn.deallocate(p0)
-    return torch.cat(singles), torch.cat(pae), torch.cat(pde)
+        for t in (v_pae, pair):
+            ttnn.deallocate(t)
+    for t in (p0, v_pde):
+        ttnn.deallocate(t)
+    pae, pde = torch.cat(pae), torch.cat(pde)
+    return torch.cat(singles), (None, None), (pae[..., 0], pde[..., 0], pae[..., 1])
 
 
 class _ReadoutAdapter(torch.nn.Module):
@@ -707,11 +741,11 @@ def _lm_dropout(lm_z, p, keep=None):
         rm = ttnn.from_torch(keep, device=t.device(), layout=ttnn.ROW_MAJOR_LAYOUT, dtype=ttnn.bfloat16)
         m = ttnn.to_layout(rm, ttnn.TILE_LAYOUT)
         ttnn.deallocate(rm)
-    kept = ttnn.multiply(t, m)
-    ttnn.deallocate(m)
-    out = ttnn.multiply(kept, 1.0 / (1.0 - p))
-    ttnn.deallocate(kept)
-    return _DevPair(out, lm_z.seq_len)
+    # In place on the mask: the dropout allocates no pair-sized buffer of its own. A fresh one did not fit the
+    # fragmented DRAM of a warm 1536 aa ESMFold2 fold on Wormhole (largest free block 100.2 of 100.7 MB a bank).
+    m = ttnn.multiply_(m, t)
+    m = ttnn.multiply_(m, 1.0 / (1.0 - p))
+    return _DevPair(m, lm_z.seq_len)
 
 
 class _KeepDraws:
@@ -1528,7 +1562,10 @@ LEVERS_FAST = ("normal+trimul_b8in+transition_ws+trimul_gin+trimul_t2g+trimul_gi
 # ws_lofi passes the fast bar on Wormhole too, 11 complexes x 4 seeds, 44 paired folds per model (Galaxy chip, 1000
 # MHz, spd-gap-esmf wlg): ESMFold2 CA-lDDT -0.0004 [-0.0024, +0.0015], DockQ +0.017, docking 31 -> 32 of 44;
 # ESMFold2-Fast CA-lDDT -0.0001 [-0.0021, +0.0023], docking 24 -> 24. Same chip, 512 aa, 1000 MHz: ESMFold2 33.60 ->
-# 33.10 s, ESMFold2-Fast 20.76 -> 20.38 s (spd-gap-whesmf wm, two runs per arm).
+# 33.10 s, ESMFold2-Fast 20.76 -> 20.38 s (spd-gap-whesmf wm, two runs per arm). It costs mean plDDT: ESMFold2-Fast
+# cdk2x2_512 at 10 recycles x 100 steps, seeds 0,1 against the fp32 reference, reads a same-seed gap of 0.0167 with it
+# and 0.0018 without (one Galaxy chip, 1000 MHz, spd-gap-whesmf wpl; ef2_pair_init moves it 0.0004). pTM 0.792 vs 0.807,
+# Kabsch inside the seed floor both ways. Within the fast bar (0.03), which is what the release leg grades --fast at.
 # ef2_pair_init passes the fast bar on Wormhole as well, against the WH fast set without it, 11 complexes x 4 seeds, 44
 # paired folds per model (Galaxy chip, 1000 MHz, spd-gap-whesmf wpg): ESMFold2 CA-lDDT +0.0015 [-0.0004, +0.0043],
 # top-pose median 0.55 A vs 1.73 A seed floor, docking 32 -> 31 of 44; ESMFold2-Fast CA-lDDT +0.0002 [-0.0005, +0.0009],
@@ -1543,7 +1580,16 @@ _BH_ONLY_FAST = ("trimul_t1", "trimul_t1_c256", "trimul_t2", "trimul_t2cm")
 # in bfp8: ESMFold2 CA-lDDT +0.0013 [-0.0006, +0.0039], top-pose median 0.73 A vs 1.73 A floor (44 paired folds, wng);
 # ESMFold2-Fast CA-lDDT -0.0004 [-0.0015, +0.0009], 1.24 A vs 1.33 A, docking 48 -> 48 of 88 (88 paired folds over
 # two seed sets, wng + wng3). Galaxy chip, 1000 MHz.
-_WH_NORMAL_EXTRA = "+transition_ws+ws_resid+ef2_lm_combine+ef2_opm_kq"
+# lm_qk_chain keeps the 6B's attention off qk_rope_heads (esmc._qkrh, on for Wormhole elsewhere): ESMFold2 normal with
+# it against without, 11 complexes x 4 seeds, 44 paired folds (Galaxy chip, 1000 MHz, spd-gap-whlm qrn) fails the normal
+# bar, L-RMSD +1.77 A [+0.10, +3.92] and I-RMSD +0.30 A [+0.02, +0.74], though the top-pose median is 0.56 A against a
+# 1.20 A seed floor and docking 31 -> 31 of 44. ESMFold2-Fast --fast passes the fast bar with it (qrf, 44 paired folds:
+# CA-lDDT -0.0007 [-0.0031, +0.0011], top-pose median 0.79 A vs 1.26 A floor, docking 24 -> 24), so --fast keeps it.
+_WH_NORMAL_EXTRA = "+transition_ws+ws_resid+ef2_lm_combine+ef2_opm_kq+lm_qk_chain"
+# lm_gate_ng keeps the 6B's SwiGLU gate on binary_ng in both modes (esmc._lm_gate_legacy, on for Wormhole elsewhere):
+# the legacy multiply is graded on ESMC's embeddings (6B pcc vs fp32 -0.00002 / +0.00001), not yet on a fold.
+# lm_sdpa_stock likewise keeps the LM's stock SDPA over the full mask (esmc._key_lens, shsdpa elsewhere on Wormhole).
+_WH_EXTRA = "+lm_gate_ng+lm_sdpa_stock"
 
 
 def fold_levers(fast: bool) -> str:
@@ -1555,8 +1601,7 @@ def fold_levers(fast: bool) -> str:
     if is_wormhole():
         drop = _BH_ONLY_FAST if fast else _BH_ONLY_FAST + ("ef2_pair_init",)
         levers = "+".join(n for n in levers.split("+") if n not in drop)
-        if not fast:
-            levers += _WH_NORMAL_EXTRA
+        levers += ("" if fast else _WH_NORMAL_EXTRA) + _WH_EXTRA
     return levers
 
 

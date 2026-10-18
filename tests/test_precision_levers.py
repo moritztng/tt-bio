@@ -18,7 +18,7 @@ def test_a_model_names_its_own_sets_and_the_harness_switch_still_wins(monkeypatc
     monkeypatch.delenv("TT_BIO_LEVERS", raising=False)
     monkeypatch.setattr(T, "_FAST_MODE", True)
     assert T.model_levers() == T.FAST_LEVERS
-    assert T.model_levers(of3.NORMAL_LEVERS, of3.FAST_LEVERS) == of3.FAST_LEVERS == of3.NORMAL_LEVERS | {"dit_s16", "diffusion_bf16", "trimul_t1", "trimul_t2", "trimul_t2cm", "transition_ws", "dit_fuse", "edm_device", "ws_l1dest", "dit_hifi2", "dit_kc", "dit_mask16", "triatt_ln"}
+    assert T.model_levers(of3.NORMAL_LEVERS, of3.FAST_LEVERS) == of3.FAST_LEVERS == of3.NORMAL_LEVERS | {"dit_s16", "diffusion_bf16", "trimul_t1", "trimul_t2", "trimul_t2cm", "transition_ws", "dit_fuse", "edm_device", "ws_l1dest", "dit_hifi2", "dit_kc", "dit_mask16", "triatt_ln", "dit_b8"}
     monkeypatch.setenv("TT_BIO_LEVERS", "fast")
     assert T.model_levers(of3.NORMAL_LEVERS, of3.FAST_LEVERS) == T.FAST_LEVERS
     monkeypatch.setattr(T, "_FAST_MODE", False)
@@ -26,6 +26,7 @@ def test_a_model_names_its_own_sets_and_the_harness_switch_still_wins(monkeypatc
     assert T.model_levers(of3.NORMAL_LEVERS, of3.FAST_LEVERS) == of3.NORMAL_LEVERS
     assert of3.NORMAL_LEVERS == T.NORMAL_LEVERS - {"transition_bw", "transition_shard"} | {"opm_jd", "dit_qsplit"}
     assert of3.WH_FAST_LEVERS <= set(T.LEVERS) and of3.WH_FAST_LEVERS - of3.FAST_LEVERS == {"apb_ln", "trimul_sig6", "trimul_bres"}
+    assert of3.WH_NORMAL_LEVERS - of3.NORMAL_LEVERS == {"trimul_bres"} and of3.WH_NORMAL_LEVERS <= of3.WH_FAST_LEVERS
 
 
 def test_parse_expands_modes_and_rejects_unknown_names():
@@ -194,9 +195,9 @@ def test_boltzgen_mode_sets_name_only_known_levers():
 
 def test_protenix_family_normal_set():
     from tt_bio.opendde import BH_NORMAL_LEVERS, NORMAL_LEVERS as DDE
-    from tt_bio.protenix import NORMAL_LEVERS, WS_CHAIN
+    from tt_bio.protenix import NORMAL_LEVERS, T2_TAIL, WS_CHAIN
 
-    assert DDE == NORMAL_LEVERS | WS_CHAIN and DDE <= set(T.LEVERS)
+    assert DDE == NORMAL_LEVERS | WS_CHAIN | T2_TAIL | {"triatt_ln"} and DDE <= set(T.LEVERS)
     assert BH_NORMAL_LEVERS == NORMAL_LEVERS
     assert NORMAL_LEVERS - T.NORMAL_LEVERS == {"transition_ws", "ws_l1acc", "trimul_t1_c256", "trimul_t1_c384"}
 
@@ -244,7 +245,8 @@ def test_protenix_wormhole_fast_set_drops_t1_c256():
 
 
 def test_opendde_fast_set_names_only_known_levers():
-    from tt_bio.opendde import FAST_LEVERS
+    from tt_bio.opendde import FAST_LEVERS, WH_FAST_LEVERS
     from tt_bio.protenix import WS_CHAIN
 
     assert FAST_LEVERS <= set(T.LEVERS) and {"trimul_b8in", "trimul_t2w"} | WS_CHAIN <= FAST_LEVERS and "dit_b8" not in FAST_LEVERS
+    assert WH_FAST_LEVERS - FAST_LEVERS == {"trimul_t1_c384", "triatt_ln"}

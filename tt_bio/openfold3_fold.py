@@ -75,8 +75,16 @@ NORMAL_LEVERS = _T.NORMAL_LEVERS - {"transition_bw", "transition_shard"} | {"dit
 # triatt_ln (triangle attention's layer_norm and qkvgb projection as one kernel) moves bytes, not arithmetic: CIFs
 # identical with and without it on both models, Wormhole and Blackhole (512-token --fast fold A/B, xmodel_ab, 5 pairs).
 # Galaxy chip at 1000 MHz, paired median: OpenFold3 -0.37 s, OpenBind-0 -0.20 s; flat on p150a.
+# dit_b8 (the fused DiT block's six adaLN-fed weights rounded to bfp8, activations bf16) joins on the 11-set fast grade
+# of --fast + dit_b8 against --fast, 44 paired folds per model per chip, PASS on both. Wormhole: OpenFold3 top pose
+# median 0.227 A (floor 1.621 A), CA-lDDT -0.0006 [-0.0014, +0.0001], docking 21 -> 19/44; OpenBind-0 0.244 A (floor
+# 0.952 A), CA-lDDT +0.0000, docking 27 -> 28/44. Blackhole: OpenFold3 0.222 A (floor 0.953 A), CA-lDDT +0.0003,
+# docking 20 -> 20/44; OpenBind-0 0.298 A (floor 1.209 A), CA-lDDT +0.0001, docking 28 -> 27/44
+# (state/spd/grade-ditb8-*-fast.md). 512-token page fold, same chip, off/on/on/off processes: Galaxy chip at 1000 MHz
+# OpenFold3 -0.32 s, OpenBind-0 -0.22 s; p150a at 1350 MHz -0.13 / -0.10 s.
 FAST_LEVERS = NORMAL_LEVERS | {"dit_s16", "diffusion_bf16", "trimul_t1", "trimul_t2", "trimul_t2cm", "transition_ws",
-                               "dit_fuse", "edm_device", "ws_l1dest", "dit_hifi2", "dit_kc", "dit_mask16", "triatt_ln"}
+                               "dit_fuse", "edm_device", "ws_l1dest", "dit_hifi2", "dit_kc", "dit_mask16", "triatt_ln",
+                               "dit_b8"}
 # Wormhole --fast adds apb_ln (the attention pair-bias projection reads the pair through the same fused LayerNorm).
 # Wormhole 11-set fast grade of --fast + apb_ln against --fast, 44 paired folds per model (whlg, 2026-10-15), PASS:
 # OpenFold3 top pose median 0.543 A (floor 1.238 A), CA-lDDT -0.0010 [-0.0036, +0.0007], docking 22 -> 22/44;
@@ -90,6 +98,9 @@ FAST_LEVERS = NORMAL_LEVERS | {"dit_s16", "diffusion_bf16", "trimul_t1", "trimul
 # And trimul_bres (the trimul einsum with b[c] resident in L1, bmm_res, as ESMFold2 ships it): CIFs identical with and
 # without it on both models (512-token --fast fold A/B, xmodel_ab, 1760 einsums served, 0 declined). Galaxy chip at
 # 1000 MHz, paired median: OpenFold3 -0.18 s (3 pairs; the first paid a 4.7 s program compile), OpenBind-0 -0.24 s (4).
+# In the normal mode too, CIFs identical, all 8 pairs faster: OpenFold3 -0.23 s, OpenBind-0 -0.27 s (25.8 s folds).
+# Flat on p150a in both modes (paired medians within +-0.07 s), so Wormhole only.
+WH_NORMAL_LEVERS = NORMAL_LEVERS | {"trimul_bres"}
 WH_FAST_LEVERS = FAST_LEVERS | {"apb_ln", "trimul_sig6", "trimul_bres"}
 
 def kabsch_rmsd(pred_ca, gt_ca):
@@ -315,10 +326,10 @@ class OpenFold3(Module):
     def __init__(self, sd, compute_kernel_config, num_cycles: int = 4, levers=None):
         """``levers``: the precision levers (``tenstorrent.LEVERS``) this model builds and folds
         under, active only inside its own build and fold, as for Protenix-v2. None takes the
-        mode's set (``tenstorrent.model_levers``): ``--fast`` means ``FAST_LEVERS`` below (``WH_FAST_LEVERS`` on Wormhole) and
+        mode's set (``tenstorrent.model_levers``): ``NORMAL_LEVERS`` / ``FAST_LEVERS`` below (``WH_*`` on Wormhole) and
         nothing else, the older bfp8 trunk is off inside the scope."""
         self._levers = _T.model_levers(
-            NORMAL_LEVERS, WH_FAST_LEVERS if _T.is_wormhole() else FAST_LEVERS, spec=levers)
+            *((WH_NORMAL_LEVERS, WH_FAST_LEVERS) if _T.is_wormhole() else (NORMAL_LEVERS, FAST_LEVERS)), spec=levers)
         with _T.lever_scope(self._levers):
             self._build(sd, compute_kernel_config, num_cycles)
 

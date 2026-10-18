@@ -726,6 +726,13 @@ _FAST_MODE = False
 #                   card from the z_to_p projection already there (AtomPairDevice), instead of in fp32 torch and uploaded.
 #   pib_where       OpenDDE's pair-init bias by the old 16-op where-chain instead of one gather from the joint
 #                   (128, c_z) table: the A/B arm for a change that must keep the fold digest (no mode sets it).
+#   lm_qk_chain     the ESMC language model's attention keeps the six-op q/k LayerNorm, RoPE and head-split chain
+#                   where Wormhole would run qk_rope_heads (esmc._qkrh): ESMFold2's normal set on Wormhole.
+#   lm_gate_ng      the ESMC language model's SwiGLU gate stays on the binary_ng multiply where Wormhole would take the
+#                   legacy one (esmc._lm_gate_legacy) or the gated minimal_matmul (esmc._mm_gate_on): both ESMFold2
+#                   sets on Wormhole until a fold grades it.
+#   lm_sdpa_stock   the ESMC language model's key-padding mask stays a [B, 1, L, L] tensor for the stock SDPA where
+#                   Wormhole would run shsdpa on key lengths (esmc._key_lens): both ESMFold2 sets until a fold grades it.
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in",
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
@@ -737,7 +744,8 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine", "ef2_opm_kq", "ef2_relpos_lookup",
           "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit", "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384",
           "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
-          "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "trimul_bres", "atomp_dev")
+          "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "trimul_bres", "atomp_dev", "lm_qk_chain",
+          "lm_gate_ng", "lm_sdpa_stock")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -753,7 +761,7 @@ UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "di
                              "ef2_relpos_lookup", "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit",
                              "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384",
                              "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
-                             "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "atomp_dev"})
+                             "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -2776,6 +2784,20 @@ SDPA_RAGGED_SITES: dict = {}
 # Large enough that exp((qk + m) * scale) underflows to zero for any score this op sees, small
 # enough to stay finite in bf16 and to survive being multiplied by a bias scale.
 _SDPA_PAD_MASK = -1.0e9
+# Relabel the tile tail instead of filling it where nothing reads the tail's values: the bias' query
+# rows and the output's query rows are both sliced off. The tail is stale data, not zeros (finite in
+# every one of 40 AF2-IG triangle-attention calls probed on WH), so k and v keep their fill: a NaN in
+# a key or value tail would reach every real row through q.k and p.v. `TT_BIO_SDPA_TILE_VIEW=0` fills.
+_SDPA_TILE_VIEW = env_flag("TT_BIO_SDPA_TILE_VIEW", True)
+
+
+def _tile_relabel(t, dim: int, length: int):
+    """`t` with axis `dim` (one of the two tile axes) relabelled to `length` inside its tile padding.
+
+    No program runs and no tail is written, so a widened axis exposes whatever the buffer held."""
+    shape = [int(x) for x in t.shape]
+    shape[dim] = length
+    return ttnn.reshape(t, ttnn.Shape(shape), t.padded_shape)
 
 
 def _sdpa_pad_ragged(q, k, v, bias, to: int = 0):
@@ -2802,7 +2824,8 @@ def _sdpa_pad_ragged(q, k, v, bias, to: int = 0):
     # The query rows pad with 0, not with the mask: those rows are sliced off, and a row masked in
     # every column would divide by zero in the softmax.
     if q_pad and int(bias.shape[-2]) == Sq:
-        bp = ttnn.pad(bp, [(0, 0)] * (nb - 2) + [(0, q_pad), (0, 0)], value=0.0)
+        bp = _tile_relabel(bp, -2, Sq + q_pad) if _SDPA_TILE_VIEW and not to else \
+            ttnn.pad(bp, [(0, 0)] * (nb - 2) + [(0, q_pad), (0, 0)], value=0.0)
     if k_pad:
         bp = ttnn.pad(bp, [(0, 0)] * (nb - 1) + [(0, k_pad)], value=_SDPA_PAD_MASK)
     # ttnn.pad ALIASES here rather than copying: in TILE layout the buffer is already 32-aligned on
@@ -3058,6 +3081,8 @@ def _sdpa_masked(fn, q, k, v, bias, *args, site: str, pad: bool = False, **kw):
     o = fn(qp, kp, vp, bp, *args, **kw)
     if o is None or int(o.shape[2]) == Sq:
         return o
+    if _SDPA_TILE_VIEW:
+        return _tile_relabel(o, 2, Sq)
     sl = o[:, :, :Sq, :]
     ttnn.deallocate(o)
     return sl
@@ -10059,11 +10084,12 @@ class TriangleMultiplication(Module):
         back_ln_skip = (H > SEQ_LEN_MORE_CHUNKING or x_norm_in is None
                         or (tuple(shp), x_in.dtype) in _TRIMUL_TAIL_ROWS_SHAPES)
         # `trimul_t2cm`: the whole hidden as ONE channel-major chunk, kept for T2 to read as it is
-        # instead of being moved into x_out. Asked only where the T2 branch below would serve.
+        # instead of being moved into x_out. Asked only where the T2 branch below would serve and the
+        # stage fits in few enough parts to beat the move (`trimul_tail.t2cm_fit`).
         x_cm, cm_mc = None, None
         cm_on = (lever("trimul_t2cm") and (_trimul_tail.T2 or lever("trimul_t2"))
                  and H >= _trimul_tail.MIN_N and add_to_input and not ops.taping()
-                 and self.p_out_bias is None)
+                 and self.p_out_bias is None and _trimul_tail.t2cm_fit(self.out_p_weight) is None)
         tma_key = ("tma", H, batch, self._hidden, bool(self.ending))
         while True:
             tma_live = False         # an L1 `a` (TT_BIO_OF3L1_TMA) is live in this attempt
@@ -17994,10 +18020,13 @@ class AtomPairDevice:
             feats["atom_to_token"].float(), to_keys, K, W, H)
         index = (tok_q.view(K, W, 1) * P + tok_k.view(K, 1, H)).reshape(rows, H)
         index = torch.where(keep.reshape(rows, H) > 0, index, P * P)
-        zp = ttnn.pad(z_to_p, [(0, 0), (0, 0), (0, 0), (0, 32 - self.atom_z)], 0.0)
+        # Pad in row-major: a TILE tensor is already 32 wide, so ttnn.pad returns z_to_p's own
+        # buffer and freeing z_to_p would free the table under the gather (perf/b2_atomp/table_probe.py).
+        rm = ttnn.to_layout(z_to_p, ttnn.ROW_MAJOR_LAYOUT)
         ttnn.deallocate(z_to_p)
-        table = ttnn.reshape(ttnn.to_layout(zp, ttnn.ROW_MAJOR_LAYOUT), (P * P, 32))
-        ttnn.deallocate(zp)
+        zp = ttnn.pad(rm, [(0, 0), (0, 0), (0, 0), (0, 32 - self.atom_z)], 0.0)
+        ttnn.deallocate(rm)
+        table = ttnn.reshape(zp, (P * P, 32))
         zero = ttnn.from_torch(torch.zeros(1, 32), layout=ttnn.ROW_MAJOR_LAYOUT,
                                device=get_device(), dtype=ttnn.bfloat16)
         table = ttnn.concat([table, zero], dim=0)

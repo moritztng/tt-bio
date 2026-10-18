@@ -17,7 +17,7 @@ device.
 import torch
 import ttnn
 
-from .protenix import NORMAL_LEVERS as _FAMILY_NORMAL, WS_CHAIN, _KeyedWeights
+from .protenix import NORMAL_LEVERS as _FAMILY_NORMAL, T2_TAIL, WS_CHAIN, _KeyedWeights
 from . import hostlane
 from .envflags import env_flag
 from .opendde_data import STRUCTURAL_TOKEN_ROLES
@@ -444,9 +444,23 @@ def route_opendde_weights(state_dict):
 # + ws_chain (spd-gap-small gwchbh, 2026-10-15): fast PASS, top pose median 0.369 A vs the 1.277 A A/A floor (39
 # paired folds); normal FAIL, DockQ worse with the CI excluding 0 ([-0.0286, -0.0012], 44 paired folds, docking 25 -> 24),
 # so Blackhole normal runs the family set without it (`BH_NORMAL_LEVERS`).
-NORMAL_LEVERS = _FAMILY_NORMAL | WS_CHAIN
+# Wormhole normal also takes the T2 tail (protenix.T2_TAIL). WH 11-set normal grade, shipped set vs + T2_TAIL
+# (spd-integrate gpsn, 2026-10-17, 8 seeds, 85 paired folds): PASS, same-seed top pose median 0.000 A (A/A floor
+# 1.201 A), CA-lDDT +0.0001 [-0.0003, +0.0006], DockQ -0.0022 [-0.0110, +0.0046], docking 50 -> 49 of 85. cdk2x2 512 x 1
+# at 1000 MHz: 112.17 -> 108.46 s (-3.3 %); trimul_t2 itself declines c_z 384, t2cm and t2w carry the saving.
+NORMAL_LEVERS = _FAMILY_NORMAL | WS_CHAIN | T2_TAIL | {"triatt_ln"}
 BH_NORMAL_LEVERS = _FAMILY_NORMAL
 FAST_LEVERS = (_T.FAST_LEVERS - {"dit_b8"}) | {"trimul_b8in", "trimul_t2w"} | WS_CHAIN
+# Wormhole fast also runs T1 on OpenDDE's c_z 384 pair (trimul_t1_c384). WH 11-set fast grade, FAST_LEVERS vs +
+# trimul_t1_c384 (spd-integrate gpsf, 2026-10-17, 44 paired folds): PASS, CA-lDDT -0.0005 [-0.0016, +0.0002], pLDDT
+# -0.0002, docking 25 -> 24 of 44. cdk2x2 512 x 1 at 1000 MHz: 104.16 -> 101.52 s (-2.5 %). Blackhole is ungraded.
+WH_FAST_LEVERS = FAST_LEVERS | {"trimul_t1_c384", "triatt_ln"}
+# Both Wormhole modes fuse triangle attention's LayerNorm into its qkvgb projection (triatt_ln), now that the
+# kernel splits OpenDDE's 1.2 MB weight over column groups instead of declining. WH 11-set grades vs the model set
+# before T2_TAIL / trimul_t1_c384, 4 seeds, 44 paired folds each, 1000 MHz (spd-m-opendde tlng, 2026-10-17): normal PASS, same-seed top pose median
+# 0.127 A (A/A floor 1.295 A), CA-lDDT -0.0003 [-0.0007, +0.0001], docking 24 -> 24; fast PASS, top pose median
+# 0.372 A (floor 1.146 A), CA-lDDT -0.0010 [-0.0023, -0.0001], docking 25 -> 25. Warm fold median -1.05 % normal,
+# -1.13 % fast; ~-2 % at 600-800 aa, flat at 546-559 aa. Blackhole is ungraded.
 
 
 class OpenDDE:
@@ -460,11 +474,12 @@ class OpenDDE:
         (OPENDDE_DIFFUSION_FP32=1 lifts it). Guided runs pass True (host_controller.diffusion_precision).
         levers: the precision levers this model builds and folds under, the same switches
         Protenix-v2 runs (`tenstorrent.LEVERS`); None takes the mode's set
-        (`tenstorrent.model_levers`): `NORMAL_LEVERS` (the Protenix family set + ws_chain; `BH_NORMAL_LEVERS` on
-        Blackhole), or `FAST_LEVERS` below under `--fast`."""
+        (`tenstorrent.model_levers`): `NORMAL_LEVERS` (Protenix family set + ws_chain + T2 tail; `BH_NORMAL_LEVERS` on
+        Blackhole), or `FAST_LEVERS` (`WH_FAST_LEVERS` on Wormhole) under `--fast`."""
         import tt_bio.tenstorrent as _TT
-        normal = NORMAL_LEVERS if _TT.is_wormhole() else BH_NORMAL_LEVERS
-        self._levers = _TT.model_levers(normal, FAST_LEVERS, spec=levers)
+        wh = _TT.is_wormhole()
+        self._levers = _TT.model_levers(NORMAL_LEVERS if wh else BH_NORMAL_LEVERS,
+                                        WH_FAST_LEVERS if wh else FAST_LEVERS, spec=levers)
         with _TT.levers(self._levers):
             self._build(state_dict, compute_kernel_config, device, diffusion_fp32)
 

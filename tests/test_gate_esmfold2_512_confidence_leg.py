@@ -49,6 +49,27 @@ def test_a_record_without_a_plddt_block_is_not_a_pass():
     assert _rule()([rec], BAR)
 
 
+# The Wormhole --fast record, .108 chip 23, 2026-10-17 (spd-gap-whesmf wpl, arm D): ws_lofi alone
+# moves it 0.015, inside the charter's fast bar and far outside the normal one.
+WH_FAST = {"protein": "cdk2x2_512", "fast": True,
+           "plddt_mean": {"ref_seed_spread": 0.00422, "mean_abs_delta": 0.01674}}
+FAST_BAR = 0.03
+
+
+def test_a_fast_record_is_graded_at_the_fast_bar():
+    assert _rule()([WH_FAST], BAR, FAST_BAR) == ""
+    collapse = copy.deepcopy(WH_FAST)
+    collapse["plddt_mean"]["mean_abs_delta"] = 0.0350
+    assert "0.0350" in _rule()([collapse], BAR, FAST_BAR)
+
+
+def test_a_record_without_the_fast_mark_keeps_the_normal_bar():
+    rec = copy.deepcopy(WH_FAST)
+    rec.pop("fast")
+    assert "0.0167" in _rule()([rec], BAR, FAST_BAR)
+    assert "0.0167" in _rule()([WH_FAST], BAR)
+
+
 def test_a_leg_without_a_bar_is_ungraded():
     """The other esmfold2 legs keep PASS-if-scored."""
     assert _rule()([SEP02], None) == ""
@@ -62,7 +83,7 @@ def test_the_leg_is_registered_against_its_committed_fixture():
     src = GATE.read_text()
     assert 'Leg("esmfold2-fast-512-confidence"' in src, "the leg is not in LEGS"
     leg = src.split('Leg("esmfold2-fast-512-confidence"', 1)[1].split("\n    Leg(", 1)[0]
-    assert f"max_plddt_delta={BAR}" in leg
+    assert f"max_plddt_delta={BAR}" in leg and f"max_plddt_delta_fast={FAST_BAR}" in leg
     assert '"cdk2x2_512"' in leg and '"--loops", "10"' in leg and '"--steps", "100"' in leg
     assert "esmfold2-fast/cdk2x2_512/nomsa_10cycle_100step_1sample_fp32_prod" in leg
     meta = json.loads((FIXTURE / "meta.json").read_text())

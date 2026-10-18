@@ -2,7 +2,8 @@
 
 One embed_sequences call on the perf-page protocol (prot512.seq x N), split by wrapping the model's device module
 (time to return = host enqueue; then synchronize = device work still queued) and its _to_torch (readback: device
-untilize, host copy, fp32 cast). "rest" is tokenising, batching, uploads and pooling. If enqueue ~ total device time the forward is host-bound and a trace pays.
+untilize, host copy, fp32 cast). The ESMC-6B module reads its result back itself, so there the enqueue clock stops at
+its first _to_host, and that readback is one "readback" lap. "rest" is tokenising, batching, uploads and pooling. If enqueue ~ total device time the forward is host-bound and a trace pays.
 
     python3 perf/spd_gap_whlm/phase_prof.py --model saprot-35m --n-seqs 7 --out phase.json
 """
@@ -46,8 +47,26 @@ def main() -> int:
     t = {}
     module, to_torch = model.module, model._to_torch
 
+    inner_rb = isinstance(model, mod.ESMCLanguageModel) if hasattr(mod, "ESMCLanguageModel") else False
+    to_host = module._to_host if inner_rb else None
+
     def timed_module(*a, **k):
         t0 = time.perf_counter()
+        if inner_rb:
+            def timed_to_host(x):
+                t1 = time.perf_counter()
+                ttnn.synchronize_device(dev)
+                t2 = time.perf_counter()
+                r = to_host(x)
+                t["enqueue"] = t.get("enqueue", 0.0) + t1 - t0
+                t["device_tail"] = t.get("device_tail", 0.0) + t2 - t1
+                t["readback"] = t.get("readback", 0.0) + time.perf_counter() - t2
+                return r
+            module._to_host = timed_to_host
+            try:
+                return module(*a, **k)
+            finally:
+                module._to_host = to_host
         r = module(*a, **k)
         t1 = time.perf_counter()
         ttnn.synchronize_device(dev)

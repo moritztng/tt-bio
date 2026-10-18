@@ -143,9 +143,10 @@ def test_the_generic_op_route_is_only_reached_masked(monkeypatch):
     # ESMFold2's windowed atom attention runs it in `attend` with the bias `_frame` returns: `self.bias`, which
     # `__init__` always uploads, or its B-fold repeat.
     # RFD3's atom attention runs it with the mask `_sdpa_bias` returns, which always builds one.
+    # shsdpa runs it with the key-padding row of the `pad` pair its caller builds, never None.
     assert _generic_sdpa_runners() == ["tt_bio/esmfold2.py", "tt_bio/openfold3_atom_transformer.py",
-                                       "tt_bio/protenix.py", "tt_bio/rfd3/model.py", "tt_bio/tenstorrent.py",
-                                       "tt_bio/triatt_sdpa.py"]
+                                       "tt_bio/protenix.py", "tt_bio/rfd3/model.py", "tt_bio/shsdpa.py",
+                                       "tt_bio/tenstorrent.py", "tt_bio/triatt_sdpa.py"]
     rf_src = (PKG / "rfd3" / "model.py").read_text()
     assert rf_src.count("mask = self._sdpa_bias(") == 1
     rf = ast.parse(rf_src)
