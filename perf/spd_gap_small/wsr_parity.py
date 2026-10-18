@@ -1,4 +1,4 @@
-"""ws_resid parity against float64, per (ws_l1acc, resid, weight dtype) arm, at one pair row block.
+"""ws_resid / ws_chain / resid2 parity against float64, per (ws_l1acc, resid, weight dtype) arm, at one pair row block.
 
 rel = rms(out - ref) / rms(t), where ref = z + t in float64 and t is the transition. Usage (one chip):
     TT_VISIBLE_DEVICES=<chip> python wsr_parity.py [c_z] [rows] [z_scale] [n_tokens]
@@ -61,4 +61,14 @@ for wdt in (ttnn.bfloat16, ttnn.bfloat8_b):
             for a, b in parts[1:]:
                 W.pair_swiglu(xt, a, b, fid, l1acc=True, resid=t)
             report(wdt, parts, True, "chain", d((d(z) + d(ttnn.to_torch(t))).bfloat16()))
+            # resid2: the same chain, the last chunk seeded with z + the partial, rounded once (tenstorrent.WS_RESID2)
+            if W.eligible(xt, *parts[-1], l1acc=True, resid=up(z), resid2=xt):
+                t = W.pair_swiglu(xt, *parts[0], fid, l1acc=True)
+                for a, b in parts[1:-1]:
+                    W.pair_swiglu(xt, a, b, fid, l1acc=True, resid=t)
+                zt = up(z)
+                W.pair_swiglu(xt, *parts[-1], fid, l1acc=True, resid=zt, resid2=t)
+                report(wdt, parts, True, "chain2", d(ttnn.to_torch(zt)))
+            else:
+                print(f"w={wdt} parts={len(parts)} chain2: not eligible", flush=True)
 

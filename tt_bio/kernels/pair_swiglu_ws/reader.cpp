@@ -9,7 +9,8 @@
 // Under WS_LN the raw x streams into c_5 instead and the LayerNorm's gamma / beta (Kt tiles each, row 0 carries
 // the [K] vector), the 1/K reduce scaler and an fp32 eps tile are read once into c_8 / c_9 / c_10 / c_11.
 //
-// Under WS_RESID the residual's row tile (CT pages) follows each x row tile into c_20.
+// Under WS_RESID the residual's row tile (CT pages) follows each x row tile into c_20, and under WS_RESID2 the second
+// residual's into c_24 (common runtime arg 8).
 //
 // Under WS_RELU c_1 holds w1 alone ([KT, NH] tiles) and the row-replicated biases are read once into c_21 (b1, NH
 // tiles) and c_22 (b3, CT tiles). Under WS_RELU_BW b1 is read the same way and the cotangent dy's row tile (KT pages)
@@ -59,6 +60,11 @@ void kernel_main() {
     const auto sr = TensorAccessor(r_args, get_common_arg_val<uint32_t>(5));
     constexpr uint32_t cb_res = 20;
     const uint32_t tr = get_tile_size(cb_res);
+#ifdef WS_RESID2
+    constexpr auto r2_args = TensorAccessorArgs<r_args.next_compile_time_args_offset()>();
+    const auto sr2 = TensorAccessor(r2_args, get_common_arg_val<uint32_t>(8));
+    constexpr uint32_t cb_res2 = 24;
+#endif
 #endif
 #if defined(WS_RELU) || defined(WS_RELU_BW)
     // the bias accessors follow the last tensor the reader already takes (WS_RELU is never combined with WS_RESID)
@@ -158,6 +164,13 @@ void kernel_main() {
         for (uint32_t c = 0; c < CT; ++c, wr += tr) {
             noc_async_read_page(r * CT + c, sr, wr);
         }
+#ifdef WS_RESID2
+        cb_reserve_back(cb_res2, CT);
+        uint32_t wr2 = get_write_ptr(cb_res2);
+        for (uint32_t c = 0; c < CT; ++c, wr2 += tr) {
+            noc_async_read_page(r * CT + c, sr2, wr2);
+        }
+#endif
 #endif
         noc_async_read_barrier();
         cb_push_back(cb_x, KT);
@@ -166,6 +179,9 @@ void kernel_main() {
 #endif
 #ifdef WS_RESID
         cb_push_back(cb_res, CT);
+#ifdef WS_RESID2
+        cb_push_back(cb_res2, CT);
+#endif
 #endif
     }
 }
