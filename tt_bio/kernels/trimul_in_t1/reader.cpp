@@ -18,6 +18,11 @@
 #ifndef ABL
 #define ABL 0
 #endif
+// T1PRE (trimul_tail.T1_LN1): x is the first launch's xn, already normalised, in z's layout; its row tiles go
+// straight into compute's xn_cb at slot dt * IL + il, so this launch runs no layer_norm.
+#ifndef T1PRE
+#define T1PRE 0
+#endif
 #include "api/dataflow/dataflow_api.h"
 #include "ttnn/kernel/dataflow/generate_reduce_scaler.hpp"
 
@@ -102,7 +107,16 @@ void kernel_main() {
         const uint32_t yt = u % St;
         // Row tile (b, x, yt) of z is page ((b * S + x) * St + yt) * Kt + dt (trimul_tail.t1_x_page).
         uint32_t page = ((b * S + xt * 32 + h * IL) * St + yt) * Kt;
-        for (uint32_t il0 = 0; il0 < IL; il0 += RB) {
+        if constexpr (T1PRE) {
+            constexpr uint32_t xn_cb = tt::CBIndex::c_1;
+            cb_reserve_back(xn_cb, IL * Kt);
+            const uint32_t base = get_write_ptr(xn_cb);
+            for (uint32_t il = 0; il < IL; ++il, page += St * Kt)
+                for (uint32_t dt = 0; dt < Kt; ++dt) noc_async_read_page(page + dt, x, base + (dt * IL + il) * tb);
+            noc_async_read_barrier();
+            cb_push_back(xn_cb, IL * Kt);
+        }
+        for (uint32_t il0 = 0; il0 < IL && !T1PRE; il0 += RB) {
             cb_reserve_back(x_cb, RB * Kt);
             uint32_t dst = get_write_ptr(x_cb);
             for (uint32_t r = 0; r < RB; ++r, page += St * Kt)

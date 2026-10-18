@@ -20,6 +20,11 @@
 #ifndef T1B8
 #define T1B8 0
 #endif
+// T1XOUT (trimul_tail.T1_LN1): this launch also stores xn, which compute sends first in each unit, row tile
+// by row tile in z's own layout, for the later channel-group launches to read instead of renormalising z.
+#ifndef T1XOUT
+#define T1XOUT 0
+#endif
 #include "api/dataflow/dataflow_api.h"
 
 void kernel_main() {
@@ -40,6 +45,12 @@ void kernel_main() {
     const auto oa = TensorAccessor(a_args, get_common_arg_val<uint32_t>(0));
     const auto ob = TensorAccessor(b_args, get_common_arg_val<uint32_t>(1));
     const auto og = TensorAccessor(g_args, get_common_arg_val<uint32_t>(2));
+#if T1XOUT
+    constexpr uint32_t Kt = get_compile_time_arg_val(g_args.next_compile_time_args_offset());
+    constexpr auto xn_args = TensorAccessorArgs<g_args.next_compile_time_args_offset() + 1>();
+    const auto oxn = TensorAccessor(xn_args, get_common_arg_val<uint32_t>(3));
+    constexpr uint32_t xo_cb = tt::CBIndex::c_20;
+#endif
     const uint32_t u0 = get_arg_val<uint32_t>(0);
     const uint32_t nunits = get_arg_val<uint32_t>(1);
 
@@ -69,6 +80,18 @@ void kernel_main() {
         const uint32_t r0 = h * IL;
         const uint32_t off0 = IL == 32 ? 0 : (r0 >> 4) * 2 * FB + (r0 & 15) * RB;
         const uint32_t wlen = IL == 32 ? TB : (IL == 16 ? 2 * FB : IL * RB);
+#if T1XOUT
+        {
+            uint32_t page = ((b * S + xt * 32 + h * IL) * St + yt) * Kt;   // z's row tile pages
+            for (uint32_t il = 0; il < IL; ++il, page += St * Kt) {
+                cb_wait_front(xo_cb, Kt);
+                uint32_t r = get_read_ptr(xo_cb);
+                for (uint32_t dt = 0; dt < Kt; ++dt, r += TB) noc_async_write_page(page + dt, oxn, r);
+                noc_async_writes_flushed();
+                cb_pop_front(xo_cb, Kt);
+            }
+        }
+#endif
         if constexpr (NG) {
             // trimul_tail.t1_g_page: row tile (b, xt*32 + il, yt), channel tile n.
             uint32_t page = ((b * S + xt * 32 + h * IL) * St + yt) * NTGT + N0;

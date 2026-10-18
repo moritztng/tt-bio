@@ -34,6 +34,15 @@
 #ifndef ABL
 #define ABL 0
 #endif
+// T1XOUT / T1PRE (trimul_tail.T1_LN1, the c_z 256 / 384 plans' channel groups): the first launch also packs
+// every normalised tile to c_20 for the writer, which stores xn in z's layout; the later launches skip the
+// layer_norm and take xn from the reader straight into xn_cb. The same bf16 tiles feed every matmul either way.
+#ifndef T1XOUT
+#define T1XOUT 0
+#endif
+#ifndef T1PRE
+#define T1PRE 0
+#endif
 
 constexpr uint32_t Kt = get_compile_time_arg_val(0);
 constexpr uint32_t QN = get_compile_time_arg_val(1);        // [a | b] channel tiles of this launch
@@ -71,6 +80,7 @@ constexpr uint32_t cb_xc = tt::CBIndex::c_16;    // fp32, Kt tiles
 constexpr uint32_t cb_tmp = tt::CBIndex::c_17;   // fp32, Kt tiles
 constexpr uint32_t wo_cb = tt::CBIndex::c_18;    // Wg_out [Kt x NG] of the group, resident
 constexpr uint32_t go_cb = tt::CBIndex::c_19;    // g_out of one row tile, NG tiles
+constexpr uint32_t xo_cb = tt::CBIndex::c_20;    // T1XOUT: one row tile of xn to the writer, Kt tiles
 
 ALWI void sigmoid_bf16_tile(uint32_t idst) {
     MATH((llk_math_eltwise_unary_sfpu_sigmoid<false, false>(idst, (int)VectorMode::RC)));
@@ -86,9 +96,22 @@ ALWI void layer_norm_row(uint32_t il) {
     if constexpr (ABL & 1) {
         cb_wait_front(cb_x, Kt);
         cb_pop_front(cb_x, Kt);
+        if constexpr (T1XOUT) {
+            cb_reserve_back(xo_cb, Kt);
+            cb_push_back(xo_cb, Kt);
+        }
         return;
     }
-    ln_prologue::layer_norm_row<LnCbs>(xn_cb, [il](uint32_t i) { pack_tile<true>(0, xn_cb, i * IL + il); });
+    if constexpr (T1XOUT) {
+        cb_reserve_back(xo_cb, Kt);
+        ln_prologue::layer_norm_row<LnCbs>(xn_cb, [il](uint32_t i) {
+            pack_tile<true>(0, xn_cb, i * IL + il);
+            pack_tile<true>(0, xo_cb, i);
+        });
+        cb_push_back(xo_cb, Kt);
+    } else {
+        ln_prologue::layer_norm_row<LnCbs>(xn_cb, [il](uint32_t i) { pack_tile<true>(0, xn_cb, i * IL + il); });
+    }
 }
 
 void kernel_main() {
@@ -103,10 +126,12 @@ void kernel_main() {
     if constexpr (NG) cb_wait_front(wo_cb, Kt * NG);
 
     for (uint32_t u = 0; u < nunits; ++u) {
-        // 1. layer_norm of the unit's IL row tiles.
-        cb_reserve_back(xn_cb, IL * Kt);
-        for (uint32_t il = 0; il < IL; ++il) layer_norm_row(il);
-        cb_push_back(xn_cb, IL * Kt);
+        // 1. layer_norm of the unit's IL row tiles (T1PRE: the reader fills xn_cb with them).
+        if constexpr (!T1PRE) {
+            cb_reserve_back(xn_cb, IL * Kt);
+            for (uint32_t il = 0; il < IL; ++il) layer_norm_row(il);
+            cb_push_back(xn_cb, IL * Kt);
+        }
         cb_wait_front(xn_cb, IL * Kt);
 
         // 2. g_out = xn @ Wg_out, row tile by row tile, one K block in k order.
