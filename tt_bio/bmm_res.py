@@ -35,14 +35,33 @@ L1_BUDGET = 1200 * 1024
 _CACHE: dict = {}
 
 
+def _rest_bytes(kt, nt, a_bytes, transpose_a):
+    """Every CB but b's: a's row tiles (+ the bf16 transpose stage) and the output."""
+    bf16 = MG.tile_bytes(ttnn.bfloat16)
+    return A_DEPTH * kt * a_bytes + transpose_a * kt * bf16 + 2 * nt * bf16
+
+
 def _b_depth(kt, nt, a_bytes, b_bytes, budget=L1_BUDGET, transpose_a=False):
     """Channels of b in flight (2, 1), or 0 if one does not fit."""
-    bf16 = MG.tile_bytes(ttnn.bfloat16)
-    rest = A_DEPTH * kt * a_bytes + transpose_a * kt * bf16 + 2 * nt * bf16
+    rest = _rest_bytes(kt, nt, a_bytes, transpose_a)
     for depth in (2, 1):
         if depth * kt * nt * b_bytes + rest <= budget:
             return depth
     return 0
+
+
+def cb_bytes(kt, nt, a_dtype, b_dtype, transpose_a=False, compute_kernel_config=None, budget=L1_BUDGET) -> int:
+    """Static CB bytes per core a call at this shape plans, or 0 where `matmul` declines on these arguments.
+
+    For a caller deciding whether a tensor it is about to place in L1 can sit beside this call: the budget is a
+    constant, not a fit test against live L1, so an L1 buffer above `unreserved - cb_bytes` clashes at program
+    creation. At 512 tokens that is 1179648 B (1212416 with transpose_a), which no L1 `a` operand fits beside.
+    """
+    if compute_kernel_config is not None and not compute_kernel_config.fp32_dest_acc_en:
+        return 0
+    a_bytes, b_bytes = MG.tile_bytes(a_dtype), MG.tile_bytes(b_dtype)
+    depth = _b_depth(kt, nt, a_bytes, b_bytes, budget, transpose_a)
+    return depth and depth * kt * nt * b_bytes + _rest_bytes(kt, nt, a_bytes, transpose_a)
 
 
 def _build(a, b, out, C, mt, kt, nt, ta, tb, depth, fidelity, max_cores, abl=0):

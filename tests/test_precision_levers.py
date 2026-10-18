@@ -25,7 +25,7 @@ def test_a_model_names_its_own_sets_and_the_harness_switch_still_wins(monkeypatc
     monkeypatch.delenv("TT_BIO_LEVERS")
     assert T.model_levers(of3.NORMAL_LEVERS, of3.FAST_LEVERS) == of3.NORMAL_LEVERS
     assert of3.NORMAL_LEVERS == T.NORMAL_LEVERS - {"transition_bw", "transition_shard"} | {"opm_jd", "dit_qsplit"}
-    assert of3.WH_FAST_LEVERS <= set(T.LEVERS) and of3.WH_FAST_LEVERS ^ of3.FAST_LEVERS == {"apb_ln", "trimul_sig6", "trimul_bres", "ws_lofi"}
+    assert of3.WH_FAST_LEVERS <= set(T.LEVERS) and of3.WH_FAST_LEVERS - of3.FAST_LEVERS == {"apb_ln", "trimul_sig6", "trimul_bres", "triatt_hifi2"}
     assert of3.WH_NORMAL_LEVERS - of3.NORMAL_LEVERS == {"trimul_bres"} and of3.WH_NORMAL_LEVERS <= of3.WH_FAST_LEVERS
 
 
@@ -182,7 +182,7 @@ def test_boltz2_mode_sets_name_only_known_levers():
 
     for s in (B.LEVERS_NORMAL, B.LEVERS_FAST):
         assert s <= set(T.LEVERS) and not s & T.UNGRADED_LEVERS
-    assert B.WH_LEVERS_FAST <= set(T.LEVERS) and B.WH_LEVERS_FAST - B.LEVERS_FAST == {"triatt_ln", "apb_ln", "dit_cond_jit", "trimul_sig6"}
+    assert B.WH_LEVERS_FAST <= set(T.LEVERS) and B.WH_LEVERS_FAST - B.LEVERS_FAST == {"triatt_ln", "apb_ln", "dit_cond_jit", "trimul_sig6", "dit_cond_jcat"}
     assert B.BH_LEVERS_FAST - B.LEVERS_FAST == {"dit_shoist"}
 
 
@@ -195,16 +195,17 @@ def test_boltzgen_mode_sets_name_only_known_levers():
 
 def test_protenix_family_normal_set():
     from tt_bio.opendde import BH_NORMAL_LEVERS, NORMAL_LEVERS as DDE
-    from tt_bio.protenix import NORMAL_LEVERS, T2_TAIL, WS_CHAIN
+    from tt_bio.protenix import NORMAL_LEVERS, T2_TAIL, TRIATT_LN, WS_CHAIN
 
-    assert DDE == NORMAL_LEVERS | WS_CHAIN | T2_TAIL | {"triatt_ln"} and DDE <= set(T.LEVERS)
+    assert DDE == NORMAL_LEVERS | WS_CHAIN | T2_TAIL | TRIATT_LN | {"ws_resid", "ws_resid2"} and DDE <= set(T.LEVERS)
     assert BH_NORMAL_LEVERS == NORMAL_LEVERS
     assert NORMAL_LEVERS - T.NORMAL_LEVERS == {"transition_ws", "ws_l1acc", "trimul_t1_c256", "trimul_t1_c384"}
 
 
 def test_protenix_v2_normal_takes_t2_tail(monkeypatch):
     import torch
-    from tt_bio.protenix import FAST_LEVERS, NORMAL_LEVERS, T2_TAIL, SHOIST_FAST, TRIATT_LN, WS_CHAIN, WS_FAST, mode_levers
+    from tt_bio.protenix import (FAST_LEVERS, NORMAL_LEVERS, T2_TAIL, SHOIST_FAST, TRIATT_K1, TRIATT_LN, WS_CHAIN, WS_FAST,
+                                 mode_levers)
 
     def ck(c_z):
         return {"layernorm_z_cycle.weight": torch.zeros(c_z)}
@@ -217,16 +218,16 @@ def test_protenix_v2_normal_takes_t2_tail(monkeypatch):
     assert mode_levers(ck(256)) == NORMAL_LEVERS | T2_TAIL | WS_CHAIN
     assert mode_levers(ck(128)) == NORMAL_LEVERS
     monkeypatch.setattr(T, "is_wormhole", lambda: True)
-    assert mode_levers(ck(256)) == NORMAL_LEVERS | T2_TAIL | WS_CHAIN | TRIATT_LN
+    assert mode_levers(ck(256)) == NORMAL_LEVERS | T2_TAIL | WS_CHAIN | TRIATT_LN | TRIATT_K1
     assert mode_levers(ck(128)) == NORMAL_LEVERS
     monkeypatch.setattr(T, "_FAST_MODE", True)
     monkeypatch.setattr(T, "is_wormhole", lambda: False)
     assert mode_levers(ck(256)) == FAST_LEVERS | SHOIST_FAST
     assert mode_levers(ck(128)) == FAST_LEVERS
     monkeypatch.setattr(T, "is_wormhole", lambda: True)
-    assert mode_levers(ck(256)) == FAST_LEVERS - {"trimul_t1_c256"} | TRIATT_LN | WS_FAST | SHOIST_FAST
+    assert mode_levers(ck(256)) == FAST_LEVERS - {"trimul_t1_c256"} | TRIATT_LN | TRIATT_K1 | WS_FAST | SHOIST_FAST
     assert mode_levers(ck(128)) == FAST_LEVERS - {"trimul_t1_c256"}
-    assert TRIATT_LN | WS_FAST | SHOIST_FAST <= set(T.LEVERS)
+    assert TRIATT_LN | TRIATT_K1 | WS_FAST | SHOIST_FAST <= set(T.LEVERS)
 
 
 def test_protenix_fast_set_takes_t1_c256(monkeypatch):
@@ -249,4 +250,4 @@ def test_opendde_fast_set_names_only_known_levers():
     from tt_bio.protenix import WS_CHAIN
 
     assert FAST_LEVERS <= set(T.LEVERS) and {"trimul_b8in", "trimul_t2w"} | WS_CHAIN <= FAST_LEVERS and "dit_b8" not in FAST_LEVERS
-    assert WH_FAST_LEVERS - FAST_LEVERS == {"trimul_t1_c384", "triatt_ln"}
+    assert WH_FAST_LEVERS - FAST_LEVERS == {"trimul_t1_c384", "triatt_ln", "apb_ln", "triatt_k1"}

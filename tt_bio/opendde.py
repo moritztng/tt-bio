@@ -17,7 +17,7 @@ device.
 import torch
 import ttnn
 
-from .protenix import NORMAL_LEVERS as _FAMILY_NORMAL, T2_TAIL, WS_CHAIN, _KeyedWeights
+from .protenix import NORMAL_LEVERS as _FAMILY_NORMAL, T2_TAIL, TRIATT_K1, TRIATT_LN, WS_CHAIN, _KeyedWeights
 from . import hostlane
 from .envflags import env_flag
 from .opendde_data import STRUCTURAL_TOKEN_ROLES
@@ -448,19 +448,38 @@ def route_opendde_weights(state_dict):
 # (spd-integrate gpsn, 2026-10-17, 8 seeds, 85 paired folds): PASS, same-seed top pose median 0.000 A (A/A floor
 # 1.201 A), CA-lDDT +0.0001 [-0.0003, +0.0006], DockQ -0.0022 [-0.0110, +0.0046], docking 50 -> 49 of 85. cdk2x2 512 x 1
 # at 1000 MHz: 112.17 -> 108.46 s (-3.3 %); trimul_t2 itself declines c_z 384, t2cm and t2w carry the saving.
-NORMAL_LEVERS = _FAMILY_NORMAL | WS_CHAIN | T2_TAIL | {"triatt_ln"}
+# Wormhole normal also takes ws_resid + ws_resid2: the transition adds z into its last hidden chunk's fp32 dest, so the
+# residual add_ pass goes. WH 11-set normal grade, shipped set vs + both (spd-m-opendde rr2g, 2026-10-18, seeds 109-112,
+# 44 paired folds): PASS, same-seed top pose median 0.183 A (A/A floor 1.320 A), CA-lDDT -0.0003 [-0.0007, +0.0001].
+# cdk2x2 x 1 at 1000 MHz: normal 512 -0.56 s, 576 -1.59 s.
+NORMAL_LEVERS = _FAMILY_NORMAL | WS_CHAIN | T2_TAIL | TRIATT_LN | {"ws_resid", "ws_resid2"}
 BH_NORMAL_LEVERS = _FAMILY_NORMAL
 FAST_LEVERS = (_T.FAST_LEVERS - {"dit_b8"}) | {"trimul_b8in", "trimul_t2w"} | WS_CHAIN
 # Wormhole fast also runs T1 on OpenDDE's c_z 384 pair (trimul_t1_c384). WH 11-set fast grade, FAST_LEVERS vs +
 # trimul_t1_c384 (spd-integrate gpsf, 2026-10-17, 44 paired folds): PASS, CA-lDDT -0.0005 [-0.0016, +0.0002], pLDDT
 # -0.0002, docking 25 -> 24 of 44. cdk2x2 512 x 1 at 1000 MHz: 104.16 -> 101.52 s (-2.5 %). Blackhole is ungraded.
-WH_FAST_LEVERS = FAST_LEVERS | {"trimul_t1_c384", "triatt_ln"}
+WH_FAST_LEVERS = FAST_LEVERS | {"trimul_t1_c384"} | TRIATT_LN | TRIATT_K1
 # Both Wormhole modes fuse triangle attention's LayerNorm into its qkvgb projection (triatt_ln), now that the
 # kernel splits OpenDDE's 1.2 MB weight over column groups instead of declining. WH 11-set grades vs the model set
 # before T2_TAIL / trimul_t1_c384, 4 seeds, 44 paired folds each, 1000 MHz (spd-m-opendde tlng, 2026-10-17): normal PASS, same-seed top pose median
 # 0.127 A (A/A floor 1.295 A), CA-lDDT -0.0003 [-0.0007, +0.0001], docking 24 -> 24; fast PASS, top pose median
 # 0.372 A (floor 1.146 A), CA-lDDT -0.0010 [-0.0023, -0.0001], docking 25 -> 25. Warm fold median -1.05 % normal,
 # -1.13 % fast; ~-2 % at 600-800 aa, flat at 546-559 aa. Blackhole is ungraded.
+# They also take apb_ln, the same fused LayerNorm in front of the attention pair-bias projection (protenix.TRIATT_LN).
+# Galaxy chip, cdk2x2 x 1, 1000 MHz, 2 paired warm folds (spd-m-opendde apbab, 2026-10-18): normal 512 -1.23 s,
+# fast 512 -1.19 s, normal 576 -2.41 s. WH 11-set grades vs main 08fe51af7, seeds 109-112, 44 paired folds each
+# (spd-m-opendde apbg, 2026-10-18): normal PASS, same-seed top pose median 0.147 A (A/A floor 1.098 A), CA-lDDT
+# +0.0007 [+0.0000, +0.0017], docking 25 -> 26; fast PASS, top pose median 0.247 A (floor 1.476 A), CA-lDDT -0.0001
+# [-0.0005, +0.0003], docking 26 -> 26.
+# Wormhole fast also takes triatt_k1 (protenix.TRIATT_K1). 512-token truth set, WH_FAST_LEVERS vs + triatt_k1, 4 seeds,
+# 44 paired folds, every digest moved (spd-gap-small gk1os, 2026-10-18): PASS, same-seed top pose median 0.450 A vs the
+# 1.902 A A/A floor. cdk2x2 512 x 1 at 1000 MHz, 5 paired warm folds (k1o): fast 93.77 -> 92.44 s. Normal stays off:
+# its grade FAILs on iRMSD, +0.068 A [+0.014, +0.146] (43 paired folds, docking 31 -> 31), though normal reads -1.67 s.
+# Wormhole fast also takes ws_resid2: the transition's last hidden chunk adds z and the chain's partial sum in its fp32
+# dest, so the residual add_ pass goes. Galaxy chip, cdk2x2 x 1, 1000 MHz, 2 paired warm folds (spd-m-opendde rr2ab,
+# 2026-10-18): fast 512 -1.03 s, fast 576 -1.36 s. WH 11-set fast grade vs the shipped fast set, seeds 109-112, 44
+# paired folds (rr2g): PASS, same-seed top pose median 0.211 A (A/A floor 1.318 A), CA-lDDT -0.0002 [-0.0008, +0.0004],
+# docking 26 -> 26. Normal takes it with ws_resid (NORMAL_LEVERS).
 
 
 class OpenDDE:

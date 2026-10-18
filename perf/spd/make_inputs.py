@@ -19,6 +19,10 @@ Writes <data>/inputs/<name>.yaml and merges every cache into <data>/msa:
   <PDB> x 11    the accuracy set (perf/pfm_accuracy/set.tsv): post-cutoff two-chain complexes with deposited
                 structures, copied from --acc (pfm-accuracy's data dir: inputs/, msa/cache/, ref/) with their
                 references into <data>/ref
+  <PDB>_512 x 11  the same complexes at 512 tokens, the GAP cell's size: the whole binder plus the window of the
+                target centred on its interface, MSA cropped by column window, reference renumbered to the crop
+                (perf/pfm_accuracy/set512.tsv). Routes that only exist at <= 512 tokens get a verdict here; the
+                11-set itself runs 546-791 tokens and never reaches them
 
 Boltz-2 reads a complex's paired MSA as one `{seq_hash}.csv` per chain in its paired dir, not the a3m pair the
 other models read. For every input that pairs, the CSVs are written from the same paired and unpaired a3m with
@@ -37,6 +41,7 @@ ap = argparse.ArgumentParser()
 ap.add_argument("--data", type=Path, default=Path("~/spd-data").expanduser())
 ap.add_argument("--acc", type=Path, default=Path("~/pfm-accuracy-data").expanduser())
 ap.add_argument("--boltz2-csv", action="store_true", help="only write the Boltz-2 CSVs for the inputs already here")
+ap.add_argument("--truth512", action="store_true", help="only (re)write the 512-token accuracy set from the 11-set here")
 a = ap.parse_args()
 D = a.data
 MSA = D / "msa"
@@ -51,19 +56,17 @@ def write_yaml(name, chains, note):
                                                                                           sort_keys=False))
 
 
-def crop_a3m(text, n):
-    """Keep the first n match columns of every row (and the insertions before them). Row order and count are
-    kept, so a paired file stays row-aligned with its partner."""
+def crop_a3m(text, n, start=0):
+    """Keep match columns start..start+n-1 of every row (and the insertions between them). Row order and count
+    are kept, so a paired file stays row-aligned with its partner."""
     out = []
     for line in text.splitlines():
         if line.startswith(">") or not line:
             out.append(line); continue
-        cols, keep = 0, []
-        for tok in re.findall(r"[a-z.]*[A-Z\-]", line):
-            if cols == n:
-                break
-            keep.append(tok); cols += 1
-        out.append("".join(keep))
+        toks = re.findall(r"[a-z.]*[A-Z\-]", line)[start:start + n]
+        if toks and start:
+            toks[0] = toks[0][-1]  # an insertion before the window's first column belongs to the cut
+        out.append("".join(toks))
     return "\n".join(out) + "\n"
 
 
@@ -76,6 +79,53 @@ def crop_complex(name, na, nb):
     for full, s in ((A, a), (B, b)):
         (dst / f"{seq_hash(s)}.a3m").write_text(crop_a3m((src / f"{seq_hash(full)}.a3m").read_text(), len(s)))
     write_yaml(name, [("A", a), ("B", b)], f"complex730 cropped to A 1-{na} + B 1-{nb}, MSA cropped by column")
+
+
+def truth512(tokens=512, contact=10.0):
+    """Each accuracy-set complex at `tokens`: whole binder + the target window centred on the interface (target
+    residues with a CA within `contact` A of a binder CA in the deposited structure). Writes the input, the
+    windowed MSAs, the reference with the target renumbered 1.. over the window, and set512.tsv."""
+    import gemmi
+    import numpy as np
+    acc = Path(__file__).parents[1] / "pfm_accuracy"
+    rows = ["pdb\ttarget\tbinder\twhy"]
+    for line in (acc / "set.tsv").read_text().splitlines()[1:]:
+        pdb, tch, bch, why = line.split("\t")
+        (_, T), (_, Bs) = [(s["protein"]["id"], s["protein"]["sequence"])
+                           for s in yaml.safe_load((D / "inputs" / f"{pdb}.yaml").read_text())["sequences"]]
+        n = tokens - len(Bs)
+        st = gemmi.read_structure(str(D / "ref" / f"{pdb}.cif"))
+        st.setup_entities()
+        pol = {ch.name: [r for r in ch.get_polymer() if r.label_seq and r.find_atom("CA", "*")] for ch in st[0]}
+        bx = np.array([r["CA"][0].pos.tolist() for r in pol[bch]])
+        iface = [r.label_seq for r in pol[tch]
+                 if np.linalg.norm(bx - np.array(r["CA"][0].pos.tolist()), axis=1).min() < contact]
+        mid = int(np.median(iface))
+        start = min(max(mid - n // 2, 1), len(T) - n + 1)  # 1-based label_seq of the window's first residue
+        t = T[start - 1:start - 1 + n]
+        name = f"{pdb}_{tokens}"
+        (MSA / f"{seq_hash(t)}.a3m").write_text(crop_a3m((MSA / f"{seq_hash(T)}.a3m").read_text(), n, start - 1))
+        src, dst = paired_msa_dir(MSA, [T, Bs]), paired_msa_dir(MSA, [t, Bs])
+        dst.mkdir(parents=True, exist_ok=True)
+        (dst / f"{seq_hash(t)}.a3m").write_text(crop_a3m((src / f"{seq_hash(T)}.a3m").read_text(), n, start - 1))
+        shutil.copy(src / f"{seq_hash(Bs)}.a3m", dst / f"{seq_hash(Bs)}.a3m")
+        write_yaml(name, [("A", t), ("B", Bs)], f"{pdb} target {start}-{start + n - 1} (interface median "
+                   f"{mid}, {len(iface)} contacts) + binder 1-{len(Bs)}, {tokens} tokens, MSA cropped by column")
+        doc = gemmi.cif.read(str(D / "ref" / f"{pdb}.cif"))
+        site = doc.sole_block().find("_atom_site.", ["label_seq_id", "auth_asym_id"])
+        for i in reversed(range(len(site))):
+            r = site[i]
+            if r[1] != tch:
+                continue
+            k = int(r[0]) - start + 1 if r[0] not in (".", "?") else 0
+            if 1 <= k <= n:
+                r[0] = str(k)
+            else:
+                site.remove_row(i)
+        doc.write_file(str(D / "ref" / f"{name}.cif"))
+        rows.append(f"{name}\t{tch}\t{bch}\t{pdb} at {tokens} tokens: target {start}-{start + n - 1} + whole binder")
+        print(f"{name}: target {start}-{start + n - 1} of {len(T)}, binder {len(Bs)}, {len(iface)} interface residues")
+    (acc / f"set{tokens}.tsv").write_text("\n".join(rows) + "\n")
 
 
 def homomer(name, n, copies):
@@ -100,6 +150,10 @@ def boltz2_csvs():
 if a.boltz2_csv:
     boltz2_csvs()
     raise SystemExit(0)
+if a.truth512:
+    truth512()
+    boltz2_csvs()
+    raise SystemExit(0)
 write_yaml("c730", [("A", A), ("B", B)], "complex730 (UniRef50_A0A2C9LWN7 crops 1-580 + 581-730), 730 tokens")
 crop_complex("l256", 206, 50)
 crop_complex("l512", 410, 102)
@@ -119,6 +173,7 @@ if (a.acc / "msa" / "cache").exists():
     for pdb in (l.split("\t")[0] for l in (Path(__file__).parents[1] / "pfm_accuracy" / "set.tsv")
                 .read_text().splitlines()[1:]):
         shutil.copy(a.acc / "inputs" / f"{pdb}.yaml", D / "inputs" / f"{pdb}.yaml")
+    truth512()
 else:
     print(f"skip accuracy set: no {a.acc}/msa/cache")
 

@@ -1,0 +1,21 @@
+triatt SDPA per-stage device zones, [B, H, 512, 32], shipped levers (bf16, mask preloaded into DST),
+.107 WH chip 25, AICLK 1000 MHz (CSV CHIP_FREQ), tree fe1dc619c, 2026-10-18 13:24Z, zones_512.py.
+Config actually run: q chunk 512 (16 tiles), k chunk 256 (8 tiles), 2 k chunks per (batch, head);
+score block per k chunk = 16 x 8 = 128 tiles. Medians per k-chunk iteration over every core
+(TRISC_1 = math; TRISC_0 unpack / TRISC_2 pack within 1 us). Identical at H=4 and H=8, batch 72 and 512.
+
+stage      us    share  per score tile   what
+TA_QK     12.1   24 %    95 cycles       Q K^T, mask preloaded into DST, includes the wait on K
+TA_MAX     4.5    9 %    35 cycles       row max (+ eltwise max with the previous chunk)
+TA_SUBEXP 16.2   33 %   127 cycles       exp((s - max) * scale) in place + partial row sum (L1 acc)
+TA_PV      5.9   12 %    46 cycles       P V, includes the wait on V
+TA_CORR   11.0   22 %    (2nd chunk)     online-softmax rescale of max, sum and the [16 x 1] output
+
+Per (batch, head): 2 x (QK + MAX + SUBEXP + PV) + CORR = ~89 us, plus the tail (row-sum matmul,
+recip, normalise, write). B=512 H=4: 2048 units / 72 cores x ~89 us = ~2.5 ms of the 3.24 ms op.
+
+Against sab (same op, chip 28): removing the exp saves 4 %, LoFi matmuls 4 %. So SUBEXP is a third
+of the op but the exp in it is not: the pass costs its unpack / bcast-sub / pack over 128 tiles.
+Every stage re-reads the 128-tile score block from L1 and writes it back; the time is per-pass
+tile movement, not math. CORR exists only because the k chunk is 256 at 512 (one k chunk would drop
+it and the second chunk's MAX/sub_exp of the previous statistics).

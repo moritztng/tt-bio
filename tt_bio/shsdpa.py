@@ -33,9 +33,9 @@ K_CHUNK = 192
 # 6B B1H40 0.230 -> 0.166, rel_rms vs float64 unchanged to 4 digits.
 _KEYPAD_ROW = env_flag("TT_BIO_SHSDPA_KEYPAD_ROW", True)
 # 288-key chunks (9 tiles) instead of 192: with KEYPAD_ROW the same bench reads 300M 0.361 -> 0.348, 600M 0.431 -> 0.417,
-# 6B 0.166 -> 0.162 ms a call, rel_rms vs float64 0.0269 -> 0.0264. Changes the output (another softmax blocking), so it
-# is graded on its own; off until then.
-_K_CHUNK_WIDE = env_flag("TT_BIO_SHSDPA_K288", False)
+# 6B 0.166 -> 0.162 ms a call, rel_rms vs float64 0.0269 -> 0.0264. It changes the output (another softmax blocking):
+# ESMC/SaProt page cells, 7 model x mode, pcc vs fp32 moves -0.000025..+0.00001 (mean -0.000009), pooled cos >= 0.99983.
+_K_CHUNK_WIDE = env_flag("TT_BIO_SHSDPA_K288", True)
 
 
 def k_chunk_default() -> int:
@@ -100,7 +100,7 @@ def plan(B, H, S, cores, k_chunk=None, max_qt=None):
 
 
 def sdpa(q, k, v, scale, pad, q_chunk=None, k_chunk=None, split=None, ckc=HIFI2, grid=None, defines=None,
-         merged=False):
+         merged=False, exp_approx=False):
     """softmax(q k^T * scale, padded keys masked) v for bf16 [B, H, S, D] interleaved tensors (DRAM or L1); `pad` is the device
     `key_pad` pair built at the same k_chunk. `merged` writes the heads side by side, [B, 1, S, H * D], as
     nlp_concat_heads would (bit-identical)."""
@@ -123,7 +123,7 @@ def sdpa(q, k, v, scale, pad, q_chunk=None, k_chunk=None, split=None, ckc=HIFI2,
         try:
             return SG.sdpa(dev, q, k, v, row, out, q_chunk, k_chunk, grid, ckc, scale, split=split,
                            kernel_dir=KERNEL_DIR, keypad=table, defines_extra=defines,
-                           merged_out=merged)
+                           merged_out=merged, exp_approx_mode=exp_approx)
         except Exception as exc:
             if not auto or q_chunk == 32:
                 raise

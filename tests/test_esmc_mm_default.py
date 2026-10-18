@@ -96,6 +96,15 @@ def test_mm_bf16_acc_follows_fast_weights(wdtype, switch, monkeypatch):
     assert lin._mm_ck(w).fp32_dest_acc_en is not on
 
 
+
+def test_mm_exact_acc_keeps_fp32_for_block_fp8(monkeypatch):
+    """Block-fp8 weights under a normal-mode forward (the Wormhole ESMC-6B embed) keep fp32 accumulation."""
+    monkeypatch.setattr(esmc, "_ESMC_MM_BF16_ACC", None)
+    lin = esmc._MMLin()
+    lin.compute_kernel_config = _Ck()
+    lin.mm_exact_acc = True
+    assert lin._mm_ck(_T(960, 960, esmc.ttnn.bfloat8_b)).fp32_dest_acc_en
+
 @pytest.mark.parametrize("saprot", [False, True])
 @pytest.mark.parametrize("large", [False, True])
 @pytest.mark.parametrize("wdtype", ["bfloat16", "bfloat8_b"])

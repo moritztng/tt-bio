@@ -1399,6 +1399,24 @@ class Gate:
             self._record(_reused(leg.name, queue, key, row))
         return True
 
+    def _reuse_passed(self, queue: str) -> None:
+        """Record as REUSED each queued leg another runner has passed meanwhile. A leg held back by
+        a lend is never taken, so `_joined` would never see that row."""
+        if self.ledger is None:
+            return
+        with self.mu:
+            legs = [lg for lg in self.todo.get(queue, []) if lg.card and lg.family != "record"]
+        for leg in legs:
+            key = self.keys[(leg.name, queue)]
+            row = self.ledger.get(key)
+            if not (row and row.get("verdict") in OK):
+                continue
+            with self.mu:
+                if leg not in self.todo.get(queue, []):
+                    continue
+                self.todo[queue].remove(leg)
+            self._record(_reused(leg.name, queue, key, row))
+
     def _wait_held(self, queue: str) -> bool:
         """Wait until a leg another runner held is released: its row is REUSED, a leg it left
         without a passing row goes back on the queue (True). False once nothing is held."""
@@ -1454,6 +1472,7 @@ class Gate:
                 if self._wait_held(queue):
                     continue
                 if self._lent_out(host, card):
+                    self._reuse_passed(queue)   # a sibling runner may pass it first (rel-9b16, 10-18)
                     time.sleep(POOL_POLL_S)     # another host may take it first; else the lend ends
                     continue
                 with self.mu:
