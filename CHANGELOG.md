@@ -5,6 +5,8 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-10-18
+
 ### Changed
 - **OpenFold3 and OpenBind-0 `--fast` run the diffusion transformer's linears at a lower math fidelity on
   Wormhole.** A 512-residue fast fold on a Galaxy chip at 1000 MHz takes 0.16 s (OpenFold3) and 0.28 s
