@@ -2,6 +2,8 @@
 
 Opens no device: `build` and `generic_op` are stubbed, so what runs is the cache lookup.
 """
+import types
+
 import pytest
 
 ttnn = pytest.importorskip("ttnn")
@@ -10,11 +12,14 @@ from tt_bio import sdpa_generic as SG                                       # no
 
 
 class _T:
-    """A stand-in tensor with the three attributes the cache key and the address check read."""
+    """A stand-in tensor with the attributes the cache key and the address check read."""
     padded_shape, dtype = (736, 4, 736, 32), "BFLOAT16"
 
     def buffer_address(self):
         return 0
+
+    def memory_config(self):
+        return types.SimpleNamespace(buffer_type="DRAM")
 
 
 def test_a_different_scale_is_a_different_program(monkeypatch):
@@ -32,7 +37,6 @@ def test_a_different_scale_is_a_different_program(monkeypatch):
 
 import collections                                                          # noqa: E402
 import copy                                                                 # noqa: E402
-import types                                                                # noqa: E402
 
 from tt_bio import mm_generic as MG                                         # noqa: E402
 
@@ -45,9 +49,6 @@ class _At(_T):
 
     def buffer_address(self):
         return self.addr
-
-    def memory_config(self):
-        return "DRAM"
 
 
 class _PD:
