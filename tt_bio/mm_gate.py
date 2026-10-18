@@ -49,6 +49,28 @@ def plan(x, n2: int, cfg, grid):
     return None
 
 
+def config(x, n2: int, kt: int, grid, bf16_acc: bool):
+    """The block config (M, K, N, subblock_h, subblock_w) for x @ [K, n2], or None where no N block fits `plan`.
+    perf/spd_gap_whlm/gate_cfg_sweep.py (Galaxy chip, 1000 MHz, 3808 rows): this rule is the sweep's best or within
+    2 % of it on ESMC 300M/600M, normal and --fast. N is the largest plan-valid block up to 12 tiles, the subblock
+    the widest divisor of it that fits a dest half, K 4 tiles under bf16 accumulation where K divides."""
+    dmax = 8 if bf16_acc else 4
+    kb = 4 if bf16_acc and kt % 4 == 0 else 2
+    for nb in (12, 10, 8, 6, 4):
+        cfg = (8, kb, nb, 1, 1)
+        if plan(x, n2, cfg, grid) is None:
+            sw = max(w for w in range(1, dmax + 1) if nb % w == 0)
+            return (8, kb, nb, max(h for h in (1, 2, 4, 8) if h * sw <= dmax and 8 % h == 0), sw)
+    return None
+
+
+def overlay_ok() -> bool:
+    """The PACK-thread epilogue's silu is calculate_silu_f32 only under the silu_f32 metal overlay; without it the
+    wheel's approximate silu would run, so the gated path declines."""
+    import os
+    return "silu_f32" in os.environ.get("TT_BIO_METAL_OVERLAY", "").split(",")
+
+
 def gated(x, w12, cfg, ckc, grid, out_dtype=ttnn.bfloat16, probe=0, pack_sfpu=False):
     """silu(x @ W1) * (x @ W2) for the interleaved `w12`, [.., N] in DRAM, or None when `plan` declines.
     `cfg` is minimal_matmul's (M_block, K_block, N_block, subblock_h, subblock_w) in tiles; the interleave
