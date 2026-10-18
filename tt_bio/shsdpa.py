@@ -32,6 +32,14 @@ K_CHUNK = 192
 # bench, Galaxy chip at 1000 MHz, page length 514, ms a call: 300M B7H15 0.454 -> 0.361, 600M B7H18 0.550 -> 0.431,
 # 6B B1H40 0.230 -> 0.166, rel_rms vs float64 unchanged to 4 digits.
 _KEYPAD_ROW = env_flag("TT_BIO_SHSDPA_KEYPAD_ROW", True)
+# 288-key chunks (9 tiles) instead of 192: with KEYPAD_ROW the same bench reads 300M 0.361 -> 0.348, 600M 0.431 -> 0.417,
+# 6B 0.166 -> 0.162 ms a call, rel_rms vs float64 0.0269 -> 0.0264. Changes the output (another softmax blocking), so it
+# is graded on its own; off until then.
+_K_CHUNK_WIDE = env_flag("TT_BIO_SHSDPA_K288", False)
+
+
+def k_chunk_default() -> int:
+    return 288 if _K_CHUNK_WIDE else K_CHUNK
 
 
 def keypad_args(lens, k_chunk: int, k_num_chunks: int):
@@ -50,10 +58,11 @@ def keypad_table(lens, k_chunk: int, k_num_chunks: int) -> torch.Tensor:
     return torch.tensor(flat + [0] * (w - len(flat)), dtype=torch.int32).reshape(1, 1, 1, w)
 
 
-def key_pad(lens, S: int, device=None, k_chunk: int = K_CHUNK):
+def key_pad(lens, S: int, device=None, k_chunk: int | None = None):
     """(table, row) for key lengths `lens` at padded length S: the [1, 1, 1, W] uint32 chunk table and the
     [B, 1, 32, S] bf16 mask row. Host tensors without `device`; a traced forward keeps one device pair and
     rewrites it per call with `copy_host_to_device_tensor`."""
+    k_chunk = k_chunk or k_chunk_default()
     m = torch.zeros(len(lens), 1, 32, S)
     for b, n in enumerate(lens):
         m[b, :, :, n:] = float("-inf")
@@ -68,9 +77,10 @@ def key_pad(lens, S: int, device=None, k_chunk: int = K_CHUNK):
 UNIT_COST_TILES = 2
 
 
-def plan(B, H, S, cores, k_chunk=K_CHUNK, max_qt=None):
+def plan(B, H, S, cores, k_chunk=None, max_qt=None):
     """(q_chunk, (batch_pf, head_pf, q_pf)) minimising the busiest core's cost, padding included, q chunks of at most
     `max_qt` tiles."""
+    k_chunk = k_chunk or k_chunk_default()
     St = -(-S // 32)
     best = None
     for qt in range(1, min(St + 1, max_qt or St + 1) + 1):
@@ -89,12 +99,13 @@ def plan(B, H, S, cores, k_chunk=K_CHUNK, max_qt=None):
     return best[1], best[2]
 
 
-def sdpa(q, k, v, scale, pad, q_chunk=None, k_chunk=K_CHUNK, split=None, ckc=HIFI2, grid=None, defines=None,
+def sdpa(q, k, v, scale, pad, q_chunk=None, k_chunk=None, split=None, ckc=HIFI2, grid=None, defines=None,
          merged=False):
     """softmax(q k^T * scale, padded keys masked) v for bf16 [B, H, S, D] interleaved tensors (DRAM or L1); `pad` is the device
     `key_pad` pair built at the same k_chunk. `merged` writes the heads side by side, [B, 1, S, H * D], as
     nlp_concat_heads would (bit-identical)."""
     from . import tenstorrent as T
+    k_chunk = k_chunk or k_chunk_default()
     B, H, S, D = (int(d) for d in q.shape)
     dev = q.device()
     grid = grid or tuple(T.COMPUTE_GRID_MAIN)
