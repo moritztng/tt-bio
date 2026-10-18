@@ -115,7 +115,7 @@ if a.plain:
         return r
     bmm_res.matmul = counted
 t0 = time.perf_counter(); s, m = one_fold(); res["plain_s"] = round(time.perf_counter() - t0, 3)
-res["plain_fold_s"] = round(s, 3); res["plddt"] = m.get("plddt")
+res["plain_fold_s"] = round(s, 3); res["plddt"] = m.get("plddt"); res["ptm"] = m.get("ptm")
 print("plain", res["plain_s"], flush=True)
 if a.plain:
     res["bmm_res"] = dict(bres); a.out.write_text(json.dumps(res, indent=1)); print(res["bmm_res"], flush=True)
