@@ -64,11 +64,8 @@ void kernel_main() {
 #endif
     cb_wait_front(cb_scaler, 1);
     cb_wait_front(cb_eps, 1);
-    for (uint32_t u = first; u < first + count; ++u) {
-        const uint32_t t = u / R;
-        if (t == 2) {
-            continue;
-        }
+    for (uint32_t u = first; u < first + count; ++u) {   // the q / k units; v is the reader's and the writer's
+        [[maybe_unused]] const uint32_t t = u / R;   // 0 q, 1 k
 #ifdef QKRH_RELOAD
         cb_wait_front(cb_gq, KT);
         ln_no_beta<Ln<cb_gq>>();

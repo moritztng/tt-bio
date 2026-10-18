@@ -8,13 +8,16 @@
 // the writer untouched. Once, first: the 1/D reduce scaler (c_10), an fp32 eps tile (c_11) and both gammas (c_8 q,
 // c_15 k, KT tiles, row 0 carries the vector); under QKRH_RELOAD (both would not fit L1 beside the rest, the 6B)
 // the unit's gamma is read again into c_8 with every q / k row instead.
-// Common runtime args: q, k, v, gamma q, gamma k, cos, sin addresses. Per core: first unit, unit count.
+// Common runtime args: q, k, v, gamma q, gamma k, cos, sin addresses. Per core: first q / k unit, q / k unit count,
+// first v unit, v unit count.
 #include "api/dataflow/dataflow_api.h"
 #include "ttnn/kernel/dataflow/generate_reduce_scaler.hpp"
 
 void kernel_main() {
-    const uint32_t first = get_arg_val<uint32_t>(0);
-    const uint32_t count = get_arg_val<uint32_t>(1);
+    const uint32_t qk_first = get_arg_val<uint32_t>(0);
+    const uint32_t qk_count = get_arg_val<uint32_t>(1);
+    const uint32_t v_first = get_arg_val<uint32_t>(2);
+    const uint32_t v_count = get_arg_val<uint32_t>(3);
     constexpr uint32_t KT = get_compile_time_arg_val(0);
     constexpr uint32_t LT = get_compile_time_arg_val(1);
     constexpr uint32_t R = get_compile_time_arg_val(2);
@@ -37,7 +40,7 @@ void kernel_main() {
     const auto sgk = TensorAccessor(gk_args, get_common_arg_val<uint32_t>(4));
     const auto sc = TensorAccessor(c_args, get_common_arg_val<uint32_t>(5));
     const auto ss = TensorAccessor(s_args, get_common_arg_val<uint32_t>(6));
-    if (count == 0) {
+    if (qk_count + v_count == 0) {
         return;
     }
     const uint32_t tx = get_tile_size(cb_x);
@@ -60,7 +63,8 @@ void kernel_main() {
     cb_push_back(cb_gk, KT);
 #endif
 
-    for (uint32_t u = first; u < first + count; ++u) {
+    for (uint32_t i = 0; i < qk_count + v_count; ++i) {
+        const uint32_t u = i < qk_count ? qk_first + i : v_first + i - qk_count;
         const uint32_t t = u / R, r = u % R;
         if (t == 2) {
             for (uint32_t c0 = 0; c0 < KT; c0 += VC) {

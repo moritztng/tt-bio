@@ -7,7 +7,8 @@ calls: six ops and about 6x the activation's bytes through DRAM. On a Wormhole c
 so rotate_half is a swap of a head's two tiles with a sign and the head split is only where a tile is written:
 this program reads q, k and v once and writes the per-head [B, H, L, 64] tensors once (kernels/qk_rope_heads).
 
-Units are row tiles of q, k and v (3 * B * L / 32 of them), spread over the whole grid. The LayerNorm is
+Units are row tiles of q, k and v (3 * B * L / 32 of them); the q / k units and the v units are each spread over the
+whole grid. The LayerNorm is
 kernels/common/ln_prologue.hpp's two-pass fp32 statistics without the beta, its output kept in fp32 for the RoPE;
 the cos products go through an fp32 CB and the sin products are added in dest. Where both gammas do not fit L1
 beside a row's fp32 statistics (the 6B, D = 2560), each q / k row re-reads its gamma (QKRH_RELOAD).
@@ -65,7 +66,7 @@ def eligible(q, k, v, cos) -> bool:
 
 def _build(device, kt, lt, r, eps, tensors):
     g = device.compute_with_storage_grid_size()
-    _, grid, cg1, cg2, work1, work2 = core_split.split_work_to_cores(g, 3 * r, 0)
+    grid = ttnn.CoreRangeSet([ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(g.x - 1, g.y - 1))])
 
     def cb(idx, tiles, dtype=ttnn.bfloat16):
         size = 2 * _TILE if dtype == ttnn.float32 else _TILE
@@ -82,15 +83,15 @@ def _build(device, kt, lt, r, eps, tensors):
     inv = struct.unpack("<I", struct.pack("<f", 1.0 / (32 * kt)))[0] >> 16
     scaler = (inv << 16) | inv
     eps_bits = struct.unpack("<I", struct.pack("<f", float(eps)))[0]
+    # q / k units carry the LayerNorm and RoPE, v units are a copy: split each over the whole grid on its own, q / k
+    # remainder to the front and v remainder to the back, so no core holds more LayerNorms than it must.
     rd, cp, wr = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
-    first = 0
-    for group, per in ((cg1, work1), (cg2, work2)):
-        for cr in group.ranges():
-            for cx in range(cr.start.x, cr.end.x + 1):
-                for cy in range(cr.start.y, cr.end.y + 1):
-                    rd[cx][cy] = cp[cx][cy] = wr[cx][cy] = [first, per]
-                    first += per
-    assert first == 3 * r, (first, r)
+    cores = [(x, y) for x in range(g.x) for y in range(g.y)]
+    fqk, fv = 0, 2 * r
+    for (cx, cy), nqk, nv in zip(cores, core_split.even_split(2 * r, cores), core_split.even_split(r, cores)[::-1]):
+        rd[cx][cy] = cp[cx][cy] = wr[cx][cy] = [fqk, nqk, fv, nv]
+        fqk, fv = fqk + nqk, fv + nv
+    assert (fqk, fv) == (2 * r, 3 * r), (fqk, fv, r)
     ins, outs = tensors[:7], tensors[7:]
     rct = [kt, lt, r, scaler, eps_bits, vc]
     for t in ins:
