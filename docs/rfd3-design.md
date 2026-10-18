@@ -230,6 +230,10 @@ index once for four heads (`RFD3_MASKW_HG=1` restores one head at a time), and o
 attention splits queries into 352-row chunks instead of 64 (`RFD3_DIT_SDPA_CHUNKS=64,352` restores it).
 Together they save about 1 to 1.5 s per design on Wormhole and about 1 s on a p150a.
 
+The token distance bins the encoder reads every step are computed on the host in one numba pass instead of a
+torch norm plus bucketize. Pairs within a hair of a bin edge are recomputed the torch way, so the bins are the
+same; at 685 tokens a call drops from 4 to 6 ms to under 2 ms. `RFD3_BINS_NB=0` restores the torch chain.
+
 The pair-feature projection that does not change between steps is computed once per design and the
 distance-bin half becomes a table lookup, three device ops instead of six. It started in `--fast` and now
 ships in both modes: over eight paired default seeds on Wormhole chain breaks go from 4 to 3, clashes drop

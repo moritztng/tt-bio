@@ -28,6 +28,7 @@ from .. import rfd3_bias, softmax_generic
 from .. import sdpa_generic as _SG
 from ..envflags import env_flag
 from . import block_sparse as _BS
+from . import distbins as _distbins
 from .tiles import TILE, align_tile, pad_axis
 from .. import pair_swiglu_ws as _WS
 from .. import dit_pair_bias as _DPB
@@ -477,6 +478,10 @@ _GCA_HEADS = env_flag("RFD3_GCA_HEADS", True)
 # 2.7 ms/step of tilize. Same values (data movement only): gather 4.76 -> 1.28 ms/call on WH, digests equal to
 # the embedding path on WH and p150a (seeds 60,61 x2). RFD3_PZ_GATHER=0 restores it.
 _PZ_GATHER = env_flag("RFD3_PZ_GATHER", True)
+# The distogram bins of the token encoder (2 host calls per step while the card waits) as one numba pass with the
+# near-edge pairs recomputed by torch: equal to the torch chain, 4-5.7 -> 0.7-1.7 ms/call at 685 tokens on 2 cores
+# (rfd3/distbins.py). RFD3_BINS_NB=0 restores the torch chain.
+_BINS_NB = env_flag("RFD3_BINS_NB", True)
 # The collapsed process_z's em * inv + ainv as one ttnn.addcmul (eltwise_fusion.mask_add): WH fast census multiply
 # 2.84 + add 1.52 ms/call, two calls a step, and the [B,I,I,128] product is written and read back between them.
 # One bf16 rounding instead of two, so the digest moves. Off while measured.
@@ -3127,9 +3132,11 @@ def _scaled_distogram_bins(R_L, min_dist=1.0, max_dist=30.0, sigma_data=16.0, n_
     per pair where 4 would do -- 51.0 ms of host work plus a 48.9 ms upload at
     B=8/N=250, against 1.6 + 0.3 + 7.2 ms for bins + upload + device one-hot.
     """
-    D_LL = torch.linalg.norm(R_L.unsqueeze(-2) - R_L.unsqueeze(-3), dim=-1)  # [B, N, N]
     lo, hi = min_dist / sigma_data, max_dist / sigma_data
     bins = torch.linspace(lo, hi, n_bins - 1, device=R_L.device)
+    if _BINS_NB and R_L.device.type == "cpu" and R_L.dtype == torch.float32:
+        return _distbins.bins(R_L, bins)
+    D_LL = torch.linalg.norm(R_L.unsqueeze(-2) - R_L.unsqueeze(-3), dim=-1)  # [B, N, N]
     return torch.bucketize(D_LL, bins).to(torch.int32)
 
 
