@@ -187,6 +187,26 @@ def test_merge_back_takes_the_release_files_main_left_alone_and_keeps_mains_note
     assert rt.merge_back(rel, sha, "origin") == m          # already merged: nothing new
 
 
+def test_a_gate_waits_while_no_galaxy_is_lent(tmp_path, monkeypatch, capsys):
+    """A "galaxies" config with nothing lent would start a gate with no WH worker: wait for a lend instead."""
+    import subprocess
+    started = []
+    monkeypatch.setattr(subprocess, "run", lambda *a, **k: subprocess.CompletedProcess(a, 0))
+    monkeypatch.setattr(rt, "start_gate", lambda *a: started.append(a))
+    monkeypatch.setattr(rt, "decide", lambda **k: {"do": "GATE", "sha": "b" * 40, "why": "", "running": []})
+    (tmp_path / "hosts.json").write_text(json.dumps({"g103": {}}))
+    alloc = tmp_path / "ALLOC.json"
+    cfg = tmp_path / "gate.json"
+    cfg.write_text(json.dumps({"hosts": str(tmp_path / "hosts.json"),
+                               "galaxies": {"alloc": str(alloc), "owners": ["spd"], "slots": 16}}))
+    monkeypatch.setattr(sys, "argv", ["release_train.py", "--gates", str(tmp_path), "--gate-config", str(cfg)])
+    alloc.write_text(json.dumps({"galaxies": {"103": {"owner": "japanfold", "phase": "serving"}}}))
+    assert rt.main() == 0 and started == []
+    assert "WAIT bbbbbbbbbbbb: no Galaxy lent to spd; WH legs need one" in capsys.readouterr().out
+    alloc.write_text(json.dumps({"galaxies": {"103": {"owner": "spd", "phase": "lent"}}}))
+    assert rt.main() == 0 and len(started) == 1
+
+
 def test_galaxy_pools_follow_the_lent_galaxy(tmp_path):
     """Pool slots go to the Galaxy lent to the gate's owners now, not to a Galaxy named by hand."""
     hosts = tmp_path / "hosts.json"
