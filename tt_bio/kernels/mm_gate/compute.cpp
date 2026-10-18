@@ -42,23 +42,38 @@ void copy_block(uint32_t in_cb, uint32_t out_cb, uint32_t M_block_tiles, uint32_
 // tiles then fc2's (the weight is interleaved [W1_j | W2_j] per half block), so the row's output is
 // silu(fc1) * fc2 at half width, computed from the accumulator in dest before the one bf16 pack.
 void gate_block(uint32_t in_cb, uint32_t out_cb, uint32_t M_block_tiles, uint32_t N_block_tiles) {
+    // MM_GATE_GROUP output tiles per dest acquire: fc1's in dest [0, g), fc2's in [g, 2g), so the silu and multiply
+    // SFPU inits run once a group instead of once a tile. 2 * g tiles must fit one dest half (4 under fp32 acc).
+#ifndef MM_GATE_GROUP
+#define MM_GATE_GROUP 2
+#endif
+    constexpr uint32_t g = MM_GATE_GROUP;
     const uint32_t half = N_block_tiles / 2;
     reconfig_data_format_srca(in_cb);
     pack_reconfig_data_format(out_cb);
     for (uint32_t m = 0; m < M_block_tiles; m++) {
         const uint32_t row = m * N_block_tiles;
-        for (uint32_t n = 0; n < half; n++) {
+        for (uint32_t n0 = 0; n0 < half; n0 += g) {
+            const uint32_t c = half - n0 < g ? half - n0 : g;
             tile_regs_acquire();
             copy_tile_to_dst_init_short(in_cb);
-            copy_tile(in_cb, row + n, 0);
-            copy_tile(in_cb, row + half + n, 1);
+            for (uint32_t i = 0; i < c; i++) {
+                copy_tile(in_cb, row + n0 + i, i);
+                copy_tile(in_cb, row + half + n0 + i, g + i);
+            }
             silu_tile_init();
-            silu_tile(0);
+            for (uint32_t i = 0; i < c; i++) {
+                silu_tile(i);
+            }
             mul_binary_tile_init();
-            mul_binary_tile(0, 1, 0);
+            for (uint32_t i = 0; i < c; i++) {
+                mul_binary_tile(i, g + i, i);
+            }
             tile_regs_commit();
             tile_regs_wait();
-            pack_tile(0, out_cb);
+            for (uint32_t i = 0; i < c; i++) {
+                pack_tile(i, out_cb);
+            }
             tile_regs_release();
         }
         cb_push_back(out_cb, half);
