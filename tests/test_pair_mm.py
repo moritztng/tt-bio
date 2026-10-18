@@ -212,3 +212,15 @@ def test_a_taped_tensor_is_left_to_the_tape_shim(monkeypatch):
     _armed_wh(monkeypatch, served)
     x = autograd.Tensor.__new__(autograd.Tensor)
     assert pair_mm.matmul(x, _t((128, 4))) is None and served == []
+
+
+@pytest.mark.parametrize("b", [(1, 64), (2, 128)])
+def test_pair_linear_bias_shape_check_takes_a_ttnn_shape(b):
+    """The bias check sliced a ttnn.Shape (whplb, TypeError on .108); a mismatched bias must decline, not raise."""
+    from tt_bio import pair_linear
+
+    def t(shape):
+        mc = types.SimpleNamespace(memory_layout=ttnn.TensorMemoryLayout.INTERLEAVED)
+        return types.SimpleNamespace(shape=_Shape(shape), padded_shape=_Shape(shape), dtype=ttnn.bfloat16,
+                                     layout=ttnn.TILE_LAYOUT, memory_config=lambda: mc)
+    assert pair_linear.matmul(t((1, 288, 288, 128)), t((128, 128)), None, bias=t(b)) is None

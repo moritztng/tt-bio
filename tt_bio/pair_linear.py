@@ -108,7 +108,8 @@ def matmul(x, w, compute_kernel_config=None, bias=None):
         mt *= d
     mt //= 32
     kt, ct = xs[-1] // 32, int(w.padded_shape[-1]) // 32
-    if bias is not None and (int(bias.shape[-1]) != int(w.shape[-1]) or any(int(d) != 1 for d in bias.shape[:-1])):
+    bs = None if bias is None else [int(d) for d in bias.shape]      # ttnn.Shape does not support slicing
+    if bs is not None and (bs[-1] != int(w.shape[-1]) or any(d != 1 for d in bs[:-1])):
         return None
     if (int(w.padded_shape[0]) != xs[-1]
             or (X_DEPTH * kt + kt * ct + (2 if bias is None else 3) * ct) * _TILE > L1_BUDGET):
