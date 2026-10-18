@@ -100,7 +100,7 @@ def plan(B, H, S, cores, k_chunk=None, max_qt=None):
 
 
 def sdpa(q, k, v, scale, pad, q_chunk=None, k_chunk=None, split=None, ckc=HIFI2, grid=None, defines=None,
-         merged=False):
+         merged=False, exp_approx=False):
     """softmax(q k^T * scale, padded keys masked) v for bf16 [B, H, S, D] interleaved tensors (DRAM or L1); `pad` is the device
     `key_pad` pair built at the same k_chunk. `merged` writes the heads side by side, [B, 1, S, H * D], as
     nlp_concat_heads would (bit-identical)."""
@@ -123,7 +123,7 @@ def sdpa(q, k, v, scale, pad, q_chunk=None, k_chunk=None, split=None, ckc=HIFI2,
         try:
             return SG.sdpa(dev, q, k, v, row, out, q_chunk, k_chunk, grid, ckc, scale, split=split,
                            kernel_dir=KERNEL_DIR, keypad=table, defines_extra=defines,
-                           merged_out=merged)
+                           merged_out=merged, exp_approx_mode=exp_approx)
         except Exception as exc:
             if not auto or q_chunk == 32:
                 raise
