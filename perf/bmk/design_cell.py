@@ -17,7 +17,7 @@ first rep compiles and is dropped; the next --repeat reps are the cell (warm med
   rfd3      `tt_bio.rfd3.design.run_design` on perf/dsfix/fixtures/rfd3_R4.json (9q6y chain A, 585 target residues,
             100-residue binder), 200 timesteps, seed 42, batch 1. Cell = the sampler call (the region the page has
             always published); the whole run_design call is kept as wall_s. Same seed every rep, so the CIF digest
-            must not move.
+            must not move. --batch B designs B at once in one sampler call; fold_s is then per design (call / B).
   pxdesign  featurise + `ProtenixDesign.design` + write_design_cifs on perf/pxdesign/targets/laczc_512_nomsa.yaml
             (512 target residues, 80-residue binder, 592 tokens), n_step 400, one backbone per call, checkpoint load
             outside the cell (scripts/release_gate.py:run_pxdesign in a loop). Seeds 0,1,..; the last warm rep repeats
@@ -39,7 +39,10 @@ ap.add_argument("--model", required=True, choices=("boltzgen", "rfd3", "pxdesign
 ap.add_argument("--fast", action="store_true")
 ap.add_argument("--repeat", type=int, default=4, help="warm reps in the cell (one cold rep is added and dropped)")
 ap.add_argument("--out", type=Path, required=True)
+ap.add_argument("--batch", type=int, default=1, help="rfd3: designs per sampler call; fold_s is the call / batch")
 a = ap.parse_args()
+if a.batch != 1 and a.model != "rfd3":
+    sys.exit("--batch is rfd3 only")
 if a.fast and a.model in ("pxdesign", "nesso1"):
     sys.exit(f"{a.model} has no fast mode")
 
@@ -76,7 +79,7 @@ def cif_check(path, want_chains):
 
 import importlib.metadata as im
 
-res = {"model": a.model, "fast": a.fast, "protocol": "bmk-page-design", "size": None, "samples": 1,
+res = {"model": a.model, "fast": a.fast, "batch": a.batch, "protocol": "bmk-page-design", "size": None, "samples": 1,
        "repeat": a.repeat, "fixture": FIX[a.model], "fixture_sha256": sha(TREE / FIX[a.model]), "tree": tree_sha(),
        "ttnn": im.version("ttnn"), "host": os.uname().nodename, "card": os.environ.get("TT_VISIBLE_DEVICES"),
        "started": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "folds": [], "errors": []}
@@ -145,14 +148,14 @@ def rfd3():
         t = time.perf_counter()
         with torch.no_grad():
             D.run_design(specs, d, checkpoint_dir=ckpt, from_pdb=True,
-                         num_timesteps=200, seed=42, num_designs=1, batch_size=1, fast=a.fast, verbose=False)
+                         num_timesteps=200, seed=42, num_designs=a.batch, batch_size=a.batch, fast=a.fast, verbose=False)
         wall = time.perf_counter() - t
         cifs = sorted(d.glob("*.cif"))
-        f = {"tag": rep(i), "fold_s": round(walls[0], 3) if walls else None, "wall_s": round(wall, 3),
-             "cif_sha256": sha(cifs[0], 16) if cifs else None}
+        f = {"tag": rep(i), "fold_s": round(walls[0] / a.batch, 3) if walls else None, "call_s": round(walls[0], 3) if walls else None,
+             "wall_s": round(wall, 3), "cif_sha256": "+".join(sha(c, 16) for c in cifs) or None}
         res["folds"].append(f)
         print(json.dumps(f), flush=True)
-        if len(cifs) != 1 or len(walls) != 1:
+        if len(cifs) != a.batch or len(walls) != 1:
             res["errors"].append(f"rep {i}: {len(cifs)} CIFs, {len(walls)} sampler calls")
         for c in cifs:
             # the page fixture's contig "A1-585,100" has no "/0" break: the 100 designed residues extend chain A
