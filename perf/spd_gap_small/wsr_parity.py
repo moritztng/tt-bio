@@ -61,7 +61,7 @@ for wdt in (ttnn.bfloat16, ttnn.bfloat8_b):
             for a, b in parts[1:]:
                 W.pair_swiglu(xt, a, b, fid, l1acc=True, resid=t)
             report(wdt, parts, True, "chain", d((d(z) + d(ttnn.to_torch(t))).bfloat16()))
-            # resid2: the same chain, the last chunk seeded with z + the partial, rounded once (tenstorrent.WS_RESID2)
+            # resid2: the same chain, the last chunk seeded with z + the partial, rounded once (the ws_resid2 lever)
             if W.eligible(xt, *parts[-1], l1acc=True, resid=up(z), resid2=xt):
                 t = W.pair_swiglu(xt, *parts[0], fid, l1acc=True)
                 for a, b in parts[1:-1]:
