@@ -2345,8 +2345,8 @@ _SIGMOID_FOLD = env_flag("RFD3_SIGMOID_FOLD", True)
 # rms_norms on it (adaLN gain and shift twice, two output gates): 216 launch-bound [L,384]x[384,768] linears a
 # step. With this the stack runs them as three wide linears a call (the per-block ln_s folded into the weights,
 # sigmoids in the linear) and each block reads its 768 columns in place (addcmul_at), as OpenFold3's dit_shoist.
-# Folding ln_s and the fused sigmoid move rounding: graded, not exact.
-_DIT_SHOIST = env_flag("RFD3_DIT_SHOIST", False)
+# Folding ln_s and the fused sigmoid move rounding: graded on the normal bar (8 paired p150a seeds), so on in both modes.
+_DIT_SHOIST = env_flag("RFD3_DIT_SHOIST", True)
 _DIT_SHOIST_BYTES = 384 << 20   # the three wide bf16 tensors of one call; 685 tokens x 1 design is 114 MB
 
 

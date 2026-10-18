@@ -96,6 +96,15 @@ def test_process_z_collapse_ships_in_both_modes(monkeypatch):
     assert M.env_flag("RFD3_PROCESS_Z_COLLAPSE", True) is True
 
 
+def test_dit_shoist_ships_in_both_modes(monkeypatch):
+    """The hoisted DiT conditioning is graded on the normal bar (8 paired p150a seeds), so it is a default."""
+    monkeypatch.delenv("RFD3_DIT_SHOIST", raising=False)
+    assert "_DIT_SHOIST" not in M._FAST_SET
+    assert M.env_flag("RFD3_DIT_SHOIST", True) is True
+    M.set_fast(False)
+    assert M._DIT_SHOIST is True
+
+
 def test_pair_ws_lofi_is_off_until_graded():
     """pws in bfp8 at LoFi is a fast-mode candidate only: off by default and outside the fast set until measured."""
     assert "_PAIR_WS_LOFI" not in M._FAST_SET

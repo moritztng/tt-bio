@@ -240,6 +240,13 @@ overlaps the token encoder. On a p150a a fast-mode design drops from about 31.5 
 except on Wormhole, where it has not yet run on a card; designs above about 18,000 atoms keep the host tree.
 `RFD3_DKNN=0` restores the tree everywhere, `RFD3_DKNN=1` turns the card index on for Wormhole too.
 
+The token transformer's conditioning is the same for all 18 blocks of a step, so its adaLN gains, shifts and
+output gates come from three wide projections per step instead of six small ones and two norms per block,
+with each block's normalisation folded into the weights. That changes rounding, so it was graded: over eight
+paired default seeds on a p150a chain breaks go from 4 to 3, clashes are unchanged (421 to 426 in total) and
+the same-seed drift (3.6 to 12.3 A) stays inside the 12.9 to 18.8 A a seed change moves a design. A default
+design on a p150a drops from 29.9 to 29.4 s. `RFD3_DIT_SHOIST=0` restores the per-block projections.
+
 The pair-feature projection that does not change between steps is computed once per design and the
 distance-bin half becomes a table lookup, three device ops instead of six. It started in `--fast` and now
 ships in both modes: over eight paired default seeds on Wormhole chain breaks go from 4 to 3, clashes drop
