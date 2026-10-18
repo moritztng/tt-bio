@@ -724,6 +724,9 @@ _FAST_MODE = False
 #                   instead of gathering it from the encoder's joint table: the bit-exact A/B arm (no mode sets it).
 #   atomp_dev       Boltz-2's diffusion-conditioning atom-pair tensor and its encoder/decoder bias stacks built on the
 #                   card from the z_to_p projection already there (AtomPairDevice), instead of in fp32 torch and uploaded.
+#   triatt_hifi2    the fused triangle-attention SDPA's QK and PV products at HiFi2 instead of HiFi4, math_approx
+#                   off and fp32 accumulation kept. A Galaxy chip runs the 512-token call at 45 % of its DRAM roof,
+#                   so there the fidelity passes may be the cost (on Blackhole the op is bandwidth-bound).
 #   pib_where       OpenDDE's pair-init bias by the old 16-op where-chain instead of one gather from the joint
 #                   (128, c_z) table: the A/B arm for a change that must keep the fold digest (no mode sets it).
 #   lm_qk_chain     the ESMC language model's attention keeps the six-op q/k LayerNorm, RoPE and head-split chain
@@ -745,12 +748,12 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit", "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384",
           "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
           "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "trimul_bres", "atomp_dev", "lm_qk_chain",
-          "lm_gate_ng", "lm_sdpa_stock")
+          "lm_gate_ng", "lm_sdpa_stock", "triatt_hifi2")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
 # model's matching op. BoltzGen's own --fast set names dit_cond_hifi2, graded on BoltzGen's designs.
-# OpenFold3's own --fast set names dit_fuse, edm_device, ws_l1dest, and dit_hifi2, dit_kc and dit_mask16 (Wormhole),
+# OpenFold3's own --fast set names dit_fuse, edm_device, ws_l1dest, and dit_hifi2, dit_kc, dit_mask16 and triatt_hifi2 (Wormhole),
 # graded on OpenFold3 / OpenBind-0, and the bit-exact triatt_ln (openfold3_fold.FAST_LEVERS).
 # ref_memo is host featurisation, OpenFold3 / OpenBind-0 only: one reference conformer per residue type
 # (vendored query.REF_MOL_MEMO), read by worker._predict_openfold3_one off the model's lever set.
@@ -761,7 +764,7 @@ UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "di
                              "ef2_relpos_lookup", "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit",
                              "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384",
                              "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
-                             "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf"})
+                             "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "triatt_hifi2"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -3667,6 +3670,12 @@ _TRIATT_FUSED_HIFI = env_flag("TT_BIO_TRIATT_FUSED_HIFI", False)
 # HiFi4 are worth 2.5x and 1.3x on the op's error respectively, both for free (see the table in
 # triatt_sdpa.py). Fields are `(fidelity, math_approx, fp32_dest_acc, dst_full_sync)`.
 _TRIATT_FUSED_HIFI_CKC = (ttnn.MathFidelity.HiFi4, False, True, False)
+_TRIATT_FUSED_HIFI2_CKC = (ttnn.MathFidelity.HiFi2, False, True, False)
+
+
+def _triatt_hifi_ckc():
+    """`_TRIATT_FUSED_HIFI_CKC`, at HiFi2 under the triatt_hifi2 lever (math_approx and fp32_dest_acc kept)."""
+    return _TRIATT_FUSED_HIFI2_CKC if lever("triatt_hifi2") else _TRIATT_FUSED_HIFI_CKC
 
 #: HiFi4, math_approx off, fp32 destination accumulation -- ``ComputeKernelConfig::precise()``.
 #: What ``ttnn.softmax`` needs to make its denominator match its own numerators; see
@@ -4080,7 +4089,7 @@ def _tri_att_hifi_pad_up(q, k, v, bias, scale: float, one_k_chunk: bool):
 def _tri_att_hifi_ladder(q, k, v, bias, scale: float, one_k_chunk: bool):
     """The fused-HiFi configs at this call's own length, first that serves, or None."""
     q_len, k_len = int(q.shape[2]), int(k.shape[2])
-    served = _tri_att_fused_large_s(q, k, v, bias, scale, _TRIATT_FUSED_HIFI_CKC)
+    served = _tri_att_fused_large_s(q, k, v, bias, scale, _triatt_hifi_ckc())
     if served is not None:
         o, q_chunk, k_chunk = served
         TRIATT_FUSED_HIFI_PICKS[(q_len, k_len)] = [q_chunk, k_chunk, 2]
@@ -4114,7 +4123,7 @@ def _tri_att_hifi_ladder(q, k, v, bias, scale: float, one_k_chunk: bool):
                     continue
                 try:
                     o = _triatt_sdpa.sdpa(q, k, v, bias, scale, q_chunk, k_chunk,
-                                          ckc_default=_TRIATT_FUSED_HIFI_CKC,
+                                          ckc_default=_triatt_hifi_ckc(),
                                           kv_buffer_factor=kv_bf)
                 except Exception as exc:  # noqa: BLE001 -- an L1 refusal retires this config only
                     absorb_l1_refusal("tri_att_sdpa/fused_hifi", exc)
@@ -11612,7 +11621,7 @@ class TriangleAttention(Module):
                 b = bias
                 if self._bias_scale != self.scale:
                     b = ttnn.multiply(bias, self.scale / self._bias_scale)
-                ckc = _TRIATT_FUSED_HIFI_CKC if self.sdpa_hifi else None
+                ckc = _triatt_hifi_ckc() if self.sdpa_hifi else None
                 # The gate multiply folded into the kernel's pack stage. All or nothing: the gated
                 # entry point returns None rather than an ungated output, so a decline falls
                 # through to the ladder below with `gate_fused` still False and the caller's own
@@ -12025,7 +12034,7 @@ def _tri_att_fused_qkv_sdpa(att, x, bias):
         b = ttnn.multiply(bias, att.scale / att._bias_scale)
     o = _triatt_sdpa.sdpa_fused_qkv(
         x, att.qkv_weight, b, att.scale ** -1, att.n_heads, att.head_dim, S, kc,
-        _TRIATT_FUSED_HIFI_CKC if att.sdpa_hifi else None)
+        _triatt_hifi_ckc() if att.sdpa_hifi else None)
     if b is not bias:
         ttnn.deallocate(b)
     return o
