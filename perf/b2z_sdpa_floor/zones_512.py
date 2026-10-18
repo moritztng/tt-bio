@@ -69,6 +69,8 @@ def main():
     ap.add_argument("--calls", type=int, default=1, help="profiled calls after the warm-up")
     ap.add_argument("--route", choices=("shipped", "hifi"), default="shipped",
                     help="hifi: OpenFold3's fused-HiFi route at one k chunk (_tri_att_sdpa_hifi)")
+    ap.add_argument("--levers", default="", help="lever set the calls run under, e.g. triatt_hifi2+triatt_acc16 "
+                    "(TT_BIO_LEVERS reaches a model's set only, not a bare call)")
     ap.add_argument("--out", default="perf/b2z_sdpa_floor/zones_512.json")
     args = ap.parse_args()
     assert os.environ.get("TT_BIO_TRIATT_ZONES"), "set TT_BIO_TRIATT_ZONES=1 (and run under a profiler build)"
@@ -89,6 +91,10 @@ def main():
     scale = D ** -0.5
 
     def call():
+        with T.levers(args.levers):
+            return route()
+
+    def route():
         if args.route == "hifi":
             o = T._tri_att_sdpa_hifi(q, k, v, bias, scale, one_k_chunk=True)
         else:
@@ -110,7 +116,7 @@ def main():
     path = find_csv()
     per, mhz, units = parse(path)
     mhz = mhz or 1000.0
-    res = {"doc": __doc__, "meta": {"card": os.environ.get("TT_VISIBLE_DEVICES"), "shape": [B, H, S, D], "route": args.route,
+    res = {"doc": __doc__, "meta": {"card": os.environ.get("TT_VISIBLE_DEVICES"), "shape": [B, H, S, D], "route": args.route, "levers": args.levers,
                                     "picks": {str(k): v for k, v in T.TRIATT_FUSED_HIFI_PICKS.items()},
                                     "grid": list(T.COMPUTE_GRID_MAIN), "mhz": mhz, "csv": path,
                                     "wall_ms_per_call": wall_ms, "loadavg": os.getloadavg(),
