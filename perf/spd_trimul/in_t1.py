@@ -105,6 +105,22 @@ def unit_map(a, r, il, units, mask=None):
     return out
 
 
+def worst(a, r, mask, pi, gi, h, other=None, k=8):
+    """The k largest |a - r| elements of a [1, h, n, n]: [ch, i, j, a, ref, mask, p, sigmoid(g)] (+ the
+    other kernel's value there). a = p, or a = p * sigmoid at the wrong gate, names the broken stage."""
+    e = (a.double() - r).abs()[0]
+    out = []
+    for f in e.flatten().topk(k).indices.tolist():
+        ch, i, j = f // e[0].numel(), f // e.shape[-1] % e.shape[-2], f % e.shape[-1]
+        row = [ch, i, j, round(float(a[0, ch, i, j]), 4), round(float(r[0, ch, i, j]), 4),
+               None if mask is None else float(mask[0, i, j]), round(float(pi[0, i, j, ch]), 4),
+               round(float(torch.sigmoid(gi[0, i, j, ch])), 4)]
+        if other is not None:
+            row.append(round(float(other[0, ch, i, j]), 4))
+        out.append(row)
+    return out
+
+
 def timed(f, reps):
     f(); ttnn.synchronize_device(dev)
     ms = []
@@ -176,8 +192,10 @@ for n in [int(s) for s in A.ns.split(",") if s]:
 
     try:
         outs = incumbent()
+        inc_a = ttnn.to_torch(outs[0]).reshape(ref["a"].shape)
         for k, o in zip("abg", outs):
             rec[f"inc_{k}_rel_rms_f64"], rec[f"inc_{k}_max_abs"] = rel(ttnn.to_torch(o).reshape(ref[k].shape), ref[k])
+        rec["inc_a_worst"] = worst(inc_a, ref["a"], m, pi, gi, h)
         free(outs)
         rec["inc_ms"] = timed(lambda: free(incumbent()), A.reps)
     except Exception as e:                                                    # noqa: BLE001
@@ -199,6 +217,8 @@ for n in [int(s) for s in A.ns.split(",") if s]:
                 bu = bad_units(host[0].reshape(ref["a"].shape), ref["a"], il)
                 rec["a_bad_units"], rec["a_bad_first"] = len(bu), bu[:24]   # [u, xt, h, yt, core, pos, units on core]
                 rec["a_bad_map"] = unit_map(host[0].reshape(ref["a"].shape), ref["a"], il, bu[:4], m)
+                rec["t1_a_worst"] = worst(host[0].reshape(ref["a"].shape), ref["a"], m, pi, gi, h,
+                                          inc_a if "inc_a_worst" in rec else None)
             free(outs)
             rec["t1_ms"] = timed(lambda: free(t1()), A.reps)
             rec["t1_GBps"] = round(4 * P / rec["t1_ms"] / 1e6, 1)
