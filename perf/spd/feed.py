@@ -52,6 +52,11 @@ from pathlib import Path
 import yaml
 
 D = Path("/home/moritz/.coworker")
+sys.path.insert(0, str(D / "scripts"))
+try:
+    from glx_elastic import CHIP_LENDING  # JapanFold boxes that lend single chips to the SPD pool
+except ImportError:  # no coworker checkout on this host
+    CHIP_LENDING = set()
 TIERS = {"red": 0, "amber": 1, "fast": 2, "fill": 3}
 FAST_S = 60
 TICK_S = 600   # feed's own cadence (tick.d). A queued job expected to run shorter fills that fraction of a depth slot:
@@ -115,12 +120,16 @@ def ended(sh, end, start_ref):
             "at": int(os.path.getmtime(end)), "tail": t}
 if A["kind"] == "galaxy":
     P = H + "/spd/pool"
-    bad = len(glob.glob(H + "/spd/locks/chip*.BAD"))
-    out["healthy"] = len([n for n in os.listdir("/dev/tenstorrent") if n.isdigit()]) - bad
+    if A.get("lend"):  # a JapanFold box lending single chips: only the chips it lends now are ours
+        lent = [json.load(open(f)) for f in glob.glob(H + "/japanfold/state/agent/lend/*.lent")]
+        out["healthy"] = sum(1 for x in lent if x.get("recall_at") is None)
+    else:
+        bad = len(glob.glob(H + "/spd/locks/chip*.BAD"))
+        out["healthy"] = len([n for n in os.listdir("/dev/tenstorrent") if n.isdigit()]) - bad
     q = [os.path.basename(f) for f in glob.glob(P + "/queue/*.sh")]
     out["queued"] = sum(1 for n in q if n[0] in "012345678")
     out["qprio"] = [sum(1 for n in q if n[0] == str(d)) for d in range(9)]
-    out["paused"] = os.path.exists(P + "/PAUSE") or os.path.exists(P + "/RETURNED")
+    out["paused"] = os.path.exists(P + "/PAUSE") or not A.get("lend") and os.path.exists(P + "/RETURNED")
     out["live"] = q + [os.path.basename(r).split("-", 2)[2] for r in glob.glob(P + "/running/*.sh")
                        if not os.path.exists(r + ".end")]
     for n in q:
@@ -467,6 +476,10 @@ def pools(root):
     a = json.loads((root / "state/glx/ALLOC.json").read_text())["galaxies"]
     p = {ip: {"name": ip, "ssh": f"ubuntu@172.16.102.{ip}", "kind": "galaxy", "arch": "wh"}
          for ip, g in a.items() if g.get("owner") == "spd" and g.get("phase") == "lent"}
+    # A JapanFold box in glx_elastic.CHIP_LENDING lends single idle chips to its pool (state/glx/DESIGN-shared-chips.md).
+    # Without it every WH grid waited for a whole-box lend while .107 lent ~20 chips (10-18).
+    p.update({ip: {"name": ip, "ssh": f"ubuntu@172.16.102.{ip}", "kind": "galaxy", "arch": "wh", "lend": True}
+              for ip, g in a.items() if g.get("owner") == "japanfold" and ip in CHIP_LENDING})
     for name, b in BH_POOLS.items():
         if not (root / f"state/{name}-offline").exists():
             p[name] = dict(b, name=name, kind="bh", arch="bh")
@@ -594,7 +607,7 @@ def main(argv=None):
     for name, p in P.items():
         try:
             st[name] = remote(p["ssh"], PROBE, {"kind": p["kind"], "paths": [x for x in paths], "cards": p.get("cards", []), "book": BOOK,
-                                             "lock": p.get("lock", ""), "sweep": not a.dry_run, "outdirs": outdirs})
+                                             "lock": p.get("lock", ""), "lend": p.get("lend", False), "sweep": not a.dry_run, "outdirs": outdirs})
         except Exception as e:  # an unreachable box is skipped, never fatal
             log(f"{name}: probe failed: {e}")
     # 1. account every ledger entry: done, pending, or a failed attempt

@@ -22,6 +22,10 @@ import ttnn
 MODELS = {"esmc-300m": (960, 2560, 7 * 544), "esmc-600m": (1152, 3072, 7 * 544), "esmc-6b": (2560, 6912, 544)}
 
 
+def _outs(o):
+    return o if isinstance(o, list) else [o]
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", default="esmc-300m", choices=sorted(MODELS))
@@ -31,16 +35,20 @@ def main() -> int:
                     help="weight dtype on device; --fast loads the projections as bfloat8_b")
     ap.add_argument("--acc", default="fp32", choices=["fp32", "bf16"],
                     help="dest accumulation; bf16 doubles the dest registers, so 8-tile subblocks become legal")
+    ap.add_argument("--shapes", default="proj,fc1h,fc2",
+                    help="comma list of proj, fc1h, fc2, qkv (q/k/v from one minimal_matmul_split, as the model runs it)")
+    ap.add_argument("--fidelity", default="HiFi3", choices=["HiFi2", "HiFi3", "HiFi4"])
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
 
     from tt_bio import tenstorrent as T
     dev = T.get_device()
     g = dev.compute_with_storage_grid_size()
-    ck = ttnn.init_device_compute_kernel_config(dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi3,
+    ck = ttnn.init_device_compute_kernel_config(dev.arch(), math_fidelity=getattr(ttnn.MathFidelity, args.fidelity),
                                                 math_approx_mode=False, fp32_dest_acc_en=args.acc == "fp32", packer_l1_acc=True)
     d, ff, m = MODELS[args.model]
-    shapes = {"proj": (m, d, d), "fc1h": (m, d, ff), "fc2": (m, ff, d)}
+    shapes = {"proj": (m, d, d), "fc1h": (m, d, ff), "fc2": (m, ff, d), "qkv": (m, d, 3 * d)}
+    shapes = {k: shapes[k] for k in args.shapes.split(",")}
     out = open(args.out, "w")
     gen = torch.Generator().manual_seed(0)
     for name, (M, K, N) in shapes.items():
@@ -62,23 +70,32 @@ def main() -> int:
                         M_block_size=mb, K_block_size=kb, N_block_size=nb, subblock_h=sh, subblock_w=sw,
                         compute_with_storage_grid_size=ttnn.CoreCoord(g.x, g.y))
                     break
-        arms["linear"] = "linear"  # what a projection under ESMC_MM_MIN_ROWS (the 6B's 544) runs today
+        if name == "qkv":  # the model's own config first (tt_bio.esmc._mm_config), then the sweep
+            from tt_bio import esmc
+            arms = {"default": None, "model": esmc._mm_config(xd, wd).get("config"), **{k: v for k, v in arms.items() if v}}
+        else:
+            arms["linear"] = "linear"  # what a projection under ESMC_MM_MIN_ROWS (the 6B's 544) runs today
         base = None
         for arm, cfg in arms.items():
-            fn = (lambda: ttnn.linear(xd, wd, compute_kernel_config=ck, dtype=ttnn.bfloat16, core_grid=T.CORE_GRID_MAIN)) \
+            fn = (lambda cfg=cfg: list(ttnn.experimental.minimal_matmul_split(
+                    xd, wd, chunks=3, compute_kernel_config=ck, dtype=ttnn.bfloat16, memory_config=ttnn.DRAM_MEMORY_CONFIG,
+                    **({"config": cfg} if cfg else {})))) if name == "qkv" else \
+                (lambda: ttnn.linear(xd, wd, compute_kernel_config=ck, dtype=ttnn.bfloat16, core_grid=T.CORE_GRID_MAIN)) \
                 if cfg == "linear" else (lambda cfg=cfg: ttnn.experimental.minimal_matmul(
                     xd, wd, compute_kernel_config=ck, dtype=ttnn.bfloat16, **({"config": cfg} if cfg else {})))
             rec = {"model": args.model, "wdtype": args.wdtype, "acc": args.acc, "shape": name, "mkn": [M, K, N], "arm": arm, "grid": [g.x, g.y]}
             try:
-                o = fn()
-                got = ttnn.to_torch(o).reshape(M, N).double()
-                ttnn.deallocate(o)
+                o = _outs(fn())
+                got = torch.cat([ttnn.to_torch(t).reshape(M, -1) for t in o], dim=-1).double()
+                for t in o:
+                    ttnn.deallocate(t)
                 ts = []
                 for _ in range(args.repeat):
                     ttnn.synchronize_device(dev)
                     t0 = time.perf_counter()
                     for _ in range(args.inner):
-                        ttnn.deallocate(fn())
+                        for t in _outs(fn()):
+                            ttnn.deallocate(t)
                     ttnn.synchronize_device(dev)
                     ts.append((time.perf_counter() - t0) / args.inner * 1e3)
                 ms = sorted(ts)[len(ts) // 2]

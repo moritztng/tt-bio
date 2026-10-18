@@ -8858,7 +8858,8 @@ Weights = Mapping[str, torch.Tensor] | WeightScope
 # Process-global shared tiled-weight cache. None disables it (default: every model
 # tiles+uploads its own weights via from_torch). Set via weight_cache() around a
 # module construction to route torch_to_tt through a /dev/shm tile cache shared by
-# data-parallel fanout workers (see torch_to_tt and esmc.load_esmc6b_shared).
+# data-parallel fanout workers (see torch_to_tt and esmc.load_esmc6b_shared), or
+# through a dict of host tiles kept in this process (esmfold2_runtime._ESMCAdapter).
 _weight_cache = None
 
 
@@ -8870,6 +8871,7 @@ def weight_cache(cache_dir: str, mode: str):
     mode="load": load each pre-tiled weight from the cache and upload (no host tiling,
     no checkpoint read). The call-index ordering must match between dump and load,
     which holds because both construct the identical module.
+    A dict ``cache_dir`` keeps the host tiles in this process instead of on disk.
     """
     global _weight_cache
     prev = _weight_cache
@@ -8917,6 +8919,11 @@ class Module:
         # would have produced.
         i = wc["counter"]
         wc["counter"] = i + 1
+        mem = wc["dir"] if isinstance(wc["dir"], dict) else None
+        if mem is not None:
+            if wc["mode"] == "dump":
+                mem[i] = ttnn.from_torch(transform(self.weights[key]), layout=ttnn.TILE_LAYOUT, dtype=dtype)
+            return ttnn.to_device(mem[i], self.device)
         path = os.path.join(wc["dir"], f"{i}.tensorbin")
         if wc["mode"] == "load":
             host = ttnn.load_tensor(path)

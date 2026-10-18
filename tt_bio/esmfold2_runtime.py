@@ -66,6 +66,10 @@ class _ESMCAdapter:
         self._persistent = persistent
         self._fast = fast
         self.lm = None  # loaded lazily on first fold
+        # Host tiles of the 6B's weights, kept on Wormhole where fold_complex may release the LM
+        # after a fold: the reload uploads them (seconds) instead of re-reading and re-tiling the
+        # checkpoint, which cost a warm 1024 aa ESMFold2 fold 96 of its 201 s. ~6.3 GB host RAM.
+        self._tiles = None
         # Under LM_COMBINE the 6B returns this shim's layer-combined state, one layer instead of 81.
         self._shim = shim
 
@@ -80,7 +84,16 @@ class _ESMCAdapter:
             prev = tenstorrent._FAST_MODE
             tenstorrent.set_fast_mode(self._fast)
             try:
-                self.lm = ESMCLanguageModel.from_pretrained(self._repo)
+                if self._tiles:
+                    with tenstorrent.weight_cache(self._tiles, "load"):
+                        self.lm = ESMCLanguageModel()
+                        self.lm.load_state_dict({}, strict=False)
+                elif is_wormhole():
+                    self._tiles = {}
+                    with tenstorrent.weight_cache(self._tiles, "dump"):
+                        self.lm = ESMCLanguageModel.from_pretrained(self._repo)
+                else:
+                    self.lm = ESMCLanguageModel.from_pretrained(self._repo)
             finally:
                 tenstorrent.set_fast_mode(prev)
             dram_peak("esmfold2/lm-loaded")
@@ -1650,7 +1663,7 @@ def fold_complex(model, chains, *, num_loops=3, num_sampling_steps=20,
     # plus the MSA encoder's [1, L, M, d] activation, which is 1.0 GiB at 128 aa for
     # M=8192 and grows with L and M: those MSA folds died in the encoder with ~70 MiB of
     # contiguous DRAM left. Release the language model after its single forward (it runs
-    # once per fold, outside the recycling loop) and pay one reload, ~75 s on a Galaxy chip.
+    # once per fold, outside the recycling loop) and pay one reload from host tiles (_ESMCAdapter._tiles).
     # Bit-exact: same weights, same dtype, same order, only the device buffers move.
     # Blackhole (32 GB) always keeps the LM resident, and so does a Wormhole fold without an
     # MSA up to WH_LM_RESIDENT_MAX_TOKENS, or with one up to WH_LM_RESIDENT_MSA_MAX_TOKENS whose

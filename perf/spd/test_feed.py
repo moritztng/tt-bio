@@ -731,3 +731,28 @@ def test_cells_that_run_a_full_pass_keep_the_plain_depth(tmp_path, monkeypatch):
     finish(box, 900)
     run(tmp_path)
     assert len(box.queue) == 2
+
+
+def test_a_chip_lending_japanfold_box_is_a_pool_sized_by_its_lent_chips(tmp_path, monkeypatch):
+    """.107 serves JapanFold and lends idle chips: feed places WH cells there, counts only chips lent now (not recalled),
+    and its RETURNED marker does not pause it (only PAUSE does)."""
+    (tmp_path / "state/glx").mkdir(parents=True)
+    (tmp_path / "state/glx/ALLOC.json").write_text(json.dumps({"galaxies": {
+        "7": {"owner": "japanfold", "phase": "serving"}, "8": {"owner": "japanfold", "phase": "serving"}}}))
+    monkeypatch.setattr(feed, "BH_POOLS", {})
+    monkeypatch.setattr(feed, "CHIP_LENDING", {"7"})
+    assert feed.pools(tmp_path) == {"7": {"name": "7", "ssh": "ubuntu@172.16.102.7", "kind": "galaxy", "arch": "wh", "lend": True}}
+    L = tmp_path / "japanfold/state/agent/lend"; L.mkdir(parents=True)
+    (L / "0.lent").write_text(json.dumps({"recall_at": None, "node": "16"}))
+    (L / "1.lent").write_text(json.dumps({"recall_at": 1.0, "node": "17"}))
+    pool = tmp_path / "spd/pool"; (pool / "queue").mkdir(parents=True); (pool / "running").mkdir()
+    (pool / "RETURNED").touch()
+    a = {"kind": "galaxy", "lend": True, "sweep": False, "paths": [], "outdirs": {}}
+    r = subprocess.run([sys.executable, "-c", feed.PROBE], input=json.dumps(a) + "\n", capture_output=True, text=True,
+                       env={"HOME": str(tmp_path)}, check=True)
+    out = json.loads(r.stdout)
+    assert (out["healthy"], out["paused"]) == (1, False)
+    (pool / "PAUSE").touch()
+    r = subprocess.run([sys.executable, "-c", feed.PROBE], input=json.dumps(a) + "\n", capture_output=True, text=True,
+                       env={"HOME": str(tmp_path)}, check=True)
+    assert json.loads(r.stdout)["paused"] is True
