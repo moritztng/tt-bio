@@ -82,8 +82,16 @@ void kernel_main() {
     cb_reserve_back(gamma_cb, Kt);
     cb_reserve_back(beta_cb, Kt);
     uint32_t w = get_write_ptr(w_cb);
+#ifdef RT2
+    // compute.cpp RT2: Wp^T[q] and Wg^T[q] adjacent, the two rows of one 2-row matmul block
+    for (uint32_t q = Q0; q < Q0 + QN; ++q) {
+        for (uint32_t t = q * Kt; t < (q + 1) * Kt; ++t, w += tb) noc_async_read_page(t, wp, w);
+        for (uint32_t t = q * Kt; t < (q + 1) * Kt; ++t, w += tb) noc_async_read_page(t, wg, w);
+    }
+#else
     for (uint32_t t = Q0 * Kt; t < (Q0 + QN) * Kt; ++t, w += tb) noc_async_read_page(t, wp, w);
     for (uint32_t t = Q0 * Kt; t < (Q0 + QN) * Kt; ++t, w += tb) noc_async_read_page(t, wg, w);
+#endif
     w = get_write_ptr(gamma_cb);
     for (uint32_t t = 0; t < Kt; ++t, w += tb) noc_async_read_page(t, gm, w);
     w = get_write_ptr(beta_cb);

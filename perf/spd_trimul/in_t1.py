@@ -27,7 +27,7 @@ ap.add_argument("--ln1", type=int, choices=(0, 1), default=None, help="set T1_LN
 ap.add_argument("--repeat-eq", type=int, default=0, help="rerun T1 this many times per T1_LN1 setting; where a moves")
 ap.add_argument("--abl", default="", help="comma list of T1_ABL stage-skip masks to time after the real T1"
                 " (kernels/trimul_in_t1: 1 LN, 2 g_out mm, 4 [a|b] mm, 8 gate, 16 z reads, 32 gather, 64 writes)")
-ap.add_argument("--set", default="", help="comma list NAME=INT of trimul_tail knobs for T1 (T1_RB, T1_SBW, GIN_MOVE_NB, T1_ROWS)")
+ap.add_argument("--set", default="", help="comma list NAME=INT of trimul_tail knobs for T1 (T1_RB, T1_SBW, GIN_MOVE_NB, T1_ROWS, T1_RT2)")
 ap.add_argument("--grid", default="", help="gx,gy: run T1 on this core grid instead of COMPUTE_GRID_MAIN")
 ap.add_argument("--fids", default="", help="comma list of MathFidelity names (LoFi, HiFi2, HiFi3, HiFi4) to time T1 at")
 ap.add_argument("--out", help="also append each JSON line here (the qb runner passes it)")
@@ -49,7 +49,7 @@ TT.set_t1(True)
 TT.T1_C256 = 1
 for kv in [v for v in A.set.split(",") if v]:
     k, v = kv.split("=")
-    assert k in ("T1_RB", "T1_SBW", "GIN_MOVE_NB", "T1_B8", "T1_ROWS"), k
+    assert k in ("T1_RB", "T1_SBW", "GIN_MOVE_NB", "T1_B8", "T1_ROWS", "T1_RT2"), k
     setattr(TT, k, int(v))
 C, h = A.c, A.hidden
 gen = torch.Generator().manual_seed(0)

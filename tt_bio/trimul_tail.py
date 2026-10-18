@@ -1339,6 +1339,7 @@ T1_PLANS = {(4, 8, 4): (1, 32), (8, 16, 8): (2, 16), (12, 24, 12): (3, 8)}
 T1_KEYS = set(T1_PLANS)
 T1_RB = 8                         # z row tiles per reader barrier
 T1_SBW = 4                        # DST tiles per matmul block: half-sync fp32 DST holds 4; 8 runs full-sync (bench knob)
+T1_RT2 = 0                        # bench knob: p and g of a channel tile as one 2 x (T1_SBW / 2) matmul block
 T1_ABL = 0                        # bench-only stage-skip bits (kernels/trimul_in_t1 ABL); 0 = the real T1
 T1_B8 = 0                         # bench knob: a and b as bfp8 (lever trimul_t1b8 in a model)
 T1_C256 = 0                       # bench knob: the c_z 256 / 384 plans without their levers
@@ -1526,6 +1527,7 @@ def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps, il, b8=F
     m = mask if mask is not None else x
     abl = [("ABL", str(T1_ABL))] if T1_ABL else []
     xout, pre = [("T1XOUT", "1")] if ln1 == 1 else [], [("T1PRE", "1")] if ln1 == 2 else []
+    abl += [("RT2", "1")] if T1_RT2 else []
     reader = ttnn.KernelDescriptor(
         kernel_source=str(d / "reader.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[kt, qn, St, int(mask is not None), ng, rb, (inv << 16) | inv,
@@ -1585,7 +1587,7 @@ def fused_in_ln(x, ln_w, ln_b, wpT, wgT, wgo, ckc, grid, mask=None, eps=1e-5, b8
     outs = [alloc([B, C, S, S], ab), alloc([B, C, S, S], ab), alloc(shp[:-1] + [int(wgo.shape[-1])])]
     key = ("t1", str(x.padded_shape), str(wpT.padded_shape), str(wgo.padded_shape), tuple(grid),
            tuple(str(c) for c in ckc), mask is not None, float(eps), _sigpoly(), RNE, GIN_MOVE_NB,
-           T1_RB, T1_SBW, T1_ABL, b8, il)
+           T1_RB, T1_SBW, T1_ABL, T1_RT2, b8, il)
     xn = alloc(shp) if T1_LN1 and groups > 1 else None
     for g in range(groups):
         ln1 = 0 if xn is None else 1 if g == 0 else 2

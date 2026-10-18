@@ -35,6 +35,7 @@
 #ifndef ABL
 #define ABL 0
 #endif
+// RT2 (trimul_tail.T1_RT2, bench knob): the value and gate passes of a channel tile as one 2-row matmul block.
 // T1XOUT / T1PRE (trimul_tail.T1_LN1, the c_z 256 / 384 plans' channel groups): the first launch also packs
 // every normalised tile to c_20 for the writer, which stores xn in z's layout; the later launches skip the
 // layer_norm and take xn from the reader straight into xn_cb. The same bf16 tiles feed every matmul either way.
@@ -162,6 +163,39 @@ void kernel_main() {
         sigmoid_tile_init();
         if constexpr (MASK) cb_wait_front(m_cb, IL);
         for (uint32_t q = 0; q < QN; ++q) {
+#ifdef RT2
+            // p and g of channel tile q as the two rows of one 2 x CT block: each xn tile unpacked once for both.
+            // DST: p at 0 .. CT-1, g at CT .. 2 CT-1 (rows of W in w_cb are Wp^T[q], Wg^T[q], reader.cpp RT2).
+            constexpr uint32_t CT = SBW / 2;
+            mm_block_init_short(w_cb, xn_cb, !(ABL & 128), CT, 2, Kt);
+            reconfig_data_format(xn_cb, w_cb);
+            pack_reconfig_data_format(p_cb);
+            cb_reserve_back(p_cb, IL);
+            cb_reserve_back(g_cb, IL);
+            for (uint32_t il0 = 0; il0 < IL && !(ABL & 4); il0 += CT) {
+                tile_regs_acquire();
+                uint32_t i0 = 2 * q * Kt;
+                uint32_t i1 = il0;
+                for (uint32_t k = 0; k < Kt; ++k, ++i0, i1 += IL)
+                    matmul_block(w_cb, xn_cb, i0, i1, 0, !(ABL & 128), CT, 2, Kt);
+                if constexpr (!(ABL & 256)) {
+                    for (uint32_t i = CT; i < 2 * CT; ++i) {
+                        if constexpr (SIGPOLY) sigmoid_poly_tile<SIGPOLY>(i);
+                        else sigmoid_bf16_tile(i);
+                    }
+                    if constexpr (RNE & 2) {
+                        for (uint32_t i = 0; i < 2 * CT; ++i) round_bf16_rne_tile(i);
+                    }
+                }
+                tile_regs_commit();
+                tile_regs_wait();
+                for (uint32_t i = 0; i < CT; ++i) pack_tile<true>(i, p_cb, il0 + i);
+                for (uint32_t i = 0; i < CT; ++i) pack_tile<true>(CT + i, g_cb, il0 + i);
+                tile_regs_release();
+            }
+            cb_push_back(p_cb, IL);
+            cb_push_back(g_cb, IL);
+#else
             for (uint32_t pass = 0; pass < 2; ++pass) {
                 const uint32_t pass_cb = pass == 0 ? p_cb : g_cb;
                 mm_block_init_short(w_cb, xn_cb, !(ABL & 128), SBW, 1, Kt);
@@ -190,6 +224,7 @@ void kernel_main() {
                 }
                 cb_push_back(pass_cb, IL);
             }
+#endif
             cb_wait_front(p_cb, IL);
             cb_wait_front(g_cb, IL);
             cb_reserve_back(out_cb, IL);
