@@ -3,8 +3,10 @@ token count, against a float32 reference z + T(z). Finds where a lever set's rou
 
 rel = rms(out - ref) / rms(T(z)); any bf16 output reads ~0.11 at |z| ~ 40 (one rounding of z + t).
 Usage (one chip; TT_BIO_LEVERS must hold every lever an arm names, silu_f32 compiles at device open):
-    TT_VISIBLE_DEVICES=<chip> TT_BIO_LEVERS=<superset> python wsr_route.py N[,N...] ARM=<levers> [ARM=<levers> ...]
+    TT_VISIBLE_DEVICES=<chip> TT_BIO_LEVERS=<superset> [WSR_C=384 WSR_X=4] python wsr_route.py N[,N...] ARM=<levers> ...
+WSR_C is the pair width, WSR_X the hidden expansion (OpenDDE's trunk 384 x 4; its template stack 64 x 2).
 """
+import os
 import sys
 import torch
 import ttnn
@@ -13,12 +15,12 @@ import tt_bio.tenstorrent as T
 torch.set_num_threads(8)
 sizes = [int(v) for v in sys.argv[1].split(",")]
 arms = [a.split("=", 1) for a in sys.argv[2:]]
-c, zs = 384, 40.0
+c, xh, zs = int(os.environ.get("WSR_C", 384)), int(os.environ.get("WSR_X", 4)), 40.0
 g = torch.Generator().manual_seed(0)
 sd = {"norm.weight": 1 + 0.1 * torch.randn(c, generator=g), "norm.bias": 0.1 * torch.randn(c, generator=g),
-      "fc1.weight": torch.randn(4 * c, c, generator=g) * c ** -0.5,
-      "fc2.weight": torch.randn(4 * c, c, generator=g) * c ** -0.5,
-      "fc3.weight": torch.randn(c, 4 * c, generator=g) * (4 * c) ** -0.5}
+      "fc1.weight": torch.randn(xh * c, c, generator=g) * c ** -0.5,
+      "fc2.weight": torch.randn(xh * c, c, generator=g) * c ** -0.5,
+      "fc3.weight": torch.randn(c, xh * c, generator=g) * (xh * c) ** -0.5}
 sd = {k: v.bfloat16().float() for k, v in sd.items()}
 dev = T.get_device()
 ckc = ttnn.init_device_compute_kernel_config(dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi3,
@@ -52,7 +54,7 @@ for n in sizes:
         bad = (e.abs() > 4).reshape(n, n, c).any(-1)
         rows = bad.any(1).nonzero().flatten().tolist()
         cols = bad.any(0).nonzero().flatten().tolist()
-        print(f"n {n} {name}: rel_rms {(e.pow(2).mean().sqrt() / trms).item():.5f} max|e| {e.abs().max().item():.3f} "
+        print(f"c {c}x{xh} n {n} {name}: rel_rms {(e.pow(2).mean().sqrt() / trms).item():.5f} max|e| {e.abs().max().item():.3f} "
               f"bad (i,j) {int(bad.sum())} rows {rows[:3]}..{rows[-3:]} ({len(rows)}) cols {cols[:3]}..{cols[-3:]} "
               f"({len(cols)}) same_buffer {out.buffer_address() == zt.buffer_address() if out.is_allocated() else '-'}",
               flush=True)
