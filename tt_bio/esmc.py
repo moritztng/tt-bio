@@ -613,10 +613,11 @@ class Attention(_MMLin, Module):
     """
 
     def __init__(self, n_heads: int, state_dict: Weights, compute_kernel_config, out_scale: float = 1.0,
-                 qk_l1: bool = True, d_model: int = 0):
+                 qk_l1: bool = True, d_model: int = 0, lm_large: bool = False):
         super().__init__(state_dict, compute_kernel_config)
         self.n_heads = n_heads
         self.qk_l1 = qk_l1  # this model may take the L1 path; Block clears it for the 6B
+        self.lm_large = lm_large
         self.in_norm_weight = self.torch_to_tt("layernorm_qkv.0.weight")
         self.in_norm_bias = self.torch_to_tt("layernorm_qkv.0.bias")
         # The two big projection weights (qkv, out_proj) carry the bulk of the
@@ -630,7 +631,10 @@ class Attention(_MMLin, Module):
             self.qkv_weight = None
             self._qkv_w = tuple(self.torch_to_tt("layernorm_qkv.1.weight", transform=lambda w, i=i: w[i * d:(i + 1) * d].t(),
                                                  dtype=_dtype()) for i in range(3))
-            if _ESMC_QKV_MM_SPLIT and _esmc_mm():
+            # Not for the 6B: its packed copy is another 1.56 GiB of a Wormhole chip, and an ESMFold2 fold under
+            # 2048 tokens is under ESMC_MM_MIN_ROWS, so it never reads it. Holding it left ESMFold2-Fast at 1024 aa
+            # without the DRAM for its first trimul.
+            if _ESMC_QKV_MM_SPLIT and _esmc_mm() and not lm_large:
                 self.qkv_weight = self.torch_to_tt("layernorm_qkv.1.weight", dtype=_dtype())
         else:
             self.qkv_weight = self.torch_to_tt("layernorm_qkv.1.weight", dtype=_dtype())
@@ -1576,8 +1580,9 @@ class Block(Module):
         self.ffn.model_bytes = n_layers * (4 * d * d + 3 * d * d_ff) * 2
         self.attn = Attention(n_heads, self.scope("attn"), compute_kernel_config, out_scale=inv_scale,
                               qk_l1=(self.ffn.model_bytes <= _LM_LARGE_MODEL_BYTES
-                                     or _qk_l1_large(self.ffn.fc2_weight.dtype)), d_model=d)
-        self.attn.lm_large = self.ffn.lm_large = self.ffn.model_bytes > _LM_LARGE_MODEL_BYTES
+                                     or _qk_l1_large(self.ffn.fc2_weight.dtype)), d_model=d,
+                              lm_large=self.ffn.model_bytes > _LM_LARGE_MODEL_BYTES)
+        self.ffn.lm_large = self.attn.lm_large
         if (_ESMC_FAST_RESID_BF16 and _ESMC_MM_RESID and not self.ffn.lm_large and _esmc_mm()
                 and self.ffn.fc2_weight.dtype == ttnn.bfloat8_b):
             for m, name in ((self.attn, "out_weight"), (self.ffn, "fc2_weight")):
