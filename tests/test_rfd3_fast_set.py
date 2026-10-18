@@ -5,6 +5,8 @@ silently dropped: `set_fast(True)` would write a name nothing reads and the leve
 That is exactly how a measured win goes missing, so the membership is pinned here rather than
 inferred from a fold's timing.
 """
+import os
+
 import pytest
 
 from tt_bio.rfd3 import model as M
@@ -98,3 +100,18 @@ def test_pair_ws_lofi_is_off_until_graded():
     """pws in bfp8 at LoFi is a fast-mode candidate only: off by default and outside the fast set until measured."""
     assert "_PAIR_WS_LOFI" not in M._FAST_SET
     assert M.env_flag("RFD3_PAIR_WS_LOFI", False) is False
+
+
+def test_exact_data_movement_defaults(monkeypatch):
+    """pzg, the grouped mask writer and the WH DiT q chunk change only the work (digests equal on WH and p150a)."""
+    from tt_bio import rfd3_bias
+    monkeypatch.delenv("RFD3_PZ_GATHER", raising=False)
+    assert "_PZ_GATHER" not in M._FAST_SET
+    assert M.env_flag("RFD3_PZ_GATHER", True) is True
+    if "RFD3_MASKW_HG" not in os.environ:
+        assert rfd3_bias.HG == 4
+    monkeypatch.setattr(M, "_DIT_SDPA_CHUNKS_ENV", None)
+    monkeypatch.setattr(M, "is_wormhole", lambda: True)
+    assert M._dit_sdpa_chunks() == (352, 352)
+    monkeypatch.setattr(M, "is_wormhole", lambda: False)
+    assert M._dit_sdpa_chunks() == (64, 352)

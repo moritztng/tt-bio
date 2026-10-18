@@ -55,8 +55,9 @@ CB_STRIDE = 4
 OUT_SLOTS = int(os.environ.get("RFD3_SPARSE_BIAS_SLOTS", "8"))
 
 # Heads per group (writer_sparse_bias.cpp MASKW_HG): the index scan and cursor walk run once for HG heads.
-# 1 is the per-head kernel. Clamped to a divisor of the call's head count.
-HG = int(os.environ.get("RFD3_MASKW_HG", "1"))
+# 1 is the per-head kernel. Clamped to a divisor of the call's head count. 4 (gap_maskhg.py, css masks): WH 2.42 ->
+# 1.95 ms/call, p150a 0.85 -> 0.54; masks and design digests equal to HG=1 on both.
+HG = int(os.environ.get("RFD3_MASKW_HG", "4"))
 
 ADDR_WRITE_MODE = None
 # Bench only (scripts/rfd3_port/gap_maskw.py): 1 sends every tile from the fill tile (no pokes), 2 issues no DRAM

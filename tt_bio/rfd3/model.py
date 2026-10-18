@@ -35,7 +35,7 @@ from .. import gather_tiled as _gather_tiled
 from .. import eltwise_fusion as _EF
 from ..tenstorrent import (Module, get_device, CORE_GRID_MAIN, attn_value_matmul, silu_ckc,
                            atom_pair_budget_bytes, l1_resident_budget_bytes, row_block,
-                           _dram_oom, fused_sdpa, _sdpa_program_config)
+                           _dram_oom, fused_sdpa, _sdpa_program_config, is_wormhole)
 
 # This is a SNAPSHOT, and deliberately left as one. `_configure_active_compute_grid` widens
 # tenstorrent.CORE_GRID_MAIN to 13x10 when a Blackhole device opens, after this import has
@@ -429,15 +429,24 @@ PF_DPB_CALLS = [0, 0]   # served, declined
 # The DiT builds all 18 blocks' masks in one pass while the stack fits under this many bytes
 # (bf16, 18 x 16 heads x n_key^2: 1317 tokens); above it each block builds its own.
 _DIT_SDPA_STACK_BYTES = int(float(os.environ.get("RFD3_DIT_SDPA_STACK_BYTES", "1e9")))
-_DIT_SDPA_CHUNKS = tuple(int(x) for x in os.environ.get("RFD3_DIT_SDPA_CHUNKS", "64,352").split(","))
+# (q, k) chunk sizes. q only splits independent query rows, so it moves the work, never the values. WH @1000,
+# 704 keys (scripts/rfd3_port/gap_ditsdpa.py): q352 0.247 ms/call against 0.294 for q64, bit-equal; on p150a
+# q64 stays best (0.122 vs 0.185).
+_DIT_SDPA_CHUNKS_ENV = os.environ.get("RFD3_DIT_SDPA_CHUNKS")
+
+
+def _dit_sdpa_chunks():
+    spec = _DIT_SDPA_CHUNKS_ENV or ("352,352" if is_wormhole() else "64,352")
+    return tuple(int(x) for x in spec.split(","))
 
 
 def _dense_sdpa_config(n):
     """SDPA chunks that divide the padded axis `n` exactly (q near the asked size, k the widest up
     to it), so the kernel never pads the mask grid past `n`."""
     div = [c for c in range(32, n + 1, 32) if n % c == 0]
-    q = min(div, key=lambda c: abs(c - _DIT_SDPA_CHUNKS[0]))
-    k = max(c for c in div if c <= max(_DIT_SDPA_CHUNKS[1], 32))
+    q_ask, k_ask = _dit_sdpa_chunks()
+    q = min(div, key=lambda c: abs(c - q_ask))
+    k = max(c for c in div if c <= max(k_ask, 32))
     return _sdpa_program_config(q, k)
 # The atom SDPA visiting only the key chunks each query chunk's neighbours fall in (`sdpa_generic`
 # css), with the mask writer skipping the rest. On the real index in sequence order 24 % of the
@@ -462,8 +471,9 @@ _QKV_HEADS = env_flag("RFD3_QKV_HEADS", True)
 _GCA_HEADS = env_flag("RFD3_GCA_HEADS", True)
 # The collapsed process_z's table lookup as one gather that writes TILE layout (tt_bio/gather_tiled.py) instead of
 # ttnn.embedding + to_layout: WH fast census 5.07 + 4.77 ms/step of embedding against a 0.5 ms roof each, plus
-# 2.7 ms/step of tilize. Same values (data movement only). Off while measured.
-_PZ_GATHER = env_flag("RFD3_PZ_GATHER", False)
+# 2.7 ms/step of tilize. Same values (data movement only): gather 4.76 -> 1.28 ms/call on WH, digests equal to
+# the embedding path on WH and p150a (seeds 60,61 x2). RFD3_PZ_GATHER=0 restores it.
+_PZ_GATHER = env_flag("RFD3_PZ_GATHER", True)
 # The collapsed process_z's em * inv + ainv as one ttnn.addcmul (eltwise_fusion.mask_add): WH fast census multiply
 # 2.84 + add 1.52 ms/call, two calls a step, and the [B,I,I,128] product is written and read back between them.
 # One bf16 rounding instead of two, so the digest moves. Off while measured.
