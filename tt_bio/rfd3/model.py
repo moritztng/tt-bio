@@ -33,6 +33,7 @@ from .tiles import TILE, align_tile, pad_axis
 from .. import pair_swiglu_ws as _WS
 from .. import dit_pair_bias as _DPB
 from .. import gather_tiled as _gather_tiled
+from ..addcmul_at import addcmul_at as _addcmul_at
 from .. import eltwise_fusion as _EF
 from ..tenstorrent import (Module, get_device, CORE_GRID_MAIN, attn_value_matmul, silu_ckc,
                            atom_pair_budget_bytes, l1_resident_budget_bytes, row_block,
@@ -2340,6 +2341,13 @@ class GatedCrossAttention(Module):
 # device programs per block, 180 a step in the DiT alone, where per-op fixed cost is the limit.
 # RFD3_SIGMOID_FOLD=0 restores the separate op for the A/B.
 _SIGMOID_FOLD = env_flag("RFD3_SIGMOID_FOLD", True)
+# The DiT's conditioning `c` is the same for all 18 blocks of a call, and each block spends six linears and two
+# rms_norms on it (adaLN gain and shift twice, two output gates): 216 launch-bound [L,384]x[384,768] linears a
+# step. With this the stack runs them as three wide linears a call (the per-block ln_s folded into the weights,
+# sigmoids in the linear) and each block reads its 768 columns in place (addcmul_at), as OpenFold3's dit_shoist.
+# Folding ln_s and the fused sigmoid move rounding: graded, not exact.
+_DIT_SHOIST = env_flag("RFD3_DIT_SHOIST", False)
+_DIT_SHOIST_BYTES = 384 << 20   # the three wide bf16 tensors of one call; 685 tokens x 1 design is 114 MB
 
 
 def _gated(x, gate):
@@ -2509,8 +2517,41 @@ class RFD3AtomBlock(Module):
             cache[id(self)] = (key, p, bias_f)
         return bias_f
 
+    def _adaln_at(self, a, hoist, i):
+        """_adaln with the stack's wide sigmoid gains / shifts (LocalTokenTransformer._hoist), columns read in place."""
+        sc, sb, _ = hoist
+        w, off = self.head_dim * self.n_head, (2 * self.idx + i) * self.head_dim * self.n_head
+        an = ttnn.rms_norm(a, epsilon=1e-6, compute_kernel_config=self.compute_kernel_config)
+        out = _addcmul_at(sb, an, sc, w, x_off=off, z_off=off)
+        if out is None:
+            out = ttnn.add(ttnn.multiply(an, sc[..., off:off + w]), sb[..., off:off + w])
+        ttnn.deallocate(an)
+        return out
+
+    def _residual_at(self, q, upd, hoist, i):
+        """q + upd * sigmoid(gate) with the gate's columns read from the stack's wide sigmoid gates."""
+        w, off = self.head_dim * self.n_head, (2 * self.idx + i) * self.head_dim * self.n_head
+        out = _addcmul_at(q, upd, hoist[2], w, z_off=off)
+        if out is None:
+            out = ttnn.add(q, ttnn.multiply(upd, hoist[2][..., off:off + w]))
+        return out
+
+    def _transition(self, norm):
+        ckc, dt = self.compute_kernel_config, self.dtype
+        left = ttnn.linear(
+            norm, self.t_fc1, activation="silu", compute_kernel_config=silu_ckc(ckc),
+            dtype=dt, core_grid=BATCH_INVARIANT_GRID,
+        )
+        right = _tuned_linear(
+            norm, self.t_fc2, ckc=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID,
+        )
+        return _tuned_linear(
+            ttnn.multiply(left, right), self.t_fc3, ckc=ckc,
+            dtype=dt, core_grid=BATCH_INVARIANT_GRID,
+        )
+
     def __call__(self, q, c, p, additive_mask=None, sparse_qk=None, bias_cache=None,
-                 pair_bias=None, sdpa_mask=None):
+                 pair_bias=None, sdpa_mask=None, hoist=None):
         ckc, dt = self.compute_kernel_config, self.dtype
         f32 = self.fp32_residual
         if f32 and q.dtype != ttnn.float32:
@@ -2521,7 +2562,9 @@ class RFD3AtomBlock(Module):
         # matmuls/linears/norms run in bf16 (dt); only the residual accumulation is fp32,
         # so no fp32 matmul is ever issued (Blackhole fp32 matmul is a host-fallback dead-end).
         q_compute = ttnn.typecast(q, dt, memory_config=q.memory_config()) if f32 else q
-        norm = self._adaln(
+        if hoist is not None and f32:
+            hoist = None
+        norm = self._adaln_at(q_compute, hoist, 0) if hoist is not None else self._adaln(
             q_compute, c, self.a_ln_s, self.a_gain_w, self.a_gain_b, self.a_bias_w
         )
         n_key = align_tile(length)
@@ -2532,6 +2575,14 @@ class RFD3AtomBlock(Module):
         else:
             out = self._attention(norm, p, additive_mask, sparse_qk, bias_cache, pair_bias, sdpa_mask,
                                   batch, length)
+        if hoist is not None:
+            q = self._residual_at(q, out, hoist, 0)
+            ttnn.deallocate(out)
+            norm = self._adaln_at(q, hoist, 1)
+            update = self._transition(norm)
+            q2 = self._residual_at(q, update, hoist, 1)
+            ttnn.deallocate(update)
+            return q2
         gate = ttnn.linear(
             c, self.a_out_w, bias=self.a_out_b, compute_kernel_config=ckc,
             dtype=dt, core_grid=BATCH_INVARIANT_GRID,
@@ -2547,17 +2598,7 @@ class RFD3AtomBlock(Module):
         norm = self._adaln(
             q_compute, c, self.t_ln_s, self.t_gain_w, self.t_gain_b, self.t_bias_w
         )
-        left = ttnn.linear(
-            norm, self.t_fc1, activation="silu", compute_kernel_config=silu_ckc(ckc),
-            dtype=dt, core_grid=BATCH_INVARIANT_GRID,
-        )
-        right = _tuned_linear(
-            norm, self.t_fc2, ckc=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID,
-        )
-        update = _tuned_linear(
-            ttnn.multiply(left, right), self.t_fc3, ckc=ckc,
-            dtype=dt, core_grid=BATCH_INVARIANT_GRID,
-        )
+        update = self._transition(norm)
         gate = ttnn.linear(
             c, self.t_out_w, bias=self.t_out_b, compute_kernel_config=ckc,
             dtype=dt, core_grid=BATCH_INVARIANT_GRID,
@@ -3469,6 +3510,9 @@ class LocalTokenTransformer(Module):
                         c_a=self.C_TOKEN, c_s=self.C_S, c_pair=self.C_PAIR, n_head=self.N_HEAD,
                         dtype=self.dtype, fp32_residual=fp32_residual)
                        for i in range(n_block)]
+        for i, block in enumerate(self.blocks):
+            block.idx = i
+        self._hoist_w = None            # _DIT_SHOIST's wide weights, built on the first call that takes it
 
         # One [c_pair, 32 * n_block] weight holding every block's pair-bias projection, block i
         # in columns [32*i, 32*i + N_HEAD) and zeros in the rest. Built straight from the torch
@@ -3525,13 +3569,45 @@ class LocalTokenTransformer(Module):
             yield ttnn.slice(masks, [0, H * i, 0, 0], [B, H * (i + 1), n_key, n_key])
         ttnn.deallocate(masks)
 
+    def _hoist(self, s):
+        """_DIT_SHOIST: every block's c-only terms off one call's `s` as three wide [L, 2 x 18 x 768] tensors:
+        sigmoid adaLN gains, adaLN shifts (both off rms_norm(s), each block's ln_s folded into its weights) and
+        sigmoid output gates (off s). Block i's attention terms are columns 2i x 768, its transition's 2i + 1."""
+        if self._hoist_w is None:
+            sc_w, sc_b, sb_w, g_w, g_b = [], [], [], [], []
+            for i in range(len(self.blocks)):
+                for ada in ("attention_pair_bias.ada_ln_1.", "transition_block.ada_ln."):
+                    w = lambda k: self.weights[f"blocks.{i}.{ada}{k}"].float()  # noqa: E731
+                    ln = w("ln_s.weight")[:, None]
+                    sc_w.append(w("to_gain.0.weight").t() * ln)
+                    sc_b.append(w("to_gain.0.bias"))
+                    sb_w.append(w("to_bias.weight").t() * ln)
+                for out in ("attention_pair_bias.", "transition_block."):
+                    g_w.append(self.weights[f"blocks.{i}.{out}linear_output_project.0.weight"].float().t())
+                    g_b.append(self.weights[f"blocks.{i}.{out}linear_output_project.0.bias"].float())
+            up = lambda xs, d=-1: ttnn.from_torch(torch.cat(xs, d).contiguous(), layout=ttnn.TILE_LAYOUT,  # noqa
+                                                 device=self.device, dtype=self.dtype)
+            self._hoist_w = (up(sc_w), up([b[None] for b in sc_b]), up(sb_w), up(g_w), up([b[None] for b in g_b]))
+        sc_w, sc_b, sb_w, g_w, g_b = self._hoist_w
+        ckc = self.compute_kernel_config
+        lin = lambda x, w, b=None, act=None: ttnn.linear(x, w, bias=b, activation=act, compute_kernel_config=ckc,  # noqa
+                                                         dtype=self.dtype, core_grid=CORE_GRID_MAIN)
+        s_n = ttnn.rms_norm(s, epsilon=1e-6, compute_kernel_config=ckc)
+        out = (lin(s_n, sc_w, sc_b, "sigmoid"), lin(s_n, sb_w), lin(s, g_w, g_b, "sigmoid"))
+        ttnn.deallocate(s_n)
+        return out
+
     def run_device(self, a, s, z, additive_mask):
         n_key = align_tile(int(a.shape[1]))
         B = int(z.shape[0])
         if (_DIT_SDPA and self.dtype == ttnn.bfloat16
                 and 2 * B * self.N_HEAD * len(self.blocks) * n_key * n_key <= _DIT_SDPA_STACK_BYTES):
+            wide = 3 * 2 * len(self.blocks) * self.C_TOKEN * int(s.shape[0]) * int(s.shape[1]) * 2
+            hoist = self._hoist(s) if _DIT_SHOIST and wide <= _DIT_SHOIST_BYTES else None
             for m, block in zip(self._dit_sdpa_masks(z, additive_mask, n_key), self.blocks):
-                a = block(a, s, z, additive_mask, sdpa_mask=m)
+                a = block(a, s, z, additive_mask, sdpa_mask=m, hoist=hoist)
+            for t in hoist or ():
+                ttnn.deallocate(t)
             return a
         fused, end = None, None
         if self.b_w_fused is not None:
