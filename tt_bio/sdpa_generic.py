@@ -425,6 +425,13 @@ def cb_table(p, q_dtype, k_dtype, v_dtype, mask_dtype, out_dtype, mask_cb_tiles=
     qk_df = im_dtype or im_df
     oim_df = out_im_dtype or im_df
     nmask = p["mask_tiles"] if mask_cb_tiles is None else mask_cb_tiles
+    # With one k chunk the online softmax never rescales: the first chunk writes the B side
+    # (c_26 out_im_B, c_28 max_B, c_30 sum_B) and the tail reads it back after the swap, so the A
+    # side and c_31 (exp_max_diff) are declared but never touched. One tile each instead of a chunk
+    # frees 32 KB + 3 statistics blocks at q512, which is what lets (q512, k512) fit in bf16.
+    one_k = p["k_num_chunks"] == 1
+    oim_a = 1 if one_k else p["out_im_tiles"]
+    st_a = 1 if one_k else p["statistics_tiles"]
     return [
         (0, p["q_tiles"], tile_bytes(q_dtype), q_dtype),
         (1, p["k_tiles"], tile_bytes(k_dtype), k_dtype),
@@ -434,13 +441,13 @@ def cb_table(p, q_dtype, k_dtype, v_dtype, mask_dtype, out_dtype, mask_cb_tiles=
         (7, 1, scalar_ts, scalar_df),
         (4, 1, im_ts, im_df),                         # c_recip_scratch, :746 (no attention sink)
         (24, p["qk_tiles"], tile_bytes(qk_df), qk_df),
-        (25, p["out_im_tiles"], tile_bytes(oim_df), oim_df),
+        (25, oim_a, tile_bytes(oim_df), oim_df),
         (26, p["out_im_tiles"], tile_bytes(oim_df), oim_df),
-        (27, p["statistics_tiles"], stats_ts, stats_df),
+        (27, st_a, stats_ts, stats_df),
         (28, p["statistics_tiles"], stats_ts, stats_df),
-        (29, p["statistics_tiles"], stats_ts, stats_df),
+        (29, st_a, stats_ts, stats_df),
         (30, p["statistics_tiles"], stats_ts, stats_df),
-        (31, p["statistics_tiles"], stats_ts, stats_df),
+        (31, st_a, stats_ts, stats_df),
         (16, p["out0_t"], tile_bytes(out_dtype), out_dtype),
     ] + list(extra_cbs)
 
