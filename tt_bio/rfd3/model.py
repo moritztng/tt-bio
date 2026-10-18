@@ -398,7 +398,9 @@ _PAIR_WS = env_flag("RFD3_PAIR_WS", True)
 # RFD3_PAIR_WS with its weights in bfp8, run at HiFi2 (covers every bfp8 weight bit), the form the shared
 # `tenstorrent.ws_swiglu` takes in fast mode for the other models. x and the RMSNorm prologue stay bf16. Graded off.
 _PAIR_WS_B8 = env_flag("RFD3_PAIR_WS_B8", False)
-# The same bfp8 weights at LoFi (WH matmul 56 TF bf16 HiFi4 vs 120 TF bfp8 LoFi). A fast-mode candidate, off.
+# The same bfp8 weights at LoFi (WH matmul 56 TF bf16 HiFi4 vs 120 TF bfp8 LoFi). Fast mode: WH @1000 fast
+# 56.4 -> 54.4 s/design, p150a 29.8 -> 28.5; 8 paired fast seeds per arch: drift 3.7-12.7 A against a 12.5-19.6 A
+# seed floor, breaks 4 -> 5 (WH) and 4 -> 4 (p150a), clashes 433 -> 428 and 426 -> 393.
 _PAIR_WS_LOFI = env_flag("RFD3_PAIR_WS_LOFI", False)
 # The token encoder's `z = z + transition(z)` (transition_2 and the two pairformer blocks, 8 calls a step) as one
 # RFD3_PAIR_WS program that seeds fc3's fp32 dest with z and writes z + t back over z (`pair_swiglu_ws` resid):
@@ -489,8 +491,9 @@ _GCA_HEADS = env_flag("RFD3_GCA_HEADS", True)
 _PZ_GATHER = env_flag("RFD3_PZ_GATHER", True)
 # The gather's table as gather_tiled.spread replicas: the distance bins name the last row for every far pair, so a
 # single table queues every read on one DRAM bank (WH fast census cen5: 4.1-4.3 ms/call vs 1.28 ms for a random
-# index). Same bits, different bank. Off until the WH read.
-_PZ_SPREAD = env_flag("RFD3_PZ_SPREAD", False)
+# index; bench at 685 x 4225 rel: 5.22 -> 1.28 ms/call). Same bits, different bank: digests equal on WH and p150a.
+# WH @1000 fast 57.9 -> 57.0, normal 57.6 -> 56.4 s/design; p150a fast 30.0 -> 29.1. RFD3_PZ_SPREAD=0 restores it.
+_PZ_SPREAD = env_flag("RFD3_PZ_SPREAD", True)
 # The distogram bins of the token encoder (2 host calls per step while the card waits) as one numba pass with the
 # near-edge pairs recomputed by torch: equal to the torch chain, 4-5.7 -> 0.7-1.7 ms/call at 685 tokens on 2 cores
 # (rfd3/distbins.py). RFD3_BINS_NB=0 restores the torch chain.
@@ -529,7 +532,7 @@ PZSTATS = [0, 0]
 # `--fast` for RFD3: the levers that pass the fast accuracy bar but not (yet) the normal one. Same
 # steps, recycles and designs; only kernels change. Each flag keeps its own env switch for A/B work,
 # and set_fast(False) restores exactly what the environment asked for.
-_FAST_SET = {"_TRANSITION_B8": "RFD3_TRANSITION_B8"}
+_FAST_SET = {"_TRANSITION_B8": "RFD3_TRANSITION_B8", "_PAIR_WS_LOFI": "RFD3_PAIR_WS_LOFI"}
 
 
 def set_fast(on):

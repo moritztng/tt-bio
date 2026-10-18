@@ -191,7 +191,10 @@ same diffusion steps and recycles; only the kernels change. A 685-residue design
 than the default (60.6 to 52.5 s on a Blackhole p300c). Graded over four seeds at 685 and 418 residues on
 Blackhole and Wormhole against the exact chain: a design moves 3.8 to 15.4 A at the same seed, inside what
 changing the seed does (13 to 20 A), and CA-CA geometry, chain breaks, clashes and amino-acid diversity
-match.
+match. `--fast` also runs the token pair transition's weights in 8-bit block floating point at the lowest
+math fidelity: about 2 s per design on Wormhole (56.4 to 54.4 s at 1000 MHz) and 1.3 s on a p150a. Over eight
+paired fast seeds on each chip a design moves 3.7 to 12.7 A at the same seed against 12.5 to 19.6 A for a seed
+change, chain breaks go from 4 to 5 on Wormhole and stay at 4 on the p150a, and clashes do not rise.
 
 The token pair transition runs as one weight-stationary kernel that keeps its weights on chip and never
 writes the hidden activations out. On a Blackhole p150a at 1350 MHz a 685-residue fast design drops from
@@ -228,7 +231,10 @@ Three more data-movement changes are bit-exact and on by default: the pair-featu
 layout directly (`RFD3_PZ_GATHER=0` restores embedding plus tilize), the atom mask writer walks each neighbour
 index once for four heads (`RFD3_MASKW_HG=1` restores one head at a time), and on Wormhole the token
 attention splits queries into 352-row chunks instead of 64 (`RFD3_DIT_SDPA_CHUNKS=64,352` restores it).
-Together they save about 1 to 1.5 s per design on Wormhole and about 1 s on a p150a.
+Together they save about 1 to 1.5 s per design on Wormhole and about 1 s on a p150a. That lookup's table is also kept in twelve
+copies spread over the DRAM banks: far residue pairs all read the table's last row, so a single copy queued
+every read on one bank. Same values; about 1 s per design on Wormhole and on a p150a (`RFD3_PZ_SPREAD=0`
+restores one copy).
 
 The token distance bins the encoder reads every step are computed on the host in one numba pass instead of a
 torch norm plus bucketize. Pairs within a hair of a bin edge are recomputed the torch way, so the bins are the
