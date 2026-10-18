@@ -143,4 +143,4 @@ def test_the_off_arm_asks_the_kernel_for_the_op_default():
     """`sdpa_hifi` False has to mean `ckc=None`, not some other tuple: `None` is what makes
     `triatt_sdpa.sdpa` fall through to the op default it used before this parameter existed."""
     src = (ROOT / "tt_bio/tenstorrent.py").read_text()
-    assert "_TRIATT_FUSED_HIFI_CKC if self.sdpa_hifi else None" in src
+    assert "_triatt_hifi_ckc() if self.sdpa_hifi else None" in src
