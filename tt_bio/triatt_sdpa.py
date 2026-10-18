@@ -198,6 +198,15 @@ def ckc_from_env(spec=None):
 
 
 _CKC_OVERRIDE = ckc_from_env()
+_CKC_DEFAULT = (ttnn.MathFidelity.HiFi2, True, False, False)
+# triatt_lofi: both matmuls (QK^T and PV) at LoFi. The bound is the softmax passes, so this prices the matmul
+# share of the op; the program cache keys on the ckc, so the lever can flip per fold.
+_CKC_LOFI = (ttnn.MathFidelity.LoFi, True, False, False)
+
+
+def _ckc(ckc_default):
+    from .tenstorrent import lever
+    return ckc_default or _CKC_OVERRIDE or (_CKC_LOFI if lever("triatt_lofi") else _CKC_DEFAULT)
 
 
 def q_parallel_factor(S: int, H: int, q_chunk: int, cores: int, cap: int = -1) -> int:
@@ -442,7 +451,7 @@ def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None, kv_buffer_fac
     out = ttnn.allocate_tensor_on_device(
         ttnn.Shape(shape), q.dtype, ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG)
     # The op's own default compute kernel config, not the trunk's -- see perf/triatt_fused/s4_gate.py
-    ckc = ckc_default or _CKC_OVERRIDE or (ttnn.MathFidelity.HiFi2, True, False, False)
+    ckc = _ckc(ckc_default)
 
     p = SG.plan(q, k, v, bias, out, q_chunk, k_chunk, grid, ckc, scale, split)
     # everything the hoisted fill assumes
@@ -574,7 +583,7 @@ def sdpa_fused_qkv(x, w, bias, scale, n_heads, head_dim, q_chunk, k_chunk, ckc_d
     out = ttnn.allocate_tensor_on_device(
         ttnn.Shape([B, n_heads, S, head_dim]), x.dtype, ttnn.TILE_LAYOUT, dev,
         ttnn.DRAM_MEMORY_CONFIG)
-    ckc = ckc_default or _CKC_OVERRIDE or (ttnn.MathFidelity.HiFi2, True, False, False)
+    ckc = _ckc(ckc_default)
     p = SG.plan(out, out, out, bias, out, q_chunk, k_chunk, grid, ckc, scale, split)
     if not (p["nh_per_core"] == 1 and p["q_per_core"] == 1 and p["bcast_batch"]
             and not p["use_padded_mask"] and p["Skt"] == p["Sq_chunk_t"]):
