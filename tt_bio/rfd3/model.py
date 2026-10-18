@@ -28,6 +28,7 @@ from .. import rfd3_bias, softmax_generic
 from .. import sdpa_generic as _SG
 from ..envflags import env_flag
 from . import block_sparse as _BS
+from . import distbins as _distbins
 from .tiles import TILE, align_tile, pad_axis
 from .. import pair_swiglu_ws as _WS
 from .. import dit_pair_bias as _DPB
@@ -229,6 +230,17 @@ _ATTN_ROW_BLOCK = int(os.environ.get("RFD3_ATTN_ROWBLOCK", "256"))
 # breaks 7 -> 7, design drift 2.6-11.2 A against a 12-20 A seed floor; 6 normal seeds +1.8 +- 4.0.
 # RFD3_ATTN_KDTREE=0 restores the cdist chain.
 _ATTN_KDTREE = env_flag("RFD3_ATTN_KDTREE", True)
+# The atom neighbour index on the card (tt_bio.dknn): exact uint64 keys, launched ahead of the token encoder instead
+# of a host k-d tree the step waits on (hostfreewh: 12-15 s/design of WH fast). Same rows as the tree (0 of 6051
+# differ at six noise levels). p150a, fast seeds 60,61 x2 @1312-1350 MHz: 31.3-31.8 -> 29.7-30.0 s/design, digests
+# equal. On by default except on Wormhole, where it has not run on a card yet; RFD3_DKNN=0/1 forces it.
+_DKNN = env_flag("RFD3_DKNN", False) if os.environ.get("RFD3_DKNN") else None
+
+
+def _dknn_on():
+    return _DKNN if _DKNN is not None else not is_wormhole()
+
+
 # The 18 DiT blocks project the SAME pair tensor with their own [c_pair, n_head] weight, and that
 # projection is the largest single op in the model: 36 calls/step (18 blocks x 2 recycles),
 # 26.742 ms/step, 42.6 % of this card's measured 390.0 GB/s read roof (perf/p56/linear_census.json).
@@ -474,6 +486,10 @@ _GCA_HEADS = env_flag("RFD3_GCA_HEADS", True)
 # 2.7 ms/step of tilize. Same values (data movement only): gather 4.76 -> 1.28 ms/call on WH, digests equal to
 # the embedding path on WH and p150a (seeds 60,61 x2). RFD3_PZ_GATHER=0 restores it.
 _PZ_GATHER = env_flag("RFD3_PZ_GATHER", True)
+# The distogram bins of the token encoder (2 host calls per step while the card waits) as one numba pass with the
+# near-edge pairs recomputed by torch: equal to the torch chain, 4-5.7 -> 0.7-1.7 ms/call at 685 tokens on 2 cores
+# (rfd3/distbins.py). RFD3_BINS_NB=0 restores the torch chain.
+_BINS_NB = env_flag("RFD3_BINS_NB", True)
 # The collapsed process_z's em * inv + ainv as one ttnn.addcmul (eltwise_fusion.mask_add): WH fast census multiply
 # 2.84 + add 1.52 ms/call, two calls a step, and the [B,I,I,128] product is written and read back between them.
 # One bf16 rounding instead of two, so the digest moves. Off while measured.
@@ -3124,9 +3140,11 @@ def _scaled_distogram_bins(R_L, min_dist=1.0, max_dist=30.0, sigma_data=16.0, n_
     per pair where 4 would do -- 51.0 ms of host work plus a 48.9 ms upload at
     B=8/N=250, against 1.6 + 0.3 + 7.2 ms for bins + upload + device one-hot.
     """
-    D_LL = torch.linalg.norm(R_L.unsqueeze(-2) - R_L.unsqueeze(-3), dim=-1)  # [B, N, N]
     lo, hi = min_dist / sigma_data, max_dist / sigma_data
     bins = torch.linspace(lo, hi, n_bins - 1, device=R_L.device)
+    if _BINS_NB and R_L.device.type == "cpu" and R_L.dtype == torch.float32:
+        return _distbins.bins(R_L, bins)
+    D_LL = torch.linalg.norm(R_L.unsqueeze(-2) - R_L.unsqueeze(-3), dim=-1)  # [B, N, N]
     return torch.bucketize(D_LL, bins).to(torch.int32)
 
 
@@ -3728,16 +3746,24 @@ def _attention_index_prefix(f, tok_idx, n_keys, n_seq_neighbours):
     return parts
 
 
-def _attention_indices_future(f, X_L, tok_idx, n_keys, n_seq_neighbours):
+def _attention_indices_future(f, X_L, tok_idx, n_keys, n_seq_neighbours, device=None):
     """Start the atom index build on a worker thread (see _ATTN_THREAD), or None to build inline.
 
     The coordinate-independent prefix is built (or hit) here on the calling thread, so the
-    worker only runs the k-d tree path, which is scipy's threads plus numpy.
+    worker only runs the k-d tree path, which is scipy's threads plus numpy. With dknn on and a
+    device the build is a card program instead (tt_bio.dknn), with the same .result(), as long as
+    its per-core buffers fit L1 (about 18k atoms); larger designs keep the tree.
     """
     global _INDEX_POOL
-    if not (_ATTN_THREAD and _ATTN_KDTREE):
+    parts = _attention_index_prefix(f, tok_idx, n_keys, n_seq_neighbours)
+    if "single" not in parts:
         return None
-    if "single" not in _attention_index_prefix(f, tok_idx, n_keys, n_seq_neighbours):
+    if device is not None and _dknn_on():
+        from .. import dknn
+        mask, seq_idx = parts["single"]
+        if dknn.fits(len(tok_idx), parts["k"]):
+            return dknn.Pending(device, X_L if X_L.ndim == 3 else X_L.unsqueeze(0), mask, seq_idx, parts["k"])
+    if not (_ATTN_THREAD and _ATTN_KDTREE):
         return None
     if _INDEX_POOL is None:
         from concurrent.futures import ThreadPoolExecutor
@@ -4071,7 +4097,7 @@ class RFD3DiffusionModule(Module):
         f = dict(f)
         if _ATTN_OVERLAP:
             f["attn_future"] = _attention_indices_future(f, X_noisy_L, tok_idx, self.N_ATTN_KEYS,
-                                                         self.N_ATTN_SEQ)
+                                                         self.N_ATTN_SEQ, device=dev)
             # Recycle 0's DiT index reads the same step-start coordinates, so it queues behind it.
             f["dit_future"] = _attention_indices_future(f, X_noisy_L[..., f["is_ca"], :], torch.arange(I),
                                                         self.DIT_KEYS, self.DIT_SEQ)

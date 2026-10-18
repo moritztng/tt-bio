@@ -115,3 +115,15 @@ def test_exact_data_movement_defaults(monkeypatch):
     assert M._dit_sdpa_chunks() == (352, 352)
     monkeypatch.setattr(M, "is_wormhole", lambda: False)
     assert M._dit_sdpa_chunks() == (64, 352)
+
+
+def test_dknn_default_off_on_wormhole_only(monkeypatch):
+    """The card neighbour index (same rows as the k-d tree) is on by default where it has run on a card."""
+    monkeypatch.setattr(M, "_DKNN", None)
+    assert "_DKNN" not in M._FAST_SET
+    monkeypatch.setattr(M, "is_wormhole", lambda: False)
+    assert M._dknn_on() is True
+    monkeypatch.setattr(M, "is_wormhole", lambda: True)
+    assert M._dknn_on() is False
+    monkeypatch.setattr(M, "_DKNN", True)
+    assert M._dknn_on() is True
