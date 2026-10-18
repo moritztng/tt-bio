@@ -131,16 +131,17 @@ void kernel_main() {
             noc_async_read_barrier();
             cb_reserve_back(m_cb, IL);
             uint32_t d = get_write_ptr(m_cb);
+            volatile tt_l1_ptr uint32_t* src = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(scratch);
             // Row il of a bf16 tile: 16 elements in face (il / 16) * 2 and 16 in the face after it,
-            // row il % 16 of each; row 0 of the destination is the first row of faces 0 and 1. Moved by
-            // local NOC reads behind a read barrier: core stores into the CB are posted, and with nothing
-            // ordering them before cb_push_back the unpacker could read a row-0 left by the previous unit.
+            // row il % 16 of each; row 0 of the destination is the first row of faces 0 and 1.
             for (uint32_t il = h * IL; il < h * IL + IL; ++il, d += tb) {
-                const uint32_t s0 = scratch + ((il >> 4) * 2) * 512 + (il & 15) * 32;
-                noc_async_read(get_noc_addr(s0), d, 32);
-                noc_async_read(get_noc_addr(s0 + 512), d + 512, 32);
+                volatile tt_l1_ptr uint32_t* dst = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(d);
+                const uint32_t s0 = (((il >> 4) * 2) * 256 + (il & 15) * 16) / 2;
+                for (uint32_t k = 0; k < 8; ++k) {
+                    dst[k] = src[s0 + k];
+                    dst[128 + k] = src[s0 + 128 + k];
+                }
             }
-            noc_async_read_barrier();
             cb_push_back(m_cb, IL);
         }
     }
