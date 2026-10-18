@@ -68,8 +68,9 @@ def test_mode_sets_per_arch(monkeypatch, wormhole):
     # The legacy LM gate multiply is graded on ESMC's embeddings only; ESMFold2 on Wormhole keeps binary_ng.
     assert ("lm_gate_ng" in normal_set) is wormhole and ("lm_gate_ng" in fast_set) is wormhole
     assert ("lm_sdpa_stock" in normal_set) is wormhole and ("lm_sdpa_stock" in fast_set) is wormhole
-    # The fused token-DiT attention passed the fast bar on Wormhole only (dsg).
+    # The fused token-DiT attention (dsg) and its hoisted conditioning (dsq2) passed the fast bar on Wormhole only.
     assert ("dit_qkvf" in fast_set) is wormhole and "dit_qkvf" not in normal_set
+    assert ("dit_shoist" in fast_set) is wormhole and "dit_shoist" not in normal_set
     # trimul_t2m lost to plain T2 once trimul_bres fed the tail (wtm) and rides no set.
     assert all("trimul_t2m" not in rt.fold_levers(f).split("+") for f in (False, True))
     # trimul_bres is bit-exact in ESMFold2 folds on both archs and rides every set.
