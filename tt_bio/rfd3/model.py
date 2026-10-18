@@ -229,6 +229,9 @@ _ATTN_ROW_BLOCK = int(os.environ.get("RFD3_ATTN_ROWBLOCK", "256"))
 # breaks 7 -> 7, design drift 2.6-11.2 A against a 12-20 A seed floor; 6 normal seeds +1.8 +- 4.0.
 # RFD3_ATTN_KDTREE=0 restores the cdist chain.
 _ATTN_KDTREE = env_flag("RFD3_ATTN_KDTREE", True)
+# The atom neighbour index on the card (tt_bio.dknn): exact uint64 keys, launched ahead of the token encoder instead
+# of a host k-d tree the step waits on (hostfreewh: 12-15 s/design of WH fast). Off until its device read lands.
+_DKNN = env_flag("RFD3_DKNN", False)
 # The 18 DiT blocks project the SAME pair tensor with their own [c_pair, n_head] weight, and that
 # projection is the largest single op in the model: 36 calls/step (18 blocks x 2 recycles),
 # 26.742 ms/step, 42.6 % of this card's measured 390.0 GB/s read roof (perf/p56/linear_census.json).
@@ -3728,16 +3731,22 @@ def _attention_index_prefix(f, tok_idx, n_keys, n_seq_neighbours):
     return parts
 
 
-def _attention_indices_future(f, X_L, tok_idx, n_keys, n_seq_neighbours):
+def _attention_indices_future(f, X_L, tok_idx, n_keys, n_seq_neighbours, device=None):
     """Start the atom index build on a worker thread (see _ATTN_THREAD), or None to build inline.
 
     The coordinate-independent prefix is built (or hit) here on the calling thread, so the
-    worker only runs the k-d tree path, which is scipy's threads plus numpy.
+    worker only runs the k-d tree path, which is scipy's threads plus numpy. With _DKNN and a
+    device the build is a card program instead (tt_bio.dknn), with the same .result().
     """
     global _INDEX_POOL
-    if not (_ATTN_THREAD and _ATTN_KDTREE):
+    parts = _attention_index_prefix(f, tok_idx, n_keys, n_seq_neighbours)
+    if "single" not in parts:
         return None
-    if "single" not in _attention_index_prefix(f, tok_idx, n_keys, n_seq_neighbours):
+    if _DKNN and device is not None:
+        from .. import dknn
+        mask, seq_idx = parts["single"]
+        return dknn.Pending(device, X_L if X_L.ndim == 3 else X_L.unsqueeze(0), mask, seq_idx, parts["k"])
+    if not (_ATTN_THREAD and _ATTN_KDTREE):
         return None
     if _INDEX_POOL is None:
         from concurrent.futures import ThreadPoolExecutor
@@ -4071,7 +4080,7 @@ class RFD3DiffusionModule(Module):
         f = dict(f)
         if _ATTN_OVERLAP:
             f["attn_future"] = _attention_indices_future(f, X_noisy_L, tok_idx, self.N_ATTN_KEYS,
-                                                         self.N_ATTN_SEQ)
+                                                         self.N_ATTN_SEQ, device=dev)
             # Recycle 0's DiT index reads the same step-start coordinates, so it queues behind it.
             f["dit_future"] = _attention_indices_future(f, X_noisy_L[..., f["is_ca"], :], torch.arange(I),
                                                         self.DIT_KEYS, self.DIT_SEQ)

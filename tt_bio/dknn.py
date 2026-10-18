@@ -81,14 +81,18 @@ def _upload(a, device):
                            device=device, memory_config=ttnn.DRAM_MEMORY_CONFIG)
 
 
-def outside_neighbours(device, x, mask, n_fill, k):
-    """Device [L, WO] int32: per row the kept outside-mask neighbours ascending, padded with L (not read back)."""
+def outside_neighbours(device, x, mask, seq, k):
+    """Device [L, WO] int32: per row the kept outside-mask neighbours ascending, padded with L (not read back).
+
+    x [L, 3] float; mask [L, L] bool and seq [L, k] (the sequence entries, L = none) are the design-level torch
+    tensors of _attention_index_prefix, uploaded once per design (keyed on the mask object)."""
     L = len(x)
-    key = (id(mask), L)
-    hit = _MASKS.get(key)
+    hit = _MASKS.get(id(mask))
     if hit is None or hit[0] is not mask:
         _MASKS.clear()
-        hit = _MASKS[key] = (mask, _upload(mask_words(mask, n_fill), device), _align(int(np.max(n_fill)) or 1))
+        n_fill = (k - (seq < L).sum(1)).cpu().numpy()
+        hit = _MASKS[id(mask)] = (mask, _upload(mask_words(mask.cpu().numpy(), n_fill), device),
+                                  _align(int(n_fill.max()) or 1))
     _, mt, WO = hit
     xt = _upload(fixed_point(x).reshape(1, L * 4), device)
     ot = ttnn.allocate_tensor_on_device(ttnn.Shape([L, WO]), ttnn.int32, ttnn.ROW_MAJOR_LAYOUT, device,
@@ -102,6 +106,22 @@ def outside_neighbours(device, x, mask, n_fill, k):
         kd.common_runtime_args = [xt.buffer_address(), mt.buffer_address(), ot.buffer_address()]
     ttnn.generic_op([xt, mt, ot], ttnn.ProgramDescriptor(kernels=kernels, semaphores=[], cbs=cbs))
     return ot
+
+
+class Pending:
+    """The index of each design, launched; .result() reads back and joins (the same call as a Future's)."""
+
+    def __init__(self, device, X_L, mask, seq, k):
+        self.seq, self.k = seq.cpu().numpy(), k
+        self.outs = [outside_neighbours(device, x.detach().float().cpu().numpy(), mask, seq, k) for x in X_L]
+
+    def result(self):
+        L = self.seq.shape[0]
+        rows = []
+        for o in self.outs:
+            rows.append(join(self.seq, ttnn.to_torch(o).numpy(), L, self.k))
+            ttnn.deallocate(o)
+        return torch.cat(rows, 0)
 
 
 def join(seq, out, L, k):

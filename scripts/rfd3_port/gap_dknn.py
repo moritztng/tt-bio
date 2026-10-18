@@ -28,8 +28,6 @@ x0 = ca[tok] + rng.normal(size=(L, 3)) * 1.2
 mask = torch.from_numpy(np.abs(tok[:, None] - tok[None, :]) <= 2)
 rows = torch.arange(L).unsqueeze(0).expand(L, L)
 seq = torch.where(mask, rows, L).topk(K, dim=1, largest=False, sorted=True).values
-n_fill = (K - (seq < L).sum(1)).numpy()
-mask_np = mask.numpy()
 
 
 def med(f, n):
@@ -47,7 +45,7 @@ for sig in (0.0, 0.3, 1.0, 5.0, 30.0, 160.0):
     t_ref, ref = med(lambda: M._neighbours_kdtree(mask, seq, x.unsqueeze(0), K), 5)
 
     def run():
-        o = dknn.outside_neighbours(dev, x.numpy(), mask_np, n_fill, K)
+        o = dknn.outside_neighbours(dev, x.numpy(), mask, seq, K)
         ttnn.synchronize_device(dev)
         return o
     ttnn.deallocate(run())
