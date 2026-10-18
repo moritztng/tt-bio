@@ -198,3 +198,11 @@ def test_mm_config_blocks_8x8_under_bf16_acc(wdtype, bf16_acc, on, monkeypatch):
     mn8 = bf16_acc and on
     assert (cfg["M_block_size"], cfg["N_block_size"]) == ((8, 8) if mn8 else (16, 4))
     assert (cfg["K_block_size"], cfg["subblock_w"]) == (4, 4 if bf16_acc else 2)
+
+
+@pytest.mark.parametrize("switch", [True, False])
+@pytest.mark.parametrize("lm_large", [None, True, False])
+def test_esmc_resid_l1_only_small_lm_blocks(switch, lm_large, monkeypatch):
+    monkeypatch.setattr(esmc, "_ESMC_RESID_L1", switch)
+    m = types.SimpleNamespace() if lm_large is None else types.SimpleNamespace(lm_large=lm_large)
+    assert esmc._MMLin._resid_l1(m) is (switch and lm_large is False)

@@ -455,6 +455,14 @@ _ESMC_QKV_MM_SPLIT = env_flag("TT_BIO_ESMC_QKV_MM_SPLIT", True)
 # ones), so neither add re-reads a projection from DRAM. bf16 weights only: the op refuses --fast's block-fp8 ones.
 # Same page cell: 300M 143.6 -> 141.3, 600M 229.9 -> 223.4, embeddings identical (pcc 1.0). Wormhole only, as above.
 _ESMC_MM_RESID = env_flag("TT_BIO_ESMC_MM_RESID", True)
+# Keep the residual stream of a model under _LM_LARGE_MODEL_BYTES in L1: the fused out_proj / fc2 + residual matmuls write
+# it there and the FFN LayerNorm writes its output there, so the per-layer LayerNorms and residual reads stop going
+# through DRAM (ew_bench on a Galaxy chip: layer_norm 88-135 GB/s from DRAM, 157-168 from L1). Same ops, same math.
+# A shape L1 refuses once goes back to DRAM for good. Off until graded.
+_ESMC_RESID_L1 = env_flag("TT_BIO_ESMC_RESID_L1", False)
+_RESID_L1_REFUSED: set = set()
+#: [residual matmuls / FFN LayerNorms served from L1, refused], read by the A/B harness.
+RESID_L1_STATS = [0, 0]
 # --fast: those two weights are cast from block-fp8 to bf16 once at load (same values), so the residual add fuses there
 # too. Census, 600M --fast page batch: out_proj 8.7 + fc2 16.3 ms of matmul plus 13.1 ms of separate adds, where normal
 # mode fused both. Page cell on a Galaxy chip at 1000 MHz, best of 3: 300M --fast 120.0 -> 117.7 ms, 600M 172.5 ->
@@ -605,14 +613,28 @@ class _MMLin:
         if ones is None or int(ones.shape[-1]) != n:
             ones = self._ones_row = ttnn.from_torch(torch.ones(1, n), dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT,
                                                    device=x.device())
-        try:
-            out = ttnn.experimental.dit_minimal_matmul_addcmul_fused(
-                x, w, 1.0, resid, ones, compute_kernel_config=self._mm_ck(w),
-                dtype=_dtype(ttnn.bfloat16), memory_config=ttnn.DRAM_MEMORY_CONFIG, **_mm_config(x, w, self.mm_exact_acc))
-        except RuntimeError:
-            return None
-        MM_FUSE_STATS[1] += 1
-        return out
+        key = ("mm", tuple(resid.padded_shape))
+        mcs = [ttnn.DRAM_MEMORY_CONFIG]
+        if self._resid_l1() and key not in _RESID_L1_REFUSED:
+            mcs.insert(0, ttnn.L1_MEMORY_CONFIG)
+        for mc in mcs:
+            try:
+                out = ttnn.experimental.dit_minimal_matmul_addcmul_fused(
+                    x, w, 1.0, resid, ones, compute_kernel_config=self._mm_ck(w),
+                    dtype=_dtype(ttnn.bfloat16), memory_config=mc, **_mm_config(x, w, self.mm_exact_acc))
+            except RuntimeError:
+                if mc is ttnn.DRAM_MEMORY_CONFIG:
+                    return None
+                _RESID_L1_REFUSED.add(key)
+                RESID_L1_STATS[1] += 1
+                continue
+            RESID_L1_STATS[0] += mc is not ttnn.DRAM_MEMORY_CONFIG
+            MM_FUSE_STATS[1] += 1
+            return out
+
+    def _resid_l1(self) -> bool:
+        """This module's residual stream may live in L1 (_ESMC_RESID_L1, ESMC LM blocks under _LM_LARGE_MODEL_BYTES)."""
+        return _ESMC_RESID_L1 and getattr(self, "lm_large", True) is False
 
     def _lin(self, x, w, bias=None, dtype=None, **kw):
         mm = self._mm_on()
@@ -1281,6 +1303,17 @@ class SwiGLUFFN(_MMLin, Module):
                     L1_LN_STATS[0] += 1
                 except Exception:
                     _L1_LN_REFUSED.add(key)
+        key = ("ln", tuple(x.padded_shape))
+        if x_norm is None and not l1_gated and self._resid_l1() and key not in _RESID_L1_REFUSED:
+            try:
+                x_norm = ttnn.layer_norm(x, memory_config=ttnn.L1_MEMORY_CONFIG, **ln)
+                RESID_L1_STATS[0] += 1
+            except Exception as exc:
+                if not _is_alloc_refusal(exc):
+                    from tt_bio import tenstorrent as _T
+                    _T.absorb_l1_refusal("esmc ffn LN L1", exc)
+                _RESID_L1_REFUSED.add(key)
+                RESID_L1_STATS[1] += 1
         if x_norm is None:
             L1_LN_STATS[1] += bool(l1_gated and _PAIR_FFN_L1_LN)
             x_norm = ttnn.layer_norm(x, **ln)
