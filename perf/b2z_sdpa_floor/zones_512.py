@@ -67,6 +67,8 @@ def main():
     ap.add_argument("--heads", type=int, default=4, help="Boltz-2 4, Protenix-v2 8")
     ap.add_argument("--batch", type=int, default=S)
     ap.add_argument("--calls", type=int, default=1, help="profiled calls after the warm-up")
+    ap.add_argument("--route", choices=("shipped", "hifi"), default="shipped",
+                    help="hifi: OpenFold3's fused-HiFi route at one k chunk (_tri_att_sdpa_hifi)")
     ap.add_argument("--out", default="perf/b2z_sdpa_floor/zones_512.json")
     args = ap.parse_args()
     assert os.environ.get("TT_BIO_TRIATT_ZONES"), "set TT_BIO_TRIATT_ZONES=1 (and run under a profiler build)"
@@ -87,7 +89,10 @@ def main():
     scale = D ** -0.5
 
     def call():
-        o = T._tri_att_sdpa_at(q, k, v, bias, scale)
+        if args.route == "hifi":
+            o = T._tri_att_sdpa_hifi(q, k, v, bias, scale, one_k_chunk=True)
+        else:
+            o = T._tri_att_sdpa_at(q, k, v, bias, scale)
         assert o is not None, "triatt SDPA declined this shape"
         return o
 
@@ -105,7 +110,8 @@ def main():
     path = find_csv()
     per, mhz, units = parse(path)
     mhz = mhz or 1000.0
-    res = {"doc": __doc__, "meta": {"card": os.environ.get("TT_VISIBLE_DEVICES"), "shape": [B, H, S, D],
+    res = {"doc": __doc__, "meta": {"card": os.environ.get("TT_VISIBLE_DEVICES"), "shape": [B, H, S, D], "route": args.route,
+                                    "picks": {str(k): v for k, v in T.TRIATT_FUSED_HIFI_PICKS.items()},
                                     "grid": list(T.COMPUTE_GRID_MAIN), "mhz": mhz, "csv": path,
                                     "wall_ms_per_call": wall_ms, "loadavg": os.getloadavg(),
                                     "units_per_core": dict(collections.Counter(units.values()))},

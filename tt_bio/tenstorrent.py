@@ -745,6 +745,9 @@ _FAST_MODE = False
 #   triatt_k1       triangle attention's fused SDPA takes the whole row as one k chunk where the CB set fits once the
 #                   unused online-softmax buffers are trimmed (sdpa_generic.cb_table one_k_trim): 288-512 tokens, e.g. (q512, k512),
 #                   no rescale pass, op 1.13x on Wormhole. Same rung as TT_BIO_SDPA_WIDE_K_UP, flippable per fold.
+#   triatt_acc16    the fused-HiFi triangle attention (OpenFold3's route) drops fp32 destination accumulation, keeping
+#                   its fidelity and one k chunk: 3.82 ms a [512, 4, 512, 32] call on Wormhole at 1000 MHz, where the
+#                   bf16-accumulating fused path takes 2.86 (QK 135 vs 95 cycles a score tile, PV 65 vs 46).
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in",
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
@@ -757,7 +760,8 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit", "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384",
           "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "ws_resid2", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
           "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "trimul_bres", "atomp_dev", "lm_qk_chain",
-          "lm_gate_ng", "lm_sdpa_stock", "triatt_hifi2", "dit_cond_jcat", "triatt_lofi", "triatt_k1")
+          "lm_gate_ng", "lm_sdpa_stock", "triatt_hifi2", "dit_cond_jcat", "triatt_lofi", "triatt_k1",
+          "triatt_acc16")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -774,7 +778,7 @@ UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "di
                              "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384",
                              "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "ws_resid2", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
                              "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "triatt_hifi2", "dit_cond_jcat",
-                             "triatt_lofi", "triatt_k1"})
+                             "triatt_lofi", "triatt_k1", "triatt_acc16"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -3688,8 +3692,10 @@ _TRIATT_FUSED_HIFI2_CKC = (ttnn.MathFidelity.HiFi2, False, True, False)
 
 
 def _triatt_hifi_ckc():
-    """`_TRIATT_FUSED_HIFI_CKC`, at HiFi2 under the triatt_hifi2 lever (math_approx and fp32_dest_acc kept)."""
-    return _TRIATT_FUSED_HIFI2_CKC if lever("triatt_hifi2") else _TRIATT_FUSED_HIFI_CKC
+    """`_TRIATT_FUSED_HIFI_CKC`, at HiFi2 under the triatt_hifi2 lever (math_approx and fp32_dest_acc kept);
+    triatt_acc16 then turns fp32_dest_acc off."""
+    fid, approx, acc, l1acc = _TRIATT_FUSED_HIFI2_CKC if lever("triatt_hifi2") else _TRIATT_FUSED_HIFI_CKC
+    return fid, approx, acc and not lever("triatt_acc16"), l1acc
 
 #: HiFi4, math_approx off, fp32 destination accumulation -- ``ComputeKernelConfig::precise()``.
 #: What ``ttnn.softmax`` needs to make its denominator match its own numerators; see
