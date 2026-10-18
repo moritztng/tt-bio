@@ -26,12 +26,17 @@ struct Ln {
                               rstd = 14, xc = 17, tmp = 18;
 };
 
-// Tiles per dest acquire (QKRH_BLK, 1 or 4; 4 fits the half-sync fp32 dest) and q / k heads per RoPE group (BLK / 2).
+// Tiles per dest acquire in the norm stages (QKRH_BLK, 1 or 4; 4 fits the half-sync fp32 dest) and q / k heads per
+// RoPE group (QKRH_HG, 1 or 2). The host sets HG = 2 only where it divides KT / 2: a group's c_20 / c_16 reservation
+// must never straddle the end of its CB, which an odd head count (300M, 15) would do on its last group.
 #ifndef QKRH_BLK
 #define QKRH_BLK 1
 #endif
+#ifndef QKRH_HG
+#define QKRH_HG 1
+#endif
 constexpr uint32_t BLK = QKRH_BLK;
-constexpr uint32_t HG = BLK < 2 ? 1 : BLK / 2;
+constexpr uint32_t HG = QKRH_HG;
 
 // Under QKRH_SQ: xc = x - mean to C::xc, then the same subtraction again squared in dest (SFPU, fp32) to C::tmp. The
 // bf16 x is unpacked twice instead of the fp32 xc twice (the MUL stage), and the square is fp32 rather than tf32.

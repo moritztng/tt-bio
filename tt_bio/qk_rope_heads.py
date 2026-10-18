@@ -32,8 +32,8 @@ _L1_BUDGET = 1100 * 1024
 _CACHE: dict = {}
 #: compute fidelity of the norm and RoPE products (fp32 dest either way); read at build time, part of the cache key.
 FIDELITY = ttnn.MathFidelity.HiFi4
-#: tiles per dest acquire in the norm stages, 1 or 4 (2 heads per RoPE group at 4; 0 reads as 1); read at build
-#: time, part of the key.
+#: tiles per dest acquire in the norm stages, 1 or 4 (2 heads per RoPE group at 4 where the head count is even; 0
+#: reads as 1); read at build time, part of the key.
 BLOCK = 1
 #: centre and square in one pass (SFPU fp32 square) in place of the SUB_COL and MUL stages; part of the key.
 SQUARE = False
@@ -92,7 +92,8 @@ def _build(device, kt, lt, r, eps, tensors, packed=False, ln=True):
            cb(11, 1, f32), cb(12, 1, f32), cb(13, 1, f32), cb(14, 1, f32), cb(17, kt, f32), cb(18, kt, f32),
            cb(20, 4, f32)] + ([] if reload else [cb(15, kt)])
     defines = ([("QKRH_RELOAD", "1")] if reload else []) + ([] if ln else [("QKRH_NO_LN", "1")])
-    defines += [("QKRH_BLK", str(max(1, BLOCK)))] + ([("QKRH_SQ", "1")] if SQUARE and ln else [])
+    hg = 2 if BLOCK >= 4 and kt // 2 % 2 == 0 else 1   # whole groups only: c_20 / c_16 never wrap mid-reservation
+    defines += [("QKRH_BLK", str(max(1, BLOCK))), ("QKRH_HG", str(hg))] + ([("QKRH_SQ", "1")] if SQUARE and ln else [])
     inv = struct.unpack("<I", struct.pack("<f", 1.0 / (32 * kt)))[0] >> 16
     scaler = (inv << 16) | inv
     eps_bits = struct.unpack("<I", struct.pack("<f", float(eps)))[0]
