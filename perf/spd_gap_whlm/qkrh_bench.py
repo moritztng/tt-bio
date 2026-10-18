@@ -22,6 +22,7 @@ def main() -> int:
     ap.add_argument("--shapes", default=",".join(SHAPES))
     ap.add_argument("--repeat", type=int, default=5)
     ap.add_argument("--inner", type=int, default=10)
+    ap.add_argument("--fidelity", default="HiFi4,HiFi3,HiFi2,LoFi", help="qk_rope_heads.FIDELITY arms")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
 
@@ -68,8 +69,23 @@ def main() -> int:
         def fused():
             return QR.qk_rope_heads(q, k, v, gq_tt, gk_tt, cos, sin)
 
-        for arm, fn in (("chain", chain), ("qkrh", fused)):
+        def rope_only():   # the same program and bytes with the norm compiled out: what the LayerNorm costs
+            return QR.rope_heads_packed(qkv_packed, cos, sin)
+
+        def copy():        # q, k, v read and written once by stock ops: the DRAM floor of the program
+            return [ttnn.clone(t, memory_config=ttnn.DRAM_MEMORY_CONFIG) for t in (q, k, v)]
+
+        qkv_packed = ttnn.concat([q, k, v], dim=-1)
+        arms = [("chain", chain, None)] + [("qkrh_" + f, fused, f) for f in args.fidelity.split(",")]
+        arms += [("rope_only", rope_only, None), ("copy", copy, None)]
+        for arm, fn, fid in arms:
+            QR.FIDELITY = getattr(ttnn.MathFidelity, fid or "HiFi4")
             try:
+                if arm in ("rope_only", "copy"):
+                    for t in fn():
+                        ttnn.deallocate(t)
+                    rec[arm] = {"ms": timed(lambda fn=fn: [ttnn.deallocate(t) for t in fn()], dev, args.repeat, args.inner)}
+                    continue
                 o = fn()
                 if o is None:
                     rec[arm] = {"declined": True}
@@ -82,6 +98,8 @@ def main() -> int:
                 rec[arm]["ms"] = timed(lambda fn=fn: [ttnn.deallocate(t) for t in fn()], dev, args.repeat, args.inner)
             except Exception as exc:   # a kernel that fails to build or run is a result here, not a crash
                 rec[arm] = {"error": str(exc).splitlines()[0][:300]}
+        QR.FIDELITY = ttnn.MathFidelity.HiFi4
+        ttnn.deallocate(qkv_packed)
         print(json.dumps(rec), flush=True)
         out.write(json.dumps(rec) + "\n")
         out.flush()

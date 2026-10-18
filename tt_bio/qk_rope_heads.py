@@ -30,6 +30,8 @@ KERNEL_DIR = Path(__file__).resolve().parent / "kernels" / "qk_rope_heads"
 _TILE = 32 * 32 * 2
 _L1_BUDGET = 1100 * 1024
 _CACHE: dict = {}
+#: compute fidelity of the norm and RoPE products (fp32 dest either way); read at build time, part of the cache key.
+FIDELITY = ttnn.MathFidelity.HiFi4
 #: [calls served, declined], read by the A/B harness.
 STATS = [0, 0]
 
@@ -114,7 +116,7 @@ def _build(device, kt, lt, r, eps, tensors, packed=False, ln=True):
                                    config=ttnn.WriterConfigDescriptor())
     compute = ttnn.KernelDescriptor(kernel_source=src("compute.cpp"), source_type=path, core_ranges=grid,
                                     compile_time_args=[kt, r], runtime_args=cp, defines=defines,
-                                    config=ttnn.ComputeConfigDescriptor(math_fidelity=ttnn.MathFidelity.HiFi4,
+                                    config=ttnn.ComputeConfigDescriptor(math_fidelity=FIDELITY,
                                                                         fp32_dest_acc_en=True))
     return [reader, writer, compute], cbs
 
@@ -145,7 +147,7 @@ def _run(q, k, v, q_gamma, k_gamma, cos, sin, eps, packed):
                                            ttnn.DRAM_MEMORY_CONFIG) for _ in range(3)]
     # without a LayerNorm the gamma slots are never read; cos stands in so every accessor has a tensor
     tensors = [q, k, v, q_gamma if ln else cos, k_gamma if ln else cos, cos, sin] + outs
-    key = (device.id(), b, length, d, float(eps), packed, ln, tuple(t.memory_config().buffer_type for t in tensors[:7]))
+    key = (device.id(), b, length, d, float(eps), packed, ln, str(FIDELITY), tuple(t.memory_config().buffer_type for t in tensors[:7]))
     if key not in _CACHE:
         _CACHE[key] = _build(device, kt, lt, b * lt, eps, tensors, packed, ln)
     kernels, cbs = _CACHE[key]
