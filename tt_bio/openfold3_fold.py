@@ -82,9 +82,15 @@ NORMAL_LEVERS = _T.NORMAL_LEVERS - {"transition_bw", "transition_shard"} | {"dit
 # docking 20 -> 20/44; OpenBind-0 0.298 A (floor 1.209 A), CA-lDDT +0.0001, docking 28 -> 27/44
 # (state/spd/grade-ditb8-*-fast.md). 512-token page fold, same chip, off/on/on/off processes: Galaxy chip at 1000 MHz
 # OpenFold3 -0.32 s, OpenBind-0 -0.22 s; p150a at 1350 MHz -0.13 / -0.10 s.
+# ws_lofi (the pair SwiGLU transition at LoFi) joins on the Blackhole 11-set fast grade of --fast (dit_b8 included)
+# + ws_lofi against --fast, 44 paired folds per model (p300c, bwl2, 2026-10-18), PASS: OpenFold3 CA-lDDT +0.0014
+# [-0.0022, +0.0060], docking 20 -> 23/44; OpenBind-0 CA-lDDT -0.0004 [-0.0020, +0.0014], docking 27 -> 28/44
+# (state/spd/grade-wslo2-*-bh-fast.md). Same-seed top pose median 1.54 / 1.26 A (floor 0.98 / 0.97 A). Warm 5-sample
+# folds of those complexes at 1343-1350 MHz, per-complex median: OpenFold3 -0.16 s, OpenBind-0 -0.28 s (trunk only,
+# so the saving holds at 1 sample). The Wormhole grade is not complete, so Wormhole leaves it out for now.
 FAST_LEVERS = NORMAL_LEVERS | {"dit_s16", "diffusion_bf16", "trimul_t1", "trimul_t2", "trimul_t2cm", "transition_ws",
                                "dit_fuse", "edm_device", "ws_l1dest", "dit_hifi2", "dit_kc", "dit_mask16", "triatt_ln",
-                               "dit_b8"}
+                               "dit_b8", "ws_lofi"}
 # Wormhole --fast adds apb_ln (the attention pair-bias projection reads the pair through the same fused LayerNorm).
 # Wormhole 11-set fast grade of --fast + apb_ln against --fast, 44 paired folds per model (whlg, 2026-10-15), PASS:
 # OpenFold3 top pose median 0.543 A (floor 1.238 A), CA-lDDT -0.0010 [-0.0036, +0.0007], docking 22 -> 22/44;
@@ -101,7 +107,7 @@ FAST_LEVERS = NORMAL_LEVERS | {"dit_s16", "diffusion_bf16", "trimul_t1", "trimul
 # In the normal mode too, CIFs identical, all 8 pairs faster: OpenFold3 -0.23 s, OpenBind-0 -0.27 s (25.8 s folds).
 # Flat on p150a in both modes (paired medians within +-0.07 s), so Wormhole only.
 WH_NORMAL_LEVERS = NORMAL_LEVERS | {"trimul_bres"}
-WH_FAST_LEVERS = FAST_LEVERS | {"apb_ln", "trimul_sig6", "trimul_bres"}
+WH_FAST_LEVERS = FAST_LEVERS - {"ws_lofi"} | {"apb_ln", "trimul_sig6", "trimul_bres"}
 
 def kabsch_rmsd(pred_ca, gt_ca):
     """Optimal-superposition Cα-RMSD (Kabsch). pred_ca, gt_ca: [N, 3].
