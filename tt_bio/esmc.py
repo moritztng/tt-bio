@@ -1212,7 +1212,7 @@ class SwiGLUFFN(_MMLin, Module):
             w12 = mm_gate.interleave(ttnn.to_torch(w), ttnn.to_torch(self.fc1_b_weight), group)
             self._w12 = ttnn.from_torch(w12, dtype=w.dtype, layout=ttnn.TILE_LAYOUT, device=x_norm.device())
             self._w12_group = group
-        out = mm_gate.gated(x_norm, self._w12, cfg, self._mm_ck(w), grid)
+        out = mm_gate.gated(x_norm, self._w12, cfg, self._mm_ck(w), grid, pack_sfpu=True)
         MM_GATE_STATS[0 if out is not None else 1] += 1
         return out
 
