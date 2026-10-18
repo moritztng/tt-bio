@@ -235,6 +235,7 @@ class Leg:
     min_fold_timeout: float | None = None  # per-leg FLOOR (s); effective = max(--fold-timeout, this)
     max_plddt_delta: float | None = None   # esmfold2 legs: largest same-seed mean-plDDT gap to the
                                            # reference that still PASSes (None: confidence ungraded)
+    max_plddt_delta_fast: float | None = None  # the same bar for a record folded --fast (None: as above)
     cards: int = 1               # physical cards the leg needs. Every leg today scores ONE card's
                                  # numerics, so 1 is right for all of them: the fixture legs fold
                                  # one seed per card and the in-process legs pin to one. A leg that
@@ -311,9 +312,12 @@ LEGS = [
     # while reading mean plDDT 0.021 low, and it shrank to 0.0014 by 2026-10-15 with nothing
     # grading it either way. The reference is cached (two CPU fp32 folds take ~95 min), so the
     # leg is device-only. The bar sits just above the reference's own two-seed spread, 0.0042.
+    # A --fast fold (every Wormhole run) is graded at the fast bar, 0.03: Wormhole's ws_lofi
+    # (pair SwiGLU at LoFi) alone moves this target's mean plDDT by 0.015 (spd-gap-whesmf wpl).
     Leg("esmfold2-fast-512-confidence", "esmfold2-fast", "esmfold2", "",
         fixture="esmfold2-fast/cdk2x2_512/nomsa_10cycle_100step_1sample_fp32_prod",
         committed_json="esmfold2-fast-512aa.json", seeds=(0, 1), max_plddt_delta=0.005,
+        max_plddt_delta_fast=0.03,
         device_args=("--proteins", "cdk2x2_512", "--loops", "10", "--steps", "100"),
         note="CDK2 tandem at 512 aa, the perf page's fixture; grades the mean-plDDT gap"),
     # A capability with no gate leg regresses quietly, and this one regresses in the worst
@@ -1758,23 +1762,27 @@ ESMFOLD2_LIGAND_MAX_CONTACT_A = 5.0
 ESMFOLD2_LIGAND_MIN_CONTACTS = 10
 
 
-def _esmfold2_confidence_gap(targets: list, max_delta: float | None) -> str:
+def _esmfold2_confidence_gap(targets: list, max_delta: float | None,
+                             max_delta_fast: float | None = None) -> str:
     """Why an esmfold2 record's confidence fails its leg's bar, or "" if it passes or is ungraded.
 
     Kabsch and the distance-matrix metric cannot see this failure: ESMFold2-Fast at 512 aa placed
     the reference's structure inside the seed floor while reading mean plDDT 0.021 low
     (docs/esmfold2-e2e-parity.md). So a leg that sets `max_plddt_delta` grades the same-seed
-    mean-plDDT gap the harness reports (`plddt_mean.mean_abs_delta`) directly."""
+    mean-plDDT gap the harness reports (`plddt_mean.mean_abs_delta`) directly. A record the
+    harness marks `fast` is graded at `max_delta_fast` when the leg sets one; a record without
+    the mark is graded at the normal bar."""
     if max_delta is None:
         return ""
     gaps = []
     for t in targets:
+        bar = max_delta_fast if t.get("fast") and max_delta_fast is not None else max_delta
         delta = (t.get("plddt_mean") or {}).get("mean_abs_delta")
         if delta is None:
             gaps.append(f"{t.get('protein', '?')}: no plddt_mean block to grade")
-        elif delta > max_delta:
+        elif delta > bar:
             gaps.append(f"{t['protein']}: same-seed mean plDDT {delta:.4f} off the reference "
-                        f"(max {max_delta})")
+                        f"(max {bar})")
     return "; ".join(gaps)
 
 
@@ -2209,7 +2217,7 @@ def extract_verdict(leg: Leg, report: dict | None) -> tuple[str, str]:
         lig = _esmfold2_ligand_gap(proteins)
         if lig:
             return "GAP", lig
-        conf = _esmfold2_confidence_gap(proteins, leg.max_plddt_delta)
+        conf = _esmfold2_confidence_gap(proteins, leg.max_plddt_delta, leg.max_plddt_delta_fast)
         if conf:
             return "GAP", conf
         return "PASS", f"{len(proteins)} proteins scored ({n_within} within floor)"

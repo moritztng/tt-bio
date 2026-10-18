@@ -95,6 +95,23 @@ class PairTransition(nn.Module):
         return torch.cat(out, dim=1)
 
 
+
+def _tm_per_bin(mask: Tensor, n_bins: int) -> Tensor:
+    """pTM's TM term at each PAE bin centre, [B, n_bins], with d0 from the chain length."""
+    bin_width = 32.0 / n_bins
+    bin_centers = torch.arange(0.5 * bin_width, 32.0, bin_width, device=mask.device)
+    N_res = mask.float().sum(dim=-1, keepdim=True)
+    d0 = 1.24 * (N_res.clamp(min=19) - 15) ** (1 / 3) - 1.8
+    return 1 / (1 + (bin_centers / d0) ** 2)
+
+
+def _pair_expectations(pae_logits: Tensor, pde_logits: Tensor, tm_per_bin: Tensor):
+    """PAE and PDE (expected bin centre, 0-32 A) and the expected TM term, each [B, L, L]."""
+    pae = _categorical_mean(pae_logits, start=0.0, end=32.0).detach()
+    pde = _categorical_mean(pde_logits, start=0.0, end=32.0).detach()
+    tm_expected = (F.softmax(pae_logits, dim=-1) * tm_per_bin[:, None, None, :]).sum(dim=-1)
+    return pae, pde, tm_expected
+
 class ConfidenceHead(nn.Module):
     """Predicts pLDDT, PAE, PDE, resolved-atom probability and distogram bins."""
 
@@ -172,10 +189,11 @@ class ConfidenceHead(nn.Module):
         return x
 
     def _pair_outputs(self, z, s_inputs_normed, relative_position_encoding,
-                      token_bonds_encoding, distogram_bins, mask, num_diffusion_samples):
-        """The L^2 part of the head: the pair, its trunk, row pooling and the PAE/PDE logits.
+                      token_bonds_encoding, distogram_bins, mask, num_diffusion_samples, tm_per_bin):
+        """The L^2 part of the head: the pair, its trunk, row pooling, the PAE/PDE logits and their expectations.
 
         tt-bio: split out of forward (same ops, same order per tensor) so the runtime can run it on the device.
+        Returns (single, (pae_logits, pde_logits), (pae, pde, tm_expected)); a device path may return None logits.
         """
         z_base = self.z_norm(z)
         if relative_position_encoding is not None:
@@ -204,7 +222,7 @@ class ConfidenceHead(nn.Module):
         single = self.row_attention_pooling(pair, mask)
         pae_logits = self.pae_head(self.pae_ln(pair))
         pde_logits = self.pde_head(self.pde_ln(pair))
-        return single, pae_logits, pde_logits
+        return single, (pae_logits, pde_logits), _pair_expectations(pae_logits, pde_logits, tm_per_bin)
 
     def forward(
         self,
@@ -237,9 +255,10 @@ class ConfidenceHead(nn.Module):
         distogram_bins = (
             (rep_distances.unsqueeze(-1) > self.boundaries).sum(dim=-1).long()
         )
-        single, pae_logits, pde_logits = self._pair_outputs(
+        tm_per_bin = _tm_per_bin(mask, self.pae_head.out_features)
+        single, (pae_logits, pde_logits), (pae, pde, tm_expected) = self._pair_outputs(
             z, s_inputs_normed, relative_position_encoding, token_bonds_encoding,
-            distogram_bins, mask, num_diffusion_samples)
+            distogram_bins, mask, num_diffusion_samples, tm_per_bin)
 
         atom_mask_f = atom_mask_m.float()
         s_at_atoms = gather_token_to_atom(single, atom_to_token_m)
@@ -290,30 +309,13 @@ class ConfidenceHead(nn.Module):
 
         plddt_ca = plddt_per_atom.gather(1, rep_idx_m)
 
-        # PAE
-        pae = _categorical_mean(pae_logits, start=0.0, end=32.0).detach()
-
-        # PDE
-        pde = _categorical_mean(pde_logits, start=0.0, end=32.0).detach()
-
         # Resolved (per-atom binary).
         s_at_atoms_res = self.resolved_ln(s_at_atoms)
         w_res = self.resolved_weight[intra_idx]
         resolved_logits = torch.einsum("...c,...cb->...b", s_at_atoms_res, w_res)
 
-        # pTM / ipTM from pae_logits.
-        n_bins = pae_logits.shape[-1]
-        bin_width = 32.0 / n_bins
-        bin_centers = torch.arange(
-            0.5 * bin_width, 32.0, bin_width, device=pae_logits.device
-        )
+        # pTM / ipTM from the expected TM term of each pair.
         mask_f = mask.float()
-        N_res = mask_f.sum(dim=-1, keepdim=True)
-        d0 = 1.24 * (N_res.clamp(min=19) - 15) ** (1 / 3) - 1.8
-        tm_per_bin = 1 / (1 + (bin_centers / d0) ** 2)
-        pae_probs = F.softmax(pae_logits, dim=-1)
-        tm_expected = (pae_probs * tm_per_bin[:, None, None, :]).sum(dim=-1)
-
         pair_mask_2d = mask_f.unsqueeze(-1) * mask_f.unsqueeze(-2)
         ptm_per_row = (tm_expected * pair_mask_2d).sum(dim=-1) / (
             pair_mask_2d.sum(dim=-1) + _EPS
@@ -352,9 +354,8 @@ class ConfidenceHead(nn.Module):
             "plddt_ca": plddt_ca.detach(),
             "complex_plddt": complex_plddt.detach(),
             "complex_iplddt": complex_iplddt.detach(),
-            "pae_logits": pae_logits,
+            **({"pae_logits": pae_logits, "pde_logits": pde_logits} if pae_logits is not None else {}),
             "pae": pae,
-            "pde_logits": pde_logits,
             "pde": pde,
             "resolved_logits": resolved_logits,
             "ptm": ptm.detach(),
