@@ -23,6 +23,7 @@ ap.add_argument("--c", type=int, default=128, help="c_z")
 ap.add_argument("--hidden", type=int, default=128)
 ap.add_argument("--no-mask", action="store_true")
 ap.add_argument("--ln1-ab", action="store_true", help="also run T1 with T1_LN1 off: bit-equality of a, b, g_out and its time")
+ap.add_argument("--ln1", type=int, choices=(0, 1), default=None, help="set T1_LN1 for the main run")
 ap.add_argument("--repeat-eq", type=int, default=0, help="rerun T1 this many times per T1_LN1 setting; where a moves")
 ap.add_argument("--abl", default="", help="comma list of T1_ABL stage-skip masks to time after the real T1"
                 " (kernels/trimul_in_t1: 1 LN, 2 g_out mm, 4 [a|b] mm, 8 gate, 16 z reads, 32 gather, 64 writes)")
@@ -35,6 +36,8 @@ from tt_bio.main import ensure_p300_mesh_descriptor
 ensure_p300_mesh_descriptor()
 import torch, ttnn
 from tt_bio import tenstorrent as T, trimul_tail as TT, mm_generic as MG, reblock_permute as RB
+if A.ln1 is not None:
+    TT.T1_LN1 = bool(A.ln1)
 from tt_bio.af2 import compute_kernel_config
 
 dev = T.get_device()
