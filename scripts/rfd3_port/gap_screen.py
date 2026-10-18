@@ -62,7 +62,7 @@ FIXTURE = opts.get("fixture", "perf/dsfix/fixtures/rfd3_R4.json")
 BATCH = int(opts.get("batch", 1))
 FAST = opts.get("fast", "0") == "1"
 knobs = set(ARM.split("+")) - {"exact"}
-assert knobs <= {"lofi", "w8", "acco"} | set(ENV_KNOBS), knobs
+assert knobs <= {"lofi", "w8", "acco", "idxfree"} | set(ENV_KNOBS), knobs
 
 pick = [ttnn.MathFidelity.LoFi] if "lofi" in knobs else []
 if pick or "acco" in knobs:
@@ -90,6 +90,27 @@ if "w8" in knobs:
         W8[1] += 1
         return _t2t(self, key, transform, dtype=dtype)
     T.Module.torch_to_tt = _t2t_w8
+
+# idxfree (instrument, not a lever): the warmup fold records every attention index keyed by its inputs, later folds
+# replay a hit instead of building it. Run the warm seed again and its index costs the host nothing; the digest must
+# equal the plain arm's, and the time saved is the most any faster index (on device or not) can buy.
+IDX = [0, 0]   # replayed, built
+if "idxfree" in knobs:
+    import torch
+    _cai, _book, _rec = M._create_attention_indices, {}, [True]
+
+    def _cai_replay(f, X_L, tok_idx, n_keys, n_seq_neighbours, workers=None):
+        key = (hashlib.sha256(X_L.detach().float().contiguous().numpy().tobytes()).hexdigest(), n_keys, len(tok_idx))
+        hit = _book.get(key)
+        if hit is not None and not _rec[0]:
+            IDX[0] += 1
+            return hit.long()
+        IDX[1] += 1
+        out = _cai(f, X_L, tok_idx, n_keys, n_seq_neighbours, workers=workers)
+        if _rec[0]:
+            _book[key] = out.to(torch.int32)
+        return out
+    M._create_attention_indices = _cai_replay
 
 WALL = []
 _sample = RFD3Sampler.sample
@@ -124,6 +145,10 @@ rec = {"arm": ARM, "steps": STEPS, "fixture": FIXTURE, "batch": BATCH, "fast": F
 s, d, _ = fold("warm", SEEDS[0])
 rec["warm_s"] = s
 print("[screen %s] warmup %.3f s %s  w8 %s" % (ARM, s, d, W8), flush=True)
+if "idxfree" in knobs:
+    _rec[0] = False
+    rec["idx_warm_built"] = IDX[1]
+    IDX[:] = [0, 0]
 for seed in SEEDS:
     s, d, cifs = fold("s%d" % seed, seed)
     for i, c in enumerate(cifs[:BATCH]):
@@ -131,6 +156,7 @@ for seed in SEEDS:
     rec["folds"].append({"seed": seed, "sampler_s": s, "digest": d})
     print("[screen %s] seed %d %.3f s %s" % (ARM, seed, s, d), flush=True)
 rec["w8_counts"] = W8
+rec["idx_replayed_built"] = IDX
 rec["sdpa_calls"] = {"atom": M.ATOM_SDPA_CALLS[0], "css": M.CSS_CALLS[0], "dense": M.DIT_SDPA_CALLS[0]}
 rec["pf_dpb_calls"] = {"served": M.PF_DPB_CALLS[0], "declined": M.PF_DPB_CALLS[1]}
 (OUT / ("%s.json" % ARM)).write_text(json.dumps(rec, indent=1))
