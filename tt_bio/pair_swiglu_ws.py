@@ -42,6 +42,10 @@ _L1_BUDGET = 1100 * 1024
 
 
 SILU_POLY = 2  # ws5 on WH 1000 MHz: c_z 128 fast 5.64 -> 4.77 ms, c_z 256 13.08 -> 11.28, rel_rms to float64 unchanged
+# The polynomial silu on the PACK thread over the fc1 dest half while MATH runs fc2 (kernel WS_PACK_SILU). Same SFPU
+# code on the same dest, so the output does not move; the silu was ~1 ms of a 4.6 ms c_z 384 chunk on WH (wsb).
+# A/B knob while it is measured.
+PACK_SILU = False
 
 
 def _tile_bytes(dtype) -> int:
@@ -191,6 +195,8 @@ def pair_swiglu(x, w12, w3, fidelity=ttnn.MathFidelity.HiFi4, defines=(), silu_p
     if resid is not None:
         defines = tuple(defines) + (("WS_RESID", "1"),)
     silu_poly = SILU_POLY if silu_poly is None else silu_poly
+    if PACK_SILU and silu_poly in (1, 2):
+        defines = tuple(defines) + (("WS_PACK_SILU", "1"),)
     if l1acc:
         defines = tuple(defines) + (("WS_L1ACC", "1"),)
     if ln is not None and ln[1] is None:

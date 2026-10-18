@@ -6,7 +6,9 @@
 // round-to-nearest-even of DST to bf16 ahead of a pack.
 #pragma once
 
-#ifdef TRISC_MATH
+// SFPU_ON_PACK: the PACK thread builds the SFPU functions too, for a kernel that runs them on the packer's dest
+// half (pair_swiglu_ws's WS_PACK_SILU, the handoff of tt_bio/metal_overlay.py's silu_f32).
+#if defined(TRISC_MATH) || (defined(TRISC_PACK) && defined(SFPU_ON_PACK))
 #include "llk_math_eltwise_unary_sfpu_params.h"
 #include "sfpi.h"
 
@@ -122,7 +124,7 @@ inline void _round_bf16_rne_() {
 }
 }  // namespace sfpu
 }  // namespace ckernel
-#endif  // TRISC_MATH
+#endif  // TRISC_MATH || SFPU_ON_PACK
 
 // V is the kernels' SIGPOLY compile-time arg: 1 the degree-8 polynomial, 2 the degree-6 one.
 template <uint32_t V = 1>
@@ -140,6 +142,16 @@ ALWI void silu_poly_v_tile(uint32_t idst) {
 }
 ALWI void silu_poly_tile(uint32_t idst) { silu_poly_v_tile<1>(idst); }
 ALWI void silu_poly6_tile(uint32_t idst) { silu_poly_v_tile<2>(idst); }
+
+#if defined(SFPU_ON_PACK)
+// silu_poly_v_tile issued by the PACK thread, on whatever dest half the caller pointed the SFPU at
+template <uint32_t V>
+ALWI void silu_poly_v_tile_pack(uint32_t idst) {
+    PACK((ckernel::sfpu::_sig_init_<V>()));
+    PACK((_llk_math_eltwise_unary_sfpu_params_<false>(
+        []() __attribute__((always_inline)) { ckernel::sfpu::_sig_rows_<V, true>(); }, idst, (int)VectorMode::RC)));
+}
+#endif
 
 ALWI void round_bf16_rne_tile(uint32_t idst) {
     MATH((_llk_math_eltwise_unary_sfpu_params_<false>(

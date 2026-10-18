@@ -23,6 +23,8 @@
 // and fc3 accumulates on top, so z + t is rounded to bf16 once, by the pack; the writer puts it back over z. The
 // transition's `z + t` and the hidden-chunk sum then cost no add pass over the pair. (Adding after fc3 with dest
 // reused as srcA truncates t to srcA's bf16 first: rel_rms 0.0037 -> 0.0046 at c 256.)
+// WS_PACK_SILU: the silu (SILU_POLY 1 or 2) runs on the PACK thread over the fc1 dest half, overlapped with MATH's
+// fc2; same SFPU code on the same dest, so the output does not move. ~1 ms of a 4.6 ms c384 h384 chunk on WH (wsb).
 // WS_RELU (AF2's Transition): fc3(relu(x @ w1 + b1)) + b3. c_1 holds w1 alone and there is no gate; each bias is a
 // CB of tiles whose 32 rows all carry the vector (c_21 = b1, NH tiles; c_22 = b3, CT tiles), copied into dest as the
 // seed its matmul accumulates on, so the bias costs no pass and is summed in fp32 with the products.
@@ -40,6 +42,9 @@
 #include "api/compute/tile_move_copy.h"
 #include "api/compute/eltwise_unary/relu.h"
 #include "api/compute/eltwise_unary/comp.h"
+#ifdef WS_PACK_SILU
+#define SFPU_ON_PACK
+#endif
 #include "../trimul_gin_moved/sigmoid_poly.hpp"
 #ifdef WS_LN
 #include "../common/ln_prologue.hpp"
@@ -221,7 +226,7 @@ void kernel_main() {
             for (uint32_t i = 0; i < SW; ++i) {
                 gtz_tile(i);
             }
-#elif !defined(WS_NO_SILU)
+#elif !defined(WS_NO_SILU) && !defined(WS_PACK_SILU)
             silu_tile_init();  // the dest-reuse multiply's init does not keep the SFPU's
             for (uint32_t i = 0; i < SW; ++i) {
                 if constexpr (SILU_POLY == 2) {
@@ -235,7 +240,20 @@ void kernel_main() {
 #endif
             tile_regs_commit();
             cb_reserve_back(cb_gate, SW);
+#if defined(WS_PACK_SILU) && !defined(WS_NO_SILU)
+            // tile_regs_wait() that also points the SFPU at the packer's dest half, then the silu there while MATH
+            // starts fc2 in the other half (metal_overlay.py's silu_f32 handoff, with this kernel's polynomial)
+            PACK(TTI_SEMWAIT(
+                p_stall::STALL_TDMA | p_stall::STALL_CFG, semaphore::t6_sem(semaphore::MATH_PACK), p_stall::STALL_ON_ZERO));
+            PACK(TT_SETC16(DEST_TARGET_REG_CFG_MATH_Offset_ADDR32, ckernel::packer::get_packer_dest_offset()));
+            static_assert(SILU_POLY == 1 || SILU_POLY == 2, "WS_PACK_SILU runs the polynomial silu");
+            for (uint32_t i = 0; i < SW; ++i) {
+                silu_poly_v_tile_pack<SILU_POLY>(i);
+            }
+            PACK(TTI_STALLWAIT(p_stall::STALL_PACK, p_stall::WAIT_SFPU));
+#else
             tile_regs_wait();
+#endif
 #ifndef WS_NO_GATEPACK
             pack_tile_block(0, cb_gate, SW);
 #endif
