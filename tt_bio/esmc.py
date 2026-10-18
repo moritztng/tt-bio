@@ -1195,13 +1195,13 @@ class SwiGLUFFN(_MMLin, Module):
         self.model_bytes = float("inf")  # resident weights of the model this FFN is in; ESMC's Block sets it
         self.out_scale = out_scale
         if self.split_swiglu:
-            half = self.weights["1.weight"].shape[0] // 2
+            # Halves taken inside the transforms: a weight_cache load builds this with no weights.
             self.fc1_weight = None
             self.fc1_a_weight = self.torch_to_tt(
-                "1.weight", transform=lambda w: w[:half].t(), dtype=_dtype()
+                "1.weight", transform=lambda w: w[: w.shape[0] // 2].t(), dtype=_dtype()
             )
             self.fc1_b_weight = self.torch_to_tt(
-                "1.weight", transform=lambda w: w[half:].t(), dtype=_dtype()
+                "1.weight", transform=lambda w: w[w.shape[0] // 2:].t(), dtype=_dtype()
             )
         else:
             transform = _pack_swiglu_weight if self.fuse_swiglu else lambda weight: weight.t()
