@@ -1338,7 +1338,7 @@ T1_WHY = {}                       # decline reason -> calls (tenstorrent._t1_in)
 T1_PLANS = {(4, 8, 4): (1, 32), (8, 16, 8): (2, 16), (12, 24, 12): (3, 8)}
 T1_KEYS = set(T1_PLANS)
 T1_RB = 8                         # z row tiles per reader barrier
-T1_SBW = 4                        # DST tiles per matmul block (half-sync fp32 DST holds 4)
+T1_SBW = 4                        # DST tiles per matmul block: half-sync fp32 DST holds 4; 8 runs full-sync (bench knob)
 T1_ABL = 0                        # bench-only stage-skip bits (kernels/trimul_in_t1 ABL); 0 = the real T1
 T1_B8 = 0                         # bench knob: a and b as bfp8 (lever trimul_t1b8 in a model)
 T1_C256 = 0                       # bench knob: the c_z 256 / 384 plans without their levers
@@ -1547,7 +1547,7 @@ def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps, il, b8=F
         # the caller's, so the projections run as the incumbent in-projection runs them.
         config=ttnn.ComputeConfigDescriptor(
             math_fidelity=fid, math_approx_mode=approx, fp32_dest_acc_en=True,
-            dst_full_sync_en=full))
+            dst_full_sync_en=full or T1_SBW > 4))
     bf, f32 = t1_cb_plan(kt, ct2, ntg, mask is not None, il=il)
     cbs = ([_cb_fmt(i, core_grid, t, ttnn.bfloat8_b) if b8 and i == 2 else _cb(i, core_grid, t) for i, t in bf]
            + [_cb_fmt(i, core_grid, t, ttnn.float32) for i, t in f32])

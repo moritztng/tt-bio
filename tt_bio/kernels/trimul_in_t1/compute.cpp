@@ -56,7 +56,7 @@ constexpr uint32_t Q0 = get_compile_time_arg_val(7);        // first [a | b] cha
 constexpr uint32_t CT2 = get_compile_time_arg_val(8);       // [a | b] channel tiles in all; q < CT2 / 2 is a
 constexpr uint32_t IL = get_compile_time_arg_val(9);        // row tiles per unit, 32 or 16 (reader.cpp)
 constexpr uint32_t GSBW = NG % 4 == 0 ? 4 : (NG % 2 == 0 ? 2 : 1);
-static_assert(IL % SBW == 0 && IL % 4 == 0 && SBW <= 4, "fp32 half-sync DST holds 4 tiles");
+static_assert(IL % SBW == 0 && IL % 4 == 0 && SBW <= 8, "fp32 DST holds 4 tiles half-sync, 8 full-sync (host picks)");
 
 constexpr uint32_t w_cb = tt::CBIndex::c_0;      // [Wp^T | Wg^T] of the group, 2 * QN * Kt, resident
 constexpr uint32_t xn_cb = tt::CBIndex::c_1;     // layer_norm(z) of the unit, bf16, IL * Kt
