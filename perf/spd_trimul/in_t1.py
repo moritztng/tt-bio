@@ -23,6 +23,7 @@ ap.add_argument("--c", type=int, default=128, help="c_z")
 ap.add_argument("--hidden", type=int, default=128)
 ap.add_argument("--no-mask", action="store_true")
 ap.add_argument("--ln1-ab", action="store_true", help="also run T1 with T1_LN1 off: bit-equality of a, b, g_out and its time")
+ap.add_argument("--repeat-eq", type=int, default=0, help="rerun T1 this many times per T1_LN1 setting; where a moves")
 ap.add_argument("--abl", default="", help="comma list of T1_ABL stage-skip masks to time after the real T1"
                 " (kernels/trimul_in_t1: 1 LN, 2 g_out mm, 4 [a|b] mm, 8 gate, 16 z reads, 32 gather, 64 writes)")
 ap.add_argument("--set", default="", help="comma list NAME=INT of trimul_tail knobs for T1 (T1_RB, T1_SBW, GIN_MOVE_NB, T1_ROWS)")
@@ -203,6 +204,23 @@ for n in [int(s) for s in A.ns.split(",") if s]:
                 free(outs)
                 rec["ln1_flip_ms"] = timed(lambda: free(t1()), A.reps)
                 TT.T1_LN1 = prev
+            for ln1 in ((True, False) if A.repeat_eq else ()):
+                prev, TT.T1_LN1 = TT.T1_LN1, ln1
+                reps = []
+                for _ in range(A.repeat_eq):
+                    outs = t1()
+                    ttnn.synchronize_device(dev)
+                    reps.append([ttnn.to_torch(o) for o in outs])
+                    free(outs)
+                TT.T1_LN1 = prev
+                ra = [r[0].reshape(ref["a"].shape) for r in reps]
+                il = TT.T1_PLANS.get((C // 32, 2 * h // 32, C // 32), (1, 32))[1]
+                moved = [bad_units(x, ra[0].double() + 1e-30, il) if not torch.equal(x, ra[0]) else [] for x in ra[1:]]
+                rec[f"rep_ln1{int(ln1)}"] = {
+                    "a_eq_first": [bool(torch.equal(x, ra[0])) for x in ra[1:]],
+                    "bg_eq_first": [all(bool(torch.equal(x[k], reps[0][k])) for k in (1, 2)) for x in reps[1:]],
+                    "a_vs_main_run_diff_units": sorted({tuple(u[:4]) for u in bad_units(ra[0], host[0].reshape(ref["a"].shape).double() + 1e-30, il)}) if not torch.equal(ra[0], host[0].reshape(ref["a"].shape)) else [],
+                    "a_bad_units": [len(bad_units(x, ref["a"], il)) for x in ra]}
     except Exception as e:                                                    # noqa: BLE001
         rec["t1_err"] = str(e).splitlines()[0][:300]
         traceback.print_exc()
