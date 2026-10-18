@@ -6,8 +6,8 @@
 // index names into one row-major block of CT tiles, every read in flight behind one barrier. Columns past the
 // index's width take a zero row, the value ttnn's own tilize pads with.
 // The table may hold COPIES identical replicas STRIDE pages apart (STRIDE coprime to the DRAM bank count): read k of
-// unit u goes to replica (u + k) % COPIES, so an index that names one row over and over (RFD3's clipped relative-position
-// bins) spreads over every bank instead of queueing on the one holding that row.
+// unit u goes to replica (u + k) % COPIES, so an index that names one row over and over (RFD3's CA distance bins,
+// where every pair past the top edge takes the last row) spreads over every bank instead of queueing on one.
 #include "api/dataflow/dataflow_api.h"
 
 void kernel_main() {

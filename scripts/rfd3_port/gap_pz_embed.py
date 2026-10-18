@@ -9,8 +9,8 @@ A_l1 / B_l1: the same with the table held in L1 instead of DRAM (the gather read
 it is bound by DRAM read latency, not bytes: WH 5 ms/call against a 0.5 ms roof in cen2).
 G: tt_bio.gather_tiled (row reads in flight per 32-row block, tilized on the unpacker, TILE out in one program).
 S: G on a gather_tiled.spread table (12 replicas, one per DRAM bank).
-IDX=rel replaces the random index with RFD3's clipped relative-position bins (N=65: clamp(j-i+32, 0, 64); N=4225:
-that bin paired with itself), which name the two end rows for most pairs: the in-model pattern.
+IDX=rel replaces the random index with a stand-in for RFD3's CA distance bins, clamp(|i-j|, max=64) (N=4225: that bin
+paired with itself): every far pair names the last row, the in-model pattern.
 All are pure gathers, so every arm must equal A bit for bit (torch.equal); ms/call synchronized.
 """
 import json
@@ -38,7 +38,7 @@ dev = T.get_device()
 tab = ttnn.from_torch(torch.randn(N, C), layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
 if IDX == "rel":
     ar = torch.arange(I)
-    rel = (ar[None, :] - ar[:, None] + 32).clamp(0, 64).to(torch.int32)
+    rel = (ar[None, :] - ar[:, None]).abs().clamp(max=64).to(torch.int32)
     assert N in (65, 4225), N
     bins = rel if N == 65 else rel * 65 + rel
 else:

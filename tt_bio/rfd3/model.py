@@ -487,7 +487,7 @@ _GCA_HEADS = env_flag("RFD3_GCA_HEADS", True)
 # 2.7 ms/step of tilize. Same values (data movement only): gather 4.76 -> 1.28 ms/call on WH, digests equal to
 # the embedding path on WH and p150a (seeds 60,61 x2). RFD3_PZ_GATHER=0 restores it.
 _PZ_GATHER = env_flag("RFD3_PZ_GATHER", True)
-# The gather's table as gather_tiled.spread replicas: the clipped bins name a handful of rows for most pairs, so a
+# The gather's table as gather_tiled.spread replicas: the distance bins name the last row for every far pair, so a
 # single table queues every read on one DRAM bank (WH fast census cen5: 4.1-4.3 ms/call vs 1.28 ms for a random
 # index). Same bits, different bank. Off until the WH read.
 _PZ_SPREAD = env_flag("RFD3_PZ_SPREAD", False)

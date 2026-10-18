@@ -8,7 +8,7 @@ census). Here each core takes (r, 32-column block) units, issues the 32 row read
 tilizes the block on the unpacker and writes its C / 32 tiles. Columns past W in the last block are zero, the
 pad ttnn's tilize writes. Data movement only: every gathered value is the table's bit pattern.
 
-An index that names the same row over and over (RFD3's relative-position bins clip to the end rows for most pairs)
+An index that names the same row over and over (RFD3's CA distance bins: every pair past the top edge takes the last row)
 queues every read on the one DRAM bank holding that row: 4.1-4.3 ms/call in-model on Wormhole against 1.28 ms for a
 random index of the same shape. ``spread`` lays the table out as COPIES replicas whose copies of a row sit in
 different banks; pass ``copies`` to ``gather_tiled`` and successive reads rotate over them.
