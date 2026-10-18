@@ -24,7 +24,7 @@ import torch
 import torch.nn.functional as F
 import ttnn
 
-from tt_bio.esmc import SwiGLUFFN, apply_rotary
+from tt_bio.esmc import SwiGLUFFN, apply_rotary, _rope
 from tt_bio.envflags import env_flag
 from tt_bio.tenstorrent import (
     CORE_GRID_MAIN,
@@ -995,8 +995,11 @@ class SWAAttention(Module):
         lin = self._lin
         head_dim = x.shape[-1] // self.n_heads
         q, k, v = self._split_heads(lin(x, self.qkv_w), self.n_heads)
-        q = apply_rotary(_rms_norm(q, ck), cos, sin)
-        k = apply_rotary(_rms_norm(k, ck), cos, sin)
+        q, k = _rms_norm(q, ck), _rms_norm(k, ck)
+        if lever("ef2_atom_rope"):  # one rotary_embedding a tensor where tile-aligned, else the same six-op pile
+            q, k = _rope(q, k, cos, sin, l1=False)
+        else:
+            q, k = apply_rotary(q, cos, sin), apply_rotary(k, cos, sin)
         if isinstance(attn_mask, SWAWindow):
             ctx = attn_mask.attend(q, k, v, head_dim**-0.5)
         else:
