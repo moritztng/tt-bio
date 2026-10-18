@@ -29,6 +29,7 @@ ap.add_argument("--abl", default="", help="comma list of T1_ABL stage-skip masks
                 " (kernels/trimul_in_t1: 1 LN, 2 g_out mm, 4 [a|b] mm, 8 gate, 16 z reads, 32 gather, 64 writes)")
 ap.add_argument("--set", default="", help="comma list NAME=INT of trimul_tail knobs for T1 (T1_RB, T1_SBW, GIN_MOVE_NB, T1_ROWS)")
 ap.add_argument("--grid", default="", help="gx,gy: run T1 on this core grid instead of COMPUTE_GRID_MAIN")
+ap.add_argument("--fids", default="", help="comma list of MathFidelity names (LoFi, HiFi2, HiFi3, HiFi4) to time T1 at")
 ap.add_argument("--out", help="also append each JSON line here (the qb runner passes it)")
 A = ap.parse_args()
 
@@ -186,8 +187,8 @@ for n in [int(s) for s in A.ns.split(",") if s]:
             a = ttnn.multiply_(a, ttnn.unsqueeze(dm, 1))
         return [a, b, g]
 
-    def t1():
-        return TT.fused_in_ln(dz, dw["gamma"], dw["beta"], dw["wpT"], dw["wgT"], dw["wgo"], ckc, grid,
+    def t1(ckc_=None):
+        return TT.fused_in_ln(dz, dw["gamma"], dw["beta"], dw["wpT"], dw["wgT"], dw["wgo"], ckc_ or ckc, grid,
                               mask=dm)
 
     try:
@@ -228,6 +229,9 @@ for n in [int(s) for s in A.ns.split(",") if s]:
                 TT.T1_ABL = m_
                 rec[f"abl{m_}_ms"] = timed(lambda: free(t1()), A.reps)
             TT.T1_ABL = 0
+            for fn in [v for v in A.fids.split(",") if v]:
+                c_ = (getattr(ttnn.MathFidelity, fn),) + tuple(ckc[1:])
+                rec[f"fid_{fn}_ms"] = timed(lambda: free(t1(c_)), A.reps)
             if A.ln1_ab:
                 prev, TT.T1_LN1 = TT.T1_LN1, not TT.T1_LN1
                 outs = t1()
