@@ -613,7 +613,7 @@ class OF3DiffusionTransformer(Module):
         g = x.device().compute_with_storage_grid_size()
         mt, nt = -(-x.padded_shape[-2] // TILE), w.padded_shape[-1] // TILE
         pm, pn = -(-mt // g.y), -(-nt // g.x)
-        if not (self._wormhole and pm <= 2 and pn % 18 == 0 and w.padded_shape[-2] % (4 * TILE) == 0):
+        if not (blk._wormhole and pm <= 2 and pn % 18 == 0 and w.padded_shape[-2] % (4 * TILE) == 0):
             return blk._lin(x, w, bias=bias, activation=activation)
         hifi2 = blk._act_dtype == ttnn.bfloat16 and _T.lever("dit_hifi2")
         act = None if activation is None else ttnn.UnaryWithParam(ttnn.UnaryOpType.SIGMOID)
