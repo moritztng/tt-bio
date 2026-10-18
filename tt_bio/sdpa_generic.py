@@ -511,7 +511,8 @@ def note_l1_refusal(message: str) -> None:
 def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scale,
           exp_approx_mode=False, mask_cb_tiles=None, defines_extra=None, kernel_dir=None,
           split=None, kv_buffer_factor=2, fuse_qkv=None, gate=None, im_dtype=None,
-          out_im_dtype=None, stats_dtype=None, kv_window=None, qkv_fused=None, css=None):
+          out_im_dtype=None, stats_dtype=None, kv_window=None, qkv_fused=None, css=None,
+          keypad=None):
     """The ProgramDescriptor for the fold's SDPA call.
 
     `mask_cb_tiles` overrides the size of `cb_mask_in` (K2 makes it the whole head's grid instead of
@@ -611,6 +612,10 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
         extra_cbs = list(extra_cbs) + gate_cbs(p, gate_buffer_factor, gate_t.dtype)
     if css is not None:
         extra_cbs = list(extra_cbs) + [(CB_CSS, 1, 4 * css_w, ttnn.uint32)]
+    kp_w = None if keypad is None else int(keypad.padded_shape[-1])
+    if keypad is not None:
+        assert 2 * p["B"] <= kp_w and kp_w % 8 == 0, (keypad.padded_shape, p["B"])
+        extra_cbs = list(extra_cbs) + [(CB_CSS, 1, 4 * kp_w, ttnn.uint32)]
 
     cbs = [ttnn.CBDescriptor(
         total_size=n_tiles * page, core_ranges=core_grid,
@@ -659,6 +664,9 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
     css_acc = len(reader_ct)
     if css is not None:
         reader_ct += acc(css[0])
+    kp_acc = len(reader_ct)
+    if keypad is not None:
+        reader_ct += acc(keypad)
 
     writer_ct = [
         p["B"], p["NQH"], p["NKH"], p["Sqt"], p["valid_Sqt"], p["Sk"], p["DHt"], p["vDHt"],
@@ -736,6 +744,12 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
         # Reader args: 17 base + 14 chain, then the list address; compute args: 10, then the counts.
         defines.update(CSS_W=str(css_w), CSS_CB=str(CB_CSS), CSS_ACC=str(css_acc),
                        CSS_ADDR_ARG="31", CSS_COUNT_ARG="10")
+    if keypad is not None:
+        # `shsdpa`: a [1, 1, 1, W] uint32 table, per batch (key chunk count, boundary chunk), after the
+        # 31 base reader args. It shares CB 13 with css, which it excludes.
+        assert fuse_qkv is None and gate is None and css is None
+        defines.update(KEYPAD="1", KEYPAD_ACC=str(kp_acc), KEYPAD_ADDR_ARG="31", KEYPAD_CB=str(CB_CSS),
+                       KEYPAD_W=str(kp_w))
     if defines_extra:
         defines.update({str(a): str(b) for a, b in dict(defines_extra).items()})
     dlist = sorted(defines.items())
@@ -761,6 +775,7 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
         g_a = gate[0].buffer_address()
     css_tail = ([], []) if css is None else ([css[0].buffer_address()], list(css[1]))
 
+    kp_tail = [] if keypad is None else [keypad.buffer_address()]
     rr, wr, cr = [], [], []
     for i in range(num_cores):
         core = ttnn.CoreCoord(i % gx, i // gx)
@@ -774,7 +789,7 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
         rr.append((core, [q_a, k_a, v_a, m_a, 0, 0, 0, i, lb, lbe, ln, lne, lq, lqe, 1, 0, 0]
                    + [0] * 14                          # chain metadata, all no-chain (0/0 chains)
                    + ([] if fuse_qkv is None else [x_a, w_a])
-                   + ([] if gate is None else [g_a]) + css_tail[0]))
+                   + ([] if gate is None else [g_a]) + css_tail[0] + kp_tail))
         wr.append((core, [o_a, i, lb, lbe, ln, lne, lq, lqe, 1, 0, 0, 0]))
         cr.append((core, [i, lb, lbe, ln, lne, lq, lqe, 1, 0, 0] + css_tail[1]))
 
@@ -799,7 +814,8 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
             "rt": (rr, wr, cr), "addrs": (q_a, k_a, v_a, m_a, o_a),
             "fuse": None if fuse_qkv is None else (Ct, proj_h, x_a, w_a),
             "gate": None if gate is None else g_a,
-            "css": None if css is None else (css_tail[0][0], tuple(css_tail[1]))}
+            "css": None if css is None else (css_tail[0][0], tuple(css_tail[1])),
+            "kp": None if keypad is None else kp_tail[0]}
 
 
 def _uniform_dataformat(q, k, v, out, mask):
@@ -833,6 +849,9 @@ def sdpa(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scal
            # this key correctly issues a second program for it -- that extra compile is the point,
            # since it is what stops the narrowed destination from colliding with the bf16 one.
            str(q.dtype), str(k.dtype), str(v.dtype), str(mask.dtype), str(out.dtype),
+           # Each operand's accessor compiles in whether it is DRAM or L1, so a program built for DRAM q/k
+           # reads the wrong memory when handed L1 ones (SaProt's RoPE leaves q, k in L1).
+           tuple(str(t.memory_config().buffer_type) for t in (q, k, v, mask, out)),
            q_chunk_size, k_chunk_size, grid, tuple(str(c) for c in ckc),
            # `build` compiles the softmax scale into the writer and compute kernels. Without it
            # here two sites with equal padded shapes and different head dims share a program:
@@ -853,7 +872,8 @@ def sdpa(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scal
            # compiled program back for both legs and reads a 1.000x that means nothing.
            os.environ.get("TT_BIO_SDPA_ADD_GRANULARITY"),
            str(kw.get("im_dtype")), str(kw.get("out_im_dtype")), str(kw.get("stats_dtype")),
-           kw.get("kv_window"), kw.get("qkv_fused"), kw.get("css") is not None)
+           kw.get("kv_window"), kw.get("qkv_fused"), kw.get("css") is not None,
+           None if kw.get("keypad") is None else str(kw["keypad"].padded_shape))
     e = _CACHE.get(key)
     if e is None:
         e = _CACHE[key] = build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid,
@@ -866,9 +886,11 @@ def sdpa(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scal
     gate_addr = None if gate is None else gate[0].buffer_address()
     css = kw.get("css")
     css_bind = None if css is None else (css[0].buffer_address(), tuple(css[1]))
-    bound = (addrs, fuse_addrs, gate_addr, css_bind)
+    kp = kw.get("keypad")
+    kp_addr = None if kp is None else kp.buffer_address()
+    bound = (addrs, fuse_addrs, gate_addr, css_bind, kp_addr)
     held = (e["addrs"], None if fuse is None else e["fuse"][2:], None if gate is None else e["gate"],
-            e.get("css"))
+            e.get("css"), e.get("kp"))
     if bound != held:
         pd = bound_descriptor(e, bound)
         if pd is None:
@@ -884,6 +906,8 @@ def sdpa(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scal
                     a[-1] = gate_addr
                 elif css is not None:
                     a[-1] = css_bind[0]
+                elif kp is not None:
+                    a[-1] = kp_addr
             for _, a in wr:
                 a[0] = addrs[4]
             if css is not None:
@@ -906,6 +930,7 @@ def sdpa(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scal
         if gate is not None:
             e["gate"] = gate_addr
         e["css"] = css_bind
+        e["kp"] = kp_addr
     # The fold's reader never touches q/k/v -- they are here for their shapes, and the tensors the
     # program actually reads are x and w.
     operands = [q, k, v, mask, out] if fuse is None else [fuse[0], fuse[1], mask, out]
@@ -915,5 +940,7 @@ def sdpa(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scal
         operands = operands + [gate[0]]
     if css is not None:
         operands = operands + [css[0]]
+    if kp is not None:
+        operands = operands + [kp]
     ttnn.generic_op(operands, e["pd"])
     return out
