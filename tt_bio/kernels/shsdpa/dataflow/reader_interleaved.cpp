@@ -673,7 +673,14 @@ void kernel_main() {
                             }
 
                             uint32_t tile_idx = 0;
-                            for (uint32_t row = 0; row < Sq_chunk_t; ++row) {
+#ifdef KEYPAD_ROW
+                            // The key-padding mask is one row for every query: push it once, the
+                            // compute adds it to each q row of the chunk.
+                            constexpr uint32_t mask_rows = 1;
+#else
+                            constexpr uint32_t mask_rows = Sq_chunk_t;
+#endif
+                            for (uint32_t row = 0; row < mask_rows; ++row) {
                                 const uint32_t global_q_tile = q_chunk * Sq_chunk_t + row;
                                 const bool q_valid = !use_padded_mask || (global_q_tile < valid_Sqt);
                                 for (uint32_t col = 0; col < Sk_chunk_t; ++col) {
@@ -699,7 +706,7 @@ void kernel_main() {
 #endif
                             }
                             noc_async_read_barrier();
-                            cb_push_back(cb_mask_in, mask_chunk_tiles);
+                            cb_push_back(cb_mask_in, mask_rows * Sk_chunk_t);
                         }
 
                         // Complete K forward: flush write and signal receiver(s)

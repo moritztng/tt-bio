@@ -20,6 +20,9 @@ ap.add_argument("--lens", default="544,544,520,480,430,390,300", help="ESMC per-
 ap.add_argument("--ncall", type=int, default=10)
 ap.add_argument("--reps", type=int, default=7)
 ap.add_argument("--bh", default="7,15", help="ESMC batch,heads (300M 7,15; 600M 7,18; SaProt 650M 7,20; 6B 1,40)")
+ap.add_argument("--nomask", default="",
+                help="stock SDPA arms WITHOUT a mask (the wheel's streaming compute path), q:k chunk pairs a,b;c,d. "
+                     "Only right against the reference when every --lens is 544; the bench checks it per config")
 ap.add_argument("--host", action="store_true", help="time eager host dispatch instead of trace replay")
 ap.add_argument("--proto", default="", help="extra ESMC proto arms qc:kc:b,h,q;... (qc 0 = whole, split - = factory)")
 a = ap.parse_args()
@@ -96,6 +99,14 @@ if "esmc" in a.shape:
                    [(b, i) for b in range(B) for i in range(lens[b])])
     ARMS["e_ship"] = ("esmc", lambda: E.lm_sdpa(eq, ek, ev, em, sc))
     ARMS["e_stock"] = ("esmc", lambda: T.fused_sdpa(eq, ek, ev, attn_mask=em, scale=sc))
+    for t in filter(None, a.nomask.split(";")):
+        qc, kc = map(int, t.split(","))
+        pc = ttnn.SDPAProgramConfig(compute_with_storage_grid_size=dev.compute_with_storage_grid_size(),
+                                    q_chunk_size=qc, k_chunk_size=kc, exp_approx_mode=False)
+        ck2 = ttnn.init_device_compute_kernel_config(dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi2,
+                                                     math_approx_mode=False, fp32_dest_acc_en=True, packer_l1_acc=False)
+        ARMS[f"e_nm{qc}_{kc}"] = ("esmc", lambda pc=pc, ck2=ck2: ttnn.transformer.scaled_dot_product_attention(
+            eq, ek, ev, is_causal=False, scale=sc, program_config=pc, compute_kernel_config=ck2))
     try:
         from tt_bio import shsdpa as P
         PROTO = {}
