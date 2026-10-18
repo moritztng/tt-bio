@@ -525,18 +525,20 @@ def _lin6b_program(x, w):
         per_core_M=pm, per_core_N=pn, transpose_mcast=False, fused_activation=None, fuse_batch=True)
 
 
-def _mm_bf16_acc(w) -> bool:
-    return w.dtype == ttnn.bfloat8_b if _ESMC_MM_BF16_ACC is None else _ESMC_MM_BF16_ACC
+def _mm_bf16_acc(w, exact: bool = False) -> bool:
+    """bf16 dest accumulation on a block-fp8 minimal_matmul: a --fast choice. ``exact`` marks block-fp8 weights
+    serving a normal-mode forward (the ESMC-6B embed on Wormhole), which keeps fp32 accumulation."""
+    return w.dtype == ttnn.bfloat8_b and not exact if _ESMC_MM_BF16_ACC is None else _ESMC_MM_BF16_ACC
 
 
-def _mm_config(x, w):
+def _mm_config(x, w, exact: bool = False):
     if not _ESMC_MM_CFG:
         return {}
     g = x.device().compute_with_storage_grid_size()
     kt = int(w.shape[-2]) // 32
     return {"config": ttnn.MinimalMatmulConfig(
         M_block_size=16, K_block_size=4 if kt % 4 == 0 else 2, N_block_size=4, subblock_h=2,
-        subblock_w=4 if _mm_bf16_acc(w) else 2, compute_with_storage_grid_size=ttnn.CoreCoord(g.x, g.y))}
+        subblock_w=4 if _mm_bf16_acc(w, exact) else 2, compute_with_storage_grid_size=ttnn.CoreCoord(g.x, g.y))}
 
 
 def _esmc_mm() -> bool:
@@ -552,13 +554,14 @@ class _MMLin:
 
     _ACT = {"silu": ttnn.UnaryOpType.SILU, "gelu": ttnn.UnaryOpType.GELU}
     MM_BFP8_HIFI2 = True   # _ESMC_MM_BFP8_HIFI2's default for this model family
+    mm_exact_acc = False   # see _mm_bf16_acc; set per instance by _embed_6b_mode
 
     def _mm_on(self) -> bool:
         return _esmc_mm()
 
     def _mm_ck(self, w):
         ck = self.compute_kernel_config
-        if not _mm_bf16_acc(w):
+        if not _mm_bf16_acc(w, self.mm_exact_acc):
             return ck
         fid = ck.math_fidelity
         hifi2 = self.MM_BFP8_HIFI2 if _ESMC_MM_BFP8_HIFI2 is None else _ESMC_MM_BFP8_HIFI2
@@ -582,7 +585,7 @@ class _MMLin:
         try:
             out = ttnn.experimental.minimal_matmul_split(
                 x, w, chunks=chunks, compute_kernel_config=self._mm_ck(w), dtype=_dtype(ttnn.bfloat16),
-                memory_config=ttnn.DRAM_MEMORY_CONFIG, **_mm_config(x, w))
+                memory_config=ttnn.DRAM_MEMORY_CONFIG, **_mm_config(x, w, self.mm_exact_acc))
         except RuntimeError:
             return None
         MM_FUSE_STATS[0] += 1
@@ -600,7 +603,7 @@ class _MMLin:
         try:
             out = ttnn.experimental.dit_minimal_matmul_addcmul_fused(
                 x, w, 1.0, resid, ones, compute_kernel_config=self._mm_ck(w),
-                dtype=_dtype(ttnn.bfloat16), memory_config=ttnn.DRAM_MEMORY_CONFIG, **_mm_config(x, w))
+                dtype=_dtype(ttnn.bfloat16), memory_config=ttnn.DRAM_MEMORY_CONFIG, **_mm_config(x, w, self.mm_exact_acc))
         except RuntimeError:
             return None
         MM_FUSE_STATS[1] += 1
@@ -615,7 +618,7 @@ class _MMLin:
                 out = ttnn.experimental.minimal_matmul(
                     x, w, bias_tensor=bias, compute_kernel_config=self._mm_ck(w),
                     dtype=_dtype(ttnn.bfloat16) if dtype is None else dtype,
-                    memory_config=kw.get("memory_config") or ttnn.DRAM_MEMORY_CONFIG, **_mm_config(x, w),
+                    memory_config=kw.get("memory_config") or ttnn.DRAM_MEMORY_CONFIG, **_mm_config(x, w, self.mm_exact_acc),
                     **({"fused_activation": (self._ACT[act], False)} if act else {}))
                 MM_STATS[0] += 1
                 return out
@@ -1235,7 +1238,7 @@ class SwiGLUFFN(_MMLin, Module):
         grid = (int(g.x), int(g.y))
         ck = self.compute_kernel_config if large else self._mm_ck(w)
         cfg = mm_gate.config(x_norm, 2 * int(w.shape[-1]), int(w.shape[-2]) // 32, grid,
-                             not large and _mm_bf16_acc(w))
+                             not large and _mm_bf16_acc(w, self.mm_exact_acc))
         if cfg is None or not mm_gate.overlay_ok():
             MM_GATE_STATS[1] += 1
             return None
@@ -2032,13 +2035,31 @@ def load_esmc6b_state_dict(snapshot_dir: str, dtype: torch.dtype | None = None) 
 # ESMC-6B embeddings in normal mode on Wormhole load the block-fp8 projection/FFN weights --fast holds, the way
 # ESMFold2 already builds this LM there (esmfold2_runtime lm_b8): one 6B LM per chip, and the bf16 weights stream
 # 6.3 GB a forward through ~248 GB/s of DRAM. Only the stored weights change; the forward keeps normal mode.
-# Off until the page cell and the normal embedding bar read (grid b8n).
-_ESMC_6B_B8 = env_flag("TT_BIO_ESMC_6B_B8", False)
+# Galaxy chip, 1000 MHz, page cell (1 x 544): 241.5 -> 199.2 ms, pcc vs fp32 0.998936 -> 0.998849, pooled cos
+# 0.999851 -> 0.999850. A normal-mode forward keeps fp32 accumulation where a batch reaches minimal_matmul.
+_ESMC_6B_B8 = env_flag("TT_BIO_ESMC_6B_B8", True)
+# --fast ESMC-6B embeddings on Wormhole at HiFi3 instead of HiFi4: 197.0 -> 182.1 ms, pcc vs fp32 0.998849 ->
+# 0.998829, pooled 0.999850 -> 0.999839 (same cell). HiFi2 reads 178.2 ms but pcc 0.998539, past the fast bar.
+_ESMC_6B_FAST_FIDELITY = os.environ.get("TT_BIO_ESMC_6B_FAST_FIDELITY", "HiFi3")
 
 
 def _6b_weights_b8(fast: bool) -> bool:
     from tt_bio import tenstorrent
     return fast or (_ESMC_6B_B8 and tenstorrent.is_wormhole())
+
+
+def _embed_6b_mode(model, fast: bool):
+    """The ESMC-6B embed model's per-mode compute on Wormhole: block-fp8 weights under a normal forward keep fp32
+    accumulation, and --fast runs at _ESMC_6B_FAST_FIDELITY. ESMFold2 builds its own 6B and is untouched."""
+    from tt_bio import tenstorrent
+    if not tenstorrent.is_wormhole():
+        return model
+    if fast:
+        model.compute_kernel_config.math_fidelity = getattr(ttnn.MathFidelity, _ESMC_6B_FAST_FIDELITY)
+    elif _6b_weights_b8(fast):
+        for b in model.module.blocks:
+            b.attn.mm_exact_acc = b.ffn.mm_exact_acc = True
+    return model
 
 
 def load_esmc6b_shared(cache_dir: str, *, name: str = "esmc-6b", fast: bool = False):
@@ -2076,7 +2097,7 @@ def load_esmc6b_shared(cache_dir: str, *, name: str = "esmc-6b", fast: bool = Fa
                     model.load_state_dict(sd, strict=False)
                 open(done, "w").close()
                 _tlog(f"cache_build {_time.perf_counter()-_t:.2f}s")
-                return model
+                return _embed_6b_mode(model, fast)
         finally:
             fcntl.flock(lockf, fcntl.LOCK_UN)
             lockf.close()
@@ -2085,7 +2106,7 @@ def load_esmc6b_shared(cache_dir: str, *, name: str = "esmc-6b", fast: bool = Fa
             model = ESMCLanguageModel(name=name)
             model.load_state_dict({}, strict=False)  # weights come from the tile cache
         _tlog(f"cache_load {_time.perf_counter()-_t:.2f}s")
-        return model
+        return _embed_6b_mode(model, fast)
     finally:
         _tt.set_fast_mode(fast)
 
@@ -2450,7 +2471,7 @@ def load_esmc(name: str = "esmc-300m", *, fast: bool = False, trace: bool = True
     if name == "esmc-6b":
         tenstorrent.set_fast_mode(_6b_weights_b8(fast))
         try:
-            return ESMCLanguageModel.from_pretrained(name=name)
+            return _embed_6b_mode(ESMCLanguageModel.from_pretrained(name=name), fast)
         finally:
             tenstorrent.set_fast_mode(fast)
     if name not in CONFIGS:

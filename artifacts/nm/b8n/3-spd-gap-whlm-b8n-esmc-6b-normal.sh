@@ -4,7 +4,7 @@
 # threads: 8
 O=/home/ubuntu/spd/spd-gap-whlm/b8n
 [ -s $O/b8/ab.jsonl ] && exit 0
-cd /home/ubuntu/spd/spd-gap-whlm/trees/tab04a6ec5 || exit 3
+cd /home/ubuntu/spd/spd-gap-whlm/trees/t04d1910d4 || exit 3
 for arm in bf16 b8; do
   B=0; [ $arm = b8 ] && B=1
   [ -s $O/$arm/ab.jsonl ] && continue
