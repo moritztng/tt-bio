@@ -3325,7 +3325,7 @@ def _k_chunks_up(q_len: int, k_len: int, heads: int, head_dim: int, dtype) -> tu
         if p["q_per_core"] != 1 or p["nh_per_core"] != 1 or p["use_padded_mask"]:
             continue
         pers = p["k_num_chunks"] * p["Sq_chunk_t"] * p["Sk_chunk_t"]
-        if SG.cb_fits_l1(p, mask_cb_tiles=pers,
+        if SG.cb_fits_l1(p, mask_cb_tiles=pers, one_k_trim=True,
                          **{f"{o}_dtype": dtype for o in ("q", "k", "v", "mask", "out")}):
             out.append(kc)
     return tuple(out)
