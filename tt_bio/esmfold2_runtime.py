@@ -1603,6 +1603,13 @@ _WH_NORMAL_EXTRA = "+transition_ws+ws_resid+ef2_lm_combine+ef2_opm_kq+lm_qk_chai
 # the legacy multiply is graded on ESMC's embeddings (6B pcc vs fp32 -0.00002 / +0.00001), not yet on a fold.
 # lm_sdpa_stock likewise keeps the LM's stock SDPA over the full mask (esmc._key_lens, shsdpa elsewhere on Wormhole).
 _WH_EXTRA = "+lm_gate_ng+lm_sdpa_stock"
+# dit_qkvf runs the token DiT's attention as one `_sdpa32_fused` program off a folded q|k|v projection. Fast bar on
+# Wormhole against the WH fast set without it, 11 complexes x 4 seeds, 44 paired folds per model (Galaxy chip, 1000
+# MHz, spd-bet-ditpersist dsg): ESMFold2-Fast CA-lDDT -0.0002 [-0.0006, +0.0003], top-pose median 0.55 A vs 1.46 A
+# seed floor, docking 24 -> 24 of 44; ESMFold2 --fast CA-lDDT +0.0016 [+0.0009, +0.0022], 0.69 A vs 1.33 A, docking
+# 32 -> 32 (its L-RMSD reads +2.5 A [+0.4, +5.4], so the normal set does not take it). Same chip, -Fast, 1000 MHz:
+# diffusion draw 2.52 -> 1.97 s at 384 aa, 3.04 -> 2.15 s at 512 (dst).
+_WH_FAST_EXTRA = "+dit_qkvf"
 
 
 def fold_levers(fast: bool) -> str:
@@ -1614,7 +1621,7 @@ def fold_levers(fast: bool) -> str:
     if is_wormhole():
         drop = _BH_ONLY_FAST if fast else _BH_ONLY_FAST + ("ef2_pair_init",)
         levers = "+".join(n for n in levers.split("+") if n not in drop)
-        levers += ("" if fast else _WH_NORMAL_EXTRA) + _WH_EXTRA
+        levers += (_WH_FAST_EXTRA if fast else _WH_NORMAL_EXTRA) + _WH_EXTRA
     return levers
 
 

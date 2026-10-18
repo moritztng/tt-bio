@@ -40,10 +40,16 @@ from tt_bio.tenstorrent import (
     attn_value_matmul,
     fused_sdpa,
     lever,
+    _ColWin,
+    _win_addcmul,
+    sdpa32_mask,
+    sdpa32_rows,
+    _sdpa32_fused,
     trunk_compute_kernel_config,
     trace_region_size,
 )
 from tt_bio.eltwise_fusion import scale_add
+from tt_bio.addcmul_at import addcmul_at
 
 _ROW = lambda x: x.reshape(1, -1)
 
@@ -130,6 +136,20 @@ def _attn_fp32(q, k, v, attn_mask, scale, ck, accurate_softmax: bool = False):
             else ttnn.softmax(logits, dim=-1))  # over keys
     ctx = attn_value_matmul(attn, vf, ck, f32)  # [B,H,L,Dp]
     return ttnn.typecast(ctx, _DTYPE)
+
+
+def _sdpa32_mask(bias, scale):
+    """The cached pair bias as the `_sdpa32` mask under dit_qkvf: fp32, divided by `scale` (the program scales its mask with
+    the scores), padded to `sdpa32_rows`. Built once per block per fold, like the bias it replaces."""
+    f32 = ttnn.float32
+    b = ttnn.typecast(bias, f32)
+    m = ttnn.multiply(b, 1.0 / scale)
+    ttnn.deallocate(b)
+    if sdpa32_rows(int(m.shape[-1])) == int(m.shape[-1]):
+        return m
+    mp = sdpa32_mask(m)
+    ttnn.deallocate(m)
+    return mp
 
 
 def _sdpa_bf16(q, k, v, attn_mask, scale):
@@ -279,9 +299,25 @@ class AdaLN(Module):
         self.s_gate_b = self.torch_to_tt("s_gate.bias", transform=_ROW)
         self.s_shift_w = self.torch_to_tt("s_shift.weight")
 
-    def __call__(self, a: ttnn.Tensor, s: ttnn.Tensor) -> ttnn.Tensor:
+    def folded(self):
+        """(scale weight, scale bias, shift weight) on the un-weighted LN(s): the s-norm's gamma folded in."""
+        g = self.weights["s_scale"].float()[:, None]
+        return (g * self.weights["s_gate.weight"].float().t(), self.weights["s_gate.bias"].float(),
+                g * self.weights["s_shift.weight"].float().t())
+
+    def __call__(self, a: ttnn.Tensor, s: ttnn.Tensor, terms=None) -> ttnn.Tensor:
+        """`terms`: this block's (sigmoid scale, shift) windows of the step's wide conditioning (dit_shoist)."""
         ck = self.compute_kernel_config
         a_norm = ttnn.layer_norm(a, epsilon=1e-5, compute_kernel_config=ck)
+        if terms is not None:
+            (sc_t, sc_off, w), (sh_t, sh_off, _) = terms
+            out = addcmul_at(sh_t, a_norm, sc_t, w, x_off=sh_off, z_off=sc_off)
+            if out is None:
+                sc, sh = terms[0].cut(), terms[1].cut()
+                out = ttnn.addcmul(sh, a_norm, sc, value=1.0)
+                ttnn.deallocate(sc); ttnn.deallocate(sh)
+            ttnn.deallocate(a_norm)
+            return out
         s_norm = ttnn.layer_norm(s, weight=self.s_scale, epsilon=1e-5, compute_kernel_config=ck)
         gate = ttnn.sigmoid(self._lin(s_norm, self.s_gate_w, bias=self.s_gate_b))
         shift = self._lin(s_norm, self.s_shift_w)
@@ -346,13 +382,29 @@ class AttentionPairBias(Module):
             self._fold = (to_tt(qkv), to_tt(b), to_tt(W("g_proj.weight").t() @ Sg))
         return self._fold
 
-    def __call__(self, a: ttnn.Tensor, s: ttnn.Tensor, z: ttnn.Tensor) -> ttnn.Tensor:
+    def __call__(self, a: ttnn.Tensor, s: ttnn.Tensor, z: ttnn.Tensor, terms=None) -> ttnn.Tensor:
+        """`terms` (dit_shoist): the adaLN windows; the output then comes back without its s-gate, which the
+        caller applies with the residual add."""
         ck = self.compute_kernel_config
         d_model = a.shape[-1]
         head_dim = d_model // self.num_heads
 
-        x = self.adaln(a, s)
+        x = self.adaln(a, s, terms)
+        s = s if terms is None else None  # no s: _out skips the gate
         lin = self._lin
+        if lever("dit_qkvf"):
+            # dit_qkvf: one q|k|v projection (head padding folded in) read straight by the shared `_sdpa32_fused`
+            # program, which writes the heads concatenated on their padded lanes: no head split, no casts, no
+            # re-assembly. The token axis arrives padded to sdpa32_rows (DiffusionTransformerModel).
+            qkv_w, qkv_b, g_w = self._folded()
+            qkv = ttnn.unsqueeze(lin(x, qkv_w, qkv_b), 1)
+            g_pad = ttnn.sigmoid(lin(x, g_w))
+            ttnn.deallocate(x)
+            B, _, n, w = (int(d) for d in qkv.shape)
+            ctx = _sdpa32_fused(qkv, self._pair_bias(z, head_dim, ck), head_dim**-0.5, self.num_heads,
+                                out_dtype=_DTYPE)
+            ttnn.deallocate(qkv)
+            return self._out(ttnn.reshape(ctx, (B, n, w // 3)), g_pad, s)
         if _APB_FOLD:
             qkv_w, qkv_b, g_w = self._folded()
             qh, kh, vh = self._split_heads(lin(x, qkv_w, qkv_b), self.num_heads)
@@ -382,39 +434,49 @@ class AttentionPairBias(Module):
         ttnn.deallocate(g)
         return self._attend(qh, kh, vh, g_pad, s, z, head_dim, ck)
 
-    def _attend(self, qh, kh, vh, g_pad, s, z, head_dim, ck):
-        lin = self._lin
-        # pair_bias = pair_bias_proj(layer_norm(z)) is a pure function of the
-        # pair conditioning z, which is constant across the diffusion sampling
-        # steps (the resident sampler feeds the same cached z object each step).
-        # So compute it once and reuse it while the same z is fed; a new protein
-        # passes a fresh z, which rebuilds it. Bit-identical to recomputing, and
-        # saves an O(L^2 . H) layer_norm + projection per step per layer — the
-        # single largest step-invariant cost in the token DiT.
-        if _STEP_CACHE and self._pb_src is z:
-            pair_bias = self._pb
-        else:
-            if self._pb is not None:
-                ttnn.deallocate(self._pb)
-            z_norm = ttnn.layer_norm(
-                z, weight=self.pair_norm_w, bias=self.pair_norm_b, epsilon=1e-5, compute_kernel_config=ck
-            )
-            pb = lin(z_norm, self.pair_bias_w)  # [B, L, L, H]
-            ttnn.deallocate(z_norm)
-            pair_bias = ttnn.permute(pb, (0, 3, 1, 2))  # [B, H, L, L]
-            ttnn.deallocate(pb)
-            self._pb = pair_bias
-            self._pb_src = z
+    def _pair_bias(self, z, head_dim, ck):
+        """pair_bias = pair_bias_proj(layer_norm(z)) [B, H, L, L], or under dit_qkvf `_sdpa32`'s mask
+        made from it (`_sdpa32_mask`).
 
+        A pure function of the pair conditioning z, which is constant across the diffusion sampling steps (the
+        resident sampler feeds the same cached z object each step). So it is built once and reused while the same
+        z is fed; a new protein passes a fresh z, which rebuilds it. Bit-identical to recomputing, and saves an
+        O(L^2 . H) layer_norm + projection per step per layer, the single largest step-invariant cost in the
+        token DiT."""
+        if _STEP_CACHE and self._pb_src is z:
+            return self._pb
+        if self._pb is not None:
+            ttnn.deallocate(self._pb)
+        z_norm = ttnn.layer_norm(
+            z, weight=self.pair_norm_w, bias=self.pair_norm_b, epsilon=1e-5, compute_kernel_config=ck
+        )
+        pb = self._lin(z_norm, self.pair_bias_w)  # [B, L, L, H]
+        ttnn.deallocate(z_norm)
+        pair_bias = ttnn.permute(pb, (0, 3, 1, 2))  # [B, H, L, L]
+        ttnn.deallocate(pb)
+        if lever("dit_qkvf"):  # cache the fp32 mask in place of the bf16 bias
+            m = _sdpa32_mask(pair_bias, head_dim**-0.5)
+            ttnn.deallocate(pair_bias)
+            pair_bias = m
+        self._pb = pair_bias
+        self._pb_src = z
+        return pair_bias
+
+    def _attend(self, qh, kh, vh, g_pad, s, z, head_dim, ck):
+        pair_bias = self._pair_bias(z, head_dim, ck)
         ctx = _attn_fp32(qh, kh, vh, pair_bias, head_dim**-0.5, ck, self.accurate_softmax)
         ttnn.deallocate(qh); ttnn.deallocate(kh); ttnn.deallocate(vh)
-        ctx = self._merge_heads(ctx)  # [B, L, H*head_dim_pad]  (pad value dims are 0)
-        # Gate + out_proj in the padded head layout, then project back to d_model.
+        return self._out(self._merge_heads(ctx), g_pad, s)  # [B, L, H*head_dim_pad]  (pad value dims are 0)
+
+    def _out(self, ctx, g_pad, s):
+        """Gate + out_proj in the padded head layout, then project back to d_model; times the s gate."""
         ctx = ttnn.multiply(ctx, g_pad)
         ttnn.deallocate(g_pad)
-        out = lin(ctx, self.out_w_padded)  # [B, L, d_model]
+        out = self._lin(ctx, self.out_w_padded)  # [B, L, d_model]
         ttnn.deallocate(ctx)
-        out_gate = ttnn.sigmoid(lin(s, self.out_gate_w, self.out_gate_b))
+        if s is None:
+            return out
+        out_gate = ttnn.sigmoid(self._lin(s, self.out_gate_w, self.out_gate_b))
         return ttnn.multiply(out_gate, out)
 
 
@@ -429,10 +491,10 @@ class ConditionedTransitionBlock(Module):
         self.gate_w = self.torch_to_tt("output_gate.weight")
         self.gate_b = self.torch_to_tt("output_gate.bias", transform=_ROW)
 
-    def __call__(self, a: ttnn.Tensor, s: ttnn.Tensor) -> ttnn.Tensor:
-        ck = self.compute_kernel_config
+    def __call__(self, a: ttnn.Tensor, s: ttnn.Tensor, terms=None) -> ttnn.Tensor:
+        """`terms` as AttentionPairBias's: the output then comes back without its s-gate."""
         lin = self._lin
-        x = self.adaln(a, s)
+        x = self.adaln(a, s, terms)
         sw = lin(x, self.swish_w)
         ttnn.deallocate(x)
         a1, a2 = ttnn.chunk(sw, 2, dim=-1)
@@ -441,6 +503,8 @@ class ConditionedTransitionBlock(Module):
         ttnn.deallocate(a1); ttnn.deallocate(a2)
         out = lin(b, self.out_w)
         ttnn.deallocate(b)
+        if terms is not None:
+            return out
         gate = ttnn.sigmoid(lin(s, self.gate_w, self.gate_b))
         return ttnn.multiply(gate, out)
 
@@ -460,12 +524,73 @@ class DiffusionTransformerModel(Module):
             ConditionedTransitionBlock(self.scope(f"transition_blocks.{i}"), compute_kernel_config)
             for i in range(num_blocks)
         ]
+        self._shoist_w = None
+
+    def _shoist(self, s):
+        """`dit_shoist`: every block's s-terms as three wide linears off this step's `s`: (sigmoid adaLN scales,
+        adaLN shifts, sigmoid output gates), one 768-column window per sub-block in order (attention 0,
+        transition 0, attention 1, ...). The adaLN pair reads the un-weighted LN(s), its gamma folded in."""
+        if self._shoist_w is None:
+            sw, sb, hw, gw, gb = [], [], [], [], []
+            for attn, trans in zip(self.attn, self.trans):
+                for blk, g in ((attn, "out_gate."), (trans, "output_gate.")):
+                    w_sc, b_sc, w_sh = blk.adaln.folded()
+                    sw.append(w_sc); sb.append(b_sc); hw.append(w_sh)
+                    gw.append(blk.weights[g + "weight"].float().t()); gb.append(blk.weights[g + "bias"].float())
+            up = lambda t: ttnn.from_torch(t.contiguous(), dtype=_DTYPE, layout=ttnn.TILE_LAYOUT,  # noqa: E731
+                                           device=self.device)
+            self._shoist_w = (up(torch.cat(sw, 1)), up(torch.cat(sb).reshape(1, -1)), up(torch.cat(hw, 1)),
+                              up(torch.cat(gw, 1)), up(torch.cat(gb).reshape(1, -1)))
+        w_sc, b_sc, w_sh, w_g, b_g = self._shoist_w
+        s_hat = ttnn.layer_norm(s, epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
+        out = (self._lin(s_hat, w_sc, b_sc, activation="sigmoid"), self._lin(s_hat, w_sh),
+               self._lin(s, w_g, b_g, activation="sigmoid"))
+        ttnn.deallocate(s_hat)
+        return out
+
+    def _blocks_shoist(self, a, s, z):
+        """The block loop under dit_shoist: each sub-block reads its adaLN windows and returns ungated; the gate
+        window multiplies it into the residual in one op."""
+        sc, sh, g = self._shoist(s)
+        W = lambda t, j: _ColWin(t, j * 768, 768)  # noqa: E731
+        x = a
+        for i, (attn, trans) in enumerate(zip(self.attn, self.trans)):
+            for j, blk in ((2 * i, attn), (2 * i + 1, trans)):
+                terms = (W(sc, j), W(sh, j))
+                y = blk(x, s, z, terms) if blk is attn else blk(x, s, terms)
+                x_new = _win_addcmul(x, y, W(g, j))
+                if x_new is None:
+                    gj = W(g, j).cut()
+                    x_new = ttnn.addcmul(x, y, gj, value=1.0)
+                    ttnn.deallocate(gj)
+                ttnn.deallocate(y)
+                if x is not a:
+                    ttnn.deallocate(x)
+                x = x_new
+        for t in (sc, sh, g):
+            ttnn.deallocate(t)
+        return x
 
     def __call__(self, a: ttnn.Tensor, s: ttnn.Tensor, z: ttnn.Tensor) -> ttnn.Tensor:
-        x = a
-        for attn, trans in zip(self.attn, self.trans):
-            x = ttnn.add(x, attn(x, s, z))
-            x = ttnn.add(x, trans(x, s))
+        # dit_qkvf runs the attention at sdpa32_rows. The token stream is padded to it here, once a call, not
+        # q, k and v in every block: rows are independent everywhere but the attention, and its mask
+        # (`_sdpa32_mask`) hides the new keys. The same padding Protenix's and OpenFold3's token DiTs do.
+        n = int(a.shape[-2])
+        npad = sdpa32_rows(n) if lever("dit_qkvf") else n
+        if npad != n:
+            a, s = (ttnn.pad(t, [(0, 0), (0, npad - n), (0, 0)], value=0.0) for t in (a, s))
+        if lever("dit_shoist"):
+            x = self._blocks_shoist(a, s, z)
+        else:
+            x = a
+            for attn, trans in zip(self.attn, self.trans):
+                x = ttnn.add(x, attn(x, s, z))
+                x = ttnn.add(x, trans(x, s))
+        if npad != n:
+            out = ttnn.slice(x, [0, 0, 0], [int(x.shape[0]), n, int(x.shape[2])])
+            for t in (s, x):
+                ttnn.deallocate(t)
+            x = out
         return x
 
 
