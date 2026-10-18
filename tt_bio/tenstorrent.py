@@ -15677,6 +15677,15 @@ _OPM_SMALL_DEPTH_BMM = env_flag("TT_BIO_OPM_SMALL_DEPTH_BMM", True)
 # partial to bf16 and added them in a separate pass over the [I, J, c_z] output. Not bit-exact
 # (fewer roundings, not more). Depth 2 is every AF2-IG fold and BindCraft 2 round.
 _OPM_DEPTH_JOIN = env_flag("TT_BIO_OPM_DEPTH_JOIN", True)
+# The join repeats b's S depth rows over the I batch: [I, J, S*D] bf16, S times the per-row loop's
+# [I, J, D]. 6.4 MB at AF2-IG's 224 tokens and depth 2, but 1.2 GB at 1536 tokens and depth 8, where
+# every model with a shallow MSA reaches this path. Above the cap the per-row loop runs unchanged.
+OPM_DEPTH_JOIN_MAX_BYTES = 64 << 20
+
+
+def _opm_depth_join_fits(I: int, J: int, S: int, D: int) -> bool:
+    """Whether the depth join's repeated b, [I, J, S*D] bf16, stays under OPM_DEPTH_JOIN_MAX_BYTES."""
+    return I * J * S * D * 2 <= OPM_DEPTH_JOIN_MAX_BYTES
 
 class OuterProductMean(Module):
     def __init__(
@@ -15762,7 +15771,7 @@ class OuterProductMean(Module):
         scale = 1.0 / (n_msa if n_msa is not None else S)
         w = self._proj_o_folded(C, D)
         c_z = w.shape[1] // D
-        if S > 1 and _OPM_DEPTH_JOIN:
+        if S > 1 and _OPM_DEPTH_JOIN and _opm_depth_join_fits(I, J, S, D):
             out = self._small_depth_joined(a, b, w, scale, S, I, C, J, D, c_z)
         else:
             out = None
