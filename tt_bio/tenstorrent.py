@@ -661,7 +661,8 @@ _FAST_MODE = False
 #                   that would otherwise stay in L1 (Nesso-1's 256-token crop passes: 0.70 -> 0.36 s each on WH)
 #   trimul_bres     the trimul einsum by `bmm_res` (b[c] resident in L1, whole channels per core) where it fits:
 #                   a, b and out cross DRAM once. Bit-exact with ttnn.matmul in ESMFold2 folds (byte-identical coords
-#                   on both archs); declines to ttnn.matmul where b[c] does not fit L1 (above 704 tokens bf16, 960 bfp8)
+#                   on both archs); declines to ttnn.matmul where b[c] does not fit L1 (above 704 tokens bf16, 960 bfp8).
+#                   It sums K in an fp32 dest even under acc_off, which is what let it fire in fast sets at all
 #   trimul_t2cm     with trimul_t2, T2 reads the einsum's channel-major [1, C, S, S] output itself (T2m's program with
 #                   the whole hidden as its one chunk), so `reblock_permute_back`
 #                   (0.58 ms a call at 512 on p150a) never runs. A pure data move: bit-exact against trimul_t2
@@ -6357,6 +6358,19 @@ def _trimul_einsum_ckc(base):
     return cfg
 
 
+def _bres_ckc(cfg):
+    """`cfg` with an fp32 dest, for bmm_res: it declines a bf16 dest, which `acc_off` gives the whole trunk. The
+    einsum writes bf16 either way, and summing K in fp32 is the more precise side (rel rms vs a float64 product at
+    OpenDDE's c384 x 512: 1.5e-2 bf16 dest, 1.7e-3 fp32)."""
+    if cfg.fp32_dest_acc_en:
+        return cfg
+    out = type(cfg)(math_fidelity=cfg.math_fidelity, math_approx_mode=cfg.math_approx_mode,
+                    fp32_dest_acc_en=True, packer_l1_acc=cfg.packer_l1_acc)
+    out.dst_full_sync_en = cfg.dst_full_sync_en
+    out.throttle_level = cfg.throttle_level
+    return out
+
+
 def set_trimul_einsum_fid(fid: str) -> str:
     """A/B switch for the harness ("" | "hifi2" | "lofi" | ...). Returns the previous value."""
     global _TRIMUL_EINSUM_FID
@@ -10357,7 +10371,7 @@ class TriangleMultiplication(Module):
                                     ht = -(-H // 32)
                                     tma_reserve = max(tma_reserve, _bmm_res.cb_bytes(
                                         ht, ht, _dtype(), _dtype(), defer and perm_a == (0, 3, 2, 1),
-                                        _trimul_einsum_ckc(self.compute_kernel_config)))
+                                        _bres_ckc(_trimul_einsum_ckc(self.compute_kernel_config))))
                                 if (not ops.taping() and tma_key not in _OF3L1_REFUSED
                                         and n_pairs // group == 1
                                         and (perm_a != (0, 3, 2, 1) or defer)
@@ -10429,7 +10443,7 @@ class TriangleMultiplication(Module):
                             and out_mc.memory_layout == ttnn.TensorMemoryLayout.INTERLEAVED):
                         x_chunk = _bmm_res.matmul(
                             a_chunk, b_chunk,
-                            compute_kernel_config=_trimul_einsum_ckc(self.compute_kernel_config),
+                            compute_kernel_config=_bres_ckc(_trimul_einsum_ckc(self.compute_kernel_config)),
                             transpose_a=defer_a, transpose_b=defer_b)
                     if x_chunk is None:
                         x_chunk = ttnn.matmul(
