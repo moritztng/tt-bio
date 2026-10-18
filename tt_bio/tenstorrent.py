@@ -741,7 +741,7 @@ _FAST_MODE = False
 #   lm_sdpa_stock   the ESMC language model's key-padding mask stays a [B, 1, L, L] tensor for the stock SDPA where
 #                   Wormhole would run shsdpa on key lengths (esmc._key_lens): both ESMFold2 sets until a fold grades it.
 #   triatt_k1       triangle attention's fused SDPA takes the whole row as one k chunk where the CB set fits once the
-#                   unused online-softmax buffers are trimmed (sdpa_generic.cb_table one_k_trim): (q512, k512) at 512,
+#                   unused online-softmax buffers are trimmed (sdpa_generic.cb_table one_k_trim): 288-512 tokens, e.g. (q512, k512),
 #                   no rescale pass, op 1.13x on Wormhole. Same rung as TT_BIO_SDPA_WIDE_K_UP, flippable per fold.
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in",
@@ -3341,9 +3341,12 @@ def _tri_att_k_chunks(q_len: int, k_len: int, heads=None, head_dim=None, dtype=N
     up = ()
     if (_SDPA_WIDE_K_UP or lever("triatt_k1")) and None not in (heads, head_dim, dtype):
         up = _k_chunks_up(q_len, k_len, heads, head_dim, dtype)
-    if not _sdpa_wide_k():
-        return up + (_sdpa_chunks_shipped(q_len, k_len)[1],)
-    return up + _dividing_k_chunks(q_len, k_len)
+        if not _SDPA_WIDE_K_UP:
+            # triatt_k1 is the one-k-chunk rung only. A wider k that still takes two chunks keeps the
+            # rescale pass: at 576 tokens (k288 over the shipped k192) the PV2 WH fast fold ran ~4 s slower.
+            up = tuple(kc for kc in up if kc == _padded_sdpa_len(k_len))
+    rest = _dividing_k_chunks(q_len, k_len) if _sdpa_wide_k() else (_sdpa_chunks_shipped(q_len, k_len)[1],)
+    return tuple(dict.fromkeys(up + rest))
 
 
 # [calls served at a k_chunk wider than the shipped pick, calls that fell back to the shipped pick].
