@@ -200,19 +200,19 @@ def failures(d: Path, waived: dict | None = None) -> tuple[list[str], list[str]]
 
 
 def rerun_results(d: Path) -> dict:
-    """{(leg, arch): row} of the latest run of each leg at gate `d`'s commit in the run dirs beside
-    it, gate_fanout's results.jsonl rows, ordered by when each leg ended."""
+    """{(leg, arch): row} of the latest run of each leg at gate `d`'s commit in `d` and the run dirs
+    beside it, gate_fanout's results.jsonl rows, ordered by when each leg ended. `d` counts too: its
+    own rerun of pytest_cpu passed at 20:20Z on 10-18 and still lost to a side run's 16:06Z FAIL."""
     sha = json.loads((d / "plan.json").read_text()).get("sha") if (d / "plan.json").is_file() else None
     rows = []
     for f in d.parent.glob("*/results.jsonl") if sha else ():
-        if f.parent != d:
-            for ln in f.read_text(errors="replace").splitlines():
-                try:
-                    r = json.loads(ln)
-                except ValueError:
-                    continue
-                if r.get("sha") == sha and r.get("ended"):
-                    rows.append(r)
+        for ln in f.read_text(errors="replace").splitlines():
+            try:
+                r = json.loads(ln)
+            except ValueError:
+                continue
+            if r.get("sha") == sha and r.get("ended"):
+                rows.append(r)
     return {(r["leg"], r.get("arch")): r for r in sorted(rows, key=lambda r: r["ended"])}
 
 

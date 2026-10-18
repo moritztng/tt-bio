@@ -383,6 +383,13 @@ def test_a_failed_leg_is_judged_by_its_latest_run_on_the_same_commit(tmp_path, m
     assert rn.failures(g) == ([], ["rg:b bh"])
     (rerun / "results.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows[::-1]))
     assert rn.failures(g) == ([], [])
+    # The gate's own newer rerun beats an older side run (pytest_cpu on 9b16e86a7, 10-18).
+    rows[1]["ended"] = "2026-10-13T19:00:00Z"
+    (rerun / "results.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows))
+    assert rn.failures(g) == ([], ["rg:b bh"])
+    own = {**rows[1], "ended": "2026-10-13T23:00:00Z"}
+    (g / "results.jsonl").write_text(json.dumps(own) + "\n")
+    assert rn.failures(g) == ([], [])
 
 
 def test_a_gate_from_before_the_release_merged_back_still_ships(tmp_path):
