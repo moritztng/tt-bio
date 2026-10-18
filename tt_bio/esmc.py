@@ -561,16 +561,19 @@ class _MMLin:
 
     def _mm_ck(self, w):
         ck = self.compute_kernel_config
-        if not _mm_bf16_acc(w, self.mm_exact_acc):
-            return ck
+        bf16_acc = _mm_bf16_acc(w, self.mm_exact_acc)
         fid = ck.math_fidelity
         hifi2 = self.MM_BFP8_HIFI2 if _ESMC_MM_BFP8_HIFI2 is None else _ESMC_MM_BFP8_HIFI2
         if (hifi2 and w.dtype == ttnn.bfloat8_b and not getattr(self, "lm_large", False)
                 and fid in (ttnn.MathFidelity.HiFi3, ttnn.MathFidelity.HiFi4)):
             fid = ttnn.MathFidelity.HiFi2
-        if getattr(self, "_mm_ck_bf16", None) is None or self._mm_ck_bf16.math_fidelity != fid:
+        if not bf16_acc and fid == ck.math_fidelity:
+            return ck
+        acc = ck.fp32_dest_acc_en and not bf16_acc
+        c = getattr(self, "_mm_ck_bf16", None)
+        if c is None or c.math_fidelity != fid or c.fp32_dest_acc_en != acc:
             self._mm_ck_bf16 = type(ck)(math_fidelity=fid, math_approx_mode=ck.math_approx_mode,
-                                        fp32_dest_acc_en=False, packer_l1_acc=ck.packer_l1_acc)
+                                        fp32_dest_acc_en=acc, packer_l1_acc=ck.packer_l1_acc)
         return self._mm_ck_bf16
 
     def _mm_ok(self, x, w) -> bool:
@@ -2045,6 +2048,12 @@ _ESMC_6B_B8 = env_flag("TT_BIO_ESMC_6B_B8", True)
 _ESMC_6B_FIDELITY = os.environ.get("TT_BIO_ESMC_6B_FIDELITY", "HiFi3")
 
 
+# ESMC 300M/600M embeddings in normal mode on Wormhole load the block-fp8 weights --fast holds and keep fp32
+# accumulation, so the minimal_matmuls take them at HiFi2 (_ESMC_MM_BFP8_HIFI2) with the weight mantissa consumed
+# whole. Off until graded against the normal bar.
+_ESMC_B8_NORMAL = env_flag("TT_BIO_ESMC_B8_NORMAL", False)
+
+
 def _6b_weights_b8(fast: bool) -> bool:
     from tt_bio import tenstorrent
     return fast or (_ESMC_6B_B8 and tenstorrent.is_wormhole())
@@ -2482,7 +2491,16 @@ def load_esmc(name: str = "esmc-300m", *, fast: bool = False, trace: bool = True
         # returns it unchanged and forward() simply stays eager (it checks
         # trace_region_size() per call).
         get_device(trace="esmc")
-    return ESMC.from_pretrained(name, trace=trace)
+    b8 = not fast and _ESMC_B8_NORMAL and tenstorrent.is_wormhole()
+    tenstorrent.set_fast_mode(fast or b8)
+    try:
+        model = ESMC.from_pretrained(name, trace=trace)
+    finally:
+        tenstorrent.set_fast_mode(fast)
+    if b8:
+        for b in model.module.blocks:
+            b.attn.mm_exact_acc = b.ffn.mm_exact_acc = True
+    return model
 
 
 def _trunk_forward(model, seq: str, return_logits: bool):
