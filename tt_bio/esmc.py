@@ -455,20 +455,14 @@ _ESMC_QKV_MM_SPLIT = env_flag("TT_BIO_ESMC_QKV_MM_SPLIT", True)
 # ones), so neither add re-reads a projection from DRAM. bf16 weights only: the op refuses --fast's block-fp8 ones.
 # Same page cell: 300M 143.6 -> 141.3, 600M 229.9 -> 223.4, embeddings identical (pcc 1.0). Wormhole only, as above.
 _ESMC_MM_RESID = env_flag("TT_BIO_ESMC_MM_RESID", True)
-# Keep the residual stream of a model under _LM_LARGE_MODEL_BYTES in L1: the fused out_proj / fc2 + residual matmuls write
-# it there and the FFN LayerNorm writes its output there, so the per-layer LayerNorms and residual reads stop going
-# through DRAM (ew_bench on a Galaxy chip: layer_norm 88-135 GB/s from DRAM, 157-168 from L1). Same ops, same math.
-# A shape L1 refuses once goes back to DRAM for good. Off until graded.
-_ESMC_RESID_L1 = env_flag("TT_BIO_ESMC_RESID_L1", False)
-_RESID_L1_REFUSED: set = set()
-#: [residual matmuls / FFN LayerNorms served from L1, refused], read by the A/B harness.
-RESID_L1_STATS = [0, 0]
-
-
-def _in_l1(t) -> bool:
-    return t.memory_config().buffer_type == ttnn.BufferType.L1
-
-
+# The LM FFN's LayerNorm writes L1 (it feeds fc1 and dies), as the attention's input LayerNorm already does (QK_L1), for
+# blocks under _LM_LARGE_MODEL_BYTES. Page cell on a Galaxy chip at 1000 MHz, 3 rounds of 7, median: 300M 94.13 -> 93.93
+# ms, --fast 85.62 -> 85.05, 600M 138.08 -> 137.12, --fast 123.11 -> 121.17; embeddings identical (pcc 1.0). Keeping the
+# whole residual stream in L1 does not work: other ops' static circular buffers then clash with it.
+_ESMC_FFN_LN_L1 = env_flag("TT_BIO_ESMC_FFN_LN_L1", True)
+_FFN_LN_L1_REFUSED: set = set()
+#: [LM FFN LayerNorms written to L1, refused], read by the A/B harness.
+FFN_LN_L1_STATS = [0, 0]
 # --fast: those two weights are cast from block-fp8 to bf16 once at load (same values), so the residual add fuses there
 # too. Census, 600M --fast page batch: out_proj 8.7 + fc2 16.3 ms of matmul plus 13.1 ms of separate adds, where normal
 # mode fused both. Page cell on a Galaxy chip at 1000 MHz, best of 3: 300M --fast 120.0 -> 117.7 ms, 600M 172.5 ->
@@ -614,34 +608,19 @@ class _MMLin:
         """resid + x @ w in one matmul, or None where it does not serve (the caller adds)."""
         if not (_ESMC_MM_RESID and w.dtype == ttnn.bfloat16 and self._mm_ok(x, w)):
             return None
-        # The op's two ternary readers share one accessor type, so the ones row lives where the residual does; the
-        # output goes to L1 only beside an L1 residual (Block moves the stream there before the first layer).
-        l1 = self._resid_l1() and _in_l1(resid) and ("mm", tuple(resid.padded_shape)) not in _RESID_L1_REFUSED
         n = int(w.shape[-1])
-        rows = getattr(self, "_ones_rows", None)
-        if rows is None or int(rows[0].shape[-1]) != n:
-            rows = self._ones_rows = [ttnn.from_torch(torch.ones(1, n), dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT,
-                                                      device=x.device(), memory_config=mc)
-                                      for mc in (ttnn.DRAM_MEMORY_CONFIG, ttnn.L1_MEMORY_CONFIG)]
-        for mc in ([ttnn.L1_MEMORY_CONFIG] if l1 else []) + [ttnn.DRAM_MEMORY_CONFIG]:
-            ones = rows[mc is ttnn.L1_MEMORY_CONFIG]
-            try:
-                out = ttnn.experimental.dit_minimal_matmul_addcmul_fused(
-                    x, w, 1.0, resid, ones, compute_kernel_config=self._mm_ck(w),
-                    dtype=_dtype(ttnn.bfloat16), memory_config=mc, **_mm_config(x, w, self.mm_exact_acc))
-            except RuntimeError:
-                if mc is ttnn.DRAM_MEMORY_CONFIG:
-                    return None
-                _RESID_L1_REFUSED.add(("mm", tuple(resid.padded_shape)))
-                RESID_L1_STATS[1] += 1
-                continue
-            RESID_L1_STATS[0] += mc is not ttnn.DRAM_MEMORY_CONFIG
-            MM_FUSE_STATS[1] += 1
-            return out
-
-    def _resid_l1(self) -> bool:
-        """This module's residual stream may live in L1 (_ESMC_RESID_L1, ESMC LM blocks under _LM_LARGE_MODEL_BYTES)."""
-        return _ESMC_RESID_L1 and getattr(self, "lm_large", True) is False
+        ones = getattr(self, "_ones_row", None)
+        if ones is None or int(ones.shape[-1]) != n:
+            ones = self._ones_row = ttnn.from_torch(torch.ones(1, n), dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT,
+                                                   device=x.device())
+        try:
+            out = ttnn.experimental.dit_minimal_matmul_addcmul_fused(
+                x, w, 1.0, resid, ones, compute_kernel_config=self._mm_ck(w),
+                dtype=_dtype(ttnn.bfloat16), memory_config=ttnn.DRAM_MEMORY_CONFIG, **_mm_config(x, w, self.mm_exact_acc))
+        except RuntimeError:
+            return None
+        MM_FUSE_STATS[1] += 1
+        return out
 
     def _lin(self, x, w, bias=None, dtype=None, **kw):
         mm = self._mm_on()
@@ -1310,17 +1289,18 @@ class SwiGLUFFN(_MMLin, Module):
                     L1_LN_STATS[0] += 1
                 except Exception:
                     _L1_LN_REFUSED.add(key)
-        key = ("ln", tuple(x.padded_shape))
-        if x_norm is None and not l1_gated and self._resid_l1() and key not in _RESID_L1_REFUSED:
+        key = tuple(x.padded_shape)
+        if (x_norm is None and _ESMC_FFN_LN_L1 and getattr(self, "lm_large", True) is False
+                and key not in _FFN_LN_L1_REFUSED):
             try:
                 x_norm = ttnn.layer_norm(x, memory_config=ttnn.L1_MEMORY_CONFIG, **ln)
-                RESID_L1_STATS[0] += 1
+                FFN_LN_L1_STATS[0] += 1
             except Exception as exc:
                 if not _is_alloc_refusal(exc):
                     from tt_bio import tenstorrent as _T
                     _T.absorb_l1_refusal("esmc ffn LN L1", exc)
-                _RESID_L1_REFUSED.add(key)
-                RESID_L1_STATS[1] += 1
+                _FFN_LN_L1_REFUSED.add(key)
+                FFN_LN_L1_STATS[1] += 1
         if x_norm is None:
             L1_LN_STATS[1] += bool(l1_gated and _PAIR_FFN_L1_LN)
             x_norm = ttnn.layer_norm(x, **ln)
@@ -1717,16 +1697,6 @@ class Block(Module):
     def __call__(self, x: ttnn.Tensor, cos: ttnn.Tensor, sin: ttnn.Tensor,
                  attn_mask: ttnn.Tensor | None = None,
                  key_valid: ttnn.Tensor | None = None) -> ttnn.Tensor:
-        key = ("in", tuple(x.padded_shape))
-        if self.attn._resid_l1() and not _in_l1(x) and key not in _RESID_L1_REFUSED:
-            try:  # start the L1 residual stream (_ESMC_RESID_L1); the caller still owns its DRAM x
-                x = ttnn.to_memory_config(x, ttnn.L1_MEMORY_CONFIG)
-            except Exception as exc:
-                if not _is_alloc_refusal(exc):
-                    from tt_bio import tenstorrent as _T
-                    _T.absorb_l1_refusal("esmc resid L1", exc)
-                _RESID_L1_REFUSED.add(key)
-                RESID_L1_STATS[1] += 1
         r1, added = self.attn(x, cos, sin, attn_mask, key_valid, resid=True)
         if added:
             x = r1
