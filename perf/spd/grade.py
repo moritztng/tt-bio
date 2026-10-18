@@ -3,7 +3,8 @@
     ~/pfm-accuracy-data/venv/bin/python perf/spd/grade.py RUN_DIR [RUN_DIR ...] --base exact --test lpx \
         --mode normal|fast [--data ~/spd-data] [--out report.md]
 
-Folds come from bench.py run over the accuracy inputs (the 11 PDB ids of perf/pfm_accuracy/set.tsv), 4+ seeds,
+Folds come from bench.py run over the accuracy inputs (the 11 PDB ids of perf/pfm_accuracy/set.tsv, or the same
+complexes cropped to 512 tokens in set512.tsv, ids <PDB>_512), 4+ seeds,
 on as many chips as you like:
     bench.py --out RUN/<arm>/c<chip> --chip N --arm <spec> --inputs 9TH6,9W89,... --seed 101 --warm 3
 Every RUN_DIR holding a bench.jsonl is read; records are grouped by (arch, arm), so one call grades WH and BH.
@@ -46,7 +47,9 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / "pfm_accuracy"))
 from score import ca, chains, kabsch, score  # noqa: E402
 
-SET = {l.split("\t")[0]: l.split("\t")[1:3] for l in (HERE.parent / "pfm_accuracy" / "set.tsv").read_text().splitlines()[1:]}
+# The 11-set and the same complexes cropped to 512 tokens (make_inputs.py truth512): either is a verdict set.
+SET = {l.split("\t")[0]: l.split("\t")[1:3] for t in ("set.tsv", "set512.tsv")
+       for l in (HERE.parent / "pfm_accuracy" / t).read_text().splitlines()[1:]}
 KILL_BAR = 0.60
 CONF_TOL = 0.005  # normal: tolerated mean pLDDT / ipTM drop (fast bar is 0.03)
 SUCCESS = 0.23
@@ -190,7 +193,7 @@ def main():
             cache[cif] = s
     cache_f.write_text(json.dumps(cache))
 
-    refkeys = {p: ref_keys(a.data / "ref" / f"{p}.cif", p) for p in SET}
+    refkeys = {p: ref_keys(a.data / "ref" / f"{p}.cif", p) for p in {k[2] for k in folds}}
     fold_m = {}
     for k, f in folds.items():
         s = [cache[str(c)] for c in f["cifs"]]

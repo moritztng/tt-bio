@@ -24,7 +24,7 @@ ap.add_argument("--nomask", default="",
                 help="stock SDPA arms WITHOUT a mask (the wheel's streaming compute path), q:k chunk pairs a,b;c,d. "
                      "Only right against the reference when every --lens is 544; the bench checks it per config")
 ap.add_argument("--host", action="store_true", help="time eager host dispatch instead of trace replay")
-ap.add_argument("--proto", default="", help="extra ESMC proto arms qc:kc:b,h,q;... (qc 0 = whole, split - = factory)")
+ap.add_argument("--proto", default="", help="extra ESMC proto arms qc:kc:b,h,q[:DEF+DEF];... (qc 0 = whole, split - = factory; LOFI, FULLSYNC, EXPA = exp approx)")
 a = ap.parse_args()
 
 samples = []
@@ -123,8 +123,9 @@ if "esmc" in a.shape:
             d = dict(dfs[0]) if dfs and dfs[0] else {}
             ckc = (ttnn.MathFidelity.LoFi if d.pop("LOFI", 0) else ttnn.MathFidelity.HiFi2, True, False,
                    bool(d.pop("FULLSYNC", 0)))
-            ARMS[nm] = ("esmc", lambda qc=qc, kc=kc, spl=spl, d=(d or None), ckc=ckc, pad=P.key_pad(lens, S, dev, kc):
-                        P.sdpa(eq, ek, ev, sc, pad, q_chunk=qc, k_chunk=kc, split=spl, defines=d, ckc=ckc))
+            xa = bool(d.pop("EXPA", 0))
+            ARMS[nm] = ("esmc", lambda qc=qc, kc=kc, spl=spl, d=(d or None), ckc=ckc, xa=xa, pad=P.key_pad(lens, S, dev, kc):
+                        P.sdpa(eq, ek, ev, sc, pad, q_chunk=qc, k_chunk=kc, split=spl, defines=d, ckc=ckc, exp_approx=xa))
     except ImportError:
         pass
 

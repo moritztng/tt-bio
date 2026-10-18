@@ -402,7 +402,7 @@ def chunk_divisors(seq, tile=TILE):
 
 
 def cb_table(p, q_dtype, k_dtype, v_dtype, mask_dtype, out_dtype, mask_cb_tiles=None,
-             extra_cbs=(), im_dtype=None, out_im_dtype=None, stats_dtype=None):
+             extra_cbs=(), im_dtype=None, out_im_dtype=None, stats_dtype=None, one_k_trim=False):
     """(buffer index, tiles, page bytes, data format) for every CB the factory creates, :405-414.
 
     `mask_cb_tiles` overrides `cb_mask_in`: K2 fronts the whole head's mask grid
@@ -425,6 +425,15 @@ def cb_table(p, q_dtype, k_dtype, v_dtype, mask_dtype, out_dtype, mask_cb_tiles=
     qk_df = im_dtype or im_df
     oim_df = out_im_dtype or im_df
     nmask = p["mask_tiles"] if mask_cb_tiles is None else mask_cb_tiles
+    # `one_k_trim` prices THIS kernel as `build` allocates it. With one k chunk the online softmax
+    # never rescales: the first chunk writes the B side (c_26 out_im_B, c_28 max_B, c_30 sum_B) and
+    # the tail reads it back after the swap, so the A side and c_31 (exp_max_diff) are declared but
+    # never touched. One tile each frees 32 KB + 3 statistics blocks at q512, which is what lets
+    # (q512, k512) fit in bf16. Off by default: the measured stock-op refusals and `fused_pairs`'
+    # ranking are priced on the full set, and trimming there would move picks nobody has measured.
+    one_k = one_k_trim and p["k_num_chunks"] == 1
+    oim_a = 1 if one_k else p["out_im_tiles"]
+    st_a = 1 if one_k else p["statistics_tiles"]
     return [
         (0, p["q_tiles"], tile_bytes(q_dtype), q_dtype),
         (1, p["k_tiles"], tile_bytes(k_dtype), k_dtype),
@@ -434,24 +443,25 @@ def cb_table(p, q_dtype, k_dtype, v_dtype, mask_dtype, out_dtype, mask_cb_tiles=
         (7, 1, scalar_ts, scalar_df),
         (4, 1, im_ts, im_df),                         # c_recip_scratch, :746 (no attention sink)
         (24, p["qk_tiles"], tile_bytes(qk_df), qk_df),
-        (25, p["out_im_tiles"], tile_bytes(oim_df), oim_df),
+        (25, oim_a, tile_bytes(oim_df), oim_df),
         (26, p["out_im_tiles"], tile_bytes(oim_df), oim_df),
-        (27, p["statistics_tiles"], stats_ts, stats_df),
+        (27, st_a, stats_ts, stats_df),
         (28, p["statistics_tiles"], stats_ts, stats_df),
-        (29, p["statistics_tiles"], stats_ts, stats_df),
+        (29, st_a, stats_ts, stats_df),
         (30, p["statistics_tiles"], stats_ts, stats_df),
-        (31, p["statistics_tiles"], stats_ts, stats_df),
+        (31, st_a, stats_ts, stats_df),
         (16, p["out0_t"], tile_bytes(out_dtype), out_dtype),
     ] + list(extra_cbs)
 
 
 def cb_bytes(p, q_dtype=ttnn.bfloat16, k_dtype=ttnn.bfloat16, v_dtype=ttnn.bfloat16,
              mask_dtype=ttnn.bfloat16, out_dtype=ttnn.bfloat16, mask_cb_tiles=None,
-             extra_cbs=(), im_dtype=None, out_im_dtype=None, stats_dtype=None) -> int:
+             extra_cbs=(), im_dtype=None, out_im_dtype=None, stats_dtype=None,
+             one_k_trim=False) -> int:
     """L1 the static circular buffers hold, per core."""
     return sum(n * page for _i, n, page, _f in cb_table(
         p, q_dtype, k_dtype, v_dtype, mask_dtype, out_dtype, mask_cb_tiles, extra_cbs,
-        im_dtype, out_im_dtype, stats_dtype))
+        im_dtype, out_im_dtype, stats_dtype, one_k_trim))
 
 
 def cb_fits_l1(p, **kw) -> bool:
@@ -632,7 +642,7 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
                                                     page_size=page)])
         for idx, n_tiles, page, fmt in cb_table(
             p, q.dtype, k.dtype, v.dtype, mask.dtype, out.dtype, mask_cb_tiles, extra_cbs,
-            im_dtype, out_im_dtype, stats_dtype)]
+            im_dtype, out_im_dtype, stats_dtype, one_k_trim=True)]
 
     # Three semaphores, created for every non-causal call (:539), ids 0..2 in creation order.
     semaphores = [

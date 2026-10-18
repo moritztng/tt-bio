@@ -59,7 +59,8 @@ def test_cb_plan_covers_every_cb_the_kernels_use():
     bf, f32 = TTL.t1_cb_plan(KT, CT2, NTG, True)
     planned = [i for i, _ in bf] + [i for i, _ in f32]
     assert len(planned) == len(set(planned)), "a CB index is planned twice"
-    assert used == set(planned)
+    bfg, _ = TTL.t1_cb_plan(12, 24, 12, True)   # c_z 384: channel groups add the T1_LN1 xn CB
+    assert used == set(planned) | {i for i, _ in bfg}
     bf0, _ = TTL.t1_cb_plan(KT, CT2, NTG, False)
     assert {3, 6, 15}.isdisjoint(i for i, _ in bf0)
 

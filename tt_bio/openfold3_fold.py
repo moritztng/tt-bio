@@ -106,8 +106,13 @@ FAST_LEVERS = NORMAL_LEVERS | {"dit_s16", "diffusion_bf16", "trimul_t1", "trimul
 # 1000 MHz, paired median: OpenFold3 -0.18 s (3 pairs; the first paid a 4.7 s program compile), OpenBind-0 -0.24 s (4).
 # In the normal mode too, CIFs identical, all 8 pairs faster: OpenFold3 -0.23 s, OpenBind-0 -0.27 s (25.8 s folds).
 # Flat on p150a in both modes (paired medians within +-0.07 s), so Wormhole only.
+# ws_lofi and triatt_hifi2 (the fused triangle-attention SDPA at HiFi2) join Wormhole fast on its 11-set fast grade of
+# the Wormhole fast set + both against it, paired seeds (wsg, 2026-10-18), PASS: OpenFold3 44 folds, top pose median
+# 0.961 A (floor 1.638 A), CA-lDDT +0.0024 [-0.0014, +0.0083], docking 19 -> 23/44; OpenBind-0 40 folds (10 complexes),
+# 1.137 A (floor 1.093 A), CA-lDDT +0.0003 [-0.0014, +0.0020], docking 24 -> 23/40. 512-token page fold on a Galaxy
+# chip at 1000 MHz, ABBA processes: triatt_hifi2 -0.22 / -0.23 s, ws_lofi -0.12 / -0.07 s (wstk).
 WH_NORMAL_LEVERS = NORMAL_LEVERS | {"trimul_bres"}
-WH_FAST_LEVERS = FAST_LEVERS - {"ws_lofi"} | {"apb_ln", "trimul_sig6", "trimul_bres"}
+WH_FAST_LEVERS = FAST_LEVERS | {"apb_ln", "trimul_sig6", "trimul_bres", "triatt_hifi2"}
 
 def kabsch_rmsd(pred_ca, gt_ca):
     """Optimal-superposition Cα-RMSD (Kabsch). pred_ca, gt_ca: [N, 3].

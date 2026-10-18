@@ -1609,7 +1609,11 @@ _WH_EXTRA = "+lm_gate_ng+lm_sdpa_stock"
 # seed floor, docking 24 -> 24 of 44; ESMFold2 --fast CA-lDDT +0.0016 [+0.0009, +0.0022], 0.69 A vs 1.33 A, docking
 # 32 -> 32 (its L-RMSD reads +2.5 A [+0.4, +5.4], so the normal set does not take it). Same chip, -Fast, 1000 MHz:
 # diffusion draw 2.52 -> 1.97 s at 384 aa, 3.04 -> 2.15 s at 512 (dst).
-_WH_FAST_EXTRA = "+dit_qkvf"
+# dit_shoist (the DiT conditioning as three wide linears a step) on top, fast bar on Wormhole against that set, 11
+# complexes x 4 seeds per model (.107, 1000 MHz, dsq2): ESMFold2-Fast CA-lDDT +0.0005 [-0.0003, +0.0016], top-pose
+# median 0.51 A vs 1.32 A seed floor, docking 24 -> 24 of 44, fold -0.73 s median at 515-791 aa (10 of 11 faster);
+# ESMFold2 --fast (40 folds) CA-lDDT -0.0004 [-0.0008, -0.0000], 0.39 A vs 1.43 A, docking 32 -> 32.
+_WH_FAST_EXTRA = "+dit_qkvf+dit_shoist"
 
 
 def fold_levers(fast: bool) -> str:

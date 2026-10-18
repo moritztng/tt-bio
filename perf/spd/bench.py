@@ -95,6 +95,14 @@ def _latches():
             if any(v for f, v in r.items() if f != "why")}
 
 
+def _reach():
+    """Cumulative [served, declined] of the gated OPM paths. The TT_BIO_CAPACITY_CENSUS atexit dump never runs here
+    (this script leaves through os._exit), so an A/B of a gated lever reads whether it fired from this record."""
+    tt = sys.modules.get("tt_bio.tenstorrent")
+    return {k: list(getattr(tt, n)) for k, n in (("opm_small_depth", "OPM_SMALL_DEPTH_STATS"),
+                                                  ("opm_depth_join", "OPM_DEPTH_JOIN_STATS")) if hasattr(tt, n)}
+
+
 _LATCH_MODS = ("tt_bio.tenstorrent", "tt_bio.protenix", "tt_bio.triatt_qkv")
 
 
@@ -557,6 +565,6 @@ for i_in, (name, y) in enumerate(INPUTS):
             metrics={k: metrics.get(k) for k in ("plddt", "ptm", "iptm", "msa_depth", "n_tokens", "confidence_score")
                      if k in metrics},
             samples_conf=[{k: v for k, v in r.items() if not isinstance(v, dict)} for r in metrics.get("all_runs", [])],
-            struct_dir=str(sdir), latches=_latches(), refused=_refused(), **HEAD)
+            struct_dir=str(sdir), latches=_latches(), reach=_reach(), refused=_refused(), **HEAD)
 log(ev="end")
 os._exit(0)

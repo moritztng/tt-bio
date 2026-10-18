@@ -51,6 +51,7 @@ def main() -> int:
     ap.add_argument("--ref-cache", required=True)
     ap.add_argument("--fast", action="store_true")
     ap.add_argument("--trace", action="store_true", help="load with ESMC.trace on (the served default; reserves the region)")
+    ap.add_argument("--batch", type=int, default=None, help="sequences a forward (default: the GAP cell's, 1 for the 6B, else 7)")
     ap.add_argument("--repeat", type=int, default=7)
     ap.add_argument("--rounds", type=int, default=2)
     ap.add_argument("--on-value", type=int, default=None, help="value the on arm sets (default True), for an int switch")
@@ -78,7 +79,8 @@ def main() -> int:
         model, embed = S.load_saprot(a.model, fast=a.fast), S.embed_sequences
     else:
         model, embed = E.load_esmc(a.model, fast=a.fast, trace=a.trace), E.embed_sequences
-    batch = {f"s{i}": page for i in range(1 if a.model == "esmc-6b" else 7)}   # the GAP cell's batch
+    nb = a.batch or (1 if a.model == "esmc-6b" else 7)
+    batch = {f"s{i}": page for i in range(nb)}   # the GAP cell's batch
     # graded in a batch as large as the page cell's, so the forward takes the same programs: one 544-row sequence
     # stays under ESMC_MM_MIN_ROWS and never reaches minimal_matmul, which made every minimal_matmul lever read vs_off 0
     one = lambda: embed(model, {f"q{i}": aa for i in range(len(batch))}, batch_size=8)[0].per_residue
