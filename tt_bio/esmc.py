@@ -463,6 +463,12 @@ _ESMC_RESID_L1 = env_flag("TT_BIO_ESMC_RESID_L1", False)
 _RESID_L1_REFUSED: set = set()
 #: [residual matmuls / FFN LayerNorms served from L1, refused], read by the A/B harness.
 RESID_L1_STATS = [0, 0]
+
+
+def _in_l1(t) -> bool:
+    return t.memory_config().buffer_type == ttnn.BufferType.L1
+
+
 # --fast: those two weights are cast from block-fp8 to bf16 once at load (same values), so the residual add fuses there
 # too. Census, 600M --fast page batch: out_proj 8.7 + fc2 16.3 ms of matmul plus 13.1 ms of separate adds, where normal
 # mode fused both. Page cell on a Galaxy chip at 1000 MHz, best of 3: 300M --fast 120.0 -> 117.7 ms, 600M 172.5 ->
@@ -608,16 +614,17 @@ class _MMLin:
         """resid + x @ w in one matmul, or None where it does not serve (the caller adds)."""
         if not (_ESMC_MM_RESID and w.dtype == ttnn.bfloat16 and self._mm_ok(x, w)):
             return None
+        # The op's two ternary readers share one accessor type, so the ones row lives where the residual does; the
+        # output goes to L1 only beside an L1 residual (Block moves the stream there before the first layer).
+        l1 = self._resid_l1() and _in_l1(resid) and ("mm", tuple(resid.padded_shape)) not in _RESID_L1_REFUSED
         n = int(w.shape[-1])
-        ones = getattr(self, "_ones_row", None)
-        if ones is None or int(ones.shape[-1]) != n:
-            ones = self._ones_row = ttnn.from_torch(torch.ones(1, n), dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT,
-                                                   device=x.device())
-        key = ("mm", tuple(resid.padded_shape))
-        mcs = [ttnn.DRAM_MEMORY_CONFIG]
-        if self._resid_l1() and key not in _RESID_L1_REFUSED:
-            mcs.insert(0, ttnn.L1_MEMORY_CONFIG)
-        for mc in mcs:
+        rows = getattr(self, "_ones_rows", None)
+        if rows is None or int(rows[0].shape[-1]) != n:
+            rows = self._ones_rows = [ttnn.from_torch(torch.ones(1, n), dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT,
+                                                      device=x.device(), memory_config=mc)
+                                      for mc in (ttnn.DRAM_MEMORY_CONFIG, ttnn.L1_MEMORY_CONFIG)]
+        for mc in ([ttnn.L1_MEMORY_CONFIG] if l1 else []) + [ttnn.DRAM_MEMORY_CONFIG]:
+            ones = rows[mc is ttnn.L1_MEMORY_CONFIG]
             try:
                 out = ttnn.experimental.dit_minimal_matmul_addcmul_fused(
                     x, w, 1.0, resid, ones, compute_kernel_config=self._mm_ck(w),
@@ -625,7 +632,7 @@ class _MMLin:
             except RuntimeError:
                 if mc is ttnn.DRAM_MEMORY_CONFIG:
                     return None
-                _RESID_L1_REFUSED.add(key)
+                _RESID_L1_REFUSED.add(("mm", tuple(resid.padded_shape)))
                 RESID_L1_STATS[1] += 1
                 continue
             RESID_L1_STATS[0] += mc is not ttnn.DRAM_MEMORY_CONFIG
@@ -1710,6 +1717,16 @@ class Block(Module):
     def __call__(self, x: ttnn.Tensor, cos: ttnn.Tensor, sin: ttnn.Tensor,
                  attn_mask: ttnn.Tensor | None = None,
                  key_valid: ttnn.Tensor | None = None) -> ttnn.Tensor:
+        key = ("in", tuple(x.padded_shape))
+        if self.attn._resid_l1() and not _in_l1(x) and key not in _RESID_L1_REFUSED:
+            try:  # start the L1 residual stream (_ESMC_RESID_L1); the caller still owns its DRAM x
+                x = ttnn.to_memory_config(x, ttnn.L1_MEMORY_CONFIG)
+            except Exception as exc:
+                if not _is_alloc_refusal(exc):
+                    from tt_bio import tenstorrent as _T
+                    _T.absorb_l1_refusal("esmc resid L1", exc)
+                _RESID_L1_REFUSED.add(key)
+                RESID_L1_STATS[1] += 1
         r1, added = self.attn(x, cos, sin, attn_mask, key_valid, resid=True)
         if added:
             x = r1
