@@ -7,6 +7,11 @@ table [N, C]. It replaces ``ttnn.embedding`` (row-major out) + ``ttnn.to_layout`
 census). Here each core takes (r, 32-column block) units, issues the 32 row reads of a block behind one barrier,
 tilizes the block on the unpacker and writes its C / 32 tiles. Columns past W in the last block are zero, the
 pad ttnn's tilize writes. Data movement only: every gathered value is the table's bit pattern.
+
+An index that names the same row over and over (RFD3's CA distance bins: every pair past the top edge takes the last row)
+queues every read on the one DRAM bank holding that row: 4.1-4.3 ms/call in-model on Wormhole against 1.28 ms for a
+random index of the same shape. ``spread`` lays the table out as COPIES replicas whose copies of a row sit in
+different banks; pass ``copies`` to ``gather_tiled`` and successive reads rotate over them.
 """
 
 from __future__ import annotations
@@ -27,7 +32,7 @@ def _align(n, a=32):
     return (n + a - 1) // a * a
 
 
-def _build(idx, table, out, device, units, W, Wp, JT, CT):
+def _build(idx, table, out, device, units, W, Wp, JT, CT, copies):
     g = device.compute_with_storage_grid_size()
     _, grid, cg1, cg2, work1, work2 = core_split.split_work_to_cores(g, units, 0)
 
@@ -46,7 +51,7 @@ def _build(idx, table, out, device, units, W, Wp, JT, CT):
                     rt[cx][cy] = [first, per]
                     first += per
     assert first == units, (first, units)
-    rct = [W, JT, CT, Wp * 4] + list(ttnn.TensorAccessorArgs(idx).get_compile_time_args()) \
+    rct = [W, JT, CT, Wp * 4, copies, int(table.shape[0]) // copies] + list(ttnn.TensorAccessorArgs(idx).get_compile_time_args()) \
         + list(ttnn.TensorAccessorArgs(table).get_compile_time_args())
     wct = [CT] + list(ttnn.TensorAccessorArgs(out).get_compile_time_args())
     src = lambda n: str(KERNEL_DIR / n)  # noqa: E731
@@ -79,8 +84,27 @@ def pad_index(flat, rows, width):
     return out
 
 
-def gather_tiled(idx, table, batch, width):
-    """[batch, R, width, C] bf16 TILE with out[b, r, w] = table[idx[b * R + r, w]]; idx is [batch * R, Wp]."""
+SPREAD_COPIES = 12   # Wormhole's DRAM bank count; on Blackhole's 8 the 12 replicas still cover every bank
+
+
+def spread(table, copies=SPREAD_COPIES):
+    """``copies`` replicas of a row-major [N, C] table, STRIDE >= N rows apart with STRIDE coprime to 24, so the
+    replicas of one row land in distinct DRAM banks under round-robin page interleaving (8 or 12 banks)."""
+    import math
+
+    import torch
+    t = ttnn.to_torch(table)
+    stride = next(s for s in range(t.shape[0], t.shape[0] + 24) if math.gcd(s, 24) == 1)
+    rep = torch.zeros(copies * stride, t.shape[1], dtype=t.dtype)
+    for c in range(copies):
+        rep[c * stride:c * stride + t.shape[0]] = t
+    return ttnn.from_torch(rep, layout=ttnn.ROW_MAJOR_LAYOUT, device=table.device(), dtype=ttnn.bfloat16,
+                           memory_config=ttnn.DRAM_MEMORY_CONFIG)
+
+
+def gather_tiled(idx, table, batch, width, copies=1):
+    """[batch, R, width, C] bf16 TILE with out[b, r, w] = table[idx[b * R + r, w]]; idx is [batch * R, Wp].
+    ``copies`` > 1 reads a ``spread(table, copies)`` table."""
     device = idx.device()
     BR, W, Wp = int(idx.shape[0]), width, int(idx.shape[1])
     assert Wp == _align(W, 8), (W, Wp)
@@ -88,9 +112,9 @@ def gather_tiled(idx, table, batch, width):
     R, JT, CT = BR // batch, _align(W) // 32, C // 32
     out = ttnn.allocate_tensor_on_device(ttnn.Shape([batch, R, W, C]), ttnn.bfloat16, ttnn.TILE_LAYOUT,
                                          device, ttnn.DRAM_MEMORY_CONFIG)
-    key = (device.id(), BR, W, C, int(table.shape[0]))
+    key = (device.id(), BR, W, C, int(table.shape[0]), copies)
     if key not in _CACHE:
-        _CACHE[key] = _build(idx, table, out, device, BR * JT, W, Wp, JT, CT)
+        _CACHE[key] = _build(idx, table, out, device, BR * JT, W, Wp, JT, CT, copies)
     kernels, cbs = _CACHE[key]
     kernels[0].common_runtime_args = [idx.buffer_address(), table.buffer_address()]
     kernels[1].common_runtime_args = [out.buffer_address()]
