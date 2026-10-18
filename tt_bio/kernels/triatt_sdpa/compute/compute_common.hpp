@@ -27,6 +27,15 @@
 #include "api/compute/eltwise_binary_sfpu.h"
 #endif
 
+// Per-stage device-profiler zones of the standard loop, behind TRIATT_ZONES (TT_BIO_TRIATT_ZONES).
+// An instrument: the stage times sum to the unit's, and nothing else changes.
+#ifdef TRIATT_ZONES
+#include "tools/profiler/kernel_profiler.hpp"
+#define TZONE(n) DeviceZoneScopedN(n)
+#else
+#define TZONE(n)
+#endif
+
 ALWI void sdpa_reduce_copy_tile_to_dst_init_short(uint32_t cbid, uint32_t transpose = 0) {
     UNPACK((llk_unpack_A_init<BroadcastType::NONE, false, EltwiseBinaryReuseDestType::NONE, UnpackToDestEn>(
         transpose, true /*transpose within 16x16 face*/, cbid)));
@@ -1972,6 +1981,8 @@ void sdpa_inner_loop(
              *
              * matmul_blocks internally waits on both inputs
              */
+            {
+            TZONE("TA_QK");
             reconfig_data_format(cb_k_in, cb_q_in);
             pack_reconfig_data_format(cb_qk_im);
 #if defined(PERSISTENT_MASK) && defined(QK_MASK_PRELOAD)
@@ -2003,6 +2014,7 @@ void sdpa_inner_loop(
                 k_chunk * qk_chunk_tiles
 #endif
             );
+            }
 
             /**
              * Note
@@ -2103,6 +2115,8 @@ void sdpa_inner_loop(
              * else:
              *  cur_max = max(qk, dim=-1)
              */
+            {
+            TZONE("TA_MAX");
             reconfig_data_format(cb_qk_im, cb_identity_scale_in);
             // The packer still holds cb_qk_im's format from the matmul and the mask add. The row
             // statistics are bf16, so a narrower score CB needs the packer moved before the max
@@ -2115,6 +2129,7 @@ void sdpa_inner_loop(
             reduce_c<PoolType::MAX, ReduceDim::REDUCE_ROW, cb_qk_im, cb_identity_scale_in, Sq_chunk_t, Sk_chunk_t>(
                 alias_cur_max, alias_prev_max, processed_k_chunks > 0);
 #endif
+            }
 
             /**
              * sub_exp fuses a few operations.
@@ -2126,10 +2141,15 @@ void sdpa_inner_loop(
              * Partial reduce_sum is used to push the final row_reduction within a tile
              * outside of the loop over K chunks.
              */
+            {
+            TZONE("TA_SUBEXP");
             sub_exp_block_bcast_cols_inplace<cb_qk_im, Sq_chunk_t, scale_fp32, true>(
                 alias_cur_max, alias_cur_sum, Sk_chunk_t);
+            }
 
             // Reconfigure unpackers: srcA (context 0) = cb_v_in, srcB (context 1) = cb_qk_im (operands are swapped in matmul)
+            {
+            TZONE("TA_PV");
             reconfig_data_format(cb_v_in, cb_qk_im);
             pack_reconfig_data_format(alias_mm2_cur_out);
 
@@ -2150,10 +2170,12 @@ void sdpa_inner_loop(
                 false /*transpose*/);
 
             cb_pop_front(cb_qk_im, qk_chunk_tiles);
+            }
             reconfig_data_format(alias_prev_max, alias_cur_max);
 
             /* OUT_ACC += OUT_IM */
             if (processed_k_chunks > 0) {
+                TZONE("TA_CORR");
                 /**
                  * cb_exp_max_diff = torch.exp((cb_prev_max - cb_cur_max) * scale)
                  * Scale is fused into exp again since max is the max of unscaled scores.

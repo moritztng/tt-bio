@@ -176,6 +176,10 @@ if _ABLATE:
                   "WRONG VALUES on purpose. Never set this outside a perf instrument.",
                   stacklevel=2)
 
+# INSTRUMENT: `TT_BIO_TRIATT_ZONES=1` compiles per-stage device-profiler zones into the standard loop
+# (TA_QK, TA_MAX, TA_SUBEXP, TA_PV, TA_CORR). Values are unchanged; read them under a profiler build.
+_ZONES = bool(os.environ.get("TT_BIO_TRIATT_ZONES"))
+
 _FIDELITY = {"LoFi": ttnn.MathFidelity.LoFi, "HiFi2": ttnn.MathFidelity.HiFi2,
              "HiFi4": ttnn.MathFidelity.HiFi4}
 
@@ -494,7 +498,8 @@ def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None, kv_buffer_fac
                 kernel_dir=KERNEL_DIR, mask_cb_tiles=persistent,
                 kv_buffer_factor=kv_buffer_factor, gate=gate_arg,
                 defines_extra={**_mask_defines(p["k_num_chunks"]),
-                               **{f"ABLATE_{a}": 1 for a in _ABLATE}})
+                               **{f"ABLATE_{a}": 1 for a in _ABLATE},
+                               **({"TRIATT_ZONES": 1} if _ZONES else {})})
     except Exception as exc:  # noqa: BLE001 -- an L1 refusal must reach the stock op, not the caller
         ttnn.deallocate(out)
         if "circular buffers" not in str(exc):
