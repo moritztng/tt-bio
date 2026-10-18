@@ -2029,6 +2029,18 @@ def load_esmc6b_state_dict(snapshot_dir: str, dtype: torch.dtype | None = None) 
     return sd
 
 
+# ESMC-6B embeddings in normal mode on Wormhole load the block-fp8 projection/FFN weights --fast holds, the way
+# ESMFold2 already builds this LM there (esmfold2_runtime lm_b8): one 6B LM per chip, and the bf16 weights stream
+# 6.3 GB a forward through ~248 GB/s of DRAM. Only the stored weights change; the forward keeps normal mode.
+# Off until the page cell and the normal embedding bar read (grid b8n).
+_ESMC_6B_B8 = env_flag("TT_BIO_ESMC_6B_B8", False)
+
+
+def _6b_weights_b8(fast: bool) -> bool:
+    from tt_bio import tenstorrent
+    return fast or (_ESMC_6B_B8 and tenstorrent.is_wormhole())
+
+
 def load_esmc6b_shared(cache_dir: str, *, name: str = "esmc-6b", fast: bool = False):
     """Load ESMC-6B for data-parallel fanout via a shared /dev/shm tile cache.
 
@@ -2048,31 +2060,34 @@ def load_esmc6b_shared(cache_dir: str, *, name: str = "esmc-6b", fast: bool = Fa
 
     import tt_bio.tenstorrent as _tt
 
-    _tt.set_fast_mode(fast)
-    snap = _w.fetch("esmc-6b")
-    os.makedirs(cache_dir, exist_ok=True)
-    done = os.path.join(cache_dir, ".done")
-    lockf = open(os.path.join(cache_dir, ".lock"), "w")
-    fcntl.flock(lockf, fcntl.LOCK_EX)  # one builder; peers wait here until .done
+    _tt.set_fast_mode(_6b_weights_b8(fast))   # the stored weights; the forward runs in `fast`
     try:
-        if not os.path.exists(done):
-            sd = load_esmc6b_state_dict(snap)
-            _t = _time.perf_counter()
-            with _tt.weight_cache(cache_dir, "dump"):
-                model = ESMCLanguageModel(name=name)
-                model.load_state_dict(sd, strict=False)
-            open(done, "w").close()
-            _tlog(f"cache_build {_time.perf_counter()-_t:.2f}s")
-            return model
+        snap = _w.fetch("esmc-6b")
+        os.makedirs(cache_dir, exist_ok=True)
+        done = os.path.join(cache_dir, ".done")
+        lockf = open(os.path.join(cache_dir, ".lock"), "w")
+        fcntl.flock(lockf, fcntl.LOCK_EX)  # one builder; peers wait here until .done
+        try:
+            if not os.path.exists(done):
+                sd = load_esmc6b_state_dict(snap)
+                _t = _time.perf_counter()
+                with _tt.weight_cache(cache_dir, "dump"):
+                    model = ESMCLanguageModel(name=name)
+                    model.load_state_dict(sd, strict=False)
+                open(done, "w").close()
+                _tlog(f"cache_build {_time.perf_counter()-_t:.2f}s")
+                return model
+        finally:
+            fcntl.flock(lockf, fcntl.LOCK_UN)
+            lockf.close()
+        _t = _time.perf_counter()
+        with _tt.weight_cache(cache_dir, "load"):
+            model = ESMCLanguageModel(name=name)
+            model.load_state_dict({}, strict=False)  # weights come from the tile cache
+        _tlog(f"cache_load {_time.perf_counter()-_t:.2f}s")
+        return model
     finally:
-        fcntl.flock(lockf, fcntl.LOCK_UN)
-        lockf.close()
-    _t = _time.perf_counter()
-    with _tt.weight_cache(cache_dir, "load"):
-        model = ESMCLanguageModel(name=name)
-        model.load_state_dict({}, strict=False)  # weights come from the tile cache
-    _tlog(f"cache_load {_time.perf_counter()-_t:.2f}s")
-    return model
+        _tt.set_fast_mode(fast)
 
 
 class ESMCHiddenStatesModel(Module):
@@ -2433,7 +2448,11 @@ def load_esmc(name: str = "esmc-300m", *, fast: bool = False, trace: bool = True
 
     tenstorrent.set_fast_mode(fast)
     if name == "esmc-6b":
-        return ESMCLanguageModel.from_pretrained(name=name)
+        tenstorrent.set_fast_mode(_6b_weights_b8(fast))
+        try:
+            return ESMCLanguageModel.from_pretrained(name=name)
+        finally:
+            tenstorrent.set_fast_mode(fast)
     if name not in CONFIGS:
         raise ValueError(f"unknown ESMC model {name!r}; choose from {list(MODELS)}")
     if trace:
