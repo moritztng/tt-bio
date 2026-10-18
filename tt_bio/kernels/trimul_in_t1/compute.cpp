@@ -22,6 +22,7 @@
 #include "api/compute/eltwise_binary.h"
 #include "api/compute/reduce.h"
 #include "api/compute/tile_move_copy.h"
+#include "api/compute/reconfig_data_format.h"
 #include "api/compute/eltwise_unary/sfpu_split_includes.h"
 #include "api/compute/eltwise_unary/eltwise_unary.h"
 #include "api/compute/eltwise_unary/rsqrt.h"
@@ -71,6 +72,24 @@ constexpr uint32_t cb_xc = tt::CBIndex::c_16;    // fp32, Kt tiles
 constexpr uint32_t cb_tmp = tt::CBIndex::c_17;   // fp32, Kt tiles
 constexpr uint32_t wo_cb = tt::CBIndex::c_18;    // Wg_out [Kt x NG] of the group, resident
 constexpr uint32_t go_cb = tt::CBIndex::c_19;    // g_out of one row tile, NG tiles
+#ifdef T1_BIAS
+// AF2's biases, resident: [p | g] column-replicated tiles (a channel per tile row, as the channel-major
+// [a | b] tiles hold them), then g_out's row-replicated tiles. Each seeds dest before its matmul, so the
+// bias is summed in fp32 with the products (pair_linear's PL_BIAS).
+constexpr uint32_t bias_cb = tt::CBIndex::c_20;
+#endif
+
+// Seeds dest[0, n) with bias tiles t0.. (step 0: one tile for all n), then re-inits the matmul.
+template <bool InW>
+ALWI void seed_bias(uint32_t t0, uint32_t step, uint32_t n, uint32_t a_cb, uint32_t b_cb, uint32_t ct, uint32_t kt) {
+#ifdef T1_BIAS
+    copy_tile_to_dst_init_short(bias_cb);
+    reconfig_data_format_srca(bias_cb);
+    for (uint32_t i = 0; i < n; ++i) copy_tile(bias_cb, t0 + i * step, i);
+    mm_block_init_short(a_cb, b_cb, InW, ct, 1, kt);
+    reconfig_data_format(b_cb, a_cb);
+#endif
+}
 
 ALWI void sigmoid_bf16_tile(uint32_t idst) {
     MATH((llk_math_eltwise_unary_sfpu_sigmoid<false, false>(idst, (int)VectorMode::RC)));
@@ -101,6 +120,9 @@ void kernel_main() {
     cb_wait_front(cb_scaler, 1);
     cb_wait_front(cb_eps, 1);
     if constexpr (NG) cb_wait_front(wo_cb, Kt * NG);
+#ifdef T1_BIAS
+    cb_wait_front(bias_cb, 2 * QN + NG);
+#endif
 
     for (uint32_t u = 0; u < nunits; ++u) {
         // 1. layer_norm of the unit's IL row tiles.
@@ -118,6 +140,7 @@ void kernel_main() {
                 cb_reserve_back(go_cb, NG);
                 for (uint32_t n0 = 0; n0 < NG && !(ABL & 2); n0 += GSBW) {
                     tile_regs_acquire();
+                    seed_bias<false>(2 * QN + n0, 1, GSBW, xn_cb, wo_cb, GSBW, Kt);
                     uint32_t i0 = il;
                     uint32_t i1 = n0;
                     for (uint32_t k = 0; k < Kt; ++k, i0 += IL, i1 += NG)
@@ -144,6 +167,7 @@ void kernel_main() {
                 cb_reserve_back(pass_cb, IL);
                 for (uint32_t il0 = 0; il0 < IL && !(ABL & 4); il0 += SBW) {
                     tile_regs_acquire();
+                    seed_bias<true>(pass * QN + q, 0, SBW, w_cb, xn_cb, SBW, Kt);
                     uint32_t i0 = (pass * QN + q) * Kt;
                     uint32_t i1 = il0;
                     for (uint32_t k = 0; k < Kt; ++k, ++i0, i1 += IL)

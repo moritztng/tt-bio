@@ -42,6 +42,11 @@ void kernel_main() {
     constexpr auto gm_args = TensorAccessorArgs<wo_args.next_compile_time_args_offset()>();
     constexpr auto bt_args = TensorAccessorArgs<gm_args.next_compile_time_args_offset()>();
     constexpr auto m_args = TensorAccessorArgs<bt_args.next_compile_time_args_offset()>();
+#ifdef T1_BIAS
+    constexpr auto bi_args = TensorAccessorArgs<m_args.next_compile_time_args_offset()>();
+    const auto bi = TensorAccessor(bi_args, get_common_arg_val<uint32_t>(7));
+    constexpr uint32_t bias_cb = tt::CBIndex::c_20;
+#endif
     static_assert(IL % RB == 0 && (IL == 32 || IL == 16 || IL == 8), "RB must divide the IL row tiles of a unit");
 
     const auto x = TensorAccessor(x_args, get_common_arg_val<uint32_t>(0));
@@ -89,7 +94,18 @@ void kernel_main() {
         for (uint32_t k = 0; k < Kt; ++k)
             for (uint32_t n = N0; n < N0 + NG; ++n, w += tb) noc_async_read_page(k * NTGT + n, wo, w);
     }
+#ifdef T1_BIAS
+    // [p | g] tiles of this launch's channels, then its g_out tiles (trimul_tail.t1_bias_tiles' order).
+    cb_reserve_back(bias_cb, 2 * QN + NG);
+    w = get_write_ptr(bias_cb);
+    for (uint32_t t = Q0; t < Q0 + QN; ++t, w += tb) noc_async_read_page(t, bi, w);
+    for (uint32_t t = Q0; t < Q0 + QN; ++t, w += tb) noc_async_read_page(T1_CT2 + t, bi, w);
+    for (uint32_t n = N0; n < N0 + NG; ++n, w += tb) noc_async_read_page(2 * T1_CT2 + n, bi, w);
+#endif
     noc_async_read_barrier();
+#ifdef T1_BIAS
+    cb_push_back(bias_cb, 2 * QN + NG);
+#endif
     cb_push_back(w_cb, 2 * QN * Kt);
     cb_push_back(gamma_cb, Kt);
     cb_push_back(beta_cb, Kt);

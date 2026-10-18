@@ -9403,6 +9403,7 @@ class TriangleMultiplication(Module):
         self._gp_gout_cache: dict[tuple[int, int], ttnn.Tensor] = {}
         self._gp_gated_cache: dict = {}
         self._t1_w = None     # T1's (wpT, wgT), built on its first served call
+        self._t1_bias = None  # and AF2's biases as T1's bias tiles (trimul_tail.t1_bias_tiles)
         # The in-projection as device leaves, set only by `train_in_proj`. Inference never
         # sets them and reads the caches above.
         self.g_in_weight = self.p_in_weight = None
@@ -9521,8 +9522,9 @@ class TriangleMultiplication(Module):
         why = next((k for k, bad in (
             ("tape", lambda: ops.taping()), ("fast_mode", lambda: _FAST_MODE),
             ("raw_moves", lambda: _TRIMUL_RAW_CHANNEL_MOVES), ("rowblock", lambda: _TRIMUL_INPROJ_ROWBLOCK),
-            ("g_in", lambda: self.g_in_weight is not None or self._g_in_b is not None),
-            ("g_out_bias", lambda: self.g_out_bias is not None), ("mask", lambda: not mask_ok),
+            ("g_in", lambda: self.g_in_weight is not None),
+            ("g_out_bias", lambda: (self.g_out_bias is None) != (self._g_in_b is None)),
+            ("mask", lambda: not mask_ok),
             ("move", lambda: not (self.gated_move or _TRIMUL_MASK_AFTER_MOVE)),
             ("chunking", lambda: H > SEQ_LEN_MORE_CHUNKING),
             ("not_dram", lambda: _triangle_mul_memory_config(H).buffer_type != ttnn.BufferType.DRAM),
@@ -9548,6 +9550,9 @@ class TriangleMultiplication(Module):
             up = lambda t: ttnn.from_torch(  # noqa: E731
                 t, layout=ttnn.TILE_LAYOUT, device=self.device, dtype=ttnn.bfloat16)
             self._t1_w = (up(wpT), up(wgT))
+            # AF2's biases (p_in, g_in, g_out: all three or none, as the checkpoints carry them).
+            self._t1_bias = None if self._g_in_b is None else up(TT1.t1_bias_tiles(
+                self._p_in_b.float(), self._g_in_b.float(), self.weights["g_out.bias"].float()))
         fold = mask is not None and TT1.t1_mask_ok(mask, x)
         ckc = _mm_generic.ckc_args(self.compute_kernel_config)
         if lever("trimul_gin_hifi2"):
@@ -9555,7 +9560,8 @@ class TriangleMultiplication(Module):
         outs = TT1.fused_in_ln(
             x, self.in_norm_weight, self.in_norm_bias, *self._t1_w, self.g_out_weight,
             ckc, tuple(COMPUTE_GRID_MAIN),
-            mask=mask if fold else None, b8=lever("trimul_t1b8") and (mask is None or fold))
+            mask=mask if fold else None, b8=lever("trimul_t1b8") and (mask is None or fold),
+            bias=self._t1_bias)
         return None if outs is None else (outs[0], outs[1], outs[2], fold)
 
     def _gout_eligible(self, x_norm_in, H, n_pairs, group, memory_config, row_norm) -> bool:
