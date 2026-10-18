@@ -37,10 +37,10 @@ def main():
     q, k, v, bias = dram(qh), dram(kh), dram(vh), dram(bh)
     scale = D ** -0.5
     r = args.ref_rows
-    # Two reference conventions, the op's `scale` applied and not: the grade reports both rather
-    # than assume which one the fused kernel's caller contract is.
-    refs = {sc: torch.softmax(qh[:r].double() @ kh[:r].double().transpose(-1, -2) * sc + bh.double(), -1)
-            @ vh[:r].double() for sc in (scale, 1.0)}
+    # The fused path scales the additive mask with the scores, softmax((q k^T + mask) * scale), as
+    # perf/spd_ditsdpa/opbench.py and perf/lpx_sdpa/bench.py grade it.
+    refs = {"f64": torch.softmax((qh[:r].double() @ kh[:r].double().transpose(-1, -2) + bh.double()) * scale, -1)
+            @ vh[:r].double()}
     outs = {}
 
     arms = {"k256": False, "k512": True}
@@ -60,8 +60,8 @@ def main():
         ttnn.deallocate(o)
         outs[name] = out
         res["arms"][name] = {"pick": list(T.SDPA_CHUNK_PICKS.get((S, S), [])), "ms": [], **{
-            f"rel_rms_scale{sc:g}": ((out - ref).pow(2).mean().sqrt() / ref.pow(2).mean().sqrt()).item()
-            for sc, ref in refs.items()}}
+            f"rel_rms_{n}": ((out - ref).pow(2).mean().sqrt() / ref.pow(2).mean().sqrt()).item()
+            for n, ref in refs.items()}}
     d = outs["k512"] - outs["k256"]
     res["k512_vs_k256"] = {"max_abs": d.abs().max().item(),
                            "rel_rms": (d.pow(2).mean().sqrt() / outs["k256"].pow(2).mean().sqrt()).item()}
