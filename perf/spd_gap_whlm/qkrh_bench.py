@@ -22,6 +22,8 @@ def main() -> int:
     ap.add_argument("--shapes", default=",".join(SHAPES))
     ap.add_argument("--repeat", type=int, default=5)
     ap.add_argument("--inner", type=int, default=10)
+    ap.add_argument("--fidelity", default="HiFi4", help="qk_rope_heads.FIDELITY arms")
+    ap.add_argument("--block", default="1,4", help="qk_rope_heads.BLOCK arms (tiles a dest acquire)")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
 
@@ -68,8 +70,30 @@ def main() -> int:
         def fused():
             return QR.qk_rope_heads(q, k, v, gq_tt, gk_tt, cos, sin)
 
-        for arm, fn in (("chain", chain), ("qkrh", fused)):
+        def rope_only():   # the same program and bytes with the norm compiled out: what the LayerNorm costs
+            return QR.rope_heads_packed(qkv_packed, cos, sin)
+
+        def copy():        # q, k, v read and written once by stock ops: the DRAM floor of the program
+            return [ttnn.clone(t, memory_config=ttnn.DRAM_MEMORY_CONFIG) for t in (q, k, v)]
+
+        qkv_packed = ttnn.concat([q, k, v], dim=-1)
+        blocks, first = args.block.split(","), {}
+        arms = [("chain", chain, None, "1")]
+        arms += [(f"qkrh_{f}_b{b}", fused, f, b) for f in args.fidelity.split(",") for b in blocks]
+        arms += [(f"rope_only_b{b}", rope_only, None, b) for b in blocks] + [("copy", copy, None, "1")]
+        for arm, fn, fid, blk in arms:
+            QR.FIDELITY = getattr(ttnn.MathFidelity, fid or "HiFi4")
+            QR.BLOCK = int(blk)
             try:
+                if arm.startswith(("rope_only", "copy")):
+                    o = fn()
+                    if arm.startswith("rope_only"):   # bit-identity across blocks (SaProt's packed path)
+                        got = torch.cat([ttnn.to_torch(t).float().flatten() for t in o])
+                        rec[arm] = {"same_as_first": bool(torch.equal(got, first.setdefault("rope", got)))}
+                    for t in o:
+                        ttnn.deallocate(t)
+                    rec.setdefault(arm, {})["ms"] = timed(lambda fn=fn: [ttnn.deallocate(t) for t in fn()], dev, args.repeat, args.inner)
+                    continue
                 o = fn()
                 if o is None:
                     rec[arm] = {"declined": True}
@@ -77,11 +101,16 @@ def main() -> int:
                 got = [ttnn.to_torch(t).double().reshape(B, H, S, hd) for t in o]
                 rec[arm] = {"q": err(got[0], ref_q), "k": err(got[1], ref_k),
                             "v_exact": bool(torch.equal(got[2], ref_v))}
+                if arm != "chain":
+                    flat = torch.cat([g.flatten() for g in got[:2]])
+                    rec[arm]["same_as_first"] = bool(torch.equal(flat, first.setdefault("qkrh", flat)))
                 for t in o:
                     ttnn.deallocate(t)
                 rec[arm]["ms"] = timed(lambda fn=fn: [ttnn.deallocate(t) for t in fn()], dev, args.repeat, args.inner)
             except Exception as exc:   # a kernel that fails to build or run is a result here, not a crash
                 rec[arm] = {"error": str(exc).splitlines()[0][:300]}
+        QR.FIDELITY, QR.BLOCK = ttnn.MathFidelity.HiFi4, 1
+        ttnn.deallocate(qkv_packed)
         print(json.dumps(rec), flush=True)
         out.write(json.dumps(rec) + "\n")
         out.flush()
