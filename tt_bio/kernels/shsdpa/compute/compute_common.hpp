@@ -25,6 +25,7 @@
 #include "api/compute/reduce_custom.h"
 #ifdef GATE_EPILOGUE
 #include "api/compute/eltwise_binary_sfpu.h"
+#endif
 // SHSDPA_ZONES: device-profiler zones around each stage of one k-chunk step in sdpa_inner_loop (needs
 // TT_METAL_DEVICE_PROFILER=1 at run time; compiles to nothing without the define).
 #if defined(SHSDPA_ZONES)
@@ -32,7 +33,6 @@
 #define SHSDPA_ZONE(name) DeviceZoneScopedN(name)
 #else
 #define SHSDPA_ZONE(name)
-#endif
 #endif
 
 ALWI void sdpa_reduce_copy_tile_to_dst_init_short(uint32_t cbid, uint32_t transpose = 0) {
