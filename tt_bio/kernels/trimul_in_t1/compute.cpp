@@ -27,6 +27,9 @@
 #include "api/compute/eltwise_unary/rsqrt.h"
 #include "api/compute/eltwise_binary_sfpu.h"
 #include "../trimul_gin_moved/sigmoid_poly.hpp"
+#if defined(T1_PSIG) && defined(TRISC_PACK)
+#include "llk_math_eltwise_unary_sfpu_silu.h"   // the packer-side SFPU init, as kernels/fc12g
+#endif
 #include "../common/ln_prologue.hpp"
 // ABL (bench-only define, trimul_tail.T1_ABL; 0 in every model path): bits that skip one stage's
 // work while keeping its circular-buffer traffic, to time each stage by difference (perf/spd_trimul/in_t1.py --abl).
@@ -43,6 +46,15 @@
 #ifndef T1PRE
 #define T1PRE 0
 #endif
+// T1_PSIG (the `trimul_psig` lever): the gate pass's polynomial sigmoid runs on the packer thread's SFPU calls
+// (pair_swiglu_ws's WS_PACK_SILU pattern) on the dest half it is about to pack, so the FPU starts the next row-tile
+// group's matmuls in the other half instead of waiting for the sigmoid. Same instructions on the same values:
+// bit-identical to the math-thread sigmoid.
+#ifdef T1_PSIG
+constexpr bool PSIG = true;
+#else
+constexpr bool PSIG = false;
+#endif
 
 constexpr uint32_t Kt = get_compile_time_arg_val(0);
 constexpr uint32_t QN = get_compile_time_arg_val(1);        // [a | b] channel tiles of this launch
@@ -57,6 +69,7 @@ constexpr uint32_t CT2 = get_compile_time_arg_val(8);       // [a | b] channel t
 constexpr uint32_t IL = get_compile_time_arg_val(9);        // row tiles per unit, 32 or 16 (reader.cpp)
 constexpr uint32_t GSBW = NG % 4 == 0 ? 4 : (NG % 2 == 0 ? 2 : 1);
 static_assert(IL % SBW == 0 && IL % 4 == 0 && SBW <= 4, "fp32 half-sync DST holds 4 tiles");
+static_assert(!PSIG || ((SIGPOLY == 1 || SIGPOLY == 2) && !(RNE & 2)), "T1_PSIG: polynomial sigmoid, no p/g RNE");
 
 constexpr uint32_t w_cb = tt::CBIndex::c_0;      // [Wp^T | Wg^T] of the group, 2 * QN * Kt, resident
 constexpr uint32_t xn_cb = tt::CBIndex::c_1;     // layer_norm(z) of the unit, bf16, IL * Kt
@@ -159,6 +172,9 @@ void kernel_main() {
         // 3. gin_moved's gated projection on xn. The sigmoid is re-initialised every unit: the
         // prologue's rsqrt init reprograms the SFPU (as in T2).
         sigmoid_tile_init();
+#ifdef T1_PSIG
+        PACK((llk_math_eltwise_unary_sfpu_silu_init<true>()));   // the packer thread's SFPU address modes
+#endif
         if constexpr (MASK) cb_wait_front(m_cb, IL);
         for (uint32_t q = 0; q < QN; ++q) {
             for (uint32_t pass = 0; pass < 2; ++pass) {
@@ -173,7 +189,7 @@ void kernel_main() {
                     uint32_t i1 = il0;
                     for (uint32_t k = 0; k < Kt; ++k, ++i0, i1 += IL)
                         matmul_block(w_cb, xn_cb, i0, i1, 0, true, SBW, 1, Kt);
-                    if (pass == 1) {
+                    if (pass == 1 && !PSIG) {
                         for (uint32_t i = 0; i < SBW; ++i) {
                             if constexpr (SIGPOLY) sigmoid_poly_tile<SIGPOLY>(i);
                             else sigmoid_bf16_tile(i);
@@ -183,7 +199,20 @@ void kernel_main() {
                         for (uint32_t i = 0; i < SBW; ++i) round_bf16_rne_tile(i);
                     }
                     tile_regs_commit();
+#ifdef T1_PSIG
+                    if (pass == 1) {
+                        // tile_regs_wait() that also points the SFPU at the packer's dest half, then the sigmoid
+                        PACK(TTI_SEMWAIT(p_stall::STALL_TDMA | p_stall::STALL_CFG,
+                                         semaphore::t6_sem(semaphore::MATH_PACK), p_stall::STALL_ON_ZERO));
+                        PACK(TT_SETC16(DEST_TARGET_REG_CFG_MATH_Offset_ADDR32, ckernel::packer::get_packer_dest_offset()));
+                        for (uint32_t i = 0; i < SBW; ++i) sigmoid_poly_tile_pack<SIGPOLY>(i);
+                        PACK(TTI_STALLWAIT(p_stall::STALL_PACK, p_stall::WAIT_SFPU));
+                    } else {
+                        tile_regs_wait();
+                    }
+#else
                     tile_regs_wait();
+#endif
                     for (uint32_t i = 0; i < SBW; ++i) pack_tile<true>(i, pass_cb, il0 + i);
                     tile_regs_release();
                 }

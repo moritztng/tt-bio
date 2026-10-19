@@ -28,6 +28,8 @@ ap.add_argument("--abl", default="", help="comma list of T1_ABL stage-skip masks
 ap.add_argument("--set", default="", help="comma list NAME=INT of trimul_tail knobs for T1 (T1_RB, T1_SBW, GIN_MOVE_NB, T1_ROWS)")
 ap.add_argument("--grid", default="", help="gx,gy: run T1 on this core grid instead of COMPUTE_GRID_MAIN")
 ap.add_argument("--w8", action="store_true", help="also run T1 on bfp8 weights (lever trimul_t1w8): its error and time")
+ap.add_argument("--levers", default="", help="lever set every call runs under (e.g. OpenFold3's Wormhole fast set)")
+ap.add_argument("--ab-lever", default="", help="also run T1 with this lever added: bit-equality of a, b, g_out and its time")
 ap.add_argument("--out", help="also append each JSON line here (the qb runner passes it)")
 A = ap.parse_args()
 
@@ -38,6 +40,8 @@ from tt_bio import tenstorrent as T, trimul_tail as TT, mm_generic as MG, rebloc
 from tt_bio.af2 import compute_kernel_config
 
 dev = T.get_device()
+if A.levers:
+    T._LEVERS = T.parse_levers(A.levers)
 kcfg = T.trunk_compute_kernel_config(compute_kernel_config())
 ckc = MG.ckc_args(kcfg)
 grid = tuple(int(v) for v in A.grid.split(",")) if A.grid else tuple(T.COMPUTE_GRID_MAIN)
@@ -207,6 +211,14 @@ for n in [int(s) for s in A.ns.split(",") if s]:
                 free(outs)
                 rec["ln1_flip_ms"] = timed(lambda: free(t1()), A.reps)
                 TT.T1_LN1 = prev
+            if A.ab_lever:
+                with T.levers(T._LEVERS | {A.ab_lever}):
+                    outs = t1()
+                    ttnn.synchronize_device(dev)
+                    rec["ab_equal"] = [bool(torch.equal(ttnn.to_torch(o), t)) for o, t in zip(outs, host)]
+                    free(outs)
+                    rec["ab_ms"] = timed(lambda: free(t1()), A.reps)
+                rec["base_ms"] = timed(lambda: free(t1()), A.reps)
             if A.w8:
                 t1w = lambda: TT.fused_in_ln(dz, dw["gamma"], dw["beta"], dw8["wpT"], dw8["wgT"],  # noqa: E731
                                              dw8["wgo"], ckc, grid, mask=dm)

@@ -306,6 +306,12 @@ def _sigpoly():
     """The kernels' SIGPOLY arg: 0 metal's sigmoid, 1 the degree-8 polynomial, 2 the degree-6 one (lever
     trimul_sig6, max |error| 7.4e-4 vs 3.0e-4, ~1/3 fewer SFPU instructions per gate)."""
     return 0 if not SIGPOLY else 2 if _lever("trimul_sig6") else 1
+
+
+def _t1_psig():
+    """T1's gate sigmoid from the packer thread (lever trimul_psig, kernels/trimul_in_t1 T1_PSIG): bit-identical,
+    the FPU's next matmul group overlaps it. Needs the polynomial sigmoid and no p/g rounding (RNE bit 1)."""
+    return _sigpoly() != 0 and not RNE & 2 and _lever("trimul_psig")
 # Round DST to bf16 nearest-even in those two kernels: bit 0 before the output pack, bit 1 before the p/g
 # packs, bit 2 (resident tail, EPI 2) the product before the residual add, whose move into srcA truncates.
 # Bits 0 and 1 measured null on the outputs (gm8): the packs round already. Bit 2 brings EPI 2 to one rounding
@@ -1576,7 +1582,7 @@ def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps, il, b8=F
     compute = ttnn.KernelDescriptor(
         kernel_source=str(d / "compute.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[kt, qn, T1_SBW, int(mask is not None), _sigpoly(), RNE, ng, group * qn, ct2, il],
-        defines=abl + xout + pre, runtime_args=cp,
+        defines=abl + xout + pre + ([("T1_PSIG", "1")] if _t1_psig() else []), runtime_args=cp,
         # fp32 DEST always, as T2: the LayerNorm statistics live in fp32 CBs. The fidelity stays
         # the caller's, so the projections run as the incumbent in-projection runs them.
         config=ttnn.ComputeConfigDescriptor(
@@ -1621,7 +1627,7 @@ def fused_in_ln(x, ln_w, ln_b, wpT, wgT, wgo, ckc, grid, mask=None, eps=1e-5, b8
     outs = [alloc([B, C, S, S], ab), alloc([B, C, S, S], ab), alloc(shp[:-1] + [int(wgo.shape[-1])])]
     key = ("t1", str(x.padded_shape), str(wpT.padded_shape), str(wgo.padded_shape), tuple(grid),
            tuple(str(c) for c in ckc), mask is not None, float(eps), _sigpoly(), RNE, GIN_MOVE_NB,
-           T1_RB, T1_SBW, T1_ABL, b8, il, w8)
+           T1_RB, T1_SBW, T1_ABL, b8, il, w8, _t1_psig())
     xn = alloc(shp) if T1_LN1 and groups > 1 else None
     for g in range(groups):
         ln1 = 0 if xn is None else 1 if g == 0 else 2
