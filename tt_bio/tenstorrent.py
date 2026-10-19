@@ -792,7 +792,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
 # model's matching op. BoltzGen's own --fast set names dit_cond_hifi2, graded on BoltzGen's designs.
-# OpenFold3's own --fast set names dit_fuse, edm_device, ws_l1dest, and dit_hifi2, dit_kc, dit_mask16 and triatt_hifi2 (Wormhole),
+# OpenFold3's own --fast set names dit_fuse, edm_device, ws_l1dest, and dit_hifi2, dit_kc, dit_mask16, triatt_hifi2 and ws_psilu (Wormhole),
 # graded on OpenFold3 / OpenBind-0, and the bit-exact triatt_ln (openfold3_fold.FAST_LEVERS).
 # ref_memo is host featurisation, OpenFold3 / OpenBind-0 only: one reference conformer per residue type
 # (vendored query.REF_MOL_MEMO), read by worker._predict_openfold3_one off the model's lever set.
