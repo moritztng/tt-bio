@@ -2,8 +2,9 @@
 
     TT_VISIBLE_DEVICES=<card> python perf/spd_m_protenix/wbw.py [--mb 553] [--reps 10]
 
-Arms, each over a bf16 TILE DRAM-interleaved tensor of --mb megabytes: `full` (ttnn.full on device: writes only)
-and `clone` (ttnn.clone: reads and writes the same bytes). Prints ms and GB/s (bytes written / time, and for clone
+Arms, each over a bf16 TILE DRAM-interleaved tensor of --mb megabytes: `full` (ttnn.full, which builds on the host:
+0.9 GB/s on WH, not a device number), `full_like` (device fill: writes only), `clone` (ttnn.clone: reads and writes the
+same bytes) and `b8to16` (typecast of a bfp8 copy to bf16: reads ~0.53 of the bytes it writes). Prints ms and GB/s (bytes written / time, and for clone
 also bytes moved) per arm, median of --reps after 3 warm calls, one JSON line each.
 """
 import argparse, json, statistics, time
@@ -43,4 +44,7 @@ def arm(name, fn, moved):
 
 
 arm("full", lambda: ttnn.full(shape, 1.0, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev), 1)
+arm("full_like", lambda: ttnn.full_like(src, 1.0), 1)
 arm("clone", lambda: ttnn.clone(src, memory_config=ttnn.DRAM_MEMORY_CONFIG), 2)
+src8 = ttnn.typecast(src, ttnn.bfloat8_b)
+arm("b8to16", lambda: ttnn.typecast(src8, ttnn.bfloat16), 1 + 1088 / 2048)
