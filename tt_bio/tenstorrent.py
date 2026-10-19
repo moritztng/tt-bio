@@ -562,6 +562,8 @@ _FAST_MODE = False
 #   triatt_b8       triangle attention's interior in bfp8. Same input on two core grids gives two
 #                   structures (825f18772, release gate leg `l1-budget`): card dependence is a hard
 #                   stop, so it is in no mode until the region is grid-invariant.
+#   triatt_ln_b8    triatt_ln writes q, k and v bfp8 (gate and bias bf16). Unlike triatt_b8 the bytes are
+#                   grid-invariant: each tile is one core's full-K dot product packed once.
 #   transition_b8   transition weights and both hidden activations in bfp8, written by the matmuls
 #   opm_b8          the outer product mean's two operands in bfp8, cast once after their relayout
 #   atom_sdpa       the bf16 atom attention (superset window) on one fused SDPA, bf16 mask
@@ -770,7 +772,8 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit", "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384",
           "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "ws_resid2", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
           "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "trimul_bres", "atomp_dev", "lm_qk_chain",
-          "lm_gate_ng", "lm_sdpa_stock", "triatt_hifi2", "dit_cond_jcat", "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32")
+          "lm_gate_ng", "lm_sdpa_stock", "triatt_hifi2", "dit_cond_jcat", "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32",
+          "triatt_ln_b8")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -787,7 +790,7 @@ UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "di
                              "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384",
                              "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "ws_resid2", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
                              "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "triatt_hifi2", "dit_cond_jcat",
-                             "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32"})
+                             "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32", "triatt_ln_b8"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -11644,6 +11647,12 @@ class TriangleAttention(Module):
             triangle_bias = ttnn.permute(triangle_bias, (0, 3, 1, 2))
             if self.ending and not self.transpose_bias:
                 triangle_bias = ttnn.permute(triangle_bias, (0, 1, 3, 2))
+            if fused is not None and pre_qkv[0].dtype == ttnn.bfloat8_b:
+                # triatt_ln_b8: the fused SDPA serves only uniform operands, and the head-major bias
+                # (H x S x S, 1/16 of the pair at 8 heads) is cheap to narrow after its permute.
+                narrowed = ttnn.typecast(triangle_bias, ttnn.bfloat8_b)
+                ttnn.deallocate(triangle_bias)
+                triangle_bias = narrowed
             dram_peak(f"tri_att({'end' if self.ending else 'start'}) bias built [z={'x'.join(str(d) for d in x.shape)}]")
 
         # Set fresh by every `_attend_heads` call: True when the fused SDPA took the gate into
