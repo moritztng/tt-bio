@@ -45,6 +45,10 @@ ITERATIONS = "iterations"
 ALPHA = 0.05
 POWER = 0.80
 SPREAD_MIN_N = 5  # below this a spread comparison cannot separate collapse from one unlucky design
+# Every test grade() can fail the verdict on, in one Holm family: the mean/count tests, plus sequence diversity
+# and one spread test per continuous metric. A single real effect has to clear alpha/FAMILY_SIZE to be the first
+# Holm rejection, so this is what the detectable effect size is quoted at, not the bare alpha.
+FAMILY_SIZE = len(CONTINUOUS + COUNTED + (ITERATIONS,)) + 1 + len(CONTINUOUS)
 PERM_N = 20000  # permutation resamples; tests lower it, nothing else should
 
 
@@ -529,11 +533,25 @@ def target_summary(trajectories: list[Trajectory], paths: list[str]) -> dict:
 
 
 def power_statement(ref_by_target: dict[str, list[Trajectory]]) -> dict:
-    """What n = 30 can and cannot see, in the metrics' own units. The brief requires this be stated, not implied."""
+    """What n = 30 can and cannot see, in the metrics' own units. The brief requires this be stated, not implied.
+
+    Two MDEs per metric, because the verdict is not one test. `paired`/`unpaired` are the bare per-test numbers.
+    `paired_holm`/`unpaired_holm` are what a metric has to move to fail the VERDICT, which needs it to clear
+    alpha/FAMILY_SIZE as the first Holm rejection: at n=30 that is 0.693 SD paired rather than 0.511, and 0.980
+    unpaired rather than 0.723. Quoting only the bare number would overstate the harness by about 36% and let a
+    lever ship on a "no significant difference" the test never had the power to find.
+    """
+    a_holm = ALPHA / FAMILY_SIZE
     out = {
         "n_per_arm": 30,
-        "alpha": ALPHA, "power": POWER,
-        "mde_sd_units": {"paired": mde_sd_units(30, paired=True), "unpaired": mde_sd_units(30, paired=False)},
+        "alpha": ALPHA, "power": POWER, "family_size": FAMILY_SIZE, "alpha_holm_strictest": a_holm,
+        "mde_sd_units": {"paired": mde_sd_units(30, paired=True), "unpaired": mde_sd_units(30, paired=False),
+                         "paired_holm": mde_sd_units(30, True, alpha=a_holm),
+                         "unpaired_holm": mde_sd_units(30, False, alpha=a_holm)},
+        "mde_note": ("paired/unpaired are per-test. paired_holm/unpaired_holm are what it takes to fail the "
+                     f"verdict, which puts all {FAMILY_SIZE} tests in one Holm family. Holm is adaptive, so a "
+                     "metric that moves alongside others is judged somewhere between the two; the _holm number "
+                     "is the honest bound for a single metric moving on its own."),
         "detectable_in_metric_units": {},
     }
     for target, trajectories in ref_by_target.items():
@@ -543,7 +561,9 @@ def power_statement(ref_by_target: dict[str, list[Trajectory]]) -> dict:
             d = describe([v for _, v in vals[m]])
             if d.get("n", 0) > 1 and d.get("sd"):
                 per[m] = {"ref_sd": d["sd"], "paired": mde_sd_units(30, True) * d["sd"],
-                          "unpaired": mde_sd_units(30, False) * d["sd"]}
+                          "unpaired": mde_sd_units(30, False) * d["sd"],
+                          "paired_holm": mde_sd_units(30, True, alpha=a_holm) * d["sd"],
+                          "unpaired_holm": mde_sd_units(30, False, alpha=a_holm) * d["sd"]}
         acc = acceptance(trajectories)
         p0 = acc["rate_per_trajectory"]
         # Acceptance is a count, so its power depends entirely on the rate: common acceptance is testable at n=30,
@@ -611,10 +631,12 @@ def build_reference(request: dict, root: str, seed: int = 0) -> dict:
         "missing_runs": missing,
         "test": ("Paired sign-flip permutation on (campaign_seed, trajectory_number), two-sample permutation where "
                  "arms do not pair, Fisher exact two-sided on counts, Holm-Bonferroni across metrics at "
-                 f"alpha={ALPHA}. Power at n=30: {mde_sd_units(30, True):.3f} SD paired, "
-                 f"{mde_sd_units(30, False):.3f} SD unpaired, at {POWER:.0%} power. Acceptance rate is "
-                 "underpowered at any affordable n and is read as a guardrail only; see power.detectable_in_"
-                 "metric_units."),
+                 f"alpha={ALPHA} over one family of {FAMILY_SIZE} tests. Power at n=30, to fail the verdict: "
+                 f"{mde_sd_units(30, True, alpha=ALPHA / FAMILY_SIZE):.3f} SD paired and "
+                 f"{mde_sd_units(30, False, alpha=ALPHA / FAMILY_SIZE):.3f} SD unpaired at {POWER:.0%} power "
+                 f"({mde_sd_units(30, True):.3f} and {mde_sd_units(30, False):.3f} per test, before the Holm "
+                 "correction the verdict applies). Acceptance rate is underpowered at any affordable n and is "
+                 "read as a guardrail only; see power.detectable_in_metric_units."),
         "power": power_statement({t: [x for arm in arms.values() for x in arm] for t, arms in by_target.items()}),
         "request": request.get("schema"),
         "root": root,

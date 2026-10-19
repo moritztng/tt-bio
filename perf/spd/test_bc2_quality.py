@@ -196,6 +196,24 @@ def test_advertised_mde_is_the_effect_it_actually_detects():
     assert 0.68 <= hits / 200 <= 0.92, f"power {hits / 200:.2f} at the advertised MDE, expected ~0.80"
 
 
+def test_the_verdict_level_mde_is_the_holm_corrected_one():
+    """What a metric must move to fail the VERDICT, which is the number a lever is really graded against.
+
+    A single real effect has to be the first Holm rejection, so it clears alpha/FAMILY_SIZE, not alpha. At n=30
+    that is 0.693 SD paired against the bare 0.511: quoting only the bare number overstates the harness by ~36%
+    and would let a lever ship on a 'no significant difference' the test never had the power to find.
+    """
+    a_holm = Q.ALPHA / Q.FAMILY_SIZE
+    mde = Q.mde_sd_units(30, paired=True, alpha=a_holm)
+    assert Q.FAMILY_SIZE == 16
+    assert mde == pytest.approx(0.693, abs=2e-3)
+    assert mde > Q.mde_sd_units(30, paired=True)
+    rng = random.Random(11)
+    hits = sum(Q.paired_perm_mean_diff([rng.gauss(mde, 1) for _ in range(30)], n=4000, seed=i) < a_holm
+               for i in range(200))
+    assert 0.68 <= hits / 200 <= 0.92, f"power {hits / 200:.2f} at the Holm-corrected MDE, expected ~0.80"
+
+
 # ---------------------------------------------------------------------------
 # the A/B property: the grader must catch a real change
 # ---------------------------------------------------------------------------
