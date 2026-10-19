@@ -46,10 +46,13 @@ void kernel_main() {
         cb_push_back(rm_cb, 32);
 
         if constexpr (ABL & 2) {
-            cb_wait_front(rm_cb, 32);
-            cb_reserve_back(out_cb, 32);
-            cb_push_back(out_cb, 32);
-            cb_pop_front(rm_cb, 32);
+            // In 8s: out_cb holds 16 tiles, so reserving 32 at once never returns (that hung bpk4).
+            for (uint32_t i = 0; i < 32; i += 8) {
+                cb_wait_front(rm_cb, 8);
+                cb_reserve_back(out_cb, 8);
+                cb_push_back(out_cb, 8);
+                cb_pop_front(rm_cb, 8);
+            }
             continue;
         }
         constexpr uint32_t tz_cb = (ABL & 8) ? out_cb : t_cb;   // bit 3: tilize straight to out, no transpose
