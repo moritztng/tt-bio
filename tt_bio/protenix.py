@@ -1804,7 +1804,11 @@ class DiffusionModule(_KeyedWeights):
         NT = int(z_dev.shape[-2])
         if self._dit_sdpa32:
             NT = _T.sdpa32_rows(NT)
-        one = _T._padded_bytes((1, self.DIT_N_HEADS, NT, NT),
+        # dit_bpad: the bf16 fused-SDPA DiT reads each bias at a padded length, staged here once.
+        bpad = (_T.lever("dit_bpad") and not self._dit_sdpa32
+                and all(apb.token_dit for (_, apb, _, _, _) in self._dit))
+        to = _T.dit_bias_pad_len(NT) if bpad else NT
+        one = _T._padded_bytes((1, self.DIT_N_HEADS, to, to),
                                4 if self._dit_dtype == ttnn.float32 else 2)
         reserve = 4 * one
         # Each DRAM reading drains the pipeline, and 48 of them cost a 20-residue fold 100 ms.
@@ -1819,7 +1823,7 @@ class DiffusionModule(_KeyedWeights):
             fb = apb.finish_bias(b)
             if fb is not b:
                 ttnn.deallocate(b)
-            biases.append(place(fb, reserve))
+            biases.append(place(_T.pad_dit_bias(fb, NT, to), reserve))
         # z_dev's only reader was this loop, and the room it frees takes parked biases back.
         ttnn.deallocate(z_dev)
         if not fits:
