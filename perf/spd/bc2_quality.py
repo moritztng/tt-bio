@@ -784,7 +784,7 @@ def power_statement(ref_by_target: dict[str, list[Trajectory]]) -> dict:
     return out
 
 
-def build_reference(request: dict, root: str, seed: int = 0) -> dict:
+def build_reference(request: dict, root: str, seed: int = 0, provisional: bool = False) -> dict:
     """Read every campaign the request asked for, grade the A/A control, and state the power.
 
     `banked_runs` are campaigns that already landed and must NOT be run again: the 2026-10-19 B200 capped
@@ -833,6 +833,13 @@ def build_reference(request: dict, root: str, seed: int = 0) -> dict:
         "targets": targets,
         "aa_control": aa,
         "missing_runs": missing,
+        **({"provisional": True,
+            "provisional_why": (
+                "Built with --provisional on the trajectories that happened to be on disk, at an n far below what "
+                "the charter requires. It exercises the whole path (read, pair, test, Holm, A/A, power) so that at "
+                "top-up time the only missing ingredient is trajectories. It is NOT the reference: "
+                "_bc4_quality_check.py requires n >= 30 per target and will reject this file, which is the point.")}
+           if provisional else {}),
         "test": ("Paired sign-flip permutation on (campaign_seed, trajectory_number), two-sample permutation where "
                  "arms do not pair, Fisher exact two-sided on counts, Holm-Bonferroni across metrics at "
                  f"alpha={ALPHA} over one family of {FAMILY_SIZE} tests. Power at n=30, to fail the verdict: "
@@ -871,6 +878,8 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--root", required=True, help="where the raw campaigns landed")
     r.add_argument("--out", required=True)
     r.add_argument("--seed", type=int, default=0)
+    r.add_argument("--provisional", action="store_true",
+                   help="stamp the output as provisional: exercises the path at an n the gate will reject")
 
     c = sub.add_parser("compare", help="grade an arm against the reference")
     c.add_argument("--ref", required=True, help="state/bc4/QUALITY-REF.json")
@@ -913,7 +922,7 @@ def main(argv: list[str] | None = None) -> int:
     if a.cmd == "reference":
         with open(a.request) as fh:
             request = json.load(fh)
-        ref = build_reference(request, a.root, seed=a.seed)
+        ref = build_reference(request, a.root, seed=a.seed, provisional=a.provisional)
         _write(a.out, ref)
         thin = [t for t, v in ref["targets"].items() if v["n"] < 30]
         print(f"{a.out}: {len(ref['targets'])} targets, "
