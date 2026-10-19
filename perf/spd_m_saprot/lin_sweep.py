@@ -105,6 +105,14 @@ def main() -> int:
         mck = lin._ck(wd)   # what the model ships for this weight (HiFi2 at --fast, _SAPROT_HIFI2); every arm runs it
         run("model", lambda: ops.linear(xd, wd, bias=bd, compute_kernel_config=mck, dtype=ttnn.bfloat16,
                                         core_grid=T.CORE_GRID_MAIN, **kw), {})
+
+        def gelu_after(o):   # the activation as its own op (exact, as the model ships it), the matmul's output freed
+            g = ttnn.gelu(o, fast_and_approximate_mode=False, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+            ttnn.deallocate(o)
+            return g
+        if act:
+            run("model+g", lambda: gelu_after(ops.linear(xd, wd, bias=bd, compute_kernel_config=mck, dtype=ttnn.bfloat16,
+                                                         core_grid=T.CORE_GRID_MAIN)), {})
         hifi2 = mck.math_fidelity == ttnn.MathFidelity.HiFi2
         if S._saprot_prog(xd, wd, act, hifi2) is not None:
             before = list(S.PROG_STATS)
@@ -160,6 +168,10 @@ def main() -> int:
             run("mm", lambda mc=mc: ttnn.experimental.minimal_matmul(
                 xd, wd, bias_tensor=bd, compute_kernel_config=mck, dtype=ttnn.bfloat16,
                 memory_config=ttnn.DRAM_MEMORY_CONFIG, config=mc, **mact), dict(mb=mb, kb=kb, nb=nb, sh=sh, sw=sw))
+            if act:   # the same program without the epilogue, GELU as its own op
+                run("mm+g", lambda mc=mc: gelu_after(ttnn.experimental.minimal_matmul(
+                    xd, wd, bias_tensor=bd, compute_kernel_config=mck, dtype=ttnn.bfloat16,
+                    memory_config=ttnn.DRAM_MEMORY_CONFIG, config=mc)), dict(mb=mb, kb=kb, nb=nb, sh=sh, sw=sw))
         ttnn.deallocate(xd); ttnn.deallocate(wd); ttnn.deallocate(bd)
     return 0
 
