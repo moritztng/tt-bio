@@ -46,7 +46,7 @@ for _ in $(seq $NMAX); do
   mkdir -p $HOLD; echo $$ > $HOLD/$I; sed -i "\$s|.*|$I  $CAP_H  $SLUG|" $B
   echo "# ^ $SLUG $L offer $O created $(date -u +%FT%TZ) by perf/kitcmp/bc4_session.sh" >> $B
   T0=$(date +%s); log "created $I on offer $O"; S=""
-  while [ $(( $(date +%s) - T0 )) -lt 1500 ]; do
+  while [ $(( $(date +%s) - T0 )) -lt 720 ]; do
     [ $(( $(date +%s) - T0 )) -ge 120 ] && [ "$(state $I)" != running ] && break
     # Two routes to the same box: the host's own open port, and vast's proxy. On 2026-10-19 a box that never
     # answered on the direct port cost two rentals, so try both every poll and take whichever answers.
