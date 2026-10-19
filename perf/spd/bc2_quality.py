@@ -43,6 +43,7 @@ ITERATIONS = "iterations"
 
 ALPHA = 0.05
 POWER = 0.80
+PERM_N = 20000  # permutation resamples; tests lower it, nothing else should
 
 
 # ---------------------------------------------------------------------------
@@ -62,10 +63,11 @@ def fisher_two_sided(a: int, b: int, c: int, d: int) -> float:
     return min(1.0, sum(pr(x) for x in range(max(0, r1 + c1 - n), min(r1, c1) + 1) if pr(x) <= p0 * (1 + 1e-9)))
 
 
-def perm_mean_diff(x: list[float], y: list[float], n: int = 20000, seed: int = 0) -> float:
+def perm_mean_diff(x: list[float], y: list[float], n: int | None = None, seed: int = 0) -> float:
     """Two-sample permutation test on the difference of means."""
     if len(x) < 2 or len(y) < 2:
         return 1.0
+    n = PERM_N if n is None else n
     rng = random.Random(seed)
     obs = abs(st.mean(x) - st.mean(y))
     pool = list(x) + list(y)
@@ -77,11 +79,12 @@ def perm_mean_diff(x: list[float], y: list[float], n: int = 20000, seed: int = 0
     return (k + 1) / (n + 1)
 
 
-def paired_perm_mean_diff(diffs: list[float], n: int = 20000, seed: int = 0) -> float:
+def paired_perm_mean_diff(diffs: list[float], n: int | None = None, seed: int = 0) -> float:
     """Sign-flip permutation test on paired differences: under the null a difference is as likely either way."""
     diffs = [d for d in diffs if d == d]
     if len(diffs) < 2:
         return 1.0
+    n = PERM_N if n is None else n
     rng = random.Random(seed)
     obs = abs(st.mean(diffs))
     k = 0
@@ -452,13 +455,21 @@ def power_statement(ref_by_target: dict[str, list[Trajectory]]) -> dict:
                           "unpaired": mde_sd_units(30, False) * d["sd"]}
         acc = acceptance(trajectories)
         p0 = acc["rate_per_trajectory"]
+        # Acceptance is a count, so its power depends entirely on the rate: common acceptance is testable at n=30,
+        # rare acceptance is not testable at any n we could pay for. Derive which regime this target is in.
+        needed = n_for_proportions(p0, p0 / 2) if p0 and p0 == p0 else float("inf")
+        powered = needed <= 30
         per["acceptance_rate"] = {
             "ref_rate_per_trajectory": p0,
-            "n_needed_to_detect_a_halving": n_for_proportions(p0, p0 / 2) if p0 else float("inf"),
-            "verdict": "underpowered at n=30",
-            "note": ("Acceptance is rare, so no affordable n can test it. It is read as a guardrail that the arm "
-                     "has not stopped accepting entirely, and the grade rests on i_pTM, pLDDT, binder RMSD and the "
-                     "loss traces, which are continuous and do have power at n=30."),
+            "n_needed_to_detect_a_halving": needed,
+            "verdict": "powered at n=30" if powered else "underpowered at n=30",
+            "note": (("Acceptance is common enough here that n=30 can test a halving of the rate directly."
+                      if powered else
+                      "Acceptance is too rare for any affordable n to test: detecting a halving would take "
+                      f"{needed:.0f} trajectories per arm. It is read only as a guardrail that the arm has not "
+                      "stopped accepting entirely.")
+                     + " The grade rests on i_pTM, pLDDT, binder RMSD and the loss traces, which are continuous "
+                       "and do have power at n=30."),
         }
         out["detectable_in_metric_units"][target] = per
     return out
