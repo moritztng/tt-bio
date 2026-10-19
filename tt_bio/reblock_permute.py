@@ -684,11 +684,19 @@ def _prepare_back(x, out, device):
     return entry
 
 
-# The same move with the packer re-tiling (permute_back_pk.py): bit-exact, 1.65 vs 2.17 ms at 512 c256 on Wormhole
-# (bpk5), because the writer copies whole tiles where this kernel's reader gathers 64 NOC packets a tile. Off until a
-# fold A/B grades it.
-PBPK = os.environ.get("TT_BIO_PBPK", "0") == "1"
+# On Wormhole the move takes permute_back_pk (the packer re-tiles, the writer copies whole tiles) where it serves:
+# bit-exact, 1.48 vs 2.09 ms at 512 c256 and 5.67 vs 6.91 ms at 1024 (one Galaxy chip, 1000 MHz), where this kernel's
+# reader gathers 64 NOC packets a tile. Blackhole keeps this kernel until it is measured there. TT_BIO_PBPK overrides
+# the arch default either way.
+_PBPK = None
 STATS_PBPK = [0]
+
+
+def _pbpk():
+    global _PBPK
+    if _PBPK is None:
+        _PBPK = env_flag("TT_BIO_PBPK", ttnn.get_arch_name().startswith("wormhole"))
+    return _PBPK
 
 
 @_ops.fused_kernel("reblock_permute_back")
@@ -710,16 +718,13 @@ def reblock_permute_back(x, memory_config=None, device=None, out=None, c_off=0):
     assert c_off % TILE_W == 0 and c_off + C <= c_out and (int(out.shape[1]), int(out.shape[2])) == (N, N), (
         "reblock_permute_back: the channel slice must be tile-aligned and inside `out`",
         C, c_off, [int(d) for d in out.shape])
-    if PBPK and (x.memory_config().memory_layout == out.memory_config().memory_layout
-                 == ttnn.TensorMemoryLayout.INTERLEAVED):
+    if _pbpk() and (x.memory_config().memory_layout == out.memory_config().memory_layout
+                    == ttnn.TensorMemoryLayout.INTERLEAVED):
         from . import permute_back_pk as _pk
         from .tenstorrent import COMPUTE_GRID_MAIN
         if _pk.ok(x, out, c_off):
             STATS_BACK[0] += 1
             STATS_PBPK[0] += 1
-            if STATS_PBPK[0] == 1:
-                print(f"[tt-bio] permute_back_pk engaged (TT_BIO_PBPK): C={int(x.shape[1])} N={int(x.shape[2])}",
-                      flush=True)
             return _pk.permute_back_pk(x, out, tuple(COMPUTE_GRID_MAIN), c_off=c_off)
     entry = _prepare_back(x, out, device)
     src, dst = x.buffer_address(), out.buffer_address()

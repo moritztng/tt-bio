@@ -1,13 +1,13 @@
-"""The trimul's back channel move with the packer doing the re-tiling (bench only for now).
+"""The trimul's back channel move with the packer doing the re-tiling.
 
 `reblock_permute_back` moves the einsum's channel-major `[1, C, N, N]` result to `[1, N, N, H]` with a
 reader-side L1 gather of 64 NOC packets per output tile: ~2.2 ms a call at 512 c256 on Wormhole, ~116 GB/s.
 Here compute does it (kernels/permute_back_pk): untilize 32 channel tiles as one row, tilize each 2 KB page,
-transpose in the unpacker. Bit-exact by construction (a copy through a 16-bit dest).
+transpose in the unpacker. Bit-exact by construction (a copy through a 16-bit dest). `reblock_permute_back` routes
+here on Wormhole.
 """
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 import ttnn
@@ -16,11 +16,12 @@ from . import mm_generic as MG
 
 KERNEL_DIR = Path(__file__).resolve().parent / "kernels" / "permute_back_pk"
 ABL = 0            # stage ablation bits (see each .cpp). Diagnostic only.
-OUT_TILES = int(os.environ.get("TT_BIO_PBPK_OUT", "16"))   # out_cb tiles; the writer bounds the kernel (bpk5)
-WB = int(os.environ.get("TT_BIO_PBPK_WB", "8"))            # writer tiles per flush, divides 32 and OUT_TILES
-# Unit order. 0: ct slowest, so a unit's 32 reads stride SS pages and its 32 writes St*Ht pages, both multiples of 4,
-# which lands every unit on 3 of Wormhole's 12 DRAM banks. 1: ct fastest, neighbouring units one page apart.
-ORD = int(os.environ.get("TT_BIO_PBPK_ORD", "0"))
+# out_cb tiles and writer tiles per flush: 16/8 through 128/32 all read 1.61-1.65 ms at 512 c256 (bpk7), so the smallest.
+OUT_TILES = 16
+WB = 8
+# Units run channel tile fastest. Channel tile slowest put a unit's 32 reads (stride N^2/1024 pages) and 32 writes
+# (stride N*H/1024) on 3 of Wormhole's 12 DRAM banks: 1.62 vs 1.48 ms at 512 c256, 6.18 vs 5.67 at 1024 (bpk8).
+ORD = 1
 _CACHE: dict = {}
 TILE = 32
 

@@ -15,6 +15,7 @@ import torch, ttnn
 from tt_bio import tenstorrent as T, reblock_permute as RB, permute_back_pk as PK
 
 dev = T.get_device()
+RB._PBPK = False      # `old` is reblock_permute_back's own kernel, not the pk route it takes on Wormhole
 grid = tuple(T.COMPUTE_GRID_MAIN)
 
 
@@ -53,7 +54,12 @@ for n in (int(v) for v in A.ns.split(",")):
            "pk_exact": bool(torch.equal(got, ref)),
            "pk_mismatch": int((got != ref).sum()), "old_ms": timed(old, A.reps), "pk_ms": timed(new, A.reps),
            "wh_floor_ms": round(2 * xt.numel() * 2 / 288e9 * 1e3, 3)}
-    # half the channels into the second half of a 2c output (the chunked caller's c_off)
+    # c channels into the second half of a 2c output (the chunked caller's c_off)
+    o3 = ttnn.allocate_tensor_on_device(ttnn.Shape([1, n, n, 2 * A.c]), ttnn.bfloat16, ttnn.TILE_LAYOUT, dev,
+                                        ttnn.DRAM_MEMORY_CONFIG)
+    PK.permute_back_pk(x, o3, grid, c_off=A.c); ttnn.synchronize_device(dev)
+    rec["pk_coff_exact"] = bool(torch.equal(ttnn.to_torch(o3)[..., A.c:], ref))
+    ttnn.deallocate(o3)
     for m in (int(v) for v in A.abl.split(",") if v):
         PK.ABL = m
         rec[f"pk_abl{m}_ms"] = timed(new, A.reps)
