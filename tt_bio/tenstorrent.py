@@ -2679,6 +2679,15 @@ _TRIATT_BIAS_B8 = env_flag("TT_BIO_TRIATT_BIAS_B8", False)
 # `825f18772` closed it on exactly that and `docs/tuning-flags.md` names the failing arm
 # (`l1-budget`). Re-opens only if someone makes the region grid-invariant.
 _TRIATT_B8 = env_flag("TT_BIO_TRIATT_B8", False)
+# BC4 precision placement 2, narrower than `_TRIATT_B8`: only the head-major q/k/v projection
+# (`triatt_qkv.qkv_heads`) writes bfp8_b. The gate, the bias and the region's other tensors stay
+# bf16, and the fused backward reads bfp8 q/k/v as written (`triatt_bw.QKV_DTYPES`). Off: it has to
+# clear the same grid-invariance test `_TRIATT_B8` failed before it may default on.
+_TRIATT_QKV_B8 = env_flag("TT_BIO_TRIATT_QKV_B8", False)
+
+
+def _triatt_qkv_dtype():
+    return ttnn.bfloat8_b if _TRIATT_QKV_B8 or _triatt_b8() else _dtype()
 
 
 def _triatt_b8() -> bool:
@@ -11889,7 +11898,7 @@ class TriangleAttention(Module):
                 qkv_cfg_chunk = _qkv_mm_config(x_chunk, self.qkv_weight, self.ragged_m)
                 qkv_chunk = qkv_chunk if qkv_chunk is not None else _triatt_qkv.qkv_heads(
                     x_chunk, self.qkv_weight, self.compute_kernel_config,
-                    self.n_heads, self.head_dim, _dtype(), qkv_cfg_chunk,
+                    self.n_heads, self.head_dim, _triatt_qkv_dtype(), qkv_cfg_chunk,
                 )
                 if qkv_chunk is None:
                     qkv_chunk = ttnn.experimental.minimal_matmul(
@@ -12058,7 +12067,8 @@ class TriangleAttention(Module):
             qkv = qkv if qkv is not None else None if qkv_cfg is not None or fold_o is not None \
                 else _triatt_qkv.qkv_heads(
                 x, self.qkv_weight, self.compute_kernel_config,
-                self.n_heads, self.head_dim, _dtype(), _qkv_mm_config(x, self.qkv_weight, self.ragged_m),
+                self.n_heads, self.head_dim, _triatt_qkv_dtype(),
+                _qkv_mm_config(x, self.qkv_weight, self.ragged_m),
             )
             if qkv is None and fold_o is None:
                 if qkv_cfg is not None:

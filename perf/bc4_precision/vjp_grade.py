@@ -12,6 +12,8 @@ distance from the same reference. An arm is a set of module flags, each a bfp8 s
   both    b8in + tri8
   b8b     b8in with AF2's in-projection bias allowed (`_TRIMUL_INPROJ_B8_BIAS`), the form that fires on AF2
   stack   b8b + tri8
+  qkv8    triangle attention's head-major q/k/v written bfp8 (`_TRIATT_QKV_B8`)
+  stack2  b8b + qkv8
 
     TT_VISIBLE_DEVICES=<card> PYTHONPATH=. python perf/bc4_precision/vjp_grade.py --arms off,b8in,tri8,both
 """
@@ -24,7 +26,9 @@ from perf.bcx_afgrad import afgrad as A     # noqa: E402
 ARMS = {"off": {}, "b8in": {"_TRIMUL_INPROJ_B8": True}, "tri8": {"_TRIATT_B8": True},
         "both": {"_TRIMUL_INPROJ_B8": True, "_TRIATT_B8": True},
         "b8b": {"_TRIMUL_INPROJ_B8": True, "_TRIMUL_INPROJ_B8_BIAS": True},
-        "stack": {"_TRIMUL_INPROJ_B8": True, "_TRIMUL_INPROJ_B8_BIAS": True, "_TRIATT_B8": True}}
+        "stack": {"_TRIMUL_INPROJ_B8": True, "_TRIMUL_INPROJ_B8_BIAS": True, "_TRIATT_B8": True},
+        "qkv8": {"_TRIATT_QKV_B8": True},
+        "stack2": {"_TRIMUL_INPROJ_B8": True, "_TRIMUL_INPROJ_B8_BIAS": True, "_TRIATT_QKV_B8": True}}
 ap = argparse.ArgumentParser()
 ap.add_argument("--n", type=int, default=224)
 ap.add_argument("--evo", type=int, default=8)
