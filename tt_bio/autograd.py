@@ -3185,22 +3185,26 @@ def _traced_forward(key, fn, inputs):
 
     if isinstance(st, tuple):
         sh = _RSHARED[sig]
+        check = RTRACE_STATS["replay"] < TRACE_RECOMPUTE_CHECK
+        pre = _rt_clone(flat(fn(*inputs))) if check else None
         _rt_copy_in(vals, sh["ins"])
         ttnn.execute_trace(device, st[0], cq_id=0, blocking=False)
         RTRACE_STATS["replay"] += 1
         outs = [None if ob is None else ttnn.clone(ob) for ob in sh["outs"]]
-        if RTRACE_STATS["replay"] <= TRACE_RECOMPUTE_CHECK:
-            ref = flat(fn(*inputs))
-            rels = []
-            for o, r in zip(outs, ref):
-                if o is not None and r is not None:
-                    a, b = ttnn.to_torch(o).double(), ttnn.to_torch(r).double()
-                    den = float(b.norm())
-                    rels.append(float((a - b).norm()) / den if den else float((a - b).norm()))
-            RTRACE_CHECKS.append(dict(key=repr(key), unit="fwd", replay=RTRACE_STATS["replay"], rel=rels))
-            if rels and max(rels) > 0:
-                print(f"[trace-check] fwd replay {RTRACE_STATS['replay']} {key!r}: rel L2 {max(rels):.3e}",
-                      flush=True)
+        if check:
+            # Four readings on the same inputs separate the two ways a replay can be wrong:
+            # replay != replay again means it read scratch another trace last wrote;
+            # eager before != eager after means it wrote memory the eager side owns.
+            _rt_copy_in(vals, sh["ins"])
+            ttnn.execute_trace(device, st[0], cq_id=0, blocking=False)
+            again = _rt_clone(sh["outs"])
+            post = flat(fn(*inputs))
+            rel = lambda xs, ys: max([_rel(x, y) for x, y in zip(xs, ys) if x is not None and y is not None] or [0.0])
+            r = dict(eager=rel(outs, post), again=rel(outs, again), drift=rel(pre, post), pre=rel(outs, pre))
+            RTRACE_CHECKS.append(dict(key=repr(key), unit="fwd", replay=RTRACE_STATS["replay"], rel=[r["eager"]], **r))
+            if max(r.values()) > 0:
+                print(f"[trace-check] fwd replay {RTRACE_STATS['replay']} {key!r}: "
+                      + " ".join(f"{k} {v:.3e}" for k, v in r.items()), flush=True)
         return tuple(outs) if _RSHAPE[sig] else outs[0]
 
     y = _rt_first(device, sig, lambda: fn(*inputs)) if st == 0 else fn(*inputs)
@@ -3227,6 +3231,12 @@ def _traced_forward(key, fn, inputs):
     _rt_copy_in(vals, sh["ins"])
     _rt_batch(device, sig, sh)
     return y
+
+
+def _rel(a, b) -> float:
+    a, b = ttnn.to_torch(a).double(), ttnn.to_torch(b).double()
+    den = float(b.norm())
+    return float((a - b).norm()) / den if den else float((a - b).norm())
 
 
 def _check_replay(key, fn, inputs, vals, seeded, outs) -> None:
