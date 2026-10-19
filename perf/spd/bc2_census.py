@@ -131,8 +131,8 @@ def stub_structure_module():
 
     real = folding_multimer.StructureModule.__call__
 
-    def stand_in(self, representations, batch, is_training, *args, **kwargs):
-        shapes = hk.eval_shape(lambda: real(self, representations, batch, is_training, *args, **kwargs))
+    def stand_in(self, representations, batch, *args, **kwargs):
+        shapes = hk.eval_shape(lambda: real(self, representations, batch, *args, **kwargs))
         tie = 1e-30 * (jnp.mean(representations["single"]) + jnp.mean(representations["pair"]))
         rng = np.random.default_rng(0)
 
