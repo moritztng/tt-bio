@@ -9487,7 +9487,7 @@ class TriangleMultiplication(Module):
         # lever ever takes a call at this width.
         self._gp_gout_cache: dict[tuple[int, int], ttnn.Tensor] = {}
         self._gp_gated_cache: dict = {}
-        self._t1_w = None     # T1's (wpT, wgT, bfp8 g_out or None), built on its first served call
+        self._t1_w = {}       # trimul_t1w8 -> T1's (wpT, wgT, bfp8 g_out or None), built on first use
         # The in-projection as device leaves, set only by `train_in_proj`. Inference never
         # sets them and reads the caches above.
         self.g_in_weight = self.p_in_weight = None
@@ -9627,21 +9627,22 @@ class TriangleMultiplication(Module):
             TT1.T1_STATS[1] += 1
             TT1.T1_WHY["route"] = TT1.T1_WHY.get("route", 0) + 1
             return None
-        if self._t1_w is None:
+        # trimul_t1w8: all three resident weights as bfp8, so c_z 384 runs two channel groups, not three
+        w8 = lever("trimul_t1w8")
+        if w8 not in self._t1_w:
             wpT, wgT, wgo = TT1.t1_host_weights(self._g_in_t, self._p_in_t,
                                                 self.weights["g_out.weight"].t())
-            # trimul_t1w8: all three resident weights as bfp8, so c_z 384 runs two channel groups, not three
-            w8 = lever("trimul_t1w8")
             up = lambda t: ttnn.from_torch(  # noqa: E731
                 t, layout=ttnn.TILE_LAYOUT, device=self.device,
                 dtype=ttnn.bfloat8_b if w8 else ttnn.bfloat16)
-            self._t1_w = (up(wpT), up(wgT), up(wgo) if w8 else None)
+            self._t1_w[w8] = (up(wpT), up(wgT), up(wgo) if w8 else None)
+        wts = self._t1_w[w8]
         fold = mask is not None and TT1.t1_mask_ok(mask, x)
         ckc = _mm_generic.ckc_args(self.compute_kernel_config)
         if lever("trimul_gin_hifi2"):
             ckc = (ttnn.MathFidelity.HiFi2,) + ckc[1:]
         outs = TT1.fused_in_ln(
-            x, self.in_norm_weight, self.in_norm_bias, *self._t1_w[:2], self._t1_w[2] or self.g_out_weight,
+            x, self.in_norm_weight, self.in_norm_bias, *wts[:2], wts[2] or self.g_out_weight,
             ckc, tuple(COMPUTE_GRID_MAIN),
             mask=mask if fold else None, b8=lever("trimul_t1b8") and (mask is None or fold))
         return None if outs is None else (outs[0], outs[1], outs[2], fold)
