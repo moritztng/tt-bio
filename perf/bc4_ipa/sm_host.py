@@ -13,9 +13,10 @@ Arms:
           so every output and gradient the design loss sees is the same computation.
 
 `--x64` runs in float64: the oracle a card kernel is graded against (never another approximation).
+Run from a tt-bio tree with PYTHONPATH=. so tt-bio's own IPA rewrites apply, as in the product.
 usage: sm_host.py --bc2 <checkout> --params <params_model_1_multimer_v3.npz> [--n 224] [--arm base]
 """
-import argparse, inspect, json, os, sys, textwrap, time
+import argparse, contextlib, inspect, json, os, sys, textwrap, time
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--bc2", required=True)
@@ -27,6 +28,8 @@ ap.add_argument("--reps", type=int, default=10)
 ap.add_argument("--dropout", action="store_true", help="dropout on, as in screen/refine/anneal")
 ap.add_argument("--x64", action="store_true")
 ap.add_argument("--out", default=None, help="write the record as JSON here")
+ap.add_argument("--no-tt-rewrites", action="store_true",
+                help="skip tt-bio's own IPA rewrites (bindcraft2.ipa_rewrites), on in the product")
 a = ap.parse_args()
 if a.x64:
     os.environ["JAX_ENABLE_X64"] = "1"
@@ -161,6 +164,11 @@ def timed(fn, *args):
 rec = {"n": N, "real": R, "x64": a.x64, "dropout": a.dropout, "reps": a.reps, "jax": jax.__version__,
        "host": os.uname().nodename, "loadavg_start": list(os.getloadavg()), "arms": {}}
 outs = {}
+ctx = contextlib.ExitStack()
+if not a.no_tt_rewrites:
+    from tt_bio import bindcraft2
+    rec["tt_rewrites"] = ctx.enter_context(bindcraft2.ipa_rewrites(
+        einsum=bindcraft2.IPA_POINT_EINSUM, dist_remat=bindcraft2.IPA_DIST_REMAT))
 for arm in (["base", "lastsc"] if a.arm == "both" else [a.arm]):
     apply = build(arm)
 
@@ -182,6 +190,7 @@ for arm in (["base", "lastsc"] if a.arm == "both" else [a.arm]):
                         "value_and_grad_s": g_med, "value_and_grad_spread": g_sp, "loss": float(val)}
     print(f"{arm:7s} forward {f_med*1e3:7.1f} ms {f_sp}  value_and_grad {g_med*1e3:7.1f} ms {g_sp}  "
           f"loss {float(val):.6f}", flush=True)
+ctx.close()
 if len(outs) == 2:
     names = ["final_atom14", "act", "traj", "grad_single", "grad_pair"]
     rec["lastsc_vs_base_rel_l2"] = {n: float(np.linalg.norm(x - y) / np.linalg.norm(x)) for n, x, y in
