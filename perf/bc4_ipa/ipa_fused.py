@@ -90,6 +90,14 @@ def pack(p):
     for h in range(H):
         sk[h * PQ:(h + 1) * PQ, h * DQ + C + 3 * PQ] = -0.5 * S3 * pw[h]
     k["sel_kp2"], k["kp_cols"] = sk, (po["k"], po["k"] + H * PQ)
+    # and -s3 pw/2 |qp|^2 into q' slot 29 opposite a constant 1 in k': the logits are then the exact
+    # AF2 logits, not shifted by a per-row constant of ~1e3. The card's fp32 row max (and so
+    # ttnn.softmax) is off by up to 240 at that magnitude (NOTES "Pass 5"), and is exact near 0.
+    sq = np.zeros((H * PQ, H * DQ))
+    for h in range(H):
+        sq[h * PQ:(h + 1) * PQ, h * DQ + C + 3 * PQ + 1] = -0.5 * S3 * pw[h]
+        k["sel_k"][ONE, h * DQ + C + 3 * PQ + 1] = 1.0
+    k["sel_qp2"], k["qp_cols"] = sq, (po["q"], po["q"] + H * PQ)
     k["w_2d"], k["b_2d"] = W(IPA + "attention_2d") * S3, B(IPA + "attention_2d", (H,)) * S3
     # o = attn @ v' is [H, N, 64]: per head [o_s (16) | ox (8) | oy (8) | oz (8) | pad]. After
     # unheads that is [N, H*64]; the output projection's rows are rearranged to read it in place,
@@ -181,10 +189,13 @@ class NP:
 
 
 def pair_bias(o, k, z, mask):
-    """bias' without the |kp|^2 term: s3 (z @ W_2d + b - 1e5 (1 - m_i m_j)), [H, N, N]. Same in all
-    eight layers, so it is computed once per structure-module pass."""
+    """bias' without the point terms: s3 (z @ W_2d + b - 1e5 (1 - m_j)), [H, N, N]. Same in all
+    eight layers, so it is computed once per structure-module pass.
+    AF2 masks 1 - m_i m_j. On a real query row that is the same; on a padded one AF2's -1e5 shifts the
+    whole row and cancels in the softmax, which needs a row max to be safe. Masking keys only keeps
+    every row's logits small and leaves every real row's result unchanged; padded rows read nothing."""
     b = o.linear(z, k["w_2d"], k["b_2d"])                                # [N, N, H]
-    return o.add(o.permute(b, (2, 0, 1)), o.put(-1e5 * S3 * (1.0 - np.outer(mask, mask))[None]))
+    return o.add(o.permute(b, (2, 0, 1)), o.put(-1e5 * S3 * (1.0 - np.ones_like(mask)[:, None] * mask[None])[None]))
 
 
 def frame(o, rc, tc, X, Y, Z):
@@ -219,7 +230,10 @@ def layer(o, k, act, R, t, bias, z_rows, drop=None):
     s, e = k["kp_cols"]
     kp2 = o.add(o.add(o.mul(o.cols(gX, s, e), o.cols(gX, s, e)), o.mul(o.cols(gY, s, e), o.cols(gY, s, e))),
                 o.mul(o.cols(gZ, s, e), o.cols(gZ, s, e)))
-    q = o.heads(o.mm(full, k["sel_q"]), DQ)                              # [H, N, 32]
+    s, e = k["qp_cols"]
+    qp2 = o.add(o.add(o.mul(o.cols(gX, s, e), o.cols(gX, s, e)), o.mul(o.cols(gY, s, e), o.cols(gY, s, e))),
+                o.mul(o.cols(gZ, s, e), o.cols(gZ, s, e)))
+    q = o.heads(o.add(o.mm(full, k["sel_q"]), o.mm(qp2, k["sel_qp2"])), DQ)   # [H, N, 32]
     kk = o.heads(o.add(o.mm(full, k["sel_k"]), o.mm(kp2, k["sel_kp2"])), DQ)
     v = o.heads(o.mm(full, k["sel_v"]), DV)                              # [H, N, 64]
     logits = o.add(o.bmm_t(q, kk), bias)
@@ -267,8 +281,9 @@ def check(a):
     got = (got[0], got[1].reshape(n, 3, 3), got[2])
     worst = 0.0
     for name, x, y in zip(("act", "rotation", "translation"), ref, got):
+        x, y = x[:real], y[:real]                # padded rows read nothing (see pair_bias)
         rel = float(np.linalg.norm(x - y) / np.linalg.norm(x)); worst = max(worst, rel)
-        print(f"{name:12s} rel L2 vs golden float64: {rel:.2e}")
+        print(f"{name:12s} rel L2 vs golden float64, real rows: {rel:.2e}")
     print("PASS" if worst < 1e-10 else "FAIL", f"worst {worst:.2e}")
     return worst < 1e-10
 

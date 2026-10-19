@@ -85,8 +85,9 @@ class TT:
         return self.t.reshape(x, [int(x.shape[0]), -1])
 
     def softmax(self, x):
+        # the logits are exact (small); ttnn's fp32 row max is not trusted at |x| ~ 1e3 (NOTES "Pass 5")
         CALLS[0] += 1
-        return self.t.softmax(x, dim=-1, numeric_stable=True, compute_kernel_config=self.ckc)
+        return self.t.softmax(x, dim=-1, compute_kernel_config=self.ckc)
 
     def layer_norm(self, x, gb, eps=1e-5):
         CALLS[0] += 1
@@ -130,7 +131,7 @@ class AG:
         return self.A.reshape(self.A.permute(x, (1, 0, 2)), [n, h * d])
     def flat(self, x): CALLS[0] += 1; return self.A.reshape(x, [int(x.value.shape[0]), -1])
     def relu(self, x): CALLS[0] += 1; return self.A.relu(x)
-    def softmax(self, x): CALLS[0] += 1; return self.A.softmax(x, -1)
+    def softmax(self, x): CALLS[0] += 1; return self.A.softmax(x, -1, config=self.inner.ckc)
     def layer_norm(self, x, gb, eps=1e-5): CALLS[0] += 1; return self.A.layer_norm(x, gb[0], gb[1], eps=eps)
 
     def sqrt_eps(self, x, eps):
@@ -230,6 +231,30 @@ def aiclk():
         return f"tt-smi failed: {e}"
 
 
+class Clock:
+    """AICLK of every chip tt-smi lists, sampled every ~2 s while the `with` body runs (in-run, not before)."""
+    def __enter__(self):
+        import threading
+        self.samples, self.stop = [], threading.Event()
+        def loop():
+            while not self.stop.is_set():
+                try:
+                    d = json.loads(aiclk())
+                    self.samples.append([int(x["telemetry"]["aiclk"]) for x in d["device_info"]])
+                except Exception:
+                    pass
+                self.stop.wait(2.0)
+        self.th = threading.Thread(target=loop, daemon=True); self.th.start()
+        return self
+
+    def __exit__(self, *e):
+        self.stop.set(); self.th.join()
+
+    def median(self, chip):
+        v = sorted(x[chip] for x in self.samples if len(x) > chip)
+        return v[len(v) // 2] if v else None
+
+
 def jax_check(a):
     raw = np.load(a.params)
     p = {kk: np.asarray(raw[kk], np.float64) for kk in raw.files if "/structure_module/" in kk}
@@ -290,14 +315,17 @@ def main(a):
             fn()
         ttnn.synchronize_device(dev)
         return (time.perf_counter() - t0) / a.reps * 1e3
+    clock = Clock().__enter__()
     eager = timed(lambda: F.layer(o, kd, *ins))
     tid, _ = T.capture_trace(dev, lambda: F.layer(o, kd, *ins))
     traced = timed(lambda: ttnn.execute_trace(dev, tid, cq_id=0, blocking=False))
     ttnn.release_trace(dev, tid)
     if a.grad:
         res_grad = grad_check(dev, k, act, R, t, F.pair_bias(npo, k, z, mask), z, a.reps)
+    clock.__exit__()
     clk = aiclk()
-    res = {"n": n, "rel_l2_vs_f64": rel, "ttnn_calls_per_layer": calls, "eager_ms_per_layer": eager,
+    res = {"aiclk_samples": clock.samples, "aiclk_median_by_chip": [clock.median(i) for i in range(len(clock.samples[0]))] if clock.samples else None,
+           "loadavg": os.getloadavg(), "n": n, "rel_l2_vs_f64": rel, "ttnn_calls_per_layer": calls, "eager_ms_per_layer": eager,
            "traced_ms_per_layer": traced, "reps": a.reps, "dtype": "fp32 HiFi4",
            "visible": os.environ.get("TT_VISIBLE_DEVICES"), "tt_smi": clk[-4000:],
            "when": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
