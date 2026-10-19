@@ -280,14 +280,23 @@ def describe(values: list[float]) -> dict:
 # ---------------------------------------------------------------------------
 
 def compare_metric(name: str, a: list[tuple], b: list[tuple], seed: int = 0) -> dict:
-    """One metric, one arm against another. Paired on (campaign_seed, trajectory_number) where both arms have it."""
+    """One metric, one arm against another. Paired on (campaign_seed, trajectory_number) where both arms have it.
+
+    A key pairs only when it occurs once on each side. `dict(b)` over a side that repeats a key keeps the last
+    occurrence and drops the rest in silence, which is how a pooled reference turns into a paired test against one
+    arbitrarily chosen arm: pooling five B200 arms that all ran campaign seed 101 left final_loss, iterations and
+    accepted pairing on 3 of 15 reference trajectories and reporting it as a paired result. Repeated keys fall back
+    to the two-sample test, which uses every value, and `n_dropped_to_collisions` says it happened.
+    """
+    ca, cb = Counter(k for k, _ in a), Counter(k for k, _ in b)
     da, db = dict(a), dict(b)
-    shared = sorted(set(da) & set(db))
+    shared = sorted(k for k in set(da) & set(db) if ca[k] == 1 and cb[k] == 1)
     diffs = [da[k] - db[k] for k in shared if da[k] == da[k] and db[k] == db[k]]
     xa = [v for _, v in a if v == v]
     xb = [v for _, v in b if v == v]
+    collisions = sum(n - 1 for n in ca.values() if n > 1) + sum(n - 1 for n in cb.values() if n > 1)
     res = {"metric": name, "arm": describe([v for _, v in a]), "ref": describe([v for _, v in b]),
-           "n_paired": len(diffs)}
+           "n_paired": len(diffs), "n_dropped_to_collisions": collisions}
 
     if name in COUNTED:
         # A count per trajectory: compare totals over trajectories with a Fisher exact test on the 2x2.

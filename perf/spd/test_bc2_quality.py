@@ -209,6 +209,34 @@ def test_a_collapsed_arm_fails(tmp_path):
     assert any("collapse" in r for r in g["reasons"])
 
 
+def test_a_reference_pooling_one_seed_twice_does_not_pair(tmp_path):
+    """A pooled reference must not turn into a paired test against one arbitrarily chosen campaign.
+
+    `dict(b)` keeps the last occurrence of a repeated key and drops the rest silently. Pooling the five B200 arms
+    that all ran campaign seed 101 left final_loss, iterations and accepted pairing on 3 of 15 reference
+    trajectories and reporting it as a paired result; final_loss read p=0.749 paired against last-wins values and
+    p=0.415 once every trajectory was used.
+    """
+    ref = read_all(make_arm(str(tmp_path), "pdl1", "r1", seeds=(101,))) + \
+          read_all(make_arm(str(tmp_path), "pdl1", "r2", seeds=(101,), rng_offset=5000))
+    arm = read_all(make_arm(str(tmp_path), "pdl1", "tt", seeds=(101,), rng_offset=9000))
+    r = Q.grade(arm, ref, "tt")["metrics"]["final_loss"]
+    assert r["n_dropped_to_collisions"] == 10, r
+    assert r["n_paired"] == 0, "a key that occurs twice on one side cannot pair"
+    assert r["test"] == "two_sample_permutation"
+    assert r["ref"]["n"] == 20, "the fallback must still use every reference trajectory"
+
+
+def test_distinct_seeds_still_pair(tmp_path):
+    """The collision guard must not cost the pairing the reference is designed to have."""
+    ref = read_all(make_arm(str(tmp_path), "pdl1", "ref", seeds=(101, 102, 103)))
+    arm = read_all(make_arm(str(tmp_path), "pdl1", "tt", seeds=(101, 102, 103), rng_offset=9000))
+    r = Q.grade(arm, ref, "tt")["metrics"]["final_loss"]
+    assert r["n_dropped_to_collisions"] == 0
+    assert r["n_paired"] == 30
+    assert r["test"] == "paired_sign_flip_permutation"
+
+
 def test_stock_rate_duplication_is_not_collapse(tmp_path):
     """The A/A principle applied to the collapse guardrail: stock duplicates, so duplicating is not collapse.
 
