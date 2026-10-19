@@ -18,6 +18,7 @@ def bias(got, ref):
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", required=True)
+    ap.add_argument("--sweep", action="store_true", help="also K in (32, 256, 1280, 5120) x HiFi4/HiFi2/LoFi x packer_l1_acc, fp32 out")
     a = ap.parse_args()
     from tt_bio import tenstorrent as T
     dev = T.get_device()
@@ -40,6 +41,22 @@ def main() -> int:
                 rec["rne_bias"], rec["rne_rel_l2"] = bias(rne, ref), float((rne - ref).norm() / ref.norm())
             print(json.dumps(rec), flush=True)
             out.write(json.dumps(rec) + "\n")
+    if a.sweep:   # where does the bias come from: the multiply (fidelity), the K accumulation, or the partials' spill
+        for k in (32, 256, 1280, 5120):
+            xk = torch.randn(3808, k, generator=gen).to(torch.bfloat16)
+            wk = (torch.randn(k, 1280, generator=gen) / k ** 0.5).to(torch.bfloat16)
+            ref = xk.double() @ wk.double()
+            xkt = ttnn.from_torch(xk, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
+            wkt = ttnn.from_torch(wk, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
+            for fid in (ttnn.MathFidelity.HiFi4, ttnn.MathFidelity.HiFi2, ttnn.MathFidelity.LoFi):
+                for l1acc in (False, True):
+                    ck = ttnn.init_device_compute_kernel_config(dev.arch(), math_fidelity=fid, math_approx_mode=False,
+                                                                fp32_dest_acc_en=True, packer_l1_acc=l1acc)
+                    y = ttnn.to_torch(ttnn.linear(xkt, wkt, compute_kernel_config=ck, dtype=ttnn.float32)).double()
+                    rec = {"k": k, "fid": str(fid), "l1acc": l1acc, "bias": bias(y, ref),
+                           "rel_l2": float((y - ref).norm() / ref.norm())}
+                    print(json.dumps(rec), flush=True)
+                    out.write(json.dumps(rec) + "\n")
     return 0
 
 
