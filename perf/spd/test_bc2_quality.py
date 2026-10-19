@@ -228,6 +228,21 @@ def test_a_shifted_arm_fails(tmp_path):
     assert g["metrics"]["i_ptm"]["significant"]
 
 
+def test_an_empty_arm_is_inconclusive_not_a_pass(tmp_path):
+    """An arm that produced nothing must never read as indistinguishable from stock.
+
+    The three real cueq arms on the 10-19 B200 crashed before writing a trajectory, and every one of them graded
+    PASS: no test could run, so no test rejected, so the verdict came back clean. That reads absence of evidence
+    as evidence of absence, and it is the one verdict this grader must not emit by accident.
+    """
+    ref = read_all(make_arm(str(tmp_path), "pdl1", "ref", seeds=(101, 102, 103)))
+    g = Q.grade([], ref, "crashed")
+    assert g["verdict"] == "INCONCLUSIVE"
+    assert g["n_per_arm"][0] == 0
+    assert any("no test could run" in r for r in g["reasons"]), g["reasons"]
+    assert g["iteration_distribution_unchanged"] is None, "nothing was compared, so nothing is unchanged either"
+
+
 def test_a_nan_arm_fails(tmp_path):
     ref = make_arm(str(tmp_path), "pdl1", "ref", seeds=(101,))
     arm = make_arm(str(tmp_path), "pdl1", "tt", seeds=(101,), nan_candidate=True)

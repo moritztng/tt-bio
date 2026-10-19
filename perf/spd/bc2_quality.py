@@ -475,7 +475,26 @@ def grade(arm: list[Trajectory], ref: list[Trajectory], label: str, seed: int = 
     nan, tune = nan_check(arm), autotune_check(arm)
     iters = next(r for r in results if r["metric"] == ITERATIONS)
     moved = [r["metric"] for r in results if r.get("significant")]
+    # An arm that produced nothing testable is INCONCLUSIVE, never PASS. Every test returning NaN means no test
+    # ran, and reporting that as "indistinguishable from stock" reads absence of evidence as evidence of absence:
+    # a lever whose run crashed and wrote no trajectories graded PASS, which is the single most dangerous verdict
+    # this grader could emit. The campaign gate's n_per_arm >= 30 also catches it, but a verdict has to be honest
+    # on its own, since any later reader sees the verdict and not the n beside it.
+    # A test only counts as having run if the ARM side put values into it. Fisher still returns p=1.0 for an empty
+    # arm (every margin is zero), so "has a p" is not the same as "was tested".
+    testable = [r for r in results + ctests
+                if isinstance(r.get("p"), float) and r["p"] == r["p"] and (r.get("arm") or {}).get("n", 0) >= 2]
     reasons = []
+    if not testable:
+        return {
+            "arm": label, "verdict": "INCONCLUSIVE",
+            "reasons": [f"no test could run: the arm has {len(arm)} trajectories and the reference {len(ref)}"],
+            "n_per_arm": [len(arm), len(ref)], "test": "none ran",
+            "metrics": {r["metric"]: r for r in results},
+            "iteration_distribution_unchanged": None,
+            "nan": nan, "collapse": collapse, "autotune": tune,
+            "equivalence_note": "Nothing was compared, so nothing is ruled out in either direction.",
+        }
     if moved:
         reasons.append("metrics moved: " + ", ".join(moved))
     if not nan["ok"]:
@@ -704,7 +723,10 @@ def main(argv: list[str] | None = None) -> int:
             ref_trajectories.extend(read_arm(path))
         graded[target] = grade(arm, ref_trajectories, f"{name}:{target}", seed=a.seed)
 
-    worst = "FAIL" if any(g["verdict"] == "FAIL" for g in graded.values()) else "PASS"
+    # Worst wins, and anything that is not a clean PASS on every target is not a PASS overall.
+    verdicts = [g["verdict"] for g in graded.values()]
+    worst = ("FAIL" if "FAIL" in verdicts else
+             "INCONCLUSIVE" if "INCONCLUSIVE" in verdicts or not verdicts else "PASS")
     out = {
         "schema": "bc4-quality/1", "verdict": worst, "arm": name,
         "n_per_arm": [n for g in graded.values() for n in g["n_per_arm"]],
