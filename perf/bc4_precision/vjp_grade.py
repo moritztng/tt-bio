@@ -35,6 +35,7 @@ ap.add_argument("--evo", type=int, default=8)
 ap.add_argument("--blocks", default="0,3,7")
 ap.add_argument("--arms", default="off,b8b")
 ap.add_argument("--seed", type=int, default=0)
+ap.add_argument("--tag", default="", help="suffix on the output name, e.g. the forced grid")
 a = ap.parse_args()
 from tt_bio.main import ensure_p300_mesh_descriptor
 ensure_p300_mesh_descriptor()
@@ -47,6 +48,6 @@ with bindcraft2.fast_round():
         flags.update(ARMS[arm])
         for k, v in flags.items():
             setattr(TN, k, v)
-        ns.tag = f"bc4p_{arm}_s{a.seed}"
+        ns.tag = f"bc4p_{arm}_s{a.seed}{a.tag}"
         print(f"== arm {arm} {flags}", flush=True)
         A.cmd_vjp(ns)

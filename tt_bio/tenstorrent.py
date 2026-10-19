@@ -4107,6 +4107,16 @@ def _tri_att_sdpa_hifi_inner(q, k, v, bias, scale: float, one_k_chunk: bool = Fa
     if min(q_len, k_len) < _TRIATT_FUSED_HIFI_MIN_S:
         TRIATT_FUSED_HIFI_STATS["too_short"] += 1
         return None
+    if q.dtype == ttnn.bfloat8_b and bias is not None and bias.dtype != ttnn.bfloat8_b:
+        # bfp8 q/k/v (`_TRIATT_QKV_B8`) with a bf16 bias is a mixed set, which `triatt_sdpa`
+        # declines on dtype, and the decline lands on the fp32-scores composite: 1443 GB/it at
+        # BindCraft 2's shape against 539 for main. The bias is [1, H, N, N], one copy a call, so
+        # the kernel reads a bfp8 copy of it. The backward still reads the bf16 bias it was given.
+        b8 = ttnn.typecast(bias, ttnn.bfloat8_b)
+        try:
+            return _tri_att_sdpa_hifi_inner(q, k, v, b8, scale, one_k_chunk)
+        finally:
+            ttnn.deallocate(b8)
     o = _tri_att_hifi_ladder(q, k, v, bias, scale, one_k_chunk)
     if o is None:
         o = _tri_att_hifi_pad_up(q, k, v, bias, scale, one_k_chunk)

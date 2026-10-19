@@ -28,6 +28,7 @@ below widens it for float64 inputs only and leaves the bf16/fp32 arms byte-ident
 from __future__ import annotations
 
 import argparse
+import hashlib
 import collections
 import gc
 import json
@@ -444,6 +445,10 @@ def cmd_vjp(args):
 
         d, fwd, census = device_vjp(gm, gz)
         row = {"block": tag, "reach": census["reach"], "nodes": census["nodes"]}
+        # Byte digests of the device outputs, for a grid-invariance A/B: the same input on two
+        # core grids must give the same bytes, which rel_l2 against float64 cannot show.
+        row["md5"] = {k: hashlib.md5(v.float().contiguous().numpy().tobytes()).hexdigest()
+                      for k, v in list(d.items()) + [("fwd_" + k, v) for k, v in fwd.items()]}
         for key in d:
             ref_norm = float(r64[key].norm())
             row[key] = cmp(d[key], r64[key])
