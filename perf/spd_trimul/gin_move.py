@@ -51,7 +51,7 @@ if __import__("os").environ.get("TT_BIO_LEVERS"):
     T._LEVERS = T.parse_levers(__import__("os").environ["TT_BIO_LEVERS"])
 print(json.dumps({"n": n, "c": C, "grid": grid, "ckc": [str(c) for c in ckc],
                   "ok": TT.gin_moved_ok(dx, dwpT, dm), "mask": dm is not None,
-                  "fuse": TT._gin_fuse(dm is not None), "rt2": TT.GIN_RT2}), flush=True)
+                  "fuse": TT._gin_fuse(dm is not None), "rt2": TT.GIN_RT2, "retile": TT.GIN_RETILE}), flush=True)
 
 x64 = x.double().reshape(n * n, K)
 ab = (x64 @ wp.double()) * torch.sigmoid(x64 @ wg.double())

@@ -9,7 +9,12 @@
 // tiles into the output tile of channel c. Same epilogue as trimul_tail_res (bf16 pack per pass, FPU
 // multiply); the mask is the same per-row factor, broadcast along rows here because the tile is
 // transposed.
+#include <cstdint>
+#define REDUCE_OP PoolType::SUM          // tilize.h guards tilize_block on these
+#define REDUCE_DIM ReduceDim::REDUCE_ROW
 #include "api/compute/compute_kernel_api.h"
+#include "api/compute/pack_untilize.h"
+#include "api/compute/tilize.h"
 #include "api/compute/bcast.h"
 #include "api/compute/matmul.h"
 #include "api/compute/eltwise_binary.h"
@@ -42,11 +47,18 @@ void kernel_main() {
     // block fills value (DST 0..SBW-1) and gate (SBW..2SBW-1) together and each x tile is unpacked once, not twice.
     constexpr uint32_t RT2 = get_compile_time_arg_val(8);
     static_assert(!RT2 || FUSE, "rt 2 is the fused gate's layout");
+    // 1 (FUSE only): the packer does the channel move (dit_pair_bias's re-tiling). The 32 [c x y] results of a
+    // channel tile are packed untilized as ONE row of 32 tiles into c_3, whose row c is then output tile c in
+    // row-major order (2 KB contiguous); each page is tilized alone into out_cb in channel order, and the writer
+    // copies 32 whole tiles instead of gathering 64 face rows each over the NOC.
+    constexpr uint32_t RETILE = get_compile_time_arg_val(9);
+    static_assert(!RETILE || FUSE, "the re-tile is the fused gate's epilogue");
     const uint32_t nunits = get_arg_val<uint32_t>(0);
 
     constexpr uint32_t w_cb = tt::CBIndex::c_0;
     constexpr uint32_t x_cb = tt::CBIndex::c_1;
     constexpr uint32_t out_cb = tt::CBIndex::c_2;
+    constexpr uint32_t rm_cb = tt::CBIndex::c_3;
     constexpr uint32_t p_cb = tt::CBIndex::c_4;
     constexpr uint32_t g_cb = tt::CBIndex::c_5;
     constexpr uint32_t m_cb = tt::CBIndex::c_6;
@@ -60,7 +72,13 @@ void kernel_main() {
         for (uint32_t u = 0; u < nunits; ++u) {
             cb_wait_front(x_cb, 32 * Kt);
             for (uint32_t q = 0; q < CT2; ++q) {
-                cb_reserve_back(out_cb, 32);
+                if constexpr (RETILE) {
+                    mm_block_init_short(w_cb, x_cb, true, SBW, RT2 ? 2 : 1, Kt);
+                    pack_untilize_dest_init<SBW, 32>(rm_cb);
+                    cb_reserve_back(rm_cb, 32);
+                } else {
+                    cb_reserve_back(out_cb, 32);
+                }
                 for (uint32_t il0 = 0; il0 < 32; il0 += SBW) {
                     tile_regs_acquire();
                     if constexpr (RT2) {
@@ -83,10 +101,28 @@ void kernel_main() {
                     }
                     tile_regs_commit();
                     tile_regs_wait();
-                    for (uint32_t i = 0; i < SBW; ++i) pack_tile<true>(i, out_cb, il0 + i);
+                    if constexpr (RETILE) {
+                        pack_untilize_dest<SBW, 32>(rm_cb, 1, il0 / SBW);
+                    } else {
+                        for (uint32_t i = 0; i < SBW; ++i) pack_tile<true>(i, out_cb, il0 + i);
+                    }
                     tile_regs_release();
                 }
-                cb_push_back(out_cb, 32);
+                if constexpr (RETILE) {
+                    pack_untilize_uninit(rm_cb);
+                    cb_push_back(rm_cb, 32);
+                    tilize_init(rm_cb, 1, out_cb);
+                    for (uint32_t c = 0; c < 32; ++c) {
+                        cb_wait_front(rm_cb, 1);
+                        cb_reserve_back(out_cb, 1);
+                        tilize_block(rm_cb, 1, out_cb);
+                        cb_push_back(out_cb, 1);
+                        cb_pop_front(rm_cb, 1);
+                    }
+                    tilize_uninit(rm_cb, out_cb);
+                } else {
+                    cb_push_back(out_cb, 32);
+                }
             }
             cb_pop_front(x_cb, 32 * Kt);
         }

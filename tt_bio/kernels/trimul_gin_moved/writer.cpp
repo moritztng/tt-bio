@@ -18,7 +18,9 @@ void kernel_main() {
     // L1 runs as several launches over channel slices that write into the same two tensors.
     constexpr uint32_t CTO = get_compile_time_arg_val(4);
     constexpr uint32_t CTT = get_compile_time_arg_val(5);
-    constexpr auto a_args = TensorAccessorArgs<6>();
+    // 1: compute already re-tiled (its RETILE): out_cb holds the 32 output tiles in channel order, written whole.
+    constexpr uint32_t RETILE = get_compile_time_arg_val(6);
+    constexpr auto a_args = TensorAccessorArgs<7>();
     constexpr auto b_args = TensorAccessorArgs<a_args.next_compile_time_args_offset()>();
     const auto oa = TensorAccessor(a_args, get_common_arg_val<uint32_t>(0));
     const auto ob = TensorAccessor(b_args, get_common_arg_val<uint32_t>(1));
@@ -43,6 +45,17 @@ void kernel_main() {
         for (uint32_t q = 0; q < CT2; ++q) {
             const bool is_a = q < CT;
             uint32_t page = (b * CTT + CTO + (is_a ? q : q - CT)) * 32 * SS + cube;
+            if constexpr (RETILE) {
+                // Per tile, so the writes of channel c drain while compute is still tilizing c + 1.
+                for (uint32_t c = 0; c < 32; ++c, page += SS) {
+                    cb_wait_front(out_cb, 1);
+                    if (!(ABL & 4))
+                        noc_async_write(get_read_ptr(out_cb), is_a ? oa.get_noc_addr(page) : ob.get_noc_addr(page), TB);
+                    noc_async_writes_flushed();
+                    cb_pop_front(out_cb, 1);
+                }
+                continue;
+            }
             cb_wait_front(out_cb, 32);
             const uint32_t src = get_read_ptr(out_cb);
             for (uint32_t c0 = 0; c0 < 32 && !(ABL & 4); c0 += NB) {
@@ -75,4 +88,5 @@ void kernel_main() {
             cb_pop_front(out_cb, 32);
         }
     }
+    noc_async_write_barrier();
 }
