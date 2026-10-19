@@ -897,6 +897,34 @@ T2_STATS = [0, 0]       # served, declined
 # T2 only). Diagnostic only, 0 in every model path.
 T2_ABL = 0
 T2_KEYS = {(4, 4), (8, 8)}   # (kt, nt): c_z 128 and 256 (ESMFold2)
+# T2_FOLD (off): fold the LN's centring and gamma into Wp, LN(x) @ Wp = rstd * (x @ Wc) + beta @ Wp with
+# Wc = (I - 11^T / K) diag(gamma) Wp, so compute_ln.cpp only needs rstd and skips four of the LN's five Kt-tile
+# passes. Exact algebra; in bf16 its error scales with |x| instead of |x - mean|. Non-moved GATE form, K == N.
+T2_FOLD = env_flag("TT_BIO_T2_FOLD", False)
+_FOLD_W: dict = {}
+
+
+def _fold_weights(wp, ln_w, ln_b):
+    """(Wc, bias tiles) for `wp`, `ln_w`, `ln_b`, derived once per weight set. The entry holds the three tensors,
+    so the ids it is keyed on stay theirs."""
+    key = (id(wp), id(ln_w), id(ln_b))
+    hit = _FOLD_W.get(key)
+    if hit is None:
+        import torch
+        K, N = int(wp.shape[-2]), int(wp.shape[-1])
+        w = ttnn.to_torch(wp).double().reshape(K, N)
+        g = ttnn.to_torch(ln_w).double().reshape(-1)[:K]
+        b = ttnn.to_torch(ln_b).double().reshape(-1)[:K]
+        wg = w * g[:, None]
+        wc = (wg - wg.sum(0, keepdim=True) / K).to(torch.bfloat16).reshape(wp.shape)
+        bias = (b @ w).to(torch.bfloat16).reshape(1, 1, 1, N).expand(1, 1, TILE, N).contiguous()
+        dev = wp.device()
+        hit = _FOLD_W[key] = (wp, ln_w, ln_b,
+                              ttnn.from_torch(wc, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev,
+                                              memory_config=wp.memory_config()),
+                              ttnn.from_torch(bias, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev,
+                                              memory_config=ln_b.memory_config()))
+    return hit[3], hit[4]
 # c_z 384 (OpenDDE) under the `trimul_t2w` lever, at T2's own block: `_MM_BLOCK`'s (8, 12, 1, 2, 1) does not
 # fit L1 and declines. (2, 12, 1, 2, 1) keeps the single K block, so the contraction order is the projection's.
 # WH chip, perf/spd_trimul/tail_t2.py --c 384 vs float64 (10-13): N 512 13.63 -> 6.19 ms, rel_rms 0.0028
@@ -1021,8 +1049,9 @@ def _t2_tiles(kt, nt, Mb, gate=False, moved=None):
     return bf16 + 2 * fp32
 
 
-def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, wg=None, moved=None):
-    """T2's program. `wg`: the GATE form. `moved` (T2m, and T2CM with c_off 0): see `fused_tail_ln`."""
+def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, wg=None, moved=None, fold=False):
+    """T2's program. `wg`: the GATE form. `moved` (T2m, and T2CM with c_off 0): see `fused_tail_ln`. `fold`:
+    T2_FOLD, `wp` and `ln_b` already Wc and the bias tiles."""
     import struct
     Mb, sbw = block[0], block[4]
     K = int(wp.shape[-2])
@@ -1093,7 +1122,7 @@ def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, wg=None, moved
     compute = ttnn.KernelDescriptor(
         kernel_source=str(d / "compute_ln.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[kt, nt, Mb, sbw, _sigpoly(), RNE, int(gate), int(moved is not None),
-                           0 if moved is None else Cp, T2_ABL],
+                           0 if moved is None else Cp, T2_ABL, int(fold)],
         runtime_args=cp,
         # fp32 DEST always: the LayerNorm statistics are packed to fp32 CBs and the 4-tile
         # epilogue fits half-sync fp32 DEST. The fidelity stays the caller's, so the GEMM is
@@ -1110,7 +1139,7 @@ def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, wg=None, moved
            _cb(7, core_grid, 2 * blk),
            _cb(8, core_grid, kt), _cb(9, core_grid, kt), _cb(10, core_grid, 1),
            _cb_fmt(11, core_grid, 1, f32), _cb_fmt(12, core_grid, 1, f32),
-           _cb_fmt(13, core_grid, 1, f32), _cb_fmt(14, core_grid, 1, f32),
+           _cb_fmt(13, core_grid, 1, f32), _cb_fmt(14, core_grid, Mb if fold else 1, f32),
            _cb_fmt(16, core_grid, kt, f32), _cb_fmt(17, core_grid, kt, f32)]
     if gate:
         cbs.append(_cb(6, core_grid, 2 * Mb * kt))
@@ -1194,14 +1223,17 @@ def fused_tail_ln(x, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5, wg=None, mov
         k = ("t2:l1", "x".join(str(int(d)) for d in x.padded_shape))
         REJECTS[k] = REJECTS.get(k, 0) + 1
         return None
+    fold = T2_FOLD and moved is None and wg is not None and kt == nt
+    if fold:
+        wp, ln_b = _fold_weights(wp, ln_w, ln_b)
     spec = lambda t: (str(t.padded_shape), str(t.dtype), str(t.memory_config()))
     key = ("t2", spec(x), spec(wp), str(g.dtype), spec(ln_w), spec(ln_b), wg is not None, tuple(grid),
            tuple(str(c) for c in ckc), float(eps), _sigpoly(), RNE, T2_ABL,
-           None if moved is None else (spec(moved[0]), moved[1], P))
+           None if moved is None else (spec(moved[0]), moved[1], P), fold)
     entry = _CACHE.get(key)
     if entry is None:
         entry = _CACHE[key] = _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, wg,
-                                        None if moved is None else (moved[0], moved[1], P))
+                                        None if moved is None else (moved[0], moved[1], P), fold)
     reader, writer, _ = entry["kernels"]
     wg_ = wg if wg is not None else wp
     if moved is None:
