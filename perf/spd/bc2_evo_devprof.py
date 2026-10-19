@@ -53,6 +53,10 @@ p.add_argument("--tape-census", action="store_true",
                     "the op that saved them (run with TT_BIO_BC2_RESIDENT_BLOCKS>=1 to see a whole block)")
 p.add_argument("--wrap", choices=("census", "all"), default="all")
 p.add_argument("--seed", type=int, default=0)
+p.add_argument("--skip", default="none",
+               help="comma list of tt_bio.af2.SUBSTITUTION_CLASSES dropped from the Evoformer and extra-MSA "
+                    "blocks (AF2PairBlock.skip): a timing leg whose arithmetic is wrong on purpose; a class's "
+                    "card cost is the incumbent minus its leg")
 p.add_argument("--out", type=Path, required=True)
 a = p.parse_args()
 a.out.mkdir(parents=True, exist_ok=True)
@@ -82,6 +86,9 @@ evo = B.EvoformerOnDevice(pool, memory=mem)
 extra = B.ExtraMsaOnDevice(pool, memory=mem)
 tmpl = B.TemplateOnDevice(pool, memory=mem) if "template" in stacks else None
 trunk = pool.trunk_for("")
+if a.skip != "none":
+    from tt_bio.af2 import SUBSTITUTION_CLASSES
+    trunk.model.set_skip(n for c in a.skip.split(",") for n in SUBSTITUTION_CLASSES[c])
 if not trunk.multimer:
     print(f"warning: {a.params} is not multimer_v3; BC2 designs on multimer", file=sys.stderr)
 
