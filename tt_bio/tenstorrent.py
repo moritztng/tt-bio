@@ -569,6 +569,7 @@ _FAST_MODE = False
 #                   reads the normed pair once instead of once per channel slice
 #   transition_b8   transition weights and both hidden activations in bfp8, written by the matmuls
 #   opm_b8          the outer product mean's two operands in bfp8, cast once after their relayout
+#   opm_b8cfg       with opm_b8, the contraction on opm_contract_config's plan at HiFi2 (Wormhole)
 #   atom_sdpa       the bf16 atom attention (superset window) on one fused SDPA, bf16 mask
 #   trimul_ibw      the trimul einsum takes all of K in one block (`_TRIMUL_IBW_FULL`)
 #   trimul_tail     the trimul tail's lean epilogue with the residual folded in (trimul_tail.EPI 2)
@@ -783,7 +784,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "ws_resid2", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
           "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "trimul_bres", "atomp_dev", "lm_qk_chain",
           "lm_gate_ng", "lm_sdpa_stock", "triatt_hifi2", "dit_cond_jcat", "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32",
-          "triatt_ln_b8", "triatt_ln_b8g", "trimul_t1w8", "atom_l1", "trimul_gin_w8", "dit_l1")
+          "triatt_ln_b8", "triatt_ln_b8g", "trimul_t1w8", "atom_l1", "trimul_gin_w8", "dit_l1", "opm_b8cfg")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -801,7 +802,7 @@ UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "di
                              "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "ws_resid2", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
                              "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "triatt_hifi2", "dit_cond_jcat",
                              "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32", "triatt_ln_b8",
-                             "triatt_ln_b8g", "trimul_t1w8", "trimul_gin_w8"})
+                             "triatt_ln_b8g", "trimul_t1w8", "trimul_gin_w8", "opm_b8cfg"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -16329,20 +16330,28 @@ class OuterProductMean(Module):
             else:
                 depth_parts = [(b8(acp), b8(bcp), Sc) for acp, bcp, Sc in depth_parts]
 
+        def plan(x, y):
+            return None if x.device().arch() != ttnn.Arch.WORMHOLE_B0 else opm_contract_config(
+                x.padded_shape[0] // 32, y.padded_shape[0] // 32, x.padded_shape[1] // 32,
+                x.device().compute_with_storage_grid_size())
+
         def contract(x, y):
             if z_dtype is None or _OPM_B8_REFUSED.get((tuple(x.shape), tuple(y.shape))):
                 if z_dtype is not None:
                     x, y = ttnn.typecast(x, ttnn.bfloat16), ttnn.typecast(y, ttnn.bfloat16)
-                cfg = None if x.device().arch() != ttnn.Arch.WORMHOLE_B0 else opm_contract_config(
-                    x.padded_shape[0] // 32, y.padded_shape[0] // 32, x.padded_shape[1] // 32,
-                    x.device().compute_with_storage_grid_size())
-                out = ttnn.matmul(x, y, transpose_b=True, program_config=cfg,
+                out = ttnn.matmul(x, y, transpose_b=True, program_config=plan(x, y),
                                   compute_kernel_config=self.compute_kernel_config)
                 if z_dtype is not None:
                     ttnn.deallocate(x)
                     ttnn.deallocate(y)
                 return out
             try:
+                # opm_b8cfg: the bf16 path's plan at HiFi2, which covers every bfp8 bit. ttnn's own plan binds,
+                # not the fidelity (WH, AICLK 1000, [16384, 4128]^2: HiFi4 40.5 / HiFi3 33.3 / HiFi2 33.5 /
+                # LoFi 32.6 ms); under the plan 25.8 ms, f64 rel-RMS 0.0145 -> 0.0119 (perf/spd_m_protenix/fid_b8.py).
+                if lever("opm_b8cfg"):
+                    return ttnn.matmul(x, y, transpose_b=True, dtype=z_dtype, program_config=plan(x, y),
+                                       compute_kernel_config=bfp8_fidelity(self.compute_kernel_config, x, y))
                 return ttnn.matmul(x, y, transpose_b=True, dtype=z_dtype,
                                    compute_kernel_config=self.compute_kernel_config)
             except RuntimeError as exc:
