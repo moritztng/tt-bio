@@ -195,6 +195,25 @@ for _cls in (bc2.EvoformerOnDevice, bc2.ExtraMsaOnDevice, bc2.TemplateOnDevice):
     for _verb in ("_primal", "_taped", "_backward"):
         setattr(_cls, _verb, timed(f"{_cls.__name__}.{_verb}", getattr(_cls, _verb)))
 
+# Inside the callbacks: the host blocked in synchronize_device is time the card was still behind the
+# host's enqueue (card-bound); the rest of a callback's wall is host work the card may be idle for
+# (dispatch, tape, uploads, to_torch). Kept apart from `cb` so host_jax_s stays wall - callbacks.
+waits = collections.Counter()
+
+
+def waited(name, fn):
+    def run(*args, **kwargs):
+        t0 = time.monotonic()
+        try:
+            return fn(*args, **kwargs)
+        finally:
+            waits[name] += time.monotonic() - t0
+    return run
+
+
+for _verb in ("sync", "down", "seed"):
+    setattr(bc2._Trunk, _verb, waited(_verb, getattr(bc2._Trunk, _verb)))
+
 
 def loadavg():
     try:
@@ -260,6 +279,7 @@ def sequence_gradients(self, *args, **kwargs):
     loads0, load1 = state["loads"], loadavg()
     if state["n"] != a.at:
         cb.clear()
+        waits.clear()
         t0 = time.monotonic()
         out = None
         try:
@@ -279,6 +299,7 @@ def sequence_gradients(self, *args, **kwargs):
             state["uninstrumented"].append(dict(n=state["n"], s=wall, gsha=gsha(out),
                                                 callbacks={k: round(v, 4) for k, v in cb.items()},
                                                 host_jax_s=round(wall - sum(cb.values()), 4),
+                                                waits={k: round(v, 4) for k, v in waits.items()},
                                                 profiled=state["n"] in (a.profile, a.jaxprof),
                                                 trunk_loads=state["loads"] - loads0,
                                                 load1=load1, ncpu=os.cpu_count()))
