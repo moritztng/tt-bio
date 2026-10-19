@@ -589,7 +589,8 @@ _FAST_MODE = False
 #   trunk_hifi2     the trunk's matmuls at HiFi2, over trunk_hifi3 where both are on. ESMFold2 on Wormhole at 512 aa
 #                   --fast: -0.13 s (-Fast) / -0.15 s (ESMFold2) against HiFi3, LoFi no better (spd-gap-whesmf wtf).
 #                   ESMFold2 fast bar, 44 paired folds (dh2): CA-lDDT -0.0004 [-0.0024, +0.0010], top pose 0.56 A vs
-#                   1.58 A seed floor, docking 32 -> 33. ESMFold2-Fast grade pending.
+#                   1.58 A seed floor, docking 32 -> 33; ESMFold2-Fast -0.0006 [-0.0027, +0.0013], 0.82 vs 1.19 A,
+#                   docking 24 -> 24. In ESMFold2's Wormhole fast set.
 #   trunk_hifi3     the trunk's matmuls at HiFi3 instead of HiFi4 (`trunk_compute_kernel_config`).
 #                   Also a correctness fix on Wormhole: HiFi4 with fp32 accumulation returns wrong
 #                   values on some row blocks there (perf/spd_overhead/wh_hifi4_dot.py).

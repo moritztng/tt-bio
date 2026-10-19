@@ -1615,7 +1615,10 @@ _WH_EXTRA = "+lm_gate_ng+lm_sdpa_stock+ef2_atom_rope"
 # complexes x 4 seeds per model (.107, 1000 MHz, dsq2): ESMFold2-Fast CA-lDDT +0.0005 [-0.0003, +0.0016], top-pose
 # median 0.51 A vs 1.32 A seed floor, docking 24 -> 24 of 44, fold -0.73 s median at 515-791 aa (10 of 11 faster);
 # ESMFold2 --fast (40 folds) CA-lDDT -0.0004 [-0.0008, -0.0000], 0.39 A vs 1.43 A, docking 32 -> 32.
-_WH_FAST_EXTRA = "+dit_qkvf+dit_shoist"
+# trunk_hifi2 on top, fast bar on Wormhole against that set, 11 complexes x 4 seeds per model (.107, 1000 MHz, dh2):
+# ESMFold2-Fast CA-lDDT -0.0006 [-0.0027, +0.0013], top-pose median 0.82 A vs 1.19 A seed floor, docking 24 -> 24 of
+# 44; ESMFold2 --fast CA-lDDT -0.0004 [-0.0024, +0.0010], 0.56 A vs 1.58 A, docking 32 -> 33. 512 aa: -0.13 / -0.15 s.
+_WH_FAST_EXTRA = "+dit_qkvf+dit_shoist+trunk_hifi2"
 
 
 def fold_levers(fast: bool) -> str:
