@@ -47,6 +47,12 @@ for xd, yd in ((B8, B8),) if a.cfg else ((B8, B8), (B16, B8), (B8, B16)):
         ckc = ttnn.WormholeComputeKernelConfig(math_fidelity=fid, math_approx_mode=False, fp32_dest_acc_en=f32,
                                                packer_l1_acc=True)
         ms = []
+        try:
+            ttnn.deallocate(ttnn.matmul(x, y, transpose_b=True, dtype=B16, program_config=cfg, compute_kernel_config=ckc))
+        except RuntimeError as exc:
+            print(json.dumps({"fid": str(fid), "cfg": cfg is not None, "fp32_dest": f32, "refused": str(exc)[:160]}),
+                  flush=True)
+            continue
         for i in range(2 + a.reps):
             ttnn.synchronize_device(dev)
             t0 = time.perf_counter()
