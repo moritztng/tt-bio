@@ -177,7 +177,7 @@ def test_bc2_gpu_rep_record(tmp_path):
     assert p.returncode == 0, p.stderr[-2000:]
     recs = [json.loads(l) for l in (out / "runs.jsonl").read_text().splitlines()]
     check_reps(recs)
-    assert recs[0]["settings"]["use_cueq"] is True and recs[0]["settings"]["auto_multi_gpu"] is False
+    assert recs[0]["cpu"] and recs[0]["settings"]["use_cueq"] is True and recs[0]["settings"]["auto_multi_gpu"] is False
 
 
 @needs_engine
@@ -199,5 +199,5 @@ runpy.run_path({str(BENCH)!r}, run_name="__main__")
     assert p.returncode == 0, p.stderr[-2000:]
     recs = [json.loads(l) for l in (out / "bench.jsonl").read_text().splitlines()]
     check_reps(recs)
-    assert all(r["model"] == "bindcraft2" and r["campaign_seed"] == 101 and r["binder_length"] == 80
+    assert all(r["model"] == "bindcraft2" and r["cpu"] and r["campaign_seed"] == 101 and r["binder_length"] == 80
                for r in recs if r.get("ev") == "rep")

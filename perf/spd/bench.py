@@ -258,7 +258,7 @@ if a.model == "bindcraft2":
     HEAD = dict(sha=SHA, dirty=DIRTY, engine=str(Path(tt_bio.__file__).parent), model=a.model, arm=ARM,
                 arm_env=ARM_ENV, fast=FAST, host=socket.gethostname(), ncpu=os.cpu_count(), share=a.share,
                 chip=a.chip, env=ENV, example=str(example), binder_length=blen, campaign_seed=a.seed,
-                bc2_sha=subprocess.run(["git", "-C", str(a.bc2), "rev-parse", "HEAD"], capture_output=True,
+                cpu=bc2_traj.cpu_model(), bc2_sha=subprocess.run(["git", "-C", str(a.bc2), "rev-parse", "HEAD"], capture_output=True,
                                        text=True).stdout.strip())
     log(ev="start", argv=sys.argv, worker=winfo, TT_VISIBLE_DEVICES=os.environ.get("TT_VISIBLE_DEVICES"),
         settings={k: v for k, v in settings.items() if k != "targets"}, **HEAD)

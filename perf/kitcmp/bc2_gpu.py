@@ -30,7 +30,7 @@ import bindcraft.campaign as campaign  # noqa: E402
 from bindcraft.model_weights import model_weights  # noqa: E402
 from bindcraft.settings import parse_setting_overrides, read_settings  # noqa: E402
 from bindcraft.preflight import cleaned_campaign_settings  # noqa: E402
-from bc2_traj import hook, s_per_iter, table_row  # noqa: E402  (beside this file, here and on the box)
+from bc2_traj import cpu_model, hook, s_per_iter, table_row  # noqa: E402  (beside this file, here and on the box)
 
 project = a.out / f"campaign_s{a.seed}"
 settings = cleaned_campaign_settings(read_settings(str(a.bc2 / "examples" / "pdl1.json"), parse_setting_overrides(
@@ -62,7 +62,7 @@ def sm_mhz(t0, t1):
 
 log(ev="start", bc2_sha=sha, jax=jax.__version__, devices=[str(d) for d in jax.devices()], gpu=gpu,
     settings={k: v for k, v in settings.items() if k != "targets"}, targets=settings.get("targets"), argv=sys.argv,
-    xla_flags=os.environ.get("XLA_FLAGS"))
+    xla_flags=os.environ.get("XLA_FLAGS"), cpu=cpu_model(), ncpu=os.cpu_count())
 
 
 def emit(i):

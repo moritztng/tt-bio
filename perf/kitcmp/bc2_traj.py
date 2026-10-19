@@ -11,6 +11,15 @@ emits the last one itself. Seconds per iteration = design_s / iterations (`s_per
 import contextlib, csv, os, time
 
 
+def cpu_model():
+    """The host CPU, which moves BindCraft 2's host JAX by ~20 % between the fleet's boxes."""
+    with contextlib.suppress(OSError):
+        for line in open("/proc/cpuinfo"):
+            if line.startswith("model name"):
+                return line.split(":", 1)[1].strip()
+    return None
+
+
 def loss_rows(project):
     """Rows of every trajectory's losses.csv so far, live folders and zipped ones alike."""
     from bindcraft.campaign_output import trajectory_metric_rows
