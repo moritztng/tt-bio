@@ -700,7 +700,10 @@ class Tensor:
         self._grad, self._parts, self._pend, self._slab = g, None, None, None
 
     def closure_grad(self):
-        """The gradient a closure is handed: `grad` in this value's dtype.
+        """The gradient a closure is handed: `grad` in this value's dtype, but never narrower
+        than bf16. A value stored in bfp8 is a storage choice for the forward; casting its
+        cotangent to bfp8 quantises a gradient nobody asked to quantise, and costs a typecast
+        here plus a bfp8 product the parent has to widen again before it accumulates.
 
         With a held-back contribution (`FANIN_CAST_FUSED`) the last add writes bf16 directly,
         so there is no float32 sum to cast.
@@ -712,8 +715,9 @@ class Tensor:
             self._grad = _rne_add.round_add(self._grad, pend)
             return self._grad
         g = self.grad
-        if g is not None and g.dtype != self.value.dtype:
-            g = ttnn.typecast(g, self.value.dtype)
+        want = ttnn.bfloat16 if self.value.dtype == ttnn.bfloat8_b else self.value.dtype
+        if g is not None and g.dtype != want:
+            g = ttnn.typecast(g, want)
         return g
 
     def backward(self, seed=None) -> None:
