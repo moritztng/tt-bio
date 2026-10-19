@@ -486,7 +486,8 @@ WH_FAST_LEVERS = FAST_LEVERS | {"trimul_t1_c384", "ws_resid2"} | TRIATT_LN | TRI
 # of its own (einsum rel rms vs float64 at c384 x 512: 1.4e-2 -> 1.7e-3). WH 11-set fast grade, shipped fast set with
 # and without it firing, seeds 109-112, 44 paired folds (spd-m-opendde b32g, 2026-10-19): PASS, same-seed top pose median
 # 0.128 A (A/A floor 1.148 A), CA-lDDT +0.0003 [-0.0001, +0.0009], docking 26 -> 26. cdk2x2 x 1 at 1000 MHz, 2 paired
-# warm folds (b32): fast 512 -1.12 s, fast 576 -2.42 s. Blackhole fast is ungraded with it firing.
+# warm folds (b32): fast 512 -1.12 s, fast 576 -2.42 s. Blackhole fast is ungraded with it firing, so there bmm_res
+# keeps the bf16 dest and declines (tenstorrent._bres_ckc).
 
 
 class OpenDDE:
