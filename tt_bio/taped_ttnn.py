@@ -791,7 +791,8 @@ _VERBS["divide"] = _binary(
 # --- shape ------------------------------------------------------------------------------
 # Every one of these is its own inverse applied to the gradient. They carry no arithmetic,
 # so nothing here can lose precision; what they can lose is an axis, which is why each
-# reads the source shape at forward time rather than inferring it in the backward.
+# reads the source shape at forward time rather than inferring it in the backward. For the
+# same reason none reads a value, so none pins one (`reads=()`).
 
 @_verb("reshape", "unsqueeze", "squeeze")
 def _v_reshape(shipped, args, kwargs):
@@ -807,7 +808,7 @@ def _v_reshape(shipped, args, kwargs):
             x.add_grad(ttnn.reshape(g, src))
         return bw
 
-    return _tape(out_v, [x], make)
+    return _tape(out_v, [x], make, reads=())
 
 
 @_verb("permute")
@@ -825,7 +826,7 @@ def _v_permute(shipped, args, kwargs):
             x.add_grad(_permute_back(g, inv))
         return bw
 
-    return _tape(out_v, [x], make)
+    return _tape(out_v, [x], make, reads=())
 
 
 # Whether a permute's backward goes through the reblock kernels where they serve its inverse.
@@ -918,7 +919,7 @@ def _v_transpose(shipped, args, kwargs):
             x.add_grad(ttnn.transpose(g, d0, d1))
         return bw
 
-    return _tape(out_v, [x], make)
+    return _tape(out_v, [x], make, reads=())
 
 
 @_verb("concat")
@@ -942,7 +943,7 @@ def _v_concat(shipped, args, kwargs):
                 off += n
         return bw
 
-    return _tape(out_v, xs, make)
+    return _tape(out_v, xs, make, reads=())
 
 
 def _sliced(x: "Tensor", out_v, starts, ends):
