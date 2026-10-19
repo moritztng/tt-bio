@@ -76,12 +76,13 @@ def overlay_ok() -> bool:
     return "silu_f32" in os.environ.get("TT_BIO_METAL_OVERLAY", "").split(",")
 
 
-def gated(x, w12, cfg, ckc, grid, out_dtype=ttnn.bfloat16, probe=0, pack_sfpu=False):
+def gated(x, w12, cfg, ckc, grid, out_dtype=ttnn.bfloat16, probe=0, pack_sfpu=False, b12=None):
     """silu(x @ W1) * (x @ W2) for the interleaved `w12`, [.., N] in DRAM, or None when `plan` declines.
     `cfg` is minimal_matmul's (M_block, K_block, N_block, subblock_h, subblock_w) in tiles; the interleave
     group must be N_block / 2 tiles. `probe` (benchmarks only, wrong output) drops the epilogue's silu (1) or silu
     and multiply (2), to time its parts. `pack_sfpu` runs the epilogue's silu and multiply on the PACK thread (the
-    silu is calculate_silu_f32 there only under the silu_f32 metal overlay)."""
+    silu is calculate_silu_f32 there only under the silu_f32 metal overlay). `b12` is an optional [1, 2N] bias
+    interleaved like `w12`, added to the accumulator before the gate."""
     n2 = int(w12.shape[-1])
     why = plan(x, n2, cfg, grid)
     if why is not None:
@@ -92,21 +93,24 @@ def gated(x, w12, cfg, ckc, grid, out_dtype=ttnn.bfloat16, probe=0, pack_sfpu=Fa
     out = ttnn.allocate_tensor_on_device(ttnn.Shape(shape), out_dtype, ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG)
     spec = lambda t: (str(t.padded_shape), str(t.dtype), str(t.memory_config()))
     ck = MG.ckc_args(ckc)
-    key = (spec(x), spec(w12), spec(out), tuple(cfg), tuple(grid), tuple(str(c) for c in ck), probe, pack_sfpu)
+    key = (spec(x), spec(w12), spec(out), tuple(cfg), tuple(grid), tuple(str(c) for c in ck), probe, pack_sfpu,
+           b12 is not None and spec(b12))
     entry = _CACHE.get(key)
     if entry is None:
         entry = MG.build(dev, x, w12, [out], (tuple(cfg), tuple(grid)), ck, defines={"MM_GATED": 1},
-                         kernel_dir=KERNEL_DIR)
+                         kernel_dir=KERNEL_DIR, bias=b12)
         compute = entry["kernels"][4]
         compute.kernel_source = str(KERNEL_DIR / "compute.cpp")
         compute.defines = ([("MM_GATED", "1")] + ([("MM_GATE_PROBE", str(probe))] if probe else [])
-                           + ([("MM_GATE_PACK_SFPU", "1")] if pack_sfpu else []))
+                           + ([("MM_GATE_PACK_SFPU", "1")] if pack_sfpu else [])
+                           + ([("FUSE_BIAS", "1")] if b12 is not None else []))
         entry["pd"] = ttnn.ProgramDescriptor(kernels=entry["kernels"], semaphores=entry["semaphores"],
                                              cbs=entry["cbs"])
         _CACHE[key] = entry
     addrs = (x.buffer_address(), w12.buffer_address(), (out.buffer_address(),))
-    if addrs != entry["addrs"]:
-        MG.rebind(entry, *addrs)
-    ttnn.generic_op([x, w12, out], entry["pd"])
+    in2 = b12.buffer_address() if b12 is not None else None
+    if addrs != entry["addrs"] or (in2 is not None and in2 != entry["in2_addr"]):
+        MG.rebind(entry, *addrs, in2_addr=in2)
+    ttnn.generic_op([x, w12] + ([b12] if b12 is not None else []) + [out], entry["pd"])
     STATS[0] += 1
     return out

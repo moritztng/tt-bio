@@ -45,7 +45,9 @@ void copy_block(uint32_t in_cb, uint32_t out_cb, uint32_t M_block_tiles, uint32_
 // tt-bio mm_gate: the SwiGLU gate as the matmul's epilogue. Each row of the accumulated block holds fc1's N_block / 2
 // tiles then fc2's (the weight is interleaved [W1_j | W2_j] per half block), so the row's output is
 // silu(fc1) * fc2 at half width, computed from the accumulator in dest before the one bf16 pack.
-void gate_block(uint32_t in_cb, uint32_t out_cb, uint32_t M_block_tiles, uint32_t N_block_tiles) {
+// Under FUSE_BIAS the copy out of the accumulator is a row-broadcast add of the block's bias (interleaved like the
+// weight), so the gate reads silu(fc1 + b1) * (fc2 + b2).
+void gate_block(uint32_t in_cb, uint32_t bias_cb, uint32_t out_cb, uint32_t M_block_tiles, uint32_t N_block_tiles) {
     // MM_GATE_GROUP output tiles per dest acquire: fc1's in dest [0, g), fc2's in [g, 2g), so the silu and multiply
     // SFPU inits run once a group instead of once a tile. 2 * g tiles must fit one dest half (4 under fp32 acc).
 #ifndef MM_GATE_GROUP
@@ -61,11 +63,20 @@ void gate_block(uint32_t in_cb, uint32_t out_cb, uint32_t M_block_tiles, uint32_
         for (uint32_t n0 = 0; n0 < half; n0 += g) {
             const uint32_t c = half - n0 < g ? half - n0 : g;
             tile_regs_acquire();
+#ifdef FUSE_BIAS
+            add_bcast_rows_init_short(in_cb, bias_cb);
+            reconfig_data_format(in_cb, bias_cb);
+            for (uint32_t i = 0; i < c; i++) {
+                add_tiles_bcast<BroadcastType::ROW>(in_cb, bias_cb, row + n0 + i, n0 + i, i);
+                add_tiles_bcast<BroadcastType::ROW>(in_cb, bias_cb, row + half + n0 + i, half + n0 + i, g + i);
+            }
+#else
             copy_tile_to_dst_init_short(in_cb);
             for (uint32_t i = 0; i < c; i++) {
                 copy_tile(in_cb, row + n0 + i, i);
                 copy_tile(in_cb, row + half + n0 + i, g + i);
             }
+#endif
 #ifdef MM_GATE_PACK_SFPU
             // MATH only copies; PACK runs the silu and multiply on its own dest half (the fc12g / silu_f32 handoff:
             // a tile_regs_wait() that also points the SFPU at the packer's half), so MATH moves on to the next copy
@@ -473,7 +484,13 @@ void kernel_main() {
 #ifdef MM_GATED
             cb_reserve_back(out_cb, out_block_num_tiles / 2);
             cb_wait_front(intermediate_cb, out_block_num_tiles);
-            gate_block(intermediate_cb, out_cb, M_block_tiles, N_block_tiles);
+#ifdef FUSE_BIAS
+            cb_wait_front(in2_cb, N_block_tiles);
+#endif
+            gate_block(intermediate_cb, in2_cb, out_cb, M_block_tiles, N_block_tiles);
+#ifdef FUSE_BIAS
+            cb_pop_front(in2_cb, N_block_tiles);
+#endif
             cb_pop_front(intermediate_cb, out_block_num_tiles);
 #else
             cb_reserve_back(out_cb, out_block_num_tiles);

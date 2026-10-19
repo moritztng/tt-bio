@@ -218,6 +218,12 @@ _ESMC_LN_FOLD = (env_flag("TT_BIO_ESMC_LN_FOLD", False)
                  if os.environ.get("TT_BIO_ESMC_LN_FOLD", "").strip() else None)
 
 
+# The same fold on the FFN's input LayerNorm: gamma into fc1's input rows, beta W1 as fc1's bias, which the gated
+# minimal_matmul (mm_gate, Wormhole) adds to its accumulator before the gate and minimal_matmul / linear take as
+# bias_tensor. Split-fc1 LM FFNs only (not the 6B, not ESMFold2's transitions). Off until measured.
+_ESMC_FFN_LN_FOLD = env_flag("TT_BIO_ESMC_FFN_LN_FOLD", False)
+
+
 def _ln_fold_on() -> bool:
     if _ESMC_LN_FOLD is not None:
         return _ESMC_LN_FOLD
@@ -1262,6 +1268,22 @@ class SwiGLUFFN(_MMLin, Module):
             self.fc1_weight = ttnn.concat([self.fc1_a_weight, self.fc1_b_weight], dim=-1)
         return self.fc1_weight
 
+    def fold_ln(self):
+        """The input LayerNorm's affine folded into fc1 (see _ESMC_FFN_LN_FOLD): the halves rebuilt from the state
+        dict as diag(gamma) W1 in float64, beta W1 as their biases; the LayerNorm then runs without gamma and beta."""
+        sd = self.weights
+        g = lambda w: (w.double() * sd["0.weight"].double()).float()  # noqa: E731
+        b = lambda lo: lambda w: (w[lo(w)].double() @ sd["0.bias"].double()).float()[None]  # noqa: E731
+        lo_a, lo_b = (lambda w: slice(0, w.shape[0] // 2)), (lambda w: slice(w.shape[0] // 2, None))
+        for name, lo in (("fc1_a_weight", lo_a), ("fc1_b_weight", lo_b)):
+            old = getattr(self, name)
+            setattr(self, name, self.torch_to_tt("1.weight", transform=lambda w, lo=lo: g(w)[lo(w)].t(), dtype=old.dtype))
+            ttnn.deallocate(old)
+        self.fc1_a_bias, self.fc1_b_bias = (self.torch_to_tt("1.weight", transform=b(lo), dtype=ttnn.bfloat16)
+                                         for lo in (lo_a, lo_b))
+        self.ln_folded = True
+        self._w12 = None
+
     def _mm_gate(self, x_norm, l1_gated: bool):
         """silu(x_norm @ fc1a) * (x_norm @ fc1b) as one gated minimal_matmul (mm_gate), or None where it does not
         serve. The interleaved weight is built on the first call from the two device halves (an exact round trip,
@@ -1291,7 +1313,13 @@ class SwiGLUFFN(_MMLin, Module):
             w12 = mm_gate.interleave(ttnn.to_torch(w), ttnn.to_torch(self.fc1_b_weight), group)
             self._w12 = ttnn.from_torch(w12, dtype=w.dtype, layout=ttnn.TILE_LAYOUT, device=x_norm.device())
             self._w12_group = group
-        out = mm_gate.gated(x_norm, self._w12, cfg, ck, grid, pack_sfpu=True)
+            self._b12 = None
+            if getattr(self, "ln_folded", False):
+                b12 = mm_gate.interleave(ttnn.to_torch(self.fc1_a_bias)[..., :1, :].reshape(1, -1),
+                                         ttnn.to_torch(self.fc1_b_bias)[..., :1, :].reshape(1, -1), group)
+                self._b12 = ttnn.from_torch(b12, dtype=self.fc1_a_bias.dtype, layout=ttnn.TILE_LAYOUT,
+                                            device=x_norm.device())
+        out = mm_gate.gated(x_norm, self._w12, cfg, ck, grid, pack_sfpu=True, b12=self._b12)
         MM_GATE_STATS[0 if out is not None else 1] += 1
         return out
 
@@ -1309,8 +1337,10 @@ class SwiGLUFFN(_MMLin, Module):
         the layout this module actually holds instead of trusting the caller to know it.
         """
         ck = self.compute_kernel_config
-        ln = dict(weight=self.norm_weight, bias=self.norm_bias,
+        folded = getattr(self, "ln_folded", False)
+        ln = dict(**({} if folded else {"weight": self.norm_weight, "bias": self.norm_bias}),
                   epsilon=1e-5, compute_kernel_config=ck)
+        fb = (dict(bias=self.fc1_a_bias), dict(bias=self.fc1_b_bias)) if folded else ({}, {})
         x_norm = None
         if l1_gated and _PAIR_FFN_L1_LN:
             key = tuple(x.padded_shape)
@@ -1348,11 +1378,11 @@ class SwiGLUFFN(_MMLin, Module):
             ttnn.deallocate(x_norm)
         elif split and self.split_swiglu:
             from tt_bio import tenstorrent as _T
-            out = self._sharded(x_norm, out_mc) if _T.lever("transition_shard") else None
+            out = self._sharded(x_norm, out_mc) if _T.lever("transition_shard") and not folded else None
             if out is not None:
                 ttnn.deallocate(x_norm)
                 return out
-            if l1_gated and _PAIR_FFN_L1_FC1:
+            if l1_gated and _PAIR_FFN_L1_FC1 and not folded:
                 L1_FC1_STATS[0] += 2
                 l1 = dict(l1_out=True, l1_bw=_PAIR_FFN_FC1_BW,
                           l1_block_w=_PAIR_FFN_FC1_BLOCK_W)
@@ -1375,8 +1405,8 @@ class SwiGLUFFN(_MMLin, Module):
                 dt = (ttnn.bfloat8_b if _ESMC_ACT_BFP8 and len(x_norm.shape) == 3
                       and self.fc1_a_weight.dtype == ttnn.bfloat8_b and self._mm_ok(x_norm, self.fc1_a_weight) else None)
                 h1 = self._lin(x_norm, self.fc1_a_weight, dtype=dt,
-                               activation="silu" if _SWIGLU_SILU_FC1 else None)
-                h2 = self._lin(x_norm, self.fc1_b_weight, dtype=dt)
+                               activation="silu" if _SWIGLU_SILU_FC1 else None, **fb[0])
+                h2 = self._lin(x_norm, self.fc1_b_weight, dtype=dt, **fb[1])
                 silu_done = _SWIGLU_SILU_FC1
             ttnn.deallocate(x_norm)
             act = dict(input_tensor_a_activations=[] if silu_done else [ttnn.UnaryOpType.SILU])
@@ -1406,8 +1436,8 @@ class SwiGLUFFN(_MMLin, Module):
                 # concatenated fc1 is for the TT_BIO_SPLIT_SWIGLU=0 control arm only: built here it stayed
                 # resident in every block, 70.8 MB a layer for the ESMC-6B, which OOMed it on a 12 GB
                 # Wormhole chip for any sequence under 144 tokens.
-                x1 = self._lin(x_norm, self.fc1_a_weight)
-                x2 = self._lin(x_norm, self.fc1_b_weight)
+                x1 = self._lin(x_norm, self.fc1_a_weight, **fb[0])
+                x2 = self._lin(x_norm, self.fc1_b_weight, **fb[1])
             else:
                 h = self._lin(x_norm, self._fc1_full())
                 x1, x2 = ttnn.chunk(h, 2, dim=-1)
@@ -1719,6 +1749,8 @@ class Block(Module):
                                      or _qk_l1_large(self.ffn.fc2_weight.dtype)), d_model=d,
                               lm_large=self.ffn.model_bytes > _LM_LARGE_MODEL_BYTES)
         self.ffn.lm_large = self.attn.lm_large
+        if _ESMC_FFN_LN_FOLD and not self.ffn.lm_large and self.ffn.split_swiglu and _SPLIT_SWIGLU:
+            self.ffn.fold_ln()
         if (_ESMC_FAST_RESID_BF16 and _ESMC_MM_RESID and not self.ffn.lm_large and _esmc_mm()
                 and self.ffn.fc2_weight.dtype == ttnn.bfloat8_b):
             for m, name in ((self.attn, "out_weight"), (self.ffn, "fc2_weight")):

@@ -230,7 +230,7 @@ def _cb(idx, core_grid, page_size, num_tiles, data_format):
 
 
 def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=None,
-          noc_mode=None, n_widths=None):
+          noc_mode=None, n_widths=None, bias=None):
     """The ProgramDescriptor for ``minimal_matmul(in0, in1) -> outs`` with block config ``cfg``.
 
     ``cfg`` is a 5-tuple ``(M_block, K_block, N_block, subblock_h, subblock_w)`` and a
@@ -255,6 +255,10 @@ def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=Non
     for the kernel's own NOC, so a write on the other one never issues and the barrier spins
     forever -- MEASURED as a device hang on the first call, card 0, 2026-08-15.
     ``DM_DYNAMIC_NOC`` initialises both and arbitrates the command buffers atomically.
+
+    ``bias`` is a ``[1, N]`` tile-layout row (the C++ factory's in2): FUSE_BIAS is set, the non-writer DM kernel
+    reads its N block into CB c_4 next to each output block, and the compute kernel adds it. ``rebind`` keeps its
+    address in each DM kernel's runtime arg 1.
     """
     if not isinstance(outs, (list, tuple)):
         outs = [outs]
@@ -295,7 +299,7 @@ def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=Non
     in0_tile_size = tile_bytes(in0.dtype)
     in1_tile_size = tile_bytes(in1.dtype)
     out_tile_size = tile_bytes(out.dtype)
-    in2_tile_size = in1_tile_size          # no bias: in2_data_format = in1_data_format
+    in2_tile_size = tile_bytes(bias.dtype) if bias is not None else in1_tile_size  # no bias: in1's format
     in3_tile_size = in1_tile_size          # no all-gather fusion, same fallback
     interm_fmt = ttnn.float32 if fp32_dest_acc_en else ttnn.bfloat16
     interm_tile_size = tile_bytes(interm_fmt)
@@ -329,6 +333,11 @@ def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=Non
         _cb(2, core_grid, out_tile_size, out_block * 2, out.dtype),
         _cb(3, core_grid, interm_tile_size, out_block, interm_fmt),
     ]
+    acc_in2 = []
+    if bias is not None:
+        defines = defines + [("FUSE_BIAS", "1")]
+        cbs.append(_cb(4, core_grid, in2_tile_size, N_block_tiles * 2, bias.dtype))
+        acc_in2 = list(ttnn.TensorAccessorArgs(bias).get_compile_time_args())
 
     # CreateSemaphore is called six times on the whole grid, so the ids are 0..5 in that order.
     sem_vals = [INVALID, INVALID, VALID, INVALID, INVALID, VALID]
@@ -349,7 +358,7 @@ def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=Non
                  M_block_tiles, K_block_tiles, N_block_tiles, M_blocks_per_core, N_blocks_per_core,
                  tile_size, out_tile_size, in2_tile_size, *sems,
                  int(is_writer), int(is_injector), N_chunks, N_tiles_per_chunk] + tail
-                + acc_main + acc_out)
+                + acc_main + acc_out + acc_in2)
 
     in0_sems = [in0_sender_sem, in0_recv_sem, in0_valid_sem]
     in1_sems = [in1_sender_sem, in1_recv_sem, in1_valid_sem]
@@ -371,6 +380,7 @@ def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=Non
 
     in0_addr, in1_addr = in0.buffer_address(), in1.buffer_address()
     out_addrs = [o.buffer_address() for o in outs]
+    in2_addr = bias.buffer_address() if bias is not None else 0
 
     rt = {"in0_sender": [], "in0_recv": [], "in1_sender": [], "in1_recv": [], "compute": []}
     for cx in range(gx):
@@ -401,10 +411,10 @@ def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=Non
             defer_k = min(cy * k_blocks_per_core, K_blocks - 1)
 
             cc = ttnn.CoreCoord(cx, cy)
-            a0 = [in0_addr, 0, 0, int(core == in0_order[-1]),
+            a0 = [in0_addr, in2_addr, 0, int(core == in0_order[-1]),
                   in0_next[0], in0_next[1], in0_prev[0], in0_prev[1],
                   M_start, M_end, N_start, N_end, defer_k, *out_addrs]
-            a1 = [in1_addr, 0, int(core == in1_order[-1]),
+            a1 = [in1_addr, in2_addr, int(core == in1_order[-1]),
                   in1_next[0], in1_next[1], in1_prev[0], in1_prev[1],
                   M_start, M_end, N_start, N_end, defer_k, *out_addrs]
             rt["in0_sender" if in1_idx == 0 else "in0_recv"].append((cc, a0))
@@ -446,7 +456,7 @@ def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=Non
     ]
     pd = ttnn.ProgramDescriptor(kernels=kernels, semaphores=semaphores, cbs=cbs)
     return {"pd": pd, "kernels": kernels, "cbs": cbs, "semaphores": semaphores, "rt": rt,
-            "addrs": (in0_addr, in1_addr, tuple(out_addrs)), "n_chunks": N_chunks,
+            "addrs": (in0_addr, in1_addr, tuple(out_addrs)), "n_chunks": N_chunks, "in2_addr": in2_addr,
             "dims": {"M_tiles": M_tiles, "K_tiles": K_tiles, "N_tiles": N_tiles,
                      "padded_M_tiles": padded_M_tiles, "padded_N_tiles": padded_N_tiles,
                      "M_blocks_per_core": M_blocks_per_core,
@@ -494,7 +504,7 @@ def generic_minimal_matmul(device, in0, in1, outs, cfg, ckc, defines=(), kernel_
     return outs[0] if len(outs) == 1 else outs
 
 
-def rebind(entry, in0_addr, in1_addr, out_addrs):
+def rebind(entry, in0_addr, in1_addr, out_addrs, in2_addr=None):
     """Rewrite the buffer addresses in the cached per-core runtime args, in place.
 
     They sit at fixed indices: args[0] is the kernel's own input address and the last ``N_chunks``
@@ -507,6 +517,8 @@ def rebind(entry, in0_addr, in1_addr, out_addrs):
                        ("in1_sender", in1_addr), ("in1_recv", in1_addr)):
         for _, a in rt[name]:
             a[0] = addr
+            if in2_addr is not None:
+                a[1] = in2_addr
             a[len(a) - n:] = list(out_addrs)
     for k, name in zip(entry["kernels"][:4],
                        ("in0_sender", "in0_recv", "in1_sender", "in1_recv")):
@@ -514,3 +526,5 @@ def rebind(entry, in0_addr, in1_addr, out_addrs):
     entry["pd"] = ttnn.ProgramDescriptor(
         kernels=entry["kernels"], semaphores=entry["semaphores"], cbs=entry["cbs"])
     entry["addrs"] = (in0_addr, in1_addr, tuple(out_addrs))
+    if in2_addr is not None:
+        entry["in2_addr"] = in2_addr
