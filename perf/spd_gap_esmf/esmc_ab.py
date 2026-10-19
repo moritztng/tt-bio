@@ -54,7 +54,8 @@ def main() -> int:
     ap.add_argument("--batch", type=int, default=None, help="sequences a forward (default: the GAP cell's, 1 for the 6B, else 7)")
     ap.add_argument("--repeat", type=int, default=7)
     ap.add_argument("--rounds", type=int, default=2)
-    ap.add_argument("--on-value", type=int, default=None, help="value the on arm sets (default True), for an int switch")
+    ap.add_argument("--on-value", type=json.loads, default=None,
+                    help="value the on arm sets (default True), a JSON literal: an int switch, or a list for a tuple one")
     ap.add_argument("--block-attr", default=None,
                     help="dotted attribute on every transformer Block (e.g. attn.qk_l1): off arm = as loaded, on = True")
     ap.add_argument("--out", required=True)
@@ -96,7 +97,7 @@ def main() -> int:
         assert battr, "no transformer blocks found"
     boff = [getattr(o, n) for o, n in battr]
     cur = getattr(alt_mod, attr) if not (a.fidelity or a.block_attr) else None
-    off_value = False if cur is None else type(cur)(0)   # tri-state switches (None = per-arch default) read off as False
+    off_value = False if cur is None else type(cur)()   # tri-state switches (None = per-arch default) read off as False
     base = None
     for r in range(a.rounds):
         for on in (False, True):
@@ -106,7 +107,8 @@ def main() -> int:
                 for (o, name), v in zip(battr, boff):
                     setattr(o, name, True if on else v)
             else:
-                setattr(alt_mod, attr, (a.on_value if a.on_value is not None else True) if on else off_value)
+                on_value = True if a.on_value is None else tuple(a.on_value) if isinstance(a.on_value, list) else a.on_value
+                setattr(alt_mod, attr, on_value if on else off_value)
             # a captured trace replays the program of the arm it was captured under: drop it so this arm recaptures
             if hasattr(model, "_release_traces"):   # ESMC-6B (ESMCLanguageModel) runs eager
                 model._release_traces()
