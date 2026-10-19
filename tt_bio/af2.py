@@ -125,14 +125,6 @@ TRANSITION_L1 = env_flag("TT_BIO_AF2_TRANSITION_L1", False)
 # alone and its backward is `pair_relu_bw` (pre-activation recomputed in L1) then `lnbw.layer_norm_bw`. AF2-IG at 195
 # tokens: Evoformer -0.12 s on Wormhole, -0.10 s on p150a, structure within 0.03 A of the composed path.
 TRANSITION_WS = env_flag("TT_BIO_AF2_TRANSITION_WS", True)
-WHY_LOG: list = []    # diagnostic (bc4-bet-dispatch): why `_ws` declined, while `autograd` captures a trace
-
-
-def _why(reason, **kw):
-    from . import autograd
-    if autograd._RCAPTURING[0] and len(WHY_LOG) < 20:
-        WHY_LOG.append(reason)
-        print(f"[trace-check] af2 transition declined in a capture: {reason} {kw}", flush=True)
 # Hand the pair representation from the extra-MSA stack straight to the Evoformer stack as a
 # device tensor, instead of downloading it and uploading the same bytes back. `AF2Model.forward`
 # does not touch `pair` between the two calls -- it only concatenates the template torsion rows
@@ -275,7 +267,6 @@ class ReluTransition(Module):
         from . import ops
         from . import pair_swiglu_ws as W
         if ops.declines_under_tape("pair_relu") and ops.recording():
-            _why("tape")
             return None
         w = self.weights
         if self._ws_weights is None:
@@ -286,13 +277,9 @@ class ReluTransition(Module):
         w1, b1, w2, b2 = self._ws_weights
         ln = (self.norm_weight, self.norm_bias)
         if not W.relu_eligible(x, w1, w2, ln):
-            _why("eligible", x=(tuple(x.padded_shape), str(x.dtype), str(x.layout), str(x.memory_config())))
             return None
-        out = W.pair_relu(x, w1, b1, w2, b2, fidelity=self.compute_kernel_config.math_fidelity,
-                          ln=ln + (1e-5,), bw_weights=self._ws_bw)
-        if out is None:
-            _why("pair_relu None", x=type(x).__name__, bw=self._ws_bw is not None)
-        return out
+        return W.pair_relu(x, w1, b1, w2, b2, fidelity=self.compute_kernel_config.math_fidelity,
+                           ln=ln + (1e-5,), bw_weights=self._ws_bw)
 
     def _rows(self, x: ttnn.Tensor) -> ttnn.Tensor:
         if TRANSITION_L1:

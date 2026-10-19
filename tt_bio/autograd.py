@@ -2976,7 +2976,6 @@ TRACE_RECOMPUTE_CHECK = int(os.environ.get("TT_BIO_TRACE_RECOMPUTE_CHECK", "0"))
 RTRACE_CHECKS: list = []
 
 
-_RCAPTURING = [False]
 _RMODE: dict = {}     # diagnostic: the ambient mode at a key's registration and at its capture
 
 
@@ -3142,11 +3141,7 @@ def _rt_batch(device, sig, sh):
         def logged(key, run):
             def go():
                 _RMODE.setdefault(("cap", key, sig), _mode())
-                _RCAPTURING[0] = True
-                try:
-                    _, _ROPS[(key, sig)] = _ops(run)
-                finally:
-                    _RCAPTURING[0] = False
+                _, _ROPS[(key, sig)] = _ops(run)
             return go
         runs = [logged(key, run) for key, run in zip(pend, runs)]
     # One warm pass through the shared buffers compiles anything only they reach.
