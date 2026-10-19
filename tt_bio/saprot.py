@@ -156,16 +156,14 @@ _SAPROT_QKRH = (env_flag("TT_BIO_SAPROT_QKRH", False) if os.environ.get("TT_BIO_
 _QKRH_QSCALE = None
 
 
-# The page batch's attention (shsdpa, keys padded) at a kernel config other than shsdpa's HiFi2, by name. HiFi2 truncates
-# q.k products, which lin_sweep reads as |y| 0.28 % low at K = 32: a logit deflation the rotary_embedding chain's +0.19 %
-# on |q| and |k| happened to cancel and the packed RoPE program does not. Diagnostic until graded (None = HiFi2).
+# The attention behind the packed RoPE program runs at HiFi4 with fp32 dest instead of shsdpa's HiFi2 bf16 dest. Its
+# truncated q.k deflates the logits, which the rotary_embedding chain's +0.19 % on |q| and |k| happened to cancel and the
+# packed program (closer to float64) does not: 650M --fast hPCSK9 read pcc -0.000345 vs QKRH off, past the fast bar 0.0002.
+# HiFi4 needs the fp32 dest (HiFi4 at bf16 dest was worse than HiFi2, HiFi2 at fp32 dest no better). Galaxy chip, 1000 MHz,
+# 2 rounds, --fast, pcc vs fp32 against HiFi2: 650M hPCSK9 +0.000265, hEGFR +0.000093, hTF +0.000035, hTNFa +0.000012,
+# 1.3B hPCSK9 +0.000080, hEGFR +0.000128, at +0.9 to +1.5 % time. None = with the packed RoPE program only.
 _SAPROT_SDPA = None
-_SDPA_CKCS = {
-    "hifi3": (ttnn.MathFidelity.HiFi3, True, False, False),
-    "hifi4": (ttnn.MathFidelity.HiFi4, True, False, False),
-    "hifi4f": (ttnn.MathFidelity.HiFi4, False, True, False),   # fp32 dest
-    "hifi2f": (ttnn.MathFidelity.HiFi2, False, True, False),
-}
+_SDPA_FP32 = (ttnn.MathFidelity.HiFi4, False, True, False)
 
 
 def _saprot_qkrh(w) -> bool:
@@ -364,6 +362,7 @@ class ESM2Attention(_SaprotLin, Module):
         ck = self.compute_kernel_config
         x_norm = _block_ln(x, self.norm_weight, self.norm_bias, ck, self.qkv_weight)
         qkv = self._lin(x_norm, self.qkv_weight, bias=self.qkv_bias)
+        heads = None
         if self.fold_rope:  # cos/sin are the packed [1, L, 3*H*32] tables from fold_rope_tables
             rot = self._lin(x_norm, self.rot_weight, bias=self.rot_bias)
             ttnn.deallocate(x_norm)
@@ -388,7 +387,7 @@ class ESM2Attention(_SaprotLin, Module):
         if key_valid is not None and attn_mask is None:  # the -inf mask already zeroes them, see esmc.Attention
             k = ttnn.multiply(k, key_valid)
             v = ttnn.multiply(v, key_valid)
-        o = lm_sdpa(q, k, v, attn_mask, scale=self.head_dim ** -0.5, merge=True, ckc=_SDPA_CKCS.get(_SAPROT_SDPA))  # [B, L, H*32] when fold_rope; out_weight has the zero rows
+        o = lm_sdpa(q, k, v, attn_mask, scale=self.head_dim ** -0.5, merge=True, ckc=_SDPA_FP32 if (heads is not None if _SAPROT_SDPA is None else _SAPROT_SDPA) else None)  # [B, L, H*32] when fold_rope; out_weight has the zero rows
         ttnn.deallocate(q); ttnn.deallocate(k); ttnn.deallocate(v)
         out = self._lin_add(o, self.out_weight, self.out_bias, x)
         ttnn.deallocate(o)
