@@ -1165,6 +1165,9 @@ _TRIMUL_INPROJ_GROUP = 12
 # worst case at +1.448 GiB (704 aa, G=8: 8.377 vs 6.929 GiB) and leaves >20 GiB free at every size.
 # It keeps the full width at 512-704 aa, takes G=4 at 973 aa (9i3p) and G=2 at 1136 aa (9j4c).
 _TRIMUL_INPROJ_FUSED_BYTES = 1024 * 2 ** 20
+# T1 priced on its own outputs (a, b, g_out) rather than on the fused projection it never builds (`_t1_in`).
+# A/B knob; True is production.
+T1_OWN_BUDGET = True
 
 
 def _trimul_inproj_group(seq_len: int, chunk: int, batch: int, n_pairs: int) -> int:
@@ -9639,12 +9642,16 @@ class TriangleMultiplication(Module):
             TT1.T1_WHY[why] = TT1.T1_WHY.get(why, 0) + 1
             return None
         batch = prod(shp[:-3])
-        chunk = _trimul_inproj_chunk_cap(H, self._hidden, batch,
-                                         _trimul_chunk_size(H, self._hidden, batch))
-        n_pairs = self._hidden // chunk
+        # T1 never builds the fused projection the channel loop's byte budget prices (4 * hidden channels
+        # plus g_out). Its own outputs are a, b and g_out, so it is held to that budget on those. Pricing it
+        # on the fused projection declined OpenDDE's c_z 384 above 591 tokens, the 608 and 640 buckets where
+        # JapanFold's 550-600 aa folds land.
+        t1_bytes = (2 * self._hidden + shp[-1]) * H * H * batch * 2
         # This route is refused above unless the chunk memory is DRAM, so the operands are not L1.
         pc = _triangle_mul_program_config((H + 31) // 32, _trimul_ibw_full(), _trimul_subblock(), False)
-        if (n_pairs // _trimul_inproj_group(H, chunk, batch, n_pairs) != 1
+        if (t1_bytes > _trimul_inproj_budget(H, self._hidden, batch)
+                or (not T1_OWN_BUDGET and self._hidden * 4 * H * H * batch * 2 > _trimul_inproj_budget(
+                    H, self._hidden, batch))
                 or not _mm_transpose_deferred(pc)):
             TT1.T1_STATS[1] += 1
             TT1.T1_WHY["route"] = TT1.T1_WHY.get("route", 0) + 1
@@ -10092,6 +10099,8 @@ class TriangleMultiplication(Module):
             # re-probing the refused width once per pairformer block. Inert until a refusal has
             # been recorded for this shape.
             chunk_size = _trimul_inproj_chunk_cap(H, self._hidden, batch, chunk_size)
+        if t1 is not None:
+            chunk_size = self._hidden   # T1's a and b are the whole hidden: one channel-loop iteration
         n_pairs = self._hidden // chunk_size
         # Hold the L1 channel chunks where they are and let the single concat read them there,
         # instead of cloning each one to DRAM as it is produced. The clone exists only so that all
