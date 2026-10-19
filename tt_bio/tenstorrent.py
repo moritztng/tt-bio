@@ -1507,6 +1507,13 @@ def set_trimul_out_l1(on: bool) -> None:
 _TRIMUL_TAIL_L1_SHARE = float(os.environ.get("TT_BIO_TRIMUL_TAIL_L1_SHARE", "0.5"))
 #: Census: tail calls that took L1, and tail calls the budget refused.
 TRIMUL_TAIL_L1_STATS = {"l1": 0, "dram": 0}
+# Concat the channel chunks straight out of L1 instead of cloning each one to DRAM first. The
+# clone is one whole extra copy of the hidden per trimul call and buys nothing but the chunks
+# being co-resident, which L1 can give directly whenever the budget above fits them all. Off
+# until the WH A/B reads (cell `trcl`); the result is bit-identical by construction.
+_TRIMUL_CONCAT_FROM_L1 = env_flag("TT_BIO_TRIMUL_CONCAT_FROM_L1", False)
+#: Census: channel loops that held their chunks in L1, and ones that cloned each to DRAM.
+TRIMUL_CONCAT_FROM_L1_STATS = {"l1": 0, "clone": 0}
 TRIANGLE_MULT_L1_MAX_SEQ_FAST = 640
 TRIANGLE_MULT_L1_MAX_SEQ_FAST_13X10 = 704
 TRIANGLE_MULT_L1_MAX_SEQ = 352
@@ -10021,6 +10028,19 @@ class TriangleMultiplication(Module):
             # been recorded for this shape.
             chunk_size = _trimul_inproj_chunk_cap(H, self._hidden, batch, chunk_size)
         n_pairs = self._hidden // chunk_size
+        # Hold the L1 channel chunks where they are and let the single concat read them there,
+        # instead of cloning each one to DRAM as it is produced. The clone exists only so that all
+        # n_pairs chunks can be live at once for that concat, so it is a whole extra copy of the
+        # hidden per call (2 at AF2-IG's 195, where the loop is L1 and the chunk width is 64).
+        # Priced like the tail's own L1 gate, on the whole hidden plus one working chunk rather
+        # than on a sequence length. Bit-identical: the same concat of the same blocks in the same
+        # order into the same DRAM destination the clones used to give it.
+        # `host_acc` is `large_seq and ...`, so `not large_seq` already excludes it.
+        concat_from_l1 = (_TRIMUL_CONCAT_FROM_L1 and not large_seq and not _TRIMUL_OUT_MOVE_DRAM
+                          and not keep_chunks
+                          and _trimul_l1_fits(batch, self._hidden + chunk_size, H,
+                                              4 if _dtype() == ttnn.float32 else 2, 1))
+        TRIMUL_CONCAT_FROM_L1_STATS["l1" if concat_from_l1 else "clone"] += 1
         # The matmul's N and the channel-chunk width are two different numbers this code has been
         # forcing to be one. Only the matmul widens (_TRIMUL_INPROJ_GROUP), and only on the DRAM
         # path: on the L1 path _trimul_chunk_size has already widened the chunk itself and the L1
@@ -10494,6 +10514,9 @@ class TriangleMultiplication(Module):
                         )
                     if large_seq or _TRIMUL_OUT_MOVE_DRAM or one_pass:
                         _acc_append(x_chunks, x_chunk, host_acc)
+                    elif concat_from_l1:
+                        # Stays in L1; the concat below names DRAM for the result.
+                        x_chunks.append(x_chunk)
                     else:
                         # L1-resident chunk: move it to DRAM so all n_pairs can be held at
                         # once for the single concat.
@@ -10712,7 +10735,11 @@ class TriangleMultiplication(Module):
             assert not x_chunks and c_done == self._hidden, (len(x_chunks), c_done, self._hidden)
             x = x_out
         else:
-            x = _acc_concat(x_chunks, -1, host_acc)
+            # With the chunks held in L1 the destination has to be named: ttnn.concat would
+            # otherwise place the result beside its inputs, where the clones used to put it in
+            # DRAM. Same bytes either way, but the pair-sized result does not belong in L1.
+            x = _acc_concat(x_chunks, -1, host_acc,
+                            memory_config=ttnn.DRAM_MEMORY_CONFIG if concat_from_l1 else None)
         dram_peak(f"trimul({'end' if self.ending else 'start'}) channel loop done [z={'x'.join(str(d) for d in x_in.shape)}]")
         if rows_tail:
             return self._tail_rows(x_in, x, H, host_acc, add_to_input)
