@@ -38,7 +38,7 @@ def _write(path, cols, rows):
 
 def make_campaign(root, target, arm, seed, n=10, *, iptm=0.40, plddt=0.87, rmsd=1.5, spread=0.05, iterations=140,
                   accepted=0, terminated_every=4, nan_candidate=False, autotuned=False, identical_sequences=False,
-                  rng_seed=0):
+                  dup_candidates=0, rng_seed=0):
     """One campaign_s<seed>/ tree in BindCraft 2's layout. Returns its arm directory."""
     rng = random.Random(rng_seed)
     arm_dir = os.path.join(root, target, f"{arm}_s{seed}")
@@ -82,14 +82,19 @@ def make_campaign(root, target, arm, seed, n=10, *, iptm=0.40, plddt=0.87, rmsd=
                 "Binder_RMSD": round(abs(rmsd + rng.gauss(0, spread * 4)), 4),
                 "Binder_Sequence": seq,
             })
+    # MPNN re-emits a sequence now and then; dup_candidates reproduces that at a chosen rate.
+    for c in cand_rows[1:1 + dup_candidates]:
+        c["Binder_Sequence"] = cand_rows[0]["Binder_Sequence"]
     _write(os.path.join(project, "1_Trajectories", "!_Trajectories.csv"), TRAJ_COLS, traj_rows)
     _write(os.path.join(project, "2_Refolded", "!_Refolded.csv"), CAND_COLS, cand_rows)
     return arm_dir
 
 
 def make_arm(root, target, arm, seeds=(101, 102, 103), **kw):
-    dirs = [make_campaign(root, target, arm, s, rng_seed=s + kw.pop("rng_offset", 0), **kw) for s in seeds]
-    return dirs
+    # Popped outside the comprehension: inside it, only the first campaign saw the offset and the rest silently
+    # fell back to 0, so an arm asked for a shifted RNG got one campaign shifted and two not.
+    offset = kw.pop("rng_offset", 0)
+    return [make_campaign(root, target, arm, s, rng_seed=s + offset, **kw) for s in seeds]
 
 
 def read_all(dirs):
@@ -202,6 +207,54 @@ def test_a_collapsed_arm_fails(tmp_path):
     assert g["collapse"]["collapsed"]
     assert g["verdict"] == "FAIL"
     assert any("collapse" in r for r in g["reasons"])
+
+
+def test_stock_rate_duplication_is_not_collapse(tmp_path):
+    """The A/A principle applied to the collapse guardrail: stock duplicates, so duplicating is not collapse.
+
+    Measured on the real B200 campaigns of 2026-10-19, the earlier `distinct < 0.9` rule called four of six STOCK
+    arms collapsed, each on one repeated sequence (attn-stock 4/5 distinct, attn-stock-w9 7/8, attn-xla 13/15),
+    and called the TT arm collapsed at 23/28 for duplicating at the same rate. A guardrail that fails stock would
+    have failed the campaign's headline verdict for free.
+    """
+    ref = make_arm(str(tmp_path), "pdl1", "ref", seeds=(101, 102, 103), dup_candidates=10)
+    arm = make_arm(str(tmp_path), "pdl1", "tt", seeds=(101, 102, 103), dup_candidates=10, rng_offset=7000)
+    c = Q.collapse_check(read_all(arm), read_all(ref))
+    assert c["distinct_sequence_fraction"] < 0.90, "the fixture must actually contain duplicates"
+    assert not c["collapsed"], c["reasons"]
+    assert Q.grade(read_all(arm), read_all(ref), "tt")["verdict"] == "PASS"
+
+
+def test_a_lower_diversity_rate_than_stock_is_caught(tmp_path):
+    """The other direction: an arm that really does repeat itself more than stock has to be flagged. Graded per
+    trajectory, because every duplicate in the real campaigns was inside one trajectory and none across two."""
+    ref = make_arm(str(tmp_path), "pdl1", "ref", seeds=(101, 102, 103), dup_candidates=4)
+    arm = make_arm(str(tmp_path), "pdl1", "tt", seeds=(101, 102, 103), dup_candidates=40, rng_offset=7000)
+    c = Q.collapse_check(read_all(arm), read_all(ref))
+    assert c["collapsed"], c
+    assert any("sequence diversity" in r for r in c["reasons"]), c["reasons"]
+
+
+def test_one_sequence_taking_half_the_candidates_is_collapse(tmp_path):
+    """The absolute floor still has to catch real collapse, with no reference to lean on."""
+    arm = make_arm(str(tmp_path), "pdl1", "tt", seeds=(101,), dup_candidates=40)
+    c = Q.collapse_check(read_all(arm))
+    assert c["collapsed"]
+    assert c["top_sequence_share"] >= 0.5
+    assert any("one sequence is" in r for r in c["reasons"]), c["reasons"]
+
+
+def test_a_narrowed_spread_needs_a_test_not_a_ratio(tmp_path):
+    """The same bug class on the spread rule: a fixed '< 0.2x the reference sd' flagged the stock attn-xla arm,
+    because stock's own i_pTM sd over 3 trajectories was 0.396, carried by a single bad design."""
+    ref = make_arm(str(tmp_path), "pdl1", "ref", seeds=(101, 102, 103), spread=0.05)
+    wide = make_arm(str(tmp_path), "pdl1", "a2", seeds=(201, 202, 203), spread=0.05)
+    assert not Q.collapse_check(read_all(wide), read_all(ref))["collapsed"]
+    # A genuinely frozen arm is still caught.
+    flat = make_arm(str(tmp_path), "pdl1", "tt", seeds=(301, 302, 303), spread=0.0005)
+    c = Q.collapse_check(read_all(flat), read_all(ref))
+    assert c["collapsed"], c
+    assert any("Brown-Forsythe" in r for r in c["reasons"]), c["reasons"]
 
 
 def test_a_changed_iteration_count_is_caught(tmp_path):

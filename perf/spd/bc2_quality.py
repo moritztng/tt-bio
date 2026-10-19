@@ -32,6 +32,7 @@ import os
 import random
 import re
 import statistics as st
+from collections import Counter
 from dataclasses import dataclass, field
 from math import comb
 from statistics import NormalDist
@@ -43,6 +44,7 @@ ITERATIONS = "iterations"
 
 ALPHA = 0.05
 POWER = 0.80
+SPREAD_MIN_N = 5  # below this a spread comparison cannot separate collapse from one unlucky design
 PERM_N = 20000  # permutation resamples; tests lower it, nothing else should
 
 
@@ -328,22 +330,83 @@ def holm(results: list[dict], alpha: float = ALPHA) -> list[dict]:
     return results
 
 
+def _diversity_values(trajectories: list[Trajectory]) -> list[tuple[tuple[int, int], float]]:
+    """Per trajectory, the fraction of its own candidate sequences that are distinct. NaN if it produced none."""
+    out = []
+    for t in trajectories:
+        seqs = [c.get("Binder_Sequence", "") for c in t.candidates if c.get("Binder_Sequence")]
+        out.append((t.key, len(set(seqs)) / len(seqs) if seqs else float("nan")))
+    return out
+
+
 def collapse_check(trajectories: list[Trajectory], ref: list[Trajectory] | None = None) -> dict:
-    """Has the arm stopped exploring? Distinct binder sequences, and per-metric spread against the reference's."""
+    """Has the arm stopped exploring? Distinct binder sequences, and per-metric spread against the reference's.
+
+    Sequence diversity is graded against the reference, not against a number picked in advance. A bare threshold
+    measures sample size rather than collapse: MPNN re-emits a sequence now and then, and on a handful of
+    candidates one coincidental duplicate costs more of a fixed budget than the same duplication RATE does on
+    hundreds. Measured on the real B200 campaigns of 2026-10-19, a `distinct < 0.9` rule called four of six stock
+    arms collapsed, every one of them on a single repeated sequence (`attn-stock` 4/5 distinct, `attn-xla` 13/15),
+    and would have failed the TT arm for duplicating at exactly the stock rate. Only catastrophic collapse is
+    absolute now; everything short of it is a Fisher test against the reference's own duplicate rate.
+    """
     seqs = [c.get("Binder_Sequence", "") for t in trajectories for c in t.candidates if c.get("Binder_Sequence")]
     distinct = len(set(seqs)) / len(seqs) if seqs else float("nan")
-    out = {"candidates": len(seqs), "distinct_sequence_fraction": distinct, "collapsed": False, "reasons": []}
-    if seqs and distinct < 0.9:
+    top = max(Counter(seqs).values()) if seqs else 0
+    out = {"candidates": len(seqs), "distinct_sequence_fraction": distinct,
+           "top_sequence_share": top / len(seqs) if seqs else float("nan"),
+           "collapsed": False, "reasons": []}
+    # Catastrophic collapse, and only that, is judged without a reference: one sequence taking half the candidates,
+    # or half the candidates being repeats. Neither can be reached by a stray duplicate or two.
+    if len(seqs) >= 4 and top / len(seqs) >= 0.5:
+        out["collapsed"] = True
+        out["reasons"].append(f"one sequence is {top} of {len(seqs)} candidates")
+    if len(seqs) >= 4 and distinct < 0.5:
         out["collapsed"] = True
         out["reasons"].append(f"only {distinct:.0%} of {len(seqs)} candidate sequences are distinct")
     if ref:
+        rseqs = [c.get("Binder_Sequence", "") for t in ref for c in t.candidates if c.get("Binder_Sequence")]
+        out["ref_distinct_sequence_fraction"] = len(set(rseqs)) / len(rseqs) if rseqs else float("nan")
+        # Diversity is compared per trajectory, not over the pooled candidate list. Candidates are nested inside a
+        # trajectory: they are MPNN's sequences for one backbone, so they are not independent draws. In all six
+        # real campaigns of 2026-10-19 every duplicate was within a trajectory and none across one (TT 5 within,
+        # 0 across), so pooling 58 correlated candidates into one Fisher table counts them as 58 independent
+        # observations and reports a significance the data does not carry. The trajectory is this grader's unit of
+        # analysis everywhere else; it is the unit here too, which also gets the test pairing and an effect size.
+        diversity = compare_metric("sequence_diversity", _diversity_values(trajectories), _diversity_values(ref))
+        # Narrowed spread is the other face of collapse, and it is tested the same way: a ratio of standard
+        # deviations is not evidence at these n. Stock's own i_pTM sd on 3 trajectories was 0.396, carried almost
+        # entirely by one bad design, so a fixed "under a fifth of the reference" rule flagged the stock attn-xla
+        # arm too. Brown-Forsythe instead: permute labels on the absolute deviation from each side's own median.
         va, vr = metric_values(trajectories), metric_values(ref)
+        spread = [diversity]
         for m in CONTINUOUS:
-            sa, sr = describe([v for _, v in va[m]]), describe([v for _, v in vr[m]])
-            if sa.get("n", 0) > 1 and sr.get("sd"):
-                if sa["sd"] < 0.2 * sr["sd"]:
-                    out["collapsed"] = True
-                    out["reasons"].append(f"{m} spread {sa['sd']:.4g} is under a fifth of the reference's {sr['sd']:.4g}")
+            xa = [v for _, v in va[m] if v == v]
+            xr = [v for _, v in vr[m] if v == v]
+            r = {"metric": m, "p": float("nan")}
+            spread.append(r)
+            if len(xa) < SPREAD_MIN_N or len(xr) < SPREAD_MIN_N:
+                continue
+            da = [abs(v - st.median(xa)) for v in xa]
+            dr = [abs(v - st.median(xr)) for v in xr]
+            r["sd"], r["ref_sd"] = describe(xa)["sd"], describe(xr)["sd"]
+            if st.mean(da) >= st.mean(dr):
+                continue  # the arm is at least as spread out as stock; collapse is the one-sided question
+            r["p"] = perm_mean_diff(da, dr, seed=0)
+        # Holm across the spread tests for the same reason the mean tests get it: six of them at a bare 0.05 would
+        # call one A/A pair in four collapsed. Caught by test_unpaired_arms_fall_back_to_a_two_sample_test.
+        out["spread"] = holm(spread)
+        if diversity.get("significant") and (diversity["arm"].get("mean") or 0) < (diversity["ref"].get("mean") or 0):
+            out["collapsed"] = True
+            out["reasons"].append(
+                f"sequence diversity {diversity['arm']['mean']:.0%} of candidates distinct per trajectory against "
+                f"the reference's {diversity['ref']['mean']:.0%} ({diversity['test']} p={diversity['p']:.3g})")
+        for r in spread[1:]:
+            if r["significant"]:
+                out["collapsed"] = True
+                out["reasons"].append(
+                    f"{r['metric']} spread {r['sd']:.4g} against the reference's {r['ref_sd']:.4g} "
+                    f"(Brown-Forsythe permutation p={r['p']:.3g})")
     return out
 
 
