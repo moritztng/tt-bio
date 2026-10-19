@@ -60,7 +60,7 @@ void write_heads(uint32_t r0, uint32_t nrows, uint32_t out_cb, uint32_t tb, uint
     const auto ov = TensorAccessor(v_args, get_common_arg_val<uint32_t>(2));
     const auto og = TensorAccessor(g_args, get_common_arg_val<uint32_t>(3));
     const auto ob = TensorAccessor(b_args, get_common_arg_val<uint32_t>(4));
-    constexpr uint32_t hi_cb = NQ ? tt::CBIndex::c_4 : out_cb;   // g, bias (NQ) or nothing
+    const uint32_t hi_cb = NQ ? (uint32_t)tt::CBIndex::c_4 : out_cb;   // g, bias (NQ) or nothing
     const uint32_t tb_hi = get_tile_size(hi_cb);
     for (uint32_t i = 0; i < nrows; ++i) {
         const uint32_t r = row_of(r0, i);
