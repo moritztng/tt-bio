@@ -153,3 +153,17 @@ def test_rfd3_traces_refuse_by_name():
     init = init[:init.index("self.encoder = LocalAtomTransformer(")]
     assert '("RFD3_TRACE_ENCODER",' in init and '("RFD3_TRACE_DECODER",' in init
     assert "is withdrawn" in init and "raise ValueError(" in init
+
+
+def test_block_trace_key_carries_the_tape_mode():
+    """An open tape changes a block's op sequence (fused kernels without a tape entry decline), so
+    a trace captured under a tape must never replay without one (bc4-bet-dispatch c10)."""
+    from tt_bio import autograd, ops
+    prev = ops.set_grad_hook(None)
+    try:
+        bare = autograd._rt_sig([])
+        ops.set_grad_hook(lambda *a, **k: None)
+        taped = autograd._rt_sig([])
+    finally:
+        ops.set_grad_hook(prev)
+    assert bare != taped

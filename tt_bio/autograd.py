@@ -2986,8 +2986,13 @@ def _grad_value(dup):
 
 
 def _rt_sig(vals, extra=()):
+    """What a block trace is keyed on: its operands' shapes, plus the ambient state that picks the
+    block's op sequence. An open tape turns off the fused kernels that have no tape entry
+    (`ops.taping`), so one block ran 300 ttnn calls under a tape and 288 without; a trace captured
+    in one mode and replayed in the other was off by rel 1e-4 on every block (bc4-bet-dispatch c10)."""
+    from . import ops
     return (tuple(None if v is None else (tuple(v.shape), str(v.dtype), str(v.layout)) for v in vals),
-            tuple(extra))
+            tuple(extra), ops.taping(), tuple(sorted(_EXACT_SAVED)))
 
 
 def _in_dram(vals) -> bool:
