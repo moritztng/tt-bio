@@ -908,19 +908,38 @@ def build_reference(request: dict, root: str, seed: int = 0, provisional: bool =
         found = {t: sorted(a) for t, a in by_target.items()}
         aa["reason"] = f"the request names {want[:2]} as the A/A pair and no target carries both; arms found: {found}"
 
-    # What the reference cost, and what the campaigns it could not afford would cost at the same rate. The
-    # unbought items live in the request because they are a contract, not a derivation; the price is measured.
+    # What the reference cost, and what the campaigns it could not afford would cost to buy now. The unbought
+    # items live in the request because they are a contract, not a derivation; the price is measured.
+    #
+    # Two things this deliberately does NOT do, both of which overpriced the 2026-10-19 top-up by ~5x:
+    #  * It does not take the MEDIAN campaign rate. This reference pools a $6.251/h B200 with a $0.4469/h card,
+    #    and nobody buying a top-up would choose the dearer one. The planning price is the cheapest card that
+    #    has actually delivered trajectories here, not the middle of what we happened to run.
+    #  * It does not price trajectories alone. A top-up is a FRESH rental, so it pays setup once (clone, pip,
+    #    weights, first JAX import) and the bandwidth of pulling results back, on top of per-trajectory compute.
+    #    `topup_overhead` carries both, measured, from the request.
     cost = {}
     if per_campaign:
-        rates = [c["usd_per_trajectory"] for c in per_campaign.values() if c.get("usd_per_trajectory")]
-        cost = {"dph_usd_per_hour": rates, "per_campaign": per_campaign}
-        if rates:
-            usd = st.median(rates)
+        priced = [c for c in per_campaign.values() if c.get("usd_per_trajectory")]
+        cost = {"dph_usd_per_hour": [c["usd_per_trajectory"] for c in priced], "per_campaign": per_campaign}
+        if priced:
+            best = min(priced, key=lambda c: c["usd_per_trajectory"])
+            usd = best["usd_per_trajectory"]
+            ov = request.get("topup_overhead") or {}
+            fixed = round(ov.get("setup_s", 0) / 3600.0 * best.get("dph_usd_per_hour", 0.0)
+                          + ov.get("bandwidth_usd", 0.0), 4)
             cost["usd_per_trajectory"] = round(usd, 4)
-            cost["unbought"] = [dict(item, usd=round(item["trajectories"] * usd, 2))
+            cost["usd_per_trajectory_basis"] = (
+                f"cheapest card that delivered trajectories here: {best.get('gpu')} at "
+                f"${best.get('dph_usd_per_hour')}/h, {best.get('delivered_s_per_trajectory')} s/trajectory")
+            cost["topup_fixed_usd"] = fixed
+            cost["unbought"] = [dict(item, usd=round(item["trajectories"] * usd + fixed, 2),
+                                     usd_basis=f"{item['trajectories']} x ${usd:.4f} + ${fixed:.4f} rental overhead")
                                 for item in request.get("unbought", []) if item.get("trajectories")]
             cost["note"] = ("Measured from each campaign's own runs.jsonl against the hourly rate actually "
-                            "billed, so a top-up is execution and not re-planning.")
+                            "billed, so a top-up is execution and not re-planning. Unbought items are priced as "
+                            "a fresh rental of the cheapest demonstrated card: per-trajectory compute plus one "
+                            "setup and the result pull.")
 
     return {
         "schema": "bc4-quality-ref/1",
