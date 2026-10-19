@@ -52,6 +52,16 @@ def test_cb_budget_fits_l1_c384(mask):
     assert TTL.t1_cb_bytes(12, 24, 12, mask) <= 0.85 * L1_ALLOCATOR_BANK
 
 
+@pytest.mark.parametrize("mask", [False, True])
+def test_cb_budget_fits_l1_c384_w8(mask):
+    """c_z 384 with bfp8 resident weights (trimul_t1w8): two channel groups fit the gate."""
+    assert TTL.t1_plan((12, 24, 12), w8=True) == (2, 8)
+    assert TTL.t1_plan((12, 24, 12)) == (3, 8) and TTL.t1_plan((8, 16, 8), w8=True) == (2, 16)
+    w8 = TTL.t1_cb_bytes(12, 24, 12, mask, w8=True)
+    assert w8 <= 0.85 * L1_ALLOCATOR_BANK
+    assert w8 < TTL.t1_cb_bytes(12, 24, 12, mask)   # 1.5x the weight tiles a core, at 1088 B a tile not 2048
+
+
 def test_cb_plan_covers_every_cb_the_kernels_use():
     used = set()
     for f in ("reader.cpp", "compute.cpp", "writer.cpp"):

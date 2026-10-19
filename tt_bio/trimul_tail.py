@@ -1341,6 +1341,14 @@ T1_WHY = {}                       # decline reason -> calls (tenstorrent._t1_in)
 # at the price of reading z twice (5 pair passes instead of the incumbent's 14).
 T1_PLANS = {(4, 8, 4): (1, 32), (8, 16, 8): (2, 16), (12, 24, 12): (3, 8)}
 T1_KEYS = set(T1_PLANS)
+# The plans when the resident weights are bfp8 (lever trimul_t1w8): half the weight bytes per core, so c_z 384
+# fits its [a | b] and g_out weights in two channel groups instead of three, one launch and one xn pass fewer.
+T1_PLANS_W8 = {(12, 24, 12): (2, 8)}
+
+
+def t1_plan(key, w8=False):
+    """(channel groups, row tiles per unit) for a (kt, ct2, ntg) key; `w8`: the weights are bfp8."""
+    return (w8 and T1_PLANS_W8.get(key)) or T1_PLANS.get(key, (1, 32))
 T1_RB = 8                         # z row tiles per reader barrier
 T1_SBW = 4                        # DST tiles per matmul block (half-sync fp32 DST holds 4)
 T1_ABL = 0                        # bench-only stage-skip bits (kernels/trimul_in_t1 ABL); 0 = the real T1
@@ -1370,13 +1378,13 @@ def set_t1(on: bool) -> bool:
     return prev
 
 
-def t1_cb_plan(kt, ct2, ntg, mask, rb=None, nb=None, il=None):
+def t1_cb_plan(kt, ct2, ntg, mask, rb=None, nb=None, il=None, w8=False):
     """T1's circular buffers per core for one launch of the (kt, ct2, ntg) plan,
     ([(index, bf16 tiles)], [(index, fp32 tiles)]). Independent of N: N only sets how many units
     each core runs."""
     nb = GIN_MOVE_NB if nb is None else nb
     rb = T1_RB if rb is None else rb
-    groups, plan_il = T1_PLANS.get((kt, ct2, ntg), (1, 32))
+    groups, plan_il = t1_plan((kt, ct2, ntg), w8)
     il = plan_il if il is None else il
     rb = min(rb, il // 4)           # 8 at 32-row units (as before), 4 at 16, 2 at 8
     qn, ng = ct2 // groups, ntg // groups
@@ -1400,9 +1408,14 @@ def t1_cb_plan(kt, ct2, ntg, mask, rb=None, nb=None, il=None):
     return bf, f32
 
 
-def t1_cb_bytes(kt, ct2, ntg, mask, rb=None, nb=None):
-    bf, f32 = t1_cb_plan(kt, ct2, ntg, mask, rb, nb)
-    return sum(t for _, t in bf) * BF16_TILE + sum(t for _, t in f32) * FP32_TILE
+T1_W_CBS = (0, 18)                # the resident weight CBs, bfp8 under trimul_t1w8
+
+
+def t1_cb_bytes(kt, ct2, ntg, mask, rb=None, nb=None, w8=False):
+    bf, f32 = t1_cb_plan(kt, ct2, ntg, mask, rb, nb, w8=w8)
+    wb = MG.tile_bytes(ttnn.bfloat8_b) if w8 else BF16_TILE
+    return (sum(t * (wb if i in T1_W_CBS else BF16_TILE) for i, t in bf)
+            + sum(t for _, t in f32) * FP32_TILE)
 
 
 def t1_host_weights(g_in_t, p_in_t, g_out_t):
@@ -1468,10 +1481,13 @@ def t1_eligible(x, ln_w, ln_b, wpT, wgT, wgo, mask=None):
     if not t1_any():
         return "off"
     for t in (x, wpT, wgT, wgo):
-        if t is None or t.dtype != ttnn.bfloat16 or t.layout != ttnn.TILE_LAYOUT:
+        if t is None or t.dtype not in (ttnn.bfloat16, ttnn.bfloat8_b) or t.layout != ttnn.TILE_LAYOUT:
             return "dtype"
         if t.memory_config() != ttnn.DRAM_MEMORY_CONFIG:
             return "memcfg"
+    w8 = t1_w8(wpT, wgT, wgo)
+    if x.dtype != ttnn.bfloat16 or w8 is None:
+        return "dtype"
     shp = [int(d) for d in x.shape]
     if len(shp) not in (3, 4) or shp[-2] != shp[-3] or shp[-2] % TILE or shp[-1] % TILE:
         return "act_shape"
@@ -1496,9 +1512,15 @@ def t1_eligible(x, ln_w, ln_b, wpT, wgT, wgo, mask=None):
     if mask is not None and not t1_mask_ok(mask, x):
         return "mask"
     from .tenstorrent import _l1_bank_bytes
-    if t1_cb_bytes(*key, mask is not None) > 0.85 * _l1_bank_bytes():
+    if t1_cb_bytes(*key, mask is not None, w8=w8) > 0.85 * _l1_bank_bytes():
         return "l1"
     return None
+
+
+def t1_w8(wpT, wgT, wgo):
+    """True when all three weights are bfp8, False when all are bf16, None when mixed."""
+    d = {t.dtype for t in (wpT, wgT, wgo) if t is not None}
+    return True if d == {ttnn.bfloat8_b} else False if d == {ttnn.bfloat16} else None
 
 
 def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps, il, b8=False, group=0, ln1=0, xn=None):
@@ -1509,7 +1531,8 @@ def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps, il, b8=F
     B = shp[0] if len(shp) == 4 else 1
     St, kt, ct2 = shp[-2] // TILE, shp[-1] // TILE, int(wpT.shape[-2]) // TILE
     ntg = int(wgo.shape[-1]) // TILE
-    groups = T1_PLANS[(kt, ct2, ntg)][0]
+    w8 = bool(t1_w8(wpT, wgT, wgo))
+    groups = t1_plan((kt, ct2, ntg), w8)[0]
     qn, ng = ct2 // groups, ntg // groups
     rb = min(T1_RB, il // 4)
     gx, gy = grid
@@ -1552,8 +1575,9 @@ def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps, il, b8=F
         config=ttnn.ComputeConfigDescriptor(
             math_fidelity=fid, math_approx_mode=approx, fp32_dest_acc_en=True,
             dst_full_sync_en=full))
-    bf, f32 = t1_cb_plan(kt, ct2, ntg, mask is not None, il=il)
-    cbs = ([_cb_fmt(i, core_grid, t, ttnn.bfloat8_b) if b8 and i == 2 else _cb(i, core_grid, t) for i, t in bf]
+    bf, f32 = t1_cb_plan(kt, ct2, ntg, mask is not None, il=il, w8=w8)
+    cbs = ([_cb_fmt(i, core_grid, t, ttnn.bfloat8_b) if (b8 and i == 2) or (w8 and i in T1_W_CBS)
+            else _cb(i, core_grid, t) for i, t in bf]
            + [_cb_fmt(i, core_grid, t, ttnn.float32) for i, t in f32])
     return {"kernels": [reader, writer, compute], "cbs": cbs}
 
@@ -1580,7 +1604,8 @@ def fused_in_ln(x, ln_w, ln_b, wpT, wgT, wgo, ckc, grid, mask=None, eps=1e-5, b8
     B = shp[0] if len(shp) == 4 else 1
     S, C = shp[-2], int(wpT.shape[-2]) // 2
     device = x.device()
-    groups, il = T1_PLANS[(int(x.shape[-1]) // TILE, 2 * C // TILE, int(wgo.shape[-1]) // TILE)]
+    w8 = bool(t1_w8(wpT, wgT, wgo))
+    groups, il = t1_plan((int(x.shape[-1]) // TILE, 2 * C // TILE, int(wgo.shape[-1]) // TILE), w8)
     il = t1_rows(il, B * (S // TILE) ** 2, grid[0] * grid[1])
     b8 = bool(b8 or T1_B8) and il == 32   # writer.cpp: whole tiles
     alloc = lambda s, dt=ttnn.bfloat16: ttnn.allocate_tensor_on_device(  # noqa: E731
@@ -1589,7 +1614,7 @@ def fused_in_ln(x, ln_w, ln_b, wpT, wgT, wgo, ckc, grid, mask=None, eps=1e-5, b8
     outs = [alloc([B, C, S, S], ab), alloc([B, C, S, S], ab), alloc(shp[:-1] + [int(wgo.shape[-1])])]
     key = ("t1", str(x.padded_shape), str(wpT.padded_shape), str(wgo.padded_shape), tuple(grid),
            tuple(str(c) for c in ckc), mask is not None, float(eps), _sigpoly(), RNE, GIN_MOVE_NB,
-           T1_RB, T1_SBW, T1_ABL, b8, il)
+           T1_RB, T1_SBW, T1_ABL, b8, il, w8)
     xn = alloc(shp) if T1_LN1 and groups > 1 else None
     for g in range(groups):
         ln1 = 0 if xn is None else 1 if g == 0 else 2

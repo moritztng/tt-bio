@@ -197,7 +197,7 @@ def test_protenix_family_normal_set():
     from tt_bio.opendde import BH_NORMAL_LEVERS, NORMAL_LEVERS as DDE
     from tt_bio.protenix import BRES_NORMAL, NORMAL_LEVERS, T2_TAIL, TRIATT_LN, WS_CHAIN
 
-    assert DDE == NORMAL_LEVERS | WS_CHAIN | T2_TAIL | TRIATT_LN | BRES_NORMAL | {"ws_resid", "ws_resid2"} and DDE <= set(T.LEVERS)
+    assert DDE == NORMAL_LEVERS | WS_CHAIN | T2_TAIL | TRIATT_LN | BRES_NORMAL | {"ws_resid", "ws_resid2", "trimul_t1w8"} and DDE <= set(T.LEVERS)
     assert BH_NORMAL_LEVERS == NORMAL_LEVERS
     assert NORMAL_LEVERS - T.NORMAL_LEVERS == {"transition_ws", "ws_l1acc", "trimul_t1_c256", "trimul_t1_c384"}
 
@@ -251,4 +251,4 @@ def test_opendde_fast_set_names_only_known_levers():
     from tt_bio.protenix import WS_CHAIN
 
     assert FAST_LEVERS <= set(T.LEVERS) and {"trimul_b8in", "trimul_t2w"} | WS_CHAIN <= FAST_LEVERS and "dit_b8" not in FAST_LEVERS
-    assert WH_FAST_LEVERS - FAST_LEVERS == {"trimul_t1_c384", "triatt_ln", "apb_ln", "triatt_k1", "ws_resid2"}
+    assert WH_FAST_LEVERS - FAST_LEVERS == {"trimul_t1_c384", "triatt_ln", "apb_ln", "triatt_k1", "ws_resid2", "trimul_t1w8"}
