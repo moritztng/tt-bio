@@ -10612,12 +10612,17 @@ class TriangleMultiplication(Module):
                         x_cm, cm_mc, cm_off = x_chunk, back_mc, c_done
                         c_done += int(x_chunk.shape[1])
                         continue
-                    if (into and cm_on and x_cm is None and x_out is None and c_done == 0
+                    # AF2 needs no `into`: under its tape the back move is the taped permute, which
+                    # a late decline below falls back to.
+                    if ((into or af2) and cm_on and x_cm is None and x_out is None and c_done == 0
                             and (g_out_fused is not None or af2) and int(x_chunk.shape[1]) == self._hidden
-                            and (af2 or _trimul_tail.t2cm_eligible(
+                            and _trimul_tail.t2cm_eligible(
                                 x_chunk, self.out_norm_weight, self.out_norm_bias, self.out_p_weight,
-                                g_out_fused, x_in,
-                                _mm_generic.ckc_args(self.compute_kernel_config)) is None)):
+                                x_norm_in if af2 else g_out_fused, x_in,
+                                _mm_generic.ckc_args(self.compute_kernel_config),
+                                self.g_out_weight if af2 else None,
+                                (None, None, fused_residual[0], None) if af2 else None,
+                                own_switch=af2) is None):
                         # T2CM reads this chunk where it is; the move below never runs.
                         x_cm, cm_mc = x_chunk, back_mc
                         c_done += int(x_chunk.shape[1])
@@ -10874,10 +10879,13 @@ class TriangleMultiplication(Module):
                     ttnn.deallocate(x_norm_in)
                 ttnn.deallocate(g_out_fused)
                 return fused
-            if not cm_off:
-                x_out = ttnn.allocate_tensor_on_device(
-                    ttnn.Shape([1, H, H, self._hidden]), x_cm.dtype, ttnn.TILE_LAYOUT, self.device, cm_mc)
-            _reblock.reblock_permute_back(x_cm, cm_mc, out=x_out, c_off=cm_off)
+            if af2 and not cm_off:
+                x_out = ttnn.permute(x_cm, (0, 2, 3, 1), memory_config=cm_mc)
+            else:
+                if not cm_off:
+                    x_out = ttnn.allocate_tensor_on_device(
+                        ttnn.Shape([1, H, H, self._hidden]), x_cm.dtype, ttnn.TILE_LAYOUT, self.device, cm_mc)
+                _reblock.reblock_permute_back(x_cm, cm_mc, out=x_out, c_off=cm_off)
             ttnn.deallocate(x_cm)
             x_cm = None
 
