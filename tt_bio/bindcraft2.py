@@ -33,6 +33,7 @@ from __future__ import annotations
 import collections
 import contextlib
 import functools
+import itertools
 import json
 import os
 import pathlib
@@ -873,6 +874,9 @@ def _is_multimer(path: pathlib.Path) -> bool:
         return any("~_relative_encoding" in name for name in npz.files)
 
 
+_TRUNK_SERIAL = itertools.count()
+
+
 class _Trunk:
     """One AlphaFold 2 checkpoint's Evoformer blocks on the card, under tt-bio's tape."""
 
@@ -893,9 +897,10 @@ class _Trunk:
                                            template=template, multimer=self.multimer,
                                            trunk_dtype=torch.bfloat16)
         self.device = self.model._device
-        if self.ag.TRACE_RECOMPUTE:
-            # New weights are a persistent allocation made after any capture so far.
-            self.ag.release_recompute_traces(self.device)
+        # Keys the block traces. Not `id(self)`: a trunk dropped from the pool and a new one
+        # built at the same address would replay traces over the old weights. New weights made
+        # after a capture need no release, the captures' scratch hole is fenced off.
+        self.serial = next(_TRUNK_SERIAL)
         self.blocks = len(self.model.device_evoformer)
         self.extra_blocks = len(self.model.device_extra_msa)
         self.template_blocks = len(self.model.device_template)
@@ -955,18 +960,20 @@ class _Trunk:
         reaches them first and frees them first, and they cost no recompute."""
         blocks = self.model.device_evoformer
         keep = len(blocks) - resident
+        # The masks are closed over, so a trace bakes their addresses in: they are in its key.
+        masks = tuple(t.buffer_address() for t in (msa_mask, *pair_masks) if t is not None)
         for i, block in enumerate(blocks):
             d = None if drop is None else drop[i]
             if i >= keep:
                 m, z = block(m, z, msa_mask, *pair_masks, drop=d)
-            elif recompute and self.ag.TRACE_RECOMPUTE:
+            elif recompute and (self.ag.TRACE_RECOMPUTE or self.ag.TRACE_FORWARD):
                 # The masks are new tensors every round, so they ride in as inputs, where the
                 # traced backward copies them into its own buffers (`autograd._traced_recompute`).
                 ks = tuple(d) if d else ()
                 m, z = self.ag.checkpoint(
                     lambda a, b, *dv, blk=block, ks=ks: blk(
                         a, b, msa_mask, *pair_masks, drop=dict(zip(ks, dv)) if ks else None),
-                    m, z, *(d[k] for k in ks), offload=offload, trace=(id(self), "evoformer", i))
+                    m, z, *(d[k] for k in ks), offload=offload, trace=(self.serial, "evoformer", i, masks))
             elif recompute:
                 m, z = self.ag.checkpoint(
                     lambda a, b, blk=block, d=d: blk(a, b, msa_mask, *pair_masks, drop=d), m, z,
@@ -2710,7 +2717,7 @@ def predictor(*, trunk: str = "device", card: int | str | None = None, checkpoin
     # close at exit runs on the main thread. Left to the first device call, the open happens on
     # one of XLA's CPU pool threads (the device seams run there), the unlock at exit fails with
     # EPERM and the process aborts with exit 134 after the campaign has already finished.
-    get_device(trace="bc2" if autograd.TRACE_RECOMPUTE else None)
+    get_device(trace="bc2" if autograd.TRACE_RECOMPUTE or autograd.TRACE_FORWARD else None)
 
     pool = checkpoints if isinstance(checkpoints, TrunkPool) else TrunkPool(
         checkpoints, resident=resident, template=template)

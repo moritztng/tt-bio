@@ -2957,7 +2957,15 @@ def _to_host(t: Tensor):
 TRACE_RECOMPUTE = env_flag("TT_BIO_TRACE_RECOMPUTE", False)
 _RTRACE: dict = {}    # (key, signature) -> rounds seen (int), then (trace id, shared)
 _RSHARED: dict = {}   # signature -> dict(ins=[...], seeds=[...], outs=[...])
-RTRACE_STATS = {"eager": 0, "capture": 0, "replay": 0}
+RTRACE_STATS = {"eager": 0, "capture": 0, "replay": 0, "refused": 0}
+# The checkpoint's untaped FORWARD replayed the same way (`_traced_forward`), so a block's three
+# passes per round (two forwards, one recompute + VJP) all come from traces. Follows
+# TRACE_RECOMPUTE unless set on its own.
+TRACE_FORWARD = env_flag("TT_BIO_TRACE_FORWARD", TRACE_RECOMPUTE)
+_RPEAK: dict = {}     # signature -> DRAM rise per bank of its first eager run; sizes the hole
+_RSHAPE: dict = {}    # forward signature -> whether fn returns a tuple
+_SCRATCH: list = [None]   # the device's `TraceScratch`, made at the first capture
+_EAGER = object()
 # Diagnostic: the first N replays also run the block eagerly on the same inputs and record the
 # relative L2 error of each input gradient against it (RTRACE_CHECKS). Replays are expected to be
 # exact; anything else means a replay read or wrote memory the eager side now owns.
@@ -2974,18 +2982,108 @@ def _grad_value(dup):
     return g.value if isinstance(g, Tensor) else g
 
 
+def _rt_sig(vals, extra=()):
+    return (tuple(None if v is None else (tuple(v.shape), str(v.dtype), str(v.layout)) for v in vals),
+            tuple(extra))
+
+
+def _in_dram(vals) -> bool:
+    """Every device operand interleaved in DRAM. L1 is not fenced (`TraceScratch`), so a unit
+    whose operands or outputs live in L1 stays eager."""
+    return all(v.memory_config().buffer_type == ttnn.BufferType.DRAM for v in vals if v is not None)
+
+
+def _rise(device, run):
+    """``run()`` eagerly; return its result and its DRAM high-water rise per bank.
+
+    Sampled after every 32nd ttnn call: an allocation only happens inside a call, and the miss
+    between two samples is covered by the hole's margin. Too small a hole fails as a refused
+    capture (the unit stays eager), never as a wrong replay."""
+    from ttnn import decorators as D
+    mem = lambda: int(ttnn.get_memory_view(device, ttnn.BufferType.DRAM).total_bytes_allocated_per_bank)
+    base = mem()
+    peak = [base]
+    real = {c: c.__call__ for c in (D.FastOperation, D.Operation)}
+    n = [0]
+
+    def sampled(f):
+        def call(op, *a, **k):
+            out = f(op, *a, **k)
+            n[0] += 1
+            if n[0] % 32 == 0:
+                peak[0] = max(peak[0], mem())
+            return out
+        return call
+
+    for c, f in real.items():
+        c.__call__ = sampled(f)
+    try:
+        out = run()
+    finally:
+        for c, f in real.items():
+            c.__call__ = f
+    return out, max(peak[0], mem()) - base
+
+
+def _rt_capture(device, sig, run):
+    """Capture ``run`` inside the shared scratch hole; the trace id, or None to stay eager."""
+    from .tenstorrent import TraceScratch, capture_trace  # noqa: F401
+    if _SCRATCH[0] is None:
+        _SCRATCH[0] = TraceScratch(device)
+    sc = _SCRATCH[0]
+    need = _RPEAK[sig] + _RPEAK[sig] // 4 + sc.CHUNK
+    size = max(_RPEAK.values())
+    size += size // 4 + sc.CHUNK
+    before = set(_WRAPPED)
+    try:
+        tid = sc.capture(need, size, run)
+    finally:
+        # Wrappers the capture made hold buffers it allocated in the hole. Dropped here, before
+        # the hole is filled, so no later tape close frees them into it (bcx-tracewire).
+        for k in set(_WRAPPED) - before:
+            del _WRAPPED[k]
+    if tid is None:
+        RTRACE_STATS["refused"] += 1
+    else:
+        RTRACE_STATS["capture"] += 1
+    return tid
+
+
 def _traced_recompute(key, fn, inputs, home, seeded) -> bool:
     """`_recompute(seeded)` from a trace, or False to let the caller run it eagerly."""
     from .taped_ttnn import recompute_scope
     vals = [_rt_raw(t, home) for t in inputs]
-    sig = (tuple(None if v is None else (tuple(v.shape), str(v.dtype), str(v.layout)) for v in vals),
-           tuple((k, tuple(g.shape), str(g.dtype)) for k, g in seeded))
+    sig = ("bwd",) + _rt_sig(vals, ((k, tuple(g.shape), str(g.dtype)) for k, g in seeded))
     st = _RTRACE.get((key, sig), 0)
-    if isinstance(st, int) and st == 0:
-        _RTRACE[(key, sig)] = 1
-        RTRACE_STATS["eager"] += 1
+    if st == "eager":
         return False
     device = next(v for v in vals if v is not None).device()
+
+    def eager(ins, seeds):
+        inner = [Tensor(v, requires_grad=t.requires_grad) if isinstance(t, Tensor) else t
+                 for t, v in zip(inputs, ins)]
+        with recompute_scope():
+            y = fn(*inner)
+        roots = [y[k] if k is not None else y for k, _ in seeded]
+        backward(roots, seeds)
+        return inner
+
+    def accumulate(inner):
+        for src, dup in zip(inputs, inner):
+            if isinstance(src, Tensor) and isinstance(dup, Tensor) and dup.grad is not None:
+                src.add_grad(dup.grad)
+
+    if st == 0:
+        # Round 1: eager, measuring how much DRAM the unit rises by, which sizes the hole.
+        inner, rise = _rise(device, lambda: eager(vals, [g for _, g in seeded]))
+        _RPEAK[sig] = max(_RPEAK.get(sig, 0), rise)
+        if not _in_dram([*vals, *(_grad_value(d) for d in inner)]):
+            _RTRACE[(key, sig)] = "eager"
+        else:
+            _RTRACE[(key, sig)] = 1
+        accumulate(inner)
+        RTRACE_STATS["eager"] += 1
+        return True
 
     def run(ins, seeds, outs):
         inner = [Tensor(ttnn.clone(b), requires_grad=t.requires_grad) if isinstance(t, Tensor)
@@ -3000,47 +3098,105 @@ def _traced_recompute(key, fn, inputs, home, seeded) -> bool:
         del y, inner, roots
 
     if st == 1:
-        # Round 2: eager, and the shared buffers are born here (see above).
-        inner = [Tensor(v, requires_grad=t.requires_grad) if isinstance(t, Tensor) else t
-                 for t, v in zip(inputs, vals)]
-        with recompute_scope():
-            y = fn(*inner)
-        roots = [y[k] if k is not None else y for k, _ in seeded]
-        backward(roots, [g for _, g in seeded])
+        # Round 2: the shared buffers (outside any hole), a warm run through them, the capture.
         if sig not in _RSHARED:
+            inner = eager(vals, [g for _, g in seeded])
             _RSHARED[sig] = dict(
                 ins=[None if v is None else ttnn.clone(v) for v in vals],
                 seeds=[ttnn.clone(g) for _, g in seeded],
                 outs=[None if _grad_value(d) is None else ttnn.clone(_grad_value(d)) for d in inner])
-        for src, dup in zip(inputs, inner):
-            if isinstance(src, Tensor) and isinstance(dup, Tensor) and dup.grad is not None:
-                src.add_grad(dup.grad)
-        del y, inner, roots
-        _RTRACE[(key, sig)] = 2
-        RTRACE_STATS["eager"] += 1
-        return True
-    sh = _RSHARED[sig]
-    for v, b in zip(vals, sh["ins"]):
-        if b is not None:
-            ttnn.copy(v, b)
-    for (_, g), b in zip(seeded, sh["seeds"]):
-        ttnn.copy(g, b)
-    if st == 2:
+            del inner
+        sh = _RSHARED[sig]
+        for v, b in zip(vals, sh["ins"]):
+            if b is not None:
+                ttnn.copy(v, b)
+        for (_, g), b in zip(seeded, sh["seeds"]):
+            ttnn.copy(g, b)
         run(sh["ins"], sh["seeds"], sh["outs"])     # compiles anything only the capture uses
         ttnn.synchronize_device(device)
-        from .tenstorrent import capture_trace
-        tid, _ = capture_trace(device, lambda: run(sh["ins"], sh["seeds"], sh["outs"]))
+        tid = _rt_capture(device, sig, lambda: run(sh["ins"], sh["seeds"], sh["outs"]))
+        if tid is None:
+            _RTRACE[(key, sig)] = "eager"
+            for src, ob in zip(inputs, sh["outs"]):
+                if ob is not None and isinstance(src, Tensor):
+                    src.add_grad(ttnn.clone(ob))
+            return True
         _RTRACE[(key, sig)] = st = (tid,)
-        RTRACE_STATS["capture"] += 1
     else:
+        sh = _RSHARED[sig]
+        for v, b in zip(vals, sh["ins"]):
+            if b is not None:
+                ttnn.copy(v, b)
+        for (_, g), b in zip(seeded, sh["seeds"]):
+            ttnn.copy(g, b)
         RTRACE_STATS["replay"] += 1
     ttnn.execute_trace(device, st[0], cq_id=0, blocking=False)
-    if RTRACE_STATS["replay"] <= TRACE_RECOMPUTE_CHECK:
+    if RTRACE_STATS["replay"] and RTRACE_STATS["replay"] <= TRACE_RECOMPUTE_CHECK:
         _check_replay(key, fn, inputs, vals, seeded, sh["outs"])
     for src, ob in zip(inputs, sh["outs"]):
         if ob is not None and isinstance(src, Tensor):
             src.add_grad(ttnn.clone(ob))
     return True
+
+
+def _traced_forward(key, fn, inputs):
+    """A checkpoint's untaped forward ``fn(*inputs)`` from a trace; its raw outputs, or the
+    sentinel `_EAGER` to let the caller run it. Same rounds as `_traced_recompute`. The caller
+    is under `no_grad`."""
+    vals = [_rt_raw(t, lambda t: t.value) for t in inputs]
+    sig = ("fwd",) + _rt_sig(vals)
+    st = _RTRACE.get((key, sig), 0)
+    if st == "eager":
+        return _EAGER
+    device = next(v for v in vals if v is not None).device()
+
+    def flat(y):
+        ys = y if isinstance(y, (tuple, list)) else (y,)
+        return [o.value if isinstance(o, Tensor) else o for o in ys]
+
+    if st == 0:
+        y, rise = _rise(device, lambda: fn(*inputs))
+        _RPEAK[sig] = max(_RPEAK.get(sig, 0), rise)
+        _RTRACE[(key, sig)] = 1 if _in_dram([*vals, *flat(y)]) else "eager"
+        _RSHAPE[sig] = isinstance(y, (tuple, list))
+        RTRACE_STATS["eager"] += 1
+        return y
+
+    def run(ins, outs):
+        inner = [Tensor(ttnn.clone(b), requires_grad=t.requires_grad) if isinstance(t, Tensor)
+                 else (ttnn.clone(b) if b is not None else t) for t, b in zip(inputs, ins)]
+        for o, ob in zip(flat(fn(*inner)), outs):
+            if ob is not None:
+                ttnn.copy(o, ob)
+        del inner
+
+    if st == 1:
+        if sig not in _RSHARED:
+            y = fn(*inputs)
+            _RSHARED[sig] = dict(ins=[None if v is None else ttnn.clone(v) for v in vals],
+                                 outs=[None if o is None else ttnn.clone(o) for o in flat(y)])
+            del y
+        sh = _RSHARED[sig]
+        for v, b in zip(vals, sh["ins"]):
+            if b is not None:
+                ttnn.copy(v, b)
+        run(sh["ins"], sh["outs"])
+        ttnn.synchronize_device(device)
+        tid = _rt_capture(device, sig, lambda: run(sh["ins"], sh["outs"]))
+        if tid is None:
+            _RTRACE[(key, sig)] = "eager"
+        else:
+            _RTRACE[(key, sig)] = (tid,)
+            ttnn.execute_trace(device, tid, cq_id=0, blocking=False)
+    else:
+        sh = _RSHARED[sig]
+        for v, b in zip(vals, sh["ins"]):
+            if b is not None:
+                ttnn.copy(v, b)
+        ttnn.execute_trace(device, st[0], cq_id=0, blocking=False)
+        RTRACE_STATS["replay"] += 1
+    outs = [None if ob is None else ttnn.clone(ob) for ob in sh["outs"]]
+    return tuple(outs) if _RSHAPE[sig] else outs[0]
 
 
 def _check_replay(key, fn, inputs, vals, seeded, outs) -> None:
@@ -3081,6 +3237,10 @@ def release_recompute_traces(device) -> None:
                 ttnn.deallocate(b)
     _RTRACE.clear()
     _RSHARED.clear()
+    _RSHAPE.clear()
+    if _SCRATCH[0] is not None:
+        _SCRATCH[0].release()
+        _SCRATCH[0] = None
 
 
 def checkpoint(fn, *inputs: Tensor, params: Sequence[Tensor] = (), offload: bool = False,
@@ -3134,7 +3294,11 @@ def checkpoint(fn, *inputs: Tensor, params: Sequence[Tensor] = (), offload: bool
             _CKPT_PINS.append(t)
     _TOUCHED.clear()
     with no_grad():
-        produced = fn(*inputs)
+        produced = _EAGER
+        if trace is not None and TRACE_FORWARD and not offload and params is not _ALL_PARAMS:
+            produced = _traced_forward(trace, fn, inputs)
+        if produced is _EAGER:
+            produced = fn(*inputs)
     # Only the parameters this segment READ. Naming all of them would give every block a node,
     # including the ones that touch no trainable weight, and those recompute to an empty tape.
     touched = [t for k, t in _PARAMS.items() if k in _TOUCHED] if params is _ALL_PARAMS \
