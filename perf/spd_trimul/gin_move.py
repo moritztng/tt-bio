@@ -22,6 +22,7 @@ ap.add_argument("--nb", default="", help="time only, moved route: writer tiles p
 ap.add_argument("--sigpoly", action="store_true", help="add 'moved_poly' and 'today_poly' routes: the polynomial sigmoid")
 ap.add_argument("--var", action="append", default=[],
                 help="NAME:SIGPOLY:RNE, both routes under those kernel options (float64 error, ms); repeatable")
+ap.add_argument("--full", action="store_true", help="dst_full_sync_en on the trunk config (fused gate: SBW 4 not 2)")
 ap.add_argument("--only-timing", action="store_true", help="skip the two-route check, run only --abl/--nb")
 A = ap.parse_args()
 
@@ -33,6 +34,8 @@ from tt_bio.af2 import compute_kernel_config
 
 dev = T.get_device()
 ckc = MG.ckc_args(T.trunk_compute_kernel_config(compute_kernel_config()))
+if A.full:
+    ckc = (*ckc[:3], True)
 grid = tuple(T.COMPUTE_GRID_MAIN)
 n, C, K = A.n, A.c, A.k
 g = torch.Generator().manual_seed(0)
