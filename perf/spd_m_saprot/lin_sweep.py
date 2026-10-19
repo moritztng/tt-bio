@@ -43,6 +43,8 @@ def main() -> int:
     ap.add_argument("--pick-only", action="store_true", help="only the model call and the shipped program")
     ap.add_argument("--probe", action="store_true",
                     help="the model call taken apart: no activation, block-fp8 output, block-fp8 input (then stop)")
+    ap.add_argument("--l1", action="store_true",
+                    help="with --probe: the model call writing to L1, reading x from L1, and both (does the DRAM write serialize?)")
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
     torch.set_grad_enabled(False)
@@ -127,6 +129,15 @@ def main() -> int:
             x8 = ttnn.from_torch(x, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat8_b)
             run("model-b8in", lambda: ops.linear(x8, wd, bias=bd, dtype=ttnn.bfloat16, **lin_kw, **kw), {})
             ttnn.deallocate(x8)
+            if a.l1:
+                L1 = ttnn.L1_MEMORY_CONFIG
+                xl = ttnn.to_memory_config(xd, L1)
+                for tag, xi, mc in (("model-l1out", xd, L1), ("model-l1in", xl, None), ("model-l1both", xl, L1)):
+                    run(tag, lambda xi=xi, mc=mc: ops.linear(xi, wd, bias=bd, dtype=ttnn.bfloat16, memory_config=mc,
+                                                              **lin_kw, **kw), {})
+                if S._saprot_prog(xd, wd, act, hifi2) is not None:
+                    run("pick-l1in", lambda: lin._lin(xl, wd, bias=bd, **kw), {})
+                ttnn.deallocate(xl)
         if a.pick_only or a.probe:
             ttnn.deallocate(xd); ttnn.deallocate(wd); ttnn.deallocate(bd)
             continue
