@@ -320,6 +320,8 @@ class _DiTBlock(Module):
 
     def _s16_lin(self, x, wb, activation=None):
         w, b = wb
+        if activation == "sigmoid":
+            activation = _T.mm_sigmoid(self.s16[3])
         return ttnn.linear(x, w, bias=b, dtype=ttnn.float32, compute_kernel_config=self.s16[3],
                            core_grid=CORE_GRID_MAIN, activation=activation)
 
@@ -351,9 +353,10 @@ class _DiTBlock(Module):
 
     def _lin(self, x, w, bias=None, activation=None):
         hifi2 = self._wormhole and self._act_dtype == ttnn.bfloat16 and _T.lever("dit_hifi2")
-        return ops.linear(x, w, bias=bias, activation=activation,
-                          compute_kernel_config=self.ckc_hifi2 if hifi2 else self.compute_kernel_config,
-                          core_grid=CORE_GRID_MAIN)
+        ckc = self.ckc_hifi2 if hifi2 else self.compute_kernel_config
+        if activation == "sigmoid":
+            activation = _T.mm_sigmoid(ckc)
+        return ops.linear(x, w, bias=bias, activation=activation, compute_kernel_config=ckc, core_grid=CORE_GRID_MAIN)
 
     def _lin_lp(self, x, w, dtype, bias=None, activation=None):
         """A linear off an adaLN output: written at `dtype` under `self.lp`, else the shared path."""

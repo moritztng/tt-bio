@@ -751,6 +751,10 @@ _FAST_MODE = False
 #   ef2_atom_rope   ESMFold2's atom-transformer attention takes rotate_half(q), rotate_half(k) as one exact matmul
 #                   against a signed 32x32 permutation (esmfold2._rope_mm) instead of chunk/neg/concat, 12 times a
 #                   diffusion step on [B, 4, atoms, 32]. The fused rotary_embedding needs head_dim % 64 == 0 (wrp).
+#   dit_sigf32      OpenFold3's DiT gate linears (adaLN scale, the two s gates; fast and fp32 paths) fuse their
+#                   sigmoid in approx mode, which the silu_f32 overlay runs as calculate_silu_f32's sigmoid on the
+#                   fp32 dest: 6e-6 of float64 in ~1/3 of the wheel's accurate exp + two-step reciprocal. On WH that
+#                   epilogue doubled a [512,384]x[384,768] linear (39.7 vs 19.2 us, whcen4), ~0.58 s a fold.
 #   triatt_k1       triangle attention's fused SDPA takes the whole row as one k chunk where the CB set fits once the
 #                   unused online-softmax buffers are trimmed (sdpa_generic.cb_table one_k_trim): 288-512 tokens, e.g. (q512, k512),
 #                   no rescale pass, op 1.13x on Wormhole. Same rung as TT_BIO_SDPA_WIDE_K_UP, flippable per fold.
@@ -766,7 +770,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit", "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384",
           "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "ws_resid2", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
           "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "trimul_bres", "atomp_dev", "lm_qk_chain",
-          "lm_gate_ng", "lm_sdpa_stock", "triatt_hifi2", "dit_cond_jcat", "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2")
+          "lm_gate_ng", "lm_sdpa_stock", "triatt_hifi2", "dit_cond_jcat", "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -783,7 +787,7 @@ UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "di
                              "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384",
                              "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "ws_resid2", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
                              "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "triatt_hifi2", "dit_cond_jcat",
-                             "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2"})
+                             "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -963,6 +967,21 @@ def silu_ckc(ckc):
         out.throttle_level = ckc.throttle_level
         _SILU_CKCS[key] = out
     return out
+
+
+_SIGMOID_F32 = ttnn.UnaryWithParam(ttnn.UnaryOpType.SIGMOID, 4.0, 1.0)   # vector mode RC, approx
+
+
+def mm_sigmoid(ckc):
+    """The `activation` for a matmul with a fused sigmoid run under `ckc`: "sigmoid", or under `dit_sigf32` on an
+    fp32 dest the approx-mode sigmoid that the silu_f32 overlay computes with calculate_silu_f32 (6e-6). On a bf16
+    dest (or ttnn's default config) approx mode is metal's LUT (~2e-2), so those keep "sigmoid"; without the overlay
+    it is the LUT everywhere, so the overlay is put in place first, as `silu_ckc` does."""
+    if not lever("dit_sigf32") or not getattr(ckc, "fp32_dest_acc_en", False):
+        return "sigmoid"
+    if "silu_f32" not in os.environ.get("TT_BIO_METAL_OVERLAY", "").split(","):
+        _silu_f32_overlay()
+    return _SIGMOID_F32
 
 
 _B8_CKCS: dict = {}
@@ -8998,6 +9017,8 @@ class Module:
 
     def _lin(self, x, w, bias=None, dtype=None, **kw):
         """Shared linear projection on this module's kernel config and core grid."""
+        if kw.get("activation") == "sigmoid":
+            kw["activation"] = mm_sigmoid(self.compute_kernel_config)
         return ops.linear(x, w, bias=bias, compute_kernel_config=self.compute_kernel_config,
                           dtype=_dtype(ttnn.bfloat16) if dtype is None else dtype,
                           core_grid=CORE_GRID_MAIN, **kw)
@@ -15121,7 +15142,7 @@ class DiffusionTransformerLayer(Module):
                 bias=self.output_projection_bias,
                 compute_kernel_config=self.compute_kernel_config,
                 core_grid=CORE_GRID_MAIN,
-                activation="sigmoid",
+                activation=mm_sigmoid(self.compute_kernel_config),
             )
             if self.atom_level:
                 self.s_o, self._s_o_src = s_o, s
@@ -15319,7 +15340,7 @@ class DiffusionTransformer(Module):
                                 packer_l1_acc=ckc.packer_l1_acc)
             if _B2_ADALN_ADDCMUL or lever("adaln_mod"):
                 sw, sb, bw = self._cond_weights_split()
-                o_ad = (ttnn.linear(s_hat, sw, bias=sb, compute_kernel_config=ckc, activation="sigmoid"),
+                o_ad = (ttnn.linear(s_hat, sw, bias=sb, compute_kernel_config=ckc, activation=mm_sigmoid(ckc)),
                         ttnn.linear(s_hat, bw, compute_kernel_config=ckc))
             else:
                 o_ad = ttnn.linear(s_hat, adw, bias=adb, compute_kernel_config=ckc)
@@ -15327,7 +15348,7 @@ class DiffusionTransformer(Module):
             # `activation="sigmoid"` here is where both output projections' sigmoids go: the
             # attention one already carried it in its own linear, and the transition one moves
             # off its multiply, which is told not to re-apply it.
-            o_op = ttnn.linear(s, opw, bias=opb, compute_kernel_config=ckc, activation="sigmoid")
+            o_op = ttnn.linear(s, opw, bias=opb, compute_kernel_config=ckc, activation=mm_sigmoid(ckc))
             cond_all = (o_ad, o_op)
 
         d = self.dim
@@ -15351,7 +15372,7 @@ class DiffusionTransformer(Module):
                 s_hat, wp = jit
                 ckc = self.compute_kernel_config
                 lin = lambda x, w, b=None, act=None: ttnn.linear(  # noqa: E731
-                    x, w, bias=b, compute_kernel_config=ckc, activation=act)
+                    x, w, bias=b, compute_kernel_config=ckc, activation=mm_sigmoid(ckc) if act == "sigmoid" else act)
                 if jcat:
                     sw, sb, bw, ow, ob = wp[i]
                     sc, sh, so = lin(s_hat, sw, sb, "sigmoid"), lin(s_hat, bw), lin(s, ow, ob, "sigmoid")

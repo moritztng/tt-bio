@@ -111,8 +111,14 @@ FAST_LEVERS = NORMAL_LEVERS | {"dit_s16", "diffusion_bf16", "trimul_t1", "trimul
 # 0.961 A (floor 1.638 A), CA-lDDT +0.0024 [-0.0014, +0.0083], docking 19 -> 23/44; OpenBind-0 40 folds (10 complexes),
 # 1.137 A (floor 1.093 A), CA-lDDT +0.0003 [-0.0014, +0.0020], docking 24 -> 23/40. 512-token page fold on a Galaxy
 # chip at 1000 MHz, ABBA processes: triatt_hifi2 -0.22 / -0.23 s, ws_lofi -0.12 / -0.07 s (wstk).
+# dit_sigf32 (the DiT gate linears' fused sigmoid on calculate_silu_f32) joins Wormhole fast on its 11-set fast grade
+# of the Wormhole fast set + it against that set, paired seeds (sgg, 2026-10-19), PASS: OpenFold3 44 folds, top pose
+# median 0.260 A (floor 1.288 A), CA-lDDT -0.0003 [-0.0006, -0.0000], docking 23 -> 23/44; OpenBind-0 44 folds,
+# 0.230 A (floor 1.091 A), CA-lDDT -0.0003 [-0.0006, -0.0000], docking 27 -> 27/44. 512-token page fold on a Galaxy
+# chip at 1000 MHz, paired median of 4: OpenFold3 -0.27 s, OpenBind-0 -0.35 s. On p300c -0.04 / -0.12 s and not
+# graded there, so Wormhole only.
 WH_NORMAL_LEVERS = NORMAL_LEVERS | {"trimul_bres"}
-WH_FAST_LEVERS = FAST_LEVERS | {"apb_ln", "trimul_sig6", "trimul_bres", "triatt_hifi2"}
+WH_FAST_LEVERS = FAST_LEVERS | {"apb_ln", "trimul_sig6", "trimul_bres", "triatt_hifi2", "dit_sigf32"}
 
 def kabsch_rmsd(pred_ca, gt_ca):
     """Optimal-superposition Cα-RMSD (Kabsch). pred_ca, gt_ca: [N, 3].

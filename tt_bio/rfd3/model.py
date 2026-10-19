@@ -35,7 +35,7 @@ from .. import dit_pair_bias as _DPB
 from .. import gather_tiled as _gather_tiled
 from ..addcmul_at import addcmul_at as _addcmul_at
 from .. import eltwise_fusion as _EF
-from ..tenstorrent import (Module, get_device, CORE_GRID_MAIN, attn_value_matmul, silu_ckc,
+from ..tenstorrent import (Module, get_device, CORE_GRID_MAIN, attn_value_matmul, silu_ckc, mm_sigmoid,
                            atom_pair_budget_bytes, l1_resident_budget_bytes, row_block,
                            _dram_oom, fused_sdpa, _sdpa_program_config, is_wormhole)
 
@@ -3612,7 +3612,8 @@ class LocalTokenTransformer(Module):
         lin = lambda x, w, b=None, act=None: ttnn.linear(x, w, bias=b, activation=act, compute_kernel_config=ckc,  # noqa
                                                          dtype=self.dtype, core_grid=CORE_GRID_MAIN)
         s_n = ttnn.rms_norm(s, epsilon=1e-6, compute_kernel_config=ckc)
-        out = (lin(s_n, sc_w, sc_b, "sigmoid"), lin(s_n, sb_w), lin(s, g_w, g_b, "sigmoid"))
+        sig = mm_sigmoid(ckc)
+        out = (lin(s_n, sc_w, sc_b, sig), lin(s_n, sb_w), lin(s, g_w, g_b, sig))
         ttnn.deallocate(s_n)
         return out
 
