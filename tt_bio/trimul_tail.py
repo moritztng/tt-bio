@@ -897,7 +897,7 @@ def _fold_weights(wp, ln_w, ln_b):
         g = ttnn.to_torch(ln_w).double().reshape(-1)[:K]
         b = ttnn.to_torch(ln_b).double().reshape(-1)[:K]
         wg = w * g[:, None]
-        wc = (wg - wg.sum(0, keepdim=True) / K).to(torch.bfloat16).reshape(wp.shape)
+        wc = (wg - wg.sum(0, keepdim=True) / K).to(torch.bfloat16).reshape(tuple(wp.shape))
         bias = (b @ w).to(torch.bfloat16).reshape(1, 1, 1, N).expand(1, 1, TILE, N).contiguous()
         dev = wp.device()
         hit = _FOLD_W[key] = (wp, ln_w, ln_b,
