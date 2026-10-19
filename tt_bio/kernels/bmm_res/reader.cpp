@@ -52,7 +52,7 @@ void kernel_main() {
         for (uint32_t r = 0; r < MT; ++r) {
             for (uint32_t k0 = 0; k0 < KT; k0 += AG) {
                 const uint32_t g = KT - k0 < AG ? KT - k0 : AG;
-                cb_reserve_back(cb_a, g);
+                cb_reserve_back(cb_a, AG);
                 w = get_write_ptr(cb_a);
 #ifndef BRES_NO_A  // time attribution only (af2_trimul_bmm_sweep --abl)
                 for (uint32_t k = k0; k < k0 + g; ++k, w += ta) {
@@ -60,7 +60,7 @@ void kernel_main() {
                 }
 #endif
                 noc_async_read_barrier();
-                cb_push_back(cb_a, g);
+                cb_push_back(cb_a, AG);  // a whole slot even when g < AG (compute's SLOT)
             }
         }
     }
