@@ -4,7 +4,8 @@
 
 Protenix-v2's shape: x [N, N, c], 8 heads of 32, weight [c, 4c + 32]. For the starting (plain read) and the ending
 (transposed read) variant and each fidelity, times the kernel whole and with triatt_ln.ABL stage skips: 1 the
-layer_norm, 2 the projection, 4 the DRAM writes, 8 the DRAM reads of x, or several ORed. A skipped stage makes the
+layer_norm, 2 the projection, 4 the DRAM writes, 8 the DRAM reads of x, or several ORed; 16 writes every tile to
+q's pages in row-major order instead of head-major (same bytes, consecutive pages: is the layout the cost?). A skipped stage makes the
 output wrong by design, so this prints time only: ms/call, median of --reps after 3 warm calls. One JSON line per arm.
 """
 import argparse, json, os, statistics, time
@@ -15,6 +16,8 @@ ap = argparse.ArgumentParser()
 ap.add_argument("--n", type=int, default=512)
 ap.add_argument("--c", type=int, default=256)
 ap.add_argument("--reps", type=int, default=10)
+ap.add_argument("--abl", default="0,1,2,4,8,12,3,7,11,14,13", help="comma list of ABL masks")
+ap.add_argument("--fids", default="HiFi3,HiFi2")
 a = ap.parse_args()
 
 from tt_bio.main import ensure_p300_mesh_descriptor  # noqa: E402
@@ -60,9 +63,9 @@ def timed(fn):
     return round(1e3 * statistics.median(ts), 3)
 
 
-for fid in (ttnn.MathFidelity.HiFi3, ttnn.MathFidelity.HiFi2):
+for fid in [getattr(ttnn.MathFidelity, f) for f in a.fids.split(",")]:
     for tr in (False, True):
-        for abl in (0, 1, 2, 4, 8, 4 | 8, 1 | 2, 1 | 2 | 4, 1 | 2 | 8, 2 | 4 | 8, 1 | 4 | 8):
+        for abl in [int(m) for m in a.abl.split(",")]:
             TL.ABL = abl
             ms = timed(lambda: run(fid, tr))
             print(json.dumps(dict(n=a.n, c=c, card=os.environ.get("TT_VISIBLE_DEVICES"), fid=str(fid), tr=tr,

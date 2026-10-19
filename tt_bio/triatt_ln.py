@@ -126,6 +126,14 @@ def _plan(kt, nw, tr, dev, ncores):
     return None
 
 
+def _pages(t):
+    """Tile pages of a TILE tensor whose last dim is one tile wide."""
+    n = 1
+    for d in list(t.padded_shape)[:-1]:
+        n *= int(d)
+    return n // TILE
+
+
 def _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw):
     kt, nwf = int(x.shape[-1]) // TILE, int(w.padded_shape[-1]) // TILE
     m = 1
@@ -157,7 +165,8 @@ def _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw):
     writer = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "writer.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[H, MT, nw, nwf] + sum((acc(o) for o in outs), []),
-        defines=[("ABL_W", "1")] if ABL & 4 else [],
+        defines=([("ABL_W", "1")] if ABL & 4 else []) + ([("ABL_LIN", str(_pages(outs[0])))]
+                                                          if ABL & 16 and H else []),
         runtime_args=wr, common_runtime_args=[0] * len(outs), config=ttnn.WriterConfigDescriptor())
     fid, approx, _, full = ckc
     compute = ttnn.KernelDescriptor(
