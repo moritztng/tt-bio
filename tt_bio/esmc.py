@@ -218,6 +218,8 @@ _ESMC_LN_FOLD = (env_flag("TT_BIO_ESMC_LN_FOLD", False)
                  if os.environ.get("TT_BIO_ESMC_LN_FOLD", "").strip() else None)
 
 
+# The fold on the ESMC-6B's attention (its LIN6B programs take the bias as ttnn.linear does). Off until measured.
+_ESMC_LN_FOLD_6B = env_flag("TT_BIO_ESMC_LN_FOLD_6B", False)
 # The same fold on the FFN's input LayerNorm: gamma into fc1's input rows, beta W1 as fc1's bias, which the gated
 # minimal_matmul (mm_gate, Wormhole) adds to its accumulator before the gate and minimal_matmul / linear take as
 # bias_tensor. Split-fc1 LM FFNs only (not the 6B, not ESMFold2's transitions). Off until measured.
@@ -660,12 +662,12 @@ class _MMLin:
             except RuntimeError:  # an L1 destination it cannot place: the linear serves it
                 pass
         MM_STATS[1] += mm
-        if _ESMC_LIN6B_PROG and getattr(self, "lm_large", False) and not kw and bias is None:
+        if _ESMC_LIN6B_PROG and getattr(self, "lm_large", False) and not kw:
             from tt_bio import tenstorrent
             cfg = _lin6b_program(x, w) if tenstorrent.is_wormhole() else None
             if cfg is not None:
                 LIN6B_STATS[0] += 1
-                return ttnn.linear(x, w, program_config=cfg, compute_kernel_config=self.compute_kernel_config,
+                return ttnn.linear(x, w, bias=bias, program_config=cfg, compute_kernel_config=self.compute_kernel_config,
                                    dtype=_dtype(ttnn.bfloat16) if dtype is None else dtype)
         return super()._lin(x, w, bias=bias, dtype=dtype, **kw)
 
@@ -687,7 +689,7 @@ class Attention(_MMLin, Module):
         self.lm_large = lm_large
         self.in_norm_weight = self.torch_to_tt("layernorm_qkv.0.weight")
         self.in_norm_bias = self.torch_to_tt("layernorm_qkv.0.bias")
-        self.ln_fold = _ln_fold_on() and not lm_large
+        self.ln_fold = _ln_fold_on() and (_ESMC_LN_FOLD_6B if lm_large else True)
         sd = self.weights
         fold = ((lambda w: (w.double() * sd["layernorm_qkv.0.weight"].double()).float()) if self.ln_fold
                 else (lambda w: w))
