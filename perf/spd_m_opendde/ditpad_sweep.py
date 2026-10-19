@@ -104,12 +104,13 @@ for B in a.b:
         arms = [(qc, kc) for qc in divs for kc in divs if kc >= 64]
         if Np == 1216:
             arms = [(256, 256)] + arms
-        for qc, kc in arms + ["pm"]:
-            if qc == "pm":
+        for arm in arms + ["pm"]:
+            if arm == "pm":
                 fn = lambda: T.token_dit_sdpa_pm(dq, dk, dv, db, scale)  # noqa: E731
                 T._DIT_PM_PICK.clear()
                 name = "pm"
             else:
+                qc, kc = arm
                 cfg = T._sdpa_program_config(q_chunk_size=qc, k_chunk_size=kc)
                 fn = lambda cfg=cfg: T.fused_sdpa(dq, dk, dv, attn_mask=db, scale=scale, program_config=cfg)  # noqa: E731
                 name = f"q{qc},k{kc}"
@@ -123,7 +124,7 @@ for B in a.b:
                     ttnn.deallocate(o)
                     rec.update(rel_rms=float((got - ref).norm() / ref.norm()), max_abs=float((got - ref).abs().max()))
                     rec.update(timed(fn))
-                    if qc == "pm":
+                    if arm == "pm":
                         rec["pick"] = T._DIT_PM_PICK.get((B, Np, H, D, dq.dtype))
             except Exception as e:  # noqa: BLE001
                 rec["err"] = str(e).splitlines()[0][:200]
