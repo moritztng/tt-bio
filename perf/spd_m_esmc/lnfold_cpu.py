@@ -58,7 +58,7 @@ def main():
         Wc = Wc - Wc.mean(0, keepdim=True)
         fold = (x16 @ bf(Wc.float())) / (v16 + ln.eps).sqrt() + (b @ W).float()
         r = (rel(base, true), rel(fold, true))
-        worst[name] = max(worst.get(name, (0, 0)), r, key=lambda t: t[1] / t[0])
+        worst[name] = max(worst.get(name, (1, 0)), r, key=lambda t: t[1] / t[0])
         print(f"{i:5d} {name:4s} {r[0]:.3e} {r[1]:.3e} {float((m16.abs() / v16.sqrt()).max()):.2f}")
     print("worst fold/base ratio per path:", {k: (f"{v[0]:.3e}", f"{v[1]:.3e}") for k, v in worst.items()})
 
