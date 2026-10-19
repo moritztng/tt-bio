@@ -345,7 +345,7 @@ class ESM2Attention(_SaprotLin, Module):
 
     def __call__(self, x, cos, sin, attn_mask=None, key_valid=None):
         ck = self.compute_kernel_config
-        x_norm = _block_ln(x, self.norm_weight, self.norm_bias, ck)
+        x_norm = _block_ln(x, self.norm_weight, self.norm_bias, ck, self.qkv_weight)
         qkv = self._lin(x_norm, self.qkv_weight, bias=self.qkv_bias)
         if self.fold_rope:  # cos/sin are the packed [1, L, 3*H*32] tables from fold_rope_tables
             rot = self._lin(x_norm, self.rot_weight, bias=self.rot_bias)
@@ -428,17 +428,22 @@ def fold_rope_tables(seq_len: int, n_heads: int, d: int, device):
 
 # The block layer_norms write to L1, where the next projection (qkv, fc1) reads its input back, instead of a DRAM round
 # trip: the same placement that moved ESMC's pair-FFN fc1 from 31 % to ~52 % of its roof (esmc.PAIR_FFN_L1_LN). Same op,
-# same values. A shape whose L1 output the allocator refuses keeps DRAM from then on. Off until the page A/B says.
-_SAPROT_LN_L1 = env_flag("TT_BIO_SAPROT_LN_L1", False)
+# same values (output bit-identical in every A/B). A shape whose L1 output the allocator refuses keeps DRAM from then on.
+# Page cell on a Galaxy chip at 1000 MHz, 3 rounds, --fast: 35M 40.0 -> 38.6 ms, 650M 160.6 -> 153.8, 1.3B 297.6 -> 294.2
+# (1022 aa: 782.6 -> 749.6). Normal mode reads 35M +1.6 %, 650M +3.5 %, 1.3B -1.2 %, so None = on with block-fp8
+# weights (--fast) only.
+_SAPROT_LN_L1 = (env_flag("TT_BIO_SAPROT_LN_L1", False) if os.environ.get("TT_BIO_SAPROT_LN_L1", "").strip() else None)
 _LN_L1_REFUSED: set = set()
 #: [block layer_norms written to L1, declined]
 LN_L1_STATS = [0, 0]
 
 
-def _block_ln(x, w, b, ck):
-    """The block's pre-LN, in L1 where _SAPROT_LN_L1 serves and the shape fits."""
+def _block_ln(x, w, b, ck, proj_w):
+    """The block's pre-LN, in L1 where _SAPROT_LN_L1 serves (None: when the next projection's weight proj_w is
+    block-fp8) and the shape fits."""
     key = tuple(x.padded_shape)
-    if _SAPROT_LN_L1 and key not in _LN_L1_REFUSED:
+    l1 = proj_w.dtype == ttnn.bfloat8_b if _SAPROT_LN_L1 is None else _SAPROT_LN_L1
+    if l1 and key not in _LN_L1_REFUSED:
         try:
             out = ttnn.layer_norm(x, weight=w, bias=b, epsilon=1e-5, compute_kernel_config=ck,
                                   memory_config=ttnn.L1_MEMORY_CONFIG)
@@ -470,7 +475,7 @@ class ESM2FFN(_SaprotLin, Module):
 
     def __call__(self, x):
         ck = self.compute_kernel_config
-        x_norm = _block_ln(x, self.norm_weight, self.norm_bias, ck)
+        x_norm = _block_ln(x, self.norm_weight, self.norm_bias, ck, self.fc1_weight)
         h = self._lin(x_norm, self.fc1_weight, bias=self.fc1_bias, **({"activation": "gelu"} if _GELU_FUSED else {}))
         ttnn.deallocate(x_norm)
         if not _GELU_FUSED:
