@@ -7,16 +7,16 @@
 # Walls from /usr/bin/time; AICLK of every node each second in aiclk.log.
 set -u
 CHIP=$1 OUT=$2 M=$3 I=${4:-u100}
-ROW=spd-bet-coldstart
+ROW=${ROW:-spd-bet-callwall}
 mkdir -p "$OUT" ~/spd/locks ~/spd/$ROW/leases
 [ -f ~/japanfold/env.sh ] && . ~/japanfold/env.sh > /dev/null 2>&1
 cd "$(dirname "$0")/../.."
-export PYTHONPATH=$PWD TT_VISIBLE_DEVICES=$CHIP TT_BIO_LEASE_HOLDER=$ROW TT_BIO_LEASE_DIR=$HOME/spd/$ROW/leases
+export CS_SAMPLE_MS=${CS_SAMPLE_MS:-20} PYTHONPATH=$PWD TT_VISIBLE_DEVICES=$CHIP TT_BIO_LEASE_HOLDER=$ROW TT_BIO_LEASE_DIR=$HOME/spd/$ROW/leases
 TRACE=$PWD/perf/spd_coldstart/trace
 say() { echo "$(date -u +%FT%TZ) $*" >> "$OUT/run.log"; }
 exec 9> "${LOCK:-$HOME/spd/locks/chip$CHIP.lock}"
 flock -w "${WAIT:-600}" 9 || { say "flock busy"; exit 3; }
-say "start chip $CHIP tree $(cat TREE_SHA 2>/dev/null || git rev-parse --short HEAD) host $(hostname) model $M input $I"
+say "start chip $CHIP threads ${OMP_NUM_THREADS:-all} tree $(cat TREE_SHA 2>/dev/null || git rev-parse --short HEAD) host $(hostname) model $M input $I"
 D=$OUT/data; mkdir -p "$D/inputs"; ln -sfn ~/spd-data/msa "$D/msa"
 cp ~/spd-data/inputs/l512.yaml "$D/inputs/"
 cat > "$D/inputs/u100.yaml" <<'YAML'

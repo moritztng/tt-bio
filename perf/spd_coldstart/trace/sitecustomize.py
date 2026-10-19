@@ -3,7 +3,8 @@
 Active only when CS_TRACE names a file. Every python process started with this directory on PYTHONPATH appends
 one JSON line per event: its start (process age when site ran), the moment tt_bio.main finished importing, entry and
 exit of the CLI's phase functions below, and exit. Wrapping happens right after each module executes, so later
-`from x import f` bindings see the wrapped function.
+`from x import f` bindings see the wrapped function. With CS_SAMPLE_MS set, a daemon thread also records the main
+thread's innermost frames every CS_SAMPLE_MS ms ("s" events), which attributes the time between wrapped phases.
 """
 import os
 
@@ -28,10 +29,12 @@ if os.environ.get("CS_TRACE"):
     atexit.register(lambda: _rec("exit"))
 
     WRAP = {
-        "tt_bio.main": ["_spawn_worker_processes", "_stop_worker_processes", "_dispatch_run",
-                        "_dispatch_to_controller"],
+        "tt_bio.main": ["cli", "predict.callback", "_spawn_worker_processes", "_stop_worker_processes", "_dispatch_run",
+                        "_dispatch_to_controller", "_stream_run", "_write_job_outputs", "_persist_run_results",
+                        "prepare_features", "write_result"],
         "tt_bio.tenstorrent": ["get_device", "_close_device_locked"],
-        "tt_bio.worker": ["run_worker_loop", "_WorkerState.load_model", "_WorkerState.predict_one", "prefetch_msas"],
+        "tt_bio.worker": ["run_worker_loop", "_WorkerState.load_model", "_WorkerState.predict_one", "prefetch_msas",
+                          "_execute_job"],
     }
 
     def _wrap(owner, name, label):
@@ -73,3 +76,17 @@ if os.environ.get("CS_TRACE"):
             return spec
 
     sys.meta_path.insert(0, _Finder())
+
+    if os.environ.get("CS_SAMPLE_MS"):
+        import threading
+
+        def _sample(main=threading.main_thread().ident, dt=float(os.environ["CS_SAMPLE_MS"]) / 1000):
+            while True:
+                time.sleep(dt)
+                fr, st = sys._current_frames().get(main), []
+                while fr is not None and len(st) < 14:
+                    st.append(f"{fr.f_globals.get('__name__', '?')}:{fr.f_code.co_name}:{fr.f_lineno}")
+                    fr = fr.f_back
+                _rec("s", st=st)
+
+        threading.Thread(target=_sample, daemon=True).start()
