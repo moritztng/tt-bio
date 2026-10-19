@@ -8,6 +8,7 @@ cd "$(dirname "$0")/../.."
 mkdir -p "$OUT"
 export TT_VISIBLE_DEVICES=0 TT_BIO_LEASE_CARDS=0 TT_BIO_LEASE_HOLDER=worker:bc4-fair-tt
 export JAPANFOLD_BC2_AF2_WEIGHTS="${JAPANFOLD_BC2_AF2_WEIGHTS:-$HOME/bcx_shipped/af2_params}"
+export JAPANFOLD_BC2_MPNN_WEIGHTS="${JAPANFOLD_BC2_MPNN_WEIGHTS:-$HOME/bcx_shipped/bc2/bindcraft/weights/proteinmpnn/weights_neutral}"
 export PYTHONPATH="$PWD${PYTHONPATH:+:$PYTHONPATH}"
 uptime > "$OUT/loadavg.start"
 ~/.local/bin/tt-smi -s > "$OUT/tt-smi.start.json" 2>/dev/null
