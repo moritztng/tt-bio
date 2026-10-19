@@ -2957,7 +2957,7 @@ def _to_host(t: Tensor):
 TRACE_RECOMPUTE = env_flag("TT_BIO_TRACE_RECOMPUTE", False)
 _RTRACE: dict = {}    # (key, signature) -> rounds seen (int), then (trace id, shared)
 _RSHARED: dict = {}   # signature -> dict(ins=[...], seeds=[...], outs=[...])
-RTRACE_STATS = {"eager": 0, "capture": 0, "replay": 0, "refused": 0}
+RTRACE_STATS = {"eager": 0, "capture": 0, "replay": 0, "refused": 0, "regrow": 0}
 # The checkpoint's untaped FORWARD replayed the same way (`_traced_forward`), so a block's three
 # passes per round (two forwards, one recompute + VJP) all come from traces. Follows
 # TRACE_RECOMPUTE unless set on its own.
@@ -2966,6 +2966,7 @@ _RPEAK: dict = {}     # signature -> DRAM rise per bank of its first eager run; 
 _RSHAPE: dict = {}    # forward signature -> whether fn returns a tuple
 _SCRATCH: list = [None]   # the device's `TraceScratch`, made at the first capture
 _EAGER = object()
+_REGROW = object()
 # Diagnostic: the first N replays also run the block eagerly on the same inputs and record the
 # relative L2 error of each input gradient against it (RTRACE_CHECKS). Replays are expected to be
 # exact; anything else means a replay read or wrote memory the eager side now owns.
@@ -3032,6 +3033,12 @@ def _rt_capture(device, sig, run):
         _SCRATCH[0] = TraceScratch(device)
     sc = _SCRATCH[0]
     need = _RPEAK[sig] + _RPEAK[sig] // 4 + sc.CHUNK
+    if sc.hole is not None and need > sc.hole[1] - sc.hole[0]:
+        # A unit measured after the hole was opened needs a bigger one: drop every trace and
+        # the hole, and let every key capture again into one sized for all of them. Once.
+        release_recompute_traces(device)
+        RTRACE_STATS["regrow"] += 1
+        return _REGROW
     size = max(_RPEAK.values())
     size += size // 4 + sc.CHUNK
     before = set(_WRAPPED)
@@ -3115,11 +3122,9 @@ def _traced_recompute(key, fn, inputs, home, seeded) -> bool:
         run(sh["ins"], sh["seeds"], sh["outs"])     # compiles anything only the capture uses
         ttnn.synchronize_device(device)
         tid = _rt_capture(device, sig, lambda: run(sh["ins"], sh["seeds"], sh["outs"]))
-        if tid is None:
-            _RTRACE[(key, sig)] = "eager"
-            for src, ob in zip(inputs, sh["outs"]):
-                if ob is not None and isinstance(src, Tensor):
-                    src.add_grad(ttnn.clone(ob))
+        if tid is None or tid is _REGROW:
+            _RTRACE[(key, sig)] = "eager" if tid is None else 1
+            accumulate(eager(vals, [g for _, g in seeded]))
             return True
         _RTRACE[(key, sig)] = st = (tid,)
     else:
@@ -3183,8 +3188,9 @@ def _traced_forward(key, fn, inputs):
         run(sh["ins"], sh["outs"])
         ttnn.synchronize_device(device)
         tid = _rt_capture(device, sig, lambda: run(sh["ins"], sh["outs"]))
-        if tid is None:
-            _RTRACE[(key, sig)] = "eager"
+        if tid is None or tid is _REGROW:
+            _RTRACE[(key, sig)] = "eager" if tid is None else 1
+            return _EAGER
         else:
             _RTRACE[(key, sig)] = (tid,)
             ttnn.execute_trace(device, tid, cq_id=0, blocking=False)
