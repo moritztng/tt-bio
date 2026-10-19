@@ -63,7 +63,11 @@ def eligible(q, k, v, cos, packed: bool = False) -> bool:
     """bf16 TILE interleaved [B, L, D] q, k, v of one shape (or one [B, L, 3D] qkv, passed three times), D / 64 heads, a
     cos table covering L, CBs in budget."""
     shape = [int(d) for d in q.padded_shape]
-    if len(shape) != 3 or shape[-1] % (192 if packed else 64) or shape[1] % 32:
+    # The LOGICAL token axis must fill its tiles: the outputs are allocated at the padded length, so a ragged L
+    # (ESMC Attention at 16 tokens) came back as [B, H, 32, 64] with the pad rows as live keys (shape 32 out of
+    # Attention, a binary_ng broadcast throw in Block). The bucketed forwards are tile-aligned and unaffected.
+    if (len(shape) != 3 or shape[-1] % (192 if packed else 64) or shape[1] % 32
+            or [int(d) for d in q.shape] != shape):
         return False
     for t in (q, k, v):
         if (t.dtype != ttnn.bfloat16 or t.layout != ttnn.TILE_LAYOUT or [int(d) for d in t.padded_shape] != shape
