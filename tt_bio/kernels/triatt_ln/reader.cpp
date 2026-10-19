@@ -14,6 +14,9 @@
 // 32 half tiles land in a c_3 stage and are shuffled as pair_transpose's writer does: row k of stage tile q ->
 // row q of row tile k. Writer and compute see the same rows in the same order (writer.cpp row_of).
 #include "api/dataflow/dataflow_api.h"
+#ifndef ABL_R
+#define ABL_R 0   // bench-only (triatt_ln.ABL bit 8): skip the DRAM reads of x
+#endif
 #include "ttnn/kernel/dataflow/generate_reduce_scaler.hpp"
 
 void kernel_main() {
@@ -79,7 +82,8 @@ void kernel_main() {
             const uint32_t dst = get_write_ptr(x_cb);
             for (uint32_t n = 0; n < Kt; ++n) {
                 for (uint32_t q = 0; q < 32; ++q)
-                    noc_async_read(x.get_noc_addr(((jt * 32 + q) * MT + bt) * Kt + n) + half * HALF, stage + q * HALF, HALF);
+                    if constexpr (!ABL_R)
+                        noc_async_read(x.get_noc_addr(((jt * 32 + q) * MT + bt) * Kt + n) + half * HALF, stage + q * HALF, HALF);
                 noc_async_read_barrier();
                 for (uint32_t k = 0; k < 16; ++k) {
                     const uint32_t tile = dst + (k * Kt + n) * tb;
@@ -100,7 +104,8 @@ void kernel_main() {
         const uint32_t n = (nrows - i < RB) ? (nrows - i) : RB;
         cb_reserve_back(x_cb, n * Kt);
         uint32_t dst = get_write_ptr(x_cb);
-        for (uint32_t t = 0; t < n * Kt; ++t, ++page, dst += tb) noc_async_read_page(page, x, dst);
+        for (uint32_t t = 0; t < n * Kt; ++t, ++page, dst += tb)
+            if constexpr (!ABL_R) noc_async_read_page(page, x, dst);
         noc_async_read_barrier();
         cb_push_back(x_cb, n * Kt);
     }

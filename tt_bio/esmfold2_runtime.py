@@ -1602,7 +1602,9 @@ _WH_NORMAL_EXTRA = "+transition_ws+ws_resid+ef2_lm_combine+ef2_opm_kq+lm_qk_chai
 # lm_gate_ng keeps the 6B's SwiGLU gate on binary_ng in both modes (esmc._lm_gate_legacy, on for Wormhole elsewhere):
 # the legacy multiply is graded on ESMC's embeddings (6B pcc vs fp32 -0.00002 / +0.00001), not yet on a fold.
 # lm_sdpa_stock likewise keeps the LM's stock SDPA over the full mask (esmc._key_lens, shsdpa elsewhere on Wormhole).
-_WH_EXTRA = "+lm_gate_ng+lm_sdpa_stock"
+# ef2_atom_rope is exact (rotate_half as a +-1 permutation matmul): ESMFold2-Fast 512 aa --fast CIF identical with and
+# without it, warm fold 16.53 -> 16.26 s mean of 3 pairs (Galaxy chip, 1000 MHz, spd-gap-whesmf wrp2).
+_WH_EXTRA = "+lm_gate_ng+lm_sdpa_stock+ef2_atom_rope"
 # dit_qkvf runs the token DiT's attention as one `_sdpa32_fused` program off a folded q|k|v projection. Fast bar on
 # Wormhole against the WH fast set without it, 11 complexes x 4 seeds, 44 paired folds per model (Galaxy chip, 1000
 # MHz, spd-bet-ditpersist dsg): ESMFold2-Fast CA-lDDT -0.0002 [-0.0006, +0.0003], top-pose median 0.55 A vs 1.46 A
@@ -1613,7 +1615,10 @@ _WH_EXTRA = "+lm_gate_ng+lm_sdpa_stock"
 # complexes x 4 seeds per model (.107, 1000 MHz, dsq2): ESMFold2-Fast CA-lDDT +0.0005 [-0.0003, +0.0016], top-pose
 # median 0.51 A vs 1.32 A seed floor, docking 24 -> 24 of 44, fold -0.73 s median at 515-791 aa (10 of 11 faster);
 # ESMFold2 --fast (40 folds) CA-lDDT -0.0004 [-0.0008, -0.0000], 0.39 A vs 1.43 A, docking 32 -> 32.
-_WH_FAST_EXTRA = "+dit_qkvf+dit_shoist"
+# trunk_hifi2 on top, fast bar on Wormhole against that set, 11 complexes x 4 seeds per model (.107, 1000 MHz, dh2):
+# ESMFold2-Fast CA-lDDT -0.0006 [-0.0027, +0.0013], top-pose median 0.82 A vs 1.19 A seed floor, docking 24 -> 24 of
+# 44; ESMFold2 --fast CA-lDDT -0.0004 [-0.0024, +0.0010], 0.56 A vs 1.58 A, docking 32 -> 33. 512 aa: -0.13 / -0.15 s.
+_WH_FAST_EXTRA = "+dit_qkvf+dit_shoist+trunk_hifi2"
 
 
 def fold_levers(fast: bool) -> str:

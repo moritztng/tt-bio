@@ -48,6 +48,7 @@ def _args(S=512, K=128, N=128):
 
 def test_eligibility_declines_cleanly(monkeypatch):
     monkeypatch.setattr(T, "_l1_bank_bytes", lambda: L1_BH_BANK)
+    monkeypatch.setattr(T, "arch_name", lambda: "blackhole")
     monkeypatch.setattr(TTL, "T2", False)
     monkeypatch.setattr(TTL, "T2CM", False)
     assert TTL.t2cm_eligible(**_args()) == "off"
@@ -58,7 +59,7 @@ def test_eligibility_declines_cleanly(monkeypatch):
     with T.levers("trimul_t2,trimul_t2cm"):
         assert TTL.t2cm_eligible(**_args()) is None
         assert TTL.t2cm_eligible(**_args(S=256)) is None
-        assert TTL.t2cm_eligible(**_args(K=256, N=256)) is None          # protenix-v2's c_z: T2m's one-part stage fits beside T2's buffers
+        assert TTL.t2cm_eligible(**_args(K=256, N=256)) is None          # protenix-v2's c_z: two stage parts, which Blackhole takes
         a = _args()
         a["xcm"] = _Fake([1, 128, 500, 500], padded=[1, 128, 512, 512])
         assert TTL.t2cm_eligible(**a) == "cm_shape"                      # ragged: the permute keeps it
@@ -99,13 +100,23 @@ def test_c128_takes_t2m_whole_tile_staging(monkeypatch, bank):
     assert TTL._t2cm_parts(wp) == 1
 
 
-@pytest.mark.parametrize("bank", [L1_BH_BANK, L1_WH_BANK])
-def test_c384_declines_on_its_part_count(monkeypatch, bank):
+@pytest.mark.parametrize("arch,bank", [("blackhole", L1_BH_BANK), ("wormhole_b0", L1_WH_BANK)])
+def test_c384_declines_on_its_part_count(monkeypatch, arch, bank):
     """OpenDDE's c_z 384 stage needs 4 parts, above T2CM_MAX_P: the trimul keeps the move + T2 instead."""
     monkeypatch.setattr(T, "_l1_bank_bytes", lambda: bank)
-    assert TTL._t2cm_parts(torch.zeros(384, 384)) > TTL.T2CM_MAX_P
+    monkeypatch.setattr(T, "arch_name", lambda: arch)
+    assert TTL._t2cm_parts(torch.zeros(384, 384)) > TTL.T2CM_MAX_P[arch]
     assert TTL.t2cm_fit(torch.zeros(384, 384)) == "parts"
     assert TTL.t2cm_fit(torch.zeros(128, 128)) is None
+
+
+@pytest.mark.parametrize("arch,bank,fit", [("blackhole", L1_BH_BANK, None), ("wormhole_b0", L1_WH_BANK, "parts")])
+def test_c256_two_parts_only_on_blackhole(monkeypatch, arch, bank, fit):
+    """Protenix-v2's c_z 256 stage needs 2 parts: Blackhole takes T2CM, Wormhole keeps the move + T2."""
+    monkeypatch.setattr(T, "_l1_bank_bytes", lambda: bank)
+    monkeypatch.setattr(T, "arch_name", lambda: arch)
+    assert TTL._t2cm_parts(torch.zeros(256, 256)) == 2
+    assert TTL.t2cm_fit(torch.zeros(256, 256)) == fit
 
 
 def test_routes_through_the_moved_program():

@@ -140,7 +140,9 @@ def addcmul_at(x, y, z, width, x_off=0, y_off=0, z_off=0, out_dtype=None):
     shape = list(y.shape)[:-1] + [width]
     out = ttnn.allocate_tensor_on_device(ttnn.Shape(shape), out_dtype or y.dtype, ttnn.TILE_LAYOUT, device,
                                          ttnn.DRAM_MEMORY_CONFIG)
-    key = (device.id(), ht, wt, _grid(x), _grid(y)[1], _grid(z), str(y.dtype), str(out.dtype))
+    # The buffer types are compile-time args of the TensorAccessors: an L1 operand must not reuse a DRAM program.
+    key = (device.id(), ht, wt, _grid(x), _grid(y)[1], _grid(z), str(y.dtype), str(out.dtype),
+           *(str(t.memory_config().buffer_type) for t in (x, y, z)))
     entry = _CACHE.get(key)
     if entry is None:
         entry = _CACHE[key] = _build(x, y, z, out, device, ht, wt)

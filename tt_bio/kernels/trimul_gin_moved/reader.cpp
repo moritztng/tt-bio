@@ -35,11 +35,12 @@ void kernel_main() {
     constexpr uint32_t m_cb = tt::CBIndex::c_6;
     constexpr uint32_t S = St * 32;
     const uint32_t tb = get_tile_size(x_cb);
+    const uint32_t tw = get_tile_size(w_cb);   // bfp8 under lever trimul_gin_w8
 
     cb_reserve_back(w_cb, 2 * CT2 * Kt);
     uint32_t w = get_write_ptr(w_cb);
-    for (uint32_t t = 0; t < CT2 * Kt; ++t, w += tb) noc_async_read_page(t, wp, w);
-    for (uint32_t t = 0; t < CT2 * Kt; ++t, w += tb) noc_async_read_page(t, wg, w);
+    for (uint32_t t = 0; t < CT2 * Kt; ++t, w += tw) noc_async_read_page(t, wp, w);
+    for (uint32_t t = 0; t < CT2 * Kt; ++t, w += tw) noc_async_read_page(t, wg, w);
     noc_async_read_barrier();
     cb_push_back(w_cb, 2 * CT2 * Kt);
 

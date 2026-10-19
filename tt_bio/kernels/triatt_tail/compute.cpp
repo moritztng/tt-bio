@@ -35,6 +35,7 @@ void kernel_main() {
     constexpr uint32_t DW = get_compile_time_arg_val(5);
     constexpr uint32_t KB1 = get_compile_time_arg_val(6);
     constexpr uint32_t OBIAS = get_compile_time_arg_val(7);
+    constexpr uint32_t GB8 = get_compile_time_arg_val(8);   // g is bfp8: srcA takes g's format for the copy only
     const uint32_t nunits = get_arg_val<uint32_t>(0);
 
     constexpr uint32_t w_cb = tt::CBIndex::c_0;
@@ -65,12 +66,14 @@ void kernel_main() {
         }
         for (uint32_t k0 = 0; k0 < Kt; k0 += DW) {
             tile_regs_acquire();
+            if constexpr (GB8) reconfig_data_format_srca(o_cb, g_cb);
             copy_tile_to_dst_init_short(g_cb);
             for (uint32_t i = 0; i < DW; ++i) copy_tile(g_cb, k0 + i, i);
             for (uint32_t i = 0; i < DW; ++i) {
                 if constexpr (SIGPOLY) sigmoid_poly_tile(i);
                 else sigmoid_bf16_tile(i);
             }
+            if constexpr (GB8) reconfig_data_format_srca(g_cb, o_cb);
             binary_dest_reuse_tiles_init<EltwiseBinaryType::ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(o_cb);
             for (uint32_t i = 0; i < DW; ++i)
                 binary_dest_reuse_tiles<EltwiseBinaryType::ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(

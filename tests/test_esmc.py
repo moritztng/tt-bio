@@ -108,6 +108,8 @@ def test_rope(seq_len):
 
 
 @pytest.mark.device
+# 16 is a ragged token axis (half a tile): on Wormhole the fused qk_rope_heads returned its padded 32 rows here
+# (gate c7a32d7c6, g110) until it declined ragged lengths.
 @pytest.mark.parametrize("seq_len", [16, 128])
 def test_attention(seq_len):
     n_heads, head_dim = ESMC_300M["n_heads"], D_MODEL // ESMC_300M["n_heads"]

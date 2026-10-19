@@ -107,7 +107,7 @@ def test_lm_sdpa_keypad_route(dram, sharded, d, route, monkeypatch):
     """A KeyPad goes to shsdpa for bf16 interleaved (DRAM or L1) q/k/v on whole tiles; anything else runs the stock op
     over the row repeated to the full [B, 1, S, S] mask."""
     from tt_bio import shsdpa
-    monkeypatch.setattr(shsdpa, "sdpa", lambda q, k, v, scale, pad: ("shsdpa", pad))
+    monkeypatch.setattr(shsdpa, "sdpa", lambda q, k, v, scale, pad, ckc=None: ("shsdpa", pad))
     monkeypatch.setattr(esmc.ttnn, "repeat", lambda t, reps: ("rep", t, tuple(reps)))
     monkeypatch.setattr(esmc, "_sdpa_k_few", lambda: False)
     monkeypatch.setattr(esmc, "_sdpa_program_config", lambda q, k: (q, k))

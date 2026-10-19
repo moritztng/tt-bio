@@ -117,19 +117,54 @@ SHOIST_FAST = frozenset({"dit_shoist"})
 # 1.408 A A/A floor; normal PASS, 43 paired folds, 0.321 A vs 1.262 A, docking 34 -> 34. cdk2x2 512 x 1 at 1000 MHz,
 # 5 paired warm folds (k1): normal 64.15 -> 63.20 s, fast 54.07 -> 53.19 s, 5 of 5 faster each. Blackhole is ungraded.
 TRIATT_K1 = frozenset({"triatt_k1"})
+# trimul_bres (the trimul einsum by bmm_res, b[c] resident in L1) in Protenix-v2's Wormhole normal set, as OpenFold3
+# and ESMFold2 ship it. Normal mode's fp32 dest lets it fire as is, and it is bit-exact there: cdk2x2 512 x 1 on a
+# Galaxy chip at 1000 MHz, paired warm folds (spd-m-protenix bresnormal, 2026-10-19), CIFs identical, -1.30 and
+# -1.38 s (63.35 -> 62.01 s). Bit-exact on Blackhole too: p300c chip at 1350 MHz, 4 paired warm folds (bhab bres),
+# CIFs identical, median -1.16 s (32.70 -> 30.72 s steady), so it rides on both chips.
+BRES_NORMAL = frozenset({"trimul_bres"})
+# ws_resid + ws_resid2: the transition's residual add folded into its last SwiGLU chunk's fp32 dest. Wormhole 512-token
+# normal grade, shipped Protenix-v2 Wormhole normal set vs + these, 44 paired folds (spd-m-protenix grr2n, 2026-10-19),
+# PASS: same-seed top pose median 0.608 A vs the 1.311 A A/A floor, every interval on the better side (CA-lDDT +0.0049
+# [+0.0005, +0.0125]), docking 35 -> 36. cdk2x2 512 x 1 at 1000 MHz, paired warm folds (rr2n): median -0.55 s.
+WS_RESID_NORMAL = frozenset({"ws_resid", "ws_resid2"})
+# dit_qsplit (the token DiT's attention takes the q chunk that leaves the busiest core fewest rows) in Protenix-v2's
+# normal set, as OpenFold3 ships it. It moves rows between cores, not arithmetic: cdk2x2 512 x 1 on a Galaxy chip at
+# 1000 MHz, 6 paired warm folds (spd-m-protenix qsn2, 2026-10-19), CIFs identical, 6 of 6 faster, median -0.15 s
+# (-0.03 to -0.37). Flat on p150a for OpenFold3, so it rides on both chips.
+QSPLIT_NORMAL = frozenset({"dit_qsplit"})
+# triatt_ln_b8 (triatt_ln writes q, k, v bfp8; the head-major bias is narrowed after its permute; the SDPA keeps a
+# bf16 destination) in Protenix-v2's Wormhole --fast set. Wormhole 512-token fast grade, shipped Protenix-v2 Wormhole
+# fast set vs + triatt_ln_b8, 44 paired folds (spd-m-protenix gb8ln, 2026-10-19), PASS: same-seed top pose median
+# 0.770 A vs the 1.435 A A/A floor, CA-lDDT -0.0006 [-0.0019, +0.0003], pLDDT -0.0002, docking 36 -> 36. The fold
+# is the same on an 8x8 and an 8x9 core grid (g88). cdk2x2 512 x 1 on a Galaxy chip at 1000 MHz, 5 paired warm folds
+# (b8f2): 54.28 -> 50.98 s median. triatt_ln_b8g adds the gate, which gated_out_proj reads at bfp8: same grade on top
+# of triatt_ln_b8 (gb8g, 44 paired folds) PASS, top pose median 0.674 A vs the 1.325 A floor, CA-lDDT +0.0004
+# [-0.0005, +0.0014], docking 36 -> 36; b8g on a Galaxy chip at 1000 MHz, 3 of 3 warm pairs faster, median -0.70 s.
+# Blackhole is ungraded.
+TRIATT_LN_B8_FAST = frozenset({"triatt_ln_b8", "triatt_ln_b8g"})
+# trimul_gin_w8: the trimul in-projection holds its resident weights bfp8, so at c_z 256 it fits one launch and reads
+# the normed pair once instead of twice. Each output tile is one core's full-K product, so the fold does not depend on
+# the core grid. Wormhole 512-token fast grade, shipped Protenix-v2 Wormhole fast set vs + trimul_gin_w8, 44 paired
+# folds (spd-m-protenix gw8g, 2026-10-19), PASS: same-seed top pose median 0.812 A vs the 1.399 A A/A floor, CA-lDDT
+# +0.0010 [-0.0010, +0.0040], docking 35 -> 36. cdk2x2 512 x 1 on a Galaxy chip at 1000 MHz (gw8): steady warm pairs
+# -0.22, -0.32 and -1.42 s. Blackhole is ungraded.
+GIN_W8_FAST = frozenset({"trimul_gin_w8"})
 from .eltwise_fusion import scale_add, norm_residual, gated_add
 
 
 def mode_levers(state_dict):
     """The mode's lever set for a Protenix checkpoint: `FAST_LEVERS` under --fast, else `NORMAL_LEVERS`,
-    plus `T2_TAIL` and `WS_CHAIN` for Protenix-v2 (c_z 256), the one width their normal grades cover; Wormhole --fast takes
-    `WH_FAST_LEVERS`, and Wormhole adds `TRIATT_LN` and `TRIATT_K1` to both Protenix-v2 modes and `WS_FAST` to its --fast. Protenix-v2
-    --fast takes `SHOIST_FAST` on both chips."""
+    plus `T2_TAIL`, `WS_CHAIN` and `QSPLIT_NORMAL` for Protenix-v2 (c_z 256), the one width their normal grades cover; Wormhole --fast takes
+    `WH_FAST_LEVERS`, and Wormhole adds `TRIATT_LN` and `TRIATT_K1` to both Protenix-v2 modes, `BRES_NORMAL` and
+    `WS_RESID_NORMAL` to its normal and `WS_FAST`, `TRIATT_LN_B8_FAST` and `GIN_W8_FAST` to its --fast. Protenix-v2
+    takes `BRES_NORMAL` in normal mode and `SHOIST_FAST` under --fast on both chips."""
     v2 = Trunk._derive_c_z(state_dict) == 256
     wh = _T.is_wormhole()
     pair_ln = TRIATT_LN | TRIATT_K1 if v2 and wh else frozenset()
-    fast = WH_FAST_LEVERS | pair_ln | (WS_FAST if v2 else frozenset()) if wh else FAST_LEVERS
-    return _T.model_levers((NORMAL_LEVERS | T2_TAIL | WS_CHAIN if v2 else NORMAL_LEVERS) | pair_ln,
+    fast = WH_FAST_LEVERS | pair_ln | (WS_FAST | TRIATT_LN_B8_FAST | GIN_W8_FAST if v2 else frozenset()) if wh else FAST_LEVERS
+    return _T.model_levers((NORMAL_LEVERS | T2_TAIL | WS_CHAIN | QSPLIT_NORMAL | BRES_NORMAL if v2 else NORMAL_LEVERS)
+                           | pair_ln | (WS_RESID_NORMAL if v2 and wh else frozenset()),
                            fast | SHOIST_FAST if v2 else fast)
 
 
@@ -1872,7 +1907,8 @@ class DiffusionModule(_KeyedWeights):
         s_hat = ttnn.layer_norm(s_t, epsilon=1e-5, compute_kernel_config=ckc)
         lin = lambda x, w, b=None, act=None: ttnn.linear(  # noqa: E731
             x, w, bias=b, activation=act, compute_kernel_config=ckc, core_grid=CORE_GRID_MAIN)
-        out = (lin(s_hat, w_sc, b_sc, "sigmoid"), lin(s_hat, w_sb), lin(s_t, w_g, b_g, "sigmoid"))
+        sig = _T.mm_sigmoid(ckc)
+        out = (lin(s_hat, w_sc, b_sc, sig), lin(s_hat, w_sb), lin(s_t, w_g, b_g, sig))
         ttnn.deallocate(s_hat)
         return out
 

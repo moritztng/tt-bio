@@ -27,6 +27,7 @@ ap.add_argument("--abl", default="", help="comma list of T1_ABL stage-skip masks
                 " (kernels/trimul_in_t1: 1 LN, 2 g_out mm, 4 [a|b] mm, 8 gate, 16 z reads, 32 gather, 64 writes)")
 ap.add_argument("--set", default="", help="comma list NAME=INT of trimul_tail knobs for T1 (T1_RB, T1_SBW, GIN_MOVE_NB, T1_ROWS)")
 ap.add_argument("--grid", default="", help="gx,gy: run T1 on this core grid instead of COMPUTE_GRID_MAIN")
+ap.add_argument("--w8", action="store_true", help="also run T1 on bfp8 weights (lever trimul_t1w8): its error and time")
 ap.add_argument("--out", help="also append each JSON line here (the qb runner passes it)")
 A = ap.parse_args()
 
@@ -120,6 +121,9 @@ wpT, wgT, wgo = TT.t1_host_weights(g_in_t, p_in_t, w["g_out"].t())
 dw = {"gamma": up(w["gamma"]), "beta": up(w["beta"]), "wpT": up(wpT), "wgT": up(wgT),
       "wgo": up(wgo), "w_fused": up(torch.cat([fused, w["g_out"].t()], -1)), "w_gp": up(fused)}
 off = lambda r: T.gp_off(r, h)  # noqa: E731
+up8 = lambda t: ttnn.from_torch(t.to(torch.bfloat16), dtype=ttnn.bfloat8_b, layout=ttnn.TILE_LAYOUT,  # noqa: E731
+                                device=dev, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+dw8 = {"wpT": up8(wpT), "wgT": up8(wgT), "wgo": up8(wgo)} if A.w8 else {}
 
 bad = 0
 for n in [int(s) for s in A.ns.split(",") if s]:
@@ -203,6 +207,21 @@ for n in [int(s) for s in A.ns.split(",") if s]:
                 free(outs)
                 rec["ln1_flip_ms"] = timed(lambda: free(t1()), A.reps)
                 TT.T1_LN1 = prev
+            if A.w8:
+                t1w = lambda: TT.fused_in_ln(dz, dw["gamma"], dw["beta"], dw8["wpT"], dw8["wgT"],  # noqa: E731
+                                             dw8["wgo"], ckc, grid, mask=dm)
+                rec["w8_why"] = TT.t1_eligible(dz, dw["gamma"], dw["beta"], dw8["wpT"], dw8["wgT"], dw8["wgo"], dm)
+                outs = t1w()
+                if outs is None:
+                    rec["w8_err"] = f"declined: {rec['w8_why']}"
+                else:
+                    ttnn.synchronize_device(dev)
+                    for k, o in zip("abg", outs):
+                        t = ttnn.to_torch(o)
+                        rec[f"w8_{k}_finite"] = bool(torch.isfinite(t).all())
+                        rec[f"w8_{k}_rel_rms_f64"], rec[f"w8_{k}_max_abs"] = rel(t.reshape(ref[k].shape), ref[k])
+                    free(outs)
+                    rec["w8_ms"] = timed(lambda: free(t1w()), A.reps)
     except Exception as e:                                                    # noqa: BLE001
         rec["t1_err"] = str(e).splitlines()[0][:300]
         traceback.print_exc()
@@ -214,4 +233,5 @@ for n in [int(s) for s in A.ns.split(",") if s]:
             f.write(json.dumps(rec) + "\n")
     free([dz, dm])
 free(dw.values())
+free(dw8.values())
 sys.exit(1 if bad else 0)

@@ -266,6 +266,7 @@ def _saprot_prog(x, w, act, hifi2=False):
 # The block-fp8 projections of --fast at HiFi2 instead of the model's HiFi3, fp32 accumulation kept: a block-fp8 weight's
 # 7-bit mantissa is consumed whole in two fidelity phases (ESMC ships the same on its minimal_matmuls). None = on for
 # models at least _HIFI2_MIN_WIDTH wide: SaProt 35M's pooled cos vs fp32 fell to 0.999879 at HiFi2, under the 0.9999 bar.
+# Blackhole p300c at 1350 MHz, 2 rounds, fc1 + fc2: 650M 104.9 -> 94.6 ms (pcc +0.000006), 1.3B 191.0 -> 161.7 (-0.000154).
 _SAPROT_HIFI2 = env_flag("TT_BIO_SAPROT_HIFI2", None)
 _HIFI2_MIN_WIDTH = 1280
 # Which projections _SAPROT_HIFI2 moves to HiFi2: the FFN's. Page cell --fast, Galaxy chip at 1000 MHz, 2 rounds, pcc vs

@@ -271,10 +271,32 @@ def _one_k_chunk(seq: int) -> int:
     return (t + t % 2) * SG.TILE
 
 
+# The k chunk sets the online-softmax accumulation order, so it decides the output bits; the q chunk and the
+# q split only move rows between cores. On Wormhole `fused_pairs` therefore takes its k chunk from the ranking
+# on the Galaxy's 8x9 grid and only the q side from the real one. Ranked on the real grid alone, Protenix-v2's
+# bf16 [512, 4, 512, 32] call picked k 256 on an 8x8 Wormhole (n150, n300) and k 512 on 8x9, and the fold's
+# CIF differed between the two (spd-m-protenix gn88 / gn89, 2026-10-19). Blackhole still ranks per grid: the
+# p300c's measured 1536 pick (256, 512) is not the p150a's k chunk, and that trade is unmeasured.
+REF_CORES_WH = 72
+
+
 @lru_cache(maxsize=None)
 def fused_pairs(seq: int, heads: int, head_dim: int, cores: int, mask_dtype=None,
                 padded: bool = False, batch: int = 0) -> tuple:
-    """(q_chunk, k_chunk) pairs this kernel can serve at padded length `seq`, best first.
+    """(q_chunk, k_chunk) pairs this kernel can serve at padded length `seq`, best first: the pairs at
+    the Wormhole reference grid's first k chunk lead (see `REF_CORES_WH`), the rest follow in cost order.
+    """
+    ranked = _ranked_pairs(seq, heads, head_dim, cores, mask_dtype, padded, batch)
+    if cores >= REF_CORES_WH or not ranked:
+        return ranked
+    kref = next(iter(_ranked_pairs(seq, heads, head_dim, REF_CORES_WH, mask_dtype, padded, batch)), (0, 0))[1]
+    return tuple(p for p in ranked if p[1] == kref) + tuple(p for p in ranked if p[1] != kref)
+
+
+@lru_cache(maxsize=None)
+def _ranked_pairs(seq: int, heads: int, head_dim: int, cores: int, mask_dtype=None,
+                  padded: bool = False, batch: int = 0) -> tuple:
+    """(q_chunk, k_chunk) pairs this kernel can serve at padded length `seq` on `cores`, cheapest first.
 
     Its two constraints pull in opposite directions, and neither is on the stock op's ladder:
 
@@ -384,6 +406,20 @@ def _reject(reason, shape):
     return None
 
 
+#: bench-only (perf/spd_m_protenix/sdpa_b8.py): the destination's dtype when set, else `_out_dtype`
+OUT_DTYPE = None
+
+
+def _out_dtype(q):
+    # Lever `triatt_ln_b8` feeds bfp8 q, k, v and bias but keeps the destination bf16, so the gated
+    # out-projection downstream stays on its fused tail (it reads bf16 o and g only). The narrowing
+    # it skips is one pack-stage rounding (see `fast_dtypes_ok`'s `dest`); sb8b, chip 4, 1000 MHz,
+    # PV2 512: 5.81 ms bf16-destination against 5.86 bfp8 and 6.01 all-bf16.
+    from .tenstorrent import lever
+    if q.dtype == ttnn.bfloat8_b and lever("triatt_ln_b8"):
+        return ttnn.bfloat16
+    return q.dtype
+
 def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None, kv_buffer_factor=2,
          q_split_cap: int = -1, gate=None, padded_mask: bool = False):
     """The fold's SDPA with the mask read once per head, or `None` to leave the call alone.
@@ -453,7 +489,7 @@ def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None, kv_buffer_fac
     # narrower destination is a page-size change and not a kernel change. Byte-identical while the
     # gate above only admits bf16 operands.
     out = ttnn.allocate_tensor_on_device(
-        ttnn.Shape(shape), q.dtype, ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG)
+        ttnn.Shape(shape), OUT_DTYPE or _out_dtype(q), ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG)
     # The op's own default compute kernel config, not the trunk's -- see perf/triatt_fused/s4_gate.py
     ckc = _ckc(ckc_default)
 
@@ -466,10 +502,12 @@ def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None, kv_buffer_fac
 
     persistent = p["k_num_chunks"] * p["Sq_chunk_t"] * p["Sk_chunk_t"]
     # Priced here, not caught from the device: a caught refusal is a hang risk, and `cb_bytes` is
-    # exact against the device's own figures on both parts (see `sdpa_generic.cb_budget`).
+    # exact against the device's own figures on both parts (see `sdpa_generic.cb_budget`). Priced
+    # trimmed, as `build` allocates it: the untrimmed table refused triatt_k1's (q512, k512) on
+    # Wormhole (1480704 B vs 1395424) although the trimmed one the device gets fits (1357824).
     if gate is None and not SG.cb_fits_l1(p, q_dtype=q.dtype, k_dtype=k.dtype, v_dtype=v.dtype,
                                           mask_dtype=bias.dtype, out_dtype=out.dtype,
-                                          mask_cb_tiles=persistent):
+                                          mask_cb_tiles=persistent, one_k_trim=True):
         ttnn.deallocate(out)
         _PM_OVER_L1.add(pm_key)
         return _reject("l1_budget", shape)

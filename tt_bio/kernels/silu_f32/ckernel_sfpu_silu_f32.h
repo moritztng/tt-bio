@@ -9,6 +9,8 @@
 //   silu = x s for x >= 0, x e s for x < 0 (sigmoid(x) = e/(1+e) there, no cancellation).
 // Float64 reference over every bfloat16 in [-90, 90]: max relative error 6.5e-6, 3.6e-6 for N(0,3)
 // inputs (perf/spd_swiglu/silu_emu.py). The bfloat16 output tolerance is 2e-3.
+// SIGMOID: the same s (e s for x < 0) without the product with x, for metal's sigmoid under approx mode on an
+// fp32 dest (metal_overlay): the accurate path there is the same exp and reciprocal at ~3x the instructions.
 //
 // Two rows run in lockstep so each MAD's two-cycle latency is covered by the other row; x is
 // reloaded from dest at the end instead of held, which keeps both rows inside the eight LREGs. The
@@ -34,7 +36,7 @@ sfpi_inline sfpi::vFloat mad(sfpi::vFloat a, sfpi::vFloat b, sfpi::vFloat c) {
     return __builtin_rvtt_sfpmad(a.get(), b.get(), c.get(), sfpi::SFPMAD_MOD1_OFFSET_NONE);
 }
 
-template <bool is_fp32_dest_acc_en, int ITERATIONS>
+template <bool is_fp32_dest_acc_en, int ITERATIONS, bool SIGMOID = false>
 inline void calculate_silu_f32() {
     static_assert(ITERATIONS % 2 == 0, "calculate_silu_f32 runs two rows per step");
 #pragma GCC unroll 4
@@ -86,8 +88,11 @@ inline void calculate_silu_f32() {
         v_endif;
         v_if (x1 < 0.0f) { y1 = y1 * e1; }
         v_endif;
-        sfpi::vFloat o0 = x0 * y0;
-        sfpi::vFloat o1 = x1 * y1;
+        sfpi::vFloat o0 = y0, o1 = y1;
+        if constexpr (!SIGMOID) {
+            o0 = x0 * y0;
+            o1 = x1 * y1;
+        }
         if constexpr (!is_fp32_dest_acc_en) {
             o0 = sfpi::reinterpret<sfpi::vFloat>(sfpi::float_to_fp16b(o0, 0));
             o1 = sfpi::reinterpret<sfpi::vFloat>(sfpi::float_to_fp16b(o1, 0));

@@ -101,7 +101,7 @@ class _Rec:
         class _O(tuple):
             shape = (1, 1, 512, 1024)
 
-        def sdpa(qkv, bias, scale, heads, out_dtype=ttnn.float32):
+        def sdpa(qkv, bias, scale, heads, out_dtype=ttnn.float32, memory_config=None):
             self.calls.append(("sdpa32", out_dtype))
             return _O()
         monkeypatch.setattr(T, "_sdpa32_fused", sdpa)

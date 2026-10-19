@@ -173,7 +173,7 @@ def matmul(x, w, bias=None, compute_kernel_config=None, dtype=None, transpose_b:
     ag = sys.modules.get(f"{__package__}.autograd")
     if ag is not None and (isinstance(x, ag.Tensor) or isinstance(w, ag.Tensor)):
         return None
-    if activation is not None and activation not in _ACTIVATIONS:
+    if activation is not None and not (isinstance(activation, str) and activation in _ACTIVATIONS):
         _decline(x, w, transpose_b, "activation")
         return None
     if memory_config is not None and memory_config.buffer_type != ttnn.BufferType.DRAM:

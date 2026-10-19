@@ -152,14 +152,14 @@ def test_qkrh_default(wormhole, switch, monkeypatch):
 @pytest.mark.parametrize("wormhole", [True, False])
 @pytest.mark.parametrize("switch", [None, True, False])
 def test_saprot_qkrh_default(wormhole, switch, monkeypatch):
-    """SaProt's packed RoPE + head split program defaults on with block-fp8 weights (--fast) only, on both arches; the
-    switch overrides."""
+    """SaProt's packed RoPE + head split program defaults on with block-fp8 weights (--fast) on both arches; the switch
+    overrides."""
     from tt_bio import saprot
     monkeypatch.setattr(tenstorrent, "is_wormhole", lambda: wormhole)
     monkeypatch.setattr(saprot, "_SAPROT_QKRH", switch)
     for dtype in (ttnn.bfloat8_b, ttnn.bfloat16):
         w = type("W", (), {"dtype": dtype})()
-        want = dtype == ttnn.bfloat8_b if switch is None else switch
+        want = (dtype == ttnn.bfloat8_b) if switch is None else switch
         assert saprot._saprot_qkrh(w) is want
 
 
@@ -185,12 +185,33 @@ def test_mm_gate_default(wormhole, switch, monkeypatch):
         assert esmc._mm_gate_on() is (False if switch is None else switch)
 
 
+@pytest.mark.parametrize("wdtype,bf16_acc", [("bfloat16", False), ("bfloat8_b", True)])
+@pytest.mark.parametrize("on", [True, False])
+def test_mm_config_blocks_8x8_under_bf16_acc(wdtype, bf16_acc, on, monkeypatch):
+    """--fast's bf16-accumulated block-fp8 projections take 8 x 8 blocks; every other minimal_matmul keeps 16 x 4."""
+    monkeypatch.setattr(esmc, "_ESMC_MM_CFG", True)
+    monkeypatch.setattr(esmc, "_ESMC_MM_CFG_BF16_ACC_8X8", on)
+    monkeypatch.setattr(esmc.ttnn, "MinimalMatmulConfig", lambda **kw: kw, raising=False)
+    x = types.SimpleNamespace(device=lambda: types.SimpleNamespace(
+        compute_with_storage_grid_size=lambda: types.SimpleNamespace(x=8, y=9)))
+    cfg = esmc._mm_config(x, _T(1152, 3456, getattr(esmc.ttnn, wdtype)))["config"]
+    mn8 = bf16_acc and on
+    assert (cfg["M_block_size"], cfg["N_block_size"]) == ((8, 8) if mn8 else (16, 4))
+    assert (cfg["K_block_size"], cfg["subblock_w"]) == (4, 4 if bf16_acc else 2)
+
+
+def test_esmc_ffn_ln_l1_default_on():
+    assert esmc._ESMC_FFN_LN_L1 is True
+
+
+@pytest.mark.parametrize("wormhole", [True, False])
 @pytest.mark.parametrize("width", [480, 1280])
-def test_saprot_hifi2_ffn_projections_only(width, monkeypatch):
-    """SaProt --fast lowers only fc1 and fc2 to HiFi2, and only from width _HIFI2_MIN_WIDTH up (qkv/out at HiFi2 failed
-    the fast bar)."""
+def test_saprot_hifi2_ffn_projections_only(width, wormhole, monkeypatch):
+    """SaProt --fast lowers only fc1 and fc2 to HiFi2, only from width _HIFI2_MIN_WIDTH up (qkv/out at HiFi2 failed
+    the fast bar), on both arches."""
     from tt_bio import saprot as sp
     monkeypatch.setattr(sp, "_SAPROT_HIFI2", None)
+    monkeypatch.setattr("tt_bio.tenstorrent.is_wormhole", lambda: wormhole)
     lin = sp._SaprotLin()
     lin.compute_kernel_config = _Ck(math_fidelity=ttnn.MathFidelity.HiFi3)
     lin.norm_weight = _T(1, width, ttnn.bfloat16)

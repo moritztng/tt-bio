@@ -396,9 +396,9 @@ def set_tail(v):
     return prev
 
 
-def _dram_tile_bf16(t):
-    return (t.dtype == ttnn.bfloat16 and t.layout == ttnn.TILE_LAYOUT
-            and t.memory_config() == ttnn.DRAM_MEMORY_CONFIG)
+def _dram_tile_bf16(t, b8=False):
+    return (t.dtype in ((ttnn.bfloat16, ttnn.bfloat8_b) if b8 else (ttnn.bfloat16,))
+            and t.layout == ttnn.TILE_LAYOUT and t.memory_config() == ttnn.DRAM_MEMORY_CONFIG)
 
 
 def _g3d(o, g):
@@ -409,9 +409,10 @@ def _g3d(o, g):
 
 
 def _tail_ok(o, g, w, resid, bias=None):
+    from .tenstorrent import lever
     po, pg = [int(d) for d in o.padded_shape], [int(d) for d in g.padded_shape]
     if not (len(po) == 4 and (po == pg or _g3d(o, g)) and po[-1] == TILE and _dram_tile_bf16(o)
-            and _dram_tile_bf16(g) and _dram_tile_bf16(w) and len(w.shape) == 2
+            and _dram_tile_bf16(g, b8=lever("triatt_ln_b8g")) and _dram_tile_bf16(w) and len(w.shape) == 2
             and int(w.shape[-2]) == po[1] * TILE and int(w.shape[-1]) % TILE == 0):
         return False
     if bias is not None and not (TAIL_KB1 and bias.dtype == ttnn.bfloat16
@@ -489,11 +490,11 @@ def _build_tail(o, g, w, out, z, ckc, grid, resid, brows=None):
     compute = ttnn.KernelDescriptor(
         kernel_source=str(_TAIL_DIR / "compute.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[kt, nt, int(resid), TAIL_SIGPOLY, TAIL_RNE, _tail_dw(kt, nt), TAIL_KB1,
-                           int(brows is not None)],
+                           int(brows is not None), int(g.dtype == ttnn.bfloat8_b)],
         runtime_args=cp,
         config=ttnn.ComputeConfigDescriptor(math_fidelity=fid, math_approx_mode=approx,
                                             fp32_dest_acc_en=fp32, dst_full_sync_en=full))
-    cbs = [_tail_cb(0, core_grid, kt * nt), _tail_cb(1, core_grid, 2 * kt), _tail_cb(2, core_grid, 2 * kt),
+    cbs = [_tail_cb(0, core_grid, kt * nt), _tail_cb(1, core_grid, 2 * kt), _tail_cb(2, core_grid, 2 * kt, g.dtype),
            _tail_cb(4, core_grid, kt), _tail_cb(16, core_grid, 2 * nt)]
     if resid:
         cbs.append(_tail_cb(3, core_grid, 2 * nt))
@@ -523,7 +524,7 @@ def gated_out_proj(o, g, w, ckc, resid=None, bias=None):
         out = resid
     grid = tuple(COMPUTE_GRID_MAIN)
     brows = _bias_rows(bias) if bias is not None else None
-    key = (str(o.padded_shape), str(g.padded_shape), str(w.padded_shape), str(out.padded_shape), grid,
+    key = (str(o.padded_shape), str(g.padded_shape), str(g.dtype), str(w.padded_shape), str(out.padded_shape), grid,
            G.ckc_args(ckc), resid is not None, bias is not None, TAIL_SIGPOLY, TAIL_RNE, TAIL_KB1)
     entry = _TAIL_CACHE.get(key)
     if entry is None:
