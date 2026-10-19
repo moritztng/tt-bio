@@ -390,7 +390,8 @@ def tail_on(biased: bool = False) -> bool:
         return TAIL_FORCE == "1"
     from .tenstorrent import is_wormhole, lever
     if biased:   # graded on Wormhole only (AF2-IG); Blackhole keeps today's fold until its own grade
-        return lever("triatt_tail_bias") and (is_wormhole() or TAIL_BIAS_BH)
+        # BindCraft 2 runs AF2's blocks outside AF2's lever scope, so its arm opts in by itself.
+        return (lever("triatt_tail_bias") or TAIL_UNRECORDED) and (is_wormhole() or TAIL_BIAS_BH)
     return lever("triatt_tail")
 
 
