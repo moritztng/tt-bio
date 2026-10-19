@@ -224,9 +224,11 @@ RESID_REFUSED: set = set()
 _SAPROT_RESID = (env_flag("TT_BIO_SAPROT_RESID", True) if os.environ.get("TT_BIO_SAPROT_RESID", "").strip() else None)
 
 
-# Diagnostic (off): the unfused residual adds write the residual stream to L1, so the next add and the block layer_norm
-# read it from L1 instead of DRAM. Aimed at --fast's 66 adds + 67 layer_norms (WH 650M 12.9 + 13.7 ms of ~156).
-_SAPROT_X_L1 = env_flag("TT_BIO_SAPROT_X_L1", False)
+# The unfused residual adds write the residual stream to L1, so the next add and the block layer_norm read it from L1
+# instead of DRAM. Page cell on a Galaxy chip at 1000 MHz, --fast, 2 rounds x 3, output bit-identical: 35M 39.3 -> 38.6 ms,
+# 650M 155.2 -> 151.7 (hPCSK9 156.2 -> 152.1), 1.3B 297.5 -> 290.0. None = on with block-fp8 weights (--fast) only, as
+# _SAPROT_LN_L1; normal mode's out/fc2 adds are fused into the matmul (_SAPROT_RESID) where it serves.
+_SAPROT_X_L1 = (env_flag("TT_BIO_SAPROT_X_L1", False) if os.environ.get("TT_BIO_SAPROT_X_L1", "").strip() else None)
 _X_L1_REFUSED: set = set()
 #: [residual sums written to L1, declined]
 X_L1_STATS = [0, 0]
@@ -326,6 +328,7 @@ class _SaprotLin(_MMLin):
     def _lin_add(self, x, w, bias, resid):
         """resid + (x @ w + bias), in one matmul where _SAPROT_RESID serves, else as the projection and an add."""
         on = w.dtype == ttnn.bfloat16 if _SAPROT_RESID is None else _SAPROT_RESID
+        x_l1 = w.dtype == ttnn.bfloat8_b if _SAPROT_X_L1 is None else _SAPROT_X_L1
         ck = self._ck(w)
         prog = _saprot_prog(x, w, None, ck.math_fidelity == ttnn.MathFidelity.HiFi2) if on else None
         if prog is not None and prog[0] == "mm":
@@ -349,7 +352,7 @@ class _SaprotLin(_MMLin):
                 RESID_REFUSED.add((tuple(w.shape), w.dtype))
         r = self._lin(x, w, bias=bias)
         out = None
-        if _SAPROT_X_L1 and tuple(resid.padded_shape) not in _X_L1_REFUSED:
+        if x_l1 and tuple(resid.padded_shape) not in _X_L1_REFUSED:
             try:
                 out = ttnn.add(resid, r, memory_config=ttnn.L1_MEMORY_CONFIG)
                 X_L1_STATS[0] += 1

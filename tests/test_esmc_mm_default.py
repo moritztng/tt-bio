@@ -216,6 +216,25 @@ def test_saprot_ln_l1_fast_only(wdtype, want_l1, monkeypatch):
     assert (seen == [ttnn.L1_MEMORY_CONFIG]) == want_l1 and len(seen) == 1
 
 
+@pytest.mark.parametrize("wdtype, want_l1", [("bfloat8_b", True), ("bfloat16", False)])
+def test_saprot_x_l1_fast_only(wdtype, want_l1, monkeypatch):
+    """SaProt's unfused residual add writes the stream to L1 by default only with block-fp8 weights (--fast)."""
+    from tt_bio import saprot as sp
+    monkeypatch.setattr(sp, "_SAPROT_X_L1", None)
+    monkeypatch.setattr(sp, "_SAPROT_RESID", False)
+    monkeypatch.setattr(sp, "_X_L1_REFUSED", set())
+    seen = []
+    monkeypatch.setattr(sp.ttnn, "add", lambda a, b, **kw: seen.append(kw.get("memory_config")) or a)
+    monkeypatch.setattr(sp.ttnn, "deallocate", lambda t: None)
+    lin = sp._SaprotLin()
+    lin.compute_kernel_config = _Ck(math_fidelity=ttnn.MathFidelity.HiFi3)
+    lin.norm_weight = _T(1, 1280, ttnn.bfloat16)
+    lin._lin = lambda x, w, bias=None: x
+    resid = types.SimpleNamespace(padded_shape=(7, 544, 1280))
+    lin._lin_add(resid, _T(1280, 1280, getattr(ttnn, wdtype)), None, resid)
+    assert (seen == [ttnn.L1_MEMORY_CONFIG]) == want_l1 and len(seen) == 1
+
+
 @pytest.mark.parametrize("switch", [None, True, False])
 def test_saprot_sdpa_fp32_dest_with_qkrh(switch, monkeypatch):
     """SaProt's page attention runs at HiFi4 fp32 dest behind the packed RoPE program by default; the switch overrides."""
