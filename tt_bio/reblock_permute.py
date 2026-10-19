@@ -684,10 +684,10 @@ def _prepare_back(x, out, device):
     return entry
 
 
-# On Wormhole the move takes permute_back_pk (the packer re-tiles, the writer copies whole tiles) where it serves:
-# bit-exact, 1.48 vs 2.09 ms at 512 c256 and 5.67 vs 6.91 ms at 1024 (one Galaxy chip, 1000 MHz), where this kernel's
-# reader gathers 64 NOC packets a tile. Blackhole keeps this kernel until it is measured there. TT_BIO_PBPK overrides
-# the arch default either way.
+# The move takes permute_back_pk (the packer re-tiles, the writer copies whole tiles) where it serves, on both archs:
+# bit-exact, and faster than this kernel, whose reader gathers 64 NOC packets a tile. Wormhole (Galaxy chip, 1000 MHz)
+# 1.48 vs 2.09 ms at 512 c256, 5.67 vs 6.91 ms at 1024; p150a (1350 MHz) 0.47 vs 0.56 ms at 512 c128, 1.92 vs
+# 3.18 ms at 1024. TT_BIO_PBPK=0 turns it off.
 _PBPK = None
 STATS_PBPK = [0]
 
@@ -695,7 +695,7 @@ STATS_PBPK = [0]
 def _pbpk():
     global _PBPK
     if _PBPK is None:
-        _PBPK = env_flag("TT_BIO_PBPK", ttnn.get_arch_name().startswith("wormhole"))
+        _PBPK = env_flag("TT_BIO_PBPK", True)
     return _PBPK
 
 
