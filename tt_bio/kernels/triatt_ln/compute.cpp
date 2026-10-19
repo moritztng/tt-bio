@@ -30,6 +30,8 @@ constexpr uint32_t RNE = get_compile_time_arg_val(2);   // 1: round to nearest e
 constexpr uint32_t ABL = get_compile_time_arg_val(3);
 #ifndef B8
 #define B8 0   // triatt_ln_b8: tiles n < nq (runtime arg 1: q, k, v) pack bfp8 to c_2, the rest bf16 to c_4 at n - nq
+#define QS 0   // c_2 / c_4 slot a row takes in every group (the max over groups), so a slot never wraps the CB
+#define GS 0
 #endif
 constexpr uint32_t SBW = 4;                              // fp32 half-sync DST holds 4 tiles
 constexpr uint32_t NFULL = NW / SBW * SBW;
@@ -102,8 +104,8 @@ void kernel_main() {
         cb_push_back(xn_cb, Kt);
         cb_wait_front(xn_cb, Kt);
 
-        if (nq) cb_reserve_back(out_cb, nq);
-        if (nq < NW) cb_reserve_back(tt::CBIndex::c_4, NW - nq);
+        if (nq) cb_reserve_back(out_cb, B8 ? QS : NW);
+        if (nq < NW) cb_reserve_back(tt::CBIndex::c_4, GS);
         if constexpr (!(ABL & 2)) {
             mm_block_init_short(xn_cb, w_cb, false, SBW, 1, Kt);
             reconfig_data_format(w_cb, xn_cb);
@@ -114,8 +116,8 @@ void kernel_main() {
                 project<NW % SBW>(NFULL, nq);
             }
         }
-        if (nq) cb_push_back(out_cb, nq);
-        if (nq < NW) cb_push_back(tt::CBIndex::c_4, NW - nq);
+        if (nq) cb_push_back(out_cb, B8 ? QS : NW);
+        if (nq < NW) cb_push_back(tt::CBIndex::c_4, GS);
         cb_pop_front(xn_cb, Kt);
     }
 }

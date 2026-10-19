@@ -23,6 +23,8 @@ inline uint32_t row_of(uint32_t r0, uint32_t i) {
 #endif
 #ifndef B8
 #define B8 0      // triatt_ln_b8: this core's first nq tiles (runtime arg 5: q, k, v) come bfp8 from c_2, the rest bf16 from c_4
+#define QS 0      // in slots of QS and GS tiles a row, the same in every group (compute.cpp)
+#define GS 0
 #endif
 
 // The H = 0 build has one output accessor and must never instantiate the five-accessor body. Outside a
@@ -61,8 +63,8 @@ void write_heads(uint32_t r0, uint32_t nrows, uint32_t out_cb, uint32_t tb, uint
     const uint32_t tb_hi = B8 && nq < NW ? get_tile_size(hi_cb) : tb;
     for (uint32_t i = 0; i < nrows; ++i) {
         const uint32_t r = row_of(r0, i);
-        if (nq) cb_wait_front(out_cb, nq);
-        if (nq < NW) cb_wait_front(hi_cb, NW - nq);
+        if (nq) cb_wait_front(out_cb, B8 ? QS : NW);
+        if (nq < NW) cb_wait_front(hi_cb, GS);
         uint32_t src = nq ? get_read_ptr(out_cb) : get_read_ptr(hi_cb);
         const uint32_t base = (r / MT) * H * MT + r % MT;
         for (uint32_t j = 0, n = n0; j < NW && n <= 4 * H; ++j, ++n) {
@@ -80,8 +82,8 @@ void write_heads(uint32_t r0, uint32_t nrows, uint32_t out_cb, uint32_t tb, uint
             }
         }
         noc_async_writes_flushed();
-        if (nq) cb_pop_front(out_cb, nq);
-        if (nq < NW) cb_pop_front(hi_cb, NW - nq);
+        if (nq) cb_pop_front(out_cb, B8 ? QS : NW);
+        if (nq < NW) cb_pop_front(hi_cb, GS);
     }
 }
 

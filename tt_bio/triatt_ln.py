@@ -150,8 +150,10 @@ def _plan(kt, nw, tr, dev, ncores):
     return None
 
 
-def _b8(nq):
-    return [("B8", "1")] if nq else []
+def _b8(q8):
+    """The bfp8 defines for `_q8`'s (QS, GS) slots: every group reserves and pops the same slot a row and fills its
+    own share, so a group whose share does not divide the CB (OpenDDE: 25 and 11 of 50) never wraps a row."""
+    return [("B8", "1"), ("QS", str(q8[0])), ("GS", str(q8[1]))] if q8 else []
 
 
 def _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw, nq=0):
@@ -186,12 +188,12 @@ def _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw, nq=0):
     writer = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "writer.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[H, MT, nw, nwf] + sum((acc(o) for o in outs), []),
-        defines=([("ABL_W", "1")] if ABL & 4 else []) + _b8(nq),
+        defines=([("ABL_W", "1")] if ABL & 4 else []) + _b8(_q8(nq, g, nw)),
         runtime_args=wr, common_runtime_args=[0] * len(outs), config=ttnn.WriterConfigDescriptor())
     fid, approx, _, full = ckc
     compute = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "compute.cpp"), source_type=src, core_ranges=core_grid,
-        compile_time_args=[kt, nw, 0, ABL], runtime_args=cp, defines=_b8(nq),   # RNE off: pack truncates, as T1 ships
+        compile_time_args=[kt, nw, 0, ABL], runtime_args=cp, defines=_b8(_q8(nq, g, nw)),   # RNE off: pack truncates, as T1 ships
         config=ttnn.ComputeConfigDescriptor(math_fidelity=fid, math_approx_mode=approx,
                                             fp32_dest_acc_en=True, dst_full_sync_en=full))
     lo, hi = _q8(nq, g, nw) or (nw, 0)
