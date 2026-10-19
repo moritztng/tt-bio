@@ -384,6 +384,9 @@ def _reject(reason, shape):
     return None
 
 
+#: bench-only (perf/spd_m_protenix/sdpa_b8.py): the destination's dtype when set, else q's
+OUT_DTYPE = None
+
 def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None, kv_buffer_factor=2,
          q_split_cap: int = -1, gate=None, padded_mask: bool = False):
     """The fold's SDPA with the mask read once per head, or `None` to leave the call alone.
@@ -453,7 +456,7 @@ def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None, kv_buffer_fac
     # narrower destination is a page-size change and not a kernel change. Byte-identical while the
     # gate above only admits bf16 operands.
     out = ttnn.allocate_tensor_on_device(
-        ttnn.Shape(shape), q.dtype, ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG)
+        ttnn.Shape(shape), OUT_DTYPE or q.dtype, ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG)
     # The op's own default compute kernel config, not the trunk's -- see perf/triatt_fused/s4_gate.py
     ckc = _ckc(ckc_default)
 
