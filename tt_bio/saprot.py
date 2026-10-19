@@ -35,7 +35,9 @@ import ttnn
 from tt_bio.envflags import env_flag
 from tt_bio.qk_rope_heads import STATS as QKRH_STATS, rope_heads_packed  # noqa: F401 (QKRH_STATS: read by esmc_ab)
 
+from tt_bio import ops
 from tt_bio.tenstorrent import (
+    CORE_GRID_MAIN,
     Module,
     TorchWrapper,
     Weights,
@@ -179,6 +181,14 @@ _PROGS = {
     (False, 1920, 480): ("mm", (16, 4, 4, 1, 4)),
     (False, 480, 1920): ("2d", (True, 5)),
 }
+# --fast at HiFi2 (_SAPROT_HIFI2) runs a different best program on some shapes; lin_sweep --fast --fidelity HiFi2, Galaxy
+# chip at 1000 MHz, 650M (ms, against the HiFi3 pick above): qkv 0.839 -> 0.728, out 0.350 -> 0.252, fc2 1.006 -> 0.680.
+# Shapes not listed here keep the table above.
+_PROGS_HIFI2 = {
+    (True, 1280, 3840): ("mm", (8, 4, 8, 1, 4)),
+    (True, 1280, 1280): ("mm", (8, 8, 8, 1, 2)),
+    (True, 5120, 1280): ("mm", (8, 8, 8, 1, 2)),
+}
 _PROG_ROWS = (3072, 4096)   # page batch 7 x 544 = 3808 rows: the shape the table was measured at
 PROG_STATS = [0, 0, 0]   # projections served by a measured program: minimal_matmul, 2D multicast, minimal_matmul + residual
 # The block's residual add inside the out projection's and fc2's matmul (dit_minimal_matmul_addcmul_fused:
@@ -187,14 +197,15 @@ PROG_STATS = [0, 0, 0]   # projections served by a measured program: minimal_mat
 _SAPROT_RESID = env_flag("TT_BIO_SAPROT_RESID", True)
 
 
-def _saprot_prog(x, w, act):
+def _saprot_prog(x, w, act, hifi2=False):
     """("mm", MinimalMatmulConfig) or ("2d", program config) for this projection, or None where the default serves."""
     if _SAPROT_PROG is False:
         return None
     from tt_bio import tenstorrent
     k, n = int(w.shape[-2]), int(w.shape[-1])
     rows = x.volume() // k
-    hit = _PROGS.get((tenstorrent.is_wormhole(), k, n))
+    key = (tenstorrent.is_wormhole(), k, n)
+    hit = (_PROGS_HIFI2.get(key) if hifi2 else None) or _PROGS.get(key)
     if hit is None or not _PROG_ROWS[0] <= rows <= _PROG_ROWS[1] or act not in (None, "gelu"):
         return None
     kind, p = hit
@@ -215,18 +226,38 @@ def _saprot_prog(x, w, act):
         per_core_N=pn, transpose_mcast=tm, fused_activation=fa, fuse_batch=True)
 
 
+# The block-fp8 projections of --fast at HiFi2 instead of the model's HiFi3, fp32 accumulation kept: a block-fp8 weight's
+# 7-bit mantissa is consumed whole in two fidelity phases (ESMC ships the same on its minimal_matmuls). None = on for
+# models at least _HIFI2_MIN_WIDTH wide: SaProt 35M's pooled cos vs fp32 fell to 0.999879 at HiFi2, under the 0.9999 bar.
+_SAPROT_HIFI2 = env_flag("TT_BIO_SAPROT_HIFI2", None)
+_HIFI2_MIN_WIDTH = 1280
+
+
 class _SaprotLin(_MMLin):
     MM_BFP8_HIFI2 = False   # SaProt 35M --fast at HiFi2: pooled cos vs fp32 0.999915 -> 0.999879, under the 0.9999 bar
 
     def _mm_on(self) -> bool:
         return _saprot_mm(int(self.norm_weight.shape[-1]))
 
+    def _ck(self, w):
+        """The model's kernel config, at HiFi2 for a block-fp8 weight where _SAPROT_HIFI2 serves."""
+        ck = self.compute_kernel_config
+        on = int(self.norm_weight.shape[-1]) >= _HIFI2_MIN_WIDTH if _SAPROT_HIFI2 is None else _SAPROT_HIFI2
+        if not (on and w.dtype == ttnn.bfloat8_b
+                and ck.math_fidelity in (ttnn.MathFidelity.HiFi3, ttnn.MathFidelity.HiFi4)):
+            return ck
+        if getattr(self, "_ck_hifi2", None) is None:
+            self._ck_hifi2 = type(ck)(math_fidelity=ttnn.MathFidelity.HiFi2, math_approx_mode=ck.math_approx_mode,
+                                      fp32_dest_acc_en=ck.fp32_dest_acc_en, packer_l1_acc=ck.packer_l1_acc)
+        return self._ck_hifi2
+
     def _lin(self, x, w, bias=None, dtype=None, **kw):
         act = kw.get("activation")
-        prog = None if set(kw) - {"activation"} else _saprot_prog(x, w, act)
+        ck = self._ck(w)
+        hifi2 = ck.math_fidelity == ttnn.MathFidelity.HiFi2
+        prog = None if set(kw) - {"activation"} else _saprot_prog(x, w, act, hifi2)
         if prog is not None:
             kind, cfg = prog
-            ck = self.compute_kernel_config
             dt = _dtype(ttnn.bfloat16) if dtype is None else dtype
             try:
                 if kind == "mm":
@@ -240,6 +271,9 @@ class _SaprotLin(_MMLin):
                 return out
             except RuntimeError:   # a program this shape or grid cannot place: the default serves
                 pass
+        if ck is not self.compute_kernel_config and not self._mm_on():
+            return ops.linear(x, w, bias=bias, compute_kernel_config=ck, dtype=_dtype(ttnn.bfloat16) if dtype is None
+                              else dtype, core_grid=CORE_GRID_MAIN, **kw)
         return super()._lin(x, w, bias=bias, dtype=dtype, **kw)
 
     def _lin_add(self, x, w, bias, resid):

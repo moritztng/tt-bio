@@ -99,20 +99,22 @@ def main() -> int:
             return rec
 
         kw = {"activation": act} if act else {}
-        run("model", lambda: ops.linear(xd, wd, bias=bd, compute_kernel_config=ck, dtype=ttnn.bfloat16,
+        lin = S._SaprotLin.__new__(S._SaprotLin)
+        lin.compute_kernel_config, lin.norm_weight = ck, torch.empty(d)
+        mck = lin._ck(wd)   # what the model ships for this weight (HiFi2 at --fast, _SAPROT_HIFI2); every arm runs it
+        run("model", lambda: ops.linear(xd, wd, bias=bd, compute_kernel_config=mck, dtype=ttnn.bfloat16,
                                         core_grid=T.CORE_GRID_MAIN, **kw), {})
-        if S._saprot_prog(xd, wd, act) is not None:
-            lin = S._SaprotLin.__new__(S._SaprotLin)
-            lin.compute_kernel_config = ck
+        hifi2 = mck.math_fidelity == ttnn.MathFidelity.HiFi2
+        if S._saprot_prog(xd, wd, act, hifi2) is not None:
             before = list(S.PROG_STATS)
-            rec = run("pick", lambda: lin._lin(xd, wd, bias=bd, **kw), {"kind": S._saprot_prog(xd, wd, act)[0]})
+            rec = run("pick", lambda: lin._lin(xd, wd, bias=bd, **kw), {"kind": S._saprot_prog(xd, wd, act, hifi2)[0]})
             assert S.PROG_STATS != before or "error" in rec, "the shipped program fell back to the default"
         if a.pick_only:
             ttnn.deallocate(xd); ttnn.deallocate(wd); ttnn.deallocate(bd)
             continue
         fa = ttnn.UnaryWithParam(ttnn.UnaryOpType.GELU, 0.0) if act else None   # exact GELU, as the model ships it
         mt, kt, nt = -(-M // 32), K // 32, N // 32
-        cap = 4 if ck.fp32_dest_acc_en else 8
+        cap = 4 if mck.fp32_dest_acc_en else 8
         arms = []
         for gx, gy in {(g.x, g.y)}:
             for tm in (False, True):  # 2D: rows over y (or x when transposed)
@@ -120,7 +122,7 @@ def main() -> int:
                 pm, pn = -(-mt // rows_ax), -(-nt // cols_ax)
                 for kb in [k for k in (1, 2, 4, 5, 8, 10) if kt % k == 0]:
                     for sh, sw in _subblocks(pm, pn, cap):
-                        l1 = (pm * kb + kb * pn) * 2 * 2048 + pm * pn * (4096 if ck.fp32_dest_acc_en else 2048) * 2
+                        l1 = (pm * kb + kb * pn) * 2 * 2048 + pm * pn * (4096 if mck.fp32_dest_acc_en else 2048) * 2
                         arms.append((l1, "2d", dict(tm=tm, kb=kb, sh=sh, sw=sw, pm=pm, pn=pn)))
             pn1 = -(-nt // (gx * gy))
             for kb in [k for k in (1, 2, 4, 5, 8) if kt % k == 0]:
@@ -145,7 +147,7 @@ def main() -> int:
                     compute_with_storage_grid_size=ttnn.CoreCoord(g.x, g.y), in0_block_w=p["kb"], out_subblock_h=p["sh"],
                     out_subblock_w=p["sw"], per_core_M=p["pm"], per_core_N=p["pn"], fuse_batch=True,
                     fused_activation=fa, mcast_in0=True)
-            run(fam, lambda pc=pc: ttnn.linear(xd, wd, bias=bd, program_config=pc, compute_kernel_config=ck,
+            run(fam, lambda pc=pc: ttnn.linear(xd, wd, bias=bd, program_config=pc, compute_kernel_config=mck,
                                                dtype=ttnn.bfloat16, memory_config=ttnn.DRAM_MEMORY_CONFIG), p)
         # minimal_matmul over its blocks (no bias+act combination issue: it takes both)
         mact = {"fused_activation": (ttnn.UnaryOpType.GELU, False)} if act else {}
@@ -155,7 +157,7 @@ def main() -> int:
             mc = ttnn.MinimalMatmulConfig(M_block_size=mb, K_block_size=kb, N_block_size=nb, subblock_h=sh, subblock_w=sw,
                                           compute_with_storage_grid_size=ttnn.CoreCoord(g.x, g.y))
             run("mm", lambda mc=mc: ttnn.experimental.minimal_matmul(
-                xd, wd, bias_tensor=bd, compute_kernel_config=ck, dtype=ttnn.bfloat16,
+                xd, wd, bias_tensor=bd, compute_kernel_config=mck, dtype=ttnn.bfloat16,
                 memory_config=ttnn.DRAM_MEMORY_CONFIG, config=mc, **mact), dict(mb=mb, kb=kb, nb=nb, sh=sh, sw=sw))
         ttnn.deallocate(xd); ttnn.deallocate(wd); ttnn.deallocate(bd)
     return 0
