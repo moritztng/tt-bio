@@ -2964,6 +2964,22 @@ RTRACE_STATS = {"eager": 0, "capture": 0, "replay": 0, "refused": 0, "regrow": 0
 # passes per round (two forwards, one recompute + VJP) all come from traces. Follows
 # TRACE_RECOMPUTE unless set on its own.
 TRACE_FORWARD = env_flag("TT_BIO_TRACE_FORWARD", TRACE_RECOMPUTE)
+
+
+@contextlib.contextmanager
+def block_traces(on: bool = True):
+    """Replay every traced block unit (checkpoint forward, recompute + VJP) for the duration, or
+    run them all eagerly with `on=False`. What `bindcraft2.predictor(trace=...)` sets; the two
+    environment flags only pick the default. Captures made inside stay cached after the exit."""
+    global TRACE_RECOMPUTE, TRACE_FORWARD
+    saved = TRACE_RECOMPUTE, TRACE_FORWARD
+    TRACE_RECOMPUTE = TRACE_FORWARD = bool(on)
+    try:
+        yield
+    finally:
+        TRACE_RECOMPUTE, TRACE_FORWARD = saved
+
+
 _RPEAK: dict = {}     # signature -> DRAM rise per bank of its first eager run; sizes the hole
 _RSHAPE: dict = {}    # forward signature -> whether fn returns a tuple
 _SCRATCH: list = [None]   # the device's `TraceScratch`, made at the first capture

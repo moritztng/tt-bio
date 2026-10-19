@@ -167,3 +167,16 @@ def test_block_trace_key_carries_the_tape_mode():
     finally:
         ops.set_grad_hook(prev)
     assert bare != taped
+
+
+def test_block_traces_switches_both_units_and_restores():
+    """`predictor(trace=...)` is an argument: inside `block_traces` both traced units follow it,
+    and the environment-flag defaults come back at the exit, also after a raise."""
+    from tt_bio import autograd
+    before = autograd.TRACE_RECOMPUTE, autograd.TRACE_FORWARD
+    for on in (True, False):
+        with pytest.raises(RuntimeError):
+            with autograd.block_traces(on):
+                assert (autograd.TRACE_RECOMPUTE, autograd.TRACE_FORWARD) == (on, on)
+                raise RuntimeError
+        assert (autograd.TRACE_RECOMPUTE, autograd.TRACE_FORWARD) == before

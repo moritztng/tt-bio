@@ -2637,7 +2637,8 @@ def predictor(*, trunk: str = "device", card: int | str | None = None, checkpoin
               extra_msa: bool = True,
               template: bool = True,
               exact: bool = False,
-              fast: bool | None = None) -> Iterator[Callable[..., object]]:
+              fast: bool | None = None,
+              trace: bool | None = None) -> Iterator[Callable[..., object]]:
     """Put tt-bio's Evoformer on card for the duration and yield a predictor factory.
 
     The factory takes BindCraft 2's own `AlphaFoldDesignModel` arguments (`presets`, `data_dir`,
@@ -2684,6 +2685,15 @@ def predictor(*, trunk: str = "device", card: int | str | None = None, checkpoin
     BindCraft 2 does not have. Read `tt_bio.autograd.EXACT_SOFTMAX_STATS` to confirm which one
     ran.
 
+    `trace` replays each Evoformer, extra-MSA and template block from a captured device trace
+    instead of enqueueing its ~300 ttnn calls from Python. The output is bit-identical to the
+    eager path: every gradient digest of a 39-call census agrees, and 5,229 replays checked
+    against eager differ by zero. It takes ~90 % of the host enqueue off a round, 0.20 s against
+    1.88 s per call on a Blackhole p300c under the same host load. The card bounds the round
+    today, so it buys s/it only on a contended host or once card time falls below the host's.
+    It needs a 2 GiB trace region at 224 tokens and defaults to the `TT_BIO_TRACE_RECOMPUTE`
+    environment flag, which is off.
+
     `memory` is how the round spends device memory, one of `MEMORY_MODES` or ``"auto"``, the
     default, which picks the fastest mode that fits this card at each fold's token axis. A
     Wormhole Galaxy chip runs ``fast`` to 512 tokens; past that, ``lean`` and ``offload`` trade
@@ -2717,7 +2727,8 @@ def predictor(*, trunk: str = "device", card: int | str | None = None, checkpoin
     # close at exit runs on the main thread. Left to the first device call, the open happens on
     # one of XLA's CPU pool threads (the device seams run there), the unlock at exit fails with
     # EPERM and the process aborts with exit 134 after the campaign has already finished.
-    get_device(trace="bc2" if autograd.TRACE_RECOMPUTE or autograd.TRACE_FORWARD else None)
+    traced = autograd.TRACE_RECOMPUTE or autograd.TRACE_FORWARD if trace is None else trace
+    get_device(trace="bc2" if traced else None)
 
     pool = checkpoints if isinstance(checkpoints, TrunkPool) else TrunkPool(
         checkpoints, resident=resident, template=template)
@@ -2735,7 +2746,9 @@ def predictor(*, trunk: str = "device", card: int | str | None = None, checkpoin
     # Outermost, so a refusal from any seam under it reaches the caller as the `MemoryError`
     # it was raised as even when JAX stringified it into a `JaxRuntimeError` on the way out.
     with refusals_unwrapped(), \
-            autograd.exact_training(exact), evoformer_on_device(evo, extra), \
+            autograd.exact_training(exact), \
+            (autograd.block_traces(trace) if trace is not None else contextlib.nullcontext()), \
+            evoformer_on_device(evo, extra), \
             template_on_device(tmpl, evo), ipa_rewrites(IPA_POINT_EINSUM, IPA_DIST_REMAT), \
             (fast_round() if fast else contextlib.nullcontext()) as armed:
         build = _factory(trunk="device", pool=pool, evoformer=evo, extra_msa=extra,
