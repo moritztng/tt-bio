@@ -6274,6 +6274,9 @@ def _atom_l1(shape, dtype) -> "ttnn.MemoryConfig | None":
     return ttnn.L1_MEMORY_CONFIG if fits else None
 
 
+_L1_UNRECORDED = env_flag("TT_BIO_L1_UNRECORDED", False)
+
+
 def _l1_fits(nbytes: int, headroom: float, reserve_per_core: int = 0) -> bool:
     """`headroom` copies of `nbytes` fit across the grid's banks with `reserve_per_core` spare.
 
@@ -6294,8 +6297,11 @@ def _l1_fits(nbytes: int, headroom: float, reserve_per_core: int = 0) -> bool:
     # answering `recording()` here instead of `taping()` passed at 288 tokens and crashed a
     # BindCraft 2 round at 576 and 864 with the same clash, inside the checkpointed forward's
     # trimul in-projection (perf/bcp_evo/out/seqlen.log); with `taping()` both run.
+    # `TT_BIO_L1_UNRECORDED` re-opens that question as an arm (bc4-bet-fuse): it answers
+    # `recording()`, to price what the untaped forward's L1 residency is worth before the clash
+    # is root-caused. Off by default.
     from . import ops
-    if ops.taping():
+    if ops.recording() if _L1_UNRECORDED else ops.taping():
         return False
     try:
         per_core = int(ttnn.get_max_worker_l1_unreserved_size())
