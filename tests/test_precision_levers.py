@@ -255,3 +255,13 @@ def test_opendde_fast_set_names_only_known_levers():
 
     assert FAST_LEVERS <= set(T.LEVERS) and {"trimul_b8in", "trimul_t2w"} | WS_CHAIN <= FAST_LEVERS and "dit_b8" not in FAST_LEVERS
     assert WH_FAST_LEVERS - FAST_LEVERS == {"trimul_t1_c384", "triatt_ln", "apb_ln", "triatt_k1", "ws_resid2", "trimul_t1w8"}
+
+
+def test_triatt_k1_offers_the_one_k_rung_when_a_narrower_fused_q_fits(monkeypatch):
+    # At padded 640 the widest dividing q (640) overflows L1 at k640 and q320 fits: the rung must still be offered.
+    import ttnn
+    monkeypatch.setattr(T, "COMPUTE_GRID_MAIN", (8, 9))
+    monkeypatch.setattr(T, "lever", lambda name: name == "triatt_k1")
+    assert T._tri_att_k_chunks(640, 640, 12, 32, ttnn.bfloat16) == (640, 160)
+    monkeypatch.setattr(T, "TRIATT_K1_ANY_Q", False)
+    assert T._tri_att_k_chunks(640, 640, 12, 32, ttnn.bfloat16) == (160,)

@@ -3365,11 +3365,18 @@ def _dividing_k_chunks(q_len: int, k_len: int) -> tuple:
 _SDPA_WIDE_K_UP = env_flag("TT_BIO_SDPA_WIDE_K_UP", False)
 
 
+# Off restores the widest-q-only fit test and the per-q fallback order, for a paired A/B.
+TRIATT_K1_ANY_Q = True
+
+
 def _k_chunks_up(q_len: int, k_len: int, heads: int, head_dim: int, dtype) -> tuple:
     """Wider dividing k_chunks whose CBs fit at `dtype`, widest first. Empty when none do.
 
-    Fit is tested at the WIDEST dividing q_chunk, which is the q the loop pairs a wide k with
-    first, so a rung offered here is a rung that config can actually take.
+    Fit is tested at each dividing q_chunk, widest first, and a rung is offered once one of them fits:
+    the loop in `_tri_att_sdpa_at` tries every fused q at a wide k before it falls back. Testing the
+    widest q alone kept the one-k rung off at padded 640, where q640 overflows and q320 fits: the TA
+    SDPA at [640, 12, 640, 32] ran (q320, k160) at 20.28 ms against (q320, k640) at 14.25 ms, float64
+    rel rms 0.0278 vs 0.0267 (spd-m-opendde tas, Galaxy chip, 1000 MHz).
     """
     from . import sdpa_generic as SG
     from . import triatt_sdpa as _TS
@@ -3379,21 +3386,19 @@ def _k_chunks_up(q_len: int, k_len: int, heads: int, head_dim: int, dtype) -> tu
     qs = [qc for qc in _tri_att_q_chunks(q_len, k_len) if padded % qc == 0]
     if not qs:
         return ()
-    qc = qs[0]
-    out = []
-    for kc in range(padded, prod, -SDPA_CHUNK_TILE):
-        if padded % kc:
-            continue
+
+    def fits(qc, kc):
         q_pf = _TS.q_parallel_factor(padded, heads, qc, cores, cap=0)
         p = SG.plan_for_shape(padded, heads, head_dim, qc, kc, grid=(cores, 1), split=(
             max(cores // (heads * q_pf), 1), heads, q_pf), dtype=dtype)
         if p["q_per_core"] != 1 or p["nh_per_core"] != 1 or p["use_padded_mask"]:
-            continue
+            return False
         pers = p["k_num_chunks"] * p["Sq_chunk_t"] * p["Sk_chunk_t"]
-        if SG.cb_fits_l1(p, mask_cb_tiles=pers, one_k_trim=True,
-                         **{f"{o}_dtype": dtype for o in ("q", "k", "v", "mask", "out")}):
-            out.append(kc)
-    return tuple(out)
+        return SG.cb_fits_l1(p, mask_cb_tiles=pers, one_k_trim=True,
+                             **{f"{o}_dtype": dtype for o in ("q", "k", "v", "mask", "out")})
+
+    return tuple(kc for kc in range(padded, prod, -SDPA_CHUNK_TILE)
+                 if padded % kc == 0 and any(fits(qc, kc) for qc in (qs if TRIATT_K1_ANY_Q else qs[:1])))
 
 
 def _tri_att_k_chunks(q_len: int, k_len: int, heads=None, head_dim=None, dtype=None) -> tuple:
@@ -3591,9 +3596,10 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None, gate=None):
         _qs = tuple(qc for qc in _tri_att_q_chunks(q_len, k_len)
                     if _padded_sdpa_len(q_len) % qc == 0)
         for k_chunk in k_chunks[:-1]:
-            for q_chunk in _qs:
-                cfg = (q_len, k_len, q_chunk, k_chunk, q.dtype)
-                if cfg in _SDPA_QK_OVER_L1:
+            # Every fused q at this k before any fallback: a wide q the fused kernel declines would
+            # otherwise hand the call to the padded pair or the stock op while a narrower fused q fits.
+            for q_chunk in (_qs if TRIATT_K1_ANY_Q else ()):
+                if (q_len, k_len, q_chunk, k_chunk, q.dtype) in _SDPA_QK_OVER_L1:
                     continue
                 o = _triatt_sdpa.sdpa(q, k, v, bias, scale, q_chunk, k_chunk,
                                       ckc_default=ckc, gate=gate)
@@ -3601,6 +3607,17 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None, gate=None):
                     SDPA_K_CHUNK_STATS[0] += 1
                     _sdpa_pick(q_len, k_len, q_chunk, k_chunk, "fused")
                     return o
+            for q_chunk in _qs:
+                cfg = (q_len, k_len, q_chunk, k_chunk, q.dtype)
+                if cfg in _SDPA_QK_OVER_L1:
+                    continue
+                if not TRIATT_K1_ANY_Q:
+                    o = _triatt_sdpa.sdpa(q, k, v, bias, scale, q_chunk, k_chunk,
+                                          ckc_default=ckc, gate=gate)
+                    if o is not None:
+                        SDPA_K_CHUNK_STATS[0] += 1
+                        _sdpa_pick(q_len, k_len, q_chunk, k_chunk, "fused")
+                        return o
                 if gate is not None:
                     continue
                 o = padded()
