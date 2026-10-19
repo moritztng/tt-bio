@@ -2976,6 +2976,16 @@ TRACE_RECOMPUTE_CHECK = int(os.environ.get("TT_BIO_TRACE_RECOMPUTE_CHECK", "0"))
 RTRACE_CHECKS: list = []
 
 
+_RMODE: dict = {}     # diagnostic: the ambient mode at a key's registration and at its capture
+
+
+def _mode():
+    from . import ops
+    return dict(taping=ops.taping(), recording=ops.recording(), grad=_GRAD_ENABLED,
+                nogradinf=ops.NOGRAD_IS_INFERENCE, relu_entry=ops._KERNEL_ENTRIES.get("pair_relu") is not None,
+                raw=ops._RAW_DEPTH)
+
+
 def _rt_raw(t, home):
     return home(t) if isinstance(t, Tensor) else (t if isinstance(t, ttnn.Tensor) else None)
 
@@ -3130,10 +3140,7 @@ def _rt_batch(device, sig, sh):
     if TRACE_RECOMPUTE_CHECK:
         def logged(key, run):
             def go():
-                from . import ops
-                if ops.taping() != sig[-2]:
-                    print(f"[trace-check] capture {key!r}: taping {ops.taping()} under a key made at {sig[-2]}",
-                          flush=True)
+                _RMODE.setdefault(("cap", key, sig), _mode())
                 _, _ROPS[(key, sig)] = _ops(run)
             return go
         runs = [logged(key, run) for key, run in zip(pend, runs)]
@@ -3218,6 +3225,8 @@ def _traced_recompute(key, fn, inputs, home, seeded) -> bool:
                     ttnn.copy(_grad_value(dup), ob)
             del y, inner
         _RPEND.setdefault(sig, {})[key] = make
+        if TRACE_RECOMPUTE_CHECK:
+            _RMODE[("key", key, sig)] = _mode()
         _RTRACE[(key, sig)] = 1
         return True
     if sig not in _RSHARED:
@@ -3268,8 +3277,8 @@ def _traced_forward(key, fn, inputs):
             if max(r.values()) > 0:
                 print(f"[trace-check] fwd replay {RTRACE_STATS['replay']} {key!r}: "
                       + " ".join(f"{k} {v:.3e}" for k, v in r.items()), flush=True)
-                from . import ops
-                print(f"[trace-check]   key taping {sig[-2]}, now {ops.taping()}, exact {sig[-1]}", flush=True)
+                print(f"[trace-check]   mode at key {_RMODE.get(('key', key, sig))}, capture "
+                      f"{_RMODE.get(('cap', key, sig))}, now {_mode()}", flush=True)
                 if (key, sig) in _ROPS:
                     _ops_diff(key, _ROPS.pop((key, sig)), now)
         return tuple(outs) if _RSHAPE[sig] else outs[0]
@@ -3290,6 +3299,8 @@ def _traced_forward(key, fn, inputs):
                     ttnn.copy(o, ob)
             del inner
         _RPEND.setdefault(sig, {})[key] = make
+        if TRACE_RECOMPUTE_CHECK:
+            _RMODE[("key", key, sig)] = _mode()
         _RTRACE[(key, sig)] = 1
         return y
     if sig not in _RSHARED:
