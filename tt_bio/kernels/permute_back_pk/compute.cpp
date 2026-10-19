@@ -53,7 +53,9 @@ void kernel_main() {
         }
         tilize_uninit(rm_cb, t_cb);
 
-        transpose_wh_init(t_cb, out_cb);
+        // The short init: the full one re-runs pack_sync_init and the hw configure mid-kernel, which hung the chip
+        // (bpk, bpk2 on .107); in-tree kernels call it once at start and the short form after other ops.
+        transpose_wh_init_short(t_cb);
         for (uint32_t i = 0; i < 32; i += 8) {
             cb_wait_front(t_cb, 8);
             cb_reserve_back(out_cb, 8);
