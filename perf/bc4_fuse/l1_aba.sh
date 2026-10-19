@@ -2,7 +2,8 @@
 # bc4-bet-fuse sweep: what the untaped Evoformer forward's L1 residency is worth at BindCraft 2's shape.
 # Arm `l1` sets TT_BIO_L1_UNRECORDED=1 (tenstorrent._l1_fits answers ops.recording(), so the two
 # no_grad forwards of a round take the inference program's L1 placements). A/B/A x3 on one card,
-# devprof seam walls, plus one census per arm to show which bytes left DRAM.
+# devprof seam walls, a digest pair (placement must be bit-exact) and one census per arm to show
+# which bytes left DRAM.
 #   CARD=<umd index> bash perf/bc4_fuse/l1_aba.sh      (from the worktree root, detached)
 set -u
 WT=$(cd "$(dirname "$0")/../.." && pwd); cd "$WT"
@@ -16,6 +17,9 @@ run() { arm=$1; shift; echo "$arm start $(date +%s) load $(cut -d' ' -f1 /proc/l
   env "$@" timeout -s INT -k 120 6000 "$PY" perf/spd/bc2_evo_devprof.py --params "$PARAMS" --out "$D/$arm" \
       --warm 2 --reps 6 $EXTRA > "$D/$arm.log" 2>&1
   echo "$arm rc=$? end $(date +%s) load $(cut -d' ' -f1 /proc/loadavg)" >> "$D/card"; }
+EXTRA="--digest --reps 2"
+run off_dig X=0
+run l1_dig TT_BIO_L1_UNRECORDED=1
 EXTRA=--census
 run off_cen X=0
 run l1_cen TT_BIO_L1_UNRECORDED=1

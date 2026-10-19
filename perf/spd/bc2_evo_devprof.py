@@ -53,10 +53,14 @@ p.add_argument("--tape-census", action="store_true",
                     "the op that saved them (run with TT_BIO_BC2_RESIDENT_BLOCKS>=1 to see a whole block)")
 p.add_argument("--wrap", choices=("census", "all"), default="all")
 p.add_argument("--seed", type=int, default=0)
+p.add_argument("--digest", action="store_true",
+               help="sha256 of every seam's host outputs, per rep, hashed after the clock stops: an "
+                    "op-exactness check between arms run with the same --seed")
 p.add_argument("--out", type=Path, required=True)
 a = p.parse_args()
 a.out.mkdir(parents=True, exist_ok=True)
 
+import hashlib  # noqa: E402
 import numpy as np  # noqa: E402
 
 from tt_bio import bindcraft2 as B  # noqa: E402  (jax-free at import; jax only inside as_jax & co.)
@@ -128,6 +132,7 @@ def draw():
 
 # ---------------------------------------------------------------- one design iteration
 rec = None
+DIGESTS = [] if a.digest else None
 
 
 def seam(phase, fn, *args):
@@ -135,7 +140,14 @@ def seam(phase, fn, *args):
         rec.phase = phase
     t0 = time.perf_counter()
     out = fn("", *args)           # every seam ends in trunk.sync(), so this is its device wall
-    return out, time.perf_counter() - t0
+    wall = time.perf_counter() - t0
+    if DIGESTS is not None:
+        h = hashlib.sha256()
+        for x in out if isinstance(out, (tuple, list)) else (out,):
+            if isinstance(x, np.ndarray) and x.size > 1:
+                h.update(np.ascontiguousarray(x).tobytes())
+        DIGESTS.append(f"{phase}:{h.hexdigest()[:16]}")
+    return out, wall
 
 
 def iteration():
@@ -256,7 +268,7 @@ with autograd.exact_training(False), \
         walls.append(time.perf_counter() - t0)
         print(f"rep {i}: {walls[-1]:.3f} s " + " ".join(f"{k}={sum(v):.3f}" for k, v in reps[-1].items()),
               flush=True)
-    doc = dict(head, iteration_s=walls, reps=reps, summary=summary(reps),
+    doc = dict(head, iteration_s=walls, reps=reps, summary=summary(reps), digests=DIGESTS,
                memory_mode=dict(mem.used), calls=dict(evo=evo.calls, extra=extra.calls,
                                                         template=tmpl.calls if tmpl else None))
 
