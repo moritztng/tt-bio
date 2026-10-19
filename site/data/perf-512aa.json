@@ -364,12 +364,12 @@
       "cells": {
         "p150a": {
           "status": "measured",
-          "s_per_fold": 57.26,
+          "s_per_fold": 53.467,
           "n": 4,
-          "spread_pct": 1.88,
+          "spread_pct": 0.31,
           "aiclk_mhz": 1350,
-          "versions": "tt-bio main 75cfd1a4f, ttnn 0.68.0, qb1 p150a card 0",
-          "when": "2026-10-19T00:00:50Z",
+          "versions": "tt-bio main 360117fbb, ttnn 0.68.0, qb1 p150a card 0",
+          "when": "2026-10-19T13:36:51Z",
           "parity": "Passes its release-gate accuracy check against the reference implementation on Blackhole, with an MSA (tt-bio 469ed1356)",
           "fast": {
             "s_per_fold": 48.594,
@@ -654,12 +654,12 @@
       "cells": {
         "p150a": {
           "status": "measured",
-          "s_per_fold": 19.909,
+          "s_per_fold": 19.257,
           "n": 4,
-          "spread_pct": 0.53,
+          "spread_pct": 0.52,
           "aiclk_mhz": 1350,
-          "versions": "tt-bio main 46808d8af, ttnn 0.68.0, qb1 p150a card 3",
-          "when": "2026-10-16T14:23:15Z",
+          "versions": "tt-bio main 360117fbb, ttnn 0.68.0, qb1 p150a card 0",
+          "when": "2026-10-19T13:40:00Z",
           "parity": "Passes both release-gate accuracy checks against the reference implementation on Blackhole (tt-bio 469ed1356)",
           "fast": {
             "s_per_fold": 14.127,
@@ -751,12 +751,12 @@
       "cells": {
         "p150a": {
           "status": "measured",
-          "s_per_fold": 12.207,
+          "s_per_fold": 11.448,
           "n": 4,
-          "spread_pct": 3.15,
+          "spread_pct": 0.86,
           "aiclk_mhz": 1350,
-          "versions": "tt-bio main b0ff4ef64, ttnn 0.68.0, qb1 p150a card 0",
-          "when": "2026-10-15T21:40:40Z",
+          "versions": "tt-bio main 360117fbb, ttnn 0.68.0, qb1 p150a card 0",
+          "when": "2026-10-19T13:41:57Z",
           "parity": "Passes its release-gate accuracy check against the reference implementation on Blackhole (tt-bio 469ed1356)",
           "fast": {
             "s_per_fold": 8.946,
