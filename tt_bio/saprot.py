@@ -171,9 +171,9 @@ _SDPA_FP32 = (ttnn.MathFidelity.HiFi4, False, True, False)
 # rotation runs RoPE on the padded heads, in place of the folded companion projection (rot_weight), two multiplies and
 # an add over [B, L, 3*H*32] (WH 35M page census: 14.9 of 41.5 ms). Galaxy chip, 1000 MHz, 2 processes per arm x 3, ms:
 # normal hHSA 39.1 -> 31.7, hPCSK9 38.8 -> 31.7; --fast hHSA 39.0 -> 31.1, hPCSK9 37.9 -> 31.3 (-19 %). pcc vs fp32: normal
-# hPCSK9 -0.000014, hHSA +0.000003, --fast +0.000021 / +0.000036. False keeps the folded projection. None = Wormhole
-# only until the Blackhole A/B reads (TT_BIO_SAPROT_RL forces either way).
-_SAPROT_RL = env_flag("TT_BIO_SAPROT_RL", None)
+# hPCSK9 -0.000014, hHSA +0.000003, --fast +0.000021 / +0.000036. p150a 1350 MHz, hHSA: normal 23.6 -> 22.0, --fast
+# 22.7 -> 18.7, pcc +0.00001..+0.00005 in every cell. False keeps the folded projection.
+_SAPROT_RL = env_flag("TT_BIO_SAPROT_RL", True)
 _RL_CK = ttnn.WormholeComputeKernelConfig(math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=False,
                                           fp32_dest_acc_en=True, packer_l1_acc=False)
 
@@ -386,7 +386,7 @@ class ESM2Attention(_SaprotLin, Module):
         d_model = self.weights["qkv.weight"].shape[-1]  # torch Linear [3*hidden, hidden]
         self.head_dim = d_model // n_heads
         self.fold_rope = self.head_dim % 64 != 0
-        self.rope_pairs = self.fold_rope and (tenstorrent.is_wormhole() if _SAPROT_RL is None else _SAPROT_RL)
+        self.rope_pairs = self.fold_rope and _SAPROT_RL
         if self.fold_rope:
             w, b, wr, br = _fold_rope_qkv(self.weights["qkv.weight"], self.weights["qkv.bias"],
                                           n_heads, self.head_dim, pairs=self.rope_pairs)

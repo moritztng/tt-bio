@@ -78,12 +78,12 @@ def test_key_lens_reads_pure_key_padding_only(monkeypatch):
 
 
 @pytest.mark.parametrize("wormhole", [True, False])
-def test_shsdpa_default_is_wormhole_only(wormhole, monkeypatch):
+def test_shsdpa_default_on_both_arches(wormhole, monkeypatch):
     from tt_bio import tenstorrent
     monkeypatch.setattr(esmc, "_ESMC_SHSDPA", None)
     monkeypatch.setattr(tenstorrent, "is_wormhole", lambda: wormhole)
-    assert (esmc._key_lens(_pad_mask([544, 300], 544)) is not None) is wormhole
-    with tenstorrent.levers("lm_sdpa_stock"):     # ESMFold2's Wormhole sets keep the stock op
+    assert esmc._key_lens(_pad_mask([544, 300], 544)) is not None
+    with tenstorrent.levers("lm_sdpa_stock"):     # ESMFold2's sets keep the stock op
         assert esmc._key_lens(_pad_mask([544, 300], 544)) is None
 
 
