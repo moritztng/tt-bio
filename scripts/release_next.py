@@ -27,9 +27,11 @@ a lever does; parity, capacity and perf judge whether it is right. So a gate who
 are ladder legs reporting drift counts as passed once a record run on the same commit passed for
 those models, and the release commit carries the new fragments. A lever that went dark, partial
 darkness, an unmeasured rung, a crash or a slower rung is not drift: that stays FIX, unless the
-leg is waived. <gate dir>/WAIVE (`<leg> <arch>  # why`, the reason required) marks a failure that
-is not a regression: a waived ladder leg is re-recorded with the drift, any other waived leg stops
-counting, and a gate whose failures are all waived is cut.
+leg is waived. <gate dir>/WAIVE (`<leg> <arch> <sha>  # why`, the reason required) marks a failure
+of the gate on <sha> that is not a regression: a waived ladder leg is re-recorded with the drift,
+any other waived leg stops counting, and a gate whose failures are all waived is cut. A waiver
+judges one commit's run, so it covers that commit only; a line without a sha covers the commit of
+the gate dir it is in.
 
 Fix forward, never re-cut. A failed gate's commit stays the candidate: list the fix commits in
 <gate dir>/FIXES (one sha per line, oldest first, `#` comments) and the train gates that commit with
@@ -143,13 +145,16 @@ DRIFT_LINE = re.compile(r"^\s+FAIL \S+/\d+ \w+: ", re.M)
 
 
 def waivers(d: Path, gates: Path | None = None, repo: Path = REPO, ref: str = "origin/main") -> dict:
-    """{"<leg> <arch>": reason} from <d>/WAIVE, plus the WAIVE of every gated commit between a
-    fixed-forward candidate and its base on main (FIXES and WAIVE live in the base's gate dir).
-    One line per leg, `<leg> <arch>  # reason`; a line without a reason waives nothing, so every
-    waiver says why the failure is not a regression."""
+    """{"<leg> <arch>": reason} for gate <d>'s commit, from <d>/WAIVE plus the WAIVE of every gated
+    commit between a fixed-forward candidate and its base on main (FIXES and WAIVE live in the base's
+    gate dir). One line per leg, `<leg> <arch> <sha>  # reason`. The sha (a prefix of 7 or more) is
+    the gate commit the line judged and it waives nothing on any other: rel-f62c3b67a's real rfd3
+    slowdown sat under a `perf bh` line its base c7a32d7c6 had been waived for. A line without one
+    covers its own dir's commit. A line without a reason waives nothing, so every waiver says why
+    the failure is not a regression."""
+    sha = json.loads((d / "plan.json").read_text())["sha"]
     dirs = [d]
     if gates is not None:
-        sha = json.loads((d / "plan.json").read_text())["sha"]
         gated = {plan.get("sha"): p.parent for p, plan in _plans(gates)}
         try:
             off = git("rev-list", "--first-parent", sha, f"^{ref}", repo=repo).split()
@@ -162,8 +167,12 @@ def waivers(d: Path, gates: Path | None = None, repo: Path = REPO, ref: str = "o
         f = x / "WAIVE"
         for ln in (f.read_text().splitlines() if f.exists() else []):
             what, _, why = ln.partition("#")
-            if len(what.split()) == 2 and why.strip():
-                out[" ".join(what.split())] = why.strip()
+            words = what.split()
+            if len(words) not in (2, 3) or not why.strip():
+                continue
+            judged = words[2] if len(words) == 3 else json.loads((x / "plan.json").read_text())["sha"]
+            if len(judged) >= 7 and sha.startswith(judged):
+                out[" ".join(words[:2])] = why.strip()
     return out
 
 
@@ -487,7 +496,7 @@ def decide(repo: Path = REPO, gates: Path | None = None, ref: str = "origin/main
                 f" (ladder drift on {', '.join(models)} is re-recorded by the train)" if models else "")
         why += f"; fix forward: append each fix commit to {fd}/FIXES" + ("" if out.get("fixes") else (
             f" (main's head is gated instead {FIX_HOLD_S // 3600} h after this verdict if none are listed)"))
-        why += f"; a failure that is not a regression goes in {fd}/WAIVE as `<leg> <arch>  # why`"
+        why += f"; a failure that is not a regression goes in {fd}/WAIVE as `<leg> <arch> {gsha[:12]}  # why`"
     return {**out, "do": do, "sha": target, "gate": str(d or ""), "why": why}
 
 
