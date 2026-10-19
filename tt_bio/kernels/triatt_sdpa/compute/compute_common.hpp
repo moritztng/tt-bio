@@ -1496,6 +1496,21 @@ ALWI void matmul_blocks(
 #endif
             tile_regs_commit();
             tile_regs_wait();
+#if defined(ABLATE_QKEXPPT) && defined(QK_MASK_PRELOAD)
+            // INSTRUMENT (TT_BIO_TRIATT_ABLATE=QKEXPPT), the pack-thread twin of QKEXP: the exp runs on
+            // the pack thread so it can hide under the next subblock's matmul. The init waits for the
+            // first commit, which stalls on the math thread's own SFPU work, and its arguments match
+            // the call's (compute_streaming.hpp's pack-thread exp). Pair it with the row-sum pack below.
+            if (preload_mask) {
+                if (in0_subblock == 0 && in1_subblock == 0) {
+                    exp_packthread_tile_init<true, true, 0x3F800000, InputClamping::None>();
+                }
+                for (uint32_t i = 0; i < out_subblock_num_tiles; i++) {
+                    exp_packthread_tile<true, true, false, false, InputClamping::None, 32>(i, (int)VectorMode::None);
+                }
+                PACK(TTI_STALLWAIT(p_stall::STALL_PACK, p_stall::WAIT_SFPU));
+            }
+#endif
             uint32_t dst_idx = 0;
             uint32_t out_col_offset = in1_subblock * subblock_w;
             for (uint32_t r = 0; r < subblock_h; r++) {
@@ -1505,7 +1520,7 @@ ALWI void matmul_blocks(
                     dst_idx++;
                 }
             }
-#if defined(ABLATE_QKEXP) && defined(QK_MASK_PRELOAD)
+#if (defined(ABLATE_QKEXP) || defined(ABLATE_QKEXPPT)) && defined(QK_MASK_PRELOAD)
             if (preload_mask) {
                 PACK((llk_pack_reconfig_l1_acc(1)));
                 dst_idx = 0;
