@@ -167,6 +167,25 @@ def test_paired_test_false_positive_rate_is_near_alpha():
     assert 0.01 <= rejected / 200 <= 0.11, f"{rejected}/200 null draws rejected"
 
 
+def test_the_verdict_is_one_holm_family(tmp_path):
+    """Every test that can fail the verdict shares one correction, so the A/A rate is controlled where the charter
+    asks for it: on the VERDICT, not on each test inside it.
+
+    The collapse tests and the mean tests used to be Holm'd separately, leaving two families each controlled at
+    alpha whose OR is the verdict. Measured on 250 synthetic A/A draws at n=30 that read 6.4% against a nominal
+    5%. This asserts the structure directly rather than re-running the Monte Carlo: with one family the strictest
+    alpha_holm is ALPHA / (number of testable results across BOTH groups), with two it would be ALPHA divided by
+    the size of whichever group the result sits in.
+    """
+    ref = read_all(make_arm(str(tmp_path), "pdl1", "ref", seeds=(101, 102, 103)))
+    arm = read_all(make_arm(str(tmp_path), "pdl1", "tt", seeds=(101, 102, 103), rng_offset=9000))
+    g = Q.grade(arm, ref, "tt")
+    testable = [r for r in list(g["metrics"].values()) + g["collapse"]["spread"]
+                if isinstance(r.get("p"), float) and r["p"] == r["p"]]
+    assert len(testable) > len(g["metrics"]), "the collapse tests must be in the family too"
+    assert min(r["alpha_holm"] for r in testable) == pytest.approx(Q.ALPHA / len(testable))
+
+
 def test_advertised_mde_is_the_effect_it_actually_detects():
     """The grader states 0.511 SD paired at n=30. Simulate at exactly that effect and check power is ~80%."""
     mde = Q.mde_sd_units(30, paired=True)
