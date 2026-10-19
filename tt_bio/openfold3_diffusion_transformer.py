@@ -236,10 +236,6 @@ class _DiTBlock(Module):
         self.ckc_hifi2 = ttnn.WormholeComputeKernelConfig(
             math_fidelity=ttnn.MathFidelity.HiFi2, math_approx_mode=getattr(c, "math_approx_mode", True),
             fp32_dest_acc_en=getattr(c, "fp32_dest_acc_en", True), packer_l1_acc=getattr(c, "packer_l1_acc", True))
-        # dit_lofi: the same linears at LoFi (read per call, on top of dit_hifi2's arch gate it has none).
-        self.ckc_lofi = ttnn.WormholeComputeKernelConfig(
-            math_fidelity=ttnn.MathFidelity.LoFi, math_approx_mode=getattr(c, "math_approx_mode", True),
-            fp32_dest_acc_en=getattr(c, "fp32_dest_acc_en", True), packer_l1_acc=getattr(c, "packer_l1_acc", True))
 
     def _fuse_adaln(self, a, s_hat, i, hoist=()):
         """adaLN under dit_fuse: `s_hat W_sb + LN(a) * sigmoid(s_hat W_sc + b)`, one addcmul.
@@ -373,13 +369,8 @@ class _DiTBlock(Module):
         return {"memory_config": ttnn.L1_MEMORY_CONFIG} if fits else {}
 
     def _lin(self, x, w, bias=None, activation=None, **kw):
-        bf16 = self._act_dtype == ttnn.bfloat16
-        if bf16 and _T.lever("dit_lofi"):
-            ckc = self.ckc_lofi
-        elif bf16 and self._wormhole and _T.lever("dit_hifi2"):
-            ckc = self.ckc_hifi2
-        else:
-            ckc = self.compute_kernel_config
+        hifi2 = self._wormhole and self._act_dtype == ttnn.bfloat16 and _T.lever("dit_hifi2")
+        ckc = self.ckc_hifi2 if hifi2 else self.compute_kernel_config
         if activation == "sigmoid":
             activation = _T.mm_sigmoid(ckc)
         return ops.linear(x, w, bias=bias, activation=activation, compute_kernel_config=ckc, core_grid=CORE_GRID_MAIN,
