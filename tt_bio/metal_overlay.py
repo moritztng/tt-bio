@@ -20,7 +20,9 @@ flag through and, under approx mode only, runs ``calculate_silu_f32`` (kernels/s
 float64 on the fp32 accumulator in 32 instructions. In the matmul without bias it also moves that
 silu from the MATH thread to the PACK thread, so it overlaps the next subblock's matmul instead of
 following it (what tenstorrent/tt-metal#43067 does upstream). Sites with ``math_approx_mode=False``
-compute exactly as before.
+compute exactly as before. The same overlay gives metal's sigmoid the kernel's sigmoid half: a sigmoid asked
+for in approx mode (``SIGMOID_F32``) on an fp32 dest runs ``calculate_silu_f32<.., SIGMOID>`` instead of the
+three-segment LUT, at 6e-6 of float64. Nothing in tt-bio asked for the LUT, so every other sigmoid is unchanged.
 
 ``enable()`` must run before the first device open; a second call adds its names to the overlay
 already enabled. Each overlay gets its own JIT cache: tt-metal keys a compiled kernel on its defines
@@ -83,6 +85,21 @@ def _patch_silu_f32(src: str) -> str:
 
 def _add_silu_f32(src: str | None) -> str:
     return _SILU_F32.read_text()
+
+
+def _patch_sigmoid_f32(src: str) -> str:
+    """Approx-mode sigmoid on an fp32 dest runs calculate_silu_f32's sigmoid (6e-6), not the LUT (~2e-2)."""
+    src, n0 = re.subn(r'(#include "ckernel_sfpu_recip.h"\n)', r'\1#include "ckernel_sfpu_silu_f32.h"\n', src)
+    src, n1 = re.subn(
+        r"\} else \{\n(\s*)calculate_sigmoid_appx<ITERATIONS>\(\);\n",
+        r"} else if constexpr (is_fp32_dest_acc_en) {\n\1calculate_silu_f32<true, ITERATIONS, true>();\n"
+        r"    } else {\n\1calculate_sigmoid_appx<ITERATIONS>();\n",
+        src,
+    )
+    src, n2 = re.subn(r"(\n(\s*)sigmoid_appx_init\(\);\n)", r"\1\2silu_f32_init();\n", src)
+    if (n0, n1, n2) != (1, 1, 1):
+        raise RuntimeError(f"silu_f32: ckernel_sfpu_sigmoid.h anchors matched {n0}, {n1}, {n2} times")
+    return src
 
 
 BMM = "ttnn/cpp/ttnn/operations/matmul/device/kernels/compute/bmm_large_block_zm_fused_bias_activation.cpp"
@@ -224,6 +241,7 @@ PATCHES = {
             ("ckernel_sfpu_silu.h", _patch_silu_f32),
             ("llk_math_eltwise_unary_sfpu_silu.h", _patch_silu_llk),
             ("ckernel_sfpu_silu_f32.h", _add_silu_f32),
+            ("ckernel_sfpu_sigmoid.h", _patch_sigmoid_f32),
         )
     }
     | {BMM: _patch_bmm_silu_pack},
