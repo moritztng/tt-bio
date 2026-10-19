@@ -36,7 +36,8 @@ Records of a non-Protenix model also carry `model`; a Protenix-v2 record is unch
 
 BindCraft 2 (--model bindcraft2): one rep = one design trajectory, the unit a JapanFold campaign is
 billed and capped in. It runs BindCraft 2's own campaign on its shipped PD-L1 example (examples/pdl1.json,
-settings unedited) the way japanfold.bc2run does: `campaign_predictor` on this chip, validation on BindCraft
+settings unedited but auto_multi_gpu=false, which bc2_gpu.py needs on a GPU and is a no-op here) the way
+japanfold.bc2run does: `campaign_predictor` on this chip, validation on BindCraft
 2's host JAX, one trajectory per card, `max_trajectories` = 1 + --warm. The campaign seed is --seed.
 Trajectory 1 compiles (`cold`), the rest are `warm`. Per trajectory: design_s is BindCraft 2's
 `run_trajectory` call (the gradient design on the card, every stage), validate_s is MPNN redesign + validation
@@ -252,7 +253,7 @@ if a.model == "bindcraft2":
     project = a.out / f"campaign_s{a.seed}"
     example = a.bc2 / "examples" / "pdl1.json"
     settings = cleaned_campaign_settings(read_settings(str(example), parse_setting_overrides(
-        [f"campaign_seed={a.seed}", f"max_trajectories={1 + a.warm}", f"project_folder={project}",
+        [f"campaign_seed={a.seed}", f"max_trajectories={1 + a.warm}", f"project_folder={project}", "auto_multi_gpu=false",
          f"binder_lengths=[{blen}]"])))
     HEAD = dict(sha=SHA, dirty=DIRTY, engine=str(Path(tt_bio.__file__).parent), model=a.model, arm=ARM,
                 arm_env=ARM_ENV, fast=FAST, host=socket.gethostname(), ncpu=os.cpu_count(), share=a.share,

@@ -100,10 +100,16 @@ FAKE_BC2 = {
     "examples/pdl1.json": "{}",
     "bindcraft/__init__.py": "",
     "bindcraft/settings.py": """
+import json
 def read_settings(path, overrides):
     return dict(overrides)
+def value(v):
+    try:
+        return json.loads(v)
+    except ValueError:
+        return v
 def parse_setting_overrides(items):
-    return {k: eval(v) if v[:1] in "[0123456789" else v for k, v in (i.split("=", 1) for i in items)}
+    return {k: value(v) for k, v in (i.split("=", 1) for i in items)}
 """,
     "bindcraft/preflight.py": "def cleaned_campaign_settings(s):\n    return s\n",
     "bindcraft/model_weights.py": "def model_weights():\n    return None, None\n",
@@ -166,10 +172,12 @@ def test_bc2_gpu_rep_record(tmp_path):
     (bin_ / "jax.py").write_text("__version__ = 'fake'\ndef devices():\n    return ['fake:0']\n")  # version + devices only
     (bin_ / "nvidia-smi").write_text("#!/bin/sh\necho 'Fake GPU, 1000.00 W, 0'\n"); (bin_ / "nvidia-smi").chmod(0o755)
     p = subprocess.run([sys.executable, str(REPO / "perf/kitcmp/bc2_gpu.py"), "--bc2", str(bc2), "--out", str(out),
-                        "--warm", "2"], capture_output=True, text=True, timeout=120,
+                        "--warm", "2", "--set", "use_cueq=true"], capture_output=True, text=True, timeout=120,
                        env=dict(os.environ, PATH=f"{bin_}:{os.environ['PATH']}", PYTHONPATH=str(bin_)))
     assert p.returncode == 0, p.stderr[-2000:]
-    check_reps([json.loads(l) for l in (out / "runs.jsonl").read_text().splitlines()])
+    recs = [json.loads(l) for l in (out / "runs.jsonl").read_text().splitlines()]
+    check_reps(recs)
+    assert recs[0]["settings"]["use_cueq"] is True and recs[0]["settings"]["auto_multi_gpu"] is False
 
 
 @needs_engine

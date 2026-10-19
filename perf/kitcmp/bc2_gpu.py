@@ -1,12 +1,17 @@
 """Stock BindCraft 2 on a GPU, timed the way perf/spd/bench.py --model bindcraft2 times it on a TT chip: BindCraft 2's
-own campaign on its shipped PD-L1 example (examples/pdl1.json, settings unedited but campaign_seed, max_trajectories and
-binder_lengths), one trajectory at a time, JAX on the GPU for everything. design_s = BindCraft 2's run_trajectory call
+own campaign on its shipped PD-L1 example (examples/pdl1.json, settings unedited but campaign_seed, max_trajectories,
+binder_lengths and auto_multi_gpu=false), one trajectory at a time in this process, JAX on the GPU for everything.
+Left on, auto_multi_gpu packs several design worker processes onto a large card, which neither times one trajectory nor
+reaches the hooks here. design_s = BindCraft 2's run_trajectory call
 (every design stage), validate_s = MPNN redesign + validation; seconds per design iteration = design_s / rows of that
 trajectory's losses.csv (rows new since its start), counted by bc2_traj.py, the code bench.py uses on TT.
 Trajectory 1 compiles (cold), the rest are warm.
-    python bc2_gpu.py --bc2 BC2_CHECKOUT --out DIR [--seed 101] [--warm 3] [--binder-len 80]   -> DIR/runs.jsonl
+    python bc2_gpu.py --bc2 BC2_CHECKOUT --out DIR [--seed 101] [--warm 3] [--binder-len 80] [--set K=V ...]
+                                                                                              -> DIR/runs.jsonl
+--set takes a BindCraft 2 setting for one GPU arm (use_cueq=true, attention_backend=cudnn); XLA flags go in
+BC2_XLA_EXTRA, which BindCraft 2 appends to XLA_FLAGS itself. The start record carries the resolved settings and env.
 """
-import argparse, contextlib, json, subprocess, sys, time, traceback
+import argparse, contextlib, json, os, subprocess, sys, time, traceback
 from datetime import datetime
 from pathlib import Path
 
@@ -16,6 +21,7 @@ ap.add_argument("--out", required=True, type=Path)
 ap.add_argument("--seed", type=int, default=101)
 ap.add_argument("--warm", type=int, default=3)
 ap.add_argument("--binder-len", type=int, default=80)
+ap.add_argument("--set", action="append", default=[], metavar="K=V", help="a BindCraft 2 setting for this arm")
 a = ap.parse_args()
 a.out.mkdir(parents=True, exist_ok=True)
 sys.path.insert(0, str(a.bc2))
@@ -28,8 +34,8 @@ from bc2_traj import hook, s_per_iter, table_row  # noqa: E402  (beside this fil
 
 project = a.out / f"campaign_s{a.seed}"
 settings = cleaned_campaign_settings(read_settings(str(a.bc2 / "examples" / "pdl1.json"), parse_setting_overrides(
-    [f"campaign_seed={a.seed}", f"max_trajectories={1 + a.warm}", f"project_folder={project}",
-     f"binder_lengths=[{a.binder_len}]"])))
+    [f"campaign_seed={a.seed}", f"max_trajectories={1 + a.warm}", f"project_folder={project}", "auto_multi_gpu=false",
+     f"binder_lengths=[{a.binder_len}]", *a.set])))
 sha = subprocess.run(["git", "-C", str(a.bc2), "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
 gpu = subprocess.run(["nvidia-smi", "--query-gpu=name,power.limit,driver_version", "--format=csv,noheader"],
                      capture_output=True, text=True).stdout.strip()
@@ -55,7 +61,8 @@ def sm_mhz(t0, t1):
 
 
 log(ev="start", bc2_sha=sha, jax=jax.__version__, devices=[str(d) for d in jax.devices()], gpu=gpu,
-    settings={k: v for k, v in settings.items() if k != "targets"}, targets=settings.get("targets"), argv=sys.argv)
+    settings={k: v for k, v in settings.items() if k != "targets"}, targets=settings.get("targets"), argv=sys.argv,
+    xla_flags=os.environ.get("XLA_FLAGS"))
 
 
 def emit(i):
