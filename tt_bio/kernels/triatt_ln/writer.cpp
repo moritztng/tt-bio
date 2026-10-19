@@ -25,10 +25,6 @@ inline uint32_t row_of(uint32_t r0, uint32_t i) {
 #define NQ 0      // triatt_ln_b8: the first NQ = 3H tiles (q, k, v) come bfp8 from c_2, the rest bf16 from c_4
 #endif
 
-#ifndef ABL_LIN
-#define ABL_LIN 0 // bench-only (triatt_ln.ABL bit 16): q's page count; every tile goes to q page (r * NWF + n) mod it
-#endif
-
 // The H = 0 build has one output accessor and must never instantiate the five-accessor body. Outside a
 // template `if constexpr` checks its untaken branch, and inside one a body whose accessor offsets do not
 // depend on a template parameter is checked at definition, so write() picks the layout and write_heads
@@ -74,7 +70,6 @@ void write_heads(uint32_t r0, uint32_t nrows, uint32_t out_cb, uint32_t tb, uint
             const uint32_t s = src;
             src += (NQ && j >= NQ) ? tb_hi : tb;
             if constexpr (ABL_W) continue;
-            if constexpr (ABL_LIN) { noc_async_write_page((r * (4 * H + 1) + n) % (ABL_LIN ? ABL_LIN : 1), oq, s); continue; }
             switch (n / H) {
                 case 0: noc_async_write_page(page, oq, s); break;
                 case 1: noc_async_write_page(page, ok, s); break;

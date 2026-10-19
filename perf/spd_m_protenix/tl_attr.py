@@ -4,8 +4,7 @@
 
 Protenix-v2's shape: x [N, N, c], 8 heads of 32, weight [c, 4c + 32]. For the starting (plain read) and the ending
 (transposed read) variant and each fidelity, times the kernel whole and with triatt_ln.ABL stage skips: 1 the
-layer_norm, 2 the projection, 4 the DRAM writes, 8 the DRAM reads of x, or several ORed; 16 writes every tile to
-q's pages in row-major order instead of head-major (same bytes, consecutive pages: is the layout the cost?). A skipped stage makes the
+layer_norm, 2 the projection, 4 the DRAM writes, 8 the DRAM reads of x, or several ORed. A skipped stage makes the
 output wrong by design, so this prints time only: ms/call, median of --reps after 3 warm calls. One JSON line per arm.
 --b8 0,1 repeats every arm with lever triatt_ln_b8 (bfp8 q, k, v); at ABL 0 each B8 arm also runs on a grid one row
 shorter and prints whether its outputs are torch.equal to the full grid's (grid_invariant), and the bf16 arm's
