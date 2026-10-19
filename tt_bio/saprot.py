@@ -24,6 +24,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import warnings
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
@@ -166,6 +167,11 @@ _SAPROT_SDPA = None
 _SDPA_FP32 = (ttnn.MathFidelity.HiFi4, False, True, False)
 
 
+def _sdpa_ckc(qkrh: bool):
+    """shsdpa's kernel config for a block whose heads came from the packed RoPE program (`qkrh`); None = its HiFi2."""
+    return _SDPA_FP32 if (qkrh if _SAPROT_SDPA is None else _SAPROT_SDPA) else None
+
+
 def _saprot_qkrh(w) -> bool:
     if _SAPROT_QKRH is not None:
         return _SAPROT_QKRH
@@ -206,7 +212,20 @@ PROG_STATS = [0, 0, 0]   # projections served by a measured program: minimal_mat
 # The block's residual add inside the out projection's and fc2's matmul (dit_minimal_matmul_addcmul_fused:
 # x + 1 * (o W + b) * ones) wherever _PROGS serves that projection with minimal_matmul and the weight is bf16, so the
 # add does not re-read the projection from DRAM (ls1 census: 66 adds = 13.4 ms of the WH 650M page batch, 6.6 on BH).
+# bf16 weights only: with --fast's block-fp8 weights the op needs a bf16 copy, whose doubled weight stream cost more than
+# the add (WH 650M +2.9 %, 1.3B +3.5 %).
+RESID_REFUSED: set = set()
 _SAPROT_RESID = env_flag("TT_BIO_SAPROT_RESID", True)
+
+
+# The unfused residual adds write the residual stream to L1, so the next add and the block layer_norm read it from L1
+# instead of DRAM. Page cell on a Galaxy chip at 1000 MHz, --fast, 2 rounds x 3, output bit-identical: 35M 39.3 -> 38.6 ms,
+# 650M 155.2 -> 151.7 (hPCSK9 156.2 -> 152.1), 1.3B 297.5 -> 290.0. None = on with block-fp8 weights (--fast) only, as
+# _SAPROT_LN_L1; normal mode's out/fc2 adds are fused into the matmul (_SAPROT_RESID) where it serves.
+_SAPROT_X_L1 = (env_flag("TT_BIO_SAPROT_X_L1", False) if os.environ.get("TT_BIO_SAPROT_X_L1", "").strip() else None)
+_X_L1_REFUSED: set = set()
+#: [residual sums written to L1, declined]
+X_L1_STATS = [0, 0]
 
 
 def _saprot_prog(x, w, act, hifi2=False):
@@ -301,6 +320,7 @@ class _SaprotLin(_MMLin):
 
     def _lin_add(self, x, w, bias, resid):
         """resid + (x @ w + bias), in one matmul where _SAPROT_RESID serves, else as the projection and an add."""
+        x_l1 = w.dtype == ttnn.bfloat8_b if _SAPROT_X_L1 is None else _SAPROT_X_L1
         prog = _saprot_prog(x, w, None) if _SAPROT_RESID and w.dtype == ttnn.bfloat16 else None
         if prog is not None and prog[0] == "mm":
             n = int(w.shape[-1])
@@ -313,10 +333,22 @@ class _SaprotLin(_MMLin):
                     dtype=_dtype(ttnn.bfloat16), memory_config=ttnn.DRAM_MEMORY_CONFIG)
                 PROG_STATS[2] += 1
                 return out
-            except RuntimeError:
-                pass
+            except RuntimeError as exc:   # a shape the fused op refuses: say so once, then project + add
+                if not RESID_REFUSED:
+                    warnings.warn(f"saprot: fused residual matmul refused {tuple(w.shape)} {w.dtype}: {str(exc)[:400]}")
+                RESID_REFUSED.add((tuple(w.shape), w.dtype))
         r = self._lin(x, w, bias=bias)
-        out = ttnn.add(resid, r)
+        out = None
+        if x_l1 and tuple(resid.padded_shape) not in _X_L1_REFUSED:
+            try:
+                out = ttnn.add(resid, r, memory_config=ttnn.L1_MEMORY_CONFIG)
+                X_L1_STATS[0] += 1
+                ttnn.deallocate(resid)   # the block rebinds x to the sum; the old stream would pin L1 until GC
+            except RuntimeError:
+                _X_L1_REFUSED.add(tuple(resid.padded_shape))
+                X_L1_STATS[1] += 1
+        if out is None:
+            out = ttnn.add(resid, r)
         ttnn.deallocate(r)
         return out
 
@@ -388,7 +420,7 @@ class ESM2Attention(_SaprotLin, Module):
         if key_valid is not None and attn_mask is None:  # the -inf mask already zeroes them, see esmc.Attention
             k = ttnn.multiply(k, key_valid)
             v = ttnn.multiply(v, key_valid)
-        o = lm_sdpa(q, k, v, attn_mask, scale=self.head_dim ** -0.5, merge=True, ckc=_SDPA_FP32 if (heads is not None if _SAPROT_SDPA is None else _SAPROT_SDPA) else None)  # [B, L, H*32] when fold_rope; out_weight has the zero rows
+        o = lm_sdpa(q, k, v, attn_mask, scale=self.head_dim ** -0.5, merge=True, ckc=_sdpa_ckc(heads is not None))  # [B, L, H*32] when fold_rope; out_weight has the zero rows
         ttnn.deallocate(q); ttnn.deallocate(k); ttnn.deallocate(v)
         out = self._lin_add(o, self.out_weight, self.out_bias, x)
         ttnn.deallocate(o)
