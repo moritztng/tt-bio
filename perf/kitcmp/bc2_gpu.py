@@ -45,8 +45,13 @@ if a.final_designs is not None:
 settings = cleaned_campaign_settings(read_settings(str(a.bc2 / "examples" / a.example),
                                                   parse_setting_overrides(overrides)))
 sha = subprocess.run(["git", "-C", str(a.bc2), "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
-gpu = subprocess.run(["nvidia-smi", "--query-gpu=name,power.limit,driver_version", "--format=csv,noheader"],
-                     capture_output=True, text=True).stdout.strip()
+# A CPU host has no nvidia-smi. The quality reference needs stock BindCraft 2, not specifically a GPU, so the
+# same harness has to run where there is no driver; a timing arm still records the GPU because there is one.
+try:
+    gpu = subprocess.run(["nvidia-smi", "--query-gpu=name,power.limit,driver_version", "--format=csv,noheader"],
+                         capture_output=True, text=True).stdout.strip()
+except FileNotFoundError:
+    gpu = ""
 LOG = open(a.out / "runs.jsonl", "a")
 
 
