@@ -20,8 +20,8 @@ topological sort and the fan-in sum below are the whole of what it would have su
 
 from __future__ import annotations
 
-import functools
 import contextlib
+import functools
 import math
 import os
 import sys
