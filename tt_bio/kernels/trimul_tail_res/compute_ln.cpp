@@ -48,6 +48,11 @@ constexpr uint32_t CP = get_compile_time_arg_val(8);
 // push its CB as is, so the stage's time drops out while the reader and writer move the same bytes.
 // 1 LayerNorm, 2 the p GEMM, 4 the gate GEMM + sigmoid (GATE), 8 the epilogue.
 constexpr uint32_t ABL = get_compile_time_arg_val(9);
+// EXTRA (MOVED only, 0 for every caller before AF2): 1 a bias on p, 2 a bias on the GATE g, each as Nt
+// tiles with the bias row in all 32 rows (c_19, p first), copied into DST before the K accumulation;
+// 4 the update times a per-row dropout mask (Nt tiles per block in c_20, shared by the block's rows),
+// rounded with the product under RNE bit 2, as rne_add_masked rounds it. 8 is the writer's.
+constexpr uint32_t EXTRA = get_compile_time_arg_val(10);
 
 constexpr uint32_t cb_x = tt::CBIndex::c_0;      // x_out rows, bf16, Mb * Kt double buffered
 constexpr uint32_t cb_w = tt::CBIndex::c_1;      // Wp, Kt * Nt, resident
@@ -68,9 +73,21 @@ constexpr uint32_t cb_xc = tt::CBIndex::c_16;    // fp32, Kt tiles
 constexpr uint32_t cb_tmp = tt::CBIndex::c_17;   // fp32, Kt tiles
 constexpr uint32_t cb_in = tt::CBIndex::c_15;    // MOVED: gathered x^T tiles, one at a time
 constexpr uint32_t cb_prev = tt::CBIndex::c_18;  // MOVED: the CP earlier channel tiles of the row
+constexpr uint32_t cb_bias = tt::CBIndex::c_19;  // EXTRA 1 / 2: row-replicated bias tiles, resident
+constexpr uint32_t cb_mask = tt::CBIndex::c_20;  // EXTRA 4: the block's Nt mask tiles
+constexpr uint32_t NBIAS = (EXTRA & 1) + ((EXTRA >> 1) & 1);
 
 ALWI void sigmoid_bf16_tile(uint32_t idst) {
     MATH((llk_math_eltwise_unary_sfpu_sigmoid<false, false>(idst, (int)VectorMode::RC)));
+}
+
+// SBW bias tiles from c_19 (from tile `first`) into DST 0.., then back to the GEMM's configuration.
+ALWI void bias_to_dst(uint32_t first, uint32_t cb_a) {
+    reconfig_data_format_srca(cb_bias);
+    copy_tile_to_dst_init_short(cb_bias);
+    for (uint32_t i = 0; i < SBW; ++i) copy_tile(cb_bias, first + i, i);
+    mm_block_init_short(cb_a, cb_w, false, SBW, 1, Kt);
+    reconfig_data_format(cb_w, cb_a);
 }
 
 struct LnCbs {
@@ -131,6 +148,7 @@ void kernel_main() {
     cb_wait_front(cb_beta, Kt);
     cb_wait_front(cb_scaler, 1);
     cb_wait_front(cb_eps, 1);
+    if constexpr (NBIAS > 0) cb_wait_front(cb_bias, NBIAS * Nt);
 
     for (uint32_t b = 0; b < nblocks; ++b) {
         // 1. LayerNorm prologue, row tile by row tile.
@@ -147,6 +165,7 @@ void kernel_main() {
         for (uint32_t mi = 0; mi < ((ABL & 2) ? 0 : Mb); ++mi) {
             for (uint32_t n0 = 0; n0 < Nt; n0 += SBW) {
                 tile_regs_acquire();
+                if constexpr (EXTRA & 1) bias_to_dst(n0, cb_ln);
                 uint32_t i0 = mi * Kt;
                 uint32_t i1 = n0;
                 for (uint32_t k = 0; k < Kt; ++k) {
@@ -175,6 +194,10 @@ void kernel_main() {
             for (uint32_t mi = 0; mi < ((ABL & 4) ? 0 : Mb); ++mi) {
                 for (uint32_t n0 = 0; n0 < Nt; n0 += SBW) {
                     tile_regs_acquire();
+                    if constexpr (EXTRA & 2) {
+                        bias_to_dst((EXTRA & 1) * Nt + n0, cb_xb);
+                        sigmoid_tile_init();
+                    }
                     uint32_t i0 = mi * Kt;
                     uint32_t i1 = Kt * Nt + n0;
                     for (uint32_t k = 0; k < Kt; ++k) {
@@ -204,6 +227,7 @@ void kernel_main() {
         cb_wait_front(cb_p, blk);
         cb_wait_front(cb_g, blk);
         cb_wait_front(cb_z, blk);
+        if constexpr (EXTRA & 4) cb_wait_front(cb_mask, Nt);
         cb_reserve_back(cb_out, blk);
         sigmoid_tile_init();
         pack_reconfig_data_format(cb_out);
@@ -227,6 +251,16 @@ void kernel_main() {
             if constexpr (RNE & 4) {
                 for (uint32_t i = 0; i < 4; ++i) round_bf16_rne_tile(i);
             }
+            if constexpr (EXTRA & 4) {
+                binary_dest_reuse_tiles_init<EltwiseBinaryType::ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCB>(
+                    cb_mask);
+                for (uint32_t i = 0; i < 4; ++i)
+                    binary_dest_reuse_tiles<EltwiseBinaryType::ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCB>(
+                        cb_mask, (t0 + i) % Nt, i);
+                if constexpr (RNE & 4) {
+                    for (uint32_t i = 0; i < 4; ++i) round_bf16_rne_tile(i);
+                }
+            }
             binary_dest_reuse_tiles_init<EltwiseBinaryType::ELWADD, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(
                 cb_z);
             for (uint32_t i = 0; i < 4; ++i)
@@ -244,5 +278,6 @@ void kernel_main() {
         cb_pop_front(cb_p, blk);
         cb_pop_front(cb_g, blk);
         cb_pop_front(cb_z, blk);
+        if constexpr (EXTRA & 4) cb_pop_front(cb_mask, Nt);
     }
 }
