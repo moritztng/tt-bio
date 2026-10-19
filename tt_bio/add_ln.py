@@ -26,7 +26,6 @@ from . import mm_generic as MG
 
 KERNEL_DIR = Path(__file__).resolve().parent / "kernels" / "add_ln"
 TILE = 32
-BLK = 4   # tiles per streamed block (the kernels' add block: a half-sync fp32 DEST holds 4)
 _CACHE: dict = {}
 #: [served, declined]
 STATS = [0, 0]
@@ -67,10 +66,9 @@ def _cb(idx, core_grid, tiles, dtype=ttnn.bfloat16):
 
 
 def cb_bytes(kt):
-    """L1 bytes per core of the circular buffers: a, b, h, y streamed in double-buffered blocks of BLK tiles, the norm
-    input row, gamma and beta (bf16), the centred row and a scratch row (fp32), the scaler and four fp32 stat tiles.
-    At K 1280 (kt 40) 0.66 MB; whole-row a, b, h, y took 1.08 MB, more than --fast leaves beside its L1 stream."""
-    return (4 * 2 * BLK + 3 * kt + 1) * MG.tile_bytes(ttnn.bfloat16) + (2 * kt + 4) * MG.tile_bytes(ttnn.float32)
+    """L1 bytes per core of the circular buffers: a, b double-buffered, h, norm input, y, gamma, beta (bf16), the
+    centred row and a scratch row (fp32), the scaler and four fp32 stat tiles."""
+    return (2 * kt + 2 * kt + 5 * kt + 1) * MG.tile_bytes(ttnn.bfloat16) + (2 * kt + 4) * MG.tile_bytes(ttnn.float32)
 
 
 def _build(a, b, w, beta, h, y, grid, eps):
@@ -104,7 +102,7 @@ def _build(a, b, w, beta, h, y, grid, eps):
         compile_time_args=[kt], runtime_args=cp,
         config=ttnn.ComputeConfigDescriptor(math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=False,
                                             fp32_dest_acc_en=True, dst_full_sync_en=False))
-    cbs = [_cb(i, core_grid, 2 * BLK) for i in (0, 1, 2, 3)] + [
+    cbs = [_cb(0, core_grid, 2 * kt), _cb(1, core_grid, 2 * kt), _cb(2, core_grid, kt), _cb(3, core_grid, kt),
            _cb(7, core_grid, kt), _cb(8, core_grid, kt), _cb(9, core_grid, kt), _cb(10, core_grid, 1)]
     cbs += [_cb(i, core_grid, t, ttnn.float32) for i, t in ((11, 1), (12, 1), (13, 1), (14, 1), (16, kt), (17, kt))]
     return {"kernels": [reader, writer, compute], "cbs": cbs}
