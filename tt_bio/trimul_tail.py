@@ -1237,16 +1237,16 @@ def set_t2cm(on: bool) -> bool:
     return prev
 
 
-def t2cm_eligible(xcm, ln_w, ln_b, wp, g, resid, ckc=None, wg=None, ex=None, prev=None):
+def t2cm_eligible(xcm, ln_w, ln_b, wp, g, resid, ckc=None, wg=None, ex=None, prev=None, own_switch=False):
     """None when T2CM serves `resid += T2(xcm permuted to [1, S, S, K])`, else the reason it does not.
-    `wg`, `ex`, `prev`: see `fused_tail_ln_cm`. Pure host checks; nothing is touched."""
+    `wg`, `ex`, `prev`: see `fused_tail_ln_cm`; `own_switch`: the caller is switched on by its own flag
+    (AF2's TT_BIO_AF2_T2CM), not the levers. Pure host checks; nothing is touched."""
     from .tenstorrent import lever
     from . import ops
     ex = ex or (None,) * 4
-    # A separate `out` is AF2's form, which its caller switches itself (TT_BIO_AF2_T2CM).
-    if ex[3] is None and not ((T2CM or lever("trimul_t2cm")) and (T2 or lever("trimul_t2"))):
+    if not (own_switch or ((T2CM or lever("trimul_t2cm")) and (T2 or lever("trimul_t2")))):
         return "off"
-    if ops.taping():
+    if ops.recording():
         return "tape"
     if ckc is not None and dest_guard.exposed_args(ckc):
         return "dest_guard"
@@ -1349,7 +1349,7 @@ def fused_tail_ln_cm(xcm, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5, wg=None
     forward keeps it as its saved input). `prev` = (x, c_off): xcm holds only channels c_off.., the
     earlier ones are already in x [1, S, S, K] (T2m's split, for a channel loop of several chunks)."""
     ex = (bp, bg, mask, out)
-    why = t2cm_eligible(xcm, ln_w, ln_b, wp, g, resid, ckc, wg, ex, prev)
+    why = t2cm_eligible(xcm, ln_w, ln_b, wp, g, resid, ckc, wg, ex, prev, own_switch=out is not None)
     if why is not None:
         if why != "off":
             T2CM_STATS[1] += 1
