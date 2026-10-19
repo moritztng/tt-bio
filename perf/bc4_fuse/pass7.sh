@@ -1,7 +1,7 @@
 #!/bin/bash
 # bc4-bet-fuse pass 7 chain: the three-chain stack (T2CM + GIN + triangle-attention tail) census with the
 # tail's in-run float64 check on its first calls, then the stack as an in-process ABBA against off.
-# CARD=<umd index>, detached, worktree root.
+# CARD=<umd index>, detached, worktree root, under flock ~/spd_qb2_chip$CARD.lock (the SPD feed reads it as busy).
 set -u
 WT=$(cd "$(dirname "$0")/../.." && pwd); cd "$WT"
 D=$WT/_bc4out/pass7_$(git rev-parse --short HEAD); mkdir -p "$D"
