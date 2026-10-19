@@ -11626,6 +11626,12 @@ class TriangleAttention(Module):
             triangle_bias = ttnn.permute(triangle_bias, (0, 3, 1, 2))
             if self.ending and not self.transpose_bias:
                 triangle_bias = ttnn.permute(triangle_bias, (0, 1, 3, 2))
+            if fused is not None and pre_qkv[0].dtype == ttnn.bfloat8_b:
+                # triatt_ln_b8: the fused SDPA serves only uniform operands, and the head-major bias
+                # (H x S x S, 1/16 of the pair at 8 heads) is cheap to narrow after its permute.
+                narrowed = ttnn.typecast(triangle_bias, ttnn.bfloat8_b)
+                ttnn.deallocate(triangle_bias)
+                triangle_bias = narrowed
             dram_peak(f"tri_att({'end' if self.ending else 'start'}) bias built [z={'x'.join(str(d) for d in x.shape)}]")
 
         # Set fresh by every `_attend_heads` call: True when the fused SDPA took the gate into

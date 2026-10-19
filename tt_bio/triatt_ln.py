@@ -17,7 +17,8 @@ tile of x^T from the 32 x tiles that hold it and shuffles rows in L1 (reader.cpp
 `_pair_transpose` before the norm, a full read and write of the pair, is gone. Same arithmetic on the
 same values in the same order, so bit-exact with transpose-then-norm.
 Lever `triatt_ln_b8` writes q, k and v bfp8 (gate and bias stay bf16, the gated out-projection reads a bf16
-gate): the kernel is bound by its DRAM writes, which cap near 120 GB/s on Wormhole, and this cuts them by 35 %.
+gate; the caller narrows the head-major bias after its permute and triatt_sdpa keeps a bf16 destination, so
+the fused SDPA and out-projection both still serve): the kernel is bound by its DRAM writes, which cap near 120 GB/s on Wormhole, and this cuts them by 35 %.
 Each tile is one core's full-K dot product packed once, so the bytes do not depend on the core grid.
 `ln_proj` is the same kernel for a narrow [K, n <= 64] weight with a plain [B, S, n] output
 (lever `apb_ln`: the attention-pair-bias projection of the normed pair).
