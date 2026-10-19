@@ -108,10 +108,9 @@ def test_rope(seq_len):
 
 
 @pytest.mark.device
-# Attention and Block run at the bucketed length: Model.forward pads the token axis to esmc.BUCKET
-# (bucket_token_axis) before any block, so a ragged 16 is a length no caller hands them. On Wormhole a block
-# called directly at 16 returns the padded 32 rows (gate c7a32d7c6, g110).
-@pytest.mark.parametrize("seq_len", [tt_esmc.BUCKET, 128])
+# 16 is a ragged token axis (half a tile): on Wormhole the fused qk_rope_heads returned its padded 32 rows here
+# (gate c7a32d7c6, g110) until it declined ragged lengths.
+@pytest.mark.parametrize("seq_len", [16, 128])
 def test_attention(seq_len):
     n_heads, head_dim = ESMC_300M["n_heads"], D_MODEL // ESMC_300M["n_heads"]
     ref = make_esmc_300m()
@@ -291,7 +290,7 @@ def test_esmc_end_to_end(seq_len):
 
 
 @pytest.mark.device
-@pytest.mark.parametrize("seq_len", [tt_esmc.BUCKET, 128])
+@pytest.mark.parametrize("seq_len", [16, 128])
 def test_block(seq_len):
     n_heads, head_dim = ESMC_300M["n_heads"], D_MODEL // ESMC_300M["n_heads"]
     ref = make_esmc_300m()
