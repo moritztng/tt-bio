@@ -3185,6 +3185,18 @@ def _traced_forward(key, fn, inputs):
         ttnn.execute_trace(device, st[0], cq_id=0, blocking=False)
         RTRACE_STATS["replay"] += 1
         outs = [None if ob is None else ttnn.clone(ob) for ob in sh["outs"]]
+        if RTRACE_STATS["replay"] <= TRACE_RECOMPUTE_CHECK:
+            ref = flat(fn(*inputs))
+            rels = []
+            for o, r in zip(outs, ref):
+                if o is not None and r is not None:
+                    a, b = ttnn.to_torch(o).double(), ttnn.to_torch(r).double()
+                    den = float(b.norm())
+                    rels.append(float((a - b).norm()) / den if den else float((a - b).norm()))
+            RTRACE_CHECKS.append(dict(key=repr(key), unit="fwd", replay=RTRACE_STATS["replay"], rel=rels))
+            if rels and max(rels) > 0:
+                print(f"[trace-check] fwd replay {RTRACE_STATS['replay']} {key!r}: rel L2 {max(rels):.3e}",
+                      flush=True)
         return tuple(outs) if _RSHAPE[sig] else outs[0]
 
     y = _rt_first(device, sig, lambda: fn(*inputs)) if st == 0 else fn(*inputs)
@@ -3232,8 +3244,8 @@ def _check_replay(key, fn, inputs, vals, seeded, outs) -> None:
         den = float(b.norm())
         rels.append(float((a - b).norm()) / den if den else float((a - b).norm()))
     RTRACE_CHECKS.append(dict(key=repr(key), replay=RTRACE_STATS["replay"], rel=rels))
-    if rels and max(rels) > 1e-3:
-        print(f"[trace-check] replay {RTRACE_STATS['replay']} {key!r}: grad rel L2 {max(rels):.3e}", flush=True)
+    if rels and max(rels) > 0:
+        print(f"[trace-check] bwd replay {RTRACE_STATS['replay']} {key!r}: grad rel L2 {max(rels):.3e}", flush=True)
     del y, inner, roots
 
 
