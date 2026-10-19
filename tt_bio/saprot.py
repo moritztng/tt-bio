@@ -156,6 +156,17 @@ _SAPROT_QKRH = (env_flag("TT_BIO_SAPROT_QKRH", False) if os.environ.get("TT_BIO_
 _QKRH_QSCALE = None
 
 
+# The page batch's attention (shsdpa, keys padded) at a kernel config other than shsdpa's HiFi2, by name. HiFi2 truncates
+# q.k products, which lin_sweep reads as |y| 0.28 % low at K = 32: a logit deflation the rotary_embedding chain's +0.19 %
+# on |q| and |k| happened to cancel and the packed RoPE program does not. Diagnostic until graded (None = HiFi2).
+_SAPROT_SDPA = None
+_SDPA_CKCS = {
+    "hifi3": (ttnn.MathFidelity.HiFi3, True, False, False),
+    "hifi4": (ttnn.MathFidelity.HiFi4, True, False, False),
+    "hifi4f": (ttnn.MathFidelity.HiFi4, False, True, False),   # fp32 dest
+}
+
+
 def _saprot_qkrh(w) -> bool:
     if _SAPROT_QKRH is not None:
         return _SAPROT_QKRH
@@ -376,7 +387,7 @@ class ESM2Attention(_SaprotLin, Module):
         if key_valid is not None and attn_mask is None:  # the -inf mask already zeroes them, see esmc.Attention
             k = ttnn.multiply(k, key_valid)
             v = ttnn.multiply(v, key_valid)
-        o = lm_sdpa(q, k, v, attn_mask, scale=self.head_dim ** -0.5, merge=True)  # [B, L, H*32] when fold_rope; out_weight has the zero rows
+        o = lm_sdpa(q, k, v, attn_mask, scale=self.head_dim ** -0.5, merge=True, ckc=_SDPA_CKCS.get(_SAPROT_SDPA))  # [B, L, H*32] when fold_rope; out_weight has the zero rows
         ttnn.deallocate(q); ttnn.deallocate(k); ttnn.deallocate(v)
         out = self._lin_add(o, self.out_weight, self.out_bias, x)
         ttnn.deallocate(o)
