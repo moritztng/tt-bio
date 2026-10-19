@@ -164,11 +164,26 @@ def _patch_softmax_generic(mod):
     mod.softmax_bf16 = softmax_bf16
 
 
+def _patch_shsdpa(mod):
+    _sh = mod.sdpa
+
+    def sdpa(q, k, v, scale, pad, *a, **kw):
+        # The language models' key-padding SDPA on Wormhole (esmc._key_lens). The padding is a per-batch key
+        # length, not a caller-sized additive bias, so a ragged key axis is masked to its length by construction
+        # and is never `masked_ragged`. Counted so the census of an ESMC or SaProt fold is not empty.
+        rk, kl = _ragged(k, -2)
+        _bump("shsdpa.sdpa", _site(), rk, "k%d" % kl)
+        return _sh(q, k, v, scale, pad, *a, **kw)
+
+    mod.sdpa = sdpa
+
+
 # module in sys.modules -> (key, attribute that proves it finished defining the target, patcher)
 _TARGETS = (
     ("ttnn", "transformer", _patch_ttnn),
     ("tt_bio.triatt_sdpa", "sdpa", _patch_triatt),
     ("tt_bio.softmax_generic", "softmax_bf16", _patch_softmax_generic),
+    ("tt_bio.shsdpa", "sdpa", _patch_shsdpa),
 )
 
 
@@ -197,7 +212,7 @@ def _try_patch():
 def install():
     """Patch everything now. For an in-process caller that has already imported the model."""
     import ttnn  # noqa: F401
-    from tt_bio import softmax_generic, tenstorrent, triatt_sdpa  # noqa: F401
+    from tt_bio import shsdpa, softmax_generic, tenstorrent, triatt_sdpa  # noqa: F401
     assert tenstorrent._triatt_sdpa is triatt_sdpa, "triatt_sdpa is bound by value, not by module"
     assert _try_patch(), "not every probe target was patched: " + repr(sorted(_PATCHED))
 
