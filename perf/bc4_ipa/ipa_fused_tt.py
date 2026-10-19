@@ -207,7 +207,31 @@ def grad_check(dev, k, act, R, t, bias, z, reps):
     ttnn.synchronize_device(dev)
     ms = (time.perf_counter() - t0) / max(3, reps // 10) * 1e3
     print("backward rel L2 vs JAX float64:", rel, "eager fwd+bwd ms", ms, flush=True)
-    return {"rel_l2_vs_jax_f64": rel, "eager_fwd_bwd_ms_per_layer": ms, "taped_forward_calls": fwd_calls}
+    res = {"rel_l2_vs_jax_f64": rel, "eager_fwd_bwd_ms_per_layer": ms, "taped_forward_calls": fwd_calls}
+
+    # the same step traced: inputs, pair and seeds uploaded once, so the capture has no host upload
+    from tt_bio import tenstorrent as T
+    pre = [o.inner.put(x) for x in (act, R, t)]
+    pb, pz, sd = o.inner.put(bias), o.inner.put(z), [o.inner.put(s_) for s_ in seeds]
+    def step_dev():
+        ins = [A.Tensor(v, requires_grad=True) for v in pre]
+        out = F.layer(o, kd, *ins, A.Tensor(pb), A.Tensor(pz))
+        A.backward(list(out), seeds=sd)
+        return [x.grad for x in ins]
+    try:
+        step_dev(); ttnn.synchronize_device(dev)
+        tid, _ = T.capture_trace(dev, step_dev)
+        n_rep = max(5, reps // 2)
+        ttnn.synchronize_device(dev); t0 = time.perf_counter()
+        for _ in range(n_rep):
+            ttnn.execute_trace(dev, tid, cq_id=0, blocking=False)
+        ttnn.synchronize_device(dev)
+        res["traced_fwd_bwd_ms_per_layer"] = (time.perf_counter() - t0) / n_rep * 1e3
+        ttnn.release_trace(dev, tid)
+    except Exception as e:
+        res["traced_fwd_bwd_ms_per_layer"] = f"capture failed: {str(e)[:300]}"
+    print("traced fwd+bwd ms per layer:", res["traced_fwd_bwd_ms_per_layer"], flush=True)
+    return res
 
 
 def upload(o, k):

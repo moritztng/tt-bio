@@ -143,7 +143,7 @@ def pack(p):
     put(8, [(1, (w_, w_)), (-1, (x_, x_)), (-1, (y_, y_)), (1, (z_, z_))])
     for pr in ((w_, w_), (x_, x_), (y_, y_), (z_, z_)):
         n2[I[pr], 0] = 1.0
-    k["quat_rot"], k["quat_n2"] = c, n2
+    k["quat_rot"], k["quat_n2"] = c, np.repeat(n2, 9, 1)            # |q|^2 already 9 wide: no broadcast
     # R_new[a, c] = sum_b R[a, b] r[b, c] on row-major [N, 9]: R @ PA[b] picks R[a, b] into slot (a, c),
     # r @ PB[b] picks r[b, c] into the same slot.
     PA, PB = np.zeros((3, 9, 9)), np.zeros((3, 9, 9))
