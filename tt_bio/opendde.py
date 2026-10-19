@@ -454,13 +454,13 @@ def route_opendde_weights(state_dict):
 # cdk2x2 x 1 at 1000 MHz: normal 512 -0.56 s, 576 -1.59 s.
 # Wormhole normal also takes trimul_bres (protenix.BRES_NORMAL), bit-exact: Galaxy chip, cdk2x2 x 1, 1000 MHz, paired
 # warm folds (spd-m-opendde bnab, 2026-10-19), CIFs identical on and off, 512 -0.72 s (3 of 3 pairs), 576 -0.94 s.
-NORMAL_LEVERS = _FAMILY_NORMAL | WS_CHAIN | T2_TAIL | TRIATT_LN | BRES_NORMAL | {"ws_resid", "ws_resid2"}
+NORMAL_LEVERS = _FAMILY_NORMAL | WS_CHAIN | T2_TAIL | TRIATT_LN | BRES_NORMAL | {"ws_resid", "ws_resid2", "trimul_t1w8"}
 BH_NORMAL_LEVERS = _FAMILY_NORMAL
 FAST_LEVERS = (_T.FAST_LEVERS - {"dit_b8"}) | {"trimul_b8in", "trimul_t2w"} | WS_CHAIN
 # Wormhole fast also runs T1 on OpenDDE's c_z 384 pair (trimul_t1_c384). WH 11-set fast grade, FAST_LEVERS vs +
 # trimul_t1_c384 (spd-integrate gpsf, 2026-10-17, 44 paired folds): PASS, CA-lDDT -0.0005 [-0.0016, +0.0002], pLDDT
 # -0.0002, docking 25 -> 24 of 44. cdk2x2 512 x 1 at 1000 MHz: 104.16 -> 101.52 s (-2.5 %). Blackhole is ungraded.
-WH_FAST_LEVERS = FAST_LEVERS | {"trimul_t1_c384", "ws_resid2"} | TRIATT_LN | TRIATT_K1
+WH_FAST_LEVERS = FAST_LEVERS | {"trimul_t1_c384", "ws_resid2", "trimul_t1w8"} | TRIATT_LN | TRIATT_K1
 # Both Wormhole modes fuse triangle attention's LayerNorm into its qkvgb projection (triatt_ln), now that the
 # kernel splits OpenDDE's 1.2 MB weight over column groups instead of declining. WH 11-set grades vs the model set
 # before T2_TAIL / trimul_t1_c384, 4 seeds, 44 paired folds each, 1000 MHz (spd-m-opendde tlng, 2026-10-17): normal PASS, same-seed top pose median
@@ -488,6 +488,13 @@ WH_FAST_LEVERS = FAST_LEVERS | {"trimul_t1_c384", "ws_resid2"} | TRIATT_LN | TRI
 # 0.128 A (A/A floor 1.148 A), CA-lDDT +0.0003 [-0.0001, +0.0009], docking 26 -> 26. cdk2x2 x 1 at 1000 MHz, 2 paired
 # warm folds (b32): fast 512 -1.12 s, fast 576 -2.42 s. Blackhole fast is ungraded with it firing, so there bmm_res
 # keeps the bf16 dest and declines (tenstorrent._bres_ckc).
+# Both Wormhole modes run T1 on bfp8 resident weights (trimul_t1w8), so c_z 384 fits two channel groups instead of
+# three: one launch and one xn pass fewer. T1 at 512, HiFi4: 13.32 -> 12.23 ms, rel rms vs float64 0.005 -> 0.009 (the
+# bf16 ttnn chain reads 0.0038). Galaxy chip, cdk2x2 x 1, 1000 MHz, paired warm folds (spd-m-opendde w8ab, 2026-10-19):
+# fast 512 ~-1.8 s, normal 512 ~-1.4 s, normal 576 -1.3 s. WH 11-set grades, shipped set with and without it, seeds
+# 109-112, 44 paired folds each (w8f, w8n): fast PASS, same-seed top pose max 3.1 A, CA-lDDT +0.0000 [-0.0001, +0.0002],
+# docking 26 -> 26 (A/A floor 1.187 A); normal PASS, CA-lDDT -0.0002 [-0.0004, +0.0000], docking 26 -> 26 (floor
+# 1.333 A). T1 served only the five complexes at 515-559 tokens; the six at 611-791 were bit-identical on and off.
 
 
 class OpenDDE:
