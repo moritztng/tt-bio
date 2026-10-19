@@ -9668,7 +9668,8 @@ class TriangleMultiplication(Module):
             TT1.T1_STATS[1] += 1
             TT1.T1_WHY["route"] = TT1.T1_WHY.get("route", 0) + 1
             return None
-        # trimul_t1w8: all three resident weights as bfp8, so c_z 384 runs two channel groups, not three
+        # trimul_t1w8: all three resident weights as bfp8, so c_z 384 runs two channel groups, not three,
+        # and c_z 256 one
         w8 = lever("trimul_t1w8")
         if w8 not in self._t1_w:
             wpT, wgT, wgo = TT1.t1_host_weights(self._g_in_t, self._p_in_t,
