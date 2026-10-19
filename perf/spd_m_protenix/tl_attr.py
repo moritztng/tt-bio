@@ -74,7 +74,7 @@ def host(r):
 for fid in [getattr(ttnn.MathFidelity, f) for f in a.fids.split(",")]:
     for tr in (False, True):
         ref = None
-        for dn in [bool(int(d)) for d in a.dnoc.split(",")]:
+        for dn in [int(d) for d in a.dnoc.split(",")]:
             TL.DNOC = dn
             for abl in [int(m) for m in a.abl.split(",")]:
                 TL.ABL = abl

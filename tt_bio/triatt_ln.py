@@ -40,7 +40,7 @@ TILE = 32
 RB = 4          # row tiles per reader barrier
 #: the ending variant norms z^T straight out of z (reader.cpp TR) instead of transposing first
 TR = True
-#: the writer drains every second tile on the reader's NOC (kernels/triatt_ln/writer.cpp DNOC); bit-exact
+#: the writer drains every second tile on the reader's NOC (kernels/triatt_ln/writer.cpp DNOC; 2, 3 bench arms); bit-exact
 DNOC = False
 #: bench-only stage skips (kernels/triatt_ln/compute.cpp ABL; perf/spd_m_protenix/tl_attr.py), 0 in production
 ABL = 0
@@ -174,7 +174,7 @@ def _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw):
         kernel_source=str(KERNEL_DIR / "writer.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[H, MT, nw, nwf] + sum((acc(o) for o in outs), []),
         defines=([("ABL_W", "1")] if ABL & 4 else []) + ([("ABL_LIN", str(_pages(outs[0])))]
-                                                          if ABL & 16 and H else []) + ([("DNOC", "1")] if DNOC else []),
+                                                          if ABL & 16 and H else []) + ([("DNOC", str(int(DNOC)))] if DNOC else []),
         runtime_args=wr, common_runtime_args=[0] * len(outs),
         config=_dm(ttnn.DataMovementProcessor.RISCV_0, ttnn.NOC.RISCV_0_default) if DNOC else ttnn.WriterConfigDescriptor())
     fid, approx, _, full = ckc

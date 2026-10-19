@@ -25,7 +25,13 @@ inline uint32_t row_of(uint32_t r0, uint32_t i) {
 // Every second tile goes out on the other NOC (the reader's, which carries only x). One NOC drains ~126 GB/s
 // into DRAM on Wormhole; triatt_ln writes 4x what it reads. Same tiles, same addresses: bit-exact.
 // Needs DM_DYNAMIC_NOC (triatt_ln.py): under the dedicated mode the other NOC is never initialised.
+#if DNOC == 2   // bench: dynamic mode, own NOC only (prices the mode)
+#define WNOC(j) noc_index
+#elif DNOC == 3 // bench: whole rows alternate (prices per-tile switching)
+#define WNOC(j) (uint8_t)((i & 1) ? 1 - noc_index : noc_index)
+#else
 #define WNOC(j) (uint8_t)(((j) & 1) ? 1 - noc_index : noc_index)
+#endif
 #define FLUSHED() do { noc_async_writes_flushed(noc_index); noc_async_writes_flushed(1 - noc_index); } while (0)
 #define BARRIER() do { noc_async_write_barrier(noc_index); noc_async_write_barrier(1 - noc_index); } while (0)
 #else
