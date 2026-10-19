@@ -21,7 +21,7 @@ trap 'kill $SMI 2>/dev/null' EXIT
 
 # --- rule 4: every arm, then the winner at --warm 9 ------------------------------------------------------------------
 /opt/bc2-venv/bin/python /root/kc/bc4_arms.py --bc2 /root/bc2 --out $B --smi $B/smi.csv \
-  --screen-warm ${SCREEN_WARM:-2} --final-warm ${FINAL_WARM:-9} --deadline $DEADLINE > $B/arms.log 2>&1
+  --screen-warm ${SCREEN_WARM:-2} --final-warm ${FINAL_WARM:-6} --deadline $DEADLINE > $B/arms.log 2>&1
 echo $? > $B/ARMS-DONE; say "arms done after $(( $(date +%s) - T0 ))s"
 
 # --- deliverable B: the census, on one warm trajectory ---------------------------------------------------------------
