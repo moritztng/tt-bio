@@ -54,15 +54,20 @@ PUSH="$P/bc2_gpu.py $P/box_bc_setup.sh $WT/perf/spd/bc4_quality_session.sh $WT/p
 for f in $PUSH; do [ -e "$f" ] || { log "FATAL: push list names a missing file: $f"; exit 2; }; done
 [ -d "$BANKED" ] || { log "FATAL: no banked campaigns at $BANKED"; exit 2; }
 MAXDPH=$(echo "$Q" | grep -oP 'dph<=\K[0-9.]+'); C=$(credit)
-python3 -c "import sys; sys.exit(0 if $C - $CAP_H * ${MAXDPH:-0.5} >= $FLOOR else 1)" ||
-  { log "REFUSED: credit \$$C - $CAP_H h x \$${MAXDPH:-0.5}/h would cross the \$$FLOOR floor"; exit 4; }
+# dph is GPU + storage. It is NOT the whole bill: the 2026-10-19 session was also charged $0.117 of bandwidth,
+# mostly pulling the AF2 and ProteinMPNN weights down once. A guard that reserves only cap x dph therefore aims
+# at the floor and lands just under it. Reserve the transfer too.
+BW=${BW_RESERVE_USD:-0.15}
+python3 -c "import sys; sys.exit(0 if $C - $CAP_H * ${MAXDPH:-0.5} - $BW >= $FLOOR else 1)" ||
+  { log "REFUSED: credit \$$C - $CAP_H h x \$${MAXDPH:-0.5}/h - \$$BW transfer would cross the \$$FLOOR floor"
+    exit 4; }
 log "credit \$$C at start, cap $CAP_H h, on-box budget $BUDGET_MIN min, concurrency $CONC, request $REQ"
 
 for _ in $(seq $NMAX); do
   OFFER=$(next_offer); [ -z "$OFFER" ] && { log "no untried offer matches: $Q"; break; }
   read -r O ODPH OGPU <<< "$OFFER"
   TRIED="$TRIED$O "; echo "$O" >> "$TRIEDF"
-  C=$(credit); python3 -c "import sys; sys.exit(0 if $C - $CAP_H * ${MAXDPH:-0.5} >= $FLOOR else 1)" ||
+  C=$(credit); python3 -c "import sys; sys.exit(0 if $C - $CAP_H * ${MAXDPH:-0.5} - $BW >= $FLOOR else 1)" ||
     { log "REFUSED at offer $O: credit \$$C would cross the \$$FLOOR floor"; exit 4; }
   echo "-  $CAP_H  $SLUG  # $L creating on offer $O" >> $B
   I=$($V create instance $O --image nvidia/cuda:13.0.1-cudnn-devel-ubuntu24.04 --disk ${DISK:-130} --ssh --direct --label $SLUG-$L --raw 2>&1 | grep -oP "new_contract['\"]:\s*\K[0-9]+")
