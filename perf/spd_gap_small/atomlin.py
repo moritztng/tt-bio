@@ -25,18 +25,18 @@ import tt_bio.tenstorrent as T  # noqa: E402
 from perf.spd_difflin.op_probe import aiclk, dev_time, opened_nodes, wrong  # noqa: E402
 
 
-def pc1d(m_t, k_t, n_t, grid, sbw):
+def pc1d(m_t, k_t, n_t, grid, sbw, kb=None):
     """1D program, activation rows split over the cores, weight multicast to all of them."""
     gx, gy = grid
     pm = math.ceil(m_t / (gx * gy))
     sw = max(w for w in range(1, min(sbw, n_t) + 1) if n_t % w == 0)
     return ttnn.MatmulMultiCoreReuseMultiCast1DProgramConfig(
-        compute_with_storage_grid_size=ttnn.CoreCoord(gx, gy), in0_block_w=k_t, out_subblock_h=1,
+        compute_with_storage_grid_size=ttnn.CoreCoord(gx, gy), in0_block_w=kb or k_t, out_subblock_h=1,
         out_subblock_w=sw, per_core_M=pm, per_core_N=n_t, fuse_batch=True, fused_activation=None,
         mcast_in0=False)
 
 
-def bench(dev, nodes, emit, name, shp, N, bias, seed=7):
+def bench(dev, nodes, emit, name, shp, N, bias, seed=7, diag=False):
     torch.manual_seed(seed)
     K = shp[-1]
     A = torch.randn(*shp); W = torch.randn(K, N) / K ** 0.5; Bv = torch.randn(N) * 0.5 if bias else None
@@ -66,6 +66,33 @@ def bench(dev, nodes, emit, name, shp, N, bias, seed=7):
                                                                  program_config=pc, dtype=ttnn.bfloat16)))
         arms.append((f"flat_pc1d_sb{sbw}", lambda pc=pc: ttnn.linear(flat(), tw, bias=tb, compute_kernel_config=ckc,
                                                                       program_config=pc, dtype=ttnn.bfloat16)))
+    if diag:
+        # What the call waits on: math (fidelity), the fp32 DEST pack, K blocking (read/compute overlap), DRAM writes
+        # or reads (L1 output / L1 input), and the fixed cost of one launch (M cut to one row tile a core).
+        def ck(fid=ttnn.MathFidelity.HiFi4, acc=True):
+            return ttnn.init_device_compute_kernel_config(dev.arch(), math_fidelity=fid, math_approx_mode=False,
+                                                          fp32_dest_acc_en=acc, packer_l1_acc=acc)
+        call = lambda x=ta, c=ckc, **kw: ttnn.linear(x, tw, bias=tb, compute_kernel_config=c,  # noqa: E731
+                                                    core_grid=T.CORE_GRID_MAIN, dtype=ttnn.bfloat16, **kw)
+        l1 = ttnn.L1_MEMORY_CONFIG
+        ta_l1 = ttnn.to_memory_config(ta, l1)
+        small = ttnn.from_torch(A.reshape(-1, K)[:32 * grid[0] * grid[1]].reshape(1, 1, -1, K), dtype=ttnn.bfloat16,
+                                layout=ttnn.TILE_LAYOUT, device=dev)
+        arms += [
+            ("d_lofi", lambda: call(c=ck(ttnn.MathFidelity.LoFi))),
+            ("d_hifi2", lambda: call(c=ck(ttnn.MathFidelity.HiFi2))),
+            ("d_acc0", lambda: call(c=ck(acc=False))),
+            ("d_lofi_acc0", lambda: call(c=ck(ttnn.MathFidelity.LoFi, acc=False))),
+            ("d_out_l1", lambda: call(memory_config=l1)),
+            ("d_in_l1", lambda: call(x=ta_l1)),
+            ("d_in_out_l1", lambda: call(x=ta_l1, memory_config=l1)),
+            ("d_one_row_tile", lambda: call(x=small)),
+        ]
+        for kb in (1, 2):
+            if K // 32 % kb == 0 and kb < K // 32:
+                pc = pc1d(M // 32, K // 32, N // 32, grid, 4, kb)
+                arms.append((f"d_pc1d_kb{kb}", lambda pc=pc: ttnn.linear(ta, tw, bias=tb, compute_kernel_config=ckc,
+                                                                          program_config=pc, dtype=ttnn.bfloat16)))
     base = None
     for lab, fn in arms:
         try:
@@ -74,6 +101,10 @@ def bench(dev, nodes, emit, name, shp, N, bias, seed=7):
             ttnn.deallocate(y)
         except Exception as e:
             emit(ev="arm", op=name, arm=lab, error=str(e).splitlines()[0][:240])
+            continue
+        if lab == "d_one_row_tile":
+            us, sp, ck_ = dev_time(dev, fn, nodes=nodes)
+            emit(ev="arm", op=name, arm=lab, us=round(us, 1), spread=round(sp, 3), aiclk=ck_)
             continue
         Yt = Yt.reshape(R.shape)
         if lab == "model":
@@ -92,6 +123,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--windows", type=int, default=140)
+    ap.add_argument("--diag", action="store_true", help="also the arms that say what the call waits on")
     a = ap.parse_args()
     torch.set_num_threads(8)
     dev = T.get_device()
@@ -102,10 +134,13 @@ def main():
         kw.setdefault("aiclk", aiclk(nodes)); kw.update(arch=T.arch_name(), t=time.time())
         log.write(json.dumps(kw) + "\n"); log.flush(); print(json.dumps(kw), flush=True)
 
-    w = a.windows
-    bench(dev, nodes, emit, "kv", (1, w, 128, 128), 256, False)
-    bench(dev, nodes, emit, "q", (1, w, 32, 128), 128, True)
+    w, d = a.windows, a.diag
+    bench(dev, nodes, emit, "kv", (1, w, 128, 128), 256, False, diag=d)
+    bench(dev, nodes, emit, "q", (1, w, 32, 128), 128, True, diag=d)
     bench(dev, nodes, emit, "gate", (1, w, 32, 128), 128, False)
+    # the atom transition's fc1 / fc2 (63 / 56 us a call in cen10, 0.33 / 0.62 of the kernel in the math thread)
+    bench(dev, nodes, emit, "tr_up", (1, w, 32, 128), 256, False, diag=d)
+    bench(dev, nodes, emit, "tr_down", (1, w, 32, 256), 128, False, diag=d)
     emit(ev="end")
 
 
