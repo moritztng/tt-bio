@@ -9002,6 +9002,8 @@ class Module:
 
     def _lin(self, x, w, bias=None, dtype=None, **kw):
         """Shared linear projection on this module's kernel config and core grid."""
+        if kw.get("activation") == "sigmoid":
+            kw["activation"] = mm_sigmoid(self.compute_kernel_config)
         return ops.linear(x, w, bias=bias, compute_kernel_config=self.compute_kernel_config,
                           dtype=_dtype(ttnn.bfloat16) if dtype is None else dtype,
                           core_grid=CORE_GRID_MAIN, **kw)

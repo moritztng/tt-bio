@@ -1878,7 +1878,8 @@ class DiffusionModule(_KeyedWeights):
         s_hat = ttnn.layer_norm(s_t, epsilon=1e-5, compute_kernel_config=ckc)
         lin = lambda x, w, b=None, act=None: ttnn.linear(  # noqa: E731
             x, w, bias=b, activation=act, compute_kernel_config=ckc, core_grid=CORE_GRID_MAIN)
-        out = (lin(s_hat, w_sc, b_sc, "sigmoid"), lin(s_hat, w_sb), lin(s_t, w_g, b_g, "sigmoid"))
+        sig = _T.mm_sigmoid(ckc)
+        out = (lin(s_hat, w_sc, b_sc, sig), lin(s_hat, w_sb), lin(s_t, w_g, b_g, sig))
         ttnn.deallocate(s_hat)
         return out
 
