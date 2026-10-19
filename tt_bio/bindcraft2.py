@@ -317,9 +317,10 @@ RESIDENT_BLOCKS = os.environ.get("TT_BIO_BC2_RESIDENT_BLOCKS", "auto")
 #: A fast round with resident blocks peaks at `_MODE_BASE_BYTES` plus this many pair tensors
 #: (256 B a token pair) per resident block, plus a fixed count beside them. Bracketed on a
 #: Blackhole chip (34.226 GB) with real BindCraft 2 rounds: 224 tokens holds 48, 256 holds 36 and
-#: refuses 40, 288 refuses 32, 320 holds 24 and refuses 28 (`state/bc4/bets/tape/NOTES.md`). The
-#: law gives 48, 36, 28 and 22 there, so it never offers a count that refused. On a Wormhole chip
-#: it gives 10 for the 1.03 GB/block tape of 2026-10-13, where 11 fit and 12 refused.
+#: refuses 40, 288 holds 28 and refuses 32, 320 holds 24 and refuses 26, 352 holds 20
+#: (`state/bc4/bets/tape/NOTES.md`). The law gives 48, 36, 28, 22 and 18 there, so it never offers
+#: a count that refused. On a Wormhole chip it gives 10 for the 1.03 GB/block tape of 2026-10-13,
+#: where 11 fit and 12 refused.
 _RESIDENT_BLOCK_PAIR_TENSORS = 50.5
 _RESIDENT_ROUND_PAIR_TENSORS = 99.5
 

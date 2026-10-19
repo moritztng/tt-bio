@@ -8,9 +8,9 @@ BH = B.P150A_DRAM_BYTES
 
 
 @pytest.mark.parametrize("tokens, held, refused", [(224, 48, None), (256, 36, 40), (288, None, 32),
-                                                    (320, 24, 28)])
+                                                    (320, 24, 26), (352, 20, None)])
 def test_auto_stays_inside_the_measured_blackhole_brackets(tokens, held, refused):
-    # Real BindCraft 2 rounds on a Blackhole chip, 2026-10-19 (sweep13/sweep14 of bc4-bet-tape).
+    # Real BindCraft 2 rounds on a Blackhole chip, 2026-10-19 (sweep13/14 of bc4-bet-tape).
     k = B.resident_blocks("fast", tokens, BH, requested="auto")
     if refused is not None:
         assert k < refused
