@@ -169,8 +169,10 @@ _SDPA_FP32 = (ttnn.MathFidelity.HiFi4, False, True, False)
 
 # SaProt 35M (head_dim 24, padded to 32): q / k dims ordered in NeoX pairs so rotary_embedding_llama's 32 x 32 pair
 # rotation runs RoPE on the padded heads, in place of the folded companion projection (rot_weight), two multiplies and
-# an add over [B, L, 3*H*32] (WH 35M page census: 14.9 of 41.5 ms). Diagnostic until graded (off).
-_SAPROT_RL = env_flag("TT_BIO_SAPROT_RL", False)
+# an add over [B, L, 3*H*32] (WH 35M page census: 14.9 of 41.5 ms). Galaxy chip, 1000 MHz, 2 processes per arm x 3, ms:
+# normal hHSA 39.1 -> 31.7, hPCSK9 38.8 -> 31.7; --fast hHSA 39.0 -> 31.1, hPCSK9 37.9 -> 31.3 (-19 %). pcc vs fp32: normal
+# hPCSK9 -0.000014, hHSA +0.000003, --fast +0.000021 / +0.000036. False keeps the folded projection.
+_SAPROT_RL = env_flag("TT_BIO_SAPROT_RL", True)
 _RL_CK = ttnn.WormholeComputeKernelConfig(math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=False,
                                           fp32_dest_acc_en=True, packer_l1_acc=False)
 
