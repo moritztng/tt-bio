@@ -542,8 +542,14 @@ def trace_agreement(a: list[Trajectory], b: list[Trajectory], label_a: str, labe
     iteration 1 and parting by iteration 50 is what correct arithmetic looks like here, not a defect. Late
     divergence is reported because it is interesting, never because it is graded.
 
-    The ceiling on what this can see is `resolution`: BindCraft 2 rounds the losses it writes, so a deviation
-    below that quantum was never in the file.
+    The ceiling on what this can see is each column's quantum: BindCraft 2 rounds the losses it writes, so a
+    deviation below that quantum was never in the file.
+
+    ALWAYS read this against a floor from two runs of the REFERENCE engine, never from the engine under test.
+    Measured 2026-10-19 on the campaigns on this host: TT reproduces its own seed exactly (0 quanta, 3 pairs)
+    and the B200 does not (20/70/90 quanta on hPDL1.compactness, 3 pairs, same sha and same per-trajectory
+    settings). A floor taken on the deterministic side reads 0 and turns the reference engine's own scatter into
+    a finding about the engine under test, which is how this function first got read.
     """
     paired = _pairs(a, b)
     # Each loss column is written at its own quantum, so a deviation is only meaningful in units of that column's
@@ -590,8 +596,10 @@ def trace_agreement(a: list[Trajectory], b: list[Trajectory], label_a: str, labe
             "BindCraft 2 writes these losses rounded. Nothing finer than a column's quantum was ever in the file, "
             "so 0 means 'equal at the recorded resolution', never 'bit-exact'.",
         "design_name_note":
-            "`design_name_matches` is NOT evidence of agreement. On the 2026-10-19 B200-vs-TT data every name "
-            "matched while the traces differed, so the name is derived from the draw and not from the design.",
+            "`design_name_matches` is NOT evidence of agreement. BC2 hashes the design REQUEST, not the produced "
+            "design: design_identity.py:EXCLUDED_SETTING_NAMES drops attention_backend, subbatch_size, use_cueq, "
+            "gpu_ids, auto_multi_gpu, design_workers, workers_per_gpu and max_trajectories from the name. On the "
+            "2026-10-19 B200-vs-TT data every name matched while the traces differed.",
         "iteration_1_max_dev_quanta": max(firsts) if firsts else None,
         "iteration_1_by_column": {c: round(v, 3) for c, v in sorted(by_column.items())},
         "grades_nothing": "Reported, not graded. The verdict comes from grade(); this is evidence about "
