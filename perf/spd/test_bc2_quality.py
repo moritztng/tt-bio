@@ -428,6 +428,19 @@ def test_reference_builds_with_a_passing_aa_control(tmp_path):
             assert metric in ref["targets"][target]["metrics"], metric
 
 
+def test_banked_runs_are_read_but_never_listed_as_runnable(tmp_path):
+    """The 14 trajectories the 2026-10-19 B200 left when it capped mid-campaign count toward the reference, and
+    must not be handed back to a runner: repeating a campaign repeats its pair keys, which then cannot pair."""
+    make_campaign(str(tmp_path), "pdl1", "A1", 101, n=4)
+    req = {"runs": [{"id": "pdl1/A1_s104", "tier": "P0", "target": "pdl1", "arm": "A1",
+                     "campaign_seed": 104, "trajectories": 10}],
+           "banked_runs": [{"id": "pdl1/A1_s101", "tier": "BANKED", "target": "pdl1", "arm": "A1",
+                            "campaign_seed": 101, "trajectories": 4}]}
+    ref = Q.build_reference(req, str(tmp_path))
+    assert ref["targets"]["pdl1"]["n"] == 4, "the banked campaign has to be read into the reference"
+    assert [m["id"] for m in ref["missing_runs"]] == ["pdl1/A1_s104"], ref["missing_runs"]
+
+
 def test_reference_reports_a_run_that_did_not_land(tmp_path):
     root = str(tmp_path)
     make_arm(root, "pdl1", "A1", seeds=(101, 102))

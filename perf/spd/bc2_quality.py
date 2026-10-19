@@ -616,11 +616,17 @@ def power_statement(ref_by_target: dict[str, list[Trajectory]]) -> dict:
 
 
 def build_reference(request: dict, root: str, seed: int = 0) -> dict:
-    """Read every campaign the request asked for, grade the A/A control, and state the power."""
+    """Read every campaign the request asked for, grade the A/A control, and state the power.
+
+    `banked_runs` are campaigns that already landed and must NOT be run again: the 2026-10-19 B200 capped
+    mid-campaign and left 14 usable pdl1 trajectories at seeds 101-103. They are read into the reference exactly
+    like the rest, but they are kept out of `runs` so the runner cannot repeat them. Re-running one would repeat
+    its (campaign_seed, trajectory_number) keys, which then cannot pair.
+    """
     by_target: dict[str, dict[str, list[Trajectory]]] = {}
     paths: dict[str, list[str]] = {}
     missing = []
-    for run in request.get("runs", []):
+    for run in list(request.get("runs", [])) + list(request.get("banked_runs", [])):
         arm_dir = os.path.join(root, run["target"], f"{run['arm']}_s{run['campaign_seed']}")
         if not os.path.isdir(arm_dir):
             missing.append({"id": run["id"], "tier": run["tier"], "expected_at": arm_dir})
