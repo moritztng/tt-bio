@@ -226,6 +226,7 @@ def _saprot_prog(x, w, act, hifi2=False):
 # The block-fp8 projections of --fast at HiFi2 instead of the model's HiFi3, fp32 accumulation kept: a block-fp8 weight's
 # 7-bit mantissa is consumed whole in two fidelity phases (ESMC ships the same on its minimal_matmuls). None = on for
 # models at least _HIFI2_MIN_WIDTH wide: SaProt 35M's pooled cos vs fp32 fell to 0.999879 at HiFi2, under the 0.9999 bar.
+# Wormhole only by default until the Blackhole A/B reads (TT_BIO_SAPROT_HIFI2=1 forces it for that grade).
 _SAPROT_HIFI2 = env_flag("TT_BIO_SAPROT_HIFI2", None)
 _HIFI2_MIN_WIDTH = 1280
 # Which projections _SAPROT_HIFI2 moves to HiFi2: the FFN's. Page cell --fast, Galaxy chip at 1000 MHz, 2 rounds, pcc vs
@@ -249,7 +250,7 @@ class _SaprotLin(_MMLin):
         """The model's kernel config, at HiFi2 for a block-fp8 weight where _SAPROT_HIFI2 serves."""
         ck = self.compute_kernel_config
         d = int(self.norm_weight.shape[-1])
-        on = d >= _HIFI2_MIN_WIDTH if _SAPROT_HIFI2 is None else _SAPROT_HIFI2
+        on = d >= _HIFI2_MIN_WIDTH and tenstorrent.is_wormhole() if _SAPROT_HIFI2 is None else _SAPROT_HIFI2
         if not (on and w.dtype == ttnn.bfloat8_b and _role(d, int(w.shape[-2]), int(w.shape[-1])) in _SAPROT_HIFI2_ROLES
                 and ck.math_fidelity in (ttnn.MathFidelity.HiFi3, ttnn.MathFidelity.HiFi4)):
             return ck
