@@ -42,6 +42,12 @@ t=sys.argv[1].split()
 print(next((str(o["id"]) for o in json.load(sys.stdin) if str(o["id"]) not in t), ""))' "$TRIED"; }
 
 [ -f "$REQ" ] || { log "FATAL: no request at $REQ"; exit 2; }
+# Every local path the push stage needs, checked BEFORE the first rental. On 2026-10-19 this list named a
+# bc2_traj.py that never existed in the repo, and three healthy boxes were created, failed the rsync and were
+# destroyed before the loop ran out of offers. A missing file on pc must cost a second, not a rental.
+PUSH="$P/bc2_gpu.py $P/box_bc_setup.sh $WT/perf/spd/bc4_quality_session.sh $WT/perf/spd/bc4_session_plan.py $WT/perf/spd/bc2_quality.py $REQ"
+for f in $PUSH; do [ -e "$f" ] || { log "FATAL: push list names a missing file: $f"; exit 2; }; done
+[ -d "$BANKED" ] || { log "FATAL: no banked campaigns at $BANKED"; exit 2; }
 MAXDPH=$(echo "$Q" | grep -oP 'dph<=\K[0-9.]+'); C=$(credit)
 python3 -c "import sys; sys.exit(0 if $C - $CAP_H * ${MAXDPH:-0.5} >= $FLOOR else 1)" ||
   { log "REFUSED: credit \$$C - $CAP_H h x \$${MAXDPH:-0.5}/h would cross the \$$FLOOR floor"; exit 4; }
@@ -85,7 +91,7 @@ if x.get("actual_status")=="running":
 
   R(){ rsync -a -e "${S% root@*}" "$@"; }; H=root@$HOST
   $S 'mkdir -p /root/kc /root/tt-bio/perf/spd /root/tt-bio/perf/kitcmp' &&
-    R $P/bc2_gpu.py $P/bc2_traj.py $P/box_bc_setup.sh $H:/root/tt-bio/perf/kitcmp/ &&
+    R $P/bc2_gpu.py $P/box_bc_setup.sh $H:/root/tt-bio/perf/kitcmp/ &&
     R $WT/perf/spd/bc4_quality_session.sh $WT/perf/spd/bc4_session_plan.py $WT/perf/spd/bc2_quality.py \
       $H:/root/tt-bio/perf/spd/ &&
     R "$REQ" $H:/root/kc/quality-req.json &&
