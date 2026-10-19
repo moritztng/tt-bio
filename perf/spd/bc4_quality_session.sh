@@ -122,7 +122,10 @@ for w in $(seq 0 $((WAVES - 1))); do
     mkdir -p "$d"
     say "  launching $id -> $d"
     if [ $DRY -eq 1 ]; then echo 0 > "$d/rc"; continue; fi
-    ( XLA_PYTHON_CLIENT_PREALLOCATE=false XLA_PYTHON_CLIENT_MEM_FRACTION=0.30 \
+    # 0.30 is sized for three campaigns sharing one big card. On a 48 GB card at concurrency 1 it hands a single
+    # campaign 14 GB, below the ~12 GB per stream the B200 census implies and with no margin, so the fraction has
+    # to follow the concurrency rather than be pinned to the three-way case.
+    ( XLA_PYTHON_CLIENT_PREALLOCATE=false XLA_PYTHON_CLIENT_MEM_FRACTION=${MEMFRAC:-0.30} \
       timeout "$CAP" "$PYBIN" "$WT/perf/kitcmp/bc2_gpu.py" \
         --bc2 "$BC2" --out "$d" --seed "$seed" --example "$example" \
         --binder-len "$blen" --max-traj "$traj" --final-designs 1000 \

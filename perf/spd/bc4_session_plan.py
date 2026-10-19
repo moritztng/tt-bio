@@ -19,11 +19,17 @@ So the gate is satisfied after SIX of the nine campaigns, not nine. The last thr
 from __future__ import annotations
 
 import json
+import os
 
 # Measured on the 2026-10-19 B200, three campaigns concurrent on one card, over the 14 trajectories it delivered
 # (artifacts/bc4-quality-ref/pdl1/*/runs.jsonl): 1192.5 s of wall clock for 14 trajectories.
-DELIVERED_S_PER_TRAJECTORY = 85.2
-B200_DPH = 6.251
+# Measured on the B200. A different card delivers a different rate, and the rate is what decides how many
+# campaigns a budget buys, so BC4_S_PER_TRAJ overrides it rather than the plan quietly pricing every box as
+# a B200: on a 3-5x slower card the B200 rate schedules waves the session cannot finish, and each campaign
+# is then capped at a span sized for hardware it is not running on.
+DELIVERED_S_PER_TRAJECTORY = float(os.environ.get("BC4_S_PER_TRAJ") or 85.2)
+# The card actually rented, so the plan's cost line is not quoted at B200 rates on a $0.46/h box.
+B200_DPH = float(os.environ.get("BC4_DPH") or 6.251)
 # What a box costs before it computes anything: clone, pip install, fetch-weights, first JAX import.
 SETUP_S = 900
 # One campaign's own span is the delivered rate times however many campaigns share the card.
