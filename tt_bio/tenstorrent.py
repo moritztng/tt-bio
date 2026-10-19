@@ -3189,13 +3189,25 @@ def _sdpa_chunk_pad_len(seq_len: int) -> int:
     return 0 if padded % kc == 0 else -(-padded // kc) * kc
 
 
-# dit_bpad's padded length; None = the tile multiple (`dit_bias_pad_len`). A bench knob.
+# dit_bpad's padded length; None = `dit_bias_pad_len`'s rule. A bench knob.
 DIT_BPAD_LEN = None
 
 
 def dit_bias_pad_len(n: int) -> int:
-    """The token axis `dit_bpad` stages the DiT's block biases at, for `n` tokens."""
-    return DIT_BPAD_LEN or _padded_sdpa_len(n)
+    """The token axis `dit_bpad` runs the DiT at for `n` tokens: the tile multiple when a dit_chunk
+    chunk divides it, else the next multiple of the capped 256 chunk (`_sdpa_chunk_pad_len`), the
+    grid the stock op would pad to inside, at a cost far beyond the padding's share.
+
+    MEASURED (perf/spd_m_opendde/ditpad_sweep.py, Wormhole 1000 MHz, q/k/v [B, 16, Np, 64] vs a bias
+    staged at Np, 1199 tokens): B 1, ship 1216 q = k = 256 1038 us + 256 us bias tail re-fill per
+    call; at 1280 q320 k256 378 us, q = k = 320 421 us, pm 572 us. B 5: 2583 -> pm 1372 us. 1248,
+    1344 and 1536 are slower than 1280 at every chunk pair. Float64 rel_rms at k256 equals ship's."""
+    if DIT_BPAD_LEN:
+        return DIT_BPAD_LEN
+    p = _padded_sdpa_len(n)
+    if any(p % c == 0 for c in range(320, 95, -SDPA_CHUNK_TILE)):
+        return p
+    return _sdpa_chunk_pad_len(n) or p
 
 
 def pad_dit_bias(b, n: int, to: int):

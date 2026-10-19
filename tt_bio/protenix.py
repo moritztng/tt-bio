@@ -1434,6 +1434,10 @@ class DiffusionModule(_KeyedWeights):
             self._dit[-1][1].sdpa32 = self._dit_sdpa32
             if self._dit_lp is not None:
                 self._dit[-1][1].enable_lowp(self._dit_lp)
+        # dit_bpad: the bf16 fused-SDPA DiT runs its whole token axis at `dit_bias_pad_len` (rows are
+        # independent everywhere but the attention, whose staged bias masks the new keys).
+        self._dit_bpad = (_T.lever("dit_bpad") and not self._dit_sdpa32
+                          and all(apb.token_dit for (_, apb, _, _, _) in self._dit))
 
 
     def _up_dit(self, t):
@@ -1812,10 +1816,8 @@ class DiffusionModule(_KeyedWeights):
         NT = int(z_dev.shape[-2])
         if self._dit_sdpa32:
             NT = _T.sdpa32_rows(NT)
-        # dit_bpad: the bf16 fused-SDPA DiT reads each bias at a padded length, staged here once.
-        bpad = (_T.lever("dit_bpad") and not self._dit_sdpa32
-                and all(apb.token_dit for (_, apb, _, _, _) in self._dit))
-        to = _T.dit_bias_pad_len(NT) if bpad else NT
+        # dit_bpad: each bias staged once at the DiT's padded token axis (`_token_dit_device`).
+        to = _T.dit_bias_pad_len(NT) if self._dit_bpad else NT
         one = _T._padded_bytes((1, self.DIT_N_HEADS, to, to),
                                4 if self._dit_dtype == ttnn.float32 else 2)
         reserve = 4 * one
@@ -1860,7 +1862,8 @@ class DiffusionModule(_KeyedWeights):
             a_t = ttnn.typecast(a_t, self._dit_dtype)
             s_t = ttnn.typecast(s_t, self._dit_dtype)
         wtt = self._w_tt_dit if self._dit_fp32 else self._w_tt
-        NP = _T.sdpa32_rows(NT) if self._dit_sdpa32 else NT
+        NP = (_T.sdpa32_rows(NT) if self._dit_sdpa32 else
+              _T.dit_bias_pad_len(NT) if self._dit_bpad else NT)
         if NP != NT:
             # Rows are independent everywhere but the attention, whose mask hides the new keys.
             a_t, s_t = (ttnn.pad(x, [(0, 0)] * (len(x.shape) - 2) + [(0, NP - NT), (0, 0)], value=0.0)
