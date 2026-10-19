@@ -12,7 +12,9 @@ void kernel_main() {
     constexpr uint32_t CO = get_compile_time_arg_val(2);
     constexpr uint32_t ABL = get_compile_time_arg_val(3);   // bit 2: no DRAM write (diagnostic)
     constexpr uint32_t WB = get_compile_time_arg_val(4);    // tiles per flush
-    constexpr auto o_args = TensorAccessorArgs<5>();
+    constexpr uint32_t CT = get_compile_time_arg_val(5);
+    constexpr uint32_t ORD = get_compile_time_arg_val(6);   // as the reader's
+    constexpr auto o_args = TensorAccessorArgs<7>();
     const auto o = TensorAccessor(o_args, get_common_arg_val<uint32_t>(0));
     const uint32_t u0 = get_arg_val<uint32_t>(0);
     const uint32_t nunits = get_arg_val<uint32_t>(1);
@@ -21,9 +23,10 @@ void kernel_main() {
     const uint32_t tb = get_tile_size(out_cb);
 
     for (uint32_t u = u0; u < u0 + nunits; ++u) {
-        const uint32_t ct = u / SS;
-        const uint32_t it = (u % SS) / St;
-        const uint32_t jt = u % St;
+        const uint32_t ct = ORD ? u % CT : u / SS;
+        const uint32_t cube = ORD ? u / CT : u % SS;
+        const uint32_t it = cube / St;
+        const uint32_t jt = cube % St;
         uint32_t page = ((it * 32) * St + jt) * Ht + CO + ct;
         for (uint32_t i0 = 0; i0 < 32; i0 += WB) {
             cb_wait_front(out_cb, WB);

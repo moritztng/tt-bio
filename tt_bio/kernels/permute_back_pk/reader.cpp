@@ -9,7 +9,9 @@
 void kernel_main() {
     constexpr uint32_t St = get_compile_time_arg_val(0);
     constexpr uint32_t ABL = get_compile_time_arg_val(1);   // bit 0: no DRAM read (diagnostic)
-    constexpr auto x_args = TensorAccessorArgs<2>();
+    constexpr uint32_t CT = get_compile_time_arg_val(2);
+    constexpr uint32_t ORD = get_compile_time_arg_val(3);   // 1: channel tile fastest (bank spread), 0: ct slowest
+    constexpr auto x_args = TensorAccessorArgs<4>();
     const auto x = TensorAccessor(x_args, get_common_arg_val<uint32_t>(0));
     const uint32_t u0 = get_arg_val<uint32_t>(0);
     const uint32_t nunits = get_arg_val<uint32_t>(1);
@@ -18,8 +20,8 @@ void kernel_main() {
     const uint32_t tb = get_tile_size(in_cb);
 
     for (uint32_t u = u0; u < u0 + nunits; ++u) {
-        const uint32_t ct = u / SS;
-        const uint32_t cube = u % SS;          // it * St + jt
+        const uint32_t ct = ORD ? u % CT : u / SS;
+        const uint32_t cube = ORD ? u / CT : u % SS;          // it * St + jt
         uint32_t page = ct * 32 * SS + cube;
         for (uint32_t g = 0; g < 4; ++g) {
             cb_reserve_back(in_cb, 8);

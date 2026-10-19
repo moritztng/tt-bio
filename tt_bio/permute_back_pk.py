@@ -18,6 +18,9 @@ KERNEL_DIR = Path(__file__).resolve().parent / "kernels" / "permute_back_pk"
 ABL = 0            # stage ablation bits (see each .cpp). Diagnostic only.
 OUT_TILES = int(os.environ.get("TT_BIO_PBPK_OUT", "16"))   # out_cb tiles; the writer bounds the kernel (bpk5)
 WB = int(os.environ.get("TT_BIO_PBPK_WB", "8"))            # writer tiles per flush, divides 32 and OUT_TILES
+# Unit order. 0: ct slowest, so a unit's 32 reads stride SS pages and its 32 writes St*Ht pages, both multiples of 4,
+# which lands every unit on 3 of Wormhole's 12 DRAM banks. 1: ct fastest, neighbouring units one page apart.
+ORD = int(os.environ.get("TT_BIO_PBPK_ORD", "0"))
 _CACHE: dict = {}
 TILE = 32
 
@@ -42,7 +45,7 @@ def permute_back_pk(x, out, grid, c_off=0):
     assert ok(x, out, c_off)
     C, N, H = int(x.shape[1]), int(x.shape[2]), int(out.shape[3])
     St, CT, Ht = N // TILE, C // TILE, H // TILE
-    key = (C, N, H, c_off, tuple(grid), ABL, OUT_TILES, WB)
+    key = (C, N, H, c_off, tuple(grid), ABL, OUT_TILES, WB, ORD)
     entry = _CACHE.get(key)
     if entry is None:
         gx, gy = grid
@@ -61,11 +64,11 @@ def permute_back_pk(x, out, grid, c_off=0):
         src = ttnn.KernelDescriptor.SourceType.FILE_PATH
         reader = ttnn.KernelDescriptor(
             kernel_source=str(KERNEL_DIR / "reader.cpp"), source_type=src, core_ranges=core_grid,
-            compile_time_args=[St, ABL] + acc(x), runtime_args=rd, common_runtime_args=[0],
+            compile_time_args=[St, ABL, CT, ORD] + acc(x), runtime_args=rd, common_runtime_args=[0],
             config=ttnn.ReaderConfigDescriptor())
         writer = ttnn.KernelDescriptor(
             kernel_source=str(KERNEL_DIR / "writer.cpp"), source_type=src, core_ranges=core_grid,
-            compile_time_args=[St, Ht, c_off // TILE, ABL, WB] + acc(out), runtime_args=wr, common_runtime_args=[0],
+            compile_time_args=[St, Ht, c_off // TILE, ABL, WB, CT, ORD] + acc(out), runtime_args=wr, common_runtime_args=[0],
             config=ttnn.WriterConfigDescriptor())
         compute = ttnn.KernelDescriptor(
             kernel_source=str(KERNEL_DIR / "compute.cpp"), source_type=src, core_ranges=core_grid,
