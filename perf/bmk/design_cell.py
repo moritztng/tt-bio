@@ -40,6 +40,8 @@ ap.add_argument("--fast", action="store_true")
 ap.add_argument("--repeat", type=int, default=4, help="warm reps in the cell (one cold rep is added and dropped)")
 ap.add_argument("--out", type=Path, required=True)
 ap.add_argument("--batch", type=int, default=1, help="rfd3: designs per sampler call; fold_s is the call / batch")
+ap.add_argument("--force-batch", action="store_true",
+                help="rfd3: lift effective_design_batch (the speed cap and DRAM budget) so --batch reaches the sampler")
 a = ap.parse_args()
 if a.batch != 1 and a.model != "rfd3":
     sys.exit("--batch is rfd3 only")
@@ -79,7 +81,7 @@ def cif_check(path, want_chains):
 
 import importlib.metadata as im
 
-res = {"model": a.model, "fast": a.fast, "batch": a.batch, "protocol": "bmk-page-design", "size": None, "samples": 1,
+res = {"model": a.model, "fast": a.fast, "batch": a.batch, "force_batch": a.force_batch, "protocol": "bmk-page-design", "size": None, "samples": 1,
        "repeat": a.repeat, "fixture": FIX[a.model], "fixture_sha256": sha(TREE / FIX[a.model]), "tree": tree_sha(),
        "ttnn": im.version("ttnn"), "host": os.uname().nodename, "card": os.environ.get("TT_VISIBLE_DEVICES"),
        "started": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "folds": [], "errors": []}
@@ -140,6 +142,8 @@ def rfd3():
         t = time.perf_counter(); out = sample(self, *x, **k); walls.append(time.perf_counter() - t); return out
 
     RFD3Sampler.sample = timed
+    if a.force_batch:  # not what tt-bio ships at this size: measures the batch the cap refuses (an OOM is a result)
+        D.effective_design_batch = lambda b, L: b
     specs = json.loads((TREE / FIX["rfd3"]).read_text())
     ckpt = str(ensure_rfd3_weights(Path.home() / ".boltz"))  # what `tt-bio design --model rfd3` loads
     for i in range(a.repeat + 1):
