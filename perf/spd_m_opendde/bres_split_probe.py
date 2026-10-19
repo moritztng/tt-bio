@@ -46,3 +46,8 @@ got = ttnn.to_torch(o)
 d = got.double() - ref.double()
 print(f"equal {torch.equal(got, ref)} rel_rms {float(d.pow(2).mean().sqrt() / ref.double().pow(2).mean().sqrt()):.3e}",
       flush=True)
+CH = slice(0, C, 16)
+At, Bt = ttnn.to_torch(A)[:, CH].double(), ttnn.to_torch(B)[:, CH].double()
+r64 = (At.transpose(-1, -2) if ta else At) @ (Bt.transpose(-1, -2) if tb else Bt)
+rel = lambda x: float((x[:, CH].double() - r64).pow(2).mean().sqrt() / r64.pow(2).mean().sqrt())
+print(f"rel64 bres {rel(got):.3e} ttnn {rel(ref):.3e}", flush=True)
