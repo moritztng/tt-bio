@@ -111,9 +111,9 @@ def bench(dev, nodes, emit, name, shp, N, bias, seed=7, diag=False):
             base = Yt
         nb, mx, rel = wrong(R, Yt.double())
         same = bool(base is not None and torch.equal(base, Yt))
-        us, sp, ck = dev_time(dev, fn, nodes=nodes)
+        us, sp, ck_ = dev_time(dev, fn, nodes=nodes)
         emit(ev="arm", op=name, arm=lab, us=round(us, 1), spread=round(sp, 3), wrong=nb, max_err=round(mx, 5),
-             rel_rms=float(f"{rel:.3e}"), same=same, aiclk=ck)
+             rel_rms=float(f"{rel:.3e}"), same=same, aiclk=ck_)
     for t in (ta, tw, tb):
         if t is not None:
             ttnn.deallocate(t)
