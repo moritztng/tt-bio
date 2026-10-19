@@ -90,8 +90,9 @@ def main() -> int:
                     ts.append((time.perf_counter() - t) / a.inner * 1e3)
                 ms = sorted(ts)[len(ts) // 2]
                 rel = float((got - ref).norm() / ref.norm())
+                bias = float(((got - ref) * ref.sign()).mean() / ref.abs().mean())   # < 0: |y| low (a biased K spill)
                 rec = dict(model=a.model, fast=a.fast, shape=name, M=M, K=K, N=N, arm=tag, ms=round(ms, 4),
-                           tflops=round(flops / ms / 1e9, 1), rel_l2=rel, **meta)
+                           tflops=round(flops / ms / 1e9, 1), rel_l2=rel, bias=bias, **meta)
             except Exception as e:  # noqa: BLE001 -- a refused program is a data point
                 rec = dict(model=a.model, fast=a.fast, shape=name, arm=tag, error=str(e).splitlines()[0][:200], **meta)
             print(json.dumps(rec), flush=True)
