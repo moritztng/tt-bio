@@ -17,6 +17,8 @@ live(){ curl -s -H "Authorization: Bearer $K" "$API/instances/?owner=me" |
   python3 -c 'import json,sys;print(len(json.load(sys.stdin)["instances"]))' 2>/dev/null || echo unknown; }
 
 DEADLINE=$(( $(date +%s) + WAIT_MIN * 60 ))
+# Said once, up front: a log that stays empty while waiting is indistinguishable from a launcher that died.
+log "waiting up to $WAIT_MIN min for every instance to go away, then: $*"
 while :; do
   N=$(live)
   [ "$N" = 0 ] && { log "no instance billing, starting $*"; break; }
