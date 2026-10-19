@@ -77,6 +77,8 @@ print(x.get("public_ipaddr","").strip(), p[0]["HostPort"] if p else "") if x.get
         S="ssh -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=15 -o ServerAliveInterval=30 -p $PORT root@$IP"
         timeout 30 $S true >/dev/null 2>&1 && break; S=""
       fi
+      [ $(( ($(date +%s) - T0) % 300 )) -lt 30 ] && log "$I waiting: $($V show instance $I --raw 2>/dev/null | python3 -c 'import json,sys
+x=json.load(sys.stdin); print(x.get("actual_status"), "|", (x.get("status_msg") or "").strip()[:160])' 2>/dev/null)"
       sleep 30
     done
     [ -z "$S" ] && { destroy $I "no ssh: intended_status=$(state $I)"; continue; }
