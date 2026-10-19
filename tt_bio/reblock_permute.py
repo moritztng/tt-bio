@@ -684,6 +684,13 @@ def _prepare_back(x, out, device):
     return entry
 
 
+# The same move with the packer re-tiling (permute_back_pk.py): bit-exact, 1.65 vs 2.17 ms at 512 c256 on Wormhole
+# (bpk5), because the writer copies whole tiles where this kernel's reader gathers 64 NOC packets a tile. Off until a
+# fold A/B grades it.
+PBPK = os.environ.get("TT_BIO_PBPK", "0") == "1"
+STATS_PBPK = [0]
+
+
 @_ops.fused_kernel("reblock_permute_back")
 def reblock_permute_back(x, memory_config=None, device=None, out=None, c_off=0):
     """``ttnn.permute(x, (0, 2, 3, 1))`` for ``x`` of shape ``[1, C, N, N]`` bf16 TILE.
@@ -703,6 +710,14 @@ def reblock_permute_back(x, memory_config=None, device=None, out=None, c_off=0):
     assert c_off % TILE_W == 0 and c_off + C <= c_out and (int(out.shape[1]), int(out.shape[2])) == (N, N), (
         "reblock_permute_back: the channel slice must be tile-aligned and inside `out`",
         C, c_off, [int(d) for d in out.shape])
+    if PBPK and (x.memory_config().memory_layout == out.memory_config().memory_layout
+                 == ttnn.TensorMemoryLayout.INTERLEAVED):
+        from . import permute_back_pk as _pk
+        from .tenstorrent import COMPUTE_GRID_MAIN
+        if _pk.ok(x, out, c_off):
+            STATS_BACK[0] += 1
+            STATS_PBPK[0] += 1
+            return _pk.permute_back_pk(x, out, tuple(COMPUTE_GRID_MAIN), c_off=c_off)
     entry = _prepare_back(x, out, device)
     src, dst = x.buffer_address(), out.buffer_address()
     wargs = [dst, c_out // TILE_W, c_off // TILE_W, src]
