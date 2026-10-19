@@ -1161,14 +1161,15 @@ def eligible_gated_bw(da, xw) -> bool:
     """Whether the fused backward serves ``da [1, C, N, N]`` against ``xw [1, N, N, Cw]``.
 
     The back move's window minus its DRAM floor: N and C whole tiles, TILE, interleaved, ``xw``
-    bf16 and ``da`` bf16 or float32 (a cotangent with two consumers arrives promoted). A shape
+    bf16 or bfp8_b (`GATED_IN_DTYPES`) and ``da`` bf16 or float32 (a cotangent with two consumers
+    arrives promoted). A shape
     outside it takes the composed VJP, which is correct everywhere.
     """
     sd, sx = [int(d) for d in da.shape], [int(d) for d in xw.shape]
     ok = (len(sd) == 4 and len(sx) == 4 and sd[0] == 1 and sx[0] == 1 and sd[2] == sd[3]
           and sx[1] == sd[2] and sx[2] == sd[2] and sd[1] % TILE_W == 0
           and sd[2] % TILE_H == 0 and sx[3] % TILE_W == 0)
-    ok = ok and xw.dtype == _DTYPE and da.dtype in _ELEM_BYTES and all(
+    ok = ok and xw.dtype in GATED_IN_DTYPES and da.dtype in _ELEM_BYTES and all(
         t.layout == ttnn.TILE_LAYOUT
         and t.memory_config().memory_layout == ttnn.TensorMemoryLayout.INTERLEAVED
         for t in (da, xw))
@@ -1185,15 +1186,17 @@ def _build_gated_bw(da, xw, device, reader_ct, writer_ct, packed=False):
     assert plan is not None, f"no expressible work split for {num_groups} groups"
     _, _, (num_cores, core_grid, cg1, cg2, work1, work2) = plan
     def cb(idx, depth, dtype=_DTYPE):
-        tile_bytes = TILE_H * TILE_W * _ELEM_BYTES[dtype]
+        tile_bytes = _TILE_BYTES_ANY[dtype]
         fmt = ttnn.CBFormatDescriptor(buffer_index=idx, data_format=dtype, page_size=tile_bytes)
         return ttnn.CBDescriptor(total_size=depth * tile_bytes, core_ranges=core_grid,
                                  format_descriptors=[fmt])
 
     # The scratch window and the four group-wide CBs each hold one whole 32-tile group. The
-    # cotangent's two (scratch and gathered) are in its own dtype; everything else is bf16.
-    cbs = [cb(IN_CB, 2, da.dtype), cb(STAGE_CB, GROUP_TILES * 2, da.dtype), cb(P_BW_CB, GROUP_TILES),
-           cb(G_BW_CB, GROUP_TILES), cb(DP_CB, GROUP_TILES), cb(DG_CB, GROUP_TILES)]
+    # cotangent's two (scratch and gathered) are in its own dtype, p and g in the projection's
+    # (the writer pages them by the CB's tile size, the unpacker reads bfp8 as is); dp and dg bf16.
+    cbs = [cb(IN_CB, 2, da.dtype), cb(STAGE_CB, GROUP_TILES * 2, da.dtype),
+           cb(P_BW_CB, GROUP_TILES, xw.dtype), cb(G_BW_CB, GROUP_TILES, xw.dtype),
+           cb(DP_CB, GROUP_TILES), cb(DG_CB, GROUP_TILES)]
     reader_rt, compute_rt, writer_rt = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
     block = 0
     for group, per_core in ((cg1, work1), (cg2, work2)):
@@ -1254,7 +1257,7 @@ def reblock_permute_gated_bw(da, xw, p_slice, g_slice, out=None):
     for t in (xw, dp, dg):
         writer_ct.extend(ttnn.TensorAccessorArgs(t).get_compile_time_args())
     g = device.compute_with_storage_grid_size()
-    key = (device.id(), C, N, int(xw.shape[3]), g.x, g.y, REBLOCK_CORES,
+    key = (device.id(), C, N, int(xw.shape[3]), str(xw.dtype), g.x, g.y, REBLOCK_CORES,
            tuple(reader_ct), tuple(writer_ct), out is not None)
     entry = _CACHE_GATED_BW.get(key)
     if entry is None:
