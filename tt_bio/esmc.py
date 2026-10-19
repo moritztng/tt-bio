@@ -211,8 +211,18 @@ _ESMC_QKV_SPLIT = env_flag("TT_BIO_ESMC_QKV_SPLIT", True)
 # The attention's input LayerNorm without its gamma and beta: gamma folded into the qkv weight's input rows and beta W
 # added as the projection's bias (LN(x) W = n (diag(g) W) + b W, n the plain normalisation), both formed in float64 at load.
 # The affine is ~1/3 of the op on a Galaxy chip at 1000 MHz (lnstat_bench, [7, 544, 960]: 0.146 -> 0.098 ms a call).
-# Not the 6B (its LIN6B programs take no bias). Off until the page cell says.
-_ESMC_LN_FOLD = env_flag("TT_BIO_ESMC_LN_FOLD", False)
+# Not the 6B (its LIN6B programs take no bias). Page cell, batch of 7, Galaxy chip (1000 MHz), off/on in separate
+# processes, 2 rounds: 300M 93.3 -> 92.1 ms, --fast 84.5 -> 83.4; 600M 147.0 -> 135.4, --fast 124.4 -> 123.5; pcc vs fp32
+# within 0.00004 either way. On by default on Wormhole; Blackhole until its own A/B says.
+_ESMC_LN_FOLD = (env_flag("TT_BIO_ESMC_LN_FOLD", False)
+                 if os.environ.get("TT_BIO_ESMC_LN_FOLD", "").strip() else None)
+
+
+def _ln_fold_on() -> bool:
+    if _ESMC_LN_FOLD is not None:
+        return _ESMC_LN_FOLD
+    from tt_bio import tenstorrent
+    return tenstorrent.is_wormhole()
 # The attention's input layer norm, the q/k layer norms and the qkv re-pack written to L1 instead of
 # DRAM: the qkv projection and the head split read them straight back, so DRAM never carries them. Same ops, same values (a memory
 # placement). An L1 refusal at a shape falls back to DRAM for that shape for good, decided in the
@@ -671,7 +681,7 @@ class Attention(_MMLin, Module):
         self.lm_large = lm_large
         self.in_norm_weight = self.torch_to_tt("layernorm_qkv.0.weight")
         self.in_norm_bias = self.torch_to_tt("layernorm_qkv.0.bias")
-        self.ln_fold = _ESMC_LN_FOLD and not lm_large
+        self.ln_fold = _ln_fold_on() and not lm_large
         sd = self.weights
         fold = ((lambda w: (w.double() * sd["layernorm_qkv.0.weight"].double()).float()) if self.ln_fold
                 else (lambda w: w))
