@@ -21,6 +21,19 @@ inline uint32_t row_of(uint32_t r0, uint32_t i) {
 #ifndef ABL_W
 #define ABL_W 0   // bench-only (triatt_ln.ABL bit 4): skip the DRAM writes
 #endif
+#ifdef DNOC
+// Every second tile goes out on the other NOC (the reader's, which carries only x). One NOC drains ~126 GB/s
+// into DRAM on Wormhole; triatt_ln writes 4x what it reads. Same tiles, same addresses: bit-exact.
+// Needs DM_DYNAMIC_NOC (triatt_ln.py): under the dedicated mode the other NOC is never initialised.
+#define WNOC(j) (uint8_t)(((j) & 1) ? 1 - noc_index : noc_index)
+#define FLUSHED() do { noc_async_writes_flushed(noc_index); noc_async_writes_flushed(1 - noc_index); } while (0)
+#define BARRIER() do { noc_async_write_barrier(noc_index); noc_async_write_barrier(1 - noc_index); } while (0)
+#else
+#define WNOC(j) noc_index
+#define FLUSHED() noc_async_writes_flushed()
+#define BARRIER() noc_async_write_barrier()
+#endif
+
 #ifndef ABL_LIN
 #define ABL_LIN 0 // bench-only (triatt_ln.ABL bit 16): q's page count; every tile goes to q page (r * NWF + n) mod it
 #endif
@@ -38,8 +51,8 @@ void write_rows(uint32_t r0, uint32_t nrows, uint32_t out_cb, uint32_t tb, uint3
         const uint32_t r = row_of(r0, i);
         cb_wait_front(out_cb, NW);
         uint32_t src = get_read_ptr(out_cb);
-        for (uint32_t j = 0; j < NW && n0 + j < NWF; ++j, src += tb) if constexpr (!ABL_W) noc_async_write_page(r * NWF + n0 + j, oo, src);
-        noc_async_writes_flushed();
+        for (uint32_t j = 0; j < NW && n0 + j < NWF; ++j, src += tb) if constexpr (!ABL_W) noc_async_write_page(r * NWF + n0 + j, oo, src, 0, 0, WNOC(j));
+        FLUSHED();
         cb_pop_front(out_cb, NW);
     }
 }
@@ -66,14 +79,14 @@ void write_heads(uint32_t r0, uint32_t nrows, uint32_t out_cb, uint32_t tb, uint
             if constexpr (ABL_W) continue;
             if constexpr (ABL_LIN) { noc_async_write_page((r * (4 * H + 1) + n) % (ABL_LIN ? ABL_LIN : 1), oq, src); continue; }
             switch (n / H) {
-                case 0: noc_async_write_page(page, oq, src); break;
-                case 1: noc_async_write_page(page, ok, src); break;
-                case 2: noc_async_write_page(page, ov, src); break;
-                case 3: noc_async_write_page(page, og, src); break;
-                default: noc_async_write_page(r, ob, src);
+                case 0: noc_async_write_page(page, oq, src, 0, 0, WNOC(j)); break;
+                case 1: noc_async_write_page(page, ok, src, 0, 0, WNOC(j)); break;
+                case 2: noc_async_write_page(page, ov, src, 0, 0, WNOC(j)); break;
+                case 3: noc_async_write_page(page, og, src, 0, 0, WNOC(j)); break;
+                default: noc_async_write_page(r, ob, src, 0, 0, WNOC(j));
             }
         }
-        noc_async_writes_flushed();
+        FLUSHED();
         cb_pop_front(out_cb, NW);
     }
 }
@@ -98,5 +111,5 @@ void kernel_main() {
     constexpr uint32_t out_cb = tt::CBIndex::c_2;
     const uint32_t tb = get_tile_size(out_cb);
     write<H, MT, NW, NWF>(r0, nrows, out_cb, tb, get_arg_val<uint32_t>(4));
-    noc_async_write_barrier();
+    BARRIER();
 }

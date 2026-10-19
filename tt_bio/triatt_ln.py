@@ -40,6 +40,8 @@ TILE = 32
 RB = 4          # row tiles per reader barrier
 #: the ending variant norms z^T straight out of z (reader.cpp TR) instead of transposing first
 TR = True
+#: the writer drains every second tile on the reader's NOC (kernels/triatt_ln/writer.cpp DNOC); bit-exact
+DNOC = False
 #: bench-only stage skips (kernels/triatt_ln/compute.cpp ABL; perf/spd_m_protenix/tl_attr.py), 0 in production
 ABL = 0
 _CACHE: dict = {}
@@ -134,6 +136,11 @@ def _pages(t):
     return n // TILE
 
 
+def _dm(risc, noc):
+    # Both DM kernels in the dynamic mode: it initialises both NOCs and arbitrates their command buffers.
+    return ttnn.DataMovementConfigDescriptor(processor=risc, noc=noc, noc_mode=ttnn.NOC_MODE.DM_DYNAMIC_NOC)
+
+
 def _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw):
     kt, nwf = int(x.shape[-1]) // TILE, int(w.padded_shape[-1]) // TILE
     m = 1
@@ -161,13 +168,15 @@ def _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw):
         kernel_source=str(KERNEL_DIR / "reader.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[kt, nw, RB, (inv << 16) | inv, eps_bits, nwf] + acc(x) + acc(w) + acc(ln_w) + acc(ln_b),
         defines=[("ABL_R", "1")] if ABL & 8 else [],
-        runtime_args=rd, common_runtime_args=[0] * 4, config=ttnn.ReaderConfigDescriptor())
+        runtime_args=rd, common_runtime_args=[0] * 4, config=_dm(ttnn.DataMovementProcessor.RISCV_1, ttnn.NOC.RISCV_1_default)
+        if DNOC else ttnn.ReaderConfigDescriptor())
     writer = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "writer.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[H, MT, nw, nwf] + sum((acc(o) for o in outs), []),
         defines=([("ABL_W", "1")] if ABL & 4 else []) + ([("ABL_LIN", str(_pages(outs[0])))]
-                                                          if ABL & 16 and H else []),
-        runtime_args=wr, common_runtime_args=[0] * len(outs), config=ttnn.WriterConfigDescriptor())
+                                                          if ABL & 16 and H else []) + ([("DNOC", "1")] if DNOC else []),
+        runtime_args=wr, common_runtime_args=[0] * len(outs),
+        config=_dm(ttnn.DataMovementProcessor.RISCV_0, ttnn.NOC.RISCV_0_default) if DNOC else ttnn.WriterConfigDescriptor())
     fid, approx, _, full = ckc
     compute = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "compute.cpp"), source_type=src, core_ranges=core_grid,
@@ -223,7 +232,7 @@ def ln_qkvgb_heads(x, ln_w, ln_b, w, ckc, n_heads, head_dim, bias_channels, grid
 def _launch(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tag, plan):
     g, nw, tr = plan
     key = (x.device().id(), tuple(int(d) for d in x.padded_shape), tuple(int(d) for d in w.padded_shape), H, tag,
-           tuple(grid), tuple(str(a) for a in ckc), float(eps), plan, ABL)
+           tuple(grid), tuple(str(a) for a in ckc), float(eps), plan, ABL, DNOC)
     entry = _CACHE.get(key)
     if entry is None:
         entry = _CACHE[key] = _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw)
