@@ -19,7 +19,8 @@ same values in the same order, so bit-exact with transpose-then-norm.
 Lever `triatt_ln_b8` writes q, k and v bfp8 (gate and bias stay bf16, the gated out-projection reads a bf16
 gate; the caller narrows the head-major bias after its permute and triatt_sdpa keeps a bf16 destination, so
 the fused SDPA and out-projection both still serve): the kernel is bound by its DRAM writes, which cap near 120 GB/s on Wormhole, and this cuts them by 35 %.
-Each tile is one core's full-K dot product packed once, so the bytes do not depend on the core grid.
+Each tile is one core's full-K dot product packed once, so the bytes do not depend on the core grid. Under
+column groups (below) each group packs its own share of the q|k|v tiles bfp8 (`group_nq`).
 `ln_proj` is the same kernel for a narrow [K, n <= 64] weight with a plain [B, S, n] output
 (lever `apb_ln`: the attention-pair-bias projection of the normed pair).
 Where the whole weight does not fit a core's L1 (OpenDDE: K 384, [12 x 49] tiles, 1.2 MB), the cores
@@ -105,10 +106,30 @@ def _cb(idx, core_grid, tiles, dtype=ttnn.bfloat16):
                              format_descriptors=[fmt])
 
 
-def _cb_bytes(kt, nw, tr):
-    """L1 bytes per core of `_build`'s circular buffers."""
-    bf = kt * nw + 2 * kt + 2 * nw + (tr * 16 * kt + 16 if tr else 2 * RB * kt) + 2 * kt + 1
-    return bf * MG.tile_bytes(ttnn.bfloat16) + (4 + 2 * kt) * MG.tile_bytes(ttnn.float32)
+def _cb_bytes(kt, nw, tr, q8=None):
+    """L1 bytes per core of `_build`'s circular buffers; `q8` the (bfp8, bf16) output tiles a row takes at
+    most under triatt_ln_b8, None for nw bf16 tiles."""
+    lo, hi = q8 or (0, nw)
+    bf = kt * nw + 2 * kt + 2 * hi + (tr * 16 * kt + 16 if tr else 2 * RB * kt) + 2 * kt + 1
+    return (bf * MG.tile_bytes(ttnn.bfloat16) + 2 * lo * MG.tile_bytes(ttnn.bfloat8_b)
+            + (4 + 2 * kt) * MG.tile_bytes(ttnn.float32))
+
+
+def _lcf(dev):
+    """The largest free L1 block a bank, which the CBs may take (they sit below every live L1 buffer)."""
+    lcf = ttnn.get_memory_view(dev, ttnn.BufferType.L1).largest_contiguous_bytes_free_per_bank
+    return min(lcf) if isinstance(lcf, (list, tuple)) else lcf
+
+
+def group_nq(nq, g, nw):
+    """The bfp8 tiles (q, k, v) of each column group's nw, the group's first nq - group * nw."""
+    return [min(max(nq - i * nw, 0), nw) for i in range(g)]
+
+
+def _q8(nq, g, nw):
+    """`_cb_bytes`'s q8 for nq bfp8 tiles split over g groups of nw, None without bfp8."""
+    lq = group_nq(nq, g, nw)
+    return (max(lq), max(nw - q for q in lq)) if nq else None
 
 
 def _plan(kt, nw, tr, dev, ncores):
@@ -118,8 +139,7 @@ def _plan(kt, nw, tr, dev, ncores):
     actually free now: the CBs sit below every live L1 buffer, so the largest free block is what
     they may take. At 8 heads x 32 (w 33 tiles wide, Protenix-v2) and K 256 one unit needs 1.12 MB
     of a 1.40 MB Wormhole bank, which a fixed fraction of the bank refused."""
-    lcf = ttnn.get_memory_view(dev, ttnn.BufferType.L1).largest_contiguous_bytes_free_per_bank
-    lcf = min(lcf) if isinstance(lcf, (list, tuple)) else lcf
+    lcf = _lcf(dev)
     for g in (1, 2, 4):
         if ncores % g:
             continue
@@ -130,8 +150,8 @@ def _plan(kt, nw, tr, dev, ncores):
     return None
 
 
-def _nq(nq):
-    return [("NQ", str(nq))] if nq else []
+def _b8(nq):
+    return [("B8", "1")] if nq else []
 
 
 def _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw, nq=0):
@@ -146,13 +166,14 @@ def _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw, nq=0):
     # TR splits 16-row units (2 per x^T row-tile pair (bt, jt)), the rest splits row tiles. Core c is in
     # column group c % g, and every group splits the same rows.
     split = split_rows(m // 16 if tr else m, gx * gy // g)
+    lq = group_nq(nq, g, nw)
     for c in range(gx * gy):
         r0, n = split[c // g]
         cx, cy = c % gx, c // gx
         rows = 16 * n if tr else n
         rd[cx][cy] = [r0, n, int(bool(tr)), MT, (c % g) * nw]
-        wr[cx][cy] = [r0, rows, int(bool(tr)), MT, (c % g) * nw]
-        cp[cx][cy] = [rows]
+        wr[cx][cy] = [r0, rows, int(bool(tr)), MT, (c % g) * nw, lq[c % g]]
+        cp[cx][cy] = [rows, lq[c % g]]
     inv = struct.unpack("<I", struct.pack("<f", 1.0 / int(x.shape[-1])))[0] >> 16
     eps_bits = struct.unpack("<I", struct.pack("<f", float(eps)))[0]
     acc = lambda t: list(ttnn.TensorAccessorArgs(t).get_compile_time_args())  # noqa: E731
@@ -165,21 +186,22 @@ def _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw, nq=0):
     writer = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "writer.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[H, MT, nw, nwf] + sum((acc(o) for o in outs), []),
-        defines=([("ABL_W", "1")] if ABL & 4 else []) + _nq(nq),
+        defines=([("ABL_W", "1")] if ABL & 4 else []) + _b8(nq),
         runtime_args=wr, common_runtime_args=[0] * len(outs), config=ttnn.WriterConfigDescriptor())
     fid, approx, _, full = ckc
     compute = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "compute.cpp"), source_type=src, core_ranges=core_grid,
-        compile_time_args=[kt, nw, 0, ABL], runtime_args=cp, defines=_nq(nq),   # RNE off: pack truncates, as T1 ships
+        compile_time_args=[kt, nw, 0, ABL], runtime_args=cp, defines=_b8(nq),   # RNE off: pack truncates, as T1 ships
         config=ttnn.ComputeConfigDescriptor(math_fidelity=fid, math_approx_mode=approx,
                                             fp32_dest_acc_en=True, dst_full_sync_en=full))
-    cbs = [_cb(0, core_grid, kt * nw), _cb(1, core_grid, 2 * kt), _cb(2, core_grid, 2 * (nq or nw), outs[0].dtype),
+    lo, hi = _q8(nq, g, nw) or (nw, 0)
+    cbs = [_cb(0, core_grid, kt * nw), _cb(1, core_grid, 2 * kt), _cb(2, core_grid, 2 * lo, outs[0].dtype),
            _cb(7, core_grid, tr * 16 * kt if tr else 2 * RB * kt), _cb(8, core_grid, kt), _cb(9, core_grid, kt),
            _cb(10, core_grid, 1)]
     if tr:
         cbs.append(_cb(3, core_grid, 16))   # the 32 half tiles of one channel tile
-    if nq:
-        cbs.append(_cb(4, core_grid, 2 * (nw - nq)))   # the bf16 rest: bias, and the gate unless triatt_ln_b8g
+    if nq and hi:
+        cbs.append(_cb(4, core_grid, 2 * hi))   # the bf16 rest: bias, and the gate unless triatt_ln_b8g
     cbs += [_cb(i, core_grid, t, ttnn.float32) for i, t in ((11, 1), (12, 1), (13, 1), (14, 1), (16, kt), (17, kt))]
     return {"kernels": [reader, writer, compute], "cbs": cbs}
 
@@ -214,10 +236,14 @@ def ln_qkvgb_heads(x, ln_w, ln_b, w, ckc, n_heads, head_dim, bias_channels, grid
     if plan is None:
         return _reject(f"l1:kt{K // TILE}:nw{int(w.padded_shape[-1]) // TILE}:tr{int(transposed)}", x)
     dev = x.device()
-    # bfp8 q, k, v need the whole row in one group (plan g 1) and q|k|v ending on a DST block (3H % 4)
-    nq = 3 * H if lever("triatt_ln_b8") and plan[0] == 1 and 3 * H % 4 == 0 else 0
+    # bfp8 q, k, v (and the gate under triatt_ln_b8g, which gated_out_proj reads bfp8): the row's first nq tiles,
+    # each group packing its share (`group_nq`); the bf16 rest may not take the bf16 CB the plan sized, so the bfp8
+    # CBs are checked against L1 on their own.
+    nq = 3 * H if lever("triatt_ln_b8") else 0
     if nq and lever("triatt_ln_b8g"):
-        nq = 4 * H   # the gate too: gated_out_proj reads a bfp8 g
+        nq = 4 * H
+    if nq and _cb_bytes(K // TILE, plan[1], plan[2], _q8(nq, *plan[:2])) > _lcf(dev):
+        nq = 0
     STATS[2] += bool(nq)
     hd = lambda dt: ttnn.allocate_tensor_on_device(ttnn.Shape([shp[0], n_heads, shp[1], head_dim]), dt,  # noqa: E731
                                                    ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG)

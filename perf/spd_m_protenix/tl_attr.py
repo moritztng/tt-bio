@@ -21,6 +21,7 @@ ap.add_argument("--reps", type=int, default=10)
 ap.add_argument("--abl", default="0,1,2,4,8,12,3,7,11,14,13", help="comma list of ABL masks")
 ap.add_argument("--fids", default="HiFi3,HiFi2")
 ap.add_argument("--b8", default="0", help="comma list: lever triatt_ln_b8 off (0) / on (1)")
+ap.add_argument("--tr", default="0,1", help="comma list: plain (0) / transposed (1) read; OpenDDE's c 384 takes 0 only")
 a = ap.parse_args()
 
 from tt_bio.main import ensure_p300_mesh_descriptor  # noqa: E402
@@ -92,7 +93,7 @@ def rel_rms(out, ref):
 
 small = (grid[0], grid[1] - 1)
 for fid in [getattr(ttnn.MathFidelity, f) for f in a.fids.split(",")]:
-    for tr in (False, True):
+    for tr in [bool(int(d)) for d in a.tr.split(",")]:
         ref = None
         for b8 in [bool(int(d)) for d in a.b8.split(",")]:
             B8 = b8
@@ -105,6 +106,7 @@ for fid in [getattr(ttnn.MathFidelity, f) for f in a.fids.split(",")]:
                     if ref is None:
                         ref = reference(tr)
                     r = run(fid, tr)
+                    row["q_dtype"] = str(r[0][0].dtype)
                     out = host(r)
                     free(r)
                     row["rel_rms_f64"] = rel_rms(out, ref)

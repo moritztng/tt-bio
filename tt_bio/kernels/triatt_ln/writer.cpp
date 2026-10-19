@@ -21,8 +21,8 @@ inline uint32_t row_of(uint32_t r0, uint32_t i) {
 #ifndef ABL_W
 #define ABL_W 0   // bench-only (triatt_ln.ABL bit 4): skip the DRAM writes
 #endif
-#ifndef NQ
-#define NQ 0      // triatt_ln_b8: the first NQ = 3H tiles (q, k, v) come bfp8 from c_2, the rest bf16 from c_4
+#ifndef B8
+#define B8 0      // triatt_ln_b8: this core's first nq tiles (runtime arg 5: q, k, v) come bfp8 from c_2, the rest bf16 from c_4
 #endif
 
 // The H = 0 build has one output accessor and must never instantiate the five-accessor body. Outside a
@@ -56,19 +56,20 @@ void write_heads(uint32_t r0, uint32_t nrows, uint32_t out_cb, uint32_t tb, uint
     const auto ov = TensorAccessor(v_args, get_common_arg_val<uint32_t>(2));
     const auto og = TensorAccessor(g_args, get_common_arg_val<uint32_t>(3));
     const auto ob = TensorAccessor(b_args, get_common_arg_val<uint32_t>(4));
-    const uint32_t hi_cb = NQ ? (uint32_t)tt::CBIndex::c_4 : out_cb;   // g, bias (NQ) or nothing
-    const uint32_t tb_hi = get_tile_size(hi_cb);
+    const uint32_t hi_cb = B8 ? (uint32_t)tt::CBIndex::c_4 : out_cb;   // g, bias (B8) or nothing
+    const uint32_t nq = B8 ? get_arg_val<uint32_t>(5) : NW;
+    const uint32_t tb_hi = B8 && nq < NW ? get_tile_size(hi_cb) : tb;
     for (uint32_t i = 0; i < nrows; ++i) {
         const uint32_t r = row_of(r0, i);
-        cb_wait_front(out_cb, NQ ? NQ : NW);
-        if constexpr (NQ) cb_wait_front(hi_cb, NW - NQ);
-        uint32_t src = get_read_ptr(out_cb);
+        if (nq) cb_wait_front(out_cb, nq);
+        if (nq < NW) cb_wait_front(hi_cb, NW - nq);
+        uint32_t src = nq ? get_read_ptr(out_cb) : get_read_ptr(hi_cb);
         const uint32_t base = (r / MT) * H * MT + r % MT;
         for (uint32_t j = 0, n = n0; j < NW && n <= 4 * H; ++j, ++n) {
-            if (NQ && j == NQ) src = get_read_ptr(hi_cb);
+            if (j == nq && j) src = get_read_ptr(hi_cb);
             const uint32_t page = base + (n % H) * MT;
             const uint32_t s = src;
-            src += (NQ && j >= NQ) ? tb_hi : tb;
+            src += j >= nq ? tb_hi : tb;
             if constexpr (ABL_W) continue;
             switch (n / H) {
                 case 0: noc_async_write_page(page, oq, s); break;
@@ -79,8 +80,8 @@ void write_heads(uint32_t r0, uint32_t nrows, uint32_t out_cb, uint32_t tb, uint
             }
         }
         noc_async_writes_flushed();
-        cb_pop_front(out_cb, NQ ? NQ : NW);
-        if constexpr (NQ) cb_pop_front(hi_cb, NW - NQ);
+        if (nq) cb_pop_front(out_cb, nq);
+        if (nq < NW) cb_pop_front(hi_cb, NW - nq);
     }
 }
 
