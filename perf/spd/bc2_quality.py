@@ -838,7 +838,32 @@ def campaign_cost(arm_dir: str, rates: dict | None, concurrency: int = 1) -> dic
     return out
 
 
-def build_reference(request: dict, root: str, seed: int = 0, provisional: bool = False) -> dict:
+def merge_requests(requests: list[dict]) -> dict:
+    """Union of several contracts, for a reference whose targets were bought in separate sessions.
+
+    The two-target reference the charter asks for cannot come from one rental: pdl1 and il2r were bought on
+    different boxes on different days. Rather than hand-maintain a third request file that drifts from the two
+    that were actually run, the union is taken here, keyed on run id so a request listed twice cannot double a
+    campaign (which would repeat its (campaign_seed, trajectory_number) keys and break pairing).
+    """
+    out = dict(requests[0])
+    for key in ("runs", "banked_runs", "unbought"):
+        seen, merged = set(), []
+        for req in requests:
+            for item in req.get(key) or []:
+                k = item.get("id") or item.get("what")
+                if k in seen:
+                    continue
+                seen.add(k)
+                merged.append(item)
+        if merged:
+            out[key] = merged
+    out["dph_usd_per_hour"] = {k: v for req in requests for k, v in (req.get("dph_usd_per_hour") or {}).items()}
+    out["merged_from"] = [req.get("schema") for req in requests]
+    return out
+
+
+def build_reference(request: dict, root, seed: int = 0, provisional: bool = False) -> dict:
     """Read every campaign the request asked for, grade the A/A control, and state the power.
 
     `banked_runs` are campaigns that already landed and must NOT be run again: the 2026-10-19 B200 capped
@@ -852,10 +877,15 @@ def build_reference(request: dict, root: str, seed: int = 0, provisional: bool =
     paths: dict[str, list[str]] = {}
     per_campaign: dict[str, dict] = {}
     missing = []
+    # Several roots, because a two-target reference is bought in more than one rental and each session pulls to
+    # its own directory. First root that holds the campaign wins.
+    roots = [root] if isinstance(root, str) else list(root)
     for run in list(request.get("runs", [])) + list(request.get("banked_runs", [])):
-        arm_dir = os.path.join(root, run["target"], f"{run['arm']}_s{run['campaign_seed']}")
-        if not os.path.isdir(arm_dir):
-            missing.append({"id": run["id"], "tier": run["tier"], "expected_at": arm_dir})
+        leaf = os.path.join(run["target"], f"{run['arm']}_s{run['campaign_seed']}")
+        arm_dir = next((os.path.join(r, leaf) for r in roots if os.path.isdir(os.path.join(r, leaf))), None)
+        if arm_dir is None:
+            missing.append({"id": run["id"], "tier": run["tier"],
+                            "expected_at": [os.path.join(r, leaf) for r in roots]})
             continue
         got = read_arm(arm_dir)
         if len(got) != run["trajectories"]:
@@ -964,7 +994,7 @@ def build_reference(request: dict, root: str, seed: int = 0, provisional: bool =
                  "read as a guardrail only; see power.detectable_in_metric_units."),
         "power": power_statement({t: [x for arm in arms.values() for x in arm] for t, arms in by_target.items()}),
         "request": request.get("schema"),
-        "root": root,
+        "root": [root] if isinstance(root, str) else list(root),
     }
 
 
@@ -988,8 +1018,11 @@ def main(argv: list[str] | None = None) -> int:
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     r = sub.add_parser("reference", help="build the stock-GPU reference distribution and its A/A control")
-    r.add_argument("--request", required=True, help="state/bc4/QUALITY-REF-REQUEST.json, the contract that was run")
-    r.add_argument("--root", required=True, help="where the raw campaigns landed")
+    r.add_argument("--request", required=True, action="append",
+                   help="state/bc4/QUALITY-REF-REQUEST.json, the contract that was run; repeatable, "
+                        "one per session, and the union is taken")
+    r.add_argument("--root", required=True, action="append",
+                   help="where the raw campaigns landed; repeatable, searched in order")
     r.add_argument("--out", required=True)
     r.add_argument("--seed", type=int, default=0)
     r.add_argument("--provisional", action="store_true",
@@ -1034,8 +1067,11 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if a.cmd == "reference":
-        with open(a.request) as fh:
-            request = json.load(fh)
+        requests = []
+        for path in a.request:
+            with open(path) as fh:
+                requests.append(json.load(fh))
+        request = merge_requests(requests)
         ref = build_reference(request, a.root, seed=a.seed, provisional=a.provisional)
         _write(a.out, ref)
         thin = [t for t, v in ref["targets"].items() if v["n"] < 30]
@@ -1043,7 +1079,9 @@ def main(argv: list[str] | None = None) -> int:
               + ", ".join(f"{t} n={v['n']}" for t, v in sorted(ref["targets"].items()))
               + f"; A/A {ref['aa_control']['verdict']}")
         for m in ref["missing_runs"]:
-            print(f"  MISSING {m['tier']} {m['id']}: {m.get('note', 'not at ' + m['expected_at'])}")
+            where = m["expected_at"]
+            print(f"  MISSING {m['tier']} {m['id']}: "
+                  f"{m.get('note') or 'not at ' + ', '.join(where if isinstance(where, list) else [where])}")
         if thin:
             print(f"  under 30 trajectories: {', '.join(thin)}")
         return 0 if not thin and not ref["missing_runs"] and ref["aa_control"]["verdict"] == "PASS" else 1
