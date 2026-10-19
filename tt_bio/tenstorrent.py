@@ -6361,8 +6361,9 @@ def _trimul_einsum_ckc(base):
 def _bres_ckc(cfg):
     """`cfg` with an fp32 dest, for bmm_res: it declines a bf16 dest, which `acc_off` gives the whole trunk. The
     einsum writes bf16 either way, and summing K in fp32 is the more precise side (rel rms vs a float64 product at
-    OpenDDE's c384 x 512: 1.5e-2 bf16 dest, 1.7e-3 fp32)."""
-    if cfg.fp32_dest_acc_en:
+    OpenDDE's c384 x 512: 1.5e-2 bf16 dest, 1.7e-3 fp32). Wormhole only: Blackhole's fast sets are not graded with
+    bmm_res firing, so there it still declines a bf16 dest."""
+    if cfg.fp32_dest_acc_en or not is_wormhole():
         return cfg
     out = type(cfg)(math_fidelity=cfg.math_fidelity, math_approx_mode=cfg.math_approx_mode,
                     fp32_dest_acc_en=True, packer_l1_acc=cfg.packer_l1_acc)
