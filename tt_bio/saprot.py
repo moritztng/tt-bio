@@ -55,6 +55,7 @@ from tt_bio.esmc import (
     _reassemble,
     _thread_cap_env,
     _await_shard,
+    _subblock,
 )
 
 ROPE_BASE = 10000.0
@@ -154,11 +155,88 @@ def _saprot_qkrh(w) -> bool:
     return tenstorrent.is_wormhole() and w.dtype == ttnn.bfloat8_b
 
 
+# The measured program for each SaProt projection at the page shape (7 x 544 rows), per arch, keyed (wormhole, K, N).
+# perf/spd_m_saprot/lin_sweep.py on a Galaxy chip at 1000 MHz and a p300c chip at 1350 MHz, against ttnn.linear's own
+# pick at equal float64 error (ms, normal mode; --fast lands within 3 % of the same programs):
+#   WH 650M/1.3B qkv 1.026 -> 0.780 (minimal_matmul), out 0.400 -> 0.346 (mm), fc2 1.145 -> 0.979 (2D multicast)
+#   BH 650M/1.3B qkv 0.424 -> 0.377, out 0.155 -> 0.135, fc2 0.480 -> 0.430 (mm), fc1 0.733 -> 0.546 (2D, GELU fused)
+#   WH 35M out 0.121 -> 0.103, fc2 0.278 -> 0.245 (against esmc._mm_config's blocks)
+#   BH 35M out 0.054 -> 0.048, fc2 0.113 -> 0.095 (mm), fc1 0.196 -> 0.124 (2D)
+# Wormhole's fc1 has no better program than the linear's. "mm" = minimal_matmul blocks (M, K, N, subblock h, w) on the
+# model's own kernel config (fp32 accumulation, as the sweep ran it); "2d" = (transpose_mcast, in0_block_w).
+_SAPROT_PROG = (env_flag("TT_BIO_SAPROT_PROG", False) if os.environ.get("TT_BIO_SAPROT_PROG", "").strip() else None)
+_PROGS = {
+    (True, 1280, 3840): ("mm", (8, 8, 8, 1, 4)),
+    (True, 1280, 1280): ("mm", (16, 4, 4, 1, 4)),
+    (True, 5120, 1280): ("2d", (False, 10)),
+    (True, 640, 480): ("mm", (8, 4, 4, 1, 4)),
+    (True, 1920, 480): ("mm", (8, 4, 4, 1, 2)),
+    (False, 1280, 3840): ("mm", (8, 2, 4, 1, 4)),
+    (False, 1280, 1280): ("mm", (16, 4, 4, 1, 4)),
+    (False, 5120, 1280): ("mm", (8, 4, 4, 1, 4)),
+    (False, 1280, 5120): ("2d", (True, 4)),
+    (False, 640, 480): ("mm", (16, 4, 4, 1, 4)),
+    (False, 1920, 480): ("mm", (16, 4, 4, 1, 4)),
+    (False, 480, 1920): ("2d", (True, 5)),
+}
+_PROG_ROWS = (3072, 4096)   # page batch 7 x 544 = 3808 rows: the shape the table was measured at
+PROG_STATS = [0, 0]   # projections served by a measured program: minimal_matmul, 2D multicast
+
+
+def _saprot_prog(x, w, act):
+    """("mm", MinimalMatmulConfig) or ("2d", program config) for this projection, or None where the default serves."""
+    if _SAPROT_PROG is False:
+        return None
+    from tt_bio import tenstorrent
+    k, n = int(w.shape[-2]), int(w.shape[-1])
+    rows = x.volume() // k
+    hit = _PROGS.get((tenstorrent.is_wormhole(), k, n))
+    if hit is None or not _PROG_ROWS[0] <= rows <= _PROG_ROWS[1] or act not in (None, "gelu"):
+        return None
+    kind, p = hit
+    g = x.device().compute_with_storage_grid_size()
+    grid = ttnn.CoreCoord(g.x, g.y)
+    if kind == "mm":
+        mb, kb, nb, sh, sw = p
+        return kind, ttnn.MinimalMatmulConfig(M_block_size=mb, K_block_size=kb, N_block_size=nb, subblock_h=sh,
+                                              subblock_w=sw, compute_with_storage_grid_size=grid)
+    tm, kb = p
+    rows_ax, cols_ax = (g.x, g.y) if tm else (g.y, g.x)
+    mt = -(-rows // 32)
+    pm, pn = -(-mt // rows_ax), -(-(n // 32) // cols_ax)
+    sh, sw = _subblock(pm, pn)
+    fa = ttnn.UnaryWithParam(ttnn.UnaryOpType.GELU, 0.0) if act else None
+    return kind, ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(
+        compute_with_storage_grid_size=grid, in0_block_w=kb, out_subblock_h=sh, out_subblock_w=sw, per_core_M=pm,
+        per_core_N=pn, transpose_mcast=tm, fused_activation=fa, fuse_batch=True)
+
+
 class _SaprotLin(_MMLin):
     MM_BFP8_HIFI2 = False   # SaProt 35M --fast at HiFi2: pooled cos vs fp32 0.999915 -> 0.999879, under the 0.9999 bar
 
     def _mm_on(self) -> bool:
         return _saprot_mm(int(self.norm_weight.shape[-1]))
+
+    def _lin(self, x, w, bias=None, dtype=None, **kw):
+        act = kw.get("activation")
+        prog = None if set(kw) - {"activation"} else _saprot_prog(x, w, act)
+        if prog is not None:
+            kind, cfg = prog
+            ck = self.compute_kernel_config
+            dt = _dtype(ttnn.bfloat16) if dtype is None else dtype
+            try:
+                if kind == "mm":
+                    out = ttnn.experimental.minimal_matmul(
+                        x, w, bias_tensor=bias, compute_kernel_config=ck, dtype=dt, memory_config=ttnn.DRAM_MEMORY_CONFIG,
+                        config=cfg, **({"fused_activation": (ttnn.UnaryOpType.GELU, False)} if act else {}))
+                else:
+                    out = ttnn.linear(x, w, bias=bias, program_config=cfg, compute_kernel_config=ck, dtype=dt,
+                                      memory_config=ttnn.DRAM_MEMORY_CONFIG)
+                PROG_STATS[kind == "2d"] += 1
+                return out
+            except RuntimeError:   # a program this shape or grid cannot place: the default serves
+                pass
+        return super()._lin(x, w, bias=bias, dtype=dtype, **kw)
 
 
 class ESM2Attention(_SaprotLin, Module):

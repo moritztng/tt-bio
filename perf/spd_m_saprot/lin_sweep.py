@@ -6,6 +6,8 @@ TF/s HiFi4 roof, and fidelity moved nothing, so the program, not the math, binds
 shape and arch; tt_bio.saprot picks it if it beats the model's call at equal error.
 
     python3 perf/spd_m_saprot/lin_sweep.py --model saprot-650m [--fast] --out lin.jsonl
+
+--pick-only times just the model's call and the program tt_bio.saprot._saprot_prog ships for each shape (arm "pick").
 """
 import argparse
 import itertools
@@ -33,6 +35,7 @@ def main() -> int:
     ap.add_argument("--repeat", type=int, default=5)
     ap.add_argument("--inner", type=int, default=10)
     ap.add_argument("--max-arms", type=int, default=60, help="per shape and family, best-first by a crude L1 rank")
+    ap.add_argument("--pick-only", action="store_true", help="only the model call and the shipped program")
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
     torch.set_grad_enabled(False)
@@ -90,6 +93,15 @@ def main() -> int:
         kw = {"activation": act} if act else {}
         run("model", lambda: ops.linear(xd, wd, bias=bd, compute_kernel_config=ck, dtype=ttnn.bfloat16,
                                         core_grid=T.CORE_GRID_MAIN, **kw), {})
+        if S._saprot_prog(xd, wd, act) is not None:
+            lin = S._SaprotLin.__new__(S._SaprotLin)
+            lin.compute_kernel_config = ck
+            before = list(S.PROG_STATS)
+            rec = run("pick", lambda: lin._lin(xd, wd, bias=bd, **kw), {"kind": S._saprot_prog(xd, wd, act)[0]})
+            assert S.PROG_STATS != before or "error" in rec, "the shipped program fell back to the default"
+        if a.pick_only:
+            ttnn.deallocate(xd); ttnn.deallocate(wd); ttnn.deallocate(bd)
+            continue
         fa = ttnn.UnaryWithParam(ttnn.UnaryOpType.GELU) if act else None
         mt, kt, nt = -(-M // 32), K // 32, N // 32
         cap = 4 if ck.fp32_dest_acc_en else 8
