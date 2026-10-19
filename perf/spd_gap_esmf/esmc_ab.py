@@ -59,7 +59,8 @@ def main() -> int:
     ap.add_argument("--block-attr", default=None,
                     help="dotted attribute on every transformer Block (e.g. attn.qk_l1): off arm = as loaded, on = True")
     ap.add_argument("--arm", action="append", default=[],
-                    help="NAME=mod.ATTR[,mod.ATTR...]: a named arm with those switches True (repeatable; replaces --alt). "
+                    help="NAME=mod.ATTR[,mod.ATTR|fidelity:HiFi2...]: a named arm with those switches True and/or that math "
+                         "fidelity (repeatable; replaces --alt). "
                          "Every round runs an off arm (all named switches off) and then each arm in order")
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
@@ -101,17 +102,23 @@ def main() -> int:
     boff = [getattr(o, n) for o, n in battr]
     cur = getattr(alt_mod, attr) if not (a.fidelity or a.block_attr) else None
     off_value = False if cur is None else type(cur)()   # tri-state switches (None = per-arch default) read off as False
-    arms = [(n, [(importlib.import_module(m), t) for m, t in (x.rsplit(".", 1) for x in v.split(","))])
+    arms = [(n, [("fidelity", x.split(":", 1)[1]) if x.startswith("fidelity:") else
+                 (importlib.import_module(x.rsplit(".", 1)[0]), x.rsplit(".", 1)[1]) for x in v.split(",")])
             for n, v in (s.split("=", 1) for s in a.arm)]
-    sw = {(m, t): (False if getattr(m, t) is None else type(getattr(m, t))()) for _, ms in arms for m, t in ms}
+    sw = {(m, t): (False if getattr(m, t) is None else type(getattr(m, t))()) for _, ms in arms for m, t in ms
+          if m != "fidelity"}
     base = None
     for r in range(a.rounds):
         for on in ([None] + [n for n, _ in arms] if arms else (False, True)):
             if arms:
                 for (m, t), v in sw.items():
                     setattr(m, t, v)
+                ckc.math_fidelity = fid_off
                 for m, t in dict(arms).get(on, ()):
-                    setattr(m, t, True)
+                    if m == "fidelity":
+                        ckc.math_fidelity = getattr(ttnn.MathFidelity, t)
+                    else:
+                        setattr(m, t, True)
             elif a.fidelity:
                 ckc.math_fidelity = getattr(ttnn.MathFidelity, a.fidelity) if on else fid_off
             elif a.block_attr:

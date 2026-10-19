@@ -2077,15 +2077,13 @@ _ESMC_6B_FIDELITY = os.environ.get("TT_BIO_ESMC_6B_FIDELITY", "HiFi3")
 
 
 def _6b_weights_b8(fast: bool) -> bool:
-    from tt_bio import tenstorrent
-    return fast or (_ESMC_6B_B8 and tenstorrent.is_wormhole())
+    return fast or _ESMC_6B_B8
 
 
 def _embed_6b_mode(model, fast: bool):
-    """The ESMC-6B embed model's per-mode compute on Wormhole: block-fp8 weights under a normal forward keep fp32
+    """The ESMC-6B embed model's per-mode compute: block-fp8 weights under a normal forward keep fp32
     accumulation, and both run at _ESMC_6B_FIDELITY. ESMFold2 builds its own 6B and is untouched."""
-    from tt_bio import tenstorrent
-    if not (tenstorrent.is_wormhole() and _6b_weights_b8(fast)):
+    if not _6b_weights_b8(fast):
         return model
     model.compute_kernel_config.math_fidelity = getattr(ttnn.MathFidelity, _ESMC_6B_FIDELITY)
     if not fast:
