@@ -21,6 +21,8 @@ built once on the host:
 
 `Backend` is the op set. `NP` runs it in float64 numpy, card-free, so `--check` proves the rewrite
 against the golden model before a card is ever opened; the ttnn backend lives in `ipa_fused_tt.py`.
+Calls per layer: 180 (39 of them column slices of R and t that a hoist would cut to 12), against 330
+in the DeviceIPA chain; one attention and two batched matmuls are the only [H, N, N]-sized ones.
 usage: ipa_fused.py --params <params_model_1_multimer_v3.npz> --check [--n 224]
 """
 import argparse, os, sys
@@ -155,6 +157,8 @@ class NP:
     bmm = staticmethod(lambda a, b: a @ b)
     bmm_t = staticmethod(lambda a, b: a @ np.swapaxes(b, -1, -2))
     permute = staticmethod(lambda x, perm: x.transpose(perm))
+    unsq = staticmethod(lambda x: x[:, None, :])
+    flat = staticmethod(lambda x: x.reshape(x.shape[0], -1))
     relu = staticmethod(lambda x: np.maximum(x, 0))
     sqrt = staticmethod(np.sqrt); recip = staticmethod(lambda x: 1.0 / x)
     def softmax(self, x):
@@ -203,13 +207,13 @@ def layer(o, k, act, R, t, bias, z_rows):
     kp2 = o.add(o.add(o.mul(o.cols(gX, s, e), o.cols(gX, s, e)), o.mul(o.cols(gY, s, e), o.cols(gY, s, e))),
                 o.mul(o.cols(gZ, s, e), o.cols(gZ, s, e)))
     kb = o.permute(o.mm(kp2, k["sel_kp2"]), (1, 0))                      # [H, N] key-side bias
-    logits = o.add(o.add(o.bmm_t(q, kk), bias), kb[:, None, :] if isinstance(kb, np.ndarray) else o.unsq(kb))
+    logits = o.add(o.add(o.bmm_t(q, kk), bias), o.unsq(kb))
     attn = o.softmax(logits)                                             # [H, Nq, Nk]
     ov = o.unheads(o.bmm(attn, v))                                       # [N, H*64]
     opx, opy, opz = unframe(o, R, t, *[o.mm(ov, k["sel_opt"][d]) for d in range(3)])
     norms = o.sqrt(o.add(o.add(o.add(o.mul(opx, opx), o.mul(opy, opy)), o.mul(opz, opz)), 1e-16))
     o_pair = o.bmm(o.permute(attn, (1, 0, 2)), z_rows)                   # [N, H, 128]
-    o_pair = o_pair.reshape(n, H * CZ) if isinstance(o_pair, np.ndarray) else o.flat(o_pair)
+    o_pair = o.flat(o_pair)
     ipa = o.add(o.add(o.add(o.add(o.add(o.mm(ov, k["w_out_s"]), o.mm(opx, k["w_out_pt"][0])),
                                   o.mm(opy, k["w_out_pt"][1])), o.mm(opz, k["w_out_pt"][2])),
                       o.add(o.mm(norms, k["w_out_norm"]), o.mm(o_pair, k["w_out_pair"]))), k["b_out"])
