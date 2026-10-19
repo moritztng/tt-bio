@@ -3262,7 +3262,7 @@ def release_recompute_traces(device) -> None:
         if isinstance(st, tuple):
             ttnn.release_trace(device, st[0])
     for sh in _RSHARED.values():
-        for b in (*sh["ins"], *sh["seeds"], *sh["outs"]):
+        for b in (*sh["ins"], *sh.get("seeds", ()), *sh["outs"]):
             if b is not None:
                 ttnn.deallocate(b)
     _RTRACE.clear()
