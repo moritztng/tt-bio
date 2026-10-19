@@ -117,8 +117,12 @@ FAST_LEVERS = NORMAL_LEVERS | {"dit_s16", "diffusion_bf16", "trimul_t1", "trimul
 # 0.230 A (floor 1.091 A), CA-lDDT -0.0003 [-0.0006, -0.0000], docking 27 -> 27/44. 512-token page fold on a Galaxy
 # chip at 1000 MHz, paired median of 4: OpenFold3 -0.27 s, OpenBind-0 -0.35 s. On p300c -0.04 / -0.12 s and not
 # graded there, so Wormhole only.
+# dit_l1 (the bf16 token DiT's per-step tensors in L1, placement only): CIFs identical with and without it on both
+# models (512-token --fast fold A/B, xmodel_ab, dl1w, 2026-10-19). Galaxy chip at 1000 MHz, the three warm pairs after
+# the first (which paid the L1 programs' compile): OpenFold3 -0.95 / -0.87 / -0.71 s, OpenBind-0 -1.04 / -0.99 / -1.09 s.
+# Flat on Blackhole (bhl1), so Wormhole only.
 WH_NORMAL_LEVERS = NORMAL_LEVERS | {"trimul_bres"}
-WH_FAST_LEVERS = FAST_LEVERS | {"apb_ln", "trimul_sig6", "trimul_bres", "triatt_hifi2", "dit_sigf32"}
+WH_FAST_LEVERS = FAST_LEVERS | {"apb_ln", "trimul_sig6", "trimul_bres", "triatt_hifi2", "dit_sigf32", "dit_l1"}
 
 def kabsch_rmsd(pred_ca, gt_ca):
     """Optimal-superposition Cα-RMSD (Kabsch). pred_ca, gt_ca: [N, 3].

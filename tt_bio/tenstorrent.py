@@ -766,7 +766,8 @@ _FAST_MODE = False
 #                   writes, kv 262.6 -> 128.1 us on Wormhole. Placement only: Boltz-2 folds are byte-identical with it (al1).
 #   dit_l1          under dit_fuse, OpenFold3's token DiT keeps the stream, the conditioning and every tensor a block
 #                   makes in L1 (interleaved) for the stack call; weights and the cached pair-bias masks stay in DRAM.
-#                   Placement only: the same programs on the same operands, so the same bits.
+#                   Placement only: the same programs on the same operands, so the same bits. Only where 12
+#                   stream-sized tensors fit beside the consumers' circular buffers, else DRAM as before.
 #   dit_lofi        OpenFold3's bf16 token DiT linears at LoFi (one math pass, dit_hifi2 takes two). On Wormhole
 #                   the DiT linears run at ~62 % of the HiFi2 math roof (whcen3), so the fidelity is the cost there.
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
@@ -800,7 +801,7 @@ UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "di
                              "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "ws_resid2", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
                              "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "triatt_hifi2", "dit_cond_jcat",
                              "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32", "triatt_ln_b8",
-                             "triatt_ln_b8g", "trimul_t1w8", "dit_l1", "dit_lofi"})
+                             "triatt_ln_b8g", "trimul_t1w8", "dit_lofi"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands

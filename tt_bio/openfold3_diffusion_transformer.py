@@ -253,7 +253,7 @@ class _DiTBlock(Module):
                 return out
             ttnn.deallocate(an)
         w_sc, b_sc, w_sb = self.fuse[i]
-        l1 = self.l1
+        l1 = self.l1(a)
         sc = self._lin(s_hat, w_sc, bias=b_sc, activation="sigmoid", **l1)
         sb = self._lin(s_hat, w_sb, **l1)
         an = ttnn.layer_norm(a, epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
@@ -275,7 +275,7 @@ class _DiTBlock(Module):
 
     def _call_fused(self, a, s, z, mask_bias, tok_mask_col, cache, s_hat, tok_ones, hoist=()):
         """`__call__` under dit_fuse (bf16, `_sdpa32`): the same block in 23 ttnn calls, 17 with `hoist`."""
-        l1 = self.l1
+        l1 = self.l1(a)
         lin = lambda *a, **k: self._lin(*a, **l1, **k)  # noqa: E731
         a_ln = self._fuse_adaln(a, s_hat, 0, hoist)
         bias = _cached(cache, (id(self), "pair_bias32"), lambda: self._fused_mask(z, mask_bias))
@@ -358,12 +358,19 @@ class _DiTBlock(Module):
         return ttnn.from_torch(ttnn.to_torch(t).float().to(torch.bfloat16), dtype=dtype,
                                layout=ttnn.TILE_LAYOUT, device=self.device)
 
-    @property
-    def l1(self):
+    def l1(self, a):
         """dit_l1 (on dit_fuse, read per call): where every per-step tensor of the block is written. The stack
         puts the stream and the conditioning there once a call (`OF3DiffusionTransformer.__call__`), and the
-        elementwise ops write where their first input lives. Weights and cached pair biases stay DRAM."""
-        return {"memory_config": ttnn.L1_MEMORY_CONFIG} if self.fuse and _T.lever("dit_l1") else {}
+        elementwise ops write where their first input lives. Weights and cached pair biases stay DRAM.
+
+        Only where the block's live set fits beside the consumers' circular buffers. Priced in stream-sized
+        tensors `a` [S, rows, 768]: a, s and s_hat for the call, then at most the transition's a_t, b1, b2
+        (two each) and their product (two), or the attention's a_ln, qkv (four, padded heads) and o; 12 with
+        slack. Decided on the shape alone, so every block of a call and the stack agree."""
+        if not (self.fuse and _T.lever("dit_l1")):
+            return {}
+        fits = _T._l1_fits(_T._padded_bytes(tuple(a.shape), 2), 12.0, _T._PAIR_L1_CONSUMER_RESERVE)
+        return {"memory_config": ttnn.L1_MEMORY_CONFIG} if fits else {}
 
     def _lin(self, x, w, bias=None, activation=None, **kw):
         bf16 = self._act_dtype == ttnn.bfloat16
@@ -698,7 +705,7 @@ class OF3DiffusionTransformer(Module):
         if rows != padded_N:
             a_d, s_d = (ttnn.pad(x, [(0, 0), (0, rows - padded_N), (0, 0)], value=0.0)
                         for x in (a_d, s_d))
-        l1 = self.blocks[0].l1
+        l1 = self.blocks[0].l1(a_d)
         if l1:
             # dit_l1: copies, so the caller's tensors are untouched; ours are freed below.
             a_d, s_d = (ttnn.to_memory_config(x, l1["memory_config"]) for x in (a_d, s_d))
