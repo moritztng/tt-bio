@@ -29,12 +29,14 @@ git -C /root/bc2 checkout -q $BC2_PIN
 /opt/bc2-venv/bin/bindcraft fetch-weights
 /opt/bc2-venv/bin/python -c "import jax; print('bc2 jax', jax.__version__, jax.devices())"
 
+# BC4 stops here: it runs BindCraft 2 only, and the burn gate and the BindCraft 1 kit below are the chain's, not its.
+[ "$M" = bc2 ] && { touch /root/kc/SETUP-OK-$M; exit 0; }
+
 # --- the burn gate's own venv: box_chain.sh runs burn_gate.py (torch) and neither BindCraft stack carries torch
 [ -x /opt/burn-venv/bin/python ] || { $PY/bin/python3 -m venv /opt/burn-venv
   /opt/burn-venv/bin/pip install -q torch --index-url https://download.pytorch.org/whl/cu130; }
 
 # --- 2. the kit's colabdesign (BindCraft 1 / ColabDesign) -----------------------------------------------------------
-[ "$M" = bc2 ] && { touch /root/kc/SETUP-OK-$M; exit 0; }
 K=/root/kit/colabdesign
 if [ ! -x /opt/micromamba ]; then
   wget -qO /tmp/mm https://github.com/mamba-org/micromamba-releases/releases/download/2.1.1-0/micromamba-linux-64
