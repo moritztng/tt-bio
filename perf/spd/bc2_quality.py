@@ -399,3 +399,205 @@ def grade(arm: list[Trajectory], ref: list[Trajectory], label: str, seed: int = 
             "A non-significant result is not proof of equality. Each metric carries mde_metric_units: the smallest "
             "effect this n could have detected at 80% power. Effects smaller than that are not ruled out."),
     }
+
+
+# ---------------------------------------------------------------------------
+# the reference distribution, and the A/A control that gives it a floor
+# ---------------------------------------------------------------------------
+
+#  The gate (workstreams/_bc4_quality_check.py) requires exactly these four per target.
+GATE_METRICS = ("acceptance_rate", "i_ptm", "plddt", "rmsd")
+
+
+def acceptance(trajectories: list[Trajectory]) -> dict:
+    """Accepted designs per trajectory, and the candidate pass rate underneath it."""
+    n = len(trajectories)
+    acc = sum(t.accepted for t in trajectories)
+    cands = [c for t in trajectories for c in t.candidates]
+    passed = sum(1 for c in cands if (c.get("outcome") or "").lower() == "accepted")
+    return {"n_trajectories": n, "accepted_designs": acc,
+            "rate_per_trajectory": acc / n if n else float("nan"),
+            "candidates": len(cands), "candidates_accepted": passed,
+            "candidate_pass_rate": passed / len(cands) if cands else float("nan")}
+
+
+def target_summary(trajectories: list[Trajectory], paths: list[str]) -> dict:
+    vals = metric_values(trajectories)
+    metrics = {m: describe([v for _, v in vals[m]]) for m in CONTINUOUS + (ITERATIONS,)}
+    metrics["acceptance_rate"] = acceptance(trajectories)
+    term: dict[str, int] = {}
+    for t in trajectories:
+        term[t.terminated or "completed"] = term.get(t.terminated or "completed", 0) + 1
+    return {"n": len(trajectories), "metrics": metrics, "paths": sorted(paths),
+            "terminated": term, "iterations": describe([float(t.iterations) for t in trajectories]),
+            "autotune": autotune_check(trajectories), "nan": nan_check(trajectories),
+            "collapse": collapse_check(trajectories)}
+
+
+def power_statement(ref_by_target: dict[str, list[Trajectory]]) -> dict:
+    """What n = 30 can and cannot see, in the metrics' own units. The brief requires this be stated, not implied."""
+    out = {
+        "n_per_arm": 30,
+        "alpha": ALPHA, "power": POWER,
+        "mde_sd_units": {"paired": mde_sd_units(30, paired=True), "unpaired": mde_sd_units(30, paired=False)},
+        "detectable_in_metric_units": {},
+    }
+    for target, trajectories in ref_by_target.items():
+        vals = metric_values(trajectories)
+        per = {}
+        for m in CONTINUOUS:
+            d = describe([v for _, v in vals[m]])
+            if d.get("n", 0) > 1 and d.get("sd"):
+                per[m] = {"ref_sd": d["sd"], "paired": mde_sd_units(30, True) * d["sd"],
+                          "unpaired": mde_sd_units(30, False) * d["sd"]}
+        acc = acceptance(trajectories)
+        p0 = acc["rate_per_trajectory"]
+        per["acceptance_rate"] = {
+            "ref_rate_per_trajectory": p0,
+            "n_needed_to_detect_a_halving": n_for_proportions(p0, p0 / 2) if p0 else float("inf"),
+            "verdict": "underpowered at n=30",
+            "note": ("Acceptance is rare, so no affordable n can test it. It is read as a guardrail that the arm "
+                     "has not stopped accepting entirely, and the grade rests on i_pTM, pLDDT, binder RMSD and the "
+                     "loss traces, which are continuous and do have power at n=30."),
+        }
+        out["detectable_in_metric_units"][target] = per
+    return out
+
+
+def build_reference(request: dict, root: str, seed: int = 0) -> dict:
+    """Read every campaign the request asked for, grade the A/A control, and state the power."""
+    by_target: dict[str, dict[str, list[Trajectory]]] = {}
+    paths: dict[str, list[str]] = {}
+    missing = []
+    for run in request.get("runs", []):
+        arm_dir = os.path.join(root, run["target"], f"{run['arm']}_s{run['campaign_seed']}")
+        if not os.path.isdir(arm_dir):
+            missing.append({"id": run["id"], "tier": run["tier"], "expected_at": arm_dir})
+            continue
+        got = read_arm(arm_dir)
+        if len(got) != run["trajectories"]:
+            missing.append({"id": run["id"], "tier": run["tier"], "expected_at": arm_dir,
+                            "note": f"{len(got)} trajectories, the request asked for {run['trajectories']}"})
+        by_target.setdefault(run["target"], {}).setdefault(run["arm"], []).extend(got)
+        paths.setdefault(run["target"], []).append(arm_dir)
+
+    targets = {t: target_summary([x for arm in arms.values() for x in arm], paths.get(t, []))
+               for t, arms in by_target.items()}
+
+    # The A/A control: two stock runs at different seeds, on the target that has two arms.
+    aa = {"verdict": "ABSENT", "reason": "no target has two stock arms to compare"}
+    for target, arms in sorted(by_target.items()):
+        if len(arms) < 2:
+            continue
+        (n1, a1), (n2, a2) = sorted(arms.items())[:2]
+        g = grade(a1, a2, f"{target}:{n1}_vs_{n2}", seed=seed)
+        aa = {"verdict": g["verdict"], "target": target, "arms": [n1, n2], "n_per_arm": g["n_per_arm"],
+              "reasons": g["reasons"], "detail": g["metrics"],
+              "spread": {m: {"mean_diff": g["metrics"][m].get("mean_diff"),
+                             "sd_diff": g["metrics"][m].get("sd_diff"),
+                             "p": g["metrics"][m].get("p"),
+                             "ref_sd": g["metrics"][m]["ref"].get("sd")}
+                         for m in CONTINUOUS + (ITERATIONS,) if m in g["metrics"]},
+              "note": ("This spread is the floor every later A/B is read against. If this verdict is FAIL, the test "
+                       "is wrong and not the engine: two stock GPU runs must read as indistinguishable.")}
+        break
+
+    return {
+        "schema": "bc4-quality-ref/1",
+        "targets": targets,
+        "aa_control": aa,
+        "missing_runs": missing,
+        "test": ("Paired sign-flip permutation on (campaign_seed, trajectory_number), two-sample permutation where "
+                 "arms do not pair, Fisher exact two-sided on counts, Holm-Bonferroni across metrics at "
+                 f"alpha={ALPHA}. Power at n=30: {mde_sd_units(30, True):.3f} SD paired, "
+                 f"{mde_sd_units(30, False):.3f} SD unpaired, at {POWER:.0%} power. Acceptance rate is "
+                 "underpowered at any affordable n and is read as a guardrail only; see power.detectable_in_"
+                 "metric_units."),
+        "power": power_statement({t: [x for arm in arms.values() for x in arm] for t, arms in by_target.items()}),
+        "request": request.get("schema"),
+        "root": root,
+    }
+
+
+# ---------------------------------------------------------------------------
+# CLI
+# ---------------------------------------------------------------------------
+
+def _write(path: str, payload: dict) -> None:
+    import json
+    os.makedirs(os.path.dirname(os.path.abspath(path)) or ".", exist_ok=True)
+    with open(path, "w") as fh:
+        json.dump(payload, fh, indent=1, default=str)
+        fh.write("\n")
+
+
+def main(argv: list[str] | None = None) -> int:
+    import argparse
+    import json
+
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    sub = ap.add_subparsers(dest="cmd", required=True)
+
+    r = sub.add_parser("reference", help="build the stock-GPU reference distribution and its A/A control")
+    r.add_argument("--request", required=True, help="state/bc4/QUALITY-REF-REQUEST.json, the contract that was run")
+    r.add_argument("--root", required=True, help="where the raw campaigns landed")
+    r.add_argument("--out", required=True)
+    r.add_argument("--seed", type=int, default=0)
+
+    c = sub.add_parser("compare", help="grade an arm against the reference")
+    c.add_argument("--ref", required=True, help="state/bc4/QUALITY-REF.json")
+    c.add_argument("--arm", required=True, help="NAME=DIR of the arm under test")
+    c.add_argument("--target", default=None, help="which reference target to grade against; default every one")
+    c.add_argument("--out", required=True)
+    c.add_argument("--seed", type=int, default=0)
+
+    a = ap.parse_args(argv)
+
+    if a.cmd == "reference":
+        with open(a.request) as fh:
+            request = json.load(fh)
+        ref = build_reference(request, a.root, seed=a.seed)
+        _write(a.out, ref)
+        thin = [t for t, v in ref["targets"].items() if v["n"] < 30]
+        print(f"{a.out}: {len(ref['targets'])} targets, "
+              + ", ".join(f"{t} n={v['n']}" for t, v in sorted(ref["targets"].items()))
+              + f"; A/A {ref['aa_control']['verdict']}")
+        for m in ref["missing_runs"]:
+            print(f"  MISSING {m['tier']} {m['id']}: {m.get('note', 'not at ' + m['expected_at'])}")
+        if thin:
+            print(f"  under 30 trajectories: {', '.join(thin)}")
+        return 0 if not thin and not ref["missing_runs"] and ref["aa_control"]["verdict"] == "PASS" else 1
+
+    name, _, arm_dir = a.arm.partition("=")
+    with open(a.ref) as fh:
+        ref = json.load(fh)
+    arm = read_arm(arm_dir)
+    targets = [a.target] if a.target else sorted(ref["targets"])
+    graded = {}
+    for target in targets:
+        ref_trajectories: list[Trajectory] = []
+        for path in ref["targets"][target]["paths"]:
+            ref_trajectories.extend(read_arm(path))
+        graded[target] = grade(arm, ref_trajectories, f"{name}:{target}", seed=a.seed)
+
+    worst = "FAIL" if any(g["verdict"] == "FAIL" for g in graded.values()) else "PASS"
+    out = {
+        "schema": "bc4-quality/1", "verdict": worst, "arm": name,
+        "n_per_arm": [n for g in graded.values() for n in g["n_per_arm"]],
+        "paths": [arm_dir] + [p for t in targets for p in ref["targets"][t]["paths"]],
+        "test": ref["test"],
+        "aa_spread": ref["aa_control"].get("spread"),
+        "metrics": {t: g["metrics"] for t, g in graded.items()},
+        "per_target": graded,
+        "power": ref.get("power"),
+    }
+    _write(a.out, out)
+    print(f"{a.out}: {name} {worst}; " + ", ".join(f"{t} {g['verdict']}" for t, g in sorted(graded.items())))
+    for t, g in sorted(graded.items()):
+        for reason in g["reasons"]:
+            print(f"  {t}: {reason}")
+    return 0 if worst == "PASS" else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
