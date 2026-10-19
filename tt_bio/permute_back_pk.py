@@ -7,6 +7,7 @@ transpose in the unpacker. Bit-exact by construction (a copy through a 16-bit de
 """
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import ttnn
@@ -15,6 +16,8 @@ from . import mm_generic as MG
 
 KERNEL_DIR = Path(__file__).resolve().parent / "kernels" / "permute_back_pk"
 ABL = 0            # stage ablation bits (see each .cpp). Diagnostic only.
+OUT_TILES = int(os.environ.get("TT_BIO_PBPK_OUT", "16"))   # out_cb tiles; the writer bounds the kernel (bpk5)
+WB = int(os.environ.get("TT_BIO_PBPK_WB", "8"))            # writer tiles per flush, divides 32 and OUT_TILES
 _CACHE: dict = {}
 TILE = 32
 
@@ -39,7 +42,7 @@ def permute_back_pk(x, out, grid, c_off=0):
     assert ok(x, out, c_off)
     C, N, H = int(x.shape[1]), int(x.shape[2]), int(out.shape[3])
     St, CT, Ht = N // TILE, C // TILE, H // TILE
-    key = (C, N, H, c_off, tuple(grid), ABL)
+    key = (C, N, H, c_off, tuple(grid), ABL, OUT_TILES, WB)
     entry = _CACHE.get(key)
     if entry is None:
         gx, gy = grid
@@ -62,13 +65,13 @@ def permute_back_pk(x, out, grid, c_off=0):
             config=ttnn.ReaderConfigDescriptor())
         writer = ttnn.KernelDescriptor(
             kernel_source=str(KERNEL_DIR / "writer.cpp"), source_type=src, core_ranges=core_grid,
-            compile_time_args=[St, Ht, c_off // TILE, ABL] + acc(out), runtime_args=wr, common_runtime_args=[0],
+            compile_time_args=[St, Ht, c_off // TILE, ABL, WB] + acc(out), runtime_args=wr, common_runtime_args=[0],
             config=ttnn.WriterConfigDescriptor())
         compute = ttnn.KernelDescriptor(
             kernel_source=str(KERNEL_DIR / "compute.cpp"), source_type=src, core_ranges=core_grid,
             compile_time_args=[ABL], runtime_args=cp,
             config=ttnn.ComputeConfigDescriptor(math_fidelity=ttnn.MathFidelity.HiFi4, fp32_dest_acc_en=False))
-        cbs = [_cb(0, core_grid, 16), _cb(1, core_grid, 32), _cb(2, core_grid, 32), _cb(16, core_grid, 16)]
+        cbs = [_cb(0, core_grid, 16), _cb(1, core_grid, 32), _cb(2, core_grid, 32), _cb(16, core_grid, OUT_TILES)]
         entry = _CACHE[key] = ([reader, writer, compute], cbs)
     kernels, cbs = entry
     kernels[0].common_runtime_args = [x.buffer_address()]
