@@ -5,8 +5,11 @@
 #    /opt/bc2-venv, checkout /root/bc2, AF2 + ProteinMPNN checkpoints fetched by `bindcraft fetch-weights`.
 # 2. the Anthropic kit's colabdesign kit (BindCraft 1 / ColabDesign 1.1.3), route C of its README: micromamba from
 #    environment/conda-linux-64.lock, pip --no-deps environment/requirements.lock, run.sh install --weights /weights/af2.
+#   bash box_bc_setup.sh bc2only         marker /root/kc/SETUP-OK-bc2only  -- section 1 only, no colabdesign
+# bc2only exists for BC4's quality reference, which runs stock BindCraft 2 and nothing else: the colabdesign half
+# is most of the setup time and none of its deliverable.
 set -eux
-M=$1; [ "$M" = colabdesign ] || { echo "box_bc_setup.sh takes colabdesign only"; exit 2; }
+M=$1; case "$M" in colabdesign|bc2only) ;; *) echo "box_bc_setup.sh takes colabdesign or bc2only"; exit 2;; esac
 [ -f /root/kc/SETUP-OK-$M ] && exit 0
 export CC=gcc CXX=g++ DEBIAN_FRONTEND=noninteractive
 BC2_PIN=${BC2_PIN:-7a2dfdb8a285232a6f881899fe135c6dc48679f1}
@@ -27,6 +30,7 @@ git -C /root/bc2 checkout -q $BC2_PIN
 (cd /root/bc2 && /opt/bc2-venv/bin/pip install -q -e ".[cuda13]")
 /opt/bc2-venv/bin/bindcraft fetch-weights
 /opt/bc2-venv/bin/python -c "import jax; print('bc2 jax', jax.__version__, jax.devices())"
+[ "$M" = bc2only ] && { mkdir -p /root/kc && touch /root/kc/SETUP-OK-$M; exit 0; }
 
 # --- the burn gate's own venv: box_chain.sh runs burn_gate.py (torch) and neither BindCraft stack carries torch
 [ -x /opt/burn-venv/bin/python ] || { $PY/bin/python3 -m venv /opt/burn-venv

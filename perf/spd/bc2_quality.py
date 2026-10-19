@@ -626,10 +626,15 @@ def grade(arm: list[Trajectory], ref: list[Trajectory], label: str, seed: int = 
     # a lever whose run crashed and wrote no trajectories graded PASS, which is the single most dangerous verdict
     # this grader could emit. The campaign gate's n_per_arm >= 30 also catches it, but a verdict has to be honest
     # on its own, since any later reader sees the verdict and not the n beside it.
-    # A test only counts as having run if the ARM side put values into it. Fisher still returns p=1.0 for an empty
-    # arm (every margin is zero), so "has a p" is not the same as "was tested".
+    # A test only counts as having run if BOTH sides put values into it. Fisher still returns p=1.0 when either
+    # margin is zero, so "has a p" is not the same as "was tested".
+    # The reference side matters as much as the arm side, and guarding only the arm left a real hole: the A/A
+    # control grades arm A1 against arm A2, so a session whose A2 campaigns all crashed produced a *PASS* A/A on
+    # an empty reference. The campaign gate requires aa_control.verdict == PASS, so with A1 past 30 that would
+    # have passed the gate with no A/A control at all. Found by dry-running bc4_quality_session.sh, 2026-10-19.
     testable = [r for r in results + ctests
-                if isinstance(r.get("p"), float) and r["p"] == r["p"] and (r.get("arm") or {}).get("n", 0) >= 2]
+                if isinstance(r.get("p"), float) and r["p"] == r["p"]
+                and (r.get("arm") or {}).get("n", 0) >= 2 and (r.get("ref") or {}).get("n", 0) >= 2]
     reasons = []
     if not testable:
         return {

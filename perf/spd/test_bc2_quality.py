@@ -639,3 +639,22 @@ def test_trace_agreement_cannot_fail_a_verdict(tmp_path):
     r = Q.trace_agreement(a, b, "a", "b")
     assert "verdict" not in r and "p" not in r
     assert r["grades_nothing"]
+
+
+def test_an_empty_REFERENCE_is_inconclusive_not_pass(tmp_path):
+    """The A/A grades arm against arm, so an empty reference arm must not read PASS.
+
+    Guarding only the arm side left the A/A control able to PASS when its second arm produced nothing: with the
+    first arm past 30 the campaign gate, which requires aa_control.verdict == PASS, would have accepted a
+    reference with no A/A control at all.
+    """
+    arm = Q.read_arm(make_campaign(str(tmp_path / "a"), "pdl1", "A1", 101, n=10))
+    g = Q.grade(arm, [], "A1_vs_empty_A2")
+    assert g["verdict"] == "INCONCLUSIVE", g["verdict"]
+    assert g["n_per_arm"] == [10, 0]
+
+
+def test_an_empty_arm_is_still_inconclusive(tmp_path):
+    """The original direction of the same rule, kept so a fix to one side cannot silently drop the other."""
+    ref = Q.read_arm(make_campaign(str(tmp_path / "r"), "pdl1", "ref", 101, n=10))
+    assert Q.grade([], ref, "empty_vs_ref")["verdict"] == "INCONCLUSIVE"
