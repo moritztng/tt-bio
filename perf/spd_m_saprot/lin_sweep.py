@@ -53,7 +53,9 @@ def main() -> int:
                       packer_l1_acc=ck.packer_l1_acc)
     d, ff = MODELS[a.model]
     dh = d if (d // cfg["n_heads"]) % 64 == 0 else cfg["n_heads"] * 32  # 35M pads its heads 24 -> 32
-    shapes = {"qkv": (d, 3 * dh, None), "out": (dh, d, None), "fc1": (d, ff, "gelu"), "fc2": (ff, d, None)}
+    shapes = {"qkv": (d, 3 * dh, None), "out": (dh, d, None), "fc1": (d, ff, "gelu"), "fc2": (ff, d, None),
+              # the FFN split in two along its intermediate dim: a half-width fc1 fits a 2D program's fp32 output in L1
+              "fc1h": (d, ff // 2, "gelu"), "fc2h": (ff // 2, d, None)}
     wdt = ttnn.bfloat8_b if a.fast else ttnn.bfloat16
     out = open(a.out, "a")
     gen = torch.Generator().manual_seed(0)
@@ -106,7 +108,7 @@ def main() -> int:
         if a.pick_only:
             ttnn.deallocate(xd); ttnn.deallocate(wd); ttnn.deallocate(bd)
             continue
-        fa = ttnn.UnaryWithParam(ttnn.UnaryOpType.GELU) if act else None
+        fa = ttnn.UnaryWithParam(ttnn.UnaryOpType.GELU, 0.0) if act else None   # exact GELU, as the model ships it
         mt, kt, nt = -(-M // 32), K // 32, N // 32
         cap = 4 if ck.fp32_dest_acc_en else 8
         arms = []
