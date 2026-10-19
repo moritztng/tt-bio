@@ -58,6 +58,9 @@ def main() -> int:
                     help="value the on arm sets (default True), a JSON literal: an int switch, or a list for a tuple one")
     ap.add_argument("--block-attr", default=None,
                     help="dotted attribute on every transformer Block (e.g. attn.qk_l1): off arm = as loaded, on = True")
+    ap.add_argument("--arm", action="append", default=[],
+                    help="NAME=mod.ATTR[,mod.ATTR...]: a named arm with those switches True (repeatable; replaces --alt). "
+                         "Every round runs an off arm (all named switches off) and then each arm in order")
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
     torch.set_grad_enabled(False)
@@ -98,10 +101,18 @@ def main() -> int:
     boff = [getattr(o, n) for o, n in battr]
     cur = getattr(alt_mod, attr) if not (a.fidelity or a.block_attr) else None
     off_value = False if cur is None else type(cur)()   # tri-state switches (None = per-arch default) read off as False
+    arms = [(n, [(importlib.import_module(m), t) for m, t in (x.rsplit(".", 1) for x in v.split(","))])
+            for n, v in (s.split("=", 1) for s in a.arm)]
+    sw = {(m, t): (False if getattr(m, t) is None else type(getattr(m, t))()) for _, ms in arms for m, t in ms}
     base = None
     for r in range(a.rounds):
-        for on in (False, True):
-            if a.fidelity:
+        for on in ([None] + [n for n, _ in arms] if arms else (False, True)):
+            if arms:
+                for (m, t), v in sw.items():
+                    setattr(m, t, v)
+                for m, t in dict(arms).get(on, ()):
+                    setattr(m, t, True)
+            elif a.fidelity:
                 ckc.math_fidelity = getattr(ttnn.MathFidelity, a.fidelity) if on else fid_off
             elif a.block_attr:
                 for (o, name), v in zip(battr, boff):
@@ -125,7 +136,7 @@ def main() -> int:
             out = one()
             if base is None:
                 base = out
-            row = {"model": a.model, "fast": a.fast, "round": r, "alt": f"fidelity:{a.fidelity}" if a.fidelity else f"block:{a.block_attr}" if a.block_attr else a.alt, "on": on,
+            row = {"model": a.model, "fast": a.fast, "round": r, "alt": ("off" if on is None else on) if arms else f"fidelity:{a.fidelity}" if a.fidelity else f"block:{a.block_attr}" if a.block_attr else a.alt, "on": on,
                    "batch7_ms": round(sorted(ts)[len(ts) // 2] * 1000, 2),
                    "batch7_all_ms": [round(t * 1000, 2) for t in ts],
                    "vs_fp32": acc.metrics(out, ref), "vs_off": acc.metrics(out, base),

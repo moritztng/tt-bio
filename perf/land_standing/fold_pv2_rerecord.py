@@ -31,6 +31,8 @@ import release_gate as rg
 D = pathlib.Path("docs/size_ladder_baseline.d/protenix-v2.json")
 MODEL = "protenix-v2"
 WH = "tt-galaxy-wh-l"
+# rec-8fb57d73a (p300c, WH) and rec150-5a1667fbb (p150a, main 1f083ba6e + the triatt_k1 pricing fix)
+RECORDS = ("8fb57d73a", "5a1667fbb")
 TO_1024 = ("256", "512", "640", "768", "896", "1024")
 
 T2_PROJ = ("T2 tail (trimul_t2, 8a0d1d074) takes the output tail wherever g_out arrives fused, which at "
@@ -46,7 +48,7 @@ LN_TR = ("triatt_ln's TR mode (Wormhole Protenix-v2, 7533354b6) norms x^T straig
          "Falsifier: calls here on Wormhole mean triatt_ln declined the ending variant")
 
 # (cards, rungs, flags, why, max declined)
-JOBS = [(("p300c", WH), ("512", "640"), ("PAIR_PROJ_MINIMAL_MATMUL",), T2_PROJ, 1),
+JOBS = [(("p150a", "p300c", WH), ("512", "640"), ("PAIR_PROJ_MINIMAL_MATMUL",), T2_PROJ, 1),
         ((WH,), TO_1024, ("QKV_MM_CONFIG", "TRIATT_HEAD_MAJOR_QKV", "TRIATT_HEAD_MAJOR_TAIL",
                           "TRIATT_TAIL_OVER_L1"), LN_QKV, 0),
         ((WH,), TO_1024, ("TRANSPOSE_L1_RESIDENT", "PAIR_TRANSPOSE_VIA_ROW_MAJOR"), LN_TR, 0)]
@@ -56,7 +58,7 @@ data = json.loads(D.read_text())
 for card in cards:
     frag = json.loads((rec_dir / card / f"{MODEL}.json").read_text())
     entry = frag["cards"][card]
-    assert entry["models"][MODEL]["commit"] == "8fb57d73a", (card, entry["models"][MODEL]["commit"])
+    assert entry["models"][MODEL]["commit"] in RECORDS, (card, entry["models"][MODEL]["commit"])
     data["cards"][card] = entry
 
 n = 0

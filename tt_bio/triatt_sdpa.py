@@ -502,10 +502,12 @@ def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None, kv_buffer_fac
 
     persistent = p["k_num_chunks"] * p["Sq_chunk_t"] * p["Sk_chunk_t"]
     # Priced here, not caught from the device: a caught refusal is a hang risk, and `cb_bytes` is
-    # exact against the device's own figures on both parts (see `sdpa_generic.cb_budget`).
+    # exact against the device's own figures on both parts (see `sdpa_generic.cb_budget`). Priced
+    # trimmed, as `build` allocates it: the untrimmed table refused triatt_k1's (q512, k512) on
+    # Wormhole (1480704 B vs 1395424) although the trimmed one the device gets fits (1357824).
     if gate is None and not SG.cb_fits_l1(p, q_dtype=q.dtype, k_dtype=k.dtype, v_dtype=v.dtype,
                                           mask_dtype=bias.dtype, out_dtype=out.dtype,
-                                          mask_cb_tiles=persistent):
+                                          mask_cb_tiles=persistent, one_k_trim=True):
         ttnn.deallocate(out)
         _PM_OVER_L1.add(pm_key)
         return _reject("l1_budget", shape)

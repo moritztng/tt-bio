@@ -51,3 +51,26 @@ def test_rot_weight_is_a_signed_permutation():
     assert set(wr.abs().reshape(3, H, 32, -1)[:2].flatten().tolist()) <= set(wf.abs().flatten().tolist())
     assert not wr.reshape(3, -1)[2].any() and not br.reshape(3, -1)[2].any()
     assert not wf.reshape(3, H, 32, -1)[:, :, d:].any()
+
+
+def _paired(x, w, b, ow, ob, H, d):
+    """The pairs=True path as rotary_embedding_llama computes it: x * cos + (x @ T) * sin on 32-wide heads."""
+    B, L, _ = x.shape
+    wf, bf, _, _ = saprot._fold_rope_qkv(w, b, H, d, pairs=True)
+    cos, sin = (t.to(x.dtype) for t in saprot.pair_rope_tables_torch(L, d, torch.float64))
+    q, k, v = (x @ wf.T + bf).view(B, L, 3, H, 32).permute(2, 0, 3, 1, 4)
+    t = saprot._pair_rotation().to(x.dtype)
+    q, k = q * cos + (q @ t) * sin, k * cos + (k @ t) * sin
+    o = torch.softmax(q @ k.transpose(-1, -2) * d ** -0.5, -1) @ v
+    return o.transpose(1, 2).reshape(B, L, H * 32) @ saprot._pad_heads_in(ow, H, d).T + ob
+
+
+def test_pair_rope_matches_reference_float64():
+    torch.manual_seed(2)
+    H, d, B, L = 20, 24, 2, 70
+    hid = H * d
+    x = torch.randn(B, L, hid, dtype=torch.float64)
+    w, b = torch.randn(3 * hid, hid, dtype=torch.float64) / hid ** 0.5, torch.randn(3 * hid, dtype=torch.float64)
+    ow, ob = torch.randn(hid, hid, dtype=torch.float64) / hid ** 0.5, torch.randn(hid, dtype=torch.float64)
+    ref, got = _reference(x, w, b, ow, ob, H, d), _paired(x, w, b, ow, ob, H, d)
+    assert (ref - got).abs().max().item() < 1e-10

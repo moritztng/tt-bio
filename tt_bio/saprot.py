@@ -24,6 +24,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import warnings
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
@@ -166,6 +167,22 @@ _SAPROT_SDPA = None
 _SDPA_FP32 = (ttnn.MathFidelity.HiFi4, False, True, False)
 
 
+# SaProt 35M (head_dim 24, padded to 32): q / k dims ordered in NeoX pairs so rotary_embedding_llama's 32 x 32 pair
+# rotation runs RoPE on the padded heads, in place of the folded companion projection (rot_weight), two multiplies and
+# an add over [B, L, 3*H*32] (WH 35M page census: 14.9 of 41.5 ms). Galaxy chip, 1000 MHz, 2 processes per arm x 3, ms:
+# normal hHSA 39.1 -> 31.7, hPCSK9 38.8 -> 31.7; --fast hHSA 39.0 -> 31.1, hPCSK9 37.9 -> 31.3 (-19 %). pcc vs fp32: normal
+# hPCSK9 -0.000014, hHSA +0.000003, --fast +0.000021 / +0.000036. False keeps the folded projection. None = Wormhole
+# only until the Blackhole A/B reads (TT_BIO_SAPROT_RL forces either way).
+_SAPROT_RL = env_flag("TT_BIO_SAPROT_RL", None)
+_RL_CK = ttnn.WormholeComputeKernelConfig(math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=False,
+                                          fp32_dest_acc_en=True, packer_l1_acc=False)
+
+
+def _sdpa_ckc(qkrh: bool):
+    """shsdpa's kernel config for a block whose heads came from the packed RoPE program (`qkrh`); None = its HiFi2."""
+    return _SDPA_FP32 if (qkrh if _SAPROT_SDPA is None else _SAPROT_SDPA) else None
+
+
 def _saprot_qkrh(w) -> bool:
     if _SAPROT_QKRH is not None:
         return _SAPROT_QKRH
@@ -206,7 +223,20 @@ PROG_STATS = [0, 0, 0]   # projections served by a measured program: minimal_mat
 # The block's residual add inside the out projection's and fc2's matmul (dit_minimal_matmul_addcmul_fused:
 # x + 1 * (o W + b) * ones) wherever _PROGS serves that projection with minimal_matmul and the weight is bf16, so the
 # add does not re-read the projection from DRAM (ls1 census: 66 adds = 13.4 ms of the WH 650M page batch, 6.6 on BH).
+# bf16 weights only: with --fast's block-fp8 weights the op needs a bf16 copy, whose doubled weight stream cost more than
+# the add (WH 650M +2.9 %, 1.3B +3.5 %).
+RESID_REFUSED: set = set()
 _SAPROT_RESID = env_flag("TT_BIO_SAPROT_RESID", True)
+
+
+# The unfused residual adds write the residual stream to L1, so the next add and the block layer_norm read it from L1
+# instead of DRAM. Page cell on a Galaxy chip at 1000 MHz, --fast, 2 rounds x 3, output bit-identical: 35M 39.3 -> 38.6 ms,
+# 650M 155.2 -> 151.7 (hPCSK9 156.2 -> 152.1), 1.3B 297.5 -> 290.0. None = on with block-fp8 weights (--fast) only, as
+# _SAPROT_LN_L1; normal mode's out/fc2 adds are fused into the matmul (_SAPROT_RESID) where it serves.
+_SAPROT_X_L1 = (env_flag("TT_BIO_SAPROT_X_L1", False) if os.environ.get("TT_BIO_SAPROT_X_L1", "").strip() else None)
+_X_L1_REFUSED: set = set()
+#: [residual sums written to L1, declined]
+X_L1_STATS = [0, 0]
 
 
 def _saprot_prog(x, w, act, hifi2=False):
@@ -301,6 +331,7 @@ class _SaprotLin(_MMLin):
 
     def _lin_add(self, x, w, bias, resid):
         """resid + (x @ w + bias), in one matmul where _SAPROT_RESID serves, else as the projection and an add."""
+        x_l1 = w.dtype == ttnn.bfloat8_b if _SAPROT_X_L1 is None else _SAPROT_X_L1
         prog = _saprot_prog(x, w, None) if _SAPROT_RESID and w.dtype == ttnn.bfloat16 else None
         if prog is not None and prog[0] == "mm":
             n = int(w.shape[-1])
@@ -313,10 +344,22 @@ class _SaprotLin(_MMLin):
                     dtype=_dtype(ttnn.bfloat16), memory_config=ttnn.DRAM_MEMORY_CONFIG)
                 PROG_STATS[2] += 1
                 return out
-            except RuntimeError:
-                pass
+            except RuntimeError as exc:   # a shape the fused op refuses: say so once, then project + add
+                if not RESID_REFUSED:
+                    warnings.warn(f"saprot: fused residual matmul refused {tuple(w.shape)} {w.dtype}: {str(exc)[:400]}")
+                RESID_REFUSED.add((tuple(w.shape), w.dtype))
         r = self._lin(x, w, bias=bias)
-        out = ttnn.add(resid, r)
+        out = None
+        if x_l1 and tuple(resid.padded_shape) not in _X_L1_REFUSED:
+            try:
+                out = ttnn.add(resid, r, memory_config=ttnn.L1_MEMORY_CONFIG)
+                X_L1_STATS[0] += 1
+                ttnn.deallocate(resid)   # the block rebinds x to the sum; the old stream would pin L1 until GC
+            except RuntimeError:
+                _X_L1_REFUSED.add(tuple(resid.padded_shape))
+                X_L1_STATS[1] += 1
+        if out is None:
+            out = ttnn.add(resid, r)
         ttnn.deallocate(r)
         return out
 
@@ -343,15 +386,19 @@ class ESM2Attention(_SaprotLin, Module):
         d_model = self.weights["qkv.weight"].shape[-1]  # torch Linear [3*hidden, hidden]
         self.head_dim = d_model // n_heads
         self.fold_rope = self.head_dim % 64 != 0
+        self.rope_pairs = self.fold_rope and (tenstorrent.is_wormhole() if _SAPROT_RL is None else _SAPROT_RL)
         if self.fold_rope:
             w, b, wr, br = _fold_rope_qkv(self.weights["qkv.weight"], self.weights["qkv.bias"],
-                                          n_heads, self.head_dim)
+                                          n_heads, self.head_dim, pairs=self.rope_pairs)
             ow = _pad_heads_in(self.weights["out.weight"], n_heads, self.head_dim)
             dev = lambda x, dt=None: ttnn.from_torch(x.contiguous(), layout=ttnn.TILE_LAYOUT,
                                                      device=self.device,
                                                      dtype=_dtype(ttnn.bfloat16) if dt is None else dt)
             self.qkv_weight, self.qkv_bias = dev(w.t(), _dtype()), dev(b)
-            self.rot_weight, self.rot_bias = dev(wr.t(), _dtype()), dev(br)
+            if self.rope_pairs:
+                self.trans_mat = dev(_pair_rotation()[None, None], ttnn.bfloat16)
+            else:
+                self.rot_weight, self.rot_bias = dev(wr.t(), _dtype()), dev(br)
             self.out_weight = dev(ow.t(), _dtype())
         else:
             self.qkv_weight = self.torch_to_tt("qkv.weight", dtype=_dtype())
@@ -359,12 +406,24 @@ class ESM2Attention(_SaprotLin, Module):
             self.out_weight = self.torch_to_tt("out.weight", dtype=_dtype())
         self.out_bias = self.torch_to_tt("out.bias")
 
+    def _rope_pairs(self, t, cos, sin):
+        """rotary_embedding_llama on [B, H, L, 32] heads, as one batch of B * H heads (its prefill takes batch 1)."""
+        b, h, length, w = (int(d) for d in t.shape)
+        out = ttnn.experimental.rotary_embedding_llama(ttnn.reshape(t, (1, b * h, length, w)), cos, sin, self.trans_mat,
+                                                       compute_kernel_config=_RL_CK)
+        ttnn.deallocate(t)
+        return ttnn.reshape(out, (b, h, length, w))
+
     def __call__(self, x, cos, sin, attn_mask=None, key_valid=None):
         ck = self.compute_kernel_config
         x_norm = _block_ln(x, self.norm_weight, self.norm_bias, ck, self.qkv_weight)
         qkv = self._lin(x_norm, self.qkv_weight, bias=self.qkv_bias)
         heads = None
-        if self.fold_rope:  # cos/sin are the packed [1, L, 3*H*32] tables from fold_rope_tables
+        if self.rope_pairs:   # q / k dims in adjacent pairs (_fold_rope_qkv pairs=True), cos / sin [1, 1, L, 32]
+            ttnn.deallocate(x_norm)
+            q, k, v = self._split_heads(qkv, self.n_heads)
+            q, k = (self._rope_pairs(t, cos, sin) for t in (q, k))
+        elif self.fold_rope:  # cos/sin are the packed [1, L, 3*H*32] tables from fold_rope_tables
             rot = self._lin(x_norm, self.rot_weight, bias=self.rot_bias)
             ttnn.deallocate(x_norm)
             a = ttnn.multiply(qkv, cos)
@@ -388,7 +447,7 @@ class ESM2Attention(_SaprotLin, Module):
         if key_valid is not None and attn_mask is None:  # the -inf mask already zeroes them, see esmc.Attention
             k = ttnn.multiply(k, key_valid)
             v = ttnn.multiply(v, key_valid)
-        o = lm_sdpa(q, k, v, attn_mask, scale=self.head_dim ** -0.5, merge=True, ckc=_SDPA_FP32 if (heads is not None if _SAPROT_SDPA is None else _SAPROT_SDPA) else None)  # [B, L, H*32] when fold_rope; out_weight has the zero rows
+        o = lm_sdpa(q, k, v, attn_mask, scale=self.head_dim ** -0.5, merge=True, ckc=_sdpa_ckc(heads is not None))  # [B, L, H*32] when fold_rope; out_weight has the zero rows
         ttnn.deallocate(q); ttnn.deallocate(k); ttnn.deallocate(v)
         out = self._lin_add(o, self.out_weight, self.out_bias, x)
         ttnn.deallocate(o)
@@ -401,12 +460,25 @@ def _pad_heads(w: torch.Tensor, n_heads: int, d: int) -> torch.Tensor:
     return torch.nn.functional.pad(w, (0, 0) * (w.dim() - 2) + (0, 32 - d)).reshape(n_heads * 32, *w.shape[2:])
 
 
+def _pair_rotation() -> torch.Tensor:
+    """[32, 32] T with x @ T = (-x1, x0, -x3, x2, ...): rotate_half over adjacent pairs, as rotary_embedding_llama wants."""
+    t = torch.zeros(32, 32)
+    t[torch.arange(0, 32, 2), torch.arange(1, 32, 2)] = 1.0
+    t[torch.arange(1, 32, 2), torch.arange(0, 32, 2)] = -1.0
+    return t
+
+
+def _pair_order(d: int) -> torch.Tensor:
+    """Head dims in pair order: NeoX's (i, i + d/2) become positions (2i, 2i + 1)."""
+    return torch.stack([torch.arange(d // 2), torch.arange(d // 2, d)], dim=1).flatten()
+
+
 def _pad_heads_in(w: torch.Tensor, n_heads: int, d: int) -> torch.Tensor:
     """Output projection [out, H*d] -> [out, H*32] with zero columns for the pad dims."""
     return _pad_heads(w.t(), n_heads, d).t()
 
 
-def _fold_rope_qkv(w, b, n_heads: int, d: int):
+def _fold_rope_qkv(w, b, n_heads: int, d: int, pairs: bool = False):
     """Head-padded q/k/v projection plus its RoPE companion.
 
     ``w`` is torch Linear ``[3*H*d, hidden]`` (q, k, v stacked), ``b`` is ``[3*H*d]``.
@@ -414,9 +486,14 @@ def _fold_rope_qkv(w, b, n_heads: int, d: int):
     shape whose q/k rows are ``rotate_half`` of the q/k rows (``cat(-x2, x1)`` per head)
     and whose v rows are zero, so ``x @ w_rot.T + b_rot == rotate_half(x @ w.T + b)``
     over q and k exactly: a row permutation with a sign flip, no arithmetic.
+    ``pairs`` instead orders each q / k head's rows in NeoX pairs (``_pair_order``) for rotary_embedding_llama; q . k
+    is unchanged by the common permutation, v keeps its order (the output projection reads it).
     """
     h = d // 2
-    ws, bs = w.reshape(3, n_heads, d, -1), b.reshape(3, n_heads, d)
+    ws, bs = w.reshape(3, n_heads, d, -1).clone(), b.reshape(3, n_heads, d).clone()
+    if pairs:
+        o = _pair_order(d)
+        ws[:2], bs[:2] = ws[:2, :, o], bs[:2, :, o]
     wr = torch.cat([-ws[:, :, h:], ws[:, :, :h]], dim=2)
     br = torch.cat([-bs[:, :, h:], bs[:, :, :h]], dim=2)
     wr[2] = 0
@@ -436,6 +513,14 @@ def _fold_rope_tables_torch(seq_len: int, n_heads: int, d: int, dtype=torch.floa
     cos = torch.cat([qk(freqs.cos()), torch.ones(seq_len, n_heads * 32, dtype=dtype)], dim=-1)
     sin = torch.cat([qk(freqs.sin()), torch.zeros(seq_len, n_heads * 32, dtype=dtype)], dim=-1)
     return cos, sin
+
+
+def pair_rope_tables_torch(seq_len: int, d: int, dtype=torch.float32):
+    """[L, 32] cos / sin for head dims in pair order (``_pair_order``), zero over the pad dims."""
+    inv_freq = 1.0 / (ROPE_BASE ** (torch.arange(0, d, 2, dtype=dtype) / d))
+    f = torch.outer(torch.arange(seq_len, dtype=dtype), inv_freq).repeat_interleave(2, dim=-1)
+    pad = lambda t: torch.nn.functional.pad(t, (0, 32 - d))
+    return pad(f.cos()), pad(f.sin())
 
 
 def fold_rope_tables(seq_len: int, n_heads: int, d: int, device):
@@ -576,7 +661,10 @@ class SaprotModel(Module):
         rope = self._rope.get(seq_len)
         if rope is None:  # built and uploaded once per bucket length, then resident
             attn = self.blocks[0].attn
-            if attn.fold_rope:
+            if attn.rope_pairs:
+                rope = tuple(ttnn.from_torch(t[None, None], layout=ttnn.TILE_LAYOUT, device=self.device,
+                                             dtype=ttnn.bfloat16) for t in pair_rope_tables_torch(seq_len, attn.head_dim))
+            elif attn.fold_rope:
                 rope = fold_rope_tables(seq_len, self.n_heads, attn.head_dim, self.device)
             else:
                 rope = rope_tables(seq_len, attn.head_dim, device=self.device)
