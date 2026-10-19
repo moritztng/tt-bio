@@ -180,7 +180,11 @@ _PROGS = {
     (False, 480, 1920): ("2d", (True, 5)),
 }
 _PROG_ROWS = (3072, 4096)   # page batch 7 x 544 = 3808 rows: the shape the table was measured at
-PROG_STATS = [0, 0]   # projections served by a measured program: minimal_matmul, 2D multicast
+PROG_STATS = [0, 0, 0]   # projections served by a measured program: minimal_matmul, 2D multicast, minimal_matmul + residual
+# The block's residual add inside the out projection's and fc2's matmul (dit_minimal_matmul_addcmul_fused:
+# x + 1 * (o W + b) * ones) wherever _PROGS serves that projection with minimal_matmul and the weight is bf16, so the
+# add does not re-read the projection from DRAM (ls1 census: 66 adds = 13.4 ms of the WH 650M page batch, 6.6 on BH).
+_SAPROT_RESID = env_flag("TT_BIO_SAPROT_RESID", True)
 
 
 def _saprot_prog(x, w, act):
@@ -238,10 +242,32 @@ class _SaprotLin(_MMLin):
                 pass
         return super()._lin(x, w, bias=bias, dtype=dtype, **kw)
 
+    def _lin_add(self, x, w, bias, resid):
+        """resid + (x @ w + bias), in one matmul where _SAPROT_RESID serves, else as the projection and an add."""
+        prog = _saprot_prog(x, w, None) if _SAPROT_RESID and w.dtype == ttnn.bfloat16 else None
+        if prog is not None and prog[0] == "mm":
+            n = int(w.shape[-1])
+            if getattr(self, "_ones_row", None) is None:
+                self._ones_row = ttnn.from_torch(torch.ones(1, n), dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT,
+                                                 device=x.device())
+            try:
+                out = ttnn.experimental.dit_minimal_matmul_addcmul_fused(
+                    x, w, 1.0, resid, self._ones_row, bias, config=prog[1], compute_kernel_config=self.compute_kernel_config,
+                    dtype=_dtype(ttnn.bfloat16), memory_config=ttnn.DRAM_MEMORY_CONFIG)
+                PROG_STATS[2] += 1
+                return out
+            except RuntimeError:
+                pass
+        r = self._lin(x, w, bias=bias)
+        out = ttnn.add(resid, r)
+        ttnn.deallocate(r)
+        return out
+
 
 class ESM2Attention(_SaprotLin, Module):
     """ESM-2 self-attention: pre-LN, fused q/k/v (with bias), per-head RoPE, SDPA,
-    output projection (with bias). No QK-LayerNorm (that is ESMC-specific).
+    output projection (with bias), plus the block's residual: returns ``x + attn(x)``.
+    No QK-LayerNorm (that is ESMC-specific).
 
     For ``head_dim`` not aligned to 64 (the 35M variant, ``head_dim = 24``) the fused
     ``rotary_embedding`` kernel and the tile-split rotate-half both break, so RoPE is
@@ -306,7 +332,7 @@ class ESM2Attention(_SaprotLin, Module):
             v = ttnn.multiply(v, key_valid)
         o = lm_sdpa(q, k, v, attn_mask, scale=self.head_dim ** -0.5, merge=True)  # [B, L, H*32] when fold_rope; out_weight has the zero rows
         ttnn.deallocate(q); ttnn.deallocate(k); ttnn.deallocate(v)
-        out = self._lin(o, self.out_weight, bias=self.out_bias)
+        out = self._lin_add(o, self.out_weight, self.out_bias, x)
         ttnn.deallocate(o)
         return out
 
@@ -368,7 +394,7 @@ _GELU_FUSED = env_flag("TT_BIO_SAPROT_GELU_FUSED", True)
 
 
 class ESM2FFN(_SaprotLin, Module):
-    """ESM-2 feed-forward: pre-LN, Linear(intermediate)+GELU, Linear(hidden), residual."""
+    """ESM-2 feed-forward: pre-LN, Linear(intermediate)+GELU, Linear(hidden), residual: returns ``x + ffn(x)``."""
 
     def __init__(self, state_dict: Weights, compute_kernel_config):
         super().__init__(state_dict, compute_kernel_config)
@@ -388,7 +414,7 @@ class ESM2FFN(_SaprotLin, Module):
         ttnn.deallocate(x_norm)
         if not _GELU_FUSED:
             h = ttnn.gelu(h)
-        out = self._lin(h, self.fc2_weight, bias=self.fc2_bias)
+        out = self._lin_add(h, self.fc2_weight, self.fc2_bias, x)
         ttnn.deallocate(h)
         return out
 
@@ -402,13 +428,8 @@ class ESM2Block(Module):
         self.ffn = ESM2FFN(self.scope("ffn"), compute_kernel_config)
 
     def __call__(self, x, cos, sin, attn_mask=None, key_valid=None):
-        r = self.attn(x, cos, sin, attn_mask, key_valid)
-        x = ttnn.add(x, r)
-        ttnn.deallocate(r)
-        r = self.ffn(x)
-        x = ttnn.add(x, r)
-        ttnn.deallocate(r)
-        return x
+        x = self.attn(x, cos, sin, attn_mask, key_valid)
+        return self.ffn(x)
 
 
 class SaprotLMHead(Module):
