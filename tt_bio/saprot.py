@@ -211,7 +211,8 @@ PROG_STATS = [0, 0, 0]   # projections served by a measured program: minimal_mat
 # The block's residual add inside the out projection's and fc2's matmul (dit_minimal_matmul_addcmul_fused:
 # x + 1 * (o W + b) * ones) wherever _PROGS serves that projection with minimal_matmul and the weight is bf16, so the
 # add does not re-read the projection from DRAM (ls1 census: 66 adds = 13.4 ms of the WH 650M page batch, 6.6 on BH).
-_SAPROT_RESID = env_flag("TT_BIO_SAPROT_RESID", True)
+# None = bf16 weights (normal mode) only; True adds the block-fp8 weights of --fast (ungraded, 12.5 ms of adds there).
+_SAPROT_RESID = (env_flag("TT_BIO_SAPROT_RESID", True) if os.environ.get("TT_BIO_SAPROT_RESID", "").strip() else None)
 
 
 def _saprot_prog(x, w, act, hifi2=False):
@@ -305,7 +306,9 @@ class _SaprotLin(_MMLin):
 
     def _lin_add(self, x, w, bias, resid):
         """resid + (x @ w + bias), in one matmul where _SAPROT_RESID serves, else as the projection and an add."""
-        prog = _saprot_prog(x, w, None) if _SAPROT_RESID and w.dtype == ttnn.bfloat16 else None
+        on = w.dtype == ttnn.bfloat16 if _SAPROT_RESID is None else _SAPROT_RESID
+        ck = self._ck(w)
+        prog = _saprot_prog(x, w, None, ck.math_fidelity == ttnn.MathFidelity.HiFi2) if on else None
         if prog is not None and prog[0] == "mm":
             n = int(w.shape[-1])
             if getattr(self, "_ones_row", None) is None:
@@ -313,7 +316,7 @@ class _SaprotLin(_MMLin):
                                                  device=x.device())
             try:
                 out = ttnn.experimental.dit_minimal_matmul_addcmul_fused(
-                    x, w, 1.0, resid, self._ones_row, bias, config=prog[1], compute_kernel_config=self.compute_kernel_config,
+                    x, w, 1.0, resid, self._ones_row, bias, config=prog[1], compute_kernel_config=ck,
                     dtype=_dtype(ttnn.bfloat16), memory_config=ttnn.DRAM_MEMORY_CONFIG)
                 PROG_STATS[2] += 1
                 return out
