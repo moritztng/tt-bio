@@ -1242,13 +1242,14 @@ def t2cm_eligible(xcm, ln_w, ln_b, wp, g, resid, ckc=None, wg=None, ex=None):
     `wg`, `ex`: see `fused_tail_ln_cm`. Pure host checks; nothing is touched."""
     from .tenstorrent import lever
     from . import ops
-    if not ((T2CM or lever("trimul_t2cm")) and (T2 or lever("trimul_t2"))):
+    ex = ex or (None,) * 4
+    # A separate `out` is AF2's form, which its caller switches itself (TT_BIO_AF2_T2CM).
+    if ex[3] is None and not ((T2CM or lever("trimul_t2cm")) and (T2 or lever("trimul_t2"))):
         return "off"
     if ops.taping():
         return "tape"
     if ckc is not None and dest_guard.exposed_args(ckc):
         return "dest_guard"
-    ex = ex or (None,) * 4
     for t in (xcm, wp, g, resid) + ((wg,) if wg is not None else ()) + tuple(t for t in ex if t is not None):
         if t is None or t.dtype != ttnn.bfloat16 or t.layout != ttnn.TILE_LAYOUT:
             return "dtype"
