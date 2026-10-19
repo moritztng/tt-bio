@@ -1435,6 +1435,11 @@ ALWI void matmul_blocks(
     }
 #endif
 
+#if defined(ABLATE_QKEXP) && defined(QK_MASK_PRELOAD)
+    if (preload_mask) {
+        exp_packthread_tile_init<true, true>();
+    }
+#endif
     for (uint32_t in0_subblock = 0; in0_subblock < in0_num_subblocks; ++in0_subblock) {
         cb_wait_front(in0_cb, in0_wait_tiles);
         uint32_t in1_index_offset = 0;
@@ -1481,6 +1486,20 @@ ALWI void matmul_blocks(
             }
             tile_regs_commit();
             tile_regs_wait();
+#if defined(ABLATE_QKEXP) && defined(QK_MASK_PRELOAD)
+            // INSTRUMENT (TT_BIO_TRIATT_ABLATE=QKEXP), wrong values on purpose: the QK^T stage takes
+            // on the work a one-pass softmax would add to it, an exp of every score tile on the
+            // pack thread and an L1-accumulated row-sum pack, while MAX and SUBEXP still run.
+            // TA_QK grows by what the fused exp costs once it overlaps the matmul; the one-pass
+            // ceiling is TA_QK(this arm) + TA_PV. CB-neutral: the sum is packed onto the score
+            // block itself.
+            if (preload_mask) {
+                for (uint32_t i = 0; i < out_subblock_num_tiles; i++) {
+                    exp_packthread_tile<true, true, false, false, InputClamping::None, 32>(i, (int)VectorMode::None);
+                }
+                PACK(TTI_STALLWAIT(p_stall::STALL_PACK, p_stall::WAIT_SFPU));
+            }
+#endif
             uint32_t dst_idx = 0;
             uint32_t out_col_offset = in1_subblock * subblock_w;
             for (uint32_t r = 0; r < subblock_h; r++) {
@@ -1490,6 +1509,18 @@ ALWI void matmul_blocks(
                     dst_idx++;
                 }
             }
+#if defined(ABLATE_QKEXP) && defined(QK_MASK_PRELOAD)
+            if (preload_mask) {
+                PACK((llk_pack_reconfig_l1_acc(1)));
+                dst_idx = 0;
+                for (uint32_t r = 0; r < subblock_h; r++) {
+                    for (uint32_t c = 0; c < subblock_w; c++) {
+                        pack_tile<true>(dst_idx++, out_cb, r * N + out_col_offset);
+                    }
+                }
+                PACK((llk_pack_reconfig_l1_acc(0)));
+            }
+#endif
             tile_regs_release();
             in1_index_offset += subblock_w;
         }
