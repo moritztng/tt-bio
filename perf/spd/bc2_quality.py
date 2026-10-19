@@ -816,11 +816,25 @@ def build_reference(request: dict, root: str, seed: int = 0, provisional: bool =
                for t, arms in by_target.items()}
 
     # The A/A control: two stock runs at different seeds, on the target that has two arms.
+    #
+    # Which two arms is a judgement, not an alphabetical accident. Taking the first two in sorted order is fine
+    # while every arm came off the same box, and wrong the moment one did not: the 2026-10-19 cheap-card session
+    # left pdl1 holding A1 (14 trajectories from the B200) beside C1 and C2 (10 each from an RTX 4090), where
+    # sorted order picks A1 vs C1 -- a pair that differs in GPU model as well as in seed, so a difference between
+    # them would not mean what an A/A control is supposed to mean. C1 vs C2 is the real control. So the request
+    # may name the pair, and `aa_control_arms` is honoured on whichever target carries both.
+    want = [a for a in (request.get("aa_control_arms") or []) if a]
     aa = {"verdict": "ABSENT", "reason": "no target has two stock arms to compare"}
     for target, arms in sorted(by_target.items()):
-        if len(arms) < 2:
+        if want:
+            if not all(a in arms for a in want[:2]):
+                continue
+            pair = [(a, arms[a]) for a in want[:2]]
+        elif len(arms) < 2:
             continue
-        (n1, a1), (n2, a2) = sorted(arms.items())[:2]
+        else:
+            pair = sorted(arms.items())[:2]
+        (n1, a1), (n2, a2) = pair
         g = grade(a1, a2, f"{target}:{n1}_vs_{n2}", seed=seed)
         aa = {"verdict": g["verdict"], "target": target, "arms": [n1, n2], "n_per_arm": g["n_per_arm"],
               "reasons": g["reasons"], "detail": g["metrics"],
@@ -832,6 +846,10 @@ def build_reference(request: dict, root: str, seed: int = 0, provisional: bool =
               "note": ("This spread is the floor every later A/B is read against. If this verdict is FAIL, the test "
                        "is wrong and not the engine: two stock GPU runs must read as indistinguishable.")}
         break
+    if want and aa["verdict"] == "ABSENT":
+        # Say which arms were asked for, because "no target has two stock arms" reads like nobody tried.
+        found = {t: sorted(a) for t, a in by_target.items()}
+        aa["reason"] = f"the request names {want[:2]} as the A/A pair and no target carries both; arms found: {found}"
 
     return {
         "schema": "bc4-quality-ref/1",

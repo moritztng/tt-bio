@@ -658,3 +658,33 @@ def test_an_empty_arm_is_still_inconclusive(tmp_path):
     """The original direction of the same rule, kept so a fix to one side cannot silently drop the other."""
     ref = Q.read_arm(make_campaign(str(tmp_path / "r"), "pdl1", "ref", 101, n=10))
     assert Q.grade([], ref, "empty_vs_ref")["verdict"] == "INCONCLUSIVE"
+
+
+def test_the_request_names_the_aa_pair_instead_of_the_alphabet_picking_it(tmp_path):
+    """The cheap-card session leaves pdl1 holding A1 from the B200 beside C1 and C2 from an RTX 4090. Sorted order
+    would pair A1 with C1, which differs in GPU model as well as in seed and so is not an A/A control at all."""
+    root = str(tmp_path)
+    make_arm(root, "pdl1", "A1", seeds=(101, 102, 103))
+    make_arm(root, "pdl1", "C1", seeds=(104,))
+    make_arm(root, "pdl1", "C2", seeds=(105,))
+    runs = _runs("pdl1", "A1", (101, 102, 103)) + _runs("pdl1", "C1", (104,)) + _runs("pdl1", "C2", (105,))
+
+    assert Q.build_reference(_request(root, runs), root)["aa_control"]["arms"] == ["A1", "C1"]
+
+    req = _request(root, runs)
+    req["aa_control_arms"] = ["C1", "C2"]
+    aa = Q.build_reference(req, root)["aa_control"]
+    assert aa["arms"] == ["C1", "C2"]
+    assert aa["verdict"] == "PASS", aa.get("reasons")
+
+
+def test_a_named_aa_pair_that_did_not_land_is_absent_and_says_so(tmp_path):
+    """Naming a pair must not silently fall back to the alphabetical one: a missing control is a missing floor."""
+    root = str(tmp_path)
+    make_arm(root, "pdl1", "A1", seeds=(101, 102))
+    make_arm(root, "pdl1", "C1", seeds=(104,))
+    req = _request(root, _runs("pdl1", "A1", (101, 102)) + _runs("pdl1", "C1", (104,)))
+    req["aa_control_arms"] = ["C1", "C2"]
+    aa = Q.build_reference(req, root)["aa_control"]
+    assert aa["verdict"] == "ABSENT"
+    assert "C1" in aa["reason"] and "C2" in aa["reason"]
