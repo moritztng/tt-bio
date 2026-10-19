@@ -1509,9 +1509,9 @@ _TRIMUL_TAIL_L1_SHARE = float(os.environ.get("TT_BIO_TRIMUL_TAIL_L1_SHARE", "0.5
 TRIMUL_TAIL_L1_STATS = {"l1": 0, "dram": 0}
 # Concat the channel chunks straight out of L1 instead of cloning each one to DRAM first. The
 # clone is one whole extra copy of the hidden per trimul call and buys nothing but the chunks
-# being co-resident, which L1 can give directly whenever the budget above fits them all. Off
-# until the WH A/B reads (cell `trcl`); the result is bit-identical by construction.
-_TRIMUL_CONCAT_FROM_L1 = env_flag("TT_BIO_TRIMUL_CONCAT_FROM_L1", False)
+# being co-resident, which L1 can give directly whenever the budget above fits them all. On by
+# default: WH AF2-IG A/B (`trcl`) read identical coords on every seed, 1664 fewer ops per run.
+_TRIMUL_CONCAT_FROM_L1 = env_flag("TT_BIO_TRIMUL_CONCAT_FROM_L1", True)
 #: Census: channel loops that held their chunks in L1, and ones that cloned each to DRAM.
 TRIMUL_CONCAT_FROM_L1_STATS = {"l1": 0, "clone": 0}
 TRIANGLE_MULT_L1_MAX_SEQ_FAST = 640
