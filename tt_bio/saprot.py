@@ -144,15 +144,15 @@ def _saprot_mm(width: int) -> bool:
 # Against float64 the program is the more accurate one (q rel_l2 0.0027 vs 0.0036, perf/spd_gap_whlm/rope_packed_bench.py).
 # Page cell on a Galaxy chip at 1000 MHz, best of 3: 650M 217.5 -> 200.1 ms (--fast 205.4 -> 190.4), 1.3B 414.0 -> 381.8
 # (400.2 -> 366.4); pcc vs fp32 moves -0.000126 / -0.000109 (650M) and -0.000096 / -0.000025 (1.3B). That passes the fast
-# bar (0.0002) and misses the normal one (0.0001) on 650M, so None = on for Wormhole with block-fp8 weights (--fast) only.
+# bar (0.0002) and misses the normal one (0.0001) on 650M, so None = on with block-fp8 weights (--fast) only.
+# Blackhole --fast 650M on a p300c chip at 1350 MHz: 98.5 -> 91.2 ms, pcc -0.000111.
 _SAPROT_QKRH = (env_flag("TT_BIO_SAPROT_QKRH", False) if os.environ.get("TT_BIO_SAPROT_QKRH", "").strip() else None)
 
 
 def _saprot_qkrh(w) -> bool:
     if _SAPROT_QKRH is not None:
         return _SAPROT_QKRH
-    from tt_bio import tenstorrent
-    return tenstorrent.is_wormhole() and w.dtype == ttnn.bfloat8_b
+    return w.dtype == ttnn.bfloat8_b
 
 
 # The measured program for each SaProt projection at the page shape (7 x 544 rows), per arch, keyed (wormhole, K, N).
