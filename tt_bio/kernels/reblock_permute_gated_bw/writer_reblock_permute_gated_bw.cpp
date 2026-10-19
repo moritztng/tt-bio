@@ -48,7 +48,10 @@ void kernel_main() {
     const auto dp = TensorAccessor(dp_args, dp_addr);
     const auto dg = TensorAccessor(dg_args, dg_addr);
 
+    // p and g arrive in the projection's format (bfp8 tiles are 1088 B), dp and dg leave in bf16:
+    // each side steps by its own CB's tile size.
     const uint32_t tile_bytes = get_tile_size(cb_p);
+    const uint32_t out_bytes = get_tile_size(cb_dp);
     const uint32_t NtCt = Nt * Ct;
     const uint32_t row_in = Nt * Ctw;
     for (uint32_t gi = 0; gi < num_groups; ++gi) {
@@ -88,8 +91,8 @@ void kernel_main() {
         for (uint32_t il = 0; il < TILE_HEIGHT; ++il) {
             noc_async_write_page(op, dp, ldp);
             noc_async_write_page(og, dg, ldg);
-            ldp += tile_bytes;
-            ldg += tile_bytes;
+            ldp += out_bytes;
+            ldg += out_bytes;
             op += row_in;
             og += row_in;
         }
@@ -98,8 +101,8 @@ void kernel_main() {
         for (uint32_t il = 0; il < TILE_HEIGHT; ++il) {
             noc_async_write_page(op, dp, ldp);
             noc_async_write_page(op, dg, ldg);
-            ldp += tile_bytes;
-            ldg += tile_bytes;
+            ldp += out_bytes;
+            ldg += out_bytes;
             op += NtCt;
         }
 #endif
