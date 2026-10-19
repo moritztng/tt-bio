@@ -9503,7 +9503,7 @@ def _channel_move(chunk: ttnn.Tensor, memory_config: ttnn.MemoryConfig) -> ttnn.
 
 
 @ops.fused_kernel("trimul_t2cm_af2")
-def _t2cm_af2(xcm, ln_w, ln_b, wp, xb, z, wg, bp, bg, mask, ckc, cache):
+def _t2cm_af2(xcm, ln_w, ln_b, wp, xb, z, wg, bp, bg, mask, ckc, cache, prev=None):
     """`z + mask * (layer_norm(xcm moved) @ wp + bp) * sigmoid(xb @ wg + bg)` as T2CM, in a new tensor,
     or None (nothing touched). AF2's trimul tail with its residual; `cache` (the module's dict) keeps
     the row-replicated biases. No tape entry: under a recording tape it declines and the composed
@@ -9514,7 +9514,7 @@ def _t2cm_af2(xcm, ln_w, ln_b, wp, xb, z, wg, bp, bg, mask, ckc, cache):
     out = ttnn.allocate_tensor_on_device(z.shape, z.dtype, ttnn.TILE_LAYOUT, z.device(),
                                          ttnn.DRAM_MEMORY_CONFIG)
     r = _trimul_tail.fused_tail_ln_cm(xcm, ln_w, ln_b, wp, xb, z, ckc, tuple(COMPUTE_GRID_MAIN), wg=wg,
-                                      bp=rows[0], bg=rows[1], mask=mask, out=out)
+                                      bp=rows[0], bg=rows[1], mask=mask, out=out, prev=prev)
     if r is None:
         ttnn.deallocate(out)
     return r
@@ -10280,14 +10280,13 @@ class TriangleMultiplication(Module):
         # `trimul_t2cm`: the whole hidden as ONE channel-major chunk, kept for T2 to read as it is
         # instead of being moved into x_out. Asked only where the T2 branch below would serve and the
         # stage fits in few enough parts to beat the move (`trimul_tail.t2cm_fit`).
-        x_cm, cm_mc = None, None
+        x_cm, cm_mc, cm_off = None, None, 0
         # AF2 (`fused_residual`) takes the GATE form with both biases and its dropout mask, in the
         # forwards its tape does not record; `_t2cm_af2` is the route.
         af2 = (fused_residual is not None and g_out_fused is None and not fuse_gout
                and x_norm_in is not None)
         cm_ex = ((self.p_out_bias, self.g_out_bias, fused_residual[0], True) if af2 else None)
-        cm_on = ((af2 and not ops.recording() and H >= _trimul_tail.MIN_N
-                  and _trimul_tail.t2cm_fit(self.out_p_weight, True, _trimul_tail._extra_bits(cm_ex)) is None)
+        cm_on = ((af2 and not ops.recording() and H >= _trimul_tail.MIN_N)
                  or (lever("trimul_t2cm") and (_trimul_tail.T2 or lever("trimul_t2"))
                      and H >= _trimul_tail.MIN_N and add_to_input and not ops.taping()
                      and self.p_out_bias is None and _trimul_tail.t2cm_fit(self.out_p_weight) is None))
@@ -10604,6 +10603,15 @@ class TriangleMultiplication(Module):
                             and _reblock.eligible_back(x_chunk, back_mc)))
                     into = (one_pass and _TRIMUL_BACK_INTO and large_seq and not host_acc and not keep_chunks
                             and _reblock.eligible_back(x_chunk, back_mc))
+                    if (into and af2 and cm_on and x_cm is None and x_out is not None
+                            and c_done + int(x_chunk.shape[1]) == self._hidden
+                            and _trimul_tail.t2cm_fit(self.out_p_weight, True, _trimul_tail._extra_bits(cm_ex),
+                                                      c_done // 32) is None):
+                        # AF2 over several chunks: the last stays channel-major, the earlier ones are
+                        # already in x_out, and T2CM reads both (`prev`).
+                        x_cm, cm_mc, cm_off = x_chunk, back_mc, c_done
+                        c_done += int(x_chunk.shape[1])
+                        continue
                     if (into and cm_on and x_cm is None and x_out is None and c_done == 0
                             and (g_out_fused is not None or af2) and int(x_chunk.shape[1]) == self._hidden
                             and (af2 or _trimul_tail.t2cm_eligible(
@@ -10848,11 +10856,12 @@ class TriangleMultiplication(Module):
                 fused = None if rows_tail else _t2cm_af2(
                     x_cm, self.out_norm_weight, self.out_norm_bias, self.out_p_weight, x_norm_in, x_in,
                     self.g_out_weight, self.p_out_bias, self.g_out_bias, fused_residual[0],
-                    _mm_generic.ckc_args(self.compute_kernel_config), self.__dict__)
+                    _mm_generic.ckc_args(self.compute_kernel_config), self.__dict__,
+                    (x_out, cm_off) if cm_off else None)
                 if fused is not None:
                     self.took_residual = True
-                    ttnn.deallocate(x_cm)
-                    ttnn.deallocate(x_norm_in)
+                    for t in (x_cm, x_norm_in) + ((x_out,) if cm_off else ()):
+                        ttnn.deallocate(t)
                     return fused
             else:
                 fused = None if rows_tail else _trimul_tail.fused_tail_ln_cm(
@@ -10865,9 +10874,10 @@ class TriangleMultiplication(Module):
                     ttnn.deallocate(x_norm_in)
                 ttnn.deallocate(g_out_fused)
                 return fused
-            x_out = ttnn.allocate_tensor_on_device(
-                ttnn.Shape([1, H, H, self._hidden]), x_cm.dtype, ttnn.TILE_LAYOUT, self.device, cm_mc)
-            _reblock.reblock_permute_back(x_cm, cm_mc, out=x_out, c_off=0)
+            if not cm_off:
+                x_out = ttnn.allocate_tensor_on_device(
+                    ttnn.Shape([1, H, H, self._hidden]), x_cm.dtype, ttnn.TILE_LAYOUT, self.device, cm_mc)
+            _reblock.reblock_permute_back(x_cm, cm_mc, out=x_out, c_off=cm_off)
             ttnn.deallocate(x_cm)
             x_cm = None
 

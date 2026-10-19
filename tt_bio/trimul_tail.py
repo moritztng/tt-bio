@@ -1132,11 +1132,11 @@ def t2m_parts(kt, nt, Mb, gate, cp, min_parts=1, extra=0):
     return None
 
 
-def t2m_eligible(x_chunk, x, c_off):
+def t2m_eligible(x_chunk, x, c_off, own_switch=False):
     """None when T2m can read `x` as the einsum left it: `x_chunk` a bf16 channel-major
     [1, C, N, N] DRAM chunk that ends the channels of `x` ([1, N, N, K], channels [0, c_off) already
     moved there), else the reason."""
-    if not (T2M or _lever("trimul_t2m")):
+    if not (own_switch or T2M or _lever("trimul_t2m")):
         return "off"
     cs, xs = [int(d) for d in x_chunk.shape], [int(d) for d in x.shape]
     if len(cs) != 4 or cs[0] != 1 or cs[2] != cs[3] or cs[2] % TILE or cs[1] % TILE:
@@ -1237,9 +1237,9 @@ def set_t2cm(on: bool) -> bool:
     return prev
 
 
-def t2cm_eligible(xcm, ln_w, ln_b, wp, g, resid, ckc=None, wg=None, ex=None):
+def t2cm_eligible(xcm, ln_w, ln_b, wp, g, resid, ckc=None, wg=None, ex=None, prev=None):
     """None when T2CM serves `resid += T2(xcm permuted to [1, S, S, K])`, else the reason it does not.
-    `wg`, `ex`: see `fused_tail_ln_cm`. Pure host checks; nothing is touched."""
+    `wg`, `ex`, `prev`: see `fused_tail_ln_cm`. Pure host checks; nothing is touched."""
     from .tenstorrent import lever
     from . import ops
     ex = ex or (None,) * 4
@@ -1258,8 +1258,14 @@ def t2cm_eligible(xcm, ln_w, ln_b, wp, g, resid, ckc=None, wg=None, ex=None):
     xs, xps = [int(d) for d in xcm.shape], [int(d) for d in xcm.padded_shape]
     if len(xs) != 4 or xs[0] != 1 or xs[2] != xs[3] or xs != xps or xs[2] % TILE:
         return "cm_shape"
-    why = _t2_shape_why([1, xs[2], xs[3], xs[1]], [1, xps[2], xps[3], xps[1]],
-                        ln_w, ln_b, wp, g, resid, wg)
+    c_off = 0
+    if prev is not None:
+        c_off = int(prev[1])
+        why = t2m_eligible(xcm, prev[0], c_off, own_switch=True)
+        if why is not None:
+            return why
+    K = c_off + xs[1]
+    why = _t2_shape_why([1, xs[2], xs[3], K], [1, xps[2], xps[3], K], ln_w, ln_b, wp, g, resid, wg)
     if why is not None:
         return why
     N = int(wp.shape[-1])
@@ -1273,7 +1279,7 @@ def t2cm_eligible(xcm, ln_w, ln_b, wp, g, resid, ckc=None, wg=None, ex=None):
     if ex[3] is not None and (tuple(ex[3].padded_shape) != tuple(resid.padded_shape)
                               or ex[3].buffer_address() == resid.buffer_address()):
         return "out_shape"
-    return t2cm_fit(wp, wg is not None, _extra_bits(ex))
+    return t2cm_fit(wp, wg is not None, _extra_bits(ex), c_off // TILE)
 
 
 # The most row parts T2CM's stage may take. Above it each channel tile is read in 256-byte pieces and the
@@ -1287,18 +1293,18 @@ def t2cm_eligible(xcm, ln_w, ln_b, wp, g, resid, ckc=None, wg=None, ex=None):
 T2CM_MAX_P = {"wormhole_b0": 1, "blackhole": 2}
 
 
-def t2cm_fit(wp, gate=False, extra=0):
+def t2cm_fit(wp, gate=False, extra=0, cp=0):
     """None when T2CM's stage fits L1 in at most T2CM_MAX_P parts for the [K, K] weight `wp`, else the reason."""
     from .tenstorrent import arch_name
-    P = _t2cm_parts(wp, 1, gate, extra)
+    P = _t2cm_parts(wp, 1, gate, extra, cp)
     if P is None:
         return "l1"
     return "parts" if P > T2CM_MAX_P.get(arch_name(), 1) else None
 
 
-def _t2cm_parts(wp, min_parts=1, gate=False, extra=0):
+def _t2cm_parts(wp, min_parts=1, gate=False, extra=0, cp=0):
     kt, nt = _tiles(wp.shape[-2]), _tiles(wp.shape[-1])
-    return t2m_parts(kt, nt, _t2_block(kt, nt)[0], gate, 0, min_parts, extra)
+    return t2m_parts(kt, nt, _t2_block(kt, nt)[0], gate, cp, min_parts, extra)
 
 
 def bias_rows(b):
@@ -1331,7 +1337,7 @@ T2CM_MIN_P = 0
 
 
 def fused_tail_ln_cm(xcm, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5, wg=None, bp=None, bg=None,
-                     mask=None, out=None):
+                     mask=None, out=None, prev=None):
     """`fused_tail_ln` on the channel-major [1, K, S, S] x: `resid += (layer_norm(x) @ wp) *
     sigmoid(g)` with x[0, i, j, c] = xcm[0, c, i, j], `resid` written in place and returned. None when
     T2CM is off or does not cover the call; nothing has been touched then. `xcm` is not deallocated.
@@ -1340,9 +1346,10 @@ def fused_tail_ln_cm(xcm, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5, wg=None
     trimul's input norm and the gate sigmoid(g @ wg + bg); `bp` / `bg` the two projections' biases as
     `bias_rows` builds them; `mask` a per-row dropout mask [.., S, N] (shared over i), multiplying the
     update before the add; `out` a separate destination, so `resid` stays as it was (the checkpointed
-    forward keeps it as its saved input)."""
+    forward keeps it as its saved input). `prev` = (x, c_off): xcm holds only channels c_off.., the
+    earlier ones are already in x [1, S, S, K] (T2m's split, for a channel loop of several chunks)."""
     ex = (bp, bg, mask, out)
-    why = t2cm_eligible(xcm, ln_w, ln_b, wp, g, resid, ckc, wg, ex)
+    why = t2cm_eligible(xcm, ln_w, ln_b, wp, g, resid, ckc, wg, ex, prev)
     if why is not None:
         if why != "off":
             T2CM_STATS[1] += 1
@@ -1352,25 +1359,27 @@ def fused_tail_ln_cm(xcm, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5, wg=None
     from . import tenstorrent as TT
     kt, nt = _tiles(wp.shape[-2]), _tiles(wp.shape[-1])
     gate, extra = wg is not None, _extra_bits(ex)
-    parts = lambda m: _t2cm_parts(wp, m, gate, extra)  # noqa: E731
+    c_off = 0 if prev is None else int(prev[1])
+    parts = lambda m: _t2cm_parts(wp, m, gate, extra, c_off // TILE)  # noqa: E731
     P = parts(T2CM_MIN_P or balance_split(_tiles(xcm.shape[2]) ** 2, grid[0] * grid[1])) or parts(1)
     spec = lambda t: (str(t.padded_shape), str(t.dtype), str(t.memory_config()))
     key = ("t2cm", spec(xcm), spec(wp), spec(ln_w), spec(ln_b), tuple(grid),
            tuple(str(c) for c in ckc), float(eps), _sigpoly(), RNE, P, gate,
-           tuple(None if t is None else spec(t) for t in ex))
+           tuple(None if t is None else spec(t) for t in ex), c_off)
     entry = _CACHE.get(key)
     if entry is None:
         # x is only read for the channels before c_off, so with c_off 0 xcm stands in for it.
         entry = _CACHE[key] = _build_t2(xcm, ln_w, ln_b, wp, g, resid, grid, ckc, _t2_block(kt, nt),
-                                        eps, wg=wg, moved=(xcm, 0, P), ex=ex)
+                                        eps, wg=wg, moved=(xcm, c_off, P), ex=ex)
     reader, writer, _ = entry["kernels"]
     a, addr = xcm.buffer_address(), lambda t, d: (t if t is not None else d).buffer_address()  # noqa: E731
-    reader.common_runtime_args = [a, a, wp.buffer_address(), addr(wg, wp), ln_w.buffer_address(),
+    reader.common_runtime_args = [a, a if prev is None else prev[0].buffer_address(), wp.buffer_address(), addr(wg, wp), ln_w.buffer_address(),
                                   ln_b.buffer_address(), addr(bp, wp), addr(bg, wp)]
     writer.common_runtime_args = [g.buffer_address(), resid.buffer_address(), addr(mask, resid),
                                   addr(out, resid)]
     pd = ttnn.ProgramDescriptor(kernels=entry["kernels"], semaphores=[], cbs=entry["cbs"])
-    ttnn.generic_op([xcm, wp, g, ln_w, ln_b, resid] + [t for t in (wg,) + ex if t is not None], pd)
+    ttnn.generic_op([xcm, wp, g, ln_w, ln_b, resid] + [t for t in (wg,) + ex if t is not None]
+                    + ([prev[0]] if prev is not None else []), pd)
     T2CM_STATS[0] += 1
     return resid if out is None else out
 

@@ -16,6 +16,8 @@ ap.add_argument("--n", type=int, default=224)
 ap.add_argument("--c", type=int, default=128)
 ap.add_argument("--reps", type=int, default=10)
 ap.add_argument("--seed", type=int, default=0)
+ap.add_argument("--split", type=int, default=0,
+                help="channels already moved to [1, S, S, K] (prev), the rest read channel-major")
 A = ap.parse_args()
 
 from tt_bio.main import ensure_p300_mesh_descriptor
@@ -74,7 +76,8 @@ def grade(dev_out, r):
 
 print(json.dumps({"n": N, "c": C, "grid": grid, "arch": str(dev.arch()), "fid": str(kcfg.math_fidelity),
                   "visible": os.environ.get("TT_VISIBLE_DEVICES"), "aiclk": aiclk()}), flush=True)
-X, XB, Z = up(xcm), up(xb), up(z)
+X, XB, Z = up(xcm[:, A.split:]), up(xb), up(z)
+PREV = (up(torch.nn.functional.pad(xcm[:, :A.split].permute(0, 2, 3, 1), (0, C - A.split))), A.split) if A.split else None
 LW, LB = up(lnw.reshape(1, C)), up(lnb.reshape(1, C))
 WP, WG = up(wp), up(wg)
 BP, BG = up(bp.reshape(1, C)), up(bgv.reshape(1, C))
@@ -86,14 +89,17 @@ z_before = ttnn.to_torch(Z).double()
 def fused():
     out = ttnn.allocate_tensor_on_device(ttnn.Shape([1, N, N, C]), ttnn.bfloat16, ttnn.TILE_LAYOUT, dev,
                                          ttnn.DRAM_MEMORY_CONFIG)
-    r = TT.fused_tail_ln_cm(X, LW, LB, WP, XB, Z, ckc, grid, wg=WG, bp=BPR, bg=BGR, mask=M, out=out)
+    r = TT.fused_tail_ln_cm(X, LW, LB, WP, XB, Z, ckc, grid, wg=WG, bp=BPR, bg=BGR, mask=M, out=out, prev=PREV)
     if r is None:
         raise SystemExit(f"declined: {TT.REJECTS}")
     return r
 
 
+XF = up(xcm)
+
+
 def composed():
-    xp = ttnn.permute(X, (0, 2, 3, 1))
+    xp = ttnn.permute(XF, (0, 2, 3, 1))
     xn = ttnn.layer_norm(xp, weight=LW, bias=LB, epsilon=1e-5,
                          compute_kernel_config=T.ln_compute_kernel_config(kcfg))
     p = ttnn.linear(xn, WP, bias=BP, compute_kernel_config=kcfg)
@@ -115,7 +121,7 @@ for name, fn, af2 in (("t2cm_af2", fused, True), ("composed_af2", composed, True
 recs[0]["z_untouched"] = bool(torch.equal(ttnn.to_torch(Z).double(), z_before))
 # the shipped form, z in place, as before this change (g = xb as the gate pre-activation)
 Zs = up(z)
-o = TT.fused_tail_ln_cm(X, LW, LB, WP, XB, Zs, ckc, grid)
+o = None if A.split else TT.fused_tail_ln_cm(X, LW, LB, WP, XB, Zs, ckc, grid)
 recs.append({"case": "t2cm_shipped", **grade(o, ref(False))} if o is not None else {"case": "t2cm_shipped",
                                                                                     "declined": str(TT.REJECTS)})
 ttnn.deallocate(Zs)
