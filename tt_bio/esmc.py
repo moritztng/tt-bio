@@ -212,8 +212,9 @@ _ESMC_QKV_SPLIT = env_flag("TT_BIO_ESMC_QKV_SPLIT", True)
 # added as the projection's bias (LN(x) W = n (diag(g) W) + b W, n the plain normalisation), both formed in float64 at load.
 # The affine is ~1/3 of the op on a Galaxy chip at 1000 MHz (lnstat_bench, [7, 544, 960]: 0.146 -> 0.098 ms a call).
 # Not the 6B (its LIN6B programs take no bias). Page cell, batch of 7, Galaxy chip (1000 MHz), off/on in separate
-# processes, 2 rounds: 300M 93.3 -> 92.1 ms, --fast 84.5 -> 83.4; 600M 147.0 -> 135.4, --fast 124.4 -> 123.5; pcc vs fp32
-# within 0.00004 either way. On by default on Wormhole; Blackhole until its own A/B says.
+# processes, 2 rounds: 300M 93.3 -> 92.1 ms, --fast 84.5 -> 83.4; 600M --fast 124.4 -> 123.5; pcc vs fp32 within 0.00004
+# either way. 600M normal is bimodal without the fold (147-148 ms on chip 20, 144 on chip 27, 135-136 on chip 4) and ran
+# 135-136 with it on all three. On by default on Wormhole; Blackhole until its own A/B says.
 _ESMC_LN_FOLD = (env_flag("TT_BIO_ESMC_LN_FOLD", False)
                  if os.environ.get("TT_BIO_ESMC_LN_FOLD", "").strip() else None)
 
