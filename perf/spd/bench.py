@@ -273,7 +273,7 @@ if a.model == "bindcraft2":
         log(ev="rep", input=f"pdl1_b{blen}", seed=a.seed, trajectory=tr["n"], kind="cold" if i == 0 else "warm",
             design_s=tr.get("design_s"), validate_s=tr.get("validate_s"), traj_s=time.monotonic() - tr["t0"],
             fold_s=tr.get("design_s"), iterations=tr.get("iterations"), s_per_iter=bc2_traj.s_per_iter(tr),
-            loadavg=tr.get("loadavg"), aiclk=clock(tr["t0"], tr["t0"] + (tr.get("design_s") or 0), nodes),
+            loadavg=tr.get("loadavg"), other_load=tr.get("other_load"), aiclk=clock(tr["t0"], tr["t0"] + (tr.get("design_s") or 0), nodes),
             aiclk_traj=clock(tr["t0"], time.monotonic(), nodes), nodes=nodes, terminated=row.get("terminated") or None,
             finite=bool(row) and tr.get("err") is None, accepted_total=acc, csv_row=row,
             err=tr.get("err"), **HEAD)
