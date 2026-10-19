@@ -17,7 +17,7 @@ device.
 import torch
 import ttnn
 
-from .protenix import NORMAL_LEVERS as _FAMILY_NORMAL, T2_TAIL, TRIATT_K1, TRIATT_LN, WS_CHAIN, _KeyedWeights
+from .protenix import NORMAL_LEVERS as _FAMILY_NORMAL, BRES_NORMAL, T2_TAIL, TRIATT_K1, TRIATT_LN, WS_CHAIN, _KeyedWeights
 from . import hostlane
 from .envflags import env_flag
 from .opendde_data import STRUCTURAL_TOKEN_ROLES
@@ -452,7 +452,9 @@ def route_opendde_weights(state_dict):
 # residual add_ pass goes. WH 11-set normal grade, shipped set vs + both (spd-m-opendde rr2g, 2026-10-18, seeds 109-112,
 # 44 paired folds): PASS, same-seed top pose median 0.183 A (A/A floor 1.320 A), CA-lDDT -0.0003 [-0.0007, +0.0001].
 # cdk2x2 x 1 at 1000 MHz: normal 512 -0.56 s, 576 -1.59 s.
-NORMAL_LEVERS = _FAMILY_NORMAL | WS_CHAIN | T2_TAIL | TRIATT_LN | {"ws_resid", "ws_resid2"}
+# Wormhole normal also takes trimul_bres (protenix.BRES_NORMAL), bit-exact: Galaxy chip, cdk2x2 x 1, 1000 MHz, paired
+# warm folds (spd-m-opendde bnab, 2026-10-19), CIFs identical on and off, 512 -0.72 s (3 of 3 pairs), 576 -0.94 s.
+NORMAL_LEVERS = _FAMILY_NORMAL | WS_CHAIN | T2_TAIL | TRIATT_LN | BRES_NORMAL | {"ws_resid", "ws_resid2"}
 BH_NORMAL_LEVERS = _FAMILY_NORMAL
 FAST_LEVERS = (_T.FAST_LEVERS - {"dit_b8"}) | {"trimul_b8in", "trimul_t2w"} | WS_CHAIN
 # Wormhole fast also runs T1 on OpenDDE's c_z 384 pair (trimul_t1_c384). WH 11-set fast grade, FAST_LEVERS vs +
@@ -480,6 +482,11 @@ WH_FAST_LEVERS = FAST_LEVERS | {"trimul_t1_c384", "ws_resid2"} | TRIATT_LN | TRI
 # 2026-10-18): fast 512 -1.03 s, fast 576 -1.36 s. WH 11-set fast grade vs the shipped fast set, seeds 109-112, 44
 # paired folds (rr2g): PASS, same-seed top pose median 0.211 A (A/A floor 1.318 A), CA-lDDT -0.0002 [-0.0008, +0.0004],
 # docking 26 -> 26. Normal takes it with ws_resid (NORMAL_LEVERS).
+# trimul_bres has sat in the family fast set since before acc_off; it fires there now that bmm_res takes an fp32 dest
+# of its own (einsum rel rms vs float64 at c384 x 512: 1.4e-2 -> 1.7e-3). WH 11-set fast grade, shipped fast set with
+# and without it firing, seeds 109-112, 44 paired folds (spd-m-opendde b32g, 2026-10-19): PASS, same-seed top pose median
+# 0.128 A (A/A floor 1.148 A), CA-lDDT +0.0003 [-0.0001, +0.0009], docking 26 -> 26. cdk2x2 x 1 at 1000 MHz, 2 paired
+# warm folds (b32): fast 512 -1.12 s, fast 576 -2.42 s. Blackhole fast is ungraded with it firing.
 
 
 class OpenDDE:

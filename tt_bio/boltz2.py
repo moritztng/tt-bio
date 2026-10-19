@@ -112,8 +112,8 @@ LEVERS_FAST = frozenset({"acc_off", "diffusion_bf16", "dit_sdpa", "transition_b8
 # And triatt_k1 (triangle attention in one k chunk where the trimmed CB set fits): 512-token set fast grade, 44 paired
 # folds (gk1b2, 2026-10-19), PASS: top pose median 1.309 A (floor 2.381 A), CA-lDDT -0.0002 [-0.0009, +0.0005], docking
 # 24 -> 24; Galaxy chip 512 x 1 (1000 MHz) -0.26 s median, 7/8 warm pairs (k1b2).
-# trimul_bres is not here: bmm_res needs an fp32 dest and acc_off turns it off in the fast trunk, so it never fires
-# (bresab / bresab2 read -0.29 / -0.09 s on byte-identical CIFs: noise around an inert lever).
+# trimul_bres is not here: it was inert under acc_off until bmm_res took its own fp32 dest (bresab / bresab2 read
+# -0.29 / -0.09 s on byte-identical CIFs), and Boltz-2 fast is unmeasured with it firing.
 WH_LEVERS_FAST = LEVERS_FAST | {"triatt_ln", "apb_ln", "dit_cond_jit", "trimul_sig6", "dit_cond_jcat", "triatt_k1"}
 BH_LEVERS_FAST = LEVERS_FAST | {"dit_shoist"}
 
