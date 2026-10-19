@@ -1266,8 +1266,8 @@ def t2cm_eligible(xcm, ln_w, ln_b, wp, g, resid, ckc=None, wg=None, ex=None):
         if b is not None and [int(d) for d in b.padded_shape] != [TILE, N]:
             return "bias_rows"
     m = ex[2]
-    if m is not None and ([int(d) for d in m.padded_shape][-2:] != [xs[2], N]
-                          or any(int(d) != 1 for d in m.padded_shape[:-2])):
+    ms = [int(d) for d in m.padded_shape] if m is not None else None
+    if ms is not None and (ms[-2:] != [xs[2], N] or any(d != 1 for d in ms[:-2])):
         return "mask_shape"
     if ex[3] is not None and (tuple(ex[3].padded_shape) != tuple(resid.padded_shape)
                               or ex[3].buffer_address() == resid.buffer_address()):
