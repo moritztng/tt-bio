@@ -7,12 +7,17 @@
 # Trimmed from session.sh, which drives the multi-kit chain; BC4 needs one stack and one chain, not that machinery.
 set -u
 L=${1:?usage: bc4_session.sh <label> <cap_h> [query] [attempts]} CAP_H=${2:?cap hours} NMAX=${4:-6}
-Q=${3:-'gpu_name=B200 num_gpus=1 cuda_max_good>=13.0 inet_down>=200 reliability>=0.97 dph<=7'}
-MINW=${MINW:-990} MAXW=${MAXW:-1010} SLUG=${SLUG:-bc4-b200} TRIED=" "
+# reliability>=0.97 was the only clause that rejected a live B200 on 2026-10-19 (offer 51577286, 0.995 passes but the
+# market is thin enough that one filter empties it); 0.90 keeps the junk out without emptying the list.
+Q=${3:-'gpu_name=B200 num_gpus=1 cuda_max_good>=13.0 inet_down>=200 reliability>=0.90 dph<=7'}
+MINW=${MINW:-990} MAXW=${MAXW:-1010} SLUG=${SLUG:-bc4-b200}
 P=$(cd "$(dirname "$0")" && pwd); V=~/.vast-venv/bin/vastai; B=/home/moritz/.coworker/state/vast-budget
 HOLD=/home/moritz/.coworker/state/vast-holder; S4=/home/moritz/.coworker/state/bc4
 K=$(cat ~/.config/vastai/vast_api_key); API=https://console.vast.ai/api/v0; FLOOR=${VAST_FLOOR_USD:-1}
 OUT=$P/results/$L; mkdir -p "$OUT"
+# Offers we have already paid for and lost live on disk, not in this process: a relaunch after a crash used to
+# re-pick the offer it had just destroyed (2026-10-19, offer 50255941 twice, ~$2.8).
+TRIEDF=$OUT/tried; touch "$TRIEDF"; TRIED=" $(tr '\n' ' ' < "$TRIEDF")"
 log(){ echo "$(date -u +%FT%TZ) $*"; }
 credit(){ curl -s -H "Authorization: Bearer $K" "$API/users/current/" | python3 -c 'import json,sys;print(json.load(sys.stdin)["credit"])'; }
 gone(){ curl -s -H "Authorization: Bearer $K" "$API/instances/?owner=me" | python3 -c 'import json,sys;print(len(json.load(sys.stdin)["instances"]))'; }
@@ -31,7 +36,8 @@ python3 -c "import sys; sys.exit(0 if $C - $CAP_H * ${MAXDPH:-7} >= $FLOOR else 
 log "credit \$$C at start, cap $CAP_H h"
 
 for _ in $(seq $NMAX); do
-  O=$(next_offer); [ -z "$O" ] && { log "no offer matches: $Q"; break; }; TRIED="$TRIED$O "
+  O=$(next_offer); [ -z "$O" ] && { log "no untried offer matches: $Q"; break; }
+  TRIED="$TRIED$O "; echo "$O" >> "$TRIEDF"
   C=$(credit); python3 -c "import sys; sys.exit(0 if $C - $CAP_H * ${MAXDPH:-7} >= $FLOOR else 1)" ||
     { log "REFUSED at offer $O: credit \$$C would cross the \$$FLOOR floor"; exit 4; }
   echo "-  $CAP_H  $SLUG  # $L creating on offer $O" >> $B
@@ -42,23 +48,32 @@ for _ in $(seq $NMAX); do
   T0=$(date +%s); log "created $I on offer $O"; S=""
   while [ $(( $(date +%s) - T0 )) -lt 1500 ]; do
     [ $(( $(date +%s) - T0 )) -ge 120 ] && [ "$(state $I)" != running ] && break
-    read -r IP PORT < <($V show instance $I --raw 2>/dev/null | python3 -c 'import json,sys
-x=json.load(sys.stdin); p=(x.get("ports") or {}).get("22/tcp")
-print(x.get("public_ipaddr","").strip(), p[0]["HostPort"] if p else "") if x.get("actual_status")=="running" else print("","")' 2>/dev/null)
-    if [ -n "${PORT:-}" ]; then
-      S="ssh -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=15 -o ServerAliveInterval=30 -p $PORT root@$IP"
+    # Two routes to the same box: the host's own open port, and vast's proxy. On 2026-10-19 a box that never
+    # answered on the direct port cost two rentals, so try both every poll and take whichever answers.
+    ROUTES=$($V show instance $I --raw 2>/dev/null | python3 -c 'import json,sys
+x=json.load(sys.stdin)
+if x.get("actual_status")=="running":
+    p=(x.get("ports") or {}).get("22/tcp")
+    ip=(x.get("public_ipaddr") or "").strip()
+    if p and ip: print(p[0]["HostPort"], ip)
+    if x.get("ssh_host") and x.get("ssh_port"): print(x["ssh_port"], x["ssh_host"])' 2>/dev/null)
+    while read -r PORT HOST; do
+      [ -z "${PORT:-}" ] && continue
+      S="ssh -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=15 -o ServerAliveInterval=30 -p $PORT root@$HOST"
       timeout 30 $S true >/dev/null 2>&1 && break; S=""
-    fi
+    done <<< "$ROUTES"
+    [ -n "$S" ] && break
     sleep 30
   done
   [ -z "$S" ] && { destroy $I "no ssh: intended_status=$(state $I)"; continue; }
   W=$(timeout 30 $S 'nvidia-smi --query-gpu=power.limit --format=csv,noheader,nounits' 2>/dev/null | tail -1 | cut -d. -f1)
-  log "$I up at $IP:$PORT, power limit ${W:-?} W"
+  log "$I up at $HOST:$PORT, power limit ${W:-?} W"
   [ "${W:-0}" -ge "$MINW" ] && [ "${W:-0}" -le "$MAXW" ] || { destroy $I "power limit ${W:-?} W outside $MINW-$MAXW"; continue; }
   echo "$S" > $OUT/ssh; echo "$I $O" > $OUT/instance
-  R(){ rsync -a -e "${S% root@*}" "$@"; }; H=root@$IP
+  R(){ rsync -a -e "${S% root@*}" "$@"; }; H=root@$HOST
   $S 'mkdir -p /root/kc' &&
-    R $P/bc2_gpu.py $P/bc2_traj.py $P/bc4_arms.py $P/bc4_census.py $P/box_bc_setup.sh $P/box_bc4.sh $H:/root/kc/ ||
+    R $P/bc2_gpu.py $P/bc2_traj.py $P/bc4_arms.py $P/bc4_census.py $P/bc4_quality_ref.py $P/box_bc_setup.sh \
+       $P/box_bc4.sh $H:/root/kc/ && echo "$I $O" | timeout 30 $S 'cat > /root/kc/instance' ||
     { destroy $I "push failed"; continue; }
   # bc4-quality's reference request, if it has written one by now (the box runs it with the time left over)
   [ -f $S4/QUALITY-REF-REQUEST.json ] && R $S4/QUALITY-REF-REQUEST.json $H:/root/kc/quality-req.json

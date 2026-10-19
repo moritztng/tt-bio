@@ -31,29 +31,13 @@ if [ $(date +%s) -lt $(( DEADLINE - 600 )) ]; then
 fi
 
 # --- bc4-quality's stock-GPU reference distribution, with the time that is left ---------------------------------------
-# QUALITY.json (pushed by session.sh if bc4-quality has written its request): {"targets": [{"name":..., "settings":
-# "<path on the box>", "overrides": [...]}, ...], "trajectories": N}. Stock settings, so no arm switches here.
+# quality-req.json is bc4-quality's own request (schema bc4-quality-ref-request/1): a list of runs, each carrying its
+# tier and the exact argv it wants. We rewrite only the interpreter and the runner path, which live elsewhere on the
+# box, and the output directory, so what runs is the campaign the request specifies. Tiers run in order P0 -> P1 -> P2,
+# three at a time, and a run starts only if its estimate fits before the deadline.
 if [ -f /root/kc/quality-req.json ] && [ $(date +%s) -lt $(( DEADLINE - 600 )) ]; then
-  /opt/bc2-venv/bin/python - "$DEADLINE" <<'PY' > $B/quality.log 2>&1
-import json, subprocess, sys, time
-from pathlib import Path
-deadline = float(sys.argv[1])
-req = json.loads(Path("/root/kc/quality-req.json").read_text())
-out = Path("/root/kc/bc4/quality"); out.mkdir(parents=True, exist_ok=True)
-for t in req.get("targets", []):
-    seeds = t.get("seeds") or req.get("seeds") or [101, 102, 103, 104]
-    for seed in seeds:
-        if time.time() > deadline - 600:
-            print("out of time before seed", seed, "of", t.get("name")); break
-        d = out / f"{t.get('name','target')}-s{seed}"
-        cmd = ["/opt/bc2-venv/bin/python", "/root/kc/bc2_gpu.py", "--bc2", "/root/bc2", "--out", str(d),
-               "--seed", str(seed), "--warm", str(req.get("warm", 9)),
-               "--binder-len", str(t.get("binder_len", req.get("binder_len", 80)))]
-        for s in t.get("overrides", []):
-            cmd += ["--set", s]
-        print(time.strftime("%FT%TZ", time.gmtime()), "running", d, flush=True)
-        print("rc", subprocess.call(cmd), flush=True)
-PY
+  /opt/bc2-venv/bin/python /root/kc/bc4_quality_ref.py --req /root/kc/quality-req.json --out $B/quality \
+    --deadline $DEADLINE > $B/quality.log 2>&1
   echo $? > $B/QUALITY-DONE; say "quality reference done after $(( $(date +%s) - T0 ))s"
 fi
 
