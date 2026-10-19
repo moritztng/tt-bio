@@ -60,6 +60,8 @@ def parse_arm(spec):
         if p == "fast": fast = True
         elif p.startswith("L="): lv = p[2:]
         elif p: env.update(kv.split("=", 1) for kv in p.split(","))
+    if parts[0] == "fast" and not fast:  # `--arm fast` names an EXACT arm "fast"; cen13 folded exact this way
+        sys.exit("--arm fast folds exact: write fast:fast")
     return parts[0], env, fast, lv
 ARM, ARM_ENV, FAST, LEVER_SPEC = parse_arm(a.arm)
 os.environ.update(ARM_ENV)
