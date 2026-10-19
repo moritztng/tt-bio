@@ -1435,11 +1435,6 @@ ALWI void matmul_blocks(
     }
 #endif
 
-#if defined(ABLATE_QKEXP) && defined(QK_MASK_PRELOAD)
-    if (preload_mask) {
-        exp_packthread_tile_init<true, true>();
-    }
-#endif
     for (uint32_t in0_subblock = 0; in0_subblock < in0_num_subblocks; ++in0_subblock) {
         cb_wait_front(in0_cb, in0_wait_tiles);
         uint32_t in1_index_offset = 0;
@@ -1484,22 +1479,23 @@ ALWI void matmul_blocks(
                     add_tiles(zero_cb, mask_cb, 0, i, i);
                 }
             }
-            tile_regs_commit();
-            tile_regs_wait();
 #if defined(ABLATE_QKEXP) && defined(QK_MASK_PRELOAD)
             // INSTRUMENT (TT_BIO_TRIATT_ABLATE=QKEXP), wrong values on purpose: the QK^T stage takes
-            // on the work a one-pass softmax would add to it, an exp of every score tile on the
-            // pack thread and an L1-accumulated row-sum pack, while MAX and SUBEXP still run.
-            // TA_QK grows by what the fused exp costs once it overlaps the matmul; the one-pass
-            // ceiling is TA_QK(this arm) + TA_PV. CB-neutral: the sum is packed onto the score
-            // block itself.
+            // on the work a one-pass softmax would add to it, an exp of every score tile in DST and
+            // an L1-accumulated row-sum pack, while MAX and SUBEXP still run. The one-pass ceiling
+            // is TA_QK(this arm) + TA_PV. CB-neutral: the sum is packed onto the score block itself.
+            // The exp runs on the math thread with the init's template arguments matching the
+            // call's: a pack-thread exp raced the math thread's own SFPU work, and an init/call
+            // clamping mismatch hangs the core (sub_exp_block_bcast_cols_inplace above).
             if (preload_mask) {
+                exp_tile_init<true, true, 0x3F800000, InputClamping::None>();
                 for (uint32_t i = 0; i < out_subblock_num_tiles; i++) {
-                    exp_packthread_tile<true, true, false, false, InputClamping::None, 32>(i, (int)VectorMode::None);
+                    exp_tile<true, true, false, false, InputClamping::None, 32>(i, (int)VectorMode::None);
                 }
-                PACK(TTI_STALLWAIT(p_stall::STALL_PACK, p_stall::WAIT_SFPU));
             }
 #endif
+            tile_regs_commit();
+            tile_regs_wait();
             uint32_t dst_idx = 0;
             uint32_t out_col_offset = in1_subblock * subblock_w;
             for (uint32_t r = 0; r < subblock_h; r++) {
