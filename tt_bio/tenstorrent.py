@@ -6338,6 +6338,9 @@ _TRIMUL_BACK_INTO = env_flag("TT_BIO_TRIMUL_BACK_INTO", TRIMUL_BACK_INTO)
 # projection's output drain (4 x hidden channels, the op's binding cost) halves with no typecast.
 # The move's output, and everything after it, stays bf16. Changes numerics: accuracy-graded.
 _TRIMUL_INPROJ_B8 = env_flag("TT_BIO_TRIMUL_INPROJ_B8", False)
+# AF2 (BindCraft 2, AF2-IG) carries a bias on the in-projection, which minimal_matmul fuses
+# at any output dtype; this lets `_TRIMUL_INPROJ_B8` write that projection in bfp8 too.
+_TRIMUL_INPROJ_B8_BIAS = env_flag("TT_BIO_TRIMUL_INPROJ_B8_BIAS", False)
 # spd-trimul A/B: the in-projection and its two gates as one `trimul_tail` call per channel chunk
 # (`_gp_in_gated`), so the projection is never written whole and the gated moves become plain ones.
 _TRIMUL_GATED_INPROJ = env_flag("TT_BIO_TRIMUL_GATED_INPROJ", False)
@@ -10362,7 +10365,8 @@ class TriangleMultiplication(Module):
                         # dtype-independent half of `gated` below); a decline casts back. The
                         # fused in-proj + g_out call writes both destinations in it, so the tail
                         # gate reads a bfp8 g_out too.
-                        b8 = ((_TRIMUL_INPROJ_B8 or lever("trimul_b8in")) and not row_norm and bias_i is None
+                        b8 = ((_TRIMUL_INPROJ_B8 or lever("trimul_b8in")) and not row_norm
+                              and (bias_i is None or _TRIMUL_INPROJ_B8_BIAS)
                               and not _FAST_MODE and not _TRIMUL_RAW_CHANNEL_MOVES
                               and (self.gated_move or _TRIMUL_MASK_AFTER_MOVE)
                               and (mask is None or mask_moved_ok)
