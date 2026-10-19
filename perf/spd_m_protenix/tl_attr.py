@@ -7,7 +7,7 @@ Protenix-v2's shape: x [N, N, c], 8 heads of 32, weight [c, 4c + 32]. For the st
 layer_norm, 2 the projection, 4 the DRAM writes, 8 the DRAM reads of x, or several ORed; 16 writes every tile to
 q's pages in row-major order instead of head-major (same bytes, consecutive pages: is the layout the cost?). A skipped stage makes the
 output wrong by design, so this prints time only: ms/call, median of --reps after 3 warm calls. One JSON line per arm.
---b8 0,1 repeats every arm with triatt_ln.B8 (bfp8 outputs); at ABL 0 each B8 arm also runs on a grid one row
+--b8 0,1 repeats every arm with lever triatt_ln_b8 (bfp8 q, k, v); at ABL 0 each B8 arm also runs on a grid one row
 shorter and prints whether its outputs are torch.equal to the full grid's (grid_invariant), and the bf16 arm's
 deviation from a float64 reference beside the bfp8 arm's (rel_rms_f64).
 """
@@ -21,7 +21,7 @@ ap.add_argument("--c", type=int, default=256)
 ap.add_argument("--reps", type=int, default=10)
 ap.add_argument("--abl", default="0,1,2,4,8,12,3,7,11,14,13", help="comma list of ABL masks")
 ap.add_argument("--fids", default="HiFi3,HiFi2")
-ap.add_argument("--b8", default="0", help="comma list of triatt_ln.B8 values")
+ap.add_argument("--b8", default="0", help="comma list: lever triatt_ln_b8 off (0) / on (1)")
 a = ap.parse_args()
 
 from tt_bio.main import ensure_p300_mesh_descriptor  # noqa: E402
@@ -40,8 +40,11 @@ lw, lb = up(torch.ones(c)), up(torch.zeros(c))
 grid = tuple(T.COMPUTE_GRID_MAIN)
 
 
+B8 = False
+
+
 def run(fid, tr, grid=grid):
-    with T.lever_scope(["triatt_ln"]):
+    with T.lever_scope(["triatt_ln"] + ["triatt_ln_b8"] * B8):
         r = TL.ln_qkvgb_heads(x, lw, lb, w, (fid, False, True, False), H, 32, 8, grid, transposed=tr)
     assert r is not None, TL.REJECTS
     return r
@@ -93,7 +96,7 @@ for fid in [getattr(ttnn.MathFidelity, f) for f in a.fids.split(",")]:
     for tr in (False, True):
         ref = None
         for b8 in [bool(int(d)) for d in a.b8.split(",")]:
-            TL.B8 = b8
+            B8 = b8
             for abl in [int(m) for m in a.abl.split(",")]:
                 TL.ABL = abl
                 ms = timed(lambda: run(fid, tr))
@@ -112,4 +115,3 @@ for fid in [getattr(ttnn.MathFidelity, f) for f in a.fids.split(",")]:
                         free(r)
                 print(json.dumps(row), flush=True)
 TL.ABL = 0
-TL.B8 = False

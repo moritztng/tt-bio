@@ -16,6 +16,9 @@ Declines (None) on anything but bf16 TILE DRAM operands with 32-channel heads an
 tile of x^T from the 32 x tiles that hold it and shuffles rows in L1 (reader.cpp TR), so the
 `_pair_transpose` before the norm, a full read and write of the pair, is gone. Same arithmetic on the
 same values in the same order, so bit-exact with transpose-then-norm.
+Lever `triatt_ln_b8` writes q, k and v bfp8 (gate and bias stay bf16, the gated out-projection reads a bf16
+gate): the kernel is bound by its DRAM writes, which cap near 120 GB/s on Wormhole, and this cuts them by 35 %.
+Each tile is one core's full-K dot product packed once, so the bytes do not depend on the core grid.
 `ln_proj` is the same kernel for a narrow [K, n <= 64] weight with a plain [B, S, n] output
 (lever `apb_ln`: the attention-pair-bias projection of the normed pair).
 Where the whole weight does not fit a core's L1 (OpenDDE: K 384, [12 x 49] tiles, 1.2 MB), the cores
@@ -40,14 +43,11 @@ TILE = 32
 RB = 4          # row tiles per reader barrier
 #: the ending variant norms z^T straight out of z (reader.cpp TR) instead of transposing first
 TR = True
-#: bench-only: q, k, v, gate and bias written bfp8 (perf/spd_m_protenix/tl_attr.py --b8); each tile is one core's
-#: full-K dot product packed once, so the bytes cannot depend on the grid
-B8 = False
 #: bench-only stage skips (kernels/triatt_ln/compute.cpp ABL; perf/spd_m_protenix/tl_attr.py), 0 in production
 ABL = 0
 _CACHE: dict = {}
-#: (served, declined)
-STATS = [0, 0]
+#: (served, declined, served with bfp8 q/k/v)
+STATS = [0, 0, 0]
 REJECTS: dict = {}
 
 
@@ -137,7 +137,11 @@ def _pages(t):
     return n // TILE
 
 
-def _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw):
+def _nq(nq):
+    return [("NQ", str(nq))] if nq else []
+
+
+def _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw, nq=0):
     kt, nwf = int(x.shape[-1]) // TILE, int(w.padded_shape[-1]) // TILE
     m = 1
     for d in list(x.padded_shape)[:-1]:
@@ -169,19 +173,21 @@ def _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw):
         kernel_source=str(KERNEL_DIR / "writer.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[H, MT, nw, nwf] + sum((acc(o) for o in outs), []),
         defines=([("ABL_W", "1")] if ABL & 4 else []) + ([("ABL_LIN", str(_pages(outs[0])))]
-                                                          if ABL & 16 and H else []),
+                                                          if ABL & 16 and H else []) + _nq(nq),
         runtime_args=wr, common_runtime_args=[0] * len(outs), config=ttnn.WriterConfigDescriptor())
     fid, approx, _, full = ckc
     compute = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "compute.cpp"), source_type=src, core_ranges=core_grid,
-        compile_time_args=[kt, nw, 0, ABL], runtime_args=cp,   # RNE off: pack truncates, as T1 ships
+        compile_time_args=[kt, nw, 0, ABL], runtime_args=cp, defines=_nq(nq),   # RNE off: pack truncates, as T1 ships
         config=ttnn.ComputeConfigDescriptor(math_fidelity=fid, math_approx_mode=approx,
                                             fp32_dest_acc_en=True, dst_full_sync_en=full))
-    cbs = [_cb(0, core_grid, kt * nw), _cb(1, core_grid, 2 * kt), _cb(2, core_grid, 2 * nw, outs[0].dtype),
+    cbs = [_cb(0, core_grid, kt * nw), _cb(1, core_grid, 2 * kt), _cb(2, core_grid, 2 * (nq or nw), outs[0].dtype),
            _cb(7, core_grid, tr * 16 * kt if tr else 2 * RB * kt), _cb(8, core_grid, kt), _cb(9, core_grid, kt),
            _cb(10, core_grid, 1)]
     if tr:
         cbs.append(_cb(3, core_grid, 16))   # the 32 half tiles of one channel tile
+    if nq:
+        cbs.append(_cb(4, core_grid, 2 * (nw - nq)))   # gate and bias, bf16
     cbs += [_cb(i, core_grid, t, ttnn.float32) for i, t in ((11, 1), (12, 1), (13, 1), (14, 1), (16, kt), (17, kt))]
     return {"kernels": [reader, writer, compute], "cbs": cbs}
 
@@ -216,21 +222,24 @@ def ln_qkvgb_heads(x, ln_w, ln_b, w, ckc, n_heads, head_dim, bias_channels, grid
     if plan is None:
         return _reject(f"l1:kt{K // TILE}:nw{int(w.padded_shape[-1]) // TILE}:tr{int(transposed)}", x)
     dev = x.device()
-    dt = ttnn.bfloat8_b if B8 else ttnn.bfloat16
-    outs = [ttnn.allocate_tensor_on_device(ttnn.Shape([shp[0], n_heads, shp[1], head_dim]), dt,
-                                           ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG) for _ in range(4)]
-    outs.append(ttnn.allocate_tensor_on_device(ttnn.Shape([shp[0], shp[1], bias_channels]), dt,
+    # bfp8 q, k, v need the whole row in one group (plan g 1) and q|k|v ending on a DST block (3H % 4)
+    nq = 3 * H if lever("triatt_ln_b8") and plan[0] == 1 and 3 * H % 4 == 0 else 0
+    STATS[2] += bool(nq)
+    hd = lambda dt: ttnn.allocate_tensor_on_device(ttnn.Shape([shp[0], n_heads, shp[1], head_dim]), dt,  # noqa: E731
+                                                   ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG)
+    outs = [hd(ttnn.bfloat8_b if nq else ttnn.bfloat16) for _ in range(3)] + [hd(ttnn.bfloat16)]
+    outs.append(ttnn.allocate_tensor_on_device(ttnn.Shape([shp[0], shp[1], bias_channels]), ttnn.bfloat16,
                                                ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG))
-    return _launch(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, bias_channels, plan)
+    return _launch(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, bias_channels, plan, nq)
 
 
-def _launch(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tag, plan):
+def _launch(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tag, plan, nq=0):
     g, nw, tr = plan
     key = (x.device().id(), tuple(int(d) for d in x.padded_shape), tuple(int(d) for d in w.padded_shape), H, tag,
-           tuple(grid), tuple(str(a) for a in ckc), float(eps), plan, ABL, B8)
+           tuple(grid), tuple(str(a) for a in ckc), float(eps), plan, ABL, nq)
     entry = _CACHE.get(key)
     if entry is None:
-        entry = _CACHE[key] = _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw)
+        entry = _CACHE[key] = _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw, nq)
     reader, writer, _ = entry["kernels"]
     reader.common_runtime_args = [x.buffer_address(), w.buffer_address(), ln_w.buffer_address(),
                                   ln_b.buffer_address()]

@@ -28,6 +28,9 @@ constexpr uint32_t RNE = get_compile_time_arg_val(2);   // 1: round to nearest e
 // Bench-only stage skips (triatt_ln.ABL, perf/spd_m_protenix/tl_attr.py), the output then wrong by design: 1 the
 // layer_norm, 2 the projection, 4 the writer's DRAM writes, 8 the reader's DRAM reads of x. 0 in production.
 constexpr uint32_t ABL = get_compile_time_arg_val(3);
+#ifndef NQ
+#define NQ 0   // triatt_ln_b8: tiles n < NQ (q, k, v) pack bfp8 to c_2, the rest bf16 to c_4 at n - NQ
+#endif
 constexpr uint32_t SBW = 4;                              // fp32 half-sync DST holds 4 tiles
 constexpr uint32_t NFULL = NW / SBW * SBW;
 
@@ -60,7 +63,14 @@ ALWI void project(uint32_t n0) {
     }
     tile_regs_commit();
     tile_regs_wait();
-    for (uint32_t i = 0; i < W; ++i) pack_tile<true>(i, out_cb, n0 + i);
+    if constexpr (NQ) {
+        // NQ is a multiple of SBW, so a block never straddles the two buffers
+        const uint32_t cb = n0 < NQ ? out_cb : (uint32_t)tt::CBIndex::c_4;
+        pack_reconfig_data_format(cb);
+        for (uint32_t i = 0; i < W; ++i) pack_tile<true>(i, cb, n0 < NQ ? n0 + i : n0 - NQ + i);
+    } else {
+        for (uint32_t i = 0; i < W; ++i) pack_tile<true>(i, out_cb, n0 + i);
+    }
     tile_regs_release();
 }
 
@@ -85,7 +95,8 @@ void kernel_main() {
         cb_push_back(xn_cb, Kt);
         cb_wait_front(xn_cb, Kt);
 
-        cb_reserve_back(out_cb, NW);
+        cb_reserve_back(out_cb, NQ ? NQ : NW);
+        if constexpr (NQ) cb_reserve_back(tt::CBIndex::c_4, NW - NQ);
         if constexpr (!(ABL & 2)) {
             mm_block_init_short(xn_cb, w_cb, false, SBW, 1, Kt);
             reconfig_data_format(w_cb, xn_cb);
@@ -96,7 +107,8 @@ void kernel_main() {
                 project<NW % SBW>(NFULL);
             }
         }
-        cb_push_back(out_cb, NW);
+        cb_push_back(out_cb, NQ ? NQ : NW);
+        if constexpr (NQ) cb_push_back(tt::CBIndex::c_4, NW - NQ);
         cb_pop_front(xn_cb, Kt);
     }
 }
