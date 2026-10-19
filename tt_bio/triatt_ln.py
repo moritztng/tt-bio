@@ -179,7 +179,7 @@ def _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw, nq=0):
     if tr:
         cbs.append(_cb(3, core_grid, 16))   # the 32 half tiles of one channel tile
     if nq:
-        cbs.append(_cb(4, core_grid, 2 * (nw - nq)))   # gate and bias, bf16
+        cbs.append(_cb(4, core_grid, 2 * (nw - nq)))   # the bf16 rest: bias, and the gate unless triatt_ln_b8g
     cbs += [_cb(i, core_grid, t, ttnn.float32) for i, t in ((11, 1), (12, 1), (13, 1), (14, 1), (16, kt), (17, kt))]
     return {"kernels": [reader, writer, compute], "cbs": cbs}
 
@@ -216,10 +216,12 @@ def ln_qkvgb_heads(x, ln_w, ln_b, w, ckc, n_heads, head_dim, bias_channels, grid
     dev = x.device()
     # bfp8 q, k, v need the whole row in one group (plan g 1) and q|k|v ending on a DST block (3H % 4)
     nq = 3 * H if lever("triatt_ln_b8") and plan[0] == 1 and 3 * H % 4 == 0 else 0
+    if nq and lever("triatt_ln_b8g"):
+        nq = 4 * H   # the gate too: gated_out_proj reads a bfp8 g
     STATS[2] += bool(nq)
     hd = lambda dt: ttnn.allocate_tensor_on_device(ttnn.Shape([shp[0], n_heads, shp[1], head_dim]), dt,  # noqa: E731
                                                    ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG)
-    outs = [hd(ttnn.bfloat8_b if nq else ttnn.bfloat16) for _ in range(3)] + [hd(ttnn.bfloat16)]
+    outs = [hd(ttnn.bfloat8_b if nq > i * H else ttnn.bfloat16) for i in range(4)]   # q, k, v, g
     outs.append(ttnn.allocate_tensor_on_device(ttnn.Shape([shp[0], shp[1], bias_channels]), ttnn.bfloat16,
                                                ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG))
     return _launch(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, bias_channels, plan, nq)
