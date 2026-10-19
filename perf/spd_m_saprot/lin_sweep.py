@@ -36,6 +36,7 @@ def main() -> int:
     ap.add_argument("--inner", type=int, default=10)
     ap.add_argument("--max-arms", type=int, default=60, help="per shape and family, best-first by a crude L1 rank")
     ap.add_argument("--bf16-acc", action="store_true", help="bf16 dest accumulation (a --fast option): 2 x 4 subblocks fit")
+    ap.add_argument("--fidelity", choices=["LoFi", "HiFi2", "HiFi3", "HiFi4"], help="override the model's math fidelity")
     ap.add_argument("--pick-only", action="store_true", help="only the model call and the shipped program")
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
@@ -48,8 +49,9 @@ def main() -> int:
     g = dev.compute_with_storage_grid_size()
     cfg, _ = S.CONFIGS[a.model]
     ck = S.Saprot(**cfg).compute_kernel_config
-    if a.bf16_acc:
-        ck = type(ck)(math_fidelity=ck.math_fidelity, math_approx_mode=ck.math_approx_mode, fp32_dest_acc_en=False,
+    if a.bf16_acc or a.fidelity:
+        ck = type(ck)(math_fidelity=getattr(ttnn.MathFidelity, a.fidelity) if a.fidelity else ck.math_fidelity,
+                      math_approx_mode=ck.math_approx_mode, fp32_dest_acc_en=ck.fp32_dest_acc_en and not a.bf16_acc,
                       packer_l1_acc=ck.packer_l1_acc)
     d, ff = MODELS[a.model]
     dh = d if (d // cfg["n_heads"]) % 64 == 0 else cfg["n_heads"] * 32  # 35M pads its heads 24 -> 32
