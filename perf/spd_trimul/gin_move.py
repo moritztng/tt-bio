@@ -46,8 +46,12 @@ dx, dwp, dwg, dwpT, dwgT = up(x), up(wp), up(wg), up(wp.t()), up(wg.t())
 dm = None if m is None else up(m)
 TT.GIN_MOVE = True
 TT.set_epi(1)   # production's trimul_tail lever: the resident split route
+if __import__("os").environ.get("TT_BIO_LEVERS"):
+    # Outside a model build nothing reads TT_BIO_LEVERS, so a bench arm's lever set is applied here.
+    T._LEVERS = T.parse_levers(__import__("os").environ["TT_BIO_LEVERS"])
 print(json.dumps({"n": n, "c": C, "grid": grid, "ckc": [str(c) for c in ckc],
-                  "ok": TT.gin_moved_ok(dx, dwpT, dm), "mask": dm is not None}), flush=True)
+                  "ok": TT.gin_moved_ok(dx, dwpT, dm), "mask": dm is not None,
+                  "fuse": TT._gin_fuse(dm is not None), "rt2": TT.GIN_RT2}), flush=True)
 
 x64 = x.double().reshape(n * n, K)
 ab = (x64 @ wp.double()) * torch.sigmoid(x64 @ wg.double())
