@@ -19,7 +19,7 @@ Real inputs (`dump_sm_inputs.py`, BindCraft 2 PD-L1 draw, N 192, 175 real, both 
   tf32 every matmul  CA RMSD 0.003 / 0.004 A, max 0.010 A, act 3.3e-3
   bf16 every matmul  CA RMSD 0.048 / 0.024 A, max 0.148 A, act 2.0e-2 / 2.6e-2
   (exact stack, single + pair rounded to tf32 once: 0.0002 / 0.021 A)
-Against the 0.60 A bar the fp32 build has ~150x headroom on the forward and bf16 ~12x on the worst residue.
+Against the 0.60 A bar the fp32 build has ~150x headroom on the forward and bf16 ~4x on the worst residue.
 usage: ipa_fused_precision.py --params <npz> [--n 224]
        ipa_fused_precision.py --params <npz> --inputs <dump_sm_inputs.py npz>   (the 8-layer stack on real inputs)
 """
