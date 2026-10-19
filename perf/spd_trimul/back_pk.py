@@ -10,6 +10,9 @@ ap.add_argument("--abl", default="1,2,4,8")
 # The fold's pattern: every call on freshly allocated x and out (new addresses), channel halves c_off 0 / C of a 2C
 # output, x in DRAM or L1 per call. Exactness of every call; a hang names the call it stopped at.
 ap.add_argument("--fresh", type=int, default=0)
+# Back-to-back pk calls, no sync between, c_off alternating, the old kernel between every pk call so the device
+# switches programs as in a fold. Synced every 200; exactness checked at the end. For an intermittent hang.
+ap.add_argument("--stress", type=int, default=0)
 A = ap.parse_args()
 
 from tt_bio.main import ensure_p300_mesh_descriptor
@@ -85,3 +88,18 @@ for n in (int(v) for v in A.ns.split(",")):
         print(json.dumps({"fresh": i, "x": "L1" if mc == ttnn.L1_MEMORY_CONFIG else "DRAM", "bad": bad}), flush=True)
     for t in keep:
         ttnn.deallocate(t)
+    if A.stress:
+        o4 = ttnn.allocate_tensor_on_device(ttnn.Shape([1, n, n, 2 * A.c]), ttnn.bfloat16, ttnn.TILE_LAYOUT, dev,
+                                            ttnn.DRAM_MEMORY_CONFIG)
+        t0 = time.perf_counter()
+        for i in range(A.stress):
+            PK.permute_back_pk(x, o4, grid, c_off=A.c * (i % 2))
+            old()
+            if i % 200 == 199:
+                ttnn.synchronize_device(dev)
+                print(json.dumps({"stress": i + 1, "s": round(time.perf_counter() - t0, 1)}), flush=True)
+        ttnn.synchronize_device(dev)
+        got = ttnn.to_torch(o4)
+        print(json.dumps({"stress_done": A.stress, "lo_exact": bool(torch.equal(got[..., :A.c], ref)),
+                          "hi_exact": bool(torch.equal(got[..., A.c:], ref))}), flush=True)
+        ttnn.deallocate(o4)
