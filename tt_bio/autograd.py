@@ -2901,6 +2901,33 @@ def pair_contract(a: Tensor, b: Tensor, *, incoming: bool = False, config=None) 
 _CKPT_PINS: list = []
 
 
+def release_dead(outputs: Sequence[Tensor], inputs: Sequence[Tensor]) -> None:
+    """Release every intermediate of a taped segment that no backward reads.
+
+    The tape keeps a Tensor for every value it recorded, and a value goes back to the card only
+    where the shipped forward calls `ttnn.deallocate` on it. Most of a tuned forward lets an
+    activation go out of scope instead, and under a tape the node graph keeps the handle alive,
+    so an unpinned value nobody will read stays on the card until the backward has run. For a
+    segment whose tape is KEPT (BindCraft 2's resident Evoformer blocks) that is the difference
+    between a block's tape fitting and not. This walks from `outputs` back to `inputs` and frees
+    what lies between, through `free`, which keeps anything pinned and decides shared-storage
+    groups together. Only values with a node are touched: constants and parameters have none.
+    """
+    stop = {id(t) for t in (*outputs, *inputs) if isinstance(t, Tensor)}
+    seen = set(stop)
+    stack = [p for t in outputs if isinstance(t, Tensor) and t.node is not None
+             for p in t.node.parents]
+    while stack:
+        t = stack.pop()
+        if id(t) in seen or not isinstance(t, Tensor):
+            continue
+        seen.add(id(t))
+        if t.node is None:
+            continue
+        t.free()
+        stack.extend(t.node.parents)
+
+
 def release_pins() -> None:
     """Drop every pin a checkpointed segment took. Call after a backward, or after a forward
     whose tape is being discarded."""

@@ -958,7 +958,9 @@ class _Trunk:
         for i, block in enumerate(blocks):
             d = None if drop is None else drop[i]
             if i >= keep:
+                m_in, z_in = m, z
                 m, z = block(m, z, msa_mask, *pair_masks, drop=d)
+                self.ag.release_dead((m, z), (m_in, z_in))
             elif recompute and self.ag.TRACE_RECOMPUTE:
                 # The masks are new tensors every round, so they ride in as inputs, where the
                 # traced backward copies them into its own buffers (`autograd._traced_recompute`).
