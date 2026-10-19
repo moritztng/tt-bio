@@ -297,6 +297,7 @@ void kernel_main() {
             }
             {
             ZONE("BIAS");
+            reconfig_data_format(cb_p, cb_bias);   // the bias may be bfp8_b; add_block_inplace never resets
             add_block_inplace<false>(cb_p, cb_bias, score_tiles);
             }
 

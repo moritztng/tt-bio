@@ -136,14 +136,14 @@ def _f32_bits(x: float) -> int:
 DST_TILES_FP32_ACC = 4
 
 
-#: Formats q, k and v may be stored in. A bfp8_b q/k/v (`TT_BIO_TRIATT_B8`) is read as written: the
-#: unpacker widens it on the way into every matmul (`mm_keep` reconfigures per call), and the
-#: cotangent, the bias and every output stay bf16, so only the three input CBs change.
+#: Formats q, k, v and the bias may be stored in. `TT_BIO_TRIATT_B8` stores all four bfp8_b, and each
+#: is read as written: every op that reads one resets the unpacker to it first. The cotangent and
+#: every output stay bf16, so only the four input CBs change.
 QKV_DTYPES = (ttnn.bfloat16, ttnn.bfloat8_b)
 
 
 def plan(B: int, H: int, N: int, d: int, grid, q_chunk_tiles=None,
-         dst_size=DST_TILES_FP32_ACC, qkv_dtype=ttnn.bfloat16):
+         dst_size=DST_TILES_FP32_ACC, qkv_dtype=ttnn.bfloat16, bias_dtype=ttnn.bfloat16):
     """Work split and tile geometry. Card-free, so the gate can be tested without a device.
 
     One core owns one head and a contiguous group of the leading axis. Heads go to the FAST index
@@ -169,6 +169,7 @@ def plan(B: int, H: int, N: int, d: int, grid, q_chunk_tiles=None,
         "B": B, "H": H, "N": N, "d": d, "Nt": Nt, "Dt": Dt, "Qt": Qt,
         "groups": groups, "num_cores": num_cores, "rows_per_core": rows_per_core,
         "gx": gx, "gy": gy, "dst_size": dst_size, "qkv_dtype": qkv_dtype,
+        "bias_dtype": bias_dtype,
     }
     # Priced off the CB table itself rather than a parallel formula. The two drifting apart is how
     # a gate ends up reporting that a config fits while tt-metal refuses it.
@@ -226,9 +227,9 @@ def eligible(q, k, v, bias, *, taping=False):
         return False, f"bias must be [1, {H}, {N}, {N}] broadcast over the batch, got {bs}"
     if N % TILE or d % TILE:
         return False, f"ragged: N={N} d={d} are not both tile aligned"
-    if bias.dtype != ttnn.bfloat16 or q.dtype not in QKV_DTYPES or any(
+    if bias.dtype not in QKV_DTYPES or q.dtype not in QKV_DTYPES or any(
             t.dtype != q.dtype for t in (k, v)):
-        return False, "bf16 bias and q, k, v in one of bf16 or bfp8_b"
+        return False, "q, k, v in one of bf16 or bfp8_b, and the bias in either"
     return True, "ok"
 
 
@@ -282,7 +283,7 @@ def cb_table(p):
         (CB_K, Nt * Dt * 2, bq, qd),
         (CB_V, Nt * Dt * 2, bq, qd),
         (CB_DO, Qt * Dt * 2, b16, bf16),
-        (CB_BIAS, Qt * Nt, b16, bf16),
+        (CB_BIAS, Qt * Nt, SG.tile_bytes(p.get("bias_dtype", bf16)), p.get("bias_dtype", bf16)),
         (CB_SCALAR, 1, b16, bf16),
         (CB_ZERO, 1, b16, bf16),
         (CB_SCALE, 1, b16, bf16),
@@ -518,8 +519,9 @@ def run(device, q, k, v, bias, g, scale, ckc, packed=False, q_chunk_tiles=None, 
     # `q_chunk_tiles` forces a chunk, which is how the grader reaches the looped kernel at a
     # shape the whole-query form would also fit, and on a board `serving_plan` declines it on.
     # `grid` forces a smaller work split, which is how Wormhole's 8x8 runs on a Blackhole card.
-    p = (serving_plan(B, H, N, d, grid, qkv_dtype=q.dtype) if q_chunk_tiles is None
-         else plan(B, H, N, d, grid, q_chunk_tiles=q_chunk_tiles, qkv_dtype=q.dtype))
+    fmt = {"qkv_dtype": q.dtype, "bias_dtype": bias.dtype}
+    p = (serving_plan(B, H, N, d, grid, **fmt) if q_chunk_tiles is None
+         else plan(B, H, N, d, grid, q_chunk_tiles=q_chunk_tiles, **fmt))
     if p is None or not fits_l1(p):
         raise ValueError(f"does not fit L1 at any query chunk: N={N}")
 

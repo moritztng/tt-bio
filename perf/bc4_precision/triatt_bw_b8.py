@@ -36,9 +36,9 @@ def main():
         q, k, v = (torch.randn(B, H, N, d) for _ in range(3))
         bias = torch.randn(1, H, N, N)
         g = (torch.randn(B, H, N, d) * 1e-2).bfloat16().float()
-        for dt in (ttnn.bfloat16, ttnn.bfloat8_b):
+        for dt, bdt in ((ttnn.bfloat16,) * 2, (ttnn.bfloat8_b, ttnn.bfloat16), (ttnn.bfloat8_b,) * 2):
             qd, kd, vd = up(q, dt), up(k, dt), up(v, dt)
-            bd, gd = up(bias, ttnn.bfloat16), up(g, ttnn.bfloat16)
+            bd, gd = up(bias, bdt), up(g, ttnn.bfloat16)
             ok, why = TB.eligible(qd, kd, vd, bd)
             assert ok, why
             q64, k64, v64 = (down(t, (B, H, N, d)).requires_grad_() for t in (qd, kd, vd))
@@ -47,7 +47,7 @@ def main():
             o.backward(g.double())
             dq, dk, dv, db = TB.run(dev, qd, kd, vd, bd, gd, scale, (ttnn.MathFidelity.HiFi4,),
                                     q_chunk_tiles=chunk)
-            row = {"B": B, "q_chunk": chunk, "dtype": str(dt),
+            row = {"B": B, "q_chunk": chunk, "dtype": str(dt), "bias": str(bdt),
                    "dq": rel(down(dq, (B, H, N, d)), q64.grad), "dk": rel(down(dk, (B, H, N, d)), k64.grad),
                    "dv": rel(down(dv, (B, H, N, d)), v64.grad), "dbias": rel(down(db, (1, H, N, N)), b64.grad),
                    "out_dtypes": [str(t.dtype) for t in (dq, dk, dv)]}
