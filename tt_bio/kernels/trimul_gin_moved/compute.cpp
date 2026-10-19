@@ -51,6 +51,7 @@ void kernel_main() {
     // channel tile are packed untilized as ONE row of 32 tiles into c_3, whose row c is then output tile c in
     // row-major order (2 KB contiguous); each page is tilized alone into out_cb in channel order, and the writer
     // copies 32 whole tiles instead of gathering 64 face rows each over the NOC.
+    // 2: the same, with x streamed in SBW-row groups (see the RETILE == 2 branch).
     constexpr uint32_t RETILE = get_compile_time_arg_val(9);
     static_assert(!RETILE || FUSE, "the re-tile is the fused gate's epilogue");
     const uint32_t nunits = get_arg_val<uint32_t>(0);
@@ -66,6 +67,62 @@ void kernel_main() {
     sigmoid_tile_init();
     mm_init(w_cb, x_cb, FUSE ? out_cb : p_cb, 1);
     cb_wait_front(w_cb, 2 * CT2 * Kt);
+
+    if constexpr (RETILE == 2) {
+        // Streamed: x comes in groups of SBW rows il ([k][il in group]); every channel tile q of the group is
+        // packed untilized into its own row buffer c_(8 + q), and after the unit's 32 rows each buffer's 32 pages
+        // are tilized in channel order for the writer. The x group is popped as soon as all q have used it.
+        static_assert(CT2 <= 16, "one row buffer per channel tile, c_8 .. c_23");
+        constexpr uint32_t rm0 = tt::CBIndex::c_8;
+        for (uint32_t u = 0; u < nunits; ++u) {
+            mm_block_init_short(w_cb, x_cb, true, SBW, RT2 ? 2 : 1, Kt);
+            pack_untilize_dest_init<SBW, 32>(rm0);
+            for (uint32_t q = 0; q < CT2; ++q) cb_reserve_back(rm0 + q, 32);
+            for (uint32_t il0 = 0; il0 < 32; il0 += SBW) {
+                cb_wait_front(x_cb, SBW * Kt);
+                for (uint32_t q = 0; q < CT2; ++q) {
+                    tile_regs_acquire();
+                    if constexpr (RT2) {
+                        uint32_t i0 = 2 * q * Kt;
+                        uint32_t i1 = 0;
+                        for (uint32_t k = 0; k < Kt; ++k, ++i0, i1 += SBW) {
+                            matmul_block(w_cb, x_cb, i0, i1, 0, true, SBW, 2, Kt);
+                        }
+                    }
+                    for (uint32_t pass = 0; pass < 2 && !RT2; ++pass) {
+                        uint32_t i0 = (pass * CT2 + q) * Kt;
+                        uint32_t i1 = 0;
+                        for (uint32_t k = 0; k < Kt; ++k, ++i0, i1 += SBW) {
+                            matmul_block(w_cb, x_cb, i0, i1, pass * SBW, true, SBW, 1, Kt);
+                        }
+                    }
+                    for (uint32_t i = 0; i < SBW; ++i) gate_poly_tile<SIGPOLY, SBW>(i);
+                    if constexpr (RNE & 1) {
+                        for (uint32_t i = 0; i < SBW; ++i) round_bf16_rne_tile(i);
+                    }
+                    tile_regs_commit();
+                    tile_regs_wait();
+                    pack_untilize_dest<SBW, 32>(rm0 + q, 1, il0 / SBW);
+                    tile_regs_release();
+                }
+                cb_pop_front(x_cb, SBW * Kt);
+            }
+            pack_untilize_uninit(rm0);
+            for (uint32_t q = 0; q < CT2; ++q) {
+                cb_push_back(rm0 + q, 32);
+                tilize_init(rm0 + q, 1, out_cb);
+                for (uint32_t c = 0; c < 32; ++c) {
+                    cb_wait_front(rm0 + q, 1);
+                    cb_reserve_back(out_cb, 1);
+                    tilize_block(rm0 + q, 1, out_cb);
+                    cb_push_back(out_cb, 1);
+                    cb_pop_front(rm0 + q, 1);
+                }
+                tilize_uninit(rm0 + q, out_cb);
+            }
+        }
+        return;
+    }
 
     if constexpr (FUSE) {
         mm_block_init_short(w_cb, x_cb, true, SBW, RT2 ? 2 : 1, Kt);

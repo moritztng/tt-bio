@@ -19,7 +19,10 @@ void kernel_main() {
     constexpr uint32_t ABL = get_compile_time_arg_val(4);   // bit 3: no x reads (diagnostic)
     // 1: row tiles interleaved [Wp^T row r | Wg^T row r] per r, for compute's rt-2 matmul block (GIN_RT2).
     constexpr uint32_t RT2 = get_compile_time_arg_val(5);
-    constexpr auto x_args = TensorAccessorArgs<6>();
+    // > 0 (GIN_RETILE 2): x streamed in groups of this many rows il, [k][il in group], double-buffered, so the
+    // next group is read while compute runs this one (a whole unit at a time left reads and compute serial).
+    constexpr uint32_t XG = get_compile_time_arg_val(6);
+    constexpr auto x_args = TensorAccessorArgs<7>();
     constexpr auto wp_args = TensorAccessorArgs<x_args.next_compile_time_args_offset()>();
     constexpr auto wg_args = TensorAccessorArgs<wp_args.next_compile_time_args_offset()>();
     constexpr auto m_args = TensorAccessorArgs<wg_args.next_compile_time_args_offset()>();
@@ -56,9 +59,23 @@ void kernel_main() {
         const uint32_t b = u / (St * St);
         const uint32_t xt = (u / St) % St;
         const uint32_t yt = u % St;
+        uint32_t page = ((b * S + xt * 32) * St + yt) * Kt;
+        if constexpr (XG > 0) {
+            for (uint32_t il0 = 0; il0 < 32; il0 += XG) {
+                cb_reserve_back(x_cb, XG * Kt);
+                const uint32_t gb = get_write_ptr(x_cb);
+                for (uint32_t i = 0; i < XG; ++i, page += St * Kt) {
+                    uint32_t dst = gb + i * tb;
+                    if constexpr (!(ABL & 8))
+                        for (uint32_t dt = 0; dt < Kt; ++dt, dst += XG * tb) noc_async_read_page(page + dt, x, dst);
+                }
+                noc_async_read_barrier();
+                cb_push_back(x_cb, XG * Kt);
+            }
+            continue;
+        }
         cb_reserve_back(x_cb, 32 * Kt);
         const uint32_t base = get_write_ptr(x_cb);
-        uint32_t page = ((b * S + xt * 32) * St + yt) * Kt;
         for (uint32_t il = 0; il < 32; ++il, page += St * Kt) {
             uint32_t dst = base + il * tb;
             if constexpr (!(ABL & 8))

@@ -569,7 +569,9 @@ GIN_RT2 = env_flag("TT_BIO_TRIMUL_GIN_RT2", False)
 # Fused gate only: the packer does the channel move (pack untilized as one row of 32 tiles, then tilize each 2 KB
 # page, as dit_pair_bias does), so the writer copies whole tiles instead of 64 face-row NOC reads per tile. The
 # writer's gather and compute were co-bound at ~2.6 ms a 512 c128 slice on WH.
-GIN_RETILE = env_flag("TT_BIO_TRIMUL_GIN_RETILE", False)
+# 2: also stream x in SBW-row groups, double-buffered, into one row buffer per channel tile (x_cb held exactly one
+# unit, so the reader could not fetch the next unit while compute ran this one).
+GIN_RETILE = int(os.environ.get("TT_BIO_TRIMUL_GIN_RETILE", "0"))
 
 
 def _gin_fuse(masked):
@@ -584,13 +586,15 @@ def _gin_out_tiles(kt, ct2, masked):
     if not _gin_fuse(masked):
         return 64
     from .tenstorrent import _l1_bank_bytes
-    full = (2 * ct2 * kt + 32 * kt + 64 + 2 * GIN_MOVE_NB + 32 * GIN_RETILE) * MG.tile_bytes(ttnn.bfloat16)
+    full = (2 * ct2 * kt + 32 * kt + 64 + 2 * GIN_MOVE_NB + 32 * bool(GIN_RETILE)) * MG.tile_bytes(ttnn.bfloat16)
     return 64 if full <= 0.85 * _l1_bank_bytes() else 32
 
 
 def _gin_move_tiles(kt, ct2, mask):
     if _gin_fuse(mask):
-        return 2 * ct2 * kt + 32 * kt + _gin_out_tiles(kt, ct2, False) + 2 * GIN_MOVE_NB + 32 * GIN_RETILE
+        if GIN_RETILE == 2:
+            return 2 * ct2 * kt + 2 * 4 * kt + 32 * ct2 + 32 + 2 * GIN_MOVE_NB
+        return 2 * ct2 * kt + 32 * kt + _gin_out_tiles(kt, ct2, False) + 2 * GIN_MOVE_NB + 32 * bool(GIN_RETILE)
     return 2 * ct2 * kt + 32 * kt + 64 + 2 * 32 + 2 * GIN_MOVE_NB + (33 if mask else 0)
 
 
@@ -662,31 +666,37 @@ def _build_gin_move(x, wpT, wgT, outs, grid, ckc, mask, cto=0, ctt=None):
     fid, approx, fp32, full = ckc
     # The fused gate holds a subblock's p and g in DST at once: half of DST each.
     fuse = _gin_fuse(mask is not None)
+    sbw = min(4, (4 if fp32 else 8) * (2 if full else 1) // 2) if fuse else 4
+    retile = GIN_RETILE if fuse else 0
     reader = ttnn.KernelDescriptor(
         kernel_source=str(d / "reader.cpp"), source_type=src, core_ranges=core_grid,
-        compile_time_args=[kt, ct2, St, int(mask is not None), GIN_MOVE_ABL, int(fuse and GIN_RT2)]
+        compile_time_args=[kt, ct2, St, int(mask is not None), GIN_MOVE_ABL, int(fuse and GIN_RT2),
+                           sbw if retile == 2 else 0]
         + acc(x) + acc(wpT) + acc(wgT)
         + acc(mask if mask is not None else x),
         runtime_args=rd, common_runtime_args=[0] * 4, config=ttnn.ReaderConfigDescriptor())
     writer = ttnn.KernelDescriptor(
         kernel_source=str(d / "writer.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[ct2, St, GIN_MOVE_ABL, GIN_MOVE_NB, cto, ct2 // 2 if ctt is None else ctt,
-                           int(fuse and GIN_RETILE)]
+                           int(retile > 0)]
         + acc(outs[0]) + acc(outs[1]),
         runtime_args=wr, common_runtime_args=[0, 0], config=ttnn.WriterConfigDescriptor())
-    sbw = min(4, (4 if fp32 else 8) * (2 if full else 1) // 2) if fuse else 4
     compute = ttnn.KernelDescriptor(
         kernel_source=str(d / "compute.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[kt, ct2, sbw, int(mask is not None), GIN_MOVE_ABL, _sigpoly(), RNE, int(fuse),
-                           int(fuse and GIN_RT2), int(fuse and GIN_RETILE)],
+                           int(fuse and GIN_RT2), retile],
         runtime_args=cp,
         config=ttnn.ComputeConfigDescriptor(
             math_fidelity=fid, math_approx_mode=approx, fp32_dest_acc_en=fp32,
             dst_full_sync_en=full))
+    if retile == 2:
+        cbs = [_cb(0, core_grid, 2 * ct2 * kt), _cb(1, core_grid, 2 * sbw * kt), _cb(2, core_grid, 32),
+               _cb(24, core_grid, 2 * GIN_MOVE_NB)] + [_cb(8 + q, core_grid, 32) for q in range(ct2)]
+        return {"kernels": [reader, writer, compute], "cbs": cbs}
     if fuse:
         cbs = [_cb(0, core_grid, 2 * ct2 * kt), _cb(1, core_grid, 32 * kt),
                _cb(2, core_grid, _gin_out_tiles(kt, ct2, False)), _cb(24, core_grid, 2 * GIN_MOVE_NB)]
-        if GIN_RETILE:
+        if retile:
             cbs.append(_cb(3, core_grid, 32))
         return {"kernels": [reader, writer, compute], "cbs": cbs}
     cbs = [_cb(0, core_grid, 2 * ct2 * kt), _cb(1, core_grid, 32 * kt), _cb(2, core_grid, 64),
