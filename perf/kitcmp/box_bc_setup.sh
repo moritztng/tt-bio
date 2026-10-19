@@ -1,12 +1,13 @@
 #!/bin/bash
 # Runs ON the rented box: the two BindCraft stacks for the spd-kitcmp BindCraft section, each in its own environment.
 #   bash box_bc_setup.sh colabdesign     marker /root/kc/SETUP-OK-colabdesign
+# `bash box_bc_setup.sh bc2` installs stanza 1 only, which is all BC4 needs (no BindCraft 1 kit, no micromamba).
 # 1. stock BindCraft 2 (PacesaLab/BindCraft2 at the pin this fleet benches, its own [cuda13] extra, python 3.12) in
 #    /opt/bc2-venv, checkout /root/bc2, AF2 + ProteinMPNN checkpoints fetched by `bindcraft fetch-weights`.
 # 2. the Anthropic kit's colabdesign kit (BindCraft 1 / ColabDesign 1.1.3), route C of its README: micromamba from
 #    environment/conda-linux-64.lock, pip --no-deps environment/requirements.lock, run.sh install --weights /weights/af2.
 set -eux
-M=$1; [ "$M" = colabdesign ] || { echo "box_bc_setup.sh takes colabdesign only"; exit 2; }
+M=$1; case $M in colabdesign|bc2) ;; *) echo "box_bc_setup.sh takes colabdesign or bc2"; exit 2;; esac
 [ -f /root/kc/SETUP-OK-$M ] && exit 0
 export CC=gcc CXX=g++ DEBIAN_FRONTEND=noninteractive
 BC2_PIN=${BC2_PIN:-7a2dfdb8a285232a6f881899fe135c6dc48679f1}
@@ -33,6 +34,7 @@ git -C /root/bc2 checkout -q $BC2_PIN
   /opt/burn-venv/bin/pip install -q torch --index-url https://download.pytorch.org/whl/cu130; }
 
 # --- 2. the kit's colabdesign (BindCraft 1 / ColabDesign) -----------------------------------------------------------
+[ "$M" = bc2 ] && { touch /root/kc/SETUP-OK-$M; exit 0; }
 K=/root/kit/colabdesign
 if [ ! -x /opt/micromamba ]; then
   wget -qO /tmp/mm https://github.com/mamba-org/micromamba-releases/releases/download/2.1.1-0/micromamba-linux-64
