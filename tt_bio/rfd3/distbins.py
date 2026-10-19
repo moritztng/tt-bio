@@ -4,6 +4,12 @@ Per pair the kernel takes the float32 distance, a direct index on the uniform ed
 the real float32 edges. It does not reproduce torch.linalg.norm's rounding, so any pair within a relative 1e-5 of an
 edge (a few hundred of 469k at 685 tokens) is recomputed with torch.linalg.norm + torch.bucketize on the gathered
 pairs, which gives the same bits as the full call. Pairs past the last edge, 77-81 % of them, cost one compare.
+
+The kernel is serial on purpose. A parallel=True kernel makes numba launch its OpenMP pool at one thread per logical
+core whatever torch was given, and that pool's spinning threads then slow every later torch CPU op in the process
+about 20x: on qb1 one call turned rfd3's 0.1 s DiT weight fold into 2.1 s, +3 s a design, and sent the tfg tests
+sharing a pytest process past the gate's timeout. Serial it is 3 ms against torch's 2 ms at 685 tokens on a busy
+host and faster at larger B x N, where the parallel kernel was slower than both.
 """
 
 from __future__ import annotations
@@ -15,7 +21,7 @@ import torch
 _TOL = 1e-5
 
 
-@numba.njit(parallel=True, cache=True)
+@numba.njit(cache=True)
 def _kernel(R, edges, tol, out, flag):
     B, N = R.shape[0], R.shape[1]
     E = edges.shape[0]
@@ -23,7 +29,7 @@ def _kernel(R, edges, tol, out, flag):
     inv = np.float32((E - 1) / (edges[E - 1] - edges[0]))
     far = edges[E - 1] + tol[E - 1]
     nflag = np.zeros(B * N, np.int64)
-    for bi in numba.prange(B * N):
+    for bi in range(B * N):
         b, i = bi // N, bi % N
         c = 0
         for j in range(N):
