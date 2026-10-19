@@ -145,7 +145,7 @@ class OF3AtomTransformer(Module):
             self._wc[(key, transpose)] = v
         return v
 
-    def _lin(self, x, wkey, bkey=None, activation=None):
+    def _lin(self, x, wkey, bkey=None, activation=None, memory_config=None):
         w = self._w_tt(wkey)
         bias = self._w_tt(bkey, False) if bkey else None
         # One K tile leaves the program no K blocking to choose: those keep the shared path, and a
@@ -153,7 +153,7 @@ class OF3AtomTransformer(Module):
         if self._k1 and int(w.padded_shape[0]) > 32 and not _taping():
             return _T.k1_linear(x, w, bias, dtype=x.dtype, activation=activation,
                                 compute_kernel_config=self.compute_kernel_config)
-        return ops.linear(x, w, bias=bias, activation=activation,
+        return ops.linear(x, w, bias=bias, activation=activation, memory_config=memory_config,
                           compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN)
 
     def _heads(self, x, n_blk, n_seq):
@@ -243,16 +243,17 @@ class OF3AtomTransformer(Module):
             return terms
         return _T._SigTerms((ttnn.sigmoid(terms[0]), terms[1]))
 
-    def _transition(self, x, s, b, ada_s, cg_raw, atom_mask_col):
-        """AdaLN-conditioned SwiGLU transition with the sigmoid(linear_g(s)) zero gate, residual."""
+    def _transition(self, x, s, b, ada_s, cg_raw, atom_mask_col, mc=None):
+        """AdaLN-conditioned SwiGLU transition with the sigmoid(linear_g(s)) zero gate, residual.
+        `mc` (atom_l1): where the linears write; the elementwise ops follow their first input."""
         ct = f"blocks.{b}.conditioned_transition."
         an = self.adaln_t[b](x, s, s_terms=ada_s[b][2] if ada_s else None)
-        b1 = self._lin(an, ct + "swiglu.linear_a.weight", activation="silu")
-        b2 = self._lin(an, ct + "swiglu.linear_b.weight")
+        b1 = self._lin(an, ct + "swiglu.linear_a.weight", activation="silu", memory_config=mc)
+        b2 = self._lin(an, ct + "swiglu.linear_b.weight", memory_config=mc)
         ttnn.deallocate(an)
         bb = ttnn.multiply(b1, b2)
         ttnn.deallocate(b1); ttnn.deallocate(b2)
-        out = self._lin(bb, ct + "linear_out.weight")
+        out = self._lin(bb, ct + "linear_out.weight", memory_config=mc)
         ttnn.deallocate(bb)
         out = ttnn.multiply(out, cg_raw[b], **({} if self._sig_gates() else
                                                {"input_tensor_b_activations": [ttnn.UnaryOpType.SIGMOID]}))
@@ -339,19 +340,21 @@ class OF3AtomTransformer(Module):
         full = ttnn.to_layout(ttnn.reshape(full, (1, H * nb, nq, W)), ttnn.TILE_LAYOUT)
         return ttnn.typecast(full, self._act_dtype) if self._act_dtype != f32 else full
 
-    def _attend_superset(self, a_qn, a_kn, apb, sup_b, NP, nb):
+    def _attend_superset(self, a_qn, a_kn, apb, sup_b, NP, nb, mc=None):
         """softmax(q k^T * scale + bias) v over the superset window, one SDPA program.
 
         Q, K and V are per atom ``[S, NP, 128]``; one zero-led frame carries all three, split by
         ``nlp_create_qkv_heads``, and the kernel reads block i's queries and its key window
-        straight from the frame (``kv_window``), so no window is ever materialised."""
+        straight from the frame (``kv_window``), so no window is ever materialised. `mc`
+        (atom_l1) places the projections, the frame, the heads and the output; default DRAM."""
         from . import sdpa_generic as SG
         nq, H, dh = self.N_QUERY, self.N_HEADS, self.HEAD_DIM
         W = int(sup_b.shape[-1]); L = W - self.N_KEY
         S = a_qn.shape[0]
-        Q = self._lin(a_qn, apb + "mha.linear_q.weight", apb + "mha.linear_q.bias")
-        KV = self._lin(a_kn, apb + "mha.linear_kv.weight")
-        x = ttnn.concat([Q, KV], dim=-1)
+        dram = mc or ttnn.DRAM_MEMORY_CONFIG
+        Q = self._lin(a_qn, apb + "mha.linear_q.weight", apb + "mha.linear_q.bias", memory_config=mc)
+        KV = self._lin(a_kn, apb + "mha.linear_kv.weight", memory_config=mc)
+        x = ttnn.concat([Q, KV], dim=-1, memory_config=mc)
         ttnn.deallocate(Q); ttnn.deallocate(KV)
         # Zero rows on both ends (ttnn.pad cannot pad the front of a tiled tensor): L in front,
         # W - L - nq behind, so block i's window [32 i, 32 i + W) stays inside the frame.
@@ -362,21 +365,20 @@ class OF3AtomTransformer(Module):
                     (S, rows, 3 * H * dh), dtype=x.dtype, layout=ttnn.TILE_LAYOUT, device=self.device)
             return z
         T = W - L - nq
-        x2 = ttnn.concat([zero(L), x, zero(T)], dim=1)               # [S, L + NP + T, 384]
+        x2 = ttnn.concat([zero(L), x, zero(T)], dim=1, memory_config=mc)   # [S, L + NP + T, 384]
         ttnn.deallocate(x)
         x, F = x2, L + NP + T
         q, k, v = ttnn.experimental.nlp_create_qkv_heads(
             ttnn.reshape(x, (S, 1, F, 3 * H * dh)), num_heads=H, num_kv_heads=H,
-            transpose_k_heads=False, memory_config=ttnn.DRAM_MEMORY_CONFIG)  # each [S, H, F, dh]
+            transpose_k_heads=False, memory_config=dram)  # each [S, H, F, dh]
         ttnn.deallocate(x)
         o = ttnn.allocate_tensor_on_device(ttnn.Shape([S, H * nb, nq, dh]), q.dtype,
-                                           ttnn.TILE_LAYOUT, self.device, ttnn.DRAM_MEMORY_CONFIG)
+                                           ttnn.TILE_LAYOUT, self.device, dram)
         g = self.device.compute_with_storage_grid_size()
         SG.sdpa(self.device, q, k, v, sup_b, o, nq, W, (g.x, g.y), self._sdpa32_ckc, dh ** -0.5,
                 kv_window=(nb, W, L, nq))
         ttnn.deallocate(q); ttnn.deallocate(k); ttnn.deallocate(v)
-        o = ttnn.experimental.nlp_concat_heads(ttnn.reshape(o, (S, H, NP, dh)),
-                                               memory_config=ttnn.DRAM_MEMORY_CONFIG)
+        o = ttnn.experimental.nlp_concat_heads(ttnn.reshape(o, (S, H, NP, dh)), memory_config=dram)
         return ttnn.reshape(o, (S, NP, H * dh))
 
     def __call__(self, a, s, z, atom_mask_col, key_block_idxs_tt, valid_mask,
@@ -408,7 +410,11 @@ class OF3AtomTransformer(Module):
         kidx = key_block_idxs_tt if S == 1 or sup else _cached(
             cache, (id(self), "key_idx", S),
             lambda: sample_offset_index(key_block_idxs_tt, S, NP))
-        x = a
+        # atom_l1 (superset path): the stream and every per-step tensor in L1 where four copies of the
+        # largest, the q/k/v frame, fit; the rollout invariants above stay in DRAM. Copied in, so the
+        # caller's `a` is untouched.
+        mc = _T._atom_l1((S, NP + int(sup[0][0].shape[-1]), 3 * H * dh), a.dtype) if sup else None
+        x = ttnn.to_memory_config(a, mc) if mc else a
         for b in range(3):
             P = f"blocks.{b}."
             apb = P + "attention_pair_bias."
@@ -416,14 +422,14 @@ class OF3AtomTransformer(Module):
                 bias, q_terms, k_terms = sup[b]
                 a_qn = self.adaln_q[b](x, s, s_terms=q_terms or None)
                 a_kn = self.adaln_k[b](x, s, s_terms=k_terms or None)
-                o = self._attend_superset(a_qn, a_kn, apb, bias, NP, nb)
+                o = self._attend_superset(a_qn, a_kn, apb, bias, NP, nb, mc)
                 ttnn.deallocate(a_kn)
-                o = ttnn.multiply(o, self._lin(a_qn, apb + "mha.linear_g.weight"),
+                o = ttnn.multiply(o, self._lin(a_qn, apb + "mha.linear_g.weight", memory_config=mc),
                                   input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
                 ttnn.deallocate(a_qn)
-                o = self._lin(o, apb + "mha.linear_o.weight")
+                o = self._lin(o, apb + "mha.linear_o.weight", memory_config=mc)
                 x = self._gate_add(x, o, ada_raw[b])
-                x = self._transition(x, s, b, ada_s, cg_raw, atom_mask_col)
+                x = self._transition(x, s, b, ada_s, cg_raw, atom_mask_col, mc)
                 continue
             x_q = ttnn.to_layout(x, ttnn.ROW_MAJOR_LAYOUT)
             x_q = ttnn.reshape(x_q, (S, nb, nq, 128))
@@ -473,6 +479,9 @@ class OF3AtomTransformer(Module):
             if kidx is not key_block_idxs_tt:
                 ttnn.deallocate(kidx)
 
+        if mc:
+            x, x_l1 = ttnn.to_memory_config(x, ttnn.DRAM_MEMORY_CONFIG), x
+            ttnn.deallocate(x_l1)
         x = ttnn.to_layout(x, ttnn.ROW_MAJOR_LAYOUT)
         x = ttnn.slice(x, [0, 0, 0], [S, n_atom, 128])
         return ttnn.to_layout(x, ttnn.TILE_LAYOUT)

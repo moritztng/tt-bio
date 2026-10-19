@@ -769,6 +769,7 @@ _FAST_MODE = False
 #   atom_l1         the atom transformer's gathered keys, q / kv projections and transition hidden tensors are written
 #                   to L1 where four kv-sized tensors fit (`_atom_l1`): the short-K linears wait on interleaved DRAM
 #                   writes, kv 262.6 -> 128.1 us on Wormhole. Placement only: Boltz-2 folds are byte-identical with it (al1).
+#                   OpenFold3's superset atom attention honours it too: stream, q/kv frame, heads, output and transition.
 #   dit_l1          under dit_fuse, OpenFold3's token DiT keeps the stream, the conditioning and every tensor a block
 #                   makes in L1 (interleaved) for the stack call; weights and the cached pair-bias masks stay in DRAM.
 #                   Placement only: the same programs on the same operands, so the same bits. Only where 12
