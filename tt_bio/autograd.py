@@ -3062,10 +3062,15 @@ def _ops(run):
 
 
 def _ops_diff(key, ref, now) -> None:
-    i = next((i for i, (x, y) in enumerate(zip(ref, now)) if x != y), min(len(ref), len(now)))
-    print(f"[trace-check] {key!r}: capture made {len(ref)} calls, eager {len(now)}; first difference at {i}:\n"
-          f"  capture: {ref[i] if i < len(ref) else '<end>'}\n  eager:   {now[i] if i < len(now) else '<end>'}",
-          flush=True)
+    import difflib
+    print(f"[trace-check] {key!r}: capture made {len(ref)} calls, eager {len(now)}", flush=True)
+    for tag, a0, a1, b0, b1 in difflib.SequenceMatcher(None, ref, now, autojunk=False).get_opcodes():
+        if tag != "equal":
+            print(f"[trace-check]   {tag} capture[{a0}:{a1}] eager[{b0}:{b1}]", flush=True)
+            for x in ref[a0:a1][:6]:
+                print(f"[trace-check]     - {x}", flush=True)
+            for x in now[b0:b1][:6]:
+                print(f"[trace-check]     + {x}", flush=True)
 
 
 _ROPS: dict = {}      # (key, signature) -> the calls its capture made, when checking
