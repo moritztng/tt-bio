@@ -118,8 +118,11 @@ LEVERS_FAST = frozenset({"acc_off", "diffusion_bf16", "dit_sdpa", "transition_b8
 # modes fold byte-identical CIFs with it, normal -0.63 s (6/6 warm pairs), fast -0.54 s (5/6) (spd-gap-small al1,
 # 2026-10-19), so it needs no grade. Blackhole leaves it off until a p150a pair reads it.
 WH_LEVERS_NORMAL = LEVERS_NORMAL | {"atom_l1"}
+# triatt_ln_b8 + triatt_ln_b8g (triatt_ln writes q, k, v and the gate bfp8): 512-token set fast grade, 44 paired folds
+# (spd-gap-small gtlb2, 2026-10-19), PASS: top pose median 1.566 A (floor 2.245 A), CA-lDDT +0.0003 [-0.0006, +0.0013],
+# docking 24 -> 24; Galaxy chip 512 x 1 (1000 MHz) -0.98 s median, 5/5 warm pairs (tlb2).
 WH_LEVERS_FAST = LEVERS_FAST | {"triatt_ln", "apb_ln", "dit_cond_jit", "trimul_sig6", "dit_cond_jcat", "triatt_k1",
-                                "atom_l1"}
+                                "atom_l1", "triatt_ln_b8", "triatt_ln_b8g"}
 BH_LEVERS_FAST = LEVERS_FAST | {"dit_shoist"}
 
 
