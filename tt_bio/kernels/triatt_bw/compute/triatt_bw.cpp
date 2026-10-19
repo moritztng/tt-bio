@@ -102,6 +102,9 @@ ALWI void transpose_block(uint32_t in_cb, uint32_t out_cb) {
 // dP * P and then dS itself is P * (dP - correction), so P is live across both.
 ALWI void mul_block_to(uint32_t in0_cb, uint32_t in1_cb, uint32_t out_cb, uint32_t num_tiles) {
     mul_tiles_init(in0_cb, in1_cb);
+    // The unpacker keeps whatever format the last matmul read (bfp8 v or k when q/k/v are stored
+    // bfp8_b), so a bf16 elementwise op has to reset both sources itself.
+    reconfig_data_format(in0_cb, in1_cb);
     pack_reconfig_data_format(out_cb);
     cb_wait_front(in0_cb, num_tiles);
     cb_wait_front(in1_cb, num_tiles);
@@ -120,6 +123,7 @@ ALWI void mul_block_to(uint32_t in0_cb, uint32_t in1_cb, uint32_t out_cb, uint32
 template <uint32_t rows, uint32_t cols>
 ALWI void sub_block_bcast_cols_inplace(uint32_t in0_cb, uint32_t in1_cb) {
     sub_bcast_cols_init_short(in0_cb, in1_cb);
+    reconfig_data_format(in0_cb, in1_cb);   // see mul_block_to
     pack_reconfig_data_format(in0_cb);
     cb_wait_front(in0_cb, rows * cols);
     cb_wait_front(in1_cb, rows);

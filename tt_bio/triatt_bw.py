@@ -136,8 +136,14 @@ def _f32_bits(x: float) -> int:
 DST_TILES_FP32_ACC = 4
 
 
+#: Formats q, k and v may be stored in. A bfp8_b q/k/v (`TT_BIO_TRIATT_B8`) is read as written: the
+#: unpacker widens it on the way into every matmul (`mm_keep` reconfigures per call), and the
+#: cotangent, the bias and every output stay bf16, so only the three input CBs change.
+QKV_DTYPES = (ttnn.bfloat16, ttnn.bfloat8_b)
+
+
 def plan(B: int, H: int, N: int, d: int, grid, q_chunk_tiles=None,
-         dst_size=DST_TILES_FP32_ACC):
+         dst_size=DST_TILES_FP32_ACC, qkv_dtype=ttnn.bfloat16):
     """Work split and tile geometry. Card-free, so the gate can be tested without a device.
 
     One core owns one head and a contiguous group of the leading axis. Heads go to the FAST index
@@ -162,7 +168,7 @@ def plan(B: int, H: int, N: int, d: int, grid, q_chunk_tiles=None,
     p = {
         "B": B, "H": H, "N": N, "d": d, "Nt": Nt, "Dt": Dt, "Qt": Qt,
         "groups": groups, "num_cores": num_cores, "rows_per_core": rows_per_core,
-        "gx": gx, "gy": gy, "dst_size": dst_size,
+        "gx": gx, "gy": gy, "dst_size": dst_size, "qkv_dtype": qkv_dtype,
     }
     # Priced off the CB table itself rather than a parallel formula. The two drifting apart is how
     # a gate ends up reporting that a config fits while tt-metal refuses it.
@@ -220,8 +226,9 @@ def eligible(q, k, v, bias, *, taping=False):
         return False, f"bias must be [1, {H}, {N}, {N}] broadcast over the batch, got {bs}"
     if N % TILE or d % TILE:
         return False, f"ragged: N={N} d={d} are not both tile aligned"
-    if any(t.dtype != ttnn.bfloat16 for t in (q, k, v, bias)):
-        return False, "bf16 operands only"
+    if bias.dtype != ttnn.bfloat16 or q.dtype not in QKV_DTYPES or any(
+            t.dtype != q.dtype for t in (k, v)):
+        return False, "bf16 bias and q, k, v in one of bf16 or bfp8_b"
     return True, "ok"
 
 
@@ -268,10 +275,12 @@ def cb_table(p):
     chunked = Qt < Nt
     kv = (Nt * Dt, b32, f32) if chunked else (Nt * Dt * 2, b16, bf16)
     side = Nt * Dt if chunked else 1
+    qd = p.get("qkv_dtype", bf16)
+    bq = SG.tile_bytes(qd)
     return [
-        (CB_Q, Qt * Dt * 2, b16, bf16),
-        (CB_K, Nt * Dt * 2, b16, bf16),
-        (CB_V, Nt * Dt * 2, b16, bf16),
+        (CB_Q, Qt * Dt * 2, bq, qd),
+        (CB_K, Nt * Dt * 2, bq, qd),
+        (CB_V, Nt * Dt * 2, bq, qd),
         (CB_DO, Qt * Dt * 2, b16, bf16),
         (CB_BIAS, Qt * Nt, b16, bf16),
         (CB_SCALAR, 1, b16, bf16),
@@ -425,9 +434,9 @@ def build(device, q, k, v, do, bias, dq, dk, dv, dbias_partial, p, ckc, scale, p
             print(f"  addr {nm:5s} 0x{tn.buffer_address():x}  acc_len {len(acc(tn))}  "
                   f"dtype {tn.dtype} shape {list(tn.padded_shape)}")
     kv_tb = SG.tile_bytes(dk.dtype)
-    reader_ct = ([H, Nt, Dt, qkv_tb, bias_tb, p["Qt"], kv_tb, SEM_WRITTEN]
+    reader_ct = ([H, Nt, Dt, qkv_tb, bias_tb, p["Qt"], kv_tb, SEM_WRITTEN, SG.tile_bytes(do.dtype)]
                  + acc(q) + acc(k) + acc(v) + acc(do) + acc(bias) + acc(dk) + acc(dv))
-    writer_ct = ([H, Nt, Dt, qkv_tb, part_tb, SG._packed_identity_scalar(), _packed_bf16(scale),
+    writer_ct = ([H, Nt, Dt, SG.tile_bytes(dq.dtype), part_tb, SG._packed_identity_scalar(), _packed_bf16(scale),
                   p["Qt"], kv_tb, SEM_WRITTEN]
                  + acc(dq) + acc(dk) + acc(dv) + acc(dbias_partial))
 
@@ -509,8 +518,8 @@ def run(device, q, k, v, bias, g, scale, ckc, packed=False, q_chunk_tiles=None, 
     # `q_chunk_tiles` forces a chunk, which is how the grader reaches the looped kernel at a
     # shape the whole-query form would also fit, and on a board `serving_plan` declines it on.
     # `grid` forces a smaller work split, which is how Wormhole's 8x8 runs on a Blackhole card.
-    p = (serving_plan(B, H, N, d, grid) if q_chunk_tiles is None
-         else plan(B, H, N, d, grid, q_chunk_tiles=q_chunk_tiles))
+    p = (serving_plan(B, H, N, d, grid, qkv_dtype=q.dtype) if q_chunk_tiles is None
+         else plan(B, H, N, d, grid, q_chunk_tiles=q_chunk_tiles, qkv_dtype=q.dtype))
     if p is None or not fits_l1(p):
         raise ValueError(f"does not fit L1 at any query chunk: N={N}")
 
@@ -526,10 +535,12 @@ def run(device, q, k, v, bias, g, scale, ckc, packed=False, q_chunk_tiles=None, 
         if kv_dtype is not None:
             raise ValueError(f"packed dq/dk/dv needs the whole-query kernel, the plan chunks "
                              f"N={N} at Qt={p['Qt']} of {p['Nt']}")
-        dq = dk = dv = ttnn.empty(ttnn.Shape([B, 1, N, 3 * H * d]), q.dtype, ttnn.TILE_LAYOUT,
-                                  device, ttnn.DRAM_MEMORY_CONFIG)
+        dq = dk = dv = ttnn.empty(ttnn.Shape([B, 1, N, 3 * H * d]), ttnn.bfloat16,
+                                  ttnn.TILE_LAYOUT, device, ttnn.DRAM_MEMORY_CONFIG)
     else:
-        dq, dk, dv = like(q), like(k, kv_dtype), like(v, kv_dtype)
+        # Gradients are bf16 whatever q, k and v are stored in.
+        bf16 = ttnn.bfloat16
+        dq, dk, dv = like(q, bf16), like(k, kv_dtype or bf16), like(v, kv_dtype or bf16)
     part = ttnn.empty(ttnn.Shape(partial_shape(p)), ttnn.float32, ttnn.TILE_LAYOUT, device,
                       ttnn.DRAM_MEMORY_CONFIG)
     e = build(device, q, k, v, g, bias, dq, dk, dv, part, p, ckc, scale, packed)

@@ -19,8 +19,10 @@ void kernel_main() {
     constexpr uint32_t Qt = get_compile_time_arg_val(5);
     constexpr uint32_t acc_tile_bytes = get_compile_time_arg_val(6);
     constexpr uint32_t sem_id = get_compile_time_arg_val(7);
+    // q, k and v may be bfp8_b (1088 B a tile); the cotangent dO is always bf16.
+    constexpr uint32_t do_tile_bytes = get_compile_time_arg_val(8);
 
-    constexpr auto q_args = TensorAccessorArgs<8>();
+    constexpr auto q_args = TensorAccessorArgs<9>();
     constexpr auto k_args = TensorAccessorArgs<q_args.next_compile_time_args_offset()>();
     constexpr auto v_args = TensorAccessorArgs<k_args.next_compile_time_args_offset()>();
     constexpr auto do_args = TensorAccessorArgs<v_args.next_compile_time_args_offset()>();
@@ -54,7 +56,7 @@ void kernel_main() {
     const auto q_reader = TensorAccessor(q_args, q_addr, qkv_tile_bytes);
     const auto k_reader = TensorAccessor(k_args, k_addr, qkv_tile_bytes);
     const auto v_reader = TensorAccessor(v_args, v_addr, qkv_tile_bytes);
-    const auto do_reader = TensorAccessor(do_args, do_addr, qkv_tile_bytes);
+    const auto do_reader = TensorAccessor(do_args, do_addr, do_tile_bytes);
     const auto bias_reader = TensorAccessor(bias_args, bias_addr, bias_tile_bytes);
     const auto dk_reader = TensorAccessor(dk_args, dk_addr, acc_tile_bytes);
     const auto dv_reader = TensorAccessor(dv_args, dv_addr, acc_tile_bytes);
@@ -92,7 +94,7 @@ void kernel_main() {
                 noc_async_read_tile(qbase + i, q_reader, qp);
                 noc_async_read_tile(qbase + i, do_reader, dp);
                 qp += qkv_tile_bytes;
-                dp += qkv_tile_bytes;
+                dp += do_tile_bytes;
             }
             for (uint32_t i = 0; i < col_tiles; ++i) {
                 noc_async_read_tile(base + i, k_reader, kp);
