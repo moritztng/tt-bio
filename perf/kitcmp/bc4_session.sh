@@ -69,6 +69,9 @@ print(x.get("public_ipaddr","").strip(), p[0]["HostPort"] if p else "") if x.get
   while :; do
     sleep 180
     R $H:/root/kc/bc4/ $OUT/bc4/ 2>/dev/null; R $H:'/root/kc/*.log' $OUT/ 2>/dev/null
+    # bc4-quality may write its request while the box is already ranking arms; the quality stage runs last, so a
+    # late push still lands in time.
+    [ -f $S4/QUALITY-REF-REQUEST.json ] && R $S4/QUALITY-REF-REQUEST.json $H:/root/kc/quality-req.json 2>/dev/null
     st=$(timeout 30 $S 'ls /root/kc/bc4/BC4-DONE' 2>/dev/null)
     [ -n "$st" ] && END=done
     [ -z "$st" ] && [ "$(state $I)" != running ] && END=stopped
