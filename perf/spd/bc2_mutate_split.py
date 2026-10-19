@@ -26,6 +26,7 @@ ap.add_argument("--bc2", type=Path, default=Path("~/bcx_shipped/bc2").expanduser
 ap.add_argument("--binder", type=int, default=80)
 ap.add_argument("--seed", type=int, default=101)
 ap.add_argument("--trajectories", type=int, default=3)
+ap.add_argument("--hang-s", type=float, default=600.0, help="kill and reset after this long without progress")
 a = ap.parse_args()
 a.out.mkdir(parents=True, exist_ok=True)
 
@@ -64,6 +65,31 @@ def _sampler():
 
 
 threading.Thread(target=_sampler, daemon=True).start()
+
+# A chip that wedges blocks inside one ttnn call while holding the GIL, so nothing in this process can
+# notice. A separate watchdog does: it kills this process when the heartbeat (touched at every gradient
+# call and mutate seam) goes quiet for --hang-s, then resets the chip, so a hang costs one trajectory
+# instead of a borrowed card for hours. Finished trajectories are already on disk (write() runs after each).
+HEARTBEAT = a.out / "heartbeat"
+HEARTBEAT.touch()
+CHIP = os.environ.get("TT_VISIBLE_DEVICES", "0")
+subprocess.Popen([sys.executable, "-c", f"""
+import os, signal, sys, time, subprocess
+pid, hb, hang = {os.getpid()}, {str(HEARTBEAT)!r}, {a.hang_s}
+while os.path.exists(f"/proc/{{pid}}") and open(f"/proc/{{pid}}/stat").read().split()[2] != "Z":
+    if time.time() - os.path.getmtime(hb) > hang:
+        print(f"watchdog: no progress for {{hang}} s, killing {{pid}} and resetting chip {CHIP}", flush=True)
+        os.kill(pid, signal.SIGKILL)
+        while os.path.exists(f"/proc/{{pid}}") and open(f"/proc/{{pid}}/stat").read().split()[2] != "Z":
+            time.sleep(1)
+        subprocess.run([os.path.expanduser("~/.local/bin/tt-smi"), "-r", {CHIP!r}], timeout=300)
+        break
+    time.sleep(10)
+"""], start_new_session=True)
+
+
+def beat():
+    os.utime(HEARTBEAT)
 
 
 def clock(t0, t1):
@@ -118,6 +144,7 @@ def stamp(key):
     """
     def decorate(fn):
         def wrapped(*args, **kw):
+            beat()
             if not state["in_mutate"]:
                 return fn(*args, **kw)
             if key == "propose_s" or not rounds or key in rounds[-1]:
@@ -165,6 +192,7 @@ real_trajectory, real_grads = C.run_trajectory, model_cls.sequence_gradients
 
 def sequence_gradients(self, *args, **kw):
     state["gradient_calls"] += 1
+    beat()
     return real_grads(self, *args, **kw)
 
 
@@ -184,6 +212,7 @@ def run_trajectory(*args, **kw):
                                  mutate_rounds=muts, iterations=grads + muts,
                                  s_per_iter=(t1 - t0) / (grads + muts) if grads + muts else None,
                                  aiclk=clock(t0, t1), loadavg=[round(la0, 2), round(os.getloadavg()[0], 2)]))
+        write()
 
 
 T.run_mutation_polish, T.run_sequence_mutation_stage = run_mutation_polish, run_sequence_mutation_stage
