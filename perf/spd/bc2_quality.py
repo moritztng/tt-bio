@@ -789,6 +789,55 @@ def power_statement(ref_by_target: dict[str, list[Trajectory]]) -> dict:
     return out
 
 
+def campaign_cost(arm_dir: str, rates: dict | None, concurrency: int = 1) -> dict:
+    """What one campaign's trajectories cost, from its own `runs.jsonl`.
+
+    A reference that does not carry its price makes the next top-up a planning exercise again: somebody has to
+    re-derive how much a trajectory costs before they can decide whether to buy the campaigns this one could not
+    afford. The runner already writes `traj_s` per trajectory and the GPU it ran on, so the price is a reading,
+    not an estimate.
+
+    Two things the obvious version gets wrong, and this one does not:
+
+    * **One rate does not price a mixed reference.** The 2026-10-19 reference pools 14 trajectories from a
+      $6.251/h B200 with 20 from a $0.54/h RTX 4090. Multiplying every campaign by one hourly rate prices
+      whichever card it was not. `rates` maps a substring of the recorded `gpu` string to its own $/h, and a
+      campaign whose card matches nothing is left unpriced rather than guessed.
+    * **`traj_s` is wall clock, and wall clock is shared.** With `concurrency` campaigns on one billed card the
+      card bills once for all of them, so the cost of a trajectory is its wall time divided by the concurrency
+      it ran at. The B200 campaigns ran three to a card, which is why their 262 s of wall per trajectory is the
+      same thing as the 85 s delivered rate quoted elsewhere.
+    """
+    import json as _json
+    path = os.path.join(arm_dir, "runs.jsonl")
+    if not os.path.isfile(path):
+        return {}
+    gpu, spans = None, []
+    with open(path) as fh:
+        for line in fh:
+            try:
+                row = _json.loads(line)
+            except ValueError:
+                continue
+            if row.get("ev") == "start":
+                gpu = row.get("gpu")
+            elif row.get("ev") == "rep" and isinstance(row.get("traj_s"), (int, float)):
+                spans.append(float(row["traj_s"]))
+    if not spans:
+        return {"gpu": gpu, "n": 0}
+    s_per = sum(spans) / len(spans)
+    out = {"gpu": gpu, "n": len(spans), "concurrency": concurrency,
+           "wall_s_per_trajectory": round(s_per, 1),
+           "delivered_s_per_trajectory": round(s_per / max(concurrency, 1), 1)}
+    dph = next((v for k, v in (rates or {}).items() if k and gpu and k in gpu), None)
+    if dph:
+        out["dph_usd_per_hour"] = dph
+        out["usd_per_trajectory"] = round(s_per / max(concurrency, 1) * dph / 3600.0, 4)
+    elif rates:
+        out["unpriced_why"] = f"no hourly rate given for {gpu!r}"
+    return out
+
+
 def build_reference(request: dict, root: str, seed: int = 0, provisional: bool = False) -> dict:
     """Read every campaign the request asked for, grade the A/A control, and state the power.
 
@@ -797,8 +846,11 @@ def build_reference(request: dict, root: str, seed: int = 0, provisional: bool =
     like the rest, but they are kept out of `runs` so the runner cannot repeat them. Re-running one would repeat
     its (campaign_seed, trajectory_number) keys, which then cannot pair.
     """
+    rates = request.get("dph_usd_per_hour") or {}
+    concurrency = int(request.get("concurrency") or 1)
     by_target: dict[str, dict[str, list[Trajectory]]] = {}
     paths: dict[str, list[str]] = {}
+    per_campaign: dict[str, dict] = {}
     missing = []
     for run in list(request.get("runs", [])) + list(request.get("banked_runs", [])):
         arm_dir = os.path.join(root, run["target"], f"{run['arm']}_s{run['campaign_seed']}")
@@ -811,6 +863,11 @@ def build_reference(request: dict, root: str, seed: int = 0, provisional: bool =
                             "note": f"{len(got)} trajectories, the request asked for {run['trajectories']}"})
         by_target.setdefault(run["target"], {}).setdefault(run["arm"], []).extend(got)
         paths.setdefault(run["target"], []).append(arm_dir)
+        # A banked campaign may have run at a different concurrency than this session, and the two cannot
+        # share one number: the B200 ran three campaigns to a card, this one runs one.
+        priced = campaign_cost(arm_dir, rates, int(run.get("concurrency") or concurrency))
+        if priced:
+            per_campaign[run["id"]] = priced
 
     targets = {t: target_summary([x for arm in arms.values() for x in arm], paths.get(t, []))
                for t, arms in by_target.items()}
@@ -851,10 +908,25 @@ def build_reference(request: dict, root: str, seed: int = 0, provisional: bool =
         found = {t: sorted(a) for t, a in by_target.items()}
         aa["reason"] = f"the request names {want[:2]} as the A/A pair and no target carries both; arms found: {found}"
 
+    # What the reference cost, and what the campaigns it could not afford would cost at the same rate. The
+    # unbought items live in the request because they are a contract, not a derivation; the price is measured.
+    cost = {}
+    if per_campaign:
+        rates = [c["usd_per_trajectory"] for c in per_campaign.values() if c.get("usd_per_trajectory")]
+        cost = {"dph_usd_per_hour": rates, "per_campaign": per_campaign}
+        if rates:
+            usd = st.median(rates)
+            cost["usd_per_trajectory"] = round(usd, 4)
+            cost["unbought"] = [dict(item, usd=round(item["trajectories"] * usd, 2))
+                                for item in request.get("unbought", []) if item.get("trajectories")]
+            cost["note"] = ("Measured from each campaign's own runs.jsonl against the hourly rate actually "
+                            "billed, so a top-up is execution and not re-planning.")
+
     return {
         "schema": "bc4-quality-ref/1",
         "targets": targets,
         "aa_control": aa,
+        "cost": cost,
         "missing_runs": missing,
         **({"provisional": True,
             "provisional_why": (

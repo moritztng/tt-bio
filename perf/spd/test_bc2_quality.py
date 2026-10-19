@@ -688,3 +688,49 @@ def test_a_named_aa_pair_that_did_not_land_is_absent_and_says_so(tmp_path):
     aa = Q.build_reference(req, root)["aa_control"]
     assert aa["verdict"] == "ABSENT"
     assert "C1" in aa["reason"] and "C2" in aa["reason"]
+
+
+def test_a_mixed_card_reference_prices_each_campaign_at_its_own_card_and_concurrency(tmp_path):
+    """One hourly rate over a reference that pools a $6.251/h B200 with a $0.54/h 4090 prices whichever card the
+    campaign was not; and `traj_s` is wall clock, which three campaigns on one card share."""
+    root = str(tmp_path)
+    make_campaign(root, "pdl1", "A1", 101, n=4)
+    make_campaign(root, "pdl1", "C1", 104, n=4)
+    for arm, seed, gpu, span in (("A1", 101, "NVIDIA B200, 1000.00 W", 240.0),
+                                 ("C1", 104, "NVIDIA GeForce RTX 4090, 450.00 W", 300.0)):
+        d = tmp_path / "pdl1" / f"{arm}_s{seed}"
+        rows = [json.dumps({"ev": "start", "gpu": gpu})]
+        rows += [json.dumps({"ev": "rep", "trajectory": i + 1, "traj_s": span}) for i in range(4)]
+        (d / "runs.jsonl").write_text("\n".join(rows) + "\n")
+
+    req = _request(root, _runs("pdl1", "C1", (104,), n=4))
+    req["banked_runs"] = [{"id": "pdl1/A1_s101", "tier": "BANKED", "target": "pdl1", "arm": "A1",
+                           "campaign_seed": 101, "trajectories": 4, "concurrency": 3}]
+    req["dph_usd_per_hour"] = {"B200": 6.251, "RTX 4090": 0.5407}
+    req["concurrency"] = 1
+    req["unbought"] = [{"what": "second target", "trajectories": 30}]
+    cost = Q.build_reference(req, root)["cost"]
+
+    b200 = cost["per_campaign"]["pdl1/A1_s101"]
+    assert b200["concurrency"] == 3 and b200["delivered_s_per_trajectory"] == 80.0
+    assert b200["usd_per_trajectory"] == pytest.approx(80.0 * 6.251 / 3600, abs=1e-4)
+
+    cheap = cost["per_campaign"]["pdl1/C1_s104"]
+    assert cheap["concurrency"] == 1 and cheap["delivered_s_per_trajectory"] == 300.0
+    assert cheap["usd_per_trajectory"] == pytest.approx(300.0 * 0.5407 / 3600, abs=1e-4)
+    assert cheap["usd_per_trajectory"] < b200["usd_per_trajectory"], "the cheap card is the reason we rented it"
+
+    assert cost["unbought"][0]["usd"] > 0
+
+
+def test_a_campaign_on_an_unpriced_card_is_left_unpriced_not_guessed(tmp_path):
+    root = str(tmp_path)
+    make_campaign(root, "pdl1", "C1", 104, n=4)
+    d = tmp_path / "pdl1" / "C1_s104"
+    (d / "runs.jsonl").write_text(json.dumps({"ev": "start", "gpu": "NVIDIA L40S"}) + "\n"
+                                  + json.dumps({"ev": "rep", "traj_s": 100.0}) + "\n")
+    req = _request(root, _runs("pdl1", "C1", (104,), n=4))
+    req["dph_usd_per_hour"] = {"B200": 6.251}
+    c = Q.build_reference(req, root)["cost"]["per_campaign"]["pdl1/C1_s104"]
+    assert "usd_per_trajectory" not in c
+    assert "L40S" in c["unpriced_why"]
