@@ -14,3 +14,12 @@ wall ms/call 1.118 (H4), 1.451 (H8), 1.116 (bf16 H4)
 
 bfp8 inputs only shave QK (24.1 -> 21.9 us). MAX + SUBEXP are 54 % of the stage time; a softmax that
 exponentiates the score tile in DST after QK and packs once would remove most of both.
+
+zq3, same levers at the in-fold batch 512 (.107 chip 31, AICLK 1000 sampled, 2026-10-19 18:26Z), medians on TRISC_1:
+stage      b8 H4   b8 H8   bf16 H4
+TA_QK      21.8    21.8    24.0
+TA_MAX      7.4     7.4     7.4
+TA_SUBEXP  32.1    32.1    32.1
+TA_PV      11.1    11.1    11.4
+Identical to batch 72, so a unit's time does not depend on DRAM load: the op is stage-bound. 4096 units over 72 cores
+at 72.5 us is 4.1 ms of the 4.7 ms in-fold call.
