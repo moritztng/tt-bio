@@ -17,20 +17,22 @@ void kernel_main() {
     constexpr uint32_t NT = get_compile_time_arg_val(1);
     constexpr uint32_t NB = get_compile_time_arg_val(2);
     constexpr uint32_t W = get_compile_time_arg_val(3);
+    constexpr uint32_t RT = get_compile_time_arg_val(4);  // rows a drain spans (BRES_RT), W / RT tiles each
+    constexpr uint32_t WC = W / RT;
     constexpr uint32_t NS = NT / NB;
     constexpr uint32_t cb_out = 16;
-    constexpr auto o_args = TensorAccessorArgs<4>();
+    constexpr auto o_args = TensorAccessorArgs<5>();
     const auto so = TensorAccessor(o_args, out_addr);
     const uint32_t to = get_tile_size(cb_out);
     for (uint32_t u = first; u < first + count; ++u) {
         const uint32_t row0 = (u / NS) * MT, n0 = (u % NS) * NB;
-        for (uint32_t r = 0; r < MT; ++r) {
-            for (uint32_t n = 0; n < NB; n += W) {
+        for (uint32_t r = 0; r < MT; r += RT) {
+            for (uint32_t n = 0; n < NB; n += WC) {
                 cb_wait_front(cb_out, W);
                 uint32_t rd = get_read_ptr(cb_out);
 #ifndef BRES_NO_WRITE  // time attribution only (af2_trimul_bmm_sweep --abl)
                 for (uint32_t i = 0; i < W; ++i, rd += to) {
-                    noc_async_write_page((row0 + r) * NT + n0 + n + i, so, rd);
+                    noc_async_write_page((row0 + r + i / WC) * NT + n0 + n + i % WC, so, rd);
                 }
 #endif
                 noc_async_write_barrier();

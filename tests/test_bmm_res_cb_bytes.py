@@ -37,9 +37,22 @@ def test_declines_without_fp32_dest():
 def test_split_plans_two_column_blocks_at_1024_and_leaves_512_alone():
     t = bmm_res.MG.tile_bytes(ttnn.bfloat16)
     for ta in (False, True):
-        assert bmm_res._plan(32, 32, t, t, transpose_a=ta, split=False) == (0, 0)
-        assert bmm_res._plan(32, 32, t, t, transpose_a=ta, split=True) == (2, 1)
-        assert bmm_res._plan(24, 24, t, t, transpose_a=ta, split=True) == (2, 1)
+        assert bmm_res._plan(32, 32, t, t, transpose_a=ta, split=False)[:2] == (0, 0)
+        assert bmm_res._plan(32, 32, t, t, transpose_a=ta, split=True)[:2] == (2, 1)
+        assert bmm_res._plan(24, 24, t, t, transpose_a=ta, split=True)[:2] == (2, 1)
         assert bmm_res._plan(16, 16, t, t, transpose_a=ta, split=True) == bmm_res._plan(16, 16, t, t, transpose_a=ta,
                                                                                           split=False)
-    assert bmm_res._plan(30, 30, t, t, transpose_a=True, split=True) == (2, 1)   # 960: NB 15, drained a tile at a time
+    assert bmm_res._plan(30, 30, t, t, transpose_a=True, split=True)[:2] == (2, 1)   # 960: NB 15, drained a tile at a time
+
+
+def test_rt2_plans_and_leaves_rt1_bytes_alone():
+    t = bmm_res.MG.tile_bytes(ttnn.bfloat16)
+    for ta in (False, True):
+        for kt in (16, 24, 32):
+            r1 = bmm_res._plan(kt, kt, t, t, transpose_a=ta, split=True)
+            r2 = bmm_res._plan(kt, kt, t, t, transpose_a=ta, split=True, rt=2)
+            print(kt, ta, r1, r2)
+            assert r2[:2] == r1[:2] and r2[2] >= 2    # same blocks as RT 1, a pair at least
+    # RT 2 drains 2 x OG tiles, not a whole row: at 512 its output CB is smaller than RT 1's
+    assert bmm_res._groups(16, 16, 1, False, 2) == (16, 8)
+    assert bmm_res._groups(16, 16, 1, False, 1) == (16, 16)
