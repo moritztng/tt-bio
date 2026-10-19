@@ -878,6 +878,7 @@ T2_STATS = [0, 0]       # served, declined
 # T2 only). Diagnostic only, 0 in every model path.
 T2_ABL = 0
 T2_KEYS = {(4, 4), (8, 8)}   # (kt, nt): c_z 128 and 256 (ESMFold2)
+T2_C64 = (2, 2)              # the template pair stacks' c_t 64, under lever trimul_t1_c64 (T1's key (2, 4, 2))
 # c_z 384 (OpenDDE) under the `trimul_t2w` lever, at T2's own block: `_MM_BLOCK`'s (8, 12, 1, 2, 1) does not
 # fit L1 and declines. (2, 12, 1, 2, 1) keeps the single K block, so the contraction order is the projection's.
 # WH chip, perf/spd_trimul/tail_t2.py --c 384 vs float64 (10-13): N 512 13.63 -> 6.19 ms, rel_rms 0.0028
@@ -958,7 +959,7 @@ def _t2_shape_why(xs, xps, ln_w, ln_b, wp, g, resid, wg=None):
     kt, nt = _tiles(K), _tiles(N)
     from .tenstorrent import lever
     if ((kt, nt) not in T2_KEYS and not ((kt, nt) in T2_WIDE_KEYS and lever("trimul_t2w"))
-            or K % TILE or N % TILE):
+            and not ((kt, nt) == T2_C64 and lever("trimul_t1_c64")) or K % TILE or N % TILE):
         return f"key={kt}x{nt}"
     if xs[-1] != K or xps[-1] != K:
         return "act_k"
@@ -1345,7 +1346,8 @@ T1_WHY = {}                       # decline reason -> calls (tenstorrent._t1_in)
 # whole 32-row units. c_z 256 (protenix-v2, opendde, esmfold2) holds twice the weights and twice the
 # normalised rows per unit, ~1.9 MB of CBs a core; as two channel groups of 16-row units it is ~1.0 MB,
 # at the price of reading z twice (5 pair passes instead of the incumbent's 14).
-T1_PLANS = {(4, 8, 4): (1, 32), (8, 16, 8): (2, 16), (12, 24, 12): (3, 8)}
+# (2, 4, 2) is OpenFold3's template pair stack (c_t 64): it fell back on all 80 template trimuls a fold.
+T1_PLANS = {(2, 4, 2): (1, 32), (4, 8, 4): (1, 32), (8, 16, 8): (2, 16), (12, 24, 12): (3, 8)}
 T1_KEYS = set(T1_PLANS)
 # The plans when the resident weights are bfp8 (lever trimul_t1w8): half the weight bytes per core, so c_z 384
 # fits its [a | b] and g_out weights in two channel groups instead of three, one launch and one xn pass fewer.
@@ -1366,7 +1368,7 @@ T1_C256 = 0                       # bench knob: the c_z 256 / 384 plans without 
 # so a, b and g_out are bit-identical. At OpenDDE's c_z 384 (3 launches) the layer_norm was 4.67 of T1's 16.18 ms
 # at 512 on a Wormhole Galaxy chip, 1000 MHz (t1abl, ABL 1). A/B knob; True is production.
 T1_LN1 = True
-T1_WIDE = {(8, 16, 8): "trimul_t1_c256", (12, 24, 12): "trimul_t1_c384"}   # plan key -> the lever that turns T1 on for it
+T1_WIDE = {(2, 4, 2): "trimul_t1_c64", (8, 16, 8): "trimul_t1_c256", (12, 24, 12): "trimul_t1_c384"}   # plan key -> the lever that turns T1 on for it
 # Row tiles per work item: 32 = one unit (b, xt, yt) per item; 16 = each unit as two items, rows 0-15 and
 # 16-31, which are faces 0-1 and 2-3 of every [B, C, S, S] tile the writer gathers, so the two halves
 # write disjoint bytes. Every row is computed exactly as in the whole unit (same LN, same K order).

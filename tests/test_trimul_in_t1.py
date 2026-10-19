@@ -170,7 +170,7 @@ def _gather(src_tiles_faces, c, il=32, r0=0):
     return st, writes
 
 
-@pytest.mark.parametrize("S,masked,K,rows", [(64, True, 128, 32), (96, False, 128, 32), (64, True, 128, 16),
+@pytest.mark.parametrize("S,masked,K,rows", [(64, True, 64, 32), (96, False, 64, 32), (64, True, 128, 32), (96, False, 128, 32), (64, True, 128, 16),
                                              (96, False, 128, 16), (64, True, 256, 16), (96, False, 256, 16),
                                              (64, True, 384, 8), (96, False, 384, 8)])
 def test_emulated_data_flow_matches_the_model(S, masked, K, rows):
