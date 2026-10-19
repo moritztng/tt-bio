@@ -743,7 +743,7 @@ GIN_RAGGED_STATS = [0, 0]   # served, declined
 
 def gin_ragged_ok(x, wpT, S, mask=None):
     shp = [int(d) for d in x.shape]
-    if not (len(shp) in (3, 4) and shp[-2] == shp[-3] == S and S % TILE
+    if not (len(shp) in (3, 4) and shp[-2] == shp[-3] == S
             and x.dtype == ttnn.bfloat16 and wpT.dtype == ttnn.bfloat16
             and x.layout == ttnn.TILE_LAYOUT and not x.memory_config().is_sharded()
             and wpT.memory_config() == ttnn.DRAM_MEMORY_CONFIG

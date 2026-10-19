@@ -6373,6 +6373,11 @@ _TRIMUL_GATED_INPROJ = env_flag("TT_BIO_TRIMUL_GATED_INPROJ", False)
 # two gated moves. Default on for Wormhole: AF2-IG WH fold 5.04 -> 4.77 s, ipTM within 0.002
 # (spd-gap-bind ginfold_134760004). Blackhole stays off until graded there. None = arch default.
 _TRIMUL_GIN_RAGGED = env_flag("TT_BIO_TRIMUL_GIN_RAGGED", None)
+# The biased gated in-projection (`trimul_tail.gin_ragged`, correct at any S) also where S is whole
+# tiles, for a call that carries in-projection biases (AF2): gin_moved takes no biases, so such a call
+# otherwise writes the [S, S, 4 hidden] projection and reads it back for the gated move. It runs in
+# the forwards a tape does not record (`_gin_biased`). Off: an A/B arm (bc4-bet-fuse chain 2).
+_TRIMUL_GIN_BIASED = env_flag("TT_BIO_TRIMUL_GIN_BIASED", False)
 
 
 def set_trimul_gated_inproj(on: bool) -> bool:
@@ -9502,6 +9507,14 @@ def _channel_move(chunk: ttnn.Tensor, memory_config: ttnn.MemoryConfig) -> ttnn.
     return ttnn.permute(chunk, (0, 3, 1, 2), memory_config=memory_config)
 
 
+@ops.fused_kernel("trimul_gin_biased")
+def _gin_biased(x, wpT, wgT, bias, ckc, S, mask, memory_config):
+    """`trimul_tail.gin_ragged` with no tape entry: under a recording tape it declines (None) and the
+    composed in-projection runs; in a forward the tape does not record it gets raw operands."""
+    return _trimul_tail.gin_ragged(x, wpT, wgT, bias, ckc, tuple(COMPUTE_GRID_MAIN), S, mask=mask,
+                                   memory_config=memory_config)
+
+
 @ops.fused_kernel("trimul_t2cm_af2")
 def _t2cm_af2(xcm, ln_w, ln_b, wp, xb, z, wg, bp, bg, mask, ckc, cache, prev=None):
     """`z + mask * (layer_norm(xcm moved) @ wp + bp) * sigmoid(xb @ wg + bg)` as T2CM, in a new tensor,
@@ -10329,20 +10342,22 @@ class TriangleMultiplication(Module):
                         if a_chunk is not None and defer:
                             defer_a = perm_a == (0, 3, 2, 1)
                             defer_b = perm_b == (0, 3, 2, 1)
-                    if (a_chunk is None and defer
-                            and (is_wormhole() if _TRIMUL_GIN_RAGGED is None else _TRIMUL_GIN_RAGGED)
-                            and int(x_in.shape[-2]) % 32
+                    ragged = (int(x_in.shape[-2]) % 32
+                              and (is_wormhole() if _TRIMUL_GIN_RAGGED is None else _TRIMUL_GIN_RAGGED))
+                    biased = _TRIMUL_GIN_BIASED and bias_i is not None
+                    if (a_chunk is None and defer and (ragged or biased)
                             and not row_norm and x_norm_in is not None
-                            and self.g_in_weight is None and not ops.taping()
+                            and self.g_in_weight is None
+                            and not (ops.recording() if biased else ops.taping())
                             and not _FAST_MODE and not _TRIMUL_RAW_CHANNEL_MOVES
                             and (mask is None or mask_moved_ok)):
                         wpT, wgT = self._gp_in_gated(chunk_size, group, transposed=True)[i]
                         S_ = int(x_in.shape[-2])
                         fold = mask is not None and _trimul_tail.gin_ragged_ok(x_norm_in, wpT, S_, mask)
-                        ab = _trimul_tail.gin_ragged(
+                        ab = _gin_biased(
                             x_norm_in, wpT, wgT, self._gp_in_gated_bias(chunk_size, group, S_)[i],
-                            _mm_generic.ckc_args(self.compute_kernel_config), tuple(COMPUTE_GRID_MAIN),
-                            S_, mask=mask if fold else None, memory_config=memory_config)
+                            _mm_generic.ckc_args(self.compute_kernel_config),
+                            S_, mask if fold else None, memory_config)
                         if ab is not None:
                             a_chunk, b_chunk = ab
                             a_masked = fold
