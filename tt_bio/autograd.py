@@ -3028,6 +3028,49 @@ def _rise(device, run):
     return out, max(peak[0], mem()) - base
 
 
+def _op_desc(v):
+    if isinstance(v, ttnn.Tensor):
+        return f"T{tuple(v.shape)}:{v.dtype}:{v.layout}:{v.memory_config().buffer_type}"
+    if isinstance(v, (list, tuple)):
+        return "[" + ",".join(_op_desc(x) for x in v) + "]"
+    return repr(v)[:120]
+
+
+def _ops(run):
+    """``run()`` and the list of ttnn calls it made, each as name plus operand description.
+    Diagnostic for `TRACE_RECOMPUTE_CHECK`: a replay that disagrees with eager on the same
+    inputs ran different calls, and the first differing one names the state that moved."""
+    from ttnn import decorators as D
+    real = {c: c.__call__ for c in (D.FastOperation, D.Operation)}
+    log = []
+
+    def rec(f):
+        def call(op, *a, **k):
+            log.append(f"{getattr(op, 'python_fully_qualified_name', op)}("
+                       + ", ".join([_op_desc(x) for x in a] + [f"{n}={_op_desc(x)}" for n, x in k.items()]) + ")")
+            return f(op, *a, **k)
+        return call
+
+    for c, f in real.items():
+        c.__call__ = rec(f)
+    try:
+        out = run()
+    finally:
+        for c, f in real.items():
+            c.__call__ = f
+    return out, log
+
+
+def _ops_diff(key, ref, now) -> None:
+    i = next((i for i, (x, y) in enumerate(zip(ref, now)) if x != y), min(len(ref), len(now)))
+    print(f"[trace-check] {key!r}: capture made {len(ref)} calls, eager {len(now)}; first difference at {i}:\n"
+          f"  capture: {ref[i] if i < len(ref) else '<end>'}\n  eager:   {now[i] if i < len(now) else '<end>'}",
+          flush=True)
+
+
+_ROPS: dict = {}      # (key, signature) -> the calls its capture made, when checking
+
+
 def _rt_first(device, sig, run):
     """A unit's first eager run at a key; its DRAM rise is measured for the signature's first."""
     if sig in _RPEAK:
@@ -3074,6 +3117,12 @@ def _rt_batch(device, sig, sh):
         RTRACE_STATS["regrow"] += 1
         return
     runs = [functools.partial(make, sh) for make in pend.values()]
+    if TRACE_RECOMPUTE_CHECK:
+        def logged(key, run):
+            def go():
+                _, _ROPS[(key, sig)] = _ops(run)
+            return go
+        runs = [logged(key, run) for key, run in zip(pend, runs)]
     # One warm pass through the shared buffers compiles anything only they reach.
     runs[0]()
     ttnn.synchronize_device(device)
@@ -3198,13 +3247,15 @@ def _traced_forward(key, fn, inputs):
             _rt_copy_in(vals, sh["ins"])
             ttnn.execute_trace(device, st[0], cq_id=0, blocking=False)
             again = _rt_clone(sh["outs"])
-            post = flat(fn(*inputs))
+            post, now = _ops(lambda: flat(fn(*inputs)))
             rel = lambda xs, ys: max([_rel(x, y) for x, y in zip(xs, ys) if x is not None and y is not None] or [0.0])
             r = dict(eager=rel(outs, post), again=rel(outs, again), drift=rel(pre, post), pre=rel(outs, pre))
             RTRACE_CHECKS.append(dict(key=repr(key), unit="fwd", replay=RTRACE_STATS["replay"], rel=[r["eager"]], **r))
             if max(r.values()) > 0:
                 print(f"[trace-check] fwd replay {RTRACE_STATS['replay']} {key!r}: "
                       + " ".join(f"{k} {v:.3e}" for k, v in r.items()), flush=True)
+                if (key, sig) in _ROPS:
+                    _ops_diff(key, _ROPS.pop((key, sig)), now)
         return tuple(outs) if _RSHAPE[sig] else outs[0]
 
     y = _rt_first(device, sig, lambda: fn(*inputs)) if st == 0 else fn(*inputs)
