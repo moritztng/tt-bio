@@ -16344,7 +16344,7 @@ class OuterProductMean(Module):
                 return out
             try:
                 return ttnn.matmul(x, y, transpose_b=True, dtype=z_dtype,
-                                   compute_kernel_config=bfp8_fidelity(self.compute_kernel_config, x, y))
+                                   compute_kernel_config=self.compute_kernel_config)
             except RuntimeError as exc:
                 # With bfp8 operands and an fp32 accumulator ttnn's default program for a deep
                 # depth chunk asks for more CBs than L1 holds (1593376 B > 1499136 B on Wormhole,
