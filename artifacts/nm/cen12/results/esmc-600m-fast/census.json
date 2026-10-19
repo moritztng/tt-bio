@@ -1,0 +1,65 @@
+{
+ "model": "esmc-600m",
+ "fast": true,
+ "n_seqs": 7,
+ "eager_ms": 151.67,
+ "wrapped_ms": 213.52,
+ "op_sum_ms": 144.23,
+ "by_kind": {
+  "generic_op:mm_gate": 37.875,
+  "dit_minimal_matmul_addcmul_fused": 32.832,
+  "minimal_matmul_split": 20.626,
+  "layer_norm": 18.605,
+  "generic_op:sdpa_generic": 16.904,
+  "generic_op:qk_rope_heads": 16.147,
+  "squeeze": 1.08,
+  "to_layout": 0.16
+ },
+ "rows": [
+  {
+   "op": "generic_op:mm_gate (7, 544, 1152)",
+   "n": 36,
+   "ms": 37.875
+  },
+  {
+   "op": "dit_minimal_matmul_addcmul_fused (7, 544, 3072) x (3072, 1152)",
+   "n": 36,
+   "ms": 20.701
+  },
+  {
+   "op": "minimal_matmul_split (7, 544, 1152) x (1152, 3456)",
+   "n": 36,
+   "ms": 20.626
+  },
+  {
+   "op": "layer_norm (7, 544, 1152)",
+   "n": 73,
+   "ms": 18.605
+  },
+  {
+   "op": "generic_op:sdpa_generic (7, 18, 544, 64)",
+   "n": 36,
+   "ms": 16.904
+  },
+  {
+   "op": "generic_op:qk_rope_heads (7, 544, 1152)",
+   "n": 36,
+   "ms": 16.147
+  },
+  {
+   "op": "dit_minimal_matmul_addcmul_fused (7, 544, 1152) x (1152, 1152)",
+   "n": 36,
+   "ms": 12.131
+  },
+  {
+   "op": "squeeze (7, 1, 544, 1152)",
+   "n": 36,
+   "ms": 1.08
+  },
+  {
+   "op": "to_layout (7, 544, 1152)",
+   "n": 1,
+   "ms": 0.16
+  }
+ ]
+}
