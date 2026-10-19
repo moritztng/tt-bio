@@ -14,7 +14,7 @@ TA_CORR (online-softmax rescale, k chunks after the first).
 `--batch` below 512 keeps every core's marker buffer from overflowing (a unit's stage times do not
 depend on how many units a core runs, only DRAM contention does; compare the two).
 """
-import argparse, collections, csv, json, os, pathlib, statistics, sys, time
+import argparse, collections, contextlib, csv, json, os, pathlib, statistics, sys, time
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
@@ -67,6 +67,8 @@ def main():
     ap.add_argument("--heads", type=int, default=4, help="Boltz-2 4, Protenix-v2 8")
     ap.add_argument("--batch", type=int, default=S)
     ap.add_argument("--calls", type=int, default=1, help="profiled calls after the warm-up")
+    ap.add_argument("--b8", action="store_true", help="q, k, v and bias bfp8, as triatt_ln_b8 feeds the op (WH --fast)")
+    ap.add_argument("--levers", default=None, help="lever set to run the op under (default: the process default)")
     ap.add_argument("--out", default="perf/b2z_sdpa_floor/zones_512.json")
     args = ap.parse_args()
     assert os.environ.get("TT_BIO_TRIATT_ZONES"), "set TT_BIO_TRIATT_ZONES=1 (and run under a profiler build)"
@@ -78,7 +80,7 @@ def main():
     B, H = args.batch, args.heads
 
     def dram(x):
-        return ttnn.from_torch(x, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16,
+        return ttnn.from_torch(x, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat8_b if args.b8 else ttnn.bfloat16,
                                memory_config=ttnn.DRAM_MEMORY_CONFIG)
 
     torch.manual_seed(0)
@@ -87,7 +89,8 @@ def main():
     scale = D ** -0.5
 
     def call():
-        o = T._tri_att_sdpa_at(q, k, v, bias, scale)
+        with T.levers(args.levers) if args.levers else contextlib.nullcontext():
+            o = T._tri_att_sdpa_at(q, k, v, bias, scale)
         assert o is not None, "triatt SDPA declined this shape"
         return o
 
@@ -106,6 +109,7 @@ def main():
     per, mhz, units = parse(path)
     mhz = mhz or 1000.0
     res = {"doc": __doc__, "meta": {"card": os.environ.get("TT_VISIBLE_DEVICES"), "shape": [B, H, S, D],
+                                    "b8": args.b8, "levers": args.levers,
                                     "grid": list(T.COMPUTE_GRID_MAIN), "mhz": mhz, "csv": path,
                                     "wall_ms_per_call": wall_ms, "loadavg": os.getloadavg(),
                                     "units_per_core": dict(collections.Counter(units.values()))},

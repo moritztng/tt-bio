@@ -127,9 +127,13 @@ FAST_LEVERS = NORMAL_LEVERS | {"dit_s16", "diffusion_bf16", "trimul_t1", "trimul
 # models (512-token --fast fold A/B, xmodel_ab, dl1w, 2026-10-19). Galaxy chip at 1000 MHz, the three warm pairs after
 # the first (which paid the L1 programs' compile): OpenFold3 -0.95 / -0.87 / -0.71 s, OpenBind-0 -1.04 / -0.99 / -1.09 s.
 # Flat on Blackhole (bhl1), so Wormhole only.
+# atom_l1 (the atom transformer's per-step tensors in L1, placement only): CIFs identical with and without it on both
+# models (512-token --fast fold A/B, a3lw2, 2026-10-19, and at 1024 / 1568 tokens, a3ls). Galaxy chip at 1000 MHz,
+# 2 chips x 5 warm pairs after the compile pair, every pair faster: OpenFold3 -0.36 s, OpenBind-0 -0.38 s mean.
+# Not measured on Blackhole, so Wormhole only.
 WH_NORMAL_LEVERS = NORMAL_LEVERS | {"trimul_bres"}
 WH_FAST_LEVERS = FAST_LEVERS | {"apb_ln", "trimul_sig6", "trimul_bres", "triatt_hifi2", "dit_sigf32",
-                                  "triatt_ln_b8", "dit_l1"}
+                                  "triatt_ln_b8", "dit_l1", "atom_l1"}
 
 def kabsch_rmsd(pred_ca, gt_ca):
     """Optimal-superposition Cα-RMSD (Kabsch). pred_ca, gt_ca: [N, 3].
