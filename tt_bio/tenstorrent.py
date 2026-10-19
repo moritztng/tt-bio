@@ -768,7 +768,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in",
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
           "transition_shard", "dit_mm16", "atom_k1", "dit_b8", "dit_qkv16", "atom_mm16", "adaln_mod",
-          "swiglu_fc12g", "msa_sample", "dit_sdpa_pm", "dit_s16", "dit_chunk", "conf_bins", "trimul_t1", "trimul_t2",
+          "swiglu_fc12g", "msa_sample", "dit_sdpa_pm", "dit_s16", "dit_chunk", "dit_pad", "conf_bins", "trimul_t1", "trimul_t2",
           "trimul_t2g", "triatt_tail_bias", "dit_cond_hifi2", "transition_ws", "ws_ln", "trimul_t1_dram",
           "trimul_t2m", "trimul_t2cm", "dit_fuse", "pair_mm", "ref_memo", "edm_device", "ws_l1acc", "ws_resid", "pib_where", "relp_host",
           "trimul_t2w", "narrow_bw16", "ws_l1dest", "opm_jd", "trimul_gin_hifi2", "trimul_gin_b8",
@@ -786,7 +786,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
 # graded on OpenFold3 / OpenBind-0, and the bit-exact triatt_ln (openfold3_fold.FAST_LEVERS).
 # ref_memo is host featurisation, OpenFold3 / OpenBind-0 only: one reference conformer per residue type
 # (vendored query.REF_MOL_MEMO), read by worker._predict_openfold3_one off the model's lever set.
-UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "dit_cond_hifi2", "ws_ln", "dit_fuse",
+UNGRADED_LEVERS = frozenset({"dit_pad", "trimul_b8in", "atom_mm16", "triatt_tail_bias", "dit_cond_hifi2", "ws_ln", "dit_fuse",
                              "pair_mm", "ref_memo", "trimul_t2m", "edm_device", "ws_l1acc", "pib_where", "relp_host", "trimul_t2w",
                              "narrow_bw16", "ws_l1dest", "trimul_gin_hifi2", "trimul_gin_b8",
                              "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine", "ef2_opm_kq",
@@ -2410,6 +2410,40 @@ def _dit_sdpa_chunk(seq_len: int) -> int:
 
 
 @lru_cache(maxsize=None)
+def dit_sdpa_pad_len(seq_len: int) -> int:
+    """`dit_pad`: the token length the DiT runs at so `_dit_sdpa_chunk(seq_len)` divides it, or 0 when it
+    already does. Rows past `seq_len` are zeros and their keys are masked, so the attention's real rows
+    are the ones the op computes today, when it pads to the k chunk inside the call.
+
+    Every DiT linear runs at the padded length too, so a pad over 1/8 of the length (608 -> 768,
+    1088 -> 1280) is declined: those rows cost the linears more than the SDPA can save, unmeasured."""
+    padded = _padded_sdpa_len(seq_len)
+    k = _dit_sdpa_chunk(seq_len)
+    to = -(-padded // k) * k
+    return 0 if to == padded or 8 * (to - padded) > padded else to
+
+
+@lru_cache(maxsize=None)
+def dit_sdpa_plan(seq_len: int, work: int) -> tuple:
+    """`dit_pad`: (padded length, q chunk, k chunk) for a token DiT whose length `_dit_sdpa_chunk` has no
+    divisor for, e.g. 1216 tokens (38 tiles = 2 x 19), where the op pads to 1280 inside the call and costs
+    1.028 ms on a Wormhole chip against 0.256 ms at 1024.
+
+    k stays `_dit_sdpa_chunk(seq_len)`, so the online-softmax order and the output bits are today's. q only
+    moves rows between cores: the narrowest wave count times the chunk wins, `ceil(work * P / q / cores) * q`,
+    q in [64, k], ties to the widest. At 1216 (work 16, 72 cores) that is q160, k256 on 1280. MEASURED
+    [1, 16, 1216, 64] against a [1, 16, 1216, 1216] bias, Galaxy chip at 1000 MHz (perf/spd/dit_sdpa_sweep.py):
+    256/256 1.028 ms; padded to 1280: 160/256 0.405, 64/256 0.523, 128/256 0.678, all torch.equal to it."""
+    P = dit_sdpa_pad_len(seq_len)
+    k = _dit_sdpa_chunk(seq_len)
+    if not P:
+        return _padded_sdpa_len(seq_len), k, k
+    cores = COMPUTE_GRID_MAIN[0] * COMPUTE_GRID_MAIN[1]
+    q = min((-(-work * (P // c) // cores) * c, -c) for c in range(64, k + 1, SDPA_CHUNK_TILE) if P % c == 0)[1]
+    return P, -q, k
+
+
+@lru_cache(maxsize=None)
 def _tri_att_sdpa_program_config(q_len: int, k_len: int) -> ttnn.SDPAProgramConfig:
     q_chunk, k_chunk = _sdpa_chunks_shipped(q_len, k_len)
     return _sdpa_program_config(q_chunk_size=q_chunk, k_chunk_size=k_chunk)
@@ -3003,16 +3037,17 @@ def sdpa32_rows(n: int) -> int:
     return -(-n // 128) * 128
 
 
-def sdpa32_mask(b: ttnn.Tensor) -> ttnn.Tensor:
-    """A (1, H, n, n) pair bias as `_sdpa32`'s mask: padded to `sdpa32_rows(n)`, new keys masked,
-    new query rows 0 (they are sliced off, and a row masked everywhere would divide by zero).
+def sdpa32_mask(b: ttnn.Tensor, rows: int = 0, value: float = _SDPA32_PAD_MASK) -> ttnn.Tensor:
+    """A (1, H, n, n) pair bias as `_sdpa32`'s mask: padded to `sdpa32_rows(n)` (or `rows`), new keys
+    masked with `value`, new query rows 0 (they are sliced off, and a row masked everywhere would
+    divide by zero). `dit_pad` reuses it for the bf16 DiT at `dit_sdpa_pad_len` and `_SDPA_PAD_MASK`.
 
     Always a fresh buffer: inside the last tile `ttnn.pad` aliases its source, and the caller
     frees the bias it hands in."""
     n = int(b.shape[-1])
-    pad = sdpa32_rows(n) - n
+    pad = (rows or sdpa32_rows(n)) - n
     r = ttnn.pad(b, [(0, 0), (0, 0), (0, pad), (0, 0)], value=0.0)
-    m = ttnn.pad(r, [(0, 0), (0, 0), (0, 0), (0, pad)], value=_SDPA32_PAD_MASK)
+    m = ttnn.pad(r, [(0, 0), (0, 0), (0, 0), (0, pad)], value=value)
     if r.buffer_address() not in (b.buffer_address(), m.buffer_address()):
         ttnn.deallocate(r)
     return ttnn.clone(m) if m.buffer_address() == b.buffer_address() else m
@@ -12220,6 +12255,9 @@ class AttentionPairBias(Module):
         # Set by protenix's DiffusionModule under `dit_sdpa32`: the fp32 token DiT's attention
         # runs as `_sdpa32` on a padded token axis, and `finish_bias` makes its mask.
         self.sdpa32 = False
+        # Set per fold by protenix's DiffusionModule under `dit_pad`: the token count the DiT runs padded
+        # to `dit_sdpa_pad_len`, so the fused SDPA takes `dit_sdpa_plan`'s chunks. None otherwise.
+        self.dit_rows = None
         # A DitLowp and the qkv / gate / out weights at its format, set by `enable_lowp`.
         self._lp = None
         if atom_level:
@@ -12716,11 +12754,15 @@ class AttentionPairBias(Module):
                 # chain's (q@k^T + z) * head_dim**-0.5 exactly in exact arithmetic; what differs
                 # is the bf16 exponentiated-score buffer, hence the accuracy gate on this arm.
                 def stock(q_, k_, v_, b_):
+                    # dit_pad: the caller ran the DiT `dit_rows` tokens long padded to the plan's length.
+                    plan = (dit_sdpa_plan(self.dit_rows, int(q_.shape[0]) * int(q_.shape[1]))
+                            if self.dit_rows and int(q_.shape[2]) == dit_sdpa_pad_len(self.dit_rows) else None)
                     return fused_sdpa(
                         q_, k_, v_,
                         attn_mask=b_,
                         scale=self.head_dim**-0.5,
                         program_config=(
+                            _sdpa_program_config(q_chunk_size=plan[1], k_chunk_size=plan[2]) if plan else
                             _sdpa_program_config(q_chunk_size=_dit_sdpa_chunk(q_.shape[2]),
                                                  k_chunk_size=_dit_sdpa_chunk(k_.shape[2]))
                             if lever("dit_chunk") else

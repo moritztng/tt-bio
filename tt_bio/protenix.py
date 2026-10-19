@@ -1382,6 +1382,12 @@ class DiffusionModule(_KeyedWeights):
         # dit_sdpa32: the fp32 DiT's attention as one SDPA program on a token axis padded by
         # sdpa32_rows; _token_dit_device pads and slices, finish_bias builds the padded mask.
         self._dit_sdpa32 = _T.lever("dit_sdpa32") and self._dit_dtype == ttnn.float32
+        # dit_pad: a bf16 DiT whose token count `dit_chunk` has no divisor for runs padded to
+        # `dit_sdpa_pad_len` (biases padded once a fold, a_t/s_t once a step), so the fused SDPA
+        # takes `dit_sdpa_plan`'s chunks instead of padding inside every call. The stock op only:
+        # `dit_sdpa_pm` picks its own pairs.
+        self._dit_pad = (_T.lever("dit_pad") and _T.lever("dit_chunk") and _T.lever("dit_sdpa")
+                         and not _T.lever("dit_sdpa_pm") and self._dit_dtype == ttnn.bfloat16)
         # dit_mm16 (fp32 DiT) / dit_b8 (bf16 DiT): the DiT's linears at lower operand formats.
         self._dit_lp = _T.dit_lowp(self._dit_dtype, self._dit_ckc)
         self._dit = []
@@ -1778,8 +1784,13 @@ class DiffusionModule(_KeyedWeights):
         # scores, the softmax) beside one bias uploaded for its read: keep that free, park the
         # rest. At 2987 structural tokens the 24 biases are 13.9 GB of fp32 on a 12 GiB chip.
         NT = int(z_dev.shape[-2])
+        pad_to = _T.dit_sdpa_pad_len(NT) if self._dit_pad else 0
+        for (_, apb, _, _, _) in self._dit:
+            apb.dit_rows = NT if pad_to else None
         if self._dit_sdpa32:
             NT = _T.sdpa32_rows(NT)
+        elif pad_to:
+            NT = pad_to
         one = _T._padded_bytes((1, self.DIT_N_HEADS, NT, NT),
                                4 if self._dit_dtype == ttnn.float32 else 2)
         reserve = 4 * one
@@ -1795,6 +1806,10 @@ class DiffusionModule(_KeyedWeights):
             fb = apb.finish_bias(b)
             if fb is not b:
                 ttnn.deallocate(b)
+            if pad_to:
+                m = _T.sdpa32_mask(fb, pad_to, _T._SDPA_PAD_MASK)
+                ttnn.deallocate(fb)
+                fb = m
             biases.append(place(fb, reserve))
         # z_dev's only reader was this loop, and the room it frees takes parked biases back.
         ttnn.deallocate(z_dev)
@@ -1824,7 +1839,8 @@ class DiffusionModule(_KeyedWeights):
             a_t = ttnn.typecast(a_t, self._dit_dtype)
             s_t = ttnn.typecast(s_t, self._dit_dtype)
         wtt = self._w_tt_dit if self._dit_fp32 else self._w_tt
-        NP = _T.sdpa32_rows(NT) if self._dit_sdpa32 else NT
+        NP = (_T.sdpa32_rows(NT) if self._dit_sdpa32 else
+              (_T.dit_sdpa_pad_len(NT) or NT) if self._dit_pad else NT)
         if NP != NT:
             # Rows are independent everywhere but the attention, whose mask hides the new keys.
             a_t, s_t = (ttnn.pad(x, [(0, 0)] * (len(x.shape) - 2) + [(0, NP - NT), (0, 0)], value=0.0)
