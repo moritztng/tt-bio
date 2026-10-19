@@ -936,6 +936,30 @@ def _v_concat(shipped, args, kwargs):
     return _tape(out_v, xs, make)
 
 
+@_verb("repeat")
+def _v_repeat(shipped, args, kwargs):
+    """A repeat along axes where the input has extent 1 is a broadcast, so its backward is the
+    sum over each repeated axis. Tiling a wider axis is not taped: it raises rather than guess
+    how the copies fold back."""
+    x = _wrap(args[0])
+    reps = [int(r) for r in (kwargs.get("repetition_vector") or args[1])]
+    shape = [int(d) for d in x.value.shape]
+    axes = [ax for ax, r in enumerate(reps) if r != 1]
+    if any(shape[ax] != 1 for ax in axes):
+        raise NotImplementedError(f"taped ttnn.repeat {reps} of {shape}: only extent-1 axes are taped")
+    ra, rk = _raw(args, kwargs)
+    out_v = shipped(*ra, **rk)
+
+    def make():
+        def bw(g):
+            for ax in axes:
+                g = ttnn.sum(g, dim=ax, keepdim=True)
+            x.add_grad(g)
+        return bw
+
+    return _tape(out_v, [x], make)
+
+
 def _sliced(x: "Tensor", out_v, starts, ends):
     """Tape one slice of ``x`` whose value is already computed.
 
