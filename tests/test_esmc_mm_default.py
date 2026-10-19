@@ -214,3 +214,13 @@ def test_saprot_ln_l1_fast_only(wdtype, want_l1, monkeypatch):
     x = types.SimpleNamespace(padded_shape=(7, 544, 1280))
     sp._block_ln(x, None, None, None, _T(1280, 3840, getattr(ttnn, wdtype)))
     assert (seen == [ttnn.L1_MEMORY_CONFIG]) == want_l1 and len(seen) == 1
+
+
+@pytest.mark.parametrize("switch", [None, True, False])
+def test_saprot_sdpa_fp32_dest_with_qkrh(switch, monkeypatch):
+    """SaProt's page attention runs at HiFi4 fp32 dest behind the packed RoPE program by default; the switch overrides."""
+    from tt_bio import saprot as sp
+    monkeypatch.setattr(sp, "_SAPROT_SDPA", switch)
+    for qkrh in (True, False):
+        want = qkrh if switch is None else switch
+        assert sp._sdpa_ckc(qkrh) == (sp._SDPA_FP32 if want else None)
