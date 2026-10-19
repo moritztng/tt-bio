@@ -164,6 +164,7 @@ _SDPA_CKCS = {
     "hifi3": (ttnn.MathFidelity.HiFi3, True, False, False),
     "hifi4": (ttnn.MathFidelity.HiFi4, True, False, False),
     "hifi4f": (ttnn.MathFidelity.HiFi4, False, True, False),   # fp32 dest
+    "hifi2f": (ttnn.MathFidelity.HiFi2, False, True, False),
 }
 
 
