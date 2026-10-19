@@ -38,7 +38,7 @@ def _write(path, cols, rows):
 
 def make_campaign(root, target, arm, seed, n=10, *, iptm=0.40, plddt=0.87, rmsd=1.5, spread=0.05, iterations=140,
                   accepted=0, terminated_every=4, nan_candidate=False, autotuned=False, identical_sequences=False,
-                  dup_candidates=0, rng_seed=0):
+                  dup_candidates=0, n_candidates=10, rng_seed=0):
     """One campaign_s<seed>/ tree in BindCraft 2's layout. Returns its arm directory."""
     rng = random.Random(rng_seed)
     arm_dir = os.path.join(root, target, f"{arm}_s{seed}")
@@ -71,7 +71,7 @@ def make_campaign(root, target, arm, seed, n=10, *, iptm=0.40, plddt=0.87, rmsd=
                LOSS_COLS + ["hPDL1.iptm", "hPDL1.ptm", "phase", "round"], rows)
         if early:
             continue
-        for k in range(10):
+        for k in range(n_candidates):
             seq = "A" * 80 if identical_sequences else "".join(rng.choice(AMINO) for _ in range(80))
             bad = nan_candidate and i == 1 and k == 0
             cand_rows.append({
@@ -200,13 +200,13 @@ def test_the_verdict_level_mde_is_the_holm_corrected_one():
     """What a metric must move to fail the VERDICT, which is the number a lever is really graded against.
 
     A single real effect has to be the first Holm rejection, so it clears alpha/FAMILY_SIZE, not alpha. At n=30
-    that is 0.693 SD paired against the bare 0.511: quoting only the bare number overstates the harness by ~36%
+    that is 0.697 SD paired against the bare 0.511: quoting only the bare number overstates the harness by ~36%
     and would let a lever ship on a 'no significant difference' the test never had the power to find.
     """
     a_holm = Q.ALPHA / Q.FAMILY_SIZE
     mde = Q.mde_sd_units(30, paired=True, alpha=a_holm)
-    assert Q.FAMILY_SIZE == 16
-    assert mde == pytest.approx(0.693, abs=2e-3)
+    assert Q.FAMILY_SIZE == 17, "9 mean/count/work tests + sequence diversity + 6 spread tests"
+    assert mde == pytest.approx(0.697, abs=2e-3)
     assert mde > Q.mde_sd_units(30, paired=True)
     rng = random.Random(11)
     hits = sum(Q.paired_perm_mean_diff([rng.gauss(mde, 1) for _ in range(30)], n=4000, seed=i) < a_holm
@@ -353,6 +353,28 @@ def test_a_narrowed_spread_needs_a_test_not_a_ratio(tmp_path):
     c = Q.collapse_check(read_all(flat), read_all(ref))
     assert c["collapsed"], c
     assert any("Brown-Forsythe" in r for r in c["reasons"]), c["reasons"]
+
+
+def test_fewer_mpnn_sequences_is_caught(tmp_path):
+    """The charter's 'No cheating' clause bars fewer MPNN sequences as squarely as fewer iterations, and only
+    iterations was guarded. Halving the sequences a trajectory redesigns is less of the model's own work however
+    good the surviving designs look."""
+    ref = make_arm(str(tmp_path), "pdl1", "ref", seeds=(101, 102, 103), n_candidates=10)
+    arm = make_arm(str(tmp_path), "pdl1", "tt", seeds=(101, 102, 103), n_candidates=5)
+    g = Q.grade(read_all(arm), read_all(ref), "tt")
+    assert not g["work_unchanged"]["mpnn_sequences"]
+    assert g["verdict"] == "FAIL"
+    assert any("mpnn_sequences" in r for r in g["reasons"]), g["reasons"]
+
+
+def test_an_equal_mpnn_sequence_count_passes(tmp_path):
+    """And the guard must not fire on an arm doing the same work, early terminations included: a trajectory that
+    never reached refolding contributes NaN, not a zero that would read as a cut."""
+    ref = make_arm(str(tmp_path), "pdl1", "ref", seeds=(101, 102, 103), n_candidates=10)
+    arm = make_arm(str(tmp_path), "pdl1", "tt", seeds=(101, 102, 103), n_candidates=10, rng_offset=4000)
+    g = Q.grade(read_all(arm), read_all(ref), "tt")
+    assert g["work_unchanged"] == {"iterations": True, "mpnn_sequences": True}
+    assert g["verdict"] == "PASS", g["reasons"]
 
 
 def test_a_changed_iteration_count_is_caught(tmp_path):

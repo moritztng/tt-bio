@@ -41,6 +41,12 @@ from statistics import NormalDist
 CONTINUOUS = ("i_ptm", "plddt", "rmsd", "traj_iptm", "traj_plddt", "final_loss")
 COUNTED = ("accepted", "completed")
 ITERATIONS = "iterations"
+MPNN = "mpnn_sequences"
+# The charter's "No cheating" clause bars doing less of the model's own work: "never fewer iterations, stages,
+# recycles, models or MPNN sequences". These are not quality metrics, they are work guards, and a lever that
+# quietly moves one is cheating however good its designs look. Recycles and models are config and never reach the
+# CSVs; stages come out as the terminated distribution; iterations and MPNN sequence count are per trajectory.
+WORK = (ITERATIONS, MPNN)
 
 ALPHA = 0.05
 POWER = 0.80
@@ -48,7 +54,7 @@ SPREAD_MIN_N = 5  # below this a spread comparison cannot separate collapse from
 # Every test grade() can fail the verdict on, in one Holm family: the mean/count tests, plus sequence diversity
 # and one spread test per continuous metric. A single real effect has to clear alpha/FAMILY_SIZE to be the first
 # Holm rejection, so this is what the detectable effect size is quoted at, not the bare alpha.
-FAMILY_SIZE = len(CONTINUOUS + COUNTED + (ITERATIONS,)) + 1 + len(CONTINUOUS)
+FAMILY_SIZE = len(CONTINUOUS + COUNTED + WORK) + 1 + len(CONTINUOUS)
 PERM_N = 20000  # permutation resamples; tests lower it, nothing else should
 
 
@@ -256,7 +262,7 @@ def read_arm(root: str) -> list[Trajectory]:
 
 def metric_values(trajectories: list[Trajectory]) -> dict[str, list[tuple[tuple[int, int], float]]]:
     """Per metric, the (pair key, value) list. NaN means the trajectory produced no such value."""
-    vals: dict[str, list[tuple[tuple[int, int], float]]] = {m: [] for m in CONTINUOUS + COUNTED + (ITERATIONS,)}
+    vals: dict[str, list[tuple[tuple[int, int], float]]] = {m: [] for m in CONTINUOUS + COUNTED + WORK}
     for t in trajectories:
         vals["i_ptm"].append((t.key, _best(t.candidates, "i_pTM")))
         vals["plddt"].append((t.key, _best(t.candidates, "pLDDT")))
@@ -267,6 +273,9 @@ def metric_values(trajectories: list[Trajectory]) -> dict[str, list[tuple[tuple[
         vals["accepted"].append((t.key, float(t.accepted)))
         vals["completed"].append((t.key, float(t.completed)))
         vals[ITERATIONS].append((t.key, float(t.iterations)))
+        # NaN where the trajectory never reached refolding, so early terminations do not read as a
+        # cut in MPNN sequences; the terminated distribution is what catches those.
+        vals[MPNN].append((t.key, float(len(t.candidates)) if t.candidates else float('nan')))
     return vals
 
 
@@ -474,7 +483,7 @@ def autotune_check(trajectories: list[Trajectory]) -> dict:
 
 def grade(arm: list[Trajectory], ref: list[Trajectory], label: str, seed: int = 0) -> dict:
     va, vr = metric_values(arm), metric_values(ref)
-    means = [compare_metric(m, va[m], vr[m], seed=seed) for m in CONTINUOUS + COUNTED + (ITERATIONS,)]
+    means = [compare_metric(m, va[m], vr[m], seed=seed) for m in CONTINUOUS + COUNTED + WORK]
     # ONE Holm family over every test that can fail the verdict. Holm'ing the mean tests and the collapse tests
     # separately leaves two families each controlled at alpha, and the verdict is their OR: on synthetic A/A draws
     # at n=30 that put the verdict's false-positive rate near 10% against a nominal 5%, and the charter's A/A
@@ -521,6 +530,13 @@ def grade(arm: list[Trajectory], ref: list[Trajectory], label: str, seed: int = 
                  f"alpha={ALPHA}"),
         "metrics": {r["metric"]: r for r in results},
         "iteration_distribution_unchanged": not iters.get("significant", False),
+        # The charter's work guards, reported on their own so a reader does not have to pick them out of metrics:
+        # a lever that cuts them is cheating however good its designs look. terminated_distribution carries the
+        # stages; recycles and models are config and never reach the CSVs, so they are not gradable from output.
+        "work_unchanged": {m: not next(r for r in results if r["metric"] == m).get("significant", False)
+                           for m in WORK},
+        "terminated_distribution": {k: [sum(1 for t in a if (t.terminated or "completed") == k) for a in (arm, ref)]
+                                    for k in sorted({(t.terminated or "completed") for t in list(arm) + list(ref)})},
         "nan": nan, "collapse": collapse, "autotune": tune,
         "equivalence_note": (
             "A non-significant result is not proof of equality. Each metric carries mde_metric_units: the smallest "
