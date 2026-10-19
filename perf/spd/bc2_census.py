@@ -216,6 +216,11 @@ def waited(name, fn):
 
 for _verb in ("sync", "down", "seed"):
     setattr(bc2._Trunk, _verb, waited(_verb, getattr(bc2._Trunk, _verb)))
+# Host-to-device writes can block on the command queue, which would hide card time inside "host" time.
+_ttnn = __import__("ttnn")
+for _verb in ("from_torch", "copy_host_to_device_tensor"):
+    if hasattr(_ttnn, _verb):
+        setattr(_ttnn, _verb, waited(_verb, getattr(_ttnn, _verb)))
 
 
 def loadavg():
