@@ -824,7 +824,7 @@ LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffus
           "lm_gate_ng", "lm_sdpa_stock", "lm_ln_stock", "lm_k64", "lm_linear", "triatt_hifi2", "dit_cond_jcat", "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32",
           "triatt_ln_b8", "triatt_ln_b8g", "trimul_t1w8", "atom_l1", "trimul_gin_w8", "dit_l1", "opm_b8cfg", "trimul_bres_bh", "ws_psilu",
             "trimul_t2fold", "dit_mask8", "trimul_bres_b8", "ws_b8_plain", "dit_shard", "dit_shoist_mm", "dit_step_mm",
-          "trimul_t1_2g", "trimul_t1_psig")
+          "trimul_t1_2g", "trimul_t1_psig", "triatt_kw")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -844,7 +844,7 @@ UNGRADED_LEVERS = frozenset({"trimul_b8in", "inproj_k6", "inproj_split", "dit_bp
                              "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32", "triatt_ln_b8",
                              "triatt_ln_b8g", "trimul_t1w8", "trimul_gin_w8", "opm_b8cfg", "trimul_bres_bh", "ws_psilu",
                              "trimul_t2fold", "dit_mask8", "trimul_bres_b8", "ws_b8_plain", "dit_shoist_mm", "dit_step_mm", "trimul_t1_2g",
-                             "trimul_t1_psig"})
+                             "trimul_t1_psig", "triatt_kw"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -3523,12 +3523,15 @@ def _tri_att_k_chunks(q_len: int, k_len: int, heads=None, head_dim=None, dtype=N
     to divide the padded sequence -- the only case K5 changes -- or `_SDPA_WIDE_K_UP` adds a rung
     above it that fits at this operand dtype."""
     up = ()
-    if (_SDPA_WIDE_K_UP or lever("triatt_k1")) and None not in (heads, head_dim, dtype):
+    k1, kw = lever("triatt_k1"), lever("triatt_kw")
+    if (_SDPA_WIDE_K_UP or k1 or kw) and None not in (heads, head_dim, dtype):
         up = _k_chunks_up(q_len, k_len, heads, head_dim, dtype)
         if not _SDPA_WIDE_K_UP:
-            # triatt_k1 is the one-k-chunk rung only. A wider k that still takes two chunks keeps the
-            # rescale pass: at 576 tokens (k288 over the shipped k192) the PV2 WH fast fold ran ~4 s slower.
-            up = tuple(kc for kc in up if kc == _padded_sdpa_len(k_len))
+            # triatt_k1 is the one-k-chunk rung, triatt_kw the wider rungs that still take two chunks or more.
+            # They are separate levers because they are separate trades: kw keeps the rescale pass, and at
+            # 576 tokens (k288 over the shipped k192) the PV2 WH fast fold ran ~4 s slower with it.
+            full = _padded_sdpa_len(k_len)
+            up = tuple(kc for kc in up if (k1 if kc == full else kw))
     rest = _dividing_k_chunks(q_len, k_len) if _sdpa_wide_k() else (_sdpa_chunks_shipped(q_len, k_len)[1],)
     return tuple(dict.fromkeys(up + rest))
 
