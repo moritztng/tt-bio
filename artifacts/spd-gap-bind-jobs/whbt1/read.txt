@@ -1,0 +1,15 @@
+arm     seed traj done redes acc  pLDDT(n)   i_pTM  traj_last_iptm  s/iter
+off      151    5    2    15   1  0.890(2)  0.850  0.482  4.94
+off      152    5    2    11   2  0.950(2)  0.860  0.440  5.07
+off      153    5    2    19   1  0.900(2)  0.790  0.468  4.87
+off      154    5    3    21   2  0.880(3)  0.770  0.726  4.94
+off      155    5    0     0   0  nan(0)  nan  0.188  5.06
+off      156    5    2    15   2  0.940(2)  0.860  0.518  5.12
+on       151    5    1    10   0  0.910(1)  0.730  0.292  4.77
+on       152    5    0     0   0  nan(0)  nan  0.312  4.81
+on       153    5    1     3   1  0.700(1)  0.730  0.444  4.97
+on       154    5    0     0   0  nan(0)  nan  0.338  5.11
+on       155    5    0     0   0  nan(0)  nan  0.214  5.18
+on       156    5    0     0   0  nan(0)  nan  0.462  4.86
+ARM off: campaigns 6 traj 30 completed 11 redesign 81 accepted 8 pLDDT mean-of-campaigns 0.912 (n=5) traj_last_iptm 0.470 s/iter median 5.00
+ARM on: campaigns 6 traj 30 completed 2 redesign 13 accepted 1 pLDDT mean-of-campaigns 0.805 (n=2) traj_last_iptm 0.344 s/iter median 4.91
