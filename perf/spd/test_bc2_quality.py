@@ -38,7 +38,7 @@ def _write(path, cols, rows):
 
 def make_campaign(root, target, arm, seed, n=10, *, iptm=0.40, plddt=0.87, rmsd=1.5, spread=0.05, iterations=140,
                   accepted=0, terminated_every=4, nan_candidate=False, autotuned=False, identical_sequences=False,
-                  dup_candidates=0, n_candidates=10, rng_seed=0):
+                  dup_candidates=0, n_candidates=10, rng_seed=0, trace_bias=None, trace_places=None):
     """One campaign_s<seed>/ tree in BindCraft 2's layout. Returns its arm directory."""
     rng = random.Random(rng_seed)
     arm_dir = os.path.join(root, target, f"{arm}_s{seed}")
@@ -65,7 +65,11 @@ def make_campaign(root, target, arm, seed, n=10, *, iptm=0.40, plddt=0.87, rmsd=
             row["hPDL1.ptm"] = round(0.7 + rng.gauss(0, 0.02), 4)
             if phase == "screen":  # the mutate phase records only iptm/ptm, exactly as BC2 writes it
                 for c in LOSS_COLS:
-                    row[c] = round(abs(rng.gauss(1.0, 0.1)), 4)
+                    row[c] = abs(rng.gauss(1.0, 0.1)) + (trace_bias or {}).get(c, 0.0)
+            # BC2 writes each loss column rounded, and not every column at the same number of places.
+            for c in LOSS_COLS + ["hPDL1.iptm", "hPDL1.ptm"]:
+                if row[c] != "":
+                    row[c] = round(row[c], (trace_places or {}).get(c, 4))
             rows.append(row)
         _write(os.path.join(project, "1_Trajectories", design, f"{design}_losses.csv"),
                LOSS_COLS + ["hPDL1.iptm", "hPDL1.ptm", "phase", "round"], rows)
@@ -581,3 +585,57 @@ def test_the_n_needed_is_the_inverse_of_the_mde():
     for paired in (True, False):
         n = Q.n_for_sd_units(0.5, paired=paired)
         assert abs(Q.mde_sd_units(n, paired=paired) - 0.5) < 1e-9
+
+
+# ---------------------------------------------------------------------------
+# trace agreement: the same seed on two engines, iteration by iteration
+# ---------------------------------------------------------------------------
+
+def test_the_same_run_twice_has_a_zero_trace_floor(tmp_path):
+    """Same engine, same seed: every column agrees exactly. This is the floor a cross-engine read is judged against."""
+    a = Q.read_arm(make_campaign(str(tmp_path / "a"), "pdl1", "A", 101, n=6, rng_seed=1))
+    b = Q.read_arm(make_campaign(str(tmp_path / "b"), "pdl1", "B", 101, n=6, rng_seed=1))
+    r = Q.trace_agreement(a, b, "a", "b")
+    assert r["n_paired"] == 6
+    assert r["iteration_1_max_dev_quanta"] == 0.0
+    assert set(r["iteration_1_by_column"].values()) == {0.0}
+
+
+def test_one_biased_column_is_isolated_not_smeared(tmp_path):
+    """A lever that moves one loss term must show up as that term, not as a blurred whole-trace number."""
+    a = Q.read_arm(make_campaign(str(tmp_path / "a"), "pdl1", "A", 101, n=4, rng_seed=1))
+    b = Q.read_arm(make_campaign(str(tmp_path / "b"), "pdl1", "B", 101, n=4, rng_seed=1,
+                                 trace_bias={"hPDL1.compactness": 0.4}))
+    r = Q.trace_agreement(a, b, "a", "b")
+    by = r["iteration_1_by_column"]
+    assert by["hPDL1.compactness"] > 0
+    assert all(v == 0.0 for c, v in by.items() if c != "hPDL1.compactness")
+    assert all(p["iteration_1_worst_column"] == "hPDL1.compactness" for p in r["per_trajectory"])
+
+
+def test_the_quantum_is_per_column(tmp_path):
+    """Columns are written at different precisions, so a deviation only means something in that column's own unit."""
+    places = {"hPDL1.compactness": 1, "hPDL1.binder_pae": 3}
+    a = Q.read_arm(make_campaign(str(tmp_path / "a"), "pdl1", "A", 101, n=4, rng_seed=1, trace_places=places))
+    b = Q.read_arm(make_campaign(str(tmp_path / "b"), "pdl1", "B", 101, n=4, rng_seed=2, trace_places=places))
+    q = Q.trace_agreement(a, b, "a", "b")["quantum_per_column"]
+    assert q["hPDL1.compactness"] == pytest.approx(0.1)
+    assert q["hPDL1.binder_pae"] == pytest.approx(0.001)
+    # A column at 0.1 and one at 0.001 differing by the same absolute amount are NOT the same finding.
+    assert q["hPDL1.compactness"] > q["hPDL1.binder_pae"]
+
+
+def test_a_repeated_key_cannot_pair_a_trace(tmp_path):
+    """Same discipline as the distribution tests: a key occurring twice on one side names no single trajectory."""
+    a = Q.read_arm(make_campaign(str(tmp_path / "a"), "pdl1", "A", 101, n=4, rng_seed=1))
+    b = Q.read_arm(make_campaign(str(tmp_path / "b"), "pdl1", "B", 101, n=4, rng_seed=1))
+    assert Q.trace_agreement(a, b + b, "a", "b")["n_paired"] == 0
+
+
+def test_trace_agreement_cannot_fail_a_verdict(tmp_path):
+    """It is evidence about arithmetic, not a test. If it ever grows a verdict it joins the Holm family or it lies."""
+    a = Q.read_arm(make_campaign(str(tmp_path / "a"), "pdl1", "A", 101, n=4, rng_seed=1))
+    b = Q.read_arm(make_campaign(str(tmp_path / "b"), "pdl1", "B", 101, n=4, rng_seed=2))
+    r = Q.trace_agreement(a, b, "a", "b")
+    assert "verdict" not in r and "p" not in r
+    assert r["grades_nothing"]

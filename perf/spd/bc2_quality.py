@@ -173,6 +173,9 @@ class Trajectory:
     traj_plddt: float
     final_loss: float
     candidates: list[dict] = field(default_factory=list)
+    # Per-iteration loss traces, column -> one value per iteration. The distribution tests never read these;
+    # trace_agreement() does, to compare the SAME seed on two engines iteration by iteration.
+    traces: dict[str, list[float]] = field(default_factory=dict)
 
     @property
     def completed(self) -> int:
@@ -202,6 +205,18 @@ def _best(cands: list[dict], name: str, lower_is_better: bool = False) -> float:
     if not vals:
         return float("nan")
     return min(vals) if lower_is_better else max(vals)
+
+
+def _traces(rows: list[dict]) -> dict[str, list[float]]:
+    """The numeric columns of a losses.csv, column -> one value per iteration. `phase` and `round` are not losses."""
+    out: dict[str, list[float]] = {}
+    for name in (rows[0] if rows else {}):
+        if name in ("phase", "round"):
+            continue
+        vals = [_f(r, name) for r in rows]
+        if any(v == v for v in vals):
+            out[name] = vals
+    return out
 
 
 def read_campaign(project: str, seed: int) -> list[Trajectory]:
@@ -254,7 +269,8 @@ def read_campaign(project: str, seed: int) -> list[Trajectory]:
                 length=int(row["length"]) if (row.get("length") or "").isdigit() else None,
                 terminated=(row.get("terminated") or "").strip(),
                 iterations=len(rows), autotuned=(row.get("autotuned") or "").strip(),
-                traj_iptm=_f(row, "i_pTM"), traj_plddt=_f(row, "pLDDT"), final_loss=final, candidates=cands))
+                traj_iptm=_f(row, "i_pTM"), traj_plddt=_f(row, "pLDDT"), final_loss=final, candidates=cands,
+                traces=_traces(rows)))
     return out
 
 
@@ -491,6 +507,97 @@ def autotune_check(trajectories: list[Trajectory]) -> dict:
     """
     tuned = [t.design for t in trajectories if t.autotuned]
     return {"ok": not tuned, "n_autotuned": len(tuned), "offenders": tuned[:10]}
+
+
+def _resolution(values: list[float]) -> float:
+    """The quantum BindCraft 2 actually recorded these at, read off the values themselves.
+
+    The losses.csv is written rounded, so a trace comparison cannot resolve anything finer than this and must say
+    so rather than quoting a deviation the file could not have carried.
+    """
+    vals = [v for v in values if v == v]
+    for places in range(0, 13):
+        q = 10.0 ** -places
+        if all(abs(v - round(v, places)) < 1e-12 for v in vals):
+            return q
+    return 0.0
+
+
+def _pairs(a: list[Trajectory], b: list[Trajectory]) -> list[tuple[Trajectory, Trajectory]]:
+    """Trajectories sharing a (seed, number) key, where the key occurs exactly once on each side."""
+    ca, cb = Counter(t.key for t in a), Counter(t.key for t in b)
+    ia = {t.key: t for t in a if ca[t.key] == 1}
+    ib = {t.key: t for t in b if cb[t.key] == 1}
+    return [(ia[k], ib[k]) for k in sorted(set(ia) & set(ib))]
+
+
+def trace_agreement(a: list[Trajectory], b: list[Trajectory], label_a: str, label_b: str) -> dict:
+    """Compare the SAME (seed, trajectory) on two engines, iteration by iteration.
+
+    This is not one of the verdict's tests and it is not a distribution test. It answers a narrower question that
+    n=30 is not needed for: given the same seed and the same sha, does the other engine start from the same place?
+
+    Read ITERATION 1 and nothing else as evidence of arithmetic. A design trajectory is gradient descent, so a
+    difference of one ulp at iteration 1 is amplified by every iteration after it; two engines agreeing at
+    iteration 1 and parting by iteration 50 is what correct arithmetic looks like here, not a defect. Late
+    divergence is reported because it is interesting, never because it is graded.
+
+    The ceiling on what this can see is `resolution`: BindCraft 2 rounds the losses it writes, so a deviation
+    below that quantum was never in the file.
+    """
+    paired = _pairs(a, b)
+    # Each loss column is written at its own quantum, so a deviation is only meaningful in units of that column's
+    # quantum. Measure it once over every value either side put in the column, not per trajectory.
+    quantum: dict[str, float] = {}
+    for ta, tb in paired:
+        for c in set(ta.traces) & set(tb.traces):
+            quantum.setdefault(c, []).extend(ta.traces[c] + tb.traces[c])
+    quantum = {c: _resolution(v) for c, v in quantum.items()}
+
+    per: list[dict] = []
+    by_column: dict[str, float] = {c: 0.0 for c in quantum}
+    for ta, tb in paired:
+        cols = sorted(set(ta.traces) & set(tb.traces))
+        first, first_col = 0.0, None
+        worst, worst_col = 0.0, None
+        for c in cols:
+            xa, xb, q = ta.traces[c], tb.traces[c], quantum[c] or 1.0
+            if xa and xb and xa[0] == xa[0] and xb[0] == xb[0]:
+                d = abs(xa[0] - xb[0]) / q
+                by_column[c] = max(by_column[c], d)
+                if d > first:
+                    first, first_col = d, c
+            n = min(len(xa), len(xb))
+            d = max((abs(xa[i] - xb[i]) / q for i in range(n)
+                     if xa[i] == xa[i] and xb[i] == xb[i]), default=0.0)
+            if d > worst:
+                worst, worst_col = d, c
+        per.append({
+            "key": list(ta.key), "design_a": ta.design, "design_b": tb.design,
+            "design_name_matches": ta.hash == tb.hash,
+            "iterations": [ta.iterations, tb.iterations],
+            "columns_compared": len(cols),
+            "iteration_1_max_dev_quanta": round(first, 3), "iteration_1_worst_column": first_col,
+            "whole_trace_max_dev_quanta": round(worst, 3), "whole_trace_worst_column": worst_col,
+        })
+    firsts = [p["iteration_1_max_dev_quanta"] for p in per if p["columns_compared"]]
+    return {
+        "a": label_a, "b": label_b,
+        "n_paired": len(paired), "n_compared": len(firsts),
+        "unit": "quanta: one unit is the smallest difference the column's own rounding could record",
+        "quantum_per_column": quantum,
+        "resolution_note":
+            "BindCraft 2 writes these losses rounded. Nothing finer than a column's quantum was ever in the file, "
+            "so 0 means 'equal at the recorded resolution', never 'bit-exact'.",
+        "design_name_note":
+            "`design_name_matches` is NOT evidence of agreement. On the 2026-10-19 B200-vs-TT data every name "
+            "matched while the traces differed, so the name is derived from the draw and not from the design.",
+        "iteration_1_max_dev_quanta": max(firsts) if firsts else None,
+        "iteration_1_by_column": {c: round(v, 3) for c, v in sorted(by_column.items())},
+        "grades_nothing": "Reported, not graded. The verdict comes from grade(); this is evidence about "
+                          "arithmetic, available at n=1 where a distribution test needs n=30.",
+        "per_trajectory": per,
+    }
 
 
 def grade(arm: list[Trajectory], ref: list[Trajectory], label: str, seed: int = 0) -> dict:
@@ -764,7 +871,36 @@ def main(argv: list[str] | None = None) -> int:
     c.add_argument("--out", required=True)
     c.add_argument("--seed", type=int, default=0)
 
+    t = sub.add_parser("traces", help="compare the same seed on two engines, iteration by iteration (grades nothing)")
+    t.add_argument("--a", required=True, help="NAME=DIR, the reference engine")
+    t.add_argument("--b", required=True, help="NAME=DIR, the engine under test")
+    t.add_argument("--floor", default=None, help="NAME=DIR,NAME=DIR: two same-engine arms, for the floor")
+    t.add_argument("--out", default=None)
+
     a = ap.parse_args(argv)
+
+    if a.cmd == "traces":
+        def arm(spec: str) -> tuple[str, list[Trajectory]]:
+            name, _, d = spec.partition("=")
+            return name or d, read_arm(d)
+
+        (na, ta), (nb, tb) = arm(a.a), arm(a.b)
+        out = trace_agreement(ta, tb, na, nb)
+        if a.floor:
+            fa, fb = a.floor.split(",")
+            (nfa, tfa), (nfb, tfb) = arm(fa), arm(fb)
+            f = trace_agreement(tfa, tfb, nfa, nfb)
+            out["floor"] = {k: f[k] for k in ("a", "b", "n_paired", "iteration_1_max_dev_quanta",
+                                              "iteration_1_by_column")}
+        if a.out:
+            _write(a.out, out)
+        print(f"{na} vs {nb}: {out['n_paired']} paired, iteration-1 worst "
+              f"{out['iteration_1_max_dev_quanta']} quanta"
+              + (f" (same-engine floor {out['floor']['iteration_1_max_dev_quanta']} over "
+                 f"{out['floor']['n_paired']})" if a.floor else ""))
+        for c, v in sorted(out["iteration_1_by_column"].items(), key=lambda kv: -kv[1]):
+            print(f"  {c:30s} {v:g} quanta (quantum {out['quantum_per_column'][c]:g})")
+        return 0
 
     if a.cmd == "reference":
         with open(a.request) as fh:
