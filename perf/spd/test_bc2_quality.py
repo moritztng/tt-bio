@@ -6,6 +6,7 @@ And the calibration checks that matter more than any of them: the test must not 
 distribution different, and the effect size the grader advertises at n = 30 must be the one it can actually detect.
 """
 import csv
+import json
 import os
 import random
 import sys
@@ -347,3 +348,30 @@ def test_effect_sizes():
     assert Q.cohen_dz([1.0] * 10) != Q.cohen_dz([1.0] * 10) or True  # zero SD gives NaN, not a crash
     assert Q.cohen_d([1, 2, 3, 4], [1, 2, 3, 4]) == pytest.approx(0.0)
     assert Q.cohen_d([2, 3, 4, 5], [1, 2, 3, 4]) > 0
+
+
+def test_written_reference_satisfies_the_phase0_gate(tmp_path):
+    """The gate reads the file, not the dict, and a schema drift is only found after the GPU money is spent.
+
+    These are exactly the checks `workstreams/_bc4_quality_check.py` makes on state/bc4/QUALITY-REF.json.
+    Mirrored rather than imported because that gate subprocess-runs this very file.
+    """
+    root = str(tmp_path)
+    make_arm(root, "pdl1", "A1", seeds=(101, 102, 103))
+    make_arm(root, "pdl1", "A2", seeds=(201, 202, 203))
+    make_arm(root, "il2r", "R1", seeds=(101, 102, 103))
+    req = _request(root, _runs("pdl1", "A1", (101, 102, 103)) + _runs("pdl1", "A2", (201, 202, 203))
+                   + _runs("il2r", "R1", (101, 102, 103)))
+    out = tmp_path / "QUALITY-REF.json"
+    out.write_text(json.dumps(Q.build_reference(req, root), indent=2))
+
+    v = json.loads(out.read_text())
+    assert len(v.get("targets") or {}) >= 2
+    for name, t in v["targets"].items():
+        assert isinstance(t.get("n"), int) and t["n"] >= 30, (name, t.get("n"))
+        for key in ("acceptance_rate", "i_ptm", "plddt", "rmsd"):
+            assert key in (t.get("metrics") or {}), (name, key)
+        assert t.get("paths"), name
+    assert (v.get("aa_control") or {}).get("verdict") == "PASS"
+    assert v["aa_control"].get("spread")
+    assert v.get("test")
