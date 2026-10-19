@@ -297,8 +297,12 @@ void kernel_main() {
             }
             {
             ZONE("BIAS");
-            reconfig_data_format(cb_p, cb_bias);   // the bias may be bfp8_b; add_block_inplace never resets
+            // The bias may be bfp8_b. add_block_inplace never resets the unpacker, and the
+            // compute_common helpers after it assume both sources are still bf16, so set srcB to the
+            // bias for the add and put it back straight after.
+            reconfig_data_format(cb_p, cb_bias);
             add_block_inplace<false>(cb_p, cb_bias, score_tiles);
+            reconfig_data_format(cb_p, cb_p);
             }
 
             {
