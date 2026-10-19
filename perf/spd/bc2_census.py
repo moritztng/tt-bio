@@ -55,6 +55,9 @@ ap.add_argument("--dump", type=int, default=0,
                      "by magnitude when their digests differ")
 ap.add_argument("--profile", type=int, default=3,
                 help="run this (uninstrumented) gradient call under cProfile; 0 = off")
+ap.add_argument("--sample", type=int, default=0,
+                help="sample every thread's Python stack at 200 Hz over gradient calls N..N+4 and write "
+                     "<out>/stacks.json: where the callback threads spend their wall (0 = off)")
 ap.add_argument("--jaxprof", type=int, default=0,
                 help="run this (uninstrumented) gradient call under jax.profiler, which times BindCraft 2's "
                      "host JAX per XLA op (<out>/jaxprof, perfetto json); 0 = off")
@@ -274,8 +277,40 @@ def dump(out, path):
     np.savez(path, **{f"leaf_{i}": np.asarray(a, dtype=np.float64) for i, a in enumerate(arrays(out))})
 
 
+stacks = collections.Counter()
+
+
+def _stack_sampler():
+    """Innermost frames of every thread that is inside a tt-bio callback, at 200 Hz.
+
+    A thread blocked in C (synchronize_device, a write, an op's enqueue) shows its innermost Python
+    frame as the call site, which is the attribution wanted: where the callback's wall goes."""
+    me = threading.get_ident()
+    while True:
+        time.sleep(0.005)
+        if not (a.sample <= state["n"] < a.sample + 5):
+            continue
+        for tid, fr in sys._current_frames().items():
+            if tid == me:
+                continue
+            chain, f = [], fr
+            while f is not None:
+                chain.append(f"{Path(f.f_code.co_filename).name}:{f.f_code.co_name}:{f.f_lineno}")
+                f = f.f_back
+            seam = next((c for c in chain if c.startswith("bindcraft2.py:_") and
+                         c.split(":")[1] in ("_primal", "_taped", "_backward")), None)
+            stacks[(seam or "outside", " < ".join(chain[:5]))] += 1
+
+
+if a.sample:
+    threading.Thread(target=_stack_sampler, daemon=True).start()
+
+
 def sequence_gradients(self, *args, **kwargs):
     state["n"] += 1
+    if a.sample and state["n"] == a.sample + 5:
+        rows = [dict(seam=k[0], stack=k[1], n=v) for k, v in stacks.most_common()]
+        (a.out / "stacks.json").write_text(json.dumps(dict(hz=200, calls=5, rows=rows), indent=1))
     loads0, load1 = state["loads"], loadavg()
     if state["n"] != a.at:
         cb.clear()
