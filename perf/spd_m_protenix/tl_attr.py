@@ -2,7 +2,7 @@
 
     TT_VISIBLE_DEVICES=<card> python perf/spd_m_protenix/tl_attr.py [--n 512] [--c 256] [--reps 10]
 
-Protenix-v2's shape: x [1, N, N, c], 8 heads of 32, weight [c, 4c + 32]. For the starting (plain read) and the ending
+Protenix-v2's shape: x [N, N, c], 8 heads of 32, weight [c, 4c + 32]. For the starting (plain read) and the ending
 (transposed read) variant and each fidelity, times the kernel whole and with triatt_ln.ABL stage skips: 1 the
 layer_norm, 2 the projection, 4 the DRAM writes, 8 the DRAM reads of x, or several ORed. A skipped stage makes the
 output wrong by design, so this prints time only: ms/call, median of --reps after 3 warm calls. One JSON line per arm.
@@ -27,7 +27,7 @@ g = torch.Generator().manual_seed(0)
 c, H = a.c, a.c // 32
 dev = T.get_device()
 up = lambda t: ttnn.from_torch(t, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev)  # noqa: E731
-x = up(torch.randn(1, a.n, a.n, c, generator=g))
+x = up(torch.randn(a.n, a.n, c, generator=g))
 w = up(torch.randn(c, 4 * c + 32, generator=g) / c ** 0.5)
 lw, lb = up(torch.ones(c)), up(torch.zeros(c))
 grid = tuple(T.COMPUTE_GRID_MAIN)
