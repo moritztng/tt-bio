@@ -11815,6 +11815,15 @@ class TriangleAttention(Module):
                                           1.0 / self._bias_scale,
                                           self.compute_kernel_config,
                                           site=f"tri_att_{'end' if self.ending else 'start'}")
+            if o.dtype != _dtype() and q.dtype == ttnn.bfloat8_b and not _triatt_b8():
+                # The SDPA writes o in q's dtype, and `_TRIATT_QKV_B8` narrows q/k/v only. A bfp8 o
+                # meets a bf16 gate in `multiply(o, g, input_tensor_b_activations=[SIGMOID])`, and
+                # ttnn computes that WRONG on a mixed pair: rel L2 0.76 against float64 for
+                # bfp8 x bf16, 0.58 for bf16 x bfp8, 2.4e-3 matched. `gate_bw` and the one-program
+                # tail both decline a bfp8 o as well, so o goes back to bf16 here.
+                o8, o = o, ttnn.typecast(o, _dtype())
+                if not ops.taping():
+                    ttnn.deallocate(o8)
             ttnn.deallocate(q)
             ttnn.deallocate(k)
             ttnn.deallocate(v)
