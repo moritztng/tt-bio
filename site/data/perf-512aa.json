@@ -372,12 +372,12 @@
           "when": "2026-10-19T00:00:50Z",
           "parity": "Passes its release-gate accuracy check against the reference implementation on Blackhole, with an MSA (tt-bio 469ed1356)",
           "fast": {
-            "s_per_fold": 50.069,
+            "s_per_fold": 48.594,
             "n": 4,
-            "spread_pct": 0.53,
+            "spread_pct": 0.57,
             "aiclk_mhz": 1350,
-            "versions": "tt-bio main 46808d8af, ttnn 0.68.0, qb1 p150a card 3",
-            "when": "2026-10-16T14:15:17Z"
+            "versions": "tt-bio main 91db96f5c, ttnn 0.68.0, qb1 p150a card 1",
+            "when": "2026-10-19T02:16:22Z"
           }
         },
         "h200": {
@@ -566,12 +566,12 @@
           "when": "2026-10-15T21:46:29Z",
           "parity": "Passes its release-gate accuracy check against the reference implementation on Blackhole, with an MSA (tt-bio 469ed1356)",
           "fast": {
-            "s_per_fold": 27.081,
+            "s_per_fold": 26.145,
             "n": 4,
-            "spread_pct": 2.68,
+            "spread_pct": 0.82,
             "aiclk_mhz": 1350,
-            "versions": "tt-bio main 46808d8af, ttnn 0.68.0, qb1 p150a card 3",
-            "when": "2026-10-16T14:37:21Z"
+            "versions": "tt-bio main 91db96f5c, ttnn 0.68.0, qb1 p150a card 1",
+            "when": "2026-10-19T02:38:09Z"
           }
         },
         "h200": {
@@ -662,12 +662,12 @@
           "when": "2026-10-16T14:23:15Z",
           "parity": "Passes both release-gate accuracy checks against the reference implementation on Blackhole (tt-bio 469ed1356)",
           "fast": {
-            "s_per_fold": 14.464,
+            "s_per_fold": 14.127,
             "n": 4,
-            "spread_pct": 0.4,
+            "spread_pct": 1.12,
             "aiclk_mhz": 1350,
-            "versions": "tt-bio main b0ff4ef64, ttnn 0.68.0, qb1 p150a card 0",
-            "when": "2026-10-15T21:38:38Z"
+            "versions": "tt-bio main 91db96f5c, ttnn 0.68.0, qb1 p150a card 1",
+            "when": "2026-10-19T02:27:55Z"
           }
         },
         "h200": {
