@@ -9959,6 +9959,7 @@ class TriangleMultiplication(Module):
         # independent-channel sum). The clash is recorded, so a shape pays one failed
         # compile per process and every later call starts narrow.
         x_chunks = []
+        chunks_in_l1 = False  # set where an L1 chunk is actually kept, so a clash retry cannot leave it stale
         x_out, c_done = None, 0      # `_TRIMUL_BACK_INTO`: the output the chunks are written into
         # back_ln writes the output norm with the last chunk's move; the row-blocked tail recomputes
         # both norms itself, so it must get the raw result.
@@ -10318,6 +10319,7 @@ class TriangleMultiplication(Module):
                     elif concat_from_l1:
                         # Stays in L1; the concat below names DRAM for the result.
                         x_chunks.append(x_chunk)
+                        chunks_in_l1 = True
                     else:
                         # L1-resident chunk: move it to DRAM so all n_pairs can be held at
                         # once for the single concat.
@@ -10402,7 +10404,7 @@ class TriangleMultiplication(Module):
                     # assumed to hold device tensors here.
                     if isinstance(_t, ttnn.Tensor):
                         ttnn.deallocate(_t)
-                x_chunks = []
+                x_chunks, chunks_in_l1 = [], False
                 if x_out is not None:
                     ttnn.deallocate(x_out)
                 if t2m_pending is not None:
@@ -10540,7 +10542,7 @@ class TriangleMultiplication(Module):
             # otherwise place the result beside its inputs, where the clones used to put it in
             # DRAM. Same bytes either way, but the pair-sized result does not belong in L1.
             x = _acc_concat(x_chunks, -1, host_acc,
-                            memory_config=ttnn.DRAM_MEMORY_CONFIG if concat_from_l1 else None)
+                            memory_config=ttnn.DRAM_MEMORY_CONFIG if chunks_in_l1 else None)
         dram_peak(f"trimul({'end' if self.ending else 'start'}) channel loop done [z={'x'.join(str(d) for d in x_in.shape)}]")
         if rows_tail:
             return self._tail_rows(x_in, x, H, host_acc, add_to_input)
