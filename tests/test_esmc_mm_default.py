@@ -222,3 +222,16 @@ def test_saprot_hifi2_ffn_projections_only(width, wormhole, monkeypatch):
         fid = lin._ck(_T(k, n, ttnn.bfloat8_b)).math_fidelity
         assert fid == (ttnn.MathFidelity.HiFi2 if lowered else ttnn.MathFidelity.HiFi3), role
         assert lin._ck(_T(k, n, ttnn.bfloat16)).math_fidelity == ttnn.MathFidelity.HiFi3
+
+
+@pytest.mark.parametrize("wdtype, want_l1", [("bfloat8_b", True), ("bfloat16", False)])
+def test_saprot_ln_l1_fast_only(wdtype, want_l1, monkeypatch):
+    """SaProt's block layer_norm writes to L1 by default only when the next projection's weight is block-fp8 (--fast)."""
+    from tt_bio import saprot as sp
+    monkeypatch.setattr(sp, "_SAPROT_LN_L1", None)
+    monkeypatch.setattr(sp, "_LN_L1_REFUSED", set())
+    seen = []
+    monkeypatch.setattr(sp.ttnn, "layer_norm", lambda x, **kw: seen.append(kw.get("memory_config")) or x)
+    x = types.SimpleNamespace(padded_shape=(7, 544, 1280))
+    sp._block_ln(x, None, None, None, _T(1280, 3840, getattr(ttnn, wdtype)))
+    assert (seen == [ttnn.L1_MEMORY_CONFIG]) == want_l1 and len(seen) == 1

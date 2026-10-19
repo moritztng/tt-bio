@@ -1,5 +1,7 @@
 """SaProt's RoPE + head split: today's nlp_create_qkv_heads + rotary_embedding against qk_rope_heads.rope_heads_packed,
-both vs float64 on the same bf16 packed qkv. Reports rel_l2 / max_abs of q and k heads, whether v is exact, median ms.
+both vs float64 on the same bf16 packed qkv. Reports rel_l2 / max_abs of q and k heads, whether v is exact, median ms,
+and the signed bias mean((got - ref) * sign(ref)) / mean(|ref|) (negative: the arm shrinks |q|, |k|, e.g. by truncating),
+against float64 math on the float64 tables and on the bf16 tables the device reads (the kernel's own arithmetic).
 
     python3 perf/spd_gap_whlm/rope_packed_bench.py --out rope_packed.jsonl
 """
@@ -20,6 +22,10 @@ def ref_rope(x, H, cos, sin):
     h = d // H // 2
     x1, x2 = x[..., :h], x[..., h:]
     return torch.cat([x1 * cos - x2 * sin, x2 * cos + x1 * sin], -1)
+
+
+def bias(got, ref):
+    return float(((got - ref) * ref.sign()).mean() / ref.abs().mean())
 
 
 def main() -> int:
@@ -44,6 +50,8 @@ def main() -> int:
         ref = [ref_rope(x64[..., :d], H, c64, s64), ref_rope(x64[..., d:2 * d], H, c64, s64),
                x64[..., 2 * d:].view(B, S, H, hd).transpose(1, 2)]
         cos, sin = rope_tables(S, hd, device=dev)
+        cb, sb = (ttnn.to_torch(t).double().reshape(S, hd)[:, : hd // 2] for t in (cos, sin))   # halves are equal
+        refb = [ref_rope(x64[..., :d], H, cb, sb), ref_rope(x64[..., d:2 * d], H, cb, sb)]
 
         def chain():
             t = ttnn.unsqueeze(qkv_tt, 1)
@@ -58,7 +66,9 @@ def main() -> int:
         for arm, fn in (("chain", chain), ("packed", lambda: rope_heads_packed(qkv_tt, cos, sin))):
             o = fn()
             got = [ttnn.to_torch(t).double().reshape(B, H, S, hd) for t in o]
-            rec[arm] = {"q": err(got[0], ref[0]), "k": err(got[1], ref[1]), "v_exact": bool(torch.equal(got[2], ref[2]))}
+            rec[arm] = {"q": err(got[0], ref[0]), "k": err(got[1], ref[1]), "v_exact": bool(torch.equal(got[2], ref[2])),
+                        "bias": [bias(got[i], ref[i]) for i in (0, 1)],
+                        "q_bf16tab": err(got[0], refb[0]), "bias_bf16tab": [bias(got[i], refb[i]) for i in (0, 1)]}
             for t in o:
                 ttnn.deallocate(t)
             rec[arm]["ms"] = timed(lambda fn=fn: [ttnn.deallocate(t) for t in fn()], dev, args.repeat, args.inner)

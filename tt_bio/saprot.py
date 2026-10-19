@@ -151,6 +151,21 @@ def _saprot_mm(width: int) -> bool:
 _SAPROT_QKRH = (env_flag("TT_BIO_SAPROT_QKRH", False) if os.environ.get("TT_BIO_SAPROT_QKRH", "").strip() else None)
 
 
+# Diagnostic only (off): scale QKRH's q by this factor. rope_packed_bench reads the packed program's |q|, |k| 0.07 % low
+# and the rotary_embedding chain's 0.19 % high against float64; this tests whether the end-to-end pcc follows the logit scale.
+_QKRH_QSCALE = None
+
+
+# The attention behind the packed RoPE program runs at HiFi4 with fp32 dest instead of shsdpa's HiFi2 bf16 dest. Its
+# truncated q.k deflates the logits, which the rotary_embedding chain's +0.19 % on |q| and |k| happened to cancel and the
+# packed program (closer to float64) does not: 650M --fast hPCSK9 read pcc -0.000345 vs QKRH off, past the fast bar 0.0002.
+# HiFi4 needs the fp32 dest (HiFi4 at bf16 dest was worse than HiFi2, HiFi2 at fp32 dest no better). Galaxy chip, 1000 MHz,
+# 2 rounds, --fast, pcc vs fp32 against HiFi2: 650M hPCSK9 +0.000265, hEGFR +0.000093, hTF +0.000035, hTNFa +0.000012,
+# 1.3B hPCSK9 +0.000080, hEGFR +0.000128, at +0.9 to +1.5 % time. None = with the packed RoPE program only.
+_SAPROT_SDPA = None
+_SDPA_FP32 = (ttnn.MathFidelity.HiFi4, False, True, False)
+
+
 def _saprot_qkrh(w) -> bool:
     if _SAPROT_QKRH is not None:
         return _SAPROT_QKRH
@@ -347,8 +362,9 @@ class ESM2Attention(_SaprotLin, Module):
 
     def __call__(self, x, cos, sin, attn_mask=None, key_valid=None):
         ck = self.compute_kernel_config
-        x_norm = _block_ln(x, self.norm_weight, self.norm_bias, ck)
+        x_norm = _block_ln(x, self.norm_weight, self.norm_bias, ck, self.qkv_weight)
         qkv = self._lin(x_norm, self.qkv_weight, bias=self.qkv_bias)
+        heads = None
         if self.fold_rope:  # cos/sin are the packed [1, L, 3*H*32] tables from fold_rope_tables
             rot = self._lin(x_norm, self.rot_weight, bias=self.rot_bias)
             ttnn.deallocate(x_norm)
@@ -365,13 +381,15 @@ class ESM2Attention(_SaprotLin, Module):
             if heads is not None:
                 ttnn.deallocate(qkv)
                 q, k, v = heads
+                if _QKRH_QSCALE:
+                    q = ttnn.multiply(q, _QKRH_QSCALE)
             else:
                 q, k, v = self._split_heads(qkv, self.n_heads)
                 q, k = _rope(q, k, cos, sin)
         if key_valid is not None and attn_mask is None:  # the -inf mask already zeroes them, see esmc.Attention
             k = ttnn.multiply(k, key_valid)
             v = ttnn.multiply(v, key_valid)
-        o = lm_sdpa(q, k, v, attn_mask, scale=self.head_dim ** -0.5, merge=True)  # [B, L, H*32] when fold_rope; out_weight has the zero rows
+        o = lm_sdpa(q, k, v, attn_mask, scale=self.head_dim ** -0.5, merge=True, ckc=_SDPA_FP32 if (heads is not None if _SAPROT_SDPA is None else _SAPROT_SDPA) else None)  # [B, L, H*32] when fold_rope; out_weight has the zero rows
         ttnn.deallocate(q); ttnn.deallocate(k); ttnn.deallocate(v)
         out = self._lin_add(o, self.out_weight, self.out_bias, x)
         ttnn.deallocate(o)
@@ -430,17 +448,22 @@ def fold_rope_tables(seq_len: int, n_heads: int, d: int, device):
 
 # The block layer_norms write to L1, where the next projection (qkv, fc1) reads its input back, instead of a DRAM round
 # trip: the same placement that moved ESMC's pair-FFN fc1 from 31 % to ~52 % of its roof (esmc.PAIR_FFN_L1_LN). Same op,
-# same values. A shape whose L1 output the allocator refuses keeps DRAM from then on. Off until the page A/B says.
-_SAPROT_LN_L1 = env_flag("TT_BIO_SAPROT_LN_L1", False)
+# same values (output bit-identical in every A/B). A shape whose L1 output the allocator refuses keeps DRAM from then on.
+# Page cell on a Galaxy chip at 1000 MHz, 3 rounds, --fast: 35M 40.0 -> 38.6 ms, 650M 160.6 -> 153.8, 1.3B 297.6 -> 294.2
+# (1022 aa: 782.6 -> 749.6). Normal mode reads 35M +1.6 %, 650M +3.5 %, 1.3B -1.2 %, so None = on with block-fp8
+# weights (--fast) only.
+_SAPROT_LN_L1 = (env_flag("TT_BIO_SAPROT_LN_L1", False) if os.environ.get("TT_BIO_SAPROT_LN_L1", "").strip() else None)
 _LN_L1_REFUSED: set = set()
 #: [block layer_norms written to L1, declined]
 LN_L1_STATS = [0, 0]
 
 
-def _block_ln(x, w, b, ck):
-    """The block's pre-LN, in L1 where _SAPROT_LN_L1 serves and the shape fits."""
+def _block_ln(x, w, b, ck, proj_w):
+    """The block's pre-LN, in L1 where _SAPROT_LN_L1 serves (None: when the next projection's weight proj_w is
+    block-fp8) and the shape fits."""
     key = tuple(x.padded_shape)
-    if _SAPROT_LN_L1 and key not in _LN_L1_REFUSED:
+    l1 = proj_w.dtype == ttnn.bfloat8_b if _SAPROT_LN_L1 is None else _SAPROT_LN_L1
+    if l1 and key not in _LN_L1_REFUSED:
         try:
             out = ttnn.layer_norm(x, weight=w, bias=b, epsilon=1e-5, compute_kernel_config=ck,
                                   memory_config=ttnn.L1_MEMORY_CONFIG)
@@ -472,7 +495,7 @@ class ESM2FFN(_SaprotLin, Module):
 
     def __call__(self, x):
         ck = self.compute_kernel_config
-        x_norm = _block_ln(x, self.norm_weight, self.norm_bias, ck)
+        x_norm = _block_ln(x, self.norm_weight, self.norm_bias, ck, self.fc1_weight)
         h = self._lin(x_norm, self.fc1_weight, bias=self.fc1_bias, **({"activation": "gelu"} if _GELU_FUSED else {}))
         ttnn.deallocate(x_norm)
         if not _GELU_FUSED:
