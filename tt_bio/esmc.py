@@ -326,8 +326,9 @@ def _sdpa_mask(attn_mask, device=None, dtype=None):
 # `tt_bio.shsdpa` takes it as per-batch key lengths: no [B, 1, L, L] re-read per (batch, head), the mask add only on
 # the key chunk holding the boundary, chunks past len_b skipped. Op device time at the page batch (B7, S544, D64,
 # 1000 MHz): 300M 0.556 -> 0.393 ms, 600M 0.629 -> 0.448, SaProt 650M 0.676 -> 0.456, 6B (B1) 0.291 -> 0.230; float64
-# error equal to the stock op's. None = on for Wormhole (untested on Blackhole); ESMFold2 keeps the stock op
-# (lm_sdpa_stock) until a fold grades it.
+# error equal to the stock op's. Blackhole SaProt page cell, 1350 MHz: 35M normal 25.6 -> 21.5 ms, 650M normal 98.3 ->
+# 86.9, 1.3B --fast 142.1 -> 134.2, pcc vs fp32 -0.000009..+0.00028. None = on for both arches; ESMFold2 keeps the stock
+# op (lm_sdpa_stock) until a fold grades it.
 _ESMC_SHSDPA = (env_flag("TT_BIO_ESMC_SHSDPA", False) if os.environ.get("TT_BIO_ESMC_SHSDPA", "").strip() else None)
 #: [KeyPad calls served by shsdpa, sent to the stock op], read by the A/B harness.
 SHSDPA_STATS = [0, 0]
@@ -346,7 +347,7 @@ def _key_lens(attn_mask) -> list | None:
     on = _ESMC_SHSDPA
     if on is None:
         from tt_bio import tenstorrent
-        on = tenstorrent.is_wormhole() and not tenstorrent.lever("lm_sdpa_stock")
+        on = not tenstorrent.lever("lm_sdpa_stock")
     if not on:
         return None
     lens = (attn_mask[:, 0, :] == 0).sum(1)
