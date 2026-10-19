@@ -28,7 +28,13 @@ K=$(cat ~/.config/vastai/vast_api_key); API=https://console.vast.ai/api/v0; FLOO
 BUDGET_MIN=${BUDGET_MIN:-$(python3 -c "print(int($CAP_H*60) - 12)")}
 CONC=${CONC:-1} MEMFRAC=${MEMFRAC:-0.85} BC4_S_PER_TRAJ=${BC4_S_PER_TRAJ:-440}
 OUT=$P/results/$L; mkdir -p "$OUT"
-TRIEDF=$OUT/tried; touch "$TRIEDF"; TRIED=" $(tr '\n' ' ' < "$TRIEDF")"
+# Two lists of offers not to try again. The per-label one stops a retry inside this session; the SHARED one
+# stops the next session re-picking an offer already known not to come up. Offer 29325700 cost three rentals and
+# ~36 minutes across three labels on 2026-10-19, each one "no ssh: intended_status=running", because the tried
+# list was per-label. Only a hard failure of the offer itself goes in the shared list, never a push or VRAM
+# rejection, which are our side.
+DEADF=/home/moritz/.coworker/state/vast-bad-offers; touch "$DEADF"
+TRIEDF=$OUT/tried; touch "$TRIEDF"; TRIED=" $(cat "$TRIEDF" "$DEADF" | tr '\n' ' ')"
 log(){ echo "$(date -u +%FT%TZ) $*"; }
 credit(){ curl -s -H "Authorization: Bearer $K" "$API/users/current/" | python3 -c 'import json,sys;print(json.load(sys.stdin)["credit"])'; }
 gone(){ curl -s -H "Authorization: Bearer $K" "$API/instances/?owner=me" | python3 -c 'import json,sys;print(len(json.load(sys.stdin)["instances"]))'; }
@@ -93,7 +99,9 @@ if x.get("actual_status")=="running":
     [ -n "$S" ] && break
     sleep 30
   done
-  [ -z "$S" ] && { destroy $I "no ssh: intended_status=$(state $I)"; continue; }
+  [ -z "$S" ] && { destroy $I "no ssh: intended_status=$(state $I)"
+                   grep -qx "$O" "$DEADF" || echo "$O" >> "$DEADF"   # the offer never came up: no label should try it again
+                   continue; }
   VRAM=$(timeout 30 $S 'nvidia-smi --query-gpu=memory.total,name --format=csv,noheader,nounits' 2>/dev/null | head -1)
   log "$I up at $HOST:$PORT, GPU: ${VRAM:-?}"
   # The only hardware property this session needs is that the measured 36,356 MiB peak fits.

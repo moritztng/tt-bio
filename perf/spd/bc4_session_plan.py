@@ -30,8 +30,10 @@ import os
 DELIVERED_S_PER_TRAJECTORY = float(os.environ.get("BC4_S_PER_TRAJ") or 85.2)
 # The card actually rented, so the plan's cost line is not quoted at B200 rates on a $0.46/h box.
 B200_DPH = float(os.environ.get("BC4_DPH") or 6.251)
-# What a box costs before it computes anything: clone, pip install, fetch-weights, first JAX import.
-SETUP_S = 900
+# What a box costs before it computes anything: clone, pip install, fetch-weights, first JAX import. Modelled at
+# 900 s, MEASURED at 356 s on the 2026-10-19 CMP 170HX. It is an env override for the same reason the rate is:
+# once the setup is already paid for, a re-plan mid-session must charge 0 for it, not 900 s it cannot refund.
+SETUP_S = float(os.environ.get("BC4_SETUP_S") or 900)
 # One campaign's own span is the delivered rate times however many campaigns share the card.
 DEFAULT_CONCURRENCY = 3
 

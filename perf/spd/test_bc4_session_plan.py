@@ -1,6 +1,7 @@
 """The planner decides what a half-funded session leaves behind, so its ordering is the thing to test."""
 import json
 import os
+import subprocess
 import sys
 
 import pytest
@@ -8,6 +9,7 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import bc4_session_plan as P  # noqa: E402
 
+SESSION = os.path.join(os.path.dirname(os.path.abspath(__file__)), "bc4_quality_session.sh")
 REQUEST = "/home/moritz/.coworker/state/bc4/QUALITY-REF-REQUEST.json"
 
 
@@ -78,3 +80,29 @@ def test_the_real_request_plans_and_its_gate_minimum_is_under_the_full_cost():
     p = P.plan(json.load(open(REQUEST)), budget_s=150 * 60)
     assert p["gate_satisfiable"] and p["dropped"] == []
     assert p["min_cost_usd_for_gate"] < p["projected_cost_usd"], "the gate must be cheaper than the whole request"
+
+
+def test_setup_cost_is_overridable_so_a_mid_session_replan_does_not_pay_it_twice():
+    """bc4_quality_session.sh re-plans after every wave. Charging the already-paid setup to each re-plan drops
+    waves the box has the budget for: at 900 s that is 10 trajectories of a 102-minute session."""
+    import importlib
+    os.environ["BC4_SETUP_S"] = "0"
+    try:
+        M = importlib.reload(P)
+        assert M.SETUP_S == 0.0
+        assert M.plan(make_request(), budget_s=M.campaign_span_s(10, 3) + 1)["waves"], \
+            "with setup already paid, a budget of one wave buys one wave"
+    finally:
+        del os.environ["BC4_SETUP_S"]
+        importlib.reload(P)
+
+
+def test_the_session_reads_its_rate_back_out_of_runs_jsonl(tmp_path):
+    """The re-plan is only as good as the rate it measures. Two streams, 200 s apart, is 100 s per stream."""
+    j = tmp_path / "runs.jsonl"
+    j.write_text("".join(json.dumps({"ev": "rep", "trajectory": i, "t": 1000.0 + 200 * i}) + "\n"
+                         for i in range(1, 6)))
+    out = subprocess.run(
+        ["bash", "-c", f'source <(sed -n "/^rate_from_runs()/,/^}}/p" {SESSION}); rate_from_runs 2 {j}'],
+        capture_output=True, text=True, check=True)
+    assert out.stdout.strip() == "100.0"

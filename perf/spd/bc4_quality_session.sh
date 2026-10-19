@@ -94,19 +94,64 @@ push() {
 }
 
 # --- the waves -----------------------------------------------------------------------------------------------------
-WAVES=$(python3 -c "import json,sys; print(len(json.load(open('$PLAN'))['waves']))")
-say "$WAVES waves scheduled"
-for w in $(seq 0 $((WAVES - 1))); do
+# One wave at a time, re-planned against the rate THIS card delivers on THIS target.
+#
+# The plan prices a trajectory from a constant, and the constant has always come from a different run than the one
+# being planned. On 2026-10-19 that constant was a B200's 85.2 s while the card in hand delivered 194.4 s, and the
+# modelled rate decides how many waves the budget buys: too slow a number drops waves the box had time for, too
+# fast a number caps each campaign at a span it cannot finish in and truncates every one of them. Neither error is
+# visible until the session is over and the money is spent.
+# A target the fleet has never run has no constant at all. hIL2R is 387 residues against hPDL1's 115, so no pdl1
+# measurement predicts it to better than a factor of several. So: run the first wave on the entering estimate,
+# then take the delivered per-trajectory time out of runs.jsonl and re-plan what is left with it. By the second
+# wave the schedule is priced on the card and the target actually in front of it.
+rate_from_runs() {   # median seconds between consecutive trajectories in the campaigns just run, per stream
+  local conc=$1; shift
+  python3 - "$conc" "$@" <<'PY'
+import json, statistics, sys
+conc = int(sys.argv[1]); d = []
+for p in sys.argv[2:]:
+    try:
+        ts = [json.loads(l)["t"] for l in open(p) if json.loads(l).get("ev") == "rep"]
+    except OSError:
+        continue
+    d += [b - a for a, b in zip(ts, ts[1:])]
+print(round(statistics.median(d) / max(conc, 1), 1) if d else "")
+PY
+}
+
+w=-1
+while :; do
+  w=$((w + 1))
   REMAIN=$(left)
-  SPAN=$(python3 -c "import json; print(json.load(open('$PLAN'))['waves'][$w]['span_s'])")
   if [ "$REMAIN" -le 120 ]; then say "wave $w skipped: ${REMAIN}s left"; break; fi
+  # Re-plan from the campaigns that have NOT run yet, against the budget that is actually left. A campaign with
+  # an rc is finished or partial, and either way is never re-run (a repeated seed cannot pair), so dropping it
+  # from the request is what lets the next wave see the budget its predecessors did not spend.
+  RREQ=$OUT/request-remaining.json
+  python3 - "$REQUEST" "$OUT" "$RREQ" <<'PY'
+import json, os, sys
+req = json.load(open(sys.argv[1])); out = sys.argv[2]
+req["runs"] = [r for r in req.get("runs", [])
+               if not os.path.exists(os.path.join(out, r["target"], f"{r['arm']}_s{r['campaign_seed']}", "rc"))]
+json.dump(req, open(sys.argv[3], "w"), indent=1)
+PY
+  [ "$(python3 -c "import json;print(len(json.load(open('$RREQ'))['runs']))")" -gt 0 ] || { say "no campaigns left to run"; break; }
+  BC4_S_PER_TRAJ=${BC4_S_PER_TRAJ:-} BC4_SETUP_S=0 \
+    python3 "$WT/perf/spd/bc4_session_plan.py" --request "$RREQ" --budget-min "$(python3 -c "print($REMAIN/60)")" \
+      --concurrency "$CONC" --out "$PLAN" >>"$LOG" 2>&1
+  [ -s "$PLAN" ] || { say "FATAL: no plan for wave $w"; break; }
+  if [ "$(python3 -c "import json;print(len(json.load(open('$PLAN'))['waves']))")" -eq 0 ]; then
+    say "wave $w: ${REMAIN}s left buys no further campaign at ${BC4_S_PER_TRAJ:-default} s/trajectory"; break
+  fi
+  SPAN=$(python3 -c "import json; print(json.load(open('$PLAN'))['waves'][0]['span_s'])")
   # Run the wave against whatever budget is actually left, not against what the plan assumed. A wave that
   # overruns is capped rather than allowed to eat the build step at the end.
   CAP=$((REMAIN - 90))
   [ "$CAP" -gt "$SPAN" ] && CAP=$((SPAN + 300))
   say "wave $w: span ${SPAN}s, ${REMAIN}s left, capping each campaign at ${CAP}s"
 
-  PIDS=""
+  PIDS=""; LAUNCHED=0
   while IFS=$'\t' read -r id target arm seed example blen traj; do
     d=$OUT/$target/${arm}_s${seed}
     # A relaunch must not re-run a campaign that already produced trajectories: re-running the same seed writes
@@ -121,6 +166,7 @@ for w in $(seq 0 $((WAVES - 1))); do
     fi
     mkdir -p "$d"
     say "  launching $id -> $d"
+    LAUNCHED=$((LAUNCHED + 1))
     if [ $DRY -eq 1 ]; then echo 0 > "$d/rc"; continue; fi
     # 0.30 is sized for three campaigns sharing one big card. On a 48 GB card at concurrency 1 it hands a single
     # campaign 14 GB, below the ~12 GB per stream the B200 census implies and with no margin, so the fraction has
@@ -131,17 +177,40 @@ for w in $(seq 0 $((WAVES - 1))); do
         --binder-len "$blen" --max-traj "$traj" --final-designs 1000 \
         > "$d/stdout.log" 2> "$d/stderr.log"; echo $? > "$d/rc" ) &
     PIDS="$PIDS $!"
-  done < <(python3 - "$PLAN" "$REQUEST" "$w" <<'PY'
+  done < <(python3 - "$PLAN" "$RREQ" <<'PY'
 import json, sys
-plan, request, w = json.load(open(sys.argv[1])), json.load(open(sys.argv[2])), int(sys.argv[3])
+plan, request = json.load(open(sys.argv[1])), json.load(open(sys.argv[2]))
 by_id = {r["id"]: r for r in request["runs"]}
-for rid in plan["waves"][w]["runs"]:
+for rid in plan["waves"][0]["runs"]:
     r = by_id[rid]
     print("\t".join(str(x) for x in (r["id"], r["target"], r["arm"], r["campaign_seed"],
                                      r["example"], r["binder_len"], r["trajectories"])))
 PY
   )
+  # Every campaign in the wave already had an rc. Without this the re-plan would hand back the same wave
+  # for ever, so the session would spin instead of finishing.
+  [ "$LAUNCHED" -eq 0 ] && { say "wave $w launched nothing; stopping rather than spinning"; break; }
   for p in $PIDS; do wait "$p"; done
+
+  if [ $DRY -eq 0 ]; then
+    JSONLS=$(python3 - "$PLAN" "$RREQ" "$OUT" <<'PY'
+import json, os, sys
+plan, request, out = json.load(open(sys.argv[1])), json.load(open(sys.argv[2])), sys.argv[3]
+by_id = {r["id"]: r for r in request["runs"]}
+for rid in plan["waves"][0]["runs"]:
+    r = by_id[rid]
+    print(os.path.join(out, r["target"], f"{r['arm']}_s{r['campaign_seed']}", "runs.jsonl"))
+PY
+    )
+    NWAVE=$(python3 -c "import json;print(len(json.load(open('$PLAN'))['waves'][0]['runs']))")
+    M=$(rate_from_runs "$NWAVE" $JSONLS)
+    if [ -n "$M" ]; then
+      say "wave $w delivered ${M}s per trajectory per stream (was ${BC4_S_PER_TRAJ:-the default}); re-planning on it"
+      export BC4_S_PER_TRAJ=$M
+    else
+      say "wave $w produced no trajectory timings; keeping ${BC4_S_PER_TRAJ:-the default} s/trajectory"
+    fi
+  fi
   say "wave $w done, $(left)s left"
   push
 done
