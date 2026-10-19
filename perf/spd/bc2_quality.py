@@ -314,13 +314,23 @@ def compare_metric(name: str, a: list[tuple], b: list[tuple], seed: int = 0) -> 
         res["n_for_half_or_double"] = min(n_for_proportions(p0, p0 / 2), n_for_proportions(p0, min(1.0, p0 * 2)))
         return res
 
-    if len(diffs) >= 2:
+    # Pairing is the stronger design per observation, but only if it keeps the observations. Where the reference
+    # landed partial, pairing covers a few trajectories while the two-sample test still uses every value: with a
+    # 4-trajectory overlap against 10 vs 14 values, the paired MDE is 1.898 SD and the unpaired 1.698 SD, so the
+    # paired branch would discard data to take the weaker test. Pick whichever detects less. This looks only at
+    # the sample sizes, never at the values, so it cannot bend the false-positive rate.
+    can_pair, can_unpair = len(diffs) >= 2, len(xa) >= 2 and len(xb) >= 2
+    if can_pair and can_unpair:
+        can_pair = mde_sd_units(len(diffs), paired=True) <= mde_sd_units(min(len(xa), len(xb)), paired=False)
+        res["test_choice"] = ("paired: it covers enough of the data" if can_pair else
+                              "two-sample: pairing covered too little of the data to be worth it")
+    if can_pair:
         res.update(test="paired_sign_flip_permutation", paired=True, p=paired_perm_mean_diff(diffs, seed=seed),
                    effect=cohen_dz(diffs), effect_kind="cohen_dz", mean_diff=st.mean(diffs),
                    sd_diff=st.stdev(diffs), exact_match=sum(1 for d in diffs if abs(d) < 1e-12) / len(diffs),
                    mde_sd_units=mde_sd_units(len(diffs), paired=True),
                    mde_metric_units=mde_sd_units(len(diffs), paired=True) * st.stdev(diffs))
-    elif len(xa) >= 2 and len(xb) >= 2:
+    elif can_unpair:
         pooled = math.sqrt((st.variance(xa) + st.variance(xb)) / 2)
         n = min(len(xa), len(xb))
         res.update(test="two_sample_permutation", paired=False, p=perm_mean_diff(xa, xb, seed=seed),

@@ -279,6 +279,24 @@ def test_a_reference_pooling_one_seed_twice_does_not_pair(tmp_path):
     assert r["ref"]["n"] == 20, "the fallback must still use every reference trajectory"
 
 
+def test_a_thin_overlap_does_not_discard_the_rest_of_the_data(tmp_path):
+    """Pairing is the stronger design per observation, but not when it keeps only a few of them.
+
+    The 10-19 B200 reference landed partial (4, 5 and 5 trajectories of the 10 each campaign asked for), so an
+    arm running the full 10 per seed overlaps it on 4, and taking the paired branch would discard the rest for a
+    weaker test. The overlap goes thin exactly when the reference is topped up on NEW seeds, which is how those
+    14 landed trajectories get back to full strength: the arm then pairs only with the partial campaigns.
+    Unpaired wins once the smaller side holds more than twice the overlap.
+    """
+    ref = (read_all(make_arm(str(tmp_path), "pdl1", "refpart", seeds=(101,), n=4))
+           + read_all(make_arm(str(tmp_path), "pdl1", "reftop", seeds=(104, 105), n=10, rng_offset=200)))
+    arm = read_all(make_arm(str(tmp_path), "pdl1", "tt", seeds=(101,), n=10, rng_offset=9000))
+    r = Q.grade(arm, ref, "tt")["metrics"]["final_loss"]
+    assert r["n_paired"] == 4, "the overlap is real, it is just thin"
+    assert r["test"] == "two_sample_permutation", r.get("test_choice")
+    assert r["arm"]["n"] == 10 and r["ref"]["n"] == 24, "every value must still be used"
+
+
 def test_distinct_seeds_still_pair(tmp_path):
     """The collision guard must not cost the pairing the reference is designed to have."""
     ref = read_all(make_arm(str(tmp_path), "pdl1", "ref", seeds=(101, 102, 103)))
