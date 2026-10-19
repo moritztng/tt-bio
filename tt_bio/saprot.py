@@ -224,6 +224,14 @@ RESID_REFUSED: set = set()
 _SAPROT_RESID = (env_flag("TT_BIO_SAPROT_RESID", True) if os.environ.get("TT_BIO_SAPROT_RESID", "").strip() else None)
 
 
+# Diagnostic (off): the unfused residual adds write the residual stream to L1, so the next add and the block layer_norm
+# read it from L1 instead of DRAM. Aimed at --fast's 66 adds + 67 layer_norms (WH 650M 12.9 + 13.7 ms of ~156).
+_SAPROT_X_L1 = env_flag("TT_BIO_SAPROT_X_L1", False)
+_X_L1_REFUSED: set = set()
+#: [residual sums written to L1, declined]
+X_L1_STATS = [0, 0]
+
+
 def _saprot_prog(x, w, act, hifi2=False):
     """("mm", MinimalMatmulConfig) or ("2d", program config) for this projection, or None where the default serves."""
     if _SAPROT_PROG is False:
@@ -340,7 +348,17 @@ class _SaprotLin(_MMLin):
                     warnings.warn(f"saprot: fused residual matmul refused {tuple(w.shape)} {w.dtype}: {str(exc)[:400]}")
                 RESID_REFUSED.add((tuple(w.shape), w.dtype))
         r = self._lin(x, w, bias=bias)
-        out = ttnn.add(resid, r)
+        out = None
+        if _SAPROT_X_L1 and tuple(resid.padded_shape) not in _X_L1_REFUSED:
+            try:
+                out = ttnn.add(resid, r, memory_config=ttnn.L1_MEMORY_CONFIG)
+                X_L1_STATS[0] += 1
+                ttnn.deallocate(resid)   # the block rebinds x to the sum; the old stream would pin L1 until GC
+            except RuntimeError:
+                _X_L1_REFUSED.add(tuple(resid.padded_shape))
+                X_L1_STATS[1] += 1
+        if out is None:
+            out = ttnn.add(resid, r)
         ttnn.deallocate(r)
         return out
 
