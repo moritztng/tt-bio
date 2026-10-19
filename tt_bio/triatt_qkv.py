@@ -373,6 +373,8 @@ TAIL_RNE = int(os.environ.get("TT_BIO_TRIATT_TAIL_RNE", "0"))
 # whole-K block had 1 element off by 2.0 (S 736, seed 2), KB1 none (max 0.020), and KB1 is faster at
 # 512 and 736 (2.85 vs 3.74 ms, 5.61 vs 6.45 ms).
 TAIL_KB1 = int(os.environ.get("TT_BIO_TRIATT_TAIL_KB1", "1"))
+# The tail's matmul fidelity: None is HiFi3 in both modes (above). A bench knob, swept by perf/spd_m_opendde/gop_sweep.py.
+TAIL_FID = None
 TAIL_FORCE = os.environ.get("TT_BIO_TRIATT_TAIL")   # "1" / "0" overrides the `triatt_tail` lever
 GOP_STATS = [0, 0]   # gated_out_proj served, declined (TAIL_STATS above is the head-major tail's)
 _TAIL_DIR = Path(__file__).resolve().parent / "kernels" / "triatt_tail"
@@ -486,7 +488,7 @@ def _build_tail(o, g, w, out, z, ckc, grid, resid, brows=None):
         compile_time_args=[nt] + acc(out), runtime_args=wr, common_runtime_args=[0],
         config=ttnn.WriterConfigDescriptor())
     fid, approx, fp32, full = G.ckc_args(ckc)
-    fid, fp32 = ttnn.MathFidelity.HiFi3, True
+    fid, fp32 = TAIL_FID or ttnn.MathFidelity.HiFi3, True
     compute = ttnn.KernelDescriptor(
         kernel_source=str(_TAIL_DIR / "compute.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[kt, nt, int(resid), TAIL_SIGPOLY, TAIL_RNE, _tail_dw(kt, nt), TAIL_KB1,
@@ -525,7 +527,7 @@ def gated_out_proj(o, g, w, ckc, resid=None, bias=None):
     grid = tuple(COMPUTE_GRID_MAIN)
     brows = _bias_rows(bias) if bias is not None else None
     key = (str(o.padded_shape), str(g.padded_shape), str(g.dtype), str(w.padded_shape), str(out.padded_shape), grid,
-           G.ckc_args(ckc), resid is not None, bias is not None, TAIL_SIGPOLY, TAIL_RNE, TAIL_KB1)
+           G.ckc_args(ckc), resid is not None, bias is not None, TAIL_SIGPOLY, TAIL_RNE, TAIL_KB1, TAIL_FID)
     entry = _TAIL_CACHE.get(key)
     if entry is None:
         entry = _TAIL_CACHE[key] = _build_tail(o, g, w, out, out, ckc, grid, resid is not None, brows)
