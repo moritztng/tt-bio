@@ -565,6 +565,8 @@ _FAST_MODE = False
 #   triatt_ln_b8    triatt_ln writes q, k and v bfp8 (gate and bias bf16). Unlike triatt_b8 the bytes are
 #                   grid-invariant: each tile is one core's full-K dot product packed once.
 #   triatt_ln_b8g   with triatt_ln_b8, the gate bfp8 too; gated_out_proj reads it at its own format
+#   trimul_gin_w8   gin_moved holds its resident in-projection weights bfp8, so c_z 256 fits one launch and
+#                   reads the normed pair once instead of once per channel slice
 #   transition_b8   transition weights and both hidden activations in bfp8, written by the matmuls
 #   opm_b8          the outer product mean's two operands in bfp8, cast once after their relayout
 #   atom_sdpa       the bf16 atom attention (superset window) on one fused SDPA, bf16 mask
@@ -774,7 +776,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "ws_resid2", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
           "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "trimul_bres", "atomp_dev", "lm_qk_chain",
           "lm_gate_ng", "lm_sdpa_stock", "triatt_hifi2", "dit_cond_jcat", "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32",
-          "triatt_ln_b8", "triatt_ln_b8g")
+          "triatt_ln_b8", "triatt_ln_b8g", "trimul_gin_w8")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -792,7 +794,7 @@ UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "di
                              "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "ws_resid2", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
                              "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "triatt_hifi2", "dit_cond_jcat",
                              "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32", "triatt_ln_b8",
-                             "triatt_ln_b8g"})
+                             "triatt_ln_b8g", "trimul_gin_w8"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -9545,15 +9547,16 @@ class TriangleMultiplication(Module):
         return chunks
 
     def _gp_in_gated(self, C: int, group: int, transposed: bool = False,
-                     split: int = 1) -> list:
+                     split: int = 1, dtype=ttnn.bfloat16) -> list:
         """Per channel chunk, the in-projection's `([p_a | p_b], [g_a | g_b])` weights.
 
         The columns of `_gp_in_chunks`, regrouped so one `trimul_tail` call computes
         `a = p_a * sigmoid(g_a)` and `b` alike as the two halves of its split output.
         `transposed` gives each as [2C, K], for `trimul_tail.gin_moved`. `split` > 1 gives, per
-        chunk, `split` such pairs over equal channel slices of a and b (`gin_move_split`).
+        chunk, `split` such pairs over equal channel slices of a and b (`gin_move_split`). `dtype` is
+        the device copy's (bfp8 for gin_moved's resident weights under trimul_gin_w8).
         """
-        key = (C, group, gp_roles(), transposed, split)
+        key = (C, group, gp_roles(), transposed, split, dtype)
         cached = self._gp_gated_cache.get(key)
         if cached is None:
             sc = C * group
@@ -9561,7 +9564,7 @@ class TriangleMultiplication(Module):
             col = lambda t, r, s: t[:, gp_off(r, sc) + s * w:gp_off(r, sc) + (s + 1) * w]  # noqa: E731
             dev = lambda t: ttnn.from_torch(  # noqa: E731
                 (t.t() if transposed else t).contiguous(), layout=ttnn.TILE_LAYOUT,
-                device=self.device, dtype=ttnn.bfloat16)
+                device=self.device, dtype=dtype)
             pair = lambda t, s: (dev(torch.cat([col(t, "p_a", s), col(t, "p_b", s)], dim=-1)),  # noqa: E731
                                  dev(torch.cat([col(t, "g_a", s), col(t, "g_b", s)], dim=-1)))
             cached = [
@@ -10268,12 +10271,13 @@ class TriangleMultiplication(Module):
                         if _trimul_tail.GIN_MOVE and defer:
                             # The channel moves fused in as well (both chunks leave as (0,3,1,2)
                             # moves once the matmul takes the inner swap).
+                            wdt = ttnn.bfloat8_b if lever("trimul_gin_w8") else ttnn.bfloat16
                             ns = _trimul_tail.gin_move_split(
-                                x_norm_in, int(wa.shape[-1]) // 2, mask)
+                                x_norm_in, int(wa.shape[-1]) // 2, mask, wdt)
                             ab = None
                             if ns is not None:
                                 sl = self._gp_in_gated(chunk_size, group, transposed=True,
-                                                       split=ns)[i]
+                                                       split=ns, dtype=wdt)[i]
                                 sl = [sl] if ns == 1 else sl
                                 wpT, wgT = [p for p, _ in sl], [g for _, g in sl]
                                 fold = mask is not None and _trimul_tail.gin_moved_ok(
