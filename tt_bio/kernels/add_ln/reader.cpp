@@ -4,7 +4,7 @@
 
 // add_ln reader (tt_bio/add_ln.py). Once: gamma / beta (Kt tiles, row 0 carries the [K] vector) into c_8 / c_9,
 // the 1/K reduce scaler into c_10 and an fp32 eps tile into c_11, as triatt_ln. Then per row tile r of this core's
-// range, the Kt tiles of a into c_0 and of b into c_1 (pages r * Kt ..), one row tile per barrier.
+// range, the Kt tiles of a into c_0 and of b into c_1 (pages r * Kt ..), four tiles (compute's add block) per barrier.
 #include "api/dataflow/dataflow_api.h"
 #include "ttnn/kernel/dataflow/generate_reduce_scaler.hpp"
 
@@ -49,16 +49,20 @@ void kernel_main() {
     cb_push_back(gamma_cb, Kt);
     cb_push_back(beta_cb, Kt);
 
+    constexpr uint32_t BLK = 4;   // compute's add block
     for (uint32_t page = r0 * Kt, i = 0; i < nrows; ++i) {
-        cb_reserve_back(a_cb, Kt);
-        cb_reserve_back(b_cb, Kt);
-        uint32_t da = get_write_ptr(a_cb), db = get_write_ptr(b_cb);
-        for (uint32_t t = 0; t < Kt; ++t, ++page, da += tb, db += tb) {
-            noc_async_read_page(page, a, da);
-            noc_async_read_page(page, b, db);
+        for (uint32_t i0 = 0; i0 < Kt; i0 += BLK) {
+            const uint32_t n = Kt - i0 < BLK ? Kt - i0 : BLK;
+            cb_reserve_back(a_cb, n);
+            cb_reserve_back(b_cb, n);
+            uint32_t da = get_write_ptr(a_cb), db = get_write_ptr(b_cb);
+            for (uint32_t t = 0; t < n; ++t, ++page, da += tb, db += tb) {
+                noc_async_read_page(page, a, da);
+                noc_async_read_page(page, b, db);
+            }
+            noc_async_read_barrier();
+            cb_push_back(a_cb, n);
+            cb_push_back(b_cb, n);
         }
-        noc_async_read_barrier();
-        cb_push_back(a_cb, Kt);
-        cb_push_back(b_cb, Kt);
     }
 }
