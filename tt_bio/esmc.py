@@ -208,6 +208,22 @@ ESMC_SDPA_Q_CHUNK = 128
 # 161.2, 600M 254.5 -> 252.0, --fast 245.1 -> 242.2; p150a (1350 MHz) 300M 74.5 -> 70.9. The slices are a second
 # copy of the qkv weight, so the 6B (Attention.qk_l1 off, 3 GB of it) keeps the chunk.
 _ESMC_QKV_SPLIT = env_flag("TT_BIO_ESMC_QKV_SPLIT", True)
+# The attention's input LayerNorm without its gamma and beta: gamma folded into the qkv weight's input rows and beta W
+# added as the projection's bias (LN(x) W = n (diag(g) W) + b W, n the plain normalisation), both formed in float64 at load.
+# The affine is ~1/3 of the op on a Galaxy chip at 1000 MHz (lnstat_bench, [7, 544, 960]: 0.146 -> 0.098 ms a call).
+# Not the 6B (its LIN6B programs take no bias). Page cell, batch of 7, Galaxy chip (1000 MHz), off/on in separate
+# processes, 2 rounds: 300M 93.3 -> 92.1 ms, --fast 84.5 -> 83.4; 600M --fast 124.4 -> 123.5; pcc vs fp32 within 0.00004
+# either way. 600M normal is bimodal without the fold (147-148 ms on chip 20, 144 on chip 27, 135-136 on chip 4) and ran
+# 135-136 with it on all three. On by default on Wormhole; Blackhole until its own A/B says.
+_ESMC_LN_FOLD = (env_flag("TT_BIO_ESMC_LN_FOLD", False)
+                 if os.environ.get("TT_BIO_ESMC_LN_FOLD", "").strip() else None)
+
+
+def _ln_fold_on() -> bool:
+    if _ESMC_LN_FOLD is not None:
+        return _ESMC_LN_FOLD
+    from tt_bio import tenstorrent
+    return tenstorrent.is_wormhole()
 # The attention's input layer norm, the q/k layer norms and the qkv re-pack written to L1 instead of
 # DRAM: the qkv projection and the head split read them straight back, so DRAM never carries them. Same ops, same values (a memory
 # placement). An L1 refusal at a shape falls back to DRAM for that shape for good, decided in the
@@ -592,13 +608,13 @@ class _MMLin:
                 and (x.dtype == ttnn.bfloat16 or (_ESMC_ACT_BFP8 and x.dtype == ttnn.bfloat8_b == w.dtype))
                 and x.volume() // int(x.shape[-1]) >= ESMC_MM_MIN_ROWS and self._mm_on())
 
-    def _lin_split(self, x, w, chunks: int):
-        """x @ w split into `chunks` outputs along the last dim by the matmul itself, or None where it does not serve."""
+    def _lin_split(self, x, w, chunks: int, bias=None):
+        """x @ w (+ bias) split into `chunks` outputs along the last dim by the matmul itself, or None where it does not serve."""
         if not (_ESMC_QKV_MM_SPLIT and self._mm_ok(x, w)):
             return None
         try:
             out = ttnn.experimental.minimal_matmul_split(
-                x, w, chunks=chunks, compute_kernel_config=self._mm_ck(w), dtype=_dtype(ttnn.bfloat16),
+                x, w, chunks=chunks, bias_tensor=bias, compute_kernel_config=self._mm_ck(w), dtype=_dtype(ttnn.bfloat16),
                 memory_config=ttnn.DRAM_MEMORY_CONFIG, **_mm_config(x, w, self.mm_exact_acc))
         except RuntimeError:
             return None
@@ -666,6 +682,11 @@ class Attention(_MMLin, Module):
         self.lm_large = lm_large
         self.in_norm_weight = self.torch_to_tt("layernorm_qkv.0.weight")
         self.in_norm_bias = self.torch_to_tt("layernorm_qkv.0.bias")
+        self.ln_fold = _ln_fold_on() and not lm_large
+        sd = self.weights
+        fold = ((lambda w: (w.double() * sd["layernorm_qkv.0.weight"].double()).float()) if self.ln_fold
+                else (lambda w: w))
+        bias = lambda lo, hi: lambda b: (sd["layernorm_qkv.1.weight"][lo:hi].double() @ b.double()).float()[None]  # noqa: E731
         # The two big projection weights (qkv, out_proj) carry the bulk of the
         # ESMC-6B's parameters; in fast mode they load as block-fp8 (bfloat8_b),
         # halving their weight-read bandwidth and resident size. _dtype() is bf16
@@ -674,32 +695,38 @@ class Attention(_MMLin, Module):
         # (a device-side slice of the 6B's bf16 qkv OOMs: the weights leave a Wormhole chip ~7 MB of DRAM a bank).
         if _ESMC_QKV_SPLIT and qk_l1 and d_model:
             d = d_model  # from the caller: a weight-cache load carries no state dict to read it from
-            self.qkv_weight = None
-            self._qkv_w = tuple(self.torch_to_tt("layernorm_qkv.1.weight", transform=lambda w, i=i: w[i * d:(i + 1) * d].t(),
+            self.qkv_weight = self.qkv_bias = None
+            self._qkv_w = tuple(self.torch_to_tt("layernorm_qkv.1.weight", transform=lambda w, i=i: fold(w)[i * d:(i + 1) * d].t(),
                                                  dtype=_dtype()) for i in range(3))
+            self._qkv_b = (tuple(self.torch_to_tt("layernorm_qkv.0.bias", transform=bias(i * d, (i + 1) * d)) for i in range(3))
+                           if self.ln_fold else (None,) * 3)
             # Not for the 6B: its packed copy is another 1.56 GiB of a Wormhole chip, and an ESMFold2 fold under
             # 2048 tokens is under ESMC_MM_MIN_ROWS, so it never reads it. Holding it left ESMFold2-Fast at 1024 aa
             # without the DRAM for its first trimul.
             if _ESMC_QKV_MM_SPLIT and _esmc_mm() and not lm_large:
-                self.qkv_weight = self.torch_to_tt("layernorm_qkv.1.weight", dtype=_dtype())
+                self.qkv_weight = self.torch_to_tt("layernorm_qkv.1.weight", transform=lambda w: fold(w).t(), dtype=_dtype())
+                if self.ln_fold:
+                    self.qkv_bias = self.torch_to_tt("layernorm_qkv.0.bias", transform=bias(0, 3 * d))
         else:
-            self.qkv_weight = self.torch_to_tt("layernorm_qkv.1.weight", dtype=_dtype())
+            self.qkv_weight = self.torch_to_tt("layernorm_qkv.1.weight", transform=lambda w: fold(w).t(), dtype=_dtype())
+            self.qkv_bias = self.torch_to_tt("layernorm_qkv.0.bias", transform=bias(0, None)) if self.ln_fold else None
         self.q_ln_weight = self.torch_to_tt("q_ln.weight")
         self.k_ln_weight = self.torch_to_tt("k_ln.weight")
         self.out_weight = self.torch_to_tt("out_proj.weight", transform=_scaled_t(out_scale), dtype=_dtype())
 
     def _qkv(self, x, ln_mc=None):
         """q, k, v projections of LayerNorm(x), the layer norm written to `ln_mc` (DRAM if None)."""
-        x_norm = ttnn.layer_norm(x, weight=self.in_norm_weight, bias=self.in_norm_bias, epsilon=1e-5,
-                                 compute_kernel_config=self.compute_kernel_config, memory_config=ln_mc)
+        affine = {} if self.ln_fold else {"weight": self.in_norm_weight, "bias": self.in_norm_bias}
+        x_norm = ttnn.layer_norm(x, **affine, epsilon=1e-5, compute_kernel_config=self.compute_kernel_config,
+                                 memory_config=ln_mc)
         try:
             if self.qkv_weight is not None:
-                split = self._lin_split(x_norm, self.qkv_weight, 3)
+                split = self._lin_split(x_norm, self.qkv_weight, 3, bias=self.qkv_bias)
                 if split is not None:
                     return split
             if getattr(self, "_qkv_w", None) is not None:
-                return tuple(self._lin(x_norm, w) for w in self._qkv_w)
-            qkv = self._lin(x_norm, self.qkv_weight)
+                return tuple(self._lin(x_norm, w, bias=b) for w, b in zip(self._qkv_w, self._qkv_b))
+            qkv = self._lin(x_norm, self.qkv_weight, bias=self.qkv_bias)
             q, k, v = ttnn.chunk(qkv, 3, dim=-1)
             ttnn.deallocate(qkv)
             return q, k, v
