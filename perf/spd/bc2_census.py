@@ -53,6 +53,9 @@ ap.add_argument("--wrap", choices=("census", "all"), default="all",
 ap.add_argument("--dump", type=int, default=0,
                 help="save the first N gradient calls' results to dump_<n>.npz, so two arms can be compared "
                      "by magnitude when their digests differ")
+ap.add_argument("--stub-structure", action="store_true",
+                help="TIMING ONLY, wrong numerics: replace AF2's structure module with a near-free stand-in of "
+                     "the same output shapes, so host_jax measures what the structure module costs the host")
 ap.add_argument("--profile", type=int, default=3,
                 help="run this (uninstrumented) gradient call under cProfile; 0 = off")
 a = ap.parse_args()
@@ -112,6 +115,40 @@ import tt_bio  # noqa: E402
 from tt_bio import bindcraft2 as bc2, tenstorrent as TT  # noqa: E402
 
 
+def stub_structure_module():
+    """Swap `StructureModule.__call__` for constants of its own output shapes.
+
+    The stand-in keeps a 1e-30 dependence on the single and pair activations, so the trunk stays on the
+    differentiation path and its backward runs exactly as before; the heads still read the real pair.
+    Float leaves are fixed draws scaled to ~10 A (non-degenerate, so the Kabsch alignment and the losses
+    stay finite), integer and boolean leaves are ones. The trajectory's numbers are wrong by design.
+    """
+    import haiku as hk
+    import jax
+    import jax.numpy as jnp
+    import numpy as np
+    from bindcraft.af.alphafold.model import folding_multimer
+
+    real = folding_multimer.StructureModule.__call__
+
+    def stand_in(self, representations, batch, is_training, *args, **kwargs):
+        shapes = hk.eval_shape(lambda: real(self, representations, batch, is_training, *args, **kwargs))
+        tie = 1e-30 * (jnp.mean(representations["single"]) + jnp.mean(representations["pair"]))
+        rng = np.random.default_rng(0)
+
+        def leaf(s):
+            if jnp.issubdtype(s.dtype, jnp.floating):
+                return jnp.asarray(10 * rng.standard_normal(s.shape), s.dtype) + tie.astype(s.dtype)
+            return jnp.ones(s.shape, s.dtype)
+        return jax.tree.map(leaf, shapes)
+
+    folding_multimer.StructureModule.__call__ = stand_in
+
+
+if a.stub_structure:
+    stub_structure_module()
+
+
 class LazyRecorder(Recorder):
     """Recorder against tt-bio's own open device, which exists only once the campaign has opened it."""
 
@@ -132,7 +169,7 @@ settings = cleaned_campaign_settings(read_settings(str(example), parse_setting_o
 
 HEAD = dict(sha=SHA, dirty=DIRTY, engine=str(Path(tt_bio.__file__).parent), host=socket.gethostname(),
             chip=os.environ.get("TT_VISIBLE_DEVICES"), env=ENV, binder_length=a.binder,
-            campaign_seed=a.seed, at=a.at, replay=a.replay, wrap=a.wrap, profile=a.profile, argv=sys.argv,
+            campaign_seed=a.seed, at=a.at, replay=a.replay, wrap=a.wrap, profile=a.profile, stub_structure=a.stub_structure, argv=sys.argv,
             nodes=NODES)
 
 rec = LazyRecorder(__import__("ttnn"), None, a.replay)
