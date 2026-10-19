@@ -569,6 +569,9 @@ _FAST_MODE = False
 #                   reads the normed pair once instead of once per channel slice
 #   transition_b8   transition weights and both hidden activations in bfp8, written by the matmuls
 #   opm_b8          the outer product mean's two operands in bfp8, cast once after their relayout
+#   opm_b8cfg       with opm_b8, the contraction on opm_contract_config's plan at HiFi2 (Wormhole)
+#   trimul_bres_bh  trimul_bres takes its fp32-dest copy under acc_off on Blackhole too (Wormhole always does), so
+#                   bmm_res fires in Blackhole --fast sets
 #   atom_sdpa       the bf16 atom attention (superset window) on one fused SDPA, bf16 mask
 #   trimul_ibw      the trimul einsum takes all of K in one block (`_TRIMUL_IBW_FULL`)
 #   trimul_tail     the trimul tail's lean epilogue with the residual folded in (trimul_tail.EPI 2)
@@ -766,6 +769,7 @@ _FAST_MODE = False
 #   atom_l1         the atom transformer's gathered keys, q / kv projections and transition hidden tensors are written
 #                   to L1 where four kv-sized tensors fit (`_atom_l1`): the short-K linears wait on interleaved DRAM
 #                   writes, kv 262.6 -> 128.1 us on Wormhole. Placement only: Boltz-2 folds are byte-identical with it (al1).
+#                   OpenFold3's superset atom attention honours it too: stream, q/kv frame, heads, output and transition.
 #   dit_l1          under dit_fuse, OpenFold3's token DiT keeps the stream, the conditioning and every tensor a block
 #                   makes in L1 (interleaved) for the stack call; weights and the cached pair-bias masks stay in DRAM.
 #                   Placement only: the same programs on the same operands, so the same bits. Only where 12
@@ -783,7 +787,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "ws_resid2", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
           "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "trimul_bres", "atomp_dev", "lm_qk_chain",
           "lm_gate_ng", "lm_sdpa_stock", "triatt_hifi2", "dit_cond_jcat", "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32",
-          "triatt_ln_b8", "triatt_ln_b8g", "trimul_t1w8", "atom_l1", "trimul_gin_w8", "dit_l1")
+          "triatt_ln_b8", "triatt_ln_b8g", "trimul_t1w8", "atom_l1", "trimul_gin_w8", "dit_l1", "opm_b8cfg", "trimul_bres_bh")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -801,7 +805,7 @@ UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "di
                              "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "ws_resid2", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
                              "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "triatt_hifi2", "dit_cond_jcat",
                              "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32", "triatt_ln_b8",
-                             "triatt_ln_b8g", "trimul_t1w8", "trimul_gin_w8"})
+                             "triatt_ln_b8g", "trimul_t1w8", "trimul_gin_w8", "opm_b8cfg", "trimul_bres_bh"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -3370,11 +3374,18 @@ def _dividing_k_chunks(q_len: int, k_len: int) -> tuple:
 _SDPA_WIDE_K_UP = env_flag("TT_BIO_SDPA_WIDE_K_UP", False)
 
 
+# Off restores the widest-q-only fit test and the per-q fallback order, for a paired A/B.
+TRIATT_K1_ANY_Q = True
+
+
 def _k_chunks_up(q_len: int, k_len: int, heads: int, head_dim: int, dtype) -> tuple:
     """Wider dividing k_chunks whose CBs fit at `dtype`, widest first. Empty when none do.
 
-    Fit is tested at the WIDEST dividing q_chunk, which is the q the loop pairs a wide k with
-    first, so a rung offered here is a rung that config can actually take.
+    Fit is tested at each dividing q_chunk, widest first, and a rung is offered once one of them fits:
+    the loop in `_tri_att_sdpa_at` tries every fused q at a wide k before it falls back. Testing the
+    widest q alone kept the one-k rung off at padded 640, where q640 overflows and q320 fits: the TA
+    SDPA at [640, 12, 640, 32] ran (q320, k160) at 20.28 ms against (q320, k640) at 14.25 ms, float64
+    rel rms 0.0278 vs 0.0267 (spd-m-opendde tas, Galaxy chip, 1000 MHz).
     """
     from . import sdpa_generic as SG
     from . import triatt_sdpa as _TS
@@ -3384,21 +3395,19 @@ def _k_chunks_up(q_len: int, k_len: int, heads: int, head_dim: int, dtype) -> tu
     qs = [qc for qc in _tri_att_q_chunks(q_len, k_len) if padded % qc == 0]
     if not qs:
         return ()
-    qc = qs[0]
-    out = []
-    for kc in range(padded, prod, -SDPA_CHUNK_TILE):
-        if padded % kc:
-            continue
+
+    def fits(qc, kc):
         q_pf = _TS.q_parallel_factor(padded, heads, qc, cores, cap=0)
         p = SG.plan_for_shape(padded, heads, head_dim, qc, kc, grid=(cores, 1), split=(
             max(cores // (heads * q_pf), 1), heads, q_pf), dtype=dtype)
         if p["q_per_core"] != 1 or p["nh_per_core"] != 1 or p["use_padded_mask"]:
-            continue
+            return False
         pers = p["k_num_chunks"] * p["Sq_chunk_t"] * p["Sk_chunk_t"]
-        if SG.cb_fits_l1(p, mask_cb_tiles=pers, one_k_trim=True,
-                         **{f"{o}_dtype": dtype for o in ("q", "k", "v", "mask", "out")}):
-            out.append(kc)
-    return tuple(out)
+        return SG.cb_fits_l1(p, mask_cb_tiles=pers, one_k_trim=True,
+                             **{f"{o}_dtype": dtype for o in ("q", "k", "v", "mask", "out")})
+
+    return tuple(kc for kc in range(padded, prod, -SDPA_CHUNK_TILE)
+                 if padded % kc == 0 and any(fits(qc, kc) for qc in (qs if TRIATT_K1_ANY_Q else qs[:1])))
 
 
 def _tri_att_k_chunks(q_len: int, k_len: int, heads=None, head_dim=None, dtype=None) -> tuple:
@@ -3596,9 +3605,10 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None, gate=None):
         _qs = tuple(qc for qc in _tri_att_q_chunks(q_len, k_len)
                     if _padded_sdpa_len(q_len) % qc == 0)
         for k_chunk in k_chunks[:-1]:
-            for q_chunk in _qs:
-                cfg = (q_len, k_len, q_chunk, k_chunk, q.dtype)
-                if cfg in _SDPA_QK_OVER_L1:
+            # Every fused q at this k before any fallback: a wide q the fused kernel declines would
+            # otherwise hand the call to the padded pair or the stock op while a narrower fused q fits.
+            for q_chunk in (_qs if TRIATT_K1_ANY_Q else ()):
+                if (q_len, k_len, q_chunk, k_chunk, q.dtype) in _SDPA_QK_OVER_L1:
                     continue
                 o = _triatt_sdpa.sdpa(q, k, v, bias, scale, q_chunk, k_chunk,
                                       ckc_default=ckc, gate=gate)
@@ -3606,6 +3616,17 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None, gate=None):
                     SDPA_K_CHUNK_STATS[0] += 1
                     _sdpa_pick(q_len, k_len, q_chunk, k_chunk, "fused")
                     return o
+            for q_chunk in _qs:
+                cfg = (q_len, k_len, q_chunk, k_chunk, q.dtype)
+                if cfg in _SDPA_QK_OVER_L1:
+                    continue
+                if not TRIATT_K1_ANY_Q:
+                    o = _triatt_sdpa.sdpa(q, k, v, bias, scale, q_chunk, k_chunk,
+                                          ckc_default=ckc, gate=gate)
+                    if o is not None:
+                        SDPA_K_CHUNK_STATS[0] += 1
+                        _sdpa_pick(q_len, k_len, q_chunk, k_chunk, "fused")
+                        return o
                 if gate is not None:
                     continue
                 o = padded()
@@ -6438,9 +6459,9 @@ def _trimul_einsum_ckc(base):
 def _bres_ckc(cfg):
     """`cfg` with an fp32 dest, for bmm_res: it declines a bf16 dest, which `acc_off` gives the whole trunk. The
     einsum writes bf16 either way, and summing K in fp32 is the more precise side (rel rms vs a float64 product at
-    OpenDDE's c384 x 512: 1.5e-2 bf16 dest, 1.7e-3 fp32). Wormhole only: Blackhole's fast sets are not graded with
-    bmm_res firing, so there it still declines a bf16 dest."""
-    if cfg.fp32_dest_acc_en or not is_wormhole():
+    OpenDDE's c384 x 512: 1.5e-2 bf16 dest, 1.7e-3 fp32). Blackhole only under `trimul_bres_bh`: its fast sets are
+    not graded with bmm_res firing, so there it otherwise still declines a bf16 dest."""
+    if cfg.fp32_dest_acc_en or not (is_wormhole() or lever("trimul_bres_bh")):
         return cfg
     out = type(cfg)(math_fidelity=cfg.math_fidelity, math_approx_mode=cfg.math_approx_mode,
                     fp32_dest_acc_en=True, packer_l1_acc=cfg.packer_l1_acc)
@@ -9687,7 +9708,8 @@ class TriangleMultiplication(Module):
             TT1.T1_STATS[1] += 1
             TT1.T1_WHY["route"] = TT1.T1_WHY.get("route", 0) + 1
             return None
-        # trimul_t1w8: all three resident weights as bfp8, so c_z 384 runs two channel groups, not three
+        # trimul_t1w8: all three resident weights as bfp8, so c_z 384 runs two channel groups, not three,
+        # and c_z 256 one
         w8 = lever("trimul_t1w8")
         if w8 not in self._t1_w:
             wpT, wgT, wgo = TT1.t1_host_weights(self._g_in_t, self._p_in_t,
@@ -16362,20 +16384,28 @@ class OuterProductMean(Module):
             else:
                 depth_parts = [(b8(acp), b8(bcp), Sc) for acp, bcp, Sc in depth_parts]
 
+        def plan(x, y):
+            return None if x.device().arch() != ttnn.Arch.WORMHOLE_B0 else opm_contract_config(
+                x.padded_shape[0] // 32, y.padded_shape[0] // 32, x.padded_shape[1] // 32,
+                x.device().compute_with_storage_grid_size())
+
         def contract(x, y):
             if z_dtype is None or _OPM_B8_REFUSED.get((tuple(x.shape), tuple(y.shape))):
                 if z_dtype is not None:
                     x, y = ttnn.typecast(x, ttnn.bfloat16), ttnn.typecast(y, ttnn.bfloat16)
-                cfg = None if x.device().arch() != ttnn.Arch.WORMHOLE_B0 else opm_contract_config(
-                    x.padded_shape[0] // 32, y.padded_shape[0] // 32, x.padded_shape[1] // 32,
-                    x.device().compute_with_storage_grid_size())
-                out = ttnn.matmul(x, y, transpose_b=True, program_config=cfg,
+                out = ttnn.matmul(x, y, transpose_b=True, program_config=plan(x, y),
                                   compute_kernel_config=self.compute_kernel_config)
                 if z_dtype is not None:
                     ttnn.deallocate(x)
                     ttnn.deallocate(y)
                 return out
             try:
+                # opm_b8cfg: the bf16 path's plan at HiFi2, which covers every bfp8 bit. ttnn's own plan binds,
+                # not the fidelity (WH, AICLK 1000, [16384, 4128]^2: HiFi4 40.5 / HiFi3 33.3 / HiFi2 33.5 /
+                # LoFi 32.6 ms); under the plan 25.8 ms, f64 rel-RMS 0.0145 -> 0.0119 (perf/spd_m_protenix/fid_b8.py).
+                if lever("opm_b8cfg"):
+                    return ttnn.matmul(x, y, transpose_b=True, dtype=z_dtype, program_config=plan(x, y),
+                                       compute_kernel_config=bfp8_fidelity(self.compute_kernel_config, x, y))
                 return ttnn.matmul(x, y, transpose_b=True, dtype=z_dtype,
                                    compute_kernel_config=self.compute_kernel_config)
             except RuntimeError as exc:

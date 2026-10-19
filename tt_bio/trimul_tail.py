@@ -1349,7 +1349,8 @@ T1_PLANS = {(4, 8, 4): (1, 32), (8, 16, 8): (2, 16), (12, 24, 12): (3, 8)}
 T1_KEYS = set(T1_PLANS)
 # The plans when the resident weights are bfp8 (lever trimul_t1w8): half the weight bytes per core, so c_z 384
 # fits its [a | b] and g_out weights in two channel groups instead of three, one launch and one xn pass fewer.
-T1_PLANS_W8 = {(12, 24, 12): (2, 8)}
+# c_z 256 fits ONE launch of 16-row units (1072 KB of CBs, what its two bf16 groups take now): z is read once.
+T1_PLANS_W8 = {(8, 16, 8): (1, 16), (12, 24, 12): (2, 8)}
 
 
 def t1_plan(key, w8=False):

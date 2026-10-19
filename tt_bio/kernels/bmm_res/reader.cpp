@@ -11,7 +11,11 @@
 // transpose. TB: b is stored [N, K], so its tile (k, n) is page n*KT + k; c_1 still holds b in (k, n) order and the
 // matmul unpacker transposes each tile.
 //
-// Common runtime args: a, b addresses. Per-core runtime args: first channel, channel count.
+// Split (NB < NT): a work unit is channel u / NS with output columns [j*NB, (j+1)*NB), j = u % NS; c_1 holds that
+// column block of b[c], and a[c] streams once per block. The transposed a moves in AG-tile groups (compute's own
+// grouping), so c_2 needs only A_DEPTH groups; unsplit, AG = KT.
+//
+// Common runtime args: a, b addresses. Per-core runtime args: first unit, unit count.
 #include "api/dataflow/dataflow_api.h"
 
 void kernel_main() {
@@ -24,33 +28,40 @@ void kernel_main() {
     constexpr uint32_t NT = get_compile_time_arg_val(2);
     constexpr bool TA = get_compile_time_arg_val(3);
     constexpr bool TB = get_compile_time_arg_val(4);
+    constexpr uint32_t NB = get_compile_time_arg_val(5);
+    constexpr uint32_t AG = get_compile_time_arg_val(6);
+    constexpr uint32_t NS = NT / NB;
     constexpr uint32_t cb_a = TA ? 2 : 0, cb_b = 1;
-    constexpr auto a_args = TensorAccessorArgs<5>();
+    constexpr auto a_args = TensorAccessorArgs<7>();
     constexpr auto b_args = TensorAccessorArgs<a_args.next_compile_time_args_offset()>();
     const auto sa = TensorAccessor(a_args, a_addr);
     const auto sb = TensorAccessor(b_args, b_addr);
     const uint32_t ta = get_tile_size(cb_a), tb = get_tile_size(cb_b);
 
-    for (uint32_t c = first; c < first + count; ++c) {
-        cb_reserve_back(cb_b, KT * NT);
+    for (uint32_t u = first; u < first + count; ++u) {
+        const uint32_t c = u / NS, n0 = (u % NS) * NB;
+        cb_reserve_back(cb_b, KT * NB);
         uint32_t w = get_write_ptr(cb_b);
         for (uint32_t k = 0; k < KT; ++k) {
-            for (uint32_t n = 0; n < NT; ++n, w += tb) {
+            for (uint32_t n = n0; n < n0 + NB; ++n, w += tb) {
                 noc_async_read_page(c * KT * NT + (TB ? n * KT + k : k * NT + n), sb, w);
             }
         }
         noc_async_read_barrier();
-        cb_push_back(cb_b, KT * NT);
+        cb_push_back(cb_b, KT * NB);
         for (uint32_t r = 0; r < MT; ++r) {
-            cb_reserve_back(cb_a, KT);
-            w = get_write_ptr(cb_a);
+            for (uint32_t k0 = 0; k0 < KT; k0 += AG) {
+                const uint32_t g = KT - k0 < AG ? KT - k0 : AG;
+                cb_reserve_back(cb_a, g);
+                w = get_write_ptr(cb_a);
 #ifndef BRES_NO_A  // time attribution only (af2_trimul_bmm_sweep --abl)
-            for (uint32_t k = 0; k < KT; ++k, w += ta) {
-                noc_async_read_page(c * MT * KT + (TA ? k * MT + r : r * KT + k), sa, w);
-            }
+                for (uint32_t k = k0; k < k0 + g; ++k, w += ta) {
+                    noc_async_read_page(c * MT * KT + (TA ? k * MT + r : r * KT + k), sa, w);
+                }
 #endif
-            noc_async_read_barrier();
-            cb_push_back(cb_a, KT);
+                noc_async_read_barrier();
+                cb_push_back(cb_a, g);
+            }
         }
     }
 }
