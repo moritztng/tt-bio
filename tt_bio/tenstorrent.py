@@ -761,6 +761,9 @@ _FAST_MODE = False
 #   triatt_k1       triangle attention's fused SDPA takes the whole row as one k chunk where the CB set fits once the
 #                   unused online-softmax buffers are trimmed (sdpa_generic.cb_table one_k_trim): 288-512 tokens, e.g. (q512, k512),
 #                   no rescale pass, op 1.13x on Wormhole. Same rung as TT_BIO_SDPA_WIDE_K_UP, flippable per fold.
+#   atom_l1         the atom transformer's gathered keys, q / kv projections and transition hidden tensors are written
+#                   to L1 where four kv-sized tensors fit (`_atom_l1`): the short-K linears wait on interleaved DRAM
+#                   writes, kv 262.6 -> 128.1 us on Wormhole. Placement only: Boltz-2 folds are byte-identical with it (al1).
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in",
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
@@ -774,7 +777,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "ws_resid2", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
           "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "trimul_bres", "atomp_dev", "lm_qk_chain",
           "lm_gate_ng", "lm_sdpa_stock", "triatt_hifi2", "dit_cond_jcat", "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32",
-          "triatt_ln_b8", "triatt_ln_b8g", "trimul_t1w8")
+          "triatt_ln_b8", "triatt_ln_b8g", "trimul_t1w8", "atom_l1")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -1776,6 +1779,7 @@ ATOM_N_LAYERS = 3
 # gather, bit-exact (torch.equal), whglx card 4, WH: perf/b2z2_elision/atom_gather_ab.py.
 ATOM_KEY_SHIFT = (ATOM_DIM - ATOM_WINDOW) // 2
 ATOM_SHIFT_GATHER_STATS = [0, 0]        # [slice+concat, one-hot matmul]
+ATOM_L1_STATS = [0, 0]                  # atom_l1: [atom transformer intermediates into L1, into DRAM]
 
 
 class _AtomShiftGather:
@@ -1825,7 +1829,7 @@ def _atom_gather_shift_windows(ki):
     return real if torch.equal(ki, want) else None
 
 
-def _atom_shift_gather(s: "ttnn.Tensor", windows: int) -> "ttnn.Tensor":
+def _atom_shift_gather(s: "ttnn.Tensor", windows: int, memory_config=None) -> "ttnn.Tensor":
     """The centred key window as four window-axis slices, no matmul and no permutes.
 
     One misaligned op survives: the 48-row shift, which is 48 % 32 != 0 and so cannot be a tile
@@ -1847,9 +1851,10 @@ def _atom_shift_gather(s: "ttnn.Tensor", windows: int) -> "ttnn.Tensor":
     ttnn.deallocate(rm)
     shifted = ttnn.to_layout(shifted, ttnn.TILE_LAYOUT, dtype=s.dtype)
     src = ttnn.reshape(shifted, (b, k + pieces, w, d))
-    out = ttnn.concat([src[:, j:j + windows] for j in range(pieces)], dim=2)
+    out = ttnn.concat([src[:, j:j + windows] for j in range(pieces)], dim=2,
+                      memory_config=None if windows < k else memory_config)
     if windows < k:
-        out = ttnn.pad(out, [(0, 0), (0, k - windows), (0, 0), (0, 0)], 0.0)
+        out = ttnn.pad(out, [(0, 0), (0, k - windows), (0, 0), (0, 0)], 0.0, memory_config=memory_config)
     return out
 
 
@@ -6219,6 +6224,21 @@ def _residual_update_memory_config(shape, dtype) -> ttnn.MemoryConfig | None:
     nbytes = _padded_bytes(shape, 4 if dtype == ttnn.float32 else 2)
     fits = bool(nbytes) and _l1_fits(nbytes, 1.0, _PAIR_L1_CONSUMER_RESERVE)
     RESIDUAL_L1_STATS[0 if fits else 1] += 1
+    return ttnn.L1_MEMORY_CONFIG if fits else None
+
+
+def _atom_l1(shape, dtype) -> "ttnn.MemoryConfig | None":
+    """atom_l1: L1 for an atom transformer intermediate when four of the largest (kv) fit, else None.
+
+    The atom transformer's linears are short (K 128-256) and write a tensor as large as they read, so on
+    Wormhole they wait on interleaved DRAM writes: the kv projection [1, 140, 128, 128] x [128, 256] reads
+    262.6 us with a DRAM output and 128.1 us with an L1 one, bit-identical (atomlin2, 1000 MHz). Every
+    caller frees the result a few ops later, so the budget is for the call's own live set, priced on kv.
+    """
+    if not lever("atom_l1"):
+        return None
+    fits = _l1_fits(_padded_bytes(shape, 4 if dtype == ttnn.float32 else 2), 4.0, _PAIR_L1_CONSUMER_RESERVE)
+    ATOM_L1_STATS[0 if fits else 1] += 1
     return ttnn.L1_MEMORY_CONFIG if fits else None
 
 
@@ -12758,9 +12778,10 @@ class AttentionPairBias(Module):
         else:
             s = ttnn.to_memory_config(s, ttnn.DRAM_MEMORY_CONFIG, dtype=_dtype())
             B, K, W, D_S = s.shape
+            mc = _atom_l1((B, K, ATOM_DIM, 2 * D_S), _dtype())
             if isinstance(keys_indexing, _AtomShiftGather):
                 ATOM_SHIFT_GATHER_STATS[0] += 1
-                s_kv = _atom_shift_gather(s, keys_indexing.windows)
+                s_kv = _atom_shift_gather(s, keys_indexing.windows, memory_config=mc)
             else:
                 ATOM_SHIFT_GATHER_STATS[1] += 1
                 s_kv = ttnn.reshape(s, (B, 2 * K, W // 2, -1))
@@ -12781,6 +12802,7 @@ class AttentionPairBias(Module):
                 compute_kernel_config=self.compute_kernel_config,
                 core_grid=CORE_GRID_MAIN,
                 dtype=_dtype(),
+                memory_config=mc,
             )
             kv = ttnn.linear(
                 s_kv,
@@ -12788,7 +12810,9 @@ class AttentionPairBias(Module):
                 compute_kernel_config=self.compute_kernel_config,
                 core_grid=CORE_GRID_MAIN,
                 dtype=_dtype(),
+                memory_config=mc,
             )
+            ttnn.deallocate(s_kv)
 
             if self.kq_norm:
                 q, kv = self._apply_kq_norm_atom(q, kv)
@@ -15019,17 +15043,21 @@ class ConditionedTransitionBlock(Module):
         given, is added to the gated output here (`residual + s_out * b_a`, one op under dit_shoist)."""
         s_terms, s_out = cond if cond is not None else (None, None)
         a = self.adaln(a, s, large_seq_len=large_seq_len, s_terms=s_terms)
+        mc = (_atom_l1(tuple(a.shape)[:-1] + (2 * int(a.shape[-1]),), a.dtype)
+              if self.atom_level and len(a.shape) == 4 else None)
         a_swish = ttnn.linear(
             a,
             self.swish_weight,
             compute_kernel_config=self.compute_kernel_config,
             core_grid=CORE_GRID_MAIN,
+            memory_config=mc,
         )
         gates = ttnn.linear(
             a,
             self.gates_weight,
             compute_kernel_config=self.compute_kernel_config,
             core_grid=CORE_GRID_MAIN,
+            memory_config=mc,
         )
         a_swish = ttnn.multiply_(gates, a_swish, input_tensor_a_activations=[ttnn.UnaryOpType.SILU])
         if self.a_to_b_gate:
@@ -15038,6 +15066,7 @@ class ConditionedTransitionBlock(Module):
                 self.a_to_b_weight,
                 compute_kernel_config=self.compute_kernel_config,
                 core_grid=CORE_GRID_MAIN,
+                memory_config=mc,
             )
             ttnn.deallocate(a)
             b = ttnn.multiply_(a_swish, a_b)
@@ -15058,6 +15087,7 @@ class ConditionedTransitionBlock(Module):
             self.b_to_a_weight,
             compute_kernel_config=self.compute_kernel_config,
             core_grid=CORE_GRID_MAIN,
+            memory_config=mc,
         )
         ttnn.deallocate(b)
         cut = None
