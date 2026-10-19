@@ -563,6 +563,9 @@ GIN_MOVE = env_flag("TT_BIO_TRIMUL_GIN_MOVE", True)
 GIN_MOVE_STATS = [0, 0]   # served, declined
 GIN_MOVE_ABL = 0          # the three kernels' stage ablation bits (see each .cpp). Diagnostic only.
 GIN_MOVE_NB = int(os.environ.get("TT_BIO_TRIMUL_GIN_MOVE_NB", "2"))   # writer tiles per read barrier
+# Fused gate only: value and gate rows of one channel tile as ONE matmul block (rt 2), so each x tile is unpacked
+# once for both instead of once per pass. The reader interleaves Wp^T and Wg^T row tiles to give rt its Kt stride.
+GIN_RT2 = env_flag("TT_BIO_TRIMUL_GIN_RT2", False)
 
 
 def _gin_fuse(masked):
@@ -652,9 +655,13 @@ def _build_gin_move(x, wpT, wgT, outs, grid, ckc, mask, cto=0, ctt=None):
     acc = lambda t: list(ttnn.TensorAccessorArgs(t).get_compile_time_args())
     src = ttnn.KernelDescriptor.SourceType.FILE_PATH
     d = KERNEL_DIR.parent / "trimul_gin_moved"
+    fid, approx, fp32, full = ckc
+    # The fused gate holds a subblock's p and g in DST at once: half of DST each.
+    fuse = _gin_fuse(mask is not None)
     reader = ttnn.KernelDescriptor(
         kernel_source=str(d / "reader.cpp"), source_type=src, core_ranges=core_grid,
-        compile_time_args=[kt, ct2, St, int(mask is not None), GIN_MOVE_ABL] + acc(x) + acc(wpT) + acc(wgT)
+        compile_time_args=[kt, ct2, St, int(mask is not None), GIN_MOVE_ABL, int(fuse and GIN_RT2)]
+        + acc(x) + acc(wpT) + acc(wgT)
         + acc(mask if mask is not None else x),
         runtime_args=rd, common_runtime_args=[0] * 4, config=ttnn.ReaderConfigDescriptor())
     writer = ttnn.KernelDescriptor(
@@ -662,13 +669,11 @@ def _build_gin_move(x, wpT, wgT, outs, grid, ckc, mask, cto=0, ctt=None):
         compile_time_args=[ct2, St, GIN_MOVE_ABL, GIN_MOVE_NB, cto, ct2 // 2 if ctt is None else ctt]
         + acc(outs[0]) + acc(outs[1]),
         runtime_args=wr, common_runtime_args=[0, 0], config=ttnn.WriterConfigDescriptor())
-    fid, approx, fp32, full = ckc
-    # The fused gate holds a subblock's p and g in DST at once: half of DST each.
-    fuse = _gin_fuse(mask is not None)
     sbw = min(4, (4 if fp32 else 8) * (2 if full else 1) // 2) if fuse else 4
     compute = ttnn.KernelDescriptor(
         kernel_source=str(d / "compute.cpp"), source_type=src, core_ranges=core_grid,
-        compile_time_args=[kt, ct2, sbw, int(mask is not None), GIN_MOVE_ABL, _sigpoly(), RNE, int(fuse)],
+        compile_time_args=[kt, ct2, sbw, int(mask is not None), GIN_MOVE_ABL, _sigpoly(), RNE, int(fuse),
+                           int(fuse and GIN_RT2)],
         runtime_args=cp,
         config=ttnn.ComputeConfigDescriptor(
             math_fidelity=fid, math_approx_mode=approx, fp32_dest_acc_en=fp32,
@@ -709,7 +714,7 @@ def gin_moved(x, wpT, wgT, ckc, grid, mask=None):
     for s_, (wp, wg) in enumerate(zip(wps, wgs)):
         key = ("gin_move", str(x.padded_shape), str(wp.padded_shape), tuple(grid),
                tuple(str(c) for c in ckc), mask is not None, GIN_MOVE_ABL, GIN_MOVE_NB, _sigpoly(), RNE,
-               s_, n, _gin_fuse(mask is not None))
+               s_, n, _gin_fuse(mask is not None), GIN_RT2)
         entry = _CACHE.get(key)
         if entry is None:
             entry = _CACHE[key] = _build_gin_move(x, wp, wg, outs, grid, ckc, mask,

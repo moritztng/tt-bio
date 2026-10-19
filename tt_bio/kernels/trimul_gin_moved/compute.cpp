@@ -38,6 +38,10 @@ void kernel_main() {
     // p and g never round-trip through L1 as bf16, which also frees their two 32-tile buffers.
     constexpr uint32_t FUSE = get_compile_time_arg_val(7);
     static_assert(!(FUSE && MASK), "the fused gate has no mask path");
+    // 1 (FUSE only): the reader interleaved the value and gate row tiles of each channel tile, so one rt-2 matmul
+    // block fills value (DST 0..SBW-1) and gate (SBW..2SBW-1) together and each x tile is unpacked once, not twice.
+    constexpr uint32_t RT2 = get_compile_time_arg_val(8);
+    static_assert(!RT2 || FUSE, "rt 2 is the fused gate's layout");
     const uint32_t nunits = get_arg_val<uint32_t>(0);
 
     constexpr uint32_t w_cb = tt::CBIndex::c_0;
@@ -52,14 +56,21 @@ void kernel_main() {
     cb_wait_front(w_cb, 2 * CT2 * Kt);
 
     if constexpr (FUSE) {
-        mm_block_init_short(w_cb, x_cb, true, SBW, 1, Kt);
+        mm_block_init_short(w_cb, x_cb, true, SBW, RT2 ? 2 : 1, Kt);
         for (uint32_t u = 0; u < nunits; ++u) {
             cb_wait_front(x_cb, 32 * Kt);
             for (uint32_t q = 0; q < CT2; ++q) {
                 cb_reserve_back(out_cb, 32);
                 for (uint32_t il0 = 0; il0 < 32; il0 += SBW) {
                     tile_regs_acquire();
-                    for (uint32_t pass = 0; pass < 2; ++pass) {
+                    if constexpr (RT2) {
+                        uint32_t i0 = 2 * q * Kt;
+                        uint32_t i1 = il0;
+                        for (uint32_t k = 0; k < Kt; ++k, ++i0, i1 += 32) {
+                            matmul_block(w_cb, x_cb, i0, i1, 0, true, SBW, 2, Kt);
+                        }
+                    }
+                    for (uint32_t pass = 0; pass < 2 && !RT2; ++pass) {
                         uint32_t i0 = (pass * CT2 + q) * Kt;
                         uint32_t i1 = il0;
                         for (uint32_t k = 0; k < Kt; ++k, ++i0, i1 += 32) {

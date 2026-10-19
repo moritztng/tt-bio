@@ -17,7 +17,9 @@ void kernel_main() {
     constexpr uint32_t St = get_compile_time_arg_val(2);
     constexpr uint32_t MASK = get_compile_time_arg_val(3);
     constexpr uint32_t ABL = get_compile_time_arg_val(4);   // bit 3: no x reads (diagnostic)
-    constexpr auto x_args = TensorAccessorArgs<5>();
+    // 1: row tiles interleaved [Wp^T row r | Wg^T row r] per r, for compute's rt-2 matmul block (GIN_RT2).
+    constexpr uint32_t RT2 = get_compile_time_arg_val(5);
+    constexpr auto x_args = TensorAccessorArgs<6>();
     constexpr auto wp_args = TensorAccessorArgs<x_args.next_compile_time_args_offset()>();
     constexpr auto wg_args = TensorAccessorArgs<wp_args.next_compile_time_args_offset()>();
     constexpr auto m_args = TensorAccessorArgs<wg_args.next_compile_time_args_offset()>();
@@ -38,8 +40,15 @@ void kernel_main() {
 
     cb_reserve_back(w_cb, 2 * CT2 * Kt);
     uint32_t w = get_write_ptr(w_cb);
-    for (uint32_t t = 0; t < CT2 * Kt; ++t, w += tb) noc_async_read_page(t, wp, w);
-    for (uint32_t t = 0; t < CT2 * Kt; ++t, w += tb) noc_async_read_page(t, wg, w);
+    if constexpr (RT2) {
+        for (uint32_t r = 0; r < CT2; ++r) {
+            for (uint32_t k = 0; k < Kt; ++k, w += tb) noc_async_read_page(r * Kt + k, wp, w);
+            for (uint32_t k = 0; k < Kt; ++k, w += tb) noc_async_read_page(r * Kt + k, wg, w);
+        }
+    } else {
+        for (uint32_t t = 0; t < CT2 * Kt; ++t, w += tb) noc_async_read_page(t, wp, w);
+        for (uint32_t t = 0; t < CT2 * Kt; ++t, w += tb) noc_async_read_page(t, wg, w);
+    }
     noc_async_read_barrier();
     cb_push_back(w_cb, 2 * CT2 * Kt);
 
