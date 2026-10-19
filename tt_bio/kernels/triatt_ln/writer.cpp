@@ -64,7 +64,7 @@ void write_heads(uint32_t r0, uint32_t nrows, uint32_t out_cb, uint32_t tb, uint
         for (uint32_t j = 0, n = n0; j < NW && n <= 4 * H; ++j, ++n, src += tb) {
             const uint32_t page = base + (n % H) * MT;
             if constexpr (ABL_W) continue;
-            if constexpr (ABL_LIN) { noc_async_write_page((r * (4 * H + 1) + n) % ABL_LIN, oq, src); continue; }
+            if constexpr (ABL_LIN) { noc_async_write_page((r * (4 * H + 1) + n) % (ABL_LIN ? ABL_LIN : 1), oq, src); continue; }
             switch (n / H) {
                 case 0: noc_async_write_page(page, oq, src); break;
                 case 1: noc_async_write_page(page, ok, src); break;
