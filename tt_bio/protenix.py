@@ -117,19 +117,24 @@ SHOIST_FAST = frozenset({"dit_shoist"})
 # 1.408 A A/A floor; normal PASS, 43 paired folds, 0.321 A vs 1.262 A, docking 34 -> 34. cdk2x2 512 x 1 at 1000 MHz,
 # 5 paired warm folds (k1): normal 64.15 -> 63.20 s, fast 54.07 -> 53.19 s, 5 of 5 faster each. Blackhole is ungraded.
 TRIATT_K1 = frozenset({"triatt_k1"})
+# trimul_bres (the trimul einsum by bmm_res, b[c] resident in L1) in Protenix-v2's Wormhole normal set, as OpenFold3 and
+# ESMFold2 ship it. Normal mode's fp32 dest lets it fire as is, and it is bit-exact there: cdk2x2 512 x 1 on a Galaxy
+# chip at 1000 MHz, paired warm folds (spd-m-protenix bresnormal, 2026-10-19): CIFs identical, -1.30 and -1.38 s (63.35 -> 62.01 s).
+BRES_NORMAL = frozenset({"trimul_bres"})
 from .eltwise_fusion import scale_add, norm_residual, gated_add
 
 
 def mode_levers(state_dict):
     """The mode's lever set for a Protenix checkpoint: `FAST_LEVERS` under --fast, else `NORMAL_LEVERS`,
     plus `T2_TAIL` and `WS_CHAIN` for Protenix-v2 (c_z 256), the one width their normal grades cover; Wormhole --fast takes
-    `WH_FAST_LEVERS`, and Wormhole adds `TRIATT_LN` and `TRIATT_K1` to both Protenix-v2 modes and `WS_FAST` to its --fast. Protenix-v2
-    --fast takes `SHOIST_FAST` on both chips."""
+    `WH_FAST_LEVERS`, and Wormhole adds `TRIATT_LN` and `TRIATT_K1` to both Protenix-v2 modes, `BRES_NORMAL` to its normal
+    and `WS_FAST` to its --fast. Protenix-v2 --fast takes `SHOIST_FAST` on both chips."""
     v2 = Trunk._derive_c_z(state_dict) == 256
     wh = _T.is_wormhole()
     pair_ln = TRIATT_LN | TRIATT_K1 if v2 and wh else frozenset()
     fast = WH_FAST_LEVERS | pair_ln | (WS_FAST if v2 else frozenset()) if wh else FAST_LEVERS
-    return _T.model_levers((NORMAL_LEVERS | T2_TAIL | WS_CHAIN if v2 else NORMAL_LEVERS) | pair_ln,
+    return _T.model_levers((NORMAL_LEVERS | T2_TAIL | WS_CHAIN if v2 else NORMAL_LEVERS) | pair_ln
+                           | (BRES_NORMAL if v2 and wh else frozenset()),
                            fast | SHOIST_FAST if v2 else fast)
 
 
