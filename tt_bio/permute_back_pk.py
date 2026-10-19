@@ -46,7 +46,8 @@ def permute_back_pk(x, out, grid, c_off=0):
     assert ok(x, out, c_off)
     C, N, H = int(x.shape[1]), int(x.shape[2]), int(out.shape[3])
     St, CT, Ht = N // TILE, C // TILE, H // TILE
-    key = (C, N, H, c_off, tuple(grid), ABL, OUT_TILES, WB, ORD)
+    # The accessor args differ by buffer type (DRAM / L1) and bank layout, so the memory configs are part of the key.
+    key = (C, N, H, c_off, tuple(grid), str(x.memory_config()), str(out.memory_config()), ABL, OUT_TILES, WB, ORD)
     entry = _CACHE.get(key)
     if entry is None:
         gx, gy = grid

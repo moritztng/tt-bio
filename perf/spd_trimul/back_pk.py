@@ -7,6 +7,9 @@ ap.add_argument("--ns", default="512")
 ap.add_argument("--c", type=int, default=256)
 ap.add_argument("--reps", type=int, default=20)
 ap.add_argument("--abl", default="1,2,4,8")
+# The fold's pattern: every call on freshly allocated x and out (new addresses), channel halves c_off 0 / C of a 2C
+# output, x in DRAM or L1 per call. Exactness of every call; a hang names the call it stopped at.
+ap.add_argument("--fresh", type=int, default=0)
 A = ap.parse_args()
 
 from tt_bio.main import ensure_p300_mesh_descriptor
@@ -65,3 +68,20 @@ for n in (int(v) for v in A.ns.split(",")):
         rec[f"pk_abl{m}_ms"] = timed(new, A.reps)
     PK.ABL = 0
     print(json.dumps(rec), flush=True)
+    bad, keep = 0, []
+    for i in range(A.fresh):
+        mc = ttnn.L1_MEMORY_CONFIG if (i % 3 == 2 and xt.numel() * 2 < 40e6) else ttnn.DRAM_MEMORY_CONFIG
+        keep.append(ttnn.allocate_tensor_on_device(ttnn.Shape([1, 1, 32 * (1 + i % 7), 1024]), ttnn.bfloat16,
+                                                   ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG))  # shift addresses
+        xi = ttnn.from_torch(xt, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev, memory_config=mc)
+        oi = ttnn.allocate_tensor_on_device(ttnn.Shape([1, n, n, 2 * A.c]), ttnn.bfloat16, ttnn.TILE_LAYOUT, dev,
+                                            ttnn.DRAM_MEMORY_CONFIG)
+        co = A.c * (i % 2)
+        PK.permute_back_pk(xi, oi, grid, c_off=co); ttnn.synchronize_device(dev)
+        bad += not torch.equal(ttnn.to_torch(oi)[..., co:co + A.c], ref)
+        ttnn.deallocate(xi); ttnn.deallocate(oi)
+        if len(keep) > 5:
+            ttnn.deallocate(keep.pop(0))
+        print(json.dumps({"fresh": i, "x": "L1" if mc == ttnn.L1_MEMORY_CONFIG else "DRAM", "bad": bad}), flush=True)
+    for t in keep:
+        ttnn.deallocate(t)
