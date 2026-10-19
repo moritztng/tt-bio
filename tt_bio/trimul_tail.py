@@ -1204,7 +1204,7 @@ def fused_tail_ln(x, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5, wg=None, mov
         k = ("t2:l1", "x".join(str(int(d)) for d in x.padded_shape))
         REJECTS[k] = REJECTS.get(k, 0) + 1
         return None
-    fold = T2_FOLD and moved is None and wg is not None and kt == nt
+    fold = (T2_FOLD or TT.lever("trimul_t2fold")) and moved is None and wg is not None and kt == nt
     if fold:
         wp, ln_b = _fold_weights(wp, ln_w, ln_b)
     spec = lambda t: (str(t.padded_shape), str(t.dtype), str(t.memory_config()))
