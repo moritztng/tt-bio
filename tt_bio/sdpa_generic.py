@@ -217,6 +217,28 @@ _KV_WINDOW_ORIG = (
     "const uint32_t k_start_tile_id = k_tile_shape.id_of(nb, k_head, kv_row_start_tile, 0);",
     "const uint32_t v_start_tile_id = v_tile_shape.id_of(nb, v_head, kv_row_start_tile, 0);")
 _Q_WINDOW_ORIG = "uint32_t q_read_tile_id = q_tile_shape.id_of(nb, nq, read_offset + q_row_start_tile, 0);"
+_KV_READERS_ORIG = ("    const auto k_reader = TensorAccessor(k_args, k_addr, k_tile_bytes);",
+                    "    const auto v_reader = TensorAccessor(v_args, v_addr, v_tile_bytes);")
+_KV_LEAD_READ = """
+#ifdef KV_WINDOW_LEAD_T
+// K and V without a frame: a tile id of the virtual frame [.., KV_WINDOW_FRAME_T, ..] reads the real row
+// clamp(row - KV_WINDOW_LEAD_T, 0, KV_WINDOW_REAL_T - 1) of the same head. The rows a clamp repeats sit
+// under the -big bias, so they only have to be finite, and every read stays inside the tensor.
+template <typename R>
+struct KvWindowRows {
+    const R& t;
+};
+template <typename R>
+FORCE_INLINE void noc_async_read_tile(
+    const uint32_t id, const KvWindowRows<R>& w, uint32_t dst, uint32_t offset = 0, uint8_t noc = noc_index) {
+    const uint32_t row = id / KV_WINDOW_DHT, head = row / KV_WINDOW_FRAME_T, fr = row % KV_WINDOW_FRAME_T;
+    const uint32_t r = fr < KV_WINDOW_LEAD_T ? 0 : fr - KV_WINDOW_LEAD_T;
+    noc_async_read_tile(
+        ((head * KV_WINDOW_REAL_T + (r < KV_WINDOW_REAL_T ? r : KV_WINDOW_REAL_T - 1)) * KV_WINDOW_DHT) +
+            id % KV_WINDOW_DHT, w.t, dst, offset, noc);
+}
+#endif
+"""
 
 
 def kv_window_kernel_dir() -> Path:
@@ -227,11 +249,17 @@ def kv_window_kernel_dir() -> Path:
     and a wheel whose reader no longer has those lines fails here, not on the device. Head `n` of
     the virtual K is frame head `n / KV_WINDOW_NB`, starting `n % KV_WINDOW_NB` tile rows down. With
     `KV_WINDOW_Q_LEAD_T` the query is a frame too: head `n` starts `KV_WINDOW_Q_LEAD_T` tile rows
-    further down, one window of Sq rows per head."""
+    further down, one window of Sq rows per head. With `KV_WINDOW_LEAD_T` the frame is virtual: K and V
+    are read through `_KV_LEAD_READ`, so nobody has to build the zero rows."""
     src = (_kdir() / "dataflow/reader_interleaved.cpp").read_text()
     common = (_kdir() / "dataflow/dataflow_common.hpp").read_text()
-    for line in _KV_WINDOW_ORIG + (_Q_WINDOW_ORIG,):
+    for line in _KV_WINDOW_ORIG + (_Q_WINDOW_ORIG,) + _KV_READERS_ORIG + ('#include "dataflow_common.hpp"',):
         assert src.count(line) == 1, ("kv_window: the wheel's SDPA reader changed", line)
+    src = src.replace('#include "dataflow_common.hpp"', '#include "dataflow_common.hpp"\n' + _KV_LEAD_READ, 1)
+    for line, n in zip(_KV_READERS_ORIG, "kv"):
+        src = src.replace(line, (f"#ifdef KV_WINDOW_LEAD_T\n    const auto {n}_frame = TensorAccessor({n}_args, {n}_addr, "
+                                 f"{n}_tile_bytes);\n    const KvWindowRows<decltype({n}_frame)> {n}_reader{{{n}_frame}};\n"
+                                 f"#else\n{line}\n#endif"), 1)
     win = ("#ifdef KV_WINDOW_NB\n"
            "                        const uint32_t k_start_tile_id = ((nb * KV_WINDOW_NKH + k_head / KV_WINDOW_NB) *\n"
            "                            KV_WINDOW_FRAME_T + k_head % KV_WINDOW_NB + kv_row_start_tile) * DHt;\n"
@@ -585,8 +613,13 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
         # reads them in place instead (`kv_window_kernel_dir`).
         # `(nb, W, q_lead, Sq)` makes q a frame of the same shape too: head h * nb + i is frame rows
         # q_lead + i*32 .. q_lead + i*32 + Sq.
+        # `(nb, W, lead)`: k and v are not framed; the frame is virtual, `lead` zero rows in front and
+        # enough behind (`_KV_LEAD_READ`), which saves the caller two concats per call.
         nbw, W = kv_window[:2]
         B_, NKH_, F_, DH_ = (int(d) for d in k.padded_shape)
+        if len(kv_window) == 3:
+            assert kv_window[2] % TILE == 0 and int(v.padded_shape[-1]) == DH_, (kv_window, v.shape)
+            F_ += kv_window[2] + W
         assert F_ % TILE == 0 and W % TILE == 0 and (nbw - 1) * TILE + W <= F_, (k.shape, kv_window)
         kp, vp = _ShapeOnly([B_, NKH_ * nbw, W, DH_], k.dtype), _ShapeOnly([B_, NKH_ * nbw, W, DH_], v.dtype)
         if len(kv_window) == 4:
@@ -767,6 +800,11 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
     if kv_window is not None:
         defines.update(KV_WINDOW_NB=str(kv_window[0]), KV_WINDOW_NKH=str(int(k.padded_shape[1])),
                        KV_WINDOW_FRAME_T=str(int(k.padded_shape[2]) // TILE))
+        if len(kv_window) == 3:
+            real_t = int(k.padded_shape[2]) // TILE
+            defines.update(KV_WINDOW_FRAME_T=str(real_t + (kv_window[2] + kv_window[1]) // TILE),
+                           KV_WINDOW_LEAD_T=str(kv_window[2] // TILE), KV_WINDOW_REAL_T=str(real_t),
+                           KV_WINDOW_DHT=str(p["DHt"]))
         if len(kv_window) == 4:
             defines["KV_WINDOW_Q_LEAD_T"] = str(kv_window[2] // TILE)
     if qkv_fused is not None:

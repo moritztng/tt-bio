@@ -907,8 +907,8 @@ def _window_bias(n_or_mask, half_window, nq=32):
 
 
 class SWAWindow:
-    """The windowed atom attention's device state: the 0/-big bias [1, H*nb, 32, W] and the zero rows
-    that frame K and V. Stands where the dense band mask stood."""
+    """The windowed atom attention's device state: the 0/-big bias [1, H*nb, 32, W]. K and V are read as
+    frames with `lead` virtual rows in front (sdpa kv_window). Stands where the dense band mask stood."""
 
     NQ = 32
 
@@ -919,19 +919,15 @@ class SWAWindow:
         # mask with the scores (OpenFold3 _superset does the same)
         bias = win.clamp(min=-1e4) * head_dim ** 0.5
         self.bias = upload(bias.unsqueeze(0).expand(heads, nb, nq, W).reshape(1, heads * nb, nq, W).contiguous())
-        self.zero = ttnn.zeros((1, heads, self.lead, head_dim), dtype=_DTYPE, layout=ttnn.TILE_LAYOUT, device=device)
-        self._batched = {}  # B -> (bias, zero) for B diffusion samples folded into the heads
+        self._batched = {}  # B -> bias for B diffusion samples folded into the heads
 
-    def _frame(self, B):
-        """Bias and zero rows for a batch of B samples run as B * H heads: query block (b H + h) nb + i
-        reads frame head b H + h, which is the row-major [B, H] -> [B H] reshape of q, k and v."""
+    def _bias(self, B):
+        """The bias for a batch of B samples run as B * H heads: query block (b H + h) nb + i reads frame
+        head b H + h, which is the row-major [B, H] -> [B H] reshape of q, k and v."""
         if B == 1:
-            return self.bias, self.zero
+            return self.bias
         if B not in self._batched:
-            H, lead, dh = self.zero.shape[1], self.zero.shape[2], self.zero.shape[3]
-            self._batched[B] = (ttnn.repeat(self.bias, [1, B, 1, 1]),
-                                ttnn.zeros((1, B * H, lead, dh), dtype=_DTYPE, layout=ttnn.TILE_LAYOUT,
-                                           device=self.zero.device()))
+            self._batched[B] = ttnn.repeat(self.bias, [1, B, 1, 1])
         return self._batched[B]
 
     def attend(self, q, k, v, scale):
@@ -940,20 +936,17 @@ class SWAWindow:
         from tt_bio import sdpa_generic as SG
         B, dh, nb, nq, N = q.shape[0], q.shape[3], self.nb, self.NQ, self.n
         H, NP = B * q.shape[1], nb * nq
-        bias, zero = self._frame(B)
+        bias = self._bias(B)
         if NP != N:
             q, k, v = (ttnn.pad(t, [(0, 0), (0, 0), (0, NP - N), (0, 0)], 0.0) for t in (q, k, v))
         if B > 1:  # tile-aligned rows, so a view
             q, k, v = (ttnn.reshape(t, (1, H, NP, dh)) for t in (q, k, v))
-        kf = ttnn.concat([zero, k, zero], dim=2)
-        vf = ttnn.concat([zero, v, zero], dim=2)
         qb = ttnn.reshape(q, (1, H * nb, nq, dh))
         o = ttnn.allocate_tensor_on_device(ttnn.Shape([1, H * nb, nq, dh]), q.dtype, ttnn.TILE_LAYOUT,
                                            q.device(), ttnn.DRAM_MEMORY_CONFIG)
         # the wheel SDPA's default compute config, which the dense band path runs at
-        SG.sdpa(q.device(), qb, kf, vf, bias, o, nq, self.W, tuple(_T.COMPUTE_GRID_MAIN),
-                (ttnn.MathFidelity.HiFi2, True, False, False), scale, kv_window=(nb, self.W))
-        ttnn.deallocate(kf); ttnn.deallocate(vf)
+        SG.sdpa(q.device(), qb, k, v, bias, o, nq, self.W, tuple(_T.COMPUTE_GRID_MAIN),
+                (ttnn.MathFidelity.HiFi2, True, False, False), scale, kv_window=(nb, self.W, self.lead))
         if NP != N:
             for t in (q, k, v):
                 ttnn.deallocate(t)
@@ -961,7 +954,7 @@ class SWAWindow:
         return ttnn.slice(o, [0, 0, 0, 0], [B, H // B, N, dh]) if NP != N else o
 
     def deallocate(self):
-        for t in (self.bias, self.zero, *(t for f in self._batched.values() for t in f)):
+        for t in (self.bias, *self._batched.values()):
             ttnn.deallocate(t)
         self._batched = {}
 
