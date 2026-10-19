@@ -1,0 +1,16 @@
+triatt SDPA per-stage device zones at Protenix-v2's Wormhole --fast config, [72, H, 512, 32].
+.107 WH chip 10, AICLK 1000 MHz (sampled during the run, 14-15 of 14-15 samples at 1000), tree fdef0218c,
+2026-10-19 18:18Z, zones_512.py --batch 72 --levers triatt_k1+triatt_ln+triatt_ln_b8+triatt_ln_b8g+triatt_tail+trunk_hifi3+acc_off.
+triatt_k1 runs one k chunk of 512 (16 tiles), so the score block is 16 x 16 = 256 tiles and there is no TA_CORR.
+Medians per (batch, head) on TRISC_1 (math); unpack and pack agree within ~2 us.
+
+stage      b8 H4   b8 H8   bf16 H4   per score tile (b8)
+TA_QK      21.9    21.9    24.1      86 cycles   (p90 101-125 us: waits on K)
+TA_MAX      7.4     7.4     7.4      29 cycles
+TA_SUBEXP  32.1    32.1    32.1     125 cycles
+TA_PV      11.1    11.1    11.4      43 cycles
+total      72.5    72.5    75.0
+wall ms/call 1.118 (H4), 1.451 (H8), 1.116 (bf16 H4)
+
+bfp8 inputs only shave QK (24.1 -> 21.9 us). MAX + SUBEXP are 54 % of the stage time; a softmax that
+exponentiates the score tile in DST after QK and packs once would remove most of both.
