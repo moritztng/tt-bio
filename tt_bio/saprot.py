@@ -250,6 +250,7 @@ class _SaprotLin(_MMLin):
         """The model's kernel config, at HiFi2 for a block-fp8 weight where _SAPROT_HIFI2 serves."""
         ck = self.compute_kernel_config
         d = int(self.norm_weight.shape[-1])
+        from tt_bio import tenstorrent
         on = d >= _HIFI2_MIN_WIDTH and tenstorrent.is_wormhole() if _SAPROT_HIFI2 is None else _SAPROT_HIFI2
         if not (on and w.dtype == ttnn.bfloat8_b and _role(d, int(w.shape[-2]), int(w.shape[-1])) in _SAPROT_HIFI2_ROLES
                 and ck.math_fidelity in (ttnn.MathFidelity.HiFi3, ttnn.MathFidelity.HiFi4)):

@@ -211,7 +211,7 @@ def test_saprot_hifi2_ffn_projections_only(width, wormhole, monkeypatch):
     the fast bar) and only on Wormhole until Blackhole is graded."""
     from tt_bio import saprot as sp
     monkeypatch.setattr(sp, "_SAPROT_HIFI2", None)
-    monkeypatch.setattr(sp.tenstorrent, "is_wormhole", lambda: wormhole)
+    monkeypatch.setattr("tt_bio.tenstorrent.is_wormhole", lambda: wormhole)
     lin = sp._SaprotLin()
     lin.compute_kernel_config = _Ck(math_fidelity=ttnn.MathFidelity.HiFi3)
     lin.norm_weight = _T(1, width, ttnn.bfloat16)
