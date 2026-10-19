@@ -42,6 +42,10 @@
 #include "api/compute/eltwise_unary/relu.h"
 #include "api/compute/eltwise_unary/comp.h"
 
+#if defined(WS_PACK_SILU) && defined(TRISC_PACK)
+#include "llk_math_eltwise_unary_sfpu_silu.h"   // the packer-side SFPU init, as kernels/fc12g
+#endif
+
 // Dest 0..N-1 = the residual tiles i0..i0+N-1 of c_20 (+ c_24's under WS_RESID2), then the matmul `in0 x in1` is
 // re-armed: the seed fc3 accumulates on.
 template <uint32_t N>
