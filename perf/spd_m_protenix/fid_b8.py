@@ -6,7 +6,7 @@ its outer-product-mean contraction this way at HiFi3 (opm_b8, 1.62 s per 512 fol
 
 Shapes are that contraction's: x [M, K] times y [M, K]^T, both bfp8. Also runs bf16 x bfp8 and bfp8 x bf16, so the
 output says which operand the extra phases read. Prints per arm ms/call (median of --reps after 2 warm calls),
-torch.equal against the HiFi4 output of the same operands, and rel-RMS against float64.
+torch.equal against the first arm's output (HiFi4 by default), and rel-RMS against float64.
 """
 import argparse, json, statistics, time
 
@@ -16,6 +16,8 @@ ap = argparse.ArgumentParser()
 ap.add_argument("--m", type=int, default=16384)
 ap.add_argument("--k", type=int, default=4128)
 ap.add_argument("--reps", type=int, default=5)
+ap.add_argument("--cfg", action="store_true", help="bfp8 x bfp8 only: ttnn's default program vs opm_contract_config, "
+                "HiFi2 / LoFi, bf16 / fp32 dest")
 a = ap.parse_args()
 
 from tt_bio.main import ensure_p300_mesh_descriptor  # noqa: E402
@@ -31,21 +33,24 @@ up = lambda t, dt: ttnn.from_torch(t, dtype=dt, layout=ttnn.TILE_LAYOUT, device=
 F = ttnn.MathFidelity
 B8, B16 = ttnn.bfloat8_b, ttnn.bfloat16
 
-for xd, yd in ((B8, B8), (B16, B8), (B8, B16)):
+CFG = T.opm_contract_config(a.m // 32, a.m // 32, a.k // 32, dev.compute_with_storage_grid_size())
+ARMS = ([(cfg, fid, f32) for cfg in (None, CFG) for fid in (F.HiFi2, F.LoFi) for f32 in (False, True)] if a.cfg
+        else [(None, fid, False) for fid in (F.HiFi4, F.HiFi3, F.HiFi2, F.LoFi)])
+for xd, yd in ((B8, B8),) if a.cfg else ((B8, B8), (B16, B8), (B8, B16)):
     x, y = up(x_h, xd), up(y_h, yd)
     # f64 reference of the values the device holds (bfp8 rounding included).
     xr, yr = ttnn.to_torch(x).double(), ttnn.to_torch(y).double()
     rows = slice(0, 1024)
     ref = xr[rows] @ yr.T
     outs = {}
-    for fid in (F.HiFi4, F.HiFi3, F.HiFi2, F.LoFi):
-        ckc = ttnn.WormholeComputeKernelConfig(math_fidelity=fid, math_approx_mode=False, fp32_dest_acc_en=False,
+    for cfg, fid, f32 in ARMS:
+        ckc = ttnn.WormholeComputeKernelConfig(math_fidelity=fid, math_approx_mode=False, fp32_dest_acc_en=f32,
                                                packer_l1_acc=True)
         ms = []
         for i in range(2 + a.reps):
             ttnn.synchronize_device(dev)
             t0 = time.perf_counter()
-            z = ttnn.matmul(x, y, transpose_b=True, dtype=B16, compute_kernel_config=ckc)
+            z = ttnn.matmul(x, y, transpose_b=True, dtype=B16, program_config=cfg, compute_kernel_config=ckc)
             ttnn.synchronize_device(dev)
             if i >= 2:
                 ms.append((time.perf_counter() - t0) * 1e3)
@@ -53,12 +58,11 @@ for xd, yd in ((B8, B8), (B16, B8), (B8, B16)):
                 ttnn.deallocate(z)
         zt = ttnn.to_torch(z)
         ttnn.deallocate(z)
-        if fid == F.HiFi4:
-            outs[fid] = zt
+        outs.setdefault("first", zt)
         d = zt[rows].double()
         rel = ((d - ref).pow(2).mean() / ref.pow(2).mean()).sqrt().item()
-        print(json.dumps({"x": str(xd), "y": str(yd), "fid": str(fid), "ms": round(statistics.median(ms), 3),
-                          "equal_hifi4": bool(torch.equal(zt, outs[F.HiFi4])), "rel_rms_f64": round(rel, 6)}),
+        print(json.dumps({"x": str(xd), "y": str(yd), "fid": str(fid), "cfg": cfg is not None, "fp32_dest": f32, "ms": round(statistics.median(ms), 3),
+                          "equal_first": bool(torch.equal(zt, outs["first"])), "rel_rms_f64": round(rel, 6)}),
               flush=True)
     ttnn.deallocate(x)
     ttnn.deallocate(y)
