@@ -8058,12 +8058,14 @@ class TraceScratch:
                 size //= 2
         return held
 
-    def capture(self, need, size, runs):
+    def capture(self, need, size, runs, settle=None):
         """Capture each of ``runs`` with every allocation it makes in the hole; their trace ids.
 
         ``need`` is the largest DRAM rise per bank among them. The first batch opens a hole of
         ``size`` bytes per bank. Returns None, capturing nothing, when no hole that large can be
-        had or the hole is smaller than ``need``."""
+        had or the hole is smaller than ``need``. ``settle()`` runs after the captures and
+        before the hole is filled: it must drop every reference to a buffer they allocated,
+        because one freed after the fill frees a piece of the hole for anything eager."""
         ballast = self._fill()
         tids = []
         try:
@@ -8099,6 +8101,8 @@ class TraceScratch:
                 ttnn.release_trace(self.dev, tid)
             raise
         finally:
+            if settle is not None:
+                settle()
             if self.hole is not None:
                 self.held += self._fill()
             for t, _ in ballast:

@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import contextlib
 import functools
+import gc
 import math
 import os
 import sys
@@ -3077,16 +3078,19 @@ def _rt_batch(device, sig, sh):
     runs[0]()
     ttnn.synchronize_device(device)
     before = set(_WRAPPED)
-    try:
-        tids = sc.capture(need, margin(max(_RPEAK.values())), runs)
-    except RuntimeError as e:   # a trace region too small for the batch: the keys stay eager
-        print(f"[trace] {len(runs)} captures refused: {str(e).splitlines()[0][:200]}", flush=True)
-        tids = None
-    finally:
+
+    def settle():
         # Wrappers the captures made hold buffers allocated in the hole. Dropped before the
         # hole is filled, so no later tape close frees them into it (bcx-tracewire).
         for k in set(_WRAPPED) - before:
             del _WRAPPED[k]
+        gc.collect()
+
+    try:
+        tids = sc.capture(need, margin(max(_RPEAK.values())), runs, settle)
+    except RuntimeError as e:   # a trace region too small for the batch: the keys stay eager
+        print(f"[trace] {len(runs)} captures refused: {str(e).splitlines()[0][:200]}", flush=True)
+        tids = None
     for i, key in enumerate(pend):
         _RTRACE[(key, sig)] = "eager" if tids is None else (tids[i],)
     RTRACE_STATS["refused" if tids is None else "capture"] += len(pend)
