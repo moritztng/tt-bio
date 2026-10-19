@@ -38,3 +38,16 @@ def test_wormhole_budget_declines_them_and_keeps_the_config_that_served():
 
 def test_blackhole_budget_is_unchanged():
     assert SG.cb_budget(wormhole=False) == 1572864 - 109056
+
+
+def test_triatt_k1_one_chunk_config_fits_wormhole_as_built():
+    # triatt_k1's (q512, k512) is one k chunk, so `build` allocates the trimmed table. The pre-build
+    # price must use it too: the untrimmed one refused every call on Wormhole (cen12, 10-19).
+    cores = 72
+    qpf = TS.q_parallel_factor(512, 4, 512, cores)
+    t = SG._ShapeOnly([512, 4, 512, 32], ttnn.bfloat16)
+    bias = SG._ShapeOnly([1, 4, 512, 512], ttnn.bfloat16)
+    p = SG.plan(t, t, t, bias, t, 512, 512, (8, 9), HIFI, 1.0, (cores // (4 * qpf), 4, qpf), 2)
+    pers = p["k_num_chunks"] * p["Sq_chunk_t"] * p["Sk_chunk_t"]
+    assert p["k_num_chunks"] == 1
+    assert SG.cb_bytes(p, mask_cb_tiles=pers, one_k_trim=True) <= SG.cb_budget(wormhole=True)
