@@ -204,8 +204,8 @@ def test_protenix_family_normal_set():
 
 def test_protenix_v2_normal_takes_t2_tail(monkeypatch):
     import torch
-    from tt_bio.protenix import (BRES_NORMAL, FAST_LEVERS, NORMAL_LEVERS, T2_TAIL, SHOIST_FAST, TRIATT_K1, TRIATT_LN,
-                                 WS_CHAIN, WS_FAST, WS_RESID_NORMAL, mode_levers)
+    from tt_bio.protenix import (BRES_NORMAL, FAST_LEVERS, NORMAL_LEVERS, QSPLIT_NORMAL, T2_TAIL, SHOIST_FAST, TRIATT_K1,
+                                 TRIATT_LN, WS_CHAIN, WS_FAST, WS_RESID_NORMAL, mode_levers)
 
     def ck(c_z):
         return {"layernorm_z_cycle.weight": torch.zeros(c_z)}
@@ -215,11 +215,11 @@ def test_protenix_v2_normal_takes_t2_tail(monkeypatch):
     monkeypatch.delenv("TT_BIO_LEVERS", raising=False)
     assert WS_CHAIN == {"ws_chain"}
     monkeypatch.setattr(T, "is_wormhole", lambda: False)
-    assert mode_levers(ck(256)) == NORMAL_LEVERS | T2_TAIL | WS_CHAIN
+    assert mode_levers(ck(256)) == NORMAL_LEVERS | T2_TAIL | WS_CHAIN | QSPLIT_NORMAL
     assert mode_levers(ck(128)) == NORMAL_LEVERS
     monkeypatch.setattr(T, "is_wormhole", lambda: True)
     assert (mode_levers(ck(256))
-            == NORMAL_LEVERS | T2_TAIL | WS_CHAIN | TRIATT_LN | TRIATT_K1 | BRES_NORMAL | WS_RESID_NORMAL)
+            == NORMAL_LEVERS | T2_TAIL | WS_CHAIN | QSPLIT_NORMAL | TRIATT_LN | TRIATT_K1 | BRES_NORMAL | WS_RESID_NORMAL)
     assert mode_levers(ck(128)) == NORMAL_LEVERS
     monkeypatch.setattr(T, "_FAST_MODE", True)
     monkeypatch.setattr(T, "is_wormhole", lambda: False)
@@ -228,7 +228,7 @@ def test_protenix_v2_normal_takes_t2_tail(monkeypatch):
     monkeypatch.setattr(T, "is_wormhole", lambda: True)
     assert mode_levers(ck(256)) == FAST_LEVERS - {"trimul_t1_c256"} | TRIATT_LN | TRIATT_K1 | WS_FAST | SHOIST_FAST
     assert mode_levers(ck(128)) == FAST_LEVERS - {"trimul_t1_c256"}
-    assert TRIATT_LN | TRIATT_K1 | WS_FAST | SHOIST_FAST | BRES_NORMAL | WS_RESID_NORMAL <= set(T.LEVERS)
+    assert TRIATT_LN | TRIATT_K1 | WS_FAST | SHOIST_FAST | BRES_NORMAL | WS_RESID_NORMAL | QSPLIT_NORMAL <= set(T.LEVERS)
 
 
 def test_protenix_fast_set_takes_t1_c256(monkeypatch):

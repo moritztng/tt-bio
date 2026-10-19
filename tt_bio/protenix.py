@@ -127,19 +127,24 @@ BRES_NORMAL = frozenset({"trimul_bres"})
 # PASS: same-seed top pose median 0.608 A vs the 1.311 A A/A floor, every interval on the better side (CA-lDDT +0.0049
 # [+0.0005, +0.0125]), docking 35 -> 36. cdk2x2 512 x 1 at 1000 MHz, paired warm folds (rr2n): median -0.55 s.
 WS_RESID_NORMAL = frozenset({"ws_resid", "ws_resid2"})
+# dit_qsplit (the token DiT's attention takes the q chunk that leaves the busiest core fewest rows) in Protenix-v2's
+# normal set, as OpenFold3 ships it. It moves rows between cores, not arithmetic: cdk2x2 512 x 1 on a Galaxy chip at
+# 1000 MHz, 6 paired warm folds (spd-m-protenix qsn2, 2026-10-19), CIFs identical, 6 of 6 faster, median -0.15 s
+# (-0.03 to -0.37). Flat on p150a for OpenFold3, so it rides on both chips.
+QSPLIT_NORMAL = frozenset({"dit_qsplit"})
 from .eltwise_fusion import scale_add, norm_residual, gated_add
 
 
 def mode_levers(state_dict):
     """The mode's lever set for a Protenix checkpoint: `FAST_LEVERS` under --fast, else `NORMAL_LEVERS`,
-    plus `T2_TAIL` and `WS_CHAIN` for Protenix-v2 (c_z 256), the one width their normal grades cover; Wormhole --fast takes
+    plus `T2_TAIL`, `WS_CHAIN` and `QSPLIT_NORMAL` for Protenix-v2 (c_z 256), the one width their normal grades cover; Wormhole --fast takes
     `WH_FAST_LEVERS`, and Wormhole adds `TRIATT_LN` and `TRIATT_K1` to both Protenix-v2 modes, `BRES_NORMAL` and
     `WS_RESID_NORMAL` to its normal and `WS_FAST` to its --fast. Protenix-v2 --fast takes `SHOIST_FAST` on both chips."""
     v2 = Trunk._derive_c_z(state_dict) == 256
     wh = _T.is_wormhole()
     pair_ln = TRIATT_LN | TRIATT_K1 if v2 and wh else frozenset()
     fast = WH_FAST_LEVERS | pair_ln | (WS_FAST if v2 else frozenset()) if wh else FAST_LEVERS
-    return _T.model_levers((NORMAL_LEVERS | T2_TAIL | WS_CHAIN if v2 else NORMAL_LEVERS) | pair_ln
+    return _T.model_levers((NORMAL_LEVERS | T2_TAIL | WS_CHAIN | QSPLIT_NORMAL if v2 else NORMAL_LEVERS) | pair_ln
                            | (BRES_NORMAL | WS_RESID_NORMAL if v2 and wh else frozenset()),
                            fast | SHOIST_FAST if v2 else fast)
 
