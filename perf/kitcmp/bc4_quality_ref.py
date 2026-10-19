@@ -78,12 +78,17 @@ while i < len(runs) or live:
     live.append((subprocess.Popen(cmd, env=env, cwd=str(Path(a.runner).parent),
                                   stdout=open(d / "run.log", "w"), stderr=subprocess.STDOUT), r, d, time.time()))
 
-gpu = subprocess.run(["nvidia-smi", "--query-gpu=name,driver_version,power.limit", "--format=csv,noheader"],
-                     capture_output=True, text=True).stdout.strip()
-inst = Path("/root/kc/instance")
+try:  # the manifest is the record of what ran; a missing nvidia-smi must not cost us that
+    gpu = subprocess.run(["nvidia-smi", "--query-gpu=name,driver_version,power.limit", "--format=csv,noheader"],
+                         capture_output=True, text=True).stdout.strip()
+except OSError as e:
+    gpu = f"unknown ({e})"
+try:
+    inst = Path("/root/kc/instance").read_text().strip()
+except OSError:
+    inst = None
 (a.out / "MANIFEST.json").write_text(json.dumps(dict(
-    schema="bc4-quality-ref-result/1", request=req.get("schema"), gpu=gpu,
-    instance=inst.read_text().strip() if inst.exists() else None,
+    schema="bc4-quality-ref-result/1", request=req.get("schema"), gpu=gpu, instance=inst,
     ok=[d["id"] for d in done if d.get("rc") == 0],
     missing=[d["id"] for d in done if d.get("rc") != 0], runs=done), indent=1) + "\n")
 say("quality reference finished:", sum(1 for d in done if d.get("rc") == 0), "of", len(runs), "runs")
