@@ -12,14 +12,8 @@
 // row tiles b = bt*32 + half*16 + k (k < 16) of z^T at column tile jt; their rows are rows half*16 + k of the 32
 // z tiles (s = jt*32 + q, bt), i.e. faces 2*half and 2*half+1 of each, one contiguous KB. Per channel tile the
 // 32 half tiles land in a c_3 stage and are shuffled as pair_transpose's writer does: row k of stage tile q ->
-// row q of row tile k. Writer and compute see the same rows in the same order (drain.hpp row_of).
-// SPLIT (compile-time arg 6 = H, 7 = MT, the five output accessors after bt's): the reader also drains the odd
-// row ordinals from c_4 to DRAM on its own NOC, between its reads and never blocking on them, so it cannot hold
-// back the x compute is waiting for.
-#include "drain.hpp"
-#ifndef SPLIT
-#define SPLIT 0
-#endif
+// row q of row tile k. Writer and compute see the same rows in the same order (writer.cpp row_of).
+#include "api/dataflow/dataflow_api.h"
 #ifndef ABL_R
 #define ABL_R 0   // bench-only (triatt_ln.ABL bit 8): skip the DRAM reads of x
 #endif
@@ -32,11 +26,7 @@ void kernel_main() {
     constexpr uint32_t SCALER = get_compile_time_arg_val(3);   // packed bf16 pair, 1/K
     constexpr uint32_t EPS = get_compile_time_arg_val(4);      // fp32 bits
     constexpr uint32_t NWF = get_compile_time_arg_val(5);      // weight tiles a row, all groups
-#if SPLIT
-    constexpr uint32_t H = get_compile_time_arg_val(6);
-    constexpr uint32_t MTC = get_compile_time_arg_val(7);
-#endif
-    constexpr auto x_args = TensorAccessorArgs<SPLIT ? 8 : 6>();
+    constexpr auto x_args = TensorAccessorArgs<6>();
     constexpr auto w_args = TensorAccessorArgs<x_args.next_compile_time_args_offset()>();
     constexpr auto gm_args = TensorAccessorArgs<w_args.next_compile_time_args_offset()>();
     constexpr auto bt_args = TensorAccessorArgs<gm_args.next_compile_time_args_offset()>();
@@ -47,19 +37,6 @@ void kernel_main() {
     const auto bt = TensorAccessor(bt_args, get_common_arg_val<uint32_t>(3));
     const uint32_t r0 = get_arg_val<uint32_t>(0);
     const uint32_t nrows = get_arg_val<uint32_t>(1);
-    const uint32_t tr = get_arg_val<uint32_t>(2);
-    // Odd row ordinals 1, 3, .. of this core's rows (16 a unit under TR); with SPLIT off, an empty drain.
-#if SPLIT
-    HeadDrain<H, MTC, NW, bt_args.next_compile_time_args_offset(), 4> drain(
-        r0, tr ? 16 * nrows : nrows, tt::CBIndex::c_4, get_arg_val<uint32_t>(4), 1, 2);
-    auto reserve = [&](uint32_t cb, uint32_t n) {
-        while (!cb_pages_reservable_at_back(cb, n)) drain.ready();
-        cb_reserve_back(cb, n);
-    };
-#else
-    struct { void ready() {} void rest() {} } drain;
-    auto reserve = [](uint32_t cb, uint32_t n) { cb_reserve_back(cb, n); };
-#endif
 
     constexpr uint32_t w_cb = tt::CBIndex::c_0;
     constexpr uint32_t x_cb = tt::CBIndex::c_7;
@@ -94,21 +71,20 @@ void kernel_main() {
     cb_push_back(gamma_cb, Kt);
     cb_push_back(beta_cb, Kt);
 
-    if (tr) {
+    if (get_arg_val<uint32_t>(2)) {
         constexpr uint32_t ROW = 32, FACE = 16 * ROW, HALF = 2 * FACE;
         const uint32_t MT = get_arg_val<uint32_t>(3);        // row tiles per b = column tiles of z
         const uint32_t stage = get_write_ptr(tt::CBIndex::c_3);
         auto row = [](uint32_t r) { return ((r >> 4) * 2) * FACE + (r & 15) * ROW; };
         for (uint32_t u = r0; u < r0 + nrows; ++u) {
             const uint32_t half = u & 1, jt = (u >> 1) % MT, bt = (u >> 1) / MT;
-            reserve(x_cb, 16 * Kt);
+            cb_reserve_back(x_cb, 16 * Kt);
             const uint32_t dst = get_write_ptr(x_cb);
             for (uint32_t n = 0; n < Kt; ++n) {
                 for (uint32_t q = 0; q < 32; ++q)
                     if constexpr (!ABL_R)
                         noc_async_read(x.get_noc_addr(((jt * 32 + q) * MT + bt) * Kt + n) + half * HALF, stage + q * HALF, HALF);
                 noc_async_read_barrier();
-                drain.ready();
                 for (uint32_t k = 0; k < 16; ++k) {
                     const uint32_t tile = dst + (k * Kt + n) * tb;
                     for (uint32_t q = 0; q < 32; ++q) {
@@ -121,21 +97,16 @@ void kernel_main() {
             }
             cb_push_back(x_cb, 16 * Kt);
         }
-        drain.rest();
-        noc_async_write_barrier();
         return;
     }
     uint32_t page = r0 * Kt;
     for (uint32_t i = 0; i < nrows; i += RB) {
         const uint32_t n = (nrows - i < RB) ? (nrows - i) : RB;
-        reserve(x_cb, n * Kt);
+        cb_reserve_back(x_cb, n * Kt);
         uint32_t dst = get_write_ptr(x_cb);
         for (uint32_t t = 0; t < n * Kt; ++t, ++page, dst += tb)
             if constexpr (!ABL_R) noc_async_read_page(page, x, dst);
         noc_async_read_barrier();
         cb_push_back(x_cb, n * Kt);
-        drain.ready();
     }
-    drain.rest();
-    noc_async_write_barrier();
 }

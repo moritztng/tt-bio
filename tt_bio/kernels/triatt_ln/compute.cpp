@@ -4,8 +4,7 @@
 
 // triatt_ln compute (tt_bio/triatt_ln.py): per row tile of the raw pair x, the channel LayerNorm
 // (kernels/common/ln_prologue.hpp, as trimul T1) packed bf16 into c_1, then xn @ W for the NW
-// output tiles [q | k | v | g | bias], SBW tiles a DST block, packed in n order to c_2 (SPLIT: odd row
-// ordinals to c_4, which the reader drains on its own NOC; drain.hpp).
+// output tiles [q | k | v | g | bias], SBW tiles a DST block, packed in n order to c_2.
 // fp32 DEST (the statistics), the caller's fidelity.
 #include <cstdint>
 #define REDUCE_OP PoolType::SUM
@@ -29,9 +28,6 @@ constexpr uint32_t RNE = get_compile_time_arg_val(2);   // 1: round to nearest e
 // Bench-only stage skips (triatt_ln.ABL, perf/spd_m_protenix/tl_attr.py), the output then wrong by design: 1 the
 // layer_norm, 2 the projection, 4 the writer's DRAM writes, 8 the reader's DRAM reads of x. 0 in production.
 constexpr uint32_t ABL = get_compile_time_arg_val(3);
-#ifndef SPLIT
-#define SPLIT 0
-#endif
 constexpr uint32_t SBW = 4;                              // fp32 half-sync DST holds 4 tiles
 constexpr uint32_t NFULL = NW / SBW * SBW;
 
@@ -55,7 +51,7 @@ struct LnCbs {
 };
 
 template <uint32_t W>
-ALWI void project(uint32_t n0, uint32_t out) {
+ALWI void project(uint32_t n0) {
     tile_regs_acquire();
     uint32_t i1 = n0;
     for (uint32_t k = 0; k < Kt; ++k, i1 += NW) matmul_block(xn_cb, w_cb, k, i1, 0, false, W, 1, Kt);
@@ -64,7 +60,7 @@ ALWI void project(uint32_t n0, uint32_t out) {
     }
     tile_regs_commit();
     tile_regs_wait();
-    for (uint32_t i = 0; i < W; ++i) pack_tile<true>(i, out, n0 + i);
+    for (uint32_t i = 0; i < W; ++i) pack_tile<true>(i, out_cb, n0 + i);
     tile_regs_release();
 }
 
@@ -89,19 +85,18 @@ void kernel_main() {
         cb_push_back(xn_cb, Kt);
         cb_wait_front(xn_cb, Kt);
 
-        const uint32_t out = (SPLIT && (r & 1)) ? (uint32_t)tt::CBIndex::c_4 : out_cb;
-        cb_reserve_back(out, NW);
+        cb_reserve_back(out_cb, NW);
         if constexpr (!(ABL & 2)) {
             mm_block_init_short(xn_cb, w_cb, false, SBW, 1, Kt);
             reconfig_data_format(w_cb, xn_cb);
-            pack_reconfig_data_format(out);
-            for (uint32_t n0 = 0; n0 < NFULL; n0 += SBW) project<SBW>(n0, out);
+            pack_reconfig_data_format(out_cb);
+            for (uint32_t n0 = 0; n0 < NFULL; n0 += SBW) project<SBW>(n0);
             if constexpr (NW % SBW) {
                 mm_block_init_short(xn_cb, w_cb, false, NW % SBW, 1, Kt);
-                project<NW % SBW>(NFULL, out);
+                project<NW % SBW>(NFULL);
             }
         }
-        cb_push_back(out, NW);
+        cb_push_back(out_cb, NW);
         cb_pop_front(xn_cb, Kt);
     }
 }
