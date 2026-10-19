@@ -9466,6 +9466,12 @@ def _channel_move_back(chunk: ttnn.Tensor, memory_config: ttnn.MemoryConfig) -> 
     if _reblock.eligible_back(chunk, memory_config):
         return _reblock.reblock_permute_back(chunk, memory_config)
     if _reblock.eligible_back(chunk, memory_config, taped_ok=True):
+        from .autograd import _on_tape
+        if not _on_tape((chunk,), {}):
+            # A raw chunk under an open tape (a fused kernel's output in a forward the tape does not
+            # record, `_gin_biased`): the shim hands an untaped call to the stock permute, and there
+            # is nothing here to differentiate, so the kernel takes it directly.
+            return _reblock.reblock_permute_back(chunk, memory_config)
         return ttnn.permute(chunk, (0, 2, 3, 1), memory_config=memory_config)
     out = ttnn.transpose(chunk, 1, 2, memory_config=memory_config)
     res = ttnn.transpose(out, 2, 3, memory_config=memory_config)

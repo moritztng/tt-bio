@@ -2,7 +2,7 @@
 # bc4-bet-fuse in-process A/B: one bc2_evo_devprof process alternates a call-time flag per rep in ABBA
 # order, so host load and clock drift fall on both arms alike (qb2 runs at load 12-20 with BC4 and SPD
 # rows on the other cards). AICLK sampled at 1 Hz beside it.
-#   CARD=<umd index> [FLAG=tt_bio.af2._AF2_T2CM TAG=t2cm REPS=24] bash perf/bc4_fuse/alt.sh   (worktree root, detached)
+#   CARD=<umd index> [FLAG=tt_bio.af2._AF2_T2CM[,tt_bio.tenstorrent._TRIMUL_GIN_BIASED] TAG=t2cm REPS=24] bash perf/bc4_fuse/alt.sh   (worktree root, detached)
 set -u
 WT=$(cd "$(dirname "$0")/../.." && pwd); cd "$WT"
 D=$WT/_bc4out/${TAG:-t2cm}alt_$(git rev-parse --short HEAD); mkdir -p "$D"
