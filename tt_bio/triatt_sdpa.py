@@ -271,10 +271,32 @@ def _one_k_chunk(seq: int) -> int:
     return (t + t % 2) * SG.TILE
 
 
+# The k chunk sets the online-softmax accumulation order, so it decides the output bits; the q chunk and the
+# q split only move rows between cores. `fused_pairs` therefore takes its k chunk from the ranking on the
+# arch's reference grid (the Galaxy's 8x9 Wormhole, the 13x10 p150a) and only the q side from the real one.
+# Ranked on the real grid alone, Protenix-v2's bf16 [512, 4, 512, 32] call picked k 256 on an 8x8 Wormhole
+# and k 512 on 8x9, and the fold's CIF differed between the two (spd-m-protenix gn88 / gn89, 2026-10-19).
+REF_CORES_WH, REF_CORES_BH = 72, 130
+
+
 @lru_cache(maxsize=None)
 def fused_pairs(seq: int, heads: int, head_dim: int, cores: int, mask_dtype=None,
                 padded: bool = False, batch: int = 0) -> tuple:
-    """(q_chunk, k_chunk) pairs this kernel can serve at padded length `seq`, best first.
+    """(q_chunk, k_chunk) pairs this kernel can serve at padded length `seq`, best first: the pairs at
+    the reference grid's first k chunk lead (see `REF_CORES_WH`), the rest follow in cost order.
+    """
+    ranked = _ranked_pairs(seq, heads, head_dim, cores, mask_dtype, padded, batch)
+    ref = REF_CORES_WH if cores <= REF_CORES_WH else REF_CORES_BH
+    if ref == cores or not ranked:
+        return ranked
+    kref = next(iter(_ranked_pairs(seq, heads, head_dim, ref, mask_dtype, padded, batch)), (0, 0))[1]
+    return tuple(p for p in ranked if p[1] == kref) + tuple(p for p in ranked if p[1] != kref)
+
+
+@lru_cache(maxsize=None)
+def _ranked_pairs(seq: int, heads: int, head_dim: int, cores: int, mask_dtype=None,
+                  padded: bool = False, batch: int = 0) -> tuple:
+    """(q_chunk, k_chunk) pairs this kernel can serve at padded length `seq` on `cores`, cheapest first.
 
     Its two constraints pull in opposite directions, and neither is on the stock op's ladder:
 
