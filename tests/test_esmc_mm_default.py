@@ -208,7 +208,7 @@ def test_esmc_ffn_ln_l1_default_on():
 @pytest.mark.parametrize("width", [480, 1280])
 def test_saprot_hifi2_ffn_projections_only(width, wormhole, monkeypatch):
     """SaProt --fast lowers only fc1 and fc2 to HiFi2, only from width _HIFI2_MIN_WIDTH up (qkv/out at HiFi2 failed
-    the fast bar) and only on Wormhole until Blackhole is graded."""
+    the fast bar), on both arches."""
     from tt_bio import saprot as sp
     monkeypatch.setattr(sp, "_SAPROT_HIFI2", None)
     monkeypatch.setattr("tt_bio.tenstorrent.is_wormhole", lambda: wormhole)
@@ -218,7 +218,7 @@ def test_saprot_hifi2_ffn_projections_only(width, wormhole, monkeypatch):
     want = {"qkv": (width, 3 * width), "out": (width, width), "fc1": (width, 4 * width), "fc2": (4 * width, width)}
     for role, (k, n) in want.items():
         assert sp._role(width, k, n) == role
-        lowered = wormhole and role in ("fc1", "fc2") and width >= sp._HIFI2_MIN_WIDTH
+        lowered = role in ("fc1", "fc2") and width >= sp._HIFI2_MIN_WIDTH
         fid = lin._ck(_T(k, n, ttnn.bfloat8_b)).math_fidelity
         assert fid == (ttnn.MathFidelity.HiFi2 if lowered else ttnn.MathFidelity.HiFi3), role
         assert lin._ck(_T(k, n, ttnn.bfloat16)).math_fidelity == ttnn.MathFidelity.HiFi3
