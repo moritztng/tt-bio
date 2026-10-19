@@ -29,14 +29,14 @@ qh, kh, vh = (torch.randn(N, H, N, D, generator=g) for _ in range(3))
 bh = torch.randn(1, H, N, N, generator=g)
 scale = D ** -0.5
 up = lambda t, dt: ttnn.from_torch(t, dtype=dt, layout=ttnn.TILE_LAYOUT, device=dev)  # noqa: E731
-bias = up(bh, ttnn.bfloat16)
 
 s = (qh.double() @ kh.double().transpose(-1, -2) + bh.double()) * scale
 ref = torch.softmax(s, -1) @ vh.double()
 
 
-def arm(name, dt, out_dt):
+def arm(name, dt, out_dt, bias_dt=ttnn.bfloat16):
     q, k, v = up(qh, dt), up(kh, dt), up(vh, dt)
+    bias = up(bh, bias_dt)
     TS.OUT_DTYPE = out_dt
     served0 = TS.STATS[0] if hasattr(TS, "STATS") else None
     call = lambda: T._tri_att_sdpa_at(q, k, v, bias, scale)  # noqa: E731
@@ -56,7 +56,7 @@ def arm(name, dt, out_dt):
     print(json.dumps(dict(arm=name, n=N, card=os.environ.get("TT_VISIBLE_DEVICES"), out_dtype=str(o.dtype),
                           ms=round(1e3 * statistics.median(ts), 3), rel_rms_f64=round(rr, 5),
                           served=(TS.STATS[0] - served0) if served0 is not None else None)), flush=True)
-    for t in (q, k, v, o):
+    for t in (q, k, v, o, bias):
         ttnn.deallocate(t)
     TS.OUT_DTYPE = None
 
@@ -64,3 +64,5 @@ def arm(name, dt, out_dt):
 arm("bf16", ttnn.bfloat16, None)
 arm("b8", ttnn.bfloat8_b, None)
 arm("b8_out16", ttnn.bfloat8_b, ttnn.bfloat16)
+arm("b8all", ttnn.bfloat8_b, None, ttnn.bfloat8_b)
+arm("b8all_out16", ttnn.bfloat8_b, ttnn.bfloat16, ttnn.bfloat8_b)
