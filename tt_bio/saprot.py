@@ -182,11 +182,8 @@ _PROGS = {
     (False, 480, 1920): ("2d", (True, 5)),
 }
 # --fast at HiFi2 (_SAPROT_HIFI2) runs a different best program on some shapes; lin_sweep --fast --fidelity HiFi2, Galaxy
-# chip at 1000 MHz, 650M (ms, against the HiFi3 pick above): qkv 0.839 -> 0.728, out 0.350 -> 0.252, fc2 1.006 -> 0.680.
-# Shapes not listed here keep the table above.
+# chip at 1000 MHz, 650M (ms, against the HiFi3 pick above): fc2 1.006 -> 0.680. Shapes not listed keep the table above.
 _PROGS_HIFI2 = {
-    (True, 1280, 3840): ("mm", (8, 4, 8, 1, 4)),
-    (True, 1280, 1280): ("mm", (8, 8, 8, 1, 2)),
     (True, 5120, 1280): ("mm", (8, 8, 8, 1, 2)),
 }
 _PROG_ROWS = (3072, 4096)   # page batch 7 x 544 = 3808 rows: the shape the table was measured at
@@ -231,9 +228,10 @@ def _saprot_prog(x, w, act, hifi2=False):
 # models at least _HIFI2_MIN_WIDTH wide: SaProt 35M's pooled cos vs fp32 fell to 0.999879 at HiFi2, under the 0.9999 bar.
 _SAPROT_HIFI2 = env_flag("TT_BIO_SAPROT_HIFI2", None)
 _HIFI2_MIN_WIDTH = 1280
-# Which projections _SAPROT_HIFI2 moves to HiFi2. All four at once failed the fast bar on Wormhole (ls8, 1000 MHz):
-# 650M pooled cos 0.999924 -> 0.999883, 1.3B pcc 0.999433 -> 0.998816, for -14 % page time.
-_SAPROT_HIFI2_ROLES = ("qkv", "out", "fc1", "fc2")
+# Which projections _SAPROT_HIFI2 moves to HiFi2: the FFN's. Page cell --fast, Galaxy chip at 1000 MHz, 2 rounds, pcc vs
+# fp32 HF: fc1 + fc2 650M 176.9 -> 156.7 ms (pcc +0.000052), 1.3B 337.7 -> 298.5 (-0.000003). qkv + out add little
+# speed and most of the error (1.3B: 342.5 -> 342.4 ms, pcc -0.000709), so all four failed the fast bar.
+_SAPROT_HIFI2_ROLES = ("fc1", "fc2")
 
 
 def _role(d, k, n):
