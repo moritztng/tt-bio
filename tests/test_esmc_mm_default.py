@@ -1,4 +1,4 @@
-"""ESMC's minimal_matmul projections default by arch: on for Wormhole, off for Blackhole; the switch overrides both."""
+"""ESMC's minimal_matmul projections default on for both archs unless lm_linear is active; the switch overrides."""
 from __future__ import annotations
 
 import types
@@ -14,7 +14,9 @@ from tt_bio import esmc, tenstorrent
 def test_esmc_mm_default_by_arch(wormhole, switch, monkeypatch):
     monkeypatch.setattr(tenstorrent, "is_wormhole", lambda: wormhole)
     monkeypatch.setattr(esmc, "_ESMC_MM", switch)
-    assert esmc._esmc_mm() is (wormhole if switch is None else switch)
+    assert esmc._esmc_mm() is (True if switch is None else switch)
+    with tenstorrent.levers("lm_linear"):
+        assert esmc._esmc_mm() is (False if switch is None else switch)
 
 
 
@@ -141,10 +143,10 @@ def test_qk_l1_large_default(wormhole, switch, wdtype, monkeypatch):
 @pytest.mark.parametrize("wormhole", [True, False])
 @pytest.mark.parametrize("switch", [None, True, False])
 def test_qkrh_default(wormhole, switch, monkeypatch):
-    """qk_rope_heads defaults on for Wormhole unless lm_qk_chain is active; the switch overrides both."""
+    """qk_rope_heads defaults on for both archs unless lm_qk_chain is active; the switch overrides both."""
     monkeypatch.setattr(tenstorrent, "is_wormhole", lambda: wormhole)
     monkeypatch.setattr(esmc, "_ESMC_QKRH", switch)
-    assert esmc._qkrh() is (wormhole if switch is None else switch)
+    assert esmc._qkrh() is (True if switch is None else switch)
     with tenstorrent.levers("lm_qk_chain"):
         assert esmc._qkrh() is (False if switch is None else switch)
 
@@ -177,10 +179,10 @@ def test_lm_gate_legacy_default(wormhole, switch, monkeypatch):
 @pytest.mark.parametrize("wormhole", [True, False])
 @pytest.mark.parametrize("switch", [None, True, False])
 def test_mm_gate_default(wormhole, switch, monkeypatch):
-    """The LM FFN's fc1 and gate run as one gated minimal_matmul on Wormhole unless lm_gate_ng is active."""
+    """The LM FFN's fc1 and gate run as one gated minimal_matmul on both archs unless lm_gate_ng is active."""
     monkeypatch.setattr(tenstorrent, "is_wormhole", lambda: wormhole)
     monkeypatch.setattr(esmc, "_ESMC_MM_GATE", switch)
-    assert esmc._mm_gate_on() is (wormhole if switch is None else switch)
+    assert esmc._mm_gate_on() is (True if switch is None else switch)
     with tenstorrent.levers("lm_gate_ng"):
         assert esmc._mm_gate_on() is (False if switch is None else switch)
 

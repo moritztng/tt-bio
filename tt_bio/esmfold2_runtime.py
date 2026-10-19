@@ -1619,6 +1619,9 @@ _WH_EXTRA = "+lm_gate_ng+lm_sdpa_stock+ef2_atom_rope"
 # ESMFold2-Fast CA-lDDT -0.0006 [-0.0027, +0.0013], top-pose median 0.82 A vs 1.19 A seed floor, docking 24 -> 24 of
 # 44; ESMFold2 --fast CA-lDDT -0.0004 [-0.0024, +0.0010], 0.56 A vs 1.58 A, docking 32 -> 33. 512 aa: -0.13 / -0.15 s.
 _WH_FAST_EXTRA = "+dit_qkvf+dit_shoist+trunk_hifi2"
+# The ESMC-6B language model on Blackhole as it folded before ESMC took the Wormhole LM path there: graded on ESMC's
+# embeddings only, not on a fold yet.
+_BH_LM_KEEP = "+lm_qk_chain+lm_gate_ng+lm_sdpa_stock+lm_k64+lm_linear"
 
 
 def fold_levers(fast: bool) -> str:
@@ -1631,6 +1634,8 @@ def fold_levers(fast: bool) -> str:
         drop = _BH_ONLY_FAST if fast else _BH_ONLY_FAST + ("ef2_pair_init",)
         levers = "+".join(n for n in levers.split("+") if n not in drop)
         levers += (_WH_FAST_EXTRA if fast else _WH_NORMAL_EXTRA) + _WH_EXTRA
+    else:
+        levers += _BH_LM_KEEP
     return levers
 
 
