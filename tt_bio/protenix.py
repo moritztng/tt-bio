@@ -117,9 +117,10 @@ SHOIST_FAST = frozenset({"dit_shoist"})
 # 1.408 A A/A floor; normal PASS, 43 paired folds, 0.321 A vs 1.262 A, docking 34 -> 34. cdk2x2 512 x 1 at 1000 MHz,
 # 5 paired warm folds (k1): normal 64.15 -> 63.20 s, fast 54.07 -> 53.19 s, 5 of 5 faster each. Blackhole is ungraded.
 TRIATT_K1 = frozenset({"triatt_k1"})
-# trimul_bres (the trimul einsum by bmm_res, b[c] resident in L1) in Protenix-v2's Wormhole normal set, as OpenFold3 and
-# ESMFold2 ship it. Normal mode's fp32 dest lets it fire as is, and it is bit-exact there: cdk2x2 512 x 1 on a Galaxy
-# chip at 1000 MHz, paired warm folds (spd-m-protenix bresnormal, 2026-10-19): CIFs identical, -1.30 and -1.38 s (63.35 -> 62.01 s).
+# trimul_bres (the trimul einsum by bmm_res, b[c] resident in L1) in Protenix-v2's Wormhole normal set, as OpenFold3
+# and ESMFold2 ship it. Normal mode's fp32 dest lets it fire as is, and it is bit-exact there: cdk2x2 512 x 1 on a
+# Galaxy chip at 1000 MHz, paired warm folds (spd-m-protenix bresnormal, 2026-10-19), CIFs identical, -1.30 and
+# -1.38 s (63.35 -> 62.01 s).
 BRES_NORMAL = frozenset({"trimul_bres"})
 from .eltwise_fusion import scale_add, norm_residual, gated_add
 
