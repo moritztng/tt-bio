@@ -960,27 +960,34 @@ class _Trunk:
         reaches them first and frees them first, and they cost no recompute."""
         blocks = self.model.device_evoformer
         keep = len(blocks) - resident
-        # The masks are closed over, so a trace bakes their addresses in: they are in its key.
-        masks = tuple(t.buffer_address() for t in (msa_mask, *pair_masks) if t is not None)
+        masks = self._mask_key(msa_mask, *pair_masks)
         for i, block in enumerate(blocks):
             d = None if drop is None else drop[i]
-            if i >= keep:
-                m, z = block(m, z, msa_mask, *pair_masks, drop=d)
-            elif recompute and (self.ag.TRACE_RECOMPUTE or self.ag.TRACE_FORWARD):
-                # The masks are new tensors every round, so they ride in as inputs, where the
-                # traced backward copies them into its own buffers (`autograd._traced_recompute`).
-                ks = tuple(d) if d else ()
-                m, z = self.ag.checkpoint(
-                    lambda a, b, *dv, blk=block, ks=ks: blk(
-                        a, b, msa_mask, *pair_masks, drop=dict(zip(ks, dv)) if ks else None),
-                    m, z, *(d[k] for k in ks), offload=offload, trace=(self.serial, "evoformer", i, masks))
-            elif recompute:
-                m, z = self.ag.checkpoint(
-                    lambda a, b, blk=block, d=d: blk(a, b, msa_mask, *pair_masks, drop=d), m, z,
-                    offload=offload)
+            run = lambda a, b, drop, blk=block: blk(a, b, msa_mask, *pair_masks, drop=drop)
+            if i >= keep or not recompute:
+                m, z = run(m, z, d)
             else:
-                m, z = block(m, z, msa_mask, *pair_masks, drop=d)
+                m, z = self._segment("evoformer", i, run, (m, z), d, masks, offload)
         return m, z
+
+    @staticmethod
+    def _mask_key(*masks):
+        """The masks' addresses. A block closes over its masks, so a trace bakes those addresses in
+        and they belong in its key."""
+        return tuple(t.buffer_address() for t in masks if t is not None)
+
+    def _segment(self, stack, i, run, xs, d, masks, offload):
+        """Block `i` of `stack`, `run(*xs, drop=d)`, under a checkpoint.
+
+        With block traces on (`autograd.TRACE_RECOMPUTE` / `TRACE_FORWARD`) the dropout masks,
+        new tensors every round, ride in as inputs so the trace copies them into its own
+        buffers, and the block replays from a trace keyed on (serial, stack, i, mask addresses)."""
+        if not (self.ag.TRACE_RECOMPUTE or self.ag.TRACE_FORWARD):
+            return self.ag.checkpoint(lambda *a: run(*a, drop=d), *xs, offload=offload)
+        ks, n = tuple(d) if d else (), len(xs)
+        return self.ag.checkpoint(
+            lambda *a: run(*a[:n], drop=dict(zip(ks, a[n:])) if ks else None),
+            *xs, *(d[k] for k in ks), offload=offload, trace=(self.serial, stack, i, masks))
 
     def extra_msa(self, z, pair_masks, recompute: bool, offload: bool = False, drop=None):
         """The extra-MSA stack's four pair blocks, `pair -> pair`, left on card throughout.
@@ -996,23 +1003,18 @@ class _Trunk:
         """
         model = self.model
 
-        # Built per execution, never captured. `_residual` DEALLOCATES its `update` operand
-        # (`tt_bio/af2.py::_residual`), and under `recompute` the checkpoint runs this same
-        # closure a second time in the backward, so a constant hoisted out of the loop body is
-        # a freed buffer by then and `ttnn.typecast` raises "Buffer is not allocated". The
-        # Evoformer loop above has no such operand, which is why only this stack broke.
-        def const(index):
-            return model._up(model.opm_constant[index].reshape(1, 1, -1))
-
+        # A fresh constant per execution: `_residual` DEALLOCATES its `update` operand
+        # (`tt_bio/af2.py::_residual`), and under `recompute` the checkpoint runs the block a
+        # second time in the backward, so the block consumes a clone and the constant rides in
+        # as an input. An upload inside the block would also make it untraceable.
+        masks = self._mask_key(*pair_masks)
         for index, block in enumerate(model.device_extra_msa):
             d = None if drop is None else drop[index]
-            if recompute:
-                z = self.ag.checkpoint(
-                    lambda t, blk=block, i=index, d=d: blk(blk._residual(t, const(i)),
-                                                           *pair_masks, drop=d), z,
-                    offload=offload)
-            else:
-                z = block(block._residual(z, const(index)), *pair_masks, drop=d)
+            c = model._up(model.opm_constant[index].reshape(1, 1, -1))
+            run = lambda t, c, drop, blk=block: blk(blk._residual(t, self.ttnn.clone(c)),
+                                                    *pair_masks, drop=drop)
+            z = (self._segment("extra_msa", index, run, (z, c), d, masks, offload) if recompute
+                 else run(z, c, d))
         return z
 
     def template_stack(self, z, pair_masks, recompute: bool, offload: bool = False,
@@ -1024,13 +1026,11 @@ class _Trunk:
         which is what a gradient round needs. No `opm_constant`: the template stack has no MSA
         track for an outer product mean to collapse, unlike `extra_msa` above.
         """
+        masks = self._mask_key(*pair_masks)
         for i, block in enumerate(self.model.device_template):
             d = None if drop is None else drop[i]
-            if recompute:
-                z = self.ag.checkpoint(lambda t, blk=block, d=d: blk(t, *pair_masks, drop=d), z,
-                                       offload=offload)
-            else:
-                z = block(z, *pair_masks, drop=d)
+            run = lambda t, drop, blk=block: blk(t, *pair_masks, drop=drop)
+            z = self._segment("template", i, run, (z,), d, masks, offload) if recompute else run(z, d)
         return z
 
     def seed(self, t: torch.Tensor, like):

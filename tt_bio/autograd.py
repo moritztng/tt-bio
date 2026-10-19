@@ -3130,6 +3130,10 @@ def _rt_batch(device, sig, sh):
     if TRACE_RECOMPUTE_CHECK:
         def logged(key, run):
             def go():
+                from . import ops
+                if ops.taping() != sig[-2]:
+                    print(f"[trace-check] capture {key!r}: taping {ops.taping()} under a key made at {sig[-2]}",
+                          flush=True)
                 _, _ROPS[(key, sig)] = _ops(run)
             return go
         runs = [logged(key, run) for key, run in zip(pend, runs)]
@@ -3264,6 +3268,8 @@ def _traced_forward(key, fn, inputs):
             if max(r.values()) > 0:
                 print(f"[trace-check] fwd replay {RTRACE_STATS['replay']} {key!r}: "
                       + " ".join(f"{k} {v:.3e}" for k, v in r.items()), flush=True)
+                from . import ops
+                print(f"[trace-check]   key taping {sig[-2]}, now {ops.taping()}, exact {sig[-1]}", flush=True)
                 if (key, sig) in _ROPS:
                     _ops_diff(key, _ROPS.pop((key, sig)), now)
         return tuple(outs) if _RSHAPE[sig] else outs[0]
