@@ -38,6 +38,8 @@ def main() -> int:
     ap.add_argument("--bf16-acc", action="store_true", help="bf16 dest accumulation (a --fast option): 2 x 4 subblocks fit")
     ap.add_argument("--fidelity", choices=["LoFi", "HiFi2", "HiFi3", "HiFi4"], help="override the model's math fidelity")
     ap.add_argument("--pick-only", action="store_true", help="only the model call and the shipped program")
+    ap.add_argument("--probe", action="store_true",
+                    help="the model call taken apart: no activation, block-fp8 output, block-fp8 input (then stop)")
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
     torch.set_grad_enabled(False)
@@ -77,7 +79,7 @@ def main() -> int:
         bd = ttnn.from_torch(b.reshape(1, N), layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
         flops = 2.0 * M * K * N
 
-        def run(tag, fn, meta):
+        def run(tag, fn, meta, ref=ref):
             try:
                 o = fn(); ttnn.synchronize_device(dev)
                 got = ttnn.to_torch(o).double().reshape(ref.shape); ttnn.deallocate(o)
@@ -110,7 +112,16 @@ def main() -> int:
             before = list(S.PROG_STATS)
             rec = run("pick", lambda: lin._lin(xd, wd, bias=bd, **kw), {"kind": S._saprot_prog(xd, wd, act, hifi2)[0]})
             assert S.PROG_STATS != before or "error" in rec, "the shipped program fell back to the default"
-        if a.pick_only:
+        if a.probe:
+            lin_kw = dict(compute_kernel_config=mck, core_grid=T.CORE_GRID_MAIN)
+            if act:   # what the activation costs: the same call without it, scored against the pre-activation reference
+                run("model-noact", lambda: ops.linear(xd, wd, bias=bd, dtype=ttnn.bfloat16, **lin_kw), {},
+                    ref=x.double() @ wq.double() + b.double())
+            run("model-b8out", lambda: ops.linear(xd, wd, bias=bd, dtype=ttnn.bfloat8_b, **lin_kw, **kw), {})
+            x8 = ttnn.from_torch(x, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat8_b)
+            run("model-b8in", lambda: ops.linear(x8, wd, bias=bd, dtype=ttnn.bfloat16, **lin_kw, **kw), {})
+            ttnn.deallocate(x8)
+        if a.pick_only or a.probe:
             ttnn.deallocate(xd); ttnn.deallocate(wd); ttnn.deallocate(bd)
             continue
         fa = ttnn.UnaryWithParam(ttnn.UnaryOpType.GELU, 0.0) if act else None   # exact GELU, as the model ships it
