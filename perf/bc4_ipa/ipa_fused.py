@@ -21,7 +21,7 @@ built once on the host:
 
 `Backend` is the op set. `NP` runs it in float64 numpy, card-free, so `--check` proves the rewrite
 against the golden model before a card is ever opened; the ttnn backend lives in `ipa_fused_tt.py`.
-Calls per layer: 180 (39 of them column slices of R and t that a hoist would cut to 12), against 330
+Calls per layer: 156 (15 of them [N, 1] column slices of R, t and the translation update), against 330
 in the DeviceIPA chain; one attention and two batched matmuls are the only [H, N, N]-sized ones.
 usage: ipa_fused.py --params <params_model_1_multimer_v3.npz> --check [--n 224]
 """
@@ -175,21 +175,19 @@ def pair_bias(o, k, z, mask):
     return o.add(o.permute(b, (2, 0, 1)), o.put(-1e5 * S3 * (1.0 - np.outer(mask, mask))[None]))
 
 
-def frame(o, R, t, X, Y, Z):
-    """R p + t on coordinate blocks [N, w]; R row-major [N, 9], t [N, 3]."""
-    r = lambda i: o.col(R, i)
+def frame(o, rc, tc, X, Y, Z):
+    """R p + t on coordinate blocks [N, w]; rc the nine [N, 1] columns of row-major R, tc t's three."""
     out = []
     for a in range(3):
-        g = o.add(o.add(o.mul(X, r(3 * a)), o.mul(Y, r(3 * a + 1))), o.mul(Z, r(3 * a + 2)))
-        out.append(o.add(g, o.col(t, a)))
+        g = o.add(o.add(o.mul(X, rc[3 * a]), o.mul(Y, rc[3 * a + 1])), o.mul(Z, rc[3 * a + 2]))
+        out.append(o.add(g, tc[a]))
     return out
 
 
-def unframe(o, R, t, X, Y, Z):
+def unframe(o, rc, tc, X, Y, Z):
     """R^T (p - t)."""
-    d = [o.sub(X, o.col(t, 0)), o.sub(Y, o.col(t, 1)), o.sub(Z, o.col(t, 2))]
-    r = lambda i: o.col(R, i)
-    return [o.add(o.add(o.mul(d[0], r(b)), o.mul(d[1], r(3 + b))), o.mul(d[2], r(6 + b))) for b in range(3)]
+    d = [o.sub(X, tc[0]), o.sub(Y, tc[1]), o.sub(Z, tc[2])]
+    return [o.add(o.add(o.mul(d[0], rc[b]), o.mul(d[1], rc[3 + b])), o.mul(d[2], rc[6 + b])) for b in range(3)]
 
 
 def layer(o, k, act, R, t, bias, z_rows):
@@ -198,7 +196,8 @@ def layer(o, k, act, R, t, bias, z_rows):
     n = act.shape[0]
     pr = o.linear(act, k["w_proj"], k["b_proj"])                         # [N, 1152]
     XB, blk = 3 * H * C, H * NP_
-    gX, gY, gZ = frame(o, R, t, *[o.cols(pr, XB + d * blk, XB + (d + 1) * blk) for d in range(3)])
+    rc, tc = [o.col(R, i) for i in range(9)], [o.col(t, a) for a in range(3)]
+    gX, gY, gZ = frame(o, rc, tc, *[o.cols(pr, XB + d * blk, XB + (d + 1) * blk) for d in range(3)])
     full = o.concat([o.cols(pr, 0, XB), gX, gY, gZ])                     # projection with global points
     q = o.heads(o.mm(full, k["sel_q"]), DQ)                              # [H, N, 32]
     kk = o.heads(o.mm(full, k["sel_k"]), DQ)
@@ -210,7 +209,7 @@ def layer(o, k, act, R, t, bias, z_rows):
     logits = o.add(o.add(o.bmm_t(q, kk), bias), o.unsq(kb))
     attn = o.softmax(logits)                                             # [H, Nq, Nk]
     ov = o.unheads(o.bmm(attn, v))                                       # [N, H*64]
-    opx, opy, opz = unframe(o, R, t, *[o.mm(ov, k["sel_opt"][d]) for d in range(3)])
+    opx, opy, opz = unframe(o, rc, tc, *[o.mm(ov, k["sel_opt"][d]) for d in range(3)])
     norms = o.sqrt(o.add(o.add(o.add(o.mul(opx, opx), o.mul(opy, opy)), o.mul(opz, opz)), 1e-16))
     o_pair = o.bmm(o.permute(attn, (1, 0, 2)), z_rows)                   # [N, H, 128]
     o_pair = o.flat(o_pair)
@@ -225,7 +224,7 @@ def layer(o, k, act, R, t, bias, z_rows):
     mono = o.mul(o.mm(qv, k["mono_a"]), o.mm(qv, k["mono_b"]))           # [N, 10]
     r_u = o.mul(o.mm(mono, k["quat_rot"]), o.recip(o.mm(mono, k["quat_n2"])))
     dt = o.linear(act, k["w_dt"], k["b_dt"])                             # [N, 3] in the old frame
-    tX, tY, tZ = frame(o, R, t, o.col(dt, 0), o.col(dt, 1), o.col(dt, 2))
+    tX, tY, tZ = frame(o, rc, tc, o.col(dt, 0), o.col(dt, 1), o.col(dt, 2))
     R_new = o.add(o.add(*[o.mul(o.mm(R, k["compose_a"][b]), o.mm(r_u, k["compose_b"][b])) for b in range(2)]),
                   o.mul(o.mm(R, k["compose_a"][2]), o.mm(r_u, k["compose_b"][2])))
     return act, R_new, o.concat([tX, tY, tZ])
