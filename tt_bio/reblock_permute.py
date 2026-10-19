@@ -717,6 +717,9 @@ def reblock_permute_back(x, memory_config=None, device=None, out=None, c_off=0):
         if _pk.ok(x, out, c_off):
             STATS_BACK[0] += 1
             STATS_PBPK[0] += 1
+            if STATS_PBPK[0] == 1:
+                print(f"[tt-bio] permute_back_pk engaged (TT_BIO_PBPK): C={int(x.shape[1])} N={int(x.shape[2])}",
+                      flush=True)
             return _pk.permute_back_pk(x, out, tuple(COMPUTE_GRID_MAIN), c_off=c_off)
     entry = _prepare_back(x, out, device)
     src, dst = x.buffer_address(), out.buffer_address()
