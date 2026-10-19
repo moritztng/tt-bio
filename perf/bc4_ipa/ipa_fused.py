@@ -21,7 +21,7 @@ built once on the host:
 
 `Backend` is the op set. `NP` runs it in float64 numpy, card-free, so `--check` proves the rewrite
 against the golden model before a card is ever opened; the ttnn backend lives in `ipa_fused_tt.py`.
-Calls per layer: 185, against 330 in the DeviceIPA chain; one attention and two
+Calls per layer: CALLS (see `ipa_fused_tt.py`), against 330 in the DeviceIPA chain; one attention and two
 batched matmuls are the only [H, N, N]-sized ones. Nothing is broadcast: every add and multiply takes
 equal shapes, so tt_bio.autograd's tape (whose add/mul have no reducing backward) can differentiate it.
 usage: ipa_fused.py --params <params_model_1_multimer_v3.npz> --check [--n 224]
@@ -202,9 +202,10 @@ def unframe(o, rc, tc, X, Y, Z):
     return [o.add(o.add(o.mul(d[0], rc[b]), o.mul(d[1], rc[3 + b])), o.mul(d[2], rc[6 + b])) for b in range(3)]
 
 
-def layer(o, k, act, R, t, bias, z_rows):
+def layer(o, k, act, R, t, bias, z_rows, drop=None):
     """One FoldIteration. act [N, 384], R [N, 9], t [N, 3], bias [H, N, N] from `pair_bias`,
-    z_rows = z as [N, N, 128] (batch = query residue). Returns (act, R, t)."""
+    z_rows = z as [N, N, 128] (batch = query residue), drop = None or dropout's two keep / keep_rate
+    masks [N, 384] (drawn in JAX from the layer's key, see ipa_phases.check). Returns (act, R, t)."""
     n = act.shape[0]
     pr = o.linear(act, k["w_proj"], k["b_proj"])                         # [N, 1152]
     XB, blk = 3 * H * C, H * NP_
@@ -232,10 +233,11 @@ def layer(o, k, act, R, t, bias, z_rows):
     ipa = o.add(o.add(o.add(o.add(o.add(o.linear(ov, k["w_out_s"], k["b_out"]), o.mm(opx, k["w_out_pt"][0])),
                                   o.mm(opy, k["w_out_pt"][1])), o.mm(opz, k["w_out_pt"][2])),
                       o.mm(norms, k["w_out_norm"])), o.mm(o_pair, k["w_out_pair"]))
-    act = o.layer_norm(o.add(act, ipa), k["attention_layer_norm"])
+    dr = (lambda x, i: x) if drop is None else (lambda x, i: o.mul(x, drop[i]))
+    act = o.layer_norm(dr(o.add(act, ipa), 0), k["attention_layer_norm"])
     h = o.relu(o.linear(act, *k["transition"]))
     h = o.relu(o.linear(h, *k["transition_1"]))
-    act = o.layer_norm(o.add(act, o.linear(h, *k["transition_2"])), k["transition_layer_norm"])
+    act = o.layer_norm(dr(o.add(act, o.linear(h, *k["transition_2"])), 1), k["transition_layer_norm"])
     qv = o.linear(act, k["w_quat"], k["b_quat"])                         # [N, 4] = (1, qx, qy, qz)
     mono = o.mul(o.mm(qv, k["mono_a"]), o.mm(qv, k["mono_b"]))           # [N, 10]
     r_u = o.mul(o.mm(mono, k["quat_rot"]), o.recip(o.mm(mono, k["quat_n2"])))
@@ -258,9 +260,10 @@ def check(a):
     quat = rng.standard_normal((n, 4)); quat /= np.linalg.norm(quat, axis=1, keepdims=True)
     R = G.quaternion_rotation(quat[:, 1] / quat[:, 0], quat[:, 2] / quat[:, 0], quat[:, 3] / quat[:, 0])
     t = rng.standard_normal((n, 3)) * 5.0
-    ref = G.layer(act, R, t, G.linear(z, p, G.SM + "invariant_point_attention/attention_2d"), z, mask, p)
+    drop = tuple((rng.random((n, CS)) < 0.9) / 0.9 for _ in range(2))
+    ref = G.layer(act, R, t, G.linear(z, p, G.SM + "invariant_point_attention/attention_2d"), z, mask, p, drop)
     o = NP()
-    got = layer(o, k, act, R.reshape(n, 9), t, pair_bias(o, k, z, mask), z)
+    got = layer(o, k, act, R.reshape(n, 9), t, pair_bias(o, k, z, mask), z, drop)
     got = (got[0], got[1].reshape(n, 3, 3), got[2])
     worst = 0.0
     for name, x, y in zip(("act", "rotation", "translation"), ref, got):

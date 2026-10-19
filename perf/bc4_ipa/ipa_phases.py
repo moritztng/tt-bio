@@ -102,19 +102,21 @@ def quaternion_rotation(qx, qy, qz, eps=1e-6):
                      np.stack([2 * (x * z - w * y), 2 * (y * z + w * x), 1 - 2 * (x * x + y * y)], -1)], -2)
 
 
-def row_phase_out(act, ipa_out, rot, trans, p):
-    act = layer_norm(act + ipa_out, p, SM + "attention_layer_norm")
+def row_phase_out(act, ipa_out, rot, trans, p, drop=None):
+    """`drop` = (keep_1, keep_2), dropout's keep / keep_rate masks [N, 384] on the two residual sums."""
+    d1, d2 = drop if drop is not None else (1.0, 1.0)
+    act = layer_norm(d1 * (act + ipa_out), p, SM + "attention_layer_norm")
     h = np.maximum(linear(act, p, SM + "transition"), 0)
     h = np.maximum(linear(h, p, SM + "transition_1"), 0)
-    act = layer_norm(act + linear(h, p, SM + "transition_2"), p, SM + "transition_layer_norm")
+    act = layer_norm(d2 * (act + linear(h, p, SM + "transition_2")), p, SM + "transition_layer_norm")
     u = linear(act, p, SM + "quat_rigid/rigid")                                        # [N, 6]
     r_u = quaternion_rotation(u[:, 0], u[:, 1], u[:, 2])
     return act, rot @ r_u, apply(rot, trans, u[:, 3:6])
 
 
-def layer(act, rot, trans, bias, z, mask, p):
+def layer(act, rot, trans, bias, z, mask, p, drop=None):
     r = row_phase_in(act, rot, trans, p)
-    return row_phase_out(act, attention_phase(r, bias, z, mask, rot, trans, p), rot, trans, p)
+    return row_phase_out(act, attention_phase(r, bias, z, mask, rot, trans, p), rot, trans, p, drop)
 
 
 def check(a):
@@ -152,26 +154,31 @@ def check(a):
     rot = rotation_matrix.Rot3Array.from_quaternion(*[jnp.asarray(quat[:, i]) for i in range(4)])
     rot_np = np.stack([np.stack([np.asarray(getattr(rot, f"{r}{c}")) for c in "xyz"], -1) for r in "xyz"], -2)
 
-    def f(act, z):
+    def f(act, z, use_dropout=False):
         rigid = rigid_matrix_vector.Rigid3Array(rot, vector.Vec3Array(*[jnp.asarray(trans[:, i]) for i in range(3)]))
         with hk.experimental.name_scope("structure_module"):
             new, _ = fm.FoldIteration(sm_cfg, g_cfg, name="fold_iteration")(
                 {"act": act, "rigid": rigid}, aatype=jnp.zeros(n, jnp.int32),
                 sequence_mask=jnp.asarray(mask)[:, None], update_rigid=True, initial_act=jnp.asarray(init),
-                use_dropout=False, safe_key=prng.SafeKey(jax.random.PRNGKey(0)), static_feat_2d=z)
+                use_dropout=use_dropout, safe_key=prng.SafeKey(jax.random.PRNGKey(0)), static_feat_2d=z)
         r = new["rigid"]
         R = jnp.stack([jnp.stack([getattr(r.rotation, f"{a}{b}") for b in "xyz"], -1) for a in "xyz"], -2)
         return new["act"], R, jnp.stack([r.translation.x, r.translation.y, r.translation.z], -1)
 
-    ref = hk.transform(f).apply(hk_params, None, jnp.asarray(act), jnp.asarray(z))
     bias = linear(z, p, SM + "invariant_point_attention/attention_2d")
-    got = layer(act, rot_np, trans, bias, z, mask, p)
+    # FoldIteration's own draw: safe_key.split(3) -> (rest, k1, k2), keep = bernoulli(k, 0.9) / 0.9.
+    _, k1, k2 = prng.SafeKey(jax.random.PRNGKey(0)).split(3)
+    keep = 1.0 - sm_cfg.dropout
+    drop = tuple(np.asarray(jax.random.bernoulli(kk.get(), keep, (n, CS)), np.float64) / keep for kk in (k1, k2))
     worst = 0.0
-    for name, x, y in zip(("act", "rotation", "translation"), ref, got):
-        x = np.asarray(x)
-        rel = float(np.linalg.norm(x - y) / np.linalg.norm(x))
-        worst = max(worst, rel)
-        print(f"{name:12s} rel L2 vs BindCraft 2 float64: {rel:.2e}")
+    for use_dropout, d in ((False, None), (True, drop)):
+        ref = hk.transform(lambda a_, z_: f(a_, z_, use_dropout)).apply(hk_params, None, jnp.asarray(act), jnp.asarray(z))
+        got = layer(act, rot_np, trans, bias, z, mask, p, d)
+        for name, x, y in zip(("act", "rotation", "translation"), ref, got):
+            x = np.asarray(x)
+            rel = float(np.linalg.norm(x - y) / np.linalg.norm(x))
+            worst = max(worst, rel)
+            print(f"dropout {int(use_dropout)} {name:12s} rel L2 vs BindCraft 2 float64: {rel:.2e}")
     print("PASS" if worst < 1e-10 else "FAIL", f"worst {worst:.2e}")
     return worst < 1e-10
 
