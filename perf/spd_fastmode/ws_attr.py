@@ -77,6 +77,13 @@ for mode, dt, fid in MODES:
         continue
     emit(arm=mode + "-metal_silu", fidelity=str(fid), ms=timed(lambda: W.pair_swiglu(x, w12, w3t, fid, (), 0)))
     emit(arm=mode + "-poly6_silu", fidelity=str(fid), ms=timed(lambda: W.pair_swiglu(x, w12, w3t, fid, (), 2)))
+    for tag, xin in (("", x), ("-bf16x", xt)):   # ws_psilu: the silu on the packer, must equal poly6 bit for bit
+        if tag and (dt == ttnn.bfloat16 or not W.eligible(xt, w12, w3t)):
+            continue
+        ref = ttnn.to_torch(W.pair_swiglu(xin, w12, w3t, fid, (), 2))
+        got = ttnn.to_torch(W.pair_swiglu(xin, w12, w3t, fid, (), 2, pack_silu=True))
+        emit(arm=mode + tag + "-pack_silu", fidelity=str(fid), equal_poly6=bool(torch.equal(ref, got)),
+             ms=timed(lambda: W.pair_swiglu(xin, w12, w3t, fid, (), 2, pack_silu=True)))
     if dt != ttnn.bfloat16 and W.eligible(xt, w12, w3t):  # is the bfp8 cast of x (typecast_bfp8 above) worth it?
         emit(arm=mode + "-bf16x", fidelity=str(fid), ms=timed(lambda: W.pair_swiglu(xt, w12, w3t, fid)))
         emit(arm=mode + "-bf16x-poly6_silu", fidelity=str(fid), ms=timed(lambda: W.pair_swiglu(xt, w12, w3t, fid, (), 2)))
