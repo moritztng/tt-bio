@@ -40,6 +40,8 @@ TILE = 32
 RB = 4          # row tiles per reader barrier
 #: the ending variant norms z^T straight out of z (reader.cpp TR) instead of transposing first
 TR = True
+#: bench-only stage skips (kernels/triatt_ln/compute.cpp ABL; perf/spd_m_protenix/tl_attr.py), 0 in production
+ABL = 0
 _CACHE: dict = {}
 #: (served, declined)
 STATS = [0, 0]
@@ -150,15 +152,17 @@ def _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw):
     reader = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "reader.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[kt, nw, RB, (inv << 16) | inv, eps_bits, nwf] + acc(x) + acc(w) + acc(ln_w) + acc(ln_b),
+        defines=[("ABL_R", "1")] if ABL & 8 else [],
         runtime_args=rd, common_runtime_args=[0] * 4, config=ttnn.ReaderConfigDescriptor())
     writer = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "writer.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[H, MT, nw, nwf] + sum((acc(o) for o in outs), []),
+        defines=[("ABL_W", "1")] if ABL & 4 else [],
         runtime_args=wr, common_runtime_args=[0] * len(outs), config=ttnn.WriterConfigDescriptor())
     fid, approx, _, full = ckc
     compute = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "compute.cpp"), source_type=src, core_ranges=core_grid,
-        compile_time_args=[kt, nw, 0], runtime_args=cp,   # RNE off: pack truncates, as T1 ships
+        compile_time_args=[kt, nw, 0, ABL], runtime_args=cp,   # RNE off: pack truncates, as T1 ships
         config=ttnn.ComputeConfigDescriptor(math_fidelity=fid, math_approx_mode=approx,
                                             fp32_dest_acc_en=True, dst_full_sync_en=full))
     cbs = [_cb(0, core_grid, kt * nw), _cb(1, core_grid, 2 * kt), _cb(2, core_grid, 2 * nw),
@@ -210,7 +214,7 @@ def ln_qkvgb_heads(x, ln_w, ln_b, w, ckc, n_heads, head_dim, bias_channels, grid
 def _launch(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tag, plan):
     g, nw, tr = plan
     key = (x.device().id(), tuple(int(d) for d in x.padded_shape), tuple(int(d) for d in w.padded_shape), H, tag,
-           tuple(grid), tuple(str(a) for a in ckc), float(eps), plan)
+           tuple(grid), tuple(str(a) for a in ckc), float(eps), plan, ABL)
     entry = _CACHE.get(key)
     if entry is None:
         entry = _CACHE[key] = _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw)

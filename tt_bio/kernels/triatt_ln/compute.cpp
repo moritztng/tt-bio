@@ -25,6 +25,9 @@
 constexpr uint32_t Kt = get_compile_time_arg_val(0);
 constexpr uint32_t NW = get_compile_time_arg_val(1);
 constexpr uint32_t RNE = get_compile_time_arg_val(2);   // 1: round to nearest even before the pack
+// Bench-only stage skips (triatt_ln.ABL, perf/spd_m_protenix/tl_attr.py), the output then wrong by design: 1 the
+// layer_norm, 2 the projection, 4 the writer's DRAM writes, 8 the reader's DRAM reads of x. 0 in production.
+constexpr uint32_t ABL = get_compile_time_arg_val(3);
 constexpr uint32_t SBW = 4;                              // fp32 half-sync DST holds 4 tiles
 constexpr uint32_t NFULL = NW / SBW * SBW;
 
@@ -73,18 +76,25 @@ void kernel_main() {
 
     for (uint32_t r = 0; r < nrows; ++r) {
         cb_reserve_back(xn_cb, Kt);
-        ln_prologue::layer_norm_row<LnCbs>(xn_cb, [](uint32_t i) { pack_tile<true>(0, xn_cb, i); });
+        if constexpr (ABL & 1) {
+            cb_wait_front(cb_x, Kt);
+            cb_pop_front(cb_x, Kt);
+        } else {
+            ln_prologue::layer_norm_row<LnCbs>(xn_cb, [](uint32_t i) { pack_tile<true>(0, xn_cb, i); });
+        }
         cb_push_back(xn_cb, Kt);
         cb_wait_front(xn_cb, Kt);
 
         cb_reserve_back(out_cb, NW);
-        mm_block_init_short(xn_cb, w_cb, false, SBW, 1, Kt);
-        reconfig_data_format(w_cb, xn_cb);
-        pack_reconfig_data_format(out_cb);
-        for (uint32_t n0 = 0; n0 < NFULL; n0 += SBW) project<SBW>(n0);
-        if constexpr (NW % SBW) {
-            mm_block_init_short(xn_cb, w_cb, false, NW % SBW, 1, Kt);
-            project<NW % SBW>(NFULL);
+        if constexpr (!(ABL & 2)) {
+            mm_block_init_short(xn_cb, w_cb, false, SBW, 1, Kt);
+            reconfig_data_format(w_cb, xn_cb);
+            pack_reconfig_data_format(out_cb);
+            for (uint32_t n0 = 0; n0 < NFULL; n0 += SBW) project<SBW>(n0);
+            if constexpr (NW % SBW) {
+                mm_block_init_short(xn_cb, w_cb, false, NW % SBW, 1, Kt);
+                project<NW % SBW>(NFULL);
+            }
         }
         cb_push_back(out_cb, NW);
         cb_pop_front(xn_cb, Kt);

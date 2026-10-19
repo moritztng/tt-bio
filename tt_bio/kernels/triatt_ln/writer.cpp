@@ -18,6 +18,10 @@ inline uint32_t row_of(uint32_t r0, uint32_t i) {
     return ((u >> 1) / MT * 32 + (u & 1) * 16 + i % 16) * MT + (u >> 1) % MT;
 }
 
+#ifndef ABL_W
+#define ABL_W 0   // bench-only (triatt_ln.ABL bit 4): skip the DRAM writes
+#endif
+
 // The H = 0 build has one output accessor and must never instantiate the five-accessor body. Outside a
 // template `if constexpr` checks its untaken branch, and inside one a body whose accessor offsets do not
 // depend on a template parameter is checked at definition, so write() picks the layout and write_heads
@@ -31,7 +35,7 @@ void write_rows(uint32_t r0, uint32_t nrows, uint32_t out_cb, uint32_t tb, uint3
         const uint32_t r = row_of(r0, i);
         cb_wait_front(out_cb, NW);
         uint32_t src = get_read_ptr(out_cb);
-        for (uint32_t j = 0; j < NW && n0 + j < NWF; ++j, src += tb) noc_async_write_page(r * NWF + n0 + j, oo, src);
+        for (uint32_t j = 0; j < NW && n0 + j < NWF; ++j, src += tb) if constexpr (!ABL_W) noc_async_write_page(r * NWF + n0 + j, oo, src);
         noc_async_writes_flushed();
         cb_pop_front(out_cb, NW);
     }
@@ -56,6 +60,7 @@ void write_heads(uint32_t r0, uint32_t nrows, uint32_t out_cb, uint32_t tb, uint
         const uint32_t base = (r / MT) * H * MT + r % MT;
         for (uint32_t j = 0, n = n0; j < NW && n <= 4 * H; ++j, ++n, src += tb) {
             const uint32_t page = base + (n % H) * MT;
+            if constexpr (ABL_W) continue;
             switch (n / H) {
                 case 0: noc_async_write_page(page, oq, src); break;
                 case 1: noc_async_write_page(page, ok, src); break;
