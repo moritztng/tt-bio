@@ -766,6 +766,10 @@ _FAST_MODE = False
 #   atom_l1         the atom transformer's gathered keys, q / kv projections and transition hidden tensors are written
 #                   to L1 where four kv-sized tensors fit (`_atom_l1`): the short-K linears wait on interleaved DRAM
 #                   writes, kv 262.6 -> 128.1 us on Wormhole. Placement only: Boltz-2 folds are byte-identical with it (al1).
+#   dit_l1          under dit_fuse, OpenFold3's token DiT keeps the stream, the conditioning and every tensor a block
+#                   makes in L1 (interleaved) for the stack call; weights and the cached pair-bias masks stay in DRAM.
+#                   Placement only: the same programs on the same operands, so the same bits. Only where 12
+#                   stream-sized tensors fit beside the consumers' circular buffers, else DRAM as before.
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in",
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
@@ -779,7 +783,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "ws_resid2", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
           "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "trimul_bres", "atomp_dev", "lm_qk_chain",
           "lm_gate_ng", "lm_sdpa_stock", "triatt_hifi2", "dit_cond_jcat", "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32",
-          "triatt_ln_b8", "triatt_ln_b8g", "trimul_t1w8", "atom_l1", "trimul_gin_w8")
+          "triatt_ln_b8", "triatt_ln_b8g", "trimul_t1w8", "atom_l1", "trimul_gin_w8", "dit_l1")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -3072,10 +3076,12 @@ def _sdpa32(q, k, v, mask, scale: float) -> ttnn.Tensor:
     return out
 
 
-def _sdpa32_fused(qkv, mask, scale: float, heads: int, out_dtype=ttnn.float32, ckc=None) -> ttnn.Tensor:
+def _sdpa32_fused(qkv, mask, scale: float, heads: int, out_dtype=ttnn.float32, ckc=None,
+                  memory_config=None) -> ttnn.Tensor:
     """`_sdpa32` read straight out of a fused `[S, 1, N, 3 * heads * DH]` qkv projection, written
     `[S, 1, N, heads * DH]`: what nlp_create_qkv_heads, `_sdpa32` and nlp_concat_heads give, as one
-    program and the same arithmetic (`sdpa_generic.qkv_fused_kernel_dir`)."""
+    program and the same arithmetic (`sdpa_generic.qkv_fused_kernel_dir`). `memory_config` places the
+    output (default DRAM); the kernels address it through a TensorAccessor either way."""
     from . import sdpa_generic as SG
     S, _, n, w = (int(d) for d in qkv.shape)
     assert n % 128 == 0 and int(mask.shape[-1]) == n, ("_sdpa32 wants the token axis padded by sdpa32_rows", qkv.shape, mask.shape)
@@ -3083,7 +3089,7 @@ def _sdpa32_fused(qkv, mask, scale: float, heads: int, out_dtype=ttnn.float32, c
     chunk, k_chunk, grid = _sdpa32_chunks(dev, S, heads, n)
     # `out_dtype` bf16 (dit_fuse): the packer writes the result bf16, no typecast program after it.
     out = ttnn.allocate_tensor_on_device(ttnn.Shape([S, 1, n, w // 3]), out_dtype,
-                                         ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG)
+                                         ttnn.TILE_LAYOUT, dev, memory_config or ttnn.DRAM_MEMORY_CONFIG)
     SG.sdpa(dev, qkv, qkv, qkv, mask, out, chunk, k_chunk, grid, ckc or _SDPA32_CKC, scale,
             qkv_fused=heads)
     return out
