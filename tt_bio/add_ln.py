@@ -49,8 +49,8 @@ def _check(a, b, w, beta):
     k = int(a.shape[-1])
     if k % TILE or int(a.padded_shape[-1]) != k:
         return "k"
-    for v in (w, beta):
-        if int(v.shape[-1]) != k or v.volume() // k != 1:
+    for v in (w, beta):   # [K] or [1, K]: volume() counts the tile padding, the logical shape does not
+        if int(v.shape[-1]) != k or any(int(d) != 1 for d in list(v.shape)[:-1]):
             return "ln_params"
     return None
 

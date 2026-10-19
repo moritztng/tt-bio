@@ -1,6 +1,6 @@
 """tt_bio.add_ln against ttnn.add + ttnn.layer_norm at SaProt's page shape (7 x 544 rows): the sum must be bit-identical,
 the norm is scored against float64 of the same bf16 sum, both paths timed on device in the memory placement --fast ships
-(sum and norm in L1) and in DRAM.
+(stream, sum and norm in L1, projection in DRAM) and in DRAM.
 
     python3 perf/spd_m_saprot/add_ln_bench.py --model saprot-650m --out add_ln.jsonl
 """
@@ -61,13 +61,13 @@ def main() -> int:
 
     for place in ("l1", "dram"):
         mc = ttnn.L1_MEMORY_CONFIG if place == "l1" else ttnn.DRAM_MEMORY_CONFIG
-        ta, tb = up(xa, mc), up(xb, mc)
+        ta, tb = up(xa, mc), up(xb, ttnn.DRAM_MEMORY_CONFIG)   # as the model: stream in L1 (--fast), projection in DRAM
         tg, tbe = (ttnn.from_torch(v.reshape(1, d), layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
                    for v in (g, be))
-        (h0, y0), ms0 = timed(lambda: (lambda h: (h, ttnn.layer_norm(h, weight=tg, bias=tbe, epsilon=1e-5,
-                                                                     compute_kernel_config=ck, memory_config=mc)))(
-            ttnn.add(ta, tb, memory_config=mc)))
         try:
+            (h0, y0), ms0 = timed(lambda: (lambda h: (h, ttnn.layer_norm(h, weight=tg, bias=tbe, epsilon=1e-5,
+                                                                         compute_kernel_config=ck, memory_config=mc)))(
+                ttnn.add(ta, tb, memory_config=mc)))
             (h1, y1), ms1 = timed(lambda: add_ln(ta, tb, tg, tbe, h_memory_config=mc, y_memory_config=mc))
         except Exception as e:  # noqa: BLE001 -- the reason is the data point
             rec = dict(model=a.model, place=place, error=str(e).splitlines()[0][:300], stats=STATS, rejects=REJECTS)
