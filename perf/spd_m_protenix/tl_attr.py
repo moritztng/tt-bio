@@ -7,7 +7,7 @@ Protenix-v2's shape: x [N, N, c], 8 heads of 32, weight [c, 4c + 32]. For the st
 layer_norm, 2 the projection, 4 the DRAM writes, 8 the DRAM reads of x, or several ORed; 16 writes every tile to
 q's pages in row-major order instead of head-major (same bytes, consecutive pages: is the layout the cost?). A skipped stage makes the
 output wrong by design, so this prints time only: ms/call, median of --reps after 3 warm calls. One JSON line per arm.
---dnoc 0,1 repeats every arm with triatt_ln.DNOC off and on (the writer drains half its tiles on the other NOC) and, at
+--split 0,1 repeats every arm with triatt_ln.SPLIT off and on (the reader drains the odd rows on its own NOC) and, at
 ABL 0, prints whether the five outputs are torch.equal between the two.
 """
 import argparse, json, os, statistics, time
@@ -20,7 +20,7 @@ ap.add_argument("--c", type=int, default=256)
 ap.add_argument("--reps", type=int, default=10)
 ap.add_argument("--abl", default="0,1,2,4,8,12,3,7,11,14,13", help="comma list of ABL masks")
 ap.add_argument("--fids", default="HiFi3,HiFi2")
-ap.add_argument("--dnoc", default="0", help="comma list of triatt_ln.DNOC values")
+ap.add_argument("--split", default="0", help="comma list of triatt_ln.SPLIT values")
 a = ap.parse_args()
 
 from tt_bio.main import ensure_p300_mesh_descriptor  # noqa: E402
@@ -74,12 +74,12 @@ def host(r):
 for fid in [getattr(ttnn.MathFidelity, f) for f in a.fids.split(",")]:
     for tr in (False, True):
         ref = None
-        for dn in [int(d) for d in a.dnoc.split(",")]:
-            TL.DNOC = dn
+        for dn in [bool(int(d)) for d in a.split.split(",")]:
+            TL.SPLIT = dn
             for abl in [int(m) for m in a.abl.split(",")]:
                 TL.ABL = abl
                 ms = timed(lambda: run(fid, tr))
-                row = dict(n=a.n, c=c, card=os.environ.get("TT_VISIBLE_DEVICES"), fid=str(fid), tr=tr, dnoc=dn,
+                row = dict(n=a.n, c=c, card=os.environ.get("TT_VISIBLE_DEVICES"), fid=str(fid), tr=tr, split=dn,
                            abl=abl, ms=ms)
                 if abl == 0:
                     r = run(fid, tr)
@@ -91,4 +91,4 @@ for fid in [getattr(ttnn.MathFidelity, f) for f in a.fids.split(",")]:
                         row["equal_to_first"] = all(torch.equal(p, q) for p, q in zip(ref, out))
                 print(json.dumps(row), flush=True)
 TL.ABL = 0
-TL.DNOC = False
+TL.SPLIT = False

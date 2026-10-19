@@ -40,8 +40,9 @@ TILE = 32
 RB = 4          # row tiles per reader barrier
 #: the ending variant norms z^T straight out of z (reader.cpp TR) instead of transposing first
 TR = True
-#: the writer drains every second tile on the reader's NOC (kernels/triatt_ln/writer.cpp DNOC; 2, 3 bench arms); bit-exact
-DNOC = False
+#: compute alternates output rows between the writer (c_2) and the reader (c_4), each drains on its own NOC
+#: (kernels/triatt_ln/drain.hpp); heads layout only. Bit-exact: same tiles to the same pages
+SPLIT = False
 #: bench-only stage skips (kernels/triatt_ln/compute.cpp ABL; perf/spd_m_protenix/tl_attr.py), 0 in production
 ABL = 0
 _CACHE: dict = {}
@@ -105,7 +106,7 @@ def _cb(idx, core_grid, tiles, dtype=ttnn.bfloat16):
 
 def _cb_bytes(kt, nw, tr):
     """L1 bytes per core of `_build`'s circular buffers."""
-    bf = kt * nw + 2 * kt + 2 * nw + (tr * 16 * kt + 16 if tr else 2 * RB * kt) + 2 * kt + 1
+    bf = kt * nw + 2 * kt + 2 * nw * (1 + SPLIT) + (tr * 16 * kt + 16 if tr else 2 * RB * kt) + 2 * kt + 1
     return bf * MG.tile_bytes(ttnn.bfloat16) + (4 + 2 * kt) * MG.tile_bytes(ttnn.float32)
 
 
@@ -136,11 +137,6 @@ def _pages(t):
     return n // TILE
 
 
-def _dm(risc, noc):
-    # Both DM kernels in the dynamic mode: it initialises both NOCs and arbitrates their command buffers.
-    return ttnn.DataMovementConfigDescriptor(processor=risc, noc=noc, noc_mode=ttnn.NOC_MODE.DM_DYNAMIC_NOC)
-
-
 def _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw):
     kt, nwf = int(x.shape[-1]) // TILE, int(w.padded_shape[-1]) // TILE
     m = 1
@@ -150,11 +146,12 @@ def _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw):
     gx, gy = grid
     core_grid = ttnn.CoreRangeSet([ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(gx - 1, gy - 1))])
     rd, wr, cp = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
+    split = SPLIT and H > 0
     # TR splits 16-row units (2 per x^T row-tile pair (bt, jt)), the rest splits row tiles. Core c is in
     # column group c % g, and every group splits the same rows.
-    split = split_rows(m // 16 if tr else m, gx * gy // g)
+    ranges = split_rows(m // 16 if tr else m, gx * gy // g)
     for c in range(gx * gy):
-        r0, n = split[c // g]
+        r0, n = ranges[c // g]
         cx, cy = c % gx, c // gx
         rows = 16 * n if tr else n
         rd[cx][cy] = [r0, n, int(bool(tr)), MT, (c % g) * nw]
@@ -163,24 +160,25 @@ def _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw):
     inv = struct.unpack("<I", struct.pack("<f", 1.0 / int(x.shape[-1])))[0] >> 16
     eps_bits = struct.unpack("<I", struct.pack("<f", float(eps)))[0]
     acc = lambda t: list(ttnn.TensorAccessorArgs(t).get_compile_time_args())  # noqa: E731
+    # the reader drains with drain.hpp, so it takes the writer's bench write skips too
+    dsplit = [("SPLIT", "1")] + ([("ABL_W", "1")] if ABL & 4 else []) if split else []
     src = ttnn.KernelDescriptor.SourceType.FILE_PATH
     reader = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "reader.cpp"), source_type=src, core_ranges=core_grid,
-        compile_time_args=[kt, nw, RB, (inv << 16) | inv, eps_bits, nwf] + acc(x) + acc(w) + acc(ln_w) + acc(ln_b),
-        defines=[("ABL_R", "1")] if ABL & 8 else [],
-        runtime_args=rd, common_runtime_args=[0] * 4, config=_dm(ttnn.DataMovementProcessor.RISCV_1, ttnn.NOC.RISCV_1_default)
-        if DNOC else ttnn.ReaderConfigDescriptor())
+        compile_time_args=[kt, nw, RB, (inv << 16) | inv, eps_bits, nwf] + ([H, MT] if split else [])
+        + acc(x) + acc(w) + acc(ln_w) + acc(ln_b) + (sum((acc(o) for o in outs), []) if split else []),
+        defines=([("ABL_R", "1")] if ABL & 8 else []) + dsplit,
+        runtime_args=rd, common_runtime_args=[0] * (4 + len(outs) * split), config=ttnn.ReaderConfigDescriptor())
     writer = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "writer.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[H, MT, nw, nwf] + sum((acc(o) for o in outs), []),
         defines=([("ABL_W", "1")] if ABL & 4 else []) + ([("ABL_LIN", str(_pages(outs[0])))]
-                                                          if ABL & 16 and H else []) + ([("DNOC", str(int(DNOC)))] if DNOC else []),
-        runtime_args=wr, common_runtime_args=[0] * len(outs),
-        config=_dm(ttnn.DataMovementProcessor.RISCV_0, ttnn.NOC.RISCV_0_default) if DNOC else ttnn.WriterConfigDescriptor())
+                                                          if ABL & 16 and H else []) + dsplit[:1],
+        runtime_args=wr, common_runtime_args=[0] * len(outs), config=ttnn.WriterConfigDescriptor())
     fid, approx, _, full = ckc
     compute = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "compute.cpp"), source_type=src, core_ranges=core_grid,
-        compile_time_args=[kt, nw, 0, ABL], runtime_args=cp,   # RNE off: pack truncates, as T1 ships
+        compile_time_args=[kt, nw, 0, ABL], runtime_args=cp, defines=dsplit[:1],   # RNE off: pack truncates, as T1 ships
         config=ttnn.ComputeConfigDescriptor(math_fidelity=fid, math_approx_mode=approx,
                                             fp32_dest_acc_en=True, dst_full_sync_en=full))
     cbs = [_cb(0, core_grid, kt * nw), _cb(1, core_grid, 2 * kt), _cb(2, core_grid, 2 * nw),
@@ -188,6 +186,8 @@ def _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw):
            _cb(10, core_grid, 1)]
     if tr:
         cbs.append(_cb(3, core_grid, 16))   # the 32 half tiles of one channel tile
+    if split:
+        cbs.append(_cb(4, core_grid, 2 * nw))
     cbs += [_cb(i, core_grid, t, ttnn.float32) for i, t in ((11, 1), (12, 1), (13, 1), (14, 1), (16, kt), (17, kt))]
     return {"kernels": [reader, writer, compute], "cbs": cbs}
 
@@ -232,13 +232,13 @@ def ln_qkvgb_heads(x, ln_w, ln_b, w, ckc, n_heads, head_dim, bias_channels, grid
 def _launch(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tag, plan):
     g, nw, tr = plan
     key = (x.device().id(), tuple(int(d) for d in x.padded_shape), tuple(int(d) for d in w.padded_shape), H, tag,
-           tuple(grid), tuple(str(a) for a in ckc), float(eps), plan, ABL, DNOC)
+           tuple(grid), tuple(str(a) for a in ckc), float(eps), plan, ABL, SPLIT)
     entry = _CACHE.get(key)
     if entry is None:
         entry = _CACHE[key] = _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw)
     reader, writer, _ = entry["kernels"]
     reader.common_runtime_args = [x.buffer_address(), w.buffer_address(), ln_w.buffer_address(),
-                                  ln_b.buffer_address()]
+                                  ln_b.buffer_address()] + ([o.buffer_address() for o in outs] if SPLIT and H else [])
     writer.common_runtime_args = [o.buffer_address() for o in outs]
     pd = ttnn.ProgramDescriptor(kernels=entry["kernels"], semaphores=[], cbs=entry["cbs"])
     ttnn.generic_op([x, w, ln_w, ln_b] + outs, pd)
