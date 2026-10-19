@@ -773,7 +773,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "ws_resid2", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
           "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "trimul_bres", "atomp_dev", "lm_qk_chain",
           "lm_gate_ng", "lm_sdpa_stock", "triatt_hifi2", "dit_cond_jcat", "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32",
-          "triatt_ln_b8")
+          "triatt_ln_b8", "trimul_t1w8")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -790,7 +790,7 @@ UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "di
                              "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384",
                              "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "ws_resid2", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
                              "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "triatt_hifi2", "dit_cond_jcat",
-                             "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32", "triatt_ln_b8"})
+                             "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32", "triatt_ln_b8", "trimul_t1w8"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -9487,7 +9487,7 @@ class TriangleMultiplication(Module):
         # lever ever takes a call at this width.
         self._gp_gout_cache: dict[tuple[int, int], ttnn.Tensor] = {}
         self._gp_gated_cache: dict = {}
-        self._t1_w = None     # T1's (wpT, wgT), built on its first served call
+        self._t1_w = None     # T1's (wpT, wgT, bfp8 g_out or None), built on its first served call
         # The in-projection as device leaves, set only by `train_in_proj`. Inference never
         # sets them and reads the caches above.
         self.g_in_weight = self.p_in_weight = None
@@ -9628,17 +9628,20 @@ class TriangleMultiplication(Module):
             TT1.T1_WHY["route"] = TT1.T1_WHY.get("route", 0) + 1
             return None
         if self._t1_w is None:
-            wpT, wgT, _ = TT1.t1_host_weights(self._g_in_t, self._p_in_t,
-                                              self.weights["g_out.weight"].t())
+            wpT, wgT, wgo = TT1.t1_host_weights(self._g_in_t, self._p_in_t,
+                                                self.weights["g_out.weight"].t())
+            # trimul_t1w8: all three resident weights as bfp8, so c_z 384 runs two channel groups, not three
+            w8 = lever("trimul_t1w8")
             up = lambda t: ttnn.from_torch(  # noqa: E731
-                t, layout=ttnn.TILE_LAYOUT, device=self.device, dtype=ttnn.bfloat16)
-            self._t1_w = (up(wpT), up(wgT))
+                t, layout=ttnn.TILE_LAYOUT, device=self.device,
+                dtype=ttnn.bfloat8_b if w8 else ttnn.bfloat16)
+            self._t1_w = (up(wpT), up(wgT), up(wgo) if w8 else None)
         fold = mask is not None and TT1.t1_mask_ok(mask, x)
         ckc = _mm_generic.ckc_args(self.compute_kernel_config)
         if lever("trimul_gin_hifi2"):
             ckc = (ttnn.MathFidelity.HiFi2,) + ckc[1:]
         outs = TT1.fused_in_ln(
-            x, self.in_norm_weight, self.in_norm_bias, *self._t1_w, self.g_out_weight,
+            x, self.in_norm_weight, self.in_norm_bias, *self._t1_w[:2], self._t1_w[2] or self.g_out_weight,
             ckc, tuple(COMPUTE_GRID_MAIN),
             mask=mask if fold else None, b8=lever("trimul_t1b8") and (mask is None or fold))
         return None if outs is None else (outs[0], outs[1], outs[2], fold)
