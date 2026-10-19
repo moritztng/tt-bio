@@ -322,6 +322,10 @@ class _SaprotLin(_MMLin):
         prog = _saprot_prog(x, w, None, ck.math_fidelity == ttnn.MathFidelity.HiFi2) if on else None
         if prog is not None and prog[0] == "mm":
             n = int(w.shape[-1])
+            if w.dtype == ttnn.bfloat8_b:   # the fused op wants in1 and the residual in one tile format: the same values in bf16
+                if getattr(self, "_resid_w", None) is None:
+                    self._resid_w = ttnn.typecast(w, ttnn.bfloat16)
+                w = self._resid_w
             if getattr(self, "_ones_row", None) is None:
                 self._ones_row = ttnn.from_torch(torch.ones(1, n), dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT,
                                                  device=x.device())
