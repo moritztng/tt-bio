@@ -21,8 +21,9 @@ built once on the host:
 
 `Backend` is the op set. `NP` runs it in float64 numpy, card-free, so `--check` proves the rewrite
 against the golden model before a card is ever opened; the ttnn backend lives in `ipa_fused_tt.py`.
-Calls per layer: 156 (15 of them [N, 1] column slices of R, t and the translation update), against 330
-in the DeviceIPA chain; one attention and two batched matmuls are the only [H, N, N]-sized ones.
+Calls per layer: 185, against 330 in the DeviceIPA chain; one attention and two
+batched matmuls are the only [H, N, N]-sized ones. Nothing is broadcast: every add and multiply takes
+equal shapes, so tt_bio.autograd's tape (whose add/mul have no reducing backward) can differentiate it.
 usage: ipa_fused.py --params <params_model_1_multimer_v3.npz> --check [--n 224]
 """
 import argparse, os, sys
@@ -52,7 +53,9 @@ def pack(p):
         for n, P in (("q", PQ), ("k", PQ), ("v", PV)):
             w, b = pts[n]
             cols.append(w[:, :, d * P:(d + 1) * P].reshape(CS, H * P)); bias.append(b[:, d * P:(d + 1) * P].reshape(-1))
+    cols.append(np.zeros((CS, 1))); bias.append(np.ones(1))          # a constant-1 column, q' slot 28
     k = {"w_proj": np.concatenate(cols, 1), "b_proj": np.concatenate(bias)}
+    ONE = k["w_proj"].shape[1] - 1
     off = {"q": 0, "k": H * C, "v": 2 * H * C}
     po = {"q": 0, "k": H * PQ, "v": 2 * H * PQ}                     # offsets inside one X/Y/Z block
     XB = 3 * H * C                                                  # first X column
@@ -70,19 +73,22 @@ def pack(p):
                 m[col, h * dpad + j] = scale; j += 1
         return m
 
-    def head_parts(n, P, scalar_scale, point_scale):
+    def head_parts(n, P, scalar_scale, point_scale, one=False):
         def f(h):
             out = [(off[n] + h * C + c, scalar_scale) for c in range(C)]
             for d in range(3):
                 out += [(XB + d * blk + po[n] + h * P + i, point_scale(h)) for i in range(P)]
-            return out
+            return out + ([(ONE, 1.0)] if one else [])
         return f
-    k["sel_q"] = sel(DQ, head_parts("q", PQ, S3 * np.sqrt(1.0 / C), lambda h: S3 * pw[h]))
+    k["sel_q"] = sel(DQ, head_parts("q", PQ, S3 * np.sqrt(1.0 / C), lambda h: S3 * pw[h], one=True))
     k["sel_k"] = sel(DQ, head_parts("k", PQ, 1.0, lambda h: 1.0))
     k["sel_v"] = sel(DV, head_parts("v", PV, 1.0, lambda h: 1.0))
-    sk = np.zeros((H * PQ, H))                                      # sum |kp|^2 over a head's points, times -s3 pw/2
+    # sum |kp|^2 over a head's points, times -s3 pw/2, into k' slot 28 opposite q's constant 1: the
+    # key-side bias rides inside the one logits matmul, and nothing is broadcast (the tape's add and
+    # mul take equal shapes only).
+    sk = np.zeros((H * PQ, H * DQ))
     for h in range(H):
-        sk[h * PQ:(h + 1) * PQ, h] = -0.5 * S3 * pw[h]
+        sk[h * PQ:(h + 1) * PQ, h * DQ + C + 3 * PQ] = -0.5 * S3 * pw[h]
     k["sel_kp2"], k["kp_cols"] = sk, (po["k"], po["k"] + H * PQ)
     k["w_2d"], k["b_2d"] = W(IPA + "attention_2d") * S3, B(IPA + "attention_2d", (H,)) * S3
     # o = attn @ v' is [H, N, 64]: per head [o_s (16) | ox (8) | oy (8) | oz (8) | pad]. After
@@ -139,6 +145,12 @@ def pack(p):
                 PA[b, 3 * a + b, 3 * a + cc] = 1.0
                 PB[b, 3 * b + cc, 3 * a + cc] = 1.0
     k["compose_a"], k["compose_b"] = PA, PB
+    # R's nine columns and t's three, each repeated to width w by one matmul: a broadcast multiply
+    # has no reducing backward on the tape, a matmul's backward is the reduction.
+    for w in (blk, H * PV):
+        k[f"exp9_{w}"] = np.kron(np.eye(9), np.ones((1, w)))
+        k[f"exp3_{w}"] = np.kron(np.eye(3), np.ones((1, w)))
+    k["one_col"] = ONE
     return k
 
 
@@ -160,7 +172,7 @@ class NP:
     unsq = staticmethod(lambda x: x[:, None, :])
     flat = staticmethod(lambda x: x.reshape(x.shape[0], -1))
     relu = staticmethod(lambda x: np.maximum(x, 0))
-    sqrt = staticmethod(np.sqrt); recip = staticmethod(lambda x: 1.0 / x)
+    sqrt_eps = staticmethod(lambda x, eps: np.sqrt(x + eps)); recip = staticmethod(lambda x: 1.0 / x)
     def softmax(self, x):
         e = np.exp(x - x.max(-1, keepdims=True)); return e / e.sum(-1, keepdims=True)
     def layer_norm(self, x, gb, eps=1e-5):
@@ -196,26 +208,30 @@ def layer(o, k, act, R, t, bias, z_rows):
     n = act.shape[0]
     pr = o.linear(act, k["w_proj"], k["b_proj"])                         # [N, 1152]
     XB, blk = 3 * H * C, H * NP_
-    rc, tc = [o.col(R, i) for i in range(9)], [o.col(t, a) for a in range(3)]
-    gX, gY, gZ = frame(o, rc, tc, *[o.cols(pr, XB + d * blk, XB + (d + 1) * blk) for d in range(3)])
-    full = o.concat([o.cols(pr, 0, XB), gX, gY, gZ])                     # projection with global points
-    q = o.heads(o.mm(full, k["sel_q"]), DQ)                              # [H, N, 32]
-    kk = o.heads(o.mm(full, k["sel_k"]), DQ)
-    v = o.heads(o.mm(full, k["sel_v"]), DV)                              # [H, N, 64]
+    def wide(x, m, parts, w):
+        x = o.mm(x, k[f"{m}_{w}"])
+        return [o.cols(x, i * w, (i + 1) * w) for i in range(parts)]
+    gX, gY, gZ = frame(o, wide(R, "exp9", 9, blk), wide(t, "exp3", 3, blk),
+                       *[o.cols(pr, XB + d * blk, XB + (d + 1) * blk) for d in range(3)])
+    one = k["one_col"]
+    full = o.concat([o.cols(pr, 0, XB), gX, gY, gZ, o.cols(pr, one, one + 1)])   # global points, constant 1
     s, e = k["kp_cols"]
     kp2 = o.add(o.add(o.mul(o.cols(gX, s, e), o.cols(gX, s, e)), o.mul(o.cols(gY, s, e), o.cols(gY, s, e))),
                 o.mul(o.cols(gZ, s, e), o.cols(gZ, s, e)))
-    kb = o.permute(o.mm(kp2, k["sel_kp2"]), (1, 0))                      # [H, N] key-side bias
-    logits = o.add(o.add(o.bmm_t(q, kk), bias), o.unsq(kb))
+    q = o.heads(o.mm(full, k["sel_q"]), DQ)                              # [H, N, 32]
+    kk = o.heads(o.add(o.mm(full, k["sel_k"]), o.mm(kp2, k["sel_kp2"])), DQ)
+    v = o.heads(o.mm(full, k["sel_v"]), DV)                              # [H, N, 64]
+    logits = o.add(o.bmm_t(q, kk), bias)
     attn = o.softmax(logits)                                             # [H, Nq, Nk]
     ov = o.unheads(o.bmm(attn, v))                                       # [N, H*64]
-    opx, opy, opz = unframe(o, rc, tc, *[o.mm(ov, k["sel_opt"][d]) for d in range(3)])
-    norms = o.sqrt(o.add(o.add(o.add(o.mul(opx, opx), o.mul(opy, opy)), o.mul(opz, opz)), 1e-16))
+    opx, opy, opz = unframe(o, wide(R, "exp9", 9, H * PV), wide(t, "exp3", 3, H * PV),
+                            *[o.mm(ov, k["sel_opt"][d]) for d in range(3)])
+    norms = o.sqrt_eps(o.add(o.add(o.mul(opx, opx), o.mul(opy, opy)), o.mul(opz, opz)), 1e-16)
     o_pair = o.bmm(o.permute(attn, (1, 0, 2)), z_rows)                   # [N, H, 128]
     o_pair = o.flat(o_pair)
-    ipa = o.add(o.add(o.add(o.add(o.add(o.mm(ov, k["w_out_s"]), o.mm(opx, k["w_out_pt"][0])),
+    ipa = o.add(o.add(o.add(o.add(o.add(o.linear(ov, k["w_out_s"], k["b_out"]), o.mm(opx, k["w_out_pt"][0])),
                                   o.mm(opy, k["w_out_pt"][1])), o.mm(opz, k["w_out_pt"][2])),
-                      o.add(o.mm(norms, k["w_out_norm"]), o.mm(o_pair, k["w_out_pair"]))), k["b_out"])
+                      o.mm(norms, k["w_out_norm"])), o.mm(o_pair, k["w_out_pair"]))
     act = o.layer_norm(o.add(act, ipa), k["attention_layer_norm"])
     h = o.relu(o.linear(act, *k["transition"]))
     h = o.relu(o.linear(h, *k["transition_1"]))
@@ -224,7 +240,8 @@ def layer(o, k, act, R, t, bias, z_rows):
     mono = o.mul(o.mm(qv, k["mono_a"]), o.mm(qv, k["mono_b"]))           # [N, 10]
     r_u = o.mul(o.mm(mono, k["quat_rot"]), o.recip(o.mm(mono, k["quat_n2"])))
     dt = o.linear(act, k["w_dt"], k["b_dt"])                             # [N, 3] in the old frame
-    tX, tY, tZ = frame(o, rc, tc, o.col(dt, 0), o.col(dt, 1), o.col(dt, 2))
+    tX, tY, tZ = frame(o, [o.col(R, i) for i in range(9)], [o.col(t, a) for a in range(3)],
+                       o.col(dt, 0), o.col(dt, 1), o.col(dt, 2))
     R_new = o.add(o.add(*[o.mul(o.mm(R, k["compose_a"][b]), o.mm(r_u, k["compose_b"][b])) for b in range(2)]),
                   o.mul(o.mm(R, k["compose_a"][2]), o.mm(r_u, k["compose_b"][2])))
     return act, R_new, o.concat([tX, tY, tZ])
