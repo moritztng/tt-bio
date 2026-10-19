@@ -6,7 +6,7 @@ ap = argparse.ArgumentParser()
 ap.add_argument("--ns", default="512")
 ap.add_argument("--c", type=int, default=256)
 ap.add_argument("--reps", type=int, default=20)
-ap.add_argument("--abl", default="1,2,4,6")
+ap.add_argument("--abl", default="1,2,4,8")
 A = ap.parse_args()
 
 from tt_bio.main import ensure_p300_mesh_descriptor
@@ -38,7 +38,16 @@ for n in (int(v) for v in A.ns.split(",")):
     o1, o2 = mk(), mk()
     old = lambda: RB.reblock_permute_back(x, ttnn.DRAM_MEMORY_CONFIG, out=o1)
     new = lambda: PK.permute_back_pk(x, o2, grid)
-    old(); new(); ttnn.synchronize_device(dev)
+    old(); ttnn.synchronize_device(dev)
+    print(json.dumps({"stage": "old ok"}), flush=True)
+    # Risk order, one stage per launch, so a hang names its stage: untilize only, + tilize, full.
+    for m in (2, 8):
+        PK.ABL = m
+        new(); ttnn.synchronize_device(dev)
+        print(json.dumps({"stage": f"pk abl{m} ok"}), flush=True)
+    PK.ABL = 0
+    new(); ttnn.synchronize_device(dev)
+    print(json.dumps({"stage": "pk full ok"}), flush=True)
     got = ttnn.to_torch(o2)
     rec = {"n": n, "c": A.c, "grid": grid, "old_exact": bool(torch.equal(ttnn.to_torch(o1), ref)),
            "pk_exact": bool(torch.equal(got, ref)),

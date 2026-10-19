@@ -17,20 +17,29 @@
 #include "api/compute/pack_untilize.h"
 #include "api/compute/tilize.h"
 #include "api/compute/transpose_wh.h"
+#include "api/compute/tile_move_copy.h"
 
 void kernel_main() {
-    constexpr uint32_t ABL = get_compile_time_arg_val(0);   // bit 1: no tilize/transpose (diagnostic)
+    constexpr uint32_t ABL = get_compile_time_arg_val(0);   // bit 1: no tilize/transpose, bit 3: no transpose (diagnostic)
     const uint32_t nunits = get_arg_val<uint32_t>(0);
     constexpr uint32_t in_cb = tt::CBIndex::c_0, rm_cb = tt::CBIndex::c_1, t_cb = tt::CBIndex::c_2;
     constexpr uint32_t out_cb = tt::CBIndex::c_16;
 
     compute_kernel_hw_startup(in_cb, rm_cb);
     for (uint32_t u = 0; u < nunits; ++u) {
-        pack_untilize_init<8, 32>(in_cb, rm_cb);
+        // copy_tile + pack_untilize_dest, as dit_pair_bias and trimul_gin_moved's RETILE do on device;
+        // pack_untilize_block (no in-tree user) was the first suspect when bpk3 still hung.
+        copy_tile_to_dst_init_short(in_cb);
+        pack_untilize_dest_init<8, 32>(rm_cb);
         cb_reserve_back(rm_cb, 32);
         for (uint32_t g = 0; g < 4; ++g) {
             cb_wait_front(in_cb, 8);
-            pack_untilize_block<8, 32>(in_cb, 1, rm_cb, g);
+            tile_regs_acquire();
+            for (uint32_t k = 0; k < 8; ++k) copy_tile(in_cb, k, k);
+            tile_regs_commit();
+            tile_regs_wait();
+            pack_untilize_dest<8, 32>(rm_cb, 1, g);
+            tile_regs_release();
             cb_pop_front(in_cb, 8);
         }
         pack_untilize_uninit(rm_cb);
@@ -43,15 +52,17 @@ void kernel_main() {
             cb_pop_front(rm_cb, 32);
             continue;
         }
-        tilize_init(rm_cb, 1, t_cb);
+        constexpr uint32_t tz_cb = (ABL & 8) ? out_cb : t_cb;   // bit 3: tilize straight to out, no transpose
+        tilize_init(rm_cb, 1, tz_cb);
         for (uint32_t i = 0; i < 32; ++i) {
             cb_wait_front(rm_cb, 1);
-            cb_reserve_back(t_cb, 1);
-            tilize_block(rm_cb, 1, t_cb);
-            cb_push_back(t_cb, 1);
+            cb_reserve_back(tz_cb, 1);
+            tilize_block(rm_cb, 1, tz_cb);
+            cb_push_back(tz_cb, 1);
             cb_pop_front(rm_cb, 1);
         }
-        tilize_uninit(rm_cb, t_cb);
+        tilize_uninit(rm_cb, tz_cb);
+        if constexpr (ABL & 8) continue;
 
         // The short init: the full one re-runs pack_sync_init and the hw configure mid-kernel, which hung the chip
         // (bpk, bpk2 on .107); in-tree kernels call it once at start and the short form after other ops.
