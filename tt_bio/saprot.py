@@ -348,8 +348,6 @@ class _SaprotLin(_MMLin):
                     warnings.warn(f"saprot: fused residual matmul refused {tuple(w.shape)} {w.dtype}: {str(exc)[:400]}")
                 RESID_REFUSED.add((tuple(w.shape), w.dtype))
         r = self._lin(x, w, bias=bias)
-        if _add_ln_on(w):
-            return resid, r   # the next norm adds it (_stream_ln)
         out = None
         if x_l1 and tuple(resid.padded_shape) not in _X_L1_REFUSED:
             try:
@@ -417,7 +415,7 @@ class ESM2Attention(_SaprotLin, Module):
 
     def __call__(self, x, cos, sin, attn_mask=None, key_valid=None):
         ck = self.compute_kernel_config
-        x, x_norm = _stream_ln(x, self.norm_weight, self.norm_bias, ck, self.qkv_weight)
+        x_norm = _block_ln(x, self.norm_weight, self.norm_bias, ck, self.qkv_weight)
         qkv = self._lin(x_norm, self.qkv_weight, bias=self.qkv_bias)
         heads = None
         if self.rope_pairs:   # q / k dims in adjacent pairs (_fold_rope_qkv pairs=True), cos / sin [1, 1, L, 32]
@@ -560,40 +558,6 @@ def _block_ln(x, w, b, ck, proj_w):
     return ttnn.layer_norm(x, weight=w, bias=b, epsilon=1e-5, compute_kernel_config=ck)
 
 
-# The block's residual add and the next LayerNorm as one program (tt_bio/add_ln.py): where the add is not fused into the
-# out / fc2 matmul (_SAPROT_RESID serves bf16 weights only), _lin_add hands back the pending (stream, projection) pair and
-# the next sublayer's norm (or the final one) takes both, writing the sum and its norm in one pass. The sum is ttnn.add's
-# bit for bit; the norm moves (two-pass fp32 statistics). Off until graded on the page (True: wherever the add is unfused;
-# None: with block-fp8 weights only).
-_SAPROT_ADDLN = env_flag("TT_BIO_SAPROT_ADDLN", False)
-
-
-def _add_ln_on(w) -> bool:
-    return w.dtype == ttnn.bfloat8_b if _SAPROT_ADDLN is None else _SAPROT_ADDLN
-
-
-def _stream_ln(x, w, b, ck, proj_w, final=False):
-    """(residual stream, its block LayerNorm) from x, a tensor or a pending (stream, projection) pair from _lin_add.
-    final: the stack's last norm, whose output leaves the model, so it goes to DRAM."""
-    if isinstance(x, tuple):
-        resid, r = x
-        l1 = lambda on: ttnn.L1_MEMORY_CONFIG if on else ttnn.DRAM_MEMORY_CONFIG  # noqa: E731
-        x_l1 = proj_w.dtype == ttnn.bfloat8_b if _SAPROT_X_L1 is None else _SAPROT_X_L1
-        ln_l1 = not final and (proj_w.dtype == ttnn.bfloat8_b if _SAPROT_LN_L1 is None else _SAPROT_LN_L1)
-        from tt_bio.add_ln import add_ln
-        out = add_ln(resid, r, w, b, h_memory_config=l1(x_l1), y_memory_config=l1(ln_l1))
-        if out is not None:
-            ttnn.deallocate(resid)
-            ttnn.deallocate(r)
-            return out
-        x = ttnn.add(resid, r)
-        ttnn.deallocate(resid)
-        ttnn.deallocate(r)
-    if final:
-        return x, ttnn.layer_norm(x, weight=w, bias=b, epsilon=1e-5, compute_kernel_config=ck)
-    return x, _block_ln(x, w, b, ck, proj_w)
-
-
 # fc1's GELU applied by the matmul at pack instead of as its own op over the [rows, 4*d] activation. Page cell, batch of
 # 7, Galaxy chip at 1000 MHz: 650M 250.0 -> 234.2 ms (--fast 244.8 -> 228.5), 1.3B 482.4 -> 450.1 (472.7 -> 441.3),
 # 35M 55.4 -> 52.5 (54.8 -> 53.0); error against float32 HF unchanged (1.3B pcc 0.99916 -> 0.99929, 650M 0.99976 both).
@@ -614,7 +578,7 @@ class ESM2FFN(_SaprotLin, Module):
 
     def __call__(self, x):
         ck = self.compute_kernel_config
-        x, x_norm = _stream_ln(x, self.norm_weight, self.norm_bias, ck, self.fc1_weight)
+        x_norm = _block_ln(x, self.norm_weight, self.norm_bias, ck, self.fc1_weight)
         h = self._lin(x_norm, self.fc1_weight, bias=self.fc1_bias, **({"activation": "gelu"} if _GELU_FUSED else {}))
         ttnn.deallocate(x_norm)
         if not _GELU_FUSED:
@@ -708,12 +672,8 @@ class SaprotModel(Module):
         x = self.embed(tokens, embed_mask)
         for block in self.blocks:
             x = block(x, cos, sin, attn_mask, key_valid)
-        if isinstance(x, tuple):   # the last fc2's pending residual: add it inside the final norm
-            x, emb = _stream_ln(x, self.norm_weight, self.norm_bias, self.compute_kernel_config,
-                                self.blocks[-1].ffn.fc2_weight, final=True)
-        else:
-            emb = ttnn.layer_norm(x, weight=self.norm_weight, bias=self.norm_bias,
-                                  epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
+        emb = ttnn.layer_norm(x, weight=self.norm_weight, bias=self.norm_bias,
+                              epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
         ttnn.deallocate(x)
         logits = self.head(emb) if want_logits else None
         return logits, emb
