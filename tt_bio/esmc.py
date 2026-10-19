@@ -436,6 +436,9 @@ MM_STATS = [0, 0]
 # op's default: 300M proj 0.233 -> 0.197, fc1 half 0.495 -> 0.461, fc2 0.392 -> 0.382; 600M proj 0.268 -> 0.226, fc1
 # half 0.645 -> 0.587, fc2 0.470 -> 0.452; error against float64 equal to the default's. Off = the op's default.
 _ESMC_MM_CFG = env_flag("TT_BIO_ESMC_MM_CFG", True)
+# Under bf16 accumulation (--fast's block-fp8 weights) the qkv split runs fastest in 8 x 8 blocks: mm_cfg_sweep on a
+# Galaxy chip at 1000 MHz, 600M 0.540 -> 0.481 ms a call, 300M 0.419 -> 0.406, same rel_l2 vs float64.
+_ESMC_MM_CFG_BF16_ACC_8X8 = env_flag("TT_BIO_ESMC_MM_CFG_8X8", True)
 # --fast's block-fp8 projection weights on the same minimal_matmul instead of ttnn.linear. Page cell on a Galaxy chip at
 # 1000 MHz, 2 rounds: 300M --fast 173.2/166.5 -> 162.8/157.0 ms, 600M 264.6/244.6 -> 237.5/237.0, embeddings equal to the
 # linear's (pcc 1.0). The same 16 x 4 block config is within 3 % of the best per-shape one with these weights.
@@ -452,6 +455,14 @@ _ESMC_QKV_MM_SPLIT = env_flag("TT_BIO_ESMC_QKV_MM_SPLIT", True)
 # ones), so neither add re-reads a projection from DRAM. bf16 weights only: the op refuses --fast's block-fp8 ones.
 # Same page cell: 300M 143.6 -> 141.3, 600M 229.9 -> 223.4, embeddings identical (pcc 1.0). Wormhole only, as above.
 _ESMC_MM_RESID = env_flag("TT_BIO_ESMC_MM_RESID", True)
+# The LM FFN's LayerNorm writes L1 (it feeds fc1 and dies), as the attention's input LayerNorm already does (QK_L1), for
+# blocks under _LM_LARGE_MODEL_BYTES. Page cell on a Galaxy chip at 1000 MHz, 3 rounds of 7, median: 300M 94.13 -> 93.93
+# ms, --fast 85.62 -> 85.05, 600M 138.08 -> 137.12, --fast 123.11 -> 121.17; embeddings identical (pcc 1.0). Keeping the
+# whole residual stream in L1 does not work: other ops' static circular buffers then clash with it.
+_ESMC_FFN_LN_L1 = env_flag("TT_BIO_ESMC_FFN_LN_L1", True)
+_FFN_LN_L1_REFUSED: set = set()
+#: [LM FFN LayerNorms written to L1, refused], read by the A/B harness.
+FFN_LN_L1_STATS = [0, 0]
 # --fast: those two weights are cast from block-fp8 to bf16 once at load (same values), so the residual add fuses there
 # too. Census, 600M --fast page batch: out_proj 8.7 + fc2 16.3 ms of matmul plus 13.1 ms of separate adds, where normal
 # mode fused both. Page cell on a Galaxy chip at 1000 MHz, best of 3: 300M --fast 120.0 -> 117.7 ms, 600M 172.5 ->
@@ -536,9 +547,11 @@ def _mm_config(x, w, exact: bool = False):
         return {}
     g = x.device().compute_with_storage_grid_size()
     kt = int(w.shape[-2]) // 32
+    bf16_acc = _mm_bf16_acc(w, exact)
+    mn8 = bf16_acc and _ESMC_MM_CFG_BF16_ACC_8X8
     return {"config": ttnn.MinimalMatmulConfig(
-        M_block_size=16, K_block_size=4 if kt % 4 == 0 else 2, N_block_size=4, subblock_h=2,
-        subblock_w=4 if _mm_bf16_acc(w, exact) else 2, compute_with_storage_grid_size=ttnn.CoreCoord(g.x, g.y))}
+        M_block_size=8 if mn8 else 16, K_block_size=4 if kt % 4 == 0 else 2, N_block_size=8 if mn8 else 4,
+        subblock_h=2, subblock_w=4 if bf16_acc else 2, compute_with_storage_grid_size=ttnn.CoreCoord(g.x, g.y))}
 
 
 def _esmc_mm() -> bool:
@@ -1280,6 +1293,18 @@ class SwiGLUFFN(_MMLin, Module):
                     L1_LN_STATS[0] += 1
                 except Exception:
                     _L1_LN_REFUSED.add(key)
+        key = tuple(x.padded_shape)
+        if (x_norm is None and _ESMC_FFN_LN_L1 and getattr(self, "lm_large", True) is False
+                and key not in _FFN_LN_L1_REFUSED):
+            try:
+                x_norm = ttnn.layer_norm(x, memory_config=ttnn.L1_MEMORY_CONFIG, **ln)
+                FFN_LN_L1_STATS[0] += 1
+            except Exception as exc:
+                if not _is_alloc_refusal(exc):
+                    from tt_bio import tenstorrent as _T
+                    _T.absorb_l1_refusal("esmc ffn LN L1", exc)
+                _FFN_LN_L1_REFUSED.add(key)
+                FFN_LN_L1_STATS[1] += 1
         if x_norm is None:
             L1_LN_STATS[1] += bool(l1_gated and _PAIR_FFN_L1_LN)
             x_norm = ttnn.layer_norm(x, **ln)

@@ -183,3 +183,22 @@ def test_mm_gate_default(wormhole, switch, monkeypatch):
     assert esmc._mm_gate_on() is (wormhole if switch is None else switch)
     with tenstorrent.levers("lm_gate_ng"):
         assert esmc._mm_gate_on() is (False if switch is None else switch)
+
+
+@pytest.mark.parametrize("wdtype,bf16_acc", [("bfloat16", False), ("bfloat8_b", True)])
+@pytest.mark.parametrize("on", [True, False])
+def test_mm_config_blocks_8x8_under_bf16_acc(wdtype, bf16_acc, on, monkeypatch):
+    """--fast's bf16-accumulated block-fp8 projections take 8 x 8 blocks; every other minimal_matmul keeps 16 x 4."""
+    monkeypatch.setattr(esmc, "_ESMC_MM_CFG", True)
+    monkeypatch.setattr(esmc, "_ESMC_MM_CFG_BF16_ACC_8X8", on)
+    monkeypatch.setattr(esmc.ttnn, "MinimalMatmulConfig", lambda **kw: kw, raising=False)
+    x = types.SimpleNamespace(device=lambda: types.SimpleNamespace(
+        compute_with_storage_grid_size=lambda: types.SimpleNamespace(x=8, y=9)))
+    cfg = esmc._mm_config(x, _T(1152, 3456, getattr(esmc.ttnn, wdtype)))["config"]
+    mn8 = bf16_acc and on
+    assert (cfg["M_block_size"], cfg["N_block_size"]) == ((8, 8) if mn8 else (16, 4))
+    assert (cfg["K_block_size"], cfg["subblock_w"]) == (4, 4 if bf16_acc else 2)
+
+
+def test_esmc_ffn_ln_l1_default_on():
+    assert esmc._ESMC_FFN_LN_L1 is True
