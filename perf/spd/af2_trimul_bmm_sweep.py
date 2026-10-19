@@ -103,6 +103,12 @@ def main():
             at, bt = ttnn.to_torch(x), ttnn.to_torch(y)   # the values the device holds (bfp8-rounded under --dtype bfp8)
             ref64 = ((at.double().transpose(-1, -2) if tkw["transpose_a"] else at.double())
                      @ (bt.double().transpose(-1, -2) if tkw["transpose_b"] else bt.double()))
+            ref64_b8 = None
+            if a.res and a.dtype == "bf16":   # res_b8's own reference: b as the bfp8 it holds in L1
+                y8 = ttnn.from_torch(bt, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat8_b)
+                b8t = ttnn.to_torch(y8); ttnn.deallocate(y8)
+                ref64_b8 = ((at.double().transpose(-1, -2) if tkw["transpose_a"] else at.double())
+                            @ (b8t.double().transpose(-1, -2) if tkw["transpose_b"] else b8t.double()))
             St = (S + 31) // 32
             mm = lambda **kw: (lambda: ttnn.matmul(x, y, memory_config=mc,  # noqa: E731
                                                    dtype=ttnn.bfloat16, compute_kernel_config=ckc,
@@ -146,6 +152,8 @@ def main():
                     d = got.double() - ref64
                     row.update(ms=1e3 * s, exact_vs_prod=bool(torch.equal(got, ref)),
                                rel_l2_f64=float(d.norm() / ref64.norm()))
+                    if ref64_b8 is not None and name == "res_b8":
+                        row["rel_l2_f64_b8ref"] = float((got.double() - ref64_b8).norm() / ref64_b8.norm())
                 except Exception as e:                                          # noqa: BLE001
                     row["error"] = f"{type(e).__name__}: {str(e)[:200]}"
                 cell["arms"].append(row)
