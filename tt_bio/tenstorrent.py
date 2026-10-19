@@ -15037,7 +15037,7 @@ class ConditionedTransitionBlock(Module):
         given, is added to the gated output here (`residual + s_out * b_a`, one op under dit_shoist)."""
         s_terms, s_out = cond if cond is not None else (None, None)
         a = self.adaln(a, s, large_seq_len=large_seq_len, s_terms=s_terms)
-        mc = (_atom_l1(tuple(a.shape[:-1]) + (2 * int(a.shape[-1]),), a.dtype)
+        mc = (_atom_l1(tuple(a.shape)[:-1] + (2 * int(a.shape[-1]),), a.dtype)
               if self.atom_level and len(a.shape) == 4 else None)
         a_swish = ttnn.linear(
             a,
