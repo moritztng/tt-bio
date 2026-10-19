@@ -157,6 +157,13 @@ GIN_W8_FAST = frozenset({"trimul_gin_w8"})
 # 1.600 A A/A floor, CA-lDDT +0.0007 [-0.0005, +0.0019], docking 35 -> 35. cdk2x2 512 x 1 on a Galaxy chip at
 # 1000 MHz, 3 paired warm folds (t1g): 47.0 -> 45.2 s, 3 of 3 faster. Blackhole is ungraded.
 T1W8_FAST = frozenset({"trimul_t1_c256", "trimul_t1w8", "trimul_t2g"})
+# opm_b8cfg: the bfp8 outer-product-mean contraction on opm_contract_config's plan at HiFi2. Kernel on a Galaxy chip at
+# 1000 MHz, [16384, 4128]^2 (fidc): 33.3 -> 25.8 ms, f64 rel-RMS 0.0145 -> 0.0119 (the plan's K order). It pays only on
+# deep MSAs: the 35-row page fixture contracts two K tiles and folds bit-identically (ob8c). Wormhole 512-token fast
+# grade on real MSAs, shipped Protenix-v2 Wormhole fast set vs + opm_b8cfg, 44 paired folds (spd-m-protenix gob8c,
+# 2026-10-19), PASS: same-seed top pose median 0.510 A vs the 1.600 A A/A floor, CA-lDDT +0.0003 [-0.0010, +0.0015],
+# docking 36 -> 36. The plan is Wormhole's; Blackhole is ungraded.
+OPM_B8CFG_FAST = frozenset({"opm_b8cfg"})
 from .eltwise_fusion import scale_add, norm_residual, gated_add
 
 
@@ -164,12 +171,13 @@ def mode_levers(state_dict):
     """The mode's lever set for a Protenix checkpoint: `FAST_LEVERS` under --fast, else `NORMAL_LEVERS`,
     plus `T2_TAIL`, `WS_CHAIN` and `QSPLIT_NORMAL` for Protenix-v2 (c_z 256), the one width their normal grades cover; Wormhole --fast takes
     `WH_FAST_LEVERS`, and Wormhole adds `TRIATT_LN` and `TRIATT_K1` to both Protenix-v2 modes, `BRES_NORMAL` and
-    `WS_RESID_NORMAL` to its normal and `WS_FAST`, `TRIATT_LN_B8_FAST`, `GIN_W8_FAST` and `T1W8_FAST` to its --fast. Protenix-v2
-    takes `BRES_NORMAL` in normal mode and `SHOIST_FAST` under --fast on both chips."""
+    `WS_RESID_NORMAL` to its normal and `WS_FAST`, `TRIATT_LN_B8_FAST`, `GIN_W8_FAST`, `T1W8_FAST` and
+    `OPM_B8CFG_FAST` to its --fast. Protenix-v2 takes `BRES_NORMAL` in normal mode and `SHOIST_FAST` under --fast on both chips."""
     v2 = Trunk._derive_c_z(state_dict) == 256
     wh = _T.is_wormhole()
     pair_ln = TRIATT_LN | TRIATT_K1 if v2 and wh else frozenset()
-    fast = WH_FAST_LEVERS | pair_ln | (WS_FAST | TRIATT_LN_B8_FAST | GIN_W8_FAST | T1W8_FAST if v2 else frozenset()) if wh else FAST_LEVERS
+    wh_v2 = WS_FAST | TRIATT_LN_B8_FAST | GIN_W8_FAST | T1W8_FAST | OPM_B8CFG_FAST
+    fast = WH_FAST_LEVERS | pair_ln | (wh_v2 if v2 else frozenset()) if wh else FAST_LEVERS
     return _T.model_levers((NORMAL_LEVERS | T2_TAIL | WS_CHAIN | QSPLIT_NORMAL | BRES_NORMAL if v2 else NORMAL_LEVERS)
                            | pair_ln | (WS_RESID_NORMAL if v2 and wh else frozenset()),
                            fast | SHOIST_FAST if v2 else fast)
