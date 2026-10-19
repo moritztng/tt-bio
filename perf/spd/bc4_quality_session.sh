@@ -109,7 +109,16 @@ for w in $(seq 0 $((WAVES - 1))); do
   PIDS=""
   while IFS=$'\t' read -r id target arm seed example blen traj; do
     d=$OUT/$target/${arm}_s${seed}
-    if [ -f "$d/rc" ]; then say "  $id already done, skipping"; continue; fi
+    # A relaunch must not re-run a campaign that already produced trajectories: re-running the same seed writes
+    # the same (campaign_seed, trajectory_number) keys again, and a repeated key cannot pair. So a campaign that
+    # timed out is left ALONE and its partial trajectories are kept, exactly like the banked 14 -- but it is said
+    # out loud, because "rc exists" is not the same as "finished".
+    if [ -f "$d/rc" ]; then
+      r=$(cat "$d/rc")
+      if [ "$r" = 0 ]; then say "  $id already finished, skipping"
+      else say "  $id PARTIAL (rc=$r), keeping what it produced and NOT re-running: a repeated seed cannot pair"; fi
+      continue
+    fi
     mkdir -p "$d"
     say "  launching $id -> $d"
     if [ $DRY -eq 1 ]; then echo 0 > "$d/rc"; continue; fi
