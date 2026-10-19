@@ -37,23 +37,27 @@ run() {  # name, then the command
     timeout -s INT 1800 "$@" > "$OUT/$n.log" 2>&1
   local rc=$?; say "$n rc=$rc wall=$(tail -1 "$OUT/$n.time" 2>/dev/null)"; [ $rc = 0 ] || fail=$rc
 }
-predict() { python -c 'from tt_bio.main import cli; cli()' predict "$D/inputs/$I.yaml" --model "$M" \
-  --accelerator tenstorrent --diffusion_samples 1 --msa_dir "$D/msa" --msa_cache_only --output_format cif "$@"; }
-for k in 1 2; do run "cold-$k" predict --out_dir "$OUT/cold-$k"; done
+# an array, not a function: timeout execs its argument, and a shell function is not a command (rc 127)
+PREDICT=(python -c 'from tt_bio.main import cli; cli()' predict "$D/inputs/$I.yaml" --model "$M"
+  --accelerator tenstorrent --diffusion_samples 1 --msa_dir "$D/msa" --msa_cache_only --output_format cif)
+for k in 1 2; do run "cold-$k" "${PREDICT[@]}" --out_dir "$OUT/cold-$k"; done
 PORT=$((18700 + CHIP)) URL=http://127.0.0.1:$((18700 + CHIP))
 say "controller begin port $PORT"
+# non-interactive bash starts a & job with SIGINT ignored, and python then never installs KeyboardInterrupt: restore it,
+# or the kill -INT below is a no-op and `wait` hangs with the chip held
 CS_TRACE=$OUT/trace-controller.jsonl PYTHONPATH=$TRACE:$PYTHONPATH \
-  python -c 'from tt_bio.main import cli; cli()' controller --port $PORT > "$OUT/controller.log" 2>&1 &
+  python -c 'import signal; signal.signal(signal.SIGINT, signal.default_int_handler); from tt_bio.main import cli; cli()' controller --port $PORT > "$OUT/controller.log" 2>&1 &
 CTL=$!
 for _ in $(seq 120); do
   curl -sf "$URL/cluster" 2>/dev/null | grep -q '"online_workers": *[1-9]' && break; sleep 1
 done
 say "controller up: $(curl -sf "$URL/cluster" 2>/dev/null | head -c 300)"
-for k in 1 2 3; do run "ctl-$k" predict --controller "$URL" --out_dir "$OUT/ctl-$k"; done
-kill -INT $CTL; wait $CTL; CTL=
+for k in 1 2 3; do run "ctl-$k" "${PREDICT[@]}" --controller "$URL" --out_dir "$OUT/ctl-$k"; done
+kill -INT $CTL; timeout 60 tail --pid=$CTL -f /dev/null || { say "controller ignored SIGINT, TERM"; kill -TERM $CTL; }
+wait $CTL; CTL=
 say "controller end"
 if [ "$M" = boltz2 ]; then
-  TT_METAL_CACHE=$OUT/jit-empty run cold-jit predict --out_dir "$OUT/cold-jit"
+  TT_METAL_CACHE=$OUT/jit-empty run cold-jit "${PREDICT[@]}" --out_dir "$OUT/cold-jit"
   rm -rf "$OUT/jit-empty"
 fi
 say "end rc=$fail"
