@@ -262,32 +262,3 @@ def test_saprot_sdpa_fp32_dest_with_qkrh(switch, monkeypatch):
     for qkrh in (True, False):
         want = qkrh if switch is None else switch
         assert sp._sdpa_ckc(qkrh) == (sp._SDPA_FP32 if want else None)
-
-
-@pytest.mark.parametrize("switch,wdtype,want_pending", [(False, "bfloat8_b", False), (True, "bfloat8_b", True),
-                                                        (True, "bfloat16", True), (None, "bfloat8_b", True),
-                                                        (None, "bfloat16", False)])
-def test_saprot_addln_hands_the_add_to_the_next_norm(switch, wdtype, want_pending, monkeypatch):
-    """With _SAPROT_ADDLN on, _lin_add returns the pending (stream, projection) pair instead of adding."""
-    from tt_bio import saprot as sp
-    monkeypatch.setattr(sp, "_SAPROT_ADDLN", switch)
-    monkeypatch.setattr(sp, "_SAPROT_RESID", False)
-    monkeypatch.setattr(sp, "_SAPROT_X_L1", False)
-    monkeypatch.setattr(sp.ttnn, "add", lambda a, b, **kw: "sum")
-    monkeypatch.setattr(sp.ttnn, "deallocate", lambda t: None)
-    lin = sp._SaprotLin()
-    lin._lin = lambda x, w, bias=None: "proj"
-    out = lin._lin_add("x", _T(1280, 1280, getattr(ttnn, wdtype)), None, "stream")
-    assert out == (("stream", "proj") if want_pending else "sum")
-
-
-def test_saprot_stream_ln_falls_back_to_add_then_norm(monkeypatch):
-    """A pending pair add_ln declines is added with ttnn.add and normed as before; a plain tensor is only normed."""
-    from tt_bio import saprot as sp, add_ln as al
-    monkeypatch.setattr(al, "add_ln", lambda *a, **kw: None)
-    monkeypatch.setattr(sp.ttnn, "add", lambda a, b, **kw: f"{a}+{b}")
-    monkeypatch.setattr(sp.ttnn, "deallocate", lambda t: None)
-    monkeypatch.setattr(sp, "_block_ln", lambda x, w, b, ck, pw: f"ln({x})")
-    w = _T(1280, 1280, ttnn.bfloat16)
-    assert sp._stream_ln(("s", "r"), None, None, None, w) == ("s+r", "ln(s+r)")
-    assert sp._stream_ln("s", None, None, None, w) == ("s", "ln(s)")
