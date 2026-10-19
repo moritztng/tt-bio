@@ -137,8 +137,11 @@ QSPLIT_NORMAL = frozenset({"dit_qsplit"})
 # fast set vs + triatt_ln_b8, 44 paired folds (spd-m-protenix gb8ln, 2026-10-19), PASS: same-seed top pose median
 # 0.770 A vs the 1.435 A A/A floor, CA-lDDT -0.0006 [-0.0019, +0.0003], pLDDT -0.0002, docking 36 -> 36. The fold
 # is the same on an 8x8 and an 8x9 core grid (g88). cdk2x2 512 x 1 on a Galaxy chip at 1000 MHz, 5 paired warm folds
-# (b8f2): 54.28 -> 50.98 s median. Blackhole is ungraded.
-TRIATT_LN_B8_FAST = frozenset({"triatt_ln_b8"})
+# (b8f2): 54.28 -> 50.98 s median. triatt_ln_b8g adds the gate, which gated_out_proj reads at bfp8: same grade on top
+# of triatt_ln_b8 (gb8g, 44 paired folds) PASS, top pose median 0.674 A vs the 1.325 A floor, CA-lDDT +0.0004
+# [-0.0005, +0.0014], docking 36 -> 36; b8g on a Galaxy chip at 1000 MHz, 3 of 3 warm pairs faster, median -0.70 s.
+# Blackhole is ungraded.
+TRIATT_LN_B8_FAST = frozenset({"triatt_ln_b8", "triatt_ln_b8g"})
 from .eltwise_fusion import scale_add, norm_residual, gated_add
 
 
