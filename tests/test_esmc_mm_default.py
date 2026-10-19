@@ -248,8 +248,6 @@ def test_saprot_x_l1_fast_only(wdtype, want_l1, monkeypatch):
     monkeypatch.setattr(sp.ttnn, "add", lambda a, b, **kw: seen.append(kw.get("memory_config")) or a)
     monkeypatch.setattr(sp.ttnn, "deallocate", lambda t: None)
     lin = sp._SaprotLin()
-    lin.compute_kernel_config = _Ck(math_fidelity=ttnn.MathFidelity.HiFi3)
-    lin.norm_weight = _T(1, 1280, ttnn.bfloat16)
     lin._lin = lambda x, w, bias=None: x
     resid = types.SimpleNamespace(padded_shape=(7, 544, 1280))
     lin._lin_add(resid, _T(1280, 1280, getattr(ttnn, wdtype)), None, resid)

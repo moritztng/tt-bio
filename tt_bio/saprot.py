@@ -167,13 +167,6 @@ _SAPROT_SDPA = None
 _SDPA_FP32 = (ttnn.MathFidelity.HiFi4, False, True, False)
 
 
-# The qkv projection writes to L1 where the packed RoPE program reads it next (29 MB at the 650M page batch, ~450 KB a
-# core), so neither the matmul's write nor qk_rope_heads' read goes to DRAM. Diagnostic until graded (off).
-_SAPROT_QKV_L1 = env_flag("TT_BIO_SAPROT_QKV_L1", False)
-_QKV_L1_REFUSED: set = set()
-QKV_L1_STATS = [0, 0]   # qkv projections written to L1, shapes refused
-
-
 def _sdpa_ckc(qkrh: bool):
     """shsdpa's kernel config for a block whose heads came from the packed RoPE program (`qkrh`); None = its HiFi2."""
     return _SDPA_FP32 if (qkrh if _SAPROT_SDPA is None else _SAPROT_SDPA) else None
@@ -219,9 +212,10 @@ PROG_STATS = [0, 0, 0]   # projections served by a measured program: minimal_mat
 # The block's residual add inside the out projection's and fc2's matmul (dit_minimal_matmul_addcmul_fused:
 # x + 1 * (o W + b) * ones) wherever _PROGS serves that projection with minimal_matmul and the weight is bf16, so the
 # add does not re-read the projection from DRAM (ls1 census: 66 adds = 13.4 ms of the WH 650M page batch, 6.6 on BH).
-# None = bf16 weights (normal mode) only; True adds the block-fp8 weights of --fast (ungraded, 12.5 ms of adds there).
+# bf16 weights only: with --fast's block-fp8 weights the op needs a bf16 copy, whose doubled weight stream cost more than
+# the add (WH 650M +2.9 %, 1.3B +3.5 %).
 RESID_REFUSED: set = set()
-_SAPROT_RESID = (env_flag("TT_BIO_SAPROT_RESID", True) if os.environ.get("TT_BIO_SAPROT_RESID", "").strip() else None)
+_SAPROT_RESID = env_flag("TT_BIO_SAPROT_RESID", True)
 
 
 # The unfused residual adds write the residual stream to L1, so the next add and the block layer_norm read it from L1
@@ -299,8 +293,7 @@ class _SaprotLin(_MMLin):
                                       fp32_dest_acc_en=ck.fp32_dest_acc_en, packer_l1_acc=ck.packer_l1_acc)
         return self._ck_hifi2
 
-    def _lin(self, x, w, bias=None, dtype=None, mem=None, **kw):
-        """`mem` places the output where a measured program serves (QKV_L1_STATS counts it), DRAM otherwise."""
+    def _lin(self, x, w, bias=None, dtype=None, **kw):
         act = kw.get("activation")
         ck = self._ck(w)
         hifi2 = ck.math_fidelity == ttnn.MathFidelity.HiFi2
@@ -311,13 +304,12 @@ class _SaprotLin(_MMLin):
             try:
                 if kind == "mm":
                     out = ttnn.experimental.minimal_matmul(
-                        x, w, bias_tensor=bias, compute_kernel_config=ck, dtype=dt, memory_config=mem or ttnn.DRAM_MEMORY_CONFIG,
+                        x, w, bias_tensor=bias, compute_kernel_config=ck, dtype=dt, memory_config=ttnn.DRAM_MEMORY_CONFIG,
                         config=cfg, **({"fused_activation": (ttnn.UnaryOpType.GELU, False)} if act else {}))
                 else:
                     out = ttnn.linear(x, w, bias=bias, program_config=cfg, compute_kernel_config=ck, dtype=dt,
-                                      memory_config=mem or ttnn.DRAM_MEMORY_CONFIG)
+                                      memory_config=ttnn.DRAM_MEMORY_CONFIG)
                 PROG_STATS[kind == "2d"] += 1
-                QKV_L1_STATS[0] += mem is not None
                 return out
             except RuntimeError:   # a program this shape or grid cannot place: the default serves
                 pass
@@ -328,26 +320,20 @@ class _SaprotLin(_MMLin):
 
     def _lin_add(self, x, w, bias, resid):
         """resid + (x @ w + bias), in one matmul where _SAPROT_RESID serves, else as the projection and an add."""
-        on = w.dtype == ttnn.bfloat16 if _SAPROT_RESID is None else _SAPROT_RESID
         x_l1 = w.dtype == ttnn.bfloat8_b if _SAPROT_X_L1 is None else _SAPROT_X_L1
-        ck = self._ck(w)
-        prog = _saprot_prog(x, w, None, ck.math_fidelity == ttnn.MathFidelity.HiFi2) if on else None
+        prog = _saprot_prog(x, w, None) if _SAPROT_RESID and w.dtype == ttnn.bfloat16 else None
         if prog is not None and prog[0] == "mm":
             n = int(w.shape[-1])
-            if w.dtype == ttnn.bfloat8_b:   # the fused op wants in1 and the residual in one tile format: the same values in bf16
-                if getattr(self, "_resid_w", None) is None:
-                    self._resid_w = ttnn.typecast(w, ttnn.bfloat16)
-                w = self._resid_w
             if getattr(self, "_ones_row", None) is None:
                 self._ones_row = ttnn.from_torch(torch.ones(1, n), dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT,
                                                  device=x.device())
             try:
                 out = ttnn.experimental.dit_minimal_matmul_addcmul_fused(
-                    x, w, 1.0, resid, self._ones_row, bias, config=prog[1], compute_kernel_config=ck,
+                    x, w, 1.0, resid, self._ones_row, bias, config=prog[1], compute_kernel_config=self.compute_kernel_config,
                     dtype=_dtype(ttnn.bfloat16), memory_config=ttnn.DRAM_MEMORY_CONFIG)
                 PROG_STATS[2] += 1
                 return out
-            except RuntimeError as exc:   # the shape or weight dtype the fused op refuses: say so once, then project + add
+            except RuntimeError as exc:   # a shape the fused op refuses: say so once, then project + add
                 if not RESID_REFUSED:
                     warnings.warn(f"saprot: fused residual matmul refused {tuple(w.shape)} {w.dtype}: {str(exc)[:400]}")
                 RESID_REFUSED.add((tuple(w.shape), w.dtype))
@@ -408,14 +394,7 @@ class ESM2Attention(_SaprotLin, Module):
     def __call__(self, x, cos, sin, attn_mask=None, key_valid=None):
         ck = self.compute_kernel_config
         x_norm = _block_ln(x, self.norm_weight, self.norm_bias, ck, self.qkv_weight)
-        qkrh = not self.fold_rope and self.head_dim == 64 and _saprot_qkrh(self.qkv_weight)
-        l1 = qkrh and _SAPROT_QKV_L1 and tuple(x.padded_shape) not in _QKV_L1_REFUSED
-        try:
-            qkv = self._lin(x_norm, self.qkv_weight, bias=self.qkv_bias, mem=ttnn.L1_MEMORY_CONFIG if l1 else None)
-        except RuntimeError:
-            _QKV_L1_REFUSED.add(tuple(x.padded_shape))
-            QKV_L1_STATS[1] += 1
-            qkv = self._lin(x_norm, self.qkv_weight, bias=self.qkv_bias)
+        qkv = self._lin(x_norm, self.qkv_weight, bias=self.qkv_bias)
         heads = None
         if self.fold_rope:  # cos/sin are the packed [1, L, 3*H*32] tables from fold_rope_tables
             rot = self._lin(x_norm, self.rot_weight, bias=self.rot_bias)
@@ -429,7 +408,7 @@ class ESM2Attention(_SaprotLin, Module):
             q, k, v = self._split_heads(qkv, self.n_heads)
         else:
             ttnn.deallocate(x_norm)
-            heads = rope_heads_packed(qkv, cos, sin) if qkrh else None
+            heads = rope_heads_packed(qkv, cos, sin) if self.head_dim == 64 and _saprot_qkrh(self.qkv_weight) else None
             if heads is not None:
                 ttnn.deallocate(qkv)
                 q, k, v = heads
