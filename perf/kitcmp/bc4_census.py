@@ -21,6 +21,7 @@ ap.add_argument("--out", required=True, type=Path)
 ap.add_argument("--seed", type=int, default=101)
 ap.add_argument("--trace-after", type=float, default=10, help="seconds into the warm trajectory before tracing")
 ap.add_argument("--trace-s", type=float, default=6, help="length of the trace window")
+ap.add_argument("--python-tracer", type=int, default=0, help="JAX python tracer level; 0 keeps the window to host+device")
 a = ap.parse_args()
 a.out.mkdir(parents=True, exist_ok=True)
 sys.path.insert(0, a.bc2)
@@ -77,7 +78,9 @@ def trace_window():
     if len(traj) < 2 or traj[1].get("design_s"):
         return  # the warm trajectory never started, or finished before the window opened
     try:
-        jax.profiler.start_trace(str(a.out / "trace"))
+        opts = jax.profiler.ProfileOptions()
+        opts.python_tracer_level = a.python_tracer
+        jax.profiler.start_trace(str(a.out / "trace"), profiler_options=opts)
         time.sleep(a.trace_s)
         jax.profiler.stop_trace()
         census["traced"] = [time.time() - a.trace_s, time.time()]
