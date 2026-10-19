@@ -151,6 +151,11 @@ def _saprot_mm(width: int) -> bool:
 _SAPROT_QKRH = (env_flag("TT_BIO_SAPROT_QKRH", False) if os.environ.get("TT_BIO_SAPROT_QKRH", "").strip() else None)
 
 
+# Diagnostic only (off): scale QKRH's q by this factor. rope_packed_bench reads the packed program's |q|, |k| 0.07 % low
+# and the rotary_embedding chain's 0.19 % high against float64; this tests whether the end-to-end pcc follows the logit scale.
+_QKRH_QSCALE = None
+
+
 def _saprot_qkrh(w) -> bool:
     if _SAPROT_QKRH is not None:
         return _SAPROT_QKRH
@@ -363,6 +368,8 @@ class ESM2Attention(_SaprotLin, Module):
             if heads is not None:
                 ttnn.deallocate(qkv)
                 q, k, v = heads
+                if _QKRH_QSCALE:
+                    q = ttnn.multiply(q, _QKRH_QSCALE)
             else:
                 q, k, v = self._split_heads(qkv, self.n_heads)
                 q, k = _rope(q, k, cos, sin)
