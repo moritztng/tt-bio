@@ -1480,14 +1480,14 @@ def t1_eligible(x, ln_w, ln_b, wpT, wgT, wgo, mask=None):
     on = T1 or lever("trimul_t1")
     if not t1_any():
         return "off"
-    w8 = t1_w8(wpT, wgT, wgo)
     for t in (x, wpT, wgT, wgo):
         if t is None or t.dtype not in (ttnn.bfloat16, ttnn.bfloat8_b) or t.layout != ttnn.TILE_LAYOUT:
             return "dtype"
-    if x.dtype != ttnn.bfloat16 or w8 is None:
-        return "dtype"
         if t.memory_config() != ttnn.DRAM_MEMORY_CONFIG:
             return "memcfg"
+    w8 = t1_w8(wpT, wgT, wgo)
+    if x.dtype != ttnn.bfloat16 or w8 is None:
+        return "dtype"
     shp = [int(d) for d in x.shape]
     if len(shp) not in (3, 4) or shp[-2] != shp[-3] or shp[-2] % TILE or shp[-1] % TILE:
         return "act_shape"

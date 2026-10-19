@@ -59,7 +59,7 @@ def test_cb_budget_fits_l1_c384_w8(mask):
     assert TTL.t1_plan((12, 24, 12)) == (3, 8) and TTL.t1_plan((8, 16, 8), w8=True) == (2, 16)
     w8 = TTL.t1_cb_bytes(12, 24, 12, mask, w8=True)
     assert w8 <= 0.85 * L1_ALLOCATOR_BANK
-    assert TTL.t1_cb_bytes(12, 24, 12, mask) < w8   # a third more weight tiles per core, at 1088 B a tile
+    assert w8 < TTL.t1_cb_bytes(12, 24, 12, mask)   # 1.5x the weight tiles a core, at 1088 B a tile not 2048
 
 
 def test_cb_plan_covers_every_cb_the_kernels_use():
