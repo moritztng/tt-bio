@@ -70,7 +70,7 @@ def emit(i):
     row, acc = table_row(project, tr["n"])
     log(ev="rep", trajectory=tr["n"], kind="cold" if i == 0 else "warm", design_s=tr.get("design_s"),
         validate_s=tr.get("validate_s"), traj_s=time.time() - tr["t0w"], iterations=tr.get("iterations"),
-        s_per_iter=s_per_iter(tr), loadavg=tr.get("loadavg"),
+        s_per_iter=s_per_iter(tr), loadavg=tr.get("loadavg"), other_load=tr.get("other_load"),
         sm=sm_mhz(tr["t0w"], tr["t0w"] + (tr.get("design_s") or 0)), terminated=row.get("terminated") or None,
         accepted_total=acc, csv_row=row, err=tr.get("err"))
 
