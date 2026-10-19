@@ -174,7 +174,7 @@ _PROGS = {
     (False, 1280, 3840): ("mm", (8, 2, 4, 1, 4)),
     (False, 1280, 1280): ("mm", (16, 4, 4, 1, 4)),
     (False, 5120, 1280): ("mm", (8, 4, 4, 1, 4)),
-    (False, 1280, 5120): ("2d", (True, 4)),
+    (False, 1280, 5120): ("2d", (True, 2)),   # kb 4 does not fit L1 at fp32 accumulation (ls2 pk: fell back)
     (False, 640, 480): ("mm", (16, 4, 4, 1, 4)),
     (False, 1920, 480): ("mm", (16, 4, 4, 1, 4)),
     (False, 480, 1920): ("2d", (True, 5)),
