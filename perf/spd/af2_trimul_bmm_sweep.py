@@ -131,7 +131,8 @@ def main():
                 from tt_bio import bmm_res
                 ablk = tuple((f"res_abl{m}", {"abl": m}) for m in map(int, filter(None, a.abl.split(","))))
                 for name, kw in (("res", {}), ("res_d1", {"depth": 1}), ("res_c64", {"max_cores": 64}),
-                                 ("res_split", {"split": True}), ("res_split4", {"split": 4})) + ablk:
+                                 ("res_split", {"split": True}), ("res_split4", {"split": 4}),
+                                 ("res_b8", {"split": True, "b8": True})) + ablk:
                     arms.append((name, (lambda kw: lambda: bmm_res.matmul(x, y, ckc, **tkw, **kw))(kw)))
             cell = {"S": S, "C": C, "St": St, "arms": []}
             ref = None
