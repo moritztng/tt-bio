@@ -277,6 +277,10 @@ FANIN_MIXED = False
 # card. On, `add_grad` holds the last contribution back and the closure's read does that add with
 # a bf16 output, rounded once at pack (`rne_add.round_add`). Any other read flushes it as before.
 FANIN_CAST_FUSED = env_flag("TT_BIO_FANIN_CAST_FUSED", False)
+# bc4-bet-tape8 experiment, default off: hand every pair-sized bf16 value a bfp8 cotangent so the
+# census and the clock can price the brief's "cotangents written bfp8" half.
+COTAN_B8 = env_flag("TT_BIO_COTAN_B8", False)
+_COTAN_B8_MIN = 224 * 224 * 32
 FANIN_CAST_STATS = {"served": 0, "flushed": 0}
 #: `Tensor.grad_slab` joins: whole (every slice written, no concat) or cut back out.
 SLAB_STATS = {"whole": 0, "cut": 0}
@@ -716,6 +720,9 @@ class Tensor:
             return self._grad
         g = self.grad
         want = ttnn.bfloat16 if self.value.dtype == ttnn.bfloat8_b else self.value.dtype
+        if (COTAN_B8 and want == ttnn.bfloat16 and g is not None and g.layout == ttnn.TILE_LAYOUT
+                and math.prod(self.value.shape) >= _COTAN_B8_MIN):
+            want = ttnn.bfloat8_b
         if g is not None and g.dtype != want:
             g = ttnn.typecast(g, want)
         return g
