@@ -86,18 +86,20 @@ def pack(p):
     # sum |kp|^2 over a head's points, times -s3 pw/2, into k' slot 28 opposite q's constant 1: the
     # key-side bias rides inside the one logits matmul, and nothing is broadcast (the tape's add and
     # mul take equal shapes only).
-    sk = np.zeros((H * PQ, H * DQ))
-    for h in range(H):
-        sk[h * PQ:(h + 1) * PQ, h * DQ + C + 3 * PQ] = -0.5 * S3 * pw[h]
-    k["sel_kp2"], k["kp_cols"] = sk, (po["k"], po["k"] + H * PQ)
+    def sq_sel(n, slot):
+        """[3 blk, H*DQ]: the squared global coordinates of head h's n-points, summed, times -s3 pw/2."""
+        m = np.zeros((3 * blk, H * DQ))
+        for d in range(3):
+            for h in range(H):
+                m[d * blk + po[n] + h * PQ: d * blk + po[n] + (h + 1) * PQ, h * DQ + slot] = -0.5 * S3 * pw[h]
+        return m
+    k["sel_k2"] = sq_sel("k", C + 3 * PQ)
     # and -s3 pw/2 |qp|^2 into q' slot 29 opposite a constant 1 in k': the logits are then the exact
     # AF2 logits, not shifted by a per-row constant of ~1e3. The card's fp32 row max (and so
     # ttnn.softmax) is off by up to 240 at that magnitude (NOTES "Pass 5"), and is exact near 0.
-    sq = np.zeros((H * PQ, H * DQ))
     for h in range(H):
-        sq[h * PQ:(h + 1) * PQ, h * DQ + C + 3 * PQ + 1] = -0.5 * S3 * pw[h]
         k["sel_k"][ONE, h * DQ + C + 3 * PQ + 1] = 1.0
-    k["sel_qp2"], k["qp_cols"] = sq, (po["q"], po["q"] + H * PQ)
+    k["sel_q2"] = sq_sel("q", C + 3 * PQ + 1)
     k["w_2d"], k["b_2d"] = W(IPA + "attention_2d") * S3, B(IPA + "attention_2d", (H,)) * S3
     # o = attn @ v' is [H, N, 64]: per head [o_s (16) | ox (8) | oy (8) | oz (8) | pad]. After
     # unheads that is [N, H*64]; the output projection's rows are rearranged to read it in place,
@@ -110,14 +112,15 @@ def pack(p):
     w_os = np.zeros((H * DV, CS))
     for h in range(H):
         w_os[h * DV:h * DV + C] = s_rows[h * C:(h + 1) * C]
-    k["w_out_s"], k["w_out_pt"], k["w_out_norm"], k["w_out_pair"] = w_os, pt_rows, norm_rows, pair_rows
+    k["w_out_s"], k["w_out_pt"], k["w_out_norm"], k["w_out_pair"] = w_os, np.concatenate(pt_rows), norm_rows, pair_rows
     k["b_out"] = B(IPA + "output_projection", (CS,))
     ex = np.zeros((3, H * DV, H * PV))                              # pull ox/oy/oz out of the head layout
     for h in range(H):
         for d in range(3):
             for i in range(PV):
                 ex[d, h * DV + C + d * PV + i, h * PV + i] = 1.0
-    k["sel_opt"] = ex
+    k["sel_opt"] = np.concatenate(list(ex), 1)                     # [H*DV, 3 H*PV], x | y | z
+    k["sum3"] = np.tile(np.eye(H * PV), (3, 1))                     # [3 H*PV, H*PV]: x^2 + y^2 + z^2
     for n in ("attention_layer_norm", "transition_layer_norm"):
         k[n] = (p[SM + n + "//scale"], p[SM + n + "//offset"])
     for n in ("transition", "transition_1", "transition_2"):
@@ -144,19 +147,9 @@ def pack(p):
     for pr in ((w_, w_), (x_, x_), (y_, y_), (z_, z_)):
         n2[I[pr], 0] = 1.0
     k["quat_rot"], k["quat_n2"] = c, np.repeat(n2, 9, 1)            # |q|^2 already 9 wide: no broadcast
-    # R_new[a, c] = sum_b R[a, b] r[b, c] on row-major [N, 9]: R @ PA[b] picks R[a, b] into slot (a, c),
-    # r @ PB[b] picks r[b, c] into the same slot.
-    PA, PB = np.zeros((3, 9, 9)), np.zeros((3, 9, 9))
-    for b in range(3):
-        for a in range(3):
-            for cc in range(3):
-                PA[b, 3 * a + b, 3 * a + cc] = 1.0
-                PB[b, 3 * b + cc, 3 * a + cc] = 1.0
-    k["compose_a"], k["compose_b"] = PA, PB
-    # R's nine columns and t's three, each repeated to width w by one matmul: a broadcast multiply
-    # has no reducing backward on the tape, a matmul's backward is the reduction.
+    # t repeated to width w per coordinate by one matmul: a broadcast add has no reducing backward
+    # on the tape, a matmul's backward is the reduction.
     for w in (blk, H * PV):
-        k[f"exp9_{w}"] = np.kron(np.eye(9), np.ones((1, w)))
         k[f"exp3_{w}"] = np.kron(np.eye(3), np.ones((1, w)))
     k["one_col"] = ONE
     return k
@@ -179,6 +172,7 @@ class NP:
     permute = staticmethod(lambda x, perm: x.transpose(perm))
     unsq = staticmethod(lambda x: x[:, None, :])
     flat = staticmethod(lambda x: x.reshape(x.shape[0], -1))
+    reshape = staticmethod(lambda x, shape: x.reshape(shape))
     relu = staticmethod(lambda x: np.maximum(x, 0))
     sqrt_eps = staticmethod(lambda x, eps: np.sqrt(x + eps)); recip = staticmethod(lambda x: 1.0 / x)
     def softmax(self, x):
@@ -198,21 +192,6 @@ def pair_bias(o, k, z, mask):
     return o.add(o.permute(b, (2, 0, 1)), o.put(-1e5 * S3 * (1.0 - np.ones_like(mask)[:, None] * mask[None])[None]))
 
 
-def frame(o, rc, tc, X, Y, Z):
-    """R p + t on coordinate blocks [N, w]; rc the nine [N, 1] columns of row-major R, tc t's three."""
-    out = []
-    for a in range(3):
-        g = o.add(o.add(o.mul(X, rc[3 * a]), o.mul(Y, rc[3 * a + 1])), o.mul(Z, rc[3 * a + 2]))
-        out.append(o.add(g, tc[a]))
-    return out
-
-
-def unframe(o, rc, tc, X, Y, Z):
-    """R^T (p - t)."""
-    d = [o.sub(X, tc[0]), o.sub(Y, tc[1]), o.sub(Z, tc[2])]
-    return [o.add(o.add(o.mul(d[0], rc[b]), o.mul(d[1], rc[3 + b])), o.mul(d[2], rc[6 + b])) for b in range(3)]
-
-
 def layer(o, k, act, R, t, bias, z_rows, drop=None):
     """One FoldIteration. act [N, 384], R [N, 9], t [N, 3], bias [H, N, N] from `pair_bias`,
     z_rows = z as [N, N, 128] (batch = query residue), drop = None or dropout's two keep / keep_rate
@@ -220,32 +199,28 @@ def layer(o, k, act, R, t, bias, z_rows, drop=None):
     n = act.shape[0]
     pr = o.linear(act, k["w_proj"], k["b_proj"])                         # [N, 1152]
     XB, blk = 3 * H * C, H * NP_
-    def wide(x, m, parts, w):
-        x = o.mm(x, k[f"{m}_{w}"])
-        return [o.cols(x, i * w, (i + 1) * w) for i in range(parts)]
-    gX, gY, gZ = frame(o, wide(R, "exp9", 9, blk), wide(t, "exp3", 3, blk),
-                       *[o.cols(pr, XB + d * blk, XB + (d + 1) * blk) for d in range(3)])
+    R3 = o.reshape(R, [n, 3, 3])
+    # global points R p + t: one batched [3, 3] x [3, blk] matmul per residue
+    g = o.add(o.bmm(R3, o.reshape(o.cols(pr, XB, XB + 3 * blk), [n, 3, blk])),
+              o.reshape(o.mm(t, k[f"exp3_{blk}"]), [n, 3, blk]))
+    g = o.reshape(g, [n, 3 * blk])
     one = k["one_col"]
-    full = o.concat([o.cols(pr, 0, XB), gX, gY, gZ, o.cols(pr, one, one + 1)])   # global points, constant 1
-    s, e = k["kp_cols"]
-    kp2 = o.add(o.add(o.mul(o.cols(gX, s, e), o.cols(gX, s, e)), o.mul(o.cols(gY, s, e), o.cols(gY, s, e))),
-                o.mul(o.cols(gZ, s, e), o.cols(gZ, s, e)))
-    s, e = k["qp_cols"]
-    qp2 = o.add(o.add(o.mul(o.cols(gX, s, e), o.cols(gX, s, e)), o.mul(o.cols(gY, s, e), o.cols(gY, s, e))),
-                o.mul(o.cols(gZ, s, e), o.cols(gZ, s, e)))
-    q = o.heads(o.add(o.mm(full, k["sel_q"]), o.mm(qp2, k["sel_qp2"])), DQ)   # [H, N, 32]
-    kk = o.heads(o.add(o.mm(full, k["sel_k"]), o.mm(kp2, k["sel_kp2"])), DQ)
+    full = o.concat([o.cols(pr, 0, XB), g, o.cols(pr, one, one + 1)])   # global points, constant 1
+    g2 = o.mul(g, g)
+    q = o.heads(o.add(o.mm(full, k["sel_q"]), o.mm(g2, k["sel_q2"])), DQ)   # [H, N, 32]
+    kk = o.heads(o.add(o.mm(full, k["sel_k"]), o.mm(g2, k["sel_k2"])), DQ)
     v = o.heads(o.mm(full, k["sel_v"]), DV)                              # [H, N, 64]
     logits = o.add(o.bmm_t(q, kk), bias)
     attn = o.softmax(logits)                                             # [H, Nq, Nk]
     ov = o.unheads(o.bmm(attn, v))                                       # [N, H*64]
-    opx, opy, opz = unframe(o, wide(R, "exp9", 9, H * PV), wide(t, "exp3", 3, H * PV),
-                            *[o.mm(ov, k["sel_opt"][d]) for d in range(3)])
-    norms = o.sqrt_eps(o.add(o.add(o.mul(opx, opx), o.mul(opy, opy)), o.mul(opz, opz)), 1e-16)
+    # back to the local frame, R^T (o - t), one batched matmul again
+    w = H * PV
+    d = o.sub(o.reshape(o.mm(ov, k["sel_opt"]), [n, 3, w]), o.reshape(o.mm(t, k[f"exp3_{w}"]), [n, 3, w]))
+    loc = o.reshape(o.bmm(o.permute(R3, (0, 2, 1)), d), [n, 3 * w])
+    norms = o.sqrt_eps(o.mm(o.mul(loc, loc), k["sum3"]), 1e-16)
     o_pair = o.bmm(o.permute(attn, (1, 0, 2)), z_rows)                   # [N, H, 128]
     o_pair = o.flat(o_pair)
-    ipa = o.add(o.add(o.add(o.add(o.add(o.linear(ov, k["w_out_s"], k["b_out"]), o.mm(opx, k["w_out_pt"][0])),
-                                  o.mm(opy, k["w_out_pt"][1])), o.mm(opz, k["w_out_pt"][2])),
+    ipa = o.add(o.add(o.add(o.linear(ov, k["w_out_s"], k["b_out"]), o.mm(loc, k["w_out_pt"])),
                       o.mm(norms, k["w_out_norm"])), o.mm(o_pair, k["w_out_pair"]))
     dr = (lambda x, i: x) if drop is None else (lambda x, i: o.mul(x, drop[i]))
     act = o.layer_norm(dr(o.add(act, ipa), 0), k["attention_layer_norm"])
@@ -256,11 +231,9 @@ def layer(o, k, act, R, t, bias, z_rows, drop=None):
     mono = o.mul(o.mm(qv, k["mono_a"]), o.mm(qv, k["mono_b"]))           # [N, 10]
     r_u = o.mul(o.mm(mono, k["quat_rot"]), o.recip(o.mm(mono, k["quat_n2"])))
     dt = o.linear(act, k["w_dt"], k["b_dt"])                             # [N, 3] in the old frame
-    tX, tY, tZ = frame(o, [o.col(R, i) for i in range(9)], [o.col(t, a) for a in range(3)],
-                       o.col(dt, 0), o.col(dt, 1), o.col(dt, 2))
-    R_new = o.add(o.add(*[o.mul(o.mm(R, k["compose_a"][b]), o.mm(r_u, k["compose_b"][b])) for b in range(2)]),
-                  o.mul(o.mm(R, k["compose_a"][2]), o.mm(r_u, k["compose_b"][2])))
-    return act, R_new, o.concat([tX, tY, tZ])
+    t_new = o.add(o.reshape(o.bmm(R3, o.reshape(dt, [n, 3, 1])), [n, 3]), t)
+    R_new = o.reshape(o.bmm(R3, o.reshape(r_u, [n, 3, 3])), [n, 9])
+    return act, R_new, t_new
 
 
 def check(a):

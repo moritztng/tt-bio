@@ -80,6 +80,10 @@ class TT:
         h, n, d = (int(s) for s in x.shape)
         return self.t.reshape(self.t.permute(x, (1, 0, 2)), [n, h * d])
 
+    def reshape(self, x, shape):
+        CALLS[0] += 1
+        return self.t.reshape(x, shape)
+
     def flat(self, x):                        # [N, H, C] -> [N, H*C]
         CALLS[0] += 1
         return self.t.reshape(x, [int(x.shape[0]), -1])
@@ -130,6 +134,7 @@ class AG:
         h, n, d = (int(s) for s in x.value.shape)
         return self.A.reshape(self.A.permute(x, (1, 0, 2)), [n, h * d])
     def flat(self, x): CALLS[0] += 1; return self.A.reshape(x, [int(x.value.shape[0]), -1])
+    def reshape(self, x, shape): CALLS[0] += 1; return self.A.reshape(x, shape)
     def relu(self, x): CALLS[0] += 1; return self.A.relu(x)
     def softmax(self, x): CALLS[0] += 1; return self.A.softmax(x, -1, config=self.inner.ckc)
     def layer_norm(self, x, gb, eps=1e-5): CALLS[0] += 1; return self.A.layer_norm(x, gb[0], gb[1], eps=eps)
@@ -244,7 +249,7 @@ def upload(o, k):
         if isinstance(v, np.ndarray):
             return o.put(v[None] if v.ndim == 1 else v)
         return v
-    return {name: (v if name == "kp_cols" else up(v)) for name, v in k.items()}
+    return {name: up(v) for name, v in k.items()}
 
 
 def aiclk():
