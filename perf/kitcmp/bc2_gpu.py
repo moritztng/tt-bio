@@ -4,6 +4,12 @@ binder_lengths), one trajectory at a time, JAX on the GPU for everything. design
 (every design stage), validate_s = MPNN redesign + validation; seconds per design iteration = design_s / rows of that
 trajectory's losses.csv (rows new since its start). Trajectory 1 compiles (cold), the rest are warm.
     python bc2_gpu.py --bc2 BC2_CHECKOUT --out DIR [--seed 101] [--warm 3] [--binder-len 80]   -> DIR/runs.jsonl
+
+BC4's quality reference (state/bc4/QUALITY-REF-REQUEST.json) runs the same harness for a different purpose: whole
+campaigns at several seeds, graded by perf/spd/bc2_quality.py rather than timed. That needs another example file, a
+trajectory budget the campaign always spends, and the example's own binder lengths, so --example, --max-traj,
+--final-designs and --binder-len example exist. Every default is the timing run's, so the protocol command is
+unchanged.
 """
 import argparse, contextlib, csv, json, subprocess, sys, time, traceback
 from datetime import datetime
@@ -14,7 +20,12 @@ ap.add_argument("--bc2", required=True, type=Path)
 ap.add_argument("--out", required=True, type=Path)
 ap.add_argument("--seed", type=int, default=101)
 ap.add_argument("--warm", type=int, default=3)
-ap.add_argument("--binder-len", type=int, default=80)
+ap.add_argument("--binder-len", default="80", help="binder_lengths override, or 'example' to keep the example's own")
+ap.add_argument("--example", default="pdl1.json", help="file under the BC2 checkout's examples/")
+ap.add_argument("--max-traj", type=int, default=None, help="max_trajectories; default 1 + --warm")
+ap.add_argument("--final-designs", type=int, default=None,
+                help="number_of_final_designs; raise it so a campaign always spends its whole trajectory budget "
+                     "instead of stopping early on an accepted design")
 a = ap.parse_args()
 a.out.mkdir(parents=True, exist_ok=True)
 sys.path.insert(0, str(a.bc2))
@@ -26,9 +37,13 @@ from bindcraft.settings import parse_setting_overrides, read_settings  # noqa: E
 from bindcraft.preflight import cleaned_campaign_settings  # noqa: E402
 
 project = a.out / f"campaign_s{a.seed}"
-settings = cleaned_campaign_settings(read_settings(str(a.bc2 / "examples" / "pdl1.json"), parse_setting_overrides(
-    [f"campaign_seed={a.seed}", f"max_trajectories={1 + a.warm}", f"project_folder={project}",
-     f"binder_lengths=[{a.binder_len}]"])))
+overrides = [f"campaign_seed={a.seed}", f"max_trajectories={a.max_traj or 1 + a.warm}", f"project_folder={project}"]
+if a.binder_len != "example":
+    overrides.append(f"binder_lengths=[{int(a.binder_len)}]")
+if a.final_designs is not None:
+    overrides.append(f"number_of_final_designs={a.final_designs}")
+settings = cleaned_campaign_settings(read_settings(str(a.bc2 / "examples" / a.example),
+                                                  parse_setting_overrides(overrides)))
 sha = subprocess.run(["git", "-C", str(a.bc2), "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
 gpu = subprocess.run(["nvidia-smi", "--query-gpu=name,power.limit,driver_version", "--format=csv,noheader"],
                      capture_output=True, text=True).stdout.strip()
