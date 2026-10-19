@@ -348,7 +348,42 @@ def _diversity_values(trajectories: list[Trajectory]) -> list[tuple[tuple[int, i
     return out
 
 
-def collapse_check(trajectories: list[Trajectory], ref: list[Trajectory] | None = None) -> dict:
+def collapse_tests(trajectories: list[Trajectory], ref: list[Trajectory]) -> list[dict]:
+    """The p-bearing half of the collapse check: sequence diversity, then spread per metric.
+
+    Returned un-corrected so the caller can put them in ONE Holm family with the mean and count tests. They are a
+    separate family only when collapse_check is called on its own.
+    """
+    # Diversity is compared per trajectory, not over the pooled candidate list. Candidates are nested inside a
+    # trajectory: they are MPNN's sequences for one backbone, so they are not independent draws. In all six real
+    # campaigns of 2026-10-19 every duplicate was within a trajectory and none across one (TT 5 within, 0 across),
+    # so pooling 58 correlated candidates into one Fisher table counts them as 58 independent observations and
+    # reports a significance the data does not carry. The trajectory is this grader's unit of analysis everywhere
+    # else; it is the unit here too, which also gets the test pairing and an effect size.
+    tests = [compare_metric("sequence_diversity", _diversity_values(trajectories), _diversity_values(ref))]
+    # Narrowed spread is the other face of collapse, and it is tested the same way: a ratio of standard deviations
+    # is not evidence at these n. Stock's own i_pTM sd on 3 trajectories was 0.396, carried almost entirely by one
+    # bad design, so a fixed "under a fifth of the reference" rule flagged the stock attn-xla arm too.
+    # Brown-Forsythe instead: permute labels on the absolute deviation from each side's own median.
+    va, vr = metric_values(trajectories), metric_values(ref)
+    for m in CONTINUOUS:
+        xa = [v for _, v in va[m] if v == v]
+        xr = [v for _, v in vr[m] if v == v]
+        r = {"metric": f"spread:{m}", "p": float("nan")}
+        tests.append(r)
+        if len(xa) < SPREAD_MIN_N or len(xr) < SPREAD_MIN_N:
+            continue
+        da = [abs(v - st.median(xa)) for v in xa]
+        dr = [abs(v - st.median(xr)) for v in xr]
+        r["sd"], r["ref_sd"] = describe(xa)["sd"], describe(xr)["sd"]
+        if st.mean(da) >= st.mean(dr):
+            continue  # the arm is at least as spread out as stock; collapse is the one-sided question
+        r["p"] = perm_mean_diff(da, dr, seed=0)
+    return tests
+
+
+def collapse_check(trajectories: list[Trajectory], ref: list[Trajectory] | None = None,
+                   tests: list[dict] | None = None) -> dict:
     """Has the arm stopped exploring? Distinct binder sequences, and per-metric spread against the reference's.
 
     Sequence diversity is graded against the reference, not against a number picked in advance. A bare threshold
@@ -376,45 +411,22 @@ def collapse_check(trajectories: list[Trajectory], ref: list[Trajectory] | None 
     if ref:
         rseqs = [c.get("Binder_Sequence", "") for t in ref for c in t.candidates if c.get("Binder_Sequence")]
         out["ref_distinct_sequence_fraction"] = len(set(rseqs)) / len(rseqs) if rseqs else float("nan")
-        # Diversity is compared per trajectory, not over the pooled candidate list. Candidates are nested inside a
-        # trajectory: they are MPNN's sequences for one backbone, so they are not independent draws. In all six
-        # real campaigns of 2026-10-19 every duplicate was within a trajectory and none across one (TT 5 within,
-        # 0 across), so pooling 58 correlated candidates into one Fisher table counts them as 58 independent
-        # observations and reports a significance the data does not carry. The trajectory is this grader's unit of
-        # analysis everywhere else; it is the unit here too, which also gets the test pairing and an effect size.
-        diversity = compare_metric("sequence_diversity", _diversity_values(trajectories), _diversity_values(ref))
-        # Narrowed spread is the other face of collapse, and it is tested the same way: a ratio of standard
-        # deviations is not evidence at these n. Stock's own i_pTM sd on 3 trajectories was 0.396, carried almost
-        # entirely by one bad design, so a fixed "under a fifth of the reference" rule flagged the stock attn-xla
-        # arm too. Brown-Forsythe instead: permute labels on the absolute deviation from each side's own median.
-        va, vr = metric_values(trajectories), metric_values(ref)
-        spread = [diversity]
-        for m in CONTINUOUS:
-            xa = [v for _, v in va[m] if v == v]
-            xr = [v for _, v in vr[m] if v == v]
-            r = {"metric": m, "p": float("nan")}
-            spread.append(r)
-            if len(xa) < SPREAD_MIN_N or len(xr) < SPREAD_MIN_N:
-                continue
-            da = [abs(v - st.median(xa)) for v in xa]
-            dr = [abs(v - st.median(xr)) for v in xr]
-            r["sd"], r["ref_sd"] = describe(xa)["sd"], describe(xr)["sd"]
-            if st.mean(da) >= st.mean(dr):
-                continue  # the arm is at least as spread out as stock; collapse is the one-sided question
-            r["p"] = perm_mean_diff(da, dr, seed=0)
-        # Holm across the spread tests for the same reason the mean tests get it: six of them at a bare 0.05 would
-        # call one A/A pair in four collapsed. Caught by test_unpaired_arms_fall_back_to_a_two_sample_test.
-        out["spread"] = holm(spread)
+        # Holm'd here only when the caller did not already do it in a wider family. grade() does, so that the
+        # verdict is one family of tests rather than two each controlled at alpha: measured on synthetic A/A draws
+        # at n=30, two independent families put the verdict's own false-positive rate near 10% against a nominal 5%.
+        spread = holm(collapse_tests(trajectories, ref)) if tests is None else tests
+        out["spread"] = spread
+        diversity = spread[0]
         if diversity.get("significant") and (diversity["arm"].get("mean") or 0) < (diversity["ref"].get("mean") or 0):
             out["collapsed"] = True
             out["reasons"].append(
                 f"sequence diversity {diversity['arm']['mean']:.0%} of candidates distinct per trajectory against "
                 f"the reference's {diversity['ref']['mean']:.0%} ({diversity['test']} p={diversity['p']:.3g})")
         for r in spread[1:]:
-            if r["significant"]:
+            if r.get("significant"):
                 out["collapsed"] = True
                 out["reasons"].append(
-                    f"{r['metric']} spread {r['sd']:.4g} against the reference's {r['ref_sd']:.4g} "
+                    f"{r['metric']} {r['sd']:.4g} against the reference's {r['ref_sd']:.4g} "
                     f"(Brown-Forsythe permutation p={r['p']:.3g})")
     return out
 
@@ -448,8 +460,15 @@ def autotune_check(trajectories: list[Trajectory]) -> dict:
 
 def grade(arm: list[Trajectory], ref: list[Trajectory], label: str, seed: int = 0) -> dict:
     va, vr = metric_values(arm), metric_values(ref)
-    results = holm([compare_metric(m, va[m], vr[m], seed=seed) for m in CONTINUOUS + COUNTED + (ITERATIONS,)])
-    nan, collapse, tune = nan_check(arm), collapse_check(arm, ref), autotune_check(arm)
+    means = [compare_metric(m, va[m], vr[m], seed=seed) for m in CONTINUOUS + COUNTED + (ITERATIONS,)]
+    # ONE Holm family over every test that can fail the verdict. Holm'ing the mean tests and the collapse tests
+    # separately leaves two families each controlled at alpha, and the verdict is their OR: on synthetic A/A draws
+    # at n=30 that put the verdict's false-positive rate near 10% against a nominal 5%, and the charter's A/A
+    # control is a statement about the VERDICT, not about any one test inside it.
+    ctests = collapse_tests(arm, ref)
+    holm(means + ctests)
+    results, collapse = means, collapse_check(arm, ref, tests=ctests)
+    nan, tune = nan_check(arm), autotune_check(arm)
     iters = next(r for r in results if r["metric"] == ITERATIONS)
     moved = [r["metric"] for r in results if r.get("significant")]
     reasons = []
