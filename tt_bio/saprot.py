@@ -24,6 +24,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import warnings
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
@@ -219,6 +220,7 @@ PROG_STATS = [0, 0, 0]   # projections served by a measured program: minimal_mat
 # x + 1 * (o W + b) * ones) wherever _PROGS serves that projection with minimal_matmul and the weight is bf16, so the
 # add does not re-read the projection from DRAM (ls1 census: 66 adds = 13.4 ms of the WH 650M page batch, 6.6 on BH).
 # None = bf16 weights (normal mode) only; True adds the block-fp8 weights of --fast (ungraded, 12.5 ms of adds there).
+RESID_REFUSED: set = set()
 _SAPROT_RESID = (env_flag("TT_BIO_SAPROT_RESID", True) if os.environ.get("TT_BIO_SAPROT_RESID", "").strip() else None)
 
 
@@ -329,8 +331,10 @@ class _SaprotLin(_MMLin):
                     dtype=_dtype(ttnn.bfloat16), memory_config=ttnn.DRAM_MEMORY_CONFIG)
                 PROG_STATS[2] += 1
                 return out
-            except RuntimeError:
-                pass
+            except RuntimeError as exc:   # the shape or weight dtype the fused op refuses: say so once, then project + add
+                if not RESID_REFUSED:
+                    warnings.warn(f"saprot: fused residual matmul refused {tuple(w.shape)} {w.dtype}: {str(exc)[:400]}")
+                RESID_REFUSED.add((tuple(w.shape), w.dtype))
         r = self._lin(x, w, bias=bias)
         out = ttnn.add(resid, r)
         ttnn.deallocate(r)
