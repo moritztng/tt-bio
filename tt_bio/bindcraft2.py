@@ -312,13 +312,16 @@ MEMORY_MODES = ("fast", "lean", "offload")
 
 #: How many of the last Evoformer blocks keep their whole tape instead of a checkpoint, so the
 #: backward does not run their forward again: an integer pins it, ``auto`` sizes it from the card
-#: (`resident_blocks`). Default 0 while ``auto`` is in its design grade.
-RESIDENT_BLOCKS = os.environ.get("TT_BIO_BC2_RESIDENT_BLOCKS", "0")
-#: A resident Evoformer block's tape, in pair tensors (256 B a token pair). Fitted on a Wormhole
-#: chip at 224 tokens: 11 resident blocks fit beside a fast round and 12 do not, which puts a
-#: block at 64-70 (.114, out/resk3_14c9d7918). 70 is the safe end.
-_RESIDENT_BLOCK_PAIR_TENSORS = 70
-_RESIDENT_MARGIN_BYTES = int(0.5e9)
+#: (`resident_blocks`).
+RESIDENT_BLOCKS = os.environ.get("TT_BIO_BC2_RESIDENT_BLOCKS", "auto")
+#: A fast round with resident blocks peaks at `_MODE_BASE_BYTES` plus this many pair tensors
+#: (256 B a token pair) per resident block, plus a fixed count beside them. Bracketed on a
+#: Blackhole chip (34.226 GB) with real BindCraft 2 rounds: 224 tokens holds 48, 256 holds 36 and
+#: refuses 40, 288 refuses 32, 320 holds 24 and refuses 28 (`state/bc4/bets/tape/NOTES.md`). The
+#: law gives 48, 36, 28 and 22 there, so it never offers a count that refused. On a Wormhole chip
+#: it gives 10 for the 1.03 GB/block tape of 2026-10-13, where 11 fit and 12 refused.
+_RESIDENT_BLOCK_PAIR_TENSORS = 50.5
+_RESIDENT_ROUND_PAIR_TENSORS = 99.5
 
 #: Device bytes a gradient round peaks at, per mode: a constant plus a count of bf16
 #: `[N, N, 128]` pair tensors (256 B a token pair). `fast` is `bcw-census`'s account, which the
@@ -346,7 +349,7 @@ def resident_blocks(mode: str, padded: int, card_bytes: int, slot: str = "",
                     blocks: int = EVOFORMER_BLOCKS, requested: str | None = None) -> int:
     """How many of the last `blocks` Evoformer blocks keep their tape (`RESIDENT_BLOCKS`).
 
-    ``auto`` fills what the card has left after a fast round, and is 0 in the slower modes
+    ``auto`` fills what the card holds beside a fast round, and is 0 in the slower modes
     (they exist because the card is short) and for an interleaved trajectory (`slot` set): its
     neighbours peak at other times, so the room one sees is not its own to spend."""
     requested = RESIDENT_BLOCKS if requested is None else requested
@@ -354,9 +357,14 @@ def resident_blocks(mode: str, padded: int, card_bytes: int, slot: str = "",
         return max(0, min(blocks, int(requested)))
     if mode != "fast" or slot:
         return 0
-    room = card_bytes * _MODE_USABLE - round_device_bytes("fast", padded) - _RESIDENT_MARGIN_BYTES
-    per = _RESIDENT_BLOCK_PAIR_TENSORS * 256 * int(padded) ** 2
-    return max(0, min(blocks, int(room // per)))
+    pair = 256 * int(padded) ** 2
+    tape = _RESIDENT_BLOCK_PAIR_TENSORS * pair
+    # Near the top of fast mode the round's own recompute peak is what fills the card, and a
+    # resident tape would sit on top of it.
+    if card_bytes * _MODE_USABLE - round_device_bytes("fast", padded) < tape:
+        return 0
+    room = card_bytes * _MODE_USABLE - _MODE_BASE_BYTES - _RESIDENT_ROUND_PAIR_TENSORS * pair
+    return max(0, min(blocks, int(room // tape)))
 
 
 def memory_mode(requested: str, padded: int, card_bytes: int) -> str:
