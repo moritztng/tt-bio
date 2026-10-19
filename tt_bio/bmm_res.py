@@ -8,11 +8,11 @@ b[c] into L1 once (512 KB bf16 at 512 tokens, two channels deep when L1 allows),
 it and writes out[c], so a, b and out each cross DRAM once. The reader, compute and writer are pair_linear's, keyed
 per channel. One fp32 dest pass over all of K.
 
-Where b[c] does not fit (above 704 tokens bf16), BRES_SPLIT (off) splits N: a work unit is (channel, a block of NB
-of the NT output tile columns), so b[c] is resident one column block at a time and a[c] is read once per block. At
-1024 tokens that is two blocks, a read twice: 8 MB of DRAM traffic a channel against the 6 MB floor. A split call
-streams the transposed a in 4-tile groups and drains the output one dest group (compute's OG) at a time, so b's
-block fits L1 beside them. The accumulation order over K is unchanged, so a split call returns
+Where b[c] does not fit (above 704 tokens bf16), BRES_SPLIT (on, TT_BIO_BRES_SPLIT=0 turns it off) splits N: a work
+unit is (channel, a block of NB of the NT output tile columns), so b[c] is resident one column block at a time and
+a[c] is read once per block. At 1024 tokens that is two blocks, a read twice: 8 MB of DRAM traffic a channel against
+the 6 MB floor. A split call streams the transposed a in 4-tile groups and drains the output one dest group (compute's
+OG) at a time, so b's block fits L1 beside them. The accumulation order over K is unchanged, so a split call returns
 exactly what an unsplit one would.
 
 `transpose_a` / `transpose_b` take ttnn.matmul's meaning (the operand is stored [.., K, M] / [.., N, K]), which is
@@ -38,7 +38,7 @@ KERNEL_DIR = Path(__file__).resolve().parent / "kernels" / "bmm_res"
 A_CB, B_CB, A_RAW_CB, OUT_CB = 0, 1, 2, 16
 A_DEPTH = 2            # row tiles of a in flight per core
 SPLIT_GROUP = 4        # a split call's transposed-a read group in tiles (compute's own transpose grouping)
-BRES_SPLIT = env_flag("TT_BIO_BRES_SPLIT", False)
+BRES_SPLIT = env_flag("TT_BIO_BRES_SPLIT", True)
 #: L1 a core may spend on CBs: b depth * kt * nt + a A_DEPTH * kt (+ kt bf16 staged for transpose_a) + out 2 * nt tiles.
 L1_BUDGET = 1200 * 1024
 _CACHE: dict = {}
