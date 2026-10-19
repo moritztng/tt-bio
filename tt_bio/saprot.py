@@ -347,9 +347,7 @@ class ESM2Attention(_SaprotLin, Module):
 
     def __call__(self, x, cos, sin, attn_mask=None, key_valid=None):
         ck = self.compute_kernel_config
-        x_norm = ttnn.layer_norm(
-            x, weight=self.norm_weight, bias=self.norm_bias, epsilon=1e-5, compute_kernel_config=ck,
-        )
+        x_norm = _block_ln(x, self.norm_weight, self.norm_bias, ck)
         qkv = self._lin(x_norm, self.qkv_weight, bias=self.qkv_bias)
         if self.fold_rope:  # cos/sin are the packed [1, L, 3*H*32] tables from fold_rope_tables
             rot = self._lin(x_norm, self.rot_weight, bias=self.rot_bias)
@@ -430,6 +428,30 @@ def fold_rope_tables(seq_len: int, n_heads: int, d: int, device):
     return to_tt(cos), to_tt(sin)
 
 
+# The block layer_norms write to L1, where the next projection (qkv, fc1) reads its input back, instead of a DRAM round
+# trip: the same placement that moved ESMC's pair-FFN fc1 from 31 % to ~52 % of its roof (esmc.PAIR_FFN_L1_LN). Same op,
+# same values. A shape whose L1 output the allocator refuses keeps DRAM from then on. Off until the page A/B says.
+_SAPROT_LN_L1 = env_flag("TT_BIO_SAPROT_LN_L1", False)
+_LN_L1_REFUSED: set = set()
+#: [block layer_norms written to L1, declined]
+LN_L1_STATS = [0, 0]
+
+
+def _block_ln(x, w, b, ck):
+    """The block's pre-LN, in L1 where _SAPROT_LN_L1 serves and the shape fits."""
+    key = tuple(x.padded_shape)
+    if _SAPROT_LN_L1 and key not in _LN_L1_REFUSED:
+        try:
+            out = ttnn.layer_norm(x, weight=w, bias=b, epsilon=1e-5, compute_kernel_config=ck,
+                                  memory_config=ttnn.L1_MEMORY_CONFIG)
+            LN_L1_STATS[0] += 1
+            return out
+        except RuntimeError:
+            _LN_L1_REFUSED.add(key)
+            LN_L1_STATS[1] += 1
+    return ttnn.layer_norm(x, weight=w, bias=b, epsilon=1e-5, compute_kernel_config=ck)
+
+
 # fc1's GELU applied by the matmul at pack instead of as its own op over the [rows, 4*d] activation. Page cell, batch of
 # 7, Galaxy chip at 1000 MHz: 650M 250.0 -> 234.2 ms (--fast 244.8 -> 228.5), 1.3B 482.4 -> 450.1 (472.7 -> 441.3),
 # 35M 55.4 -> 52.5 (54.8 -> 53.0); error against float32 HF unchanged (1.3B pcc 0.99916 -> 0.99929, 650M 0.99976 both).
@@ -450,9 +472,7 @@ class ESM2FFN(_SaprotLin, Module):
 
     def __call__(self, x):
         ck = self.compute_kernel_config
-        x_norm = ttnn.layer_norm(
-            x, weight=self.norm_weight, bias=self.norm_bias, epsilon=1e-5, compute_kernel_config=ck,
-        )
+        x_norm = _block_ln(x, self.norm_weight, self.norm_bias, ck)
         h = self._lin(x_norm, self.fc1_weight, bias=self.fc1_bias, **({"activation": "gelu"} if _GELU_FUSED else {}))
         ttnn.deallocate(x_norm)
         if not _GELU_FUSED:
