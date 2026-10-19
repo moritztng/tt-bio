@@ -57,7 +57,8 @@ ap.add_argument("--profile", type=int, default=3,
                 help="run this (uninstrumented) gradient call under cProfile; 0 = off")
 ap.add_argument("--sample", type=int, default=0,
                 help="sample every thread's Python stack at 200 Hz over gradient calls N..N+4 and write "
-                     "<out>/stacks.json: where the callback threads spend their wall (0 = off)")
+                     "<out>/stacks.json (0 = off). It only samples while the GIL is free, so time inside a ttnn "
+                     "enqueue that holds the GIL is undercounted: read it as relative, not as seconds")
 ap.add_argument("--jaxprof", type=int, default=0,
                 help="run this (uninstrumented) gradient call under jax.profiler, which times BindCraft 2's "
                      "host JAX per XLA op (<out>/jaxprof, perfetto json); 0 = off")
