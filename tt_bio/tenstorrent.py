@@ -971,11 +971,12 @@ def silu_ckc(ckc):
 _SIGMOID_F32 = ttnn.UnaryWithParam(ttnn.UnaryOpType.SIGMOID, 4.0, 1.0)   # vector mode RC, approx
 
 
-def mm_sigmoid():
-    """The `activation` for a matmul with a fused sigmoid on an fp32 dest: "sigmoid", or under `dit_sigf32`
-    the approx-mode sigmoid that the silu_f32 overlay computes with calculate_silu_f32 (6e-6). Without the
-    overlay approx mode is metal's LUT (~2e-2), so the overlay is put in place first, as `silu_ckc` does."""
-    if not lever("dit_sigf32"):
+def mm_sigmoid(ckc):
+    """The `activation` for a matmul with a fused sigmoid run under `ckc`: "sigmoid", or under `dit_sigf32` on an
+    fp32 dest the approx-mode sigmoid that the silu_f32 overlay computes with calculate_silu_f32 (6e-6). On a bf16
+    dest (or ttnn's default config) approx mode is metal's LUT (~2e-2), so those keep "sigmoid"; without the overlay
+    it is the LUT everywhere, so the overlay is put in place first, as `silu_ckc` does."""
+    if not lever("dit_sigf32") or not getattr(ckc, "fp32_dest_acc_en", False):
         return "sigmoid"
     if "silu_f32" not in os.environ.get("TT_BIO_METAL_OVERLAY", "").split(","):
         _silu_f32_overlay()
@@ -15124,7 +15125,7 @@ class DiffusionTransformerLayer(Module):
                 bias=self.output_projection_bias,
                 compute_kernel_config=self.compute_kernel_config,
                 core_grid=CORE_GRID_MAIN,
-                activation="sigmoid",
+                activation=mm_sigmoid(self.compute_kernel_config),
             )
             if self.atom_level:
                 self.s_o, self._s_o_src = s_o, s
@@ -15322,7 +15323,7 @@ class DiffusionTransformer(Module):
                                 packer_l1_acc=ckc.packer_l1_acc)
             if _B2_ADALN_ADDCMUL or lever("adaln_mod"):
                 sw, sb, bw = self._cond_weights_split()
-                o_ad = (ttnn.linear(s_hat, sw, bias=sb, compute_kernel_config=ckc, activation="sigmoid"),
+                o_ad = (ttnn.linear(s_hat, sw, bias=sb, compute_kernel_config=ckc, activation=mm_sigmoid(ckc)),
                         ttnn.linear(s_hat, bw, compute_kernel_config=ckc))
             else:
                 o_ad = ttnn.linear(s_hat, adw, bias=adb, compute_kernel_config=ckc)
@@ -15330,7 +15331,7 @@ class DiffusionTransformer(Module):
             # `activation="sigmoid"` here is where both output projections' sigmoids go: the
             # attention one already carried it in its own linear, and the transition one moves
             # off its multiply, which is told not to re-apply it.
-            o_op = ttnn.linear(s, opw, bias=opb, compute_kernel_config=ckc, activation="sigmoid")
+            o_op = ttnn.linear(s, opw, bias=opb, compute_kernel_config=ckc, activation=mm_sigmoid(ckc))
             cond_all = (o_ad, o_op)
 
         d = self.dim
@@ -15354,7 +15355,7 @@ class DiffusionTransformer(Module):
                 s_hat, wp = jit
                 ckc = self.compute_kernel_config
                 lin = lambda x, w, b=None, act=None: ttnn.linear(  # noqa: E731
-                    x, w, bias=b, compute_kernel_config=ckc, activation=act)
+                    x, w, bias=b, compute_kernel_config=ckc, activation=mm_sigmoid(ckc) if act == "sigmoid" else act)
                 if jcat:
                     sw, sb, bw, ow, ob = wp[i]
                     sc, sh, so = lin(s_hat, sw, sb, "sigmoid"), lin(s_hat, bw), lin(s, ow, ob, "sigmoid")

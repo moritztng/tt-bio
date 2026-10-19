@@ -249,7 +249,7 @@ class _DiTBlock(Module):
                 return out
             ttnn.deallocate(an)
         w_sc, b_sc, w_sb = self.fuse[i]
-        sc = self._lin(s_hat, w_sc, bias=b_sc, activation=_T.mm_sigmoid())
+        sc = self._lin(s_hat, w_sc, bias=b_sc, activation="sigmoid")
         sb = self._lin(s_hat, w_sb)
         an = ttnn.layer_norm(a, epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
         out = ttnn.addcmul(sb, an, sc, value=1.0)
@@ -289,7 +289,7 @@ class _DiTBlock(Module):
         ttnn.deallocate(o2)
         a2 = addcmul_at(a, o, hoist[2], C_A, z_off=2 * self.idx * C_A) if hoist else None
         if a2 is None:
-            og = lin(s, self.w_ada_out, bias=self.b_ada_out, activation=_T.mm_sigmoid())
+            og = lin(s, self.w_ada_out, bias=self.b_ada_out, activation="sigmoid")
             a2 = ttnn.addcmul(a, o, og, value=1.0)
             ttnn.deallocate(og)
         ttnn.deallocate(o)
@@ -308,7 +308,7 @@ class _DiTBlock(Module):
             if a2 is not None:
                 ttnn.deallocate(out)
                 return a2
-        lg = lin(s, self.w_lg, bias=self.b_lg, activation=_T.mm_sigmoid())
+        lg = lin(s, self.w_lg, bias=self.b_lg, activation="sigmoid")
         if tok_ones:          # x * 1 is exact: the mask multiply is an identity
             a2 = ttnn.addcmul(a, out, lg, value=1.0)
         else:
@@ -320,13 +320,15 @@ class _DiTBlock(Module):
 
     def _s16_lin(self, x, wb, activation=None):
         w, b = wb
+        if activation == "sigmoid":
+            activation = _T.mm_sigmoid(self.s16[3])
         return ttnn.linear(x, w, bias=b, dtype=ttnn.float32, compute_kernel_config=self.s16[3],
                            core_grid=CORE_GRID_MAIN, activation=activation)
 
     def _s16_terms(self, s16, i):
         w_sc, b_sc, w_sb = self.s16[0][i]
         if self.sig16:
-            return _T._SigTerms((self._s16_lin(s16[1], (w_sc, b_sc), _T.mm_sigmoid()),
+            return _T._SigTerms((self._s16_lin(s16[1], (w_sc, b_sc), "sigmoid"),
                                  self._s16_lin(s16[1], (w_sb, None))))
         return self._s16_lin(s16[1], (w_sc, b_sc)), self._s16_lin(s16[1], (w_sb, None))
 
@@ -351,9 +353,10 @@ class _DiTBlock(Module):
 
     def _lin(self, x, w, bias=None, activation=None):
         hifi2 = self._wormhole and self._act_dtype == ttnn.bfloat16 and _T.lever("dit_hifi2")
-        return ops.linear(x, w, bias=bias, activation=activation,
-                          compute_kernel_config=self.ckc_hifi2 if hifi2 else self.compute_kernel_config,
-                          core_grid=CORE_GRID_MAIN)
+        ckc = self.ckc_hifi2 if hifi2 else self.compute_kernel_config
+        if activation == "sigmoid":
+            activation = _T.mm_sigmoid(ckc)
+        return ops.linear(x, w, bias=bias, activation=activation, compute_kernel_config=ckc, core_grid=CORE_GRID_MAIN)
 
     def _lin_lp(self, x, w, dtype, bias=None, activation=None):
         """A linear off an adaLN output: written at `dtype` under `self.lp`, else the shared path."""
@@ -479,7 +482,7 @@ class _DiTBlock(Module):
         ttnn.deallocate(g)
         o = self._lin_lp(o, self.w_o, out_dt)           # [1, N, 768]
         # APB output gate from s.
-        sig = _T.mm_sigmoid() if s16 and self.sig16 else None
+        sig = "sigmoid" if s16 and self.sig16 else None
         og = (self._s16_lin(s16[0], self.s16[1], sig) if s16
               else lin(s, self.w_ada_out, bias=self.b_ada_out))
         ttnn.deallocate(a_ln)
