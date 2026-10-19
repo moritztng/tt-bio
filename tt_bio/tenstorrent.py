@@ -8019,57 +8019,53 @@ class TraceScratch:
     A replay writes its intermediates at the addresses they had during capture, and the
     allocator calls those addresses free once the capture is over. An eager tensor allocated
     there afterwards and alive across a replay is overwritten: BC2's traced block backward
-    replayed exactly for 12 calls and then went wrong (spd-gap-bind, 2026-10-11). So a capture
-    runs inside a fence. Every free DRAM byte outside one hole is held by ballast, the capture
-    can only allocate in the hole, and afterwards whatever it left free there is taken by
-    placeholders that stay until `release`. From then on nothing eager can land in the hole.
-    Replays run one at a time on one command queue, so every trace can share the hole.
+    replayed exactly for 16 calls and then went wrong (qb2 card 2, 2026-10-19; 12 on qb1,
+    10-11). So captures run inside a fence. Every free DRAM byte outside one hole is held by
+    ballast, the captures can only allocate in the hole, and afterwards whatever they left free
+    there is taken by placeholders that stay until `release`. From then on nothing eager can
+    land in the hole. Replays run one at a time on one command queue, so every trace can share
+    the hole, and a batch of captures shares one fence.
 
     L1 is not fenced: a caller must not hold an L1 tensor across a replay that was not live
     at the capture.
     """
 
-    #: Ballast granularity per bank, and so the precision the hole is sized to.
+    #: Largest ballast buffer per bank, and so the precision the hole is sized to.
     CHUNK = 64 << 20
 
     def __init__(self, dev):
         self.dev = dev
+        self.banks = int(ttnn.get_memory_view(dev, ttnn.BufferType.DRAM).num_banks)
         self.hole = None       # (first, end) address per bank
         self.held = []         # placeholders filling the hole between captures
 
-    def _view(self):
-        return ttnn.get_memory_view(self.dev, ttnn.BufferType.DRAM)
-
-    def allocated_per_bank(self) -> int:
-        return int(self._view().total_bytes_allocated_per_bank)
-
-    def _hold(self, per_bank, banks):
+    def _hold(self, per_bank):
         """One buffer taking ``per_bank`` bytes of every bank: row-major pages dealt round-robin."""
         page = min(per_bank, 1 << 20)
-        t = ttnn.empty([banks * (per_bank // page), page // 2], dtype=ttnn.bfloat16,
-                       layout=ttnn.ROW_MAJOR_LAYOUT, device=self.dev,
-                       memory_config=ttnn.DRAM_MEMORY_CONFIG)
-        return t, (per_bank // page) * page
+        return ttnn.empty([self.banks * (per_bank // page), page // 2], dtype=ttnn.bfloat16,
+                          layout=ttnn.ROW_MAJOR_LAYOUT, device=self.dev,
+                          memory_config=ttnn.DRAM_MEMORY_CONFIG)
 
-    def _fill(self, chunk=0):
-        """Take every free DRAM byte, in ``chunk``-per-bank buffers where one fits."""
-        held = []
-        while True:
-            mv = self._view()
-            big = int(mv.largest_contiguous_bytes_free_per_bank)
-            want = min(big, chunk) if chunk and big >= chunk else big
-            want -= want % 64
-            if want <= 0:
-                return held
-            held.append(self._hold(want, int(mv.num_banks)))
+    def _fill(self):
+        """Take every free DRAM byte: ``CHUNK``-per-bank buffers, then halves, down to 64 B,
+        each size until the allocator refuses it. A memory view per buffer would cost seconds
+        each with a tape's thousands of buffers live."""
+        held, size = [], self.CHUNK
+        while size >= 64:
+            try:
+                held.append((self._hold(size), size))
+            except RuntimeError:
+                size //= 2
+        return held
 
-    def capture(self, need, size, run):
-        """Capture ``run()`` with every allocation it makes in the hole; return the trace id.
+    def capture(self, need, size, runs):
+        """Capture each of ``runs`` with every allocation it makes in the hole; their trace ids.
 
-        ``need`` is the capture's DRAM rise per bank. The first capture opens a hole of ``size``
-        bytes per bank. Returns None, capturing nothing, when no hole that large can be had or
-        the hole is smaller than ``need``."""
-        ballast = self._fill(self.CHUNK)
+        ``need`` is the largest DRAM rise per bank among them. The first batch opens a hole of
+        ``size`` bytes per bank. Returns None, capturing nothing, when no hole that large can be
+        had or the hole is smaller than ``need``."""
+        ballast = self._fill()
+        tids = []
         try:
             if self.hole is None:
                 k = -(-size // self.CHUNK)
@@ -8095,8 +8091,13 @@ class TraceScratch:
                 for t, _ in self.held:
                     ttnn.deallocate(t)
                 self.held = []
-            tid, _ = capture_trace(self.dev, run)
-            return tid
+            for run in runs:
+                tids.append(capture_trace(self.dev, run)[0])
+            return tids
+        except BaseException:
+            for tid in tids:
+                ttnn.release_trace(self.dev, tid)
+            raise
         finally:
             if self.hole is not None:
                 self.held += self._fill()
