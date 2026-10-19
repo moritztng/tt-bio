@@ -49,6 +49,9 @@ MPNN = "mpnn_sequences"
 WORK = (ITERATIONS, MPNN)
 
 ALPHA = 0.05
+# The smallest change in a quality metric the campaign would act on. Half an SD: below that, a lever that moved
+# i_pTM by that much would not change which binders get ordered, so the harness is not required to resolve it.
+CARE_ABOUT_SD = 0.5
 POWER = 0.80
 SPREAD_MIN_N = 5  # below this a spread comparison cannot separate collapse from one unlucky design
 # Every test grade() can fail the verdict on, in one Holm family: the mean/count tests, plus sequence diversity
@@ -132,6 +135,15 @@ def mde_sd_units(n: int, paired: bool, alpha: float = ALPHA, power: float = POWE
     """
     z = NormalDist().inv_cdf(1 - alpha / 2) + NormalDist().inv_cdf(power)
     return z / math.sqrt(n) if paired else z * math.sqrt(2.0 / n)
+
+
+def n_for_sd_units(effect: float, paired: bool, alpha: float = ALPHA, power: float = POWER) -> float:
+    """Inverse of mde_sd_units: how many per arm it takes to detect `effect` SD units. The brief asks the harness
+    to say what n WOULD work when n=30 does not, so the answer has to be computed, not described."""
+    if not effect or effect != effect or effect <= 0:
+        return float("inf")
+    z = NormalDist().inv_cdf(1 - alpha / 2) + NormalDist().inv_cdf(power)
+    return (z / effect) ** 2 if paired else 2 * (z / effect) ** 2
 
 
 def n_for_proportions(p0: float, p1: float, alpha: float = ALPHA, power: float = POWER) -> float:
@@ -582,8 +594,8 @@ def power_statement(ref_by_target: dict[str, list[Trajectory]]) -> dict:
 
     Two MDEs per metric, because the verdict is not one test. `paired`/`unpaired` are the bare per-test numbers.
     `paired_holm`/`unpaired_holm` are what a metric has to move to fail the VERDICT, which needs it to clear
-    alpha/FAMILY_SIZE as the first Holm rejection: at n=30 that is 0.693 SD paired rather than 0.511, and 0.980
-    unpaired rather than 0.723. Quoting only the bare number would overstate the harness by about 36% and let a
+    alpha/FAMILY_SIZE as the first Holm rejection: at n=30 and the 17 tests the family holds today that is
+    0.697 SD paired rather than 0.511, and 0.985 unpaired rather than 0.723. Quoting only the bare number would overstate the harness by about 36% and let a
     lever ship on a "no significant difference" the test never had the power to find.
     """
     a_holm = ALPHA / FAMILY_SIZE
@@ -597,7 +609,7 @@ def power_statement(ref_by_target: dict[str, list[Trajectory]]) -> dict:
                      f"verdict, which puts all {FAMILY_SIZE} tests in one Holm family. Holm is adaptive, so a "
                      "metric that moves alongside others is judged somewhere between the two; the _holm number "
                      "is the honest bound for a single metric moving on its own."),
-        "detectable_in_metric_units": {},
+        "detectable_in_metric_units": {}, "what_n_would_see_an_effect_we_care_about": {},
     }
     for target, trajectories in ref_by_target.items():
         vals = metric_values(trajectories)
@@ -626,6 +638,32 @@ def power_statement(ref_by_target: dict[str, list[Trajectory]]) -> dict:
                       "stopped accepting entirely.")
                      + " The grade rests on i_pTM, pLDDT, binder RMSD and the loss traces, which are continuous "
                        "and do have power at n=30."),
+        }
+        # What n WOULD see an effect worth caring about. Two sizes, because a trajectory is not an observation:
+        # 8 of the 14 banked B200 trajectories terminated before they refolded and carry no i_pTM at all, so the
+        # trajectories to BUY are the values needed divided by the measured yield.
+        per_care = {}
+        for m in CONTINUOUS:
+            vals = [v for _, v in metric_values(trajectories)[m] if v == v]
+            yield_rate = len(vals) / len(trajectories) if trajectories else 0.0
+            n_vals = n_for_sd_units(CARE_ABOUT_SD, paired=True, alpha=a_holm)
+            per_care[m] = {
+                "values_needed": n_vals,
+                "measured_yield_per_trajectory": yield_rate,
+                "trajectories_needed": n_vals / yield_rate if yield_rate else float("inf"),
+                "n30_is_enough": bool(yield_rate and 30 * yield_rate >= n_vals),
+            }
+        out["what_n_would_see_an_effect_we_care_about"][target] = {
+            "care_about_sd_units": CARE_ABOUT_SD,
+            "per_metric": per_care,
+            "note": (f"Calling a {CARE_ABOUT_SD} SD change at the verdict's corrected alpha takes "
+                     f"{n_for_sd_units(CARE_ABOUT_SD, True, a_holm):.0f} paired values, so n=30 trajectories per "
+                     "arm cannot do it for ANY metric, not even one every trajectory carries. "
+                     "`trajectories_needed` is the honest ask per metric, and it is larger than that floor "
+                     "wherever trajectories terminate before they refold. Where `n30_is_enough` is false, a "
+                     "verdict of 'no significant difference' at n=30 means the test could not see the effect, "
+                     "not that the effect is absent; n=30 is a guardrail against gross regressions "
+                     f"({mde_sd_units(30, True, a_holm):.2f} SD and up), not a fine-grained equivalence claim."),
         }
         out["detectable_in_metric_units"][target] = per
     return out

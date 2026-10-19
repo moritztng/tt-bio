@@ -561,3 +561,23 @@ def test_written_reference_satisfies_the_phase0_gate(tmp_path):
     assert (v.get("aa_control") or {}).get("verdict") == "PASS"
     assert v["aa_control"].get("spread")
     assert v.get("test")
+
+
+def test_n30_is_reported_as_too_small_for_an_effect_we_care_about(tmp_path):
+    # The brief: if n=30 cannot detect an effect we would care about, the file must SAY so and say what n would.
+    # It cannot -- 0.5 SD at the Holm-corrected alpha takes 58 paired values -- so the number has to be there.
+    arm = make_arm(tmp_path, "pdl1", "stock")
+    st = Q.power_statement({"pdl1": [t for c in arm for t in Q.read_arm(c)]})
+    care = st["what_n_would_see_an_effect_we_care_about"]["pdl1"]
+    assert care["care_about_sd_units"] == Q.CARE_ABOUT_SD
+    for metric, d in care["per_metric"].items():
+        assert d["n30_is_enough"] is False, metric
+        assert d["trajectories_needed"] >= d["values_needed"] > 30
+    assert "cannot do it" in care["note"]
+
+
+def test_the_n_needed_is_the_inverse_of_the_mde():
+    # A separate formula that disagreed with mde_sd_units would quietly advertise an n that does not reach the bar.
+    for paired in (True, False):
+        n = Q.n_for_sd_units(0.5, paired=paired)
+        assert abs(Q.mde_sd_units(n, paired=paired) - 0.5) < 1e-9
