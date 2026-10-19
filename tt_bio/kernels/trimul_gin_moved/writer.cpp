@@ -46,13 +46,16 @@ void kernel_main() {
             const bool is_a = q < CT;
             uint32_t page = (b * CTT + CTO + (is_a ? q : q - CT)) * 32 * SS + cube;
             if constexpr (RETILE) {
-                // Per tile, so the writes of channel c drain while compute is still tilizing c + 1.
-                for (uint32_t c = 0; c < 32; ++c, page += SS) {
-                    cb_wait_front(out_cb, 1);
-                    if (!(ABL & 4))
-                        noc_async_write(get_read_ptr(out_cb), is_a ? oa.get_noc_addr(page) : ob.get_noc_addr(page), TB);
+                // WB tiles per flush, so the writes of channels c .. c + WB - 1 drain while compute tilizes the next.
+                constexpr uint32_t WB = 8;
+                for (uint32_t c0 = 0; c0 < 32; c0 += WB) {
+                    cb_wait_front(out_cb, WB);
+                    uint32_t src = get_read_ptr(out_cb);
+                    for (uint32_t j = 0; j < WB; ++j, page += SS, src += TB)
+                        if (!(ABL & 4))
+                            noc_async_write(src, is_a ? oa.get_noc_addr(page) : ob.get_noc_addr(page), TB);
                     noc_async_writes_flushed();
-                    cb_pop_front(out_cb, 1);
+                    cb_pop_front(out_cb, WB);
                 }
                 continue;
             }

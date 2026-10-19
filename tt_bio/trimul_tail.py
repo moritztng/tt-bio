@@ -572,6 +572,9 @@ GIN_RT2 = env_flag("TT_BIO_TRIMUL_GIN_RT2", False)
 # 2: also stream x in SBW-row groups, double-buffered, into one row buffer per channel tile (x_cb held exactly one
 # unit, so the reader could not fetch the next unit while compute ran this one).
 GIN_RETILE = int(os.environ.get("TT_BIO_TRIMUL_GIN_RETILE", "0"))
+# GIN_RETILE 2's output buffer: the unit's 32 * CT2 tiles all come out of the tilize at its end, so the writer needs room
+# to drain them during the next unit's matmuls (32 tiles left it the bound: 2.69 ms full vs 2.01 no write).
+GIN_STREAM_OUT = int(os.environ.get("TT_BIO_TRIMUL_GIN_STREAM_OUT", "128"))
 
 
 def _gin_fuse(masked):
@@ -593,7 +596,7 @@ def _gin_out_tiles(kt, ct2, masked):
 def _gin_move_tiles(kt, ct2, mask):
     if _gin_fuse(mask):
         if GIN_RETILE == 2:
-            return 2 * ct2 * kt + 2 * 4 * kt + 32 * ct2 + 32 + 2 * GIN_MOVE_NB
+            return 2 * ct2 * kt + 2 * 4 * kt + 32 * ct2 + GIN_STREAM_OUT + 2 * GIN_MOVE_NB
         return 2 * ct2 * kt + 32 * kt + _gin_out_tiles(kt, ct2, False) + 2 * GIN_MOVE_NB + 32 * bool(GIN_RETILE)
     return 2 * ct2 * kt + 32 * kt + 64 + 2 * 32 + 2 * GIN_MOVE_NB + (33 if mask else 0)
 
@@ -690,7 +693,7 @@ def _build_gin_move(x, wpT, wgT, outs, grid, ckc, mask, cto=0, ctt=None):
             math_fidelity=fid, math_approx_mode=approx, fp32_dest_acc_en=fp32,
             dst_full_sync_en=full))
     if retile == 2:
-        cbs = [_cb(0, core_grid, 2 * ct2 * kt), _cb(1, core_grid, 2 * sbw * kt), _cb(2, core_grid, 32),
+        cbs = [_cb(0, core_grid, 2 * ct2 * kt), _cb(1, core_grid, 2 * sbw * kt), _cb(2, core_grid, GIN_STREAM_OUT),
                _cb(24, core_grid, 2 * GIN_MOVE_NB)] + [_cb(8 + q, core_grid, 32) for q in range(ct2)]
         return {"kernels": [reader, writer, compute], "cbs": cbs}
     if fuse:
@@ -731,7 +734,7 @@ def gin_moved(x, wpT, wgT, ckc, grid, mask=None):
     for s_, (wp, wg) in enumerate(zip(wps, wgs)):
         key = ("gin_move", str(x.padded_shape), str(wp.padded_shape), tuple(grid),
                tuple(str(c) for c in ckc), mask is not None, GIN_MOVE_ABL, GIN_MOVE_NB, _sigpoly(), RNE,
-               s_, n, _gin_fuse(mask is not None), GIN_RT2, GIN_RETILE)
+               s_, n, _gin_fuse(mask is not None), GIN_RT2, GIN_RETILE, GIN_STREAM_OUT)
         entry = _CACHE.get(key)
         if entry is None:
             entry = _CACHE[key] = _build_gin_move(x, wp, wg, outs, grid, ckc, mask,
