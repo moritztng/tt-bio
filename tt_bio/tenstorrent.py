@@ -2064,6 +2064,12 @@ def _adaln_memory_config(atom_level: bool, large_seq_len: bool) -> ttnn.MemoryCo
     return ttnn.DRAM_MEMORY_CONFIG if large_seq_len else ttnn.L1_MEMORY_CONFIG
 
 
+# Wormhole: above this batch x S_pad^2 the trimul's DRAM route (gin_moved in-projection, bmm_res einsum) beats
+# the L1 channel loop, which shrinks its chunk with that same area and pays per-chunk ops for it (ESMFold2 256 aa,
+# 1 sample: 8 chunks, 11.5 ms a trimul vs ~5 ms on the DRAM route). 0 keeps the seq-only threshold.
+TRIMUL_WH_DRAM_AREA = 0
+
+
 def _trimul_l1_max_seq() -> int:
     """Longest sequence whose trimul chunks still live in L1 (none under trimul_dram)."""
     if lever("trimul_dram"):
@@ -2103,7 +2109,18 @@ def _trimul_tail_memory_config(batch: int, chunk_c: int, H: int, elem_bytes: int
     return None
 
 
-def _triangle_mul_memory_config(seq_len: int) -> ttnn.MemoryConfig:
+def _trimul_in_l1(seq_len: int, batch: int | None = None) -> bool:
+    """Whether the trimul's channel loop runs in L1. `batch` (the pair tensor's leading dims) is what the
+    Wormhole area rule reads; None keeps the seq-only threshold."""
+    if seq_len > _trimul_l1_max_seq():
+        return False
+    if batch is None or not TRIMUL_WH_DRAM_AREA or not is_wormhole():
+        return True
+    s = -(-int(seq_len) // 32) * 32
+    return batch * s * s <= TRIMUL_WH_DRAM_AREA
+
+
+def _triangle_mul_memory_config(seq_len: int, batch: int | None = None) -> ttnn.MemoryConfig:
     # The trimul's whole chunk loop inherits this one config, so it is the second place the
     # L1-residency lever is decided and `_l1_fits` never sees it. Under a tape it must be
     # DRAM for `_l1_fits`'s reason: a tape keeps what the forward frees, so every chunk's
@@ -2117,7 +2134,7 @@ def _triangle_mul_memory_config(seq_len: int) -> ttnn.MemoryConfig:
     if seq_len >= _trimul_tail.MIN_N and lever("trimul_t1_dram") and (
             _trimul_tail.T1 or lever("trimul_t1")):
         return ttnn.DRAM_MEMORY_CONFIG
-    return ttnn.L1_MEMORY_CONFIG if seq_len <= _trimul_l1_max_seq() else ttnn.DRAM_MEMORY_CONFIG
+    return ttnn.L1_MEMORY_CONFIG if _trimul_in_l1(seq_len, batch) else ttnn.DRAM_MEMORY_CONFIG
 
 
 def _trimul_chunk_size(seq_len: int, hidden: int, batch: int = 1) -> int:
@@ -2146,7 +2163,7 @@ def _trimul_chunk_size(seq_len: int, hidden: int, batch: int = 1) -> int:
     circular-buffer clash. Narrowing instead of widening is free of any parity decision --
     the chunk width is a partition of an independent-channel sum, bit-exact at every width.
     """
-    if seq_len > _trimul_l1_max_seq():
+    if not _trimul_in_l1(seq_len, batch):
         return TRIANGLE_MULT_CHUNK_SIZE
     gx, gy = COMPUTE_GRID_MAIN
     budget = TRIANGLE_MULT_L1_CHUNK_BUDGET * gx * gy / (COMPUTE_GRID_X_13 * 10)
@@ -9924,7 +9941,8 @@ class TriangleMultiplication(Module):
             ("g_out_bias", lambda: self.g_out_bias is not None), ("mask", lambda: not mask_ok),
             ("move", lambda: not (self.gated_move or _TRIMUL_MASK_AFTER_MOVE)),
             ("chunking", lambda: H > SEQ_LEN_MORE_CHUNKING),
-            ("not_dram", lambda: _triangle_mul_memory_config(H).buffer_type != ttnn.BufferType.DRAM),
+            ("not_dram", lambda: _triangle_mul_memory_config(H, prod(shp[:-3])).buffer_type
+                         != ttnn.BufferType.DRAM),
             ("host_concat", lambda: _host_concat(x))) if bad()), None)
         if why:
             TT1.T1_STATS[1] += 1
@@ -10280,7 +10298,7 @@ class TriangleMultiplication(Module):
         The (chunk_size, group) pair is computed exactly as `__call__` computes it, from the
         same inputs, so the entry warmed is the entry used.
         """
-        memory_config = _triangle_mul_memory_config(H)
+        memory_config = _triangle_mul_memory_config(H, batch)
         large_seq = memory_config.buffer_type == ttnn.BufferType.DRAM
         chunk_size = _trimul_chunk_size(H, self._hidden, batch)
         if large_seq:
@@ -10358,10 +10376,10 @@ class TriangleMultiplication(Module):
                         ttnn.deallocate(x_norm_in)
                     x_norm_in, row_norm = None, True
         dram_peak(f"trimul({'end' if self.ending else 'start'}) x_norm_in [z={'x'.join(str(d) for d in x.shape)}]")
-        memory_config = _triangle_mul_memory_config(H)
         # Every L1 tensor the channel loop holds is [batch, chunk, H, H], so the width
         # budget has to see the batch a confidence head arrives with, not just H.
         batch = prod(shp[:-3])
+        memory_config = _triangle_mul_memory_config(H, batch)
         large_seq = memory_config.buffer_type == ttnn.BufferType.DRAM
         # The output the channel chunks are written into (`_TRIMUL_BACK_INTO`) is a second
         # pair-sized tensor beside the whole input norm. Made lazily at the first chunk it was
