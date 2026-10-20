@@ -111,6 +111,16 @@ QKV_PACKED = env_flag("TT_BIO_TRIATT_BW_QKV_PACKED", False)
 # float64 (see `sub_exp_block_bcast_cols_inplace`).
 EXP_21F = env_flag("TT_BIO_TRIATT_BW_EXP_21F", False)
 
+# The softmax recompute's exp by the forward's fast approximate exponential. Off: graded per op
+# against a float64 VJP it puts dq/dk/dv about 3x further out than the accurate one; whether the
+# designs notice is bc4-bet-elem's question, answered on bc2_quality, not per op.
+EXP_APPROX = env_flag("TT_BIO_TRIATT_BW_EXP_APPROX", False)
+
+# INSTRUMENT, never a shipped knob: compiles the backward with its exponential REMOVED
+# (`sub_exp_block_bcast_cols_inplace`'s ABLATE_EXP), so the gradient is wrong on purpose and only
+# the time means anything. Same role as `triatt_sdpa._ABLATE` for the forward.
+ABLATE_EXP = bool(os.environ.get("TT_BIO_TRIATT_BW_ABLATE_EXP"))
+
 STATS = {"served": 0, "declined": 0, "packed": 0}
 
 
@@ -477,7 +487,9 @@ def build(device, q, k, v, do, bias, dq, dk, dv, dbias_partial, p, ckc, scale, p
                      ("EXP_APPROX_MODE", "0")]
                     + ([("BW_DUMP", "1")] if os.environ.get("TT_BIO_TRIATT_BW_DUMP") else [])
                     + ([("BW_ZONES", "1")] if os.environ.get("TT_BIO_TRIATT_BW_ZONES") else [])
-                    + ([("EXP_21F", "1")] if EXP_21F else []),
+                    + ([("EXP_21F", "1")] if EXP_21F else [])
+                    + ([("BW_EXP_APPROX", "1")] if EXP_APPROX else [])
+                    + ([("ABLATE_EXP", "1")] if ABLATE_EXP else []),
             runtime_args=cr,
             config=ttnn.ComputeConfigDescriptor(
                 math_fidelity=ckc[0], math_approx_mode=False,

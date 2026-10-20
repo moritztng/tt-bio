@@ -660,7 +660,8 @@ def sdpa_fused_qkv(x, w, bias, scale, n_heads, head_dim, q_chunk, k_chunk, ckc_d
         SG.sdpa(dev, out, out, out, bias, out, q_chunk, k_chunk, grid, ckc, scale, split=split,
                 kernel_dir=KERNEL_DIR, mask_cb_tiles=persistent, kv_buffer_factor=kvbf,
                 fuse_qkv=(x, w, xbf),
-                defines_extra=_mask_defines(p["k_num_chunks"]))
+                defines_extra={**_mask_defines(p["k_num_chunks"]),
+                               **{f"ABLATE_{a}": 1 for a in _ABLATE}})
     except Exception as exc:  # noqa: BLE001
         ttnn.deallocate(out)
         if "circular buffers" not in str(exc):

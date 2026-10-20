@@ -984,8 +984,9 @@ def _prepare_gated(x, out, device, fidelity, fp32_acc):
 # precision change, not an error.
 GATE_FIDELITY = ttnn.MathFidelity.HiFi4
 GATE_FP32_ACC = False
-# Diagnostic, never on in production: drops the activation so the multiply can be measured alone.
-GATE_SKIP_SIGMOID = False
+# Diagnostic, never on in production: drops the activation so the multiply can be measured alone
+# (TT_BIO_GATE_SKIP_SIGMOID=1 for an instrument run in its own process).
+GATE_SKIP_SIGMOID = bool(os.environ.get("TT_BIO_GATE_SKIP_SIGMOID"))
 
 # The lean gated compute (`lean` in compute_reblock_permute_gated.cpp): g and p are transposed on
 # the unpack, so a tile takes two pack round trips instead of three. 1 multiplies on the FPU from
