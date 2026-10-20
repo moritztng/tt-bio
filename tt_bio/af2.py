@@ -136,7 +136,8 @@ TRANSITION_WS = env_flag("TT_BIO_AF2_TRANSITION_WS", True)
 # input, extra-MSA stage 0.41-0.44 -> 0.36 s and Evoformer 4.136 -> 4.09 s per fold.
 PAIR_ON_CARD = env_flag("TT_BIO_AF2_PAIR_ON_CARD", True)
 # The triangle multiplications' output tail with the dropped residual as one T2CM kernel in the
-# forwards a tape does not record (`AF2PairBlock._pair_op`). Off: an A/B arm (bc4-bet-fuse).
+# forwards a tape does not record (`AF2PairBlock._pair_op`). Off outside a BindCraft 2 round on
+# Blackhole (`bindcraft2._FAST_ROUND`): with it and GIN_BIASED on, AF2-IG's trunk misses its i_ptm bar.
 _AF2_T2CM = env_flag("TT_BIO_AF2_T2CM", False)
 # The MSA column attention at depth 2 in closed form (`AF2Attention._column_depth2`). With two keys
 # the softmax is a sigmoid of the logit gap, so the attention is elementwise in the MSA's own

@@ -6432,7 +6432,8 @@ _TRIMUL_GIN_RAGGED = env_flag("TT_BIO_TRIMUL_GIN_RAGGED", None)
 # The biased gated in-projection (`trimul_tail.gin_ragged`, correct at any S) also where S is whole
 # tiles, for a call that carries in-projection biases (AF2): gin_moved takes no biases, so such a call
 # otherwise writes the [S, S, 4 hidden] projection and reads it back for the gated move. It runs in
-# the forwards a tape does not record (`_gin_biased`). Off: an A/B arm (bc4-bet-fuse chain 2).
+# the forwards a tape does not record (`_gin_biased`). Off outside a BindCraft 2 round on
+# Blackhole (`bindcraft2._FAST_ROUND`).
 _TRIMUL_GIN_BIASED = env_flag("TT_BIO_TRIMUL_GIN_BIASED", False)
 
 
