@@ -38,6 +38,8 @@ import bindcraft.trajectory as T  # noqa: E402
 import bindcraft.sequence_optimization as SO  # noqa: E402
 import tt_bio  # noqa: E402
 from tt_bio import bindcraft2 as bc2  # noqa: E402
+sys.path.insert(0, str(ROOT / "perf/kitcmp"))
+from bc2_traj import OtherLoad  # noqa: E402  (PROTOCOL rule 6's quiet-host test, as bench.py records it)
 
 
 def git(*args, repo=ROOT):
@@ -203,6 +205,7 @@ def run_trajectory(*args, **kw):
     round, counted here rather than read back off the file.
     """
     g0, m0, la0, t0 = state["gradient_calls"], len(rounds), os.getloadavg()[0], time.monotonic()
+    other = OtherLoad()
     try:
         return real_trajectory(*args, **kw)
     finally:
@@ -211,7 +214,8 @@ def run_trajectory(*args, **kw):
         trajectories.append(dict(n=len(trajectories) + 1, design_s=t1 - t0, gradient_calls=grads,
                                  mutate_rounds=muts, iterations=grads + muts,
                                  s_per_iter=(t1 - t0) / (grads + muts) if grads + muts else None,
-                                 aiclk=clock(t0, t1), loadavg=[round(la0, 2), round(os.getloadavg()[0], 2)]))
+                                 aiclk=clock(t0, t1), loadavg=[round(la0, 2), round(os.getloadavg()[0], 2)],
+                                 other_load=other.stop()))
         write()
 
 
