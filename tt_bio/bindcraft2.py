@@ -1727,42 +1727,68 @@ class StructureOnDevice:
         if key not in self._kbias:
             self._kbias[key] = card.put(S.key_bias(mask))
         keeps = np.pad(np.asarray(keep_np, np.float32), ((0, 0), (0, 0)) + pad, constant_values=1.0)
-        drops = [(card.put(keeps[i, 0]), card.put(keeps[i, 1])) for i in range(S.LAYERS)]
+        drops = [card.raw(keeps[i, j]) for i in range(S.LAYERS) for j in (0, 1)]
         ttnn = trunk.ttnn
         z = ttnn.reshape(ttnn.typecast(res["pair"], ttnn.float32), [n32, n32, S.CZ])
         act0 = card.put(np.pad(np.asarray(act_np, np.float32), pad), grad)
         return trunk, card, k, res, act0, card.A.Tensor(z, requires_grad=grad), self._kbias[key], drops
 
     @staticmethod
-    def _down(card, act, traj, n):
+    def _down(card, out, n):
         get = lambda x: card.t.to_torch(x.value).float().numpy()[:n]  # noqa: E731
-        return (get(act), np.stack([get(R) for R, _ in traj]), np.stack([get(t) for _, t in traj]))
+        return get(out[0]), np.stack([get(R) for R in out[1::2]]), np.stack([get(t) for t in out[2::2]])
+
+    def _stack(self, card, k, act0, z, kb, drops, taped):
+        """The stack as one unit, `(act, R_0, t_0, ..., R_7, t_7)`. Under block traces it replays
+        like an Evoformer segment: the forward from `_traced_forward`, the recompute and VJP from
+        `_traced_recompute` (a checkpoint), keyed on the card and the key bias's address. The
+        dropout keeps are raw inputs so the trace copies them in; the key bias is cached per mask
+        and closed over."""
+        from tt_bio import af2_structure as S
+        A = card.A
+
+        def unit(act0, z, *dr):
+            dr = [A.Tensor(d) for d in dr]
+            act, traj = S.stack(card, k, act0, z, kb, list(zip(dr[0::2], dr[1::2])))
+            return (act,) + tuple(x for Rt in traj for x in Rt)
+
+        if not (A.TRACE_FORWARD or A.TRACE_RECOMPUTE):
+            if taped:
+                return unit(act0, z, *drops)
+            with A.no_grad():
+                return unit(act0, z, *drops)
+        key = (id(card), "structure", kb.value.buffer_address())
+        if taped:
+            return A.checkpoint(unit, act0, z, *drops, trace=key)
+        with A.no_grad():
+            out = A._traced_forward(key, unit, (act0, z, *drops)) if A.TRACE_FORWARD else A._EAGER
+            if out is A._EAGER:
+                out = unit(act0, z, *drops)
+            return tuple(o if isinstance(o, A.Tensor) else A.Tensor(o) for o in out)
 
     def _primal(self, slot, act_np, keep_np, mask_np, dep):
-        from tt_bio import af2_structure as S
         with duotraj.card(slot, "structure._primal"):
             trunk, card, k, res, act0, z, kb, drops = self._inputs(slot, act_np, keep_np, mask_np, False)
-            with card.A.no_grad():
-                act, traj = S.stack(card, k, act0, z, kb, drops)
+            out = self._stack(card, k, act0, z, kb, drops, False)
             self.calls["primal"] += 1
-            return self._down(card, act, traj, res["n"])
+            return self._down(card, out, res["n"])
 
     def _taped(self, slot, act_np, keep_np, mask_np, dep):
-        from tt_bio import af2_structure as S
         with duotraj.card(slot, "structure._taped"):
             trunk, card, k, res, act0, z, kb, drops = self._inputs(slot, act_np, keep_np, mask_np, True)
             self._tapes.sweep(slot)
-            act, traj = S.stack(card, k, act0, z, kb, drops)
-            token = self._tapes.bank({"roots": (act, traj), "leaves": (act0, z), "n": res["n"],
+            out = self._stack(card, k, act0, z, kb, drops, True)
+            token = self._tapes.bank({"roots": out, "leaves": (act0, z), "n": res["n"],
                                       "evo_token": res["token"]}, slot)
             self.calls["taped"] += 1
-            return self._down(card, act, traj, res["n"]) + (np.int32(token),)
+            return self._down(card, out, res["n"]) + (np.int32(token),)
 
     def _backward(self, slot, token, g_act, g_R, g_t):
         entry = self._tapes.take(token)
         if entry is None:
             raise RuntimeError(f"no live structure tape for token {int(token)}")
-        act, traj = entry["roots"]
+        act, *rt = entry["roots"]
+        traj = list(zip(rt[0::2], rt[1::2]))
         act0, z = entry["leaves"]
         n = entry["n"]
         with duotraj.card(slot, "structure._backward"):
