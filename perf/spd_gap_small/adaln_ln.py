@@ -5,6 +5,7 @@ block-sharded LayerNorm (cross-core row reduction) fix it? Device time and error
 
   ln          ttnn.layer_norm on the DRAM-interleaved activation, as AdaLN.__call__ ships (one core per tile row: 16)
   ln_mod      ln, then `sb + ln * sc` through addcmul_at (the shipped Wormhole fast adaLN, s-terms dense here)
+  ln_l1_mod   ln_mod with the LN output in L1 interleaved (`adaln_l1`)
   sh<gx>x<gy>      the sharded LayerNorm on an L1 block-sharded copy, interleave -> shard -> LN -> DRAM included
   sh<gx>x<gy>_ln   the sharded LayerNorm alone, input already sharded (the bound if the producer wrote it sharded)
 rel = ||out - ref|| / ||ref||, ref in float64 from the same fp32 operands.
@@ -54,7 +55,13 @@ def main():
         ttnn.deallocate(y)
         return out
 
-    arms = {"ln": (ln, ln_ref), "ln_mod": (ln_mod, mod_ref)}
+    def ln_l1_mod():
+        y = ttnn.layer_norm(a, epsilon=EPS, compute_kernel_config=ckc, memory_config=ttnn.L1_MEMORY_CONFIG)
+        out = T._addcmul_at(sb, y, sc, D)
+        ttnn.deallocate(y)
+        return out
+
+    arms = {"ln": (ln, ln_ref), "ln_mod": (ln_mod, mod_ref), "ln_l1_mod": (ln_l1_mod, mod_ref)}
     sharded = {}
     for gx, gy in ((8, 8), (6, 8), (4, 8), (8, 4)):
         bh, bw = N // 32 // gy, D // 32 // gx

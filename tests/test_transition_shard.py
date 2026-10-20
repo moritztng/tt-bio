@@ -106,3 +106,23 @@ def test_a_shape_fc123g_cannot_build_keeps_dit_shard(monkeypatch):
     out = tt._dit_transition_sharded(A(), W(1536), W(1536), W(1536), W(768), None, w3=object())
     assert out is not None and calls == ["linear"] * 4
     assert not tt._TRANSITION_SHARD_REFUSED and len(tt._DIT_FC123G_REFUSED) == 1
+
+
+def test_adaln_l1_only_moves_a_windowed_norm_to_l1(monkeypatch):
+    """adaln_l1 is placement only, and only where addcmul_at reads the norm back (the windowed s-terms)."""
+    seen = []
+
+    class A:
+        padded_shape, dtype = (1, 1, 512, 768), tt.ttnn.float32
+
+        def memory_config(self):
+            return tt.ttnn.DRAM_MEMORY_CONFIG
+
+    monkeypatch.setattr(tt.ttnn, "layer_norm", lambda a, **k: seen.append(k.get("memory_config")) or a)
+    monkeypatch.setattr(tt, "lever", lambda n: n == "adaln_l1")
+    tt._adaln_norm(A(), None, windowed=True)
+    tt._adaln_norm(A(), None, windowed=False)
+    A.padded_shape = (5, 1, 512, 768)   # 7.5 MB of fp32: stays in DRAM
+    tt._adaln_norm(A(), None, windowed=True)
+    assert seen == [tt.ttnn.L1_MEMORY_CONFIG, None, None]
+    assert "adaln_l1" in tt.UNGRADED_LEVERS

@@ -790,6 +790,8 @@ _FAST_MODE = False
 #                   block-sharded in L1 (`_dit_transition_sharded`); the adaLN before it and the gate after it as before.
 #   dit_fc123g      under dit_shard, the three hidden products and both multiplies as one fc12g pass over the
 #                   interleaved [gates | swish | a_to_b] weight (`_dit_transition_sharded`, kernels/fc12g).
+#   adaln_l1        a windowed adaLN (addcmul_at modulation) writes its LayerNorm output to L1 interleaved, not DRAM
+#                   (`_adaln_norm`). Placement only.
 #   dit_l1          under dit_fuse, OpenFold3's token DiT keeps the stream, the conditioning and every tensor a block
 #                   makes in L1 (interleaved) for the stack call; weights and the cached pair-bias masks stay in DRAM.
 #                   Placement only: the same programs on the same operands, so the same bits. Only where 12
@@ -808,7 +810,8 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "trimul_bres", "atomp_dev", "lm_qk_chain",
           "lm_gate_ng", "lm_sdpa_stock", "lm_k64", "lm_linear", "triatt_hifi2", "dit_cond_jcat", "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32",
           "triatt_ln_b8", "triatt_ln_b8g", "trimul_t1w8", "atom_l1", "trimul_gin_w8", "dit_l1", "opm_b8cfg", "trimul_bres_bh", "ws_psilu",
-            "trimul_t2fold", "dit_mask8", "trimul_bres_b8", "ws_b8_plain", "dit_shard", "dit_shoist_mm", "dit_fc123g")
+            "trimul_t2fold", "dit_mask8", "trimul_bres_b8", "ws_b8_plain", "dit_shard", "dit_shoist_mm", "dit_fc123g",
+            "adaln_l1")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -827,7 +830,8 @@ UNGRADED_LEVERS = frozenset({"trimul_b8in", "dit_bpad", "atom_mm16", "triatt_tai
                              "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "triatt_hifi2", "dit_cond_jcat",
                              "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32", "triatt_ln_b8",
                              "triatt_ln_b8g", "trimul_t1w8", "trimul_gin_w8", "opm_b8cfg", "trimul_bres_bh", "ws_psilu",
-                             "trimul_t2fold", "dit_mask8", "trimul_bres_b8", "ws_b8_plain", "dit_shoist_mm", "dit_fc123g"})
+                             "trimul_t2fold", "dit_mask8", "trimul_bres_b8", "ws_b8_plain", "dit_shoist_mm", "dit_fc123g",
+                             "adaln_l1"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -4518,7 +4522,7 @@ _BMM_CFG_REFUSED: set = set()
 LATCH_STATS: dict = {n: {"served": 0, "refused": 0, "blocked": 0, "declined": 0, "why": []}
                      for n in ("l1_out", "narrow_l1_out", "transpose_l1", "transpose_stage",
                                "pair_bias_ln_l1", "bmm_cfg", "sdpa_q_chunk", "transition_bw",
-                               "transition_shard", "swiglu_fc12g", "dit_shard", "dit_fc123g")}
+                               "transition_shard", "swiglu_fc12g", "dit_shard", "dit_fc123g", "adaln_l1")}
 
 
 def _latch(name: str, field: str, why: object = None) -> None:
@@ -15222,6 +15226,24 @@ class Miniformer(Module):
         return s, z
 
 
+_ADALN_L1_BYTES = 4 << 20
+
+
+def _adaln_norm(a, ckc, windowed):
+    """The adaLN's parameter-free LayerNorm. Under `adaln_l1` the normalised activation of a windowed
+    (`addcmul_at`) adaLN goes to L1 interleaved: the modulation reads it straight back, so its DRAM write and
+    read are pure traffic (adaln_ln.py, Wormhole 512 x 1 fp32: LN 41.7 us, LN + addcmul_at 79.5 us)."""
+    if (windowed and lever("adaln_l1") and a.memory_config().buffer_type == ttnn.BufferType.DRAM
+            and prod(int(d) for d in a.padded_shape) * (4 if a.dtype == ttnn.float32 else 2) <= _ADALN_L1_BYTES):
+        try:
+            out = ttnn.layer_norm(a, epsilon=1e-5, compute_kernel_config=ckc, memory_config=ttnn.L1_MEMORY_CONFIG)
+            _latch("adaln_l1", "served")
+            return out
+        except Exception as e:  # noqa: BLE001  an L1 clash: this call in DRAM
+            _latch("adaln_l1", "refused", e)
+    return ttnn.layer_norm(a, epsilon=1e-5, compute_kernel_config=ckc)
+
+
 class AdaLN(Module):
     def __init__(
         self,
@@ -15310,9 +15332,8 @@ class AdaLN(Module):
         memory_config = _adaln_memory_config(self.atom_level, large_seq_len)
         if self.atom_level:
             a = ttnn.to_memory_config(a, memory_config=memory_config)
-        a = ttnn.layer_norm(
-            a, epsilon=1e-5, compute_kernel_config=self.compute_kernel_config
-        )
+        a = _adaln_norm(a, self.compute_kernel_config,
+                        isinstance(s_terms, _SigTerms) and isinstance(s_terms[0], _ColWin))
         own = s_terms is None
         if own:
             s_terms = self.s_terms(s, large_seq_len)
