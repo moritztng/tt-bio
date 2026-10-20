@@ -590,6 +590,9 @@ void kernel_main() {
             cb_wait_front(tt::CBIndex::c_5, out_block_num_tiles);
             add_bias_resid_block(intermediate_cb, in2_cb, tt::CBIndex::c_5, out_cb, M_block_tiles, N_block_tiles);
             cb_pop_front(tt::CBIndex::c_5, out_block_num_tiles);
+#elif defined(MM_EPI_PROBE)
+            // benchmarks only, wrong output: the epilogue's unpack / bias / pack skipped, to time its share
+            cb_push_back(out_cb, out_block_num_tiles);
 #else
             add_bias_block(intermediate_cb, in2_cb, out_cb, M_block_tiles, N_block_tiles);
 #endif
