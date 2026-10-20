@@ -310,7 +310,7 @@ class Card:
     def flat(self, x): return self.A.reshape(x, [int(x.shape[0]), -1])
     def reshape(self, x, shape): return self.A.reshape(x, shape)
     def relu(self, x): return self.A.relu(x)
-    def softmax(self, x): return self.A.softmax(x, -1, config=self.ckc)
+    def softmax(self, x): return self.A.softmax(x, -1, config=self.ckc, refine=True)   # one-hot rows
     def layer_norm(self, x, gb, eps=1e-5): return self.A.layer_norm(x, gb[0], gb[1], eps=eps)
 
     def sqrt_eps(self, x, eps):
